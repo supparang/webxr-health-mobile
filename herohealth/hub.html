@@ -1,10 +1,10 @@
 <!-- === /herohealth/hub.html ===
 HeroHealth — Hub (3 Zones) — PRODUCTION
-PATCH v20260305-HUB-HERO-QUEST-MAPLOCK
+PATCH v20260305b-HUB-HERO-QUEST-SMARTSUMMARY
 ✅ Hero Profile: avatar/name/level/xp + pick avatar
-✅ Daily Quest: 3 zones + claim XP once/day
-✅ Award XP from last summaries (goodjunk example ready)
-✅ Map/Path feel + gate lock (toggle policy in one line)
+✅ Smart Daily Quest: read HHA_LAST_SUMMARY:* (per zone) + grade gate + xp by grade
+✅ Fallback: zoneDoneKey if summary not found
+✅ Map/Path feel + lock policy toggle
 ✅ Keep: GoodJunk entry -> /herohealth/goodjunk-launcher.html
 ✅ Hygiene: 6 games
 ✅ Pass-through: hub/run/diff/time/seed/studyId/phase/conditionGroup/log/view/pid/api/ai/debug (+nick/room/mode)
@@ -69,7 +69,7 @@ PATCH v20260305-HUB-HERO-QUEST-MAPLOCK
     }
     .pill b{ color:var(--text); font-weight:900; }
 
-    /* ===== HERO PROFILE ===== */
+    /* HERO */
     .heroCard{
       border:1px solid var(--stroke);
       background: linear-gradient(180deg, rgba(2,6,23,.62), rgba(15,23,42,.52));
@@ -142,7 +142,7 @@ PATCH v20260305-HUB-HERO-QUEST-MAPLOCK
     .heroBtn:active{ transform: translateY(1px); }
     .heroBtn.ghost{ background:transparent; color:var(--muted); }
 
-    /* ===== QUEST ===== */
+    /* QUEST */
     .questCard{
       border:1px solid var(--stroke);
       background: linear-gradient(180deg, rgba(2,6,23,.64), rgba(15,23,42,.52));
@@ -192,7 +192,7 @@ PATCH v20260305-HUB-HERO-QUEST-MAPLOCK
     .questBtn.primary{border-color: rgba(34,197,94,.30); background: rgba(34,197,94,.14);}
     .questBtn:disabled{opacity:.55; cursor:not-allowed;}
 
-    /* ===== ZONEBAR / GAME GRID (เดิม) ===== */
+    /* ZONEBAR */
     .zonebar{
       background: linear-gradient(180deg, var(--panel), var(--panel2));
       border:1px solid var(--stroke);
@@ -311,22 +311,18 @@ PATCH v20260305-HUB-HERO-QUEST-MAPLOCK
     @media (max-width: 1100px){ .grid{ grid-template-columns: repeat(2, minmax(0,1fr)); } }
     @media (max-width: 560px){ .grid{ grid-template-columns: 1fr; } }
 
-    /* ===== MAP/PATH FEEL + LOCK ===== */
-    .grid.mapFeel{
-      position:relative;
-      padding-top:4px;
-    }
+    /* MAP FEEL + LOCK */
+    .grid.mapFeel{ position:relative; padding-top:4px; }
     .grid.mapFeel::before{
       content:"";
       position:absolute;
-      left: 10px;
-      right: 10px;
-      top: 22px;
+      left: 10px; right: 10px; top: 22px;
       height: 2px;
       background: linear-gradient(90deg, rgba(148,163,184,.10), rgba(59,130,246,.18), rgba(148,163,184,.10));
       opacity:.55;
       pointer-events:none;
     }
+
     .game{
       border:1px solid var(--stroke);
       background: rgba(2,6,23,.46);
@@ -400,7 +396,7 @@ PATCH v20260305-HUB-HERO-QUEST-MAPLOCK
     }
     .toast.show{ opacity: 1; }
 
-    /* ===== Avatar Picker Modal ===== */
+    /* Avatar picker modal */
     .modal{
       position:fixed; inset:0;
       background: rgba(0,0,0,.55);
@@ -459,7 +455,6 @@ PATCH v20260305-HUB-HERO-QUEST-MAPLOCK
       <div class="pillrow" id="pillrow"></div>
     </div>
 
-    <!-- ✅ HERO PROFILE -->
     <section class="heroCard" aria-label="Hero profile">
       <div class="heroGlow"></div>
       <div class="heroLeft">
@@ -477,21 +472,20 @@ PATCH v20260305-HUB-HERO-QUEST-MAPLOCK
       </div>
     </section>
 
-    <!-- ✅ DAILY QUEST -->
     <section class="questCard" aria-label="Daily quest">
       <div class="questHead">
         <div>
           <div class="questTitle">🗺️ Daily Quest (วันนี้)</div>
-          <div class="questSub">ทำภารกิจโซนละ 1 อย่าง → รับ XP + Badge Glow</div>
+          <div class="questSub">ผ่านโซนละ 1 เกม (ดูจาก Summary จริง) → รับ XP ตามเกรด</div>
         </div>
         <div class="pill"><b>today</b>: <span id="todayText2">—</span></div>
       </div>
 
       <div class="questGrid">
-        <div class="questItem" data-q="nutrition">
+        <div class="questItem">
           <div class="questRow">
             <div class="questZone">🥗 Nutrition</div>
-            <div class="pill" style="padding:6px 10px"><b>reward</b>: <span id="rNut">+15 XP</span></div>
+            <div class="pill" style="padding:6px 10px"><b>reward</b>: <span id="rNut">+XP</span></div>
           </div>
           <div class="questText" id="qNutText">—</div>
           <div class="questBar"><div class="questFill" id="qNutFill"></div></div>
@@ -501,10 +495,10 @@ PATCH v20260305-HUB-HERO-QUEST-MAPLOCK
           </div>
         </div>
 
-        <div class="questItem" data-q="hygiene">
+        <div class="questItem">
           <div class="questRow">
             <div class="questZone">🧼 Hygiene</div>
-            <div class="pill" style="padding:6px 10px"><b>reward</b>: <span id="rHyg">+15 XP</span></div>
+            <div class="pill" style="padding:6px 10px"><b>reward</b>: <span id="rHyg">+XP</span></div>
           </div>
           <div class="questText" id="qHygText">—</div>
           <div class="questBar"><div class="questFill" id="qHygFill"></div></div>
@@ -514,10 +508,10 @@ PATCH v20260305-HUB-HERO-QUEST-MAPLOCK
           </div>
         </div>
 
-        <div class="questItem" data-q="fitness">
+        <div class="questItem">
           <div class="questRow">
             <div class="questZone">🏃 Fitness</div>
-            <div class="pill" style="padding:6px 10px"><b>reward</b>: <span id="rFit">+15 XP</span></div>
+            <div class="pill" style="padding:6px 10px"><b>reward</b>: <span id="rFit">+XP</span></div>
           </div>
           <div class="questText" id="qFitText">—</div>
           <div class="questBar"><div class="questFill" id="qFitFill"></div></div>
@@ -581,13 +575,12 @@ PATCH v20260305-HUB-HERO-QUEST-MAPLOCK
 
     <section aria-label="Game list">
       <div class="pill" style="width:fit-content;"><b>Nutrition games</b> (root launchers)</div>
-      <div class="grid mapFeel" id="gridNut">
+      <div class="grid mapFeel">
         <div class="game" data-href="./goodjunk-launcher.html" data-zone="nutrition">
           <div class="gameTop"><h3 class="gameTitle">🍭 GoodJunk VR</h3><span class="tag">Launcher</span></div>
           <p class="gameSub">ยิง/แตะอาหารดี-ขยะ • เลือกโหมด/ห้อง/ระดับ</p>
           <div class="gateLock">🔒 วันนี้โซนนี้ DONE แล้ว</div>
         </div>
-
         <div class="game" data-href="./groups-vr.html" data-zone="nutrition">
           <div class="gameTop"><h3 class="gameTitle">🧩 Food Groups VR</h3><span class="tag">Launcher</span></div>
           <p class="gameSub">แยกหมวดอาหาร • เหมาะป.5</p>
@@ -606,7 +599,7 @@ PATCH v20260305-HUB-HERO-QUEST-MAPLOCK
       </div>
 
       <div class="pill" style="margin-top:10px; width:fit-content;"><b>Hygiene games</b> (root launchers)</div>
-      <div class="grid mapFeel" id="gridHyg">
+      <div class="grid mapFeel">
         <div class="game" data-href="./handwash-vr.html" data-zone="hygiene">
           <div class="gameTop"><h3 class="gameTitle">🧴 HandwashVR</h3><span class="tag">Launcher</span></div>
           <p class="gameSub">ล้างมือถูกขั้นตอน • timing • คราบ/เชื้อ</p>
@@ -627,7 +620,6 @@ PATCH v20260305-HUB-HERO-QUEST-MAPLOCK
           <p class="gameSub">Hidden Dirt Quest • ล้างคราบให้ครบ • summary</p>
           <div class="gateLock">🔒 วันนี้โซนนี้ DONE แล้ว</div>
         </div>
-
         <div class="game" data-href="./clean-vr.html" data-zone="hygiene">
           <div class="gameTop"><h3 class="gameTitle">🧽 Clean Object</h3><span class="tag">Launcher</span></div>
           <p class="gameSub">แยก “สะอาด/ไม่สะอาด” • ตรวจหลักฐาน • ตัดสินใจ</p>
@@ -641,7 +633,7 @@ PATCH v20260305-HUB-HERO-QUEST-MAPLOCK
       </div>
 
       <div class="pill" style="margin-top:10px; width:fit-content;"><b>Fitness games</b> (/fitness)</div>
-      <div class="grid mapFeel" id="gridFit">
+      <div class="grid mapFeel">
         <div class="game" data-href="../fitness/shadow-breaker.html" data-zone="fitness">
           <div class="gameTop"><h3 class="gameTitle">🕶️ Shadow Breaker</h3><span class="tag">Run</span></div>
           <p class="gameSub">reflex</p>
@@ -668,7 +660,6 @@ PATCH v20260305-HUB-HERO-QUEST-MAPLOCK
 
   <div class="toast" id="toast"></div>
 
-  <!-- Avatar picker modal -->
   <div class="modal" id="avaModal" aria-label="avatar picker">
     <div class="panel">
       <div class="modalHead">
@@ -728,6 +719,291 @@ PATCH v20260305-HUB-HERO-QUEST-MAPLOCK
     if(el) el.textContent = v;
   }
 
+  /* =========================
+   * HERO PROFILE
+   * ========================= */
+  const HERO_KEY = 'HHA_HERO_PROFILE_v1';
+  function heroLoad(){
+    try{
+      const raw = localStorage.getItem(HERO_KEY);
+      if(!raw) return { level:1, xp:0, avatar:'🦸', name:'' };
+      const j = JSON.parse(raw);
+      return (j && typeof j==='object') ? j : { level:1, xp:0, avatar:'🦸', name:'' };
+    }catch(_){
+      return { level:1, xp:0, avatar:'🦸', name:'' };
+    }
+  }
+  function heroSave(h){ try{ localStorage.setItem(HERO_KEY, JSON.stringify(h)); }catch(_){ } }
+  function heroNameFromCtx(){
+    const pid = String(QS.get('pid')||'anon').trim() || 'anon';
+    const nick = String(QS.get('nick')||'').trim();
+    return nick || pid;
+  }
+  function heroSyncUI(){
+    const h = heroLoad();
+    if(!h.name) h.name = heroNameFromCtx();
+    heroSave(h);
+    const elName = document.getElementById('heroName');
+    const elSub  = document.getElementById('heroSub');
+    const elAv   = document.getElementById('heroAvatar');
+    if(elName) elName.textContent = h.name || 'Hero';
+    if(elSub)  elSub.textContent  = `Level ${h.level||1} • XP ${h.xp||0}/50`;
+    if(elAv)   elAv.textContent   = h.avatar || '🦸';
+  }
+  function heroAddXp(xpAdd){
+    const h = heroLoad();
+    h.xp = (Number(h.xp)||0) + (Number(xpAdd)||0);
+    while(h.xp >= 50){
+      h.xp -= 50;
+      h.level = (Number(h.level)||1) + 1;
+      toast(`🎉 LEVEL UP! ตอนนี้ Level ${h.level}`);
+    }
+    heroSave(h);
+    heroSyncUI();
+  }
+  function heroRename(){
+    const h = heroLoad();
+    const cur = h.name || heroNameFromCtx();
+    const name = prompt('ตั้งชื่อ Hero (เช่น Mint / Somchai)', cur || '');
+    if(name == null) return;
+    const n = String(name||'').trim();
+    if(!n){ toast('ยังไม่ได้ตั้งชื่อ'); return; }
+    h.name = n;
+    heroSave(h);
+    heroSyncUI();
+    toast('✅ ตั้งชื่อแล้ว');
+  }
+
+  /* =========================
+   * Avatar Picker
+   * ========================= */
+  const AVAS = ['🦸','🦸‍♀️','🧑‍🚀','🧑‍⚕️','🧑‍🔬','🧑‍🏫','🧑‍🍳','🧑‍🎤','🧑‍🎨','🧑‍🚒','🧑‍✈️','🧑‍🌾','🧙','🧙‍♀️','🦊','🐯','🐼','🐵','🐸','🐙','🦁','🐲','🐨','🐧','🦄','🐺'];
+  let avaPick = null;
+  function openAvaPicker(){
+    const modal = document.getElementById('avaModal');
+    const grid  = document.getElementById('avaGrid');
+    if(!modal || !grid) return;
+    const h = heroLoad();
+    avaPick = h.avatar || '🦸';
+    grid.innerHTML = AVAS.map(a=>{
+      const sel = (a===avaPick) ? ' sel' : '';
+      return `<div class="avaBtn${sel}" data-ava="${a}">${a}</div>`;
+    }).join('');
+    grid.querySelectorAll('.avaBtn').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        avaPick = btn.getAttribute('data-ava') || '🦸';
+        grid.querySelectorAll('.avaBtn').forEach(x=> x.classList.toggle('sel', x.getAttribute('data-ava')===avaPick));
+      }, { passive:true });
+    });
+    modal.style.display='flex';
+  }
+  function closeAvaPicker(){ const modal = document.getElementById('avaModal'); if(modal) modal.style.display='none'; }
+  function saveAvaPicker(){
+    const h = heroLoad();
+    h.avatar = avaPick || h.avatar || '🦸';
+    heroSave(h);
+    heroSyncUI();
+    toast('✅ เปลี่ยนตัวละครแล้ว');
+    closeAvaPicker();
+  }
+  function randomAva(){
+    avaPick = AVAS[(Math.random()*AVAS.length)|0];
+    const grid  = document.getElementById('avaGrid');
+    if(grid){
+      grid.querySelectorAll('.avaBtn').forEach(x=> x.classList.toggle('sel', x.getAttribute('data-ava')===avaPick));
+    }
+  }
+
+  /* =========================
+   * SMART SUMMARY QUEST
+   * ========================= */
+
+  // 👇 ปรับกติกาผ่านขั้นต่ำใน 1 บรรทัด
+  const MIN_GRADE = 'C'; // 'D' ง่ายขึ้น / 'B' โหดขึ้น
+
+  const ZONE_GAMES = {
+    nutrition: ['goodjunk','groups','hydration','plate'],
+    hygiene:   ['handwash','maskcough','brush','bath','clean','germdetective'],
+    fitness:   ['shadow','rhythm','jumpduck','balance','planner']
+  };
+
+  function safeJson(raw){ try{ return JSON.parse(raw); }catch(_){ return null; } }
+
+  function ymdFromIsoLocal(iso){
+    try{
+      const d = new Date(iso);
+      if(!Number.isFinite(d.getTime())) return '';
+      const y = d.getFullYear();
+      const m = String(d.getMonth()+1).padStart(2,'0');
+      const day = String(d.getDate()).padStart(2,'0');
+      return `${y}-${m}-${day}`;
+    }catch(_){ return ''; }
+  }
+
+  function gradeRank(g){
+    g = String(g||'').toUpperCase();
+    const map = { 'S':5, 'A':4, 'B':3, 'C':2, 'D':1, 'F':0 };
+    return map[g] ?? 0;
+  }
+
+  function readLastSummary(gameKey, pid){
+    pid = String(pid||'anon').trim() || 'anon';
+    const keys = [
+      `HHA_LAST_SUMMARY:${gameKey}:${pid}`,
+      `HHA_LAST_SUMMARY:${gameKey}`,
+      'HHA_LAST_SUMMARY'
+    ];
+    for(const k of keys){
+      try{
+        const raw = localStorage.getItem(k);
+        if(!raw) continue;
+        const j = safeJson(raw);
+        if(!j || typeof j!=='object') continue;
+        if(String(j.game||'').toLowerCase() !== String(gameKey).toLowerCase()) continue;
+        if(String(j.pid||'') && String(j.pid||'') !== pid) continue;
+        return j;
+      }catch(_){}
+    }
+    return null;
+  }
+
+  function bestSummaryTodayForZone(zone, pid){
+    const list = ZONE_GAMES[zone] || [];
+    const today = ymdLocal();
+    let best = null;
+
+    for(const g of list){
+      const sum = readLastSummary(g, pid);
+      if(!sum) continue;
+
+      const endIso = sum.endTimeIso || sum.end || sum.endIso || '';
+      const d = ymdFromIsoLocal(endIso);
+      if(d !== today) continue;
+
+      const gr = String(sum.grade || '').toUpperCase();
+      const r = gradeRank(gr);
+      if(!best || r > gradeRank(best.grade)){
+        best = { game:g, grade:gr||'D', sum };
+      }
+    }
+    return best;
+  }
+
+  function xpByGrade(grade){
+    grade = String(grade||'').toUpperCase();
+    if(grade==='S') return 22;
+    if(grade==='A') return 20;
+    if(grade==='B') return 17;
+    if(grade==='C') return 15;
+    return 12;
+  }
+
+  function questClaimKey(zone, pid){ return `HHA_QUEST_CLAIM:${zone}:${pid}:${ymdLocal()}`; }
+  function questIsClaimed(zone, pid){
+    try{ return localStorage.getItem(questClaimKey(zone,pid))==='1'; }catch(_){ return false; }
+  }
+  function questSetClaimed(zone, pid){
+    try{ localStorage.setItem(questClaimKey(zone,pid),'1'); }catch(_){}
+  }
+
+  function questProgress(zone){
+    const pid = String(QS.get('pid')||'anon').trim() || 'anon';
+    const best = bestSummaryTodayForZone(zone, pid);
+
+    // summary-based
+    if(best){
+      const ok = gradeRank(best.grade) >= gradeRank(MIN_GRADE);
+      return {
+        done: ok,
+        p: ok ? 1 : 0.65, // ถ้ามีเล่นวันนี้แต่เกรดไม่ถึง -> แสดงก้ำกึ่ง
+        source: 'summary',
+        best
+      };
+    }
+
+    // fallback: zoneDoneKey
+    const done = isZoneDoneToday(zone);
+    return {
+      done,
+      p: done ? 1 : 0,
+      source: 'zoneDone',
+      best: null
+    };
+  }
+
+  function questText(zone){
+    if(zone==='nutrition') return 'เล่นโซน Nutrition ให้จบวันนี้ (GoodJunk/Groups/Hydration/Plate) เกรดอย่างน้อย C';
+    if(zone==='hygiene')  return 'เล่นโซน Hygiene ให้จบวันนี้ (Handwash/MaskCough/Brush/Bath/Clean/Germ) เกรดอย่างน้อย C';
+    return 'เล่นโซน Fitness ให้จบวันนี้ (Shadow/Rhythm/JumpDuck/Balance/Planner) เกรดอย่างน้อย C';
+  }
+
+  function setQuestUI(zone, textId, fillId, stateId, btnId, rewardId){
+    const pid = String(QS.get('pid')||'anon').trim() || 'anon';
+    const q = questProgress(zone);
+    const claimed = questIsClaimed(zone, pid);
+
+    setText(textId, questText(zone));
+
+    const fill = document.getElementById(fillId);
+    if(fill) fill.style.width = (q.p*100).toFixed(0)+'%';
+
+    const stateEl = document.getElementById(stateId);
+    const btn = document.getElementById(btnId);
+    const rewardEl = document.getElementById(rewardId);
+
+    // compute reward preview
+    let rewardXp = 15;
+    let rewardLabel = '+15 XP';
+    if(q.best && q.best.grade){
+      rewardXp = xpByGrade(q.best.grade);
+      rewardLabel = `+${rewardXp} XP (grade ${q.best.grade})`;
+    }else{
+      rewardLabel = '+15 XP';
+    }
+    rewardEl && (rewardEl.textContent = rewardLabel);
+
+    if(claimed){
+      stateEl && (stateEl.textContent = '✅ รับรางวัลแล้ว');
+      if(btn){ btn.disabled = true; btn.textContent = 'รับแล้ว'; }
+      return;
+    }
+
+    if(q.done){
+      if(q.source==='summary' && q.best){
+        stateEl && (stateEl.textContent = `พร้อมรับ! เล่น ${q.best.game} วันนี้ ได้ grade ${q.best.grade}`);
+      }else{
+        stateEl && (stateEl.textContent = 'พร้อมรับ! (ผ่านจาก gate key)');
+      }
+      if(btn){ btn.disabled = false; btn.textContent = 'รับรางวัล'; }
+    }else{
+      if(q.source==='summary' && q.best){
+        stateEl && (stateEl.textContent = `เล่นแล้วแต่เกรดยังไม่ถึง (ได้ ${q.best.grade}) ลองใหม่ให้ ≥ ${MIN_GRADE}`);
+      }else{
+        stateEl && (stateEl.textContent = 'ยังไม่ผ่าน (ไปเล่นเกมโซนนี้ก่อน)');
+      }
+      if(btn){ btn.disabled = true; btn.textContent = 'ยังรับไม่ได้'; }
+    }
+  }
+
+  function claimQuest(zone){
+    const pid = String(QS.get('pid')||'anon').trim() || 'anon';
+    const q = questProgress(zone);
+    if(!q.done){ toast('ยังไม่ผ่านภารกิจ'); return; }
+    if(questIsClaimed(zone,pid)){ toast('รับไปแล้ว'); return; }
+
+    let xp = 15;
+    if(q.best && q.best.grade){
+      xp = xpByGrade(q.best.grade);
+    }
+    heroAddXp(xp);
+    questSetClaimed(zone,pid);
+    toast(`🎁 รับรางวัล ${zone.toUpperCase()} +${xp} XP`);
+    syncAll();
+  }
+
+  /* =========================
+   * UI sync
+   * ========================= */
   function syncBars(){
     const today = ymdLocal();
     setText('todayText', today);
@@ -756,13 +1032,17 @@ PATCH v20260305-HUB-HERO-QUEST-MAPLOCK
     if(mHyg){ mHyg.style.width = (hyg ? 100 : 35) + '%'; mHyg.classList.toggle('warn', !hyg); }
     if(mFit){ mFit.style.width = (fit ? 100 : 35) + '%'; mFit.classList.toggle('warn', !fit); }
 
-    // Hero badges
+    // badges (ทำให้ “สว่าง” เมื่อ Quest ผ่านจริง)
+    const qNut = questProgress('nutrition').done;
+    const qHyg = questProgress('hygiene').done;
+    const qFit = questProgress('fitness').done;
+
     const bNut = document.getElementById('bNut');
     const bHyg = document.getElementById('bHyg');
     const bFit = document.getElementById('bFit');
-    bNut && bNut.classList.toggle('done', nut);
-    bHyg && bHyg.classList.toggle('done', hyg);
-    bFit && bFit.classList.toggle('done', fit);
+    bNut && bNut.classList.toggle('done', qNut);
+    bHyg && bHyg.classList.toggle('done', qHyg);
+    bFit && bFit.classList.toggle('done', qFit);
   }
 
   function applyPassThrough(href){
@@ -804,223 +1084,15 @@ PATCH v20260305-HUB-HERO-QUEST-MAPLOCK
       .join('');
   }
 
-  /* =========================
-   * HERO PROFILE (avatar/name/xp/level)
-   * ========================= */
-  const HERO_KEY = 'HHA_HERO_PROFILE_v1';
-  function heroLoad(){
-    try{
-      const raw = localStorage.getItem(HERO_KEY);
-      if(!raw) return { level:1, xp:0, avatar:'🦸', name:'' };
-      const j = JSON.parse(raw);
-      return (j && typeof j==='object') ? j : { level:1, xp:0, avatar:'🦸', name:'' };
-    }catch(_){
-      return { level:1, xp:0, avatar:'🦸', name:'' };
-    }
-  }
-  function heroSave(h){
-    try{ localStorage.setItem(HERO_KEY, JSON.stringify(h)); }catch(_){}
-  }
-  function heroNameFromCtx(){
-    const pid = String(QS.get('pid')||'anon').trim() || 'anon';
-    const nick = String(QS.get('nick')||'').trim();
-    return nick || pid;
-  }
-  function heroSyncUI(){
-    const h = heroLoad();
-    if(!h.name) h.name = heroNameFromCtx();
-    heroSave(h);
-
-    const elName = document.getElementById('heroName');
-    const elSub  = document.getElementById('heroSub');
-    const elAv   = document.getElementById('heroAvatar');
-    if(elName) elName.textContent = h.name || 'Hero';
-    if(elSub)  elSub.textContent  = `Level ${h.level||1} • XP ${h.xp||0}/50`;
-    if(elAv)   elAv.textContent   = h.avatar || '🦸';
-  }
-
-  function heroAddXp(xpAdd){
-    const h = heroLoad();
-    h.xp = (Number(h.xp)||0) + (Number(xpAdd)||0);
-
-    while(h.xp >= 50){
-      h.xp -= 50;
-      h.level = (Number(h.level)||1) + 1;
-      toast(`🎉 LEVEL UP! ตอนนี้ Level ${h.level}`);
-    }
-    heroSave(h);
-    heroSyncUI();
-  }
-
-  // Rename
-  function heroRename(){
-    const h = heroLoad();
-    const cur = h.name || heroNameFromCtx();
-    const name = prompt('ตั้งชื่อ Hero (เช่น Mint / Somchai)', cur || '');
-    if(name == null) return;
-    const n = String(name||'').trim();
-    if(!n){ toast('ยังไม่ได้ตั้งชื่อ'); return; }
-    h.name = n;
-    heroSave(h);
-    heroSyncUI();
-    toast('✅ ตั้งชื่อแล้ว');
-  }
-
-  /* =========================
-   * Avatar Picker
-   * ========================= */
-  const AVAS = ['🦸','🦸‍♀️','🧑‍🚀','🧑‍⚕️','🧑‍🔬','🧑‍🏫','🧑‍🍳','🧑‍🎤','🧑‍🎨','🧑‍🚒','🧑‍✈️','🧑‍🌾','🧙','🧙‍♀️','🦊','🐯','🐼','🐵','🐸','🐙','🦁','🐲','🐨','🐧','🦄','🐺'];
-  let avaPick = null;
-
-  function openAvaPicker(){
-    const modal = document.getElementById('avaModal');
-    const grid  = document.getElementById('avaGrid');
-    if(!modal || !grid) return;
-    const h = heroLoad();
-    avaPick = h.avatar || '🦸';
-    grid.innerHTML = AVAS.map(a=>{
-      const sel = (a===avaPick) ? ' sel' : '';
-      return `<div class="avaBtn${sel}" data-ava="${a}">${a}</div>`;
-    }).join('');
-    grid.querySelectorAll('.avaBtn').forEach(btn=>{
-      btn.addEventListener('click', ()=>{
-        avaPick = btn.getAttribute('data-ava') || '🦸';
-        grid.querySelectorAll('.avaBtn').forEach(x=> x.classList.toggle('sel', x.getAttribute('data-ava')===avaPick));
-      }, { passive:true });
-    });
-    modal.style.display='flex';
-  }
-  function closeAvaPicker(){
-    const modal = document.getElementById('avaModal');
-    if(modal) modal.style.display='none';
-  }
-  function saveAvaPicker(){
-    const h = heroLoad();
-    h.avatar = avaPick || h.avatar || '🦸';
-    heroSave(h);
-    heroSyncUI();
-    toast('✅ เปลี่ยนตัวละครแล้ว');
-    closeAvaPicker();
-  }
-  function randomAva(){
-    avaPick = AVAS[(Math.random()*AVAS.length)|0];
-    const grid  = document.getElementById('avaGrid');
-    if(grid){
-      grid.querySelectorAll('.avaBtn').forEach(x=> x.classList.toggle('sel', x.getAttribute('data-ava')===avaPick));
-    }
-  }
-
-  /* =========================
-   * Award XP from last summaries (ตัวอย่าง GoodJunk)
-   * ========================= */
-  function safeJson(raw){ try{ return JSON.parse(raw); }catch(_){ return null; } }
-  function readLastSummaryGoodjunk(pid){
-    try{
-      pid = String(pid||'anon').trim() || 'anon';
-      const raw = localStorage.getItem(`HHA_LAST_SUMMARY:goodjunk:${pid}`) || localStorage.getItem('HHA_LAST_SUMMARY');
-      if(!raw) return null;
-      const j = safeJson(raw);
-      if(j && j.game==='goodjunk' && String(j.pid||'')===pid) return j;
-      return null;
-    }catch(_){ return null; }
-  }
-  function awardXpFromGoodjunkOncePerDay(){
-    const today = ymdLocal();
-    const pid = String(QS.get('pid')||'anon').trim() || 'anon';
-    const k = `HHA_XP_AWARDED:goodjunk:${pid}:${today}`;
-    try{ if(localStorage.getItem(k)==='1') return; }catch(_){}
-
-    const sum = readLastSummaryGoodjunk(pid);
-    if(!sum) return;
-
-    let xp = 10;
-    const grade = String(sum.grade||'').toUpperCase();
-    const reason = String(sum.reason||'').toLowerCase();
-    if(reason==='win') xp += 6;
-    if(grade==='A' || grade==='S') xp += 8;
-
-    heroAddXp(xp);
-    try{ localStorage.setItem(k,'1'); }catch(_){}
-    toast(`⭐ ได้ XP +${xp} จาก GoodJunk`);
-  }
-
-  /* =========================
-   * DAILY QUEST (3 zones) + claim once/day
-   * ========================= */
-  function questClaimKey(zone, pid){ return `HHA_QUEST_CLAIM:${zone}:${pid}:${ymdLocal()}`; }
-  function questIsClaimed(zone, pid){
-    try{ return localStorage.getItem(questClaimKey(zone,pid))==='1'; }catch(_){ return false; }
-  }
-  function questSetClaimed(zone, pid){
-    try{ localStorage.setItem(questClaimKey(zone,pid),'1'); }catch(_){}
-  }
-
-  // Quest definition: ให้ “ผ่านเมื่อโซน DONE วันนี้”
-  // ถ้าต้องการกลับกัน: “ต้องยังไม่ DONE ถึงจะเล่นได้” เปลี่ยนใน applyZoneLocks() ด้านล่าง
-  function questProgress(zone){
-    const done = isZoneDoneToday(zone);
-    return { p: done ? 1 : 0, done };
-  }
-
-  function setQuestUI(zone, textId, fillId, stateId, btnId){
-    const pid = String(QS.get('pid')||'anon').trim() || 'anon';
-    const q = questProgress(zone);
-    const claimed = questIsClaimed(zone, pid);
-
-    // text
-    const text = (zone==='nutrition')
-      ? 'ทำให้โซน Nutrition ผ่าน Daily Gate (จบเกมโซนนี้ 1 เกม)'
-      : (zone==='hygiene')
-      ? 'ทำให้โซน Hygiene ผ่าน Daily Gate (จบเกมโซนนี้ 1 เกม)'
-      : 'ทำให้โซน Fitness ผ่าน Daily Gate (จบเกมโซนนี้ 1 เกม)';
-
-    setText(textId, text);
-
-    // fill
-    const fill = document.getElementById(fillId);
-    if(fill) fill.style.width = (q.p*100).toFixed(0)+'%';
-
-    // state + button
-    const stateEl = document.getElementById(stateId);
-    const btn = document.getElementById(btnId);
-
-    if(claimed){
-      stateEl && (stateEl.textContent = '✅ รับรางวัลแล้ว');
-      if(btn){ btn.disabled = true; btn.textContent = 'รับแล้ว'; }
-    }else if(q.done){
-      stateEl && (stateEl.textContent = 'พร้อมรับรางวัล!');
-      if(btn){ btn.disabled = false; btn.textContent = 'รับรางวัล'; }
-    }else{
-      stateEl && (stateEl.textContent = 'ยังไม่ผ่าน (ไปเล่นเกมโซนนี้ก่อน)');
-      if(btn){ btn.disabled = true; btn.textContent = 'ยังรับไม่ได้'; }
-    }
-  }
-
-  function claimQuest(zone){
-    const pid = String(QS.get('pid')||'anon').trim() || 'anon';
-    const q = questProgress(zone);
-    if(!q.done){ toast('ยังไม่ผ่านภารกิจ'); return; }
-    if(questIsClaimed(zone,pid)){ toast('รับไปแล้ว'); return; }
-
-    const xp = 15;
-    heroAddXp(xp);
-    questSetClaimed(zone,pid);
-    toast(`🎁 รับรางวัล ${zone.toUpperCase()} +${xp} XP`);
-    syncAll();
-  }
-
-  /* =========================
-   * MAP/LOCK POLICY
-   * ========================= */
-  // ✅ POLICY:
-  // - ตอนนี้: “ถ้าโซน DONE วันนี้” => ล็อกการเข้าเกม (กันเล่นซ้ำในงานวิจัย/คลาส)
-  // - ถ้าอยากกลับกัน (ยังไม่ DONE => ล็อก): เปลี่ยน isLocked = !done;
+  // LOCK POLICY:
+  // ตอนนี้: ล็อกถ้า zoneDone วันนี้ (กันเล่นซ้ำ)
+  // ถ้าต้องการ “ยังไม่ผ่านถึงล็อก” -> เปลี่ยน isLocked = !done;
   function applyZoneLocks(){
     const cards = document.querySelectorAll('.game[data-zone][data-href]');
     cards.forEach(card=>{
       const zone = String(card.getAttribute('data-zone')||'').toLowerCase();
       const done = isZoneDoneToday(zone);
-      const isLocked = !!done; // <<< เปลี่ยนเป็น !done ถ้าต้องการ “ยังไม่ผ่านล็อก”
+      const isLocked = !!done; // ← เปลี่ยนเป็น !done ได้
       card.classList.toggle('locked', isLocked);
     });
   }
@@ -1043,14 +1115,11 @@ PATCH v20260305-HUB-HERO-QUEST-MAPLOCK
         const href = card.getAttribute('data-href');
         if(!href) return;
         const zone = String(card.getAttribute('data-zone')||'').toLowerCase();
-        const done = isZoneDoneToday(zone);
         const locked = card.classList.contains('locked');
-
         if(locked){
           toast('🔒 โซนนี้ DONE แล้ววันนี้ (Reset today ถ้าจะลองใหม่)');
           return;
         }
-
         goWithHeroTalk(zone, href);
       }, { passive:true });
     });
@@ -1082,7 +1151,6 @@ PATCH v20260305-HUB-HERO-QUEST-MAPLOCK
     btnSave  && (btnSave.onclick  = saveAvaPicker);
     btnRand  && (btnRand.onclick  = randomAva);
 
-    // click outside to close
     const modal = document.getElementById('avaModal');
     modal && modal.addEventListener('click', (e)=>{
       if(e.target === modal) closeAvaPicker();
@@ -1099,16 +1167,16 @@ PATCH v20260305-HUB-HERO-QUEST-MAPLOCK
   }
 
   function syncQuestAll(){
-    setQuestUI('nutrition','qNutText','qNutFill','qNutState','btnClaimNut');
-    setQuestUI('hygiene','qHygText','qHygFill','qHygState','btnClaimHyg');
-    setQuestUI('fitness','qFitText','qFitFill','qFitState','btnClaimFit');
+    setQuestUI('nutrition','qNutText','qNutFill','qNutState','btnClaimNut','rNut');
+    setQuestUI('hygiene','qHygText','qHygFill','qHygState','btnClaimHyg','rHyg');
+    setQuestUI('fitness','qFitText','qFitFill','qFitState','btnClaimFit','rFit');
   }
 
   function syncAll(){
-    syncBars();
     heroSyncUI();
-    applyZoneLocks();
     syncQuestAll();
+    syncBars();
+    applyZoneLocks();
   }
 
   renderPills();
@@ -1117,11 +1185,8 @@ PATCH v20260305-HUB-HERO-QUEST-MAPLOCK
   bindHero();
   bindQuest();
 
-  // ✅ XP from last summary (goodjunk)
+  // init
   heroSyncUI();
-  awardXpFromGoodjunkOncePerDay();
-
-  // final sync
   syncAll();
 })();
 </script>
