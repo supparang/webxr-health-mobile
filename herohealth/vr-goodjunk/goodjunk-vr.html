@@ -1,6 +1,9 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
 GoodJunkVR — RUN PAGE (PC/Mobile/cVR) — PRODUCTION
-PATCH v20260305j-RUN-ABC-CARDS-SKILL
+PATCH v20260305k-RUN-HUD-UNBLOCK-SPAWN-SAFE
+✅ HUD split L/R + compact mission center
+✅ Toggle HUD collapse (H key / button)
+✅ Expose HUD bounds for SAFE spawn (window.HHA_UI_BOUNDS)
 Requires:
 - /herohealth/vr/vr-ui.js
 - /herohealth/vr-goodjunk/goodjunk.safe.js (module)
@@ -20,11 +23,13 @@ Requires:
       --stroke:rgba(148,163,184,.18);
       --text:rgba(229,231,235,.96);
       --muted:rgba(148,163,184,.92);
-      --good:#22c55e; --warn:#f59e0b; --bad:#ef4444; --blue:#3b82f6; --violet:#a78bfa;
+      --good:#22c55e; --warn:#f59e0b; --bad:#ef4444; --blue:#3b82f6;
       --sat: env(safe-area-inset-top, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
       --sal: env(safe-area-inset-left, 0px);
       --sar: env(safe-area-inset-right, 0px);
+      --hudTop: calc(10px + var(--sat));
+      --hudPadX: 10px;
     }
     html,body{height:100%; margin:0; background:var(--bg); color:var(--text);}
     body{
@@ -32,6 +37,7 @@ Requires:
       font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", "Noto Sans", Arial;
     }
 
+    /* playfield layer */
     #gj-layer{
       position: fixed;
       inset: 0;
@@ -41,42 +47,46 @@ Requires:
       user-select:none;
     }
 
-    .hud{
+    /* ============ HUD (split) ============ */
+    .hudL, .hudR{
       position: fixed;
-      top: calc(10px + var(--sat));
-      left: calc(10px + var(--sal));
-      right: calc(10px + var(--sar));
-      z-index: 200;
+      top: var(--hudTop);
+      z-index: 220;
       display:flex;
-      gap:10px;
+      gap:8px;
       flex-wrap:wrap;
       align-items:center;
-      pointer-events:none;
+      pointer-events:none; /* ไม่บังการกดเป้า */
+      max-width: 48vw;
     }
+    .hudL{ left: calc(var(--hudPadX) + var(--sal)); justify-content:flex-start; }
+    .hudR{ right: calc(var(--hudPadX) + var(--sar)); justify-content:flex-end; }
+
     .pill{
       pointer-events:none;
       display:inline-flex;
       align-items:center;
       gap:8px;
-      padding: 8px 10px;
+      padding: 7px 9px;
       border-radius: 999px;
       border:1px solid var(--stroke);
       background: rgba(2,6,23,.55);
       backdrop-filter: blur(8px);
       color: var(--muted);
       font-size: 12px;
-      font-weight: 900;
+      font-weight: 950;
       white-space:nowrap;
     }
     .pill b{ color: var(--text); }
-    .pill .v{ color: var(--text); font-weight: 1000; }
+    .pill .v{ color: var(--text); font-weight: 1100; }
 
+    /* mini row -> move under LEFT only (not across screen) */
     .mini{
       position: fixed;
-      top: calc(56px + var(--sat));
-      left: calc(10px + var(--sal));
-      z-index: 200;
-      max-width: 92vw;
+      top: calc(var(--hudTop) + 44px);
+      left: calc(var(--hudPadX) + var(--sal));
+      z-index: 220;
+      max-width: 62vw;
       pointer-events:none;
       display:flex;
       gap:8px;
@@ -84,12 +94,39 @@ Requires:
       align-items:center;
     }
 
+    /* Mission panel (thin center) */
+    .mission{
+      position: fixed;
+      left: 50%;
+      top: var(--hudTop);
+      transform: translateX(-50%);
+      z-index: 230;
+      pointer-events:none;
+      width: min(520px, 62vw);
+      border-radius: 16px;
+      border:1px solid rgba(148,163,184,.14);
+      background: rgba(2,6,23,.46);
+      backdrop-filter: blur(10px);
+      padding: 8px 10px;
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+      box-shadow: 0 18px 55px rgba(0,0,0,.35);
+    }
+    .missionRow{display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap;}
+    .missionTitle{font-weight:1100; letter-spacing:.2px; font-size:12px;}
+    .missionHint{font-size:12px; font-weight:900; color:var(--muted);}
+    .missionGoal{font-size:12px; font-weight:1100;}
+    #missionFill{height:9px; border-radius:999px; border:1px solid rgba(255,255,255,.14); background: rgba(0,0,0,.35); overflow:hidden; position:relative;}
+    #missionFill::before{content:""; position:absolute; inset:0; width: var(--p,0%); background: rgba(34,197,94,.85); transition: width .12s ease;}
+
+    /* Boss HP */
     #bossBar{
       position: fixed;
       left: 50%;
-      top: calc(56px + var(--sat));
+      top: calc(var(--hudTop) + 52px);
       transform: translateX(-50%);
-      z-index: 205;
+      z-index: 235;
       width: min(520px, 86vw);
       pointer-events:none;
       display:none;
@@ -97,15 +134,9 @@ Requires:
       gap:6px;
       align-items:center;
     }
-    #bossHint{
-      font-weight:1000;
-      font-size:12px;
-      color: var(--muted);
-      text-shadow: 0 10px 30px rgba(0,0,0,.55);
-    }
+    #bossHint{font-weight:1100; font-size:12px; color: var(--muted); text-shadow: 0 10px 30px rgba(0,0,0,.55);}
     #bossFill{
-      height: 10px;
-      width: 100%;
+      height: 10px; width: 100%;
       border-radius:999px;
       border:1px solid rgba(255,255,255,.14);
       background: rgba(0,0,0,.35);
@@ -120,93 +151,31 @@ Requires:
       transition: width .12s ease;
     }
 
-    .mission{
+    /* HUD collapse toggle (button is clickable) */
+    #hudToggle{
       position: fixed;
-      left: 50%;
-      top: calc(10px + var(--sat));
-      transform: translateX(-50%);
-      z-index: 210;
-      pointer-events:none;
-      width: min(560px, 92vw);
-      border-radius: 18px;
-      border:1px solid rgba(148,163,184,.16);
-      background: rgba(2,6,23,.50);
-      backdrop-filter: blur(10px);
-      padding: 10px 12px;
-      display:flex;
-      flex-direction:column;
-      gap:8px;
-      box-shadow: 0 18px 55px rgba(0,0,0,.40);
-    }
-    .missionRow{display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap;}
-    .missionTitle{font-weight:1000; letter-spacing:.2px;}
-    .missionHint{font-size:12px; font-weight:900; color:var(--muted);}
-    .missionGoal{font-size:12px; font-weight:1000;}
-    #missionFill{height:10px; border-radius:999px; border:1px solid rgba(255,255,255,.14); background: rgba(0,0,0,.35); overflow:hidden; position:relative;}
-    #missionFill::before{content:""; position:absolute; inset:0; width: var(--p,0%); background: rgba(34,197,94,.85); transition: width .12s ease;}
-
-    /* ABC Cards row */
-    .cardRow{
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-      align-items:center;
-      justify-content:space-between;
-    }
-    .cardPill{
-      display:inline-flex; align-items:center; gap:8px;
-      padding:8px 10px;
-      border-radius:999px;
-      border:1px solid rgba(167,139,250,.22);
-      background: rgba(167,139,250,.10);
-      color: var(--text);
-      font-size:12px;
-      font-weight:1000;
-      pointer-events:none;
-    }
-    .cardPill .k{opacity:.86}
-    .cardPill .v{opacity:1}
-    .cardPill.dim{
-      border-color: rgba(148,163,184,.18);
-      background: rgba(148,163,184,.08);
-      color: rgba(148,163,184,.95);
-    }
-
-    #skillDock{
-      position: fixed;
+      top: calc(var(--hudTop) + 2px);
       right: calc(10px + var(--sar));
-      bottom: calc(78px + var(--sab));
-      z-index: 230;
-      pointer-events: none;
-      display:flex;
-      flex-direction:column;
-      gap:8px;
-      align-items:flex-end;
-    }
-    #skillBtn{
+      z-index: 260;
       pointer-events:auto;
       cursor:pointer;
-      border-radius: 16px;
-      border:1px solid rgba(59,130,246,.30);
-      background: rgba(59,130,246,.16);
+      border-radius: 14px;
+      border:1px solid rgba(148,163,184,.22);
+      background: rgba(2,6,23,.55);
       color: var(--text);
-      padding: 10px 12px;
+      padding: 8px 10px;
       font-weight:1100;
-      min-height: 44px;
-      box-shadow: 0 16px 50px rgba(0,0,0,.35);
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
-      display:flex; align-items:center; gap:8px;
+      min-height: 40px;
+      box-shadow: 0 12px 40px rgba(0,0,0,.35);
     }
-    #skillBtn[disabled]{opacity:.45; cursor:default;}
-    #skillHint{
-      pointer-events:none;
-      font-size:12px;
-      font-weight:900;
-      color: var(--muted);
-      text-shadow: 0 10px 30px rgba(0,0,0,.55);
-    }
+    body.hudMin .hudL,
+    body.hudMin .hudR,
+    body.hudMin .mini,
+    body.hudMin .mission,
+    body.hudMin #bossBar{ display:none !important; }
+    body.hudMin #hudToggle{ opacity:.95; }
 
+    /* End overlay */
     #endOverlay{
       position: fixed; inset: 0;
       display:none;
@@ -235,7 +204,7 @@ Requires:
       border:1px solid rgba(148,163,184,.16);
       background: rgba(2,6,23,.38);
       padding: 12px 10px;
-      font-weight:1000;
+      font-weight:1100;
     }
     .endPill .k{opacity:.78; font-size:12px;}
     .endPill .v{font-size:18px; margin-top:4px;}
@@ -254,6 +223,7 @@ Requires:
     .btn.primary{border-color: rgba(59,130,246,.30); background: rgba(59,130,246,.16);}
     .btn.ghost{background: transparent; color: var(--muted);}
 
+    /* debug overlay */
     #dbg{
       position: fixed;
       left: 10px;
@@ -276,45 +246,34 @@ Requires:
 
   <div id="gj-layer" aria-label="play layer"></div>
 
-  <div class="hud" id="hudTop" aria-label="hud">
+  <!-- HUD split -->
+  <div class="hudL" aria-label="hud left">
     <span class="pill"><b>score</b>: <span class="v" id="hud-score">0</span></span>
     <span class="pill"><b>time</b>: <span class="v" id="hud-time">0</span></span>
     <span class="pill"><b>miss</b>: <span class="v" id="hud-miss">0</span></span>
-    <span class="pill"><b>grade</b>: <span class="v" id="hud-grade">—</span></span>
-    <span class="pill"><b>goal</b>: <span class="v" id="hud-goal">—</span></span>
   </div>
 
-  <div class="mini" id="hudMini" aria-label="goal/mini/ai">
+  <div class="hudR" aria-label="hud right">
+    <span class="pill"><b>grade</b>: <span class="v" id="hud-grade">—</span></span>
+    <span class="pill"><b>goal</b>: <span class="v" id="hud-goal">—</span></span>
+    <span class="pill"><b>AI risk</b>: <span class="v" id="aiRisk">—</span></span>
+  </div>
+
+  <div class="mini" aria-label="goal/mini/ai">
     <span class="pill"><b>cur</b>: <span class="v" id="hud-goal-cur">0</span></span>
     <span class="pill"><b>target</b>: <span class="v" id="hud-goal-target">0</span></span>
     <span class="pill"><b>desc</b>: <span class="v" id="goalDesc">—</span></span>
     <span class="pill"><b>mini</b>: <span class="v" id="hud-mini">—</span></span>
     <span class="pill"><b>t</b>: <span class="v" id="miniTimer">0</span></span>
-    <span class="pill"><b>AI risk</b>: <span class="v" id="aiRisk">—</span></span>
     <span class="pill"><b>AI hint</b>: <span class="v" id="aiHint">—</span></span>
   </div>
 
-  <div class="mission" id="missionPanel" aria-label="mission">
+  <div class="mission" aria-label="mission">
     <div class="missionRow">
       <div class="missionTitle" id="missionTitle">WARM</div>
       <div class="missionGoal" id="missionGoal">—</div>
     </div>
     <div class="missionHint" id="missionHint">—</div>
-
-    <!-- ✅ ABC Cards -->
-    <div class="cardRow">
-      <span class="cardPill" id="cardA"><span class="k">A</span> <span class="v">—</span></span>
-      <span class="cardPill dim" id="cardAProg"><span class="k">A prog</span> <span class="v">—</span></span>
-    </div>
-    <div class="cardRow">
-      <span class="cardPill" id="cardB"><span class="k">B</span> <span class="v">—</span></span>
-      <span class="cardPill dim" id="cardBProg"><span class="k">B prog</span> <span class="v">—</span></span>
-    </div>
-    <div class="cardRow">
-      <span class="cardPill" id="cardC"><span class="k">C</span> <span class="v">—</span></span>
-      <span class="cardPill dim" id="cardCProg"><span class="k">C prog</span> <span class="v">—</span></span>
-    </div>
-
     <div id="missionFill"></div>
   </div>
 
@@ -323,10 +282,7 @@ Requires:
     <div id="bossFill" style="--hp:0%;"></div>
   </div>
 
-  <div id="skillDock" aria-label="skill">
-    <button id="skillBtn" type="button">✨ Skill</button>
-    <div id="skillHint">ใช้ได้ 1 ครั้ง/รอบ</div>
-  </div>
+  <button id="hudToggle" type="button" title="ย่อ/ขยาย HUD (กด H ได้)">👁️ HUD</button>
 
   <div id="endOverlay" aria-label="end overlay">
     <div class="panel">
@@ -351,6 +307,7 @@ Requires:
 
   <div id="dbg"></div>
 
+  <!-- ✅ VR UI (ENTER VR / crosshair / hha:shoot) -->
   <script src="../vr/vr-ui.js"></script>
 
   <script type="module">
@@ -359,14 +316,48 @@ Requires:
     const debugOn = String(qs('debug','0')) === '1';
 
     function logDbg(msg){
-      if(!dbg) return;
-      if(!debugOn) return;
+      if(!dbg || !debugOn) return;
       dbg.style.display = 'block';
       dbg.textContent += (String(msg||'') + '\n');
     }
+
     window.addEventListener('error', (e)=>{ logDbg('ERROR: ' + (e?.message||e)); });
     window.addEventListener('unhandledrejection', (e)=>{ logDbg('REJECT: ' + (e?.reason?.message || e?.reason || e)); });
 
+    // HUD toggle + expose bounds for spawn-safe
+    const btnHud = document.getElementById('hudToggle');
+    function setHudMin(on){
+      document.body.classList.toggle('hudMin', !!on);
+      try{ localStorage.setItem('HHA_GJ_HUD_MIN', on?'1':'0'); }catch(_){}
+      updateUiBounds();
+    }
+    function getHudMin(){
+      try{ return localStorage.getItem('HHA_GJ_HUD_MIN') === '1'; }catch(_){ return false; }
+    }
+    btnHud && btnHud.addEventListener('click', ()=> setHudMin(!document.body.classList.contains('hudMin')), {passive:true});
+    window.addEventListener('keydown', (e)=>{
+      if((e?.key||'').toLowerCase()==='h') setHudMin(!document.body.classList.contains('hudMin'));
+    });
+
+    function rectOf(sel){
+      const el = document.querySelector(sel);
+      if(!el || getComputedStyle(el).display==='none') return null;
+      const r = el.getBoundingClientRect();
+      return { left:r.left, top:r.top, right:r.right, bottom:r.bottom, width:r.width, height:r.height };
+    }
+    function updateUiBounds(){
+      // give engine a hint where UI sits (for SAFE spawn)
+      const L = rectOf('.hudL');
+      const R = rectOf('.hudR');
+      const M = rectOf('.mission');
+      const B = rectOf('#bossBar');
+      window.HHA_UI_BOUNDS = { L, R, M, B, ts: Date.now() };
+    }
+    window.addEventListener('resize', updateUiBounds, {passive:true});
+    setHudMin(getHudMin());
+    updateUiBounds();
+
+    // buttons
     const btnReplay = document.getElementById('btnReplay');
     const btnBackHub = document.getElementById('btnBackHub');
     btnReplay && (btnReplay.onclick = ()=> location.href = location.href);
