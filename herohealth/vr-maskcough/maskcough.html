@@ -1,9 +1,6 @@
 <!-- === /herohealth/vr-maskcough/maskcough.html ===
 Mask & Cough (Analyze) — RUN PAGE — PRODUCTION
-FULL v20260304a (A+B: FUN NOW + PRO+ARCADE)
-✅ Mission pill + PRO pill
-✅ Score pop layer
-✅ Cache-bust version tags
+FULL v20260304c (C6: A default + PRO B optional)
 -->
 <!doctype html>
 <html lang="th">
@@ -15,7 +12,7 @@ FULL v20260304a (A+B: FUN NOW + PRO+ARCADE)
   <link rel="icon" href="../favicon.ico"/>
 
   <style>[hidden]{display:none!important}</style>
-  <link rel="stylesheet" href="./maskcough.css?v=20260304a"/>
+  <link rel="stylesheet" href="./maskcough.css?v=20260304c"/>
 </head>
 <body>
   <!-- Global FX -->
@@ -54,7 +51,6 @@ FULL v20260304a (A+B: FUN NOW + PRO+ARCADE)
         <span class="mc-pill">Int <b id="tInt">0.00</b></span>
         <span class="mc-pill">Fever <b id="tFever">OFF</b> <span style="opacity:.8">(<span id="tFeverPct">0%</span>)</span></span>
 
-        <!-- NEW -->
         <span class="mc-pill mc-pill-mission">Mission <b id="tMission">—</b></span>
         <span class="mc-pill mc-pill-pro">Mode <b id="tPro">NORMAL</b></span>
       </div>
@@ -121,6 +117,86 @@ FULL v20260304a (A+B: FUN NOW + PRO+ARCADE)
           <div class="mc-end-badges" id="badgeRow"></div>
         </div>
 
+        <!-- ✅ C6 CREATE PANEL -->
+        <div class="mc-end-sub">🧩 C6 Create — แผนของฉัน</div>
+
+        <div class="mc-c6">
+          <div class="mc-c6-tabs">
+            <button class="mc-tab on" id="c6TabA" type="button">A: เลือกแผน 3 ข้อ</button>
+            <button class="mc-tab" id="c6TabB" type="button">PRO: B สร้างกฎ 1 ข้อ</button>
+            <span class="mc-c6-status" id="c6Status">ยังไม่บันทึก</span>
+          </div>
+
+          <!-- A -->
+          <div class="mc-c6-panel" id="c6PanelA">
+            <div class="mc-c6-hint">
+              เลือก 3 ข้อ (ตามลำดับที่คุณเลือก) แล้วกด “บันทึกแผน” — ใช้แผนนี้เล่นรอบหน้าให้ดีขึ้น
+            </div>
+
+            <div class="mc-c6-picked">
+              <div class="mc-c6-sub">แผนที่เลือก (3 ข้อ)</div>
+              <div class="mc-c6-pickedRow" id="c6PickedRow"></div>
+            </div>
+
+            <div class="mc-c6-sub">ตัวเลือก</div>
+            <div class="mc-c6-options" id="c6Options"></div>
+
+            <div class="mc-c6-actions">
+              <button class="mc-btn mc-accent" id="btnC6SaveA" type="button">💾 บันทึกแผน (A)</button>
+              <button class="mc-btn mc-ghost" id="btnC6ClearA" type="button">ล้าง</button>
+            </div>
+          </div>
+
+          <!-- B -->
+          <div class="mc-c6-panel" id="c6PanelB" hidden>
+            <div class="mc-c6-hint">
+              PRO: สร้าง “กฎ 1 ข้อ” จากสถานการณ์ → การกระทำ → เหตุผล แล้วกด “บันทึกกฎ”
+            </div>
+
+            <div class="mc-c6-form">
+              <div class="mc-c6-row">
+                <label>ถ้า…</label>
+                <select id="c6If">
+                  <option value="threat_high">Threat = HIGH</option>
+                  <option value="shield_low">Shield ต่ำกว่า 25%</option>
+                  <option value="boss_stage">ช่วง Boss Sweep (ท้ายเกม)</option>
+                  <option value="spam_high">ฉันเริ่มกดยิงรัว (spam)</option>
+                  <option value="risk_high">Risk สูง (มากกว่า 0.66)</option>
+                </select>
+              </div>
+
+              <div class="mc-c6-row">
+                <label>ฉันจะ…</label>
+                <select id="c6Then">
+                  <option value="get_mask_first">เก็บ 😷 เพิ่มโล่ก่อน</option>
+                  <option value="wait_perfect">รอ 🤧 ให้เข้า Perfect ก่อนค่อยกด</option>
+                  <option value="slow_down">ช้าลงและโฟกัส (ไม่ยิงรัว)</option>
+                  <option value="clear_droplets">เก็บ 💦 ให้เร็วเพื่อลดความเสี่ยง</option>
+                </select>
+              </div>
+
+              <div class="mc-c6-row">
+                <label>เพราะ…</label>
+                <select id="c6Because">
+                  <option value="reduce_risk">ลดความเสี่ยง</option>
+                  <option value="save_shield">กันโล่หมด</option>
+                  <option value="get_more_score">ได้คะแนนมากขึ้น</option>
+                  <option value="avoid_miss">ลดการพลาด/โดนละออง</option>
+                </select>
+              </div>
+
+              <div class="mc-c6-preview">
+                <div class="mc-c6-sub">กฎของฉัน</div>
+                <div class="mc-c6-rule" id="c6RulePreview">—</div>
+              </div>
+
+              <div class="mc-c6-actions">
+                <button class="mc-btn mc-accent" id="btnC6SaveB" type="button">💾 บันทึกกฎ (B)</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div class="mc-end-sub">Coach Summary</div>
         <div class="mc-end-note" id="endCoachSummary">—</div>
 
@@ -137,12 +213,10 @@ FULL v20260304a (A+B: FUN NOW + PRO+ARCADE)
     <div id="toast"></div>
   </div>
 
-  <!-- Optional (if present in /herohealth/vr/) -->
-  <script src="../vr/fun-boost.js?v=20260304a"></script>
-  <script src="../vr/fun-boost.fx.js?v=20260304a"></script>
-  <script src="../vr/vr-ui.js?v=20260304a"></script>
+  <script src="../vr/fun-boost.js?v=20260304c"></script>
+  <script src="../vr/fun-boost.fx.js?v=20260304c"></script>
+  <script src="../vr/vr-ui.js?v=20260304c"></script>
 
-  <!-- Engine -->
-  <script src="./maskcough.safe.js?v=20260304a"></script>
+  <script src="./maskcough.safe.js?v=20260304c"></script>
 </body>
 </html>
