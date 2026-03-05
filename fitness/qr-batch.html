@@ -9,7 +9,6 @@
     :root{
       --bg:#f8fafc; --card:#ffffff; --stroke:#e2e8f0; --text:#0f172a; --muted:#64748b;
       --r:16px;
-      --cols:auto;
       --qr:240px;
     }
     *{box-sizing:border-box;}
@@ -19,6 +18,7 @@
       background: var(--bg);
       color: var(--text);
     }
+
     header{
       display:flex; justify-content:space-between; align-items:flex-start; gap:12px;
       margin-bottom: 12px;
@@ -62,20 +62,59 @@
 
     .note{ color:var(--muted); font-size:12px; margin: 8px 0 10px; }
 
+    /* ===== PACK AA: Print Header ===== */
+    .print-head{
+      margin: 10px 0 14px;
+      padding: 12px;
+      border-radius: 16px;
+      border:1px solid var(--stroke);
+      background: var(--card);
+      display:flex;
+      justify-content:space-between;
+      gap:12px;
+      align-items:flex-start;
+    }
+    .ph-left{ min-width: 0; }
+    .ph-title{
+      font-weight: 950;
+      font-size: 16px;
+      margin-bottom: 4px;
+    }
+    .ph-kv{
+      display:flex; flex-wrap:wrap; gap:8px 10px;
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.25;
+    }
+    .ph-chip{
+      padding: 3px 9px;
+      border-radius: 999px;
+      border: 1px solid var(--stroke);
+      background: #fff;
+      color: var(--text);
+      font-weight: 800;
+      font-size: 11px;
+    }
+    .ph-right{
+      text-align:right;
+      font-size: 12px;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+    .ph-right b{ color: var(--text); }
+    .ph-mini{
+      margin-top: 6px;
+      font-size: 11px;
+      color: var(--muted);
+    }
+
     .grid{
       display:grid;
       gap:12px;
-    }
-    /* columns control */
-    .grid.cols-auto{
       grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
     }
-    .grid.cols-2{
-      grid-template-columns: repeat(2, minmax(0,1fr));
-    }
-    .grid.cols-3{
-      grid-template-columns: repeat(3, minmax(0,1fr));
-    }
+    .grid.cols-2{ grid-template-columns: repeat(2, minmax(0,1fr)); }
+    .grid.cols-3{ grid-template-columns: repeat(3, minmax(0,1fr)); }
 
     .card{
       background: var(--card);
@@ -119,13 +158,29 @@
     @media (max-width:640px){
       .grid.cols-2, .grid.cols-3{ grid-template-columns: 1fr; }
       canvas{ width: min(260px, 85vw); }
+      .print-head{ flex-direction: column; }
+      .ph-right{ text-align:left; white-space: normal; }
     }
 
+    /* ===== PRINT ===== */
     @media print{
-      body{ padding:0; }
+      body{ padding:0; background:#fff; }
       header, .toolbar, .note { display:none; }
-      .grid{ gap: 8px; }
+
+      .print-head{
+        display:flex;
+        border-radius: 0;
+        border: none;
+        border-bottom: 1px solid #cbd5e1;
+        padding: 10mm 10mm 6mm;
+        margin: 0 0 6mm;
+      }
+
+      .grid{ gap: 6mm; padding: 0 10mm 10mm; }
       .card{ border-color:#cbd5e1; }
+
+      /* page numbering (best-effort; depends on browser) */
+      @page { margin: 10mm; }
     }
   </style>
 </head>
@@ -133,7 +188,7 @@
   <header>
     <div>
       <h1>Shadow Breaker — QR Batch</h1>
-      <div class="sub">พิมพ์แจกหน้าห้อง: QR ต่อคน • เลือก Play/Research ได้ • ปรับ 2/3 คอลัมน์</div>
+      <div class="sub">พิมพ์แจกหน้าห้อง: QR ต่อคน • หัวกระดาษพร้อมโรงเรียน/ห้อง • เลือก Play/Research ได้</div>
     </div>
     <div class="tool-right">
       <button id="btnBack" class="ghost">← Back</button>
@@ -182,6 +237,20 @@
     (ระบบอ่านจาก localStorage key <code>SB_BATCH_ROWS_V1</code>)
   </div>
 
+  <!-- PACK AA: print header (shown on screen too; prints as official header) -->
+  <section class="print-head" id="printHead">
+    <div class="ph-left">
+      <div class="ph-title" id="phTitle">Shadow Breaker — QR Roster</div>
+      <div class="ph-kv" id="phKV"></div>
+      <div class="ph-mini" id="phMini"></div>
+    </div>
+    <div class="ph-right">
+      <div>วันที่: <b id="phDate">—</b></div>
+      <div>โหมด: <b id="phMode">Play</b></div>
+      <div>คอลัมน์: <b id="phCols">Auto</b> • QR: <b id="phQr">240</b></div>
+    </div>
+  </section>
+
   <main class="grid cols-auto" id="grid"></main>
 
   <script src="./js/qrcode-lite.js"></script>
@@ -193,15 +262,22 @@
     const selCols = document.getElementById('selCols');
     const selQr = document.getElementById('selQr');
 
-    function getRows(){
+    const phKV = document.getElementById('phKV');
+    const phMini = document.getElementById('phMini');
+    const phDate = document.getElementById('phDate');
+    const phMode = document.getElementById('phMode');
+    const phCols = document.getElementById('phCols');
+    const phQr = document.getElementById('phQr');
+
+    function getRowsAndMeta(){
       try{
         const raw = localStorage.getItem(KEY);
-        if(!raw) return [];
+        if(!raw) return { rows:[], savedAt:'' };
         const obj = JSON.parse(raw);
         const rows = obj && obj.rows ? obj.rows : [];
-        return Array.isArray(rows) ? rows : [];
+        return { rows: Array.isArray(rows)?rows:[], savedAt: obj?.savedAt || '' };
       }catch{
-        return [];
+        return { rows:[], savedAt:'' };
       }
     }
 
@@ -223,8 +299,52 @@
       return row.link_play || row.linkPlay || row.link || '';
     }
 
+    function chip(text){
+      const s = document.createElement('span');
+      s.className = 'ph-chip';
+      s.textContent = text;
+      return s;
+    }
+
+    function updatePrintHeader(rows, meta){
+      phKV.innerHTML = '';
+      const r0 = rows && rows[0] ? rows[0] : {};
+
+      const schoolCode = r0.school_code || r0.schoolCode || '';
+      const schoolName = r0.school_name || r0.schoolName || '';
+      const classRoom = r0.class_room || r0.classRoom || '';
+      const teacher = r0.teacher_name || r0.teacherName || '';
+
+      const diff = r0.diff || '';
+      const time = r0.time || '';
+      const preset = r0.preset || '';
+      const safe = (r0.safe === 1 || r0.safe === '1') ? 'safe=1' : 'safe=0';
+
+      if(schoolCode) phKV.appendChild(chip('School: ' + schoolCode));
+      if(schoolName) phKV.appendChild(chip(schoolName));
+      if(classRoom) phKV.appendChild(chip('Class: ' + classRoom));
+      if(teacher) phKV.appendChild(chip('Teacher: ' + teacher));
+
+      if(diff) phKV.appendChild(chip('diff=' + diff));
+      if(time) phKV.appendChild(chip('time=' + time));
+      if(preset) phKV.appendChild(chip('preset=' + preset));
+      phKV.appendChild(chip(safe));
+
+      // mini line
+      const savedAt = meta?.savedAt ? meta.savedAt : '';
+      phMini.textContent =
+        `จำนวน ${rows.length} คน` +
+        (savedAt ? ` • savedAt=${savedAt}` : '');
+
+      // date label
+      const d = new Date();
+      phDate.textContent = d.toLocaleDateString('th-TH', { year:'numeric', month:'short', day:'2-digit' });
+    }
+
     function render(){
-      const rows = getRows();
+      const meta = getRowsAndMeta();
+      const rows = meta.rows;
+
       const mode = selMode.value || 'play';
       const cols = selCols.value || 'auto';
       const qrsz = Number(selQr.value || 240) || 240;
@@ -232,15 +352,23 @@
       setCols(cols);
       setQrSize(qrsz);
 
+      // header right info
+      phMode.textContent = (mode === 'research') ? 'Research' : 'Play';
+      phCols.textContent = (cols === 'auto') ? 'Auto' : cols;
+      phQr.textContent = String(qrsz);
+
       grid.innerHTML = '';
 
       if(!rows.length){
+        updatePrintHeader([], meta);
         const d = document.createElement('div');
         d.className = 'card';
         d.innerHTML = '<div class="pid">ไม่มีข้อมูล</div><div class="meta">กลับไปหน้า Batch generator แล้วกด Generate ก่อน</div>';
         grid.appendChild(d);
         return;
       }
+
+      updatePrintHeader(rows, meta);
 
       for(const r of rows){
         const card = document.createElement('section');
@@ -252,11 +380,11 @@
         const seed = r.seed || '';
 
         const link = pickLink(r, mode);
-        const meta = `${sch}${cls ? ' • '+cls : ''}${seed ? ' • seed='+seed : ''}`;
+        const metaLine = `${sch}${cls ? ' • '+cls : ''}${seed ? ' • seed='+seed : ''}`;
 
         const top = document.createElement('div');
         top.className = 'top';
-        top.innerHTML = `<div><div class="pid">${pid}</div><div class="meta">${meta}</div></div>`;
+        top.innerHTML = `<div><div class="pid">${pid}</div><div class="meta">${metaLine}</div></div>`;
 
         const qrwrap = document.createElement('div');
         qrwrap.className = 'qrwrap';
