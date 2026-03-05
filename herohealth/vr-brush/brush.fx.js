@@ -1,58 +1,55 @@
 // === /herohealth/vr-brush/brush.fx.js ===
-// BrushFX — tiny DOM FX helpers (no deps)
-// PATCH v20260304-BRUSH-FX
-(function(){
-  'use strict';
-  const WIN = window, DOC = document;
+// Brush FX — optional (toast/pulse)
+// FULL v20260304-BRUSH-FX
+'use strict';
 
-  function ensure(){
-    let root = DOC.getElementById('br-fx');
-    if(root) return root;
-    root = DOC.createElement('div');
-    root.id = 'br-fx';
-    root.style.position='fixed';
-    root.style.inset='0';
-    root.style.zIndex='8';
-    root.style.pointerEvents='none';
-    root.innerHTML = `
-      <div id="fxFlash" style="position:absolute;inset:0;opacity:0;background:rgba(255,255,255,.12);transition:opacity .12s ease"></div>
-      <div id="fxLaser" style="position:absolute;inset:0;opacity:0;
-        background:linear-gradient(115deg,transparent 0%, rgba(251,191,36,.18) 30%, rgba(239,68,68,.22) 50%, rgba(251,191,36,.18) 70%, transparent 100%);
-        transform: translateX(-120%) skewX(-10deg)"></div>
-      <div id="fxFin" style="position:absolute;inset:0;opacity:0;background:radial-gradient(600px 400px at 50% 60%, rgba(244,114,182,.18), transparent 60%);transition:opacity .18s ease"></div>
+export function bootFx(){
+  const D = document;
+  let layer = D.getElementById('fxLayer');
+  if(!layer){
+    layer = D.createElement('div');
+    layer.id = 'fxLayer';
+    layer.style.cssText = `position:fixed; inset:0; pointer-events:none; z-index:55;`;
+    D.body.appendChild(layer);
+  }
+
+  function toast(text, kind='info', ms=900){
+    const el = D.createElement('div');
+    el.textContent = String(text||'');
+    el.style.cssText = `
+      position:fixed; left:50%; top:14%;
+      transform:translate(-50%,-6px);
+      padding:8px 12px; border-radius:999px;
+      font-weight:900; font-size:14px;
+      background: rgba(15,23,42,.92);
+      border: 1px solid rgba(148,163,184,.24);
+      box-shadow: 0 14px 34px rgba(0,0,0,.30);
+      color: rgba(229,231,235,.95);
+      opacity:0; transition: all .16s ease;
     `;
-    DOC.body.appendChild(root);
-    return root;
+    if (kind === 'good') el.style.borderColor = 'rgba(34,197,94,.35)';
+    if (kind === 'bad')  el.style.borderColor = 'rgba(239,68,68,.35)';
+    if (kind === 'warn') el.style.borderColor = 'rgba(245,158,11,.35)';
+    layer.appendChild(el);
+
+    requestAnimationFrame(()=>{ el.style.opacity='1'; el.style.transform='translate(-50%,0)'; });
+    setTimeout(()=>{
+      el.style.opacity='0';
+      el.style.transform='translate(-50%,-6px)';
+      setTimeout(()=> el.remove(), 220);
+    }, ms);
   }
 
-  function flash(ms=110){
-    const r = ensure();
-    const el = r.querySelector('#fxFlash');
-    if(!el) return;
-    el.style.opacity='1';
-    clearTimeout(flash._t);
-    flash._t = setTimeout(()=> el.style.opacity='0', ms);
+  function pulse(kind='good', ms=180){
+    const el = D.createElement('div');
+    el.style.cssText = `position:fixed; inset:0; opacity:0; transition: opacity .10s ease;`;
+    el.style.background = 'rgba(34,197,94,.10)';
+    if (kind === 'bad') el.style.background = 'rgba(239,68,68,.10)';
+    if (kind === 'warn') el.style.background = 'rgba(245,158,11,.10)';
+    layer.appendChild(el);
+    requestAnimationFrame(()=>{ el.style.opacity='1'; });
+    setTimeout(()=>{ el.style.opacity='0'; setTimeout(()=>el.remove(), 160); }, ms);
   }
 
-  function laser(){
-    const r = ensure();
-    const el = r.querySelector('#fxLaser');
-    if(!el) return;
-    el.style.opacity='1';
-    el.style.transform='translateX(-120%) skewX(-10deg)';
-    void el.offsetWidth;
-    el.style.transition='transform 1.25s linear, opacity .10s ease';
-    el.style.transform='translateX(120%) skewX(-10deg)';
-    clearTimeout(laser._t);
-    laser._t = setTimeout(()=>{ el.style.opacity='0'; }, 1300);
-  }
-
-  function fin(on){
-    const r = ensure();
-    const el = r.querySelector('#fxFin');
-    if(!el) return;
-    el.style.opacity = on ? '1' : '0';
-  }
-
-  WIN.BrushFX = { flash, laser, fin };
-})();
+  return { toast, pulse };
+}
