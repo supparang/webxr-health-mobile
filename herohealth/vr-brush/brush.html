@@ -1,6 +1,6 @@
 <!-- === /herohealth/vr-brush/brush.html ===
-Brush RUN — BLOOM PACK1 (Quiz + Zones + Residue/Risk + Heatmap)
-FULL v20260304-BRUSH-RUN-BLOOM1
+Brush RUN — BLOOM 1–6 (Quiz + Zones + Residue/Risk + Heatmap + Evaluate + Plan Builder)
+FULL v20260305-BRUSH-RUN-BLOOM1-6
 -->
 <!doctype html>
 <html lang="th">
@@ -12,9 +12,9 @@ FULL v20260304-BRUSH-RUN-BLOOM1
   <title>HeroHealth • Brush</title>
 
   <link rel="icon" href="../favicon.ico"/>
-  <link rel="stylesheet" href="./brush.css?v=20260304"/>
+  <link rel="stylesheet" href="./brush.css?v=20260305"/>
 
-  <!-- A-Frame (kept for consistency / future VR mode) -->
+  <!-- A-Frame (kept for future VR mode consistency) -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 </head>
 
@@ -42,7 +42,7 @@ FULL v20260304-BRUSH-RUN-BLOOM1
       </header>
 
       <main id="playfield" aria-label="Brush">
-        <!-- Keep a-scene for future VR; gameplay is DOM targets now -->
+        <!-- scene for future VR, but gameplay is DOM targets -->
         <a-scene id="scene"
           background="color: #050914"
           renderer="antialias: true; colorManagement: true"
@@ -63,10 +63,10 @@ FULL v20260304-BRUSH-RUN-BLOOM1
           <a-entity id="spawnRoot"></a-entity>
         </a-scene>
 
-        <!-- DOM target layer -->
+        <!-- DOM targets -->
         <div id="domTargets" aria-hidden="true"></div>
 
-        <!-- (optional) cVR crosshair -->
+        <!-- optional crosshair -->
         <div id="crosshair" aria-hidden="true"></div>
 
         <!-- QUIZ (Bloom 1) -->
@@ -87,7 +87,7 @@ FULL v20260304-BRUSH-RUN-BLOOM1
             <ol>
               <li>แตะ “คราบ” 🟢 ให้ครบทุกโซน</li>
               <li>หลบ “เชื้อ” 🔴 (โดนแล้ว risk เพิ่ม)</li>
-              <li>ท้ายเกมดู Heatmap ว่า “พลาดโซนไหน”</li>
+              <li>ท้ายเกมดู Heatmap + ให้คะแนนตัวเอง + วางแผนรอบหน้า</li>
             </ol>
             <div class="row">
               <button id="btnCloseHelp" class="btn primary">เข้าใจแล้ว</button>
@@ -95,20 +95,39 @@ FULL v20260304-BRUSH-RUN-BLOOM1
           </div>
         </div>
 
-        <!-- END + HEATMAP (Bloom 4) -->
+        <!-- END (Bloom 4–6) -->
         <div id="panelEnd" class="panel hidden">
           <div class="panel-card">
             <h2>สรุปผล</h2>
             <p id="endSummary" class="summary"></p>
 
-            <h3 class="h3">Heatmap โซนฟัน</h3>
+            <h3 class="h3">Heatmap โซนฟัน (Bloom 4)</h3>
             <div id="heatmap" class="heatmap"></div>
 
-            <h3 class="h3">ฉันพลาดเพราะ…</h3>
+            <h3 class="h3">ฉันพลาดเพราะ… (Bloom 4)</h3>
             <div class="chips" id="reasonChips"></div>
 
+            <hr class="hr"/>
+
+            <h3 class="h3">ประเมินตัวเอง (Bloom 5)</h3>
+            <div class="evalRow">
+              <div class="stars" id="stars"></div>
+              <div class="pill mini" id="rubricPill">RUBRIC: —</div>
+            </div>
+            <div class="muted" id="rubricDesc"></div>
+
+            <h3 class="h3">ฉันจะปรับปรุงรอบหน้า (เลือก 1 ข้อ) (Bloom 5)</h3>
+            <div class="chips" id="improveChips"></div>
+
+            <hr class="hr"/>
+
+            <h3 class="h3">แผนแปรงฟันของฉัน (Bloom 6)</h3>
+            <p class="muted">เรียงลำดับโซน (กด ▲▼) แล้วกด “เล่นตามแผน”</p>
+            <div id="planList" class="planList"></div>
+
             <div class="row">
-              <button id="btnReplay" class="btn primary">เล่นอีกครั้ง</button>
+              <button id="btnPlayPlan" class="btn primary">เล่นตามแผน</button>
+              <button id="btnReplay" class="btn">เริ่มใหม่ (ทำ Quiz)</button>
               <button id="btnBack" class="btn">กลับ HUB</button>
             </div>
           </div>
@@ -122,11 +141,11 @@ FULL v20260304-BRUSH-RUN-BLOOM1
       </main>
 
       <footer id="footer">
-        <span class="muted">HeroHealth • Brush • BLOOM Pack1</span>
+        <span class="muted">HeroHealth • Brush • BLOOM 1–6</span>
       </footer>
     </div>
 
-    <!-- Tap overlay (optional unlock; not blocking boot) -->
+    <!-- Tap overlay (optional unlock) -->
     <div id="tapStart" class="tapStart">
       <div class="tapCard">
         <div class="tapTitle">แตะเพื่อปลดล็อก</div>
@@ -141,12 +160,12 @@ FULL v20260304-BRUSH-RUN-BLOOM1
   <!-- preload safe -->
   <script type="module">
     try{
-      const m = await import('./brush.safe.js?v=20260304');
+      const m = await import('./brush.safe.js?v=20260305');
       if (m && typeof m.bootGame === 'function') window.__BRUSH_BOOTGAME__ = m.bootGame;
     }catch(e){ console.warn('[Brush] preload safe failed', e); }
   </script>
 
   <!-- boot -->
-  <script src="./brush.boot.js?v=20260304"></script>
+  <script src="./brush.boot.js?v=20260305"></script>
 </body>
 </html>
