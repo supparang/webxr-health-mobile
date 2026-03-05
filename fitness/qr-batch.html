@@ -27,7 +27,7 @@
     .sub{ color:var(--muted); font-size: 13px; margin-top:4px; }
 
     .toolbar{
-      margin: 10px 0 14px;
+      margin: 10px 0 12px;
       padding: 12px;
       border-radius: 16px;
       border:1px solid var(--stroke);
@@ -47,7 +47,7 @@
       font-size: 13px;
       color: var(--muted);
     }
-    select, button{
+    select, button, input{
       border-radius: 999px;
       border:1px solid var(--stroke);
       background: var(--card);
@@ -57,10 +57,81 @@
       color: var(--text);
       font-size: 13px;
     }
+    input{
+      cursor:text;
+      font-weight:700;
+    }
     button.primary{ background:#0ea5e9; border-color:#0ea5e9; color:#fff; }
     button.ghost{ background:#fff; }
 
     .note{ color:var(--muted); font-size:12px; margin: 8px 0 10px; }
+
+    /* ===== PACK AB: Header override box ===== */
+    .override{
+      margin: 0 0 14px;
+      padding: 12px;
+      border-radius: 16px;
+      border:1px solid var(--stroke);
+      background: var(--card);
+    }
+    .ov-head{
+      display:flex;
+      justify-content:space-between;
+      align-items:baseline;
+      gap:10px;
+      margin-bottom: 8px;
+    }
+    .ov-head b{ font-size: 13px; }
+    .ov-head .hint{ font-size: 12px; color: var(--muted); }
+    .ov-row{
+      display:grid;
+      grid-template-columns: repeat(4, minmax(0,1fr));
+      gap:8px;
+      margin-top: 8px;
+    }
+    .ov-row .field{
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .ov-row input{
+      width:100%;
+      border-radius: 14px;
+      padding: 9px 10px;
+      font-weight: 700;
+    }
+    .ov-actions{
+      margin-top: 10px;
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      align-items:center;
+      justify-content:space-between;
+    }
+    .ov-toggle{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .ov-toggle label{
+      display:flex;
+      align-items:center;
+      gap:6px;
+      cursor:pointer;
+      user-select:none;
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--stroke);
+      background: #fff;
+      color: var(--text);
+      font-weight: 900;
+    }
+    .ov-toggle input{ cursor:pointer; }
 
     /* ===== PACK AA: Print Header ===== */
     .print-head{
@@ -154,18 +225,19 @@
 
     @media (max-width:860px){
       .grid.cols-3{ grid-template-columns: repeat(2, minmax(0,1fr)); }
+      .ov-row{ grid-template-columns: repeat(2, minmax(0,1fr)); }
     }
     @media (max-width:640px){
       .grid.cols-2, .grid.cols-3{ grid-template-columns: 1fr; }
       canvas{ width: min(260px, 85vw); }
       .print-head{ flex-direction: column; }
       .ph-right{ text-align:left; white-space: normal; }
+      .ov-row{ grid-template-columns: 1fr; }
     }
 
-    /* ===== PRINT ===== */
     @media print{
       body{ padding:0; background:#fff; }
-      header, .toolbar, .note { display:none; }
+      header, .toolbar, .note, .override { display:none; }
 
       .print-head{
         display:flex;
@@ -179,7 +251,6 @@
       .grid{ gap: 6mm; padding: 0 10mm 10mm; }
       .card{ border-color:#cbd5e1; }
 
-      /* page numbering (best-effort; depends on browser) */
       @page { margin: 10mm; }
     }
   </style>
@@ -188,11 +259,11 @@
   <header>
     <div>
       <h1>Shadow Breaker — QR Batch</h1>
-      <div class="sub">พิมพ์แจกหน้าห้อง: QR ต่อคน • หัวกระดาษพร้อมโรงเรียน/ห้อง • เลือก Play/Research ได้</div>
+      <div class="sub">พิมพ์แจกหน้าห้อง: QR ต่อคน • หัวกระดาษแก้เองได้ • เลือก Play/Research</div>
     </div>
     <div class="tool-right">
       <button id="btnBack" class="ghost">← Back</button>
-      <button id="btnPrint" class="primary">🖨 Print</button>
+      <button id="btnPrint" class="primary">🖨 Export PDF</button>
     </div>
   </header>
 
@@ -232,12 +303,46 @@
     </div>
   </div>
 
-  <div class="note">
-    ถ้าไม่เห็นข้อมูล: กลับไปหน้าเกม → Batch → Generate → Open QR
-    (ระบบอ่านจาก localStorage key <code>SB_BATCH_ROWS_V1</code>)
+  <div class="note" id="pdfHint">
+    Export PDF แนะนำ: Destination = Save as PDF • Paper = A4 • Scale = Default/100% •
+    Margins = Default • Headers/Footers = OFF
   </div>
 
-  <!-- PACK AA: print header (shown on screen too; prints as official header) -->
+  <!-- PACK AB: override header -->
+  <section class="override">
+    <div class="ov-head">
+      <b>หัวกระดาษ (Header)</b>
+      <span class="hint">เลือก “ใช้จาก Batch” หรือ “กำหนดเอง”</span>
+    </div>
+
+    <div class="ov-toggle">
+      <label><input type="radio" name="hdrsrc" id="hdrFromBatch" checked /> ใช้จาก Batch</label>
+      <label><input type="radio" name="hdrsrc" id="hdrCustom" /> กำหนดเอง</label>
+      <button id="btnSaveHdr" class="ghost" type="button">💾 Save</button>
+      <button id="btnClearHdr" class="ghost" type="button">🧹 Clear</button>
+    </div>
+
+    <div class="ov-row">
+      <div class="field">
+        <span>School</span>
+        <input id="ovSchool" placeholder="เช่น โรงเรียน... / SCH01" />
+      </div>
+      <div class="field">
+        <span>Class</span>
+        <input id="ovClass" placeholder="เช่น ป.5/1" />
+      </div>
+      <div class="field">
+        <span>Teacher</span>
+        <input id="ovTeacher" placeholder="ชื่อครู (optional)" />
+      </div>
+      <div class="field">
+        <span>Note</span>
+        <input id="ovNote" placeholder="เช่น รอบเช้า / เขต 2 / สัปดาห์ที่ 1" />
+      </div>
+    </div>
+  </section>
+
+  <!-- PACK AA: print header -->
   <section class="print-head" id="printHead">
     <div class="ph-left">
       <div class="ph-title" id="phTitle">Shadow Breaker — QR Roster</div>
@@ -256,6 +361,7 @@
   <script src="./js/qrcode-lite.js"></script>
   <script>
     const KEY = 'SB_BATCH_ROWS_V1';
+    const HDR_KEY = 'SB_QR_HEADER_OVERRIDE_V1';
 
     const grid = document.getElementById('grid');
     const selMode = document.getElementById('selMode');
@@ -268,6 +374,16 @@
     const phMode = document.getElementById('phMode');
     const phCols = document.getElementById('phCols');
     const phQr = document.getElementById('phQr');
+
+    // override UI
+    const hdrFromBatch = document.getElementById('hdrFromBatch');
+    const hdrCustom = document.getElementById('hdrCustom');
+    const ovSchool = document.getElementById('ovSchool');
+    const ovClass = document.getElementById('ovClass');
+    const ovTeacher = document.getElementById('ovTeacher');
+    const ovNote = document.getElementById('ovNote');
+    const btnSaveHdr = document.getElementById('btnSaveHdr');
+    const btnClearHdr = document.getElementById('btnClearHdr');
 
     function getRowsAndMeta(){
       try{
@@ -306,39 +422,92 @@
       return s;
     }
 
+    function todayTH(){
+      const d = new Date();
+      return d.toLocaleDateString('th-TH', { year:'numeric', month:'short', day:'2-digit' });
+    }
+
+    function loadHdrOverride(){
+      try{
+        const raw = localStorage.getItem(HDR_KEY);
+        if(!raw) return { use:'batch', school:'', cls:'', teacher:'', note:'' };
+        const o = JSON.parse(raw) || {};
+        return {
+          use: (o.use === 'custom') ? 'custom' : 'batch',
+          school: String(o.school||''),
+          cls: String(o.cls||''),
+          teacher: String(o.teacher||''),
+          note: String(o.note||'')
+        };
+      }catch{
+        return { use:'batch', school:'', cls:'', teacher:'', note:'' };
+      }
+    }
+
+    function saveHdrOverride(o){
+      try{ localStorage.setItem(HDR_KEY, JSON.stringify(o)); }catch{}
+    }
+
+    function applyHdrUI(o){
+      hdrFromBatch.checked = (o.use !== 'custom');
+      hdrCustom.checked = (o.use === 'custom');
+      ovSchool.value = o.school || '';
+      ovClass.value = o.cls || '';
+      ovTeacher.value = o.teacher || '';
+      ovNote.value = o.note || '';
+    }
+
+    function getHdrCurrent(){
+      return {
+        use: hdrCustom.checked ? 'custom' : 'batch',
+        school: (ovSchool.value||'').trim(),
+        cls: (ovClass.value||'').trim(),
+        teacher: (ovTeacher.value||'').trim(),
+        note: (ovNote.value||'').trim()
+      };
+    }
+
     function updatePrintHeader(rows, meta){
       phKV.innerHTML = '';
       const r0 = rows && rows[0] ? rows[0] : {};
-
-      const schoolCode = r0.school_code || r0.schoolCode || '';
-      const schoolName = r0.school_name || r0.schoolName || '';
-      const classRoom = r0.class_room || r0.classRoom || '';
-      const teacher = r0.teacher_name || r0.teacherName || '';
 
       const diff = r0.diff || '';
       const time = r0.time || '';
       const preset = r0.preset || '';
       const safe = (r0.safe === 1 || r0.safe === '1') ? 'safe=1' : 'safe=0';
 
-      if(schoolCode) phKV.appendChild(chip('School: ' + schoolCode));
-      if(schoolName) phKV.appendChild(chip(schoolName));
-      if(classRoom) phKV.appendChild(chip('Class: ' + classRoom));
-      if(teacher) phKV.appendChild(chip('Teacher: ' + teacher));
-
-      if(diff) phKV.appendChild(chip('diff=' + diff));
-      if(time) phKV.appendChild(chip('time=' + time));
-      if(preset) phKV.appendChild(chip('preset=' + preset));
-      phKV.appendChild(chip(safe));
-
-      // mini line
       const savedAt = meta?.savedAt ? meta.savedAt : '';
       phMini.textContent =
         `จำนวน ${rows.length} คน` +
         (savedAt ? ` • savedAt=${savedAt}` : '');
 
-      // date label
-      const d = new Date();
-      phDate.textContent = d.toLocaleDateString('th-TH', { year:'numeric', month:'short', day:'2-digit' });
+      // Right labels
+      phDate.textContent = todayTH();
+
+      // Header source
+      const H = getHdrCurrent();
+      if(H.use === 'custom'){
+        if(H.school) phKV.appendChild(chip('School: ' + H.school));
+        if(H.cls) phKV.appendChild(chip('Class: ' + H.cls));
+        if(H.teacher) phKV.appendChild(chip('Teacher: ' + H.teacher));
+        if(H.note) phKV.appendChild(chip('Note: ' + H.note));
+      }else{
+        const schoolCode = r0.school_code || r0.schoolCode || '';
+        const schoolName = r0.school_name || r0.schoolName || '';
+        const classRoom = r0.class_room || r0.classRoom || '';
+        const teacher = r0.teacher_name || r0.teacherName || '';
+
+        if(schoolCode) phKV.appendChild(chip('School: ' + schoolCode));
+        if(schoolName) phKV.appendChild(chip(schoolName));
+        if(classRoom) phKV.appendChild(chip('Class: ' + classRoom));
+        if(teacher) phKV.appendChild(chip('Teacher: ' + teacher));
+      }
+
+      // Always show run params
+      if(diff) phKV.appendChild(chip('diff=' + diff));
+      if(time) phKV.appendChild(chip('time=' + time));
+      if(preset) phKV.appendChild(chip('preset=' + preset));
+      phKV.appendChild(chip(safe));
     }
 
     function render(){
@@ -352,7 +521,6 @@
       setCols(cols);
       setQrSize(qrsz);
 
-      // header right info
       phMode.textContent = (mode === 'research') ? 'Research' : 'Play';
       phCols.textContent = (cols === 'auto') ? 'Auto' : cols;
       phQr.textContent = String(qrsz);
@@ -408,15 +576,47 @@
       }
     }
 
+    // buttons
     document.getElementById('btnReload').addEventListener('click', render);
-    document.getElementById('btnPrint').addEventListener('click', ()=> window.print());
     document.getElementById('btnBack').addEventListener('click', ()=> history.back());
     document.getElementById('btnTop').addEventListener('click', ()=> window.scrollTo({top:0, behavior:'smooth'}));
 
+    // Export PDF = print
+    document.getElementById('btnPrint').addEventListener('click', ()=>{
+      // hint stays on screen; print hides it
+      window.print();
+    });
+
+    // controls
     selMode.addEventListener('change', render);
     selCols.addEventListener('change', render);
     selQr.addEventListener('change', render);
 
+    // override controls
+    function onHdrChange(){
+      const o = getHdrCurrent();
+      saveHdrOverride(o);
+      render();
+    }
+    hdrFromBatch.addEventListener('change', onHdrChange);
+    hdrCustom.addEventListener('change', onHdrChange);
+
+    ovSchool.addEventListener('input', ()=>{ if(hdrCustom.checked) onHdrChange(); });
+    ovClass.addEventListener('input', ()=>{ if(hdrCustom.checked) onHdrChange(); });
+    ovTeacher.addEventListener('input', ()=>{ if(hdrCustom.checked) onHdrChange(); });
+    ovNote.addEventListener('input', ()=>{ if(hdrCustom.checked) onHdrChange(); });
+
+    btnSaveHdr.addEventListener('click', onHdrChange);
+    btnClearHdr.addEventListener('click', ()=>{
+      const o = { use:'batch', school:'', cls:'', teacher:'', note:'' };
+      saveHdrOverride(o);
+      applyHdrUI(o);
+      render();
+    });
+
+    // init
+    const initHdr = loadHdrOverride();
+    applyHdrUI(initHdr);
     render();
   </script>
 </body>
