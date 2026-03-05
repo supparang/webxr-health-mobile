@@ -1,6 +1,8 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
 // GoodJunkVR SAFE — PRODUCTION (FX + Coach + mission 3-stage UI + PRO + race wait + battle start sync)
-// FULL v20260305g-SAFE-DYN-HUDSAFE-SPAWNRECT
+// + ✅ FIX: Dynamic HUD-safe spawn (no targets under HUD/mission/mini/bossbar)
+// + ✅ Hero XP/Profile: localStorage + optional Firebase RTDB (same config as battle-rtdb.js)
+// FULL v20260305f-SAFE-DYNHUDSAFE-HEROXP
 'use strict';
 
 export async function boot(cfg){
@@ -41,7 +43,7 @@ export async function boot(cfg){
     }
   }
 
-  // ---------- COOL DOWN BUTTON (PER-GAME DAILY) ----------
+  // ---------- localStorage helpers ----------
   function hhDayKey(){
     const d=new Date();
     const yyyy=d.getFullYear();
@@ -52,6 +54,41 @@ export async function boot(cfg){
   function hhLsGet(k){ try{ return localStorage.getItem(k); }catch(_){ return null; } }
   function hhLsSet(k,v){ try{ localStorage.setItem(k,v); }catch(_){ } }
 
+  // ---------- HERO PROFILE (local + optional cloud) ----------
+  const pid = String(cfg.pid || qs('pid','anon')).trim() || 'anon';
+  const nick = String(cfg.nick || qs('nick', pid)).trim() || pid;
+
+  function loadLocalProfile(){
+    try{
+      const raw = hhLsGet(`HHA_PROFILE:${pid}`) || '';
+      if(!raw) return { pid, nick, xp:0, lvl:1 };
+      const j = JSON.parse(raw);
+      if(!j || typeof j!=='object') return { pid, nick, xp:0, lvl:1 };
+      j.pid = pid;
+      if(!j.nick) j.nick = nick;
+      if(!Number.isFinite(+j.xp)) j.xp = 0;
+      if(!Number.isFinite(+j.lvl)) j.lvl = 1;
+      return j;
+    }catch(_){
+      return { pid, nick, xp:0, lvl:1 };
+    }
+  }
+  function saveLocalProfile(p){
+    try{ hhLsSet(`HHA_PROFILE:${pid}`, JSON.stringify(p)); }catch(_){}
+  }
+  function lvlFromXp(xp){
+    xp = Math.max(0, Number(xp)||0);
+    return Math.floor(xp / 50) + 1;
+  }
+
+  async function heroCloudAddXpMaybe(xpGain){
+    try{
+      const mod = await import('../vr/hero-profile-cloud.js');
+      await mod.addXp?.({ pid, nick, xpGain, meta:{ game:'goodjunk', ts: nowIso() } });
+    }catch(_){}
+  }
+
+  // ---------- COOL DOWN BUTTON (PER-GAME DAILY) ----------
   function hhCooldownDone(cat, gameKey, pid){
     const day = hhDayKey();
     const p = String(pid||'anon').trim()||'anon';
@@ -167,6 +204,10 @@ export async function boot(cfg){
 
   // ---------- DOM refs ----------
   const layer = $('gj-layer');
+  const hudTop = $('hudTop');
+  const hudMini = $('hudMini');
+  const missionPanel = $('missionPanel');
+
   const hud = {
     score: $('hud-score'),
     time: $('hud-time'),
@@ -203,11 +244,6 @@ export async function boot(cfg){
   const uiRun  = $('uiRun');
   const uiDiff = $('uiDiff');
 
-  // ✅ measure elements for safe spawn (HUD overlap fix)
-  const elHud = $('gjHud') || DOC.querySelector('.hud');
-  const elMini = $('gjMini') || DOC.querySelector('.mini');
-  const elMission = $('gjMission') || DOC.querySelector('.mission');
-
   if(!layer){
     console.warn('[GoodJunk] Missing #gj-layer');
     return;
@@ -219,8 +255,7 @@ export async function boot(cfg){
   const diff = String(cfg.diff || qs('diff','normal')).toLowerCase();
   const plannedSec = clamp(cfg.time ?? qs('time','80'), 20, 300);
 
-  // hub / pid / cat / gameKey
-  const pid = String(cfg.pid || qs('pid','anon')).trim() || 'anon';
+  // hub / cat / gameKey
   const hubUrl = String(cfg.hub || qs('hub','../hub.html'));
   const HH_CAT = 'nutrition';
   const HH_GAME = 'goodjunk';
@@ -441,14 +476,6 @@ export async function boot(cfg){
     return `ระวัง: ${top.join(' + ')}`;
   }
 
-  function setAIHud(pred){
-    try{
-      if(!pred) return;
-      if(hud.aiRisk && typeof pred.hazardRisk === 'number') hud.aiRisk.textContent = String((+pred.hazardRisk).toFixed(2));
-      if(hud.aiHint) hud.aiHint.textContent = String((pred.next5 && pred.next5[0]) || '—');
-    }catch(e){}
-  }
-
   // ---------- game state ----------
   const startTimeIso = nowIso();
   let playing = true;
@@ -496,7 +523,6 @@ export async function boot(cfg){
 
   let shield = 0;
   let goodHitCount = 0;
-
   let shots = 0;
   let hits  = 0;
 
@@ -512,72 +538,53 @@ export async function boot(cfg){
 
   function layerRect(){ return layer.getBoundingClientRect(); }
 
-  // ✅ DYNAMIC SAFE SPAWN ZONE (แก้ “HUD ทับ” + “เป้าไปบนสวรรค์”)
-  function bottomOf(el){
+  // ✅ Dynamic HUD no-spawn area (แก้ HUD ทับ/เป้าขึ้นฟ้าแบบชัวร์)
+  function rectBottom(el){
     try{
       if(!el) return 0;
       const r = el.getBoundingClientRect();
-      if(!r || !Number.isFinite(r.bottom)) return 0;
-      // ignore hidden
-      if(r.width<=0 || r.height<=0) return 0;
+      if(!Number.isFinite(r.bottom)) return 0;
       return r.bottom;
     }catch(_){ return 0; }
   }
-  function topOf(el){
-    try{
-      if(!el) return Infinity;
-      const r = el.getBoundingClientRect();
-      if(!r || !Number.isFinite(r.top)) return Infinity;
-      if(r.width<=0 || r.height<=0) return Infinity;
-      return r.top;
-    }catch(_){ return Infinity; }
+  function dynamicNoSpawnBottom(){
+    // take max bottom of all top overlays
+    const b1 = rectBottom(hudTop);
+    const b2 = rectBottom(missionPanel);
+    const b3 = rectBottom(hudMini);
+    const b4 = (bossBar && bossBar.style.display!=='none') ? rectBottom(bossBar) : 0;
+    const maxB = Math.max(b1,b2,b3,b4);
+    return maxB;
   }
 
   function safeSpawnRect(){
     const r = layerRect();
     const W = r.width, H = r.height;
 
-    // dynamic top reserved: take the MAX bottom of HUD / mission / mini / bossbar
-    const hudB = bottomOf(elHud);
-    const misB = bottomOf(elMission);
-    const miniB = bottomOf(elMini);
-    const bossB = bottomOf(bossBar);
+    const leftPad = 18;
+    const rightPad = 18;
 
-    let topReserved = Math.max(hudB, misB, miniB, bossB);
-    // If these are relative to viewport already, and layer top is r.top
-    topReserved = Math.max(0, topReserved - r.top);
+    // bottom pad (keep room for VR UI buttons)
+    const bottomPad = 140 + (view==='cvr'||view==='vr' ? 10 : 0);
 
-    // dynamic bottom reserved: keep room for VR UI buttons + coach bubble space
-    // (VR UI varies, so use conservative base + safe-area)
-    const sab = (parseFloat(getComputedStyle(DOC.documentElement).getPropertyValue('--sab')) || 0);
-    let bottomReserved = (view==='cvr'||view==='vr') ? 130 : 110;
-    bottomReserved += sab;
+    // dynamic top pad: below the visible HUD/mission/mini (plus margin)
+    let topPadPx = dynamicNoSpawnBottom() + 16; // margin
+    // if somehow topPadPx not reasonable, fallback
+    if(!Number.isFinite(topPadPx) || topPadPx < 80) topPadPx = r.top + 140;
+    // clamp
+    const y1 = Math.min(r.top + H - 80, topPadPx);
+    const y2 = Math.max(y1 + 80, r.top + H - bottomPad);
 
-    // extra margins
-    const marginTop = 14;
-    const marginBottom = 18;
-    const marginSide = 18;
+    const x1 = r.left + leftPad;
+    const x2 = r.left + Math.max(leftPad+10, W - rightPad);
 
-    // compute final
-    let x1 = marginSide;
-    let x2 = Math.max(x1 + 10, W - marginSide);
-    let y1 = Math.min(H - 80, topReserved + marginTop);
-    let y2 = Math.max(y1 + 80, H - bottomReserved - marginBottom);
-
-    // ultra-small screens fallback
-    if(y2 - y1 < 90){
-      y1 = Math.min(H - 120, Math.max(90, topReserved + 10));
-      y2 = Math.max(y1 + 90, H - 20);
-    }
-
-    // return in layer coordinates
     return { x1, x2, y1, y2 };
   }
 
   function spawnPoint(){
     const s = safeSpawnRect();
-    const x = s.x1 + (s.x2 - s.x1) * r01();
-    const y = s.y1 + (s.y2 - s.y1) * r01();
+    const x = s.x1 + (s.x2 - s.x1) * Math.max(0.02, Math.min(0.98, r01()));
+    const y = s.y1 + (s.y2 - s.y1) * Math.max(0.02, Math.min(0.98, r01()));
     return { x, y };
   }
 
@@ -641,7 +648,17 @@ export async function boot(cfg){
     }catch(e){}
   }
 
-  function endGame(reason){
+  function xpGainFromResult({reason, grade, score}){
+    // เรียบง่ายแบบห้องเรียน + เร้าใจ
+    let xp = 4;               // จบเกมขั้นต่ำ
+    if(reason === 'win') xp += 8;
+    if(grade === 'A') xp += 3;
+    if(grade === 'S') xp += 5;
+    if(score >= WIN_TARGET.scoreTarget) xp += 2;
+    return clamp(xp, 2, 25);
+  }
+
+  async function endGame(reason){
     if(!playing) return;
     playing = false;
 
@@ -656,6 +673,7 @@ export async function boot(cfg){
     const sum = {
       game: HH_GAME,
       pid,
+      nick,
       diff,
       mode,
       score,
@@ -675,6 +693,20 @@ export async function boot(cfg){
       hhLsSet('HHA_LAST_SUMMARY', JSON.stringify(sum));
     }catch(e){}
 
+    // ✅ Hero XP (local + cloud optional)
+    try{
+      const xpGain = xpGainFromResult({ reason, grade, score });
+      const prof = loadLocalProfile();
+      prof.nick = nick || prof.nick || pid;
+      prof.xp = Math.max(0, Number(prof.xp)||0) + xpGain;
+      prof.lvl = lvlFromXp(prof.xp);
+      saveLocalProfile(prof);
+      heroCloudAddXpMaybe(xpGain);
+      sum.xpGain = xpGain;
+      sum.heroLvl = prof.lvl;
+      sum.heroXp = prof.xp;
+    }catch(_){}
+
     try{
       WIN.dispatchEvent(new CustomEvent('hha:end', { detail: sum }));
     }catch(e){}
@@ -682,7 +714,7 @@ export async function boot(cfg){
     if(endOverlay){
       endOverlay.style.display = 'flex';
       if(endTitle) endTitle.textContent = (reason==='win') ? 'ชนะแล้ว! 🎉' : 'จบเกม';
-      if(endSub) endSub.textContent = `score ${score} • acc ${accPct}% • miss ${missTotal} • reason=${reason}`;
+      if(endSub) endSub.textContent = `score ${score} • acc ${accPct}% • miss ${missTotal} • reason=${reason}${sum.xpGain?` • +XP ${sum.xpGain}`:''}`;
       if(endGrade) endGrade.textContent = grade;
       if(endScore) endScore.textContent = String(score);
       if(endMiss) endMiss.textContent = String(missTotal);
@@ -720,6 +752,7 @@ export async function boot(cfg){
 
     const id = String(idSeq++);
     const born = nowMs();
+
     const t = { id, type, emoji, ttl, born, el };
     targets.set(id, t);
 
@@ -740,57 +773,55 @@ export async function boot(cfg){
     try{ t.el.remove(); }catch(e){}
   }
 
-  function centerOfEl(el){
-    const r = el.getBoundingClientRect();
-    return { x: r.left + r.width/2, y: r.top + r.height/2 };
-  }
-
   function hitTarget(id){
     const t = targets.get(id);
     if(!t || !playing) return;
 
     shots++;
     const type = t.type;
-    const c = centerOfEl(t.el);
 
-    fxBurst(c.x,c.y);
+    // use current rect for FX coords (safe even when moved)
+    const br = t.el.getBoundingClientRect();
+    const x = br.left + br.width/2;
+    const y = br.top + br.height/2;
+
+    fxBurst(x,y);
 
     if(type === 'good'){
       hits++;
       goodHitCount++;
       combo++;
       bestCombo = Math.max(bestCombo, combo);
-      const add = 12 + Math.min(8, combo);
-      score += add;
-      fxFloatText(c.x,c.y,`+${add}`,false);
+      score += 12 + Math.min(8, combo);
+      fxFloatText(x,y,`+${12 + Math.min(8, combo)}`,false);
     }else if(type === 'junk'){
       hits++;
       missTotal++;
       missJunkHit++;
       combo = 0;
       score = Math.max(0, score - 8);
-      fxFloatText(c.x,c.y,'-8',true);
+      fxFloatText(x,y,'-8',true);
     }else if(type === 'bonus'){
       hits++;
       score += 25;
-      fxFloatText(c.x,c.y,'+25',false);
+      fxFloatText(x,y,'+25',false);
       mini.name = 'BONUS ⚡';
       mini.t = 6;
     }else if(type === 'shield'){
       hits++;
-      shield = Math.min(9, shield + 1);
       score += 6;
-      fxFloatText(c.x,c.y,'+shield',false);
+      shield = Math.min(9, shield + 1);
+      fxFloatText(x,y,'+shield',false);
     }else if(type === 'bossweak'){
       hits++;
       if(bossShieldHp > 0){
         bossShieldHp--;
         score += 8;
-        fxFloatText(c.x,c.y,'🛡️',false);
+        fxFloatText(x,y,'🛡️',false);
       }else{
         bossHp = Math.max(0, bossHp - 1);
         score += 10;
-        fxFloatText(c.x,c.y,'🎯',false);
+        fxFloatText(x,y,'🎯',false);
       }
       setBossHpUI();
       if(bossHp <= 0){
@@ -871,8 +902,8 @@ export async function boot(cfg){
           missTotal++;
           missGoodExpired++;
           combo = 0;
-          const c = centerOfEl(obj.el);
-          fxFloatText(c.x, c.y, 'ช้า!', true);
+          const r = obj.el.getBoundingClientRect();
+          fxFloatText(r.left + r.width/2, r.top + r.height/2, 'ช้า!', true);
         }
         removeTarget(id);
       }
@@ -890,8 +921,10 @@ export async function boot(cfg){
 
     let best=null, bestD=Infinity;
     for(const [id,t] of targets){
-      const c = centerOfEl(t.el);
-      const d = dist2(cx,cy,c.x,c.y);
+      const br = t.el.getBoundingClientRect();
+      const tx = br.left + br.width/2;
+      const ty = br.top  + br.height/2;
+      const d = dist2(cx,cy,tx,ty);
       if(d < bestD){
         bestD = d;
         best = id;
