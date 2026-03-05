@@ -1,7 +1,7 @@
 <!-- === /herohealth/hub.html ===
 HeroHealth — Hub (3 Zones) — PRODUCTION
-PATCH v20260306-HUB-GOODJUNK-LAUNCHERFIX
-✅ FIX: GoodJunk card -> /herohealth/goodjunk-launcher.html (single entry for all modes)
+PATCH v20260305e-HUB-GOODJUNK-LAUNCHERFIX
+✅ GoodJunk card -> /herohealth/goodjunk-launcher.html (single entry for all modes)
 ✅ Hygiene: 6 games (Handwash + MaskCough + Brush + Bath + Clean Object + Germ Detective)
 ✅ Pass-through: hub/run/diff/time/seed/studyId/phase/conditionGroup/log/view/pid/api/ai/debug
 -->
@@ -174,4 +174,343 @@ PATCH v20260306-HUB-GOODJUNK-LAUNCHERFIX
       overflow:hidden;
       margin-top:10px;
     }
-    .fill{ height:100%; width:0%; background: rgba(34,197,94,.85); transition: width .14s ease;
+    .fill{ height:100%; width:0%; background: rgba(34,197,94,.85); transition: width .14s ease; }
+    .fill.cyan{ background: rgba(34,211,238,.85); }
+    .fill.violet{ background: rgba(167,139,250,.85); }
+    .fill.warn{ background: rgba(245,158,11,.88); }
+
+    .grid{ display:grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px; margin-top: 2px; }
+    @media (max-width: 1100px){ .grid{ grid-template-columns: repeat(2, minmax(0,1fr)); } }
+    @media (max-width: 560px){ .grid{ grid-template-columns: 1fr; } }
+
+    .game{
+      border:1px solid var(--stroke);
+      background: rgba(2,6,23,.46);
+      border-radius: 18px;
+      padding: 14px;
+      box-shadow: 0 12px 40px rgba(0,0,0,.22);
+      position:relative;
+      overflow:hidden;
+      cursor:pointer;
+      user-select:none;
+      transition: transform .12s ease, background .12s ease, border-color .12s ease;
+      min-height: 132px;
+    }
+    .game:hover{ border-color: rgba(255,255,255,.22); background: rgba(255,255,255,.06); }
+    .game:active{ transform: translateY(1px); }
+    .gameTop{ display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
+    .gameTitle{ font-weight:900; letter-spacing:.2px; margin:0; font-size: 15px; }
+    .gameSub{ margin:6px 0 0 0; color:var(--muted); font-size: 12px; line-height:1.35; }
+    .tag{
+      border:1px solid rgba(255,255,255,.14);
+      background: rgba(255,255,255,.06);
+      border-radius: 999px;
+      padding: 7px 10px;
+      font-size: 11px;
+      color: var(--text);
+      font-weight:900;
+      white-space:nowrap;
+    }
+
+    .toast{
+      position: fixed;
+      left: 50%;
+      bottom: calc(18px + var(--sab));
+      transform: translateX(-50%);
+      background: rgba(2,6,23,.85);
+      border:1px solid rgba(148,163,184,.22);
+      color:var(--text);
+      padding:10px 12px;
+      border-radius: 14px;
+      box-shadow: 0 12px 40px rgba(0,0,0,.35);
+      backdrop-filter: blur(8px);
+      z-index: 9999;
+      max-width: 92vw;
+      font-size: 13px;
+      opacity: 0;
+      transition: opacity .18s ease;
+      pointer-events:none;
+    }
+    .toast.show{ opacity: 1; }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <div class="top">
+      <div class="brand">
+        <h1 class="title">🏰 HeroHealth — Hub</h1>
+        <p class="subtitle">เลือกเล่นเกมไหนก่อนก็ได้ • Daily Gate แยกตามโซน วันละ 1 ครั้ง/โซน</p>
+      </div>
+      <div class="pillrow" id="pillrow"></div>
+    </div>
+
+    <section class="zonebar" aria-label="Zone status">
+      <div class="zonebarHead">
+        <div class="left">
+          <div class="bigPill" id="pillNutrition"><span class="dot"></span><span id="tNutrition">🥗 Nutrition: —</span></div>
+          <div class="bigPill" id="pillHygiene"><span class="dot"></span><span id="tHygiene">🧼 Hygiene: —</span></div>
+          <div class="bigPill" id="pillFitness"><span class="dot"></span><span id="tFitness">🏃 Fitness: —</span></div>
+          <span class="pill"><b>today</b>: <span id="todayText">—</span></span>
+        </div>
+        <div class="actions">
+          <div class="btn ghost" id="btnHow">❓ วิธีผ่าน Daily Gate</div>
+          <div class="btn warn" id="btnResetToday">♻️ Reset today</div>
+        </div>
+      </div>
+
+      <div class="zonebarBody">
+        <div class="zoneCard">
+          <div class="glow"></div>
+          <h3>🥗 Nutrition</h3>
+          <p>GoodJunk / Groups / Hydration / Plate</p>
+          <div class="miniStatus">
+            <span class="chip"><b>Gate</b>: <span id="cNutGate">—</span></span>
+            <span class="chip"><b>Key</b>: HHA_ZONE_DONE::nutrition</span>
+          </div>
+          <div class="meter"><div class="fill" id="mNut"></div></div>
+        </div>
+
+        <div class="zoneCard">
+          <div class="glow cyan"></div>
+          <h3>🧼 Hygiene</h3>
+          <p>Handwash / MaskCough / Brush / Bath / Clean Object / Germ Detective</p>
+          <div class="miniStatus">
+            <span class="chip"><b>Gate</b>: <span id="cHygGate">—</span></span>
+            <span class="chip"><b>Key</b>: HHA_ZONE_DONE::hygiene</span>
+          </div>
+          <div class="meter"><div class="fill cyan" id="mHyg"></div></div>
+        </div>
+
+        <div class="zoneCard">
+          <div class="glow violet"></div>
+          <h3>🏃 Fitness</h3>
+          <p>Shadow / Rhythm / Jump-Duck / Balance / Planner</p>
+          <div class="miniStatus">
+            <span class="chip"><b>Gate</b>: <span id="cFitGate">—</span></span>
+            <span class="chip"><b>Key</b>: HHA_ZONE_DONE::fitness</span>
+          </div>
+          <div class="meter"><div class="fill violet" id="mFit"></div></div>
+        </div>
+      </div>
+    </section>
+
+    <section aria-label="Game list">
+      <div class="pill" style="width:fit-content;"><b>Nutrition games</b> (root launchers)</div>
+      <div class="grid">
+        <!-- ✅ FIXED: GoodJunk entry -> goodjunk-launcher.html -->
+        <div class="game" data-href="./goodjunk-launcher.html" data-zone="nutrition">
+          <div class="gameTop"><h3 class="gameTitle">🍭 GoodJunk VR</h3><span class="tag">Launcher</span></div>
+          <p class="gameSub">ยิง/แตะอาหารดี-ขยะ • เลือกโหมด/ห้อง/ระดับ</p>
+        </div>
+
+        <div class="game" data-href="./groups-vr.html" data-zone="nutrition">
+          <div class="gameTop"><h3 class="gameTitle">🧩 Food Groups VR</h3><span class="tag">Launcher</span></div>
+          <p class="gameSub">แยกหมวดอาหาร • เหมาะป.5</p>
+        </div>
+        <div class="game" data-href="./hydration-vr.html" data-zone="nutrition">
+          <div class="gameTop"><h3 class="gameTitle">💧 Hydration VR</h3><span class="tag">Launcher</span></div>
+          <p class="gameSub">ดื่มน้ำให้พอดี • เก็บสถิติ</p>
+        </div>
+        <div class="game" data-href="./plate-vr.html" data-zone="nutrition">
+          <div class="gameTop"><h3 class="gameTitle">🍽️ Plate VR</h3><span class="tag">Launcher</span></div>
+          <p class="gameSub">จัดจาน 5 หมู่</p>
+        </div>
+      </div>
+
+      <div class="pill" style="margin-top:10px; width:fit-content;"><b>Hygiene games</b> (root launchers)</div>
+      <div class="grid">
+        <div class="game" data-href="./handwash-vr.html" data-zone="hygiene">
+          <div class="gameTop"><h3 class="gameTitle">🧴 HandwashVR</h3><span class="tag">Launcher</span></div>
+          <p class="gameSub">ล้างมือถูกขั้นตอน • timing • คราบ/เชื้อ</p>
+        </div>
+        <div class="game" data-href="./maskcough-vr.html" data-zone="hygiene">
+          <div class="gameTop"><h3 class="gameTitle">😷 Mask & Cough</h3><span class="tag">Launcher</span></div>
+          <p class="gameSub">กันละอองไอ/จาม • โล่ • fever/waves</p>
+        </div>
+        <div class="game" data-href="./brush-vr.html" data-zone="hygiene">
+          <div class="gameTop"><h3 class="gameTitle">🪥 BrushVR</h3><span class="tag">Launcher</span></div>
+          <p class="gameSub">A/B/C + evidence + analyze quiz + AI prediction</p>
+        </div>
+        <div class="game" data-href="./bath-vr.html" data-zone="hygiene">
+          <div class="gameTop"><h3 class="gameTitle">🛁 BathVR</h3><span class="tag">Launcher</span></div>
+          <p class="gameSub">Hidden Dirt Quest • ล้างคราบให้ครบ • summary</p>
+        </div>
+
+        <div class="game" data-href="./clean-vr.html" data-zone="hygiene">
+          <div class="gameTop"><h3 class="gameTitle">🧽 Clean Object</h3><span class="tag">Launcher</span></div>
+          <p class="gameSub">แยก “สะอาด/ไม่สะอาด” • ตรวจหลักฐาน • ตัดสินใจ</p>
+        </div>
+        <div class="game" data-href="./germ-detective.html" data-zone="hygiene">
+          <div class="gameTop"><h3 class="gameTitle">🔎 Germ Detective</h3><span class="tag">Run</span></div>
+          <p class="gameSub">UV/Swab/Camera • หาแหล่งเชื้อ • วิเคราะห์</p>
+        </div>
+      </div>
+
+      <div class="pill" style="margin-top:10px; width:fit-content;"><b>Fitness games</b> (/fitness)</div>
+      <div class="grid">
+        <div class="game" data-href="../fitness/shadow-breaker.html" data-zone="fitness">
+          <div class="gameTop"><h3 class="gameTitle">🕶️ Shadow Breaker</h3><span class="tag">Run</span></div>
+          <p class="gameSub">reflex</p>
+        </div>
+        <div class="game" data-href="../fitness/rhythm-boxer.html" data-zone="fitness">
+          <div class="gameTop"><h3 class="gameTitle">🥊 Rhythm Boxer</h3><span class="tag">Run</span></div>
+          <p class="gameSub">timing</p>
+        </div>
+        <div class="game" data-href="../fitness/jump-duck.html" data-zone="fitness">
+          <div class="gameTop"><h3 class="gameTitle">🦘 Jump-Duck</h3><span class="tag">Run</span></div>
+          <p class="gameSub">agility</p>
+        </div>
+        <div class="game" data-href="../fitness/balance-hold.html" data-zone="fitness">
+          <div class="gameTop"><h3 class="gameTitle">⚖️ Balance Hold</h3><span class="tag">Run</span></div>
+          <p class="gameSub">stability</p>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  'use strict';
+
+  function pageUrl(){ return location.href.split('#')[0]; }
+  function parseQS(){ try{ return new URL(pageUrl()).searchParams; }catch{ return new URLSearchParams(); } }
+  const QS = parseQS();
+
+  const PASS_KEYS = ['pid','run','diff','time','seed','studyId','phase','conditionGroup','log','view','api','ai','debug'];
+
+  function ymdLocal(){
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth()+1).padStart(2,'0');
+    const day = String(d.getDate()).padStart(2,'0');
+    return `${y}-${m}-${day}`;
+  }
+
+  function zoneDoneKey(zone){ return `HHA_ZONE_DONE::${zone}::${ymdLocal()}`; }
+  function isZoneDoneToday(zone){
+    try{ return localStorage.getItem(zoneDoneKey(zone)) === '1'; }catch(_){ return false; }
+  }
+  function clearZoneToday(zone){
+    try{ localStorage.removeItem(zoneDoneKey(zone)); }catch(_){}
+  }
+
+  const toastEl = document.getElementById('toast');
+  let toastTimer=null;
+  function toast(msg){
+    clearTimeout(toastTimer);
+    toastEl.textContent = msg;
+    toastEl.classList.add('show');
+    toastTimer = setTimeout(()=> toastEl.classList.remove('show'), 1400);
+  }
+
+  function setPill(el, done){
+    if(!el) return;
+    el.classList.remove('ok','bad');
+    el.classList.add(done ? 'ok' : 'bad');
+  }
+  function setText(id, v){
+    const el = document.getElementById(id);
+    if(el) el.textContent = v;
+  }
+
+  function syncBars(){
+    const today = ymdLocal();
+    setText('todayText', today);
+
+    const nut = isZoneDoneToday('nutrition');
+    const hyg = isZoneDoneToday('hygiene');
+    const fit = isZoneDoneToday('fitness');
+
+    setPill(document.getElementById('pillNutrition'), nut);
+    setPill(document.getElementById('pillHygiene'), hyg);
+    setPill(document.getElementById('pillFitness'), fit);
+
+    setText('tNutrition', `🥗 Nutrition: ${nut ? 'DONE TODAY' : 'NOT DONE'}`);
+    setText('tHygiene',  `🧼 Hygiene: ${hyg ? 'DONE TODAY' : 'NOT DONE'}`);
+    setText('tFitness',  `🏃 Fitness: ${fit ? 'DONE TODAY' : 'NOT DONE'}`);
+
+    setText('cNutGate', nut ? 'DONE TODAY' : 'NEED GATE');
+    setText('cHygGate', hyg ? 'DONE TODAY' : 'NEED GATE');
+    setText('cFitGate', fit ? 'DONE TODAY' : 'NEED GATE');
+
+    const mNut = document.getElementById('mNut');
+    const mHyg = document.getElementById('mHyg');
+    const mFit = document.getElementById('mFit');
+    if(mNut){ mNut.style.width = (nut ? 100 : 35) + '%'; mNut.classList.toggle('warn', !nut); }
+    if(mHyg){ mHyg.style.width = (hyg ? 100 : 35) + '%'; mHyg.classList.toggle('warn', !hyg); }
+    if(mFit){ mFit.style.width = (fit ? 100 : 35) + '%'; mFit.classList.toggle('warn', !fit); }
+  }
+
+  function applyPassThrough(href){
+    const u = new URL(href, location.href);
+    for (const k of PASS_KEYS){
+      if (!u.searchParams.has(k) && QS.has(k)){
+        const v = QS.get(k);
+        if (v != null && String(v).trim() !== '') u.searchParams.set(k, v);
+      }
+    }
+    if (!u.searchParams.has('hub') || String(u.searchParams.get('hub')||'').trim()===''){
+      u.searchParams.set('hub', location.href);
+    }
+    return u.toString();
+  }
+
+  function renderPills(){
+    const pills = [
+      ['pid', QS.get('pid')],
+      ['run', QS.get('run')],
+      ['diff', QS.get('diff')],
+      ['time', QS.get('time')],
+      ['seed', QS.get('seed')],
+      ['studyId', QS.get('studyId')],
+      ['phase', QS.get('phase')],
+      ['conditionGroup', QS.get('conditionGroup')],
+      ['log', QS.get('log')],
+      ['view', QS.get('view')],
+      ['api', QS.get('api')],
+      ['ai', QS.get('ai')],
+      ['debug', QS.get('debug')],
+    ].filter(x => x[1] != null && String(x[1]).trim() !== '');
+
+    const el = document.getElementById('pillrow');
+    el.innerHTML = (pills.length ? pills : [['ctx','none']])
+      .slice(0, 12)
+      .map(([k,v]) => `<span class="pill"><b>${k}</b>: ${String(v).replace(/</g,'&lt;')}</span>`)
+      .join('');
+  }
+
+  function bindGames(){
+    const cards = document.querySelectorAll('.game[data-href]');
+    cards.forEach(card=>{
+      card.addEventListener('click', ()=>{
+        const href = card.getAttribute('data-href');
+        if(!href) return;
+        location.href = applyPassThrough(href);
+      }, { passive:true });
+    });
+  }
+
+  function bindReset(){
+    const btnR = document.getElementById('btnResetToday');
+    const btnH = document.getElementById('btnHow');
+    btnR && btnR.addEventListener('click', ()=>{
+      clearZoneToday('nutrition'); clearZoneToday('hygiene'); clearZoneToday('fitness');
+      syncBars();
+      toast('Reset today แล้ว (ล้างทั้ง 3 โซน)');
+    });
+    btnH && btnH.addEventListener('click', ()=>{
+      toast('Daily Gate: จบเกม/summary ของโซนนั้น วันละ 1 ครั้ง/โซน');
+    });
+  }
+
+  renderPills();
+  syncBars();
+  bindGames();
+  bindReset();
+})();
+</script>
+</body>
+</html>
