@@ -1,6 +1,6 @@
 <!-- === /herohealth/goodjunk-launcher.html ===
 HeroHealth • GoodJunk Launcher (Mode + Diff + AutoDiff + Room + Nick)
-FULL v20260304e-LAUNCHER-AUTODIFF-PID
+FULL v20260305a-LAUNCHER-AUTODIFF-PID
 -->
 <!doctype html>
 <html lang="th">
@@ -37,11 +37,7 @@ FULL v20260304e-LAUNCHER-AUTODIFF-PID
     a{color:inherit; text-decoration:none;}
 
     .wrap{max-width:980px; margin:0 auto; display:flex; flex-direction:column; gap:12px;}
-    .top{
-      display:flex; align-items:flex-start; justify-content:space-between; gap:10px;
-      flex-wrap:wrap;
-      padding: 4px 2px 0;
-    }
+    .top{display:flex; align-items:flex-start; justify-content:space-between; gap:10px; flex-wrap:wrap; padding: 4px 2px 0;}
     .brand{display:flex; gap:10px; align-items:center;}
     .logo{
       width:46px; height:46px; border-radius:16px;
@@ -75,7 +71,6 @@ FULL v20260304e-LAUNCHER-AUTODIFF-PID
       box-shadow: 0 22px 80px rgba(0,0,0,.45);
       overflow:hidden;
     }
-
     .grid{display:grid; grid-template-columns: 1.1fr .9fr; gap:12px;}
     @media (max-width: 840px){ .grid{grid-template-columns:1fr;} }
 
@@ -88,11 +83,7 @@ FULL v20260304e-LAUNCHER-AUTODIFF-PID
     .panel h2{margin:0 0 10px 0; font-size:14px; letter-spacing:.2px}
     .hint{color:var(--muted); font-weight:900; font-size:12px; margin-top:6px; line-height:1.35;}
 
-    .btns{
-      display:grid;
-      grid-template-columns:repeat(2, minmax(0,1fr));
-      gap:10px;
-    }
+    .btns{display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:10px;}
     @media (max-width: 520px){ .btns{grid-template-columns:1fr;} }
 
     button{
@@ -109,10 +100,7 @@ FULL v20260304e-LAUNCHER-AUTODIFF-PID
       transition: transform .12s ease, border-color .12s ease, background .12s ease, opacity .12s ease;
     }
     button:active{transform: translateY(1px);}
-    button.sel{
-      border-color: rgba(34,197,94,.34);
-      background: rgba(34,197,94,.14);
-    }
+    button.sel{border-color: rgba(34,197,94,.34); background: rgba(34,197,94,.14);}
     .small{opacity:.80; font-size:11px; font-weight:900; margin-top:3px; line-height:1.25;}
     .tag{
       display:inline-flex; align-items:center; gap:6px;
@@ -288,7 +276,9 @@ FULL v20260304e-LAUNCHER-AUTODIFF-PID
   const PASS_KEYS = [
     'pid','run','diff','time','seed','studyId','phase','conditionGroup','log','view','api','ai','debug',
     'planSeq','planDay','planSlot','planMode','planSlots','planIndex','autoNext',
-    'plannedGame','finalGame','zone','cdnext','grade'
+    'plannedGame','finalGame','zone','cdnext','grade',
+    // 👇 เพิ่มให้ครบโหมด
+    'battle','room','autostart','forfeit','mode','wait','pro'
   ];
 
   const $ = (id)=> document.getElementById(id);
@@ -332,12 +322,11 @@ FULL v20260304e-LAUNCHER-AUTODIFF-PID
     try{
       pid = String(pid||'anon').trim() || 'anon';
       const k = `HHA_LAST_SUMMARY:goodjunk:${pid}`;
-      const raw = lsGet(k) || ''; // ใช้ key เฉพาะ pid ก่อน
+      const raw = lsGet(k) || '';
       if(raw){
         const j = JSON.parse(raw);
         if(j && String(j.pid||'') === pid) return j;
       }
-      // fallback: global (แต่ต้อง pid ตรง)
       const raw2 = lsGet('HHA_LAST_SUMMARY') || '';
       if(!raw2) return null;
       const j2 = JSON.parse(raw2);
@@ -359,28 +348,24 @@ FULL v20260304e-LAUNCHER-AUTODIFF-PID
       return { diff: diffPrev || 'normal', why:'ออกกลางคัน (background) → คงระดับเดิม' };
     }
 
-    // แพ้หนัก / ท้อ -> ลด
     const hardLose = (reason === 'miss-limit') || (acc <= 45) || (miss >= 10);
     if(hardLose){
       if(diffPrev === 'hard') return { diff:'normal', why:`ยากไป (acc ${acc}%, miss ${miss}) → ลดเป็น normal` };
       return { diff:'easy', why:`ยากไป (acc ${acc}%, miss ${miss}) → ลดเป็น easy` };
     }
 
-    // ชนะสวย -> ขึ้น
     const strongWin = (reason === 'win') && (acc >= 82) && (miss <= 2) && (grade === 'A' || grade === 'S');
     if(strongWin){
       if(diffPrev === 'easy') return { diff:'normal', why:`ชนะสวยมาก (acc ${acc}%, miss ${miss}, ${grade}) → ขึ้นเป็น normal` };
       return { diff:'hard', why:`ชนะสวยมาก (acc ${acc}%, miss ${miss}, ${grade}) → ขึ้นเป็น hard` };
     }
 
-    // ชนะดี -> คงหรือขึ้นเล็กน้อย
     const solidWin = (reason === 'win') && (acc >= 70) && (miss <= 4);
     if(solidWin){
       if(diffPrev === 'easy') return { diff:'normal', why:`ชนะดี (acc ${acc}%, miss ${miss}) → ขึ้นเป็น normal` };
       return { diff: diffPrev || 'normal', why:`ชนะดี (acc ${acc}%, miss ${miss}) → คงระดับ ${diffPrev||'normal'}` };
     }
 
-    // กลาง ๆ -> คง
     return { diff: diffPrev || 'normal', why:`ผลงานกลาง ๆ (acc ${acc}%, miss ${miss}) → คงระดับ` };
   }
 
@@ -437,14 +422,12 @@ FULL v20260304e-LAUNCHER-AUTODIFF-PID
   }
 
   function init(){
-    // pills
     $('pillMode').textContent = state.mode;
     $('pillDiff').textContent = state.diff;
     $('pillView').textContent = state.view;
     $('pillRun').textContent  = state.run;
     $('pillPid').textContent  = state.pid;
 
-    // prefs
     const prefs = loadPrefs();
 
     const modeFromUrl = String(qs('mode','')).trim().toLowerCase();
@@ -461,20 +444,17 @@ FULL v20260304e-LAUNCHER-AUTODIFF-PID
     $('inpRoom').value = roomFromUrl || (prefs?.room || '');
     $('inpTime').value = timeFromUrl || (prefs?.time || state.time || '80');
 
-    // auto selector
     const selAuto = $('selAuto');
-    const autoFromUrl = String(qs('auto','')).trim(); // optional
+    const autoFromUrl = String(qs('auto','')).trim();
     let autoOn = true;
     if(typeof prefs?.auto === 'string') autoOn = (prefs.auto !== '0');
     if(autoFromUrl) autoOn = (autoFromUrl !== '0');
     selAuto.value = autoOn ? '1' : '0';
 
-    // diff selector
     const selDiff = $('selDiff');
     selDiff.value = ['easy','normal','hard'].includes(state.diff) ? state.diff : 'normal';
     $('pillDiff').textContent = selDiff.value;
 
-    // bind mode
     $('btnSolo').onclick   = ()=> setMode('solo');
     $('btnBattle').onclick = ()=> setMode('battle');
     $('btnRace').onclick   = ()=> setMode('race');
@@ -507,11 +487,9 @@ FULL v20260304e-LAUNCHER-AUTODIFF-PID
 
     $('btnStart').onclick = onStart;
 
-    // apply mode UI
     if(!['solo','battle','race','coop'].includes(state.mode)) state.mode='solo';
     setMode(state.mode);
 
-    // apply auto once on load
     applyAutoDiffIfNeeded(true);
   }
 
@@ -526,10 +504,8 @@ FULL v20260304e-LAUNCHER-AUTODIFF-PID
       return;
     }
 
-    // ✅ apply auto right before start (in case pid/history changed)
     applyAutoDiffIfNeeded(false);
 
-    // Build run URL
     const runUrl = new URL('./vr-goodjunk/goodjunk-vr.html', location.href);
 
     runUrl.searchParams.set('mode', state.mode);
@@ -541,20 +517,17 @@ FULL v20260304e-LAUNCHER-AUTODIFF-PID
     runUrl.searchParams.set('nick', nick);
     if(room) runUrl.searchParams.set('room', room);
 
-    // pass-through ctx from hub
     const sp = new URL(location.href).searchParams;
     PASS_KEYS.forEach(k=>{
       const v = sp.get(k);
       if(v!=null && v!=='') runUrl.searchParams.set(k, v);
     });
 
-    // always set hub back
     runUrl.searchParams.set('hub', state.hub || sp.get('hub') || './hub.html');
 
-    // Compatibility flags
     if(state.mode === 'battle'){
       runUrl.searchParams.set('battle','1');
-      runUrl.searchParams.set('wait','1'); // ✅ battle must wait
+      runUrl.searchParams.set('wait','1');
       ['autostart','forfeit'].forEach(k=>{
         const v = sp.get(k);
         if(v!=null && v!=='') runUrl.searchParams.set(k, v);
@@ -568,7 +541,6 @@ FULL v20260304e-LAUNCHER-AUTODIFF-PID
       runUrl.searchParams.set('wait','1');
     }
 
-    // let user override auto in URL (optional)
     runUrl.searchParams.set('auto', String($('selAuto').value || '1'));
 
     savePrefs(state);
