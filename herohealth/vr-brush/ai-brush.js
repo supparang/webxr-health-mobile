@@ -1,6 +1,6 @@
 // === /herohealth/vr-brush/ai-brush.js ===
 // Optional AI tip pill (minimal)
-// FULL v20260304-AI-BRUSH
+// FULL v20260305-AI-BRUSH
 'use strict';
 
 export function bootBrushAI(){
