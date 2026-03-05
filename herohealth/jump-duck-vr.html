@@ -1,268 +1,30 @@
-<!-- === /fitness/jump-duck.html ===
-Jump-Duck — DOM MVP (Grade 5 friendly) + Planner Bridge
-FULL v20260303-JD-MVP
+<!-- === /herohealth/jump-duck-vr.html ===
+HeroHealth Launcher — Jump-Duck (to /fitness/jump-duck.html)
+Uses: /herohealth/launch/launcher-core.js
 -->
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-  <title>VR Fitness — Jump-Duck</title>
+  <title>HeroHealth — Jump-Duck (Launcher)</title>
   <meta name="color-scheme" content="dark light"/>
-  <style>
-    :root{ --bg:#050814; --panel:rgba(255,255,255,.08); --line:rgba(255,255,255,.14); --txt:#e8eefc; }
-    html,body{ height:100%; margin:0; background:var(--bg); color:var(--txt); font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial; }
-    #hhHud{ position:fixed; left:10px; right:10px; top:10px; z-index:99; display:flex; gap:8px; align-items:center; justify-content:space-between; pointer-events:none;}
-    .hhPill{ pointer-events:auto; border:1px solid var(--line); background:rgba(0,0,0,.55); padding:8px 10px; border-radius:999px; font-weight:900; backdrop-filter: blur(6px); max-width:70vw; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
-    .hhBtn{ pointer-events:auto; border:1px solid var(--line); background:rgba(255,255,255,.08); color:var(--txt); padding:8px 12px; border-radius:14px; font-weight:1000; cursor:pointer;}
-    .wrap{ min-height:100%; display:grid; grid-template-rows:auto 1fr auto; gap:12px; padding:64px 12px 14px; box-sizing:border-box;}
-    .panel{ border:1px solid var(--line); background:var(--panel); border-radius:18px; padding:12px; }
-    .row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:space-between;}
-    .btn{ border:1px solid var(--line); background:rgba(255,255,255,.10); color:var(--txt); padding:10px 12px; border-radius:14px; font-weight:900; cursor:pointer;}
-    .btn.primary{ background:rgba(255,255,255,.16); }
-    .hud{ display:flex; gap:8px; flex-wrap:wrap; }
-    .chip{ border:1px solid var(--line); background:rgba(0,0,0,.35); padding:6px 10px; border-radius:999px; font-weight:900;}
-    .stage{ position:relative; height:min(62vh,520px); border-radius:18px; overflow:hidden; border:1px solid var(--line); background:linear-gradient(180deg, rgba(255,255,255,.05), rgba(0,0,0,.2)); }
-    .laneLine{ position:absolute; left:0; right:0; top:78%; height:2px; background:rgba(255,255,255,.18); }
-    .player{ position:absolute; left:50%; top:82%; transform:translate(-50%,-50%); width:46px; height:46px; border-radius:14px; background:rgba(255,255,255,.82); box-shadow:0 16px 40px rgba(0,0,0,.35); display:grid; place-items:center; color:#0a0f1f; font-weight:1000; }
-    .obs{ position:absolute; width:46px; height:46px; border-radius:14px; display:grid; place-items:center; font-weight:1000; }
-    .obs.jump{ background:rgba(120,255,180,.92); color:#072014; }
-    .obs.duck{ background:rgba(255,220,120,.92); color:#2a1a05; }
-    .obs.bad{ background:rgba(255,120,120,.92); color:#2a0505; }
-    .hint{ opacity:.88; line-height:1.45; }
-    .big{ font-size:20px; font-weight:1000; }
-    .hidden{ display:none !important; }
-    .touchRow{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-    .touch{ height:64px; border-radius:18px; border:1px solid var(--line); background:rgba(0,0,0,.35); display:grid; place-items:center; font-weight:1000; user-select:none; }
-  </style>
+  <link rel="icon" href="./favicon.ico"/>
 </head>
 <body>
-  <div id="hhHud">
-    <div class="hhPill">Jump-Duck 🦘 <span style="opacity:.85;font-weight:800;">· day <b id="hhDay">—</b> · slot <b id="hhSlot">—</b></span></div>
-    <button class="hhBtn" id="hhBack" type="button">⬅ กลับ</button>
-  </div>
+<script type="module">
+  import { hhGo } from './launch/launcher-core.js';
 
-  <div class="wrap">
-    <div class="panel">
-      <div class="row">
-        <div>
-          <div class="big">Jump-Duck</div>
-          <div class="hint">แตะซ้าย = JUMP · แตะขวา = DUCK · (คีย์บอร์ด: <b>A</b>=Jump, <b>D</b>=Duck)</div>
-        </div>
-        <div class="hud">
-          <span class="chip">Time: <b id="t">0.0</b></span>
-          <span class="chip">Score: <b id="score">0</b></span>
-          <span class="chip">Combo: <b id="combo">0</b></span>
-          <span class="chip">Miss: <b id="miss">0</b></span>
-        </div>
-      </div>
-    </div>
-
-    <div class="stage panel" id="stage" aria-label="JumpDuck stage">
-      <div class="laneLine"></div>
-      <div class="player" id="player">🙂</div>
-    </div>
-
-    <div class="panel">
-      <div class="row">
-        <button class="btn primary" id="btnStart">▶ เริ่ม</button>
-        <button class="btn" id="btnStop">⏹ จบก่อนเวลา</button>
-        <button class="btn" id="btnAgain">🔁 เล่นอีกครั้ง</button>
-      </div>
-      <div class="touchRow" style="margin-top:10px;">
-        <div class="touch" id="touchJump">⬅ JUMP</div>
-        <div class="touch" id="touchDuck">DUCK ➡</div>
-      </div>
-      <div class="hint" style="margin-top:10px;">หลักคิด (ป.5): สลับ “ตัดสินใจเร็ว” — เกมจะส่งเป้า 2 แบบ: ต้อง Jump / ต้อง Duck และมีหลอกนิด ๆ ตอนท้ายเพื่อความท้าทาย</div>
-    </div>
-  </div>
-
-<script>
-(function(){
-  const qs = new URL(location.href).searchParams;
-  const hub = (qs.get('hub') || '').trim();
-  const day = qs.get('planDay') || '—';
-  const slot = qs.get('planSlot') || '—';
-  const diff = (qs.get('diff') || 'normal').toLowerCase();
-  const timeSec = Math.max(20, Math.min(240, Number(qs.get('time')||60) || 60));
-  const pid = (qs.get('pid') || 'anon').trim();
-
-  const elDay = document.getElementById('hhDay');
-  const elSlot = document.getElementById('hhSlot');
-  if(elDay) elDay.textContent = day;
-  if(elSlot) elSlot.textContent = slot;
-
-  document.getElementById('hhBack').addEventListener('click', ()=>{
-    if(hub) location.href = hub; else history.back();
+  // ✅ target คือเกมจริง
+  // note: target เป็น absolute จาก root ชัวร์สุด (github pages)
+  hhGo('../fitness/jump-duck.html', {
+    defaults: {
+      mode: 'training',
+      diff: 'normal',
+      duration: '60'
+      // pro: '1'  // ถ้าจะเปิด PRO เป็นค่าเริ่มต้นใน training ค่อยใส่
+    }
   });
-
-  window.HH_END_GAME = window.HH_END_GAME || function(reason, payload){
-    reason = String(reason||'end');
-    payload = payload || {};
-    if(hub){
-      try{
-        const u = new URL(hub, location.href);
-        u.searchParams.set('reason', reason);
-        if(payload.score!=null) u.searchParams.set('score', String(payload.score));
-        if(payload.acc!=null) u.searchParams.set('acc', String(payload.acc));
-        if(payload.miss!=null) u.searchParams.set('miss', String(payload.miss));
-        location.href = u.toString();
-        return;
-      }catch(_){}
-      location.href = hub;
-      return;
-    }
-    history.back();
-  };
-
-  const stage = document.getElementById('stage');
-  const tEl = document.getElementById('t');
-  const scoreEl = document.getElementById('score');
-  const comboEl = document.getElementById('combo');
-  const missEl  = document.getElementById('miss');
-
-  const btnStart = document.getElementById('btnStart');
-  const btnStop  = document.getElementById('btnStop');
-  const btnAgain = document.getElementById('btnAgain');
-  const touchJump = document.getElementById('touchJump');
-  const touchDuck = document.getElementById('touchDuck');
-
-  const rng = (seed)=>{ let x=(seed|0)||1234567; return ()=>{ x^=x<<13; x|=0; x^=x>>>17; x|=0; x^=x<<5; x|=0; return ((x>>>0)/4294967296); }; };
-  const R = rng((Number(qs.get('seed')||Date.now())|0) ^ (pid.length<<8));
-
-  const S = { run:false, t0:0, tEnd:0, last:0, score:0, combo:0, miss:0, need:null, active:null, spawnAt:0 };
-
-  function diffScale(){
-    if(diff==='easy') return 0.88;
-    if(diff==='hard') return 1.15;
-    return 1.0;
-  }
-
-  function setHUD(now){
-    const t = (now - S.t0)/1000;
-    tEl.textContent = t.toFixed(1);
-    scoreEl.textContent = String(Math.round(S.score));
-    comboEl.textContent = String(S.combo);
-    missEl.textContent = String(S.miss);
-  }
-
-  function clearObs(){
-    if(S.active && S.active.el && S.active.el.parentNode) S.active.el.parentNode.removeChild(S.active.el);
-    S.active = null;
-    S.need = null;
-  }
-
-  function spawn(){
-    clearObs();
-    const el = document.createElement('div');
-    el.className = 'obs';
-    const p = R();
-    // Two actions + a small chance of "bad" trap near end
-    let kind = (p < 0.5) ? 'jump' : 'duck';
-    if(R() < (diff==='hard'?0.18:0.10) && (nowMs() - S.t0) > (timeSec*1000*0.55)) kind = 'bad';
-
-    el.classList.add(kind);
-    el.textContent = (kind==='jump') ? 'J' : (kind==='duck') ? 'D' : 'X';
-
-    // spawn top random x
-    const x = 10 + Math.floor(R()*80);
-    el.style.left = x + '%';
-    el.style.top = '-10%';
-
-    stage.appendChild(el);
-    S.active = { el, kind, y:-10, x };
-    S.need = kind;
-  }
-
-  function nowMs(){ return (performance && performance.now) ? performance.now() : Date.now(); }
-
-  function step(now){
-    if(!S.run) return;
-    if(now >= S.tEnd){
-      end('timeup');
-      return;
-    }
-    const dt = now - S.last; S.last = now;
-
-    if(!S.active){
-      spawn();
-    }else{
-      // fall speed
-      const sp = (diff==='hard'? 0.12 : diff==='easy'? 0.095 : 0.105) * diffScale();
-      S.active.y += dt * sp; // percent
-      S.active.el.style.top = S.active.y + '%';
-
-      // decision line around 78%
-      if(S.active.y > 82){
-        // missed
-        S.miss += 1;
-        S.combo = 0;
-        S.score = Math.max(0, S.score - 12);
-        clearObs();
-      }
-    }
-
-    setHUD(now);
-    requestAnimationFrame(step);
-  }
-
-  function act(a){
-    if(!S.run) return;
-    const need = S.need;
-    if(!need){
-      S.miss += 1; S.combo = 0;
-      return;
-    }
-    if(need==='bad'){
-      // trap: any action is wrong
-      S.miss += 1; S.combo = 0;
-      S.score = Math.max(0, S.score - 20);
-      clearObs();
-      return;
-    }
-    if(a===need){
-      S.combo += 1;
-      const bonus = Math.min(60, Math.floor(S.combo/8)*6);
-      S.score += 40 + bonus;
-      clearObs();
-    }else{
-      S.miss += 1;
-      S.combo = 0;
-      S.score = Math.max(0, S.score - 8);
-      clearObs();
-    }
-  }
-
-  function start(){
-    S.run = true;
-    S.t0 = nowMs();
-    S.last = S.t0;
-    S.tEnd = S.t0 + timeSec*1000;
-    S.score = 0; S.combo = 0; S.miss = 0;
-    clearObs();
-    requestAnimationFrame(step);
-  }
-
-  function end(reason){
-    S.run = false;
-    clearObs();
-    const acc = Math.max(0, 1 - (S.miss / Math.max(1, Math.round(S.score/40))));
-    window.HH_END_GAME(reason, { score: Math.round(S.score), acc: (acc*100).toFixed(1), miss: S.miss });
-  }
-
-  btnStart.addEventListener('click', start);
-  btnStop.addEventListener('click', ()=> end('stop'));
-  btnAgain.addEventListener('click', start);
-
-  touchJump.addEventListener('pointerdown', ()=> act('jump'));
-  touchDuck.addEventListener('pointerdown', ()=> act('duck'));
-
-  window.addEventListener('keydown', (e)=>{
-    const k = String(e.key||'').toLowerCase();
-    if(k==='a'){ e.preventDefault(); act('jump'); }
-    if(k==='d'){ e.preventDefault(); act('duck'); }
-  }, {passive:false});
-})();
 </script>
 </body>
 </html>
