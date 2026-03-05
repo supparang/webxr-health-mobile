@@ -1,10 +1,6 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
 GoodJunkVR — RUN PAGE (PC/Mobile/cVR) — PRODUCTION
-PATCH v20260305a-RUN-LAYERFULL-SAFERECT-NOBLACK
-Requires:
- - ./goodjunk.safe.js
-Optional:
- - ../vr/vr-ui.js (if you want ENTER VR/RECENTER + hha:shoot)
+PATCH v20260305b-RUN-DEBUG-SAFERECT-OVERLAY
 -->
 <!doctype html>
 <html lang="th">
@@ -146,6 +142,36 @@ Optional:
       transition: width .12s ease;
     }
 
+    /* ✅ DEBUG overlay */
+    #debugOverlay{
+      position: fixed;
+      inset: 0;
+      z-index: 420;
+      pointer-events: none;
+      display: none;
+    }
+    #debugOverlay.show{ display:block; }
+    #debugBox{
+      position:absolute;
+      border: 2px dashed rgba(34,211,238,.95);
+      box-shadow: 0 0 0 2px rgba(0,0,0,.25) inset;
+      border-radius: 16px;
+      background: rgba(34,211,238,.06);
+    }
+    #debugLabel{
+      position:absolute;
+      left: 12px;
+      bottom: calc(12px + var(--sab));
+      padding: 10px 12px;
+      border-radius: 14px;
+      border: 1px solid rgba(148,163,184,.22);
+      background: rgba(2,6,23,.78);
+      color: rgba(229,231,235,.96);
+      font: 900 12px/1.35 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      max-width: 92vw;
+      white-space: pre-wrap;
+    }
+
     /* End overlay */
     #endOverlay{
       position: fixed;
@@ -246,6 +272,12 @@ Optional:
     </div>
   </div>
 
+  <!-- ✅ DEBUG overlay -->
+  <div id="debugOverlay" aria-label="debug overlay">
+    <div id="debugBox"></div>
+    <div id="debugLabel">debug=1</div>
+  </div>
+
   <div id="endOverlay">
     <div class="panel">
       <h2 id="endTitle">จบเกม</h2>
@@ -260,25 +292,29 @@ Optional:
         <button class="btn primary" id="btnRetry">🔁 เล่นอีกครั้ง</button>
         <button class="btn ghost" id="btnHub">↩ กลับ Hub</button>
       </div>
-      <!-- cooldown button will be injected by core if needed -->
     </div>
   </div>
 
   <script type="module">
     import { boot } from './goodjunk.safe.js';
 
-    // run the game
+    // ✅ show debug overlay if debug=1
+    const sp = new URL(location.href).searchParams;
+    const debugOn = (sp.get('debug') === '1');
+    const dbg = document.getElementById('debugOverlay');
+    if(debugOn && dbg) dbg.classList.add('show');
+
     boot({
-      view: new URL(location.href).searchParams.get('view') || 'mobile',
-      run:  new URL(location.href).searchParams.get('run')  || 'play',
-      diff: new URL(location.href).searchParams.get('diff') || 'normal',
-      time: new URL(location.href).searchParams.get('time') || '80',
-      seed: new URL(location.href).searchParams.get('seed') || String(Date.now()),
-      pid:  new URL(location.href).searchParams.get('pid')  || 'anon',
-      hub:  new URL(location.href).searchParams.get('hub')  || '../hub.html',
+      view: sp.get('view') || 'mobile',
+      run:  sp.get('run')  || 'play',
+      diff: sp.get('diff') || 'normal',
+      time: sp.get('time') || '80',
+      seed: sp.get('seed') || String(Date.now()),
+      pid:  sp.get('pid')  || 'anon',
+      hub:  sp.get('hub')  || '../hub.html',
+      debug: debugOn
     });
 
-    // buttons
     const qs = (k,d='')=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(e){ return d; } };
     const btnRetry = document.getElementById('btnRetry');
     const btnHub = document.getElementById('btnHub');
@@ -291,8 +327,6 @@ Optional:
       const hub = qs('hub','../hub.html');
       location.href = hub;
     });
-
-    // optional: if vr-ui exists, you can include it in your run page later
   </script>
 </body>
 </html>
