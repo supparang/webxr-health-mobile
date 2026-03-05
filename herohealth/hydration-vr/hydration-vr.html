@@ -1,11 +1,6 @@
-<!-- === /herohealth/hydration-vr/hydration-vr.html ===
-Hydration VR RUN — PRODUCTION (BLACKSCREEN DEBUG FIX)
+<!-- === /herohealth/hydration-vr/hydration-vr.fix.html ===
+Hydration VR RUN — PRODUCTION (CACHE-BYPASS + DEBUG + DYNIMPORT)
 FULL v20260304d-HYDRATION-RUN-DEBUG-DYNIMPORT
-
-Key fixes:
-- remove ?v=... to avoid mismatch
-- debug overlay for errors
-- ✅ use dynamic import (await import) instead of "import { }" inside try
 -->
 <!doctype html>
 <html lang="th">
@@ -42,8 +37,8 @@ Key fixes:
 
 <body>
   <div id="dbg">
-    <div class="title">HYDRATION DEBUG</div>
-    <div class="hint">ถ้าหน้านี้ “จอดำ” เพราะไฟล์โหลดไม่ขึ้น/สคริปต์พัง จะเห็น error ที่นี่</div>
+    <div class="title">HYDRATION DEBUG (fix)</div>
+    <div class="hint">ถ้ามี error จะขึ้นที่นี่</div>
     <pre id="dbgText">—</pre>
     <button class="btn" onclick="location.reload()">Reload</button>
   </div>
@@ -98,14 +93,12 @@ Key fixes:
     <div class="end-card">
       <div class="end-title" id="endTitle">Completed</div>
       <div class="end-sub" id="endSub">—</div>
-
       <div class="grid">
         <div class="item"><div class="kk">GRADE</div><div class="vv" id="endGrade">—</div></div>
         <div class="item"><div class="kk">SCORE</div><div class="vv" id="endScore">0</div></div>
         <div class="item"><div class="kk">MISS</div><div class="vv" id="endMiss">0</div></div>
         <div class="item"><div class="kk">WATER</div><div class="vv" id="endWater">0%</div></div>
       </div>
-
       <div class="actions">
         <button class="btn" id="btnCopy">Copy Summary</button>
         <button class="btn danger" id="btnReplay">Replay</button>
@@ -134,7 +127,6 @@ Key fixes:
   </script>
 
   <script type="module">
-    // Shield install
     try{
       window.HHA_Shield?.install({
         lockScroll: true,
@@ -161,8 +153,7 @@ Key fixes:
         try{ document.getElementById('cvrZonePad').setAttribute('aria-hidden','false'); }catch(e){}
       }
 
-      // ✅ dynamic import (catchable)
-      const aiMod  = await import('../vr/ai-hooks.js');
+      const aiMod   = await import('../vr/ai-hooks.js');
       const gameMod = await import('./hydration.safe.js');
 
       const createAIHooks = aiMod.createAIHooks;
