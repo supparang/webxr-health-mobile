@@ -1,7 +1,7 @@
 <!-- === /fitness/jump-duck.html ===
 Jump-Duck — VR Fitness Academy (HHA Standard)
-✅ CSS: /fitness/css/jump-duck.css
-✅ JS : /fitness/js/jump-duck.js  (BOSS+FEVER+AI+LOG+ML)
+✅ CSS: /fitness/css/jump-duck.css   (v20260304-JD-ABCDEF)
+✅ JS : /fitness/js/jump-duck.js    (v20260304-JD-ABCDEF)
 ✅ Optional VR UI: ../herohealth/vr/vr-ui.js (auto if WebXR exists)
 -->
 <!doctype html>
@@ -12,11 +12,10 @@ Jump-Duck — VR Fitness Academy (HHA Standard)
   <title>Jump-Duck — VR Fitness Academy</title>
   <meta name="color-scheme" content="dark light"/>
   <link rel="icon" href="favicon.ico"/>
-
   <link rel="stylesheet" href="css/jump-duck.css"/>
 </head>
 <body>
-  <!-- fatal overlay -->
+  <!-- fatal overlay (กันหน้าเงียบเวลา error) -->
   <pre id="jd-fatal" class="jd-fatal jd-hidden"></pre>
 
   <div id="jd-app" class="jd-shell">
@@ -31,16 +30,16 @@ Jump-Duck — VR Fitness Academy (HHA Standard)
           </header>
 
           <div class="jd-menu-grid">
-            <!-- Left -->
+            <!-- ซ้าย -->
             <div class="jd-menu-block">
               <div class="jd-field-row">
                 <label for="jd-mode">โหมดการเล่น</label>
                 <select id="jd-mode">
-                  <option value="training" selected>ฝึก (Training) — เล่นสนุก/ปรับตามฝีมือ</option>
+                  <option value="training" selected>ฝึก (Training) — เล่นสนุก + ปรับจังหวะท้ายเกม</option>
                   <option value="test">ทดสอบ (Test) — พารามิเตอร์คงที่</option>
-                  <option value="research">วิจัย (Research) — คงที่ + deterministic</option>
+                  <option value="research">วิจัย (Research) — พารามิเตอร์คงที่ + ใส่ข้อมูลผู้เข้าร่วม</option>
                 </select>
-                <p class="jd-hint">Training: AI director ปรับ “แบบแฟร์” · Test/Research: ล็อก (โชว์ prediction ได้แต่ไม่ปรับเกม)</p>
+                <p class="jd-hint">Training: เร่ง/ปรับแฟร์ท้ายเกม · Test/Research: คงที่เพื่อเทียบเคียง</p>
               </div>
 
               <div class="jd-field-row">
@@ -74,7 +73,7 @@ Jump-Duck — VR Fitness Academy (HHA Standard)
                   <label for="jd-note">หมายเหตุ</label>
                   <input id="jd-note" type="text" placeholder="เช่น Pre-test, Post-test รอบ 2"/>
                 </div>
-                <p class="jd-research-hint">รองรับ: seed/pid/studyId/phase/conditionGroup และส่ง log ผ่าน ?log= (Apps Script Web App)</p>
+                <p class="jd-research-hint">โหมด Research: ใส่ข้อมูลเพื่อจับคู่ผลรอบกับตัวแปรอื่น ๆ</p>
               </div>
 
               <div class="jd-btn-row">
@@ -86,35 +85,41 @@ Jump-Duck — VR Fitness Academy (HHA Standard)
               </div>
 
               <div class="jd-btn-row jd-btn-row-secondary">
-                <a id="jd-back-hub-menu" href="../herohealth/hub.html" class="jd-btn jd-btn-sub">⬅ กลับ VR Fitness Hub</a>
+                <a id="jd-back-hub-menu" href="hub.html" class="jd-btn jd-btn-sub">⬅ กลับ VR Fitness Hub</a>
               </div>
 
               <div class="jd-mini-note">
                 <div class="jd-pill">คีย์ลัด</div>
                 <div class="jd-mini-note-text">⬆ / W = Jump · ⬇ / S = Duck</div>
               </div>
+
+              <div class="jd-mini-note">
+                <div class="jd-pill">PRO</div>
+                <div class="jd-mini-note-text">Training เท่านั้น: เพิ่ม <code>?pro=1</code> (Hard+ แต่แฟร์)</div>
+              </div>
             </div>
 
-            <!-- Right -->
+            <!-- ขวา -->
             <div class="jd-menu-block">
               <div class="jd-howto-block">
                 <h3 class="jd-section-title">วิธีการเล่น</h3>
                 <ul class="jd-howto-list">
-                  <li>แตะครึ่งบนของจอ = <b>Jump</b> · ครึ่งล่าง = <b>Duck</b></li>
-                  <li>สิ่งกีดขวางเตี้ย (Low) → <b>Jump</b> ข้าม 🦘</li>
-                  <li>สิ่งกีดขวางสูง (High) → <b>Duck</b> ก้มหลบ 🛡️</li>
+                  <li>แตะครึ่งบนของสนาม = <b>Jump</b> 🦘</li>
+                  <li>แตะครึ่งล่างของสนาม = <b>Duck</b> 🛡️</li>
                   <li>คีย์บอร์ด: ⬆/⬇ หรือ W/S</li>
-                  <li>cVR/Cardboard: ยิง/แตะกลางจอ (รองรับ hha:shoot) + มีปุ่มช่วย</li>
+                  <li>มือถือ/cVR: แตะบน/ล่างเป็นหลัก (มีปุ่มช่วยด้านล่าง)</li>
                 </ul>
               </div>
 
               <p class="jd-howto-inline">
-                โหมด VR / Cardboard: ผู้เล่นขยับตัวจริงตามจังหวะ แล้ว “ยิง/แตะ” เพื่อสั่ง Jump/Duck
+                โหมด VR / Cardboard: ผู้เล่นขยับตัวจริงตามจังหวะ แล้ว “แตะ/ยิงกลางจอ” เพื่อสั่ง Jump/Duck
               </p>
 
               <div class="jd-callout">
-                <b>🔥 Boss 3 เฟส (Mixed+)</b>
-                <div class="jd-callout-text">Phase 1 จับจังหวะ · Phase 2 เร่ง/สลับ · Phase 3 Shield + Burst + Overheat + Counter</div>
+                <b>🔥 Boss 3 เฟส + กติกาสุ่ม</b>
+                <div class="jd-callout-text">
+                  Phase 1 จับจังหวะ · Phase 2 เร่ง/สลับ · Phase 3 Boss: Feint + Overheat + Rule Cards
+                </div>
               </div>
             </div>
           </div>
@@ -129,6 +134,7 @@ Jump-Duck — VR Fitness Academy (HHA Standard)
             <div class="jd-topbar-actions">
               <span class="jd-badge">Phase <b id="hud-phase">1</b></span>
               <span class="jd-badge">Boss <b id="hud-boss">—</b></span>
+              <span class="jd-badge">Rule <b id="hud-rule">—</b></span>
             </div>
           </div>
 
@@ -136,17 +142,13 @@ Jump-Duck — VR Fitness Academy (HHA Standard)
           <div class="jd-bars">
             <div class="jd-bar">
               <div class="jd-bar-label">Progress</div>
-              <div class="jd-bar-track">
-                <div id="hud-prog-fill" class="jd-bar-fill"></div>
-              </div>
+              <div class="jd-bar-track"><div id="hud-prog-fill" class="jd-bar-fill"></div></div>
               <div id="hud-prog-text" class="jd-bar-text">0%</div>
             </div>
 
             <div class="jd-bar jd-bar-fever">
               <div class="jd-bar-label">Fever</div>
-              <div class="jd-bar-track">
-                <div id="hud-fever-fill" class="jd-bar-fill"></div>
-              </div>
+              <div class="jd-bar-track"><div id="hud-fever-fill" class="jd-bar-fill"></div></div>
               <div id="hud-fever-status" class="jd-bar-text">Ready</div>
             </div>
           </div>
@@ -182,26 +184,32 @@ Jump-Duck — VR Fitness Academy (HHA Standard)
             </div>
           </div>
 
-          <!-- AI HUD -->
-          <div class="jd-hud-ai">
-            <div class="jd-hud-row"><span class="jd-tag">AI Fatigue</span><span class="jd-hud-chip"><strong id="hud-ai-fatigue">0%</strong></span></div>
-            <div class="jd-hud-row"><span class="jd-tag">AI Skill</span><span class="jd-hud-chip"><strong id="hud-ai-skill">0%</strong></span></div>
-            <div class="jd-hud-row"><span class="jd-tag">AI Suggest</span><span class="jd-hud-chip"><strong id="hud-ai-suggest">normal</strong></span></div>
-            <div class="jd-hud-row"><span class="jd-tag">Tip</span><span class="jd-hud-chip"><strong id="hud-ai-tip"></strong></span></div>
-          </div>
-
           <!-- Playfield -->
           <div id="jd-play-area" class="jd-play-area">
             <div class="jd-track"><div class="jd-ground"></div></div>
-
             <div class="jd-hit-line"></div>
 
-            <!-- Telegraph overlay -->
+            <!-- Telegraph overlay (ไม่ทับปุ่ม/ไม่บังแตะ) -->
             <div id="jd-tele" class="jd-tele jd-hidden" aria-hidden="true">
               <div class="jd-tele-inner">⚡ TEMPO SHIFT</div>
             </div>
 
-            <div id="jd-avatar" class="jd-avatar"><div class="jd-avatar-body">🧍‍♂️</div></div>
+            <!-- Tap guide overlay (ไม่บังการแตะ) -->
+            <div class="jd-tap-hints" aria-hidden="true">
+              <div class="jd-tap-hint jd-top">
+                <div class="jd-tap-ico">⬆</div>
+                <div class="jd-tap-txt">TAP TOP = JUMP</div>
+              </div>
+              <div class="jd-tap-hint jd-bot">
+                <div class="jd-tap-ico">⬇</div>
+                <div class="jd-tap-txt">TAP BOTTOM = DUCK</div>
+              </div>
+            </div>
+
+            <div id="jd-avatar" class="jd-avatar">
+              <div class="jd-avatar-body">🧍‍♂️</div>
+            </div>
+
             <div id="jd-obstacles" class="jd-obstacles"></div>
             <div id="jd-judge" class="jd-judge">READY</div>
           </div>
@@ -210,7 +218,7 @@ Jump-Duck — VR Fitness Academy (HHA Standard)
             แตะครึ่งบน = Jump · แตะครึ่งล่าง = Duck · ⬆/⬇ หรือ W/S ก็ได้
           </div>
 
-          <!-- actionbar (smart show on mobile/cVR) -->
+          <!-- Mobile/cVR quick buttons (สำรอง) -->
           <div class="jd-actionbar">
             <button class="jd-btn jd-btn-action jd-jump" data-action="jump">⬆ JUMP</button>
             <button class="jd-btn jd-btn-action jd-duck" data-action="duck">⬇ DUCK</button>
@@ -218,7 +226,7 @@ Jump-Duck — VR Fitness Academy (HHA Standard)
 
           <div class="jd-btn-row jd-btn-row-secondary">
             <button class="jd-btn jd-btn-primary" data-action="stop-early">⏹ หยุดก่อนเวลา</button>
-            <a id="jd-back-hub-play" href="../herohealth/hub.html" class="jd-btn jd-btn-sub">⬅ กลับ Hub</a>
+            <a id="jd-back-hub-play" href="hub.html" class="jd-btn jd-btn-sub">⬅ กลับ Hub</a>
           </div>
         </div>
       </section>
@@ -256,17 +264,9 @@ Jump-Duck — VR Fitness Academy (HHA Standard)
           <div class="jd-btn-row">
             <button class="jd-btn jd-btn-primary" data-action="play-again">🔁 เล่นอีกครั้ง</button>
           </div>
-
-          <div class="jd-btn-row">
-            <button class="jd-btn jd-btn-sub" data-action="download-events-csv">⬇ ดาวน์โหลด Events CSV</button>
-            <button class="jd-btn jd-btn-sub" data-action="download-sessions-csv">⬇ ดาวน์โหลด Sessions CSV</button>
-            <button class="jd-btn jd-btn-sub" data-action="download-boss-timeline">⬇ Boss Timeline JSON</button>
-            <button class="jd-btn jd-btn-sub" data-action="download-ml-json">⬇ ดาวน์โหลด ML JSON</button>
-          </div>
-
           <div class="jd-btn-row jd-btn-row-secondary">
             <button class="jd-btn jd-btn-sub" data-action="back-menu">🏠 กลับเมนู Jump-Duck</button>
-            <a id="jd-back-hub-result" href="../herohealth/hub.html" class="jd-btn jd-btn-sub">⬅ กลับ Hub</a>
+            <a id="jd-back-hub-result" href="hub.html" class="jd-btn jd-btn-sub">⬅ กลับ Hub</a>
           </div>
         </div>
       </section>
