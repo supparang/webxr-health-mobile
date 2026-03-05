@@ -1,9 +1,9 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
-HeroHealth — GoodJunkVR RUN (PC/Mobile/cVR)
-PATCH v20260305-RUN-FIXBLACK-FIXSKYSPAWN
-✅ FIX black screen: correct module import path (./goodjunk.safe.js)
-✅ FIX "targets to heaven": layer + safe rect + HUD-safe spawn
-✅ Optional: /herohealth/vr/vr-ui.js for cVR shoot (if present)
+GoodJunkVR — RUN PAGE (PC/Mobile/cVR) — PRODUCTION
+PATCH v20260305-RUN-FIX-BLACKSCREEN-LAYERS-HUDSAFE
+Requires:
+- /herohealth/vr/vr-ui.js
+- /herohealth/vr-goodjunk/goodjunk.safe.js (module)
 -->
 <!doctype html>
 <html lang="th">
@@ -15,279 +15,330 @@ PATCH v20260305-RUN-FIXBLACK-FIXSKYSPAWN
   <link rel="icon" href="../favicon.ico" />
   <style>
     :root{
-      --bg1:#020617; --bg2:#0b1226;
-      --panel: rgba(2,6,23,.68);
-      --stroke: rgba(148,163,184,.18);
-      --text: rgba(229,231,235,.96);
-      --muted: rgba(148,163,184,.92);
-      --good:#22c55e; --warn:#f59e0b; --bad:#ef4444; --cyan:#22d3ee;
+      --bg:#050814;
+      --panel:rgba(2,6,23,.70);
+      --stroke:rgba(148,163,184,.18);
+      --text:rgba(229,231,235,.96);
+      --muted:rgba(148,163,184,.92);
+      --good:#22c55e; --warn:#f59e0b; --bad:#ef4444; --blue:#3b82f6;
       --sat: env(safe-area-inset-top, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
       --sal: env(safe-area-inset-left, 0px);
       --sar: env(safe-area-inset-right, 0px);
     }
-    html,body{height:100%; margin:0; overflow:hidden; background:#000;}
+    html,body{height:100%; margin:0; background:var(--bg); color:var(--text);}
     body{
-      color:var(--text);
+      overflow:hidden;
       font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", "Noto Sans", Arial;
-      background:
-        radial-gradient(1000px 600px at 20% 10%, rgba(34,197,94,.14), transparent 60%),
-        radial-gradient(900px 540px at 85% 20%, rgba(34,211,238,.12), transparent 60%),
-        radial-gradient(900px 520px at 60% 95%, rgba(167,139,250,.10), transparent 60%),
-        linear-gradient(180deg, var(--bg1), var(--bg2));
     }
 
-    /* Play layer */
+    /* playfield layer */
     #gj-layer{
-      position:fixed;
+      position: fixed;
       inset: 0;
       overflow:hidden;
       touch-action: manipulation;
       -webkit-tap-highlight-color: transparent;
+      user-select:none;
     }
 
     /* HUD */
-    #hudTop{
-      position:fixed;
+    .hud{
+      position: fixed;
+      top: calc(10px + var(--sat));
       left: calc(10px + var(--sal));
       right: calc(10px + var(--sar));
-      top: calc(10px + var(--sat));
       z-index: 200;
       display:flex;
+      gap:10px;
       flex-wrap:wrap;
-      gap:8px;
       align-items:center;
-      pointer-events:none;
+      pointer-events:none; /* ไม่บังเป้า */
     }
     .pill{
       pointer-events:none;
       display:inline-flex;
-      gap:8px;
       align-items:center;
-      border:1px solid var(--stroke);
-      background: rgba(2,6,23,.55);
+      gap:8px;
       padding: 8px 10px;
       border-radius: 999px;
-      font-size: 12px;
-      color: var(--muted);
+      border:1px solid var(--stroke);
+      background: rgba(2,6,23,.55);
       backdrop-filter: blur(8px);
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 900;
       white-space:nowrap;
-      font-weight:900;
     }
     .pill b{ color: var(--text); }
-    .pill .v{ color: var(--text); font-weight:1000; }
-    #hudMission{
-      position:fixed;
+    .pill .v{ color: var(--text); font-weight: 1000; }
+
+    .mini{
+      position: fixed;
+      top: calc(56px + var(--sat));
       left: calc(10px + var(--sal));
-      right: calc(10px + var(--sar));
-      top: calc(60px + var(--sat));
       z-index: 200;
+      max-width: 84vw;
       pointer-events:none;
       display:flex;
-      justify-content:center;
+      gap:8px;
+      flex-wrap:wrap;
+      align-items:center;
     }
-    .missionBox{
-      max-width: 760px;
-      width: 100%;
-      border:1px solid rgba(148,163,184,.16);
-      background: rgba(2,6,23,.50);
-      border-radius: 18px;
-      padding: 10px 12px;
-      box-shadow: 0 20px 70px rgba(0,0,0,.40);
-      backdrop-filter: blur(10px);
-    }
-    .missionRow{ display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; }
-    .missionTitle{ font-weight:1000; letter-spacing:.2px; }
-    .missionHint{ color:var(--muted); font-weight:900; font-size:12px; margin-top:2px; }
-    .bar{
+    .barwrap{
+      width: min(360px, 84vw);
       height: 10px;
       border-radius: 999px;
-      border: 1px solid rgba(255,255,255,.12);
+      border:1px solid rgba(255,255,255,.14);
       background: rgba(0,0,0,.35);
       overflow:hidden;
-      margin-top:8px;
     }
-    .fill{
+    .barfill{
       height:100%;
       width:0%;
-      background: rgba(34,197,94,.86);
+      background: rgba(59,130,246,.80);
       transition: width .12s ease;
     }
 
-    /* Targets */
-    .tgt{
-      position:absolute;
-      transform: translate(-50%,-50%);
-      font-size: 44px;
-      filter: drop-shadow(0 16px 26px rgba(0,0,0,.45));
-      user-select:none;
-      will-change: transform, opacity, left, top;
-      cursor:pointer;
+    /* Boss HP */
+    #bossBar{
+      position: fixed;
+      left: 50%;
+      top: calc(56px + var(--sat));
+      transform: translateX(-50%);
+      z-index: 205;
+      width: min(520px, 86vw);
+      pointer-events:none;
+      display:none;
+      flex-direction:column;
+      gap:6px;
+      align-items:center;
     }
-    .tgt.small{ font-size: 40px; }
-    .tgt.big{ font-size: 54px; }
-    .tgt.pop{ animation: pop .16s ease-out both; }
-    @keyframes pop{
-      from{ transform: translate(-50%,-50%) scale(.86); }
-      to{ transform: translate(-50%,-50%) scale(1); }
+    #bossHint{
+      font-weight:1000;
+      font-size:12px;
+      color: var(--muted);
+      text-shadow: 0 10px 30px rgba(0,0,0,.55);
     }
+    #bossFill{
+      height: 10px;
+      width: 100%;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.14);
+      background: rgba(0,0,0,.35);
+      overflow:hidden;
+      position:relative;
+    }
+    #bossFill::before{
+      content:"";
+      position:absolute; inset:0;
+      width: var(--hp, 0%);
+      background: rgba(239,68,68,.85);
+      transition: width .12s ease;
+    }
+
+    /* Mission panel (กลางบน) */
+    .mission{
+      position: fixed;
+      left: 50%;
+      top: calc(10px + var(--sat));
+      transform: translateX(-50%);
+      z-index: 210;
+      pointer-events:none;
+      width: min(560px, 92vw);
+      border-radius: 18px;
+      border:1px solid rgba(148,163,184,.16);
+      background: rgba(2,6,23,.50);
+      backdrop-filter: blur(10px);
+      padding: 10px 12px;
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+      box-shadow: 0 18px 55px rgba(0,0,0,.40);
+    }
+    .missionRow{display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap;}
+    .missionTitle{font-weight:1000; letter-spacing:.2px;}
+    .missionHint{font-size:12px; font-weight:900; color:var(--muted);}
+    .missionGoal{font-size:12px; font-weight:1000;}
+    #missionFill{height:10px; border-radius:999px; border:1px solid rgba(255,255,255,.14); background: rgba(0,0,0,.35); overflow:hidden; position:relative;}
+    #missionFill::before{content:""; position:absolute; inset:0; width: var(--p,0%); background: rgba(34,197,94,.85); transition: width .12s ease;}
 
     /* End overlay */
     #endOverlay{
-      position:fixed;
-      inset:0;
-      z-index: 500;
+      position: fixed; inset: 0;
       display:none;
+      z-index: 400;
+      background: rgba(0,0,0,.55);
+      backdrop-filter: blur(8px);
       align-items:center;
       justify-content:center;
       padding: calc(16px + var(--sat)) calc(16px + var(--sar)) calc(16px + var(--sab)) calc(16px + var(--sal));
-      background: rgba(0,0,0,.55);
-      backdrop-filter: blur(8px);
     }
-    #endOverlay.show{ display:flex; }
     #endOverlay .panel{
-      max-width: 740px;
-      width: 100%;
+      width: min(720px, 92vw);
+      border-radius: 22px;
       border:1px solid rgba(148,163,184,.18);
       background: rgba(2,6,23,.72);
-      border-radius: 22px;
-      padding: 14px;
-      box-shadow: 0 24px 90px rgba(0,0,0,.55);
+      box-shadow: 0 22px 80px rgba(0,0,0,.55);
+      padding: 14px 14px;
+      text-align:center;
     }
-    .endTitle{ font-weight:1000; font-size: 18px; margin:0; }
-    .endSub{ color: var(--muted); font-weight:900; font-size: 12px; margin-top:6px; line-height:1.4; }
-    .endGrid{ display:grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap:10px; margin-top:10px; }
-    @media (max-width:620px){ .endGrid{ grid-template-columns:1fr; } }
-    .stat{
+    #endTitle{font-size:22px; font-weight:1100; margin:0;}
+    #endSub{margin:6px 0 0 0; color:var(--muted); font-weight:900;}
+    .endGrid{display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:10px; margin-top:12px;}
+    @media (max-width:640px){ .endGrid{grid-template-columns:1fr;} }
+    .endPill{
+      border-radius:18px;
       border:1px solid rgba(148,163,184,.16);
-      background: rgba(2,6,23,.35);
-      border-radius: 16px;
-      padding: 10px;
+      background: rgba(2,6,23,.38);
+      padding: 12px 10px;
       font-weight:1000;
     }
-    .stat small{ display:block; color:var(--muted); font-weight:900; margin-bottom:4px; }
-    .endBtns{ display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; justify-content:center; }
+    .endPill .k{opacity:.78; font-size:12px;}
+    .endPill .v{font-size:18px; margin-top:4px;}
+    .endActions{display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-top:12px;}
     .btn{
-      border-radius: 16px;
-      border:1px solid rgba(148,163,184,.20);
-      background: rgba(148,163,184,.08);
-      color: var(--text);
-      padding: 12px 12px;
-      font-weight:1000;
+      pointer-events:auto;
       cursor:pointer;
-      min-height:44px;
+      border-radius: 16px;
+      border:1px solid rgba(148,163,184,.22);
+      background: rgba(148,163,184,.10);
+      color: var(--text);
+      padding: 10px 12px;
+      font-weight:1100;
+      min-height: 44px;
     }
-    .btn.primary{ background: rgba(59,130,246,.16); border-color: rgba(59,130,246,.30); }
-    .btn.ghost{ background: transparent; color: var(--muted); }
+    .btn.primary{border-color: rgba(59,130,246,.30); background: rgba(59,130,246,.16);}
+    .btn.ghost{background: transparent; color: var(--muted);}
 
-    /* Error overlay (no more silent black) */
-    #errOverlay{
-      position:fixed; inset:0;
-      z-index: 999;
+    /* debug overlay */
+    #dbg{
+      position: fixed;
+      left: 10px;
+      bottom: calc(10px + var(--sab));
+      z-index: 9999;
+      max-width: 92vw;
+      border-radius: 14px;
+      border:1px solid rgba(148,163,184,.20);
+      background: rgba(2,6,23,.60);
+      backdrop-filter: blur(8px);
+      padding: 10px 10px;
+      font: 900 12px/1.35 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      color: rgba(229,231,235,.96);
       display:none;
-      align-items:center;
-      justify-content:center;
-      padding: 16px;
-      background: rgba(0,0,0,.70);
-      color: #fff;
-    }
-    #errOverlay.show{ display:flex; }
-    #errOverlay .box{
-      max-width: 860px; width:100%;
-      border:1px solid rgba(255,255,255,.18);
-      background: rgba(2,6,23,.78);
-      border-radius: 18px;
-      padding: 14px;
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-      white-space: pre-wrap;
-      line-height:1.35;
+      white-space:pre-wrap;
     }
   </style>
 </head>
 <body>
-  <div id="gj-layer" aria-label="GoodJunk layer"></div>
 
-  <div id="hudTop" aria-label="HUD top">
-    <div class="pill"><b>Score</b> <span class="v" id="hud-score">0</span></div>
-    <div class="pill"><b>Time</b> <span class="v" id="hud-time">0</span></div>
-    <div class="pill"><b>Miss</b> <span class="v" id="hud-miss">0</span></div>
-    <div class="pill"><b>Grade</b> <span class="v" id="hud-grade">C</span></div>
-    <div class="pill"><b>Goal</b> <span class="v" id="hud-goal">—</span></div>
-    <div class="pill"><b>Goal</b> <span class="v"><span id="hud-goal-cur">0</span>/<span id="hud-goal-target">0</span></span></div>
-    <div class="pill"><b>Mini</b> <span class="v" id="hud-mini">—</span> <span class="v" id="miniTimer">0</span></div>
-    <div class="pill"><b>AI risk</b> <span class="v" id="aiRisk">0.00</span> • <span class="v" id="aiHint">—</span></div>
-    <div class="pill"><b>view</b> <span class="v" id="uiView">—</span> • <b>run</b> <span class="v" id="uiRun">—</span> • <b>diff</b> <span class="v" id="uiDiff">—</span></div>
+  <div id="gj-layer" aria-label="play layer"></div>
+
+  <div class="hud" aria-label="hud">
+    <span class="pill"><b>score</b>: <span class="v" id="hud-score">0</span></span>
+    <span class="pill"><b>time</b>: <span class="v" id="hud-time">0</span></span>
+    <span class="pill"><b>miss</b>: <span class="v" id="hud-miss">0</span></span>
+    <span class="pill"><b>grade</b>: <span class="v" id="hud-grade">—</span></span>
+    <span class="pill"><b>goal</b>: <span class="v" id="hud-goal">—</span></span>
   </div>
 
-  <div id="hudMission" aria-label="Mission">
-    <div class="missionBox">
-      <div class="missionRow">
-        <div>
-          <div class="missionTitle" id="missionTitle">WARM-UP</div>
-          <div class="missionHint" id="missionHint">—</div>
-        </div>
-        <div style="text-align:right">
-          <div class="missionTitle" id="missionGoal">—</div>
-          <div class="missionHint" id="goalDesc">—</div>
-        </div>
-      </div>
-      <div class="bar"><div class="fill" id="missionFill"></div></div>
+  <div class="mini" aria-label="goal/mini/ai">
+    <span class="pill"><b>cur</b>: <span class="v" id="hud-goal-cur">0</span></span>
+    <span class="pill"><b>target</b>: <span class="v" id="hud-goal-target">0</span></span>
+    <span class="pill"><b>desc</b>: <span class="v" id="goalDesc">—</span></span>
+    <span class="pill"><b>mini</b>: <span class="v" id="hud-mini">—</span></span>
+    <span class="pill"><b>t</b>: <span class="v" id="miniTimer">0</span></span>
+    <span class="pill"><b>AI risk</b>: <span class="v" id="aiRisk">—</span></span>
+    <span class="pill"><b>AI hint</b>: <span class="v" id="aiHint">—</span></span>
+  </div>
+
+  <div class="mission" aria-label="mission">
+    <div class="missionRow">
+      <div class="missionTitle" id="missionTitle">WARM</div>
+      <div class="missionGoal" id="missionGoal">—</div>
     </div>
+    <div class="missionHint" id="missionHint">—</div>
+    <div id="missionFill"></div>
   </div>
 
-  <div id="endOverlay" aria-label="End overlay">
+  <div id="bossBar" aria-label="bossbar">
+    <div id="bossHint">—</div>
+    <div id="bossFill" style="--hp:0%;"></div>
+  </div>
+
+  <div id="endOverlay" aria-label="end overlay">
     <div class="panel">
-      <h2 class="endTitle" id="endTitle">จบเกม</h2>
-      <div class="endSub" id="endSub">—</div>
-
+      <h2 id="endTitle">จบเกม</h2>
+      <p id="endSub">—</p>
       <div class="endGrid">
-        <div class="stat"><small>Grade</small><div id="endGrade">—</div></div>
-        <div class="stat"><small>Score</small><div id="endScore">0</div></div>
-        <div class="stat"><small>Miss</small><div id="endMiss">0</div></div>
+        <div class="endPill"><div class="k">เกรด</div><div class="v" id="endGrade">—</div></div>
+        <div class="endPill"><div class="k">คะแนน</div><div class="v" id="endScore">0</div></div>
+        <div class="endPill"><div class="k">Miss</div><div class="v" id="endMiss">0</div></div>
       </div>
-
-      <div class="endGrid" style="margin-top:10px">
-        <div class="stat"><small>Time</small><div id="endTime">0</div></div>
-        <div class="stat"><small>Mode</small><div id="endMode">solo</div></div>
-        <div class="stat"><small>Diff</small><div id="endDiff">normal</div></div>
+      <div class="endGrid" style="margin-top:10px;">
+        <div class="endPill"><div class="k">เวลา</div><div class="v" id="endTime">0</div></div>
+        <div class="endPill"><div class="k">view</div><div class="v" id="uiView">—</div></div>
+        <div class="endPill"><div class="k">run / diff</div><div class="v"><span id="uiRun">—</span> / <span id="uiDiff">—</span></div></div>
       </div>
-
-      <div class="endBtns">
-        <button class="btn primary" id="btnAgain">เล่นอีกครั้ง</button>
-        <button class="btn ghost" id="btnBackHub">↩ กลับ Hub</button>
+      <div class="endActions">
+        <button class="btn primary" id="btnReplay" type="button">🔁 เล่นอีกครั้ง</button>
+        <button class="btn ghost" id="btnBackHub" type="button">↩ กลับ Hub</button>
       </div>
     </div>
   </div>
 
-  <div id="errOverlay"><div class="box" id="errBox">ERROR</div></div>
+  <div id="dbg"></div>
 
-  <!-- Optional: Universal VR UI (if you use cVR crosshair shoot) -->
-  <script src="../vr/vr-ui.js" defer></script>
+  <!-- ✅ VR UI (ENTER VR / crosshair / hha:shoot) -->
+  <script src="../vr/vr-ui.js"></script>
 
   <script type="module">
-    const errOverlay = document.getElementById('errOverlay');
-    const errBox = document.getElementById('errBox');
-    function showErr(e){
-      console.error(e);
-      errBox.textContent =
-`GoodJunkVR: Module error / import fail
+    const qs = (k, d='')=>{ try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(e){ return d; } };
+    const dbg = document.getElementById('dbg');
+    const debugOn = String(qs('debug','0')) === '1';
 
-${String(e && (e.stack || e.message) || e)}
-
-FIX checklist:
-1) /herohealth/vr-goodjunk/goodjunk.safe.js exists?
-2) goodjunk-vr.html imports "./goodjunk.safe.js" (same folder)
-3) No "Unexpected token export" from non-module script
-`;
-      errOverlay.classList.add('show');
+    function logDbg(msg){
+      if(!dbg) return;
+      if(!debugOn) return;
+      dbg.style.display = 'block';
+      dbg.textContent += (String(msg||'') + '\n');
     }
 
+    window.addEventListener('error', (e)=>{ logDbg('ERROR: ' + (e?.message||e)); });
+    window.addEventListener('unhandledrejection', (e)=>{ logDbg('REJECT: ' + (e?.reason?.message || e?.reason || e)); });
+
+    // buttons
+    const btnReplay = document.getElementById('btnReplay');
+    const btnBackHub = document.getElementById('btnBackHub');
+    btnReplay && (btnReplay.onclick = ()=> location.href = location.href);
+    btnBackHub && (btnBackHub.onclick = ()=>{
+      const hub = qs('hub','../hub.html');
+      location.href = hub;
+    });
+
     try{
+      logDbg('Booting goodjunk...');
       const mod = await import('./goodjunk.safe.js');
-      if(!mod || typeof mod.boot !== 'function') throw new Error('Missing export boot() from ./goodjunk.safe.js');
-      mod.boot({});
-    }catch(e){
-      showErr(e);
+      if(!mod || typeof mod.boot !== 'function'){
+        throw new Error('goodjunk.safe.js missing export boot(cfg)');
+      }
+      await mod.boot({
+        pid: qs('pid','anon'),
+        nick: qs('nick','anon'),
+        hub: qs('hub','../hub.html'),
+        mode: qs('mode','solo'),
+        run: qs('run','play'),
+        diff: qs('diff','normal'),
+        view: qs('view','mobile'),
+        time: qs('time','80'),
+        seed: qs('seed', String(Date.now())),
+        ai: null
+      });
+      logDbg('✅ boot ok');
+    }catch(err){
+      logDbg('❌ boot failed: ' + (err?.message || err));
+      console.error(err);
+      alert('GoodJunk โหลดไม่สำเร็จ (ดู console/debug=1)');
     }
   </script>
 </body>
