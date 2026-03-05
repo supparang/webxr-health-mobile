@@ -1,8 +1,10 @@
 <!-- === /herohealth/hub.html ===
 HeroHealth — Hub (3 Zones) — PRODUCTION
-PATCH v20260305k-HUB-HERO-PROFILE-LINKS
-✅ Hero Profile (localStorage HHA_PROFILE:pid): nick/xp/lvl + reset
-✅ Quick links: GoodJunk Solo / Solo PRO / Battle
+PATCH v20260306-HUB-HERO-TITLE-BADGE-CARDS
+✅ Hub uses /vr/hero-title.js (Lv/Title/Badge + S/A/B/C + XP)
+✅ Backward compatible: reads old HHA_PROFILE:pid as nick fallback + optional XP migrate
+✅ Quick links -> goodjunk-launcher.html (Solo/PRO/Battle in one place)
+✅ Reset Hero clears new + old keys
 ✅ Pass-through params: run/diff/time/seed/studyId/phase/conditionGroup/log/view/pid/api/ai/debug + hub
 -->
 <!doctype html>
@@ -177,6 +179,8 @@ PATCH v20260305k-HUB-HERO-PROFILE-LINKS
         <span class="pill"><b>LV</b>: <span id="uiLvl">1</span></span>
         <span class="pill"><b>XP</b>: <span id="uiXp">0</span></span>
 
+        <span class="pill"><b>Badge</b>: <span id="uiBadge">🧪 Rookie</span></span>
+
         <button class="btn violet" id="btnHeroShow" type="button">🧾 ดู Hero</button>
         <button class="btn ghost" id="btnHeroReset" type="button">♻ Reset Hero</button>
       </div>
@@ -197,12 +201,12 @@ PATCH v20260305k-HUB-HERO-PROFILE-LINKS
         </div>
         <div class="sep"></div>
         <div class="games">
-          <a class="gameBtn" id="linkGoodjunk" href="#"><div class="t">🍔🆚🥦 GoodJunkVR</div><div class="s">Solo / PRO / Battle • ABC cards + Skill</div></a>
+          <a class="gameBtn" id="linkGoodjunk" href="#"><div class="t">🍔🆚🥦 GoodJunk</div><div class="s">Launcher • Solo/PRO/Battle • Hero Title + S/A/B/C</div></a>
           <a class="gameBtn" id="linkGroups" href="#"><div class="t">🥚🍚 Food Groups</div><div class="s">Classroom ramp + AI warn</div></a>
           <a class="gameBtn" id="linkHydration" href="#"><div class="t">💧 Hydration</div><div class="s">Storm boss + shield</div></a>
           <a class="gameBtn" id="linkPlate" href="#"><div class="t">🍽 Balanced Plate</div><div class="s">Bloom missions</div></a>
         </div>
-        <div class="small" style="margin-top:4px;">Tip: Solo PRO = diff=hard&pro=1</div>
+        <div class="small" style="margin-top:4px;">Tip: Solo PRO = diff=hard & pro=1 (ผ่าน Launcher)</div>
       </section>
 
       <!-- HYGIENE -->
@@ -238,9 +242,11 @@ PATCH v20260305k-HUB-HERO-PROFILE-LINKS
 
   </div>
 
-  <script>
+  <!-- ✅ HUB runtime (module) -->
+  <script type="module">
+    import { readHero } from './vr/hero-title.js';
+
     const qs = (k, d='')=>{ try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(e){ return d; } };
-    const clamp = (v,a,b)=>{ v=Number(v); if(!Number.isFinite(v)) v=a; return Math.max(a, Math.min(b,v)); };
 
     const pid = String(qs('pid','anon')).trim() || 'anon';
     const run = String(qs('run','play'));
@@ -255,39 +261,65 @@ PATCH v20260305k-HUB-HERO-PROFILE-LINKS
     const uiNick = document.getElementById('uiNick');
     const uiLvl = document.getElementById('uiLvl');
     const uiXp = document.getElementById('uiXp');
+    const uiBadge = document.getElementById('uiBadge');
 
     uiPid.textContent = pid;
     ctxLine.textContent = `run=${run} • diff=${diff} • time=${time}s • view=${view}`;
 
-    function loadHero(){
+    function lsGet(k){ try{ return localStorage.getItem(k); }catch(_){ return null; } }
+    function lsSet(k,v){ try{ localStorage.setItem(k,String(v)); }catch(_){ } }
+    function lsDel(k){ try{ localStorage.removeItem(k); }catch(_){ } }
+
+    // Backward compat: old profile key
+    function loadLegacyProfile(){
       try{
-        const raw = localStorage.getItem(`HHA_PROFILE:${pid}`) || '';
-        if(!raw) return { pid, nick: pid, xp:0, lvl:1 };
+        const raw = lsGet(`HHA_PROFILE:${pid}`) || '';
+        if(!raw) return null;
         const j = JSON.parse(raw);
-        const xp = Math.max(0, Number(j.xp)||0);
-        const lvl = Math.max(1, Number(j.lvl)|| (Math.floor(xp/50)+1));
-        return { pid, nick: String(j.nick||pid), xp, lvl };
-      }catch(_){
-        return { pid, nick: pid, xp:0, lvl:1 };
-      }
+        if(!j || typeof j !== 'object') return null;
+        return {
+          nick: String(j.nick||'').trim() || pid,
+          xp: Math.max(0, Number(j.xp)||0),
+          lvl: Math.max(1, Number(j.lvl)||1),
+        };
+      }catch(_){ return null; }
     }
 
-    function saveHero(h){
-      try{ localStorage.setItem(`HHA_PROFILE:${pid}`, JSON.stringify(h)); }catch(_){}
+    // Optional: migrate legacy xp -> new hero xp once (if new xp is 0 and legacy xp exists)
+    function migrateLegacyXpIfNeeded(){
+      try{
+        const legacy = loadLegacyProfile();
+        if(!legacy) return;
+
+        const heroXpKey = `HHA_HERO_XP:${pid}`;
+        const curXp = Number(lsGet(heroXpKey)||'0')||0;
+        if(curXp > 0) return;
+
+        if(legacy.xp > 0){
+          lsSet(heroXpKey, String(legacy.xp));
+        }
+      }catch(_){}
     }
 
     function renderHero(){
-      const h = loadHero();
-      uiNick.textContent = h.nick || pid;
-      uiXp.textContent = String(h.xp|0);
-      uiLvl.textContent = String(h.lvl|0);
+      migrateLegacyXpIfNeeded();
+
+      const hero = readHero(pid); // {pid,xp,level,title,badge,cards,last,...}
+      const legacy = loadLegacyProfile();
+
+      // Nick source: prefer legacy nick if exists; else pid
+      const nick = (legacy && legacy.nick) ? legacy.nick : pid;
+
+      uiNick.textContent = nick;
+      uiXp.textContent = String(hero.xp|0);
+      uiLvl.textContent = String(hero.level|0);
+      uiBadge.textContent = `${hero.badge?.icon||'🧪'} ${hero.badge?.name||'Rookie'}`;
     }
 
     function buildUrl(path, extra){
       const u = new URL(path, location.href);
       const sp = new URL(location.href).searchParams;
 
-      // pass-through core
       [
         'run','diff','time','seed','studyId','phase','conditionGroup','log','view','pid','api','ai','debug',
         'planSeq','planDay','planSlot','planMode','planSlots','planIndex','autoNext',
@@ -299,7 +331,6 @@ PATCH v20260305k-HUB-HERO-PROFILE-LINKS
 
       u.searchParams.set('hub', hub);
 
-      // override extras
       if(extra && typeof extra === 'object'){
         Object.keys(extra).forEach(k=>{
           const v = extra[k];
@@ -310,7 +341,7 @@ PATCH v20260305k-HUB-HERO-PROFILE-LINKS
       return u.toString();
     }
 
-    // quick links — GoodJunk
+    // ===== Quick links — GoodJunk -> Launcher =====
     const btnGJsolo = document.getElementById('btnGJsolo');
     const btnGJpro = document.getElementById('btnGJpro');
     const btnGJbattle = document.getElementById('btnGJbattle');
@@ -320,40 +351,70 @@ PATCH v20260305k-HUB-HERO-PROFILE-LINKS
     const linkHydration = document.getElementById('linkHydration');
     const linkPlate = document.getElementById('linkPlate');
 
-    // root pages (adjust if your structure differs)
-    linkGoodjunk.href = buildUrl('./vr-goodjunk/goodjunk-vr.html', { mode:'solo', battle:'0', wait:'0' });
+    // Launcher route
+    linkGoodjunk.href = buildUrl('./goodjunk-launcher.html', { mode:'solo' });
+
+    // Other games
     linkGroups.href   = buildUrl('./vr-groups/groups-vr.html', {});
     linkHydration.href= buildUrl('./hydration-vr/hydration-vr.html', {});
     linkPlate.href    = buildUrl('./vr-plate/plate-vr.html', {});
 
-    btnGJsolo.onclick = ()=> location.href = buildUrl('./vr-goodjunk/goodjunk-vr.html', { mode:'solo', battle:'0', wait:'0', pro:'0' });
-    btnGJpro.onclick  = ()=> location.href = buildUrl('./vr-goodjunk/goodjunk-vr.html', { mode:'solo', battle:'0', wait:'0', diff:'hard', pro:'1' });
+    btnGJsolo.onclick = ()=> location.href = buildUrl('./goodjunk-launcher.html', { mode:'solo' });
+
+    // PRO: tell launcher to go hard + (optionally) pro=1 carried to run page
+    btnGJpro.onclick  = ()=> location.href = buildUrl('./goodjunk-launcher.html', { mode:'solo', diff:'hard', pro:'1', auto:'0' });
+
+    // Battle: open launcher with battle + room default
     btnGJbattle.onclick= ()=> {
       const room = String(qs('room','P51')) || 'P51';
-      location.href = buildUrl('./vr-goodjunk/goodjunk-vr.html', { mode:'battle', battle:'1', wait:'1', auto:'1', room });
+      location.href = buildUrl('./goodjunk-launcher.html', { mode:'battle', room, auto:'1' });
     };
 
-    // hero buttons
+    // ===== Hero buttons =====
     const btnHeroShow = document.getElementById('btnHeroShow');
     const btnHeroReset = document.getElementById('btnHeroReset');
 
     btnHeroShow.onclick = ()=>{
-      const h = loadHero();
-      alert(`HERO\nPID: ${h.pid}\nNick: ${h.nick}\nLV: ${h.lvl}\nXP: ${h.xp}\n\n(บันทึกใน localStorage: HHA_PROFILE:${pid})`);
+      const hero = readHero(pid);
+      const legacy = loadLegacyProfile();
+      const nick = legacy?.nick || pid;
+
+      alert(
+        `HERO\n`+
+        `PID: ${pid}\n`+
+        `Nick: ${nick}\n`+
+        `Lv: ${hero.level}\n`+
+        `XP: ${hero.xp}\n`+
+        `Badge: ${(hero.badge?.icon||'🧪')} ${(hero.badge?.name||'Rookie')}\n`+
+        `Title: ${hero.title}\n\n`+
+        `Cards: S=${hero.cards.S} A=${hero.cards.A} B=${hero.cards.B} C=${hero.cards.C}\n`+
+        `\n(keys: HHA_HERO_XP / HHA_CARD_BOOK / HHA_LAST_REWARD / HHA_HERO_PROFILE)`
+      );
     };
 
     btnHeroReset.onclick = ()=>{
-      try{
-        if(!confirm('Reset Hero ของ PID นี้? (ลบ XP/LV)')) return;
-        const h = { pid, nick: pid, xp:0, lvl:1 };
-        saveHero(h);
-        renderHero();
-        alert('Reset Hero เรียบร้อย ✅');
-      }catch(_){}
+      if(!confirm('Reset Hero ของ PID นี้?\n(ล้าง XP + CardBook + LastReward + โปรไฟล์เดิม)')) return;
+
+      // New system
+      lsDel(`HHA_HERO_XP:${pid}`);
+      lsDel(`HHA_CARD_BOOK:${pid}`);
+      lsDel(`HHA_LAST_REWARD:${pid}`);
+      lsDel(`HHA_HERO_PROFILE:${pid}`);
+
+      // Legacy
+      lsDel(`HHA_PROFILE:${pid}`);
+
+      renderHero();
+      alert('Reset Hero เรียบร้อย ✅');
     };
 
-    // init
+    // ===== init =====
     renderHero();
+
+    // refresh on return from games (end/reward)
+    window.addEventListener('focus', renderHero);
+    window.addEventListener('hha:end', renderHero);
+    window.addEventListener('hha:reward', renderHero);
   </script>
 </body>
 </html>
