@@ -1,0 +1,149 @@
+<!-- === /fitness/balance-hold-run.html ===
+Balance Hold — RUN PAGE (PC/Mobile) — PRODUCTION
+PATCH v20260305-BH-RUNPAGE
+✅ Reads: diff,time,autostart,pid,seed,hub
+✅ Loads: ./css/balance-hold.css + ./js/balance-hold.js
+-->
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Balance Hold — Run</title>
+  <meta name="color-scheme" content="dark light" />
+  <link rel="icon" href="../herohealth/favicon.ico" />
+  <link rel="stylesheet" href="./css/balance-hold.css" />
+</head>
+<body>
+  <!-- reuse your full run UI -->
+  <section id="view-menu" class="view">
+    <div class="card">
+      <div class="h1">⚖️ Balance Hold</div>
+      <div class="p">ลากซ้าย–ขวาเพื่อคุมสมดุล • หลบ 💨/💣/⚡</div>
+
+      <div class="form">
+        <label>Difficulty</label>
+        <select id="difficulty">
+          <option value="easy">Easy</option>
+          <option value="normal" selected>Normal</option>
+          <option value="hard">Hard</option>
+        </select>
+
+        <label>Session Duration (sec)</label>
+        <select id="sessionDuration">
+          <option value="45">45</option>
+          <option value="60">60</option>
+          <option value="80" selected>80</option>
+          <option value="90">90</option>
+          <option value="120">120</option>
+        </select>
+      </div>
+
+      <div class="row">
+        <button class="btn primary" data-action="start-normal">▶ Start Play</button>
+        <button class="btn" data-action="goto-research">🧪 Research Mode</button>
+        <button class="btn ghost" id="btnBackHubMenu" style="display:none;">↩ Back HUB</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="view-research" class="view hidden">
+    <div class="card">
+      <div class="h2">🧪 Research Mode</div>
+      <div class="grid2">
+        <div><label>Participant ID</label><input id="researchId" placeholder="เช่น P001" /></div>
+        <div><label>Group</label><input id="researchGroup" placeholder="เช่น A/B" /></div>
+        <div><label>Phase</label><input id="researchPhase" placeholder="เช่น pre/post" /></div>
+      </div>
+      <div class="row">
+        <button class="btn primary" data-action="start-research">▶ Start Research</button>
+        <button class="btn ghost" data-action="back-menu">← Back</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="view-play" class="view hidden">
+    <div class="hud">
+      <div class="hudrow">
+        <div class="chip">Mode: <b id="hud-mode">Play</b></div>
+        <div class="chip">Diff: <b id="hud-diff">normal</b></div>
+        <div class="chip">Dur: <b id="hud-dur">80</b>s</div>
+        <div class="chip">Time: <b id="hud-time">80.0</b></div>
+      </div>
+      <div class="hudrow">
+        <div class="chip">Stage: <b id="hud-stage">Warm</b></div>
+        <div class="chip">Stability: <b id="hud-stability">0%</b></div>
+        <div class="chip">Obstacles: <b id="hud-obstacles">0 / 0</b></div>
+        <div class="chip">HP: <b id="hud-hp">3</b></div>
+        <div class="chip">Score: <b id="hud-score">0</b></div>
+        <div class="chip">Combo: <b id="hud-combo">0</b></div>
+        <div class="chip">RT: <b id="hud-rt">-</b></div>
+      </div>
+      <div class="coachline" id="coachLabel">ลากซ้าย–ขวาเพื่อคุมสมดุล / Drag left–right to balance</div>
+      <div class="coachbubble hidden" id="coachBubble">—</div>
+    </div>
+
+    <div id="playArea" class="playArea">
+      <div id="fx-layer" class="fx-layer"></div>
+      <div id="obstacle-layer" class="obstacle-layer"></div>
+
+      <div id="platform-wrap" class="platform-wrap">
+        <div id="indicator" class="indicator"></div>
+        <div id="platform" class="platform"></div>
+        <div class="safezone" id="safezone"></div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button class="btn ghost" data-action="stop">⏹ Stop</button>
+      <button class="btn ghost" data-action="back-menu">← Menu</button>
+    </div>
+  </section>
+
+  <section id="view-result" class="view hidden">
+    <div class="card">
+      <div class="h2">Result</div>
+      <div class="resgrid">
+        <div class="r"><span>Mode</span><b id="res-mode">—</b></div>
+        <div class="r"><span>Diff</span><b id="res-diff">—</b></div>
+        <div class="r"><span>Dur</span><b id="res-dur">—</b></div>
+        <div class="r"><span>End</span><b id="res-end">—</b></div>
+
+        <div class="r"><span>Stability</span><b id="res-stability">—</b></div>
+        <div class="r"><span>Mean Tilt</span><b id="res-meanTilt">—</b></div>
+        <div class="r"><span>RMS Tilt</span><b id="res-rmsTilt">—</b></div>
+
+        <div class="r"><span>Avoid</span><b id="res-avoid">—</b></div>
+        <div class="r"><span>Hit</span><b id="res-hit">—</b></div>
+        <div class="r"><span>Avoid rate</span><b id="res-avoidRate">—</b></div>
+
+        <div class="r"><span>Fatigue</span><b id="res-fatigue">—</b></div>
+        <div class="r"><span>Samples</span><b id="res-samples">—</b></div>
+      </div>
+
+      <div class="row">
+        <button class="btn primary" data-action="play-again">↻ Play Again</button>
+        <button class="btn" id="btnBackHub" style="display:none;">⬅ กลับ HUB</button>
+      </div>
+    </div>
+  </section>
+
+  <script src="./js/balance-hold.js"></script>
+
+  <!-- small helper: set selects from URL + BackHub on menu -->
+  <script>
+  (function(){
+    function qs(k,d=''){ try{return new URL(location.href).searchParams.get(k) ?? d;}catch{return d;} }
+    const diff = qs('diff','normal');
+    const time = qs('time','80');
+    const hub  = qs('hub','');
+
+    const d = document.getElementById('difficulty'); if(d) d.value = diff;
+    const t = document.getElementById('sessionDuration'); if(t) t.value = time;
+
+    const b = document.getElementById('btnBackHubMenu');
+    if (b && hub){ b.style.display=''; b.onclick=()=>location.href=hub; }
+  })();
+  </script>
+</body>
+</html>
