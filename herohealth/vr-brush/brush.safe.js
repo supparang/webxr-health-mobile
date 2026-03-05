@@ -1,5 +1,5 @@
 // === /herohealth/vr-brush/brush.safe.js ===
-// Brush SAFE — BLOOM PACK1 (Quiz + Zones + Residue/Risk + Heatmap)
+// Brush SAFE — BLOOM PACK1 (Quiz + Zones + Residue/Risk + Heatmap + Self-Reason)
 // FULL v20260304-BRUSH-SAFE-BLOOM1
 'use strict';
 
@@ -16,7 +16,7 @@ export function bootGame(){
   const VIEW = String(qs('view','')).toLowerCase();
   const IS_CVR = (VIEW === 'cvr');
 
-  // --- Bloom: zones (6) ---
+  // Zones (Bloom 3–4)
   const ZONES = [
     { id:'U-OUT', label:'บน-นอก' },
     { id:'U-IN',  label:'บน-ใน'  },
@@ -26,7 +26,7 @@ export function bootGame(){
     { id:'L-CH',  label:'ล่าง-บด'  },
   ];
 
-  // emoji pools
+  // Emoji pools
   const EMOJI = {
     plaque: ['🦷','✨','🫧','🪥','💎','⭐'],
     germ:   ['🦠','😈','🤢','💀','☣️','🧫','☠️']
@@ -45,6 +45,7 @@ export function bootGame(){
     viewPill:  D.getElementById('viewPill'),
     residuePill: D.getElementById('residuePill'),
     riskPill: D.getElementById('riskPill'),
+    crosshair: D.getElementById('crosshair'),
 
     domTargets: D.getElementById('domTargets'),
 
@@ -64,7 +65,6 @@ export function bootGame(){
     btnHelp: D.getElementById('btnHelp'),
     btnReplay: D.getElementById('btnReplay'),
     btnBack: D.getElementById('btnBack'),
-    crosshair: D.getElementById('crosshair'),
   };
 
   const S = {
@@ -76,11 +76,10 @@ export function bootGame(){
     score:0, combo:0, comboMax:0, miss:0,
     goodSpawn:0, junkSpawn:0, goodHit:0, junkHit:0, goodExpire:0,
 
-    residue:0,     // 0..100 (B2)
-    gumRisk:0,     // 0..100 (B2)
+    residue:0,   // 0..100 (Bloom 2)
+    gumRisk:0,   // 0..100 (Bloom 2)
 
-    // zone stats (B3-B4)
-    zone: Object.fromEntries(ZONES.map(z=>[z.id, {spawn:0, hit:0, miss:0}] )),
+    zone: Object.fromEntries(ZONES.map(z=>[z.id, {spawn:0, hit:0, miss:0}])),
 
     targets:new Map(),
     seq:0,
@@ -94,12 +93,10 @@ export function bootGame(){
     selfReason:'',
   };
 
-  // Optional modules (best-effort)
+  // Optional (missions)
   let MISS=null;
   (async ()=>{
     try{ MISS = (await import('./brush.missions.js?v=20260304')).bootMissions({ diff: DIFF }); }catch(e){}
-    try{ await import('./ai-brush.js?v=20260304'); }catch(e){}
-    try{ await import('./brush.fx.js?v=20260304'); }catch(e){}
   })();
 
   function tuneByDiff(){
@@ -123,19 +120,21 @@ export function bootGame(){
     UI.viewPill && (UI.viewPill.textContent = `VIEW: ${IS_CVR ? 'cVR' : 'PC/Mobile'}`);
     UI.crosshair && (UI.crosshair.style.display = IS_CVR ? 'block' : 'none');
 
-    if (UI.residuePill) UI.residuePill.textContent = `RESIDUE: ${Math.round(S.residue)}%`;
-    if (UI.riskPill) UI.riskPill.textContent = `GUM RISK: ${Math.round(S.gumRisk)}%`;
+    UI.residuePill && (UI.residuePill.textContent = `RESIDUE: ${Math.round(S.residue)}%`);
+    UI.riskPill && (UI.riskPill.textContent = `GUM RISK: ${Math.round(S.gumRisk)}%`);
 
     if (UI.missionPill && MISS && typeof MISS.text === 'function'){
       UI.missionPill.textContent = `MISSION: ${MISS.text()}`;
+    } else if (UI.missionPill){
+      UI.missionPill.textContent = `MISSION: —`;
     }
   }
 
   function rid(){ return `t${++S.seq}`; }
 
   function pickZone(){
-    // ensure coverage: prefer zones with low spawn count
-    const arr = ZONES.map(z=>({z, w: 1/(1+S.zone[z.id].spawn)}));
+    // weighted towards low-spawn zones to encourage coverage
+    const arr = ZONES.map(z=>({ z, w: 1/(1+S.zone[z.id].spawn) }));
     const sum = arr.reduce((a,b)=>a+b.w,0);
     let r = Math.random()*sum;
     for(const it of arr){ r -= it.w; if(r<=0) return it.z; }
@@ -188,20 +187,15 @@ export function bootGame(){
     S.targets.set(id, { id, kind, good, emoji, bornAt, ttlAt, domEl, zoneId });
   }
 
+  // Bloom 2: explainable causal model
   function applyResidueRiskOnEvent(t){
-    // Bloom 2 causal model (simple, explainable)
-    // miss plaque => residue↑, hit germ => risk↑
     if (t.kind === 'plaque'){
-      // missed plaque increases residue
       S.residue = Math.min(100, S.residue + 3.5);
     } else {
-      // hit germ increases risk
       S.gumRisk = Math.min(100, S.gumRisk + 6.0);
     }
   }
-
   function reduceResidueOnGood(){
-    // cleaning effect
     S.residue = Math.max(0, S.residue - 2.0);
   }
   function reduceRiskOnGoodStreak(){
@@ -220,7 +214,7 @@ export function bootGame(){
       reduceResidueOnGood();
       reduceRiskOnGoodStreak();
       S.zone[t.zoneId].hit++;
-      if (MISS) MISS.onGoodHit?.();
+      MISS?.onGoodHit?.();
     } else {
       S.junkHit++;
       S.miss++;
@@ -228,7 +222,7 @@ export function bootGame(){
       S.score = Math.max(0, S.score - 8);
       applyResidueRiskOnEvent(t);
       S.zone[t.zoneId].miss++;
-      if (MISS) MISS.onJunkHit?.();
+      MISS?.onJunkHit?.();
     }
 
     try{ t.domEl?.remove(); }catch(e){}
@@ -274,10 +268,9 @@ export function bootGame(){
   function topMissZones(){
     const arr = ZONES.map(z=>{
       const st = S.zone[z.id];
-      const miss = st.miss;
       const spawn = st.spawn || 1;
-      const missRate = miss / spawn;
-      return { id:z.id, label:z.label, miss, spawn, missRate };
+      const missRate = (st.miss) / spawn;
+      return { id:z.id, label:z.label, missRate };
     }).sort((a,b)=> b.missRate - a.missRate);
     return arr.slice(0,2);
   }
@@ -327,9 +320,9 @@ export function bootGame(){
 
   function loop(){
     if (S.ended) return;
-    S.lastFrameMs = S.lastFrameMs || now();
+
     const tnow = now();
-    const dtMs = Math.min(80, Math.max(0, tnow - S.lastFrameMs));
+    const dtMs = S.lastFrameMs ? Math.min(80, Math.max(0, tnow - S.lastFrameMs)) : 16.7;
     S.lastFrameMs = tnow;
 
     S.timeLeft = Math.max(0, S.timeLeft - dtMs/1000);
@@ -347,33 +340,15 @@ export function bootGame(){
 
     expireTick(tnow);
     hud();
-    S.raf = requestAnimationFrame(loop);
+    requestAnimationFrame(loop);
   }
 
-  // --- Quiz (Bloom 1) ---
+  // Bloom 1: Quiz (3 questions)
   const QUIZ = [
-    {
-      q:'🟢 (เป้าดี) หมายถึงอะไร?',
-      a:['เชื้อ', 'คราบพลัค/เศษอาหาร'],
-      correct:1
-    },
-    {
-      q:'🔴 (เป้าอันตราย) หมายถึงอะไร?',
-      a:['เชื้อ/กรดทำลายฟัน', 'ความสะอาด'],
-      correct:0
-    },
-    {
-      q:'ข้อไหนสำคัญที่สุด?',
-      a:['แปรงให้ครบทุกโซน', 'แปรงแค่ด้านนอกก็พอ'],
-      correct:0
-    }
+    { q:'🟢 (เป้าดี) หมายถึงอะไร?', a:['เชื้อ', 'คราบพลัค/เศษอาหาร'], correct:1 },
+    { q:'🔴 (เป้าอันตราย) หมายถึงอะไร?', a:['เชื้อ/กรดทำลายฟัน', 'ความสะอาด'], correct:0 },
+    { q:'ข้อไหนสำคัญที่สุด?', a:['แปรงให้ครบทุกโซน', 'แปรงแค่ด้านนอกก็พอ'], correct:0 }
   ];
-
-  function showQuiz(){
-    S.quizIndex = 0; S.quizCorrect = 0;
-    renderQuiz();
-    UI.panelQuiz?.classList.remove('hidden');
-  }
 
   function renderQuiz(){
     const item = QUIZ[S.quizIndex];
@@ -389,16 +364,15 @@ export function bootGame(){
     item.a.forEach((txt, idx)=>{
       const b = D.createElement('button');
       b.className = 'chip';
-      b.style.cursor = 'pointer';
       b.textContent = txt;
       b.addEventListener('click', ()=>{
-        // mark answer
         const ok = (idx === item.correct);
-        if (ok) S.quizCorrect++;
-        // visual
+        // mark selected
         Array.from(UI.quizBody.querySelectorAll('button.chip')).forEach(x=>x.classList.remove('on'));
         b.classList.add('on');
+        // store on element
         b.dataset.pick = String(idx);
+        b.dataset.ok = ok ? '1' : '0';
       });
       UI.quizBody.appendChild(b);
     });
@@ -406,25 +380,28 @@ export function bootGame(){
     if (UI.btnQuizNext) UI.btnQuizNext.textContent = (S.quizIndex === QUIZ.length-1) ? 'เริ่มเกม' : 'ข้อถัดไป';
   }
 
-  function nextQuizOrStart(startFn){
-    const body = UI.quizBody;
-    if (body){
-      const picked = body.querySelector('button.chip.on');
-      if (!picked){
-        // require pick
-        return;
-      }
-    }
+  function showQuiz(){
+    S.quizIndex = 0;
+    S.quizCorrect = 0;
+    renderQuiz();
+    UI.panelQuiz?.classList.remove('hidden');
+  }
+
+  function nextQuizOrStart(){
+    const picked = UI.quizBody?.querySelector('button.chip.on');
+    if (!picked) return; // must answer
+    if (picked.dataset.ok === '1') S.quizCorrect++;
+
     if (S.quizIndex < QUIZ.length-1){
       S.quizIndex++;
       renderQuiz();
       return;
     }
+
     UI.panelQuiz?.classList.add('hidden');
-    startFn();
+    startGame();
   }
 
-  // --- Start ---
   function startGame(){
     tuneByDiff();
 
@@ -451,20 +428,16 @@ export function bootGame(){
 
     UI.panelEnd?.classList.add('hidden');
     hud();
-    cancelAnimationFrame(S.raf);
-    S.raf = requestAnimationFrame(loop);
+
+    requestAnimationFrame(loop);
   }
 
   function bindUI(){
     UI.btnHelp?.addEventListener('click', ()=> UI.panelHelp?.classList.remove('hidden'));
     UI.btnCloseHelp?.addEventListener('click', ()=> UI.panelHelp?.classList.add('hidden'));
 
-    UI.btnStart?.addEventListener('click', ()=>{
-      // show quiz every start (can later make once/day)
-      showQuiz();
-    });
-
-    UI.btnQuizNext?.addEventListener('click', ()=> nextQuizOrStart(startGame));
+    UI.btnStart?.addEventListener('click', ()=> showQuiz());
+    UI.btnQuizNext?.addEventListener('click', ()=> nextQuizOrStart());
 
     UI.btnReplay?.addEventListener('click', ()=> showQuiz());
     UI.btnBack?.addEventListener('click', ()=>{ location.href = qs('hub','../hub.html'); });
@@ -478,4 +451,5 @@ export function bootGame(){
   return api;
 }
 
+// bridge (optional)
 try{ window.__BRUSH_BOOTGAME__ = bootGame; }catch(e){}
