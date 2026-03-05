@@ -1,9 +1,10 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
 // GoodJunkVR SAFE — PRODUCTION
-// ✅ Dynamic HUD-safe spawn
-// ✅ Hero XP/Profile: localStorage + optional Firebase RTDB
-// ✅ NEW: Challenge Card (A/B/C) + Hero Skill 1/round
-// FULL v20260305h-SAFE-CARDS-SKILL
+// ✅ Dynamic HUD-safe spawn (auto avoid HUD/mission panels)
+// ✅ Hero XP/Profile: localStorage + optional cloud hook
+// ✅ AB Challenge Cards (A+B simultaneously)
+// ✅ Hero Skill 1/round (CLEANSE)
+// FULL v20260305i-SAFE-AB-CARDS-SKILL
 'use strict';
 
 export async function boot(cfg){
@@ -54,7 +55,7 @@ export async function boot(cfg){
   function hhLsGet(k){ try{ return localStorage.getItem(k); }catch(_){ return null; } }
   function hhLsSet(k,v){ try{ localStorage.setItem(k,v); }catch(_){ } }
 
-  // ---------- HERO PROFILE (local + optional cloud) ----------
+  // ---------- HERO PROFILE ----------
   const pid = String(cfg.pid || qs('pid','anon')).trim() || 'anon';
   const nick = String(cfg.nick || qs('nick', pid)).trim() || pid;
 
@@ -73,14 +74,11 @@ export async function boot(cfg){
       return { pid, nick, xp:0, lvl:1 };
     }
   }
-  function saveLocalProfile(p){
-    try{ hhLsSet(`HHA_PROFILE:${pid}`, JSON.stringify(p)); }catch(_){}
-  }
+  function saveLocalProfile(p){ try{ hhLsSet(`HHA_PROFILE:${pid}`, JSON.stringify(p)); }catch(_){ } }
   function lvlFromXp(xp){
     xp = Math.max(0, Number(xp)||0);
     return Math.floor(xp / 50) + 1;
   }
-
   async function heroCloudAddXpMaybe(xpGain){
     try{
       const mod = await import('../vr/hero-profile-cloud.js');
@@ -230,9 +228,13 @@ export async function boot(cfg){
   const missionHint  = $('missionHint');
   const missionFill  = $('missionFill');
 
-  // ✅ NEW UI
-  const cardNameEl = $('cardName');
-  const cardProgEl = $('cardProg');
+  // ✅ AB cards UI
+  const cardAEl = $('cardA');
+  const cardAProgEl = $('cardAProg');
+  const cardBEl = $('cardB');
+  const cardBProgEl = $('cardBProg');
+
+  // skill UI
   const skillBtn = $('skillBtn');
   const skillHint = $('skillHint');
 
@@ -259,12 +261,11 @@ export async function boot(cfg){
   const diff = String(cfg.diff || qs('diff','normal')).toLowerCase();
   const plannedSec = clamp(cfg.time ?? qs('time','80'), 20, 300);
 
-  // hub / cat / gameKey
   const hubUrl = String(cfg.hub || qs('hub','../hub.html'));
   const HH_CAT = 'nutrition';
   const HH_GAME = 'goodjunk';
 
-  // ✅ Battle init
+  // battle init
   initBattleMaybe(pid, HH_GAME).then((b)=>{
     battle = b || battle;
     if(battle && battle.enabled){
@@ -278,7 +279,7 @@ export async function boot(cfg){
     if(uiDiff) uiDiff.textContent = diff;
   }catch(e){}
 
-  // ---------- SOLO win targets + PRO switch ----------
+  // ---------- SOLO tuning ----------
   let stage = 0; // 0=Warm, 1=Trick, 2=Boss
   const STAGE_NAME = ['WARM', 'TRICK', 'BOSS'];
 
@@ -494,7 +495,7 @@ export async function boot(cfg){
     }catch(e){}
   });
 
-  // gameplay state
+  // gameplay metrics
   let score = 0;
   let missTotal = 0;
   let missGoodExpired = 0;
@@ -518,72 +519,64 @@ export async function boot(cfg){
   const targets = new Map();
   let idSeq = 1;
 
-  // ---------- ✅ Challenge Card (A/B/C) ----------
+  // ---------- ✅ AB Challenge Cards ----------
   // A: Accuracy >= 75% when shots>=18
-  // B: Streak Combo reach 10 once
-  // C: Clean Run (junkHit <= 1 until end)
-  const card = (function(){
-    const options = ['A','B','C'];
-    const pick = options[(r01()*options.length)|0];
-    const c = { code: pick, done:false, bonusXp: 6, bonusScore: 35 };
-    return c;
-  })();
+  // B: reach bestCombo >= 10 once
+  const cards = {
+    A: { code:'A', done:false, bonusXp:4 },
+    B: { code:'B', done:false, bonusXp:4 }
+  };
 
-  function cardLabel(){
-    if(card.code==='A') return 'A • Accuracy 75%+';
-    if(card.code==='B') return 'B • Combo 10+';
-    return 'C • Junk hit ≤ 1';
+  function cardAProgress(){
+    const acc = shots ? Math.round((hits/shots)*100) : 0;
+    const need = Math.max(0, 18 - shots);
+    return `acc ${acc}% • shots ${shots}/18${need>0?` (+${need})`:''}`;
   }
-  function cardProgressText(){
-    if(card.done) return 'DONE ✅';
-    if(card.code==='A'){
-      const acc = shots ? Math.round((hits/shots)*100) : 0;
-      const needShots = Math.max(0, 18 - shots);
-      return `acc ${acc}% • shots ${shots}/18${needShots>0?` (อีก ${needShots})`:''}`;
-    }
-    if(card.code==='B'){
-      return `bestCombo ${bestCombo}/10`;
-    }
-    // C
-    return `junkHit ${missJunkHit}/1`;
+  function cardBProgress(){
+    return `bestCombo ${bestCombo}/10`;
   }
-  function updateCardUI(){
-    if(cardNameEl){
-      const v = cardNameEl.querySelector('.v') || cardNameEl;
-      v.textContent = cardLabel();
-    }
-    if(cardProgEl){
-      const v = cardProgEl.querySelector('.v') || cardProgEl;
-      v.textContent = cardProgressText();
-      cardProgEl.classList.toggle('dim', !card.done);
-    }
+
+  function updateCardsUI(){
+    try{
+      if(cardAEl){ const v = cardAEl.querySelector('.v') || cardAEl; v.textContent = 'A • Accuracy 75%+'; }
+      if(cardAProgEl){
+        const v = cardAProgEl.querySelector('.v') || cardAProgEl;
+        v.textContent = cards.A.done ? 'DONE ✅' : cardAProgress();
+        cardAProgEl.classList.toggle('dim', !cards.A.done);
+      }
+
+      if(cardBEl){ const v = cardBEl.querySelector('.v') || cardBEl; v.textContent = 'B • Combo 10+'; }
+      if(cardBProgEl){
+        const v = cardBProgEl.querySelector('.v') || cardBProgEl;
+        v.textContent = cards.B.done ? 'DONE ✅' : cardBProgress();
+        cardBProgEl.classList.toggle('dim', !cards.B.done);
+      }
+    }catch(_){}
   }
-  function checkCardDone(){
-    if(card.done) return;
-    if(card.code==='A'){
+
+  function checkCardsDone(){
+    if(!cards.A.done){
       const acc = shots ? (hits/shots)*100 : 0;
-      if(shots >= 18 && acc >= 75) card.done = true;
-    }else if(card.code==='B'){
-      if(bestCombo >= 10) card.done = true;
-    }else{
-      if(missJunkHit <= 1 && tLeft > 0.01) {
-        // ทำตอนจบค่อย finalize (ถ้าหลุดทีหลังยังไม่ให้)
-        // ดังนั้น C จะ "complete on end" เท่านั้น
+      if(shots >= 18 && acc >= 75){
+        cards.A.done = true;
+        sayCoach('Card A สำเร็จ! (ยิงแม่น 75%+) 🏅');
       }
     }
-    if(card.done){
-      sayCoach(`Challenge Card สำเร็จ! +XP bonus รอรับตอนจบ 🏅`);
-    }
-  }
-  function finalizeCardAtEnd(){
-    if(card.code==='C'){
-      if(missJunkHit <= 1) card.done = true;
+    if(!cards.B.done){
+      if(bestCombo >= 10){
+        cards.B.done = true;
+        sayCoach('Card B สำเร็จ! (คอมโบ 10+) 🏅');
+      }
     }
   }
 
-  // ---------- ✅ Hero Skill 1/round ----------
-  // Skill: CLEANSE — remove up to 2 junk on screen + reduce miss by 1 (if >0) + +score 10
+  function cardsBonusXp(){
+    return (cards.A.done ? cards.A.bonusXp : 0) + (cards.B.done ? cards.B.bonusXp : 0);
+  }
+
+  // ---------- ✅ Hero Skill 1/round (CLEANSE) ----------
   let skillUsed = false;
+
   function setSkillUI(){
     if(skillBtn){
       skillBtn.disabled = (!!skillUsed) || (!playing);
@@ -599,7 +592,6 @@ export async function boot(cfg){
     if(skillUsed) return false;
     skillUsed = true;
 
-    // remove up to 2 junk targets immediately
     let removed = 0;
     for(const [id,t] of targets){
       if(t.type==='junk'){
@@ -612,17 +604,17 @@ export async function boot(cfg){
 
     if(missTotal > 0){
       missTotal = Math.max(0, missTotal - 1);
-      // ถ้าลด miss ก็ลด missJunkHit แบบ conservative (ไม่ให้ติดลบ)
       missJunkHit = Math.max(0, missJunkHit - 1);
     }
 
     score += 10;
     const r = layer.getBoundingClientRect();
     fxFloatText(r.left + r.width*0.82, r.top + r.height*0.70, `CLEANSE! (-miss)`, false);
-    sayCoach(`ใช้สกิล CLEANSE! ล้างขยะ ${removed} ชิ้น + ลด miss`);
+    sayCoach(`CLEANSE! ล้างขยะ ${removed} ชิ้น + ลด miss`);
 
     setSkillUI();
-    updateCardUI();
+    updateCardsUI();
+    emit('hha:event', { name:'skill', skill:'cleanse', removed, ts: nowIso() });
     return true;
   }
 
@@ -637,8 +629,6 @@ export async function boot(cfg){
       useSkillCleanse();
     }
   });
-
-  const HH_SKILL_EVENT = (detail)=> emit('hha:event', { name:'skill', ...detail });
 
   // ---------- spawn safe area (dynamic HUD-safe) ----------
   function layerRect(){ return layer.getBoundingClientRect(); }
@@ -725,9 +715,7 @@ export async function boot(cfg){
       if(hud.time) hud.time.textContent = String(Math.ceil(tLeft));
       if(hud.miss) hud.miss.textContent = String(missTotal|0);
       if(hud.grade) hud.grade.textContent = gradeFromScore();
-      if(hud.goal){
-        hud.goal.textContent = (stage===2) ? 'BOSS' : (stage===1 ? 'TRICK' : 'WARM');
-      }
+      if(hud.goal) hud.goal.textContent = (stage===2) ? 'BOSS' : (stage===1 ? 'TRICK' : 'WARM');
       if(hud.goalCur) hud.goalCur.textContent = String(goodHitCount|0);
       if(hud.goalTarget) hud.goalTarget.textContent = String(WIN_TARGET.goodTarget|0);
       if(hud.goalDesc) hud.goalDesc.textContent = (stage===2 ? 'ตีบอส' : 'เก็บของดี');
@@ -748,8 +736,7 @@ export async function boot(cfg){
     if(grade === 'A') xp += 3;
     if(grade === 'S') xp += 5;
     if(score >= WIN_TARGET.scoreTarget) xp += 2;
-    // ✅ Card bonus (xp) if completed
-    if(card.done) xp += card.bonusXp;
+    xp += cardsBonusXp(); // ✅ AB bonus
     return clamp(xp, 2, 30);
   }
 
@@ -757,10 +744,7 @@ export async function boot(cfg){
     if(!playing) return;
     playing = false;
 
-    // finalize card (C completes here)
-    finalizeCardAtEnd();
-    updateCardUI();
-
+    // stop all targets
     for(const [id,t] of targets){
       try{ t.el.remove(); }catch(e){}
     }
@@ -784,7 +768,7 @@ export async function boot(cfg){
       accPct,
       grade,
       reason,
-      card: { code: card.code, done: card.done },
+      cards: { A: !!cards.A.done, B: !!cards.B.done },
       skillUsed,
       startTimeIso,
       endTimeIso: nowIso()
@@ -795,7 +779,7 @@ export async function boot(cfg){
       hhLsSet('HHA_LAST_SUMMARY', JSON.stringify(sum));
     }catch(e){}
 
-    // ✅ Hero XP
+    // hero xp
     try{
       const xpGain = xpGainFromResult({ reason, grade, score });
       const prof = loadLocalProfile();
@@ -816,9 +800,9 @@ export async function boot(cfg){
       endOverlay.style.display = 'flex';
       if(endTitle) endTitle.textContent = (reason==='win') ? 'ชนะแล้ว! 🎉' : 'จบเกม';
       if(endSub){
-        const cardTxt = card.done ? ` • Card ${card.code} ✅` : ` • Card ${card.code}`;
-        const skillTxt = skillUsed ? ' • Skill used' : '';
-        endSub.textContent = `score ${score} • acc ${accPct}% • miss ${missTotal} • reason=${reason}${sum.xpGain?` • +XP ${sum.xpGain}`:''}${cardTxt}${skillTxt}`;
+        const ctxt = ` • A:${cards.A.done?'✅':'—'} B:${cards.B.done?'✅':'—'}`;
+        const stxt = skillUsed ? ' • Skill used' : '';
+        endSub.textContent = `score ${score} • acc ${accPct}% • miss ${missTotal} • reason=${reason}${sum.xpGain?` • +XP ${sum.xpGain}`:''}${ctxt}${stxt}`;
       }
       if(endGrade) endGrade.textContent = grade;
       if(endScore) endScore.textContent = String(score);
@@ -964,13 +948,14 @@ export async function boot(cfg){
       sayCoach('บอสมาแล้ว! ตีโล่ก่อนแล้วค่อยยิง 🎯');
     }
 
-    // card checks + coach
-    checkCardDone();
+    // ✅ AB cards checks
+    checkCardsDone();
+
     const explain = coachTop2();
     if(explain) sayCoach(explain);
 
     setHUD();
-    updateCardUI();
+    updateCardsUI();
     setSkillUI();
 
     if(missTotal >= TUNE.lifeMissLimit){
@@ -1029,9 +1014,8 @@ export async function boot(cfg){
     }
   }
 
-  // ---------- input: hha:shoot => hit nearest target ----------
+  // ---------- input: hha:shoot ----------
   function dist2(ax,ay,bx,by){ const dx=ax-bx, dy=ay-by; return dx*dx+dy*dy; }
-
   function shootAtCenter(){
     if(!playing) return;
     const r = layerRect();
@@ -1054,12 +1038,11 @@ export async function boot(cfg){
     }else{
       shots++;
       combo = 0;
+      checkCardsDone();
       setHUD();
-      updateCardUI();
-      checkCardDone();
+      updateCardsUI();
     }
   }
-
   WIN.addEventListener('hha:shoot', ()=>{ try{ shootAtCenter(); }catch(e){} });
 
   // ---------- tick ----------
@@ -1072,7 +1055,7 @@ export async function boot(cfg){
     if(!playing) return;
 
     if(paused){
-      setHUD(); updateCardUI(); setSkillUI();
+      setHUD(); updateCardsUI(); setSkillUI();
       requestAnimationFrame(tick);
       return;
     }
@@ -1096,8 +1079,10 @@ export async function boot(cfg){
     }
 
     expireTargets();
+    checkCardsDone();
+
     setHUD();
-    updateCardUI();
+    updateCardsUI();
     setSkillUI();
 
     if(stage===2){
@@ -1113,13 +1098,13 @@ export async function boot(cfg){
   // ---------- init ----------
   setMissionUI();
   setHUD();
-  updateCardUI();
+  updateCardsUI();
   setSkillUI();
 
   if(WAIT_START){
     sayCoach('BATTLE/RACE: รอเริ่มพร้อมกัน… ⏳');
   }else{
-    sayCoach(`เริ่ม! Card ${card.code} เปิดแล้ว 🎴 + ใช้สกิล CLEANSE ได้ 1 ครั้ง`);
+    sayCoach('เริ่ม! เปิด Card A+B แล้ว 🎴🎴 (ผ่านแต่ละใบได้โบนัส XP)');
   }
 
   requestAnimationFrame(tick);
