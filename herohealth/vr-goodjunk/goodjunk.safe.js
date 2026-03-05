@@ -1,6 +1,8 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
-// GoodJunkVR SAFE — PRODUCTION (FX + Coach + mission 3-stage UI + PRO + battle sync)
-// FULL v20260305m-SAFE-REWARD-ABC-HEROXP
+// GoodJunkVR SAFE — PRODUCTION
+// + FX + Coach + mission 3-stage + PRO + battle wait-start
+// + ✅ HERO REWARD: XP + Card Book (S/A/B/C) saved to localStorage per pid
+// FULL v20260306-SAFE-HEROXP-CARDBOOK
 'use strict';
 
 export async function boot(cfg){
@@ -14,6 +16,13 @@ export async function boot(cfg){
   const nowMs = ()=> (performance && performance.now) ? performance.now() : Date.now();
   const nowIso = ()=> new Date().toISOString();
   function $(id){ return DOC.getElementById(id); }
+
+  function lsGet(k){ try{ return localStorage.getItem(k); }catch(_){ return null; } }
+  function lsSet(k,v){ try{ localStorage.setItem(k,String(v)); }catch(_){ } }
+
+  function safeJsonParse(s, fb){
+    try{ return JSON.parse(String(s||'')); }catch(_){ return fb; }
+  }
 
   // ---------- MODE ----------
   const mode = String(qs('mode', cfg.mode || 'solo')).toLowerCase();
@@ -41,11 +50,6 @@ export async function boot(cfg){
     }
   }
 
-  // ---------- localStorage helpers ----------
-  function lsGet(k){ try{ return localStorage.getItem(k); }catch(_){ return null; } }
-  function lsSet(k,v){ try{ localStorage.setItem(k,String(v)); }catch(_){ } }
-  function lsDel(k){ try{ localStorage.removeItem(k); }catch(_){ } }
-
   // ---------- COOL DOWN BUTTON (PER-GAME DAILY) ----------
   function hhDayKey(){
     const d=new Date();
@@ -63,6 +67,7 @@ export async function boot(cfg){
     const kOld = `HHA_COOLDOWN_DONE:${c}:${p}:${day}`;
     return (lsGet(kNew)==='1') || (lsGet(kOld)==='1');
   }
+
   function hhBuildCooldownUrl({ hub, nextAfterCooldown, cat, gameKey, pid }){
     const gate = new URL('../warmup-gate.html', location.href);
     gate.searchParams.set('gatePhase','cooldown');
@@ -83,8 +88,10 @@ export async function boot(cfg){
       const v = sp.get(k);
       if(v!=null && v!=='') gate.searchParams.set(k, v);
     });
+
     return gate.toString();
   }
+
   function hhInjectCooldownButton({ endOverlayEl, hub, cat, gameKey, pid }){
     if(!endOverlayEl) return;
     const cdDone = hhCooldownDone(cat, gameKey, pid);
@@ -215,6 +222,7 @@ export async function boot(cfg){
 
   // hub / pid / cat / gameKey
   const pid = String(cfg.pid || qs('pid','anon')).trim() || 'anon';
+  const nick = String(cfg.nick || qs('nick', pid)).trim() || pid;
   const hubUrl = String(cfg.hub || qs('hub','../hub.html'));
   const HH_CAT = 'nutrition';
   const HH_GAME = 'goodjunk';
@@ -260,6 +268,7 @@ export async function boot(cfg){
     let ttlGood = 2.6;
     let ttlJunk = 2.9;
     let ttlBonus = 2.4;
+    let stormMult = 1.0;
     let bossHp = 18;
 
     if(diff==='easy'){
@@ -267,12 +276,14 @@ export async function boot(cfg){
       lifeMissLimit = 14;
       ttlGood = 3.0;
       ttlJunk = 3.2;
+      stormMult = 0.9;
       bossHp = 16;
     }else if(diff==='hard'){
       spawnBase = 0.95;
       lifeMissLimit = 8;
       ttlGood = 2.2;
       ttlJunk = 2.4;
+      stormMult = 1.12;
       bossHp = 22;
     }
     if(view==='cvr' || view==='vr'){
@@ -283,10 +294,11 @@ export async function boot(cfg){
       spawnBase *= 1.08;
       ttlGood   -= 0.10;
       ttlJunk   -= 0.08;
+      stormMult *= 1.05;
       bossHp    += 3;
       lifeMissLimit = Math.max(6, lifeMissLimit - 1);
     }
-    return { spawnBase, lifeMissLimit, ttlGood, ttlJunk, ttlBonus, bossHp };
+    return { spawnBase, lifeMissLimit, ttlGood, ttlJunk, ttlBonus, stormMult, bossHp };
   })();
 
   const GOOD = ['🍎','🍌','🥦','🥬','🥚','🐟','🥛','🍚','🍞','🥑','🍉','🍊','🥕','🥒'];
@@ -381,7 +393,7 @@ export async function boot(cfg){
   coach.style.left = '10px';
   coach.style.right = '10px';
   coach.style.bottom = `calc(env(safe-area-inset-bottom, 0px) + 10px)`;
-  coach.style.zIndex = '240';
+  coach.style.zIndex = '210';
   coach.style.pointerEvents = 'none';
   coach.style.display = 'flex';
   coach.style.justifyContent = 'center';
@@ -454,6 +466,7 @@ export async function boot(cfg){
     paused = !!on;
     try{ lastTick = nowMs(); }catch(e){}
   };
+
   WIN.__GJ_START_NOW__ = function(){
     try{
       paused = false;
@@ -501,60 +514,37 @@ export async function boot(cfg){
 
   function layerRect(){ return layer.getBoundingClientRect(); }
 
-  // ====== UI bounds aware SAFE SPAWN (HUD/mission/bossbar) ======
-  function getUiBlocks(){
-    const b = WIN.HHA_UI_BOUNDS || null;
-    const blocks = [];
-    function pushRect(r){
-      if(!r) return;
-      blocks.push({ x1:r.left, y1:r.top, x2:r.right, y2:r.bottom });
-    }
-    pushRect(b?.L); pushRect(b?.R); pushRect(b?.M); pushRect(b?.B);
-    return blocks;
-  }
-  function overlapsBlock(x,y, blocks, pad){
-    for(const r of blocks){
-      if(x >= r.x1-pad && x <= r.x2+pad && y >= r.y1-pad && y <= r.y2+pad) return true;
-    }
-    return false;
-  }
+  // ✅ SAFE SPAWN ZONE
   function safeSpawnRect(){
     const r = layerRect();
     const W = r.width, H = r.height;
 
-    const leftPad = 18, rightPad = 18;
-    const topPadBase = (view==='cvr'||view==='vr') ? 130 : 120;
-    const bottomPadBase = (view==='cvr'||view==='vr') ? 120 : 110;
+    const topPad = 140 + (view==='cvr'||view==='vr' ? 24 : 0);
+    const bottomPad = 120 + (view==='cvr'||view==='vr' ? 10 : 0);
+
+    const leftPad = 18;
+    const rightPad = 18;
 
     const x1 = r.left + leftPad;
     const x2 = r.left + Math.max(leftPad+10, W - rightPad);
-    const y1 = r.top + Math.min(H-80, topPadBase);
-    const y2 = r.top + Math.max(y1+80, H - bottomPadBase);
+    const y1 = r.top + Math.min(H-60, topPad);
+    const y2 = r.top + Math.max(y1+60, H - bottomPad);
 
     return { x1, x2, y1, y2 };
   }
+
   function spawnPoint(){
     const s = safeSpawnRect();
-    const blocks = getUiBlocks();
-    const pad = 14;
-    const maxTry = 18;
-
-    for(let i=0;i<maxTry;i++){
-      const x = s.x1 + (s.x2 - s.x1) * r01();
-      const y = s.y1 + (s.y2 - s.y1) * r01();
-      if(!overlapsBlock(x,y, blocks, pad)) return { x, y };
-    }
-    return {
-      x: s.x1 + (s.x2 - s.x1) * r01(),
-      y: s.y1 + (s.y2 - s.y1) * r01()
-    };
+    const x = s.x1 + (s.x2 - s.x1) * r01();
+    const y = s.y1 + (s.y2 - s.y1) * r01();
+    return { x, y };
   }
 
   function setMissionUI(){
     if(missionTitle) missionTitle.textContent = STAGE_NAME[stage] || 'WARM';
     if(stage===0){
       if(missionGoal) missionGoal.textContent = `เก็บของดี ${WIN_TARGET.goodTarget} ชิ้น`;
-      if(missionHint) missionHint.textContent = `เป้าหมาย: ของดี + คะแนนสะสม (อย่าโดนของขยะ)`;
+      if(missionHint) missionHint.textContent = `เป้าหมาย: เก็บของดีให้ไว (อย่าโดนของขยะ)`;
     }else if(stage===1){
       if(missionGoal) missionGoal.textContent = `คอมโบ 8+ เพื่อเร่งแต้ม`;
       if(missionHint) missionHint.textContent = `TRICK: ทำคอมโบต่อเนื่อง • เล็งของดีให้ไว`;
@@ -568,6 +558,7 @@ export async function boot(cfg){
     if(!bossBar) return;
     bossBar.style.display = on ? 'flex' : 'none';
   }
+
   function setBossHpUI(){
     if(!bossFill) return;
     const p = bossHpMax ? clamp((bossHp/bossHpMax)*100, 0, 100) : 0;
@@ -592,9 +583,7 @@ export async function boot(cfg){
       if(hud.time) hud.time.textContent = String(Math.ceil(tLeft));
       if(hud.miss) hud.miss.textContent = String(missTotal|0);
       if(hud.grade) hud.grade.textContent = gradeFromScore();
-      if(hud.goal){
-        hud.goal.textContent = (stage===2) ? 'BOSS' : (stage===1 ? 'TRICK' : 'WARM');
-      }
+      if(hud.goal) hud.goal.textContent = (stage===2) ? 'BOSS' : (stage===1 ? 'TRICK' : 'WARM');
       if(hud.goalCur) hud.goalCur.textContent = String(goodHitCount|0);
       if(hud.goalTarget) hud.goalTarget.textContent = String(WIN_TARGET.goodTarget|0);
       if(hud.goalDesc) hud.goalDesc.textContent = (stage===2 ? 'ตีบอส' : 'เก็บของดี');
@@ -609,89 +598,110 @@ export async function boot(cfg){
     }catch(e){}
   }
 
-  // ========== REWARD ENGINE: ABC Cards + Hero XP ==========
-  function heroXpKey(pid){ return `HHA_HERO_XP:${String(pid||'anon')}`; }
-  function cardBookKey(pid){ return `HHA_CARD_BOOK:${String(pid||'anon')}`; }
-  function lastRewardKey(pid){ return `HHA_LAST_REWARD:${String(pid||'anon')}`; }
+  // ============================
+  // ✅ HERO REWARD (XP + CARD BOOK)
+  // ============================
+  const HERO_XP_KEY = `HHA_HERO_XP:${pid}`;
+  const BOOK_KEY    = `HHA_CARD_BOOK:${pid}`;
+  const LAST_REWARD_KEY = `HHA_LAST_REWARD:${pid}`;
 
-  function parseJson(s, fallback){
-    try{ return JSON.parse(String(s||'')); }catch(_){ return fallback; }
+  function calcXpGain({ grade, reason, diff, pro, mode, accPct, missTotal, stage }){
+    // classroom-friendly: win > time, S/A ให้เยอะ, hard/pro ให้บูสท์นิด ๆ
+    grade = String(grade||'D').toUpperCase();
+    reason = String(reason||'').toLowerCase();
+    diff = String(diff||'normal').toLowerCase();
+
+    let base = 6;
+    if(reason === 'win') base = 16;
+    else if(reason === 'time') base = 10;
+    else if(reason === 'miss-limit') base = 6;
+
+    const gBonus = (grade==='S') ? 10 : (grade==='A') ? 7 : (grade==='B') ? 4 : (grade==='C') ? 2 : 0;
+    const diffBonus = (diff==='hard') ? 4 : (diff==='easy') ? 0 : 2;
+    const proBonus = pro ? 2 : 0;
+    const modeBonus = (String(mode||'solo')==='solo') ? 0 : 2;
+
+    const acc = Number(accPct||0) || 0;
+    const miss = Number(missTotal||0) || 0;
+
+    let perf = 0;
+    if(acc >= 85 && miss <= 2) perf += 4;
+    else if(acc >= 75 && miss <= 4) perf += 2;
+    else if(acc <= 55 || miss >= 10) perf -= 2;
+
+    // ถ้าขึ้นถึงบอส (stage 2) ให้บูสท์เล็กน้อย
+    const bossBonus = (Number(stage)||0) >= 2 ? 2 : 0;
+
+    const xp = Math.max(0, Math.round(base + gBonus + diffBonus + proBonus + modeBonus + perf + bossBonus));
+    return xp;
   }
 
-  // level curve: XP grows => Lv increases smoothly (kids feel progress fast early)
-  function levelFromXp(xp){
-    xp = Math.max(0, Number(xp)||0);
-    // Lv1 at 0; ~Lv5 at ~800; ~Lv10 at ~3000
-    return 1 + Math.floor(Math.sqrt(xp / 80));
+  function gradeToCard(grade){
+    // ได้การ์ดเฉพาะ S/A/B/C, D ไม่ได้
+    grade = String(grade||'D').toUpperCase();
+    if(grade==='S' || grade==='A' || grade==='B' || grade==='C') return grade;
+    return null;
   }
 
-  function awardCardFromGrade(g){
-    // ✅ D = no card
-    if(g==='S' || g==='A' || g==='B' || g==='C') return g;
-    return '';
-  }
+  function grantHeroReward(summary){
+    // summary: {pid, grade, diff, reason, score, accPct, missTotal, ...}
+    const grade = String(summary.grade||'D').toUpperCase();
+    const card = gradeToCard(grade);
+    const xpGain = calcXpGain({
+      grade,
+      reason: summary.reason,
+      diff: summary.diff,
+      pro: !!PRO,
+      mode,
+      accPct: summary.accPct,
+      missTotal: summary.missTotal,
+      stage
+    });
 
-  function computeXpGain({ score, accPct, bestCombo, missTotal, reason }){
-    const win = (reason === 'win');
-    // base from score
-    let xp = Math.floor((score||0) / 30);            // 0..~30+
-    xp += Math.floor((accPct||0) / 10);             // 0..10
-    xp += Math.min(12, Math.floor((bestCombo||0) / 3)); // 0..12
-    if(win) xp += 12;                               // win bonus
-    xp -= Math.min(10, Math.floor((missTotal||0) / 2)); // penalty
-    if(PRO && win) xp += 3;                         // PRO bonus
-    // clamp
-    xp = clamp(xp, 0, 45);
-    return xp|0;
-  }
+    const xpPrev = Number(lsGet(HERO_XP_KEY)||'0') || 0;
+    const xpNext = xpPrev + xpGain;
+    lsSet(HERO_XP_KEY, String(xpNext|0));
 
-  function updateRewards({ grade, xpGain, sum }){
-    const kXp = heroXpKey(pid);
-    const curXp = Number(lsGet(kXp)||'0') || 0;
-    const nextXp = Math.max(0, curXp + (xpGain|0));
-    lsSet(kXp, String(nextXp));
+    const book = safeJsonParse(lsGet(BOOK_KEY), null) || { cards:{S:0,A:0,B:0,C:0}, history:[] };
+    if(!book.cards) book.cards = {S:0,A:0,B:0,C:0};
+    if(!Array.isArray(book.history)) book.history = [];
 
-    // card book
-    const kBook = cardBookKey(pid);
-    const book = parseJson(lsGet(kBook), null) || { pid, cards:{S:0,A:0,B:0,C:0}, last: null, history: [] };
-    const card = awardCardFromGrade(grade);
     if(card){
-      book.cards[card] = (book.cards[card]||0) + 1;
+      book.cards[card] = (Number(book.cards[card])||0) + 1;
     }
-    const level = levelFromXp(nextXp);
 
     const reward = {
-      pid,
-      game: HH_GAME,
       at: nowIso(),
-      grade,
+      pid,
+      nick,
+      game: 'goodjunk',
       card: card || '—',
-      xpGain: xpGain|0,
-      xpTotal: nextXp|0,
-      level,
-      reason: sum?.reason || '',
-      score: sum?.score || 0,
-      accPct: sum?.accPct || 0,
-      missTotal: sum?.missTotal || 0,
-      bestCombo: bestCombo|0,
-      // hints for UI
-      cardHint: card ? `รับการ์ด ${card} แล้ว! เก็บสะสมไว้แลก Badge` : `เกรด D ยังไม่ได้การ์ด (ลองลด Miss + ยิงแม่นขึ้น)`,
+      grade,
+      xpGain,
+      xpTotal: xpNext|0,
+      diff: summary.diff,
+      mode,
+      reason: summary.reason,
+      score: summary.score|0,
+      accPct: summary.accPct|0,
+      missTotal: summary.missTotal|0,
+      seed: seedStr
     };
 
-    book.last = reward;
-    book.history = Array.isArray(book.history) ? book.history : [];
+    // push history (ล่าสุดอยู่หน้า)
     book.history.unshift(reward);
-    book.history = book.history.slice(0, 30);
-    lsSet(kBook, JSON.stringify(book));
-    lsSet(lastRewardKey(pid), JSON.stringify(reward));
-    lsSet('HHA_LAST_REWARD', JSON.stringify(reward)); // global convenience
+    book.history = book.history.slice(0, 60);
 
-    // broadcast
+    lsSet(BOOK_KEY, JSON.stringify(book));
+    lsSet(LAST_REWARD_KEY, JSON.stringify(reward));
+
+    // emit for launcher/hub refresh
     try{ WIN.dispatchEvent(new CustomEvent('hha:reward', { detail: reward })); }catch(_){}
 
     return reward;
   }
 
+  // ---------- end game ----------
   function endGame(reason){
     if(!playing) return;
     playing = false;
@@ -707,6 +717,7 @@ export async function boot(cfg){
     const sum = {
       game: HH_GAME,
       pid,
+      nick,
       diff,
       mode,
       score,
@@ -718,30 +729,48 @@ export async function boot(cfg){
       accPct,
       grade,
       reason,
+      stage,
       startTimeIso,
       endTimeIso: nowIso()
     };
+
+    // ✅ last summary (AutoDiff uses this)
     try{
       lsSet(`HHA_LAST_SUMMARY:${HH_GAME}:${pid}`, JSON.stringify(sum));
       lsSet('HHA_LAST_SUMMARY', JSON.stringify(sum));
     }catch(e){}
 
-    // ✅ REWARD compute + save + emit
-    const xpGain = computeXpGain({ score, accPct, bestCombo, missTotal, reason });
-    const reward = updateRewards({ grade, xpGain, sum });
+    // ✅ HERO reward (XP + Card Book)
+    let reward = null;
+    try{
+      // ให้ reward เฉพาะ SOLO (และโหมดอื่น ๆ จะค่อยเปิดเต็มได้)
+      // ถ้าจะให้ battle ก็ได้ แค่เอาเงื่อนไขออก
+      if(String(mode)==='solo'){
+        reward = grantHeroReward(sum);
+      }
+    }catch(e){ console.warn('[GoodJunk] reward failed', e); }
 
+    // emit end event
     try{
       WIN.dispatchEvent(new CustomEvent('hha:end', { detail: sum }));
     }catch(e){}
 
+    // show overlay
     if(endOverlay){
       endOverlay.style.display = 'flex';
       if(endTitle) endTitle.textContent = (reason==='win') ? 'ชนะแล้ว! 🎉' : 'จบเกม';
-      if(endSub) endSub.textContent = `score ${score} • acc ${accPct}% • miss ${missTotal} • reason=${reason}`;
+
+      let extra = '';
+      if(reward){
+        extra = ` • 🃏 ${reward.card} • ✨ +${reward.xpGain}XP`;
+      }
+      if(endSub) endSub.textContent = `score ${score} • acc ${accPct}% • miss ${missTotal} • reason=${reason}${extra}`;
+
       if(endGrade) endGrade.textContent = grade;
       if(endScore) endScore.textContent = String(score);
       if(endMiss) endMiss.textContent = String(missTotal);
       if(endTime) endTime.textContent = String(Math.round(plannedSec - tLeft));
+
       hhInjectCooldownButton({ endOverlayEl:endOverlay, hub:hubUrl, cat:HH_CAT, gameKey:HH_GAME, pid });
     }else{
       alert(`จบเกม: ${reason} (score ${score})`);
@@ -775,15 +804,17 @@ export async function boot(cfg){
 
     const id = String(idSeq++);
     const born = nowMs();
+
     const t = { id, type, emoji, ttl, born, el };
     targets.set(id, t);
 
     function onHit(ev){
       ev && ev.preventDefault && ev.preventDefault();
       ev && ev.stopPropagation && ev.stopPropagation();
-      hitTarget(id, x, y);
+      hitTarget(id);
     }
     el.addEventListener('pointerdown', onHit, { passive:false });
+
     return t;
   }
 
@@ -794,9 +825,14 @@ export async function boot(cfg){
     try{ t.el.remove(); }catch(e){}
   }
 
-  function hitTarget(id, x, y){
+  function hitTarget(id){
     const t = targets.get(id);
     if(!t || !playing) return;
+
+    // ใช้ตำแหน่งจริงตอนกด (แก้เพี้ยน)
+    const br = t.el.getBoundingClientRect();
+    const x = br.left + br.width/2;
+    const y = br.top  + br.height/2;
 
     shots++;
     const type = t.type;
@@ -840,7 +876,9 @@ export async function boot(cfg){
         fxFloatText(x,y,'🎯',false);
       }
       setBossHpUI();
-      if(bossHp <= 0) endGame('win');
+      if(bossHp <= 0){
+        endGame('win');
+      }
     }
 
     removeTarget(id);
@@ -933,7 +971,7 @@ export async function boot(cfg){
     const cx = r.left + r.width/2;
     const cy = r.top  + r.height/2;
 
-    let best=null, bestD=Infinity, bestXY=null;
+    let best=null, bestD=Infinity;
     for(const [id,t] of targets){
       const br = t.el.getBoundingClientRect();
       const tx = br.left + br.width/2;
@@ -942,11 +980,10 @@ export async function boot(cfg){
       if(d < bestD){
         bestD = d;
         best = id;
-        bestXY = { x: tx, y: ty };
       }
     }
-    if(best && bestXY){
-      hitTarget(best, bestXY.x, bestXY.y);
+    if(best){
+      hitTarget(best);
     }else{
       shots++;
       combo = 0;
@@ -1011,8 +1048,18 @@ export async function boot(cfg){
   if(WAIT_START){
     sayCoach('BATTLE/RACE: รอเริ่มพร้อมกัน… ⏳');
   }else{
-    sayCoach('พร้อมแล้ว! ยิงของดี 🥦 (กด H ย่อ HUD ได้)');
+    sayCoach('พร้อมแล้ว! ยิงของดี 🥦');
   }
+
+  // background end guard
+  function onVis(){
+    try{
+      if(document.hidden && playing){
+        endGame('background');
+      }
+    }catch(e){}
+  }
+  document.addEventListener('visibilitychange', onVis);
 
   requestAnimationFrame(tick);
 }
