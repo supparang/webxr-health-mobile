@@ -15,11 +15,11 @@ PATCH v20260305-BH-RUNPAGE
   <link rel="stylesheet" href="./css/balance-hold.css" />
 </head>
 <body>
-  <!-- reuse your full run UI -->
+  <!-- MENU -->
   <section id="view-menu" class="view">
     <div class="card">
       <div class="h1">⚖️ Balance Hold</div>
-      <div class="p">ลากซ้าย–ขวาเพื่อคุมสมดุล • หลบ 💨/💣/⚡</div>
+      <div class="p">ลากซ้าย–ขวาเพื่อคุมสมดุล • หลบ 💨/💣/⚡ • Warm → Trick → Boss</div>
 
       <div class="form">
         <label>Difficulty</label>
@@ -47,6 +47,7 @@ PATCH v20260305-BH-RUNPAGE
     </div>
   </section>
 
+  <!-- RESEARCH -->
   <section id="view-research" class="view hidden">
     <div class="card">
       <div class="h2">🧪 Research Mode</div>
@@ -59,9 +60,11 @@ PATCH v20260305-BH-RUNPAGE
         <button class="btn primary" data-action="start-research">▶ Start Research</button>
         <button class="btn ghost" data-action="back-menu">← Back</button>
       </div>
+      <div class="note">* research mode จะ export CSV เมื่อจบเกม</div>
     </div>
   </section>
 
+  <!-- PLAY -->
   <section id="view-play" class="view hidden">
     <div class="hud">
       <div class="hudrow">
@@ -100,9 +103,11 @@ PATCH v20260305-BH-RUNPAGE
     </div>
   </section>
 
+  <!-- RESULT -->
   <section id="view-result" class="view hidden">
     <div class="card">
       <div class="h2">Result</div>
+
       <div class="resgrid">
         <div class="r"><span>Mode</span><b id="res-mode">—</b></div>
         <div class="r"><span>Diff</span><b id="res-diff">—</b></div>
@@ -130,7 +135,7 @@ PATCH v20260305-BH-RUNPAGE
 
   <script src="./js/balance-hold.js"></script>
 
-  <!-- small helper: set selects from URL + BackHub on menu -->
+  <!-- helper: set selects from URL + BackHub on menu -->
   <script>
   (function(){
     function qs(k,d=''){ try{return new URL(location.href).searchParams.get(k) ?? d;}catch{return d;} }
