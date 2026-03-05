@@ -1,6 +1,6 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
 GoodJunkVR — RUN PAGE (PC/Mobile/cVR) — PRODUCTION
-PATCH v20260305f-RUN-HUDSAFE-IDS
+PATCH v20260305e-RUN-HUD-ANCHORS
 Requires:
 - /herohealth/vr/vr-ui.js
 - /herohealth/vr-goodjunk/goodjunk.safe.js (module)
@@ -220,8 +220,7 @@ Requires:
 
   <div id="gj-layer" aria-label="play layer"></div>
 
-  <!-- ✅ IDs for safe spawn measurements -->
-  <div class="hud" id="gjHud" aria-label="hud">
+  <div class="hud" id="hudTop" aria-label="hud">
     <span class="pill"><b>score</b>: <span class="v" id="hud-score">0</span></span>
     <span class="pill"><b>time</b>: <span class="v" id="hud-time">0</span></span>
     <span class="pill"><b>miss</b>: <span class="v" id="hud-miss">0</span></span>
@@ -229,7 +228,7 @@ Requires:
     <span class="pill"><b>goal</b>: <span class="v" id="hud-goal">—</span></span>
   </div>
 
-  <div class="mini" id="gjMini" aria-label="goal/mini/ai">
+  <div class="mini" id="hudMini" aria-label="goal/mini/ai">
     <span class="pill"><b>cur</b>: <span class="v" id="hud-goal-cur">0</span></span>
     <span class="pill"><b>target</b>: <span class="v" id="hud-goal-target">0</span></span>
     <span class="pill"><b>desc</b>: <span class="v" id="goalDesc">—</span></span>
@@ -239,7 +238,7 @@ Requires:
     <span class="pill"><b>AI hint</b>: <span class="v" id="aiHint">—</span></span>
   </div>
 
-  <div class="mission" id="gjMission" aria-label="mission">
+  <div class="mission" id="missionPanel" aria-label="mission">
     <div class="missionRow">
       <div class="missionTitle" id="missionTitle">WARM</div>
       <div class="missionGoal" id="missionGoal">—</div>
