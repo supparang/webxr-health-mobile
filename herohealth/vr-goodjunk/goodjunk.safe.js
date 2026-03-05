@@ -2,9 +2,9 @@
 // GoodJunkVR SAFE — PRODUCTION
 // ✅ Dynamic HUD-safe spawn (auto avoid HUD/mission panels)
 // ✅ Hero XP/Profile: localStorage + optional cloud hook
-// ✅ AB Challenge Cards (A+B simultaneously)
+// ✅ ABC Challenge Cards (A+B+C simultaneously)
 // ✅ Hero Skill 1/round (CLEANSE)
-// FULL v20260305i-SAFE-AB-CARDS-SKILL
+// FULL v20260305j-SAFE-ABC-CARDS-SKILL
 'use strict';
 
 export async function boot(cfg){
@@ -228,11 +228,13 @@ export async function boot(cfg){
   const missionHint  = $('missionHint');
   const missionFill  = $('missionFill');
 
-  // ✅ AB cards UI
+  // ✅ ABC cards UI
   const cardAEl = $('cardA');
   const cardAProgEl = $('cardAProg');
   const cardBEl = $('cardB');
   const cardBProgEl = $('cardBProg');
+  const cardCEl = $('cardC');
+  const cardCProgEl = $('cardCProg');
 
   // skill UI
   const skillBtn = $('skillBtn');
@@ -519,12 +521,14 @@ export async function boot(cfg){
   const targets = new Map();
   let idSeq = 1;
 
-  // ---------- ✅ AB Challenge Cards ----------
+  // ---------- ✅ ABC Challenge Cards ----------
   // A: Accuracy >= 75% when shots>=18
   // B: reach bestCombo >= 10 once
+  // C: junk hit <= 1 for the whole round
   const cards = {
     A: { code:'A', done:false, bonusXp:4 },
-    B: { code:'B', done:false, bonusXp:4 }
+    B: { code:'B', done:false, bonusXp:4 },
+    C: { code:'C', done:false, bonusXp:4 } // done will be finalized at end
   };
 
   function cardAProgress(){
@@ -534,6 +538,10 @@ export async function boot(cfg){
   }
   function cardBProgress(){
     return `bestCombo ${bestCombo}/10`;
+  }
+  function cardCProgress(){
+    if(missJunkHit <= 1) return `ok hits ${missJunkHit}/1`;
+    return `FAILED hits ${missJunkHit}`;
   }
 
   function updateCardsUI(){
@@ -550,6 +558,21 @@ export async function boot(cfg){
         const v = cardBProgEl.querySelector('.v') || cardBProgEl;
         v.textContent = cards.B.done ? 'DONE ✅' : cardBProgress();
         cardBProgEl.classList.toggle('dim', !cards.B.done);
+      }
+
+      if(cardCEl){ const v = cardCEl.querySelector('.v') || cardCEl; v.textContent = 'C • Junk hit ≤ 1'; }
+      if(cardCProgEl){
+        const v = cardCProgEl.querySelector('.v') || cardCProgEl;
+        if(cards.C.done){
+          v.textContent = 'DONE ✅';
+          cardCProgEl.classList.remove('dim');
+        }else{
+          v.textContent = cardCProgress();
+          // dim = ยังไม่จบ หรือ fail แล้ว
+          const ok = (missJunkHit <= 1);
+          cardCProgEl.classList.toggle('dim', ok); // ok=ยังลุ้นได้ -> dim
+          if(!ok) cardCProgEl.classList.remove('dim'); // fail -> highlight-ish (ไม่ dim)
+        }
       }
     }catch(_){}
   }
@@ -568,10 +591,17 @@ export async function boot(cfg){
         sayCoach('Card B สำเร็จ! (คอมโบ 10+) 🏅');
       }
     }
+    // Card C finalized at endGame (but we still show progress live)
+  }
+
+  function finalizeCardC(){
+    if(cards.C.done) return;
+    cards.C.done = (missJunkHit <= 1);
+    if(cards.C.done) sayCoach('Card C สำเร็จ! (โดนขยะ ≤ 1) 🏅');
   }
 
   function cardsBonusXp(){
-    return (cards.A.done ? cards.A.bonusXp : 0) + (cards.B.done ? cards.B.bonusXp : 0);
+    return (cards.A.done ? cards.A.bonusXp : 0) + (cards.B.done ? cards.B.bonusXp : 0) + (cards.C.done ? cards.C.bonusXp : 0);
   }
 
   // ---------- ✅ Hero Skill 1/round (CLEANSE) ----------
@@ -604,7 +634,7 @@ export async function boot(cfg){
 
     if(missTotal > 0){
       missTotal = Math.max(0, missTotal - 1);
-      missJunkHit = Math.max(0, missJunkHit - 1);
+      missJunkHit = Math.max(0, missJunkHit - 1); // ✅ ช่วย Card C ได้จริง
     }
 
     score += 10;
@@ -736,7 +766,7 @@ export async function boot(cfg){
     if(grade === 'A') xp += 3;
     if(grade === 'S') xp += 5;
     if(score >= WIN_TARGET.scoreTarget) xp += 2;
-    xp += cardsBonusXp(); // ✅ AB bonus
+    xp += cardsBonusXp(); // ✅ ABC bonus
     return clamp(xp, 2, 30);
   }
 
@@ -744,7 +774,9 @@ export async function boot(cfg){
     if(!playing) return;
     playing = false;
 
-    // stop all targets
+    // finalize Card C at end
+    finalizeCardC();
+
     for(const [id,t] of targets){
       try{ t.el.remove(); }catch(e){}
     }
@@ -768,7 +800,7 @@ export async function boot(cfg){
       accPct,
       grade,
       reason,
-      cards: { A: !!cards.A.done, B: !!cards.B.done },
+      cards: { A: !!cards.A.done, B: !!cards.B.done, C: !!cards.C.done },
       skillUsed,
       startTimeIso,
       endTimeIso: nowIso()
@@ -779,7 +811,6 @@ export async function boot(cfg){
       hhLsSet('HHA_LAST_SUMMARY', JSON.stringify(sum));
     }catch(e){}
 
-    // hero xp
     try{
       const xpGain = xpGainFromResult({ reason, grade, score });
       const prof = loadLocalProfile();
@@ -800,7 +831,7 @@ export async function boot(cfg){
       endOverlay.style.display = 'flex';
       if(endTitle) endTitle.textContent = (reason==='win') ? 'ชนะแล้ว! 🎉' : 'จบเกม';
       if(endSub){
-        const ctxt = ` • A:${cards.A.done?'✅':'—'} B:${cards.B.done?'✅':'—'}`;
+        const ctxt = ` • A:${cards.A.done?'✅':'—'} B:${cards.B.done?'✅':'—'} C:${cards.C.done?'✅':'—'}`;
         const stxt = skillUsed ? ' • Skill used' : '';
         endSub.textContent = `score ${score} • acc ${accPct}% • miss ${missTotal} • reason=${reason}${sum.xpGain?` • +XP ${sum.xpGain}`:''}${ctxt}${stxt}`;
       }
@@ -901,6 +932,11 @@ export async function boot(cfg){
       combo = 0;
       score = Math.max(0, score - 8);
       fxFloatText(x,y,'-8',true);
+
+      // Card C: ถ้าโดนขยะเกิน 1 ครั้ง เตือนทันที
+      if(missJunkHit === 2){
+        sayCoach('Card C พลาดแล้ว! (โดนขยะเกิน 1) 😵');
+      }
     }else if(type === 'bonus'){
       hits++;
       score += 25;
@@ -948,7 +984,6 @@ export async function boot(cfg){
       sayCoach('บอสมาแล้ว! ตีโล่ก่อนแล้วค่อยยิง 🎯');
     }
 
-    // ✅ AB cards checks
     checkCardsDone();
 
     const explain = coachTop2();
@@ -1104,7 +1139,7 @@ export async function boot(cfg){
   if(WAIT_START){
     sayCoach('BATTLE/RACE: รอเริ่มพร้อมกัน… ⏳');
   }else{
-    sayCoach('เริ่ม! เปิด Card A+B แล้ว 🎴🎴 (ผ่านแต่ละใบได้โบนัส XP)');
+    sayCoach('เริ่ม! เปิด Card A+B+C แล้ว 🎴🎴🎴 (ผ่านแต่ละใบได้โบนัส XP)');
   }
 
   requestAnimationFrame(tick);
