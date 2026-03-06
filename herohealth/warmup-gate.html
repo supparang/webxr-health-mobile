@@ -1,16 +1,14 @@
 <!-- === /herohealth/warmup-gate.html ===
-HeroHealth Warmup/Cooldown Gate — PER-GAME DAILY FULL (v20260225p1)
-✅ root file
-✅ DAILY = cat + game + pid + day (NEW) + fallback old cat-only
+HeroHealth Warmup/Cooldown Gate — PER-GAME DAILY FULL
+PATCH v20260306-ALLZONE-ALLGAME-THEMED
+✅ DAILY = cat + game + pid + day (per-game daily)
 ✅ warmup/cooldown once-per-day per PID+category+game
+✅ all zones + all games themed
 ✅ warmup end -> pass buffs (wType/wPct/wCrit/wDmg/wHeal/rank/calm) into next URL
-✅ cooldown end -> supports plan sequence passthrough + cdnext chain already in next
-✅ P5: grade=p5 => default dur/cdur=30 (override respected)
-✅ Mission panel (3 daily missions deterministic by day+pid)
-✅ P5 mini-games: risky/skill-based (streak, decoys, perfect timing)
-✅ Cooldown breath ring timing with perfect window
-Works PC/Mobile. Safe, no external deps.
-PATCH v20260226: GitHub Pages canonical HUB resolver (no more 404 /herohealth on domain root)
+✅ cooldown end -> return hub / chain next
+✅ canonical hub resolver (GitHub Pages safe)
+✅ P5 mode = richer mini-games
+✅ Non-P5 mode = lightweight themed mini-games
 -->
 <!doctype html>
 <html lang="th">
@@ -32,7 +30,6 @@ PATCH v20260226: GitHub Pages canonical HUB resolver (no more 404 /herohealth on
       --warn:#f59e0b;
       --cyan:#22d3ee;
       --violet:#a78bfa;
-
       --sat: env(safe-area-inset-top, 0px);
       --sar: env(safe-area-inset-right, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
@@ -49,7 +46,6 @@ PATCH v20260226: GitHub Pages canonical HUB resolver (no more 404 /herohealth on
       font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif;
       overscroll-behavior:none;
     }
-
     .wrap{
       min-height:100%;
       padding: calc(14px + var(--sat)) calc(12px + var(--sar)) calc(14px + var(--sab)) calc(12px + var(--sal));
@@ -78,7 +74,6 @@ PATCH v20260226: GitHub Pages canonical HUB resolver (no more 404 /herohealth on
     }
     .title{font-weight:1000}
     .sub{font-size:12px; color:var(--muted); font-weight:800; margin-top:2px}
-
     .chips{display:flex; gap:8px; flex-wrap:wrap}
     .chip{
       border:1px solid var(--stroke);
@@ -190,11 +185,7 @@ PATCH v20260226: GitHub Pages canonical HUB resolver (no more 404 /herohealth on
       border-radius:18px;
       padding:12px;
     }
-    .card h3{
-      margin:0;
-      font-size:14px;
-      font-weight:1000;
-    }
+    .card h3{ margin:0; font-size:14px; font-weight:1000; }
     .muted{
       color:rgba(229,231,235,.74);
       font-size:12px;
@@ -233,7 +224,6 @@ PATCH v20260226: GitHub Pages canonical HUB resolver (no more 404 /herohealth on
       background:rgba(245,158,11,.12);
     }
 
-    /* --- mission panel minimal --- */
     .mwrap{ margin-top:10px; display:grid; gap:8px; }
     .mitem{
       border:1px solid var(--stroke);
@@ -268,7 +258,6 @@ PATCH v20260226: GitHub Pages canonical HUB resolver (no more 404 /herohealth on
     .mitem.done .mbadge{ border-color:rgba(34,197,94,.30); background:rgba(34,197,94,.08); }
     .mitem.done .mtext .t{ color:rgba(34,197,94,.95); }
 
-    /* end overlay */
     .end{
       position:absolute; inset:0;
       background:rgba(2,6,23,.82);
@@ -339,7 +328,7 @@ PATCH v20260226: GitHub Pages canonical HUB resolver (no more 404 /herohealth on
           <div class="stage" id="stage" aria-live="polite">
             <div class="center" id="center">
               <div class="big" id="big">⚡</div>
-              <div class="hint" id="hint">แตะ “เริ่ม” แล้วทำภารกิจให้ครบ — ป.5 จะท้าทายขึ้น!</div>
+              <div class="hint" id="hint">แตะ “เริ่ม” แล้วทำภารกิจให้ครบ</div>
             </div>
             <div class="toast" id="toast">+1</div>
             <div class="flash" id="flash"></div>
@@ -387,7 +376,7 @@ PATCH v20260226: GitHub Pages canonical HUB resolver (no more 404 /herohealth on
           <div class="card" id="missionCard">
             <h3>ภารกิจวันนี้ (Daily Missions)</h3>
             <div class="muted" style="margin-top:6px;">
-              ทำได้ใน 30 วิ — สำเร็จจะได้โบนัสในสรุปผล (สุ่มแบบเดิมทุกวัน/ทุก PID)
+              ทำได้ในเวลาสั้น ๆ — สำเร็จจะได้โบนัสในสรุปผล
             </div>
             <div class="mwrap" id="missionWrap"></div>
           </div>
@@ -396,8 +385,8 @@ PATCH v20260226: GitHub Pages canonical HUB resolver (no more 404 /herohealth on
             <h3>หมายเหตุ</h3>
             <div class="muted" style="margin-top:6px;">
               • Warmup จะส่งบัฟผ่าน URL ไปเกมจริง<br/>
-              • Cooldown จะส่งกลับ HUB หรือไป slot ถัดไป (plan sequence)<br/>
-              • โหมด research ใช้ pick=day (deterministic) โดยค่าเริ่มต้น
+              • Cooldown จะส่งกลับ HUB หรือไป slot ถัดไป<br/>
+              • ใช้ daily key แบบต่อเกม: zone + game + pid + day
             </div>
           </div>
         </div>
@@ -405,7 +394,6 @@ PATCH v20260226: GitHub Pages canonical HUB resolver (no more 404 /herohealth on
     </div>
   </div>
 
-<!-- ✅ PATCH v20260226: load canonical path helper (non-module) -->
 <script src="./js/hha-path.inline.js"></script>
 
 <script>
@@ -424,13 +412,10 @@ PATCH v20260226: GitHub Pages canonical HUB resolver (no more 404 /herohealth on
     if(!url) return '';
     try{ return new URL(url, location.href).toString(); }catch{ return String(url||''); }
   }
-
   function resolveHubSafe(raw){
-    // Prefer global resolver (GitHub Pages safe)
     try{
       if(WIN.HHA_RESOLVE_HUB) return WIN.HHA_RESOLVE_HUB(raw);
     }catch(e){}
-    // fallback: at least make absolute relative to current
     const u = absUrlMaybe(raw || './hub.html');
     return u || raw || './hub.html';
   }
@@ -443,7 +428,6 @@ PATCH v20260226: GitHub Pages canonical HUB resolver (no more 404 /herohealth on
     return `${yyyy}-${mm}-${dd}`;
   }
 
-  // ✅ NEW daily key: prefix:cat:game:pid:day
   function dailyKeyNew(prefix, category, gameKey, pid){
     const day=getLocalDayKey();
     const p=(pid||'anon').trim()||'anon';
@@ -451,14 +435,12 @@ PATCH v20260226: GitHub Pages canonical HUB resolver (no more 404 /herohealth on
     const g=String(gameKey||'unknown').toLowerCase();
     return `${prefix}:${c}:${g}:${p}:${day}`;
   }
-  // ✅ OLD fallback: prefix:cat:pid:day (support your previous installs)
   function dailyKeyOld(prefix, category, pid){
     const day=getLocalDayKey();
     const p=(pid||'anon').trim()||'anon';
     const c=String(category||'nutrition').toLowerCase();
     return `${prefix}:${c}:${p}:${day}`;
   }
-
   function isDaily(prefix, category, gameKey, pid){
     try{
       const kNew = dailyKeyNew(prefix, category, gameKey, pid);
@@ -467,9 +449,7 @@ PATCH v20260226: GitHub Pages canonical HUB resolver (no more 404 /herohealth on
     }catch{ return false; }
   }
   function markDaily(prefix, category, gameKey, pid){
-    try{
-      localStorage.setItem(dailyKeyNew(prefix,category,gameKey,pid),'1');
-    }catch{}
+    try{ localStorage.setItem(dailyKeyNew(prefix,category,gameKey,pid),'1'); }catch{}
   }
 
   function hash32(str){
@@ -481,6 +461,26 @@ PATCH v20260226: GitHub Pages canonical HUB resolver (no more 404 /herohealth on
     }
     return h >>> 0;
   }
+
+  const THEME_META = {
+    goodjunk:      { zone:'nutrition', label:'GoodJunk',       icon:'🍎', warmTitle:'Warmup — GoodJunk Focus',        coolTitle:'Cooldown — GoodJunk Reset',       warmDesc:'แตะอาหารดี หลีกของล่อ ก่อนเข้า GoodJunkVR', coolDesc:'ผ่อนจังหวะและเลือกของดีอย่างใจเย็น ปิดรอบ GoodJunk' },
+    groups:        { zone:'nutrition', label:'Food Groups',    icon:'🥦', warmTitle:'Warmup — Food Groups Sort',      coolTitle:'Cooldown — Food Groups Calm',      warmDesc:'เตรียมสมองแยกหมู่อาหารให้ไว ก่อนเข้า GroupsVR', coolDesc:'ทบทวนหมู่อาหารแบบช้า ๆ เพื่อปิดรอบ Groups' },
+    hydration:     { zone:'nutrition', label:'Hydration',      icon:'💧', warmTitle:'Warmup — Hydration Prep',        coolTitle:'Cooldown — Hydration Breathe',     warmDesc:'เก็บน้ำดี หลีกสิ่งรบกวน ก่อนเข้า HydrationVR', coolDesc:'หายใจผ่อนคลายเหมือนคุมสมดุลน้ำในร่างกาย' },
+    plate:         { zone:'nutrition', label:'Balanced Plate', icon:'🍽️', warmTitle:'Warmup — Plate Builder',         coolTitle:'Cooldown — Plate Reflection',      warmDesc:'อุ่นเครื่องเลือกองค์ประกอบจานอาหารให้สมดุล', coolDesc:'คูลดาวน์ด้วยการทบทวนจานสมดุลอย่างนุ่มนวล' },
+
+    handwash:      { zone:'hygiene',   label:'Handwash',       icon:'🧼', warmTitle:'Warmup — Handwash Germ Hunt',    coolTitle:'Cooldown — Handwash Calm',         warmDesc:'ไล่แตะเชื้อก่อนเข้าเกมล้างมือ', coolDesc:'หายใจนิ่ง ๆ ปิดรอบการดูแลความสะอาดมือ' },
+    brush:         { zone:'hygiene',   label:'Brush',          icon:'🪥', warmTitle:'Warmup — Brush Clean Start',     coolTitle:'Cooldown — Brush Slow Rhythm',     warmDesc:'วอร์มอัปความไวและจังหวะ ก่อนเข้าเกมแปรงฟัน', coolDesc:'คูลดาวน์ช้า ๆ เหมือนจบ routine แปรงฟัน' },
+    maskcough:     { zone:'hygiene',   label:'Mask & Cough',   icon:'😷', warmTitle:'Warmup — Mask Response',         coolTitle:'Cooldown — Mask Recovery',         warmDesc:'จับจังหวะการตอบสนองให้ไว ก่อนเข้า MaskCough', coolDesc:'ผ่อนลมหายใจและปิดรอบการป้องกันอย่างนุ่มนวล' },
+    germdetective: { zone:'hygiene',   label:'Germ Detective', icon:'🦠', warmTitle:'Warmup — Germ Detective Scan',   coolTitle:'Cooldown — Germ Detective Calm',   warmDesc:'สแกนเชื้อและกับดักก่อนเข้าภารกิจนักสืบเชื้อโรค', coolDesc:'ผ่อนจังหวะหลังภารกิจสืบสวนเชื้อโรค' },
+    bath:          { zone:'hygiene',   label:'Bath',           icon:'🛁', warmTitle:'Warmup — Bath Clean Hunt',       coolTitle:'Cooldown — Bath Reset',            warmDesc:'ไล่หาสิ่งสกปรกก่อนเข้าเกมอาบน้ำ', coolDesc:'ค่อย ๆ ผ่อนและจบกิจกรรมทำความสะอาดร่างกาย' },
+    clean:         { zone:'hygiene',   label:'Clean Objects',  icon:'✨', warmTitle:'Warmup — Clean Object Prep',      coolTitle:'Cooldown — Clean Object Calm',     warmDesc:'เตรียมแยกของสะอาด/ไม่สะอาดก่อนเข้าเกม', coolDesc:'ทบทวนการดูแลสิ่งของอย่างช้า ๆ ก่อนกลับ HUB' },
+
+    shadow:        { zone:'exercise',  label:'Shadow Breaker', icon:'🥊', warmTitle:'Warmup — Shadow Reactions',      coolTitle:'Cooldown — Shadow Recovery',       warmDesc:'วอร์มอัปการตอบสนองซ้าย/ขวา ก่อนเข้า Shadow Breaker', coolDesc:'ผ่อนจังหวะหลังการตอบสนองเร็วแบบ Shadow' },
+    rhythm:        { zone:'exercise',  label:'Rhythm Boxer',   icon:'🎵', warmTitle:'Warmup — Rhythm Timing',         coolTitle:'Cooldown — Rhythm Slow Beat',      warmDesc:'จับจังหวะคำสั่งให้ตรง ก่อนเข้า Rhythm Boxer', coolDesc:'ลดจังหวะลงช้า ๆ เหมือนคูลดาวน์หลังเพลงจบ' },
+    jumpduck:      { zone:'exercise',  label:'Jump-Duck',      icon:'🦘', warmTitle:'Warmup — Jump/Duck Calls',       coolTitle:'Cooldown — Jump/Duck Reset',       warmDesc:'อุ่นเครื่องคำสั่งกระโดด/หมอบก่อนเกมจริง', coolDesc:'ค่อย ๆ ผ่อนและรีเซ็ตจังหวะร่างกายหลังเล่น' },
+    balance:       { zone:'exercise',  label:'Balance Hold',   icon:'⚖️', warmTitle:'Warmup — Balance Calls',         coolTitle:'Cooldown — Balance Breathing',     warmDesc:'อุ่นเครื่องคุมสมดุลและจังหวะตอบสนองก่อนเล่น', coolDesc:'หายใจช้า ๆ เหมือนคุมศูนย์กลางร่างกายหลังเล่น' },
+    planner:       { zone:'exercise',  label:'Fitness Planner',icon:'📅', warmTitle:'Warmup — Planner Choices',       coolTitle:'Cooldown — Planner Reflection',    warmDesc:'อุ่นเครื่องเลือกทางเลือกการฝึกให้เหมาะสม', coolDesc:'ทบทวนร่างกายและแผนการฝึกอย่างผ่อนคลาย' }
+  };
 
   function zoneThemePool(category){
     const c = String(category || '').toLowerCase();
@@ -494,11 +494,8 @@ PATCH v20260226: GitHub Pages canonical HUB resolver (no more 404 /herohealth on
   const cat   = String(q('cat','nutrition')).toLowerCase();
   const themeFromQs = String(q('theme','')).toLowerCase().trim();
 
-  // ✅ PATCH v20260226: canonical HUB (GitHub Pages safe)
   const hubRaw = String(q('hub','')).trim();
   const hub = resolveHubSafe(hubRaw);
-
-  // next may be absolute already; fallback to canonical hub
   const nextRaw = String(q('next','')).trim();
   const next0 = absUrlMaybe(nextRaw) || hub;
 
@@ -511,21 +508,18 @@ PATCH v20260226: GitHub Pages canonical HUB resolver (no more 404 /herohealth on
 
   const durWarmDefault = isP5 ? 30 : 20;
   const durCoolDefault = isP5 ? 30 : 15;
-
   const durWarm = clamp(qNum('dur', durWarmDefault), 5, 60);
   const durCool = clamp(qNum('cdur', durCoolDefault), 5, 60);
   const dur = (phase==='cooldown') ? durCool : durWarm;
 
   function pickThemeByPolicy(category){
     if(themeFromQs) return themeFromQs;
-
     const g = String(q('game','')).toLowerCase().trim();
     if(g) return g;
 
     const mode = (pick==='rand' || pick==='day') ? pick : (run==='research' ? 'day' : 'rand');
     const pool = zoneThemePool(category);
     if(!pool.length) return 'goodjunk';
-
     if(mode === 'rand') return pool[(Math.random()*pool.length)|0];
 
     const dayKey = getLocalDayKey();
@@ -564,15 +558,15 @@ PATCH v20260226: GitHub Pages canonical HUB resolver (no more 404 /herohealth on
     if(n.includes('balance-hold') || n.includes('balance')) return 'balance';
     if(n.includes('fitness-planner') || n.includes('planner')) return 'planner';
 
-    return (cat==='hygiene') ? 'handwash' : (cat==='exercise') ? 'jumpduck' : 'goodjunk';
+    return (cat==='hygiene') ? 'handwash' : (cat==='exercise') ? 'balance' : 'goodjunk';
   }
-  const themeKey = detectThemeKey();
 
-  // ✅ DAILY per game
+  const themeKey = detectThemeKey();
+  const THEME = THEME_META[themeKey] || THEME_META.goodjunk;
+
   const dailyPrefix = (phase==='cooldown') ? 'HHA_COOLDOWN_DONE' : 'HHA_WARMUP_DONE';
   const dailyDone = isDaily(dailyPrefix, cat, themeKey, pid);
 
-  // dom
   const pillPhase=$('pillPhase'), pillCat=$('pillCat'), pillTheme=$('pillTheme'), pillDaily=$('pillDaily');
   const subLine=$('subLine'), statusText=$('statusText'), durText=$('durText'), gradeText=$('gradeText');
   const gameTitle=$('gameTitle'), desc=$('desc');
@@ -585,7 +579,6 @@ PATCH v20260226: GitHub Pages canonical HUB resolver (no more 404 /herohealth on
   const endOverlay=$('endOverlay'), endTitle=$('endTitle'), endMsg=$('endMsg');
   const endScore=$('endScore'), endAcc=$('endAcc'), endStreak=$('endStreak'), endMissions=$('endMissions'), endBuff=$('endBuff'), endNext=$('endNext');
   const btnToHub=$('btnToHub'), btnContinue=$('btnContinue');
-
   const missionWrap=$('missionWrap');
 
   function flashGood(){ flash.className='flash good'; flash.style.opacity='1'; setTimeout(()=>flash.style.opacity='0',120); }
@@ -596,7 +589,6 @@ PATCH v20260226: GitHub Pages canonical HUB resolver (no more 404 /herohealth on
     setTimeout(()=>toast.classList.remove('show'), 420);
   }
 
-  // runtime
   let started=false;
   let tLeft=dur;
   let score=0, miss=0, total=0;
@@ -604,24 +596,26 @@ PATCH v20260226: GitHub Pages canonical HUB resolver (no more 404 /herohealth on
   let raf=0, lastTs=0;
   let stageAnimRaf=0;
   let teardownFns=[];
+  let perfCount=0;
+  let bombHit=0;
 
-  // missions
   const missions = { list: [], done: [false,false,false], doneCount: 0 };
+
   function mkMissions(){
     const day = getLocalDayKey();
     const seed = `${pid}|${day}|${cat}|${themeKey}|missions`;
     const base = hash32(seed);
 
     const pool = [
-      { code:'ACC75',  icon:'🎯', text:'ความแม่น ≥ 75%',       check:()=> accPct()>=75 },
-      { code:'ACC85',  icon:'🏹', text:'ความแม่น ≥ 85%',       check:()=> accPct()>=85 },
-      { code:'STREAK6',icon:'🔥', text:'สตรีคให้ถึง 6',        check:()=> bestStreak>=6 },
-      { code:'STREAK9',icon:'⚡', text:'สตรีคให้ถึง 9',        check:()=> bestStreak>=9 },
-      { code:'SCORE35',icon:'💎', text:'ทำคะแนน ≥ 35',         check:()=> score>=35 },
-      { code:'SCORE50',icon:'🏆', text:'ทำคะแนน ≥ 50',         check:()=> score>=50 },
-      { code:'MISS3',  icon:'🧠', text:'พลาดไม่เกิน 3',        check:()=> miss<=3 && total>=8 },
-      { code:'PERF2',  icon:'✨', text:'Perfect 2 ครั้ง',       check:()=> perfCount>=2 },
-      { code:'BOMB0',  icon:'🧨', text:'อย่าโดนระเบิด',         check:()=> bombHit===0 && total>=8 },
+      { code:'ACC75',  icon:'🎯', text:'ความแม่น ≥ 75%', check:()=> accPct()>=75 },
+      { code:'ACC85',  icon:'🏹', text:'ความแม่น ≥ 85%', check:()=> accPct()>=85 },
+      { code:'STREAK6',icon:'🔥', text:'สตรีคให้ถึง 6',  check:()=> bestStreak>=6 },
+      { code:'STREAK9',icon:'⚡', text:'สตรีคให้ถึง 9',  check:()=> bestStreak>=9 },
+      { code:'SCORE35',icon:'💎', text:'ทำคะแนน ≥ 35',   check:()=> score>=35 },
+      { code:'SCORE50',icon:'🏆', text:'ทำคะแนน ≥ 50',   check:()=> score>=50 },
+      { code:'MISS3',  icon:'🧠', text:'พลาดไม่เกิน 3',  check:()=> miss<=3 && total>=8 },
+      { code:'PERF2',  icon:'✨', text:'Perfect 2 ครั้ง', check:()=> perfCount>=2 },
+      { code:'BOMB0',  icon:'🧨', text:'อย่าโดนระเบิด',   check:()=> bombHit===0 && total>=8 },
     ];
 
     const pick3 = [];
@@ -655,14 +649,7 @@ PATCH v20260226: GitHub Pages canonical HUB resolver (no more 404 /herohealth on
     });
   }
 
-  function accPct(){
-    return total>0 ? Math.round((score/Math.max(1,total))*100) : 0;
-  }
-
-  // P5 counters
-  let perfCount=0;
-  let bombHit=0;
-
+  function accPct(){ return total>0 ? Math.round((score/Math.max(1,total))*100) : 0; }
   function setHUD(){
     hudTime.textContent = `${Math.ceil(tLeft)}s`;
     hudScore.textContent = String(score);
@@ -676,17 +663,15 @@ PATCH v20260226: GitHub Pages canonical HUB resolver (no more 404 /herohealth on
     stageAnimRaf = 0;
     teardownFns.forEach(fn=>{ try{ fn(); }catch{} });
     teardownFns = [];
-
     Array.from(stage.children).forEach(el=>{
       if(el===toast || el===flash || el===center) return;
       try{ el.remove(); }catch{}
     });
-
     center.style.display='block';
-    big.textContent = isP5 ? '⚡' : '🎯';
-    hint.textContent = isP5
-      ? 'โหมด ป.5: ทำภารกิจ + รักษาสตรีค ระวังกับดัก!'
-      : 'กด “เริ่ม” แล้วเล่นสั้น ๆ ก่อนเข้าเกมจริง';
+    big.textContent = THEME.icon || (isP5 ? '⚡' : '🎯');
+    hint.textContent = (phase==='cooldown')
+      ? `ผ่อนคลายปิดรอบของ ${THEME.label}`
+      : `เตรียมความพร้อมก่อนเข้า ${THEME.label}`;
   }
 
   function makeWarmupBuff(){
@@ -696,12 +681,11 @@ PATCH v20260226: GitHub Pages canonical HUB resolver (no more 404 /herohealth on
 
     let wCrit=0, wDmg=0, wHeal=0;
     if(['hydration','handwash','maskcough','bath','clean'].includes(themeKey)) wHeal = 1;
-    else if(['shadow','rhythm','jumpduck'].includes(themeKey)) wDmg = 1;
+    else if(['shadow','rhythm','jumpduck','balance'].includes(themeKey)) wDmg = 1;
     else wCrit = 1;
 
     const bonus = (missions.doneCount>=2) ? 5 : 0;
     const finalPct = clamp(pctBuff + bonus, 5, 30);
-
     return { wType:'warmup', wPct:finalPct, rank, wCrit, wDmg, wHeal };
   }
 
@@ -718,11 +702,8 @@ PATCH v20260226: GitHub Pages canonical HUB resolver (no more 404 /herohealth on
 
   function buildNextUrl(buff){
     let target = next0 || hub;
-
     const u = new URL(target, location.href);
     applyPlanSeqParams(u);
-
-    // ✅ Always enforce canonical hub to downstream pages
     try{ u.searchParams.set('hub', hub); }catch(e){}
 
     if(phase==='cooldown'){
@@ -731,7 +712,6 @@ PATCH v20260226: GitHub Pages canonical HUB resolver (no more 404 /herohealth on
       return u.toString();
     }
 
-    // pass-through (skip 'hub' here because we force it above)
     [
       'run','diff','time','seed','studyId','conditionGroup','log','view','pid','category','researchPhase','grade'
     ].forEach(k=>{
@@ -741,7 +721,6 @@ PATCH v20260226: GitHub Pages canonical HUB resolver (no more 404 /herohealth on
 
     const rp = q('researchPhase','');
     if(rp && !u.searchParams.has('phase')) u.searchParams.set('phase', rp);
-
     if(pid && !u.searchParams.has('pid')) u.searchParams.set('pid', pid);
     if(isP5 && !u.searchParams.has('grade')) u.searchParams.set('grade','p5');
 
@@ -774,9 +753,7 @@ PATCH v20260226: GitHub Pages canonical HUB resolver (no more 404 /herohealth on
     cancelAnimationFrame(stageAnimRaf);
     raf = 0; stageAnimRaf = 0;
 
-    // ✅ mark daily per game
     markDaily(dailyPrefix, cat, themeKey, pid);
-
     updateMissions();
 
     const buff = buffObj || {};
@@ -786,20 +763,18 @@ PATCH v20260226: GitHub Pages canonical HUB resolver (no more 404 /herohealth on
     endOverlay.setAttribute('aria-hidden','false');
 
     const a = accPct();
-    endTitle.textContent = (phase==='cooldown') ? 'Cooldown เสร็จแล้ว!' : 'Warmup เสร็จแล้ว!';
+    endTitle.textContent = (phase==='cooldown') ? `${THEME.label} — Cooldown เสร็จแล้ว!` : `${THEME.label} — Warmup เสร็จแล้ว!`;
     endScore.textContent = String(score);
     endAcc.textContent   = a + '%';
     endStreak.textContent= String(bestStreak);
     endMissions.textContent = `${missions.doneCount}/3`;
-
     endBuff.textContent  = Object.keys(buff).length ? Object.keys(buff).join(',') : '—';
     endNext.textContent  = nextUrl ? 'YES' : 'HUB';
     endMsg.textContent =
       (phase==='cooldown')
-        ? 'เยี่ยม! ผ่อนคลายแล้ว ไปต่อได้เลย'
-        : (missions.doneCount>=2 ? 'สุดยอด! ทำภารกิจได้ ≥ 2 ข้อ ได้โบนัสบัฟด้วย!' : 'พร้อมลุย! ได้บัฟเล็ก ๆ แล้วเข้าเกมจริง');
+        ? `เยี่ยม! ปิดรอบ ${THEME.label} แล้ว ไปต่อหรือกลับ HUB ได้เลย`
+        : (missions.doneCount>=2 ? `สุดยอด! Warmup ของ ${THEME.label} ได้โบนัสบัฟเพิ่ม` : `พร้อมลุย ${THEME.label} แล้ว`);
 
-    // ✅ canonical hub always
     btnToHub.onclick = ()=> location.href = hub;
     btnContinue.onclick = ()=> location.replace(nextUrl || hub);
   }
@@ -825,7 +800,7 @@ PATCH v20260226: GitHub Pages canonical HUB resolver (no more 404 /herohealth on
   function autoSkipIfDaily(){
     if(!dailyDone) return false;
     const target = (next0 || hub);
-    subLine.textContent = `วันนี้ทำ ${phase} แล้ว (pid=${pid}, cat=${cat}, game=${themeKey}) → ข้ามอัตโนมัติ`;
+    subLine.textContent = `วันนี้ทำ ${phase} ของ ${THEME.label} แล้ว → ข้ามอัตโนมัติ`;
     statusText.textContent = 'Daily gate: DONE';
     setTimeout(()=> location.replace(target), 220);
     return true;
@@ -849,7 +824,6 @@ PATCH v20260226: GitHub Pages canonical HUB resolver (no more 404 /herohealth on
     return pad;
   }
 
-  // ===== P5 MINI GAMES =====
   function runP5_TargetRush(opts){
     gameTitle.textContent = opts.title;
     desc.textContent = opts.desc;
@@ -872,7 +846,7 @@ PATCH v20260226: GitHub Pages canonical HUB resolver (no more 404 /herohealth on
     note.style.fontWeight='1100';
     note.style.fontSize='12px';
     note.style.color='rgba(229,231,235,.78)';
-    note.textContent = 'รักษาสตรีค! (พลาดแล้วสตรีคจะรีเซ็ต)';
+    note.textContent = opts.note || 'รักษาสตรีค!';
     board.appendChild(note);
 
     const fever=DOC.createElement('div');
@@ -960,7 +934,6 @@ PATCH v20260226: GitHub Pages canonical HUB resolver (no more 404 /herohealth on
         clearTimeout(tm);
 
         total++;
-
         const age = performance.now() - born;
         const perfect = age >= ttl*0.78;
 
@@ -984,9 +957,7 @@ PATCH v20260226: GitHub Pages canonical HUB resolver (no more 404 /herohealth on
 
         const mult = (tLeft <= 6) ? 2 : 1;
         fever.textContent = '×' + mult;
-        if(mult===2 && kind==='good'){
-          score += 1;
-        }
+        if(mult===2 && kind==='good') score += 1;
 
         removeSelf();
       }, {passive:false});
@@ -999,26 +970,38 @@ PATCH v20260226: GitHub Pages canonical HUB resolver (no more 404 /herohealth on
 
     spawnTimer = setInterval(spawnOne, 220);
     teardownFns.push(()=>{ try{ clearInterval(spawnTimer); }catch(_){ } });
-
     for(let i=0;i<2;i++) setTimeout(spawnOne, 120 + i*140);
   }
 
   function runP5_Nutrition(){
+    const GOOD = {
+      goodjunk:['🍎','🍌','🥦','🥬','🥚','🐟','🥛','🍚'],
+      groups:['🍎','🥦','🥚','🍚','🥛','🥜','🍌','🥬'],
+      hydration:['💧','🫗','🥛','🍉','🥒','🧊'],
+      plate:['🍚','🥦','🥚','🐟','🍎','🥛']
+    };
+    const BAD = {
+      goodjunk:['🍟','🍔','🍕','🍩','🍬','🧋','🥤','🍭'],
+      groups:['🍟','🍬','🧁','🍕','🍩'],
+      hydration:['🥤','🧋','🍬','🍭'],
+      plate:['🍟','🍔','🍕','🍩']
+    };
     runP5_TargetRush({
-      title:'P5 Warmup — Food Sort Rush',
-      desc:'แตะ “ของดี” เก็บแต้ม (PERFECT ได้โบนัส) ระวัง JUNK/ระเบิด!',
-      goodSet:['🍎','🍌','🥦','🥬','🥚','🐟','🥛','🍚','🍞','🥑'],
-      badSet:['🍟','🍔','🍕','🍩','🍬','🧋','🥤','🍭'],
+      title: THEME.warmTitle,
+      desc: THEME.warmDesc,
+      note:`รักษาสตรีคใน ${THEME.label}`,
+      goodSet: GOOD[themeKey] || GOOD.goodjunk,
+      badSet: BAD[themeKey] || BAD.goodjunk,
       bombSet:['💥','🧨'],
-      goodRate:0.72,
-      bombRate:0.12,
-      ttlMsBase:920
+      goodRate: themeKey==='hydration' ? 0.76 : 0.72,
+      bombRate: 0.12,
+      ttlMsBase: themeKey==='groups' ? 980 : 920
     });
   }
 
   function runP5_Hygiene(){
-    gameTitle.textContent='P5 Warmup — Hygiene Combo Hunt';
-    desc.textContent='แตะ “เชื้อจริง” ให้ไว ระวังกับดัก ✨ และบอส 💎 (ต้องแตะ 2 ครั้ง)';
+    gameTitle.textContent = THEME.warmTitle;
+    desc.textContent = THEME.warmDesc;
     center.style.display='none';
 
     const board=DOC.createElement('div');
@@ -1036,19 +1019,17 @@ PATCH v20260226: GitHub Pages canonical HUB resolver (no more 404 /herohealth on
     legend.style.fontWeight='1100';
     legend.style.fontSize='12px';
     legend.style.color='rgba(229,231,235,.78)';
-    legend.textContent='🦠=แต้ม | ✨=กับดัก | 💎=บอส (2 hits)';
+    legend.textContent = `${THEME.icon} theme • 🦠=แต้ม | ✨=กับดัก | 💎=บอส`;
     board.appendChild(legend);
 
     let live=0;
     let spawnTimer=0;
 
     function spawn(){
-      if(!started) return;
-      if(live>=4) return;
+      if(!started || live>=4) return;
 
       const played = dur - tLeft;
       const ttl = clamp(860 - played*7, 520, 920);
-
       const roll=Math.random();
       let kind='germ';
       if(roll>0.78) kind = (roll>0.93)?'boss':'trap';
@@ -1072,7 +1053,7 @@ PATCH v20260226: GitHub Pages canonical HUB resolver (no more 404 /herohealth on
       el.style.top  = (62 + (h-154)*Math.random())+'px';
 
       let hp = (kind==='boss') ? 2 : 1;
-      el.textContent = (kind==='germ')?'🦠':(kind==='trap')?'✨':'💎';
+      el.textContent = (kind==='germ') ? randPick(['🦠','🧫','🦠']) : (kind==='trap') ? randPick(['✨','⚠️']) : '💎';
 
       live++;
       board.appendChild(el);
@@ -1094,7 +1075,6 @@ PATCH v20260226: GitHub Pages canonical HUB resolver (no more 404 /herohealth on
         if(dead || !started) return;
 
         total++;
-
         const age=performance.now()-born;
         const perfect = age >= ttl*0.78;
 
@@ -1112,7 +1092,7 @@ PATCH v20260226: GitHub Pages canonical HUB resolver (no more 404 /herohealth on
           if(hp>0){
             score += 1;
             streak++; bestStreak=Math.max(bestStreak, streak);
-            flashGood(); toastShow('SHIELD!');
+            flashGood(); toastShow('HIT!');
             el.textContent='🎯';
             return;
           }
@@ -1142,8 +1122,8 @@ PATCH v20260226: GitHub Pages canonical HUB resolver (no more 404 /herohealth on
   }
 
   function runP5_Exercise(){
-    gameTitle.textContent='P5 Warmup — Coach Callouts';
-    desc.textContent='ทำตามโค้ชให้ไว: ซ้าย/ขวา/กระโดด/หมอบ (ผิด = รีสเตรียค)';
+    gameTitle.textContent = THEME.warmTitle;
+    desc.textContent = THEME.warmDesc;
     center.style.display='none';
 
     const card=DOC.createElement('div');
@@ -1154,10 +1134,10 @@ PATCH v20260226: GitHub Pages canonical HUB resolver (no more 404 /herohealth on
       background:'rgba(2,6,23,.50)',textAlign:'center'
     });
     card.innerHTML = `
-      <div class="muted" style="font-weight:1100;">คำสั่งโค้ช</div>
+      <div class="muted" style="font-weight:1100;">${THEME.label} Coach Calls</div>
       <div id="cx" style="margin-top:10px;font-size:58px;font-weight:1100;">⬅️</div>
       <div id="ct" style="margin-top:8px;font-size:18px;font-weight:1100;">ซ้าย</div>
-      <div class="muted" style="margin-top:6px;">กดให้ตรง “หน้าต่างจังหวะ” (ท้าย ๆ จะเร็วขึ้น)</div>
+      <div class="muted" style="margin-top:6px;">กดให้ตรงหน้าต่างจังหวะ — ท้ายเกมจะเร็วขึ้น</div>
     `;
     stage.appendChild(card);
 
@@ -1176,16 +1156,17 @@ PATCH v20260226: GitHub Pages canonical HUB resolver (no more 404 /herohealth on
       {t:'ซ้าย', emo:'⬅️'}, {t:'ขวา', emo:'➡️'},
       {t:'JUMP', emo:'⬆️'}, {t:'DUCK', emo:'⬇️'}
     ];
+
     let cur = randPick(cmds);
     let born=performance.now();
-    let winMs = 620;
+    let winMs = themeKey==='balance' ? 700 : 620;
 
     function next(){
       total++;
       cur = randPick(cmds);
       born = performance.now();
       const played = dur - tLeft;
-      winMs = clamp(620 - played*10, 320, 620);
+      winMs = clamp((themeKey==='balance' ? 700 : 620) - played*10, 320, 700);
       card.querySelector('#ct').textContent = cur.t;
       card.querySelector('#cx').textContent = cur.emo;
     }
@@ -1210,16 +1191,15 @@ PATCH v20260226: GitHub Pages canonical HUB resolver (no more 404 /herohealth on
       next();
     }
 
-    [
-      [btnA,'ซ้าย'],[btnB,'ขวา'],[btnC,'JUMP'],[btnD,'DUCK']
-    ].forEach(([b,val])=> b.addEventListener('click', ()=>choose(val)));
+    [[btnA,'ซ้าย'],[btnB,'ขวา'],[btnC,'JUMP'],[btnD,'DUCK']]
+      .forEach(([b,val])=> b.addEventListener('click', ()=>choose(val)));
 
     next();
   }
 
-  function runCooldown_BreathRing(){
-    gameTitle.textContent = 'Cooldown — Breath Ring Timing';
-    desc.textContent = 'กด “หายใจเข้า/ออก” ให้ตรงจังหวะวง (Perfect ได้คะแนน)';
+  function runCooldown_BreathRing(title, descText){
+    gameTitle.textContent = title;
+    desc.textContent = descText;
     center.style.display='none';
 
     const card=DOC.createElement('div');
@@ -1230,8 +1210,8 @@ PATCH v20260226: GitHub Pages canonical HUB resolver (no more 404 /herohealth on
       background:'rgba(2,6,23,.50)',textAlign:'center'
     });
     card.innerHTML = `
-      <div style="font-weight:1100;font-size:16px;">หายใจตามวง</div>
-      <div class="muted" style="margin-top:6px;">วงหด = IN | วงขยาย = OUT (กดให้ตรงช่วงสีเขียว)</div>
+      <div style="font-weight:1100;font-size:16px;">${title}</div>
+      <div class="muted" style="margin-top:6px;">${descText}</div>
       <div id="ringBox" style="position:relative; margin:14px auto 0; width:260px; height:260px;">
         <div id="ring" style="position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
           width:240px; height:240px; border-radius:999px; border:2px solid rgba(56,189,248,.35);
@@ -1273,7 +1253,6 @@ PATCH v20260226: GitHub Pages canonical HUB resolver (no more 404 /herohealth on
       const v = Math.cos(t);
       cur = (v < 0) ? 'OUT' : 'IN';
       label.textContent = cur;
-
       inPerfect = (size >= 182 && size <= 198);
       stageAnimRaf = requestAnimationFrame(step);
     }
@@ -1297,18 +1276,31 @@ PATCH v20260226: GitHub Pages canonical HUB resolver (no more 404 /herohealth on
     stageAnimRaf = requestAnimationFrame(step);
   }
 
+  function runCooldown_Nutrition(){
+    runCooldown_BreathRing(THEME.coolTitle, THEME.coolDesc);
+  }
+  function runCooldown_Hygiene(){
+    runCooldown_BreathRing(THEME.coolTitle, THEME.coolDesc);
+  }
+  function runCooldown_Exercise(){
+    runCooldown_BreathRing(THEME.coolTitle, THEME.coolDesc);
+  }
+
   function runLegacy_SimpleTap(){
-    gameTitle.textContent='Warmup — Quick Tap';
-    desc.textContent='แตะให้ทัน (โหมดมาตรฐาน)';
+    gameTitle.textContent = THEME.warmTitle;
+    desc.textContent = THEME.warmDesc;
     center.style.display='none';
 
     const card=DOC.createElement('div');
-    Object.assign(card.style,{position:'absolute',left:'50%',top:'50%',transform:'translate(-50%,-55%)',
+    Object.assign(card.style,{
+      position:'absolute',left:'50%',top:'50%',transform:'translate(-50%,-55%)',
       width:'min(520px,92%)',padding:'14px',borderRadius:'18px',border:'1px solid rgba(148,163,184,.18)',
-      background:'rgba(2,6,23,.50)',textAlign:'center'});
-    card.innerHTML = `<div style="font-weight:1100;font-size:16px;">แตะให้ทัน!</div>
-      <div id="it" style="font-size:60px;margin-top:8px;">🎯</div>
-      <div class="muted" style="margin-top:6px;">แตะ = +1</div>`;
+      background:'rgba(2,6,23,.50)',textAlign:'center'
+    });
+    card.innerHTML = `
+      <div style="font-weight:1100;font-size:16px;">${THEME.warmTitle}</div>
+      <div id="it" style="font-size:60px;margin-top:8px;">${THEME.icon}</div>
+      <div class="muted" style="margin-top:6px;">แตะให้ทันเพื่ออุ่นเครื่องก่อนเข้า ${THEME.label}</div>`;
     stage.appendChild(card);
 
     function onTap(){
@@ -1320,12 +1312,9 @@ PATCH v20260226: GitHub Pages canonical HUB resolver (no more 404 /herohealth on
     teardownFns.push(()=> card.removeEventListener('pointerdown', onTap));
   }
 
-  const ThemeP5 = {
-    goodjunk: runP5_Nutrition, groups: runP5_Nutrition, hydration: runP5_Nutrition, plate: runP5_Nutrition,
-    handwash: runP5_Hygiene, brush: runP5_Hygiene, maskcough: runP5_Hygiene, germdetective: runP5_Hygiene,
-    bath: runP5_Hygiene, clean: runP5_Hygiene,
-    shadow: runP5_Exercise, rhythm: runP5_Exercise, jumpduck: runP5_Exercise, balance: runP5_Exercise, planner: runP5_Exercise,
-  };
+  function runLegacy_Cooldown(){
+    runCooldown_BreathRing(THEME.coolTitle, THEME.coolDesc);
+  }
 
   function start(){
     if(dailyDone){ autoSkipIfDaily(); return; }
@@ -1334,24 +1323,23 @@ PATCH v20260226: GitHub Pages canonical HUB resolver (no more 404 /herohealth on
     score=0; miss=0; total=0;
     streak=0; bestStreak=0;
     perfCount=0; bombHit=0;
-
     tLeft=dur; lastTs=0;
     setHUD();
-
     mkMissions();
-
     endOverlay.style.display='none';
     endOverlay.setAttribute('aria-hidden','true');
-
     started=true;
 
     if(phase==='cooldown'){
-      runCooldown_BreathRing();
+      if(cat==='nutrition') runCooldown_Nutrition();
+      else if(cat==='hygiene') runCooldown_Hygiene();
+      else runCooldown_Exercise();
       statusText.textContent = `Cooldown (${dur}s) — pid=${pid} cat=${cat} game=${themeKey}`;
     }else{
       if(isP5){
-        const fn = ThemeP5[themeKey] || runP5_Nutrition;
-        fn();
+        if(cat==='nutrition') runP5_Nutrition();
+        else if(cat==='hygiene') runP5_Hygiene();
+        else runP5_Exercise();
       }else{
         runLegacy_SimpleTap();
       }
@@ -1359,25 +1347,20 @@ PATCH v20260226: GitHub Pages canonical HUB resolver (no more 404 /herohealth on
     }
 
     subLine.textContent = (phase==='cooldown')
-      ? 'เล่น cooldown สั้น ๆ แล้วกลับ/ไปต่อ (วันละครั้ง/ต่อเกม)'
-      : (isP5 ? 'โหมด ป.5: ทำภารกิจ + รักษาสตรีค แล้วเข้าเกมจริง (วันละครั้ง/ต่อเกม)' : 'เล่น warmup สั้น ๆ แล้วเข้าเกมจริง (วันละครั้ง/ต่อเกม)');
+      ? `Cooldown ของ ${THEME.label} — วันละครั้งต่อเกม`
+      : `${THEME.label} Warmup — วันละครั้งต่อเกม`;
 
     raf = requestAnimationFrame(tick);
   }
 
   function skip(){
     const target = (next0 || hub);
-
-    // ✅ mark daily per game (skip counts as done)
     markDaily(dailyPrefix, cat, themeKey, pid);
 
     const u = new URL(target, location.href);
     applyPlanSeqParams(u);
-
-    // ✅ enforce canonical hub downstream even on skip
     try{ u.searchParams.set('hub', hub); }catch(e){}
     if(isP5 && !u.searchParams.get('grade')) u.searchParams.set('grade','p5');
-
     location.replace(u.toString());
   }
 
@@ -1387,13 +1370,17 @@ PATCH v20260226: GitHub Pages canonical HUB resolver (no more 404 /herohealth on
     else endNow(makeWarmupBuff());
   }
 
-  // top pills
   pillPhase.textContent = `PHASE: ${phase.toUpperCase()}`;
   pillCat.textContent   = `CAT: ${cat.toUpperCase()}`;
   pillTheme.textContent = `THEME: ${themeKey.toUpperCase()}`;
   pillDaily.textContent = dailyDone ? 'DAILY: DONE' : 'DAILY: NEW';
   durText.textContent = `${dur}s`;
   gradeText.textContent = isP5 ? 'P5' : (grade || '—');
+
+  big.textContent = THEME.icon || '⚡';
+  hint.textContent = (phase==='cooldown') ? THEME.coolDesc : THEME.warmDesc;
+  gameTitle.textContent = (phase==='cooldown') ? THEME.coolTitle : THEME.warmTitle;
+  desc.textContent = (phase==='cooldown') ? THEME.coolDesc : THEME.warmDesc;
 
   btnStart.addEventListener('click', (e)=>{ e.preventDefault(); start(); });
   btnSkip.addEventListener('click', (e)=>{ e.preventDefault(); skip(); });
@@ -1403,7 +1390,7 @@ PATCH v20260226: GitHub Pages canonical HUB resolver (no more 404 /herohealth on
   }, {passive:true});
 
   if(!autoSkipIfDaily()){
-    const name = (phase==='cooldown')?'Cooldown':'Warmup';
+    const name = (phase==='cooldown') ? THEME.coolTitle : THEME.warmTitle;
     subLine.textContent = `${name} (${dur}s) พร้อมแล้ว — แตะ “เริ่ม”`;
     statusText.textContent = `ready: pid=${pid} cat=${cat} game=${themeKey} next=${next0 ? 'yes' : 'hub'}`;
     setHUD();
