@@ -1,81 +1,254 @@
-<!-- === /webxr-health-mobile/herohealth/germ-detective/germ-detective.html ===
-Germ Detective — RUN (PC/Mobile/cVR) — PRODUCTION
-PATCH v20260304-GD-RUN-FOLDER-A
-✅ Loads: /herohealth/vr/vr-ui.js (ENTER VR + crosshair + hha:shoot)
-✅ Loads: ./plate.safe.js + ./plate-logger-bridge.js (if present)
-✅ Boots: ./germ-detective.boot.js (imports ./germ-detective.js core)
-✅ No Apps Script required
+<!-- === /herohealth/germ-detective/germ-detective.html ===
+Germ Detective — RUN PAGE (PC/Mobile/cVR)
+PATCH v20260306-GD-RUN-MODULEFIX
+✅ FIX: plate.safe.js loaded as module
+✅ FIX: germ-detective.boot.js loaded as module
+✅ KEEP: vr-ui.js normal script
+✅ KEEP: #app mount
+✅ KEEP: fallback Back HUB button
 -->
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — Germ Detective (Run)</title>
+  <title>HeroHealth — Germ Detective</title>
   <meta name="color-scheme" content="dark light" />
   <link rel="icon" href="../favicon.ico" />
   <style>
     :root{
       --bg:#020617;
+      --panel:rgba(2,6,23,.72);
       --stroke:rgba(148,163,184,.18);
       --text:#e5e7eb;
       --muted:#94a3b8;
-      --sab: env(safe-area-inset-bottom, 0px);
+      --good:#22c55e;
+      --warn:#f59e0b;
+      --bad:#ef4444;
+      --cyan:#22d3ee;
       --sat: env(safe-area-inset-top, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
       --sal: env(safe-area-inset-left, 0px);
       --sar: env(safe-area-inset-right, 0px);
     }
-    *{box-sizing:border-box}
-    html,body{height:100%;margin:0;background:var(--bg);color:var(--text);
-      font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif}
-    #app{
-      position:relative;
+    *{ box-sizing:border-box; }
+    html,body{
+      margin:0;
       min-height:100%;
-      padding: calc(10px + var(--sat)) calc(10px + var(--sar)) calc(12px + var(--sab)) calc(10px + var(--sal));
+      background:
+        radial-gradient(1000px 700px at 20% 0%, rgba(34,211,238,.08), transparent 60%),
+        radial-gradient(900px 600px at 80% 10%, rgba(167,139,250,.08), transparent 60%),
+        var(--bg);
+      color:var(--text);
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif;
     }
-    /* optional: help tiny debug line */
-    #gdPathBar{
-      position:fixed; left:12px; bottom:calc(12px + var(--sab));
-      z-index:9995;
+    body{ overflow-x:hidden; }
+
+    .topbar{
+      position:sticky;
+      top:0;
+      z-index:40;
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
+      flex-wrap:wrap;
+      padding:calc(10px + var(--sat)) calc(12px + var(--sar)) 10px calc(12px + var(--sal));
+      background:rgba(2,6,23,.76);
+      backdrop-filter:blur(10px);
+      border-bottom:1px solid rgba(148,163,184,.14);
+    }
+
+    .brand{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      min-width:0;
+    }
+    .logo{
+      width:40px;height:40px;border-radius:14px;
+      display:grid;place-items:center;
       border:1px solid var(--stroke);
-      background:rgba(2,6,23,.55);
-      padding:6px 10px;
-      border-radius:999px;
-      color:rgba(229,231,235,.88);
-      font-weight:900;
+      background:linear-gradient(135deg, rgba(34,211,238,.22), rgba(167,139,250,.16));
+      font-weight:1000;
+      flex:0 0 auto;
+    }
+    .brandText{
+      min-width:0;
+    }
+    .title{
+      font-weight:1000;
+      letter-spacing:.2px;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    .sub{
+      color:var(--muted);
       font-size:12px;
+      font-weight:850;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+
+    .actions{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      align-items:center;
+    }
+
+    .pill{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      padding:7px 10px;
+      border-radius:999px;
+      border:1px solid var(--stroke);
+      background:rgba(255,255,255,.03);
+      font-size:12px;
+      font-weight:950;
+      color:var(--muted);
+    }
+    .pill b{ color:var(--text); }
+
+    .btn{
+      appearance:none;
+      border:1px solid var(--stroke);
+      background:rgba(255,255,255,.03);
+      color:var(--text);
+      border-radius:14px;
+      padding:10px 12px;
+      font-weight:1000;
+      cursor:pointer;
+      min-height:42px;
+      text-decoration:none;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+    }
+    .btn.good{ border-color:rgba(34,197,94,.32); background:rgba(34,197,94,.12); }
+    .btn.cyan{ border-color:rgba(34,211,238,.32); background:rgba(34,211,238,.10); }
+    .btn.warn{ border-color:rgba(245,158,11,.32); background:rgba(245,158,11,.10); }
+
+    #app{
+      min-height:calc(100vh - 76px);
+    }
+
+    .bootNote{
+      padding:14px 12px calc(16px + var(--sab)) 12px;
+      color:var(--muted);
+      font-size:12px;
+      font-weight:850;
+    }
+
+    .fallback{
+      margin:12px;
+      padding:12px;
+      border:1px solid rgba(148,163,184,.16);
+      border-radius:16px;
+      background:rgba(255,255,255,.02);
       display:none;
-      pointer-events:none;
-      backdrop-filter: blur(10px);
+    }
+    .fallback.show{ display:block; }
+
+    code{
+      font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+      font-size:12px;
     }
   </style>
 </head>
-
 <body>
+  <div class="topbar">
+    <div class="brand">
+      <div class="logo">GD</div>
+      <div class="brandText">
+        <div class="title">Germ Detective</div>
+        <div class="sub" id="ctxLine">loading…</div>
+      </div>
+    </div>
+
+    <div class="actions">
+      <span class="pill">PID <b id="uiPid">anon</b></span>
+      <span class="pill">run <b id="uiRun">play</b></span>
+      <span class="pill">scene <b id="uiScene">classroom</b></span>
+      <a class="btn warn" id="btnHub" href="../hub.html">🏠 กลับ HUB</a>
+    </div>
+  </div>
+
   <div id="app"></div>
-  <div id="gdPathBar"></div>
 
-  <!-- ✅ Universal VR UI (must be BEFORE the game core listens hha:shoot) -->
-  <script src="../vr/vr-ui.js"></script>
+  <div class="fallback" id="fallbackBox">
+    <div style="font-weight:1000;margin-bottom:8px;">โหลดเกมไม่สำเร็จ</div>
+    <div style="color:var(--muted);font-size:12px;line-height:1.5;">
+      ตรวจสอบว่าไฟล์เหล่านี้มีอยู่จริงและ path ถูกต้อง:
+      <div style="margin-top:8px;">
+        <code>../vr/vr-ui.js</code><br>
+        <code>../plate.safe.js</code><br>
+        <code>../plate-logger-bridge.js</code><br>
+        <code>./germ-detective.boot.js</code><br>
+        <code>./germ-detective.js</code>
+      </div>
+    </div>
+  </div>
 
-  <!-- Optional: your existing logger scaffold (no Apps Script needed) -->
-  <script src="./plate.safe.js"></script>
-  <script src="./plate-logger-bridge.js"></script>
-
-  <!-- Boot (ESM) -->
-  <script type="module" src="./germ-detective.boot.js"></script>
+  <div class="bootNote">
+    HeroHealth Germ Detective • PC / Mobile / cVR • ใช้ <code>hha:shoot</code> เมื่อเข้า cVR
+  </div>
 
   <script>
-    // show tiny path bar if ?debug=1
     (function(){
       'use strict';
-      function qs(k,d=''){ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch{ return d; } }
-      if(String(qs('debug','')) !== '1') return;
-      const el = document.getElementById('gdPathBar');
-      if(!el) return;
-      el.style.display = 'inline-flex';
-      el.textContent = location.pathname;
+
+      function qs(k, d=''){
+        try{ return new URL(location.href).searchParams.get(k) ?? d; }
+        catch{ return d; }
+      }
+      function normalizeMaybeEncodedUrl(v){
+        v = String(v ?? '').trim();
+        if(!v || v === 'null' || v === 'undefined') return '';
+        if(/%3A|%2F|%3F|%26|%3D/i.test(v)){
+          try{ v = decodeURIComponent(v); }catch(e){}
+        }
+        return v.trim();
+      }
+
+      const pid   = String(qs('pid','anon')).trim() || 'anon';
+      const run   = String(qs('run','play')).toLowerCase() || 'play';
+      const scene = String(qs('scene','classroom')).toLowerCase() || 'classroom';
+      const diff  = String(qs('diff','normal')).toLowerCase() || 'normal';
+      const time  = String(qs('time','120'));
+      const view  = String(qs('view','pc')).toLowerCase() || 'pc';
+      const hub   = normalizeMaybeEncodedUrl(qs('hub','../hub.html')) || '../hub.html';
+
+      document.getElementById('uiPid').textContent = pid;
+      document.getElementById('uiRun').textContent = run;
+      document.getElementById('uiScene').textContent = scene;
+      document.getElementById('ctxLine').textContent =
+        `run=${run} • diff=${diff} • time=${time}s • scene=${scene} • view=${view}`;
+
+      const hubBtn = document.getElementById('btnHub');
+      hubBtn.href = hub;
+
+      window.addEventListener('error', function(){
+        const box = document.getElementById('fallbackBox');
+        if(box) box.classList.add('show');
+      });
     })();
   </script>
+
+  <!-- vr-ui ยังเป็น normal script -->
+  <script src="../vr/vr-ui.js"></script>
+
+  <!-- PlateSafe มี import/export => ต้องเป็น module -->
+  <script type="module" src="../plate.safe.js"></script>
+
+  <!-- bridge ถ้าเป็นไฟล์ธรรมดาให้คงแบบนี้ -->
+  <script src="../plate-logger-bridge.js"></script>
+
+  <!-- boot มี import GameApp from './germ-detective.js' => ต้องเป็น module -->
+  <script type="module" src="./germ-detective.boot.js"></script>
 </body>
 </html>
