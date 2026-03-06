@@ -1,11 +1,11 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
 // GoodJunkVR SAFE — PRODUCTION
-// PATCH v20260306-SAFE-ENDDETAIL-XP-REWARD-COMPAT
-// ✅ Full end detail for Hero Result / XP / Reward
-// ✅ Saves HHA_LAST_SUMMARY:goodjunk:${pid}
-// ✅ WARM -> TRICK -> BOSS
-// ✅ Safe spawn zone
-// ✅ Battle/Race wait-start compatible
+// PATCH v20260306-SOLO-ULTIMATE-FULL
+// ✅ Game Feel PRO
+// ✅ Mission / Boss Variety
+// ✅ Solo Progression
+// ✅ AI Director
+// ✅ Full end detail for Hub / XP / Reward
 'use strict';
 
 export async function boot(cfg){
@@ -13,18 +13,15 @@ export async function boot(cfg){
   const WIN = window, DOC = document;
   const AI = cfg.ai || null;
 
-  // ---------- helpers ----------
   const qs = (k, d='')=>{ try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(e){ return d; } };
   const clamp = (v,a,b)=>{ v=Number(v); if(!Number.isFinite(v)) v=a; return Math.max(a, Math.min(b, v)); };
   const nowMs = ()=> (performance && performance.now) ? performance.now() : Date.now();
   const nowIso = ()=> new Date().toISOString();
   function $(id){ return DOC.getElementById(id); }
 
-  // ---------- MODE ----------
   const mode = String(qs('mode', cfg.mode || 'solo')).toLowerCase();
   const battleOn = (String(qs('battle','0')) === '1') || (mode === 'battle');
 
-  // ---------- BATTLE (optional) ----------
   let battle = null;
   async function initBattleMaybe(pid, gameKey){
     if(!battleOn) return null;
@@ -45,7 +42,6 @@ export async function boot(cfg){
     }
   }
 
-  // ---------- localStorage helpers ----------
   function hhDayKey(){
     const d=new Date();
     return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
@@ -53,7 +49,16 @@ export async function boot(cfg){
   function hhLsGet(k){ try{ return localStorage.getItem(k); }catch(_){ return null; } }
   function hhLsSet(k,v){ try{ localStorage.setItem(k,v); }catch(_){ } }
 
-  // ---------- COOL DOWN BUTTON ----------
+  function loadJson(k, fallback){
+    try{
+      const raw = localStorage.getItem(k);
+      return raw ? JSON.parse(raw) : fallback;
+    }catch(_){ return fallback; }
+  }
+  function saveJson(k, v){
+    try{ localStorage.setItem(k, JSON.stringify(v)); }catch(_){}
+  }
+
   function hhCooldownDone(cat, gameKey, pid){
     const day = hhDayKey();
     const p = String(pid||'anon').trim()||'anon';
@@ -123,7 +128,6 @@ export async function boot(cfg){
     row.appendChild(btn);
   }
 
-  // ---------- deterministic RNG ----------
   function xmur3(str){
     str = String(str||'');
     let h = 1779033703 ^ str.length;
@@ -160,7 +164,6 @@ export async function boot(cfg){
   const r01 = ()=> rng();
   const rPick = (arr)=> arr[(r01()*arr.length)|0];
 
-  // ---------- DOM refs ----------
   const layer = $('gj-layer');
   const hud = {
     score: $('hud-score'),
@@ -203,7 +206,6 @@ export async function boot(cfg){
     return;
   }
 
-  // ---------- config ----------
   const view = String(cfg.view || qs('view','mobile')).toLowerCase();
   const runMode = String(cfg.run || qs('run','play')).toLowerCase();
   const diff = String(cfg.diff || qs('diff','normal')).toLowerCase();
@@ -214,6 +216,9 @@ export async function boot(cfg){
   const hubUrl = String(cfg.hub || qs('hub','../hub.html'));
   const HH_CAT = 'nutrition';
   const HH_GAME = 'goodjunk';
+
+  const RESEARCH_MODE = String(qs('research','0')) === '1';
+  const AI_PLAY_ADAPT = !RESEARCH_MODE && String(qs('ai','1')) !== '0';
 
   initBattleMaybe(pid, HH_GAME).then((b)=>{
     battle = b || battle;
@@ -226,8 +231,7 @@ export async function boot(cfg){
   if(uiRun)  uiRun.textContent  = runMode;
   if(uiDiff) uiDiff.textContent = diff;
 
-  // ---------- tuning ----------
-  let stage = 0; // 0=Warm, 1=Trick, 2=Boss
+  let stage = 0;
   const STAGE_NAME = ['WARM', 'TRICK', 'BOSS'];
 
   const WIN_TARGET = (function(){
@@ -286,15 +290,63 @@ export async function boot(cfg){
   const JUNK = ['🍟','🍔','🍕','🍩','🍬','🧋','🥤','🍭','🍫'];
   const BONUS = ['⭐','💎','⚡'];
   const SHIELDS = ['🛡️','🛡️','🛡️'];
+  const GREEN_FOCUS = ['🥦','🥬','🥒'];
   const WEAK = '🎯';
 
-  // ---------- FX layer ----------
+  const WARM_POOL = ['good_only','avoid_junk','green_focus'];
+  const TRICK_POOL = ['combo_rush','bonus_hunt','speed_clear'];
+  const BOSS_POOL = ['normal_boss','shield_boss','storm_boss'];
+
+  const missionSet = {
+    warm: rPick(WARM_POOL),
+    trick: rPick(TRICK_POOL),
+    boss: rPick(BOSS_POOL)
+  };
+
   const fxLayer = DOC.createElement('div');
   fxLayer.style.position = 'fixed';
   fxLayer.style.inset = '0';
   fxLayer.style.pointerEvents = 'none';
   fxLayer.style.zIndex = '260';
   DOC.body.appendChild(fxLayer);
+
+  const fxState = {
+    screenFlash: 0,
+    hitScalePulse: 0,
+    comboPulse: 0,
+    nearEndPulse: 0,
+    bossHitFlash: 0,
+    stageBannerLeft: 0,
+    stageBannerText: '',
+    milestoneTextLeft: 0,
+    milestoneText: ''
+  };
+
+  function emitFx(){
+    try{
+      WIN.dispatchEvent(new CustomEvent('hha:solo-fx', {
+        detail: {
+          stageText: fxState.stageBannerText,
+          stageOn: fxState.stageBannerLeft > 0,
+          milestoneText: fxState.milestoneText,
+          milestoneOn: fxState.milestoneTextLeft > 0
+        }
+      }));
+    }catch(_){}
+  }
+
+  function comboMilestoneText(combo){
+    if(combo >= 15) return 'MEGA COMBO!';
+    if(combo >= 10) return 'AWESOME!';
+    if(combo >= 5) return 'NICE COMBO!';
+    return '';
+  }
+
+  function showStageBanner(text){
+    fxState.stageBannerText = text;
+    fxState.stageBannerLeft = 1.6;
+    emitFx();
+  }
 
   function fxFloatText(x,y,text,isBad){
     const el = DOC.createElement('div');
@@ -359,7 +411,6 @@ export async function boot(cfg){
     }
   }
 
-  // ---------- Coach ----------
   const coach = DOC.createElement('div');
   coach.style.position = 'fixed';
   coach.style.left = '10px';
@@ -392,7 +443,7 @@ export async function boot(cfg){
 
   function sayCoach(msg){
     const t = nowMs();
-    if(t - coachLatchMs < 4500) return;
+    if(t - coachLatchMs < 3500) return;
     coachLatchMs = t;
     if(coachText) coachText.textContent = String(msg||'');
     coach.style.opacity = '1';
@@ -421,7 +472,6 @@ export async function boot(cfg){
     }catch(e){}
   }
 
-  // ---------- state ----------
   const startTimeIso = nowIso();
   let playing = true;
   let ended = false;
@@ -460,7 +510,6 @@ export async function boot(cfg){
   let goodHitCount = 0;
   let shots = 0;
   let hits  = 0;
-
   const rtList = [];
   const mini = { name:'—', t:0 };
 
@@ -468,9 +517,16 @@ export async function boot(cfg){
   let bossHpMax = TUNE.bossHp;
   let bossHp = bossHpMax;
   let bossShieldHp = bossShieldBase();
+  let bossStormTimer = 0;
 
   const targets = new Map();
   let idSeq = 1;
+  let spawnAcc = 0;
+
+  const LS_BEST = `HHA_GJ_BEST:${pid}:${diff}`;
+  const LS_BADGES = `HHA_GJ_BADGES:${pid}`;
+  const LS_DAILY = `HHA_GJ_DAILY:${pid}:${hhDayKey()}`;
+  const LS_STREAK = `HHA_GJ_STREAK:${pid}`;
 
   function layerRect(){ return layer.getBoundingClientRect(); }
 
@@ -496,17 +552,43 @@ export async function boot(cfg){
     };
   }
 
+  function currentMissionKey(){
+    if(stage===0) return missionSet.warm;
+    if(stage===1) return missionSet.trick;
+    return missionSet.boss;
+  }
+
   function setMissionUI(){
+    const k = currentMissionKey();
     if(missionTitle) missionTitle.textContent = STAGE_NAME[stage] || 'WARM';
-    if(stage===0){
+
+    if(k === 'good_only'){
       if(missionGoal) missionGoal.textContent = `เก็บของดี ${WIN_TARGET.goodTarget} ชิ้น`;
-      if(missionHint) missionHint.textContent = `เป้าหมาย: ของดี + คะแนนสะสม (อย่าโดนของขยะ)`;
-    }else if(stage===1){
-      if(missionGoal) missionGoal.textContent = `คอมโบ 8+ เพื่อเร่งแต้ม`;
-      if(missionHint) missionHint.textContent = `TRICK: ทำคอมโบต่อเนื่อง • เล็งของดีให้ไว`;
+      if(missionHint) missionHint.textContent = `เก็บของดีให้ครบ • อย่าเผลอโดนของขยะ`;
+    }else if(k === 'avoid_junk'){
+      if(missionGoal) missionGoal.textContent = `เก็บของดี + หลีกเลี่ยงขยะ`;
+      if(missionHint) missionHint.textContent = `โดน junk จะเสียแต้มแรงขึ้น`;
+    }else if(k === 'green_focus'){
+      if(missionGoal) missionGoal.textContent = `เน้นผักสีเขียวโบนัส`;
+      if(missionHint) missionHint.textContent = `🥦 🥬 🥒 ได้แต้มเพิ่ม`;
+    }else if(k === 'combo_rush'){
+      if(missionGoal) missionGoal.textContent = `ทำคอมโบ 8+`;
+      if(missionHint) missionHint.textContent = `เร่งคอมโบเพื่อโบนัสแต้ม`;
+    }else if(k === 'bonus_hunt'){
+      if(missionGoal) missionGoal.textContent = `ล่า BONUS`;
+      if(missionHint) missionHint.textContent = `โบนัสเกิดบ่อยขึ้นช่วงนี้`;
+    }else if(k === 'speed_clear'){
+      if(missionGoal) missionGoal.textContent = `สปีดเคลียร์`;
+      if(missionHint) missionHint.textContent = `ของดีหายไว แต่แต้มมากขึ้น`;
+    }else if(k === 'shield_boss'){
+      if(missionGoal) missionGoal.textContent = `BOSS โล่หนา`;
+      if(missionHint) missionHint.textContent = `ตีโล่ให้แตกก่อนค่อยยิง HP`;
+    }else if(k === 'storm_boss'){
+      if(missionGoal) missionGoal.textContent = `BOSS + junk storm`;
+      if(missionHint) missionHint.textContent = `ระวัง junk storm ทุกช่วง`;
     }else{
-      if(missionGoal) missionGoal.textContent = `BOSS: ตีแตกโล่แล้วโจมตี 🎯`;
-      if(missionHint) missionHint.textContent = `ยิง 🎯 เพื่อลด HP บอส`;
+      if(missionGoal) missionGoal.textContent = `BOSS ปกติ`;
+      if(missionHint) missionHint.textContent = `ยิง weak spot 🎯 เพื่อลด HP`;
     }
   }
 
@@ -540,7 +622,7 @@ export async function boot(cfg){
     if(hud.goal) hud.goal.textContent = (stage===2 ? 'BOSS' : stage===1 ? 'TRICK' : 'WARM');
     if(hud.goalCur) hud.goalCur.textContent = String(goodHitCount|0);
     if(hud.goalTarget) hud.goalTarget.textContent = String(WIN_TARGET.goodTarget|0);
-    if(hud.goalDesc) hud.goalDesc.textContent = (stage===2 ? 'ตีบอส' : 'เก็บของดี');
+    if(hud.goalDesc) hud.goalDesc.textContent = currentMissionKey();
     if(hud.mini) hud.mini.textContent = mini.name || '—';
     if(hud.miniTimer) hud.miniTimer.textContent = String(Math.ceil(mini.t||0));
     if(missionFill){
@@ -558,13 +640,103 @@ export async function boot(cfg){
     return a.length % 2 ? a[m] : Math.round((a[m-1]+a[m])/2);
   }
 
+  function grantBadges(detail){
+    const badges = loadJson(LS_BADGES, {
+      firstClear:false,
+      noMiss:false,
+      sharpShooter:false,
+      comboMaster:false
+    });
+
+    if(detail.win && !badges.firstClear) badges.firstClear = true;
+    if(detail.win && detail.missTotal === 0) badges.noMiss = true;
+    if(detail.accPct >= 90) badges.sharpShooter = true;
+    if((detail.comboBest || 0) >= 12) badges.comboMaster = true;
+
+    saveJson(LS_BADGES, badges);
+    return badges;
+  }
+
+  function saveBest(detail){
+    const prev = loadJson(LS_BEST, null);
+    if(!prev || (detail.scoreFinal > (prev.scoreFinal||0))){
+      saveJson(LS_BEST, detail);
+    }
+  }
+
+  function grantDaily(detail){
+    const daily = loadJson(LS_DAILY, {
+      played:false,
+      clear:false,
+      noMiss:false,
+      score900:false
+    });
+
+    daily.played = true;
+    if(detail.win) daily.clear = true;
+    if(detail.missTotal === 0) daily.noMiss = true;
+    if(detail.scoreFinal >= 900) daily.score900 = true;
+
+    saveJson(LS_DAILY, daily);
+    return daily;
+  }
+
+  function updateStreak(){
+    const today = hhDayKey();
+    const prev = loadJson(LS_STREAK, { lastDay:'', count:0 });
+
+    if(prev.lastDay === today) return prev;
+    prev.count = (prev.count || 0) + 1;
+    prev.lastDay = today;
+    saveJson(LS_STREAK, prev);
+    return prev;
+  }
+
+  function getPlayerProfile(){
+    const accPct = shots ? Math.round((hits/shots)*100) : 0;
+    return {
+      accPct,
+      missTotal,
+      missGoodExpired,
+      missJunkHit,
+      comboBest: bestCombo,
+      score,
+      stage,
+      tLeft
+    };
+  }
+
+  function aiDirector(profile){
+    let spawnMul = 1;
+    let junkBias = 0;
+    let goodBias = 0;
+    let ttlMul = 1;
+    let coach = null;
+
+    if(profile.accPct < 55 || profile.missTotal >= 7){
+      spawnMul = 0.92;
+      junkBias = -0.06;
+      goodBias = +0.06;
+      ttlMul = 1.08;
+      coach = 'ค่อย ๆ เล็งของดีทีละชิ้น';
+    }else if(profile.accPct > 85 && profile.missTotal <= 2){
+      spawnMul = 1.08;
+      junkBias = +0.05;
+      goodBias = -0.03;
+      ttlMul = 0.96;
+      coach = 'เก่งมาก ลองเร่งคอมโบต่อ!';
+    }
+
+    return { spawnMul, junkBias, goodBias, ttlMul, coach };
+  }
+
   function buildEndDetail(reason){
     const accPct = shots ? Math.round((hits/shots)*100) : 0;
     const grade = gradeFromScore();
-    const summarySec = Math.round(plannedSec - tLeft);
+    const timePlayedSec = Math.round(plannedSec - tLeft);
     const medianRtGoodMs = median(rtList);
 
-    return {
+    const detail = {
       game: HH_GAME,
       gameKey: HH_GAME,
       cat: HH_CAT,
@@ -600,19 +772,27 @@ export async function boot(cfg){
       reason,
       win: reason === 'win',
 
-      timePlayedSec: summarySec,
+      timePlayedSec,
       timePlannedSec: plannedSec,
       timeLeftSec: Math.max(0, Math.ceil(tLeft)),
 
       medianRtGoodMs,
-
       hub: hubUrl,
       battle: battleOn ? 1 : 0,
       room: qs('room',''),
 
+      missionSet,
+
       startTimeIso,
       endTimeIso: nowIso()
     };
+
+    detail.badges = grantBadges(detail);
+    detail.daily = grantDaily(detail);
+    detail.streakCount = (updateStreak().count || 0);
+
+    saveBest(detail);
+    return detail;
   }
 
   function endGame(reason){
@@ -672,7 +852,7 @@ export async function boot(cfg){
 
     layer.appendChild(el);
 
-    const id = String(idSeq++);
+    const id = String(Date.now()) + '_' + String(Math.random()).slice(2);
     const born = nowMs();
     const t = { id, type, emoji, ttl, born, el };
     targets.set(id, t);
@@ -696,6 +876,7 @@ export async function boot(cfg){
   function hitTarget(id){
     const t = targets.get(id);
     if(!t || !playing) return;
+
     const br = t.el.getBoundingClientRect();
     const x = br.left + br.width/2;
     const y = br.top + br.height/2;
@@ -703,24 +884,45 @@ export async function boot(cfg){
     shots++;
     fxBurst(x,y);
 
+    const missionKey = currentMissionKey();
+
     if(t.type === 'good'){
       hits++;
       goodHitCount++;
       combo++;
       bestCombo = Math.max(bestCombo, combo);
-      score += 12 + Math.min(8, combo);
+
+      let plus = 12 + Math.min(8, combo);
+      if(missionKey === 'green_focus' && GREEN_FOCUS.includes(t.emoji)) plus += 6;
+      if(missionKey === 'speed_clear') plus += 4;
+
+      score += plus;
 
       const rt = Math.max(80, Math.round(nowMs() - t.born));
       rtList.push(rt);
 
-      fxFloatText(x,y,`+${12 + Math.min(8, combo)}`,false);
+      fxState.hitScalePulse = 0.18;
+      fxState.comboPulse = Math.min(1, combo / 15);
+
+      const milestone = comboMilestoneText(combo);
+      if(milestone && (combo === 5 || combo === 10 || combo === 15)){
+        fxState.milestoneText = milestone;
+        fxState.milestoneTextLeft = 1.2;
+        emitFx();
+        sayCoach(milestone);
+      }
+
+      fxFloatText(x,y,`+${plus}`,false);
     }else if(t.type === 'junk'){
       hits++;
       missTotal++;
       missJunkHit++;
       combo = 0;
-      score = Math.max(0, score - 8);
-      fxFloatText(x,y,'-8',true);
+      let minus = 8;
+      if(missionKey === 'avoid_junk') minus = 14;
+      score = Math.max(0, score - minus);
+      fxState.screenFlash = 0.16;
+      fxFloatText(x,y,`-${minus}`,true);
     }else if(t.type === 'bonus'){
       hits++;
       score += 25;
@@ -734,6 +936,7 @@ export async function boot(cfg){
       fxFloatText(x,y,'+shield',false);
     }else if(t.type === 'bossweak'){
       hits++;
+      fxState.bossHitFlash = 0.22;
       if(bossShieldHp > 0){
         bossShieldHp--;
         score += 8;
@@ -752,16 +955,19 @@ export async function boot(cfg){
     if(stage===0 && goodHitCount >= Math.ceil(WIN_TARGET.goodTarget*0.55)){
       stage = 1;
       setMissionUI();
+      showStageBanner('TRICK MODE');
       sayCoach('เข้า TRICK! ทำคอมโบ 8+ 🔥');
     }
     if(stage===1 && goodHitCount >= WIN_TARGET.goodTarget){
       stage = 2;
       bossActive = true;
       setMissionUI();
+      showStageBanner('BOSS BATTLE');
       setBossUI(true);
-      bossHpMax = TUNE.bossHp;
+      bossHpMax = TUNE.bossHp + (missionSet.boss === 'shield_boss' ? 4 : 0);
       bossHp = bossHpMax;
-      bossShieldHp = bossShieldBase();
+      bossShieldHp = bossShieldBase() + (missionSet.boss === 'shield_boss' ? 2 : 0);
+      bossStormTimer = 0;
       setBossHpUI();
       sayCoach('บอสมาแล้ว! ตีโล่ก่อนแล้วค่อยยิง 🎯');
     }
@@ -775,31 +981,6 @@ export async function boot(cfg){
     if(missTotal >= TUNE.lifeMissLimit){
       endGame('miss-limit');
     }
-  }
-
-  let spawnAcc = 0;
-
-  function spawnOne(){
-    if(!playing) return;
-
-    if(stage===2){
-      if(!bossActive) return;
-      let hasWeak = false;
-      for(const [,t] of targets){ if(t.type==='bossweak') { hasWeak = true; break; } }
-      if(!hasWeak) makeTarget('bossweak', WEAK, 1.6);
-      else if(r01() < 0.55) makeTarget('junk', rPick(JUNK), TUNE.ttlJunk);
-      return;
-    }
-
-    const pShield = (diff==='hard') ? 0.10 : 0.12;
-    const pBonus  = 0.12;
-    const pJunk   = (diff==='easy') ? 0.28 : (diff==='hard' ? 0.38 : 0.33);
-
-    const r = r01();
-    if(r < pShield) makeTarget('shield', rPick(SHIELDS), 2.4);
-    else if(r < pShield + pBonus) makeTarget('bonus', rPick(BONUS), TUNE.ttlBonus);
-    else if(r < pShield + pBonus + pJunk) makeTarget('junk', rPick(JUNK), TUNE.ttlJunk);
-    else makeTarget('good', rPick(GOOD), TUNE.ttlGood);
   }
 
   function expireTargets(){
@@ -816,6 +997,53 @@ export async function boot(cfg){
         }
         removeTarget(id);
       }
+    }
+  }
+
+  function spawnOne(adaptive){
+    if(!playing) return;
+
+    const missionKey = currentMissionKey();
+    const ttlMul = adaptive.ttlMul || 1;
+
+    if(stage===2){
+      if(!bossActive) return;
+      let hasWeak = false;
+      for(const [,t] of targets){ if(t.type==='bossweak') { hasWeak = true; break; } }
+      if(!hasWeak){
+        makeTarget('bossweak', WEAK, 1.6 * ttlMul);
+      }else{
+        if(missionSet.boss === 'storm_boss'){
+          if(r01() < 0.75) makeTarget('junk', rPick(JUNK), TUNE.ttlJunk * ttlMul);
+        }else{
+          if(r01() < 0.55) makeTarget('junk', rPick(JUNK), TUNE.ttlJunk * ttlMul);
+        }
+      }
+      return;
+    }
+
+    let pShield = (diff==='hard') ? 0.10 : 0.12;
+    let pBonus  = 0.12;
+    let pJunk   = (diff==='easy') ? 0.28 : (diff==='hard' ? 0.38 : 0.33);
+
+    pJunk = clamp(pJunk + (adaptive.junkBias || 0), 0.15, 0.55);
+
+    if(missionKey === 'bonus_hunt') pBonus += 0.10;
+    if(missionKey === 'avoid_junk') pJunk += 0.06;
+
+    const r = r01();
+    if(r < pShield){
+      makeTarget('shield', rPick(SHIELDS), 2.4 * ttlMul);
+    }else if(r < pShield + pBonus){
+      makeTarget('bonus', rPick(BONUS), TUNE.ttlBonus * ttlMul);
+    }else if(r < pShield + pBonus + pJunk){
+      makeTarget('junk', rPick(JUNK), TUNE.ttlJunk * ttlMul);
+    }else{
+      let emoji = rPick(GOOD);
+      if(missionKey === 'green_focus' && r01() < 0.38){
+        emoji = rPick(GREEN_FOCUS);
+      }
+      makeTarget('good', emoji, (missionKey === 'speed_clear' ? (TUNE.ttlGood - 0.25) : TUNE.ttlGood) * ttlMul);
     }
   }
 
@@ -857,8 +1085,10 @@ export async function boot(cfg){
     dt = clamp(dt, 0, 0.05);
 
     if(!playing) return;
+
     if(paused){
       setHUD();
+      emitFx();
       requestAnimationFrame(tick);
       return;
     }
@@ -875,10 +1105,34 @@ export async function boot(cfg){
       if(mini.t <= 0) mini.name = '—';
     }
 
-    spawnAcc += dt * (1 / TUNE.spawnBase);
+    if(tLeft <= 10) fxState.nearEndPulse = Math.min(1, fxState.nearEndPulse + dt * 2.2);
+    else fxState.nearEndPulse = Math.max(0, fxState.nearEndPulse - dt * 2.2);
+
+    fxState.screenFlash = Math.max(0, fxState.screenFlash - dt * 1.8);
+    fxState.hitScalePulse = Math.max(0, fxState.hitScalePulse - dt * 1.8);
+    fxState.comboPulse = Math.max(0, fxState.comboPulse - dt * 0.8);
+    fxState.bossHitFlash = Math.max(0, fxState.bossHitFlash - dt * 1.8);
+    fxState.stageBannerLeft = Math.max(0, fxState.stageBannerLeft - dt);
+    fxState.milestoneTextLeft = Math.max(0, fxState.milestoneTextLeft - dt);
+
+    let adaptive = { spawnMul:1, junkBias:0, goodBias:0, ttlMul:1, coach:null };
+    if(AI_PLAY_ADAPT){
+      adaptive = aiDirector(getPlayerProfile());
+      if(adaptive.coach) setAIHud({ hazardRisk: 0.5, next5: [adaptive.coach] });
+    }
+
+    spawnAcc += dt * (1 / (TUNE.spawnBase / adaptive.spawnMul));
     while(spawnAcc >= 1){
       spawnAcc -= 1;
-      spawnOne();
+      spawnOne(adaptive);
+    }
+
+    if(stage===2 && missionSet.boss === 'storm_boss'){
+      bossStormTimer += dt;
+      if(bossStormTimer >= 4){
+        bossStormTimer = 0;
+        for(let i=0;i<2;i++) makeTarget('junk', rPick(JUNK), TUNE.ttlJunk * (adaptive.ttlMul || 1));
+      }
     }
 
     expireTargets();
@@ -901,6 +1155,7 @@ export async function boot(cfg){
       }catch(e){}
     }
 
+    emitFx();
     requestAnimationFrame(tick);
   }
 
