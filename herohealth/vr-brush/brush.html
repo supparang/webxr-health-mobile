@@ -1,170 +1,227 @@
 <!-- === /herohealth/vr-brush/brush.html ===
-Brush RUN — BLOOM 1–6 + Physical Proxy + Explainable AI Coach
-FULL v20260306-BRUSH-RUN
+BrushVR — RUN (Folder)
+PATCH v20260305-BRUSH-RUN-ABC-AI-QUIZ-NOSCROLL
+✅ DOM ครบสำหรับ brush.safe.js (ABC + Evidence + AI Risk + Quiz)
+✅ กันจอเลื่อนหลุดเป้า: overflow hidden + touch-action
+✅ รองรับ VR UI (vr-ui.js) + fun-boost (ถ้ามี)
+✅ Load order: vr-ui -> fun-boost -> safe.js -> boot.js
 -->
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <title>HeroHealth — BrushVR</title>
   <meta name="color-scheme" content="dark light"/>
-  <meta name="google" content="notranslate"/>
-  <title>HeroHealth • Brush</title>
-
   <link rel="icon" href="../favicon.ico"/>
-  <link rel="stylesheet" href="./brush.css?v=20260306"/>
 
-  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <!-- ✅ CSS -->
+  <link rel="stylesheet" href="./brush.css?v=20260305a"/>
+
+  <!-- ✅ Safety: hard no-scroll at HTML level (CSS will reinforce) -->
+  <style>
+    html,body{height:100%; overflow:hidden; overscroll-behavior:none;}
+    body{touch-action:manipulation;}
+  </style>
 </head>
 
 <body data-view="pc">
-  <div id="br-wrap" data-state="menu">
-    <div id="app">
+  <!-- fatal -->
+  <div id="fatal" class="br-fatal br-hidden"></div>
 
-      <header id="hud">
-        <div class="hud-row">
-          <div class="pill" id="phasePill">PHASE: —</div>
-          <div class="pill" id="timePill">TIME: 0</div>
-          <div class="pill" id="scorePill">SCORE: 0</div>
-          <div class="pill" id="comboPill">COMBO: 0</div>
-          <div class="pill" id="missionPill">MISSION: —</div>
-        </div>
-        <div class="hud-row">
-          <div class="pill" id="missPill">MISS: 0</div>
-          <div class="pill" id="accPill">ACC: 0%</div>
-          <div class="pill" id="toolPill">TOOL: BRUSH</div>
-          <div class="pill" id="viewPill">VIEW: —</div>
-          <div class="pill" id="residuePill">RESIDUE: 0%</div>
-          <div class="pill" id="riskPill">GUM RISK: 0%</div>
-          <div class="pill" id="coachPill">COACH: —</div>
-        </div>
-        <div class="hud-row">
-          <!-- Physical proxy (sport science) -->
-          <div class="pill mini" id="fatiguePill">FATIGUE: 0%</div>
-          <div class="pill mini" id="steadyPill">STEADY: 100%</div>
-          <div class="pill mini" id="pressurePill">PRESSURE: 0%</div>
-        </div>
-      </header>
-
-      <main id="playfield" aria-label="Brush">
-        <a-scene id="scene"
-          background="color: #050914"
-          renderer="antialias: true; colorManagement: true"
-          vr-mode-ui="enabled: false"
-          embedded>
-          <a-entity id="rig" position="0 0 0">
-            <a-entity id="cam" camera look-controls position="0 1.6 0"></a-entity>
-          </a-entity>
-          <a-entity light="type: ambient; intensity: 1.0"></a-entity>
-          <a-entity light="type: directional; intensity: 1.0" position="1 3 2"></a-entity>
-          <a-sky color="#070b1b"></a-sky>
-
-          <a-entity id="tooth"
-            geometry="primitive: box; width: 1.3; height: 1.0; depth: 0.7"
-            material="color: #e5e7eb; roughness: 0.9; metalness: 0"
-            position="0 1.45 -3.0"></a-entity>
-
-          <a-entity id="spawnRoot"></a-entity>
-        </a-scene>
-
-        <div id="domTargets" aria-hidden="true"></div>
-        <div id="crosshair" aria-hidden="true"></div>
-
-        <!-- QUIZ -->
-        <div id="panelQuiz" class="panel hidden">
-          <div class="panel-card">
-            <h2>ก่อนเริ่ม (3 ข้อ)</h2>
-            <div id="quizBody"></div>
-            <div class="row">
-              <button id="btnQuizNext" class="btn primary">ต่อไป</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- HELP -->
-        <div id="panelHelp" class="panel hidden">
-          <div class="panel-card">
-            <h2>วิธีเล่น Brush</h2>
-            <ol>
-              <li>แตะ “คราบ” 🟢 ให้ครบทุกโซน</li>
-              <li>หลบ “เชื้อ” 🔴 (โดนแล้ว risk เพิ่ม)</li>
-              <li>COACH จะบอก “2 สาเหตุหลัก” ที่ทำให้พลาด/เสี่ยง</li>
-              <li>FATIGUE/STEADY/PRESSURE = ตัวชี้วัดเชิง sport science จากพฤติกรรม</li>
-            </ol>
-            <div class="row">
-              <button id="btnCloseHelp" class="btn primary">เข้าใจแล้ว</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- END -->
-        <div id="panelEnd" class="panel hidden">
-          <div class="panel-card">
-            <h2>สรุปผล</h2>
-            <p id="endSummary" class="summary"></p>
-
-            <h3 class="h3">Heatmap โซนฟัน (Bloom 4)</h3>
-            <div id="heatmap" class="heatmap"></div>
-
-            <h3 class="h3">ฉันพลาดเพราะ… (Bloom 4)</h3>
-            <div class="chips" id="reasonChips"></div>
-
-            <hr class="hr"/>
-
-            <h3 class="h3">ประเมินตัวเอง (Bloom 5)</h3>
-            <div class="evalRow">
-              <div class="stars" id="stars"></div>
-              <div class="pill mini" id="rubricPill">RUBRIC: —</div>
-            </div>
-            <div class="muted" id="rubricDesc"></div>
-
-            <h3 class="h3">ฉันจะปรับปรุงรอบหน้า (เลือก 1 ข้อ) (Bloom 5)</h3>
-            <div class="chips" id="improveChips"></div>
-
-            <hr class="hr"/>
-
-            <h3 class="h3">แผนแปรงฟันของฉัน (Bloom 6)</h3>
-            <p class="muted">เรียงลำดับโซน (กด ▲▼) แล้วกด “เล่นตามแผน”</p>
-            <div id="planList" class="planList"></div>
-
-            <div class="row">
-              <button id="btnPlayPlan" class="btn primary">เล่นตามแผน</button>
-              <button id="btnReplay" class="btn">เริ่มใหม่ (Quiz)</button>
-              <button id="btnBack" class="btn">กลับ HUB</button>
-            </div>
-          </div>
-        </div>
-
-        <div id="controlsBar">
-          <button id="btnStart" class="btn primary">เริ่มเล่น</button>
-          <button id="btnHelp" class="btn">วิธีเล่น</button>
-        </div>
-      </main>
-
-      <footer id="footer">
-        <span class="muted">HeroHealth • Brush • BLOOM 1–6 • Physical Proxy • Explainable AI</span>
-      </footer>
-    </div>
-
-    <!-- Tap unlock -->
-    <div id="tapStart" class="tapStart">
-      <div class="tapCard">
-        <div class="tapTitle">แตะเพื่อปลดล็อก</div>
-        <div class="tapSub">Mobile บางเครื่องต้อง tap ก่อนเพื่อให้อินพุตทำงาน</div>
-        <div class="tapRow">
-          <button id="tapBtn" class="btn primary">เริ่ม</button>
-        </div>
-      </div>
+  <!-- Tap-to-start overlay (mobile unlock) -->
+  <div id="tapStart" class="br-tap" style="display:none" aria-hidden="true">
+    <div class="br-tapCard">
+      <div class="br-tapTitle">🪥 BrushVR</div>
+      <div class="br-tapSub">แตะเพื่อเริ่ม (ปลดล็อกทัช/เสียงบนมือถือ)</div>
+      <button id="tapBtn" class="br-btn br-primary" type="button">แตะเพื่อเริ่ม</button>
     </div>
   </div>
 
-  <script type="module">
-    try{
-      const m = await import('./brush.safe.js?v=20260306');
-      if (m && typeof m.bootGame === 'function') window.__BRUSH_BOOTGAME__ = m.bootGame;
-    }catch(e){ console.warn('[Brush] preload safe failed', e); }
-  </script>
+  <!-- Minimal A-Frame scene for WebXR Enter VR reliability (optional) -->
+  <a-scene
+    embedded
+    vr-mode-ui="enabled: false"
+    renderer="colorManagement:true"
+    background="color: #060a12">
+    <a-entity position="0 1.6 -2">
+      <a-sphere radius="0.18" color="#1f2937" opacity="0.45"></a-sphere>
+      <a-ring radius-inner="0.25" radius-outer="0.27" color="#334155" opacity="0.35"></a-ring>
+    </a-entity>
+    <a-entity camera look-controls position="0 1.6 0"></a-entity>
+  </a-scene>
 
-  <script src="./brush.boot.js?v=20260306"></script>
+  <div id="br-wrap" data-view="pc" data-state="menu">
+    <!-- TOP HUD -->
+    <header class="br-top">
+      <div class="br-brand">
+        <span class="br-pill">HeroHealth · Hygiene</span>
+        <h1 class="br-title">BrushVR — Plaque Breaker (ABC)</h1>
+        <p class="br-sub">A: กวาดคราบ • B: เก็บหลักฐาน • C: วิเคราะห์ + ปิดเกม</p>
+      </div>
+
+      <div class="br-ctx">
+        <div class="br-ctxrow"><span class="k">view</span><span id="br-ctx-view" class="v">-</span></div>
+        <div class="br-ctxrow"><span class="k">seed</span><span id="br-ctx-seed" class="v">-</span></div>
+        <div class="br-ctxrow"><span class="k">time</span><span id="br-ctx-time" class="v">-</span></div>
+        <div class="br-ctxrow"><span class="k">diff</span><span id="br-diffTag" class="v">-</span></div>
+        <div class="br-ctxrow"><span class="k">ai</span><span id="br-aiTag" class="v">-</span></div>
+      </div>
+    </header>
+
+    <!-- STAGE -->
+    <main class="br-stage" role="application" aria-label="BrushVR game">
+      <!-- FX root (optional used by CSS/JS if present) -->
+      <div id="br-fx" aria-hidden="true"></div>
+
+      <div id="br-layer" class="br-layer" aria-label="play layer"></div>
+
+      <!-- ACTIONS -->
+      <div class="br-actions">
+        <button id="btnPause" class="br-btn br-ghost" type="button">Pause</button>
+        <button id="btnHow" class="br-btn br-ghost" type="button">วิธีเล่น</button>
+        <button id="btnRecenter" class="br-btn br-ghost" type="button">Recenter</button>
+      </div>
+
+      <!-- HUD meters -->
+      <section class="br-hud" aria-label="HUD">
+        <div class="br-hudGrid">
+          <!-- Left stats -->
+          <div class="br-box">
+            <div class="row"><span class="k">Stage</span><span class="v" id="tStage">A</span></div>
+            <div class="row"><span class="k">Score</span><span class="v" id="tScore">0</span></div>
+            <div class="row"><span class="k">Combo</span><span class="v" id="tCombo">0</span></div>
+            <div class="row"><span class="k">Miss</span><span class="v" id="tMiss">0</span></div>
+            <div class="row"><span class="k">Time</span><span class="v"><span id="tTime">0</span>s</span></div>
+          </div>
+
+          <!-- Progress bars -->
+          <div class="br-box">
+            <div class="br-barLabel">
+              <span class="k">Clean</span><span class="v" id="tClean">0%</span>
+            </div>
+            <div class="br-bar"><i id="bClean" class="fill good"></i></div>
+
+            <div class="br-barLabel" style="margin-top:10px">
+              <span class="k">Fever</span><span class="v" id="tFever">OFF</span>
+            </div>
+            <div class="br-bar"><i id="bFever" class="fill pink"></i></div>
+
+            <div class="br-barLabel" style="margin-top:10px">
+              <span class="k">Evidence (B)</span><span class="v" id="tEvi">0/3</span>
+            </div>
+            <div class="br-bar"><i id="bEvi" class="fill amber"></i></div>
+          </div>
+
+          <!-- AI Panel -->
+          <div class="br-mini">
+            <div class="k">AI Prediction (no adaptive)</div>
+            <div class="v">Risk: <b id="tRisk">0%</b></div>
+            <div class="br-bar" style="margin-top:8px"><i id="bRisk" class="fill cyan"></i></div>
+            <div class="k" style="margin-top:10px">Coach tip</div>
+            <div class="v" id="tTip">—</div>
+
+            <div class="k" style="margin-top:10px">ตั้งค่า</div>
+            <div class="v">diff=<b id="mDiff">-</b> · time=<b id="mTime">-</b></div>
+
+            <div class="k" style="margin-top:8px">cVR</div>
+            <div class="v">view=cvr ยิงจากกากบาท (vr-ui)</div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- MENU -->
+    <div id="br-menu" class="br-menu" aria-hidden="false">
+      <div class="br-card">
+        <div class="br-cardHead">
+          <div class="br-cardTitle">🪥 เริ่มแปรง!</div>
+          <div class="br-cardSub">A→B→C: เล่นให้ครบ แล้วค่อยชนะ</div>
+        </div>
+
+        <div class="br-cardList">
+          <div class="item"><b>Stage A</b>: ยิง/แตะ 🦠 ให้โดน เก็บ Clean</div>
+          <div class="item"><b>Stage B</b>: เก็บหลักฐาน <b>🍬 🌙 🚫🪥</b> ให้ครบ 3</div>
+          <div class="item"><b>Stage C</b>: ตอบคำถาม “วิเคราะห์” แล้วปิดเกม</div>
+          <div class="item"><b>Boss</b>: 💎 หลายฮิต + มีจุดอ่อน 🎯</div>
+        </div>
+
+        <div class="br-cardActions">
+          <button id="btnStart" class="br-btn br-primary" type="button">▶ เริ่มเกม</button>
+          <a id="btnBack" class="br-btn br-ghost br-link" href="../hub.html">🏰 กลับ HUB</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- QUIZ (Stage C) -->
+    <div id="br-quiz" class="br-quiz" hidden>
+      <div class="br-quizCard">
+        <div class="br-quizTitle">🧠 Stage C — วิเคราะห์</div>
+        <div class="br-quizSub">คำถาม: ทำไม “น้ำตาล” ทำให้เกิดคราบฟัน/ฟันผุง่ายขึ้น?</div>
+
+        <div id="quizChoices" class="br-quizChoices">
+          <label class="br-choice">
+            <input type="radio" name="quizA" value="a">
+            เพราะน้ำตาลทำให้ฟันเปลี่ยนสีทันที
+          </label>
+          <label class="br-choice">
+            <input type="radio" name="quizA" value="b" checked>
+            เพราะแบคทีเรียใช้น้ำตาลสร้างกรด กัดเคลือบฟัน เกิดคราบและฟันผุ
+          </label>
+          <label class="br-choice">
+            <input type="radio" name="quizA" value="c">
+            เพราะน้ำตาลทำให้แปรงฟันลื่นขึ้น
+          </label>
+        </div>
+
+        <div class="br-quizActions">
+          <button id="btnQuizSubmit" class="br-btn br-primary" type="button">✅ ส่งคำตอบ</button>
+          <button id="btnQuizSkip" class="br-btn br-ghost" type="button">ข้าม (ได้คะแนนน้อยกว่า)</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- END SUMMARY -->
+    <div id="br-end" class="br-end" hidden>
+      <div class="br-endCard">
+        <div class="br-endHead">
+          <div class="br-endTitle">สรุปผล</div>
+          <div class="br-endGrade">Grade: <b id="endGrade">C</b></div>
+        </div>
+
+        <div class="br-endGrid">
+          <div class="box"><div class="k">Score</div><div class="v" id="sScore">0</div></div>
+          <div class="box"><div class="k">Accuracy</div><div class="v" id="sAcc">0%</div></div>
+          <div class="box"><div class="k">Miss</div><div class="v" id="sMiss">0</div></div>
+          <div class="box"><div class="k">Max Combo</div><div class="v" id="sCombo">0</div></div>
+          <div class="box"><div class="k">Clean</div><div class="v" id="sClean">0%</div></div>
+          <div class="box"><div class="k">Time</div><div class="v" id="sTime">0s</div></div>
+        </div>
+
+        <div class="br-endNote" id="endNote">-</div>
+
+        <div class="br-endActions">
+          <button id="btnRetry" class="br-btn br-ghost" type="button">เล่นอีกครั้ง</button>
+          <a id="btnBackHub2" class="br-btn br-primary br-link" href="../hub.html">กลับ HUB</a>
+        </div>
+      </div>
+    </div>
+
+    <div id="toast" class="br-toast"></div>
+  </div>
+
+  <!-- ✅ Required libs -->
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+
+  <!-- ✅ Universal VR UI -->
+  <script src="../vr/vr-ui.js?v=20260305a"></script>
+
+  <!-- ✅ Optional fun boost (ถ้ามีในโปรเจกต์ก็ใช้, ถ้าไม่มีจะไม่กระทบ safe.js) -->
+  <script src="../vr/fun-boost.js?v=20260305a"></script>
+  <script src="../vr/fun-boost.fx.js?v=20260305a"></script>
+
+  <!-- ✅ Engine & Boot -->
+  <script src="./brush.safe.js?v=20260305a"></script>
+  <script src="./brush.boot.js?v=20260305a"></script>
 </body>
 </html>
