@@ -1,10 +1,12 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
 GoodJunkVR — RUN PAGE (PC/Mobile/cVR) — PRODUCTION
-PATCH v20260306e-RUN-ENDSUMMARY-HEROCARD-MOBILE
-✅ Hero-card style end summary
-✅ Compact mobile layout
-✅ Sticky actions
-✅ Keeps required IDs for goodjunk.safe.js
+PATCH v20260306-FULL-RUN-HEROCARD-XP-REWARD-MOBILE
+✅ Hero Result summary
+✅ Grade big + Hero mood
+✅ XP gain + XP bar
+✅ Reward Card drop
+✅ Compact mobile end summary
+✅ Hides VR UI at end
 Requires:
 - /herohealth/vr/vr-ui.js
 - /herohealth/vr-goodjunk/goodjunk.safe.js
@@ -134,8 +136,8 @@ Requires:
       border-radius:20px;
       border:1px solid rgba(148,163,184,.18);
       background:rgba(15,23,42,.42);
-      padding:12px 10px;
-      box-shadow:0 12px 40px rgba(0,0,0,.24);
+      padding:10px 10px;
+      box-shadow: 0 12px 40px rgba(0,0,0,.24);
     }
     .heroTop{
       display:flex;
@@ -144,6 +146,47 @@ Requires:
       gap:10px;
       flex-wrap:wrap;
     }
+    .heroTopLeft{
+      display:flex;
+      align-items:center;
+      gap:10px;
+    }
+    .heroAvatar{
+      width:54px;
+      height:54px;
+      border-radius:16px;
+      display:grid;
+      place-items:center;
+      font-size:30px;
+      border:1px solid rgba(148,163,184,.16);
+      background: rgba(2,6,23,.34);
+      box-shadow: 0 10px 28px rgba(0,0,0,.24);
+    }
+    .heroAvatar.mood-s{
+      background: radial-gradient(circle at 30% 30%, rgba(34,197,94,.24), rgba(2,6,23,.34) 60%);
+    }
+    .heroAvatar.mood-a{
+      background: radial-gradient(circle at 30% 30%, rgba(59,130,246,.24), rgba(2,6,23,.34) 60%);
+    }
+    .heroAvatar.mood-b{
+      background: radial-gradient(circle at 30% 30%, rgba(245,158,11,.20), rgba(2,6,23,.34) 60%);
+    }
+    .heroAvatar.mood-c,
+    .heroAvatar.mood-d{
+      background: radial-gradient(circle at 30% 30%, rgba(239,68,68,.18), rgba(2,6,23,.34) 60%);
+    }
+    .heroTitleWrap{
+      display:flex;
+      flex-direction:column;
+      align-items:flex-start;
+      gap:4px;
+    }
+    .heroTitleMini{
+      font-size:11px;
+      font-weight:1000;
+      color:var(--muted);
+      letter-spacing:.2px;
+    }
     .heroBadge{
       display:inline-flex;
       align-items:center;
@@ -151,7 +194,7 @@ Requires:
       padding:8px 10px;
       border-radius:999px;
       border:1px solid rgba(148,163,184,.16);
-      background:rgba(2,6,23,.34);
+      background: rgba(2,6,23,.34);
       color:var(--muted);
       font-size:12px;
       font-weight:1000;
@@ -173,7 +216,7 @@ Requires:
     }
 
     .gradeHero{
-      margin-top:10px;
+      margin-top:6px;
       display:grid;
       place-items:center;
       gap:4px;
@@ -185,21 +228,164 @@ Requires:
       letter-spacing:.2px;
     }
     .gradeHero .gradeBig{
-      font-size:52px;
+      font-size:46px;
       line-height:1;
       font-weight:1100;
       color:var(--text);
       text-shadow:0 10px 32px rgba(255,255,255,.10);
     }
 
-    .endMiniLine{
+    .heroResultLine{
       margin-top:8px;
-      font-size:11px;
+      font-size:12px;
+      font-weight:1000;
+      color:var(--muted);
+      line-height:1.35;
+    }
+    .heroResultLine b{ color:var(--text); }
+
+    .xpCard{
+      margin-top:10px;
+      border-radius:16px;
+      border:1px solid rgba(148,163,184,.16);
+      background: rgba(2,6,23,.30);
+      padding:10px;
+      text-align:left;
+    }
+    .xpRow{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+    .xpGain{
+      font-size:28px;
+      font-weight:1100;
+      line-height:1;
+      color:var(--text);
+    }
+    .xpMeta{
+      font-size:12px;
       font-weight:900;
       color:var(--muted);
-      line-height:1.3;
     }
-    .endMiniLine b{color:var(--text);}
+    .xpBar{
+      margin-top:8px;
+      height:10px;
+      border-radius:999px;
+      overflow:hidden;
+      border:1px solid rgba(255,255,255,.10);
+      background: rgba(0,0,0,.35);
+    }
+    .xpBarFill{
+      height:100%;
+      width:0%;
+      border-radius:999px;
+      background: linear-gradient(90deg, rgba(34,197,94,.95), rgba(59,130,246,.95));
+      transition: width .9s cubic-bezier(.2,.8,.2,1);
+    }
+
+    .rewardCard{
+      margin-top:10px;
+      border-radius:18px;
+      border:1px solid rgba(148,163,184,.18);
+      background: rgba(15,23,42,.42);
+      padding:12px 10px;
+      box-shadow: 0 14px 40px rgba(0,0,0,.24);
+      position: relative;
+      overflow: hidden;
+    }
+    .rewardCard::before{
+      content:"";
+      position:absolute;
+      inset:-30% auto auto -10%;
+      width:180px;
+      height:180px;
+      border-radius:999px;
+      filter: blur(24px);
+      opacity:.32;
+      pointer-events:none;
+    }
+    .rewardCard.rarity-s::before{ background: rgba(250,204,21,.40); }
+    .rewardCard.rarity-a::before{ background: rgba(59,130,246,.34); }
+    .rewardCard.rarity-b::before{ background: rgba(34,197,94,.30); }
+    .rewardCard.rarity-c::before{ background: rgba(148,163,184,.24); }
+
+    .rewardHead{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+    .rewardBadge{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:7px 10px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.16);
+      background: rgba(2,6,23,.34);
+      color:var(--muted);
+      font-size:11px;
+      font-weight:1000;
+    }
+    .rewardBadge b{ color:var(--text); }
+
+    .rewardMain{
+      margin-top:10px;
+      display:grid;
+      grid-template-columns: 76px 1fr;
+      gap:12px;
+      align-items:center;
+    }
+    .rewardIcon{
+      width:76px;
+      height:76px;
+      border-radius:18px;
+      border:1px solid rgba(148,163,184,.16);
+      background: rgba(2,6,23,.40);
+      display:grid;
+      place-items:center;
+      font-size:40px;
+      box-shadow: 0 12px 30px rgba(0,0,0,.24);
+    }
+    .rewardBody{
+      text-align:left;
+    }
+    .rewardTitle{
+      font-size:18px;
+      font-weight:1100;
+      line-height:1.15;
+      color:var(--text);
+    }
+    .rewardSub{
+      margin-top:4px;
+      font-size:12px;
+      font-weight:900;
+      color:var(--muted);
+      line-height:1.35;
+    }
+    .rewardMeta{
+      margin-top:8px;
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+    .rewardChip{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      padding:6px 9px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.16);
+      background: rgba(2,6,23,.28);
+      font-size:11px;
+      font-weight:1000;
+      color:var(--muted);
+    }
+    .rewardChip b{ color:var(--text); }
 
     .endGrid{
       display:grid;
@@ -211,15 +397,15 @@ Requires:
       border-radius:16px;
       border:1px solid rgba(148,163,184,.16);
       background:rgba(2,6,23,.38);
-      padding:9px 8px;
+      min-height:56px;
+      padding:8px 6px;
       font-weight:1000;
-      min-height:62px;
       display:flex;
       flex-direction:column;
       justify-content:center;
     }
     .endPill .k{opacity:.78; font-size:10px; line-height:1.1;}
-    .endPill .v{font-size:16px; margin-top:4px; line-height:1.1; color:var(--text);}
+    .endPill .v{font-size:15px; margin-top:4px; line-height:1.1; color:var(--text);}
 
     .endActions{
       position:sticky; bottom:0;
@@ -244,6 +430,38 @@ Requires:
     }
     .btn.primary{border-color:rgba(59,130,246,.30); background:rgba(59,130,246,.16);}
     .btn.ghost{background:transparent; color:var(--muted);}
+    .btn.cooldown{
+      background: linear-gradient(90deg,#16a34a,#22c55e);
+      border:none;
+      color:white;
+      font-size:15px;
+      font-weight:1100;
+      box-shadow:0 10px 30px rgba(34,197,94,.35);
+    }
+
+    .gradePop{ animation: gradePop .7s cubic-bezier(.2,.9,.2,1); }
+    @keyframes gradePop{
+      0%   { transform: scale(.72); opacity:.35; filter: blur(6px); }
+      60%  { transform: scale(1.14); opacity:1; filter: blur(0); }
+      100% { transform: scale(1); opacity:1; }
+    }
+    .rewardPop{ animation: rewardPop .68s cubic-bezier(.2,.9,.2,1); }
+    @keyframes rewardPop{
+      0%   { transform: translateY(10px) scale(.92); opacity:.1; }
+      55%  { transform: translateY(-2px) scale(1.03); opacity:1; }
+      100% { transform: translateY(0) scale(1); opacity:1; }
+    }
+    .panelFlash{ animation: panelFlash .45s ease-out; }
+    @keyframes panelFlash{
+      0%   { box-shadow: 0 0 0 rgba(255,255,255,0), 0 22px 80px rgba(0,0,0,.55); }
+      35%  { box-shadow: 0 0 38px rgba(255,255,255,.08), 0 22px 80px rgba(0,0,0,.55); }
+      100% { box-shadow: 0 0 0 rgba(255,255,255,0), 0 22px 80px rgba(0,0,0,.55); }
+    }
+
+    .rewardGlowS{ box-shadow: 0 0 0 rgba(0,0,0,0), 0 0 36px rgba(250,204,21,.18), 0 14px 40px rgba(0,0,0,.24); }
+    .rewardGlowA{ box-shadow: 0 0 0 rgba(0,0,0,0), 0 0 30px rgba(59,130,246,.16), 0 14px 40px rgba(0,0,0,.24); }
+    .rewardGlowB{ box-shadow: 0 0 0 rgba(0,0,0,0), 0 0 28px rgba(34,197,94,.14), 0 14px 40px rgba(0,0,0,.24); }
+    .rewardGlowC{ box-shadow: 0 0 0 rgba(0,0,0,0), 0 0 22px rgba(148,163,184,.12), 0 14px 40px rgba(0,0,0,.24); }
 
     #dbg{
       position:fixed; left:10px; bottom:calc(10px + var(--sab));
@@ -257,17 +475,10 @@ Requires:
     }
 
     @media (max-width: 640px){
-      #endOverlay .panel{
-        width:calc(100vw - 16px);
-      }
-      .endGrid{
-        grid-template-columns:repeat(2, minmax(0,1fr));
-      }
-      .gradeHero .gradeBig{
-        font-size:44px;
-      }
+      #endOverlay .panel{ width:calc(100vw - 16px); }
+      .endGrid{ grid-template-columns:repeat(2, minmax(0,1fr)); }
+      .gradeHero .gradeBig{ font-size:44px; }
     }
-
     @media (max-width: 420px){
       #endTitle{font-size:17px;}
       #endSub{font-size:10px;}
@@ -275,10 +486,14 @@ Requires:
       .endPill .k{font-size:9px;}
       .endPill .v{font-size:15px;}
       .gradeHero .gradeBig{font-size:40px;}
+      .heroAvatar{ width:48px; height:48px; font-size:26px; }
+      .xpGain{ font-size:24px; }
+      .rewardMain{ grid-template-columns:62px 1fr; gap:10px; }
+      .rewardIcon{ width:62px; height:62px; font-size:34px; }
+      .rewardTitle{ font-size:16px; }
     }
-
     @media (max-width: 380px){
-      .endMiniLine{display:none;}
+      .heroResultLine{display:none;}
     }
   </style>
 </head>
@@ -322,7 +537,13 @@ Requires:
     <div class="panel">
       <div class="heroSummary">
         <div class="heroTop">
-          <span class="heroBadge"><b>Hero Result</b></span>
+          <div class="heroTopLeft">
+            <div class="heroAvatar" id="heroAvatar">🙂</div>
+            <div class="heroTitleWrap">
+              <span class="heroBadge"><b>Hero Result</b></span>
+              <div class="heroTitleMini" id="heroMoodText">Great effort</div>
+            </div>
+          </div>
           <span class="heroBadge"><b>view</b>: <span id="uiView">—</span></span>
         </div>
 
@@ -334,10 +555,42 @@ Requires:
           <div class="gradeBig" id="endGrade">—</div>
         </div>
 
-        <div class="endMiniLine">
+        <div class="heroResultLine">
           <b>run</b>: <span id="uiRun">—</span>
           &nbsp;•&nbsp;
           <b>diff</b>: <span id="uiDiff">—</span>
+        </div>
+
+        <div class="xpCard">
+          <div class="xpRow">
+            <div>
+              <div class="xpMeta">✨ XP</div>
+              <div class="xpGain" id="xpGainText">+0</div>
+            </div>
+            <div class="xpMeta" id="xpLevelText">Lv 1</div>
+          </div>
+          <div class="xpMeta" style="margin-top:6px;" id="xpTotalText">รวมสะสม: 0 XP</div>
+          <div class="xpBar"><div class="xpBarFill" id="xpBarFill"></div></div>
+        </div>
+      </div>
+
+      <div class="rewardCard" id="rewardCard">
+        <div class="rewardHead">
+          <span class="rewardBadge"><b>Reward Drop</b></span>
+          <span class="rewardBadge"><b>Book</b>: <span id="rewardBookCount">0</span></span>
+        </div>
+
+        <div class="rewardMain">
+          <div class="rewardIcon" id="rewardIcon">🃏</div>
+          <div class="rewardBody">
+            <div class="rewardTitle" id="rewardTitle">Mystery Card</div>
+            <div class="rewardSub" id="rewardSub">รอเปิดรางวัล…</div>
+            <div class="rewardMeta">
+              <span class="rewardChip"><b>grade</b>: <span id="rewardGrade">—</span></span>
+              <span class="rewardChip"><b>rarity</b>: <span id="rewardRarity">—</span></span>
+              <span class="rewardChip"><b>status</b>: <span id="rewardStatus">new</span></span>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -345,7 +598,7 @@ Requires:
         <div class="endPill"><div class="k">คะแนน</div><div class="v" id="endScore">0</div></div>
         <div class="endPill"><div class="k">Miss</div><div class="v" id="endMiss">0</div></div>
         <div class="endPill"><div class="k">เวลา</div><div class="v" id="endTime">0</div></div>
-        <div class="endPill"><div class="k">สถานะ</div><div class="v">CLEAR</div></div>
+        <div class="endPill"><div class="k">สถานะ</div><div class="v" id="endState">CLEAR</div></div>
       </div>
 
       <div class="endActions">
@@ -385,6 +638,269 @@ Requires:
     btnBackHub && (btnBackHub.onclick = ()=>{
       const hub = qs('hub','../hub.html');
       location.href = hub;
+    });
+
+    function getGradeMood(grade){
+      grade = String(grade || '').toUpperCase();
+      if(grade === 'S') return { emoji:'🤩', text:'Excellent hero!', cls:'mood-s' };
+      if(grade === 'A') return { emoji:'😄', text:'Awesome work!', cls:'mood-a' };
+      if(grade === 'B') return { emoji:'🙂', text:'Nice job!', cls:'mood-b' };
+      if(grade === 'C') return { emoji:'😅', text:'Keep practicing!', cls:'mood-c' };
+      return { emoji:'💪', text:'Try again, hero!', cls:'mood-d' };
+    }
+
+    function calcXpGain(detail){
+      const score = Number(detail?.scoreFinal ?? detail?.score ?? 0) || 0;
+      const miss = Number(detail?.missTotal ?? detail?.miss ?? 0) || 0;
+      const acc  = Number(detail?.accPct ?? 0) || 0;
+      const grade = String(detail?.grade || '').toUpperCase();
+      const win = String(detail?.reason || '') === 'win';
+
+      let xp = 8;
+      xp += Math.min(12, Math.floor(score / 120));
+      xp += Math.max(0, Math.floor(acc / 20));
+      xp -= Math.min(5, miss);
+      if(win) xp += 6;
+      if(grade === 'S') xp += 8;
+      else if(grade === 'A') xp += 5;
+      else if(grade === 'B') xp += 3;
+
+      return Math.max(4, xp);
+    }
+
+    function loadHeroXp(pid){
+      try{ return Math.max(0, Number(localStorage.getItem(`HHA_HERO_XP:${pid}`) || '0') || 0); }
+      catch(_){ return 0; }
+    }
+
+    function saveHeroXp(pid, xp){
+      try{ localStorage.setItem(`HHA_HERO_XP:${pid}`, String(Math.max(0, xp|0))); }catch(_){}
+    }
+
+    function levelFromXp(xp){
+      return Math.max(1, Math.floor((Number(xp)||0) / 50) + 1);
+    }
+
+    function xpInLevel(xp){
+      xp = Math.max(0, Number(xp)||0);
+      return xp % 50;
+    }
+
+    function playResultTone(grade, isWin){
+      try{
+        const Ctx = window.AudioContext || window.webkitAudioContext;
+        if(!Ctx) return;
+        const ctx = new Ctx();
+
+        const notes = isWin
+          ? (grade === 'S' ? [523.25, 659.25, 783.99] : [440, 523.25, 659.25])
+          : [392, 349.23];
+
+        let t = ctx.currentTime;
+        notes.forEach((freq)=>{
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.value = freq;
+          gain.gain.setValueAtTime(0.0001, t);
+          gain.gain.exponentialRampToValueAtTime(0.06, t + 0.02);
+          gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.22);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(t);
+          osc.stop(t + 0.24);
+          t += 0.12;
+        });
+      }catch(_){}
+    }
+
+    function loadCardBook(pid){
+      try{
+        const raw = localStorage.getItem(`HHA_CARD_BOOK:${pid}`) || '';
+        if(!raw) return { S:0, A:0, B:0, C:0, total:0 };
+        const j = JSON.parse(raw);
+        return {
+          S: Math.max(0, Number(j.S)||0),
+          A: Math.max(0, Number(j.A)||0),
+          B: Math.max(0, Number(j.B)||0),
+          C: Math.max(0, Number(j.C)||0),
+          total: Math.max(0, Number(j.total)||0)
+        };
+      }catch(_){
+        return { S:0, A:0, B:0, C:0, total:0 };
+      }
+    }
+
+    function saveCardBook(pid, book){
+      try{ localStorage.setItem(`HHA_CARD_BOOK:${pid}`, JSON.stringify(book)); }catch(_){}
+    }
+
+    function cardSpecFromGrade(grade){
+      grade = String(grade||'C').toUpperCase();
+      if(grade === 'S') return {
+        rarity:'S',
+        icon:'🏆',
+        title:'Legendary Nutrition Hero',
+        sub:'การ์ดระดับสูงสุด • เล่นได้เฉียบมาก',
+        cls:'rarity-s',
+        glow:'rewardGlowS'
+      };
+      if(grade === 'A') return {
+        rarity:'A',
+        icon:'⚡',
+        title:'Elite Healthy Shooter',
+        sub:'การ์ดหายาก • เร็ว แม่น และคุมเกมดี',
+        cls:'rarity-a',
+        glow:'rewardGlowA'
+      };
+      if(grade === 'B') return {
+        rarity:'B',
+        icon:'🛡️',
+        title:'Balanced Food Defender',
+        sub:'การ์ดมาตรฐานดี • จังหวะและการตัดสินใจโอเค',
+        cls:'rarity-b',
+        glow:'rewardGlowB'
+      };
+      return {
+        rarity:'C',
+        icon:'🌱',
+        title:'Rookie Health Explorer',
+        sub:'การ์ดเริ่มต้น • ฝึกต่อแล้วจะอัปเกรดไว',
+        cls:'rarity-c',
+        glow:'rewardGlowC'
+      };
+    }
+
+    function maybeUpgradeRewardByPerformance(detail){
+      const acc = Number(detail?.accPct ?? 0) || 0;
+      const miss = Number(detail?.missTotal ?? detail?.miss ?? 0) || 0;
+      const score = Number(detail?.scoreFinal ?? detail?.score ?? 0) || 0;
+      const grade = String(detail?.grade || 'C').toUpperCase();
+
+      if(grade === 'A' && acc >= 95 && miss === 0 && score >= 1000) return 'S';
+      if(grade === 'B' && acc >= 90 && miss <= 1) return 'A';
+      return grade;
+    }
+
+    function grantRewardCard(pid, grade){
+      const spec = cardSpecFromGrade(grade);
+      const book = loadCardBook(pid);
+      const key = spec.rarity;
+      const prev = Math.max(0, Number(book[key])||0);
+      book[key] = prev + 1;
+      book.total = Math.max(0, Number(book.total)||0) + 1;
+      saveCardBook(pid, book);
+
+      return {
+        ...spec,
+        isNewTier: prev === 0,
+        count: book[key],
+        total: book.total
+      };
+    }
+
+    function renderRewardCard(detail){
+      const pid = String(detail?.pid || qs('pid','anon')).trim() || 'anon';
+      const grade = maybeUpgradeRewardByPerformance(detail);
+      const reward = grantRewardCard(pid, grade);
+
+      const card = document.getElementById('rewardCard');
+      const icon = document.getElementById('rewardIcon');
+      const title = document.getElementById('rewardTitle');
+      const sub = document.getElementById('rewardSub');
+      const gradeEl = document.getElementById('rewardGrade');
+      const rarityEl = document.getElementById('rewardRarity');
+      const statusEl = document.getElementById('rewardStatus');
+      const bookCount = document.getElementById('rewardBookCount');
+
+      if(card){
+        card.classList.remove('rarity-s','rarity-a','rarity-b','rarity-c','rewardGlowS','rewardGlowA','rewardGlowB','rewardGlowC');
+        card.classList.add(reward.cls, reward.glow, 'rewardPop');
+      }
+      if(icon) icon.textContent = reward.icon;
+      if(title) title.textContent = reward.title;
+      if(sub) sub.textContent = reward.isNewTier
+        ? `${reward.sub} • ได้ครั้งแรกของระดับ ${reward.rarity}!`
+        : `${reward.sub} • duplicate +1 (รวม ${reward.count})`;
+
+      if(gradeEl) gradeEl.textContent = grade;
+      if(rarityEl) rarityEl.textContent = reward.rarity;
+      if(statusEl) statusEl.textContent = reward.isNewTier ? 'new tier' : `dup x${reward.count}`;
+      if(bookCount) bookCount.textContent = String(reward.total);
+
+      try{
+        localStorage.setItem(`HHA_LAST_CARD:${pid}`, JSON.stringify({
+          game:'goodjunk',
+          grade,
+          rarity: reward.rarity,
+          title: reward.title,
+          icon: reward.icon,
+          ts: Date.now()
+        }));
+      }catch(_){}
+    }
+
+    function enhanceEndSummary(detail){
+      const grade = String(detail?.grade || 'B').toUpperCase();
+      const reason = String(detail?.reason || '');
+      const pid = String(detail?.pid || qs('pid','anon')).trim() || 'anon';
+      const win = reason === 'win';
+
+      const mood = getGradeMood(grade);
+      const heroAvatar = document.getElementById('heroAvatar');
+      const heroMoodText = document.getElementById('heroMoodText');
+      const endState = document.getElementById('endState');
+
+      const xpGainText = document.getElementById('xpGainText');
+      const xpLevelText = document.getElementById('xpLevelText');
+      const xpTotalText = document.getElementById('xpTotalText');
+      const xpBarFill = document.getElementById('xpBarFill');
+
+      const endGrade = document.getElementById('endGrade');
+      const panel = document.querySelector('#endOverlay .panel');
+
+      if(heroAvatar){
+        heroAvatar.textContent = mood.emoji;
+        heroAvatar.className = `heroAvatar ${mood.cls}`;
+      }
+      if(heroMoodText) heroMoodText.textContent = mood.text;
+      if(endState) endState.textContent = win ? 'CLEAR' : 'TRY AGAIN';
+
+      const xpGain = calcXpGain(detail);
+      const oldXp = loadHeroXp(pid);
+      const newXp = oldXp + xpGain;
+      saveHeroXp(pid, newXp);
+
+      const newLevel = levelFromXp(newXp);
+      const levelProgress = (xpInLevel(newXp) / 50) * 100;
+
+      if(xpGainText) xpGainText.textContent = `+${xpGain}`;
+      if(xpLevelText) xpLevelText.textContent = `Lv ${newLevel}`;
+      if(xpTotalText) xpTotalText.textContent = `รวมสะสม: ${newXp} XP`;
+
+      if(panel) panel.classList.add('panelFlash');
+      if(endGrade) endGrade.classList.add('gradePop');
+
+      requestAnimationFrame(()=>{
+        requestAnimationFrame(()=>{
+          if(xpBarFill) xpBarFill.style.width = `${Math.max(0, Math.min(100, levelProgress))}%`;
+        });
+      });
+
+      playResultTone(grade, win);
+
+      const vrBtns = document.querySelectorAll('.vr-ui-btn, .vr-enter-btn, .vr-exit-btn');
+      vrBtns.forEach(b => b.style.display = 'none');
+    }
+
+    window.addEventListener('hha:end', (ev)=>{
+      try{
+        const detail = ev?.detail || {};
+        enhanceEndSummary(detail);
+        renderRewardCard(detail);
+      }catch(err){
+        console.warn('end-summary enhance failed', err);
+      }
     });
 
     try{
