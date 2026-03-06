@@ -1,5 +1,5 @@
 /* === /herohealth/vr-brush/brush.css ===
-FULL v20260305b-BRUSH-CSS
+FULL v20260306-BRUSH-CSS
 */
 :root{ --bg:#0b1220; --fg:#e8eefc; }
 html,body{ height:100%; margin:0; background:var(--bg); color:var(--fg);
@@ -73,7 +73,7 @@ a-scene, a-scene canvas{
 .panel{ position:fixed; inset:0; display:grid; place-items:center; background:rgba(2,6,23,.55); z-index:50; }
 .panel.hidden{ display:none; }
 .panel-card{
-  width:min(92vw, 720px);
+  width:min(92vw, 740px);
   background:rgba(15,23,42,.92);
   border:1px solid rgba(148,163,184,.22);
   border-radius:18px;
