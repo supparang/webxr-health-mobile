@@ -1,10 +1,10 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
 GoodJunkVR — RUN PAGE (PC/Mobile/cVR) — PRODUCTION
-PATCH v20260306b-RUN-ENDSUMMARY-COMPACT-MOBILE
-✅ Compact mobile summary
-✅ end overlay fit screen better
-✅ sticky actions
+PATCH v20260306c-RUN-ENDSUMMARY-ULTRACOMPACT-MOBILE
+✅ Ultra compact mobile end summary
+✅ 4 key stats only on mobile
 ✅ detail line for view/run/diff
+✅ sticky bottom actions
 Requires:
 - /herohealth/vr/vr-ui.js
 - /herohealth/vr-goodjunk/goodjunk.safe.js
@@ -164,108 +164,92 @@ Requires:
       align-items:center;
       justify-content:center;
       padding:
-        calc(12px + var(--sat))
-        calc(12px + var(--sar))
-        calc(96px + var(--sab))
-        calc(12px + var(--sal));
+        calc(10px + var(--sat))
+        calc(10px + var(--sar))
+        calc(94px + var(--sab))
+        calc(10px + var(--sal));
       overflow:auto;
       -webkit-overflow-scrolling: touch;
     }
     #endOverlay .panel{
-      width: min(680px, 92vw);
-      max-height: calc(100dvh - 120px - var(--sat) - var(--sab));
+      width: min(620px, 92vw);
+      max-height: calc(100dvh - 110px - var(--sat) - var(--sab));
       overflow:auto;
       -webkit-overflow-scrolling: touch;
       border-radius: 22px;
       border:1px solid rgba(148,163,184,.18);
-      background: rgba(2,6,23,.72);
+      background: rgba(2,6,23,.74);
       box-shadow: 0 22px 80px rgba(0,0,0,.55);
-      padding: 14px 14px 10px;
+      padding: 12px 12px 8px;
       text-align:center;
     }
 
-    #endTitle{font-size:22px; font-weight:1100; margin:0;}
+    #endTitle{
+      font-size:21px;
+      font-weight:1100;
+      margin:0;
+      line-height:1.2;
+    }
     #endSub{
       margin:6px 0 0 0;
       color:var(--muted);
       font-weight:900;
-      line-height:1.35;
-      font-size:13px;
+      line-height:1.32;
+      font-size:12px;
     }
 
-    .endHeroLine{
-      margin-top:10px;
-      display:flex;
-      gap:8px;
-      justify-content:center;
-      flex-wrap:wrap;
-    }
-    .endChip{
-      border-radius:999px;
-      border:1px solid rgba(148,163,184,.16);
-      background: rgba(2,6,23,.38);
-      padding: 7px 10px;
-      font-weight:1000;
+    .endMiniLine{
+      margin-top:8px;
       font-size:12px;
+      font-weight:900;
       color:var(--muted);
+      line-height:1.35;
     }
-    .endChip b{ color:var(--text); }
+    .endMiniLine b{
+      color:var(--text);
+    }
 
     .endGrid{
       display:grid;
-      grid-template-columns:repeat(3, minmax(0,1fr));
-      gap:10px;
-      margin-top:12px;
+      grid-template-columns:repeat(4, minmax(0,1fr));
+      gap:8px;
+      margin-top:10px;
     }
     .endPill{
-      border-radius:18px;
+      border-radius:16px;
       border:1px solid rgba(148,163,184,.16);
       background: rgba(2,6,23,.38);
-      padding: 12px 10px;
+      padding: 10px 8px;
       font-weight:1000;
-      min-height: 84px;
+      min-height: 72px;
       display:flex;
       flex-direction:column;
       justify-content:center;
     }
     .endPill .k{
       opacity:.78;
-      font-size:12px;
-      line-height:1.2;
+      font-size:11px;
+      line-height:1.15;
     }
     .endPill .v{
-      font-size:20px;
-      margin-top:6px;
+      font-size:18px;
+      margin-top:5px;
       word-break:break-word;
-      line-height:1.15;
+      line-height:1.12;
       color:var(--text);
     }
-
-    .endMeta{
-      margin-top:10px;
-      border-radius:16px;
-      border:1px solid rgba(148,163,184,.14);
-      background: rgba(2,6,23,.32);
-      padding: 10px 12px;
-      text-align:left;
-      font-size:12px;
-      font-weight:900;
-      color:var(--muted);
-      line-height:1.45;
-    }
-    .endMeta b{ color:var(--text); }
 
     .endActions{
       position: sticky;
       bottom: 0;
       display:flex;
-      gap:10px;
+      gap:8px;
       justify-content:center;
       flex-wrap:wrap;
-      margin-top:12px;
+      margin-top:10px;
       padding-top:10px;
       padding-bottom: max(4px, env(safe-area-inset-bottom, 0px));
-      background: linear-gradient(180deg, rgba(2,6,23,0), rgba(2,6,23,.86) 28%);
+      background: linear-gradient(180deg, rgba(2,6,23,0), rgba(2,6,23,.90) 28%);
       backdrop-filter: blur(6px);
     }
     .btn{
@@ -302,38 +286,34 @@ Requires:
     @media (max-width: 640px){
       #endOverlay{ align-items:flex-start; }
       #endOverlay .panel{
-        width: calc(100vw - 20px);
-        max-height: calc(100dvh - 108px - var(--sat) - var(--sab));
-        margin-top: 4px;
-        padding: 12px 12px 8px;
+        width: calc(100vw - 18px);
+        max-height: calc(100dvh - 106px - var(--sat) - var(--sab));
+        margin-top: 2px;
+        padding: 11px 10px 8px;
       }
-      #endTitle{ font-size:20px; }
-      #endSub{ font-size:12px; }
+      #endTitle{ font-size:19px; }
+      #endSub{ font-size:11px; }
 
       .endGrid{
         grid-template-columns: repeat(2, minmax(0,1fr));
         gap:8px;
-        margin-top:10px;
       }
       .endPill{
-        min-height: 72px;
-        padding: 10px 8px;
+        min-height: 66px;
+        padding: 9px 8px;
       }
-      .endPill .k{ font-size:11px; }
-      .endPill .v{ font-size:18px; }
+      .endPill .k{ font-size:10px; }
+      .endPill .v{ font-size:17px; }
 
-      .endActions{ gap:8px; }
       .endActions .btn{
         flex:1 1 140px;
-        justify-content:center;
         text-align:center;
       }
     }
 
     @media (max-width: 420px){
-      .endPill{ min-height: 66px; }
-      .endPill .v{ font-size:17px; }
-      .endMeta{ font-size:11px; }
+      .endPill .v{ font-size:16px; }
+      .endMiniLine{ font-size:11px; }
     }
   </style>
 </head>
@@ -378,10 +358,12 @@ Requires:
       <h2 id="endTitle">จบเกม</h2>
       <p id="endSub">—</p>
 
-      <div class="endHeroLine">
-        <span class="endChip"><b>view</b>: <span id="uiView">—</span></span>
-        <span class="endChip"><b>run</b>: <span id="uiRun">—</span></span>
-        <span class="endChip"><b>diff</b>: <span id="uiDiff">—</span></span>
+      <div class="endMiniLine">
+        <b>view</b>: <span id="uiView">—</span>
+        &nbsp;•&nbsp;
+        <b>run</b>: <span id="uiRun">—</span>
+        &nbsp;•&nbsp;
+        <b>diff</b>: <span id="uiDiff">—</span>
       </div>
 
       <div class="endGrid">
@@ -389,11 +371,6 @@ Requires:
         <div class="endPill"><div class="k">คะแนน</div><div class="v" id="endScore">0</div></div>
         <div class="endPill"><div class="k">Miss</div><div class="v" id="endMiss">0</div></div>
         <div class="endPill"><div class="k">เวลา</div><div class="v" id="endTime">0</div></div>
-      </div>
-
-      <div class="endMeta">
-        <div><b>สรุป:</b> เกรด คะแนน Miss และเวลา แสดงแบบ compact สำหรับ mobile</div>
-        <div style="margin-top:4px;">กด <b>เล่นอีกครั้ง</b> เพื่อสุ่ม seed ใหม่ หรือ <b>กลับ Hub</b> เพื่อไปเกมอื่น</div>
       </div>
 
       <div class="endActions">
