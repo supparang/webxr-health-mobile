@@ -30,19 +30,16 @@ export function boot(cfg){
       if(diffKey==='hard') return '🌪️⚡⚡⚡';
       return '🌩️⚡⚡';
     }
-
     if(p==='boss'){
       if(diffKey==='easy') return ['⛈️⚡','🌩️⚡','🌪️⚡'][Math.max(0,Math.min(2,level-1))];
       if(diffKey==='hard') return ['🌀🌩️⚡⚡','🌪️⚡⚡⚡','🌀🌪️⚡⚡⚡'][Math.max(0,Math.min(2,level-1))];
       return ['⛈️🌀⚡','🌩️⚡⚡','🌪️⚡⚡'][Math.max(0,Math.min(2,level-1))];
     }
-
     if(p==='final'){
       if(diffKey==='easy') return '🌩️👑⚡';
       if(diffKey==='hard') return '🌪️👑⚡⚡⚡🔥';
       return '🌪️👑⚡⚡';
     }
-
     return '💧';
   }
 
@@ -130,9 +127,13 @@ export function boot(cfg){
     endMiss: DOC.getElementById('endMiss'),
     endWater: DOC.getElementById('endWater'),
     btnCopy: DOC.getElementById('btnCopy'),
+    btnCopyEvents: DOC.getElementById('btnCopyEvents'),
+    btnCopyTimeline: DOC.getElementById('btnCopyTimeline'),
     btnReplay: DOC.getElementById('btnReplay'),
     btnNextCooldown: DOC.getElementById('btnNextCooldown'),
     btnBackHub: DOC.getElementById('btnBackHub'),
+    riskFill: DOC.getElementById('riskFill'),
+    coachExplain: DOC.getElementById('coachExplain'),
   };
 
   const stageEl = DOC.getElementById('stage') || layer.parentElement;
@@ -141,11 +142,8 @@ export function boot(cfg){
   const btnZoneR = DOC.getElementById('btnZoneR');
 
   const SFX = (() => {
-    let ctx = null;
-    let unlocked = false;
+    let ctx = null, unlocked = false, enabled = true, volumeMul = 1.0;
     let last = new Map();
-    let enabled = true;
-    let volumeMul = 1.0;
     try{
       const saved = localStorage.getItem('HHA_SFX_ENABLED');
       if(saved === '0') enabled = false;
@@ -204,8 +202,7 @@ export function boot(cfg){
       g.gain.linearRampToValueAtTime(vol * volumeMul, t0 + attack);
       g.gain.exponentialRampToValueAtTime(0.0001, t0 + Math.max(attack + 0.001, dur + release));
       o.connect(g); g.connect(c.destination);
-      o.start(t0);
-      o.stop(t0 + dur + release + 0.02);
+      o.start(t0); o.stop(t0 + dur + release + 0.02);
     }
     function noise({dur=0.14, vol=0.10, attack=0.002, release=0.12, hp=800}){
       const c = ensure();
@@ -265,8 +262,7 @@ export function boot(cfg){
   DOC.addEventListener('keydown', unlockOnce, true);
 
   function refreshSfxBtn(){
-    if(!ui.btnSfx) return;
-    ui.btnSfx.textContent = SFX.isEnabled() ? '🔊 SFX' : '🔇 SFX';
+    if(ui.btnSfx) ui.btnSfx.textContent = SFX.isEnabled() ? '🔊 SFX' : '🔇 SFX';
   }
   if(ui.btnSfx){
     refreshSfxBtn();
@@ -331,22 +327,15 @@ export function boot(cfg){
     final:{goodHit:0,badHit:0,goodExpire:0,block:0,lightningHit:0,lightningBlock:0},
   };
   const eventLog = [];
+  const riskTimeline = [];
   function currentPhaseKey(){
     if(phase==='boss') return `boss${bossLevel}`;
     return phase;
   }
   function logEvent(type, data={}){
-    const item = {
-      ts: nowIso(),
-      ms: nowMs(),
-      type,
-      phase: currentPhaseKey(),
-      ...data
-    };
+    const item = { ts: nowIso(), ms: nowMs(), type, phase: currentPhaseKey(), ...data };
     eventLog.push(item);
-    try{
-      WIN.dispatchEvent(new CustomEvent('hha:event', { detail:item }));
-    }catch(e){}
+    try{ WIN.dispatchEvent(new CustomEvent('hha:event', { detail:item })); }catch(e){}
   }
 
   let playing=true, paused=false, helpOpen=true;
@@ -357,6 +346,7 @@ export function boot(cfg){
   let bossLevel=0, bossHits=0, bossGoal=0;
   let finalHits=0, finalGoal=0;
   let needZone='L', zoneT=0, aimX01=0.5;
+  let lastTimelineAt = 0;
 
   function setStagePhase(p){
     stageEl?.classList?.toggle('is-storm', p==='storm');
@@ -379,28 +369,10 @@ export function boot(cfg){
     btnZoneR.onclick = ()=>{ aimX01 = 0.75; };
   }
 
-  function showHelp(){
-    helpOpen=true;
-    paused=true;
-    if(ui.helpOverlay) ui.helpOverlay.setAttribute('aria-hidden','false');
-  }
-  function hideHelp(){
-    helpOpen=false;
-    if(ui.helpOverlay) ui.helpOverlay.setAttribute('aria-hidden','true');
-    paused=false;
-    lastTick=nowMs();
-    requestAnimationFrame(loop);
-  }
-  function showPause(){
-    paused=true;
-    if(ui.pauseOverlay) ui.pauseOverlay.setAttribute('aria-hidden','false');
-  }
-  function hidePause(){
-    if(ui.pauseOverlay) ui.pauseOverlay.setAttribute('aria-hidden','true');
-    paused=false;
-    lastTick=nowMs();
-    requestAnimationFrame(loop);
-  }
+  function showHelp(){ helpOpen=true; paused=true; ui.helpOverlay?.setAttribute('aria-hidden','false'); }
+  function hideHelp(){ helpOpen=false; ui.helpOverlay?.setAttribute('aria-hidden','true'); paused=false; lastTick=nowMs(); requestAnimationFrame(loop); }
+  function showPause(){ paused=true; ui.pauseOverlay?.setAttribute('aria-hidden','false'); }
+  function hidePause(){ ui.pauseOverlay?.setAttribute('aria-hidden','true'); paused=false; lastTick=nowMs(); requestAnimationFrame(loop); }
 
   if(ui.btnHelp) ui.btnHelp.onclick = showHelp;
   if(ui.btnHelpStart) ui.btnHelpStart.onclick = hideHelp;
@@ -523,6 +495,21 @@ export function boot(cfg){
     return 'D';
   }
 
+  function explainRisk(risk){
+    const reasons = [];
+    if(waterPct < 35) reasons.push('น้ำต่ำ');
+    if(shield === 0 && (phase==='storm' || phase==='boss' || phase==='final')) reasons.push('ไม่มีโล่');
+    if(missBadHit >= Math.max(2, Math.floor(TUNE.missLimit*0.4))) reasons.push('โดนของไม่ดีบ่อย');
+    if(missGoodExpired >= 4) reasons.push('เก็บน้ำไม่ทัน');
+    if((phase==='storm' || phase==='boss' || phase==='final') && !isInNeededZone()) reasons.push('อยู่ผิดฝั่ง');
+    if(reasons.length===0){
+      if(risk < 0.25) return 'ปลอดภัยดี เล่นต่อได้';
+      if(risk < 0.5) return 'เสี่ยงปานกลาง ระวังจังหวะ';
+      return 'เริ่มเสี่ยง คุมโล่และน้ำให้ดี';
+    }
+    return `เสี่ยง: ${reasons.slice(0,2).join(' + ')}`;
+  }
+
   function setHUD(){
     if(ui.score) ui.score.textContent=String(score|0);
     if(ui.time) ui.time.textContent=String(Math.ceil(tLeft));
@@ -559,6 +546,8 @@ export function boot(cfg){
   function setAIHud(risk, hint){
     if(ui.aiRisk) ui.aiRisk.textContent = String((+risk).toFixed(2));
     if(ui.aiHint) ui.aiHint.textContent = String(hint || '—');
+    if(ui.riskFill) ui.riskFill.style.width = `${Math.round(clamp(risk,0,1)*100)}%`;
+    if(ui.coachExplain) ui.coachExplain.textContent = explainRisk(risk);
   }
 
   function applyLightningStrike(rate){
@@ -751,9 +740,9 @@ export function boot(cfg){
   }
 
   function buildSummary(reason){
-    return {
+    const summary = {
       projectTag:'HydrationVR',
-      gameVersion:'HydrationVR_SAFE_2026-03-06_BOSS4_HELP_LOG',
+      gameVersion:'HydrationVR_SAFE_2026-03-06_AI_TIMELINE_EXPORT',
       device:view,
       runMode,
       diff,
@@ -777,8 +766,10 @@ export function boot(cfg){
       endTimeIso: nowIso(),
       grade: gradeText(),
       phaseStats,
-      eventCount: eventLog.length
+      eventCount: eventLog.length,
+      timelineCount: riskTimeline.length
     };
+    return summary;
   }
 
   function setEndButtons(summary){
@@ -812,20 +803,34 @@ export function boot(cfg){
         catch(e){ try{ prompt('Copy Summary JSON:', txt); }catch(_){ } }
       };
     }
+    if(ui.btnCopyEvents){
+      ui.btnCopyEvents.onclick = async ()=>{
+        const txt = safeJson(eventLog);
+        try{ await navigator.clipboard.writeText(txt); }
+        catch(e){ try{ prompt('Copy Events JSON:', txt); }catch(_){ } }
+      };
+    }
+    if(ui.btnCopyTimeline){
+      ui.btnCopyTimeline.onclick = async ()=>{
+        const txt = safeJson(riskTimeline);
+        try{ await navigator.clipboard.writeText(txt); }
+        catch(e){ try{ prompt('Copy Timeline JSON:', txt); }catch(_){ } }
+      };
+    }
   }
 
   function showEnd(reason){
     playing=false;
     paused=false;
-    if(ui.pauseOverlay) ui.pauseOverlay.setAttribute('aria-hidden','true');
-    if(ui.helpOverlay) ui.helpOverlay.setAttribute('aria-hidden','true');
+    ui.pauseOverlay?.setAttribute('aria-hidden','true');
+    ui.helpOverlay?.setAttribute('aria-hidden','true');
     setStagePhase('normal');
 
     for(const b of bubbles.values()){ try{ b.el.remove(); }catch(e){} }
     bubbles.clear();
 
     const summary = buildSummary(reason);
-    logEvent('game_end', { reason, summary });
+    logEvent('game_end', { reason });
 
     if(ui.end){
       ui.end.setAttribute('aria-hidden','false');
@@ -868,7 +873,7 @@ export function boot(cfg){
     return 0.24;
   }
   function phaseLightningRate(){
-    if(phase==='storm') return TUNE.lightningRate;
+    if(phase==='storm') return TUNE.stormSec > 0 ? (diff==='easy'?0.65:diff==='hard'?1.05:0.9) : 0;
     if(phase==='boss'){
       if(bossLevel===1) return TUNE.boss1LightningRate;
       if(bossLevel===2) return TUNE.boss2LightningRate;
@@ -939,9 +944,7 @@ export function boot(cfg){
       zoneT += dt;
       if(zoneT >= phaseZoneChunk()){ zoneT = 0; swapZone(); }
       applyLightningStrike(dt * phaseLightningRate());
-      if(stormLeft <= 0){
-        startBoss(1);
-      }
+      if(stormLeft <= 0) startBoss(1);
     }
 
     if(phase==='boss'){
@@ -962,7 +965,6 @@ export function boot(cfg){
       const p=r01();
       let kind='good';
       const badP = phaseBadP();
-
       if(phase==='normal'){
         if(p < 0.64) kind='good';
         else if(p < 0.88) kind='bad';
@@ -972,11 +974,28 @@ export function boot(cfg){
         else if(p < (1.0 - 0.08)) kind='bad';
         else kind='shield';
       }
-
       if(kind==='good') makeBubble('good', pick(GOOD), TUNE.ttlGood);
       else if(kind==='shield') makeBubble('shield', pick(SHLD), 2.6);
       else makeBubble('bad', pick(BAD), TUNE.ttlBad);
     }
+  }
+
+  function updateTimeline(risk){
+    const playedSec = Math.round(plannedSec - tLeft);
+    if(playedSec === lastTimelineAt) return;
+    lastTimelineAt = playedSec;
+    riskTimeline.push({
+      t: playedSec,
+      timeLeft: Math.ceil(tLeft),
+      phase: currentPhaseKey(),
+      bossLevel,
+      risk: +risk.toFixed(4),
+      waterPct: Math.round(waterPct),
+      shield,
+      missBadHit,
+      missGoodExpired,
+      combo
+    });
   }
 
   function loop(){
@@ -1008,7 +1027,9 @@ export function boot(cfg){
     const missPressure = (missBadHit/Math.max(1, TUNE.missLimit));
     const expirePressure = clamp(missGoodExpired/25, 0, 1);
     const lowWater = (waterPct<35) ? (35-waterPct)/35 : 0;
-    const risk = clamp(missPressure*0.55 + lowWater*0.35 + expirePressure*0.10, 0, 1);
+    const noShieldStorm = ((phase==='storm' || phase==='boss' || phase==='final') && shield===0) ? 0.20 : 0;
+    const wrongZonePenalty = ((phase==='storm' || phase==='boss' || phase==='final') && !isInNeededZone()) ? 0.12 : 0;
+    const risk = clamp(missPressure*0.40 + lowWater*0.28 + expirePressure*0.10 + noShieldStorm + wrongZonePenalty, 0, 1);
 
     let hint='เก็บน้ำ 💧 + หาโล่ 🛡️';
     if(phase==='storm') hint=`${emojiFor(diff,'storm')} ฟ้าผ่า! อยู่ ${needZone==='L'?'ซ้าย':'ขวา'} + มีโล่`;
@@ -1017,9 +1038,11 @@ export function boot(cfg){
     else if(waterPct<35) hint='น้ำต่ำ! รีบเก็บ 💧';
     else if(shield===0) hint='หาโล่ 🛡️ ไว้กันฟ้าผ่า';
     else if(combo>=6) hint='คอมโบมาแล้ว!';
-    setAIHud(risk, hint);
 
+    updateTimeline(risk);
+    setAIHud(risk, hint);
     setHUD();
+
     if(checkEnd()) return;
     requestAnimationFrame(loop);
   }
@@ -1028,10 +1051,25 @@ export function boot(cfg){
     if(!playing) return;
     if(DOC.hidden){
       paused=true;
-      if(ui.pauseOverlay) ui.pauseOverlay.setAttribute('aria-hidden','false');
+      ui.pauseOverlay?.setAttribute('aria-hidden','false');
       return;
     }
   });
+
+  if(ui.btnCopyEvents){
+    ui.btnCopyEvents.onclick = async ()=>{
+      const txt = safeJson(eventLog);
+      try{ await navigator.clipboard.writeText(txt); }
+      catch(e){ try{ prompt('Copy Events JSON:', txt); }catch(_){ } }
+    };
+  }
+  if(ui.btnCopyTimeline){
+    ui.btnCopyTimeline.onclick = async ()=>{
+      const txt = safeJson(riskTimeline);
+      try{ await navigator.clipboard.writeText(txt); }
+      catch(e){ try{ prompt('Copy Timeline JSON:', txt); }catch(_){ } }
+    };
+  }
 
   SFX.setPhaseVolume('normal');
   showHelp();
