@@ -1,9 +1,13 @@
 <!-- === /herohealth/goodjunk-launcher.html ===
 HeroHealth • GoodJunk Launcher
-PATCH v20260306-LAUNCHER-BATTLE-READY
-✅ Better Battle/Race room flow
-✅ Clear room hint
-✅ GoodJunk entry for Solo / Battle / Race / Coop
+FULL v20260306-LAUNCHER-COMPLETE
+✅ Solo / Battle / Race / Coop
+✅ Auto diff
+✅ Teacher quick start
+✅ Preset rooms
+✅ Share link / QR
+✅ Session summary
+✅ Teacher dashboard / Big board
 -->
 <!doctype html>
 <html lang="th">
@@ -21,7 +25,7 @@ PATCH v20260306-LAUNCHER-BATTLE-READY
       --stroke:rgba(148,163,184,.18);
       --text:rgba(229,231,235,.96);
       --muted:rgba(148,163,184,.92);
-      --good:#22c55e; --warn:#f59e0b; --bad:#ef4444; --blue:#3b82f6; --violet:#a78bfa;
+      --good:#22c55e; --warn:#f59e0b; --bad:#ef4444; --blue:#3b82f6;
       --rad:22px;
     }
     html,body{height:100%; margin:0;}
@@ -142,6 +146,7 @@ PATCH v20260306-LAUNCHER-BATTLE-READY
       outline:none;
     }
     input:disabled{opacity:.65}
+    input[readonly]{opacity:.92;}
 
     .actions{display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; align-items:center;}
     .primary{
@@ -153,6 +158,10 @@ PATCH v20260306-LAUNCHER-BATTLE-READY
     .danger{
       background: rgba(239,68,68,.14);
       border-color: rgba(239,68,68,.26);
+    }
+    .good{
+      background: rgba(34,197,94,.14);
+      border-color: rgba(34,197,94,.26);
     }
 
     .msg{
@@ -270,7 +279,7 @@ PATCH v20260306-LAUNCHER-BATTLE-READY
             <div class="field">
               <label>ROOM (จำเป็นสำหรับ Battle/Race/Coop)</label>
               <input id="inpRoom" placeholder="เช่น P5A / ROOM1" autocomplete="off" />
-              <div class="hint">ทุกคนต้องใช้ ROOM เดียวกันถึงจะเจอกัน</div>
+              <div class="hint">ทุกคนต้องใช้ ROOM เดียวกันถึงจะเจอกัน • ถ้าห้องเริ่มแข่งแล้ว ผู้ที่เข้าใหม่จะเป็น spectator</div>
             </div>
           </div>
 
@@ -296,6 +305,168 @@ PATCH v20260306-LAUNCHER-BATTLE-READY
 
           <div class="foot">
             ส่งต่อ ctx จาก Hub: <span class="mono">pid/run/diff/time/seed/studyId/phase/conditionGroup/log/view/api/ai/debug + hub</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="grid">
+        <div class="panel">
+          <h2>3) Teacher Quick Start</h2>
+
+          <div class="row">
+            <div class="field">
+              <label>โหมดใช้งานเร็ว</label>
+              <select id="selQuickMode">
+                <option value="battle" selected>Battle ทั้งห้อง</option>
+                <option value="race">Race ทั้งห้อง</option>
+                <option value="solo">Solo ฝึกเดี่ยว</option>
+              </select>
+              <div class="hint">ช่วยตั้ง mode ให้เร็ว โดยยังแก้เองได้</div>
+            </div>
+
+            <div class="field">
+              <label>Preset room</label>
+              <select id="selPresetRoom">
+                <option value="">-- เลือก preset --</option>
+                <option value="P5A">P5A</option>
+                <option value="P5B">P5B</option>
+                <option value="P6A">P6A</option>
+                <option value="LAB1">LAB1</option>
+                <option value="ROOM1">ROOM1</option>
+              </select>
+              <div class="hint">เลือก preset แล้วระบบจะใส่ ROOM ให้อัตโนมัติ</div>
+            </div>
+          </div>
+
+          <div class="row" style="margin-top:10px;">
+            <div class="field">
+              <label>สร้าง room ใหม่แบบเร็ว</label>
+              <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                <button id="btnMakeRoomP5A" type="button">⚡ P5A</button>
+                <button id="btnMakeRoomP5B" type="button">⚡ P5B</button>
+                <button id="btnMakeRoomLab1" type="button">⚡ LAB1</button>
+                <button id="btnRandomRoom" type="button">🎲 Random</button>
+              </div>
+              <div class="hint">เหมาะเวลาครูจะประกาศ room ให้ทั้งห้องทันที</div>
+            </div>
+          </div>
+
+          <div class="row" style="margin-top:10px;">
+            <div class="field">
+              <label>Preset เวลาเล่น</label>
+              <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                <button id="btnTime60" type="button">60s</button>
+                <button id="btnTime80" type="button">80s</button>
+                <button id="btnTime90" type="button">90s</button>
+              </div>
+              <div class="hint">แนะนำ 80 วินาทีสำหรับ trial</div>
+            </div>
+
+            <div class="field">
+              <label>เริ่มแบบเร็ว</label>
+              <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                <button id="btnQuickBattle" class="primary" type="button">⚔ Quick Battle</button>
+                <button id="btnQuickRace" class="primary" type="button">🏁 Quick Race</button>
+                <button id="btnOpenTeacherDash" class="good" type="button">🧑‍🏫 Teacher Dashboard</button>
+                <button id="btnOpenBigBoard" class="good" type="button">📺 Big Screen Board</button>
+              </div>
+              <div class="hint">ใช้ค่าปัจจุบันแล้วเข้าเกมทันที</div>
+            </div>
+          </div>
+
+          <div class="msg ok" id="teacherQuickMsg">ครูสามารถเลือก preset room แล้วเปิด Teacher Dashboard เพื่อติดตามห้องแบบสด ๆ</div>
+        </div>
+
+        <div class="panel">
+          <h2>4) Join Guide</h2>
+          <div class="msg">
+            1) ครูประกาศ ROOM เช่น <b>P5A</b><br>
+            2) นักเรียนเลือกโหมดเดียวกัน<br>
+            3) ใส่ชื่อเล่นของตัวเอง<br>
+            4) กด “เริ่มเล่น”<br><br>
+            หมายเหตุ: ถ้าห้องเริ่มแล้วหรือมีผู้เล่นครบ ผู้เข้าใหม่จะเป็น <b>spectator</b>
+          </div>
+
+          <div class="roomBox" style="margin-top:10px;">
+            <div>
+              <div class="hint" style="margin:0;">ROOM ล่าสุดที่จำไว้</div>
+              <div class="roomCode" id="lastRoomRemembered">—</div>
+            </div>
+            <div class="hint" style="margin:0;">ช่วยลดการพิมพ์ผิดเวลาใช้งานจริง</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="grid">
+        <div class="panel">
+          <h2>5) QR Join / Share Link</h2>
+
+          <div class="row">
+            <div class="field">
+              <label>ลิงก์เข้าห้อง</label>
+              <input id="shareLink" readonly />
+              <div class="hint">ใช้ลิงก์นี้แชร์ให้นักเรียนเข้าห้องเดียวกัน</div>
+            </div>
+          </div>
+
+          <div class="actions">
+            <button id="btnBuildShare" type="button">🔗 สร้างลิงก์</button>
+            <button id="btnCopyShare" type="button">📋 คัดลอกลิงก์</button>
+            <button id="btnOpenShare" type="button">🚀 เปิดลิงก์นี้</button>
+          </div>
+
+          <div class="row" style="margin-top:12px;">
+            <div class="field">
+              <label>QR Join</label>
+              <div id="qrBox" style="
+                min-height:220px;
+                border-radius:18px;
+                border:1px solid rgba(148,163,184,.16);
+                background:rgba(2,6,23,.34);
+                display:flex;
+                align-items:center;
+                justify-content:center;
+                padding:12px;
+                overflow:auto;
+              ">
+                <div class="hint">กด “สร้างลิงก์” เพื่อสร้าง QR</div>
+              </div>
+              <div class="hint">นักเรียนสแกน QR แล้วเข้าห้องได้เร็วขึ้น</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h2>6) Session Summary (Quick View)</h2>
+
+          <div class="row">
+            <div class="field">
+              <label>ROOM ปัจจุบัน</label>
+              <div class="msg ok" id="summaryRoom">—</div>
+            </div>
+            <div class="field">
+              <label>ผลล่าสุดของเครื่องนี้</label>
+              <div class="msg" id="summaryLastResult">ยังไม่มีผลล่าสุด</div>
+            </div>
+          </div>
+
+          <div class="row" style="margin-top:10px;">
+            <div class="field">
+              <label>Best ล่าสุด</label>
+              <div class="msg" id="summaryBest">ยังไม่มี best</div>
+            </div>
+            <div class="field">
+              <label>สถิติย่อ</label>
+              <div class="msg" id="summaryMiniStats">score 0 • acc 0% • miss 0</div>
+            </div>
+          </div>
+
+          <div class="actions">
+            <button id="btnRefreshSummary" type="button">🔄 รีเฟรชสรุป</button>
           </div>
         </div>
       </div>
@@ -330,6 +501,39 @@ PATCH v20260306-LAUNCHER-BATTLE-READY
     msg.textContent = text || '';
   }
 
+  function isValidRoomCode(room){
+    return /^[A-Z0-9_-]{2,10}$/.test(String(room || '').trim().toUpperCase());
+  }
+
+  function randomRoomCode(prefix='R'){
+    const abc = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let s = String(prefix || 'R').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,4);
+    while(s.length < 4) s += abc[(Math.random()*abc.length)|0];
+    while(s.length < 6) s += abc[(Math.random()*abc.length)|0];
+    return s.slice(0, 8);
+  }
+
+  function rememberLastRoom(room){
+    try{
+      if(room) localStorage.setItem('HHA_GJ_LAST_ROOM', String(room).toUpperCase());
+    }catch(_){}
+  }
+
+  function loadLastRoom(){
+    try{
+      return (localStorage.getItem('HHA_GJ_LAST_ROOM') || '').toUpperCase();
+    }catch(_){
+      return '';
+    }
+  }
+
+  function setTeacherMsg(text, type='ok'){
+    const el = $('teacherQuickMsg');
+    if(!el) return;
+    el.className = 'msg ' + type;
+    el.textContent = text || '';
+  }
+
   function savePrefs(state){
     const prefs = {
       mode: state.mode,
@@ -340,6 +544,7 @@ PATCH v20260306-LAUNCHER-BATTLE-READY
       time: String($('inpTime')?.value||'').trim()
     };
     try{ localStorage.setItem(LS_KEY, JSON.stringify(prefs)); }catch(_){}
+    rememberLastRoom(String($('inpRoom')?.value || '').trim());
   }
 
   function loadPrefs(){
@@ -393,13 +598,13 @@ PATCH v20260306-LAUNCHER-BATTLE-READY
       return { diff:'easy', why:`ยากไป (acc ${acc}%, miss ${miss}) → ลดเป็น easy` };
     }
 
-    const strongWin = (reason === 'win') && (acc >= 82) && (miss <= 2) && (grade === 'A' || grade === 'S');
+    const strongWin = (reason === 'win' || String(reason).startsWith('battle-win')) && (acc >= 82) && (miss <= 2) && (grade === 'A' || grade === 'S');
     if(strongWin){
       if(diffPrev === 'easy') return { diff:'normal', why:`ชนะสวยมาก (acc ${acc}%, miss ${miss}, ${grade}) → ขึ้นเป็น normal` };
       return { diff:'hard', why:`ชนะสวยมาก (acc ${acc}%, miss ${miss}, ${grade}) → ขึ้นเป็น hard` };
     }
 
-    const solidWin = (reason === 'win') && (acc >= 70) && (miss <= 4);
+    const solidWin = (reason === 'win' || String(reason).startsWith('battle-win')) && (acc >= 70) && (miss <= 4);
     if(solidWin){
       if(diffPrev === 'easy') return { diff:'normal', why:`ชนะดี (acc ${acc}%, miss ${miss}) → ขึ้นเป็น normal` };
       return { diff: diffPrev || 'normal', why:`ชนะดี (acc ${acc}%, miss ${miss}) → คงระดับ ${diffPrev||'normal'}` };
@@ -426,7 +631,36 @@ PATCH v20260306-LAUNCHER-BATTLE-READY
     $('roomBoxHint').textContent =
       (mode === 'solo')
         ? 'โหมด solo ไม่จำเป็นต้องใช้ room'
-        : 'ผู้เล่นทุกคนต้องใช้ room เดียวกัน';
+        : 'ถ้าห้องเต็มหรือเริ่มแข่งแล้ว ผู้เข้าใหม่จะเป็น spectator';
+  }
+
+  function applyRoom(room){
+    room = String(room || '').trim().toUpperCase();
+    if(!room) return;
+    $('inpRoom').value = room;
+    const preset = $('selPresetRoom');
+    if(preset){
+      const has = Array.from(preset.options).some(o => o.value === room);
+      preset.value = has ? room : '';
+    }
+    rememberLastRoom(room);
+    updateRoomPreview();
+    refreshShareUi();
+    renderSessionSummary();
+  }
+
+  function applyTime(sec){
+    $('inpTime').value = String(sec);
+    savePrefs(state);
+    refreshShareUi();
+  }
+
+  function applyQuickMode(mode){
+    mode = String(mode || 'battle').toLowerCase();
+    if(mode === 'battle') setMode('battle');
+    else if(mode === 'race') setMode('race');
+    else if(mode === 'solo') setMode('solo');
+    else if(mode === 'coop') setMode('coop');
   }
 
   function setMode(m){
@@ -443,11 +677,14 @@ PATCH v20260306-LAUNCHER-BATTLE-READY
     $('inpRoom').disabled = !needsRoom;
     $('tagNeedRoom').style.opacity = needsRoom ? '1' : '.45';
 
-    if(needsRoom) setMsg('warn', 'โหมดนี้ต้องใส่ ROOM ให้เหมือนกันทุกคน (เช่น P5A)');
-    else setMsg('ok', 'SOLO: เล่นคนเดียวได้ทันที (Auto diff แนะนำระดับให้)');
+    if(needsRoom){
+      setMsg('warn', 'โหมดนี้ต้องใส่ ROOM ให้เหมือนกันทุกคน (เช่น P5A) • ถ้าห้องเต็มหรือเริ่มแล้ว ผู้เข้าใหม่จะเป็น spectator');
+      $('roomBoxHint').textContent = 'ถ้าห้องเต็มหรือเริ่มแข่งแล้ว ผู้เข้าใหม่จะเป็น spectator';
+    }else setMsg('ok', 'SOLO: เล่นคนเดียวได้ทันที (Auto diff แนะนำระดับให้)');
 
     updateRoomPreview();
     savePrefs(state);
+    refreshShareUi();
   }
 
   function applyAutoDiffIfNeeded(showWhy){
@@ -469,6 +706,120 @@ PATCH v20260306-LAUNCHER-BATTLE-READY
       setMsg('ok', `Auto diff: แนะนำ "${selDiff.value}" • ${rec.why}`);
     }
     savePrefs(state);
+    refreshShareUi();
+  }
+
+  function buildShareUrl(){
+    const nick = ($('inpNick').value || '').trim();
+    const room = ($('inpRoom').value || '').trim().toUpperCase();
+    const time = clampInt($('inpTime').value, 20, 300, 80);
+    const mode = state.mode || 'battle';
+    const diff = state.diff || 'normal';
+
+    const u = new URL('./vr-goodjunk/goodjunk-vr.html', location.href);
+    u.searchParams.set('mode', mode);
+    u.searchParams.set('diff', diff);
+    u.searchParams.set('time', String(time));
+    u.searchParams.set('seed', state.seed || String(Date.now()));
+    u.searchParams.set('pid', state.pid);
+    if(nick) u.searchParams.set('nick', nick);
+    if(room) u.searchParams.set('room', room);
+    u.searchParams.set('hub', state.hub || './hub.html');
+    u.searchParams.set('auto', String($('selAuto').value || '1'));
+
+    if(mode === 'battle'){
+      u.searchParams.set('battle','1');
+      u.searchParams.set('wait','1');
+    }
+    if(mode === 'race'){
+      u.searchParams.set('wait','1');
+    }
+    if(mode === 'coop'){
+      u.searchParams.set('coop','1');
+      u.searchParams.set('wait','1');
+    }
+
+    const sp = new URL(location.href).searchParams;
+    PASS_KEYS.forEach(k=>{
+      const v = sp.get(k);
+      if(v!=null && v!=='') u.searchParams.set(k, v);
+    });
+
+    return u.toString();
+  }
+
+  function renderQrForText(text){
+    const box = $('qrBox');
+    if(!box) return;
+    box.innerHTML = '';
+
+    if(!text){
+      box.innerHTML = '<div class="hint">ยังไม่มีลิงก์</div>';
+      return;
+    }
+
+    const img = document.createElement('img');
+    const qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=' + encodeURIComponent(text);
+    img.src = qrUrl;
+    img.alt = 'QR Join';
+    img.style.width = '220px';
+    img.style.height = '220px';
+    img.style.borderRadius = '12px';
+    img.style.background = 'white';
+    img.style.padding = '8px';
+    box.appendChild(img);
+  }
+
+  function refreshShareUi(){
+    const share = buildShareUrl();
+    if($('shareLink')) $('shareLink').value = share;
+    renderQrForText(share);
+  }
+
+  function loadLatestSummaryForCurrentPid(){
+    try{
+      const pid = state.pid || 'anon';
+      const raw = localStorage.getItem(`HHA_LAST_SUMMARY:goodjunk:${pid}`) || localStorage.getItem('HHA_LAST_SUMMARY') || '';
+      if(!raw) return null;
+      const j = JSON.parse(raw);
+      return j || null;
+    }catch(_){ return null; }
+  }
+
+  function loadBestForCurrentPid(){
+    try{
+      const pid = state.pid || 'anon';
+      const diff = state.diff || 'normal';
+      const raw = localStorage.getItem(`HHA_GJ_BEST:${pid}:${diff}`) || '';
+      if(!raw) return null;
+      return JSON.parse(raw);
+    }catch(_){ return null; }
+  }
+
+  function renderSessionSummary(){
+    const room = (($('inpRoom')?.value || '').trim().toUpperCase() || '—');
+    const last = loadLatestSummaryForCurrentPid();
+    const best = loadBestForCurrentPid();
+
+    if($('summaryRoom')) $('summaryRoom').textContent = room;
+
+    if($('summaryLastResult')){
+      $('summaryLastResult').textContent = last
+        ? `ล่าสุด: ${last.reason || '-'} • grade ${last.grade || '-'}`
+        : 'ยังไม่มีผลล่าสุด';
+    }
+
+    if($('summaryBest')){
+      $('summaryBest').textContent = best
+        ? `best: ${best.scoreFinal ?? best.score ?? 0} (${best.diff || state.diff || 'normal'})`
+        : 'ยังไม่มี best';
+    }
+
+    if($('summaryMiniStats')){
+      $('summaryMiniStats').textContent = last
+        ? `score ${last.scoreFinal ?? last.score ?? 0} • acc ${last.accPct ?? 0}% • miss ${last.missTotal ?? last.miss ?? 0}`
+        : 'score 0 • acc 0% • miss 0';
+    }
   }
 
   function init(){
@@ -491,7 +842,7 @@ PATCH v20260306-LAUNCHER-BATTLE-READY
     const timeFromUrl = String(qs('time','')).trim();
 
     $('inpNick').value = nickFromUrl || (prefs?.nick || '');
-    $('inpRoom').value = roomFromUrl || (prefs?.room || '');
+    $('inpRoom').value = roomFromUrl || (prefs?.room || loadLastRoom() || '');
     $('inpTime').value = timeFromUrl || (prefs?.time || state.time || '80');
 
     const selAuto = $('selAuto');
@@ -516,6 +867,7 @@ PATCH v20260306-LAUNCHER-BATTLE-READY
       state.diff = String(selDiff.value||'normal');
       $('pillDiff').textContent = state.diff;
       savePrefs(state);
+      refreshShareUi();
       if(selAuto.value === '1'){
         setMsg('warn','Auto diff เปิดอยู่: ถ้าจะเลือกเอง ให้ปิด Auto diff ก่อน');
       }
@@ -528,6 +880,7 @@ PATCH v20260306-LAUNCHER-BATTLE-READY
       }else{
         setMsg('ok','ปิด Auto diff แล้ว: เลือกระดับเองได้เลย');
       }
+      refreshShareUi();
     };
 
     $('btnBack').onclick = ()=> location.href = state.hub || './hub.html';
@@ -539,10 +892,153 @@ PATCH v20260306-LAUNCHER-BATTLE-READY
 
     $('btnStart').onclick = onStart;
 
+    const selQuickMode = $('selQuickMode');
+    const selPresetRoom = $('selPresetRoom');
+
+    selQuickMode && (selQuickMode.onchange = ()=>{
+      applyQuickMode(selQuickMode.value || 'battle');
+      setTeacherMsg(`ตั้ง quick mode เป็น ${selQuickMode.value}`);
+    });
+
+    selPresetRoom && (selPresetRoom.onchange = ()=>{
+      const room = selPresetRoom.value || '';
+      if(room){
+        applyRoom(room);
+        setTeacherMsg(`เลือก preset room: ${room}`);
+      }
+    });
+
+    $('btnMakeRoomP5A') && ($('btnMakeRoomP5A').onclick = ()=>{
+      applyRoom('P5A');
+      setTeacherMsg('ตั้ง room เป็น P5A แล้ว');
+    });
+
+    $('btnMakeRoomP5B') && ($('btnMakeRoomP5B').onclick = ()=>{
+      applyRoom('P5B');
+      setTeacherMsg('ตั้ง room เป็น P5B แล้ว');
+    });
+
+    $('btnMakeRoomLab1') && ($('btnMakeRoomLab1').onclick = ()=>{
+      applyRoom('LAB1');
+      setTeacherMsg('ตั้ง room เป็น LAB1 แล้ว');
+    });
+
+    $('btnRandomRoom') && ($('btnRandomRoom').onclick = ()=>{
+      const room = randomRoomCode('GJ');
+      applyRoom(room);
+      setTeacherMsg(`สร้าง room ใหม่: ${room}`);
+    });
+
+    $('btnTime60') && ($('btnTime60').onclick = ()=>{
+      applyTime(60);
+      setTeacherMsg('ตั้งเวลาเป็น 60 วินาที');
+    });
+
+    $('btnTime80') && ($('btnTime80').onclick = ()=>{
+      applyTime(80);
+      setTeacherMsg('ตั้งเวลาเป็น 80 วินาที');
+    });
+
+    $('btnTime90') && ($('btnTime90').onclick = ()=>{
+      applyTime(90);
+      setTeacherMsg('ตั้งเวลาเป็น 90 วินาที');
+    });
+
+    $('btnQuickBattle') && ($('btnQuickBattle').onclick = ()=>{
+      applyQuickMode('battle');
+      setTeacherMsg('เตรียม Quick Battle แล้ว');
+      onStart();
+    });
+
+    $('btnQuickRace') && ($('btnQuickRace').onclick = ()=>{
+      applyQuickMode('race');
+      setTeacherMsg('เตรียม Quick Race แล้ว');
+      onStart();
+    });
+
+    $('btnOpenTeacherDash') && ($('btnOpenTeacherDash').onclick = ()=>{
+      const room = ($('inpRoom').value || '').trim().toUpperCase();
+      if(!room){
+        setTeacherMsg('กรุณาเลือก/ใส่ ROOM ก่อนเปิด dashboard', 'warn');
+        return;
+      }
+      const u = new URL('./goodjunk-teacher.html', location.href);
+      u.searchParams.set('room', room);
+      location.href = u.toString();
+    });
+
+    $('btnOpenBigBoard') && ($('btnOpenBigBoard').onclick = ()=>{
+      const room = ($('inpRoom').value || '').trim().toUpperCase();
+      if(!room){
+        setTeacherMsg('กรุณาเลือก/ใส่ ROOM ก่อนเปิด Big Screen Board', 'warn');
+        return;
+      }
+      const u = new URL('./goodjunk-board.html', location.href);
+      u.searchParams.set('room', room);
+      location.href = u.toString();
+    });
+
+    $('btnBuildShare') && ($('btnBuildShare').onclick = ()=>{
+      refreshShareUi();
+      setTeacherMsg('สร้าง share link / QR แล้ว');
+    });
+
+    $('btnCopyShare') && ($('btnCopyShare').onclick = async ()=>{
+      try{
+        refreshShareUi();
+        const text = $('shareLink')?.value || '';
+        await navigator.clipboard.writeText(text);
+        setTeacherMsg('คัดลอกลิงก์แล้ว ✅');
+      }catch(_){
+        setTeacherMsg('คัดลอกลิงก์ไม่สำเร็จ', 'warn');
+      }
+    });
+
+    $('btnOpenShare') && ($('btnOpenShare').onclick = ()=>{
+      refreshShareUi();
+      const text = $('shareLink')?.value || '';
+      if(text) location.href = text;
+    });
+
+    $('btnRefreshSummary') && ($('btnRefreshSummary').onclick = ()=>{
+      renderSessionSummary();
+      setTeacherMsg('รีเฟรช session summary แล้ว');
+    });
+
+    ['inpRoom','inpNick','inpTime','selDiff','selAuto'].forEach(id=>{
+      const el = $(id);
+      if(!el) return;
+      el.addEventListener('input', ()=>{
+        refreshShareUi();
+        renderSessionSummary();
+      });
+      el.addEventListener('change', ()=>{
+        refreshShareUi();
+        renderSessionSummary();
+      });
+    });
+
     if(!['solo','battle','race','coop'].includes(state.mode)) state.mode='solo';
     setMode(state.mode);
+
     applyAutoDiffIfNeeded(true);
     updateRoomPreview();
+
+    const lastRoomRemembered = $('lastRoomRemembered');
+    if(lastRoomRemembered){
+      lastRoomRemembered.textContent = loadLastRoom() || '—';
+    }
+
+    const quick = String(qs('quick','')).trim().toLowerCase();
+    if(quick === 'teacher-battle'){
+      applyQuickMode('battle');
+      if(!$('inpRoom').value) applyRoom('P5A');
+      if(!$('inpTime').value) applyTime(80);
+      setTeacherMsg('โหลดโหมด Teacher Battle preset แล้ว');
+    }
+
+    refreshShareUi();
+    renderSessionSummary();
   }
 
   function onStart(){
@@ -555,6 +1051,14 @@ PATCH v20260306-LAUNCHER-BATTLE-READY
       $('inpRoom').focus();
       return;
     }
+
+    if(state.mode !== 'solo' && !isValidRoomCode(room)){
+      setMsg('bad', 'ROOM ต้องยาว 2–10 ตัว และใช้ A-Z / 0-9 / _ / -');
+      $('inpRoom').focus();
+      return;
+    }
+
+    if(room) rememberLastRoom(room);
 
     applyAutoDiffIfNeeded(false);
 
