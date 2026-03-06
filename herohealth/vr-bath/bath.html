@@ -5,11 +5,10 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth — Bath (Hidden Dirt Quest)</title>
   <meta name="color-scheme" content="dark light" />
-  <link rel="stylesheet" href="./bath.css?v=20260306b" />
+  <link rel="stylesheet" href="./bath.css?v=20260306c" />
 </head>
 <body>
   <div id="app">
-    <!-- Top HUD -->
     <header id="hud">
       <div class="hud-row">
         <div class="pill" id="phasePill">PHASE: —</div>
@@ -25,7 +24,7 @@
         <div class="pill" id="riskPill">FUNGUS RISK: 0%</div>
         <div class="pill" id="meterPill">SWEAT: 0%</div>
         <div class="pill" id="viewPill">VIEW: FRONT</div>
-        <div class="pill" id="proPill">PRO: OFF</div>
+        <div class="pill pro" id="proPill" title="PRO เปิดอยู่: โหดขึ้นแบบแฟร์">PRO: OFF</div>
       </div>
       <div class="hud-row">
         <div class="pill mini" id="coachPill">COACH: —</div>
@@ -35,12 +34,11 @@
       </div>
     </header>
 
-    <!-- Progress bar -->
     <div id="progressWrap" aria-hidden="true">
       <div id="progressBar"></div>
+      <div id="progressLabel">Warm → Trick → Boss</div>
     </div>
 
-    <!-- Playfield -->
     <main id="playfield" aria-label="Bath Game">
       <div id="bg"></div>
 
@@ -55,20 +53,17 @@
               <div class="leg leg-l"></div>
               <div class="leg leg-r"></div>
             </div>
-
             <div id="target-layer"></div>
             <div id="crosshair-fallback" aria-hidden="true"></div>
           </div>
         </div>
 
-        <!-- Bottom controls -->
         <div id="controls">
           <button id="btnStart" class="btn primary">เริ่มเล่น</button>
           <button id="btnFlip" class="btn">สลับ หน้า/หลัง</button>
           <button id="btnHelp" class="btn">วิธีเล่น</button>
         </div>
 
-        <!-- Quiz Panel -->
         <div id="panelQuiz" class="panel hidden">
           <div class="panel-card">
             <h2>ก่อนเริ่ม (3 ข้อ)</h2>
@@ -79,20 +74,19 @@
           </div>
         </div>
 
-        <!-- Help Panel -->
         <div id="panelHelp" class="panel hidden">
           <div class="panel-card">
             <h2>วิธีเล่น (Bath — Hidden Dirt Quest)</h2>
             <ol>
               <li><b>WET</b> ทำให้เปียกให้ครบ</li>
               <li><b>SOAP</b> ฟองจำกัด + ระวังฟองปลอม</li>
-              <li><b>SCRUB</b> ล่าจุดอับ 3 ช่วง: <b>Warm → Trick → Boss</b></li>
+              <li><b>SCRUB</b> 3 ช่วง: <b>Warm → Trick → Boss</b></li>
               <li><b>RINSE</b> ล้าง residue ให้ต่ำ</li>
               <li><b>DRY + DRESS</b> เช็ดให้แห้ง ลดเชื้อรา แล้วใส่เสื้อ</li>
             </ol>
             <p class="muted">
               🔥 PRO: เปิดด้วย <code>?pro=1</code> (เดือดขึ้นแบบแฟร์)<br/>
-              ✅ End Summary มีปุ่มกลับ HUB + บันทึกผลล่าสุด (HHA_LAST_SUMMARY)
+              🧠 AI: สรุป “2 สาเหตุหลัก” + คำแนะนำในหน้าสรุป
             </p>
             <div class="row">
               <button id="btnCloseHelp" class="btn primary">เข้าใจแล้ว</button>
@@ -100,7 +94,6 @@
           </div>
         </div>
 
-        <!-- End Panel -->
         <div id="panelEnd" class="panel hidden">
           <div class="panel-card">
             <h2>สรุปผล</h2>
@@ -126,6 +119,15 @@
 
             <hr class="hr"/>
 
+            <h3 class="h3">AI อธิบายผล (Explainable)</h3>
+            <div id="aiExplain" class="aiExplain">
+              <div class="pill mini" id="aiTipPill">AI TIP: —</div>
+              <div class="chips" id="aiCauseChips"></div>
+              <div class="muted" id="aiMetaText"></div>
+            </div>
+
+            <hr class="hr"/>
+
             <h3 class="h3">แผนอาบของฉัน (โฟกัสตอน SCRUB)</h3>
             <p class="muted">เรียงโซน (▲▼) แล้วกด “เล่นตามแผน”</p>
             <div id="planList" class="planList"></div>
@@ -141,10 +143,10 @@
     </main>
 
     <footer id="footer">
-      <span class="muted">HeroHealth — Bath • Top-down • PC/Mobile • FX+Missions+PRO</span>
+      <span class="muted">HeroHealth — Bath • Top-down • FX+Missions+PRO+AI Explain</span>
     </footer>
   </div>
 
-  <script type="module" src="./bath.js?v=20260306b"></script>
+  <script type="module" src="./bath.js?v=20260306c"></script>
 </body>
 </html>
