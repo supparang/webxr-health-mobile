@@ -1,20 +1,21 @@
 // === /fitness/js/balance-hold.js ===
 // Balance Hold — PRODUCTION (SEEDED + OBSTACLES + 3-STAGE + BOSS PATTERN + SHIELD + FX + AUTOSTART)
-// PATCH v20260305-BH-FULL-FINAL
+// PATCH v20260305-BH-RUN-FIX
 'use strict';
 
 const $  = (s)=>document.querySelector(s);
 const $$ = (s)=>document.querySelectorAll(s);
 
-/* ---- DOM refs ---- */
+/* views */
 const viewMenu    = $('#view-menu');
-const viewResearch= $('#view-research');
 const viewPlay    = $('#view-play');
 const viewResult  = $('#view-result');
 
+/* menu fields */
 const elDiffSel   = $('#difficulty');
 const elDurSel    = $('#sessionDuration');
 
+/* HUD */
 const hudMode     = $('#hud-mode');
 const hudDiff     = $('#hud-diff');
 const hudDur      = $('#hud-dur');
@@ -27,13 +28,14 @@ const hudHp       = $('#hud-hp');
 const hudStage    = $('#hud-stage');
 const hudRt       = $('#hud-rt');
 
-const playArea      = $('#playArea');
-const platformWrap  = $('#platform-wrap');
-const platformEl    = $('#platform');
-const indicatorEl   = $('#indicator');
-let obstacleLayer   = $('#obstacle-layer');
-const coachLabel    = $('#coachLabel');
-const coachBubble   = $('#coachBubble');
+const playArea    = $('#playArea');
+const platformWrap= $('#platform-wrap');
+const platformEl  = $('#platform');
+const indicatorEl = $('#indicator');
+let obstacleLayer = $('#obstacle-layer');
+
+const coachLabel  = $('#coachLabel');
+const coachBubble = $('#coachBubble');
 
 /* result fields */
 const resMode        = $('#res-mode');
@@ -48,23 +50,25 @@ const resHit         = $('#res-hit');
 const resAvoidRate   = $('#res-avoidRate');
 const resFatigue     = $('#res-fatigue');
 const resSamples     = $('#res-samples');
-
 const btnBackHub     = $('#btnBackHub');
+const btnBackHubMenu = $('#btnBackHubMenu');
 
-/* ---- helpers ---- */
+/* helpers */
 const clamp   = (v,a,b)=>{ v=Number(v); if(!Number.isFinite(v)) v=a; return Math.max(a, Math.min(b,v)); };
 const clamp01 = (x)=>clamp(x,0,1);
 const nowMs   = ()=> (performance && performance.now) ? performance.now() : Date.now();
 const fmtPercent = (v)=>(v==null||Number.isNaN(v))?'-':(v*100).toFixed(1)+'%';
 const fmtFloat   = (v,d=2)=>(v==null||Number.isNaN(v))?'-':v.toFixed(d);
-function qs(k, d=''){ try { return new URL(location.href).searchParams.get(k) ?? d; } catch { return d; } }
+
+function qs(k, d=''){
+  try { return new URL(location.href).searchParams.get(k) ?? d; } catch { return d; }
+}
 
 function showView(name){
-  [viewMenu,viewResearch,viewPlay,viewResult].forEach(v=>v && v.classList.add('hidden'));
-  if (name==='menu')     viewMenu && viewMenu.classList.remove('hidden');
-  if (name==='research') viewResearch && viewResearch.classList.remove('hidden');
-  if (name==='play')     viewPlay && viewPlay.classList.remove('hidden');
-  if (name==='result')   viewResult && viewResult.classList.remove('hidden');
+  [viewMenu,viewPlay,viewResult].forEach(v=>v && v.classList.add('hidden'));
+  if (name==='menu')   viewMenu && viewMenu.classList.remove('hidden');
+  if (name==='play')   viewPlay && viewPlay.classList.remove('hidden');
+  if (name==='result') viewResult && viewResult.classList.remove('hidden');
 }
 
 function mapEndReason(code){
@@ -76,7 +80,7 @@ function mapEndReason(code){
   }
 }
 
-/* ---- RNG (seeded) ---- */
+/* seeded RNG */
 function xmur3(str){
   str = String(str||''); let h = 1779033703 ^ str.length;
   for (let i=0;i<str.length;i++){ h = Math.imul(h ^ str.charCodeAt(i), 3432918353); h = (h<<13)|(h>>>19); }
@@ -89,7 +93,7 @@ function mulberry32(a){
 function makeRng(seedStr){ const g=xmur3(seedStr); return mulberry32(g()); }
 function randBetween(rng,a,b){ return a + rng()*(b-a); }
 
-/* ---- FX helpers ---- */
+/* FX */
 function popText(msg, isBad=false){
   const fx = document.getElementById('fx-layer');
   if(!fx) return;
@@ -100,7 +104,6 @@ function popText(msg, isBad=false){
   fx.appendChild(d);
   setTimeout(()=> d.remove(), 950);
 }
-
 function shakePlay(){
   const el = document.getElementById('playArea');
   if(!el) return;
@@ -110,29 +113,23 @@ function shakePlay(){
   setTimeout(()=> el.classList.remove('shake'), 260);
 }
 
-/* ---- Ensure layers ---- */
+/* Ensure obstacle layer */
 function ensureObstacleLayer(){
   if (obstacleLayer) return obstacleLayer;
   if (!playArea) return null;
-
   const div = document.createElement('div');
   div.id = 'obstacle-layer';
   div.className = 'obstacle-layer';
-  div.style.position = 'absolute';
-  div.style.left = '0';
-  div.style.top = '0';
-  div.style.right = '0';
-  div.style.bottom = '0';
-  div.style.pointerEvents = 'none';
-  div.style.zIndex = '6';
-  playArea.style.position = playArea.style.position || 'relative';
+  div.style.position='absolute';
+  div.style.inset='0';
+  div.style.pointerEvents='none';
+  div.style.zIndex='6';
   playArea.appendChild(div);
-
   obstacleLayer = div;
   return obstacleLayer;
 }
 
-/* ---- Difficulty ---- */
+/* Config */
 const GAME_DIFF = {
   easy:   { safeHalf:0.34, disturbMinMs:1500, disturbMaxMs:2700, disturbStrength:0.20, passiveDrift:0.070, hp:4 },
   normal: { safeHalf:0.25, disturbMinMs:1200, disturbMaxMs:2200, disturbStrength:0.26, passiveDrift:0.095, hp:3 },
@@ -140,7 +137,7 @@ const GAME_DIFF = {
 };
 function pickDiff(key){ return GAME_DIFF[key] || GAME_DIFF.normal; }
 
-/* ---- Coach ---- */
+/* Coach */
 const COACH_LINES = {
   welcome:'ลากซ้าย–ขวาเพื่อคุมให้อยู่โซนปลอดภัย / Drag left–right to balance',
   drift:'เอียงค้างนานไป—ดันกลับกลางช้า ๆ / Drift—return to center',
@@ -161,14 +158,13 @@ function showCoach(key){
   setTimeout(()=> coachBubble && coachBubble.classList.add('hidden'), 4200);
 }
 
-/* ---- Stage ---- */
+/* Stage */
 function stageFrom(tNorm){
   if (tNorm < 0.40) return 'Warm';
   if (tNorm < 0.78) return 'Trick';
   return 'Boss';
 }
-function stageCfg(base, stage, pro, idleBoost){
-  const proMul = pro ? 1.10 : 1.0;
+function stageCfg(base, stage, idleBoost){
   const idleMul = 1 + 2.2*(idleBoost||0);
 
   let safeMul=1, freqMul=1, strMul=1, driftMul=1;
@@ -178,14 +174,19 @@ function stageCfg(base, stage, pro, idleBoost){
 
   return {
     safeHalf: clamp(base.safeHalf*safeMul, 0.10, 0.42),
-    disturbMinMs: clamp(base.disturbMinMs/(freqMul*proMul), 450, 4000),
-    disturbMaxMs: clamp(base.disturbMaxMs/(freqMul*proMul), 650, 5000),
-    disturbStrength: clamp(base.disturbStrength*strMul*proMul, 0.12, 0.60),
-    passiveDrift: clamp(base.passiveDrift*driftMul*idleMul*proMul, 0.02, 0.32)
+    disturbMinMs: clamp(base.disturbMinMs/(freqMul), 450, 4000),
+    disturbMaxMs: clamp(base.disturbMaxMs/(freqMul), 650, 5000),
+    disturbStrength: clamp(base.disturbStrength*strMul, 0.12, 0.60),
+    passiveDrift: clamp(base.passiveDrift*driftMul*idleMul, 0.02, 0.32)
   };
 }
 
-/* ---- Boss Director (A/B + Sweep) ---- */
+/* State */
+let state=null;
+let rafId=null;
+let rng=null;
+
+/* Boss pattern */
 function bossDirectorTick(now, stage, cfg){
   if (!state) return;
 
@@ -200,50 +201,35 @@ function bossDirectorTick(now, stage, cfg){
 
   if (!state.boss.active || stage !== 'Boss') return;
 
-  const baseGap = 2200;
-  const gap = clamp(baseGap * (cfg.safeHalf <= 0.18 ? 0.85 : 1.0), 1400, 2600);
-
+  const gap = clamp(2200 * (cfg.safeHalf <= 0.18 ? 0.85 : 1.0), 1400, 2600);
   if (now >= state.boss.nextWaveAt){
     spawnBossWave(now, cfg, state.boss.waveIndex++);
     state.boss.nextWaveAt = now + gap;
   }
 }
-
 function spawnBossWave(now, cfg, waveIndex){
   const mode = (waveIndex % 3); // 0=A,1=B,2=SWEEP
-
   if (mode === 2){
     popText(`⚡ Sweep ${Math.floor(waveIndex/3)+1}`);
-
     const steps = [-0.85,-0.45,-0.05,0.35,0.75];
     steps.forEach((xNorm, i)=>{
-      setTimeout(()=>{
-        if (!state) return;
-        spawnObstacle(nowMs(), cfg, { kind:'shock', xNorm, impactDelay: 720, forceBoss:true });
-      }, i*140);
+      setTimeout(()=>{ if(state) spawnObstacle(nowMs(), cfg, {kind:'shock', xNorm, impactDelay:720, forceBoss:true}); }, i*140);
     });
-
     setTimeout(()=>{ if(state) state.biasDir *= -1; }, 820);
     return;
   }
 
   const A = [-0.78,  0.00,  0.78];
   const B = [ 0.78,  0.00, -0.78];
-  const arr = (mode === 0) ? A : B;
-
+  const arr = (mode===0)?A:B;
   popText(`⚡ Wave ${waveIndex+1}`);
-
-  [0,180,360].forEach((off, i)=>{
-    setTimeout(()=>{
-      if (!state) return;
-      spawnObstacle(nowMs(), cfg, { kind:'shock', xNorm: arr[i], impactDelay: 740, forceBoss:true });
-    }, off);
+  [0,180,360].forEach((off,i)=>{
+    setTimeout(()=>{ if(state) spawnObstacle(nowMs(), cfg, {kind:'shock', xNorm:arr[i], impactDelay:740, forceBoss:true}); }, off);
   });
-
   setTimeout(()=>{ if(state) state.biasDir *= -1; }, 520);
 }
 
-/* ---- Shield pickup ---- */
+/* Shield */
 function spawnShield(now){
   if (!state) return;
   ensureObstacleLayer();
@@ -259,13 +245,11 @@ function spawnShield(now){
   el.style.top = '14%';
   el.style.left = pxX+'px';
   el.style.fontSize = '30px';
-  el.style.opacity = '0.95';
   obstacleLayer.appendChild(el);
 
   const pickupAt = now + 900;
   setTimeout(()=>{
     if (!state){ try{el.remove();}catch{} return; }
-
     const inSafe = Math.abs(state.angle) <= (state.stageCfg?.safeHalf ?? state.baseCfg.safeHalf);
     if (inSafe){
       state.shield = Math.min(2, (state.shield||0) + 1);
@@ -280,37 +264,21 @@ function spawnShield(now){
   setTimeout(()=>{ try{ el.remove(); }catch{} }, 1400);
 }
 
-/* ---- State ---- */
-let gameMode='play';
-let state=null;
-let rafId=null;
-let rng=null;
-
-function buildSessionMeta(diffKey, durSec){
-  const seed = String(qs('seed','')) || String(Date.now());
-  const hub  = String(qs('hub','')).trim();
-  const pid  = String(qs('pid','anon')).trim() || 'anon';
-  return { diffKey, durSec, seed, hub, pid };
-}
-
-/* ---- Start ---- */
-function startGame(kind){
-  gameMode = (kind==='research' ? 'research' : 'play');
-
-  const diffKey = elDiffSel?.value || String(qs('diff','normal')||'normal');
-  const durSec  = parseInt(elDurSel?.value || String(qs('time','80')||'80'),10) || 80;
+/* Main start */
+function startPlay(){
+  const diffKey = (elDiffSel?.value || qs('diff','normal')).toLowerCase();
+  const durSec  = parseInt(elDurSel?.value || qs('time','80'),10) || 80;
   const baseCfg = pickDiff(diffKey);
-  const proOn   = String(qs('pro','0'))==='1' || String(qs('pro','')).toLowerCase()==='true';
 
-  const meta = buildSessionMeta(diffKey, durSec);
-  rng = makeRng(`${meta.seed}|${meta.pid}|${diffKey}|${durSec}`);
+  const seed = String(qs('seed','')) || String(Date.now());
+  const pid  = String(qs('pid','anon')).trim() || 'anon';
+  rng = makeRng(`${seed}|${pid}|${diffKey}|${durSec}`);
 
   ensureObstacleLayer();
 
   const now = nowMs();
   state = {
     baseCfg,
-    proOn,
     durationMs: durSec*1000,
     startTime: now,
     lastFrame: now,
@@ -347,23 +315,22 @@ function startGame(kind){
     stableStreak: 0,
     hasSeenObstacle: false,
 
-    // cache current stage cfg for shield pickup checks
     stageCfg: baseCfg,
 
-    boss: { active:false, nextWaveAt:0, waveIndex:0, lastStage:'Warm' },
+    boss: { active:false, nextWaveAt:0, waveIndex:0, lastStage:'Warm' }
   };
 
-  if (hudMode)  hudMode.textContent = (gameMode==='research'?'Research':'Play');
-  if (hudDiff)  hudDiff.textContent = diffKey + (proOn?' (PRO)':'');
-  if (hudDur)   hudDur.textContent = String(durSec);
-  if (hudStab)  hudStab.textContent = '0%';
-  if (hudObs)   hudObs.textContent = '0 / 0';
+  if (hudMode)  hudMode.textContent = 'Play';
+  if (hudDiff)  hudDiff.textContent = diffKey;
+  if (hudDur)   hudDur.textContent  = String(durSec);
   if (hudTime)  hudTime.textContent = durSec.toFixed(1);
-  if (hudScore) hudScore.textContent = '0';
-  if (hudCombo) hudCombo.textContent = '0';
-  if (hudHp)    hudHp.textContent = String(state.hp);
-  if (hudStage) hudStage.textContent = 'Warm';
-  if (hudRt)    hudRt.textContent = '-';
+  if (hudStab)  hudStab.textContent = '0%';
+  if (hudObs)   hudObs.textContent  = '0 / 0';
+  if (hudScore) hudScore.textContent= '0';
+  if (hudCombo) hudCombo.textContent= '0';
+  if (hudHp)    hudHp.textContent   = String(state.hp);
+  if (hudStage) hudStage.textContent= 'Warm';
+  if (hudRt)    hudRt.textContent   = '-';
 
   if (coachLabel) coachLabel.textContent = 'ลากซ้าย–ขวาเพื่อคุมสมดุล / Drag left–right to balance';
   if (coachBubble) coachBubble.classList.add('hidden');
@@ -375,7 +342,7 @@ function startGame(kind){
   showView('play');
 }
 
-/* ---- loop ---- */
+/* loop */
 function loop(now){
   if (!state) return;
 
@@ -403,30 +370,27 @@ function loop(now){
     state.nextBiasFlipAt = now + randBetween(rng, 1400, 3400);
   }
 
-  const cfg = stageCfg(state.baseCfg, stage, state.proOn, idleBoost);
+  const cfg = stageCfg(state.baseCfg, stage, idleBoost);
   state.stageCfg = cfg;
 
-  // Boss waves
   bossDirectorTick(now, stage, cfg);
 
-  // Shield spawn (more often in Trick/Boss)
   if (now >= (state.nextShieldAt||0)){
     spawnShield(now);
     const base = (stage==='Warm') ? 12000 : (stage==='Trick' ? 9000 : 6500);
     state.nextShieldAt = now + randBetween(rng, base*0.85, base*1.15);
   }
 
-  // physics
   const lerp = (stage==='Warm') ? 0.12 : (stage==='Trick' ? 0.13 : 0.14);
   const drift = state.biasDir * cfg.passiveDrift * (dt/1000);
   const target = state.targetAngle + drift;
   state.angle += (target - state.angle) * lerp;
+
   state.angle = clamp(state.angle, -1.25, 1.25);
   state.targetAngle = clamp(state.targetAngle, -1, 1);
 
   updateVisuals();
 
-  // sampling
   if (now >= state.nextSampleAt){
     const inSafe = Math.abs(state.angle) <= cfg.safeHalf;
 
@@ -438,7 +402,7 @@ function loop(now){
     state.sumTiltSq  += absTilt*absTilt;
     state.samples.push({tNorm, tilt:absTilt});
 
-    // anti-free-farm scoring
+    // anti-free-farm
     if (!state.hasSeenObstacle){
       if (inSafe) state.score += 1;
       if (idleBoost > 0.7) state.score = Math.max(0, state.score - 2);
@@ -465,13 +429,11 @@ function loop(now){
     if (hudCombo) hudCombo.textContent = String(state.combo);
     if (hudHp)    hudHp.textContent = `${state.hp}${(state.shield>0)?` • 🛡️${state.shield}`:''}`;
 
-    // drift coach
     if (absTilt > 0.60 && stage !== 'Warm') showCoach('drift');
 
     state.nextSampleAt = now + state.sampleEveryMs;
   }
 
-  // normal obstacles (outside boss waves too)
   if (now >= state.nextObstacleAt){
     spawnObstacle(now, cfg, null);
   }
@@ -479,7 +441,6 @@ function loop(now){
   rafId = requestAnimationFrame(loop);
 }
 
-/* ---- visuals ---- */
 function updateVisuals(){
   if (!platformEl || !indicatorEl || !state) return;
 
@@ -497,7 +458,7 @@ function updateVisuals(){
   }
 }
 
-/* ---- obstacle ---- */
+/* obstacle */
 function spawnObstacle(now, cfg, opt){
   ensureObstacleLayer();
   if (!state || !obstacleLayer) return;
@@ -513,10 +474,8 @@ function spawnObstacle(now, cfg, opt){
   const span = document.createElement('div');
   span.className = 'obstacle';
   span.textContent = emoji;
-  span.style.position = 'absolute';
   span.style.top = (opt.forceBoss ? '8%' : '18%');
   span.style.fontSize = (kind==='shock') ? '32px' : '28px';
-  span.style.filter = 'drop-shadow(0 10px 20px rgba(0,0,0,.55))';
 
   const wrapRect = playArea?.getBoundingClientRect();
   const xNorm = (typeof opt.xNorm === 'number') ? opt.xNorm : (rng()*2 - 1);
@@ -560,7 +519,6 @@ function spawnObstacle(now, cfg, opt){
       state.combo = Math.max(0, state.combo - 3);
       state.stableStreak = 0;
 
-      // knock
       const knockBase = cfg.disturbStrength * (kind==='gust' ? 0.85 : (kind==='bomb' ? 1.05 : 1.35));
       const knockDir = (state.angle>=0 ? 1 : -1);
       state.angle += knockDir * knockBase;
@@ -582,11 +540,10 @@ function spawnObstacle(now, cfg, opt){
     if (hudHp)    hudHp.textContent = `${state.hp}${(state.shield>0)?` • 🛡️${state.shield}`:''}`;
   }, Math.max(0, impactAt - nowMs()));
 
-  // next schedule (for normal spawns)
   state.nextObstacleAt = now + randBetween(rng, cfg.disturbMinMs, cfg.disturbMaxMs);
 }
 
-/* ---- analytics ---- */
+/* analytics */
 function computeAnalytics(){
   if (!state || !state.totalSamples){
     return { stabilityRatio:0, meanTilt:0, rmsTilt:0, fatigueIndex:0, samples:0 };
@@ -609,7 +566,6 @@ function computeAnalytics(){
   return { stabilityRatio:stabRatio, meanTilt, rmsTilt, fatigueIndex:fatigue, samples:n };
 }
 
-/* ---- stop ---- */
 function stopGame(endedBy){
   if (!state) return;
   if (rafId!=null){ cancelAnimationFrame(rafId); rafId=null; }
@@ -618,8 +574,8 @@ function stopGame(endedBy){
   const totalObs = state.obstaclesAvoided + state.obstaclesHit;
   const avoidRate = totalObs ? (state.obstaclesAvoided/totalObs) : 0;
 
-  if (resMode) resMode.textContent = (gameMode==='research') ? 'Research' : 'Play';
-  if (resDiff) resDiff.textContent = elDiffSel?.value || qs('diff','normal') || '-';
+  if (resMode) resMode.textContent = 'Play';
+  if (resDiff) resDiff.textContent = (elDiffSel?.value || qs('diff','normal') || '-');
   if (resDur)  resDur.textContent  = String((state.durationMs/1000) || '-');
   if (resEnd)  resEnd.textContent  = mapEndReason(endedBy);
 
@@ -644,7 +600,7 @@ function stopGame(endedBy){
   showView('result');
 }
 
-/* ---- input ---- */
+/* input */
 function attachInput(){
   if (!playArea) return;
   let active=false;
@@ -654,7 +610,6 @@ function attachInput(){
     const rect = playArea.getBoundingClientRect();
     const x = ev.clientX ?? (ev.touches && ev.touches[0]?.clientX);
     if (x==null) return;
-
     const relX = (x - rect.left) / rect.width;
     state.targetAngle = clamp((relX - 0.5) * 2, -1, 1);
     state.lastInputAt = nowMs();
@@ -685,28 +640,36 @@ function attachInput(){
   }, {passive:false});
 }
 
-/* ---- init ---- */
+/* init */
 function init(){
-  // menu actions
-  $('[data-action="start-normal"]')?.addEventListener('click',()=> startGame('play'));
-  $('[data-action="goto-research"]')?.addEventListener('click',()=> showView('research'));
+  // bind buttons
+  $('[data-action="start-normal"]')?.addEventListener('click',()=> startPlay());
   $$('[data-action="back-menu"]').forEach(btn=> btn.addEventListener('click',()=> showView('menu')));
-  $('[data-action="start-research"]')?.addEventListener('click',()=> startGame('research'));
   $('[data-action="stop"]')?.addEventListener('click',()=>{ if(state) stopGame('manual'); });
   $('[data-action="play-again"]')?.addEventListener('click',()=> showView('menu'));
 
+  // apply query -> selects (diff/time)
+  const qDiff = String(qs('diff','')).toLowerCase();
+  const qTime = String(qs('time','')).trim();
+  if (elDiffSel && ['easy','normal','hard'].includes(qDiff)) elDiffSel.value = qDiff;
+  if (elDurSel && qTime) elDurSel.value = qTime;
+
+  // back hub in menu
+  const hub = String(qs('hub','')).trim();
+  if (hub && btnBackHubMenu){
+    btnBackHubMenu.style.display = '';
+    btnBackHubMenu.onclick = ()=> location.href = hub;
+  }
+
   attachInput();
 
-  // ✅ autostart=1 (from launcher)
-  try{
-    const a = (new URL(location.href)).searchParams.get('autostart');
-    if (String(a)==='1'){
-      setTimeout(()=> startGame('play'), 60);
-      return;
-    }
-  }catch(e){}
+  // ✅ autostart=1
+  const a = String(qs('autostart',''));
+  if (a === '1'){
+    setTimeout(()=> startPlay(), 60);
+    return;
+  }
 
   showView('menu');
 }
-
 window.addEventListener('DOMContentLoaded', init);
