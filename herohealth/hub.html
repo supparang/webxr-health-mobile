@@ -1,12 +1,16 @@
 <!-- === /herohealth/hub.html ===
 HeroHealth — Hub (3 Zones) — PRODUCTION
-PATCH v20260306-HUB-PATHFIX-ROOT-LAUNCHERS-r2
+PATCH v20260306-HUB-PATHFIX-ROOT-LAUNCHERS-r3
 ✅ FIX: Use root launchers instead of deep folder run paths
 ✅ FIX: Hygiene / Exercise links now also pass full query context
 ✅ FIX: Handwash -> ./hygiene-vr.html
 ✅ FIX: Brush -> ./brush-vr.html
 ✅ FIX: Bath -> ./bath-vr.html
+✅ FIX: Clean Object -> ./clean-objects.html
+✅ FIX: MaskCough -> ./maskcough-vr.html
+✅ FIX: Germ Detective -> ./germ-detective-vr.html
 ✅ FIX: Balance Hold -> ./balance-hold-vr.html
+✅ FIX: Fitness Planner -> ./fitness-planner.html
 ✅ FIX: Groups / Hydration / Plate -> root launchers
 ✅ KEEP: GoodJunk launcher + Hero Profile + Card Book + Trophy Shelf
 -->
@@ -889,15 +893,15 @@ PATCH v20260306-HUB-PATHFIX-ROOT-LAUNCHERS-r2
       handwash:       './hygiene-vr.html',
       brush:          './brush-vr.html',
       bath:           './bath-vr.html',
-      cleanObject:    './clean-object.html',
-      maskCough:      './maskcough.html',
-      germDetective:  './germ-detective.html',
+      cleanObject:    './clean-objects.html',
+      maskCough:      './maskcough-vr.html',
+      germDetective:  './germ-detective-vr.html',
 
       shadowBreaker:  './shadow-breaker.html',
       rhythmBoxer:    './rhythm-boxer.html',
       jumpDuck:       './jumpduck.html',
       balanceHold:    './balance-hold-vr.html',
-      fitnessPlanner: './fitness-planner/'
+      fitnessPlanner: './fitness-planner.html'
     };
 
     const btnGJsolo = document.getElementById('btnGJsolo');
