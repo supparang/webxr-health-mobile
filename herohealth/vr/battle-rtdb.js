@@ -1,6 +1,6 @@
 // === /herohealth/vr/battle-rtdb.js ===
-// Firebase RTDB Battle — v6 (room policy + spectator + notices + cloud reports)
-// FULL v20260306-BATTLE-RTDB-V6
+// Firebase RTDB Battle — v6 (room policy + spectator + notices + cloud reports + debugStart)
+// FULL v20260306-BATTLE-RTDB-V6-DEBUGSTART
 'use strict';
 
 const WIN = (typeof window !== 'undefined') ? window : globalThis;
@@ -145,6 +145,7 @@ export async function initBattle(opts){
 
   const autostartMs = clamp(opts.autostartMs ?? qs('autostart','3000'), 500, 10000);
   const forfeitMs   = clamp(opts.forfeitMs   ?? qs('forfeit','5000'), 1500, 20000);
+  const debugStart = String(qs('debugStart','0')) === '1';
 
   const fbCfg = getFirebaseConfig();
   if(!fbCfg){
@@ -383,8 +384,14 @@ export async function initBattle(opts){
     if(String(st.phase || 'lobby').toLowerCase() !== 'lobby') return;
 
     const realPlayers = (players || []).filter(p => p.connected !== false).slice(0,2);
-    if(realPlayers.length < 2) return;
-    if(!realPlayers.every(p => !!p.ready)) return;
+
+    if(debugStart){
+      if(realPlayers.length < 1) return;
+      if(!realPlayers.every(p => !!p.ready)) return;
+    }else{
+      if(realPlayers.length < 2) return;
+      if(!realPlayers.every(p => !!p.ready)) return;
+    }
 
     const startAtMs = serverNow() + autostartMs;
     await update(stateRef, {
@@ -416,6 +423,10 @@ export async function initBattle(opts){
     if(String(st.phase || '').toLowerCase() !== 'running') return;
 
     const realPlayers = (players || []).slice(0,2);
+
+    if(debugStart && realPlayers.length === 1){
+      return;
+    }
     if(realPlayers.length < 2) return;
 
     const disconnected = realPlayers.find(p => p.connected === false && (serverNow() - (p.lastSeenMs || 0) >= forfeitMs));
@@ -449,6 +460,33 @@ export async function initBattle(opts){
     if(String(st.phase || '').toLowerCase() !== 'running') return;
 
     const realPlayers = (players || []).filter(Boolean).slice(0,2);
+
+    if(debugStart && realPlayers.length === 1){
+      const solo = realPlayers[0];
+      if(Number(solo?.finishMs || 0) > 0){
+        await update(stateRef, {
+          phase:'ended',
+          winner: solo.key,
+          reason:'debugSolo',
+          updatedAt: serverTimestamp(),
+          updatedAtMs: Date.now()
+        }).catch(()=>{});
+
+        emitBattleNotice('info', 'จบรอบ Battle แบบ debug solo', {
+          code:'battle_debug_solo_end',
+          room
+        });
+        emit('hha:battle-ended', {
+          room,
+          roundId: currentRoundId,
+          winner: solo.key,
+          reason:'debugSolo',
+          results: realPlayers
+        });
+      }
+      return;
+    }
+
     if(realPlayers.length < 2) return;
 
     const finishedPlayers = realPlayers.filter(p => Number(p.finishMs || 0) > 0);
