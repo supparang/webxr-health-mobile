@@ -25,7 +25,6 @@
       (WIN.matchMedia && WIN.matchMedia('(pointer:coarse)').matches) ||
       (Math.min(screen.width, screen.height) <= 520);
 
-    // มือถือปกติ: mobile (ให้ผู้ใช้ส่ง view=cvr เองถ้าเป็น cardboard)
     return isMobile ? 'mobile' : 'pc';
   }
 
@@ -41,19 +40,17 @@
   function buildCtx(){
     const view = normalizeView(detectViewAuto());
 
-    // base params
     const hub  = qs('hub','') || '';
     const seed = num(qs('seed', Date.now()), Date.now());
     const time = num(qs('time', 80), 80);
     const diff = String(qs('diff','normal')||'normal').toLowerCase();
     const run  = String(qs('run', qs('mode','play')||'play')||'play').toLowerCase();
 
-    // passthrough research params
     const pid = String(qs('pid', qs('participantId','')||'')||'').trim();
     const studyId = String(qs('studyId','')||'').trim();
     const phase = String(qs('phase','')||'').trim();
     const conditionGroup = String(qs('conditionGroup','')||'').trim();
-    const log = String(qs('log', qs('api','')||'')||'').trim(); // บางทีส่ง api มา
+    const log = String(qs('log', qs('api','')||'')||'').trim();
     const api = String(qs('api','')||'').trim();
     const ai  = String(qs('ai','1')) !== '0';
     const debug = String(qs('debug','0')) === '1';
@@ -66,7 +63,6 @@
   }
 
   function hardenInitialOverlays(){
-    // กัน "เข้าแล้วเด้งสรุป" ด้วยการบังคับสถานะเริ่มต้น
     const wrap = DOC.getElementById('br-wrap');
     if(wrap){
       wrap.dataset.state = 'menu';
@@ -88,16 +84,13 @@
   }
 
   function applyViewToDOM(view){
-    // สำคัญ: ให้ CSS (cVR strict) และ vr-ui.js เห็น view เดียวกัน
     try{ DOC.documentElement.dataset.view = view; }catch(_){}
     try{ DOC.body.setAttribute('data-view', view); }catch(_){}
     const wrap = DOC.getElementById('br-wrap');
     if(wrap) wrap.dataset.view = view;
   }
 
-  // --- Tap-to-start (mobile unlock) ---
   function needTapStart(view){
-    // บนมือถือ/คาร์ดบอร์ดควร unlock interaction ก่อน
     return (view === 'mobile' || view === 'cvr');
   }
 
@@ -111,7 +104,6 @@
       return;
     }
 
-    // show overlay
     if(tap){
       tap.style.display = 'grid';
       tap.style.pointerEvents = 'auto';
@@ -127,27 +119,21 @@
     }
     if(tap){
       tap.addEventListener('click', (e)=>{
-        // allow tap outside card
         if(e.target === tap){ e.preventDefault(); go(); }
       }, {passive:false});
     }
   }
 
-  // --- Boot engine ---
   function bootEngine(ctx){
     hardenInitialOverlays();
     applyViewToDOM(ctx.view);
 
-    // optional: prevent page scroll via JS too (extra safety)
     try{
       DOC.body.style.overflow = 'hidden';
       DOC.documentElement.style.overflow = 'hidden';
     }catch(_){}
 
-    // start engine
     if(!WIN.HHA_BRUSH || typeof WIN.HHA_BRUSH.boot !== 'function'){
-      // allow direct IIFE safe.js (it runs immediately) OR namespaced boot (optional)
-      // If safe.js is IIFE, then this will be fine; just no-op.
       if(ctx.debug) console.warn('[BrushVR] HHA_BRUSH.boot() not found (safe.js may be IIFE)');
       return;
     }
@@ -157,13 +143,8 @@
 
   function main(){
     const ctx = buildCtx();
-
-    // also expose for debugging
     WIN.HHA_BRUSH_CTX = ctx;
-
-    // If url had view missing, we do NOT rewrite URL; only apply to DOM.
     applyViewToDOM(ctx.view);
-
     setupTapStartThen(()=> bootEngine(ctx), ctx.view);
   }
 
