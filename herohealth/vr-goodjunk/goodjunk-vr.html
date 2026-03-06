@@ -1,12 +1,6 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
 GoodJunkVR — RUN PAGE (PC/Mobile/cVR) — PRODUCTION
-PATCH v20260306-RUN-BATTLE-READY-UI
-✅ Battle lobby HUD
-✅ Countdown / players / opponent / score compare
-✅ Battle result / rematch
-Requires:
-- /herohealth/vr/vr-ui.js
-- /herohealth/vr-goodjunk/goodjunk.safe.js
+PATCH v20260306-RUN-BATTLE-READY-UI-RELOAD-REMATCH-NOTICE
 -->
 <!doctype html>
 <html lang="th">
@@ -34,8 +28,12 @@ Requires:
     }
 
     #gj-layer{
-      position:fixed; inset:0; overflow:hidden;
-      touch-action:manipulation; -webkit-tap-highlight-color:transparent; user-select:none;
+      position:fixed;
+      inset:0;
+      overflow:hidden;
+      touch-action:manipulation;
+      -webkit-tap-highlight-color:transparent;
+      user-select:none;
     }
 
     .hud{
@@ -44,12 +42,17 @@ Requires:
       left:calc(10px + var(--sal));
       right:calc(10px + var(--sar));
       z-index:200;
-      display:flex; gap:10px; flex-wrap:wrap; align-items:center;
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
       pointer-events:none;
     }
     .pill{
       pointer-events:none;
-      display:inline-flex; align-items:center; gap:8px;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
       padding:8px 10px;
       border-radius:999px;
       border:1px solid var(--stroke);
@@ -69,7 +72,10 @@ Requires:
       z-index:200;
       max-width:84vw;
       pointer-events:none;
-      display:flex; gap:8px; flex-wrap:wrap; align-items:center;
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      align-items:center;
     }
 
     .battleBar{
@@ -196,8 +202,17 @@ Requires:
     }
 
     #bossBar{
-      position:fixed; left:50%; top:calc(148px + var(--sat)); transform:translateX(-50%);
-      z-index:205; width:min(520px,86vw); pointer-events:none; display:none; flex-direction:column; gap:6px; align-items:center;
+      position:fixed;
+      left:50%;
+      top:calc(148px + var(--sat));
+      transform:translateX(-50%);
+      z-index:205;
+      width:min(520px,86vw);
+      pointer-events:none;
+      display:none;
+      flex-direction:column;
+      gap:6px;
+      align-items:center;
     }
     #bossHint{font-weight:1000; font-size:12px; color:var(--muted); text-shadow:0 10px 30px rgba(0,0,0,.55);}
     #bossFill{
@@ -210,11 +225,21 @@ Requires:
     }
 
     .mission{
-      position:fixed; left:50%; top:calc(188px + var(--sat)); transform:translateX(-50%);
-      z-index:210; pointer-events:none; width:min(560px,92vw);
-      border-radius:18px; border:1px solid rgba(148,163,184,.16);
-      background:rgba(2,6,23,.50); backdrop-filter:blur(10px);
-      padding:10px 12px; display:flex; flex-direction:column; gap:8px;
+      position:fixed;
+      left:50%;
+      top:calc(188px + var(--sat));
+      transform:translateX(-50%);
+      z-index:210;
+      pointer-events:none;
+      width:min(560px,92vw);
+      border-radius:18px;
+      border:1px solid rgba(148,163,184,.16);
+      background:rgba(2,6,23,.50);
+      backdrop-filter:blur(10px);
+      padding:10px 12px;
+      display:flex;
+      flex-direction:column;
+      gap:8px;
       box-shadow:0 18px 55px rgba(0,0,0,.40);
     }
     .missionRow{display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap;}
@@ -222,8 +247,12 @@ Requires:
     .missionHint{font-size:12px; font-weight:900; color:var(--muted);}
     .missionGoal{font-size:12px; font-weight:1000;}
     #missionFill{
-      height:10px; border-radius:999px; border:1px solid rgba(255,255,255,.14);
-      background:rgba(0,0,0,.35); overflow:hidden; position:relative;
+      height:10px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.14);
+      background:rgba(0,0,0,.35);
+      overflow:hidden;
+      position:relative;
     }
     #missionFill::before{
       content:""; position:absolute; inset:0; width:var(--p,0%);
@@ -255,16 +284,23 @@ Requires:
     }
 
     #endOverlay{
-      position:fixed; inset:0; display:none; z-index:400;
-      background:rgba(0,0,0,.55); backdrop-filter:blur(8px);
-      align-items:center; justify-content:center;
+      position:fixed;
+      inset:0;
+      display:none;
+      z-index:400;
+      background:rgba(0,0,0,.55);
+      backdrop-filter:blur(8px);
+      align-items:center;
+      justify-content:center;
       padding:calc(8px + var(--sat)) calc(8px + var(--sar)) calc(92px + var(--sab)) calc(8px + var(--sal));
-      overflow:auto; -webkit-overflow-scrolling:touch;
+      overflow:auto;
+      -webkit-overflow-scrolling:touch;
     }
     #endOverlay .panel{
       width:min(640px,94vw);
       max-height:calc(100dvh - 104px - var(--sat) - var(--sab));
-      overflow:auto; -webkit-overflow-scrolling:touch;
+      overflow:auto;
+      -webkit-overflow-scrolling:touch;
       border-radius:22px;
       border:1px solid rgba(148,163,184,.18);
       background:
@@ -575,6 +611,26 @@ Requires:
     .rewardGlowB{ box-shadow: 0 0 0 rgba(0,0,0,0), 0 0 28px rgba(34,197,94,.14), 0 14px 40px rgba(0,0,0,.24); }
     .rewardGlowC{ box-shadow: 0 0 0 rgba(0,0,0,0), 0 0 22px rgba(148,163,184,.12), 0 14px 40px rgba(0,0,0,.24); }
 
+    #battleToast{
+      position:fixed;
+      left:50%;
+      bottom:calc(14px + env(safe-area-inset-bottom, 0px));
+      transform:translateX(-50%) translateY(8px);
+      z-index:500;
+      display:none;
+      max-width:min(92vw, 720px);
+      border-radius:16px;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(2,6,23,.78);
+      color:rgba(229,231,235,.96);
+      padding:10px 12px;
+      font-weight:1000;
+      box-shadow:0 18px 55px rgba(0,0,0,.38);
+      backdrop-filter:blur(10px);
+      opacity:0;
+      transition: opacity .18s ease, transform .18s ease;
+    }
+
     #dbg{
       position:fixed; left:10px; bottom:calc(10px + var(--sab));
       z-index:9999; max-width:92vw;
@@ -608,9 +664,6 @@ Requires:
       .rewardTitle{ font-size:16px; }
       #stageBanner{ font-size:18px; }
       #milestoneBanner{ font-size:15px; }
-    }
-    @media (max-width: 380px){
-      .heroResultLine{display:none;}
     }
   </style>
 </head>
@@ -779,6 +832,7 @@ Requires:
     </div>
   </div>
 
+  <div id="battleToast" aria-label="battle toast"></div>
   <div id="dbg"></div>
 
   <script src="../vr/vr-ui.js"></script>
@@ -809,44 +863,181 @@ Requires:
     let __battle = null;
     let __lastBattlePlayers = [];
     let __lastBattleState = null;
+    let __roundBootId = '';
+    let __resumeNotified = false;
+    let __battleUiLocked = false;
+    let __lastPhaseSound = '';
 
-    btnReplay && (btnReplay.onclick = ()=>{
-      const u = new URL(location.href);
-      u.searchParams.set('seed', String(Date.now()));
-      location.href = u.toString();
-    });
+    function resetBattleUiForNewRound(){
+      __battleUiLocked = false;
+      window.__HHA_LAST_END_DETAIL__ = null;
 
-    btnBackHub && (btnBackHub.onclick = async ()=>{
-      try{ await __battle?.leave?.(); }catch(_){}
-      const hub = qs('hub','../hub.html');
-      location.href = hub;
-    });
+      const endOverlay = document.getElementById('endOverlay');
+      const battleCountdown = document.getElementById('battleCountdown');
+      const battleLead = document.getElementById('battleLead');
+      const battlePhase = document.getElementById('battlePhase');
+      const lobbyPhase = document.getElementById('lobbyPhase');
+      const battleLobbyMsgText = document.getElementById('battleLobbyMsgText');
 
-    btnRematch && (btnRematch.onclick = async ()=>{
-      try{
-        btnRematch.disabled = true;
-        btnRematch.textContent = '⏳ ขอ rematch...';
-        await __battle?.requestRematch?.();
-      }catch(_){}
-      setTimeout(()=>{
+      if(endOverlay) endOverlay.style.display = 'none';
+      if(battleCountdown) battleCountdown.textContent = '—';
+      if(battleLead) battleLead.textContent = 'tie';
+      if(battlePhase) battlePhase.textContent = 'lobby';
+      if(lobbyPhase) lobbyPhase.textContent = 'lobby';
+      if(battleLobbyMsgText) battleLobbyMsgText.textContent = 'รอผู้เล่นอีกคนเข้าห้อง';
+
+      if(btnRematch){
+        btnRematch.style.display = 'none';
         btnRematch.disabled = false;
         btnRematch.textContent = '⚔ Rematch';
-      }, 1800);
-    });
+      }
+      if(btnReady){
+        btnReady.style.display = '';
+        btnReady.disabled = false;
+        btnReady.textContent = '✅ Ready';
+      }
+    }
 
-    btnReady && (btnReady.onclick = async ()=>{
+    function showResumeHint(text){
+      const t = document.getElementById('battleLobbyMsgText');
+      if(t) t.textContent = text || '';
+    }
+
+    function statePhaseLabel(phase){
+      phase = String(phase || '').toLowerCase();
+      if(phase === 'lobby') return 'lobby';
+      if(phase === 'countdown') return 'countdown';
+      if(phase === 'running') return 'running';
+      if(phase === 'ended') return 'ended';
+      return phase || 'lobby';
+    }
+
+    function playUiTone(kind){
       try{
-        await __battle?.setReady?.(true);
-        btnReady.disabled = true;
-        btnReady.textContent = '✅ Ready แล้ว';
-      }catch(_){}
-    });
+        const Ctx = window.AudioContext || window.webkitAudioContext;
+        if(!Ctx) return;
+        const ctx = new Ctx();
 
-    btnLeaveBattle && (btnLeaveBattle.onclick = async ()=>{
-      try{ await __battle?.leave?.(); }catch(_){}
-      const hub = qs('hub','../hub.html');
-      location.href = hub;
-    });
+        const seq =
+          kind === 'lobby'      ? [392] :
+          kind === 'countdown'  ? [523.25] :
+          kind === 'go'         ? [523.25, 659.25, 783.99] :
+          kind === 'win'        ? [659.25, 783.99, 987.77] :
+          kind === 'lose'       ? [392, 349.23] :
+          kind === 'disconnect' ? [440, 330] :
+          kind === 'notice'     ? [523.25, 523.25] :
+                                  [440];
+
+        let t = ctx.currentTime;
+        seq.forEach((freq, i)=>{
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = (kind === 'lose' || kind === 'disconnect') ? 'square' : 'triangle';
+          osc.frequency.value = freq;
+          gain.gain.setValueAtTime(0.0001, t);
+          gain.gain.exponentialRampToValueAtTime(0.05, t + 0.02);
+          gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.16);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(t);
+          osc.stop(t + 0.18);
+          t += (i === seq.length-1 ? 0 : 0.10);
+        });
+      }catch(_){}
+    }
+
+    let __toastTimer = null;
+    function showBattleToast(message, type='info'){
+      const el = document.getElementById('battleToast');
+      if(!el) return;
+
+      el.textContent = message || '';
+      el.style.display = 'block';
+      el.style.opacity = '1';
+      el.style.transform = 'translateX(-50%) translateY(0)';
+
+      if(type === 'error'){
+        el.style.borderColor = 'rgba(239,68,68,.28)';
+        el.style.background = 'rgba(127,29,29,.72)';
+      }else if(type === 'warn'){
+        el.style.borderColor = 'rgba(245,158,11,.28)';
+        el.style.background = 'rgba(120,53,15,.76)';
+      }else{
+        el.style.borderColor = 'rgba(59,130,246,.28)';
+        el.style.background = 'rgba(2,6,23,.82)';
+      }
+
+      clearTimeout(__toastTimer);
+      __toastTimer = setTimeout(()=>{
+        el.style.opacity = '0';
+        el.style.transform = 'translateX(-50%) translateY(8px)';
+        setTimeout(()=>{ el.style.display = 'none'; }, 220);
+      }, 2200);
+    }
+
+    function battleRuleText(rule){
+      rule = String(rule || '').toLowerCase();
+      if(rule === 'score') return 'ตัดสินจากคะแนนรวม';
+      if(rule === 'acc') return 'แต้มเท่ากัน จึงตัดสินจากความแม่นยำ';
+      if(rule === 'miss') return 'แต้มและความแม่นเท่ากัน จึงตัดสินจาก miss น้อยกว่า';
+      if(rule === 'medianrt' || rule === 'median_rt' || rule === 'medianrttie' || rule === 'medianrtgoodms') return 'ทุกอย่างใกล้กัน จึงตัดสินจากเวลาเฉลี่ยตอบสนอง';
+      if(rule === 'forfeit') return 'ชนะเพราะอีกฝ่ายหลุด/ออกจากห้อง';
+      if(rule === 'tie') return 'ผลเสมอ';
+      return `ตัดสินตามกติกา battle (${rule || 'unknown'})`;
+    }
+
+    function applyBattleEndedToOverlay(detail, battleEnded){
+      if(!battleEnded) return;
+
+      const meKey = __battle?.meKey || '';
+      const winner = String(battleEnded.winner || '');
+      const rule = String(battleEnded.reason || '');
+      const ruleText = battleRuleText(rule);
+
+      const endTitle = document.getElementById('endTitle');
+      const endSub = document.getElementById('endSub');
+      const endState = document.getElementById('endState');
+      const heroMoodText = document.getElementById('heroMoodText');
+
+      const youWin = !!winner && winner === meKey;
+      const tie = !winner;
+
+      if(tie){
+        if(endTitle) endTitle.textContent = 'เสมอ Battle';
+        if(endState) endState.textContent = 'TIE';
+        if(heroMoodText) heroMoodText.textContent = 'สูสีมาก! ลองรีแมตช์ได้เลย';
+        if(endSub){
+          endSub.textContent =
+            `ผลเสมอ • ${ruleText} • score ${detail.scoreFinal ?? detail.score ?? 0} • acc ${detail.accPct ?? 0}% • miss ${detail.missTotal ?? detail.miss ?? 0}`;
+        }
+        playUiTone('notice');
+        return;
+      }
+
+      if(youWin){
+        if(endTitle) endTitle.textContent = 'ชนะ Battle! ⚔️';
+        if(endState) endState.textContent = 'WIN';
+        if(heroMoodText) heroMoodText.textContent = (rule === 'forfeit')
+          ? 'คู่แข่งหลุดออกจากเกม'
+          : 'เก่งมาก! คุณชนะการแข่งรอบนี้';
+        if(endSub){
+          endSub.textContent =
+            `คุณชนะ • ${ruleText} • score ${detail.scoreFinal ?? detail.score ?? 0} • acc ${detail.accPct ?? 0}% • miss ${detail.missTotal ?? detail.miss ?? 0}`;
+        }
+        playUiTone('win');
+      }else{
+        if(endTitle) endTitle.textContent = 'แพ้ Battle';
+        if(endState) endState.textContent = 'LOSE';
+        if(heroMoodText) heroMoodText.textContent = (rule === 'forfeit')
+          ? 'จบรอบเพราะสถานะห้องเปลี่ยน'
+          : 'ไม่เป็นไร ลองรีแมตช์ได้ทันที';
+        if(endSub){
+          endSub.textContent =
+            `คุณแพ้ • ${ruleText} • score ${detail.scoreFinal ?? detail.score ?? 0} • acc ${detail.accPct ?? 0}% • miss ${detail.missTotal ?? detail.miss ?? 0}`;
+        }
+        playUiTone('lose');
+      }
+    }
 
     function getGradeMood(grade){
       grade = String(grade || '').toUpperCase();
@@ -862,7 +1053,7 @@ Requires:
       const miss = Number(detail?.missTotal ?? detail?.miss ?? 0) || 0;
       const acc  = Number(detail?.accPct ?? 0) || 0;
       const grade = String(detail?.grade || '').toUpperCase();
-      const win = String(detail?.reason || '') === 'win';
+      const win = String(detail?.reason || '') === 'win' || String(detail?.reason || '').startsWith('battle-win');
 
       let xp = 8;
       xp += Math.min(12, Math.floor(score / 120));
@@ -1044,7 +1235,7 @@ Requires:
       const reason = String(detail?.reason || '');
       const pid = String(detail?.pid || qs('pid','anon')).trim() || 'anon';
       const nick = String(detail?.nick || qs('nick', pid)).trim() || pid;
-      const win = reason === 'win';
+      const win = reason === 'win' || reason.startsWith('battle-win');
 
       const mood = getGradeMood(grade);
       const heroAvatar = document.getElementById('heroAvatar');
@@ -1134,10 +1325,171 @@ Requires:
       if(el) el.textContent = text || '';
     }
 
+    function setSpectatorModeUI(message){
+      showBattleLobby(true);
+      __battleUiLocked = true;
+
+      const btnReady = document.getElementById('btnReady');
+      const btnRematch = document.getElementById('btnRematch');
+      const endOverlay = document.getElementById('endOverlay');
+
+      if(btnReady){
+        btnReady.style.display = 'none';
+        btnReady.disabled = true;
+      }
+      if(btnRematch){
+        btnRematch.style.display = 'none';
+      }
+      if(endOverlay){
+        endOverlay.style.display = 'none';
+      }
+
+      showResumeHint(message || 'กำลังดูการแข่งขันในโหมด spectator');
+    }
+
+    function saveBattleSessionSnapshot(detail){
+      try{
+        const room = String(detail?.room || qs('room','') || 'NOROOM');
+        const pid = String(detail?.pid || qs('pid','anon') || 'anon');
+        const key = `HHA_GJ_SESSION_LAST:${room}:${pid}`;
+        localStorage.setItem(key, JSON.stringify({
+          room,
+          pid,
+          nick: detail?.nick || qs('nick', pid) || pid,
+          score: detail?.scoreFinal ?? detail?.score ?? 0,
+          accPct: detail?.accPct ?? 0,
+          miss: detail?.missTotal ?? detail?.miss ?? 0,
+          grade: detail?.grade || '-',
+          reason: detail?.reason || '-',
+          ts: Date.now()
+        }));
+      }catch(_){}
+    }
+
+    function saveTeacherRoomRoundSnapshot(detail){
+      try{
+        const room = String(detail?.room || qs('room','') || '').trim().toUpperCase();
+        if(!room) return;
+
+        const key = `HHA_GJ_TEACHER_REPORT:${room}`;
+        const raw = localStorage.getItem(key) || '[]';
+        const arr = JSON.parse(raw);
+        const row = {
+          iso: new Date().toISOString(),
+          room,
+          roundId: String(detail?.battleRoundId || detail?.roundId || ''),
+          phase: 'ended',
+          winnerLabel: String(detail?.battleWinnerKey || ''),
+          rule: String(detail?.battleReason || detail?.reason || ''),
+          p1Name: String(detail?.nick || detail?.pid || 'player'),
+          p1Score: String(detail?.scoreFinal ?? detail?.score ?? 0),
+          p1Acc: String(detail?.accPct ?? 0),
+          p1Miss: String(detail?.missTotal ?? detail?.miss ?? 0),
+          p1Rt: String(detail?.medianRtGoodMs ?? 0),
+          p1Status: 'local',
+          p2Name: '',
+          p2Score: '',
+          p2Acc: '',
+          p2Miss: '',
+          p2Rt: '',
+          p2Status: ''
+        };
+        arr.push(row);
+        localStorage.setItem(key, JSON.stringify(arr));
+      }catch(_){}
+    }
+
+    btnReplay && (btnReplay.onclick = async ()=>{
+      if(battleMode && __battle?.requestRematch){
+        try{
+          btnReplay.disabled = true;
+          btnReplay.textContent = '⏳ ขอรอบใหม่...';
+          await __battle.requestRematch();
+          return;
+        }catch(_){}
+        finally{
+          setTimeout(()=>{
+            btnReplay.disabled = false;
+            btnReplay.textContent = '🔁 เล่นอีกครั้ง';
+          }, 1800);
+        }
+      }
+
+      const u = new URL(location.href);
+      u.searchParams.set('seed', String(Date.now()));
+      location.href = u.toString();
+    });
+
+    btnBackHub && (btnBackHub.onclick = async ()=>{
+      try{ await __battle?.leave?.(); }catch(_){}
+      const hub = qs('hub','../hub.html');
+      location.href = hub;
+    });
+
+    btnRematch && (btnRematch.onclick = async ()=>{
+      try{
+        btnRematch.disabled = true;
+        btnRematch.textContent = '⏳ ขอ rematch...';
+        showBattleLobby(true);
+        showResumeHint('กำลังขอรอบใหม่...');
+        await __battle?.requestRematch?.();
+      }catch(_){}
+      setTimeout(()=>{
+        btnRematch.disabled = false;
+        btnRematch.textContent = '⚔ Rematch';
+      }, 1800);
+    });
+
+    btnReady && (btnReady.onclick = async ()=>{
+      try{
+        if(__battle?.isSpectator?.()) return;
+        await __battle?.setReady?.(true);
+        btnReady.disabled = true;
+        btnReady.textContent = '✅ Ready แล้ว';
+      }catch(_){}
+    });
+
+    btnLeaveBattle && (btnLeaveBattle.onclick = async ()=>{
+      try{ await __battle?.leave?.(); }catch(_){}
+      const hub = qs('hub','../hub.html');
+      location.href = hub;
+    });
+
+    window.addEventListener('hha:battle-notice', (ev)=>{
+      const d = ev.detail || {};
+      const type = String(d.type || 'info');
+      const message = String(d.message || '');
+      if(!message) return;
+      showBattleToast(message, type);
+      if(type === 'error' || type === 'warn') playUiTone('disconnect');
+      else playUiTone('notice');
+    });
+
     window.addEventListener('hha:battle-room', (ev)=>{
       const d = ev.detail || {};
       document.getElementById('battleRoom').textContent = d.room || roomCode || '—';
       document.getElementById('lobbyRoom').textContent = d.room || roomCode || '—';
+
+      if(d.roundId && d.roundId !== __roundBootId){
+        __roundBootId = d.roundId;
+      }
+
+      const role = String(d.role || 'player').toLowerCase();
+      const isSpectator = role === 'spectator';
+
+      if(isSpectator){
+        if(d.roomFull && d.lateJoin){
+          setSpectatorModeUI('ห้องนี้เริ่มแข่งแล้ว • คุณเข้าช้า จึงเข้าดูแบบ spectator');
+        }else if(d.roomFull){
+          setSpectatorModeUI('ห้องนี้มีผู้เล่นครบแล้ว • คุณเข้าดูแบบ spectator');
+        }else{
+          setSpectatorModeUI('spectator mode');
+        }
+      }else{
+        if(d.resume){
+          showResumeHint('กลับเข้าสู่ห้องเดิมแล้ว • resume player');
+        }
+      }
     });
 
     window.addEventListener('hha:battle-players', (ev)=>{
@@ -1145,6 +1497,28 @@ Requires:
       __lastBattlePlayers = Array.isArray(d.players) ? d.players : [];
       updateBattleLobbyPlayers(__lastBattlePlayers);
       updateBattleScore(__lastBattlePlayers);
+
+      const meKey = __battle?.meKey || '';
+      const opp = __lastBattlePlayers.find(p => p.key !== meKey) || null;
+
+      if(opp){
+        const oppName = opp.nick || opp.pid || 'opponent';
+        const oppConnected = opp.connected !== false;
+        const battleOpp = document.getElementById('battleOpp');
+        const lobbyOpp = document.getElementById('lobbyOpp');
+        const battleLead = document.getElementById('battleLead');
+
+        if(!oppConnected){
+          if(battleOpp) battleOpp.textContent = `${oppName} (offline)`;
+          if(lobbyOpp) lobbyOpp.textContent = `${oppName} หลุดการเชื่อมต่อ`;
+          setLobbyMsg('คู่แข่งหลุดการเชื่อมต่อ — รอระบบตัดสินหรือกลับเข้ามา');
+          if(battleLead) battleLead.textContent = 'opp offline';
+        }else{
+          if(battleOpp) battleOpp.textContent = `${oppName}${typeof opp.score === 'number' ? ` (${opp.score})` : ''}`;
+          if(lobbyOpp) lobbyOpp.textContent = `${oppName} ${opp.ready ? '✅' : '…'}`;
+          if(battleLead && battleLead.textContent === 'opp offline') battleLead.textContent = 'tie';
+        }
+      }
     });
 
     window.addEventListener('hha:battle-score', (ev)=>{
@@ -1160,58 +1534,141 @@ Requires:
       const d = ev.detail || {};
       const leftSec = Math.max(0, Math.ceil((Number(d.leftMs||0))/1000));
       document.getElementById('battleCountdown').textContent = String(leftSec);
-      setLobbyMsg(`เริ่มในอีก ${leftSec} วินาที`);
+      if(leftSec > 0){
+        setLobbyMsg(`เริ่มในอีก ${leftSec} วินาที`);
+      }else{
+        setLobbyMsg('เริ่มแล้ว!');
+      }
     });
 
     window.addEventListener('hha:battle-state', (ev)=>{
       const d = ev.detail || {};
       __lastBattleState = d;
-      const phase = String(d.phase || 'lobby');
-      document.getElementById('battlePhase').textContent = phase;
-      document.getElementById('lobbyPhase').textContent = phase;
+
+      const phase = String(d.phase || 'lobby').toLowerCase();
+      const isSpectator = !!(__battle?.isSpectator?.());
+      const roundId = String(d.roundId || '');
+      const phaseText = statePhaseLabel(phase);
+
+      if(__lastPhaseSound !== phase){
+        if(phase === 'lobby') playUiTone('lobby');
+        else if(phase === 'countdown') playUiTone('countdown');
+        __lastPhaseSound = phase;
+      }
+
+      document.getElementById('battlePhase').textContent = phaseText;
+      document.getElementById('lobbyPhase').textContent = phaseText;
+
+      if(isSpectator){
+        const msg =
+          phase === 'running' ? 'spectator mode • กำลังดูการแข่งขันอยู่' :
+          phase === 'countdown' ? 'spectator mode • รอบกำลังจะเริ่ม' :
+          phase === 'ended' ? 'spectator mode • รอบนี้จบแล้ว' :
+          'spectator mode';
+        setSpectatorModeUI(msg);
+        return;
+      }
+
+      if(roundId && __roundBootId && roundId !== __roundBootId){
+        __roundBootId = roundId;
+        __resumeNotified = false;
+        resetBattleUiForNewRound();
+        showBattleLobby(true);
+        showResumeHint('เริ่มรอบใหม่แล้ว • กด ready เพื่อเล่นต่อ');
+      }else if(roundId && !__roundBootId){
+        __roundBootId = roundId;
+      }
 
       if(phase === 'lobby'){
         showBattleLobby(true);
-        setLobbyMsg('รอผู้เล่นอีกคนและกด ready');
-        btnReady.style.display = '';
-        btnReady.disabled = false;
-        btnReady.textContent = '✅ Ready';
+        showResumeHint('รอผู้เล่นอีกคนและกด ready');
+        if(btnReady){
+          btnReady.style.display = '';
+          btnReady.disabled = false;
+          btnReady.textContent = '✅ Ready';
+        }
+        __battleUiLocked = false;
       }else if(phase === 'countdown'){
         showBattleLobby(true);
-        btnReady.disabled = true;
+        if(btnReady){
+          btnReady.disabled = true;
+          btnReady.textContent = '✅ Ready แล้ว';
+        }
+        showResumeHint('นับถอยหลังเพื่อเริ่มพร้อมกัน');
       }else if(phase === 'running'){
+        if(!__resumeNotified){
+          __resumeNotified = true;
+          showResumeHint('กลับเข้าสู่รอบที่กำลังเล่นอยู่');
+        }
         showBattleLobby(false);
+        __battleUiLocked = false;
       }else if(phase === 'ended'){
         showBattleLobby(false);
+        __battleUiLocked = true;
+        if(btnRematch){
+          btnRematch.style.display = '';
+          btnRematch.disabled = false;
+          btnRematch.textContent = '⚔ Rematch';
+        }
       }
     });
 
     window.addEventListener('hha:battle-start', ()=>{
       showBattleLobby(false);
       document.getElementById('battleCountdown').textContent = 'GO';
+      document.getElementById('battleLead').textContent = 'tie';
+      __battleUiLocked = false;
+      playUiTone('go');
+      showBattleToast('เริ่มแข่งแล้ว! GO!', 'info');
     });
 
     window.addEventListener('hha:battle-ended', (ev)=>{
       const d = ev.detail || {};
-      if(btnRematch) btnRematch.style.display = '';
-      if(d.reason){
-        const meKey = __battle?.meKey || '';
-        const winner = d.winner || '';
-        const iWin = winner && winner === meKey;
-        const title = iWin ? 'ชนะ Battle! ⚔️' : (winner ? 'แพ้ Battle' : 'จบ Battle');
-        const sub = `winner=${winner || 'tie'} • rule=${d.reason || '-'}`;
-        const endTitle = document.getElementById('endTitle');
-        const endSub = document.getElementById('endSub');
-        if(endTitle) endTitle.textContent = title;
-        if(endSub) endSub.textContent = sub;
+      const isSpectator = !!(__battle?.isSpectator?.());
+      if(isSpectator){
+        showBattleLobby(true);
+        showResumeHint('spectator mode • รอบนี้จบแล้ว');
+        return;
+      }
+
+      __lastBattleState = { ...(__lastBattleState || {}), ...d, phase:'ended' };
+      __battleUiLocked = true;
+
+      if(btnRematch){
+        btnRematch.style.display = '';
+        btnRematch.disabled = false;
+        btnRematch.textContent = '⚔ Rematch';
+      }
+      if(btnReplay){
+        btnReplay.disabled = false;
+        btnReplay.textContent = '🔁 เล่นอีกครั้ง';
+      }
+
+      const currentSummary = window.__HHA_LAST_END_DETAIL__ || null;
+      if(currentSummary){
+        applyBattleEndedToOverlay(currentSummary, d);
+      }
+
+      if(d.reason === 'forfeit'){
+        setLobbyMsg('อีกฝ่ายหลุด/ออกจากห้อง ระบบตัดสินผลแล้ว');
+      }else{
+        setLobbyMsg('จบรอบแล้ว • กด rematch เพื่อเริ่มรอบใหม่');
       }
     });
 
     window.addEventListener('hha:end', (ev)=>{
       try{
         const detail = ev?.detail || {};
+        window.__HHA_LAST_END_DETAIL__ = detail;
+        saveBattleSessionSnapshot(detail);
+        saveTeacherRoomRoundSnapshot(detail);
+
         enhanceEndSummary(detail);
         renderRewardCard(detail);
+
+        if(battleMode && __lastBattleState && String(__lastBattleState.phase || '').toLowerCase() === 'ended'){
+          applyBattleEndedToOverlay(detail, __lastBattleState);
+        }
       }catch(err){
         console.warn('end-summary enhance failed', err);
       }
@@ -1255,6 +1712,7 @@ Requires:
     }catch(err){
       logDbg('❌ boot failed: ' + (err?.message || err));
       console.error(err);
+      showBattleToast('GoodJunk โหลดไม่สำเร็จ', 'error');
       alert('GoodJunk โหลดไม่สำเร็จ (ดู console/debug=1)');
     }
   </script>
