@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <meta name="color-scheme" content="dark light"/>
+  <meta name="google" content="notranslate"/>
+  <title>HeroHealth • Hydration VR</title>
+
+  <link rel="stylesheet" href="./hydration-vr.css"/>
+  <script type="module" src="../vr/hha-shield.js"></script>
+  <script type="module" src="../vr/vr-ui.js"></script>
+
+  <style>
+    #dbg{
+      position:fixed; inset:0; z-index:9999;
+      display:none; padding:12px;
+      background:rgba(0,0,0,.85); color:#e5e7eb;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      overflow:auto;
+    }
+    #dbg pre{ white-space:pre-wrap; word-break:break-word; }
+    #dbg .title{ font-weight:1000; margin-bottom:8px; }
+    #dbg .hint{ opacity:.85; margin:8px 0; }
+    #dbg .btn{
+      display:inline-block; margin-top:10px; padding:10px 12px;
+      border-radius:12px; border:1px solid rgba(255,255,255,.15);
+      background:rgba(255,255,255,.08); color:#e5e7eb; font-weight:900;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="dbg">
+    <div class="title">HYDRATION DEBUG (fix)</div>
+    <div class="hint">ถ้ามี error จะขึ้นที่นี่</div>
+    <pre id="dbgText">—</pre>
+    <button class="btn" onclick="location.reload()">Reload</button>
+  </div>
+
+  <div class="hud">
+    <div class="card">
+      <div class="stat">
+        <span class="k">SCORE</span> <span id="uiScore" class="v">0</span>
+        <span class="k">TIME</span> <span id="uiTime" class="v">0</span>
+        <span class="k">MISS</span> <span id="uiMiss" class="v">0</span>
+        <span class="k">EXPIRE</span> <span id="uiExpire" class="v">0</span>
+        <span class="k">BLOCK</span> <span id="uiBlock" class="v">0</span>
+        <span class="k">GRADE</span> <span id="uiGrade" class="v">—</span>
+      </div>
+
+      <div class="chips">
+        <span class="chip">💧 WATER <span id="uiWater">0%</span></span>
+        <span class="chip">🔥 COMBO <span id="uiCombo">0</span></span>
+        <span class="chip">🛡️ SHIELD <span id="uiShield">0</span></span>
+        <span class="chip"><span id="uiPhase">—</span></span>
+        <span class="chip"><button id="btnSfx" type="button" style="all:unset;cursor:pointer;font-weight:1000;">🔊 SFX</button></span>
+      </div>
+
+      <div class="chips">
+        <span class="chip">🤖 RISK <span id="aiRisk">—</span></span>
+        <span class="chip"><span id="aiHint">—</span></span>
+      </div>
+    </div>
+
+    <div class="card small">
+      <div style="font-weight:1000">HYDRATION</div>
+      <div class="smalltext">
+        view=<span id="uiView">—</span><br/>
+        run=<span id="uiRun">—</span><br/>
+        diff=<span id="uiDiff">—</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="stage" id="stage">
+    <div id="stormFx" aria-hidden="true"></div>
+    <div id="zoneSign" aria-hidden="true"></div>
+
+    <div id="cvrZonePad" aria-hidden="true">
+      <button id="btnZoneL" type="button">LEFT</button>
+      <button id="btnZoneR" type="button">RIGHT</button>
+    </div>
+
+    <div id="layer" aria-label="hydration layer"></div>
+  </div>
+
+  <div id="end" aria-hidden="true">
+    <div class="end-card">
+      <div class="end-title" id="endTitle">Completed</div>
+      <div class="end-sub" id="endSub">—</div>
+
+      <div class="grid">
+        <div class="item"><div class="kk">GRADE</div><div class="vv" id="endGrade">—</div></div>
+        <div class="item"><div class="kk">SCORE</div><div class="vv" id="endScore">0</div></div>
+        <div class="item"><div class="kk">MISS</div><div class="vv" id="endMiss">0</div></div>
+        <div class="item"><div class="kk">WATER</div><div class="vv" id="endWater">0%</div></div>
+      </div>
+
+      <div class="actions">
+        <button class="btn" id="btnCopy">Copy Summary</button>
+        <button class="btn danger" id="btnReplay">Replay</button>
+        <button class="btn primary is-hidden" id="btnNextCooldown">ถัดไป: Cooldown</button>
+        <button class="btn primary" id="btnBackHub">Back HUB</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function(){
+      const dbg = document.getElementById('dbg');
+      const out = document.getElementById('dbgText');
+      function show(msg){
+        dbg.style.display = 'block';
+        out.textContent = String(msg||'');
+      }
+      window.addEventListener('error', (e)=>{
+        show(`[window.error]\n${e.message}\n${e.filename}:${e.lineno}:${e.colno}`);
+      });
+      window.addEventListener('unhandledrejection', (e)=>{
+        show(`[unhandledrejection]\n${(e.reason && (e.reason.stack||e.reason.message)) || e.reason}`);
+      });
+      window.__HYD_SHOW_DEBUG__ = show;
+    })();
+  </script>
+
+  <script type="module">
+    try{
+      window.HHA_Shield?.install({
+        lockScroll: true,
+        quietApollo403: true,
+        quietNetworkNoise: true,
+        showBanner: true
+      });
+    }catch(e){}
+
+    const showDbg = (msg)=> window.__HYD_SHOW_DEBUG__?.(msg);
+
+    try{
+      const U = new URL(location.href);
+      const runMode = String(U.searchParams.get('run') || 'play').toLowerCase();
+      const diff = String(U.searchParams.get('diff') || 'normal').toLowerCase();
+      const view = String(U.searchParams.get('view') || 'mobile').toLowerCase();
+      const seed = U.searchParams.get('seed') ?? String((Date.now() ^ (Math.random()*1e9))|0);
+
+      const s=(id,v)=>{ const el=document.getElementById(id); if(el) el.textContent=String(v); };
+      s('uiView',view); s('uiRun',runMode); s('uiDiff',diff);
+
+      if(view === 'cvr'){
+        try{ document.getElementById('layer').style.pointerEvents = 'none'; }catch(e){}
+        try{ document.getElementById('cvrZonePad').setAttribute('aria-hidden','false'); }catch(e){}
+      }
+
+      const aiMod   = await import('../vr/ai-hooks.js');
+      const gameMod = await import('./hydration.safe.js');
+
+      const createAIHooks = aiMod.createAIHooks;
+      const bootHydration = gameMod.boot;
+
+      if(typeof createAIHooks !== 'function') throw new Error('ai-hooks.js missing export createAIHooks');
+      if(typeof bootHydration !== 'function') throw new Error('hydration.safe.js missing export boot');
+
+      const ai = createAIHooks({ seed:String(seed), runMode, game:'hydration', diff, device:view });
+      window.HHA_AI = ai;
+
+      bootHydration({
+        ai,
+        view,
+        run: runMode,
+        diff,
+        seed,
+        pid: U.searchParams.get('pid') || 'anon',
+        hub: U.searchParams.get('hub') || '../hub.html',
+        time: Number(U.searchParams.get('time') || 80),
+        cooldown: (U.searchParams.get('cooldown') === '1') || (U.searchParams.get('cd') === '1')
+      });
+    }catch(e){
+      showDbg(`[BOOT ERROR]\n${e && (e.stack||e.message) || e}`);
+    }
+  </script>
+</body>
+</html>
