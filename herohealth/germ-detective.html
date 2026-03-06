@@ -1,11 +1,11 @@
 <!-- === /webxr-health-mobile/herohealth/germ-detective.html ===
 Germ Detective — ROOT LAUNCHER (PC/Mobile/cVR) — PRODUCTION
-PATCH v20260306-GD-LAUNCHER-SCENE-PRESET
-✅ Base: /webxr-health-mobile/herohealth/
-✅ Run: ./germ-detective/germ-detective.html
+PATCH v20260306-GD-LAUNCHER-SCENE-PRESET-QUICKSAVE
 ✅ Scene selector: classroom / home / canteen
 ✅ Preset: play / research
-✅ Pass-through: hub/run/diff/time/seed/pid/view/log/api/ai/battle/room/autostart/forfeit + research
+✅ Remember last settings in localStorage
+✅ Quick Start ล่าสุด
+✅ Quick scene launch buttons
 -->
 <!doctype html>
 <html lang="th">
@@ -44,7 +44,7 @@ PATCH v20260306-GD-LAUNCHER-SCENE-PRESET
     a{color:inherit;text-decoration:none}
     .wrap{
       min-height:100%;
-      max-width:1100px;
+      max-width:1160px;
       margin:0 auto;
       padding:calc(16px + var(--sat)) calc(14px + var(--sar)) calc(18px + var(--sab)) calc(14px + var(--sal));
     }
@@ -55,9 +55,7 @@ PATCH v20260306-GD-LAUNCHER-SCENE-PRESET
       padding:14px;
       box-shadow:0 18px 60px rgba(0,0,0,.35);
     }
-    header{
-      display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap
-    }
+    header{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}
     .brand{display:flex;gap:10px;align-items:center}
     .logo{
       width:44px;height:44px;border-radius:14px;
@@ -82,10 +80,10 @@ PATCH v20260306-GD-LAUNCHER-SCENE-PRESET
     .layout{
       margin-top:12px;
       display:grid;
-      grid-template-columns:380px minmax(0,1fr);
+      grid-template-columns:400px minmax(0,1fr);
       gap:12px;
     }
-    @media (max-width:960px){ .layout{grid-template-columns:1fr;} }
+    @media (max-width:980px){ .layout{grid-template-columns:1fr;} }
 
     .panel{
       border:1px solid var(--stroke);
@@ -93,30 +91,16 @@ PATCH v20260306-GD-LAUNCHER-SCENE-PRESET
       padding:12px;
       background:rgba(255,255,255,.02);
     }
-    .panel h3{
-      margin:0 0 8px 0;
-      font-size:14px;
-      font-weight:1000;
-    }
-    .small{
-      font-size:12px;color:var(--muted);font-weight:850;line-height:1.4
-    }
-
+    .panel h3{margin:0 0 8px 0;font-size:14px;font-weight:1000}
+    .small{font-size:12px;color:var(--muted);font-weight:850;line-height:1.4}
     .row{display:grid;gap:10px}
     .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
     @media (max-width:620px){ .grid2{grid-template-columns:1fr;} }
 
-    .seg{
-      display:grid;
-      grid-template-columns:repeat(3,minmax(0,1fr));
-      gap:8px;
-    }
-    .seg2{
-      display:grid;
-      grid-template-columns:repeat(2,minmax(0,1fr));
-      gap:8px;
-    }
-    .seg button,.modebtn,.launchbtn{
+    .seg{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+    .seg2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+
+    .seg button,.modebtn,.launchbtn,.quickbtn{
       appearance:none;
       border:1px solid var(--stroke);
       background:rgba(2,6,23,.35);
@@ -126,6 +110,7 @@ PATCH v20260306-GD-LAUNCHER-SCENE-PRESET
       font-weight:1000;
       cursor:pointer;
       width:100%;
+      text-align:center;
     }
     .seg button.active,.modebtn.active{
       border-color:rgba(34,211,238,.35);
@@ -151,11 +136,7 @@ PATCH v20260306-GD-LAUNCHER-SCENE-PRESET
       font-weight:900;
     }
 
-    .modes{
-      display:grid;
-      grid-template-columns:repeat(3,minmax(0,1fr));
-      gap:10px;
-    }
+    .modes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
     @media (max-width:900px){ .modes{grid-template-columns:1fr;} }
 
     .mode{
@@ -167,17 +148,12 @@ PATCH v20260306-GD-LAUNCHER-SCENE-PRESET
     .mode h4{margin:0;font-size:14px;font-weight:1000}
     .mode p{margin:6px 0 10px 0;color:rgba(229,231,235,.78);font-weight:780;font-size:12px;line-height:1.35}
 
-    .launchbtn.good{border-color:rgba(34,197,94,.35);background:rgba(34,197,94,.14)}
-    .launchbtn.cyan{border-color:rgba(34,211,238,.35);background:rgba(34,211,238,.12)}
-    .launchbtn.warn{border-color:rgba(245,158,11,.35);background:rgba(245,158,11,.12)}
+    .launchbtn.good,.quickbtn.good{border-color:rgba(34,197,94,.35);background:rgba(34,197,94,.14)}
+    .launchbtn.cyan,.quickbtn.cyan{border-color:rgba(34,211,238,.35);background:rgba(34,211,238,.12)}
+    .launchbtn.warn,.quickbtn.warn{border-color:rgba(245,158,11,.35);background:rgba(245,158,11,.12)}
+    .quickbtn.violet{border-color:rgba(167,139,250,.35);background:rgba(167,139,250,.12)}
 
-    .hint{
-      margin-top:10px;
-      color:var(--muted);
-      font-size:12px;
-      font-weight:850;
-      line-height:1.4;
-    }
+    .hint{margin-top:10px;color:var(--muted);font-size:12px;font-weight:850;line-height:1.4}
     .preview{
       border:1px dashed rgba(148,163,184,.22);
       border-radius:16px;
@@ -186,7 +162,14 @@ PATCH v20260306-GD-LAUNCHER-SCENE-PRESET
       font-size:12px;
       line-height:1.45;
       word-break:break-word;
+      white-space:pre-wrap;
     }
+
+    .quickgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+    @media (max-width:700px){ .quickgrid{grid-template-columns:1fr;} }
+
+    .scenegrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+    @media (max-width:700px){ .scenegrid{grid-template-columns:1fr;} }
   </style>
 </head>
 <body>
@@ -197,7 +180,7 @@ PATCH v20260306-GD-LAUNCHER-SCENE-PRESET
           <div class="logo">GD</div>
           <div>
             <div class="title">Germ Detective</div>
-            <div class="sub">Root Launcher — เลือก preset + scene + view ก่อนเข้าเล่น</div>
+            <div class="sub">Root Launcher — preset + scene + quick start + remember last settings</div>
           </div>
         </div>
 
@@ -213,12 +196,22 @@ PATCH v20260306-GD-LAUNCHER-SCENE-PRESET
       <div class="layout">
         <div class="panel row">
           <div>
+            <h3>Quick Start ล่าสุด</h3>
+            <div class="quickgrid">
+              <a id="quickLastPC" class="quickbtn good" href="./germ-detective/germ-detective.html">▶ ล่าสุด PC</a>
+              <a id="quickLastMobile" class="quickbtn cyan" href="./germ-detective/germ-detective.html">▶ ล่าสุด Mobile</a>
+              <a id="quickLastCVR" class="quickbtn warn" href="./germ-detective/germ-detective.html">▶ ล่าสุด cVR</a>
+            </div>
+            <div class="hint" id="lastHint">ยังไม่มีค่าล่าสุด</div>
+          </div>
+
+          <div>
             <h3>Preset</h3>
             <div class="seg2">
               <button type="button" id="presetPlay" class="modebtn active">🎮 Play</button>
               <button type="button" id="presetResearch" class="modebtn">🧪 Research</button>
             </div>
-            <div class="hint">Play = ใช้งานทั่วไป • Research = คงพารามิเตอร์วิจัยและ seed ตามที่ส่งมา</div>
+            <div class="hint">Play = ใช้งานทั่วไป • Research = รักษาค่า context วิจัยที่ส่งมา</div>
           </div>
 
           <div>
@@ -256,11 +249,20 @@ PATCH v20260306-GD-LAUNCHER-SCENE-PRESET
             </div>
           </div>
 
+          <div>
+            <h3>Scene Quick Launch</h3>
+            <div class="scenegrid">
+              <a id="quickClassPC" class="quickbtn violet" href="./germ-detective/germ-detective.html">Classroom • PC</a>
+              <a id="quickHomeMobile" class="quickbtn violet" href="./germ-detective/germ-detective.html">Home • Mobile</a>
+              <a id="quickCanteenCVR" class="quickbtn violet" href="./germ-detective/germ-detective.html">Canteen • cVR</a>
+            </div>
+          </div>
+
           <div class="preview" id="previewBox">กำลังเตรียมลิงก์…</div>
 
           <div class="hint">
             Run page จริง: <b>./germ-detective/germ-detective.html</b><br>
-            ถ้าเปิดจาก HUB ระบบจะส่ง <b>hub=</b> และ context วิจัยมาให้อัตโนมัติ
+            launcher นี้จะจำค่าล่าสุดไว้ในเครื่องเครื่องนั้นอัตโนมัติ
           </div>
         </div>
 
@@ -295,6 +297,8 @@ PATCH v20260306-GD-LAUNCHER-SCENE-PRESET
   <script>
   'use strict';
 
+  const LS_KEY = 'GD_LAUNCHER_LAST';
+
   function qs(k, d=''){
     try{ return new URL(location.href).searchParams.get(k) ?? d; }
     catch{ return d; }
@@ -313,6 +317,18 @@ PATCH v20260306-GD-LAUNCHER-SCENE-PRESET
       try{ v = decodeURIComponent(v); }catch(e){}
     }
     return v.trim();
+  }
+  function readLast(){
+    try{
+      return JSON.parse(localStorage.getItem(LS_KEY) || 'null');
+    }catch(e){
+      return null;
+    }
+  }
+  function saveLast(obj){
+    try{
+      localStorage.setItem(LS_KEY, JSON.stringify(obj));
+    }catch(e){}
   }
 
   const P = {
@@ -344,18 +360,20 @@ PATCH v20260306-GD-LAUNCHER-SCENE-PRESET
     semester: String(qs('semester',''))
   };
 
-  let currentPreset = (P.run === 'research') ? 'research' : 'play';
-  let currentScene = ['classroom','home','canteen'].includes(P.scene) ? P.scene : 'classroom';
+  const last = readLast();
+
+  let currentPreset = (P.run === 'research') ? 'research' : ((last && last.run) || 'play');
+  let currentScene  = ['classroom','home','canteen'].includes(P.scene) ? P.scene : ((last && last.scene) || 'classroom');
 
   const elPid  = document.getElementById('pid');
   const elDiff = document.getElementById('diff');
   const elTime = document.getElementById('time');
   const elSeed = document.getElementById('seed');
 
-  elPid.value = P.pid;
-  elDiff.value = P.diff;
-  elTime.value = String(P.time);
-  elSeed.value = P.seed;
+  elPid.value  = P.pid || (last && last.pid) || 'anon';
+  elDiff.value = P.diff || (last && last.diff) || 'normal';
+  elTime.value = String(P.time || (last && last.time) || 120);
+  elSeed.value = P.seed || (last && last.seed) || nowSeed();
 
   function syncChips(){
     document.getElementById('cRun').textContent = currentPreset === 'research' ? 'research' : 'play';
@@ -376,15 +394,26 @@ PATCH v20260306-GD-LAUNCHER-SCENE-PRESET
     });
   }
 
-  function buildHubFallback(){
+  function currentState(){
+    return {
+      run: currentPreset === 'research' ? 'research' : 'play',
+      pid: (elPid.value || 'anon').trim() || 'anon',
+      diff: elDiff.value || 'normal',
+      time: String(clamp(elTime.value,20,600)),
+      seed: elSeed.value || nowSeed(),
+      scene: currentScene
+    };
+  }
+
+  function buildHubFallback(state){
     const u = new URL('./hub.html', location.href);
     const sp = u.searchParams;
 
-    sp.set('run', currentPreset === 'research' ? 'research' : 'play');
-    sp.set('diff', elDiff.value || 'normal');
-    sp.set('time', String(clamp(elTime.value,20,600)));
-    sp.set('seed', elSeed.value || nowSeed());
-    sp.set('pid', (elPid.value || 'anon').trim() || 'anon');
+    sp.set('run', state.run);
+    sp.set('diff', state.diff);
+    sp.set('time', state.time);
+    sp.set('seed', state.seed);
+    sp.set('pid', state.pid);
 
     if(P.log !== '') sp.set('log', P.log);
     if(P.api) sp.set('api', P.api);
@@ -407,22 +436,17 @@ PATCH v20260306-GD-LAUNCHER-SCENE-PRESET
   }
 
   function withParams(url, extra={}){
+    const state = currentState();
     const u = new URL(url, location.href);
     const sp = u.searchParams;
 
-    const run = currentPreset === 'research' ? 'research' : 'play';
-    const pid = (elPid.value || 'anon').trim() || 'anon';
-    const diff = elDiff.value || 'normal';
-    const time = String(clamp(elTime.value,20,600));
-    const seed = elSeed.value || nowSeed();
-
-    sp.set('run', run);
-    sp.set('diff', diff);
-    sp.set('time', time);
-    sp.set('seed', seed);
-    sp.set('pid', pid);
-    sp.set('scene', currentScene);
-    sp.set('hub', P.hub ? String(P.hub) : buildHubFallback());
+    sp.set('run', state.run);
+    sp.set('diff', state.diff);
+    sp.set('time', state.time);
+    sp.set('seed', state.seed);
+    sp.set('pid', state.pid);
+    sp.set('scene', state.scene);
+    sp.set('hub', P.hub ? String(P.hub) : buildHubFallback(state));
 
     if(P.log !== '') sp.set('log', P.log);
     if(P.api) sp.set('api', P.api);
@@ -449,6 +473,73 @@ PATCH v20260306-GD-LAUNCHER-SCENE-PRESET
     return u.toString();
   }
 
+  function withLast(url, view){
+    const L = readLast();
+    const state = {
+      run: (L && L.run) || currentState().run,
+      pid: (L && L.pid) || currentState().pid,
+      diff: (L && L.diff) || currentState().diff,
+      time: (L && L.time) || currentState().time,
+      seed: (L && L.seed) || currentState().seed,
+      scene: (L && L.scene) || currentState().scene
+    };
+    const u = new URL(url, location.href);
+    const sp = u.searchParams;
+
+    sp.set('run', state.run);
+    sp.set('diff', state.diff);
+    sp.set('time', state.time);
+    sp.set('seed', state.seed);
+    sp.set('pid', state.pid);
+    sp.set('scene', state.scene);
+    sp.set('view', view);
+    sp.set('hub', P.hub ? String(P.hub) : buildHubFallback(state));
+
+    if(P.log !== '') sp.set('log', P.log);
+    if(P.api) sp.set('api', P.api);
+    if(P.ai !== '') sp.set('ai', P.ai);
+    if(P.battle !== '') sp.set('battle', P.battle);
+    if(P.room) sp.set('room', P.room);
+    if(P.autostart) sp.set('autostart', P.autostart);
+    if(P.forfeit) sp.set('forfeit', P.forfeit);
+
+    if(P.studyId) sp.set('studyId', P.studyId);
+    if(P.phase) sp.set('phase', P.phase);
+    if(P.conditionGroup) sp.set('conditionGroup', P.conditionGroup);
+    if(P.sessionOrder) sp.set('sessionOrder', P.sessionOrder);
+    if(P.blockLabel) sp.set('blockLabel', P.blockLabel);
+    if(P.siteCode) sp.set('siteCode', P.siteCode);
+    if(P.schoolYear) sp.set('schoolYear', P.schoolYear);
+    if(P.semester) sp.set('semester', P.semester);
+
+    return u.toString();
+  }
+
+  function makeQuickScene(scene, view){
+    const oldScene = currentScene;
+    currentScene = scene;
+    const href = withParams('./germ-detective/germ-detective.html', { view });
+    currentScene = oldScene;
+    return href;
+  }
+
+  function refreshQuickLast(){
+    document.getElementById('quickLastPC').href = withLast('./germ-detective/germ-detective.html','pc');
+    document.getElementById('quickLastMobile').href = withLast('./germ-detective/germ-detective.html','mobile');
+    document.getElementById('quickLastCVR').href = withLast('./germ-detective/germ-detective.html','cvr');
+
+    const L = readLast();
+    const text = L
+      ? `ล่าสุด: run=${L.run} • scene=${L.scene} • diff=${L.diff} • time=${L.time}s • pid=${L.pid}`
+      : 'ยังไม่มีค่าล่าสุด';
+    document.getElementById('lastHint').textContent = text;
+  }
+
+  function persistCurrent(){
+    saveLast(currentState());
+    refreshQuickLast();
+  }
+
   function refreshLinks(){
     syncChips();
     markPreset();
@@ -462,13 +553,18 @@ PATCH v20260306-GD-LAUNCHER-SCENE-PRESET
     document.getElementById('goMobile').href = mob;
     document.getElementById('goCVR').href = cvr;
 
-    document.getElementById('previewBox').textContent =
-      'Preview URL:\n' + pc;
+    document.getElementById('quickClassPC').href = makeQuickScene('classroom','pc');
+    document.getElementById('quickHomeMobile').href = makeQuickScene('home','mobile');
+    document.getElementById('quickCanteenCVR').href = makeQuickScene('canteen','cvr');
+
+    document.getElementById('previewBox').textContent = 'Preview URL:\n' + pc;
 
     document.getElementById('hintBox').innerHTML =
       'Preset: <b>' + (currentPreset === 'research' ? 'research' : 'play') + '</b> • ' +
       'Scene: <b>' + currentScene + '</b> • ' +
       'Base: <b>/webxr-health-mobile/herohealth/</b>';
+
+    persistCurrent();
   }
 
   document.getElementById('presetPlay').addEventListener('click', ()=>{
@@ -492,6 +588,7 @@ PATCH v20260306-GD-LAUNCHER-SCENE-PRESET
     node.addEventListener('change', refreshLinks);
   });
 
+  refreshQuickLast();
   refreshLinks();
   </script>
 </body>
