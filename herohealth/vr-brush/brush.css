@@ -1,28 +1,31 @@
 /* === /herohealth/vr-brush/brush.css ===
-BrushVR — RUN CSS (ABC + AI + QUIZ) — NO-SCROLL HARDEN
-PATCH v20260305-BRUSH-CSS-ABC-AI-QUIZ-NOSCROLL
-✅ กันจอเลื่อน/เด้ง (mobile): overflow hidden + overscroll-behavior + touch-action
-✅ layer สูงพอดีจอ + ไม่ต้อง scroll หาเป้า
-✅ Quiz overlay ชัด + HUD ไม่บังการเล่น
+BrushVR — FULL RUN CSS (ABC + AI + QUIZ + SUMMARY)
+PATCH v20260306-BRUSH-CSS-FULL-STABLE
+✅ no-scroll / no-bounce while playing
+✅ fixed game layer height
+✅ HUD + Quiz + Summary styles
+✅ mobile / pc / cVR friendly
 */
 
 :root{
   --bg:#050814;
+  --bg2:#0b1220;
+
   --panel: rgba(2,6,23,.72);
-  --panel2: rgba(2,6,23,.55);
+  --panel2: rgba(2,6,23,.56);
   --line: rgba(148,163,184,.18);
 
-  --txt: rgba(229,231,235,.94);
+  --txt: rgba(229,231,235,.95);
   --mut: rgba(148,163,184,.96);
 
   --good: rgba(16,185,129,.95);
   --pink: rgba(244,114,182,.95);
-  --warn: rgba(251,191,36,.95);
-  --bad:  rgba(239,68,68,.95);
-
-  --cyan: rgba(34,211,238,.95);
-  --violet: rgba(167,139,250,.95);
   --amber: rgba(251,191,36,.95);
+  --cyan: rgba(34,211,238,.95);
+  --bad: rgba(239,68,68,.95);
+
+  --shadow: 0 18px 60px rgba(0,0,0,.36);
+  --radius: 22px;
 
   --sat: env(safe-area-inset-top, 0px);
   --sar: env(safe-area-inset-right, 0px);
@@ -31,41 +34,51 @@ PATCH v20260305-BRUSH-CSS-ABC-AI-QUIZ-NOSCROLL
 }
 
 *{ box-sizing:border-box; }
+
 html,body{
   height:100%;
   margin:0;
-  overflow:hidden;                 /* ✅ กัน scroll หลุดเป้า */
-  overscroll-behavior:none;        /* ✅ กัน bounce */
+  overflow:hidden;                 /* ✅ กัน scroll page */
+  overscroll-behavior:none;        /* ✅ กัน rubber-band */
   background:
     radial-gradient(1200px 800px at 20% 0%, rgba(99,102,241,.18), transparent 55%),
     radial-gradient(900px 700px at 90% 20%, rgba(34,211,238,.14), transparent 55%),
-    var(--bg);
+    linear-gradient(180deg, var(--bg), var(--bg2));
   color:var(--txt);
   font-family:system-ui,-apple-system,"Noto Sans Thai",Segoe UI,Roboto,sans-serif;
+  -webkit-text-size-adjust:100%;
 }
 
 body{
-  touch-action: manipulation;      /* ✅ ลดการ scroll/zoom gestures */
+  touch-action:manipulation;
   -webkit-tap-highlight-color: transparent;
 }
 
-/* A-Frame scene sits behind, never captures input */
+/* runtime hard lock by JS during play */
+body.br-noscroll{
+  overflow:hidden !important;
+  height:100% !important;
+  touch-action:none !important;
+}
+
+/* a-frame scene behind everything */
 a-scene{
-  position:fixed; inset:0;
+  position:fixed;
+  inset:0;
   z-index:0;
   pointer-events:none;
   opacity:.10;
 }
 
-/* Wrapper */
 #br-wrap{
   position:relative;
   z-index:2;
   min-height:100%;
-  padding-bottom: max(10px, var(--sab));
+  display:flex;
+  flex-direction:column;
 }
 
-/* Top header */
+/* ===================== Top ===================== */
 .br-top{
   display:flex;
   gap:12px;
@@ -73,6 +86,7 @@ a-scene{
   align-items:flex-start;
   flex-wrap:wrap;
   padding: calc(14px + var(--sat)) calc(14px + var(--sar)) 8px calc(14px + var(--sal));
+  flex:0 0 auto;
 }
 
 .br-pill{
@@ -82,19 +96,23 @@ a-scene{
   padding:6px 10px;
   border:1px solid var(--line);
   border-radius:999px;
-  background:rgba(2,6,23,.55);
+  background:rgba(2,6,23,.56);
   color:var(--mut);
   font-weight:1000;
+  box-shadow: var(--shadow);
 }
+
 .br-title{
   margin:8px 0 4px;
-  font-size:22px;
+  font-size: clamp(20px, 2.3vw, 24px);
   letter-spacing:.2px;
 }
+
 .br-sub{
   margin:0;
   color:rgba(229,231,235,.76);
   line-height:1.4;
+  font-size:13px;
 }
 
 .br-ctx{
@@ -105,6 +123,7 @@ a-scene{
   -webkit-backdrop-filter:blur(10px);
   padding:10px 12px;
   min-width:190px;
+  box-shadow: var(--shadow);
 }
 .br-ctxrow{
   display:flex;
@@ -112,16 +131,24 @@ a-scene{
   gap:12px;
   font-size:12px;
 }
-.br-ctxrow .k{ color:rgba(148,163,184,.95); font-weight:1000; }
-.br-ctxrow .v{ font-weight:1000; }
-
-/* Stage area */
-.br-stage{
-  position:relative;
-  padding: 6px calc(14px + var(--sar)) calc(18px + var(--sab)) calc(14px + var(--sal));
+.br-ctxrow .k{
+  color:rgba(148,163,184,.95);
+  font-weight:1000;
+}
+.br-ctxrow .v{
+  font-weight:1000;
 }
 
-/* ✅ ACTIONS pinned inside stage */
+/* ===================== Stage ===================== */
+.br-stage{
+  position:relative;
+  flex:1 1 auto;
+  min-height:0;
+  padding: 6px calc(14px + var(--sar)) calc(12px + var(--sab)) calc(14px + var(--sal));
+  overflow:hidden; /* ✅ */
+}
+
+/* action buttons pinned above play area */
 .br-actions{
   position:absolute;
   left:50%;
@@ -129,52 +156,60 @@ a-scene{
   top: 10px;
   display:flex;
   gap:8px;
-  z-index:5;
+  z-index:6;
+  flex-wrap:wrap;
+  justify-content:center;
 }
 
-/* Buttons */
 .br-btn{
   appearance:none;
   border:none;
   border-radius:999px;
   padding:10px 12px;
-  background: rgba(2,6,23,.70);
+  background: rgba(2,6,23,.72);
   border:1px solid rgba(148,163,184,.22);
-  color: rgba(229,231,235,.96);
+  color: rgba(229,231,235,.97);
   font: 1000 12px/1 system-ui,-apple-system,"Noto Sans Thai",Segoe UI,Roboto,sans-serif;
-  box-shadow:0 16px 40px rgba(0,0,0,.30);
+  box-shadow: var(--shadow);
   cursor:pointer;
   user-select:none;
 }
 .br-btn:active{ transform:translateY(1px); }
-.br-primary{ background: rgba(16,185,129,.20); border-color: rgba(16,185,129,.35); }
-.br-ghost{ background: rgba(2,6,23,.55); }
-.br-link{ display:inline-flex; align-items:center; justify-content:center; text-decoration:none; }
+.br-primary{
+  background: rgba(16,185,129,.20);
+  border-color: rgba(16,185,129,.35);
+}
+.br-ghost{
+  background: rgba(2,6,23,.58);
+}
+.br-link{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  text-decoration:none;
+}
 
-/* ✅ Play layer — fixed height (NO scroll needed) */
+/* ✅ game layer fixed height */
 .br-layer{
   position:relative;
   width:min(980px, 100%);
   margin:0 auto;
-
-  /* ✅ key: lock height to viewport to prevent page scroll */
-  height: min(560px, calc(100vh - (220px + var(--sat) + var(--sab))));
-  min-height: 360px;
-
+  height:min(520px, calc(100dvh - 305px));
+  min-height:320px;
   border:1px solid rgba(148,163,184,.16);
   border-radius:24px;
-  background: rgba(2,6,23,.35);
+  background: rgba(2,6,23,.36);
   box-shadow: 0 22px 80px rgba(0,0,0,.35);
   overflow:hidden;
-
-  touch-action: manipulation;
-  overscroll-behavior: none;
+  touch-action:manipulation;
+  overscroll-behavior:none;
 }
 
-/* HUD block under layer */
+/* ===================== HUD ===================== */
 .br-hud{
-  width:min(980px,100%);
+  width:min(980px, 100%);
   margin:10px auto 0;
+  flex:0 0 auto;
 }
 .br-hudGrid{
   display:grid;
@@ -192,29 +227,52 @@ a-scene{
   backdrop-filter:blur(10px);
   -webkit-backdrop-filter:blur(10px);
   padding:10px 12px;
+  box-shadow: var(--shadow);
 }
+
 .br-box .row{
   display:flex;
   justify-content:space-between;
   gap:12px;
   margin:4px 0;
 }
-.br-box .k{ color:rgba(148,163,184,.95); font-weight:1000; }
-.br-box .v{ font-weight:1000; }
 
-.br-mini .k{ color:rgba(148,163,184,.95); font-weight:1000; font-size:12px; }
-.br-mini .v{ font-weight:900; font-size:12px; color:rgba(229,231,235,.78); margin-top:2px; }
-.br-mini .v b{ color:rgba(229,231,235,.95); }
+.br-box .k,
+.br-mini .k{
+  color:rgba(148,163,184,.95);
+  font-weight:1000;
+}
 
-/* Bars */
+.br-box .v{
+  font-weight:1000;
+}
+
+.br-mini .k{
+  font-size:12px;
+}
+.br-mini .v{
+  font-weight:900;
+  font-size:12px;
+  color:rgba(229,231,235,.80);
+  margin-top:2px;
+  line-height:1.45;
+}
+
 .br-barLabel{
   display:flex;
   justify-content:space-between;
   gap:12px;
   margin-top:2px;
 }
-.br-barLabel .k{ color:rgba(148,163,184,.95); font-weight:1000; font-size:12px; }
-.br-barLabel .v{ font-weight:1000; font-size:12px; }
+.br-barLabel .k{
+  color:rgba(148,163,184,.95);
+  font-weight:1000;
+  font-size:12px;
+}
+.br-barLabel .v{
+  font-weight:1000;
+  font-size:12px;
+}
 
 .br-bar{
   height:10px;
@@ -223,43 +281,81 @@ a-scene{
   overflow:hidden;
   border:1px solid rgba(148,163,184,.10);
 }
-.br-bar .fill{ display:block; height:100%; width:0%; }
+.br-bar .fill{
+  display:block;
+  height:100%;
+  width:0%;
+}
 .br-bar .fill.good{ background:rgba(16,185,129,.92); }
 .br-bar .fill.pink{ background:rgba(244,114,182,.88); }
-.br-bar .fill.cyan{ background:rgba(34,211,238,.88); }
-.br-bar .fill.amber{ background:rgba(251,191,36,.88); }
+.br-bar .fill.amber{ background:rgba(251,191,36,.90); }
+.br-bar .fill.cyan{ background:rgba(34,211,238,.90); }
+.br-bar .fill.bad{ background:rgba(239,68,68,.90); }
 
-/* Menu / End overlays */
-.br-menu,.br-end,.br-quiz{
+/* ===================== Overlays ===================== */
+.br-menu,
+.br-end,
+.br-quiz{
   position:fixed;
   inset:0;
   display:grid;
   place-items:center;
-  z-index:10;
+  z-index:20;
   padding: calc(18px + var(--sat)) calc(18px + var(--sar)) calc(18px + var(--sab)) calc(18px + var(--sal));
   background: rgba(0,0,0,.28);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
 }
-.br-card,.br-endCard,.br-quizCard{
-  width:min(560px, 92vw);
+
+.br-card,
+.br-endCard,
+.br-quizCard{
+  width:min(720px, 92vw);
   border:1px solid var(--line);
   border-radius:24px;
-  background: rgba(2,6,23,.82);
+  background: rgba(2,6,23,.84);
   box-shadow: 0 22px 90px rgba(0,0,0,.45);
   padding:14px;
 }
-.br-cardTitle{ font-weight:1000; font-size:18px; }
-.br-cardSub{ color:rgba(229,231,235,.78); font-weight:900; margin-top:4px; }
-.br-cardList{ margin-top:10px; color:rgba(229,231,235,.78); font-weight:800; }
-.br-cardList .item{ margin:6px 0; }
-.br-cardActions{ display:flex; gap:10px; margin-top:12px; flex-wrap:wrap; }
 
-/* Quiz */
+.br-cardTitle,
+.br-endTitle,
+.br-quizTitle{
+  font-weight:1000;
+  font-size:18px;
+}
+
+.br-cardSub,
+.br-endGrade,
+.br-quizSub{
+  color:rgba(229,231,235,.78);
+  font-weight:900;
+  margin-top:4px;
+}
+
+.br-cardList{
+  margin-top:10px;
+  color:rgba(229,231,235,.80);
+  font-weight:800;
+}
+.br-cardList .item{ margin:6px 0; }
+
+.br-cardActions,
+.br-endActions,
+.br-quizActions{
+  display:flex;
+  gap:10px;
+  margin-top:12px;
+  flex-wrap:wrap;
+}
+
+/* quiz */
 .br-quiz[hidden]{ display:none; }
-.br-quizTitle{ font-weight:1000; font-size:18px; }
-.br-quizSub{ margin-top:6px; color:rgba(229,231,235,.78); font-weight:900; line-height:1.45; }
-.br-quizChoices{ margin-top:12px; display:grid; gap:10px; }
+.br-quizChoices{
+  margin-top:12px;
+  display:grid;
+  gap:10px;
+}
 .br-choice{
   display:flex;
   gap:10px;
@@ -267,40 +363,74 @@ a-scene{
   padding:10px 12px;
   border-radius:16px;
   border:1px solid rgba(148,163,184,.16);
-  background: rgba(2,6,23,.55);
-  color: rgba(229,231,235,.90);
+  background: rgba(2,6,23,.56);
+  color: rgba(229,231,235,.92);
   font-weight:900;
+  line-height:1.45;
 }
-.br-choice input{ margin-top:2px; }
-.br-quizActions{ margin-top:14px; display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end; }
+.br-choice input{
+  margin-top:3px;
+}
 
-/* End summary */
+/* summary */
 .br-end[hidden]{ display:none; }
-.br-endHead{ display:flex; justify-content:space-between; gap:10px; align-items:center; }
-.br-endTitle{ font-weight:1000; font-size:18px; }
-.br-endGrade{ color:rgba(229,231,235,.78); font-weight:900; }
-.br-endGrid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:12px; }
-@media (max-width:560px){ .br-endGrid{ grid-template-columns:1fr; } }
-.br-endGrid .box{ border:1px solid rgba(148,163,184,.14); border-radius:18px; background:rgba(2,6,23,.55); padding:10px 12px; }
-.br-endGrid .k{ color:rgba(148,163,184,.95); font-weight:1000; font-size:12px; }
-.br-endGrid .v{ font-weight:1000; font-size:18px; margin-top:4px; }
-.br-endNote{ margin-top:10px; color:rgba(229,231,235,.65); font-weight:800; font-size:12px; word-break:break-word; }
-.br-endActions{ display:flex; gap:10px; margin-top:12px; flex-wrap:wrap; justify-content:flex-end; }
 
-/* Toast */
+.br-endHead{
+  display:flex;
+  justify-content:space-between;
+  gap:10px;
+  align-items:center;
+}
+
+.br-endGrid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+  margin-top:12px;
+}
+@media (max-width:560px){
+  .br-endGrid{ grid-template-columns:1fr; }
+}
+
+.br-endGrid .box{
+  border:1px solid rgba(148,163,184,.14);
+  border-radius:18px;
+  background:rgba(2,6,23,.56);
+  padding:10px 12px;
+}
+.br-endGrid .k{
+  color:rgba(148,163,184,.95);
+  font-weight:1000;
+  font-size:12px;
+}
+.br-endGrid .v{
+  font-weight:1000;
+  font-size:18px;
+  margin-top:4px;
+}
+
+.br-endNote{
+  margin-top:10px;
+  color:rgba(229,231,235,.68);
+  font-weight:800;
+  font-size:12px;
+  word-break:break-word;
+}
+
+/* ===================== Toast ===================== */
 .br-toast{
   position:fixed;
   left:50%;
-  bottom: max(16px, var(--sab));
+  bottom: max(16px, calc(var(--sab) + 8px));
   transform:translateX(-50%);
-  z-index:12;
+  z-index:30;
   padding:10px 12px;
   border-radius:999px;
   border:1px solid rgba(148,163,184,.22);
-  background: rgba(2,6,23,.78);
+  background: rgba(2,6,23,.80);
   backdrop-filter:blur(10px);
   -webkit-backdrop-filter:blur(10px);
-  box-shadow:0 18px 60px rgba(0,0,0,.45);
+  box-shadow: var(--shadow);
   font-weight:1000;
   opacity:0;
   transition:opacity .18s ease, transform .18s ease;
@@ -310,15 +440,18 @@ a-scene{
   overflow:hidden;
   text-overflow: ellipsis;
 }
-.br-toast.show{ opacity:1; transform:translateX(-50%) translateY(-2px); }
+.br-toast.show{
+  opacity:1;
+  transform:translateX(-50%) translateY(-2px);
+}
 
-/* Tap overlay */
+/* ===================== Tap overlay ===================== */
 .br-tap{
   position:fixed;
   inset:0;
   display:grid;
   place-items:center;
-  z-index:30;
+  z-index:40;
   padding:18px;
   background:rgba(0,0,0,.35);
   backdrop-filter: blur(10px);
@@ -329,20 +462,27 @@ a-scene{
   border:1px solid var(--line);
   border-radius:24px;
   background:rgba(2,6,23,.88);
-  box-shadow:0 22px 90px rgba(0,0,0,.45);
+  box-shadow: 0 22px 90px rgba(0,0,0,.45);
   padding:14px;
 }
-.br-tapTitle{ font-weight:1000; font-size:18px; }
-.br-tapSub{ color:rgba(229,231,235,.75); font-weight:900; margin-top:6px; }
+.br-tapTitle{
+  font-weight:1000;
+  font-size:18px;
+}
+.br-tapSub{
+  color:rgba(229,231,235,.75);
+  font-weight:900;
+  margin-top:6px;
+}
 
-/* Fatal */
+/* ===================== Fatal ===================== */
 .br-fatal{
   position:fixed;
   inset:12px;
   border:1px solid rgba(239,68,68,.35);
   border-radius:22px;
-  background:rgba(2,6,23,.88);
-  color:rgba(255,255,255,.92);
+  background:rgba(2,6,23,.90);
+  color:rgba(255,255,255,.95);
   padding:12px;
   font-weight:900;
   white-space:pre-wrap;
@@ -351,7 +491,7 @@ a-scene{
 }
 .br-hidden{ display:none; }
 
-/* ===== Targets ===== */
+/* ===================== Targets ===================== */
 .br-t{
   position:absolute;
   width:78px;
@@ -366,34 +506,53 @@ a-scene{
   overflow:hidden;
   cursor:pointer;
   user-select:none;
-  -webkit-tap-highlight-color: transparent;
 }
-.br-t.thick{ width:92px; height:92px; border-color:rgba(167,243,208,.28); }
-
+.br-t.thick{
+  width:92px;
+  height:92px;
+  border-color:rgba(167,243,208,.28);
+}
 .br-t.evi{
-  border-color: rgba(251,191,36,.28);
+  border-color:rgba(251,191,36,.28);
   box-shadow: 0 18px 60px rgba(0,0,0,.35), 0 0 0 2px rgba(251,191,36,.10) inset;
 }
 
-.br-t .emo{ font-size:28px; filter:drop-shadow(0 8px 18px rgba(0,0,0,.35)); }
+.br-t .emo{
+  font-size:28px;
+  filter:drop-shadow(0 8px 18px rgba(0,0,0,.35));
+}
+
 .br-t .hp{
   position:absolute;
-  left:10px; right:10px; bottom:10px;
+  left:10px;
+  right:10px;
+  bottom:10px;
   height:8px;
   border-radius:999px;
   background:rgba(148,163,184,.16);
   overflow:hidden;
   border:1px solid rgba(148,163,184,.10);
 }
-.br-t .hp i{ display:block; height:100%; width:100%; background:rgba(16,185,129,.88); }
-.br-t.fade{ opacity:0; transition:opacity .22s ease, transform .22s ease; transform: translate(-50%,-50%) scale(.88); }
-.br-t.pop{ animation:pop .22s ease; }
-@keyframes pop{
-  0%{ transform:translate(-50%,-50%) scale(.95) }
-  100%{ transform:translate(-50%,-50%) scale(1.06) }
+.br-t .hp i{
+  display:block;
+  height:100%;
+  width:100%;
+  background:rgba(16,185,129,.88);
 }
 
-/* Boss weakspot */
+.br-t.fade{
+  opacity:0;
+  transition:opacity .22s ease, transform .22s ease;
+  transform: translate(-50%,-50%) scale(.88);
+}
+.br-t.pop{ animation:pop .22s ease; }
+
+@keyframes pop{
+  0%{ transform:translate(-50%,-50%) scale(.95); }
+  100%{ transform:translate(-50%,-50%) scale(1.06); }
+}
+
+/* boss weakspot */
 .br-ws{
   position:absolute;
   left:50%;
@@ -402,7 +561,7 @@ a-scene{
   height:22px;
   transform: translate(-50%,-50%);
   border-radius:999px;
-  border: 2px solid rgba(251,191,36,.75);
+  border:2px solid rgba(251,191,36,.75);
   box-shadow: 0 0 0 2px rgba(2,6,23,.65), 0 0 18px rgba(251,191,36,.24);
   opacity:.95;
   pointer-events:none;
@@ -416,28 +575,28 @@ a-scene{
   box-shadow: 0 0 18px rgba(251,191,36,.22);
 }
 .br-t.ws-hit .br-ws{ animation:wsHit .18s ease; }
+
 @keyframes wsHit{
-  0%{ transform:translate(-50%,-50%) scale(.9) }
-  100%{ transform:translate(-50%,-50%) scale(1.15) }
+  0%{ transform:translate(-50%,-50%) scale(.9); }
+  100%{ transform:translate(-50%,-50%) scale(1.15); }
 }
 
-/* ✅ cVR strict: let vr-ui shoot; prevent accidental taps on targets */
-html[data-view="cvr"] .br-t{ pointer-events:none !important; }
+/* cVR strict: target touch off, shoot via vr-ui crosshair */
+html[data-view="cvr"] .br-t{
+  pointer-events:none !important;
+}
 html[data-view="cvr"] .br-actions,
 html[data-view="cvr"] .br-hud,
 html[data-view="cvr"] .br-menu,
 html[data-view="cvr"] .br-end,
-html[data-view="cvr"] .br-quiz{ pointer-events:auto; }
+html[data-view="cvr"] .br-quiz{
+  pointer-events:auto;
+}
 
-/* FX root (optional) */
+/* fx root (optional) */
 #br-fx{
   position:fixed;
   inset:0;
   z-index:8;
   pointer-events:none;
 }
-
-/* Small helpers */
-.row{ display:flex; justify-content:space-between; gap:12px; }
-.k{ color:rgba(148,163,184,.95); font-weight:1000; }
-.v{ font-weight:1000; }
