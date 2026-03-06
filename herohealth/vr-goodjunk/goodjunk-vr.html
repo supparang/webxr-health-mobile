@@ -1,1719 +1,418 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
-GoodJunkVR — RUN PAGE (PC/Mobile/cVR) — PRODUCTION
-PATCH v20260306-RUN-BATTLE-READY-UI-RELOAD-REMATCH-NOTICE
+HeroHealth — GoodJunk VR Run Page — PRODUCTION
+PATCH v20260306-GJ-RUN-PAGE-FULL
+✅ Correct relative paths for /vr-goodjunk/
+✅ Loads ../firebase-config.js
+✅ Loads ../vr/vr-ui.js
+✅ Boots goodjunk.safe.js as ES module
+✅ Supports play / battle / spectator-ish params passthrough
 -->
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — GoodJunkVR</title>
+  <title>HeroHealth — GoodJunk VR</title>
   <meta name="color-scheme" content="dark light" />
   <link rel="icon" href="../favicon.ico" />
+
   <style>
     :root{
-      --bg:#050814;
+      --bg1:#020617;
+      --bg2:#0f172a;
+      --panel:rgba(2,6,23,.76);
+      --panel2:rgba(15,23,42,.78);
       --stroke:rgba(148,163,184,.18);
-      --text:rgba(229,231,235,.96);
-      --muted:rgba(148,163,184,.92);
+      --text:#e5e7eb;
+      --muted:#94a3b8;
+      --cyan:#22d3ee;
+      --blue:#3b82f6;
+      --good:#22c55e;
+      --warn:#f59e0b;
+      --danger:#ef4444;
+      --shadow:0 18px 60px rgba(0,0,0,.35);
+      --r:22px;
+
       --sat: env(safe-area-inset-top, 0px);
+      --sar: env(safe-area-inset-right, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
       --sal: env(safe-area-inset-left, 0px);
-      --sar: env(safe-area-inset-right, 0px);
-    }
-    html,body{height:100%; margin:0; background:var(--bg); color:var(--text);}
-    body{
-      overflow:hidden;
-      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", "Noto Sans", Arial;
     }
 
-    #gj-layer{
-      position:fixed;
-      inset:0;
+    *{ box-sizing:border-box; }
+    html,body{
+      margin:0;
+      width:100%;
+      height:100%;
+      background:
+        radial-gradient(1200px 800px at 50% -20%, rgba(34,211,238,.10), transparent 55%),
+        linear-gradient(180deg, var(--bg1), var(--bg2));
+      color:var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", sans-serif;
       overflow:hidden;
-      touch-action:manipulation;
-      -webkit-tap-highlight-color:transparent;
-      user-select:none;
     }
 
-    .hud{
+    #app{
+      position:fixed; inset:0;
+      width:100%; height:100%;
+      background:transparent;
+    }
+
+    .topbar{
       position:fixed;
-      top:calc(10px + var(--sat));
-      left:calc(10px + var(--sal));
-      right:calc(10px + var(--sar));
-      z-index:200;
+      z-index:30;
+      left:calc(14px + var(--sal));
+      right:calc(14px + var(--sar));
+      top:calc(14px + var(--sat));
       display:flex;
       gap:10px;
-      flex-wrap:wrap;
-      align-items:center;
-      pointer-events:none;
-    }
-    .pill{
-      pointer-events:none;
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      padding:8px 10px;
-      border-radius:999px;
-      border:1px solid var(--stroke);
-      background:rgba(2,6,23,.55);
-      backdrop-filter:blur(8px);
-      color:var(--muted);
-      font-size:12px;
-      font-weight:900;
-      white-space:nowrap;
-    }
-    .pill b,.pill .v{color:var(--text)}
-
-    .mini{
-      position:fixed;
-      top:calc(56px + var(--sat));
-      left:calc(10px + var(--sal));
-      z-index:200;
-      max-width:84vw;
-      pointer-events:none;
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-      align-items:center;
-    }
-
-    .battleBar{
-      position:fixed;
-      top:calc(96px + var(--sat));
-      left:calc(10px + var(--sal));
-      right:calc(10px + var(--sar));
-      z-index:260;
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
       align-items:center;
       justify-content:space-between;
-      border-radius:18px;
-      border:1px solid rgba(59,130,246,.20);
-      background:rgba(2,6,23,.62);
-      backdrop-filter:blur(10px);
-      box-shadow:0 18px 55px rgba(0,0,0,.34);
-      padding:10px 12px;
+      pointer-events:none;
     }
-    .battleLeft,.battleRight{
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-      align-items:center;
-    }
-    .battleTag{
+    .brand,
+    .mode-pill{
+      pointer-events:auto;
       display:inline-flex;
       align-items:center;
-      gap:8px;
-      padding:7px 10px;
+      gap:10px;
+      padding:10px 14px;
       border-radius:999px;
-      border:1px solid rgba(148,163,184,.16);
-      background:rgba(15,23,42,.42);
+      background:rgba(2,6,23,.72);
+      border:1px solid var(--stroke);
+      box-shadow:var(--shadow);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+    }
+    .brand b{ font-size:14px; }
+    .mode-pill{
+      font-size:12px;
       color:var(--muted);
-      font-size:11px;
-      font-weight:1000;
-      white-space:nowrap;
     }
-    .battleTag b{color:var(--text)}
-    .battleTag.good{
-      border-color: rgba(34,197,94,.28);
-      background: rgba(34,197,94,.14);
-      color:#dcfce7;
+    .dot{
+      width:10px; height:10px; border-radius:50%;
+      background:var(--good);
+      box-shadow:0 0 0 4px rgba(34,197,94,.14);
+      flex:0 0 auto;
     }
-    .battleTag.warn{
-      border-color: rgba(245,158,11,.28);
-      background: rgba(245,158,11,.12);
-      color:#fde68a;
+    .dot.warn{
+      background:var(--warn);
+      box-shadow:0 0 0 4px rgba(245,158,11,.14);
     }
-    .battleTag.bad{
-      border-color: rgba(239,68,68,.28);
-      background: rgba(239,68,68,.12);
-      color:#fecaca;
+    .dot.danger{
+      background:var(--danger);
+      box-shadow:0 0 0 4px rgba(239,68,68,.14);
     }
 
-    #battleLobby{
+    .bottom-hint{
       position:fixed;
-      inset:0;
-      z-index:360;
-      display:none;
-      align-items:center;
-      justify-content:center;
-      background:rgba(0,0,0,.42);
-      backdrop-filter:blur(8px);
-      padding:16px;
-    }
-    #battleLobby .panel{
-      width:min(560px,92vw);
-      border-radius:22px;
-      border:1px solid rgba(148,163,184,.18);
-      background:rgba(2,6,23,.78);
-      box-shadow:0 22px 80px rgba(0,0,0,.55);
-      padding:14px;
+      z-index:30;
+      left:50%;
+      transform:translateX(-50%);
+      bottom:calc(12px + var(--sab));
+      max-width:min(94vw,760px);
+      padding:10px 14px;
+      border-radius:999px;
+      background:rgba(2,6,23,.68);
+      border:1px solid var(--stroke);
+      color:var(--muted);
+      font-size:12px;
       text-align:center;
+      box-shadow:var(--shadow);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
     }
-    .battleGrid{
+
+    #bootOverlay{
+      position:fixed; inset:0;
+      z-index:40;
       display:grid;
-      grid-template-columns:repeat(2,minmax(0,1fr));
-      gap:10px;
-      margin-top:12px;
+      place-items:center;
+      padding:20px;
+      background:
+        radial-gradient(1000px 700px at 50% 0%, rgba(59,130,246,.15), transparent 60%),
+        rgba(2,6,23,.72);
+      transition:opacity .25s ease, visibility .25s ease;
     }
-    @media (max-width:560px){ .battleGrid{ grid-template-columns:1fr; } }
-
-    .battleCard{
-      border-radius:18px;
-      border:1px solid rgba(148,163,184,.16);
-      background:rgba(15,23,42,.42);
-      padding:12px 10px;
-      text-align:left;
+    #bootOverlay.hide{
+      opacity:0;
+      visibility:hidden;
+      pointer-events:none;
     }
-    .battleCard .t{font-weight:1100; font-size:14px;}
-    .battleCard .s{margin-top:4px; color:var(--muted); font-size:12px; font-weight:900; line-height:1.4;}
-
-    .battleActions{
-      margin-top:12px;
+    .boot-card{
+      width:min(96vw,720px);
+      border-radius:28px;
+      padding:20px;
+      background:linear-gradient(180deg, rgba(15,23,42,.88), rgba(2,6,23,.86));
+      border:1px solid var(--stroke);
+      box-shadow:var(--shadow);
+    }
+    .boot-head{
       display:flex;
-      gap:10px;
-      justify-content:center;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      margin-bottom:14px;
+    }
+    .boot-title{
+      font-size:clamp(24px, 4vw, 34px);
+      font-weight:900;
+      line-height:1.1;
+      letter-spacing:.2px;
+    }
+    .boot-sub{
+      color:var(--muted);
+      font-size:14px;
+      margin-top:6px;
+    }
+    .grid{
+      display:grid;
+      grid-template-columns:repeat(2, minmax(0,1fr));
+      gap:12px;
+      margin-top:14px;
+    }
+    .stat{
+      border-radius:18px;
+      padding:14px;
+      background:rgba(15,23,42,.72);
+      border:1px solid var(--stroke);
+    }
+    .stat .k{
+      color:var(--muted);
+      font-size:12px;
+      margin-bottom:6px;
+    }
+    .stat .v{
+      font-weight:800;
+      font-size:16px;
+    }
+    .cta-row{
+      display:flex;
       flex-wrap:wrap;
+      gap:10px;
+      margin-top:16px;
     }
     .btn{
-      pointer-events:auto;
+      appearance:none;
+      border:0;
       cursor:pointer;
       border-radius:16px;
-      border:1px solid rgba(148,163,184,.22);
-      background:rgba(148,163,184,.10);
-      color:var(--text);
-      padding:10px 12px;
-      font-weight:1100;
-      min-height:44px;
-      text-align:center;
-    }
-    .btn.primary{border-color:rgba(59,130,246,.30); background:rgba(59,130,246,.16);}
-    .btn.good{border-color:rgba(34,197,94,.30); background:rgba(34,197,94,.16);}
-    .btn.ghost{background:transparent; color:var(--muted);}
-    .btn.cooldown{
-      background: linear-gradient(90deg,#16a34a,#22c55e);
-      border:none;
+      padding:12px 16px;
+      font-weight:800;
       color:white;
-      font-size:15px;
-      font-weight:1100;
-      box-shadow:0 10px 30px rgba(34,197,94,.35);
+      background:linear-gradient(135deg, #2563eb, #06b6d4);
+      box-shadow:0 10px 28px rgba(37,99,235,.28);
     }
-
-    #bossBar{
-      position:fixed;
-      left:50%;
-      top:calc(148px + var(--sat));
-      transform:translateX(-50%);
-      z-index:205;
-      width:min(520px,86vw);
-      pointer-events:none;
-      display:none;
-      flex-direction:column;
-      gap:6px;
-      align-items:center;
-    }
-    #bossHint{font-weight:1000; font-size:12px; color:var(--muted); text-shadow:0 10px 30px rgba(0,0,0,.55);}
-    #bossFill{
-      height:10px; width:100%; border-radius:999px; border:1px solid rgba(255,255,255,.14);
-      background:rgba(0,0,0,.35); overflow:hidden; position:relative;
-    }
-    #bossFill::before{
-      content:""; position:absolute; inset:0; width:var(--hp,0%);
-      background:rgba(239,68,68,.85); transition:width .12s ease;
-    }
-
-    .mission{
-      position:fixed;
-      left:50%;
-      top:calc(188px + var(--sat));
-      transform:translateX(-50%);
-      z-index:210;
-      pointer-events:none;
-      width:min(560px,92vw);
-      border-radius:18px;
-      border:1px solid rgba(148,163,184,.16);
-      background:rgba(2,6,23,.50);
-      backdrop-filter:blur(10px);
-      padding:10px 12px;
-      display:flex;
-      flex-direction:column;
-      gap:8px;
-      box-shadow:0 18px 55px rgba(0,0,0,.40);
-    }
-    .missionRow{display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap;}
-    .missionTitle{font-weight:1000; letter-spacing:.2px;}
-    .missionHint{font-size:12px; font-weight:900; color:var(--muted);}
-    .missionGoal{font-size:12px; font-weight:1000;}
-    #missionFill{
-      height:10px;
-      border-radius:999px;
-      border:1px solid rgba(255,255,255,.14);
-      background:rgba(0,0,0,.35);
-      overflow:hidden;
-      position:relative;
-    }
-    #missionFill::before{
-      content:""; position:absolute; inset:0; width:var(--p,0%);
-      background:rgba(34,197,94,.85); transition:width .12s ease;
-    }
-
-    #stageBanner, #milestoneBanner{
-      position:fixed;
-      left:50%;
-      transform:translateX(-50%);
-      z-index:320;
-      pointer-events:none;
-      font-weight:1100;
-      text-shadow:0 10px 30px rgba(0,0,0,.45);
-      opacity:0;
-      transition: opacity .16s ease, transform .16s ease;
-      text-align:center;
-      max-width:92vw;
-    }
-    #stageBanner{
-      top:calc(140px + var(--sat));
-      font-size:22px;
-      color:#f8fafc;
-    }
-    #milestoneBanner{
-      top:calc(172px + var(--sat));
-      font-size:18px;
-      color:#fde68a;
-    }
-
-    #endOverlay{
-      position:fixed;
-      inset:0;
-      display:none;
-      z-index:400;
-      background:rgba(0,0,0,.55);
-      backdrop-filter:blur(8px);
-      align-items:center;
-      justify-content:center;
-      padding:calc(8px + var(--sat)) calc(8px + var(--sar)) calc(92px + var(--sab)) calc(8px + var(--sal));
-      overflow:auto;
-      -webkit-overflow-scrolling:touch;
-    }
-    #endOverlay .panel{
-      width:min(640px,94vw);
-      max-height:calc(100dvh - 104px - var(--sat) - var(--sab));
-      overflow:auto;
-      -webkit-overflow-scrolling:touch;
-      border-radius:22px;
-      border:1px solid rgba(148,163,184,.18);
-      background:
-        radial-gradient(520px 260px at 18% 0%, rgba(59,130,246,.18), transparent 58%),
-        radial-gradient(520px 260px at 82% 0%, rgba(167,139,250,.14), transparent 56%),
-        rgba(2,6,23,.78);
-      box-shadow:0 22px 80px rgba(0,0,0,.55);
-      padding:10px 10px 8px;
-      text-align:center;
-    }
-
-    .heroSummary{
-      border-radius:20px;
-      border:1px solid rgba(148,163,184,.18);
-      background:rgba(15,23,42,.42);
-      padding:10px 10px;
-      box-shadow: 0 12px 40px rgba(0,0,0,.24);
-    }
-    .heroTop{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
-      flex-wrap:wrap;
-    }
-    .heroTopLeft{
-      display:flex;
-      align-items:center;
-      gap:10px;
-    }
-    .heroAvatar{
-      width:54px;
-      height:54px;
-      border-radius:16px;
-      display:grid;
-      place-items:center;
-      font-size:30px;
-      border:1px solid rgba(148,163,184,.16);
-      background: rgba(2,6,23,.34);
-      box-shadow: 0 10px 28px rgba(0,0,0,.24);
-    }
-    .heroAvatar.mood-s{ background: radial-gradient(circle at 30% 30%, rgba(34,197,94,.24), rgba(2,6,23,.34) 60%); }
-    .heroAvatar.mood-a{ background: radial-gradient(circle at 30% 30%, rgba(59,130,246,.24), rgba(2,6,23,.34) 60%); }
-    .heroAvatar.mood-b{ background: radial-gradient(circle at 30% 30%, rgba(245,158,11,.20), rgba(2,6,23,.34) 60%); }
-    .heroAvatar.mood-c,
-    .heroAvatar.mood-d{ background: radial-gradient(circle at 30% 30%, rgba(239,68,68,.18), rgba(2,6,23,.34) 60%); }
-
-    .heroTitleWrap{
-      display:flex;
-      flex-direction:column;
-      align-items:flex-start;
-      gap:4px;
-    }
-    .heroTitleMini{
-      font-size:11px;
-      font-weight:1000;
-      color:var(--muted);
-      letter-spacing:.2px;
-    }
-    .heroBadge{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      padding:8px 10px;
-      border-radius:999px;
-      border:1px solid rgba(148,163,184,.16);
-      background: rgba(2,6,23,.34);
-      color:var(--muted);
-      font-size:12px;
-      font-weight:1000;
-    }
-    .heroBadge b{ color:var(--text); }
-
-    #endTitle{
-      font-size:18px;
-      font-weight:1100;
-      margin:8px 0 0 0;
-      line-height:1.15;
-    }
-    #endSub{
-      margin:5px 0 0 0;
-      color:var(--muted);
-      font-weight:900;
-      line-height:1.28;
-      font-size:11px;
-    }
-
-    .gradeHero{
-      margin-top:6px;
-      display:grid;
-      place-items:center;
-      gap:4px;
-    }
-    .gradeHero .label{
-      font-size:11px;
-      color:var(--muted);
-      font-weight:1000;
-      letter-spacing:.2px;
-    }
-    .gradeHero .gradeBig{
-      font-size:46px;
-      line-height:1;
-      font-weight:1100;
+    .btn.secondary{
+      background:rgba(15,23,42,.90);
       color:var(--text);
-      text-shadow:0 10px 32px rgba(255,255,255,.10);
+      border:1px solid var(--stroke);
+      box-shadow:none;
     }
 
-    .heroResultLine{
-      margin-top:8px;
-      font-size:12px;
-      font-weight:1000;
-      color:var(--muted);
-      line-height:1.35;
-    }
-    .heroResultLine b{ color:var(--text); }
-
-    .xpCard{
-      margin-top:10px;
-      border-radius:16px;
-      border:1px solid rgba(148,163,184,.16);
-      background: rgba(2,6,23,.30);
-      padding:10px;
-      text-align:left;
-    }
-    .xpRow{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
-      flex-wrap:wrap;
-    }
-    .xpGain{
-      font-size:28px;
-      font-weight:1100;
-      line-height:1;
-      color:var(--text);
-    }
-    .xpMeta{
-      font-size:12px;
-      font-weight:900;
-      color:var(--muted);
-    }
-    .xpBar{
-      margin-top:8px;
-      height:10px;
-      border-radius:999px;
-      overflow:hidden;
-      border:1px solid rgba(255,255,255,.10);
-      background: rgba(0,0,0,.35);
-    }
-    .xpBarFill{
-      height:100%;
-      width:0%;
-      border-radius:999px;
-      background: linear-gradient(90deg, rgba(34,197,94,.95), rgba(59,130,246,.95));
-      transition: width .9s cubic-bezier(.2,.8,.2,1);
-    }
-
-    .rewardCard{
-      margin-top:10px;
-      border-radius:18px;
-      border:1px solid rgba(148,163,184,.18);
-      background: rgba(15,23,42,.42);
-      padding:12px 10px;
-      box-shadow: 0 14px 40px rgba(0,0,0,.24);
-      position: relative;
-      overflow: hidden;
-    }
-    .rewardCard::before{
-      content:"";
-      position:absolute;
-      inset:-30% auto auto -10%;
-      width:180px;
-      height:180px;
-      border-radius:999px;
-      filter: blur(24px);
-      opacity:.32;
-      pointer-events:none;
-    }
-    .rewardCard.rarity-s::before{ background: rgba(250,204,21,.40); }
-    .rewardCard.rarity-a::before{ background: rgba(59,130,246,.34); }
-    .rewardCard.rarity-b::before{ background: rgba(34,197,94,.30); }
-    .rewardCard.rarity-c::before{ background: rgba(148,163,184,.24); }
-
-    .rewardHead{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
-      flex-wrap:wrap;
-    }
-    .rewardBadge{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      padding:7px 10px;
-      border-radius:999px;
-      border:1px solid rgba(148,163,184,.16);
-      background: rgba(2,6,23,.34);
-      color:var(--muted);
-      font-size:11px;
-      font-weight:1000;
-    }
-    .rewardBadge b{ color:var(--text); }
-
-    .rewardMain{
-      margin-top:10px;
-      display:grid;
-      grid-template-columns: 76px 1fr;
-      gap:12px;
-      align-items:center;
-    }
-    .rewardIcon{
-      width:76px;
-      height:76px;
-      border-radius:18px;
-      border:1px solid rgba(148,163,184,.16);
-      background: rgba(2,6,23,.40);
-      display:grid;
-      place-items:center;
-      font-size:40px;
-      box-shadow: 0 12px 30px rgba(0,0,0,.24);
-    }
-    .rewardBody{ text-align:left; }
-    .rewardTitle{
-      font-size:18px;
-      font-weight:1100;
-      line-height:1.15;
-      color:var(--text);
-    }
-    .rewardSub{
-      margin-top:4px;
-      font-size:12px;
-      font-weight:900;
-      color:var(--muted);
-      line-height:1.35;
-    }
-    .rewardMeta{
-      margin-top:8px;
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-    }
-    .rewardChip{
-      display:inline-flex;
-      align-items:center;
-      gap:6px;
-      padding:6px 9px;
-      border-radius:999px;
-      border:1px solid rgba(148,163,184,.16);
-      background: rgba(2,6,23,.28);
-      font-size:11px;
-      font-weight:1000;
-      color:var(--muted);
-    }
-    .rewardChip b{ color:var(--text); }
-
-    .endGrid{
-      display:grid;
-      grid-template-columns:repeat(4, minmax(0,1fr));
-      gap:8px;
-      margin-top:10px;
-    }
-    .endPill{
-      border-radius:16px;
-      border:1px solid rgba(148,163,184,.16);
-      background:rgba(2,6,23,.38);
-      min-height:56px;
-      padding:8px 6px;
-      font-weight:1000;
-      display:flex;
-      flex-direction:column;
-      justify-content:center;
-    }
-    .endPill .k{opacity:.78; font-size:10px; line-height:1.1;}
-    .endPill .v{font-size:15px; margin-top:4px; line-height:1.1; color:var(--text);}
-
-    .endActions{
-      position:sticky; bottom:0;
-      display:flex; gap:8px; justify-content:center; flex-wrap:wrap;
-      margin-top:10px; padding-top:10px;
-      padding-bottom:max(4px, env(safe-area-inset-bottom, 0px));
-      background:linear-gradient(180deg, rgba(2,6,23,0), rgba(2,6,23,.92) 28%);
-      backdrop-filter:blur(6px);
-    }
-
-    .gradePop{ animation: gradePop .7s cubic-bezier(.2,.9,.2,1); }
-    @keyframes gradePop{
-      0%   { transform: scale(.72); opacity:.35; filter: blur(6px); }
-      60%  { transform: scale(1.14); opacity:1; filter: blur(0); }
-      100% { transform: scale(1); opacity:1; }
-    }
-    .rewardPop{ animation: rewardPop .68s cubic-bezier(.2,.9,.2,1); }
-    @keyframes rewardPop{
-      0%   { transform: translateY(10px) scale(.92); opacity:.1; }
-      55%  { transform: translateY(-2px) scale(1.03); opacity:1; }
-      100% { transform: translateY(0) scale(1); opacity:1; }
-    }
-    .panelFlash{ animation: panelFlash .45s ease-out; }
-    @keyframes panelFlash{
-      0%   { box-shadow: 0 0 0 rgba(255,255,255,0), 0 22px 80px rgba(0,0,0,.55); }
-      35%  { box-shadow: 0 0 38px rgba(255,255,255,.08), 0 22px 80px rgba(0,0,0,.55); }
-      100% { box-shadow: 0 0 0 rgba(255,255,255,0), 0 22px 80px rgba(0,0,0,.55); }
-    }
-
-    .rewardGlowS{ box-shadow: 0 0 0 rgba(0,0,0,0), 0 0 36px rgba(250,204,21,.18), 0 14px 40px rgba(0,0,0,.24); }
-    .rewardGlowA{ box-shadow: 0 0 0 rgba(0,0,0,0), 0 0 30px rgba(59,130,246,.16), 0 14px 40px rgba(0,0,0,.24); }
-    .rewardGlowB{ box-shadow: 0 0 0 rgba(0,0,0,0), 0 0 28px rgba(34,197,94,.14), 0 14px 40px rgba(0,0,0,.24); }
-    .rewardGlowC{ box-shadow: 0 0 0 rgba(0,0,0,0), 0 0 22px rgba(148,163,184,.12), 0 14px 40px rgba(0,0,0,.24); }
-
-    #battleToast{
-      position:fixed;
-      left:50%;
-      bottom:calc(14px + env(safe-area-inset-bottom, 0px));
-      transform:translateX(-50%) translateY(8px);
-      z-index:500;
+    #errorBox{
       display:none;
-      max-width:min(92vw, 720px);
-      border-radius:16px;
-      border:1px solid rgba(148,163,184,.18);
-      background:rgba(2,6,23,.78);
-      color:rgba(229,231,235,.96);
-      padding:10px 12px;
-      font-weight:1000;
-      box-shadow:0 18px 55px rgba(0,0,0,.38);
-      backdrop-filter:blur(10px);
-      opacity:0;
-      transition: opacity .18s ease, transform .18s ease;
+      margin-top:14px;
+      padding:12px 14px;
+      border-radius:14px;
+      background:rgba(127,29,29,.24);
+      border:1px solid rgba(248,113,113,.28);
+      color:#fecaca;
+      font-size:13px;
+      white-space:pre-wrap;
     }
+    #errorBox.show{ display:block; }
 
-    #dbg{
-      position:fixed; left:10px; bottom:calc(10px + var(--sab));
-      z-index:9999; max-width:92vw;
-      border-radius:14px; border:1px solid rgba(148,163,184,.20);
-      background:rgba(2,6,23,.60); backdrop-filter:blur(8px);
-      padding:10px 10px;
-      font:900 12px/1.35 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-      color:rgba(229,231,235,.96);
-      display:none; white-space:pre-wrap;
-    }
-
-    @media (max-width: 640px){
-      #endOverlay .panel{ width:calc(100vw - 16px); }
-      .endGrid{ grid-template-columns:repeat(2, minmax(0,1fr)); }
-      .gradeHero .gradeBig{ font-size:44px; }
-      .battleBar{ top:calc(88px + var(--sat)); }
-      #bossBar{ top:calc(152px + var(--sat)); }
-      .mission{ top:calc(192px + var(--sat)); }
-    }
-    @media (max-width: 420px){
-      #endTitle{font-size:17px;}
-      #endSub{font-size:10px;}
-      .endPill{min-height:58px; padding:8px 7px;}
-      .endPill .k{font-size:9px;}
-      .endPill .v{font-size:15px;}
-      .gradeHero .gradeBig{font-size:40px;}
-      .heroAvatar{ width:48px; height:48px; font-size:26px; }
-      .xpGain{ font-size:24px; }
-      .rewardMain{ grid-template-columns:62px 1fr; gap:10px; }
-      .rewardIcon{ width:62px; height:62px; font-size:34px; }
-      .rewardTitle{ font-size:16px; }
-      #stageBanner{ font-size:18px; }
-      #milestoneBanner{ font-size:15px; }
+    @media (max-width:720px){
+      .grid{ grid-template-columns:1fr; }
+      .boot-card{ padding:16px; border-radius:22px; }
+      .boot-title{ font-size:26px; }
     }
   </style>
+
+  <script src="../firebase-config.js"></script>
+  <script src="../vr/vr-ui.js"></script>
 </head>
 <body>
+  <div id="app"></div>
 
-  <div id="gj-layer" aria-label="play layer"></div>
-
-  <div class="hud" aria-label="hud">
-    <span class="pill"><b>score</b>: <span class="v" id="hud-score">0</span></span>
-    <span class="pill"><b>time</b>: <span class="v" id="hud-time">0</span></span>
-    <span class="pill"><b>miss</b>: <span class="v" id="hud-miss">0</span></span>
-    <span class="pill"><b>grade</b>: <span class="v" id="hud-grade">—</span></span>
-    <span class="pill"><b>goal</b>: <span class="v" id="hud-goal">—</span></span>
-  </div>
-
-  <div class="mini" aria-label="goal/mini/ai">
-    <span class="pill"><b>cur</b>: <span class="v" id="hud-goal-cur">0</span></span>
-    <span class="pill"><b>target</b>: <span class="v" id="hud-goal-target">0</span></span>
-    <span class="pill"><b>desc</b>: <span class="v" id="goalDesc">—</span></span>
-    <span class="pill"><b>mini</b>: <span class="v" id="hud-mini">—</span></span>
-    <span class="pill"><b>t</b>: <span class="v" id="miniTimer">0</span></span>
-    <span class="pill"><b>AI risk</b>: <span class="v" id="aiRisk">—</span></span>
-    <span class="pill"><b>AI hint</b>: <span class="v" id="aiHint">—</span></span>
-  </div>
-
-  <div class="battleBar" id="battleBar" style="display:none;">
-    <div class="battleLeft">
-      <span class="battleTag"><b>room</b>: <span id="battleRoom">—</span></span>
-      <span class="battleTag"><b>phase</b>: <span id="battlePhase">lobby</span></span>
-      <span class="battleTag"><b>you</b>: <span id="battleMe">—</span></span>
-      <span class="battleTag"><b>opp</b>: <span id="battleOpp">—</span></span>
+  <div class="topbar">
+    <div class="brand">
+      <span style="font-size:18px">🥦</span>
+      <b>HeroHealth • GoodJunk VR</b>
     </div>
-    <div class="battleRight">
-      <span class="battleTag"><b>ready</b>: <span id="battleReadyCount">0/2</span></span>
-      <span class="battleTag warn"><b>countdown</b>: <span id="battleCountdown">—</span></span>
-      <span class="battleTag"><b>lead</b>: <span id="battleLead">tie</span></span>
+
+    <div id="modePill" class="mode-pill">
+      <span id="modeDot" class="dot"></span>
+      <span id="modeText">Preparing mode…</span>
     </div>
   </div>
 
-  <div id="battleLobby">
-    <div class="panel">
-      <h2 style="margin:0;">⚔ Battle Lobby</h2>
-      <p style="margin:6px 0 0 0; color:var(--muted); font-weight:900;">รอผู้เล่น / กด ready / เริ่มพร้อมกัน</p>
-
-      <div class="battleGrid">
-        <div class="battleCard">
-          <div class="t">ROOM</div>
-          <div class="s mono" id="lobbyRoom">—</div>
-        </div>
-        <div class="battleCard">
-          <div class="t">PHASE</div>
-          <div class="s" id="lobbyPhase">lobby</div>
-        </div>
-        <div class="battleCard">
-          <div class="t">YOU</div>
-          <div class="s" id="lobbyMe">—</div>
-        </div>
-        <div class="battleCard">
-          <div class="t">OPPONENT</div>
-          <div class="s" id="lobbyOpp">รอผู้เล่นคนที่ 2…</div>
-        </div>
-      </div>
-
-      <div class="battleActions">
-        <button class="btn good" id="btnReady" type="button">✅ Ready</button>
-        <button class="btn ghost" id="btnLeaveBattle" type="button">↩ ออกจากห้อง</button>
-      </div>
-
-      <div id="battleLobbyMsg" class="battleCard" style="margin-top:12px; text-align:center;">
-        <div class="t">สถานะ</div>
-        <div class="s" id="battleLobbyMsgText">รอผู้เล่นอีกคนเข้าห้อง</div>
-      </div>
-    </div>
-  </div>
-
-  <div class="mission" aria-label="mission">
-    <div class="missionRow">
-      <div class="missionTitle" id="missionTitle">WARM</div>
-      <div class="missionGoal" id="missionGoal">—</div>
-    </div>
-    <div class="missionHint" id="missionHint">—</div>
-    <div id="missionFill"></div>
-  </div>
-
-  <div id="bossBar" aria-label="bossbar">
-    <div id="bossHint">—</div>
-    <div id="bossFill" style="--hp:0%;"></div>
-  </div>
-
-  <div id="stageBanner"></div>
-  <div id="milestoneBanner"></div>
-
-  <div id="endOverlay" aria-label="end overlay">
-    <div class="panel">
-      <div class="heroSummary">
-        <div class="heroTop">
-          <div class="heroTopLeft">
-            <div class="heroAvatar" id="heroAvatar">🙂</div>
-            <div class="heroTitleWrap">
-              <span class="heroBadge"><b>Hero Result</b></span>
-              <div class="heroTitleMini" id="heroMoodText">Great effort</div>
-            </div>
-          </div>
-          <span class="heroBadge"><b>view</b>: <span id="uiView">—</span></span>
-        </div>
-
-        <h2 id="endTitle">จบเกม</h2>
-        <p id="endSub">—</p>
-
-        <div class="gradeHero">
-          <div class="label">GRADE</div>
-          <div class="gradeBig" id="endGrade">—</div>
-        </div>
-
-        <div class="heroResultLine">
-          <b>run</b>: <span id="uiRun">—</span>
-          &nbsp;•&nbsp;
-          <b>diff</b>: <span id="uiDiff">—</span>
-        </div>
-
-        <div class="xpCard">
-          <div class="xpRow">
-            <div>
-              <div class="xpMeta">✨ XP</div>
-              <div class="xpGain" id="xpGainText">+0</div>
-            </div>
-            <div class="xpMeta" id="xpLevelText">Lv 1</div>
-          </div>
-          <div class="xpMeta" style="margin-top:6px;" id="xpTotalText">รวมสะสม: 0 XP</div>
-          <div class="xpBar"><div class="xpBarFill" id="xpBarFill"></div></div>
-        </div>
-      </div>
-
-      <div class="rewardCard" id="rewardCard">
-        <div class="rewardHead">
-          <span class="rewardBadge"><b>Reward Drop</b></span>
-          <span class="rewardBadge"><b>Book</b>: <span id="rewardBookCount">0</span></span>
-        </div>
-
-        <div class="rewardMain">
-          <div class="rewardIcon" id="rewardIcon">🃏</div>
-          <div class="rewardBody">
-            <div class="rewardTitle" id="rewardTitle">Mystery Card</div>
-            <div class="rewardSub" id="rewardSub">รอเปิดรางวัล…</div>
-            <div class="rewardMeta">
-              <span class="rewardChip"><b>grade</b>: <span id="rewardGrade">—</span></span>
-              <span class="rewardChip"><b>rarity</b>: <span id="rewardRarity">—</span></span>
-              <span class="rewardChip"><b>status</b>: <span id="rewardStatus">new</span></span>
-            </div>
+  <div id="bootOverlay">
+    <div class="boot-card">
+      <div class="boot-head">
+        <div>
+          <div class="boot-title">GoodJunk VR</div>
+          <div class="boot-sub">
+            ฝึกแยกอาหารดี–อาหารเสี่ยง พร้อมระบบเล่นเดี่ยว / battle / classroom
           </div>
         </div>
+        <div style="font-size:42px">🎯</div>
       </div>
 
-      <div class="endGrid">
-        <div class="endPill"><div class="k">คะแนน</div><div class="v" id="endScore">0</div></div>
-        <div class="endPill"><div class="k">Miss</div><div class="v" id="endMiss">0</div></div>
-        <div class="endPill"><div class="k">เวลา</div><div class="v" id="endTime">0</div></div>
-        <div class="endPill"><div class="k">สถานะ</div><div class="v" id="endState">CLEAR</div></div>
+      <div class="grid">
+        <div class="stat">
+          <div class="k">Difficulty</div>
+          <div id="sDiff" class="v">normal</div>
+        </div>
+        <div class="stat">
+          <div class="k">View</div>
+          <div id="sView" class="v">mobile</div>
+        </div>
+        <div class="stat">
+          <div class="k">Mode</div>
+          <div id="sMode" class="v">solo</div>
+        </div>
+        <div class="stat">
+          <div class="k">Seed</div>
+          <div id="sSeed" class="v">auto</div>
+        </div>
       </div>
 
-      <div class="endActions">
-        <button class="btn primary" id="btnReplay" type="button">🔁 เล่นอีกครั้ง</button>
-        <button class="btn good" id="btnRematch" type="button" style="display:none;">⚔ Rematch</button>
-        <button class="btn ghost" id="btnBackHub" type="button">↩ กลับ Hub</button>
+      <div class="cta-row">
+        <button id="btnStart" class="btn">เริ่มเกม</button>
+        <button id="btnBack" class="btn secondary">กลับ HUB</button>
       </div>
+
+      <div id="errorBox"></div>
     </div>
   </div>
 
-  <div id="battleToast" aria-label="battle toast"></div>
-  <div id="dbg"></div>
-
-  <script src="../vr/vr-ui.js"></script>
+  <div class="bottom-hint">
+    โหมด VR/Cardboard ใช้ปุ่ม ENTER VR / crosshair กลางจอ • Mobile/PC แตะหรือคลิกเพื่อเล่น
+  </div>
 
   <script type="module">
-    const qs = (k, d='')=>{ try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(e){ return d; } };
-    const dbg = document.getElementById('dbg');
-    const debugOn = String(qs('debug','0')) === '1';
-    const mode = String(qs('mode','solo')).toLowerCase();
-    const battleMode = (String(qs('battle','0')) === '1') || mode === 'battle';
-    const roomCode = String(qs('room','')).trim();
+    import { boot } from './goodjunk.safe.js';
 
-    function logDbg(msg){
-      if(!dbg || !debugOn) return;
-      dbg.style.display = 'block';
-      dbg.textContent += (String(msg||'') + '\n');
-    }
+    const qs = (k, d='') => {
+      try { return new URL(location.href).searchParams.get(k) ?? d; }
+      catch { return d; }
+    };
 
-    window.addEventListener('error', (e)=>{ logDbg('ERROR: ' + (e?.message||e)); });
-    window.addEventListener('unhandledrejection', (e)=>{ logDbg('REJECT: ' + (e?.reason?.message || e?.reason || e)); });
+    const byId = (id)=>document.getElementById(id);
 
-    const btnReplay = document.getElementById('btnReplay');
-    const btnBackHub = document.getElementById('btnBackHub');
-    const btnRematch = document.getElementById('btnRematch');
-    const btnReady = document.getElementById('btnReady');
-    const btnLeaveBattle = document.getElementById('btnLeaveBattle');
-
-    let __battle = null;
-    let __lastBattlePlayers = [];
-    let __lastBattleState = null;
-    let __roundBootId = '';
-    let __resumeNotified = false;
-    let __battleUiLocked = false;
-    let __lastPhaseSound = '';
-
-    function resetBattleUiForNewRound(){
-      __battleUiLocked = false;
-      window.__HHA_LAST_END_DETAIL__ = null;
-
-      const endOverlay = document.getElementById('endOverlay');
-      const battleCountdown = document.getElementById('battleCountdown');
-      const battleLead = document.getElementById('battleLead');
-      const battlePhase = document.getElementById('battlePhase');
-      const lobbyPhase = document.getElementById('lobbyPhase');
-      const battleLobbyMsgText = document.getElementById('battleLobbyMsgText');
-
-      if(endOverlay) endOverlay.style.display = 'none';
-      if(battleCountdown) battleCountdown.textContent = '—';
-      if(battleLead) battleLead.textContent = 'tie';
-      if(battlePhase) battlePhase.textContent = 'lobby';
-      if(lobbyPhase) lobbyPhase.textContent = 'lobby';
-      if(battleLobbyMsgText) battleLobbyMsgText.textContent = 'รอผู้เล่นอีกคนเข้าห้อง';
-
-      if(btnRematch){
-        btnRematch.style.display = 'none';
-        btnRematch.disabled = false;
-        btnRematch.textContent = '⚔ Rematch';
-      }
-      if(btnReady){
-        btnReady.style.display = '';
-        btnReady.disabled = false;
-        btnReady.textContent = '✅ Ready';
-      }
-    }
-
-    function showResumeHint(text){
-      const t = document.getElementById('battleLobbyMsgText');
-      if(t) t.textContent = text || '';
-    }
-
-    function statePhaseLabel(phase){
-      phase = String(phase || '').toLowerCase();
-      if(phase === 'lobby') return 'lobby';
-      if(phase === 'countdown') return 'countdown';
-      if(phase === 'running') return 'running';
-      if(phase === 'ended') return 'ended';
-      return phase || 'lobby';
-    }
-
-    function playUiTone(kind){
+    function safeHub(){
+      const raw = qs('hub', '../hub.html');
+      if(!raw) return '../hub.html';
       try{
-        const Ctx = window.AudioContext || window.webkitAudioContext;
-        if(!Ctx) return;
-        const ctx = new Ctx();
-
-        const seq =
-          kind === 'lobby'      ? [392] :
-          kind === 'countdown'  ? [523.25] :
-          kind === 'go'         ? [523.25, 659.25, 783.99] :
-          kind === 'win'        ? [659.25, 783.99, 987.77] :
-          kind === 'lose'       ? [392, 349.23] :
-          kind === 'disconnect' ? [440, 330] :
-          kind === 'notice'     ? [523.25, 523.25] :
-                                  [440];
-
-        let t = ctx.currentTime;
-        seq.forEach((freq, i)=>{
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
-          osc.type = (kind === 'lose' || kind === 'disconnect') ? 'square' : 'triangle';
-          osc.frequency.value = freq;
-          gain.gain.setValueAtTime(0.0001, t);
-          gain.gain.exponentialRampToValueAtTime(0.05, t + 0.02);
-          gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.16);
-          osc.connect(gain);
-          gain.connect(ctx.destination);
-          osc.start(t);
-          osc.stop(t + 0.18);
-          t += (i === seq.length-1 ? 0 : 0.10);
-        });
-      }catch(_){}
-    }
-
-    let __toastTimer = null;
-    function showBattleToast(message, type='info'){
-      const el = document.getElementById('battleToast');
-      if(!el) return;
-
-      el.textContent = message || '';
-      el.style.display = 'block';
-      el.style.opacity = '1';
-      el.style.transform = 'translateX(-50%) translateY(0)';
-
-      if(type === 'error'){
-        el.style.borderColor = 'rgba(239,68,68,.28)';
-        el.style.background = 'rgba(127,29,29,.72)';
-      }else if(type === 'warn'){
-        el.style.borderColor = 'rgba(245,158,11,.28)';
-        el.style.background = 'rgba(120,53,15,.76)';
-      }else{
-        el.style.borderColor = 'rgba(59,130,246,.28)';
-        el.style.background = 'rgba(2,6,23,.82)';
-      }
-
-      clearTimeout(__toastTimer);
-      __toastTimer = setTimeout(()=>{
-        el.style.opacity = '0';
-        el.style.transform = 'translateX(-50%) translateY(8px)';
-        setTimeout(()=>{ el.style.display = 'none'; }, 220);
-      }, 2200);
-    }
-
-    function battleRuleText(rule){
-      rule = String(rule || '').toLowerCase();
-      if(rule === 'score') return 'ตัดสินจากคะแนนรวม';
-      if(rule === 'acc') return 'แต้มเท่ากัน จึงตัดสินจากความแม่นยำ';
-      if(rule === 'miss') return 'แต้มและความแม่นเท่ากัน จึงตัดสินจาก miss น้อยกว่า';
-      if(rule === 'medianrt' || rule === 'median_rt' || rule === 'medianrttie' || rule === 'medianrtgoodms') return 'ทุกอย่างใกล้กัน จึงตัดสินจากเวลาเฉลี่ยตอบสนอง';
-      if(rule === 'forfeit') return 'ชนะเพราะอีกฝ่ายหลุด/ออกจากห้อง';
-      if(rule === 'tie') return 'ผลเสมอ';
-      return `ตัดสินตามกติกา battle (${rule || 'unknown'})`;
-    }
-
-    function applyBattleEndedToOverlay(detail, battleEnded){
-      if(!battleEnded) return;
-
-      const meKey = __battle?.meKey || '';
-      const winner = String(battleEnded.winner || '');
-      const rule = String(battleEnded.reason || '');
-      const ruleText = battleRuleText(rule);
-
-      const endTitle = document.getElementById('endTitle');
-      const endSub = document.getElementById('endSub');
-      const endState = document.getElementById('endState');
-      const heroMoodText = document.getElementById('heroMoodText');
-
-      const youWin = !!winner && winner === meKey;
-      const tie = !winner;
-
-      if(tie){
-        if(endTitle) endTitle.textContent = 'เสมอ Battle';
-        if(endState) endState.textContent = 'TIE';
-        if(heroMoodText) heroMoodText.textContent = 'สูสีมาก! ลองรีแมตช์ได้เลย';
-        if(endSub){
-          endSub.textContent =
-            `ผลเสมอ • ${ruleText} • score ${detail.scoreFinal ?? detail.score ?? 0} • acc ${detail.accPct ?? 0}% • miss ${detail.missTotal ?? detail.miss ?? 0}`;
-        }
-        playUiTone('notice');
-        return;
-      }
-
-      if(youWin){
-        if(endTitle) endTitle.textContent = 'ชนะ Battle! ⚔️';
-        if(endState) endState.textContent = 'WIN';
-        if(heroMoodText) heroMoodText.textContent = (rule === 'forfeit')
-          ? 'คู่แข่งหลุดออกจากเกม'
-          : 'เก่งมาก! คุณชนะการแข่งรอบนี้';
-        if(endSub){
-          endSub.textContent =
-            `คุณชนะ • ${ruleText} • score ${detail.scoreFinal ?? detail.score ?? 0} • acc ${detail.accPct ?? 0}% • miss ${detail.missTotal ?? detail.miss ?? 0}`;
-        }
-        playUiTone('win');
-      }else{
-        if(endTitle) endTitle.textContent = 'แพ้ Battle';
-        if(endState) endState.textContent = 'LOSE';
-        if(heroMoodText) heroMoodText.textContent = (rule === 'forfeit')
-          ? 'จบรอบเพราะสถานะห้องเปลี่ยน'
-          : 'ไม่เป็นไร ลองรีแมตช์ได้ทันที';
-        if(endSub){
-          endSub.textContent =
-            `คุณแพ้ • ${ruleText} • score ${detail.scoreFinal ?? detail.score ?? 0} • acc ${detail.accPct ?? 0}% • miss ${detail.missTotal ?? detail.miss ?? 0}`;
-        }
-        playUiTone('lose');
+        const u = new URL(raw, location.href);
+        return u.href;
+      }catch{
+        return '../hub.html';
       }
     }
 
-    function getGradeMood(grade){
-      grade = String(grade || '').toUpperCase();
-      if(grade === 'S') return { emoji:'🤩', text:'Excellent hero!', cls:'mood-s' };
-      if(grade === 'A') return { emoji:'😄', text:'Awesome work!', cls:'mood-a' };
-      if(grade === 'B') return { emoji:'🙂', text:'Nice job!', cls:'mood-b' };
-      if(grade === 'C') return { emoji:'😅', text:'Keep practicing!', cls:'mood-c' };
-      return { emoji:'💪', text:'Try again, hero!', cls:'mood-d' };
+    function setBootInfo(){
+      const diff = qs('diff', 'normal');
+      const view = qs('view', 'mobile');
+      const seed = qs('seed', 'auto');
+      const battle = qs('battle', '0') === '1';
+      const room = qs('room', '');
+      const spec = qs('spectator', '0') === '1';
+
+      byId('sDiff').textContent = diff;
+      byId('sView').textContent = view;
+      byId('sSeed').textContent = seed;
+      byId('sMode').textContent = spec ? 'spectator' : (battle ? ('battle' + (room ? ` • ${room}` : '')) : 'solo');
+
+      const modeText = spec ? 'Spectator mode'
+                    : battle ? ('Battle mode' + (room ? ` • ${room}` : ''))
+                    : 'Solo mode';
+      byId('modeText').textContent = modeText;
+
+      const dot = byId('modeDot');
+      dot.className = 'dot' + (spec ? ' warn' : (battle ? ' danger' : ''));
     }
 
-    function calcXpGain(detail){
-      const score = Number(detail?.scoreFinal ?? detail?.score ?? 0) || 0;
-      const miss = Number(detail?.missTotal ?? detail?.miss ?? 0) || 0;
-      const acc  = Number(detail?.accPct ?? 0) || 0;
-      const grade = String(detail?.grade || '').toUpperCase();
-      const win = String(detail?.reason || '') === 'win' || String(detail?.reason || '').startsWith('battle-win');
-
-      let xp = 8;
-      xp += Math.min(12, Math.floor(score / 120));
-      xp += Math.max(0, Math.floor(acc / 20));
-      xp -= Math.min(5, miss);
-      if(win) xp += 6;
-      if(grade === 'S') xp += 8;
-      else if(grade === 'A') xp += 5;
-      else if(grade === 'B') xp += 3;
-      return Math.max(4, xp);
+    function hideOverlay(){
+      byId('bootOverlay').classList.add('hide');
     }
 
-    function loadHeroProfile(pid){
+    function showError(msg){
+      const box = byId('errorBox');
+      box.textContent = String(msg || 'Unknown error');
+      box.classList.add('show');
+    }
+
+    function installVRUI(){
       try{
-        const raw = localStorage.getItem(`HHA_PROFILE:${pid}`) || '';
-        return raw ? JSON.parse(raw) : { pid, nick: pid };
-      }catch(_){ return { pid, nick: pid }; }
-    }
-
-    function saveHeroProfile(pid, patch){
-      const prev = loadHeroProfile(pid);
-      const next = {
-        ...prev,
-        ...patch,
-        pid,
-        nick: String((patch && patch.nick) || prev.nick || pid)
-      };
-      try{ localStorage.setItem(`HHA_PROFILE:${pid}`, JSON.stringify(next)); }catch(_){}
-      return next;
-    }
-
-    function loadHeroXp(pid){
-      try{ return Math.max(0, Number(localStorage.getItem(`HHA_HERO_XP:${pid}`) || '0') || 0); }
-      catch(_){ return 0; }
-    }
-
-    function saveHeroXp(pid, xp){
-      const safeXp = Math.max(0, xp|0);
-      try{ localStorage.setItem(`HHA_HERO_XP:${pid}`, String(safeXp)); }catch(_){}
-      const lvl = Math.max(1, Math.floor(safeXp / 50) + 1);
-      const prev = loadHeroProfile(pid);
-      saveHeroProfile(pid, { nick: prev.nick || pid, xp: safeXp, lvl });
-    }
-
-    function levelFromXp(xp){
-      return Math.max(1, Math.floor((Number(xp)||0) / 50) + 1);
-    }
-
-    function xpInLevel(xp){
-      xp = Math.max(0, Number(xp)||0);
-      return xp % 50;
-    }
-
-    function playResultTone(grade, isWin){
-      try{
-        const Ctx = window.AudioContext || window.webkitAudioContext;
-        if(!Ctx) return;
-        const ctx = new Ctx();
-        const notes = isWin
-          ? (grade === 'S' ? [523.25, 659.25, 783.99] : [440, 523.25, 659.25])
-          : [392, 349.23];
-        let t = ctx.currentTime;
-        notes.forEach((freq)=>{
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
-          osc.type = 'triangle';
-          osc.frequency.value = freq;
-          gain.gain.setValueAtTime(0.0001, t);
-          gain.gain.exponentialRampToValueAtTime(0.06, t + 0.02);
-          gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.22);
-          osc.connect(gain);
-          gain.connect(ctx.destination);
-          osc.start(t);
-          osc.stop(t + 0.24);
-          t += 0.12;
-        });
-      }catch(_){}
-    }
-
-    function loadCardBook(pid){
-      try{
-        const raw = localStorage.getItem(`HHA_CARD_BOOK:${pid}`) || '';
-        if(!raw) return { S:0, A:0, B:0, C:0, total:0 };
-        const j = JSON.parse(raw);
-        return {
-          S: Math.max(0, Number(j.S)||0),
-          A: Math.max(0, Number(j.A)||0),
-          B: Math.max(0, Number(j.B)||0),
-          C: Math.max(0, Number(j.C)||0),
-          total: Math.max(0, Number(j.total)||0)
-        };
-      }catch(_){
-        return { S:0, A:0, B:0, C:0, total:0 };
-      }
-    }
-
-    function saveCardBook(pid, book){
-      try{ localStorage.setItem(`HHA_CARD_BOOK:${pid}`, JSON.stringify(book)); }catch(_){}
-    }
-
-    function cardSpecFromGrade(grade){
-      grade = String(grade||'C').toUpperCase();
-      if(grade === 'S') return {
-        rarity:'S', icon:'🏆', title:'Legendary Nutrition Hero',
-        sub:'การ์ดระดับสูงสุด • เล่นได้เฉียบมาก', cls:'rarity-s', glow:'rewardGlowS'
-      };
-      if(grade === 'A') return {
-        rarity:'A', icon:'⚡', title:'Elite Healthy Shooter',
-        sub:'การ์ดหายาก • เร็ว แม่น และคุมเกมดี', cls:'rarity-a', glow:'rewardGlowA'
-      };
-      if(grade === 'B') return {
-        rarity:'B', icon:'🛡️', title:'Balanced Food Defender',
-        sub:'การ์ดมาตรฐานดี • จังหวะและการตัดสินใจโอเค', cls:'rarity-b', glow:'rewardGlowB'
-      };
-      return {
-        rarity:'C', icon:'🌱', title:'Rookie Health Explorer',
-        sub:'การ์ดเริ่มต้น • ฝึกต่อแล้วจะอัปเกรดไว', cls:'rarity-c', glow:'rewardGlowC'
-      };
-    }
-
-    function maybeUpgradeRewardByPerformance(detail){
-      const acc = Number(detail?.accPct ?? 0) || 0;
-      const miss = Number(detail?.missTotal ?? detail?.miss ?? 0) || 0;
-      const score = Number(detail?.scoreFinal ?? detail?.score ?? 0) || 0;
-      const grade = String(detail?.grade || 'C').toUpperCase();
-
-      if(grade === 'A' && acc >= 95 && miss === 0 && score >= 1000) return 'S';
-      if(grade === 'B' && acc >= 90 && miss <= 1) return 'A';
-      return grade;
-    }
-
-    function grantRewardCard(pid, grade){
-      const spec = cardSpecFromGrade(grade);
-      const book = loadCardBook(pid);
-      const key = spec.rarity;
-      const prev = Math.max(0, Number(book[key])||0);
-      book[key] = prev + 1;
-      book.total = Math.max(0, Number(book.total)||0) + 1;
-      saveCardBook(pid, book);
-
-      return { ...spec, isNewTier: prev === 0, count: book[key], total: book.total };
-    }
-
-    function renderRewardCard(detail){
-      const pid = String(detail?.pid || qs('pid','anon')).trim() || 'anon';
-      const grade = maybeUpgradeRewardByPerformance(detail);
-      const reward = grantRewardCard(pid, grade);
-
-      const card = document.getElementById('rewardCard');
-      document.getElementById('rewardIcon').textContent = reward.icon;
-      document.getElementById('rewardTitle').textContent = reward.title;
-      document.getElementById('rewardSub').textContent = reward.isNewTier
-        ? `${reward.sub} • ได้ครั้งแรกของระดับ ${reward.rarity}!`
-        : `${reward.sub} • duplicate +1 (รวม ${reward.count})`;
-      document.getElementById('rewardGrade').textContent = grade;
-      document.getElementById('rewardRarity').textContent = reward.rarity;
-      document.getElementById('rewardStatus').textContent = reward.isNewTier ? 'new tier' : `dup x${reward.count}`;
-      document.getElementById('rewardBookCount').textContent = String(reward.total);
-
-      if(card){
-        card.classList.remove('rarity-s','rarity-a','rarity-b','rarity-c','rewardGlowS','rewardGlowA','rewardGlowB','rewardGlowC');
-        card.classList.add(reward.cls, reward.glow, 'rewardPop');
-      }
-
-      try{
-        localStorage.setItem(`HHA_LAST_CARD:${pid}`, JSON.stringify({
-          game:'goodjunk',
-          grade,
-          rarity: reward.rarity,
-          title: reward.title,
-          icon: reward.icon,
-          ts: Date.now()
-        }));
-      }catch(_){}
-    }
-
-    function enhanceEndSummary(detail){
-      const grade = String(detail?.grade || 'B').toUpperCase();
-      const reason = String(detail?.reason || '');
-      const pid = String(detail?.pid || qs('pid','anon')).trim() || 'anon';
-      const nick = String(detail?.nick || qs('nick', pid)).trim() || pid;
-      const win = reason === 'win' || reason.startsWith('battle-win');
-
-      const mood = getGradeMood(grade);
-      const heroAvatar = document.getElementById('heroAvatar');
-      const heroMoodText = document.getElementById('heroMoodText');
-      const endState = document.getElementById('endState');
-
-      const xpGainText = document.getElementById('xpGainText');
-      const xpLevelText = document.getElementById('xpLevelText');
-      const xpTotalText = document.getElementById('xpTotalText');
-      const xpBarFill = document.getElementById('xpBarFill');
-
-      const endGrade = document.getElementById('endGrade');
-      const panel = document.querySelector('#endOverlay .panel');
-
-      heroAvatar.textContent = mood.emoji;
-      heroAvatar.className = `heroAvatar ${mood.cls}`;
-      heroMoodText.textContent = mood.text;
-      endState.textContent = win ? 'CLEAR' : 'TRY AGAIN';
-
-      const xpGain = calcXpGain(detail);
-      const oldXp = loadHeroXp(pid);
-      const newXp = oldXp + xpGain;
-      saveHeroXp(pid, newXp);
-
-      const newLevel = levelFromXp(newXp);
-      const levelProgress = (xpInLevel(newXp) / 50) * 100;
-
-      saveHeroProfile(pid, { nick, xp: newXp, lvl: newLevel });
-
-      xpGainText.textContent = `+${xpGain}`;
-      xpLevelText.textContent = `Lv ${newLevel}`;
-      xpTotalText.textContent = `รวมสะสม: ${newXp} XP`;
-
-      if(panel) panel.classList.add('panelFlash');
-      if(endGrade) endGrade.classList.add('gradePop');
-
-      requestAnimationFrame(()=>{
-        requestAnimationFrame(()=>{
-          if(xpBarFill) xpBarFill.style.width = `${Math.max(0, Math.min(100, levelProgress))}%`;
-        });
-      });
-
-      playResultTone(grade, win);
-
-      const vrBtns = document.querySelectorAll('.vr-ui-btn, .vr-enter-btn, .vr-exit-btn');
-      vrBtns.forEach(b => b.style.display = 'none');
-    }
-
-    function renderBanner(id, text, on){
-      const el = document.getElementById(id);
-      if(!el) return;
-      el.textContent = text || '';
-      el.style.opacity = on ? '1' : '0';
-      el.style.transform = on ? 'translateX(-50%) translateY(0)' : 'translateX(-50%) translateY(-4px)';
-    }
-
-    function updateBattleLobbyPlayers(players){
-      const meKey = __battle?.meKey || '';
-      const me = players.find(p => p.key === meKey) || null;
-      const opp = players.find(p => p.key !== meKey) || null;
-      document.getElementById('lobbyMe').textContent = me ? `${me.nick || me.pid} ${me.ready ? '✅' : '…'}` : '—';
-      document.getElementById('lobbyOpp').textContent = opp ? `${opp.nick || opp.pid} ${opp.ready ? '✅' : '…'}` : 'รอผู้เล่นคนที่ 2…';
-      document.getElementById('battleMe').textContent = me ? (me.nick || me.pid) : '—';
-      document.getElementById('battleOpp').textContent = opp ? (opp.nick || opp.pid) : '—';
-      document.getElementById('battleReadyCount').textContent = `${players.filter(p=>p.ready).length}/2`;
-    }
-
-    function updateBattleScore(players){
-      const meKey = __battle?.meKey || '';
-      const me = players.find(p => p.key === meKey) || null;
-      const opp = players.find(p => p.key !== meKey) || null;
-      let lead = 'tie';
-      if(me && opp){
-        if(me.score > opp.score) lead = 'you';
-        else if(me.score < opp.score) lead = 'opp';
-      }
-      document.getElementById('battleLead').textContent = lead;
-    }
-
-    function showBattleLobby(on){
-      const el = document.getElementById('battleLobby');
-      if(el) el.style.display = on ? 'flex' : 'none';
-    }
-
-    function setLobbyMsg(text){
-      const el = document.getElementById('battleLobbyMsgText');
-      if(el) el.textContent = text || '';
-    }
-
-    function setSpectatorModeUI(message){
-      showBattleLobby(true);
-      __battleUiLocked = true;
-
-      const btnReady = document.getElementById('btnReady');
-      const btnRematch = document.getElementById('btnRematch');
-      const endOverlay = document.getElementById('endOverlay');
-
-      if(btnReady){
-        btnReady.style.display = 'none';
-        btnReady.disabled = true;
-      }
-      if(btnRematch){
-        btnRematch.style.display = 'none';
-      }
-      if(endOverlay){
-        endOverlay.style.display = 'none';
-      }
-
-      showResumeHint(message || 'กำลังดูการแข่งขันในโหมด spectator');
-    }
-
-    function saveBattleSessionSnapshot(detail){
-      try{
-        const room = String(detail?.room || qs('room','') || 'NOROOM');
-        const pid = String(detail?.pid || qs('pid','anon') || 'anon');
-        const key = `HHA_GJ_SESSION_LAST:${room}:${pid}`;
-        localStorage.setItem(key, JSON.stringify({
-          room,
-          pid,
-          nick: detail?.nick || qs('nick', pid) || pid,
-          score: detail?.scoreFinal ?? detail?.score ?? 0,
-          accPct: detail?.accPct ?? 0,
-          miss: detail?.missTotal ?? detail?.miss ?? 0,
-          grade: detail?.grade || '-',
-          reason: detail?.reason || '-',
-          ts: Date.now()
-        }));
-      }catch(_){}
-    }
-
-    function saveTeacherRoomRoundSnapshot(detail){
-      try{
-        const room = String(detail?.room || qs('room','') || '').trim().toUpperCase();
-        if(!room) return;
-
-        const key = `HHA_GJ_TEACHER_REPORT:${room}`;
-        const raw = localStorage.getItem(key) || '[]';
-        const arr = JSON.parse(raw);
-        const row = {
-          iso: new Date().toISOString(),
-          room,
-          roundId: String(detail?.battleRoundId || detail?.roundId || ''),
-          phase: 'ended',
-          winnerLabel: String(detail?.battleWinnerKey || ''),
-          rule: String(detail?.battleReason || detail?.reason || ''),
-          p1Name: String(detail?.nick || detail?.pid || 'player'),
-          p1Score: String(detail?.scoreFinal ?? detail?.score ?? 0),
-          p1Acc: String(detail?.accPct ?? 0),
-          p1Miss: String(detail?.missTotal ?? detail?.miss ?? 0),
-          p1Rt: String(detail?.medianRtGoodMs ?? 0),
-          p1Status: 'local',
-          p2Name: '',
-          p2Score: '',
-          p2Acc: '',
-          p2Miss: '',
-          p2Rt: '',
-          p2Status: ''
-        };
-        arr.push(row);
-        localStorage.setItem(key, JSON.stringify(arr));
-      }catch(_){}
-    }
-
-    btnReplay && (btnReplay.onclick = async ()=>{
-      if(battleMode && __battle?.requestRematch){
-        try{
-          btnReplay.disabled = true;
-          btnReplay.textContent = '⏳ ขอรอบใหม่...';
-          await __battle.requestRematch();
-          return;
-        }catch(_){}
-        finally{
-          setTimeout(()=>{
-            btnReplay.disabled = false;
-            btnReplay.textContent = '🔁 เล่นอีกครั้ง';
-          }, 1800);
-        }
-      }
-
-      const u = new URL(location.href);
-      u.searchParams.set('seed', String(Date.now()));
-      location.href = u.toString();
-    });
-
-    btnBackHub && (btnBackHub.onclick = async ()=>{
-      try{ await __battle?.leave?.(); }catch(_){}
-      const hub = qs('hub','../hub.html');
-      location.href = hub;
-    });
-
-    btnRematch && (btnRematch.onclick = async ()=>{
-      try{
-        btnRematch.disabled = true;
-        btnRematch.textContent = '⏳ ขอ rematch...';
-        showBattleLobby(true);
-        showResumeHint('กำลังขอรอบใหม่...');
-        await __battle?.requestRematch?.();
-      }catch(_){}
-      setTimeout(()=>{
-        btnRematch.disabled = false;
-        btnRematch.textContent = '⚔ Rematch';
-      }, 1800);
-    });
-
-    btnReady && (btnReady.onclick = async ()=>{
-      try{
-        if(__battle?.isSpectator?.()) return;
-        await __battle?.setReady?.(true);
-        btnReady.disabled = true;
-        btnReady.textContent = '✅ Ready แล้ว';
-      }catch(_){}
-    });
-
-    btnLeaveBattle && (btnLeaveBattle.onclick = async ()=>{
-      try{ await __battle?.leave?.(); }catch(_){}
-      const hub = qs('hub','../hub.html');
-      location.href = hub;
-    });
-
-    window.addEventListener('hha:battle-notice', (ev)=>{
-      const d = ev.detail || {};
-      const type = String(d.type || 'info');
-      const message = String(d.message || '');
-      if(!message) return;
-      showBattleToast(message, type);
-      if(type === 'error' || type === 'warn') playUiTone('disconnect');
-      else playUiTone('notice');
-    });
-
-    window.addEventListener('hha:battle-room', (ev)=>{
-      const d = ev.detail || {};
-      document.getElementById('battleRoom').textContent = d.room || roomCode || '—';
-      document.getElementById('lobbyRoom').textContent = d.room || roomCode || '—';
-
-      if(d.roundId && d.roundId !== __roundBootId){
-        __roundBootId = d.roundId;
-      }
-
-      const role = String(d.role || 'player').toLowerCase();
-      const isSpectator = role === 'spectator';
-
-      if(isSpectator){
-        if(d.roomFull && d.lateJoin){
-          setSpectatorModeUI('ห้องนี้เริ่มแข่งแล้ว • คุณเข้าช้า จึงเข้าดูแบบ spectator');
-        }else if(d.roomFull){
-          setSpectatorModeUI('ห้องนี้มีผู้เล่นครบแล้ว • คุณเข้าดูแบบ spectator');
-        }else{
-          setSpectatorModeUI('spectator mode');
-        }
-      }else{
-        if(d.resume){
-          showResumeHint('กลับเข้าสู่ห้องเดิมแล้ว • resume player');
-        }
-      }
-    });
-
-    window.addEventListener('hha:battle-players', (ev)=>{
-      const d = ev.detail || {};
-      __lastBattlePlayers = Array.isArray(d.players) ? d.players : [];
-      updateBattleLobbyPlayers(__lastBattlePlayers);
-      updateBattleScore(__lastBattlePlayers);
-
-      const meKey = __battle?.meKey || '';
-      const opp = __lastBattlePlayers.find(p => p.key !== meKey) || null;
-
-      if(opp){
-        const oppName = opp.nick || opp.pid || 'opponent';
-        const oppConnected = opp.connected !== false;
-        const battleOpp = document.getElementById('battleOpp');
-        const lobbyOpp = document.getElementById('lobbyOpp');
-        const battleLead = document.getElementById('battleLead');
-
-        if(!oppConnected){
-          if(battleOpp) battleOpp.textContent = `${oppName} (offline)`;
-          if(lobbyOpp) lobbyOpp.textContent = `${oppName} หลุดการเชื่อมต่อ`;
-          setLobbyMsg('คู่แข่งหลุดการเชื่อมต่อ — รอระบบตัดสินหรือกลับเข้ามา');
-          if(battleLead) battleLead.textContent = 'opp offline';
-        }else{
-          if(battleOpp) battleOpp.textContent = `${oppName}${typeof opp.score === 'number' ? ` (${opp.score})` : ''}`;
-          if(lobbyOpp) lobbyOpp.textContent = `${oppName} ${opp.ready ? '✅' : '…'}`;
-          if(battleLead && battleLead.textContent === 'opp offline') battleLead.textContent = 'tie';
-        }
-      }
-    });
-
-    window.addEventListener('hha:battle-score', (ev)=>{
-      const d = ev.detail || {};
-      const me = d.me || null;
-      const opp = d.opp || null;
-      document.getElementById('battleLead').textContent = d.leader || 'tie';
-      if(me) document.getElementById('battleMe').textContent = `${me.nick || me.pid} (${me.score||0})`;
-      if(opp) document.getElementById('battleOpp').textContent = `${opp.nick || opp.pid} (${opp.score||0})`;
-    });
-
-    window.addEventListener('hha:battle-countdown', (ev)=>{
-      const d = ev.detail || {};
-      const leftSec = Math.max(0, Math.ceil((Number(d.leftMs||0))/1000));
-      document.getElementById('battleCountdown').textContent = String(leftSec);
-      if(leftSec > 0){
-        setLobbyMsg(`เริ่มในอีก ${leftSec} วินาที`);
-      }else{
-        setLobbyMsg('เริ่มแล้ว!');
-      }
-    });
-
-    window.addEventListener('hha:battle-state', (ev)=>{
-      const d = ev.detail || {};
-      __lastBattleState = d;
-
-      const phase = String(d.phase || 'lobby').toLowerCase();
-      const isSpectator = !!(__battle?.isSpectator?.());
-      const roundId = String(d.roundId || '');
-      const phaseText = statePhaseLabel(phase);
-
-      if(__lastPhaseSound !== phase){
-        if(phase === 'lobby') playUiTone('lobby');
-        else if(phase === 'countdown') playUiTone('countdown');
-        __lastPhaseSound = phase;
-      }
-
-      document.getElementById('battlePhase').textContent = phaseText;
-      document.getElementById('lobbyPhase').textContent = phaseText;
-
-      if(isSpectator){
-        const msg =
-          phase === 'running' ? 'spectator mode • กำลังดูการแข่งขันอยู่' :
-          phase === 'countdown' ? 'spectator mode • รอบกำลังจะเริ่ม' :
-          phase === 'ended' ? 'spectator mode • รอบนี้จบแล้ว' :
-          'spectator mode';
-        setSpectatorModeUI(msg);
-        return;
-      }
-
-      if(roundId && __roundBootId && roundId !== __roundBootId){
-        __roundBootId = roundId;
-        __resumeNotified = false;
-        resetBattleUiForNewRound();
-        showBattleLobby(true);
-        showResumeHint('เริ่มรอบใหม่แล้ว • กด ready เพื่อเล่นต่อ');
-      }else if(roundId && !__roundBootId){
-        __roundBootId = roundId;
-      }
-
-      if(phase === 'lobby'){
-        showBattleLobby(true);
-        showResumeHint('รอผู้เล่นอีกคนและกด ready');
-        if(btnReady){
-          btnReady.style.display = '';
-          btnReady.disabled = false;
-          btnReady.textContent = '✅ Ready';
-        }
-        __battleUiLocked = false;
-      }else if(phase === 'countdown'){
-        showBattleLobby(true);
-        if(btnReady){
-          btnReady.disabled = true;
-          btnReady.textContent = '✅ Ready แล้ว';
-        }
-        showResumeHint('นับถอยหลังเพื่อเริ่มพร้อมกัน');
-      }else if(phase === 'running'){
-        if(!__resumeNotified){
-          __resumeNotified = true;
-          showResumeHint('กลับเข้าสู่รอบที่กำลังเล่นอยู่');
-        }
-        showBattleLobby(false);
-        __battleUiLocked = false;
-      }else if(phase === 'ended'){
-        showBattleLobby(false);
-        __battleUiLocked = true;
-        if(btnRematch){
-          btnRematch.style.display = '';
-          btnRematch.disabled = false;
-          btnRematch.textContent = '⚔ Rematch';
-        }
-      }
-    });
-
-    window.addEventListener('hha:battle-start', ()=>{
-      showBattleLobby(false);
-      document.getElementById('battleCountdown').textContent = 'GO';
-      document.getElementById('battleLead').textContent = 'tie';
-      __battleUiLocked = false;
-      playUiTone('go');
-      showBattleToast('เริ่มแข่งแล้ว! GO!', 'info');
-    });
-
-    window.addEventListener('hha:battle-ended', (ev)=>{
-      const d = ev.detail || {};
-      const isSpectator = !!(__battle?.isSpectator?.());
-      if(isSpectator){
-        showBattleLobby(true);
-        showResumeHint('spectator mode • รอบนี้จบแล้ว');
-        return;
-      }
-
-      __lastBattleState = { ...(__lastBattleState || {}), ...d, phase:'ended' };
-      __battleUiLocked = true;
-
-      if(btnRematch){
-        btnRematch.style.display = '';
-        btnRematch.disabled = false;
-        btnRematch.textContent = '⚔ Rematch';
-      }
-      if(btnReplay){
-        btnReplay.disabled = false;
-        btnReplay.textContent = '🔁 เล่นอีกครั้ง';
-      }
-
-      const currentSummary = window.__HHA_LAST_END_DETAIL__ || null;
-      if(currentSummary){
-        applyBattleEndedToOverlay(currentSummary, d);
-      }
-
-      if(d.reason === 'forfeit'){
-        setLobbyMsg('อีกฝ่ายหลุด/ออกจากห้อง ระบบตัดสินผลแล้ว');
-      }else{
-        setLobbyMsg('จบรอบแล้ว • กด rematch เพื่อเริ่มรอบใหม่');
-      }
-    });
-
-    window.addEventListener('hha:end', (ev)=>{
-      try{
-        const detail = ev?.detail || {};
-        window.__HHA_LAST_END_DETAIL__ = detail;
-        saveBattleSessionSnapshot(detail);
-        saveTeacherRoomRoundSnapshot(detail);
-
-        enhanceEndSummary(detail);
-        renderRewardCard(detail);
-
-        if(battleMode && __lastBattleState && String(__lastBattleState.phase || '').toLowerCase() === 'ended'){
-          applyBattleEndedToOverlay(detail, __lastBattleState);
+        if (window.HHAVRUI && typeof window.HHAVRUI.install === 'function'){
+          window.HHAVRUI.install({
+            recenter:true,
+            exit:true,
+            crosshair:true,
+            tapToShoot:true
+          });
+        } else if (window.installVRUI && typeof window.installVRUI === 'function'){
+          window.installVRUI({
+            recenter:true,
+            exit:true,
+            crosshair:true,
+            tapToShoot:true
+          });
         }
       }catch(err){
-        console.warn('end-summary enhance failed', err);
+        console.warn('[GoodJunkVR] VR UI install failed:', err);
       }
-    });
+    }
 
-    window.addEventListener('hha:solo-fx', (ev)=>{
+    async function startGame(){
       try{
-        const d = ev?.detail || {};
-        renderBanner('stageBanner', d.stageText || '', !!d.stageOn);
-        renderBanner('milestoneBanner', d.milestoneText || '', !!d.milestoneOn);
-      }catch(_){}
-    });
+        hideOverlay();
+        installVRUI();
 
-    try{
-      logDbg('Booting goodjunk...');
-      if(battleMode){
-        document.getElementById('battleBar').style.display = 'flex';
-        showBattleLobby(true);
-        document.getElementById('battleRoom').textContent = roomCode || '—';
-        document.getElementById('lobbyRoom').textContent = roomCode || '—';
-      }
+        const cfg = {
+          appId: 'goodjunk',
+          title: 'GoodJunk VR',
+          hub: safeHub(),
+          diff: qs('diff', 'normal'),
+          time: Number(qs('time', '60')) || 60,
+          seed: qs('seed', ''),
+          pid: qs('pid', 'anon'),
+          studyId: qs('studyId', ''),
+          phase: qs('phase', ''),
+          conditionGroup: qs('conditionGroup', ''),
+          battle: qs('battle', '0') === '1',
+          room: qs('room', ''),
+          spectator: qs('spectator', '0') === '1',
+          pro: qs('pro', '0') === '1',
+          run: qs('run', '1'),
+          log: qs('log', ''),
+          view: qs('view', 'mobile'),
+          api: qs('api', ''),
+          debug: qs('debug', '0') === '1'
+        };
 
-      const mod = await import('./goodjunk.safe.js');
-      if(!mod || typeof mod.boot !== 'function'){
-        throw new Error('goodjunk.safe.js missing export boot(cfg)');
+        if (typeof boot !== 'function'){
+          throw new Error('goodjunk.safe.js does not export boot(cfg)');
+        }
+
+        await boot(cfg);
+      }catch(err){
+        console.error('[GoodJunkVR] boot error:', err);
+        byId('bootOverlay').classList.remove('hide');
+        showError(err?.stack || err?.message || String(err));
       }
-      await mod.boot({
-        pid: qs('pid','anon'),
-        nick: qs('nick','anon'),
-        hub: qs('hub','../hub.html'),
-        mode: qs('mode','solo'),
-        run: qs('run','play'),
-        diff: qs('diff','normal'),
-        view: qs('view','mobile'),
-        time: qs('time','80'),
-        seed: qs('seed', String(Date.now())),
-        ai: null
-      });
-      __battle = window.__HHA_BATTLE__ || null;
-      logDbg('✅ boot ok');
-    }catch(err){
-      logDbg('❌ boot failed: ' + (err?.message || err));
-      console.error(err);
-      showBattleToast('GoodJunk โหลดไม่สำเร็จ', 'error');
-      alert('GoodJunk โหลดไม่สำเร็จ (ดู console/debug=1)');
+    }
+
+    byId('btnStart').addEventListener('click', startGame);
+    byId('btnBack').addEventListener('click', ()=>{ location.href = safeHub(); });
+
+    setBootInfo();
+
+    if (qs('autostart', '1') === '1'){
+      setTimeout(startGame, 120);
     }
   </script>
 </body>
