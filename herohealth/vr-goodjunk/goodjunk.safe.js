@@ -1,11 +1,13 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
 // GoodJunkVR SAFE — PRODUCTION
-// PATCH v20260306-SOLO-ULTIMATE-FULL
+// PATCH v20260306-BATTLE-READY-FULL-ENDOVERLAY-DISCONNECT
 // ✅ Game Feel PRO
 // ✅ Mission / Boss Variety
 // ✅ Solo Progression
 // ✅ AI Director
-// ✅ Full end detail for Hub / XP / Reward
+// ✅ Battle-ready: expose handle / sync score / final sync
+// ✅ Battle-ended affects endOverlay by meKey
+// ✅ Opponent disconnect warning in HUD/Coach
 'use strict';
 
 export async function boot(cfg){
@@ -23,6 +25,11 @@ export async function boot(cfg){
   const battleOn = (String(qs('battle','0')) === '1') || (mode === 'battle');
 
   let battle = null;
+  let battleEndedInfo = null;
+  let battlePlayersState = [];
+  let oppDisconnectedWarned = false;
+  let lastOppConnected = true;
+
   async function initBattleMaybe(pid, gameKey){
     if(!battleOn) return null;
     try{
@@ -31,6 +38,7 @@ export async function boot(cfg){
         enabled: true,
         room: qs('room', ''),
         pid,
+        nick: qs('nick', pid),
         gameKey,
         autostartMs: Number(qs('autostart','3000'))||3000,
         forfeitMs: Number(qs('forfeit','5000'))||5000
@@ -220,12 +228,56 @@ export async function boot(cfg){
   const RESEARCH_MODE = String(qs('research','0')) === '1';
   const AI_PLAY_ADAPT = !RESEARCH_MODE && String(qs('ai','1')) !== '0';
 
+  // ---------- battle sync helpers ----------
+  let lastBattleSyncAt = 0;
+  const BATTLE_SYNC_EVERY_MS = 220;
+
+  function currentAccPct(){
+    return shots ? Math.round((hits/shots)*100) : 0;
+  }
+
+  function median(arr){
+    if(!arr || !arr.length) return 0;
+    const a = [...arr].sort((x,y)=>x-y);
+    const m = Math.floor(a.length/2);
+    return a.length % 2 ? a[m] : Math.round((a[m-1]+a[m])/2);
+  }
+
+  function currentMedianRtGoodMs(){
+    return median(rtList);
+  }
+
+  function currentFinishMs(){
+    return Math.max(0, Math.round((plannedSec - tLeft) * 1000));
+  }
+
+  function syncBattleScore(force=false){
+    if(!battle || !battle.enabled) return;
+    if(!battleOn) return;
+
+    const now = nowMs();
+    if(!force && (now - lastBattleSyncAt < BATTLE_SYNC_EVERY_MS)) return;
+    lastBattleSyncAt = now;
+
+    try{
+      battle.syncScore?.({
+        score,
+        accPct: currentAccPct(),
+        missTotal: missTotal,
+        medianRtGoodMs: currentMedianRtGoodMs(),
+        finishMs: currentFinishMs()
+      });
+    }catch(e){
+      console.warn('[GoodJunk] battle syncScore failed', e);
+    }
+  }
+
   initBattleMaybe(pid, HH_GAME).then((b)=>{
     battle = b || battle;
-    if(battle && battle.enabled){
-      try{ battle.setReady?.(true); }catch(e){}
-    }
-  }).catch(()=>{});
+    WIN.__HHA_BATTLE__ = battle || null;
+  }).catch(()=>{
+    WIN.__HHA_BATTLE__ = null;
+  });
 
   if(uiView) uiView.textContent = view;
   if(uiRun)  uiRun.textContent  = runMode;
@@ -441,9 +493,9 @@ export async function boot(cfg){
   const coachText = coach.querySelector('#coachText');
   let coachLatchMs = 0;
 
-  function sayCoach(msg){
+  function sayCoach(msg, bypass=false){
     const t = nowMs();
-    if(t - coachLatchMs < 3500) return;
+    if(!bypass && (t - coachLatchMs < 3500)) return;
     coachLatchMs = t;
     if(coachText) coachText.textContent = String(msg||'');
     coach.style.opacity = '1';
@@ -489,7 +541,8 @@ export async function boot(cfg){
   WIN.__GJ_START_NOW__ = function(){
     paused = false;
     lastTick = nowMs();
-    sayCoach('GO! 🔥');
+    lastBattleSyncAt = 0;
+    sayCoach('GO! 🔥', true);
   };
 
   WIN.addEventListener('hha:battle-start', ()=>{ try{ WIN.__GJ_START_NOW__?.(); }catch(e){} });
@@ -498,6 +551,50 @@ export async function boot(cfg){
       const phase = String(ev?.detail?.phase || '').toLowerCase();
       if(phase === 'running' && paused) WIN.__GJ_START_NOW__?.();
     }catch(e){}
+  });
+
+  WIN.addEventListener('hha:battle-players', (ev)=>{
+    try{
+      const players = Array.isArray(ev?.detail?.players) ? ev.detail.players : [];
+      battlePlayersState = players;
+
+      if(!battle || !battle.enabled) return;
+      const meKey = battle.meKey || '';
+      const opp = players.find(p => p.key !== meKey) || null;
+
+      const oppConnected = !!(opp && opp.connected !== false);
+      if(lastOppConnected && !oppConnected && currentPhaseString() === 'running'){
+        if(!oppDisconnectedWarned){
+          oppDisconnectedWarned = true;
+          sayCoach('⚠️ คู่แข่งหลุดการเชื่อมต่อ', true);
+          if(hud.aiHint) hud.aiHint.textContent = 'คู่แข่งหลุด';
+          if(hud.aiRisk) hud.aiRisk.textContent = 'disconnect';
+        }
+      }
+      if(!lastOppConnected && oppConnected){
+        oppDisconnectedWarned = false;
+        sayCoach('✅ คู่แข่งกลับมาแล้ว', true);
+      }
+      lastOppConnected = oppConnected;
+    }catch(e){}
+  });
+
+  WIN.addEventListener('hha:battle-ended', (ev)=>{
+    try{
+      battleEndedInfo = ev?.detail || null;
+    }catch(_){}
+  });
+
+  function currentPhaseString(){
+    try{
+      return String(WIN.__HHA_BATTLE_LAST_PHASE || '').toLowerCase();
+    }catch(_){ return ''; }
+  }
+
+  WIN.addEventListener('hha:battle-state', (ev)=>{
+    try{
+      WIN.__HHA_BATTLE_LAST_PHASE = String(ev?.detail?.phase || '').toLowerCase();
+    }catch(_){}
   });
 
   let score = 0;
@@ -520,7 +617,6 @@ export async function boot(cfg){
   let bossStormTimer = 0;
 
   const targets = new Map();
-  let idSeq = 1;
   let spawnAcc = 0;
 
   const LS_BEST = `HHA_GJ_BEST:${pid}:${diff}`;
@@ -631,13 +727,6 @@ export async function boot(cfg){
         : clamp((goodHitCount/WIN_TARGET.goodTarget)*100, 0, 100);
       missionFill.style.setProperty('--p', p.toFixed(1)+'%');
     }
-  }
-
-  function median(arr){
-    if(!arr || !arr.length) return 0;
-    const a = [...arr].sort((x,y)=>x-y);
-    const m = Math.floor(a.length/2);
-    return a.length % 2 ? a[m] : Math.round((a[m-1]+a[m])/2);
   }
 
   function grantBadges(detail){
@@ -775,6 +864,7 @@ export async function boot(cfg){
       timePlayedSec,
       timePlannedSec: plannedSec,
       timeLeftSec: Math.max(0, Math.ceil(tLeft)),
+      finishMs: Math.max(0, Math.round(timePlayedSec * 1000)),
 
       medianRtGoodMs,
       hub: hubUrl,
@@ -795,6 +885,33 @@ export async function boot(cfg){
     return detail;
   }
 
+  function applyBattleResultToOverlay(detail){
+    if(!battleOn || !battleEndedInfo || !battle || !battle.enabled) return detail;
+
+    const meKey = battle.meKey || '';
+    const winner = String(battleEndedInfo.winner || '');
+    const reason = String(battleEndedInfo.reason || 'battle');
+
+    detail.battleWinnerKey = winner;
+    detail.battleReason = reason;
+    detail.battleMeKey = meKey;
+
+    if(!winner){
+      detail.reason = `battle-tie:${reason}`;
+      detail.win = false;
+      return detail;
+    }
+
+    if(winner === meKey){
+      detail.reason = `battle-win:${reason}`;
+      detail.win = true;
+    }else{
+      detail.reason = `battle-lose:${reason}`;
+      detail.win = false;
+    }
+    return detail;
+  }
+
   function endGame(reason){
     if(!playing || ended) return;
     ended = true;
@@ -805,7 +922,21 @@ export async function boot(cfg){
     }
     targets.clear();
 
-    const detail = buildEndDetail(reason);
+    let detail = buildEndDetail(reason);
+    detail = applyBattleResultToOverlay(detail);
+
+    // ✅ final sync to battle before dispatch
+    try{
+      battle?.syncScore?.({
+        score: detail.scoreFinal,
+        accPct: detail.accPct,
+        missTotal: detail.missTotal,
+        medianRtGoodMs: detail.medianRtGoodMs,
+        finishMs: detail.finishMs
+      });
+    }catch(e){
+      console.warn('[GoodJunk] final battle syncScore failed', e);
+    }
 
     try{
       hhLsSet(`HHA_LAST_SUMMARY:${HH_GAME}:${pid}`, JSON.stringify(detail));
@@ -818,15 +949,34 @@ export async function boot(cfg){
 
     if(endOverlay){
       endOverlay.style.display = 'flex';
-      if(endTitle) endTitle.textContent = (reason==='win') ? 'ชนะแล้ว! 🎉' : 'จบเกม';
-      if(endSub) endSub.textContent = `score ${detail.scoreFinal} • acc ${detail.accPct}% • miss ${detail.missTotal} • reason=${reason}`;
+
+      if(battleOn && battleEndedInfo && battle && battle.enabled){
+        const meKey = battle.meKey || '';
+        const winner = String(battleEndedInfo.winner || '');
+        const rule = String(battleEndedInfo.reason || 'battle');
+
+        if(!winner){
+          if(endTitle) endTitle.textContent = 'เสมอ Battle';
+          if(endSub) endSub.textContent = `tie • rule=${rule} • score ${detail.scoreFinal} • acc ${detail.accPct}% • miss ${detail.missTotal}`;
+        }else if(winner === meKey){
+          if(endTitle) endTitle.textContent = 'ชนะ Battle! ⚔️';
+          if(endSub) endSub.textContent = `winner=you • rule=${rule} • score ${detail.scoreFinal} • acc ${detail.accPct}% • miss ${detail.missTotal}`;
+        }else{
+          if(endTitle) endTitle.textContent = 'แพ้ Battle';
+          if(endSub) endSub.textContent = `winner=opponent • rule=${rule} • score ${detail.scoreFinal} • acc ${detail.accPct}% • miss ${detail.missTotal}`;
+        }
+      }else{
+        if(endTitle) endTitle.textContent = (reason==='win') ? 'ชนะแล้ว! 🎉' : 'จบเกม';
+        if(endSub) endSub.textContent = `score ${detail.scoreFinal} • acc ${detail.accPct}% • miss ${detail.missTotal} • reason=${detail.reason}`;
+      }
+
       if(endGrade) endGrade.textContent = detail.grade;
       if(endScore) endScore.textContent = String(detail.scoreFinal);
       if(endMiss) endMiss.textContent = String(detail.missTotal);
       if(endTime) endTime.textContent = String(detail.timePlayedSec);
       hhInjectCooldownButton({ endOverlayEl:endOverlay, hub:hubUrl, cat:HH_CAT, gameKey:HH_GAME, pid });
     }else{
-      alert(`จบเกม: ${reason} (score ${detail.scoreFinal})`);
+      alert(`จบเกม: ${detail.reason} (score ${detail.scoreFinal})`);
     }
   }
 
@@ -1155,6 +1305,8 @@ export async function boot(cfg){
       }catch(e){}
     }
 
+    syncBattleScore(false);
+
     emitFx();
     requestAnimationFrame(tick);
   }
@@ -1162,8 +1314,8 @@ export async function boot(cfg){
   setMissionUI();
   setHUD();
 
-  if(WAIT_START) sayCoach('BATTLE/RACE: รอเริ่มพร้อมกัน… ⏳');
-  else sayCoach('พร้อมแล้ว! ยิงของดี 🥦');
+  if(WAIT_START) sayCoach('BATTLE/RACE: รอเริ่มพร้อมกัน… ⏳', true);
+  else sayCoach('พร้อมแล้ว! ยิงของดี 🥦', true);
 
   requestAnimationFrame(tick);
 }
