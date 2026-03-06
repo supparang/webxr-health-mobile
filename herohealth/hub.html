@@ -1,11 +1,12 @@
 <!-- === /herohealth/hub.html ===
 HeroHealth — Hub (3 Zones) — PRODUCTION
-PATCH v20260306-HUB-HERO-CARDBOOK-TROPHYSHELF-GJLAUNCHER
-✅ Uses /herohealth/goodjunk-launcher.html as GoodJunk entry
-✅ Hero Profile
-✅ Card Book summary for GoodJunk
-✅ Hub Shelf / Trophy Shelf
-✅ Quick links: GoodJunk Solo / Solo PRO / Battle
+PATCH v20260306-HUB-PATHFIX-ROOT-LAUNCHERS
+✅ FIX: Use root launchers instead of deep folder run paths
+✅ FIX: Hygiene / Exercise links now also pass full query context
+✅ FIX: Brush -> ./brush-vr.html
+✅ FIX: Balance Hold -> ./balance-hold-vr.html
+✅ FIX: Groups / Hydration / Plate -> root launchers
+✅ KEEP: GoodJunk launcher + Hero Profile + Card Book + Trophy Shelf
 -->
 <!doctype html>
 <html lang="th">
@@ -611,12 +612,12 @@ PATCH v20260306-HUB-HERO-CARDBOOK-TROPHYSHELF-GJLAUNCHER
         <div class="muted">Handwash • Brush • Bath • Clean Object • MaskCough • Germ Detective</div>
         <div class="sep"></div>
         <div class="games">
-          <a class="gameBtn" href="./handwash.html"><div class="t">🧼 Handwash</div><div class="s">สะอาดครบขั้น</div></a>
-          <a class="gameBtn" href="./brush.html"><div class="t">🪥 Brush</div><div class="s">แปรงฟันอย่างถูกวิธี</div></a>
-          <a class="gameBtn" href="./bath.html"><div class="t">🛁 Bath</div><div class="s">Hidden Dirt Quest</div></a>
-          <a class="gameBtn" href="./clean-object.html"><div class="t">🧴 Clean Object</div><div class="s">Evaluate / Create</div></a>
-          <a class="gameBtn" href="./maskcough.html"><div class="t">😷 Mask & Cough</div><div class="s">มารยาทสุขอนามัย</div></a>
-          <a class="gameBtn" href="./germ-detective.html"><div class="t">🦠 Germ Detective</div><div class="s">UV / Swab / Camera</div></a>
+          <a class="gameBtn" id="linkHandwash" href="#"><div class="t">🧼 Handwash</div><div class="s">สะอาดครบขั้น</div></a>
+          <a class="gameBtn" id="linkBrush" href="#"><div class="t">🪥 Brush</div><div class="s">แปรงฟันอย่างถูกวิธี</div></a>
+          <a class="gameBtn" id="linkBath" href="#"><div class="t">🛁 Bath</div><div class="s">Hidden Dirt Quest</div></a>
+          <a class="gameBtn" id="linkCleanObject" href="#"><div class="t">🧴 Clean Object</div><div class="s">Evaluate / Create</div></a>
+          <a class="gameBtn" id="linkMaskCough" href="#"><div class="t">😷 Mask & Cough</div><div class="s">มารยาทสุขอนามัย</div></a>
+          <a class="gameBtn" id="linkGermDetective" href="#"><div class="t">🦠 Germ Detective</div><div class="s">UV / Swab / Camera</div></a>
         </div>
       </section>
 
@@ -625,11 +626,11 @@ PATCH v20260306-HUB-HERO-CARDBOOK-TROPHYSHELF-GJLAUNCHER
         <div class="muted">Shadow Breaker • Rhythm Boxer • JumpDuck • Balance Hold • Fitness Planner</div>
         <div class="sep"></div>
         <div class="games">
-          <a class="gameBtn" href="./shadow-breaker.html"><div class="t">🥊 Shadow Breaker</div><div class="s">คอมโบ & รีแอคชั่น</div></a>
-          <a class="gameBtn" href="./rhythm-boxer.html"><div class="t">🎵 Rhythm Boxer</div><div class="s">จังหวะ + พลัง</div></a>
-          <a class="gameBtn" href="./jumpduck.html"><div class="t">⬆️⬇️ JumpDuck</div><div class="s">หลบ-กระโดด</div></a>
-          <a class="gameBtn" href="./balance-hold.html"><div class="t">⚖️ Balance Hold</div><div class="s">ทรงตัวแบบท้าทาย</div></a>
-          <a class="gameBtn" href="./fitness-planner/"><div class="t">📅 Fitness Planner</div><div class="s">วางแผนออกกำลัง</div></a>
+          <a class="gameBtn" id="linkShadowBreaker" href="#"><div class="t">🥊 Shadow Breaker</div><div class="s">คอมโบ & รีแอคชั่น</div></a>
+          <a class="gameBtn" id="linkRhythmBoxer" href="#"><div class="t">🎵 Rhythm Boxer</div><div class="s">จังหวะ + พลัง</div></a>
+          <a class="gameBtn" id="linkJumpDuck" href="#"><div class="t">⬆️⬇️ JumpDuck</div><div class="s">หลบ-กระโดด</div></a>
+          <a class="gameBtn" id="linkBalanceHold" href="#"><div class="t">⚖️ Balance Hold</div><div class="s">ทรงตัวแบบท้าทาย</div></a>
+          <a class="gameBtn" id="linkFitnessPlanner" href="#"><div class="t">📅 Fitness Planner</div><div class="s">วางแผนออกกำลัง</div></a>
         </div>
       </section>
 
@@ -878,7 +879,26 @@ PATCH v20260306-HUB-HERO-CARDBOOK-TROPHYSHELF-GJLAUNCHER
           : 'ทำ zone fitness ให้มี done today เพื่อโชว์ถ้วย';
     }
 
-    const GJ_LAUNCHER = './goodjunk-launcher.html';
+    // ===== Canonical root launchers =====
+    const PATHS = {
+      goodjunk:       './goodjunk-launcher.html',
+      groups:         './groups-vr.html',
+      hydration:      './hydration-vr.html',
+      plate:          './plate-vr.html',
+
+      handwash:       './handwash.html',
+      brush:          './brush-vr.html',
+      bath:           './bath.html',
+      cleanObject:    './clean-object.html',
+      maskCough:      './maskcough.html',
+      germDetective:  './germ-detective.html',
+
+      shadowBreaker:  './shadow-breaker.html',
+      rhythmBoxer:    './rhythm-boxer.html',
+      jumpDuck:       './jumpduck.html',
+      balanceHold:    './balance-hold-vr.html',
+      fitnessPlanner: './fitness-planner/'
+    };
 
     const btnGJsolo = document.getElementById('btnGJsolo');
     const btnGJpro = document.getElementById('btnGJpro');
@@ -889,23 +909,52 @@ PATCH v20260306-HUB-HERO-CARDBOOK-TROPHYSHELF-GJLAUNCHER
     const linkHydration = document.getElementById('linkHydration');
     const linkPlate = document.getElementById('linkPlate');
 
-    linkGoodjunk.href = buildUrl(GJ_LAUNCHER, { mode:'solo' });
-    linkGroups.href   = buildUrl('./vr-groups/groups-vr.html', {});
-    linkHydration.href= buildUrl('./hydration-vr/hydration-vr.html', {});
-    linkPlate.href    = buildUrl('./vr-plate/plate-vr.html', {});
+    const linkHandwash = document.getElementById('linkHandwash');
+    const linkBrush = document.getElementById('linkBrush');
+    const linkBath = document.getElementById('linkBath');
+    const linkCleanObject = document.getElementById('linkCleanObject');
+    const linkMaskCough = document.getElementById('linkMaskCough');
+    const linkGermDetective = document.getElementById('linkGermDetective');
 
-    btnGJsolo.onclick = ()=> location.href = buildUrl(GJ_LAUNCHER, { mode:'solo' });
+    const linkShadowBreaker = document.getElementById('linkShadowBreaker');
+    const linkRhythmBoxer = document.getElementById('linkRhythmBoxer');
+    const linkJumpDuck = document.getElementById('linkJumpDuck');
+    const linkBalanceHold = document.getElementById('linkBalanceHold');
+    const linkFitnessPlanner = document.getElementById('linkFitnessPlanner');
 
-    btnGJpro.onclick  = ()=> location.href = buildUrl(GJ_LAUNCHER, {
+    // Nutrition
+    linkGoodjunk.href  = buildUrl(PATHS.goodjunk,   { mode:'solo' });
+    linkGroups.href    = buildUrl(PATHS.groups,     { zone:'nutrition' });
+    linkHydration.href = buildUrl(PATHS.hydration,  { zone:'nutrition' });
+    linkPlate.href     = buildUrl(PATHS.plate,      { zone:'nutrition' });
+
+    // Hygiene
+    if(linkHandwash)      linkHandwash.href      = buildUrl(PATHS.handwash,      { zone:'hygiene' });
+    if(linkBrush)         linkBrush.href         = buildUrl(PATHS.brush,         { zone:'hygiene' });
+    if(linkBath)          linkBath.href          = buildUrl(PATHS.bath,          { zone:'hygiene' });
+    if(linkCleanObject)   linkCleanObject.href   = buildUrl(PATHS.cleanObject,   { zone:'hygiene' });
+    if(linkMaskCough)     linkMaskCough.href     = buildUrl(PATHS.maskCough,     { zone:'hygiene' });
+    if(linkGermDetective) linkGermDetective.href = buildUrl(PATHS.germDetective, { zone:'hygiene' });
+
+    // Exercise
+    if(linkShadowBreaker)  linkShadowBreaker.href  = buildUrl(PATHS.shadowBreaker,  { zone:'fitness' });
+    if(linkRhythmBoxer)    linkRhythmBoxer.href    = buildUrl(PATHS.rhythmBoxer,    { zone:'fitness' });
+    if(linkJumpDuck)       linkJumpDuck.href       = buildUrl(PATHS.jumpDuck,       { zone:'fitness' });
+    if(linkBalanceHold)    linkBalanceHold.href    = buildUrl(PATHS.balanceHold,    { zone:'fitness' });
+    if(linkFitnessPlanner) linkFitnessPlanner.href = buildUrl(PATHS.fitnessPlanner, { zone:'fitness' });
+
+    btnGJsolo.onclick = ()=> location.href = buildUrl(PATHS.goodjunk, { mode:'solo' });
+
+    btnGJpro.onclick  = ()=> location.href = buildUrl(PATHS.goodjunk, {
       mode:'solo',
       diff:'hard',
       pro:'1',
       auto:'0'
     });
 
-    btnGJbattle.onclick= ()=> {
+    btnGJbattle.onclick = ()=> {
       const room = String(qs('room','P5A')) || 'P5A';
-      location.href = buildUrl(GJ_LAUNCHER, {
+      location.href = buildUrl(PATHS.goodjunk, {
         mode:'battle',
         room,
         auto:'1'
@@ -935,7 +984,7 @@ PATCH v20260306-HUB-HERO-CARDBOOK-TROPHYSHELF-GJLAUNCHER
     const btnResetCardBook = document.getElementById('btnResetCardBook');
 
     btnOpenGJLauncher.onclick = ()=>{
-      location.href = buildUrl('./goodjunk-launcher.html', { mode:'solo' });
+      location.href = buildUrl(PATHS.goodjunk, { mode:'solo' });
     };
 
     btnResetCardBook.onclick = ()=>{
