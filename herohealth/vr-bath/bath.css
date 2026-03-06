@@ -25,7 +25,6 @@ html,body{ height:100%; margin:0; background:var(--bg); color:var(--text);
 }
 .pill.mini{ font-size:11px; opacity:.95; }
 
-/* PRO badge style */
 .pill.pro{ pointer-events:auto; }
 .pill.pro.on{
   border-color: rgba(245,158,11,.55);
@@ -248,6 +247,42 @@ html,body{ height:100%; margin:0; background:var(--bg); color:var(--text);
   border-radius:16px;
   border:1px solid rgba(148,163,184,.18);
   background:rgba(2,6,23,.25);
+}
+
+/* ✅ Quiz readability fix on mobile */
+#panelQuiz .chip,
+#panelQuiz button.chip{
+  background: rgba(255,255,255,.96);
+  color: #0f172a;
+  border: 2px solid rgba(59,130,246,.28);
+  box-shadow: 0 8px 20px rgba(0,0,0,.18);
+  min-height: 46px;
+  padding: 10px 14px;
+  font-size: 16px;
+  font-weight: 800;
+}
+#panelQuiz .chip.on{
+  background: rgba(219,234,254,.98);
+  color: #0b1220;
+  border-color: rgba(59,130,246,.88);
+  box-shadow: 0 0 0 3px rgba(59,130,246,.18) inset;
+}
+#panelQuiz .chip:hover,
+#panelQuiz .chip:active{
+  background: rgba(239,246,255,.98);
+}
+#panelQuiz .panel-card{
+  background: rgba(15,23,42,.97);
+}
+#panelQuiz .panel-card h2,
+#panelQuiz .panel-card div,
+#panelQuiz .panel-card p{
+  color: #e5e7eb;
+}
+#quizBody{
+  display:flex;
+  flex-wrap:wrap;
+  gap:12px;
 }
 
 #footer{
