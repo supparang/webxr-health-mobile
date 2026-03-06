@@ -1,102 +1,195 @@
-<!-- === /fitness/balance-hold.html ===
-Balance Hold — LAUNCHER (PC/Mobile/cVR) — PRODUCTION
-PATCH v20260305-BH-LAUNCHER-FIX-RUNPATH
-✅ FIX: Run page -> /fitness/balance-hold-run.html (avoid recursion)
-✅ Supports: autostart=1 (redirect immediately using incoming params)
--->
+<!-- ================================
+FILE: /fitness/balance-hold.html
+Balance Hold — LAUNCHER (Hub → WarmupGate → Run)
+PATCH v20260305-BH-LAUNCHER-GATE-DIFF
+✅ Choose difficulty/time/view before run
+✅ Always route via warmup-gate (daily per game handled by gate)
+✅ Pass hub/run/diff/time/seed/pid/view + zone(cat=exercise) + theme=balance
+================================ -->
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>Balance Hold — Launcher</title>
+  <title>Fitness — Balance Hold (Launcher)</title>
   <meta name="color-scheme" content="dark light" />
   <link rel="icon" href="../herohealth/favicon.ico" />
   <style>
     :root{
-      --bg1:#020617; --bg2:#0b1226;
-      --panel:rgba(2,6,23,.72);
-      --stroke:rgba(148,163,184,.18);
-      --text:#e5e7eb; --muted:#94a3b8;
-      --good:#22c55e; --cyan:#22d3ee; --warn:#f59e0b;
-      --sat: env(safe-area-inset-top, 0px);
-      --sab: env(safe-area-inset-bottom, 0px);
+      --bg:#050814; --panel:rgba(2,6,23,.72); --stroke:rgba(148,163,184,.18);
+      --text:#e5e7eb; --muted:#94a3b8; --good:#22c55e; --warn:#f59e0b; --cyan:#22d3ee; --violet:#a78bfa;
+      --sat: env(safe-area-inset-top, 0px); --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px); --sar: env(safe-area-inset-right, 0px);
     }
     *{box-sizing:border-box}
-    html,body{height:100%;margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif;color:var(--text);
-      background:
-        radial-gradient(1200px 700px at 15% 15%, rgba(34,197,94,.14), transparent 55%),
-        radial-gradient(1000px 600px at 85% 20%, rgba(34,211,238,.12), transparent 55%),
-        radial-gradient(900px 520px at 55% 90%, rgba(167,139,250,.12), transparent 55%),
-        linear-gradient(180deg,var(--bg1),var(--bg2));
+    html,body{height:100%;margin:0;background:
+      radial-gradient(900px 560px at 18% 0%, rgba(34,211,238,.14), transparent 56%),
+      radial-gradient(900px 560px at 92% 12%, rgba(167,139,250,.12), transparent 56%),
+      var(--bg);
+      color:var(--text);
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif;
     }
-    .wrap{max-width:880px;margin:0 auto;padding:calc(14px + var(--sat)) 14px calc(18px + var(--sab))}
-    .card{border:1px solid var(--stroke);background:rgba(2,6,23,.55);border-radius:20px;padding:14px;box-shadow:0 18px 60px rgba(0,0,0,.45)}
-    h1{margin:0;font-size:26px}
-    p{margin:8px 0 0;color:rgba(229,231,235,.78);font-weight:750;line-height:1.45}
-    .row{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
-    .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:10px 12px;border-radius:14px;border:1px solid var(--stroke);background:rgba(2,6,23,.35);color:var(--text);font-weight:1000;cursor:pointer}
-    .btn.primary{border-color:rgba(34,197,94,.35);background:rgba(34,197,94,.14)}
-    .btn.ghost{background:rgba(2,6,23,.18);color:rgba(229,231,235,.85)}
-    .grid{margin-top:12px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
-    @media (max-width:700px){.grid{grid-template-columns:1fr}}
-    label{display:block;font-size:12px;color:rgba(229,231,235,.72);font-weight:900;margin-bottom:6px}
-    select{width:100%;padding:10px 12px;border-radius:14px;border:1px solid var(--stroke);background:rgba(2,6,23,.45);color:var(--text);font:inherit;font-weight:900}
-    .pillrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
-    .pill{border:1px solid var(--stroke);background:rgba(2,6,23,.35);border-radius:999px;padding:7px 10px;font-size:12px;font-weight:900;color:rgba(229,231,235,.88)}
-    .pill b{color:#fff}
-    code{background:rgba(2,6,23,.5);padding:2px 6px;border-radius:8px;border:1px solid rgba(148,163,184,.16)}
-    .small{margin-top:10px;font-size:12px;color:rgba(229,231,235,.72);font-weight:850}
+    .wrap{min-height:100%;display:flex;align-items:center;justify-content:center;
+      padding:calc(14px + var(--sat)) calc(12px + var(--sar)) calc(14px + var(--sab)) calc(12px + var(--sal));
+    }
+    .card{
+      width:min(860px,100%);
+      border:1px solid var(--stroke);
+      background:linear-gradient(180deg, rgba(2,6,23,.86), rgba(2,6,23,.62));
+      border-radius:24px;
+      box-shadow:0 16px 60px rgba(0,0,0,.42);
+      overflow:hidden;
+    }
+    .top{padding:14px;border-bottom:1px solid var(--stroke);display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+    .brand{display:flex;gap:10px;align-items:center}
+    .logo{width:44px;height:44px;border-radius:14px;border:1px solid var(--stroke);
+      background:linear-gradient(135deg, rgba(34,211,238,.20), rgba(167,139,250,.16));
+      display:grid;place-items:center;font-weight:1100;
+    }
+    .title{font-weight:1100}
+    .sub{margin-top:2px;color:var(--muted);font-weight:850;font-size:12px}
+    .chips{display:flex;gap:8px;flex-wrap:wrap}
+    .chip{border:1px solid var(--stroke);background:rgba(2,6,23,.28);border-radius:999px;padding:6px 10px;font-size:11px;font-weight:1000}
+    .main{display:grid;grid-template-columns:1fr .9fr;gap:0}
+    @media (max-width:860px){.main{grid-template-columns:1fr}}
+    .left{padding:14px}
+    .right{padding:14px;border-left:1px solid var(--stroke);background:rgba(2,6,23,.22)}
+    @media (max-width:860px){.right{border-left:none;border-top:1px solid var(--stroke)}}
+    .panel{border:1px solid var(--stroke);background:rgba(2,6,23,.34);border-radius:18px;padding:12px}
+    h3{margin:0;font-size:14px;font-weight:1100}
+    .muted{color:rgba(229,231,235,.74);font-size:12px;line-height:1.4;font-weight:750}
+    .grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:10px}
+    @media (max-width:560px){.grid{grid-template-columns:1fr}}
+    label{display:block;font-size:11px;color:var(--muted);font-weight:950;margin-bottom:6px}
+    select,input{
+      width:100%;
+      border:1px solid var(--stroke);
+      background:rgba(2,6,23,.22);
+      color:var(--text);
+      border-radius:14px;
+      padding:10px 10px;
+      font-weight:1000;
+      outline:none;
+      min-height:42px;
+    }
+    .btnrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+    .btn{
+      appearance:none;border:none;outline:none;cursor:pointer;
+      border:1px solid var(--stroke);
+      background:rgba(2,6,23,.30);
+      color:var(--text);
+      border-radius:14px;
+      padding:10px 12px;
+      font-weight:1100;font-size:13px;
+      min-height:42px;
+    }
+    .btn.primary{border-color:rgba(34,197,94,.30);background:rgba(34,197,94,.14)}
+    .btn.warn{border-color:rgba(245,158,11,.32);background:rgba(245,158,11,.12)}
+    .kvs{display:grid;gap:8px;margin-top:10px}
+    .row{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;border:1px solid var(--stroke);
+      background:rgba(2,6,23,.22);border-radius:14px;padding:8px 10px;font-size:12px}
+    .row .k{color:var(--muted);font-weight:950}
+    .row .v{font-weight:1100;text-align:right}
+    .hint{margin-top:10px;padding:10px;border-radius:16px;border:1px dashed rgba(148,163,184,.22);background:rgba(2,6,23,.22)}
   </style>
 </head>
 <body>
   <div class="wrap">
     <div class="card">
-      <h1>⚖️ Balance Hold — Launcher</h1>
-      <p>เลือกระดับ/เวลา/โหมดมุมมองก่อนเข้าเล่น (กันกรณีเข้าจาก HUB แล้ว “วิ่งเลย” ไม่มีให้เลือก)</p>
-
-      <div class="pillrow" id="ctx"></div>
-
-      <div class="grid">
-        <div>
-          <label>Difficulty</label>
-          <select id="diff">
-            <option value="easy">Easy</option>
-            <option value="normal" selected>Normal</option>
-            <option value="hard">Hard</option>
-          </select>
+      <div class="top">
+        <div class="brand">
+          <div class="logo">🏃</div>
+          <div>
+            <div class="title">Balance Hold</div>
+            <div class="sub">เลือกความยากก่อนเข้าเล่น — จะพาไป Warmup Gate (daily ต่อเกม) แล้วเข้าเกมจริง</div>
+          </div>
         </div>
-
-        <div>
-          <label>Duration (sec)</label>
-          <select id="time">
-            <option value="45">45</option>
-            <option value="60">60</option>
-            <option value="80" selected>80</option>
-            <option value="90">90</option>
-            <option value="120">120</option>
-          </select>
-        </div>
-
-        <div>
-          <label>View</label>
-          <select id="view">
-            <option value="pc" selected>PC</option>
-            <option value="mobile">Mobile</option>
-            <option value="cvr">Cardboard / cVR</option>
-          </select>
+        <div class="chips">
+          <div class="chip">ZONE: EXERCISE</div>
+          <div class="chip">THEME: BALANCE</div>
+          <div class="chip" id="chipPid">PID: anon</div>
         </div>
       </div>
 
-      <div class="row">
-        <button class="btn primary" id="btnStart">▶ Start</button>
-        <button class="btn" id="btnOpen">Open RUN (no autostart)</button>
-        <button class="btn ghost" id="btnReseed">🔁 Reseed</button>
-        <a class="btn ghost" id="btnBackHub" href="#">↩ Back HUB</a>
-      </div>
+      <div class="main">
+        <div class="left">
+          <div class="panel">
+            <h3>ตั้งค่าเล่น</h3>
+            <div class="muted" style="margin-top:6px;">
+              โฟลว์: <b>Warmup → เกม → Summary → Cooldown (ครั้งแรกของวัน)</b>
+            </div>
 
-      <div class="small">
-        RUN page: <code>/fitness/balance-hold-run.html</code> (รับพารามิเตอร์จากที่นี่)
+            <div class="grid">
+              <div>
+                <label>ระดับ (diff)</label>
+                <select id="diff">
+                  <option value="easy">ง่าย</option>
+                  <option value="normal" selected>ปกติ</option>
+                  <option value="hard">ยาก</option>
+                </select>
+              </div>
+              <div>
+                <label>เวลา (วินาที)</label>
+                <select id="time">
+                  <option value="45">45</option>
+                  <option value="60" selected>60</option>
+                  <option value="80">80</option>
+                  <option value="100">100</option>
+                </select>
+              </div>
+              <div>
+                <label>View</label>
+                <select id="view">
+                  <option value="pc" selected>PC</option>
+                  <option value="mobile">Mobile</option>
+                  <option value="cvr">Cardboard (cVR)</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="grid" style="margin-top:8px;">
+              <div>
+                <label>pid</label>
+                <input id="pid" placeholder="anon" />
+              </div>
+              <div>
+                <label>seed (ว่าง = สร้างอัตโนมัติ)</label>
+                <input id="seed" placeholder="" />
+              </div>
+              <div>
+                <label>hub (กลับไปหน้าไหน)</label>
+                <input id="hub" placeholder="../herohealth/hub.html" />
+              </div>
+            </div>
+
+            <div class="btnrow">
+              <button class="btn primary" id="btnPlay">เข้าเล่น (ผ่าน Warmup)</button>
+              <button class="btn" id="btnRunNow">ข้าม Warmup (debug)</button>
+              <button class="btn warn" id="btnToHub">กลับ HUB</button>
+            </div>
+
+            <div class="hint">
+              <div class="muted">
+                ทิป: เกมจะเริ่มจริงหลัง “แตะ/ลากครั้งแรก” เพื่อกันเคส “ไม่ทำอะไรแต่ได้คะแนน”
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="right">
+          <div class="panel">
+            <h3>พารามิเตอร์ที่ส่งไป</h3>
+            <div class="kvs">
+              <div class="row"><div class="k">cat</div><div class="v">exercise</div></div>
+              <div class="row"><div class="k">theme</div><div class="v">balance</div></div>
+              <div class="row"><div class="k">next</div><div class="v">balance-hold-run.html</div></div>
+              <div class="row"><div class="k">warmup gate</div><div class="v">/herohealth/warmup-gate.html</div></div>
+            </div>
+            <div class="muted" style="margin-top:10px;">
+              daily ต่อเกม/ต่อ PID: gate จะ auto-skip ให้เองเมื่อทำแล้วในวันนั้น
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -104,72 +197,91 @@ PATCH v20260305-BH-LAUNCHER-FIX-RUNPATH
 <script>
 (function(){
   'use strict';
-  function qs(k,d=''){ try{return new URL(location.href).searchParams.get(k) ?? d;}catch{return d;} }
-  function setQS(u,k,v){ if(v!=null && String(v).trim()!=='') u.searchParams.set(k,String(v)); }
-  function nowSeed(){ return String(Date.now()); }
+  const $=(id)=>document.getElementById(id);
+  function qs(k,d=''){ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(e){ return d; } }
+  function setIfEmpty(el, v){ if(!el) return; if(String(el.value||'').trim()==='') el.value = v; }
 
-  const RUN_PATH = './balance-hold-run.html';
+  // prefill from URL
+  const qDiff = String(qs('diff','normal')).toLowerCase();
+  const qTime = String(qs('time','60'));
+  const qView = String(qs('view','pc')).toLowerCase();
+  const qPid  = String(qs('pid','anon')).trim() || 'anon';
+  const qSeed = String(qs('seed','')).trim();
+  const qHub  = String(qs('hub','')).trim();
 
-  const P = {
-    hub: qs('hub',''),
-    run: qs('run','play'),
-    pid: qs('pid','anon'),
-    seed: qs('seed','') || nowSeed(),
-    diff: qs('diff','normal'),
-    time: qs('time','80'),
-    view: qs('view','pc'),
-    autostart: qs('autostart','')
-  };
+  if($('diff') && ['easy','normal','hard'].includes(qDiff)) $('diff').value = qDiff;
+  if($('time') && qTime) $('time').value = qTime;
+  if($('view') && ['pc','mobile','cvr'].includes(qView)) $('view').value = qView;
 
-  // init form from URL
-  const elDiff = document.getElementById('diff');
-  const elTime = document.getElementById('time');
-  const elView = document.getElementById('view');
-  if(elDiff) elDiff.value = P.diff || 'normal';
-  if(elTime) elTime.value = P.time || '80';
-  if(elView) elView.value = P.view || 'pc';
+  setIfEmpty($('pid'), qPid);
+  setIfEmpty($('seed'), qSeed);
+  setIfEmpty($('hub'), qHub || '../herohealth/hub.html');
 
-  // render ctx pills
-  const ctx = document.getElementById('ctx');
-  const pills = [
-    ['pid',P.pid],['seed',P.seed],['run',P.run],['diff',P.diff],['time',P.time],['view',P.view]
-  ];
-  ctx.innerHTML = pills.map(([k,v])=>`<span class="pill"><b>${k}</b>: ${String(v).replace(/</g,'&lt;')}</span>`).join('');
+  $('chipPid').textContent = 'PID: ' + qPid;
 
-  // back hub
-  const back = document.getElementById('btnBackHub');
-  if(P.hub){
-    back.href = P.hub;
-  }else{
-    back.href = '../herohealth/hub.html';
+  function absUrl(url){
+    try{ return new URL(url, location.href).toString(); }catch(e){ return String(url||''); }
   }
 
-  function buildRunUrl(withAutostart){
-    const u = new URL(RUN_PATH, location.href);
-    setQS(u,'hub',P.hub);
-    setQS(u,'run',P.run);
-    setQS(u,'pid',P.pid);
-    setQS(u,'seed',P.seed);
-    setQS(u,'diff', elDiff ? elDiff.value : P.diff);
-    setQS(u,'time', elTime ? elTime.value : P.time);
-    setQS(u,'view', elView ? elView.value : P.view);
-    if(withAutostart) setQS(u,'autostart','1');
+  function buildRunUrl(){
+    const base = absUrl('./balance-hold-run.html');
+    const u = new URL(base, location.href);
+
+    const diff = $('diff').value;
+    const time = $('time').value;
+    const view = $('view').value;
+
+    const pid  = ($('pid').value || 'anon').trim() || 'anon';
+    const seed = ($('seed').value || '').trim();
+    const hub  = ($('hub').value || '../herohealth/hub.html').trim();
+
+    u.searchParams.set('run','play');
+    u.searchParams.set('diff', diff);
+    u.searchParams.set('time', time);
+    u.searchParams.set('view', view);
+    u.searchParams.set('pid', pid);
+    if(seed) u.searchParams.set('seed', seed);
+    u.searchParams.set('hub', absUrl(hub));
     return u.toString();
   }
 
-  document.getElementById('btnStart').onclick = ()=>{ location.href = buildRunUrl(true); };
-  document.getElementById('btnOpen').onclick  = ()=>{ location.href = buildRunUrl(false); };
-  document.getElementById('btnReseed').onclick= ()=>{
-    P.seed = nowSeed();
-    const url = new URL(location.href);
-    url.searchParams.set('seed', P.seed);
-    location.href = url.toString();
-  };
+  function buildGateUrl(phase){
+    const gate = absUrl('../herohealth/warmup-gate.html');
+    const u = new URL(gate, location.href);
+    const runUrl = buildRunUrl();
 
-  // ✅ autostart=1 on launcher => redirect immediately to RUN (fix "can't enter")
-  if(String(P.autostart)==='1'){
-    location.replace(buildRunUrl(true));
+    const pid  = ($('pid').value || 'anon').trim() || 'anon';
+    const hub  = ($('hub').value || '../herohealth/hub.html').trim();
+
+    u.searchParams.set('gatePhase', phase || 'warmup');
+    u.searchParams.set('cat','exercise');
+    u.searchParams.set('theme','balance');
+    u.searchParams.set('next', runUrl);
+    u.searchParams.set('pid', pid);
+    u.searchParams.set('hub', absUrl(hub));
+
+    // pass-through baseline
+    u.searchParams.set('run','play');
+    u.searchParams.set('diff', $('diff').value);
+    u.searchParams.set('time', $('time').value);
+    u.searchParams.set('view', $('view').value);
+
+    const seed = ($('seed').value || '').trim();
+    if(seed) u.searchParams.set('seed', seed);
+
+    // P5 optional (ถ้าจะใช้)
+    const grade = String(qs('grade','')).trim();
+    if(grade) u.searchParams.set('grade', grade);
+
+    return u.toString();
   }
+
+  $('btnPlay').addEventListener('click', ()=> location.href = buildGateUrl('warmup'));
+  $('btnRunNow').addEventListener('click', ()=> location.href = buildRunUrl());
+  $('btnToHub').addEventListener('click', ()=>{
+    const hub = absUrl(($('hub').value || '../herohealth/hub.html').trim());
+    location.href = hub;
+  });
 })();
 </script>
 </body>
