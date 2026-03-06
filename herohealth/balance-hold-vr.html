@@ -1,9 +1,11 @@
 <!-- === /herohealth/balance-hold-vr.html ===
 Balance Hold — LAUNCHER (HeroHealth Root)
-PATCH v20260304-BALANCEHOLD-LAUNCHER
+PATCH v20260306-BALANCEHOLD-LAUNCHER-GATE
 ✅ Choose diff/time/view BEFORE entering run
+✅ Start => /herohealth/warmup-gate.html (daily per game handled there)
+✅ Open RUN => /fitness/balance-hold.html direct (debug / no gate)
 ✅ Pass-through hub/run/diff/time/seed/pid/view/log/api/ai/studyId/phase/conditionGroup
-✅ Go to /fitness/balance-hold.html (run page)
+✅ Send cat=exercise + theme=balance + next=/fitness/balance-hold.html
 -->
 <!doctype html>
 <html lang="th">
@@ -22,19 +24,36 @@ PATCH v20260304-BALANCEHOLD-LAUNCHER
       --muted:#94a3b8;
       --good:#22c55e;
       --cyan:#22d3ee;
+      --warn:#f59e0b;
       --sab: env(safe-area-inset-bottom, 0px);
       --sat: env(safe-area-inset-top, 0px);
       --sar: env(safe-area-inset-right, 0px);
       --sal: env(safe-area-inset-left, 0px);
     }
     *{box-sizing:border-box}
-    html,body{height:100%;margin:0;background:var(--bg);color:var(--text);
-      font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif}
-    .wrap{min-height:100%;max-width:880px;margin:0 auto;
-      padding:calc(16px + var(--sat)) calc(14px + var(--sar)) calc(18px + var(--sab)) calc(14px + var(--sal))}
-    .card{border:1px solid var(--stroke);background:linear-gradient(180deg, rgba(2,6,23,.86), rgba(2,6,23,.55));
-      border-radius:20px;padding:14px;box-shadow:0 14px 50px rgba(0,0,0,.35)}
-    .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between}
+    html,body{
+      height:100%;margin:0;background:var(--bg);color:var(--text);
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif
+    }
+    body{
+      background:
+        radial-gradient(900px 560px at 18% 0%, rgba(34,211,238,.14), transparent 56%),
+        radial-gradient(900px 560px at 92% 12%, rgba(167,139,250,.12), transparent 56%),
+        var(--bg);
+    }
+    .wrap{
+      min-height:100%;max-width:920px;margin:0 auto;
+      padding:calc(16px + var(--sat)) calc(14px + var(--sar)) calc(18px + var(--sab)) calc(14px + var(--sal))
+    }
+    .card{
+      border:1px solid var(--stroke);
+      background:linear-gradient(180deg, rgba(2,6,23,.86), rgba(2,6,23,.55));
+      border-radius:20px;padding:14px;
+      box-shadow:0 14px 50px rgba(0,0,0,.35)
+    }
+    .row{
+      display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between
+    }
     h1{margin:0;font-size:16px;font-weight:1000}
     p{margin:8px 0 0;color:rgba(229,231,235,.78);font-weight:750;font-size:13px;line-height:1.35}
     .grid{margin-top:12px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
@@ -53,10 +72,27 @@ PATCH v20260304-BALANCEHOLD-LAUNCHER
     }
     .btn.primary{border-color:rgba(34,197,94,.35);background:rgba(34,197,94,.16)}
     .btn.cyan{border-color:rgba(34,211,238,.35);background:rgba(34,211,238,.14)}
+    .btn.warn{border-color:rgba(245,158,11,.35);background:rgba(245,158,11,.14)}
     .chiprow{margin-top:10px;display:flex;gap:8px;flex-wrap:wrap}
-    .chip{border:1px solid var(--stroke);background:rgba(2,6,23,.35);border-radius:999px;padding:7px 10px;font-size:12px;font-weight:900;color:rgba(229,231,235,.92)}
+    .chip{
+      border:1px solid var(--stroke);background:rgba(2,6,23,.35);border-radius:999px;
+      padding:7px 10px;font-size:12px;font-weight:900;color:rgba(229,231,235,.92)
+    }
     .chip b{color:#fff}
     .small{margin-top:10px;font-size:12px;color:var(--muted);font-weight:850}
+    .hint{
+      margin-top:12px;padding:10px 12px;border-radius:16px;
+      border:1px dashed rgba(148,163,184,.22);background:rgba(2,6,23,.22);
+      font-size:12px;color:rgba(229,231,235,.78);font-weight:800;line-height:1.4
+    }
+    code{
+      background:rgba(255,255,255,.06);
+      border:1px solid rgba(148,163,184,.18);
+      border-radius:8px;
+      padding:1px 6px;
+      font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+      font-size:12px;
+    }
   </style>
 </head>
 <body>
@@ -65,7 +101,7 @@ PATCH v20260304-BALANCEHOLD-LAUNCHER
       <div class="row">
         <div>
           <h1>⚖️ Balance Hold — Launcher</h1>
-          <p>เลือกระดับ/เวลา/โหมดมุมมองก่อนเข้าเล่น (กันกรณีเข้าจาก HUB แล้ว “วิ่งเลย” ไม่มีให้เลือก)</p>
+          <p>เลือกระดับ/เวลา/โหมดมุมมองก่อนเข้าเล่น แล้วเข้า <b>Warmup → เกมจริง</b> ตาม flow ของ HeroHealth</p>
         </div>
         <a class="btn" id="backHub" href="./hub.html">🏠 Back HUB</a>
       </div>
@@ -74,6 +110,8 @@ PATCH v20260304-BALANCEHOLD-LAUNCHER
         <div class="chip">pid: <b id="cPid">anon</b></div>
         <div class="chip">seed: <b id="cSeed">-</b></div>
         <div class="chip">run: <b id="cRun">play</b></div>
+        <div class="chip">zone: <b>exercise</b></div>
+        <div class="chip">theme: <b>balance</b></div>
       </div>
 
       <div class="grid">
@@ -106,13 +144,19 @@ PATCH v20260304-BALANCEHOLD-LAUNCHER
       </div>
 
       <div class="btnrow">
-        <button class="btn primary" id="btnStart">▶ Start</button>
-        <a class="btn cyan" id="btnOpenRun" href="#">🧩 Open RUN (no autostart)</a>
-        <button class="btn" id="btnReseed">🎲 Reseed</button>
+        <button class="btn primary" id="btnStart">▶ Start (via Warmup Gate)</button>
+        <a class="btn cyan" id="btnOpenRun" href="#">🧩 Open RUN (debug)</a>
+        <button class="btn warn" id="btnReseed">🎲 Reseed</button>
+      </div>
+
+      <div class="hint">
+        <div>Start จะไปที่ <code>/herohealth/warmup-gate.html</code> ก่อน แล้วค่อยส่งต่อเข้า <code>/fitness/balance-hold.html</code></div>
+        <div style="margin-top:6px;">Open RUN ใช้สำหรับ debug/ทดสอบ โดยข้าม warmup gate</div>
       </div>
 
       <div class="small">
-        RUN page: <code>/fitness/balance-hold.html</code> (จะรับพารามิเตอร์จากที่นี่)
+        RUN page: <code>/fitness/balance-hold.html</code><br/>
+        Gate page: <code>/herohealth/warmup-gate.html</code>
       </div>
     </div>
   </div>
@@ -123,7 +167,11 @@ PATCH v20260304-BALANCEHOLD-LAUNCHER
 function qs(k, d=''){
   try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(e){ return d; }
 }
-function clamp(v,a,b){ v=Number(v); if(!Number.isFinite(v)) v=a; return Math.max(a, Math.min(b, v)); }
+function clamp(v,a,b){
+  v=Number(v);
+  if(!Number.isFinite(v)) v=a;
+  return Math.max(a, Math.min(b, v));
+}
 function nowSeed(){ return String(Date.now()); }
 function setParam(u, k, v){
   if (v === '' || v == null) u.searchParams.delete(k);
@@ -132,8 +180,13 @@ function setParam(u, k, v){
 function normalizeMaybeEncodedUrl(v){
   v = String(v ?? '').trim();
   if(!v || v==='null' || v==='undefined') return '';
-  if(/%3A|%2F|%3F|%26|%3D/i.test(v)){ try{ v = decodeURIComponent(v); }catch(e){} }
+  if(/%3A|%2F|%3F|%26|%3D/i.test(v)){
+    try{ v = decodeURIComponent(v); }catch(e){}
+  }
   return v.trim();
+}
+function absUrl(url){
+  try{ return new URL(url, location.href).toString(); }catch(e){ return String(url || ''); }
 }
 
 const P = {
@@ -170,9 +223,9 @@ const backHub = document.getElementById('backHub');
 if (P.hub) backHub.href = P.hub;
 
 function buildRunUrl(autostart){
+  // เกมจริง
   const u = new URL('../fitness/balance-hold.html', location.href);
 
-  // pass-through
   setParam(u, 'hub', P.hub || '');
   setParam(u, 'run', P.run);
   setParam(u, 'pid', P.pid);
@@ -190,19 +243,56 @@ function buildRunUrl(autostart){
   setParam(u, 'phase', P.phase);
   setParam(u, 'conditionGroup', P.conditionGroup);
 
-  // ✅ สำคัญ: ให้ RUN ไม่วิ่งเอง unless autostart=1
+  // optional
   setParam(u, 'autostart', autostart ? '1' : '');
+
+  // สำหรับเกมรู้ว่าอยู่ zone/game ไหน
+  setParam(u, 'cat', 'exercise');
+  setParam(u, 'theme', 'balance');
+
+  return u.toString();
+}
+
+function buildWarmupGateUrl(){
+  const runUrl = buildRunUrl(true);
+  const u = new URL('./warmup-gate.html', location.href);
+
+  // gate identity
+  setParam(u, 'gatePhase', 'warmup');
+  setParam(u, 'cat', 'exercise');
+  setParam(u, 'theme', 'balance');
+  setParam(u, 'next', runUrl);
+
+  // pass-through หลัก
+  setParam(u, 'hub', P.hub || '');
+  setParam(u, 'run', P.run);
+  setParam(u, 'pid', P.pid);
+  setParam(u, 'seed', P.seed);
+
+  setParam(u, 'diff', elDiff.value);
+  setParam(u, 'time', elTime.value);
+  setParam(u, 'view', elView.value);
+
+  setParam(u, 'log', P.log);
+  setParam(u, 'api', P.api);
+  setParam(u, 'ai', P.ai);
+
+  setParam(u, 'studyId', P.studyId);
+  setParam(u, 'phase', P.phase);
+  setParam(u, 'conditionGroup', P.conditionGroup);
 
   return u.toString();
 }
 
 document.getElementById('btnStart').addEventListener('click', ()=>{
-  location.href = buildRunUrl(true);
+  location.href = buildWarmupGateUrl();
 });
+
 document.getElementById('btnOpenRun').addEventListener('click', (e)=>{
   e.preventDefault();
   location.href = buildRunUrl(false);
 });
+
 document.getElementById('btnReseed').addEventListener('click', ()=>{
   P.seed = nowSeed();
   document.getElementById('cSeed').textContent = String(P.seed).slice(0,10);
