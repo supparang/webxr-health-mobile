@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth — Bath (Hidden Dirt Quest)</title>
   <meta name="color-scheme" content="dark light" />
-  <link rel="stylesheet" href="./bath.css?v=20260306" />
+  <link rel="stylesheet" href="./bath.css?v=20260306b" />
 </head>
 <body>
   <div id="app">
@@ -13,6 +13,7 @@
     <header id="hud">
       <div class="hud-row">
         <div class="pill" id="phasePill">PHASE: —</div>
+        <div class="pill" id="questPill">QUEST: —</div>
         <div class="pill" id="timePill">TIME: 0</div>
         <div class="pill" id="cleanPill">CLEAN: 0%</div>
         <div class="pill" id="rubricPill">RUBRIC: —</div>
@@ -24,6 +25,7 @@
         <div class="pill" id="riskPill">FUNGUS RISK: 0%</div>
         <div class="pill" id="meterPill">SWEAT: 0%</div>
         <div class="pill" id="viewPill">VIEW: FRONT</div>
+        <div class="pill" id="proPill">PRO: OFF</div>
       </div>
       <div class="hud-row">
         <div class="pill mini" id="coachPill">COACH: —</div>
@@ -33,11 +35,15 @@
       </div>
     </header>
 
+    <!-- Progress bar -->
+    <div id="progressWrap" aria-hidden="true">
+      <div id="progressBar"></div>
+    </div>
+
     <!-- Playfield -->
     <main id="playfield" aria-label="Bath Game">
       <div id="bg"></div>
 
-      <!-- Body stage -->
       <section id="stage" role="application">
         <div id="bath-layer">
           <div id="body-wrap">
@@ -62,7 +68,7 @@
           <button id="btnHelp" class="btn">วิธีเล่น</button>
         </div>
 
-        <!-- Quiz Panel (Bloom 1) -->
+        <!-- Quiz Panel -->
         <div id="panelQuiz" class="panel hidden">
           <div class="panel-card">
             <h2>ก่อนเริ่ม (3 ข้อ)</h2>
@@ -78,16 +84,15 @@
           <div class="panel-card">
             <h2>วิธีเล่น (Bath — Hidden Dirt Quest)</h2>
             <ol>
-              <li><b>PREP</b> เลือกอุปกรณ์ (สบู่/ฟองน้ำ/แชมพู)</li>
-              <li><b>WET</b> ฉีดน้ำให้ครบโซน (ถ้าไม่ครบ → ฟอกไม่เต็ม)</li>
-              <li><b>SOAP</b> ใช้ฟองสบู่จำกัด ระวังฟองปลอม</li>
-              <li><b>SCRUB</b> ล่าจุดอับ (ประกาย/เงา) ต้องถูซ้ำตามโซน</li>
-              <li><b>RINSE</b> ล้าง residue ถ้าข้าม → คะแนนติดลบ</li>
-              <li><b>DRY+DRESS</b> เช็ดจุดสำคัญให้แห้ง + ใส่เสื้อผ้า</li>
+              <li><b>WET</b> ทำให้เปียกให้ครบ</li>
+              <li><b>SOAP</b> ฟองจำกัด + ระวังฟองปลอม</li>
+              <li><b>SCRUB</b> ล่าจุดอับ 3 ช่วง: <b>Warm → Trick → Boss</b></li>
+              <li><b>RINSE</b> ล้าง residue ให้ต่ำ</li>
+              <li><b>DRY + DRESS</b> เช็ดให้แห้ง ลดเชื้อรา แล้วใส่เสื้อ</li>
             </ol>
             <p class="muted">
-              🔥 Mini-boss: <b>Stink Monster</b> โผล่ในจุดอับ ถ้าจัดการไม่ทัน → คราบกระจาย<br/>
-              🧠 Bloom: มี Quiz → Heatmap → Self-rating → แผนอาบของฉัน
+              🔥 PRO: เปิดด้วย <code>?pro=1</code> (เดือดขึ้นแบบแฟร์)<br/>
+              ✅ End Summary มีปุ่มกลับ HUB + บันทึกผลล่าสุด (HHA_LAST_SUMMARY)
             </p>
             <div class="row">
               <button id="btnCloseHelp" class="btn primary">เข้าใจแล้ว</button>
@@ -101,34 +106,34 @@
             <h2>สรุปผล</h2>
             <p id="endSummary" class="summary"></p>
 
-            <h3 class="h3">Heatmap จุดอับ (Bloom 4)</h3>
+            <h3 class="h3">Heatmap จุดอับ</h3>
             <div id="heatmap" class="heatmap"></div>
 
-            <h3 class="h3">ฉันพลาดเพราะ… (Bloom 4)</h3>
+            <h3 class="h3">ฉันพลาดเพราะ…</h3>
             <div class="chips" id="reasonChips"></div>
 
             <hr class="hr"/>
 
-            <h3 class="h3">ประเมินตัวเอง (Bloom 5)</h3>
+            <h3 class="h3">ประเมินตัวเอง</h3>
             <div class="evalRow">
               <div class="stars" id="stars"></div>
               <div class="pill mini" id="selfRubric">RUBRIC: —</div>
             </div>
             <div class="muted" id="rubricDesc"></div>
 
-            <h3 class="h3">ฉันจะปรับปรุงรอบหน้า (เลือก 1 ข้อ) (Bloom 5)</h3>
+            <h3 class="h3">ฉันจะปรับปรุงรอบหน้า (เลือก 1 ข้อ)</h3>
             <div class="chips" id="improveChips"></div>
 
             <hr class="hr"/>
 
-            <h3 class="h3">แผนอาบของฉัน (Bloom 6)</h3>
-            <p class="muted">เรียง “โซนโฟกัส” สำหรับ SCRUB (กด ▲▼) แล้วกด “เล่นตามแผน”</p>
+            <h3 class="h3">แผนอาบของฉัน (โฟกัสตอน SCRUB)</h3>
+            <p class="muted">เรียงโซน (▲▼) แล้วกด “เล่นตามแผน”</p>
             <div id="planList" class="planList"></div>
 
             <div class="row">
               <button id="btnPlayPlan" class="btn primary">เล่นตามแผน</button>
               <button id="btnReplay" class="btn">เล่นใหม่</button>
-              <button id="btnBack" class="btn">กลับ</button>
+              <button id="btnBack" class="btn">กลับ HUB</button>
             </div>
           </div>
         </div>
@@ -136,10 +141,10 @@
     </main>
 
     <footer id="footer">
-      <span class="muted">HeroHealth — Bath • Top-down • PC/Mobile • BLOOM 1–6</span>
+      <span class="muted">HeroHealth — Bath • Top-down • PC/Mobile • FX+Missions+PRO</span>
     </footer>
   </div>
 
-  <script type="module" src="./bath.js?v=20260306"></script>
+  <script type="module" src="./bath.js?v=20260306b"></script>
 </body>
 </html>
