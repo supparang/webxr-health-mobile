@@ -1,6 +1,6 @@
 <!-- === /herohealth/brush-vr.html ===
 BrushVR — ROOT Launcher (to folder run)
-PATCH v20260304-BRUSH-LAUNCHER-ROOTFIX
+PATCH v20260306-BRUSH-LAUNCHER-ROOTFIX-FULL
 ✅ Always redirects to /herohealth/vr-brush/brush.html
 ✅ Pass-through: hub/run/diff/time/seed/pid/studyId/phase/conditionGroup/log/view/api/ai/debug
 ✅ Auto view detect if not provided (pc/mobile/cvr)
@@ -44,57 +44,42 @@ PATCH v20260304-BRUSH-LAUNCHER-ROOTFIX
     const v = (q.get('view')||'').toLowerCase();
     if(v) return v;
     const ua = navigator.userAgent || '';
-    const isMobile = /Android|iPhone|iPad|iPod/i.test(ua) || (matchMedia && matchMedia('(pointer:coarse)').matches);
-    // มือถือธรรมดาให้เป็น mobile, ถ้าอยาก cardboard ให้ผู้ใช้ส่ง view=cvr เอง
+    const isMobile = /Android|iPhone|iPad|iPod/i.test(ua) || (window.matchMedia && window.matchMedia('(pointer:coarse)').matches);
     return isMobile ? 'mobile' : 'pc';
   }
 
-  // run target (folder)
   const RUN_PATH = './vr-brush/brush.html';
-
-  // passthrough keys
   const PASS = ['hub','run','diff','time','seed','pid','participantId','studyId','phase','conditionGroup','log','api','ai','debug','view'];
 
   const Q = qs();
   const u = new URL(RUN_PATH, location.href);
 
-  // copy params
   PASS.forEach(k=>{
     if(Q.has(k)){
       const v = Q.get(k);
       if(v!=null && String(v).trim()!==''){
-        // unify pid
         if(k==='participantId' && !u.searchParams.has('pid')) u.searchParams.set('pid', v);
         else if(k!=='participantId') u.searchParams.set(k, v);
       }
     }
   });
 
-  // ensure hub param always exists
   if(!u.searchParams.get('hub')){
     u.searchParams.set('hub', Q.get('hub') || (new URL('./hub.html', location.href)).toString());
   }
 
-  // ensure view exists
   if(!u.searchParams.get('view')){
     u.searchParams.set('view', autoView());
   }
 
-  // default run
-  if(!u.searchParams.get('run')) u.searchParams.set('run', 'play');
-
-  // default time/diff
+  if(!u.searchParams.get('run'))  u.searchParams.set('run', 'play');
   if(!u.searchParams.get('time')) u.searchParams.set('time', '80');
   if(!u.searchParams.get('diff')) u.searchParams.set('diff', 'normal');
-
-  // default seed
   if(!u.searchParams.get('seed')) u.searchParams.set('seed', String(Date.now()));
 
-  // go now
   const go = document.getElementById('go');
   if(go) go.href = u.toString();
 
-  // redirect (replace to avoid back-loop)
   location.replace(u.toString());
 })();
 </script>
