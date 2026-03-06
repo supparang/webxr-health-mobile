@@ -1,0 +1,526 @@
+<!-- === /herohealth/goodjunk-teacher.html ===
+HeroHealth • GoodJunk Teacher Dashboard
+FULL v20260306-TEACHER-DASHBOARD-LIVE
+✅ Live room monitor
+✅ Phase / countdown / players / score / winner
+✅ Open by ?room=CODE
+Requires:
+- window.HHA_FIREBASE_CONFIG or window.__HHA_FIREBASE_CONFIG__
+-->
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>GoodJunk — Teacher Dashboard</title>
+  <meta name="color-scheme" content="dark light" />
+  <link rel="icon" href="./favicon.ico" />
+  <style>
+    :root{
+      --bg1:#020617; --bg2:#0b1226;
+      --panel:rgba(2,6,23,.72);
+      --panel2:rgba(15,23,42,.68);
+      --stroke:rgba(148,163,184,.18);
+      --text:rgba(229,231,235,.96);
+      --muted:rgba(148,163,184,.92);
+      --blue:#3b82f6; --good:#22c55e; --warn:#f59e0b; --bad:#ef4444; --violet:#a78bfa;
+      --rad:22px;
+    }
+    html,body{height:100%; margin:0;}
+    body{
+      background:
+        radial-gradient(1200px 700px at 18% 10%, rgba(59,130,246,.14), transparent 55%),
+        radial-gradient(1000px 600px at 85% 15%, rgba(167,139,250,.12), transparent 55%),
+        linear-gradient(180deg, var(--bg1), var(--bg2));
+      color:var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", "Noto Sans", Arial;
+      padding:14px;
+      overflow:auto;
+    }
+    *{box-sizing:border-box}
+    .wrap{max-width:1180px; margin:0 auto; display:flex; flex-direction:column; gap:12px;}
+    .top{
+      display:flex; gap:10px; align-items:flex-start; justify-content:space-between; flex-wrap:wrap;
+    }
+    .brand{
+      display:flex; gap:10px; align-items:center;
+    }
+    .logo{
+      width:48px; height:48px; border-radius:16px;
+      display:grid; place-items:center;
+      background:rgba(59,130,246,.14);
+      border:1px solid rgba(59,130,246,.22);
+      font-size:24px;
+      box-shadow:0 18px 55px rgba(0,0,0,.35);
+    }
+    h1{margin:0; font-size:clamp(20px,2.4vw,28px);}
+    .subtitle{margin:4px 0 0 0; color:var(--muted); font-size:13px; font-weight:800;}
+    .pillrow{display:flex; flex-wrap:wrap; gap:8px; align-items:center;}
+    .pill{
+      background: rgba(2,6,23,.55);
+      border:1px solid var(--stroke);
+      padding:8px 10px;
+      border-radius:999px;
+      font-size:12px;
+      color:var(--muted);
+      backdrop-filter: blur(8px);
+      white-space:nowrap;
+      user-select:none;
+      font-weight:1000;
+    }
+    .pill b{color:var(--text);}
+
+    .card{
+      border:1px solid var(--stroke);
+      background: linear-gradient(180deg, var(--panel), var(--panel2));
+      border-radius: var(--rad);
+      padding: 12px;
+      box-shadow: 0 22px 80px rgba(0,0,0,.45);
+      overflow:hidden;
+    }
+    .grid{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:12px;
+    }
+    @media (max-width: 900px){ .grid{grid-template-columns:1fr;} }
+
+    .panel{
+      border:1px solid rgba(148,163,184,.16);
+      background: rgba(2,6,23,.42);
+      border-radius: 18px;
+      padding: 12px;
+    }
+    .panel h2{margin:0 0 10px 0; font-size:14px;}
+    .row{display:flex; gap:10px; flex-wrap:wrap;}
+    .field{flex:1; min-width:220px; display:flex; flex-direction:column; gap:6px;}
+    label{font-size:12px; font-weight:1000; opacity:.9}
+    input{
+      border-radius:14px;
+      border:1px solid rgba(148,163,184,.22);
+      background: rgba(2,6,23,.38);
+      color:var(--text);
+      padding: 12px 12px;
+      font-weight:900;
+      outline:none;
+    }
+    button{
+      border-radius:16px;
+      border:1px solid rgba(148,163,184,.22);
+      background: rgba(148,163,184,.10);
+      color:var(--text);
+      padding:10px 12px;
+      font-weight:1100;
+      cursor:pointer;
+      min-height:44px;
+    }
+    .primary{background:rgba(59,130,246,.16); border-color:rgba(59,130,246,.30);}
+    .good{background:rgba(34,197,94,.16); border-color:rgba(34,197,94,.30);}
+    .ghost{background:transparent; color:var(--muted);}
+    .msg{
+      margin-top:10px;
+      border-radius:16px;
+      border:1px solid rgba(148,163,184,.16);
+      background: rgba(2,6,23,.30);
+      padding:10px;
+      font-weight:900;
+      font-size:12px;
+      line-height:1.4;
+    }
+    .msg.ok{border-color: rgba(34,197,94,.24); background: rgba(34,197,94,.12);}
+    .msg.warn{border-color: rgba(245,158,11,.24); background: rgba(245,158,11,.12);}
+    .msg.bad{border-color: rgba(239,68,68,.24); background: rgba(239,68,68,.12);}
+
+    .stats{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:10px;
+    }
+    @media (max-width:760px){ .stats{grid-template-columns:repeat(2,minmax(0,1fr));} }
+    .stat{
+      border-radius:18px;
+      border:1px solid rgba(148,163,184,.16);
+      background: rgba(15,23,42,.42);
+      padding:12px 10px;
+    }
+    .stat .k{font-size:11px; color:var(--muted); font-weight:1000;}
+    .stat .v{font-size:22px; margin-top:6px; font-weight:1100; color:var(--text);}
+
+    .scoreboard{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:12px;
+    }
+    @media (max-width:760px){ .scoreboard{grid-template-columns:1fr;} }
+    .playerCard{
+      border-radius:20px;
+      border:1px solid rgba(148,163,184,.16);
+      background: rgba(15,23,42,.46);
+      padding:12px;
+      box-shadow: 0 14px 40px rgba(0,0,0,.22);
+    }
+    .playerTop{
+      display:flex; justify-content:space-between; gap:10px; align-items:center; flex-wrap:wrap;
+    }
+    .playerName{font-size:18px; font-weight:1100;}
+    .tag{
+      display:inline-flex; align-items:center; gap:6px;
+      border:1px solid rgba(255,255,255,.14);
+      background: rgba(255,255,255,.06);
+      border-radius:999px;
+      padding:6px 10px;
+      font-size:11px;
+      color:var(--text);
+      font-weight:1000;
+      white-space:nowrap;
+    }
+    .tag.good{border-color:rgba(34,197,94,.24); background:rgba(34,197,94,.12);}
+    .tag.warn{border-color:rgba(245,158,11,.24); background:rgba(245,158,11,.12);}
+    .tag.bad{border-color:rgba(239,68,68,.24); background:rgba(239,68,68,.12);}
+
+    .metrics{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:8px;
+      margin-top:10px;
+    }
+    @media (max-width:520px){ .metrics{grid-template-columns:repeat(2,minmax(0,1fr));} }
+    .metric{
+      border-radius:14px;
+      border:1px solid rgba(148,163,184,.14);
+      background: rgba(2,6,23,.30);
+      padding:10px 8px;
+    }
+    .metric .k{font-size:10px; color:var(--muted); font-weight:1000;}
+    .metric .v{margin-top:4px; font-size:16px; font-weight:1100;}
+
+    .winnerBox{
+      margin-top:12px;
+      border-radius:18px;
+      border:1px solid rgba(34,197,94,.20);
+      background:rgba(34,197,94,.12);
+      padding:12px;
+      font-weight:1000;
+      display:none;
+    }
+
+    table{
+      width:100%;
+      border-collapse:collapse;
+      font-size:12px;
+    }
+    th,td{
+      padding:10px 8px;
+      border-bottom:1px solid rgba(148,163,184,.12);
+      text-align:left;
+      vertical-align:top;
+    }
+    th{color:var(--muted); font-weight:1100;}
+    .mono{font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div class="brand">
+      <div class="logo">🧑‍🏫</div>
+      <div>
+        <h1>GoodJunk — Teacher Dashboard</h1>
+        <p class="subtitle">ดูสถานะห้องแบบสด ๆ สำหรับครู/ผู้สังเกตการณ์</p>
+      </div>
+    </div>
+    <div class="pillrow">
+      <span class="pill"><b>room</b>: <span id="uiRoom">—</span></span>
+      <span class="pill"><b>phase</b>: <span id="uiPhase">lobby</span></span>
+      <span class="pill"><b>countdown</b>: <span id="uiCountdown">—</span></span>
+      <span class="pill"><b>lead</b>: <span id="uiLead">tie</span></span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="grid">
+      <div class="panel">
+        <h2>1) Connect Room</h2>
+        <div class="row">
+          <div class="field">
+            <label>ROOM</label>
+            <input id="inpRoom" placeholder="เช่น P5A / LAB1" />
+          </div>
+          <div class="field">
+            <label>Action</label>
+            <div class="row">
+              <button id="btnConnect" class="primary" type="button">🔌 Connect</button>
+              <button id="btnOpenBattle" class="good" type="button">⚔ Open Battle</button>
+              <button id="btnBackLauncher" class="ghost" type="button">↩ Launcher</button>
+            </div>
+          </div>
+        </div>
+        <div id="connectMsg" class="msg">ใส่ room แล้วกด Connect</div>
+      </div>
+
+      <div class="panel">
+        <h2>2) Quick Summary</h2>
+        <div class="stats">
+          <div class="stat"><div class="k">ROOM</div><div class="v mono" id="sumRoom">—</div></div>
+          <div class="stat"><div class="k">PHASE</div><div class="v" id="sumPhase">lobby</div></div>
+          <div class="stat"><div class="k">PLAYERS</div><div class="v" id="sumPlayers">0/2</div></div>
+          <div class="stat"><div class="k">RULE</div><div class="v" id="sumRule">—</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="panel">
+      <h2>3) Live Scoreboard</h2>
+      <div class="scoreboard">
+        <div class="playerCard">
+          <div class="playerTop">
+            <div class="playerName" id="p1Name">Player 1</div>
+            <span class="tag" id="p1Status">waiting</span>
+          </div>
+          <div class="metrics">
+            <div class="metric"><div class="k">score</div><div class="v" id="p1Score">0</div></div>
+            <div class="metric"><div class="k">acc</div><div class="v" id="p1Acc">0%</div></div>
+            <div class="metric"><div class="k">miss</div><div class="v" id="p1Miss">0</div></div>
+            <div class="metric"><div class="k">medianRT</div><div class="v" id="p1Rt">0</div></div>
+          </div>
+        </div>
+
+        <div class="playerCard">
+          <div class="playerTop">
+            <div class="playerName" id="p2Name">Player 2</div>
+            <span class="tag" id="p2Status">waiting</span>
+          </div>
+          <div class="metrics">
+            <div class="metric"><div class="k">score</div><div class="v" id="p2Score">0</div></div>
+            <div class="metric"><div class="k">acc</div><div class="v" id="p2Acc">0%</div></div>
+            <div class="metric"><div class="k">miss</div><div class="v" id="p2Miss">0</div></div>
+            <div class="metric"><div class="k">medianRT</div><div class="v" id="p2Rt">0</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="winnerBox" id="winnerBox">—</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="panel">
+      <h2>4) Event Log</h2>
+      <table>
+        <thead>
+          <tr>
+            <th style="width:140px;">เวลา</th>
+            <th>เหตุการณ์</th>
+          </tr>
+        </thead>
+        <tbody id="eventLog"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+(function(){
+  'use strict';
+
+  const qs = (k, d='')=>{ try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(_){ return d; } };
+  const $ = (id)=> document.getElementById(id);
+
+  let room = String(qs('room','')).trim().toUpperCase();
+  let unsubscribers = [];
+  let serverOffsetMs = 0;
+
+  function setMsg(text, type=''){
+    const el = $('connectMsg');
+    if(!el) return;
+    el.className = 'msg ' + type;
+    el.textContent = text || '';
+  }
+
+  function logEvent(text){
+    const tb = $('eventLog');
+    if(!tb) return;
+    const tr = document.createElement('tr');
+    const td1 = document.createElement('td');
+    const td2 = document.createElement('td');
+    td1.className = 'mono';
+    td1.textContent = new Date().toLocaleTimeString('th-TH', { hour12:false });
+    td2.textContent = text || '';
+    tr.appendChild(td1);
+    tr.appendChild(td2);
+    tb.prepend(tr);
+    while(tb.children.length > 20) tb.removeChild(tb.lastChild);
+  }
+
+  function setPlayer(idx, p){
+    const prefix = idx === 1 ? 'p1' : 'p2';
+    $(prefix+'Name').textContent = p ? (p.nick || p.pid || `Player ${idx}`) : `Player ${idx}`;
+    $(prefix+'Score').textContent = p ? String(p.score || 0) : '0';
+    $(prefix+'Acc').textContent = p ? `${Number(p.acc || 0)}%` : '0%';
+    $(prefix+'Miss').textContent = p ? String(p.miss || 0) : '0';
+    $(prefix+'Rt').textContent = p ? String(p.medianRT || 0) : '0';
+
+    const statusEl = $(prefix+'Status');
+    if(!p){
+      statusEl.textContent = 'waiting';
+      statusEl.className = 'tag';
+      return;
+    }
+
+    if(p.connected === false){
+      statusEl.textContent = 'offline';
+      statusEl.className = 'tag bad';
+    }else if(p.ready){
+      statusEl.textContent = 'ready';
+      statusEl.className = 'tag good';
+    }else{
+      statusEl.textContent = 'online';
+      statusEl.className = 'tag warn';
+    }
+  }
+
+  function computeLead(a,b){
+    if(!a || !b) return '—';
+    if((a.score||0) > (b.score||0)) return (a.nick || a.pid || 'P1');
+    if((a.score||0) < (b.score||0)) return (b.nick || b.pid || 'P2');
+    return 'tie';
+  }
+
+  async function loadFirebase(){
+    const v = '9.22.2';
+    const appMod = await import(`https://www.gstatic.com/firebasejs/${v}/firebase-app.js`);
+    const dbMod  = await import(`https://www.gstatic.com/firebasejs/${v}/firebase-database.js`);
+    return { ...appMod, ...dbMod };
+  }
+
+  function getFirebaseConfig(){
+    return window.HHA_FIREBASE_CONFIG || window.__HHA_FIREBASE_CONFIG__ || window.firebaseConfig || null;
+  }
+
+  async function connectRoom(nextRoom){
+    room = String(nextRoom || '').trim().toUpperCase();
+    if(!room){
+      setMsg('กรุณาใส่ ROOM', 'bad');
+      return;
+    }
+
+    $('uiRoom').textContent = room;
+    $('sumRoom').textContent = room;
+    $('inpRoom').value = room;
+
+    unsubscribers.forEach(fn=>{ try{ fn(); }catch(_){ } });
+    unsubscribers = [];
+
+    const fbCfg = getFirebaseConfig();
+    if(!fbCfg){
+      setMsg('ยังไม่ได้ตั้งค่า Firebase สำหรับ Dashboard', 'bad');
+      logEvent('missing Firebase config');
+      return;
+    }
+
+    let fb;
+    try{
+      fb = await loadFirebase();
+    }catch(err){
+      setMsg('โหลด Firebase ไม่สำเร็จ', 'bad');
+      logEvent('firebase load failed');
+      return;
+    }
+
+    const {
+      initializeApp, getApps, getApp,
+      getDatabase, ref, onValue, off
+    } = fb;
+
+    const app = getApps().length ? getApp() : initializeApp(fbCfg);
+    const db = getDatabase(app);
+
+    const base = `hha-battle/goodjunk/rooms/${room}`;
+    const stateRef = ref(db, `${base}/state`);
+    const playersRef = ref(db, `${base}/players`);
+    const offsetRef = ref(db, '.info/serverTimeOffset');
+
+    const offOffset = onValue(offsetRef, (snap)=>{
+      serverOffsetMs = Number(snap.val() || 0) || 0;
+    });
+    unsubscribers.push(()=> off(offsetRef, 'value', offOffset));
+
+    const offState = onValue(stateRef, (snap)=>{
+      const st = snap.val() || {};
+      const phase = String(st.phase || 'lobby');
+      $('uiPhase').textContent = phase;
+      $('sumPhase').textContent = phase;
+
+      const rule = String(st.reason || '—') || '—';
+      $('sumRule').textContent = rule;
+
+      const winnerBox = $('winnerBox');
+      if(phase === 'ended'){
+        const winner = String(st.winner || '');
+        winnerBox.style.display = 'block';
+        winnerBox.textContent = winner
+          ? `Winner: ${winner} • rule: ${rule}`
+          : `Tie • rule: ${rule}`;
+      }else{
+        winnerBox.style.display = 'none';
+      }
+
+      const startAtMs = Number(st.startAtMs || 0) || 0;
+      if(phase === 'countdown' && startAtMs > 0){
+        const leftMs = Math.max(0, startAtMs - (Date.now() + serverOffsetMs));
+        $('uiCountdown').textContent = String(Math.ceil(leftMs/1000));
+      }else{
+        $('uiCountdown').textContent = phase === 'running' ? 'GO' : '—';
+      }
+    });
+    unsubscribers.push(()=> off(stateRef, 'value', offState));
+
+    const offPlayers = onValue(playersRef, (snap)=>{
+      const raw = snap.val() || {};
+      const players = Object.keys(raw)
+        .map(k => ({ key:k, ...(raw[k]||{}) }))
+        .sort((a,b)=>(Number(a.joinedAtMs||0)-Number(b.joinedAtMs||0)))
+        .slice(0,2);
+
+      $('sumPlayers').textContent = `${players.length}/2`;
+      setPlayer(1, players[0] || null);
+      setPlayer(2, players[1] || null);
+      $('uiLead').textContent = computeLead(players[0], players[1]);
+
+      if(players.length){
+        const names = players.map(p => p.nick || p.pid || p.key).join(' vs ');
+        logEvent(`players update: ${names}`);
+      }
+    });
+    unsubscribers.push(()=> off(playersRef, 'value', offPlayers));
+
+    setMsg(`เชื่อมต่อห้อง ${room} แล้ว`, 'ok');
+    logEvent(`connected room ${room}`);
+  }
+
+  $('btnConnect').onclick = ()=> connectRoom($('inpRoom').value || '');
+  $('btnOpenBattle').onclick = ()=>{
+    const r = String($('inpRoom').value || room || '').trim().toUpperCase();
+    if(!r){
+      setMsg('กรุณาใส่ ROOM ก่อน', 'bad');
+      return;
+    }
+    const u = new URL('./vr-goodjunk/goodjunk-vr.html', location.href);
+    u.searchParams.set('mode','battle');
+    u.searchParams.set('battle','1');
+    u.searchParams.set('wait','1');
+    u.searchParams.set('room', r);
+    u.searchParams.set('pid','teacher');
+    u.searchParams.set('nick','Teacher');
+    location.href = u.toString();
+  };
+  $('btnBackLauncher').onclick = ()=> location.href = './goodjunk-launcher.html';
+
+  $('inpRoom').value = room || '';
+  if(room) connectRoom(room);
+})();
+</script>
+</body>
+</html>
