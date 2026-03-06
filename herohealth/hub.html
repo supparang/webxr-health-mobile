@@ -1,12 +1,11 @@
 <!-- === /herohealth/hub.html ===
 HeroHealth — Hub (3 Zones) — PRODUCTION
-PATCH v20260306-HUB-HERO-CARDBOOK-GJLAUNCHER
+PATCH v20260306-HUB-HERO-CARDBOOK-TROPHYSHELF-GJLAUNCHER
 ✅ Uses /herohealth/goodjunk-launcher.html as GoodJunk entry
-✅ Hero Profile (legacy localStorage HHA_PROFILE:pid)
-✅ Card Book summary for GoodJunk (HHA_CARD_BOOK:pid)
-✅ Last GoodJunk result -> latest card preview
+✅ Hero Profile
+✅ Card Book summary for GoodJunk
+✅ Hub Shelf / Trophy Shelf
 ✅ Quick links: GoodJunk Solo / Solo PRO / Battle
-✅ Pass-through params: run/diff/time/seed/studyId/phase/conditionGroup/log/view/pid/api/ai/debug + hub
 -->
 <!doctype html>
 <html lang="th">
@@ -19,8 +18,6 @@ PATCH v20260306-HUB-HERO-CARDBOOK-GJLAUNCHER
   <style>
     :root{
       --bg1:#020617; --bg2:#0b1226;
-      --panel:rgba(2,6,23,.70);
-      --panel2:rgba(15,23,42,.72);
       --stroke:rgba(148,163,184,.18);
       --text:rgba(229,231,235,.96);
       --muted:rgba(148,163,184,.92);
@@ -343,6 +340,103 @@ PATCH v20260306-HUB-HERO-CARDBOOK-GJLAUNCHER
       flex-wrap:wrap;
       margin-top:8px;
     }
+
+    /* ===== Trophy Shelf ===== */
+    .trophyShelf{
+      border-radius:22px;
+      border:1px solid rgba(148,163,184,.18);
+      background: rgba(2,6,23,.58);
+      backdrop-filter: blur(10px);
+      box-shadow: 0 22px 80px rgba(0,0,0,.35);
+      padding: 12px 12px;
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+      margin-top:12px;
+    }
+
+    .shelfGrid{
+      display:grid;
+      grid-template-columns: repeat(3, minmax(0,1fr));
+      gap:12px;
+    }
+    @media (max-width:900px){
+      .shelfGrid{ grid-template-columns:1fr; }
+    }
+
+    .shelfCard{
+      border-radius:18px;
+      border:1px solid rgba(148,163,184,.16);
+      background: rgba(15,23,42,.46);
+      padding:12px;
+      box-shadow: 0 18px 55px rgba(0,0,0,.25);
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+    }
+
+    .shelfTop{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    .trophyIcon{
+      width:54px;
+      height:54px;
+      border-radius:16px;
+      display:grid;
+      place-items:center;
+      font-size:28px;
+      border:1px solid rgba(148,163,184,.16);
+      background: rgba(2,6,23,.36);
+      box-shadow: 0 12px 30px rgba(0,0,0,.24);
+    }
+
+    .trophyTitle{
+      font-size:15px;
+      font-weight:1100;
+      line-height:1.2;
+    }
+
+    .statusChip{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      padding:6px 10px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.16);
+      background: rgba(2,6,23,.28);
+      font-size:11px;
+      font-weight:1000;
+      color:var(--muted);
+    }
+    .statusChip.done{
+      color:#dcfce7;
+      border-color: rgba(34,197,94,.28);
+      background: rgba(34,197,94,.14);
+    }
+    .statusChip.locked{
+      color:#fecaca;
+      border-color: rgba(239,68,68,.26);
+      background: rgba(239,68,68,.10);
+    }
+
+    .shelfMeta{
+      color:var(--muted);
+      font-size:12px;
+      font-weight:900;
+      line-height:1.45;
+    }
+
+    .miniRow{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      align-items:center;
+    }
   </style>
 </head>
 <body>
@@ -371,7 +465,6 @@ PATCH v20260306-HUB-HERO-CARDBOOK-GJLAUNCHER
       </div>
     </div>
 
-    <!-- ===== Card Book ===== -->
     <section class="cardBook">
       <div class="cardBookTop">
         <div>
@@ -421,14 +514,78 @@ PATCH v20260306-HUB-HERO-CARDBOOK-GJLAUNCHER
           <div class="bookActions">
             <span class="pill"><b>grade</b>: <span id="lastDropGrade">—</span></span>
             <span class="pill"><b>score</b>: <span id="lastDropScore">0</span></span>
+            <span class="pill"><b>best</b>: <span id="bestNormalScore">0</span></span>
+            <span class="pill"><b>streak</b>: <span id="streakCount">0</span></span>
           </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="trophyShelf">
+      <div class="cardBookTop">
+        <div>
+          <div class="cardBookTitle">🏆 Hub Shelf / Trophy Shelf</div>
+          <div class="cardBookSub">สรุปความก้าวหน้าของ Hero และแต่ละ Zone</div>
+        </div>
+      </div>
+
+      <div class="shelfGrid">
+        <div class="shelfCard">
+          <div class="shelfTop">
+            <div class="inlineRow">
+              <div class="trophyIcon" id="nutriTrophyIcon">🥦</div>
+              <div>
+                <div class="trophyTitle">Nutrition Trophy</div>
+                <div class="shelfMeta">GoodJunk / Groups / Hydration / Plate</div>
+              </div>
+            </div>
+            <span class="statusChip locked" id="nutriStatus">LOCKED</span>
+          </div>
+          <div class="miniRow">
+            <span class="pill"><b>best</b>: <span id="nutriBestScore">0</span></span>
+            <span class="pill"><b>cards</b>: <span id="nutriCardTotal">0</span></span>
+          </div>
+          <div class="shelfMeta" id="nutriHint">เคลียร์ GoodJunk หรือสะสมการ์ดเพื่อปลดถ้วย</div>
+        </div>
+
+        <div class="shelfCard">
+          <div class="shelfTop">
+            <div class="inlineRow">
+              <div class="trophyIcon" id="hygieneTrophyIcon">🪥</div>
+              <div>
+                <div class="trophyTitle">Hygiene Trophy</div>
+                <div class="shelfMeta">Handwash / Brush / Bath / Clean / Mask / Germ</div>
+              </div>
+            </div>
+            <span class="statusChip locked" id="hygieneStatus">LOCKED</span>
+          </div>
+          <div class="miniRow">
+            <span class="pill"><b>zone</b>: <span id="hygieneZoneDone">0</span></span>
+          </div>
+          <div class="shelfMeta" id="hygieneHint">ทำ zone hygiene ให้มี done today เพื่อโชว์ถ้วย</div>
+        </div>
+
+        <div class="shelfCard">
+          <div class="shelfTop">
+            <div class="inlineRow">
+              <div class="trophyIcon" id="fitnessTrophyIcon">🏃</div>
+              <div>
+                <div class="trophyTitle">Fitness Trophy</div>
+                <div class="shelfMeta">Shadow / Rhythm / JumpDuck / Balance / Planner</div>
+              </div>
+            </div>
+            <span class="statusChip locked" id="fitnessStatus">LOCKED</span>
+          </div>
+          <div class="miniRow">
+            <span class="pill"><b>zone</b>: <span id="fitnessZoneDone">0</span></span>
+          </div>
+          <div class="shelfMeta" id="fitnessHint">ทำ zone fitness ให้มี done today เพื่อโชว์ถ้วย</div>
         </div>
       </div>
     </section>
 
     <div class="grid">
 
-      <!-- NUTRITION -->
       <section class="card">
         <h2>🥦 Nutrition Zone</h2>
         <div class="zoneRow">
@@ -449,7 +606,6 @@ PATCH v20260306-HUB-HERO-CARDBOOK-GJLAUNCHER
         <div class="small" style="margin-top:4px;">Tip: Solo PRO = diff=hard & pro=1 (ผ่าน Launcher)</div>
       </section>
 
-      <!-- HYGIENE -->
       <section class="card">
         <h2>🪥 Hygiene Zone</h2>
         <div class="muted">Handwash • Brush • Bath • Clean Object • MaskCough • Germ Detective</div>
@@ -464,7 +620,6 @@ PATCH v20260306-HUB-HERO-CARDBOOK-GJLAUNCHER
         </div>
       </section>
 
-      <!-- EXERCISE -->
       <section class="card">
         <h2>🏃 Exercise Zone</h2>
         <div class="muted">Shadow Breaker • Rhythm Boxer • JumpDuck • Balance Hold • Fitness Planner</div>
@@ -500,16 +655,38 @@ PATCH v20260306-HUB-HERO-CARDBOOK-GJLAUNCHER
     uiPid.textContent = pid;
     ctxLine.textContent = `run=${run} • diff=${diff} • time=${time}s • view=${view}`;
 
+    function hhDayKey(){
+      const d=new Date();
+      return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    }
+
+    function loadJson(k, fallback){
+      try{
+        const raw = localStorage.getItem(k);
+        return raw ? JSON.parse(raw) : fallback;
+      }catch(_){ return fallback; }
+    }
+
+    function saveJson(k, v){
+      try{ localStorage.setItem(k, JSON.stringify(v)); }catch(_){}
+    }
+
     function loadHero(){
       try{
         const raw = localStorage.getItem(`HHA_PROFILE:${pid}`) || '';
-        if(!raw) return { pid, nick: pid, xp:0, lvl:1 };
+        if(!raw){
+          const xp = Math.max(0, Number(localStorage.getItem(`HHA_HERO_XP:${pid}`) || '0') || 0);
+          return { pid, nick: pid, xp, lvl:Math.max(1, Math.floor(xp/50)+1) };
+        }
         const j = JSON.parse(raw);
-        const xp = Math.max(0, Number(j.xp)||0);
+        const xpDirect = Number(j.xp);
+        const xpFallback = Math.max(0, Number(localStorage.getItem(`HHA_HERO_XP:${pid}`) || '0') || 0);
+        const xp = Math.max(0, Number.isFinite(xpDirect) ? xpDirect : xpFallback);
         const lvl = Math.max(1, Number(j.lvl)|| (Math.floor(xp/50)+1));
         return { pid, nick: String(j.nick||pid), xp, lvl };
       }catch(_){
-        return { pid, nick: pid, xp:0, lvl:1 };
+        const xp = Math.max(0, Number(localStorage.getItem(`HHA_HERO_XP:${pid}`) || '0') || 0);
+        return { pid, nick: pid, xp, lvl:Math.max(1, Math.floor(xp/50)+1) };
       }
     }
 
@@ -595,21 +772,23 @@ PATCH v20260306-HUB-HERO-CARDBOOK-GJLAUNCHER
       }
     }
 
+    function loadLastCard(pid){
+      try{
+        const raw = localStorage.getItem(`HHA_LAST_CARD:${pid}`) || '';
+        return raw ? JSON.parse(raw) : null;
+      }catch(_){ return null; }
+    }
+
     function renderCardBook(){
       const book = loadCardBook(pid);
       const sum = loadLastGoodjunkSummary(pid);
+      const lastCard = loadLastCard(pid);
 
-      const bookTotal = document.getElementById('bookTotal');
-      const bookS = document.getElementById('bookS');
-      const bookA = document.getElementById('bookA');
-      const bookB = document.getElementById('bookB');
-      const bookC = document.getElementById('bookC');
-
-      if(bookTotal) bookTotal.textContent = String(book.total || 0);
-      if(bookS) bookS.textContent = String(book.S || 0);
-      if(bookA) bookA.textContent = String(book.A || 0);
-      if(bookB) bookB.textContent = String(book.B || 0);
-      if(bookC) bookC.textContent = String(book.C || 0);
+      document.getElementById('bookTotal').textContent = String(book.total || 0);
+      document.getElementById('bookS').textContent = String(book.S || 0);
+      document.getElementById('bookA').textContent = String(book.A || 0);
+      document.getElementById('bookB').textContent = String(book.B || 0);
+      document.getElementById('bookC').textContent = String(book.C || 0);
 
       const lastDropIcon = document.getElementById('lastDropIcon');
       const lastDropTitle = document.getElementById('lastDropTitle');
@@ -617,26 +796,88 @@ PATCH v20260306-HUB-HERO-CARDBOOK-GJLAUNCHER
       const lastDropGrade = document.getElementById('lastDropGrade');
       const lastDropScore = document.getElementById('lastDropScore');
 
+      if(lastCard){
+        lastDropIcon.textContent = lastCard.icon || '🃏';
+        lastDropTitle.textContent = lastCard.title || 'Latest Card';
+      }
+
       if(sum){
         const grade = String(sum.grade || 'C').toUpperCase();
         const spec = cardSpecFromGrade(grade);
 
-        if(lastDropIcon) lastDropIcon.textContent = spec.icon;
-        if(lastDropTitle) lastDropTitle.textContent = spec.title;
-        if(lastDropMeta) lastDropMeta.textContent =
+        if(!lastCard) lastDropIcon.textContent = spec.icon;
+        if(!lastCard) lastDropTitle.textContent = spec.title;
+        lastDropMeta.textContent =
           `ผลล่าสุด: reason=${sum.reason || '-'} • miss ${sum.missTotal ?? sum.miss ?? 0} • acc ${sum.accPct ?? 0}%`;
-        if(lastDropGrade) lastDropGrade.textContent = grade;
-        if(lastDropScore) lastDropScore.textContent = String(sum.score ?? 0);
+        lastDropGrade.textContent = grade;
+        lastDropScore.textContent = String(sum.scoreFinal ?? sum.score ?? 0);
       }else{
-        if(lastDropIcon) lastDropIcon.textContent = '🃏';
-        if(lastDropTitle) lastDropTitle.textContent = 'ยังไม่มีการ์ดล่าสุด';
-        if(lastDropMeta) lastDropMeta.textContent = 'เล่น GoodJunk แล้วกลับมาดูที่นี่';
-        if(lastDropGrade) lastDropGrade.textContent = '—';
-        if(lastDropScore) lastDropScore.textContent = '0';
+        lastDropIcon.textContent = '🃏';
+        lastDropTitle.textContent = 'ยังไม่มีการ์ดล่าสุด';
+        lastDropMeta.textContent = 'เล่น GoodJunk แล้วกลับมาดูที่นี่';
+        lastDropGrade.textContent = '—';
+        lastDropScore.textContent = '0';
       }
+
+      const bestNormal = loadJson(`HHA_GJ_BEST:${pid}:normal`, null);
+      document.getElementById('bestNormalScore').textContent = String(bestNormal?.scoreFinal ?? bestNormal?.score ?? 0);
+
+      const streak = loadJson(`HHA_GJ_STREAK:${pid}`, { count:0 });
+      document.getElementById('streakCount').textContent = String(streak?.count || 0);
     }
 
-    // ===== GoodJunk -> Launcher =====
+    function renderTrophyShelf(){
+      const book = loadCardBook(pid);
+      const bestNormal = loadJson(`HHA_GJ_BEST:${pid}:normal`, null);
+      const badges = loadJson(`HHA_GJ_BADGES:${pid}`, {});
+      const today = hhDayKey();
+
+      const nutritionUnlocked = (book.total || 0) > 0 || ((bestNormal?.scoreFinal ?? bestNormal?.score ?? 0) >= 500);
+      const hygieneUnlocked = localStorage.getItem(`HHA_ZONE_DONE::hygiene::${today}`) === '1';
+      const fitnessUnlocked = localStorage.getItem(`HHA_ZONE_DONE::fitness::${today}`) === '1';
+
+      const nutriStatus = document.getElementById('nutriStatus');
+      const hygieneStatus = document.getElementById('hygieneStatus');
+      const fitnessStatus = document.getElementById('fitnessStatus');
+
+      const nutriTrophyIcon = document.getElementById('nutriTrophyIcon');
+      const hygieneTrophyIcon = document.getElementById('hygieneTrophyIcon');
+      const fitnessTrophyIcon = document.getElementById('fitnessTrophyIcon');
+
+      nutriStatus.textContent = nutritionUnlocked ? 'UNLOCKED' : 'LOCKED';
+      hygieneStatus.textContent = hygieneUnlocked ? 'DONE TODAY' : 'LOCKED';
+      fitnessStatus.textContent = fitnessUnlocked ? 'DONE TODAY' : 'LOCKED';
+
+      nutriStatus.className = `statusChip ${nutritionUnlocked ? 'done' : 'locked'}`;
+      hygieneStatus.className = `statusChip ${hygieneUnlocked ? 'done' : 'locked'}`;
+      fitnessStatus.className = `statusChip ${fitnessUnlocked ? 'done' : 'locked'}`;
+
+      nutriTrophyIcon.textContent = nutritionUnlocked ? '🏆' : '🥦';
+      hygieneTrophyIcon.textContent = hygieneUnlocked ? '🏅' : '🪥';
+      fitnessTrophyIcon.textContent = fitnessUnlocked ? '🎖️' : '🏃';
+
+      document.getElementById('nutriBestScore').textContent = String(bestNormal?.scoreFinal ?? bestNormal?.score ?? 0);
+      document.getElementById('nutriCardTotal').textContent = String(book.total || 0);
+      document.getElementById('hygieneZoneDone').textContent = hygieneUnlocked ? '1' : '0';
+      document.getElementById('fitnessZoneDone').textContent = fitnessUnlocked ? '1' : '0';
+
+      const badgeCount = Object.values(badges || {}).filter(Boolean).length;
+      document.getElementById('nutriHint').textContent =
+        nutritionUnlocked
+          ? `ปลดถ้วยแล้ว • badges ${badgeCount} • พร้อมลุยต่อ`
+          : 'เคลียร์ GoodJunk หรือสะสมการ์ดเพื่อปลดถ้วย';
+
+      document.getElementById('hygieneHint').textContent =
+        hygieneUnlocked
+          ? 'ทำโซน Hygiene สำเร็จวันนี้แล้ว'
+          : 'ทำ zone hygiene ให้มี done today เพื่อโชว์ถ้วย';
+
+      document.getElementById('fitnessHint').textContent =
+        fitnessUnlocked
+          ? 'ทำโซน Fitness สำเร็จวันนี้แล้ว'
+          : 'ทำ zone fitness ให้มี done today เพื่อโชว์ถ้วย';
+    }
+
     const GJ_LAUNCHER = './goodjunk-launcher.html';
 
     const btnGJsolo = document.getElementById('btnGJsolo');
@@ -671,7 +912,6 @@ PATCH v20260306-HUB-HERO-CARDBOOK-GJLAUNCHER
       });
     };
 
-    // ===== Hero buttons =====
     const btnHeroShow = document.getElementById('btnHeroShow');
     const btnHeroReset = document.getElementById('btnHeroReset');
 
@@ -685,36 +925,38 @@ PATCH v20260306-HUB-HERO-CARDBOOK-GJLAUNCHER
         if(!confirm('Reset Hero ของ PID นี้? (ลบ XP/LV)')) return;
         const h = { pid, nick: pid, xp:0, lvl:1 };
         saveHero(h);
+        try{ localStorage.setItem(`HHA_HERO_XP:${pid}`, '0'); }catch(_){}
         renderHero();
         alert('Reset Hero เรียบร้อย ✅');
       }catch(_){}
     };
 
-    // ===== Card Book buttons =====
     const btnOpenGJLauncher = document.getElementById('btnOpenGJLauncher');
     const btnResetCardBook = document.getElementById('btnResetCardBook');
 
-    btnOpenGJLauncher && (btnOpenGJLauncher.onclick = ()=>{
+    btnOpenGJLauncher.onclick = ()=>{
       location.href = buildUrl('./goodjunk-launcher.html', { mode:'solo' });
-    });
+    };
 
-    btnResetCardBook && (btnResetCardBook.onclick = ()=>{
+    btnResetCardBook.onclick = ()=>{
       try{
         if(!confirm('Reset Card Book ของ PID นี้?')) return;
         saveCardBook(pid, { S:0, A:0, B:0, C:0, total:0 });
+        localStorage.removeItem(`HHA_LAST_CARD:${pid}`);
         renderCardBook();
+        renderTrophyShelf();
         alert('Reset Card Book เรียบร้อย ✅');
       }catch(_){}
-    });
+    };
 
-    // init
-    renderHero();
-    renderCardBook();
-
-    window.addEventListener('focus', ()=>{
+    function renderAll(){
       renderHero();
       renderCardBook();
-    });
+      renderTrophyShelf();
+    }
+
+    renderAll();
+    window.addEventListener('focus', renderAll);
   </script>
 </body>
 </html>
