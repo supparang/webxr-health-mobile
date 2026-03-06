@@ -1,6 +1,6 @@
 // === /herohealth/vr-brush/brush.boot.js ===
-// Brush BOOT — BLOOM 1–6 PRO (boot only; start via quiz)
-// FULL v20260305b-BRUSH-BOOT
+// Brush BOOT — v20260306 (boot only; start via quiz)
+// FULL v20260306-BRUSH-BOOT
 (function(){
   'use strict';
   const WIN = window, DOC = document;
@@ -24,7 +24,7 @@
   async function loadSafe(){
     let bootGame = WIN.__BRUSH_BOOTGAME__;
     if (!bootGame){
-      const mod = await import('./brush.safe.js?v=20260305b');
+      const mod = await import('./brush.safe.js?v=20260306');
       bootGame = mod && mod.bootGame ? mod.bootGame : null;
     }
     return bootGame;
