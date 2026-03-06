@@ -1,12 +1,9 @@
-// === /herohealth/vr-bath/bath.missions.js ===
-// 3-Stage SCRUB mission: Warm -> Trick -> Boss
-// FULL v20260306b-BATH-MISSIONS
 'use strict';
 
 export function bootMissions(opts){
   opts = opts || {};
   const S = {
-    stage: 1, // 1 warm, 2 trick, 3 boss
+    stage: 1,
     warmNeed: opts.warmNeed ?? 4,
     trickNeed: opts.trickNeed ?? 4,
     bossNeed: opts.bossNeed ?? 1,
