@@ -1,9 +1,11 @@
 <!-- === /herohealth/hub.html ===
 HeroHealth — Hub (3 Zones) — PRODUCTION
-PATCH v20260306-HUB-PATHFIX-ROOT-LAUNCHERS
+PATCH v20260306-HUB-PATHFIX-ROOT-LAUNCHERS-r2
 ✅ FIX: Use root launchers instead of deep folder run paths
 ✅ FIX: Hygiene / Exercise links now also pass full query context
+✅ FIX: Handwash -> ./hygiene-vr.html
 ✅ FIX: Brush -> ./brush-vr.html
+✅ FIX: Bath -> ./bath-vr.html
 ✅ FIX: Balance Hold -> ./balance-hold-vr.html
 ✅ FIX: Groups / Hydration / Plate -> root launchers
 ✅ KEEP: GoodJunk launcher + Hero Profile + Card Book + Trophy Shelf
@@ -198,7 +200,6 @@ PATCH v20260306-HUB-PATHFIX-ROOT-LAUNCHERS
       color: var(--muted);
     }
 
-    /* ===== Card Book ===== */
     .cardBook{
       border-radius:22px;
       border:1px solid rgba(148,163,184,.18);
@@ -342,7 +343,6 @@ PATCH v20260306-HUB-PATHFIX-ROOT-LAUNCHERS
       margin-top:8px;
     }
 
-    /* ===== Trophy Shelf ===== */
     .trophyShelf{
       border-radius:22px;
       border:1px solid rgba(148,163,184,.18);
@@ -886,9 +886,9 @@ PATCH v20260306-HUB-PATHFIX-ROOT-LAUNCHERS
       hydration:      './hydration-vr.html',
       plate:          './plate-vr.html',
 
-      handwash:       './handwash.html',
+      handwash:       './hygiene-vr.html',
       brush:          './brush-vr.html',
-      bath:           './bath.html',
+      bath:           './bath-vr.html',
       cleanObject:    './clean-object.html',
       maskCough:      './maskcough.html',
       germDetective:  './germ-detective.html',
