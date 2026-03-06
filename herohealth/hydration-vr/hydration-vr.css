@@ -1,8 +1,3 @@
-/* === /herohealth/hydration-vr/hydration-vr.css ===
-Hydration VR CSS — PRODUCTION
-FULL v20260305a-HYDRATION-CSS-FX
-*/
-
 :root{
   --bg:#020617;
   --panel: rgba(2,6,23,.78);
@@ -24,7 +19,6 @@ body{
   overflow:hidden;
 }
 
-/* HUD */
 .hud{
   position:fixed;
   top: calc(env(safe-area-inset-top, 0px) + 10px);
@@ -47,6 +41,7 @@ body{
   padding: 10px 12px;
 }
 .card.small{ margin-left:auto; max-width:190px; }
+
 .stat{
   display:grid;
   grid-template-columns: auto 1fr auto 1fr;
@@ -73,11 +68,9 @@ body{
 }
 .smalltext{ color: var(--muted); font-size:12px; }
 
-/* Stage */
 .stage{ position:relative; width:100vw; height:100vh; overflow:hidden; }
 #layer{ position:absolute; inset:0; }
 
-/* bubbles */
 .bubble{
   position:absolute;
   width:56px; height:56px;
@@ -94,24 +87,18 @@ body{
 }
 .bubble:active{ transform: translate(-50%, -50%) scale(.96); }
 
-/* ===== FX: bubble pop / hit pulse ===== */
-.bubble.fx-pop{
-  animation: fxPop .18s ease-out 1;
-}
+.bubble.fx-pop{ animation: fxPop .18s ease-out 1; }
 @keyframes fxPop{
   0%{ transform: translate(-50%, -50%) scale(1); opacity:1; }
   100%{ transform: translate(-50%, -50%) scale(1.45); opacity:0; }
 }
-.bubble.fx-bad{
-  animation: fxBad .22s ease-out 1;
-}
+.bubble.fx-bad{ animation: fxBad .22s ease-out 1; }
 @keyframes fxBad{
   0%{ transform: translate(-50%, -50%) scale(1); }
   40%{ transform: translate(-50%, -50%) scale(.86); }
   100%{ transform: translate(-50%, -50%) scale(1.15); opacity:.0; }
 }
 
-/* ===== FX: popup score ===== */
 .fx-score{
   position:absolute;
   transform: translate(-50%, -50%);
@@ -129,7 +116,6 @@ body{
   100%{ opacity:0; transform: translate(-50%, -50%) translateY(-40px) scale(1.05); }
 }
 
-/* ===== FX: shockwave ring ===== */
 .fx-ring{
   position:absolute;
   width:12px; height:12px;
@@ -147,10 +133,7 @@ body{
   100%{ opacity:0; width:160px; height:160px; }
 }
 
-/* ===== FX: screen shake ===== */
-.stage.fx-shake{
-  animation: fxShake .18s linear 1;
-}
+.stage.fx-shake{ animation: fxShake .18s linear 1; }
 @keyframes fxShake{
   0%{ transform: translate(0,0); }
   25%{ transform: translate(2px,-1px); }
@@ -159,7 +142,6 @@ body{
   100%{ transform: translate(0,0); }
 }
 
-/* End */
 #end{
   position:fixed; inset:0;
   display:grid; place-items:center;
@@ -171,6 +153,7 @@ body{
   transition: opacity .18s ease;
 }
 #end[aria-hidden="false"]{ opacity:1; pointer-events:auto; }
+
 .end-card{
   width:min(560px, calc(100vw - 24px));
   background: rgba(2,6,23,.85);
@@ -181,6 +164,7 @@ body{
 }
 .end-title{ font-weight:1000; font-size:20px; }
 .end-sub{ color: var(--muted); font-size:12px; margin-top:6px; }
+
 .grid{
   display:grid;
   grid-template-columns: repeat(2,1fr);
@@ -210,8 +194,12 @@ body{
 .btn.danger{ background: rgba(239,68,68,.16); }
 .is-hidden{ display:none !important; }
 
-/* Storm FX (keep your existing lightning css if present) */
-#stormFx{ position:absolute; inset:0; pointer-events:none; opacity:0; z-index:5; }
+#stormFx{
+  position:absolute; inset:0;
+  pointer-events:none;
+  opacity:0;
+  z-index:5;
+}
 .stage.is-storm #stormFx,
 .stage.is-boss  #stormFx,
 .stage.is-final #stormFx{
@@ -223,6 +211,7 @@ body{
   animation: stormGlow 1.6s ease-in-out infinite;
 }
 @keyframes stormGlow{ 0%,100%{ filter:saturate(1); } 50%{ filter:saturate(1.25); } }
+
 .stage.is-storm .storm-flash,
 .stage.is-boss  .storm-flash,
 .stage.is-final .storm-flash{
@@ -235,6 +224,7 @@ body{
   pointer-events:none;
 }
 @keyframes flash{ 0%{opacity:0;} 25%{opacity:1;} 100%{opacity:0;} }
+
 .stage.is-storm .bolt,
 .stage.is-boss  .bolt,
 .stage.is-final .bolt{
@@ -253,7 +243,6 @@ body{
 }
 @keyframes bolt{ 0%{opacity:0;} 25%{opacity:1;} 100%{opacity:0;} }
 
-/* Zone sign */
 #zoneSign{
   position:absolute;
   left: 50%;
@@ -273,7 +262,6 @@ body{
 .stage.is-boss  #zoneSign,
 .stage.is-final #zoneSign{ opacity: 1; }
 
-/* cVR zone pad */
 #cvrZonePad{
   position:absolute;
   inset: 0;
