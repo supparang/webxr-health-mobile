@@ -1,5 +1,7 @@
 // === /herohealth/vr-brush/brush.fx.js ===
+// FULL v20260306-BRUSH-FX
 'use strict';
+
 export function bootFx(){
   const D = document;
   let layer = D.getElementById('fxLayer');
@@ -9,6 +11,7 @@ export function bootFx(){
     layer.style.cssText = `position:fixed; inset:0; pointer-events:none; z-index:55;`;
     D.body.appendChild(layer);
   }
+
   function toast(text, kind='info', ms=900){
     const el = D.createElement('div');
     el.textContent = String(text||'');
@@ -27,9 +30,15 @@ export function bootFx(){
     if (kind === 'bad')  el.style.borderColor = 'rgba(239,68,68,.35)';
     if (kind === 'warn') el.style.borderColor = 'rgba(245,158,11,.35)';
     layer.appendChild(el);
+
     requestAnimationFrame(()=>{ el.style.opacity='1'; el.style.transform='translate(-50%,0)'; });
-    setTimeout(()=>{ el.style.opacity='0'; el.style.transform='translate(-50%,-6px)'; setTimeout(()=>el.remove(), 220); }, ms);
+    setTimeout(()=>{
+      el.style.opacity='0';
+      el.style.transform='translate(-50%,-6px)';
+      setTimeout(()=> el.remove(), 220);
+    }, ms);
   }
+
   function pulse(kind='good', ms=180){
     const el = D.createElement('div');
     el.style.cssText = `position:fixed; inset:0; opacity:0; transition: opacity .10s ease;`;
@@ -40,5 +49,6 @@ export function bootFx(){
     requestAnimationFrame(()=>{ el.style.opacity='1'; });
     setTimeout(()=>{ el.style.opacity='0'; setTimeout(()=>el.remove(), 160); }, ms);
   }
+
   return { toast, pulse };
 }
