@@ -27,6 +27,46 @@
       border-radius:12px; border:1px solid rgba(255,255,255,.15);
       background:rgba(255,255,255,.08); color:#e5e7eb; font-weight:900;
     }
+
+    .timeline-dock{
+      position:fixed;
+      right:10px;
+      bottom:calc(env(safe-area-inset-bottom,0px) + 82px);
+      width:min(260px, 42vw);
+      z-index:45;
+      background:rgba(2,6,23,.70);
+      border:1px solid rgba(255,255,255,.08);
+      border-radius:16px;
+      padding:10px;
+      backdrop-filter: blur(10px);
+      box-shadow:0 12px 30px rgba(0,0,0,.35);
+    }
+    .timeline-title{
+      font-size:12px;
+      font-weight:1000;
+      margin-bottom:6px;
+    }
+    .timeline-track{
+      position:relative;
+      height:8px;
+      border-radius:999px;
+      background:rgba(255,255,255,.08);
+      overflow:hidden;
+    }
+    .timeline-fill{
+      position:absolute;
+      left:0; top:0; bottom:0;
+      width:0%;
+      background:linear-gradient(90deg, rgba(34,197,94,.9), rgba(245,158,11,.9), rgba(239,68,68,.95));
+    }
+    .timeline-note{
+      margin-top:8px;
+      font-size:12px;
+      line-height:1.4;
+      color:#e5e7eb;
+      opacity:.95;
+      min-height:32px;
+    }
   </style>
 </head>
 
@@ -54,7 +94,12 @@
         <span class="chip">🔥 COMBO <span id="uiCombo">0</span></span>
         <span class="chip">🛡️ SHIELD <span id="uiShield">0</span></span>
         <span class="chip"><span id="uiPhase">—</span></span>
+      </div>
+
+      <div class="chips">
         <span class="chip"><button id="btnSfx" type="button" style="all:unset;cursor:pointer;font-weight:1000;">🔊 SFX</button></span>
+        <span class="chip"><button id="btnPause" type="button" style="all:unset;cursor:pointer;font-weight:1000;">⏸️ Pause</button></span>
+        <span class="chip"><button id="btnHelp" type="button" style="all:unset;cursor:pointer;font-weight:1000;">❓ Help</button></span>
       </div>
 
       <div class="chips">
@@ -73,6 +118,12 @@
     </div>
   </div>
 
+  <div class="timeline-dock" id="timelineDock">
+    <div class="timeline-title">AI Coach Timeline</div>
+    <div class="timeline-track"><div class="timeline-fill" id="riskFill"></div></div>
+    <div class="timeline-note" id="coachExplain">—</div>
+  </div>
+
   <div class="stage" id="stage">
     <div id="stormFx" aria-hidden="true"></div>
     <div id="zoneSign" aria-hidden="true"></div>
@@ -83,6 +134,35 @@
     </div>
 
     <div id="layer" aria-label="hydration layer"></div>
+  </div>
+
+  <div id="helpOverlay" aria-hidden="true">
+    <div class="overlay-card">
+      <div class="overlay-title">วิธีเล่น Hydration</div>
+      <div class="overlay-body">
+        <p>1) เก็บ <b>💧 น้ำ</b> เพื่อเพิ่มคะแนนและค่าน้ำ</p>
+        <p>2) หลีกเลี่ยง <b>🧋🥤🍟</b> ถ้าโดนจะเสียคะแนนและน้ำ</p>
+        <p>3) เก็บ <b>🛡️ โล่</b> เพื่อกันฟ้าผ่าและกันของไม่ดี</p>
+        <p>4) ตอน <b>STORM / BOSS</b> ให้ดูป้าย <b>LEFT / RIGHT</b></p>
+        <p>5) กันฟ้าผ่าได้เมื่อ <b>มีโล่ + อยู่ฝั่งถูก</b></p>
+        <p>6) ผ่านบอสแต่ละด่านด้วยการเก็บน้ำให้ครบเป้า</p>
+      </div>
+      <div class="actions">
+        <button class="btn primary" id="btnHelpStart">เริ่มเล่น</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="pauseOverlay" aria-hidden="true">
+    <div class="overlay-card">
+      <div class="overlay-title">Paused</div>
+      <div class="overlay-body">
+        <p>เกมหยุดชั่วคราว</p>
+      </div>
+      <div class="actions">
+        <button class="btn primary" id="btnResume">Resume</button>
+      </div>
+    </div>
   </div>
 
   <div id="end" aria-hidden="true">
@@ -99,6 +179,8 @@
 
       <div class="actions">
         <button class="btn" id="btnCopy">Copy Summary</button>
+        <button class="btn" id="btnCopyEvents">Copy Events</button>
+        <button class="btn" id="btnCopyTimeline">Copy Timeline</button>
         <button class="btn danger" id="btnReplay">Replay</button>
         <button class="btn primary is-hidden" id="btnNextCooldown">ถัดไป: Cooldown</button>
         <button class="btn primary" id="btnBackHub">Back HUB</button>
