@@ -1,0 +1,316 @@
+<!-- === /herohealth/goodjunk-board.html ===
+HeroHealth • GoodJunk Big Screen Board
+FULL v20260306-BIGSCREEN-BOARD
+✅ Large classroom board
+✅ Room / phase / countdown / live scores / winner
+-->
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>GoodJunk Big Screen Board</title>
+  <meta name="color-scheme" content="dark light" />
+  <style>
+    :root{
+      --bg1:#020617; --bg2:#0b1226;
+      --text:#f8fafc; --muted:#94a3b8;
+      --good:#22c55e; --warn:#f59e0b; --bad:#ef4444; --blue:#3b82f6;
+      --stroke:rgba(148,163,184,.18);
+    }
+    html,body{height:100%; margin:0;}
+    body{
+      background:
+        radial-gradient(1200px 700px at 20% 10%, rgba(59,130,246,.14), transparent 55%),
+        radial-gradient(1000px 600px at 85% 15%, rgba(34,197,94,.10), transparent 55%),
+        linear-gradient(180deg, var(--bg1), var(--bg2));
+      color:var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", Arial;
+      overflow:hidden;
+    }
+    .wrap{
+      height:100%;
+      display:grid;
+      grid-template-rows:auto auto 1fr auto;
+      gap:16px;
+      padding:20px;
+      box-sizing:border-box;
+    }
+    .top{
+      display:flex;
+      justify-content:space-between;
+      align-items:flex-start;
+      gap:16px;
+      flex-wrap:wrap;
+    }
+    .title{
+      font-size:40px;
+      font-weight:1100;
+      line-height:1.05;
+    }
+    .sub{
+      margin-top:6px;
+      font-size:18px;
+      color:var(--muted);
+      font-weight:900;
+    }
+    .pillrow{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+    .pill{
+      border:1px solid var(--stroke);
+      background:rgba(2,6,23,.56);
+      border-radius:999px;
+      padding:12px 16px;
+      font-size:20px;
+      font-weight:1000;
+    }
+    .hero{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:18px;
+      height:100%;
+    }
+    .card{
+      border:1px solid var(--stroke);
+      background:rgba(2,6,23,.58);
+      border-radius:26px;
+      padding:24px;
+      box-shadow:0 22px 80px rgba(0,0,0,.36);
+      display:flex;
+      flex-direction:column;
+      justify-content:space-between;
+    }
+    .name{
+      font-size:40px;
+      font-weight:1100;
+      line-height:1.1;
+    }
+    .status{
+      margin-top:10px;
+      font-size:22px;
+      font-weight:1000;
+      color:var(--muted);
+    }
+    .bigScore{
+      font-size:110px;
+      font-weight:1100;
+      line-height:1;
+      margin:10px 0 0;
+    }
+    .metrics{
+      display:grid;
+      grid-template-columns:repeat(3,1fr);
+      gap:12px;
+      margin-top:16px;
+    }
+    .metric{
+      border:1px solid rgba(148,163,184,.14);
+      background:rgba(15,23,42,.42);
+      border-radius:18px;
+      padding:14px;
+    }
+    .metric .k{
+      font-size:16px;
+      font-weight:1000;
+      color:var(--muted);
+    }
+    .metric .v{
+      margin-top:8px;
+      font-size:34px;
+      font-weight:1100;
+    }
+    .centerBar{
+      display:grid;
+      grid-template-columns:repeat(4,1fr);
+      gap:12px;
+    }
+    .centerBox{
+      border:1px solid var(--stroke);
+      background:rgba(15,23,42,.42);
+      border-radius:22px;
+      padding:16px;
+      text-align:center;
+    }
+    .centerBox .k{
+      font-size:16px;
+      color:var(--muted);
+      font-weight:1000;
+    }
+    .centerBox .v{
+      margin-top:8px;
+      font-size:46px;
+      font-weight:1100;
+      line-height:1;
+    }
+    .winner{
+      text-align:center;
+      font-size:32px;
+      font-weight:1100;
+      padding:14px 18px;
+      border-radius:20px;
+      border:1px solid rgba(34,197,94,.20);
+      background:rgba(34,197,94,.12);
+      display:none;
+    }
+    .lead{
+      color:#fde68a;
+    }
+    @media (max-width: 1200px){
+      .title{font-size:30px;}
+      .name{font-size:28px;}
+      .bigScore{font-size:82px;}
+      .centerBox .v{font-size:34px;}
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div>
+      <div class="title">GoodJunk Battle Board</div>
+      <div class="sub">Big screen classroom view</div>
+    </div>
+    <div class="pillrow">
+      <div class="pill">ROOM: <span id="uiRoom">—</span></div>
+      <div class="pill">PHASE: <span id="uiPhase">lobby</span></div>
+    </div>
+  </div>
+
+  <div class="centerBar">
+    <div class="centerBox"><div class="k">COUNTDOWN</div><div class="v" id="uiCountdown">—</div></div>
+    <div class="centerBox"><div class="k">LEAD</div><div class="v lead" id="uiLead">tie</div></div>
+    <div class="centerBox"><div class="k">RULE</div><div class="v" id="uiRule">—</div></div>
+    <div class="centerBox"><div class="k">ROUND</div><div class="v" id="uiRound">—</div></div>
+  </div>
+
+  <div class="hero">
+    <div class="card">
+      <div>
+        <div class="name" id="p1Name">Player 1</div>
+        <div class="status" id="p1Status">waiting</div>
+      </div>
+      <div class="bigScore" id="p1Score">0</div>
+      <div class="metrics">
+        <div class="metric"><div class="k">ACC</div><div class="v" id="p1Acc">0%</div></div>
+        <div class="metric"><div class="k">MISS</div><div class="v" id="p1Miss">0</div></div>
+        <div class="metric"><div class="k">RT</div><div class="v" id="p1Rt">0</div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div>
+        <div class="name" id="p2Name">Player 2</div>
+        <div class="status" id="p2Status">waiting</div>
+      </div>
+      <div class="bigScore" id="p2Score">0</div>
+      <div class="metrics">
+        <div class="metric"><div class="k">ACC</div><div class="v" id="p2Acc">0%</div></div>
+        <div class="metric"><div class="k">MISS</div><div class="v" id="p2Miss">0</div></div>
+        <div class="metric"><div class="k">RT</div><div class="v" id="p2Rt">0</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="winner" id="winnerBox">—</div>
+</div>
+
+<script type="module">
+(async function(){
+  'use strict';
+
+  const qs = (k, d='')=>{ try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(_){ return d; } };
+  const room = String(qs('room','')).trim().toUpperCase();
+  const $ = (id)=> document.getElementById(id);
+
+  function setPlayer(prefix, p){
+    $(prefix+'Name').textContent = p ? (p.nick || p.pid || prefix) : prefix;
+    $(prefix+'Status').textContent = !p ? 'waiting' : (p.connected === false ? 'offline' : (p.ready ? 'ready' : 'online'));
+    $(prefix+'Score').textContent = p ? String(p.score || 0) : '0';
+    $(prefix+'Acc').textContent = p ? `${Number(p.acc || 0)}%` : '0%';
+    $(prefix+'Miss').textContent = p ? String(p.miss || 0) : '0';
+    $(prefix+'Rt').textContent = p ? String(p.medianRT || 0) : '0';
+  }
+
+  function leadText(a,b){
+    if(!a || !b) return '—';
+    if((a.score||0) > (b.score||0)) return a.nick || a.pid || 'P1';
+    if((a.score||0) < (b.score||0)) return b.nick || b.pid || 'P2';
+    return 'tie';
+  }
+
+  async function loadFirebase(){
+    const v = '9.22.2';
+    const appMod = await import(`https://www.gstatic.com/firebasejs/${v}/firebase-app.js`);
+    const dbMod  = await import(`https://www.gstatic.com/firebasejs/${v}/firebase-database.js`);
+    return { ...appMod, ...dbMod };
+  }
+
+  function getFirebaseConfig(){
+    return window.HHA_FIREBASE_CONFIG || window.__HHA_FIREBASE_CONFIG__ || window.firebaseConfig || null;
+  }
+
+  $('uiRoom').textContent = room || '—';
+  if(!room) return;
+
+  const fbCfg = getFirebaseConfig();
+  if(!fbCfg) return;
+
+  const fb = await loadFirebase();
+  const { initializeApp, getApps, getApp, getDatabase, ref, onValue } = fb;
+  const app = getApps().length ? getApp() : initializeApp(fbCfg);
+  const db = getDatabase(app);
+
+  const base = `hha-battle/goodjunk/rooms/${room}`;
+  const stateRef = ref(db, `${base}/state`);
+  const playersRef = ref(db, `${base}/players`);
+  const offsetRef = ref(db, '.info/serverTimeOffset');
+
+  let offset = 0;
+  onValue(offsetRef, snap=>{ offset = Number(snap.val() || 0) || 0; });
+
+  onValue(stateRef, snap=>{
+    const st = snap.val() || {};
+    const phase = String(st.phase || 'lobby');
+    const roundId = String(st.roundId || '');
+    const rule = String(st.reason || '—');
+    const winner = String(st.winner || '');
+
+    $('uiPhase').textContent = phase;
+    $('uiRound').textContent = roundId || '—';
+    $('uiRule').textContent = rule || '—';
+
+    const startAtMs = Number(st.startAtMs || 0) || 0;
+    if(phase === 'countdown' && startAtMs > 0){
+      const leftMs = Math.max(0, startAtMs - (Date.now() + offset));
+      $('uiCountdown').textContent = String(Math.ceil(leftMs / 1000));
+    }else{
+      $('uiCountdown').textContent = phase === 'running' ? 'GO' : '—';
+    }
+
+    const winnerBox = $('winnerBox');
+    if(phase === 'ended'){
+      winnerBox.style.display = 'block';
+      winnerBox.textContent = winner ? `Winner: ${winner} • Rule: ${rule}` : `Tie • Rule: ${rule}`;
+    }else{
+      winnerBox.style.display = 'none';
+    }
+  });
+
+  onValue(playersRef, snap=>{
+    const raw = snap.val() || {};
+    const players = Object.keys(raw)
+      .map(k => ({ key:k, ...(raw[k]||{}) }))
+      .sort((a,b)=>(Number(a.joinedAtMs||0)-Number(b.joinedAtMs||0)))
+      .slice(0,2);
+
+    setPlayer('p1', players[0] || null);
+    setPlayer('p2', players[1] || null);
+    $('uiLead').textContent = leadText(players[0], players[1]);
+  });
+})();
+</script>
+</body>
+</html>
