@@ -1,669 +1,205 @@
 <!-- === /herohealth/goodjunk-board.html ===
 HeroHealth • GoodJunk Live Board
-PATCH v20260306-GJ-BOARD-FULL
-✅ Correct root path uses ./firebase-config.js
-✅ Spectator / classroom display board
-✅ Fullscreen-ready scoreboard
-✅ Safe realtime Firebase fallback
+PATCH v20260306-GJ-BOARD-BATTLE-V6
+✅ Reads hha-battle/goodjunk/rooms/{room}
+✅ Shows phase + top 2 realtime
 -->
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>GoodJunk — Live Board</title>
-  <meta name="color-scheme" content="dark light" />
+  <title>GoodJunk Live Board</title>
   <link rel="icon" href="./favicon.ico" />
-
+  <meta name="color-scheme" content="dark light" />
   <style>
     :root{
-      --bg1:#020617;
-      --bg2:#0f172a;
-      --panel:rgba(2,6,23,.70);
-      --panel2:rgba(15,23,42,.74);
-      --stroke:rgba(148,163,184,.18);
-      --text:#e5e7eb;
-      --muted:#94a3b8;
-      --good:#22c55e;
-      --warn:#f59e0b;
-      --danger:#ef4444;
-      --cyan:#22d3ee;
-      --gold:#fbbf24;
-      --silver:#cbd5e1;
-      --bronze:#fdba74;
-      --shadow:0 20px 60px rgba(0,0,0,.30);
-
-      --sat: env(safe-area-inset-top, 0px);
-      --sar: env(safe-area-inset-right, 0px);
-      --sab: env(safe-area-inset-bottom, 0px);
-      --sal: env(safe-area-inset-left, 0px);
+      --bg1:#020617; --bg2:#0b1226; --panel:rgba(2,6,23,.74);
+      --stroke:rgba(148,163,184,.18); --text:#e5e7eb; --muted:#94a3b8;
+      --shadow:0 18px 60px rgba(0,0,0,.35);
+      --gold:#fbbf24; --silver:#cbd5e1;
     }
-
     *{ box-sizing:border-box; }
     html,body{
-      margin:0;
-      width:100%;
-      min-height:100%;
+      margin:0; min-height:100%;
       background:
-        radial-gradient(1400px 900px at 50% -10%, rgba(34,211,238,.10), transparent 55%),
+        radial-gradient(1200px 800px at 50% -20%, rgba(34,211,238,.10), transparent 55%),
         linear-gradient(180deg, var(--bg1), var(--bg2));
       color:var(--text);
       font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", sans-serif;
-      overflow-x:hidden;
     }
-
-    .wrap{
-      width:min(1440px, calc(100vw - 32px));
-      margin:0 auto;
-      padding:
-        calc(18px + var(--sat))
-        calc(16px + var(--sar))
-        calc(18px + var(--sab))
-        calc(16px + var(--sal));
+    .wrap{ width:min(1400px, calc(100vw - 24px)); margin:0 auto; padding:18px 12px; }
+    .top,.pod,.table{
+      background:linear-gradient(180deg, rgba(15,23,42,.82), rgba(2,6,23,.76));
+      border:1px solid var(--stroke); border-radius:24px; box-shadow:var(--shadow);
     }
-
-    .top{
-      display:grid;
-      grid-template-columns:1.1fr .9fr;
-      gap:16px;
-      margin-bottom:16px;
-    }
-
-    .card{
-      background:linear-gradient(180deg, rgba(15,23,42,.78), rgba(2,6,23,.72));
-      border:1px solid var(--stroke);
-      border-radius:28px;
-      box-shadow:var(--shadow);
-      overflow:hidden;
-    }
-
-    .hero{
-      padding:20px;
-      min-height:220px;
-      display:flex;
-      flex-direction:column;
-      justify-content:space-between;
-      background:
-        radial-gradient(900px 400px at 10% 0%, rgba(59,130,246,.14), transparent 45%),
-        radial-gradient(800px 400px at 100% 0%, rgba(34,211,238,.10), transparent 42%);
-    }
-    .eyebrow{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      border-radius:999px;
-      padding:8px 12px;
-      font-size:12px;
-      font-weight:800;
-      color:#a5f3fc;
-      background:rgba(34,211,238,.10);
-      border:1px solid rgba(34,211,238,.18);
-      width:max-content;
-    }
-    h1{
-      margin:12px 0 0;
-      font-size:clamp(32px,6vw,54px);
-      line-height:1.02;
-      letter-spacing:.2px;
-    }
-    .sub{
-      margin-top:10px;
-      color:var(--muted);
-      font-size:15px;
-      max-width:860px;
-    }
-
-    .badges{
-      display:flex;
-      flex-wrap:wrap;
-      gap:10px;
-      margin-top:14px;
-    }
-    .badge{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      border-radius:999px;
-      padding:10px 14px;
-      background:rgba(2,6,23,.58);
-      border:1px solid var(--stroke);
-      font-weight:800;
-    }
-
-    .meta{
-      padding:20px;
-      display:grid;
-      gap:12px;
-      align-content:start;
-    }
-    .mini{
-      border-radius:20px;
-      background:rgba(2,6,23,.46);
-      border:1px solid var(--stroke);
-      padding:14px 16px;
-    }
-    .mini .k{
-      font-size:12px;
-      color:var(--muted);
-      margin-bottom:8px;
-    }
-    .mini .v{
-      font-size:22px;
-      font-weight:900;
-    }
-
-    .podium{
-      display:grid;
-      grid-template-columns:repeat(3,minmax(0,1fr));
-      gap:14px;
-      margin-bottom:16px;
-    }
-    .pod{
-      padding:18px;
-      border-radius:24px;
-      border:1px solid var(--stroke);
-      box-shadow:var(--shadow);
-      background:linear-gradient(180deg, rgba(15,23,42,.75), rgba(2,6,23,.68));
-      text-align:center;
-    }
-    .pod.rank1{ outline:2px solid rgba(251,191,36,.22); }
-    .pod.rank2{ outline:2px solid rgba(203,213,225,.18); }
-    .pod.rank3{ outline:2px solid rgba(253,186,116,.16); }
-
-    .pod .medal{
-      font-size:34px;
-      margin-bottom:8px;
-    }
-    .pod .name{
-      font-size:clamp(18px,3vw,24px);
-      font-weight:900;
-      line-height:1.1;
-      word-break:break-word;
-    }
-    .pod .score{
-      font-size:clamp(28px,5vw,46px);
-      font-weight:1000;
-      margin-top:8px;
-    }
-    .pod .subt{
-      margin-top:8px;
-      color:var(--muted);
-      font-size:13px;
-    }
-
-    .board{
-      padding:14px;
-    }
-    .table-wrap{
-      overflow:auto;
-      border-radius:20px;
-    }
-    table{
-      width:100%;
-      border-collapse:collapse;
-      min-width:980px;
-    }
-    th,td{
-      padding:16px 12px;
-      border-bottom:1px solid rgba(148,163,184,.12);
-      text-align:left;
-      vertical-align:middle;
-    }
-    th{
-      background:rgba(2,6,23,.44);
-      color:#cbd5e1;
-      font-size:13px;
-      position:sticky;
-      top:0;
-      z-index:1;
-    }
-    td{
-      font-size:15px;
-    }
-    tbody tr:nth-child(1){
-      background:rgba(251,191,36,.06);
-    }
-    tbody tr:nth-child(2){
-      background:rgba(203,213,225,.05);
-    }
-    tbody tr:nth-child(3){
-      background:rgba(253,186,116,.05);
-    }
-
+    .top{ padding:20px; margin-bottom:16px; }
+    .bar{ display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; }
     .pill{
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      gap:8px;
-      border-radius:999px;
-      padding:7px 11px;
-      font-size:12px;
-      font-weight:800;
-      white-space:nowrap;
-      border:1px solid transparent;
+      padding:10px 14px; border-radius:999px;
+      background:rgba(2,6,23,.66); border:1px solid var(--stroke); font-weight:800;
     }
-    .pill.good{
-      color:#bbf7d0;
-      background:rgba(34,197,94,.12);
-      border-color:rgba(34,197,94,.18);
+    .podium{
+      display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:16px;
     }
-    .pill.warn{
-      color:#fde68a;
-      background:rgba(245,158,11,.12);
-      border-color:rgba(245,158,11,.18);
+    .pod{ padding:18px; text-align:center; }
+    .medal{ font-size:40px; }
+    .name{ font-size:26px; font-weight:1000; margin-top:8px; }
+    .score{ font-size:48px; font-weight:1000; margin-top:6px; }
+    .sub{ color:var(--muted); font-size:14px; margin-top:8px; }
+    .table{ padding:16px; }
+    table{ width:100%; border-collapse:collapse; }
+    th,td{ padding:14px 10px; border-bottom:1px solid rgba(148,163,184,.12); text-align:left; }
+    th{ color:#cbd5e1; }
+    .toolbar{ display:flex; gap:10px; margin-bottom:12px; flex-wrap:wrap; }
+    input,button{
+      min-height:44px; border-radius:14px; border:1px solid var(--stroke);
+      background:rgba(2,6,23,.80); color:var(--text); padding:10px 12px; font:inherit;
     }
-    .pill.danger{
-      color:#fecaca;
-      background:rgba(239,68,68,.12);
-      border-color:rgba(239,68,68,.18);
-    }
-    .pill.info{
-      color:#bae6fd;
-      background:rgba(34,211,238,.12);
-      border-color:rgba(34,211,238,.18);
-    }
-
-    .toolbar{
-      display:flex;
-      flex-wrap:wrap;
-      gap:10px;
-      margin:0 0 14px;
-    }
-    .toolbar input, .toolbar select, .toolbar button{
-      min-height:44px;
-      border-radius:14px;
-      border:1px solid var(--stroke);
-      background:rgba(2,6,23,.76);
-      color:var(--text);
-      padding:10px 12px;
-      font:inherit;
-    }
-    .toolbar input{ min-width:240px; }
-    .toolbar button{
-      cursor:pointer;
-      font-weight:800;
-      border:0;
-      background:linear-gradient(135deg, #2563eb, #06b6d4);
-      box-shadow:0 10px 28px rgba(37,99,235,.28);
-    }
-    .toolbar button.secondary{
-      background:rgba(15,23,42,.86);
-      border:1px solid var(--stroke);
-      box-shadow:none;
-    }
-
-    .empty{
-      text-align:center;
-      color:var(--muted);
-      padding:28px 18px;
-    }
-    .status{
-      margin-top:10px;
-      color:var(--muted);
-      font-size:12px;
-    }
-    .error{
-      display:none;
-      margin-top:10px;
-      padding:12px 14px;
-      border-radius:14px;
-      border:1px solid rgba(248,113,113,.24);
-      background:rgba(127,29,29,.22);
-      color:#fecaca;
-      white-space:pre-wrap;
-      font-size:13px;
-    }
-    .error.show{ display:block; }
-
-    @media (max-width:1100px){
-      .top{
-        grid-template-columns:1fr;
-      }
-    }
-    @media (max-width:820px){
-      .podium{
-        grid-template-columns:1fr;
-      }
-      .wrap{
-        width:min(100vw, calc(100vw - 12px));
-      }
-    }
+    button{ cursor:pointer; border:0; font-weight:900; color:white; background:linear-gradient(135deg,#2563eb,#06b6d4); }
+    @media (max-width:800px){ .podium{ grid-template-columns:1fr; } }
   </style>
-
   <script src="./firebase-config.js"></script>
 </head>
 <body>
   <div class="wrap">
-    <div class="toolbar">
-      <input id="roomInput" placeholder="Room / Session" />
-      <select id="modeInput">
-        <option value="battle">battle</option>
-        <option value="classroom">classroom</option>
-        <option value="auto">auto</option>
-      </select>
-      <button id="btnConnect">เชื่อมต่อ</button>
-      <button id="btnFullscreen" class="secondary">เต็มจอ</button>
-    </div>
-
-    <div id="errorBox" class="error"></div>
-
     <section class="top">
-      <div class="card hero">
-        <div>
-          <div class="eyebrow">🏆 Live Board</div>
-          <h1>GoodJunk Scoreboard</h1>
-          <div class="sub">
-            กระดานแสดงผลสดสำหรับห้องเรียนหรือการแข่งขัน ใช้แสดงอันดับ คะแนน ความแม่นยำ miss และ AI risk แบบเห็นชัดบนจอใหญ่
-          </div>
-          <div class="badges">
-            <div class="badge">🎮 <span id="badgeRoom">room: —</span></div>
-            <div class="badge">🧭 <span id="badgeMode">mode: —</span></div>
-            <div class="badge">👥 <span id="badgePlayers">players: 0</span></div>
-          </div>
-        </div>
+      <div style="font-size:12px;color:#a5f3fc;font-weight:800;">🏆 Live Board</div>
+      <h1 style="margin:8px 0 0;font-size:38px;">GoodJunk Battle Scoreboard</h1>
+      <div class="toolbar">
+        <input id="room" value="P5A" />
+        <button id="btnConnect">เชื่อมต่อ</button>
       </div>
-
-      <div class="card meta">
-        <div class="mini">
-          <div class="k">Leader</div>
-          <div id="leaderName" class="v">—</div>
-        </div>
-        <div class="mini">
-          <div class="k">Top score</div>
-          <div id="leaderScore" class="v">0</div>
-        </div>
-        <div class="mini">
-          <div class="k">Best accuracy</div>
-          <div id="bestAcc" class="v">0%</div>
-        </div>
-        <div class="mini">
-          <div class="k">Status</div>
-          <div id="miniStatus" class="v">waiting</div>
-        </div>
+      <div class="bar">
+        <div class="pill">Room: <span id="roomTxt">P5A</span></div>
+        <div class="pill">Phase: <span id="phaseTxt">—</span></div>
+        <div class="pill">Round: <span id="roundTxt">—</span></div>
+        <div class="pill">Winner: <span id="winnerTxt">—</span></div>
       </div>
     </section>
 
-    <section class="podium" id="podium">
-      <div class="pod rank1">
+    <section class="podium">
+      <div class="pod">
         <div class="medal">🥇</div>
-        <div class="name">—</div>
-        <div class="score">0</div>
-        <div class="subt">acc 0% • miss 0</div>
+        <div id="p1Name" class="name">—</div>
+        <div id="p1Score" class="score">0</div>
+        <div id="p1Sub" class="sub">acc 0% • miss 0</div>
       </div>
-      <div class="pod rank2">
+      <div class="pod">
         <div class="medal">🥈</div>
-        <div class="name">—</div>
-        <div class="score">0</div>
-        <div class="subt">acc 0% • miss 0</div>
-      </div>
-      <div class="pod rank3">
-        <div class="medal">🥉</div>
-        <div class="name">—</div>
-        <div class="score">0</div>
-        <div class="subt">acc 0% • miss 0</div>
+        <div id="p2Name" class="name">—</div>
+        <div id="p2Score" class="score">0</div>
+        <div id="p2Sub" class="sub">acc 0% • miss 0</div>
       </div>
     </section>
 
-    <section class="card board">
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Rank</th>
-              <th>Player</th>
-              <th>Score</th>
-              <th>Accuracy</th>
-              <th>Miss</th>
-              <th>Median RT</th>
-              <th>Risk</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody id="tbody">
-            <tr><td colspan="8" class="empty">ยังไม่มีข้อมูล</td></tr>
-          </tbody>
-        </table>
-      </div>
-      <div id="statusLine" class="status">ยังไม่ได้เชื่อมต่อห้อง</div>
+    <section class="table">
+      <table>
+        <thead>
+          <tr>
+            <th>Nick</th>
+            <th>Score</th>
+            <th>Acc</th>
+            <th>Miss</th>
+            <th>MedianRT</th>
+            <th>FinishMs</th>
+            <th>Ready</th>
+            <th>Connected</th>
+          </tr>
+        </thead>
+        <tbody id="tbody">
+          <tr><td colspan="8">ยังไม่มีข้อมูล</td></tr>
+        </tbody>
+      </table>
     </section>
   </div>
 
   <script type="module">
-    const byId = (id)=>document.getElementById(id);
-    const qs = (k,d='')=>{
-      try{ return new URL(location.href).searchParams.get(k) ?? d; }
-      catch{ return d; }
-    };
+    const $ = id => document.getElementById(id);
+    const qs = (k,d='')=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
+    $('room').value = qs('room','P5A');
 
-    const state = {
-      db: null,
-      unsub: null
-    };
+    let offFns = [];
 
-    function esc(s){
-      return String(s ?? '').replace(/[&<>"']/g, m => ({
-        '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
-      }[m]));
-    }
-    function fmtInt(v){
-      const n = Number(v);
-      return Number.isFinite(n) ? String(Math.round(n)) : '0';
-    }
-    function fmtPct(v){
-      const n = Number(v);
-      return Number.isFinite(n) ? `${Math.round(n)}%` : '0%';
-    }
-    function fmtMs(v){
-      const n = Number(v);
-      return Number.isFinite(n) ? `${Math.round(n)} ms` : '—';
-    }
-    function setStatus(t){
-      byId('statusLine').textContent = t;
-      byId('miniStatus').textContent = t;
-    }
-    function showError(msg){
-      const box = byId('errorBox');
-      box.textContent = String(msg || 'Unknown error');
-      box.classList.add('show');
-    }
-    function clearError(){
-      const box = byId('errorBox');
-      box.textContent = '';
-      box.classList.remove('show');
+    function getDbCompat(){
+      if(window.firebase?.database) return window.firebase.database();
+      return null;
     }
 
-    function resolveFirebase(){
-      try{
-        if (window.firebase && typeof window.firebase.database === 'function'){
-          state.db = window.firebase.database();
-          return true;
-        }
-        if (window.HHFirebase?.database){
-          state.db = window.HHFirebase.database;
-          return true;
-        }
-        return false;
-      }catch(err){
-        console.error(err);
-        return false;
-      }
+    function renderState(st){
+      $('roomTxt').textContent = $('room').value.trim().toUpperCase();
+      $('phaseTxt').textContent = st?.phase || '—';
+      $('roundTxt').textContent = st?.roundId || '—';
+      $('winnerTxt').textContent = st?.winner || '—';
     }
 
-    function normalizePlayers(raw){
-      if(!raw) return [];
-      const arr = Object.entries(raw).map(([key,val])=>{
-        const p = val || {};
-        return {
-          key,
-          name: p.name || p.displayName || p.pid || key,
-          score: Number(p.score ?? 0) || 0,
-          acc: Number(p.acc ?? p.accPct ?? 0) || 0,
-          miss: Number(p.miss ?? 0) || 0,
-          medianRt: Number(p.medianRt ?? p.medianRtGoodMs ?? 0) || 0,
-          risk: Number(p.hazardRisk ?? p.risk ?? 0) || 0,
-          online: !!(p.online ?? true),
-          ts: Number(p.ts ?? p.updatedAt ?? Date.now()) || Date.now()
-        };
-      });
+    function renderPlayers(raw){
+      const rows = Object.entries(raw || {})
+        .map(([k,v])=>({ key:k, ...(v||{}) }))
+        .sort((a,b)=>
+          (Number(b.score||0)-Number(a.score||0)) ||
+          (Number(b.acc||0)-Number(a.acc||0)) ||
+          (Number(a.miss||0)-Number(b.miss||0)) ||
+          (Number(a.medianRT||0)-Number(b.medianRT||0))
+        );
 
-      arr.sort((a,b)=>
-        (b.score-a.score) ||
-        (b.acc-a.acc) ||
-        (a.miss-b.miss) ||
-        (a.medianRt-b.medianRt)
-      );
+      const p1 = rows[0] || null;
+      const p2 = rows[1] || null;
 
-      return arr;
-    }
+      $('p1Name').textContent = p1?.nick || '—';
+      $('p1Score').textContent = String(Number(p1?.score || 0));
+      $('p1Sub').textContent = `acc ${Number(p1?.acc || 0)}% • miss ${Number(p1?.miss || 0)}`;
 
-    function renderPodium(players){
-      const pods = Array.from(document.querySelectorAll('#podium .pod'));
-      const top3 = [players[0], players[1], players[2]];
+      $('p2Name').textContent = p2?.nick || '—';
+      $('p2Score').textContent = String(Number(p2?.score || 0));
+      $('p2Sub').textContent = `acc ${Number(p2?.acc || 0)}% • miss ${Number(p2?.miss || 0)}`;
 
-      pods.forEach((pod, idx)=>{
-        const p = top3[idx];
-        pod.querySelector('.name').textContent = p ? p.name : '—';
-        pod.querySelector('.score').textContent = p ? fmtInt(p.score) : '0';
-        pod.querySelector('.subt').textContent = p
-          ? `acc ${fmtPct(p.acc)} • miss ${fmtInt(p.miss)}`
-          : 'acc 0% • miss 0';
-      });
-
-      byId('leaderName').textContent = players[0]?.name || '—';
-      byId('leaderScore').textContent = players[0] ? fmtInt(players[0].score) : '0';
-      byId('bestAcc').textContent = players.length ? fmtPct(Math.max(...players.map(p=>p.acc))) : '0%';
-    }
-
-    function renderTable(players){
-      const tbody = byId('tbody');
-      if(!players.length){
-        tbody.innerHTML = `<tr><td colspan="8" class="empty">ยังไม่มีข้อมูลผู้เล่นในห้องนี้</td></tr>`;
+      if(!rows.length){
+        $('tbody').innerHTML = `<tr><td colspan="8">ยังไม่มีผู้เล่น</td></tr>`;
         return;
       }
 
-      tbody.innerHTML = players.map((p, idx)=>{
-        const riskCls = p.risk >= 70 ? 'danger' : (p.risk >= 40 ? 'warn' : 'info');
-        const onlineCls = p.online ? 'good' : 'warn';
-        return `
-          <tr>
-            <td><strong>${idx+1}</strong></td>
-            <td>${esc(p.name)}</td>
-            <td>${fmtInt(p.score)}</td>
-            <td>${fmtPct(p.acc)}</td>
-            <td>${fmtInt(p.miss)}</td>
-            <td>${fmtMs(p.medianRt)}</td>
-            <td><span class="pill ${riskCls}">${fmtPct(p.risk)}</span></td>
-            <td><span class="pill ${onlineCls}">${p.online ? 'online' : 'idle'}</span></td>
-          </tr>
-        `;
-      }).join('');
-    }
-
-    function candidatePaths(room, mode){
-      const arr = [];
-      if(mode === 'battle'){
-        arr.push(`/herohealth/battleRooms/${room}`);
-        arr.push(`/battleRooms/${room}`);
-      }else if(mode === 'classroom'){
-        arr.push(`/herohealth/classRooms/${room}`);
-        arr.push(`/classRooms/${room}`);
-      }else{
-        arr.push(`/herohealth/battleRooms/${room}`);
-        arr.push(`/battleRooms/${room}`);
-        arr.push(`/herohealth/classRooms/${room}`);
-        arr.push(`/classRooms/${room}`);
-      }
-      return arr;
+      $('tbody').innerHTML = rows.map(p=>`
+        <tr>
+          <td>${p.nick || '-'}</td>
+          <td>${Number(p.score || 0)}</td>
+          <td>${Number(p.acc || 0)}%</td>
+          <td>${Number(p.miss || 0)}</td>
+          <td>${Number(p.medianRT || 0)}</td>
+          <td>${Number(p.finishMs || 0)}</td>
+          <td>${p.ready ? 'yes' : 'no'}</td>
+          <td>${p.connected !== false ? 'yes' : 'no'}</td>
+        </tr>
+      `).join('');
     }
 
     function connect(){
-      clearError();
+      offFns.forEach(fn=>{ try{ fn(); }catch(_){} });
+      offFns = [];
 
-      const room = byId('roomInput').value.trim();
-      const mode = byId('modeInput').value;
-
-      byId('badgeRoom').textContent = `room: ${room || '—'}`;
-      byId('badgeMode').textContent = `mode: ${mode || '—'}`;
-
-      if(!room){
-        showError('กรุณากรอก Room / Session');
-        return;
-      }
-      if(!resolveFirebase()){
-        showError('Firebase ยังไม่พร้อม\nตรวจสอบ ./firebase-config.js');
+      const room = ($('room').value || 'P5A').trim().toUpperCase();
+      const db = getDbCompat();
+      if(!db){
+        alert('Firebase compat ยังไม่พร้อมใน firebase-config.js');
         return;
       }
 
-      if(state.unsub){
-        try{ state.unsub(); }catch(_){}
-        state.unsub = null;
-      }
+      const base = `hha-battle/goodjunk/rooms/${room}`;
+      const stateRef = db.ref(`${base}/state`);
+      const playersRef = db.ref(`${base}/players`);
 
-      const db = state.db;
-      const paths = candidatePaths(room, mode);
-      let bound = false;
+      const stateCb = snap => renderState(snap.val() || {});
+      const playersCb = snap => renderPlayers(snap.val() || {});
 
-      setStatus(`กำลังเชื่อมต่อ ${room} ...`);
+      stateRef.on('value', stateCb);
+      playersRef.on('value', playersCb);
 
-      for(const path of paths){
-        try{
-          const ref = db.ref(path);
-
-          const handler = snap=>{
-            const data = snap.val();
-            if(!data){
-              if(!bound){
-                setStatus(`ยังไม่พบข้อมูลใน ${path}`);
-              }
-              return;
-            }
-
-            bound = true;
-            const players = normalizePlayers(data.players || data.members || data.participants || {});
-            renderPodium(players);
-            renderTable(players);
-            byId('badgePlayers').textContent = `players: ${players.length}`;
-
-            const status = data.status || data.phase || 'active';
-            setStatus(`Connected: ${path} • ${status}`);
-          };
-
-          ref.on('value', handler);
-          state.unsub = ()=>{
-            try{ ref.off('value', handler); }catch(_){}
-          };
-
-          break;
-        }catch(err){
-          console.warn('bind fail', path, err);
-        }
-      }
-
-      if(!state.unsub){
-        showError('ไม่สามารถ subscribe ห้องนี้ได้');
-      }
+      offFns.push(()=>stateRef.off('value', stateCb));
+      offFns.push(()=>playersRef.off('value', playersCb));
     }
 
-    byId('btnConnect').addEventListener('click', connect);
-
-    byId('btnFullscreen').addEventListener('click', async ()=>{
-      try{
-        if(!document.fullscreenElement){
-          await document.documentElement.requestFullscreen();
-        }else{
-          await document.exitFullscreen();
-        }
-      }catch(err){
-        console.warn(err);
-      }
-    });
-
-    byId('roomInput').value = qs('room', '');
-    byId('modeInput').value = ['battle','classroom','auto'].includes(qs('mode','battle')) ? qs('mode','battle') : 'battle';
-
-    if(qs('room','')){
-      setTimeout(connect, 140);
-    }
+    $('btnConnect').onclick = connect;
+    connect();
   </script>
 </body>
 </html>
