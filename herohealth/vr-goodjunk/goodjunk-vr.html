@@ -1,12 +1,4 @@
-<!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
-HeroHealth — GoodJunk VR Run Page — PRODUCTION
-PATCH v20260306-GJ-RUN-PAGE-FULL
-✅ Correct relative paths for /vr-goodjunk/
-✅ Loads ../firebase-config.js
-✅ Loads ../vr/vr-ui.js
-✅ Boots goodjunk.safe.js as ES module
-✅ Supports play / battle / spectator-ish params passthrough
--->
+<!-- === /herohealth/vr-goodjunk/goodjunk-vr.html === -->
 <!doctype html>
 <html lang="th">
 <head>
@@ -20,19 +12,10 @@ PATCH v20260306-GJ-RUN-PAGE-FULL
     :root{
       --bg1:#020617;
       --bg2:#0f172a;
-      --panel:rgba(2,6,23,.76);
-      --panel2:rgba(15,23,42,.78);
       --stroke:rgba(148,163,184,.18);
       --text:#e5e7eb;
       --muted:#94a3b8;
-      --cyan:#22d3ee;
-      --blue:#3b82f6;
-      --good:#22c55e;
-      --warn:#f59e0b;
-      --danger:#ef4444;
       --shadow:0 18px 60px rgba(0,0,0,.35);
-      --r:22px;
-
       --sat: env(safe-area-inset-top, 0px);
       --sar: env(safe-area-inset-right, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
@@ -44,18 +27,26 @@ PATCH v20260306-GJ-RUN-PAGE-FULL
       margin:0;
       width:100%;
       height:100%;
+      overflow:hidden;
       background:
         radial-gradient(1200px 800px at 50% -20%, rgba(34,211,238,.10), transparent 55%),
         linear-gradient(180deg, var(--bg1), var(--bg2));
       color:var(--text);
       font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", sans-serif;
-      overflow:hidden;
     }
 
     #app{
-      position:fixed; inset:0;
-      width:100%; height:100%;
-      background:transparent;
+      position:fixed;
+      inset:0;
+      z-index:1;
+    }
+
+    /* สำคัญ: goodjunk.safe.js หาอันนี้ */
+    #gj-layer{
+      position:fixed;
+      inset:0;
+      z-index:2;
+      pointer-events:auto;
     }
 
     .topbar{
@@ -70,8 +61,8 @@ PATCH v20260306-GJ-RUN-PAGE-FULL
       justify-content:space-between;
       pointer-events:none;
     }
-    .brand,
-    .mode-pill{
+
+    .brand,.mode-pill{
       pointer-events:auto;
       display:inline-flex;
       align-items:center;
@@ -84,25 +75,16 @@ PATCH v20260306-GJ-RUN-PAGE-FULL
       backdrop-filter: blur(10px);
       -webkit-backdrop-filter: blur(10px);
     }
+
     .brand b{ font-size:14px; }
-    .mode-pill{
-      font-size:12px;
-      color:var(--muted);
-    }
+    .mode-pill{ font-size:12px; color:var(--muted); }
+
     .dot{
       width:10px; height:10px; border-radius:50%;
-      background:var(--good);
-      box-shadow:0 0 0 4px rgba(34,197,94,.14);
+      background:#22c55e;
       flex:0 0 auto;
     }
-    .dot.warn{
-      background:var(--warn);
-      box-shadow:0 0 0 4px rgba(245,158,11,.14);
-    }
-    .dot.danger{
-      background:var(--danger);
-      box-shadow:0 0 0 4px rgba(239,68,68,.14);
-    }
+    .dot.danger{ background:#ef4444; }
 
     .bottom-hint{
       position:fixed;
@@ -121,112 +103,7 @@ PATCH v20260306-GJ-RUN-PAGE-FULL
       box-shadow:var(--shadow);
       backdrop-filter: blur(10px);
       -webkit-backdrop-filter: blur(10px);
-    }
-
-    #bootOverlay{
-      position:fixed; inset:0;
-      z-index:40;
-      display:grid;
-      place-items:center;
-      padding:20px;
-      background:
-        radial-gradient(1000px 700px at 50% 0%, rgba(59,130,246,.15), transparent 60%),
-        rgba(2,6,23,.72);
-      transition:opacity .25s ease, visibility .25s ease;
-    }
-    #bootOverlay.hide{
-      opacity:0;
-      visibility:hidden;
       pointer-events:none;
-    }
-    .boot-card{
-      width:min(96vw,720px);
-      border-radius:28px;
-      padding:20px;
-      background:linear-gradient(180deg, rgba(15,23,42,.88), rgba(2,6,23,.86));
-      border:1px solid var(--stroke);
-      box-shadow:var(--shadow);
-    }
-    .boot-head{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:12px;
-      margin-bottom:14px;
-    }
-    .boot-title{
-      font-size:clamp(24px, 4vw, 34px);
-      font-weight:900;
-      line-height:1.1;
-      letter-spacing:.2px;
-    }
-    .boot-sub{
-      color:var(--muted);
-      font-size:14px;
-      margin-top:6px;
-    }
-    .grid{
-      display:grid;
-      grid-template-columns:repeat(2, minmax(0,1fr));
-      gap:12px;
-      margin-top:14px;
-    }
-    .stat{
-      border-radius:18px;
-      padding:14px;
-      background:rgba(15,23,42,.72);
-      border:1px solid var(--stroke);
-    }
-    .stat .k{
-      color:var(--muted);
-      font-size:12px;
-      margin-bottom:6px;
-    }
-    .stat .v{
-      font-weight:800;
-      font-size:16px;
-    }
-    .cta-row{
-      display:flex;
-      flex-wrap:wrap;
-      gap:10px;
-      margin-top:16px;
-    }
-    .btn{
-      appearance:none;
-      border:0;
-      cursor:pointer;
-      border-radius:16px;
-      padding:12px 16px;
-      font-weight:800;
-      color:white;
-      background:linear-gradient(135deg, #2563eb, #06b6d4);
-      box-shadow:0 10px 28px rgba(37,99,235,.28);
-    }
-    .btn.secondary{
-      background:rgba(15,23,42,.90);
-      color:var(--text);
-      border:1px solid var(--stroke);
-      box-shadow:none;
-    }
-
-    #errorBox{
-      display:none;
-      margin-top:14px;
-      padding:12px 14px;
-      border-radius:14px;
-      background:rgba(127,29,29,.24);
-      border:1px solid rgba(248,113,113,.28);
-      color:#fecaca;
-      font-size:13px;
-      white-space:pre-wrap;
-    }
-    #errorBox.show{ display:block; }
-
-    @media (max-width:720px){
-      .grid{ grid-template-columns:1fr; }
-      .boot-card{ padding:16px; border-radius:22px; }
-      .boot-title{ font-size:26px; }
     }
   </style>
 
@@ -235,6 +112,7 @@ PATCH v20260306-GJ-RUN-PAGE-FULL
 </head>
 <body>
   <div id="app"></div>
+  <div id="gj-layer"></div>
 
   <div class="topbar">
     <div class="brand">
@@ -243,48 +121,8 @@ PATCH v20260306-GJ-RUN-PAGE-FULL
     </div>
 
     <div id="modePill" class="mode-pill">
-      <span id="modeDot" class="dot"></span>
-      <span id="modeText">Preparing mode…</span>
-    </div>
-  </div>
-
-  <div id="bootOverlay">
-    <div class="boot-card">
-      <div class="boot-head">
-        <div>
-          <div class="boot-title">GoodJunk VR</div>
-          <div class="boot-sub">
-            ฝึกแยกอาหารดี–อาหารเสี่ยง พร้อมระบบเล่นเดี่ยว / battle / classroom
-          </div>
-        </div>
-        <div style="font-size:42px">🎯</div>
-      </div>
-
-      <div class="grid">
-        <div class="stat">
-          <div class="k">Difficulty</div>
-          <div id="sDiff" class="v">normal</div>
-        </div>
-        <div class="stat">
-          <div class="k">View</div>
-          <div id="sView" class="v">mobile</div>
-        </div>
-        <div class="stat">
-          <div class="k">Mode</div>
-          <div id="sMode" class="v">solo</div>
-        </div>
-        <div class="stat">
-          <div class="k">Seed</div>
-          <div id="sSeed" class="v">auto</div>
-        </div>
-      </div>
-
-      <div class="cta-row">
-        <button id="btnStart" class="btn">เริ่มเกม</button>
-        <button id="btnBack" class="btn secondary">กลับ HUB</button>
-      </div>
-
-      <div id="errorBox"></div>
+      <span id="modeDot" class="dot danger"></span>
+      <span id="modeText">Battle mode</span>
     </div>
   </div>
 
@@ -300,49 +138,10 @@ PATCH v20260306-GJ-RUN-PAGE-FULL
       catch { return d; }
     };
 
-    const byId = (id)=>document.getElementById(id);
-
     function safeHub(){
       const raw = qs('hub', '../hub.html');
-      if(!raw) return '../hub.html';
-      try{
-        const u = new URL(raw, location.href);
-        return u.href;
-      }catch{
-        return '../hub.html';
-      }
-    }
-
-    function setBootInfo(){
-      const diff = qs('diff', 'normal');
-      const view = qs('view', 'mobile');
-      const seed = qs('seed', 'auto');
-      const battle = qs('battle', '0') === '1';
-      const room = qs('room', '');
-      const spec = qs('spectator', '0') === '1';
-
-      byId('sDiff').textContent = diff;
-      byId('sView').textContent = view;
-      byId('sSeed').textContent = seed;
-      byId('sMode').textContent = spec ? 'spectator' : (battle ? ('battle' + (room ? ` • ${room}` : '')) : 'solo');
-
-      const modeText = spec ? 'Spectator mode'
-                    : battle ? ('Battle mode' + (room ? ` • ${room}` : ''))
-                    : 'Solo mode';
-      byId('modeText').textContent = modeText;
-
-      const dot = byId('modeDot');
-      dot.className = 'dot' + (spec ? ' warn' : (battle ? ' danger' : ''));
-    }
-
-    function hideOverlay(){
-      byId('bootOverlay').classList.add('hide');
-    }
-
-    function showError(msg){
-      const box = byId('errorBox');
-      box.textContent = String(msg || 'Unknown error');
-      box.classList.add('show');
+      try{ return new URL(raw, location.href).href; }
+      catch{ return '../hub.html'; }
     }
 
     function installVRUI(){
@@ -367,52 +166,34 @@ PATCH v20260306-GJ-RUN-PAGE-FULL
       }
     }
 
-    async function startGame(){
-      try{
-        hideOverlay();
-        installVRUI();
+    try{
+      installVRUI();
 
-        const cfg = {
-          appId: 'goodjunk',
-          title: 'GoodJunk VR',
-          hub: safeHub(),
-          diff: qs('diff', 'normal'),
-          time: Number(qs('time', '60')) || 60,
-          seed: qs('seed', ''),
-          pid: qs('pid', 'anon'),
-          studyId: qs('studyId', ''),
-          phase: qs('phase', ''),
-          conditionGroup: qs('conditionGroup', ''),
-          battle: qs('battle', '0') === '1',
-          room: qs('room', ''),
-          spectator: qs('spectator', '0') === '1',
-          pro: qs('pro', '0') === '1',
-          run: qs('run', '1'),
-          log: qs('log', ''),
-          view: qs('view', 'mobile'),
-          api: qs('api', ''),
-          debug: qs('debug', '0') === '1'
-        };
-
-        if (typeof boot !== 'function'){
-          throw new Error('goodjunk.safe.js does not export boot(cfg)');
-        }
-
-        await boot(cfg);
-      }catch(err){
-        console.error('[GoodJunkVR] boot error:', err);
-        byId('bootOverlay').classList.remove('hide');
-        showError(err?.stack || err?.message || String(err));
-      }
-    }
-
-    byId('btnStart').addEventListener('click', startGame);
-    byId('btnBack').addEventListener('click', ()=>{ location.href = safeHub(); });
-
-    setBootInfo();
-
-    if (qs('autostart', '1') === '1'){
-      setTimeout(startGame, 120);
+      await boot({
+        appId: 'goodjunk',
+        title: 'GoodJunk VR',
+        hub: safeHub(),
+        diff: qs('diff', 'normal'),
+        time: Number(qs('time', '60')) || 60,
+        seed: qs('seed', ''),
+        pid: qs('pid', 'anon'),
+        nick: qs('nick', ''),
+        studyId: qs('studyId', ''),
+        phase: qs('phase', ''),
+        conditionGroup: qs('conditionGroup', ''),
+        battle: qs('battle', '0') === '1' || qs('mode','') === 'battle',
+        room: qs('room', ''),
+        spectator: qs('spectator', '0') === '1',
+        pro: qs('pro', '0') === '1',
+        run: qs('run', '1'),
+        log: qs('log', ''),
+        view: qs('view', 'mobile'),
+        api: qs('api', ''),
+        debug: qs('debug', '0') === '1'
+      });
+    }catch(err){
+      console.error('[GoodJunkVR] boot error:', err);
+      alert(err?.message || String(err));
     }
   </script>
 </body>
