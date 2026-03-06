@@ -221,7 +221,6 @@ export async function boot(cfg){
   const RESEARCH_MODE = String(qs('research','0')) === '1';
   const AI_PLAY_ADAPT = !RESEARCH_MODE && String(qs('ai','1')) !== '0';
 
-  // ---------- battle sync helpers ----------
   let lastBattleSyncAt = 0;
   const BATTLE_SYNC_EVERY_MS = 220;
 
@@ -245,9 +244,7 @@ export async function boot(cfg){
   }
 
   function syncBattleScore(force=false){
-    if(!battle || !battle.enabled) return;
-    if(!battleOn) return;
-
+    if(!battle || !battle.enabled || !battleOn) return;
     const now = nowMs();
     if(!force && (now - lastBattleSyncAt < BATTLE_SYNC_EVERY_MS)) return;
     lastBattleSyncAt = now;
