@@ -38,8 +38,8 @@ PATCH v20260306-BRUSH-CSS-FULL-STABLE
 html,body{
   height:100%;
   margin:0;
-  overflow:hidden;                 /* ✅ กัน scroll page */
-  overscroll-behavior:none;        /* ✅ กัน rubber-band */
+  overflow:hidden;
+  overscroll-behavior:none;
   background:
     radial-gradient(1200px 800px at 20% 0%, rgba(99,102,241,.18), transparent 55%),
     radial-gradient(900px 700px at 90% 20%, rgba(34,211,238,.14), transparent 55%),
@@ -54,14 +54,12 @@ body{
   -webkit-tap-highlight-color: transparent;
 }
 
-/* runtime hard lock by JS during play */
 body.br-noscroll{
   overflow:hidden !important;
   height:100% !important;
   touch-action:none !important;
 }
 
-/* a-frame scene behind everything */
 a-scene{
   position:fixed;
   inset:0;
@@ -78,7 +76,6 @@ a-scene{
   flex-direction:column;
 }
 
-/* ===================== Top ===================== */
 .br-top{
   display:flex;
   gap:12px;
@@ -139,16 +136,14 @@ a-scene{
   font-weight:1000;
 }
 
-/* ===================== Stage ===================== */
 .br-stage{
   position:relative;
   flex:1 1 auto;
   min-height:0;
   padding: 6px calc(14px + var(--sar)) calc(12px + var(--sab)) calc(14px + var(--sal));
-  overflow:hidden; /* ✅ */
+  overflow:hidden;
 }
 
-/* action buttons pinned above play area */
 .br-actions{
   position:absolute;
   left:50%;
@@ -189,7 +184,6 @@ a-scene{
   text-decoration:none;
 }
 
-/* ✅ game layer fixed height */
 .br-layer{
   position:relative;
   width:min(980px, 100%);
@@ -205,7 +199,6 @@ a-scene{
   overscroll-behavior:none;
 }
 
-/* ===================== HUD ===================== */
 .br-hud{
   width:min(980px, 100%);
   margin:10px auto 0;
@@ -292,7 +285,6 @@ a-scene{
 .br-bar .fill.cyan{ background:rgba(34,211,238,.90); }
 .br-bar .fill.bad{ background:rgba(239,68,68,.90); }
 
-/* ===================== Overlays ===================== */
 .br-menu,
 .br-end,
 .br-quiz{
@@ -349,7 +341,6 @@ a-scene{
   flex-wrap:wrap;
 }
 
-/* quiz */
 .br-quiz[hidden]{ display:none; }
 .br-quizChoices{
   margin-top:12px;
@@ -372,7 +363,6 @@ a-scene{
   margin-top:3px;
 }
 
-/* summary */
 .br-end[hidden]{ display:none; }
 
 .br-endHead{
@@ -417,7 +407,6 @@ a-scene{
   word-break:break-word;
 }
 
-/* ===================== Toast ===================== */
 .br-toast{
   position:fixed;
   left:50%;
@@ -445,7 +434,6 @@ a-scene{
   transform:translateX(-50%) translateY(-2px);
 }
 
-/* ===================== Tap overlay ===================== */
 .br-tap{
   position:fixed;
   inset:0;
@@ -475,7 +463,6 @@ a-scene{
   margin-top:6px;
 }
 
-/* ===================== Fatal ===================== */
 .br-fatal{
   position:fixed;
   inset:12px;
@@ -491,7 +478,6 @@ a-scene{
 }
 .br-hidden{ display:none; }
 
-/* ===================== Targets ===================== */
 .br-t{
   position:absolute;
   width:78px;
@@ -552,7 +538,6 @@ a-scene{
   100%{ transform:translate(-50%,-50%) scale(1.06); }
 }
 
-/* boss weakspot */
 .br-ws{
   position:absolute;
   left:50%;
@@ -581,7 +566,6 @@ a-scene{
   100%{ transform:translate(-50%,-50%) scale(1.15); }
 }
 
-/* cVR strict: target touch off, shoot via vr-ui crosshair */
 html[data-view="cvr"] .br-t{
   pointer-events:none !important;
 }
@@ -593,7 +577,6 @@ html[data-view="cvr"] .br-quiz{
   pointer-events:auto;
 }
 
-/* fx root (optional) */
 #br-fx{
   position:fixed;
   inset:0;
