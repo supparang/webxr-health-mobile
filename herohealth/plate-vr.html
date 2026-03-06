@@ -12,12 +12,8 @@ FULL v20260306-LAUNCHER-PLATEVR-FIXPATH
   <link rel="icon" href="./favicon.ico" />
   <style>
     body{
-      margin:0;
-      min-height:100vh;
-      display:grid;
-      place-items:center;
-      background:#020617;
-      color:#e5e7eb;
+      margin:0;min-height:100vh;display:grid;place-items:center;
+      background:#020617;color:#e5e7eb;
       font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif;
     }
     .card{
@@ -28,37 +24,14 @@ FULL v20260306-LAUNCHER-PLATEVR-FIXPATH
       padding:14px;
       box-shadow:0 18px 60px rgba(0,0,0,.35);
     }
-    .row{
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      margin-top:10px;
-    }
+    .row{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
     .btn{
-      cursor:pointer;
-      border-radius:14px;
-      border:1px solid rgba(148,163,184,.18);
-      background:rgba(148,163,184,.10);
-      color:#e5e7eb;
-      padding:10px 12px;
-      font-weight:1000;
+      cursor:pointer;border-radius:14px;border:1px solid rgba(148,163,184,.18);
+      background:rgba(148,163,184,.10);color:#e5e7eb;padding:10px 12px;font-weight:1000
     }
-    .btn.primary{
-      border-color:rgba(34,197,94,.30);
-      background:rgba(34,197,94,.14);
-    }
-    .mut{
-      color:#94a3b8;
-      font-weight:900;
-      font-size:12.5px;
-      line-height:1.35;
-    }
-    code{
-      background:rgba(148,163,184,.10);
-      padding:2px 6px;
-      border-radius:8px;
-      word-break:break-all;
-    }
+    .btn.primary{border-color:rgba(34,197,94,.30);background:rgba(34,197,94,.14)}
+    .mut{color:#94a3b8;font-weight:900;font-size:12.5px;line-height:1.35}
+    code{background:rgba(148,163,184,.10);padding:2px 6px;border-radius:8px;word-break:break-all}
   </style>
 </head>
 <body>
@@ -76,13 +49,11 @@ FULL v20260306-LAUNCHER-PLATEVR-FIXPATH
   const U = new URL(location.href);
   const sp = U.searchParams;
 
-  // default hub = /herohealth/hub.html (same repo)
   const hub = sp.get('hub') || new URL('./hub.html', location.href).toString();
 
-  // ✅ FIX PATH: actual run is /herohealth/plate/plate-vr.html
+  // ✅ correct path
   const run = new URL('./plate/plate-vr.html', location.href);
 
-  // pass-through everything important
   [
     'hub','run','diff','time','seed','pid','view','log','api','ai','debug',
     'studyId','phase','conditionGroup',
@@ -95,7 +66,6 @@ FULL v20260306-LAUNCHER-PLATEVR-FIXPATH
     if(v!=null && v!=='') run.searchParams.set(k, v);
   });
 
-  // sensible defaults if missing
   if(!run.searchParams.get('view')) run.searchParams.set('view', 'mobile');
   if(!run.searchParams.get('run'))  run.searchParams.set('run', 'play');
   if(!run.searchParams.get('diff')) run.searchParams.set('diff', 'normal');
@@ -111,7 +81,6 @@ FULL v20260306-LAUNCHER-PLATEVR-FIXPATH
   document.getElementById('go').onclick = ()=> location.href = run.toString();
   document.getElementById('back').onclick = ()=> location.href = hub;
 
-  // auto redirect
   setTimeout(()=> location.href = run.toString(), 60);
 })();
 </script>
