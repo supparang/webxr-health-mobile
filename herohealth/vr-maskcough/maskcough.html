@@ -1,6 +1,9 @@
 <!-- === /herohealth/vr-maskcough/maskcough.html ===
 Mask & Cough (Analyze) — RUN PAGE — PRODUCTION
-FULL v20260304c (C6: A default + PRO B optional)
+FULL v20260306d-HUBBACK-FIX
+✅ Safe back hub from ?hub=
+✅ End overlay back button uses ?hub=
+✅ Keep existing paths/CSS/JS structure
 -->
 <!doctype html>
 <html lang="th">
@@ -12,7 +15,7 @@ FULL v20260304c (C6: A default + PRO B optional)
   <link rel="icon" href="../favicon.ico"/>
 
   <style>[hidden]{display:none!important}</style>
-  <link rel="stylesheet" href="./maskcough.css?v=20260304c"/>
+  <link rel="stylesheet" href="./maskcough.css?v=20260306d"/>
 </head>
 <body>
   <!-- Global FX -->
@@ -204,7 +207,7 @@ FULL v20260304c (C6: A default + PRO B optional)
 
         <div class="mc-end-actions">
           <button class="mc-btn mc-accent" id="btnEndRetry" type="button">↻ เล่นอีกครั้ง</button>
-          <a class="mc-btn mc-primary" id="btnEndBack" href="../hub.html">🏰 กลับ HUB</a>
+          <a class="mc-btn mc-primary" id="btnEndBack" href="#">🏰 กลับ HUB</a>
         </div>
       </div>
     </section>
@@ -213,10 +216,31 @@ FULL v20260304c (C6: A default + PRO B optional)
     <div id="toast"></div>
   </div>
 
-  <script src="../vr/fun-boost.js?v=20260304c"></script>
-  <script src="../vr/fun-boost.fx.js?v=20260304c"></script>
-  <script src="../vr/vr-ui.js?v=20260304c"></script>
+  <script src="../vr/fun-boost.js?v=20260306d"></script>
+  <script src="../vr/fun-boost.fx.js?v=20260306d"></script>
+  <script src="../vr/vr-ui.js?v=20260306d"></script>
 
-  <script src="./maskcough.safe.js?v=20260304c"></script>
+  <script src="./maskcough.safe.js?v=20260306d"></script>
+
+  <script>
+    (function(){
+      function qs(k, d=''){
+        try{ return (new URL(location.href)).searchParams.get(k) ?? d; }
+        catch(_){ return d; }
+      }
+
+      const hub = String(qs('hub','')).trim() || '../hub.html';
+
+      const btnEndBack = document.getElementById('btnEndBack');
+      if(btnEndBack) btnEndBack.href = hub;
+
+      const btnBack = document.getElementById('btnBack');
+      if(btnBack){
+        btnBack.addEventListener('click', ()=>{
+          location.href = hub;
+        });
+      }
+    })();
+  </script>
 </body>
 </html>
