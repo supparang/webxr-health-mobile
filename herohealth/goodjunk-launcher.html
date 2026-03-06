@@ -1,6 +1,6 @@
 <!-- === /herohealth/goodjunk-launcher.html ===
 HeroHealth • GoodJunk Launcher (Mode + Diff + AutoDiff + Room + Nick)
-FULL v20260306-LAUNCHER-AUTODIFF-PID
+FULL v20260306b-LAUNCHER-HUBSANITIZE-PRO-ROOMDEFAULT-SEEDNEW
 -->
 <!doctype html>
 <html lang="th">
@@ -285,8 +285,9 @@ FULL v20260306-LAUNCHER-AUTODIFF-PID
     return Math.max(a, Math.min(b, Math.floor(n)));
   };
 
+  // ✅ เพิ่ม pro ให้ pass-through ด้วย
   const PASS_KEYS = [
-    'pid','run','diff','time','seed','studyId','phase','conditionGroup','log','view','api','ai','debug',
+    'pid','run','diff','time','seed','studyId','phase','conditionGroup','log','view','api','ai','debug','pro',
     'planSeq','planDay','planSlot','planMode','planSlots','planIndex','autoNext',
     'plannedGame','finalGame','zone','cdnext','grade'
   ];
@@ -323,6 +324,40 @@ FULL v20260306-LAUNCHER-AUTODIFF-PID
 
   function clearPrefs(){
     try{ localStorage.removeItem(LS_KEY); }catch(_){}
+  }
+
+  // ===== hub sanitize (กันหลง path) =====
+  function safeHubUrl(raw){
+    // เป้าหมาย: ถ้า hub แปลก/ว่าง/ชี้ไป folder เกม → fallback เป็น /herohealth/hub.html
+    const FALLBACK = new URL('./hub.html', location.href).toString();
+    raw = String(raw||'').trim();
+    if(!raw) return FALLBACK;
+
+    try{
+      const u = new URL(raw, location.href);
+
+      // ต้องอยู่ origin เดียวกันเท่านั้น (กันพาออกนอกโดเมน)
+      const here = new URL(location.href);
+      if(u.origin !== here.origin) return FALLBACK;
+
+      const p = u.pathname || '';
+      // กันเคส hub โผล่ไปอยู่ใน vr-goodjunk/ หรือ vr-xxx/
+      if(p.includes('/vr-goodjunk/') || p.includes('/vr-groups/') || p.includes('/hydration-vr/') || p.includes('/vr-plate/')){
+        return FALLBACK;
+      }
+
+      // ถ้าไม่จบด้วย /herohealth/hub.html ก็ยอมได้ (บางที hub มี query) แต่ถ้า path ไม่ขึ้น herohealth เลย ก็ตีกลับ
+      if(!p.includes('/herohealth/')) return FALLBACK;
+
+      return u.toString();
+    }catch(_){
+      return FALLBACK;
+    }
+  }
+
+  function defaultRoomForClass(){
+    // ปรับค่าเริ่มต้นตามที่คุณอยากใช้จริงในห้อง
+    return 'P5A';
   }
 
   // ===== Auto difficulty helpers =====
@@ -386,9 +421,10 @@ FULL v20260306-LAUNCHER-AUTODIFF-PID
     view: String(qs('view','mobile')).toLowerCase(),
     run:  String(qs('run','play')).toLowerCase(),
     pid:  String(qs('pid','anon')).trim() || 'anon',
-    hub:  String(qs('hub','./hub.html')),
+    hub:  safeHubUrl(qs('hub','./hub.html')),
     time: String(qs('time','80')),
     seed: String(qs('seed','')) || String(Date.now()),
+    pro:  String(qs('pro','0')) // ✅ pro flag from hub (e.g., hard+pro=1)
   };
 
   function setMode(m){
@@ -456,9 +492,15 @@ FULL v20260306-LAUNCHER-AUTODIFF-PID
 
     const selAuto = $('selAuto');
     const autoFromUrl = String(qs('auto','')).trim();
+
+    // ✅ ถ้าเข้าแบบ PRO preset (diff=hard&pro=1) → ปิด Auto ให้เลย (เพื่อไม่ให้ auto แอบแก้ diff)
     let autoOn = true;
     if(typeof prefs?.auto === 'string') autoOn = (prefs.auto !== '0');
     if(autoFromUrl) autoOn = (autoFromUrl !== '0');
+
+    if(state.pro === '1' && state.diff === 'hard'){
+      autoOn = false;
+    }
     selAuto.value = autoOn ? '1' : '0';
 
     const selDiff = $('selDiff');
@@ -488,7 +530,8 @@ FULL v20260306-LAUNCHER-AUTODIFF-PID
       }
     };
 
-    $('btnBack').onclick = ()=> location.href = state.hub || './hub.html';
+    // ✅ Back hub แบบ sanitize
+    $('btnBack').onclick = ()=> location.href = safeHubUrl(state.hub);
 
     $('btnClear').onclick = ()=>{
       clearPrefs();
@@ -500,32 +543,55 @@ FULL v20260306-LAUNCHER-AUTODIFF-PID
     if(!['solo','battle','race','coop'].includes(state.mode)) state.mode='solo';
     setMode(state.mode);
 
-    applyAutoDiffIfNeeded(true);
+    // เติม ROOM default ถ้าเป็น multiplayer แล้วช่องว่าง
+    if(state.mode !== 'solo' && !String($('inpRoom').value||'').trim()){
+      $('inpRoom').value = roomFromUrl || prefs?.room || defaultRoomForClass();
+    }
+
+    // ถ้า auto ยังเปิดอยู่ ค่อยแนะนำ diff
+    if(selAuto.value === '1') applyAutoDiffIfNeeded(true);
+    else setMsg('ok', (state.pro==='1' ? 'เข้าโหมด PRO preset: Auto diff ปิดไว้แล้ว ✅' : 'ปิด Auto diff แล้ว: เลือกระดับเองได้เลย'));
   }
 
   function onStart(){
     const nick = ($('inpNick').value || '').trim() || state.pid;
-    const room = ($('inpRoom').value || '').trim();
+    let room = ($('inpRoom').value || '').trim();
     const time = clampInt($('inpTime').value, 20, 300, 80);
 
+    // multiplayer ต้องมี room
+    if(state.mode !== 'solo' && !room){
+      room = defaultRoomForClass();
+      $('inpRoom').value = room;
+    }
     if(state.mode !== 'solo' && !room){
       setMsg('bad', 'ต้องใส่ ROOM ก่อน (เช่น P5A) แล้วทุกคนใช้ ROOM เดียวกัน');
       $('inpRoom').focus();
       return;
     }
 
-    applyAutoDiffIfNeeded(false);
+    // Auto diff ถ้าเปิด
+    if(String($('selAuto').value||'1') === '1'){
+      applyAutoDiffIfNeeded(false);
+    }else{
+      state.diff = String($('selDiff').value||'normal');
+    }
+
+    // ✅ seed ใหม่ทุกครั้งที่กด Start
+    const roundSeed = String(Date.now());
 
     const runUrl = new URL('./vr-goodjunk/goodjunk-vr.html', location.href);
 
     runUrl.searchParams.set('mode', state.mode);
     runUrl.searchParams.set('diff', state.diff);
     runUrl.searchParams.set('time', String(time));
-    runUrl.searchParams.set('seed', state.seed);
+    runUrl.searchParams.set('seed', roundSeed);
 
     runUrl.searchParams.set('pid', state.pid);
     runUrl.searchParams.set('nick', nick);
     if(room) runUrl.searchParams.set('room', room);
+
+    // ✅ ส่ง pro ไปด้วย (สำคัญ)
+    if(state.pro === '1') runUrl.searchParams.set('pro','1');
 
     const sp = new URL(location.href).searchParams;
     PASS_KEYS.forEach(k=>{
@@ -533,7 +599,8 @@ FULL v20260306-LAUNCHER-AUTODIFF-PID
       if(v!=null && v!=='') runUrl.searchParams.set(k, v);
     });
 
-    runUrl.searchParams.set('hub', state.hub || sp.get('hub') || './hub.html');
+    // ✅ hub sanitize
+    runUrl.searchParams.set('hub', safeHubUrl(state.hub || sp.get('hub') || './hub.html'));
 
     if(state.mode === 'battle'){
       runUrl.searchParams.set('battle','1');
