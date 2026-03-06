@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth — MaskCough Arcade v2</title>
+  <meta name="color-scheme" content="dark light" />
+  <link rel="icon" href="../favicon.ico" />
+  <link rel="stylesheet" href="./maskcough-v2.css?v=20260306a" />
+</head>
+<body>
+  <div id="mcfxFlash" class="mcfx-flash" aria-hidden="true"></div>
+  <div id="mcfxPrompt" class="mcfx-prompt" aria-live="polite"></div>
+
+  <div class="game-shell">
+    <main id="arena" class="arena" aria-label="MaskCough Arcade v2">
+      <div id="world" class="world"></div>
+
+      <div id="bossBanner" class="boss-banner" hidden>👿 BOSS INCOMING</div>
+      <div id="crosshairHint" class="crosshair-hint" hidden>🎯 cVR ยิงจากกลางจอ</div>
+
+      <div id="popLayer" class="pop-layer" aria-hidden="true"></div>
+    </main>
+
+    <aside class="hud">
+      <div class="hud-top">
+        <span class="pill">Score <b id="tScore">0</b></span>
+        <span class="pill">Combo <b id="tCombo">0</b></span>
+        <span class="pill">Phase <b id="tPhase">warm</b></span>
+        <span class="pill">Mission <b id="tMission">Clear 12</b></span>
+      </div>
+
+      <div class="bars">
+        <div class="barbox">
+          <div class="barlabel"><span>Shield</span><b id="tShield">40%</b></div>
+          <div class="track"><div id="bShield" class="fill shield" style="width:40%"></div></div>
+        </div>
+
+        <div class="barbox">
+          <div class="barlabel"><span>Threat</span><b id="tThreat">0%</b></div>
+          <div class="track"><div id="bThreat" class="fill threat" style="width:0%"></div></div>
+        </div>
+
+        <div class="barbox">
+          <div class="barlabel"><span>Parry</span><b id="tParry">0%</b></div>
+          <div class="track"><div id="bParry" class="fill parry" style="width:0%"></div></div>
+        </div>
+      </div>
+
+      <div class="mini">
+        <div class="mini-card"><span>Droplets</span><b id="tDroplets">0</b></div>
+        <div class="mini-card"><span>Infected</span><b id="tInfected">0</b></div>
+        <div class="mini-card"><span>Perfect</span><b id="tPerfect">0</b></div>
+        <div class="mini-card"><span>Miss</span><b id="tMiss">0</b></div>
+      </div>
+
+      <div class="controls">
+        <button id="btnStart" class="btn primary" type="button">▶ เริ่มเกม</button>
+        <button id="btnRetry" class="btn accent" type="button">↻ เล่นใหม่</button>
+        <button id="btnPause" class="btn" type="button">⏸ Pause</button>
+        <button id="btnBack" class="btn ghost" type="button">🏰 กลับ HUB</button>
+      </div>
+
+      <div class="help">
+        <div><b>วิธีเล่น</b></div>
+        <div>💦 เคลียร์ให้ทัน</div>
+        <div>😷 เก็บตอนโล่ต่ำ</div>
+        <div>🤧 รอจังหวะ <b>เขียว</b> แล้วค่อย Parry</div>
+        <div>🦠 อย่าปล่อยให้ลาม</div>
+      </div>
+    </aside>
+  </div>
+
+  <section id="endScreen" class="end-screen" hidden>
+    <div class="end-card">
+      <div class="end-title">สรุปผล — MaskCough Arcade v2</div>
+      <div class="end-grid">
+        <div class="end-item"><span>Score</span><b id="sScore">0</b></div>
+        <div class="end-item"><span>Combo Max</span><b id="sComboMax">0</b></div>
+        <div class="end-item"><span>Perfect</span><b id="sPerfect">0</b></div>
+        <div class="end-item"><span>Miss</span><b id="sMiss">0</b></div>
+        <div class="end-item"><span>Shield End</span><b id="sShield">0%</b></div>
+        <div class="end-item"><span>Threat End</span><b id="sThreat">0%</b></div>
+      </div>
+
+      <div id="endBadges" class="end-badges"></div>
+      <div id="endNote" class="end-note"></div>
+
+      <div class="end-actions">
+        <button id="btnEndRetry" class="btn accent" type="button">↻ เล่นอีกครั้ง</button>
+        <button id="btnEndBack" class="btn primary" type="button">🏰 กลับ HUB</button>
+      </div>
+    </div>
+  </section>
+
+  <div id="toast" class="toast"></div>
+
+  <script src="../vr/vr-ui.js?v=20260306a"></script>
+  <script src="./maskcough-v2.js?v=20260306a"></script>
+</body>
+</html>
