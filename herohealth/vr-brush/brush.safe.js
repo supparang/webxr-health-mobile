@@ -1,12 +1,13 @@
 // === /herohealth/vr-brush/brush.safe.js ===
-// Brush SAFE — BLOOM 1–6 PRO
-// ✅ Plan mode solid (no flag hacks)
-// ✅ Plan fairness: follow order => bonus, skip => residue++
-/* ✅ Evidence logging:
-   - events: quiz_answer, self_reason, self_rating, improve_pick, plan_save, plan_play
-   - sessions: includes rubric + planJson + picks
-*/
-// FULL v20260305b-BRUSH-SAFE-BLOOM1-6-PRO
+// Brush SAFE — BLOOM 1–6 + Physical Proxy + Explainable AI Coach
+// Physical proxy:
+//  - fatiguePct: RT drift (late minus early) + speed drop
+//  - steadyPct: consistency from RT variability + streak stability
+//  - pressurePct: error burst (miss clustering) + risk spikes
+// AI coach explainable:
+//  - reports top2 causes from: zone miss-rate, germ hits, speed too fast, fatigue/pressure
+//  - rate-limited via ai-brush.js display
+// FULL v20260306-BRUSH-SAFE-PROXY+AIEXPLAIN
 'use strict';
 
 export function bootGame(){
@@ -62,6 +63,10 @@ export function bootGame(){
     coachPill: D.getElementById('coachPill'),
     crosshair: D.getElementById('crosshair'),
 
+    fatiguePill: D.getElementById('fatiguePill'),
+    steadyPill: D.getElementById('steadyPill'),
+    pressurePill: D.getElementById('pressurePill'),
+
     domTargets: D.getElementById('domTargets'),
 
     panelQuiz: D.getElementById('panelQuiz'),
@@ -90,7 +95,7 @@ export function bootGame(){
     btnBack: D.getElementById('btnBack'),
   };
 
-  // ---- logging (aligned with your schema) ----
+  // ---- logging (best-effort; matches your schema style) ----
   async function safePost(url, payload){
     try{
       if(!LOG_ON || !url) return {ok:false, skipped:true};
@@ -145,21 +150,14 @@ export function bootGame(){
     const rub = computeRubric();
     const row = {
       ...baseCtx(),
-      blockLabel: String(qs('blockLabel','')),
-      siteCode: String(qs('siteCode','')),
-      schoolYear: String(qs('schoolYear','')),
-      semester: String(qs('semester','')),
-      sessionOrder: String(qs('sessionOrder','')),
       durationPlannedSec: TIME,
       durationPlayedSec: Math.max(0, Math.round(TIME - S.timeLeft)),
       scoreFinal: Math.round(S.score),
       comboMax: S.comboMax,
       misses: S.miss,
       accuracyGoodPct: rub.acc,
-      goalsCleared: '', goalsTotal: '',
-      miniCleared: '', miniTotal: '',
       device: VIEW || 'pc',
-      gameVersion: 'v20260305b',
+      gameVersion: 'v20260306',
       reason,
       __extraJson: JSON.stringify({
         mode: S.mode,
@@ -171,7 +169,9 @@ export function bootGame(){
         selfReason: S.selfReason,
         selfRating: S.selfRating,
         improvePick: S.improvePick,
-        plan: S.plan
+        plan: S.plan,
+        physical: S.physical,     // ✅ sport science proxy
+        aiLast: S.aiLastSnapshot  // ✅ explainable factors snapshot
       })
     };
     safePost(API, { table:'sessions', ...row });
@@ -191,7 +191,7 @@ export function bootGame(){
     residue:0,
     gumRisk:0,
 
-    zone: Object.fromEntries(ZONES.map(z=>[z.id, {spawn:0, hit:0, miss:0}])),
+    zone: Object.fromEntries(ZONES.map(z=>[z.id, {spawn:0, hit:0, miss:0, germHit:0}])),
 
     targets:new Map(),
     seq:0,
@@ -207,7 +207,21 @@ export function bootGame(){
     selfRating:0,
     improvePick:'',
 
-    plan: loadPlan()
+    plan: loadPlan(),
+
+    // physical proxy buffers
+    rtGoodAll: [],
+    rtEarly: [],
+    rtLate: [],
+    missTimes: [],   // seconds from start for burst detection
+    riskTimes: [],   // times when gumRisk spikes
+    comboHistory: [],
+
+    physical: { fatiguePct:0, steadyPct:100, pressurePct:0, rtDriftMs:0, rtStdMs:0, burstCount:0 },
+
+    // explainable AI snapshot (for logs)
+    aiLastSnapshot: null,
+    aiLastEmitMs: 0
   };
 
   function loadPlan(){
@@ -240,11 +254,11 @@ export function bootGame(){
   loadPicks();
 
   // optional modules
-  let FX=null, MISS=null, AI=null;
+  let FX=null, MISS=null;
   (async ()=>{
-    try{ FX = (await import('./brush.fx.js?v=20260305b')).bootFx(); }catch(e){}
-    try{ MISS = (await import('./brush.missions.js?v=20260305b')).bootMissions({ diff: DIFF }); }catch(e){}
-    try{ AI = (await import('./ai-brush.js?v=20260305b')).bootBrushAI(); }catch(e){}
+    try{ FX = (await import('./brush.fx.js?v=20260306')).bootFx(); }catch(e){}
+    try{ MISS = (await import('./brush.missions.js?v=20260306')).bootMissions({ diff: DIFF }); }catch(e){}
+    try{ await import('./ai-brush.js?v=20260306'); }catch(e){}
   })();
 
   function tuneByDiff(){
@@ -252,6 +266,18 @@ export function bootGame(){
     else if (DIFF==='hard'){ S.spawnEveryMs=750; S.ttlMs=1350; }
     else { S.spawnEveryMs=900; S.ttlMs=1500; }
   }
+
+  function avg(arr){
+    if (!arr || !arr.length) return 0;
+    return arr.reduce((a,b)=>a+b,0)/arr.length;
+  }
+  function std(arr){
+    if (!arr || arr.length < 2) return 0;
+    const m = avg(arr);
+    const v = arr.reduce((a,x)=>a+(x-m)*(x-m),0)/(arr.length-1);
+    return Math.sqrt(Math.max(0,v));
+  }
+  function clamp01(x){ return Math.max(0, Math.min(1, x)); }
 
   function hud(){
     UI.phasePill && (UI.phasePill.textContent = `PHASE: BRUSH`);
@@ -274,12 +300,15 @@ export function bootGame(){
     if (UI.missionPill){
       UI.missionPill.textContent = `MISSION: ${S.mode === 'plan' ? 'PLAN MODE' : (MISS?.text?.() || '—')}`;
     }
-    if (UI.coachPill && !UI.coachPill.textContent.includes('COACH:')) UI.coachPill.textContent = 'COACH: —';
+    if (UI.coachPill && !String(UI.coachPill.textContent||'').startsWith('COACH:')) UI.coachPill.textContent = 'COACH: —';
+
+    UI.fatiguePill && (UI.fatiguePill.textContent = `FATIGUE: ${Math.round(S.physical.fatiguePct)}%`);
+    UI.steadyPill && (UI.steadyPill.textContent = `STEADY: ${Math.round(S.physical.steadyPct)}%`);
+    UI.pressurePill && (UI.pressurePill.textContent = `PRESSURE: ${Math.round(S.physical.pressurePct)}%`);
   }
 
   function rid(){ return `t${++S.seq}`; }
 
-  // zone picking
   function pickZoneStandard(){
     const arr = ZONES.map(z=>({ z, w: 1/(1+S.zone[z.id].spawn) }));
     const sum = arr.reduce((a,b)=>a+b.w,0);
@@ -340,10 +369,10 @@ export function bootGame(){
     const domEl = spawnDomTarget(id, kind, emoji, zoneId);
     S.targets.set(id, { id, kind, good, emoji, bornAt, ttlAt, domEl, zoneId });
 
-    logEvent('target_spawn', { targetId:id, itemType:kind, emoji, zoneId });
+    logEvent('target_spawn', { targetId:id, itemType:kind, emoji, zoneId, mode:S.mode });
   }
 
-  // causal model
+  // causal model (learning)
   function applyResidueRiskOnEvent(t){
     if (t.kind === 'plaque') S.residue = Math.min(100, S.residue + 3.5);
     else S.gumRisk = Math.min(100, S.gumRisk + 6.0);
@@ -351,12 +380,130 @@ export function bootGame(){
   function reduceResidueOnGood(){ S.residue = Math.max(0, S.residue - 2.0); }
   function reduceRiskOnGoodStreak(){ if (S.combo >= 5) S.gumRisk = Math.max(0, S.gumRisk - 1.2); }
 
-  // PLAN fairness: expected zone is the last spawned zone in plan mode (deterministic)
-  function expectedZoneNow(){
-    if (S.mode !== 'plan') return null;
-    // In plan mode, we spawn in order; "current expected" is the zone of latest spawned plaque target if exists.
-    // Simple rule: award bonus when hitting plaque whose zone matches the latest plan step (i.e., the target's own zone is correct by construction)
-    return null;
+  // ---- Physical proxy update ----
+  function updatePhysicalProxy(tnow){
+    // fatigue: RT drift late-early (ms) mapped to 0..100
+    const early = avg(S.rtEarly);
+    const late  = avg(S.rtLate);
+    const drift = (S.rtEarly.length>=3 && S.rtLate.length>=3) ? (late - early) : 0;
+
+    // steadiness: lower RT std + stable combo -> higher steady
+    const rtStd = std(S.rtGoodAll);
+    const comboVar = std(S.comboHistory.slice(-20)); // last window
+    const stead = clamp01(1 - (rtStd/420) - (comboVar/12)); // tunable
+
+    // pressure: bursts of misses + risk spikes
+    const burst = S.physical.burstCount || 0;
+    const riskSpike = S.riskTimes.length;
+    const press = clamp01((burst/4) + (riskSpike/5) + (S.gumRisk/220));
+
+    // fatigue normalization
+    const fat = clamp01((drift/380) + (S.gumRisk/260)); // drift + risk contributes
+    S.physical = {
+      fatiguePct: fat*100,
+      steadyPct: stead*100,
+      pressurePct: press*100,
+      rtDriftMs: Math.round(drift),
+      rtStdMs: Math.round(rtStd),
+      burstCount: burst
+    };
+  }
+
+  function detectMissBurst(){
+    // burst = >=3 misses within 6 seconds window
+    const t = (now() - S.startMs) / 1000;
+    const w = 6;
+    const recent = S.missTimes.filter(x=> (t - x) <= w);
+    if (recent.length >= 3){
+      S.physical.burstCount = (S.physical.burstCount || 0) + 1;
+      // clear to avoid double count too often
+      S.missTimes = [];
+      return true;
+    }
+    return false;
+  }
+
+  // ---- Explainable AI coach generator ----
+  function zoneMissRate(id){
+    const st = S.zone[id];
+    const sp = st.spawn || 1;
+    return st.miss / sp;
+  }
+
+  function topMissZones(n=2){
+    const arr = ZONES.map(z=>({ id:z.id, label:z.label, missRate: zoneMissRate(z.id) }))
+      .sort((a,b)=>b.missRate - a.missRate);
+    return arr.slice(0,n);
+  }
+
+  function emitCoachTip(reasonTag){
+    const tnow = now();
+    if (tnow - S.aiLastEmitMs < 6500) return; // rate-limit (hard)
+    S.aiLastEmitMs = tnow;
+
+    const topZ = topMissZones(2);
+    const germHits = S.junkHit;
+    const fastRate = (S.rtGoodAll.length>=6) ? (S.rtGoodAll.filter(x=>x<320).length / S.rtGoodAll.length) : 0;
+
+    const causes = [];
+
+    // Cause 1: zone miss
+    if (topZ[0] && topZ[0].missRate >= 0.35){
+      causes.push({ key:'zone', label:`พลาดโซน ${topZ[0].label}` , score: topZ[0].missRate });
+    }
+    // Cause 2: germ hits
+    if (germHits >= 3){
+      causes.push({ key:'germ', label:`โดนเชื้อ ${germHits} ครั้ง`, score: Math.min(1, germHits/8) });
+    }
+    // Cause 3: too fast
+    if (fastRate >= 0.45){
+      causes.push({ key:'speed', label:`เร็วไป (${Math.round(fastRate*100)}% <320ms)`, score: fastRate });
+    }
+    // Cause 4: fatigue/pressure
+    if (S.physical.fatiguePct >= 55){
+      causes.push({ key:'fatigue', label:`ล้า/ช้าลง (drift ${S.physical.rtDriftMs}ms)`, score: S.physical.fatiguePct/100 });
+    }
+    if (S.physical.pressurePct >= 55){
+      causes.push({ key:'pressure', label:`กดดัน/พลาดเป็นชุด`, score: S.physical.pressurePct/100 });
+    }
+
+    // ensure at least 2
+    if (causes.length < 2 && topZ[1] && topZ[1].missRate >= 0.25){
+      causes.push({ key:'zone2', label:`พลาดโซน ${topZ[1].label}`, score: topZ[1].missRate });
+    }
+    if (causes.length < 2){
+      causes.push({ key:'keep', label:'ทำต่อเนื่องให้ครบทุกโซน', score: 0.2 });
+    }
+
+    causes.sort((a,b)=> (b.score||0) - (a.score||0));
+    const top2 = causes.slice(0,2);
+
+    // actionable tip
+    let tip = 'โฟกัส:';
+    if (top2.find(x=>x.key==='zone' || x.key==='zone2')) tip = 'เริ่มจากโซนที่พลาดมากสุด';
+    if (top2.find(x=>x.key==='germ')) tip = 'ชะลอแล้วหลบเชื้อก่อนแตะ';
+    if (top2.find(x=>x.key==='speed')) tip = 'แตะช้าลงนิดเพื่อความแม่น';
+    if (top2.find(x=>x.key==='fatigue')) tip = 'หายใจลึก ๆ แล้วคุมจังหวะ';
+
+    const payload = {
+      tip,
+      causes: top2.map(c=>({ key:c.key, label:c.label, score: c.score })),
+      meta: {
+        tag: reasonTag,
+        fatiguePct: Math.round(S.physical.fatiguePct),
+        steadyPct: Math.round(S.physical.steadyPct),
+        pressurePct: Math.round(S.physical.pressurePct),
+        gumRisk: Math.round(S.gumRisk),
+        residue: Math.round(S.residue)
+      }
+    };
+
+    // UI display via ai-brush.js listener
+    W.dispatchEvent(new CustomEvent('brush:ai', { detail: payload }));
+    S.aiLastSnapshot = payload;
+
+    // log AI coach event
+    logEvent('ai_coach', payload);
   }
 
   function hitTarget(id){
@@ -364,23 +511,30 @@ export function bootGame(){
     if(!t) return;
 
     const rt = Math.max(0, Math.round(now() - t.bornAt));
+    const sec = (now() - S.startMs) / 1000;
 
     if (t.good){
       S.goodHit++;
       S.combo++;
       if (S.combo > S.comboMax) S.comboMax = S.combo;
 
-      // ✅ PLAN bonus: in plan mode, hitting plaque in the plan sequence gives extra points
       const planBonus = (S.mode === 'plan') ? 4 : 0;
       S.score += (10 + Math.min(10, S.combo) + planBonus);
+
+      // RT collect for physical proxy
+      S.rtGoodAll.push(rt);
+      if (sec <= TIME*0.33) S.rtEarly.push(rt);
+      else if (sec >= TIME*0.66) S.rtLate.push(rt);
+
+      // stability
+      S.comboHistory.push(S.combo);
 
       reduceResidueOnGood();
       reduceRiskOnGoodStreak();
       S.zone[t.zoneId].hit++;
-      MISS?.onGoodHit?.();
 
-      if (S.mode === 'plan' && planBonus){
-        UI.coachPill && (UI.coachPill.textContent = 'COACH: ทำตามแผนได้! +โบนัส');
+      if (S.mode === 'plan' && planBonus && UI.coachPill){
+        UI.coachPill.textContent = 'COACH: ทำตามแผนได้! +โบนัส';
       }
     } else {
       S.junkHit++;
@@ -388,21 +542,35 @@ export function bootGame(){
       S.combo = 0;
       S.score = Math.max(0, S.score - 8);
 
+      S.missTimes.push(sec);
+      const burst = detectMissBurst();
       applyResidueRiskOnEvent(t);
       S.zone[t.zoneId].miss++;
-      MISS?.onJunkHit?.();
+      if (t.kind === 'germ') S.zone[t.zoneId].germHit++;
 
       if (S.mode === 'plan'){
-        // plan penalty: hitting germ while on plan mode increases residue slightly too (to encourage carefulness)
         S.residue = Math.min(100, S.residue + 1.8);
       }
+
+      if (burst) emitCoachTip('miss_burst');
+    }
+
+    // risk spike detection
+    if (S.gumRisk >= 65){
+      const last = S.riskTimes[S.riskTimes.length-1] || -999;
+      if (sec - last >= 8) S.riskTimes.push(sec);
     }
 
     try{ t.domEl?.remove(); }catch(e){}
     S.targets.delete(id);
+
+    updatePhysicalProxy(now());
     hud();
 
-    logEvent('target_hit', { targetId:id, itemType:t.kind, emoji:t.emoji, zoneId:t.zoneId, rtMs:rt, isGood:t.good?1:0 });
+    // periodic coach
+    if ((S.goodHit + S.junkHit) % 10 === 0) emitCoachTip('periodic');
+
+    logEvent('target_hit', { targetId:id, itemType:t.kind, emoji:t.emoji, zoneId:t.zoneId, rtMs:rt, isGood:t.good?1:0, mode:S.mode });
   }
 
   function expireTick(tnow){
@@ -412,12 +580,15 @@ export function bootGame(){
           S.goodExpire++;
           S.miss++;
           S.combo = 0;
-          S.zone[t.zoneId].miss++;
+          const sec = (now() - S.startMs) / 1000;
+          S.missTimes.push(sec);
           applyResidueRiskOnEvent(t);
+          S.zone[t.zoneId].miss++;
+          detectMissBurst();
         }
         try{ t.domEl?.remove(); }catch(e){}
         S.targets.delete(id);
-        logEvent('target_expire', { targetId:id, itemType:t.kind, emoji:t.emoji, zoneId:t.zoneId, isGood:t.good?1:0 });
+        logEvent('target_expire', { targetId:id, itemType:t.kind, emoji:t.emoji, zoneId:t.zoneId, isGood:t.good?1:0, mode:S.mode });
       }
     }
   }
@@ -441,14 +612,18 @@ export function bootGame(){
     }
   }
 
-  function topMissZones(n=2){
-    const arr = ZONES.map(z=>{
+  function computeRubric(){
+    const den = (S.goodHit + S.goodExpire);
+    const acc = den ? (S.goodHit / Math.max(1, den))*100 : 0;
+
+    const covAvg = ZONES.reduce((a,z)=>{
       const st = S.zone[z.id];
-      const spawn = st.spawn || 1;
-      const missRate = (st.miss) / spawn;
-      return { id:z.id, label:z.label, missRate };
-    }).sort((a,b)=> b.missRate - a.missRate);
-    return arr.slice(0,n);
+      const cov = st.spawn ? (st.hit/Math.max(1,st.spawn))*100 : 0;
+      return a + cov;
+    },0) / ZONES.length;
+
+    const pass = (covAvg >= 85) && (S.residue <= 25) && (S.gumRisk <= 30) && (acc >= 70);
+    return { pass, acc: Math.round(acc), covAvg: Math.round(covAvg) };
   }
 
   function renderReasons(){
@@ -472,20 +647,6 @@ export function bootGame(){
       });
       UI.reasonChips.appendChild(c);
     });
-  }
-
-  function computeRubric(){
-    const den = (S.goodHit + S.goodExpire);
-    const acc = den ? (S.goodHit / Math.max(1, den))*100 : 0;
-
-    const covAvg = ZONES.reduce((a,z)=>{
-      const st = S.zone[z.id];
-      const cov = st.spawn ? (st.hit/Math.max(1,st.spawn))*100 : 0;
-      return a + cov;
-    },0) / ZONES.length;
-
-    const pass = (covAvg >= 85) && (S.residue <= 25) && (S.gumRisk <= 30) && (acc >= 70);
-    return { pass, acc: Math.round(acc), covAvg: Math.round(covAvg) };
   }
 
   function renderStars(){
@@ -571,21 +732,20 @@ export function bootGame(){
     S.ended = true;
     S.started = false;
 
-    const den = (S.goodHit + S.goodExpire);
-    const acc = den ? Math.round((S.goodHit / Math.max(1, den)) * 100) : 0;
-    const top2 = topMissZones(2);
-    const msgTop = top2.map(t=>`${t.label} (${t.id})`).join(', ');
-
+    updatePhysicalProxy(now());
     const rub = computeRubric();
+    const top2 = topMissZones(2).map(t=>`${t.label} (${t.id})`).join(', ');
+
     if (UI.rubricPill) UI.rubricPill.textContent = `RUBRIC: ${rub.pass ? 'PASS' : 'TRY AGAIN'}`;
     if (UI.rubricDesc) UI.rubricDesc.textContent =
-      `Coverageเฉลี่ย ${rub.covAvg}% • ACC ${rub.acc}% • Residue ${Math.round(S.residue)}% • GumRisk ${Math.round(S.gumRisk)}%`;
+      `Coverageเฉลี่ย ${rub.covAvg}% • ACC ${rub.acc}% • Residue ${Math.round(S.residue)}% • GumRisk ${Math.round(S.gumRisk)}% • Fatigue ${Math.round(S.physical.fatiguePct)}% • Steady ${Math.round(S.physical.steadyPct)}% • Pressure ${Math.round(S.physical.pressurePct)}%`;
 
     if (UI.endSummary){
       UI.endSummary.innerHTML =
         `Score <b>${Math.round(S.score)}</b> • ComboMax <b>${S.comboMax}</b> • Miss <b>${S.miss}</b><br/>`+
-        `ACC <b>${acc}%</b> • Residue <b>${Math.round(S.residue)}%</b> • GumRisk <b>${Math.round(S.gumRisk)}%</b><br/>`+
-        `พลาดมากสุด: <b>${msgTop}</b> • โหมด: <b>${S.mode.toUpperCase()}</b>`;
+        `ACC <b>${rub.acc}%</b> • Residue <b>${Math.round(S.residue)}%</b> • GumRisk <b>${Math.round(S.gumRisk)}%</b><br/>`+
+        `Physical: Fatigue <b>${Math.round(S.physical.fatiguePct)}%</b> • Steady <b>${Math.round(S.physical.steadyPct)}%</b> • Pressure <b>${Math.round(S.physical.pressurePct)}%</b><br/>`+
+        `พลาดมากสุด: <b>${top2}</b> • โหมด: <b>${S.mode.toUpperCase()}</b>`;
     }
 
     renderHeatmap();
@@ -596,7 +756,8 @@ export function bootGame(){
 
     UI.panelEnd?.classList.remove('hidden');
 
-    logEvent('session_end', { reason, mode:S.mode, rubric:rub });
+    emitCoachTip('end_summary');
+    logEvent('session_end', { reason, mode:S.mode, rubric:rub, physical:S.physical });
     logSession(reason);
   }
 
@@ -621,6 +782,12 @@ export function bootGame(){
     }
 
     expireTick(tnow);
+    updatePhysicalProxy(tnow);
+
+    // periodic coach by time
+    const sec = (tnow - S.startMs)/1000;
+    if (Math.floor(sec) % 12 === 0) emitCoachTip('time_tick');
+
     hud();
     requestAnimationFrame(loop);
   }
@@ -691,15 +858,25 @@ export function bootGame(){
 
     S.score=0; S.combo=0; S.comboMax=0; S.miss=0;
     S.goodSpawn=0; S.junkSpawn=0; S.goodHit=0; S.junkHit=0; S.goodExpire=0;
+
     S.residue=0; S.gumRisk=0;
-    for(const z of ZONES) S.zone[z.id] = {spawn:0, hit:0, miss:0};
+    for(const z of ZONES) S.zone[z.id] = {spawn:0, hit:0, miss:0, germHit:0};
 
     S.targets.clear();
     S.seq=0;
     S.lastSpawnMs=0;
     S.lastFrameMs=0;
-
     planCursor = 0;
+
+    S.rtGoodAll = [];
+    S.rtEarly = [];
+    S.rtLate = [];
+    S.missTimes = [];
+    S.riskTimes = [];
+    S.comboHistory = [];
+    S.physical = { fatiguePct:0, steadyPct:100, pressurePct:0, rtDriftMs:0, rtStdMs:0, burstCount:0 };
+    S.aiLastSnapshot = null;
+    S.aiLastEmitMs = 0;
 
     try{ UI.domTargets && (UI.domTargets.innerHTML = ''); }catch(e){}
     if (UI.domTargets) UI.domTargets.style.pointerEvents = 'auto';
@@ -713,6 +890,7 @@ export function bootGame(){
     resetState();
     hud();
     logEvent('session_start', { mode:S.mode, quizCorrect:S.quizCorrect, plan:S.plan });
+    emitCoachTip('start');
     requestAnimationFrame(loop);
   }
 
@@ -729,22 +907,9 @@ export function bootGame(){
     UI.btnPlayPlan?.addEventListener('click', ()=>{
       savePlan();
       logEvent('plan_play', { plan:S.plan });
-      showQuiz('plan'); // ✅ plan starts cleanly after quiz
+      showQuiz('plan');
     });
   }
-
-  // PLAN builder render at boot
-  function movePlan(idx, dir){
-    const j = idx + dir;
-    if (j < 0 || j >= S.plan.length) return;
-    const a = S.plan[idx];
-    S.plan[idx] = S.plan[j];
-    S.plan[j] = a;
-    savePlan();
-    renderPlan();
-  }
-  // re-bind movePlan for plan buttons
-  W.__BRUSH_MOVEPLAN__ = movePlan;
 
   bindUI();
   renderPlan();
