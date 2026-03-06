@@ -1,111 +1,145 @@
-<!-- === /herohealth/vr-bath/bath.html ===
-BathVR — RUN PAGE (PC/Mobile/cVR) — PRODUCTION
-PATCH v20260304-BATH-RUN-PRACTICE-CALIB-COOLDOWN
--->
 <!doctype html>
 <html lang="th">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-  <title>HeroHealth — Bath</title>
-  <meta name="color-scheme" content="dark light"/>
-  <link rel="stylesheet" href="./bath.css"/>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth — Bath (Hidden Dirt Quest)</title>
+  <meta name="color-scheme" content="dark light" />
+  <link rel="stylesheet" href="./bath.css?v=20260306" />
 </head>
 <body>
-  <div id="wrap">
-    <div id="hud">
-      <div class="row">
-        <div>Score: <span id="tScore">0</span></div>
-        <div>Clean: <span id="tClean">0</span></div>
-        <div>Mistake: <span id="tMistake">0</span></div>
-        <div>Combo: <span id="tCombo">0</span></div>
-        <div>Time: <span id="tTime">0</span></div>
+  <div id="app">
+    <!-- Top HUD -->
+    <header id="hud">
+      <div class="hud-row">
+        <div class="pill" id="phasePill">PHASE: —</div>
+        <div class="pill" id="timePill">TIME: 0</div>
+        <div class="pill" id="cleanPill">CLEAN: 0%</div>
+        <div class="pill" id="rubricPill">RUBRIC: —</div>
       </div>
+      <div class="hud-row">
+        <div class="pill" id="toolPill">TOOL: —</div>
+        <div class="pill" id="foamPill">FOAM: 0</div>
+        <div class="pill" id="residuePill">RESIDUE: 0%</div>
+        <div class="pill" id="riskPill">FUNGUS RISK: 0%</div>
+        <div class="pill" id="meterPill">SWEAT: 0%</div>
+        <div class="pill" id="viewPill">VIEW: FRONT</div>
+      </div>
+      <div class="hud-row">
+        <div class="pill mini" id="coachPill">COACH: —</div>
+        <div class="pill mini" id="fatiguePill">FATIGUE: 0%</div>
+        <div class="pill mini" id="steadyPill">STEADY: 100%</div>
+        <div class="pill mini" id="pressurePill">PRESSURE: 0%</div>
+      </div>
+    </header>
 
-      <div class="row">
-        <div class="barWrap">
-          <div class="lbl">Clean <span id="tMeter">0%</span></div>
-          <div class="bar"><span id="bMeter"></span></div>
+    <!-- Playfield -->
+    <main id="playfield" aria-label="Bath Game">
+      <div id="bg"></div>
+
+      <!-- Body stage -->
+      <section id="stage" role="application">
+        <div id="bath-layer">
+          <div id="body-wrap">
+            <div id="body-silhouette" aria-hidden="true">
+              <div class="head"></div>
+              <div class="torso"></div>
+              <div class="arm arm-l"></div>
+              <div class="arm arm-r"></div>
+              <div class="leg leg-l"></div>
+              <div class="leg leg-r"></div>
+            </div>
+
+            <div id="target-layer"></div>
+            <div id="crosshair-fallback" aria-hidden="true"></div>
+          </div>
         </div>
-        <div class="barWrap">
-          <div class="lbl">Risk <span id="tRisk">0%</span></div>
-          <div class="bar"><span id="bRisk"></span></div>
+
+        <!-- Bottom controls -->
+        <div id="controls">
+          <button id="btnStart" class="btn primary">เริ่มเล่น</button>
+          <button id="btnFlip" class="btn">สลับ หน้า/หลัง</button>
+          <button id="btnHelp" class="btn">วิธีเล่น</button>
         </div>
-      </div>
 
-      <div class="row">
-        <div id="tStage">STAGE 1: WARM</div>
-      </div>
-
-      <div class="bossBarWrap" hidden>
-        <div class="lbl">BOSS HP <span id="tBoss">0/0</span></div>
-        <div class="bossBar"><span id="bBoss"></span></div>
-      </div>
-
-      <div id="tCoach"></div>
-
-      <div class="row">
-        <button id="btnStart">เริ่มเกม</button>
-        <button id="btnPause">พัก</button>
-        <button id="btnRetry">เล่นใหม่</button>
-        <button id="btnBack">กลับ HUB</button>
-      </div>
-    </div>
-
-    <div id="layerWrap">
-      <div id="layer"></div>
-      <div id="fx"></div>
-      <div id="toast"></div>
-    </div>
-
-    <!-- ✅ PRACTICE OVERLAY -->
-    <div id="ovPractice" class="overlay" hidden>
-      <div class="panel">
-        <h3>Practice 15s</h3>
-        <p id="tPractice">ซ้อม…</p>
-        <button id="btnSkipPractice">ข้ามการซ้อม</button>
-      </div>
-    </div>
-
-    <!-- ✅ CALIBRATION / RECENTER OVERLAY -->
-    <div id="ovCalib" class="overlay" hidden>
-      <div class="panel">
-        <h3>Calibration / Recenter</h3>
-        <p>1) มองตรงไปด้านหน้า<br/>2) กดปุ่ม Recenter<br/>3) ยิง/แตะจากเป้า + ห้ามให้ HUD บังเป้า</p>
-        <div class="row">
-          <button id="btnRecenter">Recenter</button>
-          <button id="btnCalibClose">ปิด</button>
+        <!-- Quiz Panel (Bloom 1) -->
+        <div id="panelQuiz" class="panel hidden">
+          <div class="panel-card">
+            <h2>ก่อนเริ่ม (3 ข้อ)</h2>
+            <div id="quizBody"></div>
+            <div class="row">
+              <button id="btnQuizNext" class="btn primary">ต่อไป</button>
+            </div>
+          </div>
         </div>
-      </div>
-    </div>
 
-    <!-- END SUMMARY -->
-    <div id="end" hidden>
-      <h2>สรุปผล</h2>
-      <div>Reason: <span id="tReason"></span></div>
-      <div>Score: <span id="sScore"></span></div>
-      <div>Cleaned: <span id="sClean"></span></div>
-      <div>Mistakes: <span id="sMistake"></span></div>
-      <div>Max Combo: <span id="sMaxCombo"></span></div>
-      <div>Accuracy: <span id="sAcc"></span></div>
-      <div>Risk Avg: <span id="sRiskAvg"></span></div>
-      <pre id="endNote"></pre>
+        <!-- Help Panel -->
+        <div id="panelHelp" class="panel hidden">
+          <div class="panel-card">
+            <h2>วิธีเล่น (Bath — Hidden Dirt Quest)</h2>
+            <ol>
+              <li><b>PREP</b> เลือกอุปกรณ์ (สบู่/ฟองน้ำ/แชมพู)</li>
+              <li><b>WET</b> ฉีดน้ำให้ครบโซน (ถ้าไม่ครบ → ฟอกไม่เต็ม)</li>
+              <li><b>SOAP</b> ใช้ฟองสบู่จำกัด ระวังฟองปลอม</li>
+              <li><b>SCRUB</b> ล่าจุดอับ (ประกาย/เงา) ต้องถูซ้ำตามโซน</li>
+              <li><b>RINSE</b> ล้าง residue ถ้าข้าม → คะแนนติดลบ</li>
+              <li><b>DRY+DRESS</b> เช็ดจุดสำคัญให้แห้ง + ใส่เสื้อผ้า</li>
+            </ol>
+            <p class="muted">
+              🔥 Mini-boss: <b>Stink Monster</b> โผล่ในจุดอับ ถ้าจัดการไม่ทัน → คราบกระจาย<br/>
+              🧠 Bloom: มี Quiz → Heatmap → Self-rating → แผนอาบของฉัน
+            </p>
+            <div class="row">
+              <button id="btnCloseHelp" class="btn primary">เข้าใจแล้ว</button>
+            </div>
+          </div>
+        </div>
 
-      <div class="row">
-        <button id="btnEndRetry">เล่นใหม่</button>
+        <!-- End Panel -->
+        <div id="panelEnd" class="panel hidden">
+          <div class="panel-card">
+            <h2>สรุปผล</h2>
+            <p id="endSummary" class="summary"></p>
 
-        <!-- ✅ Go Cooldown (daily-first) -->
-        <a id="btnCooldown" class="btnLink" href="../warmup-gate.html" hidden>Go Cooldown</a>
+            <h3 class="h3">Heatmap จุดอับ (Bloom 4)</h3>
+            <div id="heatmap" class="heatmap"></div>
 
-        <a id="btnEndBack" class="btnLink" href="../hub.html">กลับ HUB</a>
-      </div>
-    </div>
+            <h3 class="h3">ฉันพลาดเพราะ… (Bloom 4)</h3>
+            <div class="chips" id="reasonChips"></div>
+
+            <hr class="hr"/>
+
+            <h3 class="h3">ประเมินตัวเอง (Bloom 5)</h3>
+            <div class="evalRow">
+              <div class="stars" id="stars"></div>
+              <div class="pill mini" id="selfRubric">RUBRIC: —</div>
+            </div>
+            <div class="muted" id="rubricDesc"></div>
+
+            <h3 class="h3">ฉันจะปรับปรุงรอบหน้า (เลือก 1 ข้อ) (Bloom 5)</h3>
+            <div class="chips" id="improveChips"></div>
+
+            <hr class="hr"/>
+
+            <h3 class="h3">แผนอาบของฉัน (Bloom 6)</h3>
+            <p class="muted">เรียง “โซนโฟกัส” สำหรับ SCRUB (กด ▲▼) แล้วกด “เล่นตามแผน”</p>
+            <div id="planList" class="planList"></div>
+
+            <div class="row">
+              <button id="btnPlayPlan" class="btn primary">เล่นตามแผน</button>
+              <button id="btnReplay" class="btn">เล่นใหม่</button>
+              <button id="btnBack" class="btn">กลับ</button>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer id="footer">
+      <span class="muted">HeroHealth — Bath • Top-down • PC/Mobile • BLOOM 1–6</span>
+    </footer>
   </div>
 
-  <!-- แนะนำให้มี vr-ui.js เพื่อใช้ hha:shoot + recenter -->
-  <!-- <script src="../vr/vr-ui.js"></script> -->
-
-  <script src="./ai-hooks.js"></script>
-  <script src="./bath.safe.js"></script>
+  <script type="module" src="./bath.js?v=20260306"></script>
 </body>
 </html>
