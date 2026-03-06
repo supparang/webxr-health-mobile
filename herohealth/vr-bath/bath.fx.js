@@ -1,6 +1,3 @@
-// === /herohealth/vr-bath/bath.fx.js ===
-// Lightweight FX: toast + pulse + shake + popScore
-// FULL v20260306b-BATH-FX
 'use strict';
 
 export function bootFx(){
