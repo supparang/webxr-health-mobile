@@ -1,16 +1,20 @@
 <!-- === /herohealth/hub.html ===
 HeroHealth — Hub (3 Zones) — PRODUCTION
-PATCH v20260306-HUB-PATHFIX-ROOT-LAUNCHERS-r3
-✅ FIX: Use root launchers instead of deep folder run paths
-✅ FIX: Hygiene / Exercise links now also pass full query context
+PATCH v20260306-HUB-PATHFIX-ROOT-LAUNCHERS-r4
+✅ FIX: Use correct root launchers / entry pages
+✅ FIX: Hygiene links pass full query context
+✅ FIX: Exercise links pass full query context
 ✅ FIX: Handwash -> ./hygiene-vr.html
 ✅ FIX: Brush -> ./brush-vr.html
 ✅ FIX: Bath -> ./bath-vr.html
 ✅ FIX: Clean Object -> ./clean-objects.html
 ✅ FIX: MaskCough -> ./maskcough-vr.html
 ✅ FIX: Germ Detective -> ./germ-detective-vr.html
-✅ FIX: Fitness Planner -> ./fitness-planner.html
+✅ FIX: Shadow Breaker -> ./shadow-breaker-vr.html
+✅ FIX: Rhythm Boxer -> ./rhythm-boxer-vr.html
+✅ FIX: Jump Duck -> ./jump-duck-vr.html
 ✅ FIX: Balance Hold -> ./balance-hold-vr.html
+✅ FIX: Fitness Planner -> ./fitness-planner/planner.html
 ✅ FIX: Groups / Hydration / Plate -> root launchers
 ✅ KEEP: GoodJunk launcher + Hero Profile + Card Book + Trophy Shelf
 -->
@@ -883,7 +887,7 @@ PATCH v20260306-HUB-PATHFIX-ROOT-LAUNCHERS-r3
           : 'ทำ zone fitness ให้มี done today เพื่อโชว์ถ้วย';
     }
 
-    // ===== Canonical root launchers =====
+    // ===== Canonical root launchers / entries =====
     const PATHS = {
       goodjunk:       './goodjunk-launcher.html',
       groups:         './groups-vr.html',
@@ -897,11 +901,11 @@ PATCH v20260306-HUB-PATHFIX-ROOT-LAUNCHERS-r3
       maskCough:      './maskcough-vr.html',
       germDetective:  './germ-detective-vr.html',
 
-      shadowBreaker:  './shadow-breaker.html',
-      rhythmBoxer:    './rhythm-boxer.html',
-      jumpDuck:       './jumpduck.html',
+      shadowBreaker:  './shadow-breaker-vr.html',
+      rhythmBoxer:    './rhythm-boxer-vr.html',
+      jumpDuck:       './jump-duck-vr.html',
       balanceHold:    './balance-hold-vr.html',
-      fitnessPlanner: './fitness-planner.html'
+      fitnessPlanner: './fitness-planner/planner.html'
     };
 
     const btnGJsolo = document.getElementById('btnGJsolo');
