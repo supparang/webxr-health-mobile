@@ -1,6 +1,11 @@
 <!-- === /herohealth/hub.html ===
 HeroHealth — Hub (3 Zones) — PRODUCTION
-PATCH v20260306-HUB-PATHFIX-ROOT-LAUNCHERS-r6-HERO-EDITOR
+PATCH v20260306-HUB-WARMUP-GATE-ALLGAMES-r7-HERO-EDITOR
+✅ KEEP: Hero Editor (nick/xp save)
+✅ KEEP: GoodJunk launcher + Hero Profile + Card Book + Trophy Shelf
+✅ NEW: All game links enter via ./warmup-gate.html first
+✅ NEW: per-game warmup route (daily once per PID + category + game)
+✅ NEW: pass cat + theme + next launcher/game url to warmup-gate
 ✅ FIX: Hygiene links use correct root launchers / entries
 ✅ FIX: Exercise links use correct root launchers / entries
 ✅ FIX: Handwash -> ./hygiene-vr.html
@@ -14,8 +19,7 @@ PATCH v20260306-HUB-PATHFIX-ROOT-LAUNCHERS-r6-HERO-EDITOR
 ✅ FIX: Jump Duck -> ./jump-duck-vr.html
 ✅ FIX: Balance Hold -> ./balance-hold-vr.html
 ✅ FIX: Fitness Planner -> ./fitness-planner/planner.html
-✅ NEW: Hero Editor (nick/xp save)
-✅ KEEP: GoodJunk launcher + Hero Profile + Card Book + Trophy Shelf
+✅ NOTE: This patch wires HUB -> warmup-gate -> launcher/game
 -->
 <!doctype html>
 <html lang="th">
@@ -649,12 +653,12 @@ PATCH v20260306-HUB-PATHFIX-ROOT-LAUNCHERS-r6-HERO-EDITOR
         </div>
         <div class="sep"></div>
         <div class="games">
-          <a class="gameBtn" id="linkGoodjunk" href="#"><div class="t">🍔🆚🥦 GoodJunk</div><div class="s">Launcher • Solo/PRO/Battle • Hero + Card Book</div></a>
-          <a class="gameBtn" id="linkGroups" href="#"><div class="t">🥚🍚 Food Groups</div><div class="s">Classroom ramp + AI warn</div></a>
-          <a class="gameBtn" id="linkHydration" href="#"><div class="t">💧 Hydration</div><div class="s">Storm boss + shield</div></a>
-          <a class="gameBtn" id="linkPlate" href="#"><div class="t">🍽 Balanced Plate</div><div class="s">Bloom missions</div></a>
+          <a class="gameBtn" id="linkGoodjunk" href="#"><div class="t">🍔🆚🥦 GoodJunk</div><div class="s">Warmup gate → Launcher • Solo/PRO/Battle • Hero + Card Book</div></a>
+          <a class="gameBtn" id="linkGroups" href="#"><div class="t">🥚🍚 Food Groups</div><div class="s">Warmup gate → Launcher</div></a>
+          <a class="gameBtn" id="linkHydration" href="#"><div class="t">💧 Hydration</div><div class="s">Warmup gate → Launcher</div></a>
+          <a class="gameBtn" id="linkPlate" href="#"><div class="t">🍽 Balanced Plate</div><div class="s">Warmup gate → Launcher</div></a>
         </div>
-        <div class="small" style="margin-top:4px;">Tip: Solo PRO = diff=hard & pro=1 (ผ่าน Launcher)</div>
+        <div class="small" style="margin-top:4px;">Tip: Solo PRO = diff=hard & pro=1 (ผ่าน warmup-gate แล้วค่อยเข้า Launcher)</div>
       </section>
 
       <section class="card">
@@ -662,12 +666,12 @@ PATCH v20260306-HUB-PATHFIX-ROOT-LAUNCHERS-r6-HERO-EDITOR
         <div class="muted">Handwash • Brush • Bath • Clean Object • MaskCough • Germ Detective</div>
         <div class="sep"></div>
         <div class="games">
-          <a class="gameBtn" id="linkHandwash" href="#"><div class="t">🧼 Handwash</div><div class="s">สะอาดครบขั้น</div></a>
-          <a class="gameBtn" id="linkBrush" href="#"><div class="t">🪥 Brush</div><div class="s">แปรงฟันอย่างถูกวิธี</div></a>
-          <a class="gameBtn" id="linkBath" href="#"><div class="t">🛁 Bath</div><div class="s">Hidden Dirt Quest</div></a>
-          <a class="gameBtn" id="linkCleanObject" href="#"><div class="t">🧴 Clean Object</div><div class="s">Evaluate / Create</div></a>
-          <a class="gameBtn" id="linkMaskCough" href="#"><div class="t">😷 Mask & Cough</div><div class="s">มารยาทสุขอนามัย</div></a>
-          <a class="gameBtn" id="linkGermDetective" href="#"><div class="t">🦠 Germ Detective</div><div class="s">UV / Swab / Camera</div></a>
+          <a class="gameBtn" id="linkHandwash" href="#"><div class="t">🧼 Handwash</div><div class="s">Warmup gate → Launcher</div></a>
+          <a class="gameBtn" id="linkBrush" href="#"><div class="t">🪥 Brush</div><div class="s">Warmup gate → Launcher</div></a>
+          <a class="gameBtn" id="linkBath" href="#"><div class="t">🛁 Bath</div><div class="s">Warmup gate → Launcher</div></a>
+          <a class="gameBtn" id="linkCleanObject" href="#"><div class="t">🧴 Clean Object</div><div class="s">Warmup gate → Launcher</div></a>
+          <a class="gameBtn" id="linkMaskCough" href="#"><div class="t">😷 Mask & Cough</div><div class="s">Warmup gate → Launcher</div></a>
+          <a class="gameBtn" id="linkGermDetective" href="#"><div class="t">🦠 Germ Detective</div><div class="s">Warmup gate → Launcher</div></a>
         </div>
       </section>
 
@@ -676,11 +680,11 @@ PATCH v20260306-HUB-PATHFIX-ROOT-LAUNCHERS-r6-HERO-EDITOR
         <div class="muted">Shadow Breaker • Rhythm Boxer • JumpDuck • Balance Hold • Fitness Planner</div>
         <div class="sep"></div>
         <div class="games">
-          <a class="gameBtn" id="linkShadowBreaker" href="#"><div class="t">🥊 Shadow Breaker</div><div class="s">คอมโบ & รีแอคชั่น</div></a>
-          <a class="gameBtn" id="linkRhythmBoxer" href="#"><div class="t">🎵 Rhythm Boxer</div><div class="s">จังหวะ + พลัง</div></a>
-          <a class="gameBtn" id="linkJumpDuck" href="#"><div class="t">⬆️⬇️ JumpDuck</div><div class="s">หลบ-กระโดด</div></a>
-          <a class="gameBtn" id="linkBalanceHold" href="#"><div class="t">⚖️ Balance Hold</div><div class="s">ทรงตัวแบบท้าทาย</div></a>
-          <a class="gameBtn" id="linkFitnessPlanner" href="#"><div class="t">📅 Fitness Planner</div><div class="s">วางแผนออกกำลัง</div></a>
+          <a class="gameBtn" id="linkShadowBreaker" href="#"><div class="t">🥊 Shadow Breaker</div><div class="s">Warmup gate → Launcher</div></a>
+          <a class="gameBtn" id="linkRhythmBoxer" href="#"><div class="t">🎵 Rhythm Boxer</div><div class="s">Warmup gate → Launcher</div></a>
+          <a class="gameBtn" id="linkJumpDuck" href="#"><div class="t">⬆️⬇️ JumpDuck</div><div class="s">Warmup gate → Launcher</div></a>
+          <a class="gameBtn" id="linkBalanceHold" href="#"><div class="t">⚖️ Balance Hold</div><div class="s">Warmup gate → Launcher</div></a>
+          <a class="gameBtn" id="linkFitnessPlanner" href="#"><div class="t">📅 Fitness Planner</div><div class="s">Warmup gate → Entry</div></a>
         </div>
       </section>
 
@@ -759,7 +763,7 @@ PATCH v20260306-HUB-PATHFIX-ROOT-LAUNCHERS-r6-HERO-EDITOR
       [
         'run','diff','time','seed','studyId','phase','conditionGroup','log','view','pid','api','ai','debug',
         'planSeq','planDay','planSlot','planMode','planSlots','planIndex','autoNext',
-        'plannedGame','finalGame','zone','cdnext','grade'
+        'plannedGame','finalGame','zone','cdnext','grade','room','battle','pro','mode','auto'
       ].forEach(k=>{
         const v = sp.get(k);
         if(v!=null && v!=='') u.searchParams.set(k, v);
@@ -775,6 +779,32 @@ PATCH v20260306-HUB-PATHFIX-ROOT-LAUNCHERS-r6-HERO-EDITOR
         });
       }
       return u.toString();
+    }
+
+    function buildGateUrl(cat, theme, launcherPath, extraLauncherParams){
+      const launcherUrl = buildUrl(launcherPath, extraLauncherParams || {});
+      const gate = new URL('./warmup-gate.html', location.href);
+      const spSrc = new URL(location.href).searchParams;
+
+      [
+        'run','diff','time','seed','studyId','phase','conditionGroup','log','view','pid','api','ai','debug',
+        'planSeq','planDay','planSlot','planMode','planSlots','planIndex','autoNext',
+        'plannedGame','finalGame','zone','cdnext','grade'
+      ].forEach(k=>{
+        const v = spSrc.get(k);
+        if(v!=null && v!=='') gate.searchParams.set(k, v);
+      });
+
+      gate.searchParams.set('hub', hub);
+      gate.searchParams.set('gatePhase', 'warmup');
+      gate.searchParams.set('cat', cat);
+      gate.searchParams.set('theme', theme);
+      gate.searchParams.set('next', launcherUrl);
+
+      if(!gate.searchParams.get('dur'))  gate.searchParams.set('dur',  gate.searchParams.get('grade') === 'p5' ? '30' : '20');
+      if(!gate.searchParams.get('cdur')) gate.searchParams.set('cdur', gate.searchParams.get('grade') === 'p5' ? '30' : '15');
+
+      return gate.toString();
     }
 
     function loadCardBook(pid){
@@ -929,7 +959,7 @@ PATCH v20260306-HUB-PATHFIX-ROOT-LAUNCHERS-r6-HERO-EDITOR
           : 'ทำ zone fitness ให้มี done today เพื่อโชว์ถ้วย';
     }
 
-    // ===== Hero Editor =====
+    // Hero Editor
     const heroNickInput = document.getElementById('heroNickInput');
     const heroXpInput = document.getElementById('heroXpInput');
     const heroLvlPreview = document.getElementById('heroLvlPreview');
@@ -979,7 +1009,6 @@ PATCH v20260306-HUB-PATHFIX-ROOT-LAUNCHERS-r6-HERO-EDITOR
       }
     });
 
-    // ===== Canonical root launchers / entries =====
     const PATHS = {
       goodjunk:       './goodjunk-launcher.html',
       groups:         './groups-vr.html',
@@ -1022,39 +1051,43 @@ PATCH v20260306-HUB-PATHFIX-ROOT-LAUNCHERS-r6-HERO-EDITOR
     const linkBalanceHold = document.getElementById('linkBalanceHold');
     const linkFitnessPlanner = document.getElementById('linkFitnessPlanner');
 
-    // Nutrition
-    linkGoodjunk.href  = buildUrl(PATHS.goodjunk,   { mode:'solo' });
-    linkGroups.href    = buildUrl(PATHS.groups,     { zone:'nutrition' });
-    linkHydration.href = buildUrl(PATHS.hydration,  { zone:'nutrition' });
-    linkPlate.href     = buildUrl(PATHS.plate,      { zone:'nutrition' });
+    // Nutrition via warmup gate
+    linkGoodjunk.href  = buildGateUrl('nutrition', 'goodjunk',  PATHS.goodjunk,  { mode:'solo' });
+    linkGroups.href    = buildGateUrl('nutrition', 'groups',    PATHS.groups,    { zone:'nutrition' });
+    linkHydration.href = buildGateUrl('nutrition', 'hydration', PATHS.hydration, { zone:'nutrition' });
+    linkPlate.href     = buildGateUrl('nutrition', 'plate',     PATHS.plate,     { zone:'nutrition' });
 
-    // Hygiene
-    if(linkHandwash)      linkHandwash.href      = buildUrl(PATHS.handwash,      { zone:'hygiene' });
-    if(linkBrush)         linkBrush.href         = buildUrl(PATHS.brush,         { zone:'hygiene' });
-    if(linkBath)          linkBath.href          = buildUrl(PATHS.bath,          { zone:'hygiene' });
-    if(linkCleanObject)   linkCleanObject.href   = buildUrl(PATHS.cleanObject,   { zone:'hygiene' });
-    if(linkMaskCough)     linkMaskCough.href     = buildUrl(PATHS.maskCough,     { zone:'hygiene' });
-    if(linkGermDetective) linkGermDetective.href = buildUrl(PATHS.germDetective, { zone:'hygiene' });
+    // Hygiene via warmup gate
+    if(linkHandwash)      linkHandwash.href      = buildGateUrl('hygiene', 'handwash',      PATHS.handwash,      { zone:'hygiene' });
+    if(linkBrush)         linkBrush.href         = buildGateUrl('hygiene', 'brush',         PATHS.brush,         { zone:'hygiene' });
+    if(linkBath)          linkBath.href          = buildGateUrl('hygiene', 'bath',          PATHS.bath,          { zone:'hygiene' });
+    if(linkCleanObject)   linkCleanObject.href   = buildGateUrl('hygiene', 'clean',         PATHS.cleanObject,   { zone:'hygiene' });
+    if(linkMaskCough)     linkMaskCough.href     = buildGateUrl('hygiene', 'maskcough',     PATHS.maskCough,     { zone:'hygiene' });
+    if(linkGermDetective) linkGermDetective.href = buildGateUrl('hygiene', 'germdetective', PATHS.germDetective, { zone:'hygiene' });
 
-    // Exercise
-    if(linkShadowBreaker)  linkShadowBreaker.href  = buildUrl(PATHS.shadowBreaker,  { zone:'fitness' });
-    if(linkRhythmBoxer)    linkRhythmBoxer.href    = buildUrl(PATHS.rhythmBoxer,    { zone:'fitness' });
-    if(linkJumpDuck)       linkJumpDuck.href       = buildUrl(PATHS.jumpDuck,       { zone:'fitness' });
-    if(linkBalanceHold)    linkBalanceHold.href    = buildUrl(PATHS.balanceHold,    { zone:'fitness' });
-    if(linkFitnessPlanner) linkFitnessPlanner.href = buildUrl(PATHS.fitnessPlanner, { zone:'fitness' });
+    // Exercise via warmup gate
+    if(linkShadowBreaker)  linkShadowBreaker.href  = buildGateUrl('exercise', 'shadow',   PATHS.shadowBreaker,  { zone:'fitness' });
+    if(linkRhythmBoxer)    linkRhythmBoxer.href    = buildGateUrl('exercise', 'rhythm',   PATHS.rhythmBoxer,    { zone:'fitness' });
+    if(linkJumpDuck)       linkJumpDuck.href       = buildGateUrl('exercise', 'jumpduck', PATHS.jumpDuck,       { zone:'fitness' });
+    if(linkBalanceHold)    linkBalanceHold.href    = buildGateUrl('exercise', 'balance',  PATHS.balanceHold,    { zone:'fitness' });
+    if(linkFitnessPlanner) linkFitnessPlanner.href = buildGateUrl('exercise', 'planner',  PATHS.fitnessPlanner, { zone:'fitness' });
 
-    btnGJsolo.onclick = ()=> location.href = buildUrl(PATHS.goodjunk, { mode:'solo' });
+    btnGJsolo.onclick = ()=> {
+      location.href = buildGateUrl('nutrition', 'goodjunk', PATHS.goodjunk, { mode:'solo' });
+    };
 
-    btnGJpro.onclick  = ()=> location.href = buildUrl(PATHS.goodjunk, {
-      mode:'solo',
-      diff:'hard',
-      pro:'1',
-      auto:'0'
-    });
+    btnGJpro.onclick  = ()=> {
+      location.href = buildGateUrl('nutrition', 'goodjunk', PATHS.goodjunk, {
+        mode:'solo',
+        diff:'hard',
+        pro:'1',
+        auto:'0'
+      });
+    };
 
     btnGJbattle.onclick = ()=> {
       const room = String(qs('room','P5A')) || 'P5A';
-      location.href = buildUrl(PATHS.goodjunk, {
+      location.href = buildGateUrl('nutrition', 'goodjunk', PATHS.goodjunk, {
         mode:'battle',
         room,
         auto:'1'
@@ -1085,7 +1118,7 @@ PATCH v20260306-HUB-PATHFIX-ROOT-LAUNCHERS-r6-HERO-EDITOR
     const btnResetCardBook = document.getElementById('btnResetCardBook');
 
     btnOpenGJLauncher.onclick = ()=>{
-      location.href = buildUrl(PATHS.goodjunk, { mode:'solo' });
+      location.href = buildGateUrl('nutrition', 'goodjunk', PATHS.goodjunk, { mode:'solo' });
     };
 
     btnResetCardBook.onclick = ()=>{
