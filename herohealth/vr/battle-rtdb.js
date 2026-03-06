@@ -1,30 +1,26 @@
 // === /herohealth/vr/battle-rtdb.js ===
-// Firebase RTDB Battle — v6 (Battle Ready Pack / Classroom Trial)
-// ✅ Room create/join via ?room=CODE
-// ✅ Ready-check + countdown + startAtMs (server-time aligned)
-// ✅ Reconnect / resume by room+pid
-// ✅ Soft anti-cheat score clamp + time guard
-// ✅ Forfeit on disconnect / timeout
-// ✅ Rematch (same room, new roundId)
-// ✅ Emits rich state for launcher / HUD / result overlay
-//
-// Emits:
-//  - hha:battle-room       {room, roundId, meKey, pid}
-//  - hha:battle-players    {room, roundId, meKey, players[]}
-//  - hha:battle-state      {phase, room, roundId, startAtMs, endAtMs, winner?, reason?}
-//  - hha:battle-countdown  {room, roundId, startAtMs, leftMs}
-//  - hha:battle-start      {room, roundId, startAtMs}
-//  - hha:battle-score      {room, roundId, me, opp, leader}
-//  - hha:battle-ended      {room, roundId, winner, reason, results}
+// Firebase RTDB Battle — v6 (room policy + spectator + notices + cloud reports)
 // FULL v20260306-BATTLE-RTDB-V6
+// ✅ Room create/join via ?room=CODE
+// ✅ Ready-check + Countdown + StartAt (server-time aligned)
+// ✅ Reconnect / Resume by pid
+// ✅ Spectator when room full / late join
+// ✅ Notices for UI (error/warn/info)
+// ✅ Cloud round reports (append-only)
+// ✅ Winner decision: score -> acc -> miss -> medianRT -> tie
 'use strict';
-
-import { pickWinner as pickWinnerAB } from './score-rank.js';
 
 const WIN = (typeof window !== 'undefined') ? window : globalThis;
 
 function emit(name, detail){
   try{ WIN.dispatchEvent(new CustomEvent(name, { detail })); }catch(_){}
+}
+function emitBattleNotice(type, message, extra={}){
+  emit('hha:battle-notice', {
+    type: String(type || 'info'),
+    message: String(message || ''),
+    ...extra
+  });
 }
 function qs(k, d=''){
   try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(_){ return d; }
@@ -36,20 +32,19 @@ function clamp(v,a,b){
 }
 function safeKey(s, max=32){
   s = String(s || '').trim();
-  s = s.replace(/[^a-zA-Z0-9_\-]/g, '').slice(0, max);
+  s = s.replace(/[^a-zA-Z0-9_\-]/g,'').slice(0,max);
   return s || '';
 }
 function randRoom(len=6){
-  const abc = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  let s = '';
+  const abc='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let s='';
   for(let i=0;i<len;i++) s += abc[(Math.random()*abc.length)|0];
   return s;
 }
-function nowMs(){ return Date.now(); }
 function lsGet(k){ try{ return localStorage.getItem(k); }catch(_){ return null; } }
-function lsSet(k,v){ try{ localStorage.setItem(k, String(v)); }catch(_){ } }
-function lsDel(k){ try{ localStorage.removeItem(k); }catch(_){ } }
+function lsSet(k,v){ try{ localStorage.setItem(k,String(v)); }catch(_){ } }
 
+// ---- Firebase loader (modular SDK via gstatic) ----
 async function loadFirebase(){
   const v = '9.22.2';
   const appMod = await import(`https://www.gstatic.com/firebasejs/${v}/firebase-app.js`);
@@ -58,7 +53,8 @@ async function loadFirebase(){
 }
 
 function getFirebaseConfig(){
-  return WIN.HHA_FIREBASE_CONFIG || WIN.__HHA_FIREBASE_CONFIG__ || WIN.firebaseConfig || null;
+  const cfg = WIN.HHA_FIREBASE_CONFIG || WIN.__HHA_FIREBASE_CONFIG__ || WIN.firebaseConfig || null;
+  return cfg || null;
 }
 
 function disabledBattle(){
@@ -67,43 +63,81 @@ function disabledBattle(){
     room:'',
     roundId:'',
     meKey:'',
-    serverNow:()=>Date.now(),
-    setReady:()=>{},
-    syncScore:()=>{},
-    requestRematch:()=>{},
-    leave:()=>{},
-    destroy:()=>{},
+    pid:'',
+    serverNow: ()=> Date.now(),
+    setReady: async()=>{},
+    syncScore: async()=>{},
+    requestRematch: async()=>{},
+    saveRoundReport: async()=> null,
+    leave: async()=>{},
+    destroy: async()=>{},
+    getRole: ()=> 'disabled',
+    isSpectator: ()=> false,
+    getJoinPolicy: ()=> ({
+      role:'disabled',
+      roomFull:false,
+      lateJoin:false,
+      invalidRoom:false
+    }),
   };
 }
 
-function normalizePlayer(raw, key){
-  raw = raw || {};
+function normalizePlayer(v, key){
+  v = v || {};
   return {
     key,
-    pid: String(raw.pid || ''),
-    nick: String(raw.nick || raw.pid || ''),
-    ready: !!raw.ready,
-    connected: raw.connected !== false,
-    joinedAtMs: Number(raw.joinedAtMs || 0) || 0,
-    lastSeenMs: Number(raw.lastSeenMs || 0) || 0,
-    score: Number(raw.score || 0) || 0,
-    acc: Number(raw.acc || 0) || 0,
-    miss: Number(raw.miss || 0) || 0,
-    medianRT: Number(raw.medianRT || 0) || 0,
-    finishMs: Number(raw.finishMs || 0) || 0,
-    forfeit: !!raw.forfeit,
+    pid: String(v.pid || ''),
+    nick: String(v.nick || v.pid || key || ''),
+    ready: !!v.ready,
+    connected: v.connected !== false,
+    forfeit: !!v.forfeit,
+    joinedAtMs: Number(v.joinedAtMs || 0) || 0,
+    lastSeenMs: Number(v.lastSeenMs || 0) || 0,
+    score: Number(v.score || 0) || 0,
+    acc: Number(v.acc || 0) || 0,
+    miss: Number(v.miss || 0) || 0,
+    medianRT: Number(v.medianRT || 0) || 0,
+    finishMs: Number(v.finishMs || 0) || 0,
   };
 }
 
-function normalizeBattleResult(input){
-  input = input || {};
+function sanitizeScorePayload(d){
+  d = d || {};
   return {
-    score: Number(input.score || input.scoreFinal || 0) || 0,
-    acc: Number(input.acc || input.accPct || 0) || 0,
-    miss: Number(input.miss || input.missTotal || 0) || 0,
-    medianRT: Number(input.medianRT || input.medianRtGoodMs || 0) || 0,
-    finishMs: Number(input.finishMs || 0) || 0,
+    score: Math.max(0, Number(d.score || 0) || 0),
+    acc: clamp(Number(d.accPct || d.acc || 0) || 0, 0, 100),
+    miss: Math.max(0, Number(d.missTotal || d.miss || 0) || 0),
+    medianRT: Math.max(0, Number(d.medianRtGoodMs || d.medianRT || 0) || 0),
+    finishMs: Math.max(0, Number(d.finishMs || 0) || 0),
   };
+}
+
+function pickWinner(a, b){
+  if(!a && !b) return { winnerKey:'', reason:'tie' };
+  if(a && !b) return { winnerKey:a.key, reason:'forfeit' };
+  if(!a && b) return { winnerKey:b.key, reason:'forfeit' };
+
+  if((a.score||0) > (b.score||0)) return { winnerKey:a.key, reason:'score' };
+  if((a.score||0) < (b.score||0)) return { winnerKey:b.key, reason:'score' };
+
+  if((a.acc||0) > (b.acc||0)) return { winnerKey:a.key, reason:'acc' };
+  if((a.acc||0) < (b.acc||0)) return { winnerKey:b.key, reason:'acc' };
+
+  if((a.miss||0) < (b.miss||0)) return { winnerKey:a.key, reason:'miss' };
+  if((a.miss||0) > (b.miss||0)) return { winnerKey:b.key, reason:'miss' };
+
+  const art = Number(a.medianRT || 0) || 0;
+  const brt = Number(b.medianRT || 0) || 0;
+  if(art > 0 && brt > 0){
+    if(art < brt) return { winnerKey:a.key, reason:'medianRT' };
+    if(art > brt) return { winnerKey:b.key, reason:'medianRT' };
+  }else if(art > 0 && brt === 0){
+    return { winnerKey:a.key, reason:'medianRT' };
+  }else if(brt > 0 && art === 0){
+    return { winnerKey:b.key, reason:'medianRT' };
+  }
+
+  return { winnerKey:'', reason:'tie' };
 }
 
 export async function initBattle(opts){
@@ -112,40 +146,43 @@ export async function initBattle(opts){
   if(!enabled) return disabledBattle();
 
   const pid = safeKey(opts.pid || qs('pid','anon'), 24) || 'anon';
-  const nick = safeKey(opts.nick || qs('nick', pid), 24) || pid;
+  const nick = String(opts.nick || qs('nick', pid)).trim() || pid;
   const gameKey = safeKey(opts.gameKey || 'game', 24) || 'game';
   const roomIn = safeKey(opts.room || qs('room',''), 10);
   const room = roomIn || randRoom(6);
 
   const autostartMs = clamp(opts.autostartMs ?? qs('autostart','3000'), 500, 10000);
   const forfeitMs   = clamp(opts.forfeitMs   ?? qs('forfeit','5000'), 1500, 20000);
-  const roundMs     = clamp(opts.roundMs     ?? qs('time','80') * 1000, 20000, 300000);
 
   const fbCfg = getFirebaseConfig();
   if(!fbCfg){
     console.warn('[battle-rtdb] missing Firebase config');
+    emitBattleNotice('error', 'ยังไม่ได้ตั้งค่า Firebase สำหรับ Battle', {
+      code:'missing_firebase_config'
+    });
     return disabledBattle();
   }
 
-  const fb = await loadFirebase();
+  let fb = null;
+  try{
+    fb = await loadFirebase();
+  }catch(err){
+    console.warn('[battle-rtdb] firebase load failed', err);
+    emitBattleNotice('error', 'เชื่อมต่อระบบ Battle ไม่สำเร็จ', {
+      code:'firebase_load_failed'
+    });
+    return disabledBattle();
+  }
+
   const {
     initializeApp, getApps, getApp,
-    getDatabase, ref, child, get, set, update, remove, push,
-    onValue, off, onDisconnect, serverTimestamp, runTransaction
+    getDatabase, ref, child, get, set, update, push, remove,
+    onValue, off, runTransaction, serverTimestamp, onDisconnect
   } = fb;
 
   const app = getApps().length ? getApp() : initializeApp(fbCfg);
-  const db = getDatabase(app);
+  const db  = getDatabase(app);
 
-  // ---- server time offset ----
-  const offsetRef = ref(db, '.info/serverTimeOffset');
-  let serverOffsetMs = 0;
-  const offOffset = onValue(offsetRef, (snap)=>{
-    serverOffsetMs = Number(snap.val() || 0) || 0;
-  });
-  const serverNow = ()=> nowMs() + serverOffsetMs;
-
-  // ---- paths ----
   const base = `hha-battle/${gameKey}/rooms/${room}`;
   const roomRef = ref(db, base);
   const metaRef = ref(db, `${base}/meta`);
@@ -153,121 +190,194 @@ export async function initBattle(opts){
   const roundsRef = ref(db, `${base}/rounds`);
   const stateRef = ref(db, `${base}/state`);
   const rematchRef = ref(db, `${base}/rematch`);
+  const reportsRef = ref(db, `${base}/reports`);
+  const offsetRef = ref(db, `.info/serverTimeOffset`);
 
-  // ---- stable meKey by room+pid ----
-  const meLsKey = `HHA_BATTLE_PLAYERKEY:${gameKey}:${room}:${pid}`;
-  let meKey = safeKey(lsGet(meLsKey), 32);
-  if(!meKey){
-    meKey = `p_${pid}_${Math.random().toString(36).slice(2,8)}`;
-    lsSet(meLsKey, meKey);
-  }
+  let localDestroyed = false;
+  let meKey = safeKey(lsGet(`HHA_BATTLE_MEKEY:${gameKey}:${room}:${pid}`) || '', 32);
+  if(!meKey) meKey = `p_${pid}_${Math.random().toString(36).slice(2,8)}`;
+  const meLsKey = `HHA_BATTLE_MEKEY:${gameKey}:${room}:${pid}`;
+  lsSet(meLsKey, meKey);
 
   let currentRoundId = '';
-  let currentPhase = 'lobby';
-  let countdownTimer = null;
-  let destroyFns = [];
-  let lastPlayers = [];
-  let lastState = null;
   let localReady = false;
-  let localDestroyed = false;
-  let localScoreShadow = {
-    score:0, acc:0, miss:0, medianRT:0, finishMs:0,
-    sentAtMs:0,
-  };
+  let currentRole = 'player';   // player | spectator
+  let roomFullFlag = false;
+  let lateJoinFlag = false;
+  let invalidRoomFlag = false;
 
-  // anti-cheat baseline
-  let runningStartAtMs = 0;
-  let runningEndAtMs = 0;
-  let lastAcceptedScore = 0;
+  let serverTimeOffset = 0;
+  let unsubscribers = [];
+  let countdownTimer = 0;
 
   function clearCountdownTimer(){
     if(countdownTimer){
       clearInterval(countdownTimer);
-      countdownTimer = null;
+      countdownTimer = 0;
     }
   }
 
-  function emitPlayers(players){
-    emit('hha:battle-players', {
-      room,
-      roundId: currentRoundId,
-      meKey,
-      players
-    });
+  function serverNow(){
+    return Date.now() + serverTimeOffset;
   }
 
-  function emitState(detail){
-    emit('hha:battle-state', {
+  function emitRoom(detail={}){
+    emit('hha:battle-room', {
       room,
       roundId: currentRoundId,
+      meKey: currentRole === 'player' ? meKey : '',
+      pid,
       ...detail
     });
   }
 
-  function emitScore(){
-    const me = lastPlayers.find(p => p.key === meKey) || null;
-    const opp = lastPlayers.find(p => p.key !== meKey) || null;
-    let leader = 'tie';
-    if(me && opp){
-      if(me.score > opp.score) leader = 'me';
-      else if(me.score < opp.score) leader = 'opp';
-    }
-    emit('hha:battle-score', {
+  function emitPlayers(players){
+    emit('hha:battle-players', { players });
+  }
+
+  function emitState(st){
+    emit('hha:battle-state', {
       room,
       roundId: currentRoundId,
-      me, opp, leader
+      ...(st||{})
     });
   }
 
-  async function ensureRoomMeta(){
-    const metaSnap = await get(metaRef);
-    if(!metaSnap.exists()){
-      await set(metaRef, {
-        gameKey,
-        room,
-        createdAtMs: serverNow(),
-        createdAt: serverTimestamp(),
-      });
-    }
+  function attachCountdown(startAtMs){
+    clearCountdownTimer();
+    if(!startAtMs || startAtMs <= 0) return;
+
+    countdownTimer = setInterval(()=>{
+      if(localDestroyed){
+        clearCountdownTimer();
+        return;
+      }
+      const leftMs = Math.max(0, Number(startAtMs || 0) - serverNow());
+      emit('hha:battle-countdown', { room, roundId: currentRoundId, startAtMs, leftMs });
+      if(leftMs <= 0) clearCountdownTimer();
+    }, 200);
   }
 
-  async function ensureRound(){
-    const stateSnap = await get(stateRef);
-    const st = stateSnap.val() || {};
+  async function ensureMeta(){
+    await runTransaction(metaRef, (v)=>{
+      v = v || {};
+      if(!v.createdAt) v.createdAt = serverTimestamp();
+      if(!v.createdAtMs) v.createdAtMs = Date.now();
+      v.room = room;
+      v.gameKey = gameKey;
+      return v;
+    }).catch(()=>{});
+  }
+
+  async function ensureRoundIfMissing(){
+    const stateSnap = await get(stateRef).catch(()=>null);
+    const st = stateSnap?.val() || {};
     if(st.roundId){
       currentRoundId = String(st.roundId);
-      currentPhase = String(st.phase || 'lobby');
-      return;
+      return currentRoundId;
     }
 
-    const roundId = `r_${Date.now()}_${Math.random().toString(36).slice(2,6)}`;
-    const startState = {
-      room,
-      gameKey,
-      roundId,
+    const newRoundId = `r_${Date.now()}`;
+    const payload = {
       phase:'lobby',
+      room,
+      roundId:newRoundId,
       startAtMs:0,
-      endAtMs:0,
       winner:'',
       reason:'',
-      updatedAtMs: serverNow(),
       updatedAt: serverTimestamp(),
+      updatedAtMs: Date.now()
     };
-
-    await set(stateRef, startState);
-    currentRoundId = roundId;
-    currentPhase = 'lobby';
-
-    await set(ref(db, `${base}/rounds/${roundId}`), {
-      createdAtMs: serverNow(),
-      createdAt: serverTimestamp(),
-      autostartMs,
-      forfeitMs,
-      roundMs,
-    });
+    await set(stateRef, payload).catch(()=>{});
+    currentRoundId = newRoundId;
+    return currentRoundId;
   }
 
   async function joinPlayer(){
+    const stateSnap = await get(stateRef).catch(()=>null);
+    const st = stateSnap?.val() || {};
+    const phase = String(st.phase || 'lobby').toLowerCase();
+
+    const playersSnap = await get(playersRef).catch(()=>null);
+    const rawPlayers = playersSnap?.val() || {};
+    const existingKeys = Object.keys(rawPlayers);
+    const existingPlayers = existingKeys
+      .map(k => normalizePlayer(rawPlayers[k], k))
+      .sort((a,b)=>(a.joinedAtMs||0)-(b.joinedAtMs||0));
+
+    const existingMine = existingPlayers.find(p => p.key === meKey || p.pid === pid) || null;
+
+    if(existingMine){
+      currentRole = 'player';
+      const pRef = ref(db, `${base}/players/${existingMine.key}`);
+      meKey = existingMine.key;
+      lsSet(meLsKey, meKey);
+
+      await update(pRef, {
+        pid,
+        nick,
+        connected:true,
+        lastSeenMs: serverNow(),
+        lastSeen: serverTimestamp(),
+      });
+
+      try{
+        await onDisconnect(pRef).update({
+          connected:false,
+          lastSeenMs: serverNow(),
+          lastSeen: serverTimestamp(),
+        });
+      }catch(_){}
+
+      emitRoom({
+        role:'player',
+        resume:true
+      });
+      emitBattleNotice('info', 'กลับเข้าสู่ห้องเดิมแล้ว', {
+        code:'resume_player',
+        room,
+        role:'player'
+      });
+      return;
+    }
+
+    if(existingPlayers.length >= 2){
+      roomFullFlag = true;
+
+      if(phase === 'countdown' || phase === 'running' || phase === 'ended'){
+        currentRole = 'spectator';
+        lateJoinFlag = (phase === 'countdown' || phase === 'running');
+
+        emitRoom({
+          meKey:'',
+          role:'spectator',
+          lateJoin: lateJoinFlag,
+          roomFull:true
+        });
+        emitBattleNotice('warn', 'ห้องนี้เริ่มแข่งแล้ว • เข้าในโหมด spectator', {
+          code:'late_join_spectator',
+          room,
+          role:'spectator'
+        });
+        return;
+      }
+
+      currentRole = 'spectator';
+      emitRoom({
+        meKey:'',
+        role:'spectator',
+        lateJoin:false,
+        roomFull:true
+      });
+      emitBattleNotice('warn', 'ห้องนี้มีผู้เล่นครบแล้ว • เข้าในโหมด spectator', {
+        code:'room_full',
+        room,
+        role:'spectator'
+      });
+      return;
+    }
+
+    currentRole = 'player';
     const pRef = ref(db, `${base}/players/${meKey}`);
     await update(pRef, {
       pid,
@@ -294,225 +404,119 @@ export async function initBattle(opts){
       });
     }catch(_){}
 
-    emit('hha:battle-room', {
+    emitRoom({
+      role:'player',
+      resume:false
+    });
+    emitBattleNotice('info', 'เข้าห้อง Battle สำเร็จ', {
+      code:'join_player_ok',
       room,
-      roundId: currentRoundId,
-      meKey,
-      pid
+      role:'player'
     });
   }
 
-  async function resetPlayerForRound(){
-    const pRef = ref(db, `${base}/players/${meKey}`);
-    localScoreShadow = { score:0, acc:0, miss:0, medianRT:0, finishMs:0, sentAtMs:0 };
-    lastAcceptedScore = 0;
-
-    await update(pRef, {
-      ready: false,
-      connected: true,
-      forfeit: false,
-      score: 0,
-      acc: 0,
-      miss: 0,
-      medianRT: 0,
-      finishMs: 0,
-      lastSeenMs: serverNow(),
-      lastSeen: serverTimestamp(),
-    });
-    localReady = false;
-  }
-
-  async function maybeStartCountdown(players){
+  async function maybeStartCountdown(players, st){
     if(localDestroyed) return;
-    if(currentPhase !== 'lobby') return;
+    if(String(st.phase || 'lobby').toLowerCase() !== 'lobby') return;
 
-    const active = players.filter(p => p.connected !== false);
-    if(active.length < 2) return;
+    const realPlayers = (players || []).filter(p => p.connected !== false).slice(0,2);
+    if(realPlayers.length < 2) return;
+    if(!realPlayers.every(p => !!p.ready)) return;
 
-    const allReady = active.every(p => p.ready);
-    if(!allReady) return;
-
-    // transaction prevents double countdown
-    const result = await runTransaction(stateRef, (cur)=>{
-      cur = cur || {};
-      const phase = String(cur.phase || 'lobby');
-      if(phase !== 'lobby') return cur;
-      const startAtMs = serverNow() + autostartMs;
-      return {
-        ...cur,
-        phase:'countdown',
-        startAtMs,
-        endAtMs: startAtMs + roundMs,
-        winner:'',
-        reason:'',
-        updatedAtMs: serverNow(),
-      };
-    }, { applyLocally:false }).catch(()=>null);
-
-    if(result && result.committed){
-      // state listener will emit countdown/start
-    }
+    const startAtMs = serverNow() + autostartMs;
+    await update(stateRef, {
+      phase:'countdown',
+      startAtMs,
+      winner:'',
+      reason:'',
+      updatedAt: serverTimestamp(),
+      updatedAtMs: Date.now()
+    }).catch(()=>{});
   }
 
-  function attachCountdown(startAtMs){
-    clearCountdownTimer();
-    countdownTimer = setInterval(()=>{
-      const leftMs = Math.max(0, startAtMs - serverNow());
-      emit('hha:battle-countdown', {
-        room,
-        roundId: currentRoundId,
-        startAtMs,
-        leftMs
-      });
-      if(leftMs <= 0){
-        clearCountdownTimer();
-      }
-    }, 100);
+  async function maybeStartRunning(st){
+    if(localDestroyed) return;
+    if(String(st.phase || '').toLowerCase() !== 'countdown') return;
+    const startAtMs = Number(st.startAtMs || 0) || 0;
+    if(!startAtMs) return;
+    if(serverNow() < startAtMs) return;
+
+    await update(stateRef, {
+      phase:'running',
+      updatedAt: serverTimestamp(),
+      updatedAtMs: Date.now()
+    }).catch(()=>{});
   }
 
-  async function markForfeitIfNeeded(players, state){
-    if(!state) return;
-    const phase = String(state.phase || 'lobby');
-    if(phase !== 'countdown' && phase !== 'running') return;
+  async function markForfeitIfNeeded(players, st){
+    if(localDestroyed) return;
+    if(String(st.phase || '').toLowerCase() !== 'running') return;
 
-    const me = players.find(p => p.key === meKey) || null;
-    const opp = players.find(p => p.key !== meKey) || null;
-    if(!opp) return;
+    const realPlayers = (players || []).slice(0,2);
+    if(realPlayers.length < 2) return;
 
-    const oppGone = (!opp.connected) && ((serverNow() - Number(opp.lastSeenMs || 0)) >= forfeitMs);
-    if(!oppGone) return;
+    const disconnected = realPlayers.find(p => p.connected === false && (serverNow() - (p.lastSeenMs || 0) >= forfeitMs));
+    const stillHere = realPlayers.find(p => p.key !== disconnected?.key);
 
-    const winner = meKey;
-    const results = {
-      [meKey]: normalizeBattleResult(me || {}),
-      [opp.key]: { ...normalizeBattleResult(opp || {}), forfeit:true }
-    };
+    if(!disconnected || !stillHere) return;
 
     await update(stateRef, {
       phase:'ended',
-      winner,
+      winner: stillHere.key,
       reason:'forfeit',
-      updatedAtMs: serverNow(),
       updatedAt: serverTimestamp(),
+      updatedAtMs: Date.now()
     }).catch(()=>{});
 
+    emitBattleNotice('warn', 'อีกฝ่ายหลุด/ออกจากห้อง ระบบตัดสินผลแล้ว', {
+      code:'forfeit_end',
+      room
+    });
     emit('hha:battle-ended', {
       room,
       roundId: currentRoundId,
-      winner,
+      winner: stillHere.key,
       reason:'forfeit',
-      results
+      results: realPlayers
     });
   }
 
-  async function finalizeIfRoundFinished(players, state){
-    if(!state) return;
-    if(String(state.phase || '') !== 'running') return;
-
-    const now = serverNow();
-    const endAtMs = Number(state.endAtMs || 0) || 0;
-    if(now < endAtMs) return;
-
-    const a = players[0];
-    const b = players[1];
-    if(!a || !b) return;
-
-    const ar = normalizeBattleResult(a);
-    const br = normalizeBattleResult(b);
-
-    const picked = pickWinnerAB(ar, br) || {};
-    const winner = picked.winnerKey === 'a'
-      ? a.key
-      : picked.winnerKey === 'b'
-      ? b.key
-      : '';
-
-    const reason = picked.rule || 'score';
-
-    const result = await runTransaction(stateRef, (cur)=>{
-      cur = cur || {};
-      if(String(cur.phase || '') === 'ended') return cur;
-      if(String(cur.phase || '') !== 'running') return cur;
-      return {
-        ...cur,
-        phase:'ended',
-        winner,
-        reason,
-        updatedAtMs: serverNow(),
-        updatedAt: serverTimestamp(),
-      };
-    }, { applyLocally:false }).catch(()=>null);
-
-    if(result && result.committed){
-      emit('hha:battle-ended', {
-        room,
-        roundId: currentRoundId,
-        winner,
-        reason,
-        results: {
-          [a.key]: ar,
-          [b.key]: br,
-        }
-      });
-    }
-  }
-
-  function sanitizeScorePayload(payload){
-    payload = payload || {};
-    const score = Math.max(0, Number(payload.score || 0) || 0);
-    const acc = clamp(payload.acc ?? payload.accPct ?? 0, 0, 100);
-    const miss = Math.max(0, Number(payload.miss ?? payload.missTotal ?? 0) || 0);
-    const medianRT = Math.max(0, Number(payload.medianRT ?? payload.medianRtGoodMs ?? 0) || 0);
-    const finishMs = Math.max(0, Number(payload.finishMs || 0) || 0);
-    return { score, acc, miss, medianRT, finishMs };
-  }
-
-  async function syncScore(payload){
+  async function finalizeIfRoundFinished(players, st){
     if(localDestroyed) return;
-    if(currentPhase !== 'running') return;
+    if(String(st.phase || '').toLowerCase() !== 'running') return;
 
-    const now = serverNow();
-    if(runningStartAtMs && now < runningStartAtMs - 500) return;
-    if(runningEndAtMs && now > runningEndAtMs + 3000) return;
+    const realPlayers = (players || []).filter(Boolean).slice(0,2);
+    if(realPlayers.length < 2) return;
 
-    const clean = sanitizeScorePayload(payload);
+    const finishedPlayers = realPlayers.filter(p => Number(p.finishMs || 0) > 0);
+    if(finishedPlayers.length < 2) return;
 
-    // soft anti-cheat:
-    // allow only limited jump by elapsed time
-    const elapsedMs = Math.max(0, now - runningStartAtMs);
-    const elapsedS = elapsedMs / 1000;
-    const hardCap = Math.floor(elapsedS * 60) + 200; // generous
-    const maxAllowed = Math.max(lastAcceptedScore + 120, hardCap);
-
-    if(clean.score > maxAllowed){
-      clean.score = maxAllowed;
-    }
-
-    if(clean.score < lastAcceptedScore){
-      // never regress score server-side
-      clean.score = lastAcceptedScore;
-    }
-
-    lastAcceptedScore = clean.score;
-    localScoreShadow = {
-      ...clean,
-      sentAtMs: now
-    };
-
-    await update(ref(db, `${base}/players/${meKey}`), {
-      score: clean.score,
-      acc: clean.acc,
-      miss: clean.miss,
-      medianRT: clean.medianRT,
-      finishMs: clean.finishMs,
-      lastSeenMs: now,
-      lastSeen: serverTimestamp(),
-      connected:true,
+    const picked = pickWinner(realPlayers[0], realPlayers[1]);
+    await update(stateRef, {
+      phase:'ended',
+      winner: picked.winnerKey || '',
+      reason: picked.reason || 'tie',
+      updatedAt: serverTimestamp(),
+      updatedAtMs: Date.now()
     }).catch(()=>{});
+
+    emitBattleNotice('info', 'จบรอบ Battle แล้ว', {
+      code:'battle_round_ended',
+      room,
+      rule: picked.reason
+    });
+    emit('hha:battle-ended', {
+      room,
+      roundId: currentRoundId,
+      winner: picked.winnerKey || '',
+      reason: picked.reason || 'tie',
+      results: realPlayers
+    });
   }
 
   async function setReady(on){
     if(localDestroyed) return;
+    if(currentRole !== 'player') return;
     localReady = !!on;
     await update(ref(db, `${base}/players/${meKey}`), {
       ready: !!on,
@@ -522,77 +526,104 @@ export async function initBattle(opts){
     }).catch(()=>{});
   }
 
+  async function syncScore(payload){
+    if(localDestroyed) return;
+    if(currentRole !== 'player') return;
+
+    const safe = sanitizeScorePayload(payload);
+    await update(ref(db, `${base}/players/${meKey}`), {
+      score: safe.score,
+      acc: safe.acc,
+      miss: safe.miss,
+      medianRT: safe.medianRT,
+      finishMs: safe.finishMs,
+      connected:true,
+      lastSeenMs: serverNow(),
+      lastSeen: serverTimestamp(),
+    }).catch(()=>{});
+  }
+
   async function requestRematch(){
     if(localDestroyed) return;
+    if(currentRole !== 'player') return;
 
-    const now = serverNow();
-    await update(ref(db, `${base}/rematch/${meKey}`), {
-      want: true,
-      atMs: now,
-      at: serverTimestamp(),
-      pid,
-      nick,
-    }).catch(()=>{});
+    const nextRoundId = `r_${Date.now()}`;
+    currentRoundId = nextRoundId;
 
-    const snap = await get(rematchRef).catch(()=>null);
-    const raw = snap?.val() || {};
+    const playersSnap = await get(playersRef).catch(()=>null);
+    const raw = playersSnap?.val() || {};
     const keys = Object.keys(raw);
-    const activePlayers = lastPlayers.filter(p => p.connected !== false);
-    const allWant = activePlayers.length >= 2 && activePlayers.every(p => raw[p.key]?.want === true);
 
-    if(!allWant) return;
+    const updates = {};
+    keys.forEach(k=>{
+      updates[`${k}/ready`] = false;
+      updates[`${k}/forfeit`] = false;
+      updates[`${k}/score`] = 0;
+      updates[`${k}/acc`] = 0;
+      updates[`${k}/miss`] = 0;
+      updates[`${k}/medianRT`] = 0;
+      updates[`${k}/finishMs`] = 0;
+      updates[`${k}/connected`] = raw[k]?.connected !== false;
+      updates[`${k}/lastSeenMs`] = serverNow();
+      updates[`${k}/lastSeen`] = serverTimestamp();
+    });
 
-    const newRoundId = `r_${Date.now()}_${Math.random().toString(36).slice(2,6)}`;
-
-    await set(stateRef, {
-      room,
-      gameKey,
-      roundId:newRoundId,
+    await update(playersRef, updates).catch(()=>{});
+    await update(stateRef, {
       phase:'lobby',
+      room,
+      roundId: nextRoundId,
       startAtMs:0,
-      endAtMs:0,
       winner:'',
       reason:'',
-      updatedAtMs: now,
       updatedAt: serverTimestamp(),
+      updatedAtMs: Date.now()
     }).catch(()=>{});
 
-    await set(ref(db, `${base}/rounds/${newRoundId}`), {
-      createdAtMs: now,
-      createdAt: serverTimestamp(),
-      autostartMs,
-      forfeitMs,
-      roundMs,
-      rematchOf: currentRoundId || '',
+    await set(rematchRef, {
+      requestedBy: meKey,
+      requestedAt: serverTimestamp(),
+      requestedAtMs: Date.now(),
+      roundId: nextRoundId
     }).catch(()=>{});
+  }
 
-    // clear rematch flags
-    await remove(rematchRef).catch(()=>{});
+  async function saveRoundReport(report){
+    if(localDestroyed) return null;
+    if(!report || typeof report !== 'object') return null;
 
-    // reset players
-    const updates = {};
-    lastPlayers.forEach(p=>{
-      updates[`${p.key}/ready`] = false;
-      updates[`${p.key}/forfeit`] = false;
-      updates[`${p.key}/score`] = 0;
-      updates[`${p.key}/acc`] = 0;
-      updates[`${p.key}/miss`] = 0;
-      updates[`${p.key}/medianRT`] = 0;
-      updates[`${p.key}/finishMs`] = 0;
-      updates[`${p.key}/connected`] = true;
-      updates[`${p.key}/lastSeenMs`] = now;
-      updates[`${p.key}/lastSeen`] = serverTimestamp();
-    });
-    await update(playersRef, updates).catch(()=>{});
+    const now = serverNow();
+    const row = {
+      ...report,
+      room,
+      gameKey,
+      roundId: currentRoundId || String(report.roundId || ''),
+      savedAtMs: now,
+      savedAt: serverTimestamp(),
+    };
 
-    currentRoundId = newRoundId;
-    currentPhase = 'lobby';
-    localReady = false;
-    await resetPlayerForRound().catch(()=>{});
+    try{
+      const rowRef = push(reportsRef);
+      await set(rowRef, row);
+      emitBattleNotice('info', 'บันทึกรายงานรอบนี้ขึ้น cloud แล้ว', {
+        code:'cloud_report_saved',
+        room,
+        roundId: row.roundId || ''
+      });
+      return rowRef.key;
+    }catch(err){
+      console.warn('[battle-rtdb] saveRoundReport failed', err);
+      emitBattleNotice('error', 'บันทึกรายงานขึ้น cloud ไม่สำเร็จ', {
+        code:'cloud_report_save_failed',
+        room
+      });
+      return null;
+    }
   }
 
   async function leave(){
     clearCountdownTimer();
+    if(currentRole !== 'player') return;
     await update(ref(db, `${base}/players/${meKey}`), {
       connected:false,
       lastSeenMs: serverNow(),
@@ -601,102 +632,98 @@ export async function initBattle(opts){
     }).catch(()=>{});
   }
 
-  function destroy(){
-    if(localDestroyed) return;
+  async function destroy(){
     localDestroyed = true;
     clearCountdownTimer();
-    destroyFns.forEach(fn => { try{ fn(); }catch(_){ } });
-    destroyFns = [];
-    try{ off(offsetRef, 'value', offOffset); }catch(_){}
+    unsubscribers.forEach(fn=>{ try{ fn(); }catch(_){ } });
+    unsubscribers = [];
   }
 
-  // ---- bootstrap ----
-  await ensureRoomMeta();
-  await ensureRound();
-  await joinPlayer();
+  // ----- subscriptions -----
+  const offOffset = onValue(offsetRef, (snap)=>{
+    serverTimeOffset = Number(snap.val() || 0) || 0;
+  });
+  unsubscribers.push(()=> off(offsetRef, 'value', offOffset));
 
-  // ---- state listener ----
-  const stopState = onValue(stateRef, (snap)=>{
+  const offState = onValue(stateRef, async (snap)=>{
+    if(localDestroyed) return;
     const st = snap.val() || {};
-    const prevPhase = currentPhase;
     currentRoundId = String(st.roundId || currentRoundId || '');
-    currentPhase = String(st.phase || 'lobby');
-    lastState = st;
 
-    const startAtMs = Number(st.startAtMs || 0) || 0;
-    const endAtMs = Number(st.endAtMs || 0) || 0;
+    emitState(st);
 
-    runningStartAtMs = startAtMs;
-    runningEndAtMs = endAtMs;
-
-    emitState({
-      phase: currentPhase,
-      startAtMs,
-      endAtMs,
-      winner: st.winner || '',
-      reason: st.reason || '',
-    });
-
-    if(currentPhase === 'countdown'){
-      attachCountdown(startAtMs);
+    const phase = String(st.phase || 'lobby').toLowerCase();
+    if(phase === 'countdown'){
+      attachCountdown(Number(st.startAtMs || 0) || 0);
     }else{
       clearCountdownTimer();
     }
-
-    if(prevPhase !== 'running' && currentPhase === 'running'){
+    if(phase === 'running'){
       emit('hha:battle-start', {
         room,
         roundId: currentRoundId,
-        startAtMs
+        startAtMs: Number(st.startAtMs || 0) || 0
       });
     }
 
-    if(currentPhase === 'ended'){
-      clearCountdownTimer();
-    }
+    await maybeStartRunning(st);
   });
-  destroyFns.push(()=> off(stateRef, 'value', stopState));
+  unsubscribers.push(()=> off(stateRef, 'value', offState));
 
-  // ---- players listener ----
-  const stopPlayers = onValue(playersRef, async (snap)=>{
-    const raw = snap.val() || {};
-    const players = Object.keys(raw)
-      .map(k => normalizePlayer(raw[k], k))
-      .sort((a,b)=>(a.joinedAtMs||0)-(b.joinedAtMs||0))
-      .slice(0,2);
-
-    lastPlayers = players;
-    emitPlayers(players);
-    emitScore();
-
-    await maybeStartCountdown(players).catch(()=>{});
-    await markForfeitIfNeeded(players, lastState).catch(()=>{});
-    await finalizeIfRoundFinished(players, lastState).catch(()=>{});
-  });
-  destroyFns.push(()=> off(playersRef, 'value', stopPlayers));
-
-  // ---- heartbeat ----
-  const hb = setInterval(()=>{
+  const offPlayers = onValue(playersRef, async (snap)=>{
     if(localDestroyed) return;
-    update(ref(db, `${base}/players/${meKey}`), {
-      connected:true,
-      lastSeenMs: serverNow(),
-      lastSeen: serverTimestamp(),
-    }).catch(()=>{});
-  }, 1500);
-  destroyFns.push(()=> clearInterval(hb));
+    const raw = snap.val() || {};
+    const allPlayers = Object.keys(raw)
+      .map(k => normalizePlayer(raw[k], k))
+      .sort((a,b)=>(a.joinedAtMs||0)-(b.joinedAtMs||0));
 
-  // ---- expose api ----
+    roomFullFlag = allPlayers.length > 2;
+
+    const players = allPlayers.slice(0,2);
+    emitPlayers(players);
+
+    const me = players.find(p => p.key === meKey) || null;
+    const opp = players.find(p => p.key !== meKey) || null;
+    emit('hha:battle-score', {
+      me,
+      opp,
+      leader: (!me || !opp) ? 'tie' : ((me.score > opp.score) ? 'you' : (me.score < opp.score ? 'opp' : 'tie'))
+    });
+
+    const stSnap = await get(stateRef).catch(()=>null);
+    const st = stSnap?.val() || {};
+
+    await maybeStartCountdown(players, st);
+    await markForfeitIfNeeded(players, st);
+    await finalizeIfRoundFinished(players, st);
+  });
+  unsubscribers.push(()=> off(playersRef, 'value', offPlayers));
+
+  // ----- init flow -----
+  await ensureMeta();
+  await ensureRoundIfMissing();
+  await joinPlayer();
+
   return {
     enabled:true,
     room,
     roundId: currentRoundId,
     meKey,
+    pid,
     serverNow,
     setReady,
     syncScore,
     requestRematch,
+    saveRoundReport,
     leave,
     destroy,
+    getRole: ()=> currentRole,
+    isSpectator: ()=> currentRole === 'spectator',
+    getJoinPolicy: ()=> ({
+      role: currentRole,
+      roomFull: roomFullFlag,
+      lateJoin: lateJoinFlag,
+      invalidRoom: invalidRoomFlag
+    }),
   };
 }
