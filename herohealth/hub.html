@@ -1,21 +1,20 @@
 <!-- === /herohealth/hub.html ===
 HeroHealth — Hub (3 Zones) — PRODUCTION
-PATCH v20260306-HUB-PATHFIX-ROOT-LAUNCHERS-r4
-✅ FIX: Use correct root launchers / entry pages
-✅ FIX: Hygiene links pass full query context
-✅ FIX: Exercise links pass full query context
+PATCH v20260306-HUB-PATHFIX-ROOT-LAUNCHERS-r6-HERO-EDITOR
+✅ FIX: Hygiene links use correct root launchers / entries
+✅ FIX: Exercise links use correct root launchers / entries
 ✅ FIX: Handwash -> ./hygiene-vr.html
 ✅ FIX: Brush -> ./brush-vr.html
 ✅ FIX: Bath -> ./bath-vr.html
 ✅ FIX: Clean Object -> ./clean-objects.html
 ✅ FIX: MaskCough -> ./maskcough-vr.html
-✅ FIX: Germ Detective -> ./germ-detective-vr.html
+✅ FIX: Germ Detective -> ./germ-detective.html
 ✅ FIX: Shadow Breaker -> ./shadow-breaker-vr.html
 ✅ FIX: Rhythm Boxer -> ./rhythm-boxer-vr.html
 ✅ FIX: Jump Duck -> ./jump-duck-vr.html
 ✅ FIX: Balance Hold -> ./balance-hold-vr.html
 ✅ FIX: Fitness Planner -> ./fitness-planner/planner.html
-✅ FIX: Groups / Hydration / Plate -> root launchers
+✅ NEW: Hero Editor (nick/xp save)
 ✅ KEEP: GoodJunk launcher + Hero Profile + Card Book + Trophy Shelf
 -->
 <!doctype html>
@@ -446,6 +445,21 @@ PATCH v20260306-HUB-PATHFIX-ROOT-LAUNCHERS-r4
       flex-wrap:wrap;
       align-items:center;
     }
+
+    .editorInput{
+      width:100%;
+      min-height:44px;
+      border-radius:14px;
+      border:1px solid rgba(148,163,184,.22);
+      background:rgba(15,23,42,.46);
+      color:var(--text);
+      padding:10px 12px;
+      font:inherit;
+      font-weight:900;
+    }
+    .editorInput.readonly{
+      background:rgba(2,6,23,.30);
+    }
   </style>
 </head>
 <body>
@@ -473,6 +487,34 @@ PATCH v20260306-HUB-PATHFIX-ROOT-LAUNCHERS-r4
         <button class="btn ghost" id="btnHeroReset" type="button">♻ Reset Hero</button>
       </div>
     </div>
+
+    <section class="card" style="margin-bottom:12px;">
+      <h2>🛠 Hero Editor</h2>
+      <div class="muted">แก้ชื่อ Hero และ XP ของ PID ปัจจุบัน</div>
+
+      <div class="inlineRow" style="margin-top:8px;">
+        <div style="flex:1 1 220px; min-width:220px;">
+          <div class="small" style="margin-bottom:6px;">Hero name</div>
+          <input id="heroNickInput" class="editorInput" type="text" placeholder="เช่น Hero A">
+        </div>
+
+        <div style="width:140px;">
+          <div class="small" style="margin-bottom:6px;">XP</div>
+          <input id="heroXpInput" class="editorInput" type="number" min="0" step="1" placeholder="0">
+        </div>
+
+        <div style="width:110px;">
+          <div class="small" style="margin-bottom:6px;">LV</div>
+          <input id="heroLvlPreview" class="editorInput readonly" type="text" value="1" readonly>
+        </div>
+      </div>
+
+      <div class="inlineRow" style="margin-top:10px;">
+        <button class="btn primary" id="btnHeroSave" type="button">💾 Save Hero</button>
+        <button class="btn ghost" id="btnHeroReload" type="button">↻ Reload Hero</button>
+        <span class="pill"><b>PID</b>: <span id="heroEditorPid">anon</span></span>
+      </div>
+    </section>
 
     <section class="cardBook">
       <div class="cardBookTop">
@@ -887,6 +929,56 @@ PATCH v20260306-HUB-PATHFIX-ROOT-LAUNCHERS-r4
           : 'ทำ zone fitness ให้มี done today เพื่อโชว์ถ้วย';
     }
 
+    // ===== Hero Editor =====
+    const heroNickInput = document.getElementById('heroNickInput');
+    const heroXpInput = document.getElementById('heroXpInput');
+    const heroLvlPreview = document.getElementById('heroLvlPreview');
+    const btnHeroSave = document.getElementById('btnHeroSave');
+    const btnHeroReload = document.getElementById('btnHeroReload');
+    const heroEditorPid = document.getElementById('heroEditorPid');
+
+    function lvlFromXp(xp){
+      xp = Math.max(0, Number(xp) || 0);
+      return Math.max(1, Math.floor(xp / 50) + 1);
+    }
+
+    function renderHeroEditor(){
+      const h = loadHero();
+      if(heroNickInput) heroNickInput.value = h.nick || pid;
+      if(heroXpInput) heroXpInput.value = String(Math.max(0, Number(h.xp) || 0));
+      if(heroLvlPreview) heroLvlPreview.value = String(lvlFromXp(h.xp));
+      if(heroEditorPid) heroEditorPid.textContent = pid;
+    }
+
+    heroXpInput?.addEventListener('input', ()=>{
+      const xp = Math.max(0, Number(heroXpInput.value) || 0);
+      if(heroLvlPreview) heroLvlPreview.value = String(lvlFromXp(xp));
+    });
+
+    btnHeroReload?.addEventListener('click', ()=>{
+      renderHeroEditor();
+      alert('Reload Hero เรียบร้อย ✅');
+    });
+
+    btnHeroSave?.addEventListener('click', ()=>{
+      try{
+        const nick = String(heroNickInput?.value || pid).trim() || pid;
+        const xp = Math.max(0, Number(heroXpInput?.value) || 0);
+        const lvl = lvlFromXp(xp);
+
+        const h = { pid, nick, xp, lvl };
+        saveHero(h);
+        try{ localStorage.setItem(`HHA_HERO_XP:${pid}`, String(xp)); }catch(_){}
+
+        renderHero();
+        renderHeroEditor();
+
+        alert(`บันทึก Hero เรียบร้อย ✅\nNick: ${nick}\nXP: ${xp}\nLV: ${lvl}`);
+      }catch(_){
+        alert('บันทึก Hero ไม่สำเร็จ');
+      }
+    });
+
     // ===== Canonical root launchers / entries =====
     const PATHS = {
       goodjunk:       './goodjunk-launcher.html',
@@ -899,7 +991,7 @@ PATCH v20260306-HUB-PATHFIX-ROOT-LAUNCHERS-r4
       bath:           './bath-vr.html',
       cleanObject:    './clean-objects.html',
       maskCough:      './maskcough-vr.html',
-      germDetective:  './germ-detective-vr.html',
+      germDetective:  './germ-detective.html',
 
       shadowBreaker:  './shadow-breaker-vr.html',
       rhythmBoxer:    './rhythm-boxer-vr.html',
@@ -984,6 +1076,7 @@ PATCH v20260306-HUB-PATHFIX-ROOT-LAUNCHERS-r4
         saveHero(h);
         try{ localStorage.setItem(`HHA_HERO_XP:${pid}`, '0'); }catch(_){}
         renderHero();
+        renderHeroEditor();
         alert('Reset Hero เรียบร้อย ✅');
       }catch(_){}
     };
@@ -1008,6 +1101,7 @@ PATCH v20260306-HUB-PATHFIX-ROOT-LAUNCHERS-r4
 
     function renderAll(){
       renderHero();
+      renderHeroEditor();
       renderCardBook();
       renderTrophyShelf();
     }
