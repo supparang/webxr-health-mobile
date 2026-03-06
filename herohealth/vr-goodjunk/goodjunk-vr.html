@@ -1,10 +1,10 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
 GoodJunkVR — RUN PAGE (PC/Mobile/cVR) — PRODUCTION
-PATCH v20260306d-RUN-ENDSUMMARY-MICRO-MOBILE
-✅ Micro summary for very small screens
-✅ 4 key stats only
-✅ hide detail line on tiny screens
-✅ sticky actions
+PATCH v20260306e-RUN-ENDSUMMARY-HEROCARD-MOBILE
+✅ Hero-card style end summary
+✅ Compact mobile layout
+✅ Sticky actions
+✅ Keeps required IDs for goodjunk.safe.js
 Requires:
 - /herohealth/vr/vr-ui.js
 - /herohealth/vr-goodjunk/goodjunk.safe.js
@@ -116,22 +116,84 @@ Requires:
       overflow:auto; -webkit-overflow-scrolling:touch;
     }
     #endOverlay .panel{
-      width:min(560px,94vw);
+      width:min(620px,94vw);
       max-height:calc(100dvh - 104px - var(--sat) - var(--sab));
       overflow:auto; -webkit-overflow-scrolling:touch;
-      border-radius:20px;
+      border-radius:22px;
       border:1px solid rgba(148,163,184,.18);
-      background:rgba(2,6,23,.76);
+      background:
+        radial-gradient(520px 260px at 18% 0%, rgba(59,130,246,.18), transparent 58%),
+        radial-gradient(520px 260px at 82% 0%, rgba(167,139,250,.14), transparent 56%),
+        rgba(2,6,23,.78);
       box-shadow:0 22px 80px rgba(0,0,0,.55);
       padding:10px 10px 8px;
       text-align:center;
     }
 
-    #endTitle{font-size:18px; font-weight:1100; margin:0; line-height:1.15;}
-    #endSub{margin:5px 0 0 0; color:var(--muted); font-weight:900; line-height:1.28; font-size:11px;}
+    .heroSummary{
+      border-radius:20px;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(15,23,42,.42);
+      padding:12px 10px;
+      box-shadow:0 12px 40px rgba(0,0,0,.24);
+    }
+    .heroTop{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+    .heroBadge{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 10px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.16);
+      background:rgba(2,6,23,.34);
+      color:var(--muted);
+      font-size:12px;
+      font-weight:1000;
+    }
+    .heroBadge b{ color:var(--text); }
+
+    #endTitle{
+      font-size:18px;
+      font-weight:1100;
+      margin:8px 0 0 0;
+      line-height:1.15;
+    }
+    #endSub{
+      margin:5px 0 0 0;
+      color:var(--muted);
+      font-weight:900;
+      line-height:1.28;
+      font-size:11px;
+    }
+
+    .gradeHero{
+      margin-top:10px;
+      display:grid;
+      place-items:center;
+      gap:4px;
+    }
+    .gradeHero .label{
+      font-size:11px;
+      color:var(--muted);
+      font-weight:1000;
+      letter-spacing:.2px;
+    }
+    .gradeHero .gradeBig{
+      font-size:52px;
+      line-height:1;
+      font-weight:1100;
+      color:var(--text);
+      text-shadow:0 10px 32px rgba(255,255,255,.10);
+    }
 
     .endMiniLine{
-      margin-top:7px;
+      margin-top:8px;
       font-size:11px;
       font-weight:900;
       color:var(--muted);
@@ -141,7 +203,7 @@ Requires:
 
     .endGrid{
       display:grid;
-      grid-template-columns:repeat(2, minmax(0,1fr));
+      grid-template-columns:repeat(4, minmax(0,1fr));
       gap:8px;
       margin-top:10px;
     }
@@ -194,12 +256,25 @@ Requires:
       display:none; white-space:pre-wrap;
     }
 
+    @media (max-width: 640px){
+      #endOverlay .panel{
+        width:calc(100vw - 16px);
+      }
+      .endGrid{
+        grid-template-columns:repeat(2, minmax(0,1fr));
+      }
+      .gradeHero .gradeBig{
+        font-size:44px;
+      }
+    }
+
     @media (max-width: 420px){
       #endTitle{font-size:17px;}
       #endSub{font-size:10px;}
       .endPill{min-height:58px; padding:8px 7px;}
       .endPill .k{font-size:9px;}
       .endPill .v{font-size:15px;}
+      .gradeHero .gradeBig{font-size:40px;}
     }
 
     @media (max-width: 380px){
@@ -245,22 +320,32 @@ Requires:
 
   <div id="endOverlay" aria-label="end overlay">
     <div class="panel">
-      <h2 id="endTitle">จบเกม</h2>
-      <p id="endSub">—</p>
+      <div class="heroSummary">
+        <div class="heroTop">
+          <span class="heroBadge"><b>Hero Result</b></span>
+          <span class="heroBadge"><b>view</b>: <span id="uiView">—</span></span>
+        </div>
 
-      <div class="endMiniLine">
-        <b>view</b>: <span id="uiView">—</span>
-        &nbsp;•&nbsp;
-        <b>run</b>: <span id="uiRun">—</span>
-        &nbsp;•&nbsp;
-        <b>diff</b>: <span id="uiDiff">—</span>
+        <h2 id="endTitle">จบเกม</h2>
+        <p id="endSub">—</p>
+
+        <div class="gradeHero">
+          <div class="label">GRADE</div>
+          <div class="gradeBig" id="endGrade">—</div>
+        </div>
+
+        <div class="endMiniLine">
+          <b>run</b>: <span id="uiRun">—</span>
+          &nbsp;•&nbsp;
+          <b>diff</b>: <span id="uiDiff">—</span>
+        </div>
       </div>
 
       <div class="endGrid">
-        <div class="endPill"><div class="k">เกรด</div><div class="v" id="endGrade">—</div></div>
         <div class="endPill"><div class="k">คะแนน</div><div class="v" id="endScore">0</div></div>
         <div class="endPill"><div class="k">Miss</div><div class="v" id="endMiss">0</div></div>
         <div class="endPill"><div class="k">เวลา</div><div class="v" id="endTime">0</div></div>
+        <div class="endPill"><div class="k">สถานะ</div><div class="v">CLEAR</div></div>
       </div>
 
       <div class="endActions">
