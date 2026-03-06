@@ -1,11 +1,10 @@
 // === /webxr-health-mobile/herohealth/germ-detective/germ-detective.js ===
-// Germ Detective CORE — PRODUCTION SAFE (PC/Mobile/cVR) — FINAL + FX + TRICK + COMBO
-// PATCH v20260305-GD-CORE-FINAL-C-FXTRICKCOMBO
+// Germ Detective CORE — PRODUCTION SAFE (PC/Mobile/cVR) — FINAL + FX + TRICK + COMBO + FINALE
+// PATCH v20260305-GD-CORE-FINAL-D-FINALE
 //
-// ✅ Added FX: shockwave / hit ring / burst feel
-// ✅ Added Combo streak: scan/swab/photo/clean chain bonus
-// ✅ Added combo score bonus into final score
-// ✅ Emits: combo_up, combo_break, shockwave, fx_pop
+// ✅ Added Final Surge: last 15–20s highlight 2 best targets
+// ✅ Added Final Clear bonus + finale FX
+// ✅ Emits: final_surge_start, final_surge_hint, final_clear
 // NOTE: No networking / No Apps Script required.
 
 export default function GameApp(opts = {}) {
@@ -81,7 +80,11 @@ export default function GameApp(opts = {}) {
 
     // Combo
     comboWindowMs: 3200,
-    comboMax: 12
+    comboMax: 12,
+
+    // Finale
+    finaleEnabled: true,
+    finaleWindowSec: 18
   }, opts || {});
 
   // ---------- RNG ----------
@@ -108,20 +111,18 @@ export default function GameApp(opts = {}) {
   // ---------- event log ----------
   const EVENT_LOG = [];
   function logEvt(name, payload){
-    if(EVENT_LOG.length > 2000) EVENT_LOG.shift();
+    if(EVENT_LOG.length > 2200) EVENT_LOG.shift();
     EVENT_LOG.push({
       tIso: isoNow(),
       ms: Math.round(nowMs()),
       name: String(name||''),
       payloadJson: safeJson(payload),
-
       pid: cfg.pid,
       run: cfg.run,
       diff: cfg.diff,
       scene: cfg.scene,
       view: cfg.view,
       seed: String(cfg.seed||''),
-
       studyId: CTX.studyId,
       phase: CTX.phase,
       conditionGroup: CTX.conditionGroup,
@@ -216,41 +217,27 @@ export default function GameApp(opts = {}) {
     running:false,
     paused:false,
     ended:false,
-
     timeTotal: clamp(cfg.timeSec, 20, 600),
     timeLeft: clamp(cfg.timeSec, 20, 600),
-
     tool:'uv',
     stage:1,
     phase:'investigate',
-
     budget: { total: budgetByDiff(cfg.diff), spent: 0, actions: [] },
-
     hotspots: [],
     evidence: [],
     chain: { edges: [], inferred: [], truthPairs: [] },
-
     coach: { enabled:true, cooldownMs:6500, lastAt:0, lastKey:'' },
-
-    trick: {
-      fired:false,
-      triggerLeft: 0,
+    trick: { fired:false, triggerLeft: 0, targets: [], spike: 0 },
+    combo: { streak: 0, best: 0, lastAt: 0, bonus: 0, breaks: 0 },
+    finale: {
+      armed:false,
+      started:false,
+      cleared:false,
       targets: [],
-      spike: 0
+      bonus: 0
     },
-
-    // Combo
-    combo: {
-      streak: 0,
-      best: 0,
-      lastAt: 0,
-      bonus: 0,
-      breaks: 0
-    },
-
     score: null,
     _autoReportFired:false,
-
     _timer:null,
     _tick:null
   };
@@ -359,19 +346,20 @@ export default function GameApp(opts = {}) {
     }catch{}
   }
 
-  function shockwave(x, y, kind='cyan'){
+  function shockwave(x, y, kind='cyan', big=false){
     if(!cfg.fx) return;
     ensureFxLayer();
     if(!FX_LAYER) return;
 
     const ring = el('div');
+    const size = big ? 26 : 18;
     ring.style.position = 'fixed';
     ring.style.left = `${Math.round(x)}px`;
     ring.style.top  = `${Math.round(y)}px`;
-    ring.style.width = '18px';
-    ring.style.height = '18px';
-    ring.style.marginLeft = '-9px';
-    ring.style.marginTop  = '-9px';
+    ring.style.width = `${size}px`;
+    ring.style.height = `${size}px`;
+    ring.style.marginLeft = `${-size/2}px`;
+    ring.style.marginTop  = `${-size/2}px`;
     ring.style.borderRadius = '999px';
     ring.style.border = '3px solid rgba(34,211,238,.55)';
     ring.style.boxShadow = '0 0 16px rgba(34,211,238,.18)';
@@ -394,23 +382,35 @@ export default function GameApp(opts = {}) {
       ring.animate(
         [
           { transform:'scale(.4)', opacity:0.95 },
-          { transform:'scale(2.4)', opacity:0.12 },
-          { transform:'scale(3.1)', opacity:0 }
+          { transform:`scale(${big?3.4:2.4})`, opacity:0.12 },
+          { transform:`scale(${big?4.2:3.1})`, opacity:0 }
         ],
-        { duration: 360, easing:'ease-out' }
+        { duration: big ? 520 : 360, easing:'ease-out' }
       );
     }catch{}
-    setTimeout(()=>{ try{ ring.remove(); }catch{} }, 420);
+    setTimeout(()=>{ try{ ring.remove(); }catch{} }, big ? 580 : 420);
 
-    emitHHA('shockwave', { x:Math.round(x), y:Math.round(y), kind });
+    emitHHA('shockwave', { x:Math.round(x), y:Math.round(y), kind, big: big?1:0 });
   }
 
-  function shockwaveNearEl(node, kind){
+  function shockwaveNearEl(node, kind, big=false){
     try{
       if(!node || !node.getBoundingClientRect) return;
       const r = node.getBoundingClientRect();
-      shockwave(r.left + r.width/2, r.top + r.height/2, kind);
+      shockwave(r.left + r.width/2, r.top + r.height/2, kind, big);
     }catch{}
+  }
+
+  function finaleBlast(){
+    if(!cfg.fx) return;
+    ensureFxLayer();
+    const cx = Math.round(WIN.innerWidth/2);
+    const cy = Math.round(WIN.innerHeight/2);
+    shockwave(cx, cy, 'good', true);
+    setTimeout(()=> shockwave(cx, cy, 'cyan', true), 90);
+    setTimeout(()=> shockwave(cx, cy, 'good', true), 180);
+    popText('FINAL CLEAR!', cx, cy-20, 'good');
+    shake(260);
   }
 
   // ---------- combo ----------
@@ -431,14 +431,11 @@ export default function GameApp(opts = {}) {
     STATE.combo.lastAt = t;
     STATE.combo.best = Math.max(STATE.combo.best, STATE.combo.streak);
 
-    // bonus grows slowly, fair
     let add = 0;
     if(type === 'swab' && STATE.combo.streak >= 2) add = 2;
     else if(type === 'clean' && STATE.combo.streak >= 2) add = 3;
     else if(type === 'uv' && STATE.combo.streak >= 3) add = 1;
     else if(type === 'cam' && STATE.combo.streak >= 3) add = 1;
-
-    // chain bonus if inferred chain already exists
     if((STATE.chain.inferred||[]).length >= 3 && STATE.combo.streak >= 3) add += 2;
 
     if(add > 0){
@@ -452,14 +449,18 @@ export default function GameApp(opts = {}) {
       });
       if(cfg.fx) popNearEl(findHotspotEl(target), `COMBO x${STATE.combo.streak}`, 'good');
     }
+
+    refreshPills();
   }
 
   function comboReset(reason='reset'){
     if(STATE.combo.streak >= 2){
+      STATE.combo.breaks += 1;
       emitHHA('combo_break', { streak: STATE.combo.streak, reason });
     }
     STATE.combo.streak = 0;
     STATE.combo.lastAt = 0;
+    refreshPills();
   }
 
   function findHotspotEl(targetName){
@@ -470,9 +471,7 @@ export default function GameApp(opts = {}) {
   // ---------- build hotspots ----------
   function layoutPositions(n){
     const pos=[];
-    for(let i=0;i<n;i++){
-      pos.push({ x: 8 + RNG()*84, y: 18 + RNG()*70 });
-    }
+    for(let i=0;i<n;i++) pos.push({ x: 8 + RNG()*84, y: 18 + RNG()*70 });
     return pos;
   }
   function buildHotspots(){
@@ -521,10 +520,7 @@ export default function GameApp(opts = {}) {
     if($('gdStyle')) return;
     const st = el('style'); st.id='gdStyle';
     st.textContent = `
-      :root{
-        --bg:#020617; --panel:rgba(2,6,23,.72); --stroke:rgba(148,163,184,.18);
-        --text:#e5e7eb; --muted:#94a3b8; --good:#22c55e; --warn:#f59e0b; --cyan:#22d3ee;
-      }
+      :root{--bg:#020617;--panel:rgba(2,6,23,.72);--stroke:rgba(148,163,184,.18);--text:#e5e7eb;--muted:#94a3b8;--good:#22c55e;--warn:#f59e0b;--cyan:#22d3ee}
       .gd-topbar{position:sticky;top:0;z-index:50;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;padding:8px 10px;background:rgba(2,6,23,.82);border-bottom:1px solid rgba(148,163,184,.16);backdrop-filter:blur(8px)}
       .pill{border:1px solid var(--stroke);background:rgba(255,255,255,.02);border-radius:999px;padding:6px 10px;font-size:12px;font-weight:900;color:rgba(229,231,235,.92)}
       .btn{appearance:none;border:1px solid var(--stroke);background:rgba(255,255,255,.03);color:rgba(229,231,235,.96);border-radius:12px;padding:10px 12px;font-weight:1000;cursor:pointer}
@@ -546,6 +542,7 @@ export default function GameApp(opts = {}) {
       .gd-spot .sub{display:block;font-size:11px;font-weight:900;opacity:.78;margin-top:2px}
       .gd-spot.hot{box-shadow:0 0 0 2px rgba(244,63,94,.28),0 18px 40px rgba(0,0,0,.25)}
       .gd-spot.trick{box-shadow:0 0 0 2px rgba(245,158,11,.28),0 18px 40px rgba(0,0,0,.25)}
+      .gd-spot.finale{box-shadow:0 0 0 3px rgba(34,197,94,.35),0 18px 44px rgba(0,0,0,.28)}
       .gd-spot.cleaned{outline:2px solid rgba(34,197,94,.55)}
       .gd-spot.verified{outline:2px solid rgba(34,211,238,.55)}
       html[data-view="cvr"] .gd-spot{pointer-events:none}
@@ -669,6 +666,7 @@ export default function GameApp(opts = {}) {
         <span class="pill" id="gdPillTool">tool: UV</span>
         <span class="pill" id="gdPillTrick">trick: armed</span>
         <span class="pill" id="gdPillCombo">combo: x0</span>
+        <span class="pill" id="gdPillFinale">finale: armed</span>
       </div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
         <button class="btn" id="gdPause" type="button">⏸ Pause</button>
@@ -740,7 +738,7 @@ export default function GameApp(opts = {}) {
     $('gdPause').onclick = ()=> togglePause();
     $('gdHelp').onclick = ()=> showCoach(
       'วิธีเล่น: UV → Swab → ต่อ chain → Clean ลด risk',
-      'รักษา combo ให้ต่อเนื่อง จะได้โบนัสเพิ่มและ Rank พุ่ง'
+      'ช่วงท้ายมี Final Surge — ฟัง AI Coach แล้วปิด 2 จุดสุดท้ายให้ทัน'
     );
     $('gdSubmit').onclick = ()=> end('submitted');
   }
@@ -805,8 +803,8 @@ export default function GameApp(opts = {}) {
     h.el.classList.toggle('cleaned', !!h.cleaned);
     h.el.classList.toggle('verified', !!h.verified);
     h.el.classList.toggle('hot', (!h.cleaned) && h.risk >= 65);
-    const isTrick = STATE.trick.targets.includes(h.name) && !h.cleaned && !STATE.trick.fired;
-    h.el.classList.toggle('trick', isTrick);
+    h.el.classList.toggle('trick', STATE.trick.targets.includes(h.name) && !h.cleaned && !STATE.trick.fired);
+    h.el.classList.toggle('finale', STATE.finale.targets.includes(h.name) && !h.cleaned && STATE.finale.started && !STATE.finale.cleared);
     const sub = h.el.querySelector('.sub');
     if(sub) sub.textContent = spotSubline(h);
   }
@@ -855,12 +853,7 @@ export default function GameApp(opts = {}) {
       applySpotClass(h);
       emitHHA('hotspot_uv', { target:h.name, risk:h.risk });
       comboStep('uv', h.name);
-
-      if(cfg.fx){
-        pulse(h.el);
-        shockwaveNearEl(h.el, 'cyan');
-        popNearEl(h.el, '+UV', 'cyan');
-      }
+      if(cfg.fx){ pulse(h.el); shockwaveNearEl(h.el, 'cyan'); popNearEl(h.el, '+UV', 'cyan'); }
 
     } else if(STATE.tool === 'swab'){
       h.swabbed = true;
@@ -870,19 +863,12 @@ export default function GameApp(opts = {}) {
         h.risk = clamp(h.risk + 10 + RNG()*6, 0, 100);
         addEvidence({ type:'sample', target:h.name, info:'Swab ยืนยัน: เสี่ยงจริง', method, tool:'swab' });
         comboStep('swab', h.name);
-        if(cfg.fx){
-          pulse(h.el);
-          shockwaveNearEl(h.el, 'good');
-          popNearEl(h.el, 'CONFIRM', 'good');
-        }
+        if(cfg.fx){ pulse(h.el); shockwaveNearEl(h.el, 'good'); popNearEl(h.el, 'CONFIRM', 'good'); }
       }else{
         h.risk = clamp(h.risk - (4 + RNG()*6), 0, 100);
         addEvidence({ type:'sample', target:h.name, info:'Swab: ไม่พบเชื้อ (อาจ false negative)', method, tool:'swab' });
         comboReset('swab_negative');
-        if(cfg.fx){
-          shockwaveNearEl(h.el, 'warn');
-          popNearEl(h.el, 'NEG', 'warn');
-        }
+        if(cfg.fx){ shockwaveNearEl(h.el, 'warn'); popNearEl(h.el, 'NEG', 'warn'); }
       }
       applySpotClass(h);
       emitHHA('hotspot_swab', { target:h.name, verified: h.verified?1:0, risk:h.risk });
@@ -893,12 +879,7 @@ export default function GameApp(opts = {}) {
       applySpotClass(h);
       emitHHA('hotspot_cam', { target:h.name });
       comboStep('cam', h.name);
-
-      if(cfg.fx){
-        pulse(h.el);
-        shockwaveNearEl(h.el, 'cyan');
-        popNearEl(h.el, '📸', 'cyan');
-      }
+      if(cfg.fx){ pulse(h.el); shockwaveNearEl(h.el, 'cyan'); popNearEl(h.el, '📸', 'cyan'); }
 
     } else if(STATE.tool === 'clean'){
       if(STATE.phase !== 'intervene' && STATE.stage < 3){
@@ -913,11 +894,7 @@ export default function GameApp(opts = {}) {
         showCoach('งบไม่พอ!', `เหลือ ${left} แต่ต้องใช้ ${cost}`);
         emitHHA('clean_failed', { target:h.name, cost, left });
         comboReset('clean_no_budget');
-        if(cfg.fx){
-          shake(cfg.fxShakeMs);
-          shockwaveNearEl(h.el, 'bad');
-          popNearEl(h.el, 'NO $', 'bad');
-        }
+        if(cfg.fx){ shake(cfg.fxShakeMs); shockwaveNearEl(h.el, 'bad'); popNearEl(h.el, 'NO $', 'bad'); }
         return;
       }
       const before = Math.round(h.risk);
@@ -938,14 +915,17 @@ export default function GameApp(opts = {}) {
         popNearEl(h.el, `-${red}`, 'good');
         if(before >= 75) shake(cfg.fxShakeMs);
       }
+
+      maybeFinalClear();
     }
 
     updateMissionUI();
     maybeFireTrick();
+    maybeStartFinale();
     coachTick();
   }
 
-  // ---------- chain inference ----------
+  // ---------- chain ----------
   function addEdge(a,b,w){
     if(!a||!b||a===b) return;
     if(STATE.chain.edges.some(e=>e.a===a && e.b===b)) return;
@@ -1009,7 +989,8 @@ export default function GameApp(opts = {}) {
     const importantUnscanned = STATE.hotspots.filter(h=>h.importance>=4 && !h.scanned).length;
     const pressure = 1 - (STATE.timeLeft/STATE.timeTotal);
     const trickPenalty = (STATE.trick.fired ? 0 : 6);
-    return clamp(Math.round(avg*0.7 + importantUnscanned*8 + pressure*18 + trickPenalty), 0, 100);
+    const finalePenalty = (STATE.finale.started && !STATE.finale.cleared ? 10 : 0);
+    return clamp(Math.round(avg*0.7 + importantUnscanned*8 + pressure*18 + trickPenalty + finalePenalty), 0, 100);
   }
   function nextBestAction(){
     const cand = STATE.hotspots.filter(h=>!h.cleaned);
@@ -1020,6 +1001,15 @@ export default function GameApp(opts = {}) {
     });
     return cand[0] ? cand[0].name : null;
   }
+  function topFinalTargets(n=2){
+    const cand = STATE.hotspots.filter(h=>!h.cleaned).slice().sort((a,b)=>{
+      const sa = b.risk + b.importance*12 + (b.verified?8:0);
+      const sb = a.risk + a.importance*12 + (a.verified?8:0);
+      return sa - sb;
+    });
+    return cand.slice(0, n);
+  }
+
   function coachTick(){
     if(!STATE.coach.enabled || STATE.ended) return;
     const t = nowMs();
@@ -1027,6 +1017,21 @@ export default function GameApp(opts = {}) {
 
     const risk = computeRiskScore();
     const nba  = nextBestAction();
+
+    // Finale override coach
+    if(STATE.finale.started && !STATE.finale.cleared){
+      const top2 = topFinalTargets(2);
+      const names = top2.map(h=>h.name);
+      const box = $('gdCoachBox');
+      const rp = $('gdRiskPill');
+      if(rp) rp.textContent = `risk: ${risk}`;
+      if(box) box.textContent = `Final Surge → ${names.join(' + ')} • time=${STATE.timeLeft}s • combo=x${STATE.combo.streak}`;
+      showCoach('FINAL SURGE!', `2 จุดสุดท้ายที่คุ้มสุด: ${names.join(' และ ')}`);
+      emitHHA('final_surge_hint', { targets:names, timeLeft:STATE.timeLeft, riskScore:risk });
+      STATE.coach.lastAt = t;
+      STATE.coach.lastKey = `finale|${names.join('|')}|${STATE.timeLeft}`;
+      return;
+    }
 
     const un = STATE.hotspots
       .filter(h=>h.importance>=4 && !h.scanned)
@@ -1122,6 +1127,76 @@ export default function GameApp(opts = {}) {
     showCoach('TRICK! 🦠 Contamination Spike!', `จุดเสี่ยงพุ่ง: ${targets.join(', ')} • รีบ Swab/ Clean ให้คุ้มงบ`);
   }
 
+  // ---------- Finale ----------
+  function armFinale(){
+    STATE.finale.armed = true;
+    STATE.finale.started = false;
+    STATE.finale.cleared = false;
+    STATE.finale.targets = [];
+    STATE.finale.bonus = 0;
+  }
+
+  function maybeStartFinale(){
+    if(!cfg.finaleEnabled) return;
+    if(!STATE.finale.armed || STATE.finale.started || STATE.ended) return;
+    if(STATE.stage < 3) return;
+    if(STATE.timeLeft > clamp(cfg.finaleWindowSec, 10, 40)) return;
+
+    STATE.finale.started = true;
+    STATE.finale.targets = topFinalTargets(2).map(h=>h.name);
+    refreshPills();
+
+    STATE.finale.targets.forEach(name=>{
+      const h = STATE.hotspots.find(x=>x.name===name);
+      if(h) applySpotClass(h);
+    });
+
+    emitHHA('final_surge_start', {
+      targets: STATE.finale.targets.slice(),
+      timeLeft: STATE.timeLeft
+    });
+    emitLabels('finale', {
+      targets: STATE.finale.targets.slice(),
+      timeLeft: STATE.timeLeft
+    });
+
+    showCoach('FINAL SURGE! ⚡', `2 จุดสุดท้ายที่คุ้มสุด: ${STATE.finale.targets.join(' และ ')}`);
+    if(cfg.fx){
+      shake(220);
+      const top = topFinalTargets(2);
+      top.forEach(h=>{
+        if(h.el){
+          shockwaveNearEl(h.el, 'good', true);
+          popNearEl(h.el, 'FINAL!', 'good');
+        }
+      });
+    }
+  }
+
+  function maybeFinalClear(){
+    if(!STATE.finale.started || STATE.finale.cleared) return;
+    const ok = STATE.finale.targets.length
+      && STATE.finale.targets.every(name=>{
+        const h = STATE.hotspots.find(x=>x.name===name);
+        return !!(h && h.cleaned);
+      });
+
+    if(!ok) return;
+
+    STATE.finale.cleared = true;
+    STATE.finale.bonus = 12;
+    refreshPills();
+
+    emitHHA('final_clear', {
+      targets: STATE.finale.targets.slice(),
+      bonus: STATE.finale.bonus,
+      timeLeft: STATE.timeLeft
+    });
+
+    if(cfg.fx) finaleBlast();
+    showCoach('FINAL CLEAR! ✅', `เคลียร์ 2 จุดสุดท้ายสำเร็จ • โบนัส +${STATE.finale.bonus}`);
+  }
+
   // ---------- mission UI ----------
   function refreshPills(){
     const toolTxt = (STATE.tool==='uv'?'UV':STATE.tool==='swab'?'Swab':STATE.tool==='cam'?'Camera':'Clean');
@@ -1132,13 +1207,16 @@ export default function GameApp(opts = {}) {
     const p3 = $('gdPillTool');  if(p3) p3.textContent = `tool: ${toolTxt}`;
     const mp = $('gdMissionPill'); if(mp) mp.textContent = m;
     const tp = $('gdPillTrick');
-    if(tp){
-      tp.textContent = cfg.trickEnabled
-        ? (STATE.trick.fired ? 'trick: fired' : `trick: armed@≤${STATE.trick.triggerLeft}s`)
-        : 'trick: off';
-    }
+    if(tp) tp.textContent = cfg.trickEnabled ? (STATE.trick.fired ? 'trick: fired' : `trick: armed@≤${STATE.trick.triggerLeft}s`) : 'trick: off';
     const cp = $('gdPillCombo');
     if(cp) cp.textContent = `combo: x${STATE.combo.streak}`;
+    const fp = $('gdPillFinale');
+    if(fp){
+      fp.textContent = !cfg.finaleEnabled ? 'finale: off'
+        : STATE.finale.cleared ? 'finale: clear'
+        : STATE.finale.started ? `finale: live@${STATE.timeLeft}s`
+        : `finale: armed@≤${clamp(cfg.finaleWindowSec,10,40)}s`;
+    }
   }
 
   function updateTimerUI(){
@@ -1193,6 +1271,7 @@ export default function GameApp(opts = {}) {
     box.appendChild(mkItem(`Stage 3: Clean ลด risk เฉลี่ย ≤ ${bossTarget} (ตอนนี้ ${bossScore})`));
     box.appendChild(mkItem(`Combo: x${STATE.combo.streak} • best x${STATE.combo.best} • bonus ${STATE.combo.bonus}`));
     box.appendChild(mkItem(`Trick: contamination 1 ครั้ง/รอบ (${STATE.trick.fired?'เกิดแล้ว ✅':'ยังไม่เกิด…'})`));
+    box.appendChild(mkItem(`Finale: ${STATE.finale.cleared ? `ผ่านแล้ว ✅ (+${STATE.finale.bonus})` : STATE.finale.started ? `กำลังลุย → ${STATE.finale.targets.join(', ')}` : `จะเริ่มเมื่อเหลือ ≤ ${clamp(cfg.finaleWindowSec,10,40)}s`}`));
 
     if(STATE.stage===1 && warmDone >= warmNeed){
       setStage(2);
@@ -1203,6 +1282,9 @@ export default function GameApp(opts = {}) {
       setPhase('intervene');
       showCoach('เข้าสู่ Boss Stage!', 'ใช้ Clean แบบคุ้มงบ');
     }
+
+    maybeStartFinale();
+
     if(STATE.stage===3 && bossDone){
       setPhase('report');
       showCoach('ผ่าน Boss แล้ว! ✅', cfg.autoReportOnBossClear ? 'กำลังสรุปผลอัตโนมัติ…' : 'กด “ส่งรายงาน”');
@@ -1213,7 +1295,7 @@ export default function GameApp(opts = {}) {
     }
   }
 
-  // ---------- shoot support ----------
+  // ---------- shoot ----------
   function hotspotFromPoint(x,y,lockPx){
     let elAt=null;
     try{ elAt = DOC.elementFromPoint(x,y); }catch{}
@@ -1289,14 +1371,15 @@ export default function GameApp(opts = {}) {
     const bossOk = avgEnd <= bossTargetByDiff(cfg.diff);
     const missionBonus = (warmOk?6:0) + (trickOk?10:0) + (bossOk?14:0);
 
-    // ✅ combo bonus: capped and fair
     const comboScore = Math.round(clamp(
       Math.min(STATE.combo.best * 2, 14) + Math.min(STATE.combo.bonus, 18),
       0, 24
     ));
 
-    const base = accScore*0.28 + chainScore*0.24 + interventionScore*0.24 + speedScore*0.16;
-    const final = Math.round(clamp(base + missionBonus + comboScore, 0, 100));
+    const finalClearBonus = STATE.finale.cleared ? STATE.finale.bonus : 0;
+
+    const base = accScore*0.27 + chainScore*0.23 + interventionScore*0.24 + speedScore*0.14;
+    const final = Math.round(clamp(base + missionBonus + comboScore + finalClearBonus, 0, 100));
     const rank  = final>=90?'S':final>=80?'A':final>=70?'B':final>=60?'C':'D';
 
     const score = {
@@ -1307,6 +1390,7 @@ export default function GameApp(opts = {}) {
       intervention:{score:interventionScore,avgRiskStart:avgStart,avgRiskEnd:avgEnd,budgetSpent:STATE.budget.spent,budgetLeft:budgetLeft()},
       mission:{warmOk,trickOk,bossOk,bonus:missionBonus},
       combo:{best:STATE.combo.best, bonus:STATE.combo.bonus, score:comboScore, breaks:STATE.combo.breaks},
+      finale:{started:STATE.finale.started, cleared:STATE.finale.cleared, bonus:finalClearBonus, targets:STATE.finale.targets.slice()},
       seed:String(cfg.seed||''),
       ctx:Object.assign({ pid:cfg.pid, run:cfg.run, diff:cfg.diff, scene:cfg.scene, view:cfg.view }, CTX)
     };
@@ -1324,6 +1408,7 @@ export default function GameApp(opts = {}) {
     const speedPct = score.speed.timeTotal ? (score.speed.timeLeft/score.speed.timeTotal) : 0;
     if(speedPct >= 0.35) badges.push({ id:'speed', label:'⚡ Speed Runner' });
     if(score.combo.best >= 6) badges.push({ id:'combo', label:'🔥 Combo Brain' });
+    if(score.finale.cleared) badges.push({ id:'finale', label:'🚀 Final Closer' });
     return badges;
   }
 
@@ -1345,14 +1430,14 @@ export default function GameApp(opts = {}) {
 
     $('gdResFinal').textContent = String(score.final);
     $('gdResChain').textContent = score.chain.chain || '-';
-    $('gdResRisk').textContent  = `avgRisk: ${score.intervention.avgRiskEnd} (start ${score.intervention.avgRiskStart}) • budgetLeft ${score.intervention.budgetLeft} • combo ${score.combo.score}`;
-    $('gdResMission').textContent = `Mission: Warm=${score.mission.warmOk?'✅':'❌'} Trick=${score.mission.trickOk?'✅':'❌'} Boss=${score.mission.bossOk?'✅':'❌'} • bonus +${score.mission.bonus} • combo +${score.combo.score}`;
+    $('gdResRisk').textContent  = `avgRisk: ${score.intervention.avgRiskEnd} (start ${score.intervention.avgRiskStart}) • budgetLeft ${score.intervention.budgetLeft} • combo ${score.combo.score} • finale +${score.finale.bonus}`;
+    $('gdResMission').textContent = `Mission: Warm=${score.mission.warmOk?'✅':'❌'} Trick=${score.mission.trickOk?'✅':'❌'} Boss=${score.mission.bossOk?'✅':'❌'} • bonus +${score.mission.bonus} • combo +${score.combo.score} • finale +${score.finale.bonus}`;
 
     $('gdResAcc').textContent = String(score.accuracy.score);
     $('gdResAccSub').textContent = `TP ${score.accuracy.tp} FP ${score.accuracy.fp} FN ${score.accuracy.fn} • P ${score.accuracy.precision} R ${score.accuracy.recall}`;
 
     $('gdResInt').textContent = String(score.intervention.score);
-    $('gdResIntSub').textContent = `spent ${score.intervention.budgetSpent} • left ${score.intervention.budgetLeft} • combo best x${score.combo.best}`;
+    $('gdResIntSub').textContent = `spent ${score.intervention.budgetSpent} • left ${score.intervention.budgetLeft} • finale ${score.finale.cleared?'clear':'-'} `;
 
     $('gdResChainScore').textContent = String(score.chain.score);
     $('gdResChainSub').textContent = `match ${score.chain.hit}/${score.chain.truthPairs} • breaks ${score.combo.breaks}`;
@@ -1368,6 +1453,7 @@ export default function GameApp(opts = {}) {
       {id:'budget', label:'💰 Budget Hero'},
       {id:'speed', label:'⚡ Speed Runner'},
       {id:'combo', label:'🔥 Combo Brain'},
+      {id:'finale', label:'🚀 Final Closer'},
     ];
     const on = new Set((score.badges||[]).map(b=>b.id));
     all.forEach(b=>{
@@ -1399,6 +1485,7 @@ export default function GameApp(opts = {}) {
       'interventionScore','avgRiskStart','avgRiskEnd','budgetSpent','budgetLeft',
       'missionWarm','missionTrick','missionBoss','missionBonus',
       'comboBest','comboBonus','comboScore','comboBreaks',
+      'finaleStarted','finaleCleared','finaleBonus','finaleTargets',
       'badges'
     ]);
     rows.push([
@@ -1411,6 +1498,7 @@ export default function GameApp(opts = {}) {
       score.intervention.score,score.intervention.avgRiskStart,score.intervention.avgRiskEnd,score.intervention.budgetSpent,score.intervention.budgetLeft,
       score.mission.warmOk?1:0,score.mission.trickOk?1:0,score.mission.bossOk?1:0,score.mission.bonus,
       score.combo.best,score.combo.bonus,score.combo.score,score.combo.breaks,
+      score.finale.started?1:0,score.finale.cleared?1:0,score.finale.bonus,(score.finale.targets||[]).join('|'),
       (score.badges||[]).map(b=>b.id).join('|')
     ]);
 
@@ -1477,7 +1565,10 @@ export default function GameApp(opts = {}) {
       trick: cfg.trickEnabled ? (STATE.trick.fired?'fired':'armed') : 'off',
       comboStreak: STATE.combo.streak,
       comboBest: STATE.combo.best,
-      comboBonus: STATE.combo.bonus
+      comboBonus: STATE.combo.bonus,
+      finaleStarted: STATE.finale.started?1:0,
+      finaleCleared: STATE.finale.cleared?1:0,
+      finaleTargets: STATE.finale.targets.slice()
     }, { pid:cfg.pid, run:cfg.run, diff:cfg.diff, scene:cfg.scene, view:cfg.view, seed:String(cfg.seed||'') }, CTX);
 
     try{ WIN.dispatchEvent(new CustomEvent('hha:features_1s', { detail: feat })); }catch{}
@@ -1497,10 +1588,8 @@ export default function GameApp(opts = {}) {
     STATE._timer = setInterval(()=>{
       if(!STATE.running || STATE.paused || STATE.ended) return;
 
-      // combo expires if too long without actions
       if(STATE.combo.streak > 0 && (nowMs() - STATE.combo.lastAt) > clamp(cfg.comboWindowMs, 1000, 8000)){
         comboReset('timeout');
-        refreshPills();
       }
 
       STATE.timeLeft = Math.max(0, STATE.timeLeft - 1);
@@ -1508,7 +1597,9 @@ export default function GameApp(opts = {}) {
       emitFeatures();
       updateMissionUI();
       maybeFireTrick();
+      maybeStartFinale();
       coachTick();
+
       if(STATE.timeLeft <= 0) end('timeup');
     }, 1000);
 
@@ -1579,11 +1670,13 @@ export default function GameApp(opts = {}) {
     STATE.score = null;
     STATE._autoReportFired = false;
     STATE.combo = { streak:0, best:0, lastAt:0, bonus:0, breaks:0 };
+    STATE.finale = { armed:false, started:false, cleared:false, targets:[], bonus:0 };
 
     EVENT_LOG.length = 0;
 
     buildHotspots();
     armTrick();
+    armFinale();
     renderHotspots();
     refreshPills();
     updateTimerUI();
@@ -1592,13 +1685,14 @@ export default function GameApp(opts = {}) {
     updateMissionUI();
 
     startLoops();
-    showCoach(sameSeed?'Same Seed ✅':'Retry ✅', 'รักษา combo ให้ต่อเนื่อง แล้ว Rank จะพุ่ง');
+    showCoach(sameSeed?'Same Seed ✅':'Retry ✅', 'เร่ง combo แล้วปิด Final Surge ให้ทัน');
   }
 
   // ---------- init ----------
   function init(){
     buildHotspots();
     armTrick();
+    armFinale();
     buildUI();
 
     if(cfg.view === 'cvr' || cfg.view === 'cardboard'){
@@ -1647,8 +1741,8 @@ export default function GameApp(opts = {}) {
     });
 
     startLoops();
-    showCoach('คดีเริ่มแล้ว! 🦠', 'มี FX + Trick + Combo แล้ว ลุยให้เดือดได้เลย');
-    emitHHA('boot_core', { ok:1, fx: cfg.fx?1:0, trick: cfg.trickEnabled?1:0, combo:1 });
+    showCoach('คดีเริ่มแล้ว! 🦠', 'มี Trick + Combo + Final Surge แล้ว ลุยให้สุด');
+    emitHHA('boot_core', { ok:1, fx: cfg.fx?1:0, trick: cfg.trickEnabled?1:0, combo:1, finale: cfg.finaleEnabled?1:0 });
   }
 
   // ---------- public API ----------
