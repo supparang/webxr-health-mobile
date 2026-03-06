@@ -1,314 +1,669 @@
 <!-- === /herohealth/goodjunk-board.html ===
-HeroHealth • GoodJunk Big Screen Board
-FULL v20260306-BIGSCREEN-BOARD
+HeroHealth • GoodJunk Live Board
+PATCH v20260306-GJ-BOARD-FULL
+✅ Correct root path uses ./firebase-config.js
+✅ Spectator / classroom display board
+✅ Fullscreen-ready scoreboard
+✅ Safe realtime Firebase fallback
 -->
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>GoodJunk Big Screen Board</title>
+  <title>GoodJunk — Live Board</title>
   <meta name="color-scheme" content="dark light" />
+  <link rel="icon" href="./favicon.ico" />
+
   <style>
     :root{
-      --bg1:#020617; --bg2:#0b1226;
-      --text:#f8fafc; --muted:#94a3b8;
-      --good:#22c55e; --warn:#f59e0b; --bad:#ef4444; --blue:#3b82f6;
+      --bg1:#020617;
+      --bg2:#0f172a;
+      --panel:rgba(2,6,23,.70);
+      --panel2:rgba(15,23,42,.74);
       --stroke:rgba(148,163,184,.18);
+      --text:#e5e7eb;
+      --muted:#94a3b8;
+      --good:#22c55e;
+      --warn:#f59e0b;
+      --danger:#ef4444;
+      --cyan:#22d3ee;
+      --gold:#fbbf24;
+      --silver:#cbd5e1;
+      --bronze:#fdba74;
+      --shadow:0 20px 60px rgba(0,0,0,.30);
+
+      --sat: env(safe-area-inset-top, 0px);
+      --sar: env(safe-area-inset-right, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
     }
-    html,body{height:100%; margin:0;}
-    body{
+
+    *{ box-sizing:border-box; }
+    html,body{
+      margin:0;
+      width:100%;
+      min-height:100%;
       background:
-        radial-gradient(1200px 700px at 20% 10%, rgba(59,130,246,.14), transparent 55%),
-        radial-gradient(1000px 600px at 85% 15%, rgba(34,197,94,.10), transparent 55%),
+        radial-gradient(1400px 900px at 50% -10%, rgba(34,211,238,.10), transparent 55%),
         linear-gradient(180deg, var(--bg1), var(--bg2));
       color:var(--text);
-      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", Arial;
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", sans-serif;
+      overflow-x:hidden;
+    }
+
+    .wrap{
+      width:min(1440px, calc(100vw - 32px));
+      margin:0 auto;
+      padding:
+        calc(18px + var(--sat))
+        calc(16px + var(--sar))
+        calc(18px + var(--sab))
+        calc(16px + var(--sal));
+    }
+
+    .top{
+      display:grid;
+      grid-template-columns:1.1fr .9fr;
+      gap:16px;
+      margin-bottom:16px;
+    }
+
+    .card{
+      background:linear-gradient(180deg, rgba(15,23,42,.78), rgba(2,6,23,.72));
+      border:1px solid var(--stroke);
+      border-radius:28px;
+      box-shadow:var(--shadow);
       overflow:hidden;
     }
-    .wrap{
-      height:100%;
-      display:grid;
-      grid-template-rows:auto auto 1fr auto;
-      gap:16px;
-      padding:20px;
-      box-sizing:border-box;
-    }
-    .top{
-      display:flex;
-      justify-content:space-between;
-      align-items:flex-start;
-      gap:16px;
-      flex-wrap:wrap;
-    }
-    .title{
-      font-size:40px;
-      font-weight:1100;
-      line-height:1.05;
-    }
-    .sub{
-      margin-top:6px;
-      font-size:18px;
-      color:var(--muted);
-      font-weight:900;
-    }
-    .pillrow{
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-    }
-    .pill{
-      border:1px solid var(--stroke);
-      background:rgba(2,6,23,.56);
-      border-radius:999px;
-      padding:12px 16px;
-      font-size:20px;
-      font-weight:1000;
-    }
+
     .hero{
-      display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:18px;
-      height:100%;
-    }
-    .card{
-      border:1px solid var(--stroke);
-      background:rgba(2,6,23,.58);
-      border-radius:26px;
-      padding:24px;
-      box-shadow:0 22px 80px rgba(0,0,0,.36);
+      padding:20px;
+      min-height:220px;
       display:flex;
       flex-direction:column;
       justify-content:space-between;
+      background:
+        radial-gradient(900px 400px at 10% 0%, rgba(59,130,246,.14), transparent 45%),
+        radial-gradient(800px 400px at 100% 0%, rgba(34,211,238,.10), transparent 42%);
     }
-    .name{
-      font-size:40px;
-      font-weight:1100;
+    .eyebrow{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      border-radius:999px;
+      padding:8px 12px;
+      font-size:12px;
+      font-weight:800;
+      color:#a5f3fc;
+      background:rgba(34,211,238,.10);
+      border:1px solid rgba(34,211,238,.18);
+      width:max-content;
+    }
+    h1{
+      margin:12px 0 0;
+      font-size:clamp(32px,6vw,54px);
+      line-height:1.02;
+      letter-spacing:.2px;
+    }
+    .sub{
+      margin-top:10px;
+      color:var(--muted);
+      font-size:15px;
+      max-width:860px;
+    }
+
+    .badges{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      margin-top:14px;
+    }
+    .badge{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      border-radius:999px;
+      padding:10px 14px;
+      background:rgba(2,6,23,.58);
+      border:1px solid var(--stroke);
+      font-weight:800;
+    }
+
+    .meta{
+      padding:20px;
+      display:grid;
+      gap:12px;
+      align-content:start;
+    }
+    .mini{
+      border-radius:20px;
+      background:rgba(2,6,23,.46);
+      border:1px solid var(--stroke);
+      padding:14px 16px;
+    }
+    .mini .k{
+      font-size:12px;
+      color:var(--muted);
+      margin-bottom:8px;
+    }
+    .mini .v{
+      font-size:22px;
+      font-weight:900;
+    }
+
+    .podium{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:14px;
+      margin-bottom:16px;
+    }
+    .pod{
+      padding:18px;
+      border-radius:24px;
+      border:1px solid var(--stroke);
+      box-shadow:var(--shadow);
+      background:linear-gradient(180deg, rgba(15,23,42,.75), rgba(2,6,23,.68));
+      text-align:center;
+    }
+    .pod.rank1{ outline:2px solid rgba(251,191,36,.22); }
+    .pod.rank2{ outline:2px solid rgba(203,213,225,.18); }
+    .pod.rank3{ outline:2px solid rgba(253,186,116,.16); }
+
+    .pod .medal{
+      font-size:34px;
+      margin-bottom:8px;
+    }
+    .pod .name{
+      font-size:clamp(18px,3vw,24px);
+      font-weight:900;
       line-height:1.1;
+      word-break:break-word;
+    }
+    .pod .score{
+      font-size:clamp(28px,5vw,46px);
+      font-weight:1000;
+      margin-top:8px;
+    }
+    .pod .subt{
+      margin-top:8px;
+      color:var(--muted);
+      font-size:13px;
+    }
+
+    .board{
+      padding:14px;
+    }
+    .table-wrap{
+      overflow:auto;
+      border-radius:20px;
+    }
+    table{
+      width:100%;
+      border-collapse:collapse;
+      min-width:980px;
+    }
+    th,td{
+      padding:16px 12px;
+      border-bottom:1px solid rgba(148,163,184,.12);
+      text-align:left;
+      vertical-align:middle;
+    }
+    th{
+      background:rgba(2,6,23,.44);
+      color:#cbd5e1;
+      font-size:13px;
+      position:sticky;
+      top:0;
+      z-index:1;
+    }
+    td{
+      font-size:15px;
+    }
+    tbody tr:nth-child(1){
+      background:rgba(251,191,36,.06);
+    }
+    tbody tr:nth-child(2){
+      background:rgba(203,213,225,.05);
+    }
+    tbody tr:nth-child(3){
+      background:rgba(253,186,116,.05);
+    }
+
+    .pill{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+      border-radius:999px;
+      padding:7px 11px;
+      font-size:12px;
+      font-weight:800;
+      white-space:nowrap;
+      border:1px solid transparent;
+    }
+    .pill.good{
+      color:#bbf7d0;
+      background:rgba(34,197,94,.12);
+      border-color:rgba(34,197,94,.18);
+    }
+    .pill.warn{
+      color:#fde68a;
+      background:rgba(245,158,11,.12);
+      border-color:rgba(245,158,11,.18);
+    }
+    .pill.danger{
+      color:#fecaca;
+      background:rgba(239,68,68,.12);
+      border-color:rgba(239,68,68,.18);
+    }
+    .pill.info{
+      color:#bae6fd;
+      background:rgba(34,211,238,.12);
+      border-color:rgba(34,211,238,.18);
+    }
+
+    .toolbar{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      margin:0 0 14px;
+    }
+    .toolbar input, .toolbar select, .toolbar button{
+      min-height:44px;
+      border-radius:14px;
+      border:1px solid var(--stroke);
+      background:rgba(2,6,23,.76);
+      color:var(--text);
+      padding:10px 12px;
+      font:inherit;
+    }
+    .toolbar input{ min-width:240px; }
+    .toolbar button{
+      cursor:pointer;
+      font-weight:800;
+      border:0;
+      background:linear-gradient(135deg, #2563eb, #06b6d4);
+      box-shadow:0 10px 28px rgba(37,99,235,.28);
+    }
+    .toolbar button.secondary{
+      background:rgba(15,23,42,.86);
+      border:1px solid var(--stroke);
+      box-shadow:none;
+    }
+
+    .empty{
+      text-align:center;
+      color:var(--muted);
+      padding:28px 18px;
     }
     .status{
       margin-top:10px;
-      font-size:22px;
-      font-weight:1000;
       color:var(--muted);
+      font-size:12px;
     }
-    .bigScore{
-      font-size:110px;
-      font-weight:1100;
-      line-height:1;
-      margin:10px 0 0;
-    }
-    .metrics{
-      display:grid;
-      grid-template-columns:repeat(3,1fr);
-      gap:12px;
-      margin-top:16px;
-    }
-    .metric{
-      border:1px solid rgba(148,163,184,.14);
-      background:rgba(15,23,42,.42);
-      border-radius:18px;
-      padding:14px;
-    }
-    .metric .k{
-      font-size:16px;
-      font-weight:1000;
-      color:var(--muted);
-    }
-    .metric .v{
-      margin-top:8px;
-      font-size:34px;
-      font-weight:1100;
-    }
-    .centerBar{
-      display:grid;
-      grid-template-columns:repeat(4,1fr);
-      gap:12px;
-    }
-    .centerBox{
-      border:1px solid var(--stroke);
-      background:rgba(15,23,42,.42);
-      border-radius:22px;
-      padding:16px;
-      text-align:center;
-    }
-    .centerBox .k{
-      font-size:16px;
-      color:var(--muted);
-      font-weight:1000;
-    }
-    .centerBox .v{
-      margin-top:8px;
-      font-size:46px;
-      font-weight:1100;
-      line-height:1;
-    }
-    .winner{
-      text-align:center;
-      font-size:32px;
-      font-weight:1100;
-      padding:14px 18px;
-      border-radius:20px;
-      border:1px solid rgba(34,197,94,.20);
-      background:rgba(34,197,94,.12);
+    .error{
       display:none;
+      margin-top:10px;
+      padding:12px 14px;
+      border-radius:14px;
+      border:1px solid rgba(248,113,113,.24);
+      background:rgba(127,29,29,.22);
+      color:#fecaca;
+      white-space:pre-wrap;
+      font-size:13px;
     }
-    .lead{
-      color:#fde68a;
+    .error.show{ display:block; }
+
+    @media (max-width:1100px){
+      .top{
+        grid-template-columns:1fr;
+      }
     }
-    @media (max-width: 1200px){
-      .title{font-size:30px;}
-      .name{font-size:28px;}
-      .bigScore{font-size:82px;}
-      .centerBox .v{font-size:34px;}
+    @media (max-width:820px){
+      .podium{
+        grid-template-columns:1fr;
+      }
+      .wrap{
+        width:min(100vw, calc(100vw - 12px));
+      }
     }
   </style>
+
+  <script src="./firebase-config.js"></script>
 </head>
 <body>
-<div class="wrap">
-  <div class="top">
-    <div>
-      <div class="title">GoodJunk Battle Board</div>
-      <div class="sub">Big screen classroom view</div>
+  <div class="wrap">
+    <div class="toolbar">
+      <input id="roomInput" placeholder="Room / Session" />
+      <select id="modeInput">
+        <option value="battle">battle</option>
+        <option value="classroom">classroom</option>
+        <option value="auto">auto</option>
+      </select>
+      <button id="btnConnect">เชื่อมต่อ</button>
+      <button id="btnFullscreen" class="secondary">เต็มจอ</button>
     </div>
-    <div class="pillrow">
-      <div class="pill">ROOM: <span id="uiRoom">—</span></div>
-      <div class="pill">PHASE: <span id="uiPhase">lobby</span></div>
-    </div>
+
+    <div id="errorBox" class="error"></div>
+
+    <section class="top">
+      <div class="card hero">
+        <div>
+          <div class="eyebrow">🏆 Live Board</div>
+          <h1>GoodJunk Scoreboard</h1>
+          <div class="sub">
+            กระดานแสดงผลสดสำหรับห้องเรียนหรือการแข่งขัน ใช้แสดงอันดับ คะแนน ความแม่นยำ miss และ AI risk แบบเห็นชัดบนจอใหญ่
+          </div>
+          <div class="badges">
+            <div class="badge">🎮 <span id="badgeRoom">room: —</span></div>
+            <div class="badge">🧭 <span id="badgeMode">mode: —</span></div>
+            <div class="badge">👥 <span id="badgePlayers">players: 0</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card meta">
+        <div class="mini">
+          <div class="k">Leader</div>
+          <div id="leaderName" class="v">—</div>
+        </div>
+        <div class="mini">
+          <div class="k">Top score</div>
+          <div id="leaderScore" class="v">0</div>
+        </div>
+        <div class="mini">
+          <div class="k">Best accuracy</div>
+          <div id="bestAcc" class="v">0%</div>
+        </div>
+        <div class="mini">
+          <div class="k">Status</div>
+          <div id="miniStatus" class="v">waiting</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="podium" id="podium">
+      <div class="pod rank1">
+        <div class="medal">🥇</div>
+        <div class="name">—</div>
+        <div class="score">0</div>
+        <div class="subt">acc 0% • miss 0</div>
+      </div>
+      <div class="pod rank2">
+        <div class="medal">🥈</div>
+        <div class="name">—</div>
+        <div class="score">0</div>
+        <div class="subt">acc 0% • miss 0</div>
+      </div>
+      <div class="pod rank3">
+        <div class="medal">🥉</div>
+        <div class="name">—</div>
+        <div class="score">0</div>
+        <div class="subt">acc 0% • miss 0</div>
+      </div>
+    </section>
+
+    <section class="card board">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Rank</th>
+              <th>Player</th>
+              <th>Score</th>
+              <th>Accuracy</th>
+              <th>Miss</th>
+              <th>Median RT</th>
+              <th>Risk</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="tbody">
+            <tr><td colspan="8" class="empty">ยังไม่มีข้อมูล</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div id="statusLine" class="status">ยังไม่ได้เชื่อมต่อห้อง</div>
+    </section>
   </div>
 
-  <div class="centerBar">
-    <div class="centerBox"><div class="k">COUNTDOWN</div><div class="v" id="uiCountdown">—</div></div>
-    <div class="centerBox"><div class="k">LEAD</div><div class="v lead" id="uiLead">tie</div></div>
-    <div class="centerBox"><div class="k">RULE</div><div class="v" id="uiRule">—</div></div>
-    <div class="centerBox"><div class="k">ROUND</div><div class="v" id="uiRound">—</div></div>
-  </div>
+  <script type="module">
+    const byId = (id)=>document.getElementById(id);
+    const qs = (k,d='')=>{
+      try{ return new URL(location.href).searchParams.get(k) ?? d; }
+      catch{ return d; }
+    };
 
-  <div class="hero">
-    <div class="card">
-      <div>
-        <div class="name" id="p1Name">Player 1</div>
-        <div class="status" id="p1Status">waiting</div>
-      </div>
-      <div class="bigScore" id="p1Score">0</div>
-      <div class="metrics">
-        <div class="metric"><div class="k">ACC</div><div class="v" id="p1Acc">0%</div></div>
-        <div class="metric"><div class="k">MISS</div><div class="v" id="p1Miss">0</div></div>
-        <div class="metric"><div class="k">RT</div><div class="v" id="p1Rt">0</div></div>
-      </div>
-    </div>
+    const state = {
+      db: null,
+      unsub: null
+    };
 
-    <div class="card">
-      <div>
-        <div class="name" id="p2Name">Player 2</div>
-        <div class="status" id="p2Status">waiting</div>
-      </div>
-      <div class="bigScore" id="p2Score">0</div>
-      <div class="metrics">
-        <div class="metric"><div class="k">ACC</div><div class="v" id="p2Acc">0%</div></div>
-        <div class="metric"><div class="k">MISS</div><div class="v" id="p2Miss">0</div></div>
-        <div class="metric"><div class="k">RT</div><div class="v" id="p2Rt">0</div></div>
-      </div>
-    </div>
-  </div>
-
-  <div class="winner" id="winnerBox">—</div>
-</div>
-
-<script type="module">
-(async function(){
-  'use strict';
-
-  const qs = (k, d='')=>{ try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(_){ return d; } };
-  const room = String(qs('room','')).trim().toUpperCase();
-  const $ = (id)=> document.getElementById(id);
-
-  function setPlayer(prefix, p){
-    $(prefix+'Name').textContent = p ? (p.nick || p.pid || prefix) : prefix;
-    $(prefix+'Status').textContent = !p ? 'waiting' : (p.connected === false ? 'offline' : (p.ready ? 'ready' : 'online'));
-    $(prefix+'Score').textContent = p ? String(p.score || 0) : '0';
-    $(prefix+'Acc').textContent = p ? `${Number(p.acc || 0)}%` : '0%';
-    $(prefix+'Miss').textContent = p ? String(p.miss || 0) : '0';
-    $(prefix+'Rt').textContent = p ? String(p.medianRT || 0) : '0';
-  }
-
-  function leadText(a,b){
-    if(!a || !b) return '—';
-    if((a.score||0) > (b.score||0)) return a.nick || a.pid || 'P1';
-    if((a.score||0) < (b.score||0)) return b.nick || b.pid || 'P2';
-    return 'tie';
-  }
-
-  async function loadFirebase(){
-    const v = '9.22.2';
-    const appMod = await import(`https://www.gstatic.com/firebasejs/${v}/firebase-app.js`);
-    const dbMod  = await import(`https://www.gstatic.com/firebasejs/${v}/firebase-database.js`);
-    return { ...appMod, ...dbMod };
-  }
-
-  function getFirebaseConfig(){
-    return window.HHA_FIREBASE_CONFIG || window.__HHA_FIREBASE_CONFIG__ || window.firebaseConfig || null;
-  }
-
-  $('uiRoom').textContent = room || '—';
-  if(!room) return;
-
-  const fbCfg = getFirebaseConfig();
-  if(!fbCfg) return;
-
-  const fb = await loadFirebase();
-  const { initializeApp, getApps, getApp, getDatabase, ref, onValue } = fb;
-  const app = getApps().length ? getApp() : initializeApp(fbCfg);
-  const db = getDatabase(app);
-
-  const base = `hha-battle/goodjunk/rooms/${room}`;
-  const stateRef = ref(db, `${base}/state`);
-  const playersRef = ref(db, `${base}/players`);
-  const offsetRef = ref(db, '.info/serverTimeOffset');
-
-  let offset = 0;
-  onValue(offsetRef, snap=>{ offset = Number(snap.val() || 0) || 0; });
-
-  onValue(stateRef, snap=>{
-    const st = snap.val() || {};
-    const phase = String(st.phase || 'lobby');
-    const roundId = String(st.roundId || '');
-    const rule = String(st.reason || '—');
-    const winner = String(st.winner || '');
-
-    $('uiPhase').textContent = phase;
-    $('uiRound').textContent = roundId || '—';
-    $('uiRule').textContent = rule || '—';
-
-    const startAtMs = Number(st.startAtMs || 0) || 0;
-    if(phase === 'countdown' && startAtMs > 0){
-      const leftMs = Math.max(0, startAtMs - (Date.now() + offset));
-      $('uiCountdown').textContent = String(Math.ceil(leftMs / 1000));
-    }else{
-      $('uiCountdown').textContent = phase === 'running' ? 'GO' : '—';
+    function esc(s){
+      return String(s ?? '').replace(/[&<>"']/g, m => ({
+        '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+      }[m]));
+    }
+    function fmtInt(v){
+      const n = Number(v);
+      return Number.isFinite(n) ? String(Math.round(n)) : '0';
+    }
+    function fmtPct(v){
+      const n = Number(v);
+      return Number.isFinite(n) ? `${Math.round(n)}%` : '0%';
+    }
+    function fmtMs(v){
+      const n = Number(v);
+      return Number.isFinite(n) ? `${Math.round(n)} ms` : '—';
+    }
+    function setStatus(t){
+      byId('statusLine').textContent = t;
+      byId('miniStatus').textContent = t;
+    }
+    function showError(msg){
+      const box = byId('errorBox');
+      box.textContent = String(msg || 'Unknown error');
+      box.classList.add('show');
+    }
+    function clearError(){
+      const box = byId('errorBox');
+      box.textContent = '';
+      box.classList.remove('show');
     }
 
-    const winnerBox = $('winnerBox');
-    if(phase === 'ended'){
-      winnerBox.style.display = 'block';
-      winnerBox.textContent = winner ? `Winner: ${winner} • Rule: ${rule}` : `Tie • Rule: ${rule}`;
-    }else{
-      winnerBox.style.display = 'none';
+    function resolveFirebase(){
+      try{
+        if (window.firebase && typeof window.firebase.database === 'function'){
+          state.db = window.firebase.database();
+          return true;
+        }
+        if (window.HHFirebase?.database){
+          state.db = window.HHFirebase.database;
+          return true;
+        }
+        return false;
+      }catch(err){
+        console.error(err);
+        return false;
+      }
     }
-  });
 
-  onValue(playersRef, snap=>{
-    const raw = snap.val() || {};
-    const players = Object.keys(raw)
-      .map(k => ({ key:k, ...(raw[k]||{}) }))
-      .sort((a,b)=>(Number(a.joinedAtMs||0)-Number(b.joinedAtMs||0)))
-      .slice(0,2);
+    function normalizePlayers(raw){
+      if(!raw) return [];
+      const arr = Object.entries(raw).map(([key,val])=>{
+        const p = val || {};
+        return {
+          key,
+          name: p.name || p.displayName || p.pid || key,
+          score: Number(p.score ?? 0) || 0,
+          acc: Number(p.acc ?? p.accPct ?? 0) || 0,
+          miss: Number(p.miss ?? 0) || 0,
+          medianRt: Number(p.medianRt ?? p.medianRtGoodMs ?? 0) || 0,
+          risk: Number(p.hazardRisk ?? p.risk ?? 0) || 0,
+          online: !!(p.online ?? true),
+          ts: Number(p.ts ?? p.updatedAt ?? Date.now()) || Date.now()
+        };
+      });
 
-    setPlayer('p1', players[0] || null);
-    setPlayer('p2', players[1] || null);
-    $('uiLead').textContent = leadText(players[0], players[1]);
-  });
-})();
-</script>
+      arr.sort((a,b)=>
+        (b.score-a.score) ||
+        (b.acc-a.acc) ||
+        (a.miss-b.miss) ||
+        (a.medianRt-b.medianRt)
+      );
+
+      return arr;
+    }
+
+    function renderPodium(players){
+      const pods = Array.from(document.querySelectorAll('#podium .pod'));
+      const top3 = [players[0], players[1], players[2]];
+
+      pods.forEach((pod, idx)=>{
+        const p = top3[idx];
+        pod.querySelector('.name').textContent = p ? p.name : '—';
+        pod.querySelector('.score').textContent = p ? fmtInt(p.score) : '0';
+        pod.querySelector('.subt').textContent = p
+          ? `acc ${fmtPct(p.acc)} • miss ${fmtInt(p.miss)}`
+          : 'acc 0% • miss 0';
+      });
+
+      byId('leaderName').textContent = players[0]?.name || '—';
+      byId('leaderScore').textContent = players[0] ? fmtInt(players[0].score) : '0';
+      byId('bestAcc').textContent = players.length ? fmtPct(Math.max(...players.map(p=>p.acc))) : '0%';
+    }
+
+    function renderTable(players){
+      const tbody = byId('tbody');
+      if(!players.length){
+        tbody.innerHTML = `<tr><td colspan="8" class="empty">ยังไม่มีข้อมูลผู้เล่นในห้องนี้</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = players.map((p, idx)=>{
+        const riskCls = p.risk >= 70 ? 'danger' : (p.risk >= 40 ? 'warn' : 'info');
+        const onlineCls = p.online ? 'good' : 'warn';
+        return `
+          <tr>
+            <td><strong>${idx+1}</strong></td>
+            <td>${esc(p.name)}</td>
+            <td>${fmtInt(p.score)}</td>
+            <td>${fmtPct(p.acc)}</td>
+            <td>${fmtInt(p.miss)}</td>
+            <td>${fmtMs(p.medianRt)}</td>
+            <td><span class="pill ${riskCls}">${fmtPct(p.risk)}</span></td>
+            <td><span class="pill ${onlineCls}">${p.online ? 'online' : 'idle'}</span></td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function candidatePaths(room, mode){
+      const arr = [];
+      if(mode === 'battle'){
+        arr.push(`/herohealth/battleRooms/${room}`);
+        arr.push(`/battleRooms/${room}`);
+      }else if(mode === 'classroom'){
+        arr.push(`/herohealth/classRooms/${room}`);
+        arr.push(`/classRooms/${room}`);
+      }else{
+        arr.push(`/herohealth/battleRooms/${room}`);
+        arr.push(`/battleRooms/${room}`);
+        arr.push(`/herohealth/classRooms/${room}`);
+        arr.push(`/classRooms/${room}`);
+      }
+      return arr;
+    }
+
+    function connect(){
+      clearError();
+
+      const room = byId('roomInput').value.trim();
+      const mode = byId('modeInput').value;
+
+      byId('badgeRoom').textContent = `room: ${room || '—'}`;
+      byId('badgeMode').textContent = `mode: ${mode || '—'}`;
+
+      if(!room){
+        showError('กรุณากรอก Room / Session');
+        return;
+      }
+      if(!resolveFirebase()){
+        showError('Firebase ยังไม่พร้อม\nตรวจสอบ ./firebase-config.js');
+        return;
+      }
+
+      if(state.unsub){
+        try{ state.unsub(); }catch(_){}
+        state.unsub = null;
+      }
+
+      const db = state.db;
+      const paths = candidatePaths(room, mode);
+      let bound = false;
+
+      setStatus(`กำลังเชื่อมต่อ ${room} ...`);
+
+      for(const path of paths){
+        try{
+          const ref = db.ref(path);
+
+          const handler = snap=>{
+            const data = snap.val();
+            if(!data){
+              if(!bound){
+                setStatus(`ยังไม่พบข้อมูลใน ${path}`);
+              }
+              return;
+            }
+
+            bound = true;
+            const players = normalizePlayers(data.players || data.members || data.participants || {});
+            renderPodium(players);
+            renderTable(players);
+            byId('badgePlayers').textContent = `players: ${players.length}`;
+
+            const status = data.status || data.phase || 'active';
+            setStatus(`Connected: ${path} • ${status}`);
+          };
+
+          ref.on('value', handler);
+          state.unsub = ()=>{
+            try{ ref.off('value', handler); }catch(_){}
+          };
+
+          break;
+        }catch(err){
+          console.warn('bind fail', path, err);
+        }
+      }
+
+      if(!state.unsub){
+        showError('ไม่สามารถ subscribe ห้องนี้ได้');
+      }
+    }
+
+    byId('btnConnect').addEventListener('click', connect);
+
+    byId('btnFullscreen').addEventListener('click', async ()=>{
+      try{
+        if(!document.fullscreenElement){
+          await document.documentElement.requestFullscreen();
+        }else{
+          await document.exitFullscreen();
+        }
+      }catch(err){
+        console.warn(err);
+      }
+    });
+
+    byId('roomInput').value = qs('room', '');
+    byId('modeInput').value = ['battle','classroom','auto'].includes(qs('mode','battle')) ? qs('mode','battle') : 'battle';
+
+    if(qs('room','')){
+      setTimeout(connect, 140);
+    }
+  </script>
 </body>
 </html>
