@@ -1,11 +1,9 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
 GoodJunkVR — RUN PAGE (PC/Mobile/cVR) — PRODUCTION
-PATCH v20260306-FULL-RUN-HEROCARD-XP-REWARD-MOBILE-BANNERS
-✅ Hero Result summary
-✅ XP + Reward Card
-✅ Compact mobile end summary
-✅ stageBanner / milestoneBanner
-✅ Hides VR UI at end
+PATCH v20260306-RUN-BATTLE-READY-UI
+✅ Battle lobby HUD
+✅ Countdown / players / opponent / score compare
+✅ Battle result / rematch
 Requires:
 - /herohealth/vr/vr-ui.js
 - /herohealth/vr-goodjunk/goodjunk.safe.js
@@ -74,8 +72,131 @@ Requires:
       display:flex; gap:8px; flex-wrap:wrap; align-items:center;
     }
 
+    .battleBar{
+      position:fixed;
+      top:calc(96px + var(--sat));
+      left:calc(10px + var(--sal));
+      right:calc(10px + var(--sar));
+      z-index:260;
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      align-items:center;
+      justify-content:space-between;
+      border-radius:18px;
+      border:1px solid rgba(59,130,246,.20);
+      background:rgba(2,6,23,.62);
+      backdrop-filter:blur(10px);
+      box-shadow:0 18px 55px rgba(0,0,0,.34);
+      padding:10px 12px;
+    }
+    .battleLeft,.battleRight{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      align-items:center;
+    }
+    .battleTag{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:7px 10px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.16);
+      background:rgba(15,23,42,.42);
+      color:var(--muted);
+      font-size:11px;
+      font-weight:1000;
+      white-space:nowrap;
+    }
+    .battleTag b{color:var(--text)}
+    .battleTag.good{
+      border-color: rgba(34,197,94,.28);
+      background: rgba(34,197,94,.14);
+      color:#dcfce7;
+    }
+    .battleTag.warn{
+      border-color: rgba(245,158,11,.28);
+      background: rgba(245,158,11,.12);
+      color:#fde68a;
+    }
+    .battleTag.bad{
+      border-color: rgba(239,68,68,.28);
+      background: rgba(239,68,68,.12);
+      color:#fecaca;
+    }
+
+    #battleLobby{
+      position:fixed;
+      inset:0;
+      z-index:360;
+      display:none;
+      align-items:center;
+      justify-content:center;
+      background:rgba(0,0,0,.42);
+      backdrop-filter:blur(8px);
+      padding:16px;
+    }
+    #battleLobby .panel{
+      width:min(560px,92vw);
+      border-radius:22px;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(2,6,23,.78);
+      box-shadow:0 22px 80px rgba(0,0,0,.55);
+      padding:14px;
+      text-align:center;
+    }
+    .battleGrid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:10px;
+      margin-top:12px;
+    }
+    @media (max-width:560px){ .battleGrid{ grid-template-columns:1fr; } }
+
+    .battleCard{
+      border-radius:18px;
+      border:1px solid rgba(148,163,184,.16);
+      background:rgba(15,23,42,.42);
+      padding:12px 10px;
+      text-align:left;
+    }
+    .battleCard .t{font-weight:1100; font-size:14px;}
+    .battleCard .s{margin-top:4px; color:var(--muted); font-size:12px; font-weight:900; line-height:1.4;}
+
+    .battleActions{
+      margin-top:12px;
+      display:flex;
+      gap:10px;
+      justify-content:center;
+      flex-wrap:wrap;
+    }
+    .btn{
+      pointer-events:auto;
+      cursor:pointer;
+      border-radius:16px;
+      border:1px solid rgba(148,163,184,.22);
+      background:rgba(148,163,184,.10);
+      color:var(--text);
+      padding:10px 12px;
+      font-weight:1100;
+      min-height:44px;
+      text-align:center;
+    }
+    .btn.primary{border-color:rgba(59,130,246,.30); background:rgba(59,130,246,.16);}
+    .btn.good{border-color:rgba(34,197,94,.30); background:rgba(34,197,94,.16);}
+    .btn.ghost{background:transparent; color:var(--muted);}
+    .btn.cooldown{
+      background: linear-gradient(90deg,#16a34a,#22c55e);
+      border:none;
+      color:white;
+      font-size:15px;
+      font-weight:1100;
+      box-shadow:0 10px 30px rgba(34,197,94,.35);
+    }
+
     #bossBar{
-      position:fixed; left:50%; top:calc(56px + var(--sat)); transform:translateX(-50%);
+      position:fixed; left:50%; top:calc(148px + var(--sat)); transform:translateX(-50%);
       z-index:205; width:min(520px,86vw); pointer-events:none; display:none; flex-direction:column; gap:6px; align-items:center;
     }
     #bossHint{font-weight:1000; font-size:12px; color:var(--muted); text-shadow:0 10px 30px rgba(0,0,0,.55);}
@@ -89,7 +210,7 @@ Requires:
     }
 
     .mission{
-      position:fixed; left:50%; top:calc(10px + var(--sat)); transform:translateX(-50%);
+      position:fixed; left:50%; top:calc(188px + var(--sat)); transform:translateX(-50%);
       z-index:210; pointer-events:none; width:min(560px,92vw);
       border-radius:18px; border:1px solid rgba(148,163,184,.16);
       background:rgba(2,6,23,.50); backdrop-filter:blur(10px);
@@ -123,12 +244,12 @@ Requires:
       max-width:92vw;
     }
     #stageBanner{
-      top:calc(96px + var(--sat));
+      top:calc(140px + var(--sat));
       font-size:22px;
       color:#f8fafc;
     }
     #milestoneBanner{
-      top:calc(136px + var(--sat));
+      top:calc(172px + var(--sat));
       font-size:18px;
       color:#fde68a;
     }
@@ -141,7 +262,7 @@ Requires:
       overflow:auto; -webkit-overflow-scrolling:touch;
     }
     #endOverlay .panel{
-      width:min(620px,94vw);
+      width:min(640px,94vw);
       max-height:calc(100dvh - 104px - var(--sat) - var(--sab));
       overflow:auto; -webkit-overflow-scrolling:touch;
       border-radius:22px;
@@ -429,29 +550,6 @@ Requires:
       background:linear-gradient(180deg, rgba(2,6,23,0), rgba(2,6,23,.92) 28%);
       backdrop-filter:blur(6px);
     }
-    .btn{
-      pointer-events:auto;
-      cursor:pointer;
-      border-radius:16px;
-      border:1px solid rgba(148,163,184,.22);
-      background:rgba(148,163,184,.10);
-      color:var(--text);
-      padding:10px 12px;
-      font-weight:1100;
-      min-height:44px;
-      flex:1 1 140px;
-      text-align:center;
-    }
-    .btn.primary{border-color:rgba(59,130,246,.30); background:rgba(59,130,246,.16);}
-    .btn.ghost{background:transparent; color:var(--muted);}
-    .btn.cooldown{
-      background: linear-gradient(90deg,#16a34a,#22c55e);
-      border:none;
-      color:white;
-      font-size:15px;
-      font-weight:1100;
-      box-shadow:0 10px 30px rgba(34,197,94,.35);
-    }
 
     .gradePop{ animation: gradePop .7s cubic-bezier(.2,.9,.2,1); }
     @keyframes gradePop{
@@ -492,6 +590,9 @@ Requires:
       #endOverlay .panel{ width:calc(100vw - 16px); }
       .endGrid{ grid-template-columns:repeat(2, minmax(0,1fr)); }
       .gradeHero .gradeBig{ font-size:44px; }
+      .battleBar{ top:calc(88px + var(--sat)); }
+      #bossBar{ top:calc(152px + var(--sat)); }
+      .mission{ top:calc(192px + var(--sat)); }
     }
     @media (max-width: 420px){
       #endTitle{font-size:17px;}
@@ -533,6 +634,56 @@ Requires:
     <span class="pill"><b>t</b>: <span class="v" id="miniTimer">0</span></span>
     <span class="pill"><b>AI risk</b>: <span class="v" id="aiRisk">—</span></span>
     <span class="pill"><b>AI hint</b>: <span class="v" id="aiHint">—</span></span>
+  </div>
+
+  <div class="battleBar" id="battleBar" style="display:none;">
+    <div class="battleLeft">
+      <span class="battleTag"><b>room</b>: <span id="battleRoom">—</span></span>
+      <span class="battleTag"><b>phase</b>: <span id="battlePhase">lobby</span></span>
+      <span class="battleTag"><b>you</b>: <span id="battleMe">—</span></span>
+      <span class="battleTag"><b>opp</b>: <span id="battleOpp">—</span></span>
+    </div>
+    <div class="battleRight">
+      <span class="battleTag"><b>ready</b>: <span id="battleReadyCount">0/2</span></span>
+      <span class="battleTag warn"><b>countdown</b>: <span id="battleCountdown">—</span></span>
+      <span class="battleTag"><b>lead</b>: <span id="battleLead">tie</span></span>
+    </div>
+  </div>
+
+  <div id="battleLobby">
+    <div class="panel">
+      <h2 style="margin:0;">⚔ Battle Lobby</h2>
+      <p style="margin:6px 0 0 0; color:var(--muted); font-weight:900;">รอผู้เล่น / กด ready / เริ่มพร้อมกัน</p>
+
+      <div class="battleGrid">
+        <div class="battleCard">
+          <div class="t">ROOM</div>
+          <div class="s mono" id="lobbyRoom">—</div>
+        </div>
+        <div class="battleCard">
+          <div class="t">PHASE</div>
+          <div class="s" id="lobbyPhase">lobby</div>
+        </div>
+        <div class="battleCard">
+          <div class="t">YOU</div>
+          <div class="s" id="lobbyMe">—</div>
+        </div>
+        <div class="battleCard">
+          <div class="t">OPPONENT</div>
+          <div class="s" id="lobbyOpp">รอผู้เล่นคนที่ 2…</div>
+        </div>
+      </div>
+
+      <div class="battleActions">
+        <button class="btn good" id="btnReady" type="button">✅ Ready</button>
+        <button class="btn ghost" id="btnLeaveBattle" type="button">↩ ออกจากห้อง</button>
+      </div>
+
+      <div id="battleLobbyMsg" class="battleCard" style="margin-top:12px; text-align:center;">
+        <div class="t">สถานะ</div>
+        <div class="s" id="battleLobbyMsgText">รอผู้เล่นอีกคนเข้าห้อง</div>
+      </div>
+    </div>
   </div>
 
   <div class="mission" aria-label="mission">
@@ -622,6 +773,7 @@ Requires:
 
       <div class="endActions">
         <button class="btn primary" id="btnReplay" type="button">🔁 เล่นอีกครั้ง</button>
+        <button class="btn good" id="btnRematch" type="button" style="display:none;">⚔ Rematch</button>
         <button class="btn ghost" id="btnBackHub" type="button">↩ กลับ Hub</button>
       </div>
     </div>
@@ -635,6 +787,9 @@ Requires:
     const qs = (k, d='')=>{ try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(e){ return d; } };
     const dbg = document.getElementById('dbg');
     const debugOn = String(qs('debug','0')) === '1';
+    const mode = String(qs('mode','solo')).toLowerCase();
+    const battleMode = (String(qs('battle','0')) === '1') || mode === 'battle';
+    const roomCode = String(qs('room','')).trim();
 
     function logDbg(msg){
       if(!dbg || !debugOn) return;
@@ -647,6 +802,13 @@ Requires:
 
     const btnReplay = document.getElementById('btnReplay');
     const btnBackHub = document.getElementById('btnBackHub');
+    const btnRematch = document.getElementById('btnRematch');
+    const btnReady = document.getElementById('btnReady');
+    const btnLeaveBattle = document.getElementById('btnLeaveBattle');
+
+    let __battle = null;
+    let __lastBattlePlayers = [];
+    let __lastBattleState = null;
 
     btnReplay && (btnReplay.onclick = ()=>{
       const u = new URL(location.href);
@@ -654,7 +816,34 @@ Requires:
       location.href = u.toString();
     });
 
-    btnBackHub && (btnBackHub.onclick = ()=>{
+    btnBackHub && (btnBackHub.onclick = async ()=>{
+      try{ await __battle?.leave?.(); }catch(_){}
+      const hub = qs('hub','../hub.html');
+      location.href = hub;
+    });
+
+    btnRematch && (btnRematch.onclick = async ()=>{
+      try{
+        btnRematch.disabled = true;
+        btnRematch.textContent = '⏳ ขอ rematch...';
+        await __battle?.requestRematch?.();
+      }catch(_){}
+      setTimeout(()=>{
+        btnRematch.disabled = false;
+        btnRematch.textContent = '⚔ Rematch';
+      }, 1800);
+    });
+
+    btnReady && (btnReady.onclick = async ()=>{
+      try{
+        await __battle?.setReady?.(true);
+        btnReady.disabled = true;
+        btnReady.textContent = '✅ Ready แล้ว';
+      }catch(_){}
+    });
+
+    btnLeaveBattle && (btnLeaveBattle.onclick = async ()=>{
+      try{ await __battle?.leave?.(); }catch(_){}
       const hub = qs('hub','../hub.html');
       location.href = hub;
     });
@@ -683,7 +872,6 @@ Requires:
       if(grade === 'S') xp += 8;
       else if(grade === 'A') xp += 5;
       else if(grade === 'B') xp += 3;
-
       return Math.max(4, xp);
     }
 
@@ -913,6 +1101,112 @@ Requires:
       el.style.transform = on ? 'translateX(-50%) translateY(0)' : 'translateX(-50%) translateY(-4px)';
     }
 
+    function updateBattleLobbyPlayers(players){
+      const meKey = __battle?.meKey || '';
+      const me = players.find(p => p.key === meKey) || null;
+      const opp = players.find(p => p.key !== meKey) || null;
+      document.getElementById('lobbyMe').textContent = me ? `${me.nick || me.pid} ${me.ready ? '✅' : '…'}` : '—';
+      document.getElementById('lobbyOpp').textContent = opp ? `${opp.nick || opp.pid} ${opp.ready ? '✅' : '…'}` : 'รอผู้เล่นคนที่ 2…';
+      document.getElementById('battleMe').textContent = me ? (me.nick || me.pid) : '—';
+      document.getElementById('battleOpp').textContent = opp ? (opp.nick || opp.pid) : '—';
+      document.getElementById('battleReadyCount').textContent = `${players.filter(p=>p.ready).length}/2`;
+    }
+
+    function updateBattleScore(players){
+      const meKey = __battle?.meKey || '';
+      const me = players.find(p => p.key === meKey) || null;
+      const opp = players.find(p => p.key !== meKey) || null;
+      let lead = 'tie';
+      if(me && opp){
+        if(me.score > opp.score) lead = 'you';
+        else if(me.score < opp.score) lead = 'opp';
+      }
+      document.getElementById('battleLead').textContent = lead;
+    }
+
+    function showBattleLobby(on){
+      const el = document.getElementById('battleLobby');
+      if(el) el.style.display = on ? 'flex' : 'none';
+    }
+
+    function setLobbyMsg(text){
+      const el = document.getElementById('battleLobbyMsgText');
+      if(el) el.textContent = text || '';
+    }
+
+    window.addEventListener('hha:battle-room', (ev)=>{
+      const d = ev.detail || {};
+      document.getElementById('battleRoom').textContent = d.room || roomCode || '—';
+      document.getElementById('lobbyRoom').textContent = d.room || roomCode || '—';
+    });
+
+    window.addEventListener('hha:battle-players', (ev)=>{
+      const d = ev.detail || {};
+      __lastBattlePlayers = Array.isArray(d.players) ? d.players : [];
+      updateBattleLobbyPlayers(__lastBattlePlayers);
+      updateBattleScore(__lastBattlePlayers);
+    });
+
+    window.addEventListener('hha:battle-score', (ev)=>{
+      const d = ev.detail || {};
+      const me = d.me || null;
+      const opp = d.opp || null;
+      document.getElementById('battleLead').textContent = d.leader || 'tie';
+      if(me) document.getElementById('battleMe').textContent = `${me.nick || me.pid} (${me.score||0})`;
+      if(opp) document.getElementById('battleOpp').textContent = `${opp.nick || opp.pid} (${opp.score||0})`;
+    });
+
+    window.addEventListener('hha:battle-countdown', (ev)=>{
+      const d = ev.detail || {};
+      const leftSec = Math.max(0, Math.ceil((Number(d.leftMs||0))/1000));
+      document.getElementById('battleCountdown').textContent = String(leftSec);
+      setLobbyMsg(`เริ่มในอีก ${leftSec} วินาที`);
+    });
+
+    window.addEventListener('hha:battle-state', (ev)=>{
+      const d = ev.detail || {};
+      __lastBattleState = d;
+      const phase = String(d.phase || 'lobby');
+      document.getElementById('battlePhase').textContent = phase;
+      document.getElementById('lobbyPhase').textContent = phase;
+
+      if(phase === 'lobby'){
+        showBattleLobby(true);
+        setLobbyMsg('รอผู้เล่นอีกคนและกด ready');
+        btnReady.style.display = '';
+        btnReady.disabled = false;
+        btnReady.textContent = '✅ Ready';
+      }else if(phase === 'countdown'){
+        showBattleLobby(true);
+        btnReady.disabled = true;
+      }else if(phase === 'running'){
+        showBattleLobby(false);
+      }else if(phase === 'ended'){
+        showBattleLobby(false);
+      }
+    });
+
+    window.addEventListener('hha:battle-start', ()=>{
+      showBattleLobby(false);
+      document.getElementById('battleCountdown').textContent = 'GO';
+    });
+
+    window.addEventListener('hha:battle-ended', (ev)=>{
+      const d = ev.detail || {};
+      if(btnRematch) btnRematch.style.display = '';
+      if(d.reason){
+        const meKey = __battle?.meKey || '';
+        const winner = d.winner || '';
+        const iWin = winner && winner === meKey;
+        const title = iWin ? 'ชนะ Battle! ⚔️' : (winner ? 'แพ้ Battle' : 'จบ Battle');
+        const sub = `winner=${winner || 'tie'} • rule=${d.reason || '-'}`;
+        const endTitle = document.getElementById('endTitle');
+        const endSub = document.getElementById('endSub');
+        if(endTitle) endTitle.textContent = title;
+        if(endSub) endSub.textContent = sub;
+      }
+    });
+
     window.addEventListener('hha:end', (ev)=>{
       try{
         const detail = ev?.detail || {};
@@ -933,6 +1227,13 @@ Requires:
 
     try{
       logDbg('Booting goodjunk...');
+      if(battleMode){
+        document.getElementById('battleBar').style.display = 'flex';
+        showBattleLobby(true);
+        document.getElementById('battleRoom').textContent = roomCode || '—';
+        document.getElementById('lobbyRoom').textContent = roomCode || '—';
+      }
+
       const mod = await import('./goodjunk.safe.js');
       if(!mod || typeof mod.boot !== 'function'){
         throw new Error('goodjunk.safe.js missing export boot(cfg)');
@@ -949,6 +1250,7 @@ Requires:
         seed: qs('seed', String(Date.now())),
         ai: null
       });
+      __battle = window.__HHA_BATTLE__ || null;
       logDbg('✅ boot ok');
     }catch(err){
       logDbg('❌ boot failed: ' + (err?.message || err));
