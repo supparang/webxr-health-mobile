@@ -1,11 +1,10 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
 GoodJunkVR — RUN PAGE (PC/Mobile/cVR) — PRODUCTION
-PATCH v20260306-RUN-ENDSUMMARY-MOBILE-FIT
-✅ FIX: end summary ไม่ล้นจอมือถือ
-✅ end overlay scroll ได้
-✅ panel max-height + sticky actions
-✅ mobile grid 2 cols
-✅ เผื่อพื้นที่ล่างไม่ชน ENTER VR / RECENTER
+PATCH v20260306b-RUN-ENDSUMMARY-COMPACT-MOBILE
+✅ Compact mobile summary
+✅ end overlay fit screen better
+✅ sticky actions
+✅ detail line for view/run/diff
 Requires:
 - /herohealth/vr/vr-ui.js
 - /herohealth/vr-goodjunk/goodjunk.safe.js
@@ -156,7 +155,6 @@ Requires:
       background: rgba(34,197,94,.85); transition: width .12s ease;
     }
 
-    /* ===== END OVERLAY FIX ===== */
     #endOverlay{
       position: fixed; inset: 0;
       display:none;
@@ -169,12 +167,12 @@ Requires:
         calc(12px + var(--sat))
         calc(12px + var(--sar))
         calc(96px + var(--sab))
-        calc(12px + var(--sal)); /* เผื่อปุ่ม VR UI ด้านล่าง */
-      overflow:auto; /* สำคัญ */
+        calc(12px + var(--sal));
+      overflow:auto;
       -webkit-overflow-scrolling: touch;
     }
     #endOverlay .panel{
-      width: min(720px, 92vw);
+      width: min(680px, 92vw);
       max-height: calc(100dvh - 120px - var(--sat) - var(--sab));
       overflow:auto;
       -webkit-overflow-scrolling: touch;
@@ -185,8 +183,33 @@ Requires:
       padding: 14px 14px 10px;
       text-align:center;
     }
+
     #endTitle{font-size:22px; font-weight:1100; margin:0;}
-    #endSub{margin:6px 0 0 0; color:var(--muted); font-weight:900; line-height:1.35;}
+    #endSub{
+      margin:6px 0 0 0;
+      color:var(--muted);
+      font-weight:900;
+      line-height:1.35;
+      font-size:13px;
+    }
+
+    .endHeroLine{
+      margin-top:10px;
+      display:flex;
+      gap:8px;
+      justify-content:center;
+      flex-wrap:wrap;
+    }
+    .endChip{
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.16);
+      background: rgba(2,6,23,.38);
+      padding: 7px 10px;
+      font-weight:1000;
+      font-size:12px;
+      color:var(--muted);
+    }
+    .endChip b{ color:var(--text); }
 
     .endGrid{
       display:grid;
@@ -200,18 +223,37 @@ Requires:
       background: rgba(2,6,23,.38);
       padding: 12px 10px;
       font-weight:1000;
-      min-height: 88px;
+      min-height: 84px;
       display:flex;
       flex-direction:column;
       justify-content:center;
     }
-    .endPill .k{opacity:.78; font-size:12px;}
-    .endPill .v{
-      font-size:18px;
-      margin-top:4px;
-      word-break:break-word;
+    .endPill .k{
+      opacity:.78;
+      font-size:12px;
       line-height:1.2;
     }
+    .endPill .v{
+      font-size:20px;
+      margin-top:6px;
+      word-break:break-word;
+      line-height:1.15;
+      color:var(--text);
+    }
+
+    .endMeta{
+      margin-top:10px;
+      border-radius:16px;
+      border:1px solid rgba(148,163,184,.14);
+      background: rgba(2,6,23,.32);
+      padding: 10px 12px;
+      text-align:left;
+      font-size:12px;
+      font-weight:900;
+      color:var(--muted);
+      line-height:1.45;
+    }
+    .endMeta b{ color:var(--text); }
 
     .endActions{
       position: sticky;
@@ -257,41 +299,30 @@ Requires:
       white-space:pre-wrap;
     }
 
-    /* ===== MOBILE TUNE ===== */
     @media (max-width: 640px){
-      #endOverlay{
-        align-items:flex-start;
-      }
+      #endOverlay{ align-items:flex-start; }
       #endOverlay .panel{
         width: calc(100vw - 20px);
         max-height: calc(100dvh - 108px - var(--sat) - var(--sab));
         margin-top: 4px;
         padding: 12px 12px 8px;
       }
-      #endTitle{
-        font-size:20px;
-      }
-      #endSub{
-        font-size:12px;
-      }
+      #endTitle{ font-size:20px; }
+      #endSub{ font-size:12px; }
+
       .endGrid{
         grid-template-columns: repeat(2, minmax(0,1fr));
         gap:8px;
         margin-top:10px;
       }
       .endPill{
-        min-height: 78px;
+        min-height: 72px;
         padding: 10px 8px;
       }
-      .endPill .k{
-        font-size:11px;
-      }
-      .endPill .v{
-        font-size:16px;
-      }
-      .endActions{
-        gap:8px;
-      }
+      .endPill .k{ font-size:11px; }
+      .endPill .v{ font-size:18px; }
+
+      .endActions{ gap:8px; }
       .endActions .btn{
         flex:1 1 140px;
         justify-content:center;
@@ -300,12 +331,9 @@ Requires:
     }
 
     @media (max-width: 420px){
-      .endGrid{
-        grid-template-columns: 1fr;
-      }
-      .endPill{
-        min-height: 68px;
-      }
+      .endPill{ min-height: 66px; }
+      .endPill .v{ font-size:17px; }
+      .endMeta{ font-size:11px; }
     }
   </style>
 </head>
@@ -350,16 +378,22 @@ Requires:
       <h2 id="endTitle">จบเกม</h2>
       <p id="endSub">—</p>
 
+      <div class="endHeroLine">
+        <span class="endChip"><b>view</b>: <span id="uiView">—</span></span>
+        <span class="endChip"><b>run</b>: <span id="uiRun">—</span></span>
+        <span class="endChip"><b>diff</b>: <span id="uiDiff">—</span></span>
+      </div>
+
       <div class="endGrid">
         <div class="endPill"><div class="k">เกรด</div><div class="v" id="endGrade">—</div></div>
         <div class="endPill"><div class="k">คะแนน</div><div class="v" id="endScore">0</div></div>
         <div class="endPill"><div class="k">Miss</div><div class="v" id="endMiss">0</div></div>
+        <div class="endPill"><div class="k">เวลา</div><div class="v" id="endTime">0</div></div>
       </div>
 
-      <div class="endGrid" style="margin-top:10px;">
-        <div class="endPill"><div class="k">เวลา</div><div class="v" id="endTime">0</div></div>
-        <div class="endPill"><div class="k">view</div><div class="v" id="uiView">—</div></div>
-        <div class="endPill"><div class="k">run / diff</div><div class="v"><span id="uiRun">—</span> / <span id="uiDiff">—</span></div></div>
+      <div class="endMeta">
+        <div><b>สรุป:</b> เกรด คะแนน Miss และเวลา แสดงแบบ compact สำหรับ mobile</div>
+        <div style="margin-top:4px;">กด <b>เล่นอีกครั้ง</b> เพื่อสุ่ม seed ใหม่ หรือ <b>กลับ Hub</b> เพื่อไปเกมอื่น</div>
       </div>
 
       <div class="endActions">
@@ -390,7 +424,12 @@ Requires:
     const btnReplay = document.getElementById('btnReplay');
     const btnBackHub = document.getElementById('btnBackHub');
 
-    btnReplay && (btnReplay.onclick = ()=> location.href = location.href);
+    btnReplay && (btnReplay.onclick = ()=>{
+      const u = new URL(location.href);
+      u.searchParams.set('seed', String(Date.now()));
+      location.href = u.toString();
+    });
+
     btnBackHub && (btnBackHub.onclick = ()=>{
       const hub = qs('hub','../hub.html');
       location.href = hub;
