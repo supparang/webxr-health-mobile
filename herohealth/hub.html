@@ -1,10 +1,11 @@
 <!-- === /herohealth/hub.html ===
 HeroHealth — Hub (3 Zones) — PRODUCTION
-PATCH v20260306-HUB-HERO-TITLE-BADGE-CARDS
-✅ Hub uses /vr/hero-title.js (Lv/Title/Badge + S/A/B/C + XP)
-✅ Backward compatible: reads old HHA_PROFILE:pid as nick fallback + optional XP migrate
-✅ Quick links -> goodjunk-launcher.html (Solo/PRO/Battle in one place)
-✅ Reset Hero clears new + old keys
+PATCH v20260306-HUB-HERO-CARDBOOK-GJLAUNCHER
+✅ Uses /herohealth/goodjunk-launcher.html as GoodJunk entry
+✅ Hero Profile (legacy localStorage HHA_PROFILE:pid)
+✅ Card Book summary for GoodJunk (HHA_CARD_BOOK:pid)
+✅ Last GoodJunk result -> latest card preview
+✅ Quick links: GoodJunk Solo / Solo PRO / Battle
 ✅ Pass-through params: run/diff/time/seed/studyId/phase/conditionGroup/log/view/pid/api/ai/debug + hub
 -->
 <!doctype html>
@@ -29,19 +30,27 @@ PATCH v20260306-HUB-HERO-TITLE-BADGE-CARDS
       --sal: env(safe-area-inset-left, 0px);
       --sar: env(safe-area-inset-right, 0px);
     }
-    html,body{height:100%; margin:0; background: radial-gradient(1200px 800px at 50% -10%, rgba(59,130,246,.20), transparent 60%),
-                                   radial-gradient(900px 700px at 10% 10%, rgba(167,139,250,.16), transparent 60%),
-                                   linear-gradient(180deg, var(--bg1), var(--bg2)); color:var(--text);}
+    html,body{
+      height:100%;
+      margin:0;
+      background:
+        radial-gradient(1200px 800px at 50% -10%, rgba(59,130,246,.20), transparent 60%),
+        radial-gradient(900px 700px at 10% 10%, rgba(167,139,250,.16), transparent 60%),
+        linear-gradient(180deg, var(--bg1), var(--bg2));
+      color:var(--text);
+    }
     body{
       font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", "Noto Sans", Arial;
       overflow-x:hidden;
     }
-    a{color:inherit; text-decoration:none}
+    a{ color:inherit; text-decoration:none; }
+
     .wrap{
       max-width: 1080px;
       margin: 0 auto;
       padding: calc(14px + var(--sat)) calc(14px + var(--sar)) calc(18px + var(--sab)) calc(14px + var(--sal));
     }
+
     .topbar{
       display:flex;
       gap:10px;
@@ -50,8 +59,11 @@ PATCH v20260306-HUB-HERO-TITLE-BADGE-CARDS
       flex-wrap:wrap;
       margin-bottom: 12px;
     }
+
     .brand{
-      display:flex; align-items:center; gap:10px;
+      display:flex;
+      align-items:center;
+      gap:10px;
       padding: 10px 12px;
       border-radius: 18px;
       border:1px solid var(--stroke);
@@ -59,7 +71,8 @@ PATCH v20260306-HUB-HERO-TITLE-BADGE-CARDS
       backdrop-filter: blur(10px);
       box-shadow: 0 18px 55px rgba(0,0,0,.35);
     }
-    .brand b{font-weight:1100}
+    .brand b{ font-weight:1100; }
+
     .pill{
       display:inline-flex;
       align-items:center;
@@ -74,7 +87,8 @@ PATCH v20260306-HUB-HERO-TITLE-BADGE-CARDS
       font-weight: 950;
       white-space:nowrap;
     }
-    .pill b{color:var(--text)}
+    .pill b{ color:var(--text); }
+
     .hero{
       display:flex;
       gap:8px;
@@ -82,6 +96,7 @@ PATCH v20260306-HUB-HERO-TITLE-BADGE-CARDS
       align-items:center;
       justify-content:flex-end;
     }
+
     .btn{
       cursor:pointer;
       border-radius: 16px;
@@ -92,17 +107,20 @@ PATCH v20260306-HUB-HERO-TITLE-BADGE-CARDS
       font-weight:1100;
       min-height: 44px;
     }
-    .btn.primary{border-color: rgba(59,130,246,.30); background: rgba(59,130,246,.16);}
-    .btn.violet{border-color: rgba(167,139,250,.28); background: rgba(167,139,250,.14);}
-    .btn.good{border-color: rgba(34,197,94,.28); background: rgba(34,197,94,.14);}
-    .btn.ghost{background: transparent; color: var(--muted);}
+    .btn.primary{ border-color: rgba(59,130,246,.30); background: rgba(59,130,246,.16); }
+    .btn.violet{ border-color: rgba(167,139,250,.28); background: rgba(167,139,250,.14); }
+    .btn.good{ border-color: rgba(34,197,94,.28); background: rgba(34,197,94,.14); }
+    .btn.ghost{ background: transparent; color: var(--muted); }
+
     .grid{
       display:grid;
       grid-template-columns: repeat(3, minmax(0,1fr));
       gap: 12px;
       margin-top: 10px;
     }
-    @media (max-width:900px){ .grid{grid-template-columns:1fr;} }
+    @media (max-width:900px){
+      .grid{ grid-template-columns:1fr; }
+    }
 
     .card{
       border-radius: 22px;
@@ -115,6 +133,7 @@ PATCH v20260306-HUB-HERO-TITLE-BADGE-CARDS
       flex-direction:column;
       gap:10px;
     }
+
     .card h2{
       margin:0;
       font-size:16px;
@@ -123,7 +142,13 @@ PATCH v20260306-HUB-HERO-TITLE-BADGE-CARDS
       gap:10px;
       align-items:center;
     }
-    .muted{color:var(--muted); font-weight:900; font-size:12px;}
+
+    .muted{
+      color:var(--muted);
+      font-weight:900;
+      font-size:12px;
+    }
+
     .zoneRow{
       display:flex;
       gap:10px;
@@ -131,12 +156,15 @@ PATCH v20260306-HUB-HERO-TITLE-BADGE-CARDS
       align-items:center;
       justify-content:space-between;
     }
+
     .games{
       display:grid;
       grid-template-columns: repeat(2, minmax(0,1fr));
       gap: 10px;
     }
-    @media (max-width:520px){ .games{grid-template-columns:1fr;} }
+    @media (max-width:520px){
+      .games{ grid-template-columns:1fr; }
+    }
 
     .gameBtn{
       display:flex;
@@ -149,13 +177,172 @@ PATCH v20260306-HUB-HERO-TITLE-BADGE-CARDS
       box-shadow: 0 18px 55px rgba(0,0,0,.25);
       min-height: 68px;
     }
-    .gameBtn .t{font-weight:1100}
-    .gameBtn .s{font-size:12px; font-weight:900; color:var(--muted)}
-    .gameBtn:hover{border-color: rgba(59,130,246,.28);}
+    .gameBtn .t{ font-weight:1100; }
+    .gameBtn .s{ font-size:12px; font-weight:900; color:var(--muted); }
+    .gameBtn:hover{ border-color: rgba(59,130,246,.28); }
 
-    .inlineRow{display:flex; gap:10px; flex-wrap:wrap; align-items:center;}
-    .sep{height:1px; background: rgba(148,163,184,.14); margin: 6px 0;}
-    .small{font-size:12px; font-weight:900; color: var(--muted);}
+    .inlineRow{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+    }
+
+    .sep{
+      height:1px;
+      background: rgba(148,163,184,.14);
+      margin: 6px 0;
+    }
+
+    .small{
+      font-size:12px;
+      font-weight:900;
+      color: var(--muted);
+    }
+
+    /* ===== Card Book ===== */
+    .cardBook{
+      border-radius:22px;
+      border:1px solid rgba(148,163,184,.18);
+      background: rgba(2,6,23,.58);
+      backdrop-filter: blur(10px);
+      box-shadow: 0 22px 80px rgba(0,0,0,.35);
+      padding: 12px 12px;
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+      margin-top:12px;
+    }
+
+    .cardBookTop{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    .cardBookTitle{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      font-size:16px;
+      font-weight:1100;
+    }
+
+    .cardBookSub{
+      color:var(--muted);
+      font-size:12px;
+      font-weight:900;
+    }
+
+    .cardBookGrid{
+      display:grid;
+      grid-template-columns: 1.2fr .8fr;
+      gap:12px;
+    }
+    @media (max-width: 900px){
+      .cardBookGrid{ grid-template-columns:1fr; }
+    }
+
+    .bookPanel{
+      border-radius:18px;
+      border:1px solid rgba(148,163,184,.16);
+      background: rgba(15,23,42,.46);
+      padding:12px;
+      box-shadow: 0 18px 55px rgba(0,0,0,.25);
+    }
+
+    .bookBig{
+      font-size:30px;
+      font-weight:1100;
+      line-height:1;
+      margin-top:4px;
+    }
+
+    .bookMini{
+      color:var(--muted);
+      font-size:12px;
+      font-weight:900;
+      line-height:1.4;
+    }
+
+    .rarityRow{
+      display:grid;
+      grid-template-columns: repeat(4, minmax(0,1fr));
+      gap:8px;
+      margin-top:10px;
+    }
+    @media (max-width: 520px){
+      .rarityRow{ grid-template-columns: repeat(2, minmax(0,1fr)); }
+    }
+
+    .rarityCard{
+      border-radius:16px;
+      border:1px solid rgba(148,163,184,.16);
+      background: rgba(2,6,23,.34);
+      padding:10px 8px;
+      text-align:center;
+    }
+    .rarityCard .rk{
+      color:var(--muted);
+      font-size:11px;
+      font-weight:1000;
+    }
+    .rarityCard .rv{
+      margin-top:4px;
+      font-size:20px;
+      font-weight:1100;
+    }
+    .rarity-s .rv{ color:#facc15; }
+    .rarity-a .rv{ color:#60a5fa; }
+    .rarity-b .rv{ color:#4ade80; }
+    .rarity-c .rv{ color:#cbd5e1; }
+
+    .lastDrop{
+      display:grid;
+      grid-template-columns: 72px 1fr;
+      gap:12px;
+      align-items:center;
+    }
+
+    .lastDropIcon{
+      width:72px;
+      height:72px;
+      border-radius:18px;
+      display:grid;
+      place-items:center;
+      font-size:38px;
+      border:1px solid rgba(148,163,184,.16);
+      background: rgba(2,6,23,.36);
+      box-shadow: 0 12px 30px rgba(0,0,0,.24);
+    }
+
+    .lastDropBody{
+      display:flex;
+      flex-direction:column;
+      gap:4px;
+    }
+
+    .lastDropTitle{
+      font-size:16px;
+      font-weight:1100;
+      line-height:1.2;
+    }
+
+    .lastDropMeta{
+      color:var(--muted);
+      font-size:12px;
+      font-weight:900;
+      line-height:1.4;
+    }
+
+    .bookActions{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      margin-top:8px;
+    }
   </style>
 </head>
 <body>
@@ -179,12 +366,65 @@ PATCH v20260306-HUB-HERO-TITLE-BADGE-CARDS
         <span class="pill"><b>LV</b>: <span id="uiLvl">1</span></span>
         <span class="pill"><b>XP</b>: <span id="uiXp">0</span></span>
 
-        <span class="pill"><b>Badge</b>: <span id="uiBadge">🧪 Rookie</span></span>
-
         <button class="btn violet" id="btnHeroShow" type="button">🧾 ดู Hero</button>
         <button class="btn ghost" id="btnHeroReset" type="button">♻ Reset Hero</button>
       </div>
     </div>
+
+    <!-- ===== Card Book ===== -->
+    <section class="cardBook">
+      <div class="cardBookTop">
+        <div>
+          <div class="cardBookTitle">🃏 Card Book — GoodJunk</div>
+          <div class="cardBookSub">สะสมการ์ดจากผลการเล่น S / A / B / C</div>
+        </div>
+        <div class="inlineRow">
+          <button class="btn primary" id="btnOpenGJLauncher" type="button">🚀 เปิด GoodJunk Launcher</button>
+          <button class="btn ghost" id="btnResetCardBook" type="button">♻ Reset Card Book</button>
+        </div>
+      </div>
+
+      <div class="cardBookGrid">
+        <div class="bookPanel">
+          <div class="bookMini">จำนวนการ์ดสะสมทั้งหมด</div>
+          <div class="bookBig" id="bookTotal">0</div>
+
+          <div class="rarityRow">
+            <div class="rarityCard rarity-s">
+              <div class="rk">S</div>
+              <div class="rv" id="bookS">0</div>
+            </div>
+            <div class="rarityCard rarity-a">
+              <div class="rk">A</div>
+              <div class="rv" id="bookA">0</div>
+            </div>
+            <div class="rarityCard rarity-b">
+              <div class="rk">B</div>
+              <div class="rv" id="bookB">0</div>
+            </div>
+            <div class="rarityCard rarity-c">
+              <div class="rk">C</div>
+              <div class="rv" id="bookC">0</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="bookPanel">
+          <div class="bookMini">การ์ดล่าสุด</div>
+          <div class="lastDrop" style="margin-top:10px;">
+            <div class="lastDropIcon" id="lastDropIcon">🃏</div>
+            <div class="lastDropBody">
+              <div class="lastDropTitle" id="lastDropTitle">ยังไม่มีการ์ดล่าสุด</div>
+              <div class="lastDropMeta" id="lastDropMeta">เล่น GoodJunk แล้วกลับมาดูที่นี่</div>
+            </div>
+          </div>
+          <div class="bookActions">
+            <span class="pill"><b>grade</b>: <span id="lastDropGrade">—</span></span>
+            <span class="pill"><b>score</b>: <span id="lastDropScore">0</span></span>
+          </div>
+        </div>
+      </div>
+    </section>
 
     <div class="grid">
 
@@ -201,7 +441,7 @@ PATCH v20260306-HUB-HERO-TITLE-BADGE-CARDS
         </div>
         <div class="sep"></div>
         <div class="games">
-          <a class="gameBtn" id="linkGoodjunk" href="#"><div class="t">🍔🆚🥦 GoodJunk</div><div class="s">Launcher • Solo/PRO/Battle • Hero Title + S/A/B/C</div></a>
+          <a class="gameBtn" id="linkGoodjunk" href="#"><div class="t">🍔🆚🥦 GoodJunk</div><div class="s">Launcher • Solo/PRO/Battle • Hero + Card Book</div></a>
           <a class="gameBtn" id="linkGroups" href="#"><div class="t">🥚🍚 Food Groups</div><div class="s">Classroom ramp + AI warn</div></a>
           <a class="gameBtn" id="linkHydration" href="#"><div class="t">💧 Hydration</div><div class="s">Storm boss + shield</div></a>
           <a class="gameBtn" id="linkPlate" href="#"><div class="t">🍽 Balanced Plate</div><div class="s">Bloom missions</div></a>
@@ -239,81 +479,49 @@ PATCH v20260306-HUB-HERO-TITLE-BADGE-CARDS
       </section>
 
     </div>
-
   </div>
 
-  <!-- ✅ HUB runtime (module) -->
-  <script type="module">
-    import { readHero } from './vr/hero-title.js';
-
+  <script>
     const qs = (k, d='')=>{ try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(e){ return d; } };
 
-    const pid = String(qs('pid','anon')).trim() || 'anon';
-    const run = String(qs('run','play'));
+    const pid  = String(qs('pid','anon')).trim() || 'anon';
+    const run  = String(qs('run','play'));
     const diff = String(qs('diff','normal'));
     const time = String(qs('time','80'));
-    const seed = String(qs('seed', String(Date.now())));
     const view = String(qs('view','mobile'));
-    const hub = location.href;
+    const hub  = location.href;
 
     const ctxLine = document.getElementById('ctxLine');
     const uiPid = document.getElementById('uiPid');
     const uiNick = document.getElementById('uiNick');
     const uiLvl = document.getElementById('uiLvl');
     const uiXp = document.getElementById('uiXp');
-    const uiBadge = document.getElementById('uiBadge');
 
     uiPid.textContent = pid;
     ctxLine.textContent = `run=${run} • diff=${diff} • time=${time}s • view=${view}`;
 
-    function lsGet(k){ try{ return localStorage.getItem(k); }catch(_){ return null; } }
-    function lsSet(k,v){ try{ localStorage.setItem(k,String(v)); }catch(_){ } }
-    function lsDel(k){ try{ localStorage.removeItem(k); }catch(_){ } }
-
-    // Backward compat: old profile key
-    function loadLegacyProfile(){
+    function loadHero(){
       try{
-        const raw = lsGet(`HHA_PROFILE:${pid}`) || '';
-        if(!raw) return null;
+        const raw = localStorage.getItem(`HHA_PROFILE:${pid}`) || '';
+        if(!raw) return { pid, nick: pid, xp:0, lvl:1 };
         const j = JSON.parse(raw);
-        if(!j || typeof j !== 'object') return null;
-        return {
-          nick: String(j.nick||'').trim() || pid,
-          xp: Math.max(0, Number(j.xp)||0),
-          lvl: Math.max(1, Number(j.lvl)||1),
-        };
-      }catch(_){ return null; }
+        const xp = Math.max(0, Number(j.xp)||0);
+        const lvl = Math.max(1, Number(j.lvl)|| (Math.floor(xp/50)+1));
+        return { pid, nick: String(j.nick||pid), xp, lvl };
+      }catch(_){
+        return { pid, nick: pid, xp:0, lvl:1 };
+      }
     }
 
-    // Optional: migrate legacy xp -> new hero xp once (if new xp is 0 and legacy xp exists)
-    function migrateLegacyXpIfNeeded(){
-      try{
-        const legacy = loadLegacyProfile();
-        if(!legacy) return;
-
-        const heroXpKey = `HHA_HERO_XP:${pid}`;
-        const curXp = Number(lsGet(heroXpKey)||'0')||0;
-        if(curXp > 0) return;
-
-        if(legacy.xp > 0){
-          lsSet(heroXpKey, String(legacy.xp));
-        }
-      }catch(_){}
+    function saveHero(h){
+      try{ localStorage.setItem(`HHA_PROFILE:${pid}`, JSON.stringify(h)); }catch(_){}
     }
 
     function renderHero(){
-      migrateLegacyXpIfNeeded();
-
-      const hero = readHero(pid); // {pid,xp,level,title,badge,cards,last,...}
-      const legacy = loadLegacyProfile();
-
-      // Nick source: prefer legacy nick if exists; else pid
-      const nick = (legacy && legacy.nick) ? legacy.nick : pid;
-
-      uiNick.textContent = nick;
-      uiXp.textContent = String(hero.xp|0);
-      uiLvl.textContent = String(hero.level|0);
-      uiBadge.textContent = `${hero.badge?.icon||'🧪'} ${hero.badge?.name||'Rookie'}`;
+      const h = loadHero();
+      uiNick.textContent = h.nick || pid;
+      uiXp.textContent = String(h.xp|0);
+      uiLvl.textContent = String(h.lvl|0);
     }
 
     function buildUrl(path, extra){
@@ -341,7 +549,96 @@ PATCH v20260306-HUB-HERO-TITLE-BADGE-CARDS
       return u.toString();
     }
 
-    // ===== Quick links — GoodJunk -> Launcher =====
+    function loadCardBook(pid){
+      try{
+        const raw = localStorage.getItem(`HHA_CARD_BOOK:${pid}`) || '';
+        if(!raw) return { S:0, A:0, B:0, C:0, total:0 };
+        const j = JSON.parse(raw);
+        return {
+          S: Math.max(0, Number(j.S)||0),
+          A: Math.max(0, Number(j.A)||0),
+          B: Math.max(0, Number(j.B)||0),
+          C: Math.max(0, Number(j.C)||0),
+          total: Math.max(0, Number(j.total)||0)
+        };
+      }catch(_){
+        return { S:0, A:0, B:0, C:0, total:0 };
+      }
+    }
+
+    function saveCardBook(pid, book){
+      try{
+        localStorage.setItem(`HHA_CARD_BOOK:${pid}`, JSON.stringify(book));
+      }catch(_){}
+    }
+
+    function cardSpecFromGrade(grade){
+      grade = String(grade||'C').toUpperCase();
+      if(grade === 'S') return { icon:'🏆', title:'Legendary Nutrition Hero' };
+      if(grade === 'A') return { icon:'⚡', title:'Elite Healthy Shooter' };
+      if(grade === 'B') return { icon:'🛡️', title:'Balanced Food Defender' };
+      return { icon:'🌱', title:'Rookie Health Explorer' };
+    }
+
+    function loadLastGoodjunkSummary(pid){
+      try{
+        const raw = localStorage.getItem(`HHA_LAST_SUMMARY:goodjunk:${pid}`) || '';
+        if(raw) return JSON.parse(raw);
+
+        const raw2 = localStorage.getItem('HHA_LAST_SUMMARY') || '';
+        if(!raw2) return null;
+        const j = JSON.parse(raw2);
+        if(j && String(j.pid||'') === pid && String(j.game||'') === 'goodjunk') return j;
+        return null;
+      }catch(_){
+        return null;
+      }
+    }
+
+    function renderCardBook(){
+      const book = loadCardBook(pid);
+      const sum = loadLastGoodjunkSummary(pid);
+
+      const bookTotal = document.getElementById('bookTotal');
+      const bookS = document.getElementById('bookS');
+      const bookA = document.getElementById('bookA');
+      const bookB = document.getElementById('bookB');
+      const bookC = document.getElementById('bookC');
+
+      if(bookTotal) bookTotal.textContent = String(book.total || 0);
+      if(bookS) bookS.textContent = String(book.S || 0);
+      if(bookA) bookA.textContent = String(book.A || 0);
+      if(bookB) bookB.textContent = String(book.B || 0);
+      if(bookC) bookC.textContent = String(book.C || 0);
+
+      const lastDropIcon = document.getElementById('lastDropIcon');
+      const lastDropTitle = document.getElementById('lastDropTitle');
+      const lastDropMeta = document.getElementById('lastDropMeta');
+      const lastDropGrade = document.getElementById('lastDropGrade');
+      const lastDropScore = document.getElementById('lastDropScore');
+
+      if(sum){
+        const grade = String(sum.grade || 'C').toUpperCase();
+        const spec = cardSpecFromGrade(grade);
+
+        if(lastDropIcon) lastDropIcon.textContent = spec.icon;
+        if(lastDropTitle) lastDropTitle.textContent = spec.title;
+        if(lastDropMeta) lastDropMeta.textContent =
+          `ผลล่าสุด: reason=${sum.reason || '-'} • miss ${sum.missTotal ?? sum.miss ?? 0} • acc ${sum.accPct ?? 0}%`;
+        if(lastDropGrade) lastDropGrade.textContent = grade;
+        if(lastDropScore) lastDropScore.textContent = String(sum.score ?? 0);
+      }else{
+        if(lastDropIcon) lastDropIcon.textContent = '🃏';
+        if(lastDropTitle) lastDropTitle.textContent = 'ยังไม่มีการ์ดล่าสุด';
+        if(lastDropMeta) lastDropMeta.textContent = 'เล่น GoodJunk แล้วกลับมาดูที่นี่';
+        if(lastDropGrade) lastDropGrade.textContent = '—';
+        if(lastDropScore) lastDropScore.textContent = '0';
+      }
+    }
+
+    // ===== GoodJunk -> Launcher =====
+    const GJ_LAUNCHER = './goodjunk-launcher.html';
+
     const btnGJsolo = document.getElementById('btnGJsolo');
     const btnGJpro = document.getElementById('btnGJpro');
     const btnGJbattle = document.getElementById('btnGJbattle');
@@ -351,23 +648,27 @@ PATCH v20260306-HUB-HERO-TITLE-BADGE-CARDS
     const linkHydration = document.getElementById('linkHydration');
     const linkPlate = document.getElementById('linkPlate');
 
-    // Launcher route
-    linkGoodjunk.href = buildUrl('./goodjunk-launcher.html', { mode:'solo' });
-
-    // Other games
+    linkGoodjunk.href = buildUrl(GJ_LAUNCHER, { mode:'solo' });
     linkGroups.href   = buildUrl('./vr-groups/groups-vr.html', {});
     linkHydration.href= buildUrl('./hydration-vr/hydration-vr.html', {});
     linkPlate.href    = buildUrl('./vr-plate/plate-vr.html', {});
 
-    btnGJsolo.onclick = ()=> location.href = buildUrl('./goodjunk-launcher.html', { mode:'solo' });
+    btnGJsolo.onclick = ()=> location.href = buildUrl(GJ_LAUNCHER, { mode:'solo' });
 
-    // PRO: tell launcher to go hard + (optionally) pro=1 carried to run page
-    btnGJpro.onclick  = ()=> location.href = buildUrl('./goodjunk-launcher.html', { mode:'solo', diff:'hard', pro:'1', auto:'0' });
+    btnGJpro.onclick  = ()=> location.href = buildUrl(GJ_LAUNCHER, {
+      mode:'solo',
+      diff:'hard',
+      pro:'1',
+      auto:'0'
+    });
 
-    // Battle: open launcher with battle + room default
     btnGJbattle.onclick= ()=> {
-      const room = String(qs('room','P51')) || 'P51';
-      location.href = buildUrl('./goodjunk-launcher.html', { mode:'battle', room, auto:'1' });
+      const room = String(qs('room','P5A')) || 'P5A';
+      location.href = buildUrl(GJ_LAUNCHER, {
+        mode:'battle',
+        room,
+        auto:'1'
+      });
     };
 
     // ===== Hero buttons =====
@@ -375,46 +676,45 @@ PATCH v20260306-HUB-HERO-TITLE-BADGE-CARDS
     const btnHeroReset = document.getElementById('btnHeroReset');
 
     btnHeroShow.onclick = ()=>{
-      const hero = readHero(pid);
-      const legacy = loadLegacyProfile();
-      const nick = legacy?.nick || pid;
-
-      alert(
-        `HERO\n`+
-        `PID: ${pid}\n`+
-        `Nick: ${nick}\n`+
-        `Lv: ${hero.level}\n`+
-        `XP: ${hero.xp}\n`+
-        `Badge: ${(hero.badge?.icon||'🧪')} ${(hero.badge?.name||'Rookie')}\n`+
-        `Title: ${hero.title}\n\n`+
-        `Cards: S=${hero.cards.S} A=${hero.cards.A} B=${hero.cards.B} C=${hero.cards.C}\n`+
-        `\n(keys: HHA_HERO_XP / HHA_CARD_BOOK / HHA_LAST_REWARD / HHA_HERO_PROFILE)`
-      );
+      const h = loadHero();
+      alert(`HERO\nPID: ${h.pid}\nNick: ${h.nick}\nLV: ${h.lvl}\nXP: ${h.xp}\n\n(localStorage: HHA_PROFILE:${pid})`);
     };
 
     btnHeroReset.onclick = ()=>{
-      if(!confirm('Reset Hero ของ PID นี้?\n(ล้าง XP + CardBook + LastReward + โปรไฟล์เดิม)')) return;
-
-      // New system
-      lsDel(`HHA_HERO_XP:${pid}`);
-      lsDel(`HHA_CARD_BOOK:${pid}`);
-      lsDel(`HHA_LAST_REWARD:${pid}`);
-      lsDel(`HHA_HERO_PROFILE:${pid}`);
-
-      // Legacy
-      lsDel(`HHA_PROFILE:${pid}`);
-
-      renderHero();
-      alert('Reset Hero เรียบร้อย ✅');
+      try{
+        if(!confirm('Reset Hero ของ PID นี้? (ลบ XP/LV)')) return;
+        const h = { pid, nick: pid, xp:0, lvl:1 };
+        saveHero(h);
+        renderHero();
+        alert('Reset Hero เรียบร้อย ✅');
+      }catch(_){}
     };
 
-    // ===== init =====
-    renderHero();
+    // ===== Card Book buttons =====
+    const btnOpenGJLauncher = document.getElementById('btnOpenGJLauncher');
+    const btnResetCardBook = document.getElementById('btnResetCardBook');
 
-    // refresh on return from games (end/reward)
-    window.addEventListener('focus', renderHero);
-    window.addEventListener('hha:end', renderHero);
-    window.addEventListener('hha:reward', renderHero);
+    btnOpenGJLauncher && (btnOpenGJLauncher.onclick = ()=>{
+      location.href = buildUrl('./goodjunk-launcher.html', { mode:'solo' });
+    });
+
+    btnResetCardBook && (btnResetCardBook.onclick = ()=>{
+      try{
+        if(!confirm('Reset Card Book ของ PID นี้?')) return;
+        saveCardBook(pid, { S:0, A:0, B:0, C:0, total:0 });
+        renderCardBook();
+        alert('Reset Card Book เรียบร้อย ✅');
+      }catch(_){}
+    });
+
+    // init
+    renderHero();
+    renderCardBook();
+
+    window.addEventListener('focus', ()=>{
+      renderHero();
+      renderCardBook();
+    });
   </script>
 </body>
 </html>
