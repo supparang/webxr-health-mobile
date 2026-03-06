@@ -1,288 +1,126 @@
-<!-- ================================
-FILE: /fitness/balance-hold.html
-Balance Hold — LAUNCHER (Hub → WarmupGate → Run)
-PATCH v20260305-BH-LAUNCHER-GATE-DIFF
-✅ Choose difficulty/time/view before run
-✅ Always route via warmup-gate (daily per game handled by gate)
-✅ Pass hub/run/diff/time/seed/pid/view + zone(cat=exercise) + theme=balance
-================================ -->
+<!-- === /fitness/balance-hold.html ===
+Balance Hold — RUN PAGE (used by /herohealth/balance-hold-vr.html)
+PATCH v20260305-BH-RUNPAGE-ON-FITNESS-ROOT
+✅ Reads diff/time/pid/seed/hub/run/view/autostart from query
+✅ Loads: ./css/balance-hold.css + ./js/balance-hold.js
+-->
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>Fitness — Balance Hold (Launcher)</title>
+  <title>Balance Hold — Run</title>
   <meta name="color-scheme" content="dark light" />
   <link rel="icon" href="../herohealth/favicon.ico" />
-  <style>
-    :root{
-      --bg:#050814; --panel:rgba(2,6,23,.72); --stroke:rgba(148,163,184,.18);
-      --text:#e5e7eb; --muted:#94a3b8; --good:#22c55e; --warn:#f59e0b; --cyan:#22d3ee; --violet:#a78bfa;
-      --sat: env(safe-area-inset-top, 0px); --sab: env(safe-area-inset-bottom, 0px);
-      --sal: env(safe-area-inset-left, 0px); --sar: env(safe-area-inset-right, 0px);
-    }
-    *{box-sizing:border-box}
-    html,body{height:100%;margin:0;background:
-      radial-gradient(900px 560px at 18% 0%, rgba(34,211,238,.14), transparent 56%),
-      radial-gradient(900px 560px at 92% 12%, rgba(167,139,250,.12), transparent 56%),
-      var(--bg);
-      color:var(--text);
-      font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif;
-    }
-    .wrap{min-height:100%;display:flex;align-items:center;justify-content:center;
-      padding:calc(14px + var(--sat)) calc(12px + var(--sar)) calc(14px + var(--sab)) calc(12px + var(--sal));
-    }
-    .card{
-      width:min(860px,100%);
-      border:1px solid var(--stroke);
-      background:linear-gradient(180deg, rgba(2,6,23,.86), rgba(2,6,23,.62));
-      border-radius:24px;
-      box-shadow:0 16px 60px rgba(0,0,0,.42);
-      overflow:hidden;
-    }
-    .top{padding:14px;border-bottom:1px solid var(--stroke);display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}
-    .brand{display:flex;gap:10px;align-items:center}
-    .logo{width:44px;height:44px;border-radius:14px;border:1px solid var(--stroke);
-      background:linear-gradient(135deg, rgba(34,211,238,.20), rgba(167,139,250,.16));
-      display:grid;place-items:center;font-weight:1100;
-    }
-    .title{font-weight:1100}
-    .sub{margin-top:2px;color:var(--muted);font-weight:850;font-size:12px}
-    .chips{display:flex;gap:8px;flex-wrap:wrap}
-    .chip{border:1px solid var(--stroke);background:rgba(2,6,23,.28);border-radius:999px;padding:6px 10px;font-size:11px;font-weight:1000}
-    .main{display:grid;grid-template-columns:1fr .9fr;gap:0}
-    @media (max-width:860px){.main{grid-template-columns:1fr}}
-    .left{padding:14px}
-    .right{padding:14px;border-left:1px solid var(--stroke);background:rgba(2,6,23,.22)}
-    @media (max-width:860px){.right{border-left:none;border-top:1px solid var(--stroke)}}
-    .panel{border:1px solid var(--stroke);background:rgba(2,6,23,.34);border-radius:18px;padding:12px}
-    h3{margin:0;font-size:14px;font-weight:1100}
-    .muted{color:rgba(229,231,235,.74);font-size:12px;line-height:1.4;font-weight:750}
-    .grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:10px}
-    @media (max-width:560px){.grid{grid-template-columns:1fr}}
-    label{display:block;font-size:11px;color:var(--muted);font-weight:950;margin-bottom:6px}
-    select,input{
-      width:100%;
-      border:1px solid var(--stroke);
-      background:rgba(2,6,23,.22);
-      color:var(--text);
-      border-radius:14px;
-      padding:10px 10px;
-      font-weight:1000;
-      outline:none;
-      min-height:42px;
-    }
-    .btnrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
-    .btn{
-      appearance:none;border:none;outline:none;cursor:pointer;
-      border:1px solid var(--stroke);
-      background:rgba(2,6,23,.30);
-      color:var(--text);
-      border-radius:14px;
-      padding:10px 12px;
-      font-weight:1100;font-size:13px;
-      min-height:42px;
-    }
-    .btn.primary{border-color:rgba(34,197,94,.30);background:rgba(34,197,94,.14)}
-    .btn.warn{border-color:rgba(245,158,11,.32);background:rgba(245,158,11,.12)}
-    .kvs{display:grid;gap:8px;margin-top:10px}
-    .row{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;border:1px solid var(--stroke);
-      background:rgba(2,6,23,.22);border-radius:14px;padding:8px 10px;font-size:12px}
-    .row .k{color:var(--muted);font-weight:950}
-    .row .v{font-weight:1100;text-align:right}
-    .hint{margin-top:10px;padding:10px;border-radius:16px;border:1px dashed rgba(148,163,184,.22);background:rgba(2,6,23,.22)}
-  </style>
+  <link rel="stylesheet" href="./css/balance-hold.css" />
 </head>
+
 <body>
-  <div class="wrap">
+  <!-- MENU -->
+  <section id="view-menu" class="view">
     <div class="card">
-      <div class="top">
-        <div class="brand">
-          <div class="logo">🏃</div>
-          <div>
-            <div class="title">Balance Hold</div>
-            <div class="sub">เลือกความยากก่อนเข้าเล่น — จะพาไป Warmup Gate (daily ต่อเกม) แล้วเข้าเกมจริง</div>
-          </div>
-        </div>
-        <div class="chips">
-          <div class="chip">ZONE: EXERCISE</div>
-          <div class="chip">THEME: BALANCE</div>
-          <div class="chip" id="chipPid">PID: anon</div>
-        </div>
+      <div class="h1">⚖️ Balance Hold</div>
+      <div class="p">ลากซ้าย–ขวาเพื่อคุมสมดุล • หลบ 💨/💣/⚡ • Warm → Trick → Boss</div>
+
+      <div class="form">
+        <label>Difficulty</label>
+        <select id="difficulty">
+          <option value="easy">Easy</option>
+          <option value="normal" selected>Normal</option>
+          <option value="hard">Hard</option>
+        </select>
+
+        <label>Session Duration (sec)</label>
+        <select id="sessionDuration">
+          <option value="45">45</option>
+          <option value="60">60</option>
+          <option value="80" selected>80</option>
+          <option value="90">90</option>
+          <option value="120">120</option>
+        </select>
       </div>
 
-      <div class="main">
-        <div class="left">
-          <div class="panel">
-            <h3>ตั้งค่าเล่น</h3>
-            <div class="muted" style="margin-top:6px;">
-              โฟลว์: <b>Warmup → เกม → Summary → Cooldown (ครั้งแรกของวัน)</b>
-            </div>
+      <div class="row">
+        <button class="btn primary" data-action="start-normal">▶ Start Play</button>
+        <button class="btn ghost" id="btnBackHubMenu" style="display:none;">↩ Back HUB</button>
+      </div>
 
-            <div class="grid">
-              <div>
-                <label>ระดับ (diff)</label>
-                <select id="diff">
-                  <option value="easy">ง่าย</option>
-                  <option value="normal" selected>ปกติ</option>
-                  <option value="hard">ยาก</option>
-                </select>
-              </div>
-              <div>
-                <label>เวลา (วินาที)</label>
-                <select id="time">
-                  <option value="45">45</option>
-                  <option value="60" selected>60</option>
-                  <option value="80">80</option>
-                  <option value="100">100</option>
-                </select>
-              </div>
-              <div>
-                <label>View</label>
-                <select id="view">
-                  <option value="pc" selected>PC</option>
-                  <option value="mobile">Mobile</option>
-                  <option value="cvr">Cardboard (cVR)</option>
-                </select>
-              </div>
-            </div>
-
-            <div class="grid" style="margin-top:8px;">
-              <div>
-                <label>pid</label>
-                <input id="pid" placeholder="anon" />
-              </div>
-              <div>
-                <label>seed (ว่าง = สร้างอัตโนมัติ)</label>
-                <input id="seed" placeholder="" />
-              </div>
-              <div>
-                <label>hub (กลับไปหน้าไหน)</label>
-                <input id="hub" placeholder="../herohealth/hub.html" />
-              </div>
-            </div>
-
-            <div class="btnrow">
-              <button class="btn primary" id="btnPlay">เข้าเล่น (ผ่าน Warmup)</button>
-              <button class="btn" id="btnRunNow">ข้าม Warmup (debug)</button>
-              <button class="btn warn" id="btnToHub">กลับ HUB</button>
-            </div>
-
-            <div class="hint">
-              <div class="muted">
-                ทิป: เกมจะเริ่มจริงหลัง “แตะ/ลากครั้งแรก” เพื่อกันเคส “ไม่ทำอะไรแต่ได้คะแนน”
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="right">
-          <div class="panel">
-            <h3>พารามิเตอร์ที่ส่งไป</h3>
-            <div class="kvs">
-              <div class="row"><div class="k">cat</div><div class="v">exercise</div></div>
-              <div class="row"><div class="k">theme</div><div class="v">balance</div></div>
-              <div class="row"><div class="k">next</div><div class="v">balance-hold-run.html</div></div>
-              <div class="row"><div class="k">warmup gate</div><div class="v">/herohealth/warmup-gate.html</div></div>
-            </div>
-            <div class="muted" style="margin-top:10px;">
-              daily ต่อเกม/ต่อ PID: gate จะ auto-skip ให้เองเมื่อทำแล้วในวันนั้น
-            </div>
-          </div>
-        </div>
+      <div class="note">
+        * ถ้าเข้ามาจาก HUB จะส่งพารามิเตอร์ pid/seed/diff/time/hub มาให้แล้ว<br>
+        * autostart=1 จะเริ่มเกมอัตโนมัติ
       </div>
     </div>
-  </div>
+  </section>
 
-<script>
-(function(){
-  'use strict';
-  const $=(id)=>document.getElementById(id);
-  function qs(k,d=''){ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(e){ return d; } }
-  function setIfEmpty(el, v){ if(!el) return; if(String(el.value||'').trim()==='') el.value = v; }
+  <!-- PLAY -->
+  <section id="view-play" class="view hidden">
+    <div class="hud">
+      <div class="hudrow">
+        <div class="chip">Mode: <b id="hud-mode">Play</b></div>
+        <div class="chip">Diff: <b id="hud-diff">normal</b></div>
+        <div class="chip">Dur: <b id="hud-dur">80</b>s</div>
+        <div class="chip">Time: <b id="hud-time">80.0</b></div>
+      </div>
+      <div class="hudrow">
+        <div class="chip">Stage: <b id="hud-stage">Warm</b></div>
+        <div class="chip">Stability: <b id="hud-stability">0%</b></div>
+        <div class="chip">Obstacles: <b id="hud-obstacles">0 / 0</b></div>
+        <div class="chip">HP: <b id="hud-hp">3</b></div>
+        <div class="chip">Score: <b id="hud-score">0</b></div>
+        <div class="chip">Combo: <b id="hud-combo">0</b></div>
+        <div class="chip">RT: <b id="hud-rt">-</b></div>
+      </div>
 
-  // prefill from URL
-  const qDiff = String(qs('diff','normal')).toLowerCase();
-  const qTime = String(qs('time','60'));
-  const qView = String(qs('view','pc')).toLowerCase();
-  const qPid  = String(qs('pid','anon')).trim() || 'anon';
-  const qSeed = String(qs('seed','')).trim();
-  const qHub  = String(qs('hub','')).trim();
+      <div class="coachline" id="coachLabel">ลากซ้าย–ขวาเพื่อคุมสมดุล / Drag left–right to balance</div>
+      <div class="coachbubble hidden" id="coachBubble">—</div>
+    </div>
 
-  if($('diff') && ['easy','normal','hard'].includes(qDiff)) $('diff').value = qDiff;
-  if($('time') && qTime) $('time').value = qTime;
-  if($('view') && ['pc','mobile','cvr'].includes(qView)) $('view').value = qView;
+    <div id="playArea" class="playArea">
+      <div id="fx-layer" class="fx-layer"></div>
+      <div id="obstacle-layer" class="obstacle-layer"></div>
 
-  setIfEmpty($('pid'), qPid);
-  setIfEmpty($('seed'), qSeed);
-  setIfEmpty($('hub'), qHub || '../herohealth/hub.html');
+      <div id="platform-wrap" class="platform-wrap">
+        <div id="indicator" class="indicator"></div>
+        <div id="platform" class="platform"></div>
+        <div class="safezone" id="safezone"></div>
+      </div>
+    </div>
 
-  $('chipPid').textContent = 'PID: ' + qPid;
+    <div class="controls">
+      <button class="btn ghost" data-action="stop">⏹ Stop</button>
+      <button class="btn ghost" data-action="back-menu">← Menu</button>
+    </div>
+  </section>
 
-  function absUrl(url){
-    try{ return new URL(url, location.href).toString(); }catch(e){ return String(url||''); }
-  }
+  <!-- RESULT -->
+  <section id="view-result" class="view hidden">
+    <div class="card">
+      <div class="h2">Result</div>
+      <div class="resgrid">
+        <div class="r"><span>Mode</span><b id="res-mode">—</b></div>
+        <div class="r"><span>Diff</span><b id="res-diff">—</b></div>
+        <div class="r"><span>Dur</span><b id="res-dur">—</b></div>
+        <div class="r"><span>End</span><b id="res-end">—</b></div>
 
-  function buildRunUrl(){
-    const base = absUrl('./balance-hold-run.html');
-    const u = new URL(base, location.href);
+        <div class="r"><span>Stability</span><b id="res-stability">—</b></div>
+        <div class="r"><span>Mean Tilt</span><b id="res-meanTilt">—</b></div>
+        <div class="r"><span>RMS Tilt</span><b id="res-rmsTilt">—</b></div>
 
-    const diff = $('diff').value;
-    const time = $('time').value;
-    const view = $('view').value;
+        <div class="r"><span>Avoid</span><b id="res-avoid">—</b></div>
+        <div class="r"><span>Hit</span><b id="res-hit">—</b></div>
+        <div class="r"><span>Avoid rate</span><b id="res-avoidRate">—</b></div>
 
-    const pid  = ($('pid').value || 'anon').trim() || 'anon';
-    const seed = ($('seed').value || '').trim();
-    const hub  = ($('hub').value || '../herohealth/hub.html').trim();
+        <div class="r"><span>Fatigue</span><b id="res-fatigue">—</b></div>
+        <div class="r"><span>Samples</span><b id="res-samples">—</b></div>
+      </div>
 
-    u.searchParams.set('run','play');
-    u.searchParams.set('diff', diff);
-    u.searchParams.set('time', time);
-    u.searchParams.set('view', view);
-    u.searchParams.set('pid', pid);
-    if(seed) u.searchParams.set('seed', seed);
-    u.searchParams.set('hub', absUrl(hub));
-    return u.toString();
-  }
+      <div class="row">
+        <button class="btn primary" data-action="play-again">↻ Play Again</button>
+        <button class="btn" id="btnBackHub" style="display:none;">⬅ กลับ HUB</button>
+      </div>
+    </div>
+  </section>
 
-  function buildGateUrl(phase){
-    const gate = absUrl('../herohealth/warmup-gate.html');
-    const u = new URL(gate, location.href);
-    const runUrl = buildRunUrl();
-
-    const pid  = ($('pid').value || 'anon').trim() || 'anon';
-    const hub  = ($('hub').value || '../herohealth/hub.html').trim();
-
-    u.searchParams.set('gatePhase', phase || 'warmup');
-    u.searchParams.set('cat','exercise');
-    u.searchParams.set('theme','balance');
-    u.searchParams.set('next', runUrl);
-    u.searchParams.set('pid', pid);
-    u.searchParams.set('hub', absUrl(hub));
-
-    // pass-through baseline
-    u.searchParams.set('run','play');
-    u.searchParams.set('diff', $('diff').value);
-    u.searchParams.set('time', $('time').value);
-    u.searchParams.set('view', $('view').value);
-
-    const seed = ($('seed').value || '').trim();
-    if(seed) u.searchParams.set('seed', seed);
-
-    // P5 optional (ถ้าจะใช้)
-    const grade = String(qs('grade','')).trim();
-    if(grade) u.searchParams.set('grade', grade);
-
-    return u.toString();
-  }
-
-  $('btnPlay').addEventListener('click', ()=> location.href = buildGateUrl('warmup'));
-  $('btnRunNow').addEventListener('click', ()=> location.href = buildRunUrl());
-  $('btnToHub').addEventListener('click', ()=>{
-    const hub = absUrl(($('hub').value || '../herohealth/hub.html').trim());
-    location.href = hub;
-  });
-})();
-</script>
+  <script src="./js/balance-hold.js"></script>
 </body>
 </html>
