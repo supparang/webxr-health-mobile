@@ -1,6 +1,11 @@
 <!-- === /herohealth/goodjunk-teacher.html ===
 HeroHealth • GoodJunk Teacher Dashboard
-FULL v20260306-TEACHER-DASHBOARD-ULTIMATE
+PATCH v20260306-GJ-TEACHER-FULL
+✅ Correct root path uses ./firebase-config.js
+✅ Realtime classroom room monitor
+✅ Summary cards + player table
+✅ Can watch battle room / class room
+✅ Safe fallback when Firebase is not ready
 -->
 <!doctype html>
 <html lang="th">
@@ -10,6 +15,7 @@ FULL v20260306-TEACHER-DASHBOARD-ULTIMATE
   <title>GoodJunk — Teacher Dashboard</title>
   <meta name="color-scheme" content="dark light" />
   <link rel="icon" href="./favicon.ico" />
+
   <style>
     :root{
       --bg1:#020617; --bg2:#0b1226;
@@ -18,2778 +24,736 @@ FULL v20260306-TEACHER-DASHBOARD-ULTIMATE
       --stroke:rgba(148,163,184,.18);
       --text:rgba(229,231,235,.96);
       --muted:rgba(148,163,184,.92);
-      --blue:#3b82f6; --good:#22c55e; --warn:#f59e0b; --bad:#ef4444; --violet:#a78bfa;
-      --rad:22px;
+      --blue:#3b82f6;
+      --good:#22c55e;
+      --warn:#f59e0b;
+      --danger:#ef4444;
+      --cyan:#22d3ee;
+      --shadow:0 18px 60px rgba(0,0,0,.30);
+      --r:24px;
+      --sat: env(safe-area-inset-top, 0px);
+      --sar: env(safe-area-inset-right, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
     }
-    html,body{height:100%; margin:0;}
-    body{
+    *{ box-sizing:border-box; }
+    html,body{
+      margin:0;
+      min-height:100%;
       background:
-        radial-gradient(1200px 700px at 18% 10%, rgba(59,130,246,.14), transparent 55%),
-        radial-gradient(1000px 600px at 85% 15%, rgba(167,139,250,.12), transparent 55%),
-        linear-gradient(180deg, var(--bg1), var(--bg2));
+        radial-gradient(1200px 900px at 50% -10%, rgba(34,211,238,.09), transparent 55%),
+        linear-gradient(180deg,var(--bg1),var(--bg2));
       color:var(--text);
-      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", "Noto Sans", Arial;
-      padding:14px;
-      overflow:auto;
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", sans-serif;
     }
-    *{box-sizing:border-box}
-    .wrap{max-width:1180px; margin:0 auto; display:flex; flex-direction:column; gap:12px;}
-    .top{
-      display:flex; gap:10px; align-items:flex-start; justify-content:space-between; flex-wrap:wrap;
-    }
-    .brand{
-      display:flex; gap:10px; align-items:center;
-    }
-    .logo{
-      width:48px; height:48px; border-radius:16px;
-      display:grid; place-items:center;
-      background:rgba(59,130,246,.14);
-      border:1px solid rgba(59,130,246,.22);
-      font-size:24px;
-      box-shadow:0 18px 55px rgba(0,0,0,.35);
-    }
-    h1{margin:0; font-size:clamp(20px,2.4vw,28px);}
-    .subtitle{margin:4px 0 0 0; color:var(--muted); font-size:13px; font-weight:800;}
-    .pillrow{display:flex; flex-wrap:wrap; gap:8px; align-items:center;}
-    .pill{
-      background: rgba(2,6,23,.55);
-      border:1px solid var(--stroke);
-      padding:8px 10px;
-      border-radius:999px;
-      font-size:12px;
-      color:var(--muted);
-      backdrop-filter: blur(8px);
-      white-space:nowrap;
-      user-select:none;
-      font-weight:1000;
-    }
-    .pill b{color:var(--text);}
 
+    .wrap{
+      width:min(1280px, calc(100vw - 24px));
+      margin:0 auto;
+      padding:
+        calc(18px + var(--sat))
+        calc(12px + var(--sar))
+        calc(18px + var(--sab))
+        calc(12px + var(--sal));
+    }
+
+    .hero{
+      display:grid;
+      grid-template-columns:1.2fr .8fr;
+      gap:14px;
+      margin-bottom:14px;
+    }
     .card{
+      background:linear-gradient(180deg, rgba(15,23,42,.74), rgba(2,6,23,.72));
       border:1px solid var(--stroke);
-      background: linear-gradient(180deg, var(--panel), var(--panel2));
-      border-radius: var(--rad);
-      padding: 12px;
-      box-shadow: 0 22px 80px rgba(0,0,0,.45);
+      border-radius:var(--r);
+      box-shadow:var(--shadow);
       overflow:hidden;
     }
-    .grid{
-      display:grid;
-      grid-template-columns: 1fr 1fr;
-      gap:12px;
+    .hero-main{
+      padding:18px;
     }
-    @media (max-width: 900px){ .grid{grid-template-columns:1fr;} }
+    .eyebrow{
+      display:inline-flex; align-items:center; gap:8px;
+      border-radius:999px;
+      background:rgba(34,211,238,.10);
+      color:#a5f3fc;
+      border:1px solid rgba(34,211,238,.18);
+      padding:8px 12px;
+      font-size:12px; font-weight:700;
+      margin-bottom:12px;
+    }
+    h1{
+      margin:0;
+      font-size:clamp(28px,5vw,40px);
+      line-height:1.08;
+      letter-spacing:.2px;
+    }
+    .sub{
+      margin-top:8px;
+      color:var(--muted);
+      font-size:14px;
+    }
 
-    .panel{
-      border:1px solid rgba(148,163,184,.16);
-      background: rgba(2,6,23,.42);
-      border-radius: 18px;
-      padding: 12px;
+    .controls{
+      display:grid;
+      grid-template-columns:1.3fr 1fr 1fr auto auto;
+      gap:10px;
+      margin-top:16px;
     }
-    .panel h2{margin:0 0 10px 0; font-size:14px;}
-    .row{display:flex; gap:10px; flex-wrap:wrap;}
-    .field{flex:1; min-width:220px; display:flex; flex-direction:column; gap:6px;}
-    label{font-size:12px; font-weight:1000; opacity:.9}
-    input, textarea{
+    .field{
+      min-width:0;
+    }
+    .label{
+      display:block;
+      font-size:12px;
+      color:var(--muted);
+      margin-bottom:6px;
+    }
+    input,select,button{
+      width:100%;
+      min-height:44px;
       border-radius:14px;
-      border:1px solid rgba(148,163,184,.22);
-      background: rgba(2,6,23,.38);
+      border:1px solid var(--stroke);
+      background:rgba(2,6,23,.76);
       color:var(--text);
-      padding: 12px 12px;
-      font-weight:900;
+      padding:10px 12px;
+      font:inherit;
       outline:none;
     }
     button{
-      border-radius:16px;
-      border:1px solid rgba(148,163,184,.22);
-      background: rgba(148,163,184,.10);
-      color:var(--text);
-      padding:10px 12px;
-      font-weight:1100;
       cursor:pointer;
-      min-height:44px;
+      font-weight:800;
+      background:linear-gradient(135deg,#2563eb,#06b6d4);
+      border:0;
+      box-shadow:0 10px 28px rgba(37,99,235,.28);
     }
-    .primary{background:rgba(59,130,246,.16); border-color:rgba(59,130,246,.30);}
-    .good{background:rgba(34,197,94,.16); border-color:rgba(34,197,94,.30);}
-    .ghost{background:transparent; color:var(--muted);}
-    .msg{
-      margin-top:10px;
-      border-radius:16px;
-      border:1px solid rgba(148,163,184,.16);
-      background: rgba(2,6,23,.30);
-      padding:10px;
-      font-weight:900;
-      font-size:12px;
-      line-height:1.4;
-      white-space:pre-wrap;
+    button.secondary{
+      background:rgba(15,23,42,.86);
+      border:1px solid var(--stroke);
+      box-shadow:none;
     }
-    .msg.ok{border-color: rgba(34,197,94,.24); background: rgba(34,197,94,.12);}
-    .msg.warn{border-color: rgba(245,158,11,.24); background: rgba(245,158,11,.12);}
-    .msg.bad{border-color: rgba(239,68,68,.24); background: rgba(239,68,68,.12);}
 
-    .stats{
+    .hero-side{
+      padding:18px;
       display:grid;
-      grid-template-columns:repeat(4,minmax(0,1fr));
-      gap:10px;
-    }
-    @media (max-width:760px){ .stats{grid-template-columns:repeat(2,minmax(0,1fr));} }
-    .stat{
-      border-radius:18px;
-      border:1px solid rgba(148,163,184,.16);
-      background: rgba(15,23,42,.42);
-      padding:12px 10px;
-    }
-    .stat .k{font-size:11px; color:var(--muted); font-weight:1000;}
-    .stat .v{font-size:22px; margin-top:6px; font-weight:1100; color:var(--text);}
-
-    .scoreboard{
-      display:grid;
-      grid-template-columns:repeat(2,minmax(0,1fr));
       gap:12px;
+      align-content:start;
     }
-    @media (max-width:760px){ .scoreboard{grid-template-columns:1fr;} }
-    .playerCard{
-      border-radius:20px;
-      border:1px solid rgba(148,163,184,.16);
-      background: rgba(15,23,42,.46);
-      padding:12px;
-      box-shadow: 0 14px 40px rgba(0,0,0,.22);
-    }
-    .playerTop{
-      display:flex; justify-content:space-between; gap:10px; align-items:center; flex-wrap:wrap;
-    }
-    .playerName{font-size:18px; font-weight:1100;}
-    .tag{
-      display:inline-flex; align-items:center; gap:6px;
-      border:1px solid rgba(255,255,255,.14);
-      background: rgba(255,255,255,.06);
-      border-radius:999px;
-      padding:6px 10px;
-      font-size:11px;
-      color:var(--text);
-      font-weight:1000;
-      white-space:nowrap;
-    }
-    .tag.good{border-color:rgba(34,197,94,.24); background:rgba(34,197,94,.12);}
-    .tag.warn{border-color:rgba(245,158,11,.24); background:rgba(245,158,11,.12);}
-    .tag.bad{border-color:rgba(239,68,68,.24); background:rgba(239,68,68,.12);}
-
-    .metrics{
-      display:grid;
-      grid-template-columns:repeat(4,minmax(0,1fr));
-      gap:8px;
-      margin-top:10px;
-    }
-    @media (max-width:520px){ .metrics{grid-template-columns:repeat(2,minmax(0,1fr));} }
-    .metric{
-      border-radius:14px;
-      border:1px solid rgba(148,163,184,.14);
-      background: rgba(2,6,23,.30);
-      padding:10px 8px;
-    }
-    .metric .k{font-size:10px; color:var(--muted); font-weight:1000;}
-    .metric .v{margin-top:4px; font-size:16px; font-weight:1100;}
-
-    .winnerBox{
-      margin-top:12px;
+    .mini{
       border-radius:18px;
-      border:1px solid rgba(34,197,94,.20);
-      background:rgba(34,197,94,.12);
-      padding:12px;
-      font-weight:1000;
-      display:none;
+      background:rgba(2,6,23,.44);
+      border:1px solid var(--stroke);
+      padding:14px;
+    }
+    .mini .k{
+      font-size:12px;
+      color:var(--muted);
+      margin-bottom:6px;
+    }
+    .mini .v{
+      font-size:18px;
+      font-weight:900;
     }
 
+    .grid4{
+      display:grid;
+      grid-template-columns:repeat(4, minmax(0,1fr));
+      gap:12px;
+      margin-bottom:14px;
+    }
+    .stat{
+      padding:16px;
+      border-radius:22px;
+      background:linear-gradient(180deg, rgba(15,23,42,.75), rgba(2,6,23,.68));
+      border:1px solid var(--stroke);
+      box-shadow:var(--shadow);
+    }
+    .stat .k{
+      color:var(--muted);
+      font-size:12px;
+      margin-bottom:8px;
+    }
+    .stat .v{
+      font-size:clamp(24px,4vw,34px);
+      font-weight:900;
+      line-height:1;
+    }
+
+    .section{
+      margin-bottom:14px;
+    }
+    .section-head{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      margin:0 0 10px;
+    }
+    .section-head h2{
+      margin:0;
+      font-size:18px;
+    }
+    .muted{ color:var(--muted); }
+
+    .panels{
+      display:grid;
+      grid-template-columns:1.05fr .95fr;
+      gap:14px;
+      margin-bottom:14px;
+    }
+
+    .table-wrap{
+      overflow:auto;
+      border-radius:18px;
+    }
     table{
       width:100%;
       border-collapse:collapse;
-      font-size:12px;
+      min-width:760px;
     }
     th,td{
-      padding:10px 8px;
+      padding:12px 10px;
       border-bottom:1px solid rgba(148,163,184,.12);
       text-align:left;
-      vertical-align:top;
+      font-size:13px;
+      vertical-align:middle;
     }
-    th{color:var(--muted); font-weight:1100;}
-    .mono{font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;}
+    th{
+      color:#cbd5e1;
+      background:rgba(2,6,23,.44);
+      position:sticky;
+      top:0;
+      z-index:1;
+    }
+    tbody tr:hover{
+      background:rgba(255,255,255,.03);
+    }
+
+    .pill{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      border-radius:999px;
+      padding:6px 10px;
+      font-size:12px;
+      font-weight:800;
+      border:1px solid transparent;
+      white-space:nowrap;
+    }
+    .pill.ok{
+      color:#bbf7d0;
+      background:rgba(34,197,94,.12);
+      border-color:rgba(34,197,94,.18);
+    }
+    .pill.warn{
+      color:#fde68a;
+      background:rgba(245,158,11,.12);
+      border-color:rgba(245,158,11,.18);
+    }
+    .pill.danger{
+      color:#fecaca;
+      background:rgba(239,68,68,.12);
+      border-color:rgba(239,68,68,.18);
+    }
+    .pill.info{
+      color:#bae6fd;
+      background:rgba(34,211,238,.12);
+      border-color:rgba(34,211,238,.18);
+    }
+
+    .list{
+      display:grid;
+      gap:10px;
+    }
+    .item{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      padding:12px 14px;
+      border-radius:16px;
+      background:rgba(2,6,23,.42);
+      border:1px solid var(--stroke);
+    }
+    .item .name{
+      font-weight:800;
+      font-size:14px;
+    }
+    .item .subt{
+      color:var(--muted);
+      font-size:12px;
+      margin-top:4px;
+    }
+
+    .empty{
+      padding:24px;
+      text-align:center;
+      color:var(--muted);
+    }
+    .status-line{
+      margin-top:12px;
+      font-size:12px;
+      color:var(--muted);
+    }
+    .danger-box{
+      display:none;
+      margin-top:12px;
+      padding:12px 14px;
+      border-radius:14px;
+      border:1px solid rgba(248,113,113,.25);
+      background:rgba(127,29,29,.22);
+      color:#fecaca;
+      white-space:pre-wrap;
+      font-size:13px;
+    }
+    .danger-box.show{ display:block; }
+
+    @media (max-width:1100px){
+      .hero,
+      .panels{
+        grid-template-columns:1fr;
+      }
+      .grid4{
+        grid-template-columns:repeat(2,minmax(0,1fr));
+      }
+      .controls{
+        grid-template-columns:1fr 1fr;
+      }
+    }
+    @media (max-width:640px){
+      .grid4{
+        grid-template-columns:1fr 1fr;
+      }
+      .controls{
+        grid-template-columns:1fr;
+      }
+      .wrap{ width:min(100vw, calc(100vw - 12px)); }
+    }
   </style>
+
+  <script src="./firebase-config.js"></script>
 </head>
 <body>
-<div class="wrap">
-  <div class="top">
-    <div class="brand">
-      <div class="logo">🧑‍🏫</div>
-      <div>
-        <h1>GoodJunk — Teacher Dashboard</h1>
-        <p class="subtitle">ดูสถานะห้องแบบสด ๆ + analytics + research summary</p>
-      </div>
-    </div>
-    <div class="pillrow">
-      <span class="pill"><b>room</b>: <span id="uiRoom">—</span></span>
-      <span class="pill"><b>phase</b>: <span id="uiPhase">lobby</span></span>
-      <span class="pill"><b>countdown</b>: <span id="uiCountdown">—</span></span>
-      <span class="pill"><b>lead</b>: <span id="uiLead">tie</span></span>
-    </div>
-  </div>
+  <div class="wrap">
+    <section class="hero">
+      <div class="card hero-main">
+        <div class="eyebrow">👩‍🏫 Teacher Dashboard</div>
+        <h1>GoodJunk Classroom Monitor</h1>
+        <div class="sub">
+          ดูสถานะผู้เล่นแบบเรียลไทม์ ตรวจ room battle/classroom และติดตามคะแนน ความแม่นยำ miss และความเสี่ยงจาก AI HUD
+        </div>
 
-  <div class="card">
-    <div class="grid">
-      <div class="panel">
-        <h2>1) Connect Room</h2>
-        <div class="row">
+        <div class="controls">
           <div class="field">
-            <label>ROOM</label>
-            <input id="inpRoom" placeholder="เช่น P5A / LAB1" />
+            <label class="label" for="roomInput">Room / Session</label>
+            <input id="roomInput" placeholder="เช่น roomA, class-p5, battle-01" />
           </div>
+
           <div class="field">
-            <label>Action</label>
-            <div class="row">
-              <button id="btnConnect" class="primary" type="button">🔌 Connect</button>
-              <button id="btnOpenBattle" class="good" type="button">⚔ Open Battle</button>
-              <button id="btnBackLauncher" class="ghost" type="button">↩ Launcher</button>
-            </div>
+            <label class="label" for="modeInput">Mode</label>
+            <select id="modeInput">
+              <option value="battle">battle</option>
+              <option value="classroom">classroom</option>
+              <option value="auto">auto</option>
+            </select>
           </div>
-        </div>
-        <div id="connectMsg" class="msg">ใส่ room แล้วกด Connect</div>
-      </div>
 
-      <div class="panel">
-        <h2>2) Quick Summary</h2>
-        <div class="stats">
-          <div class="stat"><div class="k">ROOM</div><div class="v mono" id="sumRoom">—</div></div>
-          <div class="stat"><div class="k">PHASE</div><div class="v" id="sumPhase">lobby</div></div>
-          <div class="stat"><div class="k">PLAYERS</div><div class="v" id="sumPlayers">0/2</div></div>
-          <div class="stat"><div class="k">RULE</div><div class="v" id="sumRule">—</div></div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div class="card">
-    <div class="panel">
-      <h2>3) Live Scoreboard</h2>
-      <div class="scoreboard">
-        <div class="playerCard">
-          <div class="playerTop">
-            <div class="playerName" id="p1Name">Player 1</div>
-            <span class="tag" id="p1Status">waiting</span>
+          <div class="field">
+            <label class="label" for="autoRefreshInput">Realtime</label>
+            <select id="autoRefreshInput">
+              <option value="1">เปิด</option>
+              <option value="0">ปิด</option>
+            </select>
           </div>
-          <div class="metrics">
-            <div class="metric"><div class="k">score</div><div class="v" id="p1Score">0</div></div>
-            <div class="metric"><div class="k">acc</div><div class="v" id="p1Acc">0%</div></div>
-            <div class="metric"><div class="k">miss</div><div class="v" id="p1Miss">0</div></div>
-            <div class="metric"><div class="k">medianRT</div><div class="v" id="p1Rt">0</div></div>
+
+          <div class="field" style="align-self:end">
+            <button id="btnConnect">เชื่อมต่อ</button>
+          </div>
+
+          <div class="field" style="align-self:end">
+            <button id="btnBoard" class="secondary">เปิด Board</button>
           </div>
         </div>
 
-        <div class="playerCard">
-          <div class="playerTop">
-            <div class="playerName" id="p2Name">Player 2</div>
-            <span class="tag" id="p2Status">waiting</span>
-          </div>
-          <div class="metrics">
-            <div class="metric"><div class="k">score</div><div class="v" id="p2Score">0</div></div>
-            <div class="metric"><div class="k">acc</div><div class="v" id="p2Acc">0%</div></div>
-            <div class="metric"><div class="k">miss</div><div class="v" id="p2Miss">0</div></div>
-            <div class="metric"><div class="k">medianRT</div><div class="v" id="p2Rt">0</div></div>
-          </div>
+        <div id="errorBox" class="danger-box"></div>
+        <div id="statusLine" class="status-line">ยังไม่ได้เชื่อมต่อห้อง</div>
+      </div>
+
+      <div class="card hero-side">
+        <div class="mini">
+          <div class="k">Current room</div>
+          <div id="miniRoom" class="v">—</div>
+        </div>
+        <div class="mini">
+          <div class="k">Mode</div>
+          <div id="miniMode" class="v">—</div>
+        </div>
+        <div class="mini">
+          <div class="k">Firebase</div>
+          <div id="miniFirebase" class="v">checking…</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="grid4">
+      <div class="stat">
+        <div class="k">Players online</div>
+        <div id="statPlayers" class="v">0</div>
+      </div>
+      <div class="stat">
+        <div class="k">Top score</div>
+        <div id="statTopScore" class="v">0</div>
+      </div>
+      <div class="stat">
+        <div class="k">Best accuracy</div>
+        <div id="statBestAcc" class="v">0%</div>
+      </div>
+      <div class="stat">
+        <div class="k">Avg risk</div>
+        <div id="statRisk" class="v">0%</div>
+      </div>
+    </section>
+
+    <section class="panels">
+      <div class="card section">
+        <div class="section-head" style="padding:16px 16px 0">
+          <h2>Players</h2>
+          <div class="muted">เรียงตาม score → accuracy → miss</div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Player</th>
+                <th>Score</th>
+                <th>Accuracy</th>
+                <th>Miss</th>
+                <th>Median RT</th>
+                <th>Risk</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="playersTbody">
+              <tr><td colspan="8" class="empty">ยังไม่มีข้อมูล</td></tr>
+            </tbody>
+          </table>
         </div>
       </div>
 
-      <div class="winnerBox" id="winnerBox">—</div>
-    </div>
+      <div class="card section">
+        <div class="section-head" style="padding:16px 16px 0">
+          <h2>Alerts / Watchouts</h2>
+          <div class="muted">ตัวช่วยมองหาคนที่กำลังเสี่ยง</div>
+        </div>
+        <div id="alertsList" class="list" style="padding:16px">
+          <div class="empty">ยังไม่มี alert</div>
+        </div>
+      </div>
+    </section>
   </div>
 
-  <div class="card">
-    <div class="panel">
-      <h2>4) Event Log</h2>
-      <table>
-        <thead>
-          <tr>
-            <th style="width:140px;">เวลา</th>
-            <th>เหตุการณ์</th>
-          </tr>
-        </thead>
-        <tbody id="eventLog"></tbody>
-      </table>
-    </div>
-  </div>
-
-  <div class="card">
-    <div class="grid">
-      <div class="panel">
-        <h2>5) Session Report</h2>
-        <div class="stats">
-          <div class="stat"><div class="k">ROOM</div><div class="v mono" id="repRoom">—</div></div>
-          <div class="stat"><div class="k">ROUND</div><div class="v mono" id="repRound">—</div></div>
-          <div class="stat"><div class="k">WINNER</div><div class="v" id="repWinner">—</div></div>
-          <div class="stat"><div class="k">RULE</div><div class="v" id="repRule">—</div></div>
-        </div>
-
-        <div class="msg" id="repSummary" style="margin-top:10px;">
-          ยังไม่มีรายงานรอบล่าสุด
-        </div>
-
-        <div class="actions" style="margin-top:10px; display:flex; gap:8px; flex-wrap:wrap;">
-          <button id="btnSaveReport" class="good" type="button">💾 Save Report</button>
-          <button id="btnRefreshReport" type="button">🔄 Refresh Report</button>
-        </div>
-      </div>
-
-      <div class="panel">
-        <h2>6) Export CSV</h2>
-        <div class="msg ok" id="csvMsg">ยังไม่มีข้อมูล export</div>
-
-        <div class="actions" style="margin-top:10px; display:flex; gap:8px; flex-wrap:wrap;">
-          <button id="btnExportCsv" class="primary" type="button">📄 Export CSV</button>
-          <button id="btnExportAggCsv" class="good" type="button">🧩 Export Aggregated CSV</button>
-          <button id="btnExportCompleteCsv" class="good" type="button">✅ Export Complete Rounds</button>
-          <button id="btnExportResearchLongCsv" class="good" type="button">🧪 Export Research Long CSV</button>
-          <button id="btnExportResearchRoundCsv" class="good" type="button">🧬 Export Research Round CSV</button>
-          <button id="btnExportStudentCsv" class="good" type="button">👤 Export Student Summary CSV</button>
-          <button id="btnClearReports" type="button">🧹 Clear Local Reports</button>
-        </div>
-
-        <div class="msg" style="margin-top:10px;">
-          export จาก cloud reports ของ room นี้ และ local snapshot เสริม
-        </div>
-
-        <div class="msg" id="aggDiag" style="margin-top:10px;">
-          aggregation diagnostics: —
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div class="card">
-    <div class="grid">
-      <div class="panel">
-        <h2>7) Class Analytics</h2>
-
-        <div class="stats">
-          <div class="stat"><div class="k">ROUNDS</div><div class="v" id="anRounds">0</div></div>
-          <div class="stat"><div class="k">PLAYERS</div><div class="v" id="anPlayers">0</div></div>
-          <div class="stat"><div class="k">AVG SCORE</div><div class="v" id="anAvgScore">0</div></div>
-          <div class="stat"><div class="k">AVG ACC</div><div class="v" id="anAvgAcc">0%</div></div>
-        </div>
-
-        <div class="stats" style="margin-top:10px;">
-          <div class="stat"><div class="k">AVG MISS</div><div class="v" id="anAvgMiss">0</div></div>
-          <div class="stat"><div class="k">AVG RT</div><div class="v" id="anAvgRt">0</div></div>
-          <div class="stat"><div class="k">BEST SCORE</div><div class="v" id="anBestScore">0</div></div>
-          <div class="stat"><div class="k">TOP WINNER</div><div class="v" id="anTopWinner">—</div></div>
-        </div>
-
-        <div class="actions" style="margin-top:10px; display:flex; gap:8px; flex-wrap:wrap;">
-          <button id="btnRefreshAnalytics" class="primary" type="button">📊 Refresh Analytics</button>
-          <button id="btnExportStudentCsv" class="good" type="button">👤 Export Student Summary CSV</button>
-        </div>
-
-        <div class="msg ok" id="analyticsMsg" style="margin-top:10px;">พร้อมคำนวณ analytics</div>
-      </div>
-
-      <div class="panel">
-        <h2>8) Top Performers</h2>
-        <table>
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>ชื่อ</th>
-              <th>รอบ</th>
-              <th>ชนะ</th>
-              <th>avg score</th>
-              <th>avg acc</th>
-            </tr>
-          </thead>
-          <tbody id="topPlayersBody"></tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-
-  <div class="card">
-    <div class="panel">
-      <h2>9) Student Summary</h2>
-      <table>
-        <thead>
-          <tr>
-            <th>ชื่อ</th>
-            <th>PID</th>
-            <th>รอบ</th>
-            <th>ชนะ</th>
-            <th>best score</th>
-            <th>avg score</th>
-            <th>avg acc</th>
-            <th>avg miss</th>
-            <th>avg RT</th>
-          </tr>
-        </thead>
-        <tbody id="studentSummaryBody"></tbody>
-      </table>
-    </div>
-  </div>
-
-  <div class="card">
-    <div class="grid">
-      <div class="panel">
-        <h2>10) Pre/Post Analysis</h2>
-
-        <div class="stats">
-          <div class="stat"><div class="k">PRE N</div><div class="v" id="ppPreN">0</div></div>
-          <div class="stat"><div class="k">POST N</div><div class="v" id="ppPostN">0</div></div>
-          <div class="stat"><div class="k">Δ SCORE</div><div class="v" id="ppDeltaScore">0</div></div>
-          <div class="stat"><div class="k">Δ ACC</div><div class="v" id="ppDeltaAcc">0%</div></div>
-        </div>
-
-        <div class="stats" style="margin-top:10px;">
-          <div class="stat"><div class="k">Δ MISS</div><div class="v" id="ppDeltaMiss">0</div></div>
-          <div class="stat"><div class="k">Δ RT</div><div class="v" id="ppDeltaRt">0</div></div>
-          <div class="stat"><div class="k">PRE AVG SCORE</div><div class="v" id="ppPreScore">0</div></div>
-          <div class="stat"><div class="k">POST AVG SCORE</div><div class="v" id="ppPostScore">0</div></div>
-        </div>
-
-        <div class="actions" style="margin-top:10px; display:flex; gap:8px; flex-wrap:wrap;">
-          <button id="btnRefreshPrePost" class="primary" type="button">📈 Refresh Pre/Post</button>
-          <button id="btnExportPrePostCsv" class="good" type="button">🧪 Export Pre/Post CSV</button>
-        </div>
-
-        <div class="msg ok" id="prepostMsg" style="margin-top:10px;">พร้อมคำนวณ pre/post</div>
-      </div>
-
-      <div class="panel">
-        <h2>11) Condition Analysis</h2>
-        <table>
-          <thead>
-            <tr>
-              <th>group</th>
-              <th>N</th>
-              <th>avg score</th>
-              <th>avg acc</th>
-              <th>avg miss</th>
-              <th>avg RT</th>
-            </tr>
-          </thead>
-          <tbody id="conditionBody"></tbody>
-        </table>
-
-        <div class="actions" style="margin-top:10px; display:flex; gap:8px; flex-wrap:wrap;">
-          <button id="btnRefreshCondition" class="primary" type="button">🧬 Refresh Condition</button>
-          <button id="btnExportConditionCsv" class="good" type="button">📄 Export Condition CSV</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div class="card">
-    <div class="grid">
-      <div class="panel">
-        <h2>12) Paired PID Analysis</h2>
-
-        <div class="stats">
-          <div class="stat"><div class="k">PAIRED N</div><div class="v" id="pairN">0</div></div>
-          <div class="stat"><div class="k">AVG Δ SCORE</div><div class="v" id="pairDeltaScore">0</div></div>
-          <div class="stat"><div class="k">AVG Δ ACC</div><div class="v" id="pairDeltaAcc">0%</div></div>
-          <div class="stat"><div class="k">AVG Δ MISS</div><div class="v" id="pairDeltaMiss">0</div></div>
-        </div>
-
-        <div class="stats" style="margin-top:10px;">
-          <div class="stat"><div class="k">AVG Δ RT</div><div class="v" id="pairDeltaRt">0</div></div>
-          <div class="stat"><div class="k">IMPROVED SCORE</div><div class="v" id="pairImprovedScore">0</div></div>
-          <div class="stat"><div class="k">IMPROVED ACC</div><div class="v" id="pairImprovedAcc">0</div></div>
-          <div class="stat"><div class="k">LOWER MISS</div><div class="v" id="pairLowerMiss">0</div></div>
-        </div>
-
-        <div class="actions" style="margin-top:10px; display:flex; gap:8px; flex-wrap:wrap;">
-          <button id="btnRefreshPaired" class="primary" type="button">🔁 Refresh Paired</button>
-          <button id="btnExportPairedCsv" class="good" type="button">🧷 Export Paired CSV</button>
-        </div>
-
-        <div class="msg ok" id="pairedMsg" style="margin-top:10px;">พร้อมคำนวณ paired PID</div>
-      </div>
-
-      <div class="panel">
-        <h2>13) Paired by Condition</h2>
-        <table>
-          <thead>
-            <tr>
-              <th>group</th>
-              <th>paired N</th>
-              <th>avg Δ score</th>
-              <th>avg Δ acc</th>
-              <th>avg Δ miss</th>
-              <th>avg Δ RT</th>
-            </tr>
-          </thead>
-          <tbody id="pairedConditionBody"></tbody>
-        </table>
-
-        <div class="actions" style="margin-top:10px; display:flex; gap:8px; flex-wrap:wrap;">
-          <button id="btnRefreshPairedCondition" class="primary" type="button">🧬 Refresh Paired Group</button>
-          <button id="btnExportPairedConditionCsv" class="good" type="button">📄 Export Paired Group CSV</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div class="card">
-    <div class="panel">
-      <h2>14) Paired PID Detail</h2>
-      <table>
-        <thead>
-          <tr>
-            <th>PID</th>
-            <th>nick</th>
-            <th>group</th>
-            <th>pre score</th>
-            <th>post score</th>
-            <th>Δ score</th>
-            <th>Δ acc</th>
-            <th>Δ miss</th>
-            <th>Δ RT</th>
-          </tr>
-        </thead>
-        <tbody id="pairedPidBody"></tbody>
-      </table>
-    </div>
-  </div>
-
-  <div class="card">
-    <div class="grid">
-      <div class="panel">
-        <h2>15) Paired Statistical Test</h2>
-
-        <div class="stats">
-          <div class="stat"><div class="k">N</div><div class="v" id="statPairN">0</div></div>
-          <div class="stat"><div class="k">t</div><div class="v" id="statPairT">0</div></div>
-          <div class="stat"><div class="k">df</div><div class="v" id="statPairDf">0</div></div>
-          <div class="stat"><div class="k">effect d</div><div class="v" id="statPairD">0</div></div>
-        </div>
-
-        <div class="stats" style="margin-top:10px;">
-          <div class="stat"><div class="k">p (approx)</div><div class="v" id="statPairP">—</div></div>
-          <div class="stat"><div class="k">CI LOW</div><div class="v" id="statPairCiLow">—</div></div>
-          <div class="stat"><div class="k">CI HIGH</div><div class="v" id="statPairCiHigh">—</div></div>
-          <div class="stat"><div class="k">SIG</div><div class="v" id="statPairSig">—</div></div>
-        </div>
-
-        <div class="msg ok" id="statPairMsg" style="margin-top:10px;">พร้อมคำนวณ paired test</div>
-
-        <div class="actions" style="margin-top:10px; display:flex; gap:8px; flex-wrap:wrap;">
-          <button id="btnRefreshStatPair" class="primary" type="button">🧮 Refresh Paired Test</button>
-          <button id="btnExportStatPairCsv" class="good" type="button">📄 Export Paired Stats CSV</button>
-        </div>
-      </div>
-
-      <div class="panel">
-        <h2>16) Condition Group Statistical Test</h2>
-
-        <div class="stats">
-          <div class="stat"><div class="k">GROUP A</div><div class="v" id="statGrpA">—</div></div>
-          <div class="stat"><div class="k">GROUP B</div><div class="v" id="statGrpB">—</div></div>
-          <div class="stat"><div class="k">t</div><div class="v" id="statGrpT">0</div></div>
-          <div class="stat"><div class="k">effect d</div><div class="v" id="statGrpD">0</div></div>
-        </div>
-
-        <div class="stats" style="margin-top:10px;">
-          <div class="stat"><div class="k">p (approx)</div><div class="v" id="statGrpP">—</div></div>
-          <div class="stat"><div class="k">CI LOW</div><div class="v" id="statGrpCiLow">—</div></div>
-          <div class="stat"><div class="k">CI HIGH</div><div class="v" id="statGrpCiHigh">—</div></div>
-          <div class="stat"><div class="k">SIG</div><div class="v" id="statGrpSig">—</div></div>
-        </div>
-
-        <div class="msg ok" id="statGrpMsg" style="margin-top:10px;">พร้อมคำนวณ group comparison</div>
-
-        <div class="actions" style="margin-top:10px; display:flex; gap:8px; flex-wrap:wrap;">
-          <button id="btnRefreshStatGroup" class="primary" type="button">📊 Refresh Group Test</button>
-          <button id="btnExportStatGroupCsv" class="good" type="button">📄 Export Group Stats CSV</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div class="card">
-    <div class="grid">
-      <div class="panel">
-        <h2>17) Auto Research Summary</h2>
-
-        <div class="actions" style="display:flex; gap:8px; flex-wrap:wrap;">
-          <button id="btnGenerateSummary" class="primary" type="button">📝 Generate Summary</button>
-          <button id="btnCopySummary" class="good" type="button">📋 Copy Summary</button>
-          <button id="btnExportSummaryTxt" class="good" type="button">💾 Export TXT</button>
-        </div>
-
-        <div class="msg ok" id="summaryWriterMsg" style="margin-top:10px;">พร้อมสร้างข้อความสรุปผลอัตโนมัติ</div>
-      </div>
-
-      <div class="panel">
-        <h2>18) Suggested Interpretation</h2>
-        <div class="msg" id="summaryInterpretation">
-          ยังไม่ได้สร้างข้อความสรุป
-        </div>
-      </div>
-    </div>
-
-    <div class="panel" style="margin-top:12px;">
-      <h2>19) Research-ready Narrative</h2>
-      <textarea id="summaryNarrative" style="
-        width:100%;
-        min-height:320px;
-        resize:vertical;
-        border-radius:16px;
-        border:1px solid rgba(148,163,184,.22);
-        background:rgba(2,6,23,.38);
-        color:rgba(229,231,235,.96);
-        padding:12px;
-        font: 14px/1.6 ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Noto Sans Thai', Arial;
-        outline:none;
-      " placeholder="กด Generate Summary เพื่อสร้างข้อความสรุปผลวิจัยอัตโนมัติ"></textarea>
-    </div>
-  </div>
-</div>
-
-<script type="module">
-(function(){
-  'use strict';
-
-  const qs = (k, d='')=>{ try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(_){ return d; } };
-  const $ = (id)=> document.getElementById(id);
-
-  let room = String(qs('room','')).trim().toUpperCase();
-  let unsubscribers = [];
-  let serverOffsetMs = 0;
-  let currentRoundId = '';
-  let currentWinner = '';
-  let currentRule = '';
-  let cloudReports = [];
-
-  const REPORT_PREFIX = 'HHA_GJ_TEACHER_REPORT:';
-
-  function setMsg(text, type=''){
-    const el = $('connectMsg');
-    if(!el) return;
-    el.className = 'msg ' + type;
-    el.textContent = text || '';
-  }
-
-  function logEvent(text){
-    const tb = $('eventLog');
-    if(!tb) return;
-    const tr = document.createElement('tr');
-    const td1 = document.createElement('td');
-    const td2 = document.createElement('td');
-    td1.className = 'mono';
-    td1.textContent = new Date().toLocaleTimeString('th-TH', { hour12:false });
-    td2.textContent = text || '';
-    tr.appendChild(td1);
-    tr.appendChild(td2);
-    tb.prepend(tr);
-    while(tb.children.length > 20) tb.removeChild(tb.lastChild);
-  }
-
-  function reportKey(room){
-    return `${REPORT_PREFIX}${String(room || '').trim().toUpperCase()}`;
-  }
-
-  function loadReports(room){
-    try{
-      const raw = localStorage.getItem(reportKey(room)) || '[]';
-      const arr = JSON.parse(raw);
-      return Array.isArray(arr) ? arr : [];
-    }catch(_){ return []; }
-  }
-
-  function saveReports(room, items){
-    try{
-      localStorage.setItem(reportKey(room), JSON.stringify(items || []));
-    }catch(_){}
-  }
-
-  function escapeCsv(v){
-    const s = String(v ?? '');
-    if(/[",\n]/.test(s)) return `"${s.replace(/"/g,'""')}"`;
-    return s;
-  }
-
-  function rowsToCsv(rows){
-    if(!rows || !rows.length) return '';
-    return rows.map(r => r.map(escapeCsv).join(',')).join('\n');
-  }
-
-  function downloadTextFile(filename, content, mime='text/plain;charset=utf-8'){
-    const blob = new Blob([content], { type:mime });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(()=>{
-      URL.revokeObjectURL(url);
-      a.remove();
-    }, 0);
-  }
-
-  function summarizeReport(rep){
-    if(!rep) return 'ยังไม่มีรายงานรอบล่าสุด';
-    const p1 = rep.p1Name || 'P1';
-    const p2 = rep.p2Name || 'P2';
-    return [
-      `room ${rep.room}`,
-      `round ${rep.roundId || '-'}`,
-      `winner ${rep.winnerLabel || '-'}`,
-      `rule ${rep.rule || '-'}`,
-      `${p1}: score ${rep.p1Score} / acc ${rep.p1Acc}% / miss ${rep.p1Miss}`,
-      `${p2}: score ${rep.p2Score} / acc ${rep.p2Acc}% / miss ${rep.p2Miss}`
-    ].join(' • ');
-  }
-
-  function reportSavedMs(rep){
-    return Number(rep?.savedAtMs || 0) || Date.parse(rep?.endTimeIso || rep?.iso || 0) || 0;
-  }
-
-  function playerIdentityKey(rep){
-    const pid = String(rep?.pid || '').trim();
-    const nick = String(rep?.nick || '').trim();
-    if(pid) return `pid:${pid}`;
-    if(nick) return `nick:${nick}`;
-    return `anon:${String(rep?.score || 0)}:${String(rep?.accPct || 0)}:${String(rep?.missTotal || 0)}`;
-  }
-
-  function pickBetterPlayerReport(prev, next){
-    if(!prev) return next;
-    if(!next) return prev;
-
-    const prevSaved = reportSavedMs(prev);
-    const nextSaved = reportSavedMs(next);
-
-    const prevScore = Number(prev?.score || 0) || 0;
-    const nextScore = Number(next?.score || 0) || 0;
-
-    const prevAcc = Number(prev?.accPct || 0) || 0;
-    const nextAcc = Number(next?.accPct || 0) || 0;
-
-    const prevMiss = Number(prev?.missTotal || 0) || 0;
-    const nextMiss = Number(next?.missTotal || 0) || 0;
-
-    const prevRt = Number(prev?.medianRtGoodMs || 0) || 0;
-    const nextRt = Number(next?.medianRtGoodMs || 0) || 0;
-
-    if(nextScore > prevScore) return next;
-    if(nextScore < prevScore) return prev;
-
-    if(nextAcc > prevAcc) return next;
-    if(nextAcc < prevAcc) return prev;
-
-    if(nextMiss < prevMiss) return next;
-    if(nextMiss > prevMiss) return prev;
-
-    if(prevRt === 0 && nextRt > 0) return next;
-    if(nextRt === 0 && prevRt > 0) return prev;
-    if(nextRt < prevRt) return next;
-    if(nextRt > prevRt) return prev;
-
-    return nextSaved >= prevSaved ? next : prev;
-  }
-
-  function roundKeyOf(rep){
-    const roomKey = String(rep?.room || room || 'NOROOM').trim().toUpperCase();
-    const roundId = String(rep?.roundId || 'NOROUND').trim();
-    return `${roomKey}__${roundId}`;
-  }
-
-  function aggregateCloudReportsByRound(reports){
-    const roundMap = new Map();
-
-    (reports || []).forEach(rep=>{
-      const key = roundKeyOf(rep);
-      const roomKey = String(rep?.room || room || 'NOROOM').trim().toUpperCase();
-      const roundId = String(rep?.roundId || 'NOROUND').trim();
-
-      if(!roundMap.has(key)){
-        roundMap.set(key, {
-          room: roomKey,
-          roundId,
-          mode: String(rep?.mode || ''),
-          diff: String(rep?.diff || ''),
-          view: String(rep?.view || ''),
-          rule: String(rep?.battleReason || rep?.reason || ''),
-          winnerKey: String(rep?.battleWinnerKey || ''),
-          startTimeIso: String(rep?.startTimeIso || ''),
-          endTimeIso: String(rep?.endTimeIso || rep?.iso || ''),
-          savedAtMs: reportSavedMs(rep),
-          _players: new Map(),
-        });
-      }
-
-      const row = roundMap.get(key);
-      row.mode = row.mode || String(rep?.mode || '');
-      row.diff = row.diff || String(rep?.diff || '');
-      row.view = row.view || String(rep?.view || '');
-      row.rule = row.rule || String(rep?.battleReason || rep?.reason || '');
-      row.winnerKey = row.winnerKey || String(rep?.battleWinnerKey || '');
-      row.startTimeIso = row.startTimeIso || String(rep?.startTimeIso || '');
-      row.endTimeIso = row.endTimeIso || String(rep?.endTimeIso || rep?.iso || '');
-      row.savedAtMs = Math.max(Number(row.savedAtMs || 0), reportSavedMs(rep));
-
-      const pKey = playerIdentityKey(rep);
-      const normalized = {
-        pid: String(rep?.pid || ''),
-        nick: String(rep?.nick || rep?.pid || 'player'),
-        score: Number(rep?.score || 0) || 0,
-        accPct: Number(rep?.accPct || 0) || 0,
-        missTotal: Number(rep?.missTotal || 0) || 0,
-        medianRtGoodMs: Number(rep?.medianRtGoodMs || 0) || 0,
-        grade: String(rep?.grade || ''),
-        reason: String(rep?.reason || ''),
-        battleReason: String(rep?.battleReason || ''),
-        battleWinnerKey: String(rep?.battleWinnerKey || ''),
-        win: !!rep?.win,
-        savedAtMs: reportSavedMs(rep),
-        raw: rep
-      };
-
-      const prev = row._players.get(pKey) || null;
-      row._players.set(pKey, pickBetterPlayerReport(prev, normalized));
-    });
-
-    const rounds = Array.from(roundMap.values()).map(r=>{
-      const players = Array.from(r._players.values())
-        .sort((a,b)=>{
-          const bs = Number(b?.score || 0) || 0;
-          const as = Number(a?.score || 0) || 0;
-          if(bs !== as) return bs - as;
-
-          const ba = Number(b?.accPct || 0) || 0;
-          const aa = Number(a?.accPct || 0) || 0;
-          if(ba !== aa) return ba - aa;
-
-          const am = Number(a?.missTotal || 0) || 0;
-          const bm = Number(b?.missTotal || 0) || 0;
-          if(am !== bm) return am - bm;
-
-          const art = Number(a?.medianRtGoodMs || 0) || 0;
-          const brt = Number(b?.medianRtGoodMs || 0) || 0;
-          return art - brt;
-        });
-
-      const playerA = players[0] || null;
-      const playerB = players[1] || null;
-
-      let winnerLabel = 'tie';
-      if(r.winnerKey){
-        const winner =
-          players.find(p => String(p?.pid || '') === String(r.winnerKey)) ||
-          players.find(p => String(p?.nick || '') === String(r.winnerKey));
-        winnerLabel = winner ? (winner.nick || winner.pid || r.winnerKey) : r.winnerKey;
-      }else if(playerA && playerB){
-        if((playerA.score || 0) > (playerB.score || 0)) winnerLabel = playerA.nick || playerA.pid || 'A';
-        else if((playerA.score || 0) < (playerB.score || 0)) winnerLabel = playerB.nick || playerB.pid || 'B';
-      }
-
-      return {
-        room: r.room,
-        roundId: r.roundId,
-        mode: r.mode,
-        diff: r.diff,
-        view: r.view,
-        rule: r.rule,
-        winnerKey: r.winnerKey,
-        winnerLabel,
-        startTimeIso: r.startTimeIso,
-        endTimeIso: r.endTimeIso,
-        savedAtMs: r.savedAtMs,
-        players,
-        playerA,
-        playerB,
-        playerCount: players.length
-      };
-    }).sort((a,b)=>{
-      const aa = Number(a?.savedAtMs || 0) || Date.parse(a?.endTimeIso || a?.startTimeIso || 0) || 0;
-      const bb = Number(b?.savedAtMs || 0) || Date.parse(b?.endTimeIso || b?.startTimeIso || 0) || 0;
-      return aa - bb;
-    });
-
-    return rounds;
-  }
-
-  function renderAggregationDiagnostics(){
-    const rounds = aggregateCloudReportsByRound(cloudReports);
-    const rawCount = Array.isArray(cloudReports) ? cloudReports.length : 0;
-    const dedupPlayerCount = rounds.reduce((sum, r)=> sum + (r.playerCount || 0), 0);
-
-    const el = $('aggDiag');
-    if(!el) return;
-    el.textContent =
-      `aggregation diagnostics: raw reports ${rawCount} • rounds ${rounds.length} • reconciled player rows ${dedupPlayerCount}`;
-  }
-
-  function renderLatestReport(){
-    const reports = loadReports(room);
-    const rep = reports.length ? reports[reports.length - 1] : null;
-
-    $('repRoom').textContent = rep?.room || room || '—';
-    $('repRound').textContent = rep?.roundId || '—';
-    $('repWinner').textContent = rep?.winnerLabel || '—';
-    $('repRule').textContent = rep?.rule || '—';
-    $('repSummary').textContent = summarizeReport(rep);
-
-    const csvMsg = $('csvMsg');
-    if(csvMsg){
-      csvMsg.textContent = reports.length
-        ? `มีรายงาน local ${reports.length} รอบ`
-        : 'ยังไม่มีข้อมูล export';
-      csvMsg.className = 'msg ' + (reports.length ? 'ok' : '');
-    }
-  }
-
-  function renderLatestCloudReport(){
-    const rounds = aggregateCloudReportsByRound(cloudReports);
-    const rep = rounds.length ? rounds[rounds.length - 1] : null;
-    if(!rep) return;
-
-    $('repRoom').textContent = rep.room || room || '—';
-    $('repRound').textContent = rep.roundId || '—';
-    $('repWinner').textContent = rep.winnerLabel || 'tie';
-    $('repRule').textContent = rep.rule || '—';
-
-    const a = rep.playerA || {};
-    const b = rep.playerB || {};
-    const completeness = (rep.playerCount || 0) >= 2 ? 'complete' : 'incomplete';
-
-    $('repSummary').textContent = [
-      `room ${rep.room || room}`,
-      `round ${rep.roundId || '-'}`,
-      `winner ${rep.winnerLabel || 'tie'}`,
-      `rule ${rep.rule || '-'}`,
-      `status ${completeness}`,
-      `${a.nick || 'P1'}: ${a.score ?? 0} / ${a.accPct ?? 0}% / miss ${a.missTotal ?? 0}`,
-      `${b.nick || 'P2'}: ${b.score ?? 0} / ${b.accPct ?? 0}% / miss ${b.missTotal ?? 0}`,
-    ].join(' • ');
-
-    const csvMsg = $('csvMsg');
-    if(csvMsg){
-      csvMsg.textContent = rounds.length
-        ? `มี aggregated rounds ${rounds.length} รอบ พร้อม export`
-        : 'ยังไม่มีข้อมูล export';
-      csvMsg.className = 'msg ' + (rounds.length ? 'ok' : '');
-    }
-  }
-
-  function currentSnapshotReport(){
-    const p1Name = $('p1Name')?.textContent || 'Player 1';
-    const p2Name = $('p2Name')?.textContent || 'Player 2';
-
-    return {
-      ts: Date.now(),
-      iso: new Date().toISOString(),
-      room,
-      roundId: $('repRound')?.textContent || currentRoundId || '',
-      phase: $('uiPhase')?.textContent || 'lobby',
-      winnerLabel: $('repWinner')?.textContent || '—',
-      rule: $('repRule')?.textContent || '—',
-
-      p1Name,
-      p1Score: $('p1Score')?.textContent || '0',
-      p1Acc: String(($('p1Acc')?.textContent || '0%')).replace('%',''),
-      p1Miss: $('p1Miss')?.textContent || '0',
-      p1Rt: $('p1Rt')?.textContent || '0',
-      p1Status: $('p1Status')?.textContent || 'waiting',
-
-      p2Name,
-      p2Score: $('p2Score')?.textContent || '0',
-      p2Acc: String(($('p2Acc')?.textContent || '0%')).replace('%',''),
-      p2Miss: $('p2Miss')?.textContent || '0',
-      p2Rt: $('p2Rt')?.textContent || '0',
-      p2Status: $('p2Status')?.textContent || 'waiting',
+  <script type="module">
+    const $ = (s,el=document)=>el.querySelector(s);
+    const byId = (id)=>document.getElementById(id);
+    const qs = (k,d='')=>{
+      try{ return new URL(location.href).searchParams.get(k) ?? d; }
+      catch{ return d; }
     };
-  }
 
-  function exportReportsCsv(){
-    const reports = (cloudReports && cloudReports.length) ? cloudReports : loadReports(room);
-    if(!reports.length){
-      setMsg('ยังไม่มีรายงานให้ export', 'warn');
-      return;
-    }
-
-    const rows = [[
-      'iso','room','roundId','pid','nick','mode','diff','view',
-      'score','accPct','missTotal','medianRtGoodMs',
-      'grade','reason','battleWinnerKey','battleReason','win'
-    ]];
-
-    reports.forEach(rep=>{
-      rows.push([
-        rep.iso || rep.endTimeIso || '',
-        rep.room || room || '',
-        rep.roundId || '',
-        rep.pid || '',
-        rep.nick || '',
-        rep.mode || '',
-        rep.diff || '',
-        rep.view || '',
-        rep.score ?? rep.p1Score ?? '',
-        rep.accPct ?? rep.p1Acc ?? '',
-        rep.missTotal ?? rep.p1Miss ?? '',
-        rep.medianRtGoodMs ?? rep.p1Rt ?? '',
-        rep.grade || '',
-        rep.reason || '',
-        rep.battleWinnerKey || rep.winnerLabel || '',
-        rep.battleReason || rep.rule || '',
-        String(rep.win ?? '')
-      ]);
-    });
-
-    const csv = rowsToCsv(rows);
-    const file = `goodjunk-cloud-report-${room || 'NOROOM'}.csv`;
-    downloadTextFile(file, csv, 'text/csv;charset=utf-8');
-    setMsg(`export CSV สำเร็จ: ${file}`, 'ok');
-  }
-
-  function exportAggregatedRoundsCsv(){
-    const rounds = aggregateCloudReportsByRound(cloudReports)
-      .filter(r => String(r.roundId || '') !== 'NOROUND');
-    if(!rounds.length){
-      setMsg('ยังไม่มี aggregated rounds ให้ export', 'warn');
-      return;
-    }
-
-    const rows = [[
-      'room','roundId','mode','diff','view','winnerLabel','rule','startTimeIso','endTimeIso',
-      'p1_pid','p1_nick','p1_score','p1_accPct','p1_missTotal','p1_medianRt','p1_grade',
-      'p2_pid','p2_nick','p2_score','p2_accPct','p2_missTotal','p2_medianRt','p2_grade'
-    ]];
-
-    rounds.forEach(r=>{
-      const a = r.playerA || {};
-      const b = r.playerB || {};
-      rows.push([
-        r.room || '',
-        r.roundId || '',
-        r.mode || '',
-        r.diff || '',
-        r.view || '',
-        r.winnerLabel || '',
-        r.rule || '',
-        r.startTimeIso || '',
-        r.endTimeIso || '',
-        a.pid || '',
-        a.nick || '',
-        a.score ?? '',
-        a.accPct ?? '',
-        a.missTotal ?? '',
-        a.medianRtGoodMs ?? '',
-        a.grade || '',
-        b.pid || '',
-        b.nick || '',
-        b.score ?? '',
-        b.accPct ?? '',
-        b.missTotal ?? '',
-        b.medianRtGoodMs ?? '',
-        b.grade || '',
-      ]);
-    });
-
-    const csv = rowsToCsv(rows);
-    const file = `goodjunk-aggregated-rounds-${room || 'NOROOM'}.csv`;
-    downloadTextFile(file, csv, 'text/csv;charset=utf-8');
-    setMsg(`export aggregated CSV สำเร็จ: ${file}`, 'ok');
-  }
-
-  function exportCompleteRoundsCsv(){
-    const rounds = aggregateCloudReportsByRound(cloudReports)
-      .filter(r => String(r.roundId || '') !== 'NOROUND')
-      .filter(r => (r.playerCount || 0) >= 2);
-    if(!rounds.length){
-      setMsg('ยังไม่มี complete rounds ให้ export', 'warn');
-      return;
-    }
-
-    const rows = [[
-      'room','roundId','mode','diff','view','winnerLabel','rule','startTimeIso','endTimeIso',
-      'p1_pid','p1_nick','p1_score','p1_accPct','p1_missTotal','p1_medianRt','p1_grade',
-      'p2_pid','p2_nick','p2_score','p2_accPct','p2_missTotal','p2_medianRt','p2_grade'
-    ]];
-
-    rounds.forEach(r=>{
-      const a = r.playerA || {};
-      const b = r.playerB || {};
-      rows.push([
-        r.room || '',
-        r.roundId || '',
-        r.mode || '',
-        r.diff || '',
-        r.view || '',
-        r.winnerLabel || '',
-        r.rule || '',
-        r.startTimeIso || '',
-        r.endTimeIso || '',
-        a.pid || '',
-        a.nick || '',
-        a.score ?? '',
-        a.accPct ?? '',
-        a.missTotal ?? '',
-        a.medianRtGoodMs ?? '',
-        a.grade || '',
-        b.pid || '',
-        b.nick || '',
-        b.score ?? '',
-        b.accPct ?? '',
-        b.missTotal ?? '',
-        b.medianRtGoodMs ?? '',
-        b.grade || '',
-      ]);
-    });
-
-    const csv = rowsToCsv(rows);
-    const file = `goodjunk-complete-rounds-${room || 'NOROOM'}.csv`;
-    downloadTextFile(file, csv, 'text/csv;charset=utf-8');
-    setMsg(`export complete rounds CSV สำเร็จ: ${file}`, 'ok');
-  }
-
-  function mean(arr){
-    if(!arr || !arr.length) return 0;
-    const s = arr.reduce((a,b)=>a + (Number(b)||0), 0);
-    return s / arr.length;
-  }
-
-  function round2(v){
-    return Math.round((Number(v)||0) * 100) / 100;
-  }
-
-  function sum(arr){
-    return (arr || []).reduce((a,b)=>a + (Number(b)||0), 0);
-  }
-
-  function varianceSample(arr){
-    const a = (arr || []).map(x => Number(x)||0);
-    const n = a.length;
-    if(n < 2) return 0;
-    const m = mean(a);
-    const ss = a.reduce((acc,x)=> acc + Math.pow(x - m, 2), 0);
-    return ss / (n - 1);
-  }
-
-  function stddevSample(arr){
-    return Math.sqrt(Math.max(0, varianceSample(arr)));
-  }
-
-  function safeDiv(a,b){
-    a = Number(a)||0;
-    b = Number(b)||0;
-    return b === 0 ? 0 : a / b;
-  }
-
-  function effectLabel(d){
-    const ad = Math.abs(Number(d)||0);
-    if(ad < 0.2) return 'negligible';
-    if(ad < 0.5) return 'small';
-    if(ad < 0.8) return 'medium';
-    return 'large';
-  }
-
-  function erfApprox(x){
-    x = Number(x) || 0;
-    const sign = x < 0 ? -1 : 1;
-    x = Math.abs(x);
-
-    const a1 = 0.254829592;
-    const a2 = -0.284496736;
-    const a3 = 1.421413741;
-    const a4 = -1.453152027;
-    const a5 = 1.061405429;
-    const p = 0.3275911;
-
-    const t = 1 / (1 + p * x);
-    const y = 1 - (((((a5 * t + a4) * t + a3) * t + a2) * t + a1) * t * Math.exp(-x * x));
-    return sign * y;
-  }
-
-  function normalCdfApprox(z){
-    z = Number(z) || 0;
-    return 0.5 * (1 + erfApprox(z / Math.SQRT2));
-  }
-
-  function twoTailedPApproxFromT(t){
-    t = Math.abs(Number(t) || 0);
-    const p = 2 * (1 - normalCdfApprox(t));
-    return Math.max(0, Math.min(1, p));
-  }
-
-  function formatPValue(p){
-    p = Number(p);
-    if(!Number.isFinite(p)) return '—';
-    if(p < 0.001) return '<.001';
-    if(p < 0.01) return p.toFixed(3);
-    return p.toFixed(3);
-  }
-
-  function significanceLabel(p){
-    p = Number(p);
-    if(!Number.isFinite(p)) return '—';
-    if(p < 0.001) return '***';
-    if(p < 0.01) return '**';
-    if(p < 0.05) return '*';
-    return 'ns';
-  }
-
-  function ci95FromMeanSe(meanValue, se){
-    meanValue = Number(meanValue) || 0;
-    se = Number(se) || 0;
-    const z = 1.96;
-    return {
-      low: round2(meanValue - z * se),
-      high: round2(meanValue + z * se)
+    const state = {
+      unsub: null,
+      db: null,
+      room: '',
+      mode: 'battle',
+      auto: true,
+      firebaseReady: false
     };
-  }
 
-  function normalizePhase(v){
-    v = String(v || '').trim().toLowerCase();
-    if(!v) return '';
-    if(['pre','pretest','baseline','before'].includes(v)) return 'pre';
-    if(['post','posttest','after','followup','follow-up'].includes(v)) return 'post';
-    return v;
-  }
+    function fmtPct(v){
+      const n = Number(v);
+      return Number.isFinite(n) ? `${Math.round(n)}%` : '0%';
+    }
+    function fmtInt(v){
+      const n = Number(v);
+      return Number.isFinite(n) ? String(Math.round(n)) : '0';
+    }
+    function fmtMs(v){
+      const n = Number(v);
+      return Number.isFinite(n) ? `${Math.round(n)} ms` : '—';
+    }
+    function esc(s){
+      return String(s ?? '').replace(/[&<>"']/g, m => ({
+        '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+      }[m]));
+    }
+    function showError(msg){
+      const box = byId('errorBox');
+      box.textContent = String(msg || 'Unknown error');
+      box.classList.add('show');
+    }
+    function clearError(){
+      const box = byId('errorBox');
+      box.textContent = '';
+      box.classList.remove('show');
+    }
+    function setStatus(s){
+      byId('statusLine').textContent = s;
+    }
 
-  function normalizeGroup(v){
-    v = String(v || '').trim();
-    return v || 'ungrouped';
-  }
+    function initFromQuery(){
+      const room = qs('room', '');
+      const mode = qs('mode', qs('kind', 'battle'));
+      const auto = qs('auto', '1');
 
-  function buildStudentAnalytics(rounds){
-    const map = new Map();
+      byId('roomInput').value = room;
+      byId('modeInput').value = ['battle','classroom','auto'].includes(mode) ? mode : 'battle';
+      byId('autoRefreshInput').value = auto === '0' ? '0' : '1';
 
-    (rounds || []).forEach(r=>{
-      const players = [r.playerA, r.playerB].filter(Boolean);
+      byId('miniRoom').textContent = room || '—';
+      byId('miniMode').textContent = byId('modeInput').value;
+    }
 
-      players.forEach(p=>{
-        const key = String(p.pid || p.nick || 'unknown');
-        if(!map.has(key)){
-          map.set(key, {
-            pid: String(p.pid || ''),
-            nick: String(p.nick || p.pid || 'unknown'),
-            rounds: 0,
-            wins: 0,
-            scores: [],
-            accs: [],
-            misses: [],
-            rts: [],
-            grades: [],
-            bestScore: 0
-          });
+    function resolveFirebase(){
+      try{
+        if (window.firebase && typeof window.firebase.database === 'function'){
+          const db = window.firebase.database();
+          state.db = db;
+          state.firebaseReady = true;
+          byId('miniFirebase').textContent = 'ready (compat)';
+          return true;
         }
 
-        const row = map.get(key);
-        row.rounds += 1;
-        row.scores.push(Number(p.score || 0) || 0);
-        row.accs.push(Number(p.accPct || 0) || 0);
-        row.misses.push(Number(p.missTotal || 0) || 0);
-        row.rts.push(Number(p.medianRtGoodMs || 0) || 0);
-        row.grades.push(String(p.grade || ''));
-        row.bestScore = Math.max(row.bestScore, Number(p.score || 0) || 0);
-
-        if(String(r.winnerLabel || '') === String(p.nick || p.pid || '')){
-          row.wins += 1;
+        if (window.HHFirebase?.database){
+          state.db = window.HHFirebase.database;
+          state.firebaseReady = true;
+          byId('miniFirebase').textContent = 'ready (HHFirebase)';
+          return true;
         }
-      });
-    });
 
-    const students = Array.from(map.values()).map(s=>({
-      ...s,
-      avgScore: round2(mean(s.scores)),
-      avgAcc: round2(mean(s.accs)),
-      avgMiss: round2(mean(s.misses)),
-      avgRt: round2(mean(s.rts)),
-      winRate: s.rounds ? round2((s.wins / s.rounds) * 100) : 0
-    }));
-
-    students.sort((a,b)=>{
-      if((b.wins||0) !== (a.wins||0)) return (b.wins||0) - (a.wins||0);
-      if((b.avgScore||0) !== (a.avgScore||0)) return (b.avgScore||0) - (a.avgScore||0);
-      return (b.avgAcc||0) - (a.avgAcc||0);
-    });
-
-    return students;
-  }
-
-  function buildClassAnalytics(rounds){
-    const students = buildStudentAnalytics(rounds);
-    const allPlayers = students.length;
-
-    const flatPlayers = [];
-    (rounds || []).forEach(r=>{
-      if(r.playerA) flatPlayers.push(r.playerA);
-      if(r.playerB) flatPlayers.push(r.playerB);
-    });
-
-    const allScores = flatPlayers.map(p => Number(p.score || 0) || 0);
-    const allAccs = flatPlayers.map(p => Number(p.accPct || 0) || 0);
-    const allMisses = flatPlayers.map(p => Number(p.missTotal || 0) || 0);
-    const allRts = flatPlayers.map(p => Number(p.medianRtGoodMs || 0) || 0);
-
-    const topWinner = students[0]?.nick || '—';
-    const bestScore = allScores.length ? Math.max(...allScores) : 0;
-
-    return {
-      roundCount: (rounds || []).length,
-      playerCount: allPlayers,
-      avgScore: round2(mean(allScores)),
-      avgAcc: round2(mean(allAccs)),
-      avgMiss: round2(mean(allMisses)),
-      avgRt: round2(mean(allRts)),
-      bestScore,
-      topWinner,
-      students
-    };
-  }
-
-  function buildResearchPlayerRows(reports){
-    return (reports || []).map(rep => ({
-      iso: rep.endTimeIso || rep.iso || '',
-      room: rep.room || room || '',
-      roundId: rep.roundId || '',
-      studyId: rep.studyId || '',
-      phase: normalizePhase(rep.phase || ''),
-      conditionGroup: normalizeGroup(rep.conditionGroup || ''),
-      planDay: rep.planDay || '',
-      planSlot: rep.planSlot || '',
-      planMode: rep.planMode || '',
-      zone: rep.zone || '',
-      pid: rep.pid || '',
-      nick: rep.nick || rep.pid || '',
-      mode: rep.mode || '',
-      diff: rep.diff || '',
-      view: rep.view || '',
-      score: Number(rep.score || 0) || 0,
-      accPct: Number(rep.accPct || 0) || 0,
-      missTotal: Number(rep.missTotal || 0) || 0,
-      medianRtGoodMs: Number(rep.medianRtGoodMs || 0) || 0,
-      grade: rep.grade || '',
-      reason: rep.reason || '',
-      win: !!rep.win
-    }));
-  }
-
-  function buildPrePostAnalytics(reports){
-    const rows = buildResearchPlayerRows(reports).filter(r => r.phase === 'pre' || r.phase === 'post');
-
-    const pre = rows.filter(r => r.phase === 'pre');
-    const post = rows.filter(r => r.phase === 'post');
-
-    const result = {
-      preN: pre.length,
-      postN: post.length,
-      preAvgScore: round2(mean(pre.map(r => r.score))),
-      postAvgScore: round2(mean(post.map(r => r.score))),
-      preAvgAcc: round2(mean(pre.map(r => r.accPct))),
-      postAvgAcc: round2(mean(post.map(r => r.accPct))),
-      preAvgMiss: round2(mean(pre.map(r => r.missTotal))),
-      postAvgMiss: round2(mean(post.map(r => r.missTotal))),
-      preAvgRt: round2(mean(pre.map(r => r.medianRtGoodMs))),
-      postAvgRt: round2(mean(post.map(r => r.medianRtGoodMs))),
-    };
-
-    result.deltaScore = round2(result.postAvgScore - result.preAvgScore);
-    result.deltaAcc = round2(result.postAvgAcc - result.preAvgAcc);
-    result.deltaMiss = round2(result.postAvgMiss - result.preAvgMiss);
-    result.deltaRt = round2(result.postAvgRt - result.preAvgRt);
-
-    return result;
-  }
-
-  function buildConditionAnalytics(reports){
-    const rows = buildResearchPlayerRows(reports);
-    const map = new Map();
-
-    rows.forEach(r=>{
-      const g = normalizeGroup(r.conditionGroup);
-      if(!map.has(g)){
-        map.set(g, {
-          conditionGroup: g,
-          rows: []
-        });
+        byId('miniFirebase').textContent = 'not ready';
+        return false;
+      }catch(err){
+        console.error(err);
+        byId('miniFirebase').textContent = 'error';
+        return false;
       }
-      map.get(g).rows.push(r);
-    });
-
-    return Array.from(map.values()).map(x=>{
-      const rows = x.rows || [];
-      return {
-        conditionGroup: x.conditionGroup,
-        n: rows.length,
-        avgScore: round2(mean(rows.map(r => r.score))),
-        avgAcc: round2(mean(rows.map(r => r.accPct))),
-        avgMiss: round2(mean(rows.map(r => r.missTotal))),
-        avgRt: round2(mean(rows.map(r => r.medianRtGoodMs)))
-      };
-    }).sort((a,b)=> String(a.conditionGroup).localeCompare(String(b.conditionGroup)));
-  }
-
-  function pickPreferredPhaseRow(prev, next, phase){
-    if(!prev) return next;
-    if(!next) return prev;
-
-    const prevScore = Number(prev.score || 0) || 0;
-    const nextScore = Number(next.score || 0) || 0;
-
-    const prevAcc = Number(prev.accPct || 0) || 0;
-    const nextAcc = Number(next.accPct || 0) || 0;
-
-    const prevMiss = Number(prev.missTotal || 0) || 0;
-    const nextMiss = Number(next.missTotal || 0) || 0;
-
-    const prevIso = Date.parse(prev.iso || 0) || 0;
-    const nextIso = Date.parse(next.iso || 0) || 0;
-
-    if(phase === 'pre' || phase === 'post'){
-      if(nextScore > prevScore) return next;
-      if(nextScore < prevScore) return prev;
-      if(nextAcc > prevAcc) return next;
-      if(nextAcc < prevAcc) return prev;
-      if(nextMiss < prevMiss) return next;
-      if(nextMiss > prevMiss) return prev;
-      return nextIso >= prevIso ? next : prev;
     }
 
-    return nextIso >= prevIso ? next : prev;
-  }
+    function normalizePlayers(raw){
+      if(!raw) return [];
 
-  function buildPairedPidRows(reports){
-    const rows = buildResearchPlayerRows(reports).filter(r => r.pid && (r.phase === 'pre' || r.phase === 'post'));
-    const map = new Map();
-
-    rows.forEach(r=>{
-      const pid = String(r.pid || '').trim();
-      if(!pid) return;
-
-      if(!map.has(pid)){
-        map.set(pid, {
-          pid,
-          nick: r.nick || pid,
-          conditionGroup: normalizeGroup(r.conditionGroup || ''),
-          studyId: r.studyId || '',
-          pre: null,
-          post: null
-        });
-      }
-
-      const row = map.get(pid);
-
-      if(!row.nick && r.nick) row.nick = r.nick;
-      if(!row.studyId && r.studyId) row.studyId = r.studyId;
-      if((!row.conditionGroup || row.conditionGroup === 'ungrouped') && r.conditionGroup){
-        row.conditionGroup = normalizeGroup(r.conditionGroup);
-      }
-
-      if(r.phase === 'pre'){
-        row.pre = pickPreferredPhaseRow(row.pre, r, 'pre');
-      }else if(r.phase === 'post'){
-        row.post = pickPreferredPhaseRow(row.post, r, 'post');
-      }
-    });
-
-    return Array.from(map.values())
-      .filter(x => x.pre && x.post)
-      .map(x=>{
-        const pre = x.pre;
-        const post = x.post;
-
+      const arr = Object.entries(raw).map(([key,val])=>{
+        const p = val || {};
         return {
-          pid: x.pid,
-          nick: x.nick || x.pid,
-          studyId: x.studyId || '',
-          conditionGroup: x.conditionGroup || 'ungrouped',
-
-          preScore: Number(pre.score || 0) || 0,
-          postScore: Number(post.score || 0) || 0,
-          deltaScore: round2((Number(post.score || 0) || 0) - (Number(pre.score || 0) || 0)),
-
-          preAcc: Number(pre.accPct || 0) || 0,
-          postAcc: Number(post.accPct || 0) || 0,
-          deltaAcc: round2((Number(post.accPct || 0) || 0) - (Number(pre.accPct || 0) || 0)),
-
-          preMiss: Number(pre.missTotal || 0) || 0,
-          postMiss: Number(post.missTotal || 0) || 0,
-          deltaMiss: round2((Number(post.missTotal || 0) || 0) - (Number(pre.missTotal || 0) || 0)),
-
-          preRt: Number(pre.medianRtGoodMs || 0) || 0,
-          postRt: Number(post.medianRtGoodMs || 0) || 0,
-          deltaRt: round2((Number(post.medianRtGoodMs || 0) || 0) - (Number(pre.medianRtGoodMs || 0) || 0)),
-
-          preGrade: pre.grade || '',
-          postGrade: post.grade || '',
-
-          preIso: pre.iso || '',
-          postIso: post.iso || '',
-          preRoundId: pre.roundId || '',
-          postRoundId: post.roundId || ''
+          key,
+          name: p.name || p.displayName || p.pid || key,
+          score: Number(p.score ?? 0) || 0,
+          acc: Number(p.acc ?? p.accPct ?? 0) || 0,
+          miss: Number(p.miss ?? 0) || 0,
+          medianRt: Number(p.medianRt ?? p.medianRtGoodMs ?? 0) || 0,
+          risk: Number(p.hazardRisk ?? p.risk ?? 0) || 0,
+          online: !!(p.online ?? true),
+          ts: Number(p.ts ?? p.updatedAt ?? Date.now()) || Date.now(),
+          raw: p
         };
-      })
-      .sort((a,b)=> String(a.pid).localeCompare(String(b.pid)));
-  }
+      });
 
-  function buildPairedAnalytics(reports){
-    const paired = buildPairedPidRows(reports);
+      arr.sort((a,b)=>
+        (b.score-a.score) ||
+        (b.acc-a.acc) ||
+        (a.miss-b.miss) ||
+        (a.medianRt-b.medianRt)
+      );
 
-    return {
-      n: paired.length,
-      avgDeltaScore: round2(mean(paired.map(r => r.deltaScore))),
-      avgDeltaAcc: round2(mean(paired.map(r => r.deltaAcc))),
-      avgDeltaMiss: round2(mean(paired.map(r => r.deltaMiss))),
-      avgDeltaRt: round2(mean(paired.map(r => r.deltaRt))),
-      improvedScore: paired.filter(r => Number(r.deltaScore || 0) > 0).length,
-      improvedAcc: paired.filter(r => Number(r.deltaAcc || 0) > 0).length,
-      lowerMiss: paired.filter(r => Number(r.deltaMiss || 0) < 0).length,
-      paired
-    };
-  }
+      return arr;
+    }
 
-  function buildPairedConditionAnalytics(reports){
-    const paired = buildPairedPidRows(reports);
-    const map = new Map();
-
-    paired.forEach(r=>{
-      const g = normalizeGroup(r.conditionGroup || '');
-      if(!map.has(g)){
-        map.set(g, []);
+    function renderPlayers(players){
+      const tbody = byId('playersTbody');
+      if(!players.length){
+        tbody.innerHTML = `<tr><td colspan="8" class="empty">ยังไม่มีข้อมูลผู้เล่นในห้องนี้</td></tr>`;
+        return;
       }
-      map.get(g).push(r);
-    });
 
-    return Array.from(map.entries()).map(([group, rows])=>({
-      conditionGroup: group,
-      n: rows.length,
-      avgDeltaScore: round2(mean(rows.map(r => r.deltaScore))),
-      avgDeltaAcc: round2(mean(rows.map(r => r.deltaAcc))),
-      avgDeltaMiss: round2(mean(rows.map(r => r.deltaMiss))),
-      avgDeltaRt: round2(mean(rows.map(r => r.deltaRt)))
-    })).sort((a,b)=> String(a.conditionGroup).localeCompare(String(b.conditionGroup)));
-  }
+      tbody.innerHTML = players.map((p,idx)=>{
+        const statusCls = p.online ? 'ok' : 'warn';
+        const statusTxt = p.online ? 'online' : 'idle';
 
-  function pairedTTestFromDeltas(deltas){
-    const arr = (deltas || []).map(x => Number(x)||0);
-    const n = arr.length;
-    const meanDeltaRaw = mean(arr);
-    const sdDeltaRaw = stddevSample(arr);
-    const seRaw = safeDiv(sdDeltaRaw, Math.sqrt(Math.max(1, n)));
-    const tRaw = (n < 2 || seRaw === 0) ? 0 : meanDeltaRaw / seRaw;
-    const dRaw = sdDeltaRaw === 0 ? 0 : meanDeltaRaw / sdDeltaRaw;
-    const pRaw = (n < 2) ? 1 : twoTailedPApproxFromT(tRaw);
-    const ci = ci95FromMeanSe(meanDeltaRaw, seRaw);
+        const riskCls = p.risk >= 70 ? 'danger' : (p.risk >= 40 ? 'warn' : 'info');
 
-    return {
-      n,
-      meanDelta: round2(meanDeltaRaw),
-      sdDelta: round2(sdDeltaRaw),
-      se: round2(seRaw),
-      t: round2(tRaw),
-      df: Math.max(0, n - 1),
-      d: round2(dRaw),
-      p: pRaw,
-      pText: formatPValue(pRaw),
-      sig: significanceLabel(pRaw),
-      ciLow: ci.low,
-      ciHigh: ci.high
-    };
-  }
-
-  function independentTTest(groupA, groupB){
-    const a = (groupA || []).map(x => Number(x)||0);
-    const b = (groupB || []).map(x => Number(x)||0);
-
-    const n1 = a.length;
-    const n2 = b.length;
-
-    const m1Raw = mean(a);
-    const m2Raw = mean(b);
-    const v1 = varianceSample(a);
-    const v2 = varianceSample(b);
-
-    const deltaRaw = m1Raw - m2Raw;
-
-    if(n1 < 2 || n2 < 2){
-      return {
-        n1, n2,
-        mean1: round2(m1Raw),
-        mean2: round2(m2Raw),
-        delta: round2(deltaRaw),
-        se: 0,
-        t: 0,
-        d: 0,
-        p: 1,
-        pText: formatPValue(1),
-        sig: significanceLabel(1),
-        ciLow: round2(deltaRaw),
-        ciHigh: round2(deltaRaw)
-      };
+        return `
+          <tr>
+            <td>${idx+1}</td>
+            <td>
+              <div style="font-weight:800">${esc(p.name)}</div>
+              <div class="muted" style="font-size:12px">${esc(p.key)}</div>
+            </td>
+            <td>${fmtInt(p.score)}</td>
+            <td>${fmtPct(p.acc)}</td>
+            <td>${fmtInt(p.miss)}</td>
+            <td>${fmtMs(p.medianRt)}</td>
+            <td><span class="pill ${riskCls}">${fmtPct(p.risk)}</span></td>
+            <td><span class="pill ${statusCls}">${statusTxt}</span></td>
+          </tr>
+        `;
+      }).join('');
     }
 
-    const pooledVar = (((n1 - 1) * v1) + ((n2 - 1) * v2)) / Math.max(1, (n1 + n2 - 2));
-    const pooledSd = Math.sqrt(Math.max(0, pooledVar));
-    const seRaw = Math.sqrt((v1 / n1) + (v2 / n2));
-    const tRaw = seRaw === 0 ? 0 : deltaRaw / seRaw;
-    const dRaw = pooledSd === 0 ? 0 : deltaRaw / pooledSd;
-    const pRaw = twoTailedPApproxFromT(tRaw);
-    const ci = ci95FromMeanSe(deltaRaw, seRaw);
+    function renderAlerts(players){
+      const wrap = byId('alertsList');
+      const risky = players
+        .filter(p => p.risk >= 45 || p.miss >= 5)
+        .sort((a,b)=>(b.risk-a.risk) || (b.miss-a.miss))
+        .slice(0,8);
 
-    return {
-      n1, n2,
-      mean1: round2(m1Raw),
-      mean2: round2(m2Raw),
-      delta: round2(deltaRaw),
-      se: round2(seRaw),
-      t: round2(tRaw),
-      d: round2(dRaw),
-      p: pRaw,
-      pText: formatPValue(pRaw),
-      sig: significanceLabel(pRaw),
-      ciLow: ci.low,
-      ciHigh: ci.high
-    };
-  }
+      if(!risky.length){
+        wrap.innerHTML = `<div class="empty">ยังไม่มี alert สำคัญ</div>`;
+        return;
+      }
 
-  function buildPairedStatSummary(reports){
-    const paired = buildPairedPidRows(reports || []);
-    const deltasScore = paired.map(r => Number(r.deltaScore || 0) || 0);
-    const deltasAcc = paired.map(r => Number(r.deltaAcc || 0) || 0);
-    const deltasMiss = paired.map(r => Number(r.deltaMiss || 0) || 0);
-    const deltasRt = paired.map(r => Number(r.deltaRt || 0) || 0);
+      wrap.innerHTML = risky.map(p=>{
+        const cls = p.risk >= 70 ? 'danger' : (p.risk >= 45 ? 'warn' : 'info');
+        const reason =
+          p.risk >= 70 ? 'เสี่ยงสูง ควรจับตา'
+          : p.miss >= 5 ? 'miss สูง'
+          : 'ควรเฝ้าดู';
 
-    return {
-      score: pairedTTestFromDeltas(deltasScore),
-      acc: pairedTTestFromDeltas(deltasAcc),
-      miss: pairedTTestFromDeltas(deltasMiss),
-      rt: pairedTTestFromDeltas(deltasRt),
-      paired
-    };
-  }
-
-  function buildGroupStatSummary(reports){
-    const paired = buildPairedPidRows(reports || []);
-    const byGroup = new Map();
-
-    paired.forEach(r=>{
-      const g = normalizeGroup(r.conditionGroup || '');
-      if(!byGroup.has(g)) byGroup.set(g, []);
-      byGroup.get(g).push(r);
-    });
-
-    const groups = Array.from(byGroup.keys()).sort();
-    if(groups.length < 2){
-      return {
-        groupA: groups[0] || '',
-        groupB: '',
-        score: { n1:0, n2:0, mean1:0, mean2:0, delta:0, se:0, t:0, d:0, p:1, pText:'1.000', sig:'ns', ciLow:0, ciHigh:0 },
-        acc: { n1:0, n2:0, mean1:0, mean2:0, delta:0, se:0, t:0, d:0, p:1, pText:'1.000', sig:'ns', ciLow:0, ciHigh:0 },
-        miss:{ n1:0, n2:0, mean1:0, mean2:0, delta:0, se:0, t:0, d:0, p:1, pText:'1.000', sig:'ns', ciLow:0, ciHigh:0 },
-        rt:  { n1:0, n2:0, mean1:0, mean2:0, delta:0, se:0, t:0, d:0, p:1, pText:'1.000', sig:'ns', ciLow:0, ciHigh:0 },
-        rows: []
-      };
+        return `
+          <div class="item">
+            <div>
+              <div class="name">${esc(p.name)}</div>
+              <div class="subt">score ${fmtInt(p.score)} • acc ${fmtPct(p.acc)} • miss ${fmtInt(p.miss)}</div>
+            </div>
+            <span class="pill ${cls}">${reason}</span>
+          </div>
+        `;
+      }).join('');
     }
 
-    const groupA = groups[0];
-    const groupB = groups[1];
+    function renderSummary(players){
+      byId('statPlayers').textContent = String(players.length);
+      byId('statTopScore').textContent = players.length ? fmtInt(players[0].score) : '0';
+      byId('statBestAcc').textContent = players.length ? fmtPct(Math.max(...players.map(p=>p.acc))) : '0%';
 
-    const rowsA = byGroup.get(groupA) || [];
-    const rowsB = byGroup.get(groupB) || [];
-
-    return {
-      groupA,
-      groupB,
-      score: independentTTest(
-        rowsA.map(r => Number(r.deltaScore || 0) || 0),
-        rowsB.map(r => Number(r.deltaScore || 0) || 0)
-      ),
-      acc: independentTTest(
-        rowsA.map(r => Number(r.deltaAcc || 0) || 0),
-        rowsB.map(r => Number(r.deltaAcc || 0) || 0)
-      ),
-      miss: independentTTest(
-        rowsA.map(r => Number(r.deltaMiss || 0) || 0),
-        rowsB.map(r => Number(r.deltaMiss || 0) || 0)
-      ),
-      rt: independentTTest(
-        rowsA.map(r => Number(r.deltaRt || 0) || 0),
-        rowsB.map(r => Number(r.deltaRt || 0) || 0)
-      ),
-      rows: paired
-    };
-  }
-
-  function thaiEffectLabel(d){
-    const lab = effectLabel(d);
-    if(lab === 'negligible') return 'ขนาดอิทธิพลน้อยมาก';
-    if(lab === 'small') return 'ขนาดอิทธิพลขนาดเล็ก';
-    if(lab === 'medium') return 'ขนาดอิทธิพลขนาดปานกลาง';
-    return 'ขนาดอิทธิพลขนาดใหญ่';
-  }
-
-  function thaiSigLabel(p){
-    const s = significanceLabel(p);
-    if(s === '***' || s === '**' || s === '*') return 'มีนัยสำคัญทางสถิติโดยประมาณ';
-    return 'ยังไม่พบความแตกต่างเด่นชัดทางสถิติโดยประมาณ';
-  }
-
-  function signedText(v, digits=2, suffix=''){
-    v = Number(v) || 0;
-    const n = v.toFixed(digits);
-    return `${v > 0 ? '+' : ''}${n}${suffix}`;
-  }
-
-  function buildAutoResearchSummary(){
-    const classA = buildClassAnalytics(
-      aggregateCloudReportsByRound(cloudReports || []).filter(r => String(r.roundId || '') !== 'NOROUND')
-    );
-    const prepost = buildPrePostAnalytics(cloudReports || []);
-    const paired = buildPairedStatSummary(cloudReports || []);
-    const group = buildGroupStatSummary(cloudReports || []);
-
-    const roomText = room || 'ไม่ระบุห้อง';
-    const roundCount = Number(classA.roundCount || 0);
-    const playerCount = Number(classA.playerCount || 0);
-
-    const descParagraph =
-      `จากการวิเคราะห์ข้อมูลการเล่นเกม GoodJunk Battle ของห้อง ${roomText} ` +
-      `พบว่ามีข้อมูลรอบการแข่งขันที่สามารถนำมาวิเคราะห์ได้จำนวน ${roundCount} รอบ ` +
-      `และมีผู้เล่นที่ปรากฏในฐานข้อมูลจำนวน ${playerCount} คน ` +
-      `โดยคะแนนเฉลี่ยรวมเท่ากับ ${classA.avgScore || 0} คะแนน ` +
-      `ค่าความแม่นยำเฉลี่ยเท่ากับ ${classA.avgAcc || 0}% ` +
-      `ค่า miss เฉลี่ยเท่ากับ ${classA.avgMiss || 0} ` +
-      `และค่า median response time เฉลี่ยเท่ากับ ${classA.avgRt || 0} มิลลิวินาที ` +
-      `ทั้งนี้ ผู้เล่นที่มีแนวโน้มทำผลงานเด่นที่สุดในชุดข้อมูลนี้คือ ${classA.topWinner || '—'} ` +
-      `และคะแนนสูงสุดที่ตรวจพบคือ ${classA.bestScore || 0} คะแนน`;
-
-    const prepostParagraph =
-      `เมื่อพิจารณาข้อมูลตามช่วงเวลา pre/post พบว่าชุดข้อมูล pre มีจำนวน ${prepost.preN || 0} แถว ` +
-      `และชุดข้อมูล post มีจำนวน ${prepost.postN || 0} แถว ` +
-      `โดยคะแนนเฉลี่ยในช่วง pre เท่ากับ ${prepost.preAvgScore || 0} คะแนน ` +
-      `และในช่วง post เท่ากับ ${prepost.postAvgScore || 0} คะแนน ` +
-      `คิดเป็นความแตกต่าง ${signedText(prepost.deltaScore, 2, ' คะแนน')} ` +
-      `ส่วนความแม่นยำมีความแตกต่าง ${signedText(prepost.deltaAcc, 2, '%')} ` +
-      `ค่า miss มีความแตกต่าง ${signedText(prepost.deltaMiss, 2, '')} ` +
-      `และค่า response time มีความแตกต่าง ${signedText(prepost.deltaRt, 2, ' ms')}`;
-
-    const pairedParagraph = paired.score.n
-      ? `สำหรับการวิเคราะห์แบบจับคู่รายคนโดยอาศัย PID เดียวกัน พบข้อมูลที่สามารถจับคู่ pre/post ได้จำนวน ${paired.score.n} คน ` +
-        `โดยคะแนนมีค่าเฉลี่ยความต่างเท่ากับ ${signedText(paired.score.meanDelta, 2, ' คะแนน')} ` +
-        `ค่า t โดยประมาณเท่ากับ ${paired.score.t} ` +
-        `df = ${paired.score.df} ` +
-        `ค่า p โดยประมาณ ${paired.score.pText} ` +
-        `ช่วงความเชื่อมั่น 95% อยู่ระหว่าง ${paired.score.ciLow} ถึง ${paired.score.ciHigh} ` +
-        `และมีค่า effect size d = ${paired.score.d} ซึ่งตีความได้ว่าเป็น${thaiEffectLabel(paired.score.d)} ` +
-        `ดังนั้นผลการเปลี่ยนแปลงคะแนนก่อนและหลังใช้งาน ${thaiSigLabel(paired.score.p)}`
-      : `ยังไม่มีข้อมูล paired PID เพียงพอสำหรับการวิเคราะห์ก่อน–หลังแบบจับคู่รายคน`;
-
-    const groupParagraph = (group.groupA && group.groupB)
-      ? `เมื่อเปรียบเทียบผลต่างคะแนนของผู้เข้าร่วมระหว่างกลุ่ม ${group.groupA} และ ${group.groupB} ` +
-        `พบว่า mean difference ระหว่างกลุ่มเท่ากับ ${signedText(group.score.delta, 2, ' คะแนน')} ` +
-        `ค่า t โดยประมาณเท่ากับ ${group.score.t} ` +
-        `ค่า p โดยประมาณ ${group.score.pText} ` +
-        `ช่วงความเชื่อมั่น 95% อยู่ระหว่าง ${group.score.ciLow} ถึง ${group.score.ciHigh} ` +
-        `และมีค่า effect size d = ${group.score.d} ซึ่งสะท้อนว่าเป็น${thaiEffectLabel(group.score.d)} ` +
-        `ดังนั้นการเปรียบเทียบระหว่างกลุ่ม ${thaiSigLabel(group.score.p)}`
-      : `ยังมีจำนวน conditionGroup ไม่เพียงพอสำหรับการวิเคราะห์เปรียบเทียบระหว่างกลุ่ม`;
-
-    const conciseInterpretation = [
-      `ภาพรวม: ${roundCount} rounds / ${playerCount} players`,
-      `Pre/Post: Δscore ${signedText(prepost.deltaScore, 2)} | Δacc ${signedText(prepost.deltaAcc, 2, '%')}`,
-      paired.score.n
-        ? `Paired test: t=${paired.score.t}, p=${paired.score.pText}, d=${paired.score.d} (${thaiEffectLabel(paired.score.d)})`
-        : `Paired test: ข้อมูลยังไม่พอ`,
-      (group.groupA && group.groupB)
-        ? `Group test: ${group.groupA} vs ${group.groupB} | t=${group.score.t}, p=${group.score.pText}, d=${group.score.d}`
-        : `Group test: conditionGroup ยังไม่พอ`
-    ].join('\n');
-
-    const fullNarrative = [
-      `สรุปผลการวิเคราะห์ข้อมูลจากระบบ GoodJunk Battle`,
-      ``,
-      descParagraph + `.`,
-      ``,
-      prepostParagraph + `.`,
-      ``,
-      pairedParagraph + `.`,
-      ``,
-      groupParagraph + `.`
-    ].join('\n');
-
-    return {
-      conciseInterpretation,
-      fullNarrative
-    };
-  }
-
-  function renderTopPlayers(students){
-    const tb = $('topPlayersBody');
-    if(!tb) return;
-    tb.innerHTML = '';
-
-    const top = (students || []).slice(0, 10);
-    if(!top.length){
-      const tr = document.createElement('tr');
-      tr.innerHTML = '<td colspan="6">ยังไม่มีข้อมูล</td>';
-      tb.appendChild(tr);
-      return;
+      const avgRisk = players.length
+        ? players.reduce((s,p)=>s+p.risk,0)/players.length
+        : 0;
+      byId('statRisk').textContent = fmtPct(avgRisk);
     }
 
-    top.forEach((s, i)=>{
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td>${i+1}</td>
-        <td>${s.nick || '-'}</td>
-        <td>${s.rounds || 0}</td>
-        <td>${s.wins || 0}</td>
-        <td>${s.avgScore || 0}</td>
-        <td>${s.avgAcc || 0}%</td>
-      `;
-      tb.appendChild(tr);
-    });
-  }
-
-  function renderStudentSummary(students){
-    const tb = $('studentSummaryBody');
-    if(!tb) return;
-    tb.innerHTML = '';
-
-    if(!(students || []).length){
-      const tr = document.createElement('tr');
-      tr.innerHTML = '<td colspan="9">ยังไม่มีข้อมูล</td>';
-      tb.appendChild(tr);
-      return;
-    }
-
-    students.forEach(s=>{
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td>${s.nick || '-'}</td>
-        <td class="mono">${s.pid || '-'}</td>
-        <td>${s.rounds || 0}</td>
-        <td>${s.wins || 0}</td>
-        <td>${s.bestScore || 0}</td>
-        <td>${s.avgScore || 0}</td>
-        <td>${s.avgAcc || 0}%</td>
-        <td>${s.avgMiss || 0}</td>
-        <td>${s.avgRt || 0}</td>
-      `;
-      tb.appendChild(tr);
-    });
-  }
-
-  function renderClassAnalytics(){
-    const rounds = aggregateCloudReportsByRound(cloudReports || [])
-      .filter(r => String(r.roundId || '') !== 'NOROUND');
-
-    const a = buildClassAnalytics(rounds);
-
-    $('anRounds').textContent = String(a.roundCount || 0);
-    $('anPlayers').textContent = String(a.playerCount || 0);
-    $('anAvgScore').textContent = String(a.avgScore || 0);
-    $('anAvgAcc').textContent = `${a.avgAcc || 0}%`;
-    $('anAvgMiss').textContent = String(a.avgMiss || 0);
-    $('anAvgRt').textContent = String(a.avgRt || 0);
-    $('anBestScore').textContent = String(a.bestScore || 0);
-    $('anTopWinner').textContent = a.topWinner || '—';
-
-    renderTopPlayers(a.students);
-    renderStudentSummary(a.students);
-
-    const msg = $('analyticsMsg');
-    if(msg){
-      msg.textContent = a.roundCount
-        ? `คำนวณ analytics จาก ${a.roundCount} rounds และ ${a.playerCount} players แล้ว`
-        : 'ยังไม่มีข้อมูล analytics';
-      msg.className = 'msg ' + (a.roundCount ? 'ok' : '');
-    }
-  }
-
-  function renderPrePostAnalytics(){
-    const a = buildPrePostAnalytics(cloudReports || []);
-
-    $('ppPreN').textContent = String(a.preN || 0);
-    $('ppPostN').textContent = String(a.postN || 0);
-    $('ppDeltaScore').textContent = String(a.deltaScore || 0);
-    $('ppDeltaAcc').textContent = `${a.deltaAcc || 0}%`;
-    $('ppDeltaMiss').textContent = String(a.deltaMiss || 0);
-    $('ppDeltaRt').textContent = String(a.deltaRt || 0);
-    $('ppPreScore').textContent = String(a.preAvgScore || 0);
-    $('ppPostScore').textContent = String(a.postAvgScore || 0);
-
-    const msg = $('prepostMsg');
-    if(msg){
-      msg.textContent = (a.preN || a.postN)
-        ? `pre ${a.preN} rows • post ${a.postN} rows • Δscore ${a.deltaScore} • Δacc ${a.deltaAcc}%`
-        : 'ยังไม่มีข้อมูล phase pre/post';
-      msg.className = 'msg ' + ((a.preN || a.postN) ? 'ok' : '');
-    }
-  }
-
-  function renderConditionAnalytics(){
-    const rows = buildConditionAnalytics(cloudReports || []);
-    const tb = $('conditionBody');
-    if(!tb) return;
-    tb.innerHTML = '';
-
-    if(!rows.length){
-      const tr = document.createElement('tr');
-      tr.innerHTML = '<td colspan="6">ยังไม่มีข้อมูล conditionGroup</td>';
-      tb.appendChild(tr);
-      return;
-    }
-
-    rows.forEach(r=>{
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td>${r.conditionGroup || 'ungrouped'}</td>
-        <td>${r.n || 0}</td>
-        <td>${r.avgScore || 0}</td>
-        <td>${r.avgAcc || 0}%</td>
-        <td>${r.avgMiss || 0}</td>
-        <td>${r.avgRt || 0}</td>
-      `;
-      tb.appendChild(tr);
-    });
-  }
-
-  function renderPairedPidTable(rows){
-    const tb = $('pairedPidBody');
-    if(!tb) return;
-    tb.innerHTML = '';
-
-    if(!(rows || []).length){
-      const tr = document.createElement('tr');
-      tr.innerHTML = '<td colspan="9">ยังไม่มี paired PID ที่มีทั้ง pre และ post</td>';
-      tb.appendChild(tr);
-      return;
-    }
-
-    rows.forEach(r=>{
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td class="mono">${r.pid || '-'}</td>
-        <td>${r.nick || '-'}</td>
-        <td>${r.conditionGroup || 'ungrouped'}</td>
-        <td>${r.preScore || 0}</td>
-        <td>${r.postScore || 0}</td>
-        <td>${r.deltaScore || 0}</td>
-        <td>${r.deltaAcc || 0}</td>
-        <td>${r.deltaMiss || 0}</td>
-        <td>${r.deltaRt || 0}</td>
-      `;
-      tb.appendChild(tr);
-    });
-  }
-
-  function renderPairedAnalytics(){
-    const a = buildPairedAnalytics(cloudReports || []);
-
-    $('pairN').textContent = String(a.n || 0);
-    $('pairDeltaScore').textContent = String(a.avgDeltaScore || 0);
-    $('pairDeltaAcc').textContent = `${a.avgDeltaAcc || 0}%`;
-    $('pairDeltaMiss').textContent = String(a.avgDeltaMiss || 0);
-    $('pairDeltaRt').textContent = String(a.avgDeltaRt || 0);
-    $('pairImprovedScore').textContent = String(a.improvedScore || 0);
-    $('pairImprovedAcc').textContent = String(a.improvedAcc || 0);
-    $('pairLowerMiss').textContent = String(a.lowerMiss || 0);
-
-    renderPairedPidTable(a.paired);
-
-    const msg = $('pairedMsg');
-    if(msg){
-      msg.textContent = a.n
-        ? `paired PID ${a.n} คน • avg Δscore ${a.avgDeltaScore} • avg Δacc ${a.avgDeltaAcc}%`
-        : 'ยังไม่มี PID ที่มีทั้ง pre และ post';
-      msg.className = 'msg ' + (a.n ? 'ok' : '');
-    }
-  }
-
-  function renderPairedConditionAnalytics(){
-    const rows = buildPairedConditionAnalytics(cloudReports || []);
-    const tb = $('pairedConditionBody');
-    if(!tb) return;
-    tb.innerHTML = '';
-
-    if(!rows.length){
-      const tr = document.createElement('tr');
-      tr.innerHTML = '<td colspan="6">ยังไม่มี paired group data</td>';
-      tb.appendChild(tr);
-      return;
-    }
-
-    rows.forEach(r=>{
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td>${r.conditionGroup || 'ungrouped'}</td>
-        <td>${r.n || 0}</td>
-        <td>${r.avgDeltaScore || 0}</td>
-        <td>${r.avgDeltaAcc || 0}%</td>
-        <td>${r.avgDeltaMiss || 0}</td>
-        <td>${r.avgDeltaRt || 0}</td>
-      `;
-      tb.appendChild(tr);
-    });
-  }
-
-  function renderPairedStatSummary(){
-    const s = buildPairedStatSummary(cloudReports || []);
-
-    $('statPairN').textContent = String(s.score.n || 0);
-    $('statPairT').textContent = String(s.score.t || 0);
-    $('statPairDf').textContent = String(s.score.df || 0);
-    $('statPairD').textContent = String(s.score.d || 0);
-
-    $('statPairP').textContent = s.score.pText || '—';
-    $('statPairCiLow').textContent = String(s.score.ciLow ?? '—');
-    $('statPairCiHigh').textContent = String(s.score.ciHigh ?? '—');
-    $('statPairSig').textContent = s.score.sig || '—';
-
-    const msg = $('statPairMsg');
-    if(msg){
-      msg.textContent = s.score.n
-        ? `paired score test • n=${s.score.n} • mean Δ=${s.score.meanDelta} • t=${s.score.t} • p=${s.score.pText} • 95% CI [${s.score.ciLow}, ${s.score.ciHigh}] • d=${s.score.d} (${effectLabel(s.score.d)})`
-        : 'ยังมี paired PID ไม่พอสำหรับ paired test';
-      msg.className = 'msg ' + (s.score.n ? 'ok' : '');
-    }
-  }
-
-  function renderGroupStatSummary(){
-    const s = buildGroupStatSummary(cloudReports || []);
-
-    $('statGrpA').textContent = s.groupA || '—';
-    $('statGrpB').textContent = s.groupB || '—';
-    $('statGrpT').textContent = String(s.score.t || 0);
-    $('statGrpD').textContent = String(s.score.d || 0);
-
-    $('statGrpP').textContent = s.score.pText || '—';
-    $('statGrpCiLow').textContent = String(s.score.ciLow ?? '—');
-    $('statGrpCiHigh').textContent = String(s.score.ciHigh ?? '—');
-    $('statGrpSig').textContent = s.score.sig || '—';
-
-    const msg = $('statGrpMsg');
-    if(msg){
-      msg.textContent = (s.groupA && s.groupB)
-        ? `${s.groupA} vs ${s.groupB} • Δscore diff=${s.score.delta} • t=${s.score.t} • p=${s.score.pText} • 95% CI [${s.score.ciLow}, ${s.score.ciHigh}] • d=${s.score.d} (${effectLabel(s.score.d)})`
-        : 'ยังมี conditionGroup ไม่พอสำหรับ group comparison';
-      msg.className = 'msg ' + ((s.groupA && s.groupB) ? 'ok' : '');
-    }
-  }
-
-  function renderResearchMetaCoverage(){
-    const reports = cloudReports || [];
-    const withStudy = reports.filter(r => String(r.studyId || '').trim()).length;
-    const withPhase = reports.filter(r => String(r.phase || '').trim()).length;
-    const withGroup = reports.filter(r => String(r.conditionGroup || '').trim()).length;
-
-    const msg = $('analyticsMsg');
-    if(!msg) return;
-
-    const base = reports.length
-      ? `reports ${reports.length} • studyId ${withStudy} • phase ${withPhase} • conditionGroup ${withGroup}`
-      : 'ยังไม่มี reports';
-
-    msg.textContent = base;
-    msg.className = 'msg ' + (reports.length ? 'ok' : '');
-  }
-
-  function renderAutoResearchSummary(){
-    const out = buildAutoResearchSummary();
-
-    const interp = $('summaryInterpretation');
-    const narrative = $('summaryNarrative');
-    const msg = $('summaryWriterMsg');
-
-    if(interp) interp.textContent = out.conciseInterpretation || 'ยังไม่มีข้อความสรุป';
-    if(narrative) narrative.value = out.fullNarrative || '';
-
-    if(msg){
-      msg.textContent = 'สร้างข้อความสรุปผลอัตโนมัติแล้ว';
-      msg.className = 'msg ok';
-    }
-  }
-
-  function exportStudentSummaryCsv(){
-    const rounds = aggregateCloudReportsByRound(cloudReports)
-      .filter(r => String(r.roundId || '') !== 'NOROUND');
-
-    const students = buildStudentAnalytics(rounds);
-    if(!students.length){
-      setMsg('ยังไม่มี student summary ให้ export', 'warn');
-      return;
-    }
-
-    const rows = [[
-      'pid','nick','rounds','wins','winRate','bestScore','avgScore','avgAcc','avgMiss','avgRt'
-    ]];
-
-    students.forEach(s=>{
-      rows.push([
-        s.pid || '',
-        s.nick || '',
-        s.rounds || 0,
-        s.wins || 0,
-        s.winRate || 0,
-        s.bestScore || 0,
-        s.avgScore || 0,
-        s.avgAcc || 0,
-        s.avgMiss || 0,
-        s.avgRt || 0
-      ]);
-    });
-
-    const csv = rowsToCsv(rows);
-    const file = `goodjunk-student-summary-${room || 'NOROOM'}.csv`;
-    downloadTextFile(file, csv, 'text/csv;charset=utf-8');
-    setMsg(`export student summary CSV สำเร็จ: ${file}`, 'ok');
-  }
-
-  function exportResearchLongCsv(){
-    const reports = (cloudReports && cloudReports.length) ? cloudReports : [];
-    if(!reports.length){
-      setMsg('ยังไม่มี cloud reports สำหรับ research export', 'warn');
-      return;
-    }
-
-    const rows = [[
-      'iso','room','roundId','studyId','phase','conditionGroup','planDay','planSlot','planMode','zone',
-      'pid','nick','mode','diff','view',
-      'score','accPct','missTotal','medianRtGoodMs','grade','reason','win',
-      'shots','hits','comboBest','goodHitCount',
-      'stageFinal','scoreTarget','goodTarget',
-      'timePlayedSec','timePlannedSec','timeLeftSec',
-      'bossCleared','bossHpLeft','bossHpMax',
-      'battleWinnerKey','battleReason','battleMeKey'
-    ]];
-
-    reports.forEach(rep=>{
-      rows.push([
-        rep.endTimeIso || rep.iso || '',
-        rep.room || '',
-        rep.roundId || '',
-        rep.studyId || '',
-        rep.phase || '',
-        rep.conditionGroup || '',
-        rep.planDay || '',
-        rep.planSlot || '',
-        rep.planMode || '',
-        rep.zone || '',
-
-        rep.pid || '',
-        rep.nick || '',
-        rep.mode || '',
-        rep.diff || '',
-        rep.view || '',
-
-        rep.score ?? '',
-        rep.accPct ?? '',
-        rep.missTotal ?? '',
-        rep.medianRtGoodMs ?? '',
-        rep.grade || '',
-        rep.reason || '',
-        String(rep.win ?? ''),
-
-        rep.shots ?? '',
-        rep.hits ?? '',
-        rep.comboBest ?? '',
-        rep.goodHitCount ?? '',
-
-        rep.stageFinal || '',
-        rep.scoreTarget ?? '',
-        rep.goodTarget ?? '',
-
-        rep.timePlayedSec ?? '',
-        rep.timePlannedSec ?? '',
-        rep.timeLeftSec ?? '',
-
-        String(rep.bossCleared ?? ''),
-        rep.bossHpLeft ?? '',
-        rep.bossHpMax ?? '',
-
-        rep.battleWinnerKey || '',
-        rep.battleReason || '',
-        rep.battleMeKey || ''
-      ]);
-    });
-
-    const csv = rowsToCsv(rows);
-    const file = `goodjunk-research-long-${room || 'NOROOM'}.csv`;
-    downloadTextFile(file, csv, 'text/csv;charset=utf-8');
-    setMsg(`export research long CSV สำเร็จ: ${file}`, 'ok');
-  }
-
-  function exportResearchRoundCsv(){
-    const rounds = aggregateCloudReportsByRound(cloudReports)
-      .filter(r => String(r.roundId || '') !== 'NOROUND');
-
-    if(!rounds.length){
-      setMsg('ยังไม่มี aggregated rounds สำหรับ research export', 'warn');
-      return;
-    }
-
-    const rows = [[
-      'room','roundId','mode','diff','view','rule','winnerLabel',
-      'studyId','phase','conditionGroup','planDay','planSlot','planMode','zone',
-      'startTimeIso','endTimeIso',
-      'p1_pid','p1_nick','p1_score','p1_accPct','p1_missTotal','p1_medianRt','p1_grade','p1_win',
-      'p2_pid','p2_nick','p2_score','p2_accPct','p2_missTotal','p2_medianRt','p2_grade','p2_win'
-    ]];
-
-    rounds.forEach(r=>{
-      const a = r.playerA?.raw || r.playerA || {};
-      const b = r.playerB?.raw || r.playerB || {};
-
-      const metaSource = a.studyId || b.studyId || a.phase || b.phase ? (a) : (b);
-
-      rows.push([
-        r.room || '',
-        r.roundId || '',
-        r.mode || '',
-        r.diff || '',
-        r.view || '',
-        r.rule || '',
-        r.winnerLabel || '',
-
-        metaSource.studyId || '',
-        metaSource.phase || '',
-        metaSource.conditionGroup || '',
-        metaSource.planDay || '',
-        metaSource.planSlot || '',
-        metaSource.planMode || '',
-        metaSource.zone || '',
-
-        r.startTimeIso || '',
-        r.endTimeIso || '',
-
-        a.pid || '',
-        a.nick || '',
-        a.score ?? '',
-        a.accPct ?? '',
-        a.missTotal ?? '',
-        a.medianRtGoodMs ?? '',
-        a.grade || '',
-        String(a.win ?? ''),
-
-        b.pid || '',
-        b.nick || '',
-        b.score ?? '',
-        b.accPct ?? '',
-        b.missTotal ?? '',
-        b.medianRtGoodMs ?? '',
-        b.grade || '',
-        String(b.win ?? '')
-      ]);
-    });
-
-    const csv = rowsToCsv(rows);
-    const file = `goodjunk-research-round-${room || 'NOROOM'}.csv`;
-    downloadTextFile(file, csv, 'text/csv;charset=utf-8');
-    setMsg(`export research round CSV สำเร็จ: ${file}`, 'ok');
-  }
-
-  function exportPrePostCsv(){
-    const rows0 = buildResearchPlayerRows(cloudReports || []).filter(r => r.phase === 'pre' || r.phase === 'post');
-    if(!rows0.length){
-      setMsg('ยังไม่มีข้อมูล pre/post สำหรับ export', 'warn');
-      return;
-    }
-
-    const rows = [[
-      'iso','room','roundId','studyId','phase','conditionGroup','pid','nick',
-      'mode','diff','view','score','accPct','missTotal','medianRtGoodMs','grade','reason','win'
-    ]];
-
-    rows0.forEach(r=>{
-      rows.push([
-        r.iso, r.room, r.roundId, r.studyId, r.phase, r.conditionGroup, r.pid, r.nick,
-        r.mode, r.diff, r.view, r.score, r.accPct, r.missTotal, r.medianRtGoodMs, r.grade, r.reason, String(r.win)
-      ]);
-    });
-
-    const csv = rowsToCsv(rows);
-    const file = `goodjunk-prepost-${room || 'NOROOM'}.csv`;
-    downloadTextFile(file, csv, 'text/csv;charset=utf-8');
-    setMsg(`export pre/post CSV สำเร็จ: ${file}`, 'ok');
-  }
-
-  function exportConditionCsv(){
-    const rows0 = buildConditionAnalytics(cloudReports || []);
-    if(!rows0.length){
-      setMsg('ยังไม่มีข้อมูล conditionGroup สำหรับ export', 'warn');
-      return;
-    }
-
-    const rows = [[
-      'conditionGroup','n','avgScore','avgAcc','avgMiss','avgRt'
-    ]];
-
-    rows0.forEach(r=>{
-      rows.push([
-        r.conditionGroup || 'ungrouped',
-        r.n || 0,
-        r.avgScore || 0,
-        r.avgAcc || 0,
-        r.avgMiss || 0,
-        r.avgRt || 0
-      ]);
-    });
-
-    const csv = rowsToCsv(rows);
-    const file = `goodjunk-condition-summary-${room || 'NOROOM'}.csv`;
-    downloadTextFile(file, csv, 'text/csv;charset=utf-8');
-    setMsg(`export condition CSV สำเร็จ: ${file}`, 'ok');
-  }
-
-  function exportPairedPidCsv(){
-    const rows0 = buildPairedPidRows(cloudReports || []);
-    if(!rows0.length){
-      setMsg('ยังไม่มี paired PID สำหรับ export', 'warn');
-      return;
-    }
-
-    const rows = [[
-      'pid','nick','studyId','conditionGroup',
-      'preScore','postScore','deltaScore',
-      'preAcc','postAcc','deltaAcc',
-      'preMiss','postMiss','deltaMiss',
-      'preRt','postRt','deltaRt',
-      'preGrade','postGrade',
-      'preIso','postIso','preRoundId','postRoundId'
-    ]];
-
-    rows0.forEach(r=>{
-      rows.push([
-        r.pid || '',
-        r.nick || '',
-        r.studyId || '',
-        r.conditionGroup || '',
-        r.preScore || 0,
-        r.postScore || 0,
-        r.deltaScore || 0,
-        r.preAcc || 0,
-        r.postAcc || 0,
-        r.deltaAcc || 0,
-        r.preMiss || 0,
-        r.postMiss || 0,
-        r.deltaMiss || 0,
-        r.preRt || 0,
-        r.postRt || 0,
-        r.deltaRt || 0,
-        r.preGrade || '',
-        r.postGrade || '',
-        r.preIso || '',
-        r.postIso || '',
-        r.preRoundId || '',
-        r.postRoundId || ''
-      ]);
-    });
-
-    const csv = rowsToCsv(rows);
-    const file = `goodjunk-paired-pid-${room || 'NOROOM'}.csv`;
-    downloadTextFile(file, csv, 'text/csv;charset=utf-8');
-    setMsg(`export paired PID CSV สำเร็จ: ${file}`, 'ok');
-  }
-
-  function exportPairedConditionCsv(){
-    const rows0 = buildPairedConditionAnalytics(cloudReports || []);
-    if(!rows0.length){
-      setMsg('ยังไม่มี paired condition data สำหรับ export', 'warn');
-      return;
-    }
-
-    const rows = [[
-      'conditionGroup','pairedN','avgDeltaScore','avgDeltaAcc','avgDeltaMiss','avgDeltaRt'
-    ]];
-
-    rows0.forEach(r=>{
-      rows.push([
-        r.conditionGroup || 'ungrouped',
-        r.n || 0,
-        r.avgDeltaScore || 0,
-        r.avgDeltaAcc || 0,
-        r.avgDeltaMiss || 0,
-        r.avgDeltaRt || 0
-      ]);
-    });
-
-    const csv = rowsToCsv(rows);
-    const file = `goodjunk-paired-condition-${room || 'NOROOM'}.csv`;
-    downloadTextFile(file, csv, 'text/csv;charset=utf-8');
-    setMsg(`export paired condition CSV สำเร็จ: ${file}`, 'ok');
-  }
-
-  function exportPairedStatCsv(){
-    const s = buildPairedStatSummary(cloudReports || []);
-    if(!s.score.n){
-      setMsg('ยังไม่มี paired stats สำหรับ export', 'warn');
-      return;
-    }
-
-    const rows = [[
-      'metric','n','meanDelta','sdDelta','se','t','df','pApprox','sig','ciLow','ciHigh','effectD','effectLabel'
-    ]];
-
-    rows.push(['score', s.score.n, s.score.meanDelta, s.score.sdDelta, s.score.se, s.score.t, s.score.df, s.score.pText, s.score.sig, s.score.ciLow, s.score.ciHigh, s.score.d, effectLabel(s.score.d)]);
-    rows.push(['acc',   s.acc.n,   s.acc.meanDelta,   s.acc.sdDelta,   s.acc.se,   s.acc.t,   s.acc.df,   s.acc.pText,   s.acc.sig,   s.acc.ciLow,   s.acc.ciHigh,   s.acc.d,   effectLabel(s.acc.d)]);
-    rows.push(['miss',  s.miss.n,  s.miss.meanDelta,  s.miss.sdDelta,  s.miss.se,  s.miss.t,  s.miss.df,  s.miss.pText,  s.miss.sig,  s.miss.ciLow,  s.miss.ciHigh,  s.miss.d,  effectLabel(s.miss.d)]);
-    rows.push(['rt',    s.rt.n,    s.rt.meanDelta,    s.rt.sdDelta,    s.rt.se,    s.rt.t,    s.rt.df,    s.rt.pText,    s.rt.sig,    s.rt.ciLow,    s.rt.ciHigh,    s.rt.d,    effectLabel(s.rt.d)]);
-
-    const csv = rowsToCsv(rows);
-    const file = `goodjunk-paired-stats-${room || 'NOROOM'}.csv`;
-    downloadTextFile(file, csv, 'text/csv;charset=utf-8');
-    setMsg(`export paired stats CSV สำเร็จ: ${file}`, 'ok');
-  }
-
-  function exportGroupStatCsv(){
-    const s = buildGroupStatSummary(cloudReports || []);
-    if(!(s.groupA && s.groupB)){
-      setMsg('ยังไม่มี group stats สำหรับ export', 'warn');
-      return;
-    }
-
-    const rows = [[
-      'metric','groupA','groupB','n1','n2','mean1','mean2','delta','se','t','pApprox','sig','ciLow','ciHigh','effectD','effectLabel'
-    ]];
-
-    rows.push(['score', s.groupA, s.groupB, s.score.n1, s.score.n2, s.score.mean1, s.score.mean2, s.score.delta, s.score.se, s.score.t, s.score.pText, s.score.sig, s.score.ciLow, s.score.ciHigh, s.score.d, effectLabel(s.score.d)]);
-    rows.push(['acc',   s.groupA, s.groupB, s.acc.n1,   s.acc.n2,   s.acc.mean1,   s.acc.mean2,   s.acc.delta,   s.acc.se,   s.acc.t,   s.acc.pText,   s.acc.sig,   s.acc.ciLow,   s.acc.ciHigh,   s.acc.d,   effectLabel(s.acc.d)]);
-    rows.push(['miss',  s.groupA, s.groupB, s.miss.n1,  s.miss.n2,  s.miss.mean1,  s.miss.mean2,  s.miss.delta,  s.miss.se,  s.miss.t,  s.miss.pText,  s.miss.sig,  s.miss.ciLow,  s.miss.ciHigh,  s.miss.d,  effectLabel(s.miss.d)]);
-    rows.push(['rt',    s.groupA, s.groupB, s.rt.n1,    s.rt.n2,    s.rt.mean1,    s.rt.mean2,    s.rt.delta,    s.rt.se,    s.rt.t,    s.rt.pText,    s.rt.sig,    s.rt.ciLow,    s.rt.ciHigh,    s.rt.d,    effectLabel(s.rt.d)]);
-
-    const csv = rowsToCsv(rows);
-    const file = `goodjunk-group-stats-${room || 'NOROOM'}.csv`;
-    downloadTextFile(file, csv, 'text/csv;charset=utf-8');
-    setMsg(`export group stats CSV สำเร็จ: ${file}`, 'ok');
-  }
-
-  async function copyAutoSummary(){
-    const text = $('summaryNarrative')?.value || '';
-    if(!text){
-      setMsg('ยังไม่มีข้อความสำหรับคัดลอก', 'warn');
-      return;
-    }
-    try{
-      await navigator.clipboard.writeText(text);
-      setMsg('คัดลอกข้อความสรุปแล้ว', 'ok');
-    }catch(_){
-      setMsg('คัดลอกข้อความไม่สำเร็จ', 'warn');
-    }
-  }
-
-  function exportAutoSummaryTxt(){
-    const text = $('summaryNarrative')?.value || '';
-    if(!text){
-      setMsg('ยังไม่มีข้อความสำหรับ export', 'warn');
-      return;
-    }
-    const file = `goodjunk-auto-summary-${room || 'NOROOM'}.txt`;
-    downloadTextFile(file, text, 'text/plain;charset=utf-8');
-    setMsg(`export summary TXT สำเร็จ: ${file}`, 'ok');
-  }
-
-  function setPlayer(idx, p){
-    const prefix = idx === 1 ? 'p1' : 'p2';
-    $(prefix+'Name').textContent = p ? (p.nick || p.pid || `Player ${idx}`) : `Player ${idx}`;
-    $(prefix+'Score').textContent = p ? String(p.score || 0) : '0';
-    $(prefix+'Acc').textContent = p ? `${Number(p.acc || 0)}%` : '0%';
-    $(prefix+'Miss').textContent = p ? String(p.miss || 0) : '0';
-    $(prefix+'Rt').textContent = p ? String(p.medianRT || 0) : '0';
-
-    const statusEl = $(prefix+'Status');
-    if(!p){
-      statusEl.textContent = 'waiting';
-      statusEl.className = 'tag';
-      return;
-    }
-
-    if(p.connected === false){
-      statusEl.textContent = 'offline';
-      statusEl.className = 'tag bad';
-    }else if(p.ready){
-      statusEl.textContent = 'ready';
-      statusEl.className = 'tag good';
-    }else{
-      statusEl.textContent = 'online';
-      statusEl.className = 'tag warn';
-    }
-  }
-
-  function computeLead(a,b){
-    if(!a || !b) return '—';
-    if((a.score||0) > (b.score||0)) return (a.nick || a.pid || 'P1');
-    if((a.score||0) < (b.score||0)) return (b.nick || b.pid || 'P2');
-    return 'tie';
-  }
-
-  async function loadFirebase(){
-    const v = '9.22.2';
-    const appMod = await import(`https://www.gstatic.com/firebasejs/${v}/firebase-app.js`);
-    const dbMod  = await import(`https://www.gstatic.com/firebasejs/${v}/firebase-database.js`);
-    return { ...appMod, ...dbMod };
-  }
-
-  function getFirebaseConfig(){
-    return window.HHA_FIREBASE_CONFIG || window.__HHA_FIREBASE_CONFIG__ || window.firebaseConfig || null;
-  }
-
-  async function connectRoom(nextRoom){
-    room = String(nextRoom || '').trim().toUpperCase();
-    if(!room){
-      setMsg('กรุณาใส่ ROOM', 'bad');
-      return;
-    }
-
-    $('uiRoom').textContent = room;
-    $('sumRoom').textContent = room;
-    $('repRoom').textContent = room;
-    $('inpRoom').value = room;
-
-    unsubscribers.forEach(fn=>{ try{ fn(); }catch(_){ } });
-    unsubscribers = [];
-
-    const fbCfg = getFirebaseConfig();
-    if(!fbCfg){
-      setMsg('ยังไม่ได้ตั้งค่า Firebase สำหรับ Dashboard', 'bad');
-      logEvent('missing Firebase config');
-      return;
-    }
-
-    let fb;
-    try{
-      fb = await loadFirebase();
-    }catch(err){
-      setMsg('โหลด Firebase ไม่สำเร็จ', 'bad');
-      logEvent('firebase load failed');
-      return;
-    }
-
-    const {
-      initializeApp, getApps, getApp,
-      getDatabase, ref, onValue, off
-    } = fb;
-
-    const app = getApps().length ? getApp() : initializeApp(fbCfg);
-    const db = getDatabase(app);
-
-    const base = `hha-battle/goodjunk/rooms/${room}`;
-    const stateRef = ref(db, `${base}/state`);
-    const playersRef = ref(db, `${base}/players`);
-    const reportsRef = ref(db, `${base}/reports`);
-    const offsetRef = ref(db, '.info/serverTimeOffset');
-
-    const offOffset = onValue(offsetRef, (snap)=>{
-      serverOffsetMs = Number(snap.val() || 0) || 0;
-    });
-    unsubscribers.push(()=> off(offsetRef, 'value', offOffset));
-
-    const offState = onValue(stateRef, (snap)=>{
-      const st = snap.val() || {};
-      const phase = String(st.phase || 'lobby');
-      currentRoundId = String(st.roundId || '');
-      currentWinner = String(st.winner || '');
-      currentRule = String(st.reason || '—') || '—';
-
-      $('uiPhase').textContent = phase;
-      $('sumPhase').textContent = phase;
-      $('sumRule').textContent = currentRule;
-
-      $('repRoom').textContent = room || '—';
-      $('repRound').textContent = currentRoundId || '—';
-      $('repRule').textContent = currentRule || '—';
-      $('repWinner').textContent = currentWinner || 'tie';
-
-      const winnerBox = $('winnerBox');
-      if(phase === 'ended'){
-        winnerBox.style.display = 'block';
-        winnerBox.textContent = currentWinner
-          ? `Winner: ${currentWinner} • rule: ${currentRule}`
-          : `Tie • rule: ${currentRule}`;
+    function pathCandidates(room, mode){
+      const candidates = [];
+      if(mode === 'battle'){
+        candidates.push(`/herohealth/battleRooms/${room}`);
+        candidates.push(`/battleRooms/${room}`);
+      }else if(mode === 'classroom'){
+        candidates.push(`/herohealth/classRooms/${room}`);
+        candidates.push(`/classRooms/${room}`);
       }else{
-        winnerBox.style.display = 'none';
+        candidates.push(`/herohealth/battleRooms/${room}`);
+        candidates.push(`/battleRooms/${room}`);
+        candidates.push(`/herohealth/classRooms/${room}`);
+        candidates.push(`/classRooms/${room}`);
       }
-
-      const startAtMs = Number(st.startAtMs || 0) || 0;
-      if(phase === 'countdown' && startAtMs > 0){
-        const leftMs = Math.max(0, startAtMs - (Date.now() + serverOffsetMs));
-        $('uiCountdown').textContent = String(Math.ceil(leftMs/1000));
-      }else{
-        $('uiCountdown').textContent = phase === 'running' ? 'GO' : '—';
-      }
-
-      if(phase === 'ended'){
-        renderLatestReport();
-      }
-    });
-    unsubscribers.push(()=> off(stateRef, 'value', offState));
-
-    const offPlayers = onValue(playersRef, (snap)=>{
-      const raw = snap.val() || {};
-      const players = Object.keys(raw)
-        .map(k => ({ key:k, ...(raw[k]||{}) }))
-        .sort((a,b)=>(Number(a.joinedAtMs||0)-Number(b.joinedAtMs||0)))
-        .slice(0,2);
-
-      $('sumPlayers').textContent = `${players.length}/2`;
-      setPlayer(1, players[0] || null);
-      setPlayer(2, players[1] || null);
-      $('uiLead').textContent = computeLead(players[0], players[1]);
-
-      if(players.length){
-        const names = players.map(p => p.nick || p.pid || p.key).join(' vs ');
-        logEvent(`players update: ${names}`);
-      }
-    });
-    unsubscribers.push(()=> off(playersRef, 'value', offPlayers));
-
-    const offReports = onValue(reportsRef, (snap)=>{
-      const raw = snap.val() || {};
-      cloudReports = Object.keys(raw)
-        .map(k => ({ id:k, ...(raw[k]||{}) }))
-        .sort((a,b)=>{
-          const aa = Number(a.savedAtMs || 0) || 0;
-          const bb = Number(b.savedAtMs || 0) || 0;
-          return aa - bb;
-        });
-
-      renderLatestCloudReport();
-      renderAggregationDiagnostics();
-      renderClassAnalytics();
-      renderResearchMetaCoverage();
-      renderPrePostAnalytics();
-      renderConditionAnalytics();
-      renderPairedAnalytics();
-      renderPairedConditionAnalytics();
-      renderPairedStatSummary();
-      renderGroupStatSummary();
-      renderAutoResearchSummary();
-
-      if(cloudReports.length){
-        logEvent(`cloud reports: ${cloudReports.length}`);
-      }
-    });
-    unsubscribers.push(()=> off(reportsRef, 'value', offReports));
-
-    renderLatestReport();
-    renderClassAnalytics();
-    renderPrePostAnalytics();
-    renderConditionAnalytics();
-    renderPairedAnalytics();
-    renderPairedConditionAnalytics();
-    renderPairedStatSummary();
-    renderGroupStatSummary();
-    renderAutoResearchSummary();
-
-    setMsg(`เชื่อมต่อห้อง ${room} แล้ว`, 'ok');
-    logEvent(`connected room ${room}`);
-  }
-
-  $('btnSaveReport').onclick = ()=>{
-    if(!room){
-      setMsg('ยังไม่ได้เลือก room', 'warn');
-      return;
+      return candidates;
     }
 
-    const reports = loadReports(room);
-    const rep = currentSnapshotReport();
-    rep.roundId = currentRoundId || rep.roundId || '';
-    rep.winnerLabel = currentWinner || rep.winnerLabel || 'tie';
-    rep.rule = currentRule || rep.rule || '—';
-    reports.push(rep);
-    saveReports(room, reports);
+    function connectRoom(){
+      clearError();
 
-    renderLatestReport();
-    renderLatestCloudReport();
+      const room = byId('roomInput').value.trim();
+      const mode = byId('modeInput').value;
+      const auto = byId('autoRefreshInput').value === '1';
 
-    setMsg('บันทึกรายงาน local snapshot แล้ว', 'ok');
-    logEvent(`saved local report for room ${room}`);
-  };
+      state.room = room;
+      state.mode = mode;
+      state.auto = auto;
 
-  $('btnRefreshReport').onclick = ()=>{
-    renderLatestReport();
-    renderLatestCloudReport();
-    setMsg('รีเฟรช session report แล้ว', 'ok');
-  };
+      byId('miniRoom').textContent = room || '—';
+      byId('miniMode').textContent = mode;
 
-  $('btnExportCsv').onclick = ()=> exportReportsCsv();
-  $('btnExportAggCsv').onclick = ()=> exportAggregatedRoundsCsv();
-  $('btnExportCompleteCsv').onclick = ()=> exportCompleteRoundsCsv();
-  $('btnExportResearchLongCsv').onclick = ()=> exportResearchLongCsv();
-  $('btnExportResearchRoundCsv').onclick = ()=> exportResearchRoundCsv();
-  $('btnExportStudentCsv').onclick = ()=> exportStudentSummaryCsv();
+      if(!room){
+        showError('กรุณากรอก Room / Session');
+        return;
+      }
 
-  $('btnRefreshAnalytics').onclick = ()=>{
-    renderClassAnalytics();
-    setMsg('รีเฟรช class analytics แล้ว', 'ok');
-  };
+      if(!resolveFirebase()){
+        showError('Firebase ยังไม่พร้อม\nตรวจสอบ ./firebase-config.js และการ init firebase ก่อน');
+        return;
+      }
 
-  $('btnRefreshPrePost').onclick = ()=>{
-    renderPrePostAnalytics();
-    setMsg('รีเฟรช pre/post analysis แล้ว', 'ok');
-  };
-  $('btnExportPrePostCsv').onclick = ()=> exportPrePostCsv();
+      if(state.unsub){
+        try{ state.unsub(); }catch(_){}
+        state.unsub = null;
+      }
 
-  $('btnRefreshCondition').onclick = ()=>{
-    renderConditionAnalytics();
-    setMsg('รีเฟรช condition analysis แล้ว', 'ok');
-  };
-  $('btnExportConditionCsv').onclick = ()=> exportConditionCsv();
+      const db = state.db;
+      const candidates = pathCandidates(room, mode);
+      let bound = false;
 
-  $('btnRefreshPaired').onclick = ()=>{
-    renderPairedAnalytics();
-    setMsg('รีเฟรช paired PID analysis แล้ว', 'ok');
-  };
-  $('btnExportPairedCsv').onclick = ()=> exportPairedPidCsv();
+      setStatus(`กำลังเชื่อมต่อห้อง ${room} ...`);
 
-  $('btnRefreshPairedCondition').onclick = ()=>{
-    renderPairedConditionAnalytics();
-    setMsg('รีเฟรช paired condition analysis แล้ว', 'ok');
-  };
-  $('btnExportPairedConditionCsv').onclick = ()=> exportPairedConditionCsv();
+      for(const path of candidates){
+        try{
+          const ref = db.ref(path);
 
-  $('btnRefreshStatPair').onclick = ()=>{
-    renderPairedStatSummary();
-    setMsg('รีเฟรช paired statistical test แล้ว', 'ok');
-  };
-  $('btnExportStatPairCsv').onclick = ()=> exportPairedStatCsv();
+          const handler = snap=>{
+            const roomData = snap.val();
+            if(!roomData){
+              if(!bound){
+                setStatus(`ยังไม่พบข้อมูลใน ${path}`);
+              }
+              return;
+            }
 
-  $('btnRefreshStatGroup').onclick = ()=>{
-    renderGroupStatSummary();
-    setMsg('รีเฟรช group statistical test แล้ว', 'ok');
-  };
-  $('btnExportStatGroupCsv').onclick = ()=> exportGroupStatCsv();
+            bound = true;
+            const playersRaw = roomData.players || roomData.members || roomData.participants || {};
+            const players = normalizePlayers(playersRaw);
 
-  $('btnGenerateSummary').onclick = ()=> renderAutoResearchSummary();
-  $('btnCopySummary').onclick = ()=> copyAutoSummary();
-  $('btnExportSummaryTxt').onclick = ()=> exportAutoSummaryTxt();
+            renderPlayers(players);
+            renderAlerts(players);
+            renderSummary(players);
 
-  $('btnClearReports').onclick = ()=>{
-    if(!room){
-      setMsg('ยังไม่ได้เลือก room', 'warn');
-      return;
+            const status = roomData.status || roomData.phase || 'active';
+            setStatus(`Connected: ${path} • status: ${status} • players: ${players.length}`);
+          };
+
+          ref.on('value', handler);
+          state.unsub = ()=>{
+            try{ ref.off('value', handler); }catch(_){}
+          };
+
+          setStatus(`Listening ${path}`);
+          break;
+        }catch(err){
+          console.warn('bind fail', path, err);
+        }
+      }
+
+      if(!state.unsub){
+        showError('ไม่สามารถ subscribe ห้องนี้ได้');
+      }
     }
-    localStorage.removeItem(reportKey(room));
-    renderLatestReport();
-    setMsg(`ล้าง local reports ของ room ${room} แล้ว`, 'ok');
-  };
 
-  $('btnConnect').onclick = ()=> connectRoom($('inpRoom').value || '');
-  $('btnOpenBattle').onclick = ()=>{
-    const r = String($('inpRoom').value || room || '').trim().toUpperCase();
-    if(!r){
-      setMsg('กรุณาใส่ ROOM ก่อน', 'bad');
-      return;
+    byId('btnConnect').addEventListener('click', connectRoom);
+
+    byId('btnBoard').addEventListener('click', ()=>{
+      const room = byId('roomInput').value.trim();
+      const mode = byId('modeInput').value;
+      const url = new URL('./goodjunk-board.html', location.href);
+      if(room) url.searchParams.set('room', room);
+      if(mode) url.searchParams.set('mode', mode);
+      window.open(url.href, '_blank', 'noopener');
+    });
+
+    initFromQuery();
+    resolveFirebase();
+
+    if(qs('room','')){
+      setTimeout(connectRoom, 160);
     }
-    const u = new URL('./vr-goodjunk/goodjunk-vr.html', location.href);
-    u.searchParams.set('mode','battle');
-    u.searchParams.set('battle','1');
-    u.searchParams.set('wait','1');
-    u.searchParams.set('room', r);
-    u.searchParams.set('pid','teacher');
-    u.searchParams.set('nick','Teacher');
-    location.href = u.toString();
-  };
-  $('btnBackLauncher').onclick = ()=> location.href = './goodjunk-launcher.html';
-
-  $('inpRoom').value = room || '';
-  if(room) connectRoom(room);
-})();
-</script>
+  </script>
 </body>
 </html>
