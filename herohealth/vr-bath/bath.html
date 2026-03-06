@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth — Bath (Hidden Dirt Quest)</title>
   <meta name="color-scheme" content="dark light" />
-  <link rel="stylesheet" href="./bath.css?v=20260306c" />
+  <link rel="stylesheet" href="./bath.css?v=20260306d" />
 </head>
 <body>
   <div id="app">
@@ -24,7 +24,7 @@
         <div class="pill" id="riskPill">FUNGUS RISK: 0%</div>
         <div class="pill" id="meterPill">SWEAT: 0%</div>
         <div class="pill" id="viewPill">VIEW: FRONT</div>
-        <div class="pill pro" id="proPill" title="PRO เปิดอยู่: โหดขึ้นแบบแฟร์">PRO: OFF</div>
+        <div class="pill pro off" id="proPill" title="PRO เปิดอยู่: โหดขึ้นแบบแฟร์">PRO: OFF</div>
       </div>
       <div class="hud-row">
         <div class="pill mini" id="coachPill">COACH: —</div>
@@ -64,29 +64,31 @@
           <button id="btnHelp" class="btn">วิธีเล่น</button>
         </div>
 
+        <!-- Quiz -->
         <div id="panelQuiz" class="panel hidden">
           <div class="panel-card">
             <h2>ก่อนเริ่ม (3 ข้อ)</h2>
             <div id="quizBody"></div>
             <div class="row">
-              <button id="btnQuizNext" class="btn primary">ต่อไป</button>
+              <button id="btnQuizNext" class="btn primary">ข้อถัดไป</button>
             </div>
           </div>
         </div>
 
+        <!-- Help -->
         <div id="panelHelp" class="panel hidden">
           <div class="panel-card">
             <h2>วิธีเล่น (Bath — Hidden Dirt Quest)</h2>
             <ol>
               <li><b>WET</b> ทำให้เปียกให้ครบ</li>
-              <li><b>SOAP</b> ฟองจำกัด + ระวังฟองปลอม</li>
-              <li><b>SCRUB</b> 3 ช่วง: <b>Warm → Trick → Boss</b></li>
-              <li><b>RINSE</b> ล้าง residue ให้ต่ำ</li>
-              <li><b>DRY + DRESS</b> เช็ดให้แห้ง ลดเชื้อรา แล้วใส่เสื้อ</li>
+              <li><b>SOAP</b> ใช้ฟองให้คุ้ม และระวังฟองหลอก</li>
+              <li><b>SCRUB</b> ผ่าน 3 ช่วง: <b>Warm → Trick → Boss</b></li>
+              <li><b>RINSE</b> ล้างคราบฟองและสิ่งสกปรก</li>
+              <li><b>DRY + DRESS</b> เช็ดให้แห้ง ลดความเสี่ยงเชื้อรา แล้วใส่เสื้อ</li>
             </ol>
             <p class="muted">
-              🔥 PRO: เปิดด้วย <code>?pro=1</code> (เดือดขึ้นแบบแฟร์)<br/>
-              🧠 AI: สรุป “2 สาเหตุหลัก” + คำแนะนำในหน้าสรุป
+              🔥 PRO: เปิดด้วย <code>?pro=1</code><br/>
+              🧠 เกมจะผ่านจริงก็ต่อเมื่อ Mission/Boss/Rinse/Dry ผ่านครบ
             </p>
             <div class="row">
               <button id="btnCloseHelp" class="btn primary">เข้าใจแล้ว</button>
@@ -94,6 +96,7 @@
           </div>
         </div>
 
+        <!-- End -->
         <div id="panelEnd" class="panel hidden">
           <div class="panel-card">
             <h2>สรุปผล</h2>
@@ -135,6 +138,7 @@
             <div class="row">
               <button id="btnPlayPlan" class="btn primary">เล่นตามแผน</button>
               <button id="btnReplay" class="btn">เล่นใหม่</button>
+              <button id="btnCooldown" class="btn">ไป Cooldown</button>
               <button id="btnBack" class="btn">กลับ HUB</button>
             </div>
           </div>
@@ -143,10 +147,10 @@
     </main>
 
     <footer id="footer">
-      <span class="muted">HeroHealth — Bath • Top-down • FX+Missions+PRO+AI Explain</span>
+      <span class="muted">HeroHealth — Bath • Top-down • PC/Mobile • v20260306d</span>
     </footer>
   </div>
 
-  <script type="module" src="./bath.js?v=20260306c"></script>
+  <script type="module" src="./bath.js?v=20260306d"></script>
 </body>
 </html>
