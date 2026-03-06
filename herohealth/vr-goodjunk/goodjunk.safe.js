@@ -1,13 +1,6 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
 // GoodJunkVR SAFE — PRODUCTION
-// PATCH v20260306-BATTLE-READY-FULL-ENDOVERLAY-DISCONNECT
-// ✅ Game Feel PRO
-// ✅ Mission / Boss Variety
-// ✅ Solo Progression
-// ✅ AI Director
-// ✅ Battle-ready: expose handle / sync score / final sync
-// ✅ Battle-ended affects endOverlay by meKey
-// ✅ Opponent disconnect warning in HUD/Coach
+// PATCH v20260306-BATTLE-READY-FULL-ENDOVERLAY-DISCONNECT-RESEARCH
 'use strict';
 
 export async function boot(cfg){
@@ -582,6 +575,9 @@ export async function boot(cfg){
   WIN.addEventListener('hha:battle-ended', (ev)=>{
     try{
       battleEndedInfo = ev?.detail || null;
+      if(playing && !ended){
+        sayCoach('Battle จบรอบแล้ว', true);
+      }
     }catch(_){}
   });
 
@@ -870,6 +866,14 @@ export async function boot(cfg){
       hub: hubUrl,
       battle: battleOn ? 1 : 0,
       room: qs('room',''),
+      battleRoundId: (battle && battle.roundId) ? String(battle.roundId) : '',
+      studyId: String(qs('studyId','') || ''),
+      phase: String(qs('phase','') || ''),
+      conditionGroup: String(qs('conditionGroup','') || ''),
+      planDay: String(qs('planDay','') || ''),
+      planSlot: String(qs('planSlot','') || ''),
+      planMode: String(qs('planMode','') || ''),
+      zone: String(qs('zone','nutrition') || 'nutrition'),
 
       missionSet,
 
@@ -912,6 +916,59 @@ export async function boot(cfg){
     return detail;
   }
 
+  function buildCloudRoundReport(detail){
+    return {
+      source: 'goodjunk.safe.js',
+      room: String(detail?.room || qs('room','') || '').trim().toUpperCase(),
+      roundId: String(detail?.battleRoundId || detail?.roundId || ''),
+      pid: String(detail?.pid || pid || 'anon'),
+      nick: String(detail?.nick || nick || pid),
+      mode: String(detail?.mode || mode || 'solo'),
+      diff: String(detail?.diff || diff || 'normal'),
+      view: String(detail?.view || view || 'mobile'),
+
+      studyId: String(detail?.studyId || ''),
+      phase: String(detail?.phase || ''),
+      conditionGroup: String(detail?.conditionGroup || ''),
+      planDay: String(detail?.planDay || ''),
+      planSlot: String(detail?.planSlot || ''),
+      planMode: String(detail?.planMode || ''),
+      zone: String(detail?.zone || 'nutrition'),
+
+      score: Number(detail?.scoreFinal ?? detail?.score ?? 0) || 0,
+      accPct: Number(detail?.accPct ?? 0) || 0,
+      missTotal: Number(detail?.missTotal ?? 0) || 0,
+      medianRtGoodMs: Number(detail?.medianRtGoodMs ?? 0) || 0,
+
+      grade: String(detail?.grade || '-'),
+      reason: String(detail?.reason || '-'),
+      win: !!detail?.win,
+
+      shots: Number(detail?.shots ?? 0) || 0,
+      hits: Number(detail?.hits ?? 0) || 0,
+      comboBest: Number(detail?.comboBest ?? 0) || 0,
+      goodHitCount: Number(detail?.goodHitCount ?? 0) || 0,
+
+      stageFinal: String(detail?.stageFinal || ''),
+      scoreTarget: Number(detail?.scoreTarget ?? 0) || 0,
+      goodTarget: Number(detail?.goodTarget ?? 0) || 0,
+      timePlayedSec: Number(detail?.timePlayedSec ?? 0) || 0,
+      timePlannedSec: Number(detail?.timePlannedSec ?? 0) || 0,
+      timeLeftSec: Number(detail?.timeLeftSec ?? 0) || 0,
+
+      bossCleared: !!detail?.bossCleared,
+      bossHpLeft: Number(detail?.bossHpLeft ?? 0) || 0,
+      bossHpMax: Number(detail?.bossHpMax ?? 0) || 0,
+
+      battleWinnerKey: String(detail?.battleWinnerKey || ''),
+      battleReason: String(detail?.battleReason || ''),
+      battleMeKey: String(detail?.battleMeKey || ''),
+
+      startTimeIso: String(detail?.startTimeIso || ''),
+      endTimeIso: String(detail?.endTimeIso || '')
+    };
+  }
+
   function endGame(reason){
     if(!playing || ended) return;
     ended = true;
@@ -925,7 +982,6 @@ export async function boot(cfg){
     let detail = buildEndDetail(reason);
     detail = applyBattleResultToOverlay(detail);
 
-    // ✅ final sync to battle before dispatch
     try{
       battle?.syncScore?.({
         score: detail.scoreFinal,
@@ -942,6 +998,15 @@ export async function boot(cfg){
       hhLsSet(`HHA_LAST_SUMMARY:${HH_GAME}:${pid}`, JSON.stringify(detail));
       hhLsSet('HHA_LAST_SUMMARY', JSON.stringify(detail));
     }catch(e){}
+
+    try{
+      if(battle && battle.enabled && typeof battle.saveRoundReport === 'function'){
+        const cloudRow = buildCloudRoundReport(detail);
+        battle.saveRoundReport(cloudRow).catch(()=>{});
+      }
+    }catch(e){
+      console.warn('[GoodJunk] cloud saveRoundReport failed', e);
+    }
 
     try{
       WIN.dispatchEvent(new CustomEvent('hha:end', { detail }));
