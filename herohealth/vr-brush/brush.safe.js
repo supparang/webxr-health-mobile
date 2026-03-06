@@ -1,12 +1,15 @@
 // === /herohealth/vr-brush/brush.safe.js ===
 // BrushVR SAFE — ABC + AI Prediction Events (NO adaptive)
-// PATCH v20260306-BRUSH-ABC-AI-PRED-FULL-FIX
+// PATCH v20260306-BRUSH-ABC-AI-PRED-FULL-FIX2
 // ✅ Stage A/B/C
 // ✅ Evidence 3 types (B): 🍬 🌙 🚫🪥
 // ✅ Quiz Analyze (C)
 // ✅ AI Risk (prediction-only): emits brush:ai signals (risk/miss_streak/combo_hot/stage/quiz/boss/time)
 // ✅ cVR aim assist + no double-shot + stable menu/end
 // ✅ Prevent scroll jump while playing (mobile)
+// ✅ Back HUB links wired
+// ✅ Expose HHA_BRUSH.boot no-op for brush.boot.js integration
+
 (function(){
   'use strict';
 
@@ -40,6 +43,7 @@
     el.textContent = msg;
     el.classList.remove('br-hidden');
   }
+
   WIN.addEventListener('error', (e)=>{
     fatal('JS ERROR:\n' + (e?.message||e) + '\n\n' + (e?.filename||'') + ':' + (e?.lineno||'') + ':' + (e?.colno||''));
   });
@@ -92,6 +96,8 @@
   const btnPause = $('#btnPause');
   const btnHow = $('#btnHow');
   const btnRecenter = $('#btnRecenter');
+  const btnBack = $('#btnBack');
+  const btnBackHub2 = $('#btnBackHub2');
 
   const btnQuizSubmit = $('#btnQuizSubmit');
   const btnQuizSkip = $('#btnQuizSkip');
@@ -165,6 +171,24 @@
   if(aiTag) aiTag.textContent = CTX.ai ? '1' : '0';
   if(mDiff) mDiff.textContent = CTX.diff;
   if(mTime) mTime.textContent = `${CTX.time}s`;
+
+  function setBackLinks(){
+    const hubUrl = CTX.hub || '../hub.html';
+    [btnBack, btnBackHub2].forEach(a=>{
+      if(!a) return;
+      try{
+        const u = new URL(hubUrl, location.href);
+        if(CTX.pid) u.searchParams.set('pid', CTX.pid);
+        if(CTX.studyId) u.searchParams.set('studyId', CTX.studyId);
+        if(CTX.phase) u.searchParams.set('phase', CTX.phase);
+        if(CTX.conditionGroup) u.searchParams.set('conditionGroup', CTX.conditionGroup);
+        a.href = u.toString();
+      }catch(_){
+        a.href = hubUrl;
+      }
+    });
+  }
+  setBackLinks();
 
   const rng = seededRng(CTX.seed);
 
@@ -1054,5 +1078,11 @@
   aiTick(true);
   renderHud(true);
   toast('พร้อมแล้ว! กดเริ่มเกมได้เลย');
+
+  // expose no-op boot for brush.boot.js integration
+  WIN.HHA_BRUSH = WIN.HHA_BRUSH || {};
+  WIN.HHA_BRUSH.boot = function(){
+    if(CTX.debug) console.log('[BrushVR] boot called (safe.js already autoloaded)');
+  };
 
 })();
