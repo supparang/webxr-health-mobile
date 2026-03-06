@@ -1,759 +1,188 @@
 <!-- === /herohealth/goodjunk-teacher.html ===
 HeroHealth • GoodJunk Teacher Dashboard
-PATCH v20260306-GJ-TEACHER-FULL
-✅ Correct root path uses ./firebase-config.js
-✅ Realtime classroom room monitor
-✅ Summary cards + player table
-✅ Can watch battle room / class room
-✅ Safe fallback when Firebase is not ready
+PATCH v20260306-GJ-TEACHER-BATTLE-V6
+✅ Reads hha-battle/goodjunk/rooms/{room}
+✅ Shows players, phase, scores, acc, miss, medianRT, ready, connected
+✅ Opens board
 -->
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>GoodJunk — Teacher Dashboard</title>
-  <meta name="color-scheme" content="dark light" />
+  <title>GoodJunk Teacher Dashboard</title>
   <link rel="icon" href="./favicon.ico" />
-
+  <meta name="color-scheme" content="dark light" />
   <style>
     :root{
-      --bg1:#020617; --bg2:#0b1226;
-      --panel:rgba(2,6,23,.72);
-      --panel2:rgba(15,23,42,.68);
-      --stroke:rgba(148,163,184,.18);
-      --text:rgba(229,231,235,.96);
-      --muted:rgba(148,163,184,.92);
-      --blue:#3b82f6;
-      --good:#22c55e;
-      --warn:#f59e0b;
-      --danger:#ef4444;
-      --cyan:#22d3ee;
-      --shadow:0 18px 60px rgba(0,0,0,.30);
-      --r:24px;
-      --sat: env(safe-area-inset-top, 0px);
-      --sar: env(safe-area-inset-right, 0px);
-      --sab: env(safe-area-inset-bottom, 0px);
-      --sal: env(safe-area-inset-left, 0px);
+      --bg1:#020617; --bg2:#0b1226; --panel:rgba(2,6,23,.74);
+      --stroke:rgba(148,163,184,.18); --text:#e5e7eb; --muted:#94a3b8;
+      --shadow:0 18px 60px rgba(0,0,0,.35);
     }
     *{ box-sizing:border-box; }
     html,body{
-      margin:0;
-      min-height:100%;
+      margin:0; min-height:100%;
       background:
-        radial-gradient(1200px 900px at 50% -10%, rgba(34,211,238,.09), transparent 55%),
-        linear-gradient(180deg,var(--bg1),var(--bg2));
+        radial-gradient(1200px 800px at 50% -20%, rgba(34,211,238,.10), transparent 55%),
+        linear-gradient(180deg, var(--bg1), var(--bg2));
       color:var(--text);
       font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", sans-serif;
     }
-
-    .wrap{
-      width:min(1280px, calc(100vw - 24px));
-      margin:0 auto;
-      padding:
-        calc(18px + var(--sat))
-        calc(12px + var(--sar))
-        calc(18px + var(--sab))
-        calc(12px + var(--sal));
+    .wrap{ width:min(1200px, calc(100vw - 24px)); margin:0 auto; padding:18px 12px; }
+    .hero,.card{
+      background:linear-gradient(180deg, rgba(15,23,42,.82), rgba(2,6,23,.76));
+      border:1px solid var(--stroke); border-radius:24px; box-shadow:var(--shadow);
     }
-
-    .hero{
-      display:grid;
-      grid-template-columns:1.2fr .8fr;
-      gap:14px;
-      margin-bottom:14px;
-    }
-    .card{
-      background:linear-gradient(180deg, rgba(15,23,42,.74), rgba(2,6,23,.72));
-      border:1px solid var(--stroke);
-      border-radius:var(--r);
-      box-shadow:var(--shadow);
-      overflow:hidden;
-    }
-    .hero-main{
-      padding:18px;
-    }
-    .eyebrow{
-      display:inline-flex; align-items:center; gap:8px;
-      border-radius:999px;
-      background:rgba(34,211,238,.10);
-      color:#a5f3fc;
-      border:1px solid rgba(34,211,238,.18);
-      padding:8px 12px;
-      font-size:12px; font-weight:700;
-      margin-bottom:12px;
-    }
-    h1{
-      margin:0;
-      font-size:clamp(28px,5vw,40px);
-      line-height:1.08;
-      letter-spacing:.2px;
-    }
-    .sub{
-      margin-top:8px;
-      color:var(--muted);
-      font-size:14px;
-    }
-
-    .controls{
-      display:grid;
-      grid-template-columns:1.3fr 1fr 1fr auto auto;
-      gap:10px;
-      margin-top:16px;
-    }
-    .field{
-      min-width:0;
-    }
-    .label{
-      display:block;
-      font-size:12px;
-      color:var(--muted);
-      margin-bottom:6px;
+    .hero{ padding:18px; margin-bottom:14px; }
+    .toolbar{
+      display:grid; grid-template-columns:1.2fr .8fr auto auto; gap:10px; margin-top:12px;
     }
     input,select,button{
-      width:100%;
-      min-height:44px;
-      border-radius:14px;
-      border:1px solid var(--stroke);
-      background:rgba(2,6,23,.76);
-      color:var(--text);
-      padding:10px 12px;
-      font:inherit;
-      outline:none;
+      min-height:44px; border-radius:14px; border:1px solid var(--stroke);
+      background:rgba(2,6,23,.80); color:var(--text); padding:10px 12px; font:inherit;
     }
-    button{
-      cursor:pointer;
-      font-weight:800;
-      background:linear-gradient(135deg,#2563eb,#06b6d4);
-      border:0;
-      box-shadow:0 10px 28px rgba(37,99,235,.28);
-    }
-    button.secondary{
-      background:rgba(15,23,42,.86);
-      border:1px solid var(--stroke);
-      box-shadow:none;
-    }
-
-    .hero-side{
-      padding:18px;
-      display:grid;
-      gap:12px;
-      align-content:start;
-    }
-    .mini{
-      border-radius:18px;
-      background:rgba(2,6,23,.44);
-      border:1px solid var(--stroke);
-      padding:14px;
-    }
-    .mini .k{
-      font-size:12px;
-      color:var(--muted);
-      margin-bottom:6px;
-    }
-    .mini .v{
-      font-size:18px;
-      font-weight:900;
-    }
-
-    .grid4{
-      display:grid;
-      grid-template-columns:repeat(4, minmax(0,1fr));
-      gap:12px;
-      margin-bottom:14px;
-    }
-    .stat{
-      padding:16px;
-      border-radius:22px;
-      background:linear-gradient(180deg, rgba(15,23,42,.75), rgba(2,6,23,.68));
-      border:1px solid var(--stroke);
-      box-shadow:var(--shadow);
-    }
-    .stat .k{
-      color:var(--muted);
-      font-size:12px;
-      margin-bottom:8px;
-    }
-    .stat .v{
-      font-size:clamp(24px,4vw,34px);
-      font-weight:900;
-      line-height:1;
-    }
-
-    .section{
-      margin-bottom:14px;
-    }
-    .section-head{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:12px;
-      margin:0 0 10px;
-    }
-    .section-head h2{
-      margin:0;
-      font-size:18px;
-    }
+    button{ cursor:pointer; border:0; font-weight:900; color:white; background:linear-gradient(135deg,#2563eb,#06b6d4); }
+    button.secondary{ background:rgba(15,23,42,.90); border:1px solid var(--stroke); color:var(--text); }
+    .stats{ display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; margin-bottom:14px; }
+    .card{ padding:16px; }
+    .k{ color:var(--muted); font-size:12px; margin-bottom:6px; }
+    .v{ font-size:28px; font-weight:900; }
+    table{ width:100%; border-collapse:collapse; }
+    th,td{ padding:12px 10px; border-bottom:1px solid rgba(148,163,184,.12); text-align:left; font-size:13px; }
+    th{ color:#cbd5e1; }
     .muted{ color:var(--muted); }
-
-    .panels{
-      display:grid;
-      grid-template-columns:1.05fr .95fr;
-      gap:14px;
-      margin-bottom:14px;
-    }
-
-    .table-wrap{
-      overflow:auto;
-      border-radius:18px;
-    }
-    table{
-      width:100%;
-      border-collapse:collapse;
-      min-width:760px;
-    }
-    th,td{
-      padding:12px 10px;
-      border-bottom:1px solid rgba(148,163,184,.12);
-      text-align:left;
-      font-size:13px;
-      vertical-align:middle;
-    }
-    th{
-      color:#cbd5e1;
-      background:rgba(2,6,23,.44);
-      position:sticky;
-      top:0;
-      z-index:1;
-    }
-    tbody tr:hover{
-      background:rgba(255,255,255,.03);
-    }
-
-    .pill{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      border-radius:999px;
-      padding:6px 10px;
-      font-size:12px;
-      font-weight:800;
-      border:1px solid transparent;
-      white-space:nowrap;
-    }
-    .pill.ok{
-      color:#bbf7d0;
-      background:rgba(34,197,94,.12);
-      border-color:rgba(34,197,94,.18);
-    }
-    .pill.warn{
-      color:#fde68a;
-      background:rgba(245,158,11,.12);
-      border-color:rgba(245,158,11,.18);
-    }
-    .pill.danger{
-      color:#fecaca;
-      background:rgba(239,68,68,.12);
-      border-color:rgba(239,68,68,.18);
-    }
-    .pill.info{
-      color:#bae6fd;
-      background:rgba(34,211,238,.12);
-      border-color:rgba(34,211,238,.18);
-    }
-
-    .list{
-      display:grid;
-      gap:10px;
-    }
-    .item{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
-      padding:12px 14px;
-      border-radius:16px;
-      background:rgba(2,6,23,.42);
-      border:1px solid var(--stroke);
-    }
-    .item .name{
-      font-weight:800;
-      font-size:14px;
-    }
-    .item .subt{
-      color:var(--muted);
-      font-size:12px;
-      margin-top:4px;
-    }
-
-    .empty{
-      padding:24px;
-      text-align:center;
-      color:var(--muted);
-    }
-    .status-line{
-      margin-top:12px;
-      font-size:12px;
-      color:var(--muted);
-    }
-    .danger-box{
-      display:none;
-      margin-top:12px;
-      padding:12px 14px;
-      border-radius:14px;
-      border:1px solid rgba(248,113,113,.25);
-      background:rgba(127,29,29,.22);
-      color:#fecaca;
-      white-space:pre-wrap;
-      font-size:13px;
-    }
-    .danger-box.show{ display:block; }
-
-    @media (max-width:1100px){
-      .hero,
-      .panels{
-        grid-template-columns:1fr;
-      }
-      .grid4{
-        grid-template-columns:repeat(2,minmax(0,1fr));
-      }
-      .controls{
-        grid-template-columns:1fr 1fr;
-      }
-    }
-    @media (max-width:640px){
-      .grid4{
-        grid-template-columns:1fr 1fr;
-      }
-      .controls{
-        grid-template-columns:1fr;
-      }
-      .wrap{ width:min(100vw, calc(100vw - 12px)); }
+    @media (max-width:900px){
+      .toolbar,.stats{ grid-template-columns:1fr; }
     }
   </style>
-
   <script src="./firebase-config.js"></script>
 </head>
 <body>
   <div class="wrap">
     <section class="hero">
-      <div class="card hero-main">
-        <div class="eyebrow">👩‍🏫 Teacher Dashboard</div>
-        <h1>GoodJunk Classroom Monitor</h1>
-        <div class="sub">
-          ดูสถานะผู้เล่นแบบเรียลไทม์ ตรวจ room battle/classroom และติดตามคะแนน ความแม่นยำ miss และความเสี่ยงจาก AI HUD
-        </div>
-
-        <div class="controls">
-          <div class="field">
-            <label class="label" for="roomInput">Room / Session</label>
-            <input id="roomInput" placeholder="เช่น roomA, class-p5, battle-01" />
-          </div>
-
-          <div class="field">
-            <label class="label" for="modeInput">Mode</label>
-            <select id="modeInput">
-              <option value="battle">battle</option>
-              <option value="classroom">classroom</option>
-              <option value="auto">auto</option>
-            </select>
-          </div>
-
-          <div class="field">
-            <label class="label" for="autoRefreshInput">Realtime</label>
-            <select id="autoRefreshInput">
-              <option value="1">เปิด</option>
-              <option value="0">ปิด</option>
-            </select>
-          </div>
-
-          <div class="field" style="align-self:end">
-            <button id="btnConnect">เชื่อมต่อ</button>
-          </div>
-
-          <div class="field" style="align-self:end">
-            <button id="btnBoard" class="secondary">เปิด Board</button>
-          </div>
-        </div>
-
-        <div id="errorBox" class="danger-box"></div>
-        <div id="statusLine" class="status-line">ยังไม่ได้เชื่อมต่อห้อง</div>
-      </div>
-
-      <div class="card hero-side">
-        <div class="mini">
-          <div class="k">Current room</div>
-          <div id="miniRoom" class="v">—</div>
-        </div>
-        <div class="mini">
-          <div class="k">Mode</div>
-          <div id="miniMode" class="v">—</div>
-        </div>
-        <div class="mini">
-          <div class="k">Firebase</div>
-          <div id="miniFirebase" class="v">checking…</div>
-        </div>
+      <div style="font-size:12px;color:#a5f3fc;font-weight:800;">👩‍🏫 Teacher Dashboard</div>
+      <h1 style="margin:8px 0 0;font-size:34px;">GoodJunk Battle Monitor</h1>
+      <div class="toolbar">
+        <input id="room" placeholder="Room" value="P5A" />
+        <select id="mode">
+          <option value="battle">battle</option>
+        </select>
+        <button id="btnConnect">เชื่อมต่อ</button>
+        <button id="btnBoard" class="secondary">เปิด Board</button>
       </div>
     </section>
 
-    <section class="grid4">
-      <div class="stat">
-        <div class="k">Players online</div>
-        <div id="statPlayers" class="v">0</div>
-      </div>
-      <div class="stat">
-        <div class="k">Top score</div>
-        <div id="statTopScore" class="v">0</div>
-      </div>
-      <div class="stat">
-        <div class="k">Best accuracy</div>
-        <div id="statBestAcc" class="v">0%</div>
-      </div>
-      <div class="stat">
-        <div class="k">Avg risk</div>
-        <div id="statRisk" class="v">0%</div>
-      </div>
+    <section class="stats">
+      <div class="card"><div class="k">Phase</div><div id="stPhase" class="v">—</div></div>
+      <div class="card"><div class="k">Round</div><div id="stRound" class="v">—</div></div>
+      <div class="card"><div class="k">Players</div><div id="stPlayers" class="v">0</div></div>
+      <div class="card"><div class="k">Winner</div><div id="stWinner" class="v">—</div></div>
     </section>
 
-    <section class="panels">
-      <div class="card section">
-        <div class="section-head" style="padding:16px 16px 0">
-          <h2>Players</h2>
-          <div class="muted">เรียงตาม score → accuracy → miss</div>
-        </div>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>Player</th>
-                <th>Score</th>
-                <th>Accuracy</th>
-                <th>Miss</th>
-                <th>Median RT</th>
-                <th>Risk</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody id="playersTbody">
-              <tr><td colspan="8" class="empty">ยังไม่มีข้อมูล</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <div class="card section">
-        <div class="section-head" style="padding:16px 16px 0">
-          <h2>Alerts / Watchouts</h2>
-          <div class="muted">ตัวช่วยมองหาคนที่กำลังเสี่ยง</div>
-        </div>
-        <div id="alertsList" class="list" style="padding:16px">
-          <div class="empty">ยังไม่มี alert</div>
-        </div>
+    <section class="card">
+      <div style="font-size:18px;font-weight:900;margin-bottom:10px;">Players</div>
+      <div style="overflow:auto">
+        <table>
+          <thead>
+            <tr>
+              <th>Nick</th>
+              <th>PID</th>
+              <th>Ready</th>
+              <th>Connected</th>
+              <th>Score</th>
+              <th>Acc</th>
+              <th>Miss</th>
+              <th>MedianRT</th>
+              <th>FinishMs</th>
+            </tr>
+          </thead>
+          <tbody id="tbody">
+            <tr><td colspan="9" class="muted">ยังไม่มีข้อมูล</td></tr>
+          </tbody>
+        </table>
       </div>
     </section>
   </div>
 
   <script type="module">
-    const $ = (s,el=document)=>el.querySelector(s);
-    const byId = (id)=>document.getElementById(id);
-    const qs = (k,d='')=>{
-      try{ return new URL(location.href).searchParams.get(k) ?? d; }
-      catch{ return d; }
+    const $ = (id)=>document.getElementById(id);
+    const qs = (k,d='')=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
+
+    $('room').value = qs('room','P5A');
+
+    let offFns = [];
+
+    function getDbCompat(){
+      if(window.firebase?.database) return window.firebase.database();
+      return null;
+    }
+
+    function renderState(st){
+      $('stPhase').textContent = st?.phase || '—';
+      $('stRound').textContent = st?.roundId || '—';
+      $('stWinner').textContent = st?.winner || '—';
+    }
+
+    function renderPlayers(raw){
+      const rows = Object.entries(raw || {})
+        .map(([k,v])=>({ key:k, ...(v||{}) }))
+        .sort((a,b)=>(a.joinedAtMs||0)-(b.joinedAtMs||0));
+
+      $('stPlayers').textContent = String(rows.length);
+
+      if(!rows.length){
+        $('tbody').innerHTML = `<tr><td colspan="9" class="muted">ยังไม่มีผู้เล่น</td></tr>`;
+        return;
+      }
+
+      $('tbody').innerHTML = rows.map(p=>`
+        <tr>
+          <td>${p.nick || '-'}</td>
+          <td>${p.pid || '-'}</td>
+          <td>${p.ready ? 'yes' : 'no'}</td>
+          <td>${p.connected !== false ? 'yes' : 'no'}</td>
+          <td>${Number(p.score || 0)}</td>
+          <td>${Number(p.acc || 0)}%</td>
+          <td>${Number(p.miss || 0)}</td>
+          <td>${Number(p.medianRT || 0)}</td>
+          <td>${Number(p.finishMs || 0)}</td>
+        </tr>
+      `).join('');
+    }
+
+    function connect(){
+      offFns.forEach(fn=>{ try{ fn(); }catch(_){} });
+      offFns = [];
+
+      const room = ($('room').value || 'P5A').trim().toUpperCase();
+      const db = getDbCompat();
+      if(!db){
+        alert('Firebase compat ยังไม่พร้อมใน firebase-config.js');
+        return;
+      }
+
+      const base = `hha-battle/goodjunk/rooms/${room}`;
+      const stateRef = db.ref(`${base}/state`);
+      const playersRef = db.ref(`${base}/players`);
+
+      const stateCb = snap => renderState(snap.val() || {});
+      const playersCb = snap => renderPlayers(snap.val() || {});
+
+      stateRef.on('value', stateCb);
+      playersRef.on('value', playersCb);
+
+      offFns.push(()=>stateRef.off('value', stateCb));
+      offFns.push(()=>playersRef.off('value', playersCb));
+    }
+
+    $('btnConnect').onclick = connect;
+    $('btnBoard').onclick = ()=>{
+      const u = new URL('./goodjunk-board.html', location.href);
+      u.searchParams.set('room', ($('room').value || 'P5A').trim().toUpperCase());
+      window.open(u.toString(), '_blank', 'noopener');
     };
 
-    const state = {
-      unsub: null,
-      db: null,
-      room: '',
-      mode: 'battle',
-      auto: true,
-      firebaseReady: false
-    };
-
-    function fmtPct(v){
-      const n = Number(v);
-      return Number.isFinite(n) ? `${Math.round(n)}%` : '0%';
-    }
-    function fmtInt(v){
-      const n = Number(v);
-      return Number.isFinite(n) ? String(Math.round(n)) : '0';
-    }
-    function fmtMs(v){
-      const n = Number(v);
-      return Number.isFinite(n) ? `${Math.round(n)} ms` : '—';
-    }
-    function esc(s){
-      return String(s ?? '').replace(/[&<>"']/g, m => ({
-        '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
-      }[m]));
-    }
-    function showError(msg){
-      const box = byId('errorBox');
-      box.textContent = String(msg || 'Unknown error');
-      box.classList.add('show');
-    }
-    function clearError(){
-      const box = byId('errorBox');
-      box.textContent = '';
-      box.classList.remove('show');
-    }
-    function setStatus(s){
-      byId('statusLine').textContent = s;
-    }
-
-    function initFromQuery(){
-      const room = qs('room', '');
-      const mode = qs('mode', qs('kind', 'battle'));
-      const auto = qs('auto', '1');
-
-      byId('roomInput').value = room;
-      byId('modeInput').value = ['battle','classroom','auto'].includes(mode) ? mode : 'battle';
-      byId('autoRefreshInput').value = auto === '0' ? '0' : '1';
-
-      byId('miniRoom').textContent = room || '—';
-      byId('miniMode').textContent = byId('modeInput').value;
-    }
-
-    function resolveFirebase(){
-      try{
-        if (window.firebase && typeof window.firebase.database === 'function'){
-          const db = window.firebase.database();
-          state.db = db;
-          state.firebaseReady = true;
-          byId('miniFirebase').textContent = 'ready (compat)';
-          return true;
-        }
-
-        if (window.HHFirebase?.database){
-          state.db = window.HHFirebase.database;
-          state.firebaseReady = true;
-          byId('miniFirebase').textContent = 'ready (HHFirebase)';
-          return true;
-        }
-
-        byId('miniFirebase').textContent = 'not ready';
-        return false;
-      }catch(err){
-        console.error(err);
-        byId('miniFirebase').textContent = 'error';
-        return false;
-      }
-    }
-
-    function normalizePlayers(raw){
-      if(!raw) return [];
-
-      const arr = Object.entries(raw).map(([key,val])=>{
-        const p = val || {};
-        return {
-          key,
-          name: p.name || p.displayName || p.pid || key,
-          score: Number(p.score ?? 0) || 0,
-          acc: Number(p.acc ?? p.accPct ?? 0) || 0,
-          miss: Number(p.miss ?? 0) || 0,
-          medianRt: Number(p.medianRt ?? p.medianRtGoodMs ?? 0) || 0,
-          risk: Number(p.hazardRisk ?? p.risk ?? 0) || 0,
-          online: !!(p.online ?? true),
-          ts: Number(p.ts ?? p.updatedAt ?? Date.now()) || Date.now(),
-          raw: p
-        };
-      });
-
-      arr.sort((a,b)=>
-        (b.score-a.score) ||
-        (b.acc-a.acc) ||
-        (a.miss-b.miss) ||
-        (a.medianRt-b.medianRt)
-      );
-
-      return arr;
-    }
-
-    function renderPlayers(players){
-      const tbody = byId('playersTbody');
-      if(!players.length){
-        tbody.innerHTML = `<tr><td colspan="8" class="empty">ยังไม่มีข้อมูลผู้เล่นในห้องนี้</td></tr>`;
-        return;
-      }
-
-      tbody.innerHTML = players.map((p,idx)=>{
-        const statusCls = p.online ? 'ok' : 'warn';
-        const statusTxt = p.online ? 'online' : 'idle';
-
-        const riskCls = p.risk >= 70 ? 'danger' : (p.risk >= 40 ? 'warn' : 'info');
-
-        return `
-          <tr>
-            <td>${idx+1}</td>
-            <td>
-              <div style="font-weight:800">${esc(p.name)}</div>
-              <div class="muted" style="font-size:12px">${esc(p.key)}</div>
-            </td>
-            <td>${fmtInt(p.score)}</td>
-            <td>${fmtPct(p.acc)}</td>
-            <td>${fmtInt(p.miss)}</td>
-            <td>${fmtMs(p.medianRt)}</td>
-            <td><span class="pill ${riskCls}">${fmtPct(p.risk)}</span></td>
-            <td><span class="pill ${statusCls}">${statusTxt}</span></td>
-          </tr>
-        `;
-      }).join('');
-    }
-
-    function renderAlerts(players){
-      const wrap = byId('alertsList');
-      const risky = players
-        .filter(p => p.risk >= 45 || p.miss >= 5)
-        .sort((a,b)=>(b.risk-a.risk) || (b.miss-a.miss))
-        .slice(0,8);
-
-      if(!risky.length){
-        wrap.innerHTML = `<div class="empty">ยังไม่มี alert สำคัญ</div>`;
-        return;
-      }
-
-      wrap.innerHTML = risky.map(p=>{
-        const cls = p.risk >= 70 ? 'danger' : (p.risk >= 45 ? 'warn' : 'info');
-        const reason =
-          p.risk >= 70 ? 'เสี่ยงสูง ควรจับตา'
-          : p.miss >= 5 ? 'miss สูง'
-          : 'ควรเฝ้าดู';
-
-        return `
-          <div class="item">
-            <div>
-              <div class="name">${esc(p.name)}</div>
-              <div class="subt">score ${fmtInt(p.score)} • acc ${fmtPct(p.acc)} • miss ${fmtInt(p.miss)}</div>
-            </div>
-            <span class="pill ${cls}">${reason}</span>
-          </div>
-        `;
-      }).join('');
-    }
-
-    function renderSummary(players){
-      byId('statPlayers').textContent = String(players.length);
-      byId('statTopScore').textContent = players.length ? fmtInt(players[0].score) : '0';
-      byId('statBestAcc').textContent = players.length ? fmtPct(Math.max(...players.map(p=>p.acc))) : '0%';
-
-      const avgRisk = players.length
-        ? players.reduce((s,p)=>s+p.risk,0)/players.length
-        : 0;
-      byId('statRisk').textContent = fmtPct(avgRisk);
-    }
-
-    function pathCandidates(room, mode){
-      const candidates = [];
-      if(mode === 'battle'){
-        candidates.push(`/herohealth/battleRooms/${room}`);
-        candidates.push(`/battleRooms/${room}`);
-      }else if(mode === 'classroom'){
-        candidates.push(`/herohealth/classRooms/${room}`);
-        candidates.push(`/classRooms/${room}`);
-      }else{
-        candidates.push(`/herohealth/battleRooms/${room}`);
-        candidates.push(`/battleRooms/${room}`);
-        candidates.push(`/herohealth/classRooms/${room}`);
-        candidates.push(`/classRooms/${room}`);
-      }
-      return candidates;
-    }
-
-    function connectRoom(){
-      clearError();
-
-      const room = byId('roomInput').value.trim();
-      const mode = byId('modeInput').value;
-      const auto = byId('autoRefreshInput').value === '1';
-
-      state.room = room;
-      state.mode = mode;
-      state.auto = auto;
-
-      byId('miniRoom').textContent = room || '—';
-      byId('miniMode').textContent = mode;
-
-      if(!room){
-        showError('กรุณากรอก Room / Session');
-        return;
-      }
-
-      if(!resolveFirebase()){
-        showError('Firebase ยังไม่พร้อม\nตรวจสอบ ./firebase-config.js และการ init firebase ก่อน');
-        return;
-      }
-
-      if(state.unsub){
-        try{ state.unsub(); }catch(_){}
-        state.unsub = null;
-      }
-
-      const db = state.db;
-      const candidates = pathCandidates(room, mode);
-      let bound = false;
-
-      setStatus(`กำลังเชื่อมต่อห้อง ${room} ...`);
-
-      for(const path of candidates){
-        try{
-          const ref = db.ref(path);
-
-          const handler = snap=>{
-            const roomData = snap.val();
-            if(!roomData){
-              if(!bound){
-                setStatus(`ยังไม่พบข้อมูลใน ${path}`);
-              }
-              return;
-            }
-
-            bound = true;
-            const playersRaw = roomData.players || roomData.members || roomData.participants || {};
-            const players = normalizePlayers(playersRaw);
-
-            renderPlayers(players);
-            renderAlerts(players);
-            renderSummary(players);
-
-            const status = roomData.status || roomData.phase || 'active';
-            setStatus(`Connected: ${path} • status: ${status} • players: ${players.length}`);
-          };
-
-          ref.on('value', handler);
-          state.unsub = ()=>{
-            try{ ref.off('value', handler); }catch(_){}
-          };
-
-          setStatus(`Listening ${path}`);
-          break;
-        }catch(err){
-          console.warn('bind fail', path, err);
-        }
-      }
-
-      if(!state.unsub){
-        showError('ไม่สามารถ subscribe ห้องนี้ได้');
-      }
-    }
-
-    byId('btnConnect').addEventListener('click', connectRoom);
-
-    byId('btnBoard').addEventListener('click', ()=>{
-      const room = byId('roomInput').value.trim();
-      const mode = byId('modeInput').value;
-      const url = new URL('./goodjunk-board.html', location.href);
-      if(room) url.searchParams.set('room', room);
-      if(mode) url.searchParams.set('mode', mode);
-      window.open(url.href, '_blank', 'noopener');
-    });
-
-    initFromQuery();
-    resolveFirebase();
-
-    if(qs('room','')){
-      setTimeout(connectRoom, 160);
-    }
+    connect();
   </script>
 </body>
 </html>
