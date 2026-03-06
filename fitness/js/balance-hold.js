@@ -1,6 +1,3 @@
-// === /fitness/js/balance-hold.js ===
-// Balance Hold — PRODUCTION (SEEDED + OBSTACLES + 3-STAGE + BOSS PATTERN + SHIELD + FX + AUTOSTART)
-// PATCH v20260305-BH-RUN-FIX
 'use strict';
 
 const $  = (s)=>document.querySelector(s);
@@ -113,7 +110,6 @@ function shakePlay(){
   setTimeout(()=> el.classList.remove('shake'), 260);
 }
 
-/* Ensure obstacle layer */
 function ensureObstacleLayer(){
   if (obstacleLayer) return obstacleLayer;
   if (!playArea) return null;
@@ -129,7 +125,7 @@ function ensureObstacleLayer(){
   return obstacleLayer;
 }
 
-/* Config */
+/* config */
 const GAME_DIFF = {
   easy:   { safeHalf:0.34, disturbMinMs:1500, disturbMaxMs:2700, disturbStrength:0.20, passiveDrift:0.070, hp:4 },
   normal: { safeHalf:0.25, disturbMinMs:1200, disturbMaxMs:2200, disturbStrength:0.26, passiveDrift:0.095, hp:3 },
@@ -137,7 +133,7 @@ const GAME_DIFF = {
 };
 function pickDiff(key){ return GAME_DIFF[key] || GAME_DIFF.normal; }
 
-/* Coach */
+/* coach */
 const COACH_LINES = {
   welcome:'ลากซ้าย–ขวาเพื่อคุมให้อยู่โซนปลอดภัย / Drag left–right to balance',
   drift:'เอียงค้างนานไป—ดันกลับกลางช้า ๆ / Drift—return to center',
@@ -158,7 +154,7 @@ function showCoach(key){
   setTimeout(()=> coachBubble && coachBubble.classList.add('hidden'), 4200);
 }
 
-/* Stage */
+/* stage */
 function stageFrom(tNorm){
   if (tNorm < 0.40) return 'Warm';
   if (tNorm < 0.78) return 'Trick';
@@ -166,8 +162,8 @@ function stageFrom(tNorm){
 }
 function stageCfg(base, stage, idleBoost){
   const idleMul = 1 + 2.2*(idleBoost||0);
-
   let safeMul=1, freqMul=1, strMul=1, driftMul=1;
+
   if (stage==='Warm'){ safeMul=1.06; freqMul=1.00; strMul=0.92; driftMul=0.95; }
   else if(stage==='Trick'){ safeMul=0.96; freqMul=1.18; strMul=1.10; driftMul=1.20; }
   else { safeMul=0.82; freqMul=1.52; strMul=1.25; driftMul=1.35; }
@@ -181,12 +177,12 @@ function stageCfg(base, stage, idleBoost){
   };
 }
 
-/* State */
+/* state */
 let state=null;
 let rafId=null;
 let rng=null;
 
-/* Boss pattern */
+/* boss */
 function bossDirectorTick(now, stage, cfg){
   if (!state) return;
 
@@ -208,7 +204,7 @@ function bossDirectorTick(now, stage, cfg){
   }
 }
 function spawnBossWave(now, cfg, waveIndex){
-  const mode = (waveIndex % 3); // 0=A,1=B,2=SWEEP
+  const mode = (waveIndex % 3);
   if (mode === 2){
     popText(`⚡ Sweep ${Math.floor(waveIndex/3)+1}`);
     const steps = [-0.85,-0.45,-0.05,0.35,0.75];
@@ -229,7 +225,7 @@ function spawnBossWave(now, cfg, waveIndex){
   setTimeout(()=>{ if(state) state.biasDir *= -1; }, 520);
 }
 
-/* Shield */
+/* shield */
 function spawnShield(now){
   if (!state) return;
   ensureObstacleLayer();
@@ -264,7 +260,6 @@ function spawnShield(now){
   setTimeout(()=>{ try{ el.remove(); }catch{} }, 1400);
 }
 
-/* Main start */
 function startPlay(){
   const diffKey = (elDiffSel?.value || qs('diff','normal')).toLowerCase();
   const durSec  = parseInt(elDurSel?.value || qs('time','80'),10) || 80;
@@ -316,7 +311,6 @@ function startPlay(){
     hasSeenObstacle: false,
 
     stageCfg: baseCfg,
-
     boss: { active:false, nextWaveAt:0, waveIndex:0, lastStage:'Warm' }
   };
 
@@ -342,7 +336,6 @@ function startPlay(){
   showView('play');
 }
 
-/* loop */
 function loop(now){
   if (!state) return;
 
@@ -402,7 +395,6 @@ function loop(now){
     state.sumTiltSq  += absTilt*absTilt;
     state.samples.push({tNorm, tilt:absTilt});
 
-    // anti-free-farm
     if (!state.hasSeenObstacle){
       if (inSafe) state.score += 1;
       if (idleBoost > 0.7) state.score = Math.max(0, state.score - 2);
@@ -458,13 +450,12 @@ function updateVisuals(){
   }
 }
 
-/* obstacle */
 function spawnObstacle(now, cfg, opt){
   ensureObstacleLayer();
   if (!state || !obstacleLayer) return;
 
   opt = opt || {};
-  const id = state.obstacleSeq++;
+  state.obstacleSeq++;
   state.obstaclesTotal++;
   state.hasSeenObstacle = true;
 
@@ -501,7 +492,6 @@ function spawnObstacle(now, cfg, opt){
       span.classList.add('avoid');
       popText('+Avoid');
     }else{
-      // shield block
       if ((state.shield||0) > 0){
         state.shield -= 1;
         state.obstaclesAvoided++;
@@ -543,7 +533,6 @@ function spawnObstacle(now, cfg, opt){
   state.nextObstacleAt = now + randBetween(rng, cfg.disturbMinMs, cfg.disturbMaxMs);
 }
 
-/* analytics */
 function computeAnalytics(){
   if (!state || !state.totalSamples){
     return { stabilityRatio:0, meanTilt:0, rmsTilt:0, fatigueIndex:0, samples:0 };
@@ -600,7 +589,6 @@ function stopGame(endedBy){
   showView('result');
 }
 
-/* input */
 function attachInput(){
   if (!playArea) return;
   let active=false;
@@ -610,6 +598,7 @@ function attachInput(){
     const rect = playArea.getBoundingClientRect();
     const x = ev.clientX ?? (ev.touches && ev.touches[0]?.clientX);
     if (x==null) return;
+
     const relX = (x - rect.left) / rect.width;
     state.targetAngle = clamp((relX - 0.5) * 2, -1, 1);
     state.lastInputAt = nowMs();
@@ -640,21 +629,17 @@ function attachInput(){
   }, {passive:false});
 }
 
-/* init */
 function init(){
-  // bind buttons
   $('[data-action="start-normal"]')?.addEventListener('click',()=> startPlay());
   $$('[data-action="back-menu"]').forEach(btn=> btn.addEventListener('click',()=> showView('menu')));
   $('[data-action="stop"]')?.addEventListener('click',()=>{ if(state) stopGame('manual'); });
   $('[data-action="play-again"]')?.addEventListener('click',()=> showView('menu'));
 
-  // apply query -> selects (diff/time)
   const qDiff = String(qs('diff','')).toLowerCase();
   const qTime = String(qs('time','')).trim();
   if (elDiffSel && ['easy','normal','hard'].includes(qDiff)) elDiffSel.value = qDiff;
   if (elDurSel && qTime) elDurSel.value = qTime;
 
-  // back hub in menu
   const hub = String(qs('hub','')).trim();
   if (hub && btnBackHubMenu){
     btnBackHubMenu.style.display = '';
@@ -663,7 +648,6 @@ function init(){
 
   attachInput();
 
-  // ✅ autostart=1
   const a = String(qs('autostart',''));
   if (a === '1'){
     setTimeout(()=> startPlay(), 60);
@@ -672,4 +656,5 @@ function init(){
 
   showView('menu');
 }
+
 window.addEventListener('DOMContentLoaded', init);
