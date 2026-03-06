@@ -1,9 +1,9 @@
 /* === /herohealth/vr-bath/bath.css ===
-FULL v20260306-BATH-BLOOM1-6
+FULL v20260306b-BATH-FX-MISSIONS-PRO
 */
 :root{
-  --bg:#050814; --panel:rgba(2,6,23,.72); --stroke:rgba(148,163,184,.18);
-  --text:#e5e7eb; --muted:#94a3b8; --good:#22c55e; --bad:#ef4444; --warn:#f59e0b; --cyan:#22d3ee; --blue:#3b82f6;
+  --bg:#050814; --text:#e5e7eb; --muted:#94a3b8;
+  --good:#22c55e; --bad:#ef4444; --warn:#f59e0b; --cyan:#22d3ee; --blue:#3b82f6;
   --sat: env(safe-area-inset-top, 0px); --sab: env(safe-area-inset-bottom, 0px);
 }
 *{ box-sizing:border-box; }
@@ -28,6 +28,25 @@ html,body{ height:100%; margin:0; background:var(--bg); color:var(--text);
 }
 .pill.mini{ font-size:11px; opacity:.95; }
 
+#progressWrap{
+  position:fixed;
+  left:10px; right:10px;
+  top:calc(98px + var(--sat));
+  height:10px;
+  border-radius:999px;
+  background:rgba(148,163,184,.14);
+  border:1px solid rgba(148,163,184,.14);
+  overflow:hidden;
+  z-index:39;
+  pointer-events:none;
+}
+#progressBar{
+  height:100%;
+  width:0%;
+  background:linear-gradient(90deg, rgba(59,130,246,.95), rgba(34,211,238,.85), rgba(34,197,94,.85));
+  transition: width .18s ease;
+}
+
 #playfield{ flex:1; position:relative; }
 #bg{
   position:fixed; inset:0;
@@ -38,7 +57,7 @@ html,body{ height:100%; margin:0; background:var(--bg); color:var(--text);
     linear-gradient(180deg, #050814 0%, #070b1b 70%, #050814 100%);
 }
 
-#stage{ position:relative; min-height:100vh; padding-top:120px; padding-bottom:90px; }
+#stage{ position:relative; min-height:100vh; padding-top:140px; padding-bottom:90px; }
 
 #bath-layer{
   width:min(92vw,520px);
@@ -60,10 +79,7 @@ html,body{ height:100%; margin:0; background:var(--bg); color:var(--text);
   overflow:hidden;
 }
 
-#body-silhouette{
-  position:absolute; inset:0;
-  opacity:.95;
-}
+#body-silhouette{ position:absolute; inset:0; opacity:.95; }
 #body-silhouette .head,
 #body-silhouette .torso,
 #body-silhouette .arm,
@@ -146,7 +162,7 @@ html,body{ height:100%; margin:0; background:var(--bg); color:var(--text);
 }
 .panel.hidden{ display:none; }
 .panel-card{
-  width:min(92vw,720px);
+  width:min(92vw,740px);
   background:rgba(15,23,42,.92);
   border:1px solid rgba(148,163,184,.22);
   border-radius:18px;
@@ -159,17 +175,8 @@ html,body{ height:100%; margin:0; background:var(--bg); color:var(--text);
 .hr{ border:0; height:1px; background:rgba(148,163,184,.14); margin:12px 0; }
 .muted{ opacity:.82; font-size:12px; }
 
-.heatmap{
-  display:grid;
-  grid-template-columns: repeat(3, minmax(0,1fr));
-  gap:10px;
-}
-.hm{
-  border-radius:16px;
-  padding:10px;
-  border:1px solid rgba(148,163,184,.18);
-  background:rgba(2,6,23,.35);
-}
+.heatmap{ display:grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap:10px; }
+.hm{ border-radius:16px; padding:10px; border:1px solid rgba(148,163,184,.18); background:rgba(2,6,23,.35); }
 .hm .t{ font-weight:900; font-size:12px; opacity:.95; }
 .hm .v{ margin-top:4px; font-weight:900; font-size:18px; }
 .hm.good{ border-color: rgba(34,197,94,.35); }
