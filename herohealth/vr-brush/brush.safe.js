@@ -13,7 +13,6 @@
   const WIN = window, DOC = document;
   const $ = (s)=>DOC.querySelector(s);
 
-  // ---------------- helpers ----------------
   function clamp(v,min,max){ return Math.max(min, Math.min(max, v)); }
   function safeNum(x,d=0){ const n=Number(x); return Number.isFinite(n)?n:d; }
   function now(){ return (performance && performance.now) ? performance.now() : Date.now(); }
@@ -82,7 +81,6 @@
     };
   }
 
-  // ---------------- DOM refs ----------------
   const wrap = $('#br-wrap');
   const layer = $('#br-layer');
   const menu = $('#br-menu');
@@ -99,7 +97,6 @@
   const btnQuizSkip = $('#btnQuizSkip');
   const quizChoices = $('#quizChoices');
 
-  // HUD fields
   const tStage = $('#tStage');
   const tScore = $('#tScore');
   const tCombo = $('#tCombo');
@@ -118,7 +115,6 @@
   const bRisk = $('#bRisk');
   const tTip  = $('#tTip');
 
-  // ctx display
   const ctxView = $('#br-ctx-view');
   const ctxSeed = $('#br-ctx-seed');
   const ctxTime = $('#br-ctx-time');
@@ -127,7 +123,6 @@
   const mDiff = $('#mDiff');
   const mTime = $('#mTime');
 
-  // summary fields
   const sScore = $('#sScore');
   const sAcc   = $('#sAcc');
   const sMiss  = $('#sMiss');
@@ -139,7 +134,6 @@
 
   if(!wrap || !layer) throw new Error('BrushVR DOM missing (#br-wrap / #br-layer)');
 
-  // ---------------- ctx ----------------
   const qs = getQS();
   const CTX = {
     hub: qs.get('hub') || '../hub.html',
@@ -158,10 +152,8 @@
   CTX.time = clamp(CTX.time, 30, 120);
   if(!['easy','normal','hard'].includes(CTX.diff)) CTX.diff = 'normal';
 
-  // expose ctx
   WIN.HHA_BRUSH_CTX = CTX;
 
-  // apply view to DOM for vr-ui strict
   try{ DOC.documentElement.dataset.view = (CTX.view==='cvr'?'cvr':CTX.view); }catch(_){}
   try{ DOC.body.setAttribute('data-view', CTX.view); }catch(_){}
   wrap.dataset.view = CTX.view;
@@ -176,7 +168,6 @@
 
   const rng = seededRng(CTX.seed);
 
-  // optional fun-boost
   const fun = WIN.HHA?.createFunBoost?.({
     seed: (qs.get('seed') || CTX.pid || 'brush'),
     baseSpawnMul: 1.0,
@@ -188,7 +179,6 @@
   });
   let director = fun ? fun.tick() : { spawnMul:1, timeScale:1, wave:'calm', intensity:0, feverOn:false };
 
-  // ---------------- state ----------------
   const S = {
     running:false,
     paused:false,
@@ -211,12 +201,10 @@
     ttlMs: 1650,
     perfectWindowMs: 220,
 
-    // boss
     bossEveryPct: 28,
     nextBossAt: 28,
     bossActive:false,
 
-    // ABC
     stage:'A',
     eviTotal:0,
     eviNeed:3,
@@ -224,19 +212,16 @@
     quizDone:false,
     quizCorrect:false,
 
-    // AI prediction cache
     aiRisk:0,
     aiTip:'—',
     aiBand:'low',
     missStreak:0,
     lastAiEmit:0,
 
-    // targets
     uid:0,
     targets:new Map()
   };
 
-  // diff tuning
   (function tune(){
     if(CTX.diff==='easy'){
       S.baseSpawnMs = 900; S.ttlMs = 1950; S.perfectWindowMs = 260;
@@ -247,7 +232,6 @@
     }
   })();
 
-  // ---------------- anti-scroll lock (mobile) ----------------
   const ScrollLock = {
     on(){
       try{
@@ -255,6 +239,7 @@
         DOC.body.style.overflow='hidden';
         DOC.body.style.height='100%';
         DOC.body.style.touchAction='none';
+        DOC.body.classList.add('br-noscroll');
       }catch(_){}
     },
     off(){
@@ -263,18 +248,17 @@
         DOC.body.style.overflow='';
         DOC.body.style.height='';
         DOC.body.style.touchAction='';
+        DOC.body.classList.remove('br-noscroll');
       }catch(_){}
     }
   };
 
-  // prevent iOS/Android rubber-band while playing
   DOC.addEventListener('touchmove', (e)=>{
     if(S.running && !S.ended && !S.quizOpen){
       e.preventDefault();
     }
   }, { passive:false });
 
-  // ---------------- AI prediction (NO adaptive) ----------------
   function aiPredict(){
     const acc = (S.shots>0) ? (S.hits/S.shots) : 0;
     const missRate = (S.shots>0) ? (S.miss/S.shots) : 0;
@@ -330,7 +314,6 @@
     if(S.combo===10) aiEmit('combo_hot', { combo:10 });
   }
 
-  // ---------------- HUD render ----------------
   function renderHud(force){
     const t = now();
     if(!force && S._lastHud && (t - S._lastHud) < 70) return;
@@ -374,7 +357,6 @@
     };
   }
 
-  // ---------------- targets ----------------
   function mkEvidenceType(){
     const pool = ['sugar','night','no_brush'];
     const missing = pool.filter(k => !S.eviFlags[k]);
@@ -483,7 +465,6 @@
     return (dx*dx+dy*dy) <= ws.r*ws.r;
   }
 
-  // ---------------- stage logic ----------------
   function stageFromProgress(){
     if(S.clean < 40) return 'A';
     if(S.clean < 80) return 'B';
@@ -521,7 +502,6 @@
     aiEmit('quiz', { state:'close', done:S.quizDone, correct:S.quizCorrect });
   }
 
-  // ---------------- scoring ----------------
   function onPerfect(){
     fun?.onAction?.({ type:'perfect' });
     S.score += 2;
@@ -549,7 +529,6 @@
     if(t.type==='evi') gain *= 0.85;
     if(weakHit) gain *= 1.22;
 
-    // Stage B: ต้องเก็บ evidence ให้ครบ ก่อน clean เกิน ~80 เร็วเกินไป
     if(S.stage==='B' && S.eviTotal < S.eviNeed && S.clean >= 79){
       gain *= 0.18;
     }
@@ -583,7 +562,6 @@
     S.missStreak = 0;
   }
 
-  // ---------------- spawning ----------------
   function spawnOne(){
     if(!S.running || S.paused || S.ended || S.quizOpen) return;
 
@@ -592,7 +570,6 @@
     advanceStageIfNeeded();
     const {x,y} = randomInLayer(56);
 
-    // boss trigger
     if(!S.bossActive && S.clean >= S.nextBossAt && S.clean < 100){
       S.bossActive = true;
       mkTarget({ x, y, type:'boss', hpMax:(CTX.diff==='hard'?5:CTX.diff==='easy'?3:4) });
@@ -601,7 +578,6 @@
       return;
     }
 
-    // Stage B evidence
     if(S.stage==='B' && S.eviTotal < S.eviNeed){
       const chance = 0.28 + (S.aiRisk > 0.65 ? 0.06 : 0);
       if(rng() < chance){
@@ -613,7 +589,6 @@
     mkTarget({ x, y, type:'plaque', hpMax:1 });
   }
 
-  // ---------------- hit handling ----------------
   function handleHit(t, x, y, source){
     if(!t || !S.targets.has(t.id) || S.ended || S.quizOpen) return;
 
@@ -661,7 +636,6 @@
     }
   }
 
-  // ---------------- input: pointer on target ----------------
   function onTargetPointerDown(ev){
     if(!S.running || S.paused || S.ended || S.quizOpen) return;
     ev.preventDefault();
@@ -675,7 +649,6 @@
     handleHit(t, ev.clientX, ev.clientY, 'pointer');
   }
 
-  // ---------------- input: hha:shoot (cVR) ----------------
   function dynLock(baseLock, t, isCVR){
     const c = getTargetCenter(t);
     if(!c) return baseLock;
@@ -694,7 +667,6 @@
 
       const lock = dynLock(baseLock, t, isCVR);
 
-      // boss weakspot priority
       if(t.type==='boss'){
         const ws = getBossWeakCenter(t);
         if(ws){
@@ -748,7 +720,6 @@
       return;
     }
 
-    // whiff
     S.miss++; S.combo=0;
     S.missStreak += 1;
     onMissStreak();
@@ -759,21 +730,17 @@
   }
   WIN.addEventListener('hha:shoot', onShoot);
 
-  // ---------------- input: layer fallback (pc/mobile) ----------------
   layer.addEventListener('pointerdown', (ev)=>{
-    // กันจอเลื่อน/ซูม ระหว่างเล่น
-    if(S.running && !S.quizOpen){
-      ev.preventDefault();
-    }
-    // cvr uses crosshair
     if(CTX.view==='cvr') return;
     if(!S.running || S.paused || S.ended || S.quizOpen) return;
 
-    // avoid double count when clicking a target button
+    if(S.running && !S.quizOpen){
+      ev.preventDefault();
+    }
+
     const t = ev.target;
     if(t && t.closest && t.closest('.br-t')) return;
 
-    // aim assist small
     S.shots++;
     let best=null, bestD=1e9;
     for(const tt of S.targets.values()){
@@ -796,7 +763,6 @@
     }
   }, { passive:false });
 
-  // ---------------- quiz (Stage C) ----------------
   function quizAnswer(){
     if(!quizChoices) return '';
     const checked = quizChoices.querySelector('input[name="quizA"]:checked');
@@ -836,7 +802,7 @@
 
     btnQuizSubmit?.addEventListener('click', ()=>{
       const a = quizAnswer();
-      const ok = (a === 'b'); // HTML ต้องกำหนด value=b เป็นคำตอบถูก
+      const ok = (a === 'b');
       applyQuizResult(ok);
     }, { passive:true });
 
@@ -845,7 +811,6 @@
     }, { passive:true });
   }
 
-  // ---------------- timers ----------------
   let spawnTimer=null, tickTimer=null;
 
   function scheduleSpawn(){
@@ -901,7 +866,6 @@
     spawnTimer=null; tickTimer=null;
   }
 
-  // ---------------- start/end ----------------
   function gradeFromAcc(acc){
     if(acc >= 92) return 'S';
     if(acc >= 82) return 'A';
@@ -911,10 +875,8 @@
   }
 
   function hardenViewBeforePlay(){
-    // ช่วงเล่น: ปิด scroll ให้จอไม่เลื่อน
     ScrollLock.on();
     try{
-      // กัน double tap zoom iOS
       DOC.body.style.webkitTextSizeAdjust = '100%';
     }catch(_){}
   }
@@ -923,7 +885,6 @@
   }
 
   function startGame(){
-    // reset
     S.running=true; S.paused=false; S.ended=false; S.quizOpen=false;
     S.t0=now();
 
@@ -945,7 +906,6 @@
     for(const [id] of S.targets) removeTarget(id, false);
     S.targets.clear();
 
-    // UI
     if(menu) menu.style.display='none';
     if(end){ end.hidden=true; end.style.display='none'; }
     if(quiz){ quiz.hidden=true; quiz.style.display='none'; }
@@ -1071,7 +1031,6 @@
     else clearTimeout(spawnTimer);
   }
 
-  // ---------------- controls ----------------
   btnStart?.addEventListener('click', startGame, { passive:true });
   btnRetry?.addEventListener('click', startGame, { passive:true });
   btnPause?.addEventListener('click', togglePause, { passive:true });
@@ -1085,10 +1044,8 @@
     toast('Recenter');
   }, { passive:true });
 
-  // ---------------- init ----------------
   bindQuiz();
 
-  // force initial UI state to avoid "auto summary"
   if(end){ end.hidden=true; end.style.display='none'; }
   if(quiz){ quiz.hidden=true; quiz.style.display='none'; }
   if(menu) menu.style.display='grid';
