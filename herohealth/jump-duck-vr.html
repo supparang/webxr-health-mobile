@@ -1,30 +1,35 @@
-<!-- === /herohealth/jump-duck-vr.html ===
-HeroHealth Launcher — Jump-Duck (to /fitness/jump-duck.html)
-Uses: /herohealth/launch/launcher-core.js
--->
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-  <title>HeroHealth — Jump-Duck (Launcher)</title>
-  <meta name="color-scheme" content="dark light"/>
-  <link rel="icon" href="./favicon.ico"/>
+  <title>HeroHealth — JumpDuck Launcher</title>
 </head>
 <body>
-<script type="module">
-  import { hhGo } from './launch/launcher-core.js';
+<script>
+  const sp = new URL(location.href).searchParams;
+  const target = new URL('../fitness/jump-duck.html', location.href);
 
-  // ✅ target คือเกมจริง
-  // note: target เป็น absolute จาก root ชัวร์สุด (github pages)
-  hhGo('../fitness/jump-duck.html', {
-    defaults: {
-      mode: 'training',
-      diff: 'normal',
-      duration: '60'
-      // pro: '1'  // ถ้าจะเปิด PRO เป็นค่าเริ่มต้นใน training ค่อยใส่
-    }
+  [
+    'run','diff','time','seed','studyId','phase','conditionGroup','log','view','pid','api','ai','debug',
+    'planSeq','planDay','planSlot','planMode','planSlots','planIndex','autoNext',
+    'plannedGame','finalGame','zone','cdnext','grade','hub'
+  ].forEach(k=>{
+    const v = sp.get(k);
+    if(v!=null && v!=='') target.searchParams.set(k, v);
   });
+
+  // map hub time -> duration for JumpDuck if duration absent
+  if(!target.searchParams.get('duration')){
+    const t = sp.get('time') || '60';
+    target.searchParams.set('duration', t);
+  }
+
+  if(!target.searchParams.get('mode')){
+    target.searchParams.set('mode', 'training');
+  }
+
+  location.replace(target.toString());
 </script>
 </body>
 </html>
