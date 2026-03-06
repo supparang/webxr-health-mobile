@@ -1,13 +1,6 @@
 // === /herohealth/vr/battle-rtdb.js ===
 // Firebase RTDB Battle — v6 (room policy + spectator + notices + cloud reports)
 // FULL v20260306-BATTLE-RTDB-V6
-// ✅ Room create/join via ?room=CODE
-// ✅ Ready-check + Countdown + StartAt (server-time aligned)
-// ✅ Reconnect / Resume by pid
-// ✅ Spectator when room full / late join
-// ✅ Notices for UI (error/warn/info)
-// ✅ Cloud round reports (append-only)
-// ✅ Winner decision: score -> acc -> miss -> medianRT -> tie
 'use strict';
 
 const WIN = (typeof window !== 'undefined') ? window : globalThis;
@@ -44,7 +37,6 @@ function randRoom(len=6){
 function lsGet(k){ try{ return localStorage.getItem(k); }catch(_){ return null; } }
 function lsSet(k,v){ try{ localStorage.setItem(k,String(v)); }catch(_){ } }
 
-// ---- Firebase loader (modular SDK via gstatic) ----
 async function loadFirebase(){
   const v = '9.22.2';
   const appMod = await import(`https://www.gstatic.com/firebasejs/${v}/firebase-app.js`);
@@ -176,7 +168,7 @@ export async function initBattle(opts){
 
   const {
     initializeApp, getApps, getApp,
-    getDatabase, ref, child, get, set, update, push, remove,
+    getDatabase, ref, get, set, update, push,
     onValue, off, runTransaction, serverTimestamp, onDisconnect
   } = fb;
 
@@ -184,10 +176,8 @@ export async function initBattle(opts){
   const db  = getDatabase(app);
 
   const base = `hha-battle/${gameKey}/rooms/${room}`;
-  const roomRef = ref(db, base);
   const metaRef = ref(db, `${base}/meta`);
   const playersRef = ref(db, `${base}/players`);
-  const roundsRef = ref(db, `${base}/rounds`);
   const stateRef = ref(db, `${base}/state`);
   const rematchRef = ref(db, `${base}/rematch`);
   const reportsRef = ref(db, `${base}/reports`);
@@ -200,8 +190,7 @@ export async function initBattle(opts){
   lsSet(meLsKey, meKey);
 
   let currentRoundId = '';
-  let localReady = false;
-  let currentRole = 'player';   // player | spectator
+  let currentRole = 'player';
   let roomFullFlag = false;
   let lateJoinFlag = false;
   let invalidRoomFlag = false;
@@ -216,11 +205,9 @@ export async function initBattle(opts){
       countdownTimer = 0;
     }
   }
-
   function serverNow(){
     return Date.now() + serverTimeOffset;
   }
-
   function emitRoom(detail={}){
     emit('hha:battle-room', {
       room,
@@ -230,11 +217,9 @@ export async function initBattle(opts){
       ...detail
     });
   }
-
   function emitPlayers(players){
     emit('hha:battle-players', { players });
   }
-
   function emitState(st){
     emit('hha:battle-state', {
       room,
@@ -242,11 +227,9 @@ export async function initBattle(opts){
       ...(st||{})
     });
   }
-
   function attachCountdown(startAtMs){
     clearCountdownTimer();
     if(!startAtMs || startAtMs <= 0) return;
-
     countdownTimer = setInterval(()=>{
       if(localDestroyed){
         clearCountdownTimer();
@@ -276,9 +259,8 @@ export async function initBattle(opts){
       currentRoundId = String(st.roundId);
       return currentRoundId;
     }
-
     const newRoundId = `r_${Date.now()}`;
-    const payload = {
+    await set(stateRef, {
       phase:'lobby',
       room,
       roundId:newRoundId,
@@ -287,8 +269,7 @@ export async function initBattle(opts){
       reason:'',
       updatedAt: serverTimestamp(),
       updatedAtMs: Date.now()
-    };
-    await set(stateRef, payload).catch(()=>{});
+    }).catch(()=>{});
     currentRoundId = newRoundId;
     return currentRoundId;
   }
@@ -300,8 +281,7 @@ export async function initBattle(opts){
 
     const playersSnap = await get(playersRef).catch(()=>null);
     const rawPlayers = playersSnap?.val() || {};
-    const existingKeys = Object.keys(rawPlayers);
-    const existingPlayers = existingKeys
+    const existingPlayers = Object.keys(rawPlayers)
       .map(k => normalizePlayer(rawPlayers[k], k))
       .sort((a,b)=>(a.joinedAtMs||0)-(b.joinedAtMs||0));
 
@@ -329,10 +309,7 @@ export async function initBattle(opts){
         });
       }catch(_){}
 
-      emitRoom({
-        role:'player',
-        resume:true
-      });
+      emitRoom({ role:'player', resume:true });
       emitBattleNotice('info', 'กลับเข้าสู่ห้องเดิมแล้ว', {
         code:'resume_player',
         room,
@@ -347,13 +324,7 @@ export async function initBattle(opts){
       if(phase === 'countdown' || phase === 'running' || phase === 'ended'){
         currentRole = 'spectator';
         lateJoinFlag = (phase === 'countdown' || phase === 'running');
-
-        emitRoom({
-          meKey:'',
-          role:'spectator',
-          lateJoin: lateJoinFlag,
-          roomFull:true
-        });
+        emitRoom({ meKey:'', role:'spectator', lateJoin: lateJoinFlag, roomFull:true });
         emitBattleNotice('warn', 'ห้องนี้เริ่มแข่งแล้ว • เข้าในโหมด spectator', {
           code:'late_join_spectator',
           room,
@@ -363,12 +334,7 @@ export async function initBattle(opts){
       }
 
       currentRole = 'spectator';
-      emitRoom({
-        meKey:'',
-        role:'spectator',
-        lateJoin:false,
-        roomFull:true
-      });
+      emitRoom({ meKey:'', role:'spectator', lateJoin:false, roomFull:true });
       emitBattleNotice('warn', 'ห้องนี้มีผู้เล่นครบแล้ว • เข้าในโหมด spectator', {
         code:'room_full',
         room,
@@ -404,10 +370,7 @@ export async function initBattle(opts){
       });
     }catch(_){}
 
-    emitRoom({
-      role:'player',
-      resume:false
-    });
+    emitRoom({ role:'player', resume:false });
     emitBattleNotice('info', 'เข้าห้อง Battle สำเร็จ', {
       code:'join_player_ok',
       room,
@@ -515,9 +478,7 @@ export async function initBattle(opts){
   }
 
   async function setReady(on){
-    if(localDestroyed) return;
-    if(currentRole !== 'player') return;
-    localReady = !!on;
+    if(localDestroyed || currentRole !== 'player') return;
     await update(ref(db, `${base}/players/${meKey}`), {
       ready: !!on,
       connected:true,
@@ -527,9 +488,7 @@ export async function initBattle(opts){
   }
 
   async function syncScore(payload){
-    if(localDestroyed) return;
-    if(currentRole !== 'player') return;
-
+    if(localDestroyed || currentRole !== 'player') return;
     const safe = sanitizeScorePayload(payload);
     await update(ref(db, `${base}/players/${meKey}`), {
       score: safe.score,
@@ -544,8 +503,7 @@ export async function initBattle(opts){
   }
 
   async function requestRematch(){
-    if(localDestroyed) return;
-    if(currentRole !== 'player') return;
+    if(localDestroyed || currentRole !== 'player') return;
 
     const nextRoundId = `r_${Date.now()}`;
     currentRoundId = nextRoundId;
@@ -589,16 +547,14 @@ export async function initBattle(opts){
   }
 
   async function saveRoundReport(report){
-    if(localDestroyed) return null;
-    if(!report || typeof report !== 'object') return null;
+    if(localDestroyed || !report || typeof report !== 'object') return null;
 
-    const now = serverNow();
     const row = {
       ...report,
       room,
       gameKey,
       roundId: currentRoundId || String(report.roundId || ''),
-      savedAtMs: now,
+      savedAtMs: serverNow(),
       savedAt: serverTimestamp(),
     };
 
@@ -639,7 +595,6 @@ export async function initBattle(opts){
     unsubscribers = [];
   }
 
-  // ----- subscriptions -----
   const offOffset = onValue(offsetRef, (snap)=>{
     serverTimeOffset = Number(snap.val() || 0) || 0;
   });
@@ -699,7 +654,6 @@ export async function initBattle(opts){
   });
   unsubscribers.push(()=> off(playersRef, 'value', offPlayers));
 
-  // ----- init flow -----
   await ensureMeta();
   await ensureRoundIfMissing();
   await joinPlayer();
