@@ -1,6 +1,6 @@
 // === /herohealth/vr-bath/bath.js ===
-// Bath — Hidden Dirt Quest (Top-down) — FX + Missions(3-stage) + PRO + HHA last summary
-// FULL v20260306b-BATH
+// Bath — Hidden Dirt Quest (Top-down) — FX + Missions + PRO badge + End Summary AI Explain (stage-aware)
+// FULL v20260306c-BATH
 'use strict';
 
 const W = window, D = document;
@@ -28,7 +28,6 @@ const PRO = qbool('pro', false);
 
 const rng = mulberry32(seedFrom(`${PID}|${SEED}|bath|${DIFF}|${PRO?1:0}`));
 
-// UI
 const UI = {
   phasePill: D.getElementById('phasePill'),
   questPill: D.getElementById('questPill'),
@@ -42,12 +41,10 @@ const UI = {
   meterPill: D.getElementById('meterPill'),
   viewPill: D.getElementById('viewPill'),
   proPill: D.getElementById('proPill'),
-
   coachPill: D.getElementById('coachPill'),
   fatiguePill: D.getElementById('fatiguePill'),
   steadyPill: D.getElementById('steadyPill'),
   pressurePill: D.getElementById('pressurePill'),
-
   progressBar: D.getElementById('progressBar'),
 
   targetLayer: D.getElementById('target-layer'),
@@ -75,6 +72,11 @@ const UI = {
   btnPlayPlan: D.getElementById('btnPlayPlan'),
   btnReplay: D.getElementById('btnReplay'),
   btnBack: D.getElementById('btnBack'),
+
+  // ✅ end summary AI explain
+  aiTipPill: D.getElementById('aiTipPill'),
+  aiCauseChips: D.getElementById('aiCauseChips'),
+  aiMetaText: D.getElementById('aiMetaText'),
 };
 
 async function safePost(url, payload){
@@ -115,18 +117,18 @@ function logEvent(sessionId, eventType, extra={}){
   safePost(API, { table:'events', ...baseCtx(sessionId), eventType, timeFromStartMs: Math.round(now() - S.startMs), extra: JSON.stringify(extra||{}) });
 }
 
-// Modules
+// modules
 let FX=null, MISS=null;
 (async ()=>{
-  try{ FX = (await import('./bath.fx.js?v=20260306b')).bootFx(); }catch(e){}
-  try{ MISS = (await import('./bath.missions.js?v=20260306b')).bootMissions({
+  try{ FX = (await import('./bath.fx.js?v=20260306c')).bootFx(); }catch(e){}
+  try{ MISS = (await import('./bath.missions.js?v=20260306c')).bootMissions({
     warmNeed: PRO ? 5 : 4,
     trickNeed: PRO ? 6 : 4,
     bossNeed: 1
   }); }catch(e){}
 })();
 
-// Data
+// data
 const SPOTS = {
   front: [
     { id:'earL', label:'หลังหูซ้าย', x:36, y:14, hard:3, boss:true },
@@ -221,7 +223,7 @@ const S = {
   combo:0, comboMax:0,
   steadyPct:100, fatiguePct:0, pressurePct:0,
 
-  // Bloom
+  // Bloom + plan
   quizIndex:0, quizCorrect:0,
   selfReason:'', selfRating:0, improvePick:'',
   mode:'standard',
@@ -234,7 +236,17 @@ const S = {
   bossDeadline:0,
   bossSpotId:null,
 
-  // coach
+  // stage-aware counters (for end AI explanation)
+  fakeHits:0,
+  oilHits:0,
+  foamSpent:0,
+  rinseHits:0,
+  wetHits:0,
+  dryHits:0,
+  bossHits:0,
+  bossFails:0,
+
+  // coach snapshot
   lastCoachMs:0,
   aiSnapshot:null,
 };
@@ -245,14 +257,10 @@ function resetSpotStats(){
     S.spot[sp.id] = { spawn:0, hit:0, miss:0, cleared:0, need: sp.hard, lastSeenMs:0, boss:!!sp.boss };
   });
 }
-
 function tuneByDiff(){
   S.timeLeft = TIME;
-  if (PRO){
-    S.timeLeft = clamp(TIME, 60, 180); // PRO: still fair, keep time not too short
-  }
+  if (PRO) S.timeLeft = clamp(TIME, 60, 180);
 }
-
 function computeRubric(){
   const list = SPOTS[S.view]||[];
   const total = list.length || 1;
@@ -261,7 +269,6 @@ function computeRubric(){
   const pass = (cov>=80) && (S.residue<=25) && (S.fungusRisk<=30);
   return { pass, cov, residue:Math.round(S.residue), risk:Math.round(S.fungusRisk) };
 }
-
 function updatePhysicalProxy(){
   const early = avg(S.rtEarly), late = avg(S.rtLate);
   const drift = (S.rtEarly.length>=3 && S.rtLate.length>=3) ? (late-early) : 0;
@@ -281,23 +288,28 @@ function hud(){
   UI.timePill && (UI.timePill.textContent = `TIME: ${Math.max(0, Math.ceil(S.timeLeft))}`);
   UI.viewPill && (UI.viewPill.textContent = `VIEW: ${S.view.toUpperCase()}`);
   UI.toolPill && (UI.toolPill.textContent = `TOOL: ${String(S.tool).toUpperCase()}`);
-  UI.proPill && (UI.proPill.textContent = `PRO: ${PRO?'ON':'OFF'}`);
-
   UI.foamPill && (UI.foamPill.textContent = `FOAM: ${Math.round(S.foam)}`);
   UI.meterPill && (UI.meterPill.textContent = `SWEAT: ${Math.round(S.sweat)}%`);
   UI.residuePill && (UI.residuePill.textContent = `RESIDUE: ${Math.round(S.residue)}%`);
   UI.riskPill && (UI.riskPill.textContent = `FUNGUS RISK: ${Math.round(S.fungusRisk)}%`);
   UI.rubricPill && (UI.rubricPill.textContent = `RUBRIC: ${rub.pass?'PASS':'—'}`);
 
+  // PRO badge
+  if (UI.proPill){
+    UI.proPill.textContent = `PRO: ${PRO?'ON':'OFF'}`;
+    UI.proPill.classList.toggle('on', !!PRO);
+    UI.proPill.classList.toggle('off', !PRO);
+  }
+
   UI.fatiguePill && (UI.fatiguePill.textContent = `FATIGUE: ${Math.round(S.fatiguePct)}%`);
   UI.steadyPill && (UI.steadyPill.textContent = `STEADY: ${Math.round(S.steadyPct)}%`);
   UI.pressurePill && (UI.pressurePill.textContent = `PRESSURE: ${Math.round(S.pressurePct)}%`);
 
-  // progress bar from mission
+  // progress
   const p = MISS?.progress01?.() ?? 0;
   UI.progressBar && (UI.progressBar.style.width = `${Math.round(p*100)}%`);
 
-  // cleanScore heuristic
+  // clean score
   const list = SPOTS[S.view]||[];
   const total = list.length || 1;
   const cleared = list.reduce((a,sp)=>a + (S.spot[sp.id]?.cleared?1:0), 0);
@@ -347,7 +359,6 @@ function spawnShimmerSpot(isTrick=false){
   const list = SPOTS[S.view]||[];
   if(!list.length) return null;
 
-  // plan-biased in plan mode
   let pick;
   if (S.mode==='plan' && S.plan && S.plan.length){
     const sid = S.plan[S.planCursor % S.plan.length];
@@ -375,9 +386,9 @@ function spawnShimmerSpot(isTrick=false){
 
   const ttl = (PRO?1500:1650) + (pick.boss?500:0) + Math.round(S.sweat*4);
 
-  // Trick stage: some are "oil slick" decoy (looks like shimmer but penalizes)
-  const label = isTrick ? EM.oil : '✨';
+  const label = isTrick ? EM.oil : EM.shimmer;
   const kind = isTrick ? 'bad' : 'warn';
+
   return makeTarget({
     kind, label,
     x: pick.x + (rng()*6-3),
@@ -387,7 +398,6 @@ function spawnShimmerSpot(isTrick=false){
     needHits: isTrick ? 1 : need
   });
 }
-
 function spawnTowel(){
   const x = 28 + rng()*44;
   const y = 20 + rng()*72;
@@ -401,7 +411,6 @@ function spawnDress(){
 
 function maybeSpawnBoss(){
   if (S.bossActive || !MISS || MISS.S.stage !== 3) return;
-  // spawn once per scrub when stage 3 starts
   const list = (SPOTS[S.view]||[]).filter(s=>s.boss);
   if(!list.length) return;
   const s = list[Math.floor(rng()*list.length)];
@@ -430,11 +439,13 @@ function maybeSpawnBoss(){
 function bossFailSpread(){
   S.residue = clamp(S.residue + 12, 0, 100);
   S.sweat = clamp(S.sweat + 10, 0, 100);
-  // spread more spots
   for(let i=0;i<4;i++) spawnShimmerSpot(false);
+
   FX?.toast?.('บอสหนี! คราบกระจาย!', 'bad', 900);
   FX?.pulse?.('bad', 140);
   FX?.shake?.(UI.bodyWrap, 170);
+
+  S.bossFails++;
   coachEmit('boss_fail');
   logEvent(S.sessionId, 'boss_fail', { spotId:S.bossSpotId });
 
@@ -443,11 +454,13 @@ function bossFailSpread(){
 
 function bossWin(){
   S.residue = clamp(S.residue - 10, 0, 100);
+
   FX?.toast?.('ชนะบอส! ดีมาก!', 'good', 900);
   FX?.pulse?.('good', 140);
+
+  MISS?.onBossWin?.();
   coachEmit('boss_win');
   logEvent(S.sessionId, 'boss_win', { spotId:S.bossSpotId });
-  MISS?.onBossWin?.();
 
   S.bossActive=false; S.bossHp=0; S.bossSpotId=null; S.bossDeadline=0;
 }
@@ -467,19 +480,22 @@ function detectMissBurst(){
 function miss(rt, reason, e){
   S.combo = 0;
   S.sweat = clamp(S.sweat + (PRO?1.9:1.2) + (DIFF==='hard'?0.6:0), 0, 100);
-  if (S.phase===1 || S.phase===4) S.residue = clamp(S.residue + 1.0, 0, 100);
-  if (S.phase===5 || S.phase===6) S.fungusRisk = clamp(S.fungusRisk + 1.4, 0, 100);
+  if (PHASES[S.phase]==='WET' || PHASES[S.phase]==='RINSE') S.residue = clamp(S.residue + 1.0, 0, 100);
+  if (PHASES[S.phase]==='DRY' || PHASES[S.phase]==='DRESS') S.fungusRisk = clamp(S.fungusRisk + 1.4, 0, 100);
 
   const sec = (now()-S.startMs)/1000;
   S.missTimes.push(sec);
   if (detectMissBurst()) coachEmit('miss_burst');
 
   FX?.pulse?.('bad', 100);
-  if (e && e.clientX && e.clientY) FX?.popScore?.(e.clientX, e.clientY, '-1', 'bad');
+  if (e?.clientX) FX?.popScore?.(e.clientX, e.clientY, '-1', 'bad');
 
   logEvent(S.sessionId,'miss',{reason, rtMs:rt, phase:PHASES[S.phase]});
 }
 
+/* ============================
+ * ✅ Explainable AI (stage-aware)
+ * ============================ */
 function coachEmit(tag){
   const tnow = now();
   if (tnow - S.lastCoachMs < 6500 && !String(tag).includes('boss')) return;
@@ -499,31 +515,92 @@ function coachEmit(tag){
     .sort((a,b)=>b.score-a.score)
     .slice(0,2);
 
+  // Stage context
+  const stage = MISS?.S?.stage || 0; // 1 warm,2 trick,3 boss
+  const stageName = stage===1?'Warm':stage===2?'Trick':stage===3?'Boss':'—';
+
   const causes = [];
-  if (hard[0] && hard[0].score>=0.55) causes.push({ key:'spot', label:`พลาด: ${hard[0].label}`, score: hard[0].score });
+
+  // universal causes
+  if (hard[0] && hard[0].score>=0.55) causes.push({ key:'spot', label:`พลาดจุดอับ: ${hard[0].label}`, score: hard[0].score });
   if (S.residue>=45) causes.push({ key:'residue', label:`residue สูง ${Math.round(S.residue)}%`, score: S.residue/100 });
-  if (S.fungusRisk>=45) causes.push({ key:'risk', label:`เชื้อราเสี่ยง ${Math.round(S.fungusRisk)}%`, score: S.fungusRisk/100 });
+  if (S.fungusRisk>=45) causes.push({ key:'risk', label:`เช็ดไม่แห้ง ${Math.round(S.fungusRisk)}%`, score: S.fungusRisk/100 });
+  if (S.foam<=0 && (PHASES[S.phase]==='SOAP' || PHASES[S.phase]==='SCRUB')) causes.push({ key:'foam', label:`FOAM หมด`, score: 0.72 });
   if (S.fatiguePct>=55) causes.push({ key:'fatigue', label:`ล้า/ช้าลง`, score: S.fatiguePct/100 });
   if (S.pressurePct>=55) causes.push({ key:'pressure', label:`พลาดเป็นชุด`, score: S.pressurePct/100 });
+
+  // stage-aware causes (ทำให้ดู “ฉลาด” แบบ Groups/GoodJunk)
+  if (stage===2 && (S.oilHits>=1 || S.fakeHits>=1)){
+    causes.push({ key:'decoy', label:`โดนของหลอก (oil/fake) ${S.oilHits+S.fakeHits} ครั้ง`, score: 0.78 });
+  }
+  if (stage===3 && (S.bossFails>=1)){
+    causes.push({ key:'bossfail', label:`บอสหนี ${S.bossFails} ครั้ง (ช้า/foamไม่พอ)`, score: 0.82 });
+  }
+  if (PHASES[S.phase]==='RINSE' && S.rinseHits<=1 && S.residue>=30){
+    causes.push({ key:'skiprinse', label:`ล้างน้อยไป (RINSE น้อย)`, score: 0.70 });
+  }
+  if (PHASES[S.phase]==='WET' && S.wetHits<=2){
+    causes.push({ key:'wetlow', label:`เปียกไม่พอ (WET น้อย)`, score: 0.64 });
+  }
+  if (PHASES[S.phase]==='DRY' && S.dryHits<=1 && S.fungusRisk>=30){
+    causes.push({ key:'drylow', label:`เช็ดไม่พอ (DRY น้อย)`, score: 0.68 });
+  }
 
   causes.sort((a,b)=>(b.score||0)-(a.score||0));
   const top2 = causes.slice(0,2);
   if (top2.length<2 && hard[1]) top2.push({ key:'spot2', label:`รอง: ${hard[1].label}`, score: hard[1].score });
 
+  // Tip is stage-aware
   let tip = 'ทำตามลำดับ: WET→SOAP→SCRUB→RINSE→DRY';
-  if (top2.find(x=>x.key==='spot' || x.key==='spot2')) tip = 'เริ่มจากจุดอับที่พลาดมากสุด แล้วถูซ้ำให้พอ';
-  if (top2.find(x=>x.key==='residue')) tip = 'อย่าข้าม RINSE: ล้างฟองให้หมดก่อนเช็ด';
-  if (top2.find(x=>x.key==='risk')) tip = 'DRY ให้ครบจุดสำคัญ เพื่อลดเชื้อรา';
-  if (String(tag).includes('boss')) tip = 'บอสมา! ถูซ้ำให้ทันก่อนหมดเวลา';
+  if (stage===2) tip = 'Trick: อย่าแตะ oil/fake — โฟกัส “ประกาย ✨” เท่านั้น';
+  if (stage===3) tip = 'Boss: คุมจังหวะ + เก็บ foam ให้พอ แล้วถูรัว ๆ ให้ทันเวลา';
+  if (top2.find(x=>x.key==='foam')) tip = 'foam หมด! กลับไป SOAP/อย่าเปลืองตอน SCRUB';
+  if (top2.find(x=>x.key==='skiprinse')) tip = 'อย่าข้าม RINSE: ล้างฟอง/คราบให้หมดก่อนเช็ด';
+  if (top2.find(x=>x.key==='drylow')) tip = 'DRY ให้ครบจุดสำคัญ เพื่อลดเชื้อรา';
 
-  const payload = { tip, causes: top2, meta:{ tag, cov:Math.round(cov*100), residue:Math.round(S.residue), risk:Math.round(S.fungusRisk), sweat:Math.round(S.sweat) } };
+  const payload = {
+    tip,
+    causes: top2.map(c=>({ key:c.key, label:c.label, score:c.score })),
+    meta:{
+      tag, stage:stageName,
+      cov:Math.round(cov*100),
+      residue:Math.round(S.residue),
+      risk:Math.round(S.fungusRisk),
+      sweat:Math.round(S.sweat),
+      pro:!!PRO
+    }
+  };
   S.aiSnapshot = payload;
 
-  UI.coachPill && (UI.coachPill.textContent = `COACH: ${tip} (${top2.map(c=>c.label).join(' + ')})`.slice(0, 78));
+  UI.coachPill && (UI.coachPill.textContent = `COACH: ${tip} (${top2.map(c=>c.label).join(' + ')})`.slice(0, 86));
   logEvent(S.sessionId,'ai_coach', payload);
 }
 
-// --- hit handling ---
+// ✅ render AI block in end summary
+function renderAIExplain(){
+  if(!UI.aiTipPill || !UI.aiCauseChips || !UI.aiMetaText) return;
+  const a = S.aiSnapshot;
+  if(!a){
+    UI.aiTipPill.textContent = 'AI TIP: —';
+    UI.aiCauseChips.innerHTML = '';
+    UI.aiMetaText.textContent = 'ยังไม่มีข้อมูล AI (เล่นสั้นเกินไปหรือไม่มีเหตุการณ์เสี่ยง)';
+    return;
+  }
+  UI.aiTipPill.textContent = `AI TIP: ${a.tip || '—'}`;
+  UI.aiCauseChips.innerHTML = '';
+  const causes = Array.isArray(a.causes) ? a.causes.slice(0,2) : [];
+  causes.forEach(c=>{
+    const b = D.createElement('div');
+    b.className = 'chip on';
+    b.textContent = c.label || c.key || '—';
+    UI.aiCauseChips.appendChild(b);
+  });
+  const m = a.meta || {};
+  UI.aiMetaText.textContent =
+    `หลักฐาน: stage ${m.stage ?? '—'} • coverage ${m.cov ?? '—'}% • residue ${m.residue ?? '—'}% • risk ${m.risk ?? '—'}% • sweat ${m.sweat ?? '—'}% • PRO ${m.pro ? 'ON' : 'OFF'} • tag ${m.tag ?? '—'}`;
+}
+
+// hit helpers
 function removeTarget(id){
   const t = S.targets.get(id);
   if(!t) return;
@@ -545,24 +622,25 @@ function handleHit(id, e){
     else if (sec >= TIME*0.66) S.rtLate.push(rt);
   }
 
-  if (PHASES[S.phase] === 'WET'){
+  const phase = PHASES[S.phase];
+
+  if (phase==='WET'){
     if (t.label === EM.water){
+      S.wetHits++;
       S.combo++; S.comboMax = Math.max(S.comboMax, S.combo);
       S.residue = clamp(S.residue - 0.8, 0, 100);
       S.sweat = clamp(S.sweat - 0.5, 0, 100);
       FX?.pulse?.('good', 90);
-      if (e?.clientX) FX?.popScore?.(e.clientX, e.clientY, '+1', 'good');
+      FX?.popScore?.(e?.clientX||0, e?.clientY||0, '+1', 'good');
       removeTarget(id);
       logEvent(S.sessionId,'wet_hit',{rtMs:rt});
-    } else {
-      miss(rt,'wrong_wet', e);
-    }
+    } else miss(rt,'wrong_wet', e);
   }
-  else if (PHASES[S.phase] === 'SOAP'){
+  else if (phase==='SOAP'){
     if (t.label === EM.foam){
-      if (S.foam <= 0){
-        miss(rt,'no_foam', e);
-      } else {
+      if (S.foam <= 0) miss(rt,'no_foam', e);
+      else{
+        S.foamSpent++;
         S.foam = Math.max(0, S.foam - 1);
         S.combo++; S.comboMax = Math.max(S.comboMax, S.combo);
         S.residue = clamp(S.residue - 1.1, 0, 100);
@@ -571,7 +649,9 @@ function handleHit(id, e){
         logEvent(S.sessionId,'soap_hit',{rtMs:rt});
       }
     } else {
-      // fake or oil decoy
+      // fake bubble
+      S.fakeHits++;
+      S.foamSpent++;
       S.foam = Math.max(0, S.foam - 1);
       S.residue = clamp(S.residue + 2.0, 0, 100);
       S.sweat = clamp(S.sweat + 1.0, 0, 100);
@@ -581,8 +661,9 @@ function handleHit(id, e){
       miss(rt,'fake_bubble', e);
     }
   }
-  else if (PHASES[S.phase] === 'SCRUB'){
+  else if (phase==='SCRUB'){
     if (t.boss){
+      S.bossHits++;
       t.hits++;
       S.bossHp = Math.max(0, S.bossHp - 1);
       if (S.foam > 0) S.foam = Math.max(0, S.foam - 0.35);
@@ -596,9 +677,8 @@ function handleHit(id, e){
         logEvent(S.sessionId,'boss_hit',{spotId:t.spotId, hpLeft:S.bossHp, rtMs:rt});
       }
     }
-    else if (t.kind === 'warn' && t.label === '✨'){
-      const spotId = t.spotId;
-      const st = S.spot[spotId];
+    else if (t.kind === 'warn' && t.label === EM.shimmer){
+      const st = S.spot[t.spotId];
       if (!st) return;
 
       t.hits++; st.hit++;
@@ -613,7 +693,6 @@ function handleHit(id, e){
         S.residue = clamp(S.residue - 2.6, 0, 100);
         removeTarget(id);
 
-        // mission stage bookkeeping
         if (MISS){
           if (MISS.S.stage === 1) MISS.onWarmClear();
           else if (MISS.S.stage === 2) MISS.onTrickClear();
@@ -621,16 +700,15 @@ function handleHit(id, e){
 
         FX?.toast?.('เคลียร์จุดอับ!', 'good', 650);
         coachEmit('spot_clear');
-        logEvent(S.sessionId,'scrub_clear',{spotId, need:t.needHits, rtMs:rt, stage: MISS?.S.stage });
+        logEvent(S.sessionId,'scrub_clear',{spotId:t.spotId, need:t.needHits, rtMs:rt, stage: MISS?.S.stage });
 
-        // when reach boss stage, spawn boss soon
-        if (MISS && MISS.S.stage === 3) setTimeout(()=> maybeSpawnBoss(), 500);
+        if (MISS && MISS.S.stage === 3) setTimeout(()=> maybeSpawnBoss(), 450);
       } else {
-        logEvent(S.sessionId,'scrub_hit',{spotId, hit:t.hits, need:t.needHits, rtMs:rt});
+        logEvent(S.sessionId,'scrub_hit',{spotId:t.spotId, hit:t.hits, need:t.needHits, rtMs:rt});
       }
     }
     else if (t.kind === 'bad' && t.label === EM.oil){
-      // trick decoy: penalty
+      S.oilHits++;
       S.residue = clamp(S.residue + 3.0, 0, 100);
       S.sweat = clamp(S.sweat + 2.0, 0, 100);
       FX?.pulse?.('bad', 90);
@@ -638,51 +716,43 @@ function handleHit(id, e){
       removeTarget(id);
       miss(rt,'oil_decoy', e);
 
-      // mission progression in trick stage (survive by avoiding decoys)
-      if (MISS && MISS.S.stage === 2){
-        MISS.onTrickClear(); // treat as "learned" one tick (keeps pace)
-      }
+      if (MISS && MISS.S.stage === 2) MISS.onTrickClear(); // keeps pacing
     }
-    else {
-      miss(rt,'wrong_scrub', e);
-    }
+    else miss(rt,'wrong_scrub', e);
   }
-  else if (PHASES[S.phase] === 'RINSE'){
+  else if (phase==='RINSE'){
     if (t.label === EM.water){
+      S.rinseHits++;
       S.combo++; S.comboMax = Math.max(S.comboMax, S.combo);
       S.residue = clamp(S.residue - 3.2, 0, 100);
       FX?.pulse?.('good', 80);
       removeTarget(id);
       logEvent(S.sessionId,'rinse_hit',{rtMs:rt});
-    } else {
-      miss(rt,'wrong_rinse', e);
-    }
+    } else miss(rt,'wrong_rinse', e);
   }
-  else if (PHASES[S.phase] === 'DRY'){
+  else if (phase==='DRY'){
     if (t.label === EM.towel){
+      S.dryHits++;
       S.combo++; S.comboMax = Math.max(S.comboMax, S.combo);
       S.fungusRisk = clamp(S.fungusRisk - (PRO?3.4:3.0), 0, 100);
       FX?.pulse?.('good', 80);
       removeTarget(id);
       logEvent(S.sessionId,'dry_hit',{rtMs:rt});
-    } else {
-      miss(rt,'wrong_dry', e);
-    }
+    } else miss(rt,'wrong_dry', e);
   }
-  else if (PHASES[S.phase] === 'DRESS'){
+  else if (phase==='DRESS'){
     if (t.label === EM.shirt){
       S.combo++; S.comboMax = Math.max(S.comboMax, S.combo);
       FX?.toast?.('พร้อมแล้ว!', 'good', 650);
       removeTarget(id);
       logEvent(S.sessionId,'dress_hit',{rtMs:rt});
-    } else {
-      miss(rt,'wrong_dress', e);
-    }
+    } else miss(rt,'wrong_dress', e);
   }
 
   updatePhysicalProxy();
   hud();
 
+  // periodic coach
   if ((S.combo + S.pressureBurst) % 8 === 0) coachEmit('periodic');
 }
 
@@ -695,53 +765,36 @@ function phaseAdvance(){
     S.planCursor = 0;
     if (S.foam < 2) S.foam = 2;
   }
-
   if (PHASES[S.phase] === 'DRY'){
     S.fungusRisk = clamp(S.fungusRisk + Math.max(0, (S.residue-20)*0.15), 0, 100);
   }
-
   if (PHASES[S.phase] === 'END'){
     endGame('complete');
   }
 }
 
 function phaseGate(){
-  if (PHASES[S.phase] === 'WET'){
-    return S.comboMax >= (PRO?8:6);
-  }
-  if (PHASES[S.phase] === 'SOAP'){
-    return (S.residue <= (PRO?38:40)) || (S.foam <= 0);
-  }
+  if (PHASES[S.phase] === 'WET') return S.comboMax >= (PRO?8:6);
+  if (PHASES[S.phase] === 'SOAP') return (S.residue <= (PRO?38:40)) || (S.foam <= 0);
   if (PHASES[S.phase] === 'SCRUB'){
     if (MISS && MISS.done && MISS.done()) return true;
-    // fallback: clear >= 60%
     const list = SPOTS[S.view]||[];
     const total = list.length||1;
     const cleared = list.reduce((a,sp)=>a+(S.spot[sp.id]?.cleared?1:0),0);
     return cleared/total >= 0.60;
   }
-  if (PHASES[S.phase] === 'RINSE'){
-    return S.residue <= (PRO?16:18);
-  }
-  if (PHASES[S.phase] === 'DRY'){
-    return S.fungusRisk <= (PRO?22:25);
-  }
-  if (PHASES[S.phase] === 'DRESS'){
-    return true;
-  }
+  if (PHASES[S.phase] === 'RINSE') return S.residue <= (PRO?16:18);
+  if (PHASES[S.phase] === 'DRY') return S.fungusRisk <= (PRO?22:25);
+  if (PHASES[S.phase] === 'DRESS') return true;
   return false;
 }
 
 function spawnLoop(tnow){
-  // sweat increases with time (PRO faster)
   const timeProgress = 1 - (S.timeLeft / TIME);
   S.sweat = clamp(S.sweat + (PRO?0.032:0.02) + timeProgress*(PRO?0.045:0.03), 0, 100);
   if (S.residue > 35) S.sweat = clamp(S.sweat + (PRO?0.05:0.03), 0, 100);
 
-  // boss deadline
-  if (S.bossActive && now() > S.bossDeadline){
-    bossFailSpread();
-  }
+  if (S.bossActive && now() > S.bossDeadline) bossFailSpread();
 
   const baseEvery = (PHASES[S.phase]==='SCRUB') ? (PRO?650:820) : (PRO?780:980);
   const sweatBoost = 1 - (S.sweat/140);
@@ -757,17 +810,14 @@ function spawnLoop(tnow){
     const fakeRate = (DIFF==='hard') ? (PRO?0.34:0.28) : (DIFF==='easy' ? (PRO?0.16:0.12) : (PRO?0.24:0.18));
     spawnFoam(rng() > fakeRate);
   } else if (PHASES[S.phase]==='SCRUB'){
-    // Stage-based
     const stage = MISS?.S?.stage || 1;
     if (stage===1){
       spawnShimmerSpot(false);
       if (rng() < 0.18) spawnShimmerSpot(false);
     } else if (stage===2){
-      // Trick: mix real shimmer + oil decoy
       spawnShimmerSpot(rng() < (PRO?0.45:0.35));
       if (rng() < 0.25) spawnShimmerSpot(rng() < 0.6);
     } else {
-      // Boss stage: keep some shimmer to distract
       if (!S.bossActive) maybeSpawnBoss();
       if (rng() < 0.45) spawnShimmerSpot(false);
       if (rng() < (PRO?0.35:0.25)) spawnShimmerSpot(false);
@@ -788,12 +838,9 @@ function loop(){
   S.lastFrameMs = tnow;
 
   S.timeLeft = Math.max(0, S.timeLeft - dt/1000);
-  if (S.timeLeft <= 0){
-    endGame('timeout');
-    return;
-  }
+  if (S.timeLeft <= 0){ endGame('timeout'); return; }
 
-  // expire targets
+  // expire
   for (const [id,t] of S.targets.entries()){
     if (tnow >= t.ttlAt){
       if (PHASES[S.phase]==='WET' || PHASES[S.phase]==='RINSE') S.residue = clamp(S.residue + 1.2, 0, 100);
@@ -807,7 +854,6 @@ function loop(){
     }
   }
 
-  // auto advance
   if (phaseGate()){
     const elapsed = (tnow - S.startMs)/1000;
     const minSec = (PHASES[S.phase]==='WET'?8:PHASES[S.phase]==='SOAP'?8:PHASES[S.phase]==='SCRUB'?(PRO?18:14):PHASES[S.phase]==='RINSE'?8:PHASES[S.phase]==='DRY'?8:PHASES[S.phase]==='DRESS'?2:0);
@@ -819,7 +865,6 @@ function loop(){
     }
   }
 
-  // small decay
   if (S.phase>=2 && S.phase<=4) S.residue = clamp(S.residue - 0.01, 0, 100);
   if (S.phase>=5 && S.sweat > 55) S.fungusRisk = clamp(S.fungusRisk + 0.02, 0, 100);
 
@@ -830,7 +875,7 @@ function loop(){
   requestAnimationFrame(loop);
 }
 
-// --- End summary helpers ---
+/* ====== End summary UI ====== */
 function renderHeatmap(){
   if (!UI.heatmap) return;
   UI.heatmap.innerHTML = '';
@@ -921,26 +966,19 @@ function renderRubric(){
 function saveLastSummary(reason){
   const rub = computeRubric();
   const payload = {
-    game:'bath',
-    ts: isoNow(),
-    pid: PID,
-    run: RUN,
-    diff: DIFF,
-    pro: !!PRO,
-    view: S.view,
-    reason,
+    game:'bath', ts: isoNow(),
+    pid: PID, run: RUN, diff: DIFF, pro: !!PRO,
+    view: S.view, reason,
     scoreFinal: Math.round(S.cleanScore),
     residue: Math.round(S.residue),
     fungusRisk: Math.round(S.fungusRisk),
     sweat: Math.round(S.sweat),
     rubric: rub,
     physical: { fatiguePct:S.fatiguePct, steadyPct:S.steadyPct, pressurePct:S.pressurePct },
-    seed: SEED,
-    hub: HUB
+    aiLast: S.aiSnapshot,
+    seed: SEED, hub: HUB
   };
-  try{
-    localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(payload));
-  }catch(e){}
+  try{ localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(payload)); }catch(e){}
 }
 
 function endGame(reason='complete'){
@@ -952,13 +990,15 @@ function endGame(reason='complete'){
   updatePhysicalProxy();
   coachEmit('end');
 
-  const rub = computeRubric();
   renderHeatmap();
   renderStars();
   renderChips(UI.reasonChips, REASONS, ()=>S.selfReason, v=>S.selfReason=v);
   renderChips(UI.improveChips, IMPROVES, ()=>S.improvePick, v=>S.improvePick=v);
   renderPlan();
   renderRubric();
+
+  // ✅ render AI explain block
+  renderAIExplain();
 
   if (UI.endSummary){
     UI.endSummary.innerHTML =
@@ -972,7 +1012,7 @@ function endGame(reason='complete'){
 
   saveLastSummary(reason);
 
-  // sessions log
+  // sessions log (best-effort)
   safePost(API, {
     table:'sessions',
     ...baseCtx(S.sessionId),
@@ -983,7 +1023,7 @@ function endGame(reason='complete'){
     misses: S.pressureBurst,
     accuracyGoodPct: Math.round(S.steadyPct),
     device: qs('view','pc'),
-    gameVersion: 'v20260306b',
+    gameVersion: 'v20260306c',
     reason,
     __extraJson: JSON.stringify({
       pro: !!PRO,
@@ -994,11 +1034,16 @@ function endGame(reason='complete'){
       sweat: Math.round(S.sweat),
       residue: Math.round(S.residue),
       fungusRisk: Math.round(S.fungusRisk),
-      rubric: rub,
+      rubric: computeRubric(),
       selfReason: S.selfReason,
       selfRating: S.selfRating,
       improvePick: S.improvePick,
       plan: S.plan,
+      stageStats:{
+        wetHits:S.wetHits, rinseHits:S.rinseHits, dryHits:S.dryHits,
+        foamSpent:S.foamSpent, fakeHits:S.fakeHits, oilHits:S.oilHits,
+        bossHits:S.bossHits, bossFails:S.bossFails
+      },
       physical: { fatiguePct:S.fatiguePct, steadyPct:S.steadyPct, pressurePct:S.pressurePct },
       aiLast: S.aiSnapshot
     })
@@ -1007,7 +1052,7 @@ function endGame(reason='complete'){
   logEvent(S.sessionId,'session_end',{reason});
 }
 
-// --- Quiz flow ---
+/* ===== Quiz + start ===== */
 function showQuiz(nextMode='standard'){
   S.quizIndex=0; S.quizCorrect=0;
   UI.btnQuizNext.dataset.nextMode = nextMode;
@@ -1055,7 +1100,6 @@ function nextQuizOrStart(){
   startGame(mode);
 }
 
-// --- Start / Flip / UI ---
 function startGame(mode='standard'){
   S.mode = mode;
   S.sessionId = `bath_${PID}_${Date.now()}`;
@@ -1068,6 +1112,7 @@ function startGame(mode='standard'){
   S.lastFrameMs = 0;
   S.lastSpawnMs = 0;
 
+  // reset counters
   S.foam = 0;
   S.sweat = 0;
   S.residue = 15;
@@ -1081,6 +1126,10 @@ function startGame(mode='standard'){
 
   S.bossActive=false; S.bossHp=0; S.bossDeadline=0; S.bossSpotId=null;
 
+  S.fakeHits=0; S.oilHits=0; S.foamSpent=0;
+  S.rinseHits=0; S.wetHits=0; S.dryHits=0;
+  S.bossHits=0; S.bossFails=0;
+
   S.plan = loadPlan(S.view);
   S.planCursor = 0;
   resetSpotStats();
@@ -1090,10 +1139,9 @@ function startGame(mode='standard'){
   S.tool = t.id;
   S.foam = t.foamGain + (PRO?3:0) + (DIFF==='hard'?2:0);
 
-  // PREP → WET quickly
   setTimeout(()=>{
     if(!S.started || S.ended) return;
-    S.phase = 1;
+    S.phase = 1; // WET
     logEvent(S.sessionId,'phase_start',{phase:'WET'});
     FX?.toast?.('เริ่ม WET!', 'good', 700);
     coachEmit('start');
@@ -1114,14 +1162,12 @@ function flipView(){
   hud();
 }
 
+/* ===== bindings ===== */
 UI.btnHelp?.addEventListener('click', ()=> UI.panelHelp?.classList.remove('hidden'));
 UI.btnCloseHelp?.addEventListener('click', ()=> UI.panelHelp?.classList.add('hidden'));
 
 UI.btnFlip?.addEventListener('click', ()=>{
-  if (!S.started || S.ended){
-    flipView();
-    return;
-  }
+  if (!S.started || S.ended){ flipView(); return; }
   S.sweat = clamp(S.sweat + 2.0, 0, 100);
   flipView();
   logEvent(S.sessionId,'flip',{});
@@ -1135,10 +1181,7 @@ UI.btnReplay?.addEventListener('click', ()=>{
   showQuiz('standard');
 });
 
-UI.btnBack?.addEventListener('click', ()=>{
-  // flush-harden: save last summary already done; just go hub
-  location.href = HUB;
-});
+UI.btnBack?.addEventListener('click', ()=>{ location.href = HUB; });
 
 UI.btnPlayPlan?.addEventListener('click', ()=>{
   savePlan(S.view, S.plan);
@@ -1147,7 +1190,5 @@ UI.btnPlayPlan?.addEventListener('click', ()=>{
   showQuiz('plan');
 });
 
-// init
-UI.proPill && (UI.proPill.textContent = `PRO: ${PRO?'ON':'OFF'}`);
 hud();
 renderPlan();
