@@ -1,6 +1,6 @@
 // === /herohealth/vr-groups/groups.safe.js ===
 // GroupsVR SAFE — PRODUCTION (AI wired + FX + FAIR MISS + SAFE SPAWN)
-// FULL v20260306a-GROUPS-SAFE-AI-FX-FAIRMISS
+// FULL v20260306b-GROUPS-SAFE-AI-FX-FAIRMISS-OPENLAYOUT
 /* global window, document */
 (function(){
   'use strict';
@@ -23,7 +23,6 @@
     try{ WIN.dispatchEvent(new CustomEvent(name, { detail: detail || {} })); }catch(_){}
   }
 
-  // deterministic-ish RNG
   function xmur3(str){
     str = String(str||'');
     let h = 1779033703 ^ str.length;
@@ -83,7 +82,6 @@
       try{
         this.ensureLayer();
         if(host && host.appendChild){
-          // ensure only one
           if(this.layer.parentElement !== host){
             try{ this.layer.remove(); }catch(_){}
             host.appendChild(this.layer);
@@ -138,29 +136,44 @@
   };
 
   // ---------------------------
-  // Safe Spawn Rect (LOCAL coords for playLayer)
-  // Uses window.__HHA_SPAWN_SAFE__ if provided by groups-vr.html
+  // Safe Spawn Rect
   // ---------------------------
   function getSafeRect(layerEl){
     const s = WIN.__HHA_SPAWN_SAFE__;
     if(s && Number.isFinite(s.xMin) && Number.isFinite(s.yMin) && Number.isFinite(s.xMax) && Number.isFinite(s.yMax)){
       return {
-        xMin: Number(s.xMin), xMax: Number(s.xMax),
-        yMin: Number(s.yMin), yMax: Number(s.yMax),
+        xMin: Number(s.xMin),
+        xMax: Number(s.xMax),
+        yMin: Number(s.yMin),
+        yMax: Number(s.yMax),
       };
     }
-    // fallback: approximate from layer size
-    const r = layerEl.getBoundingClientRect ? layerEl.getBoundingClientRect() : { width: WIN.innerWidth||360, height: WIN.innerHeight||640 };
-    const PAD = 14;
+
+    const r = layerEl.getBoundingClientRect
+      ? layerEl.getBoundingClientRect()
+      : { width: WIN.innerWidth||360, height: WIN.innerHeight||640 };
+
+    const view = String(qs('view','mobile') || 'mobile').toLowerCase();
+    const padX = 18;
+
+    const topSafe =
+      (view === 'pc')  ? 120 :
+      (view === 'cvr') ? 138 :
+                         158;
+
+    const bottomSafe =
+      (view === 'pc')  ? 124 :
+      (view === 'cvr') ? 220 :
+                         186;
+
     return {
-      xMin: PAD,
-      xMax: Math.max(PAD+1, (r.width||360) - PAD),
-      yMin: 132,
-      yMax: Math.max(160, (r.height||640) - 156),
+      xMin: padX,
+      xMax: Math.max(padX + 1, (r.width || 360) - padX),
+      yMin: topSafe,
+      yMax: Math.max(topSafe + 1, (r.height || 640) - bottomSafe),
     };
   }
 
-  // occlusion guard: if center point is covered by HUD/overlay, treat as occluded
   function isOccludedAtCenter(el){
     try{
       const b = el.getBoundingClientRect();
@@ -170,7 +183,7 @@
       if(!topEl) return true;
       if(topEl === el) return false;
       if(topEl.closest && topEl.closest('.tgt') === el) return false;
-      // if top element is HUD/overlay etc. => occluded
+
       const hud = topEl.closest && (
         topEl.closest('.hud') ||
         topEl.closest('.questTop') ||
@@ -182,7 +195,6 @@
       );
       return !!hud;
     }catch(_){
-      // conservative: don't punish
       return true;
     }
   }
@@ -210,7 +222,6 @@
     lastTick: 0,
     elapsed: 0,
 
-    // score stats
     score: 0,
     combo: 0,
     bestCombo: 0,
@@ -218,37 +229,31 @@
     shots: 0,
     hits: 0,
 
-    // mission
     curGroup: null,
     goalTotal: 12,
     goalNow: 0,
 
-    // power
     charge: 0,
     chargeNeed: 8,
 
-    // stage
-    stage: 'main', // main|boss
+    stage: 'main',
     bossSec: 12,
     bossLeft: 0,
     bossHits: 0,
 
-    // spawn tuning
     spawnAcc: 0,
-    baseSpawnPerSec: 1.10, // tuned to feel fair
-    baseTtl: 3.10,         // longer TTL so not “วิ่งหนี”
-    correctP: 0.72,        // % mission targets
+    baseSpawnPerSec: 0.98,
+    baseTtl: 3.35,
+    correctP: 0.74,
 
-    // targets
     map: new Map(),
     idSeq: 1,
 
-    // shot rate-limit
     lastShotAt: 0,
     shotCooldownMs: 70,
 
-    // listeners bound?
     bound: false,
+    ctx: null,
   };
 
   function accPct(){
@@ -257,7 +262,6 @@
 
   function gradeLetter(){
     const a = accPct();
-    // balanced grade: accuracy + combo - miss
     const x = (a * 0.70) + (STATE.bestCombo * 1.1) - Math.min(20, STATE.miss) * 0.9;
     if(x>=92) return 'S';
     if(x>=80) return 'A';
@@ -266,8 +270,7 @@
     return 'D';
   }
 
-  // AI helper (safe)
-  function AI(){ return WIN.HHA_AI && WIN.HHA_AI.enabled ? WIN.HHA_AI : WIN.HHA_AI; }
+  function AI(){ return WIN.HHA_AI; }
 
   // ---------------------------
   // DOM target
@@ -279,11 +282,39 @@
     STATE.map.clear();
   }
 
-  function posInSafe(){
-    const r = getSafeRect(STATE.layerEl);
-    const x = r.xMin + STATE.rng() * Math.max(1, (r.xMax - r.xMin));
-    const y = r.yMin + STATE.rng() * Math.max(1, (r.yMax - r.yMin));
-    return { x, y };
+  function pickSpawnPoint(size){
+    const rect = getSafeRect(STATE.layerEl);
+    let best = null;
+    let bestScore = -1;
+
+    for(let i=0;i<12;i++){
+      const x = rect.xMin + STATE.rng() * Math.max(1, (rect.xMax - rect.xMin));
+      const y = rect.yMin + STATE.rng() * Math.max(1, (rect.yMax - rect.yMin));
+
+      let minD = 999999;
+      for(const t of STATE.map.values()){
+        if(!t || !t.el) continue;
+        const tx = Number(t.x || 0);
+        const ty = Number(t.y || 0);
+        const d = Math.hypot(tx - x, ty - y);
+        if(d < minD) minD = d;
+      }
+
+      const edgePenalty =
+        Math.min(x - rect.xMin, rect.xMax - x) +
+        Math.min(y - rect.yMin, rect.yMax - y);
+
+      const score = minD + edgePenalty * 0.12;
+      if(score > bestScore){
+        bestScore = score;
+        best = { x, y };
+      }
+    }
+
+    return best || {
+      x: rect.xMin + 20,
+      y: rect.yMin + 20
+    };
   }
 
   function createTarget(){
@@ -293,7 +324,6 @@
     el.dataset.id = id;
     el.setAttribute('role','button');
 
-    // pick mission vs other
     const gMission = STATE.curGroup || pick(STATE.rng, GROUPS);
     let emoji = '';
     let groupId = gMission.id;
@@ -313,8 +343,9 @@
     }
     el.textContent = emoji;
 
-    // position (LOCAL coords)
-    const p = posInSafe();
+    const size = 74;
+    const p = pickSpawnPoint(size);
+
     el.style.position = 'absolute';
     el.style.left = `${p.x}px`;
     el.style.top  = `${p.y}px`;
@@ -327,7 +358,6 @@
       el.style.transform = 'translate(-50%,-50%) scale(1)';
     });
 
-    // TTL (slowly tightens late game but not crazy)
     const frac = clamp(STATE.elapsed / Math.max(1, STATE.plannedSec), 0, 1);
     const shrink =
       (STATE.runMode === 'practice') ? 1 :
@@ -336,10 +366,9 @@
     const ttl = Math.max(1.35, STATE.baseTtl * shrink);
     const ttlMs = ttl * 1000;
 
-    const obj = { id, el, emoji, born: nowMs(), ttlMs, mission, groupId };
+    const obj = { id, el, emoji, born: nowMs(), ttlMs, mission, groupId, x:p.x, y:p.y };
     STATE.map.set(id, obj);
 
-    // AI spawn
     try{ AI()?.onSpawn?.(mission ? 'groups_target' : 'groups_other', { id, emoji, ttlSec: ttl, groupId }); }catch(_){}
 
     return obj;
@@ -350,7 +379,6 @@
     if(!t) return;
     STATE.map.delete(String(id));
     try{
-      // end anim
       if(mode === 'hit'){
         t.el.style.transform = 'translate(-50%,-50%) scale(.78)';
         t.el.style.opacity = '0';
@@ -396,7 +424,6 @@
   }
 
   function switchGroup(){
-    // change mission group
     STATE.curGroup = pick(STATE.rng, GROUPS);
     STATE.charge = 0;
     STATE.chargeNeed = clamp(STATE.chargeNeed + 1, 8, 12);
@@ -433,7 +460,6 @@
   }
 
   function onHit(obj){
-    // common stats
     STATE.shots++;
 
     const isCorrect = (obj.mission === true) && (STATE.curGroup && obj.groupId === STATE.curGroup.id);
@@ -444,7 +470,6 @@
       STATE.combo++;
       STATE.bestCombo = Math.max(STATE.bestCombo, STATE.combo);
 
-      // score (fun but fair)
       const comboBonus = Math.min(12, STATE.combo);
       const add = 10 + comboBonus;
       STATE.score += add;
@@ -468,7 +493,6 @@
       return;
     }
 
-    // wrong hit
     STATE.combo = 0;
     STATE.score = Math.max(0, STATE.score - 3);
     fxAtEl(obj.el, '-3', false);
@@ -488,23 +512,18 @@
     if(obj) onHit(obj);
   }
 
-  // aim assist (closest to x,y within lockPx)
   function pickNearestByXY(x, y, lockPx){
     lockPx = clamp(lockPx, 0, 160);
     if(lockPx <= 0) return null;
 
     const hostRect = STATE.layerEl.getBoundingClientRect();
-    // convert viewport -> local
     const lx = x - hostRect.left;
     const ly = y - hostRect.top;
 
     let best=null, bestD2 = (lockPx*lockPx) + 1;
     for(const obj of STATE.map.values()){
-      const b = obj.el.getBoundingClientRect();
-      const cx = (b.left + b.width/2) - hostRect.left;
-      const cy = (b.top  + b.height/2) - hostRect.top;
-      const dx = cx - lx;
-      const dy = cy - ly;
+      const dx = obj.x - lx;
+      const dy = obj.y - ly;
       const d2 = dx*dx + dy*dy;
       if(d2 < bestD2){
         bestD2 = d2;
@@ -517,7 +536,6 @@
   function shootHandler(ev){
     if(!STATE.running || STATE.paused) return;
 
-    // rate-limit (avoid miss spikes)
     const t = nowMs();
     if(t - (STATE.lastShotAt||0) < STATE.shotCooldownMs) return;
     STATE.lastShotAt = t;
@@ -525,12 +543,10 @@
     const d = ev && ev.detail ? ev.detail : {};
     const lockPx = clamp(d.lockPx ?? 22, 0, 160);
 
-    // if x/y present => aim assist around that point
     let obj = null;
     if(d.x != null && d.y != null){
       obj = pickNearestByXY(Number(d.x)||0, Number(d.y)||0, lockPx);
     }else{
-      // fallback: choose nearest to center of playLayer
       try{
         const r = STATE.layerEl.getBoundingClientRect();
         obj = pickNearestByXY(r.left + r.width/2, r.top + r.height/2, lockPx);
@@ -543,8 +559,13 @@
   // ---------------------------
   // Spawn / expire
   // ---------------------------
+  function liveCap(){
+    if(STATE.view === 'pc') return 7;
+    if(STATE.view === 'cvr') return 6;
+    return 5;
+  }
+
   function spawnTick(dt){
-    // pacing ramp (soft)
     const frac = clamp(STATE.elapsed / Math.max(1, STATE.plannedSec), 0, 1);
     const ramp =
       (STATE.runMode === 'practice') ? 1 :
@@ -556,7 +577,9 @@
     STATE.spawnAcc += sp * dt;
     while(STATE.spawnAcc >= 1){
       STATE.spawnAcc -= 1;
-      createTarget();
+      if(STATE.map.size < liveCap()){
+        createTarget();
+      }
     }
   }
 
@@ -564,7 +587,6 @@
     const t = nowMs();
     for(const obj of Array.from(STATE.map.values())){
       if(t - obj.born >= obj.ttlMs){
-        // FAIR MISS: count miss only for mission target of current group, and only if NOT occluded
         if(STATE.runMode !== 'practice'){
           const isFair = (obj.mission && STATE.curGroup && obj.groupId === STATE.curGroup.id);
           const occ = isOccludedAtCenter(obj.el);
@@ -574,7 +596,6 @@
             STATE.score = Math.max(0, STATE.score - 2);
             try{ AI()?.onExpire?.('groups_target', { id: obj.id, emoji: obj.emoji, occluded: 0 }); }catch(_){}
           }else{
-            // do not punish hard
             STATE.score = Math.max(0, STATE.score - 1);
             try{ AI()?.onExpire?.('groups_other', { id: obj.id, emoji: obj.emoji, occluded: occ?1:0 }); }catch(_){}
           }
@@ -600,7 +621,7 @@
   function buildSummary(reason){
     return {
       projectTag: 'GroupsVR',
-      gameVersion: 'GroupsVR_SAFE_2026-03-06a',
+      gameVersion: 'GroupsVR_SAFE_2026-03-06b',
       device: STATE.view,
       runMode: STATE.runMode,
       diff: STATE.diff,
@@ -658,7 +679,6 @@
     STATE.elapsed += dt;
     STATE.tLeft = Math.max(0, STATE.tLeft - dt);
 
-    // boss timer
     if(STATE.stage === 'boss'){
       STATE.bossLeft = Math.max(0, STATE.bossLeft - dt);
       if(STATE.bossLeft <= 0){
@@ -670,20 +690,16 @@
     spawnTick(dt);
     expireTick();
 
-    // AI tick (prediction only)
     try{ AI()?.onTick?.(dt, { miss: STATE.miss, combo: STATE.combo, acc: accPct(), stage: STATE.stage }); }catch(_){}
 
-    // UI updates
     emitHUD();
 
-    // stage flow
     if(STATE.tLeft <= 0){
       const classroom = !!STATE.ctx?.classroom;
       const bossOn = !!STATE.ctx?.miniBoss;
 
       if(classroom && bossOn && STATE.stage === 'main' && STATE.runMode !== 'practice'){
         startBoss();
-        // short gap before boss ends the run page flow
         STATE.tLeft = 6;
         STATE.raf = requestAnimationFrame(tick);
         return;
@@ -702,7 +718,6 @@
   function setLayerEl(el){
     STATE.layerEl = el || null;
     if(STATE.layerEl){
-      // mount FX to same layer
       FX.mount(STATE.layerEl);
     }
   }
@@ -743,16 +758,25 @@
     STATE.seedStr = String(ctx.seed ?? qs('seed','') ?? Date.now());
     STATE.rng = makeRng(STATE.seedStr);
 
-    // tuning
-    STATE.baseSpawnPerSec = 1.10;
-    STATE.baseTtl = 3.10;
-    STATE.correctP = 0.72;
+    STATE.baseSpawnPerSec = 0.98;
+    STATE.baseTtl = 3.35;
+    STATE.correctP = 0.74;
 
-    if(STATE.diff === 'easy'){ STATE.baseSpawnPerSec = 1.00; STATE.baseTtl = 3.35; STATE.correctP = 0.74; }
-    if(STATE.diff === 'hard'){ STATE.baseSpawnPerSec = 1.22; STATE.baseTtl = 2.85; STATE.correctP = 0.70; }
-    if(STATE.runMode === 'practice'){ STATE.baseSpawnPerSec *= 0.92; STATE.baseTtl += 0.25; }
+    if(STATE.diff === 'easy'){
+      STATE.baseSpawnPerSec = 0.88;
+      STATE.baseTtl = 3.60;
+      STATE.correctP = 0.76;
+    }
+    if(STATE.diff === 'hard'){
+      STATE.baseSpawnPerSec = 1.10;
+      STATE.baseTtl = 3.00;
+      STATE.correctP = 0.72;
+    }
+    if(STATE.runMode === 'practice'){
+      STATE.baseSpawnPerSec *= 0.90;
+      STATE.baseTtl += 0.30;
+    }
 
-    // reset stats
     STATE.startMs = nowMs();
     STATE.lastTick = STATE.startMs;
     STATE.elapsed = 0;
@@ -783,18 +807,20 @@
 
     STATE.curGroup = pick(STATE.rng, GROUPS);
     emit('groups:group', { id: STATE.curGroup.id, name: STATE.curGroup.name, short: STATE.curGroup.short });
-    emit('groups:director', { text: (WIN.HHA_AI && (String(qs('ai','0')).toLowerCase()==='1') && STATE.runMode!=='research') ? 'AI ON' : (STATE.runMode==='practice'?'PRACTICE':STATE.runMode==='research'?'RESEARCH':'PLAY') });
+    emit('groups:director', {
+      text: (WIN.HHA_AI && (String(qs('ai','0')).toLowerCase()==='1') && STATE.runMode!=='research')
+        ? 'AI ON'
+        : (STATE.runMode==='practice' ? 'PRACTICE' : STATE.runMode==='research' ? 'RESEARCH' : 'PLAY')
+    });
 
     bindListeners();
 
-    // intro coach
     if(STATE.runMode === 'practice'){
       coach('PRACTICE 15s — ซ้อมก่อน (ไม่ลงโทษหนัก) 🧪', 'neutral');
     }else{
       coach(`เริ่มแล้ว! หา “${STATE.curGroup.short}” แล้วเก็บคอมโบ 🔥`, 'neutral');
     }
 
-    // AI “reset” (optional)
     try{ AI()?.reset?.(); }catch(_){}
 
     STATE.running = true;
@@ -823,12 +849,11 @@
   }
 
   // ---------------------------
-  // Telemetry stub (safe)
+  // Telemetry stub
   // ---------------------------
   const Telemetry = {
     flush: function(summary){
       try{
-        // hook real logger here if you want:
         // WIN.HHA_CloudLogger?.flush?.(summary)
       }catch(_){}
     }
@@ -858,7 +883,6 @@
     setPaused
   };
 
-  // optional pause events
   WIN.addEventListener('hha:pause', ()=> setPaused(true), { passive:true });
   WIN.addEventListener('hha:resume', ()=> setPaused(false), { passive:true });
 
