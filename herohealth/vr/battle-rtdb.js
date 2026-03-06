@@ -1,6 +1,6 @@
 // === /herohealth/vr/battle-rtdb.js ===
-// Firebase RTDB Battle — v6 (room policy + spectator + notices + cloud reports + debugStart + reset stale debug room)
-// FULL v20260307-BATTLE-RTDB-V6-DEBUGSTART-RESETROOM
+// Firebase RTDB Battle — v6 (room policy + spectator + notices + cloud reports + debugStart + reset stale debug room + countdown->running fix)
+// FULL v20260307-BATTLE-RTDB-V6-COUNTDOWN-RUNNING-FIX
 'use strict';
 
 const WIN = (typeof window !== 'undefined') ? window : globalThis;
@@ -228,18 +228,57 @@ export async function initBattle(opts){
       ...(st||{})
     });
   }
+
   function attachCountdown(startAtMs){
     clearCountdownTimer();
     if(!startAtMs || startAtMs <= 0) return;
-    countdownTimer = setInterval(()=>{
+
+    let firedRunning = false;
+
+    countdownTimer = setInterval(async ()=>{
       if(localDestroyed){
         clearCountdownTimer();
         return;
       }
+
       const leftMs = Math.max(0, Number(startAtMs || 0) - serverNow());
       emit('hha:battle-countdown', { room, roundId: currentRoundId, startAtMs, leftMs });
-      if(leftMs <= 0) clearCountdownTimer();
-    }, 200);
+
+      if(leftMs <= 0){
+        clearCountdownTimer();
+
+        if(firedRunning) return;
+        firedRunning = true;
+
+        try{
+          const snap = await get(stateRef).catch(()=>null);
+          const st = snap?.val() || {};
+          const phase = String(st.phase || '').toLowerCase();
+
+          if(phase === 'countdown'){
+            await update(stateRef, {
+              phase:'running',
+              updatedAt: serverTimestamp(),
+              updatedAtMs: Date.now()
+            }).catch(()=>{});
+
+            emit('hha:battle-start', {
+              room,
+              roundId: currentRoundId,
+              startAtMs: Number(startAtMs || 0) || 0
+            });
+          }else if(phase === 'running'){
+            emit('hha:battle-start', {
+              room,
+              roundId: currentRoundId,
+              startAtMs: Number(startAtMs || 0) || 0
+            });
+          }
+        }catch(err){
+          console.warn('[battle-rtdb] attachCountdown start running failed', err);
+        }
+      }
+    }, 120);
   }
 
   async function ensureMeta(){
@@ -474,6 +513,12 @@ export async function initBattle(opts){
       updatedAt: serverTimestamp(),
       updatedAtMs: Date.now()
     }).catch(()=>{});
+
+    emit('hha:battle-start', {
+      room,
+      roundId: currentRoundId,
+      startAtMs
+    });
   }
 
   async function markForfeitIfNeeded(players, st){
@@ -696,7 +741,7 @@ export async function initBattle(opts){
   });
   unsubscribers.push(()=> off(offsetRef, 'value', offOffset));
 
-  const offState = onValue(stateRef, async (snap)=>{
+  const stateCb = async (snap)=>{
     if(localDestroyed) return;
     const st = snap.val() || {};
     currentRoundId = String(st.roundId || currentRoundId || '');
@@ -718,10 +763,11 @@ export async function initBattle(opts){
     }
 
     await maybeStartRunning(st);
-  });
-  unsubscribers.push(()=> off(stateRef, 'value', offState));
+  };
+  onValue(stateRef, stateCb);
+  unsubscribers.push(()=> off(stateRef, 'value', stateCb));
 
-  const offPlayers = onValue(playersRef, async (snap)=>{
+  const playersCb = async (snap)=>{
     if(localDestroyed) return;
     const raw = snap.val() || {};
     const allPlayers = Object.keys(raw)
@@ -747,8 +793,9 @@ export async function initBattle(opts){
     await maybeStartCountdown(players, st);
     await markForfeitIfNeeded(players, st);
     await finalizeIfRoundFinished(players, st);
-  });
-  unsubscribers.push(()=> off(playersRef, 'value', offPlayers));
+  };
+  onValue(playersRef, playersCb);
+  unsubscribers.push(()=> off(playersRef, 'value', playersCb));
 
   await ensureMeta();
   await ensureRoundIfMissing();
