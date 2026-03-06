@@ -1,12 +1,14 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
 GoodJunkVR — RUN PAGE (PC/Mobile/cVR) — PRODUCTION
-PATCH v20260305m-RUN-REWARD-ABC-HEROXP
-✅ HUD split + spawn-safe (from previous patch)
-✅ End overlay shows Card + XP + Hero Level
-✅ Expose UI bounds for SAFE spawn (window.HHA_UI_BOUNDS)
+PATCH v20260306-RUN-ENDSUMMARY-MOBILE-FIT
+✅ FIX: end summary ไม่ล้นจอมือถือ
+✅ end overlay scroll ได้
+✅ panel max-height + sticky actions
+✅ mobile grid 2 cols
+✅ เผื่อพื้นที่ล่างไม่ชน ENTER VR / RECENTER
 Requires:
 - /herohealth/vr/vr-ui.js
-- /herohealth/vr-goodjunk/goodjunk.safe.js (module)
+- /herohealth/vr-goodjunk/goodjunk.safe.js
 -->
 <!doctype html>
 <html lang="th">
@@ -28,8 +30,6 @@ Requires:
       --sab: env(safe-area-inset-bottom, 0px);
       --sal: env(safe-area-inset-left, 0px);
       --sar: env(safe-area-inset-right, 0px);
-      --hudTop: calc(10px + var(--sat));
-      --hudPadX: 10px;
     }
     html,body{height:100%; margin:0; background:var(--bg); color:var(--text);}
     body{
@@ -46,44 +46,42 @@ Requires:
       user-select:none;
     }
 
-    .hudL, .hudR{
+    .hud{
       position: fixed;
-      top: var(--hudTop);
-      z-index: 220;
+      top: calc(10px + var(--sat));
+      left: calc(10px + var(--sal));
+      right: calc(10px + var(--sar));
+      z-index: 200;
       display:flex;
-      gap:8px;
+      gap:10px;
       flex-wrap:wrap;
       align-items:center;
       pointer-events:none;
-      max-width: 48vw;
     }
-    .hudL{ left: calc(var(--hudPadX) + var(--sal)); justify-content:flex-start; }
-    .hudR{ right: calc(var(--hudPadX) + var(--sar)); justify-content:flex-end; }
-
     .pill{
       pointer-events:none;
       display:inline-flex;
       align-items:center;
       gap:8px;
-      padding: 7px 9px;
+      padding: 8px 10px;
       border-radius: 999px;
       border:1px solid var(--stroke);
       background: rgba(2,6,23,.55);
       backdrop-filter: blur(8px);
       color: var(--muted);
       font-size: 12px;
-      font-weight: 950;
+      font-weight: 900;
       white-space:nowrap;
     }
     .pill b{ color: var(--text); }
-    .pill .v{ color: var(--text); font-weight: 1100; }
+    .pill .v{ color: var(--text); font-weight: 1000; }
 
     .mini{
       position: fixed;
-      top: calc(var(--hudTop) + 44px);
-      left: calc(var(--hudPadX) + var(--sal));
-      z-index: 220;
-      max-width: 62vw;
+      top: calc(56px + var(--sat));
+      left: calc(10px + var(--sal));
+      z-index: 200;
+      max-width: 84vw;
       pointer-events:none;
       display:flex;
       gap:8px;
@@ -91,37 +89,12 @@ Requires:
       align-items:center;
     }
 
-    .mission{
-      position: fixed;
-      left: 50%;
-      top: var(--hudTop);
-      transform: translateX(-50%);
-      z-index: 230;
-      pointer-events:none;
-      width: min(520px, 62vw);
-      border-radius: 16px;
-      border:1px solid rgba(148,163,184,.14);
-      background: rgba(2,6,23,.46);
-      backdrop-filter: blur(10px);
-      padding: 8px 10px;
-      display:flex;
-      flex-direction:column;
-      gap:6px;
-      box-shadow: 0 18px 55px rgba(0,0,0,.35);
-    }
-    .missionRow{display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap;}
-    .missionTitle{font-weight:1100; letter-spacing:.2px; font-size:12px;}
-    .missionHint{font-size:12px; font-weight:900; color:var(--muted);}
-    .missionGoal{font-size:12px; font-weight:1100;}
-    #missionFill{height:9px; border-radius:999px; border:1px solid rgba(255,255,255,.14); background: rgba(0,0,0,.35); overflow:hidden; position:relative;}
-    #missionFill::before{content:""; position:absolute; inset:0; width: var(--p,0%); background: rgba(34,197,94,.85); transition: width .12s ease;}
-
     #bossBar{
       position: fixed;
       left: 50%;
-      top: calc(var(--hudTop) + 52px);
+      top: calc(56px + var(--sat));
       transform: translateX(-50%);
-      z-index: 235;
+      z-index: 205;
       width: min(520px, 86vw);
       pointer-events:none;
       display:none;
@@ -129,9 +102,15 @@ Requires:
       gap:6px;
       align-items:center;
     }
-    #bossHint{font-weight:1100; font-size:12px; color: var(--muted); text-shadow: 0 10px 30px rgba(0,0,0,.55);}
+    #bossHint{
+      font-weight:1000;
+      font-size:12px;
+      color: var(--muted);
+      text-shadow: 0 10px 30px rgba(0,0,0,.55);
+    }
     #bossFill{
-      height: 10px; width: 100%;
+      height: 10px;
+      width: 100%;
       border-radius:999px;
       border:1px solid rgba(255,255,255,.14);
       background: rgba(0,0,0,.35);
@@ -146,30 +125,38 @@ Requires:
       transition: width .12s ease;
     }
 
-    #hudToggle{
+    .mission{
       position: fixed;
-      top: calc(var(--hudTop) + 2px);
-      right: calc(10px + var(--sar));
-      z-index: 260;
-      pointer-events:auto;
-      cursor:pointer;
-      border-radius: 14px;
-      border:1px solid rgba(148,163,184,.22);
-      background: rgba(2,6,23,.55);
-      color: var(--text);
-      padding: 8px 10px;
-      font-weight:1100;
-      min-height: 40px;
-      box-shadow: 0 12px 40px rgba(0,0,0,.35);
+      left: 50%;
+      top: calc(10px + var(--sat));
+      transform: translateX(-50%);
+      z-index: 210;
+      pointer-events:none;
+      width: min(560px, 92vw);
+      border-radius: 18px;
+      border:1px solid rgba(148,163,184,.16);
+      background: rgba(2,6,23,.50);
+      backdrop-filter: blur(10px);
+      padding: 10px 12px;
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+      box-shadow: 0 18px 55px rgba(0,0,0,.40);
     }
-    body.hudMin .hudL,
-    body.hudMin .hudR,
-    body.hudMin .mini,
-    body.hudMin .mission,
-    body.hudMin #bossBar{ display:none !important; }
-    body.hudMin #hudToggle{ opacity:.95; }
+    .missionRow{display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap;}
+    .missionTitle{font-weight:1000; letter-spacing:.2px;}
+    .missionHint{font-size:12px; font-weight:900; color:var(--muted);}
+    .missionGoal{font-size:12px; font-weight:1000;}
+    #missionFill{
+      height:10px; border-radius:999px; border:1px solid rgba(255,255,255,.14);
+      background: rgba(0,0,0,.35); overflow:hidden; position:relative;
+    }
+    #missionFill::before{
+      content:""; position:absolute; inset:0; width: var(--p,0%);
+      background: rgba(34,197,94,.85); transition: width .12s ease;
+    }
 
-    /* End overlay */
+    /* ===== END OVERLAY FIX ===== */
     #endOverlay{
       position: fixed; inset: 0;
       display:none;
@@ -178,73 +165,67 @@ Requires:
       backdrop-filter: blur(8px);
       align-items:center;
       justify-content:center;
-      padding: calc(16px + var(--sat)) calc(16px + var(--sar)) calc(16px + var(--sab)) calc(16px + var(--sal));
+      padding:
+        calc(12px + var(--sat))
+        calc(12px + var(--sar))
+        calc(96px + var(--sab))
+        calc(12px + var(--sal)); /* เผื่อปุ่ม VR UI ด้านล่าง */
+      overflow:auto; /* สำคัญ */
+      -webkit-overflow-scrolling: touch;
     }
     #endOverlay .panel{
-      width: min(760px, 92vw);
+      width: min(720px, 92vw);
+      max-height: calc(100dvh - 120px - var(--sat) - var(--sab));
+      overflow:auto;
+      -webkit-overflow-scrolling: touch;
       border-radius: 22px;
       border:1px solid rgba(148,163,184,.18);
       background: rgba(2,6,23,.72);
       box-shadow: 0 22px 80px rgba(0,0,0,.55);
-      padding: 14px 14px;
+      padding: 14px 14px 10px;
       text-align:center;
     }
-    #endTitle{font-size:22px; font-weight:1200; margin:0;}
-    #endSub{margin:6px 0 0 0; color:var(--muted); font-weight:950;}
+    #endTitle{font-size:22px; font-weight:1100; margin:0;}
+    #endSub{margin:6px 0 0 0; color:var(--muted); font-weight:900; line-height:1.35;}
 
-    .endGrid{display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:10px; margin-top:12px;}
-    @media (max-width:720px){ .endGrid{grid-template-columns:1fr;} }
-
+    .endGrid{
+      display:grid;
+      grid-template-columns:repeat(3, minmax(0,1fr));
+      gap:10px;
+      margin-top:12px;
+    }
     .endPill{
       border-radius:18px;
       border:1px solid rgba(148,163,184,.16);
       background: rgba(2,6,23,.38);
       padding: 12px 10px;
-      font-weight:1100;
+      font-weight:1000;
+      min-height: 88px;
+      display:flex;
+      flex-direction:column;
+      justify-content:center;
     }
     .endPill .k{opacity:.78; font-size:12px;}
-    .endPill .v{font-size:18px; margin-top:4px;}
+    .endPill .v{
+      font-size:18px;
+      margin-top:4px;
+      word-break:break-word;
+      line-height:1.2;
+    }
 
-    /* Reward card */
-    .rewardWrap{
-      margin-top: 10px;
+    .endActions{
+      position: sticky;
+      bottom: 0;
       display:flex;
       gap:10px;
       justify-content:center;
       flex-wrap:wrap;
-      align-items:stretch;
+      margin-top:12px;
+      padding-top:10px;
+      padding-bottom: max(4px, env(safe-area-inset-bottom, 0px));
+      background: linear-gradient(180deg, rgba(2,6,23,0), rgba(2,6,23,.86) 28%);
+      backdrop-filter: blur(6px);
     }
-    .card{
-      width: min(240px, 44vw);
-      border-radius: 18px;
-      border:1px solid rgba(148,163,184,.18);
-      background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(2,6,23,.38));
-      padding: 12px 12px;
-      text-align:left;
-      box-shadow: 0 18px 55px rgba(0,0,0,.35);
-    }
-    .cardTop{display:flex; justify-content:space-between; align-items:center; gap:10px;}
-    .badge{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      padding: 7px 10px;
-      border-radius: 999px;
-      border:1px solid rgba(255,255,255,.14);
-      background: rgba(255,255,255,.06);
-      font-weight:1200;
-      white-space:nowrap;
-    }
-    .gradeBig{
-      font-size: 34px;
-      font-weight: 1400;
-      letter-spacing:.6px;
-      text-shadow: 0 18px 60px rgba(0,0,0,.55);
-    }
-    .muted{ color: var(--muted); font-weight:950; font-size:12px; line-height:1.35; margin-top:6px; }
-    .xpLine{ font-weight:1200; margin-top:8px; }
-
-    .endActions{display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-top:12px;}
     .btn{
       pointer-events:auto;
       cursor:pointer;
@@ -253,7 +234,7 @@ Requires:
       background: rgba(148,163,184,.10);
       color: var(--text);
       padding: 10px 12px;
-      font-weight:1200;
+      font-weight:1100;
       min-height: 44px;
     }
     .btn.primary{border-color: rgba(59,130,246,.30); background: rgba(59,130,246,.16);}
@@ -275,22 +256,69 @@ Requires:
       display:none;
       white-space:pre-wrap;
     }
+
+    /* ===== MOBILE TUNE ===== */
+    @media (max-width: 640px){
+      #endOverlay{
+        align-items:flex-start;
+      }
+      #endOverlay .panel{
+        width: calc(100vw - 20px);
+        max-height: calc(100dvh - 108px - var(--sat) - var(--sab));
+        margin-top: 4px;
+        padding: 12px 12px 8px;
+      }
+      #endTitle{
+        font-size:20px;
+      }
+      #endSub{
+        font-size:12px;
+      }
+      .endGrid{
+        grid-template-columns: repeat(2, minmax(0,1fr));
+        gap:8px;
+        margin-top:10px;
+      }
+      .endPill{
+        min-height: 78px;
+        padding: 10px 8px;
+      }
+      .endPill .k{
+        font-size:11px;
+      }
+      .endPill .v{
+        font-size:16px;
+      }
+      .endActions{
+        gap:8px;
+      }
+      .endActions .btn{
+        flex:1 1 140px;
+        justify-content:center;
+        text-align:center;
+      }
+    }
+
+    @media (max-width: 420px){
+      .endGrid{
+        grid-template-columns: 1fr;
+      }
+      .endPill{
+        min-height: 68px;
+      }
+    }
   </style>
 </head>
 <body>
 
   <div id="gj-layer" aria-label="play layer"></div>
 
-  <div class="hudL" aria-label="hud left">
+  <div class="hud" aria-label="hud">
     <span class="pill"><b>score</b>: <span class="v" id="hud-score">0</span></span>
     <span class="pill"><b>time</b>: <span class="v" id="hud-time">0</span></span>
     <span class="pill"><b>miss</b>: <span class="v" id="hud-miss">0</span></span>
-  </div>
-
-  <div class="hudR" aria-label="hud right">
     <span class="pill"><b>grade</b>: <span class="v" id="hud-grade">—</span></span>
     <span class="pill"><b>goal</b>: <span class="v" id="hud-goal">—</span></span>
-    <span class="pill"><b>AI risk</b>: <span class="v" id="aiRisk">—</span></span>
   </div>
 
   <div class="mini" aria-label="goal/mini/ai">
@@ -299,6 +327,7 @@ Requires:
     <span class="pill"><b>desc</b>: <span class="v" id="goalDesc">—</span></span>
     <span class="pill"><b>mini</b>: <span class="v" id="hud-mini">—</span></span>
     <span class="pill"><b>t</b>: <span class="v" id="miniTimer">0</span></span>
+    <span class="pill"><b>AI risk</b>: <span class="v" id="aiRisk">—</span></span>
     <span class="pill"><b>AI hint</b>: <span class="v" id="aiHint">—</span></span>
   </div>
 
@@ -316,35 +345,12 @@ Requires:
     <div id="bossFill" style="--hp:0%;"></div>
   </div>
 
-  <button id="hudToggle" type="button" title="ย่อ/ขยาย HUD (กด H ได้)">👁️ HUD</button>
-
   <div id="endOverlay" aria-label="end overlay">
     <div class="panel">
       <h2 id="endTitle">จบเกม</h2>
       <p id="endSub">—</p>
 
-      <div class="rewardWrap" aria-label="reward">
-        <div class="card">
-          <div class="cardTop">
-            <span class="badge">🃏 Card</span>
-            <span class="badge">🏅 Hero</span>
-          </div>
-          <div class="gradeBig" id="endCard">—</div>
-          <div class="muted" id="endCardHint">ทำให้ได้ B ขึ้นไปเพื่อรับการ์ด</div>
-        </div>
-
-        <div class="card">
-          <div class="cardTop">
-            <span class="badge">✨ XP</span>
-            <span class="badge">Lv <span id="endLevel">1</span></span>
-          </div>
-          <div class="gradeBig"><span id="endXpGain">+0</span></div>
-          <div class="xpLine">รวมสะสม: <span id="endXpTotal">0</span> XP</div>
-          <div class="muted" id="endXpHint">ยิงแม่น + คอมโบสูง = XP พุ่ง</div>
-        </div>
-      </div>
-
-      <div class="endGrid" style="margin-top:12px;">
+      <div class="endGrid">
         <div class="endPill"><div class="k">เกรด</div><div class="v" id="endGrade">—</div></div>
         <div class="endPill"><div class="k">คะแนน</div><div class="v" id="endScore">0</div></div>
         <div class="endPill"><div class="k">Miss</div><div class="v" id="endMiss">0</div></div>
@@ -381,61 +387,13 @@ Requires:
     window.addEventListener('error', (e)=>{ logDbg('ERROR: ' + (e?.message||e)); });
     window.addEventListener('unhandledrejection', (e)=>{ logDbg('REJECT: ' + (e?.reason?.message || e?.reason || e)); });
 
-    // HUD toggle + expose bounds for spawn-safe
-    const btnHud = document.getElementById('hudToggle');
-    function setHudMin(on){
-      document.body.classList.toggle('hudMin', !!on);
-      try{ localStorage.setItem('HHA_GJ_HUD_MIN', on?'1':'0'); }catch(_){}
-      updateUiBounds();
-    }
-    function getHudMin(){
-      try{ return localStorage.getItem('HHA_GJ_HUD_MIN') === '1'; }catch(_){ return false; }
-    }
-    btnHud && btnHud.addEventListener('click', ()=> setHudMin(!document.body.classList.contains('hudMin')), {passive:true});
-    window.addEventListener('keydown', (e)=>{
-      if((e?.key||'').toLowerCase()==='h') setHudMin(!document.body.classList.contains('hudMin'));
-    });
-
-    function rectOf(sel){
-      const el = document.querySelector(sel);
-      if(!el || getComputedStyle(el).display==='none') return null;
-      const r = el.getBoundingClientRect();
-      return { left:r.left, top:r.top, right:r.right, bottom:r.bottom, width:r.width, height:r.height };
-    }
-    function updateUiBounds(){
-      const L = rectOf('.hudL');
-      const R = rectOf('.hudR');
-      const M = rectOf('.mission');
-      const B = rectOf('#bossBar');
-      window.HHA_UI_BOUNDS = { L, R, M, B, ts: Date.now() };
-    }
-    window.addEventListener('resize', updateUiBounds, {passive:true});
-    setHudMin(getHudMin());
-    updateUiBounds();
-
-    // buttons
     const btnReplay = document.getElementById('btnReplay');
     const btnBackHub = document.getElementById('btnBackHub');
+
     btnReplay && (btnReplay.onclick = ()=> location.href = location.href);
     btnBackHub && (btnBackHub.onclick = ()=>{
       const hub = qs('hub','../hub.html');
       location.href = hub;
-    });
-
-    // reward UI hooks (engine will dispatch hha:reward)
-    const endCard = document.getElementById('endCard');
-    const endCardHint = document.getElementById('endCardHint');
-    const endXpGain = document.getElementById('endXpGain');
-    const endXpTotal = document.getElementById('endXpTotal');
-    const endLevel = document.getElementById('endLevel');
-
-    window.addEventListener('hha:reward', (ev)=>{
-      const d = ev?.detail || {};
-      if(endCard) endCard.textContent = d.card || '—';
-      if(endCardHint) endCardHint.textContent = d.cardHint || '';
-      if(endXpGain) endXpGain.textContent = '+' + String(d.xpGain|0);
-      if(endXpTotal) endXpTotal.textContent = String(d.xpTotal|0);
-      if(endLevel) endLevel.textContent = String(d.level|0 || 1);
     });
 
     try{
