@@ -1,8 +1,9 @@
 <!-- === /herohealth/maskcough-vr.html ===
 MaskCough ROOT Launcher — PRODUCTION
-- Redirect to /herohealth/vr-maskcough/maskcough.html
-- Pass-through params (pid/run/diff/time/seed/studyId/phase/conditionGroup/log/view/api/health/ai/debug...)
-- Always sets hub= current hub url if missing
+PATCH v20260306-MASKCOUGH-LAUNCHER-HUBFIX
+✅ Redirect to /herohealth/vr-maskcough/maskcough.html
+✅ Pass-through params (pid/run/diff/time/seed/studyId/phase/conditionGroup/log/view/api/health/ai/debug...)
+✅ Ensures hub falls back to /herohealth/hub.html if missing
 -->
 <!doctype html>
 <html lang="th">
@@ -13,18 +14,84 @@ MaskCough ROOT Launcher — PRODUCTION
   <meta name="color-scheme" content="dark light" />
   <link rel="icon" href="./favicon.ico" />
   <style>
-    :root{ --bg:#020617; --fg:#e5e7eb; --mut:#94a3b8; --bd:rgba(148,163,184,.18); }
-    html,body{height:100%;margin:0;font-family:system-ui,-apple-system,"Noto Sans Thai",Segoe UI,Roboto,sans-serif;background:radial-gradient(900px 600px at 20% 20%, rgba(34,211,238,.10), transparent 60%),linear-gradient(180deg,#020617,#0b1226);color:var(--fg);}
-    .wrap{height:100%;display:grid;place-items:center;padding:16px;}
-    .card{width:min(560px,92vw);border:1px solid var(--bd);border-radius:22px;background:rgba(2,6,23,.72);backdrop-filter:blur(10px);box-shadow:0 18px 60px rgba(0,0,0,.45);padding:16px;}
-    .t{font-weight:950;font-size:18px;letter-spacing:.2px;margin:0;}
-    .s{margin:8px 0 0;color:var(--mut);line-height:1.45;font-size:13px;}
-    .pill{display:inline-flex;gap:8px;align-items:center;margin-top:12px;padding:8px 10px;border-radius:999px;border:1px solid var(--bd);background:rgba(255,255,255,.06);font-size:12px;color:var(--mut);}
-    .spin{display:inline-block;width:12px;height:12px;border-radius:999px;border:2px solid rgba(229,231,235,.35);border-top-color:rgba(34,211,238,.9);animation:sp 1s linear infinite;}
-    @keyframes sp{to{transform:rotate(360deg)}}
-    .btnrow{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;}
-    .btn{appearance:none;border:1px solid var(--bd);border-radius:14px;background:rgba(255,255,255,.06);color:var(--fg);padding:10px 12px;font-weight:950;cursor:pointer;}
-    .btn:active{transform:translateY(1px)}
+    :root{
+      --bg:#020617; --fg:#e5e7eb; --mut:#94a3b8; --bd:rgba(148,163,184,.18);
+    }
+    html,body{
+      height:100%; margin:0;
+      font-family:system-ui,-apple-system,"Noto Sans Thai","Segoe UI",Roboto,sans-serif;
+      background:
+        radial-gradient(900px 600px at 20% 20%, rgba(34,211,238,.10), transparent 60%),
+        linear-gradient(180deg,#020617,#0b1226);
+      color:var(--fg);
+    }
+    .wrap{
+      height:100%;
+      display:grid;
+      place-items:center;
+      padding:16px;
+    }
+    .card{
+      width:min(560px,92vw);
+      border:1px solid var(--bd);
+      border-radius:22px;
+      background:rgba(2,6,23,.72);
+      backdrop-filter:blur(10px);
+      box-shadow:0 18px 60px rgba(0,0,0,.45);
+      padding:16px;
+    }
+    .t{
+      font-weight:950;
+      font-size:18px;
+      letter-spacing:.2px;
+      margin:0;
+    }
+    .s{
+      margin:8px 0 0;
+      color:var(--mut);
+      line-height:1.45;
+      font-size:13px;
+    }
+    .pill{
+      display:inline-flex;
+      gap:8px;
+      align-items:center;
+      margin-top:12px;
+      padding:8px 10px;
+      border-radius:999px;
+      border:1px solid var(--bd);
+      background:rgba(255,255,255,.06);
+      font-size:12px;
+      color:var(--mut);
+    }
+    .spin{
+      display:inline-block;
+      width:12px;
+      height:12px;
+      border-radius:999px;
+      border:2px solid rgba(229,231,235,.35);
+      border-top-color:rgba(34,211,238,.9);
+      animation:sp 1s linear infinite;
+    }
+    @keyframes sp{ to{ transform:rotate(360deg) } }
+
+    .btnrow{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-top:14px;
+    }
+    .btn{
+      appearance:none;
+      border:1px solid var(--bd);
+      border-radius:14px;
+      background:rgba(255,255,255,.06);
+      color:var(--fg);
+      padding:10px 12px;
+      font-weight:950;
+      cursor:pointer;
+    }
+    .btn:active{ transform:translateY(1px) }
   </style>
 </head>
 <body>
@@ -34,8 +101,8 @@ MaskCough ROOT Launcher — PRODUCTION
       <p class="s">Launcher จะส่งต่อพารามิเตอร์จาก Hub ไปยังหน้า Run อัตโนมัติ</p>
       <div class="pill"><span class="spin"></span> Redirecting…</div>
       <div class="btnrow">
-        <button class="btn" id="btnGo">ไปต่อทันที</button>
-        <button class="btn" id="btnBack">กลับ Hub</button>
+        <button class="btn" id="btnGo" type="button">ไปต่อทันที</button>
+        <button class="btn" id="btnBack" type="button">กลับ Hub</button>
       </div>
     </div>
   </div>
@@ -46,35 +113,53 @@ MaskCough ROOT Launcher — PRODUCTION
 
   const RUN_PATH = './vr-maskcough/maskcough.html';
 
-  function pageUrl(){ return location.href.split('#')[0]; }
-  function curQS(){ try{ return new URL(pageUrl()).searchParams; }catch{ return new URLSearchParams(); } }
+  function pageUrl(){
+    return location.href.split('#')[0];
+  }
+
+  function curQS(){
+    try{ return new URL(pageUrl()).searchParams; }
+    catch(_){ return new URLSearchParams(); }
+  }
 
   function detectView(qs){
-    const v = (qs.get('view')||'').toLowerCase();
+    const v = (qs.get('view') || '').toLowerCase();
     if(v) return v;
+
     const ua = navigator.userAgent || '';
-    const isMobile = /Android|iPhone|iPad|iPod/i.test(ua) || (window.matchMedia && window.matchMedia('(pointer:coarse)').matches);
+    const isMobile =
+      /Android|iPhone|iPad|iPod/i.test(ua) ||
+      (window.matchMedia && window.matchMedia('(pointer:coarse)').matches);
+
     return isMobile ? 'mobile' : 'pc';
+  }
+
+  function defaultHubUrl(){
+    try{
+      return new URL('./hub.html', location.href).toString();
+    }catch(_){
+      return './hub.html';
+    }
   }
 
   function buildTarget(){
     const qs = curQS();
-    const u = new URL(RUN_PATH, location.href);
+    const u  = new URL(RUN_PATH, location.href);
 
-    // pass-through everything EXCEPT we ensure hub exists
-    for (const [k,v] of qs.entries()){
+    // pass-through ทุกตัว ยกเว้น hub เพราะเราจะ normalize เอง
+    for(const [k,v] of qs.entries()){
       if(k === 'hub') continue;
       u.searchParams.set(k, v);
     }
 
-    // if view missing, auto fill
+    // auto fill view ถ้ายังไม่มี
     if(!u.searchParams.get('view')){
       u.searchParams.set('view', detectView(qs));
     }
 
-    // always ensure hub
-    const hub = qs.get('hub') || '';
-    u.searchParams.set('hub', hub || pageUrl());
+    // ensure hub
+    const hub = (qs.get('hub') || '').trim();
+    u.searchParams.set('hub', hub || defaultHubUrl());
 
     return u.toString();
   }
@@ -83,18 +168,19 @@ MaskCough ROOT Launcher — PRODUCTION
     location.replace(buildTarget());
   }
 
-  // buttons
-  document.getElementById('btnGo')?.addEventListener('click', (e)=>{ e.preventDefault(); go(); }, {passive:false});
+  document.getElementById('btnGo')?.addEventListener('click', (e)=>{
+    e.preventDefault();
+    go();
+  }, { passive:false });
+
   document.getElementById('btnBack')?.addEventListener('click', (e)=>{
     e.preventDefault();
     const qs = curQS();
-    const hub = qs.get('hub') || './hub.html';
+    const hub = (qs.get('hub') || '').trim() || defaultHubUrl();
     location.href = hub;
-  }, {passive:false});
+  }, { passive:false });
 
-  // auto redirect
   setTimeout(go, 120);
-
 })();
 </script>
 </body>
