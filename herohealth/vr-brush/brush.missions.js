@@ -1,6 +1,5 @@
 // === /herohealth/vr-brush/brush.missions.js ===
-// Simple missions (optional)
-// FULL v20260305-BRUSH-MISSIONS
+// FULL v20260306-BRUSH-MISSIONS
 'use strict';
 
 export function bootMissions(cfg){
