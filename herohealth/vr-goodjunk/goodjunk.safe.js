@@ -1,6 +1,6 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
 // GoodJunkVR SAFE — PRODUCTION
-// PATCH v20260306-BATTLE-READY-FULL-ENDOVERLAY-DISCONNECT-RESEARCH
+// PATCH v20260306-BATTLE-READY-FULL-ENDOVERLAY-DISCONNECT-RESEARCH-RDY
 'use strict';
 
 export async function boot(cfg){
@@ -85,7 +85,7 @@ export async function boot(cfg){
       'planSeq','planDay','planSlot','planMode','planSlots','planIndex','autoNext',
       'plannedGame','finalGame','zone','cdnext','grade',
       'battle','room','autostart','forfeit','mode',
-      'ai','pro','wait'
+      'ai','pro','wait','debugStart'
     ].forEach(k=>{
       const v = sp.get(k);
       if(v!=null && v!=='') gate.searchParams.set(k, v);
@@ -262,9 +262,34 @@ export async function boot(cfg){
     }
   }
 
-  initBattleMaybe(pid, HH_GAME).then((b)=>{
+  initBattleMaybe(pid, HH_GAME).then(async (b)=>{
     battle = b || battle;
     WIN.__HHA_BATTLE__ = battle || null;
+
+    try{
+      if(battle && battle.enabled){
+        const role = typeof battle.getRole === 'function' ? battle.getRole() : 'player';
+
+        if(role === 'player'){
+          await battle.setReady?.(true);
+
+          try{
+            if(hud.aiHint) hud.aiHint.textContent = 'พร้อมแล้ว • รอผู้เล่น/เริ่มรอบ';
+            if(hud.aiRisk) hud.aiRisk.textContent = 'ready';
+          }catch(_){}
+
+          sayCoach('พร้อมแล้ว! กำลังรอเริ่มรอบ Battle…', true);
+        }else if(role === 'spectator'){
+          try{
+            if(hud.aiHint) hud.aiHint.textContent = 'spectator';
+            if(hud.aiRisk) hud.aiRisk.textContent = 'watch';
+          }catch(_){}
+          sayCoach('ห้องนี้เต็มหรือเริ่มไปแล้ว • เข้าชมแบบ spectator', true);
+        }
+      }
+    }catch(e){
+      console.warn('[GoodJunk] battle setReady failed', e);
+    }
   }).catch(()=>{
     WIN.__HHA_BATTLE__ = null;
   });
@@ -289,7 +314,7 @@ export async function boot(cfg){
 
   function bossShieldBase(){
     if(diff==='easy') return 4;
-    if(diff==='hard') return PRO ? 7 : 6;
+    if(diff==='hard'){ return PRO ? 7 : 6; }
     return 5;
   }
 
@@ -521,7 +546,7 @@ export async function boot(cfg){
   let lastTick = nowMs();
 
   let paused = false;
-  const WAIT_START = (String(qs('wait','0')) === '1');
+  const WAIT_START = battleOn ? true : (String(qs('wait','0')) === '1');
   if(WAIT_START) paused = true;
 
   WIN.__GJ_SET_PAUSED__ = function(on){
@@ -541,6 +566,34 @@ export async function boot(cfg){
       const phase = String(ev?.detail?.phase || '').toLowerCase();
       if(phase === 'running' && paused) WIN.__GJ_START_NOW__?.();
     }catch(e){}
+  });
+
+  WIN.addEventListener('hha:battle-countdown', (ev)=>{
+    try{
+      const leftMs = Number(ev?.detail?.leftMs || 0) || 0;
+      const sec = Math.max(0, Math.ceil(leftMs / 1000));
+      if(hud.aiHint) hud.aiHint.textContent = `เริ่มใน ${sec}s`;
+      if(hud.aiRisk) hud.aiRisk.textContent = 'countdown';
+    }catch(_){}
+  });
+
+  WIN.addEventListener('hha:battle-state', (ev)=>{
+    try{
+      const phase = String(ev?.detail?.phase || '').toLowerCase();
+
+      if(phase === 'lobby'){
+        if(hud.aiHint) hud.aiHint.textContent = 'รอผู้เล่นพร้อม';
+        if(hud.aiRisk) hud.aiRisk.textContent = 'lobby';
+      }else if(phase === 'countdown'){
+        if(hud.aiRisk) hud.aiRisk.textContent = 'countdown';
+      }else if(phase === 'running'){
+        if(hud.aiHint) hud.aiHint.textContent = 'เริ่มแล้ว!';
+        if(hud.aiRisk) hud.aiRisk.textContent = 'running';
+      }else if(phase === 'ended'){
+        if(hud.aiHint) hud.aiHint.textContent = 'จบรอบ';
+        if(hud.aiRisk) hud.aiRisk.textContent = 'ended';
+      }
+    }catch(_){}
   });
 
   WIN.addEventListener('hha:battle-players', (ev)=>{
@@ -1087,7 +1140,7 @@ export async function boot(cfg){
 
   function hitTarget(id){
     const t = targets.get(id);
-    if(!t || !playing) return;
+    if(!t || !playing || paused) return;
 
     const br = t.el.getBoundingClientRect();
     const x = br.left + br.width/2;
@@ -1213,7 +1266,7 @@ export async function boot(cfg){
   }
 
   function spawnOne(adaptive){
-    if(!playing) return;
+    if(!playing || paused) return;
 
     const missionKey = currentMissionKey();
     const ttlMul = adaptive.ttlMul || 1;
@@ -1262,7 +1315,7 @@ export async function boot(cfg){
   function dist2(ax,ay,bx,by){ const dx=ax-bx, dy=ay-by; return dx*dx+dy*dy; }
 
   function shootAtCenter(){
-    if(!playing) return;
+    if(!playing || paused) return;
     const r = layerRect();
     const cx = r.left + r.width/2;
     const cy = r.top  + r.height/2;
@@ -1376,7 +1429,7 @@ export async function boot(cfg){
   setMissionUI();
   setHUD();
 
-  if(WAIT_START) sayCoach('BATTLE/RACE: รอเริ่มพร้อมกัน… ⏳', true);
+  if(WAIT_START) sayCoach('BATTLE: รอผู้เล่นพร้อม / countdown… ⏳', true);
   else sayCoach('พร้อมแล้ว! ยิงของดี 🥦', true);
 
   requestAnimationFrame(tick);
