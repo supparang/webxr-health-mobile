@@ -1,11 +1,10 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
 GoodJunkVR — RUN PAGE (PC/Mobile/cVR) — PRODUCTION
-PATCH v20260306-FULL-RUN-HEROCARD-XP-REWARD-MOBILE
+PATCH v20260306-FULL-RUN-HEROCARD-XP-REWARD-MOBILE-BANNERS
 ✅ Hero Result summary
-✅ Grade big + Hero mood
-✅ XP gain + XP bar
-✅ Reward Card drop
+✅ XP + Reward Card
 ✅ Compact mobile end summary
+✅ stageBanner / milestoneBanner
 ✅ Hides VR UI at end
 Requires:
 - /herohealth/vr/vr-ui.js
@@ -110,6 +109,30 @@ Requires:
       background:rgba(34,197,94,.85); transition:width .12s ease;
     }
 
+    #stageBanner, #milestoneBanner{
+      position:fixed;
+      left:50%;
+      transform:translateX(-50%);
+      z-index:320;
+      pointer-events:none;
+      font-weight:1100;
+      text-shadow:0 10px 30px rgba(0,0,0,.45);
+      opacity:0;
+      transition: opacity .16s ease, transform .16s ease;
+      text-align:center;
+      max-width:92vw;
+    }
+    #stageBanner{
+      top:calc(96px + var(--sat));
+      font-size:22px;
+      color:#f8fafc;
+    }
+    #milestoneBanner{
+      top:calc(136px + var(--sat));
+      font-size:18px;
+      color:#fde68a;
+    }
+
     #endOverlay{
       position:fixed; inset:0; display:none; z-index:400;
       background:rgba(0,0,0,.55); backdrop-filter:blur(8px);
@@ -162,19 +185,12 @@ Requires:
       background: rgba(2,6,23,.34);
       box-shadow: 0 10px 28px rgba(0,0,0,.24);
     }
-    .heroAvatar.mood-s{
-      background: radial-gradient(circle at 30% 30%, rgba(34,197,94,.24), rgba(2,6,23,.34) 60%);
-    }
-    .heroAvatar.mood-a{
-      background: radial-gradient(circle at 30% 30%, rgba(59,130,246,.24), rgba(2,6,23,.34) 60%);
-    }
-    .heroAvatar.mood-b{
-      background: radial-gradient(circle at 30% 30%, rgba(245,158,11,.20), rgba(2,6,23,.34) 60%);
-    }
+    .heroAvatar.mood-s{ background: radial-gradient(circle at 30% 30%, rgba(34,197,94,.24), rgba(2,6,23,.34) 60%); }
+    .heroAvatar.mood-a{ background: radial-gradient(circle at 30% 30%, rgba(59,130,246,.24), rgba(2,6,23,.34) 60%); }
+    .heroAvatar.mood-b{ background: radial-gradient(circle at 30% 30%, rgba(245,158,11,.20), rgba(2,6,23,.34) 60%); }
     .heroAvatar.mood-c,
-    .heroAvatar.mood-d{
-      background: radial-gradient(circle at 30% 30%, rgba(239,68,68,.18), rgba(2,6,23,.34) 60%);
-    }
+    .heroAvatar.mood-d{ background: radial-gradient(circle at 30% 30%, rgba(239,68,68,.18), rgba(2,6,23,.34) 60%); }
+
     .heroTitleWrap{
       display:flex;
       flex-direction:column;
@@ -351,9 +367,7 @@ Requires:
       font-size:40px;
       box-shadow: 0 12px 30px rgba(0,0,0,.24);
     }
-    .rewardBody{
-      text-align:left;
-    }
+    .rewardBody{ text-align:left; }
     .rewardTitle{
       font-size:18px;
       font-weight:1100;
@@ -491,6 +505,8 @@ Requires:
       .rewardMain{ grid-template-columns:62px 1fr; gap:10px; }
       .rewardIcon{ width:62px; height:62px; font-size:34px; }
       .rewardTitle{ font-size:16px; }
+      #stageBanner{ font-size:18px; }
+      #milestoneBanner{ font-size:15px; }
     }
     @media (max-width: 380px){
       .heroResultLine{display:none;}
@@ -532,6 +548,9 @@ Requires:
     <div id="bossHint">—</div>
     <div id="bossFill" style="--hp:0%;"></div>
   </div>
+
+  <div id="stageBanner"></div>
+  <div id="milestoneBanner"></div>
 
   <div id="endOverlay" aria-label="end overlay">
     <div class="panel">
@@ -668,13 +687,36 @@ Requires:
       return Math.max(4, xp);
     }
 
+    function loadHeroProfile(pid){
+      try{
+        const raw = localStorage.getItem(`HHA_PROFILE:${pid}`) || '';
+        return raw ? JSON.parse(raw) : { pid, nick: pid };
+      }catch(_){ return { pid, nick: pid }; }
+    }
+
+    function saveHeroProfile(pid, patch){
+      const prev = loadHeroProfile(pid);
+      const next = {
+        ...prev,
+        ...patch,
+        pid,
+        nick: String((patch && patch.nick) || prev.nick || pid)
+      };
+      try{ localStorage.setItem(`HHA_PROFILE:${pid}`, JSON.stringify(next)); }catch(_){}
+      return next;
+    }
+
     function loadHeroXp(pid){
       try{ return Math.max(0, Number(localStorage.getItem(`HHA_HERO_XP:${pid}`) || '0') || 0); }
       catch(_){ return 0; }
     }
 
     function saveHeroXp(pid, xp){
-      try{ localStorage.setItem(`HHA_HERO_XP:${pid}`, String(Math.max(0, xp|0))); }catch(_){}
+      const safeXp = Math.max(0, xp|0);
+      try{ localStorage.setItem(`HHA_HERO_XP:${pid}`, String(safeXp)); }catch(_){}
+      const lvl = Math.max(1, Math.floor(safeXp / 50) + 1);
+      const prev = loadHeroProfile(pid);
+      saveHeroProfile(pid, { nick: prev.nick || pid, xp: safeXp, lvl });
     }
 
     function levelFromXp(xp){
@@ -691,11 +733,9 @@ Requires:
         const Ctx = window.AudioContext || window.webkitAudioContext;
         if(!Ctx) return;
         const ctx = new Ctx();
-
         const notes = isWin
           ? (grade === 'S' ? [523.25, 659.25, 783.99] : [440, 523.25, 659.25])
           : [392, 349.23];
-
         let t = ctx.currentTime;
         notes.forEach((freq)=>{
           const osc = ctx.createOscillator();
@@ -738,36 +778,20 @@ Requires:
     function cardSpecFromGrade(grade){
       grade = String(grade||'C').toUpperCase();
       if(grade === 'S') return {
-        rarity:'S',
-        icon:'🏆',
-        title:'Legendary Nutrition Hero',
-        sub:'การ์ดระดับสูงสุด • เล่นได้เฉียบมาก',
-        cls:'rarity-s',
-        glow:'rewardGlowS'
+        rarity:'S', icon:'🏆', title:'Legendary Nutrition Hero',
+        sub:'การ์ดระดับสูงสุด • เล่นได้เฉียบมาก', cls:'rarity-s', glow:'rewardGlowS'
       };
       if(grade === 'A') return {
-        rarity:'A',
-        icon:'⚡',
-        title:'Elite Healthy Shooter',
-        sub:'การ์ดหายาก • เร็ว แม่น และคุมเกมดี',
-        cls:'rarity-a',
-        glow:'rewardGlowA'
+        rarity:'A', icon:'⚡', title:'Elite Healthy Shooter',
+        sub:'การ์ดหายาก • เร็ว แม่น และคุมเกมดี', cls:'rarity-a', glow:'rewardGlowA'
       };
       if(grade === 'B') return {
-        rarity:'B',
-        icon:'🛡️',
-        title:'Balanced Food Defender',
-        sub:'การ์ดมาตรฐานดี • จังหวะและการตัดสินใจโอเค',
-        cls:'rarity-b',
-        glow:'rewardGlowB'
+        rarity:'B', icon:'🛡️', title:'Balanced Food Defender',
+        sub:'การ์ดมาตรฐานดี • จังหวะและการตัดสินใจโอเค', cls:'rarity-b', glow:'rewardGlowB'
       };
       return {
-        rarity:'C',
-        icon:'🌱',
-        title:'Rookie Health Explorer',
-        sub:'การ์ดเริ่มต้น • ฝึกต่อแล้วจะอัปเกรดไว',
-        cls:'rarity-c',
-        glow:'rewardGlowC'
+        rarity:'C', icon:'🌱', title:'Rookie Health Explorer',
+        sub:'การ์ดเริ่มต้น • ฝึกต่อแล้วจะอัปเกรดไว', cls:'rarity-c', glow:'rewardGlowC'
       };
     }
 
@@ -791,12 +815,7 @@ Requires:
       book.total = Math.max(0, Number(book.total)||0) + 1;
       saveCardBook(pid, book);
 
-      return {
-        ...spec,
-        isNewTier: prev === 0,
-        count: book[key],
-        total: book.total
-      };
+      return { ...spec, isNewTier: prev === 0, count: book[key], total: book.total };
     }
 
     function renderRewardCard(detail){
@@ -805,28 +824,20 @@ Requires:
       const reward = grantRewardCard(pid, grade);
 
       const card = document.getElementById('rewardCard');
-      const icon = document.getElementById('rewardIcon');
-      const title = document.getElementById('rewardTitle');
-      const sub = document.getElementById('rewardSub');
-      const gradeEl = document.getElementById('rewardGrade');
-      const rarityEl = document.getElementById('rewardRarity');
-      const statusEl = document.getElementById('rewardStatus');
-      const bookCount = document.getElementById('rewardBookCount');
+      document.getElementById('rewardIcon').textContent = reward.icon;
+      document.getElementById('rewardTitle').textContent = reward.title;
+      document.getElementById('rewardSub').textContent = reward.isNewTier
+        ? `${reward.sub} • ได้ครั้งแรกของระดับ ${reward.rarity}!`
+        : `${reward.sub} • duplicate +1 (รวม ${reward.count})`;
+      document.getElementById('rewardGrade').textContent = grade;
+      document.getElementById('rewardRarity').textContent = reward.rarity;
+      document.getElementById('rewardStatus').textContent = reward.isNewTier ? 'new tier' : `dup x${reward.count}`;
+      document.getElementById('rewardBookCount').textContent = String(reward.total);
 
       if(card){
         card.classList.remove('rarity-s','rarity-a','rarity-b','rarity-c','rewardGlowS','rewardGlowA','rewardGlowB','rewardGlowC');
         card.classList.add(reward.cls, reward.glow, 'rewardPop');
       }
-      if(icon) icon.textContent = reward.icon;
-      if(title) title.textContent = reward.title;
-      if(sub) sub.textContent = reward.isNewTier
-        ? `${reward.sub} • ได้ครั้งแรกของระดับ ${reward.rarity}!`
-        : `${reward.sub} • duplicate +1 (รวม ${reward.count})`;
-
-      if(gradeEl) gradeEl.textContent = grade;
-      if(rarityEl) rarityEl.textContent = reward.rarity;
-      if(statusEl) statusEl.textContent = reward.isNewTier ? 'new tier' : `dup x${reward.count}`;
-      if(bookCount) bookCount.textContent = String(reward.total);
 
       try{
         localStorage.setItem(`HHA_LAST_CARD:${pid}`, JSON.stringify({
@@ -844,6 +855,7 @@ Requires:
       const grade = String(detail?.grade || 'B').toUpperCase();
       const reason = String(detail?.reason || '');
       const pid = String(detail?.pid || qs('pid','anon')).trim() || 'anon';
+      const nick = String(detail?.nick || qs('nick', pid)).trim() || pid;
       const win = reason === 'win';
 
       const mood = getGradeMood(grade);
@@ -859,12 +871,10 @@ Requires:
       const endGrade = document.getElementById('endGrade');
       const panel = document.querySelector('#endOverlay .panel');
 
-      if(heroAvatar){
-        heroAvatar.textContent = mood.emoji;
-        heroAvatar.className = `heroAvatar ${mood.cls}`;
-      }
-      if(heroMoodText) heroMoodText.textContent = mood.text;
-      if(endState) endState.textContent = win ? 'CLEAR' : 'TRY AGAIN';
+      heroAvatar.textContent = mood.emoji;
+      heroAvatar.className = `heroAvatar ${mood.cls}`;
+      heroMoodText.textContent = mood.text;
+      endState.textContent = win ? 'CLEAR' : 'TRY AGAIN';
 
       const xpGain = calcXpGain(detail);
       const oldXp = loadHeroXp(pid);
@@ -874,9 +884,11 @@ Requires:
       const newLevel = levelFromXp(newXp);
       const levelProgress = (xpInLevel(newXp) / 50) * 100;
 
-      if(xpGainText) xpGainText.textContent = `+${xpGain}`;
-      if(xpLevelText) xpLevelText.textContent = `Lv ${newLevel}`;
-      if(xpTotalText) xpTotalText.textContent = `รวมสะสม: ${newXp} XP`;
+      saveHeroProfile(pid, { nick, xp: newXp, lvl: newLevel });
+
+      xpGainText.textContent = `+${xpGain}`;
+      xpLevelText.textContent = `Lv ${newLevel}`;
+      xpTotalText.textContent = `รวมสะสม: ${newXp} XP`;
 
       if(panel) panel.classList.add('panelFlash');
       if(endGrade) endGrade.classList.add('gradePop');
@@ -893,6 +905,14 @@ Requires:
       vrBtns.forEach(b => b.style.display = 'none');
     }
 
+    function renderBanner(id, text, on){
+      const el = document.getElementById(id);
+      if(!el) return;
+      el.textContent = text || '';
+      el.style.opacity = on ? '1' : '0';
+      el.style.transform = on ? 'translateX(-50%) translateY(0)' : 'translateX(-50%) translateY(-4px)';
+    }
+
     window.addEventListener('hha:end', (ev)=>{
       try{
         const detail = ev?.detail || {};
@@ -901,6 +921,14 @@ Requires:
       }catch(err){
         console.warn('end-summary enhance failed', err);
       }
+    });
+
+    window.addEventListener('hha:solo-fx', (ev)=>{
+      try{
+        const d = ev?.detail || {};
+        renderBanner('stageBanner', d.stageText || '', !!d.stageOn);
+        renderBanner('milestoneBanner', d.milestoneText || '', !!d.milestoneOn);
+      }catch(_){}
     });
 
     try{
