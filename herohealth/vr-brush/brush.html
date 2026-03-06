@@ -1,9 +1,8 @@
 <!-- === /herohealth/vr-brush/brush.html ===
 BrushVR — RUN (Folder)
-PATCH v20260306-BRUSH-RUN-FULL
-✅ DOM ครบสำหรับ brush.safe.js (ABC + Evidence + AI Risk + Quiz + Summary)
-✅ no-scroll hardened
-✅ root launcher -> this run page
+PATCH v20260306-BRUSH-RUN-NO-AFRAME
+✅ ตัด A-Frame ออกชั่วคราวเพื่อตัดต้นเหตุ Script error
+✅ คง DOM ครบสำหรับ brush.safe.js
 -->
 <!doctype html>
 <html lang="th">
@@ -13,7 +12,7 @@ PATCH v20260306-BRUSH-RUN-FULL
   <title>HeroHealth — BrushVR</title>
   <meta name="color-scheme" content="dark light"/>
   <link rel="icon" href="../favicon.ico"/>
-  <link rel="stylesheet" href="./brush.css?v=20260306a"/>
+  <link rel="stylesheet" href="./brush.css?v=20260306b"/>
 </head>
 
 <body data-view="pc">
@@ -26,19 +25,6 @@ PATCH v20260306-BRUSH-RUN-FULL
       <button id="tapBtn" class="br-btn br-primary" type="button">แตะเพื่อเริ่ม</button>
     </div>
   </div>
-
-  <!-- optional minimal A-Frame scene -->
-  <a-scene
-    embedded
-    vr-mode-ui="enabled: false"
-    renderer="colorManagement:true"
-    background="color: #060a12">
-    <a-entity position="0 1.6 -2">
-      <a-sphere radius="0.18" color="#1f2937" opacity="0.45"></a-sphere>
-      <a-ring radius-inner="0.25" radius-outer="0.27" color="#334155" opacity="0.35"></a-ring>
-    </a-entity>
-    <a-entity camera look-controls position="0 1.6 0"></a-entity>
-  </a-scene>
 
   <div id="br-wrap" data-view="pc" data-state="menu">
     <header class="br-top">
@@ -78,19 +64,13 @@ PATCH v20260306-BRUSH-RUN-FULL
           </div>
 
           <div class="br-box">
-            <div class="br-barLabel">
-              <span class="k">Clean</span><span class="v" id="tClean">0%</span>
-            </div>
+            <div class="br-barLabel"><span class="k">Clean</span><span class="v" id="tClean">0%</span></div>
             <div class="br-bar"><i id="bClean" class="fill good"></i></div>
 
-            <div class="br-barLabel" style="margin-top:10px">
-              <span class="k">Fever</span><span class="v" id="tFever">OFF</span>
-            </div>
+            <div class="br-barLabel" style="margin-top:10px"><span class="k">Fever</span><span class="v" id="tFever">OFF</span></div>
             <div class="br-bar"><i id="bFever" class="fill pink"></i></div>
 
-            <div class="br-barLabel" style="margin-top:10px">
-              <span class="k">Evidence (B)</span><span class="v" id="tEvi">0/3</span>
-            </div>
+            <div class="br-barLabel" style="margin-top:10px"><span class="k">Evidence (B)</span><span class="v" id="tEvi">0/3</span></div>
             <div class="br-bar"><i id="bEvi" class="fill amber"></i></div>
           </div>
 
@@ -103,9 +83,6 @@ PATCH v20260306-BRUSH-RUN-FULL
 
             <div class="k" style="margin-top:10px">ตั้งค่า</div>
             <div class="v">diff=<b id="mDiff">-</b> · time=<b id="mTime">-</b></div>
-
-            <div class="k" style="margin-top:8px">cVR</div>
-            <div class="v">view=cvr ยิงจากกากบาท (vr-ui)</div>
           </div>
         </div>
       </section>
@@ -138,18 +115,9 @@ PATCH v20260306-BRUSH-RUN-FULL
         <div class="br-quizSub">คำถาม: ทำไม “น้ำตาล” ทำให้เกิดคราบฟัน/ฟันผุง่ายขึ้น?</div>
 
         <div id="quizChoices" class="br-quizChoices">
-          <label class="br-choice">
-            <input type="radio" name="quizA" value="a">
-            เพราะน้ำตาลทำให้ฟันเปลี่ยนสีทันที
-          </label>
-          <label class="br-choice">
-            <input type="radio" name="quizA" value="b" checked>
-            เพราะแบคทีเรียใช้น้ำตาลสร้างกรด กัดเคลือบฟัน เกิดคราบและฟันผุ
-          </label>
-          <label class="br-choice">
-            <input type="radio" name="quizA" value="c">
-            เพราะน้ำตาลทำให้แปรงฟันลื่นขึ้น
-          </label>
+          <label class="br-choice"><input type="radio" name="quizA" value="a"> เพราะน้ำตาลทำให้ฟันเปลี่ยนสีทันที</label>
+          <label class="br-choice"><input type="radio" name="quizA" value="b" checked> เพราะแบคทีเรียใช้น้ำตาลสร้างกรด กัดเคลือบฟัน เกิดคราบและฟันผุ</label>
+          <label class="br-choice"><input type="radio" name="quizA" value="c"> เพราะน้ำตาลทำให้แปรงฟันลื่นขึ้น</label>
         </div>
 
         <div class="br-quizActions">
@@ -187,11 +155,11 @@ PATCH v20260306-BRUSH-RUN-FULL
     <div id="toast" class="br-toast"></div>
   </div>
 
-  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-  <script src="../vr/vr-ui.js?v=20260306a"></script>
-  <script src="../vr/fun-boost.js?v=20260306a"></script>
-  <script src="../vr/fun-boost.fx.js?v=20260306a"></script>
-  <script src="./brush.safe.js?v=20260306a"></script>
-  <script src="./brush.boot.js?v=20260306a"></script>
+  <!-- ✅ ถอด A-Frame ออกชั่วคราวเพื่อตัดต้นเหตุ Script error -->
+  <script src="../vr/vr-ui.js?v=20260306b"></script>
+  <script src="../vr/fun-boost.js?v=20260306b"></script>
+  <script src="../vr/fun-boost.fx.js?v=20260306b"></script>
+  <script src="./brush.safe.js?v=20260306b"></script>
+  <script src="./brush.boot.js?v=20260306b"></script>
 </body>
 </html>
