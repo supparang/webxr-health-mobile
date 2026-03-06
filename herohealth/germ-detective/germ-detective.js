@@ -1,10 +1,11 @@
 // === /webxr-health-mobile/herohealth/germ-detective/germ-detective.js ===
-// Germ Detective CORE — PRODUCTION SAFE (PC/Mobile/cVR) — FINAL + FX + TRICK
-// PATCH v20260305-GD-CORE-FINAL-B-FXTRICK
+// Germ Detective CORE — PRODUCTION SAFE (PC/Mobile/cVR) — FINAL + FX + TRICK + COMBO
+// PATCH v20260305-GD-CORE-FINAL-C-FXTRICKCOMBO
 //
-// ✅ Added FX: pop score / pulse / shake
-// ✅ Added Trick Event (seeded): contamination spike once per round (stage>=2)
-// ✅ Emits: hha:event(trick_contamination, fx_pop)
+// ✅ Added FX: shockwave / hit ring / burst feel
+// ✅ Added Combo streak: scan/swab/photo/clean chain bonus
+// ✅ Added combo score bonus into final score
+// ✅ Emits: combo_up, combo_break, shockwave, fx_pop
 // NOTE: No networking / No Apps Script required.
 
 export default function GameApp(opts = {}) {
@@ -40,7 +41,7 @@ export default function GameApp(opts = {}) {
     }catch{}
   }
 
-  // ---------- context (HHA-ish) from URL ----------
+  // ---------- context ----------
   const CTX = {
     studyId: String(qsParam('studyId','')).trim(),
     phase: String(qsParam('phase','')).trim(),
@@ -67,16 +68,20 @@ export default function GameApp(opts = {}) {
     autoReportOnBossClear: true,
     autoReportDelayMs: 900,
 
-    // FX knobs
+    // FX
     fx: true,
     fxShakeMs: 160,
     fxPopMs: 520,
 
-    // Trick knobs
+    // Trick
     trickEnabled: true,
     trickSpikeMin: 18,
     trickSpikeMax: 32,
-    trickTargets: 2
+    trickTargets: 2,
+
+    // Combo
+    comboWindowMs: 3200,
+    comboMax: 12
   }, opts || {});
 
   // ---------- RNG ----------
@@ -103,7 +108,7 @@ export default function GameApp(opts = {}) {
   // ---------- event log ----------
   const EVENT_LOG = [];
   function logEvt(name, payload){
-    if(EVENT_LOG.length > 1800) EVENT_LOG.shift();
+    if(EVENT_LOG.length > 2000) EVENT_LOG.shift();
     EVENT_LOG.push({
       tIso: isoNow(),
       ms: Math.round(nowMs()),
@@ -216,8 +221,8 @@ export default function GameApp(opts = {}) {
     timeLeft: clamp(cfg.timeSec, 20, 600),
 
     tool:'uv',
-    stage:1,                  // 1 warm, 2 trick, 3 boss
-    phase:'investigate',      // investigate | intervene | report
+    stage:1,
+    phase:'investigate',
 
     budget: { total: budgetByDiff(cfg.diff), spent: 0, actions: [] },
 
@@ -227,13 +232,20 @@ export default function GameApp(opts = {}) {
 
     coach: { enabled:true, cooldownMs:6500, lastAt:0, lastKey:'' },
 
-    // Trick event once/round (seeded)
     trick: {
       fired:false,
-      // trigger when timeLeft <= triggerLeft (set in init; biased to mid-round)
       triggerLeft: 0,
       targets: [],
       spike: 0
+    },
+
+    // Combo
+    combo: {
+      streak: 0,
+      best: 0,
+      lastAt: 0,
+      bonus: 0,
+      breaks: 0
     },
 
     score: null,
@@ -248,7 +260,6 @@ export default function GameApp(opts = {}) {
   function ensureFxLayer(){
     if(!cfg.fx) return;
     if(FX_LAYER && FX_LAYER.parentNode) return;
-
     FX_LAYER = $('gdFxLayer');
     if(!FX_LAYER){
       FX_LAYER = el('div');
@@ -265,8 +276,8 @@ export default function GameApp(opts = {}) {
     if(!cfg.fx || !node || !node.animate) return;
     try{
       node.animate(
-        [{ transform:'translate(-0.5px,-0.5px) scale(1)' }, { transform:'translate(0px,0px) scale(1.06)' }, { transform:'translate(0px,0px) scale(1)' }],
-        { duration: 180, easing:'ease-out' }
+        [{ transform:'scale(1)' }, { transform:'scale(1.08)' }, { transform:'scale(1)' }],
+        { duration: 190, easing:'ease-out' }
       );
     }catch{}
   }
@@ -278,7 +289,13 @@ export default function GameApp(opts = {}) {
       const b = DOC.body;
       if(!b || !b.animate) return;
       b.animate(
-        [{ transform:'translateX(0px)' }, { transform:'translateX(-2px)' }, { transform:'translateX(2px)' }, { transform:'translateX(0px)' }],
+        [
+          { transform:'translateX(0px)' },
+          { transform:'translateX(-2px)' },
+          { transform:'translateX(2px)' },
+          { transform:'translateX(-1px)' },
+          { transform:'translateX(0px)' }
+        ],
         { duration: ms, easing:'ease-in-out' }
       );
     }catch{}
@@ -290,7 +307,6 @@ export default function GameApp(opts = {}) {
     if(!FX_LAYER) return;
 
     const d = el('div');
-    d.className = 'gd-pop';
     d.textContent = String(text||'');
     d.style.position = 'fixed';
     d.style.left = `${Math.round(x)}px`;
@@ -305,7 +321,6 @@ export default function GameApp(opts = {}) {
     d.style.boxShadow = '0 16px 50px rgba(0,0,0,.35)';
     d.style.opacity = '0';
 
-    // tint by kind (inline, no extra CSS needed)
     if(kind==='warn'){
       d.style.borderColor = 'rgba(245,158,11,.32)';
       d.style.background  = 'rgba(245,158,11,.10)';
@@ -315,27 +330,23 @@ export default function GameApp(opts = {}) {
     } else if(kind==='cyan'){
       d.style.borderColor = 'rgba(34,211,238,.30)';
       d.style.background  = 'rgba(34,211,238,.10)';
-    } else if(kind==='good'){
+    } else {
       d.style.borderColor = 'rgba(34,197,94,.28)';
       d.style.background  = 'rgba(34,197,94,.10)';
     }
 
     FX_LAYER.appendChild(d);
-
     try{
       d.animate(
         [
-          { transform:'translate(-50%,-40%) scale(.98)', opacity:0 },
-          { transform:'translate(-50%,-60%) scale(1.05)', opacity:1 },
-          { transform:'translate(-50%,-90%) scale(1.02)', opacity:0 }
+          { transform:'translate(-50%,-40%) scale(.96)', opacity:0 },
+          { transform:'translate(-50%,-60%) scale(1.08)', opacity:1 },
+          { transform:'translate(-50%,-98%) scale(1.02)', opacity:0 }
         ],
         { duration: clamp(cfg.fxPopMs, 250, 1200), easing:'ease-out' }
       );
-    }catch{
-      d.style.opacity = '1';
-    }
-
-    setTimeout(()=>{ try{ d.remove(); }catch{} }, clamp(cfg.fxPopMs, 250, 1200) + 30);
+    }catch{}
+    setTimeout(()=>{ try{ d.remove(); }catch{} }, clamp(cfg.fxPopMs, 250, 1200) + 40);
 
     emitHHA('fx_pop', { text, x:Math.round(x), y:Math.round(y), kind });
   }
@@ -344,13 +355,119 @@ export default function GameApp(opts = {}) {
     try{
       if(!node || !node.getBoundingClientRect) return;
       const r = node.getBoundingClientRect();
-      const x = r.left + r.width/2;
-      const y = r.top + r.height/2;
-      popText(text, x, y, kind);
+      popText(text, r.left + r.width/2, r.top + r.height/2, kind);
     }catch{}
   }
 
-  // ---------- build hotspots (deterministic) ----------
+  function shockwave(x, y, kind='cyan'){
+    if(!cfg.fx) return;
+    ensureFxLayer();
+    if(!FX_LAYER) return;
+
+    const ring = el('div');
+    ring.style.position = 'fixed';
+    ring.style.left = `${Math.round(x)}px`;
+    ring.style.top  = `${Math.round(y)}px`;
+    ring.style.width = '18px';
+    ring.style.height = '18px';
+    ring.style.marginLeft = '-9px';
+    ring.style.marginTop  = '-9px';
+    ring.style.borderRadius = '999px';
+    ring.style.border = '3px solid rgba(34,211,238,.55)';
+    ring.style.boxShadow = '0 0 16px rgba(34,211,238,.18)';
+    ring.style.opacity = '0.95';
+
+    if(kind==='warn'){
+      ring.style.border = '3px solid rgba(245,158,11,.55)';
+      ring.style.boxShadow = '0 0 16px rgba(245,158,11,.18)';
+    }else if(kind==='good'){
+      ring.style.border = '3px solid rgba(34,197,94,.55)';
+      ring.style.boxShadow = '0 0 16px rgba(34,197,94,.18)';
+    }else if(kind==='bad'){
+      ring.style.border = '3px solid rgba(239,68,68,.55)';
+      ring.style.boxShadow = '0 0 16px rgba(239,68,68,.18)';
+    }
+
+    FX_LAYER.appendChild(ring);
+
+    try{
+      ring.animate(
+        [
+          { transform:'scale(.4)', opacity:0.95 },
+          { transform:'scale(2.4)', opacity:0.12 },
+          { transform:'scale(3.1)', opacity:0 }
+        ],
+        { duration: 360, easing:'ease-out' }
+      );
+    }catch{}
+    setTimeout(()=>{ try{ ring.remove(); }catch{} }, 420);
+
+    emitHHA('shockwave', { x:Math.round(x), y:Math.round(y), kind });
+  }
+
+  function shockwaveNearEl(node, kind){
+    try{
+      if(!node || !node.getBoundingClientRect) return;
+      const r = node.getBoundingClientRect();
+      shockwave(r.left + r.width/2, r.top + r.height/2, kind);
+    }catch{}
+  }
+
+  // ---------- combo ----------
+  function comboStep(type, target){
+    const t = nowMs();
+    const within = (t - STATE.combo.lastAt) <= clamp(cfg.comboWindowMs, 1000, 8000);
+
+    if(within){
+      STATE.combo.streak = clamp(STATE.combo.streak + 1, 1, cfg.comboMax);
+    } else {
+      if(STATE.combo.streak >= 2){
+        STATE.combo.breaks += 1;
+        emitHHA('combo_break', { streak: STATE.combo.streak, target, type });
+      }
+      STATE.combo.streak = 1;
+    }
+
+    STATE.combo.lastAt = t;
+    STATE.combo.best = Math.max(STATE.combo.best, STATE.combo.streak);
+
+    // bonus grows slowly, fair
+    let add = 0;
+    if(type === 'swab' && STATE.combo.streak >= 2) add = 2;
+    else if(type === 'clean' && STATE.combo.streak >= 2) add = 3;
+    else if(type === 'uv' && STATE.combo.streak >= 3) add = 1;
+    else if(type === 'cam' && STATE.combo.streak >= 3) add = 1;
+
+    // chain bonus if inferred chain already exists
+    if((STATE.chain.inferred||[]).length >= 3 && STATE.combo.streak >= 3) add += 2;
+
+    if(add > 0){
+      STATE.combo.bonus += add;
+      emitHHA('combo_up', {
+        streak: STATE.combo.streak,
+        add,
+        comboBonus: STATE.combo.bonus,
+        target,
+        type
+      });
+      if(cfg.fx) popNearEl(findHotspotEl(target), `COMBO x${STATE.combo.streak}`, 'good');
+    }
+  }
+
+  function comboReset(reason='reset'){
+    if(STATE.combo.streak >= 2){
+      emitHHA('combo_break', { streak: STATE.combo.streak, reason });
+    }
+    STATE.combo.streak = 0;
+    STATE.combo.lastAt = 0;
+  }
+
+  function findHotspotEl(targetName){
+    const h = STATE.hotspots.find(x=>x.name===targetName);
+    return h ? h.el : null;
+  }
+
+  // ---------- build hotspots ----------
   function layoutPositions(n){
     const pos=[];
     for(let i=0;i<n;i++){
@@ -361,7 +478,6 @@ export default function GameApp(opts = {}) {
   function buildHotspots(){
     const src = (SCENES[cfg.scene] || SCENES.classroom).slice();
     const pos = layoutPositions(src.length);
-
     const riskScale = (cfg.diff==='hard') ? 1.18 : (cfg.diff==='easy') ? 0.85 : 1.0;
 
     STATE.hotspots = src.map((s,i)=>{
@@ -374,10 +490,8 @@ export default function GameApp(opts = {}) {
         risk: base,
         xPct: pos[i].x,
         yPct: pos[i].y,
-
         scanned:false, swabbed:false, photoed:false,
         verified:false, cleaned:false,
-
         _infected:false,
         el:null
       };
@@ -396,9 +510,7 @@ export default function GameApp(opts = {}) {
 
     const chain = infected.slice().sort((a,b)=> b.risk - a.risk);
     const truth=[];
-    for(let i=0;i<Math.min(chain.length-1, 3);i++){
-      truth.push([chain[i].name, chain[i+1].name]);
-    }
+    for(let i=0;i<Math.min(chain.length-1, 3);i++) truth.push([chain[i].name, chain[i+1].name]);
     STATE.chain.truthPairs = truth;
   }
 
@@ -413,133 +525,52 @@ export default function GameApp(opts = {}) {
         --bg:#020617; --panel:rgba(2,6,23,.72); --stroke:rgba(148,163,184,.18);
         --text:#e5e7eb; --muted:#94a3b8; --good:#22c55e; --warn:#f59e0b; --cyan:#22d3ee;
       }
-      .gd-topbar{
-        position:sticky; top:0; z-index:50;
-        display:flex; justify-content:space-between; gap:8px; flex-wrap:wrap;
-        padding:8px 10px; background:rgba(2,6,23,.82);
-        border-bottom:1px solid rgba(148,163,184,.16);
-        backdrop-filter: blur(8px);
-      }
-      .pill{ border:1px solid var(--stroke); background:rgba(255,255,255,.02); border-radius:999px;
-        padding:6px 10px; font-size:12px; font-weight:900; color:rgba(229,231,235,.92); }
-      .btn{
-        appearance:none; border:1px solid var(--stroke); background:rgba(255,255,255,.03);
-        color:rgba(229,231,235,.96); border-radius:12px; padding:10px 12px;
-        font-weight:1000; cursor:pointer;
-      }
-      .btn:active{ transform:translateY(1px); }
-      .btn.good{ border-color:rgba(34,197,94,.32); background:rgba(34,197,94,.12); }
-      .btn.cyan{ border-color:rgba(34,211,238,.32); background:rgba(34,211,238,.10); }
-      .btn.warn{ border-color:rgba(245,158,11,.32); background:rgba(245,158,11,.10); }
-
-      .gd-wrap{ display:grid; grid-template-columns:minmax(0,1fr) 340px; gap:10px; padding:10px; }
-      @media (max-width:980px){ .gd-wrap{ grid-template-columns:1fr; } }
-
-      .gd-stage{
-        position:relative; min-height:58vh;
-        border:1px solid var(--stroke); border-radius:16px;
-        background:rgba(255,255,255,.01);
-        overflow:hidden;
-      }
-      .gd-side{ display:grid; gap:10px; align-content:start; }
-
-      .gd-panel{
-        border:1px solid var(--stroke);
-        border-radius:16px;
-        background:rgba(2,6,23,.70);
-        overflow:hidden;
-      }
-      .gd-panel .head{
-        padding:10px 12px;
-        border-bottom:1px solid rgba(148,163,184,.10);
-        display:flex; justify-content:space-between; gap:8px; align-items:center;
-      }
-      .gd-panel .body{ padding:10px; }
-
-      .gd-toolbar{ position:absolute; left:12px; top:12px; z-index:20; display:flex; gap:6px; flex-wrap:wrap; max-width:calc(100% - 24px); }
-      .gd-timer{
-        position:absolute; left:12px; top:60px; z-index:20;
-        font-weight:1000; font-size:12px;
-        padding:6px 10px; border-radius:999px;
-        border:1px solid rgba(148,163,184,.18);
-        background:rgba(2,6,23,.70);
-      }
-
-      .gd-spot{
-        position:absolute;
-        border:1px solid rgba(148,163,184,.18);
-        background:rgba(255,255,255,.03);
-        border-radius:14px;
-        padding:10px 12px;
-        font-weight:1000;
-        cursor:pointer;
-        user-select:none;
-        box-shadow:0 12px 30px rgba(0,0,0,.20);
-      }
-      .gd-spot:hover{ transform: translateY(-1px); }
-      .gd-spot .sub{ display:block; font-size:11px; font-weight:900; opacity:.78; margin-top:2px; }
-      .gd-spot.hot{ box-shadow:0 0 0 2px rgba(244,63,94,.28), 0 18px 40px rgba(0,0,0,.25); }
-      .gd-spot.trick{ box-shadow:0 0 0 2px rgba(245,158,11,.28), 0 18px 40px rgba(0,0,0,.25); }
-      .gd-spot.cleaned{ outline:2px solid rgba(34,197,94,.55); }
-      .gd-spot.verified{ outline:2px solid rgba(34,211,238,.55); }
-
-      html[data-view="cvr"] .gd-spot{ pointer-events:none; }
-
-      .mini-list{ display:grid; gap:6px; max-height:220px; overflow:auto; }
-      .mini-item{ border:1px solid rgba(148,163,184,.12); border-radius:12px; padding:8px; background:rgba(255,255,255,.02); font-size:12px; line-height:1.35; }
-      .budgetbar{ height:10px; border-radius:999px; overflow:hidden; background:rgba(148,163,184,.12); border:1px solid rgba(148,163,184,.18); }
-      .budgetfill{ height:100%; width:100%; background: linear-gradient(90deg, rgba(16,185,129,.9), rgba(34,211,238,.9)); }
-
-      .gd-coach{
-        position:fixed; left:50%;
-        top:calc(10px + env(safe-area-inset-top,0px));
-        transform:translateX(-50%);
-        z-index:9998;
-        max-width:min(900px, 92vw);
-        border:1px solid rgba(148,163,184,.18);
-        border-radius:999px;
-        background:rgba(2,6,23,.78);
-        padding:10px 12px;
-        font-weight:950;
-        font-size:13px;
-        color:rgba(229,231,235,.96);
-        box-shadow:0 16px 50px rgba(0,0,0,.35);
-        backdrop-filter: blur(10px);
-        display:none;
-      }
-      .gd-coach.show{ display:block; }
-      .gd-coach small{ display:block; color:rgba(148,163,184,.95); font-weight:900; margin-top:2px; }
-
-      .gd-modal{ position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,.55); display:none; align-items:center; justify-content:center; padding:16px; }
-      .gd-modal.show{ display:flex; }
-      .gd-modal-card{
-        width:min(980px, 96vw);
-        border:1px solid rgba(148,163,184,.18);
-        border-radius:18px;
-        background:rgba(2,6,23,.86);
-        box-shadow:0 26px 90px rgba(0,0,0,.45);
-        overflow:hidden;
-      }
-      .gd-modal-head{
-        padding:12px 14px;
-        border-bottom:1px solid rgba(148,163,184,.14);
-        display:flex; gap:10px; align-items:center; justify-content:space-between; flex-wrap:wrap;
-      }
-      .gd-rank{ font-weight:1100; font-size:18px; letter-spacing:.3px; }
-      .gd-modal-body{ padding:14px; display:grid; grid-template-columns:1fr 1fr; gap:12px; }
-      @media (max-width:860px){ .gd-modal-body{ grid-template-columns:1fr; } }
-      .gd-kpi{ border:1px solid rgba(148,163,184,.14); border-radius:14px; padding:12px; background:rgba(255,255,255,.02); }
-      .gd-kpi b{ font-size:22px; }
-      .gd-grid2{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-      .gd-actions{
-        padding:12px 14px;
-        border-top:1px solid rgba(148,163,184,.14);
-        display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end;
-      }
-      .gd-small{ color:rgba(148,163,184,.95); font-weight:850; font-size:12px; line-height:1.35; }
-      .gd-badges{ display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
-      .gd-badge{ border:1px solid rgba(148,163,184,.18); background:rgba(255,255,255,.02); border-radius:999px; padding:6px 10px; font-weight:1000; font-size:12px; }
-      .gd-badge.on{ border-color: rgba(34,211,238,.30); background: rgba(34,211,238,.10); }
+      .gd-topbar{position:sticky;top:0;z-index:50;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;padding:8px 10px;background:rgba(2,6,23,.82);border-bottom:1px solid rgba(148,163,184,.16);backdrop-filter:blur(8px)}
+      .pill{border:1px solid var(--stroke);background:rgba(255,255,255,.02);border-radius:999px;padding:6px 10px;font-size:12px;font-weight:900;color:rgba(229,231,235,.92)}
+      .btn{appearance:none;border:1px solid var(--stroke);background:rgba(255,255,255,.03);color:rgba(229,231,235,.96);border-radius:12px;padding:10px 12px;font-weight:1000;cursor:pointer}
+      .btn:active{transform:translateY(1px)}
+      .btn.good{border-color:rgba(34,197,94,.32);background:rgba(34,197,94,.12)}
+      .btn.cyan{border-color:rgba(34,211,238,.32);background:rgba(34,211,238,.10)}
+      .btn.warn{border-color:rgba(245,158,11,.32);background:rgba(245,158,11,.10)}
+      .gd-wrap{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:10px;padding:10px}
+      @media (max-width:980px){ .gd-wrap{grid-template-columns:1fr} }
+      .gd-stage{position:relative;min-height:58vh;border:1px solid var(--stroke);border-radius:16px;background:rgba(255,255,255,.01);overflow:hidden}
+      .gd-side{display:grid;gap:10px;align-content:start}
+      .gd-panel{border:1px solid var(--stroke);border-radius:16px;background:rgba(2,6,23,.70);overflow:hidden}
+      .gd-panel .head{padding:10px 12px;border-bottom:1px solid rgba(148,163,184,.10);display:flex;justify-content:space-between;gap:8px;align-items:center}
+      .gd-panel .body{padding:10px}
+      .gd-toolbar{position:absolute;left:12px;top:12px;z-index:20;display:flex;gap:6px;flex-wrap:wrap;max-width:calc(100% - 24px)}
+      .gd-timer{position:absolute;left:12px;top:60px;z-index:20;font-weight:1000;font-size:12px;padding:6px 10px;border-radius:999px;border:1px solid rgba(148,163,184,.18);background:rgba(2,6,23,.70)}
+      .gd-spot{position:absolute;border:1px solid rgba(148,163,184,.18);background:rgba(255,255,255,.03);border-radius:14px;padding:10px 12px;font-weight:1000;cursor:pointer;user-select:none;box-shadow:0 12px 30px rgba(0,0,0,.20)}
+      .gd-spot:hover{transform:translateY(-1px)}
+      .gd-spot .sub{display:block;font-size:11px;font-weight:900;opacity:.78;margin-top:2px}
+      .gd-spot.hot{box-shadow:0 0 0 2px rgba(244,63,94,.28),0 18px 40px rgba(0,0,0,.25)}
+      .gd-spot.trick{box-shadow:0 0 0 2px rgba(245,158,11,.28),0 18px 40px rgba(0,0,0,.25)}
+      .gd-spot.cleaned{outline:2px solid rgba(34,197,94,.55)}
+      .gd-spot.verified{outline:2px solid rgba(34,211,238,.55)}
+      html[data-view="cvr"] .gd-spot{pointer-events:none}
+      .mini-list{display:grid;gap:6px;max-height:220px;overflow:auto}
+      .mini-item{border:1px solid rgba(148,163,184,.12);border-radius:12px;padding:8px;background:rgba(255,255,255,.02);font-size:12px;line-height:1.35}
+      .budgetbar{height:10px;border-radius:999px;overflow:hidden;background:rgba(148,163,184,.12);border:1px solid rgba(148,163,184,.18)}
+      .budgetfill{height:100%;width:100%;background:linear-gradient(90deg,rgba(16,185,129,.9),rgba(34,211,238,.9))}
+      .gd-coach{position:fixed;left:50%;top:calc(10px + env(safe-area-inset-top,0px));transform:translateX(-50%);z-index:9998;max-width:min(900px,92vw);border:1px solid rgba(148,163,184,.18);border-radius:999px;background:rgba(2,6,23,.78);padding:10px 12px;font-weight:950;font-size:13px;color:rgba(229,231,235,.96);box-shadow:0 16px 50px rgba(0,0,0,.35);backdrop-filter:blur(10px);display:none}
+      .gd-coach.show{display:block}
+      .gd-coach small{display:block;color:rgba(148,163,184,.95);font-weight:900;margin-top:2px}
+      .gd-modal{position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;padding:16px}
+      .gd-modal.show{display:flex}
+      .gd-modal-card{width:min(980px,96vw);border:1px solid rgba(148,163,184,.18);border-radius:18px;background:rgba(2,6,23,.86);box-shadow:0 26px 90px rgba(0,0,0,.45);overflow:hidden}
+      .gd-modal-head{padding:12px 14px;border-bottom:1px solid rgba(148,163,184,.14);display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+      .gd-rank{font-weight:1100;font-size:18px;letter-spacing:.3px}
+      .gd-modal-body{padding:14px;display:grid;grid-template-columns:1fr 1fr;gap:12px}
+      @media (max-width:860px){ .gd-modal-body{grid-template-columns:1fr} }
+      .gd-kpi{border:1px solid rgba(148,163,184,.14);border-radius:14px;padding:12px;background:rgba(255,255,255,.02)}
+      .gd-kpi b{font-size:22px}
+      .gd-grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+      .gd-actions{padding:12px 14px;border-top:1px solid rgba(148,163,184,.14);display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end}
+      .gd-small{color:rgba(148,163,184,.95);font-weight:850;font-size:12px;line-height:1.35}
+      .gd-badges{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+      .gd-badge{border:1px solid rgba(148,163,184,.18);background:rgba(255,255,255,.02);border-radius:999px;padding:6px 10px;font-weight:1000;font-size:12px}
+      .gd-badge.on{border-color:rgba(34,211,238,.30);background:rgba(34,211,238,.10)}
     `;
     DOC.head.appendChild(st);
   }
@@ -571,20 +602,17 @@ export default function GameApp(opts = {}) {
             </div>
             <div class="pill" id="gdResPill">-</div>
           </div>
-
           <div class="gd-modal-body">
             <div class="gd-kpi">
               <div class="gd-small">คะแนนรวม</div>
               <b id="gdResFinal">-</b>
               <div class="gd-small" style="margin-top:6px" id="gdResMission">-</div>
             </div>
-
             <div class="gd-kpi">
               <div class="gd-small">Chain ที่สรุปได้</div>
               <b id="gdResChain">-</b>
               <div class="gd-small" style="margin-top:6px" id="gdResRisk">-</div>
             </div>
-
             <div class="gd-grid2">
               <div class="gd-kpi">
                 <div class="gd-small">Accuracy</div>
@@ -597,7 +625,6 @@ export default function GameApp(opts = {}) {
                 <div class="gd-small" id="gdResIntSub">-</div>
               </div>
             </div>
-
             <div class="gd-grid2">
               <div class="gd-kpi">
                 <div class="gd-small">Chain Score</div>
@@ -611,7 +638,6 @@ export default function GameApp(opts = {}) {
               </div>
             </div>
           </div>
-
           <div class="gd-actions">
             <button class="btn" id="gdBtnClose" type="button">ปิด</button>
             <button class="btn" id="gdBtnSummary" type="button">⬇️ summary.csv</button>
@@ -642,6 +668,7 @@ export default function GameApp(opts = {}) {
         <span class="pill" id="gdPillStage">stage: 1</span>
         <span class="pill" id="gdPillTool">tool: UV</span>
         <span class="pill" id="gdPillTrick">trick: armed</span>
+        <span class="pill" id="gdPillCombo">combo: x0</span>
       </div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
         <button class="btn" id="gdPause" type="button">⏸ Pause</button>
@@ -712,8 +739,8 @@ export default function GameApp(opts = {}) {
 
     $('gdPause').onclick = ()=> togglePause();
     $('gdHelp').onclick = ()=> showCoach(
-      'วิธีเล่น: UV หา “จุดสัมผัสสูง” → Swab ยืนยัน → ต่อ chain → Clean ลด risk (งบจำกัด)',
-      'มี Trick contamination 1 ครั้ง/รอบ — ตั้งสติแล้วแก้ให้ทัน!'
+      'วิธีเล่น: UV → Swab → ต่อ chain → Clean ลด risk',
+      'รักษา combo ให้ต่อเนื่อง จะได้โบนัสเพิ่มและ Rank พุ่ง'
     );
     $('gdSubmit').onclick = ()=> end('submitted');
   }
@@ -778,10 +805,8 @@ export default function GameApp(opts = {}) {
     h.el.classList.toggle('cleaned', !!h.cleaned);
     h.el.classList.toggle('verified', !!h.verified);
     h.el.classList.toggle('hot', (!h.cleaned) && h.risk >= 65);
-    // Trick highlight (if this target is in trick targets and not cleaned)
     const isTrick = STATE.trick.targets.includes(h.name) && !h.cleaned && !STATE.trick.fired;
     h.el.classList.toggle('trick', isTrick);
-
     const sub = h.el.querySelector('.sub');
     if(sub) sub.textContent = spotSubline(h);
   }
@@ -829,8 +854,13 @@ export default function GameApp(opts = {}) {
       h.risk = clamp(h.risk + (h._infected ? 8 : 2) + RNG()*4, 0, 100);
       applySpotClass(h);
       emitHHA('hotspot_uv', { target:h.name, risk:h.risk });
+      comboStep('uv', h.name);
 
-      if(cfg.fx){ pulse(h.el); popNearEl(h.el, '+UV', 'cyan'); }
+      if(cfg.fx){
+        pulse(h.el);
+        shockwaveNearEl(h.el, 'cyan');
+        popNearEl(h.el, '+UV', 'cyan');
+      }
 
     } else if(STATE.tool === 'swab'){
       h.swabbed = true;
@@ -839,11 +869,20 @@ export default function GameApp(opts = {}) {
         h.verified = true;
         h.risk = clamp(h.risk + 10 + RNG()*6, 0, 100);
         addEvidence({ type:'sample', target:h.name, info:'Swab ยืนยัน: เสี่ยงจริง', method, tool:'swab' });
-        if(cfg.fx){ pulse(h.el); popNearEl(h.el, 'CONFIRM', 'good'); }
+        comboStep('swab', h.name);
+        if(cfg.fx){
+          pulse(h.el);
+          shockwaveNearEl(h.el, 'good');
+          popNearEl(h.el, 'CONFIRM', 'good');
+        }
       }else{
         h.risk = clamp(h.risk - (4 + RNG()*6), 0, 100);
         addEvidence({ type:'sample', target:h.name, info:'Swab: ไม่พบเชื้อ (อาจ false negative)', method, tool:'swab' });
-        if(cfg.fx){ popNearEl(h.el, 'NEG', 'warn'); }
+        comboReset('swab_negative');
+        if(cfg.fx){
+          shockwaveNearEl(h.el, 'warn');
+          popNearEl(h.el, 'NEG', 'warn');
+        }
       }
       applySpotClass(h);
       emitHHA('hotspot_swab', { target:h.name, verified: h.verified?1:0, risk:h.risk });
@@ -853,12 +892,18 @@ export default function GameApp(opts = {}) {
       addEvidence({ type:'photo', target:h.name, info:'ถ่ายภาพหลักฐาน', method, tool:'cam' });
       applySpotClass(h);
       emitHHA('hotspot_cam', { target:h.name });
+      comboStep('cam', h.name);
 
-      if(cfg.fx){ pulse(h.el); popNearEl(h.el, '📸', 'cyan'); }
+      if(cfg.fx){
+        pulse(h.el);
+        shockwaveNearEl(h.el, 'cyan');
+        popNearEl(h.el, '📸', 'cyan');
+      }
 
     } else if(STATE.tool === 'clean'){
       if(STATE.phase !== 'intervene' && STATE.stage < 3){
         showCoach('ยังไม่ถึงช่วง Clean แบบคุ้มสุด', 'ทำ Warm/Trick ก่อน จะได้โบนัสและคำใบ้ดีขึ้น');
+        comboReset('clean_too_early');
         if(cfg.fx){ popNearEl(h.el, 'WAIT', 'warn'); }
         return;
       }
@@ -867,7 +912,12 @@ export default function GameApp(opts = {}) {
       if(left < cost){
         showCoach('งบไม่พอ!', `เหลือ ${left} แต่ต้องใช้ ${cost}`);
         emitHHA('clean_failed', { target:h.name, cost, left });
-        if(cfg.fx){ shake(cfg.fxShakeMs); popNearEl(h.el, 'NO $', 'bad'); }
+        comboReset('clean_no_budget');
+        if(cfg.fx){
+          shake(cfg.fxShakeMs);
+          shockwaveNearEl(h.el, 'bad');
+          popNearEl(h.el, 'NO $', 'bad');
+        }
         return;
       }
       const before = Math.round(h.risk);
@@ -880,16 +930,18 @@ export default function GameApp(opts = {}) {
       applySpotClass(h);
       updateBudgetUI();
       emitHHA('clean_done', { target:h.name, cost, riskBefore:before, riskAfter:Math.round(h.risk), budgetLeft: budgetLeft() });
+      comboStep('clean', h.name);
 
       if(cfg.fx){
         pulse(h.el);
+        shockwaveNearEl(h.el, 'good');
         popNearEl(h.el, `-${red}`, 'good');
         if(before >= 75) shake(cfg.fxShakeMs);
       }
     }
 
     updateMissionUI();
-    maybeFireTrick(); // ✅ check trick after actions too
+    maybeFireTrick();
     coachTick();
   }
 
@@ -904,7 +956,6 @@ export default function GameApp(opts = {}) {
     if(nodes.length < 3) return [];
     const wm = new Map();
     edges.forEach(e=> wm.set(e.a+'>'+e.b, (wm.get(e.a+'>'+e.b)||0) + (e.w||1)));
-
     let best = { s:-1, c:[] };
     for(const a of nodes) for(const b of nodes) for(const c of nodes){
       if(a===b||b===c||a===c) continue;
@@ -942,9 +993,7 @@ export default function GameApp(opts = {}) {
       .slice()
       .sort((a,b)=> (b.risk+b.importance*8) - (a.risk+a.importance*8))
       .slice(0,4);
-    for(let i=0;i<risky.length-1;i++){
-      addEdge(risky[i].name, risky[i+1].name, 2 + risky[i].importance);
-    }
+    for(let i=0;i<risky.length-1;i++) addEdge(risky[i].name, risky[i+1].name, 2 + risky[i].importance);
 
     STATE.chain.inferred = bestChain(STATE.chain.edges) || [];
   }
@@ -959,7 +1008,7 @@ export default function GameApp(opts = {}) {
     const avg = Math.round(avgRisk());
     const importantUnscanned = STATE.hotspots.filter(h=>h.importance>=4 && !h.scanned).length;
     const pressure = 1 - (STATE.timeLeft/STATE.timeTotal);
-    const trickPenalty = (STATE.trick.fired ? 0 : 6); // armed pressure
+    const trickPenalty = (STATE.trick.fired ? 0 : 6);
     return clamp(Math.round(avg*0.7 + importantUnscanned*8 + pressure*18 + trickPenalty), 0, 100);
   }
   function nextBestAction(){
@@ -986,7 +1035,7 @@ export default function GameApp(opts = {}) {
     const reason1 = un[0] ? `ยังไม่สแกนจุดสัมผัสสูง: ${un[0].name}` : `ลองตรวจ ${nba||'จุดเสี่ยง'} เพราะคุ้มสุด`;
     const reason2 = un[1] ? `อีกจุดสำคัญ: ${un[1].name}` : (STATE.timeLeft <= Math.max(20, Math.floor(STATE.timeTotal*0.25)) ? 'เวลาใกล้หมด — เลือกจุดคุ้มงบ' : 'ใช้ Swab เพื่อยืนยันก่อน');
 
-    const key = `${STATE.stage}|${STATE.phase}|${risk}|${nba}|${reason1}|${reason2}|${STATE.trick.fired?1:0}`;
+    const key = `${STATE.stage}|${STATE.phase}|${risk}|${nba}|${reason1}|${reason2}|${STATE.trick.fired?1:0}|${STATE.combo.streak}`;
     if(key === STATE.coach.lastKey) return;
 
     const stuck = (STATE.stage===1 && scannedCount() < warmNeedByDiff(cfg.diff) && STATE.timeLeft < STATE.timeTotal-15);
@@ -994,7 +1043,7 @@ export default function GameApp(opts = {}) {
 
     const rp = $('gdRiskPill'); if(rp) rp.textContent = `risk: ${risk}`;
     const box = $('gdCoachBox');
-    if(box) box.textContent = `risk=${risk} • next=${nba||'-'} • stage=${STATE.stage} • phase=${STATE.phase}`;
+    if(box) box.textContent = `risk=${risk} • next=${nba||'-'} • stage=${STATE.stage} • phase=${STATE.phase} • combo=x${STATE.combo.streak}`;
 
     if(warn && nba){
       showCoach(`AI Coach: แนะนำไปที่ “${nba}”`, `เหตุผล: (1) ${reason1} (2) ${reason2}`);
@@ -1004,17 +1053,15 @@ export default function GameApp(opts = {}) {
     }
   }
 
-  // ---------- Trick Event (seeded) ----------
+  // ---------- Trick ----------
   function armTrick(){
-    // Trigger somewhere mid-round, but only when stage>=2
     const total = STATE.timeTotal;
-    const leftAt = Math.floor(total * (0.62 + RNG()*0.14)); // 62%..76% of total time left threshold
+    const leftAt = Math.floor(total * (0.62 + RNG()*0.14));
     STATE.trick.fired = false;
     STATE.trick.triggerLeft = clamp(leftAt, 20, total-10);
     STATE.trick.targets = [];
     STATE.trick.spike = 0;
 
-    // pre-pick targets (deterministic)
     const cand = STATE.hotspots.slice().sort((a,b)=>{
       const sa = (b.risk + b.importance*10) - (a.risk + a.importance*10);
       return sa;
@@ -1033,20 +1080,14 @@ export default function GameApp(opts = {}) {
     if(!cfg.trickEnabled) return;
     if(STATE.ended || !STATE.running || STATE.paused) return;
     if(STATE.trick.fired) return;
-
-    // only after stage 2 begins
     if(STATE.stage < 2) return;
-
-    // fire when timeLeft <= triggerLeft
     if(STATE.timeLeft > STATE.trick.triggerLeft) return;
 
-    // choose targets not cleaned; if cleaned, pick next best
     const chosen=[];
     for(const name of (STATE.trick.targets||[])){
       const h = STATE.hotspots.find(x=>x.name===name);
       if(h && !h.cleaned) chosen.push(h);
     }
-    // fallback if all cleaned
     if(!chosen.length){
       const fallback = STATE.hotspots
         .filter(h=>!h.cleaned)
@@ -1057,26 +1098,25 @@ export default function GameApp(opts = {}) {
     }
 
     const spike = STATE.trick.spike || 24;
-
     chosen.forEach(h=>{
       const before = Math.round(h.risk);
       h.risk = clamp(h.risk + spike + RNG()*6, 0, 100);
       applySpotClass(h);
       if(cfg.fx){
-        popNearEl(h.el, `+${Math.round(h.risk-before)} RISK!`, 'warn');
         pulse(h.el);
+        shockwaveNearEl(h.el, 'warn');
+        popNearEl(h.el, `+${Math.round(h.risk-before)} RISK!`, 'warn');
       }
     });
 
     STATE.trick.fired = true;
-
-    // update pill
     refreshPills();
 
     const targets = chosen.map(h=>h.name);
     emitHHA('trick_contamination', { targets, spike });
     emitLabels('trick', { targets, spike });
 
+    comboReset('trick_fired');
     if(cfg.fx) shake(cfg.fxShakeMs);
 
     showCoach('TRICK! 🦠 Contamination Spike!', `จุดเสี่ยงพุ่ง: ${targets.join(', ')} • รีบ Swab/ Clean ให้คุ้มงบ`);
@@ -1091,13 +1131,14 @@ export default function GameApp(opts = {}) {
     const p2 = $('gdPillStage'); if(p2) p2.textContent = `stage: ${STATE.stage}`;
     const p3 = $('gdPillTool');  if(p3) p3.textContent = `tool: ${toolTxt}`;
     const mp = $('gdMissionPill'); if(mp) mp.textContent = m;
-
     const tp = $('gdPillTrick');
     if(tp){
       tp.textContent = cfg.trickEnabled
         ? (STATE.trick.fired ? 'trick: fired' : `trick: armed@≤${STATE.trick.triggerLeft}s`)
         : 'trick: off';
     }
+    const cp = $('gdPillCombo');
+    if(cp) cp.textContent = `combo: x${STATE.combo.streak}`;
   }
 
   function updateTimerUI(){
@@ -1114,11 +1155,8 @@ export default function GameApp(opts = {}) {
     if(list){
       list.innerHTML = '';
       const last = STATE.budget.actions.slice(-6).reverse();
-      if(!last.length){
-        list.appendChild(mkItem(`ยังไม่ใช้ Clean • งบคงเหลือ ${left}`));
-      } else {
-        last.forEach(a=> list.appendChild(mkItem(`Clean: ${a.target} • -${a.cost} • risk ${a.riskBefore}→${a.riskAfter}`)));
-      }
+      if(!last.length) list.appendChild(mkItem(`ยังไม่ใช้ Clean • งบคงเหลือ ${left}`));
+      else last.forEach(a=> list.appendChild(mkItem(`Clean: ${a.target} • -${a.cost} • risk ${a.riskBefore}→${a.riskAfter}`)));
     }
   }
 
@@ -1128,11 +1166,8 @@ export default function GameApp(opts = {}) {
     if(list){
       list.innerHTML = '';
       const last = STATE.evidence.slice(-10).reverse();
-      if(!last.length){
-        list.appendChild(mkItem('ยังไม่มีหลักฐาน • เริ่มจาก UV ที่ “ลูกบิด/มือถือ/ช้อนกลาง”'));
-      } else {
-        last.forEach(e=> list.appendChild(mkItem(`${String(e.type||'').toUpperCase()} • ${e.target} • ${e.info||''}`)));
-      }
+      if(!last.length) list.appendChild(mkItem('ยังไม่มีหลักฐาน • เริ่มจาก UV ที่ “ลูกบิด/มือถือ/ช้อนกลาง”'));
+      else last.forEach(e=> list.appendChild(mkItem(`${String(e.type||'').toUpperCase()} • ${e.target} • ${e.info||''}`)));
     }
   }
 
@@ -1156,6 +1191,7 @@ export default function GameApp(opts = {}) {
     box.appendChild(mkItem(`Stage 1: UV อย่างน้อย ${warmNeed} จุด (ตอนนี้ ${warmDone}/${warmNeed})`));
     box.appendChild(mkItem(`Stage 2: ต่อ chain A→B→C (ตอนนี้ ${chainShort() || 'ยังไม่มี'})`));
     box.appendChild(mkItem(`Stage 3: Clean ลด risk เฉลี่ย ≤ ${bossTarget} (ตอนนี้ ${bossScore})`));
+    box.appendChild(mkItem(`Combo: x${STATE.combo.streak} • best x${STATE.combo.best} • bonus ${STATE.combo.bonus}`));
     box.appendChild(mkItem(`Trick: contamination 1 ครั้ง/รอบ (${STATE.trick.fired?'เกิดแล้ว ✅':'ยังไม่เกิด…'})`));
 
     if(STATE.stage===1 && warmDone >= warmNeed){
@@ -1170,7 +1206,6 @@ export default function GameApp(opts = {}) {
     if(STATE.stage===3 && bossDone){
       setPhase('report');
       showCoach('ผ่าน Boss แล้ว! ✅', cfg.autoReportOnBossClear ? 'กำลังสรุปผลอัตโนมัติ…' : 'กด “ส่งรายงาน”');
-
       if(cfg.autoReportOnBossClear && !STATE._autoReportFired && !STATE.ended){
         STATE._autoReportFired = true;
         setTimeout(()=>{ if(!STATE.ended) end('auto_report'); }, clamp(cfg.autoReportDelayMs, 200, 4000));
@@ -1178,7 +1213,7 @@ export default function GameApp(opts = {}) {
     }
   }
 
-  // ---------- shoot support (cVR) ----------
+  // ---------- shoot support ----------
   function hotspotFromPoint(x,y,lockPx){
     let elAt=null;
     try{ elAt = DOC.elementFromPoint(x,y); }catch{}
@@ -1213,11 +1248,15 @@ export default function GameApp(opts = {}) {
       onHotspotAction(h, d.source || 'shoot');
     } else {
       emitHHA('shoot_miss', { x,y,lockPx, source:d.source||'shoot' });
-      if(cfg.fx) popText('MISS', x, y, 'bad');
+      comboReset('shoot_miss');
+      if(cfg.fx){
+        popText('MISS', x, y, 'bad');
+        shockwave(x, y, 'bad');
+      }
     }
   }
 
-  // ---------- scoring + badges + modal (unchanged core) ----------
+  // ---------- scoring ----------
   function computeScore(reason){
     const truthInf = STATE.hotspots.filter(h=>h._infected).map(h=>h.name);
     const predicted = STATE.hotspots.filter(h=>h.verified).map(h=>h.name);
@@ -1250,8 +1289,14 @@ export default function GameApp(opts = {}) {
     const bossOk = avgEnd <= bossTargetByDiff(cfg.diff);
     const missionBonus = (warmOk?6:0) + (trickOk?10:0) + (bossOk?14:0);
 
-    const base = accScore*0.30 + chainScore*0.24 + interventionScore*0.26 + speedScore*0.20;
-    const final = Math.round(clamp(base + missionBonus, 0, 100));
+    // ✅ combo bonus: capped and fair
+    const comboScore = Math.round(clamp(
+      Math.min(STATE.combo.best * 2, 14) + Math.min(STATE.combo.bonus, 18),
+      0, 24
+    ));
+
+    const base = accScore*0.28 + chainScore*0.24 + interventionScore*0.24 + speedScore*0.16;
+    const final = Math.round(clamp(base + missionBonus + comboScore, 0, 100));
     const rank  = final>=90?'S':final>=80?'A':final>=70?'B':final>=60?'C':'D';
 
     const score = {
@@ -1261,6 +1306,7 @@ export default function GameApp(opts = {}) {
       speed:{score:speedScore,timeLeft:STATE.timeLeft,timeTotal:STATE.timeTotal},
       intervention:{score:interventionScore,avgRiskStart:avgStart,avgRiskEnd:avgEnd,budgetSpent:STATE.budget.spent,budgetLeft:budgetLeft()},
       mission:{warmOk,trickOk,bossOk,bonus:missionBonus},
+      combo:{best:STATE.combo.best, bonus:STATE.combo.bonus, score:comboScore, breaks:STATE.combo.breaks},
       seed:String(cfg.seed||''),
       ctx:Object.assign({ pid:cfg.pid, run:cfg.run, diff:cfg.diff, scene:cfg.scene, view:cfg.view }, CTX)
     };
@@ -1277,6 +1323,7 @@ export default function GameApp(opts = {}) {
     if(pctSpent <= 0.55 && score.intervention.score >= 70) badges.push({ id:'budget', label:'💰 Budget Hero' });
     const speedPct = score.speed.timeTotal ? (score.speed.timeLeft/score.speed.timeTotal) : 0;
     if(speedPct >= 0.35) badges.push({ id:'speed', label:'⚡ Speed Runner' });
+    if(score.combo.best >= 6) badges.push({ id:'combo', label:'🔥 Combo Brain' });
     return badges;
   }
 
@@ -1298,17 +1345,17 @@ export default function GameApp(opts = {}) {
 
     $('gdResFinal').textContent = String(score.final);
     $('gdResChain').textContent = score.chain.chain || '-';
-    $('gdResRisk').textContent  = `avgRisk: ${score.intervention.avgRiskEnd} (start ${score.intervention.avgRiskStart}) • budgetLeft ${score.intervention.budgetLeft}`;
-    $('gdResMission').textContent = `Mission: Warm=${score.mission.warmOk?'✅':'❌'} Trick=${score.mission.trickOk?'✅':'❌'} Boss=${score.mission.bossOk?'✅':'❌'} • bonus +${score.mission.bonus}`;
+    $('gdResRisk').textContent  = `avgRisk: ${score.intervention.avgRiskEnd} (start ${score.intervention.avgRiskStart}) • budgetLeft ${score.intervention.budgetLeft} • combo ${score.combo.score}`;
+    $('gdResMission').textContent = `Mission: Warm=${score.mission.warmOk?'✅':'❌'} Trick=${score.mission.trickOk?'✅':'❌'} Boss=${score.mission.bossOk?'✅':'❌'} • bonus +${score.mission.bonus} • combo +${score.combo.score}`;
 
     $('gdResAcc').textContent = String(score.accuracy.score);
     $('gdResAccSub').textContent = `TP ${score.accuracy.tp} FP ${score.accuracy.fp} FN ${score.accuracy.fn} • P ${score.accuracy.precision} R ${score.accuracy.recall}`;
 
     $('gdResInt').textContent = String(score.intervention.score);
-    $('gdResIntSub').textContent = `spent ${score.intervention.budgetSpent} • left ${score.intervention.budgetLeft}`;
+    $('gdResIntSub').textContent = `spent ${score.intervention.budgetSpent} • left ${score.intervention.budgetLeft} • combo best x${score.combo.best}`;
 
     $('gdResChainScore').textContent = String(score.chain.score);
-    $('gdResChainSub').textContent = `match ${score.chain.hit}/${score.chain.truthPairs}`;
+    $('gdResChainSub').textContent = `match ${score.chain.hit}/${score.chain.truthPairs} • breaks ${score.combo.breaks}`;
 
     $('gdResSpeed').textContent = String(score.speed.score);
     $('gdResSpeedSub').textContent = `timeLeft ${score.speed.timeLeft}/${score.speed.timeTotal}`;
@@ -1320,6 +1367,7 @@ export default function GameApp(opts = {}) {
       {id:'chain', label:'🧩 Chain Master'},
       {id:'budget', label:'💰 Budget Hero'},
       {id:'speed', label:'⚡ Speed Runner'},
+      {id:'combo', label:'🔥 Combo Brain'},
     ];
     const on = new Set((score.badges||[]).map(b=>b.id));
     all.forEach(b=>{
@@ -1338,7 +1386,7 @@ export default function GameApp(opts = {}) {
     if(MODAL) MODAL.classList.remove('show');
   }
 
-  // ---------- CSV export ----------
+  // ---------- CSV ----------
   function makeSummaryCSV(score){
     const rows=[];
     rows.push([
@@ -1350,6 +1398,7 @@ export default function GameApp(opts = {}) {
       'speedScore','timeLeft','timeTotal',
       'interventionScore','avgRiskStart','avgRiskEnd','budgetSpent','budgetLeft',
       'missionWarm','missionTrick','missionBoss','missionBonus',
+      'comboBest','comboBonus','comboScore','comboBreaks',
       'badges'
     ]);
     rows.push([
@@ -1361,6 +1410,7 @@ export default function GameApp(opts = {}) {
       score.speed.score,score.speed.timeLeft,score.speed.timeTotal,
       score.intervention.score,score.intervention.avgRiskStart,score.intervention.avgRiskEnd,score.intervention.budgetSpent,score.intervention.budgetLeft,
       score.mission.warmOk?1:0,score.mission.trickOk?1:0,score.mission.bossOk?1:0,score.mission.bonus,
+      score.combo.best,score.combo.bonus,score.combo.score,score.combo.breaks,
       (score.badges||[]).map(b=>b.id).join('|')
     ]);
 
@@ -1424,7 +1474,10 @@ export default function GameApp(opts = {}) {
       riskScore: computeRiskScore(),
       nextBestAction: nextBestAction(),
       chain: (STATE.chain.inferred||[]).slice(0,4).join('>') || '',
-      trick: cfg.trickEnabled ? (STATE.trick.fired?'fired':'armed') : 'off'
+      trick: cfg.trickEnabled ? (STATE.trick.fired?'fired':'armed') : 'off',
+      comboStreak: STATE.combo.streak,
+      comboBest: STATE.combo.best,
+      comboBonus: STATE.combo.bonus
     }, { pid:cfg.pid, run:cfg.run, diff:cfg.diff, scene:cfg.scene, view:cfg.view, seed:String(cfg.seed||'') }, CTX);
 
     try{ WIN.dispatchEvent(new CustomEvent('hha:features_1s', { detail: feat })); }catch{}
@@ -1443,14 +1496,18 @@ export default function GameApp(opts = {}) {
 
     STATE._timer = setInterval(()=>{
       if(!STATE.running || STATE.paused || STATE.ended) return;
+
+      // combo expires if too long without actions
+      if(STATE.combo.streak > 0 && (nowMs() - STATE.combo.lastAt) > clamp(cfg.comboWindowMs, 1000, 8000)){
+        comboReset('timeout');
+        refreshPills();
+      }
+
       STATE.timeLeft = Math.max(0, STATE.timeLeft - 1);
       updateTimerUI();
       emitFeatures();
       updateMissionUI();
-
-      // ✅ check trick in timer too (works even if player stops clicking)
       maybeFireTrick();
-
       coachTick();
       if(STATE.timeLeft <= 0) end('timeup');
     }, 1000);
@@ -1521,6 +1578,7 @@ export default function GameApp(opts = {}) {
     STATE.chain.inferred.length = 0;
     STATE.score = null;
     STATE._autoReportFired = false;
+    STATE.combo = { streak:0, best:0, lastAt:0, bonus:0, breaks:0 };
 
     EVENT_LOG.length = 0;
 
@@ -1534,10 +1592,10 @@ export default function GameApp(opts = {}) {
     updateMissionUI();
 
     startLoops();
-    showCoach(sameSeed?'Same Seed ✅':'Retry ✅', 'UV → Swab → Chain → Clean');
+    showCoach(sameSeed?'Same Seed ✅':'Retry ✅', 'รักษา combo ให้ต่อเนื่อง แล้ว Rank จะพุ่ง');
   }
 
-  // ---------- boot ----------
+  // ---------- init ----------
   function init(){
     buildHotspots();
     armTrick();
@@ -1589,8 +1647,8 @@ export default function GameApp(opts = {}) {
     });
 
     startLoops();
-    showCoach('คดีเริ่มแล้ว! 🦠', 'ระวัง Trick contamination 1 ครั้ง/รอบ!');
-    emitHHA('boot_core', { ok:1, fx: cfg.fx?1:0, trick: cfg.trickEnabled?1:0 });
+    showCoach('คดีเริ่มแล้ว! 🦠', 'มี FX + Trick + Combo แล้ว ลุยให้เดือดได้เลย');
+    emitHHA('boot_core', { ok:1, fx: cfg.fx?1:0, trick: cfg.trickEnabled?1:0, combo:1 });
   }
 
   // ---------- public API ----------
