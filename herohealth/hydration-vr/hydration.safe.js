@@ -1,16 +1,8 @@
 // === /herohealth/hydration-vr/hydration.safe.js ===
 // Hydration VR SAFE — PRODUCTION
-// ✅ FX RESTORED: pop score + ring + bubble pop + screen shake
-// ✅ FIX: pauseOverlay duplicate -> HydPause single-owner
-// ✅ HUD-aware spawn (never under HUD)
-// ✅ Pause/Resume on background
-// ✅ MISS = bad hit only | EXPIRE separate | BLOCK separate
-// ✅ Storm/Boss/Final emoji by diff + shown on HUD/sign
-// ✅ Lightning requires shield + correct LEFT/RIGHT zone (B)
-// ✅ Zone switches in chunks (S2)
-// ✅ cVR zone control: tap L/R pads + deviceorientation tilt (optional)
-// ✅ Cooldown daily-first + NextCooldown button
-// FULL v20260305b-HYDRATION-SAFE-FX-RESTORE
+// ✅ FX++ : combo popup, phase banner, better pop feedback
+// ✅ All previous systems kept (PauseFix, LR zone B+S2, Storm/Boss/Final, cooldown, cVR pad/tilt)
+// FULL v20260305c-HYDRATION-SAFE-FXPLUS
 'use strict';
 
 export function boot(cfg){
@@ -28,11 +20,9 @@ export function boot(cfg){
   const diff = String(cfg.diff || qs('diff','normal')).toLowerCase();
   const plannedSec = clamp(cfg.time ?? qs('time','80'), 20, 300);
 
-  // ---------- Emoji mapping ----------
   function emojiFor(diffKey, phase){
     diffKey = String(diffKey||'normal').toLowerCase();
-    const P = String(phase||'normal').toLowerCase(); // normal|storm|boss|final
-
+    const P = String(phase||'normal').toLowerCase();
     if(diffKey === 'easy'){
       if(P==='storm') return '🌦️⚡';
       if(P==='boss')  return '⛈️⚡';
@@ -45,14 +35,13 @@ export function boot(cfg){
       if(P==='final') return '🌪️👑⚡⚡⚡🔥';
       return '💧';
     }
-    // normal
     if(P==='storm') return '🌩️⚡⚡';
     if(P==='boss')  return '⛈️🌀⚡';
     if(P==='final') return '🌪️👑⚡⚡';
     return '💧';
   }
 
-  // ---------- cooldown daily-first ----------
+  // cooldown
   function hhDayKey(){
     const d=new Date();
     return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
@@ -88,7 +77,7 @@ export function boot(cfg){
     return gate.toString();
   }
 
-  // ---------- RNG ----------
+  // RNG
   function xmur3(str){
     str=String(str||'');
     let h=1779033703^str.length;
@@ -132,16 +121,13 @@ export function boot(cfg){
   const HH_GAME='hydration';
   const cooldownRequired = !!cfg.cooldown || (qs('cooldown','0')==='1') || (qs('cd','0')==='1');
 
-  // ---------- DOM ----------
+  // DOM
   const layer = DOC.getElementById('layer');
   if(!layer){ console.warn('[Hydration] Missing #layer'); return; }
 
   const stageEl = DOC.getElementById('stage') || layer.parentElement;
-  const stormFx = DOC.getElementById('stormFx');
   const hudEl = DOC.querySelector('.hud');
   const zoneSign = DOC.getElementById('zoneSign');
-
-  // cVR pad buttons (optional)
   const btnZoneL = DOC.getElementById('btnZoneL');
   const btnZoneR = DOC.getElementById('btnZoneR');
 
@@ -150,9 +136,6 @@ export function boot(cfg){
       stageEl?.classList?.toggle('is-storm', p==='storm');
       stageEl?.classList?.toggle('is-boss',  p==='boss');
       stageEl?.classList?.toggle('is-final', p==='final');
-    }catch(e){}
-    try{
-      if(stormFx) stormFx.style.opacity = (p==='storm'||p==='boss'||p==='final') ? '1' : '0';
     }catch(e){}
   }
 
@@ -184,7 +167,7 @@ export function boot(cfg){
     btnBackHub: DOC.getElementById('btnBackHub')
   };
 
-  // ---------- tuning ----------
+  // tuning
   const TUNE = (function(){
     let spawnBase=0.78, ttlGood=2.9, ttlBad=3.0;
     let missLimit=6;
@@ -197,19 +180,8 @@ export function boot(cfg){
     let lightningRate=0.9, bossLightningRate=1.2;
     let lightningDmgWater=7.0, lightningDmgScore=6;
 
-    // FINAL
-    let finalNeedHits=10;
-    let finalSec=10;
-    let finalSpawnMul=1.35;
-    let finalBadP=0.55;
-    let finalLightningRate=1.35;
-
+    let finalNeedHits=10, finalSec=10, finalSpawnMul=1.35, finalBadP=0.55, finalLightningRate=1.35;
     let zoneChunkSec=3.0;
-
-    // FX scale
-    let fxRingScale=1.0;
-    let fxShakeOnBad=true;
-    let fxShakeOnLightning=true;
 
     if(diff==='easy'){
       spawnBase=0.66; ttlGood=3.2; ttlBad=3.2; missLimit=8; waterGain=8.5; waterLoss=5.2; shieldDrop=0.10;
@@ -217,11 +189,8 @@ export function boot(cfg){
       bossNeedHits=14; bossSpawnMul=1.08; bossBadP=0.34;
       lightningRate=0.65; bossLightningRate=0.90;
       lightningDmgWater=5.5; lightningDmgScore=4;
-
       finalNeedHits=7; finalSec=9; finalSpawnMul=1.20; finalBadP=0.45; finalLightningRate=1.05;
       zoneChunkSec=3.5;
-
-      fxRingScale=0.92;
     }
     if(diff==='hard'){
       spawnBase=0.95; ttlGood=2.5; ttlBad=2.6; missLimit=5; waterGain=6.8; waterLoss=7.0; shieldDrop=0.18;
@@ -229,27 +198,21 @@ export function boot(cfg){
       bossNeedHits=22; bossSpawnMul=1.22; bossBadP=0.50;
       lightningRate=1.05; bossLightningRate=1.55;
       lightningDmgWater=8.5; lightningDmgScore=8;
-
       finalNeedHits=12; finalSec=10; finalSpawnMul=1.55; finalBadP=0.62; finalLightningRate=1.75;
       zoneChunkSec=2.6;
-
-      fxRingScale=1.05;
     }
-
     if(view==='cvr'||view==='vr'){ ttlGood += 0.15; ttlBad += 0.15; }
-
     return {
       spawnBase, ttlGood, ttlBad, missLimit, waterGain, waterLoss, shieldDrop,
       stormSec, stormSpawnMul, stormBadP, stormTtlGoodMul,
       bossNeedHits, bossSpawnMul, bossBadP,
       lightningRate, bossLightningRate, lightningDmgWater, lightningDmgScore,
       finalNeedHits, finalSec, finalSpawnMul, finalBadP, finalLightningRate,
-      zoneChunkSec,
-      fxRingScale, fxShakeOnBad, fxShakeOnLightning
+      zoneChunkSec
     };
   })();
 
-  // ---------- state ----------
+  // state
   const startTimeIso = nowIso();
   let playing=true;
   let paused=false;
@@ -257,7 +220,6 @@ export function boot(cfg){
   let lastTick=nowMs();
 
   let score=0;
-
   let missBadHit=0;
   let missGoodExpired=0;
   let blockCount=0;
@@ -266,29 +228,22 @@ export function boot(cfg){
   let shield=0;
   let waterPct=30;
 
-  // phases: normal|storm|boss|final
   let phase='normal';
   let stormLeft=0;
   let stormDone=false;
 
   let bossHits=0, bossGoal=0;
 
-  // final
   let finalHits=0, finalGoal=0;
   let finalLeft=0;
 
-  // zone (B + S2)
   let needZone='L';
   let zoneT=0;
 
-  // aimX01 for zone check
+  // aim
   let aimX01=0.5;
-
-  function isInNeededZone(){
-    return (needZone==='L') ? (aimX01 < 0.5) : (aimX01 >= 0.5);
-  }
+  function isInNeededZone(){ return (needZone==='L') ? (aimX01 < 0.5) : (aimX01 >= 0.5); }
   function swapZone(){ needZone = (needZone === 'L') ? 'R' : 'L'; }
-
   function updateAimFromEvent(ev){
     try{
       const r = layer.getBoundingClientRect();
@@ -298,14 +253,10 @@ export function boot(cfg){
   }
   layer.addEventListener('pointermove', (ev)=>{ updateAimFromEvent(ev); }, { passive:true });
   layer.addEventListener('pointerdown', (ev)=>{ updateAimFromEvent(ev); }, { passive:true });
-
-  // cVR pad set aim
   if(btnZoneL && btnZoneR){
     btnZoneL.onclick = ()=>{ aimX01 = 0.25; };
     btnZoneR.onclick = ()=>{ aimX01 = 0.75; };
   }
-
-  // optional tilt in cVR/vr
   if(view==='cvr' || view==='vr'){
     WIN.addEventListener('deviceorientation', (ev)=>{
       try{
@@ -317,10 +268,9 @@ export function boot(cfg){
     }, { passive:true });
   }
 
-  // ====== Pause overlay single-owner (no redeclare) ======
+  // Pause overlay
   const HydPause = (() => {
     let overlay = null;
-
     function show(){
       if(overlay) return;
       overlay = DOC.createElement('div');
@@ -353,47 +303,38 @@ export function boot(cfg){
         lastTick = nowMs();
         requestAnimationFrame(loop);
       };
-
       overlay.addEventListener('pointerdown', resume, { passive:true });
       const btn = DOC.getElementById('btnResume');
       if(btn) btn.onclick = resume;
     }
-
     function hide(){
       if(!overlay) return;
       try{ overlay.remove(); }catch(e){}
       overlay = null;
     }
-
     return { show, hide };
   })();
 
-  // ========= FX helpers =========
+  // ===== FX helpers =====
   function fxShake(){
     try{
       if(!stageEl) return;
       stageEl.classList.remove('fx-shake');
-      // force reflow
       void stageEl.offsetWidth;
       stageEl.classList.add('fx-shake');
       setTimeout(()=>{ try{ stageEl.classList.remove('fx-shake'); }catch(e){} }, 220);
     }catch(e){}
   }
-
   function fxRing(x, y){
     try{
       const el = DOC.createElement('div');
       el.className = 'fx-ring';
       el.style.left = `${x}px`;
       el.style.top  = `${y}px`;
-      if(TUNE.fxRingScale && TUNE.fxRingScale !== 1){
-        el.style.transform = `translate(-50%, -50%) scale(${TUNE.fxRingScale})`;
-      }
       layer.appendChild(el);
       setTimeout(()=>{ try{ el.remove(); }catch(e){} }, 520);
     }catch(e){}
   }
-
   function fxScore(x, y, text){
     try{
       const el = DOC.createElement('div');
@@ -405,19 +346,27 @@ export function boot(cfg){
       setTimeout(()=>{ try{ el.remove(); }catch(e){} }, 900);
     }catch(e){}
   }
-
   function fxBubblePop(bubbleEl, kind){
     try{
       if(!bubbleEl) return;
       bubbleEl.classList.remove('fx-pop','fx-bad');
-      // force reflow
       void bubbleEl.offsetWidth;
       bubbleEl.classList.add(kind==='bad' ? 'fx-bad' : 'fx-pop');
-      // removal handled by game; class just animates
+    }catch(e){}
+  }
+  function fxPhaseBanner(text){
+    // centered banner using fxScore + ring
+    try{
+      const r = layer.getBoundingClientRect();
+      const cx = r.width/2;
+      const cy = Math.max(120, Math.min(r.height*0.30, 260));
+      fxRing(cx, cy);
+      fxScore(cx, cy, text);
+      fxShake();
     }catch(e){}
   }
 
-  // FX lightning (visual)
+  // lightning visuals
   function lightning(){
     if(!stageEl) return;
     try{
@@ -439,12 +388,9 @@ export function boot(cfg){
   // targets
   const bubbles = new Map();
   let idSeq=1;
-
   const GOOD = ['💧','💦','🫗'];
   const BAD  = ['🧋','🥤','🍟'];
   const SHLD = ['🛡️'];
-
-  function layerRect(){ return layer.getBoundingClientRect(); }
 
   function gradeFromScore(s){
     const played = Math.max(1, plannedSec - tLeft);
@@ -479,7 +425,7 @@ export function boot(cfg){
     if(zoneSign){
       if(phase==='storm' || phase==='boss' || phase==='final'){
         const emo = emojiFor(diff, phase);
-        zoneSign.textContent = `${emo} SAFE ZONE: ${needZone==='L'?'⬅️ LEFT':'➡️ RIGHT'} + 🛡️`;
+        zoneSign.textContent = `${emo} SAFE: ${needZone==='L'?'⬅️LEFT':'➡️RIGHT'} + 🛡️`;
       }else{
         zoneSign.textContent = '';
       }
@@ -508,7 +454,7 @@ export function boot(cfg){
   setInterval(measureHudBottom, 600);
 
   function safeSpawnXY(){
-    const r=layerRect();
+    const r=layer.getBoundingClientRect();
     const pad = (view==='mobile') ? 18 : 22;
     const gap = (view==='mobile') ? 14 : 12;
     const yMin = clamp((_hudBottom - r.top) + gap, pad + 10, r.height - 60);
@@ -549,15 +495,12 @@ export function boot(cfg){
 
   function addShield(){ shield = clamp(shield + 1, 0, 9); }
 
-  // lightning strike: also FX ring + shake
   function applyLightningStrike(rate){
     if(r01() < rate){
       lightning();
-      if(TUNE.fxShakeOnLightning) fxShake();
-
-      // ring at center for feedback
+      fxShake();
       try{
-        const r = layerRect();
+        const r = layer.getBoundingClientRect();
         fxRing(r.width/2, r.height/2);
         fxScore(r.width/2, r.height/2, '⚡');
       }catch(e){}
@@ -566,10 +509,12 @@ export function boot(cfg){
       if(shield > 0 && okZone){
         shield--;
         blockCount++;
+        fxScore(120, 230, 'BLOCK⚡');
       }else{
         combo = 0;
         waterPct = clamp(waterPct - TUNE.lightningDmgWater, 0, 100);
         score = Math.max(0, score - TUNE.lightningDmgScore);
+        fxScore(120, 230, `-${TUNE.lightningDmgScore}⚡`);
       }
     }
   }
@@ -577,7 +522,6 @@ export function boot(cfg){
   function hit(b){
     if(!playing || paused) return;
 
-    // position for FX
     let bx=0, by=0;
     try{
       const bb = b.el.getBoundingClientRect();
@@ -588,17 +532,21 @@ export function boot(cfg){
 
     if(b.kind==='good'){
       combo++; bestCombo=Math.max(bestCombo, combo);
-      const add = (10 + Math.min(12, combo));
+
+      // combo multiplier text (visual only)
+      const mult = (combo>=14) ? 3 : (combo>=7) ? 2 : 1;
+      const add = Math.round((10 + Math.min(12, combo)) * mult);
+
       score += add;
       waterPct = clamp(waterPct + TUNE.waterGain, 0, 100);
 
-      // FX
       fxBubblePop(b.el, 'good');
       fxRing(bx, by);
-      fxScore(bx, by, `+${add}`);
+      fxScore(bx, by, `+${add}${mult>1?` x${mult}`:''}`);
 
       if(phase==='boss'){
         bossHits++;
+        fxScore(bx, by-12, `${bossHits}/${bossGoal}`);
         if(bossHits >= bossGoal){
           phase = 'final';
           setStagePhase('final');
@@ -607,18 +555,17 @@ export function boot(cfg){
           finalLeft = TUNE.finalSec;
           zoneT = 0;
           needZone = (r01()<0.5) ? 'L' : 'R';
-          fxScore(bx, by, '👑 FINAL!');
+          fxPhaseBanner(`${emojiFor(diff,'final')} FINAL BOSS`);
         }
       }else if(phase==='final'){
         finalHits++;
-        fxScore(bx, by-10, `${finalHits}/${finalGoal}`);
+        fxScore(bx, by-12, `${finalHits}/${finalGoal}`);
         if(finalHits >= finalGoal){
           showEnd('final-clear');
           return;
         }
       }
 
-      // remove after tiny delay so animation shows
       setTimeout(()=>removeBubble(b.id), 50);
       return;
     }
@@ -654,7 +601,7 @@ export function boot(cfg){
     score = Math.max(0, score - 8);
     waterPct = clamp(waterPct - TUNE.waterLoss, 0, 100);
 
-    if(TUNE.fxShakeOnBad) fxShake();
+    fxShake();
     fxBubblePop(b.el, 'bad');
     fxRing(bx, by);
     fxScore(bx, by, '-8');
@@ -675,7 +622,7 @@ export function boot(cfg){
   function pickClosestToCenter(lockPx){
     lockPx = clamp(lockPx ?? 56, 16, 160);
     let best=null, bestD=1e9;
-    const r=layerRect();
+    const r=layer.getBoundingClientRect();
     const cx=r.left + r.width/2;
     const cy=r.top  + r.height/2;
     for(const b of bubbles.values()){
@@ -694,7 +641,36 @@ export function boot(cfg){
     if(b) hit(b);
   });
 
-  // end summary
+  // expire
+  function updateBubbles(){
+    const t=nowMs();
+    const lr = layer.getBoundingClientRect();
+
+    for(const b of Array.from(bubbles.values())){
+      if(t - b.born >= b.ttl){
+        if(b.kind==='good'){
+          missGoodExpired++;
+          combo=0;
+          score = Math.max(0, score - 4);
+          waterPct = clamp(waterPct - 4.5, 0, 100);
+
+          try{
+            const bb = b.el.getBoundingClientRect();
+            const bx = (bb.left + bb.width/2) - lr.left;
+            const by = (bb.top + bb.height/2) - lr.top;
+            fxBubblePop(b.el, 'bad');
+            fxRing(bx, by);
+            fxScore(bx, by, 'MISS💧');
+          }catch(e){}
+        }else{
+          try{ fxBubblePop(b.el, 'good'); }catch(e){}
+        }
+        setTimeout(()=>removeBubble(b.id), 40);
+      }
+    }
+  }
+
+  // end & summary
   const END_SENT_KEY='__HHA_HYD_END_SENT__';
   function dispatchEndOnce(summary){
     try{
@@ -707,7 +683,7 @@ export function boot(cfg){
   function buildSummary(reason){
     return {
       projectTag:'HydrationVR',
-      gameVersion:'HydrationVR_SAFE_2026-03-05b_FXRestore',
+      gameVersion:'HydrationVR_SAFE_2026-03-05c_FXPlus',
       device:view, runMode, diff, seed:seedStr,
       reason:String(reason||''),
       durationPlannedSec: plannedSec,
@@ -720,10 +696,8 @@ export function boot(cfg){
       shield: shield|0,
       waterPct: Math.round(clamp(waterPct,0,100)),
       phaseFinal: phase,
-      bossHits: bossHits|0,
-      bossGoal: bossGoal|0,
-      finalHits: finalHits|0,
-      finalGoal: finalGoal|0,
+      bossHits: bossHits|0, bossGoal: bossGoal|0,
+      finalHits: finalHits|0, finalGoal: finalGoal|0,
       startTimeIso,
       endTimeIso: nowIso(),
       grade: gradeFromScore(score)
@@ -797,23 +771,24 @@ export function boot(cfg){
     }
   }
 
-  // spawn & phases
-  let spawnAcc=0;
+  function checkEnd(){
+    if(tLeft<=0){ showEnd('time'); return true; }
+    if(missBadHit >= TUNE.missLimit){ showEnd('miss-limit'); return true; }
+    if(waterPct<=0){ showEnd('dehydrated'); return true; }
+    return false;
+  }
 
+  // spawn
+  let spawnAcc=0;
   function spawnTick(dt){
-    // shield decay
     if(shield>0 && r01() < dt*TUNE.shieldDrop) shield = Math.max(0, shield-1);
 
-    // storm start once
     if(!stormDone && phase==='normal' && tLeft <= plannedSec*0.62){
-      phase='storm';
-      setStagePhase('storm');
-      stormLeft=TUNE.stormSec;
-      stormDone=true;
-      zoneT=0;
-      needZone = (r01()<0.5) ? 'L' : 'R';
+      phase='storm'; setStagePhase('storm');
+      stormLeft=TUNE.stormSec; stormDone=true;
+      zoneT=0; needZone = (r01()<0.5) ? 'L' : 'R';
       lightning();
-      fxScore(80, 180, `${emojiFor(diff,'storm')} STORM`);
+      fxPhaseBanner(`${emojiFor(diff,'storm')} STORM`);
     }
 
     if(phase==='storm'){
@@ -822,22 +797,17 @@ export function boot(cfg){
       if(zoneT >= TUNE.zoneChunkSec){ zoneT = 0; swapZone(); }
       applyLightningStrike(dt * TUNE.lightningRate);
       if(stormLeft <= 0){
-        phase='normal';
-        setStagePhase('normal');
+        phase='normal'; setStagePhase('normal');
       }
     }
 
-    // boss start after storm happened
     if(phase==='normal' && stormDone){
       if(tLeft <= plannedSec*0.38 && waterPct >= 55){
-        phase='boss';
-        setStagePhase('boss');
-        bossHits=0;
-        bossGoal=TUNE.bossNeedHits;
-        zoneT=0;
-        needZone = (r01()<0.5) ? 'L' : 'R';
+        phase='boss'; setStagePhase('boss');
+        bossHits=0; bossGoal=TUNE.bossNeedHits;
+        zoneT=0; needZone = (r01()<0.5) ? 'L' : 'R';
         lightning();
-        fxScore(80, 210, `${emojiFor(diff,'boss')} BOSS`);
+        fxPhaseBanner(`${emojiFor(diff,'boss')} BOSS`);
       }
     }
 
@@ -852,10 +822,8 @@ export function boot(cfg){
       zoneT += dt;
       if(zoneT >= TUNE.zoneChunkSec){ zoneT = 0; swapZone(); }
       applyLightningStrike(dt * TUNE.finalLightningRate);
-
       if(finalLeft <= 0){
-        showEnd('final-timeout');
-        return;
+        showEnd('final-timeout'); return;
       }
     }
 
@@ -897,43 +865,7 @@ export function boot(cfg){
     }
   }
 
-  function updateBubbles(){
-    const t=nowMs();
-    const lr = layer.getBoundingClientRect();
-
-    for(const b of Array.from(bubbles.values())){
-      if(t - b.born >= b.ttl){
-        if(b.kind==='good'){
-          missGoodExpired++;
-          combo=0;
-          score = Math.max(0, score - 4);
-          waterPct = clamp(waterPct - 4.5, 0, 100);
-
-          // FX expire
-          try{
-            const bb = b.el.getBoundingClientRect();
-            const bx = (bb.left + bb.width/2) - lr.left;
-            const by = (bb.top + bb.height/2) - lr.top;
-            fxBubblePop(b.el, 'bad');
-            fxRing(bx, by);
-            fxScore(bx, by, 'MISS💧');
-          }catch(e){}
-        }else{
-          // small pop for other expires
-          try{ fxBubblePop(b.el, 'good'); }catch(e){}
-        }
-        setTimeout(()=>removeBubble(b.id), 30);
-      }
-    }
-  }
-
-  function checkEnd(){
-    if(tLeft<=0){ showEnd('time'); return true; }
-    if(missBadHit >= TUNE.missLimit){ showEnd('miss-limit'); return true; }
-    if(waterPct<=0){ showEnd('dehydrated'); return true; }
-    return false;
-  }
-
+  // loop
   function loop(){
     if(!playing) return;
 
@@ -954,7 +886,6 @@ export function boot(cfg){
     spawnTick(dt);
     updateBubbles();
 
-    // AI hint
     try{
       const missPressure = (missBadHit/Math.max(1, TUNE.missLimit));
       const expirePressure = clamp(missGoodExpired/25, 0, 1);
@@ -989,7 +920,6 @@ export function boot(cfg){
     if(paused) HydPause.show();
   });
 
-  // start
   setHUD();
   requestAnimationFrame(loop);
 }
