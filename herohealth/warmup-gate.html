@@ -1,6 +1,6 @@
 <!-- === /herohealth/warmup-gate.html ===
 HeroHealth Warmup/Cooldown Gate — PER-GAME DAILY FULL
-FULL v20260307-PERGAME-WARMUP-COOLDOWN-SKINBUFF
+FULL v20260307-PERGAME-WARMUP-COOLDOWN-SKINBUFF-R4REAL
 ✅ DAILY = cat + game + pid + day (per-game daily)
 ✅ warmup/cooldown once-per-day per PID+category+game
 ✅ all zones + all games themed
@@ -11,9 +11,14 @@ FULL v20260307-PERGAME-WARMUP-COOLDOWN-SKINBUFF
 ✅ Non-P5 mode = lightweight themed mini-games
 ✅ per-game warmup dispatcher
 ✅ per-game cooldown dispatcher
-✅ hitCount-based accuracy (no score-based ACC inflation)
+✅ hitCount-based accuracy
 ✅ stage skin / badge per game
 ✅ summarized buff display
+✅ NEW REAL MECHANICS:
+   - Shadow = reaction lane
+   - Rhythm = beat lane (tap/hold)
+   - Handwash = 6-step order
+   - Bath = clean zones
 -->
 <!doctype html>
 <html lang="th">
@@ -649,11 +654,11 @@ FULL v20260307-PERGAME-WARMUP-COOLDOWN-SKINBUFF
       groups:'โฟกัสการแยกหมู่อาหารให้ไว',
       hydration:'โฟกัสน้ำและการเลือกสิ่งที่ช่วย hydration',
       plate:'โฟกัสความสมดุลของจานอาหาร',
-      handwash:'โฟกัสจุดสกปรกและลำดับการทำความสะอาด',
+      handwash:'โฟกัสลำดับล้างมือ 6 ขั้น',
       brush:'โฟกัสจังหวะและทิศทางการแปรง',
       maskcough:'โฟกัสการตัดสินใจป้องกันให้ถูกจังหวะ',
       germdetective:'โฟกัสการสังเกตสิ่งต้องสงสัย',
-      bath:'โฟกัสลำดับทำความสะอาดร่างกาย',
+      bath:'โฟกัสจุดสกปรกตามส่วนร่างกาย',
       clean:'โฟกัสการแยกของสะอาด/ไม่สะอาด',
       shadow:'โฟกัสรีแอคชันซ้าย/ขวา',
       rhythm:'โฟกัส timing ตาม beat',
@@ -868,8 +873,8 @@ FULL v20260307-PERGAME-WARMUP-COOLDOWN-SKINBUFF
     if(buff.wDmg) tags.push('Dmg');
     if(buff.wHeal) tags.push('Heal');
 
-    if(buff.foodFocus) tags.push('Healthy Focus');
-    if(buff.groupFocus) tags.push('Sort Ready');
+    if(buff.foodFocus) tags.push('Healthy');
+    if(buff.groupFocus) tags.push('Sort');
     if(buff.hydrationFocus) tags.push('Hydration');
     if(buff.balanceFocus) tags.push('Balance');
     if(buff.cleanFocus) tags.push('Clean');
@@ -1012,6 +1017,7 @@ FULL v20260307-PERGAME-WARMUP-COOLDOWN-SKINBUFF
     pad.style.display='grid';
     pad.style.gridTemplateColumns = `repeat(${cols}, minmax(0,1fr))`;
     pad.style.gap='8px';
+    pad.style.zIndex='2';
     stage.appendChild(pad);
     return pad;
   }
@@ -1054,6 +1060,9 @@ FULL v20260307-PERGAME-WARMUP-COOLDOWN-SKINBUFF
     return card;
   }
 
+  // ---------------------------
+  // Base minigames
+  // ---------------------------
   function runP5_TargetRush(opts){
     gameTitle.textContent = opts.title;
     desc.textContent = opts.desc;
@@ -1384,14 +1393,12 @@ FULL v20260307-PERGAME-WARMUP-COOLDOWN-SKINBUFF
     const pad=mkPad(2);
     const btnA=mkBtn('ซ้าย'); const btnB=mkBtn('ขวา');
     btnA.style.padding='14px 12px'; btnB.style.padding='14px 12px';
-    btnA.style.zIndex='2'; btnB.style.zIndex='2';
     pad.appendChild(btnA); pad.appendChild(btnB);
 
     const pad2=mkPad(2);
     pad2.style.bottom='64px';
     const btnC=mkBtn('JUMP'); const btnD=mkBtn('DUCK');
     btnC.style.padding='14px 12px'; btnD.style.padding='14px 12px';
-    btnC.style.zIndex='2'; btnD.style.zIndex='2';
     pad2.appendChild(btnC); pad2.appendChild(btnD);
 
     const cmds = [
@@ -1793,89 +1800,465 @@ FULL v20260307-PERGAME-WARMUP-COOLDOWN-SKINBUFF
     nextStep();
   }
 
-  function runCooldown_BreathRing(title, descText){
-    gameTitle.textContent = title;
-    desc.textContent = descText;
+  // ---------------------------
+  // NEW real mechanics
+  // ---------------------------
+  function runReactionLaneWarmup(cfg){
+    gameTitle.textContent = cfg.title;
+    desc.textContent = cfg.desc;
     center.style.display='none';
-    addStageBadge(`${THEME.label} • breathe`);
+    addStageBadge(`${THEME.label} • reaction`);
 
-    const card=DOC.createElement('div');
-    Object.assign(card.style,{
-      position:'absolute',left:'50%',top:'50%',transform:'translate(-50%,-52%)',
-      width:'min(620px,92%)',padding:'14px',
-      borderRadius:'18px',border:'1px solid rgba(148,163,184,.18)',
-      background:'rgba(2,6,23,.50)',textAlign:'center',
-      zIndex:'2'
-    });
+    const card = makeCardBox({ width:'min(760px,95%)' });
     card.innerHTML = `
-      <div style="font-weight:1100;font-size:16px;">${title}</div>
-      <div class="muted" style="margin-top:6px;">${descText}</div>
-      <div id="ringBox" style="position:relative; margin:14px auto 0; width:260px; height:260px;">
-        <div id="ring" style="position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
-          width:240px; height:240px; border-radius:999px; border:2px solid rgba(56,189,248,.35);
-          box-shadow:0 0 0 10px rgba(34,197,94,.06) inset;">
+      <div style="font-weight:1100;font-size:16px;">${cfg.title}</div>
+      <div class="muted" style="margin-top:6px;">${cfg.desc}</div>
+      <div style="margin-top:12px;display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:center;">
+        <div style="border:1px solid rgba(148,163,184,.18);border-radius:16px;padding:10px;background:rgba(2,6,23,.28);">
+          <div class="muted">LEFT</div>
+          <div id="rl-left" style="margin-top:8px;height:220px;border-radius:14px;background:rgba(15,23,42,.45);position:relative;overflow:hidden;"></div>
         </div>
-        <div id="zone" style="position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
-          width:160px; height:160px; border-radius:999px; border:2px dashed rgba(34,197,94,.30);">
+        <div style="border:1px solid rgba(148,163,184,.18);border-radius:16px;padding:10px;background:rgba(2,6,23,.28);">
+          <div class="muted">RIGHT</div>
+          <div id="rl-right" style="margin-top:8px;height:220px;border-radius:14px;background:rgba(15,23,42,.45);position:relative;overflow:hidden;"></div>
         </div>
-        <div id="label" style="position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
-          font-weight:1200; font-size:22px;">IN</div>
       </div>
-      <div style="margin-top:12px; display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
-        <button class="btn primary" id="bin">IN</button>
-        <button class="btn" id="bout">OUT</button>
+      <div style="margin-top:12px;display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <button class="btn" id="rl-btn-left" style="min-height:58px;font-size:20px;">⬅️ ซ้าย</button>
+        <button class="btn" id="rl-btn-right" style="min-height:58px;font-size:20px;">ขวา ➡️</button>
       </div>
+      <div class="muted" style="margin-top:8px;">กดให้ตรงเลนตอนสัญญาณลงถึงโซนล่าง</div>
     `;
-    stage.appendChild(card);
 
-    const ring=card.querySelector('#ring');
-    const label=card.querySelector('#label');
-    const bin=card.querySelector('#bin');
-    const bout=card.querySelector('#bout');
+    const laneLeft  = card.querySelector('#rl-left');
+    const laneRight = card.querySelector('#rl-right');
+    const btnLeft   = card.querySelector('#rl-btn-left');
+    const btnRight  = card.querySelector('#rl-btn-right');
 
-    let t=0;
-    let cur='IN';
-    let inPerfect=false;
+    let active = null;
+    let signalTimer = 0;
 
-    function step(){
-      if(!started) return;
-      const played = dur - tLeft;
-      const sp = 0.018 + Math.min(0.010, played*0.0004);
-      t += sp;
-
-      const s = (Math.sin(t)+1)/2;
-      const size = 150 + s*90;
-      ring.style.width = size+'px';
-      ring.style.height= size+'px';
-
-      const v = Math.cos(t);
-      cur = (v < 0) ? 'OUT' : 'IN';
-      label.textContent = cur;
-      inPerfect = (size >= 182 && size <= 198);
-      stageAnimRaf = requestAnimationFrame(step);
+    function clearActive(){
+      if(active && active.el){
+        try{ active.el.remove(); }catch(_){}
+      }
+      active = null;
     }
 
-    function choose(a){
+    function spawnSignal(){
       if(!started) return;
+      if(active) return;
+
       total++;
-      if(a===cur && inPerfect){
+      const side = Math.random() < 0.5 ? 'left' : 'right';
+      const lane = side === 'left' ? laneLeft : laneRight;
+
+      const el = DOC.createElement('div');
+      el.textContent = cfg.emoji || '🥊';
+      Object.assign(el.style,{
+        position:'absolute',
+        left:'50%',
+        top:'-10px',
+        transform:'translateX(-50%)',
+        fontSize:'44px',
+        transition:'none',
+        filter:'drop-shadow(0 8px 18px rgba(0,0,0,.28))'
+      });
+      lane.appendChild(el);
+
+      const born = performance.now();
+      const travelMs = clamp((cfg.travelMs || 1300) - (dur - tLeft) * 18, 700, 1300);
+
+      active = { side, el, born, travelMs, hit:false };
+
+      function step(){
+        if(!started || !active || active.el !== el) return;
+        const p = clamp((performance.now() - born) / travelMs, 0, 1);
+        const y = p * 180;
+        el.style.top = `${y}px`;
+
+        if(p >= 1){
+          if(!active.hit){
+            miss++;
+            streak = 0;
+            flashBad();
+            toastShow('MISS');
+          }
+          clearActive();
+          return;
+        }
+        requestAnimationFrame(step);
+      }
+      requestAnimationFrame(step);
+    }
+
+    function judge(side){
+      if(!started || !active) return;
+      const age = performance.now() - active.born;
+      const p = age / active.travelMs;
+
+      const correctSide = (side === active.side);
+      const inPerfect = p >= 0.72 && p <= 0.88;
+      const inGood = p >= 0.58 && p <= 0.94;
+
+      if(correctSide && inPerfect){
+        active.hit = true;
         hitCount++;
-        score += 3; perfCount++; streak++; bestStreak=Math.max(bestStreak, streak);
-        toastShow('PERFECT ✨'); flashGood();
-      }else if(a===cur){
+        score += 3;
+        perfCount++;
+        streak++;
+        bestStreak = Math.max(bestStreak, streak);
+        flashGood();
+        toastShow('PERFECT ✨');
+        clearActive();
+      }else if(correctSide && inGood){
+        active.hit = true;
         hitCount++;
-        score += 2; streak++; bestStreak=Math.max(bestStreak, streak);
-        toastShow('+2'); flashGood();
+        score += 2;
+        streak++;
+        bestStreak = Math.max(bestStreak, streak);
+        flashGood();
+        toastShow('+2');
+        clearActive();
       }else{
-        miss++; streak=0; toastShow('MISS'); flashBad();
+        miss++;
+        streak = 0;
+        flashBad();
+        toastShow('MISS');
       }
     }
 
-    bin.addEventListener('click', ()=>choose('IN'));
-    bout.addEventListener('click', ()=>choose('OUT'));
-    stageAnimRaf = requestAnimationFrame(step);
+    btnLeft.addEventListener('click', ()=>judge('left'));
+    btnRight.addEventListener('click', ()=>judge('right'));
+
+    signalTimer = setInterval(spawnSignal, cfg.spawnEvery || 1200);
+    teardownFns.push(()=>{ try{ clearInterval(signalTimer); }catch(_){ } clearActive(); });
+    setTimeout(spawnSignal, 500);
   }
 
+  function runBeatLaneWarmup(cfg){
+    gameTitle.textContent = cfg.title;
+    desc.textContent = cfg.desc;
+    center.style.display='none';
+    addStageBadge(`${THEME.label} • beat`);
+
+    const card = makeCardBox({ width:'min(760px,95%)' });
+    card.innerHTML = `
+      <div style="font-weight:1100;font-size:16px;">${cfg.title}</div>
+      <div class="muted" style="margin-top:6px;">${cfg.desc}</div>
+
+      <div id="beatLane" style="margin-top:12px;height:260px;border-radius:18px;position:relative;overflow:hidden;border:1px solid rgba(148,163,184,.18);background:
+        linear-gradient(180deg, rgba(15,23,42,.55), rgba(2,6,23,.45));">
+        <div style="position:absolute;left:0;right:0;bottom:56px;height:3px;background:rgba(34,211,238,.55);"></div>
+        <div style="position:absolute;left:0;right:0;bottom:44px;text-align:center;font-size:11px;font-weight:1000;color:rgba(229,231,235,.68);">
+          TIMING LINE
+        </div>
+      </div>
+
+      <div style="margin-top:12px;display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <button class="btn primary" id="beatTap" style="min-height:58px;font-size:18px;">TAP</button>
+        <button class="btn" id="beatHold" style="min-height:58px;font-size:18px;">HOLD</button>
+      </div>
+      <div class="muted" style="margin-top:8px;">กดตอนโน้ตลงถึงเส้นล่าง • บางลูกต้อง HOLD</div>
+    `;
+
+    const lane = card.querySelector('#beatLane');
+    const btnTap = card.querySelector('#beatTap');
+    const btnHold = card.querySelector('#beatHold');
+
+    let active = null;
+    let timer = 0;
+    let holdDown = false;
+
+    function clearActive(){
+      if(active && active.el){
+        try{ active.el.remove(); }catch(_){}
+      }
+      active = null;
+    }
+
+    function spawnBeat(){
+      if(!started || active) return;
+      total++;
+
+      const type = Math.random() < 0.72 ? 'tap' : 'hold';
+      const el = DOC.createElement('div');
+      el.textContent = type === 'tap' ? '🎵' : '🎶';
+      Object.assign(el.style,{
+        position:'absolute',
+        left:'50%',
+        top:'-8px',
+        transform:'translateX(-50%)',
+        fontSize:'42px',
+        filter:'drop-shadow(0 8px 18px rgba(0,0,0,.28))'
+      });
+      lane.appendChild(el);
+
+      const born = performance.now();
+      const travelMs = clamp((cfg.travelMs || 1500) - (dur - tLeft) * 20, 850, 1500);
+      active = { type, el, born, travelMs, hit:false };
+
+      function step(){
+        if(!started || !active || active.el !== el) return;
+        const p = clamp((performance.now() - born) / travelMs, 0, 1);
+        const y = p * 196;
+        el.style.top = `${y}px`;
+
+        if(type === 'hold' && holdDown && p >= 0.72 && p <= 0.90 && !active.hit){
+          active.hit = true;
+          hitCount++;
+          score += 3;
+          perfCount++;
+          streak++;
+          bestStreak = Math.max(bestStreak, streak);
+          flashGood();
+          toastShow('HOLD ✓');
+          clearActive();
+          return;
+        }
+
+        if(p >= 1){
+          if(!active.hit){
+            miss++;
+            streak = 0;
+            flashBad();
+            toastShow('MISS');
+          }
+          clearActive();
+          return;
+        }
+        requestAnimationFrame(step);
+      }
+      requestAnimationFrame(step);
+    }
+
+    function tapJudge(){
+      if(!started || !active) return;
+      const p = (performance.now() - active.born) / active.travelMs;
+      const onType = active.type === 'tap';
+      const inPerfect = p >= 0.72 && p <= 0.86;
+      const inGood = p >= 0.60 && p <= 0.92;
+
+      if(onType && inPerfect){
+        active.hit = true;
+        hitCount++;
+        score += 3;
+        perfCount++;
+        streak++;
+        bestStreak = Math.max(bestStreak, streak);
+        flashGood();
+        toastShow('PERFECT ✨');
+        clearActive();
+      }else if(onType && inGood){
+        active.hit = true;
+        hitCount++;
+        score += 2;
+        streak++;
+        bestStreak = Math.max(bestStreak, streak);
+        flashGood();
+        toastShow('+2');
+        clearActive();
+      }else{
+        miss++;
+        streak = 0;
+        flashBad();
+        toastShow('MISS');
+      }
+    }
+
+    btnTap.addEventListener('click', tapJudge);
+    btnHold.addEventListener('pointerdown', ()=>{ holdDown = true; });
+    btnHold.addEventListener('pointerup', ()=>{ holdDown = false; });
+    btnHold.addEventListener('pointercancel', ()=>{ holdDown = false; });
+
+    timer = setInterval(spawnBeat, cfg.spawnEvery || 1280);
+    teardownFns.push(()=>{ try{ clearInterval(timer); }catch(_){ } clearActive(); holdDown = false; });
+    setTimeout(spawnBeat, 500);
+  }
+
+  function runHandwashStepsWarmup(cfg){
+    gameTitle.textContent = cfg.title;
+    desc.textContent = cfg.desc;
+    center.style.display='none';
+    addStageBadge(`${THEME.label} • 6 steps`);
+
+    const steps = [
+      { key:'palm', label:'ฝ่ามือ', emo:'🖐️' },
+      { key:'back', label:'หลังมือ', emo:'🤚' },
+      { key:'finger', label:'ซอกนิ้ว', emo:'🤏' },
+      { key:'knuckle', label:'ข้อพับนิ้ว', emo:'✊' },
+      { key:'thumb', label:'นิ้วโป้ง', emo:'👍' },
+      { key:'nail', label:'ปลายนิ้ว', emo:'💅' }
+    ];
+
+    const card = makeCardBox({ width:'min(760px,95%)' });
+    card.innerHTML = `
+      <div style="font-weight:1100;font-size:16px;">${cfg.title}</div>
+      <div class="muted" style="margin-top:6px;">${cfg.desc}</div>
+      <div id="hwStepEmo" style="margin-top:14px;font-size:62px;">🖐️</div>
+      <div id="hwStepText" style="margin-top:8px;font-size:20px;font-weight:1100;">ฝ่ามือ</div>
+      <div class="muted" style="margin-top:6px;">ทำตามลำดับให้ถูกและไว</div>
+      <div id="hwStepGrid" style="margin-top:14px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;"></div>
+    `;
+
+    const emoEl = card.querySelector('#hwStepEmo');
+    const textEl = card.querySelector('#hwStepText');
+    const grid = card.querySelector('#hwStepGrid');
+
+    let currentIndex = 0;
+    let round = [];
+
+    function buildRound(){
+      round = steps.slice();
+      currentIndex = 0;
+      showCurrent();
+    }
+
+    function showCurrent(){
+      total++;
+      const cur = round[currentIndex];
+      emoEl.textContent = cur.emo;
+      textEl.textContent = cur.label;
+    }
+
+    steps.forEach((s)=>{
+      const b = DOC.createElement('button');
+      b.className = 'btn';
+      b.style.minHeight = '58px';
+      b.innerHTML = `<div style="font-size:20px">${s.emo}</div><div>${s.label}</div>`;
+      b.addEventListener('click', ()=>{
+        if(!started) return;
+        const cur = round[currentIndex];
+        if(s.key === cur.key){
+          hitCount++;
+          score += 2;
+          streak++;
+          bestStreak = Math.max(bestStreak, streak);
+          flashGood();
+          toastShow('STEP ✓');
+
+          currentIndex++;
+          if(currentIndex >= round.length){
+            perfCount++;
+            score += 2;
+            toastShow('ครบ 6 ขั้น ✨');
+            buildRound();
+          }else{
+            showCurrent();
+          }
+        }else{
+          miss++;
+          streak = 0;
+          flashBad();
+          toastShow('ผิดขั้น');
+        }
+      });
+      grid.appendChild(b);
+    });
+
+    buildRound();
+  }
+
+  function runBathZonesWarmup(cfg){
+    gameTitle.textContent = cfg.title;
+    desc.textContent = cfg.desc;
+    center.style.display='none';
+    addStageBadge(`${THEME.label} • clean zones`);
+
+    const card = makeCardBox({ width:'min(760px,95%)' });
+    card.innerHTML = `
+      <div style="font-weight:1100;font-size:16px;">${cfg.title}</div>
+      <div class="muted" style="margin-top:6px;">${cfg.desc}</div>
+      <div style="margin-top:14px;display:flex;justify-content:center;">
+        <div id="bathBoard" style="position:relative;width:220px;height:300px;border-radius:20px;border:1px solid rgba(148,163,184,.18);background:
+          linear-gradient(180deg, rgba(15,23,42,.52), rgba(2,6,23,.42));overflow:hidden;">
+          <div style="position:absolute;left:50%;top:20px;transform:translateX(-50%);font-size:72px;">🧍</div>
+        </div>
+      </div>
+      <div class="muted" style="margin-top:10px;">แตะคราบที่โผล่ขึ้นมาให้ทัน</div>
+    `;
+
+    const board = card.querySelector('#bathBoard');
+    let live = 0;
+    let timer = 0;
+
+    const spots = [
+      { x:86, y:40 },
+      { x:54, y:110 },
+      { x:138, y:110 },
+      { x:96, y:145 },
+      { x:84, y:220 },
+      { x:118, y:220 }
+    ];
+
+    function spawnDirt(){
+      if(!started || live >= 3) return;
+      total++;
+
+      const s = randPick(spots);
+      const dirt = DOC.createElement('button');
+      dirt.className = 'btn';
+      dirt.type = 'button';
+      dirt.textContent = randPick(['🫧','🟤','✨']);
+      Object.assign(dirt.style,{
+        position:'absolute',
+        left:`${s.x}px`,
+        top:`${s.y}px`,
+        width:'42px',
+        height:'42px',
+        minHeight:'42px',
+        padding:'0',
+        borderRadius:'999px',
+        display:'grid',
+        placeItems:'center',
+        fontSize:'20px',
+        background:'rgba(2,6,23,.44)'
+      });
+      board.appendChild(dirt);
+      live++;
+
+      let dead = false;
+      const ttl = clamp(1500 - (dur - tLeft) * 18, 700, 1500);
+
+      const tm = setTimeout(()=>{
+        if(dead) return;
+        miss++;
+        streak = 0;
+        flashBad();
+        toastShow('MISS');
+        dead = true;
+        live = Math.max(0, live-1);
+        try{ dirt.remove(); }catch(_){}
+      }, ttl);
+
+      dirt.addEventListener('click', ()=>{
+        if(dead || !started) return;
+        dead = true;
+        clearTimeout(tm);
+        live = Math.max(0, live-1);
+        hitCount++;
+        score += 2;
+        streak++;
+        bestStreak = Math.max(bestStreak, streak);
+        flashGood();
+        toastShow('+2');
+        try{ dirt.remove(); }catch(_){}
+      });
+
+      teardownFns.push(()=>{
+        try{ clearTimeout(tm); }catch(_){}
+        try{ dirt.remove(); }catch(_){}
+      });
+    }
+
+    timer = setInterval(spawnDirt, 900);
+    teardownFns.push(()=>{ try{ clearInterval(timer); }catch(_){ } });
+    setTimeout(spawnDirt, 400);
+  }
+
+  // ---------------------------
+  // Warmup dispatcher + impl
+  // ---------------------------
   function runWarmup_ByTheme(){
     if(themeKey === 'goodjunk')      return runWarmup_GoodJunk();
     if(themeKey === 'groups')        return runWarmup_Groups();
@@ -1941,7 +2324,12 @@ FULL v20260307-PERGAME-WARMUP-COOLDOWN-SKINBUFF
     });
   }
 
-  function runWarmup_Handwash(){ return runP5_Hygiene(); }
+  function runWarmup_Handwash(){
+    runHandwashStepsWarmup({
+      title: THEME.warmTitle,
+      desc: 'ทบทวน 6 ขั้นล้างมือให้ถูกลำดับ ก่อนเข้า Handwash'
+    });
+  }
 
   function runWarmup_Brush(){
     runSequenceCooldown({
@@ -1990,20 +2378,9 @@ FULL v20260307-PERGAME-WARMUP-COOLDOWN-SKINBUFF
   }
 
   function runWarmup_Bath(){
-    runSequenceCooldown({
+    runBathZonesWarmup({
       title: THEME.warmTitle,
-      desc: 'ไล่เก็บจุดสกปรกตามส่วนร่างกายก่อนเข้า Bath',
-      buttons:[
-        { key:'head', label:'ศีรษะ' },
-        { key:'body', label:'ตัว' },
-        { key:'feet', label:'เท้า' }
-      ],
-      steps:[
-        { key:'head', emo:'🫧', text:'ล้างศีรษะ' },
-        { key:'body', emo:'🛁', text:'ล้างตัว' },
-        { key:'feet', emo:'🦶', text:'ล้างเท้า' }
-      ],
-      winMs: 900
+      desc: 'แตะจุดสกปรกตามส่วนร่างกายให้ทัน ก่อนเข้า Bath'
     });
   }
 
@@ -2021,16 +2398,23 @@ FULL v20260307-PERGAME-WARMUP-COOLDOWN-SKINBUFF
   }
 
   function runWarmup_Shadow(){
-    runSequenceCooldown({
+    runReactionLaneWarmup({
       title: THEME.warmTitle,
-      desc: 'อุ่นเครื่องซ้าย/ขวาแบบเร็ว ก่อนเข้า Shadow Breaker',
-      buttons:[ { key:'L', label:'ซ้าย' }, { key:'R', label:'ขวา' } ],
-      steps:[ { key:'L', emo:'⬅️', text:'ขยับซ้าย' }, { key:'R', emo:'➡️', text:'ขยับขวา' } ],
-      winMs: 760
+      desc: 'ตอบสนองซ้าย/ขวาให้ตรงเลน ก่อนเข้า Shadow Breaker',
+      emoji:'🥊',
+      spawnEvery: 1050,
+      travelMs: 1200
     });
   }
 
-  function runWarmup_Rhythm(){ return runP5_Exercise(); }
+  function runWarmup_Rhythm(){
+    runBeatLaneWarmup({
+      title: THEME.warmTitle,
+      desc: 'กดตามจังหวะตอนโน้ตลงถึงเส้น ก่อนเข้า Rhythm Boxer',
+      spawnEvery: 1180,
+      travelMs: 1450
+    });
+  }
 
   function runWarmup_JumpDuck(){
     runSequenceCooldown({
@@ -2067,6 +2451,9 @@ FULL v20260307-PERGAME-WARMUP-COOLDOWN-SKINBUFF
     });
   }
 
+  // ---------------------------
+  // Cooldown dispatcher + impl
+  // ---------------------------
   function runCooldown_ByTheme(){
     if(themeKey === 'goodjunk')      return runCooldown_GoodJunk();
     if(themeKey === 'groups')        return runCooldown_Groups();
@@ -2295,6 +2682,89 @@ FULL v20260307-PERGAME-WARMUP-COOLDOWN-SKINBUFF
         { prompt:'เพื่อฟื้นตัว ควรเลือก?', left:{label:'พักพอ'}, right:{label:'อดนอน'}, answer:'left' }
       ]
     });
+  }
+
+  function runCooldown_BreathRing(title, descText){
+    gameTitle.textContent = title;
+    desc.textContent = descText;
+    center.style.display='none';
+    addStageBadge(`${THEME.label} • breathe`);
+
+    const card=DOC.createElement('div');
+    Object.assign(card.style,{
+      position:'absolute',left:'50%',top:'50%',transform:'translate(-50%,-52%)',
+      width:'min(620px,92%)',padding:'14px',
+      borderRadius:'18px',border:'1px solid rgba(148,163,184,.18)',
+      background:'rgba(2,6,23,.50)',textAlign:'center',
+      zIndex:'2'
+    });
+    card.innerHTML = `
+      <div style="font-weight:1100;font-size:16px;">${title}</div>
+      <div class="muted" style="margin-top:6px;">${descText}</div>
+      <div id="ringBox" style="position:relative; margin:14px auto 0; width:260px; height:260px;">
+        <div id="ring" style="position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
+          width:240px; height:240px; border-radius:999px; border:2px solid rgba(56,189,248,.35);
+          box-shadow:0 0 0 10px rgba(34,197,94,.06) inset;">
+        </div>
+        <div id="zone" style="position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
+          width:160px; height:160px; border-radius:999px; border:2px dashed rgba(34,197,94,.30);">
+        </div>
+        <div id="label" style="position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
+          font-weight:1200; font-size:22px;">IN</div>
+      </div>
+      <div style="margin-top:12px; display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
+        <button class="btn primary" id="bin">IN</button>
+        <button class="btn" id="bout">OUT</button>
+      </div>
+    `;
+    stage.appendChild(card);
+
+    const ring=card.querySelector('#ring');
+    const label=card.querySelector('#label');
+    const bin=card.querySelector('#bin');
+    const bout=card.querySelector('#bout');
+
+    let t=0;
+    let cur='IN';
+    let inPerfect=false;
+
+    function step(){
+      if(!started) return;
+      const played = dur - tLeft;
+      const sp = 0.018 + Math.min(0.010, played*0.0004);
+      t += sp;
+
+      const s = (Math.sin(t)+1)/2;
+      const size = 150 + s*90;
+      ring.style.width = size+'px';
+      ring.style.height= size+'px';
+
+      const v = Math.cos(t);
+      cur = (v < 0) ? 'OUT' : 'IN';
+      label.textContent = cur;
+      inPerfect = (size >= 182 && size <= 198);
+      stageAnimRaf = requestAnimationFrame(step);
+    }
+
+    function choose(a){
+      if(!started) return;
+      total++;
+      if(a===cur && inPerfect){
+        hitCount++;
+        score += 3; perfCount++; streak++; bestStreak=Math.max(bestStreak, streak);
+        toastShow('PERFECT ✨'); flashGood();
+      }else if(a===cur){
+        hitCount++;
+        score += 2; streak++; bestStreak=Math.max(bestStreak, streak);
+        toastShow('+2'); flashGood();
+      }else{
+        miss++; streak=0; toastShow('MISS'); flashBad();
+      }
+    }
+
+    bin.addEventListener('click', ()=>choose('IN'));
+    bout.addEventListener('click', ()=>choose('OUT'));
+    stageAnimRaf = requestAnimationFrame(step);
   }
 
   function runLegacy_SimpleTap(){
