@@ -1,25 +1,17 @@
 <!-- === /herohealth/plate/plate-vr.html ===
-PlateVR — RUN PAGE (Mobile/PC/cVR) — PRODUCTION
-FULL v20260307-PLATE-RUN-SOLO-FINAL
-✅ Canonical HUB sanitize
-✅ Mobile HUD polish
-✅ End summary + cooldown button
-✅ save/progression flow via plate.safe.js
-Requires:
-- /herohealth/vr/vr-ui.js
-- /herohealth/vr/ai-hooks.js
-- /herohealth/plate/plate.safe.js
+PlateVR — RUN PAGE (Solo + Coop Lite)
+FULL v20260307-PLATE-RUN-SOLO-COOP-LITE
 -->
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — Plate VR (Run)</title>
+  <title>HeroHealth — Plate VR</title>
   <meta name="color-scheme" content="dark light" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
-  <script type="module" src="../vr/vr-ui.js?v=20260307a"></script>
+  <script type="module" src="../vr/vr-ui.js?v=20260307b"></script>
 
   <style>
     :root{
@@ -35,10 +27,6 @@ Requires:
       --line: rgba(148,163,184,.18);
       --txt: rgba(229,231,235,.96);
       --mut: rgba(148,163,184,.95);
-      --good: rgba(34,197,94,.95);
-      --warn: rgba(245,158,11,.95);
-      --bad: rgba(239,68,68,.95);
-      --accent: rgba(167,139,250,.95);
       --radius: 18px;
     }
     *{ box-sizing:border-box; }
@@ -53,6 +41,7 @@ Requires:
         radial-gradient(900px 700px at 95% 20%, rgba(167,139,250,.12), transparent 60%),
         linear-gradient(180deg, #020617, #020b1b);
     }
+
     #app{ position:fixed; inset:0; overflow:hidden; }
     #world{ position:absolute; inset:0; z-index:0; pointer-events:none; }
 
@@ -83,17 +72,10 @@ Requires:
       transition: transform .08s ease, opacity .14s ease, filter .12s ease;
       transform: translate(-50%,-50%);
     }
-    #plate-layer .plateTarget[data-kind="wrong"]{
-      background:rgba(127,29,29,.55);
-      border-color: rgba(248,113,113,.25);
-      box-shadow: 0 8px 20px rgba(127,29,29,.18);
-      filter:saturate(1.2);
-    }
     #plate-layer .plateTarget[data-kind="shield"]{
       background: rgba(30,58,138,.55);
       border-color: rgba(96,165,250,.35);
       box-shadow: 0 10px 26px rgba(59,130,246,.18);
-      filter:saturate(1.1);
     }
     #plate-layer .plateTarget.hit{ transform: translate(-50%,-50%) scale(.88); opacity:.25; }
     #plate-layer .plateTarget.expire{ transform: translate(-50%,-50%) scale(.78); opacity:0; }
@@ -111,9 +93,9 @@ Requires:
     #hudBottom{ bottom:var(--hud-bottom); grid-template-columns:1fr; gap:10px; }
 
     .row{ display:grid; gap:8px; }
-    .row.cols-3{ grid-template-columns: 1.15fr 1.1fr 1fr; }
-    @media (max-width: 780px){
-      .row.cols-3{ grid-template-columns: 1fr; }
+    .row.cols-4{ grid-template-columns: 1.05fr 1.05fr .9fr .95fr; }
+    @media (max-width: 900px){
+      .row.cols-4{ grid-template-columns: 1fr; }
     }
 
     .card{
@@ -235,7 +217,7 @@ Requires:
     }
     #endOverlay[aria-hidden="true"]{ display:none; }
     .endCard{
-      width:min(640px, 94vw);
+      width:min(700px, 94vw);
       border-radius: 18px;
       border:1px solid rgba(148,163,184,.18);
       background: rgba(2,6,23,.82);
@@ -287,48 +269,15 @@ Requires:
         font-size: 11.5px;
         gap: 6px;
       }
-      .pill .v{
-        font-size: 13px;
-      }
-      .bar{
-        height: 8px;
-      }
+      .pill .v{ font-size: 13px; }
+      .bar{ height: 8px; }
       .btn{
         min-height: 38px;
         padding: 8px 10px;
         font-size: 12px;
       }
-    }
-
-    @media (max-width: 520px){
-      #hudTop .stats[style*="repeat(5"]{
-        grid-template-columns: repeat(3, minmax(0,1fr)) !important;
-      }
-    }
-
-    @media (max-height: 760px) and (max-width: 640px){
-      #hudBottom .card{
-        display:none;
-      }
-    }
-
-    @media (max-width: 640px){
-      .endCard{
-        width: min(96vw, 640px);
-        padding: 12px;
-      }
-      .endGrid{
-        grid-template-columns: 1fr;
-        gap: 8px;
-      }
-      .endItem .k{ font-size: 11px; }
-      .endItem .v{ font-size: 16px; }
-      .endActions{
-        justify-content: stretch;
-      }
-      .endActions .btn{
-        flex: 1 1 100%;
-      }
+      .endGrid{ grid-template-columns: 1fr; }
+      .endActions .btn{ flex: 1 1 100%; }
     }
   </style>
 </head>
@@ -336,11 +285,10 @@ Requires:
 <body>
   <div id="app">
     <div id="world" aria-hidden="true"></div>
-
     <div id="plate-layer" aria-label="plate targets layer"></div>
 
     <div id="hudTop" class="hud">
-      <div class="row cols-3">
+      <div class="row cols-4">
         <div class="card">
           <h4>คะแนน / คอมโบ / พลาด</h4>
           <div class="stats">
@@ -357,7 +305,6 @@ Requires:
             <div class="pill">🎯 <span id="uiAcc" class="v">0%</span></div>
             <div class="pill">🏅 <span id="uiGrade" class="v">D</span></div>
           </div>
-
           <div style="height:8px"></div>
           <div class="pill" style="justify-content:flex-start;padding-inline:12px;">
             🎯 <span id="uiTargetText">—</span>
@@ -365,7 +312,7 @@ Requires:
           <div style="height:6px"></div>
           <div class="bar"><i id="uiGoalFill"></i></div>
           <div style="margin-top:6px; font-size:12px; color:var(--mut); font-weight:900;">
-            PRO: <span id="uiProTag">OFF</span> • Phase: <span id="uiPhase">WARM</span> • <span id="uiPhaseProg">0/0</span>
+            MODE: <span id="uiModeTag">SOLO</span> • PRO: <span id="uiProTag">OFF</span> • Phase: <span id="uiPhase">WARM</span> • <span id="uiPhaseProg">0/0</span>
           </div>
         </div>
 
@@ -379,6 +326,18 @@ Requires:
           <div style="height:8px"></div>
           <div style="font-weight:1000; margin-bottom:6px;">FEVER</div>
           <div class="bar"><i id="uiFeverFill"></i></div>
+        </div>
+
+        <div class="card" id="coopCard" style="display:none;">
+          <h4>COOP TEAM</h4>
+          <div class="stats">
+            <div class="pill">🅰️ <span id="uiCoopA" class="v">0</span></div>
+            <div class="pill">🅱️ <span id="uiCoopB" class="v">0</span></div>
+            <div class="pill">⏳ <span id="uiTurnLeft" class="v">0</span></div>
+          </div>
+          <div style="margin-top:6px;font-size:12px;color:var(--mut);font-weight:900;">
+            TURN: <span id="uiTurnActive">A</span>
+          </div>
         </div>
       </div>
 
@@ -401,7 +360,7 @@ Requires:
         <div style="font-weight:1000">🧑‍🏫 Coach</div>
         <div id="coachMsg" style="margin-top:6px;font-weight:1000">พร้อมลุย! เติมจานให้ครบ 5 หมู่ 💪</div>
         <div style="font-size:12px;opacity:.85;margin-top:4px;">
-          ยิง/แตะ = โดนเป้า • cVR/VR = ยิงจาก crosshair (vr-ui.js)
+          ยิง/แตะ = โดนเป้า • cVR/VR = ยิงจาก crosshair
         </div>
       </div>
 
@@ -424,6 +383,25 @@ Requires:
           <div class="endItem"><div class="k">WRONG</div><div class="v" id="endWrong">0</div></div>
         </div>
 
+        <div id="coopSummary" class="endGrid is-hidden" style="margin-top:10px;">
+          <div class="endItem">
+            <div class="k">PLAYER A</div>
+            <div class="v" id="endCoopA">0</div>
+          </div>
+          <div class="endItem">
+            <div class="k">PLAYER B</div>
+            <div class="v" id="endCoopB">0</div>
+          </div>
+          <div class="endItem">
+            <div class="k">A OK / WRONG</div>
+            <div class="v" id="endCoopAStats">0 / 0</div>
+          </div>
+          <div class="endItem">
+            <div class="k">B OK / WRONG</div>
+            <div class="v" id="endCoopBStats">0 / 0</div>
+          </div>
+        </div>
+
         <div class="endActions">
           <button class="btn" id="btnCopy">Copy Summary</button>
           <button class="btn" id="btnReplay">Replay</button>
@@ -442,7 +420,6 @@ Requires:
       raw = String(raw || '').trim();
       const DEFAULT = '../hub.html';
       if(!raw) return DEFAULT;
-
       try{
         const u = new URL(raw, location.href);
         u.pathname = u.pathname
@@ -462,9 +439,18 @@ Requires:
     const view = String(U.searchParams.get('view') || 'mobile').toLowerCase();
     const seed = U.searchParams.get('seed') ?? String((Date.now() ^ (Math.random()*1e9))|0);
     const pro  = (U.searchParams.get('pro') === '1');
+    const mode = String(U.searchParams.get('mode') || 'solo').toLowerCase();
+    const isCoop = (mode === 'coop');
     const hub = normalizeHub(U.searchParams.get('hub'));
 
     if(view) document.body.setAttribute('data-view', view);
+
+    const coopCard = document.getElementById('coopCard');
+    const coopSummary = document.getElementById('coopSummary');
+    const uiModeTag = document.getElementById('uiModeTag');
+    if(coopCard) coopCard.style.display = isCoop ? '' : 'none';
+    if(coopSummary) coopSummary.classList.toggle('is-hidden', !isCoop);
+    if(uiModeTag) uiModeTag.textContent = isCoop ? 'COOP' : 'SOLO';
 
     const ai = createAIHooks({
       seed: String(seed),
@@ -511,7 +497,7 @@ Requires:
       pid: String(U.searchParams.get('pid') || 'anon'),
       hub,
       cooldown: (U.searchParams.get('cooldown') === '1' || U.searchParams.get('cd') === '1'),
-      mode: String(U.searchParams.get('mode') || 'classroom'),
+      mode,
       pro,
       ai
     });
