@@ -1,0 +1,845 @@
+<!-- === /herohealth/goodjunk-teacher-essential.html ===
+HeroHealth • GoodJunk Teacher Essential
+PATCH v20260307-GJ-TEACHER-ESSENTIAL
+-->
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>GoodJunk Teacher Essential</title>
+  <link rel="icon" href="./favicon.ico" />
+  <meta name="color-scheme" content="dark light" />
+  <script src="./firebase-config.js"></script>
+  <script src="./lib/qr-local-first.js"></script>
+  <style>
+    :root{
+      --bg1:#020617; --bg2:#0b1226;
+      --stroke:rgba(148,163,184,.18);
+      --text:#e5e7eb; --muted:#94a3b8;
+      --shadow:0 18px 60px rgba(0,0,0,.35);
+    }
+    *{ box-sizing:border-box; }
+    html,body{
+      margin:0; min-height:100%;
+      background:
+        radial-gradient(1200px 800px at 50% -20%, rgba(34,211,238,.10), transparent 55%),
+        linear-gradient(180deg, var(--bg1), var(--bg2));
+      color:var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", sans-serif;
+    }
+    .wrap{
+      width:min(1000px, calc(100vw - 24px));
+      margin:0 auto;
+      padding:18px 12px 28px;
+    }
+    .hero,.card{
+      background:linear-gradient(180deg, rgba(15,23,42,.82), rgba(2,6,23,.76));
+      border:1px solid var(--stroke);
+      border-radius:24px;
+      box-shadow:var(--shadow);
+    }
+    .hero{ padding:18px; margin-bottom:16px; }
+    .eyebrow{
+      display:inline-block;
+      padding:8px 12px;
+      border-radius:999px;
+      background:rgba(34,211,238,.10);
+      color:#a5f3fc;
+      font-size:12px;
+      font-weight:800;
+      border:1px solid rgba(34,211,238,.18);
+    }
+    h1{
+      margin:12px 0 6px;
+      font-size:34px;
+      line-height:1.05;
+    }
+    .sub{
+      color:var(--muted);
+      font-size:14px;
+      line-height:1.6;
+      max-width:760px;
+    }
+    .grid{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:16px;
+    }
+    .card{ padding:16px; }
+    .section-title{
+      font-size:20px;
+      font-weight:1000;
+      margin-bottom:10px;
+    }
+    .section-sub{
+      color:var(--muted);
+      font-size:13px;
+      line-height:1.6;
+      margin-bottom:12px;
+    }
+    .form-grid{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:12px;
+    }
+    .full{ grid-column:1/-1; }
+    label{
+      display:block;
+      font-size:12px;
+      color:var(--muted);
+      margin-bottom:6px;
+    }
+    input,select,button{
+      width:100%;
+      min-height:46px;
+      border-radius:14px;
+      border:1px solid var(--stroke);
+      background:rgba(2,6,23,.80);
+      color:var(--text);
+      padding:10px 12px;
+      font:inherit;
+    }
+    button{
+      cursor:pointer;
+      border:0;
+      font-weight:900;
+      color:white;
+      background:linear-gradient(135deg,#2563eb,#06b6d4);
+      box-shadow:0 10px 26px rgba(37,99,235,.28);
+    }
+    button.secondary{
+      background:rgba(15,23,42,.92);
+      border:1px solid var(--stroke);
+      color:var(--text);
+      box-shadow:none;
+    }
+    button.warn{
+      background:linear-gradient(135deg,#d97706,#f59e0b);
+    }
+    button.danger{
+      background:linear-gradient(135deg,#dc2626,#ef4444);
+    }
+    .actions-2,
+    .actions-3,
+    .actions-4{
+      display:grid;
+      gap:10px;
+      margin-top:12px;
+    }
+    .actions-2{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+    .actions-3{ grid-template-columns:repeat(3,minmax(0,1fr)); }
+    .actions-4{ grid-template-columns:repeat(4,minmax(0,1fr)); }
+
+    .stats{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:12px;
+      margin-top:12px;
+    }
+    .stat{
+      border-radius:18px;
+      background:rgba(2,6,23,.56);
+      border:1px solid rgba(148,163,184,.14);
+      padding:12px;
+    }
+    .k{ font-size:12px; color:var(--muted); margin-bottom:6px; }
+    .v{ font-size:24px; font-weight:1000; }
+
+    .status,.note{
+      margin-top:12px;
+      padding:10px 12px;
+      border-radius:14px;
+      background:rgba(2,6,23,.56);
+      border:1px solid var(--stroke);
+      color:#cbd5e1;
+      font-size:13px;
+      line-height:1.7;
+    }
+
+    .qr-box{
+      display:none;
+      margin-top:12px;
+      border-radius:18px;
+      border:1px solid rgba(148,163,184,.16);
+      background:rgba(2,6,23,.56);
+      padding:14px;
+    }
+    .qr-grid{
+      display:grid;
+      grid-template-columns:220px 1fr;
+      gap:14px;
+      align-items:start;
+    }
+    .qr-visual{
+      border-radius:16px;
+      background:#fff;
+      padding:10px;
+      text-align:center;
+    }
+    .qr-visual img{
+      width:100%;
+      max-width:180px;
+      height:auto;
+    }
+    .qr-meta{
+      border-radius:16px;
+      border:1px solid rgba(148,163,184,.12);
+      background:rgba(15,23,42,.48);
+      padding:12px;
+    }
+    .link-text{
+      word-break:break-all;
+      line-height:1.6;
+      font-size:13px;
+      color:#e5e7eb;
+      margin-top:6px;
+    }
+
+    table{
+      width:100%;
+      border-collapse:collapse;
+      margin-top:8px;
+    }
+    th,td{
+      padding:10px 8px;
+      border-bottom:1px solid rgba(148,163,184,.12);
+      text-align:left;
+      font-size:13px;
+    }
+    th{ color:#cbd5e1; }
+
+    @media (max-width:960px){
+      .grid{ grid-template-columns:1fr; }
+    }
+    @media (max-width:720px){
+      .form-grid,
+      .actions-2,
+      .actions-3,
+      .actions-4,
+      .stats,
+      .qr-grid{ grid-template-columns:1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="hero">
+      <div class="eyebrow">👩‍🏫 Classroom Essential</div>
+      <h1>GoodJunk Teacher Essential</h1>
+      <div class="sub">
+        เวอร์ชันย่อสำหรับใช้จริงหน้าห้องเรียน เน้นปุ่มที่ใช้บ่อยที่สุด
+        เพื่อเริ่มคาบ คุมห้อง ส่ง QR ให้นักเรียน และจบคาบได้รวดเร็ว
+      </div>
+    </section>
+
+    <div class="grid">
+      <section class="card">
+        <div class="section-title">ตั้งค่าห้อง</div>
+        <div class="section-sub">กำหนด room และลิงก์พื้นฐานก่อนเริ่มคาบ</div>
+
+        <div class="form-grid">
+          <div>
+            <label for="room">Room</label>
+            <input id="room" value="P5A" />
+          </div>
+          <div>
+            <label for="hub">Hub URL</label>
+            <input id="hub" />
+          </div>
+          <div>
+            <label for="view">View</label>
+            <select id="view">
+              <option value="mobile" selected>mobile</option>
+              <option value="pc">pc</option>
+              <option value="cvr">cvr</option>
+            </select>
+          </div>
+          <div>
+            <label for="diff">Difficulty</label>
+            <select id="diff">
+              <option value="easy" selected>easy</option>
+              <option value="normal">normal</option>
+              <option value="hard">hard</option>
+            </select>
+          </div>
+          <div class="full">
+            <label for="time">Time</label>
+            <select id="time">
+              <option value="60">60</option>
+              <option value="80" selected>80</option>
+              <option value="100">100</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="actions-3">
+          <button id="btnOpenTeacher">Teacher Dashboard เต็ม</button>
+          <button id="btnOpenBoard" class="secondary">เปิด Board</button>
+          <button id="btnOpenStudentJoin" class="secondary">เปิด Student Join</button>
+        </div>
+
+        <div class="actions-3">
+          <button id="btnCopyBoard" class="secondary">Copy Board Link</button>
+          <button id="btnCopyStudentJoin" class="secondary">Copy Student Join Link</button>
+          <button id="btnShowQr">แสดง QR นักเรียน</button>
+        </div>
+
+        <div id="status" class="status">พร้อมใช้งาน</div>
+
+        <div id="qrBox" class="qr-box">
+          <div class="qr-grid">
+            <div class="qr-visual">
+              <img id="qrImg" alt="QR Code" />
+              <div id="qrType" style="margin-top:10px;font-weight:900;">Student Join</div>
+            </div>
+            <div class="qr-meta">
+              <div style="font-size:12px;color:#94a3b8;">Link</div>
+              <div id="qrLink" class="link-text">—</div>
+              <div class="actions-2" style="margin-top:12px;">
+                <button id="btnCopyQrLink" class="secondary">Copy QR Link</button>
+                <button id="btnHideQr" class="secondary">Hide QR</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="section-title">คุมคาบแบบเร็ว</div>
+        <div class="section-sub">ปุ่มที่ใช้บ่อยที่สุดสำหรับเริ่มคาบ ระหว่างคาบ และจบคาบ</div>
+
+        <div class="actions-2">
+          <button id="btnStartClass">Start Class Macro</button>
+          <button id="btnEndClass" class="warn">End Class Macro</button>
+        </div>
+
+        <div class="actions-4">
+          <button id="btnPresetStart10" class="secondary">เริ่มใน 10 วิ</button>
+          <button id="btnPresetPause" class="secondary">หยุดก่อน</button>
+          <button id="btnPresetScan" class="secondary">สแกน QR ตอนนี้</button>
+          <button id="btnPresetSpectator" class="secondary">เข้าชมแทนได้</button>
+        </div>
+
+        <div class="form-grid" style="margin-top:12px;">
+          <div class="full">
+            <label for="policyMessage">Policy / Announcement Message</label>
+            <input id="policyMessage" placeholder="เช่น ห้องนี้เริ่มแข่งแล้ว กรุณารอรอบถัดไป" />
+          </div>
+        </div>
+
+        <div class="actions-3">
+          <button id="btnLockRoom" class="secondary">Lock Room</button>
+          <button id="btnSpectatorOnly" class="secondary">Spectator Only</button>
+          <button id="btnUnlockRoom" class="secondary">Unlock Room</button>
+        </div>
+
+        <div class="stats">
+          <div class="stat"><div class="k">Phase</div><div id="stPhase" class="v">—</div></div>
+          <div class="stat"><div class="k">Players</div><div id="stPlayers" class="v">0</div></div>
+          <div class="stat"><div class="k">Winner</div><div id="stWinner" class="v">—</div></div>
+          <div class="stat"><div class="k">Countdown</div><div id="stCountdown" class="v">—</div></div>
+        </div>
+
+        <div id="policyStatus" class="status">Room policy: —</div>
+        <div id="announcementStatus" class="status">Announcement: —</div>
+      </section>
+    </div>
+
+    <section class="card" style="margin-top:16px;">
+      <div class="section-title">ผู้เล่นปัจจุบัน</div>
+      <div class="section-sub">ดูสถานะแบบย่อของผู้เล่นในห้องนี้</div>
+
+      <div style="overflow:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>Nick</th>
+              <th>PID</th>
+              <th>Ready</th>
+              <th>Connected</th>
+              <th>Score</th>
+              <th>Acc</th>
+              <th>Miss</th>
+            </tr>
+          </thead>
+          <tbody id="tbodyPlayers">
+            <tr><td colspan="7" class="muted">ยังไม่มีผู้เล่น</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="note">
+        ถ้าต้องการฟังก์ชันเต็ม เช่น roster, attendance, coverage, baseline, broadcast แบบละเอียด
+        ให้กดปุ่ม <strong>Teacher Dashboard เต็ม</strong>
+      </div>
+    </section>
+  </div>
+
+  <script type="module">
+    import { adminOpenRoomTools } from './vr/battle-rtdb.js';
+
+    const $ = id => document.getElementById(id);
+    const qs = (k,d='')=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
+
+    let adminTools = null;
+    let offFns = [];
+    let countdownTimer = 0;
+    let currentQrLink = '';
+
+    function setStatus(msg){
+      $('status').textContent = msg;
+    }
+
+    function currentRoom(){
+      return ($('room').value || 'P5A').trim().toUpperCase();
+    }
+
+    function safeHubDefault(){
+      return new URL('./hub.html', location.href).toString();
+    }
+
+    function buildTeacherFullUrl(){
+      const u = new URL('./goodjunk-teacher.html', location.href);
+      u.searchParams.set('room', currentRoom());
+      return u.toString();
+    }
+
+    function buildBoardUrl(){
+      const u = new URL('./goodjunk-board.html', location.href);
+      u.searchParams.set('room', currentRoom());
+      u.searchParams.set('mode', 'battle');
+      return u.toString();
+    }
+
+    function buildStudentJoinUrl(){
+      const u = new URL('./student-join-goodjunk.html', location.href);
+      u.searchParams.set('room', currentRoom());
+      u.searchParams.set('view', $('view').value || 'mobile');
+      u.searchParams.set('diff', $('diff').value || 'easy');
+      u.searchParams.set('time', $('time').value || '80');
+      u.searchParams.set('hub', $('hub').value || safeHubDefault());
+      u.searchParams.set('mode', 'battle');
+      u.searchParams.set('lock_room', '1');
+      u.searchParams.set('lock_view', '1');
+      u.searchParams.set('lock_diff', '1');
+      u.searchParams.set('lock_time', '1');
+      return u.toString();
+    }
+
+    async function copyText(text){
+      text = String(text || '');
+      if(!text) throw new Error('ไม่มีข้อความให้คัดลอก');
+
+      if(navigator.clipboard?.writeText){
+        await navigator.clipboard.writeText(text);
+        return;
+      }
+
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      ta.remove();
+    }
+
+    function delay(ms){
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    function getDbCompat(){
+      if(window.firebase?.database) return window.firebase.database();
+      return null;
+    }
+
+    async function buildAdminTools(){
+      adminTools = await adminOpenRoomTools({
+        gameKey:'goodjunk',
+        room: currentRoom()
+      });
+      return adminTools;
+    }
+
+    function renderAnnouncementState(a){
+      const msg = String(a?.message || '').trim();
+      const tone = String(a?.tone || 'info');
+      const ttlSec = Number(a?.ttlSec || 0) || 0;
+      $('announcementStatus').textContent =
+        msg ? `Announcement: ${msg} • tone=${tone} • ttl=${ttlSec}s` : 'Announcement: —';
+    }
+
+    function renderPolicy(policy){
+      const locked = !!policy?.roomLocked;
+      const spectatorOnly = !!policy?.allowSpectatorOnly;
+      const msg = String(policy?.message || '').trim();
+      $('policyStatus').textContent =
+        locked
+          ? `Room policy: ${spectatorOnly ? 'LOCKED + SPECTATOR ONLY' : 'LOCKED'}${msg ? ` • ${msg}` : ''}`
+          : 'Room policy: OPEN';
+    }
+
+    async function refreshPolicy(){
+      try{
+        if(!adminTools) await buildAdminTools();
+        const p = await adminTools.getRoomPolicy();
+        renderPolicy(p || {});
+      }catch(err){
+        console.warn(err);
+        $('policyStatus').textContent = `Room policy load failed: ${err?.message || err}`;
+      }
+    }
+
+    async function refreshAnnouncement(){
+      try{
+        if(!adminTools) await buildAdminTools();
+        const a = await adminTools.getAnnouncement();
+        renderAnnouncementState(a || {});
+      }catch(err){
+        console.warn(err);
+        $('announcementStatus').textContent = `Announcement load failed: ${err?.message || err}`;
+      }
+    }
+
+    async function sendPreset(message, tone='info', ttlSec=10){
+      if(!adminTools) await buildAdminTools();
+      await adminTools.setAnnouncement(message, { tone, ttlSec });
+      await refreshAnnouncement();
+    }
+
+    async function runStartClassMacro(){
+      if(!adminTools) await buildAdminTools();
+
+      await adminTools.clearAnnouncement();
+      await delay(120);
+
+      await adminTools.setRoomLocked(false, {
+        message:'',
+        allowSpectatorOnly:false,
+        spectatorUrl:''
+      });
+      await delay(120);
+
+      await adminTools.clearRematch();
+      await delay(120);
+
+      await adminTools.resetRoom();
+      await delay(150);
+
+      await adminTools.setAnnouncement('เริ่มคาบแล้ว กรุณาเตรียมพร้อม เกมจะเริ่มใน 3 วินาที', {
+        tone:'success',
+        ttlSec:8
+      });
+      await delay(120);
+
+      await adminTools.forceCountdown(3);
+      await delay(120);
+
+      await refreshPolicy();
+      await refreshAnnouncement();
+    }
+
+    async function runEndClassMacro(){
+      if(!adminTools) await buildAdminTools();
+
+      const boardUrl = buildBoardUrl();
+      const msg = ($('policyMessage').value || '').trim() || 'จบคาบแล้ว กรุณาดูผลบนจอ Board';
+
+      await adminTools.setSpectatorOnly(true, {
+        message: msg,
+        spectatorUrl: boardUrl
+      });
+      await delay(120);
+
+      await adminTools.setAnnouncement('จบคาบแล้ว กรุณาดูผลบนจอ Board หรือเข้า spectator', {
+        tone:'info',
+        ttlSec:20
+      });
+      await delay(120);
+
+      await refreshPolicy();
+      await refreshAnnouncement();
+    }
+
+    function clearCountdown(){
+      if(countdownTimer){
+        clearInterval(countdownTimer);
+        countdownTimer = 0;
+      }
+    }
+
+    function renderCountdown(st){
+      clearCountdown();
+      const phase = String(st?.phase || '').toLowerCase();
+      const startAtMs = Number(st?.startAtMs || 0) || 0;
+
+      if(phase !== 'countdown' || !startAtMs){
+        $('stCountdown').textContent = '—';
+        return;
+      }
+
+      function tick(){
+        const leftMs = Math.max(0, startAtMs - Date.now());
+        const sec = Math.max(0, Math.ceil(leftMs / 1000));
+        $('stCountdown').textContent = `${sec}s`;
+        if(leftMs <= 0) clearCountdown();
+      }
+
+      tick();
+      countdownTimer = setInterval(tick, 200);
+    }
+
+    function renderPlayers(raw){
+      const rows = Object.entries(raw || {})
+        .map(([k,v])=>({ key:k, ...(v||{}) }))
+        .sort((a,b)=>(a.joinedAtMs||0)-(b.joinedAtMs||0));
+
+      $('stPlayers').textContent = String(rows.length);
+
+      if(!rows.length){
+        $('tbodyPlayers').innerHTML = `<tr><td colspan="7">ยังไม่มีผู้เล่น</td></tr>`;
+        return;
+      }
+
+      $('tbodyPlayers').innerHTML = rows.map(p=>`
+        <tr>
+          <td>${p.nick || '-'}</td>
+          <td>${p.pid || '-'}</td>
+          <td>${p.ready ? 'yes' : 'no'}</td>
+          <td>${p.connected !== false ? 'yes' : 'no'}</td>
+          <td>${Number(p.score || 0)}</td>
+          <td>${Number(p.acc || 0)}%</td>
+          <td>${Number(p.miss || 0)}</td>
+        </tr>
+      `).join('');
+    }
+
+    function renderState(st){
+      $('stPhase').textContent = st?.phase || '—';
+      $('stWinner').textContent = st?.winner || '—';
+      renderCountdown(st || {});
+    }
+
+    function showQr(link){
+      currentQrLink = String(link || '');
+      $('qrLink').textContent = currentQrLink || '—';
+      window.HHQr?.render?.($('qrImg'), currentQrLink, { size:240 });
+      $('qrBox').style.display = 'block';
+    }
+
+    function hideQr(){
+      currentQrLink = '';
+      $('qrLink').textContent = '—';
+      $('qrImg').removeAttribute('src');
+      $('qrBox').style.display = 'none';
+    }
+
+    function connectRealtime(){
+      offFns.forEach(fn=>{ try{ fn(); }catch(_){} });
+      offFns = [];
+
+      const db = getDbCompat();
+      if(!db){
+        setStatus('Firebase compat ยังไม่พร้อม');
+        return;
+      }
+
+      const room = currentRoom();
+      const base = `hha-battle/goodjunk/rooms/${room}`;
+
+      const stateRef = db.ref(`${base}/state`);
+      const playersRef = db.ref(`${base}/players`);
+
+      const stateCb = snap => renderState(snap.val() || {});
+      const playersCb = snap => renderPlayers(snap.val() || {});
+
+      stateRef.on('value', stateCb);
+      playersRef.on('value', playersCb);
+
+      offFns.push(()=>stateRef.off('value', stateCb));
+      offFns.push(()=>playersRef.off('value', playersCb));
+    }
+
+    function init(){
+      $('room').value = qs('room', 'P5A');
+      $('hub').value = qs('hub', safeHubDefault());
+      $('view').value = qs('view', 'mobile');
+      $('diff').value = qs('diff', 'easy');
+      $('time').value = qs('time', '80');
+
+      if(!$('policyMessage').value.trim()){
+        $('policyMessage').value = 'ห้องนี้เริ่มแข่งแล้ว กรุณารอรอบถัดไป';
+      }
+
+      hideQr();
+      renderPolicy({});
+      renderAnnouncementState({});
+      connectRealtime();
+      refreshPolicy();
+      refreshAnnouncement();
+      setStatus('พร้อมใช้งาน');
+    }
+
+    $('btnOpenTeacher').onclick = ()=> location.href = buildTeacherFullUrl();
+    $('btnOpenBoard').onclick = ()=> window.open(buildBoardUrl(), '_blank', 'noopener');
+    $('btnOpenStudentJoin').onclick = ()=> window.open(buildStudentJoinUrl(), '_blank', 'noopener');
+
+    $('btnCopyBoard').onclick = async ()=>{
+      try{
+        await copyText(buildBoardUrl());
+        setStatus('คัดลอก Board link แล้ว');
+      }catch(err){
+        console.warn(err);
+        setStatus(`Copy Board link ไม่สำเร็จ: ${err?.message || err}`);
+      }
+    };
+
+    $('btnCopyStudentJoin').onclick = async ()=>{
+      try{
+        await copyText(buildStudentJoinUrl());
+        setStatus('คัดลอก Student Join link แล้ว');
+      }catch(err){
+        console.warn(err);
+        setStatus(`Copy Student Join link ไม่สำเร็จ: ${err?.message || err}`);
+      }
+    };
+
+    $('btnShowQr').onclick = ()=>{
+      try{
+        showQr(buildStudentJoinUrl());
+        setStatus('แสดง QR สำหรับนักเรียนแล้ว');
+      }catch(err){
+        console.warn(err);
+        setStatus(`แสดง QR ไม่สำเร็จ: ${err?.message || err}`);
+      }
+    };
+
+    $('btnCopyQrLink').onclick = async ()=>{
+      try{
+        if(!currentQrLink) throw new Error('ยังไม่มี QR link');
+        await copyText(currentQrLink);
+        setStatus('คัดลอก QR link แล้ว');
+      }catch(err){
+        console.warn(err);
+        setStatus(`Copy QR link ไม่สำเร็จ: ${err?.message || err}`);
+      }
+    };
+
+    $('btnHideQr').onclick = ()=>{
+      hideQr();
+      setStatus('ซ่อน QR แล้ว');
+    };
+
+    $('btnStartClass').onclick = async ()=>{
+      try{
+        setStatus('กำลังรัน Start Class Macro...');
+        await runStartClassMacro();
+        setStatus('Start Class Macro สำเร็จ');
+      }catch(err){
+        console.warn(err);
+        setStatus(`Start Class Macro ไม่สำเร็จ: ${err?.message || err}`);
+      }
+    };
+
+    $('btnEndClass').onclick = async ()=>{
+      try{
+        setStatus('กำลังรัน End Class Macro...');
+        await runEndClassMacro();
+        setStatus('End Class Macro สำเร็จ');
+      }catch(err){
+        console.warn(err);
+        setStatus(`End Class Macro ไม่สำเร็จ: ${err?.message || err}`);
+      }
+    };
+
+    $('btnPresetStart10').onclick = async ()=>{
+      try{
+        await sendPreset('เตรียมพร้อม รอบต่อไปเริ่มใน 10 วินาที', 'success', 10);
+        setStatus('ส่ง preset: เริ่มใน 10 วิ แล้ว');
+      }catch(err){
+        console.warn(err);
+        setStatus(`Preset เริ่มใน 10 วิ ไม่สำเร็จ: ${err?.message || err}`);
+      }
+    };
+
+    $('btnPresetPause').onclick = async ()=>{
+      try{
+        await sendPreset('หยุดก่อน ครูจะอธิบายอีกครั้ง', 'warn', 15);
+        setStatus('ส่ง preset: หยุดก่อน แล้ว');
+      }catch(err){
+        console.warn(err);
+        setStatus(`Preset หยุดก่อน ไม่สำเร็จ: ${err?.message || err}`);
+      }
+    };
+
+    $('btnPresetScan').onclick = async ()=>{
+      try{
+        await sendPreset('กรุณาสแกน QR ตอนนี้แล้วเตรียมเข้าเล่น', 'info', 15);
+        setStatus('ส่ง preset: สแกน QR ตอนนี้ แล้ว');
+      }catch(err){
+        console.warn(err);
+        setStatus(`Preset สแกน QR ตอนนี้ ไม่สำเร็จ: ${err?.message || err}`);
+      }
+    };
+
+    $('btnPresetSpectator').onclick = async ()=>{
+      try{
+        await sendPreset('ห้องนี้เปิดให้เข้าชมแทนได้ กรุณาเปิด Board / Spectator', 'info', 20);
+        setStatus('ส่ง preset: เข้าชมแทนได้ แล้ว');
+      }catch(err){
+        console.warn(err);
+        setStatus(`Preset เข้าชมแทนได้ ไม่สำเร็จ: ${err?.message || err}`);
+      }
+    };
+
+    $('btnLockRoom').onclick = async ()=>{
+      try{
+        if(!adminTools) await buildAdminTools();
+        await adminTools.setRoomLocked(true, {
+          message: ($('policyMessage').value || '').trim(),
+          allowSpectatorOnly:false,
+          spectatorUrl:''
+        });
+        await refreshPolicy();
+        setStatus('ล็อกห้องแล้ว');
+      }catch(err){
+        console.warn(err);
+        setStatus(`Lock Room ไม่สำเร็จ: ${err?.message || err}`);
+      }
+    };
+
+    $('btnSpectatorOnly').onclick = async ()=>{
+      try{
+        if(!adminTools) await buildAdminTools();
+        await adminTools.setSpectatorOnly(true, {
+          message: ($('policyMessage').value || '').trim() || 'ห้องนี้เริ่มแข่งแล้ว กรุณาเข้าชมแทน',
+          spectatorUrl: buildBoardUrl()
+        });
+        await refreshPolicy();
+        setStatus('ตั้ง Spectator Only แล้ว');
+      }catch(err){
+        console.warn(err);
+        setStatus(`Spectator Only ไม่สำเร็จ: ${err?.message || err}`);
+      }
+    };
+
+    $('btnUnlockRoom').onclick = async ()=>{
+      try{
+        if(!adminTools) await buildAdminTools();
+        await adminTools.setRoomLocked(false, {
+          message:'',
+          allowSpectatorOnly:false,
+          spectatorUrl:''
+        });
+        await refreshPolicy();
+        setStatus('ปลดล็อกห้องแล้ว');
+      }catch(err){
+        console.warn(err);
+        setStatus(`Unlock Room ไม่สำเร็จ: ${err?.message || err}`);
+      }
+    };
+
+    init();
+  </script>
+</body>
+</html>
