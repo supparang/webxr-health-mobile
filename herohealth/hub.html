@@ -1,21 +1,3 @@
-<!-- === /herohealth/hub.html ===
-HeroHealth — Hub (3 Zones) — PRODUCTION
-PATCH v20260306-HUB-PATHFIX-ROOT-LAUNCHERS-r4-LASTRUN-JDLAUNCHER
-✅ FIX: Use root launchers instead of deep folder run paths
-✅ FIX: Hygiene / Exercise links now also pass full query context
-✅ FIX: Handwash -> ./hygiene-vr.html
-✅ FIX: Brush -> ./brush-vr.html
-✅ FIX: Bath -> ./bath-vr.html
-✅ FIX: Clean Object -> ./clean-objects.html
-✅ FIX: MaskCough -> ./maskcough-vr.html
-✅ FIX: Germ Detective -> ./germ-detective-vr.html
-✅ FIX: Fitness Planner -> ./fitness-planner.html
-✅ FIX: Balance Hold -> ./balance-hold-vr.html
-✅ FIX: Groups / Hydration / Plate -> root launchers
-✅ FIX: JumpDuck -> ./jump-duck-vr.html
-✅ NEW: Last Run card from localStorage.HHA_LAST_SUMMARY
-✅ KEEP: GoodJunk launcher + Hero Profile + Card Book + Trophy Shelf
--->
 <!doctype html>
 <html lang="th">
 <head>
@@ -490,22 +472,10 @@ PATCH v20260306-HUB-PATHFIX-ROOT-LAUNCHERS-r4-LASTRUN-JDLAUNCHER
           <div class="bookBig" id="bookTotal">0</div>
 
           <div class="rarityRow">
-            <div class="rarityCard rarity-s">
-              <div class="rk">S</div>
-              <div class="rv" id="bookS">0</div>
-            </div>
-            <div class="rarityCard rarity-a">
-              <div class="rk">A</div>
-              <div class="rv" id="bookA">0</div>
-            </div>
-            <div class="rarityCard rarity-b">
-              <div class="rk">B</div>
-              <div class="rv" id="bookB">0</div>
-            </div>
-            <div class="rarityCard rarity-c">
-              <div class="rk">C</div>
-              <div class="rv" id="bookC">0</div>
-            </div>
+            <div class="rarityCard rarity-s"><div class="rk">S</div><div class="rv" id="bookS">0</div></div>
+            <div class="rarityCard rarity-a"><div class="rk">A</div><div class="rv" id="bookA">0</div></div>
+            <div class="rarityCard rarity-b"><div class="rk">B</div><div class="rv" id="bookB">0</div></div>
+            <div class="rarityCard rarity-c"><div class="rk">C</div><div class="rv" id="bookC">0</div></div>
           </div>
         </div>
 
@@ -1003,7 +973,6 @@ PATCH v20260306-HUB-PATHFIX-ROOT-LAUNCHERS-r4-LASTRUN-JDLAUNCHER
       if(grid) grid.style.display = 'grid';
     }
 
-    // ===== Canonical root launchers =====
     const PATHS = {
       goodjunk:       './goodjunk-launcher.html',
       groups:         './groups-vr.html',
@@ -1046,13 +1015,11 @@ PATCH v20260306-HUB-PATHFIX-ROOT-LAUNCHERS-r4-LASTRUN-JDLAUNCHER
     const linkBalanceHold = document.getElementById('linkBalanceHold');
     const linkFitnessPlanner = document.getElementById('linkFitnessPlanner');
 
-    // Nutrition
     linkGoodjunk.href  = buildUrl(PATHS.goodjunk,   { mode:'solo' });
     linkGroups.href    = buildUrl(PATHS.groups,     { zone:'nutrition' });
     linkHydration.href = buildUrl(PATHS.hydration,  { zone:'nutrition' });
     linkPlate.href     = buildUrl(PATHS.plate,      { zone:'nutrition' });
 
-    // Hygiene
     if(linkHandwash)      linkHandwash.href      = buildUrl(PATHS.handwash,      { zone:'hygiene' });
     if(linkBrush)         linkBrush.href         = buildUrl(PATHS.brush,         { zone:'hygiene' });
     if(linkBath)          linkBath.href          = buildUrl(PATHS.bath,          { zone:'hygiene' });
@@ -1060,7 +1027,6 @@ PATCH v20260306-HUB-PATHFIX-ROOT-LAUNCHERS-r4-LASTRUN-JDLAUNCHER
     if(linkMaskCough)     linkMaskCough.href     = buildUrl(PATHS.maskCough,     { zone:'hygiene' });
     if(linkGermDetective) linkGermDetective.href = buildUrl(PATHS.germDetective, { zone:'hygiene' });
 
-    // Exercise
     if(linkShadowBreaker)  linkShadowBreaker.href  = buildUrl(PATHS.shadowBreaker,  { zone:'fitness' });
     if(linkRhythmBoxer)    linkRhythmBoxer.href    = buildUrl(PATHS.rhythmBoxer,    { zone:'fitness' });
     if(linkJumpDuck)       linkJumpDuck.href       = buildUrl(PATHS.jumpDuck,       { zone:'fitness' });
