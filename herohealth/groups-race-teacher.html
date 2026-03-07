@@ -1,0 +1,526 @@
+<!-- === /herohealth/groups-race-teacher.html ===
+Groups Race — Teacher Scoreboard / Tournament Board
+FULL v20260307d-GROUPS-RACE-TEACHER-BOARD
+✅ reads all rooms from RTDB
+✅ shows room status / round / wins / live score
+✅ highlights series winner
+✅ supports simple filter
+Requires:
+- Firebase initialized on page (window.firebase)
+-->
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <title>HeroHealth — Groups Race Teacher Board</title>
+  <meta name="color-scheme" content="dark light"/>
+  <link rel="icon" href="./favicon.ico"/>
+  <style>
+    :root{
+      --bg:#040610;
+      --panel: rgba(2,6,23,.72);
+      --stroke: rgba(148,163,184,.18);
+      --text:#e5e7eb;
+      --muted:#94a3b8;
+      --good:#22c55e;
+      --cyan:#22d3ee;
+      --amber:#f59e0b;
+      --red:#ef4444;
+      --violet:#a78bfa;
+      --pink:#ff4fd8;
+      --radius:22px;
+      --sat: env(safe-area-inset-top, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sar: env(safe-area-inset-right, 0px);
+      --sal: env(safe-area-inset-left, 0px);
+    }
+    *{ box-sizing:border-box; }
+    html,body{
+      height:100%; margin:0; color:var(--text);
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif;
+      background:
+        radial-gradient(1100px 700px at 16% 0%, rgba(34,211,238,.12), transparent 55%),
+        radial-gradient(900px 650px at 88% 12%, rgba(167,139,250,.12), transparent 55%),
+        radial-gradient(800px 650px at 50% 100%, rgba(245,158,11,.08), transparent 58%),
+        linear-gradient(180deg, #0b1026, var(--bg));
+    }
+
+    .page{
+      min-height:100%;
+      padding: calc(12px + var(--sat)) calc(12px + var(--sar)) calc(16px + var(--sab)) calc(12px + var(--sal));
+      display:flex; flex-direction:column; gap:12px;
+    }
+
+    .topbar{
+      border-radius:28px;
+      border:1px solid var(--stroke);
+      background:linear-gradient(180deg, rgba(2,6,23,.84), rgba(2,6,23,.64));
+      box-shadow:0 22px 80px rgba(0,0,0,.42);
+      padding:12px 14px;
+      display:flex; justify-content:space-between; gap:12px; align-items:center; flex-wrap:wrap;
+    }
+    .brand{
+      display:flex; gap:10px; align-items:center;
+    }
+    .logo{
+      width:44px; height:44px; border-radius:14px;
+      display:grid; place-items:center;
+      border:1px solid var(--stroke);
+      background:linear-gradient(135deg, rgba(34,211,238,.18), rgba(167,139,250,.16));
+      font-weight:1100;
+    }
+    .title b{
+      display:block;
+      font-size:16px;
+      font-weight:1100;
+      letter-spacing:.2px;
+    }
+    .title span{
+      color:var(--muted);
+      font-size:12px;
+      font-weight:900;
+    }
+
+    .toolbar{
+      display:flex; gap:8px; align-items:center; flex-wrap:wrap;
+    }
+    .pill{
+      display:inline-flex; gap:8px; align-items:center;
+      min-height:36px;
+      padding:6px 10px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.20);
+      background: rgba(2,6,23,.55);
+      font-size:11.5px;
+      color:var(--muted);
+      white-space:nowrap;
+    }
+    .pill b{ color:var(--text); font-weight:1000; }
+
+    .input, .select, button{
+      min-height:40px;
+      border-radius:14px;
+      border:1px solid rgba(148,163,184,.18);
+      background: rgba(2,6,23,.46);
+      color:var(--text);
+      padding:8px 12px;
+      font:inherit;
+    }
+    .input::placeholder{ color:#7d8aa3; }
+
+    button{
+      cursor:pointer;
+      font-weight:1000;
+      transition: transform .08s ease, background .15s ease, border-color .15s ease;
+    }
+    button:hover{
+      transform:translateY(-1px);
+      background: rgba(2,6,23,.62);
+      border-color: rgba(148,163,184,.28);
+    }
+    button:active{ transform:translateY(0) scale(.99); }
+
+    .stats{
+      display:grid;
+      grid-template-columns:repeat(4, minmax(0,1fr));
+      gap:10px;
+    }
+    @media (max-width:900px){
+      .stats{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+    }
+    @media (max-width:520px){
+      .stats{ grid-template-columns:1fr; }
+    }
+
+    .statCard{
+      border:1px solid var(--stroke);
+      border-radius:20px;
+      background:rgba(2,6,23,.44);
+      padding:12px;
+      box-shadow:0 12px 36px rgba(0,0,0,.18);
+    }
+    .statCard .k{
+      color:var(--muted);
+      font-size:11px;
+      font-weight:1000;
+    }
+    .statCard .v{
+      margin-top:4px;
+      font-size:28px;
+      font-weight:1100;
+      line-height:1;
+    }
+
+    .grid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:12px;
+    }
+    @media (max-width:1100px){
+      .grid{ grid-template-columns:1fr; }
+    }
+
+    .roomCard{
+      border:1px solid rgba(148,163,184,.16);
+      border-radius:22px;
+      background:rgba(2,6,23,.50);
+      box-shadow:0 16px 40px rgba(0,0,0,.20);
+      overflow:hidden;
+    }
+    .roomHead{
+      padding:12px;
+      border-bottom:1px solid rgba(148,163,184,.12);
+      display:flex; justify-content:space-between; gap:10px; align-items:center; flex-wrap:wrap;
+    }
+    .roomHeadLeft{
+      display:flex; flex-direction:column; gap:4px;
+    }
+    .roomId{
+      font-size:16px;
+      font-weight:1100;
+      letter-spacing:.3px;
+    }
+    .roomMeta{
+      color:var(--muted);
+      font-size:11.5px;
+      font-weight:900;
+    }
+
+    .badges{
+      display:flex; gap:6px; flex-wrap:wrap;
+    }
+    .badge{
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(2,6,23,.44);
+      padding:5px 8px;
+      font-size:10px;
+      font-weight:1000;
+      color:var(--muted);
+      white-space:nowrap;
+    }
+
+    .roomBody{
+      padding:12px;
+      display:grid;
+      grid-template-columns:1fr auto 1fr;
+      gap:10px;
+      align-items:stretch;
+    }
+    @media (max-width:760px){
+      .roomBody{
+        grid-template-columns:1fr;
+      }
+    }
+
+    .playerBox{
+      border:1px solid rgba(148,163,184,.12);
+      border-radius:18px;
+      background:rgba(2,6,23,.30);
+      padding:10px;
+    }
+    .playerTop{
+      display:flex; justify-content:space-between; gap:8px; align-items:center; flex-wrap:wrap;
+      margin-bottom:8px;
+    }
+    .playerName{
+      font-size:14px; font-weight:1000;
+    }
+    .playerTags{
+      display:flex; gap:6px; flex-wrap:wrap;
+    }
+    .tag{
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.16);
+      background:rgba(2,6,23,.42);
+      padding:4px 8px;
+      font-size:10px;
+      font-weight:1000;
+      color:var(--muted);
+    }
+
+    .miniGrid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:8px;
+    }
+    .miniCell{
+      border-radius:12px;
+      border:1px solid rgba(148,163,184,.12);
+      background:rgba(2,6,23,.24);
+      padding:7px 8px;
+    }
+    .miniCell .k{
+      color:var(--muted);
+      font-size:10px;
+      font-weight:1000;
+    }
+    .miniCell .v{
+      margin-top:3px;
+      font-size:13px;
+      font-weight:1000;
+    }
+
+    .centerVs{
+      min-width:84px;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+    }
+    .vsText{
+      font-size:20px;
+      font-weight:1100;
+      line-height:1;
+      color:var(--muted);
+    }
+    .seriesScore{
+      border-radius:16px;
+      border:1px solid rgba(245,158,11,.22);
+      background:rgba(245,158,11,.08);
+      padding:8px 10px;
+      font-size:14px;
+      font-weight:1100;
+      text-align:center;
+      min-width:84px;
+    }
+
+    .winnerGlow{
+      box-shadow:
+        0 0 0 1px rgba(34,197,94,.26) inset,
+        0 0 28px rgba(34,197,94,.10);
+    }
+
+    .empty{
+      border:1px dashed rgba(148,163,184,.22);
+      border-radius:22px;
+      padding:20px;
+      text-align:center;
+      color:var(--muted);
+      font-weight:900;
+      background:rgba(2,6,23,.26);
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+  <div class="topbar">
+    <div class="brand">
+      <div class="logo">TB</div>
+      <div class="title">
+        <b>🏫 Groups Race Teacher Board</b>
+        <span>ดูทุกห้องแข่งขันแบบ realtime</span>
+      </div>
+    </div>
+
+    <div class="toolbar">
+      <div class="pill">MODE: <b>TEACHER</b></div>
+      <div class="pill">GAME: <b>GROUPS RACE</b></div>
+      <input id="searchInput" class="input" placeholder="ค้นหา room / ชื่อผู้เล่น" />
+      <select id="statusFilter" class="select">
+        <option value="all">ทุกสถานะ</option>
+        <option value="lobby">lobby</option>
+        <option value="countdown">countdown</option>
+        <option value="playing">playing</option>
+        <option value="ended">ended</option>
+      </select>
+      <button id="btnRefresh">Refresh</button>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="statCard"><div class="k">ห้องทั้งหมด</div><div class="v" id="statRooms">0</div></div>
+    <div class="statCard"><div class="k">กำลังแข่ง</div><div class="v" id="statPlaying">0</div></div>
+    <div class="statCard"><div class="k">รอเริ่ม</div><div class="v" id="statWaiting">0</div></div>
+    <div class="statCard"><div class="k">ซีรีส์จบแล้ว</div><div class="v" id="statEnded">0</div></div>
+  </div>
+
+  <div id="board" class="grid">
+    <div class="empty">กำลังโหลดข้อมูล...</div>
+  </div>
+</div>
+
+<script>
+(() => {
+  'use strict';
+
+  function requireDb(){
+    const fb = window.firebase;
+    if(!fb || typeof fb.database !== 'function'){
+      throw new Error('firebase.database() not found');
+    }
+    return fb.database();
+  }
+
+  const db = requireDb();
+  const roomsRef = db.ref('herohealth/groups-race/rooms');
+
+  const $ = (s)=>document.querySelector(s);
+  const board = $('#board');
+  const searchInput = $('#searchInput');
+  const statusFilter = $('#statusFilter');
+  const btnRefresh = $('#btnRefresh');
+
+  const statRooms = $('#statRooms');
+  const statPlaying = $('#statPlaying');
+  const statWaiting = $('#statWaiting');
+  const statEnded = $('#statEnded');
+
+  let lastRooms = {};
+
+  function n(v, d=0){
+    v = Number(v);
+    return Number.isFinite(v) ? v : d;
+  }
+
+  function s(v, d=''){
+    return (v === undefined || v === null) ? d : String(v);
+  }
+
+  function getPlayer(room, key){
+    if(!room || !room.players || !key) return null;
+    return room.players[key] || null;
+  }
+
+  function statusBadge(status){
+    status = s(status, 'lobby');
+    if(status === 'playing') return `<span class="badge" style="color:var(--good); border-color:rgba(34,197,94,.22);">playing</span>`;
+    if(status === 'countdown') return `<span class="badge" style="color:var(--amber); border-color:rgba(245,158,11,.22);">countdown</span>`;
+    if(status === 'ended') return `<span class="badge" style="color:var(--red); border-color:rgba(239,68,68,.22);">ended</span>`;
+    return `<span class="badge">lobby</span>`;
+  }
+
+  function onlineTag(p){
+    const ok = !p || !('connected' in p) || !!p.connected;
+    return `<span class="tag" style="color:${ok ? 'var(--good)' : 'var(--red)'};">${ok ? 'online' : 'offline'}</span>`;
+  }
+
+  function playerCard(p, winner){
+    p = p || {};
+    return `
+      <div class="playerBox ${winner ? 'winnerGlow' : ''}">
+        <div class="playerTop">
+          <div class="playerName">${s(p.name, s(p.playerKey, '-'))}</div>
+          <div class="playerTags">
+            <span class="tag">${s(p.role, '-')}</span>
+            ${onlineTag(p)}
+            ${winner ? '<span class="tag" style="color:var(--good);">winner</span>' : ''}
+          </div>
+        </div>
+        <div class="miniGrid">
+          <div class="miniCell"><div class="k">SCORE</div><div class="v">${n(p.score,0)}</div></div>
+          <div class="miniCell"><div class="k">ACC</div><div class="v">${n(p.accuracyPct,0)}%</div></div>
+          <div class="miniCell"><div class="k">MISS</div><div class="v">${n(p.miss,0)}</div></div>
+          <div class="miniCell"><div class="k">COMBO MAX</div><div class="v">${n(p.comboMax,0)}</div></div>
+        </div>
+      </div>
+    `;
+  }
+
+  function leadText(host, guest){
+    const hs = n(host?.score,0);
+    const gs = n(guest?.score,0);
+    const d = hs - gs;
+    if(Math.abs(d) <= 8) return 'CLOSE';
+    return d > 0 ? 'HOST LEAD' : 'GUEST LEAD';
+  }
+
+  function roomMatches(room, search, status){
+    search = s(search, '').trim().toLowerCase();
+    status = s(status, 'all').toLowerCase();
+
+    const rStatus = s(room?.status, 'lobby').toLowerCase();
+    if(status !== 'all' && status !== rStatus) return false;
+
+    if(!search) return true;
+
+    const host = getPlayer(room, room?.hostKey);
+    const guest = getPlayer(room, room?.guestKey);
+
+    const hay = [
+      room?.roomId,
+      host?.name,
+      guest?.name,
+      host?.playerKey,
+      guest?.playerKey
+    ].map(v=>s(v,'').toLowerCase()).join(' | ');
+
+    return hay.includes(search);
+  }
+
+  function renderRooms(roomsObj){
+    const search = s(searchInput.value, '');
+    const status = s(statusFilter.value, 'all');
+
+    const rooms = Object.values(roomsObj || {})
+      .filter(room => roomMatches(room, search, status))
+      .sort((a,b)=> n(b.updatedAt,0) - n(a.updatedAt,0));
+
+    statRooms.textContent = String(Object.keys(roomsObj || {}).length);
+    statPlaying.textContent = String(Object.values(roomsObj || {}).filter(r => s(r.status,'') === 'playing').length);
+    statWaiting.textContent = String(Object.values(roomsObj || {}).filter(r => ['lobby','countdown'].includes(s(r.status,''))).length);
+    statEnded.textContent = String(Object.values(roomsObj || {}).filter(r => !!r.seriesFinished || s(r.status,'') === 'ended').length);
+
+    if(!rooms.length){
+      board.innerHTML = `<div class="empty">ไม่พบห้องที่ตรงกับเงื่อนไข</div>`;
+      return;
+    }
+
+    board.innerHTML = rooms.map(room=>{
+      const host = getPlayer(room, room.hostKey);
+      const guest = getPlayer(room, room.guestKey);
+
+      const hostWin = s(room.seriesWinnerKey,'') && s(room.seriesWinnerKey,'') === s(room.hostKey,'');
+      const guestWin = s(room.seriesWinnerKey,'') && s(room.seriesWinnerKey,'') === s(room.guestKey,'');
+
+      const lead = (s(room.status,'') === 'playing') ? leadText(host, guest) : `R${n(room.roundNo,1)}`;
+
+      return `
+        <div class="roomCard">
+          <div class="roomHead">
+            <div class="roomHeadLeft">
+              <div class="roomId">${s(room.roomId,'—')}</div>
+              <div class="roomMeta">round ${n(room.roundNo,1)} · diff ${s(room.diff,'normal')} · ${n(room.timeSec,90)}s</div>
+            </div>
+            <div class="badges">
+              ${statusBadge(room.status)}
+              <span class="badge">BO3</span>
+              ${room.seriesFinished ? '<span class="badge" style="color:var(--good); border-color:rgba(34,197,94,.22);">series finished</span>' : ''}
+              ${room.rule ? `<span class="badge">${s(room.rule,'')}</span>` : ''}
+            </div>
+          </div>
+
+          <div class="roomBody">
+            ${playerCard(host, hostWin)}
+
+            <div class="centerVs">
+              <div class="vsText">VS</div>
+              <div class="seriesScore">${n(room.hostWins,0)} - ${n(room.guestWins,0)}</div>
+              <div class="badge">${lead}</div>
+            </div>
+
+            ${playerCard(guest, guestWin)}
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function subscribe(){
+    roomsRef.on('value', snap => {
+      lastRooms = snap.val() || {};
+      renderRooms(lastRooms);
+    });
+  }
+
+  searchInput.addEventListener('input', ()=> renderRooms(lastRooms));
+  statusFilter.addEventListener('change', ()=> renderRooms(lastRooms));
+  btnRefresh.addEventListener('click', ()=> renderRooms(lastRooms));
+
+  subscribe();
+})();
+</script>
+</body>
+</html>
