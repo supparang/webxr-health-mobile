@@ -1,11 +1,20 @@
 'use strict';
 
+window.__BATH_BOOT_OK__ = false;
+console.log('[Bath] script loaded', location.href);
+
 const W = window, D = document;
 const qs = (k, d='')=>{ try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(e){ return d; } };
 const qbool = (k,d=false)=>{ const v=String(qs(k,d?'1':'0')).toLowerCase(); return ['1','true','yes','y','on'].includes(v); };
 const clamp=(v,a,b)=>Math.max(a,Math.min(b, Number(v)||0));
 const now = ()=> (performance && performance.now) ? performance.now() : Date.now();
 const isoNow = ()=> new Date().toISOString();
+
+function cleanHubUrl(raw){
+  raw = String(raw || '../hub.html').trim();
+  raw = raw.replace(/[.]+$/, '');
+  return raw || '../hub.html';
+}
 
 function mulberry32(seed){ let t=seed>>>0; return ()=>{ t+=0x6D2B79F5; let r=Math.imul(t^(t>>>15),1|t); r^=r+Math.imul(r^(r>>>7),61|r); return ((r^(r>>>14))>>>0)/4294967296; }; }
 function seedFrom(str){ let h=2166136261>>>0; const s=String(str||''); for(let i=0;i<s.length;i++){ h^=s.charCodeAt(i); h=Math.imul(h,16777619); } return h>>>0; }
@@ -18,7 +27,7 @@ const DIFF = String(qs('diff','normal')).toLowerCase();
 const TIME = clamp(qs('time','90'), 45, 180);
 const PID  = String(qs('pid','anon'));
 const SEED = String(qs('seed', String(Date.now())));
-const HUB  = String(qs('hub','../hub.html'));
+const HUB  = cleanHubUrl(qs('hub','../hub.html'));
 const LOG_ON = qbool('log', false);
 const API = String(qs('api',''));
 const PRO = qbool('pro', false);
@@ -116,12 +125,12 @@ function logEvent(sessionId, eventType, extra={}){
 
 let FX=null, MISS=null;
 (async ()=>{
-  try{ FX = (await import('./bath.fx.js?v=20260306d')).bootFx(); }catch(e){}
+  try{ FX = (await import('./bath.fx.js?v=20260306d')).bootFx(); }catch(e){ console.warn('[Bath] bath.fx import failed', e); }
   try{ MISS = (await import('./bath.missions.js?v=20260306d')).bootMissions({
     warmNeed: PRO ? 5 : 4,
     trickNeed: PRO ? 6 : 4,
     bossNeed: 1
-  }); }catch(e){}
+  }); }catch(e){ console.warn('[Bath] bath.missions import failed', e); }
 })();
 
 const SPOTS = {
@@ -304,8 +313,17 @@ function updatePhysicalProxy(){
 
 function hud(){
   const rub = computeRubric();
-  UI.phasePill && (UI.phasePill.textContent = `PHASE: ${PHASES[S.phase]||'—'}`);
-  UI.questPill && (UI.questPill.textContent = `QUEST: ${MISS?.text?.() || '—'}`);
+  UI.phasePill && (
+    UI.phasePill.textContent = `PHASE: ${
+      S.started ? (PHASES[S.phase] || '—') : 'READY'
+    }`
+  );
+  UI.questPill && (
+    UI.questPill.textContent = `QUEST: ${
+      MISS?.text?.() ||
+      (S.started ? 'ทำภารกิจตาม phase ปัจจุบัน' : 'กดเริ่มเพื่อทำแบบทดสอบก่อนเล่น')
+    }`
+  );
   UI.timePill && (UI.timePill.textContent = `TIME: ${Math.max(0, Math.ceil(S.timeLeft))}`);
   UI.viewPill && (UI.viewPill.textContent = `VIEW: ${S.view.toUpperCase()}`);
   UI.toolPill && (UI.toolPill.textContent = `TOOL: ${String(S.tool).toUpperCase()}`);
@@ -929,7 +947,7 @@ function renderStars(){
       logEvent(S.sessionId,'self_rating',{rating:i});
     });
     UI.stars.appendChild(b);
-  });
+  }
 }
 function renderPlan(){
   if(!UI.planList) return;
@@ -1072,60 +1090,115 @@ function endGame(reason='complete'){
 }
 
 function showQuiz(nextMode='standard'){
-  S.quizIndex=0; S.quizCorrect=0;
-  UI.btnQuizNext.dataset.nextMode = nextMode;
-  renderQuiz();
-  UI.panelQuiz.classList.remove('hidden');
+  try{
+    S.quizIndex = 0;
+    S.quizCorrect = 0;
+
+    if (!UI.panelQuiz || !UI.quizBody || !UI.btnQuizNext){
+      console.warn('[Bath] quiz UI missing, fallback startGame');
+      startGame(nextMode);
+      return;
+    }
+
+    UI.btnQuizNext.dataset.nextMode = nextMode;
+    renderQuiz();
+    UI.panelQuiz.classList.remove('hidden');
+  }catch(err){
+    console.error('[Bath] showQuiz failed', err);
+    startGame(nextMode);
+  }
 }
 function renderQuiz(){
-  const item = QUIZ[S.quizIndex];
-  if(!UI.quizBody || !item) return;
-  UI.quizBody.innerHTML = '';
+  try{
+    const item = QUIZ[S.quizIndex];
+    if(!UI.quizBody || !item){
+      console.warn('[Bath] renderQuiz skipped', { hasQuizBody: !!UI.quizBody, hasItem: !!item });
+      return;
+    }
 
-  const q = D.createElement('div');
-  q.style.fontWeight='900';
-  q.style.marginBottom='10px';
-  q.textContent = `${S.quizIndex+1}/3 — ${item.q}`;
-  UI.quizBody.appendChild(q);
+    UI.quizBody.innerHTML = '';
 
-  item.a.forEach((txt, idx)=>{
-    const b = D.createElement('button');
-    b.className = 'chip';
-    b.textContent = txt;
-    b.addEventListener('click', ()=>{
-      Array.from(UI.quizBody.querySelectorAll('button.chip')).forEach(x=>x.classList.remove('on'));
-      b.classList.add('on');
-      b.dataset.ok = (idx===item.correct)?'1':'0';
-      logEvent(S.sessionId,'quiz_answer',{qIndex:S.quizIndex, pick:idx, ok:(idx===item.correct)});
+    const q = D.createElement('div');
+    q.style.fontWeight = '900';
+    q.style.marginBottom = '10px';
+    q.textContent = `${S.quizIndex + 1}/3 — ${item.q}`;
+    UI.quizBody.appendChild(q);
+
+    item.a.forEach((txt, idx)=>{
+      const b = D.createElement('button');
+      b.className = 'chip';
+      b.textContent = txt;
+      b.addEventListener('click', ()=>{
+        Array.from(UI.quizBody.querySelectorAll('button.chip')).forEach(x=>x.classList.remove('on'));
+        b.classList.add('on');
+        b.dataset.ok = (idx === item.correct) ? '1' : '0';
+        logEvent(S.sessionId,'quiz_answer',{
+          qIndex:S.quizIndex,
+          pick:idx,
+          ok:(idx === item.correct)
+        });
+      });
+      UI.quizBody.appendChild(b);
     });
-    UI.quizBody.appendChild(b);
-  });
 
-  UI.btnQuizNext.textContent = (S.quizIndex===QUIZ.length-1) ? 'เริ่มเกม' : 'ข้อถัดไป';
+    if (UI.btnQuizNext){
+      UI.btnQuizNext.textContent = (S.quizIndex === QUIZ.length - 1) ? 'เริ่มเกม' : 'ข้อถัดไป';
+    }
+  }catch(err){
+    console.error('[Bath] renderQuiz failed', err);
+  }
 }
 function nextQuizOrStart(){
-  const picked = UI.quizBody.querySelector('button.chip.on');
-  if(!picked) return;
-  if (picked.dataset.ok==='1') S.quizCorrect++;
+  try{
+    if (!UI.quizBody || !UI.btnQuizNext){
+      console.warn('[Bath] quizBody/btnQuizNext missing, fallback startGame');
+      startGame('standard');
+      return;
+    }
 
-  if (S.quizIndex < QUIZ.length-1){
-    S.quizIndex++;
-    renderQuiz();
-    return;
+    const picked = UI.quizBody.querySelector('button.chip.on');
+
+    if(!picked){
+      console.warn('[Bath] no quiz answer selected');
+      return;
+    }
+
+    if (picked.dataset.ok === '1') S.quizCorrect++;
+
+    if (S.quizIndex < QUIZ.length - 1){
+      S.quizIndex++;
+      renderQuiz();
+      return;
+    }
+
+    UI.panelQuiz?.classList.add('hidden');
+    const mode = UI.btnQuizNext.dataset.nextMode || 'standard';
+    startGame(mode);
+  }catch(err){
+    console.error('[Bath] nextQuizOrStart failed', err);
+    try{
+      UI.panelQuiz?.classList.add('hidden');
+      startGame('standard');
+    }catch(err2){
+      console.error('[Bath] fallback startGame failed', err2);
+    }
   }
-
-  UI.panelQuiz.classList.add('hidden');
-  const mode = UI.btnQuizNext.dataset.nextMode || 'standard';
-  startGame(mode);
 }
 
 function startGame(mode='standard'){
   S.mode = mode;
   S.sessionId = `bath_${PID}_${Date.now()}`;
-  S.started=true; S.ended=false;
-  S.phase=0;
+  S.started = true;
+  S.ended = false;
+  S.phase = 0;
+
+  UI.panelQuiz?.classList.add('hidden');
+  UI.panelHelp?.classList.add('hidden');
+  UI.panelEnd?.classList.add('hidden');
+
+  console.log('[Bath] startGame', { mode, pid: PID, diff: DIFF, time: TIME, pro: PRO });
+
   S.view = S.view || 'front';
-  S.tool = 'soap';
   tuneByDiff();
   S.startMs = now();
   S.lastFrameMs = 0;
@@ -1153,9 +1226,11 @@ function startGame(mode='standard'){
   resetSpotStats();
   clearTargets();
 
-  const t = TOOLS[Math.floor(rng()*TOOLS.length)];
+  const t = TOOLS.find(x=>x.id==='soap') || TOOLS[0];
   S.tool = t.id;
-  S.foam = t.foamGain + (PRO?3:0) + (DIFF==='hard'?2:0);
+  S.foam = t.foamGain + (PRO ? 3 : 0) + (DIFF === 'hard' ? 2 : 0);
+
+  UI.coachPill && (UI.coachPill.textContent = 'COACH: เริ่มจาก WET ก่อน');
 
   setTimeout(()=>{
     if(!S.started || S.ended) return;
@@ -1163,6 +1238,7 @@ function startGame(mode='standard'){
     logEvent(S.sessionId,'phase_start',{phase:'WET'});
     FX?.toast?.('เริ่ม WET!', 'good', 700);
     coachEmit('start');
+    hud();
   }, 700);
 
   logEvent(S.sessionId,'session_start',{mode, view:S.view, tool:S.tool, seed:SEED, pro:!!PRO});
@@ -1180,38 +1256,124 @@ function flipView(){
   hud();
 }
 
-UI.btnHelp?.addEventListener('click', ()=> UI.panelHelp?.classList.remove('hidden'));
-UI.btnCloseHelp?.addEventListener('click', ()=> UI.panelHelp?.classList.add('hidden'));
+function bootPreviewState(){
+  S.timeLeft = TIME;
+  S.tool = S.tool || 'soap';
+  S.view = S.view || 'front';
+  hud();
+}
 
-UI.btnFlip?.addEventListener('click', ()=>{
-  if (!S.started || S.ended){ flipView(); return; }
-  S.sweat = clamp(S.sweat + 2.0, 0, 100);
-  flipView();
-  logEvent(S.sessionId,'flip',{});
-});
+if (UI.btnHelp){
+  UI.btnHelp.addEventListener('click', ()=> UI.panelHelp?.classList.remove('hidden'));
+}
+if (UI.btnCloseHelp){
+  UI.btnCloseHelp.addEventListener('click', ()=> UI.panelHelp?.classList.add('hidden'));
+}
 
-UI.btnStart?.addEventListener('click', ()=> showQuiz('standard'));
-UI.btnQuizNext?.addEventListener('click', ()=> nextQuizOrStart());
+if (UI.btnFlip){
+  UI.btnFlip.addEventListener('click', ()=>{
+    if (!S.started || S.ended){
+      flipView();
+      return;
+    }
+    S.sweat = clamp(S.sweat + 2.0, 0, 100);
+    flipView();
+    logEvent(S.sessionId,'flip',{});
+  });
+}
 
-UI.btnReplay?.addEventListener('click', ()=>{
-  UI.panelEnd?.classList.add('hidden');
-  showQuiz('standard');
-});
+if (UI.btnStart){
+  UI.btnStart.addEventListener('click', ()=>{
+    console.log('[Bath] btnStart click');
+    try{
+      showQuiz('standard');
+    }catch(err){
+      console.error('[Bath] showQuiz failed, fallback startGame', err);
+      try{
+        startGame('standard');
+      }catch(err2){
+        console.error('[Bath] fallback startGame failed', err2);
+      }
+    }
+  });
+} else {
+  console.error('[Bath] btnStart not found');
+}
 
-UI.btnPlayPlan?.addEventListener('click', ()=>{
-  savePlan(S.view, S.plan);
-  logEvent(S.sessionId,'plan_play',{view:S.view, plan:S.plan});
-  UI.panelEnd?.classList.add('hidden');
-  showQuiz('plan');
-});
+if (UI.btnQuizNext){
+  UI.btnQuizNext.addEventListener('click', ()=> nextQuizOrStart());
+}
 
-UI.btnCooldown?.addEventListener('click', ()=>{
-  const hub = encodeURIComponent(HUB);
-  const next = `../cooldown-gate.html?game=bath&hub=${hub}&pid=${encodeURIComponent(PID)}&diff=${encodeURIComponent(DIFF)}&pro=${PRO?1:0}`;
-  location.href = next;
-});
+if (UI.btnReplay){
+  UI.btnReplay.addEventListener('click', ()=>{
+    UI.panelEnd?.classList.add('hidden');
+    showQuiz('standard');
+  });
+}
 
-UI.btnBack?.addEventListener('click', ()=>{ location.href = HUB; });
+if (UI.btnPlayPlan){
+  UI.btnPlayPlan.addEventListener('click', ()=>{
+    savePlan(S.view, S.plan);
+    logEvent(S.sessionId,'plan_play',{view:S.view, plan:S.plan});
+    UI.panelEnd?.classList.add('hidden');
+    showQuiz('plan');
+  });
+}
 
-hud();
-renderPlan();
+if (UI.btnCooldown){
+  UI.btnCooldown.addEventListener('click', ()=>{
+    const hub = encodeURIComponent(HUB);
+    const next = `../warmup-gate.html?gatePhase=cooldown&phase=cooldown&cat=hygiene&theme=bath&game=bath&hub=${hub}&pid=${encodeURIComponent(PID)}&diff=${encodeURIComponent(DIFF)}&pro=${PRO?1:0}&run=${encodeURIComponent(RUN)}&time=${encodeURIComponent(TIME)}&view=${encodeURIComponent(qs('view','mobile'))}&seed=${encodeURIComponent(SEED)}`;
+    location.href = next;
+  });
+}
+
+if (UI.btnBack){
+  UI.btnBack.addEventListener('click', ()=>{
+    location.href = HUB;
+  });
+}
+
+function bootBathSafe(){
+  try{
+    console.log('[Bath] bootBathSafe start');
+
+    if (!UI.btnStart) console.error('[Bath] btnStart missing');
+    if (!UI.targetLayer) console.error('[Bath] targetLayer missing');
+    if (!UI.planList) console.error('[Bath] planList missing');
+
+    bootPreviewState();
+    renderPlan();
+
+    window.__BATH_BOOT_OK__ = true;
+    console.log('[Bath] bootBathSafe done', {
+      timeLeft: S.timeLeft,
+      tool: S.tool,
+      view: S.view
+    });
+  }catch(err){
+    console.error('[Bath] bootBathSafe failed', err);
+  }
+}
+
+window.__bathDebug = function(){
+  return {
+    started: S.started,
+    ended: S.ended,
+    phase: PHASES[S.phase],
+    timeLeft: S.timeLeft,
+    tool: S.tool,
+    view: S.view,
+    hasBtnStart: !!UI.btnStart,
+    hasQuizPanel: !!UI.panelQuiz,
+    hasQuizBody: !!UI.quizBody,
+    hasTargetLayer: !!UI.targetLayer,
+    bootOk: !!window.__BATH_BOOT_OK__
+  };
+};
+
+if (D.readyState === 'loading'){
+  D.addEventListener('DOMContentLoaded', bootBathSafe, { once:true });
+} else {
+  bootBathSafe();
+}
