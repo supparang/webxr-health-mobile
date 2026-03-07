@@ -19,7 +19,6 @@
     if(v!=null && v!=='') target.searchParams.set(k, v);
   });
 
-  // map hub time -> duration for JumpDuck if duration absent
   if(!target.searchParams.get('duration')){
     const t = sp.get('time') || '60';
     target.searchParams.set('duration', t);
