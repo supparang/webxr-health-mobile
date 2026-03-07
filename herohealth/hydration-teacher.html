@@ -1,0 +1,502 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="color-scheme" content="dark light" />
+  <title>HeroHealth • Hydration Teacher Dashboard</title>
+  <link rel="icon" href="./favicon.ico" />
+  <style>
+    :root{
+      --bg1:#020617; --bg2:#0b1226;
+      --panel:rgba(2,6,23,.76);
+      --panel2:rgba(15,23,42,.72);
+      --stroke:rgba(148,163,184,.16);
+      --text:#e5e7eb; --muted:#94a3b8;
+      --blue:#38bdf8; --good:#22c55e; --warn:#f59e0b; --danger:#ef4444;
+      --radius:22px; --shadow:0 18px 40px rgba(0,0,0,.38);
+      --sat:env(safe-area-inset-top,0px); --sar:env(safe-area-inset-right,0px);
+      --sab:env(safe-area-inset-bottom,0px); --sal:env(safe-area-inset-left,0px);
+    }
+    *{ box-sizing:border-box; }
+    html,body{ margin:0; min-height:100%; }
+    body{
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(1100px 700px at 70% -10%, rgba(56,189,248,.12), transparent 60%),
+        radial-gradient(900px 600px at 0% 0%, rgba(99,102,241,.10), transparent 55%),
+        linear-gradient(180deg,var(--bg1),var(--bg2));
+      padding:
+        calc(14px + var(--sat))
+        calc(14px + var(--sar))
+        calc(18px + var(--sab))
+        calc(14px + var(--sal));
+    }
+    .wrap{ max-width:1200px; margin:0 auto; }
+    .hero,.stats,.layout{ display:grid; gap:14px; }
+    .hero{ grid-template-columns:1.25fr .75fr; }
+    .stats{ grid-template-columns:repeat(4,1fr); margin-top:14px; }
+    .layout{ grid-template-columns:1.05fr .95fr; margin-top:14px; }
+    .card{
+      background:var(--panel);
+      border:1px solid var(--stroke);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+      backdrop-filter:blur(10px);
+      padding:16px;
+    }
+    .pill{
+      display:inline-flex; align-items:center; gap:8px;
+      border:1px solid var(--stroke);
+      background:rgba(15,23,42,.66);
+      border-radius:999px;
+      padding:7px 12px;
+      color:#cbd5e1;
+      font-weight:900; font-size:12px;
+    }
+    h1,h2,h3{ margin:0; }
+    h1{ margin-top:10px; font-size:clamp(28px,5vw,42px); }
+    .sub{ color:var(--muted); line-height:1.65; margin-top:8px; }
+    .mini{
+      background:var(--panel2);
+      border:1px solid var(--stroke);
+      border-radius:18px;
+      padding:14px;
+    }
+    .mini .k{ color:var(--muted); font-size:12px; font-weight:900; }
+    .mini .v{ margin-top:4px; font-size:24px; font-weight:1000; }
+    .row{ display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; }
+    .btn{
+      appearance:none; border:none; cursor:pointer;
+      border-radius:16px; padding:12px 14px;
+      font:inherit; font-weight:1000;
+      color:var(--text);
+      background:var(--panel2);
+      border:1px solid var(--stroke);
+    }
+    .btn.primary{
+      background:linear-gradient(180deg, rgba(56,189,248,.30), rgba(56,189,248,.18));
+      border-color:rgba(56,189,248,.42);
+    }
+    .btn.good{
+      background:linear-gradient(180deg, rgba(34,197,94,.24), rgba(34,197,94,.14));
+      border-color:rgba(34,197,94,.36);
+    }
+    .btn.warn{
+      background:linear-gradient(180deg, rgba(245,158,11,.24), rgba(245,158,11,.14));
+      border-color:rgba(245,158,11,.36);
+    }
+    .filters{
+      display:grid; gap:10px;
+      grid-template-columns:1fr 1fr 1fr;
+      margin-top:12px;
+    }
+    input,select{
+      width:100%;
+      border:1px solid var(--stroke);
+      background:var(--panel2);
+      color:var(--text);
+      border-radius:14px;
+      padding:12px 12px;
+      font:inherit;
+      outline:none;
+    }
+    .empty{
+      padding:18px;
+      border-radius:18px;
+      background:rgba(15,23,42,.54);
+      border:1px dashed var(--stroke);
+      color:var(--muted);
+      line-height:1.7;
+      margin-top:12px;
+    }
+    .list{
+      display:grid; gap:10px;
+      margin-top:12px;
+      max-height:640px;
+      overflow:auto;
+      padding-right:2px;
+    }
+    .session{
+      background:rgba(15,23,42,.58);
+      border:1px solid var(--stroke);
+      border-radius:18px;
+      padding:12px;
+      cursor:pointer;
+    }
+    .session.active{
+      border-color:rgba(56,189,248,.45);
+      box-shadow:0 0 0 2px rgba(56,189,248,.10) inset;
+    }
+    .session-top{
+      display:flex; justify-content:space-between; gap:10px; align-items:center;
+      font-size:13px;
+    }
+    .muted{ color:var(--muted); }
+    .strong{ font-weight:1000; }
+    .chips{ display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }
+    .chip{
+      background:rgba(2,6,23,.66);
+      border:1px solid rgba(255,255,255,.08);
+      border-radius:999px;
+      padding:6px 10px;
+      font-size:12px;
+      font-weight:1000;
+    }
+    .coach{
+      margin-top:12px;
+      padding:12px 14px;
+      border-radius:16px;
+      background:rgba(15,23,42,.58);
+      border:1px solid var(--stroke);
+      line-height:1.65;
+    }
+    .detail-grid{
+      display:grid; gap:10px;
+      grid-template-columns:repeat(2,1fr);
+      margin-top:12px;
+    }
+    .mono{
+      margin-top:12px;
+      padding:12px;
+      border-radius:16px;
+      background:rgba(15,23,42,.54);
+      border:1px dashed var(--stroke);
+      color:#cbd5e1;
+      font-size:12px;
+      white-space:pre-wrap;
+      word-break:break-word;
+      max-height:300px;
+      overflow:auto;
+      font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono",monospace;
+    }
+    @media (max-width: 980px){
+      .hero,.layout,.stats,.filters,.detail-grid{ grid-template-columns:1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="hero">
+      <div class="card">
+        <div class="pill">💧 Hydration VR • Multi-session Dashboard</div>
+        <h1>Teacher Dashboard</h1>
+        <div class="sub">
+          หน้านี้อ่านข้อมูลจาก <b>HHA_HYD_SUMMARY_HISTORY</b> และ <b>HHA_HYD_LAST_SUMMARY</b>
+          เพื่อให้ครูดูผลหลายรอบได้ในเครื่องเดียว
+        </div>
+
+        <div class="filters">
+          <input id="fPid" placeholder="กรอง PID เช่น anon" />
+          <select id="fGrade">
+            <option value="">ทุกเกรด</option>
+            <option value="S">S</option>
+            <option value="A">A</option>
+            <option value="B">B</option>
+            <option value="C">C</option>
+            <option value="D">D</option>
+          </select>
+          <select id="fResult">
+            <option value="">ทุกผลลัพธ์</option>
+            <option value="ชนะ Final Boss สำเร็จ">ชนะ Final Boss สำเร็จ</option>
+            <option value="หมดเวลา">หมดเวลา</option>
+            <option value="พลาดมากเกินไป">พลาดมากเกินไป</option>
+            <option value="ค่าน้ำหมด">ค่าน้ำหมด</option>
+          </select>
+        </div>
+
+        <div class="row">
+          <button class="btn primary" id="btnRefresh">รีเฟรช</button>
+          <button class="btn good" id="btnCopyHistory">คัดลอก history ทั้งหมด</button>
+          <button class="btn warn" id="btnClearHistory">ล้าง history ทั้งหมด</button>
+        </div>
+
+        <div id="emptyState" class="empty" hidden>
+          ยังไม่มีประวัติ Hydration ในเครื่องนี้<br>
+          ให้เข้าเล่นเกมอย่างน้อย 1 รอบ แล้วกลับมาเปิดหน้านี้อีกครั้ง
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>ภาพรวม</h2>
+        <div class="sub">สรุปจากรายการที่ผ่าน filter ปัจจุบัน</div>
+        <div class="mono" id="overviewText">—</div>
+      </div>
+    </section>
+
+    <section class="stats">
+      <div class="mini"><div class="k">จำนวนรอบ</div><div class="v" id="sCount">0</div></div>
+      <div class="mini"><div class="k">Score เฉลี่ย</div><div class="v" id="sAvgScore">0</div></div>
+      <div class="mini"><div class="k">Final Clear Rate</div><div class="v" id="sClearRate">0%</div></div>
+      <div class="mini"><div class="k">เกรดเด่นสุด</div><div class="v" id="sTopGrade">—</div></div>
+    </section>
+
+    <section class="layout">
+      <div class="card">
+        <h2>รายการ session</h2>
+        <div class="list" id="sessionList"></div>
+      </div>
+
+      <div class="card">
+        <h2>รายละเอียด session</h2>
+        <div id="detailEmpty" class="empty">เลือก session ทางซ้ายเพื่อดูรายละเอียด</div>
+        <div id="detailBlock" hidden>
+          <div class="detail-grid">
+            <div class="mini"><div class="k">Session ID</div><div class="v" id="dSessionId" style="font-size:14px">—</div></div>
+            <div class="mini"><div class="k">PID</div><div class="v" id="dPid">—</div></div>
+            <div class="mini"><div class="k">Score</div><div class="v" id="dScore">—</div></div>
+            <div class="mini"><div class="k">Grade</div><div class="v" id="dGrade">—</div></div>
+            <div class="mini"><div class="k">Reached Phase</div><div class="v" id="dPhase" style="font-size:18px">—</div></div>
+            <div class="mini"><div class="k">Result</div><div class="v" id="dResult" style="font-size:18px">—</div></div>
+            <div class="mini"><div class="k">Water %</div><div class="v" id="dWater">—</div></div>
+            <div class="mini"><div class="k">Combo Max</div><div class="v" id="dCombo">—</div></div>
+            <div class="mini"><div class="k">Bad Hit</div><div class="v" id="dBad">—</div></div>
+            <div class="mini"><div class="k">Expire</div><div class="v" id="dExpire">—</div></div>
+            <div class="mini"><div class="k">Lightning Hit</div><div class="v" id="dLHit">—</div></div>
+            <div class="mini"><div class="k">Lightning Block</div><div class="v" id="dLBlock">—</div></div>
+          </div>
+
+          <div class="coach">
+            <b>Coach Summary:</b>
+            <div id="dCoach" style="margin-top:6px">—</div>
+          </div>
+
+          <div class="chips" id="detailChips"></div>
+
+          <div class="row">
+            <button class="btn primary" id="btnCopyTeacher">คัดลอก teacher summary</button>
+            <button class="btn good" id="btnCopyResearch">คัดลอก research packet</button>
+          </div>
+
+          <div class="mono" id="detailJson">—</div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    (function(){
+      const $ = (id)=> document.getElementById(id);
+
+      const ui = {
+        fPid: $('fPid'),
+        fGrade: $('fGrade'),
+        fResult: $('fResult'),
+        btnRefresh: $('btnRefresh'),
+        btnCopyHistory: $('btnCopyHistory'),
+        btnClearHistory: $('btnClearHistory'),
+
+        emptyState: $('emptyState'),
+        overviewText: $('overviewText'),
+
+        sCount: $('sCount'),
+        sAvgScore: $('sAvgScore'),
+        sClearRate: $('sClearRate'),
+        sTopGrade: $('sTopGrade'),
+
+        sessionList: $('sessionList'),
+
+        detailEmpty: $('detailEmpty'),
+        detailBlock: $('detailBlock'),
+        dSessionId: $('dSessionId'),
+        dPid: $('dPid'),
+        dScore: $('dScore'),
+        dGrade: $('dGrade'),
+        dPhase: $('dPhase'),
+        dResult: $('dResult'),
+        dWater: $('dWater'),
+        dCombo: $('dCombo'),
+        dBad: $('dBad'),
+        dExpire: $('dExpire'),
+        dLHit: $('dLHit'),
+        dLBlock: $('dLBlock'),
+        dCoach: $('dCoach'),
+        detailChips: $('detailChips'),
+        detailJson: $('detailJson'),
+        btnCopyTeacher: $('btnCopyTeacher'),
+        btnCopyResearch: $('btnCopyResearch')
+      };
+
+      let rawHistory = [];
+      let filtered = [];
+      let activeIndex = -1;
+
+      function safeJson(obj){
+        try{ return JSON.stringify(obj, null, 2); }
+        catch(e){ return '{}'; }
+      }
+
+      async function copyText(txt, label){
+        try{
+          await navigator.clipboard.writeText(String(txt || ''));
+        }catch(e){
+          try{ prompt(label || 'Copy', String(txt || '')); }catch(_){}
+        }
+      }
+
+      function loadHistory(){
+        let arr = [];
+        try{
+          arr = JSON.parse(localStorage.getItem('HHA_HYD_SUMMARY_HISTORY') || '[]');
+          if(!Array.isArray(arr)) arr = [];
+        }catch(e){ arr = []; }
+
+        if(!arr.length){
+          try{
+            const last = JSON.parse(localStorage.getItem('HHA_HYD_LAST_SUMMARY') || 'null');
+            if(last) arr = [last];
+          }catch(e){}
+        }
+
+        rawHistory = arr;
+      }
+
+      function applyFilters(){
+        const pid = String(ui.fPid.value || '').trim().toLowerCase();
+        const grade = String(ui.fGrade.value || '').trim();
+        const result = String(ui.fResult.value || '').trim();
+
+        filtered = rawHistory.filter(item=>{
+          const t = item?.teacherSummary || {};
+          if(pid && !String(t.pid || '').toLowerCase().includes(pid)) return false;
+          if(grade && String(t.grade || '') !== grade) return false;
+          if(result && String(t.result || '') !== result) return false;
+          return true;
+        });
+      }
+
+      function computeStats(){
+        const n = filtered.length;
+        const avgScore = n ? Math.round(filtered.reduce((a,x)=> a + Number(x?.teacherSummary?.score || 0), 0) / n) : 0;
+        const clearN = filtered.filter(x => String(x?.teacherSummary?.result || '') === 'ชนะ Final Boss สำเร็จ').length;
+        const clearRate = n ? Math.round((clearN / n) * 100) : 0;
+
+        const gradeMap = {};
+        filtered.forEach(x=>{
+          const g = String(x?.teacherSummary?.grade || '—');
+          gradeMap[g] = (gradeMap[g] || 0) + 1;
+        });
+        const topGrade = Object.entries(gradeMap).sort((a,b)=> b[1]-a[1])[0]?.[0] || '—';
+
+        ui.sCount.textContent = String(n);
+        ui.sAvgScore.textContent = String(avgScore);
+        ui.sClearRate.textContent = `${clearRate}%`;
+        ui.sTopGrade.textContent = topGrade;
+
+        const avgBad = n ? (filtered.reduce((a,x)=> a + Number(x?.teacherSummary?.missBadHit || 0), 0) / n).toFixed(1) : '0.0';
+        const avgExpire = n ? (filtered.reduce((a,x)=> a + Number(x?.teacherSummary?.missGoodExpired || 0), 0) / n).toFixed(1) : '0.0';
+        const avgWater = n ? Math.round(filtered.reduce((a,x)=> a + Number(x?.teacherSummary?.waterPct || 0), 0) / n) : 0;
+
+        ui.overviewText.textContent =
+`จำนวนรอบทั้งหมด: ${n}
+Score เฉลี่ย: ${avgScore}
+Water เฉลี่ยตอนจบ: ${avgWater}%
+Bad hit เฉลี่ย: ${avgBad}
+Expire เฉลี่ย: ${avgExpire}
+Final clear rate: ${clearRate}%
+เกรดที่พบมากที่สุด: ${topGrade}`;
+      }
+
+      function renderList(){
+        ui.sessionList.innerHTML = '';
+        ui.emptyState.hidden = filtered.length > 0;
+
+        filtered.forEach((item, idx)=>{
+          const t = item?.teacherSummary || {};
+          const div = document.createElement('button');
+          div.type = 'button';
+          div.className = 'session' + (idx === activeIndex ? ' active' : '');
+          div.innerHTML = `
+            <div class="session-top">
+              <div class="strong">${t.pid || 'anon'} • ${t.grade || '—'}</div>
+              <div class="muted">${item?.savedAtIso || '—'}</div>
+            </div>
+            <div class="chips">
+              <span class="chip">Score ${t.score ?? '—'}</span>
+              <span class="chip">${t.reachedPhase ?? '—'}</span>
+              <span class="chip">${t.result ?? '—'}</span>
+              <span class="chip">Water ${t.waterPct ?? '—'}%</span>
+            </div>
+          `;
+          div.addEventListener('click', ()=>{
+            activeIndex = idx;
+            renderList();
+            renderDetail();
+          });
+          ui.sessionList.appendChild(div);
+        });
+      }
+
+      function renderDetail(){
+        if(activeIndex < 0 || !filtered[activeIndex]){
+          ui.detailEmpty.hidden = false;
+          ui.detailBlock.hidden = true;
+          return;
+        }
+
+        const item = filtered[activeIndex];
+        const t = item?.teacherSummary || {};
+        const r = item?.researchPacket || {};
+
+        ui.detailEmpty.hidden = true;
+        ui.detailBlock.hidden = false;
+
+        ui.dSessionId.textContent = t.sessionId || r?.summary?.sessionId || '—';
+        ui.dPid.textContent = t.pid || '—';
+        ui.dScore.textContent = t.score ?? '—';
+        ui.dGrade.textContent = t.grade ?? '—';
+        ui.dPhase.textContent = t.reachedPhase ?? '—';
+        ui.dResult.textContent = t.result ?? '—';
+        ui.dWater.textContent = (t.waterPct ?? '—') + (t.waterPct != null ? '%' : '');
+        ui.dCombo.textContent = t.comboMax ?? '—';
+        ui.dBad.textContent = t.missBadHit ?? '—';
+        ui.dExpire.textContent = t.missGoodExpired ?? '—';
+        ui.dLHit.textContent = t.lightningHitCount ?? '—';
+        ui.dLBlock.textContent = t.lightningBlockCount ?? '—';
+        ui.dCoach.textContent = t.coachSummary || '—';
+        ui.detailJson.textContent = safeJson(item);
+
+        const chips = [];
+        if(t.feverUsed) chips.push('🔥 FEVER used');
+        if(String(t.result || '') === 'ชนะ Final Boss สำเร็จ') chips.push('🏆 Final cleared');
+        if(Number(t.lightningBlockCount || 0) >= 2) chips.push('🛡️ good lightning defense');
+        if(Number(t.missGoodExpired || 0) >= 4) chips.push('⏳ slow collection');
+        if(Number(t.missBadHit || 0) >= 4) chips.push('⚠️ many bad hits');
+
+        ui.detailChips.innerHTML = chips.map(c=> `<span class="chip">${c}</span>`).join('');
+
+        ui.btnCopyTeacher.onclick = ()=> copyText(safeJson(t), 'Copy teacher summary');
+        ui.btnCopyResearch.onclick = ()=> copyText(safeJson(r), 'Copy research packet');
+      }
+
+      function renderAll(){
+        loadHistory();
+        applyFilters();
+        computeStats();
+        if(activeIndex >= filtered.length) activeIndex = filtered.length ? 0 : -1;
+        if(activeIndex === -1 && filtered.length) activeIndex = 0;
+        renderList();
+        renderDetail();
+      }
+
+      ui.fPid.addEventListener('input', ()=>{ activeIndex = -1; renderAll(); });
+      ui.fGrade.addEventListener('change', ()=>{ activeIndex = -1; renderAll(); });
+      ui.fResult.addEventListener('change', ()=>{ activeIndex = -1; renderAll(); });
+
+      ui.btnRefresh.onclick = ()=> renderAll();
+      ui.btnCopyHistory.onclick = ()=> copyText(safeJson(rawHistory), 'Copy history');
+      ui.btnClearHistory.onclick = ()=>{
+        try{
+          localStorage.removeItem('HHA_HYD_SUMMARY_HISTORY');
+          localStorage.removeItem('HHA_HYD_LAST_SUMMARY');
+        }catch(e){}
+        activeIndex = -1;
+        renderAll();
+      };
+
+      renderAll();
+    })();
+  </script>
+</body>
+</html>
