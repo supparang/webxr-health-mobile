@@ -1,0 +1,163 @@
+<!-- === /herohealth/student-join-goodjunk.html ===
+HeroHealth • Student Join GoodJunk
+PATCH v20260307-STUDENT-JOIN-GOODJUNK
+✅ Student enters name / PID / room
+✅ Launches battle link cleanly
+-->
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Student Join • GoodJunk</title>
+  <link rel="icon" href="./favicon.ico" />
+  <meta name="color-scheme" content="dark light" />
+  <style>
+    :root{
+      --bg1:#020617; --bg2:#0b1226; --stroke:rgba(148,163,184,.18);
+      --text:#e5e7eb; --muted:#94a3b8; --shadow:0 18px 60px rgba(0,0,0,.35);
+    }
+    *{ box-sizing:border-box; }
+    html,body{
+      margin:0; min-height:100%;
+      background:
+        radial-gradient(1200px 800px at 50% -20%, rgba(34,211,238,.10), transparent 55%),
+        linear-gradient(180deg, var(--bg1), var(--bg2));
+      color:var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", sans-serif;
+    }
+    .wrap{ width:min(760px, calc(100vw - 24px)); margin:0 auto; padding:22px 12px; }
+    .card{
+      background:linear-gradient(180deg, rgba(15,23,42,.82), rgba(2,6,23,.76));
+      border:1px solid var(--stroke); border-radius:24px; box-shadow:var(--shadow); padding:18px;
+    }
+    .eyebrow{
+      display:inline-block; padding:8px 12px; border-radius:999px;
+      background:rgba(34,211,238,.10); color:#a5f3fc; font-size:12px; font-weight:800;
+      border:1px solid rgba(34,211,238,.18);
+    }
+    h1{ margin:12px 0 6px; font-size:34px; }
+    .sub{ color:var(--muted); margin-bottom:14px; }
+    .grid{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    .full{ grid-column:1/-1; }
+    label{ display:block; font-size:12px; color:var(--muted); margin-bottom:6px; }
+    input,select,button{
+      width:100%; min-height:46px; border-radius:14px; border:1px solid var(--stroke);
+      background:rgba(2,6,23,.80); color:var(--text); padding:10px 12px; font:inherit;
+    }
+    button{
+      cursor:pointer; border:0; font-weight:900; color:white;
+      background:linear-gradient(135deg,#2563eb,#06b6d4);
+      box-shadow:0 10px 26px rgba(37,99,235,.28);
+    }
+    .note{
+      margin-top:12px; font-size:12px; color:var(--muted);
+      border-radius:14px; padding:10px 12px; background:rgba(2,6,23,.50); border:1px solid var(--stroke);
+    }
+    @media (max-width:700px){ .grid{ grid-template-columns:1fr; } }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="card">
+      <div class="eyebrow">🎮 Student Join</div>
+      <h1>เข้าเล่น GoodJunk Battle</h1>
+      <div class="sub">กรอกข้อมูลก่อนเข้าเล่นเพื่อให้ครูดูผลได้ง่ายขึ้น</div>
+
+      <div class="grid">
+        <div>
+          <label for="nick">ชื่อเล่น</label>
+          <input id="nick" placeholder="เช่น Mint" />
+        </div>
+        <div>
+          <label for="pid">PID / รหัส</label>
+          <input id="pid" placeholder="เช่น S01" />
+        </div>
+        <div>
+          <label for="room">Room</label>
+          <input id="room" value="P5A" />
+        </div>
+        <div>
+          <label for="view">View</label>
+          <select id="view">
+            <option value="mobile">mobile</option>
+            <option value="pc">pc</option>
+            <option value="cvr">cvr</option>
+          </select>
+        </div>
+        <div>
+          <label for="diff">Difficulty</label>
+          <select id="diff">
+            <option value="easy" selected>easy</option>
+            <option value="normal">normal</option>
+            <option value="hard">hard</option>
+          </select>
+        </div>
+        <div>
+          <label for="time">Time</label>
+          <select id="time">
+            <option value="60">60</option>
+            <option value="80" selected>80</option>
+            <option value="100">100</option>
+          </select>
+        </div>
+        <div class="full">
+          <label for="hub">Hub URL</label>
+          <input id="hub" />
+        </div>
+        <div class="full">
+          <button id="btnJoin">เข้าเล่น Battle</button>
+        </div>
+      </div>
+
+      <div class="note">
+        ถ้าเข้าผ่าน QR ของครู ระบบจะใส่ room ให้ได้อัตโนมัติ
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const $ = id => document.getElementById(id);
+    const qs = (k,d='')=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
+
+    $('room').value = qs('room', 'P5A');
+    $('view').value = qs('view', 'mobile');
+    $('diff').value = qs('diff', 'easy');
+    $('time').value = qs('time', '80');
+    $('hub').value = qs('hub', new URL('./hub.html', location.href).toString());
+    $('nick').value = qs('nick', '');
+    $('pid').value = qs('pid', '');
+
+    $('btnJoin').onclick = ()=>{
+      const nick = ($('nick').value || '').trim();
+      const pid = ($('pid').value || '').trim() || nick || 'anon';
+      const room = ($('room').value || 'P5A').trim().toUpperCase();
+
+      const u = new URL('./vr-goodjunk/goodjunk-vr.html', location.href);
+      u.searchParams.set('mode', 'battle');
+      u.searchParams.set('room', room);
+      u.searchParams.set('nick', nick || pid);
+      u.searchParams.set('pid', pid);
+      u.searchParams.set('view', $('view').value);
+      u.searchParams.set('diff', $('diff').value);
+      u.searchParams.set('time', $('time').value);
+      u.searchParams.set('hub', $('hub').value || new URL('./hub.html', location.href).toString());
+      u.searchParams.set('seed', String(Date.now()));
+
+      try{
+        localStorage.setItem('HH_STUDENT_NICK', nick || '');
+        localStorage.setItem('HH_STUDENT_PID', pid || '');
+        localStorage.setItem('HH_STUDENT_ROOM', room || '');
+      }catch(_){}
+
+      location.href = u.toString();
+    };
+
+    try{
+      if(!$('nick').value) $('nick').value = localStorage.getItem('HH_STUDENT_NICK') || '';
+      if(!$('pid').value) $('pid').value = localStorage.getItem('HH_STUDENT_PID') || '';
+      if(!$('room').value) $('room').value = localStorage.getItem('HH_STUDENT_ROOM') || 'P5A';
+    }catch(_){}
+  </script>
+</body>
+</html>
