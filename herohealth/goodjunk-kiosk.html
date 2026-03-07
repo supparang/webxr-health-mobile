@@ -1,0 +1,708 @@
+<!-- === /herohealth/goodjunk-kiosk.html ===
+HeroHealth • GoodJunk Kiosk
+PATCH v20260307-GJ-KIOSK-FULL
+-->
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>GoodJunk Kiosk</title>
+  <link rel="icon" href="./favicon.ico" />
+  <meta name="color-scheme" content="dark light" />
+  <script src="./firebase-config.js"></script>
+  <style>
+    :root{
+      --bg1:#020617;
+      --bg2:#0b1226;
+      --panel:rgba(2,6,23,.74);
+      --stroke:rgba(148,163,184,.18);
+      --text:#e5e7eb;
+      --muted:#94a3b8;
+      --shadow:0 18px 60px rgba(0,0,0,.35);
+    }
+    *{ box-sizing:border-box; }
+    html,body{
+      margin:0;
+      min-height:100%;
+      background:
+        radial-gradient(1400px 900px at 50% -20%, rgba(34,211,238,.10), transparent 55%),
+        linear-gradient(180deg, var(--bg1), var(--bg2));
+      color:var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", sans-serif;
+      overflow:hidden;
+    }
+    .wrap{
+      width:min(1440px, calc(100vw - 24px));
+      margin:0 auto;
+      padding:14px 12px 20px;
+    }
+    .panel{
+      background:linear-gradient(180deg, rgba(15,23,42,.82), rgba(2,6,23,.76));
+      border:1px solid var(--stroke);
+      border-radius:24px;
+      box-shadow:var(--shadow);
+    }
+
+    /* floating controls */
+    #kioskControls{
+      position:fixed;
+      top:12px;
+      right:12px;
+      z-index:9999;
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+      transition:opacity .22s ease, transform .22s ease;
+    }
+    #kioskControls.hidden-ui{
+      opacity:0;
+      pointer-events:none;
+      transform:translateY(-8px);
+    }
+    #kioskControls button,
+    #kioskControls input{
+      min-height:42px;
+      border-radius:14px;
+      border:1px solid var(--stroke);
+      background:rgba(2,6,23,.90);
+      color:var(--text);
+      padding:10px 12px;
+      font:inherit;
+      box-shadow:var(--shadow);
+    }
+    #kioskControls button{
+      cursor:pointer;
+      border:0;
+      font-weight:900;
+      color:white;
+      background:linear-gradient(135deg,#2563eb,#06b6d4);
+    }
+    #kioskControls button.secondary{
+      background:rgba(15,23,42,.92);
+      border:1px solid var(--stroke);
+      color:var(--text);
+      box-shadow:none;
+    }
+    #roomInput{
+      width:110px;
+      text-transform:uppercase;
+      font-weight:900;
+      text-align:center;
+    }
+
+    .top{
+      padding:16px 18px;
+      margin-bottom:14px;
+    }
+    .top-head{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:12px;
+      flex-wrap:wrap;
+    }
+    .badge{
+      display:inline-block;
+      padding:8px 12px;
+      border-radius:999px;
+      background:rgba(34,211,238,.10);
+      color:#a5f3fc;
+      font-size:12px;
+      font-weight:900;
+      border:1px solid rgba(34,211,238,.18);
+      margin-bottom:8px;
+    }
+    .title{
+      font-size:40px;
+      line-height:1.03;
+      font-weight:1000;
+      margin:0;
+    }
+    .sub{
+      margin-top:8px;
+      color:var(--muted);
+      font-size:14px;
+    }
+    .pill-row{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      margin-top:14px;
+    }
+    .pill{
+      padding:10px 14px;
+      border-radius:999px;
+      background:rgba(2,6,23,.66);
+      border:1px solid var(--stroke);
+      font-weight:900;
+      font-size:14px;
+    }
+
+    .announce{
+      display:none;
+      padding:18px;
+      margin-bottom:14px;
+      text-align:center;
+    }
+    .announce-title{
+      font-size:16px;
+      font-weight:1000;
+      margin-bottom:10px;
+      color:#a5f3fc;
+      letter-spacing:.5px;
+    }
+    .announce-text{
+      font-size:44px;
+      line-height:1.15;
+      font-weight:1000;
+    }
+    .tone-info{ border-color: rgba(34,211,238,.22); }
+    .tone-success{ border-color: rgba(34,197,94,.26); }
+    .tone-warn{ border-color: rgba(245,158,11,.28); }
+    .tone-danger{ border-color: rgba(239,68,68,.30); }
+
+    .winner{
+      display:none;
+      padding:22px;
+      margin-bottom:14px;
+      text-align:center;
+    }
+    .winner-badge{
+      font-size:18px;
+      font-weight:1000;
+      color:#fde68a;
+      margin-bottom:8px;
+    }
+    .winner-name{
+      font-size:80px;
+      line-height:1.0;
+      font-weight:1000;
+    }
+    .winner-sub{
+      margin-top:10px;
+      font-size:24px;
+      color:#cbd5e1;
+    }
+
+    .stats{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:14px;
+      margin-bottom:14px;
+    }
+    .stat{
+      padding:16px;
+    }
+    .k{
+      color:var(--muted);
+      font-size:13px;
+      margin-bottom:6px;
+    }
+    .v{
+      font-size:32px;
+      font-weight:1000;
+      line-height:1.05;
+    }
+
+    .progress{
+      padding:16px;
+      margin-bottom:14px;
+    }
+    .progress-grid{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:16px;
+    }
+    .bar-head{
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      margin-bottom:6px;
+      font-weight:900;
+      font-size:18px;
+    }
+    .bar-bg{
+      height:18px;
+      border-radius:999px;
+      background:rgba(148,163,184,.14);
+      overflow:hidden;
+    }
+    .bar-fill{
+      width:0%;
+      height:100%;
+      border-radius:999px;
+    }
+    #joinedFill{ background:linear-gradient(90deg,#22d3ee,#3b82f6); }
+    #enteredFill{ background:linear-gradient(90deg,#34d399,#22c55e); }
+
+    .progress-summary{
+      margin-top:12px;
+      color:#cbd5e1;
+      font-size:20px;
+      text-align:center;
+      font-weight:800;
+    }
+
+    .scoreboard{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:16px;
+    }
+    .player-card{
+      padding:22px;
+      text-align:center;
+      position:relative;
+      overflow:hidden;
+    }
+    .medal{
+      font-size:52px;
+      margin-bottom:8px;
+    }
+    .player-name{
+      font-size:46px;
+      line-height:1.05;
+      font-weight:1000;
+      margin-bottom:10px;
+    }
+    .player-score{
+      font-size:90px;
+      line-height:1;
+      font-weight:1000;
+      margin-bottom:12px;
+    }
+    .player-sub{
+      color:#cbd5e1;
+      font-size:22px;
+      font-weight:800;
+    }
+
+    .winner-glow{
+      border-color:rgba(251,191,36,.40);
+      box-shadow:
+        0 0 0 1px rgba(251,191,36,.16) inset,
+        0 0 34px rgba(251,191,36,.18);
+    }
+
+    .bottom-note{
+      margin-top:14px;
+      text-align:center;
+      color:#94a3b8;
+      font-size:13px;
+      font-weight:700;
+    }
+
+    body.clean-mode .top{
+      display:none;
+    }
+
+    @media (max-width:1100px){
+      .stats,
+      .progress-grid,
+      .scoreboard{
+        grid-template-columns:1fr;
+      }
+      .winner-name{ font-size:58px; }
+      .announce-text{ font-size:34px; }
+      .player-name{ font-size:34px; }
+      .player-score{ font-size:68px; }
+      .player-sub{ font-size:18px; }
+    }
+  </style>
+</head>
+<body>
+  <div id="kioskControls">
+    <input id="roomInput" value="P5A" />
+    <button id="btnConnect">Connect</button>
+    <button id="btnFullscreen" class="secondary">Fullscreen</button>
+    <button id="btnCleanMode" class="secondary">Clean Mode</button>
+    <button id="btnHideControls" class="secondary">Hide UI</button>
+  </div>
+
+  <div class="wrap">
+    <section class="top panel">
+      <div class="top-head">
+        <div>
+          <div class="badge">📺 GoodJunk Kiosk</div>
+          <div class="title">Classroom Battle Board</div>
+          <div class="sub">จอหน้าห้องสำหรับโปรเจกเตอร์ / ทีวี / kiosk mode</div>
+        </div>
+      </div>
+
+      <div class="pill-row">
+        <div class="pill">Room: <span id="roomTxt">P5A</span></div>
+        <div class="pill">Phase: <span id="phaseTxt">—</span></div>
+        <div class="pill">Round: <span id="roundTxt">—</span></div>
+        <div class="pill">Winner: <span id="winnerTxt">—</span></div>
+      </div>
+    </section>
+
+    <section id="announcementBox" class="announce panel">
+      <div id="announcementTitle" class="announce-title">📢 ANNOUNCEMENT</div>
+      <div id="announcementText" class="announce-text">—</div>
+    </section>
+
+    <section id="winnerBox" class="winner panel">
+      <div class="winner-badge">🏆 WINNER</div>
+      <div id="winnerName" class="winner-name">—</div>
+      <div id="winnerSub" class="winner-sub">ผู้ชนะประจำรอบ</div>
+    </section>
+
+    <section class="stats">
+      <div class="stat panel"><div class="k">Players</div><div id="stPlayers" class="v">0</div></div>
+      <div class="stat panel"><div class="k">Ready</div><div id="stReady" class="v">0</div></div>
+      <div class="stat panel"><div class="k">Joined</div><div id="stJoined" class="v">0/0</div></div>
+      <div class="stat panel"><div class="k">Entered Game</div><div id="stEntered" class="v">0/0</div></div>
+    </section>
+
+    <section class="progress panel">
+      <div class="progress-grid">
+        <div>
+          <div class="bar-head">
+            <div>Joined</div>
+            <div id="joinedLabel">0/0</div>
+          </div>
+          <div class="bar-bg">
+            <div id="joinedFill" class="bar-fill"></div>
+          </div>
+        </div>
+
+        <div>
+          <div class="bar-head">
+            <div>Entered Game</div>
+            <div id="enteredLabel">0/0</div>
+          </div>
+          <div class="bar-bg">
+            <div id="enteredFill" class="bar-fill"></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="progressSummary" class="progress-summary">
+        Roster 0 คน • Joined 0 • Entered 0 • Absent 0
+      </div>
+    </section>
+
+    <section class="scoreboard">
+      <div id="p1Card" class="panel player-card">
+        <div class="medal">🥇</div>
+        <div id="p1Name" class="player-name">—</div>
+        <div id="p1Score" class="player-score">0</div>
+        <div id="p1Sub" class="player-sub">acc 0% • miss 0</div>
+      </div>
+
+      <div id="p2Card" class="panel player-card">
+        <div class="medal">🥈</div>
+        <div id="p2Name" class="player-name">—</div>
+        <div id="p2Score" class="player-score">0</div>
+        <div id="p2Sub" class="player-sub">acc 0% • miss 0</div>
+      </div>
+    </section>
+
+    <div class="bottom-note">
+      HeroHealth • GoodJunk • Kiosk Mode
+    </div>
+  </div>
+
+  <script>
+    const $ = id => document.getElementById(id);
+    const qs = (k,d='')=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
+
+    let offFns = [];
+    let boardPlayersRaw = {};
+    let boardAttendanceRaw = {};
+    let boardRosterRaw = {};
+    let boardAnnouncementRaw = {};
+    let lastStateRaw = {};
+    let controlsHidden = false;
+    let cleanMode = false;
+    let controlsTimer = 0;
+
+    function getDbCompat(){
+      if(window.firebase?.database) return window.firebase.database();
+      return null;
+    }
+
+    function currentRoom(){
+      return ($('roomInput').value || 'P5A').trim().toUpperCase();
+    }
+
+    function setFill(id, pct){
+      const el = $(id);
+      if(!el) return;
+      pct = Math.max(0, Math.min(100, Number(pct || 0) || 0));
+      el.style.width = `${pct}%`;
+    }
+
+    function getAttendanceStats(){
+      const room = currentRoom();
+
+      const roster = Object.values(boardRosterRaw || {}).filter(r =>
+        String(r?.room || '').trim().toUpperCase() === room
+      );
+
+      const attendance = Object.values(boardAttendanceRaw || {}).filter(r =>
+        String(r?.room || '').trim().toUpperCase() === room
+      );
+
+      const rosterKeys = new Set(
+        roster.map(r => String(r?.pid || r?.nick || '').trim()).filter(Boolean)
+      );
+
+      const joinedSet = new Set();
+      const enteredSet = new Set();
+
+      attendance.forEach(r=>{
+        const key = String(r?.pid || r?.nick || '').trim();
+        const source = String(r?.source || '');
+        if(!key) return;
+        if(source === 'student-join') joinedSet.add(key);
+        if(source === 'game-run') enteredSet.add(key);
+      });
+
+      const total = rosterKeys.size || roster.length || 0;
+      const joinedCount = total ? [...joinedSet].filter(k => rosterKeys.has(k)).length : joinedSet.size;
+      const enteredCount = total ? [...enteredSet].filter(k => rosterKeys.has(k)).length : enteredSet.size;
+      const absentCount = Math.max(0, total - enteredCount);
+
+      return { total, joinedCount, enteredCount, absentCount };
+    }
+
+    function renderProgress(){
+      const s = getAttendanceStats();
+
+      const joinedLabel = `${s.joinedCount}/${s.total}`;
+      const enteredLabel = `${s.enteredCount}/${s.total}`;
+
+      $('stJoined').textContent = joinedLabel;
+      $('stEntered').textContent = enteredLabel;
+      $('joinedLabel').textContent = joinedLabel;
+      $('enteredLabel').textContent = enteredLabel;
+
+      setFill('joinedFill', s.total ? (s.joinedCount / s.total) * 100 : 0);
+      setFill('enteredFill', s.total ? (s.enteredCount / s.total) * 100 : 0);
+
+      $('progressSummary').textContent =
+        `Roster ${s.total} คน • Joined ${s.joinedCount} • Entered ${s.enteredCount} • Absent ${s.absentCount}`;
+    }
+
+    function renderPlayers(){
+      const rows = Object.entries(boardPlayersRaw || {})
+        .map(([k,v])=>({ key:k, ...(v||{}) }))
+        .sort((a,b)=>
+          (Number(b.score||0)-Number(a.score||0)) ||
+          (Number(b.acc||0)-Number(a.acc||0)) ||
+          (Number(a.miss||0)-Number(b.miss||0)) ||
+          (Number(a.medianRT||0)-Number(b.medianRT||0))
+        );
+
+      $('stPlayers').textContent = String(rows.length);
+      $('stReady').textContent = String(rows.filter(r => !!r.ready).length);
+
+      const p1 = rows[0] || null;
+      const p2 = rows[1] || null;
+
+      $('p1Name').textContent = p1?.nick || '—';
+      $('p1Score').textContent = String(Number(p1?.score || 0));
+      $('p1Sub').textContent = `acc ${Number(p1?.acc || 0)}% • miss ${Number(p1?.miss || 0)}`;
+
+      $('p2Name').textContent = p2?.nick || '—';
+      $('p2Score').textContent = String(Number(p2?.score || 0));
+      $('p2Sub').textContent = `acc ${Number(p2?.acc || 0)}% • miss ${Number(p2?.miss || 0)}`;
+
+      $('p1Card').classList.remove('winner-glow');
+      $('p2Card').classList.remove('winner-glow');
+
+      const winnerKey = String(lastStateRaw?.winner || '');
+      if(winnerKey){
+        if(p1 && p1.key === winnerKey) $('p1Card').classList.add('winner-glow');
+        if(p2 && p2.key === winnerKey) $('p2Card').classList.add('winner-glow');
+      }
+    }
+
+    function winnerNameFromKey(key){
+      const rows = Object.entries(boardPlayersRaw || {}).map(([k,v])=>({ key:k, ...(v||{}) }));
+      const row = rows.find(r => String(r.key || '') === String(key || ''));
+      return row?.nick || key || 'WINNER';
+    }
+
+    function renderWinner(st){
+      const phase = String(st?.phase || '').toLowerCase();
+      const winner = String(st?.winner || '');
+      const box = $('winnerBox');
+
+      if(phase === 'ended' && winner){
+        $('winnerName').textContent = winnerNameFromKey(winner);
+        box.style.display = 'block';
+      }else{
+        box.style.display = 'none';
+      }
+    }
+
+    function hideAnnouncement(){
+      const box = $('announcementBox');
+      box.style.display = 'none';
+      box.classList.remove('tone-info','tone-success','tone-warn','tone-danger');
+      $('announcementText').textContent = '—';
+      $('announcementTitle').textContent = '📢 ANNOUNCEMENT';
+    }
+
+    function renderAnnouncement(a){
+      boardAnnouncementRaw = a || {};
+
+      const msg = String(a?.message || '').trim();
+      const tone = String(a?.tone || 'info').trim();
+      const ttlSec = Number(a?.ttlSec || 0) || 0;
+      const updatedAtMs = Number(a?.updatedAtMs || a?.createdAtMs || 0) || 0;
+
+      if(!msg){
+        hideAnnouncement();
+        return;
+      }
+
+      const box = $('announcementBox');
+      box.style.display = 'block';
+      box.classList.remove('tone-info','tone-success','tone-warn','tone-danger');
+      box.classList.add(`tone-${tone}`);
+
+      $('announcementTitle').textContent =
+        tone === 'danger' ? '🚨 ALERT' :
+        tone === 'warn' ? '⚠️ NOTICE' :
+        tone === 'success' ? '✅ UPDATE' :
+        '📢 ANNOUNCEMENT';
+
+      $('announcementText').textContent = msg;
+
+      if(ttlSec > 0 && updatedAtMs > 0){
+        const leftMs = Math.max(0, (updatedAtMs + ttlSec * 1000) - Date.now());
+        if(leftMs <= 0) hideAnnouncement();
+      }
+    }
+
+    function renderState(st){
+      lastStateRaw = st || {};
+      $('roomTxt').textContent = currentRoom();
+      $('phaseTxt').textContent = st?.phase || '—';
+      $('roundTxt').textContent = st?.roundId || '—';
+      $('winnerTxt').textContent = st?.winner || '—';
+      renderWinner(st || {});
+      renderPlayers();
+    }
+
+    function clearControlsTimer(){
+      if(controlsTimer){
+        clearTimeout(controlsTimer);
+        controlsTimer = 0;
+      }
+    }
+
+    function revealControlsTemp(){
+      if(!controlsHidden) return;
+      $('kioskControls').classList.remove('hidden-ui');
+      clearControlsTimer();
+      controlsTimer = setTimeout(()=>{
+        if(controlsHidden) $('kioskControls').classList.add('hidden-ui');
+      }, 3500);
+    }
+
+    function setControlsHidden(on){
+      controlsHidden = !!on;
+      $('btnHideControls').textContent = controlsHidden ? 'Show UI' : 'Hide UI';
+      if(controlsHidden){
+        $('kioskControls').classList.add('hidden-ui');
+      }else{
+        $('kioskControls').classList.remove('hidden-ui');
+      }
+    }
+
+    function setCleanMode(on){
+      cleanMode = !!on;
+      document.body.classList.toggle('clean-mode', cleanMode);
+      $('btnCleanMode').textContent = cleanMode ? 'Normal Mode' : 'Clean Mode';
+    }
+
+    function connect(){
+      offFns.forEach(fn=>{ try{ fn(); }catch(_){} });
+      offFns = [];
+
+      const db = getDbCompat();
+      if(!db){
+        alert('Firebase compat ยังไม่พร้อมใน firebase-config.js');
+        return;
+      }
+
+      const room = currentRoom();
+      const base = `hha-battle/goodjunk/rooms/${room}`;
+
+      const stateRef = db.ref(`${base}/state`);
+      const playersRef = db.ref(`${base}/players`);
+      const attendanceRef = db.ref(`${base}/attendance`);
+      const rosterRef = db.ref(`${base}/roster`);
+      const announcementRef = db.ref(`${base}/announcement`);
+
+      const stateCb = snap => renderState(snap.val() || {});
+      const playersCb = snap => {
+        boardPlayersRaw = snap.val() || {};
+        renderPlayers();
+      };
+      const attendanceCb = snap => {
+        boardAttendanceRaw = snap.val() || {};
+        renderProgress();
+      };
+      const rosterCb = snap => {
+        boardRosterRaw = snap.val() || {};
+        renderProgress();
+      };
+      const announcementCb = snap => {
+        renderAnnouncement(snap.val() || {});
+      };
+
+      stateRef.on('value', stateCb);
+      playersRef.on('value', playersCb);
+      attendanceRef.on('value', attendanceCb);
+      rosterRef.on('value', rosterCb);
+      announcementRef.on('value', announcementCb);
+
+      offFns.push(()=>stateRef.off('value', stateCb));
+      offFns.push(()=>playersRef.off('value', playersCb));
+      offFns.push(()=>attendanceRef.off('value', attendanceCb));
+      offFns.push(()=>rosterRef.off('value', rosterCb));
+      offFns.push(()=>announcementRef.off('value', announcementCb));
+    }
+
+    $('btnConnect').onclick = connect;
+
+    $('btnFullscreen').onclick = async ()=>{
+      try{
+        const root = document.documentElement;
+        if(!document.fullscreenElement){
+          await root.requestFullscreen?.();
+        }else{
+          await document.exitFullscreen?.();
+        }
+      }catch(err){
+        console.warn(err);
+      }
+    };
+
+    $('btnCleanMode').onclick = ()=>{
+      setCleanMode(!cleanMode);
+    };
+
+    $('btnHideControls').onclick = ()=>{
+      setControlsHidden(!controlsHidden);
+      if(controlsHidden) revealControlsTemp();
+    };
+
+    document.addEventListener('mousemove', ()=> revealControlsTemp(), { passive:true });
+    document.addEventListener('touchstart', ()=> revealControlsTemp(), { passive:true });
+    document.addEventListener('keydown', ()=> revealControlsTemp());
+
+    $('roomInput').value = qs('room', 'P5A');
+    setCleanMode(false);
+    setControlsHidden(false);
+    connect();
+  </script>
+</body>
+</html>
