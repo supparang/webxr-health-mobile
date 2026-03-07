@@ -1,8 +1,8 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
 HeroHealth — GoodJunk VR Run Page
-PATCH v20260307-GJ-RUN-ENDSUMMARY-BATTLE-EXPLAIN
-✅ End summary shows battle decision rule
-✅ End summary shows compare vs opponent
+PATCH v20260307-GJ-RUN-ENDSUMMARY-BATTLE-COMPARE-TABLE
+✅ End summary has battle decision
+✅ End summary has compare table You vs Opponent
 -->
 <!doctype html>
 <html lang="th">
@@ -17,18 +17,11 @@ PATCH v20260307-GJ-RUN-ENDSUMMARY-BATTLE-EXPLAIN
     :root{
       --bg1:#020617;
       --bg2:#0b1226;
-      --panel:rgba(2,6,23,.72);
-      --panel2:rgba(15,23,42,.72);
       --stroke:rgba(148,163,184,.18);
       --text:#e5e7eb;
       --muted:#94a3b8;
-      --good:#22c55e;
-      --warn:#f59e0b;
       --danger:#ef4444;
-      --cyan:#22d3ee;
-      --blue:#3b82f6;
       --shadow:0 18px 60px rgba(0,0,0,.35);
-
       --sat: env(safe-area-inset-top, 0px);
       --sar: env(safe-area-inset-right, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
@@ -48,340 +41,174 @@ PATCH v20260307-GJ-RUN-ENDSUMMARY-BATTLE-EXPLAIN
       font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", sans-serif;
     }
 
-    #app{
-      position:fixed;
-      inset:0;
-      z-index:1;
-      pointer-events:none;
-    }
-
-    #gj-layer{
-      position:fixed;
-      inset:0;
-      z-index:20;
-      overflow:hidden;
-      pointer-events:auto;
-    }
+    #app{ position:fixed; inset:0; z-index:1; pointer-events:none; }
+    #gj-layer{ position:fixed; inset:0; z-index:20; overflow:hidden; pointer-events:auto; }
 
     .topbar{
-      position:fixed;
-      z-index:60;
-      left:calc(12px + var(--sal));
-      right:calc(12px + var(--sar));
-      top:calc(10px + var(--sat));
-      display:flex;
-      align-items:flex-start;
-      justify-content:space-between;
-      gap:10px;
-      pointer-events:none;
+      position:fixed; z-index:60;
+      left:calc(12px + var(--sal)); right:calc(12px + var(--sar)); top:calc(10px + var(--sat));
+      display:flex; align-items:flex-start; justify-content:space-between; gap:10px; pointer-events:none;
     }
     .pill{
-      display:inline-flex;
-      align-items:center;
-      gap:10px;
-      padding:10px 14px;
-      border-radius:999px;
-      background:rgba(2,6,23,.74);
-      border:1px solid var(--stroke);
-      box-shadow:var(--shadow);
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
+      display:inline-flex; align-items:center; gap:10px; padding:10px 14px; border-radius:999px;
+      background:rgba(2,6,23,.74); border:1px solid var(--stroke); box-shadow:var(--shadow);
+      backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
     }
-    .brand{
-      font-weight:900;
-      font-size:14px;
-      line-height:1.15;
-      max-width:56vw;
-    }
-    .dot{
-      width:10px;
-      height:10px;
-      border-radius:50%;
-      background:var(--good);
-      flex:0 0 auto;
-    }
-    .dot.battle{ background:var(--danger); }
+    .brand{ font-weight:900; font-size:14px; line-height:1.15; max-width:56vw; }
+    .dot{ width:10px; height:10px; border-radius:50%; background:var(--danger); flex:0 0 auto; }
     .muted{ color:var(--muted); }
 
     .hud{
-      position:fixed;
-      z-index:55;
-      left:calc(12px + var(--sal));
-      right:calc(12px + var(--sar));
-      top:calc(72px + var(--sat));
-      display:grid;
-      grid-template-columns:repeat(4, minmax(0,1fr));
-      gap:10px;
-      pointer-events:none;
+      position:fixed; z-index:55;
+      left:calc(12px + var(--sal)); right:calc(12px + var(--sar)); top:calc(72px + var(--sat));
+      display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:10px; pointer-events:none;
     }
     .card{
       background:linear-gradient(180deg, rgba(15,23,42,.78), rgba(2,6,23,.72));
-      border:1px solid var(--stroke);
-      border-radius:18px;
-      box-shadow:var(--shadow);
-      padding:10px 12px;
-      min-width:0;
+      border:1px solid var(--stroke); border-radius:18px; box-shadow:var(--shadow); padding:10px 12px; min-width:0;
     }
-    .k{
-      font-size:11px;
-      color:var(--muted);
-      margin-bottom:4px;
-    }
-    .v{
-      font-size:20px;
-      font-weight:900;
-      line-height:1.05;
-      white-space:nowrap;
-      overflow:hidden;
-      text-overflow:ellipsis;
-    }
+    .k{ font-size:11px; color:var(--muted); margin-bottom:4px; }
+    .v{ font-size:20px; font-weight:900; line-height:1.05; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 
     .mission{
-      position:fixed;
-      z-index:55;
-      left:calc(12px + var(--sal));
-      right:calc(12px + var(--sar));
-      bottom:calc(84px + var(--sab));
-      display:grid;
-      gap:10px;
-      pointer-events:none;
+      position:fixed; z-index:55;
+      left:calc(12px + var(--sal)); right:calc(12px + var(--sar)); bottom:calc(84px + var(--sab));
+      display:grid; gap:10px; pointer-events:none;
     }
     .mission-main{
       background:linear-gradient(180deg, rgba(15,23,42,.78), rgba(2,6,23,.72));
-      border:1px solid var(--stroke);
-      border-radius:18px;
-      box-shadow:var(--shadow);
-      padding:12px 14px;
+      border:1px solid var(--stroke); border-radius:18px; box-shadow:var(--shadow); padding:12px 14px;
     }
-    .mission-head{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:12px;
-      margin-bottom:8px;
-    }
-    .mission-title{
-      font-size:16px;
-      font-weight:900;
-    }
-    .mission-goal{
-      font-size:13px;
-      font-weight:800;
-      color:#dbeafe;
-    }
-    .mission-hint{
-      font-size:12px;
-      color:var(--muted);
-      margin-bottom:8px;
-    }
-
-    .bar{
-      position:relative;
-      height:10px;
-      border-radius:999px;
-      background:rgba(148,163,184,.14);
-      overflow:hidden;
-    }
+    .mission-head{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:8px; }
+    .mission-title{ font-size:16px; font-weight:900; }
+    .mission-goal{ font-size:13px; font-weight:800; color:#dbeafe; }
+    .mission-hint{ font-size:12px; color:var(--muted); margin-bottom:8px; }
+    .bar{ position:relative; height:10px; border-radius:999px; background:rgba(148,163,184,.14); overflow:hidden; }
     .bar > span{
-      position:absolute;
-      inset:0 auto 0 0;
-      width:var(--p, 0%);
-      border-radius:999px;
+      position:absolute; inset:0 auto 0 0; width:var(--p, 0%); border-radius:999px;
       background:linear-gradient(90deg, #22d3ee, #3b82f6);
     }
 
     #bossBar{
-      display:none;
-      align-items:center;
-      gap:10px;
+      display:none; align-items:center; gap:10px;
       background:linear-gradient(180deg, rgba(127,29,29,.35), rgba(2,6,23,.76));
-      border:1px solid rgba(248,113,113,.18);
-      border-radius:18px;
-      box-shadow:var(--shadow);
-      padding:12px 14px;
+      border:1px solid rgba(248,113,113,.18); border-radius:18px; box-shadow:var(--shadow); padding:12px 14px;
     }
-    #bossBar .boss-label{
-      font-size:13px;
-      font-weight:900;
-      white-space:nowrap;
-    }
-    #bossBar .boss-flex{
-      flex:1 1 auto;
-      min-width:0;
-    }
-    #bossFill{
-      --hp:100%;
-    }
+    #bossBar .boss-label{ font-size:13px; font-weight:900; white-space:nowrap; }
+    #bossBar .boss-flex{ flex:1 1 auto; min-width:0; }
+    #bossFill{ --hp:100%; }
     #bossFill::before{
-      content:"";
-      display:block;
-      width:var(--hp, 100%);
-      height:100%;
-      background:linear-gradient(90deg, #fb7185, #ef4444);
-      border-radius:999px;
+      content:""; display:block; width:var(--hp, 100%); height:100%;
+      background:linear-gradient(90deg, #fb7185, #ef4444); border-radius:999px;
     }
-    #bossHint{
-      font-size:12px;
-      color:#fecaca;
-      margin-top:6px;
-      white-space:nowrap;
-      overflow:hidden;
-      text-overflow:ellipsis;
-    }
+    #bossHint{ font-size:12px; color:#fecaca; margin-top:6px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 
     .bottom-hint{
-      position:fixed;
-      z-index:50;
-      left:50%;
-      transform:translateX(-50%);
-      bottom:calc(12px + var(--sab));
-      max-width:min(94vw,760px);
-      padding:10px 14px;
-      border-radius:999px;
-      background:rgba(2,6,23,.68);
-      border:1px solid var(--stroke);
-      color:var(--muted);
-      font-size:12px;
-      text-align:center;
-      box-shadow:var(--shadow);
-      pointer-events:none;
+      position:fixed; z-index:50; left:50%; transform:translateX(-50%); bottom:calc(12px + var(--sab));
+      max-width:min(94vw,760px); padding:10px 14px; border-radius:999px;
+      background:rgba(2,6,23,.68); border:1px solid var(--stroke); color:var(--muted);
+      font-size:12px; text-align:center; box-shadow:var(--shadow); pointer-events:none;
     }
 
     .ai-box{
-      position:fixed;
-      z-index:56;
-      right:calc(12px + var(--sar));
-      top:calc(210px + var(--sat));
+      position:fixed; z-index:56; right:calc(12px + var(--sar)); top:calc(210px + var(--sat));
       width:min(320px, calc(100vw - 24px));
       background:linear-gradient(180deg, rgba(15,23,42,.82), rgba(2,6,23,.76));
-      border:1px solid var(--stroke);
-      border-radius:18px;
-      box-shadow:var(--shadow);
-      padding:12px 14px;
-      pointer-events:none;
+      border:1px solid var(--stroke); border-radius:18px; box-shadow:var(--shadow); padding:12px 14px; pointer-events:none;
     }
-    .ai-row{
-      display:flex;
-      justify-content:space-between;
-      gap:12px;
-      font-size:12px;
-      margin-bottom:6px;
-    }
+    .ai-row{ display:flex; justify-content:space-between; gap:12px; font-size:12px; margin-bottom:6px; }
     .ai-row:last-child{ margin-bottom:0; }
 
     #endOverlay{
-      position:fixed;
-      inset:0;
-      z-index:120;
-      display:none;
-      align-items:center;
-      justify-content:center;
-      padding:20px;
-      background:rgba(2,6,23,.62);
-      backdrop-filter: blur(8px);
-      -webkit-backdrop-filter: blur(8px);
+      position:fixed; inset:0; z-index:120; display:none; align-items:center; justify-content:center; padding:20px;
+      background:rgba(2,6,23,.62); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
     }
     #endOverlay .panel{
-      width:min(92vw,560px);
-      border-radius:24px;
-      background:linear-gradient(180deg, rgba(15,23,42,.92), rgba(2,6,23,.90));
-      border:1px solid var(--stroke);
-      box-shadow:var(--shadow);
-      padding:18px;
-      text-align:center;
+      width:min(94vw,760px);
+      max-height:min(88vh,900px);
+      overflow:auto;
+      border-radius:24px; background:linear-gradient(180deg, rgba(15,23,42,.92), rgba(2,6,23,.90));
+      border:1px solid var(--stroke); box-shadow:var(--shadow); padding:18px; text-align:center;
     }
-    #endTitle{
-      font-size:28px;
-      font-weight:1000;
-      margin-bottom:8px;
-    }
-    #endSub{
-      color:var(--muted);
-      font-size:13px;
-      margin-bottom:14px;
-    }
+    #endTitle{ font-size:28px; font-weight:1000; margin-bottom:8px; }
+    #endSub{ color:var(--muted); font-size:13px; margin-bottom:14px; }
 
     .end-note{
-      border-radius:16px;
-      background:rgba(2,6,23,.50);
-      border:1px solid var(--stroke);
-      padding:12px;
-      margin-bottom:12px;
-      text-align:left;
+      border-radius:16px; background:rgba(2,6,23,.50); border:1px solid var(--stroke);
+      padding:12px; margin-bottom:12px; text-align:left;
     }
-    .end-note .h{
+    .end-note .h{ font-size:12px; color:var(--muted); margin-bottom:6px; }
+    .end-note .v{ font-size:14px; font-weight:800; line-height:1.35; white-space:normal; }
+
+    .compare-wrap{
+      border-radius:16px; background:rgba(2,6,23,.50); border:1px solid var(--stroke);
+      padding:12px; margin-bottom:12px; text-align:left;
+    }
+    .compare-title{ font-size:12px; color:var(--muted); margin-bottom:8px; }
+    .compare-table{
+      display:grid;
+      grid-template-columns:1.1fr 1fr 1fr;
+      gap:8px;
+      align-items:stretch;
+    }
+    .cmp-head,.cmp-cell,.cmp-metric{
+      border-radius:12px;
+      border:1px solid rgba(148,163,184,.10);
+      background:rgba(15,23,42,.45);
+      padding:10px;
+    }
+    .cmp-head{
+      text-align:center;
+      font-size:12px;
+      font-weight:900;
+      color:#dbeafe;
+    }
+    .cmp-metric{
       font-size:12px;
       color:var(--muted);
-      margin-bottom:6px;
-    }
-    .end-note .v{
-      font-size:14px;
+      display:flex;
+      align-items:center;
       font-weight:800;
-      line-height:1.35;
-      white-space:normal;
+    }
+    .cmp-cell{
+      text-align:center;
+      font-size:14px;
+      font-weight:900;
+    }
+    .cmp-win{
+      outline:1px solid rgba(34,197,94,.38);
+      box-shadow: inset 0 0 0 1px rgba(34,197,94,.18);
     }
 
     .end-grid{
-      display:grid;
-      grid-template-columns:repeat(4, minmax(0,1fr));
-      gap:10px;
-      margin-bottom:14px;
+      display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:10px; margin-bottom:14px;
     }
     .end-card{
-      border-radius:16px;
-      background:rgba(2,6,23,.50);
-      border:1px solid var(--stroke);
-      padding:12px 10px;
+      border-radius:16px; background:rgba(2,6,23,.50); border:1px solid var(--stroke); padding:12px 10px;
     }
     .end-card .k{ margin-bottom:6px; }
-    .end-card .v{
-      font-size:20px;
-      font-weight:900;
-    }
+    .end-card .v{ font-size:20px; font-weight:900; }
+
     .end-actions{
-      display:flex;
-      justify-content:center;
-      flex-wrap:wrap;
-      gap:10px;
-      margin-top:8px;
+      display:flex; justify-content:center; flex-wrap:wrap; gap:10px; margin-top:8px;
     }
     .btn{
-      appearance:none;
-      border:0;
-      cursor:pointer;
-      border-radius:14px;
-      padding:11px 15px;
-      font-weight:900;
-      color:#fff;
-      background:linear-gradient(135deg,#2563eb,#06b6d4);
-      box-shadow:0 10px 26px rgba(37,99,235,.28);
+      appearance:none; border:0; cursor:pointer; border-radius:14px; padding:11px 15px; font-weight:900;
+      color:#fff; background:linear-gradient(135deg,#2563eb,#06b6d4); box-shadow:0 10px 26px rgba(37,99,235,.28);
     }
     .btn.secondary{
-      background:rgba(15,23,42,.92);
-      border:1px solid var(--stroke);
-      box-shadow:none;
-      color:var(--text);
+      background:rgba(15,23,42,.92); border:1px solid var(--stroke); box-shadow:none; color:var(--text);
     }
 
-    .gj-target{
-      will-change: transform, opacity, left, top;
-      touch-action: manipulation;
-    }
+    .gj-target{ will-change: transform, opacity, left, top; touch-action: manipulation; }
 
     @media (max-width:900px){
-      .hud{
-        grid-template-columns:repeat(2, minmax(0,1fr));
-      }
+      .hud{ grid-template-columns:repeat(2, minmax(0,1fr)); }
       .ai-box{
-        top:auto;
-        bottom:calc(164px + var(--sab));
-        left:calc(12px + var(--sal));
-        right:calc(12px + var(--sar));
-        width:auto;
+        top:auto; bottom:calc(164px + var(--sab)); left:calc(12px + var(--sal)); right:calc(12px + var(--sar)); width:auto;
       }
-      .end-grid{
-        grid-template-columns:repeat(2, minmax(0,1fr));
-      }
+      .end-grid{ grid-template-columns:repeat(2, minmax(0,1fr)); }
+      .compare-table{ grid-template-columns:1fr; }
     }
 
     @media (max-width:560px){
@@ -404,7 +231,7 @@ PATCH v20260307-GJ-RUN-ENDSUMMARY-BATTLE-EXPLAIN
       <div class="brand">HeroHealth • GoodJunk VR</div>
     </div>
     <div class="pill">
-      <span class="dot battle"></span>
+      <span class="dot"></span>
       <div>
         <div id="uiRun" style="font-weight:900;font-size:13px;">battle</div>
         <div class="muted" style="font-size:12px;">
@@ -463,9 +290,33 @@ PATCH v20260307-GJ-RUN-ENDSUMMARY-BATTLE-EXPLAIN
         <div id="endDecision" class="v">—</div>
       </div>
 
-      <div class="end-note">
-        <div class="h">เทียบกับคู่แข่ง</div>
-        <div id="endCompare" class="v">—</div>
+      <div class="compare-wrap">
+        <div class="compare-title">เทียบผล You vs Opponent</div>
+        <div class="compare-table">
+          <div class="cmp-head"></div>
+          <div class="cmp-head">YOU</div>
+          <div class="cmp-head">OPPONENT</div>
+
+          <div class="cmp-metric">Score</div>
+          <div id="cmpYouScore" class="cmp-cell">—</div>
+          <div id="cmpOppScore" class="cmp-cell">—</div>
+
+          <div class="cmp-metric">Accuracy</div>
+          <div id="cmpYouAcc" class="cmp-cell">—</div>
+          <div id="cmpOppAcc" class="cmp-cell">—</div>
+
+          <div class="cmp-metric">Miss</div>
+          <div id="cmpYouMiss" class="cmp-cell">—</div>
+          <div id="cmpOppMiss" class="cmp-cell">—</div>
+
+          <div class="cmp-metric">Median RT</div>
+          <div id="cmpYouRt" class="cmp-cell">—</div>
+          <div id="cmpOppRt" class="cmp-cell">—</div>
+
+          <div class="cmp-metric">Finish Time</div>
+          <div id="cmpYouFinish" class="cmp-cell">—</div>
+          <div id="cmpOppFinish" class="cmp-cell">—</div>
+        </div>
       </div>
 
       <div class="end-grid">
@@ -499,19 +350,9 @@ PATCH v20260307-GJ-RUN-ENDSUMMARY-BATTLE-EXPLAIN
     function installVRUI(){
       try{
         if (window.HHAVRUI && typeof window.HHAVRUI.install === 'function'){
-          window.HHAVRUI.install({
-            recenter:true,
-            exit:true,
-            crosshair:true,
-            tapToShoot:true
-          });
+          window.HHAVRUI.install({ recenter:true, exit:true, crosshair:true, tapToShoot:true });
         } else if (window.installVRUI && typeof window.installVRUI === 'function'){
-          window.installVRUI({
-            recenter:true,
-            exit:true,
-            crosshair:true,
-            tapToShoot:true
-          });
+          window.installVRUI({ recenter:true, exit:true, crosshair:true, tapToShoot:true });
         }
       }catch(err){
         console.warn('[GoodJunkVR] VR UI install failed:', err);
@@ -523,13 +364,8 @@ PATCH v20260307-GJ-RUN-ENDSUMMARY-BATTLE-EXPLAIN
       return u.toString();
     }
 
-    document.getElementById('btnReplay').addEventListener('click', ()=>{
-      location.href = replayUrl();
-    });
-
-    document.getElementById('btnBackHub').addEventListener('click', ()=>{
-      location.href = safeHub();
-    });
+    document.getElementById('btnReplay').addEventListener('click', ()=>{ location.href = replayUrl(); });
+    document.getElementById('btnBackHub').addEventListener('click', ()=>{ location.href = safeHub(); });
 
     try{
       installVRUI();
