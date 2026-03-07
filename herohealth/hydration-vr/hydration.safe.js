@@ -7,24 +7,63 @@ export function boot(cfg){
   if(!layer) throw new Error('Missing #layer');
 
   const qs = (k, d='')=>{ try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(e){ return d; } };
-  const clamp=(v,a,b)=>{ v=Number(v); if(!Number.isFinite(v)) v=a; return Math.max(a, Math.min(b,v)); };
+  const clamp = (v,a,b)=>{ v=Number(v); if(!Number.isFinite(v)) v=a; return Math.max(a, Math.min(b,v)); };
   const nowMs = ()=> (performance && performance.now) ? performance.now() : Date.now();
   const nowIso = ()=> new Date().toISOString();
-  const safeJson = (o)=>{ try{ return JSON.stringify(o,null,2);}catch(e){return '{}';} };
+  const safeJson = (o)=>{ try{ return JSON.stringify(o,null,2);}catch(e){ return '{}'; } };
+
+  function csvEscape(v){
+    if(v == null) return '';
+    const s = String(v);
+    if(/[",\n]/.test(s)) return `"${s.replace(/"/g,'""')}"`;
+    return s;
+  }
+  function rowsToCsv(rows){
+    rows = Array.isArray(rows) ? rows : [];
+    if(!rows.length) return '';
+    const keys = Array.from(rows.reduce((set,row)=>{
+      Object.keys(row || {}).forEach(k=> set.add(k));
+      return set;
+    }, new Set()));
+    const head = keys.map(csvEscape).join(',');
+    const body = rows.map(row => keys.map(k => csvEscape(row?.[k])).join(',')).join('\n');
+    return `${head}\n${body}`;
+  }
+  async function copyText(txt, label='Copy'){
+    try{
+      await navigator.clipboard.writeText(String(txt || ''));
+    }catch(e){
+      try{ prompt(`${label}:`, String(txt || '')); }catch(_){}
+    }
+  }
+  async function postToHHACloud(payload){
+    const api = qs('api','').trim();
+    if(!api) throw new Error('Missing ?api= endpoint');
+    const res = await fetch(api, {
+      method: 'POST',
+      headers: { 'Content-Type':'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if(!res.ok){
+      const text = await res.text().catch(()=> '');
+      throw new Error(`HTTP ${res.status} ${text}`.trim());
+    }
+    try{ return await res.json(); }
+    catch{ return { ok:true }; }
+  }
 
   const view = String(cfg.view || qs('view','mobile')).toLowerCase();
   const runMode = String(cfg.run || qs('run','play')).toLowerCase();
   const diff = String(cfg.diff || qs('diff','normal')).toLowerCase();
   const plannedSec = clamp(cfg.time ?? qs('time','80'), 20, 300);
   const seedStr = String(cfg.seed || qs('seed', String(Date.now())));
-  const pid = String(cfg.pid || qs('pid','anon')).trim()||'anon';
+  const pid = String(cfg.pid || qs('pid','anon')).trim() || 'anon';
   const hubUrl = String(cfg.hub || qs('hub','../hub.html'));
   const cooldownRequired = !!cfg.cooldown || (qs('cooldown','0')==='1') || (qs('cd','0')==='1');
 
   function emojiFor(diffKey, phase, level=0){
-    diffKey = String(diffKey||'normal').toLowerCase();
-    const p = String(phase||'normal').toLowerCase();
-
+    diffKey = String(diffKey || 'normal').toLowerCase();
+    const p = String(phase || 'normal').toLowerCase();
     if(p==='storm'){
       if(diffKey==='easy') return '🌦️⚡';
       if(diffKey==='hard') return '🌪️⚡⚡⚡';
@@ -48,56 +87,57 @@ export function boot(cfg){
     return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   }
   function lsGet(k){ try{ return localStorage.getItem(k); }catch(_){ return null; } }
-  function cooldownDone(cat, game, pid){
+  function cooldownDone(cat, game, who){
     const day=hhDayKey();
-    const kNew=`HHA_COOLDOWN_DONE:${cat}:${game}:${pid}:${day}`;
-    const kOld=`HHA_COOLDOWN_DONE:${cat}:${pid}:${day}`;
+    const kNew=`HHA_COOLDOWN_DONE:${cat}:${game}:${who}:${day}`;
+    const kOld=`HHA_COOLDOWN_DONE:${cat}:${who}:${day}`;
     return (lsGet(kNew)==='1') || (lsGet(kOld)==='1');
   }
-  function buildCooldownUrl({ hub, nextAfterCooldown, cat, gameKey, pid }){
+  function buildCooldownUrl({ hub, nextAfterCooldown, cat, gameKey, who }){
     const gate = new URL('../warmup-gate.html', location.href);
     gate.searchParams.set('gatePhase','cooldown');
-    gate.searchParams.set('cat', String(cat||'nutrition'));
-    gate.searchParams.set('theme', String(gameKey||'hydration'));
-    gate.searchParams.set('pid', String(pid||'anon'));
+    gate.searchParams.set('cat', String(cat || 'nutrition'));
+    gate.searchParams.set('theme', String(gameKey || 'hydration'));
+    gate.searchParams.set('pid', String(who || 'anon'));
     if(hub) gate.searchParams.set('hub', String(hub));
     gate.searchParams.set('next', String(nextAfterCooldown || hub || '../hub.html'));
     return gate.toString();
   }
 
   function xmur3(str){
-    str=String(str||'');
-    let h=1779033703^str.length;
+    str = String(str || '');
+    let h = 1779033703 ^ str.length;
     for(let i=0;i<str.length;i++){
-      h=Math.imul(h^str.charCodeAt(i),3432918353);
-      h=(h<<13)|(h>>>19);
+      h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
+      h = (h << 13) | (h >>> 19);
     }
     return function(){
-      h=Math.imul(h^(h>>>16),2246822507);
-      h=Math.imul(h^(h>>>13),3266489909);
-      return (h^=(h>>>16))>>>0;
+      h = Math.imul(h ^ (h >>> 16), 2246822507);
+      h = Math.imul(h ^ (h >>> 13), 3266489909);
+      return (h ^= (h >>> 16)) >>> 0;
     };
   }
   function sfc32(a,b,c,d){
     return function(){
-      a>>>=0;b>>>=0;c>>>=0;d>>>=0;
-      let t=(a+b)|0;
-      a=b^(b>>>9);
-      b=(c+(c<<3))|0;
-      c=(c<<21)|(c>>>11);
-      d=(d+1)|0;
-      t=(t+d)|0;
-      c=(c+t)|0;
-      return (t>>>0)/4294967296;
+      a>>>=0; b>>>=0; c>>>=0; d>>>=0;
+      let t = (a + b) | 0;
+      a = b ^ (b >>> 9);
+      b = (c + (c << 3)) | 0;
+      c = (c << 21) | (c >>> 11);
+      d = (d + 1) | 0;
+      t = (t + d) | 0;
+      c = (c + t) | 0;
+      return (t >>> 0) / 4294967296;
     };
   }
   function makeRng(seed){
-    const s=xmur3(seed);
-    return sfc32(s(),s(),s(),s());
+    const s = xmur3(seed);
+    return sfc32(s(), s(), s(), s());
   }
+
   const rng = makeRng(seedStr);
   const r01 = ()=> rng();
-  const pick = (arr)=> arr[(r01()*arr.length)|0];
+  const pick = (arr)=> arr[(r01() * arr.length) | 0];
 
   const ui = {
     score: DOC.getElementById('uiScore'),
@@ -112,6 +152,7 @@ export function boot(cfg){
     phase: DOC.getElementById('uiPhase'),
     aiRisk: DOC.getElementById('aiRisk'),
     aiHint: DOC.getElementById('aiHint'),
+
     btnSfx: DOC.getElementById('btnSfx'),
     btnPause: DOC.getElementById('btnPause'),
     btnHelp: DOC.getElementById('btnHelp'),
@@ -119,6 +160,7 @@ export function boot(cfg){
     btnHelpStart: DOC.getElementById('btnHelpStart'),
     pauseOverlay: DOC.getElementById('pauseOverlay'),
     btnResume: DOC.getElementById('btnResume'),
+
     end: DOC.getElementById('end'),
     endTitle: DOC.getElementById('endTitle'),
     endSub: DOC.getElementById('endSub'),
@@ -126,12 +168,19 @@ export function boot(cfg){
     endScore: DOC.getElementById('endScore'),
     endMiss: DOC.getElementById('endMiss'),
     endWater: DOC.getElementById('endWater'),
+
     btnCopy: DOC.getElementById('btnCopy'),
     btnCopyEvents: DOC.getElementById('btnCopyEvents'),
     btnCopyTimeline: DOC.getElementById('btnCopyTimeline'),
+    btnCopyFeatures: DOC.getElementById('btnCopyFeatures'),
+    btnCopyLabels: DOC.getElementById('btnCopyLabels'),
+    btnCopyFeaturesCsv: DOC.getElementById('btnCopyFeaturesCsv'),
+    btnCopyLabelsCsv: DOC.getElementById('btnCopyLabelsCsv'),
+    btnSendCloud: DOC.getElementById('btnSendCloud'),
     btnReplay: DOC.getElementById('btnReplay'),
     btnNextCooldown: DOC.getElementById('btnNextCooldown'),
     btnBackHub: DOC.getElementById('btnBackHub'),
+
     riskFill: DOC.getElementById('riskFill'),
     coachExplain: DOC.getElementById('coachExplain'),
   };
@@ -142,12 +191,17 @@ export function boot(cfg){
   const btnZoneR = DOC.getElementById('btnZoneR');
 
   const SFX = (() => {
-    let ctx = null, unlocked = false, enabled = true, volumeMul = 1.0;
+    let ctx = null;
+    let unlocked = false;
+    let enabled = true;
+    let volumeMul = 1.0;
     let last = new Map();
+
     try{
       const saved = localStorage.getItem('HHA_SFX_ENABLED');
       if(saved === '0') enabled = false;
     }catch(e){}
+
     function now(){ return (ctx && ctx.currentTime) ? ctx.currentTime : 0; }
     function ensure(){
       if(ctx) return ctx;
@@ -172,13 +226,13 @@ export function boot(cfg){
     }
     function setEnabled(v){
       enabled = !!v;
-      try{ localStorage.setItem('HHA_SFX_ENABLED', enabled ? '1':'0'); }catch(e){}
+      try{ localStorage.setItem('HHA_SFX_ENABLED', enabled ? '1' : '0'); }catch(e){}
     }
     function isEnabled(){ return enabled; }
-    function setPhaseVolume(phase){
-      if(phase==='storm') volumeMul = 0.95;
-      else if(phase==='boss') volumeMul = 1.00;
-      else if(phase==='final') volumeMul = 1.08;
+    function setPhaseVolume(p){
+      if(p==='storm') volumeMul = 0.95;
+      else if(p==='boss') volumeMul = 1.00;
+      else if(p==='final') volumeMul = 1.08;
       else volumeMul = 0.88;
     }
     function canPlay(key, minGapMs){
@@ -189,7 +243,7 @@ export function boot(cfg){
       last.set(key, t);
       return true;
     }
-    function beep({f0=440, f1=440, dur=0.08, type='sine', vol=0.12, attack=0.004, release=0.06}){
+    function beep({f0=440,f1=440,dur=0.08,type='sine',vol=0.12,attack=0.004,release=0.06}){
       const c = ensure();
       if(!c || (!unlocked && c.state!=='running') || !enabled) return;
       const t0 = now();
@@ -204,14 +258,14 @@ export function boot(cfg){
       o.connect(g); g.connect(c.destination);
       o.start(t0); o.stop(t0 + dur + release + 0.02);
     }
-    function noise({dur=0.14, vol=0.10, attack=0.002, release=0.12, hp=800}){
+    function noise({dur=0.14,vol=0.10,attack=0.002,release=0.12,hp=800}){
       const c = ensure();
       if(!c || (!unlocked && c.state!=='running') || !enabled) return;
       const t0 = now();
       const bufferSize = Math.max(1, Math.floor(c.sampleRate * dur));
       const buffer = c.createBuffer(1, bufferSize, c.sampleRate);
       const data = buffer.getChannelData(0);
-      for(let i=0;i<bufferSize;i++) data[i] = (Math.random()*2 - 1) * (1 - i/bufferSize);
+      for(let i=0;i<bufferSize;i++) data[i] = (Math.random()*2 - 1) * (1 - i / bufferSize);
       const src = c.createBufferSource();
       src.buffer = buffer;
       const filter = c.createBiquadFilter();
@@ -247,10 +301,10 @@ export function boot(cfg){
   })();
 
   const unlockOnce = (() => {
-    let done=false;
+    let done = false;
     return async ()=>{
       if(done) return;
-      done=true;
+      done = true;
       await SFX.unlock();
       DOC.removeEventListener('pointerdown', unlockOnce, true);
       DOC.removeEventListener('touchstart', unlockOnce, true);
@@ -326,10 +380,14 @@ export function boot(cfg){
     boss3:{goodHit:0,badHit:0,goodExpire:0,block:0,lightningHit:0,lightningBlock:0},
     final:{goodHit:0,badHit:0,goodExpire:0,block:0,lightningHit:0,lightningBlock:0},
   };
+
   const eventLog = [];
   const riskTimeline = [];
+  const featureRows = [];
+  const labelRows = [];
+
   function currentPhaseKey(){
-    if(phase==='boss') return `boss${bossLevel}`;
+    if(phase === 'boss') return `boss${bossLevel}`;
     return phase;
   }
   function logEvent(type, data={}){
@@ -338,23 +396,47 @@ export function boot(cfg){
     try{ WIN.dispatchEvent(new CustomEvent('hha:event', { detail:item })); }catch(e){}
   }
 
-  let playing=true, paused=false, helpOpen=true;
-  let tLeft=plannedSec, lastTick=nowMs();
-  let score=0, missBadHit=0, missGoodExpired=0, blockCount=0;
-  let combo=0, bestCombo=0, shield=0, waterPct=30;
-  let phase='normal', stormLeft=0, stormDone=false;
-  let bossLevel=0, bossHits=0, bossGoal=0;
-  let finalHits=0, finalGoal=0;
-  let needZone='L', zoneT=0, aimX01=0.5;
-  let lastTimelineAt = 0;
+  let playing = true;
+  let paused = false;
+  let helpOpen = true;
+
+  let tLeft = plannedSec;
+  let lastTick = nowMs();
+
+  let score = 0;
+  let missBadHit = 0;
+  let missGoodExpired = 0;
+  let blockCount = 0;
+
+  let combo = 0;
+  let bestCombo = 0;
+  let shield = 0;
+  let waterPct = 30;
+
+  let phase = 'normal';
+  let stormLeft = 0;
+  let stormDone = false;
+
+  let bossLevel = 0;
+  let bossHits = 0;
+  let bossGoal = 0;
+
+  let finalHits = 0;
+  let finalGoal = 0;
+
+  let needZone = 'L';
+  let zoneT = 0;
+  let aimX01 = 0.5;
+
+  let lastTimelineAt = -1;
 
   function setStagePhase(p){
     stageEl?.classList?.toggle('is-storm', p==='storm');
-    stageEl?.classList?.toggle('is-boss',  p==='boss');
+    stageEl?.classList?.toggle('is-boss', p==='boss');
     stageEl?.classList?.toggle('is-final', p==='final');
   }
   function isInNeededZone(){ return (needZone==='L') ? (aimX01 < 0.5) : (aimX01 >= 0.5); }
-  function swapZone(){ needZone = (needZone==='L') ? 'R' : 'L'; }
+  function swapZone(){ needZone = (needZone === 'L') ? 'R' : 'L'; }
 
   function updateAimFromEvent(ev){
     try{
@@ -364,15 +446,34 @@ export function boot(cfg){
   }
   layer.addEventListener('pointermove', (ev)=>{ updateAimFromEvent(ev); }, { passive:true });
   layer.addEventListener('pointerdown', (ev)=>{ updateAimFromEvent(ev); }, { passive:true });
+
   if(btnZoneL && btnZoneR){
     btnZoneL.onclick = ()=>{ aimX01 = 0.25; };
     btnZoneR.onclick = ()=>{ aimX01 = 0.75; };
   }
 
-  function showHelp(){ helpOpen=true; paused=true; ui.helpOverlay?.setAttribute('aria-hidden','false'); }
-  function hideHelp(){ helpOpen=false; ui.helpOverlay?.setAttribute('aria-hidden','true'); paused=false; lastTick=nowMs(); requestAnimationFrame(loop); }
-  function showPause(){ paused=true; ui.pauseOverlay?.setAttribute('aria-hidden','false'); }
-  function hidePause(){ ui.pauseOverlay?.setAttribute('aria-hidden','true'); paused=false; lastTick=nowMs(); requestAnimationFrame(loop); }
+  function showHelp(){
+    helpOpen = true;
+    paused = true;
+    ui.helpOverlay?.setAttribute('aria-hidden','false');
+  }
+  function hideHelp(){
+    helpOpen = false;
+    ui.helpOverlay?.setAttribute('aria-hidden','true');
+    paused = false;
+    lastTick = nowMs();
+    requestAnimationFrame(loop);
+  }
+  function showPause(){
+    paused = true;
+    ui.pauseOverlay?.setAttribute('aria-hidden','false');
+  }
+  function hidePause(){
+    ui.pauseOverlay?.setAttribute('aria-hidden','true');
+    paused = false;
+    lastTick = nowMs();
+    requestAnimationFrame(loop);
+  }
 
   if(ui.btnHelp) ui.btnHelp.onclick = showHelp;
   if(ui.btnHelpStart) ui.btnHelpStart.onclick = hideHelp;
@@ -389,30 +490,30 @@ export function boot(cfg){
   }
   function fxRing(x,y){
     const el = DOC.createElement('div');
-    el.className='fx-ring';
-    el.style.left=`${x}px`;
-    el.style.top=`${y}px`;
+    el.className = 'fx-ring';
+    el.style.left = `${x}px`;
+    el.style.top = `${y}px`;
     layer.appendChild(el);
-    setTimeout(()=>el.remove(), 520);
+    setTimeout(()=> el.remove(), 520);
   }
   function fxScore(x,y,text){
     const el = DOC.createElement('div');
-    el.className='fx-score';
-    el.textContent=String(text||'');
-    el.style.left=`${x}px`;
-    el.style.top=`${y}px`;
+    el.className = 'fx-score';
+    el.textContent = String(text || '');
+    el.style.left = `${x}px`;
+    el.style.top = `${y}px`;
     layer.appendChild(el);
-    setTimeout(()=>el.remove(), 900);
+    setTimeout(()=> el.remove(), 900);
   }
   function fxBubblePop(el, kind){
     el.classList.remove('fx-pop','fx-bad');
     void el.offsetWidth;
-    el.classList.add(kind==='bad' ? 'fx-bad' : 'fx-pop');
+    el.classList.add(kind === 'bad' ? 'fx-bad' : 'fx-pop');
   }
   function fxPhaseBanner(text){
     const r = layer.getBoundingClientRect();
-    const cx = r.width/2;
-    const cy = Math.max(120, Math.min(r.height*0.30, 260));
+    const cx = r.width / 2;
+    const cy = Math.max(120, Math.min(r.height * 0.30, 260));
     fxRing(cx, cy);
     fxScore(cx, cy, text);
     fxShake();
@@ -421,15 +522,16 @@ export function boot(cfg){
   function lightning(){
     SFX.thunder();
     const f = DOC.createElement('div');
-    f.className='storm-flash';
+    f.className = 'storm-flash';
     stageEl.appendChild(f);
-    setTimeout(()=>f.remove(), 220);
+    setTimeout(()=> f.remove(), 220);
+
     const b = DOC.createElement('div');
-    b.className='bolt';
-    b.style.left=`${10 + r01()*80}%`;
-    b.style.transform=`translateX(-50%) rotate(${(r01()*18-9).toFixed(1)}deg)`;
+    b.className = 'bolt';
+    b.style.left = `${10 + r01()*80}%`;
+    b.style.transform = `translateX(-50%) rotate(${(r01()*18-9).toFixed(1)}deg)`;
     stageEl.appendChild(b);
-    setTimeout(()=>b.remove(), 260);
+    setTimeout(()=> b.remove(), 260);
   }
 
   let _hudBottom = 160;
@@ -440,45 +542,47 @@ export function boot(cfg){
     }catch(e){}
   }
   measureHudBottom();
-  WIN.addEventListener('resize', ()=>setTimeout(measureHudBottom, 120), { passive:true });
-  WIN.addEventListener('orientationchange', ()=>setTimeout(measureHudBottom, 180), { passive:true });
+  WIN.addEventListener('resize', ()=> setTimeout(measureHudBottom, 120), { passive:true });
+  WIN.addEventListener('orientationchange', ()=> setTimeout(measureHudBottom, 180), { passive:true });
   setInterval(measureHudBottom, 600);
 
   function safeSpawnXY(){
-    const r=layer.getBoundingClientRect();
-    const pad = (view==='mobile') ? 18 : 22;
-    const gap = (view==='mobile') ? 14 : 12;
+    const r = layer.getBoundingClientRect();
+    const pad = (view === 'mobile') ? 18 : 22;
+    const gap = (view === 'mobile') ? 14 : 12;
     const yMin = clamp((_hudBottom - r.top) + gap, pad + 10, r.height - 60);
-    const bottomPad = (view==='mobile') ? 120 : 90;
-    const x = pad + r01()*(Math.max(1, r.width - pad*2));
+    const bottomPad = (view === 'mobile') ? 120 : 90;
+    const x = pad + r01() * Math.max(1, r.width - pad*2);
     const yMax = Math.max(yMin + 1, r.height - bottomPad);
-    const y = yMin + r01()*(Math.max(1, yMax - yMin));
+    const y = yMin + r01() * Math.max(1, yMax - yMin);
     return { x, y };
   }
 
   const bubbles = new Map();
-  let idSeq=1;
+  let idSeq = 1;
   const GOOD = ['💧','💦','🫗'];
   const BAD  = ['🧋','🥤','🍟'];
   const SHLD = ['🛡️'];
 
   function makeBubble(kind, emoji, ttlSec){
-    const id=String(idSeq++);
-    const el=DOC.createElement('div');
-    el.className='bubble';
-    el.textContent=emoji;
-    el.dataset.id=id;
-    el.dataset.kind=kind;
+    const id = String(idSeq++);
+    const el = DOC.createElement('div');
+    el.className = 'bubble';
+    el.textContent = emoji;
+    el.dataset.id = id;
+    el.dataset.kind = kind;
+
     const p = safeSpawnXY();
-    el.style.left=`${p.x}px`;
-    el.style.top=`${p.y}px`;
+    el.style.left = `${p.x}px`;
+    el.style.top = `${p.y}px`;
+
     layer.appendChild(el);
-    bubbles.set(id,{ id, el, kind, emoji, born:nowMs(), ttl:Math.max(0.9, ttlSec)*1000 });
+    bubbles.set(id, { id, el, kind, emoji, born:nowMs(), ttl:Math.max(0.9, ttlSec)*1000 });
     logEvent('spawn', { kind, x:p.x, y:p.y });
   }
 
   function removeBubble(id){
-    const b=bubbles.get(String(id));
+    const b = bubbles.get(String(id));
     if(!b) return;
     bubbles.delete(String(id));
     try{ b.el.remove(); }catch(e){}
@@ -486,13 +590,22 @@ export function boot(cfg){
 
   function gradeText(){
     const played = Math.max(1, plannedSec - tLeft);
-    const sps = score/played;
+    const sps = score / played;
     const x = sps*10 - missBadHit*0.55 - missGoodExpired*0.08;
-    if(x>=70) return 'S';
-    if(x>=55) return 'A';
-    if(x>=40) return 'B';
-    if(x>=28) return 'C';
+    if(x >= 70) return 'S';
+    if(x >= 55) return 'A';
+    if(x >= 40) return 'B';
+    if(x >= 28) return 'C';
     return 'D';
+  }
+
+  function buildRisk(){
+    const missPressure = (missBadHit / Math.max(1, TUNE.missLimit));
+    const expirePressure = clamp(missGoodExpired / 25, 0, 1);
+    const lowWater = (waterPct < 35) ? (35 - waterPct) / 35 : 0;
+    const noShieldStorm = ((phase==='storm' || phase==='boss' || phase==='final') && shield===0) ? 0.20 : 0;
+    const wrongZonePenalty = ((phase==='storm' || phase==='boss' || phase==='final') && !isInNeededZone()) ? 0.12 : 0;
+    return clamp(missPressure*0.40 + lowWater*0.28 + expirePressure*0.10 + noShieldStorm + wrongZonePenalty, 0, 1);
   }
 
   function explainRisk(risk){
@@ -502,7 +615,8 @@ export function boot(cfg){
     if(missBadHit >= Math.max(2, Math.floor(TUNE.missLimit*0.4))) reasons.push('โดนของไม่ดีบ่อย');
     if(missGoodExpired >= 4) reasons.push('เก็บน้ำไม่ทัน');
     if((phase==='storm' || phase==='boss' || phase==='final') && !isInNeededZone()) reasons.push('อยู่ผิดฝั่ง');
-    if(reasons.length===0){
+
+    if(reasons.length === 0){
       if(risk < 0.25) return 'ปลอดภัยดี เล่นต่อได้';
       if(risk < 0.5) return 'เสี่ยงปานกลาง ระวังจังหวะ';
       return 'เริ่มเสี่ยง คุมโล่และน้ำให้ดี';
@@ -511,25 +625,25 @@ export function boot(cfg){
   }
 
   function setHUD(){
-    if(ui.score) ui.score.textContent=String(score|0);
-    if(ui.time) ui.time.textContent=String(Math.ceil(tLeft));
-    if(ui.miss) ui.miss.textContent=String(missBadHit|0);
-    if(ui.expire) ui.expire.textContent=String(missGoodExpired|0);
-    if(ui.block) ui.block.textContent=String(blockCount|0);
-    if(ui.water) ui.water.textContent=`${Math.round(clamp(waterPct,0,100))}%`;
-    if(ui.combo) ui.combo.textContent=String(combo|0);
-    if(ui.shield) ui.shield.textContent=String(shield|0);
-    if(ui.grade) ui.grade.textContent=gradeText();
+    if(ui.score) ui.score.textContent = String(score|0);
+    if(ui.time) ui.time.textContent = String(Math.ceil(tLeft));
+    if(ui.miss) ui.miss.textContent = String(missBadHit|0);
+    if(ui.expire) ui.expire.textContent = String(missGoodExpired|0);
+    if(ui.block) ui.block.textContent = String(blockCount|0);
+    if(ui.water) ui.water.textContent = `${Math.round(clamp(waterPct,0,100))}%`;
+    if(ui.combo) ui.combo.textContent = String(combo|0);
+    if(ui.shield) ui.shield.textContent = String(shield|0);
+    if(ui.grade) ui.grade.textContent = gradeText();
 
     if(ui.phase){
-      if(phase==='storm'){
-        ui.phase.textContent=`${emojiFor(diff,'storm')} STORM ${needZone==='L'?'LEFT':'RIGHT'}`;
-      }else if(phase==='boss'){
-        ui.phase.textContent=`${emojiFor(diff,'boss',bossLevel)} BOSS ${bossLevel} ${bossHits}/${bossGoal} ${needZone==='L'?'LEFT':'RIGHT'}`;
-      }else if(phase==='final'){
-        ui.phase.textContent=`${emojiFor(diff,'final')} FINAL ${finalHits}/${finalGoal} ${needZone==='L'?'LEFT':'RIGHT'}`;
+      if(phase === 'storm'){
+        ui.phase.textContent = `${emojiFor(diff,'storm')} STORM ${needZone==='L'?'LEFT':'RIGHT'}`;
+      }else if(phase === 'boss'){
+        ui.phase.textContent = `${emojiFor(diff,'boss',bossLevel)} BOSS ${bossLevel} ${bossHits}/${bossGoal} ${needZone==='L'?'LEFT':'RIGHT'}`;
+      }else if(phase === 'final'){
+        ui.phase.textContent = `${emojiFor(diff,'final')} FINAL ${finalHits}/${finalGoal} ${needZone==='L'?'LEFT':'RIGHT'}`;
       }else{
-        ui.phase.textContent='💧 NORMAL';
+        ui.phase.textContent = '💧 NORMAL';
       }
     }
 
@@ -548,6 +662,13 @@ export function boot(cfg){
     if(ui.aiHint) ui.aiHint.textContent = String(hint || '—');
     if(ui.riskFill) ui.riskFill.style.width = `${Math.round(clamp(risk,0,1)*100)}%`;
     if(ui.coachExplain) ui.coachExplain.textContent = explainRisk(risk);
+  }
+
+  function predictRiskFromFeatures(features){
+    return features.riskHeuristic;
+  }
+  function predictFailSoon(features){
+    return (features.waterPct < 18 || (features.inDangerPhase && features.shield === 0 && !features.inCorrectZone)) ? 1 : 0;
   }
 
   function applyLightningStrike(rate){
@@ -580,29 +701,34 @@ export function boot(cfg){
 
   function hit(b){
     if(!playing || paused) return;
+
     const bb = b.el.getBoundingClientRect();
     const lr = layer.getBoundingClientRect();
     const bx = (bb.left + bb.width/2) - lr.left;
     const by = (bb.top + bb.height/2) - lr.top;
     const pk = currentPhaseKey();
 
-    if(b.kind==='good'){
+    if(b.kind === 'good'){
       combo++;
       bestCombo = Math.max(bestCombo, combo);
+
       const mult = combo>=14 ? 3 : combo>=7 ? 2 : 1;
       const add = Math.round((10 + Math.min(12, combo)) * mult);
+
       score += add;
       waterPct = clamp(waterPct + TUNE.waterGain, 0, 100);
       phaseStats[pk].goodHit++;
+
       SFX.pop();
       fxBubblePop(b.el, 'good');
       fxRing(bx, by);
-      fxScore(bx, by, `+${add}${mult>1?` x${mult}`:''}`);
+      fxScore(bx, by, `+${add}${mult>1 ? ` x${mult}` : ''}`);
       logEvent('good_hit', { scoreAdd:add, combo, waterPct });
 
-      if(phase==='boss'){
+      if(phase === 'boss'){
         bossHits++;
         fxScore(bx, by-12, `${bossHits}/${bossGoal}`);
+
         if(bossHits >= bossGoal){
           if(bossLevel < 3){
             bossLevel++;
@@ -610,25 +736,25 @@ export function boot(cfg){
             bossGoal = bossLevel===2 ? TUNE.boss2NeedHits : TUNE.boss3NeedHits;
             SFX.setPhaseVolume('boss');
             SFX.phase('boss');
-            needZone = (r01()<0.5) ? 'L' : 'R';
+            needZone = (r01() < 0.5) ? 'L' : 'R';
             zoneT = 0;
             fxPhaseBanner(`${emojiFor(diff,'boss',bossLevel)} BOSS ${bossLevel}`);
             logEvent('phase_enter', { phase:`boss${bossLevel}` });
           }else{
-            phase='final';
-            bossHits=0;
-            finalHits=0;
-            finalGoal=TUNE.finalNeedHits;
+            phase = 'final';
+            bossHits = 0;
+            finalHits = 0;
+            finalGoal = TUNE.finalNeedHits;
             setStagePhase('final');
             SFX.setPhaseVolume('final');
             SFX.phase('final');
-            zoneT=0;
-            needZone = (r01()<0.5) ? 'L' : 'R';
+            zoneT = 0;
+            needZone = (r01() < 0.5) ? 'L' : 'R';
             fxPhaseBanner(`${emojiFor(diff,'final')} FINAL BOSS`);
             logEvent('phase_enter', { phase:'final' });
           }
         }
-      }else if(phase==='final'){
+      }else if(phase === 'final'){
         finalHits++;
         fxScore(bx, by-12, `${finalHits}/${finalGoal}`);
         if(finalHits >= finalGoal){
@@ -637,11 +763,11 @@ export function boot(cfg){
         }
       }
 
-      setTimeout(()=>removeBubble(b.id), 50);
+      setTimeout(()=> removeBubble(b.id), 50);
       return;
     }
 
-    if(b.kind==='shield'){
+    if(b.kind === 'shield'){
       shield = clamp(shield + 1, 0, 9);
       score += 6;
       SFX.shield();
@@ -649,7 +775,7 @@ export function boot(cfg){
       fxRing(bx, by);
       fxScore(bx, by, '🛡️+1');
       logEvent('shield_hit', { shield });
-      setTimeout(()=>removeBubble(b.id), 50);
+      setTimeout(()=> removeBubble(b.id), 50);
       return;
     }
 
@@ -663,46 +789,53 @@ export function boot(cfg){
       fxRing(bx, by);
       fxScore(bx, by, 'BLOCK');
       logEvent('bad_block', { shield });
-      setTimeout(()=>removeBubble(b.id), 50);
+      setTimeout(()=> removeBubble(b.id), 50);
       return;
     }
 
     missBadHit++;
-    combo=0;
+    combo = 0;
     score = Math.max(0, score - 8);
     waterPct = clamp(waterPct - TUNE.waterLoss, 0, 100);
     phaseStats[pk].badHit++;
+
     SFX.bad();
     fxShake();
     fxBubblePop(b.el, 'bad');
     fxRing(bx, by);
     fxScore(bx, by, '-8');
     logEvent('bad_hit', { waterPct, score });
-    setTimeout(()=>removeBubble(b.id), 50);
+
+    setTimeout(()=> removeBubble(b.id), 50);
   }
 
   layer.addEventListener('pointerdown', (ev)=>{
     if(!playing || paused) return;
     const el = ev.target?.closest?.('.bubble');
     if(!el) return;
-    const b=bubbles.get(String(el.dataset.id));
+    const b = bubbles.get(String(el.dataset.id));
     if(b) hit(b);
   }, { passive:true });
 
   function pickClosestToCenter(lockPx){
     lockPx = clamp(lockPx ?? 56, 16, 160);
-    let best=null, bestD=1e9;
-    const r=layer.getBoundingClientRect();
-    const cx=r.left + r.width/2;
-    const cy=r.top  + r.height/2;
+    let best = null;
+    let bestD = 1e9;
+    const r = layer.getBoundingClientRect();
+    const cx = r.left + r.width/2;
+    const cy = r.top + r.height/2;
+
     for(const b of bubbles.values()){
-      const bb=b.el.getBoundingClientRect();
-      const bx=bb.left + bb.width/2;
-      const by=bb.top  + bb.height/2;
-      const d=Math.hypot(bx-cx, by-cy);
-      if(d<bestD){ bestD=d; best=b; }
+      const bb = b.el.getBoundingClientRect();
+      const bx = bb.left + bb.width/2;
+      const by = bb.top + bb.height/2;
+      const d = Math.hypot(bx-cx, by-cy);
+      if(d < bestD){
+        bestD = d;
+        best = b;
+      }
     }
-    return (best && bestD<=lockPx) ? best : null;
+    return (best && bestD <= lockPx) ? best : null;
   }
 
   WIN.addEventListener('hha:shoot', (ev)=>{
@@ -712,21 +845,23 @@ export function boot(cfg){
   });
 
   function updateBubbles(){
-    const t=nowMs();
+    const t = nowMs();
     const lr = layer.getBoundingClientRect();
     const pk = currentPhaseKey();
 
     for(const b of Array.from(bubbles.values())){
       if(t - b.born >= b.ttl){
-        if(b.kind==='good'){
+        if(b.kind === 'good'){
           missGoodExpired++;
-          combo=0;
+          combo = 0;
           score = Math.max(0, score - 4);
           waterPct = clamp(waterPct - 4.5, 0, 100);
           phaseStats[pk].goodExpire++;
+
           const bb = b.el.getBoundingClientRect();
           const bx = (bb.left + bb.width/2) - lr.left;
           const by = (bb.top + bb.height/2) - lr.top;
+
           fxBubblePop(b.el, 'bad');
           fxRing(bx, by);
           fxScore(bx, by, 'MISS💧');
@@ -734,21 +869,90 @@ export function boot(cfg){
         }else{
           fxBubblePop(b.el, 'good');
         }
-        setTimeout(()=>removeBubble(b.id), 40);
+        setTimeout(()=> removeBubble(b.id), 40);
       }
     }
   }
 
+  function buildFeatureRow(riskHeuristic){
+    const playedSec = Math.round(plannedSec - tLeft);
+    const inDangerPhase = (phase==='storm' || phase==='boss' || phase==='final') ? 1 : 0;
+    const inCorrectZone = isInNeededZone() ? 1 : 0;
+
+    return {
+      pid,
+      seed: seedStr,
+      diff,
+      t: playedSec,
+      timeLeft: Math.ceil(tLeft),
+      phase: currentPhaseKey(),
+      bossLevel,
+      score,
+      waterPct: Math.round(waterPct),
+      shield,
+      combo,
+      missBadHit,
+      missGoodExpired,
+      blockCount,
+      inDangerPhase,
+      inCorrectZone,
+      riskHeuristic: +riskHeuristic.toFixed(4),
+      recentBadHitRate: +(missBadHit / Math.max(1, playedSec)).toFixed(4),
+      recentExpireRate: +(missGoodExpired / Math.max(1, playedSec)).toFixed(4),
+      recentBlockRate: +(blockCount / Math.max(1, playedSec)).toFixed(4)
+    };
+  }
+
+  function buildLabelRow(featureRow){
+    return {
+      pid,
+      seed: seedStr,
+      t: featureRow.t,
+      phase: featureRow.phase,
+      fail_soon_5s: predictFailSoon(featureRow),
+      fail_soon_10s: (featureRow.waterPct < 12 || (featureRow.inDangerPhase && featureRow.shield===0)) ? 1 : 0,
+      low_water_label: featureRow.waterPct < 25 ? 1 : 0,
+      no_shield_label: featureRow.shield === 0 ? 1 : 0,
+      wrong_zone_label: featureRow.inDangerPhase && !featureRow.inCorrectZone ? 1 : 0,
+      final_clear_label: 0
+    };
+  }
+
+  function updateTimelineAndFeatures(risk){
+    const playedSec = Math.round(plannedSec - tLeft);
+    if(playedSec === lastTimelineAt) return;
+    lastTimelineAt = playedSec;
+
+    const featureRow = buildFeatureRow(risk);
+    const labelRow = buildLabelRow(featureRow);
+
+    featureRows.push(featureRow);
+    labelRows.push(labelRow);
+
+    riskTimeline.push({
+      t: featureRow.t,
+      timeLeft: featureRow.timeLeft,
+      phase: featureRow.phase,
+      bossLevel: featureRow.bossLevel,
+      risk: featureRow.riskHeuristic,
+      waterPct: featureRow.waterPct,
+      shield: featureRow.shield,
+      missBadHit: featureRow.missBadHit,
+      missGoodExpired: featureRow.missGoodExpired,
+      combo: featureRow.combo
+    });
+  }
+
   function buildSummary(reason){
-    const summary = {
+    return {
       projectTag:'HydrationVR',
-      gameVersion:'HydrationVR_SAFE_2026-03-06_AI_TIMELINE_EXPORT',
+      gameVersion:'HydrationVR_SAFE_2026-03-06_FEATURES_LABELS_EXPORT',
       device:view,
       runMode,
       diff,
       seed:seedStr,
       pid,
-      reason:String(reason||''),
+      reason:String(reason || ''),
       durationPlannedSec: plannedSec,
       durationPlayedSec: Math.round(plannedSec - tLeft),
       scoreFinal: score|0,
@@ -767,13 +971,69 @@ export function boot(cfg){
       grade: gradeText(),
       phaseStats,
       eventCount: eventLog.length,
-      timelineCount: riskTimeline.length
+      timelineCount: riskTimeline.length,
+      featureCount: featureRows.length,
+      labelCount: labelRows.length
     };
-    return summary;
+  }
+
+  function buildResearchPacket(reason){
+    const summary = buildSummary(reason);
+    return {
+      packetVersion: 'HHA_HYD_2026_03_06_CSV_CLOUD',
+      game: 'hydration',
+      zone: 'nutrition',
+      pid,
+      seed: seedStr,
+      diff,
+      runMode,
+      view,
+      exportedAtIso: nowIso(),
+      summary,
+      phaseStats,
+      events: eventLog,
+      timeline: riskTimeline,
+      features: featureRows,
+      labels: labelRows
+    };
+  }
+
+  function buildCloudEnvelope(reason){
+    const packet = buildResearchPacket(reason);
+    return {
+      source: 'HeroHealth-HydrationVR',
+      schemaVersion: '2026-03-06',
+      session: {
+        pid,
+        seed: seedStr,
+        diff,
+        runMode,
+        view,
+        game: 'hydration',
+        zone: 'nutrition',
+        studyId: qs('studyId',''),
+        phaseName: qs('phase',''),
+        conditionGroup: qs('conditionGroup','')
+      },
+      summary: packet.summary,
+      phaseStats: packet.phaseStats,
+      counts: {
+        events: packet.events.length,
+        timeline: packet.timeline.length,
+        features: packet.features.length,
+        labels: packet.labels.length
+      },
+      tables: {
+        events: packet.events,
+        timeline: packet.timeline,
+        features: packet.features,
+        labels: packet.labels
+      }
+    };
   }
 
   function setEndButtons(summary){
-    const done = cooldownDone('nutrition','hydration',pid);
+    const done = cooldownDone('nutrition', 'hydration', pid);
     const needCooldown = cooldownRequired && !done;
 
     if(ui.btnNextCooldown){
@@ -781,8 +1041,14 @@ export function boot(cfg){
       ui.btnNextCooldown.onclick = null;
       if(needCooldown){
         const nextAfterCooldown = hubUrl || '../hub.html';
-        const url = buildCooldownUrl({ hub: hubUrl, nextAfterCooldown, cat:'nutrition', gameKey:'hydration', pid });
-        ui.btnNextCooldown.onclick = ()=>{ location.href=url; };
+        const url = buildCooldownUrl({
+          hub: hubUrl,
+          nextAfterCooldown,
+          cat:'nutrition',
+          gameKey:'hydration',
+          who: pid
+        });
+        ui.btnNextCooldown.onclick = ()=>{ location.href = url; };
       }
     }
 
@@ -791,50 +1057,65 @@ export function boot(cfg){
       ui.btnReplay.onclick = ()=>{
         try{
           const u = new URL(location.href);
-          if(runMode!=='research') u.searchParams.set('seed', String((Date.now() ^ (Math.random()*1e9))|0));
+          if(runMode !== 'research'){
+            u.searchParams.set('seed', String((Date.now() ^ (Math.random()*1e9))|0));
+          }
           location.href = u.toString();
         }catch(e){ location.reload(); }
       };
     }
-    if(ui.btnCopy){
-      ui.btnCopy.onclick = async ()=>{
-        const txt = safeJson(summary);
-        try{ await navigator.clipboard.writeText(txt); }
-        catch(e){ try{ prompt('Copy Summary JSON:', txt); }catch(_){ } }
+
+    if(ui.btnCopy) ui.btnCopy.onclick = async ()=> copyText(safeJson(summary), 'Copy Summary JSON');
+    if(ui.btnCopyEvents) ui.btnCopyEvents.onclick = async ()=> copyText(safeJson(eventLog), 'Copy Events JSON');
+    if(ui.btnCopyTimeline) ui.btnCopyTimeline.onclick = async ()=> copyText(safeJson(riskTimeline), 'Copy Timeline JSON');
+    if(ui.btnCopyFeatures) ui.btnCopyFeatures.onclick = async ()=> copyText(safeJson(featureRows), 'Copy Features JSON');
+    if(ui.btnCopyLabels) ui.btnCopyLabels.onclick = async ()=> copyText(safeJson(labelRows), 'Copy Labels JSON');
+
+    if(ui.btnCopyFeaturesCsv){
+      ui.btnCopyFeaturesCsv.onclick = async ()=>{
+        await copyText(rowsToCsv(featureRows), 'Copy Features CSV');
       };
     }
-    if(ui.btnCopyEvents){
-      ui.btnCopyEvents.onclick = async ()=>{
-        const txt = safeJson(eventLog);
-        try{ await navigator.clipboard.writeText(txt); }
-        catch(e){ try{ prompt('Copy Events JSON:', txt); }catch(_){ } }
+    if(ui.btnCopyLabelsCsv){
+      ui.btnCopyLabelsCsv.onclick = async ()=>{
+        await copyText(rowsToCsv(labelRows), 'Copy Labels CSV');
       };
     }
-    if(ui.btnCopyTimeline){
-      ui.btnCopyTimeline.onclick = async ()=>{
-        const txt = safeJson(riskTimeline);
-        try{ await navigator.clipboard.writeText(txt); }
-        catch(e){ try{ prompt('Copy Timeline JSON:', txt); }catch(_){ } }
+    if(ui.btnSendCloud){
+      ui.btnSendCloud.onclick = async ()=>{
+        try{
+          const payload = buildCloudEnvelope(summary?.reason || 'end');
+          const out = await postToHHACloud(payload);
+          try{ alert(`Cloud log sent${out?.ok===false ? ' (server returned not ok)' : ''}`); }catch(e){}
+        }catch(err){
+          try{ alert(`Send cloud failed: ${err.message || err}`); }catch(e){}
+        }
       };
     }
   }
 
   function showEnd(reason){
-    playing=false;
-    paused=false;
+    playing = false;
+    paused = false;
     ui.pauseOverlay?.setAttribute('aria-hidden','true');
     ui.helpOverlay?.setAttribute('aria-hidden','true');
     setStagePhase('normal');
 
-    for(const b of bubbles.values()){ try{ b.el.remove(); }catch(e){} }
+    for(const b of bubbles.values()){
+      try{ b.el.remove(); }catch(e){}
+    }
     bubbles.clear();
+
+    if(reason === 'final-clear'){
+      for(const row of labelRows) row.final_clear_label = 1;
+    }
 
     const summary = buildSummary(reason);
     logEvent('game_end', { reason });
 
     if(ui.end){
       ui.end.setAttribute('aria-hidden','false');
-      ui.endTitle.textContent = (reason==='final-clear') ? 'FINAL CLEAR!' : 'Game Over';
+      ui.endTitle.textContent = (reason === 'final-clear') ? 'FINAL CLEAR!' : 'Game Over';
       ui.endSub.textContent = `reason=${summary.reason} | mode=${runMode} | view=${view} | seed=${seedStr}`;
       ui.endGrade.textContent = summary.grade || '—';
       ui.endScore.textContent = String(summary.scoreFinal|0);
@@ -845,156 +1126,177 @@ export function boot(cfg){
   }
 
   function checkEnd(){
-    if(tLeft<=0){ showEnd('time'); return true; }
+    if(tLeft <= 0){ showEnd('time'); return true; }
     if(missBadHit >= TUNE.missLimit){ showEnd('miss-limit'); return true; }
-    if(waterPct<=0){ showEnd('dehydrated'); return true; }
+    if(waterPct <= 0){ showEnd('dehydrated'); return true; }
     return false;
   }
 
-  let spawnAcc=0;
+  let spawnAcc = 0;
+
   function phaseSpawnMul(){
-    if(phase==='storm') return TUNE.stormSpawnMul;
-    if(phase==='boss'){
-      if(bossLevel===1) return TUNE.boss1SpawnMul;
-      if(bossLevel===2) return TUNE.boss2SpawnMul;
+    if(phase === 'storm') return TUNE.stormSpawnMul;
+    if(phase === 'boss'){
+      if(bossLevel === 1) return TUNE.boss1SpawnMul;
+      if(bossLevel === 2) return TUNE.boss2SpawnMul;
       return TUNE.boss3SpawnMul;
     }
-    if(phase==='final') return TUNE.finalSpawnMul;
+    if(phase === 'final') return TUNE.finalSpawnMul;
     return 1.0;
   }
   function phaseBadP(){
-    if(phase==='storm') return TUNE.stormBadP;
-    if(phase==='boss'){
-      if(bossLevel===1) return TUNE.boss1BadP;
-      if(bossLevel===2) return TUNE.boss2BadP;
+    if(phase === 'storm') return TUNE.stormBadP;
+    if(phase === 'boss'){
+      if(bossLevel === 1) return TUNE.boss1BadP;
+      if(bossLevel === 2) return TUNE.boss2BadP;
       return TUNE.boss3BadP;
     }
-    if(phase==='final') return TUNE.finalBadP;
+    if(phase === 'final') return TUNE.finalBadP;
     return 0.24;
   }
   function phaseLightningRate(){
-    if(phase==='storm') return TUNE.stormSec > 0 ? (diff==='easy'?0.65:diff==='hard'?1.05:0.9) : 0;
-    if(phase==='boss'){
-      if(bossLevel===1) return TUNE.boss1LightningRate;
-      if(bossLevel===2) return TUNE.boss2LightningRate;
+    if(phase === 'storm') return diff==='easy' ? 0.65 : diff==='hard' ? 1.05 : 0.9;
+    if(phase === 'boss'){
+      if(bossLevel === 1) return TUNE.boss1LightningRate;
+      if(bossLevel === 2) return TUNE.boss2LightningRate;
       return TUNE.boss3LightningRate;
     }
-    if(phase==='final') return TUNE.finalLightningRate;
+    if(phase === 'final') return TUNE.finalLightningRate;
     return 0;
   }
   function phaseZoneChunk(){
-    if(phase==='storm') return TUNE.zoneChunkStorm;
-    if(phase==='boss'){
-      if(bossLevel===1) return TUNE.zoneChunkBoss1;
-      if(bossLevel===2) return TUNE.zoneChunkBoss2;
+    if(phase === 'storm') return TUNE.zoneChunkStorm;
+    if(phase === 'boss'){
+      if(bossLevel === 1) return TUNE.zoneChunkBoss1;
+      if(bossLevel === 2) return TUNE.zoneChunkBoss2;
       return TUNE.zoneChunkBoss3;
     }
-    if(phase==='final') return TUNE.zoneChunkFinal;
+    if(phase === 'final') return TUNE.zoneChunkFinal;
     return 99;
   }
 
   function startBoss(level){
-    phase='boss';
-    bossLevel=level;
-    bossHits=0;
+    phase = 'boss';
+    bossLevel = level;
+    bossHits = 0;
     bossGoal = level===1 ? TUNE.boss1NeedHits : level===2 ? TUNE.boss2NeedHits : TUNE.boss3NeedHits;
     setStagePhase('boss');
     SFX.setPhaseVolume('boss');
     SFX.phase('boss');
-    zoneT=0;
-    needZone = (r01()<0.5) ? 'L' : 'R';
+    zoneT = 0;
+    needZone = (r01() < 0.5) ? 'L' : 'R';
     lightning();
     fxPhaseBanner(`${emojiFor(diff,'boss',bossLevel)} BOSS ${bossLevel}`);
     logEvent('phase_enter', { phase:`boss${bossLevel}` });
   }
 
   function startFinal(){
-    phase='final';
-    finalHits=0;
-    finalGoal=TUNE.finalNeedHits;
+    phase = 'final';
+    finalHits = 0;
+    finalGoal = TUNE.finalNeedHits;
     setStagePhase('final');
     SFX.setPhaseVolume('final');
     SFX.phase('final');
-    zoneT=0;
-    needZone = (r01()<0.5) ? 'L' : 'R';
+    zoneT = 0;
+    needZone = (r01() < 0.5) ? 'L' : 'R';
     lightning();
     fxPhaseBanner(`${emojiFor(diff,'final')} FINAL BOSS`);
     logEvent('phase_enter', { phase:'final' });
   }
 
   function spawnTick(dt){
-    if(shield>0 && r01() < dt*TUNE.shieldDrop) shield = Math.max(0, shield-1);
+    if(shield > 0 && r01() < dt*TUNE.shieldDrop){
+      shield = Math.max(0, shield - 1);
+    }
 
-    if(!stormDone && phase==='normal' && tLeft <= plannedSec*0.72){
-      phase='storm';
+    if(!stormDone && phase === 'normal' && tLeft <= plannedSec*0.72){
+      phase = 'storm';
       setStagePhase('storm');
       SFX.setPhaseVolume('storm');
       SFX.phase('storm');
-      stormLeft=TUNE.stormSec;
-      stormDone=true;
-      zoneT=0;
-      needZone = (r01()<0.5) ? 'L' : 'R';
+      stormLeft = TUNE.stormSec;
+      stormDone = true;
+      zoneT = 0;
+      needZone = (r01() < 0.5) ? 'L' : 'R';
       lightning();
       fxPhaseBanner(`${emojiFor(diff,'storm')} STORM`);
       logEvent('phase_enter', { phase:'storm' });
     }
 
-    if(phase==='storm'){
+    if(phase === 'storm'){
       stormLeft = Math.max(0, stormLeft - dt);
       zoneT += dt;
-      if(zoneT >= phaseZoneChunk()){ zoneT = 0; swapZone(); }
+      if(zoneT >= phaseZoneChunk()){
+        zoneT = 0;
+        swapZone();
+      }
       applyLightningStrike(dt * phaseLightningRate());
       if(stormLeft <= 0) startBoss(1);
     }
 
-    if(phase==='boss'){
+    if(phase === 'boss'){
       zoneT += dt;
-      if(zoneT >= phaseZoneChunk()){ zoneT = 0; swapZone(); }
+      if(zoneT >= phaseZoneChunk()){
+        zoneT = 0;
+        swapZone();
+      }
       applyLightningStrike(dt * phaseLightningRate());
     }
 
-    if(phase==='final'){
+    if(phase === 'final'){
       zoneT += dt;
-      if(zoneT >= phaseZoneChunk()){ zoneT = 0; swapZone(); }
+      if(zoneT >= phaseZoneChunk()){
+        zoneT = 0;
+        swapZone();
+      }
       applyLightningStrike(dt * phaseLightningRate());
     }
 
     spawnAcc += (TUNE.spawnBase * phaseSpawnMul()) * dt;
     while(spawnAcc >= 1){
       spawnAcc -= 1;
-      const p=r01();
-      let kind='good';
+      const p = r01();
+      let kind = 'good';
       const badP = phaseBadP();
-      if(phase==='normal'){
-        if(p < 0.64) kind='good';
-        else if(p < 0.88) kind='bad';
-        else kind='shield';
+
+      if(phase === 'normal'){
+        if(p < 0.64) kind = 'good';
+        else if(p < 0.88) kind = 'bad';
+        else kind = 'shield';
       }else{
-        if(p < (1.0 - badP - 0.08)) kind='good';
-        else if(p < (1.0 - 0.08)) kind='bad';
-        else kind='shield';
+        if(p < (1.0 - badP - 0.08)) kind = 'good';
+        else if(p < (1.0 - 0.08)) kind = 'bad';
+        else kind = 'shield';
       }
-      if(kind==='good') makeBubble('good', pick(GOOD), TUNE.ttlGood);
-      else if(kind==='shield') makeBubble('shield', pick(SHLD), 2.6);
+
+      if(kind === 'good') makeBubble('good', pick(GOOD), TUNE.ttlGood);
+      else if(kind === 'shield') makeBubble('shield', pick(SHLD), 2.6);
       else makeBubble('bad', pick(BAD), TUNE.ttlBad);
     }
   }
 
-  function updateTimeline(risk){
+  function updateTimelineAndFeatures(risk){
     const playedSec = Math.round(plannedSec - tLeft);
     if(playedSec === lastTimelineAt) return;
     lastTimelineAt = playedSec;
+
+    const featureRow = buildFeatureRow(risk);
+    const labelRow = buildLabelRow(featureRow);
+
+    featureRows.push(featureRow);
+    labelRows.push(labelRow);
+
     riskTimeline.push({
-      t: playedSec,
-      timeLeft: Math.ceil(tLeft),
-      phase: currentPhaseKey(),
-      bossLevel,
-      risk: +risk.toFixed(4),
-      waterPct: Math.round(waterPct),
-      shield,
-      missBadHit,
-      missGoodExpired,
-      combo
+      t: featureRow.t,
+      timeLeft: featureRow.timeLeft,
+      phase: featureRow.phase,
+      bossLevel: featureRow.bossLevel,
+      risk: featureRow.riskHeuristic,
+      waterPct: featureRow.waterPct,
+      shield: featureRow.shield,
+      missBadHit: featureRow.missBadHit,
+      missGoodExpired: featureRow.missGoodExpired,
+      combo: featureRow.combo
     });
   }
 
@@ -1014,33 +1316,30 @@ export function boot(cfg){
       return;
     }
 
-    const t=nowMs();
-    const dt=Math.min(0.05, Math.max(0.001, (t-lastTick)/1000));
-    lastTick=t;
+    const t = nowMs();
+    const dt = Math.min(0.05, Math.max(0.001, (t - lastTick)/1000));
+    lastTick = t;
 
-    tLeft=Math.max(0, tLeft-dt);
-    waterPct = clamp(waterPct - dt*(diff==='hard'?1.35: diff==='easy'?0.95:1.15), 0, 100);
+    tLeft = Math.max(0, tLeft - dt);
+    waterPct = clamp(waterPct - dt*(diff==='hard' ? 1.35 : diff==='easy' ? 0.95 : 1.15), 0, 100);
 
     spawnTick(dt);
     updateBubbles();
 
-    const missPressure = (missBadHit/Math.max(1, TUNE.missLimit));
-    const expirePressure = clamp(missGoodExpired/25, 0, 1);
-    const lowWater = (waterPct<35) ? (35-waterPct)/35 : 0;
-    const noShieldStorm = ((phase==='storm' || phase==='boss' || phase==='final') && shield===0) ? 0.20 : 0;
-    const wrongZonePenalty = ((phase==='storm' || phase==='boss' || phase==='final') && !isInNeededZone()) ? 0.12 : 0;
-    const risk = clamp(missPressure*0.40 + lowWater*0.28 + expirePressure*0.10 + noShieldStorm + wrongZonePenalty, 0, 1);
+    const risk = buildRisk();
+    const features = buildFeatureRow(risk);
+    const predictedRisk = predictRiskFromFeatures(features);
 
-    let hint='เก็บน้ำ 💧 + หาโล่ 🛡️';
-    if(phase==='storm') hint=`${emojiFor(diff,'storm')} ฟ้าผ่า! อยู่ ${needZone==='L'?'ซ้าย':'ขวา'} + มีโล่`;
-    else if(phase==='boss') hint=`${emojiFor(diff,'boss',bossLevel)} บอส ${bossLevel}! ${bossHits}/${bossGoal} | อยู่ ${needZone==='L'?'ซ้าย':'ขวา'} + โล่`;
-    else if(phase==='final') hint=`${emojiFor(diff,'final')} FINAL! ${finalHits}/${finalGoal} | อยู่ ${needZone==='L'?'ซ้าย':'ขวา'} + โล่`;
-    else if(waterPct<35) hint='น้ำต่ำ! รีบเก็บ 💧';
-    else if(shield===0) hint='หาโล่ 🛡️ ไว้กันฟ้าผ่า';
-    else if(combo>=6) hint='คอมโบมาแล้ว!';
+    let hint = 'เก็บน้ำ 💧 + หาโล่ 🛡️';
+    if(phase === 'storm') hint = `${emojiFor(diff,'storm')} ฟ้าผ่า! อยู่ ${needZone==='L'?'ซ้าย':'ขวา'} + มีโล่`;
+    else if(phase === 'boss') hint = `${emojiFor(diff,'boss',bossLevel)} บอส ${bossLevel}! ${bossHits}/${bossGoal} | อยู่ ${needZone==='L'?'ซ้าย':'ขวา'} + โล่`;
+    else if(phase === 'final') hint = `${emojiFor(diff,'final')} FINAL! ${finalHits}/${finalGoal} | อยู่ ${needZone==='L'?'ซ้าย':'ขวา'} + โล่`;
+    else if(waterPct < 35) hint = 'น้ำต่ำ! รีบเก็บ 💧';
+    else if(shield === 0) hint = 'หาโล่ 🛡️ ไว้กันฟ้าผ่า';
+    else if(combo >= 6) hint = 'คอมโบมาแล้ว!';
 
-    updateTimeline(risk);
-    setAIHud(risk, hint);
+    updateTimelineAndFeatures(predictedRisk);
+    setAIHud(predictedRisk, hint);
     setHUD();
 
     if(checkEnd()) return;
@@ -1050,26 +1349,10 @@ export function boot(cfg){
   DOC.addEventListener('visibilitychange', ()=>{
     if(!playing) return;
     if(DOC.hidden){
-      paused=true;
+      paused = true;
       ui.pauseOverlay?.setAttribute('aria-hidden','false');
-      return;
     }
   });
-
-  if(ui.btnCopyEvents){
-    ui.btnCopyEvents.onclick = async ()=>{
-      const txt = safeJson(eventLog);
-      try{ await navigator.clipboard.writeText(txt); }
-      catch(e){ try{ prompt('Copy Events JSON:', txt); }catch(_){ } }
-    };
-  }
-  if(ui.btnCopyTimeline){
-    ui.btnCopyTimeline.onclick = async ()=>{
-      const txt = safeJson(riskTimeline);
-      try{ await navigator.clipboard.writeText(txt); }
-      catch(e){ try{ prompt('Copy Timeline JSON:', txt); }catch(_){ } }
-    };
-  }
 
   SFX.setPhaseVolume('normal');
   showHelp();
