@@ -1,10 +1,3 @@
-<!-- === /herohealth/bath-vr.html ===
-HeroHealth — Bath VR Launcher
-PATCH v20260306-BATHVR-LAUNCHER-PATHFIX
-✅ launcher=/herohealth/bath-vr.html
-✅ run=/herohealth/vr-bath/bath.html
-✅ pass-through query + safe defaults + hub fallback
--->
 <!doctype html>
 <html lang="th">
 <head>
@@ -94,7 +87,7 @@ PATCH v20260306-BATHVR-LAUNCHER-PATHFIX
   <div class="wrap">
     <div class="card">
       <div class="title">🛁 Bath VR</div>
-      <div class="muted">Launcher สำหรับเข้าเกม Bath</div>
+      <div class="muted">Launcher สำหรับเข้าเกม Bath ผ่าน Warmup Gate</div>
 
       <div style="margin-top:10px;">
         <span class="pill"><b>PID</b>: <span id="uiPid">anon</span></span>
@@ -148,7 +141,7 @@ PATCH v20260306-BATHVR-LAUNCHER-PATHFIX
     document.getElementById('uiTime').textContent = ctx.time;
 
     function buildRunUrl(extra){
-      const u = new URL('./vr-bath/bath.html', location.href); // no double slash
+      const u = new URL('./vr-bath/bath.html', location.href);
       const sp = new URL(location.href).searchParams;
 
       [
@@ -180,22 +173,58 @@ PATCH v20260306-BATHVR-LAUNCHER-PATHFIX
       return u.toString();
     }
 
+    function buildWarmupUrl(){
+      const warm = new URL('./warmup-gate.html', location.href);
+      const runUrl = buildRunUrl();
+
+      warm.searchParams.set('gatePhase', 'warmup');
+      warm.searchParams.set('phase', 'warmup');
+      warm.searchParams.set('cat', 'hygiene');
+      warm.searchParams.set('theme', 'bath');
+      warm.searchParams.set('game', 'bath');
+      warm.searchParams.set('pid', ctx.pid);
+      warm.searchParams.set('hub', ctx.hub);
+      warm.searchParams.set('next', runUrl);
+
+      // passthrough
+      warm.searchParams.set('run', ctx.run);
+      warm.searchParams.set('diff', ctx.diff);
+      warm.searchParams.set('time', ctx.time);
+      warm.searchParams.set('view', ctx.view);
+      warm.searchParams.set('seed', ctx.seed);
+
+      const grade = String(qs('grade','')).trim();
+      if (grade) warm.searchParams.set('grade', grade);
+
+      const studyId = String(qs('studyId','')).trim();
+      if (studyId) warm.searchParams.set('studyId', studyId);
+
+      const conditionGroup = String(qs('conditionGroup','')).trim();
+      if (conditionGroup) warm.searchParams.set('conditionGroup', conditionGroup);
+
+      const log = String(qs('log','')).trim();
+      if (log) warm.searchParams.set('log', log);
+
+      return warm.toString();
+    }
+
     const debugBox = document.getElementById('debugBox');
     debugBox.textContent =
-      '[Bath VR Launcher]\n' +
-      'launcher: ' + location.href + '\n' +
-      'hub:      ' + ctx.hub + '\n' +
-      'runPath:  ' + buildRunUrl() + '\n';
+      '[Bath VR Launcher]\\n' +
+      'launcher: ' + location.href + '\\n' +
+      'hub:      ' + ctx.hub + '\\n' +
+      'warmup:   ' + buildWarmupUrl() + '\\n' +
+      'runPath:  ' + buildRunUrl() + '\\n';
 
-    document.getElementById('btnStart').onclick = ()=> location.href = buildRunUrl();
+    document.getElementById('btnStart').onclick = ()=> location.href = buildWarmupUrl();
     document.getElementById('btnOpenRun').onclick = ()=> location.href = buildRunUrl();
     document.getElementById('btnHub').onclick = ()=> location.href = ctx.hub;
 
     setTimeout(()=>{
-      try{ location.href = buildRunUrl(); }
+      try{ location.href = buildWarmupUrl(); }
       catch(err){
         console.error('[Bath VR Launcher] redirect failed', err);
-        debugBox.textContent += '\nredirect failed: ' + (err && err.message ? err.message : String(err));
+        debugBox.textContent += '\\nredirect failed: ' + (err && err.message ? err.message : String(err));
       }
     }, 120);
   </script>
