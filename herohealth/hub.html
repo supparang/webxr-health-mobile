@@ -1,9 +1,11 @@
 <!-- === /herohealth/hub.html ===
 HeroHealth — Hub (3 Zones) — PRODUCTION
-PATCH v20260307-HUB-LAYOUT-CTA-CLEAN-r2
+PATCH v20260307-HUB-LAYOUT-CTA-CLEAN-r3-PLATE-COOP
 ✅ Cleaner layout / stronger hierarchy
 ✅ Primary CTA clearly highlighted
 ✅ Hero Editor integrated
+✅ Added Plate Solo / Plate Coop CTA
+✅ Plate card now routes to launcher /herohealth/plate-vr.html
 ✅ MaskCough -> ./maskcough-v2.html
 ✅ Germ Detective -> ./germ-detective.html
 ✅ Fitness Planner -> ./fitness-planner/planner.html
@@ -667,8 +669,8 @@ PATCH v20260307-HUB-LAYOUT-CTA-CLEAN-r2
 
         <div class="ctaRow">
           <button class="btn primary" id="btnGJsolo" type="button">🎯 เล่น GoodJunk ต่อ</button>
-          <button class="btn violet" id="btnGJpro" type="button">🔥 Solo PRO</button>
-          <button class="btn good" id="btnGJbattle" type="button">⚔ Battle</button>
+          <button class="btn violet" id="btnPlateSoloHero" type="button">🍽 Plate Solo</button>
+          <button class="btn good" id="btnPlateCoopHero" type="button">🤝 Plate Coop</button>
         </div>
 
         <div class="miniInfoRow">
@@ -836,7 +838,8 @@ PATCH v20260307-HUB-LAYOUT-CTA-CLEAN-r2
           <div class="sectionSub">GoodJunk • Groups • Hydration • Plate</div>
           <div class="zoneActions">
             <button class="btn primary" type="button" id="btnNutritionMain">🎯 GoodJunk Solo</button>
-            <button class="btn soft" type="button" id="btnNutritionBattle">⚔ Battle</button>
+            <button class="btn violet" type="button" id="btnPlateSolo">🍽 Plate Solo</button>
+            <button class="btn good" type="button" id="btnPlateCoop">🤝 Plate Coop</button>
           </div>
         </div>
         <div class="sep"></div>
@@ -844,9 +847,9 @@ PATCH v20260307-HUB-LAYOUT-CTA-CLEAN-r2
           <a class="gameBtn" id="linkGoodjunk" href="#"><div class="t">🍔🆚🥦 GoodJunk</div><div class="s">Launcher • Solo/PRO/Battle • Hero + Card Book</div></a>
           <a class="gameBtn" id="linkGroups" href="#"><div class="t">🥚🍚 Food Groups</div><div class="s">Classroom ramp + AI warn</div></a>
           <a class="gameBtn" id="linkHydration" href="#"><div class="t">💧 Hydration</div><div class="s">Storm boss + shield</div></a>
-          <a class="gameBtn" id="linkPlate" href="#"><div class="t">🍽 Balanced Plate</div><div class="s">Bloom missions</div></a>
+          <a class="gameBtn" id="linkPlate" href="#"><div class="t">🍽 Balanced Plate</div><div class="s">Launcher • Solo + Coop Lite</div></a>
         </div>
-        <div class="zoneHint">แนะนำเริ่มจาก GoodJunk ถ้าต้องการเข้าเล่นเร็วที่สุด</div>
+        <div class="zoneHint">Plate เข้าได้ทั้ง Solo และ Coop ผ่าน launcher เดียว</div>
       </section>
 
       <section class="card">
@@ -1199,11 +1202,12 @@ PATCH v20260307-HUB-LAYOUT-CTA-CLEAN-r2
     };
 
     const btnGJsolo = document.getElementById('btnGJsolo');
-    const btnGJpro = document.getElementById('btnGJpro');
-    const btnGJbattle = document.getElementById('btnGJbattle');
+    const btnPlateSoloHero = document.getElementById('btnPlateSoloHero');
+    const btnPlateCoopHero = document.getElementById('btnPlateCoopHero');
 
     const btnNutritionMain = document.getElementById('btnNutritionMain');
-    const btnNutritionBattle = document.getElementById('btnNutritionBattle');
+    const btnPlateSolo = document.getElementById('btnPlateSolo');
+    const btnPlateCoop = document.getElementById('btnPlateCoop');
 
     const linkGoodjunk = document.getElementById('linkGoodjunk');
     const linkGroups = document.getElementById('linkGroups');
@@ -1242,23 +1246,28 @@ PATCH v20260307-HUB-LAYOUT-CTA-CLEAN-r2
     if(linkFitnessPlanner) linkFitnessPlanner.href = buildUrl(PATHS.fitnessPlanner, { zone:'fitness' });
 
     btnGJsolo.onclick = ()=> location.href = buildUrl(PATHS.goodjunk, { mode:'solo' });
-    btnGJpro.onclick  = ()=> location.href = buildUrl(PATHS.goodjunk, {
-      mode:'solo', diff:'hard', pro:'1', auto:'0'
+
+    btnPlateSoloHero.onclick = ()=> location.href = buildUrl(PATHS.plate, {
+      mode:'solo',
+      zone:'nutrition'
     });
-    btnGJbattle.onclick = ()=> {
-      const room = String(qs('room','P5A')) || 'P5A';
-      location.href = buildUrl(PATHS.goodjunk, {
-        mode:'battle', room, auto:'1'
-      });
-    };
+
+    btnPlateCoopHero.onclick = ()=> location.href = buildUrl(PATHS.plate, {
+      mode:'coop',
+      zone:'nutrition'
+    });
 
     btnNutritionMain.onclick = ()=> location.href = buildUrl(PATHS.goodjunk, { mode:'solo' });
-    btnNutritionBattle.onclick = ()=> {
-      const room = String(qs('room','P5A')) || 'P5A';
-      location.href = buildUrl(PATHS.goodjunk, {
-        mode:'battle', room, auto:'1'
-      });
-    };
+
+    btnPlateSolo.onclick = ()=> location.href = buildUrl(PATHS.plate, {
+      mode:'solo',
+      zone:'nutrition'
+    });
+
+    btnPlateCoop.onclick = ()=> location.href = buildUrl(PATHS.plate, {
+      mode:'coop',
+      zone:'nutrition'
+    });
 
     const btnHeroShow = document.getElementById('btnHeroShow');
     const btnHeroReset = document.getElementById('btnHeroReset');
