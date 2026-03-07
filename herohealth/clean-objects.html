@@ -1,178 +1,54 @@
-<!-- === /herohealth/clean-objects.html ===
-Clean Objects — Launcher (ROOT) — PRODUCTION
-PATCH v20260301-LAUNCHER-PRO
-✅ PC/Mobile => A (Map + Tap)   | Cardboard/cVR => B (3D/WebXR crosshair)
-✅ Pass-through all params: hub/run/diff/time/seed/pid/view/log/api/debug/ai/studyId/phase/conditionGroup/...
-✅ Defaults if missing
-✅ Supports: ?auto=1 (auto redirect)  ?mode=A|B (force)  ?view=cvr to go B
-✅ GitHub Pages safe relative path to run: ./vr-clean/home-clean.html
--->
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • Clean Objects (Launcher)</title>
+  <title>HeroHealth — Clean Objects</title>
   <meta name="color-scheme" content="dark light" />
   <link rel="icon" href="./favicon.ico" />
   <style>
-    :root{ --bg:#0b1220; --fg:#e8eefc; --mut:#9fb0d0; --card:#121b2f; --bd:#243455; }
-    html,body{ height:100%; margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; background:var(--bg); color:var(--fg); }
-    .wrap{ max-width:980px; margin:0 auto; padding:24px 16px 40px; }
-    h1{ margin:0 0 6px; font-size:22px; font-weight:1000; }
-    .sub{ color:var(--mut); margin:0 0 16px; font-weight:750; }
-    .grid{ display:grid; gap:12px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
-    .card{ background:var(--card); border:1px solid var(--bd); border-radius:18px; padding:14px; box-shadow:0 18px 60px rgba(0,0,0,.22); }
-    .card h2{ margin:0 0 6px; font-size:16px; font-weight:1000; }
-    .card p{ margin:0 0 12px; color:var(--mut); font-size:13px; line-height:1.35; font-weight:750; }
-    .btn{ width:100%; border:1px solid var(--bd); background:#1a2a4a; color:var(--fg);
-      padding:12px 12px; border-radius:14px; font-weight:1000; cursor:pointer; }
-    .btn:active{ transform: translateY(1px); }
-    .btn.primary{ border-color: rgba(34,197,94,.35); background: rgba(34,197,94,.16); }
-    .btn.warn{ border-color: rgba(245,158,11,.35); background: rgba(245,158,11,.14); }
-    .row{ display:flex; flex-wrap:wrap; gap:10px; margin-top:14px; }
-    .pill{ padding:8px 10px; border:1px dashed var(--bd); border-radius:999px; color:var(--mut); font-size:12px; font-weight:850; }
-    .tiny{ color:var(--mut); font-size:12px; margin-top:12px; line-height:1.45; font-weight:750; }
-    code{ color:#cfe2ff; }
-    .kv{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
-    .k{opacity:.85}
-    .v{font-weight:1000}
+    :root{--bg1:#020617;--bg2:#0b1226;--panel:rgba(2,6,23,.72);--stroke:rgba(148,163,184,.18);--text:#e5e7eb;--muted:#94a3b8;--blue:#3b82f6;--good:#22c55e}
+    *{box-sizing:border-box} html,body{margin:0;min-height:100%;background:radial-gradient(1000px 700px at 50% -10%, rgba(59,130,246,.18), transparent 60%),linear-gradient(180deg,var(--bg1),var(--bg2));color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Thai",Arial}
+    .wrap{max-width:880px;margin:0 auto;padding:18px}.card{border-radius:22px;border:1px solid var(--stroke);background:var(--panel);box-shadow:0 18px 55px rgba(0,0,0,.28);padding:16px}
+    .title{font-size:28px;font-weight:1000;margin:0 0 6px}.muted{color:var(--muted);font-size:13px;font-weight:900}.row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+    .btn{appearance:none;border:1px solid rgba(148,163,184,.22);border-radius:14px;padding:12px 14px;min-height:46px;cursor:pointer;color:var(--text);background:rgba(148,163,184,.10);font-weight:1000}
+    .btn.primary{background:rgba(59,130,246,.16);border-color:rgba(59,130,246,.34)} .btn.good{background:rgba(34,197,94,.14);border-color:rgba(34,197,94,.32)}
+    .pill{display:inline-flex;align-items:center;gap:8px;padding:8px 10px;border-radius:999px;border:1px solid var(--stroke);background:rgba(2,6,23,.42);color:var(--muted);font-size:12px;font-weight:1000;margin:4px 6px 0 0}.pill b{color:var(--text)}
+    .debug{margin-top:14px;padding:12px;border-radius:16px;border:1px solid var(--stroke);background:rgba(2,6,23,.35);font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;white-space:pre-wrap;word-break:break-word;color:#cbd5e1}
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <h1>🧽 Clean Objects — Home</h1>
-    <p class="sub">PC/Mobile = โหมด A (Evaluate + Map) • Cardboard/cVR = โหมด B (Create + Crosshair)</p>
-
-    <div class="grid">
-      <div class="card">
-        <h2>A) PC / Mobile (Map + Tap)</h2>
-        <p>เล่นเร็ว คิดคุ้ม (Evaluate) + เลือกเหตุผล • จำกัดน้ำยา/เวลา • มี “บอส” และเหตุการณ์ปนเปื้อน</p>
-        <button class="btn primary" id="btnA" type="button">Play A (PC/Mobile)</button>
-      </div>
-
-      <div class="card">
-        <h2>B) Cardboard (3D + Crosshair)</h2>
-        <p>วางแผน/เลือกจุดด้วย crosshair (ผ่าน <code>vr-ui.js</code>) • โหมด Create • route + balance</p>
-        <button class="btn warn" id="btnB" type="button">Play B (Cardboard/cVR)</button>
-      </div>
+  <div class="wrap"><div class="card">
+    <div class="title">🧴 Clean Objects</div>
+    <div class="muted">Launcher สำหรับเข้าเกม Clean Objects ผ่าน Warmup Gate</div>
+    <div style="margin-top:10px;">
+      <span class="pill"><b>PID</b>: <span id="uiPid">anon</span></span>
+      <span class="pill"><b>view</b>: <span id="uiView">mobile</span></span>
+      <span class="pill"><b>run</b>: <span id="uiRun">play</span></span>
+      <span class="pill"><b>diff</b>: <span id="uiDiff">normal</span></span>
+      <span class="pill"><b>time</b>: <span id="uiTime">80</span></span>
     </div>
-
     <div class="row">
-      <div class="pill">ส่งต่อพารามิเตอร์ทั้งหมด: run/diff/time/seed/pid/hub/ai/debug/api/log/studyId/phase/conditionGroup</div>
-      <div class="pill">รองรับ <code>?auto=1</code> และ <code>?mode=A|B</code></div>
+      <button class="btn primary" id="btnStart">เริ่มเกม</button>
+      <button class="btn" id="btnHub">กลับ Hub</button>
+      <button class="btn good" id="btnOpenRun">เปิด run ตรง</button>
     </div>
+    <div class="debug" id="debugBox">loading...</div>
+  </div></div>
 
-    <div class="tiny">
-      Run page: <code>/herohealth/vr-clean/home-clean.html</code><br/>
-      Tip: ถ้าเข้าจาก HUB แล้วมีพารามิเตอร์อยู่ (seed/time/diff ฯลฯ) ระบบจะพกไปให้ครบ
-      <div class="kv">
-        <div><span class="k">run:</span> <span class="v" id="vRun">—</span></div>
-        <div><span class="k">diff:</span> <span class="v" id="vDiff">—</span></div>
-        <div><span class="k">time:</span> <span class="v" id="vTime">—</span></div>
-        <div><span class="k">seed:</span> <span class="v" id="vSeed">—</span></div>
-        <div><span class="k">pid:</span> <span class="v" id="vPid">—</span></div>
-        <div><span class="k">view:</span> <span class="v" id="vView">—</span></div>
-      </div>
-    </div>
-  </div>
-
-<script>
-(function(){
-  'use strict';
-
-  const RUN_URL = './vr-clean/home-clean.html'; // relative to /herohealth/
-
-  function parseQS() {
-    const u = new URL(location.href);
-    const o = {};
-    u.searchParams.forEach((v,k)=>{ o[k]=v; });
-    return o;
-  }
-  function toQS(obj){
-    const sp = new URLSearchParams();
-    Object.keys(obj).forEach(k=>{
-      const v = obj[k];
-      if (v !== undefined && v !== null && String(v).length) sp.set(k, String(v));
-    });
-    return sp.toString();
-  }
-
-  function isMobileUA(){
-    const ua = navigator.userAgent || '';
-    return /Android|iPhone|iPad|iPod/i.test(ua);
-  }
-  function normView(v){
-    v = String(v||'').toLowerCase();
-    if(v==='cvr' || v==='cardboard' || v==='vr') return 'cvr';
-    if(v==='mobile' || v==='m') return 'mobile';
-    if(v==='pc' || v==='desktop') return 'pc';
-    return v || '';
-  }
-  function nowSeed(){ return String(Date.now()); }
-
-  const base = parseQS();
-
-  // defaults
-  if(!base.run)  base.run  = 'play';
-  if(!base.diff) base.diff = 'normal';
-  if(!base.time) base.time = '80';           // ✅ match your hub default
-  if(!base.seed) base.seed = nowSeed();
-  if(!base.pid)  base.pid  = 'anon';
-
-  base.view = normView(base.view || '');
-
-  // show summary in UI
-  document.getElementById('vRun').textContent  = base.run;
-  document.getElementById('vDiff').textContent = base.diff;
-  document.getElementById('vTime').textContent = String(base.time);
-  document.getElementById('vSeed').textContent = String(base.seed);
-  document.getElementById('vPid').textContent  = base.pid;
-  document.getElementById('vView').textContent = base.view || '(auto)';
-
-  function go(view){
-    const p = Object.assign({}, base, { view });
-    const url = RUN_URL + '?' + toQS(p);
-    location.href = url;
-  }
-
-  // manual buttons
-  document.getElementById('btnA').addEventListener('click', ()=> {
-    go(isMobileUA() ? 'mobile' : 'pc');
-  });
-  document.getElementById('btnB').addEventListener('click', ()=> {
-    go('cvr');
-  });
-
-  // supports forcing mode
-  const mode = String(base.mode || '').toUpperCase(); // A|B
-  const auto = String(base.auto || '');
-
-  function autoGo(){
-    // priority: mode override
-    if(mode === 'A'){
-      go(isMobileUA() ? 'mobile' : 'pc');
-      return true;
-    }
-    if(mode === 'B'){
-      go('cvr');
-      return true;
-    }
-    // if view explicitly cvr => go B
-    if(base.view === 'cvr'){
-      go('cvr');
-      return true;
-    }
-    // auto by UA
-    go(isMobileUA() ? 'mobile' : 'pc');
-    return true;
-  }
-
-  // if auto=1 -> redirect immediately
-  if(auto === '1'){
-    autoGo();
-  }
-})();
-</script>
+  <script>
+    function qs(k,d=''){ try{return (new URL(location.href)).searchParams.get(k) ?? d;}catch(_){return d;} }
+    function safeNum(v,d){ v=Number(v); return Number.isFinite(v)?v:d; }
+    function normalizeHub(){ const raw=String(qs('hub','')).trim(); if(raw) return raw; try{return new URL('./hub.html', location.href).toString();}catch(_){return './hub.html';} }
+    const GAME = { cat:'hygiene', theme:'clean', game:'clean', runPath:'./vr-clean/clean.html' };
+    const ctx = { pid:String(qs('pid','anon')).trim()||'anon', view:String(qs('view','mobile')).trim()||'mobile', run:String(qs('run','play')).trim()||'play', diff:String(qs('diff','normal')).trim()||'normal', time:String(safeNum(qs('time','80'),80)), seed:String(qs('seed', String(Date.now()))), zone:String(qs('zone','hygiene')).trim()||'hygiene', hub:normalizeHub() };
+    document.getElementById('uiPid').textContent=ctx.pid; document.getElementById('uiView').textContent=ctx.view; document.getElementById('uiRun').textContent=ctx.run; document.getElementById('uiDiff').textContent=ctx.diff; document.getElementById('uiTime').textContent=ctx.time;
+    function copyPassthrough(u){ const sp=new URL(location.href).searchParams; ['run','diff','time','seed','studyId','phase','conditionGroup','log','view','pid','api','ai','debug','planSeq','planDay','planSlot','planMode','planSlots','planIndex','autoNext','plannedGame','finalGame','zone','cdnext','grade'].forEach(k=>{ const v=sp.get(k); if(v!=null&&v!=='') u.searchParams.set(k,v); }); }
+    function buildRunUrl(){ const u=new URL(GAME.runPath, location.href); copyPassthrough(u); if(!u.searchParams.get('pid')) u.searchParams.set('pid',ctx.pid); if(!u.searchParams.get('view')) u.searchParams.set('view',ctx.view); if(!u.searchParams.get('run')) u.searchParams.set('run',ctx.run); if(!u.searchParams.get('diff')) u.searchParams.set('diff',ctx.diff); if(!u.searchParams.get('time')) u.searchParams.set('time',ctx.time); if(!u.searchParams.get('seed')) u.searchParams.set('seed',ctx.seed); if(!u.searchParams.get('zone')) u.searchParams.set('zone',ctx.zone); u.searchParams.set('hub',ctx.hub); return u.toString(); }
+    function buildWarmupUrl(){ const warm=new URL('./warmup-gate.html', location.href); warm.searchParams.set('gatePhase','warmup'); warm.searchParams.set('phase','warmup'); warm.searchParams.set('cat',GAME.cat); warm.searchParams.set('theme',GAME.theme); warm.searchParams.set('game',GAME.game); warm.searchParams.set('pid',ctx.pid); warm.searchParams.set('hub',ctx.hub); warm.searchParams.set('next',buildRunUrl()); warm.searchParams.set('run',ctx.run); warm.searchParams.set('diff',ctx.diff); warm.searchParams.set('time',ctx.time); warm.searchParams.set('view',ctx.view); warm.searchParams.set('seed',ctx.seed); const grade=String(qs('grade','')).trim(); if(grade) warm.searchParams.set('grade',grade); const studyId=String(qs('studyId','')).trim(); if(studyId) warm.searchParams.set('studyId',studyId); const conditionGroup=String(qs('conditionGroup','')).trim(); if(conditionGroup) warm.searchParams.set('conditionGroup',conditionGroup); const log=String(qs('log','')).trim(); if(log) warm.searchParams.set('log',log); return warm.toString(); }
+    const debugBox=document.getElementById('debugBox'); debugBox.textContent='[Clean Launcher]\\nlauncher: '+location.href+'\\nhub:      '+ctx.hub+'\\nwarmup:   '+buildWarmupUrl()+'\\nrunPath:  '+buildRunUrl()+'\\n';
+    document.getElementById('btnStart').onclick=()=>location.href=buildWarmupUrl(); document.getElementById('btnOpenRun').onclick=()=>location.href=buildRunUrl(); document.getElementById('btnHub').onclick=()=>location.href=ctx.hub;
+    setTimeout(()=>{ try{ location.href=buildWarmupUrl(); }catch(err){ debugBox.textContent+='\\nredirect failed: '+(err?.message||String(err)); } },120);
+  </script>
 </body>
 </html>
