@@ -1,112 +1,126 @@
-<!-- === /herohealth/hygiene-vr.html ===
-HygieneVR Launcher — ROOT (AUTO) — FULL v20260221n
-✅ Auto-detect view if no ?view=
-✅ Pass-through params to /herohealth/hygiene-vr/hygiene-vr.html
-✅ Root=launcher, folder=run
--->
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — HygieneVR (Auto Launcher)</title>
-  <meta name="color-scheme" content="dark" />
-  <link rel="icon" href="./favicon.ico" type="image/x-icon" />
+  <title>HeroHealth — Handwash VR</title>
+  <meta name="color-scheme" content="dark light" />
+  <link rel="icon" href="./favicon.ico" />
   <style>
-    :root{
-      color-scheme: dark;
-      --bg:#020617; --panel:rgba(2,6,23,.78); --stroke:rgba(148,163,184,.18);
-      --text:#e5e7eb; --muted:#94a3b8; --accent:#22c55e;
-      --sat: env(safe-area-inset-top, 0px); --sab: env(safe-area-inset-bottom, 0px);
-      --sal: env(safe-area-inset-left, 0px); --sar: env(safe-area-inset-right, 0px);
-      --r:22px;
-    }
-    *{box-sizing:border-box}
-    html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial}
-    .wrap{min-height:100%;display:grid;place-items:center;padding:calc(18px + var(--sat)) calc(16px + var(--sar)) calc(18px + var(--sab)) calc(16px + var(--sal))}
-    .card{
-      width:min(760px,100%);
-      border:1px solid var(--stroke);
-      background: rgba(2,6,23,.72);
-      border-radius: var(--r);
-      padding: 16px;
-      box-shadow: 0 24px 90px rgba(0,0,0,.55);
-    }
-    .title{font-weight:950;font-size:18px;letter-spacing:.2px}
-    .sub{color:rgba(148,163,184,.95);margin-top:6px;font-size:13px;line-height:1.35}
-    .row{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
-    .btn{
-      border-radius: 16px;
-      border:1px solid rgba(148,163,184,.18);
-      background: rgba(15,23,42,.72);
-      color: rgba(229,231,235,.95);
-      padding: 10px 12px;
-      font-weight:900;
-      cursor:pointer;
-    }
-    .btn.primary{ background: rgba(34,197,94,.18); border-color: rgba(34,197,94,.28); }
-    code{color:rgba(34,197,94,.95)}
+    :root{--bg1:#020617;--bg2:#0b1226;--panel:rgba(2,6,23,.72);--stroke:rgba(148,163,184,.18);--text:#e5e7eb;--muted:#94a3b8;--blue:#3b82f6;--good:#22c55e}
+    *{box-sizing:border-box} html,body{margin:0;min-height:100%;background:radial-gradient(1000px 700px at 50% -10%, rgba(59,130,246,.18), transparent 60%),linear-gradient(180deg,var(--bg1),var(--bg2));color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Thai",Arial}
+    .wrap{max-width:880px;margin:0 auto;padding:18px}.card{border-radius:22px;border:1px solid var(--stroke);background:var(--panel);box-shadow:0 18px 55px rgba(0,0,0,.28);padding:16px}
+    .title{font-size:28px;font-weight:1000;margin:0 0 6px}.muted{color:var(--muted);font-size:13px;font-weight:900}.row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+    .btn{appearance:none;border:1px solid rgba(148,163,184,.22);border-radius:14px;padding:12px 14px;min-height:46px;cursor:pointer;color:var(--text);background:rgba(148,163,184,.10);font-weight:1000}
+    .btn.primary{background:rgba(59,130,246,.16);border-color:rgba(59,130,246,.34)} .btn.good{background:rgba(34,197,94,.14);border-color:rgba(34,197,94,.32)}
+    .pill{display:inline-flex;align-items:center;gap:8px;padding:8px 10px;border-radius:999px;border:1px solid var(--stroke);background:rgba(2,6,23,.42);color:var(--muted);font-size:12px;font-weight:1000;margin:4px 6px 0 0}.pill b{color:var(--text)}
+    .debug{margin-top:14px;padding:12px;border-radius:16px;border:1px solid var(--stroke);background:rgba(2,6,23,.35);font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;white-space:pre-wrap;word-break:break-word;color:#cbd5e1}
   </style>
 </head>
 <body>
-<div class="wrap">
-  <div class="card">
-    <div class="title">🧼 HygieneVR — Handwash Survival</div>
-    <div class="sub" id="txt">กำลังเข้าเกมอัตโนมัติ…</div>
+  <div class="wrap">
+    <div class="card">
+      <div class="title">🧼 Handwash VR</div>
+      <div class="muted">Launcher สำหรับเข้าเกม Handwash ผ่าน Warmup Gate</div>
 
-    <div class="row">
-      <button class="btn primary" id="btnGo">เข้าเกม</button>
-      <button class="btn" id="btnHub">กลับ HUB</button>
-    </div>
+      <div style="margin-top:10px;">
+        <span class="pill"><b>PID</b>: <span id="uiPid">anon</span></span>
+        <span class="pill"><b>view</b>: <span id="uiView">mobile</span></span>
+        <span class="pill"><b>run</b>: <span id="uiRun">play</span></span>
+        <span class="pill"><b>diff</b>: <span id="uiDiff">normal</span></span>
+        <span class="pill"><b>time</b>: <span id="uiTime">80</span></span>
+      </div>
 
-    <div class="sub" style="margin-top:10px">
-      Pass-through: <code>hub, run, diff, time, seed, emoji, coach, dd, fx, view</code>
+      <div class="row">
+        <button class="btn primary" id="btnStart">เริ่มเกม</button>
+        <button class="btn" id="btnHub">กลับ Hub</button>
+        <button class="btn good" id="btnOpenRun">เปิด run ตรง</button>
+      </div>
+
+      <div class="debug" id="debugBox">loading...</div>
     </div>
   </div>
-</div>
 
-<script>
-(function(){
-  'use strict';
-  const qs = (k, d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
-  const hub = String(qs('hub','./hub.html'));
-  const RUN_URL = './hygiene-vr/hygiene-vr.html';
+  <script>
+    function qs(k,d=''){ try{return (new URL(location.href)).searchParams.get(k) ?? d;}catch(_){return d;} }
+    function safeNum(v,d){ v=Number(v); return Number.isFinite(v)?v:d; }
+    function normalizeHub(){ const raw=String(qs('hub','')).trim(); if(raw) return raw; try{return new URL('./hub.html', location.href).toString();}catch(_){return './hub.html';} }
 
-  function detectView(){
-    const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints|0) > 0;
-    const w = Math.max(1, innerWidth||1);
-    const h = Math.max(1, innerHeight||1);
-    const landscape = w >= h;
-    if (isTouch){
-      if (landscape && w >= 740) return 'cvr';
-      return 'mobile';
+    const GAME = { title:'Handwash VR', cat:'hygiene', theme:'handwash', game:'handwash', runPath:'./hygiene-vr/hygiene-vr.html' };
+    const ctx = {
+      pid:String(qs('pid','anon')).trim()||'anon',
+      view:String(qs('view','mobile')).trim()||'mobile',
+      run:String(qs('run','play')).trim()||'play',
+      diff:String(qs('diff','normal')).trim()||'normal',
+      time:String(safeNum(qs('time','80'),80)),
+      seed:String(qs('seed', String(Date.now()))),
+      zone:String(qs('zone','hygiene')).trim()||'hygiene',
+      hub:normalizeHub()
+    };
+
+    document.getElementById('uiPid').textContent=ctx.pid;
+    document.getElementById('uiView').textContent=ctx.view;
+    document.getElementById('uiRun').textContent=ctx.run;
+    document.getElementById('uiDiff').textContent=ctx.diff;
+    document.getElementById('uiTime').textContent=ctx.time;
+
+    function copyPassthrough(u){
+      const sp = new URL(location.href).searchParams;
+      ['run','diff','time','seed','studyId','phase','conditionGroup','log','view','pid','api','ai','debug','planSeq','planDay','planSlot','planMode','planSlots','planIndex','autoNext','plannedGame','finalGame','zone','cdnext','grade']
+      .forEach(k=>{ const v=sp.get(k); if(v!=null && v!=='') u.searchParams.set(k,v); });
     }
-    return 'pc';
-  }
 
-  function buildRunUrl(){
-    const u = new URL(RUN_URL, location.href);
-    const cur = new URL(location.href);
-
-    cur.searchParams.forEach((v,k)=> u.searchParams.set(k,v));
-
-    if (!cur.searchParams.get('view')){
-      u.searchParams.set('view', detectView());
+    function buildRunUrl(){
+      const u = new URL(GAME.runPath, location.href);
+      copyPassthrough(u);
+      if(!u.searchParams.get('pid')) u.searchParams.set('pid', ctx.pid);
+      if(!u.searchParams.get('view')) u.searchParams.set('view', ctx.view);
+      if(!u.searchParams.get('run')) u.searchParams.set('run', ctx.run);
+      if(!u.searchParams.get('diff')) u.searchParams.set('diff', ctx.diff);
+      if(!u.searchParams.get('time')) u.searchParams.set('time', ctx.time);
+      if(!u.searchParams.get('seed')) u.searchParams.set('seed', ctx.seed);
+      if(!u.searchParams.get('zone')) u.searchParams.set('zone', ctx.zone);
+      u.searchParams.set('hub', ctx.hub);
+      return u.toString();
     }
-    if (!u.searchParams.get('hub')) u.searchParams.set('hub', hub);
-    return u.toString();
-  }
 
-  function go(){ location.href = buildRunUrl(); }
+    function buildWarmupUrl(){
+      const warm = new URL('./warmup-gate.html', location.href);
+      warm.searchParams.set('gatePhase','warmup');
+      warm.searchParams.set('phase','warmup');
+      warm.searchParams.set('cat', GAME.cat);
+      warm.searchParams.set('theme', GAME.theme);
+      warm.searchParams.set('game', GAME.game);
+      warm.searchParams.set('pid', ctx.pid);
+      warm.searchParams.set('hub', ctx.hub);
+      warm.searchParams.set('next', buildRunUrl());
+      warm.searchParams.set('run', ctx.run);
+      warm.searchParams.set('diff', ctx.diff);
+      warm.searchParams.set('time', ctx.time);
+      warm.searchParams.set('view', ctx.view);
+      warm.searchParams.set('seed', ctx.seed);
 
-  document.getElementById('btnGo')?.addEventListener('click', go);
-  document.getElementById('btnHub')?.addEventListener('click', ()=> location.href = hub);
+      const grade=String(qs('grade','')).trim(); if(grade) warm.searchParams.set('grade', grade);
+      const studyId=String(qs('studyId','')).trim(); if(studyId) warm.searchParams.set('studyId', studyId);
+      const conditionGroup=String(qs('conditionGroup','')).trim(); if(conditionGroup) warm.searchParams.set('conditionGroup', conditionGroup);
+      const log=String(qs('log','')).trim(); if(log) warm.searchParams.set('log', log);
 
-  const txt = document.getElementById('txt');
-  if (txt) txt.textContent = 'กำลังพาเข้าเกม…';
+      return warm.toString();
+    }
 
-  setTimeout(go, 120);
-})();
-</script>
+    const debugBox = document.getElementById('debugBox');
+    debugBox.textContent =
+      '[Handwash Launcher]\\n' +
+      'launcher: ' + location.href + '\\n' +
+      'hub:      ' + ctx.hub + '\\n' +
+      'warmup:   ' + buildWarmupUrl() + '\\n' +
+      'runPath:  ' + buildRunUrl() + '\\n';
+
+    document.getElementById('btnStart').onclick = ()=> location.href = buildWarmupUrl();
+    document.getElementById('btnOpenRun').onclick = ()=> location.href = buildRunUrl();
+    document.getElementById('btnHub').onclick = ()=> location.href = ctx.hub;
+
+    setTimeout(()=>{ try{ location.href = buildWarmupUrl(); }catch(err){ debugBox.textContent += '\\nredirect failed: ' + (err?.message || String(err)); } }, 120);
+  </script>
 </body>
 </html>
