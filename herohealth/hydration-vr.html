@@ -1,94 +1,471 @@
+<!-- === /herohealth/hydration-vr.html ===
+HeroHealth — Hydration VR Launcher
+FULL v20260307-HYDRATION-LAUNCHER-RUNPATHFIX
+✅ launcher path = /herohealth/hydration-vr.html
+✅ run path = /herohealth/hydration-vr/hydration-vr.html
+✅ pass-through: zone/cat/pid/view/run/diff/time/seed/hub/gate/cdur/cooldown/cd
+✅ simple UI + autostart when query complete
+-->
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — Hydration VR</title>
   <meta name="color-scheme" content="dark light" />
+  <title>HeroHealth — Hydration VR Launcher</title>
   <link rel="icon" href="./favicon.ico" />
   <style>
-    :root{--bg1:#020617;--bg2:#0b1226;--panel:rgba(2,6,23,.72);--stroke:rgba(148,163,184,.18);--text:#e5e7eb;--muted:#94a3b8}
-    *{box-sizing:border-box}
-    html,body{margin:0;min-height:100%;background:radial-gradient(1000px 700px at 50% -10%, rgba(59,130,246,.18), transparent 60%),linear-gradient(180deg,var(--bg1),var(--bg2));color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Thai",Arial,sans-serif}
-    .wrap{max-width:880px;margin:0 auto;padding:18px}.card{border-radius:22px;border:1px solid var(--stroke);background:var(--panel);box-shadow:0 18px 55px rgba(0,0,0,.28);padding:16px}
-    .title{font-size:28px;font-weight:1000;margin:0 0 6px}.muted{color:var(--muted);font-size:13px;font-weight:900}.row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
-    .btn{appearance:none;border:1px solid rgba(148,163,184,.22);border-radius:14px;padding:12px 14px;min-height:46px;cursor:pointer;color:var(--text);background:rgba(148,163,184,.10);font-weight:1000}
-    .btn.primary{background:rgba(59,130,246,.16);border-color:rgba(59,130,246,.34)} .btn.good{background:rgba(34,197,94,.14);border-color:rgba(34,197,94,.32)}
-    .pill{display:inline-flex;align-items:center;gap:8px;padding:8px 10px;border-radius:999px;border:1px solid var(--stroke);background:rgba(2,6,23,.42);color:var(--muted);font-size:12px;font-weight:1000;margin:4px 6px 0 0}.pill b{color:var(--text)}
-    .debug{margin-top:14px;padding:12px;border-radius:16px;border:1px solid var(--stroke);background:rgba(2,6,23,.35);font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;white-space:pre-wrap;word-break:break-word;color:#cbd5e1}
+    :root{
+      --bg1:#020617; --bg2:#0b1226;
+      --panel:rgba(2,6,23,.76);
+      --panel2:rgba(15,23,42,.72);
+      --stroke:rgba(148,163,184,.16);
+      --text:#e5e7eb;
+      --muted:#94a3b8;
+      --blue:#38bdf8;
+      --good:#22c55e;
+      --warn:#f59e0b;
+      --danger:#ef4444;
+      --radius:22px;
+      --shadow:0 18px 40px rgba(0,0,0,.38);
+      --sat:env(safe-area-inset-top,0px);
+      --sar:env(safe-area-inset-right,0px);
+      --sab:env(safe-area-inset-bottom,0px);
+      --sal:env(safe-area-inset-left,0px);
+    }
+    *{ box-sizing:border-box; }
+    html,body{ margin:0; min-height:100%; }
+    body{
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(1100px 700px at 70% -10%, rgba(56,189,248,.12), transparent 60%),
+        radial-gradient(900px 600px at 0% 0%, rgba(99,102,241,.10), transparent 55%),
+        linear-gradient(180deg,var(--bg1),var(--bg2));
+      padding:
+        calc(14px + var(--sat))
+        calc(14px + var(--sar))
+        calc(18px + var(--sab))
+        calc(14px + var(--sal));
+    }
+    .wrap{ max-width:980px; margin:0 auto; }
+    .hero{
+      display:grid; gap:14px;
+      grid-template-columns:1.15fr .85fr;
+      align-items:stretch;
+    }
+    .card{
+      background:var(--panel);
+      border:1px solid var(--stroke);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+      backdrop-filter:blur(10px);
+    }
+    .hero-main{ padding:18px; }
+    .pill{
+      display:inline-flex; align-items:center; gap:8px;
+      border:1px solid var(--stroke);
+      background:rgba(15,23,42,.66);
+      border-radius:999px;
+      padding:7px 12px;
+      color:#cbd5e1;
+      font-weight:900; font-size:12px;
+    }
+    h1{
+      margin:10px 0 6px;
+      font-size:clamp(28px,5vw,42px);
+      line-height:1.05;
+    }
+    .sub{ color:var(--muted); line-height:1.6; }
+    .hero-side{ padding:16px; display:grid; gap:10px; }
+    .kv{
+      display:grid; grid-template-columns:90px 1fr; gap:8px;
+      font-size:14px;
+    }
+    .kv .k{ color:var(--muted); font-weight:800; }
+    .kv .v{ font-weight:1000; }
+
+    .grid{
+      margin-top:14px;
+      display:grid; gap:14px;
+      grid-template-columns:1fr 1fr;
+    }
+    .section{ padding:16px; }
+    .section h2{
+      margin:0 0 10px;
+      font-size:18px;
+    }
+    .fields{
+      display:grid; gap:10px;
+      grid-template-columns:1fr 1fr;
+    }
+    .field{ display:grid; gap:6px; }
+    .field.full{ grid-column:1/-1; }
+    label{
+      font-size:12px; color:var(--muted); font-weight:900;
+      letter-spacing:.02em;
+    }
+    input,select{
+      width:100%;
+      border:1px solid var(--stroke);
+      background:var(--panel2);
+      color:var(--text);
+      border-radius:14px;
+      padding:12px 12px;
+      font:inherit;
+      outline:none;
+    }
+    input:focus,select:focus{
+      border-color:rgba(56,189,248,.55);
+      box-shadow:0 0 0 3px rgba(56,189,248,.12);
+    }
+    .modes{
+      display:grid; gap:10px;
+      grid-template-columns:repeat(3,1fr);
+      margin-top:6px;
+    }
+    .modeBtn{
+      border:1px solid var(--stroke);
+      background:var(--panel2);
+      color:var(--text);
+      border-radius:16px;
+      padding:14px 12px;
+      font-weight:1000;
+      text-align:center;
+      cursor:pointer;
+    }
+    .modeBtn.active{
+      border-color:rgba(56,189,248,.55);
+      background:rgba(56,189,248,.16);
+    }
+    .row{
+      display:flex; gap:10px; flex-wrap:wrap;
+    }
+    .btn{
+      appearance:none; border:none; cursor:pointer;
+      border-radius:16px; padding:13px 16px;
+      font:inherit; font-weight:1000;
+      color:var(--text);
+      background:var(--panel2);
+      border:1px solid var(--stroke);
+    }
+    .btn.primary{
+      background:linear-gradient(180deg, rgba(56,189,248,.30), rgba(56,189,248,.18));
+      border-color:rgba(56,189,248,.42);
+    }
+    .btn.good{
+      background:linear-gradient(180deg, rgba(34,197,94,.24), rgba(34,197,94,.14));
+      border-color:rgba(34,197,94,.36);
+    }
+    .btn.warn{
+      background:linear-gradient(180deg, rgba(245,158,11,.24), rgba(245,158,11,.14));
+      border-color:rgba(245,158,11,.36);
+    }
+    .tips{
+      margin-top:10px; color:var(--muted); font-size:13px; line-height:1.6;
+    }
+    .preview{
+      margin-top:12px;
+      padding:12px;
+      border-radius:16px;
+      background:rgba(15,23,42,.54);
+      border:1px dashed var(--stroke);
+      word-break:break-all;
+      color:#cbd5e1;
+      font-size:12px;
+    }
+    .footer{
+      margin-top:14px;
+      padding:14px 16px;
+      font-size:12px;
+      color:var(--muted);
+    }
+    @media (max-width: 860px){
+      .hero, .grid, .fields{ grid-template-columns:1fr; }
+      .modes{ grid-template-columns:1fr; }
+    }
   </style>
 </head>
 <body>
-  <div class="wrap"><div class="card">
-    <div class="title">💧 Hydration VR</div>
-    <div class="muted">Launcher สำหรับเข้าเกม Hydration ผ่าน Warmup Gate</div>
-    <div style="margin-top:10px;">
-      <span class="pill"><b>PID</b>: <span id="uiPid">anon</span></span>
-      <span class="pill"><b>view</b>: <span id="uiView">mobile</span></span>
-      <span class="pill"><b>run</b>: <span id="uiRun">play</span></span>
-      <span class="pill"><b>diff</b>: <span id="uiDiff">normal</span></span>
-      <span class="pill"><b>time</b>: <span id="uiTime">80</span></span>
+  <div class="wrap">
+    <section class="hero">
+      <div class="card hero-main">
+        <div class="pill">💧 Nutrition Zone • Hydration VR</div>
+        <h1>Hydration VR</h1>
+        <div class="sub">
+          Launcher สำหรับเข้าเกม Hydration โดยจะส่งต่อไปที่ไฟล์ run game:
+          <b>/herohealth/hydration-vr/hydration-vr.html</b>
+        </div>
+        <div class="tips">
+          จุดสำคัญ: launcher นี้อยู่ที่ <b>/herohealth/hydration-vr.html</b> และไม่ใช้
+          <b>/herohealth/hydration-vr/launcher.html</b>
+        </div>
+      </div>
+
+      <div class="card hero-side">
+        <div class="kv"><div class="k">Launcher</div><div class="v" id="uiLauncher">/herohealth/hydration-vr.html</div></div>
+        <div class="kv"><div class="k">Run file</div><div class="v" id="uiRunFile">/herohealth/hydration-vr/hydration-vr.html</div></div>
+        <div class="kv"><div class="k">Zone</div><div class="v" id="uiZone">nutrition</div></div>
+        <div class="kv"><div class="k">View</div><div class="v" id="uiView">mobile</div></div>
+        <div class="kv"><div class="k">Diff</div><div class="v" id="uiDiff">normal</div></div>
+        <div class="kv"><div class="k">Time</div><div class="v" id="uiTime">80</div></div>
+      </div>
+    </section>
+
+    <section class="grid">
+      <div class="card section">
+        <h2>ตั้งค่าก่อนเข้าเกม</h2>
+
+        <div class="fields">
+          <div class="field">
+            <label for="zone">Zone</label>
+            <select id="zone">
+              <option value="nutrition">nutrition</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="cat">Category</label>
+            <select id="cat">
+              <option value="nutrition">nutrition</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="pid">PID</label>
+            <input id="pid" value="anon" />
+          </div>
+
+          <div class="field">
+            <label for="run">Run mode</label>
+            <select id="run">
+              <option value="play">play</option>
+              <option value="research">research</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="diff">Difficulty</label>
+            <select id="diff">
+              <option value="easy">easy</option>
+              <option value="normal" selected>normal</option>
+              <option value="hard">hard</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="time">Time (sec)</label>
+            <input id="time" type="number" min="20" max="300" step="1" value="80" />
+          </div>
+
+          <div class="field full">
+            <label>View</label>
+            <div class="modes">
+              <button class="modeBtn active" data-view="mobile" type="button">📱 Mobile</button>
+              <button class="modeBtn" data-view="pc" type="button">🖥️ PC</button>
+              <button class="modeBtn" data-view="cvr" type="button">🥽 Cardboard / cVR</button>
+            </div>
+            <input id="view" type="hidden" value="mobile" />
+          </div>
+
+          <div class="field">
+            <label for="seed">Seed</label>
+            <input id="seed" />
+          </div>
+
+          <div class="field">
+            <label for="gate">Gate</label>
+            <select id="gate">
+              <option value="">off</option>
+              <option value="1">1</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="cdur">Cooldown duration</label>
+            <input id="cdur" type="number" min="5" max="180" step="1" value="20" />
+          </div>
+
+          <div class="field">
+            <label for="cooldown">Cooldown flag</label>
+            <select id="cooldown">
+              <option value="">off</option>
+              <option value="1">1</option>
+            </select>
+          </div>
+
+          <div class="field full">
+            <label for="hub">Hub URL</label>
+            <input id="hub" />
+          </div>
+        </div>
+
+        <div class="preview" id="previewUrl">—</div>
+
+        <div class="row" style="margin-top:12px">
+          <button class="btn primary" id="btnPlay" type="button">เข้าเกม Hydration</button>
+          <button class="btn good" id="btnRandomSeed" type="button">สุ่ม Seed ใหม่</button>
+          <button class="btn warn" id="btnCopy" type="button">คัดลอก URL</button>
+        </div>
+      </div>
+
+      <div class="card section">
+        <h2>ตัวอย่าง flow</h2>
+        <div class="tips">
+          launcher:
+          <br><b>/herohealth/hydration-vr.html</b>
+          <br><br>
+          run game:
+          <br><b>/herohealth/hydration-vr/hydration-vr.html</b>
+          <br><br>
+          เมื่อกดเข้าเกม launcher จะประกอบ query string แล้ว redirect ไปหน้า run game ให้เอง
+        </div>
+
+        <div class="tips">
+          ตัวอย่างค่าที่จะถูกส่งต่อ:
+          <br>zone, cat, pid, view, run, diff, time, seed, hub, gate, cdur, cooldown
+        </div>
+      </div>
+    </section>
+
+    <div class="card footer">
+      HeroHealth • Hydration VR Launcher
     </div>
-    <div class="row">
-      <button class="btn primary" id="btnStart">เริ่มเกม</button>
-      <button class="btn" id="btnHub">กลับ Hub</button>
-      <button class="btn good" id="btnOpenRun">เปิด run ตรง</button>
-    </div>
-    <div class="debug" id="debugBox">loading...</div>
-  </div></div>
+  </div>
 
   <script>
-    function qs(k,d=''){ try{return (new URL(location.href)).searchParams.get(k) ?? d;}catch(_){return d;} }
-    function safeNum(v,d){ v=Number(v); return Number.isFinite(v)?v:d; }
-    function normalizeHub(){ const raw=String(qs('hub','')).trim(); if(raw) return raw; try{ return new URL('./hub.html', location.href).toString(); }catch(_){ return './hub.html'; } }
+    (function(){
+      const $ = (id)=> document.getElementById(id);
+      const params = new URL(location.href).searchParams;
 
-    const GAME = { cat:'nutrition', theme:'hydration', game:'hydration', runPath:'./hydration-vr/launcher.html' };
-    const ctx = { pid:String(qs('pid','anon')).trim()||'anon', view:String(qs('view','mobile')).trim()||'mobile', run:String(qs('run','play')).trim()||'play', diff:String(qs('diff','normal')).trim()||'normal', time:String(safeNum(qs('time','80'),80)), seed:String(qs('seed', String(Date.now()))), zone:String(qs('zone','nutrition')).trim()||'nutrition', hub:normalizeHub() };
+      const runPath = './hydration-vr/hydration-vr.html';
 
-    uiPid.textContent=ctx.pid; uiView.textContent=ctx.view; uiRun.textContent=ctx.run; uiDiff.textContent=ctx.diff; uiTime.textContent=ctx.time;
+      const els = {
+        zone: $('zone'),
+        cat: $('cat'),
+        pid: $('pid'),
+        view: $('view'),
+        run: $('run'),
+        diff: $('diff'),
+        time: $('time'),
+        seed: $('seed'),
+        gate: $('gate'),
+        cdur: $('cdur'),
+        cooldown: $('cooldown'),
+        hub: $('hub'),
+        previewUrl: $('previewUrl'),
 
-    function copyPassthrough(u){
-      const sp=new URL(location.href).searchParams;
-      ['run','diff','time','seed','studyId','phase','conditionGroup','log','view','pid','api','ai','debug','planSeq','planDay','planSlot','planMode','planSlots','planIndex','autoNext','plannedGame','finalGame','zone','cdnext','grade']
-      .forEach(k=>{ const v=sp.get(k); if(v!=null && v!=='') u.searchParams.set(k,v); });
-    }
-    function buildRunUrl(){
-      const u=new URL(GAME.runPath, location.href);
-      copyPassthrough(u);
-      if(!u.searchParams.get('pid')) u.searchParams.set('pid', ctx.pid);
-      if(!u.searchParams.get('view')) u.searchParams.set('view', ctx.view);
-      if(!u.searchParams.get('run')) u.searchParams.set('run', ctx.run);
-      if(!u.searchParams.get('diff')) u.searchParams.set('diff', ctx.diff);
-      if(!u.searchParams.get('time')) u.searchParams.set('time', ctx.time);
-      if(!u.searchParams.get('seed')) u.searchParams.set('seed', ctx.seed);
-      if(!u.searchParams.get('zone')) u.searchParams.set('zone', ctx.zone);
-      u.searchParams.set('hub', ctx.hub);
-      return u.toString();
-    }
-    function buildWarmupUrl(){
-      const u=new URL('./warmup-gate.html', location.href);
-      u.searchParams.set('gatePhase','warmup');
-      u.searchParams.set('phase','warmup');
-      u.searchParams.set('cat', GAME.cat);
-      u.searchParams.set('theme', GAME.theme);
-      u.searchParams.set('game', GAME.game);
-      u.searchParams.set('pid', ctx.pid);
-      u.searchParams.set('hub', ctx.hub);
-      u.searchParams.set('next', buildRunUrl());
-      u.searchParams.set('run', ctx.run);
-      u.searchParams.set('diff', ctx.diff);
-      u.searchParams.set('time', ctx.time);
-      u.searchParams.set('view', ctx.view);
-      u.searchParams.set('seed', ctx.seed);
-      ['grade','studyId','conditionGroup','log'].forEach(k=>{ const v=String(qs(k,'')).trim(); if(v) u.searchParams.set(k,v); });
-      return u.toString();
-    }
+        uiZone: $('uiZone'),
+        uiView: $('uiView'),
+        uiDiff: $('uiDiff'),
+        uiTime: $('uiTime'),
 
-    debugBox.textContent='[Hydration Launcher]\\nlauncher: '+location.href+'\\nhub:      '+ctx.hub+'\\nwarmup:   '+buildWarmupUrl()+'\\nrunPath:  '+buildRunUrl()+'\\n';
-    btnStart.onclick=()=>location.href=buildWarmupUrl();
-    btnOpenRun.onclick=()=>location.href=buildRunUrl();
-    btnHub.onclick=()=>location.href=ctx.hub;
-    setTimeout(()=>{ try{ location.href=buildWarmupUrl(); }catch(err){ debugBox.textContent+='\nredirect failed: '+(err?.message||String(err)); } },120);
+        btnPlay: $('btnPlay'),
+        btnRandomSeed: $('btnRandomSeed'),
+        btnCopy: $('btnCopy')
+      };
+
+      function qv(k, def=''){
+        return params.get(k) ?? def;
+      }
+
+      function makeSeed(){
+        return String((Date.now() ^ (Math.random()*1e9)) | 0);
+      }
+
+      function setModeButtons(v){
+        document.querySelectorAll('.modeBtn').forEach(btn=>{
+          btn.classList.toggle('active', btn.dataset.view === v);
+        });
+        els.view.value = v;
+        els.uiView.textContent = v;
+        renderPreview();
+      }
+
+      function fillInitial(){
+        els.zone.value = qv('zone','nutrition');
+        els.cat.value = qv('cat', qv('zone','nutrition') || 'nutrition');
+        els.pid.value = qv('pid','anon');
+        els.run.value = qv('run','play');
+        els.diff.value = qv('diff','normal');
+        els.time.value = qv('time','80');
+        els.seed.value = qv('seed', makeSeed());
+        els.gate.value = qv('gate','');
+        els.cdur.value = qv('cdur','20');
+        els.cooldown.value = qv('cooldown', qv('cd',''));
+        els.hub.value = qv('hub', `${location.origin}/webxr-health-mobile/herohealth/hub.html`);
+
+        setModeButtons(qv('view','mobile'));
+        els.uiZone.textContent = els.zone.value;
+        els.uiDiff.textContent = els.diff.value;
+        els.uiTime.textContent = els.time.value;
+      }
+
+      function buildRunUrl(){
+        const u = new URL(runPath, location.href);
+
+        const add = (k, v)=>{
+          if(v == null) return;
+          v = String(v).trim();
+          if(v !== '') u.searchParams.set(k, v);
+        };
+
+        add('zone', els.zone.value);
+        add('cat', els.cat.value);
+        add('pid', els.pid.value);
+        add('view', els.view.value);
+        add('run', els.run.value);
+        add('diff', els.diff.value);
+        add('time', els.time.value);
+        add('seed', els.seed.value);
+        add('hub', els.hub.value);
+        add('gate', els.gate.value);
+        add('cdur', els.cdur.value);
+        add('cooldown', els.cooldown.value);
+
+        return u.toString();
+      }
+
+      function renderPreview(){
+        els.uiZone.textContent = els.zone.value;
+        els.uiDiff.textContent = els.diff.value;
+        els.uiTime.textContent = els.time.value;
+        els.previewUrl.textContent = buildRunUrl();
+      }
+
+      document.querySelectorAll('.modeBtn').forEach(btn=>{
+        btn.addEventListener('click', ()=> setModeButtons(btn.dataset.view));
+      });
+
+      [
+        els.zone, els.cat, els.pid, els.run, els.diff, els.time,
+        els.seed, els.gate, els.cdur, els.cooldown, els.hub
+      ].forEach(el=>{
+        el.addEventListener('input', renderPreview);
+        el.addEventListener('change', renderPreview);
+      });
+
+      els.btnRandomSeed.addEventListener('click', ()=>{
+        els.seed.value = makeSeed();
+        renderPreview();
+      });
+
+      els.btnCopy.addEventListener('click', async ()=>{
+        const url = buildRunUrl();
+        try{
+          await navigator.clipboard.writeText(url);
+        }catch(e){
+          try{ prompt('Copy URL:', url); }catch(_){}
+        }
+      });
+
+      els.btnPlay.addEventListener('click', ()=>{
+        location.href = buildRunUrl();
+      });
+
+      fillInitial();
+      renderPreview();
+    })();
   </script>
 </body>
 </html>
