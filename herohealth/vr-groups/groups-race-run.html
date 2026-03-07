@@ -1,0 +1,1248 @@
+<!-- === /herohealth/vr-groups/groups-race-run.html ===
+Groups Race — RUN PAGE (1v1)
+FULL v20260307c-GROUPS-RACE-RUN
+✅ Uses groups.safe.js as local engine
+✅ RTDB sync via groups-race-rtdb.js
+✅ Opponent live scoreboard
+✅ Shared countdown/start
+✅ Publish score + publish finished
+✅ Winner result overlay
+Requires:
+- Firebase initialized on page (window.firebase)
+- ./groups-race-score.js
+- ./groups-race-rtdb.js
+- ./groups.safe.js
+- ./ai-hooks.js
+- ../vr/vr-ui.js
+-->
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <title>HeroHealth — Groups Race Run</title>
+  <meta name="color-scheme" content="dark light"/>
+  <link rel="icon" href="../favicon.ico"/>
+  <style>
+    :root{
+      --bg:#040610;
+      --stroke: rgba(148,163,184,.18);
+      --text:#e5e7eb;
+      --muted:#94a3b8;
+      --good:#22c55e;
+      --cyan:#22d3ee;
+      --violet:#a78bfa;
+      --amber:#f59e0b;
+      --red:#ef4444;
+      --pink:#ff4fd8;
+      --radius:18px;
+      --sat: env(safe-area-inset-top, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sar: env(safe-area-inset-right, 0px);
+      --sal: env(safe-area-inset-left, 0px);
+    }
+    *{ box-sizing:border-box; }
+    html,body{
+      height:100%; margin:0; overflow:hidden; color:var(--text);
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif;
+      background:
+        radial-gradient(1200px 800px at 20% 10%, rgba(34,211,238,.14) 0%, transparent 55%),
+        radial-gradient(1100px 700px at 80% 30%, rgba(167,139,250,.16) 0%, transparent 55%),
+        radial-gradient(900px 700px at 50% 95%, rgba(255,79,216,.08) 0%, transparent 60%),
+        linear-gradient(180deg, #0b1026, var(--bg));
+    }
+
+    #app{
+      position:relative;
+      width:100%; height:100%;
+      padding: calc(8px + var(--sat)) calc(8px + var(--sar)) calc(8px + var(--sab)) calc(8px + var(--sal));
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+    }
+
+    .topbar{
+      border-radius: var(--radius);
+      border:1px solid var(--stroke);
+      background: linear-gradient(180deg, rgba(2,6,23,.80), rgba(2,6,23,.58));
+      box-shadow: 0 18px 60px rgba(0,0,0,.38);
+      padding: 8px 10px;
+      display:grid;
+      grid-template-columns: 1fr auto;
+      gap:10px;
+      align-items:center;
+      z-index:50;
+      flex:0 0 auto;
+    }
+    .title{
+      display:flex; flex-direction:column; gap:2px; min-width:0;
+    }
+    .title b{
+      font-size:14px; font-weight:1000; letter-spacing:.2px;
+    }
+    .title span{
+      color:var(--muted); font-size:11.5px; line-height:1.25;
+    }
+
+    .row{
+      display:flex; gap:8px; align-items:center; flex-wrap:wrap; justify-content:flex-end;
+    }
+
+    .pill{
+      display:inline-flex; gap:8px; align-items:center;
+      min-height:34px;
+      padding:6px 10px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.20);
+      background: rgba(2,6,23,.55);
+      font-size:11.5px;
+      color:var(--muted);
+      user-select:none;
+      white-space:nowrap;
+      max-width:min(100%, 92vw);
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    .pill b{
+      color:var(--text); font-weight:1000;
+      overflow:hidden; text-overflow:ellipsis;
+    }
+    .dot{ width:8px; height:8px; border-radius:999px; background: var(--cyan); box-shadow:0 0 14px rgba(34,211,238,.55); }
+    .dot.good{ background: var(--good); box-shadow:0 0 14px rgba(34,197,94,.55); }
+    .dot.amber{ background: var(--amber); box-shadow:0 0 14px rgba(245,158,11,.55); }
+    .dot.red{ background: var(--red); box-shadow:0 0 14px rgba(239,68,68,.55); }
+    .dot.pink{ background: var(--pink); box-shadow:0 0 14px rgba(255,79,216,.55); }
+
+    button{
+      cursor:pointer;
+      border-radius:14px;
+      border:1px solid rgba(148,163,184,.18);
+      background: rgba(2,6,23,.55);
+      color:var(--text);
+      padding:8px 12px;
+      transition: transform .08s ease, background .15s ease, border-color .15s ease;
+      user-select:none;
+      font-weight:900;
+    }
+    button:hover{ transform:translateY(-1px); background: rgba(2,6,23,.72); border-color: rgba(148,163,184,.32); }
+    button:active{ transform:translateY(0) scale(.99); }
+    button.primary{ background: rgba(34,197,94,.14); border-color: rgba(34,197,94,.32); }
+    button.ghost{ background: rgba(148,163,184,.08); }
+
+    @media (max-width:760px){
+      .topbar{ grid-template-columns:1fr; }
+      .row{ justify-content:flex-start; }
+      #seedPill{ display:none; }
+    }
+
+    .stage{
+      position:relative;
+      flex:1 1 auto;
+      min-height:0;
+      border-radius: var(--radius);
+      border:1px solid rgba(148,163,184,.14);
+      background: rgba(2,6,23,.22);
+      overflow:hidden;
+      box-shadow: 0 20px 80px rgba(0,0,0,.35);
+    }
+    #playLayer{
+      position:absolute; inset:0; overflow:hidden; pointer-events:auto;
+    }
+
+    /* Our HUD */
+    .hud{
+      position:absolute;
+      left:8px; right:8px;
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:8px;
+      pointer-events:none;
+      z-index:30;
+    }
+    .hudTop{ top: calc(8px + var(--sat)); }
+
+    .hudLeftCol{
+      display:flex; flex-direction:column; gap:6px;
+      min-width:0;
+      max-width:min(68vw, 520px);
+    }
+
+    .hudBox{
+      display:grid;
+      grid-template-columns:repeat(5, auto);
+      gap:10px;
+      align-items:center;
+      padding:6px 9px;
+      border-radius:16px;
+      border:1px solid rgba(148,163,184,.18);
+      background: rgba(2,6,23,.58);
+      backdrop-filter: blur(10px);
+      box-shadow: 0 12px 28px rgba(0,0,0,.22);
+    }
+    .hudMetric{
+      display:flex; gap:5px; align-items:center; min-width:0;
+    }
+    .hudMetric .k{ color:var(--muted); font-size:11px; font-weight:900; }
+    .hudMetric .v{ color:var(--text); font-size:12px; font-weight:1000; }
+
+    .questTop{
+      display:flex; flex-direction:column; gap:6px;
+      padding:7px 9px;
+      border-radius:16px;
+      border:1px solid rgba(148,163,184,.16);
+      background: rgba(2,6,23,.48);
+      backdrop-filter: blur(10px);
+    }
+    .questLine{
+      display:flex; justify-content:space-between; gap:8px; align-items:flex-start; flex-wrap:wrap;
+    }
+    .questTitle{ font-size:13px; font-weight:1000; line-height:1.28; }
+    .questMini{ color:var(--muted); font-size:11px; font-weight:900; line-height:1.25; }
+
+    .powerWrap{
+      width:min(210px, 34vw);
+      display:flex; flex-direction:column; gap:6px;
+      padding:7px 9px;
+      border-radius:16px;
+      border:1px solid rgba(148,163,184,.16);
+      background: rgba(2,6,23,.48);
+      backdrop-filter: blur(10px);
+      box-shadow: 0 12px 28px rgba(0,0,0,.18);
+    }
+    .powerHead{
+      display:flex; justify-content:space-between; gap:8px; align-items:center;
+    }
+    .powerHead b{ font-size:13px; line-height:1.2; }
+    .powerHead span{ color:var(--muted); font-size:11px; font-weight:1000; }
+
+    .bar{
+      height:10px; border-radius:999px;
+      border:1px solid rgba(148,163,184,.18);
+      background: rgba(2,6,23,.55);
+      overflow:hidden;
+    }
+    .bar > i{
+      display:block; height:100%; width:0%;
+      background: linear-gradient(90deg, rgba(34,211,238,.95), rgba(167,139,250,.92), rgba(255,79,216,.86));
+      transition: width .10s linear;
+    }
+
+    @media (max-width:640px){
+      .hudLeftCol{ width:100%; max-width:100%; }
+      .hudBox{
+        grid-template-columns:repeat(5,minmax(0,1fr));
+        gap:6px;
+        padding:6px 8px;
+      }
+      .hudMetric{ justify-content:center; }
+      .powerWrap{
+        position:absolute;
+        left:0;
+        top:68px;
+        width:min(180px, 46vw);
+      }
+    }
+
+    /* Opponent board */
+    .opBoard{
+      position:absolute;
+      right:10px;
+      bottom: calc(10px + var(--sab) + 82px);
+      z-index:32;
+      width:min(240px, 46vw);
+      border-radius:18px;
+      border:1px solid rgba(148,163,184,.16);
+      background: rgba(2,6,23,.60);
+      backdrop-filter: blur(10px);
+      box-shadow: 0 16px 36px rgba(0,0,0,.22);
+      padding:10px;
+      pointer-events:none;
+    }
+    .opHead{
+      display:flex; justify-content:space-between; gap:8px; align-items:center;
+      margin-bottom:8px;
+    }
+    .opName{ font-size:13px; font-weight:1000; line-height:1.2; }
+    .leadPill{
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.18);
+      background: rgba(2,6,23,.44);
+      padding:4px 8px;
+      font-size:10px;
+      font-weight:1000;
+      color:var(--muted);
+    }
+    .opGrid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:8px;
+    }
+    .opCell{
+      border-radius:12px;
+      border:1px solid rgba(148,163,184,.12);
+      background: rgba(2,6,23,.28);
+      padding:7px 8px;
+    }
+    .opCell .k{ color:var(--muted); font-size:10px; font-weight:1000; }
+    .opCell .v{ margin-top:3px; font-size:13px; font-weight:1000; }
+
+    @media (max-width:640px){
+      .opBoard{
+        width:min(190px, 48vw);
+        right:8px;
+        bottom: calc(10px + var(--sab) + 92px);
+      }
+    }
+
+    /* Toast */
+    .coachToast{
+      position:absolute;
+      left:10px; right:10px;
+      bottom: calc(10px + var(--sab) + 92px);
+      display:none;
+      z-index:40;
+      pointer-events:none;
+      transform: translateY(10px);
+      opacity:0;
+      transition: opacity .18s ease, transform .18s ease;
+    }
+    .coachToast.show{
+      display:block;
+      opacity:1;
+      transform:translateY(0);
+    }
+    .coachWrap{
+      display:flex; align-items:center; gap:10px;
+      padding:7px 10px;
+      border-radius:16px;
+      border:1px solid rgba(148,163,184,.16);
+      background: rgba(2,6,23,.60);
+      backdrop-filter: blur(10px);
+      box-shadow: 0 14px 32px rgba(0,0,0,.22);
+      max-width:min(560px,100%);
+    }
+    .coachWrap .face{
+      width:34px; height:34px; border-radius:12px;
+      display:flex; align-items:center; justify-content:center;
+      background: rgba(148,163,184,.10);
+      border:1px solid rgba(148,163,184,.14);
+      font-size:18px; flex:0 0 auto;
+    }
+    .coachWrap .txt{ font-weight:1000; font-size:13px; line-height:1.25; }
+    .coachWrap .sub{ color:var(--muted); font-size:11px; font-weight:900; margin-top:2px; }
+
+    /* Countdown overlay */
+    .overlay{
+      position:absolute; inset:0;
+      display:none;
+      align-items:center; justify-content:center;
+      background: rgba(0,0,0,.62);
+      backdrop-filter: blur(10px);
+      z-index:9000;
+      padding:14px;
+    }
+    .overlayCard{
+      width:min(860px, 100%);
+      max-height:min(88vh, 760px);
+      border-radius: var(--radius);
+      border:1px solid rgba(148,163,184,.18);
+      background: linear-gradient(180deg, rgba(2,6,23,.90), rgba(2,6,23,.70));
+      box-shadow: 0 30px 120px rgba(0,0,0,.55);
+      overflow:hidden;
+      display:flex;
+      flex-direction:column;
+    }
+    .overlayCard header{
+      padding:12px;
+      border-bottom:1px solid rgba(148,163,184,.14);
+      display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;
+    }
+    .overlayCard main{
+      padding:12px;
+      display:flex; flex-direction:column; gap:10px;
+      overflow:auto;
+      min-height:0;
+    }
+    .overlayBtns{
+      padding:12px;
+      border-top:1px solid rgba(148,163,184,.14);
+      display:flex; gap:10px; flex-wrap:wrap; justify-content:center;
+    }
+    .centerBig{
+      font-size:72px;
+      font-weight:1100;
+      line-height:1;
+      text-align:center;
+      margin:10px 0;
+    }
+    .centerSub{
+      text-align:center;
+      color:var(--muted);
+      font-size:14px;
+      font-weight:900;
+      line-height:1.35;
+    }
+
+    /* Result */
+    #resultCard main{
+      padding:12px;
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+      overflow:auto;
+      min-height:0;
+    }
+    .panel{
+      border-radius:18px;
+      border:1px solid rgba(148,163,184,.14);
+      background: rgba(2,6,23,.50);
+      padding:10px;
+      min-height:0;
+    }
+    .panelHead{
+      display:flex; justify-content:space-between; gap:8px; align-items:center;
+      margin-bottom:8px;
+    }
+    .panelHead b{ font-size:14px; }
+    .panelHead .mini{ color:var(--muted); font-size:11px; font-weight:900; }
+
+    .thaiGrid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:8px;
+    }
+    .kvCard{
+      border-radius:14px;
+      border:1px solid rgba(148,163,184,.14);
+      background: rgba(2,6,23,.38);
+      padding:8px 10px;
+    }
+    .kvCard .k{ color:var(--muted); font-size:11px; font-weight:900; }
+    .kvCard .v{ margin-top:4px; color:var(--text); font-size:14px; font-weight:1000; line-height:1.25; }
+
+    .vsBox{
+      display:grid;
+      gap:10px;
+    }
+    .vsPlayer{
+      border-radius:16px;
+      border:1px solid rgba(148,163,184,.14);
+      background: rgba(2,6,23,.34);
+      padding:10px;
+    }
+    .vsHead{
+      display:flex; justify-content:space-between; gap:8px; align-items:center; flex-wrap:wrap;
+      margin-bottom:8px;
+    }
+    .vsName{ font-size:14px; font-weight:1000; }
+    .vsTag{
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.18);
+      background: rgba(2,6,23,.44);
+      padding:4px 8px;
+      font-size:10px;
+      font-weight:1000;
+      color:var(--muted);
+    }
+
+    pre{
+      margin:0;
+      white-space:pre-wrap;
+      word-break:break-word;
+      font-size:12px;
+      line-height:1.35;
+      color: rgba(229,231,235,.92);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+
+    @media (max-width:760px){
+      #resultCard main{ grid-template-columns:1fr; }
+      .thaiGrid{ grid-template-columns:1fr 1fr; }
+    }
+    @media (max-width:420px){
+      .thaiGrid{ grid-template-columns:1fr; }
+    }
+
+    /* feedback */
+    .hudPulse{ animation:hudPulse .28s ease-out; }
+    @keyframes hudPulse{
+      0%{ transform:scale(1); box-shadow:0 12px 28px rgba(0,0,0,.22); }
+      40%{ transform:scale(1.05); box-shadow:0 0 0 1px rgba(34,211,238,.28), 0 0 26px rgba(34,211,238,.16); }
+      100%{ transform:scale(1); box-shadow:0 12px 28px rgba(0,0,0,.22); }
+    }
+    .comboHot{
+      color:#fff;
+      text-shadow:0 0 10px rgba(255,79,216,.45), 0 0 20px rgba(167,139,250,.28);
+    }
+    .rankFlash{ animation:rankFlash .42s ease-out; }
+    @keyframes rankFlash{
+      0%{ transform:scale(1); opacity:1; }
+      35%{ transform:scale(1.18); opacity:1; }
+      100%{ transform:scale(1); opacity:1; }
+    }
+    #stageFlash{
+      position:absolute;
+      inset:0;
+      pointer-events:none;
+      opacity:0;
+      z-index:35;
+      background:radial-gradient(circle at 50% 50%, rgba(255,255,255,.14), rgba(255,255,255,0));
+      transition:opacity .14s ease;
+    }
+    #stageFlash.good{ background:radial-gradient(circle at 50% 50%, rgba(34,197,94,.16), rgba(34,197,94,0)); }
+    #stageFlash.bad{ background:radial-gradient(circle at 50% 50%, rgba(239,68,68,.14), rgba(239,68,68,0)); }
+    #stageFlash.boss{ background:radial-gradient(circle at 50% 50%, rgba(245,158,11,.18), rgba(245,158,11,0)); }
+
+    .tgt{
+      width:74px; height:74px;
+      border-radius:18px;
+      display:flex; align-items:center; justify-content:center;
+      font-size:34px; font-weight:1000;
+      background: rgba(15,23,42,.72);
+      border:1px solid rgba(148,163,184,.22);
+      box-shadow: 0 12px 30px rgba(0,0,0,.22);
+      pointer-events:auto;
+      user-select:none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    body[data-view="cvr"][data-cvr-strict="1"] .tgt{ pointer-events:none !important; }
+  </style>
+</head>
+
+<body>
+<div id="app">
+  <div class="topbar">
+    <div class="title">
+      <b>🥗 Groups Race</b>
+      <span id="subline">แข่งแบบ 1v1 — shared seed + shared timer</span>
+    </div>
+
+    <div class="row">
+      <div class="pill"><span class="dot"></span> <span>ROOM:</span> <b id="roomPill">—</b></div>
+      <div class="pill"><span class="dot amber"></span> <span>DIFF:</span> <b id="diffPill">normal</b></div>
+      <div class="pill"><span class="dot"></span> <span>VIEW:</span> <b id="viewPill">mobile</b></div>
+      <div class="pill" id="seedPill"><span class="dot"></span> <span>SEED:</span> <b id="seedText">—</b></div>
+      <div class="pill"><span id="roomDot" class="dot"></span> <span>STATUS:</span> <b id="statusText">WAIT</b></div>
+      <button class="ghost" id="btnBack">🏠 HUB</button>
+    </div>
+  </div>
+
+  <div class="stage" id="stage">
+    <div id="playLayer"></div>
+    <div id="stageFlash"></div>
+
+    <div class="hud hudTop">
+      <div class="hudLeftCol">
+        <div class="hudBox">
+          <div class="hudMetric"><span class="k">TIME</span><span class="v" id="hudTime">—</span></div>
+          <div class="hudMetric"><span class="k">SCORE</span><span class="v" id="hudScore">0</span></div>
+          <div class="hudMetric"><span class="k">COMBO</span><span class="v" id="hudCombo">x0</span></div>
+          <div class="hudMetric"><span class="k">MISS</span><span class="v" id="hudMiss">0</span></div>
+          <div class="hudMetric"><span class="k">RANK</span><span class="v" id="hudRank">—</span></div>
+        </div>
+
+        <div class="questTop">
+          <div class="questLine">
+            <div class="questTitle"><span id="qTitle">ภารกิจ</span> <span id="qSub" style="color:var(--muted); font-weight:900;"></span></div>
+            <div class="questMini"><span id="qMini">MINI: —</span> <span id="qMiniTime"></span></div>
+          </div>
+          <div class="bar"><i id="qBar"></i></div>
+        </div>
+      </div>
+
+      <div class="powerWrap">
+        <div class="powerHead">
+          <b id="groupName">หมู่ 1 โปรตีน</b>
+          <span>POWER</span>
+        </div>
+        <div class="bar"><i id="pBar"></i></div>
+        <div style="color:var(--muted); font-size:12px; font-weight:900;">
+          <span id="pText">0 / 8</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="opBoard" id="opBoard">
+      <div class="opHead">
+        <div class="opName" id="opName">Opponent</div>
+        <div class="leadPill" id="leadPill">WAIT</div>
+      </div>
+      <div class="opGrid">
+        <div class="opCell"><div class="k">SCORE</div><div class="v" id="opScore">0</div></div>
+        <div class="opCell"><div class="k">COMBO</div><div class="v" id="opCombo">x0</div></div>
+        <div class="opCell"><div class="k">MISS</div><div class="v" id="opMiss">0</div></div>
+        <div class="opCell"><div class="k">ACC</div><div class="v" id="opAcc">0%</div></div>
+      </div>
+    </div>
+
+    <div class="coachToast" id="coachToast" aria-live="polite">
+      <div class="coachWrap">
+        <div class="face" id="toastFace">🙂</div>
+        <div>
+          <div class="txt" id="toastTxt">เตรียมพร้อม...</div>
+          <div class="sub" id="toastSub">Race Mode</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="overlay" id="countdownOverlay" aria-hidden="false" style="display:flex;">
+      <div class="overlayCard">
+        <header>
+          <div><b>🏁 GROUPS RACE</b> <span style="color:var(--muted); font-weight:900;" id="cdHeaderSub">รอห้องเริ่ม</span></div>
+          <div class="pill"><span class="dot amber"></span> <span>ROOM:</span> <b id="cdRoom">—</b></div>
+        </header>
+        <main>
+          <div class="centerBig" id="cdNum">WAIT</div>
+          <div class="centerSub" id="cdSub">กำลังเชื่อมต่อห้องแข่งขัน...</div>
+        </main>
+      </div>
+    </div>
+
+    <div class="overlay" id="resultOverlay" aria-hidden="true">
+      <div class="overlayCard" id="resultCard">
+        <header>
+          <div><b id="resultTitle">RESULT</b> <span style="color:var(--muted); font-weight:900;" id="resultSub"></span></div>
+          <div class="pill"><span class="dot good"></span> <span>ROOM:</span> <b id="resultRoom">—</b></div>
+        </header>
+
+        <main>
+          <div class="panel">
+            <div class="panelHead">
+              <b>สรุปของเรา</b>
+              <span class="mini">my result</span>
+            </div>
+            <div id="myPretty" class="thaiGrid"></div>
+            <details style="margin-top:10px;">
+              <summary style="cursor:pointer; color:var(--muted); font-weight:900;">ดู JSON</summary>
+              <pre id="myJson" style="margin-top:8px;"></pre>
+            </details>
+          </div>
+
+          <div class="panel">
+            <div class="panelHead">
+              <b>เปรียบเทียบ</b>
+              <span class="mini">vs opponent</span>
+            </div>
+            <div class="vsBox" id="vsBox"></div>
+            <details style="margin-top:10px;">
+              <summary style="cursor:pointer; color:var(--muted); font-weight:900;">ดู decision JSON</summary>
+              <pre id="decisionJson" style="margin-top:8px;"></pre>
+            </details>
+          </div>
+        </main>
+
+        <div class="overlayBtns">
+          <button id="btnAgain">เล่นใหม่</button>
+          <button class="primary" id="btnGoHub">🏠 กลับ HUB</button>
+          <button class="ghost" id="btnCloseResult">ปิด</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="../vr/vr-ui.js"></script>
+<script src="./ai-hooks.js"></script>
+<script src="./groups-race-score.js"></script>
+<script src="./groups-race-rtdb.js"></script>
+<script src="./groups.safe.js"></script>
+
+<script>
+(() => {
+  'use strict';
+
+  const QS = (()=>{ try{ return new URL(location.href).searchParams; }catch(_){ return new URLSearchParams(); } })();
+  const q = (k,d='') => (QS.get(k) ?? d);
+
+  const ROOM = String(q('room','')).trim();
+  const ROLE = String(q('role','guest')).toLowerCase();
+  const DIFF = String(q('diff','normal')).toLowerCase();
+  const VIEW = String(q('view','mobile')).toLowerCase();
+  const TIME = Number(q('time','90') || 90);
+  const SEED = String(q('seed','') || '');
+  const PID  = String(q('pid','anon') || 'anon').trim() || 'anon';
+  const NAME = String(q('name','') || '').trim() || (ROLE === 'host' ? 'Host' : 'Guest');
+  const PLAYER_KEY = String(q('playerKey','') || '').trim() || ('p' + Math.random().toString(36).slice(2,8).toUpperCase());
+  const HUB = String(q('hub','../hub.html') || '../hub.html');
+
+  const CVR_STRICT = (VIEW === 'cvr') && (String(q('cvrStrict','1')||'1') !== '0');
+
+  document.body.setAttribute('data-view', VIEW);
+  document.body.setAttribute('data-cvr-strict', CVR_STRICT ? '1' : '0');
+
+  const $ = (s)=>document.querySelector(s);
+
+  const roomPill = $('#roomPill');
+  const diffPill = $('#diffPill');
+  const viewPill = $('#viewPill');
+  const seedText = $('#seedText');
+  const statusText = $('#statusText');
+  const roomDot = $('#roomDot');
+
+  roomPill.textContent = ROOM || '—';
+  diffPill.textContent = DIFF;
+  viewPill.textContent = VIEW + (CVR_STRICT ? ' (strict)' : '');
+  seedText.textContent = String(SEED || '—').slice(0,18);
+
+  const hudTime = $('#hudTime');
+  const hudScore = $('#hudScore');
+  const hudCombo = $('#hudCombo');
+  const hudMiss = $('#hudMiss');
+  const hudRank = $('#hudRank');
+
+  const qTitle = $('#qTitle');
+  const qSub = $('#qSub');
+  const qBar = $('#qBar');
+  const qMini = $('#qMini');
+  const qMiniTime = $('#qMiniTime');
+
+  const groupName = $('#groupName');
+  const pBar = $('#pBar');
+  const pText = $('#pText');
+
+  const opName = $('#opName');
+  const opScore = $('#opScore');
+  const opCombo = $('#opCombo');
+  const opMiss = $('#opMiss');
+  const opAcc = $('#opAcc');
+  const leadPill = $('#leadPill');
+
+  const coachToast = $('#coachToast');
+  const toastFace = $('#toastFace');
+  const toastTxt = $('#toastTxt');
+  const toastSub = $('#toastSub');
+
+  const countdownOverlay = $('#countdownOverlay');
+  const cdNum = $('#cdNum');
+  const cdSub = $('#cdSub');
+  const cdHeaderSub = $('#cdHeaderSub');
+  const cdRoom = $('#cdRoom');
+
+  const resultOverlay = $('#resultOverlay');
+  const resultTitle = $('#resultTitle');
+  const resultSub = $('#resultSub');
+  const resultRoom = $('#resultRoom');
+  const myPretty = $('#myPretty');
+  const myJson = $('#myJson');
+  const vsBox = $('#vsBox');
+  const decisionJson = $('#decisionJson');
+
+  const stageFlash = $('#stageFlash');
+  const playLayer = $('#playLayer');
+
+  let race = null;
+  let lastLocalSummary = null;
+  let lastDecision = null;
+  let gameStarted = false;
+  let finishedPublished = false;
+  let countdownInt = null;
+  let toastTimer = null;
+  let startPollInt = null;
+
+  function emitLog(s){
+    try{ console.log('[GroupsRaceRun]', s); }catch(_){}
+  }
+
+  function faceFromMood(mood){
+    return (
+      mood === 'happy' ? '😄' :
+      mood === 'fever' ? '🔥' :
+      mood === 'sad'   ? '😵' :
+      mood === 'neutral' ? '🙂' : '🙂'
+    );
+  }
+
+  function showToast(text, mood){
+    if(toastTimer){ clearTimeout(toastTimer); toastTimer = null; }
+    toastTxt.textContent = text || '';
+    toastSub.textContent = mood ? String(mood) : 'coach';
+    toastFace.textContent = faceFromMood(mood);
+    coachToast.classList.add('show');
+    toastTimer = setTimeout(()=> coachToast.classList.remove('show'), 2600);
+  }
+
+  function pulseEl(el, cls='hudPulse', ms=320){
+    if(!el) return;
+    el.classList.remove(cls);
+    el.offsetHeight;
+    el.classList.add(cls);
+    setTimeout(()=> el.classList.remove(cls), ms);
+  }
+
+  function flashStage(kind){
+    if(!stageFlash) return;
+    stageFlash.className = '';
+    stageFlash.offsetHeight;
+    stageFlash.classList.add(kind || 'good');
+    stageFlash.style.opacity = '1';
+    setTimeout(()=>{ stageFlash.style.opacity = '0'; }, 120);
+  }
+
+  function setStatus(text, dotCls=''){
+    statusText.textContent = text || '—';
+    roomDot.className = 'dot ' + (dotCls || '');
+  }
+
+  function updateSpawnSafe(){
+    try{
+      const r = playLayer.getBoundingClientRect();
+      const pad = 14;
+
+      const topSafe =
+        (VIEW === 'pc') ? 118 :
+        (VIEW === 'cvr') ? 142 :
+        162;
+
+      const botSafe =
+        (VIEW === 'pc') ? 126 :
+        (VIEW === 'cvr') ? 220 :
+        188;
+
+      window.__HHA_SPAWN_SAFE__ = {
+        xMin: pad,
+        xMax: Math.max(pad + 1, r.width - pad),
+        yMin: topSafe,
+        yMax: Math.max(topSafe + 1, r.height - botSafe),
+      };
+    }catch(_){}
+  }
+  window.addEventListener('resize', updateSpawnSafe, { passive:true });
+
+  function lockPxForView(){
+    if(VIEW === 'pc') return 10;
+    if(VIEW === 'cvr') return 22;
+    return 16;
+  }
+
+  function installLockPxShim(){
+    window.addEventListener('hha:shoot', (ev)=>{
+      try{
+        if(!ev || !ev.detail) return;
+        if(ev.detail.lockPx != null) return;
+        const d = ev.detail;
+        ev.stopImmediatePropagation();
+        window.dispatchEvent(new CustomEvent('hha:shoot', {
+          detail: { ...d, lockPx: lockPxForView(), source: d.source || 'shim' }
+        }));
+      }catch(_){}
+    }, true);
+  }
+
+  function showOverlay(el){
+    el.style.display = 'flex';
+    el.setAttribute('aria-hidden', 'false');
+  }
+  function hideOverlay(el){
+    el.style.display = 'none';
+    el.setAttribute('aria-hidden', 'true');
+  }
+
+  function startCountdownUI(startAt){
+    clearInterval(countdownInt);
+    showOverlay(countdownOverlay);
+    cdRoom.textContent = ROOM || '—';
+    cdHeaderSub.textContent = 'กำลังเริ่มแข่งขัน';
+    const tick = ()=>{
+      const leftMs = Number(startAt || 0) - Date.now();
+      const s = Math.max(0, Math.ceil(leftMs / 1000));
+      cdNum.textContent = (s <= 0) ? 'GO!' : String(s);
+      cdSub.textContent = (s <= 0)
+        ? 'เริ่มแข่งแล้ว'
+        : 'เตรียมตัวให้พร้อม';
+    };
+    tick();
+    countdownInt = setInterval(tick, 200);
+  }
+
+  function stopCountdownUI(){
+    clearInterval(countdownInt);
+    countdownInt = null;
+    hideOverlay(countdownOverlay);
+  }
+
+  function buildCtx(runMode, timeSec, seedStr){
+    return {
+      runMode,
+      time: timeSec,
+      seed: seedStr,
+      view: VIEW,
+      classroom: false,
+      miniBoss: true,
+      bossSec: 12,
+      goalTotal: (DIFF==='easy') ? 10 : (DIFF==='hard') ? 14 : 12,
+      chargeNeed:(DIFF==='easy') ? 7 : (DIFF==='hard') ? 9 : 8,
+      battle: true,
+      roomId: ROOM,
+      playerKey: PLAYER_KEY
+    };
+  }
+
+  function startEngine(){
+    if(gameStarted) return;
+    updateSpawnSafe();
+
+    try{ window.GroupsVR?.GameEngine?.setLayerEl?.(playLayer); }catch(_){}
+    try{
+      window.GroupsVR.GameEngine.start(DIFF, buildCtx('play', TIME, SEED));
+      gameStarted = true;
+      finishedPublished = false;
+      showToast('เริ่มแล้ว! ยิงให้ถูก “หมู่” แล้วเก็บคอมโบ 🔥', 'neutral');
+    }catch(e){
+      console.error(e);
+      showToast('เริ่มเกมไม่สำเร็จ — เปิด Console ดู error', 'sad');
+    }
+  }
+
+  function stopEngine(){
+    try{ window.GroupsVR?.GameEngine?.stop?.(); }catch(_){}
+    gameStarted = false;
+  }
+
+  function goHub(){
+    try{ race?.leaveRoomSoft?.(); }catch(_){}
+    stopEngine();
+    location.href = HUB;
+  }
+
+  function normalizeDecisionPlayers(dec){
+    const a = dec?.a || null;
+    const b = dec?.b || null;
+    return { a, b };
+  }
+
+  function prettyCards(summary){
+    const cards = [
+      ['คะแนน', summary?.scoreFinal ?? summary?.score ?? '-'],
+      ['เกรด', summary?.grade ?? '-'],
+      ['ความแม่นยำ', (summary?.accuracyPct != null ? summary.accuracyPct + '%' : '-')],
+      ['Miss', summary?.miss ?? '-'],
+      ['ยิงทั้งหมด', summary?.shots ?? '-'],
+      ['ยิงถูก', summary?.hits ?? summary?.goodShots ?? '-'],
+      ['คอมโบสูงสุด', summary?.comboMax ?? '-'],
+      ['ด่านจบที่', summary?.stageEnded ?? '-'],
+    ];
+    return cards.map(([k,v]) => `
+      <div class="kvCard">
+        <div class="k">${k}</div>
+        <div class="v">${v}</div>
+      </div>
+    `).join('');
+  }
+
+  function showResult(decision){
+    lastDecision = decision || null;
+
+    const dec = decision || {};
+    const winnerKey = String(dec.winnerKey || '');
+    const draw = !!dec.isDraw;
+
+    if(draw){
+      resultTitle.textContent = 'DRAW 🤝';
+      resultSub.textContent = 'คะแนนและเงื่อนไขเสมอกัน';
+    }else if(winnerKey === PLAYER_KEY){
+      resultTitle.textContent = 'YOU WIN 🏆';
+      resultSub.textContent = `ชนะด้วย ${dec.tieReason ? ('tie-break: ' + dec.tieReason) : (dec.rule || 'score')}`;
+    }else{
+      resultTitle.textContent = 'YOU LOSE';
+      resultSub.textContent = `แพ้ด้วย ${dec.tieReason ? ('tie-break: ' + dec.tieReason) : (dec.rule || 'score')}`;
+    }
+
+    resultRoom.textContent = ROOM || '—';
+
+    myPretty.innerHTML = prettyCards(lastLocalSummary || {});
+    myJson.textContent = JSON.stringify(lastLocalSummary || {}, null, 2);
+    decisionJson.textContent = JSON.stringify(dec || {}, null, 2);
+
+    const { a, b } = normalizeDecisionPlayers(dec);
+    const list = [a, b].filter(Boolean);
+    vsBox.innerHTML = list.map(p=>{
+      const me = String(p.playerKey || '') === PLAYER_KEY;
+      const isWinner = !draw && String(dec.winnerKey || '') === String(p.playerKey || '');
+      return `
+        <div class="vsPlayer">
+          <div class="vsHead">
+            <div class="vsName">${me ? 'คุณ' : (p.name || p.playerKey || 'Opponent')}</div>
+            <div class="vsTag">${draw ? 'DRAW' : (isWinner ? 'WIN' : 'LOSE')}</div>
+          </div>
+          <div class="thaiGrid">
+            <div class="kvCard"><div class="k">SCORE</div><div class="v">${p.score ?? 0}</div></div>
+            <div class="kvCard"><div class="k">ACC</div><div class="v">${p.accuracyPct ?? 0}%</div></div>
+            <div class="kvCard"><div class="k">MISS</div><div class="v">${p.miss ?? 0}</div></div>
+            <div class="kvCard"><div class="k">COMBO MAX</div><div class="v">${p.comboMax ?? 0}</div></div>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    showOverlay(resultOverlay);
+  }
+
+  function updateLeadUI(){
+    if(!race) return;
+    const st = race.getLeadStatus ? race.getLeadStatus() : 'WAIT';
+    leadPill.textContent = st;
+    if(st === 'LEAD') leadPill.style.color = 'var(--good)';
+    else if(st === 'BEHIND') leadPill.style.color = 'var(--red)';
+    else if(st === 'CLOSE') leadPill.style.color = 'var(--amber)';
+    else leadPill.style.color = 'var(--muted)';
+  }
+
+  async function setupRace(){
+    if(!ROOM) throw new Error('missing room');
+    if(!window.GroupsRaceRTDB) throw new Error('GroupsRaceRTDB not loaded');
+
+    race = new window.GroupsRaceRTDB({
+      roomId: ROOM,
+      playerKey: PLAYER_KEY,
+      role: ROLE,
+      pid: PID,
+      name: NAME,
+      diff: DIFF,
+      timeSec: TIME,
+      seed: SEED,
+      view: VIEW
+    });
+
+    race.subscribe();
+
+    startPollInt = setInterval(async ()=>{
+      try{ await race.setPlayingIfCountdownReached(); }catch(_){}
+    }, 400);
+  }
+
+  function bindEvents(){
+    $('#btnBack').addEventListener('click', goHub);
+    $('#btnGoHub').addEventListener('click', goHub);
+    $('#btnCloseResult').addEventListener('click', ()=> hideOverlay(resultOverlay));
+    $('#btnAgain').addEventListener('click', ()=>{
+      hideOverlay(resultOverlay);
+      stopEngine();
+      location.href = HUB;
+    });
+
+    window.addEventListener('hha:coach', (ev)=>{
+      const d = ev?.detail || {};
+      if(d.text) showToast(d.text, d.mood || 'neutral');
+    });
+
+    window.addEventListener('hha:time', (ev)=>{
+      const left = ev?.detail?.left;
+      if(typeof left === 'number') hudTime.textContent = left + 's';
+    });
+
+    window.addEventListener('hha:score', async (ev)=>{
+      const d = ev?.detail || {};
+
+      if(d.score != null) hudScore.textContent = String(d.score|0);
+      if(d.combo != null){
+        const comboVal = Number(d.combo) || 0;
+        hudCombo.textContent = 'x' + String(comboVal|0);
+        if(comboVal >= 4) hudCombo.classList.add('comboHot');
+        else hudCombo.classList.remove('comboHot');
+      }
+      const m = (d.misses != null) ? d.misses : d.miss;
+      if(m != null) hudMiss.textContent = String(m|0);
+
+      pulseEl(hudScore);
+
+      if(race && gameStarted){
+        try{
+          await race.publishScore({
+            score: Number(d.score || 0),
+            combo: Number(d.combo || 0),
+            miss: Number(m || 0),
+            accuracyPct: Number(d.accPct != null ? d.accPct : (d.accuracyPct != null ? d.accuracyPct : 0)),
+            comboMax: Number(d.comboMax || 0),
+            timeLeft: Number(d.timeLeft != null ? d.timeLeft : (String(hudTime.textContent).replace('s','') || 0))
+          });
+        }catch(_){}
+      }
+    });
+
+    window.addEventListener('hha:rank', (ev)=>{
+      const d = ev?.detail || {};
+      if(d.grade){
+        const old = hudRank.textContent;
+        const next = String(d.grade);
+        hudRank.textContent = next;
+        if(old && old !== next) pulseEl(hudRank, 'rankFlash', 460);
+      }
+    });
+
+    window.addEventListener('quest:update', (ev)=>{
+      const d = ev?.detail || {};
+      if(d.goalTitle) qTitle.textContent = d.goalTitle;
+      const gNow = (d.goalNow!=null) ? d.goalNow : 0;
+      const gTot = (d.goalTotal!=null) ? d.goalTotal : 1;
+      qSub.textContent = `${gNow}/${gTot}`;
+      const pct = Math.round((gNow/Math.max(1,gTot))*100);
+      qBar.style.width = pct + '%';
+
+      if(d.miniTitle){
+        qMini.textContent = `${d.miniTitle} · ${d.miniNow||0}/${d.miniTotal||0}`;
+      }
+      if(d.miniTimeLeftSec != null && d.miniTimeLeftSec > 0){
+        qMiniTime.textContent = `⏳ ${d.miniTimeLeftSec}s`;
+      }else{
+        qMiniTime.textContent = '';
+      }
+      if(d.groupName) groupName.textContent = d.groupName;
+    });
+
+    window.addEventListener('groups:power', (ev)=>{
+      const d = ev?.detail || {};
+      const c = (d.charge!=null) ? d.charge : 0;
+      const t = (d.threshold!=null) ? d.threshold : 1;
+      const pct = Math.round((c/Math.max(1,t))*100);
+      pBar.style.width = pct + '%';
+      pText.textContent = `${c}/${t}`;
+    });
+
+    window.addEventListener('groups:hit', (ev)=>{
+      const d = ev?.detail || {};
+      const good = !!d.good;
+      const kind = String(d.kind || '');
+      pulseEl(hudScore);
+      if(good){
+        pulseEl(hudCombo);
+        flashStage(kind === 'boss_hit' ? 'boss' : 'good');
+      }else{
+        flashStage('bad');
+      }
+    });
+
+    window.addEventListener('hha:end', async (ev)=>{
+      const s = ev?.detail || {};
+      lastLocalSummary = s;
+
+      if(finishedPublished) return;
+      finishedPublished = true;
+
+      try{
+        await race.publishFinished({
+          playerKey: PLAYER_KEY,
+          pid: PID,
+          name: NAME,
+          score: Number(s.scoreFinal || 0),
+          combo: 0,
+          miss: Number(s.miss || 0),
+          accuracyPct: Number(s.accuracyPct || 0),
+          comboMax: Number(s.comboMax || 0),
+          timeLeft: 0,
+          finished: true,
+          finishAt: Date.now(),
+          summary: s
+        });
+      }catch(err){
+        console.error(err);
+      }
+
+      showToast('จบเกมแล้ว — รอผลตัดสิน 🏁', 'neutral');
+    });
+
+    window.addEventListener('groups:race_room', (ev)=>{
+      const room = ev?.detail?.room || {};
+      const status = String(room.status || 'lobby');
+
+      seedText.textContent = String(room.seed || SEED || '—').slice(0,18);
+
+      if(status === 'lobby'){
+        setStatus('WAIT', '');
+        showOverlay(countdownOverlay);
+        cdRoom.textContent = ROOM || '—';
+        cdHeaderSub.textContent = 'รอห้องเริ่ม';
+        cdNum.textContent = 'WAIT';
+        cdSub.textContent = 'รอผู้เล่นทั้งสองพร้อม';
+      }else if(status === 'countdown'){
+        setStatus('COUNTDOWN', 'amber');
+        startCountdownUI(room.startAt || 0);
+      }else if(status === 'playing'){
+        setStatus('PLAYING', 'good');
+        stopCountdownUI();
+        startEngine();
+      }else if(status === 'ended'){
+        setStatus('ENDED', 'red');
+        stopCountdownUI();
+      }
+    });
+
+    window.addEventListener('groups:race_players', (ev)=>{
+      const d = ev?.detail || {};
+      const op = d.opponent || null;
+
+      if(op){
+        opName.textContent = op.name || op.playerKey || 'Opponent';
+        opScore.textContent = String(op.score || 0);
+        opCombo.textContent = 'x' + String(op.combo || 0);
+        opMiss.textContent = String(op.miss || 0);
+        opAcc.textContent = String(op.accuracyPct || 0) + '%';
+      }else{
+        opName.textContent = 'Opponent';
+        opScore.textContent = '0';
+        opCombo.textContent = 'x0';
+        opMiss.textContent = '0';
+        opAcc.textContent = '0%';
+      }
+
+      updateLeadUI();
+    });
+
+    window.addEventListener('groups:race_end', (ev)=>{
+      const d = ev?.detail || {};
+      stopEngine();
+      showResult(d);
+    });
+  }
+
+  async function boot(){
+    if(!ROOM){
+      showToast('ไม่มี room id', 'sad');
+      cdNum.textContent = 'ERR';
+      cdSub.textContent = 'room id missing';
+      return;
+    }
+
+    if(!window.GroupsVR || !window.GroupsVR.GameEngine || typeof window.GroupsVR.GameEngine.start !== 'function'){
+      showToast('groups.safe.js โหลดไม่สำเร็จ', 'sad');
+      cdNum.textContent = 'ERR';
+      cdSub.textContent = 'groups.safe.js missing';
+      return;
+    }
+
+    if(!window.GroupsRaceRTDB){
+      showToast('groups-race-rtdb.js โหลดไม่สำเร็จ', 'sad');
+      cdNum.textContent = 'ERR';
+      cdSub.textContent = 'RTDB adapter missing';
+      return;
+    }
+
+    bindEvents();
+    installLockPxShim();
+    updateSpawnSafe();
+
+    showToast('เชื่อมต่อห้องแข่งขัน...', 'neutral');
+    cdRoom.textContent = ROOM || '—';
+
+    try{
+      await setupRace();
+      setStatus('CONNECT', '');
+    }catch(err){
+      console.error(err);
+      setStatus('ERROR', 'red');
+      cdNum.textContent = 'ERR';
+      cdSub.textContent = err?.message || 'connect failed';
+      showToast('เชื่อมต่อห้องไม่สำเร็จ', 'sad');
+      return;
+    }
+
+    if(VIEW === 'cvr'){
+      showToast('โหมด Cardboard (cVR) ยิงจาก crosshair 🎯', 'neutral');
+    }
+  }
+
+  boot();
+})();
+</script>
+</body>
+</html>
