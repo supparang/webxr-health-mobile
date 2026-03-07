@@ -1,6 +1,6 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
 // GoodJunkVR SAFE — PRODUCTION
-// PATCH v20260307-BATTLE-END-EXPLAIN-FULL
+// PATCH v20260307-GOODJUNK-SAFE-FULL-CLASSROOM
 'use strict';
 
 export async function boot(cfg){
@@ -20,6 +20,7 @@ export async function boot(cfg){
   let battle = null;
   let battleEndedInfo = null;
   let battlePlayersState = [];
+  let battleRematchState = { roundId:'', requestedBy:'', requestedAtMs:0, votes:{} };
   let oppDisconnectedWarned = false;
   let lastOppConnected = true;
 
@@ -85,7 +86,7 @@ export async function boot(cfg){
       'planSeq','planDay','planSlot','planMode','planSlots','planIndex','autoNext',
       'plannedGame','finalGame','zone','cdnext','grade',
       'battle','room','autostart','forfeit','mode',
-      'ai','pro','wait','debugStart'
+      'ai','pro','wait'
     ].forEach(k=>{
       const v = sp.get(k);
       if(v!=null && v!=='') gate.searchParams.set(k, v);
@@ -197,12 +198,28 @@ export async function boot(cfg){
   const endScore = $('endScore');
   const endMiss  = $('endMiss');
   const endTime  = $('endTime');
-  const endDecision = $('endDecision');
-  const endCompare  = $('endCompare');
 
   const uiView = $('uiView');
   const uiRun  = $('uiRun');
   const uiDiff = $('uiDiff');
+
+  const btnReplay  = $('btnReplay');
+  const btnRematch = $('btnRematch');
+  const btnBackHub = $('btnBackHub');
+
+  const endDecision = $('endDecision');
+  const endRematchStatus = $('endRematchStatus');
+
+  const cmpYouScore = $('cmpYouScore');
+  const cmpOppScore = $('cmpOppScore');
+  const cmpYouAcc = $('cmpYouAcc');
+  const cmpOppAcc = $('cmpOppAcc');
+  const cmpYouMiss = $('cmpYouMiss');
+  const cmpOppMiss = $('cmpOppMiss');
+  const cmpYouRt = $('cmpYouRt');
+  const cmpOppRt = $('cmpOppRt');
+  const cmpYouFinish = $('cmpYouFinish');
+  const cmpOppFinish = $('cmpOppFinish');
 
   if(!layer){
     console.warn('[GoodJunk] Missing #gj-layer');
@@ -264,34 +281,9 @@ export async function boot(cfg){
     }
   }
 
-  initBattleMaybe(pid, HH_GAME).then(async (b)=>{
+  initBattleMaybe(pid, HH_GAME).then((b)=>{
     battle = b || battle;
     WIN.__HHA_BATTLE__ = battle || null;
-
-    try{
-      if(battle && battle.enabled){
-        const role = typeof battle.getRole === 'function' ? battle.getRole() : 'player';
-
-        if(role === 'player'){
-          await battle.setReady?.(true);
-
-          try{
-            if(hud.aiHint) hud.aiHint.textContent = 'พร้อมแล้ว • รอผู้เล่น/เริ่มรอบ';
-            if(hud.aiRisk) hud.aiRisk.textContent = 'ready';
-          }catch(_){}
-
-          sayCoach('พร้อมแล้ว! กำลังรอเริ่มรอบ Battle…', true);
-        }else if(role === 'spectator'){
-          try{
-            if(hud.aiHint) hud.aiHint.textContent = 'spectator';
-            if(hud.aiRisk) hud.aiRisk.textContent = 'watch';
-          }catch(_){}
-          sayCoach('ห้องนี้เต็มหรือเริ่มไปแล้ว • เข้าชมแบบ spectator', true);
-        }
-      }
-    }catch(e){
-      console.warn('[GoodJunk] battle setReady failed', e);
-    }
   }).catch(()=>{
     WIN.__HHA_BATTLE__ = null;
   });
@@ -548,7 +540,7 @@ export async function boot(cfg){
   let lastTick = nowMs();
 
   let paused = false;
-  const WAIT_START = battleOn ? true : (String(qs('wait','0')) === '1');
+  const WAIT_START = (String(qs('wait','0')) === '1');
   if(WAIT_START) paused = true;
 
   WIN.__GJ_SET_PAUSED__ = function(on){
@@ -568,40 +560,6 @@ export async function boot(cfg){
       const phase = String(ev?.detail?.phase || '').toLowerCase();
       if(phase === 'running' && paused) WIN.__GJ_START_NOW__?.();
     }catch(e){}
-  });
-
-  WIN.addEventListener('hha:battle-countdown', (ev)=>{
-    try{
-      const leftMs = Number(ev?.detail?.leftMs || 0) || 0;
-      const sec = Math.max(0, Math.ceil(leftMs / 1000));
-      if(hud.aiHint) hud.aiHint.textContent = `เริ่มใน ${sec}s`;
-      if(hud.aiRisk) hud.aiRisk.textContent = 'countdown';
-
-      if(leftMs <= 0 && paused){
-        setTimeout(()=>{
-          try{ WIN.__GJ_START_NOW__?.(); }catch(_){}
-        }, 80);
-      }
-    }catch(_){}
-  });
-
-  WIN.addEventListener('hha:battle-state', (ev)=>{
-    try{
-      const phase = String(ev?.detail?.phase || '').toLowerCase();
-
-      if(phase === 'lobby'){
-        if(hud.aiHint) hud.aiHint.textContent = 'รอผู้เล่นพร้อม';
-        if(hud.aiRisk) hud.aiRisk.textContent = 'lobby';
-      }else if(phase === 'countdown'){
-        if(hud.aiRisk) hud.aiRisk.textContent = 'countdown';
-      }else if(phase === 'running'){
-        if(hud.aiHint) hud.aiHint.textContent = 'เริ่มแล้ว!';
-        if(hud.aiRisk) hud.aiRisk.textContent = 'running';
-      }else if(phase === 'ended'){
-        if(hud.aiHint) hud.aiHint.textContent = 'จบรอบ';
-        if(hud.aiRisk) hud.aiRisk.textContent = 'ended';
-      }
-    }catch(_){}
   });
 
   WIN.addEventListener('hha:battle-players', (ev)=>{
@@ -636,6 +594,13 @@ export async function boot(cfg){
       if(playing && !ended){
         sayCoach('Battle จบรอบแล้ว', true);
       }
+    }catch(_){}
+  });
+
+  WIN.addEventListener('hha:battle-rematch-state', (ev)=>{
+    try{
+      battleRematchState = ev?.detail || { roundId:'', requestedBy:'', requestedAtMs:0, votes:{} };
+      renderRematchEndStatus();
     }catch(_){}
   });
 
@@ -934,7 +899,6 @@ export async function boot(cfg){
       zone: String(qs('zone','nutrition') || 'nutrition'),
 
       missionSet,
-
       startTimeIso,
       endTimeIso: nowIso()
     };
@@ -957,7 +921,6 @@ export async function boot(cfg){
     detail.battleWinnerKey = winner;
     detail.battleReason = reason;
     detail.battleMeKey = meKey;
-    detail.battleResults = Array.isArray(battleEndedInfo.results) ? battleEndedInfo.results : [];
 
     if(!winner){
       detail.reason = `battle-tie:${reason}`;
@@ -973,38 +936,6 @@ export async function boot(cfg){
       detail.win = false;
     }
     return detail;
-  }
-
-  function buildBattleExplain(detail){
-    if(!battleOn) return { decision:'โหมดเดี่ยว', compare:'—' };
-
-    const rule = String(detail?.battleReason || '').toLowerCase();
-    const meKey = String(detail?.battleMeKey || '');
-    const rows = Array.isArray(detail?.battleResults) ? detail.battleResults : [];
-    const me = rows.find(r => String(r.key || '') === meKey) || null;
-    const opp = rows.find(r => String(r.key || '') !== meKey) || null;
-
-    let decision = 'ระบบตัดสินผลจาก Battle';
-    if(rule === 'score') decision = 'ตัดสินจากคะแนนรวม (Score มากกว่าชนะ)';
-    else if(rule === 'acc') decision = 'ตัดสินจากความแม่นยำ (Accuracy มากกว่าชนะ)';
-    else if(rule === 'miss') decision = 'ตัดสินจากจำนวนพลาด (Miss น้อยกว่าชนะ)';
-    else if(rule === 'medianrt') decision = 'ตัดสินจากความเร็วตอบสนอง (Median RT น้อยกว่าชนะ)';
-    else if(rule === 'forfeit') decision = 'ตัดสินจากการหลุด/ออกจากห้องของอีกฝ่าย';
-    else if(rule === 'debugsolo') decision = 'รอบทดสอบ debug คนเดียว';
-    else if(rule === 'tie') decision = 'ผลเสมอ';
-    else if(rule) decision = `ตัดสินจากกติกา: ${rule}`;
-
-    let compare = 'ไม่มีข้อมูลคู่แข่ง';
-    if(me && opp){
-      compare =
-        `คุณ ${Number(me.score||0)} คะแนน, acc ${Number(me.acc||0)}%, miss ${Number(me.miss||0)}, medianRT ${Number(me.medianRT||0)} ms • ` +
-        `คู่แข่ง ${Number(opp.score||0)} คะแนน, acc ${Number(opp.acc||0)}%, miss ${Number(opp.miss||0)}, medianRT ${Number(opp.medianRT||0)} ms`;
-    }else if(me){
-      compare =
-        `คุณ ${Number(me.score||0)} คะแนน, acc ${Number(me.acc||0)}%, miss ${Number(me.miss||0)}, medianRT ${Number(me.medianRT||0)} ms`;
-    }
-
-    return { decision, compare };
   }
 
   function buildCloudRoundReport(detail){
@@ -1060,6 +991,232 @@ export async function boot(cfg){
     };
   }
 
+  function fmtMs(v){
+    const n = Number(v || 0) || 0;
+    return n > 0 ? `${n} ms` : '—';
+  }
+
+  function setCmpCell(el, value, win=false){
+    if(!el) return;
+    el.textContent = value;
+    el.classList.toggle('cmp-win', !!win);
+  }
+
+  function compareForRule(rule, me, opp){
+    if(!me || !opp) return { you:false, opp:false };
+
+    if(rule === 'score'){
+      return {
+        you: Number(me.score||0) > Number(opp.score||0),
+        opp: Number(opp.score||0) > Number(me.score||0)
+      };
+    }
+    if(rule === 'acc'){
+      return {
+        you: Number(me.acc||0) > Number(opp.acc||0),
+        opp: Number(opp.acc||0) > Number(me.acc||0)
+      };
+    }
+    if(rule === 'miss'){
+      return {
+        you: Number(me.miss||0) < Number(opp.miss||0),
+        opp: Number(opp.miss||0) < Number(me.miss||0)
+      };
+    }
+    if(rule === 'medianRT'){
+      const my = Number(me.medianRT||0) || 0;
+      const op = Number(opp.medianRT||0) || 0;
+      if(my <= 0 && op <= 0) return { you:false, opp:false };
+      if(my > 0 && op <= 0) return { you:true, opp:false };
+      if(op > 0 && my <= 0) return { you:false, opp:true };
+      return { you: my < op, opp: op < my };
+    }
+    if(rule === 'finishMs'){
+      return {
+        you: Number(me.finishMs||0) < Number(opp.finishMs||0),
+        opp: Number(opp.finishMs||0) < Number(me.finishMs||0)
+      };
+    }
+    return { you:false, opp:false };
+  }
+
+  function getBattleCompareRows(){
+    if(!battleOn || !battle || !battle.enabled) return null;
+    const meKey = battle.meKey || '';
+    const rows = (battlePlayersState || []).map(p=>({
+      key: p.key,
+      nick: p.nick || p.pid || p.key,
+      score: Number(p.score||0) || 0,
+      acc: Number(p.acc||0) || 0,
+      miss: Number(p.miss||0) || 0,
+      medianRT: Number(p.medianRT||0) || 0,
+      finishMs: Number(p.finishMs||0) || 0
+    }));
+    const me = rows.find(r => r.key === meKey) || null;
+    const opp = rows.find(r => r.key !== meKey) || null;
+    return { me, opp };
+  }
+
+  function renderCompareTable(detail){
+    const pack = getBattleCompareRows();
+    if(!pack){
+      setCmpCell(cmpYouScore, '—');
+      setCmpCell(cmpOppScore, '—');
+      setCmpCell(cmpYouAcc, '—');
+      setCmpCell(cmpOppAcc, '—');
+      setCmpCell(cmpYouMiss, '—');
+      setCmpCell(cmpOppMiss, '—');
+      setCmpCell(cmpYouRt, '—');
+      setCmpCell(cmpOppRt, '—');
+      setCmpCell(cmpYouFinish, '—');
+      setCmpCell(cmpOppFinish, '—');
+      return;
+    }
+
+    const me = pack.me || {
+      nick: nick,
+      score: detail.scoreFinal,
+      acc: detail.accPct,
+      miss: detail.missTotal,
+      medianRT: detail.medianRtGoodMs,
+      finishMs: detail.finishMs
+    };
+    const opp = pack.opp || null;
+
+    const rule = String(detail?.battleReason || detail?.reason || '');
+    const winScore = compareForRule('score', me, opp);
+    const winAcc = compareForRule('acc', me, opp);
+    const winMiss = compareForRule('miss', me, opp);
+    const winRt = compareForRule('medianRT', me, opp);
+    const winFinish = compareForRule('finishMs', me, opp);
+
+    setCmpCell(cmpYouScore, String(Number(me.score||0)), winScore.you);
+    setCmpCell(cmpOppScore, opp ? String(Number(opp.score||0)) : '—', winScore.opp);
+
+    setCmpCell(cmpYouAcc, `${Number(me.acc||0)}%`, winAcc.you);
+    setCmpCell(cmpOppAcc, opp ? `${Number(opp.acc||0)}%` : '—', winAcc.opp);
+
+    setCmpCell(cmpYouMiss, String(Number(me.miss||0)), winMiss.you);
+    setCmpCell(cmpOppMiss, opp ? String(Number(opp.miss||0)) : '—', winMiss.opp);
+
+    setCmpCell(cmpYouRt, fmtMs(me.medianRT), winRt.you || rule==='medianRT' && winRt.you);
+    setCmpCell(cmpOppRt, opp ? fmtMs(opp.medianRT) : '—', winRt.opp || rule==='medianRT' && winRt.opp);
+
+    setCmpCell(cmpYouFinish, fmtMs(me.finishMs), winFinish.you);
+    setCmpCell(cmpOppFinish, opp ? fmtMs(opp.finishMs) : '—', winFinish.opp);
+  }
+
+  function renderDecision(detail){
+    if(!endDecision) return;
+
+    if(!battleOn || !battle || !battle.enabled){
+      endDecision.textContent = `โหมดเดี่ยว • เป้าหมาย score ${detail.scoreTarget} หรือชนะบอส`;
+      return;
+    }
+
+    const rule = String(detail?.battleReason || '').trim();
+    const winner = String(detail?.battleWinnerKey || '').trim();
+    const meKey = String(detail?.battleMeKey || battle?.meKey || '').trim();
+
+    if(!winner){
+      endDecision.textContent = `เสมอ • ลำดับตัดสิน: score → acc → miss → medianRT`;
+      return;
+    }
+
+    const who = winner === meKey ? 'YOU' : 'OPPONENT';
+    endDecision.textContent = `ผู้ชนะ: ${who} • rule=${rule || 'score'} • ลำดับตัดสิน: score → acc → miss → medianRT`;
+  }
+
+  function renderRematchEndStatus(){
+    if(!endRematchStatus) return;
+
+    if(!battleOn || !battle || !battle.enabled){
+      endRematchStatus.textContent = 'solo mode';
+      return;
+    }
+
+    const requestedBy = String(battleRematchState?.requestedBy || '');
+    const votes = battleRematchState?.votes || {};
+    const meKey = String(battle?.meKey || '');
+    const oppVote = Object.entries(votes).find(([k]) => k !== meKey)?.[1] || null;
+    const myVote = votes[meKey] || null;
+
+    if(!requestedBy){
+      endRematchStatus.textContent = 'ยังไม่มีคำขอ rematch';
+      return;
+    }
+
+    const bits = [];
+    bits.push(`requestedBy=${requestedBy === meKey ? 'you' : 'opponent'}`);
+    bits.push(`you=${myVote?.accepted ? 'accepted' : myVote?.declined ? 'declined' : 'pending'}`);
+    bits.push(`opponent=${oppVote?.accepted ? 'accepted' : oppVote?.declined ? 'declined' : 'pending'}`);
+    endRematchStatus.textContent = bits.join(' • ');
+  }
+
+  function renderEndOverlay(detail){
+    if(!endOverlay) return;
+    endOverlay.style.display = 'flex';
+
+    if(battleOn && battleEndedInfo && battle && battle.enabled){
+      const meKey = battle.meKey || '';
+      const winner = String(battleEndedInfo.winner || '');
+      const rule = String(battleEndedInfo.reason || 'battle');
+
+      if(!winner){
+        if(endTitle) endTitle.textContent = 'เสมอ Battle';
+        if(endSub) endSub.textContent = `tie • rule=${rule} • score ${detail.scoreFinal} • acc ${detail.accPct}% • miss ${detail.missTotal}`;
+      }else if(winner === meKey){
+        if(endTitle) endTitle.textContent = 'ชนะ Battle! ⚔️';
+        if(endSub) endSub.textContent = `winner=you • rule=${rule} • score ${detail.scoreFinal} • acc ${detail.accPct}% • miss ${detail.missTotal}`;
+      }else{
+        if(endTitle) endTitle.textContent = 'แพ้ Battle';
+        if(endSub) endSub.textContent = `winner=opponent • rule=${rule} • score ${detail.scoreFinal} • acc ${detail.accPct}% • miss ${detail.missTotal}`;
+      }
+    }else{
+      if(endTitle) endTitle.textContent = (detail.win) ? 'ชนะแล้ว! 🎉' : 'จบเกม';
+      if(endSub) endSub.textContent = `score ${detail.scoreFinal} • acc ${detail.accPct}% • miss ${detail.missTotal} • reason=${detail.reason}`;
+    }
+
+    if(endGrade) endGrade.textContent = detail.grade;
+    if(endScore) endScore.textContent = String(detail.scoreFinal);
+    if(endMiss) endMiss.textContent = String(detail.missTotal);
+    if(endTime) endTime.textContent = String(detail.timePlayedSec);
+
+    renderDecision(detail);
+    renderCompareTable(detail);
+    renderRematchEndStatus();
+    hhInjectCooldownButton({ endOverlayEl:endOverlay, hub:hubUrl, cat:HH_CAT, gameKey:HH_GAME, pid });
+  }
+
+  async function doRematch(){
+    if(!battleOn || !battle || !battle.enabled){
+      location.href = new URL(location.href).toString();
+      return;
+    }
+
+    try{
+      const current = battle.getRematchState?.() || battleRematchState || {};
+      const requestedBy = String(current.requestedBy || '');
+      const meKey = String(battle.meKey || '');
+
+      if(!requestedBy){
+        await battle.requestRematch?.();
+        sayCoach('ส่งคำขอ Rematch แล้ว', true);
+      }else if(requestedBy === meKey){
+        sayCoach('รออีกฝ่ายตอบรับ Rematch', true);
+      }else{
+        await battle.acceptRematch?.();
+        sayCoach('ตอบรับ Rematch แล้ว', true);
+      }
+      renderRematchEndStatus();
+    }catch(err){
+      console.warn('[GoodJunk] rematch failed', err);
+      sayCoach('Rematch ไม่สำเร็จ', true);
+    }
+  }
+
+  WIN.__GJ_REMATCH__ = doRematch;
+
   function endGame(reason){
     if(!playing || ended) return;
     ended = true;
@@ -1103,43 +1260,7 @@ export async function boot(cfg){
       WIN.dispatchEvent(new CustomEvent('hha:end', { detail }));
     }catch(e){}
 
-    if(endOverlay){
-      endOverlay.style.display = 'flex';
-
-      if(battleOn && battleEndedInfo && battle && battle.enabled){
-        const meKey = battle.meKey || '';
-        const winner = String(battleEndedInfo.winner || '');
-        const rule = String(battleEndedInfo.reason || 'battle');
-
-        if(!winner){
-          if(endTitle) endTitle.textContent = 'เสมอ Battle';
-          if(endSub) endSub.textContent = `tie • rule=${rule} • score ${detail.scoreFinal} • acc ${detail.accPct}% • miss ${detail.missTotal}`;
-        }else if(winner === meKey){
-          if(endTitle) endTitle.textContent = 'ชนะ Battle! ⚔️';
-          if(endSub) endSub.textContent = `winner=you • rule=${rule} • score ${detail.scoreFinal} • acc ${detail.accPct}% • miss ${detail.missTotal}`;
-        }else{
-          if(endTitle) endTitle.textContent = 'แพ้ Battle';
-          if(endSub) endSub.textContent = `winner=opponent • rule=${rule} • score ${detail.scoreFinal} • acc ${detail.accPct}% • miss ${detail.missTotal}`;
-        }
-
-        const exp = buildBattleExplain(detail);
-        if(endDecision) endDecision.textContent = exp.decision;
-        if(endCompare) endCompare.textContent = exp.compare;
-      }else{
-        if(endTitle) endTitle.textContent = (reason==='win') ? 'ชนะแล้ว! 🎉' : 'จบเกม';
-        if(endSub) endSub.textContent = `score ${detail.scoreFinal} • acc ${detail.accPct}% • miss ${detail.missTotal} • reason=${detail.reason}`;
-        if(endDecision) endDecision.textContent = 'โหมดเดี่ยว';
-        if(endCompare) endCompare.textContent = 'ไม่มีคู่แข่งในรอบนี้';
-      }
-
-      if(endGrade) endGrade.textContent = detail.grade;
-      if(endScore) endScore.textContent = String(detail.scoreFinal);
-      if(endMiss) endMiss.textContent = String(detail.missTotal);
-      if(endTime) endTime.textContent = String(detail.timePlayedSec);
-      hhInjectCooldownButton({ endOverlayEl:endOverlay, hub:hubUrl, cat:HH_CAT, gameKey:HH_GAME, pid });
-    }else{
-      alert(`จบเกม: ${detail.reason} (score ${detail.scoreFinal})`);
-    }
+    renderEndOverlay(detail);
   }
 
   function makeTarget(type, emoji, ttl){
@@ -1187,7 +1308,7 @@ export async function boot(cfg){
 
   function hitTarget(id){
     const t = targets.get(id);
-    if(!t || !playing || paused) return;
+    if(!t || !playing) return;
 
     const br = t.el.getBoundingClientRect();
     const x = br.left + br.width/2;
@@ -1313,7 +1434,7 @@ export async function boot(cfg){
   }
 
   function spawnOne(adaptive){
-    if(!playing || paused) return;
+    if(!playing) return;
 
     const missionKey = currentMissionKey();
     const ttlMul = adaptive.ttlMul || 1;
@@ -1362,7 +1483,7 @@ export async function boot(cfg){
   function dist2(ax,ay,bx,by){ const dx=ax-bx, dy=ay-by; return dx*dx+dy*dy; }
 
   function shootAtCenter(){
-    if(!playing || paused) return;
+    if(!playing) return;
     const r = layerRect();
     const cx = r.left + r.width/2;
     const cy = r.top  + r.height/2;
@@ -1468,15 +1589,25 @@ export async function boot(cfg){
     }
 
     syncBattleScore(false);
-
     emitFx();
     requestAnimationFrame(tick);
   }
 
+  if(btnReplay){
+    btnReplay.onclick = ()=> location.href = new URL(location.href).toString();
+  }
+  if(btnBackHub){
+    btnBackHub.onclick = ()=> location.href = hubUrl;
+  }
+  if(btnRematch){
+    btnRematch.onclick = ()=> doRematch();
+  }
+
   setMissionUI();
   setHUD();
+  renderRematchEndStatus();
 
-  if(WAIT_START) sayCoach('BATTLE: รอผู้เล่นพร้อม / countdown… ⏳', true);
+  if(WAIT_START) sayCoach('BATTLE/RACE: รอเริ่มพร้อมกัน… ⏳', true);
   else sayCoach('พร้อมแล้ว! ยิงของดี 🥦', true);
 
   requestAnimationFrame(tick);
