@@ -1,10 +1,10 @@
 /* === /herohealth/vr-brush/brush.css ===
 BrushVR — FULL RUN CSS (ABC + AI + QUIZ + SUMMARY)
-PATCH v20260306-BRUSH-CSS-FULL-STABLE
-✅ no-scroll / no-bounce while playing
-✅ fixed game layer height
-✅ HUD + Quiz + Summary styles
-✅ mobile / pc / cVR friendly
+PATCH v20260306-BRUSH-CSS-LAYOUT-FIX-B
+✅ แก้ action buttons ไม่ทับสนาม
+✅ แก้ HUD ล่างไม่ชน vr-ui
+✅ แก้ top ctx + toast ไม่ชนกัน
+✅ mobile layout แน่นขึ้น
 */
 
 :root{
@@ -31,6 +31,9 @@ PATCH v20260306-BRUSH-CSS-FULL-STABLE
   --sar: env(safe-area-inset-right, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
+
+  /* ✅ กัน HUD ชน vr-ui ล่าง */
+  --vrui-gap: 104px;
 }
 
 *{ box-sizing:border-box; }
@@ -76,14 +79,20 @@ a-scene{
   flex-direction:column;
 }
 
+/* ===================== Top ===================== */
 .br-top{
   display:flex;
-  gap:12px;
+  gap:10px;
   justify-content:space-between;
   align-items:flex-start;
   flex-wrap:wrap;
   padding: calc(14px + var(--sat)) calc(14px + var(--sar)) 8px calc(14px + var(--sal));
   flex:0 0 auto;
+}
+
+.br-brand{
+  min-width:0;
+  flex:1 1 320px;
 }
 
 .br-pill{
@@ -101,7 +110,7 @@ a-scene{
 
 .br-title{
   margin:8px 0 4px;
-  font-size: clamp(20px, 2.3vw, 24px);
+  font-size: clamp(18px, 2.2vw, 24px);
   letter-spacing:.2px;
 }
 
@@ -119,8 +128,9 @@ a-scene{
   backdrop-filter:blur(10px);
   -webkit-backdrop-filter:blur(10px);
   padding:10px 12px;
-  min-width:190px;
+  min-width:180px;
   box-shadow: var(--shadow);
+  flex:0 0 auto;
 }
 .br-ctxrow{
   display:flex;
@@ -136,24 +146,28 @@ a-scene{
   font-weight:1000;
 }
 
+/* ===================== Stage ===================== */
 .br-stage{
   position:relative;
   flex:1 1 auto;
   min-height:0;
-  padding: 6px calc(14px + var(--sar)) calc(12px + var(--sab)) calc(14px + var(--sal));
+  padding: 4px calc(14px + var(--sar)) calc(var(--vrui-gap) + var(--sab)) calc(14px + var(--sal));
   overflow:hidden;
 }
 
+/* ✅ ย้าย action buttons ให้อยู่ “เหนือสนาม” ไม่เข้าไปลอยกลางสนาม */
 .br-actions{
-  position:absolute;
-  left:50%;
-  transform:translateX(-50%);
-  top: 10px;
+  position:relative;
+  left:auto;
+  transform:none;
+  top:auto;
   display:flex;
   gap:8px;
   z-index:6;
   flex-wrap:wrap;
   justify-content:center;
+  width:min(980px,100%);
+  margin:0 auto 8px;
 }
 
 .br-btn{
@@ -184,12 +198,13 @@ a-scene{
   text-decoration:none;
 }
 
+/* ✅ ลดความสูงสนามให้สมดุลกับ HUD และ vr-ui */
 .br-layer{
   position:relative;
   width:min(980px, 100%);
   margin:0 auto;
-  height:min(520px, calc(100dvh - 305px));
-  min-height:320px;
+  height:min(460px, calc(100dvh - 390px));
+  min-height:300px;
   border:1px solid rgba(148,163,184,.16);
   border-radius:24px;
   background: rgba(2,6,23,.36);
@@ -199,6 +214,7 @@ a-scene{
   overscroll-behavior:none;
 }
 
+/* ===================== HUD ===================== */
 .br-hud{
   width:min(980px, 100%);
   margin:10px auto 0;
@@ -285,6 +301,7 @@ a-scene{
 .br-bar .fill.cyan{ background:rgba(34,211,238,.90); }
 .br-bar .fill.bad{ background:rgba(239,68,68,.90); }
 
+/* ===================== Overlays ===================== */
 .br-menu,
 .br-end,
 .br-quiz{
@@ -407,10 +424,12 @@ a-scene{
   word-break:break-word;
 }
 
+/* ✅ ย้าย toast ลงมาตรงกลางบนสนาม ไม่ชน title */
 .br-toast{
   position:fixed;
   left:50%;
-  bottom: max(16px, calc(var(--sab) + 8px));
+  top: calc(86px + var(--sat));
+  bottom:auto;
   transform:translateX(-50%);
   z-index:30;
   padding:10px 12px;
@@ -582,4 +601,78 @@ html[data-view="cvr"] .br-quiz{
   inset:0;
   z-index:8;
   pointer-events:none;
+}
+
+/* ===================== Mobile tighten ===================== */
+@media (max-width: 640px){
+  :root{ --vrui-gap: 116px; }
+
+  .br-top{
+    gap:8px;
+    padding: calc(12px + var(--sat)) 12px 8px 12px;
+  }
+
+  .br-title{
+    font-size: 16px;
+    line-height:1.25;
+  }
+
+  .br-sub{
+    font-size:12px;
+  }
+
+  .br-ctx{
+    width:100%;
+    min-width:0;
+    padding:8px 10px;
+  }
+
+  .br-stage{
+    padding: 4px 12px calc(var(--vrui-gap) + var(--sab)) 12px;
+  }
+
+  .br-actions{
+    margin:0 auto 6px;
+    gap:6px;
+  }
+
+  .br-btn{
+    padding:9px 11px;
+    font-size:12px;
+  }
+
+  .br-layer{
+    height:min(400px, calc(100dvh - 365px));
+    min-height:260px;
+    border-radius:20px;
+  }
+
+  .br-hud{
+    margin-top:8px;
+  }
+
+  .br-box,.br-mini{
+    padding:9px 10px;
+    border-radius:18px;
+  }
+
+  .br-toast{
+    top: calc(118px + var(--sat));
+    font-size:12px;
+    max-width:86vw;
+  }
+
+  .br-t{
+    width:72px;
+    height:72px;
+  }
+
+  .br-t.thick{
+    width:86px;
+    height:86px;
+  }
+
+  .br-t .emo{
+    font-size:24px;
+  }
 }
