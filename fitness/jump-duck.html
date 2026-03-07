@@ -1,8 +1,13 @@
 <!-- === /fitness/jump-duck.html ===
 Jump-Duck — VR Fitness Academy (HHA Standard)
-✅ CSS: /fitness/css/jump-duck.css   (v20260304-JD-ABCDEF)
-✅ JS : /fitness/js/jump-duck.js    (v20260304-JD-ABCDEF)
-✅ Optional VR UI: ../herohealth/vr/vr-ui.js (auto if WebXR exists)
+PATCH v20260307-JD-HUB-BACK-END-RETRY
+✅ CSS: /fitness/css/jump-duck.css
+✅ JS : /fitness/js/jump-duck.js
+✅ Back HUB from menu/play/result via ?hub=
+✅ Play Again keeps same page/query
+✅ Back-menu from result returns to menu safely
+✅ Reads diff/time/run/view/pid/seed/hub from query
+✅ Syncs menu selects from query
 -->
 <!doctype html>
 <html lang="th">
@@ -77,11 +82,11 @@ Jump-Duck — VR Fitness Academy (HHA Standard)
               </div>
 
               <div class="jd-btn-row">
-                <button class="jd-btn jd-btn-primary" data-action="start">▶ เริ่มเล่น Jump-Duck</button>
+                <button class="jd-btn jd-btn-primary" data-action="start" id="jd-btn-start">▶ เริ่มเล่น Jump-Duck</button>
               </div>
 
               <div class="jd-btn-row">
-                <button class="jd-btn jd-btn-sub" data-action="tutorial">❓ ทดลองเล่น (Tutorial) — ซ้อม 15 วินาที</button>
+                <button class="jd-btn jd-btn-sub" data-action="tutorial" id="jd-btn-tutorial">❓ ทดลองเล่น (Tutorial) — ซ้อม 15 วินาที</button>
               </div>
 
               <div class="jd-btn-row jd-btn-row-secondary">
@@ -138,7 +143,6 @@ Jump-Duck — VR Fitness Academy (HHA Standard)
             </div>
           </div>
 
-          <!-- Progress / Fever -->
           <div class="jd-bars">
             <div class="jd-bar">
               <div class="jd-bar-label">Progress</div>
@@ -153,7 +157,6 @@ Jump-Duck — VR Fitness Academy (HHA Standard)
             </div>
           </div>
 
-          <!-- Boss HP bar -->
           <div id="boss-bar-wrap" class="jd-bossbar jd-hidden">
             <div class="jd-bossbar-head">
               <span class="jd-bossbar-title">BOSS</span>
@@ -164,7 +167,6 @@ Jump-Duck — VR Fitness Academy (HHA Standard)
             </div>
           </div>
 
-          <!-- HUD -->
           <div class="jd-hud">
             <div class="jd-hud-col">
               <div class="jd-hud-row"><span class="jd-tag">Mode</span><span class="jd-hud-chip"><strong id="hud-mode">Training</strong></span></div>
@@ -184,17 +186,14 @@ Jump-Duck — VR Fitness Academy (HHA Standard)
             </div>
           </div>
 
-          <!-- Playfield -->
           <div id="jd-play-area" class="jd-play-area">
             <div class="jd-track"><div class="jd-ground"></div></div>
             <div class="jd-hit-line"></div>
 
-            <!-- Telegraph overlay (ไม่ทับปุ่ม/ไม่บังแตะ) -->
             <div id="jd-tele" class="jd-tele jd-hidden" aria-hidden="true">
               <div class="jd-tele-inner">⚡ TEMPO SHIFT</div>
             </div>
 
-            <!-- Tap guide overlay (ไม่บังการแตะ) -->
             <div class="jd-tap-hints" aria-hidden="true">
               <div class="jd-tap-hint jd-top">
                 <div class="jd-tap-ico">⬆</div>
@@ -218,14 +217,13 @@ Jump-Duck — VR Fitness Academy (HHA Standard)
             แตะครึ่งบน = Jump · แตะครึ่งล่าง = Duck · ⬆/⬇ หรือ W/S ก็ได้
           </div>
 
-          <!-- Mobile/cVR quick buttons (สำรอง) -->
           <div class="jd-actionbar">
             <button class="jd-btn jd-btn-action jd-jump" data-action="jump">⬆ JUMP</button>
             <button class="jd-btn jd-btn-action jd-duck" data-action="duck">⬇ DUCK</button>
           </div>
 
           <div class="jd-btn-row jd-btn-row-secondary">
-            <button class="jd-btn jd-btn-primary" data-action="stop-early">⏹ หยุดก่อนเวลา</button>
+            <button class="jd-btn jd-btn-primary" data-action="stop-early" id="jd-btn-stop-early">⏹ หยุดก่อนเวลา</button>
             <a id="jd-back-hub-play" href="hub.html" class="jd-btn jd-btn-sub">⬅ กลับ Hub</a>
           </div>
         </div>
@@ -262,10 +260,10 @@ Jump-Duck — VR Fitness Academy (HHA Standard)
           </p>
 
           <div class="jd-btn-row">
-            <button class="jd-btn jd-btn-primary" data-action="play-again">🔁 เล่นอีกครั้ง</button>
+            <button class="jd-btn jd-btn-primary" data-action="play-again" id="jd-btn-play-again">🔁 เล่นอีกครั้ง</button>
           </div>
           <div class="jd-btn-row jd-btn-row-secondary">
-            <button class="jd-btn jd-btn-sub" data-action="back-menu">🏠 กลับเมนู Jump-Duck</button>
+            <button class="jd-btn jd-btn-sub" data-action="back-menu" id="jd-btn-back-menu-result">🏠 กลับเมนู Jump-Duck</button>
             <a id="jd-back-hub-result" href="hub.html" class="jd-btn jd-btn-sub">⬅ กลับ Hub</a>
           </div>
         </div>
@@ -274,7 +272,6 @@ Jump-Duck — VR Fitness Academy (HHA Standard)
     </div>
   </div>
 
-  <!-- SFX -->
   <audio id="jd-sfx-hit"   src="audio/jd-hit.mp3"   preload="auto"></audio>
   <audio id="jd-sfx-miss"  src="audio/jd-miss.mp3"  preload="auto"></audio>
   <audio id="jd-sfx-combo" src="audio/jd-combo.mp3" preload="auto"></audio>
@@ -283,5 +280,139 @@ Jump-Duck — VR Fitness Academy (HHA Standard)
   <audio id="jd-sfx-fever" src="audio/jd-fever.mp3" preload="auto"></audio>
 
   <script src="js/jump-duck.js"></script>
+
+  <script>
+    function qs(k, d=''){
+      try{ return (new URL(location.href)).searchParams.get(k) ?? d; }
+      catch(_){ return d; }
+    }
+
+    function currentHubFallback(){
+      const hub = String(qs('hub','')).trim();
+      return hub || '../herohealth/hub.html';
+    }
+
+    function goHub(){
+      location.href = currentHubFallback();
+    }
+
+    function replaySamePage(extra = {}){
+      const u = new URL(location.href);
+      Object.entries(extra || {}).forEach(([k,v])=>{
+        if(v === null || v === undefined || v === '') u.searchParams.delete(k);
+        else u.searchParams.set(k, String(v));
+      });
+      location.href = u.toString();
+    }
+
+    function showView(id){
+      document.querySelectorAll('.jd-view').forEach(v=>v.classList.add('jd-hidden'));
+      const el = document.getElementById(id);
+      if(el) el.classList.remove('jd-hidden');
+    }
+
+    function wireHubLink(id){
+      const a = document.getElementById(id);
+      if(!a) return;
+      a.href = currentHubFallback();
+      a.addEventListener('click', function(e){
+        e.preventDefault();
+        goHub();
+      }, {passive:false});
+    }
+
+    (function(){
+      const run = String(qs('run','play')).trim() || 'play';
+      const diff = String(qs('diff','normal')).trim() || 'normal';
+      const duration = String(qs('duration', qs('time','60'))).trim() || '60';
+      const mode = String(qs('mode','training')).trim() || 'training';
+
+      const elMode = document.getElementById('jd-mode');
+      const elDiff = document.getElementById('jd-diff');
+      const elDuration = document.getElementById('jd-duration');
+
+      if(elMode){
+        const ok = Array.from(elMode.options).some(o => o.value === mode);
+        elMode.value = ok ? mode : 'training';
+      }
+
+      if(elDiff){
+        const ok = Array.from(elDiff.options).some(o => o.value === diff);
+        elDiff.value = ok ? diff : 'normal';
+      }
+
+      if(elDuration){
+        const ok = Array.from(elDuration.options).some(o => o.value === duration);
+        elDuration.value = ok ? duration : '60';
+      }
+
+      const hudMode = document.getElementById('hud-mode');
+      const hudDiff = document.getElementById('hud-diff');
+      const hudDuration = document.getElementById('hud-duration');
+
+      if(hudMode) hudMode.textContent = (elMode?.value || mode || run);
+      if(hudDiff) hudDiff.textContent = (elDiff?.value || diff);
+      if(hudDuration) hudDuration.textContent = `${elDuration?.value || duration}s`;
+
+      const resMode = document.getElementById('res-mode');
+      const resDiff = document.getElementById('res-diff');
+      const resDuration = document.getElementById('res-duration');
+
+      if(resMode) resMode.textContent = (elMode?.value || mode || run);
+      if(resDiff) resDiff.textContent = (elDiff?.value || diff);
+      if(resDuration) resDuration.textContent = `${elDuration?.value || duration}s`;
+
+      wireHubLink('jd-back-hub-menu');
+      wireHubLink('jd-back-hub-play');
+      wireHubLink('jd-back-hub-result');
+
+      const btnPlayAgain = document.getElementById('jd-btn-play-again');
+      btnPlayAgain?.addEventListener('click', function(e){
+        e.preventDefault();
+        replaySamePage();
+      }, {passive:false});
+
+      const btnBackMenuResult = document.getElementById('jd-btn-back-menu-result');
+      btnBackMenuResult?.addEventListener('click', function(e){
+        e.preventDefault();
+        showView('view-menu');
+      }, {passive:false});
+
+      const observer = new MutationObserver(function(){
+        const resultView = document.getElementById('view-result');
+        if(!resultView) return;
+        const isHidden = resultView.classList.contains('jd-hidden');
+        if(!isHidden){
+          if(resMode) resMode.textContent = (elMode?.value || mode || run);
+          if(resDiff) resDiff.textContent = (elDiff?.value || diff);
+          if(resDuration) resDuration.textContent = `${elDuration?.value || duration}s`;
+        }
+      });
+
+      ['view-menu','view-play','view-result'].forEach(id=>{
+        const el = document.getElementById(id);
+        if(el) observer.observe(el, { attributes:true, attributeFilter:['class','hidden'] });
+      });
+
+      const researchBlock = document.getElementById('jd-research-block');
+      function syncResearchBlock(){
+        if(!researchBlock || !elMode) return;
+        if(elMode.value === 'research') researchBlock.classList.remove('jd-hidden');
+        else researchBlock.classList.add('jd-hidden');
+      }
+      elMode?.addEventListener('change', syncResearchBlock);
+      syncResearchBlock();
+
+      const btnStopEarly = document.getElementById('jd-btn-stop-early');
+      btnStopEarly?.addEventListener('click', function(){
+        setTimeout(function(){
+          const resultView = document.getElementById('view-result');
+          if(resultView && resultView.classList.contains('jd-hidden')){
+            showView('view-result');
+          }
+        }, 120);
+      }, {passive:false});
+    })();
+  </script>
 </body>
 </html>
