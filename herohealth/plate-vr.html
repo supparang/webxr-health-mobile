@@ -1,6 +1,6 @@
 <!-- === /herohealth/plate-vr.html ===
 PlateVR — LAUNCHER -> /herohealth/plate/plate-vr.html
-FULL v20260307-LAUNCHER-PLATEVR-CANONICAL
+FULL v20260307-LAUNCHER-PLATE-SOLO-COOP
 -->
 <!doctype html>
 <html lang="th">
@@ -11,37 +11,199 @@ FULL v20260307-LAUNCHER-PLATEVR-CANONICAL
   <meta name="color-scheme" content="dark light" />
   <link rel="icon" href="./favicon.ico" />
   <style>
-    body{
-      margin:0;min-height:100vh;display:grid;place-items:center;
-      background:#020617;color:#e5e7eb;
+    :root{
+      --bg1:#020617; --bg2:#0b1226;
+      --stroke:rgba(148,163,184,.18);
+      --text:rgba(229,231,235,.96);
+      --muted:rgba(148,163,184,.92);
+      --blue:#3b82f6; --violet:#a78bfa; --good:#22c55e;
+    }
+    *{box-sizing:border-box}
+    html,body{
+      margin:0; min-height:100%;
+      background:
+        radial-gradient(1200px 700px at 20% 0%, rgba(59,130,246,.16), transparent 60%),
+        radial-gradient(900px 700px at 90% 20%, rgba(167,139,250,.12), transparent 60%),
+        linear-gradient(180deg, var(--bg1), var(--bg2));
+      color:var(--text);
       font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif;
     }
+    body{display:grid;place-items:center;padding:16px}
     .card{
-      width:min(720px,92vw);
+      width:min(860px,96vw);
+      border:1px solid var(--stroke);
+      border-radius:22px;
+      background:rgba(2,6,23,.72);
+      box-shadow:0 22px 80px rgba(0,0,0,.35);
+      padding:16px;
+    }
+    .title{
+      font-size:22px;
+      font-weight:1000;
+      display:flex;
+      align-items:center;
+      gap:10px;
+    }
+    .sub{
+      margin-top:8px;
+      color:var(--muted);
+      font-size:13px;
+      font-weight:900;
+      line-height:1.5;
+    }
+    .grid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:12px;
+      margin-top:14px;
+    }
+    @media (max-width:780px){
+      .grid{grid-template-columns:1fr}
+    }
+    .modeCard{
       border:1px solid rgba(148,163,184,.18);
       border-radius:18px;
-      background:rgba(2,6,23,.72);
+      background:rgba(15,23,42,.48);
       padding:14px;
-      box-shadow:0 18px 60px rgba(0,0,0,.35)
+      box-shadow:0 18px 55px rgba(0,0,0,.22);
+      display:flex;
+      flex-direction:column;
+      gap:10px;
     }
-    .row{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+    .modeCard h3{
+      margin:0;
+      font-size:18px;
+      font-weight:1000;
+      display:flex;
+      align-items:center;
+      gap:8px;
+    }
+    .mut{
+      color:var(--muted);
+      font-size:12.5px;
+      font-weight:900;
+      line-height:1.45;
+    }
+    .chips{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+    .pill{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      padding:7px 10px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(2,6,23,.46);
+      color:var(--muted);
+      font-size:12px;
+      font-weight:1000;
+    }
+    .pill b{color:var(--text)}
+    .row{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-top:14px;
+      align-items:center;
+    }
     .btn{
-      cursor:pointer;border-radius:14px;border:1px solid rgba(148,163,184,.18);
-      background:rgba(148,163,184,.10);color:#e5e7eb;padding:10px 12px;font-weight:1000
+      cursor:pointer;
+      border-radius:14px;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(148,163,184,.10);
+      color:var(--text);
+      padding:10px 12px;
+      font-weight:1000;
+      min-height:44px;
     }
-    .btn.primary{border-color:rgba(34,197,94,.30);background:rgba(34,197,94,.14)}
-    .mut{color:#94a3b8;font-weight:900;font-size:12.5px;line-height:1.35}
-    code{background:rgba(148,163,184,.10);padding:2px 6px;border-radius:8px}
+    .btn.primary{
+      border-color:rgba(59,130,246,.30);
+      background:rgba(59,130,246,.16);
+    }
+    .btn.violet{
+      border-color:rgba(167,139,250,.30);
+      background:rgba(167,139,250,.16);
+    }
+    .btn.good{
+      border-color:rgba(34,197,94,.30);
+      background:rgba(34,197,94,.16);
+    }
+    .toolbar{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      justify-content:space-between;
+      align-items:center;
+      margin-top:14px;
+    }
+    code{
+      background:rgba(148,163,184,.10);
+      padding:2px 6px;
+      border-radius:8px;
+    }
+    .info{
+      margin-top:14px;
+      color:var(--muted);
+      font-size:12px;
+      font-weight:900;
+      line-height:1.5;
+      word-break:break-word;
+    }
   </style>
 </head>
 <body>
   <div class="card">
-    <div style="font-weight:1000;font-size:16px;">🍽️ PlateVR</div>
-    <div class="mut" id="info">กำลังพาไปหน้าเล่น…</div>
-    <div class="row">
-      <button class="btn primary" id="go">▶ เข้าเล่น</button>
+    <div class="title">🍽️ PlateVR Launcher</div>
+    <div class="sub">
+      เลือกเข้าเล่นแบบ <b>Solo</b> หรือ <b>Coop Lite</b><br>
+      Coop Lite = ผู้เล่น 2 คนช่วยกันเติมจานเดียวกันแบบสลับเทิร์น
+    </div>
+
+    <div class="grid">
+      <section class="modeCard">
+        <h3>🎯 Solo Mode</h3>
+        <div class="mut">
+          เล่นเดี่ยวตาม flow ปกติ: Warm → Trick → Boss<br>
+          เหมาะกับฝึกทักษะรายบุคคลและเก็บ best score
+        </div>
+        <div class="chips">
+          <span class="pill"><b>Mode</b>: solo</span>
+          <span class="pill"><b>Mission</b>: เดี่ยว</span>
+          <span class="pill"><b>Summary</b>: รายคน</span>
+        </div>
+        <div class="row">
+          <button class="btn primary" id="goSolo">▶ เข้า Solo</button>
+          <button class="btn" id="goSoloPro">🔥 Solo PRO</button>
+        </div>
+      </section>
+
+      <section class="modeCard">
+        <h3>🤝 Coop Lite</h3>
+        <div class="mut">
+          ผู้เล่น A/B ช่วยกันเติมจานเดียวกันแบบสลับเทิร์น<br>
+          เหมาะกับ classroom และการร่วมมือกันทำภารกิจ
+        </div>
+        <div class="chips">
+          <span class="pill"><b>Mode</b>: coop</span>
+          <span class="pill"><b>Players</b>: 2</span>
+          <span class="pill"><b>Summary</b>: ทีม + รายคน</span>
+        </div>
+        <div class="row">
+          <button class="btn good" id="goCoop">🤝 เข้า Coop</button>
+          <button class="btn violet" id="goCoopPro">⚡ Coop PRO</button>
+        </div>
+      </section>
+    </div>
+
+    <div class="toolbar">
+      <div class="mut">RUN page: <code>/herohealth/plate/plate-vr.html</code></div>
       <button class="btn" id="back">🏠 กลับ HUB</button>
     </div>
+
+    <div class="info" id="info">กำลังเตรียมลิงก์…</div>
   </div>
 
 <script>
@@ -68,36 +230,60 @@ FULL v20260307-LAUNCHER-PLATEVR-CANONICAL
   }
 
   const hub = normalizeHub(sp.get('hub'));
-  const run = new URL('./plate/plate-vr.html', location.href);
 
-  [
-    'hub','run','diff','time','seed','pid','view','log','api','ai','debug',
-    'studyId','phase','conditionGroup',
-    'cooldown','cd','cdnext',
-    'planSeq','planDay','planSlot','planMode','planSlots','planIndex','autoNext',
-    'wType','wPct','rank','wCrit','wDmg','wHeal','calm',
-    'practice','cvrStrict','pro'
-  ].forEach(k=>{
-    const v = sp.get(k);
-    if(v != null && v !== '') run.searchParams.set(k, v);
-  });
+  function buildRunUrl(mode, extra){
+    const run = new URL('./plate/plate-vr.html', location.href);
 
-  if(!run.searchParams.get('view')) run.searchParams.set('view', 'mobile');
-  if(!run.searchParams.get('run'))  run.searchParams.set('run', 'play');
-  if(!run.searchParams.get('diff')) run.searchParams.set('diff', 'normal');
-  if(!run.searchParams.get('time')) run.searchParams.set('time', '90');
-  if(!run.searchParams.get('seed')) run.searchParams.set('seed', String((Date.now() ^ (Math.random()*1e9))|0));
-  if(!run.searchParams.get('hub'))  run.searchParams.set('hub', hub);
+    [
+      'hub','run','diff','time','seed','pid','view','log','api','ai','debug',
+      'studyId','phase','conditionGroup',
+      'cooldown','cd','cdnext',
+      'planSeq','planDay','planSlot','planMode','planSlots','planIndex','autoNext',
+      'wType','wPct','rank','wCrit','wDmg','wHeal','calm',
+      'practice','cvrStrict','pro'
+    ].forEach(k=>{
+      const v = sp.get(k);
+      if(v != null && v !== '') run.searchParams.set(k, v);
+    });
+
+    if(!run.searchParams.get('view')) run.searchParams.set('view', 'mobile');
+    if(!run.searchParams.get('run'))  run.searchParams.set('run', 'play');
+    if(!run.searchParams.get('diff')) run.searchParams.set('diff', 'normal');
+    if(!run.searchParams.get('time')) run.searchParams.set('time', '90');
+    if(!run.searchParams.get('seed')) run.searchParams.set('seed', String((Date.now() ^ (Math.random()*1e9))|0));
+    if(!run.searchParams.get('hub'))  run.searchParams.set('hub', hub);
+
+    run.searchParams.set('mode', mode);
+
+    if(extra && typeof extra === 'object'){
+      Object.keys(extra).forEach(k=>{
+        const v = extra[k];
+        if(v == null || v === '') run.searchParams.delete(k);
+        else run.searchParams.set(k, String(v));
+      });
+    }
+
+    return run;
+  }
+
+  const soloUrl = buildRunUrl('solo');
+  const soloProUrl = buildRunUrl('solo', { diff:'hard', pro:'1' });
+  const coopUrl = buildRunUrl('coop');
+  const coopProUrl = buildRunUrl('coop', { diff:'hard', pro:'1' });
+
+  document.getElementById('goSolo').onclick = ()=> location.href = soloUrl.toString();
+  document.getElementById('goSoloPro').onclick = ()=> location.href = soloProUrl.toString();
+  document.getElementById('goCoop').onclick = ()=> location.href = coopUrl.toString();
+  document.getElementById('goCoopPro').onclick = ()=> location.href = coopProUrl.toString();
+  document.getElementById('back').onclick = ()=> location.href = hub;
 
   const info = document.getElementById('info');
   if(info){
-    info.innerHTML = `RUN: <code>${run.pathname}</code><br>hub: <code>${hub}</code>`;
+    info.innerHTML =
+      `SOLO: <code>${soloUrl.pathname}?mode=solo</code><br>` +
+      `COOP: <code>${coopUrl.pathname}?mode=coop</code><br>` +
+      `hub: <code>${hub}</code>`;
   }
-
-  document.getElementById('go').onclick = ()=> location.href = run.toString();
-  document.getElementById('back').onclick = ()=> location.href = hub;
-
-  setTimeout(()=> location.href = run.toString(), 60);
 })();
 </script>
 </body>
