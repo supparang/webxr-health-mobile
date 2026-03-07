@@ -1,0 +1,847 @@
+<!-- === /herohealth/groups-race.html ===
+Groups Race — Launcher / Lobby
+FULL v20260307b-GROUPS-RACE-LAUNCHER
+✅ Create room / Join room
+✅ Ready / Start countdown
+✅ Shared seed / diff / time / view
+✅ Auto jump to run page when countdown/playing
+Requires:
+- Firebase already initialized on page (window.firebase)
+- ./vr-groups/groups-race-score.js
+- ./vr-groups/groups-race-rtdb.js
+-->
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <title>HeroHealth — Groups Race</title>
+  <meta name="color-scheme" content="dark light"/>
+  <link rel="icon" href="./favicon.ico"/>
+  <style>
+    :root{
+      --bg:#040610;
+      --panel: rgba(2,6,23,.72);
+      --panel2: rgba(15,23,42,.52);
+      --stroke: rgba(148,163,184,.18);
+      --text:#e5e7eb;
+      --muted:#94a3b8;
+      --good:#22c55e;
+      --cyan:#22d3ee;
+      --amber:#f59e0b;
+      --red:#ef4444;
+      --violet:#a78bfa;
+      --radius:22px;
+      --sat: env(safe-area-inset-top, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sar: env(safe-area-inset-right, 0px);
+      --sal: env(safe-area-inset-left, 0px);
+    }
+    *{ box-sizing:border-box; }
+    html,body{
+      height:100%; margin:0; color:var(--text);
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif;
+      background:
+        radial-gradient(1100px 700px at 16% 0%, rgba(34,211,238,.12), transparent 55%),
+        radial-gradient(900px 650px at 88% 12%, rgba(167,139,250,.12), transparent 55%),
+        radial-gradient(800px 650px at 50% 100%, rgba(245,158,11,.08), transparent 58%),
+        linear-gradient(180deg, #0b1026, var(--bg));
+    }
+
+    .wrap{
+      min-height:100%;
+      padding: calc(12px + var(--sat)) calc(12px + var(--sar)) calc(14px + var(--sab)) calc(12px + var(--sal));
+      display:flex; align-items:center; justify-content:center;
+    }
+    .shell{
+      width:min(1080px, 100%);
+      border:1px solid var(--stroke);
+      border-radius:28px;
+      overflow:hidden;
+      background:linear-gradient(180deg, rgba(2,6,23,.88), rgba(2,6,23,.68));
+      box-shadow:0 22px 80px rgba(0,0,0,.42);
+    }
+
+    .topbar{
+      padding:12px 14px;
+      border-bottom:1px solid var(--stroke);
+      background:rgba(2,6,23,.46);
+      display:flex; gap:10px; align-items:center; justify-content:space-between; flex-wrap:wrap;
+    }
+    .brand{ display:flex; gap:10px; align-items:center; }
+    .logo{
+      width:42px; height:42px; border-radius:14px;
+      border:1px solid var(--stroke);
+      display:grid; place-items:center;
+      background:linear-gradient(135deg, rgba(34,211,238,.20), rgba(167,139,250,.16));
+      font-weight:1100;
+    }
+    .title b{ font-size:16px; letter-spacing:.2px; }
+    .title .sub{ color:var(--muted); font-size:12px; font-weight:900; margin-top:2px; }
+
+    .chips{ display:flex; gap:8px; flex-wrap:wrap; }
+    .chip{
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(2,6,23,.34);
+      border-radius:999px;
+      padding:6px 10px;
+      font-size:11px;
+      font-weight:1000;
+      color:var(--muted);
+      white-space:nowrap;
+    }
+    .chip b{ color:var(--text); }
+
+    .main{
+      display:grid;
+      grid-template-columns: 1.05fr .95fr;
+      gap:0;
+    }
+    @media (max-width:920px){
+      .main{ grid-template-columns:1fr; }
+    }
+
+    .left, .right{ padding:14px; }
+    .left{ border-right:1px solid var(--stroke); }
+    @media (max-width:920px){
+      .left{ border-right:none; border-bottom:1px solid var(--stroke); }
+    }
+
+    .card{
+      border:1px solid var(--stroke);
+      background:rgba(2,6,23,.34);
+      border-radius:20px;
+      padding:12px;
+      box-shadow:0 12px 36px rgba(0,0,0,.18);
+    }
+    .card + .card{ margin-top:12px; }
+
+    .card h3{
+      margin:0;
+      font-size:15px;
+      font-weight:1000;
+      letter-spacing:.2px;
+    }
+    .muted{
+      color:rgba(229,231,235,.72);
+      font-size:12px;
+      line-height:1.38;
+      font-weight:800;
+    }
+
+    .grid2{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:10px;
+      margin-top:10px;
+    }
+    @media (max-width:560px){
+      .grid2{ grid-template-columns:1fr; }
+    }
+
+    .field{
+      display:flex; flex-direction:column; gap:6px;
+    }
+    .field label{
+      font-size:12px; color:var(--muted); font-weight:1000;
+    }
+    .input, .select{
+      width:100%;
+      min-height:42px;
+      border-radius:14px;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(2,6,23,.42);
+      color:var(--text);
+      padding:10px 12px;
+      outline:none;
+      font:inherit;
+    }
+    .input::placeholder{ color:#7d8aa3; }
+
+    .btnrow{
+      display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;
+    }
+    button{
+      appearance:none; border:none; outline:none; cursor:pointer;
+      min-height:42px;
+      border-radius:14px;
+      padding:10px 14px;
+      font-weight:1000;
+      color:var(--text);
+      background:rgba(2,6,23,.46);
+      border:1px solid rgba(148,163,184,.18);
+      transition: transform .08s ease, background .15s ease, border-color .15s ease;
+    }
+    button:hover{
+      transform:translateY(-1px);
+      background:rgba(2,6,23,.62);
+      border-color:rgba(148,163,184,.28);
+    }
+    button:active{ transform:translateY(0) scale(.99); }
+    button.primary{
+      background:rgba(34,197,94,.14);
+      border-color:rgba(34,197,94,.30);
+    }
+    button.warn{
+      background:rgba(245,158,11,.12);
+      border-color:rgba(245,158,11,.28);
+    }
+    button.red{
+      background:rgba(239,68,68,.10);
+      border-color:rgba(239,68,68,.24);
+    }
+    button:disabled{
+      opacity:.55; cursor:not-allowed; transform:none;
+    }
+
+    .roomHero{
+      margin-top:10px;
+      border-radius:18px;
+      border:1px dashed rgba(148,163,184,.22);
+      background:rgba(2,6,23,.28);
+      padding:14px;
+      text-align:center;
+    }
+    .roomCode{
+      font-size:32px;
+      font-weight:1100;
+      letter-spacing:2px;
+      line-height:1;
+      margin:6px 0 8px;
+    }
+    .statusPill{
+      display:inline-flex; align-items:center; gap:8px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(2,6,23,.42);
+      padding:6px 10px;
+      font-size:11px;
+      font-weight:1000;
+      color:var(--muted);
+    }
+    .dot{
+      width:8px; height:8px; border-radius:999px;
+      background:var(--cyan);
+      box-shadow:0 0 14px rgba(34,211,238,.45);
+    }
+    .dot.good{ background:var(--good); box-shadow:0 0 14px rgba(34,197,94,.45); }
+    .dot.warn{ background:var(--amber); box-shadow:0 0 14px rgba(245,158,11,.45); }
+    .dot.red{ background:var(--red); box-shadow:0 0 14px rgba(239,68,68,.45); }
+
+    .kv{
+      margin-top:10px;
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:8px;
+    }
+    .kvItem{
+      border:1px solid rgba(148,163,184,.14);
+      background:rgba(2,6,23,.28);
+      border-radius:14px;
+      padding:8px 10px;
+    }
+    .kvItem .k{
+      color:var(--muted);
+      font-size:10px;
+      font-weight:1000;
+    }
+    .kvItem .v{
+      margin-top:4px;
+      font-size:13px;
+      font-weight:1000;
+      word-break:break-word;
+    }
+
+    .players{
+      display:grid; gap:10px; margin-top:10px;
+    }
+    .playerCard{
+      border:1px solid rgba(148,163,184,.14);
+      background:rgba(2,6,23,.28);
+      border-radius:16px;
+      padding:10px;
+    }
+    .playerHead{
+      display:flex; justify-content:space-between; gap:8px; align-items:center; flex-wrap:wrap;
+    }
+    .playerName{
+      font-weight:1000;
+      font-size:14px;
+    }
+    .tags{ display:flex; gap:6px; flex-wrap:wrap; }
+    .tag{
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(2,6,23,.40);
+      padding:4px 8px;
+      font-size:10px;
+      font-weight:1000;
+      color:var(--muted);
+    }
+
+    .countdownBox{
+      margin-top:10px;
+      border-radius:18px;
+      border:1px solid rgba(167,139,250,.22);
+      background:rgba(167,139,250,.08);
+      padding:14px;
+      text-align:center;
+    }
+    .countdownNum{
+      font-size:40px;
+      font-weight:1100;
+      line-height:1;
+    }
+
+    .log{
+      margin-top:10px;
+      border-radius:16px;
+      border:1px solid rgba(148,163,184,.14);
+      background:rgba(2,6,23,.26);
+      padding:10px;
+      min-height:120px;
+      max-height:260px;
+      overflow:auto;
+      font-size:12px;
+      line-height:1.4;
+      color:rgba(229,231,235,.88);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      white-space:pre-wrap;
+      word-break:break-word;
+    }
+
+    .hintbox{
+      margin-top:10px;
+      border-radius:16px;
+      border:1px solid rgba(148,163,184,.14);
+      background:rgba(2,6,23,.24);
+      padding:10px;
+    }
+
+    .footerNote{
+      margin-top:8px;
+      color:var(--muted);
+      font-size:11px;
+      font-weight:900;
+      line-height:1.35;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="shell">
+      <div class="topbar">
+        <div class="brand">
+          <div class="logo">GR</div>
+          <div class="title">
+            <b>🥗 Groups Race</b>
+            <div class="sub">แข่ง 1v1 แบบแฟร์ด้วย shared seed + shared timer</div>
+          </div>
+        </div>
+
+        <div class="chips">
+          <div class="chip">MODE: <b>RACE</b></div>
+          <div class="chip">GAME: <b>GROUPS</b></div>
+          <div class="chip">SYNC: <b>RTDB</b></div>
+        </div>
+      </div>
+
+      <div class="main">
+        <div class="left">
+          <div class="card">
+            <h3>ตั้งค่าการแข่งขัน</h3>
+            <div class="muted" style="margin-top:6px;">เลือก diff / time / view ก่อนสร้างห้องหรือเข้าห้อง</div>
+
+            <div class="grid2">
+              <div class="field">
+                <label for="pidInput">PID</label>
+                <input id="pidInput" class="input" placeholder="anon" />
+              </div>
+              <div class="field">
+                <label for="nameInput">ชื่อผู้เล่น</label>
+                <input id="nameInput" class="input" placeholder="Player 1" />
+              </div>
+
+              <div class="field">
+                <label for="diffSel">Difficulty</label>
+                <select id="diffSel" class="select">
+                  <option value="easy">easy</option>
+                  <option value="normal" selected>normal</option>
+                  <option value="hard">hard</option>
+                </select>
+              </div>
+
+              <div class="field">
+                <label for="timeSel">Time</label>
+                <select id="timeSel" class="select">
+                  <option value="60">60s</option>
+                  <option value="90" selected>90s</option>
+                  <option value="120">120s</option>
+                </select>
+              </div>
+
+              <div class="field">
+                <label for="viewSel">View</label>
+                <select id="viewSel" class="select">
+                  <option value="mobile" selected>mobile</option>
+                  <option value="pc">pc</option>
+                  <option value="cvr">cvr</option>
+                </select>
+              </div>
+
+              <div class="field">
+                <label for="seedInput">Seed (optional)</label>
+                <input id="seedInput" class="input" placeholder="auto shared seed" />
+              </div>
+            </div>
+
+            <div class="btnrow">
+              <button id="btnCreate" class="primary">สร้างห้อง</button>
+              <button id="btnJoin">เข้าห้อง</button>
+              <button id="btnBack" class="ghost">กลับ HUB</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <h3>เข้าห้องด้วย Room Code</h3>
+            <div class="grid2">
+              <div class="field" style="grid-column:1 / -1;">
+                <label for="joinCode">Room Code</label>
+                <input id="joinCode" class="input" placeholder="เช่น GRP8A2KQ" />
+              </div>
+            </div>
+            <div class="footerNote">ถ้าเปิดจากลิงก์ที่มี <code>?room=...</code> ระบบจะใส่ให้เอง</div>
+          </div>
+
+          <div class="card">
+            <h3>Debug / Log</h3>
+            <div id="logBox" class="log">[Groups Race] ready.</div>
+          </div>
+        </div>
+
+        <div class="right">
+          <div class="card">
+            <h3>สถานะห้อง</h3>
+
+            <div class="roomHero">
+              <div class="muted">ROOM CODE</div>
+              <div id="roomCode" class="roomCode">—</div>
+              <div class="statusPill">
+                <span id="roomDot" class="dot"></span>
+                <span id="roomStatus">ยังไม่เชื่อมต่อห้อง</span>
+              </div>
+            </div>
+
+            <div class="kv">
+              <div class="kvItem"><div class="k">ROLE</div><div id="kvRole" class="v">—</div></div>
+              <div class="kvItem"><div class="k">SEED</div><div id="kvSeed" class="v">—</div></div>
+              <div class="kvItem"><div class="k">DIFF</div><div id="kvDiff" class="v">—</div></div>
+              <div class="kvItem"><div class="k">TIME</div><div id="kvTime" class="v">—</div></div>
+            </div>
+
+            <div class="btnrow">
+              <button id="btnReady" class="primary" disabled>READY</button>
+              <button id="btnUnready" class="warn" disabled>UNREADY</button>
+              <button id="btnStart" disabled>START COUNTDOWN</button>
+            </div>
+
+            <div id="countdownWrap" class="countdownBox" style="display:none;">
+              <div class="muted">COUNTDOWN</div>
+              <div id="countdownNum" class="countdownNum">3</div>
+              <div id="countdownSub" class="muted" style="margin-top:6px;">กำลังพาเข้าเกม…</div>
+            </div>
+          </div>
+
+          <div class="card">
+            <h3>ผู้เล่นในห้อง</h3>
+            <div id="playersBox" class="players">
+              <div class="muted">ยังไม่มีข้อมูลผู้เล่น</div>
+            </div>
+
+            <div class="hintbox">
+              <div class="muted">
+                • Host สร้างห้องแล้วส่ง Room Code ให้อีกฝ่าย<br/>
+                • เมื่อครบ 2 คนและกด READY ทั้งคู่ Host กด START ได้<br/>
+                • ระบบจะพาไปหน้าแข่งอัตโนมัติเมื่อ countdown เริ่ม
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ต้องมี Firebase initialized ก่อน -->
+  <script src="./vr-groups/groups-race-score.js"></script>
+  <script src="./vr-groups/groups-race-rtdb.js"></script>
+
+  <script>
+  (() => {
+    'use strict';
+
+    function getQS(){
+      try{ return new URL(location.href).searchParams; }
+      catch(_){ return new URLSearchParams(); }
+    }
+    const QS = getQS();
+    const q = (k,d='') => (QS.get(k) ?? d);
+
+    function herohealthBase(){
+      const href = String(location.href || '');
+      const i = href.indexOf('/herohealth/');
+      if(i >= 0) return href.slice(0, i + '/herohealth/'.length);
+      try{ return new URL('./', location.href).toString(); }catch(_){ return './'; }
+    }
+    const HH_BASE = herohealthBase();
+    const HUB = (()=>{ try{ return new URL('hub.html', HH_BASE).toString(); }catch(_){ return './hub.html'; } })();
+    const RUN_URL = (()=>{ try{ return new URL('vr-groups/groups-race-run.html', HH_BASE).toString(); }catch(_){ return './vr-groups/groups-race-run.html'; } })();
+
+    const $ = (s)=>document.querySelector(s);
+
+    const pidInput = $('#pidInput');
+    const nameInput = $('#nameInput');
+    const diffSel = $('#diffSel');
+    const timeSel = $('#timeSel');
+    const viewSel = $('#viewSel');
+    const seedInput = $('#seedInput');
+    const joinCode = $('#joinCode');
+
+    const btnCreate = $('#btnCreate');
+    const btnJoin = $('#btnJoin');
+    const btnBack = $('#btnBack');
+    const btnReady = $('#btnReady');
+    const btnUnready = $('#btnUnready');
+    const btnStart = $('#btnStart');
+
+    const roomCode = $('#roomCode');
+    const roomDot = $('#roomDot');
+    const roomStatus = $('#roomStatus');
+    const kvRole = $('#kvRole');
+    const kvSeed = $('#kvSeed');
+    const kvDiff = $('#kvDiff');
+    const kvTime = $('#kvTime');
+    const playersBox = $('#playersBox');
+    const logBox = $('#logBox');
+    const countdownWrap = $('#countdownWrap');
+    const countdownNum = $('#countdownNum');
+    const countdownSub = $('#countdownSub');
+
+    pidInput.value = q('pid','anon') || 'anon';
+    nameInput.value = q('name','') || '';
+    diffSel.value = q('diff','normal') || 'normal';
+    timeSel.value = String(q('time','90') || '90');
+    viewSel.value = q('view','mobile') || 'mobile';
+    seedInput.value = q('seed','') || '';
+    joinCode.value = q('room','') || '';
+
+    let race = null;
+    let countdownTimer = null;
+    let jumped = false;
+
+    function log(msg){
+      const line = `[${new Date().toLocaleTimeString('th-TH')}] ${msg}`;
+      logBox.textContent = line + '\n' + logBox.textContent;
+    }
+
+    function setRoomUI(status, dotCls){
+      roomStatus.textContent = status || '—';
+      roomDot.className = 'dot ' + (dotCls || '');
+    }
+
+    function randomPlayerKey(){
+      return 'p' + Math.random().toString(36).slice(2,8).toUpperCase();
+    }
+
+    function getPlayerKey(){
+      try{
+        const k = localStorage.getItem('HHA_GROUPS_RACE_PLAYER_KEY');
+        if(k) return k;
+        const nk = randomPlayerKey();
+        localStorage.setItem('HHA_GROUPS_RACE_PLAYER_KEY', nk);
+        return nk;
+      }catch(_){
+        return randomPlayerKey();
+      }
+    }
+
+    function buildRunUrl(state){
+      const room = state?.room || {};
+      const u = new URL(RUN_URL, location.href);
+
+      u.searchParams.set('hub', HUB);
+      u.searchParams.set('battle', '1');
+      u.searchParams.set('room', String(race.roomId || ''));
+      u.searchParams.set('role', String(race.role || ''));
+      u.searchParams.set('diff', String(room.diff || diffSel.value || 'normal'));
+      u.searchParams.set('time', String(room.timeSec || timeSel.value || '90'));
+      u.searchParams.set('view', String(viewSel.value || 'mobile'));
+      u.searchParams.set('seed', String(room.seed || seedInput.value || ''));
+      u.searchParams.set('pid', String(pidInput.value || 'anon'));
+      u.searchParams.set('name', String(nameInput.value || race.name || race.playerKey || 'Player'));
+      u.searchParams.set('playerKey', String(race.playerKey || ''));
+      u.searchParams.set('log', String(q('log','') || ''));
+      u.searchParams.set('api', String(q('api','') || ''));
+      u.searchParams.set('studyId', String(q('studyId','') || ''));
+      u.searchParams.set('phase', String(q('phase','') || ''));
+      u.searchParams.set('conditionGroup', String(q('conditionGroup','') || ''));
+
+      return u.toString();
+    }
+
+    function renderPlayers(players, myKey){
+      const keys = Object.keys(players || {});
+      if(!keys.length){
+        playersBox.innerHTML = '<div class="muted">ยังไม่มีข้อมูลผู้เล่น</div>';
+        return;
+      }
+
+      playersBox.innerHTML = keys.map(k=>{
+        const p = players[k] || {};
+        const mine = (k === myKey);
+        const ready = !!p.ready;
+        const connected = ('connected' in p) ? !!p.connected : true;
+        return `
+          <div class="playerCard">
+            <div class="playerHead">
+              <div class="playerName">${mine ? 'คุณ' : (p.name || k)}</div>
+              <div class="tags">
+                <div class="tag">${p.role || '-'}</div>
+                <div class="tag">${connected ? 'online' : 'offline'}</div>
+                <div class="tag">${ready ? 'READY' : 'WAIT'}</div>
+              </div>
+            </div>
+            <div class="kv" style="margin-top:8px;">
+              <div class="kvItem"><div class="k">PID</div><div class="v">${p.pid || '-'}</div></div>
+              <div class="kvItem"><div class="k">SCORE</div><div class="v">${p.score ?? 0}</div></div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function clearCountdownTimer(){
+      if(countdownTimer){
+        clearInterval(countdownTimer);
+        countdownTimer = null;
+      }
+    }
+
+    function runCountdown(startAt){
+      clearCountdownTimer();
+      countdownWrap.style.display = 'block';
+
+      const tick = ()=>{
+        const leftMs = Number(startAt || 0) - Date.now();
+        const sec = Math.max(0, Math.ceil(leftMs / 1000));
+        countdownNum.textContent = String(sec);
+        countdownSub.textContent = sec > 0 ? 'กำลังพาเข้าเกม…' : 'GO!';
+      };
+
+      tick();
+      countdownTimer = setInterval(tick, 200);
+    }
+
+    function maybeAutoJump(state){
+      if(jumped || !race) return;
+      const room = state?.room || {};
+      const status = String(room.status || '');
+
+      if(status !== 'countdown' && status !== 'playing') return;
+
+      if(status === 'countdown' && Number(room.startAt || 0) > Date.now() + 1200){
+        return;
+      }
+
+      jumped = true;
+      const url = buildRunUrl(state);
+      log('Auto jump -> ' + url);
+      location.href = url;
+    }
+
+    function updateRoomUI(state){
+      const room = state?.room || null;
+      const players = state?.players || {};
+      const me = state?.me || null;
+      const op = state?.opponent || null;
+
+      roomCode.textContent = race?.roomId || '—';
+      kvRole.textContent = race?.role || '—';
+      kvSeed.textContent = room?.seed || race?.seed || '—';
+      kvDiff.textContent = room?.diff || diffSel.value || '—';
+      kvTime.textContent = String(room?.timeSec || timeSel.value || '—') + 's';
+
+      renderPlayers(players, race?.playerKey || '');
+
+      const status = String(room?.status || 'lobby');
+      if(status === 'lobby'){
+        setRoomUI('Lobby / รอผู้เล่น', '');
+        countdownWrap.style.display = 'none';
+        clearCountdownTimer();
+      }else if(status === 'countdown'){
+        setRoomUI('Countdown', 'warn');
+        runCountdown(room?.startAt || 0);
+      }else if(status === 'playing'){
+        setRoomUI('Playing', 'good');
+        countdownWrap.style.display = 'block';
+        countdownNum.textContent = 'GO';
+        countdownSub.textContent = 'กำลังเข้าสู่หน้าแข่ง';
+        clearCountdownTimer();
+      }else if(status === 'ended'){
+        setRoomUI('Ended', 'red');
+        countdownWrap.style.display = 'none';
+        clearCountdownTimer();
+      }else{
+        setRoomUI(status || '—', '');
+      }
+
+      const hostKey = String(room?.hostKey || '');
+      const guestKey = String(room?.guestKey || '');
+      const canStart = !!(race && race.role === 'host' && hostKey && guestKey && me?.ready && op?.ready && status === 'lobby');
+
+      btnReady.disabled = !race;
+      btnUnready.disabled = !race;
+      btnStart.disabled = !canStart;
+
+      maybeAutoJump(state);
+    }
+
+    function attachRaceEvents(){
+      window.addEventListener('groups:race_room', (ev)=>{
+        const room = ev?.detail?.room || null;
+        log('room status=' + String(room?.status || '-'));
+      });
+
+      window.addEventListener('groups:race_players', ()=>{
+        if(!race) return;
+        updateRoomUI(race.getState());
+      });
+
+      window.addEventListener('groups:race_countdown_set', (ev)=>{
+        const d = ev?.detail || {};
+        log('countdown startAt=' + String(d.startAt || 0));
+        if(race) updateRoomUI(race.getState());
+      });
+
+      window.addEventListener('groups:race_started', ()=>{
+        log('race started');
+        if(race) updateRoomUI(race.getState());
+      });
+
+      window.addEventListener('groups:race_end', (ev)=>{
+        const d = ev?.detail || {};
+        log('race ended winner=' + String(d.winnerKey || 'DRAW'));
+        if(race) updateRoomUI(race.getState());
+      });
+    }
+
+    async function makeRace(role, roomId=''){
+      jumped = false;
+      clearCountdownTimer();
+
+      const playerKey = getPlayerKey();
+      const pid = String(pidInput.value || 'anon').trim() || 'anon';
+      const name = String(nameInput.value || '').trim() || (role === 'host' ? 'Host' : 'Guest');
+      const diff = String(diffSel.value || 'normal').toLowerCase();
+      const timeSec = Number(timeSel.value || 90);
+      const view = String(viewSel.value || 'mobile').toLowerCase();
+      const seed = String(seedInput.value || '').trim();
+
+      race = new window.GroupsRaceRTDB({
+        roomId: roomId || '',
+        playerKey,
+        role,
+        pid,
+        name,
+        diff,
+        timeSec,
+        seed,
+        view
+      });
+
+      if(role === 'host'){
+        await race.createRoom();
+        joinCode.value = race.roomId;
+        log('created room ' + race.roomId);
+      }else{
+        await race.joinRoom(roomId);
+        log('joined room ' + race.roomId);
+      }
+
+      race.subscribe();
+      updateRoomUI(race.getState());
+    }
+
+    btnCreate.addEventListener('click', async ()=>{
+      try{
+        await makeRace('host');
+      }catch(err){
+        console.error(err);
+        log('ERROR create: ' + (err?.message || err));
+        setRoomUI('สร้างห้องไม่สำเร็จ', 'red');
+      }
+    });
+
+    btnJoin.addEventListener('click', async ()=>{
+      try{
+        const code = String(joinCode.value || '').trim().toUpperCase();
+        if(!code){
+          log('ใส่ room code ก่อน');
+          return;
+        }
+        await makeRace('guest', code);
+      }catch(err){
+        console.error(err);
+        log('ERROR join: ' + (err?.message || err));
+        setRoomUI('เข้าห้องไม่สำเร็จ', 'red');
+      }
+    });
+
+    btnReady.addEventListener('click', async ()=>{
+      if(!race) return;
+      try{
+        await race.setReady(true);
+        log('READY');
+      }catch(err){
+        console.error(err);
+        log('ERROR ready: ' + (err?.message || err));
+      }
+    });
+
+    btnUnready.addEventListener('click', async ()=>{
+      if(!race) return;
+      try{
+        await race.setReady(false);
+        log('UNREADY');
+      }catch(err){
+        console.error(err);
+        log('ERROR unready: ' + (err?.message || err));
+      }
+    });
+
+    btnStart.addEventListener('click', async ()=>{
+      if(!race) return;
+      try{
+        const ok = await race.maybeStartCountdown(3000);
+        log(ok ? 'START countdown' : 'start denied');
+      }catch(err){
+        console.error(err);
+        log('ERROR start: ' + (err?.message || err));
+      }
+    });
+
+    btnBack.addEventListener('click', ()=>{
+      location.href = HUB;
+    });
+
+    attachRaceEvents();
+
+    // auto-join from ?room=
+    if(joinCode.value){
+      log('room param detected: ' + joinCode.value);
+    }else{
+      setRoomUI('ยังไม่เชื่อมต่อห้อง', '');
+    }
+  })();
+  </script>
+</body>
+</html>
