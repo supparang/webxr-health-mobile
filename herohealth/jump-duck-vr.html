@@ -1,54 +1,34 @@
 <!doctype html>
 <html lang="th">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — Jump Duck VR</title>
-  <meta name="color-scheme" content="dark light" />
-  <link rel="icon" href="./favicon.ico" />
-  <style>
-    :root{--bg1:#020617;--bg2:#0b1226;--panel:rgba(2,6,23,.72);--stroke:rgba(148,163,184,.18);--text:#e5e7eb;--muted:#94a3b8;--blue:#3b82f6;--good:#22c55e}
-    *{box-sizing:border-box} html,body{margin:0;min-height:100%;background:radial-gradient(1000px 700px at 50% -10%, rgba(59,130,246,.18), transparent 60%),linear-gradient(180deg,var(--bg1),var(--bg2));color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Thai",Arial}
-    .wrap{max-width:880px;margin:0 auto;padding:18px}.card{border-radius:22px;border:1px solid var(--stroke);background:var(--panel);box-shadow:0 18px 55px rgba(0,0,0,.28);padding:16px}
-    .title{font-size:28px;font-weight:1000;margin:0 0 6px}.muted{color:var(--muted);font-size:13px;font-weight:900}.row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
-    .btn{appearance:none;border:1px solid rgba(148,163,184,.22);border-radius:14px;padding:12px 14px;min-height:46px;cursor:pointer;color:var(--text);background:rgba(148,163,184,.10);font-weight:1000}
-    .btn.primary{background:rgba(59,130,246,.16);border-color:rgba(59,130,246,.34)} .btn.good{background:rgba(34,197,94,.14);border-color:rgba(34,197,94,.32)}
-    .pill{display:inline-flex;align-items:center;gap:8px;padding:8px 10px;border-radius:999px;border:1px solid var(--stroke);background:rgba(2,6,23,.42);color:var(--muted);font-size:12px;font-weight:1000;margin:4px 6px 0 0}.pill b{color:var(--text)}
-    .debug{margin-top:14px;padding:12px;border-radius:16px;border:1px solid var(--stroke);background:rgba(2,6,23,.35);font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;white-space:pre-wrap;word-break:break-word;color:#cbd5e1}
-  </style>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <title>HeroHealth — JumpDuck Launcher</title>
 </head>
 <body>
-  <div class="wrap"><div class="card">
-    <div class="title">⬆️⬇️ Jump Duck VR</div>
-    <div class="muted">Launcher สำหรับเข้าเกม Jump Duck ผ่าน Warmup Gate</div>
-    <div style="margin-top:10px;">
-      <span class="pill"><b>PID</b>: <span id="uiPid">anon</span></span>
-      <span class="pill"><b>view</b>: <span id="uiView">mobile</span></span>
-      <span class="pill"><b>run</b>: <span id="uiRun">play</span></span>
-      <span class="pill"><b>diff</b>: <span id="uiDiff">normal</span></span>
-      <span class="pill"><b>time</b>: <span id="uiTime">80</span></span>
-    </div>
-    <div class="row">
-      <button class="btn primary" id="btnStart">เริ่มเกม</button>
-      <button class="btn" id="btnHub">กลับ Hub</button>
-      <button class="btn good" id="btnOpenRun">เปิด run ตรง</button>
-    </div>
-    <div class="debug" id="debugBox">loading...</div>
-  </div></div>
+<script>
+  const sp = new URL(location.href).searchParams;
+  const target = new URL('../fitness/jump-duck.html', location.href);
 
-  <script>
-    function qs(k,d=''){ try{return (new URL(location.href)).searchParams.get(k) ?? d;}catch(_){return d;} }
-    function safeNum(v,d){ v=Number(v); return Number.isFinite(v)?v:d; }
-    function normalizeHub(){ const raw=String(qs('hub','')).trim(); if(raw) return raw; try{return new URL('./hub.html', location.href).toString();}catch(_){return './hub.html';} }
-    const GAME = { cat:'exercise', theme:'jumpduck', game:'jumpduck', runPath:'./fitness/jump-duck.html' };
-    const ctx = { pid:String(qs('pid','anon')).trim()||'anon', view:String(qs('view','mobile')).trim()||'mobile', run:String(qs('run','play')).trim()||'play', diff:String(qs('diff','normal')).trim()||'normal', time:String(safeNum(qs('time','80'),80)), seed:String(qs('seed', String(Date.now()))), zone:String(qs('zone','fitness')).trim()||'fitness', hub:normalizeHub() };
-    document.getElementById('uiPid').textContent=ctx.pid; document.getElementById('uiView').textContent=ctx.view; document.getElementById('uiRun').textContent=ctx.run; document.getElementById('uiDiff').textContent=ctx.diff; document.getElementById('uiTime').textContent=ctx.time;
-    function copyPassthrough(u){ const sp=new URL(location.href).searchParams; ['run','diff','time','seed','studyId','phase','conditionGroup','log','view','pid','api','ai','debug','planSeq','planDay','planSlot','planMode','planSlots','planIndex','autoNext','plannedGame','finalGame','zone','cdnext','grade'].forEach(k=>{ const v=sp.get(k); if(v!=null&&v!=='') u.searchParams.set(k,v); }); }
-    function buildRunUrl(){ const u=new URL(GAME.runPath, location.href); copyPassthrough(u); if(!u.searchParams.get('pid')) u.searchParams.set('pid',ctx.pid); if(!u.searchParams.get('view')) u.searchParams.set('view',ctx.view); if(!u.searchParams.get('run')) u.searchParams.set('run',ctx.run); if(!u.searchParams.get('diff')) u.searchParams.set('diff',ctx.diff); if(!u.searchParams.get('time')) u.searchParams.set('time',ctx.time); if(!u.searchParams.get('seed')) u.searchParams.set('seed',ctx.seed); if(!u.searchParams.get('zone')) u.searchParams.set('zone',ctx.zone); u.searchParams.set('hub',ctx.hub); return u.toString(); }
-    function buildWarmupUrl(){ const warm=new URL('./warmup-gate.html', location.href); warm.searchParams.set('gatePhase','warmup'); warm.searchParams.set('phase','warmup'); warm.searchParams.set('cat',GAME.cat); warm.searchParams.set('theme',GAME.theme); warm.searchParams.set('game',GAME.game); warm.searchParams.set('pid',ctx.pid); warm.searchParams.set('hub',ctx.hub); warm.searchParams.set('next',buildRunUrl()); warm.searchParams.set('run',ctx.run); warm.searchParams.set('diff',ctx.diff); warm.searchParams.set('time',ctx.time); warm.searchParams.set('view',ctx.view); warm.searchParams.set('seed',ctx.seed); const grade=String(qs('grade','')).trim(); if(grade) warm.searchParams.set('grade',grade); const studyId=String(qs('studyId','')).trim(); if(studyId) warm.searchParams.set('studyId',studyId); const conditionGroup=String(qs('conditionGroup','')).trim(); if(conditionGroup) warm.searchParams.set('conditionGroup',conditionGroup); const log=String(qs('log','')).trim(); if(log) warm.searchParams.set('log',log); return warm.toString(); }
-    const debugBox=document.getElementById('debugBox'); debugBox.textContent='[JumpDuck Launcher]\\nlauncher: '+location.href+'\\nhub:      '+ctx.hub+'\\nwarmup:   '+buildWarmupUrl()+'\\nrunPath:  '+buildRunUrl()+'\\n';
-    document.getElementById('btnStart').onclick=()=>location.href=buildWarmupUrl(); document.getElementById('btnOpenRun').onclick=()=>location.href=buildRunUrl(); document.getElementById('btnHub').onclick=()=>location.href=ctx.hub;
-    setTimeout(()=>{ try{ location.href=buildWarmupUrl(); }catch(err){ debugBox.textContent+='\\nredirect failed: '+(err?.message||String(err)); } },120);
-  </script>
+  [
+    'run','diff','time','seed','studyId','phase','conditionGroup','log','view','pid','api','ai','debug',
+    'planSeq','planDay','planSlot','planMode','planSlots','planIndex','autoNext',
+    'plannedGame','finalGame','zone','cdnext','grade','hub'
+  ].forEach(k=>{
+    const v = sp.get(k);
+    if(v!=null && v!=='') target.searchParams.set(k, v);
+  });
+
+  if(!target.searchParams.get('duration')){
+    const t = sp.get('time') || '60';
+    target.searchParams.set('duration', t);
+  }
+
+  if(!target.searchParams.get('mode')){
+    target.searchParams.set('mode', 'training');
+  }
+
+  location.replace(target.toString());
+</script>
 </body>
 </html>
