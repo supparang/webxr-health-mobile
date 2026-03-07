@@ -1,13 +1,10 @@
 <!-- === /herohealth/hub.html ===
 HeroHealth — Hub (3 Zones) — PRODUCTION
-PATCH v20260307-HUB-LAYOUT-CTA-CLEAN-r2
-✅ Cleaner layout / stronger hierarchy
-✅ Primary CTA clearly highlighted
-✅ Hero Editor integrated
-✅ MaskCough -> ./maskcough-v2.html
-✅ Germ Detective -> ./germ-detective.html
-✅ Fitness Planner -> ./fitness-planner/planner.html
-✅ Exercise launchers stay at /herohealth/*.html
+FULL v20260307-HUB-NUTRITION-E2E
+✅ GoodJunk / Groups / Plate use canonical launchers
+✅ Warmup daily-first for Nutrition games
+✅ Nutrition progress for GoodJunk / Groups / Plate
+✅ Nutrition trophy uses GoodJunk / Groups / Plate
 -->
 <!doctype html>
 <html lang="th">
@@ -19,571 +16,147 @@ PATCH v20260307-HUB-LAYOUT-CTA-CLEAN-r2
   <link rel="icon" href="./favicon.ico" />
   <style>
     :root{
-      --bg1:#020617;
-      --bg2:#0b1226;
-      --panel:rgba(2,6,23,.62);
-      --panel2:rgba(15,23,42,.54);
-      --stroke:rgba(148,163,184,.16);
-      --stroke-strong:rgba(148,163,184,.24);
-      --text:#e5e7eb;
-      --muted:#94a3b8;
-      --soft:#cbd5e1;
-
-      --primary:#3b82f6;
-      --primary-2:#22d3ee;
-      --violet:#a78bfa;
-      --good:#22c55e;
-      --warn:#f59e0b;
-      --bad:#ef4444;
-
-      --shadow:0 18px 60px rgba(0,0,0,.32);
-      --shadow-soft:0 10px 30px rgba(0,0,0,.22);
-
+      --bg1:#020617; --bg2:#0b1226;
+      --stroke:rgba(148,163,184,.18);
+      --text:rgba(229,231,235,.96);
+      --muted:rgba(148,163,184,.92);
+      --good:#22c55e; --warn:#f59e0b; --bad:#ef4444; --blue:#3b82f6; --violet:#a78bfa;
       --sat: env(safe-area-inset-top, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
       --sal: env(safe-area-inset-left, 0px);
       --sar: env(safe-area-inset-right, 0px);
     }
-
-    *{ box-sizing:border-box; }
-
     html,body{
       height:100%;
       margin:0;
       background:
-        radial-gradient(1200px 780px at 50% -10%, rgba(59,130,246,.18), transparent 60%),
-        radial-gradient(900px 680px at 8% 10%, rgba(167,139,250,.12), transparent 60%),
+        radial-gradient(1200px 800px at 50% -10%, rgba(59,130,246,.20), transparent 60%),
+        radial-gradient(900px 700px at 10% 10%, rgba(167,139,250,.16), transparent 60%),
         linear-gradient(180deg, var(--bg1), var(--bg2));
       color:var(--text);
     }
-
     body{
       font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", "Noto Sans", Arial;
       overflow-x:hidden;
-      -webkit-font-smoothing:antialiased;
-      text-rendering:optimizeLegibility;
     }
-
     a{ color:inherit; text-decoration:none; }
 
     .wrap{
-      max-width: 1120px;
+      max-width: 1080px;
       margin: 0 auto;
-      padding:
-        calc(16px + var(--sat))
-        calc(14px + var(--sar))
-        calc(24px + var(--sab))
-        calc(14px + var(--sal));
+      padding: calc(14px + var(--sat)) calc(14px + var(--sar)) calc(18px + var(--sab)) calc(14px + var(--sal));
     }
 
     .topbar{
       display:flex;
-      gap:12px;
-      align-items:flex-start;
+      gap:10px;
+      align-items:center;
       justify-content:space-between;
       flex-wrap:wrap;
-      margin-bottom:14px;
+      margin-bottom: 12px;
     }
 
     .brand{
       display:flex;
       align-items:center;
-      gap:12px;
-      padding:12px 14px;
-      border-radius:20px;
+      gap:10px;
+      padding: 10px 12px;
+      border-radius: 18px;
       border:1px solid var(--stroke);
-      background:rgba(2,6,23,.54);
+      background: rgba(2,6,23,.48);
       backdrop-filter: blur(10px);
-      box-shadow:var(--shadow-soft);
-      min-width:min(100%, 360px);
+      box-shadow: 0 18px 55px rgba(0,0,0,.35);
     }
-
-    .brandIcon{
-      width:42px;
-      height:42px;
-      border-radius:14px;
-      display:grid;
-      place-items:center;
-      border:1px solid rgba(59,130,246,.26);
-      background:linear-gradient(135deg, rgba(59,130,246,.18), rgba(34,211,238,.10));
-      font-size:20px;
-      flex:0 0 auto;
-    }
-
-    .brandTitle{
-      font-size:18px;
-      font-weight:1000;
-      line-height:1.15;
-      letter-spacing:.1px;
-    }
-
-    .brandSub{
-      margin-top:2px;
-      color:var(--muted);
-      font-size:12px;
-      font-weight:800;
-    }
-
-    .heroMeta{
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-      align-items:center;
-      justify-content:flex-end;
-      flex:1 1 420px;
-    }
+    .brand b{ font-weight:1100; }
 
     .pill{
       display:inline-flex;
       align-items:center;
       gap:8px;
-      min-height:36px;
-      padding: 8px 11px;
-      border-radius:999px;
+      padding: 8px 10px;
+      border-radius: 999px;
       border:1px solid var(--stroke);
-      background: rgba(2,6,23,.44);
+      background: rgba(2,6,23,.50);
       backdrop-filter: blur(10px);
       color: var(--muted);
       font-size: 12px;
-      font-weight: 900;
+      font-weight: 950;
       white-space:nowrap;
     }
     .pill b{ color:var(--text); }
 
+    .hero{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      align-items:center;
+      justify-content:flex-end;
+    }
+
     .btn{
       cursor:pointer;
-      appearance:none;
-      border-radius: 15px;
-      border:1px solid rgba(148,163,184,.20);
-      background: rgba(148,163,184,.08);
-      color: var(--text);
-      padding: 10px 13px;
-      min-height:44px;
-      font-weight:950;
-      font:inherit;
-      transition: transform .12s ease, border-color .12s ease, background .12s ease, opacity .12s ease;
-    }
-    .btn:hover{ border-color:rgba(148,163,184,.34); }
-    .btn:active{ transform:translateY(1px); }
-
-    .btn.primary{
-      border-color: rgba(59,130,246,.34);
-      background: linear-gradient(135deg, rgba(59,130,246,.24), rgba(34,211,238,.16));
-      box-shadow: 0 8px 24px rgba(37,99,235,.18);
-    }
-    .btn.violet{
-      border-color: rgba(167,139,250,.30);
-      background: rgba(167,139,250,.14);
-    }
-    .btn.good{
-      border-color: rgba(34,197,94,.30);
-      background: rgba(34,197,94,.14);
-    }
-    .btn.ghost{
-      background: transparent;
-      color: var(--muted);
-    }
-    .btn.soft{
-      background: rgba(15,23,42,.45);
-      border-color: var(--stroke);
-      color: var(--soft);
-    }
-
-    .heroBanner{
-      display:grid;
-      grid-template-columns: 1.25fr .95fr;
-      gap:14px;
-    }
-    @media (max-width: 940px){
-      .heroBanner{ grid-template-columns:1fr; }
-    }
-
-    .heroLead,
-    .heroSide,
-    .cardBook,
-    .trophyShelf,
-    .card{
-      border-radius: 24px;
-      border:1px solid var(--stroke);
-      background: linear-gradient(180deg, rgba(2,6,23,.72), rgba(2,6,23,.56));
-      backdrop-filter: blur(10px);
-      box-shadow: var(--shadow);
-    }
-
-    .heroLead{
-      padding:18px;
-      position:relative;
-      overflow:hidden;
-    }
-    .heroLead::after{
-      content:"";
-      position:absolute;
-      inset:auto -60px -90px auto;
-      width:260px;
-      height:260px;
-      border-radius:999px;
-      background:radial-gradient(circle, rgba(59,130,246,.18), transparent 66%);
-      pointer-events:none;
-    }
-
-    .eyebrow{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      padding:7px 10px;
-      border-radius:999px;
-      border:1px solid rgba(59,130,246,.22);
-      background:rgba(59,130,246,.10);
-      color:#bfdbfe;
-      font-size:12px;
-      font-weight:950;
-    }
-
-    .heroLead h1{
-      margin:12px 0 8px;
-      font-size:clamp(28px, 4vw, 40px);
-      line-height:1.05;
-      font-weight:1000;
-      letter-spacing:-.02em;
-    }
-
-    .leadText{
-      max-width:64ch;
-      color:#dbe7f5;
-      font-size:14px;
-      line-height:1.6;
-      font-weight:700;
-    }
-
-    .ctaRow{
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      margin-top:14px;
-    }
-
-    .miniInfoRow{
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-      margin-top:14px;
-    }
-
-    .heroSide{
-      padding:16px;
-      display:flex;
-      flex-direction:column;
-      gap:12px;
-    }
-
-    .panelTitle{
-      font-size:15px;
-      font-weight:1000;
-      line-height:1.2;
-    }
-
-    .panelSub{
-      color:var(--muted);
-      font-size:12px;
-      font-weight:800;
-      line-height:1.45;
-    }
-
-    .editorGrid{
-      display:grid;
-      grid-template-columns: minmax(0, 1.4fr) 140px 100px;
-      gap:10px;
-      margin-top:8px;
-    }
-    @media (max-width:700px){
-      .editorGrid{ grid-template-columns:1fr; }
-    }
-
-    .editorInput{
-      width:100%;
-      min-height:44px;
-      border-radius:14px;
+      border-radius: 16px;
       border:1px solid rgba(148,163,184,.22);
-      background:rgba(15,23,42,.48);
-      color:var(--text);
-      padding:10px 12px;
-      font:inherit;
-      font-weight:900;
-      outline:none;
+      background: rgba(148,163,184,.10);
+      color: var(--text);
+      padding: 10px 12px;
+      font-weight:1100;
+      min-height: 44px;
     }
-    .editorInput::placeholder{ color:#8091a7; }
-    .editorInput.readonly{
-      background:rgba(2,6,23,.34);
-      color:#dbe7f5;
-    }
-    .editorActions{
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      align-items:center;
-    }
-
-    .section{
-      margin-top:18px;
-    }
-
-    .cardBook,
-    .trophyShelf,
-    .card{
-      padding:14px;
-    }
-
-    .sectionHead{
-      display:flex;
-      align-items:flex-start;
-      justify-content:space-between;
-      gap:12px;
-      flex-wrap:wrap;
-      margin-bottom:10px;
-    }
-
-    .sectionTitle{
-      font-size:18px;
-      font-weight:1000;
-      line-height:1.2;
-    }
-
-    .sectionSub{
-      color:var(--muted);
-      font-size:12px;
-      font-weight:800;
-      line-height:1.45;
-      margin-top:4px;
-    }
-
-    .cardBookGrid{
-      display:grid;
-      grid-template-columns: 1.18fr .82fr;
-      gap:12px;
-    }
-    @media (max-width: 920px){
-      .cardBookGrid{ grid-template-columns:1fr; }
-    }
-
-    .bookPanel{
-      border-radius:18px;
-      border:1px solid rgba(148,163,184,.14);
-      background: rgba(15,23,42,.44);
-      padding:12px;
-      box-shadow: var(--shadow-soft);
-    }
-
-    .bookMini{
-      color:var(--muted);
-      font-size:12px;
-      font-weight:800;
-      line-height:1.4;
-    }
-
-    .bookBig{
-      font-size:34px;
-      font-weight:1000;
-      line-height:1;
-      margin-top:6px;
-      letter-spacing:-.02em;
-    }
-
-    .rarityRow{
-      display:grid;
-      grid-template-columns: repeat(4, minmax(0,1fr));
-      gap:8px;
-      margin-top:12px;
-    }
-    @media (max-width: 520px){
-      .rarityRow{ grid-template-columns: repeat(2, minmax(0,1fr)); }
-    }
-
-    .rarityCard{
-      border-radius:16px;
-      border:1px solid rgba(148,163,184,.14);
-      background: rgba(2,6,23,.30);
-      padding:10px 8px;
-      text-align:center;
-    }
-    .rarityCard .rk{
-      color:var(--muted);
-      font-size:11px;
-      font-weight:900;
-    }
-    .rarityCard .rv{
-      margin-top:5px;
-      font-size:21px;
-      font-weight:1000;
-    }
-    .rarity-s .rv{ color:#facc15; }
-    .rarity-a .rv{ color:#60a5fa; }
-    .rarity-b .rv{ color:#4ade80; }
-    .rarity-c .rv{ color:#cbd5e1; }
-
-    .lastDrop{
-      display:grid;
-      grid-template-columns: 74px 1fr;
-      gap:12px;
-      align-items:center;
-      margin-top:10px;
-    }
-
-    .lastDropIcon{
-      width:74px;
-      height:74px;
-      border-radius:18px;
-      display:grid;
-      place-items:center;
-      font-size:38px;
-      border:1px solid rgba(148,163,184,.14);
-      background: rgba(2,6,23,.34);
-      box-shadow: var(--shadow-soft);
-    }
-
-    .lastDropTitle{
-      font-size:16px;
-      font-weight:1000;
-      line-height:1.2;
-    }
-
-    .lastDropMeta{
-      color:var(--muted);
-      font-size:12px;
-      font-weight:800;
-      line-height:1.45;
-      margin-top:4px;
-    }
-
-    .bookActions{
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-      margin-top:10px;
-    }
-
-    .shelfGrid{
-      display:grid;
-      grid-template-columns: repeat(3, minmax(0,1fr));
-      gap:12px;
-    }
-    @media (max-width:920px){
-      .shelfGrid{ grid-template-columns:1fr; }
-    }
-
-    .shelfCard{
-      border-radius:18px;
-      border:1px solid rgba(148,163,184,.14);
-      background: rgba(15,23,42,.44);
-      padding:12px;
-      box-shadow: var(--shadow-soft);
-      display:flex;
-      flex-direction:column;
-      gap:10px;
-    }
-
-    .shelfTop{
-      display:flex;
-      align-items:flex-start;
-      justify-content:space-between;
-      gap:10px;
-      flex-wrap:wrap;
-    }
-
-    .shelfInline{
-      display:flex;
-      gap:10px;
-      align-items:center;
-    }
-
-    .trophyIcon{
-      width:54px;
-      height:54px;
-      border-radius:16px;
-      display:grid;
-      place-items:center;
-      font-size:28px;
-      border:1px solid rgba(148,163,184,.14);
-      background: rgba(2,6,23,.34);
-      box-shadow: var(--shadow-soft);
-    }
-
-    .trophyTitle{
-      font-size:15px;
-      font-weight:1000;
-      line-height:1.2;
-    }
-
-    .statusChip{
-      display:inline-flex;
-      align-items:center;
-      gap:6px;
-      padding:6px 10px;
-      border-radius:999px;
-      border:1px solid rgba(148,163,184,.14);
-      background: rgba(2,6,23,.28);
-      font-size:11px;
-      font-weight:950;
-      color:var(--muted);
-    }
-    .statusChip.done{
-      color:#dcfce7;
-      border-color: rgba(34,197,94,.26);
-      background: rgba(34,197,94,.14);
-    }
-    .statusChip.locked{
-      color:#fecaca;
-      border-color: rgba(239,68,68,.24);
-      background: rgba(239,68,68,.10);
-    }
-
-    .miniRow{
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-      align-items:center;
-    }
+    .btn.primary{ border-color: rgba(59,130,246,.30); background: rgba(59,130,246,.16); }
+    .btn.violet{ border-color: rgba(167,139,250,.28); background: rgba(167,139,250,.14); }
+    .btn.good{ border-color: rgba(34,197,94,.28); background: rgba(34,197,94,.14); }
+    .btn.ghost{ background: transparent; color: var(--muted); }
 
     .grid{
       display:grid;
       grid-template-columns: repeat(3, minmax(0,1fr));
-      gap: 14px;
-      margin-top: 14px;
+      gap: 12px;
+      margin-top: 10px;
     }
-    @media (max-width:960px){
+    @media (max-width:900px){
       .grid{ grid-template-columns:1fr; }
+    }
+
+    .card{
+      border-radius: 22px;
+      border:1px solid rgba(148,163,184,.18);
+      background: rgba(2,6,23,.58);
+      backdrop-filter: blur(10px);
+      box-shadow: 0 22px 80px rgba(0,0,0,.35);
+      padding: 12px 12px;
+      display:flex;
+      flex-direction:column;
+      gap:10px;
     }
 
     .card h2{
       margin:0;
-      font-size:17px;
-      font-weight:1000;
+      font-size:16px;
+      font-weight:1100;
       display:flex;
       gap:10px;
       align-items:center;
-      letter-spacing:-.01em;
+    }
+
+    .muted{
+      color:var(--muted);
+      font-weight:900;
+      font-size:12px;
     }
 
     .zoneRow{
       display:flex;
       gap:10px;
       flex-wrap:wrap;
-      align-items:flex-start;
-      justify-content:space-between;
-      margin-top:2px;
-    }
-
-    .zoneActions{
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
       align-items:center;
+      justify-content:space-between;
     }
 
     .games{
       display:grid;
       grid-template-columns: repeat(2, minmax(0,1fr));
       gap: 10px;
-      margin-top:8px;
     }
     @media (max-width:520px){
       .games{ grid-template-columns:1fr; }
@@ -593,44 +166,261 @@ PATCH v20260307-HUB-LAYOUT-CTA-CLEAN-r2
       display:flex;
       flex-direction:column;
       gap:6px;
-      padding: 13px 13px;
+      padding: 12px 12px;
       border-radius: 18px;
-      border:1px solid rgba(148,163,184,.16);
-      background: rgba(15,23,42,.44);
-      box-shadow: var(--shadow-soft);
-      min-height: 76px;
-      transition: transform .12s ease, border-color .12s ease, background .12s ease;
+      border:1px solid rgba(148,163,184,.18);
+      background: rgba(15,23,42,.46);
+      box-shadow: 0 18px 55px rgba(0,0,0,.25);
+      min-height: 68px;
     }
-    .gameBtn:hover{
-      transform: translateY(-1px);
-      border-color: rgba(59,130,246,.26);
-      background: rgba(15,23,42,.60);
-    }
+    .gameBtn .t{ font-weight:1100; }
+    .gameBtn .s{ font-size:12px; font-weight:900; color:var(--muted); }
+    .gameBtn:hover{ border-color: rgba(59,130,246,.28); }
 
-    .gameBtn .t{
-      font-weight:1000;
-      font-size:15px;
-      line-height:1.25;
-    }
-    .gameBtn .s{
-      font-size:12px;
-      font-weight:800;
-      color:var(--muted);
-      line-height:1.45;
-    }
-
-    .zoneHint{
-      margin-top:4px;
-      color:var(--muted);
-      font-size:12px;
-      font-weight:800;
-      line-height:1.45;
+    .inlineRow{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
     }
 
     .sep{
       height:1px;
-      background: rgba(148,163,184,.12);
-      margin: 8px 0 0;
+      background: rgba(148,163,184,.14);
+      margin: 6px 0;
+    }
+
+    .small{
+      font-size:12px;
+      font-weight:900;
+      color: var(--muted);
+    }
+
+    .cardBook,
+    .trophyShelf{
+      border-radius:22px;
+      border:1px solid rgba(148,163,184,.18);
+      background: rgba(2,6,23,.58);
+      backdrop-filter: blur(10px);
+      box-shadow: 0 22px 80px rgba(0,0,0,.35);
+      padding: 12px 12px;
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+      margin-top:12px;
+    }
+
+    .cardBookTop{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    .cardBookTitle{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      font-size:16px;
+      font-weight:1100;
+    }
+
+    .cardBookSub{
+      color:var(--muted);
+      font-size:12px;
+      font-weight:900;
+    }
+
+    .cardBookGrid{
+      display:grid;
+      grid-template-columns: 1.2fr .8fr;
+      gap:12px;
+    }
+    @media (max-width: 900px){
+      .cardBookGrid{ grid-template-columns:1fr; }
+    }
+
+    .bookPanel{
+      border-radius:18px;
+      border:1px solid rgba(148,163,184,.16);
+      background: rgba(15,23,42,.46);
+      padding:12px;
+      box-shadow: 0 18px 55px rgba(0,0,0,.25);
+    }
+
+    .bookBig{
+      font-size:30px;
+      font-weight:1100;
+      line-height:1;
+      margin-top:4px;
+    }
+
+    .bookMini{
+      color:var(--muted);
+      font-size:12px;
+      font-weight:900;
+      line-height:1.4;
+    }
+
+    .rarityRow{
+      display:grid;
+      grid-template-columns: repeat(4, minmax(0,1fr));
+      gap:8px;
+      margin-top:10px;
+    }
+    @media (max-width: 520px){
+      .rarityRow{ grid-template-columns: repeat(2, minmax(0,1fr)); }
+    }
+
+    .rarityCard{
+      border-radius:16px;
+      border:1px solid rgba(148,163,184,.16);
+      background: rgba(2,6,23,.34);
+      padding:10px 8px;
+      text-align:center;
+    }
+    .rarityCard .rk{
+      color:var(--muted);
+      font-size:11px;
+      font-weight:1000;
+    }
+    .rarityCard .rv{
+      margin-top:4px;
+      font-size:20px;
+      font-weight:1100;
+    }
+    .rarity-s .rv{ color:#facc15; }
+    .rarity-a .rv{ color:#60a5fa; }
+    .rarity-b .rv{ color:#4ade80; }
+    .rarity-c .rv{ color:#cbd5e1; }
+
+    .lastDrop{
+      display:grid;
+      grid-template-columns: 72px 1fr;
+      gap:12px;
+      align-items:center;
+    }
+
+    .lastDropIcon{
+      width:72px;
+      height:72px;
+      border-radius:18px;
+      display:grid;
+      place-items:center;
+      font-size:38px;
+      border:1px solid rgba(148,163,184,.16);
+      background: rgba(2,6,23,.36);
+      box-shadow: 0 12px 30px rgba(0,0,0,.24);
+    }
+
+    .lastDropBody{
+      display:flex;
+      flex-direction:column;
+      gap:4px;
+    }
+
+    .lastDropTitle{
+      font-size:16px;
+      font-weight:1100;
+      line-height:1.2;
+    }
+
+    .lastDropMeta{
+      color:var(--muted);
+      font-size:12px;
+      font-weight:900;
+      line-height:1.4;
+    }
+
+    .bookActions{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      margin-top:8px;
+    }
+
+    .shelfGrid{
+      display:grid;
+      grid-template-columns: repeat(3, minmax(0,1fr));
+      gap:12px;
+    }
+    @media (max-width:900px){
+      .shelfGrid{ grid-template-columns:1fr; }
+    }
+
+    .shelfCard{
+      border-radius:18px;
+      border:1px solid rgba(148,163,184,.16);
+      background: rgba(15,23,42,.46);
+      padding:12px;
+      box-shadow: 0 18px 55px rgba(0,0,0,.25);
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+    }
+
+    .shelfTop{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    .trophyIcon{
+      width:54px;
+      height:54px;
+      border-radius:16px;
+      display:grid;
+      place-items:center;
+      font-size:28px;
+      border:1px solid rgba(148,163,184,.16);
+      background: rgba(2,6,23,.36);
+      box-shadow: 0 12px 30px rgba(0,0,0,.24);
+    }
+
+    .trophyTitle{
+      font-size:15px;
+      font-weight:1100;
+      line-height:1.2;
+    }
+
+    .statusChip{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      padding:6px 10px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.16);
+      background: rgba(2,6,23,.28);
+      font-size:11px;
+      font-weight:1000;
+      color:var(--muted);
+    }
+    .statusChip.done{
+      color:#dcfce7;
+      border-color: rgba(34,197,94,.28);
+      background: rgba(34,197,94,.14);
+    }
+    .statusChip.locked{
+      color:#fecaca;
+      border-color: rgba(239,68,68,.26);
+      background: rgba(239,68,68,.10);
+    }
+
+    .shelfMeta{
+      color:var(--muted);
+      font-size:12px;
+      font-weight:900;
+      line-height:1.45;
+    }
+
+    .miniRow{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      align-items:center;
     }
   </style>
 </head>
@@ -639,83 +429,34 @@ PATCH v20260307-HUB-LAYOUT-CTA-CLEAN-r2
 
     <div class="topbar">
       <div class="brand">
-        <div class="brandIcon">🧠</div>
+        <span style="font-size:18px">🧠🎮</span>
         <div>
-          <div class="brandTitle">HeroHealth</div>
-          <div class="brandSub" id="ctxLine">—</div>
+          <div style="display:flex; gap:10px; align-items:baseline; flex-wrap:wrap;">
+            <b>HeroHealth</b>
+            <span class="muted">Hub • 3 Zones</span>
+          </div>
+          <div class="muted" id="ctxLine">—</div>
         </div>
       </div>
 
-      <div class="heroMeta">
+      <div class="hero">
         <span class="pill"><b>PID</b>: <span id="uiPid">anon</span></span>
         <span class="pill"><b>Hero</b>: <span id="uiNick">anon</span></span>
         <span class="pill"><b>LV</b>: <span id="uiLvl">1</span></span>
         <span class="pill"><b>XP</b>: <span id="uiXp">0</span></span>
-        <button class="btn soft" id="btnHeroShow" type="button">🧾 ดู Hero</button>
-        <button class="btn ghost" id="btnHeroReset" type="button">♻ Reset</button>
+
+        <button class="btn violet" id="btnHeroShow" type="button">🧾 ดู Hero</button>
+        <button class="btn ghost" id="btnHeroReset" type="button">♻ Reset Hero</button>
       </div>
     </div>
 
-    <section class="heroBanner">
-      <section class="heroLead">
-        <span class="eyebrow">🎮 Health Learning Hub</span>
-        <h1>เลือกโซน แล้วเข้าเล่นต่อได้ทันที</h1>
-        <div class="leadText">
-          ศูนย์รวมเกมสุขภาวะ 3 โซนของ HeroHealth สำหรับ Nutrition, Hygiene และ Exercise
-          พร้อม Hero profile, Card Book และความก้าวหน้ารายวันในหน้าเดียว
-        </div>
-
-        <div class="ctaRow">
-          <button class="btn primary" id="btnGJsolo" type="button">🎯 เล่น GoodJunk ต่อ</button>
-          <button class="btn violet" id="btnGJpro" type="button">🔥 Solo PRO</button>
-          <button class="btn good" id="btnGJbattle" type="button">⚔ Battle</button>
-        </div>
-
-        <div class="miniInfoRow">
-          <span class="pill"><b>Quick start</b>: Nutrition</span>
-          <span class="pill"><b>View</b>: <span id="uiViewInline">mobile</span></span>
-          <span class="pill"><b>Mode</b>: <span id="uiRunInline">play</span></span>
-        </div>
-      </section>
-
-      <section class="heroSide">
+    <section class="cardBook">
+      <div class="cardBookTop">
         <div>
-          <div class="panelTitle">🛠 Hero Editor</div>
-          <div class="panelSub">แก้ชื่อ Hero และ XP ของ PID ปัจจุบัน</div>
+          <div class="cardBookTitle">🃏 Card Book — GoodJunk</div>
+          <div class="cardBookSub">สะสมการ์ดจากผลการเล่น S / A / B / C</div>
         </div>
-
-        <div class="editorGrid">
-          <div>
-            <div class="sectionSub" style="margin:0 0 6px;">Hero name</div>
-            <input id="heroNickInput" class="editorInput" type="text" placeholder="เช่น Hero A">
-          </div>
-
-          <div>
-            <div class="sectionSub" style="margin:0 0 6px;">XP</div>
-            <input id="heroXpInput" class="editorInput" type="number" min="0" step="1" placeholder="0">
-          </div>
-
-          <div>
-            <div class="sectionSub" style="margin:0 0 6px;">LV</div>
-            <input id="heroLvlPreview" class="editorInput readonly" type="text" value="1" readonly>
-          </div>
-        </div>
-
-        <div class="editorActions">
-          <button class="btn primary" id="btnHeroSave" type="button">💾 Save Hero</button>
-          <button class="btn soft" id="btnHeroReload" type="button">↻ Reload</button>
-          <span class="pill"><b>PID</b>: <span id="heroEditorPid">anon</span></span>
-        </div>
-      </section>
-    </section>
-
-    <section class="cardBook section">
-      <div class="sectionHead">
-        <div>
-          <div class="sectionTitle">🃏 Card Book — GoodJunk</div>
-          <div class="sectionSub">สะสมการ์ดจากผลการเล่น S / A / B / C</div>
-        </div>
-        <div class="zoneActions">
+        <div class="inlineRow">
           <button class="btn primary" id="btnOpenGJLauncher" type="button">🚀 เปิด GoodJunk Launcher</button>
           <button class="btn ghost" id="btnResetCardBook" type="button">♻ Reset Card Book</button>
         </div>
@@ -748,9 +489,9 @@ PATCH v20260307-HUB-LAYOUT-CTA-CLEAN-r2
 
         <div class="bookPanel">
           <div class="bookMini">การ์ดล่าสุด</div>
-          <div class="lastDrop">
+          <div class="lastDrop" style="margin-top:10px;">
             <div class="lastDropIcon" id="lastDropIcon">🃏</div>
-            <div>
+            <div class="lastDropBody">
               <div class="lastDropTitle" id="lastDropTitle">ยังไม่มีการ์ดล่าสุด</div>
               <div class="lastDropMeta" id="lastDropMeta">เล่น GoodJunk แล้วกลับมาดูที่นี่</div>
             </div>
@@ -765,22 +506,22 @@ PATCH v20260307-HUB-LAYOUT-CTA-CLEAN-r2
       </div>
     </section>
 
-    <section class="trophyShelf section">
-      <div class="sectionHead">
+    <section class="trophyShelf">
+      <div class="cardBookTop">
         <div>
-          <div class="sectionTitle">🏆 Hub Shelf / Trophy Shelf</div>
-          <div class="sectionSub">สรุปความก้าวหน้าของ Hero และแต่ละ Zone</div>
+          <div class="cardBookTitle">🏆 Hub Shelf / Trophy Shelf</div>
+          <div class="cardBookSub">สรุปความก้าวหน้าของ Hero และแต่ละ Zone</div>
         </div>
       </div>
 
       <div class="shelfGrid">
         <div class="shelfCard">
           <div class="shelfTop">
-            <div class="shelfInline">
+            <div class="inlineRow">
               <div class="trophyIcon" id="nutriTrophyIcon">🥦</div>
               <div>
                 <div class="trophyTitle">Nutrition Trophy</div>
-                <div class="sectionSub">GoodJunk / Groups / Hydration / Plate</div>
+                <div class="shelfMeta">GoodJunk / Groups / Plate</div>
               </div>
             </div>
             <span class="statusChip locked" id="nutriStatus">LOCKED</span>
@@ -789,16 +530,16 @@ PATCH v20260307-HUB-LAYOUT-CTA-CLEAN-r2
             <span class="pill"><b>best</b>: <span id="nutriBestScore">0</span></span>
             <span class="pill"><b>cards</b>: <span id="nutriCardTotal">0</span></span>
           </div>
-          <div class="sectionSub" id="nutriHint">เคลียร์ GoodJunk หรือสะสมการ์ดเพื่อปลดถ้วย</div>
+          <div class="shelfMeta" id="nutriHint">เล่น GoodJunk, Groups หรือ Plate ให้ boss clear หรือเล่นอย่างน้อย 2 เกมในวันนี้</div>
         </div>
 
         <div class="shelfCard">
           <div class="shelfTop">
-            <div class="shelfInline">
+            <div class="inlineRow">
               <div class="trophyIcon" id="hygieneTrophyIcon">🪥</div>
               <div>
                 <div class="trophyTitle">Hygiene Trophy</div>
-                <div class="sectionSub">Handwash / Brush / Bath / Clean / Mask / Germ</div>
+                <div class="shelfMeta">Handwash / Brush / Bath / Clean / Mask / Germ</div>
               </div>
             </div>
             <span class="statusChip locked" id="hygieneStatus">LOCKED</span>
@@ -806,16 +547,16 @@ PATCH v20260307-HUB-LAYOUT-CTA-CLEAN-r2
           <div class="miniRow">
             <span class="pill"><b>zone</b>: <span id="hygieneZoneDone">0</span></span>
           </div>
-          <div class="sectionSub" id="hygieneHint">ทำ zone hygiene ให้มี done today เพื่อโชว์ถ้วย</div>
+          <div class="shelfMeta" id="hygieneHint">ทำ zone hygiene ให้มี done today เพื่อโชว์ถ้วย</div>
         </div>
 
         <div class="shelfCard">
           <div class="shelfTop">
-            <div class="shelfInline">
+            <div class="inlineRow">
               <div class="trophyIcon" id="fitnessTrophyIcon">🏃</div>
               <div>
                 <div class="trophyTitle">Fitness Trophy</div>
-                <div class="sectionSub">Shadow / Rhythm / JumpDuck / Balance / Planner</div>
+                <div class="shelfMeta">Shadow / Rhythm / JumpDuck / Balance / Planner</div>
               </div>
             </div>
             <span class="statusChip locked" id="fitnessStatus">LOCKED</span>
@@ -823,60 +564,67 @@ PATCH v20260307-HUB-LAYOUT-CTA-CLEAN-r2
           <div class="miniRow">
             <span class="pill"><b>zone</b>: <span id="fitnessZoneDone">0</span></span>
           </div>
-          <div class="sectionSub" id="fitnessHint">ทำ zone fitness ให้มี done today เพื่อโชว์ถ้วย</div>
+          <div class="shelfMeta" id="fitnessHint">ทำ zone fitness ให้มี done today เพื่อโชว์ถ้วย</div>
         </div>
       </div>
     </section>
 
-    <div class="grid section">
+    <div class="grid">
 
       <section class="card">
         <h2>🥦 Nutrition Zone</h2>
         <div class="zoneRow">
-          <div class="sectionSub">GoodJunk • Groups • Hydration • Plate</div>
-          <div class="zoneActions">
-            <button class="btn primary" type="button" id="btnNutritionMain">🎯 GoodJunk Solo</button>
-            <button class="btn soft" type="button" id="btnNutritionBattle">⚔ Battle</button>
+          <div class="muted">GoodJunk • Groups • Plate</div>
+          <div class="inlineRow">
+            <button class="btn primary" id="btnGJsolo" type="button">🎯 GoodJunk (Solo)</button>
+            <button class="btn violet" id="btnGJpro" type="button">🔥 Solo PRO</button>
+            <button class="btn good" id="btnGJbattle" type="button">⚔ Battle</button>
           </div>
         </div>
         <div class="sep"></div>
         <div class="games">
-          <a class="gameBtn" id="linkGoodjunk" href="#"><div class="t">🍔🆚🥦 GoodJunk</div><div class="s">Launcher • Solo/PRO/Battle • Hero + Card Book</div></a>
+          <a class="gameBtn" id="linkGoodjunk" href="#"><div class="t">🍔🆚🥦 GoodJunk</div><div class="s">Launcher • Solo/PRO/Battle</div></a>
           <a class="gameBtn" id="linkGroups" href="#"><div class="t">🥚🍚 Food Groups</div><div class="s">Classroom ramp + AI warn</div></a>
-          <a class="gameBtn" id="linkHydration" href="#"><div class="t">💧 Hydration</div><div class="s">Storm boss + shield</div></a>
-          <a class="gameBtn" id="linkPlate" href="#"><div class="t">🍽 Balanced Plate</div><div class="s">Bloom missions</div></a>
+          <a class="gameBtn" id="linkPlate" href="#"><div class="t">🍽 Balanced Plate</div><div class="s">Mission + Boss + Cooldown</div></a>
+          <div class="gameBtn">
+            <div class="t">🥗 Groups Progress</div>
+            <div class="s" id="groupsProgressText">ยังไม่มีผลล่าสุด</div>
+          </div>
+          <div class="gameBtn">
+            <div class="t">🍽 Plate Progress</div>
+            <div class="s" id="plateProgressText">ยังไม่มีผลล่าสุด</div>
+          </div>
         </div>
-        <div class="zoneHint">แนะนำเริ่มจาก GoodJunk ถ้าต้องการเข้าเล่นเร็วที่สุด</div>
+        <div class="inlineRow" style="margin-top:8px;">
+          <button class="btn ghost" id="btnResetNutritionProgress" type="button">♻ Reset Nutrition Progress</button>
+        </div>
+        <div class="small" style="margin-top:4px;">Tip: launcher จะพาเข้า warmup/cooldown ตาม daily-first อัตโนมัติ</div>
       </section>
 
       <section class="card">
         <h2>🪥 Hygiene Zone</h2>
-        <div class="zoneRow">
-          <div class="sectionSub">Handwash • Brush • Bath • Clean Object • MaskCough • Germ Detective</div>
-        </div>
+        <div class="muted">Handwash • Brush • Bath • Clean Object • MaskCough • Germ Detective</div>
         <div class="sep"></div>
         <div class="games">
-          <a class="gameBtn" id="linkHandwash" href="#"><div class="t">🧼 Handwash</div><div class="s">สะอาดครบขั้น</div></a>
-          <a class="gameBtn" id="linkBrush" href="#"><div class="t">🪥 Brush</div><div class="s">แปรงฟันอย่างถูกวิธี</div></a>
-          <a class="gameBtn" id="linkBath" href="#"><div class="t">🛁 Bath</div><div class="s">Hidden Dirt Quest</div></a>
-          <a class="gameBtn" id="linkCleanObject" href="#"><div class="t">🧴 Clean Object</div><div class="s">Evaluate / Create</div></a>
-          <a class="gameBtn" id="linkMaskCough" href="#"><div class="t">😷 Mask & Cough</div><div class="s">มารยาทสุขอนามัย</div></a>
-          <a class="gameBtn" id="linkGermDetective" href="#"><div class="t">🦠 Germ Detective</div><div class="s">UV / Swab / Camera</div></a>
+          <a class="gameBtn" href="./handwash.html"><div class="t">🧼 Handwash</div><div class="s">สะอาดครบขั้น</div></a>
+          <a class="gameBtn" href="./brush.html"><div class="t">🪥 Brush</div><div class="s">แปรงฟันอย่างถูกวิธี</div></a>
+          <a class="gameBtn" href="./bath.html"><div class="t">🛁 Bath</div><div class="s">Hidden Dirt Quest</div></a>
+          <a class="gameBtn" href="./clean-object.html"><div class="t">🧴 Clean Object</div><div class="s">Evaluate / Create</div></a>
+          <a class="gameBtn" href="./maskcough.html"><div class="t">😷 Mask & Cough</div><div class="s">มารยาทสุขอนามัย</div></a>
+          <a class="gameBtn" href="./germ-detective.html"><div class="t">🦠 Germ Detective</div><div class="s">UV / Swab / Camera</div></a>
         </div>
       </section>
 
       <section class="card">
         <h2>🏃 Exercise Zone</h2>
-        <div class="zoneRow">
-          <div class="sectionSub">Shadow Breaker • Rhythm Boxer • JumpDuck • Balance Hold • Fitness Planner</div>
-        </div>
+        <div class="muted">Shadow Breaker • Rhythm Boxer • JumpDuck • Balance Hold • Fitness Planner</div>
         <div class="sep"></div>
         <div class="games">
-          <a class="gameBtn" id="linkShadowBreaker" href="#"><div class="t">🥊 Shadow Breaker</div><div class="s">คอมโบ & รีแอคชั่น</div></a>
-          <a class="gameBtn" id="linkRhythmBoxer" href="#"><div class="t">🎵 Rhythm Boxer</div><div class="s">จังหวะ + พลัง</div></a>
-          <a class="gameBtn" id="linkJumpDuck" href="#"><div class="t">⬆️⬇️ JumpDuck</div><div class="s">หลบ-กระโดด</div></a>
-          <a class="gameBtn" id="linkBalanceHold" href="#"><div class="t">⚖️ Balance Hold</div><div class="s">ทรงตัวแบบท้าทาย</div></a>
-          <a class="gameBtn" id="linkFitnessPlanner" href="#"><div class="t">📅 Fitness Planner</div><div class="s">วางแผนออกกำลัง</div></a>
+          <a class="gameBtn" href="./shadow-breaker.html"><div class="t">🥊 Shadow Breaker</div><div class="s">คอมโบ & รีแอคชั่น</div></a>
+          <a class="gameBtn" href="./rhythm-boxer.html"><div class="t">🎵 Rhythm Boxer</div><div class="s">จังหวะ + พลัง</div></a>
+          <a class="gameBtn" href="./jump-duck-vr.html"><div class="t">⬆️⬇️ JumpDuck</div><div class="s">หลบ-กระโดด</div></a>
+          <a class="gameBtn" href="./balance-hold-vr.html"><div class="t">⚖️ Balance Hold</div><div class="s">ทรงตัวแบบท้าทาย</div></a>
+          <a class="gameBtn" href="./fitness-planner/"><div class="t">📅 Fitness Planner</div><div class="s">วางแผนออกกำลัง</div></a>
         </div>
       </section>
 
@@ -898,17 +646,31 @@ PATCH v20260307-HUB-LAYOUT-CTA-CLEAN-r2
     const uiNick = document.getElementById('uiNick');
     const uiLvl = document.getElementById('uiLvl');
     const uiXp = document.getElementById('uiXp');
-    const uiViewInline = document.getElementById('uiViewInline');
-    const uiRunInline = document.getElementById('uiRunInline');
 
     uiPid.textContent = pid;
-    uiViewInline.textContent = view;
-    uiRunInline.textContent = run;
-    ctxLine.textContent = `Hub • run=${run} • diff=${diff} • time=${time}s • view=${view}`;
+    ctxLine.textContent = `run=${run} • diff=${diff} • time=${time}s • view=${view}`;
 
-    function hhDayKey(){
-      const d=new Date();
+    function dayKey(){
+      const d = new Date();
       return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    }
+
+    function warmupDone(cat, game, pid){
+      try{
+        const day = dayKey();
+        const kNew = `HHA_WARMUP_DONE:${cat}:${game}:${pid}:${day}`;
+        const kOld = `HHA_WARMUP_DONE:${cat}:${pid}:${day}`;
+        return localStorage.getItem(kNew) === '1' || localStorage.getItem(kOld) === '1';
+      }catch(_){ return false; }
+    }
+
+    function cooldownDone(cat, game, pid){
+      try{
+        const day = dayKey();
+        const kNew = `HHA_COOLDOWN_DONE:${cat}:${game}:${pid}:${day}`;
+        const kOld = `HHA_COOLDOWN_DONE:${cat}:${pid}:${day}`;
+        return localStorage.getItem(kNew) === '1' || localStorage.getItem(kOld) === '1';
+      }catch(_){ return false; }
     }
 
     function loadJson(k, fallback){
@@ -920,6 +682,15 @@ PATCH v20260307-HUB-LAYOUT-CTA-CLEAN-r2
 
     function saveJson(k, v){
       try{ localStorage.setItem(k, JSON.stringify(v)); }catch(_){}
+    }
+
+    function readJSONSafe(key, fallback=null){
+      try{
+        const raw = localStorage.getItem(key);
+        return raw ? JSON.parse(raw) : fallback;
+      }catch(_){
+        return fallback;
+      }
     }
 
     function loadHero(){
@@ -959,7 +730,10 @@ PATCH v20260307-HUB-LAYOUT-CTA-CLEAN-r2
       [
         'run','diff','time','seed','studyId','phase','conditionGroup','log','view','pid','api','ai','debug',
         'planSeq','planDay','planSlot','planMode','planSlots','planIndex','autoNext',
-        'plannedGame','finalGame','zone','cdnext','grade'
+        'plannedGame','finalGame','zone','cdnext','grade',
+        'cooldown','cd',
+        'wType','wPct','rank','wCrit','wDmg','wHeal','calm',
+        'practice','cvrStrict','pro'
       ].forEach(k=>{
         const v = sp.get(k);
         if(v!=null && v!=='') u.searchParams.set(k, v);
@@ -975,6 +749,35 @@ PATCH v20260307-HUB-LAYOUT-CTA-CLEAN-r2
         });
       }
       return u.toString();
+    }
+
+    function buildWarmupUrlForGame(gameKey, launcherPath){
+      const pidNow = String(qs('pid','anon')).trim() || 'anon';
+      const nextUrl = buildUrl(launcherPath, {
+        cooldown: cooldownDone('nutrition', gameKey, pidNow) ? '0' : '1'
+      });
+
+      const gate = new URL('./warmup-gate.html', location.href);
+      gate.searchParams.set('gatePhase', 'warmup');
+      gate.searchParams.set('cat', 'nutrition');
+      gate.searchParams.set('theme', gameKey);
+      gate.searchParams.set('pid', pidNow);
+      gate.searchParams.set('hub', location.href);
+      gate.searchParams.set('next', nextUrl);
+
+      const sp = new URL(location.href).searchParams;
+      [
+        'run','diff','time','seed','studyId','phase','conditionGroup','view','log','pid','api','ai','debug',
+        'planSeq','planDay','planSlot','planMode','planSlots','planIndex','autoNext',
+        'plannedGame','finalGame','zone','cdnext','grade',
+        'wType','wPct','rank','wCrit','wDmg','wHeal','calm',
+        'practice','cvrStrict','pro'
+      ].forEach(k=>{
+        const v = sp.get(k);
+        if(v != null && v !== '') gate.searchParams.set(k, v);
+      });
+
+      return gate.toString();
     }
 
     function loadCardBook(pid){
@@ -1008,21 +811,6 @@ PATCH v20260307-HUB-LAYOUT-CTA-CLEAN-r2
       return { icon:'🌱', title:'Rookie Health Explorer' };
     }
 
-    function loadLastGoodjunkSummary(pid){
-      try{
-        const raw = localStorage.getItem(`HHA_LAST_SUMMARY:goodjunk:${pid}`) || '';
-        if(raw) return JSON.parse(raw);
-
-        const raw2 = localStorage.getItem('HHA_LAST_SUMMARY') || '';
-        if(!raw2) return null;
-        const j = JSON.parse(raw2);
-        if(j && String(j.pid||'') === pid && String(j.game||'') === 'goodjunk') return j;
-        return null;
-      }catch(_){
-        return null;
-      }
-    }
-
     function loadLastCard(pid){
       try{
         const raw = localStorage.getItem(`HHA_LAST_CARD:${pid}`) || '';
@@ -1032,7 +820,7 @@ PATCH v20260307-HUB-LAYOUT-CTA-CLEAN-r2
 
     function renderCardBook(){
       const book = loadCardBook(pid);
-      const sum = loadLastGoodjunkSummary(pid);
+      const gjLast = readJSONSafe(`HHA_GJ_LAST:${pid}`, null);
       const lastCard = loadLastCard(pid);
 
       document.getElementById('bookTotal').textContent = String(book.total || 0);
@@ -1052,14 +840,15 @@ PATCH v20260307-HUB-LAYOUT-CTA-CLEAN-r2
         lastDropTitle.textContent = lastCard.title || 'Latest Card';
       }
 
-      if(sum){
+      if(gjLast?.summary){
+        const sum = gjLast.summary;
         const grade = String(sum.grade || 'C').toUpperCase();
         const spec = cardSpecFromGrade(grade);
 
         if(!lastCard) lastDropIcon.textContent = spec.icon;
         if(!lastCard) lastDropTitle.textContent = spec.title;
         lastDropMeta.textContent =
-          `ผลล่าสุด: reason=${sum.reason || '-'} • miss ${sum.missTotal ?? sum.miss ?? 0} • acc ${sum.accPct ?? 0}%`;
+          `ผลล่าสุด: reason=${sum.reason || '-'} • miss ${sum.miss ?? 0} • acc ${sum.accPct ?? 0}%`;
         lastDropGrade.textContent = grade;
         lastDropScore.textContent = String(sum.scoreFinal ?? sum.score ?? 0);
       }else{
@@ -1070,20 +859,103 @@ PATCH v20260307-HUB-LAYOUT-CTA-CLEAN-r2
         lastDropScore.textContent = '0';
       }
 
-      const bestNormal = loadJson(`HHA_GJ_BEST:${pid}:normal`, null);
-      document.getElementById('bestNormalScore').textContent = String(bestNormal?.scoreFinal ?? bestNormal?.score ?? 0);
+      const gjBest = readJSONSafe(`HHA_GJ_BEST:${pid}:normal`, null) || readJSONSafe(`HHA_GJ_BEST:${pid}:hard`, null);
+      document.getElementById('bestNormalScore').textContent = String(gjBest?.summary?.scoreFinal ?? gjBest?.summary?.score ?? 0);
 
       const streak = loadJson(`HHA_GJ_STREAK:${pid}`, { count:0 });
       document.getElementById('streakCount').textContent = String(streak?.count || 0);
     }
 
-    function renderTrophyShelf(){
-      const book = loadCardBook(pid);
-      const bestNormal = loadJson(`HHA_GJ_BEST:${pid}:normal`, null);
-      const badges = loadJson(`HHA_GJ_BADGES:${pid}`, {});
-      const today = hhDayKey();
+    function renderGoodJunkProgress(){
+      const pidNow = String(qs('pid','anon')).trim() || 'anon';
 
-      const nutritionUnlocked = (book.total || 0) > 0 || ((bestNormal?.scoreFinal ?? bestNormal?.score ?? 0) >= 500);
+      const gjLast = readJSONSafe(`HHA_GJ_LAST:${pidNow}`, null);
+      const gjBest = readJSONSafe(`HHA_GJ_BEST:${pidNow}:normal`, null)
+                  || readJSONSafe(`HHA_GJ_BEST:${pidNow}:hard`, null);
+
+      const bestNormalScore = document.getElementById('bestNormalScore');
+      if(bestNormalScore){
+        bestNormalScore.textContent = String(gjBest?.summary?.scoreFinal ?? gjBest?.summary?.score ?? 0);
+      }
+
+      if(gjLast?.summary){
+        const sum = gjLast.summary;
+
+        const lastDropMeta = document.getElementById('lastDropMeta');
+        if(lastDropMeta){
+          lastDropMeta.textContent =
+            `ผลล่าสุด: reason=${sum.reason || '-'} • miss ${sum.miss ?? 0} • acc ${sum.accPct ?? 0}%`;
+        }
+
+        const lastDropGrade = document.getElementById('lastDropGrade');
+        if(lastDropGrade) lastDropGrade.textContent = String(sum.grade || '—');
+
+        const lastDropScore = document.getElementById('lastDropScore');
+        if(lastDropScore) lastDropScore.textContent = String(sum.scoreFinal ?? sum.score ?? 0);
+      }
+    }
+
+    function renderNutritionProgress(){
+      const pidNow = String(qs('pid','anon')).trim() || 'anon';
+
+      const groupsLast = readJSONSafe(`HHA_GROUPS_LAST:${pidNow}`, null);
+      const plateLast  = readJSONSafe(`HHA_PLATE_LAST:${pidNow}`, null);
+
+      const groupsBest = readJSONSafe(`HHA_GROUPS_BEST:${pidNow}:normal`, null)
+                      || readJSONSafe(`HHA_GROUPS_BEST:${pidNow}:hard`, null);
+      const plateBest  = readJSONSafe(`HHA_PLATE_BEST:${pidNow}:normal`, null)
+                      || readJSONSafe(`HHA_PLATE_BEST:${pidNow}:hard`, null);
+
+      const gEl = document.getElementById('groupsProgressText');
+      const pEl = document.getElementById('plateProgressText');
+
+      if(gEl){
+        if(groupsLast?.summary){
+          const s = groupsLast.summary;
+          const best = Number(groupsBest?.summary?.scoreFinal || 0);
+          gEl.textContent =
+            `ล่าสุด ${s.scoreFinal || 0} คะแนน • grade ${s.grade || '-'} • boss ${s.bossCleared ? 'clear' : 'done'} • best ${best}`;
+        }else{
+          gEl.textContent = 'ยังไม่มีผลล่าสุด';
+        }
+      }
+
+      if(pEl){
+        if(plateLast?.summary){
+          const s = plateLast.summary;
+          const best = Number(plateBest?.summary?.scoreFinal || 0);
+          pEl.textContent =
+            `ล่าสุด ${s.scoreFinal || 0} คะแนน • grade ${s.grade || '-'} • balance ${s.plate_balancePct || 0}% • boss ${s.bossCleared ? 'clear' : 'done'} • best ${best}`;
+        }else{
+          pEl.textContent = 'ยังไม่มีผลล่าสุด';
+        }
+      }
+    }
+
+    function renderTrophyShelf(){
+      const today = dayKey();
+      const pidNow = String(qs('pid','anon')).trim() || 'anon';
+
+      const gjLast = readJSONSafe(`HHA_GJ_LAST:${pidNow}`, null);
+      const groupsLast = readJSONSafe(`HHA_GROUPS_LAST:${pidNow}`, null);
+      const plateLast  = readJSONSafe(`HHA_PLATE_LAST:${pidNow}`, null);
+
+      const gjDoneToday = localStorage.getItem(`HHA_GJ_DONE:${pidNow}:${today}`) === '1';
+      const groupsDoneToday = localStorage.getItem(`HHA_GROUPS_DONE:${pidNow}:${today}`) === '1';
+      const plateDoneToday  = localStorage.getItem(`HHA_PLATE_DONE:${pidNow}:${today}`) === '1';
+
+      const gjBossClear = Number(gjLast?.summary?.bossCleared || 0) === 1;
+      const groupsBossClear = Number(groupsLast?.summary?.bossCleared || 0) === 1;
+      const plateBossClear  = Number(plateLast?.summary?.bossCleared || 0) === 1;
+
+      const nutritionUnlocked =
+        gjBossClear ||
+        groupsBossClear ||
+        plateBossClear ||
+        (gjDoneToday && groupsDoneToday) ||
+        (gjDoneToday && plateDoneToday) ||
+        (groupsDoneToday && plateDoneToday);
+
       const hygieneUnlocked = localStorage.getItem(`HHA_ZONE_DONE::hygiene::${today}`) === '1';
       const fitnessUnlocked = localStorage.getItem(`HHA_ZONE_DONE::fitness::${today}`) === '1';
 
@@ -1107,16 +979,27 @@ PATCH v20260307-HUB-LAYOUT-CTA-CLEAN-r2
       hygieneTrophyIcon.textContent = hygieneUnlocked ? '🏅' : '🪥';
       fitnessTrophyIcon.textContent = fitnessUnlocked ? '🎖️' : '🏃';
 
-      document.getElementById('nutriBestScore').textContent = String(bestNormal?.scoreFinal ?? bestNormal?.score ?? 0);
-      document.getElementById('nutriCardTotal').textContent = String(book.total || 0);
+      const groupsBest = readJSONSafe(`HHA_GROUPS_BEST:${pidNow}:normal`, null) || readJSONSafe(`HHA_GROUPS_BEST:${pidNow}:hard`, null);
+      const plateBest  = readJSONSafe(`HHA_PLATE_BEST:${pidNow}:normal`, null) || readJSONSafe(`HHA_PLATE_BEST:${pidNow}:hard`, null);
+      const gjBest     = readJSONSafe(`HHA_GJ_BEST:${pidNow}:normal`, null) || readJSONSafe(`HHA_GJ_BEST:${pidNow}:hard`, null);
+
+      const nutriBest = Math.max(
+        Number(gjBest?.summary?.scoreFinal ?? gjBest?.summary?.score ?? 0),
+        Number(groupsBest?.summary?.scoreFinal || 0),
+        Number(plateBest?.summary?.scoreFinal || 0)
+      );
+
+      document.getElementById('nutriBestScore').textContent = String(nutriBest);
+      document.getElementById('nutriCardTotal').textContent = String(
+        (gjDoneToday ? 1 : 0) + (groupsDoneToday ? 1 : 0) + (plateDoneToday ? 1 : 0)
+      );
       document.getElementById('hygieneZoneDone').textContent = hygieneUnlocked ? '1' : '0';
       document.getElementById('fitnessZoneDone').textContent = fitnessUnlocked ? '1' : '0';
 
-      const badgeCount = Object.values(badges || {}).filter(Boolean).length;
       document.getElementById('nutriHint').textContent =
         nutritionUnlocked
-          ? `ปลดถ้วยแล้ว • badges ${badgeCount} • พร้อมลุยต่อ`
-          : 'เคลียร์ GoodJunk หรือสะสมการ์ดเพื่อปลดถ้วย';
+          ? 'ปลดถ้วยแล้ว • GoodJunk / Groups / Plate มีความก้าวหน้าแล้ว'
+          : 'เล่น GoodJunk, Groups หรือ Plate ให้ boss clear หรือเล่นอย่างน้อย 2 เกมในวันนี้';
 
       document.getElementById('hygieneHint').textContent =
         hygieneUnlocked
@@ -1129,135 +1012,49 @@ PATCH v20260307-HUB-LAYOUT-CTA-CLEAN-r2
           : 'ทำ zone fitness ให้มี done today เพื่อโชว์ถ้วย';
     }
 
-    const heroNickInput = document.getElementById('heroNickInput');
-    const heroXpInput = document.getElementById('heroXpInput');
-    const heroLvlPreview = document.getElementById('heroLvlPreview');
-    const btnHeroSave = document.getElementById('btnHeroSave');
-    const btnHeroReload = document.getElementById('btnHeroReload');
-    const heroEditorPid = document.getElementById('heroEditorPid');
+    const GJ_LAUNCHER = './goodjunk-launcher.html';
+    const GROUPS_LAUNCHER = './groups-vr.html';
+    const PLATE_LAUNCHER = './plate-vr.html';
 
-    function lvlFromXp(xp){
-      xp = Math.max(0, Number(xp) || 0);
-      return Math.max(1, Math.floor(xp / 50) + 1);
-    }
+    const linkGoodjunk = document.getElementById('linkGoodjunk');
+    const linkGroups = document.getElementById('linkGroups');
+    const linkPlate = document.getElementById('linkPlate');
 
-    function renderHeroEditor(){
-      const h = loadHero();
-      if(heroNickInput) heroNickInput.value = h.nick || pid;
-      if(heroXpInput) heroXpInput.value = String(Math.max(0, Number(h.xp) || 0));
-      if(heroLvlPreview) heroLvlPreview.value = String(lvlFromXp(h.xp));
-      if(heroEditorPid) heroEditorPid.textContent = pid;
-    }
+    const pidNow = String(qs('pid','anon')).trim() || 'anon';
 
-    heroXpInput?.addEventListener('input', ()=>{
-      const xp = Math.max(0, Number(heroXpInput.value) || 0);
-      if(heroLvlPreview) heroLvlPreview.value = String(lvlFromXp(xp));
-    });
+    linkGoodjunk.href = warmupDone('nutrition', 'goodjunk', pidNow)
+      ? buildUrl(GJ_LAUNCHER, { mode:'solo', cooldown: cooldownDone('nutrition','goodjunk',pidNow) ? '0' : '1' })
+      : buildWarmupUrlForGame('goodjunk', GJ_LAUNCHER);
 
-    btnHeroReload?.addEventListener('click', ()=>{
-      renderHeroEditor();
-      alert('Reload Hero เรียบร้อย ✅');
-    });
+    linkGroups.href = warmupDone('nutrition', 'groups', pidNow)
+      ? buildUrl(GROUPS_LAUNCHER, { cooldown: cooldownDone('nutrition','groups',pidNow) ? '0' : '1' })
+      : buildWarmupUrlForGame('groups', GROUPS_LAUNCHER);
 
-    btnHeroSave?.addEventListener('click', ()=>{
-      try{
-        const nick = String(heroNickInput?.value || pid).trim() || pid;
-        const xp = Math.max(0, Number(heroXpInput?.value) || 0);
-        const lvl = lvlFromXp(xp);
-
-        const h = { pid, nick, xp, lvl };
-        saveHero(h);
-        try{ localStorage.setItem(`HHA_HERO_XP:${pid}`, String(xp)); }catch(_){}
-
-        renderHero();
-        renderHeroEditor();
-
-        alert(`บันทึก Hero เรียบร้อย ✅\nNick: ${nick}\nXP: ${xp}\nLV: ${lvl}`);
-      }catch(_){
-        alert('บันทึก Hero ไม่สำเร็จ');
-      }
-    });
-
-    const PATHS = {
-      goodjunk:       './goodjunk-launcher.html',
-      groups:         './groups-vr.html',
-      hydration:      './hydration-vr.html',
-      plate:          './plate-vr.html',
-
-      handwash:       './hygiene-vr.html',
-      brush:          './brush-vr.html',
-      bath:           './bath-vr.html',
-      cleanObject:    './clean-objects.html',
-      maskCough:      './maskcough-v2.html',
-      germDetective:  './germ-detective.html',
-
-      shadowBreaker:  './shadow-breaker-vr.html',
-      rhythmBoxer:    './rhythm-boxer-vr.html',
-      jumpDuck:       './jump-duck-vr.html',
-      balanceHold:    './balance-hold-vr.html',
-      fitnessPlanner: './fitness-planner/planner.html'
-    };
+    linkPlate.href = warmupDone('nutrition', 'plate', pidNow)
+      ? buildUrl(PLATE_LAUNCHER, { cooldown: cooldownDone('nutrition','plate',pidNow) ? '0' : '1' })
+      : buildWarmupUrlForGame('plate', PLATE_LAUNCHER);
 
     const btnGJsolo = document.getElementById('btnGJsolo');
     const btnGJpro = document.getElementById('btnGJpro');
     const btnGJbattle = document.getElementById('btnGJbattle');
 
-    const btnNutritionMain = document.getElementById('btnNutritionMain');
-    const btnNutritionBattle = document.getElementById('btnNutritionBattle');
-
-    const linkGoodjunk = document.getElementById('linkGoodjunk');
-    const linkGroups = document.getElementById('linkGroups');
-    const linkHydration = document.getElementById('linkHydration');
-    const linkPlate = document.getElementById('linkPlate');
-
-    const linkHandwash = document.getElementById('linkHandwash');
-    const linkBrush = document.getElementById('linkBrush');
-    const linkBath = document.getElementById('linkBath');
-    const linkCleanObject = document.getElementById('linkCleanObject');
-    const linkMaskCough = document.getElementById('linkMaskCough');
-    const linkGermDetective = document.getElementById('linkGermDetective');
-
-    const linkShadowBreaker = document.getElementById('linkShadowBreaker');
-    const linkRhythmBoxer = document.getElementById('linkRhythmBoxer');
-    const linkJumpDuck = document.getElementById('linkJumpDuck');
-    const linkBalanceHold = document.getElementById('linkBalanceHold');
-    const linkFitnessPlanner = document.getElementById('linkFitnessPlanner');
-
-    linkGoodjunk.href  = buildUrl(PATHS.goodjunk,   { mode:'solo' });
-    linkGroups.href    = buildUrl(PATHS.groups,     { zone:'nutrition' });
-    linkHydration.href = buildUrl(PATHS.hydration,  { zone:'nutrition' });
-    linkPlate.href     = buildUrl(PATHS.plate,      { zone:'nutrition' });
-
-    if(linkHandwash)      linkHandwash.href      = buildUrl(PATHS.handwash,      { zone:'hygiene' });
-    if(linkBrush)         linkBrush.href         = buildUrl(PATHS.brush,         { zone:'hygiene' });
-    if(linkBath)          linkBath.href          = buildUrl(PATHS.bath,          { zone:'hygiene' });
-    if(linkCleanObject)   linkCleanObject.href   = buildUrl(PATHS.cleanObject,   { zone:'hygiene' });
-    if(linkMaskCough)     linkMaskCough.href     = buildUrl(PATHS.maskCough,     { zone:'hygiene' });
-    if(linkGermDetective) linkGermDetective.href = buildUrl(PATHS.germDetective, { zone:'hygiene' });
-
-    if(linkShadowBreaker)  linkShadowBreaker.href  = buildUrl(PATHS.shadowBreaker,  { zone:'fitness' });
-    if(linkRhythmBoxer)    linkRhythmBoxer.href    = buildUrl(PATHS.rhythmBoxer,    { zone:'fitness' });
-    if(linkJumpDuck)       linkJumpDuck.href       = buildUrl(PATHS.jumpDuck,       { zone:'fitness' });
-    if(linkBalanceHold)    linkBalanceHold.href    = buildUrl(PATHS.balanceHold,    { zone:'fitness' });
-    if(linkFitnessPlanner) linkFitnessPlanner.href = buildUrl(PATHS.fitnessPlanner, { zone:'fitness' });
-
-    btnGJsolo.onclick = ()=> location.href = buildUrl(PATHS.goodjunk, { mode:'solo' });
-    btnGJpro.onclick  = ()=> location.href = buildUrl(PATHS.goodjunk, {
-      mode:'solo', diff:'hard', pro:'1', auto:'0'
-    });
-    btnGJbattle.onclick = ()=> {
-      const room = String(qs('room','P5A')) || 'P5A';
-      location.href = buildUrl(PATHS.goodjunk, {
-        mode:'battle', room, auto:'1'
-      });
+    btnGJsolo.onclick = ()=>{
+      location.href = warmupDone('nutrition', 'goodjunk', pidNow)
+        ? buildUrl(GJ_LAUNCHER, { mode:'solo', cooldown: cooldownDone('nutrition','goodjunk',pidNow) ? '0' : '1' })
+        : buildWarmupUrlForGame('goodjunk', GJ_LAUNCHER);
     };
 
-    btnNutritionMain.onclick = ()=> location.href = buildUrl(PATHS.goodjunk, { mode:'solo' });
-    btnNutritionBattle.onclick = ()=> {
+    btnGJpro.onclick = ()=>{
+      location.href = warmupDone('nutrition', 'goodjunk', pidNow)
+        ? buildUrl(GJ_LAUNCHER, { mode:'solo', diff:'hard', pro:'1', auto:'0', cooldown: cooldownDone('nutrition','goodjunk',pidNow) ? '0' : '1' })
+        : buildWarmupUrlForGame('goodjunk', GJ_LAUNCHER);
+    };
+
+    btnGJbattle.onclick = ()=>{
       const room = String(qs('room','P5A')) || 'P5A';
-      location.href = buildUrl(PATHS.goodjunk, {
-        mode:'battle', room, auto:'1'
-      });
+      location.href = warmupDone('nutrition', 'goodjunk', pidNow)
+        ? buildUrl(GJ_LAUNCHER, { mode:'battle', room, auto:'1', cooldown: cooldownDone('nutrition','goodjunk',pidNow) ? '0' : '1' })
+        : buildWarmupUrlForGame('goodjunk', GJ_LAUNCHER);
     };
 
     const btnHeroShow = document.getElementById('btnHeroShow');
@@ -1275,7 +1072,6 @@ PATCH v20260307-HUB-LAYOUT-CTA-CLEAN-r2
         saveHero(h);
         try{ localStorage.setItem(`HHA_HERO_XP:${pid}`, '0'); }catch(_){}
         renderHero();
-        renderHeroEditor();
         alert('Reset Hero เรียบร้อย ✅');
       }catch(_){}
     };
@@ -1284,7 +1080,7 @@ PATCH v20260307-HUB-LAYOUT-CTA-CLEAN-r2
     const btnResetCardBook = document.getElementById('btnResetCardBook');
 
     btnOpenGJLauncher.onclick = ()=>{
-      location.href = buildUrl(PATHS.goodjunk, { mode:'solo' });
+      location.href = buildUrl('./goodjunk-launcher.html', { mode:'solo' });
     };
 
     btnResetCardBook.onclick = ()=>{
@@ -1298,11 +1094,45 @@ PATCH v20260307-HUB-LAYOUT-CTA-CLEAN-r2
       }catch(_){}
     };
 
+    const btnResetNutritionProgress = document.getElementById('btnResetNutritionProgress');
+    btnResetNutritionProgress?.addEventListener('click', ()=>{
+      try{
+        const pidNow = String(qs('pid','anon')).trim() || 'anon';
+        const today = dayKey();
+
+        [
+          `HHA_GJ_LAST:${pidNow}`,
+          `HHA_PLATE_LAST:${pidNow}`,
+          `HHA_GROUPS_LAST:${pidNow}`,
+          `HHA_GJ_BEST:${pidNow}:normal`,
+          `HHA_GJ_BEST:${pidNow}:hard`,
+          `HHA_GROUPS_BEST:${pidNow}:normal`,
+          `HHA_GROUPS_BEST:${pidNow}:hard`,
+          `HHA_PLATE_BEST:${pidNow}:normal`,
+          `HHA_PLATE_BEST:${pidNow}:hard`,
+          `HHA_GJ_DONE:${pidNow}:${today}`,
+          `HHA_GROUPS_DONE:${pidNow}:${today}`,
+          `HHA_PLATE_DONE:${pidNow}:${today}`,
+          `HHA_ZONE_DONE::nutrition::${today}`,
+          `HHA_WARMUP_DONE:nutrition:goodjunk:${pidNow}:${today}`,
+          `HHA_WARMUP_DONE:nutrition:groups:${pidNow}:${today}`,
+          `HHA_WARMUP_DONE:nutrition:plate:${pidNow}:${today}`,
+          `HHA_COOLDOWN_DONE:nutrition:goodjunk:${pidNow}:${today}`,
+          `HHA_COOLDOWN_DONE:nutrition:groups:${pidNow}:${today}`,
+          `HHA_COOLDOWN_DONE:nutrition:plate:${pidNow}:${today}`
+        ].forEach(k=>localStorage.removeItem(k));
+
+        renderAll();
+        alert('Reset Nutrition Progress เรียบร้อย ✅');
+      }catch(_){}
+    });
+
     function renderAll(){
       renderHero();
-      renderHeroEditor();
       renderCardBook();
+      renderGoodJunkProgress();
       renderTrophyShelf();
+      renderNutritionProgress();
     }
 
     renderAll();
