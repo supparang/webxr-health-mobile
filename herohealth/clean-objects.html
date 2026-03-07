@@ -37,18 +37,127 @@
   </div></div>
 
   <script>
-    function qs(k,d=''){ try{return (new URL(location.href)).searchParams.get(k) ?? d;}catch(_){return d;} }
-    function safeNum(v,d){ v=Number(v); return Number.isFinite(v)?v:d; }
-    function normalizeHub(){ const raw=String(qs('hub','')).trim(); if(raw) return raw; try{return new URL('./hub.html', location.href).toString();}catch(_){return './hub.html';} }
-    const GAME = { cat:'hygiene', theme:'clean', game:'clean', runPath:'./vr-clean/clean.html' };
-    const ctx = { pid:String(qs('pid','anon')).trim()||'anon', view:String(qs('view','mobile')).trim()||'mobile', run:String(qs('run','play')).trim()||'play', diff:String(qs('diff','normal')).trim()||'normal', time:String(safeNum(qs('time','80'),80)), seed:String(qs('seed', String(Date.now()))), zone:String(qs('zone','hygiene')).trim()||'hygiene', hub:normalizeHub() };
-    document.getElementById('uiPid').textContent=ctx.pid; document.getElementById('uiView').textContent=ctx.view; document.getElementById('uiRun').textContent=ctx.run; document.getElementById('uiDiff').textContent=ctx.diff; document.getElementById('uiTime').textContent=ctx.time;
-    function copyPassthrough(u){ const sp=new URL(location.href).searchParams; ['run','diff','time','seed','studyId','phase','conditionGroup','log','view','pid','api','ai','debug','planSeq','planDay','planSlot','planMode','planSlots','planIndex','autoNext','plannedGame','finalGame','zone','cdnext','grade'].forEach(k=>{ const v=sp.get(k); if(v!=null&&v!=='') u.searchParams.set(k,v); }); }
-    function buildRunUrl(){ const u=new URL(GAME.runPath, location.href); copyPassthrough(u); if(!u.searchParams.get('pid')) u.searchParams.set('pid',ctx.pid); if(!u.searchParams.get('view')) u.searchParams.set('view',ctx.view); if(!u.searchParams.get('run')) u.searchParams.set('run',ctx.run); if(!u.searchParams.get('diff')) u.searchParams.set('diff',ctx.diff); if(!u.searchParams.get('time')) u.searchParams.set('time',ctx.time); if(!u.searchParams.get('seed')) u.searchParams.set('seed',ctx.seed); if(!u.searchParams.get('zone')) u.searchParams.set('zone',ctx.zone); u.searchParams.set('hub',ctx.hub); return u.toString(); }
-    function buildWarmupUrl(){ const warm=new URL('./warmup-gate.html', location.href); warm.searchParams.set('gatePhase','warmup'); warm.searchParams.set('phase','warmup'); warm.searchParams.set('cat',GAME.cat); warm.searchParams.set('theme',GAME.theme); warm.searchParams.set('game',GAME.game); warm.searchParams.set('pid',ctx.pid); warm.searchParams.set('hub',ctx.hub); warm.searchParams.set('next',buildRunUrl()); warm.searchParams.set('run',ctx.run); warm.searchParams.set('diff',ctx.diff); warm.searchParams.set('time',ctx.time); warm.searchParams.set('view',ctx.view); warm.searchParams.set('seed',ctx.seed); const grade=String(qs('grade','')).trim(); if(grade) warm.searchParams.set('grade',grade); const studyId=String(qs('studyId','')).trim(); if(studyId) warm.searchParams.set('studyId',studyId); const conditionGroup=String(qs('conditionGroup','')).trim(); if(conditionGroup) warm.searchParams.set('conditionGroup',conditionGroup); const log=String(qs('log','')).trim(); if(log) warm.searchParams.set('log',log); return warm.toString(); }
-    const debugBox=document.getElementById('debugBox'); debugBox.textContent='[Clean Launcher]\\nlauncher: '+location.href+'\\nhub:      '+ctx.hub+'\\nwarmup:   '+buildWarmupUrl()+'\\nrunPath:  '+buildRunUrl()+'\\n';
-    document.getElementById('btnStart').onclick=()=>location.href=buildWarmupUrl(); document.getElementById('btnOpenRun').onclick=()=>location.href=buildRunUrl(); document.getElementById('btnHub').onclick=()=>location.href=ctx.hub;
-    setTimeout(()=>{ try{ location.href=buildWarmupUrl(); }catch(err){ debugBox.textContent+='\\nredirect failed: '+(err?.message||String(err)); } },120);
+    function qs(k,d=''){
+      try{ return (new URL(location.href)).searchParams.get(k) ?? d; }
+      catch(_){ return d; }
+    }
+
+    function safeNum(v,d){
+      v = Number(v);
+      return Number.isFinite(v) ? v : d;
+    }
+
+    function normalizeHub(){
+      const raw = String(qs('hub','')).trim();
+      if(raw) return raw;
+      try{ return new URL('./hub.html', location.href).toString(); }
+      catch(_){ return './hub.html'; }
+    }
+
+    const GAME = {
+      cat:'hygiene',
+      theme:'cleanobjects',
+      game:'cleanobjects',
+      runPath:'./vr-clean/home-clean.html'
+    };
+
+    const ctx = {
+      pid:  String(qs('pid','anon')).trim() || 'anon',
+      view: String(qs('view','mobile')).trim() || 'mobile',
+      run:  String(qs('run','play')).trim() || 'play',
+      diff: String(qs('diff','normal')).trim() || 'normal',
+      time: String(safeNum(qs('time','80'),80)),
+      seed: String(qs('seed', String(Date.now()))),
+      zone: String(qs('zone','hygiene')).trim() || 'hygiene',
+      hub:  normalizeHub()
+    };
+
+    document.getElementById('uiPid').textContent  = ctx.pid;
+    document.getElementById('uiView').textContent = ctx.view;
+    document.getElementById('uiRun').textContent  = ctx.run;
+    document.getElementById('uiDiff').textContent = ctx.diff;
+    document.getElementById('uiTime').textContent = ctx.time;
+
+    function copyPassthrough(u){
+      const sp = new URL(location.href).searchParams;
+      [
+        'run','diff','time','seed','studyId','phase','conditionGroup','log','view','pid','api','ai','debug',
+        'planSeq','planDay','planSlot','planMode','planSlots','planIndex','autoNext',
+        'plannedGame','finalGame','zone','cdnext','grade',
+        'wType','wPct','rank','wCrit','wDmg','wHeal','pro','boss'
+      ].forEach(k=>{
+        const v = sp.get(k);
+        if(v!=null && v!=='') u.searchParams.set(k,v);
+      });
+    }
+
+    function buildRunUrl(){
+      const u = new URL(GAME.runPath, location.href);
+
+      copyPassthrough(u);
+
+      if(!u.searchParams.get('pid'))  u.searchParams.set('pid', ctx.pid);
+      if(!u.searchParams.get('view')) u.searchParams.set('view', ctx.view);
+      if(!u.searchParams.get('run'))  u.searchParams.set('run', ctx.run);
+      if(!u.searchParams.get('diff')) u.searchParams.set('diff', ctx.diff);
+      if(!u.searchParams.get('time')) u.searchParams.set('time', ctx.time);
+      if(!u.searchParams.get('seed')) u.searchParams.set('seed', ctx.seed);
+      if(!u.searchParams.get('zone')) u.searchParams.set('zone', ctx.zone);
+
+      u.searchParams.set('hub', ctx.hub);
+      return u.toString();
+    }
+
+    function buildWarmupUrl(){
+      const warm = new URL('./warmup-gate.html', location.href);
+
+      warm.searchParams.set('gatePhase','warmup');
+      warm.searchParams.set('phase','warmup');
+      warm.searchParams.set('cat', GAME.cat);
+      warm.searchParams.set('theme', GAME.theme);
+      warm.searchParams.set('game', GAME.game);
+
+      warm.searchParams.set('pid', ctx.pid);
+      warm.searchParams.set('hub', ctx.hub);
+      warm.searchParams.set('next', buildRunUrl());
+
+      warm.searchParams.set('run', ctx.run);
+      warm.searchParams.set('diff', ctx.diff);
+      warm.searchParams.set('time', ctx.time);
+      warm.searchParams.set('view', ctx.view);
+      warm.searchParams.set('seed', ctx.seed);
+
+      const keep = [
+        'grade','studyId','conditionGroup','log','api','ai','debug',
+        'wType','wPct','rank','wCrit','wDmg','wHeal','pro','boss'
+      ];
+      keep.forEach(k=>{
+        const v = String(qs(k,'')).trim();
+        if(v) warm.searchParams.set(k, v);
+      });
+
+      return warm.toString();
+    }
+
+    const debugBox = document.getElementById('debugBox');
+    debugBox.textContent =
+      '[Clean Launcher]\n' +
+      'launcher: ' + location.href + '\n' +
+      'hub:      ' + ctx.hub + '\n' +
+      'warmup:   ' + buildWarmupUrl() + '\n' +
+      'runPath:  ' + buildRunUrl() + '\n';
+
+    document.getElementById('btnStart').onclick = ()=> location.href = buildWarmupUrl();
+    document.getElementById('btnOpenRun').onclick = ()=> location.href = buildRunUrl();
+    document.getElementById('btnHub').onclick = ()=> location.href = ctx.hub;
+
+    setTimeout(()=>{
+      try{
+        location.href = buildWarmupUrl();
+      }catch(err){
+        debugBox.textContent += '\nredirect failed: ' + (err?.message || String(err));
+      }
+    }, 120);
   </script>
 </body>
 </html>
