@@ -1,418 +1,448 @@
 <!-- === /fitness/jump-duck.html ===
-Jump-Duck — VR Fitness Academy (HHA Standard)
-PATCH v20260307-JD-HUB-BACK-END-RETRY
-✅ CSS: /fitness/css/jump-duck.css
-✅ JS : /fitness/js/jump-duck.js
-✅ Back HUB from menu/play/result via ?hub=
-✅ Play Again keeps same page/query
-✅ Back-menu from result returns to menu safely
-✅ Reads diff/time/run/view/pid/seed/hub from query
-✅ Syncs menu selects from query
+Jump-Duck — PRODUCTION
+PATCH v20260307-JD-FULL-HHA-AUTOSEND
+✅ training / test / research
+✅ top tap = jump / bottom tap = duck
+✅ fever + boss + variants + overheat + rule cards
+✅ result summary + CSV export + send log
 -->
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-  <title>Jump-Duck — VR Fitness Academy</title>
+  <title>Jump-Duck</title>
   <meta name="color-scheme" content="dark light"/>
   <link rel="icon" href="favicon.ico"/>
-  <link rel="stylesheet" href="css/jump-duck.css"/>
+  <style>
+    :root{
+      --bg:#050814; --panel:rgba(2,6,23,.72); --stroke:rgba(148,163,184,.18);
+      --text:#e5e7eb; --muted:#94a3b8; --good:#22c55e; --cyan:#22d3ee; --warn:#f59e0b; --bad:#ef4444;
+      --sat: env(safe-area-inset-top, 0px); --sab: env(safe-area-inset-bottom, 0px);
+    }
+    *{ box-sizing:border-box; }
+    html,body{
+      margin:0; min-height:100%;
+      background:
+        radial-gradient(1000px 700px at 50% -10%, rgba(59,130,246,.18), transparent 60%),
+        linear-gradient(180deg,#050814,#0b1226);
+      color:var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", Arial, sans-serif;
+    }
+    body{ padding: calc(12px + var(--sat)) 12px calc(14px + var(--sab)); }
+    .app{ max-width:1100px; margin:0 auto; }
+    .hidden{ display:none !important; }
+
+    .card{
+      border-radius:22px;
+      border:1px solid var(--stroke);
+      background:var(--panel);
+      box-shadow:0 22px 80px rgba(0,0,0,.35);
+      padding:14px;
+    }
+
+    .top{
+      display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;
+      margin-bottom:12px;
+    }
+    .title{ font-size:24px; font-weight:1100; }
+    .sub{ color:var(--muted); font-size:13px; font-weight:900; }
+
+    .btn{
+      cursor:pointer;
+      border-radius:16px;
+      border:1px solid rgba(148,163,184,.22);
+      background:rgba(148,163,184,.10);
+      color:var(--text);
+      padding:10px 12px;
+      min-height:44px;
+      font-weight:1100;
+    }
+    .btn.primary{ border-color:rgba(59,130,246,.30); background:rgba(59,130,246,.16); }
+    .btn.good{ border-color:rgba(34,197,94,.28); background:rgba(34,197,94,.14); }
+    .btn.warn{ border-color:rgba(245,158,11,.28); background:rgba(245,158,11,.14); }
+    .btn.ghost{ background:transparent; color:var(--muted); }
+
+    .row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+    .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    .grid3{ display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; }
+    @media (max-width:900px){ .grid2,.grid3{ grid-template-columns:1fr; } }
+
+    .field{
+      display:flex; flex-direction:column; gap:6px;
+      padding:10px;
+      border-radius:16px;
+      border:1px solid rgba(148,163,184,.14);
+      background:rgba(15,23,42,.46);
+    }
+    .field label{ font-size:12px; font-weight:1000; color:var(--muted); }
+    .field input,.field select{
+      width:100%;
+      border-radius:12px;
+      border:1px solid rgba(148,163,184,.22);
+      background:rgba(2,6,23,.55);
+      color:var(--text);
+      padding:10px 12px;
+    }
+
+    .hud{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:10px;
+      margin:12px 0;
+    }
+    @media (max-width:900px){ .hud{ grid-template-columns:repeat(2,minmax(0,1fr)); } }
+    .hudCard{
+      border-radius:16px;
+      border:1px solid rgba(148,163,184,.14);
+      background:rgba(15,23,42,.46);
+      padding:10px 12px;
+    }
+    .hudK{ color:var(--muted); font-size:11px; font-weight:1000; }
+    .hudV{ margin-top:4px; font-size:18px; font-weight:1100; }
+
+    .barWrap{
+      display:grid; gap:10px; margin:10px 0 12px;
+    }
+    .barLine{
+      display:grid; grid-template-columns:90px 1fr 80px; gap:10px; align-items:center;
+    }
+    .barTrack{
+      height:12px; overflow:hidden; border-radius:999px;
+      background:rgba(148,163,184,.14);
+    }
+    .barFill{
+      height:100%;
+      width:0%;
+      background:linear-gradient(90deg,#22d3ee,#3b82f6);
+    }
+    .barFill.warn{
+      background:linear-gradient(90deg,#f59e0b,#ef4444);
+    }
+    .barTxt{ text-align:right; color:var(--muted); font-weight:1000; font-size:12px; }
+
+    .bossWrap{
+      margin:10px 0 12px;
+      padding:10px 12px;
+      border-radius:16px;
+      border:1px solid rgba(239,68,68,.22);
+      background:rgba(127,29,29,.12);
+    }
+
+    .play{
+      position:relative;
+      overflow:hidden;
+      border-radius:20px;
+      border:1px solid rgba(148,163,184,.18);
+      background:
+        radial-gradient(900px 500px at 50% -10%, rgba(59,130,246,.16), transparent 60%),
+        linear-gradient(180deg, rgba(15,23,42,.72), rgba(2,6,23,.72));
+      min-height:420px;
+      touch-action:manipulation;
+    }
+    .arena{
+      position:relative;
+      height:420px;
+    }
+    .hitline{
+      position:absolute; left:22%; top:0; bottom:0;
+      width:2px; background:rgba(34,211,238,.6);
+      box-shadow:0 0 0 6px rgba(34,211,238,.08);
+      z-index:2;
+    }
+    .ground{
+      position:absolute; left:0; right:0; bottom:86px;
+      height:2px; background:rgba(148,163,184,.18);
+    }
+
+    .avatar{
+      position:absolute; left:18%; bottom:86px;
+      transform:translateX(-50%);
+      font-size:52px;
+      z-index:4;
+      transition:transform .10s ease;
+      user-select:none;
+    }
+    .avatar.jump{ transform:translateX(-50%) translateY(-48px); }
+    .avatar.duck{ transform:translateX(-50%) translateY(16px) scale(.96); }
+
+    .obsLayer{ position:absolute; inset:0; z-index:3; }
+    .obs{
+      position:absolute;
+      width:86px; height:86px;
+      border-radius:18px;
+      border:1px solid rgba(148,163,184,.16);
+      background:rgba(15,23,42,.76);
+      display:grid; place-items:center;
+      box-shadow:0 14px 34px rgba(0,0,0,.22);
+      font-size:34px;
+      font-weight:1100;
+      transform:translate(-50%,-50%);
+    }
+    .obs.low{ bottom:86px; }
+    .obs.high{ bottom:190px; }
+    .obs.feint{
+      outline:2px solid rgba(167,139,250,.45);
+      box-shadow:0 0 0 8px rgba(167,139,250,.08), 0 14px 34px rgba(0,0,0,.22);
+    }
+
+    .judge{
+      position:absolute; top:12px; left:50%;
+      transform:translateX(-50%);
+      z-index:7;
+      padding:10px 14px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.16);
+      background:rgba(2,6,23,.70);
+      font-weight:1100;
+      opacity:0;
+      transition:opacity .12s ease;
+      pointer-events:none;
+    }
+    .judge.show{ opacity:1; }
+
+    .tele{
+      position:absolute; inset:0;
+      display:flex; align-items:center; justify-content:center;
+      pointer-events:none;
+      opacity:0; z-index:6;
+      transition:opacity .15s ease;
+    }
+    .tele.on{ opacity:1; }
+    .teleBox{
+      padding:12px 16px;
+      border-radius:999px;
+      background:rgba(2,6,23,.78);
+      border:1px solid rgba(34,211,238,.26);
+      font-weight:1100;
+      box-shadow:0 0 0 10px rgba(34,211,238,.06);
+    }
+
+    .tapHints{
+      position:absolute; inset:0; z-index:1;
+      display:flex; flex-direction:column;
+      pointer-events:none;
+    }
+    .tapHalf{
+      flex:1 1 0;
+      display:flex; align-items:center; justify-content:center;
+      opacity:.18;
+      font-weight:1100;
+      letter-spacing:.8px;
+    }
+    .tapTop{ background:linear-gradient(180deg, rgba(34,211,238,.18), transparent 60%); }
+    .tapBottom{ background:linear-gradient(0deg, rgba(245,158,11,.16), transparent 60%); }
+
+    .actions{
+      display:flex; gap:10px; margin-top:12px; flex-wrap:wrap;
+    }
+    .actions .btn{ flex:1 1 180px; }
+
+    .resultGrid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:10px;
+      margin-top:10px;
+    }
+    @media (max-width:800px){ .resultGrid{ grid-template-columns:1fr; } }
+
+    .resultItem{
+      display:flex; justify-content:space-between; gap:10px;
+      padding:10px 12px;
+      border-radius:14px;
+      border:1px solid rgba(148,163,184,.14);
+      background:rgba(15,23,42,.46);
+    }
+
+    .statusLine{
+      margin-top:10px;
+      color:var(--muted);
+      font-size:12px;
+      font-weight:1000;
+    }
+  </style>
 </head>
 <body>
-  <!-- fatal overlay (กันหน้าเงียบเวลา error) -->
-  <pre id="jd-fatal" class="jd-fatal jd-hidden"></pre>
+  <div class="app">
 
-  <div id="jd-app" class="jd-shell">
-    <div class="jd-wrap">
-
-      <!-- ===== VIEW: MENU ===== -->
-      <section id="view-menu" class="jd-view">
-        <div class="jd-card">
-          <header class="jd-header">
-            <h1 class="jd-title"><span>🦘 Jump-Duck</span></h1>
-            <p class="jd-subtitle">เกมฝึกกระโดด-ก้มหลบสิ่งกีดขวาง เพื่อความคล่องตัว แกนกลางลำตัว และการทรงตัว</p>
-          </header>
-
-          <div class="jd-menu-grid">
-            <!-- ซ้าย -->
-            <div class="jd-menu-block">
-              <div class="jd-field-row">
-                <label for="jd-mode">โหมดการเล่น</label>
-                <select id="jd-mode">
-                  <option value="training" selected>ฝึก (Training) — เล่นสนุก + ปรับจังหวะท้ายเกม</option>
-                  <option value="test">ทดสอบ (Test) — พารามิเตอร์คงที่</option>
-                  <option value="research">วิจัย (Research) — พารามิเตอร์คงที่ + ใส่ข้อมูลผู้เข้าร่วม</option>
-                </select>
-                <p class="jd-hint">Training: เร่ง/ปรับแฟร์ท้ายเกม · Test/Research: คงที่เพื่อเทียบเคียง</p>
-              </div>
-
-              <div class="jd-field-row">
-                <label for="jd-diff">ระดับความยาก</label>
-                <select id="jd-diff">
-                  <option value="easy">Easy — จังหวะช้า เน้นทำให้ถูก</option>
-                  <option value="normal" selected>Normal — สมดุล</option>
-                  <option value="hard">Hard — เร็วและท้าทายมาก</option>
-                </select>
-              </div>
-
-              <div class="jd-field-row">
-                <label for="jd-duration">ระยะเวลาเล่นต่อรอบ</label>
-                <select id="jd-duration">
-                  <option value="45">45 วินาที</option>
-                  <option value="60" selected>60 วินาที</option>
-                  <option value="90">90 วินาที</option>
-                </select>
-              </div>
-
-              <div id="jd-research-block" class="jd-research jd-hidden">
-                <div class="jd-field-row">
-                  <label for="jd-participant-id">Participant ID</label>
-                  <input id="jd-participant-id" type="text" placeholder="เช่น P001, STU-01"/>
-                </div>
-                <div class="jd-field-row">
-                  <label for="jd-group">กลุ่มทดลอง / กลุ่มควบคุม</label>
-                  <input id="jd-group" type="text" placeholder="เช่น EXP, CTRL, G1, G2"/>
-                </div>
-                <div class="jd-field-row">
-                  <label for="jd-note">หมายเหตุ</label>
-                  <input id="jd-note" type="text" placeholder="เช่น Pre-test, Post-test รอบ 2"/>
-                </div>
-                <p class="jd-research-hint">โหมด Research: ใส่ข้อมูลเพื่อจับคู่ผลรอบกับตัวแปรอื่น ๆ</p>
-              </div>
-
-              <div class="jd-btn-row">
-                <button class="jd-btn jd-btn-primary" data-action="start" id="jd-btn-start">▶ เริ่มเล่น Jump-Duck</button>
-              </div>
-
-              <div class="jd-btn-row">
-                <button class="jd-btn jd-btn-sub" data-action="tutorial" id="jd-btn-tutorial">❓ ทดลองเล่น (Tutorial) — ซ้อม 15 วินาที</button>
-              </div>
-
-              <div class="jd-btn-row jd-btn-row-secondary">
-                <a id="jd-back-hub-menu" href="hub.html" class="jd-btn jd-btn-sub">⬅ กลับ VR Fitness Hub</a>
-              </div>
-
-              <div class="jd-mini-note">
-                <div class="jd-pill">คีย์ลัด</div>
-                <div class="jd-mini-note-text">⬆ / W = Jump · ⬇ / S = Duck</div>
-              </div>
-
-              <div class="jd-mini-note">
-                <div class="jd-pill">PRO</div>
-                <div class="jd-mini-note-text">Training เท่านั้น: เพิ่ม <code>?pro=1</code> (Hard+ แต่แฟร์)</div>
-              </div>
-            </div>
-
-            <!-- ขวา -->
-            <div class="jd-menu-block">
-              <div class="jd-howto-block">
-                <h3 class="jd-section-title">วิธีการเล่น</h3>
-                <ul class="jd-howto-list">
-                  <li>แตะครึ่งบนของสนาม = <b>Jump</b> 🦘</li>
-                  <li>แตะครึ่งล่างของสนาม = <b>Duck</b> 🛡️</li>
-                  <li>คีย์บอร์ด: ⬆/⬇ หรือ W/S</li>
-                  <li>มือถือ/cVR: แตะบน/ล่างเป็นหลัก (มีปุ่มช่วยด้านล่าง)</li>
-                </ul>
-              </div>
-
-              <p class="jd-howto-inline">
-                โหมด VR / Cardboard: ผู้เล่นขยับตัวจริงตามจังหวะ แล้ว “แตะ/ยิงกลางจอ” เพื่อสั่ง Jump/Duck
-              </p>
-
-              <div class="jd-callout">
-                <b>🔥 Boss 3 เฟส + กติกาสุ่ม</b>
-                <div class="jd-callout-text">
-                  Phase 1 จับจังหวะ · Phase 2 เร่ง/สลับ · Phase 3 Boss: Feint + Overheat + Rule Cards
-                </div>
-              </div>
-            </div>
-          </div>
+    <section id="view-menu" class="card">
+      <div class="top">
+        <div>
+          <div class="title">⬆️⬇️ Jump-Duck</div>
+          <div class="sub">หลบ-กระโดด • Boss • Fever • AI Coach • Research-ready</div>
         </div>
-      </section>
-
-      <!-- ===== VIEW: PLAY ===== -->
-      <section id="view-play" class="jd-view jd-hidden">
-        <div class="jd-card jd-card-play">
-          <div class="jd-topbar">
-            <h2 class="jd-section-title">โหมดเล่น Jump-Duck</h2>
-            <div class="jd-topbar-actions">
-              <span class="jd-badge">Phase <b id="hud-phase">1</b></span>
-              <span class="jd-badge">Boss <b id="hud-boss">—</b></span>
-              <span class="jd-badge">Rule <b id="hud-rule">—</b></span>
-            </div>
-          </div>
-
-          <div class="jd-bars">
-            <div class="jd-bar">
-              <div class="jd-bar-label">Progress</div>
-              <div class="jd-bar-track"><div id="hud-prog-fill" class="jd-bar-fill"></div></div>
-              <div id="hud-prog-text" class="jd-bar-text">0%</div>
-            </div>
-
-            <div class="jd-bar jd-bar-fever">
-              <div class="jd-bar-label">Fever</div>
-              <div class="jd-bar-track"><div id="hud-fever-fill" class="jd-bar-fill"></div></div>
-              <div id="hud-fever-status" class="jd-bar-text">Ready</div>
-            </div>
-          </div>
-
-          <div id="boss-bar-wrap" class="jd-bossbar jd-hidden">
-            <div class="jd-bossbar-head">
-              <span class="jd-bossbar-title">BOSS</span>
-              <span id="hud-boss-status" class="jd-bossbar-status">—</span>
-            </div>
-            <div class="jd-bossbar-track">
-              <div id="hud-boss-fill" class="jd-bossbar-fill"></div>
-            </div>
-          </div>
-
-          <div class="jd-hud">
-            <div class="jd-hud-col">
-              <div class="jd-hud-row"><span class="jd-tag">Mode</span><span class="jd-hud-chip"><strong id="hud-mode">Training</strong></span></div>
-              <div class="jd-hud-row"><span class="jd-tag">Diff</span><span class="jd-hud-chip"><strong id="hud-diff">normal</strong></span></div>
-              <div class="jd-hud-row"><span class="jd-tag">Duration</span><span class="jd-hud-chip"><strong id="hud-duration">60s</strong></span></div>
-            </div>
-
-            <div class="jd-hud-col jd-hud-center">
-              <div class="jd-hud-row"><span class="jd-tag">Stability</span><span class="jd-hud-chip"><strong id="hud-stability">100%</strong></span></div>
-              <div class="jd-hud-row"><span class="jd-tag">Time left</span><span class="jd-hud-chip"><strong id="hud-time">60.0</strong>s</span></div>
-            </div>
-
-            <div class="jd-hud-col jd-hud-right">
-              <div class="jd-hud-row"><span class="jd-tag">Obstacles</span><span class="jd-hud-chip"><strong id="hud-obstacles">0 / 0</strong></span></div>
-              <div class="jd-hud-row"><span class="jd-tag">Score</span><span class="jd-hud-chip"><strong id="hud-score">0</strong></span></div>
-              <div class="jd-hud-row"><span class="jd-tag">Combo</span><span class="jd-hud-chip"><strong id="hud-combo">0</strong></span></div>
-            </div>
-          </div>
-
-          <div id="jd-play-area" class="jd-play-area">
-            <div class="jd-track"><div class="jd-ground"></div></div>
-            <div class="jd-hit-line"></div>
-
-            <div id="jd-tele" class="jd-tele jd-hidden" aria-hidden="true">
-              <div class="jd-tele-inner">⚡ TEMPO SHIFT</div>
-            </div>
-
-            <div class="jd-tap-hints" aria-hidden="true">
-              <div class="jd-tap-hint jd-top">
-                <div class="jd-tap-ico">⬆</div>
-                <div class="jd-tap-txt">TAP TOP = JUMP</div>
-              </div>
-              <div class="jd-tap-hint jd-bot">
-                <div class="jd-tap-ico">⬇</div>
-                <div class="jd-tap-txt">TAP BOTTOM = DUCK</div>
-              </div>
-            </div>
-
-            <div id="jd-avatar" class="jd-avatar">
-              <div class="jd-avatar-body">🧍‍♂️</div>
-            </div>
-
-            <div id="jd-obstacles" class="jd-obstacles"></div>
-            <div id="jd-judge" class="jd-judge">READY</div>
-          </div>
-
-          <div class="jd-howto-inline jd-howto-play">
-            แตะครึ่งบน = Jump · แตะครึ่งล่าง = Duck · ⬆/⬇ หรือ W/S ก็ได้
-          </div>
-
-          <div class="jd-actionbar">
-            <button class="jd-btn jd-btn-action jd-jump" data-action="jump">⬆ JUMP</button>
-            <button class="jd-btn jd-btn-action jd-duck" data-action="duck">⬇ DUCK</button>
-          </div>
-
-          <div class="jd-btn-row jd-btn-row-secondary">
-            <button class="jd-btn jd-btn-primary" data-action="stop-early" id="jd-btn-stop-early">⏹ หยุดก่อนเวลา</button>
-            <a id="jd-back-hub-play" href="hub.html" class="jd-btn jd-btn-sub">⬅ กลับ Hub</a>
-          </div>
+        <div class="row">
+          <a class="btn ghost" id="jd-back-hub-menu" href="#">⬅ กลับ Hub</a>
         </div>
-      </section>
+      </div>
 
-      <!-- ===== VIEW: RESULT ===== -->
-      <section id="view-result" class="jd-view jd-hidden">
-        <div class="jd-card">
-          <h2 class="jd-section-title">📊 สรุปผล Jump-Duck</h2>
-
-          <div class="jd-result-grid">
-            <div class="jd-result-row"><span>Mode</span><b id="res-mode">Training</b></div>
-            <div class="jd-result-row"><span>Difficulty</span><b id="res-diff">normal</b></div>
-            <div class="jd-result-row"><span>Duration</span><b id="res-duration">60s</b></div>
-
-            <div class="jd-result-row"><span>Obstacles ทั้งหมด</span><b id="res-total-obs">0</b></div>
-            <div class="jd-result-row"><span>Hits รวม</span><b id="res-hits">0</b></div>
-            <div class="jd-result-row"><span>Miss รวม</span><b id="res-miss">0</b></div>
-
-            <div class="jd-result-row"><span>Jump ถูก</span><b id="res-jump-hit">0</b></div>
-            <div class="jd-result-row"><span>Duck ถูก</span><b id="res-duck-hit">0</b></div>
-            <div class="jd-result-row"><span>Jump พลาด</span><b id="res-jump-miss">0</b></div>
-            <div class="jd-result-row"><span>Duck พลาด</span><b id="res-duck-miss">0</b></div>
-
-            <div class="jd-result-row"><span>Accuracy</span><b id="res-acc">0.0 %</b></div>
-            <div class="jd-result-row"><span>RT เฉลี่ย</span><b id="res-rt-mean">-</b></div>
-            <div class="jd-result-row"><span>Stability ต่ำสุด</span><b id="res-stability-min">0.0 %</b></div>
-            <div class="jd-result-row"><span>Score</span><b id="res-score">0</b></div>
-            <div class="jd-result-row"><span>Rank</span><b id="res-rank">C</b></div>
-          </div>
-
-          <p class="jd-note">
-            ใช้ค่านี้เพื่อประเมินสมรรถภาพการทรงตัว / การตอบสนอง และเปรียบเทียบก่อน–หลัง หรือระหว่างกลุ่มได้
-          </p>
-
-          <div class="jd-btn-row">
-            <button class="jd-btn jd-btn-primary" data-action="play-again" id="jd-btn-play-again">🔁 เล่นอีกครั้ง</button>
-          </div>
-          <div class="jd-btn-row jd-btn-row-secondary">
-            <button class="jd-btn jd-btn-sub" data-action="back-menu" id="jd-btn-back-menu-result">🏠 กลับเมนู Jump-Duck</button>
-            <a id="jd-back-hub-result" href="hub.html" class="jd-btn jd-btn-sub">⬅ กลับ Hub</a>
-          </div>
+      <div class="grid2">
+        <div class="field">
+          <label for="jd-mode">Mode</label>
+          <select id="jd-mode">
+            <option value="training">training</option>
+            <option value="test">test</option>
+            <option value="research">research</option>
+          </select>
         </div>
-      </section>
 
-    </div>
+        <div class="field">
+          <label for="jd-diff">Difficulty</label>
+          <select id="jd-diff">
+            <option value="easy">easy</option>
+            <option value="normal" selected>normal</option>
+            <option value="hard">hard</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="jd-duration">Duration (sec)</label>
+          <select id="jd-duration">
+            <option value="45">45</option>
+            <option value="60" selected>60</option>
+            <option value="90">90</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label>Guide</label>
+          <div class="sub">แตะบน = Jump • แตะล่าง = Duck • W/S หรือ ↑/↓ ก็ได้</div>
+        </div>
+      </div>
+
+      <div id="jd-research-block" class="grid3 hidden" style="margin-top:10px;">
+        <div class="field">
+          <label for="jd-participant-id">Participant ID</label>
+          <input id="jd-participant-id" type="text" placeholder="P001"/>
+        </div>
+        <div class="field">
+          <label for="jd-group">Group</label>
+          <input id="jd-group" type="text" placeholder="EXP / CTRL"/>
+        </div>
+        <div class="field">
+          <label for="jd-note">Note</label>
+          <input id="jd-note" type="text" placeholder="optional"/>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button class="btn primary" data-action="start">▶ เริ่มเล่น</button>
+        <button class="btn warn" data-action="tutorial">🎯 Tutorial 15s</button>
+      </div>
+    </section>
+
+    <section id="view-play" class="card hidden">
+      <div class="top">
+        <div>
+          <div class="title">Jump-Duck Run</div>
+          <div class="sub">Top tap = Jump • Bottom tap = Duck</div>
+        </div>
+        <div class="row">
+          <a class="btn ghost" id="jd-back-hub-play" href="#">⬅ Hub</a>
+        </div>
+      </div>
+
+      <div class="hud">
+        <div class="hudCard"><div class="hudK">Mode</div><div class="hudV" id="hud-mode">training</div></div>
+        <div class="hudCard"><div class="hudK">Diff</div><div class="hudV" id="hud-diff">normal</div></div>
+        <div class="hudCard"><div class="hudK">Time</div><div class="hudV" id="hud-time">60.0</div></div>
+        <div class="hudCard"><div class="hudK">Phase</div><div class="hudV" id="hud-phase">1</div></div>
+
+        <div class="hudCard"><div class="hudK">Score</div><div class="hudV" id="hud-score">0</div></div>
+        <div class="hudCard"><div class="hudK">Combo</div><div class="hudV" id="hud-combo">0</div></div>
+        <div class="hudCard"><div class="hudK">Stability</div><div class="hudV" id="hud-stability">100%</div></div>
+        <div class="hudCard"><div class="hudK">Boss</div><div class="hudV" id="hud-boss">—</div></div>
+      </div>
+
+      <div class="barWrap">
+        <div class="barLine">
+          <div class="sub">Progress</div>
+          <div class="barTrack"><div class="barFill" id="hud-prog-fill"></div></div>
+          <div class="barTxt" id="hud-prog-text">0%</div>
+        </div>
+
+        <div class="barLine">
+          <div class="sub">Fever</div>
+          <div class="barTrack"><div class="barFill warn" id="hud-fever-fill"></div></div>
+          <div class="barTxt" id="hud-fever-status">Ready</div>
+        </div>
+      </div>
+
+      <div class="bossWrap hidden" id="boss-bar-wrap">
+        <div class="barLine">
+          <div class="sub">Boss HP</div>
+          <div class="barTrack"><div class="barFill warn" id="hud-boss-fill"></div></div>
+          <div class="barTxt" id="hud-boss-status">—</div>
+        </div>
+      </div>
+
+      <div class="play" id="jd-play-area">
+        <div class="arena">
+          <div class="ground"></div>
+          <div class="hitline"></div>
+
+          <div class="tapHints">
+            <div class="tapHalf tapTop">⬆ TAP TOP = JUMP</div>
+            <div class="tapHalf tapBottom">⬇ TAP BOTTOM = DUCK</div>
+          </div>
+
+          <div class="tele hidden" id="jd-tele"><div class="teleBox">READY</div></div>
+          <div class="judge" id="jd-judge">READY</div>
+
+          <div class="avatar" id="jd-avatar">🧍</div>
+          <div class="obsLayer" id="jd-obstacles"></div>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button class="btn good" data-action="jump">⬆ JUMP</button>
+        <button class="btn warn" data-action="duck">⬇ DUCK</button>
+        <button class="btn ghost" data-action="stop-early">⏹ Stop</button>
+      </div>
+    </section>
+
+    <section id="view-result" class="card hidden">
+      <div class="top">
+        <div>
+          <div class="title">📊 Result Summary</div>
+          <div class="sub">สรุปผล Jump-Duck รอบล่าสุด</div>
+        </div>
+        <div class="row">
+          <a class="btn ghost" id="jd-back-hub-result" href="#">⬅ Hub</a>
+        </div>
+      </div>
+
+      <div class="resultGrid">
+        <div class="resultItem"><span>Mode</span><b id="res-mode">-</b></div>
+        <div class="resultItem"><span>Difficulty</span><b id="res-diff">-</b></div>
+        <div class="resultItem"><span>Duration</span><b id="res-duration">-</b></div>
+        <div class="resultItem"><span>Total Obstacles</span><b id="res-total-obs">0</b></div>
+        <div class="resultItem"><span>Hits</span><b id="res-hits">0</b></div>
+        <div class="resultItem"><span>Miss</span><b id="res-miss">0</b></div>
+        <div class="resultItem"><span>Jump Hit</span><b id="res-jump-hit">0</b></div>
+        <div class="resultItem"><span>Duck Hit</span><b id="res-duck-hit">0</b></div>
+        <div class="resultItem"><span>Jump Miss</span><b id="res-jump-miss">0</b></div>
+        <div class="resultItem"><span>Duck Miss</span><b id="res-duck-miss">0</b></div>
+        <div class="resultItem"><span>Accuracy</span><b id="res-acc">0%</b></div>
+        <div class="resultItem"><span>RT Mean</span><b id="res-rt-mean">0</b></div>
+        <div class="resultItem"><span>Stability Min</span><b id="res-stability-min">0%</b></div>
+        <div class="resultItem"><span>Score</span><b id="res-score">0</b></div>
+        <div class="resultItem"><span>Rank</span><b id="res-rank">C</b></div>
+      </div>
+
+      <div class="actions">
+        <button class="btn primary" data-action="play-again">🔁 เล่นอีกครั้ง</button>
+        <button class="btn" id="jd-btn-dl-events">⬇ events.csv</button>
+        <button class="btn" id="jd-btn-dl-sessions">⬇ sessions.csv</button>
+        <button class="btn good" id="jd-btn-send-log">☁ ส่งขึ้น Cloud Logger</button>
+        <button class="btn ghost" data-action="back-menu">🏠 กลับเมนู</button>
+      </div>
+
+      <div class="statusLine" id="jd-log-status"></div>
+    </section>
+
   </div>
 
-  <audio id="jd-sfx-hit"   src="audio/jd-hit.mp3"   preload="auto"></audio>
-  <audio id="jd-sfx-miss"  src="audio/jd-miss.mp3"  preload="auto"></audio>
-  <audio id="jd-sfx-combo" src="audio/jd-combo.mp3" preload="auto"></audio>
-  <audio id="jd-sfx-beep"  src="audio/jd-beep.mp3"  preload="auto"></audio>
-  <audio id="jd-sfx-boss"  src="audio/jd-boss.mp3"  preload="auto"></audio>
-  <audio id="jd-sfx-fever" src="audio/jd-fever.mp3" preload="auto"></audio>
-
-  <script src="js/jump-duck.js"></script>
-
-  <script>
-    function qs(k, d=''){
-      try{ return (new URL(location.href)).searchParams.get(k) ?? d; }
-      catch(_){ return d; }
-    }
-
-    function currentHubFallback(){
-      const hub = String(qs('hub','')).trim();
-      return hub || '../herohealth/hub.html';
-    }
-
-    function goHub(){
-      location.href = currentHubFallback();
-    }
-
-    function replaySamePage(extra = {}){
-      const u = new URL(location.href);
-      Object.entries(extra || {}).forEach(([k,v])=>{
-        if(v === null || v === undefined || v === '') u.searchParams.delete(k);
-        else u.searchParams.set(k, String(v));
-      });
-      location.href = u.toString();
-    }
-
-    function showView(id){
-      document.querySelectorAll('.jd-view').forEach(v=>v.classList.add('jd-hidden'));
-      const el = document.getElementById(id);
-      if(el) el.classList.remove('jd-hidden');
-    }
-
-    function wireHubLink(id){
-      const a = document.getElementById(id);
-      if(!a) return;
-      a.href = currentHubFallback();
-      a.addEventListener('click', function(e){
-        e.preventDefault();
-        goHub();
-      }, {passive:false});
-    }
-
-    (function(){
-      const run = String(qs('run','play')).trim() || 'play';
-      const diff = String(qs('diff','normal')).trim() || 'normal';
-      const duration = String(qs('duration', qs('time','60'))).trim() || '60';
-      const mode = String(qs('mode','training')).trim() || 'training';
-
-      const elMode = document.getElementById('jd-mode');
-      const elDiff = document.getElementById('jd-diff');
-      const elDuration = document.getElementById('jd-duration');
-
-      if(elMode){
-        const ok = Array.from(elMode.options).some(o => o.value === mode);
-        elMode.value = ok ? mode : 'training';
-      }
-
-      if(elDiff){
-        const ok = Array.from(elDiff.options).some(o => o.value === diff);
-        elDiff.value = ok ? diff : 'normal';
-      }
-
-      if(elDuration){
-        const ok = Array.from(elDuration.options).some(o => o.value === duration);
-        elDuration.value = ok ? duration : '60';
-      }
-
-      const hudMode = document.getElementById('hud-mode');
-      const hudDiff = document.getElementById('hud-diff');
-      const hudDuration = document.getElementById('hud-duration');
-
-      if(hudMode) hudMode.textContent = (elMode?.value || mode || run);
-      if(hudDiff) hudDiff.textContent = (elDiff?.value || diff);
-      if(hudDuration) hudDuration.textContent = `${elDuration?.value || duration}s`;
-
-      const resMode = document.getElementById('res-mode');
-      const resDiff = document.getElementById('res-diff');
-      const resDuration = document.getElementById('res-duration');
-
-      if(resMode) resMode.textContent = (elMode?.value || mode || run);
-      if(resDiff) resDiff.textContent = (elDiff?.value || diff);
-      if(resDuration) resDuration.textContent = `${elDuration?.value || duration}s`;
-
-      wireHubLink('jd-back-hub-menu');
-      wireHubLink('jd-back-hub-play');
-      wireHubLink('jd-back-hub-result');
-
-      const btnPlayAgain = document.getElementById('jd-btn-play-again');
-      btnPlayAgain?.addEventListener('click', function(e){
-        e.preventDefault();
-        replaySamePage();
-      }, {passive:false});
-
-      const btnBackMenuResult = document.getElementById('jd-btn-back-menu-result');
-      btnBackMenuResult?.addEventListener('click', function(e){
-        e.preventDefault();
-        showView('view-menu');
-      }, {passive:false});
-
-      const observer = new MutationObserver(function(){
-        const resultView = document.getElementById('view-result');
-        if(!resultView) return;
-        const isHidden = resultView.classList.contains('jd-hidden');
-        if(!isHidden){
-          if(resMode) resMode.textContent = (elMode?.value || mode || run);
-          if(resDiff) resDiff.textContent = (elDiff?.value || diff);
-          if(resDuration) resDuration.textContent = `${elDuration?.value || duration}s`;
-        }
-      });
-
-      ['view-menu','view-play','view-result'].forEach(id=>{
-        const el = document.getElementById(id);
-        if(el) observer.observe(el, { attributes:true, attributeFilter:['class','hidden'] });
-      });
-
-      const researchBlock = document.getElementById('jd-research-block');
-      function syncResearchBlock(){
-        if(!researchBlock || !elMode) return;
-        if(elMode.value === 'research') researchBlock.classList.remove('jd-hidden');
-        else researchBlock.classList.add('jd-hidden');
-      }
-      elMode?.addEventListener('change', syncResearchBlock);
-      syncResearchBlock();
-
-      const btnStopEarly = document.getElementById('jd-btn-stop-early');
-      btnStopEarly?.addEventListener('click', function(){
-        setTimeout(function(){
-          const resultView = document.getElementById('view-result');
-          if(resultView && resultView.classList.contains('jd-hidden')){
-            showView('view-result');
-          }
-        }, 120);
-      }, {passive:false});
-    })();
-  </script>
+  <script src="./js/jump-duck.js"></script>
 </body>
 </html>
