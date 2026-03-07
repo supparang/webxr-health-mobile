@@ -1,8 +1,12 @@
 <!-- === /fitness/balance-hold.html ===
 Balance Hold — RUN PAGE (used by /herohealth/balance-hold-vr.html)
-PATCH v20260305-BH-RUNPAGE-ON-FITNESS-ROOT
+PATCH v20260307-BH-RUNPAGE-HUB-BACK-END-RETRY
 ✅ Reads diff/time/pid/seed/hub/run/view/autostart from query
 ✅ Loads: ./css/balance-hold.css + ./js/balance-hold.js
+✅ Back HUB from menu/result via ?hub=
+✅ Play Again keeps same page/query
+✅ Menu button returns to menu safely
+✅ autostart=1 supported
 -->
 <!doctype html>
 <html lang="th">
@@ -41,7 +45,7 @@ PATCH v20260305-BH-RUNPAGE-ON-FITNESS-ROOT
       </div>
 
       <div class="row">
-        <button class="btn primary" data-action="start-normal">▶ Start Play</button>
+        <button class="btn primary" data-action="start-normal" id="btnStartNormal">▶ Start Play</button>
         <button class="btn ghost" id="btnBackHubMenu" style="display:none;">↩ Back HUB</button>
       </div>
 
@@ -87,8 +91,8 @@ PATCH v20260305-BH-RUNPAGE-ON-FITNESS-ROOT
     </div>
 
     <div class="controls">
-      <button class="btn ghost" data-action="stop">⏹ Stop</button>
-      <button class="btn ghost" data-action="back-menu">← Menu</button>
+      <button class="btn ghost" data-action="stop" id="btnStop">⏹ Stop</button>
+      <button class="btn ghost" data-action="back-menu" id="btnBackMenu">← Menu</button>
     </div>
   </section>
 
@@ -115,12 +119,130 @@ PATCH v20260305-BH-RUNPAGE-ON-FITNESS-ROOT
       </div>
 
       <div class="row">
-        <button class="btn primary" data-action="play-again">↻ Play Again</button>
+        <button class="btn primary" data-action="play-again" id="btnPlayAgain">↻ Play Again</button>
         <button class="btn" id="btnBackHub" style="display:none;">⬅ กลับ HUB</button>
       </div>
     </div>
   </section>
 
   <script src="./js/balance-hold.js"></script>
+
+  <script>
+    function qs(k, d=''){
+      try{ return (new URL(location.href)).searchParams.get(k) ?? d; }
+      catch(_){ return d; }
+    }
+
+    function currentHubFallback(){
+      const hub = String(qs('hub','')).trim();
+      return hub || '../herohealth/hub.html';
+    }
+
+    function goHub(){
+      location.href = currentHubFallback();
+    }
+
+    function replaySamePage(extra = {}){
+      const u = new URL(location.href);
+      Object.entries(extra || {}).forEach(([k,v])=>{
+        if(v === null || v === undefined || v === '') u.searchParams.delete(k);
+        else u.searchParams.set(k, String(v));
+      });
+      location.href = u.toString();
+    }
+
+    function showView(id){
+      document.querySelectorAll('.view').forEach(v=>v.classList.add('hidden'));
+      const el = document.getElementById(id);
+      if(el) el.classList.remove('hidden');
+    }
+
+    (function(){
+      const hub = String(qs('hub','')).trim();
+      const diff = String(qs('diff','normal')).trim() || 'normal';
+      const time = String(qs('time','80')).trim() || '80';
+      const autostart = String(qs('autostart','0')).trim() === '1';
+
+      const difficulty = document.getElementById('difficulty');
+      const sessionDuration = document.getElementById('sessionDuration');
+
+      if(difficulty){
+        const ok = Array.from(difficulty.options).some(o => o.value === diff);
+        difficulty.value = ok ? diff : 'normal';
+      }
+
+      if(sessionDuration){
+        const ok = Array.from(sessionDuration.options).some(o => o.value === time);
+        sessionDuration.value = ok ? time : '80';
+      }
+
+      const hudDiff = document.getElementById('hud-diff');
+      const hudDur = document.getElementById('hud-dur');
+      if(hudDiff) hudDiff.textContent = difficulty ? difficulty.value : diff;
+      if(hudDur) hudDur.textContent = sessionDuration ? sessionDuration.value : time;
+
+      const btnBackHubMenu = document.getElementById('btnBackHubMenu');
+      const btnBackHub = document.getElementById('btnBackHub');
+
+      if(hub){
+        if(btnBackHubMenu) btnBackHubMenu.style.display = '';
+        if(btnBackHub) btnBackHub.style.display = '';
+      }
+
+      btnBackHubMenu?.addEventListener('click', function(e){
+        e.preventDefault();
+        goHub();
+      }, {passive:false});
+
+      btnBackHub?.addEventListener('click', function(e){
+        e.preventDefault();
+        goHub();
+      }, {passive:false});
+
+      const btnPlayAgain = document.getElementById('btnPlayAgain');
+      btnPlayAgain?.addEventListener('click', function(e){
+        e.preventDefault();
+        replaySamePage();
+      }, {passive:false});
+
+      const btnBackMenu = document.getElementById('btnBackMenu');
+      btnBackMenu?.addEventListener('click', function(e){
+        e.preventDefault();
+        showView('view-menu');
+      }, {passive:false});
+
+      const btnStop = document.getElementById('btnStop');
+      btnStop?.addEventListener('click', function(){
+        setTimeout(function(){
+          const resultView = document.getElementById('view-result');
+          if(resultView && resultView.classList.contains('hidden')){
+            showView('view-result');
+          }
+        }, 120);
+      }, {passive:false});
+
+      if(autostart){
+        window.addEventListener('load', function(){
+          setTimeout(function(){
+            document.querySelector('[data-action="start-normal"]')?.click();
+          }, 180);
+        }, {once:true});
+      }
+
+      const observer = new MutationObserver(function(){
+        const resultView = document.getElementById('view-result');
+        if(!resultView) return;
+        const hidden = resultView.classList.contains('hidden');
+        if(!hidden && hub && btnBackHub){
+          btnBackHub.style.display = '';
+        }
+      });
+
+      ['view-result','view-menu','view-play'].forEach(id=>{
+        const el = document.getElementById(id);
+        if(el) observer.observe(el, { attributes:true, attributeFilter:['class','hidden'] });
+      });
+    })();
+  </script>
 </body>
 </html>
