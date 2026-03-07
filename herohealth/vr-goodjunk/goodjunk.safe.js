@@ -1,6 +1,6 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
 // GoodJunkVR SAFE — PRODUCTION
-// PATCH v20260306-BATTLE-READY-FULL-ENDOVERLAY-DISCONNECT-RESEARCH-RDY
+// PATCH v20260307-BATTLE-END-EXPLAIN-FULL
 'use strict';
 
 export async function boot(cfg){
@@ -197,6 +197,8 @@ export async function boot(cfg){
   const endScore = $('endScore');
   const endMiss  = $('endMiss');
   const endTime  = $('endTime');
+  const endDecision = $('endDecision');
+  const endCompare  = $('endCompare');
 
   const uiView = $('uiView');
   const uiRun  = $('uiRun');
@@ -314,7 +316,7 @@ export async function boot(cfg){
 
   function bossShieldBase(){
     if(diff==='easy') return 4;
-    if(diff==='hard'){ return PRO ? 7 : 6; }
+    if(diff==='hard') return PRO ? 7 : 6;
     return 5;
   }
 
@@ -574,6 +576,12 @@ export async function boot(cfg){
       const sec = Math.max(0, Math.ceil(leftMs / 1000));
       if(hud.aiHint) hud.aiHint.textContent = `เริ่มใน ${sec}s`;
       if(hud.aiRisk) hud.aiRisk.textContent = 'countdown';
+
+      if(leftMs <= 0 && paused){
+        setTimeout(()=>{
+          try{ WIN.__GJ_START_NOW__?.(); }catch(_){}
+        }, 80);
+      }
     }catch(_){}
   });
 
@@ -949,6 +957,7 @@ export async function boot(cfg){
     detail.battleWinnerKey = winner;
     detail.battleReason = reason;
     detail.battleMeKey = meKey;
+    detail.battleResults = Array.isArray(battleEndedInfo.results) ? battleEndedInfo.results : [];
 
     if(!winner){
       detail.reason = `battle-tie:${reason}`;
@@ -964,6 +973,38 @@ export async function boot(cfg){
       detail.win = false;
     }
     return detail;
+  }
+
+  function buildBattleExplain(detail){
+    if(!battleOn) return { decision:'โหมดเดี่ยว', compare:'—' };
+
+    const rule = String(detail?.battleReason || '').toLowerCase();
+    const meKey = String(detail?.battleMeKey || '');
+    const rows = Array.isArray(detail?.battleResults) ? detail.battleResults : [];
+    const me = rows.find(r => String(r.key || '') === meKey) || null;
+    const opp = rows.find(r => String(r.key || '') !== meKey) || null;
+
+    let decision = 'ระบบตัดสินผลจาก Battle';
+    if(rule === 'score') decision = 'ตัดสินจากคะแนนรวม (Score มากกว่าชนะ)';
+    else if(rule === 'acc') decision = 'ตัดสินจากความแม่นยำ (Accuracy มากกว่าชนะ)';
+    else if(rule === 'miss') decision = 'ตัดสินจากจำนวนพลาด (Miss น้อยกว่าชนะ)';
+    else if(rule === 'medianrt') decision = 'ตัดสินจากความเร็วตอบสนอง (Median RT น้อยกว่าชนะ)';
+    else if(rule === 'forfeit') decision = 'ตัดสินจากการหลุด/ออกจากห้องของอีกฝ่าย';
+    else if(rule === 'debugsolo') decision = 'รอบทดสอบ debug คนเดียว';
+    else if(rule === 'tie') decision = 'ผลเสมอ';
+    else if(rule) decision = `ตัดสินจากกติกา: ${rule}`;
+
+    let compare = 'ไม่มีข้อมูลคู่แข่ง';
+    if(me && opp){
+      compare =
+        `คุณ ${Number(me.score||0)} คะแนน, acc ${Number(me.acc||0)}%, miss ${Number(me.miss||0)}, medianRT ${Number(me.medianRT||0)} ms • ` +
+        `คู่แข่ง ${Number(opp.score||0)} คะแนน, acc ${Number(opp.acc||0)}%, miss ${Number(opp.miss||0)}, medianRT ${Number(opp.medianRT||0)} ms`;
+    }else if(me){
+      compare =
+        `คุณ ${Number(me.score||0)} คะแนน, acc ${Number(me.acc||0)}%, miss ${Number(me.miss||0)}, medianRT ${Number(me.medianRT||0)} ms`;
+    }
+
+    return { decision, compare };
   }
 
   function buildCloudRoundReport(detail){
@@ -1080,9 +1121,15 @@ export async function boot(cfg){
           if(endTitle) endTitle.textContent = 'แพ้ Battle';
           if(endSub) endSub.textContent = `winner=opponent • rule=${rule} • score ${detail.scoreFinal} • acc ${detail.accPct}% • miss ${detail.missTotal}`;
         }
+
+        const exp = buildBattleExplain(detail);
+        if(endDecision) endDecision.textContent = exp.decision;
+        if(endCompare) endCompare.textContent = exp.compare;
       }else{
         if(endTitle) endTitle.textContent = (reason==='win') ? 'ชนะแล้ว! 🎉' : 'จบเกม';
         if(endSub) endSub.textContent = `score ${detail.scoreFinal} • acc ${detail.accPct}% • miss ${detail.missTotal} • reason=${detail.reason}`;
+        if(endDecision) endDecision.textContent = 'โหมดเดี่ยว';
+        if(endCompare) endCompare.textContent = 'ไม่มีคู่แข่งในรอบนี้';
       }
 
       if(endGrade) endGrade.textContent = detail.grade;
