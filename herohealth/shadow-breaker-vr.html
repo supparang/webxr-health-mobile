@@ -98,9 +98,7 @@ Shadow Breaker ROOT Launcher — PRODUCTION
     return u.toString();
   }
 
-  function go(){
-    location.replace(buildTarget());
-  }
+  function go(){ location.replace(buildTarget()); }
 
   document.getElementById('btnGo')?.addEventListener('click', (e)=>{
     e.preventDefault();
