@@ -1,8 +1,6 @@
 <!-- === /herohealth/student-join-goodjunk.html ===
 HeroHealth • Student Join GoodJunk
-PATCH v20260307-STUDENT-JOIN-GOODJUNK
-✅ Student enters name / PID / room
-✅ Launches battle link cleanly
+PATCH v20260307-STUDENT-JOIN-GOODJUNK-FULL
 -->
 <!doctype html>
 <html lang="th">
@@ -12,6 +10,7 @@ PATCH v20260307-STUDENT-JOIN-GOODJUNK
   <title>Student Join • GoodJunk</title>
   <link rel="icon" href="./favicon.ico" />
   <meta name="color-scheme" content="dark light" />
+  <script src="./firebase-config.js"></script>
   <style>
     :root{
       --bg1:#020617; --bg2:#0b1226; --stroke:rgba(148,163,184,.18);
@@ -65,18 +64,28 @@ PATCH v20260307-STUDENT-JOIN-GOODJUNK
       <div class="sub">กรอกข้อมูลก่อนเข้าเล่นเพื่อให้ครูดูผลได้ง่ายขึ้น</div>
 
       <div class="grid">
+        <div class="full">
+          <label for="rosterPick">เลือกจากรายชื่อ (ถ้ามี)</label>
+          <select id="rosterPick">
+            <option value="">-- เลือกชื่อจาก roster --</option>
+          </select>
+        </div>
+
         <div>
           <label for="nick">ชื่อเล่น</label>
           <input id="nick" placeholder="เช่น Mint" />
         </div>
+
         <div>
           <label for="pid">PID / รหัส</label>
           <input id="pid" placeholder="เช่น S01" />
         </div>
+
         <div>
           <label for="room">Room</label>
           <input id="room" value="P5A" />
         </div>
+
         <div>
           <label for="view">View</label>
           <select id="view">
@@ -85,6 +94,7 @@ PATCH v20260307-STUDENT-JOIN-GOODJUNK
             <option value="cvr">cvr</option>
           </select>
         </div>
+
         <div>
           <label for="diff">Difficulty</label>
           <select id="diff">
@@ -93,6 +103,7 @@ PATCH v20260307-STUDENT-JOIN-GOODJUNK
             <option value="hard">hard</option>
           </select>
         </div>
+
         <div>
           <label for="time">Time</label>
           <select id="time">
@@ -101,17 +112,35 @@ PATCH v20260307-STUDENT-JOIN-GOODJUNK
             <option value="100">100</option>
           </select>
         </div>
+
         <div class="full">
           <label for="hub">Hub URL</label>
           <input id="hub" />
         </div>
+
         <div class="full">
           <button id="btnJoin">เข้าเล่น Battle</button>
         </div>
       </div>
 
-      <div class="note">
-        ถ้าเข้าผ่าน QR ของครู ระบบจะใส่ room ให้ได้อัตโนมัติ
+      <div id="joinNote" class="note">
+        ถ้าเข้าผ่าน QR ของครู ระบบจะใส่ room ให้ได้อัตโนมัติ และบางค่าจะถูกล็อกไว้
+      </div>
+
+      <div id="dupWarn" class="note" style="display:none; border-color:rgba(245,158,11,.35); color:#fde68a;">
+        ตรวจพบ PID ซ้ำในห้อง
+      </div>
+
+      <div id="lockWarn" class="note" style="display:none; border-color:rgba(239,68,68,.35); color:#fecaca;">
+        ห้องนี้ถูกล็อก
+      </div>
+
+      <div id="spectatorBox" class="note" style="display:none; border-color:rgba(34,211,238,.28); color:#a5f3fc;">
+        <div style="font-weight:900;margin-bottom:8px;">ดูแบบ Spectator</div>
+        <div id="spectatorText" style="margin-bottom:10px;">ห้องนี้เปิดให้เข้าชมแทน</div>
+        <button id="btnOpenSpectator" type="button" style="
+          appearance:none;border:0;cursor:pointer;border-radius:12px;padding:10px 14px;font-weight:900;
+          color:white;background:linear-gradient(135deg,#2563eb,#06b6d4);">เปิด Spectator / Board</button>
       </div>
     </section>
   </div>
@@ -119,6 +148,206 @@ PATCH v20260307-STUDENT-JOIN-GOODJUNK
   <script>
     const $ = id => document.getElementById(id);
     const qs = (k,d='')=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
+
+    const ROSTER_KEY = 'HH_GJ_CLASS_ROSTER';
+    let rosterRows = [];
+    let currentSpectatorUrl = '';
+
+    function applyLockedField(id, qKey){
+      const v = qs(qKey, '');
+      if(!v) return false;
+      const el = $(id);
+      if(!el) return false;
+      el.value = v;
+      if(qs(`lock_${qKey}`, '0') === '1'){
+        el.disabled = true;
+        el.style.opacity = '.78';
+      }
+      return true;
+    }
+
+    function loadRoster(){
+      try{
+        const raw = localStorage.getItem(ROSTER_KEY);
+        rosterRows = raw ? JSON.parse(raw) : [];
+      }catch(_){
+        rosterRows = [];
+      }
+      renderRosterPick();
+    }
+
+    function renderRosterPick(){
+      const el = $('rosterPick');
+      if(!el) return;
+
+      const room = ($('room').value || '').trim().toUpperCase();
+      const rows = (rosterRows || []).filter(r => {
+        const rr = String(r?.room || '').trim().toUpperCase();
+        return !room || !rr || rr === room;
+      });
+
+      el.innerHTML = `<option value="">-- เลือกชื่อจาก roster --</option>` +
+        rows.map((r, i)=>`
+          <option value="${i}">
+            ${(r?.nick || '-')} • ${(r?.pid || '-')}
+          </option>
+        `).join('');
+    }
+
+    function applyRosterSelection(idx){
+      idx = Number(idx);
+      if(!Number.isFinite(idx) || idx < 0) return;
+      const room = ($('room').value || '').trim().toUpperCase();
+      const rows = (rosterRows || []).filter(r => {
+        const rr = String(r?.room || '').trim().toUpperCase();
+        return !room || !rr || rr === room;
+      });
+
+      const row = rows[idx];
+      if(!row) return;
+
+      if(!$('nick').disabled) $('nick').value = row?.nick || '';
+      if(!$('pid').disabled) $('pid').value = row?.pid || '';
+    }
+
+    async function writeCentralAttendance(row){
+      const cfg = window.HHA_FIREBASE_CONFIG || window.__HHA_FIREBASE_CONFIG__ || window.firebaseConfig || null;
+      if(!cfg) return { ok:false, reason:'missing_firebase_config' };
+
+      try{
+        const v = '9.22.2';
+        const appMod = await import(`https://www.gstatic.com/firebasejs/${v}/firebase-app.js`);
+        const dbMod  = await import(`https://www.gstatic.com/firebasejs/${v}/firebase-database.js`);
+
+        const { initializeApp, getApps, getApp } = appMod;
+        const { getDatabase, ref, push, set, serverTimestamp } = dbMod;
+
+        const app = getApps().length ? getApp() : initializeApp(cfg);
+        const db = getDatabase(app);
+
+        const room = String(row?.room || 'ROOM').trim().toUpperCase();
+        const base = `hha-battle/goodjunk/rooms/${room}/attendance`;
+        const rowRef = push(ref(db, base));
+
+        await set(rowRef, {
+          nick: String(row?.nick || ''),
+          pid: String(row?.pid || ''),
+          room,
+          source: String(row?.source || 'student-join'),
+          createdAt: serverTimestamp(),
+          createdAtMs: Date.now()
+        });
+
+        return { ok:true };
+      }catch(err){
+        console.warn('[StudentJoin] central attendance failed', err);
+        return { ok:false, reason:String(err?.message || err) };
+      }
+    }
+
+    async function checkDuplicatePidInRoom(room, pid){
+      room = String(room || '').trim().toUpperCase();
+      pid = String(pid || '').trim();
+      if(!room || !pid) return { duplicate:false, matches:[] };
+
+      const cfg = window.HHA_FIREBASE_CONFIG || window.__HHA_FIREBASE_CONFIG__ || window.firebaseConfig || null;
+      if(!cfg) return { duplicate:false, matches:[], reason:'missing_firebase_config' };
+
+      try{
+        const v = '9.22.2';
+        const appMod = await import(`https://www.gstatic.com/firebasejs/${v}/firebase-app.js`);
+        const dbMod  = await import(`https://www.gstatic.com/firebasejs/${v}/firebase-database.js`);
+
+        const { initializeApp, getApps, getApp } = appMod;
+        const { getDatabase, ref, get } = dbMod;
+
+        const app = getApps().length ? getApp() : initializeApp(cfg);
+        const db = getDatabase(app);
+
+        const snap = await get(ref(db, `hha-battle/goodjunk/rooms/${room}/players`)).catch(()=>null);
+        const raw = snap?.val() || {};
+
+        const matches = Object.entries(raw)
+          .map(([key, v])=>({
+            key,
+            pid: String(v?.pid || ''),
+            nick: String(v?.nick || ''),
+            connected: v?.connected !== false
+          }))
+          .filter(r => String(r.pid || '').trim() === pid);
+
+        return { duplicate: matches.length > 0, matches };
+      }catch(err){
+        console.warn('[StudentJoin] duplicate pid check failed', err);
+        return { duplicate:false, matches:[], reason:String(err?.message || err) };
+      }
+    }
+
+    async function getRoomPolicy(room){
+      room = String(room || '').trim().toUpperCase();
+      if(!room) return {};
+
+      const cfg = window.HHA_FIREBASE_CONFIG || window.__HHA_FIREBASE_CONFIG__ || window.firebaseConfig || null;
+      if(!cfg) return {};
+
+      try{
+        const v = '9.22.2';
+        const appMod = await import(`https://www.gstatic.com/firebasejs/${v}/firebase-app.js`);
+        const dbMod  = await import(`https://www.gstatic.com/firebasejs/${v}/firebase-database.js`);
+
+        const { initializeApp, getApps, getApp } = appMod;
+        const { getDatabase, ref, get } = dbMod;
+
+        const app = getApps().length ? getApp() : initializeApp(cfg);
+        const db = getDatabase(app);
+
+        const snap = await get(ref(db, `hha-battle/goodjunk/rooms/${room}/policy`)).catch(()=>null);
+        return snap?.val() || {};
+      }catch(err){
+        console.warn('[StudentJoin] getRoomPolicy failed', err);
+        return {};
+      }
+    }
+
+    function showDupWarn(msg){
+      const el = $('dupWarn');
+      if(!el) return;
+      el.style.display = 'block';
+      el.textContent = msg || 'ตรวจพบ PID ซ้ำ';
+    }
+
+    function hideDupWarn(){
+      const el = $('dupWarn');
+      if(!el) return;
+      el.style.display = 'none';
+      el.textContent = 'ตรวจพบ PID ซ้ำในห้อง';
+    }
+
+    function showLockWarn(msg){
+      const el = $('lockWarn');
+      if(!el) return;
+      el.style.display = 'block';
+      el.textContent = msg || 'ห้องนี้ถูกล็อก';
+    }
+
+    function hideLockWarn(){
+      const el = $('lockWarn');
+      if(!el) return;
+      el.style.display = 'none';
+      el.textContent = 'ห้องนี้ถูกล็อก';
+    }
+
+    function showSpectatorBox(url, msg){
+      currentSpectatorUrl = String(url || '').trim();
+      $('spectatorBox').style.display = currentSpectatorUrl ? 'block' : 'none';
+      $('spectatorText').textContent = msg || 'ห้องนี้เปิดให้เข้าชมแทน';
+    }
+
+    function hideSpectatorBox(){
+      currentSpectatorUrl = '';
+      $('spectatorBox').style.display = 'none';
+      $('spectatorText').textContent = 'ห้องนี้เปิดให้เข้าชมแทน';
+    }
 
     $('room').value = qs('room', 'P5A');
     $('view').value = qs('view', 'mobile');
@@ -128,13 +357,103 @@ PATCH v20260307-STUDENT-JOIN-GOODJUNK
     $('nick').value = qs('nick', '');
     $('pid').value = qs('pid', '');
 
-    $('btnJoin').onclick = ()=>{
+    applyLockedField('room', 'room');
+    applyLockedField('view', 'view');
+    applyLockedField('diff', 'diff');
+    applyLockedField('time', 'time');
+    applyLockedField('hub', 'hub');
+
+    (function renderJoinNote(){
+      const parts = [];
+      const room = $('room').value || 'P5A';
+      const diff = $('diff').value || 'easy';
+      const time = $('time').value || '80';
+      const view = $('view').value || 'mobile';
+      parts.push(`Room ${room}`);
+      parts.push(`diff ${diff}`);
+      parts.push(`time ${time}s`);
+      parts.push(`view ${view}`);
+      $('joinNote').textContent = `ค่าที่ตั้งจากครู: ${parts.join(' • ')}`;
+    })();
+
+    $('rosterPick').addEventListener('change', (ev)=>{
+      applyRosterSelection(ev.target.value);
+    });
+
+    $('room').addEventListener('change', ()=>{
+      renderRosterPick();
+    });
+
+    $('room').addEventListener('blur', async ()=>{
+      const room = ($('room').value || 'P5A').trim().toUpperCase();
+      hideLockWarn();
+      hideSpectatorBox();
+
+      try{
+        const policy = await getRoomPolicy(room);
+        if(policy?.roomLocked){
+          showLockWarn(policy?.message || `ห้อง ${room} ถูกล็อกอยู่`);
+          if(policy?.allowSpectatorOnly && policy?.spectatorUrl){
+            showSpectatorBox(policy.spectatorUrl, policy?.message || `ห้อง ${room} เปิดให้เข้าชมแทน`);
+          }
+        }
+      }catch(_){}
+    });
+
+    $('pid').addEventListener('blur', async ()=>{
+      const pid = ($('pid').value || '').trim();
+      const room = ($('room').value || 'P5A').trim().toUpperCase();
+      hideDupWarn();
+      if(!pid) return;
+
+      try{
+        const dup = await checkDuplicatePidInRoom(room, pid);
+        if(dup?.duplicate){
+          const names = dup.matches.map(m => `${m.nick || '-'}${m.connected ? ' (connected)' : ''}`).join(', ');
+          showDupWarn(`PID นี้มีอยู่แล้วในห้อง ${room}: ${names}`);
+        }
+      }catch(_){}
+    });
+
+    $('btnOpenSpectator').addEventListener('click', ()=>{
+      if(!currentSpectatorUrl) return;
+      location.href = currentSpectatorUrl;
+    });
+
+    $('btnJoin').onclick = async ()=>{
       const nick = ($('nick').value || '').trim();
       const pid = ($('pid').value || '').trim() || nick || 'anon';
       const room = ($('room').value || 'P5A').trim().toUpperCase();
 
+      hideDupWarn();
+      hideLockWarn();
+      hideSpectatorBox();
+
+      try{
+        const policy = await getRoomPolicy(room);
+        if(policy?.roomLocked){
+          showLockWarn(policy?.message || `ห้อง ${room} ถูกล็อกอยู่`);
+          if(policy?.allowSpectatorOnly && policy?.spectatorUrl){
+            showSpectatorBox(policy.spectatorUrl, policy?.message || `ห้อง ${room} เปิดให้เข้าชมแทน`);
+          }
+          return;
+        }
+      }catch(_){}
+
+      try{
+        const dup = await checkDuplicatePidInRoom(room, pid);
+        if(dup?.duplicate){
+          const names = dup.matches.map(m => `${m.nick || '-'}${m.connected ? ' (connected)' : ''}`).join(', ');
+          showDupWarn(`ตรวจพบ PID ซ้ำในห้อง ${room}: ${pid} • ${names}`);
+
+          const ok = confirm(`พบ PID ซ้ำในห้อง ${room}\nPID: ${pid}\nรายการ: ${names}\n\nต้องการเข้าเล่นต่อหรือไม่?`);
+          if(!ok) return;
+        }
+      }catch(_){}
+
       const u = new URL('./vr-goodjunk/goodjunk-vr.html', location.href);
-      u.searchParams.set('mode', 'battle');
+      u.searchParams.set('mode', qs('mode', 'battle') || 'battle');
+      u.searchParams.set('source', 'student-join');
       u.searchParams.set('room', room);
       u.searchParams.set('nick', nick || pid);
       u.searchParams.set('pid', pid);
@@ -150,6 +469,29 @@ PATCH v20260307-STUDENT-JOIN-GOODJUNK
         localStorage.setItem('HH_STUDENT_ROOM', room || '');
       }catch(_){}
 
+      try{
+        const attKey = 'HH_GJ_ATTENDANCE';
+        const raw = localStorage.getItem(attKey);
+        const rows = raw ? JSON.parse(raw) : [];
+        rows.push({
+          ts: new Date().toISOString(),
+          room,
+          nick: nick || pid,
+          pid: pid || '',
+          source: 'student-join'
+        });
+        localStorage.setItem(attKey, JSON.stringify(rows));
+      }catch(_){}
+
+      try{
+        await writeCentralAttendance({
+          room,
+          nick: nick || pid,
+          pid: pid || '',
+          source: 'student-join'
+        });
+      }catch(_){}
+
       location.href = u.toString();
     };
 
@@ -158,6 +500,9 @@ PATCH v20260307-STUDENT-JOIN-GOODJUNK
       if(!$('pid').value) $('pid').value = localStorage.getItem('HH_STUDENT_PID') || '';
       if(!$('room').value) $('room').value = localStorage.getItem('HH_STUDENT_ROOM') || 'P5A';
     }catch(_){}
+
+    hideSpectatorBox();
+    loadRoster();
   </script>
 </body>
 </html>
