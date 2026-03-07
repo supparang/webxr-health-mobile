@@ -1,11 +1,8 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
 HeroHealth — GoodJunk VR Run Page
-PATCH v20260306-GJ-RUN-DOM-COMPAT-BATTLE-READY
-✅ Compatible with current goodjunk.safe.js
-✅ Has required gj-layer + HUD + mission + boss + end overlay
-✅ Loads ../firebase-config.js
-✅ Loads ../vr/vr-ui.js
-✅ Boots ./goodjunk.safe.js
+PATCH v20260307-GJ-RUN-ENDSUMMARY-BATTLE-EXPLAIN
+✅ End summary shows battle decision rule
+✅ End summary shows compare vs opponent
 -->
 <!doctype html>
 <html lang="th">
@@ -303,6 +300,27 @@ PATCH v20260306-GJ-RUN-DOM-COMPAT-BATTLE-READY
       font-size:13px;
       margin-bottom:14px;
     }
+
+    .end-note{
+      border-radius:16px;
+      background:rgba(2,6,23,.50);
+      border:1px solid var(--stroke);
+      padding:12px;
+      margin-bottom:12px;
+      text-align:left;
+    }
+    .end-note .h{
+      font-size:12px;
+      color:var(--muted);
+      margin-bottom:6px;
+    }
+    .end-note .v{
+      font-size:14px;
+      font-weight:800;
+      line-height:1.35;
+      white-space:normal;
+    }
+
     .end-grid{
       display:grid;
       grid-template-columns:repeat(4, minmax(0,1fr));
@@ -397,50 +415,19 @@ PATCH v20260306-GJ-RUN-DOM-COMPAT-BATTLE-READY
   </div>
 
   <section class="hud">
-    <div class="card">
-      <div class="k">Score</div>
-      <div id="hud-score" class="v">0</div>
-    </div>
-    <div class="card">
-      <div class="k">Time</div>
-      <div id="hud-time" class="v">80</div>
-    </div>
-    <div class="card">
-      <div class="k">Miss</div>
-      <div id="hud-miss" class="v">0</div>
-    </div>
-    <div class="card">
-      <div class="k">Grade</div>
-      <div id="hud-grade" class="v">D</div>
-    </div>
-
-    <div class="card">
-      <div class="k">Phase</div>
-      <div id="hud-goal" class="v">WARM</div>
-    </div>
-    <div class="card">
-      <div class="k">Good Hit</div>
-      <div class="v"><span id="hud-goal-cur">0</span> / <span id="hud-goal-target">40</span></div>
-    </div>
-    <div class="card">
-      <div class="k">Mini</div>
-      <div class="v"><span id="hud-mini">—</span> <span class="muted" style="font-size:13px">(<span id="miniTimer">0</span>s)</span></div>
-    </div>
-    <div class="card">
-      <div class="k">Mission Key</div>
-      <div id="goalDesc" class="v" style="font-size:14px;">good_only</div>
-    </div>
+    <div class="card"><div class="k">Score</div><div id="hud-score" class="v">0</div></div>
+    <div class="card"><div class="k">Time</div><div id="hud-time" class="v">80</div></div>
+    <div class="card"><div class="k">Miss</div><div id="hud-miss" class="v">0</div></div>
+    <div class="card"><div class="k">Grade</div><div id="hud-grade" class="v">D</div></div>
+    <div class="card"><div class="k">Phase</div><div id="hud-goal" class="v">WARM</div></div>
+    <div class="card"><div class="k">Good Hit</div><div class="v"><span id="hud-goal-cur">0</span> / <span id="hud-goal-target">40</span></div></div>
+    <div class="card"><div class="k">Mini</div><div class="v"><span id="hud-mini">—</span> <span class="muted" style="font-size:13px">(<span id="miniTimer">0</span>s)</span></div></div>
+    <div class="card"><div class="k">Mission Key</div><div id="goalDesc" class="v" style="font-size:14px;">good_only</div></div>
   </section>
 
   <aside class="ai-box">
-    <div class="ai-row">
-      <span class="muted">AI Risk</span>
-      <strong id="aiRisk">—</strong>
-    </div>
-    <div class="ai-row">
-      <span class="muted">AI Hint</span>
-      <strong id="aiHint">—</strong>
-    </div>
+    <div class="ai-row"><span class="muted">AI Risk</span><strong id="aiRisk">—</strong></div>
+    <div class="ai-row"><span class="muted">AI Hint</span><strong id="aiHint">—</strong></div>
   </aside>
 
   <section class="mission">
@@ -471,23 +458,21 @@ PATCH v20260306-GJ-RUN-DOM-COMPAT-BATTLE-READY
       <div id="endTitle">จบเกม</div>
       <div id="endSub">summary</div>
 
+      <div class="end-note">
+        <div class="h">เกณฑ์ตัดสิน</div>
+        <div id="endDecision" class="v">—</div>
+      </div>
+
+      <div class="end-note">
+        <div class="h">เทียบกับคู่แข่ง</div>
+        <div id="endCompare" class="v">—</div>
+      </div>
+
       <div class="end-grid">
-        <div class="end-card">
-          <div class="k">Grade</div>
-          <div id="endGrade" class="v">D</div>
-        </div>
-        <div class="end-card">
-          <div class="k">Score</div>
-          <div id="endScore" class="v">0</div>
-        </div>
-        <div class="end-card">
-          <div class="k">Miss</div>
-          <div id="endMiss" class="v">0</div>
-        </div>
-        <div class="end-card">
-          <div class="k">Time</div>
-          <div id="endTime" class="v">0</div>
-        </div>
+        <div class="end-card"><div class="k">Grade</div><div id="endGrade" class="v">D</div></div>
+        <div class="end-card"><div class="k">Score</div><div id="endScore" class="v">0</div></div>
+        <div class="end-card"><div class="k">Miss</div><div id="endMiss" class="v">0</div></div>
+        <div class="end-card"><div class="k">Time</div><div id="endTime" class="v">0</div></div>
       </div>
 
       <div class="end-actions">
