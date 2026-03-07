@@ -1,222 +1,104 @@
-<!-- === /fitness/shadow-breaker.html ===
-Shadow Breaker — PATCH D
-✅ Force load shadow-breaker.css (no min.css) + cache-bust
-✅ Engine cache-bust
-✅ Research UI uses same theme (CSS handles it) + tidy layout
--->
 <!doctype html>
 <html lang="th">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-  <title>Shadow Breaker — VR Fitness</title>
-  <meta name="color-scheme" content="dark light"/>
-  <link rel="icon" href="favicon.ico"/>
-
-  <!-- ✅ PATCH D: use ONLY this (do NOT load shadow-breaker.min.css) -->
-  <link rel="stylesheet" href="./css/shadow-breaker.css?v=20260210d"/>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth — Shadow Breaker VR</title>
+  <meta name="color-scheme" content="dark light" />
+  <link rel="icon" href="./favicon.ico" />
+  <style>
+    :root{--bg1:#020617;--bg2:#0b1226;--panel:rgba(2,6,23,.72);--stroke:rgba(148,163,184,.18);--text:#e5e7eb;--muted:#94a3b8;--blue:#3b82f6;--good:#22c55e}
+    *{box-sizing:border-box} html,body{margin:0;min-height:100%;background:radial-gradient(1000px 700px at 50% -10%, rgba(59,130,246,.18), transparent 60%),linear-gradient(180deg,var(--bg1),var(--bg2));color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Thai",Arial}
+    .wrap{max-width:880px;margin:0 auto;padding:18px}.card{border-radius:22px;border:1px solid var(--stroke);background:var(--panel);box-shadow:0 18px 55px rgba(0,0,0,.28);padding:16px}
+    .title{font-size:28px;font-weight:1000;margin:0 0 6px}.muted{color:var(--muted);font-size:13px;font-weight:900}.row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+    .btn{appearance:none;border:1px solid rgba(148,163,184,.22);border-radius:14px;padding:12px 14px;min-height:46px;cursor:pointer;color:var(--text);background:rgba(148,163,184,.10);font-weight:1000}
+    .btn.primary{background:rgba(59,130,246,.16);border-color:rgba(59,130,246,.34)} .btn.good{background:rgba(34,197,94,.14);border-color:rgba(34,197,94,.32)}
+    .pill{display:inline-flex;align-items:center;gap:8px;padding:8px 10px;border-radius:999px;border:1px solid var(--stroke);background:rgba(2,6,23,.42);color:var(--muted);font-size:12px;font-weight:1000;margin:4px 6px 0 0}.pill b{color:var(--text)}
+    .debug{margin-top:14px;padding:12px;border-radius:16px;border:1px solid var(--stroke);background:rgba(2,6,23,.35);font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;white-space:pre-wrap;word-break:break-word;color:#cbd5e1}
+  </style>
 </head>
 <body>
-<div id="sb-wrap">
+  <div class="wrap"><div class="card">
+    <div class="title">🥊 Shadow Breaker VR</div>
+    <div class="muted">Launcher สำหรับเข้าเกม Shadow Breaker ผ่าน Warmup Gate</div>
+    <div style="margin-top:10px;">
+      <span class="pill"><b>PID</b>: <span id="uiPid">anon</span></span>
+      <span class="pill"><b>view</b>: <span id="uiView">mobile</span></span>
+      <span class="pill"><b>run</b>: <span id="uiRun">play</span></span>
+      <span class="pill"><b>diff</b>: <span id="uiDiff">normal</span></span>
+      <span class="pill"><b>time</b>: <span id="uiTime">80</span></span>
+    </div>
+    <div class="row">
+      <button class="btn primary" id="btnStart">เริ่มเกม</button>
+      <button class="btn" id="btnHub">กลับ Hub</button>
+      <button class="btn good" id="btnOpenRun">เปิด run ตรง</button>
+    </div>
+    <div class="debug" id="debugBox">loading...</div>
+  </div></div>
 
-  <!-- HERO -->
-  <section class="sb-hero">
-    <div class="sb-pill">VR Fitness • Boss Targets</div>
-    <h1>Shadow Breaker</h1>
-    <p>เกมตีเป้า Boss หลายเฟส • RT/Combo/FEVER/Shield • รองรับ Normal/Research</p>
-    <p style="margin-top:8px;">รองรับ: <b>PC</b> • <b>Mobile</b></p>
-    <a class="sb-btn ghost" id="sb-btn-hub" href="./hub.html" style="margin-top:10px; display:inline-flex; text-decoration:none;">
-      ← กลับ Hub
-    </a>
-  </section>
+  <script>
+    function qs(k,d=''){ try{return (new URL(location.href)).searchParams.get(k) ?? d;}catch(_){return d;} }
+    function safeNum(v,d){ v=Number(v); return Number.isFinite(v)?v:d; }
+    function normalizeHub(){ const raw=String(qs('hub','')).trim(); if(raw) return raw; try{return new URL('./hub.html', location.href).toString();}catch(_){return './hub.html';} }
+    const GAME = { cat:'exercise', theme:'shadow', game:'shadow', runPath:'./fitness/shadow-breaker.html' };
+    const ctx = { pid:String(qs('pid','anon')).trim()||'anon', view:String(qs('view','mobile')).trim()||'mobile', run:String(qs('run','play')).trim()||'play', diff:String(qs('diff','normal')).trim()||'normal', time:String(safeNum(qs('time','80'),80)), seed:String(qs('seed', String(Date.now()))), zone:String(qs('zone','fitness')).trim()||'fitness', hub:normalizeHub() };
 
-  <!-- MENU VIEW -->
-  <section id="sb-view-menu" class="sb-view is-active">
-    <section class="sb-menu">
-      <div class="sb-tabs">
-        <button class="sb-tab is-on" id="sb-tab-normal" type="button">🎮 Normal</button>
-        <button class="sb-tab" id="sb-tab-research" type="button">📊 Research</button>
-      </div>
+    document.getElementById('uiPid').textContent=ctx.pid;
+    document.getElementById('uiView').textContent=ctx.view;
+    document.getElementById('uiRun').textContent=ctx.run;
+    document.getElementById('uiDiff').textContent=ctx.diff;
+    document.getElementById('uiTime').textContent=ctx.time;
 
-      <div id="sb-mode-desc" style="color:var(--muted); font-size:var(--fs-sm);">
-        Normal: เล่นสนุก/สอนทั่วไป ไม่ต้องกรอกข้อมูลผู้เข้าร่วม
-      </div>
+    function copyPassthrough(u){
+      const sp=new URL(location.href).searchParams;
+      ['run','diff','time','seed','studyId','phase','conditionGroup','log','view','pid','api','ai','debug','planSeq','planDay','planSlot','planMode','planSlots','planIndex','autoNext','plannedGame','finalGame','zone','cdnext','grade']
+      .forEach(k=>{ const v=sp.get(k); if(v!=null&&v!=='') u.searchParams.set(k,v); });
+    }
 
-      <div class="sb-row">
-        <label>Difficulty</label>
-        <select id="sb-sel-diff">
-          <option value="easy">Easy</option>
-          <option value="normal" selected>Normal</option>
-          <option value="hard">Hard</option>
-        </select>
+    function buildRunUrl(){
+      const u=new URL(GAME.runPath, location.href);
+      copyPassthrough(u);
+      if(!u.searchParams.get('pid')) u.searchParams.set('pid',ctx.pid);
+      if(!u.searchParams.get('view')) u.searchParams.set('view',ctx.view);
+      if(!u.searchParams.get('run')) u.searchParams.set('run',ctx.run);
+      if(!u.searchParams.get('diff')) u.searchParams.set('diff',ctx.diff);
+      if(!u.searchParams.get('time')) u.searchParams.set('time',ctx.time);
+      if(!u.searchParams.get('seed')) u.searchParams.set('seed',ctx.seed);
+      if(!u.searchParams.get('zone')) u.searchParams.set('zone',ctx.zone);
+      u.searchParams.set('hub',ctx.hub);
+      return u.toString();
+    }
 
-        <label>Time (sec)</label>
-        <select id="sb-sel-time">
-          <option value="60">60</option>
-          <option value="70" selected>70</option>
-          <option value="80">80</option>
-          <option value="90">90</option>
-        </select>
-      </div>
+    function buildWarmupUrl(){
+      const warm=new URL('./warmup-gate.html', location.href);
+      warm.searchParams.set('gatePhase','warmup');
+      warm.searchParams.set('phase','warmup');
+      warm.searchParams.set('cat',GAME.cat);
+      warm.searchParams.set('theme',GAME.theme);
+      warm.searchParams.set('game',GAME.game);
+      warm.searchParams.set('pid',ctx.pid);
+      warm.searchParams.set('hub',ctx.hub);
+      warm.searchParams.set('next',buildRunUrl());
+      warm.searchParams.set('run',ctx.run);
+      warm.searchParams.set('diff',ctx.diff);
+      warm.searchParams.set('time',ctx.time);
+      warm.searchParams.set('view',ctx.view);
+      warm.searchParams.set('seed',ctx.seed);
+      const grade=String(qs('grade','')).trim(); if(grade) warm.searchParams.set('grade',grade);
+      const studyId=String(qs('studyId','')).trim(); if(studyId) warm.searchParams.set('studyId',studyId);
+      const conditionGroup=String(qs('conditionGroup','')).trim(); if(conditionGroup) warm.searchParams.set('conditionGroup',conditionGroup);
+      const log=String(qs('log','')).trim(); if(log) warm.searchParams.set('log',log);
+      return warm.toString();
+    }
 
-      <!-- Research fields -->
-      <div id="sb-research-fields" style="display:none; margin-top:10px;">
-        <div class="sb-row">
-          <label>Participant ID</label>
-          <input id="sb-inp-pid" placeholder="เช่น S05-001"/>
+    const debugBox=document.getElementById('debugBox');
+    debugBox.textContent='[Shadow Launcher]\\nlauncher: '+location.href+'\\nhub:      '+ctx.hub+'\\nwarmup:   '+buildWarmupUrl()+'\\nrunPath:  '+buildRunUrl()+'\\n';
 
-          <label>Group</label>
-          <input id="sb-inp-group" placeholder="เช่น Control/Exp-A"/>
+    document.getElementById('btnStart').onclick=()=>location.href=buildWarmupUrl();
+    document.getElementById('btnOpenRun').onclick=()=>location.href=buildRunUrl();
+    document.getElementById('btnHub').onclick=()=>location.href=ctx.hub;
 
-          <label>Note</label>
-          <input id="sb-inp-note" placeholder="โน้ตเพิ่มเติม (ไม่บังคับ)"/>
-        </div>
-      </div>
-
-      <div style="margin-top:10px; color:var(--muted); font-size:var(--fs-sm);">
-        AI (Play only): DL-lite Predictor • Explainable micro-tips • Pattern Generator • Fair adaptive pacing
-      </div>
-
-      <div class="sb-actions">
-        <button class="sb-btn primary" id="sb-btn-play" type="button">▶ Start Game</button>
-        <button class="sb-btn" id="sb-btn-research" type="button">📊 Start Research</button>
-        <button class="sb-btn ghost" id="sb-btn-howto" type="button">❓ How to play</button>
-      </div>
-
-      <div id="sb-howto" style="display:none; margin-top:12px; color:var(--text);">
-        <ul style="margin:0; padding-left:18px; line-height:1.5;">
-          <li>ชก/แตะเป้า “Normal” เพื่อทำคอมโบ + เพิ่มคะแนน</li>
-          <li>เป้า “Decoy/Bomb” ทำให้เสียจังหวะ (ถ้ามี Shield จะกันได้)</li>
-          <li>เป้า “Heal/Shield” ช่วยเอาตัวรอด + รักษาคอมโบ</li>
-          <li>FEVER เต็ม → คะแนน/ดาเมจบอสเพิ่มช่วงสั้น ๆ</li>
-          <li>HP บอสใกล้หมด → จะเรียกหน้า Boss (Boss Face) โผล่ 1 ครั้ง</li>
-        </ul>
-      </div>
-    </section>
-  </section>
-
-  <!-- PLAY VIEW -->
-  <section id="sb-view-play" class="sb-view">
-    <section class="sb-play-shell">
-
-      <div class="sb-hud-top">
-        <div class="sb-hud-left">
-          <div class="sb-kv">Time <b id="sb-text-time">0.0 s</b></div>
-          <div class="sb-kv">Score <b id="sb-text-score">0</b></div>
-          <div class="sb-kv">Combo <b id="sb-text-combo">0</b></div>
-        </div>
-
-        <div class="sb-hud-right">
-          <div class="sb-kv"><b id="sb-current-boss-name">Boss</b></div>
-          <div class="sb-kv">Phase <b id="sb-text-phase">1</b></div>
-          <div class="sb-kv">Miss <b id="sb-text-miss">0</b></div>
-          <div class="sb-kv">Shield <b id="sb-text-shield">0</b></div>
-        </div>
-      </div>
-
-      <div class="sb-bars">
-        <div class="sb-kv" style="min-width:46px;">YOU</div>
-        <div class="sb-bar"><i id="sb-hp-you-top"></i></div>
-        <div class="sb-kv" style="min-width:52px; justify-content:flex-end;">BOSS</div>
-        <div class="sb-bar"><i id="sb-hp-boss-top"></i></div>
-      </div>
-
-      <div class="sb-grid">
-        <div id="sb-target-layer">
-          <div id="sb-msg-main" class="sb-msg-main">พร้อม!</div>
-        </div>
-
-        <aside class="sb-boss-card">
-          <h3><span id="sb-meta-emoji">🐣</span> <span id="sb-meta-name">Boss</span></h3>
-          <p id="sb-meta-desc">คำใบ้บอส…</p>
-          <div class="sb-boss-meta">
-            <span>Phase: <b id="sb-boss-phase-label">1</b></span>
-            <span>Shield: <b id="sb-boss-shield-label">0</b></span>
-          </div>
-          <div style="margin-top:10px;">
-            <button class="sb-btn ghost" id="sb-btn-back-menu" type="button">← กลับเมนู</button>
-          </div>
-        </aside>
-      </div>
-
-      <div class="sb-hud-bottom">
-        <div class="sb-fever">
-          <div class="row">
-            <div id="sb-label-fever">FEVER</div>
-            <label style="display:flex; gap:8px; align-items:center; color:var(--muted); font-size:var(--fs-sm);">
-              <input id="sb-btn-pause" type="checkbox" style="transform:scale(1.05);"/>
-              Pause
-            </label>
-          </div>
-          <div class="track"><div id="sb-fever-bar"></div></div>
-        </div>
-
-        <div class="sb-pausebox">
-          <div>YOU</div>
-          <div class="sb-bar" style="flex:1;"><i id="sb-hp-you-bottom"></i></div>
-          <div>BOSS</div>
-          <div class="sb-bar" style="flex:1;"><i id="sb-hp-boss-bottom"></i></div>
-        </div>
-      </div>
-
-    </section>
-  </section>
-
-  <!-- RESULT VIEW -->
-  <section id="sb-view-result" class="sb-view">
-    <section class="sb-result">
-      <h2>สรุปผล</h2>
-      <div class="grid">
-        <div class="sb-chip">Time <b id="sb-res-time">0.0 s</b></div>
-        <div class="sb-chip">Score <b id="sb-res-score">0</b></div>
-        <div class="sb-chip">Max Combo <b id="sb-res-max-combo">0</b></div>
-        <div class="sb-chip">Miss <b id="sb-res-miss">0</b></div>
-        <div class="sb-chip">Phase <b id="sb-res-phase">1</b></div>
-        <div class="sb-chip">Boss Cleared <b id="sb-res-boss-cleared">0</b></div>
-        <div class="sb-chip">Accuracy <b id="sb-res-acc">0%</b></div>
-        <div class="sb-chip">Grade <b id="sb-res-grade">C</b></div>
-      </div>
-
-      <div class="actions">
-        <button class="sb-btn primary" id="sb-btn-result-retry" type="button">เล่นอีกครั้ง</button>
-        <button class="sb-btn" id="sb-btn-result-menu" type="button">กลับเมนู</button>
-        <button class="sb-btn ghost" id="sb-btn-download-events" type="button">ดาวน์โหลด events.csv</button>
-        <button class="sb-btn ghost" id="sb-btn-download-session" type="button">ดาวน์โหลด session.csv</button>
-      </div>
-    </section>
-  </section>
-
-</div>
-
-<!-- ✅ PATCH D: engine cache-bust -->
-<script type="module" src="./js/engine.js?v=20260210d"></script>
-
-<script>
-/* small menu behavior (no dependency) */
-(function(){
-  const $ = (s)=>document.querySelector(s);
-  const tabN = $('#sb-tab-normal');
-  const tabR = $('#sb-tab-research');
-  const rf = $('#sb-research-fields');
-  const desc = $('#sb-mode-desc');
-  const howtoBtn = $('#sb-btn-howto');
-  const howto = $('#sb-howto');
-
-  function setMode(m){
-    const isR = (m==='research');
-    tabN?.classList.toggle('is-on', !isR);
-    tabR?.classList.toggle('is-on', isR);
-    if(rf) rf.style.display = isR ? '' : 'none';
-    if(desc) desc.textContent = isR
-      ? 'Research: ใช้เก็บข้อมูลการทดลอง (กรอก Participant/Group ได้)'
-      : 'Normal: เล่นสนุก/สอนทั่วไป ไม่ต้องกรอกข้อมูลผู้เข้าร่วม';
-  }
-  tabN?.addEventListener('click', ()=>setMode('normal'));
-  tabR?.addEventListener('click', ()=>setMode('research'));
-  howtoBtn?.addEventListener('click', ()=>{ if(howto) howto.style.display = (howto.style.display==='none'||!howto.style.display) ? '' : 'none'; });
-
-  setMode('normal');
-})();
-</script>
+    setTimeout(()=>{ try{ location.href=buildWarmupUrl(); }catch(err){ debugBox.textContent+='\\nredirect failed: '+(err?.message||String(err)); } },120);
+  </script>
 </body>
 </html>
