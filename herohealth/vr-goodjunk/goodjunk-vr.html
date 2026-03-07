@@ -1,8 +1,6 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
 HeroHealth — GoodJunk VR Run Page
-PATCH v20260307-GJ-RUN-ENDSUMMARY-BATTLE-COMPARE-TABLE
-✅ End summary has battle decision
-✅ End summary has compare table You vs Opponent
+PATCH v20260307-GJ-RUN-ENDSUMMARY-BATTLE-COMPARE-TABLE-CENTRAL-ATT
 -->
 <!doctype html>
 <html lang="th">
@@ -290,6 +288,11 @@ PATCH v20260307-GJ-RUN-ENDSUMMARY-BATTLE-COMPARE-TABLE
         <div id="endDecision" class="v">—</div>
       </div>
 
+      <div class="end-note">
+        <div class="h">สถานะ Rematch</div>
+        <div id="endRematchStatus" class="v">—</div>
+      </div>
+
       <div class="compare-wrap">
         <div class="compare-title">เทียบผล You vs Opponent</div>
         <div class="compare-table">
@@ -328,6 +331,7 @@ PATCH v20260307-GJ-RUN-ENDSUMMARY-BATTLE-COMPARE-TABLE
 
       <div class="end-actions">
         <button class="btn" id="btnReplay" type="button">🔁 เล่นอีกครั้ง</button>
+        <button class="btn" id="btnRematch" type="button">⚔️ Rematch</button>
         <button class="btn secondary" id="btnBackHub" type="button">🏠 กลับ HUB</button>
       </div>
     </div>
@@ -364,11 +368,73 @@ PATCH v20260307-GJ-RUN-ENDSUMMARY-BATTLE-COMPARE-TABLE
       return u.toString();
     }
 
-    document.getElementById('btnReplay').addEventListener('click', ()=>{ location.href = replayUrl(); });
-    document.getElementById('btnBackHub').addEventListener('click', ()=>{ location.href = safeHub(); });
+    async function writeCentralAttendanceRun(row){
+      const cfg = window.HHA_FIREBASE_CONFIG || window.__HHA_FIREBASE_CONFIG__ || window.firebaseConfig || null;
+      if(!cfg) return { ok:false, reason:'missing_firebase_config' };
+
+      try{
+        const v = '9.22.2';
+        const appMod = await import(`https://www.gstatic.com/firebasejs/${v}/firebase-app.js`);
+        const dbMod  = await import(`https://www.gstatic.com/firebasejs/${v}/firebase-database.js`);
+
+        const { initializeApp, getApps, getApp } = appMod;
+        const { getDatabase, ref, push, set, serverTimestamp } = dbMod;
+
+        const app = getApps().length ? getApp() : initializeApp(cfg);
+        const db = getDatabase(app);
+
+        const room = String(row?.room || 'ROOM').trim().toUpperCase();
+        const base = `hha-battle/goodjunk/rooms/${room}/attendance`;
+        const rowRef = push(ref(db, base));
+
+        await set(rowRef, {
+          nick: String(row?.nick || ''),
+          pid: String(row?.pid || ''),
+          room,
+          source: String(row?.source || 'game-run'),
+          createdAt: serverTimestamp(),
+          createdAtMs: Date.now()
+        });
+
+        return { ok:true };
+      }catch(err){
+        console.warn('[GoodJunkVR] central attendance run failed', err);
+        return { ok:false, reason:String(err?.message || err) };
+      }
+    }
+
+    document.getElementById('btnReplay').addEventListener('click', ()=>{
+      location.href = replayUrl();
+    });
+
+    document.getElementById('btnRematch').addEventListener('click', async ()=>{
+      try{
+        if (window.__GJ_REMATCH__ && typeof window.__GJ_REMATCH__ === 'function'){
+          await window.__GJ_REMATCH__();
+        } else {
+          location.href = replayUrl();
+        }
+      }catch(err){
+        console.warn('[GoodJunkVR] rematch failed:', err);
+        location.href = replayUrl();
+      }
+    });
+
+    document.getElementById('btnBackHub').addEventListener('click', ()=>{
+      location.href = safeHub();
+    });
 
     try{
       installVRUI();
+
+      try{
+        await writeCentralAttendanceRun({
+          room: qs('room', ''),
+          nick: qs('nick', qs('pid', 'anon')),
+          pid: qs('pid', 'anon'),
+          source: 'game-run'
+        });
+      }catch(_){}
 
       await boot({
         appId: 'goodjunk',
