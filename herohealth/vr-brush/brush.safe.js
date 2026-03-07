@@ -1,14 +1,15 @@
 // === /herohealth/vr-brush/brush.safe.js ===
 // BrushVR SAFE — ABC + AI Prediction Events (NO adaptive)
-// PATCH v20260306-BRUSH-ABC-AI-PRED-FULL-FIX2
+// PATCH v20260306-BRUSH-ABC-AI-PRED-FULL-FIX3
 // ✅ Stage A/B/C
 // ✅ Evidence 3 types (B): 🍬 🌙 🚫🪥
 // ✅ Quiz Analyze (C)
-// ✅ AI Risk (prediction-only): emits brush:ai signals (risk/miss_streak/combo_hot/stage/quiz/boss/time)
+// ✅ AI Risk prediction-only
 // ✅ cVR aim assist + no double-shot + stable menu/end
 // ✅ Prevent scroll jump while playing (mobile)
 // ✅ Back HUB links wired
 // ✅ Expose HHA_BRUSH.boot no-op for brush.boot.js integration
+// ✅ SAFE SPAWN AREA: avoid top buttons / edges / bottom HUD feeling
 
 (function(){
   'use strict';
@@ -373,11 +374,29 @@
   }
 
   function layerRect(){ return layer.getBoundingClientRect(); }
-  function randomInLayer(pad=56){
+
+  function spawnPadding(){
     const r = layerRect();
+    const isMobile = (CTX.view === 'mobile' || CTX.view === 'cvr');
+    const topPad = isMobile ? 72 : 56;
+    const sidePad = isMobile ? 58 : 52;
+    const bottomPad = isMobile ? 58 : 48;
+    return { topPad, sidePad, bottomPad, width:r.width, height:r.height };
+  }
+
+  function randomInLayer(){
+    const r = layerRect();
+    const p = spawnPadding();
+
+    const minX = p.sidePad;
+    const maxX = Math.max(minX + 10, r.width - p.sidePad);
+
+    const minY = p.topPad;
+    const maxY = Math.max(minY + 10, r.height - p.bottomPad);
+
     return {
-      x: pad + rng() * Math.max(10, (r.width - pad*2)),
-      y: pad + rng() * Math.max(10, (r.height - pad*2))
+      x: minX + rng() * Math.max(10, (maxX - minX)),
+      y: minY + rng() * Math.max(10, (maxY - minY))
     };
   }
 
@@ -592,7 +611,7 @@
     director = fun ? fun.tick() : director;
 
     advanceStageIfNeeded();
-    const {x,y} = randomInLayer(56);
+    const {x,y} = randomInLayer();
 
     if(!S.bossActive && S.clean >= S.nextBossAt && S.clean < 100){
       S.bossActive = true;
@@ -1079,7 +1098,6 @@
   renderHud(true);
   toast('พร้อมแล้ว! กดเริ่มเกมได้เลย');
 
-  // expose no-op boot for brush.boot.js integration
   WIN.HHA_BRUSH = WIN.HHA_BRUSH || {};
   WIN.HHA_BRUSH.boot = function(){
     if(CTX.debug) console.log('[BrushVR] boot called (safe.js already autoloaded)');
