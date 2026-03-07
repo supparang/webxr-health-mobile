@@ -1,7 +1,3 @@
-<!-- === /herohealth/hydration-vr/hydration-vr.fix.html ===
-Hydration VR RUN — PRODUCTION (CACHE-BYPASS + DEBUG + DYNIMPORT)
-FULL v20260304d-HYDRATION-RUN-DEBUG-DYNIMPORT
--->
 <!doctype html>
 <html lang="th">
 <head>
@@ -37,7 +33,7 @@ FULL v20260304d-HYDRATION-RUN-DEBUG-DYNIMPORT
 
 <body>
   <div id="dbg">
-    <div class="title">HYDRATION DEBUG (fix)</div>
+    <div class="title">HYDRATION DEBUG</div>
     <div class="hint">ถ้ามี error จะขึ้นที่นี่</div>
     <pre id="dbgText">—</pre>
     <button class="btn" onclick="location.reload()">Reload</button>
@@ -127,16 +123,16 @@ FULL v20260304d-HYDRATION-RUN-DEBUG-DYNIMPORT
   </script>
 
   <script type="module">
+    const showDbg = (msg)=> window.__HYD_SHOW_DEBUG__?.(msg);
+
     try{
-      window.HHA_Shield?.install({
+      window.HHA_Shield?.install?.({
         lockScroll: true,
         quietApollo403: true,
         quietNetworkNoise: true,
         showBanner: true
       });
     }catch(e){}
-
-    const showDbg = (msg)=> window.__HYD_SHOW_DEBUG__?.(msg);
 
     try{
       const U = new URL(location.href);
@@ -146,12 +142,16 @@ FULL v20260304d-HYDRATION-RUN-DEBUG-DYNIMPORT
       const seed = U.searchParams.get('seed') ?? String((Date.now() ^ (Math.random()*1e9))|0);
 
       const s=(id,v)=>{ const el=document.getElementById(id); if(el) el.textContent=String(v); };
-      s('uiView',view); s('uiRun',runMode); s('uiDiff',diff);
+      s('uiView',view);
+      s('uiRun',runMode);
+      s('uiDiff',diff);
 
       if(view === 'cvr'){
         try{ document.getElementById('layer').style.pointerEvents = 'none'; }catch(e){}
         try{ document.getElementById('cvrZonePad').setAttribute('aria-hidden','false'); }catch(e){}
       }
+
+      showDbg('Loading modules...');
 
       const aiMod   = await import('../vr/ai-hooks.js');
       const gameMod = await import('./hydration.safe.js');
@@ -161,6 +161,8 @@ FULL v20260304d-HYDRATION-RUN-DEBUG-DYNIMPORT
 
       if(typeof createAIHooks !== 'function') throw new Error('ai-hooks.js missing export createAIHooks');
       if(typeof bootHydration !== 'function') throw new Error('hydration.safe.js missing export boot');
+
+      showDbg('Modules loaded. Booting game...');
 
       const ai = createAIHooks({ seed:String(seed), runMode, game:'hydration', diff, device:view });
       window.HHA_AI = ai;
@@ -176,8 +178,16 @@ FULL v20260304d-HYDRATION-RUN-DEBUG-DYNIMPORT
         time: Number(U.searchParams.get('time') || 80),
         cooldown: (U.searchParams.get('cooldown') === '1') || (U.searchParams.get('cd') === '1')
       });
+
+      showDbg('Boot success');
+      setTimeout(()=>{
+        const dbg = document.getElementById('dbg');
+        if(dbg) dbg.style.display = 'none';
+      }, 900);
+
     }catch(e){
       showDbg(`[BOOT ERROR]\n${e && (e.stack||e.message) || e}`);
+      console.error(e);
     }
   </script>
 </body>
