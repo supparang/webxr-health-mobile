@@ -1,414 +1,74 @@
 <!-- === /herohealth/groups-vr.html ===
-GroupsVR Launcher — ROOT (HHA Standard)
-FULL v20260301-GROUPS-LAUNCHER-HUBFIX
-✅ Choose view: pc / mobile / cvr
-✅ Practice on/off, cVR strict on/off
-✅ Diff/Time/Seed
-✅ Remember last settings (localStorage)
-✅ Pass-through all research params (pid/run/studyId/phase/conditionGroup/log/api/debug/hub etc.)
-✅ Default HUB fixed to: https://supparang.github.io/webxr-health-mobile/herohealth/hub.html
-✅ Sends to: ./vr-groups/groups-vr.html
+GroupsVR — LAUNCHER -> /herohealth/vr-groups/groups-vr.html
+FULL v20260307-LAUNCHER-GROUPSVR
 -->
 <!doctype html>
 <html lang="th">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-  <title>HeroHealth — GroupsVR Launcher</title>
-  <meta name="color-scheme" content="dark light"/>
-  <link rel="icon" href="./favicon.ico"/>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth — GroupsVR (Launcher)</title>
+  <meta name="color-scheme" content="dark light" />
+  <link rel="icon" href="./favicon.ico" />
   <style>
-    :root{
-      --bg:#070a16; --card:rgba(2,6,23,.68); --stroke:rgba(148,163,184,.18);
-      --text:#e5e7eb; --mut:#94a3b8; --good:#22c55e; --cyan:#22d3ee; --violet:#a78bfa; --pink:#ff4fd8;
-      --r:22px;
-      --sat: env(safe-area-inset-top, 0px);
-      --sab: env(safe-area-inset-bottom, 0px);
-    }
-    *{ box-sizing:border-box; }
-    html,body{ height:100%; margin:0; color:var(--text);
-      font-family: system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif;
-      background:
-        radial-gradient(1200px 800px at 20% 10%, rgba(34,211,238,.14) 0%, transparent 55%),
-        radial-gradient(1100px 700px at 80% 30%, rgba(167,139,250,.16) 0%, transparent 55%),
-        radial-gradient(900px 700px at 50% 95%, rgba(255,79,216,.08) 0%, transparent 60%),
-        linear-gradient(180deg, #0b1026, var(--bg));
-    }
-    .wrap{ min-height:100%; padding: calc(14px + var(--sat)) 14px calc(14px + var(--sab)); display:flex; justify-content:center; }
-    .card{
-      width:min(980px, 100%);
-      border-radius: var(--r);
-      border:1px solid var(--stroke);
-      background: linear-gradient(180deg, rgba(2,6,23,.82), rgba(2,6,23,.62));
-      box-shadow: 0 30px 120px rgba(0,0,0,.55);
-      overflow:hidden;
-    }
-    header{
-      padding:14px 14px;
-      border-bottom:1px solid rgba(148,163,184,.12);
-      display:flex; align-items:flex-start; justify-content:space-between; gap:12px; flex-wrap:wrap;
-    }
-    header b{ font-weight:1000; font-size:18px; }
-    header .sub{ color:var(--mut); font-weight:900; font-size:12.5px; line-height:1.35; }
-    .grid{ padding:14px; display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
-    @media (max-width: 860px){ .grid{ grid-template-columns:1fr; } }
-    .panel{
-      border-radius: 18px;
-      border:1px solid rgba(148,163,184,.14);
-      background: rgba(2,6,23,.52);
-      padding: 12px;
-    }
-    .row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
-    label{ font-weight:1000; color:rgba(229,231,235,.92); font-size:12px; }
-    input,select{
-      width:100%;
-      padding:10px 10px;
-      border-radius: 14px;
-      border:1px solid rgba(148,163,184,.18);
-      background: rgba(2,6,23,.55);
-      color: var(--text);
-      outline:none;
-      font-weight:900;
-    }
-    .two{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-    @media (max-width: 520px){ .two{ grid-template-columns:1fr; } }
-    .pill{
-      display:inline-flex; gap:8px; align-items:center;
-      padding:7px 10px;
-      border-radius:999px;
-      border:1px solid rgba(148,163,184,.20);
-      background: rgba(2,6,23,.55);
-      font-size:12px;
-      color:var(--mut);
-      user-select:none;
-      white-space:nowrap;
-    }
-    .dot{ width:8px; height:8px; border-radius:999px; background: var(--cyan); box-shadow:0 0 14px rgba(34,211,238,.55); }
-    .dot.good{ background: var(--good); box-shadow:0 0 14px rgba(34,197,94,.55); }
-    .dot.pink{ background: var(--pink); box-shadow:0 0 14px rgba(255,79,216,.55); }
-    button{
-      cursor:pointer;
-      border-radius: 16px;
-      border:1px solid rgba(148,163,184,.18);
-      background: rgba(2,6,23,.55);
-      color:var(--text);
-      padding: 10px 12px;
-      transition: transform .08s ease, background .15s ease, border-color .15s ease;
-      user-select:none;
-      font-weight:1000;
-    }
-    button:hover{ transform: translateY(-1px); background: rgba(2,6,23,.72); border-color: rgba(148,163,184,.32); }
-    button:active{ transform: translateY(0px) scale(.99); }
-    button.primary{ background: rgba(34,197,94,.14); border-color: rgba(34,197,94,.32); }
-    button.ghost{ background: rgba(148,163,184,.08); }
-    footer{
-      padding:14px;
-      border-top:1px solid rgba(148,163,184,.12);
-      display:flex; gap:10px; flex-wrap:wrap; justify-content:space-between; align-items:center;
-    }
-    .hint{ color:var(--mut); font-weight:900; font-size:12.5px; line-height:1.35; }
-    code{ font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:12px; color: rgba(229,231,235,.92); }
+    body{margin:0;min-height:100vh;display:grid;place-items:center;
+      background:#020617;color:#e5e7eb;font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif;}
+    .card{width:min(720px,92vw);border:1px solid rgba(148,163,184,.18);border-radius:18px;
+      background:rgba(2,6,23,.72);padding:14px;box-shadow:0 18px 60px rgba(0,0,0,.35)}
+    .row{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+    .btn{cursor:pointer;border-radius:14px;border:1px solid rgba(148,163,184,.18);
+      background:rgba(148,163,184,.10);color:#e5e7eb;padding:10px 12px;font-weight:1000}
+    .btn.primary{border-color:rgba(34,197,94,.30);background:rgba(34,197,94,.14)}
+    .mut{color:#94a3b8;font-weight:900;font-size:12.5px;line-height:1.35}
+    code{background:rgba(148,163,184,.10);padding:2px 6px;border-radius:8px}
   </style>
 </head>
-
 <body>
-  <div class="wrap">
-    <div class="card">
-      <header>
-        <div>
-          <b>🥗 GroupsVR (Launcher)</b>
-          <div class="sub">เลือกโหมดเข้าเล่นให้ชัดเจน แล้วส่งพารามิเตอร์ไปหน้า RUN</div>
-        </div>
-        <div class="row">
-          <div class="pill"><span class="dot"></span><span>ZONE:</span><b>Nutrition</b></div>
-          <div class="pill"><span class="dot pink"></span><span>GAME:</span><b>Groups</b></div>
-        </div>
-      </header>
-
-      <div class="grid">
-        <div class="panel">
-          <div class="two">
-            <div>
-              <label>VIEW</label>
-              <select id="view">
-                <option value="mobile">Mobile (แตะ/ยิง)</option>
-                <option value="pc">PC (เมาส์/คลิก)</option>
-                <option value="cvr">Cardboard (cVR)</option>
-              </select>
-            </div>
-            <div>
-              <label>DIFF</label>
-              <select id="diff">
-                <option value="easy">easy</option>
-                <option value="normal">normal</option>
-                <option value="hard">hard</option>
-              </select>
-            </div>
-          </div>
-
-          <div style="height:10px"></div>
-
-          <div class="two">
-            <div>
-              <label>TIME (sec)</label>
-              <input id="time" type="number" min="15" max="180" step="5" value="90"/>
-            </div>
-            <div>
-              <label>SEED</label>
-              <input id="seed" type="text" placeholder="เว้นว่าง = now" />
-            </div>
-          </div>
-
-          <div style="height:10px"></div>
-
-          <div class="two">
-            <div>
-              <label>PRACTICE</label>
-              <select id="practice">
-                <option value="1">ON (15s)</option>
-                <option value="0">OFF</option>
-              </select>
-            </div>
-            <div>
-              <label>cVR STRICT</label>
-              <select id="cvrStrict">
-                <option value="1">ON (ยิงจาก crosshair เท่านั้น)</option>
-                <option value="0">OFF (แตะเป้าได้)</option>
-              </select>
-            </div>
-          </div>
-
-          <div style="height:12px"></div>
-
-          <div class="row">
-            <button class="ghost" id="btnRandSeed">🎲 Random Seed</button>
-            <button class="ghost" id="btnNowSeed">⏱️ Now Seed</button>
-            <button class="ghost" id="btnReset">↺ Reset Saved</button>
-          </div>
-
-          <div style="height:10px"></div>
-          <div class="hint">
-            หน้า RUN: <code>/herohealth/vr-groups/groups-vr.html</code><br/>
-            HUB ค่าเริ่มต้นถูกต้อง: <code>.../herohealth/hub.html</code>
-          </div>
-        </div>
-
-        <div class="panel">
-          <div class="two">
-            <div>
-              <label>RUN MODE</label>
-              <select id="run">
-                <option value="play">play</option>
-                <option value="practice">practice</option>
-                <option value="research">research</option>
-              </select>
-            </div>
-            <div>
-              <label>AI</label>
-              <select id="ai">
-                <option value="0">OFF</option>
-                <option value="1">ON (?ai=1)</option>
-              </select>
-            </div>
-          </div>
-
-          <div style="height:10px"></div>
-
-          <div>
-            <label>HUB (back link)</label>
-            <input id="hub" type="text"/>
-          </div>
-
-          <div style="height:10px"></div>
-
-          <div class="hint">
-            พารามิเตอร์วิจัย/บันทึกอื่น ๆ (pid, studyId, phase, conditionGroup, log, api, debug ฯลฯ)
-            จะถูก “ส่งต่ออัตโนมัติ” จาก URL ปัจจุบันไปหน้า RUN
-          </div>
-
-          <div style="height:12px"></div>
-
-          <div class="row">
-            <button class="primary" id="btnGo">▶️ เข้าเล่น</button>
-            <button class="ghost" id="btnGoHub">🏠 ไป HUB</button>
-          </div>
-        </div>
-      </div>
-
-      <footer>
-        <div class="hint" id="status">Ready.</div>
-        <div class="row">
-          <div class="pill"><span class="dot good"></span><span>SAVE:</span><b>localStorage</b></div>
-        </div>
-      </footer>
+  <div class="card">
+    <div style="font-weight:1000;font-size:16px;">🥗 GroupsVR</div>
+    <div class="mut" id="info">กำลังพาไปหน้าเล่น…</div>
+    <div class="row">
+      <button class="btn primary" id="go">▶ เข้าเล่น</button>
+      <button class="btn" id="back">🏠 กลับ HUB</button>
     </div>
   </div>
 
 <script>
-(() => {
-  'use strict';
+(function(){
+  const U = new URL(location.href);
+  const sp = U.searchParams;
 
-  function qs(){ try{ return new URL(location.href).searchParams; } catch{ return new URLSearchParams(); } }
-  const Q = qs();
-  const q = (k,d='') => (Q.get(k) ?? d);
+  const hub = sp.get('hub') || new URL('./hub.html', location.href).toString();
+  const run = new URL('./vr-groups/groups-vr.html', location.href);
 
-  const DEFAULT_HUB = 'https://supparang.github.io/webxr-health-mobile/herohealth/hub.html';
-  const RUN_URL = './vr-groups/groups-vr.html';
-  const LS_KEY = 'HHA_LAUNCHER_GROUPS_VR_LAST';
-
-  const $ = (id)=>document.getElementById(id);
-
-  const elView = $('view');
-  const elDiff = $('diff');
-  const elTime = $('time');
-  const elSeed = $('seed');
-  const elPractice = $('practice');
-  const elCvrStrict = $('cvrStrict');
-  const elRun = $('run');
-  const elAi = $('ai');
-  const elHub = $('hub');
-  const status = $('status');
-
-  function clamp(n,a,b){ n=Number(n); if(!Number.isFinite(n)) n=a; return Math.max(a, Math.min(b,n)); }
-
-  function readSaved(){
-    try{
-      const s = localStorage.getItem(LS_KEY);
-      return s ? JSON.parse(s) : null;
-    }catch(_){ return null; }
-  }
-  function saveNow(){
-    try{
-      const payload = {
-        view: elView.value,
-        diff: elDiff.value,
-        time: clamp(elTime.value, 15, 180),
-        seed: elSeed.value.trim(),
-        practice: elPractice.value,
-        cvrStrict: elCvrStrict.value,
-        run: elRun.value,
-        ai: elAi.value,
-        hub: elHub.value.trim()
-      };
-      localStorage.setItem(LS_KEY, JSON.stringify(payload));
-      status.textContent = 'Saved.';
-      return payload;
-    }catch(_){
-      status.textContent = 'Save failed (storage blocked).';
-      return null;
-    }
-  }
-
-  function fillFromSaved(){
-    const s = readSaved();
-    if(!s) return;
-
-    elView.value = s.view || elView.value;
-    elDiff.value = s.diff || elDiff.value;
-    elTime.value = (s.time != null) ? s.time : elTime.value;
-    elSeed.value = s.seed || '';
-    elPractice.value = (s.practice != null) ? String(s.practice) : elPractice.value;
-    elCvrStrict.value = (s.cvrStrict != null) ? String(s.cvrStrict) : elCvrStrict.value;
-    elRun.value = s.run || elRun.value;
-    elAi.value = (s.ai != null) ? String(s.ai) : elAi.value;
-
-    // hub: saved > qs > default
-    elHub.value = (s.hub && s.hub.startsWith('http')) ? s.hub : '';
-  }
-
-  // set hub default (qs hub > default)
-  function applyHubDefault(){
-    const hubQS = q('hub','');
-    const hub = (hubQS && hubQS.startsWith('http')) ? hubQS : DEFAULT_HUB;
-    if(!elHub.value) elHub.value = hub;
-  }
-
-  function makeSeedNow(){ return String(Date.now()); }
-  function makeSeedRand(){
-    // stable enough random; not crypto
-    return String(Date.now()) + '-' + Math.floor(Math.random()*1e9);
-  }
-
-  function buildRunUrl(){
-    // pass-through all existing params first
-    const u = new URL(RUN_URL, location.href);
-    for(const [k,v] of Q.entries()){
-      u.searchParams.set(k, v);
-    }
-
-    // override by launcher selections
-    u.searchParams.set('view', elView.value);
-    u.searchParams.set('diff', elDiff.value);
-    u.searchParams.set('time', String(clamp(elTime.value, 15, 180)));
-
-    const seed = elSeed.value.trim() || makeSeedNow();
-    u.searchParams.set('seed', seed);
-
-    u.searchParams.set('practice', elPractice.value);
-    u.searchParams.set('cvrStrict', elCvrStrict.value);
-
-    u.searchParams.set('run', elRun.value);
-    u.searchParams.set('ai', elAi.value);
-
-    // hub fix
-    const hub = (elHub.value.trim() || DEFAULT_HUB);
-    u.searchParams.set('hub', hub);
-
-    return u.toString();
-  }
-
-  // wire buttons
-  $('btnRandSeed').addEventListener('click', ()=>{
-    elSeed.value = makeSeedRand();
-    status.textContent = 'Seed = random.';
-    saveNow();
-  });
-  $('btnNowSeed').addEventListener('click', ()=>{
-    elSeed.value = makeSeedNow();
-    status.textContent = 'Seed = now.';
-    saveNow();
-  });
-  $('btnReset').addEventListener('click', ()=>{
-    try{ localStorage.removeItem(LS_KEY); }catch(_){}
-    location.reload();
+  [
+    'hub','run','diff','time','seed','pid','view','log','api','ai','debug',
+    'studyId','phase','conditionGroup',
+    'cooldown','cd','cdnext',
+    'planSeq','planDay','planSlot','planMode','planSlots','planIndex','autoNext',
+    'wType','wPct','rank','wCrit','wDmg','wHeal','calm',
+    'practice','cvrStrict','pro'
+  ].forEach(k=>{
+    const v = sp.get(k);
+    if(v!=null && v!=='') run.searchParams.set(k, v);
   });
 
-  $('btnGo').addEventListener('click', ()=>{
-    const url = buildRunUrl();
-    saveNow();
-    status.textContent = 'Go!';
-    location.href = url;
-  });
+  if(!run.searchParams.get('view')) run.searchParams.set('view', 'mobile');
+  if(!run.searchParams.get('run'))  run.searchParams.set('run', 'play');
+  if(!run.searchParams.get('diff')) run.searchParams.set('diff', 'normal');
+  if(!run.searchParams.get('time')) run.searchParams.set('time', '90');
+  if(!run.searchParams.get('seed')) run.searchParams.set('seed', String((Date.now() ^ (Math.random()*1e9))|0));
+  if(!run.searchParams.get('hub'))  run.searchParams.set('hub', hub);
 
-  $('btnGoHub').addEventListener('click', ()=>{
-    const hub = (elHub.value.trim() || DEFAULT_HUB);
-    saveNow();
-    location.href = hub;
-  });
+  const info = document.getElementById('info');
+  if(info){
+    info.innerHTML = `RUN: <code>${run.pathname}</code><br>hub: <code>${hub}</code>`;
+  }
 
-  // autosave on changes
-  [elView, elDiff, elTime, elSeed, elPractice, elCvrStrict, elRun, elAi, elHub].forEach(el=>{
-    el.addEventListener('change', ()=>saveNow());
-    el.addEventListener('input', ()=>saveNow());
-  });
+  document.getElementById('go').onclick = ()=> location.href = run.toString();
+  document.getElementById('back').onclick = ()=> location.href = hub;
 
-  // init
-  fillFromSaved();
-  applyHubDefault();
-
-  // if URL already has explicit params, prefer those (after saved) for key fields
-  const v = q('view',''); if(v) elView.value = v;
-  const d = q('diff',''); if(d) elDiff.value = d;
-  const t = q('time',''); if(t) elTime.value = clamp(t, 15, 180);
-  const s = q('seed',''); if(s) elSeed.value = s;
-  const pr= q('practice',''); if(pr) elPractice.value = String(pr)==='0'?'0':'1';
-  const cs= q('cvrStrict',''); if(cs) elCvrStrict.value = String(cs)==='0'?'0':'1';
-  const rm= q('run',''); if(rm) elRun.value = rm;
-  const ai= q('ai',''); if(ai) elAi.value = (String(ai)==='1'||String(ai)==='true') ? '1' : '0';
-
-  // final save
-  saveNow();
-  status.textContent = 'Ready. Choose and go ▶️';
+  setTimeout(()=> location.href = run.toString(), 60);
 })();
 </script>
 </body>
