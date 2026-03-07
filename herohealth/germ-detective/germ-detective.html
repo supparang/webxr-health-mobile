@@ -1,11 +1,10 @@
 <!-- === /herohealth/germ-detective/germ-detective.html ===
 Germ Detective — RUN PAGE (PC/Mobile/cVR)
-PATCH v20260306-GD-RUN-MODULEFIX
-✅ FIX: plate.safe.js loaded as module
-✅ FIX: germ-detective.boot.js loaded as module
-✅ KEEP: vr-ui.js normal script
-✅ KEEP: #app mount
-✅ KEEP: fallback Back HUB button
+PATCH v20260306-GD-RUN-MODULEFIX-FULL
+✅ plate.safe.js = module
+✅ germ-detective.boot.js = module
+✅ vr-ui.js = normal script
+✅ fallback UI if boot fails
 -->
 <!doctype html>
 <html lang="th">
@@ -73,9 +72,7 @@ PATCH v20260306-GD-RUN-MODULEFIX
       font-weight:1000;
       flex:0 0 auto;
     }
-    .brandText{
-      min-width:0;
-    }
+    .brandText{ min-width:0; }
     .title{
       font-weight:1000;
       letter-spacing:.2px;
@@ -129,13 +126,9 @@ PATCH v20260306-GD-RUN-MODULEFIX
       justify-content:center;
       gap:8px;
     }
-    .btn.good{ border-color:rgba(34,197,94,.32); background:rgba(34,197,94,.12); }
-    .btn.cyan{ border-color:rgba(34,211,238,.32); background:rgba(34,211,238,.10); }
     .btn.warn{ border-color:rgba(245,158,11,.32); background:rgba(245,158,11,.10); }
 
-    #app{
-      min-height:calc(100vh - 76px);
-    }
+    #app{ min-height:calc(100vh - 76px); }
 
     .bootNote{
       padding:14px 12px calc(16px + var(--sab)) 12px;
@@ -183,7 +176,7 @@ PATCH v20260306-GD-RUN-MODULEFIX
   <div class="fallback" id="fallbackBox">
     <div style="font-weight:1000;margin-bottom:8px;">โหลดเกมไม่สำเร็จ</div>
     <div style="color:var(--muted);font-size:12px;line-height:1.5;">
-      ตรวจสอบว่าไฟล์เหล่านี้มีอยู่จริงและ path ถูกต้อง:
+      ตรวจสอบ path ของไฟล์ต่อไปนี้:
       <div style="margin-top:8px;">
         <code>../vr/vr-ui.js</code><br>
         <code>../plate.safe.js</code><br>
@@ -195,7 +188,7 @@ PATCH v20260306-GD-RUN-MODULEFIX
   </div>
 
   <div class="bootNote">
-    HeroHealth Germ Detective • PC / Mobile / cVR • ใช้ <code>hha:shoot</code> เมื่อเข้า cVR
+    HeroHealth Germ Detective • PC / Mobile / cVR • ใช้ <code>hha:shoot</code> ใน cVR
   </div>
 
   <script>
@@ -229,8 +222,7 @@ PATCH v20260306-GD-RUN-MODULEFIX
       document.getElementById('ctxLine').textContent =
         `run=${run} • diff=${diff} • time=${time}s • scene=${scene} • view=${view}`;
 
-      const hubBtn = document.getElementById('btnHub');
-      hubBtn.href = hub;
+      document.getElementById('btnHub').href = hub;
 
       window.addEventListener('error', function(){
         const box = document.getElementById('fallbackBox');
@@ -239,16 +231,9 @@ PATCH v20260306-GD-RUN-MODULEFIX
     })();
   </script>
 
-  <!-- vr-ui ยังเป็น normal script -->
   <script src="../vr/vr-ui.js"></script>
-
-  <!-- PlateSafe มี import/export => ต้องเป็น module -->
   <script type="module" src="../plate.safe.js"></script>
-
-  <!-- bridge ถ้าเป็นไฟล์ธรรมดาให้คงแบบนี้ -->
   <script src="../plate-logger-bridge.js"></script>
-
-  <!-- boot มี import GameApp from './germ-detective.js' => ต้องเป็น module -->
   <script type="module" src="./germ-detective.boot.js"></script>
 </body>
 </html>
