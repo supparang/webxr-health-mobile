@@ -1,9 +1,10 @@
 // === /herohealth/vr-brush/brush.safe.js ===
-// BrushVR SAFE — Guided Brushing Zones + Evidence + Quiz
-// PATCH v20260307-BRUSH-ZONEBRUSH-ACTUAL-TEACH
+// BrushVR SAFE — Guided Brushing Zones + Evidence + Quiz + FX
+// PATCH v20260307-BRUSH-ZONEBRUSH-FX-PROGRESS
 // ✅ Mouth map + guided brushing by zones
-// ✅ A/B/C stages mapped to outside / inside / chewing+tongue
 // ✅ Drag-to-brush gameplay
+// ✅ Zone progress per current zone
+// ✅ Foam / sparkle FX + score pop
 // ✅ Evidence in stage B
 // ✅ Quiz in stage C
 // ✅ cVR hha:shoot compatibility
@@ -16,7 +17,6 @@
   const WIN = window, DOC = document;
   const $ = (s)=>DOC.querySelector(s);
 
-  // ---------------- helpers ----------------
   const clamp = (v,min,max)=>Math.max(min, Math.min(max, v));
   const safeNum = (x,d=0)=>{ const n=Number(x); return Number.isFinite(n)?n:d; };
   const now = ()=> (performance && performance.now) ? performance.now() : Date.now();
@@ -82,7 +82,6 @@
     };
   }
 
-  // ---------------- DOM refs ----------------
   const wrap = $('#br-wrap');
   const layer = $('#br-layer');
   const menu = $('#br-menu');
@@ -138,7 +137,6 @@
 
   if(!wrap || !layer) throw new Error('BrushVR DOM missing (#br-wrap / #br-layer)');
 
-  // ---------------- ctx ----------------
   const qs = getQS();
   const CTX = {
     hub: qs.get('hub') || '../hub.html',
@@ -191,7 +189,6 @@
 
   const rng = seededRng(CTX.seed);
 
-  // optional fun boost
   const fun = WIN.HHA?.createFunBoost?.({
     seed: (qs.get('seed') || CTX.pid || 'brush'),
     baseSpawnMul: 1.0,
@@ -203,14 +200,13 @@
   });
   let director = fun ? fun.tick() : { spawnMul:1, timeScale:1, wave:'calm', intensity:0, feverOn:false };
 
-  // ---------------- state ----------------
   const ZONES = [
-    { id:'outerTop',    label:'ฟันบนด้านนอก', stage:'A', hint:'แปรงฟันบนด้านนอกเบา ๆ ให้ครบ' },
+    { id:'outerTop',    label:'ฟันบนด้านนอก',  stage:'A', hint:'แปรงฟันบนด้านนอกเบา ๆ ให้ครบ' },
     { id:'outerBottom', label:'ฟันล่างด้านนอก', stage:'A', hint:'ต่อด้วยฟันล่างด้านนอก' },
-    { id:'innerTop',    label:'ฟันบนด้านใน', stage:'B', hint:'อย่าลืมด้านในของฟันบน' },
+    { id:'innerTop',    label:'ฟันบนด้านใน',   stage:'B', hint:'อย่าลืมด้านในของฟันบน' },
     { id:'innerBottom', label:'ฟันล่างด้านใน', stage:'B', hint:'ต่อด้วยด้านในของฟันล่าง' },
-    { id:'chew',        label:'ฟันบดเคี้ยว', stage:'C', hint:'แปรงผิวเคี้ยวของฟันกราม' },
-    { id:'tongue',      label:'ลิ้น', stage:'C', hint:'สุดท้ายแปรงลิ้นเบา ๆ' }
+    { id:'chew',        label:'ฟันบดเคี้ยว',    stage:'C', hint:'แปรงผิวเคี้ยวของฟันกราม' },
+    { id:'tongue',      label:'ลิ้น',            stage:'C', hint:'สุดท้ายแปรงลิ้นเบา ๆ' }
   ];
 
   const S = {
@@ -249,23 +245,23 @@
     zoneIndex:0,
     zoneDone:{},
     currentZoneId:'outerTop',
+    zonePlaqueTotal:0,
 
     brushDown:false,
     brushX:0,
     brushY:0,
     brushRadius: 34,
 
-    // entities
-    plaque:new Map(),   // id -> {id, x, y, zoneId, el, alive}
-    evidence:new Map(), // id -> {id, x, y, kind, el, alive}
+    plaque:new Map(),
+    evidence:new Map(),
     uid:0,
 
     mouthRoot:null,
     brushEl:null,
-    zoneEls:{}
+    zoneEls:{},
+    fxRoot:null
   };
 
-  // ---------------- scroll lock ----------------
   const ScrollLock = {
     on(){
       try{
@@ -291,7 +287,6 @@
     if(S.running && !S.ended && !S.quizOpen) e.preventDefault();
   }, { passive:false });
 
-  // ---------------- AI ----------------
   function aiPredict(){
     const acc = (S.shots>0) ? (S.hits/S.shots) : 0;
     const missRate = (S.shots>0) ? (S.miss/S.shots) : 0;
@@ -299,6 +294,7 @@
     const clean = S.clean/100;
     const evi = S.eviTotal/3;
     const progress = S.zoneIndex / ZONES.length;
+    const zoneProgress = currentZoneProgress();
 
     let risk = 0.30;
     risk += missRate * 0.48;
@@ -306,7 +302,8 @@
     risk += (combo===0 ? 0.08 : (combo>=6 ? -0.05 : -0.02));
     risk += (clean<0.35 ? 0.08 : (clean>0.75 ? -0.04 : 0));
     risk += (S.stage==='B' && evi<0.67 ? 0.05 : 0);
-    risk += (progress<0.34 && (now()-S.t0)>25000 ? 0.05 : 0);
+    risk += (zoneProgress < 0.35 && (now()-S.t0)>22000 ? 0.05 : 0);
+    risk += (progress<0.34 && (now()-S.t0)>30000 ? 0.04 : 0);
     risk = clamp(risk, 0, 1);
 
     let band='low';
@@ -314,8 +311,11 @@
     else if(risk>=0.45) band='mid';
 
     let tip = currentZone() ? currentZone().hint : 'แปรงให้ครบทุกด้าน';
+    if(zoneProgress < 1){
+      tip = `กำลังแปรง: ${currentZone()?.label || '-'} (${Math.round(zoneProgress*100)}%)`;
+    }
     if(risk>0.72) tip='ช้าลงนิด แล้วลากให้โดนคราบทีละจุด';
-    else if(risk<0.35 && combo>=6) tip='ดีมาก! รักษาจังหวะการแปรงแบบนี้ต่อ';
+    else if(risk<0.35 && combo>=6) tip='ดีมาก! รักษาจังหวะแปรงแบบนี้ต่อ';
 
     return { risk, band, tip };
   }
@@ -333,7 +333,8 @@
 
     aiEmit('risk', {
       risk:p.risk, band:p.band, tip:p.tip,
-      stage:S.stage, zone: S.currentZoneId,
+      stage:S.stage, zone:S.currentZoneId,
+      zoneProgress: currentZoneProgress(),
       combo:S.combo, missStreak:S.missStreak
     });
   }
@@ -349,7 +350,16 @@
     if(S.combo===10) aiEmit('combo_hot', { combo:10 });
   }
 
-  // ---------------- HUD ----------------
+  function currentZone(){
+    return ZONES[S.zoneIndex] || null;
+  }
+
+  function currentZoneProgress(){
+    if(!S.zonePlaqueTotal) return 0;
+    const left = S.plaque.size;
+    return clamp((S.zonePlaqueTotal - left) / S.zonePlaqueTotal, 0, 1);
+  }
+
   function renderHud(force){
     const t = now();
     if(!force && S._lastHud && (t - S._lastHud) < 70) return;
@@ -374,9 +384,16 @@
     if(tFever) tFever.textContent = director.feverOn ? 'ON' : 'OFF';
     if(bFever) bFever.style.width = `${pctF}%`;
 
-    const ePct = clamp((S.eviTotal / S.eviNeed) * 100, 0, 100);
-    if(tEvi) tEvi.textContent = `${S.eviTotal}/${S.eviNeed}`;
-    if(bEvi) bEvi.style.width = `${ePct}%`;
+    // re-use evidence bar to show current zone progress
+    const zonePct = currentZoneProgress();
+    if(tEvi){
+      if(S.stage === 'B' && S.eviTotal < S.eviNeed){
+        tEvi.textContent = `หลักฐาน ${S.eviTotal}/${S.eviNeed} · โซน ${Math.round(zonePct*100)}%`;
+      }else{
+        tEvi.textContent = `โซน ${Math.round(zonePct*100)}%`;
+      }
+    }
+    if(bEvi) bEvi.style.width = `${zonePct*100}%`;
 
     const rPct = clamp(S.aiRisk * 100, 0, 100);
     if(tRisk) tRisk.textContent = `${Math.round(rPct)}%`;
@@ -384,11 +401,94 @@
     if(tTip)  tTip.textContent  = S.aiTip || '—';
   }
 
-  // ---------------- mouth map ----------------
+  function ensureFxRoot(){
+    if(S.fxRoot) return S.fxRoot;
+    let root = DOC.getElementById('br-fx');
+    if(!root){
+      root = DOC.createElement('div');
+      root.id = 'br-fx';
+      DOC.body.appendChild(root);
+    }
+    S.fxRoot = root;
+    return root;
+  }
+
+  function scorePop(text, x, y){
+    const root = ensureFxRoot();
+    const el = DOC.createElement('div');
+    el.textContent = text;
+    el.style.position = 'absolute';
+    el.style.left = `${x}px`;
+    el.style.top = `${y}px`;
+    el.style.transform = 'translate(-50%,-50%)';
+    el.style.color = 'rgba(255,255,255,.98)';
+    el.style.fontWeight = '1000';
+    el.style.fontSize = '15px';
+    el.style.textShadow = '0 6px 14px rgba(0,0,0,.35)';
+    el.style.pointerEvents = 'none';
+    el.style.opacity = '1';
+    el.style.transition = 'transform .55s ease, opacity .55s ease';
+    root.appendChild(el);
+    requestAnimationFrame(()=>{
+      el.style.transform = 'translate(-50%,-140%)';
+      el.style.opacity = '0';
+    });
+    setTimeout(()=>{ try{ el.remove(); }catch(_){} }, 620);
+  }
+
+  function foamBurst(x, y, n=5){
+    const root = ensureFxRoot();
+    for(let i=0;i<n;i++){
+      const b = DOC.createElement('div');
+      const size = 8 + rng()*10;
+      const dx = (rng()-0.5) * 36;
+      const dy = (rng()-0.5) * 26;
+      b.style.position = 'absolute';
+      b.style.left = `${x}px`;
+      b.style.top = `${y}px`;
+      b.style.width = `${size}px`;
+      b.style.height = `${size}px`;
+      b.style.borderRadius = '999px';
+      b.style.transform = 'translate(-50%,-50%)';
+      b.style.background = 'radial-gradient(circle at 35% 35%, rgba(255,255,255,.95), rgba(255,255,255,.55) 60%, rgba(34,211,238,.18) 100%)';
+      b.style.boxShadow = '0 0 12px rgba(255,255,255,.20)';
+      b.style.pointerEvents = 'none';
+      b.style.opacity = '0.95';
+      b.style.transition = 'transform .45s ease, opacity .45s ease';
+      root.appendChild(b);
+      requestAnimationFrame(()=>{
+        b.style.transform = `translate(${dx}px, ${dy-22}px) scale(.35)`;
+        b.style.opacity = '0';
+      });
+      setTimeout(()=>{ try{ b.remove(); }catch(_){} }, 520);
+    }
+  }
+
+  function sparkle(x, y){
+    const root = ensureFxRoot();
+    const el = DOC.createElement('div');
+    el.textContent = '✦';
+    el.style.position = 'absolute';
+    el.style.left = `${x}px`;
+    el.style.top = `${y}px`;
+    el.style.transform = 'translate(-50%,-50%) scale(.7)';
+    el.style.color = 'rgba(251,191,36,.96)';
+    el.style.fontSize = '18px';
+    el.style.textShadow = '0 0 16px rgba(251,191,36,.30)';
+    el.style.pointerEvents = 'none';
+    el.style.opacity = '1';
+    el.style.transition = 'transform .4s ease, opacity .4s ease';
+    root.appendChild(el);
+    requestAnimationFrame(()=>{
+      el.style.transform = 'translate(-50%,-50%) scale(1.25)';
+      el.style.opacity = '0';
+    });
+    setTimeout(()=>{ try{ el.remove(); }catch(_){} }, 460);
+  }
+
   function zoneRectMap(){
     const w = layer.clientWidth || 900;
     const h = layer.clientHeight || 420;
-
     return {
       outerTop:    { x:w*0.18, y:h*0.18, w:w*0.64, h:h*0.12, shape:'pill' },
       outerBottom: { x:w*0.18, y:h*0.68, w:w*0.64, h:h*0.12, shape:'pill' },
@@ -477,10 +577,6 @@
     updateZoneHighlight();
   }
 
-  function currentZone(){
-    return ZONES[S.zoneIndex] || null;
-  }
-
   function updateZoneHighlight(){
     if(!S.zoneEls) return;
     const zone = currentZone();
@@ -506,7 +602,9 @@
     });
 
     if(guide){
-      guide.textContent = zone ? `ตอนนี้: ${zone.label}` : 'ครบทุกโซนแล้ว';
+      const z = currentZone();
+      const zp = Math.round(currentZoneProgress() * 100);
+      guide.textContent = z ? `ตอนนี้: ${z.label} • ${zp}%` : 'ครบทุกโซนแล้ว';
     }
   }
 
@@ -515,12 +613,12 @@
     return rects[zoneId];
   }
 
-  // ---------------- plaque / evidence ----------------
   function clearPlaque(){
     for(const v of S.plaque.values()){
       try{ v.el.remove(); }catch(_){}
     }
     S.plaque.clear();
+    S.zonePlaqueTotal = 0;
   }
 
   function clearEvidence(){
@@ -561,6 +659,8 @@
     if(!z) return;
 
     const n = S.plaquePerZone;
+    S.zonePlaqueTotal = n;
+
     for(let i=0;i<n;i++){
       const px = z.x + 14 + rng() * Math.max(10, z.w - 28);
       const py = z.y + 10 + rng() * Math.max(10, z.h - 20);
@@ -570,6 +670,8 @@
       layer.appendChild(el);
       S.plaque.set(id, { id, x:px, y:py, zoneId, el, alive:true });
     }
+    updateZoneHighlight();
+    renderHud(true);
   }
 
   function spawnEvidenceIfNeeded(){
@@ -597,22 +699,20 @@
     S.eviFlags[kind] = 1;
     S.eviTotal = clamp(S.eviTotal + 1, 0, S.eviNeed);
     toast(`หลักฐาน +1 (${S.eviTotal}/3)`);
+    foamBurst(layer.getBoundingClientRect().left + (layer.clientWidth*0.5), layer.getBoundingClientRect().top + 36, 4);
     aiEmit('evidence', { kind, total:S.eviTotal });
+    renderHud(true);
   }
 
-  // ---------------- gameplay ----------------
   function advanceZone(){
     const zone = currentZone();
-    if(zone){
-      S.zoneDone[zone.id] = true;
-    }
-    S.zoneIndex += 1;
+    if(zone) S.zoneDone[zone.id] = true;
 
+    S.zoneIndex += 1;
     const next = currentZone();
+
     if(!next){
-      if(S.stage !== 'C'){
-        S.stage = 'C';
-      }
+      if(S.stage !== 'C') S.stage = 'C';
       updateZoneHighlight();
       if(!S.quizDone) openQuiz();
       return;
@@ -641,7 +741,8 @@
     onComboHot();
     S.missStreak = 0;
 
-    S.score += Math.round(4 + Math.min(10, S.combo * 0.5));
+    const gainScore = Math.round(4 + Math.min(10, S.combo * 0.5));
+    S.score += gainScore;
     S.clean = clamp(S.clean + S.cleanGainPerHit, 0, 100);
 
     if(fun){
@@ -649,10 +750,17 @@
       director = fun.tick();
     }
 
+    const lr = layer.getBoundingClientRect();
+    scorePop(`+${gainScore}`, lr.left + p.x, lr.top + p.y);
+    foamBurst(lr.left + p.x, lr.top + p.y, 5);
+    sparkle(lr.left + p.x, lr.top + p.y);
+
+    updateZoneHighlight();
+
     if(S.plaque.size === 0){
       if(S.stage === 'B' && S.eviTotal < S.eviNeed){
         toast('เก็บหลักฐานด้านบนให้ครบก่อน');
-        spawnPlaqueForZone(S.currentZoneId); // เติมใหม่เล็กน้อยถ้ายังไม่เก็บ evidence
+        spawnPlaqueForZone(S.currentZoneId);
         return;
       }
       advanceZone();
@@ -709,7 +817,6 @@
       return;
     }
 
-    // whiff only when actively brushing, not every move
     if(source === 'stroke'){
       S.shots += 1;
       S.miss += 1;
@@ -731,7 +838,6 @@
     };
   }
 
-  // ---------------- quiz ----------------
   function quizAnswer(){
     if(!quizChoices) return '';
     const checked = quizChoices.querySelector('input[name="quizA"]:checked');
@@ -796,7 +902,6 @@
     }, { passive:true });
   }
 
-  // ---------------- main timers ----------------
   let tickTimer = null;
 
   function tick(){
@@ -825,7 +930,6 @@
     tickTimer = null;
   }
 
-  // ---------------- summary ----------------
   function gradeFromAcc(acc){
     if(acc >= 92) return 'S';
     if(acc >= 82) return 'A';
@@ -872,6 +976,7 @@
     S.zoneIndex = 0;
     S.zoneDone = {};
     S.currentZoneId = ZONES[0].id;
+    S.zonePlaqueTotal = 0;
 
     S.plaque.clear();
     S.evidence.clear();
@@ -1009,7 +1114,6 @@
     if(S.brushEl && S.paused) S.brushEl.style.display = 'none';
   }
 
-  // ---------------- input ----------------
   layer.addEventListener('pointerdown', (ev)=>{
     if(CTX.view === 'cvr') return;
     if(!S.running || S.paused || S.ended || S.quizOpen) return;
@@ -1049,7 +1153,6 @@
     brushAt(lx, ly, 'shoot');
   });
 
-  // ---------------- controls ----------------
   btnStart?.addEventListener('click', startGame, { passive:true });
   btnRetry?.addEventListener('click', startGame, { passive:true });
   btnPause?.addEventListener('click', togglePause, { passive:true });
@@ -1074,7 +1177,6 @@
   renderHud(true);
   toast('พร้อมแล้ว! กดเริ่มเกมได้เลย');
 
-  // compatibility for brush.boot.js
   WIN.HHA_BRUSH = WIN.HHA_BRUSH || {};
   WIN.HHA_BRUSH.boot = function(){
     if(CTX.debug) console.log('[BrushVR] boot called (safe.js already autoloaded)');
