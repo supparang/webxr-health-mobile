@@ -1,6 +1,6 @@
 <!-- === /herohealth/warmup-gate.html ===
 HeroHealth Warmup/Cooldown Gate — PER-GAME DAILY FULL
-PATCH v20260306-ALLZONE-ALLGAME-THEMED
+FULL v20260307-PERGAME-WARMUP-COOLDOWN
 ✅ DAILY = cat + game + pid + day (per-game daily)
 ✅ warmup/cooldown once-per-day per PID+category+game
 ✅ all zones + all games themed
@@ -9,6 +9,9 @@ PATCH v20260306-ALLZONE-ALLGAME-THEMED
 ✅ canonical hub resolver (GitHub Pages safe)
 ✅ P5 mode = richer mini-games
 ✅ Non-P5 mode = lightweight themed mini-games
+✅ NEW: per-game warmup dispatcher
+✅ NEW: per-game cooldown dispatcher
+✅ NEW: hitCount-based accuracy (no score-based ACC inflation)
 -->
 <!doctype html>
 <html lang="th">
@@ -591,7 +594,7 @@ PATCH v20260306-ALLZONE-ALLGAME-THEMED
 
   let started=false;
   let tLeft=dur;
-  let score=0, miss=0, total=0;
+  let score=0, miss=0, total=0, hitCount=0;
   let streak=0, bestStreak=0;
   let raf=0, lastTs=0;
   let stageAnimRaf=0;
@@ -649,7 +652,7 @@ PATCH v20260306-ALLZONE-ALLGAME-THEMED
     });
   }
 
-  function accPct(){ return total>0 ? Math.round((score/Math.max(1,total))*100) : 0; }
+  function accPct(){ return total>0 ? Math.round((hitCount/Math.max(1,total))*100) : 0; }
   function setHUD(){
     hudTime.textContent = `${Math.ceil(tLeft)}s`;
     hudScore.textContent = String(score);
@@ -675,7 +678,7 @@ PATCH v20260306-ALLZONE-ALLGAME-THEMED
   }
 
   function makeWarmupBuff(){
-    const acc = (total>0) ? (score/Math.max(1,total)) : 0;
+    const acc = (hitCount>0 && total>0) ? (hitCount/Math.max(1,total)) : 0;
     const pctBuff = Math.round(clamp(acc*100, 5, 30));
     const rank = (acc>=0.88) ? 'S' : (acc>=0.74) ? 'A' : (acc>=0.60) ? 'B' : 'C';
 
@@ -824,6 +827,21 @@ PATCH v20260306-ALLZONE-ALLGAME-THEMED
     return pad;
   }
 
+  function makeCardBox(opts){
+    const card=DOC.createElement('div');
+    Object.assign(card.style,{
+      position:'absolute',left:'50%',top:'50%',transform:'translate(-50%,-52%)',
+      width: opts.width || 'min(680px,94%)',
+      padding:'14px',
+      borderRadius:'18px',
+      border:'1px solid rgba(148,163,184,.18)',
+      background:'rgba(2,6,23,.50)',
+      textAlign:'center'
+    });
+    stage.appendChild(card);
+    return card;
+  }
+
   function runP5_TargetRush(opts){
     gameTitle.textContent = opts.title;
     desc.textContent = opts.desc;
@@ -938,6 +956,7 @@ PATCH v20260306-ALLZONE-ALLGAME-THEMED
         const perfect = age >= ttl*0.78;
 
         if(kind==='good'){
+          hitCount++;
           score += perfect ? 3 : 2;
           streak++;
           bestStreak = Math.max(bestStreak, streak);
@@ -1090,17 +1109,20 @@ PATCH v20260306-ALLZONE-ALLGAME-THEMED
         if(kind==='boss'){
           hp--;
           if(hp>0){
+            hitCount++;
             score += 1;
             streak++; bestStreak=Math.max(bestStreak, streak);
             flashGood(); toastShow('HIT!');
             el.textContent='🎯';
             return;
           }
+          hitCount++;
           score += perfect ? 5 : 4;
           if(perfect){ perfCount++; toastShow('PERFECT 💎'); } else toastShow('+4');
           streak++; bestStreak=Math.max(bestStreak, streak);
           flashGood();
         }else{
+          hitCount++;
           score += perfect ? 3 : 2;
           if(perfect){ perfCount++; toastShow('PERFECT ✨'); } else toastShow('+2');
           streak++; bestStreak=Math.max(bestStreak, streak);
@@ -1177,10 +1199,12 @@ PATCH v20260306-ALLZONE-ALLGAME-THEMED
       const perfect = (age <= winMs);
 
       if(a===cur.t && perfect){
+        hitCount++;
         score += 3;
         streak++; bestStreak=Math.max(bestStreak, streak);
         perfCount++; toastShow('PERFECT ✨'); flashGood();
       }else if(a===cur.t){
+        hitCount++;
         score += 2;
         streak++; bestStreak=Math.max(bestStreak, streak);
         toastShow('+2'); flashGood();
@@ -1195,6 +1219,352 @@ PATCH v20260306-ALLZONE-ALLGAME-THEMED
       .forEach(([b,val])=> b.addEventListener('click', ()=>choose(val)));
 
     next();
+  }
+
+  function runChoiceWarmup(cfg){
+    gameTitle.textContent = cfg.title;
+    desc.textContent = cfg.desc;
+    center.style.display='none';
+
+    const card = makeCardBox({});
+    card.innerHTML = `
+      <div style="font-weight:1100;font-size:16px;">${cfg.title}</div>
+      <div class="muted" style="margin-top:6px;">${cfg.desc}</div>
+      <div id="cwPrompt" style="margin-top:14px;font-size:18px;font-weight:1100;">เตรียมพร้อม…</div>
+      <div id="cwTray" style="margin-top:14px; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px;"></div>
+    `;
+
+    const promptEl = card.querySelector('#cwPrompt');
+    const tray = card.querySelector('#cwTray');
+    let cur = null;
+
+    function nextRound(){
+      if(!started) return;
+      tray.innerHTML = '';
+      total++;
+      cur = randPick(cfg.rounds);
+      promptEl.textContent = cur.prompt;
+
+      const left = DOC.createElement('button');
+      left.className='btn';
+      left.style.minHeight='88px';
+      left.style.fontSize='28px';
+      left.textContent = cur.left.label;
+
+      const right = DOC.createElement('button');
+      right.className='btn';
+      right.style.minHeight='88px';
+      right.style.fontSize='28px';
+      right.textContent = cur.right.label;
+
+      function choose(side){
+        if(!started) return;
+        if(side === cur.answer){
+          hitCount++;
+          score += 2;
+          streak++;
+          bestStreak = Math.max(bestStreak, streak);
+          flashGood();
+          toastShow('+2');
+        }else{
+          miss++;
+          streak = 0;
+          flashBad();
+          toastShow('MISS');
+        }
+        nextRound();
+      }
+
+      left.addEventListener('click', ()=>choose('left'));
+      right.addEventListener('click', ()=>choose('right'));
+
+      tray.appendChild(left);
+      tray.appendChild(right);
+    }
+
+    nextRound();
+  }
+
+  function runMatchWarmup(cfg){
+    gameTitle.textContent = cfg.title;
+    desc.textContent = cfg.desc;
+    center.style.display='none';
+
+    const card = makeCardBox({});
+    card.innerHTML = `
+      <div style="font-weight:1100;font-size:16px;">${cfg.title}</div>
+      <div class="muted" style="margin-top:6px;">${cfg.desc}</div>
+      <div id="mwTarget" style="margin-top:14px;font-size:54px;font-weight:1100;">🥦</div>
+      <div id="mwText" style="margin-top:8px;font-size:18px;font-weight:1100;">หาเพื่อนกลุ่มเดียวกัน</div>
+      <div id="mwTray" style="margin-top:14px; display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px;"></div>
+    `;
+
+    const target = card.querySelector('#mwTarget');
+    const text = card.querySelector('#mwText');
+    const tray = card.querySelector('#mwTray');
+    let cur = null;
+
+    function nextRound(){
+      if(!started) return;
+      tray.innerHTML='';
+      total++;
+      cur = randPick(cfg.rounds);
+
+      target.textContent = cur.target;
+      text.textContent = cur.prompt;
+
+      cur.options.forEach((op, idx)=>{
+        const b = DOC.createElement('button');
+        b.className='btn';
+        b.style.minHeight='82px';
+        b.style.fontSize='28px';
+        b.textContent = op.label;
+        b.addEventListener('click', ()=>{
+          if(!started) return;
+          if(idx === cur.answerIndex){
+            hitCount++;
+            score += 3;
+            streak++;
+            bestStreak = Math.max(bestStreak, streak);
+            flashGood();
+            toastShow('+3');
+          }else{
+            miss++;
+            streak = 0;
+            flashBad();
+            toastShow('MISS');
+          }
+          nextRound();
+        });
+        tray.appendChild(b);
+      });
+    }
+
+    nextRound();
+  }
+
+  function runHoldWarmup(cfg){
+    gameTitle.textContent = cfg.title;
+    desc.textContent = cfg.desc;
+    center.style.display='none';
+
+    const card = makeCardBox({});
+    card.innerHTML = `
+      <div style="font-weight:1100;font-size:16px;">${cfg.title}</div>
+      <div class="muted" style="margin-top:6px;">${cfg.desc}</div>
+      <div id="hwCue" style="margin-top:14px;font-size:56px;font-weight:1100;">⚖️</div>
+      <div id="hwText" style="margin-top:8px;font-size:18px;font-weight:1100;">ค้างให้นิ่ง</div>
+      <div style="margin-top:14px;">
+        <button class="btn primary" id="hwBtn" style="min-height:64px;min-width:180px;">กดค้าง</button>
+      </div>
+      <div class="muted" style="margin-top:8px;">ค้างให้ถึงช่วงเป้าหมาย แล้วปล่อย</div>
+    `;
+
+    const cue = card.querySelector('#hwCue');
+    const text = card.querySelector('#hwText');
+    const btn = card.querySelector('#hwBtn');
+
+    let targetMs = 900;
+    let downAt = 0;
+
+    function nextRound(){
+      total++;
+      const s = randPick(cfg.steps);
+      cue.textContent = s.emo;
+      text.textContent = s.text;
+      targetMs = s.holdMs;
+    }
+
+    btn.addEventListener('pointerdown', ()=>{
+      if(!started) return;
+      downAt = performance.now();
+    });
+
+    btn.addEventListener('pointerup', ()=>{
+      if(!started || !downAt) return;
+      const held = performance.now() - downAt;
+      const diff = Math.abs(held - targetMs);
+      downAt = 0;
+
+      if(diff <= 120){
+        hitCount++;
+        score += 3;
+        perfCount++;
+        streak++;
+        bestStreak = Math.max(bestStreak, streak);
+        flashGood();
+        toastShow('PERFECT ✨');
+      }else if(diff <= 260){
+        hitCount++;
+        score += 2;
+        streak++;
+        bestStreak = Math.max(bestStreak, streak);
+        flashGood();
+        toastShow('+2');
+      }else{
+        miss++;
+        streak = 0;
+        flashBad();
+        toastShow('MISS');
+      }
+      nextRound();
+    });
+
+    btn.addEventListener('pointercancel', ()=>{ downAt = 0; });
+    nextRound();
+  }
+
+  function runChoiceCooldown(cfg){
+    gameTitle.textContent = cfg.title;
+    desc.textContent = cfg.desc;
+    center.style.display='none';
+
+    const card=DOC.createElement('div');
+    Object.assign(card.style,{
+      position:'absolute',left:'50%',top:'50%',transform:'translate(-50%,-52%)',
+      width:'min(700px,94%)',padding:'14px',
+      borderRadius:'18px',border:'1px solid rgba(148,163,184,.18)',
+      background:'rgba(2,6,23,.50)',textAlign:'center'
+    });
+
+    card.innerHTML = `
+      <div style="font-weight:1100;font-size:16px;">${cfg.title}</div>
+      <div class="muted" style="margin-top:6px;">${cfg.desc}</div>
+      <div id="ccPrompt" style="margin-top:14px;font-size:18px;font-weight:1100;">เตรียมพร้อม…</div>
+      <div id="ccTray" style="margin-top:14px; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px;"></div>
+    `;
+    stage.appendChild(card);
+
+    const promptEl = card.querySelector('#ccPrompt');
+    const tray = card.querySelector('#ccTray');
+
+    let cur = null;
+
+    function nextRound(){
+      tray.innerHTML = '';
+      total++;
+
+      cur = randPick(cfg.rounds);
+
+      promptEl.textContent = cur.prompt;
+
+      const left = DOC.createElement('button');
+      left.className = 'btn';
+      left.style.minHeight = '84px';
+      left.style.fontSize = '28px';
+      left.textContent = cur.left.label;
+
+      const right = DOC.createElement('button');
+      right.className = 'btn';
+      right.style.minHeight = '84px';
+      right.style.fontSize = '28px';
+      right.textContent = cur.right.label;
+
+      function choose(side){
+        if(!started) return;
+        if(side === cur.answer){
+          hitCount++;
+          score += 2;
+          streak++;
+          bestStreak = Math.max(bestStreak, streak);
+          flashGood();
+          toastShow('+2');
+        }else{
+          miss++;
+          streak = 0;
+          flashBad();
+          toastShow('MISS');
+        }
+        nextRound();
+      }
+
+      left.addEventListener('click', ()=>choose('left'));
+      right.addEventListener('click', ()=>choose('right'));
+
+      tray.appendChild(left);
+      tray.appendChild(right);
+    }
+
+    nextRound();
+  }
+
+  function runSequenceCooldown(cfg){
+    gameTitle.textContent = cfg.title;
+    desc.textContent = cfg.desc;
+    center.style.display='none';
+
+    const card=DOC.createElement('div');
+    Object.assign(card.style,{
+      position:'absolute',left:'50%',top:'50%',transform:'translate(-50%,-52%)',
+      width:'min(680px,94%)',padding:'14px',
+      borderRadius:'18px',border:'1px solid rgba(148,163,184,.18)',
+      background:'rgba(2,6,23,.50)',textAlign:'center'
+    });
+
+    card.innerHTML = `
+      <div style="font-weight:1100;font-size:16px;">${cfg.title}</div>
+      <div class="muted" style="margin-top:6px;">${cfg.desc}</div>
+      <div id="seqCue" style="margin-top:14px;font-size:56px;font-weight:1100;">•</div>
+      <div id="seqText" style="margin-top:8px;font-size:18px;font-weight:1100;">เตรียมพร้อม</div>
+      <div style="margin-top:12px;display:grid;grid-template-columns:repeat(${cfg.buttons.length},minmax(0,1fr));gap:8px;" id="seqPad"></div>
+    `;
+    stage.appendChild(card);
+
+    const cue = card.querySelector('#seqCue');
+    const text = card.querySelector('#seqText');
+    const pad = card.querySelector('#seqPad');
+
+    let current = randPick(cfg.steps);
+    let born = performance.now();
+    let winMs = cfg.winMs || 900;
+
+    function nextStep(){
+      total++;
+      current = randPick(cfg.steps);
+      born = performance.now();
+      cue.textContent = current.emo;
+      text.textContent = current.text;
+    }
+
+    function choose(val){
+      if(!started) return;
+      const age = performance.now() - born;
+      const perfect = age <= winMs;
+
+      if(val === current.key && perfect){
+        hitCount++;
+        score += 3;
+        perfCount++;
+        streak++;
+        bestStreak = Math.max(bestStreak, streak);
+        flashGood();
+        toastShow('PERFECT ✨');
+      }else if(val === current.key){
+        hitCount++;
+        score += 2;
+        streak++;
+        bestStreak = Math.max(bestStreak, streak);
+        flashGood();
+        toastShow('+2');
+      }else{
+        miss++;
+        streak = 0;
+        flashBad();
+        toastShow('MISS');
+      }
+      nextStep();
+    }
+
+    cfg.buttons.forEach(b=>{
+      const el = DOC.createElement('button');
+      el.className = 'btn';
+      el.style.minHeight = '56px';
+      el.textContent = b.label;
+      el.addEventListener('click', ()=>choose(b.key));
+      pad.appendChild(el);
+    });
+
+    nextStep();
   }
 
   function runCooldown_BreathRing(title, descText){
@@ -1261,9 +1631,11 @@ PATCH v20260306-ALLZONE-ALLGAME-THEMED
       if(!started) return;
       total++;
       if(a===cur && inPerfect){
+        hitCount++;
         score += 3; perfCount++; streak++; bestStreak=Math.max(bestStreak, streak);
         toastShow('PERFECT ✨'); flashGood();
       }else if(a===cur){
+        hitCount++;
         score += 2; streak++; bestStreak=Math.max(bestStreak, streak);
         toastShow('+2'); flashGood();
       }else{
@@ -1276,14 +1648,427 @@ PATCH v20260306-ALLZONE-ALLGAME-THEMED
     stageAnimRaf = requestAnimationFrame(step);
   }
 
-  function runCooldown_Nutrition(){
-    runCooldown_BreathRing(THEME.coolTitle, THEME.coolDesc);
+  // Warmup dispatcher + implementations
+  function runWarmup_ByTheme(){
+    if(themeKey === 'goodjunk')      return runWarmup_GoodJunk();
+    if(themeKey === 'groups')        return runWarmup_Groups();
+    if(themeKey === 'hydration')     return runWarmup_Hydration();
+    if(themeKey === 'plate')         return runWarmup_Plate();
+
+    if(themeKey === 'handwash')      return runWarmup_Handwash();
+    if(themeKey === 'brush')         return runWarmup_Brush();
+    if(themeKey === 'maskcough')     return runWarmup_MaskCough();
+    if(themeKey === 'germdetective') return runWarmup_GermDetective();
+    if(themeKey === 'bath')          return runWarmup_Bath();
+    if(themeKey === 'clean')         return runWarmup_Clean();
+
+    if(themeKey === 'shadow')        return runWarmup_Shadow();
+    if(themeKey === 'rhythm')        return runWarmup_Rhythm();
+    if(themeKey === 'jumpduck')      return runWarmup_JumpDuck();
+    if(themeKey === 'balance')       return runWarmup_Balance();
+    if(themeKey === 'planner')       return runWarmup_Planner();
+
+    if(cat==='nutrition') return runP5_Nutrition();
+    if(cat==='hygiene')   return runP5_Hygiene();
+    return runP5_Exercise();
   }
-  function runCooldown_Hygiene(){
-    runCooldown_BreathRing(THEME.coolTitle, THEME.coolDesc);
+
+  function runWarmup_GoodJunk(){ return runP5_Nutrition(); }
+
+  function runWarmup_Groups(){
+    runMatchWarmup({
+      title: THEME.warmTitle,
+      desc: 'หาอาหารที่อยู่กลุ่มเดียวกันให้ไว ก่อนเข้า GroupsVR',
+      rounds: [
+        { target:'🥚', prompt:'หาอาหารกลุ่มโปรตีนเหมือนกัน', options:[{label:'🐟'},{label:'🍭'},{label:'🥤'}], answerIndex:0 },
+        { target:'🍚', prompt:'หาอาหารกลุ่มคาร์บเหมือนกัน', options:[{label:'🥔'},{label:'🍩'},{label:'🥦'}], answerIndex:0 },
+        { target:'🥦', prompt:'หาผักกลุ่มเดียวกัน', options:[{label:'🥬'},{label:'🍕'},{label:'🍬'}], answerIndex:0 },
+        { target:'🍎', prompt:'หาผลไม้กลุ่มเดียวกัน', options:[{label:'🍌'},{label:'🍟'},{label:'🧁'}], answerIndex:0 }
+      ]
+    });
   }
-  function runCooldown_Exercise(){
-    runCooldown_BreathRing(THEME.coolTitle, THEME.coolDesc);
+
+  function runWarmup_Hydration(){
+    runChoiceWarmup({
+      title: THEME.warmTitle,
+      desc: 'เก็บตัวเลือกที่ช่วย hydration ก่อนเข้าเกมจริง',
+      rounds: [
+        { prompt:'อะไรดีกว่าสำหรับ hydration?', left:{label:'💧'}, right:{label:'🥤'}, answer:'left' },
+        { prompt:'อะไรดีกว่าสำหรับ hydration?', left:{label:'🍉'}, right:{label:'🍭'}, answer:'left' },
+        { prompt:'อะไรดีกว่าสำหรับ hydration?', left:{label:'🫗'}, right:{label:'🧋'}, answer:'left' },
+        { prompt:'อะไรดีกว่าสำหรับ hydration?', left:{label:'🥒'}, right:{label:'🍬'}, answer:'left' }
+      ]
+    });
+  }
+
+  function runWarmup_Plate(){
+    runChoiceWarmup({
+      title: THEME.warmTitle,
+      desc: 'เติมส่วนที่ขาดของจานให้สมดุลก่อนเข้า Plate',
+      rounds: [
+        { prompt:'จานนี้ขาดผัก', left:{label:'🥦'}, right:{label:'🍩'}, answer:'left' },
+        { prompt:'จานนี้ขาดโปรตีน', left:{label:'🥚'}, right:{label:'🍬'}, answer:'left' },
+        { prompt:'จานนี้ขาดผลไม้', left:{label:'🍎'}, right:{label:'🍟'}, answer:'left' },
+        { prompt:'จานนี้ขาดคาร์บ', left:{label:'🍚'}, right:{label:'🧁'}, answer:'left' }
+      ]
+    });
+  }
+
+  function runWarmup_Handwash(){ return runP5_Hygiene(); }
+
+  function runWarmup_Brush(){
+    runSequenceCooldown({
+      title: THEME.warmTitle,
+      desc: 'อุ่นเครื่องจังหวะการแปรงแบบซ้าย-ขวา-บน-ล่าง',
+      buttons:[
+        { key:'L', label:'ซ้าย' },
+        { key:'R', label:'ขวา' },
+        { key:'U', label:'บน' },
+        { key:'D', label:'ล่าง' }
+      ],
+      steps:[
+        { key:'L', emo:'🪥⬅️', text:'ปัดซ้าย' },
+        { key:'R', emo:'🪥➡️', text:'ปัดขวา' },
+        { key:'U', emo:'🪥⬆️', text:'ปัดบน' },
+        { key:'D', emo:'🪥⬇️', text:'ปัดล่าง' }
+      ],
+      winMs: 850
+    });
+  }
+
+  function runWarmup_MaskCough(){
+    runChoiceWarmup({
+      title: THEME.warmTitle,
+      desc: 'ตอบสนองให้ถูกก่อนเข้า Mask & Cough',
+      rounds: [
+        { prompt:'มีอาการไอ/จาม ควรเลือก?', left:{label:'🤧➡️💪'}, right:{label:'😮'}, answer:'left' },
+        { prompt:'อยู่ในที่แออัด ควรเลือก?', left:{label:'😷'}, right:{label:'😮‍💨'}, answer:'left' },
+        { prompt:'หลังไอ/จาม ควรเลือก?', left:{label:'🧼'}, right:{label:'🍭'}, answer:'left' },
+        { prompt:'เริ่มไม่สบาย ควรเลือก?', left:{label:'ป้องกัน'}, right:{label:'เข้าใกล้คนอื่น'}, answer:'left' }
+      ]
+    });
+  }
+
+  function runWarmup_GermDetective(){
+    runChoiceWarmup({
+      title: THEME.warmTitle,
+      desc: 'สแกนของต้องสงสัยก่อนเข้าภารกิจนักสืบเชื้อโรค',
+      rounds: [
+        { prompt:'อะไรน่าสงสัยกว่า?', left:{label:'ลูกบิดประตู'}, right:{label:'ผลไม้ล้างแล้ว'}, answer:'left' },
+        { prompt:'อะไรน่าสงสัยกว่า?', left:{label:'ของเล่นเปื้อน'}, right:{label:'ผ้าแห้งสะอาด'}, answer:'left' },
+        { prompt:'อะไรเสี่ยงกว่า?', left:{label:'โต๊ะเปื้อน'}, right:{label:'แก้วสะอาด'}, answer:'left' },
+        { prompt:'อะไรดูเป็นหลักฐานเชื้อ?', left:{label:'🦠'}, right:{label:'✨'}, answer:'left' }
+      ]
+    });
+  }
+
+  function runWarmup_Bath(){
+    runSequenceCooldown({
+      title: THEME.warmTitle,
+      desc: 'ไล่เก็บจุดสกปรกตามส่วนร่างกายก่อนเข้า Bath',
+      buttons:[
+        { key:'head', label:'ศีรษะ' },
+        { key:'body', label:'ตัว' },
+        { key:'feet', label:'เท้า' }
+      ],
+      steps:[
+        { key:'head', emo:'🫧', text:'ล้างศีรษะ' },
+        { key:'body', emo:'🛁', text:'ล้างตัว' },
+        { key:'feet', emo:'🦶', text:'ล้างเท้า' }
+      ],
+      winMs: 900
+    });
+  }
+
+  function runWarmup_Clean(){
+    runChoiceWarmup({
+      title: THEME.warmTitle,
+      desc: 'แยกของสะอาด/ไม่สะอาดให้ไว ก่อนเข้าเกมจริง',
+      rounds: [
+        { prompt:'อะไรสะอาดกว่า?', left:{label:'ช้อนล้างแล้ว'}, right:{label:'ช้อนตกพื้น'}, answer:'left' },
+        { prompt:'อะไรควรเช็ดก่อน?', left:{label:'โต๊ะเปื้อน'}, right:{label:'ของสะอาด'}, answer:'left' },
+        { prompt:'อะไรพร้อมใช้?', left:{label:'แก้วสะอาด'}, right:{label:'ของเปื้อน'}, answer:'left' },
+        { prompt:'อะไรควรล้างก่อนใช้?', left:{label:'ของเปื้อน'}, right:{label:'ของแห้งสะอาด'}, answer:'left' }
+      ]
+    });
+  }
+
+  function runWarmup_Shadow(){
+    runSequenceCooldown({
+      title: THEME.warmTitle,
+      desc: 'อุ่นเครื่องซ้าย/ขวาแบบเร็ว ก่อนเข้า Shadow Breaker',
+      buttons:[ { key:'L', label:'ซ้าย' }, { key:'R', label:'ขวา' } ],
+      steps:[ { key:'L', emo:'⬅️', text:'ขยับซ้าย' }, { key:'R', emo:'➡️', text:'ขยับขวา' } ],
+      winMs: 760
+    });
+  }
+
+  function runWarmup_Rhythm(){ return runP5_Exercise(); }
+
+  function runWarmup_JumpDuck(){
+    runSequenceCooldown({
+      title: THEME.warmTitle,
+      desc: 'จับคำสั่ง jump / duck ให้ตรงก่อนเข้าเกมจริง',
+      buttons:[ { key:'jump', label:'JUMP' }, { key:'duck', label:'DUCK' } ],
+      steps:[ { key:'jump', emo:'⬆️', text:'กระโดด' }, { key:'duck', emo:'⬇️', text:'หมอบ' } ],
+      winMs: 800
+    });
+  }
+
+  function runWarmup_Balance(){
+    runHoldWarmup({
+      title: THEME.warmTitle,
+      desc: 'คุมจังหวะ hold ให้แม่นก่อนเข้า Balance Hold',
+      steps:[
+        { emo:'⚖️', text:'ค้างนิ่งสั้น', holdMs:700 },
+        { emo:'🧍', text:'ค้างกลาง', holdMs:900 },
+        { emo:'🌟', text:'ค้างยาว', holdMs:1100 }
+      ]
+    });
+  }
+
+  function runWarmup_Planner(){
+    runChoiceWarmup({
+      title: THEME.warmTitle,
+      desc: 'เลือกแผนที่เหมาะก่อนเข้า Fitness Planner',
+      rounds: [
+        { prompt:'ถ้าเพิ่งเริ่ม ควรเลือก?', left:{label:'เบา ๆ ก่อน'}, right:{label:'หนักสุด'}, answer:'left' },
+        { prompt:'ถ้าวันนี้เหนื่อย ควรเลือก?', left:{label:'พัก/เบาลง'}, right:{label:'เร่งเพิ่ม'}, answer:'left' },
+        { prompt:'หลังออกกำลัง ควรเลือก?', left:{label:'ดื่มน้ำ'}, right:{label:'อดน้ำ'}, answer:'left' },
+        { prompt:'เพื่อปลอดภัย ควรเลือก?', left:{label:'warmup'}, right:{label:'ข้าม warmup'}, answer:'left' }
+      ]
+    });
+  }
+
+  // Cooldown dispatcher + implementations
+  function runCooldown_ByTheme(){
+    if(themeKey === 'goodjunk')      return runCooldown_GoodJunk();
+    if(themeKey === 'groups')        return runCooldown_Groups();
+    if(themeKey === 'hydration')     return runCooldown_Hydration();
+    if(themeKey === 'plate')         return runCooldown_Plate();
+
+    if(themeKey === 'handwash')      return runCooldown_Handwash();
+    if(themeKey === 'brush')         return runCooldown_Brush();
+    if(themeKey === 'maskcough')     return runCooldown_MaskCough();
+    if(themeKey === 'germdetective') return runCooldown_GermDetective();
+    if(themeKey === 'bath')          return runCooldown_Bath();
+    if(themeKey === 'clean')         return runCooldown_Clean();
+
+    if(themeKey === 'shadow')        return runCooldown_Shadow();
+    if(themeKey === 'rhythm')        return runCooldown_Rhythm();
+    if(themeKey === 'jumpduck')      return runCooldown_JumpDuck();
+    if(themeKey === 'balance')       return runCooldown_Balance();
+    if(themeKey === 'planner')       return runCooldown_Planner();
+
+    return runCooldown_BreathRing(THEME.coolTitle, THEME.coolDesc);
+  }
+
+  function runCooldown_GoodJunk(){
+    runChoiceCooldown({
+      title: THEME.coolTitle,
+      desc: 'เลือกของที่ดีกว่าแบบใจเย็น ปิดรอบ GoodJunk',
+      rounds: [
+        { prompt:'เลือกของที่ดีกว่า', left:{label:'🍎'}, right:{label:'🍩'}, answer:'left' },
+        { prompt:'เลือกของที่ดีกว่า', left:{label:'🥦'}, right:{label:'🍟'}, answer:'left' },
+        { prompt:'เลือกของที่ดีกว่า', left:{label:'🥛'}, right:{label:'🥤'}, answer:'left' },
+        { prompt:'เลือกของที่ดีกว่า', left:{label:'🍌'}, right:{label:'🍬'}, answer:'left' }
+      ]
+    });
+  }
+
+  function runCooldown_Groups(){
+    runChoiceCooldown({
+      title: THEME.coolTitle,
+      desc: 'ทบทวนหมู่อาหารแบบช้า ๆ เลือกสิ่งที่เข้ากลุ่มเดียวกัน',
+      rounds: [
+        { prompt:'อันไหนอยู่หมู่เดียวกับ 🥚 ?', left:{label:'🐟'}, right:{label:'🍭'}, answer:'left' },
+        { prompt:'อันไหนอยู่หมู่เดียวกับ 🍎 ?', left:{label:'🥦'}, right:{label:'🍌'}, answer:'right' },
+        { prompt:'อันไหนอยู่หมู่เดียวกับ 🍚 ?', left:{label:'🥔'}, right:{label:'🧁'}, answer:'left' },
+        { prompt:'อันไหนอยู่หมู่เดียวกับ 🥦 ?', left:{label:'🍬'}, right:{label:'🥬'}, answer:'right' }
+      ]
+    });
+  }
+
+  function runCooldown_Hydration(){
+    runChoiceCooldown({
+      title: THEME.coolTitle,
+      desc: 'เลือกสิ่งที่ช่วยสมดุลน้ำในร่างกาย',
+      rounds: [
+        { prompt:'เลือกตัวเลือกที่ช่วย hydration', left:{label:'💧'}, right:{label:'🥤'}, answer:'left' },
+        { prompt:'เลือกตัวเลือกที่ช่วย hydration', left:{label:'🍉'}, right:{label:'🍬'}, answer:'left' },
+        { prompt:'เลือกตัวเลือกที่ช่วย hydration', left:{label:'🥒'}, right:{label:'🧋'}, answer:'left' },
+        { prompt:'เลือกตัวเลือกที่ช่วย hydration', left:{label:'🫗'}, right:{label:'🍭'}, answer:'left' }
+      ]
+    });
+  }
+
+  function runCooldown_Plate(){
+    runChoiceCooldown({
+      title: THEME.coolTitle,
+      desc: 'ดูจานแล้วเติมส่วนที่สมดุลกว่า',
+      rounds: [
+        { prompt:'จานขาดผัก เลือกอะไรเติม?', left:{label:'🥦'}, right:{label:'🍩'}, answer:'left' },
+        { prompt:'จานขาดผลไม้ เลือกอะไรเติม?', left:{label:'🍎'}, right:{label:'🍟'}, answer:'left' },
+        { prompt:'จานขาดโปรตีน เลือกอะไรเติม?', left:{label:'🥚'}, right:{label:'🍭'}, answer:'left' },
+        { prompt:'จานขาดคาร์บดี เลือกอะไรเติม?', left:{label:'🍚'}, right:{label:'🧁'}, answer:'left' }
+      ]
+    });
+  }
+
+  function runCooldown_Handwash(){
+    runSequenceCooldown({
+      title: THEME.coolTitle,
+      desc: 'คูลดาวน์ด้วยจังหวะล้างมือช้า ๆ',
+      buttons:[
+        { key:'rub', label:'ถู' },
+        { key:'rinse', label:'ล้าง' },
+        { key:'dry', label:'เช็ด' }
+      ],
+      steps:[
+        { key:'rub', emo:'🫧', text:'ถูมือ' },
+        { key:'rinse', emo:'🚿', text:'ล้างน้ำ' },
+        { key:'dry', emo:'🧻', text:'เช็ดให้แห้ง' }
+      ],
+      winMs: 1100
+    });
+  }
+
+  function runCooldown_Brush(){
+    runSequenceCooldown({
+      title: THEME.coolTitle,
+      desc: 'ปิดรอบด้วย slow brushing rhythm',
+      buttons:[
+        { key:'L', label:'ซ้าย' },
+        { key:'R', label:'ขวา' },
+        { key:'U', label:'บน' },
+        { key:'D', label:'ล่าง' }
+      ],
+      steps:[
+        { key:'L', emo:'⬅️', text:'ปัดซ้าย' },
+        { key:'R', emo:'➡️', text:'ปัดขวา' },
+        { key:'U', emo:'⬆️', text:'ปัดบน' },
+        { key:'D', emo:'⬇️', text:'ปัดล่าง' }
+      ],
+      winMs: 1000
+    });
+  }
+
+  function runCooldown_MaskCough(){
+    runChoiceCooldown({
+      title: THEME.coolTitle,
+      desc: 'ทบทวนการป้องกันแบบนุ่มนวล เลือกสิ่งที่เหมาะกว่า',
+      rounds: [
+        { prompt:'ไอ/จาม ควรทำแบบไหน?', left:{label:'🤧➡️💪'}, right:{label:'😮‍💨'}, answer:'left' },
+        { prompt:'ที่แออัด ควรเลือกอะไร?', left:{label:'😷'}, right:{label:'😮'}, answer:'left' },
+        { prompt:'ใช้แล้วควรทำอะไรต่อ?', left:{label:'🧼'}, right:{label:'🍭'}, answer:'left' },
+        { prompt:'เมื่อไม่สบาย ควรเลือก?', left:{label:'พัก+ป้องกัน'}, right:{label:'ใกล้ชิดคนอื่น'}, answer:'left' }
+      ]
+    });
+  }
+
+  function runCooldown_GermDetective(){
+    runChoiceCooldown({
+      title: THEME.coolTitle,
+      desc: 'ปิดคดีเชื้อโรค เลือกเป้าต้องสงสัยให้ถูก',
+      rounds: [
+        { prompt:'อะไรเสี่ยงมีเชื้อโรคมากกว่า?', left:{label:'ลูกบิดประตู'}, right:{label:'ผลไม้ล้างแล้ว'}, answer:'left' },
+        { prompt:'อะไรเสี่ยงมีเชื้อโรคมากกว่า?', left:{label:'ของเล่นสกปรก'}, right:{label:'ผ้าแห้งสะอาด'}, answer:'left' },
+        { prompt:'อะไรควรทำความสะอาด?', left:{label:'โต๊ะเปื้อน'}, right:{label:'ของแห้งสะอาด'}, answer:'left' },
+        { prompt:'หลักฐานไหนน่าสงสัยกว่า?', left:{label:'🦠'}, right:{label:'✨'}, answer:'left' }
+      ]
+    });
+  }
+
+  function runCooldown_Bath(){
+    runSequenceCooldown({
+      title: THEME.coolTitle,
+      desc: 'คูลดาวน์เหมือนอาบน้ำล้างคราบสุดท้าย',
+      buttons:[
+        { key:'head', label:'ศีรษะ' },
+        { key:'body', label:'ตัว' },
+        { key:'feet', label:'เท้า' }
+      ],
+      steps:[
+        { key:'head', emo:'🫧', text:'ล้างศีรษะ' },
+        { key:'body', emo:'🛁', text:'ล้างตัว' },
+        { key:'feet', emo:'🦶', text:'ล้างเท้า' }
+      ],
+      winMs: 1100
+    });
+  }
+
+  function runCooldown_Clean(){
+    runChoiceCooldown({
+      title: THEME.coolTitle,
+      desc: 'แยกของสะอาด/ไม่สะอาดก่อนกลับ HUB',
+      rounds: [
+        { prompt:'อะไรสะอาดกว่ากัน?', left:{label:'ช้อนล้างแล้ว'}, right:{label:'ช้อนตกพื้น'}, answer:'left' },
+        { prompt:'อะไรควรเช็ดก่อนใช้?', left:{label:'โต๊ะเปื้อน'}, right:{label:'แก้วสะอาด'}, answer:'left' },
+        { prompt:'อะไรควรเก็บเข้าที่?', left:{label:'ของเล่นสะอาด'}, right:{label:'ขยะ'}, answer:'left' },
+        { prompt:'อะไรไม่ควรใช้ทันที?', left:{label:'ของเปื้อน'}, right:{label:'ของแห้งสะอาด'}, answer:'left' }
+      ]
+    });
+  }
+
+  function runCooldown_Shadow(){
+    runSequenceCooldown({
+      title: THEME.coolTitle,
+      desc: 'ลดจังหวะหลังต่อสู้ ด้วย cue ซ้าย/ขวา ช้า ๆ',
+      buttons:[ { key:'L', label:'ซ้าย' }, { key:'R', label:'ขวา' } ],
+      steps:[ { key:'L', emo:'⬅️', text:'เอนไปซ้าย' }, { key:'R', emo:'➡️', text:'เอนไปขวา' } ],
+      winMs: 950
+    });
+  }
+
+  function runCooldown_Rhythm(){
+    runSequenceCooldown({
+      title: THEME.coolTitle,
+      desc: 'ลด beat ลงช้า ๆ ตามจังหวะ',
+      buttons:[ { key:'tap', label:'TAP' }, { key:'hold', label:'HOLD' } ],
+      steps:[ { key:'tap', emo:'🎵', text:'แตะตาม beat' }, { key:'hold', emo:'🎶', text:'ค้างจังหวะ' } ],
+      winMs: 900
+    });
+  }
+
+  function runCooldown_JumpDuck(){
+    runSequenceCooldown({
+      title: THEME.coolTitle,
+      desc: 'คูลดาวน์การเคลื่อนไหวด้วยคำสั่งช้าลง',
+      buttons:[ { key:'jump', label:'JUMP' }, { key:'duck', label:'DUCK' } ],
+      steps:[ { key:'jump', emo:'⬆️', text:'กระโดด' }, { key:'duck', emo:'⬇️', text:'หมอบ' } ],
+      winMs: 950
+    });
+  }
+
+  function runCooldown_Balance(){
+    runSequenceCooldown({
+      title: THEME.coolTitle,
+      desc: 'คุมสมดุลซ้าย/ขวาแบบนุ่มนวล',
+      buttons:[
+        { key:'left', label:'ถ่ายน้ำหนักซ้าย' },
+        { key:'right', label:'ถ่ายน้ำหนักขวา' },
+        { key:'hold', label:'นิ่ง' }
+      ],
+      steps:[
+        { key:'left', emo:'↖️', text:'ถ่ายซ้าย' },
+        { key:'right', emo:'↗️', text:'ถ่ายขวา' },
+        { key:'hold', emo:'⚖️', text:'นิ่งค้าง' }
+      ],
+      winMs: 1050
+    });
+  }
+
+  function runCooldown_Planner(){
+    runChoiceCooldown({
+      title: THEME.coolTitle,
+      desc: 'เลือกกิจกรรมฟื้นตัว/ดูแลตัวเองให้เหมาะ',
+      rounds: [
+        { prompt:'หลังเล่นเหนื่อย ควรเลือกอะไร?', left:{label:'ยืดเหยียด'}, right:{label:'นั่งจอทันที'}, answer:'left' },
+        { prompt:'หลังออกแรง ควรเลือกอะไร?', left:{label:'ดื่มน้ำ'}, right:{label:'น้ำหวานจัด'}, answer:'left' },
+        { prompt:'ถ้าวันนี้ล้า ควรวางแผนยังไง?', left:{label:'เบาลง'}, right:{label:'เร่งสุด'}, answer:'left' },
+        { prompt:'เพื่อฟื้นตัว ควรเลือก?', left:{label:'พักพอ'}, right:{label:'อดนอน'}, answer:'left' }
+      ]
+    });
   }
 
   function runLegacy_SimpleTap(){
@@ -1305,22 +2090,18 @@ PATCH v20260306-ALLZONE-ALLGAME-THEMED
 
     function onTap(){
       if(!started) return;
-      total++; score++; streak++; bestStreak=Math.max(bestStreak, streak);
+      total++; hitCount++; score++; streak++; bestStreak=Math.max(bestStreak, streak);
       toastShow('+1'); flashGood();
     }
     card.addEventListener('pointerdown', onTap, {passive:true});
     teardownFns.push(()=> card.removeEventListener('pointerdown', onTap));
   }
 
-  function runLegacy_Cooldown(){
-    runCooldown_BreathRing(THEME.coolTitle, THEME.coolDesc);
-  }
-
   function start(){
     if(dailyDone){ autoSkipIfDaily(); return; }
 
     clearStage();
-    score=0; miss=0; total=0;
+    score=0; miss=0; total=0; hitCount=0;
     streak=0; bestStreak=0;
     perfCount=0; bombHit=0;
     tLeft=dur; lastTs=0;
@@ -1331,15 +2112,11 @@ PATCH v20260306-ALLZONE-ALLGAME-THEMED
     started=true;
 
     if(phase==='cooldown'){
-      if(cat==='nutrition') runCooldown_Nutrition();
-      else if(cat==='hygiene') runCooldown_Hygiene();
-      else runCooldown_Exercise();
+      runCooldown_ByTheme();
       statusText.textContent = `Cooldown (${dur}s) — pid=${pid} cat=${cat} game=${themeKey}`;
     }else{
       if(isP5){
-        if(cat==='nutrition') runP5_Nutrition();
-        else if(cat==='hygiene') runP5_Hygiene();
-        else runP5_Exercise();
+        runWarmup_ByTheme();
       }else{
         runLegacy_SimpleTap();
       }
