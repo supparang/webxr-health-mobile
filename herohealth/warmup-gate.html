@@ -1,6 +1,6 @@
 <!-- === /herohealth/warmup-gate.html ===
 HeroHealth Warmup/Cooldown Gate — PER-GAME DAILY FULL
-FULL v20260307-PERGAME-WARMUP-COOLDOWN-COMBINED
+FULL v20260307-PERGAME-WARMUP-COOLDOWN-COMBINED-R2
 ✅ DAILY = cat + game + pid + day (per-game daily)
 ✅ warmup/cooldown once-per-day per PID+category+game
 ✅ all zones + all games themed
@@ -16,13 +16,20 @@ FULL v20260307-PERGAME-WARMUP-COOLDOWN-COMBINED
 ✅ summarized buff display
 ✅ REAL warmup mechanics:
    - GoodJunk = tap/avoid lane
-   - Hydration = collect water / avoid sugar
    - Groups = bin sort
-   - Clean = clean/dirty sort
+   - Hydration = collect water / avoid sugar
+   - Plate = build plate board
+   - Handwash = 6-step order
+   - Brush = mouth zones
+   - MaskCough = safe / unsafe lane
+   - GermDetective = clue scan board
+   - Bath = clean zones
+   - Clean = clean / dirty sort
    - Shadow = reaction lane
    - Rhythm = beat lane (tap/hold)
-   - Handwash = 6-step order
-   - Bath = clean zones
+   - JumpDuck = obstacle lane
+   - Balance = hold timing
+   - Planner = planning choice
 -->
 <!doctype html>
 <html lang="th">
@@ -657,16 +664,16 @@ FULL v20260307-PERGAME-WARMUP-COOLDOWN-COMBINED
       goodjunk:'โฟกัสแตะของดีและหลบ junk',
       groups:'โฟกัสการจัดเข้าหมวด',
       hydration:'โฟกัสเก็บน้ำและหลบหวาน',
-      plate:'โฟกัสความสมดุลของจานอาหาร',
+      plate:'โฟกัสสร้างจานสมดุล',
       handwash:'โฟกัสลำดับล้างมือ 6 ขั้น',
-      brush:'โฟกัสจังหวะและทิศทางการแปรง',
-      maskcough:'โฟกัสการตัดสินใจป้องกันให้ถูกจังหวะ',
-      germdetective:'โฟกัสการสังเกตสิ่งต้องสงสัย',
+      brush:'โฟกัสแปรงให้ถูกโซน',
+      maskcough:'โฟกัส safe / unsafe',
+      germdetective:'โฟกัสสแกนหาเบาะแส',
       bath:'โฟกัสจุดสกปรกตามส่วนร่างกาย',
       clean:'โฟกัสการแยกสะอาด/ไม่สะอาด',
       shadow:'โฟกัสรีแอคชันซ้าย/ขวา',
       rhythm:'โฟกัส timing ตาม beat',
-      jumpduck:'โฟกัสคำสั่งกระโดด/หมอบ',
+      jumpduck:'โฟกัสหลบสิ่งกีดขวาง',
       balance:'โฟกัสการคุมจังหวะและนิ่งให้พอดี',
       planner:'โฟกัสการเลือกแผนอย่างเหมาะสม'
     };
@@ -1064,392 +1071,6 @@ FULL v20260307-PERGAME-WARMUP-COOLDOWN-COMBINED
     return card;
   }
 
-  // -------- base minigames --------
-  function runP5_TargetRush(opts){
-    gameTitle.textContent = opts.title;
-    desc.textContent = opts.desc;
-    center.style.display='none';
-    addStageBadge(`${THEME.label} • rush`);
-
-    const board=DOC.createElement('div');
-    Object.assign(board.style,{
-      position:'absolute',left:'50%',top:'50%',transform:'translate(-50%,-52%)',
-      width:'min(620px,92%)',height:'min(360px,54vh)',
-      border:'1px solid rgba(148,163,184,.18)',
-      borderRadius:'18px',
-      background:'rgba(2,6,23,.36)',
-      overflow:'hidden',
-      zIndex:'2'
-    });
-    stage.appendChild(board);
-
-    const note=DOC.createElement('div');
-    note.style.position='absolute';
-    note.style.left='14px'; note.style.top='14px';
-    note.style.fontWeight='1100';
-    note.style.fontSize='12px';
-    note.style.color='rgba(229,231,235,.78)';
-    note.textContent = opts.note || 'รักษาสตรีค!';
-    board.appendChild(note);
-
-    const fever=DOC.createElement('div');
-    fever.style.position='absolute';
-    fever.style.right='14px'; fever.style.top='14px';
-    fever.style.fontWeight='1100';
-    fever.style.fontSize='12px';
-    fever.style.color='rgba(167,139,250,.95)';
-    fever.textContent = '×1';
-    board.appendChild(fever);
-
-    let liveTargets=0;
-    let spawnTimer=0;
-
-    function spawnOne(){
-      if(!started) return;
-      if(liveTargets>=4) return;
-
-      const played = dur - tLeft;
-      const ttlBase = opts.ttlMsBase || 900;
-      const ttl = clamp(ttlBase - played*6, 520, 980);
-
-      const roll = Math.random();
-      const goodRate = (opts.goodRate ?? 0.70);
-      const bombRate = (opts.bombSet && (opts.bombRate ?? 0.12)) || 0;
-      let kind='good';
-      if(roll > goodRate){
-        kind = (opts.bombSet && roll > (1 - bombRate)) ? 'bomb' : 'bad';
-      }
-
-      const el=DOC.createElement('button');
-      el.className='btn';
-      el.type='button';
-      el.style.position='absolute';
-      el.style.width='74px'; el.style.height='74px';
-      el.style.borderRadius='18px';
-      el.style.padding='0';
-      el.style.fontSize='26px';
-      el.style.display='grid';
-      el.style.placeItems='center';
-      el.style.border='1px solid rgba(148,163,184,.18)';
-      el.style.background='rgba(2,6,23,.26)';
-
-      const w = board.getBoundingClientRect().width;
-      const h = board.getBoundingClientRect().height;
-      const x = 18 + (w-18-74-18) * Math.random();
-      const y = 62 + (h-62-74-18) * Math.random();
-      el.style.left = x+'px';
-      el.style.top  = y+'px';
-
-      const emo =
-        (kind==='good') ? randPick(opts.goodSet) :
-        (kind==='bomb') ? randPick(opts.bombSet) :
-        randPick(opts.badSet);
-
-      el.textContent = emo;
-
-      liveTargets++;
-      board.appendChild(el);
-
-      let died=false;
-      const born = performance.now();
-
-      function removeSelf(){
-        if(died) return;
-        died=true;
-        liveTargets = Math.max(0, liveTargets-1);
-        try{ el.remove(); }catch(_){}
-      }
-
-      const tm = setTimeout(()=>{
-        if(died) return;
-        if(kind==='good'){
-          miss++; total++;
-          streak=0;
-          toastShow('MISS'); flashBad();
-        }
-        removeSelf();
-      }, ttl);
-
-      el.addEventListener('pointerdown', (ev)=>{
-        ev.preventDefault();
-        ev.stopPropagation();
-        if(died || !started) return;
-        clearTimeout(tm);
-
-        total++;
-        const age = performance.now() - born;
-        const perfect = age >= ttl*0.78;
-
-        if(kind==='good'){
-          hitCount++;
-          score += perfect ? 3 : 2;
-          streak++;
-          bestStreak = Math.max(bestStreak, streak);
-          if(perfect){ perfCount++; toastShow('PERFECT ✨'); }
-          else toastShow('+2');
-          flashGood();
-        }else if(kind==='bomb'){
-          bombHit++;
-          miss += 2;
-          streak = 0;
-          toastShow('BOMB! 🧨'); flashBad();
-        }else{
-          miss++;
-          streak = 0;
-          toastShow('TRAP'); flashBad();
-        }
-
-        const mult = (tLeft <= 6) ? 2 : 1;
-        fever.textContent = '×' + mult;
-        if(mult===2 && kind==='good') score += 1;
-
-        removeSelf();
-      }, {passive:false});
-
-      teardownFns.push(()=>{
-        try{ clearTimeout(tm); }catch(_){}
-        try{ el.remove(); }catch(_){}
-      });
-    }
-
-    spawnTimer = setInterval(spawnOne, 220);
-    teardownFns.push(()=>{ try{ clearInterval(spawnTimer); }catch(_){ } });
-    for(let i=0;i<2;i++) setTimeout(spawnOne, 120 + i*140);
-  }
-
-  function runP5_Nutrition(){
-    const GOOD = {
-      goodjunk:['🍎','🍌','🥦','🥬','🥚','🐟','🥛','🍚'],
-      groups:['🍎','🥦','🥚','🍚','🥛','🥜','🍌','🥬'],
-      hydration:['💧','🫗','🥛','🍉','🥒','🧊'],
-      plate:['🍚','🥦','🥚','🐟','🍎','🥛']
-    };
-    const BAD = {
-      goodjunk:['🍟','🍔','🍕','🍩','🍬','🧋','🥤','🍭'],
-      groups:['🍟','🍬','🧁','🍕','🍩'],
-      hydration:['🥤','🧋','🍬','🍭'],
-      plate:['🍟','🍔','🍕','🍩']
-    };
-    runP5_TargetRush({
-      title: THEME.warmTitle,
-      desc: THEME.warmDesc,
-      note:`รักษาสตรีคใน ${THEME.label}`,
-      goodSet: GOOD[themeKey] || GOOD.goodjunk,
-      badSet: BAD[themeKey] || BAD.goodjunk,
-      bombSet:['💥','🧨'],
-      goodRate: themeKey==='hydration' ? 0.76 : 0.72,
-      bombRate: 0.12,
-      ttlMsBase: themeKey==='groups' ? 980 : 920
-    });
-  }
-
-  function runP5_Hygiene(){
-    gameTitle.textContent = THEME.warmTitle;
-    desc.textContent = THEME.warmDesc;
-    center.style.display='none';
-    addStageBadge(`${THEME.label} • scan`);
-
-    const board=DOC.createElement('div');
-    Object.assign(board.style,{
-      position:'absolute',left:'50%',top:'50%',transform:'translate(-50%,-52%)',
-      width:'min(620px,92%)',height:'min(360px,54vh)',
-      border:'1px solid rgba(148,163,184,.18)',borderRadius:'18px',
-      background:'rgba(2,6,23,.36)',overflow:'hidden',
-      zIndex:'2'
-    });
-    stage.appendChild(board);
-
-    const legend=DOC.createElement('div');
-    legend.style.position='absolute';
-    legend.style.left='14px'; legend.style.top='14px';
-    legend.style.fontWeight='1100';
-    legend.style.fontSize='12px';
-    legend.style.color='rgba(229,231,235,.78)';
-    legend.textContent = `${THEME.icon} theme • 🦠=แต้ม | ✨=กับดัก | 💎=บอส`;
-    board.appendChild(legend);
-
-    let live=0;
-    let spawnTimer=0;
-
-    function spawn(){
-      if(!started || live>=4) return;
-
-      const played = dur - tLeft;
-      const ttl = clamp(860 - played*7, 520, 920);
-      const roll=Math.random();
-      let kind='germ';
-      if(roll>0.78) kind = (roll>0.93)?'boss':'trap';
-
-      const el=DOC.createElement('button');
-      el.className='btn';
-      el.type='button';
-      el.style.position='absolute';
-      el.style.width='74px'; el.style.height='74px';
-      el.style.borderRadius='18px';
-      el.style.padding='0';
-      el.style.fontSize='26px';
-      el.style.display='grid';
-      el.style.placeItems='center';
-      el.style.border='1px solid rgba(148,163,184,.18)';
-      el.style.background='rgba(2,6,23,.26)';
-
-      const w = board.getBoundingClientRect().width;
-      const h = board.getBoundingClientRect().height;
-      el.style.left = (18 + (w-110)*Math.random())+'px';
-      el.style.top  = (62 + (h-154)*Math.random())+'px';
-
-      let hp = (kind==='boss') ? 2 : 1;
-      el.textContent = (kind==='germ') ? randPick(['🦠','🧫','🦠']) : (kind==='trap') ? randPick(['✨','⚠️']) : '💎';
-
-      live++;
-      board.appendChild(el);
-
-      let dead=false;
-      const born=performance.now();
-      const tm=setTimeout(()=>{
-        if(dead) return;
-        if(kind==='germ' || kind==='boss'){
-          miss++; total++; streak=0; flashBad(); toastShow('MISS');
-        }
-        dead=true; live=Math.max(0,live-1);
-        try{ el.remove(); }catch(_){}
-      }, ttl);
-
-      el.addEventListener('pointerdown',(ev)=>{
-        ev.preventDefault();
-        ev.stopPropagation();
-        if(dead || !started) return;
-
-        total++;
-        const age=performance.now()-born;
-        const perfect = age >= ttl*0.78;
-
-        if(kind==='trap'){
-          miss++; streak=0; bombHit++;
-          flashBad(); toastShow('TRAP');
-          clearTimeout(tm);
-          dead=true; live=Math.max(0,live-1);
-          try{ el.remove(); }catch(_){}
-          return;
-        }
-
-        if(kind==='boss'){
-          hp--;
-          if(hp>0){
-            hitCount++;
-            score += 1;
-            streak++; bestStreak=Math.max(bestStreak, streak);
-            flashGood(); toastShow('HIT!');
-            el.textContent='🎯';
-            return;
-          }
-          hitCount++;
-          score += perfect ? 5 : 4;
-          if(perfect){ perfCount++; toastShow('PERFECT 💎'); } else toastShow('+4');
-          streak++; bestStreak=Math.max(bestStreak, streak);
-          flashGood();
-        }else{
-          hitCount++;
-          score += perfect ? 3 : 2;
-          if(perfect){ perfCount++; toastShow('PERFECT ✨'); } else toastShow('+2');
-          streak++; bestStreak=Math.max(bestStreak, streak);
-          flashGood();
-        }
-
-        clearTimeout(tm);
-        dead=true; live=Math.max(0,live-1);
-        try{ el.remove(); }catch(_){}
-      },{passive:false});
-
-      teardownFns.push(()=>{ try{ clearTimeout(tm); }catch(_){ } try{ el.remove(); }catch(_){ } });
-    }
-
-    spawnTimer=setInterval(spawn, 230);
-    teardownFns.push(()=>{ try{ clearInterval(spawnTimer); }catch(_){ } });
-    setTimeout(spawn, 120);
-    setTimeout(spawn, 260);
-  }
-
-  function runP5_Exercise(){
-    gameTitle.textContent = THEME.warmTitle;
-    desc.textContent = THEME.warmDesc;
-    center.style.display='none';
-    addStageBadge(`${THEME.label} • coach`);
-
-    const card=DOC.createElement('div');
-    Object.assign(card.style,{
-      position:'absolute',left:'50%',top:'50%',transform:'translate(-50%,-52%)',
-      width:'min(620px,92%)',padding:'14px',
-      borderRadius:'18px',border:'1px solid rgba(148,163,184,.18)',
-      background:'rgba(2,6,23,.50)',textAlign:'center',
-      zIndex:'2'
-    });
-    card.innerHTML = `
-      <div class="muted" style="font-weight:1100;">${THEME.label} Coach Calls</div>
-      <div id="cx" style="margin-top:10px;font-size:58px;font-weight:1100;">⬅️</div>
-      <div id="ct" style="margin-top:8px;font-size:18px;font-weight:1100;">ซ้าย</div>
-      <div class="muted" style="margin-top:6px;">กดให้ตรงหน้าต่างจังหวะ — ท้ายเกมจะเร็วขึ้น</div>
-    `;
-    stage.appendChild(card);
-
-    const pad=mkPad(2);
-    const btnA=mkBtn('ซ้าย'); const btnB=mkBtn('ขวา');
-    btnA.style.padding='14px 12px'; btnB.style.padding='14px 12px';
-    pad.appendChild(btnA); pad.appendChild(btnB);
-
-    const pad2=mkPad(2);
-    pad2.style.bottom='64px';
-    const btnC=mkBtn('JUMP'); const btnD=mkBtn('DUCK');
-    btnC.style.padding='14px 12px'; btnD.style.padding='14px 12px';
-    pad2.appendChild(btnC); pad2.appendChild(btnD);
-
-    const cmds = [
-      {t:'ซ้าย', emo:'⬅️'}, {t:'ขวา', emo:'➡️'},
-      {t:'JUMP', emo:'⬆️'}, {t:'DUCK', emo:'⬇️'}
-    ];
-
-    let cur = randPick(cmds);
-    let born=performance.now();
-    let winMs = themeKey==='balance' ? 700 : 620;
-
-    function next(){
-      total++;
-      cur = randPick(cmds);
-      born = performance.now();
-      const played = dur - tLeft;
-      winMs = clamp((themeKey==='balance' ? 700 : 620) - played*10, 320, 700);
-      card.querySelector('#ct').textContent = cur.t;
-      card.querySelector('#cx').textContent = cur.emo;
-    }
-
-    function choose(a){
-      if(!started) return;
-      const age = performance.now() - born;
-      const perfect = (age <= winMs);
-
-      if(a===cur.t && perfect){
-        hitCount++;
-        score += 3;
-        streak++; bestStreak=Math.max(bestStreak, streak);
-        perfCount++; toastShow('PERFECT ✨'); flashGood();
-      }else if(a===cur.t){
-        hitCount++;
-        score += 2;
-        streak++; bestStreak=Math.max(bestStreak, streak);
-        toastShow('+2'); flashGood();
-      }else{
-        miss++; streak=0;
-        toastShow('MISS'); flashBad();
-      }
-      next();
-    }
-
-    [[btnA,'ซ้าย'],[btnB,'ขวา'],[btnC,'JUMP'],[btnD,'DUCK']]
-      .forEach(([b,val])=> b.addEventListener('click', ()=>choose(val)));
-
-    next();
-  }
-
   function runChoiceWarmup(cfg){
     gameTitle.textContent = cfg.title;
     desc.textContent = cfg.desc;
@@ -1515,137 +1136,6 @@ FULL v20260307-PERGAME-WARMUP-COOLDOWN-COMBINED
     nextRound();
   }
 
-  function runMatchWarmup(cfg){
-    gameTitle.textContent = cfg.title;
-    desc.textContent = cfg.desc;
-    center.style.display='none';
-    addStageBadge(`${THEME.label} • sort`);
-
-    const card = makeCardBox({});
-    card.innerHTML = `
-      <div style="font-weight:1100;font-size:16px;">${cfg.title}</div>
-      <div class="muted" style="margin-top:6px;">${cfg.desc}</div>
-      <div id="mwTarget" style="margin-top:14px;font-size:54px;font-weight:1100;">🥦</div>
-      <div id="mwText" style="margin-top:8px;font-size:18px;font-weight:1100;">หาเพื่อนกลุ่มเดียวกัน</div>
-      <div id="mwTray" style="margin-top:14px; display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px;"></div>
-    `;
-
-    const target = card.querySelector('#mwTarget');
-    const text = card.querySelector('#mwText');
-    const tray = card.querySelector('#mwTray');
-    let cur = null;
-
-    function nextRound(){
-      if(!started) return;
-      tray.innerHTML='';
-      total++;
-      cur = randPick(cfg.rounds);
-
-      target.textContent = cur.target;
-      text.textContent = cur.prompt;
-
-      cur.options.forEach((op, idx)=>{
-        const b = DOC.createElement('button');
-        b.className='btn';
-        b.style.minHeight='82px';
-        b.style.fontSize='28px';
-        b.textContent = op.label;
-        b.addEventListener('click', ()=>{
-          if(!started) return;
-          if(idx === cur.answerIndex){
-            hitCount++;
-            score += 3;
-            streak++;
-            bestStreak = Math.max(bestStreak, streak);
-            flashGood();
-            toastShow('+3');
-          }else{
-            miss++;
-            streak = 0;
-            flashBad();
-            toastShow('MISS');
-          }
-          nextRound();
-        });
-        tray.appendChild(b);
-      });
-    }
-
-    nextRound();
-  }
-
-  function runHoldWarmup(cfg){
-    gameTitle.textContent = cfg.title;
-    desc.textContent = cfg.desc;
-    center.style.display='none';
-    addStageBadge(`${THEME.label} • hold`);
-
-    const card = makeCardBox({});
-    card.innerHTML = `
-      <div style="font-weight:1100;font-size:16px;">${cfg.title}</div>
-      <div class="muted" style="margin-top:6px;">${cfg.desc}</div>
-      <div id="hwCue" style="margin-top:14px;font-size:56px;font-weight:1100;">⚖️</div>
-      <div id="hwText" style="margin-top:8px;font-size:18px;font-weight:1100;">ค้างให้นิ่ง</div>
-      <div style="margin-top:14px;">
-        <button class="btn primary" id="hwBtn" style="min-height:64px;min-width:180px;">กดค้าง</button>
-      </div>
-      <div class="muted" style="margin-top:8px;">ค้างให้ถึงช่วงเป้าหมาย แล้วปล่อย</div>
-    `;
-
-    const cue = card.querySelector('#hwCue');
-    const text = card.querySelector('#hwText');
-    const btn = card.querySelector('#hwBtn');
-
-    let targetMs = 900;
-    let downAt = 0;
-
-    function nextRound(){
-      total++;
-      const s = randPick(cfg.steps);
-      cue.textContent = s.emo;
-      text.textContent = s.text;
-      targetMs = s.holdMs;
-    }
-
-    btn.addEventListener('pointerdown', ()=>{
-      if(!started) return;
-      downAt = performance.now();
-    });
-
-    btn.addEventListener('pointerup', ()=>{
-      if(!started || !downAt) return;
-      const held = performance.now() - downAt;
-      const diff = Math.abs(held - targetMs);
-      downAt = 0;
-
-      if(diff <= 120){
-        hitCount++;
-        score += 3;
-        perfCount++;
-        streak++;
-        bestStreak = Math.max(bestStreak, streak);
-        flashGood();
-        toastShow('PERFECT ✨');
-      }else if(diff <= 260){
-        hitCount++;
-        score += 2;
-        streak++;
-        bestStreak = Math.max(bestStreak, streak);
-        flashGood();
-        toastShow('+2');
-      }else{
-        miss++;
-        streak = 0;
-        flashBad();
-        toastShow('MISS');
-      }
-      nextRound();
-    });
-
-    btn.addEventListener('pointercancel', ()=>{ downAt = 0; });
-    nextRound();
-  }
-
   function runChoiceCooldown(cfg){
     gameTitle.textContent = cfg.title;
     desc.textContent = cfg.desc;
@@ -1671,13 +1161,11 @@ FULL v20260307-PERGAME-WARMUP-COOLDOWN-COMBINED
 
     const promptEl = card.querySelector('#ccPrompt');
     const tray = card.querySelector('#ccTray');
-
     let cur = null;
 
     function nextRound(){
       tray.innerHTML = '';
       total++;
-
       cur = randPick(cfg.rounds);
       promptEl.textContent = cur.prompt;
 
@@ -1802,7 +1290,78 @@ FULL v20260307-PERGAME-WARMUP-COOLDOWN-COMBINED
     nextStep();
   }
 
-  // -------- real warmup mechanics --------
+  function runHoldWarmup(cfg){
+    gameTitle.textContent = cfg.title;
+    desc.textContent = cfg.desc;
+    center.style.display='none';
+    addStageBadge(`${THEME.label} • hold`);
+
+    const card = makeCardBox({});
+    card.innerHTML = `
+      <div style="font-weight:1100;font-size:16px;">${cfg.title}</div>
+      <div class="muted" style="margin-top:6px;">${cfg.desc}</div>
+      <div id="hwCue" style="margin-top:14px;font-size:56px;font-weight:1100;">⚖️</div>
+      <div id="hwText" style="margin-top:8px;font-size:18px;font-weight:1100;">ค้างให้นิ่ง</div>
+      <div style="margin-top:14px;">
+        <button class="btn primary" id="hwBtn" style="min-height:64px;min-width:180px;">กดค้าง</button>
+      </div>
+      <div class="muted" style="margin-top:8px;">ค้างให้ถึงช่วงเป้าหมาย แล้วปล่อย</div>
+    `;
+
+    const cue = card.querySelector('#hwCue');
+    const text = card.querySelector('#hwText');
+    const btn = card.querySelector('#hwBtn');
+
+    let targetMs = 900;
+    let downAt = 0;
+
+    function nextRound(){
+      total++;
+      const s = randPick(cfg.steps);
+      cue.textContent = s.emo;
+      text.textContent = s.text;
+      targetMs = s.holdMs;
+    }
+
+    btn.addEventListener('pointerdown', ()=>{
+      if(!started) return;
+      downAt = performance.now();
+    });
+
+    btn.addEventListener('pointerup', ()=>{
+      if(!started || !downAt) return;
+      const held = performance.now() - downAt;
+      const diff = Math.abs(held - targetMs);
+      downAt = 0;
+
+      if(diff <= 120){
+        hitCount++;
+        score += 3;
+        perfCount++;
+        streak++;
+        bestStreak = Math.max(bestStreak, streak);
+        flashGood();
+        toastShow('PERFECT ✨');
+      }else if(diff <= 260){
+        hitCount++;
+        score += 2;
+        streak++;
+        bestStreak = Math.max(bestStreak, streak);
+        flashGood();
+        toastShow('+2');
+      }else{
+        miss++;
+        streak = 0;
+        flashBad();
+        toastShow('MISS');
+      }
+      nextRound();
+    });
+
+    btn.addEventListener('pointercancel', ()=>{ downAt = 0; });
+    nextRound();
+  }
+
   function runTapAvoidWarmup(cfg){
     gameTitle.textContent = cfg.title;
     desc.textContent = cfg.desc;
@@ -2589,7 +2148,522 @@ FULL v20260307-PERGAME-WARMUP-COOLDOWN-COMBINED
     setTimeout(spawnDirt, 400);
   }
 
-  // -------- warmup dispatcher --------
+  function runPlateBuildWarmup(cfg){
+    gameTitle.textContent = cfg.title;
+    desc.textContent = cfg.desc;
+    center.style.display='none';
+    addStageBadge(`${THEME.label} • build`);
+
+    const card = makeCardBox({ width:'min(820px,96%)' });
+    card.innerHTML = `
+      <div style="font-weight:1100;font-size:16px;">${cfg.title}</div>
+      <div class="muted" style="margin-top:6px;">${cfg.desc}</div>
+
+      <div style="margin-top:14px;display:flex;justify-content:center;">
+        <div id="pbPlate" style="position:relative;width:220px;height:220px;border-radius:999px;
+          border:2px solid rgba(148,163,184,.24);background:
+          radial-gradient(circle at 50% 50%, rgba(255,255,255,.06), rgba(2,6,23,.18));">
+          <div id="pbSlots" style="position:absolute;inset:0;"></div>
+        </div>
+      </div>
+
+      <div id="pbGoal" style="margin-top:10px;font-size:18px;font-weight:1100;">เติมหมวดที่ขาด</div>
+      <div id="pbTray" style="margin-top:14px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;"></div>
+    `;
+
+    const slots = card.querySelector('#pbSlots');
+    const goal = card.querySelector('#pbGoal');
+    const tray = card.querySelector('#pbTray');
+    let current = null;
+
+    function renderPlate(missingKey){
+      slots.innerHTML = '';
+      const map = {
+        carb:   { emo:'🍚', left:'50%', top:'72%' },
+        veg:    { emo:'🥦', left:'28%', top:'40%' },
+        protein:{ emo:'🥚', left:'72%', top:'40%' },
+        fruit:  { emo:'🍎', left:'50%', top:'18%' }
+      };
+
+      Object.entries(map).forEach(([k,v])=>{
+        const el = DOC.createElement('div');
+        el.textContent = (k === missingKey) ? '❔' : v.emo;
+        Object.assign(el.style,{
+          position:'absolute',
+          left:v.left,
+          top:v.top,
+          transform:'translate(-50%,-50%)',
+          fontSize:'34px',
+          width:'52px',
+          height:'52px',
+          borderRadius:'999px',
+          display:'grid',
+          placeItems:'center',
+          border:'1px solid rgba(148,163,184,.18)',
+          background:'rgba(2,6,23,.24)'
+        });
+        slots.appendChild(el);
+      });
+    }
+
+    function nextRound(){
+      if(!started) return;
+      total++;
+
+      current = randPick([
+        { missing:'carb', prompt:'จานนี้ขาดคาร์บ', options:[{emo:'🍚', key:'carb'},{emo:'🍟', key:'bad'},{emo:'🍬', key:'bad'},{emo:'🧁', key:'bad'}] },
+        { missing:'veg', prompt:'จานนี้ขาดผัก', options:[{emo:'🥦', key:'veg'},{emo:'🍩', key:'bad'},{emo:'🍭', key:'bad'},{emo:'🍔', key:'bad'}] },
+        { missing:'protein', prompt:'จานนี้ขาดโปรตีน', options:[{emo:'🥚', key:'protein'},{emo:'🍬', key:'bad'},{emo:'🧋', key:'bad'},{emo:'🍟', key:'bad'}] },
+        { missing:'fruit', prompt:'จานนี้ขาดผลไม้', options:[{emo:'🍎', key:'fruit'},{emo:'🍕', key:'bad'},{emo:'🍩', key:'bad'},{emo:'🍭', key:'bad'}] }
+      ]);
+
+      goal.textContent = current.prompt;
+      renderPlate(current.missing);
+      tray.innerHTML='';
+
+      current.options.forEach(op=>{
+        const b = DOC.createElement('button');
+        b.className='btn';
+        b.style.minHeight='74px';
+        b.style.fontSize='28px';
+        b.textContent = op.emo;
+        b.addEventListener('click', ()=>{
+          if(!started) return;
+          if(op.key === current.missing){
+            hitCount++;
+            score += 3;
+            streak++;
+            bestStreak = Math.max(bestStreak, streak);
+            flashGood();
+            toastShow('PLATE ✓');
+          }else{
+            miss++;
+            streak = 0;
+            flashBad();
+            toastShow('MISS');
+          }
+          nextRound();
+        });
+        tray.appendChild(b);
+      });
+    }
+
+    nextRound();
+  }
+
+  function runMaskLaneWarmup(cfg){
+    gameTitle.textContent = cfg.title;
+    desc.textContent = cfg.desc;
+    center.style.display='none';
+    addStageBadge(`${THEME.label} • safe lane`);
+
+    const card = makeCardBox({ width:'min(820px,96%)' });
+    card.innerHTML = `
+      <div style="font-weight:1100;font-size:16px;">${cfg.title}</div>
+      <div class="muted" style="margin-top:6px;">${cfg.desc}</div>
+
+      <div style="margin-top:12px;display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div>
+          <div class="muted">SAFE</div>
+          <div id="mlSafe" style="margin-top:8px;height:220px;border-radius:16px;position:relative;overflow:hidden;
+            border:1px solid rgba(148,163,184,.18);background:rgba(15,23,42,.44);"></div>
+        </div>
+        <div>
+          <div class="muted">UNSAFE</div>
+          <div id="mlUnsafe" style="margin-top:8px;height:220px;border-radius:16px;position:relative;overflow:hidden;
+            border:1px solid rgba(148,163,184,.18);background:rgba(15,23,42,.44);"></div>
+        </div>
+      </div>
+
+      <div style="margin-top:12px;display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <button class="btn primary" id="mlSafeBtn" style="min-height:58px;font-size:18px;">SAFE</button>
+        <button class="btn warn" id="mlUnsafeBtn" style="min-height:58px;font-size:18px;">UNSAFE</button>
+      </div>
+      <div class="muted" style="margin-top:8px;">กดตามเลนให้ตรงกับสถานการณ์ที่ไหลลงมา</div>
+    `;
+
+    const safeLane = card.querySelector('#mlSafe');
+    const unsafeLane = card.querySelector('#mlUnsafe');
+    const safeBtn = card.querySelector('#mlSafeBtn');
+    const unsafeBtn = card.querySelector('#mlUnsafeBtn');
+
+    let active = null;
+    let timer = 0;
+
+    const safeSet = ['😷','🧼','🤧➡️💪','↔️ เว้นระยะ'];
+    const unsafeSet = ['😮','🤧 ใส่คนอื่น','🚫🧼','👥เบียด'];
+
+    function clearActive(){
+      if(active && active.el){
+        try{ active.el.remove(); }catch(_){}
+      }
+      active = null;
+    }
+
+    function spawn(){
+      if(!started || active) return;
+      total++;
+
+      const kind = Math.random() < 0.5 ? 'safe' : 'unsafe';
+      const lane = kind === 'safe' ? safeLane : unsafeLane;
+
+      const el = DOC.createElement('div');
+      el.textContent = randPick(kind === 'safe' ? safeSet : unsafeSet);
+      Object.assign(el.style,{
+        position:'absolute',
+        left:'50%',
+        top:'-12px',
+        transform:'translateX(-50%)',
+        fontSize:'22px',
+        fontWeight:'1000',
+        padding:'8px 10px',
+        borderRadius:'12px',
+        border:'1px solid rgba(148,163,184,.18)',
+        background:'rgba(2,6,23,.46)',
+        whiteSpace:'nowrap'
+      });
+      lane.appendChild(el);
+
+      const born = performance.now();
+      const travelMs = clamp((cfg.travelMs || 1500) - (dur - tLeft)*16, 900, 1500);
+      active = { kind, el, born, travelMs, hit:false };
+
+      function step(){
+        if(!started || !active || active.el !== el) return;
+        const p = clamp((performance.now()-born)/travelMs, 0, 1);
+        el.style.top = `${p * 176}px`;
+
+        if(p >= 1){
+          if(!active.hit){
+            miss++;
+            streak = 0;
+            flashBad();
+            toastShow('MISS');
+          }
+          clearActive();
+          return;
+        }
+        requestAnimationFrame(step);
+      }
+      requestAnimationFrame(step);
+    }
+
+    function judge(which){
+      if(!started || !active) return;
+      const p = (performance.now() - active.born) / active.travelMs;
+      const correct = which === active.kind;
+      const inWindow = p >= 0.60 && p <= 0.94;
+      const perfect = p >= 0.72 && p <= 0.86;
+
+      if(correct && perfect){
+        active.hit = true;
+        hitCount++;
+        score += 3;
+        perfCount++;
+        streak++;
+        bestStreak = Math.max(bestStreak, streak);
+        flashGood();
+        toastShow('PERFECT ✨');
+        clearActive();
+      }else if(correct && inWindow){
+        active.hit = true;
+        hitCount++;
+        score += 2;
+        streak++;
+        bestStreak = Math.max(bestStreak, streak);
+        flashGood();
+        toastShow('+2');
+        clearActive();
+      }else{
+        miss++;
+        streak = 0;
+        flashBad();
+        toastShow('MISS');
+      }
+    }
+
+    safeBtn.addEventListener('click', ()=>judge('safe'));
+    unsafeBtn.addEventListener('click', ()=>judge('unsafe'));
+
+    timer = setInterval(spawn, cfg.spawnEvery || 1180);
+    teardownFns.push(()=>{ try{ clearInterval(timer); }catch(_){ } clearActive(); });
+    setTimeout(spawn, 450);
+  }
+
+  function runBrushZonesWarmup(cfg){
+    gameTitle.textContent = cfg.title;
+    desc.textContent = cfg.desc;
+    center.style.display='none';
+    addStageBadge(`${THEME.label} • mouth zones`);
+
+    const card = makeCardBox({ width:'min(820px,96%)' });
+    card.innerHTML = `
+      <div style="font-weight:1100;font-size:16px;">${cfg.title}</div>
+      <div class="muted" style="margin-top:6px;">${cfg.desc}</div>
+
+      <div style="margin-top:14px;display:flex;justify-content:center;">
+        <div id="bzMouth" style="position:relative;width:320px;height:180px;border-radius:24px;
+          border:2px solid rgba(148,163,184,.20);background:
+          linear-gradient(180deg, rgba(15,23,42,.55), rgba(2,6,23,.40));overflow:hidden;">
+        </div>
+      </div>
+
+      <div id="bzPrompt" style="margin-top:12px;font-size:18px;font-weight:1100;">ปัดโซนให้ถูก</div>
+      <div style="margin-top:12px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;">
+        <button class="btn" id="bzLeft">⬅️ ซ้าย</button>
+        <button class="btn" id="bzRight">➡️ ขวา</button>
+        <button class="btn" id="bzUp">⬆️ บน</button>
+        <button class="btn" id="bzDown">⬇️ ล่าง</button>
+      </div>
+    `;
+
+    const mouth = card.querySelector('#bzMouth');
+    const prompt = card.querySelector('#bzPrompt');
+    const btnLeft = card.querySelector('#bzLeft');
+    const btnRight = card.querySelector('#bzRight');
+    const btnUp = card.querySelector('#bzUp');
+    const btnDown = card.querySelector('#bzDown');
+
+    const zones = [
+      { key:'left',  emo:'🦷', left:'20%', top:'50%', label:'โซนซ้าย' },
+      { key:'right', emo:'🦷', left:'80%', top:'50%', label:'โซนขวา' },
+      { key:'up',    emo:'✨', left:'50%', top:'28%', label:'โซนบน' },
+      { key:'down',  emo:'✨', left:'50%', top:'72%', label:'โซนล่าง' }
+    ];
+
+    let current = null;
+    let marker = null;
+
+    function renderZone(z){
+      if(marker){ try{ marker.remove(); }catch(_){} }
+      marker = DOC.createElement('div');
+      marker.textContent = z.emo;
+      Object.assign(marker.style,{
+        position:'absolute',
+        left:z.left,
+        top:z.top,
+        transform:'translate(-50%,-50%)',
+        width:'58px',
+        height:'58px',
+        borderRadius:'999px',
+        display:'grid',
+        placeItems:'center',
+        fontSize:'30px',
+        border:'1px solid rgba(148,163,184,.18)',
+        background:'rgba(2,6,23,.34)',
+        boxShadow:'0 8px 18px rgba(0,0,0,.18)'
+      });
+      mouth.appendChild(marker);
+    }
+
+    function nextRound(){
+      if(!started) return;
+      total++;
+      current = randPick(zones);
+      renderZone(current);
+      prompt.textContent = `ปัด ${current.label}`;
+    }
+
+    function judge(which){
+      if(!started || !current) return;
+      if(which === current.key){
+        hitCount++;
+        score += 2;
+        streak++;
+        bestStreak = Math.max(bestStreak, streak);
+        flashGood();
+        toastShow('BRUSH ✓');
+      }else{
+        miss++;
+        streak = 0;
+        flashBad();
+        toastShow('MISS');
+      }
+      nextRound();
+    }
+
+    btnLeft.addEventListener('click', ()=>judge('left'));
+    btnRight.addEventListener('click', ()=>judge('right'));
+    btnUp.addEventListener('click', ()=>judge('up'));
+    btnDown.addEventListener('click', ()=>judge('down'));
+
+    nextRound();
+  }
+
+  function runClueScanWarmup(cfg){
+    gameTitle.textContent = cfg.title;
+    desc.textContent = cfg.desc;
+    center.style.display='none';
+    addStageBadge(`${THEME.label} • scan board`);
+
+    const card = makeCardBox({ width:'min(820px,96%)' });
+    card.innerHTML = `
+      <div style="font-weight:1100;font-size:16px;">${cfg.title}</div>
+      <div class="muted" style="margin-top:6px;">${cfg.desc}</div>
+      <div id="gsPrompt" style="margin-top:12px;font-size:18px;font-weight:1100;">หาเบาะแสที่น่าสงสัย</div>
+      <div id="gsGrid" style="margin-top:14px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;"></div>
+    `;
+
+    const prompt = card.querySelector('#gsPrompt');
+    const grid = card.querySelector('#gsGrid');
+
+    function nextRound(){
+      if(!started) return;
+      total++;
+      grid.innerHTML = '';
+
+      const candidates = randPick([
+        ['🧼','🦠','🍎','✨','🧴','🚪'],
+        ['🧫','🧻','🪥','✨','🪑','🍌'],
+        ['🚰','🦠','🧽','🍽️','✨','📚']
+      ]);
+
+      prompt.textContent = 'หาเบาะแสที่น่าสงสัยที่สุด';
+
+      candidates.forEach(item=>{
+        const b = DOC.createElement('button');
+        b.className='btn';
+        b.style.minHeight='78px';
+        b.style.fontSize='28px';
+        b.textContent = item;
+        b.addEventListener('click', ()=>{
+          if(!started) return;
+          const ok = (item === '🦠' || item === '🧫');
+          if(ok){
+            hitCount++;
+            score += 3;
+            streak++;
+            bestStreak = Math.max(bestStreak, streak);
+            flashGood();
+            toastShow('CLUE ✓');
+          }else{
+            miss++;
+            streak = 0;
+            flashBad();
+            toastShow('MISS');
+          }
+          nextRound();
+        });
+        grid.appendChild(b);
+      });
+    }
+
+    nextRound();
+  }
+
+  function runObstacleLaneWarmup(cfg){
+    gameTitle.textContent = cfg.title;
+    desc.textContent = cfg.desc;
+    center.style.display='none';
+    addStageBadge(`${THEME.label} • obstacle`);
+
+    const card = makeCardBox({ width:'min(820px,96%)' });
+    card.innerHTML = `
+      <div style="font-weight:1100;font-size:16px;">${cfg.title}</div>
+      <div class="muted" style="margin-top:6px;">${cfg.desc}</div>
+
+      <div id="olBoard" style="margin-top:12px;height:260px;border-radius:18px;position:relative;overflow:hidden;
+        border:1px solid rgba(148,163,184,.18);background:
+        linear-gradient(180deg, rgba(15,23,42,.55), rgba(2,6,23,.45));">
+        <div style="position:absolute;left:0;right:0;top:50%;height:2px;background:rgba(148,163,184,.14);"></div>
+        <div id="olRunner" style="position:absolute;left:20px;top:50%;transform:translateY(-50%);font-size:40px;">🦘</div>
+      </div>
+
+      <div style="margin-top:12px;display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <button class="btn primary" id="olJump" style="min-height:58px;font-size:18px;">JUMP</button>
+        <button class="btn warn" id="olDuck" style="min-height:58px;font-size:18px;">DUCK</button>
+      </div>
+      <div class="muted" style="margin-top:8px;">สิ่งกีดขวางบน = DUCK / สิ่งกีดขวางล่าง = JUMP</div>
+    `;
+
+    const board = card.querySelector('#olBoard');
+    const btnJump = card.querySelector('#olJump');
+    const btnDuck = card.querySelector('#olDuck');
+
+    let active = null;
+    let timer = 0;
+
+    function clearActive(){
+      if(active && active.el){
+        try{ active.el.remove(); }catch(_){}
+      }
+      active = null;
+    }
+
+    function spawnObstacle(){
+      if(!started || active) return;
+      total++;
+
+      const type = Math.random() < 0.5 ? 'high' : 'low';
+      const el = DOC.createElement('div');
+      el.textContent = type === 'high' ? '🪵' : '🧱';
+      Object.assign(el.style,{
+        position:'absolute',
+        right:'-10px',
+        top:type === 'high' ? '72px' : '162px',
+        fontSize:'34px',
+        transform:'translateY(-50%)'
+      });
+      board.appendChild(el);
+
+      const born = performance.now();
+      const travelMs = clamp((cfg.travelMs || 1450) - (dur - tLeft)*16, 900, 1450);
+      active = { type, el, born, travelMs, hit:false };
+
+      function step(){
+        if(!started || !active || active.el !== el) return;
+        const p = clamp((performance.now()-born)/travelMs, 0, 1);
+        el.style.right = `${p * 86}%`;
+
+        if(p >= 1){
+          if(!active.hit){
+            miss++;
+            streak = 0;
+            flashBad();
+            toastShow('CRASH');
+          }
+          clearActive();
+          return;
+        }
+        requestAnimationFrame(step);
+      }
+      requestAnimationFrame(step);
+    }
+
+    function judge(act){
+      if(!started || !active) return;
+      const p = (performance.now() - active.born) / active.travelMs;
+      const inWindow = p >= 0.64 && p <= 0.92;
+      const correct =
+        (active.type === 'high' && act === 'duck') ||
+        (active.type === 'low' && act === 'jump');
+
+      if(correct && inWindow){
+        active.hit = true;
+        hitCount++;
+        score += 3;
+        streak++;
+        bestStreak = Math.max(bestStreak, streak);
+        flashGood();
+        toastShow('CLEAR ✓');
+        clearActive();
+      }else{
+        miss++;
+        streak = 0;
+        flashBad();
+        toastShow('MISS');
+      }
+    }
+
+    btnJump.addEventListener('click', ()=>judge('jump'));
+    btnDuck.addEventListener('click', ()=>judge('duck'));
+
+    timer = setInterval(spawnObstacle, cfg.spawnEvery || 1180);
+    teardownFns.push(()=>{ try{ clearInterval(timer); }catch(_){ } clearActive(); });
+    setTimeout(spawnObstacle, 520);
+  }
+
+  // Warmup dispatcher
   function runWarmup_ByTheme(){
     if(themeKey === 'goodjunk')      return runWarmup_GoodJunk();
     if(themeKey === 'groups')        return runWarmup_Groups();
@@ -2609,9 +2683,11 @@ FULL v20260307-PERGAME-WARMUP-COOLDOWN-COMBINED
     if(themeKey === 'balance')       return runWarmup_Balance();
     if(themeKey === 'planner')       return runWarmup_Planner();
 
-    if(cat==='nutrition') return runP5_Nutrition();
-    if(cat==='hygiene')   return runP5_Hygiene();
-    return runP5_Exercise();
+    return runChoiceWarmup({
+      title: THEME.warmTitle,
+      desc: THEME.warmDesc,
+      rounds: [{ prompt:'เริ่ม', left:{label:'✅'}, right:{label:'❌'}, answer:'left' }]
+    });
   }
 
   function runWarmup_GoodJunk(){
@@ -2657,15 +2733,9 @@ FULL v20260307-PERGAME-WARMUP-COOLDOWN-COMBINED
   }
 
   function runWarmup_Plate(){
-    runChoiceWarmup({
+    runPlateBuildWarmup({
       title: THEME.warmTitle,
-      desc: 'เติมส่วนที่ขาดของจานให้สมดุลก่อนเข้า Plate',
-      rounds: [
-        { prompt:'จานนี้ขาดผัก', left:{label:'🥦'}, right:{label:'🍩'}, answer:'left' },
-        { prompt:'จานนี้ขาดโปรตีน', left:{label:'🥚'}, right:{label:'🍬'}, answer:'left' },
-        { prompt:'จานนี้ขาดผลไม้', left:{label:'🍎'}, right:{label:'🍟'}, answer:'left' },
-        { prompt:'จานนี้ขาดคาร์บ', left:{label:'🍚'}, right:{label:'🧁'}, answer:'left' }
-      ]
+      desc: 'เติมหมวดอาหารที่ขาดลงบนจานให้สมดุลก่อนเข้า Plate'
     });
   }
 
@@ -2677,48 +2747,25 @@ FULL v20260307-PERGAME-WARMUP-COOLDOWN-COMBINED
   }
 
   function runWarmup_Brush(){
-    runSequenceCooldown({
+    runBrushZonesWarmup({
       title: THEME.warmTitle,
-      desc: 'อุ่นเครื่องจังหวะการแปรงแบบซ้าย-ขวา-บน-ล่าง',
-      buttons:[
-        { key:'L', label:'ซ้าย' },
-        { key:'R', label:'ขวา' },
-        { key:'U', label:'บน' },
-        { key:'D', label:'ล่าง' }
-      ],
-      steps:[
-        { key:'L', emo:'🪥⬅️', text:'ปัดซ้าย' },
-        { key:'R', emo:'🪥➡️', text:'ปัดขวา' },
-        { key:'U', emo:'🪥⬆️', text:'ปัดบน' },
-        { key:'D', emo:'🪥⬇️', text:'ปัดล่าง' }
-      ],
-      winMs: 850
+      desc: 'แปรงให้ถูกโซนและทิศก่อนเข้า Brush'
     });
   }
 
   function runWarmup_MaskCough(){
-    runChoiceWarmup({
+    runMaskLaneWarmup({
       title: THEME.warmTitle,
-      desc: 'ตอบสนองให้ถูกก่อนเข้า Mask & Cough',
-      rounds: [
-        { prompt:'มีอาการไอ/จาม ควรเลือก?', left:{label:'🤧➡️💪'}, right:{label:'😮'}, answer:'left' },
-        { prompt:'อยู่ในที่แออัด ควรเลือก?', left:{label:'😷'}, right:{label:'😮‍💨'}, answer:'left' },
-        { prompt:'หลังไอ/จาม ควรเลือก?', left:{label:'🧼'}, right:{label:'🍭'}, answer:'left' },
-        { prompt:'เริ่มไม่สบาย ควรเลือก?', left:{label:'ป้องกัน'}, right:{label:'เข้าใกล้คนอื่น'}, answer:'left' }
-      ]
+      desc: 'แยกสถานการณ์ safe / unsafe ให้ถูก ก่อนเข้า Mask & Cough',
+      spawnEvery: 1120,
+      travelMs: 1450
     });
   }
 
   function runWarmup_GermDetective(){
-    runChoiceWarmup({
+    runClueScanWarmup({
       title: THEME.warmTitle,
-      desc: 'สแกนของต้องสงสัยก่อนเข้าภารกิจนักสืบเชื้อโรค',
-      rounds: [
-        { prompt:'อะไรน่าสงสัยกว่า?', left:{label:'ลูกบิดประตู'}, right:{label:'ผลไม้ล้างแล้ว'}, answer:'left' },
-        { prompt:'อะไรน่าสงสัยกว่า?', left:{label:'ของเล่นเปื้อน'}, right:{label:'ผ้าแห้งสะอาด'}, answer:'left' },
-        { prompt:'อะไรเสี่ยงกว่า?', left:{label:'โต๊ะเปื้อน'}, right:{label:'แก้วสะอาด'}, answer:'left' },
-        { prompt:'อะไรดูเป็นหลักฐานเชื้อ?', left:{label:'🦠'}, right:{label:'✨'}, answer:'left' }
-      ]
+      desc: 'สแกนหาเบาะแสต้องสงสัยก่อนเข้าภารกิจนักสืบเชื้อโรค'
     });
   }
 
@@ -2764,12 +2811,11 @@ FULL v20260307-PERGAME-WARMUP-COOLDOWN-COMBINED
   }
 
   function runWarmup_JumpDuck(){
-    runSequenceCooldown({
+    runObstacleLaneWarmup({
       title: THEME.warmTitle,
-      desc: 'จับคำสั่ง jump / duck ให้ตรงก่อนเข้าเกมจริง',
-      buttons:[ { key:'jump', label:'JUMP' }, { key:'duck', label:'DUCK' } ],
-      steps:[ { key:'jump', emo:'⬆️', text:'กระโดด' }, { key:'duck', emo:'⬇️', text:'หมอบ' } ],
-      winMs: 800
+      desc: 'อ่านสิ่งกีดขวางให้ไว แล้วเลือก jump / duck ให้ถูก',
+      spawnEvery: 1120,
+      travelMs: 1380
     });
   }
 
@@ -2798,7 +2844,7 @@ FULL v20260307-PERGAME-WARMUP-COOLDOWN-COMBINED
     });
   }
 
-  // -------- cooldown dispatcher --------
+  // Cooldown dispatcher
   function runCooldown_ByTheme(){
     if(themeKey === 'goodjunk')      return runCooldown_GoodJunk();
     if(themeKey === 'groups')        return runCooldown_Groups();
