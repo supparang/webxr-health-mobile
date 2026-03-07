@@ -1,11 +1,12 @@
-<!-- === /webxr-health-mobile/herohealth/germ-detective.html ===
+<!-- === /herohealth/germ-detective.html ===
 Germ Detective — ROOT LAUNCHER (PC/Mobile/cVR) — PRODUCTION
-PATCH v20260306-GD-LAUNCHER-SCENE-PRESET-QUICKSAVE
+PATCH v20260306-GD-LAUNCHER-FULL
+✅ Root launcher canonical
 ✅ Scene selector: classroom / home / canteen
 ✅ Preset: play / research
-✅ Remember last settings in localStorage
-✅ Quick Start ล่าสุด
-✅ Quick scene launch buttons
+✅ Remember last settings
+✅ Quick start ล่าสุด
+✅ Run page = ./germ-detective/germ-detective.html
 -->
 <!doctype html>
 <html lang="th">
@@ -262,7 +263,7 @@ PATCH v20260306-GD-LAUNCHER-SCENE-PRESET-QUICKSAVE
 
           <div class="hint">
             Run page จริง: <b>./germ-detective/germ-detective.html</b><br>
-            launcher นี้จะจำค่าล่าสุดไว้ในเครื่องเครื่องนั้นอัตโนมัติ
+            launcher นี้จะจำค่าล่าสุดไว้ในเครื่องนั้นอัตโนมัติ
           </div>
         </div>
 
@@ -283,7 +284,7 @@ PATCH v20260306-GD-LAUNCHER-SCENE-PRESET-QUICKSAVE
 
             <div class="mode">
               <h4>🕶️ Cardboard (cVR)</h4>
-              <p>ใช้ crosshair + แตะจอเพื่อยิง • ผ่าน <b>vr-ui.js</b> และ <b>hha:shoot</b></p>
+              <p>ใช้ crosshair + แตะจอเพื่อยิง • ผ่าน vr-ui.js และ hha:shoot</p>
               <a class="launchbtn warn" id="goCVR" href="./germ-detective/germ-detective.html">Start cVR</a>
             </div>
           </div>
@@ -312,23 +313,18 @@ PATCH v20260306-GD-LAUNCHER-SCENE-PRESET-QUICKSAVE
   function normalizeMaybeEncodedUrl(v){
     v = String(v ?? '').trim();
     if(!v || v === 'null' || v === 'undefined') return '';
-    v = v.replace(/\s+/g,'').trim();
+    v = v.replace(/\\s+/g,'').trim();
     if(/%3A|%2F|%3F|%26|%3D/i.test(v)){
       try{ v = decodeURIComponent(v); }catch(e){}
     }
     return v.trim();
   }
   function readLast(){
-    try{
-      return JSON.parse(localStorage.getItem(LS_KEY) || 'null');
-    }catch(e){
-      return null;
-    }
+    try{ return JSON.parse(localStorage.getItem(LS_KEY) || 'null'); }
+    catch{ return null; }
   }
   function saveLast(obj){
-    try{
-      localStorage.setItem(LS_KEY, JSON.stringify(obj));
-    }catch(e){}
+    try{ localStorage.setItem(LS_KEY, JSON.stringify(obj)); }catch(e){}
   }
 
   const P = {
@@ -361,7 +357,6 @@ PATCH v20260306-GD-LAUNCHER-SCENE-PRESET-QUICKSAVE
   };
 
   const last = readLast();
-
   let currentPreset = (P.run === 'research') ? 'research' : ((last && last.run) || 'play');
   let currentScene  = ['classroom','home','canteen'].includes(P.scene) ? P.scene : ((last && last.scene) || 'classroom');
 
@@ -529,10 +524,9 @@ PATCH v20260306-GD-LAUNCHER-SCENE-PRESET-QUICKSAVE
     document.getElementById('quickLastCVR').href = withLast('./germ-detective/germ-detective.html','cvr');
 
     const L = readLast();
-    const text = L
+    document.getElementById('lastHint').textContent = L
       ? `ล่าสุด: run=${L.run} • scene=${L.scene} • diff=${L.diff} • time=${L.time}s • pid=${L.pid}`
       : 'ยังไม่มีค่าล่าสุด';
-    document.getElementById('lastHint').textContent = text;
   }
 
   function persistCurrent(){
@@ -557,24 +551,17 @@ PATCH v20260306-GD-LAUNCHER-SCENE-PRESET-QUICKSAVE
     document.getElementById('quickHomeMobile').href = makeQuickScene('home','mobile');
     document.getElementById('quickCanteenCVR').href = makeQuickScene('canteen','cvr');
 
-    document.getElementById('previewBox').textContent = 'Preview URL:\n' + pc;
-
+    document.getElementById('previewBox').textContent = 'Preview URL:\\n' + pc;
     document.getElementById('hintBox').innerHTML =
       'Preset: <b>' + (currentPreset === 'research' ? 'research' : 'play') + '</b> • ' +
       'Scene: <b>' + currentScene + '</b> • ' +
-      'Base: <b>/webxr-health-mobile/herohealth/</b>';
+      'Base: <b>/herohealth/</b>';
 
     persistCurrent();
   }
 
-  document.getElementById('presetPlay').addEventListener('click', ()=>{
-    currentPreset = 'play';
-    refreshLinks();
-  });
-  document.getElementById('presetResearch').addEventListener('click', ()=>{
-    currentPreset = 'research';
-    refreshLinks();
-  });
+  document.getElementById('presetPlay').addEventListener('click', ()=>{ currentPreset = 'play'; refreshLinks(); });
+  document.getElementById('presetResearch').addEventListener('click', ()=>{ currentPreset = 'research'; refreshLinks(); });
 
   document.querySelectorAll('.sceneBtn').forEach(btn=>{
     btn.addEventListener('click', ()=>{
