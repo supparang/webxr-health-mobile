@@ -1,11 +1,14 @@
 <!-- === /herohealth/plate/plate-vr.html ===
 PlateVR — RUN PAGE (Mobile/PC/cVR) — PRODUCTION
-PATCH v20260306-PLATE-RUN-BALANCE-SUMMARY-HUDFIX
-✅ HUD mobile compact
-✅ End summary improved
-✅ AI Coach summary block
-✅ Copy / Replay / Cooldown / Back HUB
-✅ Works with /herohealth/plate/plate.safe.js
+FULL v20260307-PLATE-RUN-SOLO-FINAL
+✅ Canonical HUB sanitize
+✅ Mobile HUD polish
+✅ End summary + cooldown button
+✅ save/progression flow via plate.safe.js
+Requires:
+- /herohealth/vr/vr-ui.js
+- /herohealth/vr/ai-hooks.js
+- /herohealth/plate/plate.safe.js
 -->
 <!doctype html>
 <html lang="th">
@@ -16,7 +19,7 @@ PATCH v20260306-PLATE-RUN-BALANCE-SUMMARY-HUDFIX
   <meta name="color-scheme" content="dark light" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
-  <script type="module" src="../vr/vr-ui.js?v=20260306"></script>
+  <script type="module" src="../vr/vr-ui.js?v=20260307a"></script>
 
   <style>
     :root{
@@ -25,8 +28,8 @@ PATCH v20260306-PLATE-RUN-BALANCE-SUMMARY-HUDFIX
       --sab: env(safe-area-inset-bottom, 0px);
       --sal: env(safe-area-inset-left, 0px);
 
-      --hud-top: calc(var(--sat) + 8px);
-      --hud-bottom: calc(var(--sab) + 10px);
+      --hud-top: calc(var(--sat) + 10px);
+      --hud-bottom: calc(var(--sab) + 12px);
 
       --panel: rgba(2,6,23,.78);
       --line: rgba(148,163,184,.18);
@@ -67,12 +70,12 @@ PATCH v20260306-PLATE-RUN-BALANCE-SUMMARY-HUDFIX
       position:absolute;
       display:grid;
       place-items:center;
-      width:58px; height:58px;
+      width:56px; height:56px;
       border-radius:999px;
       background:rgba(15,23,42,.82);
       border:1px solid rgba(255,255,255,.14);
       box-shadow: 0 8px 20px rgba(2,6,23,.35);
-      font-size: 30px;
+      font-size: 28px;
       line-height:1;
       user-select:none;
       pointer-events:auto;
@@ -97,20 +100,20 @@ PATCH v20260306-PLATE-RUN-BALANCE-SUMMARY-HUDFIX
 
     .hud{
       position:absolute;
-      left:max(8px, calc(var(--sal) + 8px));
-      right:max(8px, calc(var(--sar) + 8px));
+      left:max(10px, calc(var(--sal) + 10px));
+      right:max(10px, calc(var(--sar) + 10px));
       z-index:80;
       display:grid;
       gap:8px;
       pointer-events:none;
     }
     #hudTop{ top:var(--hud-top); }
-    #hudBottom{ bottom:var(--hud-bottom); grid-template-columns:1fr; gap:8px; }
+    #hudBottom{ bottom:var(--hud-bottom); grid-template-columns:1fr; gap:10px; }
 
     .row{ display:grid; gap:8px; }
-    .row.cols-3{ grid-template-columns: 1fr 1fr 1fr; }
-    @media (max-width: 860px){
-      .row.cols-3{ grid-template-columns:1fr; }
+    .row.cols-3{ grid-template-columns: 1.15fr 1.1fr 1fr; }
+    @media (max-width: 780px){
+      .row.cols-3{ grid-template-columns: 1fr; }
     }
 
     .card{
@@ -133,19 +136,15 @@ PATCH v20260306-PLATE-RUN-BALANCE-SUMMARY-HUDFIX
       grid-template-columns: repeat(3, minmax(0,1fr));
       gap:8px;
     }
-    .stats.five{
-      grid-template-columns: repeat(5, minmax(0,1fr));
-    }
     .pill{
       background: rgba(15,23,42,.7);
       border:1px solid rgba(148,163,184,.16);
       border-radius: 999px;
-      min-height: 40px;
+      min-height: 42px;
       display:flex; align-items:center; justify-content:center;
-      gap:6px; padding: 7px 10px;
+      gap:8px; padding: 8px 10px;
       font-weight:900;
-      font-size: 12px;
-      text-align:center;
+      font-size: 13px;
     }
     .pill .v{ font-size:15px; font-weight:1000; }
     .bar{
@@ -236,9 +235,7 @@ PATCH v20260306-PLATE-RUN-BALANCE-SUMMARY-HUDFIX
     }
     #endOverlay[aria-hidden="true"]{ display:none; }
     .endCard{
-      width:min(720px, 94vw);
-      max-height:92vh;
-      overflow:auto;
+      width:min(640px, 94vw);
       border-radius: 18px;
       border:1px solid rgba(148,163,184,.18);
       background: rgba(2,6,23,.82);
@@ -261,7 +258,6 @@ PATCH v20260306-PLATE-RUN-BALANCE-SUMMARY-HUDFIX
     }
     .endItem .k{ font-size:12px; opacity:.82; font-weight:900; }
     .endItem .v{ margin-top:4px; font-size:18px; font-variant-numeric: tabular-nums; }
-
     .endActions{
       margin-top: 12px;
       display:flex;
@@ -271,24 +267,68 @@ PATCH v20260306-PLATE-RUN-BALANCE-SUMMARY-HUDFIX
     }
     .is-hidden{ display:none !important; }
 
-    @media (max-width: 520px){
-      .stats{ grid-template-columns:1fr 1fr 1fr; }
-      .stats.five{ grid-template-columns:repeat(5,minmax(0,1fr)); }
-      .pill{ font-size:11px; min-height:36px; padding:6px 8px; }
-      #hudBottom .card{
-        padding:8px 10px;
+    @media (max-width: 640px){
+      #hudTop{
+        left: max(6px, calc(var(--sal) + 6px));
+        right: max(6px, calc(var(--sar) + 6px));
+        gap: 6px;
       }
-      #hudBottom .card div[style*="margin-top:6px"]{
-        font-size:13px !important;
+      .card{
+        padding: 8px 10px;
+        border-radius: 14px;
       }
-      #hudBottom .card div[style*="font-size:12px"]{
-        font-size:11px !important;
+      .card h4{
+        font-size: 11px;
+        margin-bottom: 6px;
+      }
+      .pill{
+        min-height: 36px;
+        padding: 6px 8px;
+        font-size: 11.5px;
+        gap: 6px;
+      }
+      .pill .v{
+        font-size: 13px;
+      }
+      .bar{
+        height: 8px;
+      }
+      .btn{
+        min-height: 38px;
+        padding: 8px 10px;
+        font-size: 12px;
       }
     }
 
-    @media (max-width: 420px){
-      #hudBottom .card{ display:none; }
-      .endGrid{ grid-template-columns:1fr; }
+    @media (max-width: 520px){
+      #hudTop .stats[style*="repeat(5"]{
+        grid-template-columns: repeat(3, minmax(0,1fr)) !important;
+      }
+    }
+
+    @media (max-height: 760px) and (max-width: 640px){
+      #hudBottom .card{
+        display:none;
+      }
+    }
+
+    @media (max-width: 640px){
+      .endCard{
+        width: min(96vw, 640px);
+        padding: 12px;
+      }
+      .endGrid{
+        grid-template-columns: 1fr;
+        gap: 8px;
+      }
+      .endItem .k{ font-size: 11px; }
+      .endItem .v{ font-size: 16px; }
+      .endActions{
+        justify-content: stretch;
+      }
+      .endActions .btn{
+        flex: 1 1 100%;
+      }
     }
   </style>
 </head>
@@ -296,6 +336,7 @@ PATCH v20260306-PLATE-RUN-BALANCE-SUMMARY-HUDFIX
 <body>
   <div id="app">
     <div id="world" aria-hidden="true"></div>
+
     <div id="plate-layer" aria-label="plate targets layer"></div>
 
     <div id="hudTop" class="hud">
@@ -310,7 +351,7 @@ PATCH v20260306-PLATE-RUN-BALANCE-SUMMARY-HUDFIX
         </div>
 
         <div class="card">
-          <h4>ภารกิจจานสมดุล</h4>
+          <h4>จาน 5 หมู่ / ความแม่นยำ / เกรด</h4>
           <div class="stats">
             <div class="pill">🍽️ <span id="uiPlateHave" class="v">0</span>/5</div>
             <div class="pill">🎯 <span id="uiAcc" class="v">0%</span></div>
@@ -343,8 +384,8 @@ PATCH v20260306-PLATE-RUN-BALANCE-SUMMARY-HUDFIX
 
       <div class="row">
         <div class="card">
-          <h4>สถานะในจาน</h4>
-          <div class="stats five">
+          <h4>จำนวนที่เก็บได้ (5 หมู่)</h4>
+          <div class="stats" style="grid-template-columns:repeat(5,minmax(0,1fr));">
             <div class="pill">🐟 <span id="uiG1" class="v">0</span></div>
             <div class="pill">🍚 <span id="uiG2" class="v">0</span></div>
             <div class="pill">🥦 <span id="uiG3" class="v">0</span></div>
@@ -358,9 +399,9 @@ PATCH v20260306-PLATE-RUN-BALANCE-SUMMARY-HUDFIX
     <div id="hudBottom" class="hud">
       <div class="card">
         <div style="font-weight:1000">🧑‍🏫 Coach</div>
-        <div id="coachMsg" style="margin-top:6px;font-weight:1000">พร้อมลุย! จัดจานให้สมดุล 💪</div>
+        <div id="coachMsg" style="margin-top:6px;font-weight:1000">พร้อมลุย! เติมจานให้ครบ 5 หมู่ 💪</div>
         <div style="font-size:12px;opacity:.85;margin-top:4px;">
-          เป้าหมายไม่ใช่แค่ “รู้หมู่” แต่ต้อง “เลือกให้จานสมดุล”
+          ยิง/แตะ = โดนเป้า • cVR/VR = ยิงจาก crosshair (vr-ui.js)
         </div>
       </div>
 
@@ -383,16 +424,6 @@ PATCH v20260306-PLATE-RUN-BALANCE-SUMMARY-HUDFIX
           <div class="endItem"><div class="k">WRONG</div><div class="v" id="endWrong">0</div></div>
         </div>
 
-        <div class="endItem" style="margin-top:10px;">
-          <div class="k">AI Coach (Explainable)</div>
-          <div class="v" style="font-size:14px; margin-top:8px; line-height:1.4;">
-            <div>เหตุผลหลัก 1: <b id="aiReason1">—</b></div>
-            <div style="margin-top:4px;">เหตุผลหลัก 2: <b id="aiReason2">—</b></div>
-            <div style="margin-top:8px;">ทริคครั้งหน้า:</div>
-            <div style="margin-top:4px;"><b id="aiFixTxt">—</b></div>
-          </div>
-        </div>
-
         <div class="endActions">
           <button class="btn" id="btnCopy">Copy Summary</button>
           <button class="btn" id="btnReplay">Replay</button>
@@ -407,13 +438,33 @@ PATCH v20260306-PLATE-RUN-BALANCE-SUMMARY-HUDFIX
     import { createAIHooks } from '../vr/ai-hooks.js';
     import { boot as bootPlate } from './plate.safe.js';
 
+    function normalizeHub(raw){
+      raw = String(raw || '').trim();
+      const DEFAULT = '../hub.html';
+      if(!raw) return DEFAULT;
+
+      try{
+        const u = new URL(raw, location.href);
+        u.pathname = u.pathname
+          .replace('/herohealth/vr-plate/hub.html', '/herohealth/hub.html')
+          .replace('/herohealth/plate/hub.html', '/herohealth/hub.html')
+          .replace('/vr-plate/hub.html', '/hub.html')
+          .replace('/plate/hub.html', '/hub.html');
+        return u.toString();
+      }catch(_){
+        return DEFAULT;
+      }
+    }
+
     const U = new URL(location.href);
     const runMode = String(U.searchParams.get('run') || 'play').toLowerCase();
     const diff = String(U.searchParams.get('diff') || 'normal').toLowerCase();
     const view = String(U.searchParams.get('view') || 'mobile').toLowerCase();
     const seed = U.searchParams.get('seed') ?? String((Date.now() ^ (Math.random()*1e9))|0);
     const pro  = (U.searchParams.get('pro') === '1');
-    const hub  = String(U.searchParams.get('hub') || '../hub.html');
+    const hub = normalizeHub(U.searchParams.get('hub'));
+
+    if(view) document.body.setAttribute('data-view', view);
 
     const ai = createAIHooks({
       seed: String(seed),
@@ -442,7 +493,7 @@ PATCH v20260306-PLATE-RUN-BALANCE-SUMMARY-HUDFIX
     btnRestart?.addEventListener('click', ()=>{
       try{
         const u = new URL(location.href);
-        if(runMode!=='research') u.searchParams.set('seed', String((Date.now() ^ (Math.random()*1e9))|0));
+        if(runMode !== 'research') u.searchParams.set('seed', String((Date.now() ^ (Math.random()*1e9))|0));
         location.href = u.toString();
       }catch(e){ location.reload(); }
     });
@@ -452,19 +503,6 @@ PATCH v20260306-PLATE-RUN-BALANCE-SUMMARY-HUDFIX
     const proTag = document.getElementById('uiProTag');
     if(proTag) proTag.textContent = pro ? 'ON' : 'OFF';
 
-    window.addEventListener('hha:game-ended', (e)=>{
-      const s = e?.detail || null;
-      if(!s) return;
-      const reasons = Array.isArray(s.aiExplainTop2) ? s.aiExplainTop2 : [];
-      const aiReason1 = document.getElementById('aiReason1');
-      const aiReason2 = document.getElementById('aiReason2');
-      const aiFixTxt = document.getElementById('aiFixTxt');
-
-      if(aiReason1) aiReason1.textContent = reasons[0] || '—';
-      if(aiReason2) aiReason2.textContent = reasons[1] || '—';
-      if(aiFixTxt)  aiFixTxt.textContent  = s.aiFixTip || '—';
-    }, { passive:true });
-
     bootPlate({
       mount: document.getElementById('plate-layer'),
       view, run: runMode, diff,
@@ -472,7 +510,7 @@ PATCH v20260306-PLATE-RUN-BALANCE-SUMMARY-HUDFIX
       seed,
       pid: String(U.searchParams.get('pid') || 'anon'),
       hub,
-      cooldown: (U.searchParams.get('cooldown')==='1' || U.searchParams.get('cd')==='1'),
+      cooldown: (U.searchParams.get('cooldown') === '1' || U.searchParams.get('cd') === '1'),
       mode: String(U.searchParams.get('mode') || 'classroom'),
       pro,
       ai
