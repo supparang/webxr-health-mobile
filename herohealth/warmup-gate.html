@@ -1,17 +1,19 @@
 <!-- === /herohealth/warmup-gate.html ===
 HeroHealth Warmup/Cooldown Gate — PER-GAME DAILY FULL
-FULL v20260307-PERGAME-WARMUP-COOLDOWN
+FULL v20260307-PERGAME-WARMUP-COOLDOWN-SKINBUFF
 ✅ DAILY = cat + game + pid + day (per-game daily)
 ✅ warmup/cooldown once-per-day per PID+category+game
 ✅ all zones + all games themed
-✅ warmup end -> pass buffs (wType/wPct/wCrit/wDmg/wHeal/rank/calm) into next URL
+✅ warmup end -> pass buffs (wType/wPct/wCrit/wDmg/wHeal/rank/calm + game-specific keys) into next URL
 ✅ cooldown end -> return hub / chain next
 ✅ canonical hub resolver (GitHub Pages safe)
 ✅ P5 mode = richer mini-games
 ✅ Non-P5 mode = lightweight themed mini-games
-✅ NEW: per-game warmup dispatcher
-✅ NEW: per-game cooldown dispatcher
-✅ NEW: hitCount-based accuracy (no score-based ACC inflation)
+✅ per-game warmup dispatcher
+✅ per-game cooldown dispatcher
+✅ hitCount-based accuracy (no score-based ACC inflation)
+✅ stage skin / badge per game
+✅ summarized buff display
 -->
 <!doctype html>
 <html lang="th">
@@ -485,6 +487,26 @@ FULL v20260307-PERGAME-WARMUP-COOLDOWN
     planner:       { zone:'exercise',  label:'Fitness Planner',icon:'📅', warmTitle:'Warmup — Planner Choices',       coolTitle:'Cooldown — Planner Reflection',    warmDesc:'อุ่นเครื่องเลือกทางเลือกการฝึกให้เหมาะสม', coolDesc:'ทบทวนร่างกายและแผนการฝึกอย่างผ่อนคลาย' }
   };
 
+  const THEME_SKIN = {
+    goodjunk:      { tint:'rgba(34,197,94,.10)', glow:'rgba(34,197,94,.18)', deco:['🍎','🥦','🍌','🥕'] },
+    groups:        { tint:'rgba(59,130,246,.10)', glow:'rgba(59,130,246,.18)', deco:['🥚','🍚','🥦','🍎'] },
+    hydration:     { tint:'rgba(34,211,238,.10)', glow:'rgba(34,211,238,.18)', deco:['💧','🫗','🧊','🍉'] },
+    plate:         { tint:'rgba(245,158,11,.10)', glow:'rgba(245,158,11,.18)', deco:['🍽️','🥚','🥦','🍚'] },
+
+    handwash:      { tint:'rgba(59,130,246,.10)', glow:'rgba(34,211,238,.18)', deco:['🧼','🫧','🚿','🖐️'] },
+    brush:         { tint:'rgba(168,85,247,.10)', glow:'rgba(168,85,247,.18)', deco:['🪥','✨','🦷','🌙'] },
+    maskcough:     { tint:'rgba(14,165,233,.10)', glow:'rgba(14,165,233,.18)', deco:['😷','🫁','🧼','💨'] },
+    germdetective: { tint:'rgba(236,72,153,.10)', glow:'rgba(236,72,153,.18)', deco:['🦠','🔎','🧫','⚠️'] },
+    bath:          { tint:'rgba(6,182,212,.10)', glow:'rgba(6,182,212,.18)', deco:['🛁','🫧','🚿','🧽'] },
+    clean:         { tint:'rgba(16,185,129,.10)', glow:'rgba(16,185,129,.18)', deco:['✨','🧽','🪣','🧴'] },
+
+    shadow:        { tint:'rgba(239,68,68,.10)', glow:'rgba(239,68,68,.18)', deco:['🥊','⚡','⬅️','➡️'] },
+    rhythm:        { tint:'rgba(168,85,247,.10)', glow:'rgba(168,85,247,.18)', deco:['🎵','🎶','🥁','✨'] },
+    jumpduck:      { tint:'rgba(251,146,60,.10)', glow:'rgba(251,146,60,.18)', deco:['🦘','⬆️','⬇️','⚡'] },
+    balance:       { tint:'rgba(234,179,8,.10)', glow:'rgba(234,179,8,.18)', deco:['⚖️','🧍','✨','↔️'] },
+    planner:       { tint:'rgba(99,102,241,.10)', glow:'rgba(99,102,241,.18)', deco:['📅','💧','🤸','🛌'] }
+  };
+
   function zoneThemePool(category){
     const c = String(category || '').toLowerCase();
     if(c === 'nutrition') return ['goodjunk','groups','hydration','plate'];
@@ -584,6 +606,64 @@ FULL v20260307-PERGAME-WARMUP-COOLDOWN
   const btnToHub=$('btnToHub'), btnContinue=$('btnContinue');
   const missionWrap=$('missionWrap');
 
+  function getThemeSkin(){
+    return THEME_SKIN[themeKey] || { tint:'rgba(34,211,238,.08)', glow:'rgba(167,139,250,.16)', deco:['⚡','✨','🎯','💫'] };
+  }
+
+  function applyStageSkin(){
+    const skin = getThemeSkin();
+
+    stage.style.background = `
+      radial-gradient(700px 320px at 50% 10%, ${skin.glow}, transparent 70%),
+      linear-gradient(180deg, ${skin.tint}, rgba(2,6,23,.03))
+    `;
+
+    stage.querySelectorAll('.theme-deco').forEach(el=>el.remove());
+
+    const spots = [
+      { left:'6%',  top:'18%' },
+      { left:'84%', top:'16%' },
+      { left:'10%', top:'72%' },
+      { left:'82%', top:'74%' }
+    ];
+
+    skin.deco.forEach((emo, i)=>{
+      const d = DOC.createElement('div');
+      d.className = 'theme-deco';
+      d.textContent = emo;
+      d.style.position = 'absolute';
+      d.style.left = spots[i % spots.length].left;
+      d.style.top = spots[i % spots.length].top;
+      d.style.fontSize = '30px';
+      d.style.opacity = '.14';
+      d.style.filter = 'drop-shadow(0 6px 18px rgba(0,0,0,.20))';
+      d.style.pointerEvents = 'none';
+      d.style.zIndex = '1';
+      stage.appendChild(d);
+    });
+  }
+
+  function getThemeHint(){
+    const map = {
+      goodjunk:'โฟกัสอาหารดีและหลบของล่อ',
+      groups:'โฟกัสการแยกหมู่อาหารให้ไว',
+      hydration:'โฟกัสน้ำและการเลือกสิ่งที่ช่วย hydration',
+      plate:'โฟกัสความสมดุลของจานอาหาร',
+      handwash:'โฟกัสจุดสกปรกและลำดับการทำความสะอาด',
+      brush:'โฟกัสจังหวะและทิศทางการแปรง',
+      maskcough:'โฟกัสการตัดสินใจป้องกันให้ถูกจังหวะ',
+      germdetective:'โฟกัสการสังเกตสิ่งต้องสงสัย',
+      bath:'โฟกัสลำดับทำความสะอาดร่างกาย',
+      clean:'โฟกัสการแยกของสะอาด/ไม่สะอาด',
+      shadow:'โฟกัสรีแอคชันซ้าย/ขวา',
+      rhythm:'โฟกัส timing ตาม beat',
+      jumpduck:'โฟกัสคำสั่งกระโดด/หมอบ',
+      balance:'โฟกัสการคุมจังหวะและนิ่งให้พอดี',
+      planner:'โฟกัสการเลือกแผนอย่างเหมาะสม'
+    };
+    return map[themeKey] || 'โฟกัสทักษะหลักของเกมนี้';
+  }
+
   function flashGood(){ flash.className='flash good'; flash.style.opacity='1'; setTimeout(()=>flash.style.opacity='0',120); }
   function flashBad(){  flash.className='flash bad';  flash.style.opacity='1'; setTimeout(()=>flash.style.opacity='0',120); }
   function toastShow(text){
@@ -675,21 +755,130 @@ FULL v20260307-PERGAME-WARMUP-COOLDOWN
     hint.textContent = (phase==='cooldown')
       ? `ผ่อนคลายปิดรอบของ ${THEME.label}`
       : `เตรียมความพร้อมก่อนเข้า ${THEME.label}`;
+    applyStageSkin();
   }
 
   function makeWarmupBuff(){
     const acc = (hitCount>0 && total>0) ? (hitCount/Math.max(1,total)) : 0;
     const pctBuff = Math.round(clamp(acc*100, 5, 30));
     const rank = (acc>=0.88) ? 'S' : (acc>=0.74) ? 'A' : (acc>=0.60) ? 'B' : 'C';
-
-    let wCrit=0, wDmg=0, wHeal=0;
-    if(['hydration','handwash','maskcough','bath','clean'].includes(themeKey)) wHeal = 1;
-    else if(['shadow','rhythm','jumpduck','balance'].includes(themeKey)) wDmg = 1;
-    else wCrit = 1;
-
     const bonus = (missions.doneCount>=2) ? 5 : 0;
     const finalPct = clamp(pctBuff + bonus, 5, 30);
-    return { wType:'warmup', wPct:finalPct, rank, wCrit, wDmg, wHeal };
+
+    const buff = {
+      wType:'warmup',
+      wPct:finalPct,
+      rank,
+      wCrit:0,
+      wDmg:0,
+      wHeal:0
+    };
+
+    switch(themeKey){
+      case 'goodjunk':
+        buff.wCrit = 1;
+        buff.foodFocus = 'good';
+        buff.reactionBias = 'healthy';
+        break;
+      case 'groups':
+        buff.wCrit = 1;
+        buff.groupFocus = 'sort';
+        buff.memoryBoost = 'food-groups';
+        break;
+      case 'hydration':
+        buff.wHeal = 1;
+        buff.hydrationFocus = 'water';
+        buff.calm = 1;
+        break;
+      case 'plate':
+        buff.wCrit = 1;
+        buff.balanceFocus = 'plate';
+        buff.planBoost = 'portion';
+        break;
+      case 'handwash':
+        buff.wHeal = 1;
+        buff.cleanFocus = 'hands';
+        buff.germGuard = 1;
+        break;
+      case 'brush':
+        buff.wCrit = 1;
+        buff.rhythmFocus = 'brush';
+        buff.patternReady = 1;
+        break;
+      case 'maskcough':
+        buff.wHeal = 1;
+        buff.guardFocus = 'mask';
+        buff.safeResponse = 1;
+        break;
+      case 'germdetective':
+        buff.wCrit = 1;
+        buff.detectiveFocus = 'scan';
+        buff.scanReady = 1;
+        break;
+      case 'bath':
+        buff.wHeal = 1;
+        buff.cleanFocus = 'body';
+        buff.resetBody = 1;
+        break;
+      case 'clean':
+        buff.wCrit = 1;
+        buff.cleanFocus = 'objects';
+        buff.sortReady = 1;
+        break;
+      case 'shadow':
+        buff.wDmg = 1;
+        buff.moveFocus = 'lr';
+        buff.comboReady = 1;
+        break;
+      case 'rhythm':
+        buff.wDmg = 1;
+        buff.rhythmFocus = 'beat';
+        buff.timingReady = 1;
+        break;
+      case 'jumpduck':
+        buff.wDmg = 1;
+        buff.moveFocus = 'jumpduck';
+        buff.reflexReady = 1;
+        break;
+      case 'balance':
+        buff.wDmg = 1;
+        buff.balanceFocus = 'center';
+        buff.steadyReady = 1;
+        break;
+      case 'planner':
+        buff.wHeal = 1;
+        buff.planFocus = 'fitness';
+        buff.choiceReady = 1;
+        break;
+      default:
+        buff.wCrit = 1;
+        break;
+    }
+
+    return buff;
+  }
+
+  function summarizeBuff(buff){
+    if(!buff || !Object.keys(buff).length) return '—';
+
+    const tags = [];
+    if(buff.rank) tags.push(`Rank ${buff.rank}`);
+    if(buff.wPct != null) tags.push(`+${buff.wPct}%`);
+    if(buff.wCrit) tags.push('Crit');
+    if(buff.wDmg) tags.push('Dmg');
+    if(buff.wHeal) tags.push('Heal');
+
+    if(buff.foodFocus) tags.push('Healthy Focus');
+    if(buff.groupFocus) tags.push('Sort Ready');
+    if(buff.hydrationFocus) tags.push('Hydration');
+    if(buff.balanceFocus) tags.push('Balance');
+    if(buff.cleanFocus) tags.push('Clean');
+    if(buff.guardFocus) tags.push('Guard');
+    if(buff.rhythmFocus) tags.push('Rhythm');
+    if(buff.moveFocus) tags.push('Move');
+    if(buff.planFocus) tags.push('Plan');
+
+    return tags.slice(0,4).join(' • ');
   }
 
   function applyPlanSeqParams(u){
@@ -771,7 +960,7 @@ FULL v20260307-PERGAME-WARMUP-COOLDOWN
     endAcc.textContent   = a + '%';
     endStreak.textContent= String(bestStreak);
     endMissions.textContent = `${missions.doneCount}/3`;
-    endBuff.textContent  = Object.keys(buff).length ? Object.keys(buff).join(',') : '—';
+    endBuff.textContent  = summarizeBuff(buff);
     endNext.textContent  = nextUrl ? 'YES' : 'HUB';
     endMsg.textContent =
       (phase==='cooldown')
@@ -827,6 +1016,28 @@ FULL v20260307-PERGAME-WARMUP-COOLDOWN
     return pad;
   }
 
+  function addStageBadge(text){
+    const badge = DOC.createElement('div');
+    badge.className = 'theme-badge';
+    badge.textContent = text;
+    Object.assign(badge.style,{
+      position:'absolute',
+      right:'12px',
+      bottom:'12px',
+      zIndex:'3',
+      border:'1px solid rgba(148,163,184,.18)',
+      background:'rgba(2,6,23,.42)',
+      borderRadius:'999px',
+      padding:'6px 10px',
+      fontSize:'11px',
+      fontWeight:'1000',
+      color:'rgba(229,231,235,.84)',
+      pointerEvents:'none'
+    });
+    stage.appendChild(badge);
+    teardownFns.push(()=>{ try{ badge.remove(); }catch(_){} });
+  }
+
   function makeCardBox(opts){
     const card=DOC.createElement('div');
     Object.assign(card.style,{
@@ -836,7 +1047,8 @@ FULL v20260307-PERGAME-WARMUP-COOLDOWN
       borderRadius:'18px',
       border:'1px solid rgba(148,163,184,.18)',
       background:'rgba(2,6,23,.50)',
-      textAlign:'center'
+      textAlign:'center',
+      zIndex:'2'
     });
     stage.appendChild(card);
     return card;
@@ -846,6 +1058,7 @@ FULL v20260307-PERGAME-WARMUP-COOLDOWN
     gameTitle.textContent = opts.title;
     desc.textContent = opts.desc;
     center.style.display='none';
+    addStageBadge(`${THEME.label} • rush`);
 
     const board=DOC.createElement('div');
     Object.assign(board.style,{
@@ -854,7 +1067,8 @@ FULL v20260307-PERGAME-WARMUP-COOLDOWN
       border:'1px solid rgba(148,163,184,.18)',
       borderRadius:'18px',
       background:'rgba(2,6,23,.36)',
-      overflow:'hidden'
+      overflow:'hidden',
+      zIndex:'2'
     });
     stage.appendChild(board);
 
@@ -1022,13 +1236,15 @@ FULL v20260307-PERGAME-WARMUP-COOLDOWN
     gameTitle.textContent = THEME.warmTitle;
     desc.textContent = THEME.warmDesc;
     center.style.display='none';
+    addStageBadge(`${THEME.label} • scan`);
 
     const board=DOC.createElement('div');
     Object.assign(board.style,{
       position:'absolute',left:'50%',top:'50%',transform:'translate(-50%,-52%)',
       width:'min(620px,92%)',height:'min(360px,54vh)',
       border:'1px solid rgba(148,163,184,.18)',borderRadius:'18px',
-      background:'rgba(2,6,23,.36)',overflow:'hidden'
+      background:'rgba(2,6,23,.36)',overflow:'hidden',
+      zIndex:'2'
     });
     stage.appendChild(board);
 
@@ -1147,13 +1363,15 @@ FULL v20260307-PERGAME-WARMUP-COOLDOWN
     gameTitle.textContent = THEME.warmTitle;
     desc.textContent = THEME.warmDesc;
     center.style.display='none';
+    addStageBadge(`${THEME.label} • coach`);
 
     const card=DOC.createElement('div');
     Object.assign(card.style,{
       position:'absolute',left:'50%',top:'50%',transform:'translate(-50%,-52%)',
       width:'min(620px,92%)',padding:'14px',
       borderRadius:'18px',border:'1px solid rgba(148,163,184,.18)',
-      background:'rgba(2,6,23,.50)',textAlign:'center'
+      background:'rgba(2,6,23,.50)',textAlign:'center',
+      zIndex:'2'
     });
     card.innerHTML = `
       <div class="muted" style="font-weight:1100;">${THEME.label} Coach Calls</div>
@@ -1166,12 +1384,14 @@ FULL v20260307-PERGAME-WARMUP-COOLDOWN
     const pad=mkPad(2);
     const btnA=mkBtn('ซ้าย'); const btnB=mkBtn('ขวา');
     btnA.style.padding='14px 12px'; btnB.style.padding='14px 12px';
+    btnA.style.zIndex='2'; btnB.style.zIndex='2';
     pad.appendChild(btnA); pad.appendChild(btnB);
 
     const pad2=mkPad(2);
     pad2.style.bottom='64px';
     const btnC=mkBtn('JUMP'); const btnD=mkBtn('DUCK');
     btnC.style.padding='14px 12px'; btnD.style.padding='14px 12px';
+    btnC.style.zIndex='2'; btnD.style.zIndex='2';
     pad2.appendChild(btnC); pad2.appendChild(btnD);
 
     const cmds = [
@@ -1225,6 +1445,7 @@ FULL v20260307-PERGAME-WARMUP-COOLDOWN
     gameTitle.textContent = cfg.title;
     desc.textContent = cfg.desc;
     center.style.display='none';
+    addStageBadge(`${THEME.label} • warmup`);
 
     const card = makeCardBox({});
     card.innerHTML = `
@@ -1289,6 +1510,7 @@ FULL v20260307-PERGAME-WARMUP-COOLDOWN
     gameTitle.textContent = cfg.title;
     desc.textContent = cfg.desc;
     center.style.display='none';
+    addStageBadge(`${THEME.label} • sort`);
 
     const card = makeCardBox({});
     card.innerHTML = `
@@ -1347,6 +1569,7 @@ FULL v20260307-PERGAME-WARMUP-COOLDOWN
     gameTitle.textContent = cfg.title;
     desc.textContent = cfg.desc;
     center.style.display='none';
+    addStageBadge(`${THEME.label} • hold`);
 
     const card = makeCardBox({});
     card.innerHTML = `
@@ -1418,13 +1641,15 @@ FULL v20260307-PERGAME-WARMUP-COOLDOWN
     gameTitle.textContent = cfg.title;
     desc.textContent = cfg.desc;
     center.style.display='none';
+    addStageBadge(`${THEME.label} • cooldown`);
 
     const card=DOC.createElement('div');
     Object.assign(card.style,{
       position:'absolute',left:'50%',top:'50%',transform:'translate(-50%,-52%)',
       width:'min(700px,94%)',padding:'14px',
       borderRadius:'18px',border:'1px solid rgba(148,163,184,.18)',
-      background:'rgba(2,6,23,.50)',textAlign:'center'
+      background:'rgba(2,6,23,.50)',textAlign:'center',
+      zIndex:'2'
     });
 
     card.innerHTML = `
@@ -1445,7 +1670,6 @@ FULL v20260307-PERGAME-WARMUP-COOLDOWN
       total++;
 
       cur = randPick(cfg.rounds);
-
       promptEl.textContent = cur.prompt;
 
       const left = DOC.createElement('button');
@@ -1492,13 +1716,15 @@ FULL v20260307-PERGAME-WARMUP-COOLDOWN
     gameTitle.textContent = cfg.title;
     desc.textContent = cfg.desc;
     center.style.display='none';
+    addStageBadge(`${THEME.label} • rhythm`);
 
     const card=DOC.createElement('div');
     Object.assign(card.style,{
       position:'absolute',left:'50%',top:'50%',transform:'translate(-50%,-52%)',
       width:'min(680px,94%)',padding:'14px',
       borderRadius:'18px',border:'1px solid rgba(148,163,184,.18)',
-      background:'rgba(2,6,23,.50)',textAlign:'center'
+      background:'rgba(2,6,23,.50)',textAlign:'center',
+      zIndex:'2'
     });
 
     card.innerHTML = `
@@ -1571,13 +1797,15 @@ FULL v20260307-PERGAME-WARMUP-COOLDOWN
     gameTitle.textContent = title;
     desc.textContent = descText;
     center.style.display='none';
+    addStageBadge(`${THEME.label} • breathe`);
 
     const card=DOC.createElement('div');
     Object.assign(card.style,{
       position:'absolute',left:'50%',top:'50%',transform:'translate(-50%,-52%)',
       width:'min(620px,92%)',padding:'14px',
       borderRadius:'18px',border:'1px solid rgba(148,163,184,.18)',
-      background:'rgba(2,6,23,.50)',textAlign:'center'
+      background:'rgba(2,6,23,.50)',textAlign:'center',
+      zIndex:'2'
     });
     card.innerHTML = `
       <div style="font-weight:1100;font-size:16px;">${title}</div>
@@ -1648,7 +1876,6 @@ FULL v20260307-PERGAME-WARMUP-COOLDOWN
     stageAnimRaf = requestAnimationFrame(step);
   }
 
-  // Warmup dispatcher + implementations
   function runWarmup_ByTheme(){
     if(themeKey === 'goodjunk')      return runWarmup_GoodJunk();
     if(themeKey === 'groups')        return runWarmup_Groups();
@@ -1840,7 +2067,6 @@ FULL v20260307-PERGAME-WARMUP-COOLDOWN
     });
   }
 
-  // Cooldown dispatcher + implementations
   function runCooldown_ByTheme(){
     if(themeKey === 'goodjunk')      return runCooldown_GoodJunk();
     if(themeKey === 'groups')        return runCooldown_Groups();
@@ -2080,7 +2306,8 @@ FULL v20260307-PERGAME-WARMUP-COOLDOWN
     Object.assign(card.style,{
       position:'absolute',left:'50%',top:'50%',transform:'translate(-50%,-55%)',
       width:'min(520px,92%)',padding:'14px',borderRadius:'18px',border:'1px solid rgba(148,163,184,.18)',
-      background:'rgba(2,6,23,.50)',textAlign:'center'
+      background:'rgba(2,6,23,.50)',textAlign:'center',
+      zIndex:'2'
     });
     card.innerHTML = `
       <div style="font-weight:1100;font-size:16px;">${THEME.warmTitle}</div>
@@ -2127,6 +2354,10 @@ FULL v20260307-PERGAME-WARMUP-COOLDOWN
       ? `Cooldown ของ ${THEME.label} — วันละครั้งต่อเกม`
       : `${THEME.label} Warmup — วันละครั้งต่อเกม`;
 
+    desc.textContent = (phase==='cooldown')
+      ? `${THEME.coolDesc} • ${getThemeHint()}`
+      : `${THEME.warmDesc} • ${getThemeHint()}`;
+
     raf = requestAnimationFrame(tick);
   }
 
@@ -2157,7 +2388,9 @@ FULL v20260307-PERGAME-WARMUP-COOLDOWN
   big.textContent = THEME.icon || '⚡';
   hint.textContent = (phase==='cooldown') ? THEME.coolDesc : THEME.warmDesc;
   gameTitle.textContent = (phase==='cooldown') ? THEME.coolTitle : THEME.warmTitle;
-  desc.textContent = (phase==='cooldown') ? THEME.coolDesc : THEME.warmDesc;
+  desc.textContent = (phase==='cooldown')
+    ? `${THEME.coolDesc} • ${getThemeHint()}`
+    : `${THEME.warmDesc} • ${getThemeHint()}`;
 
   btnStart.addEventListener('click', (e)=>{ e.preventDefault(); start(); });
   btnSkip.addEventListener('click', (e)=>{ e.preventDefault(); skip(); });
@@ -2172,6 +2405,7 @@ FULL v20260307-PERGAME-WARMUP-COOLDOWN
     statusText.textContent = `ready: pid=${pid} cat=${cat} game=${themeKey} next=${next0 ? 'yes' : 'hub'}`;
     setHUD();
     mkMissions();
+    applyStageSkin();
   }
 
   WIN.addEventListener('visibilitychange', ()=>{
