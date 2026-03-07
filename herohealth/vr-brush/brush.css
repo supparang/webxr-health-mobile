@@ -1,10 +1,9 @@
 /* === /herohealth/vr-brush/brush.css ===
-BrushVR — FULL RUN CSS (ABC + AI + QUIZ + SUMMARY)
-PATCH v20260306-BRUSH-CSS-LAYOUT-FIX-B
-✅ แก้ action buttons ไม่ทับสนาม
-✅ แก้ HUD ล่างไม่ชน vr-ui
-✅ แก้ top ctx + toast ไม่ชนกัน
-✅ mobile layout แน่นขึ้น
+BrushVR — FULL RUN CSS (Zone Brushing / Mouth Map)
+PATCH v20260307-BRUSH-CSS-ZONEBRUSH
+✅ รองรับ mouth map + guided zones
+✅ mobile / pc / cVR friendly
+✅ action bar / HUD / summary / quiz / toast stable
 */
 
 :root{
@@ -32,8 +31,7 @@ PATCH v20260306-BRUSH-CSS-LAYOUT-FIX-B
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
 
-  /* ✅ กัน HUD ชน vr-ui ล่าง */
-  --vrui-gap: 104px;
+  --vrui-gap: 108px;
 }
 
 *{ box-sizing:border-box; }
@@ -56,7 +54,6 @@ body{
   touch-action:manipulation;
   -webkit-tap-highlight-color: transparent;
 }
-
 body.br-noscroll{
   overflow:hidden !important;
   height:100% !important;
@@ -68,7 +65,7 @@ a-scene{
   inset:0;
   z-index:0;
   pointer-events:none;
-  opacity:.10;
+  opacity:.08;
 }
 
 #br-wrap{
@@ -79,7 +76,7 @@ a-scene{
   flex-direction:column;
 }
 
-/* ===================== Top ===================== */
+/* top */
 .br-top{
   display:flex;
   gap:10px;
@@ -89,12 +86,10 @@ a-scene{
   padding: calc(14px + var(--sat)) calc(14px + var(--sar)) 8px calc(14px + var(--sal));
   flex:0 0 auto;
 }
-
 .br-brand{
   min-width:0;
   flex:1 1 320px;
 }
-
 .br-pill{
   display:inline-flex;
   gap:8px;
@@ -107,20 +102,17 @@ a-scene{
   font-weight:1000;
   box-shadow: var(--shadow);
 }
-
 .br-title{
   margin:8px 0 4px;
   font-size: clamp(18px, 2.2vw, 24px);
   letter-spacing:.2px;
 }
-
 .br-sub{
   margin:0;
   color:rgba(229,231,235,.76);
   line-height:1.4;
   font-size:13px;
 }
-
 .br-ctx{
   border:1px solid var(--line);
   border-radius:18px;
@@ -138,15 +130,10 @@ a-scene{
   gap:12px;
   font-size:12px;
 }
-.br-ctxrow .k{
-  color:rgba(148,163,184,.95);
-  font-weight:1000;
-}
-.br-ctxrow .v{
-  font-weight:1000;
-}
+.br-ctxrow .k{ color:rgba(148,163,184,.95); font-weight:1000; }
+.br-ctxrow .v{ font-weight:1000; }
 
-/* ===================== Stage ===================== */
+/* stage */
 .br-stage{
   position:relative;
   flex:1 1 auto;
@@ -155,12 +142,8 @@ a-scene{
   overflow:hidden;
 }
 
-/* ✅ ย้าย action buttons ให้อยู่ “เหนือสนาม” ไม่เข้าไปลอยกลางสนาม */
 .br-actions{
   position:relative;
-  left:auto;
-  transform:none;
-  top:auto;
   display:flex;
   gap:8px;
   z-index:6;
@@ -184,13 +167,8 @@ a-scene{
   user-select:none;
 }
 .br-btn:active{ transform:translateY(1px); }
-.br-primary{
-  background: rgba(16,185,129,.20);
-  border-color: rgba(16,185,129,.35);
-}
-.br-ghost{
-  background: rgba(2,6,23,.58);
-}
+.br-primary{ background: rgba(16,185,129,.20); border-color: rgba(16,185,129,.35); }
+.br-ghost{ background: rgba(2,6,23,.58); }
 .br-link{
   display:inline-flex;
   align-items:center;
@@ -198,23 +176,24 @@ a-scene{
   text-decoration:none;
 }
 
-/* ✅ ลดความสูงสนามให้สมดุลกับ HUD และ vr-ui */
 .br-layer{
   position:relative;
   width:min(980px, 100%);
   margin:0 auto;
-  height:min(460px, calc(100dvh - 390px));
-  min-height:300px;
+  height:min(470px, calc(100dvh - 392px));
+  min-height:310px;
   border:1px solid rgba(148,163,184,.16);
   border-radius:24px;
-  background: rgba(2,6,23,.36);
+  background:
+    radial-gradient(ellipse at 50% 45%, rgba(255,255,255,.05), rgba(255,255,255,.02) 55%, rgba(2,6,23,.12) 100%),
+    rgba(2,6,23,.30);
   box-shadow: 0 22px 80px rgba(0,0,0,.35);
   overflow:hidden;
   touch-action:manipulation;
   overscroll-behavior:none;
 }
 
-/* ===================== HUD ===================== */
+/* HUD */
 .br-hud{
   width:min(980px, 100%);
   margin:10px auto 0;
@@ -228,7 +207,6 @@ a-scene{
 @media (max-width:860px){
   .br-hudGrid{ grid-template-columns:1fr; }
 }
-
 .br-box,.br-mini{
   border:1px solid var(--line);
   border-radius:20px;
@@ -238,27 +216,15 @@ a-scene{
   padding:10px 12px;
   box-shadow: var(--shadow);
 }
-
 .br-box .row{
   display:flex;
   justify-content:space-between;
   gap:12px;
   margin:4px 0;
 }
-
-.br-box .k,
-.br-mini .k{
-  color:rgba(148,163,184,.95);
-  font-weight:1000;
-}
-
-.br-box .v{
-  font-weight:1000;
-}
-
-.br-mini .k{
-  font-size:12px;
-}
+.br-box .k,.br-mini .k{ color:rgba(148,163,184,.95); font-weight:1000; }
+.br-box .v{ font-weight:1000; }
+.br-mini .k{ font-size:12px; }
 .br-mini .v{
   font-weight:900;
   font-size:12px;
@@ -266,7 +232,6 @@ a-scene{
   margin-top:2px;
   line-height:1.45;
 }
-
 .br-barLabel{
   display:flex;
   justify-content:space-between;
@@ -282,7 +247,6 @@ a-scene{
   font-weight:1000;
   font-size:12px;
 }
-
 .br-bar{
   height:10px;
   border-radius:999px;
@@ -299,9 +263,8 @@ a-scene{
 .br-bar .fill.pink{ background:rgba(244,114,182,.88); }
 .br-bar .fill.amber{ background:rgba(251,191,36,.90); }
 .br-bar .fill.cyan{ background:rgba(34,211,238,.90); }
-.br-bar .fill.bad{ background:rgba(239,68,68,.90); }
 
-/* ===================== Overlays ===================== */
+/* overlays */
 .br-menu,
 .br-end,
 .br-quiz{
@@ -327,21 +290,15 @@ a-scene{
   padding:14px;
 }
 
-.br-cardTitle,
-.br-endTitle,
-.br-quizTitle{
+.br-cardTitle,.br-endTitle,.br-quizTitle{
   font-weight:1000;
   font-size:18px;
 }
-
-.br-cardSub,
-.br-endGrade,
-.br-quizSub{
+.br-cardSub,.br-endGrade,.br-quizSub{
   color:rgba(229,231,235,.78);
   font-weight:900;
   margin-top:4px;
 }
-
 .br-cardList{
   margin-top:10px;
   color:rgba(229,231,235,.80);
@@ -349,9 +306,7 @@ a-scene{
 }
 .br-cardList .item{ margin:6px 0; }
 
-.br-cardActions,
-.br-endActions,
-.br-quizActions{
+.br-cardActions,.br-endActions,.br-quizActions{
   display:flex;
   gap:10px;
   margin-top:12px;
@@ -376,19 +331,15 @@ a-scene{
   font-weight:900;
   line-height:1.45;
 }
-.br-choice input{
-  margin-top:3px;
-}
+.br-choice input{ margin-top:3px; }
 
 .br-end[hidden]{ display:none; }
-
 .br-endHead{
   display:flex;
   justify-content:space-between;
   gap:10px;
   align-items:center;
 }
-
 .br-endGrid{
   display:grid;
   grid-template-columns:1fr 1fr;
@@ -398,7 +349,6 @@ a-scene{
 @media (max-width:560px){
   .br-endGrid{ grid-template-columns:1fr; }
 }
-
 .br-endGrid .box{
   border:1px solid rgba(148,163,184,.14);
   border-radius:18px;
@@ -415,7 +365,6 @@ a-scene{
   font-size:18px;
   margin-top:4px;
 }
-
 .br-endNote{
   margin-top:10px;
   color:rgba(229,231,235,.68);
@@ -424,11 +373,11 @@ a-scene{
   word-break:break-word;
 }
 
-/* ✅ ย้าย toast ลงมาตรงกลางบนสนาม ไม่ชน title */
+/* toast */
 .br-toast{
   position:fixed;
   left:50%;
-  top: calc(86px + var(--sat));
+  top: calc(88px + var(--sat));
   bottom:auto;
   transform:translateX(-50%);
   z-index:30;
@@ -453,6 +402,7 @@ a-scene{
   transform:translateX(-50%) translateY(-2px);
 }
 
+/* tap overlay */
 .br-tap{
   position:fixed;
   inset:0;
@@ -482,6 +432,7 @@ a-scene{
   margin-top:6px;
 }
 
+/* fatal */
 .br-fatal{
   position:fixed;
   inset:12px;
@@ -497,6 +448,7 @@ a-scene{
 }
 .br-hidden{ display:none; }
 
+/* legacy target styles kept for compatibility */
 .br-t{
   position:absolute;
   width:78px;
@@ -512,21 +464,10 @@ a-scene{
   cursor:pointer;
   user-select:none;
 }
-.br-t.thick{
-  width:92px;
-  height:92px;
-  border-color:rgba(167,243,208,.28);
-}
-.br-t.evi{
-  border-color:rgba(251,191,36,.28);
-  box-shadow: 0 18px 60px rgba(0,0,0,.35), 0 0 0 2px rgba(251,191,36,.10) inset;
-}
-
 .br-t .emo{
   font-size:28px;
   filter:drop-shadow(0 8px 18px rgba(0,0,0,.35));
 }
-
 .br-t .hp{
   position:absolute;
   left:10px;
@@ -544,7 +485,6 @@ a-scene{
   width:100%;
   background:rgba(16,185,129,.88);
 }
-
 .br-t.fade{
   opacity:0;
   transition:opacity .22s ease, transform .22s ease;
@@ -585,9 +525,20 @@ a-scene{
   100%{ transform:translate(-50%,-50%) scale(1.15); }
 }
 
-html[data-view="cvr"] .br-t{
-  pointer-events:none !important;
+/* mouth map polish */
+#mouthGuide{
+  letter-spacing:.2px;
 }
+
+#brushHead{
+  animation: brushPulse .48s ease-in-out infinite alternate;
+}
+@keyframes brushPulse{
+  from{ box-shadow: 0 0 18px rgba(34,211,238,.15); }
+  to{ box-shadow: 0 0 32px rgba(34,211,238,.30); }
+}
+
+/* cVR */
 html[data-view="cvr"] .br-actions,
 html[data-view="cvr"] .br-hud,
 html[data-view="cvr"] .br-menu,
@@ -603,9 +554,9 @@ html[data-view="cvr"] .br-quiz{
   pointer-events:none;
 }
 
-/* ===================== Mobile tighten ===================== */
+/* mobile */
 @media (max-width: 640px){
-  :root{ --vrui-gap: 116px; }
+  :root{ --vrui-gap: 118px; }
 
   .br-top{
     gap:8px;
@@ -613,7 +564,7 @@ html[data-view="cvr"] .br-quiz{
   }
 
   .br-title{
-    font-size: 16px;
+    font-size:16px;
     line-height:1.25;
   }
 
@@ -642,8 +593,8 @@ html[data-view="cvr"] .br-quiz{
   }
 
   .br-layer{
-    height:min(400px, calc(100dvh - 365px));
-    min-height:260px;
+    height:min(410px, calc(100dvh - 370px));
+    min-height:270px;
     border-radius:20px;
   }
 
@@ -660,19 +611,5 @@ html[data-view="cvr"] .br-quiz{
     top: calc(118px + var(--sat));
     font-size:12px;
     max-width:86vw;
-  }
-
-  .br-t{
-    width:72px;
-    height:72px;
-  }
-
-  .br-t.thick{
-    width:86px;
-    height:86px;
-  }
-
-  .br-t .emo{
-    font-size:24px;
   }
 }
