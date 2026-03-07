@@ -398,7 +398,7 @@ export function boot(cfg){
 
   let playing = true;
   let paused = false;
-  let helpOpen = true;
+  let helpOpen = false;
 
   let tLeft = plannedSec;
   let lastTick = nowMs();
@@ -453,23 +453,32 @@ export function boot(cfg){
   }
 
   function showHelp(){
+    if(!ui.helpOverlay){
+      helpOpen = false;
+      paused = false;
+      return;
+    }
     helpOpen = true;
     paused = true;
-    ui.helpOverlay?.setAttribute('aria-hidden','false');
+    ui.helpOverlay.setAttribute('aria-hidden','false');
   }
   function hideHelp(){
     helpOpen = false;
-    ui.helpOverlay?.setAttribute('aria-hidden','true');
+    if(ui.helpOverlay) ui.helpOverlay.setAttribute('aria-hidden','true');
     paused = false;
     lastTick = nowMs();
     requestAnimationFrame(loop);
   }
   function showPause(){
+    if(!ui.pauseOverlay){
+      paused = true;
+      return;
+    }
     paused = true;
-    ui.pauseOverlay?.setAttribute('aria-hidden','false');
+    ui.pauseOverlay.setAttribute('aria-hidden','false');
   }
   function hidePause(){
-    ui.pauseOverlay?.setAttribute('aria-hidden','true');
+    if(ui.pauseOverlay) ui.pauseOverlay.setAttribute('aria-hidden','true');
     paused = false;
     lastTick = nowMs();
     requestAnimationFrame(loop);
@@ -1350,12 +1359,22 @@ export function boot(cfg){
     if(!playing) return;
     if(DOC.hidden){
       paused = true;
-      ui.pauseOverlay?.setAttribute('aria-hidden','false');
+      if(ui.pauseOverlay) ui.pauseOverlay.setAttribute('aria-hidden','false');
     }
   });
 
+  // debug
+  WIN.__HYD_DEBUG__ = {
+    getState: ()=>({
+      playing, paused, helpOpen, phase, bossLevel, bossHits, bossGoal,
+      finalHits, finalGoal, tLeft, score, waterPct, shield,
+      bubbleCount: bubbles.size
+    })
+  };
+
   SFX.setPhaseVolume('normal');
-  showHelp();
+  helpOpen = false;
+  paused = false;
   setHUD();
   requestAnimationFrame(loop);
 }
