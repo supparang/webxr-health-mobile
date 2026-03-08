@@ -132,4 +132,168 @@ export async function mount(root, ctx, api){
   });
 
   api.setStats({
-    time: time
+    time: timeLeft,
+    score: 0,
+    miss: 0,
+    acc: '0%'
+  });
+
+  function updateHud(){
+    const acc = shown > 0 ? Math.round((correct / shown) * 100) : 0;
+    api.setStats({
+      time: timeLeft,
+      score,
+      miss,
+      acc: `${acc}%`
+    });
+  }
+
+  function pick(arr){
+    return arr[Math.floor(rng() * arr.length)];
+  }
+
+  function nextRound(){
+    if(ended) return;
+    if(shown >= totalRounds){
+      finishNow();
+      return;
+    }
+
+    shown++;
+    choices.innerHTML = '';
+
+    const isGoodRound = rng() < 0.6;
+    let correctChoice = '';
+    let wrongChoice = '';
+
+    if(isGoodRound){
+      correctChoice = pick(goodFoods);
+      wrongChoice = pick(junkFoods);
+      target.textContent = 'แตะอาหารที่มีประโยชน์';
+    }else{
+      correctChoice = 'ปล่อยผ่าน';
+      wrongChoice = pick(junkFoods);
+      target.textContent = 'อย่าแตะอาหารขยะ';
+    }
+
+    const opts = isGoodRound
+      ? shuffle([correctChoice, wrongChoice], rng)
+      : shuffle([wrongChoice, 'ปล่อยผ่าน'], rng);
+
+    for(const label of opts){
+      const btn = el('button', `gj-btn ${label === 'ปล่อยผ่าน' ? 'ghost' : 'good'}`, label);
+
+      if(!isGoodRound && label !== 'ปล่อยผ่าน'){
+        btn.className = 'gj-btn bad';
+      }
+
+      btn.addEventListener('click', ()=>{
+        if(ended) return;
+
+        if(isGoodRound){
+          if(label === correctChoice){
+            score += 10;
+            correct++;
+          }else{
+            score -= 4;
+            miss++;
+          }
+        }else{
+          if(label === 'ปล่อยผ่าน'){
+            score += 8;
+            correct++;
+            junkAvoid++;
+          }else{
+            score -= 5;
+            miss++;
+          }
+        }
+
+        api.logger?.push?.('mini_answer', {
+          game:'goodjunk',
+          mode:'warmup',
+          shown,
+          selected: label,
+          expected: correctChoice,
+          score,
+          miss,
+          correct
+        });
+
+        updateHud();
+        nextRound();
+      });
+
+      choices.appendChild(btn);
+    }
+  }
+
+  function finishNow(){
+    if(ended) return;
+    ended = true;
+    clearInterval(timer);
+
+    const accuracy = shown > 0 ? Math.round((correct / shown) * 100) : 0;
+    const speed = Math.max(0, Math.min(100, Math.round((shown / totalRounds) * 100)));
+    const junkAvoidPct = Math.max(0, Math.min(100, Math.round((junkAvoid / Math.max(1, Math.floor(totalRounds * 0.4))) * 100)));
+    const buffs = buildBuffs({
+      score,
+      accuracy,
+      speed,
+      junkAvoidPct
+    });
+
+    root.innerHTML = `
+      <div class="gj-result">
+        <div class="gj-badge">✨ Rank ${buffs.rank}</div>
+        <div class="gj-big">พร้อมลุย GoodJunk!</div>
+        <div class="gj-list">
+          <div class="gj-item">คะแนน: ${score}</div>
+          <div class="gj-item">ความแม่นยำ: ${accuracy}%</div>
+          <div class="gj-item">หลบ junk ได้ดี: ${junkAvoidPct}%</div>
+          <div class="gj-item">โบนัสก่อนเข้าเกม: +${buffs.wPct}%</div>
+        </div>
+        <div class="gj-actions">
+          <button class="gj-btn good" id="gjFinishBtn">ไปเกมหลัก</button>
+        </div>
+      </div>
+    `;
+
+    root.querySelector('#gjFinishBtn')?.addEventListener('click', ()=>{
+      api.finish({
+        ok: true,
+        title: 'พร้อมแล้ว!',
+        subtitle: 'เข้าเกม GoodJunk ได้เลย',
+        lines: [
+          `คะแนน: ${score}`,
+          `ความแม่นยำ: ${accuracy}%`,
+          `หลบ junk: ${junkAvoidPct}%`,
+          `Rank: ${buffs.rank}`
+        ],
+        buffs,
+        markDailyDone: true
+      });
+    });
+  }
+
+  const timer = setInterval(()=>{
+    if(ended) return;
+    timeLeft--;
+    if(timeLeft < 0) timeLeft = 0;
+    updateHud();
+
+    if(timeLeft <= 0){
+      finishNow();
+    }
+  }, 1000);
+
+  return {
+    start(){
+      nextRound();
+    },
+    destroy(){
+      ended = true;
+      clearInterval(timer);
+    }
+  };
+}
