@@ -5,8 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth — Bath (Hidden Dirt Quest)</title>
   <meta name="color-scheme" content="dark light" />
-  <link rel="icon" href="../favicon.ico" type="image/x-icon" />
-  <link rel="stylesheet" href="./bath.css?v=20260306d" />
+  <link rel="stylesheet" href="./bath.css?v=20260308f" />
 </head>
 <body>
   <div id="app">
@@ -148,109 +147,10 @@
     </main>
 
     <footer id="footer">
-      <span class="muted">HeroHealth — Bath • Top-down • PC/Mobile • v20260306d</span>
+      <span class="muted">HeroHealth — Bath • Top-down • PC/Mobile • v20260308f</span>
     </footer>
   </div>
 
-  <script type="module" src="./bath.js?v=20260306d"></script>
-
-  <script type="module">
-    import { buildCooldownUrlForCurrentGame } from '../gate/helpers/gate-link.js';
-
-    const qs = (k, d='') => {
-      try { return new URL(location.href).searchParams.get(k) ?? d; }
-      catch { return d; }
-    };
-
-    function goHub(){
-      const hub = qs('hub', '../hub.html');
-      location.href = hub;
-    }
-
-    function buildBathCooldownUrl(){
-      const endSummary  = document.getElementById('endSummary')?.textContent?.trim() || '';
-      const rubric      = document.getElementById('selfRubric')?.textContent?.trim() || '';
-      const rubricDesc  = document.getElementById('rubricDesc')?.textContent?.trim() || '';
-      const aiTip       = document.getElementById('aiTipPill')?.textContent?.trim() || '';
-      const aiMeta      = document.getElementById('aiMetaText')?.textContent?.trim() || '';
-
-      const cleanPill   = document.getElementById('cleanPill')?.textContent?.trim() || '';
-      const residuePill = document.getElementById('residuePill')?.textContent?.trim() || '';
-      const riskPill    = document.getElementById('riskPill')?.textContent?.trim() || '';
-      const timePill    = document.getElementById('timePill')?.textContent?.trim() || '';
-
-      return buildCooldownUrlForCurrentGame({
-        cat: 'hygiene',
-        game: 'bath',
-        theme: 'bath',
-        fallbackHub: '../hub.html',
-        extras: {
-          endSummary,
-          rubric,
-          rubricDesc,
-          aiTip,
-          aiMeta,
-          cleanPill,
-          residuePill,
-          riskPill,
-          timePill
-        }
-      });
-    }
-
-    function goBathCooldown(){
-      location.href = buildBathCooldownUrl();
-    }
-
-    function wireBathEndFlow(){
-      const btnCooldown = document.getElementById('btnCooldown');
-      const btnBack = document.getElementById('btnBack');
-      const panelEnd = document.getElementById('panelEnd');
-
-      if (btnCooldown && !btnCooldown.dataset.cooldownWired) {
-        btnCooldown.dataset.cooldownWired = '1';
-        btnCooldown.textContent = '➡ ไป Cooldown';
-        btnCooldown.addEventListener('click', (ev) => {
-          ev.preventDefault();
-          goBathCooldown();
-        });
-      }
-
-      if (btnBack && !btnBack.dataset.hubWired) {
-        btnBack.dataset.hubWired = '1';
-        btnBack.addEventListener('click', (ev) => {
-          ev.preventDefault();
-          goHub();
-        });
-      }
-
-      if (!panelEnd || panelEnd.dataset.observeWired) return;
-      panelEnd.dataset.observeWired = '1';
-
-      const mo = new MutationObserver(() => {
-        const cooldownBtn = document.getElementById('btnCooldown');
-        if (cooldownBtn && !cooldownBtn.dataset.cooldownWired) {
-          cooldownBtn.dataset.cooldownWired = '1';
-          cooldownBtn.textContent = '➡ ไป Cooldown';
-          cooldownBtn.addEventListener('click', (ev) => {
-            ev.preventDefault();
-            goBathCooldown();
-          });
-        }
-      });
-
-      mo.observe(panelEnd, {
-        childList: true,
-        subtree: true,
-        attributes: true,
-        attributeFilter: ['class', 'style']
-      });
-    }
-
-    wireBathEndFlow();
-    setTimeout(wireBathEndFlow, 0);
-    setTimeout(wireBathEndFlow, 300);
-    setTimeout(wireBathEndFlow, 1000);
-  </script>
+  <script type="module" src="./bath.js?v=20260308f"></script>
 </body>
 </html>
