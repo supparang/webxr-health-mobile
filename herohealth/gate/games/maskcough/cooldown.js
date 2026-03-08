@@ -1,22 +1,6 @@
-function loadCssOnce(href){
-  const id = `css:${href}`;
-  if(document.getElementById(id)) return;
-  const link = document.createElement('link');
-  link.id = id;
-  link.rel = 'stylesheet';
-  link.href = href;
-  document.head.appendChild(link);
-}
-
-function mulberry32(seed){
-  let t = seed >>> 0;
-  return ()=>{
-    t += 0x6D2B79F5;
-    let r = Math.imul(t ^ (t >>> 15), 1 | t);
-    r ^= r + Math.imul(r ^ (r >>> 7), 61 | r);
-    return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
-  };
-}
+import { loadCssOnce } from '../../helpers/css.js';
+import { mulberry32 } from '../../helpers/rng.js';
+import { runBubblePhase } from '../../helpers/bubbles.js';
 
 export function loadStyle(){
   loadCssOnce('./gate/games/maskcough/style.css?v=20260308a');
@@ -77,6 +61,8 @@ export async function mount(container, ctx, api){
     quizChoices: container.querySelector('#maskQuizChoices')
   };
 
+  let bubbleRun = null;
+
   function setHud(){
     const prog = state.phase === 'bubbles'
       ? `${state.taps}/${state.goal}`
@@ -87,32 +73,6 @@ export async function mount(container, ctx, api){
       miss: state.miss,
       acc: prog
     });
-  }
-
-  function spawnBubble(){
-    const el = document.createElement('button');
-    el.type = 'button';
-    el.className = 'mask-bubble';
-    el.textContent = '🫧';
-    el.style.left = `${12 + rng()*76}%`;
-    el.style.top = `${18 + rng()*58}%`;
-
-    el.addEventListener('click', ()=>{
-      if(state.ended || state.phase !== 'bubbles') return;
-      state.taps++;
-      state.score += 5;
-      el.remove();
-      api.toast('อากาศสะอาดขึ้น!');
-      setHud();
-
-      if(state.taps >= state.goal){
-        openQuiz();
-      }else{
-        spawnBubble();
-      }
-    });
-
-    els.bubbles.appendChild(el);
   }
 
   function openQuiz(){
@@ -158,6 +118,7 @@ export async function mount(container, ctx, api){
     if(state.ended) return;
     state.ended = true;
     clearInterval(state.timer);
+    bubbleRun?.end();
 
     api.logger.push('maskcough_cooldown_end', {
       ok,
@@ -191,7 +152,24 @@ export async function mount(container, ctx, api){
     els.brief.classList.add('hidden');
     els.field.classList.remove('hidden');
 
-    for(let i=0;i<3;i++) spawnBubble();
+    bubbleRun = runBubblePhase({
+      host: els.bubbles,
+      rng,
+      className: 'mask-bubble',
+      emoji: '🫧',
+      countStart: 3,
+      goal: state.goal,
+      onPop: ()=>{
+        state.taps++;
+        state.score += 5;
+        api.toast('อากาศสะอาดขึ้น!');
+        setHud();
+      },
+      onGoal: ()=>{
+        openQuiz();
+      }
+    });
+
     setHud();
 
     api.logger.push('maskcough_cooldown_start', {
@@ -214,6 +192,7 @@ export async function mount(container, ctx, api){
     start(){},
     destroy(){
       clearInterval(state.timer);
+      bubbleRun?.end();
     }
   };
 }
