@@ -1,6 +1,6 @@
 // === /herohealth/vr/battle-rtdb.js ===
-// Firebase RTDB Battle — v7 (robust rematch + reconnect + room tools)
-// FULL PATCH v20260308-BATTLE-RTDB-V7-REMATCH-COMPLETE
+// Firebase RTDB Battle — v8 (best-of-3 + match wins + robust rematch + reconnect + room tools)
+// FULL PATCH v20260308-BATTLE-RTDB-V8-MATCH
 'use strict';
 
 const WIN = (typeof window !== 'undefined') ? window : globalThis;
@@ -148,6 +148,8 @@ export async function initBattle(opts){
 
   const autostartMs = clamp(opts.autostartMs ?? qs('autostart','3000'), 500, 10000);
   const forfeitMs   = clamp(opts.forfeitMs   ?? qs('forfeit','5000'), 1500, 20000);
+  const bestOf = clamp(opts.bestOf ?? qs('bestOf','3'), 1, 9);
+  const winsToChampion = Math.floor(bestOf / 2) + 1;
 
   const fbCfg = getFirebaseConfig();
   if(!fbCfg){
@@ -184,6 +186,7 @@ export async function initBattle(opts){
   const stateRef = ref(db, `${base}/state`);
   const rematchRef = ref(db, `${base}/rematch`);
   const reportsRef = ref(db, `${base}/reports`);
+  const matchRef = ref(db, `${base}/match`);
   const offsetRef = ref(db, `.info/serverTimeOffset`);
 
   let localDestroyed = false;
@@ -202,6 +205,14 @@ export async function initBattle(opts){
   let unsubscribers = [];
   let countdownTimer = 0;
   let currentRematch = { roundId:'', requestedBy:'', requestedAtMs:0, votes:{} };
+  let currentMatch = {
+    bestOf,
+    winsToChampion,
+    wins:{},
+    champion:'',
+    matchComplete:false,
+    updatedAtMs:0
+  };
 
   function clearCountdownTimer(){
     if(countdownTimer){
@@ -238,6 +249,13 @@ export async function initBattle(opts){
       ...(detail || {})
     });
   }
+  function emitMatchState(detail){
+    emit('hha:battle-match', {
+      room,
+      roundId: currentRoundId,
+      ...(detail || {})
+    });
+  }
   function attachCountdown(startAtMs){
     clearCountdownTimer();
     if(!startAtMs || startAtMs <= 0) return;
@@ -259,8 +277,39 @@ export async function initBattle(opts){
       if(!v.createdAtMs) v.createdAtMs = Date.now();
       v.room = room;
       v.gameKey = gameKey;
+      v.bestOf = bestOf;
       return v;
     }).catch(()=>{});
+  }
+
+  async function ensureMatchIfMissing(){
+    const snap = await get(matchRef).catch(()=>null);
+    const m = snap?.val() || {};
+    if(m.bestOf){
+      currentMatch = {
+        bestOf: Number(m.bestOf || bestOf) || bestOf,
+        winsToChampion: Number(m.winsToChampion || winsToChampion) || winsToChampion,
+        wins: m.wins || {},
+        champion: String(m.champion || ''),
+        matchComplete: !!m.matchComplete,
+        updatedAtMs: Number(m.updatedAtMs || 0) || 0
+      };
+      return currentMatch;
+    }
+    currentMatch = {
+      bestOf,
+      winsToChampion,
+      wins:{},
+      champion:'',
+      matchComplete:false,
+      updatedAtMs:Date.now()
+    };
+    await set(matchRef, {
+      ...currentMatch,
+      updatedAt: serverTimestamp()
+    }).catch(()=>{});
+    emitMatchState(currentMatch);
+    return currentMatch;
   }
 
   async function clearRematchInternal(){
@@ -399,6 +448,7 @@ export async function initBattle(opts){
   async function maybeStartCountdown(players, st){
     if(localDestroyed) return;
     if(String(st.phase || 'lobby').toLowerCase() !== 'lobby') return;
+    if(currentMatch.matchComplete) return;
 
     const realPlayers = (players || []).filter(p => p.connected !== false).slice(0,2);
     if(realPlayers.length < 2) return;
@@ -429,6 +479,29 @@ export async function initBattle(opts){
     }).catch(()=>{});
   }
 
+  async function finalizeMatchWin(winnerKey){
+    await ensureMatchIfMissing();
+    const wins = { ...(currentMatch.wins || {}) };
+    if(winnerKey){
+      wins[winnerKey] = Number(wins[winnerKey] || 0) + 1;
+    }
+    const champion = Object.entries(wins).find(([,v]) => Number(v || 0) >= winsToChampion)?.[0] || '';
+    currentMatch = {
+      bestOf: currentMatch.bestOf || bestOf,
+      winsToChampion: currentMatch.winsToChampion || winsToChampion,
+      wins,
+      champion,
+      matchComplete: !!champion,
+      updatedAtMs: Date.now()
+    };
+    await set(matchRef, {
+      ...currentMatch,
+      updatedAt: serverTimestamp()
+    }).catch(()=>{});
+    emitMatchState(currentMatch);
+    return currentMatch;
+  }
+
   async function markForfeitIfNeeded(players, st){
     if(localDestroyed) return;
     if(String(st.phase || '').toLowerCase() !== 'running') return;
@@ -449,6 +522,8 @@ export async function initBattle(opts){
       updatedAtMs: Date.now()
     }).catch(()=>{});
 
+    const match = await finalizeMatchWin(stillHere.key);
+
     emitBattleNotice('warn', 'อีกฝ่ายหลุด/ออกจากห้อง ระบบตัดสินผลแล้ว', {
       code:'forfeit_end',
       room
@@ -458,7 +533,8 @@ export async function initBattle(opts){
       roundId: currentRoundId,
       winner: stillHere.key,
       reason:'forfeit',
-      results: realPlayers
+      results: realPlayers,
+      match
     });
   }
 
@@ -481,6 +557,8 @@ export async function initBattle(opts){
       updatedAtMs: Date.now()
     }).catch(()=>{});
 
+    const match = await finalizeMatchWin(picked.winnerKey || '');
+
     emitBattleNotice('info', 'จบรอบ Battle แล้ว', {
       code:'battle_round_ended',
       room,
@@ -491,7 +569,8 @@ export async function initBattle(opts){
       roundId: currentRoundId,
       winner: picked.winnerKey || '',
       reason: picked.reason || 'tie',
-      results: realPlayers
+      results: realPlayers,
+      match
     });
   }
 
@@ -586,6 +665,15 @@ export async function initBattle(opts){
 
   async function acceptRematch(){
     if(localDestroyed || currentRole !== 'player') return;
+    await ensureMatchIfMissing();
+
+    if(currentMatch.matchComplete){
+      emitBattleNotice('warn', 'Match นี้จบแล้ว ต้อง reset ห้องก่อนเริ่มใหม่', {
+        code:'match_complete_no_rematch',
+        room
+      });
+      return;
+    }
 
     const snap = await get(rematchRef).catch(()=>null);
     const rm = snap?.val() || {};
@@ -685,6 +773,10 @@ export async function initBattle(opts){
       room,
       gameKey,
       roundId: currentRoundId || String(report.roundId || ''),
+      matchBestOf: currentMatch.bestOf || bestOf,
+      matchWins: currentMatch.wins || {},
+      matchChampion: currentMatch.champion || '',
+      matchComplete: !!currentMatch.matchComplete,
       savedAtMs: serverNow(),
       savedAt: serverTimestamp(),
     };
@@ -792,7 +884,23 @@ export async function initBattle(opts){
   });
   unsubscribers.push(()=> off(rematchRef, 'value', offRematch));
 
+  const offMatch = onValue(matchRef, (snap)=>{
+    if(localDestroyed) return;
+    const m = snap.val() || {};
+    currentMatch = {
+      bestOf: Number(m.bestOf || bestOf) || bestOf,
+      winsToChampion: Number(m.winsToChampion || winsToChampion) || winsToChampion,
+      wins: m.wins || {},
+      champion: String(m.champion || ''),
+      matchComplete: !!m.matchComplete,
+      updatedAtMs: Number(m.updatedAtMs || 0) || 0
+    };
+    emitMatchState(currentMatch);
+  });
+  unsubscribers.push(()=> off(matchRef, 'value', offMatch));
+
   await ensureMeta();
+  await ensureMatchIfMissing();
   await ensureRoundIfMissing();
   await joinPlayer();
 
@@ -847,6 +955,7 @@ export async function adminOpenRoomTools(opts){
   const policyRef = ref(db, `${base}/policy`);
   const announcementRef = ref(db, `${base}/announcement`);
   const rematchRef = ref(db, `${base}/rematch`);
+  const matchRef = ref(db, `${base}/match`);
 
   function watchRef(targetRef, cb){
     const handler = snap => cb(snap.val() || {});
@@ -916,6 +1025,15 @@ export async function adminOpenRoomTools(opts){
       requestedBy:'',
       requestedAtMs:0,
       votes:{}
+    });
+    await set(matchRef, {
+      bestOf:3,
+      winsToChampion:2,
+      wins:{},
+      champion:'',
+      matchComplete:false,
+      updatedAt: serverTimestamp(),
+      updatedAtMs: Date.now()
     });
   }
 
@@ -987,5 +1105,6 @@ export async function adminOpenRoomTools(opts){
     watchPolicy: cb => watchRef(policyRef, cb),
     watchAnnouncement: cb => watchRef(announcementRef, cb),
     watchRematch: cb => watchRef(rematchRef, cb),
+    watchMatch: cb => watchRef(matchRef, cb),
   };
 }
