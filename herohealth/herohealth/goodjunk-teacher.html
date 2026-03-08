@@ -1,0 +1,1143 @@
+<!-- === /herohealth/goodjunk-teacher.html ===
+HeroHealth • GoodJunk Teacher Dashboard
+FULL PATCH v20260308-GJ-TEACHER-FULL-ADMINTOOLS
+-->
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>GoodJunk — Teacher Dashboard</title>
+  <meta name="color-scheme" content="dark light" />
+  <link rel="icon" href="./favicon.ico" />
+  <script src="./firebase-config.js"></script>
+  <script src="./lib/qr-local-first.js"></script>
+  <style>
+    :root{
+      --bg1:#020617; --bg2:#0b1226;
+      --panel:rgba(2,6,23,.72);
+      --panel2:rgba(15,23,42,.68);
+      --stroke:rgba(148,163,184,.18);
+      --text:rgba(229,231,235,.96);
+      --muted:rgba(148,163,184,.92);
+      --blue:#3b82f6; --cyan:#22d3ee; --good:#22c55e; --warn:#f59e0b; --danger:#ef4444;
+      --shadow:0 18px 60px rgba(0,0,0,.34);
+    }
+    *{ box-sizing:border-box; }
+    html,body{
+      margin:0; min-height:100%;
+      background:
+        radial-gradient(1100px 760px at 50% -12%, rgba(34,211,238,.10), transparent 58%),
+        linear-gradient(180deg,var(--bg1),var(--bg2));
+      color:var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", sans-serif;
+    }
+    .wrap{
+      width:min(1380px, calc(100vw - 24px));
+      margin:0 auto;
+      padding:18px 12px 28px;
+    }
+    .hero,.card{
+      background:linear-gradient(180deg, rgba(15,23,42,.84), rgba(2,6,23,.76));
+      border:1px solid var(--stroke);
+      border-radius:24px;
+      box-shadow:var(--shadow);
+    }
+    .hero{ padding:20px; margin-bottom:16px; }
+    .eyebrow{
+      display:inline-block; padding:8px 12px;
+      border-radius:999px;
+      background:rgba(34,211,238,.10);
+      color:#a5f3fc;
+      font-size:12px; font-weight:1000;
+      border:1px solid rgba(34,211,238,.18);
+    }
+    h1{
+      margin:12px 0 6px;
+      font-size:38px;
+      line-height:1.03;
+    }
+    .sub{
+      color:var(--muted);
+      font-size:14px;
+      line-height:1.7;
+      max-width:940px;
+    }
+
+    .hero-grid{
+      display:grid;
+      grid-template-columns:1.2fr .8fr;
+      gap:14px;
+      margin-top:16px;
+    }
+
+    .top-form{
+      display:grid;
+      grid-template-columns:1fr 1fr 1fr 1fr 1fr;
+      gap:10px;
+    }
+    label{
+      display:block;
+      font-size:12px;
+      color:var(--muted);
+      margin-bottom:6px;
+    }
+    input,select,textarea,button{
+      width:100%;
+      min-height:44px;
+      border-radius:14px;
+      border:1px solid var(--stroke);
+      background:rgba(2,6,23,.82);
+      color:var(--text);
+      padding:10px 12px;
+      font:inherit;
+    }
+    textarea{
+      min-height:92px;
+      resize:vertical;
+    }
+    button{
+      cursor:pointer;
+      border:0;
+      font-weight:1000;
+      color:white;
+      background:linear-gradient(135deg,#2563eb,#06b6d4);
+      box-shadow:0 10px 26px rgba(37,99,235,.24);
+    }
+    button.secondary{
+      background:rgba(15,23,42,.92);
+      color:var(--text);
+      border:1px solid var(--stroke);
+      box-shadow:none;
+    }
+    button.warn{
+      background:linear-gradient(135deg,#d97706,#f59e0b);
+    }
+    button.danger{
+      background:linear-gradient(135deg,#dc2626,#ef4444);
+    }
+    button.good{
+      background:linear-gradient(135deg,#16a34a,#22c55e);
+    }
+
+    .stats{
+      display:grid;
+      grid-template-columns:repeat(5,minmax(0,1fr));
+      gap:10px;
+    }
+    .stat{
+      border-radius:18px;
+      border:1px solid rgba(148,163,184,.14);
+      background:rgba(2,6,23,.54);
+      padding:12px;
+    }
+    .k{ font-size:12px; color:var(--muted); margin-bottom:6px; }
+    .v{ font-size:28px; line-height:1.05; font-weight:1000; }
+
+    .grid{
+      display:grid;
+      grid-template-columns:1.15fr .85fr;
+      gap:16px;
+      margin-top:16px;
+    }
+    .col{
+      display:grid;
+      gap:16px;
+      align-content:start;
+    }
+    .card{ padding:16px; }
+    .card h2{
+      margin:0 0 10px;
+      font-size:21px;
+      line-height:1.1;
+    }
+    .card .desc{
+      color:var(--muted);
+      font-size:13px;
+      line-height:1.65;
+      margin-bottom:12px;
+    }
+
+    .actions-2,.actions-3,.actions-4,.actions-5{
+      display:grid;
+      gap:10px;
+    }
+    .actions-2{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+    .actions-3{ grid-template-columns:repeat(3,minmax(0,1fr)); }
+    .actions-4{ grid-template-columns:repeat(4,minmax(0,1fr)); }
+    .actions-5{ grid-template-columns:repeat(5,minmax(0,1fr)); }
+
+    .status, .note{
+      margin-top:12px;
+      padding:10px 12px;
+      border-radius:14px;
+      border:1px solid var(--stroke);
+      background:rgba(2,6,23,.56);
+      color:#cbd5e1;
+      font-size:13px;
+      line-height:1.7;
+    }
+
+    .split{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:12px;
+    }
+
+    .progress-track{
+      height:14px;
+      border-radius:999px;
+      background:rgba(148,163,184,.14);
+      overflow:hidden;
+      margin-top:8px;
+    }
+    .progress-fill{
+      height:100%;
+      width:var(--w,0%);
+      border-radius:999px;
+      background:linear-gradient(90deg,var(--blue),var(--cyan));
+    }
+    .progress-fill.good{
+      background:linear-gradient(90deg,#16a34a,#22c55e);
+    }
+
+    .table-wrap{
+      overflow:auto;
+      border-radius:16px;
+      border:1px solid rgba(148,163,184,.12);
+      background:rgba(2,6,23,.42);
+    }
+    table{
+      width:100%;
+      border-collapse:collapse;
+      font-size:13px;
+    }
+    th,td{
+      padding:10px 8px;
+      border-bottom:1px solid rgba(148,163,184,.10);
+      text-align:left;
+      vertical-align:top;
+      white-space:nowrap;
+    }
+    th{
+      color:#cbd5e1;
+      font-weight:900;
+      background:rgba(15,23,42,.46);
+      position:sticky;
+      top:0;
+      z-index:1;
+    }
+
+    .codebox{
+      border-radius:16px;
+      border:1px solid rgba(148,163,184,.12);
+      background:rgba(2,6,23,.46);
+      padding:12px;
+      font-size:13px;
+      line-height:1.6;
+      word-break:break-all;
+      color:#e5e7eb;
+      min-height:58px;
+    }
+
+    .qr-box{
+      display:none;
+      margin-top:12px;
+      border-radius:18px;
+      border:1px solid rgba(148,163,184,.16);
+      background:rgba(2,6,23,.56);
+      padding:14px;
+    }
+    .qr-grid{
+      display:grid;
+      grid-template-columns:220px 1fr;
+      gap:14px;
+      align-items:start;
+    }
+    .qr-visual{
+      border-radius:16px;
+      background:#fff;
+      padding:10px;
+      text-align:center;
+    }
+    .qr-visual img{
+      width:100%;
+      max-width:180px;
+      height:auto;
+    }
+
+    .muted{ color:var(--muted); }
+
+    @media (max-width:1180px){
+      .hero-grid,.grid{ grid-template-columns:1fr; }
+      .top-form{ grid-template-columns:1fr 1fr; }
+      .stats{ grid-template-columns:repeat(3,minmax(0,1fr)); }
+    }
+    @media (max-width:760px){
+      .top-form,
+      .actions-2,.actions-3,.actions-4,.actions-5,
+      .split,.stats,.qr-grid{
+        grid-template-columns:1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <section class="hero">
+    <div class="eyebrow">👩‍🏫 GoodJunk Teacher Dashboard</div>
+    <h1>Teacher Control Center</h1>
+    <div class="sub">
+      ควบคุมห้อง GoodJunk แบบเต็ม: battle room, announcement, policy, rematch, attendance, roster, coverage, links, QR และ classroom macros
+    </div>
+
+    <div class="hero-grid">
+      <div>
+        <div class="top-form">
+          <div>
+            <label for="room">Room</label>
+            <input id="room" value="P5A" />
+          </div>
+          <div>
+            <label for="view">View</label>
+            <select id="view">
+              <option value="mobile" selected>mobile</option>
+              <option value="pc">pc</option>
+              <option value="cvr">cvr</option>
+            </select>
+          </div>
+          <div>
+            <label for="diff">Difficulty</label>
+            <select id="diff">
+              <option value="easy" selected>easy</option>
+              <option value="normal">normal</option>
+              <option value="hard">hard</option>
+            </select>
+          </div>
+          <div>
+            <label for="time">Time</label>
+            <select id="time">
+              <option value="60">60</option>
+              <option value="80" selected>80</option>
+              <option value="100">100</option>
+            </select>
+          </div>
+          <div>
+            <label for="hub">Hub URL</label>
+            <input id="hub" />
+          </div>
+        </div>
+
+        <div class="actions-4" style="margin-top:12px;">
+          <button id="btnConnect">Connect Room</button>
+          <button id="btnOpenBoard" class="secondary">Open Board</button>
+          <button id="btnOpenKiosk" class="secondary">Open Kiosk</button>
+          <button id="btnOpenStudentJoin" class="secondary">Open Student Join</button>
+        </div>
+
+        <div class="actions-4" style="margin-top:10px;">
+          <button id="btnCopyBoard" class="secondary">Copy Board</button>
+          <button id="btnCopyKiosk" class="secondary">Copy Kiosk</button>
+          <button id="btnCopyStudentJoin" class="secondary">Copy Student Join</button>
+          <button id="btnShowQr">Show QR</button>
+        </div>
+
+        <div id="status" class="status">พร้อมใช้งาน</div>
+
+        <div id="qrBox" class="qr-box">
+          <div class="qr-grid">
+            <div class="qr-visual">
+              <img id="qrImg" alt="QR Code" />
+              <div style="margin-top:10px;font-weight:1000;">Student Join QR</div>
+            </div>
+            <div>
+              <div class="k">Link</div>
+              <div id="qrLink" class="codebox">—</div>
+              <div class="actions-2" style="margin-top:10px;">
+                <button id="btnCopyQr" class="secondary">Copy QR Link</button>
+                <button id="btnHideQr" class="secondary">Hide QR</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="stats">
+        <div class="stat"><div class="k">Phase</div><div id="stPhase" class="v">—</div></div>
+        <div class="stat"><div class="k">Players</div><div id="stPlayers" class="v">0</div></div>
+        <div class="stat"><div class="k">Ready</div><div id="stReady" class="v">0</div></div>
+        <div class="stat"><div class="k">Joined</div><div id="stJoined" class="v">0/0</div></div>
+        <div class="stat"><div class="k">Entered</div><div id="stEntered" class="v">0/0</div></div>
+      </div>
+    </div>
+  </section>
+
+  <div class="grid">
+    <div class="col">
+      <section class="card">
+        <h2>Classroom Macros</h2>
+        <div class="desc">ชุดคำสั่งสำหรับเริ่มคาบและจบคาบแบบเร็ว</div>
+        <div class="actions-2">
+          <button id="btnStartClass">Start Class Macro</button>
+          <button id="btnEndClass" class="warn">End Class Macro</button>
+        </div>
+        <div class="actions-4" style="margin-top:10px;">
+          <button id="btnPresetStart10" class="secondary">เริ่มใน 10 วิ</button>
+          <button id="btnPresetPause" class="secondary">หยุดก่อน</button>
+          <button id="btnPresetScan" class="secondary">สแกน QR ตอนนี้</button>
+          <button id="btnPresetSpectator" class="secondary">เข้าชมแทนได้</button>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Battle Control</h2>
+        <div class="desc">ควบคุมสถานะ battle room โดยตรง</div>
+        <div class="actions-5">
+          <button id="btnCountdown3">Countdown 3s</button>
+          <button id="btnCountdown5" class="secondary">Countdown 5s</button>
+          <button id="btnForceStart" class="secondary">Force Start</button>
+          <button id="btnResetScores" class="secondary">Reset Scores</button>
+          <button id="btnResetRoom" class="warn">Reset Room</button>
+        </div>
+        <div class="actions-4" style="margin-top:10px;">
+          <button id="btnEndNow" class="danger">End Round Now</button>
+          <button id="btnForceWinner1" class="secondary">Force Winner P1</button>
+          <button id="btnForceWinner2" class="secondary">Force Winner P2</button>
+          <button id="btnClearRematch" class="secondary">Clear Rematch</button>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Announcement</h2>
+        <div class="desc">ส่งข้อความขึ้น Board / Kiosk แบบ realtime</div>
+        <div class="split">
+          <div>
+            <label for="announceText">Message</label>
+            <textarea id="announceText" placeholder="เช่น เตรียมพร้อม รอบต่อไปเริ่มใน 10 วินาที"></textarea>
+          </div>
+          <div>
+            <label for="announceTone">Tone</label>
+            <select id="announceTone">
+              <option value="info" selected>info</option>
+              <option value="success">success</option>
+              <option value="warn">warn</option>
+              <option value="danger">danger</option>
+            </select>
+            <label for="announceTtl" style="margin-top:10px;">TTL seconds</label>
+            <input id="announceTtl" type="number" min="0" max="600" value="12" />
+          </div>
+        </div>
+        <div class="actions-3" style="margin-top:10px;">
+          <button id="btnSendAnnouncement">Send Announcement</button>
+          <button id="btnClearAnnouncement" class="secondary">Clear Announcement</button>
+          <button id="btnRefreshAnnouncement" class="secondary">Refresh</button>
+        </div>
+        <div id="announcementStatus" class="status">Announcement: —</div>
+      </section>
+
+      <section class="card">
+        <h2>Room Policy</h2>
+        <div class="desc">ล็อกห้องหรือเปิด spectator only สำหรับผู้เข้าใหม่</div>
+        <label for="policyMessage">Policy Message</label>
+        <textarea id="policyMessage" placeholder="เช่น ห้องนี้เริ่มแข่งแล้ว กรุณารอรอบถัดไป"></textarea>
+        <div class="actions-3" style="margin-top:10px;">
+          <button id="btnLockRoom" class="secondary">Lock Room</button>
+          <button id="btnSpectatorOnly" class="secondary">Spectator Only</button>
+          <button id="btnUnlockRoom" class="good">Unlock Room</button>
+        </div>
+        <div id="policyStatus" class="status">Room policy: —</div>
+      </section>
+
+      <section class="card">
+        <h2>Links</h2>
+        <div class="desc">ลิงก์ใช้งานจริงของห้องนี้</div>
+        <div class="k">Board</div>
+        <div id="boxBoard" class="codebox">—</div>
+        <div class="k" style="margin-top:10px;">Kiosk</div>
+        <div id="boxKiosk" class="codebox">—</div>
+        <div class="k" style="margin-top:10px;">Student Join</div>
+        <div id="boxStudentJoin" class="codebox">—</div>
+      </section>
+    </div>
+
+    <div class="col">
+      <section class="card">
+        <h2>Realtime Room State</h2>
+        <div class="desc">สถานะห้อง battle แบบ realtime</div>
+        <div class="split">
+          <div>
+            <div class="k">Round ID</div>
+            <div id="stateRound" class="codebox">—</div>
+          </div>
+          <div>
+            <div class="k">Winner</div>
+            <div id="stateWinner" class="codebox">—</div>
+          </div>
+        </div>
+        <div style="margin-top:10px;">
+          <div class="k">Joined Progress</div>
+          <div class="progress-track"><div id="joinedFill" class="progress-fill" style="--w:0%"></div></div>
+        </div>
+        <div style="margin-top:10px;">
+          <div class="k">Entered Progress</div>
+          <div class="progress-track"><div id="enteredFill" class="progress-fill good" style="--w:0%"></div></div>
+        </div>
+        <div id="coverageStatus" class="status">Coverage: —</div>
+      </section>
+
+      <section class="card">
+        <h2>Players</h2>
+        <div class="desc">ผู้เล่นในห้อง battle ปัจจุบัน</div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Nick</th>
+                <th>PID</th>
+                <th>Ready</th>
+                <th>Conn</th>
+                <th>Score</th>
+                <th>Acc</th>
+                <th>Miss</th>
+                <th>RT</th>
+                <th>Finish</th>
+              </tr>
+            </thead>
+            <tbody id="tbodyPlayers">
+              <tr><td colspan="9" class="muted">ยังไม่มีผู้เล่น</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Roster</h2>
+        <div class="desc">บันทึก/โหลด roster ของห้องนี้จาก localStorage หรือ cloud</div>
+        <label for="rosterText">Roster text (หนึ่งคนต่อบรรทัด: PID,Nick)</label>
+        <textarea id="rosterText" placeholder="65001,Anan&#10;65002,Ploy"></textarea>
+        <div class="actions-4" style="margin-top:10px;">
+          <button id="btnSaveRosterLocal" class="secondary">Save Local</button>
+          <button id="btnPushRosterCloud" class="secondary">Push Cloud</button>
+          <button id="btnPullRosterCloud" class="secondary">Pull Cloud</button>
+          <button id="btnClearRoster" class="secondary">Clear Local</button>
+        </div>
+        <div class="actions-3" style="margin-top:10px;">
+          <button id="btnExportRosterCsv" class="secondary">Export Roster CSV</button>
+          <button id="btnExportStatusCsv" class="secondary">Export Status CSV</button>
+          <button id="btnRefreshAttendance" class="secondary">Refresh Attendance</button>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Attendance & Baseline</h2>
+        <div class="desc">ดูความครอบคลุม joined / entered เทียบกับ roster</div>
+        <div class="actions-4">
+          <button id="btnMarkAbsentBaseline" class="secondary">Mark Absent Baseline</button>
+          <button id="btnMarkPresentBaseline" class="secondary">Mark Present Baseline</button>
+          <button id="btnClearBaseline" class="secondary">Clear Baseline</button>
+          <button id="btnExportBaselineCsv" class="secondary">Export Baseline CSV</button>
+        </div>
+        <div class="actions-3" style="margin-top:10px;">
+          <button id="btnExportAttendanceCsv" class="secondary">Export Attendance CSV</button>
+          <button id="btnExportSnapshotJson" class="secondary">Export Snapshot JSON</button>
+          <button id="btnExportSnapshotCsv" class="secondary">Export Snapshot CSV</button>
+        </div>
+        <div id="attendanceStatus" class="status">Attendance: —</div>
+      </section>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+  import { adminOpenRoomTools } from './vr/battle-rtdb.js';
+
+  const $ = id => document.getElementById(id);
+  const qs = (k,d='')=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
+
+  let admin = null;
+  let offFns = [];
+  let playersRaw = {};
+  let stateRaw = {};
+  let policyRaw = {};
+  let announcementRaw = {};
+  let rosterRaw = {};
+  let attendanceRaw = {};
+  let rematchRaw = {};
+  let baselineRaw = loadJson('GJ_BASELINE', {});
+  let lastQrLink = '';
+
+  function setStatus(msg){
+    $('status').textContent = msg;
+  }
+
+  function loadJson(k, fallback){
+    try{
+      const raw = localStorage.getItem(k);
+      return raw ? JSON.parse(raw) : fallback;
+    }catch(_){ return fallback; }
+  }
+  function saveJson(k, v){
+    try{ localStorage.setItem(k, JSON.stringify(v)); }catch(_){}
+  }
+
+  function room(){
+    return ($('room').value || 'P5A').trim().toUpperCase();
+  }
+  function view(){ return $('view').value || 'mobile'; }
+  function diff(){ return $('diff').value || 'easy'; }
+  function time(){ return $('time').value || '80'; }
+  function safeHubDefault(){ return new URL('./hub.html', location.href).toString(); }
+  function hub(){ return $('hub').value || safeHubDefault(); }
+
+  function buildBoardUrl(){
+    const u = new URL('./goodjunk-board.html', location.href);
+    u.searchParams.set('room', room());
+    u.searchParams.set('mode', 'battle');
+    return u.toString();
+  }
+  function buildKioskUrl(){
+    const u = new URL('./goodjunk-kiosk.html', location.href);
+    u.searchParams.set('room', room());
+    return u.toString();
+  }
+  function buildStudentJoinUrl(){
+    const u = new URL('./student-join-goodjunk.html', location.href);
+    u.searchParams.set('room', room());
+    u.searchParams.set('view', view());
+    u.searchParams.set('diff', diff());
+    u.searchParams.set('time', time());
+    u.searchParams.set('hub', hub());
+    u.searchParams.set('mode', 'battle');
+    u.searchParams.set('lock_room', '1');
+    u.searchParams.set('lock_view', '1');
+    u.searchParams.set('lock_diff', '1');
+    u.searchParams.set('lock_time', '1');
+    return u.toString();
+  }
+
+  async function copyText(text){
+    text = String(text || '');
+    if(!text) throw new Error('ไม่มีข้อความ');
+    if(navigator.clipboard?.writeText){
+      await navigator.clipboard.writeText(text);
+      return;
+    }
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    ta.remove();
+  }
+
+  function refreshLinks(){
+    $('boxBoard').textContent = buildBoardUrl();
+    $('boxKiosk').textContent = buildKioskUrl();
+    $('boxStudentJoin').textContent = buildStudentJoinUrl();
+  }
+
+  function parseRosterText(){
+    const lines = String($('rosterText').value || '')
+      .split(/\r?\n/)
+      .map(s => s.trim())
+      .filter(Boolean);
+
+    const rows = [];
+    lines.forEach((line, idx)=>{
+      const parts = line.split(',').map(s => s.trim());
+      const pid = String(parts[0] || '').trim();
+      const nick = String(parts[1] || parts[0] || `Student${idx+1}`).trim();
+      if(pid || nick){
+        rows.push({
+          pid: pid || nick,
+          nick: nick || pid,
+          room: room(),
+          createdAtMs: Date.now()
+        });
+      }
+    });
+    return rows;
+  }
+
+  function rosterKey(){ return `GJ_ROSTER:${room()}`; }
+
+  function saveRosterLocal(){
+    const rows = parseRosterText();
+    saveJson(rosterKey(), rows);
+    rosterRaw = indexByPid(rows);
+    setStatus(`บันทึก roster local ${rows.length} คนแล้ว`);
+    renderCoverage();
+  }
+
+  function loadRosterLocalToText(){
+    const rows = loadJson(rosterKey(), []);
+    $('rosterText').value = rows.map(r => `${r.pid},${r.nick}`).join('\n');
+    rosterRaw = indexByPid(rows);
+    renderCoverage();
+  }
+
+  function indexByPid(rows){
+    const out = {};
+    (rows || []).forEach((r, i)=>{
+      const key = String(r.pid || r.nick || `row_${i}`).trim();
+      if(key) out[key] = { ...r };
+    });
+    return out;
+  }
+
+  function renderAnnouncement(){
+    const a = announcementRaw || {};
+    const msg = String(a.message || '').trim();
+    const tone = String(a.tone || 'info');
+    const ttl = Number(a.ttlSec || 0) || 0;
+    $('announcementStatus').textContent = msg
+      ? `Announcement: ${msg} • tone=${tone} • ttl=${ttl}s`
+      : 'Announcement: —';
+  }
+
+  function renderPolicy(){
+    const p = policyRaw || {};
+    $('policyStatus').textContent = p.roomLocked
+      ? `Room policy: ${p.allowSpectatorOnly ? 'LOCKED + SPECTATOR ONLY' : 'LOCKED'}${p.message ? ` • ${p.message}` : ''}`
+      : 'Room policy: OPEN';
+  }
+
+  function renderState(){
+    $('stPhase').textContent = stateRaw.phase || '—';
+    $('stateRound').textContent = stateRaw.roundId || '—';
+    $('stateWinner').textContent = stateRaw.winner || '—';
+  }
+
+  function renderPlayers(){
+    const rows = Object.entries(playersRaw || {})
+      .map(([k,v])=>({ key:k, ...(v||{}) }))
+      .sort((a,b)=>(a.joinedAtMs||0)-(b.joinedAtMs||0));
+
+    $('stPlayers').textContent = String(rows.length);
+    $('stReady').textContent = String(rows.filter(r => !!r.ready).length);
+
+    if(!rows.length){
+      $('tbodyPlayers').innerHTML = `<tr><td colspan="9" class="muted">ยังไม่มีผู้เล่น</td></tr>`;
+      return;
+    }
+
+    $('tbodyPlayers').innerHTML = rows.map(r=>`
+      <tr>
+        <td>${r.nick || '-'}</td>
+        <td>${r.pid || '-'}</td>
+        <td>${r.ready ? 'yes' : 'no'}</td>
+        <td>${r.connected !== false ? 'yes' : 'no'}</td>
+        <td>${Number(r.score || 0)}</td>
+        <td>${Number(r.acc || 0)}%</td>
+        <td>${Number(r.miss || 0)}</td>
+        <td>${Number(r.medianRT || 0)}</td>
+        <td>${Number(r.finishMs || 0)}</td>
+      </tr>
+    `).join('');
+  }
+
+  function getAttendanceStats(){
+    const rosterList = Object.values(rosterRaw || {});
+    const rosterKeys = new Set(rosterList.map(r => String(r.pid || r.nick || '').trim()).filter(Boolean));
+    const attendanceList = Object.values(attendanceRaw || {});
+
+    const joinedSet = new Set();
+    const enteredSet = new Set();
+
+    attendanceList.forEach(r=>{
+      const key = String(r.pid || r.nick || '').trim();
+      const source = String(r.source || '');
+      if(!key) return;
+      if(source === 'student-join') joinedSet.add(key);
+      if(source === 'game-run') enteredSet.add(key);
+    });
+
+    const total = rosterKeys.size || rosterList.length || 0;
+    const joinedCount = total ? [...joinedSet].filter(k => rosterKeys.has(k)).length : joinedSet.size;
+    const enteredCount = total ? [...enteredSet].filter(k => rosterKeys.has(k)).length : enteredSet.size;
+    const absentCount = Math.max(0, total - enteredCount);
+
+    return { total, joinedCount, enteredCount, absentCount };
+  }
+
+  function setBar(id, pct){
+    const el = $(id);
+    if(el) el.style.setProperty('--w', `${Math.max(0, Math.min(100, Number(pct || 0)))}%`);
+  }
+
+  function renderCoverage(){
+    const s = getAttendanceStats();
+    $('stJoined').textContent = `${s.joinedCount}/${s.total}`;
+    $('stEntered').textContent = `${s.enteredCount}/${s.total}`;
+    setBar('joinedFill', s.total ? (s.joinedCount / s.total) * 100 : 0);
+    setBar('enteredFill', s.total ? (s.enteredCount / s.total) * 100 : 0);
+
+    const base = baselineRaw[room()] || {};
+    $('coverageStatus').textContent =
+      `Coverage: roster ${s.total} • joined ${s.joinedCount} • entered ${s.enteredCount} • absent ${s.absentCount}` +
+      (base.mode ? ` • baseline=${base.mode}` : '');
+    $('attendanceStatus').textContent =
+      `Attendance: joined ${s.joinedCount} • entered ${s.enteredCount} • logs ${Object.keys(attendanceRaw || {}).length}`;
+  }
+
+  function downloadText(filename, text, mime='text/plain;charset=utf-8'){
+    const blob = new Blob([text], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    setTimeout(()=> URL.revokeObjectURL(url), 1000);
+  }
+
+  function rowsToCsv(rows){
+    if(!rows.length) return '';
+    const cols = [...new Set(rows.flatMap(r => Object.keys(r)))];
+    const esc = (v)=>{
+      if(v == null) return '';
+      const s = String(v);
+      return /[",\n]/.test(s) ? `"${s.replace(/"/g,'""')}"` : s;
+    };
+    return [
+      cols.join(','),
+      ...rows.map(r => cols.map(c => esc(r[c])).join(','))
+    ].join('\n');
+  }
+
+  async function connect(){
+    try{
+      offFns.forEach(fn=>{ try{ fn(); }catch(_){} });
+      offFns = [];
+
+      admin = await adminOpenRoomTools({
+        gameKey:'goodjunk',
+        room: room()
+      });
+
+      offFns.push(admin.watchState((v)=>{
+        stateRaw = v || {};
+        renderState();
+      }));
+      offFns.push(admin.watchPlayers((v)=>{
+        playersRaw = v || {};
+        renderPlayers();
+      }));
+      offFns.push(admin.watchRematch((v)=>{
+        rematchRaw = v || {};
+      }));
+      offFns.push(admin.watchPolicy((v)=>{
+        policyRaw = v || {};
+        renderPolicy();
+      }));
+      offFns.push(admin.watchAnnouncement((v)=>{
+        announcementRaw = v || {};
+        renderAnnouncement();
+      }));
+
+      await refreshCloudRoster();
+      await refreshAttendance();
+      setStatus(`เชื่อมต่อ room ${room()} แล้ว`);
+    }catch(err){
+      console.warn(err);
+      setStatus(`เชื่อมต่อไม่สำเร็จ: ${err?.message || err}`);
+    }
+  }
+
+  async function refreshCloudRoster(){
+    try{
+      const db = window.firebase?.database?.();
+      if(!db) return;
+      const snap = await db.ref(`hha-battle/goodjunk/rooms/${room()}/roster`).get();
+      const raw = snap.val() || {};
+      rosterRaw = raw;
+      if(!$('rosterText').value.trim()){
+        const rows = Object.values(raw);
+        $('rosterText').value = rows.map(r => `${r.pid},${r.nick}`).join('\n');
+      }
+      renderCoverage();
+    }catch(err){
+      console.warn(err);
+    }
+  }
+
+  async function refreshAttendance(){
+    try{
+      const db = window.firebase?.database?.();
+      if(!db) return;
+      const snap = await db.ref(`hha-battle/goodjunk/rooms/${room()}/attendance`).get();
+      attendanceRaw = snap.val() || {};
+      renderCoverage();
+    }catch(err){
+      console.warn(err);
+    }
+  }
+
+  async function pushRosterCloud(){
+    try{
+      const db = window.firebase?.database?.();
+      if(!db) throw new Error('Firebase not ready');
+      const rows = parseRosterText();
+      const obj = {};
+      rows.forEach(r=>{ obj[String(r.pid)] = r; });
+      await db.ref(`hha-battle/goodjunk/rooms/${room()}/roster`).set(obj);
+      rosterRaw = obj;
+      renderCoverage();
+      setStatus(`push roster cloud ${rows.length} คนแล้ว`);
+    }catch(err){
+      console.warn(err);
+      setStatus(`push roster cloud ไม่สำเร็จ: ${err?.message || err}`);
+    }
+  }
+
+  function showQr(link){
+    lastQrLink = String(link || '');
+    $('qrLink').textContent = lastQrLink || '—';
+    window.HHQr?.render?.($('qrImg'), lastQrLink, { size:240 });
+    $('qrBox').style.display = 'block';
+  }
+
+  function hideQr(){
+    lastQrLink = '';
+    $('qrLink').textContent = '—';
+    $('qrImg').removeAttribute('src');
+    $('qrBox').style.display = 'none';
+  }
+
+  async function startClassMacro(){
+    if(!admin) await connect();
+    await admin.clearAnnouncement();
+    await admin.setRoomLocked(false, { message:'', allowSpectatorOnly:false, spectatorUrl:'' });
+    await admin.clearRematch();
+    await admin.resetRoom();
+    await admin.setAnnouncement('เริ่มคาบแล้ว กรุณาเตรียมพร้อม เกมจะเริ่มใน 3 วินาที', { tone:'success', ttlSec:8 });
+    await admin.forceCountdown(3);
+    setStatus('Start Class Macro สำเร็จ');
+  }
+
+  async function endClassMacro(){
+    if(!admin) await connect();
+    await admin.setSpectatorOnly(true, {
+      message: ($('policyMessage').value || '').trim() || 'ห้องนี้จบรอบแล้ว กรุณาดูผลที่ Board',
+      spectatorUrl: buildBoardUrl()
+    });
+    await admin.setAnnouncement('จบคาบแล้ว กรุณาดูผลบนจอ Board หรือเข้า spectator', { tone:'info', ttlSec:20 });
+    setStatus('End Class Macro สำเร็จ');
+  }
+
+  async function exportSnapshotJson(){
+    const data = {
+      room: room(),
+      state: stateRaw,
+      players: playersRaw,
+      policy: policyRaw,
+      announcement: announcementRaw,
+      rematch: rematchRaw,
+      roster: rosterRaw,
+      attendance: attendanceRaw,
+      baseline: baselineRaw[room()] || {}
+    };
+    downloadText(`goodjunk-snapshot-${room()}.json`, JSON.stringify(data, null, 2), 'application/json;charset=utf-8');
+  }
+
+  async function exportSnapshotCsv(){
+    const rows = Object.entries(playersRaw || {}).map(([k,v])=>({
+      key:k,
+      room: room(),
+      phase: stateRaw.phase || '',
+      roundId: stateRaw.roundId || '',
+      winner: stateRaw.winner || '',
+      nick: v.nick || '',
+      pid: v.pid || '',
+      ready: !!v.ready,
+      connected: v.connected !== false,
+      score: Number(v.score || 0),
+      acc: Number(v.acc || 0),
+      miss: Number(v.miss || 0),
+      medianRT: Number(v.medianRT || 0),
+      finishMs: Number(v.finishMs || 0)
+    }));
+    downloadText(`goodjunk-snapshot-${room()}.csv`, rowsToCsv(rows), 'text/csv;charset=utf-8');
+  }
+
+  function exportRosterCsv(){
+    const rows = Object.values(rosterRaw || {});
+    downloadText(`goodjunk-roster-${room()}.csv`, rowsToCsv(rows), 'text/csv;charset=utf-8');
+  }
+
+  function exportAttendanceCsv(){
+    const rows = Object.values(attendanceRaw || {});
+    downloadText(`goodjunk-attendance-${room()}.csv`, rowsToCsv(rows), 'text/csv;charset=utf-8');
+  }
+
+  function exportStatusCsv(){
+    const rosterList = Object.values(rosterRaw || {});
+    const joined = new Set();
+    const entered = new Set();
+    Object.values(attendanceRaw || {}).forEach(r=>{
+      const key = String(r.pid || r.nick || '').trim();
+      if(!key) return;
+      if(String(r.source || '') === 'student-join') joined.add(key);
+      if(String(r.source || '') === 'game-run') entered.add(key);
+    });
+
+    const rows = rosterList.map(r=>{
+      const key = String(r.pid || r.nick || '').trim();
+      return {
+        room: room(),
+        pid: r.pid || '',
+        nick: r.nick || '',
+        joined: joined.has(key),
+        entered: entered.has(key)
+      };
+    });
+    downloadText(`goodjunk-status-${room()}.csv`, rowsToCsv(rows), 'text/csv;charset=utf-8');
+  }
+
+  function markBaseline(mode){
+    baselineRaw[room()] = {
+      mode,
+      atMs: Date.now(),
+      rosterCount: Object.keys(rosterRaw || {}).length,
+      attendanceCount: Object.keys(attendanceRaw || {}).length
+    };
+    saveJson('GJ_BASELINE', baselineRaw);
+    renderCoverage();
+    setStatus(`บันทึก baseline = ${mode}`);
+  }
+
+  function clearBaseline(){
+    delete baselineRaw[room()];
+    saveJson('GJ_BASELINE', baselineRaw);
+    renderCoverage();
+    setStatus('ล้าง baseline แล้ว');
+  }
+
+  function exportBaselineCsv(){
+    const row = baselineRaw[room()] || {};
+    downloadText(`goodjunk-baseline-${room()}.csv`, rowsToCsv([{ room: room(), ...row }]), 'text/csv;charset=utf-8');
+  }
+
+  function initFromQuery(){
+    $('room').value = qs('room', 'P5A');
+    $('view').value = qs('view', 'mobile');
+    $('diff').value = qs('diff', 'easy');
+    $('time').value = qs('time', '80');
+    $('hub').value = qs('hub', safeHubDefault());
+    $('policyMessage').value = 'ห้องนี้เริ่มแข่งแล้ว กรุณารอรอบถัดไป';
+    loadRosterLocalToText();
+    refreshLinks();
+    renderCoverage();
+  }
+
+  $('btnConnect').onclick = connect;
+
+  $('btnOpenBoard').onclick = ()=> window.open(buildBoardUrl(), '_blank', 'noopener');
+  $('btnOpenKiosk').onclick = ()=> window.open(buildKioskUrl(), '_blank', 'noopener');
+  $('btnOpenStudentJoin').onclick = ()=> window.open(buildStudentJoinUrl(), '_blank', 'noopener');
+
+  $('btnCopyBoard').onclick = async ()=>{ await copyText(buildBoardUrl()); setStatus('คัดลอก Board แล้ว'); };
+  $('btnCopyKiosk').onclick = async ()=>{ await copyText(buildKioskUrl()); setStatus('คัดลอก Kiosk แล้ว'); };
+  $('btnCopyStudentJoin').onclick = async ()=>{ await copyText(buildStudentJoinUrl()); setStatus('คัดลอก Student Join แล้ว'); };
+
+  $('btnShowQr').onclick = ()=>{ showQr(buildStudentJoinUrl()); setStatus('แสดง QR แล้ว'); };
+  $('btnCopyQr').onclick = async ()=>{ await copyText(lastQrLink); setStatus('คัดลอก QR link แล้ว'); };
+  $('btnHideQr').onclick = ()=>{ hideQr(); setStatus('ซ่อน QR แล้ว'); };
+
+  $('btnStartClass').onclick = async ()=>{ try{ await startClassMacro(); }catch(err){ console.warn(err); setStatus(`Start macro ไม่สำเร็จ: ${err?.message || err}`); } };
+  $('btnEndClass').onclick = async ()=>{ try{ await endClassMacro(); }catch(err){ console.warn(err); setStatus(`End macro ไม่สำเร็จ: ${err?.message || err}`); } };
+
+  $('btnPresetStart10').onclick = async ()=>{ try{ if(!admin) await connect(); await admin.setAnnouncement('เตรียมพร้อม รอบต่อไปเริ่มใน 10 วินาที', { tone:'success', ttlSec:10 }); }catch(err){ console.warn(err); } };
+  $('btnPresetPause').onclick = async ()=>{ try{ if(!admin) await connect(); await admin.setAnnouncement('หยุดก่อน ครูจะอธิบายอีกครั้ง', { tone:'warn', ttlSec:15 }); }catch(err){ console.warn(err); } };
+  $('btnPresetScan').onclick = async ()=>{ try{ if(!admin) await connect(); await admin.setAnnouncement('กรุณาสแกน QR ตอนนี้แล้วเตรียมเข้าเล่น', { tone:'info', ttlSec:15 }); }catch(err){ console.warn(err); } };
+  $('btnPresetSpectator').onclick = async ()=>{ try{ if(!admin) await connect(); await admin.setAnnouncement('ห้องนี้เปิดให้เข้าชมแทนได้ กรุณาเปิด Board', { tone:'info', ttlSec:15 }); }catch(err){ console.warn(err); } };
+
+  $('btnCountdown3').onclick = async ()=>{ try{ if(!admin) await connect(); await admin.forceCountdown(3); }catch(err){ console.warn(err); } };
+  $('btnCountdown5').onclick = async ()=>{ try{ if(!admin) await connect(); await admin.forceCountdown(5); }catch(err){ console.warn(err); } };
+  $('btnForceStart').onclick = async ()=>{ try{ if(!admin) await connect(); await admin.forceStart(); }catch(err){ console.warn(err); } };
+  $('btnResetScores').onclick = async ()=>{ try{ if(!admin) await connect(); await admin.resetScoresOnly(); }catch(err){ console.warn(err); } };
+  $('btnResetRoom').onclick = async ()=>{ try{ if(!admin) await connect(); await admin.resetRoom(); }catch(err){ console.warn(err); } };
+  $('btnEndNow').onclick = async ()=>{ try{ if(!admin) await connect(); await admin.endRoundNow(); }catch(err){ console.warn(err); } };
+  $('btnForceWinner1').onclick = async ()=>{ try{ if(!admin) await connect(); await admin.forceWinner('p1'); }catch(err){ console.warn(err); } };
+  $('btnForceWinner2').onclick = async ()=>{ try{ if(!admin) await connect(); await admin.forceWinner('p2'); }catch(err){ console.warn(err); } };
+  $('btnClearRematch').onclick = async ()=>{ try{ if(!admin) await connect(); await admin.clearRematch(); }catch(err){ console.warn(err); } };
+
+  $('btnSendAnnouncement').onclick = async ()=>{
+    try{
+      if(!admin) await connect();
+      await admin.setAnnouncement(
+        $('announceText').value || '',
+        { tone: $('announceTone').value, ttlSec: Number($('announceTtl').value || 12) || 12 }
+      );
+    }catch(err){ console.warn(err); }
+  };
+  $('btnClearAnnouncement').onclick = async ()=>{ try{ if(!admin) await connect(); await admin.clearAnnouncement(); }catch(err){ console.warn(err); } };
+  $('btnRefreshAnnouncement').onclick = async ()=>{
+    try{
+      if(!admin) await connect();
+      announcementRaw = await admin.getAnnouncement();
+      renderAnnouncement();
+    }catch(err){ console.warn(err); }
+  };
+
+  $('btnLockRoom').onclick = async ()=>{
+    try{
+      if(!admin) await connect();
+      await admin.setRoomLocked(true, {
+        message: $('policyMessage').value || '',
+        allowSpectatorOnly:false,
+        spectatorUrl:''
+      });
+    }catch(err){ console.warn(err); }
+  };
+  $('btnSpectatorOnly').onclick = async ()=>{
+    try{
+      if(!admin) await connect();
+      await admin.setSpectatorOnly(true, {
+        message: $('policyMessage').value || '',
+        spectatorUrl: buildBoardUrl()
+      });
+    }catch(err){ console.warn(err); }
+  };
+  $('btnUnlockRoom').onclick = async ()=>{
+    try{
+      if(!admin) await connect();
+      await admin.setRoomLocked(false, {
+        message:'',
+        allowSpectatorOnly:false,
+        spectatorUrl:''
+      });
+    }catch(err){ console.warn(err); }
+  };
+
+  $('btnSaveRosterLocal').onclick = saveRosterLocal;
+  $('btnPushRosterCloud').onclick = pushRosterCloud;
+  $('btnPullRosterCloud').onclick = refreshCloudRoster;
+  $('btnClearRoster').onclick = ()=>{
+    localStorage.removeItem(rosterKey());
+    $('rosterText').value = '';
+    rosterRaw = {};
+    renderCoverage();
+    setStatus('ล้าง roster local แล้ว');
+  };
+
+  $('btnExportRosterCsv').onclick = exportRosterCsv;
+  $('btnExportStatusCsv').onclick = exportStatusCsv;
+  $('btnRefreshAttendance').onclick = refreshAttendance;
+  $('btnMarkAbsentBaseline').onclick = ()=> markBaseline('absent');
+  $('btnMarkPresentBaseline').onclick = ()=> markBaseline('present');
+  $('btnClearBaseline').onclick = clearBaseline;
+  $('btnExportBaselineCsv').onclick = exportBaselineCsv;
+  $('btnExportAttendanceCsv').onclick = exportAttendanceCsv;
+  $('btnExportSnapshotJson').onclick = exportSnapshotJson;
+  $('btnExportSnapshotCsv').onclick = exportSnapshotCsv;
+
+  ['room','view','diff','time','hub'].forEach(id=>{
+    $(id).addEventListener('input', refreshLinks);
+    $(id).addEventListener('change', refreshLinks);
+  });
+
+  initFromQuery();
+  connect();
+</script>
+</body>
+</html>
