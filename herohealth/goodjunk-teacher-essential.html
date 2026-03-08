@@ -1,6 +1,6 @@
 <!-- === /herohealth/goodjunk-teacher-essential.html ===
 HeroHealth • GoodJunk Teacher Essential
-FULL PATCH v20260308-GJ-TEACHER-ESSENTIAL-MATCH
+FULL PATCH v20260308-GJ-TEACHER-ESSENTIAL-POLISH
 -->
 <!doctype html>
 <html lang="th">
@@ -30,11 +30,7 @@ FULL PATCH v20260308-GJ-TEACHER-ESSENTIAL-MATCH
       color:var(--text);
       font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", sans-serif;
     }
-    .wrap{
-      width:min(1120px, calc(100vw - 24px));
-      margin:0 auto;
-      padding:18px 12px 28px;
-    }
+    .wrap{ width:min(1120px, calc(100vw - 24px)); margin:0 auto; padding:18px 12px 28px; }
     .hero,.card{
       background:linear-gradient(180deg, rgba(15,23,42,.82), rgba(2,6,23,.76));
       border:1px solid var(--stroke);
@@ -52,187 +48,72 @@ FULL PATCH v20260308-GJ-TEACHER-ESSENTIAL-MATCH
       font-weight:1000;
       border:1px solid rgba(34,211,238,.18);
     }
-    h1{
-      margin:12px 0 8px;
-      font-size:36px;
-      line-height:1.04;
-    }
-    .sub{
-      color:var(--muted);
-      font-size:14px;
-      line-height:1.7;
-      max-width:780px;
-    }
+    h1{ margin:12px 0 8px; font-size:36px; line-height:1.04; }
+    .sub{ color:var(--muted); font-size:14px; line-height:1.7; max-width:780px; }
 
-    .top-grid{
-      display:grid;
-      grid-template-columns:1.15fr .85fr;
-      gap:14px;
-      margin-top:16px;
-    }
-    .form-grid{
-      display:grid;
-      grid-template-columns:repeat(5,minmax(0,1fr));
-      gap:10px;
-    }
-    label{
-      display:block;
-      font-size:12px;
-      color:var(--muted);
-      margin-bottom:6px;
-    }
+    .top-grid{ display:grid; grid-template-columns:1.15fr .85fr; gap:14px; margin-top:16px; }
+    .form-grid{ display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:10px; }
+    label{ display:block; font-size:12px; color:var(--muted); margin-bottom:6px; }
     input,select,textarea,button{
-      width:100%;
-      min-height:46px;
-      border-radius:14px;
-      border:1px solid var(--stroke);
-      background:rgba(2,6,23,.82);
-      color:var(--text);
-      padding:10px 12px;
-      font:inherit;
-    }
-    textarea{
-      min-height:86px;
-      resize:vertical;
+      width:100%; min-height:46px; border-radius:14px; border:1px solid var(--stroke);
+      background:rgba(2,6,23,.82); color:var(--text); padding:10px 12px; font:inherit;
     }
     button{
-      cursor:pointer;
-      border:0;
-      font-weight:1000;
-      color:white;
+      cursor:pointer; border:0; font-weight:1000; color:white;
       background:linear-gradient(135deg,#2563eb,#06b6d4);
       box-shadow:0 10px 26px rgba(37,99,235,.24);
     }
     button.secondary{
-      background:rgba(15,23,42,.92);
-      color:var(--text);
-      border:1px solid var(--stroke);
-      box-shadow:none;
+      background:rgba(15,23,42,.92); color:var(--text); border:1px solid var(--stroke); box-shadow:none;
     }
-    button.good{
-      background:linear-gradient(135deg,#16a34a,#22c55e);
-    }
-    button.warn{
-      background:linear-gradient(135deg,#d97706,#f59e0b);
-    }
-    button.danger{
-      background:linear-gradient(135deg,#dc2626,#ef4444);
-    }
+    button.good{ background:linear-gradient(135deg,#16a34a,#22c55e); }
+    button.warn{ background:linear-gradient(135deg,#d97706,#f59e0b); }
+    button.danger{ background:linear-gradient(135deg,#dc2626,#ef4444); }
 
-    .stats{
-      display:grid;
-      grid-template-columns:repeat(2,minmax(0,1fr));
-      gap:10px;
-    }
+    .stats{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
     .stat{
-      border-radius:18px;
-      border:1px solid rgba(148,163,184,.14);
-      background:rgba(2,6,23,.52);
-      padding:12px;
+      border-radius:18px; border:1px solid rgba(148,163,184,.14);
+      background:rgba(2,6,23,.52); padding:12px;
     }
     .k{ font-size:12px; color:var(--muted); margin-bottom:6px; }
     .v{ font-size:28px; font-weight:1000; line-height:1.05; }
 
-    .grid{
-      display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:16px;
-      margin-top:16px;
-      align-items:start;
-    }
+    .grid{ display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-top:16px; align-items:start; }
     .card{ padding:16px; }
-    .card h2{
-      margin:0 0 10px;
-      font-size:22px;
-      line-height:1.1;
-    }
-    .desc{
-      color:var(--muted);
-      font-size:13px;
-      line-height:1.65;
-      margin-bottom:12px;
-    }
+    .card h2{ margin:0 0 10px; font-size:22px; line-height:1.1; }
+    .desc{ color:var(--muted); font-size:13px; line-height:1.65; margin-bottom:12px; }
 
-    .actions-2,.actions-3,.actions-4{
-      display:grid;
-      gap:10px;
-    }
+    .actions-2,.actions-3,.actions-4{ display:grid; gap:10px; }
     .actions-2{ grid-template-columns:repeat(2,minmax(0,1fr)); }
     .actions-3{ grid-template-columns:repeat(3,minmax(0,1fr)); }
     .actions-4{ grid-template-columns:repeat(4,minmax(0,1fr)); }
 
     .status,.note{
-      margin-top:12px;
-      padding:10px 12px;
-      border-radius:14px;
-      border:1px solid var(--stroke);
-      background:rgba(2,6,23,.56);
-      color:#cbd5e1;
-      font-size:13px;
-      line-height:1.7;
+      margin-top:12px; padding:10px 12px; border-radius:14px; border:1px solid var(--stroke);
+      background:rgba(2,6,23,.56); color:#cbd5e1; font-size:13px; line-height:1.7;
     }
 
     .codebox{
-      border-radius:16px;
-      border:1px solid rgba(148,163,184,.12);
-      background:rgba(2,6,23,.46);
-      padding:12px;
-      font-size:13px;
-      line-height:1.6;
-      word-break:break-all;
-      color:#e5e7eb;
-      min-height:58px;
+      border-radius:16px; border:1px solid rgba(148,163,184,.12);
+      background:rgba(2,6,23,.46); padding:12px; font-size:13px; line-height:1.6;
+      word-break:break-all; color:#e5e7eb; min-height:58px;
     }
 
     .qr-box{
-      display:none;
-      margin-top:12px;
-      border-radius:18px;
-      border:1px solid rgba(148,163,184,.16);
-      background:rgba(2,6,23,.56);
-      padding:14px;
+      display:none; margin-top:12px; border-radius:18px; border:1px solid rgba(148,163,184,.16);
+      background:rgba(2,6,23,.56); padding:14px;
     }
-    .qr-grid{
-      display:grid;
-      grid-template-columns:220px 1fr;
-      gap:14px;
-      align-items:start;
-    }
-    .qr-visual{
-      border-radius:16px;
-      background:#fff;
-      padding:10px;
-      text-align:center;
-    }
-    .qr-visual img{
-      width:100%;
-      max-width:180px;
-      height:auto;
-    }
+    .qr-grid{ display:grid; grid-template-columns:220px 1fr; gap:14px; align-items:start; }
+    .qr-visual{ border-radius:16px; background:#fff; padding:10px; text-align:center; }
+    .qr-visual img{ width:100%; max-width:180px; height:auto; }
 
-    .bar{
-      margin-top:10px;
-    }
+    .bar{ margin-top:10px; }
     .bar-head{
-      display:flex;
-      justify-content:space-between;
-      gap:10px;
-      margin-bottom:6px;
-      font-size:14px;
-      font-weight:1000;
+      display:flex; justify-content:space-between; gap:10px; margin-bottom:6px;
+      font-size:14px; font-weight:1000;
     }
-    .bar-bg{
-      height:14px;
-      border-radius:999px;
-      background:rgba(148,163,184,.14);
-      overflow:hidden;
-    }
-    .bar-fill{
-      height:100%;
-      width:0%;
-      border-radius:999px;
-      transition:width .18s ease;
-    }
+    .bar-bg{ height:14px; border-radius:999px; background:rgba(148,163,184,.14); overflow:hidden; }
+    .bar-fill{ height:100%; width:0%; border-radius:999px; transition:width .18s ease; }
     #joinedFill{ background:linear-gradient(90deg,#22d3ee,#3b82f6); }
     #enteredFill{ background:linear-gradient(90deg,#34d399,#22c55e); }
 
@@ -283,6 +164,13 @@ FULL PATCH v20260308-GJ-TEACHER-ESSENTIAL-MATCH
               <option value="60">60</option>
               <option value="80" selected>80</option>
               <option value="100">100</option>
+            </select>
+          </div>
+          <div>
+            <label for="bestOf">Best Of</label>
+            <select id="bestOf">
+              <option value="3" selected>3</option>
+              <option value="5">5</option>
             </select>
           </div>
           <div>
@@ -353,6 +241,13 @@ FULL PATCH v20260308-GJ-TEACHER-ESSENTIAL-MATCH
         <button id="btnResetRoom" class="danger">Reset Room</button>
       </div>
 
+      <div class="actions-4" style="margin-top:10px;">
+        <button id="btnResetMatchKeepRoster" class="warn">Reset Match</button>
+        <button id="btnSetBestOf3" class="secondary">Best of 3</button>
+        <button id="btnSetBestOf5" class="secondary">Best of 5</button>
+        <button id="btnApplyBestOf" class="good">Apply Best Of</button>
+      </div>
+
       <div class="actions-3" style="margin-top:10px;">
         <button id="btnPresetStart10" class="secondary">เริ่มใน 10 วิ</button>
         <button id="btnPresetPause" class="secondary">หยุดก่อน</button>
@@ -360,11 +255,8 @@ FULL PATCH v20260308-GJ-TEACHER-ESSENTIAL-MATCH
       </div>
 
       <div class="note">
-        Flow ที่แนะนำ:
-        <br>1) เปิด Board/Kiosk
-        <br>2) เปิด Student Join หรือ QR
-        <br>3) ให้นักเรียนเข้าระบบ
-        <br>4) กด Start Class Macro
+        Reset Room = ล้างผู้เล่น/คะแนน/แมตช์
+        <br>Reset Match = คงผู้เล่น/roster/attendance แต่ล้าง wins/champion
       </div>
     </section>
 
@@ -431,9 +323,9 @@ FULL PATCH v20260308-GJ-TEACHER-ESSENTIAL-MATCH
       <div id="matchStatus" class="status">Match: —</div>
 
       <div class="actions-3" style="margin-top:10px;">
-        <button id="btnRefreshRematch" class="secondary">Refresh Rematch</button>
+        <button id="btnRefreshRematch" class="secondary">Refresh</button>
         <button id="btnClearRematch" class="warn">Clear Rematch</button>
-        <button id="btnResetMatch" class="danger">Reset Match</button>
+        <button id="btnResetMatch" class="danger">Hard Reset Match</button>
       </div>
 
       <div class="actions-3" style="margin-top:10px;">
@@ -449,10 +341,8 @@ FULL PATCH v20260308-GJ-TEACHER-ESSENTIAL-MATCH
       </div>
 
       <div class="note">
-        ถ้า rematch/match ค้าง:
-        <br>1) ดู rematch และ match state
-        <br>2) กด Clear Rematch
-        <br>3) ถ้าต้องล้างผลรวม ให้กด Reset Match
+        Hard Reset Match = reset room ทั้งชุด
+        <br>Reset Match = reset wins/champion แต่ไม่ล้าง roster
       </div>
     </section>
   </div>
@@ -476,20 +366,17 @@ FULL PATCH v20260308-GJ-TEACHER-ESSENTIAL-MATCH
   let matchRaw = {};
   let lastQrLink = '';
 
-  function setStatus(msg){
-    $('status').textContent = msg;
-  }
+  function setStatus(msg){ $('status').textContent = msg; }
 
   function room(){ return ($('room').value || 'P5A').trim().toUpperCase(); }
   function view(){ return $('view').value || 'mobile'; }
   function diff(){ return $('diff').value || 'easy'; }
   function time(){ return $('time').value || '80'; }
+  function bestOf(){ return Number($('bestOf').value || '3') || 3; }
   function safeHubDefault(){ return new URL('./hub.html', location.href).toString(); }
   function hub(){ return $('hub').value || safeHubDefault(); }
 
-  function db(){
-    return window.firebase?.database?.() || null;
-  }
+  function db(){ return window.firebase?.database?.() || null; }
 
   function buildBoardUrl(){
     const u = new URL('./goodjunk-board.html', location.href);
@@ -510,10 +397,12 @@ FULL PATCH v20260308-GJ-TEACHER-ESSENTIAL-MATCH
     u.searchParams.set('time', time());
     u.searchParams.set('hub', hub());
     u.searchParams.set('mode', 'battle');
+    u.searchParams.set('bestOf', String(bestOf()));
     u.searchParams.set('lock_room', '1');
     u.searchParams.set('lock_view', '1');
     u.searchParams.set('lock_diff', '1');
     u.searchParams.set('lock_time', '1');
+    u.searchParams.set('lock_bestof', '1');
     return u.toString();
   }
   function buildFullDashboardUrl(){
@@ -523,6 +412,7 @@ FULL PATCH v20260308-GJ-TEACHER-ESSENTIAL-MATCH
     u.searchParams.set('diff', diff());
     u.searchParams.set('time', time());
     u.searchParams.set('hub', hub());
+    u.searchParams.set('bestOf', String(bestOf()));
     return u.toString();
   }
 
@@ -634,7 +524,6 @@ FULL PATCH v20260308-GJ-TEACHER-ESSENTIAL-MATCH
       $('rematchStatus').textContent = 'Rematch: —';
       return;
     }
-
     $('rematchStatus').textContent =
       `Rematch: requestedBy=${r.requestedBy} • roundId=${r.roundId || '-'} • ${rows.join(' | ') || 'no votes'}`;
   }
@@ -645,54 +534,43 @@ FULL PATCH v20260308-GJ-TEACHER-ESSENTIAL-MATCH
     const winsText = Object.entries(wins).map(([k,v])=>`${k}:${v}`).join(' | ') || 'no wins';
     $('matchStatus').textContent =
       `Match: bestOf=${Number(m.bestOf || 3)} • winsToChampion=${Number(m.winsToChampion || 2)} • champion=${m.champion || '-'} • complete=${!!m.matchComplete} • ${winsText}`;
+    $('bestOf').value = String(Number(m.bestOf || bestOf()));
   }
 
   async function refreshAttendance(){
     try{
-      const d = db();
-      if(!d) return;
+      const d = db(); if(!d) return;
       const snap = await d.ref(`hha-battle/goodjunk/rooms/${room()}/attendance`).get();
       attendanceRaw = snap.val() || {};
       renderCoverage();
-    }catch(err){
-      console.warn(err);
-    }
+    }catch(err){ console.warn(err); }
   }
 
   async function refreshRoster(){
     try{
-      const d = db();
-      if(!d) return;
+      const d = db(); if(!d) return;
       const snap = await d.ref(`hha-battle/goodjunk/rooms/${room()}/roster`).get();
       rosterRaw = snap.val() || {};
       renderCoverage();
-    }catch(err){
-      console.warn(err);
-    }
+    }catch(err){ console.warn(err); }
   }
 
   async function refreshRematchOnce(){
     try{
-      const d = db();
-      if(!d) return;
+      const d = db(); if(!d) return;
       const snap = await d.ref(`hha-battle/goodjunk/rooms/${room()}/rematch`).get();
       rematchRaw = snap.val() || {};
       renderRematch();
-    }catch(err){
-      console.warn(err);
-    }
+    }catch(err){ console.warn(err); }
   }
 
   async function refreshMatchOnce(){
     try{
-      const d = db();
-      if(!d) return;
+      const d = db(); if(!d) return;
       const snap = await d.ref(`hha-battle/goodjunk/rooms/${room()}/match`).get();
       matchRaw = snap.val() || {};
       renderMatch();
-    }catch(err){
-      console.warn(err);
-    }
+    }catch(err){ console.warn(err); }
   }
 
   function showQr(link){
@@ -719,31 +597,13 @@ FULL PATCH v20260308-GJ-TEACHER-ESSENTIAL-MATCH
         room: room()
       });
 
-      offFns.push(admin.watchState(v=>{
-        stateRaw = v || {};
-        renderState();
-      }));
-      offFns.push(admin.watchPlayers(v=>{
-        playersRaw = v || {};
-        renderPlayers();
-      }));
-      offFns.push(admin.watchPolicy(v=>{
-        policyRaw = v || {};
-        renderPolicy();
-      }));
-      offFns.push(admin.watchAnnouncement(v=>{
-        announcementRaw = v || {};
-        renderAnnouncement();
-      }));
-      offFns.push(admin.watchRematch(v=>{
-        rematchRaw = v || {};
-        renderRematch();
-      }));
+      offFns.push(admin.watchState(v=>{ stateRaw = v || {}; renderState(); }));
+      offFns.push(admin.watchPlayers(v=>{ playersRaw = v || {}; renderPlayers(); }));
+      offFns.push(admin.watchPolicy(v=>{ policyRaw = v || {}; renderPolicy(); }));
+      offFns.push(admin.watchAnnouncement(v=>{ announcementRaw = v || {}; renderAnnouncement(); }));
+      offFns.push(admin.watchRematch(v=>{ rematchRaw = v || {}; renderRematch(); }));
       if(admin.watchMatch){
-        offFns.push(admin.watchMatch(v=>{
-          matchRaw = v || {};
-          renderMatch();
-        }));
+        offFns.push(admin.watchMatch(v=>{ matchRaw = v || {}; renderMatch(); }));
       }
 
       await refreshRoster();
@@ -767,10 +627,9 @@ FULL PATCH v20260308-GJ-TEACHER-ESSENTIAL-MATCH
       spectatorUrl:''
     });
     await admin.clearRematch();
-    await admin.resetRoom();
+    await admin.resetRoom({ bestOf: bestOf() });
     await admin.setAnnouncement('เริ่มคาบแล้ว กรุณาเตรียมพร้อม เกมจะเริ่มใน 3 วินาที', {
-      tone:'success',
-      ttlSec:8
+      tone:'success', ttlSec:8
     });
     await admin.forceCountdown(3);
     setStatus('Start Class Macro สำเร็จ');
@@ -783,8 +642,7 @@ FULL PATCH v20260308-GJ-TEACHER-ESSENTIAL-MATCH
       spectatorUrl: buildBoardUrl()
     });
     await admin.setAnnouncement('จบคาบแล้ว กรุณาดูผลบนจอ Board หรือเข้า spectator', {
-      tone:'info',
-      ttlSec:20
+      tone:'info', ttlSec:20
     });
     setStatus('End Class Macro สำเร็จ');
   }
@@ -794,6 +652,7 @@ FULL PATCH v20260308-GJ-TEACHER-ESSENTIAL-MATCH
     $('view').value = qs('view', 'mobile');
     $('diff').value = qs('diff', 'easy');
     $('time').value = qs('time', '80');
+    $('bestOf').value = qs('bestOf', '3');
     $('hub').value = qs('hub', safeHubDefault());
     refreshLinks();
   }
@@ -820,7 +679,25 @@ FULL PATCH v20260308-GJ-TEACHER-ESSENTIAL-MATCH
   $('btnCountdown3').onclick = async ()=>{ try{ if(!admin) await connect(); await admin.forceCountdown(3); }catch(err){ console.warn(err); } };
   $('btnCountdown5').onclick = async ()=>{ try{ if(!admin) await connect(); await admin.forceCountdown(5); }catch(err){ console.warn(err); } };
   $('btnForceStart').onclick = async ()=>{ try{ if(!admin) await connect(); await admin.forceStart(); }catch(err){ console.warn(err); } };
-  $('btnResetRoom').onclick = async ()=>{ try{ if(!admin) await connect(); await admin.resetRoom(); await admin.clearRematch(); setStatus('Reset room แล้ว'); }catch(err){ console.warn(err); } };
+  $('btnResetRoom').onclick = async ()=>{ try{ if(!admin) await connect(); await admin.resetRoom({ bestOf: bestOf() }); await admin.clearRematch(); setStatus('Reset room แล้ว'); }catch(err){ console.warn(err); } };
+
+  $('btnResetMatchKeepRoster').onclick = async ()=>{
+    try{
+      if(!admin) await connect();
+      await admin.softResetMatch({ bestOf: bestOf() });
+      setStatus('Reset match แบบคง roster แล้ว');
+    }catch(err){ console.warn(err); }
+  };
+
+  $('btnSetBestOf3').onclick = ()=>{ $('bestOf').value = '3'; refreshLinks(); };
+  $('btnSetBestOf5').onclick = ()=>{ $('bestOf').value = '5'; refreshLinks(); };
+  $('btnApplyBestOf').onclick = async ()=>{
+    try{
+      if(!admin) await connect();
+      await admin.setBestOf(bestOf());
+      setStatus(`ตั้ง bestOf = ${bestOf()} แล้ว`);
+    }catch(err){ console.warn(err); }
+  };
 
   $('btnPresetStart10').onclick = async ()=>{
     try{
@@ -907,9 +784,9 @@ FULL PATCH v20260308-GJ-TEACHER-ESSENTIAL-MATCH
   $('btnResetMatch').onclick = async ()=>{
     try{
       if(!admin) await connect();
-      await admin.resetRoom();
+      await admin.resetRoom({ bestOf: bestOf() });
       await admin.clearRematch();
-      setStatus('Reset match แล้ว');
+      setStatus('Hard reset match แล้ว');
     }catch(err){ console.warn(err); }
   };
 
@@ -933,14 +810,14 @@ FULL PATCH v20260308-GJ-TEACHER-ESSENTIAL-MATCH
   $('btnQuickForceLobby').onclick = async ()=>{
     try{
       if(!admin) await connect();
-      await admin.resetRoom();
+      await admin.softResetMatch({ bestOf: bestOf() });
       await admin.clearRematch();
       await admin.setAnnouncement('กลับสู่ lobby แล้ว เตรียมเริ่มใหม่', { tone:'warn', ttlSec:12 });
       setStatus('Force lobby แล้ว');
     }catch(err){ console.warn(err); }
   };
 
-  ['room','view','diff','time','hub'].forEach(id=>{
+  ['room','view','diff','time','hub','bestOf'].forEach(id=>{
     $(id).addEventListener('input', refreshLinks);
     $(id).addEventListener('change', refreshLinks);
   });
