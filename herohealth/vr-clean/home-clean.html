@@ -19,29 +19,63 @@
       --sab: env(safe-area-inset-bottom, 0px);
       --sal: env(safe-area-inset-left, 0px);
     }
-    html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);
-      font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif}
-    #app{min-height:100%;padding:calc(10px + var(--sat)) calc(10px + var(--sar)) calc(10px + var(--sab)) calc(10px + var(--sal));}
+    html,body{
+      height:100%;
+      margin:0;
+      background:var(--bg);
+      color:var(--fg);
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif
+    }
+    #app{
+      min-height:100%;
+      padding:calc(10px + var(--sat)) calc(10px + var(--sar)) calc(10px + var(--sab)) calc(10px + var(--sal));
+    }
     .topbar{
-      position:sticky; top:0; z-index:50;
-      display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:space-between;
-      border:1px solid var(--stroke); background:rgba(2,6,23,.62);
-      border-radius:18px; padding:10px 10px; backdrop-filter: blur(8px);
+      position:sticky;
+      top:0;
+      z-index:50;
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+      justify-content:space-between;
+      border:1px solid var(--stroke);
+      background:rgba(2,6,23,.62);
+      border-radius:18px;
+      padding:10px 10px;
+      backdrop-filter: blur(8px);
     }
     .brand{display:flex;gap:10px;align-items:center}
-    .logo{width:38px;height:38px;border-radius:14px;border:1px solid var(--stroke);
+    .logo{
+      width:38px;height:38px;border-radius:14px;border:1px solid var(--stroke);
       background:linear-gradient(135deg, rgba(34,211,238,.18), rgba(167,139,250,.14));
-      display:grid;place-items:center;font-weight:1000}
+      display:grid;place-items:center;font-weight:1000
+    }
     .title{font-weight:1000;font-size:14px}
     .sub{font-weight:800;color:var(--mut);font-size:12px;margin-top:2px}
     .pillrow{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-    .pill{border:1px solid var(--stroke);background:rgba(2,6,23,.35);border-radius:999px;padding:7px 10px;
-      font-size:12px;font-weight:950;color:rgba(229,231,235,.92)}
+    .pill{
+      border:1px solid var(--stroke);
+      background:rgba(2,6,23,.35);
+      border-radius:999px;
+      padding:7px 10px;
+      font-size:12px;
+      font-weight:950;
+      color:rgba(229,231,235,.92)
+    }
     .pill b{color:#fff}
     .btn{
-      border:1px solid var(--stroke); background:rgba(2,6,23,.35); color:rgba(229,231,235,.94);
-      padding:9px 10px; border-radius:14px; font-weight:1000; cursor:pointer;
-      display:inline-flex; align-items:center; justify-content:center; gap:8px;
+      border:1px solid var(--stroke);
+      background:rgba(2,6,23,.35);
+      color:rgba(229,231,235,.94);
+      padding:9px 10px;
+      border-radius:14px;
+      font-weight:1000;
+      cursor:pointer;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
     }
     .btn:active{transform:translateY(1px)}
     .btn.primary{border-color:rgba(34,197,94,.35);background:rgba(34,197,94,.14)}
@@ -58,13 +92,23 @@
     }
     #root{ position:relative; min-height: calc(100vh - 120px); }
     .toast{
-      position:fixed; left:50%; transform:translateX(-50%);
-      bottom:calc(14px + var(--sab)); z-index:9999;
-      padding:10px 12px; border:1px solid var(--stroke);
-      border-radius:14px; background:rgba(2,6,23,.78);
-      color:#e5e7eb; font-weight:950; font-size:13px;
+      position:fixed;
+      left:50%;
+      transform:translateX(-50%);
+      bottom:calc(14px + var(--sab));
+      z-index:9999;
+      padding:10px 12px;
+      border:1px solid var(--stroke);
+      border-radius:14px;
+      background:rgba(2,6,23,.78);
+      color:#e5e7eb;
+      font-weight:950;
+      font-size:13px;
       box-shadow:0 14px 44px rgba(0,0,0,.35);
-      opacity:0; transition:opacity .18s ease; pointer-events:none; max-width:92vw;
+      opacity:0;
+      transition:opacity .18s ease;
+      pointer-events:none;
+      max-width:92vw;
     }
     .toast.show{ opacity:1; }
   </style>
@@ -113,11 +157,18 @@
     import { mountCleanUI } from './clean.ui.js';
 
     const $ = (id)=>document.getElementById(id);
+
     function qs(k, d=''){
       try{ return (new URL(location.href)).searchParams.get(k) ?? d; }
       catch(e){ return d; }
     }
-    function clamp(v,a,b){ v=Number(v); if(!Number.isFinite(v)) v=a; return Math.max(a, Math.min(b, v)); }
+
+    function clamp(v,a,b){
+      v=Number(v);
+      if(!Number.isFinite(v)) v=a;
+      return Math.max(a, Math.min(b, v));
+    }
+
     function normView(v){
       v = String(v||'').toLowerCase();
       if(v==='cvr' || v==='cardboard' || v==='vr') return 'cvr';
@@ -125,7 +176,9 @@
       if(v==='pc' || v==='desktop') return 'pc';
       return v || '';
     }
+
     function nowSeed(){ return String(Date.now()); }
+
     function normalizeMaybeEncodedUrl(v){
       v = String(v ?? '').trim();
       if(!v) return '';
@@ -193,7 +246,8 @@
         extras: {
           mode: P.view === 'cvr' ? 'B' : 'A',
           boss: P.boss,
-          scoreFinal: summary.scoreFinal ?? '',
+
+          scoreFinal: summary.scoreFinal ?? summary.score ?? '',
           grade: summary.grade ?? '',
           accuracyPct: summary.accuracyPct ?? '',
           contaminationPct: summary.contaminationPct ?? '',
@@ -202,6 +256,7 @@
           summaryText: summary.summaryText ?? '',
           evalResult: summary.evalResult ?? '',
           createResult: summary.createResult ?? '',
+
           run: P.run,
           diff: P.diff,
           time: P.time,
@@ -272,15 +327,20 @@
       }catch(e){}
     }
 
+    let core = null;
+
     const ui = mountCleanUI(document.getElementById('root'), {
       selectA: (id, reasonTag)=> core.selectA(id, reasonTag),
       toggleRouteB: (id)=> core.toggleRouteB(id),
       undoB: ()=> core.undoB(),
       clearB: ()=> core.clearB(),
-      submitB: ()=> core.submitB()
+      submitB: ()=> core.submitB(),
+      goCooldown: ()=> goCooldown(),
+      goHub: ()=> goHub(),
+      replay: ()=> location.reload()
     });
 
-    const core = createCleanCore({
+    core = createCleanCore({
       run: P.run,
       seed: P.seed,
       view: P.view,
