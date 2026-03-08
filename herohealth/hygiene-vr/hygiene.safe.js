@@ -1,12 +1,15 @@
 // === /herohealth/hygiene-vr/hygiene.safe.js ===
-// HygieneVR SAFE — SURVIVAL (HHA Standard) — FULL PATCH v20260221m
+// HygieneVR SAFE — SURVIVAL (HHA Standard) — FULL PATCH v20260308-HANDWASH-COOLDOWN
 // ✅ (1) cVR: aim-select handmap zones via hha:shoot (end overlay)
 // ✅ (2) Heatmap 2D: risk per step -> zones; store in summary.analyze.heatmap2d
 // ✅ (3) Create routine 30s: pick 3 items + score + store in summary.create
 // ✅ Kid Summary: 1-page for Grade 5 + hide JSON behind button + copy kid summary
 // ✅ FIX: “ตีแล้วไม่หาย” (is-dying + forced remove), TTL cleanup, watchdog
+// ✅ NEW: Handwash main game -> cooldown gate integration
 // Exports: boot()
 'use strict';
+
+import { buildCooldownUrlForCurrentGame } from '../gate/helpers/gate-link.js';
 
 const WIN = window;
 const DOC = document;
@@ -39,6 +42,41 @@ function prefersReducedMotion(){
   try{ return WIN.matchMedia && WIN.matchMedia('(prefers-reduced-motion: reduce)').matches; }catch{ return false; }
 }
 
+function goHandwashCooldownFromSummary(endSummary){
+  const endTitle = DOC.getElementById('endTitle')?.textContent?.trim() || '';
+  const endSub   = DOC.getElementById('endSub')?.textContent?.trim() || '';
+  const sumAcc   = DOC.getElementById('sumAcc')?.textContent?.trim() || '';
+  const sumMiss  = DOC.getElementById('sumMiss')?.textContent?.trim() || '';
+  const sumTop   = DOC.getElementById('sumTop')?.textContent?.trim() || '';
+  const sumTip   = DOC.getElementById('sumTip')?.textContent?.trim() || '';
+
+  const createScore = endSummary?.create?.score ?? '';
+  const createLabel = endSummary?.create?.label ?? '';
+  const evalPicked  = endSummary?.evaluate?.pickedZone ?? '';
+  const evalMatch   = endSummary?.evaluate?.matchTopRisk ? '1' : '0';
+
+  const url = buildCooldownUrlForCurrentGame({
+    cat: 'hygiene',
+    game: 'handwash',
+    theme: 'handwash',
+    fallbackHub: '../hub.html',
+    extras: {
+      endTitle,
+      endSub,
+      sumAcc,
+      sumMiss,
+      sumTop,
+      sumTip,
+      createScore,
+      createLabel,
+      evalPicked,
+      evalMatch
+    }
+  });
+
+  location.href = url;
+}
+
 const STEPS = [
   { key:'palm',  icon:'🫧', label:'ฝ่ามือ', hitsNeed:6 },
   { key:'back',  icon:'🤚', label:'หลังมือ', hitsNeed:6 },
@@ -64,7 +102,7 @@ function pointInRect(x,y, rr){
   return x>=r.left && x<=r.right && y>=r.top && y<=r.bottom;
 }
 
-// ===== Kid Summary UI helpers (PATCH 20260221m) =====
+// ===== Kid Summary UI helpers =====
 function gradeHint(grade){
   switch(String(grade||'').toUpperCase()){
     case 'SSS': return 'สุดยอด! ล้างครบ + ปลอดภัยมาก';
@@ -189,6 +227,7 @@ export function boot(){
   const btnPause     = DOC.getElementById('btnPause');
   const btnBack      = DOC.getElementById('btnBack');
   const btnBack2     = DOC.getElementById('btnBack2');
+  const btnBackEnd   = DOC.getElementById('btnBackEnd');
 
   // params
   const runMode = (qs('run','play')||'play').toLowerCase();
@@ -260,6 +299,7 @@ export function boot(){
 
   // End overlay UX state
   let endSummary = null;
+  let endFlowRedirected = false;
   let evalState = { active: false, pickedZone: null, pickedReason: null, topRiskZone: null, confirmed: false };
   let createState = { active: false, picked: [], score: null, left: 30, t: null };
 
@@ -535,7 +575,6 @@ export function boot(){
     judgeHit(obj, source, null);
   }
 
-  // cVR shoot: gameplay OR end-overlay selection
   function onShoot(e){
     const d = (e && e.detail) || {};
     const lockPx = Number(d.lockPx||30);
@@ -564,7 +603,6 @@ export function boot(){
     }
   }
 
-  // ---------------- Missions & Power ----------------
   function startMission(){
     const t = elapsedSec();
     const roll = rng();
@@ -660,7 +698,6 @@ export function boot(){
     return false;
   }
 
-  // ---------------- Judge ----------------
   function judgeHit(obj, source, extra){
     const rt = computeRt(obj);
 
@@ -781,7 +818,6 @@ export function boot(){
     }
   }
 
-  // ---------------- Tick loop ----------------
   function cleanupExpiredTargets(){
     const t = nowMs();
     for(let i=targets.length-1;i>=0;i--){
@@ -872,7 +908,6 @@ export function boot(){
   }
   function stopWatchdog(){ clearInterval(startWatchdog._t); }
 
-  // ---------------- End Flow (Heatmap/Evaluate/Create) ----------------
   function median(arr){
     const a = (arr||[]).slice().sort((x,y)=>x-y);
     if(!a.length) return 0;
@@ -1098,6 +1133,12 @@ export function boot(){
     return { score, label, coreHit, tip };
   }
 
+  function goCooldownOnce(){
+    if(endFlowRedirected) return;
+    endFlowRedirected = true;
+    goHandwashCooldownFromSummary(endSummary || {});
+  }
+
   function finalizeCreate(auto){
     if(createState.score) return;
 
@@ -1146,7 +1187,6 @@ export function boot(){
       };
       if(endJson) endJson.textContent = JSON.stringify(endSummary, null, 2);
 
-      // refresh kid one-page after Create
       try{
         const kid = buildKidOnePage(endSummary, ZONES);
         if(endSummary?.create?.score != null){
@@ -1158,6 +1198,10 @@ export function boot(){
         setText('kidOnePage', `${kid.line1}\n${kid.line2}\n${kid.line3}`);
       }catch(e){}
     }
+
+    setTimeout(()=>{
+      goCooldownOnce();
+    }, 450);
   }
 
   function confirmCreate(){
@@ -1165,9 +1209,9 @@ export function boot(){
     finalizeCreate(false);
   }
 
-  // ---------------- Reset/Start/End ----------------
   function resetGame(){
     running=false; paused=false;
+    endFlowRedirected = false;
     clearTargets();
     timeLeft = timePlannedSec;
 
@@ -1279,7 +1323,7 @@ export function boot(){
     const hm2 = calcHeatmap2D();
 
     const summary = {
-      version:'20260221m',
+      version:'20260308-HANDWASH-COOLDOWN',
       game:'hygiene',
       gameMode:'hygiene',
       runMode,
@@ -1341,15 +1385,18 @@ export function boot(){
     if(endSub) endSub.textContent = `Grade ${grade} • ถูก ${(stepAcc*100).toFixed(1)}% • 🦠 ${hazHits} • miss ${getMissCount()} • loops ${loopsDone}`;
     if(endJson) endJson.textContent = JSON.stringify(endSummary, null, 2);
     if(endOverlay) endOverlay.style.display = 'grid';
+    if(btnBackEnd){
+      btnBackEnd.textContent = '➡ ไปคูลดาวน์';
+      btnBackEnd.disabled = false;
+    }
 
-    // ===== Kid Summary patch: show one-page, hide JSON by default =====
     try{
       setText('kidGrade', grade);
       setText('kidAcc', `${Math.round(stepAcc*100)}%`);
       setText('kidHaz', String(hazHits|0));
       setText('kidHintGrade', gradeHint(grade));
 
-      const box = ensureKidSummaryBox(endOverlay);
+      ensureKidSummaryBox(endOverlay);
       const kid = buildKidOnePage(endSummary, ZONES);
       const onePage = `${kid.line1}\n${kid.line2}\n${kid.line3}`;
       setText('kidOnePage', onePage);
@@ -1388,7 +1435,6 @@ export function boot(){
     }catch{}
   }
 
-  // ---------------- UI binds ----------------
   btnStart?.addEventListener('click', ()=>startGame(), { passive:true });
   btnPractice?.addEventListener('click', ()=>startGame(15), { passive:true });
   btnRestart?.addEventListener('click', ()=>{ resetGame(); showBanner('รีเซ็ตแล้ว'); }, { passive:true });
@@ -1397,6 +1443,7 @@ export function boot(){
   btnCopyJson?.addEventListener('click', ()=>copyText(endJson?.textContent||''), { passive:true });
   btnBack?.addEventListener('click', goHub, { passive:true });
   btnBack2?.addEventListener('click', goHub, { passive:true });
+  btnBackEnd?.addEventListener('click', goCooldownOnce, { passive:true });
 
   btnPause?.addEventListener('click', ()=>{
     if(!running) return;
@@ -1405,7 +1452,6 @@ export function boot(){
     showBanner(paused ? 'พักเกม' : 'ไปต่อ!');
   }, { passive:true });
 
-  // Evaluate binds
   evalReasons?.addEventListener('click', (e)=>{
     const t = e.target;
     if(!t || !t.classList.contains('hw-reason')) return;
@@ -1442,7 +1488,6 @@ export function boot(){
     skipEvaluate();
   }, { passive:true });
 
-  // Create binds
   routineOpts?.addEventListener('click', (e)=>{
     const t = e.target;
     if(!t || !t.classList.contains('hw-rt')) return;
@@ -1452,9 +1497,7 @@ export function boot(){
 
   btnCreateConfirm?.addEventListener('click', ()=>{ confirmCreate(); }, { passive:true });
 
-  // cVR shoot support
   WIN.addEventListener('hha:shoot', onShoot);
 
-  // initial
   setHud();
 }
