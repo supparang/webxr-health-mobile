@@ -1,11 +1,11 @@
 // === /herohealth/gate/gate-core.js ===
 // HeroHealth Gate Core
-// PATCH v20260308-HYGIENE-GATE-CORE-r7
-// ✅ continue uses ctx.next directly
+// PATCH v20260308-HYGIENE-GATE-CORE-r8-RAWNEXT
+// ✅ RAW next continue
 // ✅ no launcher bounce
-// ✅ no path re-assembly
-// ✅ stronger cache-bust companion
-// ✅ explicit console logs for continue/skip
+// ✅ minimal continue logic
+// ✅ skip uses raw next too
+// ✅ simpler / less annoying path handling
 
 import {
   buildCtx,
@@ -57,29 +57,26 @@ function safeHubUrl(ctx){
   }
 }
 
-function safeNextUrl(ctx, result=null){
-  const hub = safeHubUrl(ctx);
+function buildRawNextUrl(ctx, result=null){
   const rawNext = String(ctx.next || '').trim();
+  const hub = safeHubUrl(ctx);
 
-  // ใช้ next ตรง ๆ ก่อนเสมอ
   if(rawNext){
     try{
       const u = new URL(rawNext);
 
-      // กัน next ที่ชี้กลับเข้า gate
+      // กันกรณี next ชี้กลับเข้า gate
       if(/warmup-gate\.html$/i.test(u.pathname)){
-        console.warn('[gate] next points back to warmup-gate, fallback to hub', rawNext);
+        console.warn('[gate] raw next points back to warmup-gate, fallback to hub', rawNext);
         return hub;
       }
 
-      // ลบ query ของ gate ออก
+      // ลบ query ฝั่ง gate ที่ไม่ควรติดไป
       [
-        'gatePhase','phase','gateResult','gateMode',
-        'wType','wPct','wSteps','wTimeBonus','wScoreBonus','wRank',
-        'cd','next'
+        'gatePhase','phase','cd','next'
       ].forEach(k=>u.searchParams.delete(k));
 
-      // ใส่ context หลักทับอีกครั้งเผื่อค่าเดิมหลุด
+      // context ขั้นต่ำที่เกมควรได้
       if(ctx.run)  u.searchParams.set('run', String(ctx.run));
       if(ctx.diff) u.searchParams.set('diff', String(ctx.diff));
       if(ctx.time != null) u.searchParams.set('time', String(ctx.time));
@@ -88,19 +85,9 @@ function safeNextUrl(ctx, result=null){
       if(ctx.view) u.searchParams.set('view', String(ctx.view));
       u.searchParams.set('hub', hub);
 
-      const game = String(ctx.game || '').toLowerCase();
-
-      if(game === 'germdetective'){
-        if(!u.searchParams.get('scene')) u.searchParams.set('scene', 'classroom');
-        if(!u.searchParams.get('zone'))  u.searchParams.set('zone', 'hygiene');
-      }
-
-      if(game === 'maskcough'){
-        if(!u.searchParams.get('zone')) u.searchParams.set('zone', 'hygiene');
-      }
-
       // research context
       if(ctx.studyId) u.searchParams.set('studyId', String(ctx.studyId));
+      if(ctx.phase) u.searchParams.set('phase', String(ctx.phase));
       if(ctx.conditionGroup) u.searchParams.set('conditionGroup', String(ctx.conditionGroup));
       if(ctx.sessionOrder) u.searchParams.set('sessionOrder', String(ctx.sessionOrder));
       if(ctx.blockLabel) u.searchParams.set('blockLabel', String(ctx.blockLabel));
@@ -108,23 +95,32 @@ function safeNextUrl(ctx, result=null){
       if(ctx.schoolYear) u.searchParams.set('schoolYear', String(ctx.schoolYear));
       if(ctx.semester) u.searchParams.set('semester', String(ctx.semester));
 
-      // แนบผล warmup/cooldown
+      // defaults รายเกม
+      const game = String(ctx.game || '').toLowerCase();
+      if(game === 'germdetective'){
+        if(!u.searchParams.get('scene')) u.searchParams.set('scene', 'classroom');
+        if(!u.searchParams.get('zone')) u.searchParams.set('zone', 'hygiene');
+      }
+      if(game === 'maskcough'){
+        if(!u.searchParams.get('zone')) u.searchParams.set('zone', 'hygiene');
+      }
+
       if(result){
         const buffs = sanitizeBuffs(result?.buffs || {});
         Object.entries(buffs).forEach(([k,v])=>{
           u.searchParams.set(k, String(v));
         });
         u.searchParams.set('gateResult', result?.ok ? '1' : '0');
-        u.searchParams.set('gateMode', String(result?.mode || ''));
+        u.searchParams.set('gateMode', String(result?.mode || 'warmup'));
       }
 
       return u.toString();
     }catch(err){
-      console.error('[gate] invalid next url', rawNext, err);
+      console.error('[gate] invalid raw next', rawNext, err);
     }
   }
 
-  // fallback เฉพาะกรณี next ไม่มีจริง ๆ
+  // fallback กรณี next ไม่มีจริง ๆ
   const game = String(ctx.game || '').toLowerCase();
 
   if(game === 'germdetective'){
@@ -145,8 +141,9 @@ function safeNextUrl(ctx, result=null){
         u.searchParams.set(k, String(v));
       });
       u.searchParams.set('gateResult', result?.ok ? '1' : '0');
-      u.searchParams.set('gateMode', String(result?.mode || ''));
+      u.searchParams.set('gateMode', String(result?.mode || 'warmup'));
     }
+
     return u.toString();
   }
 
@@ -167,8 +164,9 @@ function safeNextUrl(ctx, result=null){
         u.searchParams.set(k, String(v));
       });
       u.searchParams.set('gateResult', result?.ok ? '1' : '0');
-      u.searchParams.set('gateMode', String(result?.mode || ''));
+      u.searchParams.set('gateMode', String(result?.mode || 'warmup'));
     }
+
     return u.toString();
   }
 
@@ -232,13 +230,7 @@ export async function bootGate(root){
   const ctx = buildCtx();
   ctx.dailyDone = getDailyDone(ctx);
 
-  console.log('[gate ctx]', {
-    game: ctx.game,
-    theme: ctx.theme,
-    mode: ctx.mode,
-    next: ctx.next,
-    hub: ctx.hub
-  });
+  console.log('[gate ctx raw]', ctx);
 
   renderShell(root, ctx);
 
@@ -299,29 +291,24 @@ export async function bootGate(root){
         subtitle: finalResult.subtitle,
         lines: finalResult.lines,
         onBack: ()=>{
-          const hubUrl = safeHubUrl(ctx);
-          console.log('[gate] back ->', hubUrl);
-          location.href = hubUrl;
+          location.replace(ctx.hub || '../hub.html');
         },
         onContinue: ()=>{
           if(ctx.mode === 'warmup'){
-            const nextUrl = safeNextUrl(ctx, finalResult);
-            console.log('[gate] continue ->', nextUrl);
-            location.href = nextUrl;
+            const nextUrl = buildRawNextUrl(ctx, finalResult);
+            console.log('[gate] RAW continue ->', String(ctx.next || ''));
+            console.log('[gate] FINAL continue ->', nextUrl);
+            location.replace(nextUrl);
             return;
           }
-          const hubUrl = safeHubUrl(ctx);
-          console.log('[gate] continue cooldown ->', hubUrl);
-          location.href = hubUrl;
+          location.replace(ctx.hub || '../hub.html');
         }
       });
     }
   };
 
   document.getElementById('gateBackBtn')?.addEventListener('click', ()=>{
-    const hubUrl = safeHubUrl(ctx);
-    console.log('[gate] footer back ->', hubUrl);
-    location.href = hubUrl;
+    location.replace(ctx.hub || '../hub.html');
   });
 
   async function loadModuleNow(){
@@ -334,7 +321,7 @@ export async function bootGate(root){
         theme: ctx.theme || '',
         next: ctx.next || '',
         hub: ctx.hub || '',
-        safeNext: safeNextUrl(ctx),
+        rawNextResolved: buildRawNextUrl(ctx),
         safeHub: safeHubUrl(ctx)
       });
 
@@ -380,9 +367,10 @@ export async function bootGate(root){
     });
 
     skipBtn?.addEventListener('click', ()=>{
-      const nextUrl = safeNextUrl(ctx);
-      console.log('[gate] skip ->', nextUrl);
-      location.href = nextUrl;
+      const nextUrl = buildRawNextUrl(ctx);
+      console.log('[gate] RAW skip ->', String(ctx.next || ''));
+      console.log('[gate] FINAL skip ->', nextUrl);
+      location.replace(nextUrl);
     });
   }
 
