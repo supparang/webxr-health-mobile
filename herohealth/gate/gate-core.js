@@ -1,6 +1,6 @@
 // === /herohealth/gate/gate-core.js ===
 // HeroHealth Gate Core
-// PATCH v20260308-HYGIENE-GATE-CORE-r2
+// PATCH v20260308-HYGIENE-GATE-CORE-r3
 // ✅ game registry
 // ✅ daily skip
 // ✅ expected path debug
@@ -9,6 +9,7 @@
 // ✅ safer next/hub handling
 // ✅ FIX: prevent warmup loop by sanitizing next/hub URLs
 // ✅ FIX: skip/continue now always use safeNextUrl()
+// ✅ FIX: GermDetective next path rewrite to real game file
 
 import {
   buildCtx,
@@ -66,11 +67,20 @@ function safeNextUrl(ctx, result=null){
   if(!raw) return hub;
 
   try{
-    const u = new URL(raw, location.href);
+    let u = new URL(raw, location.href);
 
     // กันการวนกลับเข้า gate เอง
     if(/warmup-gate\.html$/i.test(u.pathname)){
       return hub;
+    }
+
+    // FIX เฉพาะ Germ Detective:
+    // ถ้า next ยังชี้ launcher root ให้ rewrite ไปหน้าเกมจริงทันที
+    if(
+      String(ctx.game || '').toLowerCase() === 'germdetective' &&
+      /\/herohealth\/germ-detective\.html$/i.test(u.pathname)
+    ){
+      u = new URL('/webxr-health-mobile/herohealth/germ-detective/germ-detective.html', location.origin);
     }
 
     // ลบ query ของ gate ออกจากปลายทาง
@@ -82,6 +92,29 @@ function safeNextUrl(ctx, result=null){
 
     // ใส่ hub ที่สะอาดกลับเข้าเกมปลายทาง
     u.searchParams.set('hub', hub);
+
+    // คงค่าพื้นฐานให้หน้าเกม
+    if(ctx.run)  u.searchParams.set('run', String(ctx.run));
+    if(ctx.diff) u.searchParams.set('diff', String(ctx.diff));
+    if(ctx.time != null) u.searchParams.set('time', String(ctx.time));
+    if(ctx.seed) u.searchParams.set('seed', String(ctx.seed));
+    if(ctx.pid)  u.searchParams.set('pid', String(ctx.pid));
+    if(ctx.view) u.searchParams.set('view', String(ctx.view));
+
+    // game-specific defaults
+    if(String(ctx.game || '').toLowerCase() === 'germdetective' && !u.searchParams.get('scene')){
+      u.searchParams.set('scene', 'classroom');
+    }
+
+    // research context passthrough
+    if(ctx.studyId) u.searchParams.set('studyId', String(ctx.studyId));
+    if(ctx.phase) u.searchParams.set('phase', String(ctx.phase));
+    if(ctx.conditionGroup) u.searchParams.set('conditionGroup', String(ctx.conditionGroup));
+    if(ctx.sessionOrder) u.searchParams.set('sessionOrder', String(ctx.sessionOrder));
+    if(ctx.blockLabel) u.searchParams.set('blockLabel', String(ctx.blockLabel));
+    if(ctx.siteCode) u.searchParams.set('siteCode', String(ctx.siteCode));
+    if(ctx.schoolYear) u.searchParams.set('schoolYear', String(ctx.schoolYear));
+    if(ctx.semester) u.searchParams.set('semester', String(ctx.semester));
 
     if(result){
       const buffs = sanitizeBuffs(result?.buffs || {});
