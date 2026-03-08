@@ -57,11 +57,21 @@ const REASONS = [
   { id:'skip', label:'ฉันข้ามบางจุด' },
   { id:'analysis', label:'ฉันวิเคราะห์ผิด' },
 ];
+
 const IMPROVES = [
   { id:'slow', label:'ช้าลงนิดและดูตำแหน่งก่อน' },
   { id:'full', label:'เก็บให้ครบทุกด้าน' },
   { id:'care', label:'ระวังจุดฟันกรามมากขึ้น' },
   { id:'analyze', label:'อ่านหลักฐานก่อนตอบ' },
+];
+
+const TARGET_ZONES = [
+  { id:'front', x:22, y:38, good:true, label:'ด้านหน้า' },
+  { id:'front2', x:42, y:34, good:true, label:'ด้านหน้า' },
+  { id:'molar', x:72, y:40, good:true, label:'ฟันกราม' },
+  { id:'back', x:26, y:68, good:true, label:'ด้านหลัง' },
+  { id:'gum', x:64, y:68, good:false, label:'โดนเหงือกแรงไป' },
+  { id:'skip', x:50, y:52, good:false, label:'ข้ามตำแหน่ง' },
 ];
 
 const S = {
@@ -78,6 +88,7 @@ const S = {
 
   timeLeft: TIME,
   startMs: 0,
+  lastMs: 0,
   raf: 0,
 
   stage:'A',
@@ -91,7 +102,10 @@ const S = {
     back:  { hit:0, miss:0 },
     molar: { hit:0, miss:0 },
     gum:   { hit:0, miss:0 },
-  }
+  },
+
+  spawned: [],
+  spawnClock: 0
 };
 
 function accPct(){
@@ -136,7 +150,9 @@ function buildBrushCooldownUrl(){
       scoreFinal: S.score,
       missFinal: S.miss,
       accFinal: accPct(),
-      comboMax: S.comboMax
+      comboMax: S.comboMax,
+      pid: PID,
+      seed: SEED
     }
   });
 }
@@ -157,7 +173,14 @@ function coach(text){
 
 function hud(){
   UI.pillStage && (UI.pillStage.textContent = `STAGE: ${S.stage}`);
-  UI.pillQuest && (UI.pillQuest.textContent = `QUEST: ${S.stage === 'A' ? 'แปรงให้ถูกตำแหน่ง' : S.stage === 'B' ? 'เก็บหลักฐาน' : 'วิเคราะห์ให้ถูก'}`);
+  UI.pillQuest && (
+    UI.pillQuest.textContent =
+      `QUEST: ${S.stage === 'A'
+        ? 'แปรงให้ถูกตำแหน่ง'
+        : S.stage === 'B'
+          ? 'เก็บหลักฐาน'
+          : 'วิเคราะห์ให้ถูก'}`
+  );
   UI.pillTime && (UI.pillTime.textContent = `TIME: ${Math.max(0, Math.ceil(S.timeLeft))}`);
   UI.pillScore && (UI.pillScore.textContent = `SCORE: ${S.score}`);
   UI.pillMiss && (UI.pillMiss.textContent = `MISS: ${S.miss}`);
@@ -166,6 +189,12 @@ function hud(){
 
   const risk = Math.min(100, Math.round((S.miss / Math.max(1, S.good + S.miss)) * 100));
   UI.pillRisk && (UI.pillRisk.textContent = `RISK: ${risk}%`);
+}
+
+function clearTargets(){
+  S.spawned.forEach(el => { try{ el.remove(); }catch{} });
+  S.spawned = [];
+  if (UI.targetLayer) UI.targetLayer.innerHTML = '';
 }
 
 function resetGame(){
@@ -185,6 +214,8 @@ function resetGame(){
   S.selfRating = 0;
   S.improvePick = '';
   S.aiSnapshot = null;
+  S.spawnClock = 0;
+  S.lastMs = 0;
 
   S.zoneStats = {
     front: { hit:0, miss:0 },
@@ -194,32 +225,93 @@ function resetGame(){
   };
 
   cancelAnimationFrame(S.raf);
+  clearTargets();
   setEndPanelScrollMode(false);
   UI.panelEnd?.classList.add('hidden');
+
+  if (UI.mouthBoard){
+    UI.mouthBoard.classList.remove('is-live');
+    UI.mouthBoard.style.outline = '';
+    UI.mouthBoard.style.boxShadow = '';
+  }
+
   hud();
   coach('เริ่มจากด้านหน้าก่อน');
 }
 
-function fakeHit(zone, good=true){
+function zoneKey(id){
+  if (String(id).startsWith('front')) return 'front';
+  if (String(id).startsWith('back')) return 'back';
+  if (String(id).startsWith('molar')) return 'molar';
+  return 'gum';
+}
+
+function registerHit(target){
+  const zKey = zoneKey(target.id);
   S.taps++;
-  if (good){
+
+  if (target.good){
     S.good++;
     S.score += 10;
     S.combo++;
     S.comboMax = Math.max(S.comboMax, S.combo);
-    S.zoneStats[zone].hit++;
+    S.zoneStats[zKey].hit++;
   } else {
     S.miss++;
     S.combo = 0;
     S.score = Math.max(0, S.score - 2);
-    S.zoneStats[zone].miss++;
+    S.zoneStats[zKey].miss++;
   }
 
   if (S.score >= 60 && S.stage === 'A') S.stage = 'B';
   if (S.score >= 120 && S.stage === 'B') S.stage = 'C';
 
-  coach(good ? 'ดีมาก เก็บต่อ' : 'ช้าลงนิดแล้วดูตำแหน่ง');
+  coach(target.good ? 'ดีมาก เก็บต่อ' : 'ช้าลงนิดแล้วดูตำแหน่ง');
   hud();
+}
+
+function spawnTarget(){
+  if (!UI.targetLayer || !UI.mouthBoard) return;
+
+  const target = TARGET_ZONES[Math.floor(Math.random() * TARGET_ZONES.length)];
+  const el = D.createElement('button');
+  el.type = 'button';
+  el.className = `brush-target ${target.good ? 'good' : 'bad'}`;
+  el.textContent = target.good ? '🫧' : '⚠️';
+  el.title = target.label;
+  el.style.position = 'absolute';
+  el.style.left = `${target.x}%`;
+  el.style.top = `${target.y}%`;
+  el.style.transform = 'translate(-50%, -50%)';
+  el.style.border = '1px solid rgba(148,163,184,.28)';
+  el.style.borderRadius = '999px';
+  el.style.minWidth = '52px';
+  el.style.minHeight = '52px';
+  el.style.fontSize = '24px';
+  el.style.fontWeight = '900';
+  el.style.cursor = 'pointer';
+  el.style.pointerEvents = 'auto';
+  el.style.background = target.good
+    ? 'rgba(34,197,94,.18)'
+    : 'rgba(239,68,68,.18)';
+  el.style.color = '#fff';
+  el.style.boxShadow = '0 6px 18px rgba(0,0,0,.22)';
+
+  const removeLater = setTimeout(()=>{
+    try{ el.remove(); }catch{}
+    S.spawned = S.spawned.filter(x => x !== el);
+  }, 1100);
+
+  el.addEventListener('pointerdown', (e)=>{
+    e.preventDefault();
+    clearTimeout(removeLater);
+    registerHit(target);
+    try{ el.remove(); }catch{}
+    S.spawned = S.spawned.filter(x => x !== el);
+  }, { passive:false });
+
+  UI.targetLayer.appendChild(el);
+  S.spawned.push(el);
 }
 
 function loop(){
@@ -230,11 +322,23 @@ function loop(){
   S.lastMs = t;
 
   S.timeLeft = Math.max(0, S.timeLeft - dt);
+  S.spawnClock += dt;
+
   hud();
 
   if (S.timeLeft <= 0){
     endGame('timeout');
     return;
+  }
+
+  const spawnEvery =
+    DIFF === 'hard' ? 0.55 :
+    DIFF === 'easy' ? 0.95 :
+    0.75;
+
+  if (S.spawnClock >= spawnEvery){
+    S.spawnClock = 0;
+    spawnTarget();
   }
 
   S.raf = requestAnimationFrame(loop);
@@ -318,6 +422,7 @@ function endGame(reason='complete'){
   S.ended = true;
   S.started = false;
   cancelAnimationFrame(S.raf);
+  clearTargets();
 
   renderHeatmap();
   renderStars();
@@ -351,21 +456,16 @@ function startGame(){
   S.started = true;
   S.startMs = now();
   S.lastMs = 0;
+
+  if (UI.mouthBoard){
+    UI.mouthBoard.classList.add('is-live');
+    UI.mouthBoard.style.outline = '2px solid rgba(34,211,238,.45)';
+    UI.mouthBoard.style.boxShadow = '0 0 0 4px rgba(34,211,238,.10), 0 10px 30px rgba(0,0,0,.28)';
+  }
+
   coach('เริ่มจากด้านหน้าก่อน');
   hud();
   S.raf = requestAnimationFrame(loop);
-
-  // demo hooks ให้ทดสอบ flow ได้
-  UI.mouthBoard?.addEventListener('pointerdown', onBoardTap, { passive:true, once:false });
-}
-
-function onBoardTap(e){
-  if (!S.started || S.ended) return;
-  const r = Math.random();
-  if (r < 0.70) fakeHit('front', true);
-  else if (r < 0.82) fakeHit('molar', true);
-  else if (r < 0.92) fakeHit('gum', false);
-  else fakeHit('back', false);
 }
 
 function goHub(){
