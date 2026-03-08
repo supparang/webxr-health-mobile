@@ -1,6 +1,7 @@
+
 <!-- === /herohealth/goodjunk-teacher-essential.html ===
 HeroHealth • GoodJunk Teacher Essential
-FULL PATCH v20260308-GJ-TEACHER-ESSENTIAL-POLISH
+FULL PATCH v20260308-GJ-TEACHER-ESSENTIAL-HISTORY
 -->
 <!doctype html>
 <html lang="th">
@@ -54,7 +55,7 @@ FULL PATCH v20260308-GJ-TEACHER-ESSENTIAL-POLISH
     .top-grid{ display:grid; grid-template-columns:1.15fr .85fr; gap:14px; margin-top:16px; }
     .form-grid{ display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:10px; }
     label{ display:block; font-size:12px; color:var(--muted); margin-bottom:6px; }
-    input,select,textarea,button{
+    input,select,button{
       width:100%; min-height:46px; border-radius:14px; border:1px solid var(--stroke);
       background:rgba(2,6,23,.82); color:var(--text); padding:10px 12px; font:inherit;
     }
@@ -117,6 +118,31 @@ FULL PATCH v20260308-GJ-TEACHER-ESSENTIAL-POLISH
     #joinedFill{ background:linear-gradient(90deg,#22d3ee,#3b82f6); }
     #enteredFill{ background:linear-gradient(90deg,#34d399,#22c55e); }
 
+    .history-list{
+      display:grid;
+      gap:10px;
+      margin-top:12px;
+      max-height:420px;
+      overflow:auto;
+    }
+    .history-item{
+      border:1px solid rgba(148,163,184,.14);
+      background:rgba(2,6,23,.46);
+      border-radius:16px;
+      padding:12px;
+    }
+    .history-title{
+      font-size:14px;
+      font-weight:1000;
+      margin-bottom:6px;
+    }
+    .history-line{
+      font-size:12px;
+      color:#cbd5e1;
+      line-height:1.65;
+      word-break:break-word;
+    }
+
     @media (max-width:1080px){
       .top-grid,.grid{ grid-template-columns:1fr; }
       .form-grid{ grid-template-columns:1fr 1fr; }
@@ -132,7 +158,7 @@ FULL PATCH v20260308-GJ-TEACHER-ESSENTIAL-POLISH
     <div class="eyebrow">⚡ Teacher Essential</div>
     <h1>GoodJunk Classroom Control</h1>
     <div class="sub">
-      หน้าใช้งานเร็วสำหรับครูในคาบจริง เปิดห้อง ส่งลิงก์นักเรียน คุม countdown / announcement / policy / rematch / match และดูสถานะ joined-entered ได้ในหน้าเดียว
+      หน้าใช้งานเร็วสำหรับครูในคาบจริง เปิดห้อง ส่งลิงก์นักเรียน คุม countdown / announcement / policy / rematch / match และดู battle history ได้ในหน้าเดียว
     </div>
 
     <div class="top-grid">
@@ -255,8 +281,8 @@ FULL PATCH v20260308-GJ-TEACHER-ESSENTIAL-POLISH
       </div>
 
       <div class="note">
-        Reset Room = ล้างผู้เล่น/คะแนน/แมตช์
-        <br>Reset Match = คงผู้เล่น/roster/attendance แต่ล้าง wins/champion
+        Reset Room = ล้างผู้เล่น/คะแนน/แมตช์/ประวัติรอบ
+        <br>Reset Match = คงผู้เล่น/roster/attendance แต่ล้าง wins/champion/ประวัติรอบ
       </div>
     </section>
 
@@ -339,11 +365,20 @@ FULL PATCH v20260308-GJ-TEACHER-ESSENTIAL-POLISH
         <button id="btnQuickResume" class="good">กลับมาเปิดห้อง</button>
         <button id="btnQuickForceLobby" class="secondary">Force Lobby</button>
       </div>
+    </section>
 
-      <div class="note">
-        Hard Reset Match = reset room ทั้งชุด
-        <br>Reset Match = reset wins/champion แต่ไม่ล้าง roster
+    <section class="card" style="grid-column:1 / -1;">
+      <h2>Battle History / Round Archive</h2>
+      <div class="desc">บันทึกรอบล่าสุดของ battle ใช้ดูว่าแต่ละรอบใครชนะและด้วยกติกาอะไร</div>
+
+      <div class="actions-3">
+        <button id="btnRefreshHistory" class="secondary">Refresh History</button>
+        <button id="btnClearHistory" class="warn">Clear History</button>
+        <button id="btnExportText" class="secondary">Copy Summary Text</button>
       </div>
+
+      <div id="historySummary" class="status">History: —</div>
+      <div id="historyList" class="history-list"></div>
     </section>
   </div>
 </div>
@@ -364,6 +399,7 @@ FULL PATCH v20260308-GJ-TEACHER-ESSENTIAL-POLISH
   let announcementRaw = {};
   let rematchRaw = {};
   let matchRaw = {};
+  let roundHistoryRaw = {};
   let lastQrLink = '';
 
   function setStatus(msg){ $('status').textContent = msg; }
@@ -537,6 +573,57 @@ FULL PATCH v20260308-GJ-TEACHER-ESSENTIAL-POLISH
     $('bestOf').value = String(Number(m.bestOf || bestOf()));
   }
 
+  function sortHistoryItems(){
+    return Object.entries(roundHistoryRaw || {})
+      .map(([key,v])=>({ key, ...(v||{}) }))
+      .sort((a,b)=>(Number(b.createdAtMs||0)-Number(a.createdAtMs||0)));
+  }
+
+  function winnerName(key, players){
+    const row = (players || []).find(p => String(p.key||'') === String(key||''));
+    return row?.nick || key || '—';
+  }
+
+  function renderHistory(){
+    const rows = sortHistoryItems();
+    $('historySummary').textContent = `History: ${rows.length} รอบ`;
+
+    const box = $('historyList');
+    box.innerHTML = '';
+
+    if(!rows.length){
+      box.innerHTML = `<div class="history-item"><div class="history-title">ยังไม่มีประวัติรอบ</div><div class="history-line">เมื่อจบรอบ battle แล้วจะมีรายการแสดงที่นี่</div></div>`;
+      return;
+    }
+
+    rows.slice(0,20).forEach((r, idx)=>{
+      const item = document.createElement('div');
+      item.className = 'history-item';
+
+      const players = Array.isArray(r.players) ? r.players : [];
+      const winner = winnerName(r.winner, players);
+      const champion = winnerName(r.matchChampion, players);
+
+      item.innerHTML = `
+        <div class="history-title">#${rows.length - idx} • round ${r.roundId || '-'} • winner ${winner}</div>
+        <div class="history-line">reason = ${r.reason || '-'} • match bestOf = ${Number(r.matchBestOf || 3)} • complete = ${!!r.matchComplete}</div>
+        <div class="history-line">champion = ${champion} • wins = ${JSON.stringify(r.matchWins || {})}</div>
+      `;
+      box.appendChild(item);
+    });
+  }
+
+  function historySummaryText(){
+    const rows = sortHistoryItems();
+    if(!rows.length) return 'ยังไม่มีประวัติรอบ';
+    return rows.slice(0,20).map((r, idx)=>{
+      const players = Array.isArray(r.players) ? r.players : [];
+      const winner = winnerName(r.winner, players);
+      const champion = winnerName(r.matchChampion, players);
+      return `${idx+1}. round=${r.roundId || '-'} winner=${winner} reason=${r.reason || '-'} champion=${champion} wins=${JSON.stringify(r.matchWins || {})}`;
+    }).join('\n');
+  }
+
   async function refreshAttendance(){
     try{
       const d = db(); if(!d) return;
@@ -573,6 +660,15 @@ FULL PATCH v20260308-GJ-TEACHER-ESSENTIAL-POLISH
     }catch(err){ console.warn(err); }
   }
 
+  async function refreshHistoryOnce(){
+    try{
+      const d = db(); if(!d) return;
+      const snap = await d.ref(`hha-battle/goodjunk/rooms/${room()}/roundHistory`).get();
+      roundHistoryRaw = snap.val() || {};
+      renderHistory();
+    }catch(err){ console.warn(err); }
+  }
+
   function showQr(link){
     lastQrLink = String(link || '');
     $('qrLink').textContent = lastQrLink || '—';
@@ -605,11 +701,15 @@ FULL PATCH v20260308-GJ-TEACHER-ESSENTIAL-POLISH
       if(admin.watchMatch){
         offFns.push(admin.watchMatch(v=>{ matchRaw = v || {}; renderMatch(); }));
       }
+      if(admin.watchRoundHistory){
+        offFns.push(admin.watchRoundHistory(v=>{ roundHistoryRaw = v || {}; renderHistory(); }));
+      }
 
       await refreshRoster();
       await refreshAttendance();
       await refreshRematchOnce();
       await refreshMatchOnce();
+      await refreshHistoryOnce();
       refreshLinks();
       setStatus(`เชื่อมต่อ room ${room()} แล้ว`);
     }catch(err){
@@ -771,7 +871,8 @@ FULL PATCH v20260308-GJ-TEACHER-ESSENTIAL-POLISH
     try{
       await refreshRematchOnce();
       await refreshMatchOnce();
-      setStatus('Refresh rematch/match แล้ว');
+      await refreshHistoryOnce();
+      setStatus('Refresh rematch/match/history แล้ว');
     }catch(err){ console.warn(err); }
   };
   $('btnClearRematch').onclick = async ()=>{
@@ -814,6 +915,26 @@ FULL PATCH v20260308-GJ-TEACHER-ESSENTIAL-POLISH
       await admin.clearRematch();
       await admin.setAnnouncement('กลับสู่ lobby แล้ว เตรียมเริ่มใหม่', { tone:'warn', ttlSec:12 });
       setStatus('Force lobby แล้ว');
+    }catch(err){ console.warn(err); }
+  };
+
+  $('btnRefreshHistory').onclick = async ()=>{
+    try{
+      await refreshHistoryOnce();
+      setStatus('Refresh history แล้ว');
+    }catch(err){ console.warn(err); }
+  };
+  $('btnClearHistory').onclick = async ()=>{
+    try{
+      if(!admin) await connect();
+      await admin.clearRoundHistory();
+      setStatus('Clear history แล้ว');
+    }catch(err){ console.warn(err); }
+  };
+  $('btnExportText').onclick = async ()=>{
+    try{
+      await copyText(historySummaryText());
+      setStatus('คัดลอก history summary แล้ว');
     }catch(err){ console.warn(err); }
   };
 
