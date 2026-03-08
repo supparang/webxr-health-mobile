@@ -1,124 +1,145 @@
 // === /herohealth/gate-nav.js ===
-// HeroHealth Gate Navigation Helper (Warmup/Cooldown routing)
-'use strict';
+// HeroHealth canonical gate/router helpers
+// PATCH v20260308-GATE-NAV-CANONICAL
+//
+// แก้ปัญหา path ซ้ำหลัง warmup/cooldown โดยบังคับ resolve จาก root /herohealth/
+// และกัน auto-skip loop ด้วย wgskip=1
 
-export function qs(name, fallback=''){
-  try{
-    const u = new URL(window.location.href);
-    return u.searchParams.get(name) ?? fallback;
-  }catch(e){
-    return fallback;
+(function(){
+  'use strict';
+
+  function qs(k, d=''){
+    try{ return new URL(location.href).searchParams.get(k) ?? d; }
+    catch{ return d; }
   }
-}
 
-export function absUrl(url){
-  if(!url) return '';
-  try{ return new URL(url, window.location.href).toString(); }catch(e){ return url; }
-}
+  function normalizeMaybeEncodedUrl(v){
+    v = String(v ?? '').trim();
+    if(!v || v === 'null' || v === 'undefined') return '';
+    if(/%3A|%2F|%3F|%26|%3D/i.test(v)){
+      try{ v = decodeURIComponent(v); }catch(e){}
+    }
+    return v.trim();
+  }
 
-export function buildUrl(base, params){
-  const u = new URL(base, window.location.href);
-  Object.entries(params || {}).forEach(([k,v])=>{
-    if (v === undefined || v === null || v === '') return;
-    u.searchParams.set(k, String(v));
-  });
-  return u.toString();
-}
+  function canonicalHeroRoot(){
+    const origin = location.origin.replace(/\/+$/,'');
+    const path = location.pathname || '/';
+    const idx = path.indexOf('/herohealth/');
+    if(idx >= 0){
+      return origin + path.slice(0, idx + '/herohealth/'.length);
+    }
+    return origin + '/herohealth/';
+  }
 
-// map gameKey -> cat/theme for warmup-gate
-export function mapGameToCatTheme(gameKey){
-  const g = String(gameKey || '').toLowerCase().trim();
+  function gameEntryMap(){
+    return {
+      goodjunk: 'goodjunk-launcher.html',
+      groups: 'groups-vr.html',
+      hydration: 'hydration-vr.html',
+      plate: 'plate-vr.html',
 
-  // nutrition
-  if (g === 'goodjunk')   return { cat:'nutrition', theme:'goodjunk' };
-  if (g === 'groups')     return { cat:'nutrition', theme:'groups' };
-  if (g === 'hydration')  return { cat:'nutrition', theme:'hydration' };
-  if (g === 'plate')      return { cat:'nutrition', theme:'plate' };
+      handwash: 'hygiene-vr.html',
+      brush: 'brush-vr.html',
+      bath: 'bath-vr.html',
+      cleanobject: 'clean-objects.html',
+      cleanobjects: 'clean-objects.html',
+      maskcough: 'maskcough-vr.html',
 
-  // hygiene
-  if (g === 'handwash')   return { cat:'hygiene', theme:'handwash' };
-  if (g === 'brush')      return { cat:'hygiene', theme:'brush' };
-  if (g === 'maskcough')  return { cat:'hygiene', theme:'maskcough' };
-  if (g === 'germ' || g === 'germdetective') return { cat:'hygiene', theme:'germ' };
-  if (g === 'bath')       return { cat:'hygiene', theme:'bath' };
-  if (g === 'clean' || g === 'cleanobjects') return { cat:'hygiene', theme:'clean' };
+      germdetective: 'germ-detective.html',
+      germ: 'germ-detective.html',
 
-  // exercise / fitness
-  if (g === 'shadow')     return { cat:'exercise', theme:'shadow' };
-  if (g === 'rhythm')     return { cat:'exercise', theme:'rhythm' };
-  if (g === 'jumpduck')   return { cat:'exercise', theme:'jumpduck' };
-  if (g === 'balance' || g === 'balancehold') return { cat:'exercise', theme:'balance' };
-  if (g === 'planner')    return { cat:'exercise', theme:'planner' };
+      shadowbreaker: 'shadow-breaker-vr.html',
+      rhythmboxer: 'rhythm-boxer-vr.html',
+      jumpduck: 'jump-duck-vr.html',
+      balancehold: 'balance-hold-vr.html',
+      fitnessplanner: 'fitness-planner/planner.html'
+    };
+  }
 
-  return { cat:'nutrition', theme:'goodjunk' };
-}
+  function gameRunMap(){
+    return {
+      germdetective: 'germ-detective/germ-detective.html'
+    };
+  }
 
-export function decidePickMode(){
-  const pick = String(qs('pick','')).toLowerCase().trim();
-  if (pick === 'rand' || pick === 'day') return pick;
+  function sanitizeGameKey(v){
+    return String(v || '')
+      .toLowerCase()
+      .replace(/[\s_\-]+/g, '')
+      .trim();
+  }
 
-  const run = String(qs('run','play')).toLowerCase().trim();
-  return (run === 'research') ? 'day' : 'rand';
-}
+  function canonicalGameUrl(gameKey, mode){
+    const root = canonicalHeroRoot();
+    const gk = sanitizeGameKey(gameKey);
+    const entry = mode === 'run' ? gameRunMap()[gk] : gameEntryMap()[gk];
+    if(!entry) return '';
+    return new URL(entry, root).toString();
+  }
 
-/**
- * Build cooldown gate URL from current game page.
- * @param {Object} cfg
- * @param {string} cfg.gameKey - canonical game key e.g. plate, hydration, handwash, shadow
- * @param {string} [cfg.hub] - override hub URL
- * @param {string} [cfg.next] - where cooldown should go after finish (default hub)
- * @param {Object} [cfg.extra] - extra qs passthrough
- */
-export function buildCooldownGateUrl(cfg={}){
-  const gameKey = String(cfg.gameKey || '').trim();
-  const mapped = mapGameToCatTheme(gameKey);
+  function appendCommonParams(url, extra){
+    const u = new URL(url, location.href);
+    const sp = u.searchParams;
+    const src = new URL(location.href).searchParams;
 
-  const hub = absUrl(cfg.hub || qs('hub', '../herohealth/hub.html') || '../herohealth/hub.html');
-  const next = absUrl(cfg.next || hub);
+    [
+      'run','diff','time','seed','studyId','phase','conditionGroup','log','view','pid','api','ai','debug',
+      'planSeq','planDay','planSlot','planMode','planSlots','planIndex','autoNext',
+      'plannedGame','finalGame','zone','cdnext','grade','scene','room','battle','autostart','forfeit'
+    ].forEach(k=>{
+      const v = src.get(k);
+      if(v != null && v !== '' && !sp.has(k)) sp.set(k, v);
+    });
 
-  const gate = absUrl('/herohealth/warmup-gate.html'); // absolute root path (GitHub Pages safe if repo root same)
-  // If you prefer relative, use: './warmup-gate.html' from /herohealth pages only
+    // กัน warmup loop
+    sp.set('wgskip', '1');
 
-  const params = {
-    // gate routing
-    phase: 'cooldown',
-    gatePhase: 'cooldown',
-    cat: mapped.cat,
-    theme: 'calm',
-    pick: decidePickMode(),
+    // กัน param ที่ชวนให้ย้อนเข้ากลับ gate ซ้ำ
+    sp.delete('plannedGame');
+    sp.delete('finalGame');
+    sp.delete('autoNext');
 
-    // destinations
-    hub,
-    next,
+    if(extra && typeof extra === 'object'){
+      Object.keys(extra).forEach(k=>{
+        const v = extra[k];
+        if(v === null || v === undefined || v === '') sp.delete(k);
+        else sp.set(k, String(v));
+      });
+    }
 
-    // runtime/research passthrough
-    run: qs('run','play'),
-    diff: qs('diff','normal'),
-    time: qs('time','80'),
-    seed: qs('seed', String(Date.now())),
-    pid: qs('pid','anon'),
-    studyId: qs('studyId',''),
-    conditionGroup: qs('conditionGroup',''),
-    researchPhase: qs('researchPhase', qs('phase','')),
-    view: qs('view',''),
-    log: qs('log',''),
-    api: qs('api',''),
+    return u.toString();
+  }
 
-    // optional variant/pick overrides continue through
-    variant: qs('variant','')
+  function nextFromWarmup(themeOrGame){
+    const key = sanitizeGameKey(themeOrGame || qs('theme','') || qs('game','') || qs('plannedGame','') || qs('finalGame',''));
+    let url = '';
+
+    // Germ Detective ใช้ run page จริงหลัง warmup ได้เลย
+    if(key === 'germdetective' || key === 'germ'){
+      url = canonicalGameUrl('germdetective', 'run');
+      if(url) return appendCommonParams(url, { scene: qs('scene','classroom') || 'classroom' });
+    }
+
+    url = canonicalGameUrl(key, 'entry');
+    if(url) return appendCommonParams(url, {});
+    return '';
+  }
+
+  function withSkipFlag(url){
+    if(!url) return '';
+    const u = new URL(url, location.href);
+    u.searchParams.set('wgskip', '1');
+    return u.toString();
+  }
+
+  window.HHGateNav = {
+    qs,
+    normalizeMaybeEncodedUrl,
+    canonicalHeroRoot,
+    canonicalGameUrl,
+    appendCommonParams,
+    nextFromWarmup,
+    withSkipFlag
   };
-
-  // caller extras win
-  Object.assign(params, cfg.extra || {});
-
-  return buildUrl(gate, params);
-}
-
-/**
- * Go cooldown gate immediately
- */
-export function goCooldownGate(cfg={}){
-  const url = buildCooldownGateUrl(cfg);
-  window.location.replace(url);
-  return url;
-}
+})();
