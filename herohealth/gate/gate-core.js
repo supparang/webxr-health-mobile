@@ -1,16 +1,58 @@
-import { buildCtx, getDailyDone, setDailyDone, setText } from './gate-common.js?v=20260308a';
+// === /herohealth/gate/gate-core.js ===
+// HeroHealth Gate Core
+// PATCH v20260308-HYGIENE-GATE-CORE-r1
+// ✅ game registry
+// ✅ daily skip
+// ✅ expected path debug
+// ✅ sanitize buffs
+// ✅ save last summary
+// ✅ safer next/hub handling
+
+import {
+  buildCtx,
+  getDailyDone,
+  setDailyDone,
+  setText,
+  sanitizeBuffs,
+  saveLastSummary
+} from './gate-common.js?v=20260308b';
+
 import { mountSummaryLayer, mountToast } from './gate-summary.js?v=20260308a';
 import { createGateLogger } from './gate-logger.js?v=20260308a';
+import { GATE_GAMES, getGameMeta } from './gate-games.js?v=20260308b';
 
 function titleOf(ctx){
-  const m = ctx.mode === 'cooldown' ? 'Cooldown' : 'Warmup';
-  const g = ctx.game.charAt(0).toUpperCase() + ctx.game.slice(1);
-  return `${m} — ${g}`;
+  const meta = getGameMeta(ctx.game) || {
+    label: ctx.game,
+    warmupTitle: ctx.game,
+    cooldownTitle: ctx.game
+  };
+  return ctx.mode === 'cooldown'
+    ? `Cooldown — ${meta.label}`
+    : `Warmup — ${meta.label}`;
 }
 
 function subtitleOf(ctx){
-  if(ctx.mode === 'warmup') return `เตรียมความพร้อมก่อนเข้าเกม ${ctx.game}`;
-  return `คูลดาวน์และสรุปก่อนออกจากเกม ${ctx.game}`;
+  const meta = getGameMeta(ctx.game) || { label: ctx.game };
+  if(ctx.mode === 'warmup'){
+    return `เตรียมความพร้อมก่อนเข้าเกม ${meta.label}`;
+  }
+  return `คูลดาวน์และสรุปก่อนออกจากเกม ${meta.label}`;
+}
+
+function modulePath(ctx){
+  return `./games/${ctx.game}/${ctx.mode}.js?v=20260308a`;
+}
+
+function appendResultToNext(nextUrl, result){
+  const u = new URL(nextUrl, location.href);
+  const buffs = sanitizeBuffs(result?.buffs || {});
+  Object.entries(buffs).forEach(([k,v])=>{
+    u.searchParams.set(k, String(v));
+  });
+  u.searchParams.set('gateResult', result?.ok ? '1' : '0');
+  u.searchParams.set('gateMode', String(result?.mode || ''));
+  return u.toString();
 }
 
 function renderShell(root, ctx){
@@ -41,6 +83,19 @@ function renderShell(root, ctx){
           <div class="gate-stat"><div class="gate-stat-k">ACC / PROGRESS</div><div class="gate-stat-v" id="hudAcc">0%</div></div>
         </section>
 
+        <div id="gateDailyAction" class="hidden" style="padding:12px 16px 0;">
+          <div style="padding:14px;border-radius:18px;border:1px solid rgba(148,163,184,.14);background:rgba(2,6,23,.45);">
+            <div style="font-weight:900;margin-bottom:6px;">วันนี้คุณเคยเล่นส่วนนี้แล้ว</div>
+            <div style="color:#94a3b8;font-size:13px;margin-bottom:10px;">
+              จะเล่นซ้ำเพื่อฝึกเพิ่ม หรือข้ามไปต่อเลยก็ได้
+            </div>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;">
+              <button class="btn btn-ghost" id="gateReplayBtn">เล่นซ้ำ</button>
+              <button class="btn btn-primary" id="gateSkipBtn">ข้ามไปต่อ</button>
+            </div>
+          </div>
+        </div>
+
         <section class="gate-stage">
           <div class="gate-play" id="gatePlay"></div>
         </section>
@@ -51,21 +106,6 @@ function renderShell(root, ctx){
       </div>
     </div>
   `;
-}
-
-function modulePath(ctx){
-  return `./games/${ctx.game}/${ctx.mode}.js?v=20260308a`;
-}
-
-function appendResultToNext(nextUrl, result){
-  const u = new URL(nextUrl, location.href);
-  const buffs = result?.buffs || {};
-  Object.entries(buffs).forEach(([k,v])=>{
-    if(v != null) u.searchParams.set(k, String(v));
-  });
-  u.searchParams.set('gateResult', result?.ok ? '1' : '0');
-  u.searchParams.set('gateMode', String(result?.mode || ''));
-  return u.toString();
 }
 
 export async function bootGate(root){
@@ -86,6 +126,10 @@ export async function bootGate(root){
     acc: document.getElementById('hudAcc')
   };
 
+  const dailyAction = document.getElementById('gateDailyAction');
+  const replayBtn = document.getElementById('gateReplayBtn');
+  const skipBtn = document.getElementById('gateSkipBtn');
+
   const api = {
     ctx,
     logger,
@@ -103,14 +147,24 @@ export async function bootGate(root){
         title: result.title || (ctx.mode === 'warmup' ? 'พร้อมแล้ว!' : 'คูลดาวน์เสร็จแล้ว'),
         subtitle: result.subtitle || 'ไปต่อได้เลย',
         lines: Array.isArray(result.lines) ? result.lines : [],
-        buffs: result.buffs || {},
+        buffs: sanitizeBuffs(result.buffs || {}),
         markDailyDone: result.markDailyDone !== false
       };
 
       logger.push('finish', finalResult);
       logger.flush(finalResult);
 
-      if(finalResult.markDailyDone) setDailyDone(ctx, true);
+      if(finalResult.markDailyDone){
+        setDailyDone(ctx, true);
+      }
+
+      saveLastSummary({
+        ts: new Date().toISOString(),
+        game: ctx.game,
+        cat: ctx.cat,
+        mode: ctx.mode,
+        result: finalResult
+      });
 
       summary.show({
         title: finalResult.title,
@@ -134,32 +188,65 @@ export async function bootGate(root){
     location.href = ctx.hub;
   });
 
-  try{
-    logger.push('boot', { modulePath: modulePath(ctx), dailyDone: ctx.dailyDone });
+  async function loadModuleNow(){
+    try{
+      logger.push('boot', {
+        modulePath: modulePath(ctx),
+        dailyDone: ctx.dailyDone,
+        gameKnown: !!GATE_GAMES[ctx.game]
+      });
 
-    const mod = await import(modulePath(ctx));
-    if(!mod || typeof mod.mount !== 'function'){
-      throw new Error(`Module missing mount(): ${modulePath(ctx)}`);
-    }
+      const mod = await import(modulePath(ctx));
+      if(!mod || typeof mod.mount !== 'function'){
+        throw new Error(`Module missing mount(): ${modulePath(ctx)}`);
+      }
 
-    if(typeof mod.loadStyle === 'function'){
-      mod.loadStyle();
-    }
+      if(typeof mod.loadStyle === 'function'){
+        mod.loadStyle();
+      }
 
-    const controller = await mod.mount(playEl, ctx, api);
-    if(controller && typeof controller.start === 'function'){
-      controller.start();
+      const controller = await mod.mount(playEl, ctx, api);
+      if(controller && typeof controller.start === 'function'){
+        controller.start();
+      }
+    }catch(err){
+      console.error(err);
+      playEl.innerHTML = `
+        <div style="padding:22px;">
+          <h2 style="margin:0 0 8px;">โหลดมินิเกมไม่สำเร็จ</h2>
+          <p style="margin:0;color:#94a3b8;">
+            ไม่พบโมดูลของเกม ${ctx.game} โหมด ${ctx.mode}
+          </p>
+          <p style="margin:8px 0 0;color:#cbd5e1;font-size:13px;">
+            expected: ${modulePath(ctx)}
+          </p>
+        </div>
+      `;
+      toast('โหลด gate module ไม่สำเร็จ');
     }
-  }catch(err){
-    console.error(err);
-    playEl.innerHTML = `
-      <div style="padding:22px;">
-        <h2 style="margin:0 0 8px;">โหลดมินิเกมไม่สำเร็จ</h2>
-        <p style="margin:0;color:#94a3b8;">
-          ไม่พบโมดูลของเกม ${ctx.game} โหมด ${ctx.mode}
-        </p>
-      </div>
-    `;
-    toast('โหลด gate module ไม่สำเร็จ');
+  }
+
+  let shouldAutoLoadModule = true;
+
+  if(ctx.mode === 'warmup' && ctx.dailyDone){
+    dailyAction?.classList.remove('hidden');
+    shouldAutoLoadModule = false;
+
+    replayBtn?.addEventListener('click', async ()=>{
+      dailyAction?.classList.add('hidden');
+      await loadModuleNow();
+    });
+
+    skipBtn?.addEventListener('click', ()=>{
+      if(ctx.next){
+        location.href = ctx.next;
+        return;
+      }
+      location.href = ctx.hub;
+    });
+  }
+
+  if(shouldAutoLoadModule){
+    await loadModuleNow();
   }
 }
