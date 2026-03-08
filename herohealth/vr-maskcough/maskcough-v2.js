@@ -1,5 +1,7 @@
 'use strict';
 
+import { buildCooldownUrlForCurrentGame } from '../gate/helpers/gate-link.js';
+
 (function(){
   const DOC = document;
   const WIN = window;
@@ -79,6 +81,7 @@
   const endNote = byId('endNote');
 
   let crosshairEl = null;
+  let endFlowRedirected = false;
 
   // ---------- audio/vibrate ----------
   const FX = {
@@ -228,6 +231,70 @@
       localStorage.setItem(LS_HIST, JSON.stringify(arr));
     }catch(_){}
   }
+
+  // ---------- cooldown helpers ----------
+  function buildMaskCoughCooldownUrl(summary){
+    const safe = summary || {};
+    const endScore   = sScore?.textContent?.trim() || String(safe.score ?? '');
+    const endCombo   = sComboMax?.textContent?.trim() || String(safe.comboMax ?? '');
+    const endPerfect = sPerfect?.textContent?.trim() || String(safe.perfect ?? '');
+    const endMiss    = sMiss?.textContent?.trim() || String(safe.miss ?? '');
+    const endShield  = sShield?.textContent?.trim() || (safe.shieldEnd != null ? `${safe.shieldEnd}%` : '');
+    const endThreat  = sThreat?.textContent?.trim() || (safe.threatEnd != null ? `${safe.threatEnd}%` : '');
+    const noteText   = endNote?.textContent?.trim() || '';
+
+    const phaseText = tPhase?.textContent?.trim() || '';
+    const missionText = tMission?.textContent?.trim() || '';
+
+    return buildCooldownUrlForCurrentGame({
+      cat: 'hygiene',
+      game: 'maskcough',
+      theme: 'maskcough',
+      fallbackHub: '../hub.html',
+      extras: {
+        endScore,
+        endCombo,
+        endPerfect,
+        endMiss,
+        endShield,
+        endThreat,
+        noteText,
+        phaseText,
+        missionText,
+        reason: safe.reason || '',
+        score: safe.score ?? '',
+        comboMax: safe.comboMax ?? '',
+        perfect: safe.perfect ?? '',
+        miss: safe.miss ?? '',
+        shieldEnd: safe.shieldEnd ?? '',
+        threatEnd: safe.threatEnd ?? '',
+        bossPerfect: safe.bossPerfect ?? '',
+        bossNeedPerfect: safe.bossNeedPerfect ?? '',
+        burstUsed: safe.burstUsed ?? ''
+      }
+    });
+  }
+
+  function goMaskCoughCooldown(summary){
+    location.href = buildMaskCoughCooldownUrl(summary);
+  }
+
+  function goCooldownOnce(summary){
+    if(endFlowRedirected) return;
+    endFlowRedirected = true;
+    goMaskCoughCooldown(summary);
+  }
+
+  function wireEndButtonForCooldown(){
+    if(!btnEndBack) return;
+    btnEndBack.textContent = '➡ ไป Cooldown';
+    btnEndBack.onclick = (ev)=>{
+      ev.preventDefault();
+      goCooldownOnce(lastSummary);
+    };
+  }
+
+  let lastSummary = null;
 
   // ---------- config ----------
   const DIFF = {
@@ -1053,6 +1120,9 @@
 
     st.burstUsed = 0;
 
+    endFlowRedirected = false;
+    lastSummary = null;
+
     if(st.spawnTimer) clearTimeout(st.spawnTimer);
     if(st.tickTimer) clearInterval(st.tickTimer);
 
@@ -1074,6 +1144,10 @@
       btnBurst.disabled = true;
       btnBurst.style.opacity = '.6';
       btnBurst.style.cursor = 'not-allowed';
+    }
+
+    if(btnEndBack){
+      btnEndBack.textContent = '➡ ไป Cooldown';
     }
 
     updateHud();
@@ -1295,6 +1369,8 @@
       reason
     };
 
+    lastSummary = summary;
+
     saveSummary(summary);
     logger.push({ type:'end', ...summary });
     logger.flush('end');
@@ -1316,6 +1392,8 @@ burstUsed=${st.burstUsed}
 diff=${diff} view=${view} time=${timeLimit}s seed=${seed}
 log=${logEndpoint || '-'}`;
     }
+
+    wireEndButtonForCooldown();
 
     if(endScreen) endScreen.hidden = false;
   }
@@ -1394,7 +1472,14 @@ log=${logEndpoint || '-'}`;
   });
 
   btnBack?.addEventListener('click', backHub);
-  btnEndBack?.addEventListener('click', backHub);
+  btnEndBack?.addEventListener('click', (ev)=>{
+    ev.preventDefault();
+    goCooldownOnce(lastSummary);
+  });
+
+  if(btnEndBack){
+    btnEndBack.textContent = '➡ ไป Cooldown';
+  }
 
   updateHud();
 })();
