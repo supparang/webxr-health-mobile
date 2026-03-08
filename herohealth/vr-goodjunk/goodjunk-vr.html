@@ -1,6 +1,6 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
 GoodJunkVR — RUN PAGE
-PATCH v20260308-GJ-RUNPAGE-REMATCH-UI-SOUND
+PATCH v20260308-GJ-RUNPAGE-MATCH-OVERLAY
 -->
 <!doctype html>
 <html lang="th">
@@ -81,6 +81,7 @@ PATCH v20260308-GJ-RUNPAGE-REMATCH-UI-SOUND
     .mission-head{
       display:flex; justify-content:space-between; gap:10px; align-items:center;
       font-weight:1000; font-size:14px;
+      flex-wrap:wrap;
     }
     .mission-goal{ margin-top:4px; font-size:13px; color:#e5e7eb; font-weight:900; }
     .mission-hint{ margin-top:3px; font-size:12px; color:#cbd5e1; }
@@ -114,6 +115,7 @@ PATCH v20260308-GJ-RUNPAGE-REMATCH-UI-SOUND
     .boss-head{
       display:flex; justify-content:space-between; gap:10px; font-weight:1000; font-size:13px;
       color:#fecaca;
+      flex-wrap:wrap;
     }
     .boss-track{
       height:12px; border-radius:999px; background:rgba(127,29,29,.30);
@@ -132,7 +134,7 @@ PATCH v20260308-GJ-RUNPAGE-REMATCH-UI-SOUND
       right:8px;
       bottom:calc(var(--sab) + 72px);
       z-index:101;
-      width:min(310px, calc(100vw - 16px));
+      width:min(320px, calc(100vw - 16px));
     }
     .ai-box{
       border:1px solid var(--stroke);
@@ -155,6 +157,26 @@ PATCH v20260308-GJ-RUNPAGE-REMATCH-UI-SOUND
       border:1px solid var(--stroke);
       color:#e5e7eb;
       margin-right:6px;
+      margin-bottom:6px;
+    }
+
+    .match-chip-wrap{
+      margin-top:10px;
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+    .match-chip{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      padding:8px 10px;
+      border-radius:999px;
+      font-size:12px;
+      font-weight:1000;
+      border:1px solid var(--stroke);
+      background:rgba(15,23,42,.84);
+      color:#e5e7eb;
     }
 
     .bottom-bar{
@@ -168,6 +190,7 @@ PATCH v20260308-GJ-RUNPAGE-REMATCH-UI-SOUND
     .bottom-left,.bottom-right{
       display:flex; gap:8px; align-items:center;
       pointer-events:auto;
+      flex-wrap:wrap;
     }
     .mini-chip{
       border:1px solid var(--stroke);
@@ -255,7 +278,7 @@ PATCH v20260308-GJ-RUNPAGE-REMATCH-UI-SOUND
       padding:16px;
     }
     #endOverlay .panel{
-      width:min(960px, 100%);
+      width:min(980px, 100%);
       border-radius:24px;
       border:1px solid var(--stroke);
       background:linear-gradient(180deg, rgba(15,23,42,.92), rgba(2,6,23,.90));
@@ -268,6 +291,27 @@ PATCH v20260308-GJ-RUNPAGE-REMATCH-UI-SOUND
     }
     #endTitle{ font-size:32px; font-weight:1000; }
     #endSub{ margin-top:6px; color:#cbd5e1; font-size:14px; }
+
+    .end-match-box{
+      margin-top:12px;
+      border-radius:18px;
+      border:1px solid rgba(148,163,184,.14);
+      background:rgba(2,6,23,.54);
+      padding:12px 14px;
+    }
+    .end-match-title{
+      font-size:14px;
+      font-weight:1000;
+      margin-bottom:8px;
+      color:#a5f3fc;
+    }
+    .end-match-line{
+      font-size:14px;
+      line-height:1.7;
+      color:#e5e7eb;
+      word-break:break-word;
+    }
+
     .end-stats{
       display:grid;
       grid-template-columns:repeat(4,minmax(0,1fr));
@@ -339,7 +383,7 @@ PATCH v20260308-GJ-RUNPAGE-REMATCH-UI-SOUND
         left:8px; right:8px; width:auto; bottom:calc(var(--sab) + 64px);
       }
       .mid-mission{ top:calc(var(--sat) + 134px); }
-      .boss-bar{ top:calc(var(--sat) + 218px); }
+      .boss-bar{ top:calc(var(--sat) + 236px); }
       .end-actions{ justify-content:stretch; }
       .end-actions .btn{ flex:1 1 220px; }
     }
@@ -365,6 +409,14 @@ PATCH v20260308-GJ-RUNPAGE-REMATCH-UI-SOUND
       </div>
       <div id="missionGoal" class="mission-goal">เก็บของดี</div>
       <div id="missionHint" class="mission-hint">—</div>
+
+      <div class="match-chip-wrap">
+        <div class="match-chip">Best Of <span id="matchBestOfInline">3</span></div>
+        <div class="match-chip">Wins To Champion <span id="matchWinsToChampionInline">2</span></div>
+        <div class="match-chip">Status <span id="matchStatusInline">LIVE</span></div>
+        <div class="match-chip">Champion <span id="matchChampionInline">—</span></div>
+      </div>
+
       <div class="mission-bar"><i id="missionFill" style="--p:0%"></i></div>
     </div>
   </div>
@@ -385,6 +437,8 @@ PATCH v20260308-GJ-RUNPAGE-REMATCH-UI-SOUND
       <div class="ai-pill">hazard <span id="hazardInline">0.00</span></div>
       <div class="ai-pill">win <span id="winInline">0.00</span></div>
       <div class="ai-pill">frustration <span id="frustrationInline">0.00</span></div>
+      <div class="ai-pill">you wins <span id="matchYouWinsInline">0</span></div>
+      <div class="ai-pill">opp wins <span id="matchOppWinsInline">0</span></div>
     </div>
   </div>
 
@@ -411,6 +465,12 @@ PATCH v20260308-GJ-RUNPAGE-REMATCH-UI-SOUND
       <div id="endTop">
         <div id="endTitle">จบเกม</div>
         <div id="endSub">—</div>
+      </div>
+
+      <div class="end-match-box">
+        <div class="end-match-title">Match Summary</div>
+        <div id="endMatchLine1" class="end-match-line">bestOf 3 • winsToChampion 2</div>
+        <div id="endMatchLine2" class="end-match-line">you 0 • opponent 0 • champion —</div>
       </div>
 
       <div class="end-stats">
