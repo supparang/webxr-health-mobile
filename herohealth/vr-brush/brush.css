@@ -334,3 +334,7 @@ html,body{
     bottom:14px;
   }
 }
+.mouth-board.is-live::before,
+.mouth-board.is-live::after{
+  display:none;
+}
