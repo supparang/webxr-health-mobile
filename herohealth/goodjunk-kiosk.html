@@ -1,6 +1,6 @@
 <!-- === /herohealth/goodjunk-kiosk.html ===
 HeroHealth • GoodJunk Kiosk
-PATCH v20260308-GJ-KIOSK-FULL-ALIGNED
+PATCH v20260308-GJ-KIOSK-MATCH-WINS
 -->
 <!doctype html>
 <html lang="th">
@@ -187,6 +187,27 @@ PATCH v20260308-GJ-KIOSK-FULL-ALIGNED
       color:#cbd5e1;
     }
 
+    .match{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:14px;
+      margin-bottom:14px;
+    }
+    .match-card{
+      padding:16px;
+      text-align:center;
+    }
+    .match-k{
+      color:var(--muted);
+      font-size:13px;
+      margin-bottom:6px;
+    }
+    .match-v{
+      font-size:34px;
+      font-weight:1000;
+      line-height:1.04;
+    }
+
     .stats{
       display:grid;
       grid-template-columns:repeat(4,minmax(0,1fr));
@@ -281,6 +302,12 @@ PATCH v20260308-GJ-KIOSK-FULL-ALIGNED
       font-weight:800;
       word-break:break-word;
     }
+    .wins-line{
+      margin-top:10px;
+      font-size:18px;
+      font-weight:1000;
+      color:#fde68a;
+    }
 
     .winner-glow{
       border-color:rgba(251,191,36,.40);
@@ -302,6 +329,7 @@ PATCH v20260308-GJ-KIOSK-FULL-ALIGNED
     }
 
     @media (max-width:1100px){
+      .match,
       .stats,
       .progress-grid,
       .scoreboard{
@@ -339,6 +367,7 @@ PATCH v20260308-GJ-KIOSK-FULL-ALIGNED
         <div class="pill">Phase: <span id="phaseTxt">—</span></div>
         <div class="pill">Round: <span id="roundTxt">—</span></div>
         <div class="pill">Winner: <span id="winnerTxt">—</span></div>
+        <div class="pill">Champion: <span id="championTxt">—</span></div>
       </div>
     </section>
 
@@ -347,10 +376,25 @@ PATCH v20260308-GJ-KIOSK-FULL-ALIGNED
       <div id="announcementText" class="announce-text">—</div>
     </section>
 
+    <section class="match">
+      <div class="panel match-card">
+        <div class="match-k">Best Of</div>
+        <div id="bestOfTxt" class="match-v">3</div>
+      </div>
+      <div class="panel match-card">
+        <div class="match-k">Wins To Champion</div>
+        <div id="winsToChampionTxt" class="match-v">2</div>
+      </div>
+      <div class="panel match-card">
+        <div class="match-k">Match Status</div>
+        <div id="matchStatusTxt" class="match-v">LIVE</div>
+      </div>
+    </section>
+
     <section id="winnerBox" class="winner panel">
-      <div class="winner-badge">🏆 WINNER</div>
+      <div class="winner-badge">🏆 CHAMPION</div>
       <div id="winnerName" class="winner-name">—</div>
-      <div id="winnerSub" class="winner-sub">ผู้ชนะประจำรอบ</div>
+      <div id="winnerSub" class="winner-sub">ผู้ชนะรวมของแมตช์</div>
     </section>
 
     <section class="stats">
@@ -394,6 +438,7 @@ PATCH v20260308-GJ-KIOSK-FULL-ALIGNED
         <div id="p1Name" class="player-name">—</div>
         <div id="p1Score" class="player-score">0</div>
         <div id="p1Sub" class="player-sub">acc 0% • miss 0 • rt —</div>
+        <div id="p1Wins" class="wins-line">wins 0</div>
       </div>
 
       <div id="p2Card" class="panel player-card">
@@ -401,6 +446,7 @@ PATCH v20260308-GJ-KIOSK-FULL-ALIGNED
         <div id="p2Name" class="player-name">—</div>
         <div id="p2Score" class="player-score">0</div>
         <div id="p2Sub" class="player-sub">acc 0% • miss 0 • rt —</div>
+        <div id="p2Wins" class="wins-line">wins 0</div>
       </div>
     </section>
 
@@ -419,6 +465,7 @@ PATCH v20260308-GJ-KIOSK-FULL-ALIGNED
     let boardRosterRaw = {};
     let boardAnnouncementRaw = {};
     let lastStateRaw = {};
+    let matchRaw = {};
     let controlsHidden = false;
     let cleanMode = false;
     let controlsTimer = 0;
@@ -508,6 +555,12 @@ PATCH v20260308-GJ-KIOSK-FULL-ALIGNED
       );
     }
 
+    function winnerNameFromKey(key){
+      const rows = Object.entries(boardPlayersRaw || {}).map(([k,v])=>({ key:k, ...(v||{}) }));
+      const row = rows.find(r => String(r.key || '') === String(key || ''));
+      return row?.nick || key || 'WINNER';
+    }
+
     function renderPlayers(){
       const rows = sortPlayers(
         Object.entries(boardPlayersRaw || {}).map(([k,v])=>({ key:k, ...(v||{}) }))
@@ -535,27 +588,33 @@ PATCH v20260308-GJ-KIOSK-FULL-ALIGNED
         if(p1 && p1.key === winnerKey) $('p1Card').classList.add('winner-glow');
         if(p2 && p2.key === winnerKey) $('p2Card').classList.add('winner-glow');
       }
+
+      const wins = matchRaw.wins || {};
+      $('p1Wins').textContent = `wins ${Number(wins[p1?.key] || 0)}`;
+      $('p2Wins').textContent = `wins ${Number(wins[p2?.key] || 0)}`;
     }
 
-    function winnerNameFromKey(key){
-      const rows = Object.entries(boardPlayersRaw || {}).map(([k,v])=>({ key:k, ...(v||{}) }));
-      const row = rows.find(r => String(r.key || '') === String(key || ''));
-      return row?.nick || key || 'WINNER';
-    }
+    function renderMatch(){
+      const m = matchRaw || {};
+      $('bestOfTxt').textContent = String(Number(m.bestOf || 3));
+      $('winsToChampionTxt').textContent = String(Number(m.winsToChampion || 2));
+      $('championTxt').textContent = m.champion ? winnerNameFromKey(m.champion) : '—';
+      $('matchStatusTxt').textContent = m.matchComplete ? 'COMPLETE' : 'LIVE';
 
-    function renderWinner(st){
-      const phase = String(st?.phase || '').toLowerCase();
-      const winner = String(st?.winner || '');
-      const reason = String(st?.reason || '');
       const box = $('winnerBox');
-
-      if(phase === 'ended' && winner){
-        $('winnerName').textContent = winnerNameFromKey(winner);
-        $('winnerSub').textContent = reason ? `ผู้ชนะประจำรอบ • rule ${reason}` : 'ผู้ชนะประจำรอบ';
+      if(m.matchComplete && m.champion){
+        $('winnerName').textContent = winnerNameFromKey(m.champion);
+        $('winnerSub').textContent = `ชนะรวม ${Number((m.wins || {})[m.champion] || 0)} รอบ`;
         box.style.display = 'block';
       }else{
         box.style.display = 'none';
       }
+
+      renderPlayers();
+    }
+
+    function renderWinner(st){
+      $('winnerTxt').textContent = st?.winner ? winnerNameFromKey(st.winner) : '—';
     }
 
     function clearAnnouncementTimer(){
@@ -616,9 +675,9 @@ PATCH v20260308-GJ-KIOSK-FULL-ALIGNED
       $('roomTxt').textContent = currentRoom();
       $('phaseTxt').textContent = st?.phase || '—';
       $('roundTxt').textContent = st?.roundId || '—';
-      $('winnerTxt').textContent = st?.winner || '—';
       renderWinner(st || {});
       renderPlayers();
+      renderMatch();
     }
 
     function clearControlsTimer(){
@@ -675,6 +734,7 @@ PATCH v20260308-GJ-KIOSK-FULL-ALIGNED
       const attendanceRef = db.ref(`${base}/attendance`);
       const rosterRef = db.ref(`${base}/roster`);
       const announcementRef = db.ref(`${base}/announcement`);
+      const matchRef = db.ref(`${base}/match`);
 
       const stateCb = snap => renderState(snap.val() || {});
       const playersCb = snap => {
@@ -692,18 +752,24 @@ PATCH v20260308-GJ-KIOSK-FULL-ALIGNED
       const announcementCb = snap => {
         renderAnnouncement(snap.val() || {});
       };
+      const matchCb = snap => {
+        matchRaw = snap.val() || {};
+        renderMatch();
+      };
 
       stateRef.on('value', stateCb);
       playersRef.on('value', playersCb);
       attendanceRef.on('value', attendanceCb);
       rosterRef.on('value', rosterCb);
       announcementRef.on('value', announcementCb);
+      matchRef.on('value', matchCb);
 
       offFns.push(()=>stateRef.off('value', stateCb));
       offFns.push(()=>playersRef.off('value', playersCb));
       offFns.push(()=>attendanceRef.off('value', attendanceCb));
       offFns.push(()=>rosterRef.off('value', rosterCb));
       offFns.push(()=>announcementRef.off('value', announcementCb));
+      offFns.push(()=>matchRef.off('value', matchCb));
     }
 
     $('btnConnect').onclick = connect;
