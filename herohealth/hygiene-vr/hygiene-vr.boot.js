@@ -112,7 +112,6 @@ function wireEndOverlayButtons(){
   const endOverlay = $id('endOverlay');
   if(!endOverlay) return;
 
-  // บาง engine อาจโชว์ overlay ทีหลัง / re-render ปุ่ม
   const mo = new MutationObserver(()=>{
     const btn = $id('btnBackEnd');
     if(btn && !btn.dataset.cooldownWired){
