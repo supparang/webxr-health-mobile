@@ -1,6 +1,6 @@
 // === /herohealth/vr/battle-rtdb.js ===
-// Firebase RTDB Battle — v8 (best-of-3 + match wins + robust rematch + reconnect + room tools)
-// FULL PATCH v20260308-BATTLE-RTDB-V8-MATCH
+// Firebase RTDB Battle — v9 (best-of configurable + champion event + soft reset match)
+// FULL PATCH v20260308-BATTLE-RTDB-V9-POLISH
 'use strict';
 
 const WIN = (typeof window !== 'undefined') ? window : globalThis;
@@ -107,6 +107,10 @@ function pickWinner(a, b){
   return { winnerKey:'', reason:'tie' };
 }
 
+function winsNeeded(bestOf){
+  return Math.floor(Number(bestOf || 3) / 2) + 1;
+}
+
 function disabledBattle(){
   return {
     enabled:false,
@@ -149,14 +153,12 @@ export async function initBattle(opts){
   const autostartMs = clamp(opts.autostartMs ?? qs('autostart','3000'), 500, 10000);
   const forfeitMs   = clamp(opts.forfeitMs   ?? qs('forfeit','5000'), 1500, 20000);
   const bestOf = clamp(opts.bestOf ?? qs('bestOf','3'), 1, 9);
-  const winsToChampion = Math.floor(bestOf / 2) + 1;
+  const winsToChampion = winsNeeded(bestOf);
 
   const fbCfg = getFirebaseConfig();
   if(!fbCfg){
     console.warn('[battle-rtdb] missing Firebase config');
-    emitBattleNotice('error', 'ยังไม่ได้ตั้งค่า Firebase สำหรับ Battle', {
-      code:'missing_firebase_config'
-    });
+    emitBattleNotice('error', 'ยังไม่ได้ตั้งค่า Firebase สำหรับ Battle', { code:'missing_firebase_config' });
     return disabledBattle();
   }
 
@@ -165,9 +167,7 @@ export async function initBattle(opts){
     fb = await loadFirebase();
   }catch(err){
     console.warn('[battle-rtdb] firebase load failed', err);
-    emitBattleNotice('error', 'เชื่อมต่อระบบ Battle ไม่สำเร็จ', {
-      code:'firebase_load_failed'
-    });
+    emitBattleNotice('error', 'เชื่อมต่อระบบ Battle ไม่สำเร็จ', { code:'firebase_load_failed' });
     return disabledBattle();
   }
 
@@ -288,7 +288,7 @@ export async function initBattle(opts){
     if(m.bestOf){
       currentMatch = {
         bestOf: Number(m.bestOf || bestOf) || bestOf,
-        winsToChampion: Number(m.winsToChampion || winsToChampion) || winsToChampion,
+        winsToChampion: Number(m.winsToChampion || winsNeeded(m.bestOf || bestOf)) || winsNeeded(m.bestOf || bestOf),
         wins: m.wins || {},
         champion: String(m.champion || ''),
         matchComplete: !!m.matchComplete,
@@ -377,11 +377,7 @@ export async function initBattle(opts){
       }catch(_){}
 
       emitRoom({ role:'player', resume:true });
-      emitBattleNotice('info', 'กลับเข้าสู่ห้องเดิมแล้ว', {
-        code:'resume_player',
-        room,
-        role:'player'
-      });
+      emitBattleNotice('info', 'กลับเข้าสู่ห้องเดิมแล้ว', { code:'resume_player', room, role:'player' });
       return;
     }
 
@@ -393,9 +389,7 @@ export async function initBattle(opts){
         lateJoinFlag = (phase === 'countdown' || phase === 'running');
         emitRoom({ meKey:'', role:'spectator', lateJoin: lateJoinFlag, roomFull:true });
         emitBattleNotice('warn', 'ห้องนี้เริ่มแข่งแล้ว • เข้าในโหมด spectator', {
-          code:'late_join_spectator',
-          room,
-          role:'spectator'
+          code:'late_join_spectator', room, role:'spectator'
         });
         return;
       }
@@ -403,9 +397,7 @@ export async function initBattle(opts){
       currentRole = 'spectator';
       emitRoom({ meKey:'', role:'spectator', lateJoin:false, roomFull:true });
       emitBattleNotice('warn', 'ห้องนี้มีผู้เล่นครบแล้ว • เข้าในโหมด spectator', {
-        code:'room_full',
-        room,
-        role:'spectator'
+        code:'room_full', room, role:'spectator'
       });
       return;
     }
@@ -438,11 +430,7 @@ export async function initBattle(opts){
     }catch(_){}
 
     emitRoom({ role:'player', resume:false });
-    emitBattleNotice('info', 'เข้าห้อง Battle สำเร็จ', {
-      code:'join_player_ok',
-      room,
-      role:'player'
-    });
+    emitBattleNotice('info', 'เข้าห้อง Battle สำเร็จ', { code:'join_player_ok', room, role:'player' });
   }
 
   async function maybeStartCountdown(players, st){
@@ -485,10 +473,12 @@ export async function initBattle(opts){
     if(winnerKey){
       wins[winnerKey] = Number(wins[winnerKey] || 0) + 1;
     }
-    const champion = Object.entries(wins).find(([,v]) => Number(v || 0) >= winsToChampion)?.[0] || '';
+    const best = Number(currentMatch.bestOf || bestOf) || bestOf;
+    const need = Number(currentMatch.winsToChampion || winsNeeded(best)) || winsNeeded(best);
+    const champion = Object.entries(wins).find(([,v]) => Number(v || 0) >= need)?.[0] || '';
     currentMatch = {
-      bestOf: currentMatch.bestOf || bestOf,
-      winsToChampion: currentMatch.winsToChampion || winsToChampion,
+      bestOf: best,
+      winsToChampion: need,
       wins,
       champion,
       matchComplete: !!champion,
@@ -499,6 +489,18 @@ export async function initBattle(opts){
       updatedAt: serverTimestamp()
     }).catch(()=>{});
     emitMatchState(currentMatch);
+
+    if(champion){
+      emit('hha:battle-champion', {
+        room,
+        roundId: currentRoundId,
+        champion,
+        wins,
+        bestOf: best,
+        winsToChampion: need
+      });
+    }
+
     return currentMatch;
   }
 
@@ -524,10 +526,7 @@ export async function initBattle(opts){
 
     const match = await finalizeMatchWin(stillHere.key);
 
-    emitBattleNotice('warn', 'อีกฝ่ายหลุด/ออกจากห้อง ระบบตัดสินผลแล้ว', {
-      code:'forfeit_end',
-      room
-    });
+    emitBattleNotice('warn', 'อีกฝ่ายหลุด/ออกจากห้อง ระบบตัดสินผลแล้ว', { code:'forfeit_end', room });
     emit('hha:battle-ended', {
       room,
       roundId: currentRoundId,
@@ -559,11 +558,7 @@ export async function initBattle(opts){
 
     const match = await finalizeMatchWin(picked.winnerKey || '');
 
-    emitBattleNotice('info', 'จบรอบ Battle แล้ว', {
-      code:'battle_round_ended',
-      room,
-      rule: picked.reason
-    });
+    emitBattleNotice('info', 'จบรอบ Battle แล้ว', { code:'battle_round_ended', room, rule: picked.reason });
     emit('hha:battle-ended', {
       room,
       roundId: currentRoundId,
@@ -656,11 +651,7 @@ export async function initBattle(opts){
     await set(rematchRef, currentRematch).catch(()=>{});
     emitRematchState(currentRematch);
 
-    emitBattleNotice('info', 'ส่งคำขอ Rematch แล้ว', {
-      code:'rematch_requested',
-      room,
-      roundId: nextRoundId
-    });
+    emitBattleNotice('info', 'ส่งคำขอ Rematch แล้ว', { code:'rematch_requested', room, roundId: nextRoundId });
   }
 
   async function acceptRematch(){
@@ -668,9 +659,8 @@ export async function initBattle(opts){
     await ensureMatchIfMissing();
 
     if(currentMatch.matchComplete){
-      emitBattleNotice('warn', 'Match นี้จบแล้ว ต้อง reset ห้องก่อนเริ่มใหม่', {
-        code:'match_complete_no_rematch',
-        room
+      emitBattleNotice('warn', 'Match นี้จบแล้ว ต้อง reset match ก่อนเริ่มใหม่', {
+        code:'match_complete_no_rematch', room
       });
       return;
     }
@@ -690,9 +680,7 @@ export async function initBattle(opts){
       atMs: Date.now()
     };
 
-    await update(rematchRef, {
-      votes
-    }).catch(()=>{});
+    await update(rematchRef, { votes }).catch(()=>{});
 
     const playerCountSnap = await get(playersRef).catch(()=>null);
     const playersRaw = playerCountSnap?.val() || {};
@@ -708,19 +696,13 @@ export async function initBattle(opts){
       await resetPlayersForNewRound(nextRoundId);
       await clearRematchInternal();
 
-      emit('hha:battle-rematch-ready', {
-        room,
-        roundId: nextRoundId
-      });
+      emit('hha:battle-rematch-ready', { room, roundId: nextRoundId });
       emitBattleNotice('success', 'Rematch พร้อมแล้ว กลับสู่ lobby', {
-        code:'rematch_ready',
-        room,
-        roundId: nextRoundId
+        code:'rematch_ready', room, roundId: nextRoundId
       });
     }else{
       emitBattleNotice('info', 'ตอบรับ Rematch แล้ว กำลังรออีกฝ่าย', {
-        code:'rematch_accepted_waiting',
-        room
+        code:'rematch_accepted_waiting', room
       });
     }
   }
@@ -743,26 +725,18 @@ export async function initBattle(opts){
       atMs: Date.now()
     };
 
-    await update(rematchRef, {
-      votes
-    }).catch(()=>{});
+    await update(rematchRef, { votes }).catch(()=>{});
 
     currentRematch = { ...(rm || {}), votes };
     emitRematchState(currentRematch);
 
-    emitBattleNotice('warn', 'ปฏิเสธ Rematch แล้ว', {
-      code:'rematch_declined',
-      room
-    });
+    emitBattleNotice('warn', 'ปฏิเสธ Rematch แล้ว', { code:'rematch_declined', room });
   }
 
   async function clearRematch(){
     if(localDestroyed) return;
     await clearRematchInternal();
-    emitBattleNotice('info', 'ล้างสถานะ Rematch แล้ว', {
-      code:'rematch_cleared',
-      room
-    });
+    emitBattleNotice('info', 'ล้างสถานะ Rematch แล้ว', { code:'rematch_cleared', room });
   }
 
   async function saveRoundReport(report){
@@ -785,16 +759,13 @@ export async function initBattle(opts){
       const rowRef = push(reportsRef);
       await set(rowRef, row);
       emitBattleNotice('info', 'บันทึกรายงานรอบนี้ขึ้น cloud แล้ว', {
-        code:'cloud_report_saved',
-        room,
-        roundId: row.roundId || ''
+        code:'cloud_report_saved', room, roundId: row.roundId || ''
       });
       return rowRef.key;
     }catch(err){
       console.warn('[battle-rtdb] saveRoundReport failed', err);
       emitBattleNotice('error', 'บันทึกรายงานขึ้น cloud ไม่สำเร็จ', {
-        code:'cloud_report_save_failed',
-        room
+        code:'cloud_report_save_failed', room
       });
       return null;
     }
@@ -831,11 +802,9 @@ export async function initBattle(opts){
     emitState(st);
 
     const phase = String(st.phase || 'lobby').toLowerCase();
-    if(phase === 'countdown'){
-      attachCountdown(Number(st.startAtMs || 0) || 0);
-    }else{
-      clearCountdownTimer();
-    }
+    if(phase === 'countdown') attachCountdown(Number(st.startAtMs || 0) || 0);
+    else clearCountdownTimer();
+
     if(phase === 'running'){
       emit('hha:battle-start', {
         room,
@@ -889,7 +858,7 @@ export async function initBattle(opts){
     const m = snap.val() || {};
     currentMatch = {
       bestOf: Number(m.bestOf || bestOf) || bestOf,
-      winsToChampion: Number(m.winsToChampion || winsToChampion) || winsToChampion,
+      winsToChampion: Number(m.winsToChampion || winsNeeded(m.bestOf || bestOf)) || winsNeeded(m.bestOf || bestOf),
       wins: m.wins || {},
       champion: String(m.champion || ''),
       matchComplete: !!m.matchComplete,
@@ -990,8 +959,7 @@ export async function adminOpenRoomTools(opts){
     });
   }
 
-  async function resetRoom(){
-    const nextRoundId = `r_${Date.now()}`;
+  async function resetPlayersOnly(nextRoundId){
     const playersSnap = await get(playersRef).catch(()=>null);
     const raw = playersSnap?.val() || {};
     const updates = {};
@@ -1026,9 +994,32 @@ export async function adminOpenRoomTools(opts){
       requestedAtMs:0,
       votes:{}
     });
+  }
+
+  async function resetRoom(opts2={}){
+    const nextRoundId = `r_${Date.now()}`;
+    const bestOf = clamp(opts2.bestOf ?? 3, 1, 9);
+    await resetPlayersOnly(nextRoundId);
     await set(matchRef, {
-      bestOf:3,
-      winsToChampion:2,
+      bestOf,
+      winsToChampion: winsNeeded(bestOf),
+      wins:{},
+      champion:'',
+      matchComplete:false,
+      updatedAt: serverTimestamp(),
+      updatedAtMs: Date.now()
+    });
+  }
+
+  async function softResetMatch(opts2={}){
+    const nextRoundId = `r_${Date.now()}`;
+    const prevSnap = await get(matchRef).catch(()=>null);
+    const prev = prevSnap?.val() || {};
+    const bestOf = clamp(opts2.bestOf ?? prev.bestOf ?? 3, 1, 9);
+    await resetPlayersOnly(nextRoundId);
+    await set(matchRef, {
+      bestOf,
+      winsToChampion: winsNeeded(bestOf),
       wins:{},
       champion:'',
       matchComplete:false,
@@ -1090,11 +1081,28 @@ export async function adminOpenRoomTools(opts){
     });
   }
 
+  async function setBestOf(bestOf){
+    const nextBest = clamp(bestOf, 1, 9);
+    const prevSnap = await get(matchRef).catch(()=>null);
+    const prev = prevSnap?.val() || {};
+    await set(matchRef, {
+      bestOf: nextBest,
+      winsToChampion: winsNeeded(nextBest),
+      wins: prev.wins || {},
+      champion: String(prev.champion || ''),
+      matchComplete: !!prev.matchComplete,
+      updatedAt: serverTimestamp(),
+      updatedAtMs: Date.now()
+    });
+  }
+
   return {
     room,
     forceCountdown,
     forceStart,
     resetRoom,
+    softResetMatch,
+    setBestOf,
     setRoomLocked,
     setSpectatorOnly,
     setAnnouncement,
