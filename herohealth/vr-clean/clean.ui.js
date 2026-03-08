@@ -1,5 +1,5 @@
 // === /herohealth/vr-clean/clean.ui.js ===
-// Clean Objects UI — SAFE/PRODUCTION — v20260301-FULL-EXCITE1234
+// Clean Objects UI — SAFE/PRODUCTION — v20260308-COOLDOWN-CALLBACK-FIX
 //
 // ✅ Heat overlay
 // ✅ A reason chips + Evaluate
@@ -7,6 +7,8 @@
 // ✅ Coach toast
 // ✅ Summary: Go Cooldown / Back HUB / Replay
 // ✅ hha:shoot support (Cardboard)
+// ✅ FIX: Summary modal now uses callback-based cooldown/hub/replay
+// ❌ No more old cd=1 warmup-gate URL building here
 // 🔥 EXCITE: Danger pulse UI + contamination notice + summary shows bossPenalty + combo
 
 'use strict';
@@ -128,7 +130,6 @@ export function mountCleanUI(root, opts){
   `;
   app.appendChild(routePanel);
 
-  // Coach toast
   const coachToast = el('div','coachToast');
   coachToast.style.display = 'none';
   coachToast.innerHTML = `<div class="ctInner">🤖 …</div>`;
@@ -142,7 +143,6 @@ export function mountCleanUI(root, opts){
     toastTimer = setTimeout(()=>{ coachToast.style.display='none'; }, 2600);
   }
 
-  // Summary modal
   const summary = el('div','summary');
   summary.style.cssText = `
     position:fixed; inset:0; z-index:200; display:none;
@@ -163,7 +163,6 @@ export function mountCleanUI(root, opts){
   `;
   root.appendChild(summary);
 
-  // UI styles (safe)
   const style = el('style');
   style.textContent = `
     .btn{ border:1px solid rgba(148,163,184,.20); background: rgba(2,6,23,.45); color: rgba(229,231,235,.95);
@@ -187,20 +186,17 @@ export function mountCleanUI(root, opts){
     .mk.hot{ border-color: rgba(239,68,68,.55); background: rgba(239,68,68,.12); }
     .mk.boss{ outline: 2px solid rgba(239,68,68,.55); outline-offset: 2px; }
 
-    /* danger pulse */
     .danger .hud{ box-shadow: 0 0 0 1px rgba(239,68,68,.25), 0 20px 60px rgba(239,68,68,.10); }
     .danger .ovHint{ border-color: rgba(239,68,68,.35); }
   `;
   root.appendChild(style);
 
-  // --- state ---
   let lastState = null;
   let lastPlanBreakdown = null;
   let selectedReasonTag = 'risk_high';
   let dangerOn = false;
   let bossId = String(qs('boss','toilet_flush')||'toilet_flush');
 
-  // elements
   const $ = (id)=> root.querySelector('#'+id);
   const pillMode = $('pillMode');
   const pillTime = $('pillTime');
@@ -213,7 +209,6 @@ export function mountCleanUI(root, opts){
   const rpSub = $('rpSub');
   const rpList = $('rpList');
 
-  // reason chips
   reasonBox.innerHTML = `<div style="display:flex;gap:8px;flex-wrap:wrap">${reasonChipHTML()}</div>`;
   reasonNote.textContent = 'เลือกเหตุผล 1 ข้อ แล้วแตะ “จุด” เพื่อทำความสะอาด (ระบบจะใช้เหตุผลนี้ประกอบสรุป)';
   reasonBox.addEventListener('click', (e)=>{
@@ -226,7 +221,6 @@ export function mountCleanUI(root, opts){
   const firstChip = reasonBox.querySelector('.chip');
   if(firstChip) firstChip.classList.add('sel');
 
-  // heat render
   function renderHeat(S){
     heatLayer.innerHTML = '';
     const hs = S.hotspots || [];
@@ -346,32 +340,30 @@ export function mountCleanUI(root, opts){
   }
 
   function goHubDirect(){
+    if(typeof opts.goHub === 'function'){
+      opts.goHub();
+      return;
+    }
     const hub = qs('hub','');
     if(hub) location.href = hub;
     else location.href = '../hub.html';
   }
 
-  function goCooldown(){
-    const hub = qs('hub','') || '../hub.html';
-    const base = new URL(location.href);
-
-    const g = new URL('../warmup-gate.html', base);
-    g.searchParams.set('cat','hygiene');
-    g.searchParams.set('theme','cleanobjects');
-    g.searchParams.set('cd','1');
-    g.searchParams.set('next', hub);
-
-    const keep = ['run','diff','time','seed','pid','view','ai','debug','api','log','studyId','phase','conditionGroup','grade','boss'];
-    keep.forEach(k=>{
-      const v = base.searchParams.get(k);
-      if(v !== null && v !== '') g.searchParams.set(k, v);
-    });
-    g.searchParams.set('hub', hub);
-
-    location.href = g.toString();
+  function goCooldownDirect(){
+    if(typeof opts.goCooldown === 'function'){
+      opts.goCooldown();
+      return;
+    }
+    console.warn('[clean.ui] opts.goCooldown missing');
   }
 
-  function replay(){ location.reload(); }
+  function replay(){
+    if(typeof opts.replay === 'function'){
+      opts.replay();
+      return;
+    }
+    location.reload();
+  }
 
   function showSummary(payload){
     summary.style.display = '';
@@ -411,12 +403,11 @@ export function mountCleanUI(root, opts){
       `;
     }
 
-    summary.querySelector('#btnCooldown').onclick = goCooldown;
-    summary.querySelector('#btnBackHub').onclick = goHubDirect;
-    summary.querySelector('#btnReplay').onclick = replay;
+    summary.querySelector('#btnCooldown').onclick = ()=> goCooldownDirect();
+    summary.querySelector('#btnBackHub').onclick = ()=> goHubDirect();
+    summary.querySelector('#btnReplay').onclick = ()=> replay();
   }
 
-  // hha:shoot -> pick closest marker to center (cheap aim assist)
   function handleShoot(){
     if(!lastState || lastState.ended) return;
     if(lastState.mode !== 'B') return;
@@ -444,12 +435,10 @@ export function mountCleanUI(root, opts){
   }
   window.addEventListener('hha:shoot', handleShoot);
 
-  // route panel buttons
   routePanel.querySelector('#btnUndo').onclick = ()=> opts.undoB && opts.undoB();
   routePanel.querySelector('#btnClear').onclick = ()=> opts.clearB && opts.clearB();
   routePanel.querySelector('#btnSubmit').onclick = ()=> opts.submitB && opts.submitB();
 
-  // Danger pulse event from core
   function setDanger(on){
     dangerOn = !!on;
     root.classList.toggle('danger', dangerOn);
@@ -462,11 +451,9 @@ export function mountCleanUI(root, opts){
     if(d && d.danger) setDanger(true);
   });
 
-  // public hooks
   function onState(S){
     lastState = S;
 
-    // update bossId (in case overridden)
     try{ bossId = String((S.cfg && S.cfg.bossId) ? S.cfg.bossId : bossId); }catch(e){}
 
     renderHud(S);
@@ -484,7 +471,6 @@ export function mountCleanUI(root, opts){
       else s.textContent = 'แตะจุดเพื่อทำความสะอาด • เลือกเหตุผลก่อน • อย่าลืมบอส! • ช่วงท้ายจะเร่ง';
     }
 
-    // hide reason UI in mode B
     const showReason = (S.mode === 'A');
     reasonBox.style.display = showReason ? '' : 'none';
     reasonNote.style.display = showReason ? '' : 'none';
@@ -502,7 +488,6 @@ export function mountCleanUI(root, opts){
       if(lastState) renderRoutePanel(lastState);
     }
 
-    // ensure contamination message is seen
     if(msg.kind === 'contamination'){
       showCoach(msg.text || '⚠️ เหตุการณ์ปนเปื้อน!');
       return;
@@ -514,7 +499,6 @@ export function mountCleanUI(root, opts){
     showSummary(payload);
   }
 
-  // initial help
   helpBox.innerHTML = `
     <div>• 🔥 Boss = <b>${escapeHtml(bossId)}</b> (ถ้าไม่ทำโดนหัก)</div>
     <div>• ⚠️ กลางเกมมีเหตุการณ์ปนเปื้อน 1 ครั้ง/รอบ</div>
