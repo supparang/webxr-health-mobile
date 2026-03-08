@@ -1,6 +1,6 @@
 // === /herohealth/vr-groups/groups.safe.js ===
-// GroupsVR SAFE — PRODUCTION (AI wired + FX + FAIR MISS + SAFE SPAWN)
-// FULL v20260306b-GROUPS-SAFE-AI-FX-FAIRMISS-OPENLAYOUT
+// GroupsVR SAFE — FINAL POLISH
+// FULL v20260308-GROUPS-CORE-FINAL-POLISH
 /* global window, document */
 (function(){
   'use strict';
@@ -14,212 +14,163 @@
   const clamp = (v,a,b)=>{ v=Number(v); if(!Number.isFinite(v)) v=a; return Math.max(a, Math.min(b,v)); };
   const nowMs = ()=> (performance && performance.now) ? performance.now() : Date.now();
 
-  function qs(k, def=null){
-    try { return new URL(location.href).searchParams.get(k) ?? def; }
-    catch(_){ return def; }
-  }
-
-  function emit(name, detail){
-    try{ WIN.dispatchEvent(new CustomEvent(name, { detail: detail || {} })); }catch(_){}
-  }
-
   function xmur3(str){
-    str = String(str||'');
-    let h = 1779033703 ^ str.length;
+    str=String(str||'');
+    let h=1779033703^str.length;
     for(let i=0;i<str.length;i++){
-      h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
-      h = (h<<13) | (h>>>19);
+      h=Math.imul(h^str.charCodeAt(i),3432918353);
+      h=(h<<13)|(h>>>19);
     }
     return function(){
-      h = Math.imul(h ^ (h>>>16), 2246822507);
-      h = Math.imul(h ^ (h>>>13), 3266489909);
-      return (h ^ (h>>>16)) >>> 0;
+      h=Math.imul(h^(h>>>16),2246822507);
+      h=Math.imul(h^(h>>>13),3266489909);
+      return (h^=(h>>>16))>>>0;
     };
   }
   function sfc32(a,b,c,d){
     return function(){
-      a>>>=0; b>>>=0; c>>>=0; d>>>=0;
-      let t = (a+b)|0;
-      a = b ^ (b>>>9);
-      b = (c + (c<<3))|0;
-      c = (c<<21) | (c>>>11);
-      d = (d+1)|0;
-      t = (t+d)|0;
-      c = (c+t)|0;
-      return (t>>>0) / 4294967296;
+      a>>>=0;b>>>=0;c>>>=0;d>>>=0;
+      let t=(a+b)|0;
+      a=b^(b>>>9);
+      b=(c+(c<<3))|0;
+      c=(c<<21)|(c>>>11);
+      d=(d+1)|0;
+      t=(t+d)|0;
+      c=(c+t)|0;
+      return (t>>>0)/4294967296;
     };
   }
   function makeRng(seedStr){
-    const s = xmur3(seedStr);
+    const s=xmur3(seedStr);
     return sfc32(s(),s(),s(),s());
   }
   const pick = (rng, arr)=> arr[(rng()*arr.length)|0];
 
-  // ---------------------------
-  // Thai Food Groups (fixed mapping)
-  // ---------------------------
-  const GROUPS = [
-    { id:1, short:'หมู่ 1', name:'หมู่ 1 โปรตีน', items:['🍗','🥚','🥛','🐟','🫘','🍖','🧀'] },
-    { id:2, short:'หมู่ 2', name:'หมู่ 2 คาร์โบไฮเดรต', items:['🍚','🍞','🥔','🍜','🥟','🍠','🍙'] },
-    { id:3, short:'หมู่ 3', name:'หมู่ 3 ผัก', items:['🥦','🥬','🥒','🥕','🌽','🍅','🫛'] },
-    { id:4, short:'หมู่ 4', name:'หมู่ 4 ผลไม้', items:['🍌','🍎','🍉','🍇','🍍','🍊','🥭'] },
-    { id:5, short:'หมู่ 5', name:'หมู่ 5 ไขมัน', items:['🥑','🧈','🥜','🫒','🍳','🥥','🧴'] },
-  ];
+  function emit(name, detail){
+    try{ WIN.dispatchEvent(new CustomEvent(name, { detail: detail || {} })); }catch(_){}
+  }
+  function coach(text, mood){
+    emit('hha:coach', { text: String(text||''), mood: String(mood||'neutral') });
+  }
 
-  // ---------------------------
-  // FX Pack (popup score + burst)
-  // ---------------------------
-  const FX = {
-    layer: null,
-    ensureLayer(){
-      if(this.layer && DOC.body.contains(this.layer)) return;
-      const el = DOC.createElement('div');
-      el.id = 'groupsFxLayer';
-      el.style.cssText = 'position:absolute; inset:0; pointer-events:none; overflow:hidden;';
-      this.layer = el;
-    },
-    mount(host){
-      try{
-        this.ensureLayer();
-        if(host && host.appendChild){
-          if(this.layer.parentElement !== host){
-            try{ this.layer.remove(); }catch(_){}
-            host.appendChild(this.layer);
-          }
-        }
-      }catch(_){}
-    },
-    pop(x, y, text, good){
-      try{
-        if(!this.layer) return;
-        const d = DOC.createElement('div');
-        d.textContent = String(text||'');
-        d.style.cssText =
-          'position:absolute; left:'+x+'px; top:'+y+'px; transform:translate(-50%,-50%);'+
-          'padding:6px 10px; border-radius:999px; font-weight:1100; font-size:12px;'+
-          'border:1px solid rgba(148,163,184,.18); backdrop-filter: blur(8px);'+
-          'background:'+(good ? 'rgba(34,197,94,.16)' : 'rgba(239,68,68,.14)')+';'+
-          'color:rgba(229,231,235,.95); box-shadow:0 12px 34px rgba(0,0,0,.25);'+
-          'opacity:0; transition: transform 520ms ease, opacity 520ms ease;';
-        this.layer.appendChild(d);
-        requestAnimationFrame(()=>{
-          d.style.opacity = '1';
-          d.style.transform = 'translate(-50%,-80%)';
-        });
-        setTimeout(()=>{
-          try{
-            d.style.opacity = '0';
-            d.style.transform = 'translate(-50%,-110%)';
-          }catch(_){}
-        }, 520);
-        setTimeout(()=>{ try{ d.remove(); }catch(_){ } }, 980);
-      }catch(_){}
-    },
-    burst(x, y, good){
-      try{
-        if(!this.layer) return;
-        const r = DOC.createElement('div');
-        r.style.cssText =
-          'position:absolute; left:'+x+'px; top:'+y+'px; width:18px; height:18px;'+
-          'transform:translate(-50%,-50%); border-radius:999px;'+
-          'border:2px solid '+(good?'rgba(34,197,94,.75)':'rgba(239,68,68,.70)')+';'+
-          'box-shadow:0 0 0 6px '+(good?'rgba(34,197,94,.10)':'rgba(239,68,68,.10)')+' inset;'+
-          'opacity:.9; transition: transform 420ms ease, opacity 420ms ease;';
-        this.layer.appendChild(r);
-        requestAnimationFrame(()=>{
-          r.style.transform = 'translate(-50%,-50%) scale(4.2)';
-          r.style.opacity = '0';
-        });
-        setTimeout(()=>{ try{ r.remove(); }catch(_){ } }, 520);
-      }catch(_){}
-    }
-  };
-
-  // ---------------------------
-  // Safe Spawn Rect
-  // ---------------------------
+  // Safe spawn rect (local coords preferred)
   function getSafeRect(layerEl){
     const s = WIN.__HHA_SPAWN_SAFE__;
-    if(s && Number.isFinite(s.xMin) && Number.isFinite(s.yMin) && Number.isFinite(s.xMax) && Number.isFinite(s.yMax)){
-      return {
-        xMin: Number(s.xMin),
-        xMax: Number(s.xMax),
-        yMin: Number(s.yMin),
-        yMax: Number(s.yMax),
-      };
-    }
+    if(s && Number.isFinite(s.xMin)) return s;
 
-    const r = layerEl.getBoundingClientRect
-      ? layerEl.getBoundingClientRect()
-      : { width: WIN.innerWidth||360, height: WIN.innerHeight||640 };
-
-    const view = String(qs('view','mobile') || 'mobile').toLowerCase();
-    const padX = 18;
-
-    const topSafe =
-      (view === 'pc')  ? 120 :
-      (view === 'cvr') ? 138 :
-                         158;
-
-    const bottomSafe =
-      (view === 'pc')  ? 124 :
-      (view === 'cvr') ? 220 :
-                         186;
-
+    const r = layerEl.getBoundingClientRect();
+    const PAD = 14;
     return {
-      xMin: padX,
-      xMax: Math.max(padX + 1, (r.width || 360) - padX),
-      yMin: topSafe,
-      yMax: Math.max(topSafe + 1, (r.height || 640) - bottomSafe),
+      xMin: PAD,
+      xMax: Math.max(PAD+1, r.width - PAD),
+      yMin: 132,
+      yMax: Math.max(220, r.height - 170)
     };
   }
 
-  function isOccludedAtCenter(el){
-    try{
-      const b = el.getBoundingClientRect();
-      const cx = b.left + b.width/2;
-      const cy = b.top  + b.height/2;
-      const topEl = DOC.elementFromPoint(cx, cy);
-      if(!topEl) return true;
-      if(topEl === el) return false;
-      if(topEl.closest && topEl.closest('.tgt') === el) return false;
+  // ---------------------------
+  // Content: Thai 5 food groups
+  // ---------------------------
+  const GROUPS = [
+    { id:1, short:'หมู่ 1', name:'หมู่ 1 โปรตีน', items:['🥚','🐟','🥛','🍗','🥜'] },
+    { id:2, short:'หมู่ 2', name:'หมู่ 2 คาร์โบไฮเดรต', items:['🍚','🍞','🥔','🍜','🥖'] },
+    { id:3, short:'หมู่ 3', name:'หมู่ 3 ผัก', items:['🥦','🥬','🥕','🥒','🌽'] },
+    { id:4, short:'หมู่ 4 ผลไม้', items:['🍌','🍎','🍊','🍉','🍇'] },
+    { id:5, short:'หมู่ 5 ไขมัน', items:['🥑','🫒','🧈','🥥','🧀'] },
+  ];
 
-      const hud = topEl.closest && (
-        topEl.closest('.hud') ||
-        topEl.closest('.questTop') ||
-        topEl.closest('.powerWrap') ||
-        topEl.closest('.coachWrap') ||
-        topEl.closest('.coachToast') ||
-        topEl.closest('.overlay') ||
-        topEl.closest('.topbar')
-      );
-      return !!hud;
-    }catch(_){
-      return true;
+  // ---------------------------
+  // AI warn + ramp
+  // ---------------------------
+  const WARN_GAP_MS = 2200;
+  let __lastWarnMs = 0;
+
+  function smooth01(x){
+    x = Math.max(0, Math.min(1, x));
+    return x*x*(3-2*x);
+  }
+
+  function rampMul(elapsedSec, plannedSec, runMode, diff){
+    if(runMode === 'practice') return 1;
+    const RAMP_MAX = (diff==='easy') ? 0.16 : (diff==='hard') ? 0.30 : 0.22;
+    return 1 + RAMP_MAX * smooth01(elapsedSec / Math.max(1, plannedSec));
+  }
+
+  function ttlShrinkMul(elapsedSec, plannedSec, runMode, diff){
+    if(runMode === 'practice') return 1;
+    const SHR = (diff==='easy') ? 0.16 : (diff==='hard') ? 0.28 : 0.22;
+    return 1 - SHR * smooth01(elapsedSec / Math.max(1, plannedSec));
+  }
+
+  function streakBonus(combo){
+    combo = Number(combo) || 0;
+    if(combo >= 15) return 12;
+    if(combo >= 10) return 9;
+    if(combo >= 7)  return 6;
+    if(combo >= 5)  return 4;
+    if(combo >= 3)  return 2;
+    return 0;
+  }
+
+  function aiWarnMaybe(elapsedSec, plannedSec, accPct, miss, combo, stage){
+    const t = nowMs();
+    if(t - __lastWarnMs < WARN_GAP_MS) return;
+
+    let hazard = null;
+    try{
+      const pred = WIN.HHA_AI?.getPrediction?.() || null;
+      if(pred && pred.hazardRisk != null) hazard = Number(pred.hazardRisk);
+    }catch(_){}
+
+    const late = elapsedSec > plannedSec*0.55;
+
+    let msg = '';
+    let mood = 'neutral';
+
+    if(stage === 'boss'){
+      msg = 'บอสมา! เน้น “หมู่เดียว” ให้แม่น แล้วคุมคอมโบ ⚡';
+      mood = 'fever';
+    }else if(hazard != null && hazard >= 0.78 && late){
+      msg = 'เริ่มพลาดถี่—ช้าลงนิด แล้วเล็งให้ตรงหมู่ 🎯';
+      mood = 'sad';
+    }else if(accPct < 55){
+      msg = 'โฟกัส “หมู่ที่ถูก” ก่อน อย่ายิงมั่ว 👀';
+      mood = 'neutral';
+    }else if(combo >= 5){
+      msg = 'คอมโบมา! รักษาจังหวะ 🔥';
+      mood = 'happy';
+    }else if(late){
+      msg = 'ช่วงท้ายเริ่มเดือดขึ้น—ใจเย็น แล้วคุมคอมโบ 🎯';
+      mood = 'neutral';
+    }else{
+      return;
     }
+
+    __lastWarnMs = t;
+    coach(msg, mood);
   }
 
   // ---------------------------
-  // Engine State
+  // Core state
   // ---------------------------
   const STATE = {
     layerEl: null,
-    fxHost: null,
-
     running: false,
     paused: false,
     raf: 0,
 
     diff: 'normal',
+    ctx: null,
     runMode: 'play',
-    view: 'mobile',
+    plannedSec: 90,
     seedStr: '',
+    view: 'mobile',
+
     rng: null,
 
-    plannedSec: 90,
-    tLeft: 90,
     startMs: 0,
     lastTick: 0,
+    tLeft: 0,
     elapsed: 0,
 
     score: 0,
@@ -230,39 +181,32 @@
     hits: 0,
 
     curGroup: null,
-    goalTotal: 12,
+    goalTotal: 10,
     goalNow: 0,
 
     charge: 0,
     chargeNeed: 8,
 
-    stage: 'main',
-    bossSec: 12,
+    stage: 'main', // main | boss
     bossLeft: 0,
+    bossSec: 12,
     bossHits: 0,
 
     spawnAcc: 0,
-    baseSpawnPerSec: 0.98,
-    baseTtl: 3.35,
-    correctP: 0.74,
+    baseSpawnPerSec: 1.18,
+    baseTtl: 2.95,
 
     map: new Map(),
-    idSeq: 1,
-
-    lastShotAt: 0,
-    shotCooldownMs: 70,
-
-    bound: false,
-    ctx: null,
+    idSeq: 1
   };
 
   function accPct(){
-    return (STATE.shots > 0) ? Math.round((STATE.hits / STATE.shots) * 100) : 0;
+    return STATE.shots > 0 ? Math.round((STATE.hits/STATE.shots)*100) : 0;
   }
 
   function gradeLetter(){
     const a = accPct();
-    const x = (a * 0.70) + (STATE.bestCombo * 1.1) - Math.min(20, STATE.miss) * 0.9;
+    const x = (a * 0.68) + (STATE.bestCombo * 1.05) - Math.min(20, STATE.miss) * 0.8;
     if(x>=92) return 'S';
     if(x>=80) return 'A';
     if(x>=66) return 'B';
@@ -270,11 +214,10 @@
     return 'D';
   }
 
-  function AI(){ return WIN.HHA_AI; }
+  function setLayerEl(el){
+    STATE.layerEl = el || null;
+  }
 
-  // ---------------------------
-  // DOM target
-  // ---------------------------
   function clearTargets(){
     for(const t of STATE.map.values()){
       try{ t.el.remove(); }catch(_){}
@@ -282,126 +225,264 @@
     STATE.map.clear();
   }
 
-  function pickSpawnPoint(size){
-    const rect = getSafeRect(STATE.layerEl);
-    let best = null;
-    let bestScore = -1;
+  function posInSafe(){
+    const r = getSafeRect(STATE.layerEl);
+    const x = r.xMin + STATE.rng() * Math.max(1, (r.xMax - r.xMin));
+    const y = r.yMin + STATE.rng() * Math.max(1, (r.yMax - r.yMin));
+    return { x, y };
+  }
 
-    for(let i=0;i<12;i++){
-      const x = rect.xMin + STATE.rng() * Math.max(1, (rect.xMax - rect.xMin));
-      const y = rect.yMin + STATE.rng() * Math.max(1, (rect.yMax - rect.yMin));
-
-      let minD = 999999;
-      for(const t of STATE.map.values()){
-        if(!t || !t.el) continue;
-        const tx = Number(t.x || 0);
-        const ty = Number(t.y || 0);
-        const d = Math.hypot(tx - x, ty - y);
-        if(d < minD) minD = d;
-      }
-
-      const edgePenalty =
-        Math.min(x - rect.xMin, rect.xMax - x) +
-        Math.min(y - rect.yMin, rect.yMax - y);
-
-      const score = minD + edgePenalty * 0.12;
-      if(score > bestScore){
-        bestScore = score;
-        best = { x, y };
-      }
-    }
-
-    return best || {
-      x: rect.xMin + 20,
-      y: rect.yMin + 20
-    };
+  function makeTargetClass(mission){
+    return mission ? 'tgt tgt-mission' : 'tgt tgt-other';
   }
 
   function createTarget(){
     const id = String(STATE.idSeq++);
     const el = DOC.createElement('div');
-    el.className = 'tgt';
     el.dataset.id = id;
-    el.setAttribute('role','button');
 
-    const gMission = STATE.curGroup || pick(STATE.rng, GROUPS);
+    const missionGroup = STATE.curGroup;
     let emoji = '';
-    let groupId = gMission.id;
-    let mission = false;
+    let groupId = missionGroup.id;
+    let mission = true;
 
-    const correctP = (STATE.stage === 'boss') ? Math.max(0.80, STATE.correctP) : STATE.correctP;
+    const correctP =
+      (STATE.stage === 'boss') ? 0.86 :
+      (STATE.tLeft <= 12 ? 0.76 : 0.72);
+
     if(STATE.rng() < correctP){
-      emoji = pick(STATE.rng, gMission.items);
+      emoji = pick(STATE.rng, missionGroup.items);
       mission = true;
-      groupId = gMission.id;
+      groupId = missionGroup.id;
     }else{
-      const others = GROUPS.filter(g=>g.id !== gMission.id);
+      const others = GROUPS.filter(g=>g.id!==missionGroup.id);
       const og = pick(STATE.rng, others);
       emoji = pick(STATE.rng, og.items);
       mission = false;
       groupId = og.id;
     }
+
+    el.className = makeTargetClass(mission);
     el.textContent = emoji;
 
-    const size = 74;
-    const p = pickSpawnPoint(size);
-
+    const p = posInSafe();
     el.style.position = 'absolute';
     el.style.left = `${p.x}px`;
     el.style.top  = `${p.y}px`;
     el.style.transform = 'translate(-50%,-50%) scale(.88)';
     el.style.opacity = '0';
-    el.style.transition = 'transform 160ms ease, opacity 140ms ease';
+
     STATE.layerEl.appendChild(el);
     requestAnimationFrame(()=>{
-      el.style.opacity = '1';
-      el.style.transform = 'translate(-50%,-50%) scale(1)';
+      try{
+        el.style.transition = 'transform .14s ease, opacity .12s ease';
+        el.style.transform = 'translate(-50%,-50%) scale(1)';
+        el.style.opacity = '1';
+      }catch(_){}
     });
 
-    const frac = clamp(STATE.elapsed / Math.max(1, STATE.plannedSec), 0, 1);
-    const shrink =
-      (STATE.runMode === 'practice') ? 1 :
-      (STATE.diff === 'easy') ? (1 - 0.14*frac) :
-      (STATE.diff === 'hard') ? (1 - 0.24*frac) : (1 - 0.18*frac);
-    const ttl = Math.max(1.35, STATE.baseTtl * shrink);
+    const ttlMul = ttlShrinkMul(STATE.elapsed, STATE.plannedSec, STATE.runMode, STATE.diff);
+
+    const finalTtlMul =
+      (STATE.runMode !== 'practice' && STATE.tLeft <= 12)
+        ? 0.93
+        : 1.0;
+
+    const bossTtlMul =
+      (STATE.stage === 'boss')
+        ? 0.95
+        : 1.0;
+
+    const ttl = Math.max(1.10, STATE.baseTtl * ttlMul * finalTtlMul * bossTtlMul);
     const ttlMs = ttl * 1000;
 
-    const obj = { id, el, emoji, born: nowMs(), ttlMs, mission, groupId, x:p.x, y:p.y };
+    const obj = {
+      id,
+      el,
+      emoji,
+      born: nowMs(),
+      ttlMs,
+      mission,
+      groupId,
+      lastX: 0,
+      lastY: 0
+    };
+
     STATE.map.set(id, obj);
 
-    try{ AI()?.onSpawn?.(mission ? 'groups_target' : 'groups_other', { id, emoji, ttlSec: ttl, groupId }); }catch(_){}
+    try{
+      WIN.HHA_AI?.onSpawn?.(mission ? 'groups_target' : 'groups_other', {
+        id, emoji, ttlSec: ttl
+      });
+    }catch(_){}
 
     return obj;
   }
 
-  function removeTarget(id, mode){
+  function removeTarget(id, cls){
     const t = STATE.map.get(String(id));
     if(!t) return;
     STATE.map.delete(String(id));
+
     try{
-      if(mode === 'hit'){
-        t.el.style.transform = 'translate(-50%,-50%) scale(.78)';
-        t.el.style.opacity = '0';
-      }else{
-        t.el.style.transform = 'translate(-50%,-50%) scale(.92)';
-        t.el.style.opacity = '0';
-      }
+      if(cls) t.el.classList.add(cls);
+      t.el.style.transition = 'transform .12s ease, opacity .12s ease';
+      t.el.style.opacity = '0';
+      t.el.style.transform = 'translate(-50%,-50%) scale(.82)';
       setTimeout(()=>{ try{ t.el.remove(); }catch(_){ } }, 140);
-    }catch(_){
-      try{ t.el.remove(); }catch(__){}
+    }catch(_){}
+  }
+
+  function powerAdd(n){
+    STATE.charge = Math.max(0, (STATE.charge|0) + (n|0));
+    emit('groups:power', { charge: STATE.charge, threshold: STATE.chargeNeed });
+
+    if(STATE.charge >= STATE.chargeNeed){
+      STATE.charge = 0;
+      STATE.chargeNeed = clamp(STATE.chargeNeed + 1, 8, 12);
+      STATE.curGroup = pick(STATE.rng, GROUPS);
+
+      emit('groups:group', {
+        id: STATE.curGroup.id,
+        name: STATE.curGroup.name,
+        short: STATE.curGroup.short
+      });
+
+      emit('quest:update', {
+        goalTitle: 'ยิงให้ถูก “หมู่”',
+        goalNow: STATE.goalNow,
+        goalTotal: STATE.goalTotal,
+        groupName: STATE.curGroup.name,
+        miniTitle: (STATE.stage==='boss') ? 'BOSS' : 'POWER',
+        miniNow: (STATE.stage==='boss') ? STATE.bossHits : STATE.charge,
+        miniTotal: (STATE.stage==='boss') ? 999 : STATE.chargeNeed
+      });
+
+      coach(`สลับภารกิจ! หา “${STATE.curGroup.short}” 🎯`, 'neutral');
     }
   }
 
-  // ---------------------------
-  // HUD + quest/power/group
-  // ---------------------------
-  function emitHUD(){
+  function emitHit(kind, good, obj){
+    emit('groups:hit', {
+      kind: String(kind || ''),
+      good: !!good,
+      x: Number(obj?.lastX || 0),
+      y: Number(obj?.lastY || 0),
+      score: STATE.score|0,
+      combo: STATE.combo|0
+    });
+  }
+
+  function onHit(obj){
+    STATE.shots++;
+
+    const isCorrect = (obj.mission === true) && (obj.groupId === STATE.curGroup.id);
+
+    if(isCorrect){
+      STATE.hits++;
+      STATE.goalNow++;
+      STATE.combo++;
+      STATE.bestCombo = Math.max(STATE.bestCombo, STATE.combo);
+
+      const baseAdd = (STATE.stage === 'boss') ? 14 : 10;
+      const add = baseAdd + streakBonus(STATE.combo);
+      STATE.score += add;
+
+      powerAdd(1);
+
+      if(STATE.stage === 'boss'){
+        STATE.bossHits++;
+        if(STATE.bossHits === 1){
+          coach('บอสเริ่มแล้ว! คุมคอมโบไว้ ⚡', 'fever');
+        }
+      }else if(STATE.combo === 4){
+        coach('คอมโบมาแล้ว! รักษาจังหวะ 🔥', 'happy');
+      }else if(STATE.goalNow % 5 === 0){
+        coach(`ดีมาก! ต่อไปเน้น “${STATE.curGroup.short}” 🎯`, 'neutral');
+      }
+
+      try{
+        WIN.HHA_AI?.onHit?.('groups_ok', { id: obj.id, emoji: obj.emoji, add });
+      }catch(_){}
+
+      emitHit(STATE.stage === 'boss' ? 'boss_hit' : 'hit_good', true, obj);
+      removeTarget(obj.id, 'hit');
+      return;
+    }
+
+    STATE.combo = 0;
+    STATE.score = Math.max(0, STATE.score - 3);
+
+    try{
+      WIN.HHA_AI?.onHit?.('groups_wrong', { id: obj.id, emoji: obj.emoji });
+    }catch(_){}
+
+    emitHit('hit_bad', false, obj);
+    removeTarget(obj.id, 'hit');
+  }
+
+  function pointerHandler(ev){
+    if(!STATE.running || STATE.paused) return;
+    const el = ev.target && ev.target.closest ? ev.target.closest('.tgt') : null;
+    if(!el) return;
+
+    const obj = STATE.map.get(String(el.dataset.id));
+    if(!obj) return;
+
+    obj.lastX = Number(ev.clientX || 0);
+    obj.lastY = Number(ev.clientY || 0);
+    onHit(obj);
+  }
+
+  function pickClosestToCenter(lockPx){
+    lockPx = clamp(lockPx ?? 22, 16, 140);
+    let best = null;
+    let bestD = 1e9;
+
+    const r = STATE.layerEl.getBoundingClientRect();
+    const cx = r.left + r.width/2;
+    const cy = r.top + r.height/2;
+
+    for(const obj of STATE.map.values()){
+      const b = obj.el.getBoundingClientRect();
+      const x = b.left + b.width/2;
+      const y = b.top + b.height/2;
+      const d = Math.hypot(x-cx, y-cy);
+      if(d < bestD){
+        bestD = d;
+        best = obj;
+      }
+    }
+
+    if(best && bestD <= lockPx) return best;
+    return null;
+  }
+
+  function shootHandler(ev){
+    if(!STATE.running || STATE.paused) return;
+
+    const lockPx = ev && ev.detail && ev.detail.lockPx != null ? ev.detail.lockPx : 22;
+    const obj = pickClosestToCenter(lockPx);
+    if(!obj) return;
+
+    const r = STATE.layerEl.getBoundingClientRect();
+    obj.lastX = r.left + r.width/2;
+    obj.lastY = r.top + r.height/2;
+
+    onHit(obj);
+  }
+
+  function setHUD(){
     emit('hha:time', { left: Math.ceil(STATE.tLeft) });
     emit('hha:score', {
       score: STATE.score|0,
       combo: STATE.combo|0,
       misses: STATE.miss|0,
-      accPct: accPct()
+      miss: STATE.miss|0,
+      accPct: accPct(),
+      accuracyPct: accPct(),
+      comboMax: STATE.bestCombo|0,
+      timeLeft: Math.ceil(STATE.tLeft)
     });
     emit('hha:rank', { grade: gradeLetter() });
 
@@ -419,190 +500,69 @@
     emit('groups:power', { charge: STATE.charge, threshold: STATE.chargeNeed });
   }
 
-  function coach(text, mood){
-    emit('hha:coach', { text: String(text||''), mood: String(mood||'neutral') });
-  }
-
-  function switchGroup(){
-    STATE.curGroup = pick(STATE.rng, GROUPS);
-    STATE.charge = 0;
-    STATE.chargeNeed = clamp(STATE.chargeNeed + 1, 8, 12);
-    STATE.goalNow = 0;
-
-    emit('groups:group', { id: STATE.curGroup.id, name: STATE.curGroup.name, short: STATE.curGroup.short });
-    coach(`สลับหมู่! หา “${STATE.curGroup.short}” 🎯`, 'neutral');
-    emitHUD();
-
-    try{ AI()?.onTick?.(0, { stage: STATE.stage, miss: STATE.miss, combo: STATE.combo, acc: accPct() }); }catch(_){}
-  }
-
-  function powerAdd(n){
-    STATE.charge = Math.max(0, (STATE.charge|0) + (n|0));
-    emit('groups:power', { charge: STATE.charge, threshold: STATE.chargeNeed });
-    if(STATE.charge >= STATE.chargeNeed){
-      switchGroup();
-    }
-  }
-
-  // ---------------------------
-  // Hit logic + FX
-  // ---------------------------
-  function fxAtEl(el, text, good){
-    try{
-      const hostRect = STATE.layerEl.getBoundingClientRect();
-      const b = el.getBoundingClientRect();
-      const x = (b.left + b.width/2) - hostRect.left;
-      const y = (b.top + b.height/2) - hostRect.top;
-      FX.burst(x, y, good);
-      if(text) FX.pop(x, y, text, good);
-      emit('groups:hit', { x, y, good: !!good, kind: good?'hit_good':'hit_bad' });
-    }catch(_){}
-  }
-
-  function onHit(obj){
-    STATE.shots++;
-
-    const isCorrect = (obj.mission === true) && (STATE.curGroup && obj.groupId === STATE.curGroup.id);
-
-    if(isCorrect){
-      STATE.hits++;
-      STATE.goalNow++;
-      STATE.combo++;
-      STATE.bestCombo = Math.max(STATE.bestCombo, STATE.combo);
-
-      const comboBonus = Math.min(12, STATE.combo);
-      const add = 10 + comboBonus;
-      STATE.score += add;
-
-      powerAdd(1);
-
-      if(STATE.stage === 'boss'){
-        STATE.bossHits++;
-        if(STATE.bossHits === 1) coach('บอสเริ่มแล้ว! คุมคอมโบไว้ ⚡', 'fever');
-      }else if(STATE.combo === 4){
-        coach('คอมโบมาแล้ว! รักษาจังหวะ 🔥', 'happy');
-      }else if(STATE.goalNow % 5 === 0){
-        coach(`ดีมาก! ต่อไปเน้น “${STATE.curGroup.short}” 🎯`, 'neutral');
-      }
-
-      fxAtEl(obj.el, `+${add}`, true);
-
-      try{ AI()?.onHit?.('groups_ok', { id: obj.id, emoji: obj.emoji, add, combo: STATE.combo, score: STATE.score }); }catch(_){}
-      removeTarget(obj.id, 'hit');
-      emitHUD();
-      return;
-    }
-
-    STATE.combo = 0;
-    STATE.score = Math.max(0, STATE.score - 3);
-    fxAtEl(obj.el, '-3', false);
-
-    coach('ดูชื่อหมู่ก่อนนะ แล้วค่อยยิง ✅', 'neutral');
-
-    try{ AI()?.onHit?.('groups_wrong', { id: obj.id, emoji: obj.emoji, wanted: STATE.curGroup?.id }); }catch(_){}
-    removeTarget(obj.id, 'hit');
-    emitHUD();
-  }
-
-  function pointerHandler(ev){
-    if(!STATE.running || STATE.paused) return;
-    const el = ev.target && ev.target.closest ? ev.target.closest('.tgt') : null;
-    if(!el) return;
-    const obj = STATE.map.get(String(el.dataset.id));
-    if(obj) onHit(obj);
-  }
-
-  function pickNearestByXY(x, y, lockPx){
-    lockPx = clamp(lockPx, 0, 160);
-    if(lockPx <= 0) return null;
-
-    const hostRect = STATE.layerEl.getBoundingClientRect();
-    const lx = x - hostRect.left;
-    const ly = y - hostRect.top;
-
-    let best=null, bestD2 = (lockPx*lockPx) + 1;
-    for(const obj of STATE.map.values()){
-      const dx = obj.x - lx;
-      const dy = obj.y - ly;
-      const d2 = dx*dx + dy*dy;
-      if(d2 < bestD2){
-        bestD2 = d2;
-        best = obj;
-      }
-    }
-    return best;
-  }
-
-  function shootHandler(ev){
-    if(!STATE.running || STATE.paused) return;
-
-    const t = nowMs();
-    if(t - (STATE.lastShotAt||0) < STATE.shotCooldownMs) return;
-    STATE.lastShotAt = t;
-
-    const d = ev && ev.detail ? ev.detail : {};
-    const lockPx = clamp(d.lockPx ?? 22, 0, 160);
-
-    let obj = null;
-    if(d.x != null && d.y != null){
-      obj = pickNearestByXY(Number(d.x)||0, Number(d.y)||0, lockPx);
-    }else{
-      try{
-        const r = STATE.layerEl.getBoundingClientRect();
-        obj = pickNearestByXY(r.left + r.width/2, r.top + r.height/2, lockPx);
-      }catch(_){}
-    }
-
-    if(obj) onHit(obj);
-  }
-
-  // ---------------------------
-  // Spawn / expire
-  // ---------------------------
-  function liveCap(){
-    if(STATE.view === 'pc') return 7;
-    if(STATE.view === 'cvr') return 6;
-    return 5;
-  }
-
   function spawnTick(dt){
-    const frac = clamp(STATE.elapsed / Math.max(1, STATE.plannedSec), 0, 1);
-    const ramp =
-      (STATE.runMode === 'practice') ? 1 :
-      (STATE.diff === 'easy') ? (1 + 0.10*frac) :
-      (STATE.diff === 'hard') ? (1 + 0.18*frac) : (1 + 0.14*frac);
+    const mul = rampMul(STATE.elapsed, STATE.plannedSec, STATE.runMode, STATE.diff);
 
-    const sp = STATE.baseSpawnPerSec * ramp;
+    const finalRush =
+      (STATE.runMode !== 'practice' && STATE.tLeft <= 12)
+        ? 1.10
+        : 1.0;
+
+    const bossRush =
+      (STATE.stage === 'boss')
+        ? 1.08
+        : 1.0;
+
+    const sp = STATE.baseSpawnPerSec * mul * finalRush * bossRush;
 
     STATE.spawnAcc += sp * dt;
     while(STATE.spawnAcc >= 1){
       STATE.spawnAcc -= 1;
-      if(STATE.map.size < liveCap()){
-        createTarget();
-      }
+      createTarget();
     }
   }
 
   function expireTick(){
     const t = nowMs();
+
     for(const obj of Array.from(STATE.map.values())){
-      if(t - obj.born >= obj.ttlMs){
-        if(STATE.runMode !== 'practice'){
-          const isFair = (obj.mission && STATE.curGroup && obj.groupId === STATE.curGroup.id);
-          const occ = isOccludedAtCenter(obj.el);
-          if(isFair && !occ){
-            STATE.miss++;
-            STATE.combo = 0;
-            STATE.score = Math.max(0, STATE.score - 2);
-            try{ AI()?.onExpire?.('groups_target', { id: obj.id, emoji: obj.emoji, occluded: 0 }); }catch(_){}
-          }else{
-            STATE.score = Math.max(0, STATE.score - 1);
-            try{ AI()?.onExpire?.('groups_other', { id: obj.id, emoji: obj.emoji, occluded: occ?1:0 }); }catch(_){}
-          }
-        }
-        removeTarget(obj.id, 'expire');
-        emitHUD();
+      if(t - obj.born < obj.ttlMs) continue;
+
+      const shouldCountMiss =
+        (STATE.runMode !== 'practice') &&
+        obj.mission === true &&
+        obj.groupId === STATE.curGroup.id;
+
+      if(shouldCountMiss){
+        STATE.miss++;
+        STATE.combo = 0;
+        STATE.score = Math.max(0, STATE.score - 2);
+
+        try{
+          WIN.HHA_AI?.onExpire?.('groups_target', {
+            id: obj.id,
+            emoji: obj.emoji
+          });
+        }catch(_){}
+
+        emit('groups:hit', {
+          kind: 'timeout_miss',
+          good: false,
+          x: Number(obj.lastX || 0),
+          y: Number(obj.lastY || 0),
+          score: STATE.score|0,
+          combo: STATE.combo|0
+        });
+      }else{
+        try{
+          WIN.HHA_AI?.onExpire?.('groups_other', {
+            id: obj.id,
+            emoji: obj.emoji
+          });
+        }catch(_){}
       }
+
+      removeTarget(obj.id, 'expire');
     }
   }
 
@@ -613,22 +573,37 @@
     STATE.bossHits = 0;
     STATE.curGroup = pick(STATE.rng, GROUPS);
 
-    emit('groups:group', { id: STATE.curGroup.id, name: STATE.curGroup.name, short: STATE.curGroup.short });
-    coach(`MINI BOSS! ⚡ เน้น “${STATE.curGroup.short}” ให้ได้เยอะสุดใน ${STATE.bossSec}s`, 'fever');
-    emitHUD();
+    emit('groups:group', {
+      id: STATE.curGroup.id,
+      name: STATE.curGroup.name,
+      short: STATE.curGroup.short
+    });
+
+    coach(`MINI BOSS! ⚡ เน้น “${STATE.curGroup.short}” ให้มากที่สุดใน ${STATE.bossSec}s`, 'fever');
+    emit('groups:boss_start', {
+      groupId: STATE.curGroup.id,
+      groupName: STATE.curGroup.name,
+      bossSec: STATE.bossSec
+    });
   }
 
   function buildSummary(reason){
     return {
       projectTag: 'GroupsVR',
-      gameVersion: 'GroupsVR_SAFE_2026-03-06b',
+      gameVersion: 'GroupsVR_SAFE_FINAL_POLISH',
+      roomId: String(STATE.ctx?.roomId || ''),
+      playerKey: String(STATE.ctx?.playerKey || ''),
+      battle: !!STATE.ctx?.battle,
+
       device: STATE.view,
       runMode: STATE.runMode,
       diff: STATE.diff,
       seed: STATE.seedStr,
-      reason: String(reason||''),
+      reason: String(reason || ''),
+
       durationPlannedSec: STATE.plannedSec,
       durationPlayedSec: Math.round(STATE.plannedSec - STATE.tLeft),
+
       scoreFinal: STATE.score|0,
       miss: STATE.miss|0,
       shots: STATE.shots|0,
@@ -636,33 +611,33 @@
       accuracyPct: accPct(),
       comboMax: STATE.bestCombo|0,
       grade: gradeLetter(),
+
       stageEnded: STATE.stage,
-      bossSec: (STATE.stage==='boss') ? STATE.bossSec : 0,
-      bossHits: (STATE.stage==='boss') ? STATE.bossHits : 0,
+      bossSec: (STATE.stage === 'boss') ? STATE.bossSec : 0,
+      bossHits: (STATE.stage === 'boss') ? STATE.bossHits : 0,
+
       groupLast: STATE.curGroup ? STATE.curGroup.name : '—',
-      aiPredictionLast: (function(){ try{ return AI()?.getPrediction?.() || null; }catch(_){ return null; } })()
+      aiPredictionLast: (function(){
+        try{ return WIN.HHA_AI?.getPrediction?.() || null; }
+        catch(_){ return null; }
+      })()
     };
   }
 
   function endGame(reason){
     if(!STATE.running) return;
+
     STATE.running = false;
     STATE.paused = false;
-
-    try{ cancelAnimationFrame(STATE.raf); }catch(_){}
-    STATE.raf = 0;
-
-    const summary = buildSummary(reason);
-
-    try{ AI()?.onEnd?.(summary); }catch(_){}
-    emit('hha:end', summary);
+    cancelAnimationFrame(STATE.raf);
 
     clearTargets();
+
+    const summary = buildSummary(reason);
+    try{ WIN.HHA_AI?.onEnd?.(summary); }catch(_){}
+    emit('hha:end', summary);
   }
 
-  // ---------------------------
-  // Main loop
-  // ---------------------------
   function tick(){
     if(!STATE.running) return;
 
@@ -673,7 +648,7 @@
     }
 
     const t = nowMs();
-    const dt = Math.min(0.05, Math.max(0.001, (t - STATE.lastTick)/1000));
+    const dt = Math.min(0.05, Math.max(0.001, (t - STATE.lastTick) / 1000));
     STATE.lastTick = t;
 
     STATE.elapsed += dt;
@@ -690,9 +665,17 @@
     spawnTick(dt);
     expireTick();
 
-    try{ AI()?.onTick?.(dt, { miss: STATE.miss, combo: STATE.combo, acc: accPct(), stage: STATE.stage }); }catch(_){}
+    try{
+      WIN.HHA_AI?.onTick?.(dt, {
+        miss: STATE.miss,
+        combo: STATE.combo,
+        acc: accPct(),
+        stage: STATE.stage
+      });
+    }catch(_){}
 
-    emitHUD();
+    setHUD();
+    aiWarnMaybe(STATE.elapsed, STATE.plannedSec, accPct(), STATE.miss, STATE.combo, STATE.stage);
 
     if(STATE.tLeft <= 0){
       const classroom = !!STATE.ctx?.classroom;
@@ -712,73 +695,45 @@
     STATE.raf = requestAnimationFrame(tick);
   }
 
-  // ---------------------------
-  // API
-  // ---------------------------
-  function setLayerEl(el){
-    STATE.layerEl = el || null;
-    if(STATE.layerEl){
-      FX.mount(STATE.layerEl);
-    }
-  }
-
-  function bindListeners(){
-    if(STATE.bound) return;
-    STATE.bound = true;
-
-    try{ STATE.layerEl && STATE.layerEl.addEventListener('pointerdown', pointerHandler, { passive:true }); }catch(_){}
-    try{ WIN.addEventListener('hha:shoot', shootHandler, { passive:true }); }catch(_){}
-  }
-
-  function unbindListeners(){
-    if(!STATE.bound) return;
-    STATE.bound = false;
-
-    try{ STATE.layerEl && STATE.layerEl.removeEventListener('pointerdown', pointerHandler); }catch(_){}
-    try{ WIN.removeEventListener('hha:shoot', shootHandler); }catch(_){}
-  }
-
   function start(diff, ctx){
     ctx = ctx || {};
-    if(!STATE.layerEl) throw new Error('[GroupsVR] layerEl not set. Call setLayerEl() first');
+    if(!STATE.layerEl){
+      throw new Error('[GroupsVR] layerEl not set. Call setLayerEl() first');
+    }
 
     stop();
 
-    STATE.ctx = ctx;
     STATE.diff = String(diff||'normal').toLowerCase();
-    STATE.runMode = String(ctx.runMode || qs('run','play') || 'play').toLowerCase();
-    if(STATE.runMode !== 'research' && STATE.runMode !== 'practice') STATE.runMode = 'play';
+    STATE.ctx = ctx;
+    STATE.runMode = String(ctx.runMode || 'play').toLowerCase();
+    STATE.view = String(ctx.view || DOC.body.getAttribute('data-view') || 'mobile').toLowerCase();
 
-    STATE.view = String(ctx.view || DOC.body.getAttribute('data-view') || qs('view','mobile') || 'mobile').toLowerCase();
-
-    const timeSec = clamp(ctx.time ?? qs('time', 90) ?? 90, 15, 300);
+    const timeSec = clamp(ctx.time ?? 90, 15, 300);
     STATE.plannedSec = timeSec;
-    STATE.tLeft = timeSec;
-
-    STATE.seedStr = String(ctx.seed ?? qs('seed','') ?? Date.now());
+    STATE.seedStr = String(ctx.seed ?? Date.now());
     STATE.rng = makeRng(STATE.seedStr);
 
-    STATE.baseSpawnPerSec = 0.98;
-    STATE.baseTtl = 3.35;
-    STATE.correctP = 0.74;
-
     if(STATE.diff === 'easy'){
-      STATE.baseSpawnPerSec = 0.88;
-      STATE.baseTtl = 3.60;
-      STATE.correctP = 0.76;
+      STATE.baseSpawnPerSec = 1.00;
+      STATE.baseTtl = 3.25;
+    }else if(STATE.diff === 'hard'){
+      STATE.baseSpawnPerSec = 1.34;
+      STATE.baseTtl = 2.65;
+    }else{
+      STATE.baseSpawnPerSec = 1.18;
+      STATE.baseTtl = 2.95;
     }
-    if(STATE.diff === 'hard'){
-      STATE.baseSpawnPerSec = 1.10;
-      STATE.baseTtl = 3.00;
-      STATE.correctP = 0.72;
-    }
+
     if(STATE.runMode === 'practice'){
       STATE.baseSpawnPerSec *= 0.90;
       STATE.baseTtl += 0.30;
     }
 
+    STATE.running = true;
+    STATE.paused = false;
     STATE.startMs = nowMs();
-    STATE.lastTick = STATE.startMs;
+    STATE.lastTick = nowMs();
+    STATE.tLeft = timeSec;
     STATE.elapsed = 0;
 
     STATE.score = 0;
@@ -795,51 +750,43 @@
     STATE.chargeNeed = clamp(ctx.chargeNeed ?? 8, 6, 12);
 
     STATE.stage = 'main';
-    STATE.bossSec = clamp(ctx.bossSec ?? 12, 10, 16);
-    STATE.bossLeft = 0;
-    STATE.bossHits = 0;
-
     STATE.spawnAcc = 0;
     STATE.idSeq = 1;
-    STATE.lastShotAt = 0;
 
     clearTargets();
 
     STATE.curGroup = pick(STATE.rng, GROUPS);
-    emit('groups:group', { id: STATE.curGroup.id, name: STATE.curGroup.name, short: STATE.curGroup.short });
-    emit('groups:director', {
-      text: (WIN.HHA_AI && (String(qs('ai','0')).toLowerCase()==='1') && STATE.runMode!=='research')
-        ? 'AI ON'
-        : (STATE.runMode==='practice' ? 'PRACTICE' : STATE.runMode==='research' ? 'RESEARCH' : 'PLAY')
+    emit('groups:group', {
+      id: STATE.curGroup.id,
+      name: STATE.curGroup.name,
+      short: STATE.curGroup.short
     });
 
-    bindListeners();
+    try{
+      STATE.layerEl.addEventListener('pointerdown', pointerHandler, { passive:true });
+    }catch(_){}
+
+    try{
+      WIN.addEventListener('hha:shoot', shootHandler);
+    }catch(_){}
 
     if(STATE.runMode === 'practice'){
-      coach('PRACTICE 15s — ซ้อมก่อน (ไม่ลงโทษหนัก) 🧪', 'neutral');
+      coach('PRACTICE 15s — ซ้อมก่อน (ไม่คิด miss หนัก) 🧪', 'neutral');
     }else{
       coach(`เริ่มแล้ว! หา “${STATE.curGroup.short}” แล้วเก็บคอมโบ 🔥`, 'neutral');
     }
 
-    try{ AI()?.reset?.(); }catch(_){}
-
-    STATE.running = true;
-    STATE.paused = false;
-
-    emitHUD();
+    setHUD();
     STATE.raf = requestAnimationFrame(tick);
-    return true;
   }
 
   function stop(){
-    unbindListeners();
+    try{ if(STATE.layerEl) STATE.layerEl.removeEventListener('pointerdown', pointerHandler); }catch(_){}
+    try{ WIN.removeEventListener('hha:shoot', shootHandler); }catch(_){}
 
     STATE.running = false;
     STATE.paused = false;
-
-    try{ cancelAnimationFrame(STATE.raf); }catch(_){}
-    STATE.raf = 0;
-
+    cancelAnimationFrame(STATE.raf);
     clearTargets();
   }
 
@@ -854,14 +801,16 @@
   const Telemetry = {
     flush: function(summary){
       try{
-        // WIN.HHA_CloudLogger?.flush?.(summary)
+        // hook cloud logger here later
       }catch(_){}
     }
   };
 
   function bindFlushOnLeave(getSummary){
     const safeGet = ()=>{ try{ return (typeof getSummary === 'function') ? getSummary() : null; }catch(_){ return null; } };
-    const doFlush = ()=>{ try{ Telemetry.flush(safeGet()); }catch(_){ } };
+    const doFlush = ()=>{
+      try{ Telemetry.flush(safeGet()); }catch(_){}
+    };
 
     WIN.addEventListener('pagehide', doFlush, { passive:true });
     WIN.addEventListener('beforeunload', doFlush, { passive:true });
@@ -871,7 +820,7 @@
   }
 
   // ---------------------------
-  // Expose
+  // Expose API
   // ---------------------------
   WIN.GroupsVR = WIN.GroupsVR || {};
   WIN.GroupsVR.Telemetry = Telemetry;
