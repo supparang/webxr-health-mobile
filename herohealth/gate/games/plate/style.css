@@ -1,0 +1,205 @@
+/* === /herohealth/gate/games/plate/style.css ===
+   HeroHealth Gate Game Style
+   GAME: plate
+   PATCH v20260308-GATE-PLATE-STYLE
+*/
+
+.plt-wrap{
+  display:grid;
+  gap:14px;
+  min-height:320px;
+}
+
+.plt-hero{
+  padding:14px;
+  border-radius:20px;
+  border:1px solid rgba(148,163,184,.16);
+  background:
+    radial-gradient(700px 180px at 50% -10%, rgba(245,158,11,.16), transparent 60%),
+    linear-gradient(180deg, rgba(15,23,42,.88), rgba(2,6,23,.88));
+}
+
+.plt-kicker{
+  font-size:12px;
+  color:#fcd34d;
+  margin-bottom:4px;
+  font-weight:800;
+  letter-spacing:.04em;
+}
+
+.plt-title{
+  font-size:22px;
+  font-weight:900;
+  margin:0 0 4px;
+  color:#e5e7eb;
+}
+
+.plt-sub{
+  font-size:14px;
+  color:#cbd5e1;
+  line-height:1.45;
+}
+
+.plt-stage{
+  display:grid;
+  gap:12px;
+}
+
+.plt-panel{
+  padding:14px;
+  border-radius:20px;
+  border:1px solid rgba(148,163,184,.14);
+  background:rgba(15,23,42,.78);
+}
+
+.plt-target{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  min-height:110px;
+  padding:14px;
+  border-radius:20px;
+  text-align:center;
+  font-size:24px;
+  font-weight:900;
+  color:#fff;
+  background:
+    linear-gradient(180deg, rgba(30,41,59,.96), rgba(2,6,23,.96));
+  border:1px solid rgba(148,163,184,.14);
+}
+
+.plt-prompt{
+  font-size:15px;
+  color:#cbd5e1;
+  font-weight:700;
+  margin-bottom:10px;
+}
+
+.plt-board{
+  display:grid;
+  grid-template-columns:1fr;
+  gap:10px;
+  margin-bottom:10px;
+}
+
+.plt-slot{
+  padding:12px;
+  border-radius:16px;
+  background:rgba(2,6,23,.5);
+  border:1px dashed rgba(148,163,184,.24);
+}
+
+.plt-slot-k{
+  font-size:13px;
+  color:#94a3b8;
+  margin-bottom:4px;
+  font-weight:700;
+}
+
+.plt-slot-v{
+  font-size:16px;
+  color:#fff;
+  font-weight:900;
+  min-height:22px;
+}
+
+.plt-choices{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:10px;
+}
+
+.plt-btn{
+  appearance:none;
+  border:none;
+  cursor:pointer;
+  min-height:52px;
+  border-radius:16px;
+  padding:12px 14px;
+  font-size:15px;
+  font-weight:900;
+  color:#fff;
+  background:linear-gradient(180deg,#f59e0b,#d97706);
+  box-shadow:0 10px 24px rgba(0,0,0,.18);
+}
+
+.plt-btn.good{
+  background:linear-gradient(180deg,#22c55e,#16a34a);
+}
+.plt-btn.bad{
+  background:linear-gradient(180deg,#ef4444,#dc2626);
+}
+.plt-btn.ghost{
+  color:#e5e7eb;
+  background:rgba(30,41,59,.92);
+  border:1px solid rgba(148,163,184,.16);
+}
+
+.plt-note{
+  color:#94a3b8;
+  font-size:13px;
+  line-height:1.45;
+}
+
+.plt-result{
+  display:grid;
+  gap:10px;
+  padding:16px;
+  border-radius:20px;
+  border:1px solid rgba(245,158,11,.24);
+  background:
+    radial-gradient(700px 180px at 50% -10%, rgba(245,158,11,.16), transparent 60%),
+    linear-gradient(180deg, rgba(2,6,23,.96), rgba(15,23,42,.96));
+}
+
+.plt-badge{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  width:max-content;
+  padding:8px 12px;
+  border-radius:999px;
+  font-weight:900;
+  color:#fde68a;
+  background:rgba(245,158,11,.12);
+  border:1px solid rgba(245,158,11,.26);
+}
+
+.plt-big{
+  font-size:28px;
+  font-weight:900;
+  color:#fff;
+}
+
+.plt-list{
+  display:grid;
+  gap:8px;
+}
+
+.plt-item{
+  padding:10px 12px;
+  border-radius:14px;
+  color:#e5e7eb;
+  background:rgba(15,23,42,.82);
+  border:1px solid rgba(148,163,184,.14);
+}
+
+.plt-actions{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  margin-top:4px;
+}
+
+@media (max-width: 700px){
+  .plt-choices{
+    grid-template-columns:1fr;
+  }
+  .plt-target{
+    font-size:20px;
+    min-height:96px;
+  }
+  .plt-title{
+    font-size:20px;
+  }
+}
