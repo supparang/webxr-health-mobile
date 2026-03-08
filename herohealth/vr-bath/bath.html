@@ -5,23 +5,23 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth — Bath (Hidden Dirt Quest)</title>
   <meta name="color-scheme" content="dark light" />
-  <link rel="stylesheet" href="./bath.css?v=20260308f" />
+  <link rel="stylesheet" href="./bath.css?v=20260308a" />
 </head>
 <body>
   <div id="app">
     <header id="hud">
       <div class="hud-row">
-        <div class="pill" id="phasePill">PHASE: —</div>
-        <div class="pill" id="questPill">QUEST: —</div>
+        <div class="pill" id="phasePill">ขั้นตอน: พร้อมเริ่ม</div>
+        <div class="pill" id="questPill">ภารกิจตอนนี้: กดเริ่มเพื่อทำแบบทดสอบก่อนเล่น</div>
         <div class="pill" id="timePill">TIME: 0</div>
-        <div class="pill" id="cleanPill">CLEAN: 0%</div>
+        <div class="pill" id="cleanPill">สะอาดแล้ว: 0%</div>
         <div class="pill" id="rubricPill">RUBRIC: —</div>
       </div>
       <div class="hud-row">
-        <div class="pill" id="toolPill">TOOL: —</div>
+        <div class="pill" id="toolPill">อุปกรณ์: —</div>
         <div class="pill" id="foamPill">FOAM: 0</div>
-        <div class="pill" id="residuePill">RESIDUE: 0%</div>
-        <div class="pill" id="riskPill">FUNGUS RISK: 0%</div>
+        <div class="pill" id="residuePill">ฟองค้าง: 0%</div>
+        <div class="pill" id="riskPill">เสี่ยงอับชื้น: 0%</div>
         <div class="pill" id="meterPill">SWEAT: 0%</div>
         <div class="pill" id="viewPill">VIEW: FRONT</div>
         <div class="pill pro off" id="proPill" title="PRO เปิดอยู่: โหดขึ้นแบบแฟร์">PRO: OFF</div>
@@ -39,6 +39,13 @@
       <div id="progressLabel">Warm → Trick → Boss</div>
     </div>
 
+    <div id="legendBar" class="legendBar" aria-hidden="true">
+      <span class="lg wet">💧 เปียก</span>
+      <span class="lg foam">🫧 ฟอง</span>
+      <span class="lg dry">🧻 แห้ง</span>
+      <span class="lg guide">➡ จุดที่ควรทำต่อ</span>
+    </div>
+
     <main id="playfield" aria-label="Bath Game">
       <div id="bg"></div>
 
@@ -53,18 +60,31 @@
               <div class="leg leg-l"></div>
               <div class="leg leg-r"></div>
             </div>
+
+            <div id="silhouette-overlay" aria-hidden="true">
+              <div class="ov ov-head" data-part="head"></div>
+              <div class="ov ov-torso" data-part="torso"></div>
+              <div class="ov ov-arm-l" data-part="armL"></div>
+              <div class="ov ov-arm-r" data-part="armR"></div>
+              <div class="ov ov-leg-l" data-part="legL"></div>
+              <div class="ov ov-leg-r" data-part="legR"></div>
+            </div>
+
+            <div id="state-layer" aria-hidden="true"></div>
+            <div id="guide-layer" aria-hidden="true"></div>
             <div id="target-layer"></div>
             <div id="crosshair-fallback" aria-hidden="true"></div>
+            <div id="tool-cursor" aria-hidden="true">💧</div>
           </div>
         </div>
 
         <div id="controls">
           <button id="btnStart" class="btn primary">เริ่มเล่น</button>
+          <button id="btnLearn" class="btn">เริ่มแบบเรียนรู้</button>
           <button id="btnFlip" class="btn">สลับ หน้า/หลัง</button>
           <button id="btnHelp" class="btn">วิธีเล่น</button>
         </div>
 
-        <!-- Quiz -->
         <div id="panelQuiz" class="panel hidden">
           <div class="panel-card">
             <h2>ก่อนเริ่ม (3 ข้อ)</h2>
@@ -75,10 +95,18 @@
           </div>
         </div>
 
-        <!-- Help -->
         <div id="panelHelp" class="panel hidden">
           <div class="panel-card">
             <h2>วิธีเล่น (Bath — Hidden Dirt Quest)</h2>
+
+            <p class="muted">
+              การอาบน้ำที่ถูกต้องควรทำตามลำดับ:
+              เปียก → ฟอกสบู่ → ถูจุดอับ → ล้างฟอง → เช็ดให้แห้ง → ใส่เสื้อ
+            </p>
+            <p class="muted">
+              จุดอับสำคัญ เช่น หลังหู คอ รักแร้ ข้อพับ และซอกนิ้วเท้า ควรทำความสะอาดให้ทั่ว
+            </p>
+
             <ol>
               <li><b>WET</b> ทำให้เปียกให้ครบ</li>
               <li><b>SOAP</b> ใช้ฟองให้คุ้ม และระวังฟองหลอก</li>
@@ -86,6 +114,11 @@
               <li><b>RINSE</b> ล้างคราบฟองและสิ่งสกปรก</li>
               <li><b>DRY + DRESS</b> เช็ดให้แห้ง ลดความเสี่ยงเชื้อรา แล้วใส่เสื้อ</li>
             </ol>
+
+            <p class="muted">
+              ช่วงทำให้เปียก / ล้างฟอง / เช็ดตัว สามารถลากผ่านร่างกายเพื่อฝึกทักษะการอาบน้ำจริง
+            </p>
+
             <p class="muted">
               🔥 PRO: เปิดด้วย <code>?pro=1</code><br/>
               🧠 เกมจะผ่านจริงก็ต่อเมื่อ Mission/Boss/Rinse/Dry ผ่านครบ
@@ -96,7 +129,6 @@
           </div>
         </div>
 
-        <!-- End -->
         <div id="panelEnd" class="panel hidden">
           <div class="panel-card">
             <h2>สรุปผล</h2>
@@ -135,10 +167,35 @@
             <p class="muted">เรียงโซน (▲▼) แล้วกด “เล่นตามแผน”</p>
             <div id="planList" class="planList"></div>
 
+            <hr class="hr"/>
+
+            <h3 class="h3">ก่อนอาบ vs หลังอาบ</h3>
+            <div id="beforeAfterBoard" class="beforeAfterBoard">
+              <div class="baCard">
+                <div class="baTitle">ก่อนอาบ</div>
+                <div class="baGrid">
+                  <div class="baItem"><span>ฟองค้าง</span><b id="baBeforeResidue">15%</b></div>
+                  <div class="baItem"><span>เสี่ยงอับชื้น</span><b id="baBeforeRisk">10%</b></div>
+                  <div class="baItem"><span>เหงื่อ</span><b id="baBeforeSweat">0%</b></div>
+                  <div class="baItem"><span>สะอาด</span><b id="baBeforeClean">0%</b></div>
+                </div>
+              </div>
+
+              <div class="baCard">
+                <div class="baTitle">หลังอาบ</div>
+                <div class="baGrid">
+                  <div class="baItem"><span>ฟองค้าง</span><b id="baAfterResidue">0%</b></div>
+                  <div class="baItem"><span>เสี่ยงอับชื้น</span><b id="baAfterRisk">0%</b></div>
+                  <div class="baItem"><span>เหงื่อ</span><b id="baAfterSweat">0%</b></div>
+                  <div class="baItem"><span>สะอาด</span><b id="baAfterClean">0%</b></div>
+                </div>
+              </div>
+            </div>
+
             <div class="row">
               <button id="btnPlayPlan" class="btn primary">เล่นตามแผน</button>
               <button id="btnReplay" class="btn">เล่นใหม่</button>
-              <button id="btnCooldown" class="btn">➡ ไป Cooldown</button>
+              <button id="btnCooldown" class="btn">ไป Cooldown</button>
               <button id="btnBack" class="btn">กลับ HUB</button>
             </div>
           </div>
@@ -147,10 +204,10 @@
     </main>
 
     <footer id="footer">
-      <span class="muted">HeroHealth — Bath • Top-down • PC/Mobile • v20260308f</span>
+      <span class="muted">HeroHealth — Bath • Top-down • PC/Mobile • v20260308a</span>
     </footer>
   </div>
 
-  <script type="module" src="./bath.js?v=20260308f"></script>
+  <script type="module" src="./bath.js?v=20260308a"></script>
 </body>
 </html>
