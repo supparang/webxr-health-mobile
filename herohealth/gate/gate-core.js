@@ -1,15 +1,11 @@
 // === /herohealth/gate/gate-core.js ===
 // HeroHealth Gate Core
-// PATCH v20260308-HYGIENE-GATE-CORE-r6
-// ✅ game registry
-// ✅ daily skip
-// ✅ expected path debug
-// ✅ sanitize buffs
-// ✅ save last summary
-// ✅ safer next/hub handling
-// ✅ FIX: continue after warmup goes DIRECTLY to run game
-// ✅ FIX: use ctx.next first, never route back to launcher
-// ✅ FIX: fallback direct run path for germdetective / maskcough only if next missing
+// PATCH v20260308-HYGIENE-GATE-CORE-r7
+// ✅ continue uses ctx.next directly
+// ✅ no launcher bounce
+// ✅ no path re-assembly
+// ✅ stronger cache-bust companion
+// ✅ explicit console logs for continue/skip
 
 import {
   buildCtx,
@@ -18,11 +14,11 @@ import {
   setText,
   sanitizeBuffs,
   saveLastSummary
-} from './gate-common.js?v=20260308b';
+} from './gate-common.js?v=20260308g';
 
-import { mountSummaryLayer, mountToast } from './gate-summary.js?v=20260308a';
-import { createGateLogger } from './gate-logger.js?v=20260308a';
-import { GATE_GAMES, getGameMeta } from './gate-games.js?v=20260308b';
+import { mountSummaryLayer, mountToast } from './gate-summary.js?v=20260308g';
+import { createGateLogger } from './gate-logger.js?v=20260308g';
+import { GATE_GAMES, getGameMeta } from './gate-games.js?v=20260308g';
 
 function titleOf(ctx){
   const meta = getGameMeta(ctx.game) || {
@@ -44,7 +40,7 @@ function subtitleOf(ctx){
 }
 
 function modulePath(ctx){
-  return `./games/${ctx.game}/${ctx.mode}.js?v=20260308a`;
+  return `./games/${ctx.game}/${ctx.mode}.js?v=20260308g`;
 }
 
 function safeHubUrl(ctx){
@@ -70,19 +66,20 @@ function safeNextUrl(ctx, result=null){
     try{
       const u = new URL(rawNext);
 
-      // กันกรณี next ชี้กลับเข้า gate เอง
+      // กัน next ที่ชี้กลับเข้า gate
       if(/warmup-gate\.html$/i.test(u.pathname)){
+        console.warn('[gate] next points back to warmup-gate, fallback to hub', rawNext);
         return hub;
       }
 
-      // ลบ query ของ gate เก่า
+      // ลบ query ของ gate ออก
       [
         'gatePhase','phase','gateResult','gateMode',
         'wType','wPct','wSteps','wTimeBonus','wScoreBonus','wRank',
         'cd','next'
       ].forEach(k=>u.searchParams.delete(k));
 
-      // ส่ง context หลักเข้า run game
+      // ใส่ context หลักทับอีกครั้งเผื่อค่าเดิมหลุด
       if(ctx.run)  u.searchParams.set('run', String(ctx.run));
       if(ctx.diff) u.searchParams.set('diff', String(ctx.diff));
       if(ctx.time != null) u.searchParams.set('time', String(ctx.time));
@@ -91,14 +88,15 @@ function safeNextUrl(ctx, result=null){
       if(ctx.view) u.searchParams.set('view', String(ctx.view));
       u.searchParams.set('hub', hub);
 
-      // game-specific defaults
       const game = String(ctx.game || '').toLowerCase();
+
       if(game === 'germdetective'){
         if(!u.searchParams.get('scene')) u.searchParams.set('scene', 'classroom');
         if(!u.searchParams.get('zone'))  u.searchParams.set('zone', 'hygiene');
       }
+
       if(game === 'maskcough'){
-        if(!u.searchParams.get('zone'))  u.searchParams.set('zone', 'hygiene');
+        if(!u.searchParams.get('zone')) u.searchParams.set('zone', 'hygiene');
       }
 
       // research context
@@ -110,7 +108,7 @@ function safeNextUrl(ctx, result=null){
       if(ctx.schoolYear) u.searchParams.set('schoolYear', String(ctx.schoolYear));
       if(ctx.semester) u.searchParams.set('semester', String(ctx.semester));
 
-      // แนบผล warmup
+      // แนบผล warmup/cooldown
       if(result){
         const buffs = sanitizeBuffs(result?.buffs || {});
         Object.entries(buffs).forEach(([k,v])=>{
@@ -126,7 +124,7 @@ function safeNextUrl(ctx, result=null){
     }
   }
 
-  // fallback เฉพาะกรณีไม่มี next จริง ๆ
+  // fallback เฉพาะกรณี next ไม่มีจริง ๆ
   const game = String(ctx.game || '').toLowerCase();
 
   if(game === 'germdetective'){
@@ -149,7 +147,6 @@ function safeNextUrl(ctx, result=null){
       u.searchParams.set('gateResult', result?.ok ? '1' : '0');
       u.searchParams.set('gateMode', String(result?.mode || ''));
     }
-
     return u.toString();
   }
 
@@ -172,7 +169,6 @@ function safeNextUrl(ctx, result=null){
       u.searchParams.set('gateResult', result?.ok ? '1' : '0');
       u.searchParams.set('gateMode', String(result?.mode || ''));
     }
-
     return u.toString();
   }
 
@@ -303,7 +299,9 @@ export async function bootGate(root){
         subtitle: finalResult.subtitle,
         lines: finalResult.lines,
         onBack: ()=>{
-          location.href = safeHubUrl(ctx);
+          const hubUrl = safeHubUrl(ctx);
+          console.log('[gate] back ->', hubUrl);
+          location.href = hubUrl;
         },
         onContinue: ()=>{
           if(ctx.mode === 'warmup'){
@@ -312,14 +310,18 @@ export async function bootGate(root){
             location.href = nextUrl;
             return;
           }
-          location.href = safeHubUrl(ctx);
+          const hubUrl = safeHubUrl(ctx);
+          console.log('[gate] continue cooldown ->', hubUrl);
+          location.href = hubUrl;
         }
       });
     }
   };
 
   document.getElementById('gateBackBtn')?.addEventListener('click', ()=>{
-    location.href = safeHubUrl(ctx);
+    const hubUrl = safeHubUrl(ctx);
+    console.log('[gate] footer back ->', hubUrl);
+    location.href = hubUrl;
   });
 
   async function loadModuleNow(){
