@@ -144,7 +144,8 @@
   'use strict';
 
   const LS_KEY = 'HHA_LAUNCH_MASKCOUGH_V2';
-  const RUN_URL = './vr-maskcough/maskcough-v2.html';
+  const GAME_PATH = './vr-maskcough/maskcough-v2.html';
+  const GATE_PATH = './warmup-gate.html';
 
   const qs = (k, d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
   const pass = new URL(location.href);
@@ -171,6 +172,31 @@
   }
   function saveState(o){
     try{ localStorage.setItem(LS_KEY, JSON.stringify(o)); }catch(_){}
+  }
+
+  function normalizeMaybeEncodedUrl(v){
+    v = String(v ?? '').trim();
+    if(!v || v === 'null' || v === 'undefined') return '';
+    if(/%3A|%2F|%3F|%26|%3D/i.test(v)){
+      try{ v = decodeURIComponent(v); }catch(e){}
+    }
+    return v.trim();
+  }
+
+  function cleanHubUrl(raw){
+    const fallback = new URL('./hub.html', location.href).toString();
+    raw = normalizeMaybeEncodedUrl(raw || fallback);
+    try{
+      const u = new URL(raw, location.href);
+      [
+        'gatePhase','phase','gateResult','gateMode',
+        'wType','wPct','wSteps','wTimeBonus','wScoreBonus','wRank',
+        'cd','next'
+      ].forEach(k=>u.searchParams.delete(k));
+      return u.toString();
+    }catch(_){
+      return fallback;
+    }
   }
 
   const state = Object.assign({
@@ -213,14 +239,65 @@
     saveState({ view:state.view, diff:state.diff, time:state.time, seed:state.seed });
   }
 
-  function buildUrl(){
-    const u = new URL(RUN_URL, location.href);
+  function buildGameUrl(){
+    const u = new URL(GAME_PATH, location.href);
+
+    // pass-through เดิม
     pass.searchParams.forEach((v,k)=> u.searchParams.set(k,v));
+
+    // ลบ query gate ที่ไม่ควรติดเข้าเกม
+    [
+      'gatePhase','phase','gateResult','gateMode',
+      'wType','wPct','wSteps','wTimeBonus','wScoreBonus','wRank',
+      'cd','next'
+    ].forEach(k=>u.searchParams.delete(k));
+
     u.searchParams.set('view', state.view);
     u.searchParams.set('diff', state.diff);
     u.searchParams.set('time', String(Math.max(40, Number(state.time)||75)));
     u.searchParams.set('seed', String(Number(state.seed)||Date.now()));
+    u.searchParams.set('zone', 'hygiene');
+    u.searchParams.set('hub', cleanHubUrl(qs('hub','./hub.html')));
+
     return u.toString();
+  }
+
+  function buildGateUrl(){
+    const u = new URL(GATE_PATH, location.href);
+    const next = buildGameUrl();
+
+    u.searchParams.set('gatePhase', 'warmup');
+    u.searchParams.set('phase', 'warmup');
+    u.searchParams.set('cat', 'hygiene');
+    u.searchParams.set('theme', 'maskcough');
+    u.searchParams.set('game', 'maskcough');
+    u.searchParams.set('pid', qs('pid','anon') || 'anon');
+    u.searchParams.set('hub', cleanHubUrl(qs('hub','./hub.html')));
+    u.searchParams.set('next', next);
+    u.searchParams.set('run', qs('run','play') || 'play');
+    u.searchParams.set('diff', state.diff);
+    u.searchParams.set('time', String(Math.max(40, Number(state.time)||75)));
+    u.searchParams.set('view', state.view);
+    u.searchParams.set('seed', String(Number(state.seed)||Date.now()));
+
+    // ส่งต่อ research context ถ้ามี
+    [
+      'studyId','phase','conditionGroup','sessionOrder','blockLabel',
+      'siteCode','schoolYear','semester','pid'
+    ].forEach(k=>{
+      const v = qs(k,'');
+      if(v !== '' && v != null) u.searchParams.set(k, v);
+    });
+
+    return u.toString();
+  }
+
+  function shouldEnterGameDirect(){
+    return qs('gateResult','') === '1' && qs('gateMode','') === 'warmup';
+  }
+
+  function buildEntryUrl(){
+    return shouldEnterGameDirect() ? buildGameUrl() : buildGateUrl();
   }
 
   function render(){
@@ -241,13 +318,14 @@
 
     timeInp.value = String(state.time);
     seedInp.value = String(state.seed);
-    preview.textContent = 'Preview: ' + buildUrl();
+    preview.textContent = 'Preview: ' + buildEntryUrl();
   }
 
   timeInp.addEventListener('change', ()=>{
     state.time = Math.max(40, Number(timeInp.value)||75);
     render(); persist();
   });
+
   seedInp.addEventListener('change', ()=>{
     state.seed = Number(seedInp.value)||Date.now();
     render(); persist();
@@ -260,7 +338,7 @@
 
   document.getElementById('btnGo')?.addEventListener('click', ()=>{
     persist();
-    location.href = buildUrl();
+    location.href = buildEntryUrl();
   });
 
   render();
