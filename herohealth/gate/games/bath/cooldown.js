@@ -1,25 +1,17 @@
-function loadCssOnce(href){
-  const id = `css:${href}`;
-  if(document.getElementById(id)) return;
-  const link = document.createElement('link');
-  link.id = id;
-  link.rel = 'stylesheet';
-  link.href = href;
-  document.head.appendChild(link);
-}
+import { loadCssOnce } from '../../helpers/css.js';
+import { mulberry32 } from '../../helpers/rng.js';
+import { runBubblePhase } from '../../helpers/bubbles.js';
 
 export function loadStyle(){
   loadCssOnce('./gate/games/bath/style.css?v=20260308a');
 }
 
 export async function mount(container, ctx, api){
-  const duration = 15;
-  let time = duration;
-  let timer = null;
+  const rng = mulberry32(ctx.seed || Date.now());
 
   container.innerHTML = `
     <div class="bath-layer">
-      <div class="bath-brief" style="position:static;padding:0;">
+      <div class="bath-brief" style="position:static;padding:0;" id="bathCoolBrief">
         <div class="bath-brief-card" style="margin:18px auto;">
           <div class="bath-brief-title">Cooldown — Bath Calm Bubbles</div>
           <p class="bath-brief-sub">
@@ -38,14 +30,22 @@ export async function mount(container, ctx, api){
     </div>
   `;
 
-  const startBtn = container.querySelector('#bathCoolStartBtn');
-  const field = container.querySelector('#bathCoolField');
-  const targetHost = container.querySelector('#bathCoolTargets');
+  const duration = 15;
+  let time = duration;
+  let timer = null;
+  let bubbleRun = null;
 
   const state = {
     taps: 0,
     goal: 5,
     done: false
+  };
+
+  const els = {
+    brief: container.querySelector('#bathCoolBrief'),
+    start: container.querySelector('#bathCoolStartBtn'),
+    field: container.querySelector('#bathCoolField'),
+    targets: container.querySelector('#bathCoolTargets')
   };
 
   function setHud(){
@@ -57,30 +57,11 @@ export async function mount(container, ctx, api){
     });
   }
 
-  function spawnBubble(){
-    const el = document.createElement('button');
-    el.type = 'button';
-    el.className = 'bath-target bad';
-    el.textContent = '🫧';
-    el.style.left = `${12 + Math.random()*76}%`;
-    el.style.top = `${18 + Math.random()*62}%`;
-    el.addEventListener('click', ()=>{
-      if(state.done) return;
-      state.taps++;
-      el.remove();
-      if(state.taps < state.goal) spawnBubble();
-      setHud();
-      if(state.taps >= state.goal){
-        finish(true);
-      }
-    });
-    targetHost.appendChild(el);
-  }
-
   function finish(ok){
     if(state.done) return;
     state.done = true;
     clearInterval(timer);
+    bubbleRun?.end();
 
     api.logger.push('bath_cooldown_end', {
       ok,
@@ -98,18 +79,37 @@ export async function mount(container, ctx, api){
       ],
       buffs: {
         cType: 'bath_calm_bubbles',
-        cDone: 1
+        cDone: 1,
+        cScore: state.taps
       }
     });
   }
 
   function start(){
-    startBtn.closest('.bath-brief')?.classList.add('hidden');
-    field.classList.remove('hidden');
-    for(let i=0;i<3;i++) spawnBubble();
-    setHud();
+    if(state.done || bubbleRun) return;
+
+    els.brief.classList.add('hidden');
+    els.field.classList.remove('hidden');
+
+    bubbleRun = runBubblePhase({
+      host: els.targets,
+      rng,
+      className: 'bath-target bad',
+      emoji: '🫧',
+      countStart: 3,
+      goal: state.goal,
+      onPop: ()=>{
+        state.taps++;
+        api.toast('ผ่อนคลายขึ้นอีกนิด');
+        setHud();
+      },
+      onGoal: ()=>{
+        finish(true);
+      }
+    });
 
     api.logger.push('bath_cooldown_start', { seed: ctx.seed });
+    setHud();
 
     timer = setInterval(()=>{
       time--;
@@ -120,13 +120,14 @@ export async function mount(container, ctx, api){
     }, 1000);
   }
 
-  startBtn?.addEventListener('click', start);
+  els.start?.addEventListener('click', start);
   setHud();
 
   return {
     start(){},
     destroy(){
       clearInterval(timer);
+      bubbleRun?.end();
     }
   };
 }
