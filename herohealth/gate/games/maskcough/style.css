@@ -1,0 +1,208 @@
+.mask-layer{
+  position:relative;
+  min-height:52vh;
+  padding:18px;
+}
+
+.mask-brief{
+  position:absolute;
+  inset:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:18px;
+  z-index:4;
+}
+
+.mask-brief-card{
+  width:min(760px, 100%);
+  background:linear-gradient(180deg, rgba(2,6,23,.92), rgba(15,23,42,.84));
+  border:1px solid rgba(148,163,184,.14);
+  border-radius:24px;
+  box-shadow:0 18px 50px rgba(0,0,0,.28);
+  padding:18px;
+  text-align:center;
+}
+
+.mask-brief-title{
+  margin:0 0 8px;
+  font-size:clamp(22px, 4vw, 34px);
+  font-weight:900;
+}
+
+.mask-brief-sub{
+  margin:0 0 12px;
+  color:#94a3b8;
+}
+
+.mask-playfield{
+  position:relative;
+  min-height:52vh;
+  overflow:hidden;
+  border-radius:24px;
+  border:1px solid rgba(148,163,184,.14);
+  background:
+    radial-gradient(420px 240px at 50% 18%, rgba(34,211,238,.10), transparent 70%),
+    linear-gradient(180deg, rgba(8,47,73,.16), rgba(2,6,23,.72));
+}
+
+.mask-scene{
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  user-select:none;
+}
+
+.mask-deco{
+  position:absolute;
+  opacity:.16;
+  filter:drop-shadow(0 8px 20px rgba(0,0,0,.15));
+}
+.mask-deco.face{ left:50%; top:50%; transform:translate(-50%,-50%); font-size:min(24vw, 150px); }
+.mask-deco.mask{ left:12%; top:22%; font-size:min(12vw, 80px); }
+.mask-deco.spark{ right:12%; top:22%; font-size:min(12vw, 80px); }
+
+.mask-board{
+  position:relative;
+  z-index:2;
+  display:grid;
+  grid-template-columns:1.05fr .95fr;
+  gap:16px;
+  padding:18px;
+  min-height:52vh;
+}
+
+.mask-card{
+  padding:16px;
+  border-radius:22px;
+  border:1px solid rgba(148,163,184,.14);
+  background:linear-gradient(180deg, rgba(15,23,42,.86), rgba(2,6,23,.70));
+  box-shadow:0 10px 24px rgba(0,0,0,.18);
+}
+
+.mask-card-title{
+  font-weight:900;
+  font-size:18px;
+  margin-bottom:6px;
+}
+
+.mask-card-sub{
+  color:#94a3b8;
+  font-size:13px;
+  margin-bottom:12px;
+}
+
+.mask-progress{
+  display:grid;
+  gap:10px;
+}
+
+.mask-step{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  padding:12px 14px;
+  border-radius:16px;
+  border:1px solid rgba(148,163,184,.14);
+  background:rgba(2,6,23,.45);
+}
+
+.mask-step.done{
+  border-color:rgba(34,197,94,.36);
+  background:linear-gradient(180deg, rgba(20,83,45,.34), rgba(2,6,23,.62));
+}
+
+.mask-step-num{
+  width:38px;
+  height:38px;
+  border-radius:12px;
+  display:grid;
+  place-items:center;
+  font-weight:900;
+  background:rgba(59,130,246,.16);
+  border:1px solid rgba(59,130,246,.22);
+  flex:0 0 auto;
+}
+
+.mask-choice-list{
+  display:grid;
+  gap:10px;
+}
+
+.mask-choice{
+  appearance:none;
+  width:100%;
+  border:1px solid rgba(148,163,184,.14);
+  background:linear-gradient(180deg, rgba(15,23,42,.86), rgba(2,6,23,.72));
+  color:#e5e7eb;
+  border-radius:16px;
+  padding:14px;
+  text-align:left;
+  cursor:pointer;
+  box-shadow:0 8px 20px rgba(0,0,0,.16);
+}
+
+.mask-choice.good{
+  border-color:rgba(34,197,94,.36);
+  background:linear-gradient(180deg, rgba(20,83,45,.34), rgba(2,6,23,.72));
+}
+
+.mask-choice.bad{
+  border-color:rgba(239,68,68,.36);
+  background:linear-gradient(180deg, rgba(127,29,29,.34), rgba(2,6,23,.72));
+}
+
+.mask-choice-head{
+  display:flex;
+  gap:10px;
+  align-items:flex-start;
+}
+
+.mask-choice-emoji{
+  font-size:26px;
+  flex:0 0 auto;
+}
+
+.mask-bubbles{
+  position:absolute;
+  inset:0;
+  z-index:2;
+}
+
+.mask-bubble{
+  position:absolute;
+  transform:translate(-50%,-50%);
+  width:64px;
+  height:64px;
+  border-radius:999px;
+  display:grid;
+  place-items:center;
+  border:1px solid rgba(148,163,184,.18);
+  background:radial-gradient(circle at 30% 30%, rgba(255,255,255,.30), rgba(34,211,238,.14) 58%, rgba(15,23,42,.65));
+  color:#e0f2fe;
+  font-size:28px;
+  box-shadow:0 10px 24px rgba(0,0,0,.18);
+  cursor:pointer;
+  animation:maskFloat 2.5s ease-in-out infinite;
+}
+
+@keyframes maskFloat{
+  0%,100%{ transform:translate(-50%,-50%) translateY(0); }
+  50%{ transform:translate(-50%,-50%) translateY(-8px); }
+}
+
+.mask-quiz-wrap{
+  position:absolute;
+  left:12px;
+  right:12px;
+  bottom:12px;
+  z-index:4;
+}
+
+@media (max-width:900px){
+  .mask-board{ grid-template-columns:1fr; }
+}
+
+@media (max-width:760px){
+  .mask-layer{ padding:12px; min-height:50vh; }
+}
