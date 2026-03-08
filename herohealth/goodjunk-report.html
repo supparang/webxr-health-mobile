@@ -1,0 +1,613 @@
+<!-- === /herohealth/goodjunk-report.html ===
+HeroHealth • GoodJunk Post-Match Report
+FULL PATCH v20260308-GJ-REPORT-PRINTABLE
+-->
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>GoodJunk Post-Match Report</title>
+  <meta name="color-scheme" content="light dark" />
+  <link rel="icon" href="./favicon.ico" />
+  <script src="./firebase-config.js"></script>
+  <style>
+    :root{
+      --bg:#f8fafc;
+      --panel:#ffffff;
+      --ink:#0f172a;
+      --muted:#475569;
+      --line:#cbd5e1;
+      --blue:#2563eb;
+      --good:#16a34a;
+      --warn:#d97706;
+      --danger:#dc2626;
+      --shadow:0 12px 32px rgba(15,23,42,.08);
+    }
+    *{ box-sizing:border-box; }
+    html,body{
+      margin:0;
+      background:var(--bg);
+      color:var(--ink);
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", sans-serif;
+    }
+    .wrap{
+      width:min(1180px, calc(100vw - 28px));
+      margin:0 auto;
+      padding:18px 0 42px;
+    }
+    .toolbar{
+      position:sticky;
+      top:0;
+      z-index:20;
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      justify-content:space-between;
+      align-items:center;
+      margin-bottom:14px;
+      padding:12px 14px;
+      border:1px solid var(--line);
+      border-radius:18px;
+      background:rgba(255,255,255,.92);
+      backdrop-filter: blur(10px);
+      box-shadow:var(--shadow);
+    }
+    .toolbar-left,.toolbar-right{
+      display:flex;
+      gap:10px;
+      align-items:center;
+      flex-wrap:wrap;
+    }
+    .pill{
+      padding:10px 14px;
+      border-radius:999px;
+      border:1px solid var(--line);
+      background:#fff;
+      font-weight:900;
+      color:var(--ink);
+      font-size:14px;
+    }
+    input,button{
+      min-height:44px;
+      border-radius:14px;
+      border:1px solid var(--line);
+      padding:10px 12px;
+      font:inherit;
+    }
+    input{
+      background:#fff;
+      color:var(--ink);
+      min-width:120px;
+      text-transform:uppercase;
+      font-weight:900;
+      text-align:center;
+    }
+    button{
+      cursor:pointer;
+      font-weight:1000;
+      background:#fff;
+      color:var(--ink);
+    }
+    button.primary{
+      color:#fff;
+      background:linear-gradient(135deg,#2563eb,#0ea5e9);
+      border-color:transparent;
+    }
+
+    .hero{
+      border:1px solid var(--line);
+      border-radius:26px;
+      background:var(--panel);
+      box-shadow:var(--shadow);
+      padding:22px;
+      margin-bottom:16px;
+    }
+    .badge{
+      display:inline-block;
+      padding:8px 12px;
+      border-radius:999px;
+      border:1px solid #bfdbfe;
+      background:#eff6ff;
+      color:#1d4ed8;
+      font-size:12px;
+      font-weight:1000;
+      margin-bottom:8px;
+    }
+    h1{
+      margin:0;
+      font-size:38px;
+      line-height:1.04;
+    }
+    .sub{
+      margin-top:8px;
+      color:var(--muted);
+      font-size:14px;
+      line-height:1.7;
+    }
+    .meta{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:12px;
+      margin-top:16px;
+    }
+    .meta-card{
+      border:1px solid var(--line);
+      border-radius:18px;
+      padding:14px;
+      background:#fff;
+    }
+    .k{ font-size:12px; color:var(--muted); margin-bottom:6px; }
+    .v{ font-size:28px; font-weight:1000; line-height:1.05; }
+
+    .grid{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:16px;
+      align-items:start;
+    }
+    .card{
+      border:1px solid var(--line);
+      border-radius:24px;
+      background:var(--panel);
+      box-shadow:var(--shadow);
+      padding:18px;
+    }
+    .card h2{
+      margin:0 0 10px;
+      font-size:24px;
+      line-height:1.08;
+    }
+    .desc{
+      color:var(--muted);
+      font-size:13px;
+      line-height:1.7;
+      margin-bottom:12px;
+    }
+
+    .summary-box{
+      border:1px solid var(--line);
+      border-radius:18px;
+      background:#fff;
+      padding:12px 14px;
+      margin-top:10px;
+    }
+    .summary-line{
+      font-size:14px;
+      line-height:1.8;
+      color:var(--ink);
+      word-break:break-word;
+    }
+
+    .score-grid{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:12px;
+      margin-top:12px;
+    }
+    .player{
+      border:1px solid var(--line);
+      border-radius:22px;
+      background:#fff;
+      padding:16px;
+      text-align:center;
+    }
+    .player .medal{ font-size:44px; margin-bottom:6px; }
+    .player .name{ font-size:28px; font-weight:1000; line-height:1.05; }
+    .player .score{ font-size:52px; font-weight:1000; line-height:1; margin:10px 0 8px; }
+    .player .subline{ font-size:14px; color:var(--muted); line-height:1.7; }
+    .player .wins{ margin-top:8px; font-size:16px; font-weight:1000; color:#92400e; }
+
+    table{
+      width:100%;
+      border-collapse:collapse;
+      background:#fff;
+      border-radius:16px;
+      overflow:hidden;
+    }
+    th,td{
+      border-bottom:1px solid var(--line);
+      padding:10px 8px;
+      text-align:left;
+      font-size:13px;
+      vertical-align:top;
+    }
+    th{
+      background:#f8fafc;
+      font-weight:1000;
+    }
+
+    .history-list{
+      display:grid;
+      gap:10px;
+    }
+    .history-item{
+      border:1px solid var(--line);
+      border-radius:16px;
+      background:#fff;
+      padding:12px;
+    }
+    .history-title{
+      font-size:14px;
+      font-weight:1000;
+      margin-bottom:4px;
+    }
+    .history-line{
+      font-size:13px;
+      line-height:1.7;
+      color:var(--muted);
+    }
+
+    .footer-note{
+      margin-top:16px;
+      border:1px dashed var(--line);
+      border-radius:18px;
+      padding:14px;
+      color:var(--muted);
+      font-size:13px;
+      line-height:1.7;
+      background:#fff;
+    }
+
+    .status{
+      margin-top:12px;
+      border:1px solid var(--line);
+      border-radius:14px;
+      background:#fff;
+      padding:10px 12px;
+      color:var(--muted);
+      font-size:13px;
+    }
+
+    @media (max-width:980px){
+      .meta,.grid,.score-grid{
+        grid-template-columns:1fr;
+      }
+      h1{ font-size:30px; }
+    }
+
+    @media print{
+      :root{
+        --bg:#fff;
+        --panel:#fff;
+        --ink:#000;
+        --muted:#333;
+        --line:#bbb;
+        --shadow:none;
+      }
+      body{ background:#fff; }
+      .toolbar{ display:none !important; }
+      .wrap{
+        width:100%;
+        padding:0;
+      }
+      .hero,.card{
+        box-shadow:none;
+        break-inside:avoid;
+      }
+      .grid{
+        grid-template-columns:1fr 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="toolbar">
+    <div class="toolbar-left">
+      <div class="pill">Post-Match Report</div>
+      <input id="roomInput" value="P5A" />
+      <button id="btnLoad" class="primary">Load</button>
+    </div>
+    <div class="toolbar-right">
+      <button id="btnPrint">Print</button>
+      <button id="btnCopyLink">Copy Link</button>
+    </div>
+  </div>
+
+  <section class="hero">
+    <div class="badge">📄 HeroHealth • Printable Report</div>
+    <h1>GoodJunk Post-Match Report</h1>
+    <div class="sub">
+      สรุปผลหลังคาบ / หลังแมตช์ สำหรับครู ใช้ดูบนจอหรือพิมพ์เป็นเอกสารได้ทันที
+    </div>
+
+    <div class="meta">
+      <div class="meta-card"><div class="k">Room</div><div id="mRoom" class="v">—</div></div>
+      <div class="meta-card"><div class="k">Phase</div><div id="mPhase" class="v">—</div></div>
+      <div class="meta-card"><div class="k">Champion</div><div id="mChampion" class="v">—</div></div>
+      <div class="meta-card"><div class="k">History</div><div id="mHistoryCount" class="v">0</div></div>
+    </div>
+
+    <div id="topStatus" class="status">พร้อมโหลดข้อมูล</div>
+  </section>
+
+  <div class="grid">
+    <section class="card">
+      <h2>Match Summary</h2>
+      <div class="desc">ภาพรวมของ match ล่าสุด</div>
+
+      <div class="summary-box">
+        <div id="sumLine1" class="summary-line">bestOf — • winsToChampion — • matchComplete —</div>
+        <div id="sumLine2" class="summary-line">winner — • reason — • round —</div>
+        <div id="sumLine3" class="summary-line">joined — • entered — • absent —</div>
+      </div>
+
+      <div class="score-grid">
+        <div class="player">
+          <div class="medal">🥇</div>
+          <div id="p1Name" class="name">—</div>
+          <div id="p1Score" class="score">0</div>
+          <div id="p1Sub" class="subline">acc 0% • miss 0 • rt —</div>
+          <div id="p1Wins" class="wins">wins 0</div>
+        </div>
+        <div class="player">
+          <div class="medal">🥈</div>
+          <div id="p2Name" class="name">—</div>
+          <div id="p2Score" class="score">0</div>
+          <div id="p2Sub" class="subline">acc 0% • miss 0 • rt —</div>
+          <div id="p2Wins" class="wins">wins 0</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Attendance Summary</h2>
+      <div class="desc">สรุป joined / entered / absent และรายการ attendance</div>
+
+      <div class="summary-box">
+        <div id="attLine1" class="summary-line">roster 0 • joined 0 • entered 0 • absent 0</div>
+      </div>
+
+      <div style="margin-top:12px;overflow:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>PID/Nick</th>
+              <th>Source</th>
+              <th>View</th>
+              <th>Diff</th>
+              <th>Time</th>
+            </tr>
+          </thead>
+          <tbody id="attendanceBody">
+            <tr><td colspan="5">—</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card" style="grid-column:1 / -1;">
+      <h2>Round Archive</h2>
+      <div class="desc">รายการรอบล่าสุด ใช้ดูว่าใครชนะ และชนะจากกติกาอะไร</div>
+      <div id="historyList" class="history-list"></div>
+    </section>
+  </div>
+
+  <div class="footer-note">
+    เอกสารนี้ดึงข้อมูลสดจาก RTDB ตาม room ที่ระบุ เหมาะสำหรับพิมพ์หลังจบคาบ หรือบันทึกเป็น PDF ประกอบรายงาน
+  </div>
+</div>
+
+<script>
+  const $ = id => document.getElementById(id);
+  const qs = (k,d='')=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
+
+  function getDbCompat(){
+    if(window.firebase?.database) return window.firebase.database();
+    return null;
+  }
+
+  function currentRoom(){
+    return String($('roomInput').value || 'P5A').trim().toUpperCase();
+  }
+
+  function fmtMs(v){
+    const n = Number(v || 0) || 0;
+    return n > 0 ? `${n} ms` : '—';
+  }
+
+  function sortPlayers(rows){
+    return rows.sort((a,b)=>
+      (Number(b.score||0)-Number(a.score||0)) ||
+      (Number(b.acc||0)-Number(a.acc||0)) ||
+      (Number(a.miss||0)-Number(b.miss||0)) ||
+      ((Number(a.medianRT||0)||Number.MAX_SAFE_INTEGER) - (Number(b.medianRT||0)||Number.MAX_SAFE_INTEGER)) ||
+      ((Number(a.finishMs||0)||Number.MAX_SAFE_INTEGER) - (Number(b.finishMs||0)||Number.MAX_SAFE_INTEGER))
+    );
+  }
+
+  function sortHistoryRows(rows){
+    return rows.sort((a,b)=>(Number(b.createdAtMs||0)-Number(a.createdAtMs||0)));
+  }
+
+  function winnerNameFromKey(key, players){
+    const row = (players || []).find(p => String(p.key||'') === String(key||''));
+    return row?.nick || key || '—';
+  }
+
+  function getAttendanceStats(rosterRaw, attendanceRaw){
+    const room = currentRoom();
+
+    const roster = Object.values(rosterRaw || {}).filter(r => {
+      const rr = String(r?.room || '').trim().toUpperCase();
+      return rr === room || !rr;
+    });
+
+    const attendance = Object.values(attendanceRaw || {}).filter(r =>
+      String(r?.room || '').trim().toUpperCase() === room
+    );
+
+    const rosterKeys = new Set(
+      roster.map(r => String(r?.pid || r?.nick || '').trim()).filter(Boolean)
+    );
+
+    const joinedSet = new Set();
+    const enteredSet = new Set();
+
+    attendance.forEach(r=>{
+      const key = String(r?.pid || r?.nick || '').trim();
+      const source = String(r?.source || '');
+      if(!key) return;
+      if(source === 'student-join') joinedSet.add(key);
+      if(source === 'game-run') enteredSet.add(key);
+    });
+
+    const total = rosterKeys.size || roster.length || 0;
+    const joinedCount = total ? [...joinedSet].filter(k => rosterKeys.has(k)).length : joinedSet.size;
+    const enteredCount = total ? [...enteredSet].filter(k => rosterKeys.has(k)).length : enteredSet.size;
+    const absentCount = Math.max(0, total - enteredCount);
+
+    return { total, joinedCount, enteredCount, absentCount, attendance };
+  }
+
+  async function loadReport(){
+    const db = getDbCompat();
+    if(!db){
+      $('topStatus').textContent = 'Firebase compat ยังไม่พร้อมใน firebase-config.js';
+      return;
+    }
+
+    const room = currentRoom();
+    $('topStatus').textContent = `กำลังโหลดข้อมูลของ room ${room}...`;
+
+    const base = `hha-battle/goodjunk/rooms/${room}`;
+    const refs = {
+      state: db.ref(`${base}/state`),
+      players: db.ref(`${base}/players`),
+      match: db.ref(`${base}/match`),
+      attendance: db.ref(`${base}/attendance`),
+      roster: db.ref(`${base}/roster`),
+      history: db.ref(`${base}/roundHistory`)
+    };
+
+    try{
+      const [stateSnap, playersSnap, matchSnap, attendanceSnap, rosterSnap, historySnap] = await Promise.all([
+        refs.state.get(),
+        refs.players.get(),
+        refs.match.get(),
+        refs.attendance.get(),
+        refs.roster.get(),
+        refs.history.get()
+      ]);
+
+      const stateRaw = stateSnap.val() || {};
+      const playersRaw = playersSnap.val() || {};
+      const matchRaw = matchSnap.val() || {};
+      const attendanceRaw = attendanceSnap.val() || {};
+      const rosterRaw = rosterSnap.val() || {};
+      const historyRaw = historySnap.val() || {};
+
+      const players = sortPlayers(
+        Object.entries(playersRaw).map(([key,v])=>({ key, ...(v||{}) }))
+      );
+      const p1 = players[0] || null;
+      const p2 = players[1] || null;
+
+      const historyRows = sortHistoryRows(
+        Object.entries(historyRaw).map(([key,v])=>({ key, ...(v||{}) }))
+      );
+
+      const attendanceStats = getAttendanceStats(rosterRaw, attendanceRaw);
+
+      $('mRoom').textContent = room;
+      $('mPhase').textContent = stateRaw.phase || '—';
+      $('mChampion').textContent = matchRaw.champion ? winnerNameFromKey(matchRaw.champion, players) : '—';
+      $('mHistoryCount').textContent = String(historyRows.length);
+
+      $('sumLine1').textContent =
+        `bestOf ${Number(matchRaw.bestOf || 3)} • winsToChampion ${Number(matchRaw.winsToChampion || 2)} • matchComplete ${!!matchRaw.matchComplete}`;
+      $('sumLine2').textContent =
+        `winner ${stateRaw.winner ? winnerNameFromKey(stateRaw.winner, players) : '—'} • reason ${stateRaw.reason || '—'} • round ${stateRaw.roundId || '—'}`;
+      $('sumLine3').textContent =
+        `joined ${attendanceStats.joinedCount} • entered ${attendanceStats.enteredCount} • absent ${attendanceStats.absentCount}`;
+
+      $('p1Name').textContent = p1?.nick || '—';
+      $('p1Score').textContent = String(Number(p1?.score || 0));
+      $('p1Sub').textContent = `acc ${Number(p1?.acc || 0)}% • miss ${Number(p1?.miss || 0)} • rt ${fmtMs(p1?.medianRT)}`;
+      $('p1Wins').textContent = `wins ${Number((matchRaw.wins || {})[p1?.key] || 0)}`;
+
+      $('p2Name').textContent = p2?.nick || '—';
+      $('p2Score').textContent = String(Number(p2?.score || 0));
+      $('p2Sub').textContent = `acc ${Number(p2?.acc || 0)}% • miss ${Number(p2?.miss || 0)} • rt ${fmtMs(p2?.medianRT)}`;
+      $('p2Wins').textContent = `wins ${Number((matchRaw.wins || {})[p2?.key] || 0)}`;
+
+      $('attLine1').textContent =
+        `roster ${attendanceStats.total} • joined ${attendanceStats.joinedCount} • entered ${attendanceStats.enteredCount} • absent ${attendanceStats.absentCount}`;
+
+      const attendanceBody = $('attendanceBody');
+      attendanceBody.innerHTML = '';
+      const attendanceRows = attendanceStats.attendance;
+
+      if(!attendanceRows.length){
+        attendanceBody.innerHTML = `<tr><td colspan="5">ไม่มี attendance</td></tr>`;
+      }else{
+        attendanceRows.forEach(r=>{
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${r.pid || r.nick || '—'}</td>
+            <td>${r.source || '—'}</td>
+            <td>${r.view || '—'}</td>
+            <td>${r.diff || '—'}</td>
+            <td>${r.time || '—'}</td>
+          `;
+          attendanceBody.appendChild(tr);
+        });
+      }
+
+      const historyList = $('historyList');
+      historyList.innerHTML = '';
+
+      if(!historyRows.length){
+        historyList.innerHTML = `
+          <div class="history-item">
+            <div class="history-title">ยังไม่มีประวัติรอบ</div>
+            <div class="history-line">เมื่อจบรอบ battle แล้วจะมีข้อมูลแสดงที่นี่</div>
+          </div>`;
+      }else{
+        historyRows.slice(0,20).forEach((r, idx)=>{
+          const rowPlayers = Array.isArray(r.players) ? r.players : [];
+          const winner = winnerNameFromKey(r.winner, rowPlayers);
+          const champion = winnerNameFromKey(r.matchChampion, rowPlayers);
+
+          const div = document.createElement('div');
+          div.className = 'history-item';
+          div.innerHTML = `
+            <div class="history-title">#${historyRows.length - idx} • round ${r.roundId || '-'} • winner ${winner}</div>
+            <div class="history-line">reason = ${r.reason || '-'} • bestOf = ${Number(r.matchBestOf || 3)} • complete = ${!!r.matchComplete}</div>
+            <div class="history-line">champion = ${champion} • wins = ${JSON.stringify(r.matchWins || {})}</div>
+          `;
+          historyList.appendChild(div);
+        });
+      }
+
+      $('topStatus').textContent = `โหลดข้อมูลของ room ${room} แล้ว`;
+    }catch(err){
+      console.warn(err);
+      $('topStatus').textContent = `โหลดข้อมูลไม่สำเร็จ: ${err?.message || err}`;
+    }
+  }
+
+  function reportUrl(){
+    const u = new URL(location.href);
+    u.searchParams.set('room', currentRoom());
+    return u.toString();
+  }
+
+  $('btnLoad').onclick = loadReport;
+  $('btnPrint').onclick = ()=> window.print();
+  $('btnCopyLink').onclick = async ()=>{
+    try{
+      await navigator.clipboard.writeText(reportUrl());
+      $('topStatus').textContent = 'คัดลอกลิงก์ report แล้ว';
+    }catch(err){
+      console.warn(err);
+      $('topStatus').textContent = 'คัดลอกลิงก์ไม่สำเร็จ';
+    }
+  };
+
+  $('roomInput').value = qs('room', 'P5A');
+  loadReport();
+</script>
+</body>
+</html>
