@@ -1,468 +1,526 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
-HeroHealth — GoodJunk VR Run Page
-PATCH v20260307-GJ-RUN-ENDSUMMARY-BATTLE-COMPARE-TABLE-CENTRAL-ATT
+GoodJunkVR — RUN PAGE
+PATCH v20260308-GJ-RUNPAGE-REMATCH-UI
 -->
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • GoodJunk VR</title>
+  <title>HeroHealth — GoodJunkVR</title>
   <meta name="color-scheme" content="dark light" />
   <link rel="icon" href="../favicon.ico" />
-
   <style>
     :root{
-      --bg1:#020617;
-      --bg2:#0b1226;
+      --bg1:#020617; --bg2:#0b1226;
+      --panel:rgba(2,6,23,.70);
       --stroke:rgba(148,163,184,.18);
-      --text:#e5e7eb;
-      --muted:#94a3b8;
-      --danger:#ef4444;
-      --shadow:0 18px 60px rgba(0,0,0,.35);
+      --text:#e5e7eb; --muted:#94a3b8;
+      --blue:#3b82f6; --cyan:#22d3ee; --good:#22c55e; --warn:#f59e0b; --danger:#ef4444;
       --sat: env(safe-area-inset-top, 0px);
-      --sar: env(safe-area-inset-right, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
-      --sal: env(safe-area-inset-left, 0px);
     }
-
-    *{ box-sizing:border-box; }
+    *{ box-sizing:border-box; -webkit-tap-highlight-color: transparent; }
     html,body{
-      margin:0;
-      width:100%;
-      height:100%;
-      overflow:hidden;
+      margin:0; min-height:100%; overflow:hidden;
       background:
-        radial-gradient(1200px 800px at 50% -20%, rgba(34,211,238,.10), transparent 55%),
-        linear-gradient(180deg, var(--bg1), var(--bg2));
+        radial-gradient(1000px 700px at 50% -10%, rgba(34,211,238,.10), transparent 60%),
+        linear-gradient(180deg,var(--bg1),var(--bg2));
       color:var(--text);
       font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", sans-serif;
     }
+    #app{ position:fixed; inset:0; overflow:hidden; }
 
-    #app{ position:fixed; inset:0; z-index:1; pointer-events:none; }
-    #gj-layer{ position:fixed; inset:0; z-index:20; overflow:hidden; pointer-events:auto; }
-
-    .topbar{
-      position:fixed; z-index:60;
-      left:calc(12px + var(--sal)); right:calc(12px + var(--sar)); top:calc(10px + var(--sat));
-      display:flex; align-items:flex-start; justify-content:space-between; gap:10px; pointer-events:none;
-    }
-    .pill{
-      display:inline-flex; align-items:center; gap:10px; padding:10px 14px; border-radius:999px;
-      background:rgba(2,6,23,.74); border:1px solid var(--stroke); box-shadow:var(--shadow);
-      backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
-    }
-    .brand{ font-weight:900; font-size:14px; line-height:1.15; max-width:56vw; }
-    .dot{ width:10px; height:10px; border-radius:50%; background:var(--danger); flex:0 0 auto; }
-    .muted{ color:var(--muted); }
-
-    .hud{
-      position:fixed; z-index:55;
-      left:calc(12px + var(--sal)); right:calc(12px + var(--sar)); top:calc(72px + var(--sat));
-      display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:10px; pointer-events:none;
-    }
-    .card{
-      background:linear-gradient(180deg, rgba(15,23,42,.78), rgba(2,6,23,.72));
-      border:1px solid var(--stroke); border-radius:18px; box-shadow:var(--shadow); padding:10px 12px; min-width:0;
-    }
-    .k{ font-size:11px; color:var(--muted); margin-bottom:4px; }
-    .v{ font-size:20px; font-weight:900; line-height:1.05; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-
-    .mission{
-      position:fixed; z-index:55;
-      left:calc(12px + var(--sal)); right:calc(12px + var(--sar)); bottom:calc(84px + var(--sab));
-      display:grid; gap:10px; pointer-events:none;
-    }
-    .mission-main{
-      background:linear-gradient(180deg, rgba(15,23,42,.78), rgba(2,6,23,.72));
-      border:1px solid var(--stroke); border-radius:18px; box-shadow:var(--shadow); padding:12px 14px;
-    }
-    .mission-head{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:8px; }
-    .mission-title{ font-size:16px; font-weight:900; }
-    .mission-goal{ font-size:13px; font-weight:800; color:#dbeafe; }
-    .mission-hint{ font-size:12px; color:var(--muted); margin-bottom:8px; }
-    .bar{ position:relative; height:10px; border-radius:999px; background:rgba(148,163,184,.14); overflow:hidden; }
-    .bar > span{
-      position:absolute; inset:0 auto 0 0; width:var(--p, 0%); border-radius:999px;
-      background:linear-gradient(90deg, #22d3ee, #3b82f6);
+    #gj-layer{
+      position:fixed;
+      inset:0;
+      overflow:hidden;
+      touch-action:manipulation;
+      user-select:none;
     }
 
-    #bossBar{
-      display:none; align-items:center; gap:10px;
-      background:linear-gradient(180deg, rgba(127,29,29,.35), rgba(2,6,23,.76));
-      border:1px solid rgba(248,113,113,.18); border-radius:18px; box-shadow:var(--shadow); padding:12px 14px;
+    .hud-top{
+      position:fixed;
+      top:calc(var(--sat) + 8px);
+      left:8px; right:8px;
+      z-index:100;
+      display:grid;
+      grid-template-columns: repeat(5, minmax(0,1fr));
+      gap:8px;
+      pointer-events:none;
     }
-    #bossBar .boss-label{ font-size:13px; font-weight:900; white-space:nowrap; }
-    #bossBar .boss-flex{ flex:1 1 auto; min-width:0; }
-    #bossFill{ --hp:100%; }
-    #bossFill::before{
-      content:""; display:block; width:var(--hp, 100%); height:100%;
-      background:linear-gradient(90deg, #fb7185, #ef4444); border-radius:999px;
+    .hud-card{
+      border:1px solid var(--stroke);
+      background:var(--panel);
+      border-radius:16px;
+      padding:8px 10px;
+      box-shadow:0 14px 40px rgba(0,0,0,.28);
+      backdrop-filter: blur(10px);
     }
-    #bossHint{ font-size:12px; color:#fecaca; margin-top:6px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .hud-k{ font-size:11px; color:var(--muted); margin-bottom:4px; font-weight:800; }
+    .hud-v{ font-size:22px; line-height:1; font-weight:1000; }
+    .hud-sub{ font-size:11px; margin-top:5px; color:#cbd5e1; }
 
-    .bottom-hint{
-      position:fixed; z-index:50; left:50%; transform:translateX(-50%); bottom:calc(12px + var(--sab));
-      max-width:min(94vw,760px); padding:10px 14px; border-radius:999px;
-      background:rgba(2,6,23,.68); border:1px solid var(--stroke); color:var(--muted);
-      font-size:12px; text-align:center; box-shadow:var(--shadow); pointer-events:none;
+    .mid-mission{
+      position:fixed;
+      top:calc(var(--sat) + 98px);
+      left:50%;
+      transform:translateX(-50%);
+      z-index:100;
+      width:min(760px, calc(100vw - 16px));
+      pointer-events:none;
+    }
+    .mission-box{
+      border:1px solid var(--stroke);
+      background:rgba(2,6,23,.58);
+      border-radius:18px;
+      padding:10px 12px;
+      backdrop-filter: blur(10px);
+      box-shadow:0 18px 50px rgba(0,0,0,.28);
+    }
+    .mission-head{
+      display:flex; justify-content:space-between; gap:10px; align-items:center;
+      font-weight:1000; font-size:14px;
+    }
+    .mission-goal{ margin-top:4px; font-size:13px; color:#e5e7eb; font-weight:900; }
+    .mission-hint{ margin-top:3px; font-size:12px; color:#cbd5e1; }
+    .mission-bar{
+      height:10px; border-radius:999px; background:rgba(148,163,184,.14);
+      overflow:hidden; margin-top:10px;
+    }
+    .mission-bar > i{
+      display:block; height:100%; width:var(--p,0%);
+      background:linear-gradient(90deg,var(--blue),var(--cyan));
+      border-radius:999px;
+      transition:width .18s ease;
     }
 
+    .boss-bar{
+      display:none;
+      position:fixed;
+      top:calc(var(--sat) + 182px);
+      left:50%;
+      transform:translateX(-50%);
+      z-index:101;
+      width:min(620px, calc(100vw - 24px));
+      border:1px solid rgba(239,68,68,.22);
+      background:rgba(2,6,23,.72);
+      border-radius:18px;
+      padding:10px 12px;
+      box-shadow:0 18px 52px rgba(0,0,0,.30);
+      backdrop-filter: blur(10px);
+      pointer-events:none;
+    }
+    .boss-head{
+      display:flex; justify-content:space-between; gap:10px; font-weight:1000; font-size:13px;
+      color:#fecaca;
+    }
+    .boss-track{
+      height:12px; border-radius:999px; background:rgba(127,29,29,.30);
+      overflow:hidden; margin-top:8px;
+    }
+    .boss-track > i{
+      display:block; height:100%; width:var(--hp,100%);
+      background:linear-gradient(90deg,#ef4444,#f59e0b);
+      transition:width .16s ease;
+      border-radius:999px;
+    }
+    .boss-hint{ margin-top:6px; font-size:12px; color:#fee2e2; }
+
+    .side-ai{
+      position:fixed;
+      right:8px;
+      bottom:calc(var(--sab) + 72px);
+      z-index:101;
+      width:min(310px, calc(100vw - 16px));
+    }
     .ai-box{
-      position:fixed; z-index:56; right:calc(12px + var(--sar)); top:calc(210px + var(--sat));
-      width:min(320px, calc(100vw - 24px));
-      background:linear-gradient(180deg, rgba(15,23,42,.82), rgba(2,6,23,.76));
-      border:1px solid var(--stroke); border-radius:18px; box-shadow:var(--shadow); padding:12px 14px; pointer-events:none;
+      border:1px solid var(--stroke);
+      background:rgba(2,6,23,.72);
+      border-radius:18px;
+      padding:12px;
+      box-shadow:0 18px 50px rgba(0,0,0,.30);
+      backdrop-filter: blur(10px);
     }
-    .ai-row{ display:flex; justify-content:space-between; gap:12px; font-size:12px; margin-bottom:6px; }
-    .ai-row:last-child{ margin-bottom:0; }
+    .ai-title{ font-size:13px; font-weight:1000; color:#a5f3fc; }
+    .ai-line{ margin-top:6px; font-size:13px; color:#e5e7eb; }
+    .ai-small{ margin-top:4px; font-size:12px; color:#cbd5e1; }
+    .ai-pill{
+      display:inline-flex; align-items:center; gap:6px;
+      margin-top:8px;
+      padding:8px 10px;
+      border-radius:999px;
+      font-size:12px; font-weight:900;
+      background:rgba(15,23,42,.84);
+      border:1px solid var(--stroke);
+      color:#e5e7eb;
+    }
+
+    .bottom-bar{
+      position:fixed;
+      left:8px; right:8px;
+      bottom:calc(var(--sab) + 8px);
+      z-index:102;
+      display:flex; gap:8px; align-items:center; justify-content:space-between;
+      pointer-events:none;
+    }
+    .bottom-left,.bottom-right{
+      display:flex; gap:8px; align-items:center;
+      pointer-events:auto;
+    }
+    .mini-chip{
+      border:1px solid var(--stroke);
+      background:rgba(2,6,23,.74);
+      border-radius:999px;
+      padding:10px 12px;
+      font-size:12px; font-weight:900;
+      box-shadow:0 12px 28px rgba(0,0,0,.26);
+      backdrop-filter: blur(10px);
+    }
+    .btn{
+      min-height:42px;
+      border:0; border-radius:14px;
+      padding:10px 14px;
+      font:inherit; font-weight:1000;
+      cursor:pointer;
+      color:white;
+      background:linear-gradient(135deg,#2563eb,#06b6d4);
+      box-shadow:0 10px 24px rgba(37,99,235,.24);
+    }
+    .btn.secondary{
+      color:var(--text);
+      background:rgba(15,23,42,.92);
+      border:1px solid var(--stroke);
+      box-shadow:none;
+    }
+    .btn.warn{ background:linear-gradient(135deg,#d97706,#f59e0b); }
+    .btn.danger{ background:linear-gradient(135deg,#dc2626,#ef4444); }
+    .btn.good{ background:linear-gradient(135deg,#16a34a,#22c55e); }
+
+    #stageBanner,#milestoneBanner{
+      position:fixed;
+      left:50%;
+      transform:translateX(-50%) scale(.96);
+      z-index:160;
+      pointer-events:none;
+      opacity:0;
+      transition:opacity .16s ease, transform .16s ease;
+      text-align:center;
+      border:1px solid var(--stroke);
+      background:rgba(2,6,23,.80);
+      box-shadow:0 24px 70px rgba(0,0,0,.42);
+      backdrop-filter: blur(12px);
+    }
+    #stageBanner{
+      top:42%;
+      min-width:min(560px, calc(100vw - 32px));
+      border-radius:24px;
+      padding:18px 20px;
+    }
+    #stageBanner .big{ font-size:40px; font-weight:1000; letter-spacing:.5px; }
+    #stageBanner .small{ margin-top:6px; font-size:14px; color:#cbd5e1; }
+    #milestoneBanner{
+      top:28%;
+      border-radius:999px;
+      padding:12px 18px;
+      font-size:26px;
+      font-weight:1000;
+    }
+    #stageBanner.show,#milestoneBanner.show{
+      opacity:1;
+      transform:translateX(-50%) scale(1);
+    }
+
+    #dangerOverlay{
+      position:fixed;
+      inset:0;
+      z-index:120;
+      pointer-events:none;
+      opacity:0;
+      background:
+        radial-gradient(circle at center, rgba(239,68,68,.00) 0%, rgba(239,68,68,.00) 44%, rgba(239,68,68,.10) 76%, rgba(239,68,68,.18) 100%);
+      transition:opacity .14s ease;
+    }
 
     #endOverlay{
-      position:fixed; inset:0; z-index:120; display:none; align-items:center; justify-content:center; padding:20px;
-      background:rgba(2,6,23,.62); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+      display:none;
+      position:fixed;
+      inset:0;
+      z-index:200;
+      background:rgba(2,6,23,.76);
+      backdrop-filter: blur(10px);
+      align-items:center;
+      justify-content:center;
+      padding:16px;
     }
     #endOverlay .panel{
-      width:min(94vw,760px);
-      max-height:min(88vh,900px);
-      overflow:auto;
-      border-radius:24px; background:linear-gradient(180deg, rgba(15,23,42,.92), rgba(2,6,23,.90));
-      border:1px solid var(--stroke); box-shadow:var(--shadow); padding:18px; text-align:center;
+      width:min(960px, 100%);
+      border-radius:24px;
+      border:1px solid var(--stroke);
+      background:linear-gradient(180deg, rgba(15,23,42,.92), rgba(2,6,23,.90));
+      box-shadow:0 26px 80px rgba(0,0,0,.48);
+      padding:18px;
     }
-    #endTitle{ font-size:28px; font-weight:1000; margin-bottom:8px; }
-    #endSub{ color:var(--muted); font-size:13px; margin-bottom:14px; }
-
-    .end-note{
-      border-radius:16px; background:rgba(2,6,23,.50); border:1px solid var(--stroke);
-      padding:12px; margin-bottom:12px; text-align:left;
+    #endTop{
+      text-align:center;
+      margin-bottom:14px;
     }
-    .end-note .h{ font-size:12px; color:var(--muted); margin-bottom:6px; }
-    .end-note .v{ font-size:14px; font-weight:800; line-height:1.35; white-space:normal; }
-
-    .compare-wrap{
-      border-radius:16px; background:rgba(2,6,23,.50); border:1px solid var(--stroke);
-      padding:12px; margin-bottom:12px; text-align:left;
-    }
-    .compare-title{ font-size:12px; color:var(--muted); margin-bottom:8px; }
-    .compare-table{
+    #endTitle{ font-size:32px; font-weight:1000; }
+    #endSub{ margin-top:6px; color:#cbd5e1; font-size:14px; }
+    .end-stats{
       display:grid;
-      grid-template-columns:1.1fr 1fr 1fr;
-      gap:8px;
-      align-items:stretch;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:10px;
+      margin-top:12px;
     }
-    .cmp-head,.cmp-cell,.cmp-metric{
-      border-radius:12px;
-      border:1px solid rgba(148,163,184,.10);
-      background:rgba(15,23,42,.45);
-      padding:10px;
-    }
-    .cmp-head{
+    .end-stat{
+      border-radius:18px;
+      border:1px solid rgba(148,163,184,.14);
+      background:rgba(2,6,23,.54);
+      padding:12px;
       text-align:center;
-      font-size:12px;
-      font-weight:900;
-      color:#dbeafe;
     }
-    .cmp-metric{
-      font-size:12px;
-      color:var(--muted);
-      display:flex;
-      align-items:center;
-      font-weight:800;
-    }
-    .cmp-cell{
-      text-align:center;
+    .end-stat .k{ font-size:12px; color:var(--muted); margin-bottom:6px; }
+    .end-stat .v{ font-size:26px; font-weight:1000; }
+
+    .decision-box{
+      margin-top:14px;
+      border-radius:18px;
+      border:1px solid rgba(148,163,184,.14);
+      background:rgba(2,6,23,.54);
+      padding:12px 14px;
       font-size:14px;
       font-weight:900;
     }
-    .cmp-win{
-      outline:1px solid rgba(34,197,94,.38);
-      box-shadow: inset 0 0 0 1px rgba(34,197,94,.18);
-    }
 
-    .end-grid{
-      display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:10px; margin-bottom:14px;
+    .compare-box{
+      margin-top:14px;
+      border-radius:18px;
+      border:1px solid rgba(148,163,184,.14);
+      background:rgba(2,6,23,.54);
+      padding:12px;
+      overflow:auto;
     }
-    .end-card{
-      border-radius:16px; background:rgba(2,6,23,.50); border:1px solid var(--stroke); padding:12px 10px;
+    .compare-title{ font-size:14px; font-weight:1000; margin-bottom:8px; }
+    table.cmp{
+      width:100%;
+      border-collapse:collapse;
     }
-    .end-card .k{ margin-bottom:6px; }
-    .end-card .v{ font-size:20px; font-weight:900; }
+    .cmp th,.cmp td{
+      padding:10px 8px;
+      border-bottom:1px solid rgba(148,163,184,.12);
+      text-align:center;
+      font-size:13px;
+    }
+    .cmp th:first-child,.cmp td:first-child{ text-align:left; }
+    .cmp-win{
+      color:#86efac;
+      font-weight:1000;
+    }
 
     .end-actions{
-      display:flex; justify-content:center; flex-wrap:wrap; gap:10px; margin-top:8px;
-    }
-    .btn{
-      appearance:none; border:0; cursor:pointer; border-radius:14px; padding:11px 15px; font-weight:900;
-      color:#fff; background:linear-gradient(135deg,#2563eb,#06b6d4); box-shadow:0 10px 26px rgba(37,99,235,.28);
-    }
-    .btn.secondary{
-      background:rgba(15,23,42,.92); border:1px solid var(--stroke); box-shadow:none; color:var(--text);
+      display:flex; gap:10px; flex-wrap:wrap; justify-content:center;
+      margin-top:16px;
     }
 
-    .gj-target{ will-change: transform, opacity, left, top; touch-action: manipulation; }
+    .gj-target{
+      animation: targetBob .85s ease-in-out infinite alternate;
+    }
+    @keyframes targetBob{
+      from{ transform:translate(-50%,-50%) scale(1); }
+      to{ transform:translate(-50%,-52%) scale(1.04); }
+    }
 
     @media (max-width:900px){
-      .hud{ grid-template-columns:repeat(2, minmax(0,1fr)); }
-      .ai-box{
-        top:auto; bottom:calc(164px + var(--sab)); left:calc(12px + var(--sal)); right:calc(12px + var(--sar)); width:auto;
+      .hud-top{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .end-stats{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .side-ai{
+        left:8px; right:8px; width:auto; bottom:calc(var(--sab) + 64px);
       }
-      .end-grid{ grid-template-columns:repeat(2, minmax(0,1fr)); }
-      .compare-table{ grid-template-columns:1fr; }
-    }
-
-    @media (max-width:560px){
-      .brand{ max-width:48vw; }
-      .v{ font-size:18px; }
-      #endTitle{ font-size:24px; }
+      .mid-mission{ top:calc(var(--sat) + 134px); }
+      .boss-bar{ top:calc(var(--sat) + 218px); }
+      .end-actions{ justify-content:stretch; }
+      .end-actions .btn{ flex:1 1 220px; }
     }
   </style>
-
-  <script src="../firebase-config.js"></script>
-  <script src="../vr/vr-ui.js"></script>
 </head>
 <body>
-  <div id="app"></div>
-  <div id="gj-layer" aria-label="GoodJunk play layer"></div>
+<div id="app">
+  <div id="gj-layer"></div>
 
-  <div class="topbar">
-    <div class="pill">
-      <span style="font-size:18px">🥦</span>
-      <div class="brand">HeroHealth • GoodJunk VR</div>
-    </div>
-    <div class="pill">
-      <span class="dot"></span>
-      <div>
-        <div id="uiRun" style="font-weight:900;font-size:13px;">battle</div>
-        <div class="muted" style="font-size:12px;">
-          <span id="uiDiff">normal</span> • <span id="uiView">mobile</span>
-        </div>
-      </div>
-    </div>
+  <div class="hud-top">
+    <div class="hud-card"><div class="hud-k">SCORE</div><div id="hud-score" class="hud-v">0</div><div class="hud-sub">grade <span id="hud-grade">D</span></div></div>
+    <div class="hud-card"><div class="hud-k">TIME</div><div id="hud-time" class="hud-v">80</div><div class="hud-sub">miss <span id="hud-miss">0</span></div></div>
+    <div class="hud-card"><div class="hud-k">GOAL</div><div class="hud-v"><span id="hud-goal">WARM</span></div><div class="hud-sub"><span id="hud-goal-cur">0</span>/<span id="hud-goal-target">0</span> • <span id="goalDesc">—</span></div></div>
+    <div class="hud-card"><div class="hud-k">BONUS</div><div id="hud-mini" class="hud-v">—</div><div class="hud-sub">timer <span id="miniTimer">0</span></div></div>
+    <div class="hud-card"><div class="hud-k">AI RISK</div><div id="aiRisk" class="hud-v">0.00</div><div class="hud-sub"><span id="aiHint">—</span></div></div>
   </div>
 
-  <section class="hud">
-    <div class="card"><div class="k">Score</div><div id="hud-score" class="v">0</div></div>
-    <div class="card"><div class="k">Time</div><div id="hud-time" class="v">80</div></div>
-    <div class="card"><div class="k">Miss</div><div id="hud-miss" class="v">0</div></div>
-    <div class="card"><div class="k">Grade</div><div id="hud-grade" class="v">D</div></div>
-    <div class="card"><div class="k">Phase</div><div id="hud-goal" class="v">WARM</div></div>
-    <div class="card"><div class="k">Good Hit</div><div class="v"><span id="hud-goal-cur">0</span> / <span id="hud-goal-target">40</span></div></div>
-    <div class="card"><div class="k">Mini</div><div class="v"><span id="hud-mini">—</span> <span class="muted" style="font-size:13px">(<span id="miniTimer">0</span>s)</span></div></div>
-    <div class="card"><div class="k">Mission Key</div><div id="goalDesc" class="v" style="font-size:14px;">good_only</div></div>
-  </section>
-
-  <aside class="ai-box">
-    <div class="ai-row"><span class="muted">AI Risk</span><strong id="aiRisk">—</strong></div>
-    <div class="ai-row"><span class="muted">AI Hint</span><strong id="aiHint">—</strong></div>
-  </aside>
-
-  <section class="mission">
-    <div class="mission-main">
+  <div class="mid-mission">
+    <div class="mission-box">
       <div class="mission-head">
-        <div id="missionTitle" class="mission-title">WARM</div>
-        <div id="missionGoal" class="mission-goal">เก็บของดี</div>
+        <div id="missionTitle">WARM</div>
+        <div>mode <span id="uiRun">play</span> • <span id="uiView">mobile</span> • <span id="uiDiff">easy</span></div>
       </div>
-      <div id="missionHint" class="mission-hint">พร้อมแล้ว! ยิงของดี 🥦</div>
-      <div class="bar"><span id="missionFill" style="--p:0%"></span></div>
+      <div id="missionGoal" class="mission-goal">เก็บของดี</div>
+      <div id="missionHint" class="mission-hint">—</div>
+      <div class="mission-bar"><i id="missionFill" style="--p:0%"></i></div>
     </div>
-
-    <div id="bossBar">
-      <div class="boss-label">👾 BOSS</div>
-      <div class="boss-flex">
-        <div class="bar"><span id="bossFill" style="--hp:100%"></span></div>
-        <div id="bossHint">รอบอส</div>
-      </div>
-    </div>
-  </section>
-
-  <div class="bottom-hint">
-    โหมด VR/Cardboard ใช้ปุ่ม ENTER VR / crosshair กลางจอ • Mobile/PC แตะหรือคลิกอีโมจิเพื่อเล่น
   </div>
+
+  <div id="bossBar" class="boss-bar">
+    <div class="boss-head">
+      <div>BOSS HP</div>
+      <div id="bossHint">—</div>
+    </div>
+    <div class="boss-track"><i id="bossFill" style="--hp:100%"></i></div>
+  </div>
+
+  <div class="side-ai">
+    <div class="ai-box">
+      <div class="ai-title">🧠 AI Coach</div>
+      <div id="coachInline" class="ai-line">พร้อมแล้ว! ยิงของดี 🥦</div>
+      <div id="coachExplain" class="ai-small">prediction-ready</div>
+      <div class="ai-pill">hazard <span id="hazardInline">0.00</span></div>
+      <div class="ai-pill">win <span id="winInline">0.00</span></div>
+      <div class="ai-pill">frustration <span id="frustrationInline">0.00</span></div>
+    </div>
+  </div>
+
+  <div class="bottom-bar">
+    <div class="bottom-left">
+      <div class="mini-chip">mode <span id="modeChip">solo</span></div>
+      <div class="mini-chip">room <span id="roomChip">—</span></div>
+    </div>
+    <div class="bottom-right">
+      <button id="btnBackHub" class="btn secondary" type="button">กลับ HUB</button>
+    </div>
+  </div>
+
+  <div id="stageBanner">
+    <div id="stageBannerBig" class="big">TRICK MODE</div>
+    <div id="stageBannerSmall" class="small">คอมโบให้เดือดขึ้น!</div>
+  </div>
+
+  <div id="milestoneBanner">NICE COMBO!</div>
+  <div id="dangerOverlay"></div>
 
   <div id="endOverlay">
     <div class="panel">
-      <div id="endTitle">จบเกม</div>
-      <div id="endSub">summary</div>
-
-      <div class="end-note">
-        <div class="h">เกณฑ์ตัดสิน</div>
-        <div id="endDecision" class="v">—</div>
+      <div id="endTop">
+        <div id="endTitle">จบเกม</div>
+        <div id="endSub">—</div>
       </div>
 
-      <div class="end-note">
-        <div class="h">สถานะ Rematch</div>
-        <div id="endRematchStatus" class="v">—</div>
+      <div class="end-stats">
+        <div class="end-stat"><div class="k">GRADE</div><div id="endGrade" class="v">D</div></div>
+        <div class="end-stat"><div class="k">SCORE</div><div id="endScore" class="v">0</div></div>
+        <div class="end-stat"><div class="k">MISS</div><div id="endMiss" class="v">0</div></div>
+        <div class="end-stat"><div class="k">TIME</div><div id="endTime" class="v">0</div></div>
       </div>
 
-      <div class="compare-wrap">
-        <div class="compare-title">เทียบผล You vs Opponent</div>
-        <div class="compare-table">
-          <div class="cmp-head"></div>
-          <div class="cmp-head">YOU</div>
-          <div class="cmp-head">OPPONENT</div>
+      <div id="endDecision" class="decision-box">—</div>
 
-          <div class="cmp-metric">Score</div>
-          <div id="cmpYouScore" class="cmp-cell">—</div>
-          <div id="cmpOppScore" class="cmp-cell">—</div>
-
-          <div class="cmp-metric">Accuracy</div>
-          <div id="cmpYouAcc" class="cmp-cell">—</div>
-          <div id="cmpOppAcc" class="cmp-cell">—</div>
-
-          <div class="cmp-metric">Miss</div>
-          <div id="cmpYouMiss" class="cmp-cell">—</div>
-          <div id="cmpOppMiss" class="cmp-cell">—</div>
-
-          <div class="cmp-metric">Median RT</div>
-          <div id="cmpYouRt" class="cmp-cell">—</div>
-          <div id="cmpOppRt" class="cmp-cell">—</div>
-
-          <div class="cmp-metric">Finish Time</div>
-          <div id="cmpYouFinish" class="cmp-cell">—</div>
-          <div id="cmpOppFinish" class="cmp-cell">—</div>
-        </div>
+      <div class="compare-box">
+        <div class="compare-title">Battle Compare</div>
+        <table class="cmp">
+          <thead>
+            <tr>
+              <th>Metric</th>
+              <th>YOU</th>
+              <th>OPP</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>Score</td><td id="cmpYouScore">—</td><td id="cmpOppScore">—</td></tr>
+            <tr><td>Accuracy</td><td id="cmpYouAcc">—</td><td id="cmpOppAcc">—</td></tr>
+            <tr><td>Miss</td><td id="cmpYouMiss">—</td><td id="cmpOppMiss">—</td></tr>
+            <tr><td>Median RT</td><td id="cmpYouRt">—</td><td id="cmpOppRt">—</td></tr>
+            <tr><td>Finish</td><td id="cmpYouFinish">—</td><td id="cmpOppFinish">—</td></tr>
+          </tbody>
+        </table>
       </div>
 
-      <div class="end-grid">
-        <div class="end-card"><div class="k">Grade</div><div id="endGrade" class="v">D</div></div>
-        <div class="end-card"><div class="k">Score</div><div id="endScore" class="v">0</div></div>
-        <div class="end-card"><div class="k">Miss</div><div id="endMiss" class="v">0</div></div>
-        <div class="end-card"><div class="k">Time</div><div id="endTime" class="v">0</div></div>
-      </div>
+      <div id="endRematchStatus" class="decision-box">ยังไม่มีคำขอ rematch</div>
 
       <div class="end-actions">
-        <button class="btn" id="btnReplay" type="button">🔁 เล่นอีกครั้ง</button>
-        <button class="btn" id="btnRematch" type="button">⚔️ Rematch</button>
-        <button class="btn secondary" id="btnBackHub" type="button">🏠 กลับ HUB</button>
+        <button id="btnReplay" class="btn" type="button">เล่นอีกครั้ง</button>
+        <button id="btnRequestRematch" class="btn warn" type="button">Request Rematch</button>
+        <button id="btnAcceptRematch" class="btn good" type="button" style="display:none;">Accept Rematch</button>
+        <button id="btnDeclineRematch" class="btn danger" type="button" style="display:none;">Decline Rematch</button>
+        <button id="btnEndBackHub" class="btn secondary" type="button">กลับ HUB</button>
       </div>
     </div>
   </div>
+</div>
 
-  <script type="module">
-    import { boot } from './goodjunk.safe.js';
+<script type="module">
+  import { createDefaultAIHooksFromQuery } from './ai-hooks.js';
+  import { boot } from './goodjunk.safe.js';
 
-    const qs = (k, d='')=>{
-      try{ return new URL(location.href).searchParams.get(k) ?? d; }
-      catch{ return d; }
-    };
+  const qs = (k, d='')=>{ try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(_){ return d; } };
 
-    function safeHub(){
-      const raw = qs('hub', '../hub.html');
-      try{ return new URL(raw, location.href).href; }
-      catch{ return '../hub.html'; }
-    }
+  const mode = String(qs('mode','solo')).toLowerCase();
+  const room = String(qs('room','-')).toUpperCase() || '-';
+  document.getElementById('modeChip').textContent = mode;
+  document.getElementById('roomChip').textContent = room;
 
-    function installVRUI(){
-      try{
-        if (window.HHAVRUI && typeof window.HHAVRUI.install === 'function'){
-          window.HHAVRUI.install({ recenter:true, exit:true, crosshair:true, tapToShoot:true });
-        } else if (window.installVRUI && typeof window.installVRUI === 'function'){
-          window.installVRUI({ recenter:true, exit:true, crosshair:true, tapToShoot:true });
-        }
-      }catch(err){
-        console.warn('[GoodJunkVR] VR UI install failed:', err);
-      }
-    }
+  const hub = String(qs('hub','../hub.html'));
+  const backHub = ()=> location.href = hub;
 
-    function replayUrl(){
-      const u = new URL(location.href);
-      return u.toString();
-    }
+  document.getElementById('btnBackHub').onclick = backHub;
+  document.getElementById('btnEndBackHub').onclick = backHub;
 
-    async function writeCentralAttendanceRun(row){
-      const cfg = window.HHA_FIREBASE_CONFIG || window.__HHA_FIREBASE_CONFIG__ || window.firebaseConfig || null;
-      if(!cfg) return { ok:false, reason:'missing_firebase_config' };
+  const ai = createDefaultAIHooksFromQuery();
 
-      try{
-        const v = '9.22.2';
-        const appMod = await import(`https://www.gstatic.com/firebasejs/${v}/firebase-app.js`);
-        const dbMod  = await import(`https://www.gstatic.com/firebasejs/${v}/firebase-database.js`);
-
-        const { initializeApp, getApps, getApp } = appMod;
-        const { getDatabase, ref, push, set, serverTimestamp } = dbMod;
-
-        const app = getApps().length ? getApp() : initializeApp(cfg);
-        const db = getDatabase(app);
-
-        const room = String(row?.room || 'ROOM').trim().toUpperCase();
-        const base = `hha-battle/goodjunk/rooms/${room}/attendance`;
-        const rowRef = push(ref(db, base));
-
-        await set(rowRef, {
-          nick: String(row?.nick || ''),
-          pid: String(row?.pid || ''),
-          room,
-          source: String(row?.source || 'game-run'),
-          createdAt: serverTimestamp(),
-          createdAtMs: Date.now()
-        });
-
-        return { ok:true };
-      }catch(err){
-        console.warn('[GoodJunkVR] central attendance run failed', err);
-        return { ok:false, reason:String(err?.message || err) };
-      }
-    }
-
-    document.getElementById('btnReplay').addEventListener('click', ()=>{
-      location.href = replayUrl();
-    });
-
-    document.getElementById('btnRematch').addEventListener('click', async ()=>{
-      try{
-        if (window.__GJ_REMATCH__ && typeof window.__GJ_REMATCH__ === 'function'){
-          await window.__GJ_REMATCH__();
-        } else {
-          location.href = replayUrl();
-        }
-      }catch(err){
-        console.warn('[GoodJunkVR] rematch failed:', err);
-        location.href = replayUrl();
-      }
-    });
-
-    document.getElementById('btnBackHub').addEventListener('click', ()=>{
-      location.href = safeHub();
-    });
-
+  window.addEventListener('goodjunk:ai-event', (ev)=>{
     try{
-      installVRUI();
+      const row = ev.detail || {};
+      if(row.eventName !== 'recommend' && row.eventName !== 'predict') return;
+      const p = row.payload || {};
+      if(typeof p.hazardRisk === 'number') document.getElementById('hazardInline').textContent = Number(p.hazardRisk).toFixed(2);
+      if(typeof p.winChance === 'number') document.getElementById('winInline').textContent = Number(p.winChance).toFixed(2);
+      if(typeof p.frustrationRisk === 'number') document.getElementById('frustrationInline').textContent = Number(p.frustrationRisk).toFixed(2);
+      if(p.coach) document.getElementById('coachInline').textContent = p.coach;
+      if(p.explainText) document.getElementById('coachExplain').textContent = p.explainText;
+    }catch(_){}
+  });
 
-      try{
-        await writeCentralAttendanceRun({
-          room: qs('room', ''),
-          nick: qs('nick', qs('pid', 'anon')),
-          pid: qs('pid', 'anon'),
-          source: 'game-run'
-        });
-      }catch(_){}
+  window.addEventListener('hha:solo-fx', (ev)=>{
+    try{
+      const d = ev.detail || {};
+      const stage = document.getElementById('stageBanner');
+      const ms = document.getElementById('milestoneBanner');
 
-      await boot({
-        appId: 'goodjunk',
-        title: 'GoodJunk VR',
-        hub: safeHub(),
-        mode: qs('mode', 'solo'),
-        diff: qs('diff', 'normal'),
-        time: Number(qs('time', '80')) || 80,
-        seed: qs('seed', ''),
-        pid: qs('pid', 'anon'),
-        nick: qs('nick', ''),
-        studyId: qs('studyId', ''),
-        phase: qs('phase', ''),
-        conditionGroup: qs('conditionGroup', ''),
-        battle: qs('battle', '0') === '1' || qs('mode','') === 'battle',
-        room: qs('room', ''),
-        spectator: qs('spectator', '0') === '1',
-        pro: qs('pro', '0') === '1',
-        run: qs('run', 'play'),
-        log: qs('log', ''),
-        view: qs('view', 'mobile'),
-        api: qs('api', ''),
-        debug: qs('debug', '0') === '1'
-      });
-    }catch(err){
-      console.error('[GoodJunkVR] boot error:', err);
-      alert(err?.stack || err?.message || String(err));
-    }
-  </script>
+      if(d.stageOn){
+        document.getElementById('stageBannerBig').textContent = d.stageText || 'MODE';
+        document.getElementById('stageBannerSmall').textContent =
+          d.stageText === 'BOSS BATTLE' ? 'บอสมาแล้ว! เก็บสติแล้วบุก!' :
+          d.stageText === 'TRICK MODE' ? 'เร่งคอมโบและโบนัสให้เดือด!' :
+          'ลุยต่อ!';
+        stage.classList.add('show');
+      }else{
+        stage.classList.remove('show');
+      }
+
+      if(d.milestoneOn){
+        ms.textContent = d.milestoneText || 'NICE!';
+        ms.classList.add('show');
+      }else{
+        ms.classList.remove('show');
+      }
+    }catch(_){}
+  });
+
+  window.addEventListener('hha:danger', (ev)=>{
+    try{
+      const danger = document.getElementById('dangerOverlay');
+      const on = !!(ev.detail && ev.detail.on);
+      danger.style.opacity = on ? '1' : '0';
+    }catch(_){}
+  });
+
+  await boot({ ai });
+</script>
 </body>
 </html>
