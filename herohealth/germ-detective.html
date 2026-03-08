@@ -151,8 +151,9 @@
   'use strict';
 
   const LS_KEY = 'HHA_LAUNCH_GERM_DETECTIVE';
-  const GAME_PATH = './germ-detective/germ-detective.html';
-  const GATE_PATH = './warmup-gate.html';
+  const ORIGIN = location.origin;
+  const GAME_URL_ABS = ORIGIN + '/webxr-health-mobile/herohealth/germ-detective/germ-detective.html';
+  const GATE_URL_ABS = ORIGIN + '/webxr-health-mobile/herohealth/warmup-gate.html';
 
   const qs = (k, d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
   const pass = new URL(location.href);
@@ -177,6 +178,7 @@
       return o && typeof o==='object' ? o : null;
     }catch(_){ return null; }
   }
+
   function saveState(o){
     try{ localStorage.setItem(LS_KEY, JSON.stringify(o)); }catch(_){}
   }
@@ -191,7 +193,7 @@
   }
 
   function cleanHubUrl(raw){
-    const fallback = new URL('./hub.html', location.href).toString();
+    const fallback = ORIGIN + '/webxr-health-mobile/herohealth/hub.html';
     raw = normalizeMaybeEncodedUrl(raw || fallback);
     try{
       const u = new URL(raw, location.href);
@@ -255,7 +257,7 @@
   }
 
   function buildGameUrl(){
-    const u = new URL(GAME_PATH, location.href);
+    const u = new URL(GAME_URL_ABS);
 
     pass.searchParams.forEach((v,k)=> u.searchParams.set(k,v));
 
@@ -265,6 +267,7 @@
       'cd','next'
     ].forEach(k=>u.searchParams.delete(k));
 
+    u.searchParams.set('run', qs('run','play') || 'play');
     u.searchParams.set('view', state.view);
     u.searchParams.set('diff', state.diff);
     u.searchParams.set('time', String(Math.max(40, Number(state.time)||80)));
@@ -278,7 +281,7 @@
   }
 
   function buildGateUrl(){
-    const u = new URL(GATE_PATH, location.href);
+    const u = new URL(GATE_URL_ABS);
     const next = buildGameUrl();
 
     u.searchParams.set('gatePhase', 'warmup');
