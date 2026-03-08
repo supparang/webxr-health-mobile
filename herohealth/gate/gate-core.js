@@ -1,15 +1,9 @@
 // === /herohealth/gate/gate-core.js ===
 // HeroHealth Gate Core
-// PATCH v20260308-HYGIENE-GATE-CORE-r4
-// ✅ game registry
-// ✅ daily skip
-// ✅ expected path debug
-// ✅ sanitize buffs
-// ✅ save last summary
-// ✅ safer next/hub handling
-// ✅ FIX: prevent warmup loop by sanitizing next/hub URLs
-// ✅ FIX: skip/continue now always use safeNextUrl()
-// ✅ FIX: GermDetective always goes to exactly one real game path
+// PATCH v20260308-HYGIENE-GATE-CORE-r5
+// ✅ hard-force GermDetective next path
+// ✅ ignores broken next for GermDetective
+// ✅ stronger cache-bust companion with warmup-gate.html?v=20260308d
 
 import {
   buildCtx,
@@ -37,9 +31,7 @@ function titleOf(ctx){
 
 function subtitleOf(ctx){
   const meta = getGameMeta(ctx.game) || { label: ctx.game };
-  if(ctx.mode === 'warmup'){
-    return `เตรียมความพร้อมก่อนเข้าเกม ${meta.label}`;
-  }
+  if(ctx.mode === 'warmup') return `เตรียมความพร้อมก่อนเข้าเกม ${meta.label}`;
   return `คูลดาวน์และสรุปก่อนออกจากเกม ${meta.label}`;
 }
 
@@ -61,41 +53,76 @@ function safeHubUrl(ctx){
   }
 }
 
+function isGermDetectiveCtx(ctx){
+  const g = String(ctx.game || '').toLowerCase();
+  const t = String(ctx.theme || '').toLowerCase();
+  return g === 'germdetective' || g === 'germ-detective' || t === 'germdetective' || t === 'germ-detective';
+}
+
+function forceGermDetectiveUrl(ctx, result=null){
+  const u = new URL(
+    '/webxr-health-mobile/herohealth/germ-detective/germ-detective.html',
+    location.origin
+  );
+
+  const hub = safeHubUrl(ctx);
+  u.searchParams.set('hub', hub);
+
+  if(ctx.run)  u.searchParams.set('run', String(ctx.run));
+  if(ctx.diff) u.searchParams.set('diff', String(ctx.diff));
+  if(ctx.time != null) u.searchParams.set('time', String(ctx.time));
+  if(ctx.seed) u.searchParams.set('seed', String(ctx.seed));
+  if(ctx.pid)  u.searchParams.set('pid', String(ctx.pid));
+  if(ctx.view) u.searchParams.set('view', String(ctx.view));
+  if(!u.searchParams.get('scene')) u.searchParams.set('scene', 'classroom');
+  u.searchParams.set('zone', 'hygiene');
+
+  if(ctx.studyId) u.searchParams.set('studyId', String(ctx.studyId));
+  if(ctx.phase) u.searchParams.set('phase', String(ctx.phase));
+  if(ctx.conditionGroup) u.searchParams.set('conditionGroup', String(ctx.conditionGroup));
+  if(ctx.sessionOrder) u.searchParams.set('sessionOrder', String(ctx.sessionOrder));
+  if(ctx.blockLabel) u.searchParams.set('blockLabel', String(ctx.blockLabel));
+  if(ctx.siteCode) u.searchParams.set('siteCode', String(ctx.siteCode));
+  if(ctx.schoolYear) u.searchParams.set('schoolYear', String(ctx.schoolYear));
+  if(ctx.semester) u.searchParams.set('semester', String(ctx.semester));
+
+  if(result){
+    const buffs = sanitizeBuffs(result?.buffs || {});
+    Object.entries(buffs).forEach(([k,v])=>{
+      u.searchParams.set(k, String(v));
+    });
+    u.searchParams.set('gateResult', result?.ok ? '1' : '0');
+    u.searchParams.set('gateMode', String(result?.mode || ''));
+  }
+
+  return u.toString();
+}
+
 function safeNextUrl(ctx, result=null){
   const hub = safeHubUrl(ctx);
 
   try{
-    let u;
-
-    // บังคับ GermDetective ให้ไปหน้าเกมจริง path เดียวเสมอ
-    if(String(ctx.game || '').toLowerCase() === 'germdetective'){
-      u = new URL(
-        '/webxr-health-mobile/herohealth/germ-detective/germ-detective.html',
-        location.origin
-      );
-    }else{
-      const raw = String(ctx.next || '').trim();
-      if(!raw) return hub;
-
-      u = new URL(raw, location.href);
-
-      // กันวนกลับเข้า gate เอง
-      if(/warmup-gate\.html$/i.test(u.pathname)){
-        return hub;
-      }
+    if(isGermDetectiveCtx(ctx)){
+      return forceGermDetectiveUrl(ctx, result);
     }
 
-    // ลบ query gate เก่าออกจากปลายทาง
+    const raw = String(ctx.next || '').trim();
+    if(!raw) return hub;
+
+    const u = new URL(raw, location.href);
+
+    if(/warmup-gate\.html$/i.test(u.pathname)){
+      return hub;
+    }
+
     [
       'gatePhase','phase','gateResult','gateMode',
       'wType','wPct','wSteps','wTimeBonus','wScoreBonus','wRank',
       'cd','next'
     ].forEach(k=>u.searchParams.delete(k));
 
-    // ส่ง hub ที่สะอาดกลับเข้าเกม
     u.searchParams.set('hub', hub);
 
-    // คงค่าพื้นฐาน
     if(ctx.run)  u.searchParams.set('run', String(ctx.run));
     if(ctx.diff) u.searchParams.set('diff', String(ctx.diff));
     if(ctx.time != null) u.searchParams.set('time', String(ctx.time));
@@ -103,18 +130,6 @@ function safeNextUrl(ctx, result=null){
     if(ctx.pid)  u.searchParams.set('pid', String(ctx.pid));
     if(ctx.view) u.searchParams.set('view', String(ctx.view));
 
-    // game-specific defaults
-    if(String(ctx.game || '').toLowerCase() === 'germdetective'){
-      if(!u.searchParams.get('scene')){
-        u.searchParams.set('scene', 'classroom');
-      }
-      // กัน zone หาย
-      if(!u.searchParams.get('zone')){
-        u.searchParams.set('zone', 'hygiene');
-      }
-    }
-
-    // research context passthrough
     if(ctx.studyId) u.searchParams.set('studyId', String(ctx.studyId));
     if(ctx.phase) u.searchParams.set('phase', String(ctx.phase));
     if(ctx.conditionGroup) u.searchParams.set('conditionGroup', String(ctx.conditionGroup));
@@ -124,7 +139,6 @@ function safeNextUrl(ctx, result=null){
     if(ctx.schoolYear) u.searchParams.set('schoolYear', String(ctx.schoolYear));
     if(ctx.semester) u.searchParams.set('semester', String(ctx.semester));
 
-    // แนบผล warmup/cooldown
     if(result){
       const buffs = sanitizeBuffs(result?.buffs || {});
       Object.entries(buffs).forEach(([k,v])=>{
@@ -138,10 +152,6 @@ function safeNextUrl(ctx, result=null){
   }catch{
     return hub;
   }
-}
-
-function appendResultToNext(ctx, result){
-  return safeNextUrl(ctx, result);
 }
 
 function renderShell(root, ctx){
@@ -264,7 +274,7 @@ export async function bootGate(root){
         },
         onContinue: ()=>{
           if(ctx.mode === 'warmup'){
-            location.href = appendResultToNext(ctx, finalResult);
+            location.href = safeNextUrl(ctx, finalResult);
             return;
           }
           location.href = safeHubUrl(ctx);
@@ -283,6 +293,8 @@ export async function bootGate(root){
         modulePath: modulePath(ctx),
         dailyDone: ctx.dailyDone,
         gameKnown: !!GATE_GAMES[ctx.game],
+        game: ctx.game || '',
+        theme: ctx.theme || '',
         next: ctx.next || '',
         hub: ctx.hub || '',
         safeNext: safeNextUrl(ctx),
