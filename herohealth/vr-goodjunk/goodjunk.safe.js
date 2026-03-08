@@ -1,6 +1,6 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
 // GoodJunkVR SAFE — PRODUCTION
-// PATCH v20260308-GJ-SAFE-ATTENDANCE-SOUND-PATTERNPACK
+// PATCH v20260308-GJ-SAFE-FULL-ATTENDANCE-SOUND-BOSSPACK
 'use strict';
 
 export async function boot(cfg){
@@ -52,10 +52,13 @@ export async function boot(cfg){
       if(!window.firebase?.database) return;
       const db = window.firebase.database();
       const pidKey = String(pid || nick || 'anon').trim();
+      const roomCode = String(qs('room','')).trim().toUpperCase();
+      if(!roomCode) return;
+
       const row = {
         pid: pidKey,
         nick: String(nick || pidKey),
-        room: String(qs('room','')).trim().toUpperCase(),
+        room: roomCode,
         source: 'game-run',
         view,
         diff,
@@ -392,7 +395,16 @@ export async function boot(cfg){
 
   const WARM_POOL = ['good_only','avoid_junk','green_focus'];
   const TRICK_POOL = ['combo_rush','bonus_hunt','speed_clear','lane_rush','center_burst'];
-  const BOSS_POOL = ['normal_boss','shield_boss','storm_boss','phase_shift_boss','decoy_boss'];
+  const BOSS_POOL = [
+    'normal_boss',
+    'shield_boss',
+    'storm_boss',
+    'phase_shift_boss',
+    'decoy_boss',
+    'mirror_boss',
+    'precision_boss',
+    'rage_boss'
+  ];
 
   const missionSet = {
     warm: rPick(WARM_POOL),
@@ -688,9 +700,15 @@ export async function boot(cfg){
   let bossShieldHp = bossShieldBase();
   let bossStormTimer = 0;
   let bossPhase2 = false;
+  let bossRage = false;
   let decoyWeakId = '';
+  let mirrorWeakIds = [];
+  let precisionWindow = 0;
 
   const targets = new Map();
+  const patternLog = [];
+  let spawnSeq = 0;
+
   let spawnAcc = 0;
   let lanePulse = 0;
 
@@ -698,6 +716,36 @@ export async function boot(cfg){
   const LS_BADGES = `HHA_GJ_BADGES:${pid}`;
   const LS_DAILY = `HHA_GJ_DAILY:${pid}:${hhDayKey()}`;
   const LS_STREAK = `HHA_GJ_STREAK:${pid}`;
+
+  function emitPatternEvent(eventName, payload={}){
+    try{
+      const row = {
+        game: HH_GAME,
+        pid,
+        nick,
+        seed: seedStr,
+        room: String(qs('room','') || ''),
+        mode,
+        diff,
+        view,
+        eventName: String(eventName || ''),
+        tGameMs: Math.max(0, Math.round((plannedSec - tLeft) * 1000)),
+        seq: ++spawnSeq,
+        payload
+      };
+      patternLog.push(row);
+      WIN.dispatchEvent(new CustomEvent('goodjunk:pattern-event', { detail: row }));
+    }catch(_){}
+  }
+
+  function exportPatternSummary(){
+    return {
+      seed: seedStr,
+      missionSet,
+      totalEvents: patternLog.length,
+      rows: patternLog
+    };
+  }
 
   function layerRect(){ return layer.getBoundingClientRect(); }
 
@@ -788,6 +836,15 @@ export async function boot(cfg){
     }else if(k === 'decoy_boss'){
       if(missionGoal) missionGoal.textContent = `BOSS Decoy`;
       if(missionHint) missionHint.textContent = `ระวัง weak point หลอก เล็งของจริงให้แม่น`;
+    }else if(k === 'mirror_boss'){
+      if(missionGoal) missionGoal.textContent = `BOSS Mirror`;
+      if(missionHint) missionHint.textContent = `เป้าจะออกเป็นคู่กระจก เลือกของจริงให้ถูก`;
+    }else if(k === 'precision_boss'){
+      if(missionGoal) missionGoal.textContent = `BOSS Precision`;
+      if(missionHint) missionHint.textContent = `ยิงเฉพาะช่วง precision window เท่านั้น`;
+    }else if(k === 'rage_boss'){
+      if(missionGoal) missionGoal.textContent = `BOSS Rage`;
+      if(missionHint) missionHint.textContent = `ยิ่งใกล้หมดเวลา บอสจะเดือดและเร็วขึ้น`;
     }else{
       if(missionGoal) missionGoal.textContent = `BOSS ปกติ`;
       if(missionHint) missionHint.textContent = `ยิง weak spot 🎯 เพื่อลด HP`;
@@ -807,6 +864,16 @@ export async function boot(cfg){
         bossHint.textContent = `🛡️ โล่บอสเหลือ ${bossShieldHp}`;
       }else if(missionSet.boss === 'decoy_boss'){
         bossHint.textContent = `🎯 เลือก weak point ให้ถูก! HP ${bossHp}/${bossHpMax}`;
+      }else if(missionSet.boss === 'mirror_boss'){
+        bossHint.textContent = `🪞 เป้าคู่กระจก • เลือกของจริง HP ${bossHp}/${bossHpMax}`;
+      }else if(missionSet.boss === 'precision_boss'){
+        bossHint.textContent = precisionWindow > 0
+          ? `🎯 PRECISION OPEN! HP ${bossHp}/${bossHpMax}`
+          : `⏳ รอ precision window... HP ${bossHp}/${bossHpMax}`;
+      }else if(missionSet.boss === 'rage_boss'){
+        bossHint.textContent = bossRage
+          ? `😡 RAGE MODE! HP ${bossHp}/${bossHpMax}`
+          : `🎯 โจมตีบอส! HP ${bossHp}/${bossHpMax}`;
       }else{
         bossHint.textContent = `🎯 โจมตีบอส! HP ${bossHp}/${bossHpMax}`;
       }
@@ -1019,6 +1086,7 @@ export async function boot(cfg){
       zone: String(qs('zone','nutrition') || 'nutrition'),
 
       missionSet,
+      patternSummary: exportPatternSummary(),
       startTimeIso,
       endTimeIso: nowIso()
     };
@@ -1506,6 +1574,16 @@ export async function boot(cfg){
     const t = { id, type, emoji, ttl, born, el };
     targets.set(id, t);
 
+    emitPatternEvent('spawn', {
+      type,
+      emoji,
+      ttl,
+      x: Math.round(x),
+      y: Math.round(y),
+      stage: STAGE_NAME[stage] || 'WARM',
+      mission: currentMissionKey()
+    });
+
     el.addEventListener('pointerdown', (ev)=>{
       ev.preventDefault();
       ev.stopPropagation();
@@ -1580,7 +1658,9 @@ export async function boot(cfg){
         sfx('hit-good');
       }
 
+      emitPatternEvent('hit', { targetType:'good', scorePlus:plus, combo, rt });
       fxFloatText(x,y,`+${plus}`,false);
+
     }else if(t.type === 'junk'){
       hits++;
       missTotal++;
@@ -1593,22 +1673,28 @@ export async function boot(cfg){
       score = Math.max(0, score - minus);
       fxState.screenFlash = 0.16;
       sfx('hit-junk');
+      emitPatternEvent('hit', { targetType:'junk', scoreMinus:minus });
       fxFloatText(x,y,`-${minus}`,true);
+
     }else if(t.type === 'bonus'){
       hits++;
       const bonusScore = fever > 0 ? 34 : 25;
       score += bonusScore;
       sfx('bonus');
+      emitPatternEvent('hit', { targetType:'bonus', scorePlus:bonusScore });
       fxFloatText(x,y, `+${bonusScore}`, false);
       mini.name = 'BONUS ⚡';
       mini.t = 6;
       if(r01() < 0.35) enterFever(4);
+
     }else if(t.type === 'shield'){
       hits++;
       shield = Math.min(9, shield + 1);
       score += 6;
       sfx('shield');
+      emitPatternEvent('hit', { targetType:'shield', shield });
       fxFloatText(x,y,'+shield',false);
+
     }else if(t.type === 'bossdecoy'){
       hits++;
       missTotal++;
@@ -1616,34 +1702,78 @@ export async function boot(cfg){
       combo = 0;
       score = Math.max(0, score - 10);
       sfx('hit-junk');
+      emitPatternEvent('boss-hit', { boss: missionSet.boss, result:'decoy-object', targetId:id });
       fxFloatText(x,y,'DECOY!',true);
+
     }else if(t.type === 'bossweak'){
       hits++;
       fxState.bossHitFlash = 0.22;
 
-      if(missionSet.boss === 'decoy_boss' && decoyWeakId && id !== decoyWeakId){
+      const isWrongDecoy =
+        (missionSet.boss === 'decoy_boss' && decoyWeakId && id !== decoyWeakId) ||
+        (missionSet.boss === 'mirror_boss' && mirrorWeakIds.length && mirrorWeakIds[0] && id !== mirrorWeakIds[0]);
+
+      if(isWrongDecoy){
         missTotal++;
         missJunkHit++;
         combo = 0;
         score = Math.max(0, score - 10);
         sfx('hit-junk');
+        emitPatternEvent('boss-hit', {
+          boss: missionSet.boss,
+          result: 'wrong-target',
+          targetId: id
+        });
         fxFloatText(x,y,'DECOY!',true);
+
+      }else if(missionSet.boss === 'precision_boss' && precisionWindow <= 0){
+        missTotal++;
+        missJunkHit++;
+        combo = 0;
+        score = Math.max(0, score - 8);
+        sfx('hit-junk');
+        emitPatternEvent('boss-hit', {
+          boss: 'precision_boss',
+          result: 'outside-window',
+          targetId: id
+        });
+        fxFloatText(x,y,'EARLY!',true);
+
       }else if(bossShieldHp > 0){
         bossShieldHp--;
         score += 8;
         sfx('boss-hit');
+        emitPatternEvent('boss-hit', {
+          boss: missionSet.boss,
+          result: 'shield-hit',
+          shieldLeft: bossShieldHp
+        });
         fxFloatText(x,y,'🛡️',false);
+
       }else{
-        const dmg = fever > 0 ? 2 : 1;
+        let dmg = fever > 0 ? 2 : 1;
+        if(missionSet.boss === 'precision_boss' && precisionWindow > 0) dmg += 1;
+        if(missionSet.boss === 'rage_boss' && bossRage) dmg += 1;
+
         bossHp = Math.max(0, bossHp - dmg);
         score += fever > 0 ? 16 : 10;
         sfx('boss-hit');
+        emitPatternEvent('boss-hit', {
+          boss: missionSet.boss,
+          result: 'hp-hit',
+          damage: dmg,
+          hpLeft: bossHp
+        });
         fxFloatText(x,y,fever > 0 ? '💥' : '🎯',false);
 
         if(missionSet.boss === 'phase_shift_boss' && !bossPhase2 && bossHpMax > 0 && bossHp / bossHpMax <= 0.5){
           bossPhase2 = true;
           enterFever(4);
           sayCoach('บอสเข้า Phase 2 แล้ว! เร็วขึ้น!', true);
+          emitPatternEvent('boss-phase', {
+            boss: 'phase_shift_boss',
+            phase: 2
+          });
         }
       }
 
@@ -1658,23 +1788,41 @@ export async function boot(cfg){
       setMissionUI();
       showStageBanner('TRICK MODE');
       sayCoach('เข้า TRICK! ทำคอมโบ 8+ 🔥');
+      emitPatternEvent('stage-change', { stage:'TRICK' });
     }
+
     if(stage===1 && goodHitCount >= WIN_TARGET.goodTarget){
       stage = 2;
       bossActive = true;
       bossPhase2 = false;
+      bossRage = false;
+      precisionWindow = 0;
       setMissionUI();
       showStageBanner('BOSS BATTLE');
       setBossUI(true);
-      bossHpMax = TUNE.bossHp + (missionSet.boss === 'shield_boss' ? 4 : missionSet.boss === 'phase_shift_boss' ? 3 : 0);
+      bossHpMax = TUNE.bossHp + (
+        missionSet.boss === 'shield_boss' ? 4 :
+        missionSet.boss === 'phase_shift_boss' ? 3 :
+        missionSet.boss === 'rage_boss' ? 4 :
+        missionSet.boss === 'precision_boss' ? 2 : 0
+      );
       bossHp = bossHpMax;
       bossShieldHp = bossShieldBase() + (missionSet.boss === 'shield_boss' ? 2 : 0);
       bossStormTimer = 0;
       decoyWeakId = '';
+      mirrorWeakIds = [];
       setBossHpUI();
+      emitPatternEvent('boss-start', {
+        boss: missionSet.boss,
+        hpMax: bossHpMax,
+        shield: bossShieldHp
+      });
       sayCoach(
         missionSet.boss === 'decoy_boss' ? 'บอสหลอกมาแล้ว! เลือกเป้าของจริงให้ถูก 🎯' :
         missionSet.boss === 'phase_shift_boss' ? 'บอสจะเร็วขึ้นเมื่อ HP ครึ่งหนึ่ง!' :
+        missionSet.boss === 'mirror_boss' ? 'บอสกระจกมาแล้ว! เป้าซ้าย-ขวาจะหลอกกัน!' :
+        missionSet.boss === 'precision_boss' ? 'ยิงเฉพาะตอน precision window เปิดเท่านั้น!' :
+        missionSet.boss === 'rage_boss' ? 'ยิ่งใกล้หมดเวลา บอสจะเดือดขึ้น!' :
         'บอสมาแล้ว! ตีโล่ก่อนแล้วค่อยยิง 🎯'
       , true);
     }
@@ -1697,6 +1845,7 @@ export async function boot(cfg){
           streakMiss++;
           combo = 0;
           const r = obj.el.getBoundingClientRect();
+          emitPatternEvent('expire', { targetType:'good', targetId:id });
           fxFloatText(r.left + r.width/2, r.top + r.height/2, 'ช้า!', true);
         }
         removeTarget(id);
@@ -1716,6 +1865,7 @@ export async function boot(cfg){
         makeTarget('junk', rPick(JUNK), (TUNE.ttlJunk - 0.1) * ttlMul, pt);
       }
     }
+    emitPatternEvent('pattern', { pattern:'lane_rush', goodLane });
   }
 
   function spawnCenterBurst(adaptive){
@@ -1726,6 +1876,7 @@ export async function boot(cfg){
     if(r01() < 0.55){
       makeTarget('junk', rPick(JUNK), (TUNE.ttlJunk - 0.05) * ttlMul, spawnPointCenterBurst());
     }
+    emitPatternEvent('pattern', { pattern:'center_burst' });
   }
 
   function spawnBossDecoyPattern(adaptive){
@@ -1734,13 +1885,59 @@ export async function boot(cfg){
     decoyWeakId = trueWeak.id;
 
     if(r01() < 0.8){
-      const d1 = makeTarget('bossweak', WEAK, 1.3 * ttlMul);
-      if(d1) d1.type = 'bossdecoy';
+      const d1 = makeTarget('bossdecoy', WEAK, 1.3 * ttlMul);
       if(r01() < 0.6){
-        const d2 = makeTarget('bossweak', WEAK, 1.2 * ttlMul);
-        if(d2) d2.type = 'bossdecoy';
+        makeTarget('bossdecoy', WEAK, 1.2 * ttlMul);
       }
+      emitPatternEvent('boss-pattern', {
+        pattern: 'decoy_boss',
+        trueWeakId: trueWeak.id,
+        firstDecoyId: d1.id
+      });
+    }else{
+      emitPatternEvent('boss-pattern', {
+        pattern: 'decoy_boss',
+        trueWeakId: trueWeak.id
+      });
     }
+  }
+
+  function spawnBossMirrorPattern(adaptive){
+    const ttlMul = adaptive.ttlMul || 1;
+    mirrorWeakIds = [];
+
+    const s = safeSpawnRect();
+    const centerY = s.y1 + (s.y2 - s.y1) * (0.25 + r01() * 0.5);
+    const leftX = s.x1 + (s.x2 - s.x1) * 0.32;
+    const rightX = s.x1 + (s.x2 - s.x1) * 0.68;
+
+    const trueSideLeft = r01() < 0.5;
+    const trueWeak = makeTarget('bossweak', WEAK, 1.45 * ttlMul, {
+      x: trueSideLeft ? leftX : rightX,
+      y: centerY
+    });
+    mirrorWeakIds.push(trueWeak.id);
+
+    const mirror = makeTarget('bossdecoy', WEAK, 1.45 * ttlMul, {
+      x: trueSideLeft ? rightX : leftX,
+      y: centerY
+    });
+    mirrorWeakIds.push(mirror.id);
+
+    emitPatternEvent('boss-pattern', {
+      pattern: 'mirror_boss',
+      trueWeakId: trueWeak.id,
+      mirrorId: mirror.id
+    });
+  }
+
+  function openPrecisionWindow(sec=1.4){
+    precisionWindow = Math.max(precisionWindow, sec);
+    sayCoach('PRECISION WINDOW เปิดแล้ว! ยิงตอนนี้!', true);
+    emitPatternEvent('boss-pattern', {
+      pattern: 'precision_window_open',
+      sec
+    });
   }
 
   function spawnOne(adaptive){
@@ -1760,17 +1957,38 @@ export async function boot(cfg){
       if(!hasWeak){
         if(missionSet.boss === 'decoy_boss'){
           spawnBossDecoyPattern(adaptive);
+        }else if(missionSet.boss === 'mirror_boss'){
+          spawnBossMirrorPattern(adaptive);
         }else{
-          makeTarget('bossweak', WEAK, (missionSet.boss === 'phase_shift_boss' && bossPhase2 ? 1.15 : 1.6) * ttlMul);
+          const weakTtl =
+            missionSet.boss === 'phase_shift_boss' && bossPhase2 ? 1.15 :
+            missionSet.boss === 'rage_boss' && bossRage ? 1.05 :
+            1.6;
+          const weak = makeTarget('bossweak', WEAK, weakTtl * ttlMul);
+          emitPatternEvent('boss-pattern', {
+            pattern: missionSet.boss,
+            targetId: weak.id,
+            ttl: weakTtl * ttlMul
+          });
         }
       }else{
         const extraJunkProb =
           missionSet.boss === 'storm_boss' ? 0.82 :
           missionSet.boss === 'phase_shift_boss' && bossPhase2 ? 0.76 :
+          missionSet.boss === 'rage_boss' && bossRage ? 0.78 :
           0.60;
 
         if(r01() < extraJunkProb){
-          makeTarget('junk', rPick(JUNK), (missionSet.boss === 'phase_shift_boss' && bossPhase2 ? TUNE.ttlJunk - 0.18 : TUNE.ttlJunk) * ttlMul);
+          const ttlJ =
+            missionSet.boss === 'phase_shift_boss' && bossPhase2 ? TUNE.ttlJunk - 0.18 :
+            missionSet.boss === 'rage_boss' && bossRage ? TUNE.ttlJunk - 0.22 :
+            TUNE.ttlJunk;
+          const junk = makeTarget('junk', rPick(JUNK), ttlJ * ttlMul);
+          emitPatternEvent('boss-pattern', {
+            pattern: `${missionSet.boss}-junk`,
+            targetId: junk.id,
+            ttl: ttlJ * ttlMul
+          });
         }
       }
       return;
@@ -1839,6 +2057,7 @@ export async function boot(cfg){
       shots++;
       streakMiss++;
       combo = 0;
+      emitPatternEvent('miss-shot', { reason:'no-target' });
       setHUD();
     }
   }
@@ -1889,6 +2108,7 @@ export async function boot(cfg){
 
     tLeft = Math.max(0, tLeft - dt);
     fever = Math.max(0, fever - dt);
+    precisionWindow = Math.max(0, precisionWindow - dt);
 
     const dangerNow =
       tLeft <= 10 ||
@@ -1946,7 +2166,13 @@ export async function boot(cfg){
       bossStormTimer += dt;
       if(bossStormTimer >= 4){
         bossStormTimer = 0;
-        for(let i=0;i<2;i++) makeTarget('junk', rPick(JUNK), TUNE.ttlJunk * (adaptive.ttlMul || 1));
+        for(let i=0;i<2;i++){
+          const junk = makeTarget('junk', rPick(JUNK), TUNE.ttlJunk * (adaptive.ttlMul || 1));
+          emitPatternEvent('boss-pattern', {
+            pattern: 'storm_boss-extra-junk',
+            targetId: junk.id
+          });
+        }
       }
     }
 
@@ -1954,7 +2180,30 @@ export async function boot(cfg){
       bossStormTimer += dt;
       if(bossStormTimer >= 3.4){
         bossStormTimer = 0;
-        makeTarget('junk', rPick(JUNK), (TUNE.ttlJunk - 0.16) * (adaptive.ttlMul || 1));
+        const junk = makeTarget('junk', rPick(JUNK), (TUNE.ttlJunk - 0.16) * (adaptive.ttlMul || 1));
+        emitPatternEvent('boss-pattern', {
+          pattern: 'phase_shift_phase2_junk',
+          targetId: junk.id
+        });
+      }
+    }
+
+    if(stage===2 && missionSet.boss === 'precision_boss'){
+      bossStormTimer += dt;
+      if(bossStormTimer >= 3.2){
+        bossStormTimer = 0;
+        openPrecisionWindow(1.25);
+      }
+    }
+
+    if(stage===2 && missionSet.boss === 'rage_boss' && !bossRage){
+      if(tLeft <= 12 || (bossHpMax > 0 && bossHp / bossHpMax <= 0.45)){
+        bossRage = true;
+        sayCoach('RAGE MODE! ระวังให้ดี!', true);
+        emitPatternEvent('boss-phase', {
+          boss: 'rage_boss',
+          phase: 'rage'
+        });
       }
     }
 
@@ -2008,6 +2257,8 @@ export async function boot(cfg){
   if(!WAIT_START){
     writeGameRunAttendanceOnce();
   }
+
+  WIN.__GJ_EXPORT_PATTERN_SUMMARY__ = ()=> exportPatternSummary();
 
   setMissionUI();
   setHUD();
