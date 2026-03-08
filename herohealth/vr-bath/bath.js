@@ -1,5 +1,7 @@
 'use strict';
 
+import { buildCooldownUrlForCurrentGame } from '../gate/helpers/gate-link.js';
+
 window.__BATH_BOOT_OK__ = false;
 console.log('[Bath] script loaded', location.href);
 
@@ -203,6 +205,7 @@ const IMPROVES = [
 const S = {
   sessionId: `bath_${PID}_${Date.now()}`,
   started:false, ended:false,
+  endFlowRedirected:false,
   phase:0,
   view:'front',
   tool:'soap',
@@ -249,6 +252,53 @@ const S = {
   lastCoachMs:0,
   aiSnapshot:null,
 };
+
+function buildBathCooldownUrl(){
+  const endSummary = UI.endSummary?.textContent?.trim() || '';
+  const rubric = UI.selfRubric?.textContent?.trim() || '';
+  const rubricDesc = UI.rubricDesc?.textContent?.trim() || '';
+  const aiTip = UI.aiTipPill?.textContent?.trim() || '';
+  const aiMeta = UI.aiMetaText?.textContent?.trim() || '';
+
+  const cleanPill = UI.cleanPill?.textContent?.trim() || '';
+  const residuePill = UI.residuePill?.textContent?.trim() || '';
+  const riskPill = UI.riskPill?.textContent?.trim() || '';
+  const timePill = UI.timePill?.textContent?.trim() || '';
+
+  return buildCooldownUrlForCurrentGame({
+    cat: 'hygiene',
+    game: 'bath',
+    theme: 'bath',
+    fallbackHub: '../hub.html',
+    extras: {
+      endSummary,
+      rubric,
+      rubricDesc,
+      aiTip,
+      aiMeta,
+      cleanPill,
+      residuePill,
+      riskPill,
+      timePill,
+      scoreFinal: Math.round(S.cleanScore),
+      residue: Math.round(S.residue),
+      fungusRisk: Math.round(S.fungusRisk),
+      sweat: Math.round(S.sweat),
+      reason: PHASES[S.phase] === 'END' ? 'complete' : PHASES[S.phase],
+      pro: PRO ? 1 : 0
+    }
+  });
+}
+
+function goBathCooldown(){
+  location.href = buildBathCooldownUrl();
+}
+
+function goCooldownOnce(){
+  if (S.endFlowRedirected) return;
+  S.endFlowRedirected = true;
+  goBathCooldown();
+}
 
 function resetSpotStats(){
   S.spot = {};
@@ -470,7 +520,7 @@ function maybeSpawnBoss(){
 
   makeTarget({
     kind:'boss',
-    label: EM.boss,
+    label:EM.boss,
     x: s.x, y: s.y,
     spotId: s.id,
     ttlMs: (PRO?5200:6500),
@@ -1047,6 +1097,11 @@ function endGame(reason='complete'){
       `<b>${nextStep}</b>`;
   }
 
+  if (UI.btnCooldown){
+    UI.btnCooldown.textContent = '➡ ไป Cooldown';
+    UI.btnCooldown.disabled = false;
+  }
+
   UI.panelEnd?.classList.remove('hidden');
   saveLastSummary(reason);
 
@@ -1060,7 +1115,7 @@ function endGame(reason='complete'){
     misses: S.pressureBurst,
     accuracyGoodPct: Math.round(S.steadyPct),
     device: qs('view','pc'),
-    gameVersion: 'v20260306d',
+    gameVersion: 'v20260308-BATH-COOLDOWN',
     reason,
     __extraJson: JSON.stringify({
       pro: !!PRO,
@@ -1190,6 +1245,7 @@ function startGame(mode='standard'){
   S.sessionId = `bath_${PID}_${Date.now()}`;
   S.started = true;
   S.ended = false;
+  S.endFlowRedirected = false;
   S.phase = 0;
 
   UI.panelQuiz?.classList.add('hidden');
@@ -1322,9 +1378,7 @@ if (UI.btnPlayPlan){
 
 if (UI.btnCooldown){
   UI.btnCooldown.addEventListener('click', ()=>{
-    const hub = encodeURIComponent(HUB);
-    const next = `../warmup-gate.html?gatePhase=cooldown&phase=cooldown&cat=hygiene&theme=bath&game=bath&hub=${hub}&pid=${encodeURIComponent(PID)}&diff=${encodeURIComponent(DIFF)}&pro=${PRO?1:0}&run=${encodeURIComponent(RUN)}&time=${encodeURIComponent(TIME)}&view=${encodeURIComponent(qs('view','mobile'))}&seed=${encodeURIComponent(SEED)}`;
-    location.href = next;
+    goCooldownOnce();
   });
 }
 
@@ -1341,6 +1395,10 @@ function bootBathSafe(){
     if (!UI.btnStart) console.error('[Bath] btnStart missing');
     if (!UI.targetLayer) console.error('[Bath] targetLayer missing');
     if (!UI.planList) console.error('[Bath] planList missing');
+
+    if (UI.btnCooldown){
+      UI.btnCooldown.textContent = '➡ ไป Cooldown';
+    }
 
     bootPreviewState();
     renderPlan();
