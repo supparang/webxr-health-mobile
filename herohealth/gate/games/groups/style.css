@@ -1,0 +1,175 @@
+/* === /herohealth/gate/games/groups/style.css ===
+   HeroHealth Gate Game Style
+   GAME: groups
+   PATCH v20260308-GATE-GROUPS-STYLE
+*/
+
+.grp-wrap{
+  display:grid;
+  gap:14px;
+  min-height:320px;
+}
+
+.grp-hero{
+  padding:14px;
+  border-radius:20px;
+  border:1px solid rgba(148,163,184,.16);
+  background:
+    radial-gradient(700px 180px at 50% -10%, rgba(59,130,246,.16), transparent 60%),
+    linear-gradient(180deg, rgba(15,23,42,.88), rgba(2,6,23,.88));
+}
+
+.grp-kicker{
+  font-size:12px;
+  color:#93c5fd;
+  margin-bottom:4px;
+  font-weight:800;
+  letter-spacing:.04em;
+}
+
+.grp-title{
+  font-size:22px;
+  font-weight:900;
+  margin:0 0 4px;
+  color:#e5e7eb;
+}
+
+.grp-sub{
+  font-size:14px;
+  color:#cbd5e1;
+  line-height:1.45;
+}
+
+.grp-stage{
+  display:grid;
+  gap:12px;
+}
+
+.grp-panel{
+  padding:14px;
+  border-radius:20px;
+  border:1px solid rgba(148,163,184,.14);
+  background:rgba(15,23,42,.78);
+}
+
+.grp-target{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  min-height:120px;
+  padding:14px;
+  border-radius:20px;
+  text-align:center;
+  font-size:30px;
+  font-weight:900;
+  color:#fff;
+  background:
+    linear-gradient(180deg, rgba(30,41,59,.96), rgba(2,6,23,.96));
+  border:1px solid rgba(148,163,184,.14);
+}
+
+.grp-prompt{
+  font-size:15px;
+  color:#cbd5e1;
+  font-weight:700;
+  margin-bottom:10px;
+}
+
+.grp-choices{
+  display:grid;
+  grid-template-columns:1fr;
+  gap:10px;
+}
+
+.grp-btn{
+  appearance:none;
+  border:none;
+  cursor:pointer;
+  min-height:52px;
+  border-radius:16px;
+  padding:12px 14px;
+  font-size:15px;
+  font-weight:900;
+  color:#fff;
+  background:linear-gradient(180deg,#2563eb,#1d4ed8);
+  box-shadow:0 10px 24px rgba(0,0,0,.18);
+  text-align:left;
+}
+
+.grp-btn.good{
+  background:linear-gradient(180deg,#22c55e,#16a34a);
+}
+.grp-btn.bad{
+  background:linear-gradient(180deg,#ef4444,#dc2626);
+}
+.grp-btn.ghost{
+  color:#e5e7eb;
+  background:rgba(30,41,59,.92);
+  border:1px solid rgba(148,163,184,.16);
+}
+
+.grp-note{
+  color:#94a3b8;
+  font-size:13px;
+  line-height:1.45;
+}
+
+.grp-result{
+  display:grid;
+  gap:10px;
+  padding:16px;
+  border-radius:20px;
+  border:1px solid rgba(59,130,246,.24);
+  background:
+    radial-gradient(700px 180px at 50% -10%, rgba(59,130,246,.16), transparent 60%),
+    linear-gradient(180deg, rgba(2,6,23,.96), rgba(15,23,42,.96));
+}
+
+.grp-badge{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  width:max-content;
+  padding:8px 12px;
+  border-radius:999px;
+  font-weight:900;
+  color:#bfdbfe;
+  background:rgba(59,130,246,.12);
+  border:1px solid rgba(59,130,246,.26);
+}
+
+.grp-big{
+  font-size:28px;
+  font-weight:900;
+  color:#fff;
+}
+
+.grp-list{
+  display:grid;
+  gap:8px;
+}
+
+.grp-item{
+  padding:10px 12px;
+  border-radius:14px;
+  color:#e5e7eb;
+  background:rgba(15,23,42,.82);
+  border:1px solid rgba(148,163,184,.14);
+}
+
+.grp-actions{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  margin-top:4px;
+}
+
+@media (max-width: 700px){
+  .grp-target{
+    font-size:24px;
+    min-height:100px;
+  }
+  .grp-title{
+    font-size:20px;
+  }
+}
