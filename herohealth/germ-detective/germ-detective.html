@@ -3,185 +3,33 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — Germ Detective</title>
-  <meta name="color-scheme" content="dark light" />
-  <link rel="icon" href="../favicon.ico" />
+  <title>HeroHealth — Germ Detective Launcher</title>
+  <meta name="robots" content="noindex" />
   <style>
-    :root{
-      --bg:#020617;
-      --panel:rgba(2,6,23,.72);
-      --stroke:rgba(148,163,184,.18);
-      --text:#e5e7eb;
-      --muted:#94a3b8;
-      --good:#22c55e;
-      --warn:#f59e0b;
-      --bad:#ef4444;
-      --cyan:#22d3ee;
-      --sat: env(safe-area-inset-top, 0px);
-      --sab: env(safe-area-inset-bottom, 0px);
-      --sal: env(safe-area-inset-left, 0px);
-      --sar: env(safe-area-inset-right, 0px);
-    }
-    *{ box-sizing:border-box; }
     html,body{
       margin:0;
       min-height:100%;
-      background:
-        radial-gradient(1000px 700px at 20% 0%, rgba(34,211,238,.08), transparent 60%),
-        radial-gradient(900px 600px at 80% 10%, rgba(167,139,250,.08), transparent 60%),
-        var(--bg);
-      color:var(--text);
+      background:#020617;
+      color:#e5e7eb;
       font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif;
+      display:grid;
+      place-items:center;
     }
-    body{ overflow-x:hidden; }
-
-    .topbar{
-      position:sticky;
-      top:0;
-      z-index:40;
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      gap:10px;
-      flex-wrap:wrap;
-      padding:calc(10px + var(--sat)) calc(12px + var(--sar)) 10px calc(12px + var(--sal));
-      background:rgba(2,6,23,.76);
-      backdrop-filter:blur(10px);
-      border-bottom:1px solid rgba(148,163,184,.14);
+    .card{
+      width:min(92vw,560px);
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(2,6,23,.78);
+      border-radius:20px;
+      padding:18px;
+      box-shadow:0 20px 60px rgba(0,0,0,.35);
     }
-
-    .brand{
-      display:flex;
-      align-items:center;
-      gap:10px;
-      min-width:0;
-    }
-    .logo{
-      width:40px;height:40px;border-radius:14px;
-      display:grid;place-items:center;
-      border:1px solid var(--stroke);
-      background:linear-gradient(135deg, rgba(34,211,238,.22), rgba(167,139,250,.16));
-      font-weight:1000;
-      flex:0 0 auto;
-    }
-    .brandText{ min-width:0; }
-    .title{
-      font-weight:1000;
-      letter-spacing:.2px;
-      white-space:nowrap;
-      overflow:hidden;
-      text-overflow:ellipsis;
-    }
-    .sub{
-      color:var(--muted);
-      font-size:12px;
-      font-weight:850;
-      white-space:nowrap;
-      overflow:hidden;
-      text-overflow:ellipsis;
-    }
-
-    .actions{
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-      align-items:center;
-    }
-
-    .pill{
-      display:inline-flex;
-      align-items:center;
-      gap:6px;
-      padding:7px 10px;
-      border-radius:999px;
-      border:1px solid var(--stroke);
-      background:rgba(255,255,255,.03);
-      font-size:12px;
-      font-weight:950;
-      color:var(--muted);
-    }
-    .pill b{ color:var(--text); }
-
-    .btn{
-      appearance:none;
-      border:1px solid var(--stroke);
-      background:rgba(255,255,255,.03);
-      color:var(--text);
-      border-radius:14px;
-      padding:10px 12px;
-      font-weight:1000;
-      cursor:pointer;
-      min-height:42px;
-      text-decoration:none;
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      gap:8px;
-    }
-    .btn.warn{ border-color:rgba(245,158,11,.32); background:rgba(245,158,11,.10); }
-
-    #app{ min-height:calc(100vh - 76px); }
-
-    .bootNote{
-      padding:14px 12px calc(16px + var(--sab)) 12px;
-      color:var(--muted);
-      font-size:12px;
-      font-weight:850;
-    }
-
-    .fallback{
-      margin:12px;
-      padding:12px;
-      border:1px solid rgba(148,163,184,.16);
-      border-radius:16px;
-      background:rgba(255,255,255,.02);
-      display:none;
-    }
-    .fallback.show{ display:block; }
-
-    code{
-      font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
-      font-size:12px;
-    }
+    .muted{ color:#94a3b8; font-size:13px; }
   </style>
 </head>
 <body>
-  <div class="topbar">
-    <div class="brand">
-      <div class="logo">GD</div>
-      <div class="brandText">
-        <div class="title">Germ Detective</div>
-        <div class="sub" id="ctxLine">loading…</div>
-      </div>
-    </div>
-
-    <div class="actions">
-      <span class="pill">PID <b id="uiPid">anon</b></span>
-      <span class="pill">run <b id="uiRun">play</b></span>
-      <span class="pill">scene <b id="uiScene">classroom</b></span>
-      <button class="btn warn" id="btnCooldownTop" type="button">➡ Go Cooldown</button>
-      <a class="btn warn" id="btnHub" href="../hub.html">🏠 กลับ HUB</a>
-    </div>
-  </div>
-
-  <div id="app"></div>
-
-  <div class="fallback" id="fallbackBox">
-    <div style="font-weight:1000;margin-bottom:8px;">โหลดเกมไม่สำเร็จ</div>
-    <div style="color:var(--muted);font-size:12px;line-height:1.5;">
-      ตรวจสอบ path ของไฟล์ต่อไปนี้:
-      <div style="margin-top:8px;">
-        <code>../vr/vr-ui.js</code><br>
-        <code>../plate.safe.js</code><br>
-        <code>../plate-logger-bridge.js</code><br>
-        <code>./germ-detective.boot.js</code><br>
-        <code>./germ-detective.js</code>
-      </div>
-    </div>
-  </div>
-
-  <div class="bootNote">
-    HeroHealth Germ Detective • PC / Mobile / cVR • ใช้ <code>hha:shoot</code> ใน cVR
+  <div class="card">
+    <div style="font-weight:1000;font-size:18px;margin-bottom:8px;">กำลังเปิด Germ Detective…</div>
+    <div class="muted" id="msg">กำลังตรวจสอบ warmup / game flow</div>
   </div>
 
   <script>
@@ -192,6 +40,7 @@
         try{ return new URL(location.href).searchParams.get(k) ?? d; }
         catch{ return d; }
       }
+
       function normalizeMaybeEncodedUrl(v){
         v = String(v ?? '').trim();
         if(!v || v === 'null' || v === 'undefined') return '';
@@ -201,180 +50,89 @@
         return v.trim();
       }
 
+      function setMsg(t){
+        var el = document.getElementById('msg');
+        if(el) el.textContent = t;
+      }
+
+      const here = new URL(location.href);
+
       const pid   = String(qs('pid','anon')).trim() || 'anon';
       const run   = String(qs('run','play')).toLowerCase() || 'play';
-      const scene = String(qs('scene','classroom')).toLowerCase() || 'classroom';
       const diff  = String(qs('diff','normal')).toLowerCase() || 'normal';
-      const time  = String(qs('time','120'));
-      const view  = String(qs('view','pc')).toLowerCase() || 'pc';
-      const hub   = normalizeMaybeEncodedUrl(qs('hub','../hub.html')) || '../hub.html';
+      const time  = String(qs('time','80'));
+      const seed  = String(qs('seed', String(Date.now())));
+      const view  = String(qs('view','mobile')).toLowerCase() || 'mobile';
+      const scene = String(qs('scene','classroom')).toLowerCase() || 'classroom';
 
-      document.getElementById('uiPid').textContent = pid;
-      document.getElementById('uiRun').textContent = run;
-      document.getElementById('uiScene').textContent = scene;
-      document.getElementById('ctxLine').textContent =
-        `run=${run} • diff=${diff} • time=${time}s • scene=${scene} • view=${view}`;
+      const studyId = String(qs('studyId',''));
+      const phase = String(qs('phase',''));
+      const conditionGroup = String(qs('conditionGroup',''));
 
-      document.getElementById('btnHub').href = hub;
+      const hub = normalizeMaybeEncodedUrl(qs('hub','')) ||
+        new URL('./hub.html', here).toString();
 
-      window.addEventListener('error', function(){
-        const box = document.getElementById('fallbackBox');
-        if(box) box.classList.add('show');
-      });
+      const gateResult = String(qs('gateResult',''));
+      const gateMode = String(qs('gateMode',''));
+      const gatePhase = String(qs('gatePhase',''));
+      const phaseParam = String(qs('phase',''));
+
+      const gameUrl = new URL('./germ-detective/germ-detective.html', here);
+      gameUrl.searchParams.set('run', run);
+      gameUrl.searchParams.set('diff', diff);
+      gameUrl.searchParams.set('time', time);
+      gameUrl.searchParams.set('seed', seed);
+      gameUrl.searchParams.set('view', view);
+      gameUrl.searchParams.set('pid', pid);
+      gameUrl.searchParams.set('scene', scene);
+      gameUrl.searchParams.set('hub', hub);
+
+      if(studyId) gameUrl.searchParams.set('studyId', studyId);
+      if(phase) gameUrl.searchParams.set('phase', phase);
+      if(conditionGroup) gameUrl.searchParams.set('conditionGroup', conditionGroup);
+
+      const alreadyWarm =
+        gateResult === '1' && gateMode === 'warmup';
+
+      const currentlyInsideGate =
+        /warmup-gate\.html$/i.test(here.pathname) ||
+        gatePhase === 'warmup' ||
+        phaseParam === 'warmup';
+
+      if(alreadyWarm){
+        setMsg('ผ่าน warmup แล้ว กำลังเข้าเกม…');
+        location.replace(gameUrl.toString());
+        return;
+      }
+
+      if(currentlyInsideGate){
+        setMsg('อยู่ใน warmup gate แล้ว…');
+        location.replace(gameUrl.toString());
+        return;
+      }
+
+      const warmupUrl = new URL('./warmup-gate.html', here);
+      warmupUrl.searchParams.set('gatePhase', 'warmup');
+      warmupUrl.searchParams.set('phase', 'warmup');
+      warmupUrl.searchParams.set('cat', 'hygiene');
+      warmupUrl.searchParams.set('theme', 'germdetective');
+      warmupUrl.searchParams.set('game', 'germdetective');
+      warmupUrl.searchParams.set('pid', pid);
+      warmupUrl.searchParams.set('hub', hub);
+      warmupUrl.searchParams.set('next', gameUrl.toString());
+      warmupUrl.searchParams.set('run', run);
+      warmupUrl.searchParams.set('diff', diff);
+      warmupUrl.searchParams.set('time', time);
+      warmupUrl.searchParams.set('view', view);
+      warmupUrl.searchParams.set('seed', seed);
+
+      if(studyId) warmupUrl.searchParams.set('studyId', studyId);
+      if(phase) warmupUrl.searchParams.set('phase', phase);
+      if(conditionGroup) warmupUrl.searchParams.set('conditionGroup', conditionGroup);
+
+      setMsg('กำลังเข้า warmup ก่อนเริ่มเกม…');
+      location.replace(warmupUrl.toString());
     })();
-  </script>
-
-  <script src="../vr/vr-ui.js?v=20260308a"></script>
-  <script type="module" src="../plate.safe.js?v=20260308a"></script>
-  <script src="../plate-logger-bridge.js?v=20260308a"></script>
-  <script type="module" src="./germ-detective.boot.js?v=20260308a"></script>
-
-  <script type="module">
-    import { buildCooldownUrlForCurrentGame } from '../gate/helpers/gate-link.js';
-
-    const qs = (k, d='')=>{
-      try{ return new URL(location.href).searchParams.get(k) ?? d; }
-      catch{ return d; }
-    };
-
-    function normalizeMaybeEncodedUrl(v){
-      v = String(v ?? '').trim();
-      if(!v || v === 'null' || v === 'undefined') return '';
-      if(/%3A|%2F|%3F|%26|%3D/i.test(v)){
-        try{ v = decodeURIComponent(v); }catch(e){}
-      }
-      return v.trim();
-    }
-
-    const P = {
-      pid: String(qs('pid','anon')).trim() || 'anon',
-      run: String(qs('run','play')).toLowerCase() || 'play',
-      diff: String(qs('diff','normal')).toLowerCase() || 'normal',
-      time: String(qs('time','120')),
-      view: String(qs('view','pc')).toLowerCase() || 'pc',
-      scene: String(qs('scene','classroom')).toLowerCase() || 'classroom',
-      studyId: String(qs('studyId','')),
-      phase: String(qs('phase','')),
-      conditionGroup: String(qs('conditionGroup','')),
-      hub: normalizeMaybeEncodedUrl(qs('hub','../hub.html')) || '../hub.html'
-    };
-
-    let lastSummary = null;
-
-    function goHub(){
-      location.href = P.hub;
-    }
-
-    function buildGermCooldownUrl(){
-      const summary = lastSummary || {};
-      return buildCooldownUrlForCurrentGame({
-        cat: 'hygiene',
-        game: 'germdetective',
-        theme: 'germdetective',
-        fallbackHub: '../hub.html',
-        extras: {
-          pid: P.pid,
-          run: P.run,
-          diff: P.diff,
-          time: P.time,
-          view: P.view,
-          scene: P.scene,
-          studyId: P.studyId,
-          phase: P.phase,
-          conditionGroup: P.conditionGroup,
-
-          scoreFinal: summary.scoreFinal ?? summary.score ?? '',
-          grade: summary.grade ?? '',
-          accuracyPct: summary.accuracyPct ?? '',
-          foundCount: summary.foundCount ?? '',
-          missCount: summary.missCount ?? '',
-          dangerCount: summary.dangerCount ?? '',
-          summaryText: summary.summaryText ?? ''
-        }
-      });
-    }
-
-    function goCooldown(){
-      location.href = buildGermCooldownUrl();
-    }
-
-    document.getElementById('btnCooldownTop')?.addEventListener('click', goCooldown);
-
-    function tryReadSummaryFromPage(){
-      const text = document.body.innerText || '';
-      const summary = {};
-
-      const scoreMatch = text.match(/score[:\s]+(\d+)/i);
-      if(scoreMatch) summary.score = Number(scoreMatch[1]);
-
-      const accMatch = text.match(/acc(?:uracy)?[:\s]+(\d+)%/i);
-      if(accMatch) summary.accuracyPct = Number(accMatch[1]);
-
-      return summary;
-    }
-
-    function wireDynamicButtons(){
-      const app = document.getElementById('app');
-      if(!app) return;
-
-      const candidates = [
-        app.querySelector('#btnCooldown'),
-        app.querySelector('#btnEndBack'),
-        app.querySelector('[data-action="cooldown"]')
-      ].filter(Boolean);
-
-      candidates.forEach((btn)=>{
-        if(btn.dataset.cooldownWired === '1') return;
-        btn.dataset.cooldownWired = '1';
-        btn.textContent = '➡ Go Cooldown';
-        btn.addEventListener('click', (ev)=>{
-          ev.preventDefault();
-          if(!lastSummary) lastSummary = tryReadSummaryFromPage();
-          goCooldown();
-        });
-      });
-
-      const hubCandidates = [
-        app.querySelector('#btnBackHub'),
-        app.querySelector('#btnBack'),
-        app.querySelector('[data-action="hub"]')
-      ].filter(Boolean);
-
-      hubCandidates.forEach((btn)=>{
-        if(btn.dataset.hubWired === '1') return;
-        btn.dataset.hubWired = '1';
-        btn.addEventListener('click', (ev)=>{
-          ev.preventDefault();
-          goHub();
-        });
-      });
-    }
-
-    const mo = new MutationObserver(()=>{
-      wireDynamicButtons();
-    });
-    mo.observe(document.getElementById('app'), { childList:true, subtree:true });
-
-    wireDynamicButtons();
-
-    window.addEventListener('hha:event', (ev)=>{
-      const d = ev?.detail || {};
-      if(d && (d.type === 'summary' || d.type === 'session_end' || d.summary)){
-        lastSummary = d.summary || d;
-      }
-    });
-
-    window.addEventListener('storage', ()=>{
-      try{
-        const raw = localStorage.getItem('HHA_LAST_SUMMARY');
-        if(raw) lastSummary = JSON.parse(raw);
-      }catch{}
-    });
-
-    try{
-      const raw = localStorage.getItem('HHA_LAST_SUMMARY');
-      if(raw) lastSummary = JSON.parse(raw);
-    }catch{}
   </script>
 </body>
 </html>
