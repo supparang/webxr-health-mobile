@@ -3,33 +3,136 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>Redirecting — Germ Detective</title>
+  <title>HeroHealth — Germ Detective Launcher</title>
   <meta name="robots" content="noindex" />
+  <style>
+    html,body{
+      margin:0;
+      min-height:100%;
+      background:#020617;
+      color:#e5e7eb;
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif;
+      display:grid;
+      place-items:center;
+    }
+    .card{
+      width:min(92vw,560px);
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(2,6,23,.78);
+      border-radius:20px;
+      padding:18px;
+      box-shadow:0 20px 60px rgba(0,0,0,.35);
+    }
+    .muted{ color:#94a3b8; font-size:13px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div style="font-weight:1000;font-size:18px;margin-bottom:8px;">กำลังเปิด Germ Detective…</div>
+    <div class="muted" id="msg">กำลังตรวจสอบ warmup / game flow</div>
+  </div>
+
   <script>
     (function(){
       'use strict';
-      try{
-        const here = new URL(location.href);
-        const target = new URL('./germ-detective/germ-detective.html', here);
 
-        // copy all existing query params through
-        here.searchParams.forEach((value, key)=>{
-          target.searchParams.set(key, value);
-        });
-
-        // preserve hash if any
-        target.hash = here.hash || '';
-
-        location.replace(target.toString());
-      }catch(err){
-        document.documentElement.innerHTML =
-          '<body style="font-family:system-ui;padding:16px;background:#020617;color:#e5e7eb">' +
-          '<h1 style="font-size:18px;margin:0 0 8px">เปิด Germ Detective ไม่สำเร็จ</h1>' +
-          '<p style="margin:0;color:#94a3b8">redirect ไปยังโฟลเดอร์เกมไม่สำเร็จ</p>' +
-          '</body>';
+      function qs(k, d=''){
+        try{ return new URL(location.href).searchParams.get(k) ?? d; }
+        catch{ return d; }
       }
+
+      function normalizeMaybeEncodedUrl(v){
+        v = String(v ?? '').trim();
+        if(!v || v === 'null' || v === 'undefined') return '';
+        if(/%3A|%2F|%3F|%26|%3D/i.test(v)){
+          try{ v = decodeURIComponent(v); }catch(e){}
+        }
+        return v.trim();
+      }
+
+      function setMsg(t){
+        var el = document.getElementById('msg');
+        if(el) el.textContent = t;
+      }
+
+      const here = new URL(location.href);
+
+      const pid   = String(qs('pid','anon')).trim() || 'anon';
+      const run   = String(qs('run','play')).toLowerCase() || 'play';
+      const diff  = String(qs('diff','normal')).toLowerCase() || 'normal';
+      const time  = String(qs('time','80'));
+      const seed  = String(qs('seed', String(Date.now())));
+      const view  = String(qs('view','mobile')).toLowerCase() || 'mobile';
+      const scene = String(qs('scene','classroom')).toLowerCase() || 'classroom';
+
+      const studyId = String(qs('studyId',''));
+      const phase = String(qs('phase',''));
+      const conditionGroup = String(qs('conditionGroup',''));
+
+      const hub = normalizeMaybeEncodedUrl(qs('hub','')) ||
+        new URL('./hub.html', here).toString();
+
+      const gateResult = String(qs('gateResult',''));
+      const gateMode = String(qs('gateMode',''));
+      const gatePhase = String(qs('gatePhase',''));
+      const phaseParam = String(qs('phase',''));
+
+      const gameUrl = new URL('./germ-detective/germ-detective.html', here);
+      gameUrl.searchParams.set('run', run);
+      gameUrl.searchParams.set('diff', diff);
+      gameUrl.searchParams.set('time', time);
+      gameUrl.searchParams.set('seed', seed);
+      gameUrl.searchParams.set('view', view);
+      gameUrl.searchParams.set('pid', pid);
+      gameUrl.searchParams.set('scene', scene);
+      gameUrl.searchParams.set('hub', hub);
+
+      if(studyId) gameUrl.searchParams.set('studyId', studyId);
+      if(phase) gameUrl.searchParams.set('phase', phase);
+      if(conditionGroup) gameUrl.searchParams.set('conditionGroup', conditionGroup);
+
+      const alreadyWarm =
+        gateResult === '1' && gateMode === 'warmup';
+
+      const currentlyInsideGate =
+        /warmup-gate\.html$/i.test(here.pathname) ||
+        gatePhase === 'warmup' ||
+        phaseParam === 'warmup';
+
+      if(alreadyWarm){
+        setMsg('ผ่าน warmup แล้ว กำลังเข้าเกม…');
+        location.replace(gameUrl.toString());
+        return;
+      }
+
+      if(currentlyInsideGate){
+        setMsg('อยู่ใน warmup gate แล้ว…');
+        location.replace(gameUrl.toString());
+        return;
+      }
+
+      const warmupUrl = new URL('./warmup-gate.html', here);
+      warmupUrl.searchParams.set('gatePhase', 'warmup');
+      warmupUrl.searchParams.set('phase', 'warmup');
+      warmupUrl.searchParams.set('cat', 'hygiene');
+      warmupUrl.searchParams.set('theme', 'germdetective');
+      warmupUrl.searchParams.set('game', 'germdetective');
+      warmupUrl.searchParams.set('pid', pid);
+      warmupUrl.searchParams.set('hub', hub);
+      warmupUrl.searchParams.set('next', gameUrl.toString());
+      warmupUrl.searchParams.set('run', run);
+      warmupUrl.searchParams.set('diff', diff);
+      warmupUrl.searchParams.set('time', time);
+      warmupUrl.searchParams.set('view', view);
+      warmupUrl.searchParams.set('seed', seed);
+
+      if(studyId) warmupUrl.searchParams.set('studyId', studyId);
+      if(phase) warmupUrl.searchParams.set('phase', phase);
+      if(conditionGroup) warmupUrl.searchParams.set('conditionGroup', conditionGroup);
+
+      setMsg('กำลังเข้า warmup ก่อนเริ่มเกม…');
+      location.replace(warmupUrl.toString());
     })();
   </script>
-</head>
-<body></body>
+</body>
 </html>
