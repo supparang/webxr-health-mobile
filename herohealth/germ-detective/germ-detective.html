@@ -1,11 +1,3 @@
-<!-- === /herohealth/germ-detective/germ-detective.html ===
-Germ Detective — RUN PAGE (PC/Mobile/cVR)
-PATCH v20260306-GD-RUN-MODULEFIX-FULL
-✅ plate.safe.js = module
-✅ germ-detective.boot.js = module
-✅ vr-ui.js = normal script
-✅ fallback UI if boot fails
--->
 <!doctype html>
 <html lang="th">
 <head>
@@ -167,6 +159,7 @@ PATCH v20260306-GD-RUN-MODULEFIX-FULL
       <span class="pill">PID <b id="uiPid">anon</b></span>
       <span class="pill">run <b id="uiRun">play</b></span>
       <span class="pill">scene <b id="uiScene">classroom</b></span>
+      <button class="btn warn" id="btnCooldownTop" type="button">➡ Go Cooldown</button>
       <a class="btn warn" id="btnHub" href="../hub.html">🏠 กลับ HUB</a>
     </div>
   </div>
@@ -231,9 +224,157 @@ PATCH v20260306-GD-RUN-MODULEFIX-FULL
     })();
   </script>
 
-  <script src="../vr/vr-ui.js"></script>
-  <script type="module" src="../plate.safe.js"></script>
-  <script src="../plate-logger-bridge.js"></script>
-  <script type="module" src="./germ-detective.boot.js"></script>
+  <script src="../vr/vr-ui.js?v=20260308a"></script>
+  <script type="module" src="../plate.safe.js?v=20260308a"></script>
+  <script src="../plate-logger-bridge.js?v=20260308a"></script>
+  <script type="module" src="./germ-detective.boot.js?v=20260308a"></script>
+
+  <script type="module">
+    import { buildCooldownUrlForCurrentGame } from '../gate/helpers/gate-link.js';
+
+    const qs = (k, d='')=>{
+      try{ return new URL(location.href).searchParams.get(k) ?? d; }
+      catch{ return d; }
+    };
+
+    function normalizeMaybeEncodedUrl(v){
+      v = String(v ?? '').trim();
+      if(!v || v === 'null' || v === 'undefined') return '';
+      if(/%3A|%2F|%3F|%26|%3D/i.test(v)){
+        try{ v = decodeURIComponent(v); }catch(e){}
+      }
+      return v.trim();
+    }
+
+    const P = {
+      pid: String(qs('pid','anon')).trim() || 'anon',
+      run: String(qs('run','play')).toLowerCase() || 'play',
+      diff: String(qs('diff','normal')).toLowerCase() || 'normal',
+      time: String(qs('time','120')),
+      view: String(qs('view','pc')).toLowerCase() || 'pc',
+      scene: String(qs('scene','classroom')).toLowerCase() || 'classroom',
+      studyId: String(qs('studyId','')),
+      phase: String(qs('phase','')),
+      conditionGroup: String(qs('conditionGroup','')),
+      hub: normalizeMaybeEncodedUrl(qs('hub','../hub.html')) || '../hub.html'
+    };
+
+    let lastSummary = null;
+
+    function goHub(){
+      location.href = P.hub;
+    }
+
+    function buildGermCooldownUrl(){
+      const summary = lastSummary || {};
+      return buildCooldownUrlForCurrentGame({
+        cat: 'hygiene',
+        game: 'germdetective',
+        theme: 'germdetective',
+        fallbackHub: '../hub.html',
+        extras: {
+          pid: P.pid,
+          run: P.run,
+          diff: P.diff,
+          time: P.time,
+          view: P.view,
+          scene: P.scene,
+          studyId: P.studyId,
+          phase: P.phase,
+          conditionGroup: P.conditionGroup,
+
+          scoreFinal: summary.scoreFinal ?? summary.score ?? '',
+          grade: summary.grade ?? '',
+          accuracyPct: summary.accuracyPct ?? '',
+          foundCount: summary.foundCount ?? '',
+          missCount: summary.missCount ?? '',
+          dangerCount: summary.dangerCount ?? '',
+          summaryText: summary.summaryText ?? ''
+        }
+      });
+    }
+
+    function goCooldown(){
+      location.href = buildGermCooldownUrl();
+    }
+
+    document.getElementById('btnCooldownTop')?.addEventListener('click', goCooldown);
+
+    function tryReadSummaryFromPage(){
+      const text = document.body.innerText || '';
+      const summary = {};
+
+      const scoreMatch = text.match(/score[:\s]+(\d+)/i);
+      if(scoreMatch) summary.score = Number(scoreMatch[1]);
+
+      const accMatch = text.match(/acc(?:uracy)?[:\s]+(\d+)%/i);
+      if(accMatch) summary.accuracyPct = Number(accMatch[1]);
+
+      return summary;
+    }
+
+    function wireDynamicButtons(){
+      const app = document.getElementById('app');
+      if(!app) return;
+
+      const candidates = [
+        app.querySelector('#btnCooldown'),
+        app.querySelector('#btnEndBack'),
+        app.querySelector('[data-action="cooldown"]')
+      ].filter(Boolean);
+
+      candidates.forEach((btn)=>{
+        if(btn.dataset.cooldownWired === '1') return;
+        btn.dataset.cooldownWired = '1';
+        btn.textContent = '➡ Go Cooldown';
+        btn.addEventListener('click', (ev)=>{
+          ev.preventDefault();
+          if(!lastSummary) lastSummary = tryReadSummaryFromPage();
+          goCooldown();
+        });
+      });
+
+      const hubCandidates = [
+        app.querySelector('#btnBackHub'),
+        app.querySelector('#btnBack'),
+        app.querySelector('[data-action="hub"]')
+      ].filter(Boolean);
+
+      hubCandidates.forEach((btn)=>{
+        if(btn.dataset.hubWired === '1') return;
+        btn.dataset.hubWired = '1';
+        btn.addEventListener('click', (ev)=>{
+          ev.preventDefault();
+          goHub();
+        });
+      });
+    }
+
+    const mo = new MutationObserver(()=>{
+      wireDynamicButtons();
+    });
+    mo.observe(document.getElementById('app'), { childList:true, subtree:true });
+
+    wireDynamicButtons();
+
+    window.addEventListener('hha:event', (ev)=>{
+      const d = ev?.detail || {};
+      if(d && (d.type === 'summary' || d.type === 'session_end' || d.summary)){
+        lastSummary = d.summary || d;
+      }
+    });
+
+    window.addEventListener('storage', ()=>{
+      try{
+        const raw = localStorage.getItem('HHA_LAST_SUMMARY');
+        if(raw) lastSummary = JSON.parse(raw);
+      }catch{}
+    });
+
+    try{
+      const raw = localStorage.getItem('HHA_LAST_SUMMARY');
+      if(raw) lastSummary = JSON.parse(raw);
+    }catch{}
+  </script>
 </body>
 </html>
