@@ -1,0 +1,177 @@
+/* === /herohealth/gate/games/hydration/style.css ===
+   HeroHealth Gate Game Style
+   GAME: hydration
+   PATCH v20260308-GATE-HYDRATION-STYLE
+*/
+
+.hyd-wrap{
+  display:grid;
+  gap:14px;
+  min-height:320px;
+}
+
+.hyd-hero{
+  padding:14px;
+  border-radius:20px;
+  border:1px solid rgba(148,163,184,.16);
+  background:
+    radial-gradient(700px 180px at 50% -10%, rgba(34,211,238,.16), transparent 60%),
+    linear-gradient(180deg, rgba(15,23,42,.88), rgba(2,6,23,.88));
+}
+
+.hyd-kicker{
+  font-size:12px;
+  color:#67e8f9;
+  margin-bottom:4px;
+  font-weight:800;
+  letter-spacing:.04em;
+}
+
+.hyd-title{
+  font-size:22px;
+  font-weight:900;
+  margin:0 0 4px;
+  color:#e5e7eb;
+}
+
+.hyd-sub{
+  font-size:14px;
+  color:#cbd5e1;
+  line-height:1.45;
+}
+
+.hyd-stage{
+  display:grid;
+  gap:12px;
+}
+
+.hyd-panel{
+  padding:14px;
+  border-radius:20px;
+  border:1px solid rgba(148,163,184,.14);
+  background:rgba(15,23,42,.78);
+}
+
+.hyd-target{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  min-height:120px;
+  padding:14px;
+  border-radius:20px;
+  text-align:center;
+  font-size:28px;
+  font-weight:900;
+  color:#fff;
+  background:
+    linear-gradient(180deg, rgba(30,41,59,.96), rgba(2,6,23,.96));
+  border:1px solid rgba(148,163,184,.14);
+}
+
+.hyd-prompt{
+  font-size:15px;
+  color:#cbd5e1;
+  font-weight:700;
+  margin-bottom:10px;
+}
+
+.hyd-choices{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:10px;
+}
+
+.hyd-btn{
+  appearance:none;
+  border:none;
+  cursor:pointer;
+  min-height:52px;
+  border-radius:16px;
+  padding:12px 14px;
+  font-size:16px;
+  font-weight:900;
+  color:#fff;
+  background:linear-gradient(180deg,#06b6d4,#0891b2);
+  box-shadow:0 10px 24px rgba(0,0,0,.18);
+}
+
+.hyd-btn.good{
+  background:linear-gradient(180deg,#22c55e,#16a34a);
+}
+.hyd-btn.bad{
+  background:linear-gradient(180deg,#ef4444,#dc2626);
+}
+.hyd-btn.ghost{
+  color:#e5e7eb;
+  background:rgba(30,41,59,.92);
+  border:1px solid rgba(148,163,184,.16);
+}
+
+.hyd-note{
+  color:#94a3b8;
+  font-size:13px;
+  line-height:1.45;
+}
+
+.hyd-result{
+  display:grid;
+  gap:10px;
+  padding:16px;
+  border-radius:20px;
+  border:1px solid rgba(34,211,238,.24);
+  background:
+    radial-gradient(700px 180px at 50% -10%, rgba(34,211,238,.16), transparent 60%),
+    linear-gradient(180deg, rgba(2,6,23,.96), rgba(15,23,42,.96));
+}
+
+.hyd-badge{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  width:max-content;
+  padding:8px 12px;
+  border-radius:999px;
+  font-weight:900;
+  color:#a5f3fc;
+  background:rgba(34,211,238,.12);
+  border:1px solid rgba(34,211,238,.26);
+}
+
+.hyd-big{
+  font-size:28px;
+  font-weight:900;
+  color:#fff;
+}
+
+.hyd-list{
+  display:grid;
+  gap:8px;
+}
+
+.hyd-item{
+  padding:10px 12px;
+  border-radius:14px;
+  color:#e5e7eb;
+  background:rgba(15,23,42,.82);
+  border:1px solid rgba(148,163,184,.14);
+}
+
+.hyd-actions{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  margin-top:4px;
+}
+
+@media (max-width: 700px){
+  .hyd-choices{
+    grid-template-columns:1fr;
+  }
+  .hyd-target{
+    font-size:24px;
+    min-height:100px;
+  }
+  .hyd-title{
+    font-size:20px;
+  }
+}
