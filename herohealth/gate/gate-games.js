@@ -1,3 +1,7 @@
+// === /herohealth/gate/gate-games.js ===
+// HeroHealth Gate Game Registry
+// PATCH v20260308-HYGIENE-GATE-GAMES
+
 export const GATE_GAMES = {
   bath: {
     cat: 'hygiene',
@@ -42,3 +46,7 @@ export const GATE_GAMES = {
     cooldownTitle: 'Clean Bubble Review'
   }
 };
+
+export function getGameMeta(game){
+  return GATE_GAMES[String(game || '').toLowerCase()] || null;
+}
