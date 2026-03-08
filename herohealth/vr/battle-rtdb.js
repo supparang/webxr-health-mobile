@@ -1,6 +1,6 @@
 // === /herohealth/vr/battle-rtdb.js ===
-// Firebase RTDB Battle — v9 (best-of configurable + champion event + soft reset match)
-// FULL PATCH v20260308-BATTLE-RTDB-V9-POLISH
+// Firebase RTDB Battle — v10 (best-of configurable + champion event + soft reset match + round history)
+// FULL PATCH v20260308-BATTLE-RTDB-V10-HISTORY
 'use strict';
 
 const WIN = (typeof window !== 'undefined') ? window : globalThis;
@@ -187,6 +187,7 @@ export async function initBattle(opts){
   const rematchRef = ref(db, `${base}/rematch`);
   const reportsRef = ref(db, `${base}/reports`);
   const matchRef = ref(db, `${base}/match`);
+  const roundHistoryRef = ref(db, `${base}/roundHistory`);
   const offsetRef = ref(db, `.info/serverTimeOffset`);
 
   let localDestroyed = false;
@@ -339,6 +340,21 @@ export async function initBattle(opts){
     currentRoundId = newRoundId;
     await clearRematchInternal();
     return currentRoundId;
+  }
+
+  async function appendRoundHistory(payload){
+    try{
+      const rowRef = push(roundHistoryRef);
+      await set(rowRef, {
+        ...payload,
+        room,
+        gameKey,
+        createdAt: serverTimestamp(),
+        createdAtMs: Date.now()
+      });
+    }catch(err){
+      console.warn('[battle-rtdb] appendRoundHistory failed', err);
+    }
   }
 
   async function joinPlayer(){
@@ -526,6 +542,18 @@ export async function initBattle(opts){
 
     const match = await finalizeMatchWin(stillHere.key);
 
+    await appendRoundHistory({
+      roundId: currentRoundId,
+      winner: stillHere.key,
+      reason: 'forfeit',
+      players: realPlayers,
+      matchBestOf: match.bestOf,
+      matchWinsToChampion: match.winsToChampion,
+      matchWins: match.wins,
+      matchChampion: match.champion,
+      matchComplete: match.matchComplete
+    });
+
     emitBattleNotice('warn', 'อีกฝ่ายหลุด/ออกจากห้อง ระบบตัดสินผลแล้ว', { code:'forfeit_end', room });
     emit('hha:battle-ended', {
       room,
@@ -557,6 +585,18 @@ export async function initBattle(opts){
     }).catch(()=>{});
 
     const match = await finalizeMatchWin(picked.winnerKey || '');
+
+    await appendRoundHistory({
+      roundId: currentRoundId,
+      winner: picked.winnerKey || '',
+      reason: picked.reason || 'tie',
+      players: realPlayers,
+      matchBestOf: match.bestOf,
+      matchWinsToChampion: match.winsToChampion,
+      matchWins: match.wins,
+      matchChampion: match.champion,
+      matchComplete: match.matchComplete
+    });
 
     emitBattleNotice('info', 'จบรอบ Battle แล้ว', { code:'battle_round_ended', room, rule: picked.reason });
     emit('hha:battle-ended', {
@@ -912,7 +952,7 @@ export async function adminOpenRoomTools(opts){
   const fb = await loadFirebase();
   const {
     initializeApp, getApps, getApp,
-    getDatabase, ref, set, update, get, onValue, off, serverTimestamp
+    getDatabase, ref, set, update, get, remove, onValue, off, serverTimestamp
   } = fb;
 
   const app = getApps().length ? getApp() : initializeApp(fbCfg);
@@ -925,6 +965,7 @@ export async function adminOpenRoomTools(opts){
   const announcementRef = ref(db, `${base}/announcement`);
   const rematchRef = ref(db, `${base}/rematch`);
   const matchRef = ref(db, `${base}/match`);
+  const roundHistoryRef = ref(db, `${base}/roundHistory`);
 
   function watchRef(targetRef, cb){
     const handler = snap => cb(snap.val() || {});
@@ -1009,6 +1050,7 @@ export async function adminOpenRoomTools(opts){
       updatedAt: serverTimestamp(),
       updatedAtMs: Date.now()
     });
+    await remove(roundHistoryRef);
   }
 
   async function softResetMatch(opts2={}){
@@ -1026,6 +1068,7 @@ export async function adminOpenRoomTools(opts){
       updatedAt: serverTimestamp(),
       updatedAtMs: Date.now()
     });
+    await remove(roundHistoryRef);
   }
 
   async function setRoomLocked(on, extra={}){
@@ -1081,6 +1124,10 @@ export async function adminOpenRoomTools(opts){
     });
   }
 
+  async function clearRoundHistory(){
+    await remove(roundHistoryRef);
+  }
+
   async function setBestOf(bestOf){
     const nextBest = clamp(bestOf, 1, 9);
     const prevSnap = await get(matchRef).catch(()=>null);
@@ -1108,11 +1155,13 @@ export async function adminOpenRoomTools(opts){
     setAnnouncement,
     clearAnnouncement,
     clearRematch,
+    clearRoundHistory,
     watchState: cb => watchRef(stateRef, cb),
     watchPlayers: cb => watchRef(playersRef, cb),
     watchPolicy: cb => watchRef(policyRef, cb),
     watchAnnouncement: cb => watchRef(announcementRef, cb),
     watchRematch: cb => watchRef(rematchRef, cb),
     watchMatch: cb => watchRef(matchRef, cb),
+    watchRoundHistory: cb => watchRef(roundHistoryRef, cb),
   };
 }
