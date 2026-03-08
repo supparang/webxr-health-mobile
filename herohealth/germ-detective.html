@@ -56,6 +56,7 @@
       }
 
       const here = new URL(location.href);
+      const origin = here.origin;
 
       const pid   = String(qs('pid','anon')).trim() || 'anon';
       const run   = String(qs('run','play')).toLowerCase() || 'play';
@@ -70,14 +71,15 @@
       const conditionGroup = String(qs('conditionGroup',''));
 
       const hub = normalizeMaybeEncodedUrl(qs('hub','')) ||
-        new URL('./hub.html', here).toString();
+        (origin + '/webxr-health-mobile/herohealth/hub.html');
 
       const gateResult = String(qs('gateResult',''));
       const gateMode = String(qs('gateMode',''));
       const gatePhase = String(qs('gatePhase',''));
       const phaseParam = String(qs('phase',''));
 
-      const gameUrl = new URL('./germ-detective/germ-detective.html', here);
+      // ใช้ absolute path ตรง ๆ กัน path ซ้อน
+      const gameUrl = new URL(origin + '/webxr-health-mobile/herohealth/germ-detective/germ-detective.html');
       gameUrl.searchParams.set('run', run);
       gameUrl.searchParams.set('diff', diff);
       gameUrl.searchParams.set('time', time);
@@ -111,7 +113,7 @@
         return;
       }
 
-      const warmupUrl = new URL('./warmup-gate.html', here);
+      const warmupUrl = new URL(origin + '/webxr-health-mobile/herohealth/warmup-gate.html');
       warmupUrl.searchParams.set('gatePhase', 'warmup');
       warmupUrl.searchParams.set('phase', 'warmup');
       warmupUrl.searchParams.set('cat', 'hygiene');
