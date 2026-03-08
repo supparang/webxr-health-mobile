@@ -1,6 +1,6 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
 GoodJunkVR — RUN PAGE
-PATCH v20260308-GJ-RUNPAGE-REMATCH-UI
+PATCH v20260308-GJ-RUNPAGE-REMATCH-UI-SOUND
 -->
 <!doctype html>
 <html lang="th">
@@ -154,6 +154,7 @@ PATCH v20260308-GJ-RUNPAGE-REMATCH-UI
       background:rgba(15,23,42,.84);
       border:1px solid var(--stroke);
       color:#e5e7eb;
+      margin-right:6px;
     }
 
     .bottom-bar{
@@ -456,6 +457,7 @@ PATCH v20260308-GJ-RUNPAGE-REMATCH-UI
 
 <script type="module">
   import { createDefaultAIHooksFromQuery } from './ai-hooks.js';
+  import { createDefaultSoundHooksFromQuery } from './sound-hooks.js';
   import { boot } from './goodjunk.safe.js';
 
   const qs = (k, d='')=>{ try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(_){ return d; } };
@@ -472,6 +474,17 @@ PATCH v20260308-GJ-RUNPAGE-REMATCH-UI
   document.getElementById('btnEndBackHub').onclick = backHub;
 
   const ai = createDefaultAIHooksFromQuery();
+  const sound = createDefaultSoundHooksFromQuery();
+
+  const unlockAudio = ()=>{
+    try{ sound.unlock?.(); }catch(_){}
+    window.removeEventListener('pointerdown', unlockAudio);
+    window.removeEventListener('touchstart', unlockAudio);
+    window.removeEventListener('keydown', unlockAudio);
+  };
+  window.addEventListener('pointerdown', unlockAudio, { passive:true });
+  window.addEventListener('touchstart', unlockAudio, { passive:true });
+  window.addEventListener('keydown', unlockAudio);
 
   window.addEventListener('goodjunk:ai-event', (ev)=>{
     try{
@@ -520,7 +533,7 @@ PATCH v20260308-GJ-RUNPAGE-REMATCH-UI
     }catch(_){}
   });
 
-  await boot({ ai });
+  await boot({ ai, sound });
 </script>
 </body>
 </html>
