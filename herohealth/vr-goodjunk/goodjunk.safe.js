@@ -1,6 +1,6 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
 // GoodJunkVR SAFE — PRODUCTION
-// PATCH v20260308-GJ-SAFE-BATTLE-REMATCH-QA
+// PATCH v20260308-GJ-SAFE-MATCH-OVERLAY
 'use strict';
 
 export async function boot(cfg){
@@ -22,6 +22,7 @@ export async function boot(cfg){
   let battleEndedInfo = null;
   let battlePlayersState = [];
   let battleRematchState = { roundId:'', requestedBy:'', requestedAtMs:0, votes:{} };
+  let battleMatchState = { bestOf:3, winsToChampion:2, wins:{}, champion:'', matchComplete:false };
   let oppDisconnectedWarned = false;
   let lastOppConnected = true;
   let rematchTransitioning = false;
@@ -37,7 +38,8 @@ export async function boot(cfg){
         nick: qs('nick', pid),
         gameKey,
         autostartMs: Number(qs('autostart','3000'))||3000,
-        forfeitMs: Number(qs('forfeit','5000'))||5000
+        forfeitMs: Number(qs('forfeit','5000'))||5000,
+        bestOf: Number(qs('bestOf','3')) || 3
       });
       return battle;
     }catch(e){
@@ -117,7 +119,7 @@ export async function boot(cfg){
       'planSeq','planDay','planSlot','planMode','planSlots','planIndex','autoNext',
       'plannedGame','finalGame','zone','cdnext','grade',
       'battle','room','autostart','forfeit','mode',
-      'ai','pro','wait'
+      'ai','pro','wait','bestOf'
     ].forEach(k=>{
       const v = sp.get(k);
       if(v!=null && v!=='') gate.searchParams.set(k, v);
@@ -224,6 +226,13 @@ export async function boot(cfg){
   const missionHint  = $('missionHint');
   const missionFill  = $('missionFill');
 
+  const matchBestOfInline = $('matchBestOfInline');
+  const matchWinsToChampionInline = $('matchWinsToChampionInline');
+  const matchStatusInline = $('matchStatusInline');
+  const matchChampionInline = $('matchChampionInline');
+  const matchYouWinsInline = $('matchYouWinsInline');
+  const matchOppWinsInline = $('matchOppWinsInline');
+
   const endOverlay = $('endOverlay');
   const endTitle = $('endTitle');
   const endSub = $('endSub');
@@ -231,6 +240,8 @@ export async function boot(cfg){
   const endScore = $('endScore');
   const endMiss  = $('endMiss');
   const endTime  = $('endTime');
+  const endMatchLine1 = $('endMatchLine1');
+  const endMatchLine2 = $('endMatchLine2');
 
   const uiView = $('uiView');
   const uiRun  = $('uiRun');
@@ -588,7 +599,7 @@ export async function boot(cfg){
     try{
       if(!pred) return;
       if(hud.aiRisk && typeof pred.hazardRisk === 'number') hud.aiRisk.textContent = String((+pred.hazardRisk).toFixed(2));
-      if(hud.aiHint) hud.aiHint.textContent = String((pred.next5 && pred.next5[0]) || '—');
+      if(hud.aiHint && pred.next5 && pred.next5[0]) hud.aiHint.textContent = String(pred.next5[0]);
       const explain = pred.explainText || (pred.topFactors||[]).map(x=>x.key).join(', ');
       if(pred.coach) setCoachInline(pred.coach, explain);
     }catch(e){}
@@ -623,12 +634,73 @@ export async function boot(cfg){
     return u.toString();
   }
 
+  function winnerNameFromKey(key){
+    const rows = (battlePlayersState || []).map(p=>({
+      key: p.key,
+      nick: p.nick || p.pid || p.key
+    }));
+    return rows.find(r => r.key === key)?.nick || key || '—';
+  }
+
+  function getBattleCompareRows(){
+    if(!battleOn || !battle || !battle.enabled) return null;
+    const meKey = battle.meKey || '';
+    const rows = (battlePlayersState || []).map(p=>({
+      key: p.key,
+      nick: p.nick || p.pid || p.key,
+      score: Number(p.score||0) || 0,
+      acc: Number(p.acc||0) || 0,
+      miss: Number(p.miss||0) || 0,
+      medianRT: Number(p.medianRT||0) || 0,
+      finishMs: Number(p.finishMs||0) || 0
+    }));
+    const me = rows.find(r => r.key === meKey) || null;
+    const opp = rows.find(r => r.key !== meKey) || null;
+    return { me, opp };
+  }
+
+  function renderMatchHud(){
+    const m = battleMatchState || {};
+    const pack = getBattleCompareRows();
+    const me = pack?.me || null;
+    const opp = pack?.opp || null;
+    const wins = m.wins || {};
+
+    if(matchBestOfInline) matchBestOfInline.textContent = String(Number(m.bestOf || 3));
+    if(matchWinsToChampionInline) matchWinsToChampionInline.textContent = String(Number(m.winsToChampion || 2));
+    if(matchStatusInline) matchStatusInline.textContent = m.matchComplete ? 'COMPLETE' : 'LIVE';
+    if(matchChampionInline) matchChampionInline.textContent = m.champion ? winnerNameFromKey(m.champion) : '—';
+    if(matchYouWinsInline) matchYouWinsInline.textContent = String(Number(wins[me?.key] || 0));
+    if(matchOppWinsInline) matchOppWinsInline.textContent = String(Number(wins[opp?.key] || 0));
+  }
+
+  function renderEndMatchBox(){
+    const m = battleMatchState || {};
+    const pack = getBattleCompareRows();
+    const me = pack?.me || null;
+    const opp = pack?.opp || null;
+    const wins = m.wins || {};
+    const myWins = Number(wins[me?.key] || 0);
+    const oppWins = Number(wins[opp?.key] || 0);
+    const champion = m.champion ? winnerNameFromKey(m.champion) : '—';
+
+    if(endMatchLine1) endMatchLine1.textContent =
+      `bestOf ${Number(m.bestOf || 3)} • winsToChampion ${Number(m.winsToChampion || 2)} • status ${m.matchComplete ? 'COMPLETE' : 'LIVE'}`;
+
+    if(endMatchLine2) endMatchLine2.textContent =
+      `you ${myWins} • opponent ${oppWins} • champion ${champion}`;
+  }
+
   function handleBattleRematchReady(detail){
     if(rematchTransitioning) return;
+    if(battleMatchState?.matchComplete){
+      sayCoach('แมตช์นี้จบแล้ว ต้อง reset match ก่อนเริ่มใหม่', true);
+      return;
+    }
     rematchTransitioning = true;
     sayCoach('Rematch พร้อมแล้ว กลับ lobby รอบใหม่...', true);
     try{
-      endOverlay && (endOverlay.style.display = 'none');
+      if(endOverlay) endOverlay.style.display = 'none';
     }catch(_){}
     setTimeout(()=>{
       location.href = rebuildUrlForNextRound(detail?.roundId || '');
@@ -651,10 +723,27 @@ export async function boot(cfg){
     }
   });
 
+  WIN.addEventListener('hha:battle-match', (ev)=>{
+    try{
+      battleMatchState = ev?.detail || { bestOf:3, winsToChampion:2, wins:{}, champion:'', matchComplete:false };
+      renderMatchHud();
+      renderEndMatchBox();
+
+      if(battleMatchState.matchComplete && battleMatchState.champion){
+        const championName = winnerNameFromKey(battleMatchState.champion);
+        sayCoach(`🏆 Champion: ${championName}`, true);
+      }
+    }catch(e){
+      console.warn('[GoodJunk] battle-match handler failed', e);
+    }
+  });
+
   WIN.addEventListener('hha:battle-players', (ev)=>{
     try{
       const players = Array.isArray(ev?.detail?.players) ? ev.detail.players : [];
       battlePlayersState = players;
+      renderMatchHud();
+      renderEndMatchBox();
 
       if(!battle || !battle.enabled) return;
       const meKey = battle.meKey || '';
@@ -681,7 +770,11 @@ export async function boot(cfg){
     try{
       battleEndedInfo = ev?.detail || null;
       if(playing && !ended){
-        sayCoach('Battle จบรอบแล้ว', true);
+        if(battleEndedInfo?.match?.matchComplete){
+          sayCoach('จบแมตช์แล้ว! มี Champion แล้ว', true);
+        }else{
+          sayCoach('Battle จบรอบแล้ว', true);
+        }
       }
     }catch(_){}
   });
@@ -1128,6 +1221,7 @@ export async function boot(cfg){
 
       missionSet,
       patternSummary: exportPatternSummary(),
+      matchSummary: battleMatchState || {},
       startTimeIso,
       endTimeIso: nowIso()
     };
@@ -1150,6 +1244,7 @@ export async function boot(cfg){
     detail.battleWinnerKey = winner;
     detail.battleReason = reason;
     detail.battleMeKey = meKey;
+    detail.matchSummary = battleEndedInfo.match || battleMatchState || {};
 
     if(!winner){
       detail.reason = `battle-tie:${reason}`;
@@ -1215,6 +1310,12 @@ export async function boot(cfg){
       battleReason: String(detail?.battleReason || ''),
       battleMeKey: String(detail?.battleMeKey || ''),
 
+      matchBestOf: Number(detail?.matchSummary?.bestOf ?? 3) || 3,
+      matchWinsToChampion: Number(detail?.matchSummary?.winsToChampion ?? 2) || 2,
+      matchWins: detail?.matchSummary?.wins || {},
+      matchChampion: String(detail?.matchSummary?.champion || ''),
+      matchComplete: !!detail?.matchSummary?.matchComplete,
+
       startTimeIso: String(detail?.startTimeIso || ''),
       endTimeIso: String(detail?.endTimeIso || '')
     };
@@ -1269,21 +1370,18 @@ export async function boot(cfg){
     return { you:false, opp:false };
   }
 
-  function getBattleCompareRows(){
-    if(!battleOn || !battle || !battle.enabled) return null;
-    const meKey = battle.meKey || '';
-    const rows = (battlePlayersState || []).map(p=>({
-      key: p.key,
-      nick: p.nick || p.pid || p.key,
-      score: Number(p.score||0) || 0,
-      acc: Number(p.acc||0) || 0,
-      miss: Number(p.miss||0) || 0,
-      medianRT: Number(p.medianRT||0) || 0,
-      finishMs: Number(p.finishMs||0) || 0
-    }));
-    const me = rows.find(r => r.key === meKey) || null;
-    const opp = rows.find(r => r.key !== meKey) || null;
-    return { me, opp };
+  function myRematchVote(){
+    if(!battle || !battle.enabled) return null;
+    const meKey = String(battle.meKey || '');
+    return (battleRematchState?.votes || {})[meKey] || null;
+  }
+
+  function oppRematchVote(){
+    if(!battle || !battle.enabled) return null;
+    const meKey = String(battle.meKey || '');
+    const votes = battleRematchState?.votes || {};
+    const entry = Object.entries(votes).find(([k]) => k !== meKey);
+    return entry ? entry[1] : null;
   }
 
   function renderCompareTable(detail){
@@ -1345,28 +1443,23 @@ export async function boot(cfg){
     const rule = String(detail?.battleReason || '').trim();
     const winner = String(detail?.battleWinnerKey || '').trim();
     const meKey = String(detail?.battleMeKey || battle?.meKey || '').trim();
+    const match = detail?.matchSummary || {};
+    const champion = String(match.champion || '');
+    const matchComplete = !!match.matchComplete;
+
+    if(matchComplete && champion){
+      const who = champion === meKey ? 'YOU ARE CHAMPION' : 'OPPONENT IS CHAMPION';
+      endDecision.textContent = `${who} • รอบนี้ rule=${rule || 'score'} • bestOf ${Number(match.bestOf || 3)}`;
+      return;
+    }
 
     if(!winner){
       endDecision.textContent = `เสมอ • ลำดับตัดสิน: score → acc → miss → medianRT`;
       return;
     }
 
-    const who = winner === meKey ? 'YOU' : 'OPPONENT';
-    endDecision.textContent = `ผู้ชนะ: ${who} • rule=${rule || 'score'} • ลำดับตัดสิน: score → acc → miss → medianRT`;
-  }
-
-  function myRematchVote(){
-    if(!battle || !battle.enabled) return null;
-    const meKey = String(battle.meKey || '');
-    return (battleRematchState?.votes || {})[meKey] || null;
-  }
-
-  function oppRematchVote(){
-    if(!battle || !battle.enabled) return null;
-    const meKey = String(battle.meKey || '');
-    const votes = battleRematchState?.votes || {};
-    const entry = Object.entries(votes).find(([k]) => k !== meKey);
-    return entry ? entry[1] : null;
+    const who = winner === meKey ? 'YOU WON THIS ROUND' : 'OPPONENT WON THIS ROUND';
+    endDecision.textContent = `${who} • rule=${rule || 'score'} • ลำดับตัดสิน: score → acc → miss → medianRT`;
   }
 
   function renderRematchEndStatus(){
@@ -1374,6 +1467,11 @@ export async function boot(cfg){
 
     if(!battleOn || !battle || !battle.enabled){
       endRematchStatus.textContent = 'solo mode';
+      return;
+    }
+
+    if(battleMatchState?.matchComplete){
+      endRematchStatus.textContent = 'match complete • ต้อง reset match ก่อนเริ่มใหม่';
       return;
     }
 
@@ -1403,6 +1501,13 @@ export async function boot(cfg){
       btnAcceptRematch.style.display = 'none';
       btnDeclineRematch.style.display = 'none';
       btnRequestRematch.textContent = 'Replay';
+      return;
+    }
+
+    if(battleMatchState?.matchComplete){
+      btnRequestRematch.style.display = 'none';
+      btnAcceptRematch.style.display = 'none';
+      btnDeclineRematch.style.display = 'none';
       return;
     }
 
@@ -1463,6 +1568,10 @@ export async function boot(cfg){
       location.href = new URL(location.href).toString();
       return;
     }
+    if(battleMatchState?.matchComplete){
+      sayCoach('แมตช์นี้จบแล้ว ต้อง reset match ก่อน', true);
+      return;
+    }
     try{
       const requestedBy = String(battleRematchState?.requestedBy || '');
       const meKey = String(battle.meKey || '');
@@ -1483,6 +1592,10 @@ export async function boot(cfg){
 
   async function acceptRematchAction(){
     if(!battleOn || !battle || !battle.enabled) return;
+    if(battleMatchState?.matchComplete){
+      sayCoach('แมตช์นี้จบแล้ว ต้อง reset match ก่อน', true);
+      return;
+    }
     try{
       await battle.acceptRematch?.();
       sayCoach('ตอบรับ Rematch แล้ว', true);
@@ -1515,19 +1628,32 @@ export async function boot(cfg){
     if(!endOverlay) return;
     endOverlay.style.display = 'flex';
 
+    const match = detail?.matchSummary || battleMatchState || {};
+    renderEndMatchBox();
+
     if(battleOn && battleEndedInfo && battle && battle.enabled){
       const meKey = battle.meKey || '';
       const winner = String(battleEndedInfo.winner || '');
       const rule = String(battleEndedInfo.reason || 'battle');
+      const champion = String(match.champion || '');
+      const matchComplete = !!match.matchComplete;
 
-      if(!winner){
+      if(matchComplete && champion){
+        if(champion === meKey){
+          if(endTitle) endTitle.textContent = 'คุณคือ CHAMPION! 🏆';
+          if(endSub) endSub.textContent = `champion=you • rule=${rule} • bestOf ${Number(match.bestOf || 3)}`;
+        }else{
+          if(endTitle) endTitle.textContent = 'แมตช์จบแล้ว';
+          if(endSub) endSub.textContent = `champion=opponent • rule=${rule} • bestOf ${Number(match.bestOf || 3)}`;
+        }
+      }else if(!winner){
         if(endTitle) endTitle.textContent = 'เสมอ Battle';
         if(endSub) endSub.textContent = `tie • rule=${rule} • score ${detail.scoreFinal} • acc ${detail.accPct}% • miss ${detail.missTotal}`;
       }else if(winner === meKey){
-        if(endTitle) endTitle.textContent = 'ชนะ Battle! ⚔️';
+        if(endTitle) endTitle.textContent = 'ชนะรอบนี้! ⚔️';
         if(endSub) endSub.textContent = `winner=you • rule=${rule} • score ${detail.scoreFinal} • acc ${detail.accPct}% • miss ${detail.missTotal}`;
       }else{
-        if(endTitle) endTitle.textContent = 'แพ้ Battle';
+        if(endTitle) endTitle.textContent = 'แพ้รอบนี้';
         if(endSub) endSub.textContent = `winner=opponent • rule=${rule} • score ${detail.scoreFinal} • acc ${detail.accPct}% • miss ${detail.missTotal}`;
       }
     }else{
@@ -2149,6 +2275,7 @@ export async function boot(cfg){
 
     if(paused){
       setHUD();
+      renderMatchHud();
       emitFx();
       requestAnimationFrame(tick);
       return;
@@ -2257,6 +2384,7 @@ export async function boot(cfg){
 
     expireTargets();
     setHUD();
+    renderMatchHud();
 
     if(stage===2){
       setBossUI(true);
@@ -2310,6 +2438,8 @@ export async function boot(cfg){
 
   setMissionUI();
   setHUD();
+  renderMatchHud();
+  renderEndMatchBox();
   renderRematchEndStatus();
   renderRematchUI();
 
