@@ -1,0 +1,771 @@
+<!-- === /herohealth/student-join-goodjunk.html ===
+HeroHealth • Student Join — GoodJunk
+FULL PATCH v20260308-STUDENT-JOIN-GOODJUNK-ROOMPOLICY-ATTENDANCE
+-->
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>GoodJunk — Student Join</title>
+  <meta name="color-scheme" content="dark light" />
+  <link rel="icon" href="./favicon.ico" />
+  <script src="./firebase-config.js"></script>
+  <style>
+    :root{
+      --bg1:#020617; --bg2:#0b1226;
+      --panel:rgba(2,6,23,.74);
+      --stroke:rgba(148,163,184,.18);
+      --text:#e5e7eb;
+      --muted:#94a3b8;
+      --blue:#3b82f6;
+      --cyan:#22d3ee;
+      --good:#22c55e;
+      --warn:#f59e0b;
+      --danger:#ef4444;
+      --shadow:0 18px 60px rgba(0,0,0,.35);
+    }
+    *{ box-sizing:border-box; }
+    html,body{
+      margin:0; min-height:100%;
+      background:
+        radial-gradient(1200px 800px at 50% -20%, rgba(34,211,238,.10), transparent 55%),
+        linear-gradient(180deg,var(--bg1),var(--bg2));
+      color:var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", sans-serif;
+    }
+    .wrap{
+      width:min(980px, calc(100vw - 24px));
+      margin:0 auto;
+      padding:20px 12px 28px;
+    }
+    .hero,.card{
+      background:linear-gradient(180deg, rgba(15,23,42,.82), rgba(2,6,23,.76));
+      border:1px solid var(--stroke);
+      border-radius:24px;
+      box-shadow:var(--shadow);
+    }
+    .hero{ padding:20px; margin-bottom:16px; }
+    .eyebrow{
+      display:inline-block;
+      padding:8px 12px;
+      border-radius:999px;
+      background:rgba(34,211,238,.10);
+      color:#a5f3fc;
+      font-size:12px;
+      font-weight:900;
+      border:1px solid rgba(34,211,238,.18);
+    }
+    h1{
+      margin:12px 0 8px;
+      font-size:36px;
+      line-height:1.04;
+    }
+    .sub{
+      color:var(--muted);
+      font-size:14px;
+      line-height:1.7;
+      max-width:760px;
+    }
+
+    .grid{
+      display:grid;
+      grid-template-columns:1.05fr .95fr;
+      gap:16px;
+    }
+    .card{ padding:16px; }
+    .card h2{
+      margin:0 0 10px;
+      font-size:22px;
+      line-height:1.1;
+    }
+    .desc{
+      color:var(--muted);
+      font-size:13px;
+      line-height:1.65;
+      margin-bottom:12px;
+    }
+
+    .form-grid{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:12px;
+    }
+    .full{ grid-column:1/-1; }
+
+    label{
+      display:block;
+      font-size:12px;
+      color:var(--muted);
+      margin-bottom:6px;
+    }
+    input,select,button{
+      width:100%;
+      min-height:46px;
+      border-radius:14px;
+      border:1px solid var(--stroke);
+      background:rgba(2,6,23,.82);
+      color:var(--text);
+      padding:10px 12px;
+      font:inherit;
+    }
+    input[readonly], select[disabled]{
+      opacity:.86;
+      cursor:not-allowed;
+    }
+
+    button{
+      cursor:pointer;
+      border:0;
+      font-weight:1000;
+      color:white;
+      background:linear-gradient(135deg,#2563eb,#06b6d4);
+      box-shadow:0 10px 26px rgba(37,99,235,.24);
+    }
+    button.secondary{
+      background:rgba(15,23,42,.92);
+      color:var(--text);
+      border:1px solid var(--stroke);
+      box-shadow:none;
+    }
+    button.warn{
+      background:linear-gradient(135deg,#d97706,#f59e0b);
+    }
+    button.good{
+      background:linear-gradient(135deg,#16a34a,#22c55e);
+    }
+
+    .chip-row{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      margin-top:12px;
+    }
+    .chip{
+      border-radius:999px;
+      padding:10px 14px;
+      background:rgba(2,6,23,.58);
+      border:1px solid var(--stroke);
+      font-size:13px;
+      font-weight:900;
+    }
+
+    .status,.note,.policy-box{
+      margin-top:12px;
+      padding:10px 12px;
+      border-radius:14px;
+      border:1px solid var(--stroke);
+      background:rgba(2,6,23,.56);
+      color:#cbd5e1;
+      font-size:13px;
+      line-height:1.7;
+    }
+    .policy-box.warn{
+      border-color:rgba(245,158,11,.28);
+      background:rgba(120,53,15,.18);
+    }
+    .policy-box.danger{
+      border-color:rgba(239,68,68,.30);
+      background:rgba(127,29,29,.18);
+    }
+    .policy-box.good{
+      border-color:rgba(34,197,94,.28);
+      background:rgba(20,83,45,.18);
+    }
+
+    .roster-list{
+      display:grid;
+      gap:8px;
+      max-height:320px;
+      overflow:auto;
+      margin-top:10px;
+    }
+    .roster-item{
+      border-radius:14px;
+      border:1px solid rgba(148,163,184,.12);
+      background:rgba(2,6,23,.44);
+      padding:10px 12px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+    }
+    .roster-item .meta{
+      min-width:0;
+    }
+    .roster-item .name{
+      font-size:14px;
+      font-weight:1000;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    .roster-item .pid{
+      color:var(--muted);
+      font-size:12px;
+      margin-top:4px;
+    }
+    .roster-item button{
+      width:auto;
+      min-height:38px;
+      padding:8px 12px;
+      border-radius:12px;
+      font-size:13px;
+    }
+
+    .summary{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:10px;
+      margin-top:12px;
+    }
+    .stat{
+      border-radius:16px;
+      border:1px solid rgba(148,163,184,.14);
+      background:rgba(2,6,23,.46);
+      padding:12px;
+    }
+    .k{
+      font-size:12px;
+      color:var(--muted);
+      margin-bottom:6px;
+    }
+    .v{
+      font-size:24px;
+      font-weight:1000;
+      line-height:1.05;
+    }
+
+    .actions-2,.actions-3{
+      display:grid;
+      gap:10px;
+      margin-top:12px;
+    }
+    .actions-2{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+    .actions-3{ grid-template-columns:repeat(3,minmax(0,1fr)); }
+
+    @media (max-width:900px){
+      .grid{ grid-template-columns:1fr; }
+      .summary{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+    }
+    @media (max-width:720px){
+      .form-grid,.actions-2,.actions-3,.summary{ grid-template-columns:1fr; }
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <section class="hero">
+    <div class="eyebrow">🧑‍🎓 Student Join</div>
+    <h1>เข้าเล่น GoodJunk</h1>
+    <div class="sub">
+      กรอกชื่อหรือเลือกจาก roster แล้วเข้าสู่เกม ระบบจะตรวจ room policy, duplicate PID และบันทึก attendance ก่อนเข้าเล่น
+    </div>
+
+    <div class="chip-row">
+      <div class="chip">Room: <span id="chipRoom">—</span></div>
+      <div class="chip">View: <span id="chipView">—</span></div>
+      <div class="chip">Diff: <span id="chipDiff">—</span></div>
+      <div class="chip">Time: <span id="chipTime">—</span></div>
+    </div>
+  </section>
+
+  <div class="grid">
+    <section class="card">
+      <h2>ข้อมูลผู้เล่น</h2>
+      <div class="desc">เลือกจาก roster หรือกรอกเองก็ได้ ถ้าห้องถูกตั้งค่า lock policy ระบบจะแจ้งก่อนเข้า</div>
+
+      <div class="form-grid">
+        <div class="full">
+          <label for="studentPicker">เลือกจาก roster (ถ้ามี)</label>
+          <select id="studentPicker">
+            <option value="">— เลือกชื่อจาก roster —</option>
+          </select>
+        </div>
+
+        <div>
+          <label for="nick">ชื่อเล่น / Nick</label>
+          <input id="nick" placeholder="เช่น Ploy / Anan" />
+        </div>
+
+        <div>
+          <label for="pid">PID / รหัสนักเรียน</label>
+          <input id="pid" placeholder="เช่น 65001" />
+        </div>
+
+        <div>
+          <label for="room">Room</label>
+          <input id="room" />
+        </div>
+
+        <div>
+          <label for="mode">Mode</label>
+          <select id="mode">
+            <option value="battle" selected>battle</option>
+            <option value="solo">solo</option>
+          </select>
+        </div>
+
+        <div>
+          <label for="view">View</label>
+          <select id="view">
+            <option value="mobile" selected>mobile</option>
+            <option value="pc">pc</option>
+            <option value="cvr">cvr</option>
+          </select>
+        </div>
+
+        <div>
+          <label for="diff">Difficulty</label>
+          <select id="diff">
+            <option value="easy" selected>easy</option>
+            <option value="normal">normal</option>
+            <option value="hard">hard</option>
+          </select>
+        </div>
+
+        <div>
+          <label for="time">Time</label>
+          <select id="time">
+            <option value="60">60</option>
+            <option value="80" selected>80</option>
+            <option value="100">100</option>
+          </select>
+        </div>
+      </div>
+
+      <div id="policyBox" class="policy-box">กำลังตรวจ room policy…</div>
+      <div id="dupStatus" class="status">Duplicate check: —</div>
+
+      <div class="actions-2">
+        <button id="btnJoin" class="good">เข้าเล่นตอนนี้</button>
+        <button id="btnSpectator" class="secondary" style="display:none;">ไปดู Board / Spectator</button>
+      </div>
+
+      <div class="actions-3">
+        <button id="btnRefresh" class="secondary">Refresh Policy</button>
+        <button id="btnBackHub" class="secondary">กลับ HUB</button>
+        <button id="btnOpenBoard" class="secondary">เปิด Board</button>
+      </div>
+
+      <div id="status" class="status">พร้อมใช้งาน</div>
+    </section>
+
+    <section class="card">
+      <h2>Roster & Summary</h2>
+      <div class="desc">ถ้าครูใส่ roster ไว้ นักเรียนสามารถเลือกชื่อจากรายการได้ทันที</div>
+
+      <div class="summary">
+        <div class="stat"><div class="k">Roster</div><div id="stRoster" class="v">0</div></div>
+        <div class="stat"><div class="k">Joined</div><div id="stJoined" class="v">0</div></div>
+        <div class="stat"><div class="k">Entered</div><div id="stEntered" class="v">0</div></div>
+        <div class="stat"><div class="k">Players</div><div id="stPlayers" class="v">0</div></div>
+      </div>
+
+      <div class="note">
+        ถ้าเจอว่าเข้าห้องไม่ได้ อาจเป็นเพราะ:
+        <br>1) ห้องถูกล็อก
+        <br>2) ครูเปิด spectator only
+        <br>3) PID ซ้ำกับคนที่เข้าอยู่แล้ว
+      </div>
+
+      <div id="rosterList" class="roster-list">
+        <div class="muted">ยังไม่มี roster</div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<script>
+  const $ = id => document.getElementById(id);
+  const qs = (k,d='')=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
+
+  let rosterRaw = {};
+  let playersRaw = {};
+  let attendanceRaw = {};
+  let policyRaw = {
+    roomLocked:false,
+    allowSpectatorOnly:false,
+    spectatorUrl:'',
+    message:''
+  };
+  let boardUrlCache = '';
+
+  function setStatus(msg){
+    $('status').textContent = msg;
+  }
+
+  function room(){ return ($('room').value || '').trim().toUpperCase(); }
+  function view(){ return $('view').value || 'mobile'; }
+  function diff(){ return $('diff').value || 'easy'; }
+  function time(){ return $('time').value || '80'; }
+  function mode(){ return $('mode').value || 'battle'; }
+  function hub(){ return qs('hub', './hub.html'); }
+
+  function lockFlag(name){
+    return qs(name, '0') === '1';
+  }
+
+  function syncChips(){
+    $('chipRoom').textContent = room() || '—';
+    $('chipView').textContent = view();
+    $('chipDiff').textContent = diff();
+    $('chipTime').textContent = time();
+  }
+
+  function applyLocks(){
+    if(lockFlag('lock_room')){
+      $('room').readOnly = true;
+    }
+    if(lockFlag('lock_view')){
+      $('view').disabled = true;
+    }
+    if(lockFlag('lock_diff')){
+      $('diff').disabled = true;
+    }
+    if(lockFlag('lock_time')){
+      $('time').disabled = true;
+    }
+  }
+
+  function db(){
+    return window.firebase?.database?.() || null;
+  }
+
+  function roomBase(){
+    return `hha-battle/goodjunk/rooms/${room()}`;
+  }
+
+  async function loadRoster(){
+    try{
+      const d = db();
+      if(!d || !room()) return;
+      const snap = await d.ref(`${roomBase()}/roster`).get();
+      rosterRaw = snap.val() || {};
+      renderRoster();
+      renderStats();
+    }catch(err){
+      console.warn(err);
+    }
+  }
+
+  async function loadPlayers(){
+    try{
+      const d = db();
+      if(!d || !room()) return;
+      const snap = await d.ref(`${roomBase()}/players`).get();
+      playersRaw = snap.val() || {};
+      renderStats();
+      updateDuplicateStatus();
+    }catch(err){
+      console.warn(err);
+    }
+  }
+
+  async function loadAttendance(){
+    try{
+      const d = db();
+      if(!d || !room()) return;
+      const snap = await d.ref(`${roomBase()}/attendance`).get();
+      attendanceRaw = snap.val() || {};
+      renderStats();
+    }catch(err){
+      console.warn(err);
+    }
+  }
+
+  async function loadPolicy(){
+    try{
+      const d = db();
+      if(!d || !room()) return;
+      const snap = await d.ref(`${roomBase()}/policy`).get();
+      policyRaw = snap.val() || {
+        roomLocked:false,
+        allowSpectatorOnly:false,
+        spectatorUrl:'',
+        message:''
+      };
+      renderPolicy();
+    }catch(err){
+      console.warn(err);
+      $('policyBox').textContent = `โหลด policy ไม่สำเร็จ: ${err?.message || err}`;
+      $('policyBox').className = 'policy-box danger';
+    }
+  }
+
+  function buildBoardUrl(){
+    const u = new URL('./goodjunk-board.html', location.href);
+    u.searchParams.set('room', room());
+    u.searchParams.set('mode', 'battle');
+    return u.toString();
+  }
+
+  function getSpectatorUrl(){
+    return String(policyRaw?.spectatorUrl || '').trim() || buildBoardUrl();
+  }
+
+  function renderPolicy(){
+    const p = policyRaw || {};
+    boardUrlCache = getSpectatorUrl();
+
+    if(p.roomLocked && p.allowSpectatorOnly){
+      $('policyBox').className = 'policy-box warn';
+      $('policyBox').textContent = p.message || 'ห้องนี้เปิดให้เข้าชมแทนได้';
+      $('btnSpectator').style.display = '';
+      return;
+    }
+
+    if(p.roomLocked && !p.allowSpectatorOnly){
+      $('policyBox').className = 'policy-box danger';
+      $('policyBox').textContent = p.message || 'ห้องนี้ถูกล็อก ยังเข้าเล่นไม่ได้';
+      $('btnSpectator').style.display = 'none';
+      return;
+    }
+
+    $('policyBox').className = 'policy-box good';
+    $('policyBox').textContent = 'ห้องเปิดอยู่ สามารถเข้าเล่นได้';
+    $('btnSpectator').style.display = 'none';
+  }
+
+  function renderRoster(){
+    const rows = Object.values(rosterRaw || {});
+    $('stRoster').textContent = String(rows.length);
+
+    const picker = $('studentPicker');
+    picker.innerHTML = `<option value="">— เลือกชื่อจาก roster —</option>` +
+      rows.map((r, i)=>{
+        const pid = String(r.pid || r.nick || `row_${i}`);
+        const nick = String(r.nick || r.pid || `Student${i+1}`);
+        return `<option value="${escapeHtml(JSON.stringify({ pid, nick }))}">${escapeHtml(nick)} (${escapeHtml(pid)})</option>`;
+      }).join('');
+
+    if(!rows.length){
+      $('rosterList').innerHTML = `<div class="muted">ยังไม่มี roster</div>`;
+      return;
+    }
+
+    $('rosterList').innerHTML = rows.map((r, i)=>{
+      const pid = String(r.pid || r.nick || `row_${i}`);
+      const nick = String(r.nick || r.pid || `Student${i+1}`);
+      return `
+        <div class="roster-item">
+          <div class="meta">
+            <div class="name">${escapeHtml(nick)}</div>
+            <div class="pid">${escapeHtml(pid)}</div>
+          </div>
+          <button type="button" class="secondary" onclick='window.__pickRoster(${JSON.stringify(JSON.stringify({pid,nick}))})'>เลือก</button>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function renderStats(){
+    const rosterCount = Object.keys(rosterRaw || {}).length;
+    const playersCount = Object.keys(playersRaw || {}).length;
+
+    let joined = 0;
+    let entered = 0;
+
+    Object.values(attendanceRaw || {}).forEach(r=>{
+      const source = String(r.source || '');
+      if(source === 'student-join') joined++;
+      if(source === 'game-run') entered++;
+    });
+
+    $('stRoster').textContent = String(rosterCount);
+    $('stPlayers').textContent = String(playersCount);
+    $('stJoined').textContent = String(joined);
+    $('stEntered').textContent = String(entered);
+  }
+
+  function escapeHtml(s){
+    return String(s)
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#39;');
+  }
+
+  function fillStudent(pid, nick){
+    $('pid').value = pid || '';
+    $('nick').value = nick || '';
+    updateDuplicateStatus();
+  }
+
+  window.__pickRoster = function(encoded){
+    try{
+      const obj = JSON.parse(JSON.parse(encoded));
+      fillStudent(obj.pid || '', obj.nick || '');
+    }catch(err){
+      console.warn(err);
+    }
+  };
+
+  $('studentPicker').addEventListener('change', ()=>{
+    try{
+      const raw = $('studentPicker').value;
+      if(!raw) return;
+      const obj = JSON.parse(raw);
+      fillStudent(obj.pid || '', obj.nick || '');
+    }catch(err){
+      console.warn(err);
+    }
+  });
+
+  function currentPidKey(){
+    return String($('pid').value || $('nick').value || '').trim();
+  }
+
+  function duplicateInfo(){
+    const pid = currentPidKey();
+    if(!pid) return { duplicate:false, reason:'ยังไม่ได้กรอก PID' };
+
+    const foundPlayer = Object.values(playersRaw || {}).find(p =>
+      String(p.pid || p.nick || '').trim() === pid &&
+      p.connected !== false
+    );
+
+    if(foundPlayer){
+      return {
+        duplicate:true,
+        reason:`PID ซ้ำกับผู้เล่นที่เชื่อมต่ออยู่ (${foundPlayer.nick || foundPlayer.pid || 'unknown'})`
+      };
+    }
+
+    return { duplicate:false, reason:'ไม่พบ PID ซ้ำในผู้เล่นปัจจุบัน' };
+  }
+
+  function updateDuplicateStatus(){
+    const d = duplicateInfo();
+    $('dupStatus').textContent = `Duplicate check: ${d.reason}`;
+    $('dupStatus').style.borderColor = d.duplicate ? 'rgba(239,68,68,.30)' : 'rgba(34,197,94,.30)';
+  }
+
+  async function writeAttendance(source){
+    const d = db();
+    if(!d) throw new Error('Firebase not ready');
+
+    const pid = currentPidKey();
+    const nick = String($('nick').value || pid || '').trim();
+    const key = `${pid || nick}_${source}`.replace(/[.#$/[\]]/g, '_');
+
+    const row = {
+      pid: pid || nick,
+      nick: nick || pid,
+      room: room(),
+      source: String(source || ''),
+      view: view(),
+      diff: diff(),
+      time: time(),
+      mode: mode(),
+      atMs: Date.now(),
+      atIso: new Date().toISOString()
+    };
+
+    await d.ref(`${roomBase()}/attendance/${key}`).set(row);
+    return row;
+  }
+
+  function buildRunUrl(){
+    const u = new URL('./vr-goodjunk/goodjunk-vr.html', location.href);
+    u.searchParams.set('room', room());
+    u.searchParams.set('mode', mode());
+    u.searchParams.set('view', view());
+    u.searchParams.set('diff', diff());
+    u.searchParams.set('time', time());
+    u.searchParams.set('hub', hub());
+    u.searchParams.set('pid', currentPidKey() || 'anon');
+    u.searchParams.set('nick', $('nick').value || currentPidKey() || 'anon');
+    u.searchParams.set('seed', String(Date.now()));
+    return u.toString();
+  }
+
+  async function joinNow(){
+    try{
+      const pid = currentPidKey();
+      const nick = String($('nick').value || '').trim();
+
+      if(!room()){
+        throw new Error('กรุณาระบุ room');
+      }
+      if(!pid){
+        throw new Error('กรุณาระบุ PID หรือเลือกชื่อจาก roster');
+      }
+      if(!nick){
+        throw new Error('กรุณาระบุชื่อเล่น');
+      }
+
+      await loadPolicy();
+      await loadPlayers();
+
+      const dup = duplicateInfo();
+      if(dup.duplicate){
+        throw new Error(dup.reason);
+      }
+
+      if(policyRaw.roomLocked && !policyRaw.allowSpectatorOnly){
+        throw new Error(policyRaw.message || 'ห้องนี้ถูกล็อก ยังเข้าเล่นไม่ได้');
+      }
+
+      if(policyRaw.roomLocked && policyRaw.allowSpectatorOnly){
+        $('btnSpectator').style.display = '';
+        throw new Error(policyRaw.message || 'ห้องนี้เปิดให้เข้าชมแทน');
+      }
+
+      localStorage.setItem('HH_STUDENT_NICK', nick);
+      localStorage.setItem('HH_STUDENT_PID', pid);
+      localStorage.setItem('HH_STUDENT_ROOM', room());
+
+      await writeAttendance('student-join');
+      setStatus('บันทึก attendance แล้ว กำลังเข้าเกม...');
+      location.href = buildRunUrl();
+    }catch(err){
+      console.warn(err);
+      setStatus(`เข้าเล่นไม่สำเร็จ: ${err?.message || err}`);
+    }
+  }
+
+  async function refreshAll(){
+    syncChips();
+    await loadPolicy();
+    await loadRoster();
+    await loadPlayers();
+    await loadAttendance();
+    updateDuplicateStatus();
+  }
+
+  function initFromQuery(){
+    $('room').value = qs('room', localStorage.getItem('HH_STUDENT_ROOM') || 'P5A');
+    $('mode').value = qs('mode', 'battle');
+    $('view').value = qs('view', 'mobile');
+    $('diff').value = qs('diff', 'easy');
+    $('time').value = qs('time', '80');
+
+    $('nick').value = qs('nick', localStorage.getItem('HH_STUDENT_NICK') || '');
+    $('pid').value = qs('pid', localStorage.getItem('HH_STUDENT_PID') || '');
+
+    applyLocks();
+    syncChips();
+  }
+
+  $('pid').addEventListener('input', updateDuplicateStatus);
+  $('nick').addEventListener('input', updateDuplicateStatus);
+
+  ['room','view','diff','time','mode'].forEach(id=>{
+    $(id).addEventListener('change', syncChips);
+    $(id).addEventListener('input', syncChips);
+  });
+
+  $('btnJoin').onclick = joinNow;
+  $('btnRefresh').onclick = refreshAll;
+  $('btnBackHub').onclick = ()=> location.href = hub();
+  $('btnOpenBoard').onclick = ()=> window.open(buildBoardUrl(), '_blank', 'noopener');
+  $('btnSpectator').onclick = ()=> location.href = getSpectatorUrl();
+
+  initFromQuery();
+  refreshAll();
+  setStatus('พร้อมใช้งาน');
+</script>
+</body>
+</html>
