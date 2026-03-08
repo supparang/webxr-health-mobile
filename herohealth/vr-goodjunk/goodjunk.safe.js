@@ -1,6 +1,6 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
 // GoodJunkVR SAFE — PRODUCTION
-// PATCH v20260307-GOODJUNK-SAFE-FULL-CLASSROOM
+// PATCH v20260308-GJ-SAFE-REMATCH-ACCEPT-DECLINE
 'use strict';
 
 export async function boot(cfg){
@@ -182,6 +182,8 @@ export async function boot(cfg){
     aiHint: $('aiHint'),
   };
 
+  const coachInline = $('coachInline');
+  const coachExplain = $('coachExplain');
   const bossBar = $('bossBar');
   const bossFill = $('bossFill');
   const bossHint = $('bossHint');
@@ -204,8 +206,10 @@ export async function boot(cfg){
   const uiDiff = $('uiDiff');
 
   const btnReplay  = $('btnReplay');
-  const btnRematch = $('btnRematch');
-  const btnBackHub = $('btnBackHub');
+  const btnRequestRematch = $('btnRequestRematch');
+  const btnAcceptRematch = $('btnAcceptRematch');
+  const btnDeclineRematch = $('btnDeclineRematch');
+  const btnBackHub = $('btnEndBackHub');
 
   const endDecision = $('endDecision');
   const endRematchStatus = $('endRematchStatus');
@@ -338,10 +342,10 @@ export async function boot(cfg){
       ttlJunk += 0.15;
     }
     if(PRO){
-      spawnBase *= 1.08;
-      ttlGood   -= 0.10;
-      ttlJunk   -= 0.08;
-      bossHp    += 3;
+      spawnBase *= 1.10;
+      ttlGood   -= 0.12;
+      ttlJunk   -= 0.10;
+      bossHp    += 4;
       lifeMissLimit = Math.max(6, lifeMissLimit - 1);
     }
     return { spawnBase, lifeMissLimit, ttlGood, ttlJunk, ttlBonus, bossHp };
@@ -397,6 +401,7 @@ export async function boot(cfg){
   }
 
   function comboMilestoneText(combo){
+    if(combo >= 20) return 'ULTRA COMBO!';
     if(combo >= 15) return 'MEGA COMBO!';
     if(combo >= 10) return 'AWESOME!';
     if(combo >= 5) return 'NICE COMBO!';
@@ -407,6 +412,12 @@ export async function boot(cfg){
     fxState.stageBannerText = text;
     fxState.stageBannerLeft = 1.6;
     emitFx();
+  }
+
+  function setDanger(on){
+    try{
+      WIN.dispatchEvent(new CustomEvent('hha:danger', { detail:{ on:!!on } }));
+    }catch(_){}
   }
 
   function fxFloatText(x,y,text,isBad){
@@ -502,11 +513,17 @@ export async function boot(cfg){
   const coachText = coach.querySelector('#coachText');
   let coachLatchMs = 0;
 
-  function sayCoach(msg, bypass=false){
+  function setCoachInline(msg, explain=''){
+    if(coachInline) coachInline.textContent = String(msg||'—');
+    if(coachExplain && explain) coachExplain.textContent = String(explain);
+  }
+
+  function sayCoach(msg, bypass=false, explain=''){
     const t = nowMs();
-    if(!bypass && (t - coachLatchMs < 3500)) return;
+    if(!bypass && (t - coachLatchMs < 3000)) return;
     coachLatchMs = t;
     if(coachText) coachText.textContent = String(msg||'');
+    setCoachInline(msg, explain);
     coach.style.opacity = '1';
     coach.style.transform = 'translateY(0)';
     setTimeout(()=>{
@@ -515,21 +532,13 @@ export async function boot(cfg){
     }, 2200);
   }
 
-  function coachTop2(missGoodExpired, missJunkHit, shots, acc){
-    const facts = [];
-    if(missJunkHit >= 2) facts.push({k:'โดนของเสีย', v: missJunkHit});
-    if(missGoodExpired >= 2) facts.push({k:'ช้า ของดีหาย', v: missGoodExpired});
-    if(shots >= 10 && acc <= 55) facts.push({k:'ยิงพลาดเยอะ', v: (100-acc)});
-    facts.sort((a,b)=> (b.v||0)-(a.v||0));
-    const top = facts.slice(0,2).map(x=>x.k);
-    return top.length ? `ระวัง: ${top.join(' + ')}` : null;
-  }
-
   function setAIHud(pred){
     try{
       if(!pred) return;
       if(hud.aiRisk && typeof pred.hazardRisk === 'number') hud.aiRisk.textContent = String((+pred.hazardRisk).toFixed(2));
       if(hud.aiHint) hud.aiHint.textContent = String((pred.next5 && pred.next5[0]) || '—');
+      const explain = pred.explainText || (pred.topFactors||[]).map(x=>x.key).join(', ');
+      if(pred.coach) setCoachInline(pred.coach, explain);
     }catch(e){}
   }
 
@@ -600,6 +609,7 @@ export async function boot(cfg){
   WIN.addEventListener('hha:battle-rematch-state', (ev)=>{
     try{
       battleRematchState = ev?.detail || { roundId:'', requestedBy:'', requestedAtMs:0, votes:{} };
+      renderRematchUI();
       renderRematchEndStatus();
     }catch(_){}
   });
@@ -626,6 +636,9 @@ export async function boot(cfg){
   let goodHitCount = 0;
   let shots = 0;
   let hits  = 0;
+  let streakMiss = 0;
+  let fever = 0;
+  let comebackReady = false;
   const rtList = [];
   const mini = { name:'—', t:0 };
 
@@ -708,7 +721,7 @@ export async function boot(cfg){
   }
 
   function setBossUI(on){
-    if(bossBar) bossBar.style.display = on ? 'flex' : 'none';
+    if(bossBar) bossBar.style.display = on ? 'block' : 'none';
   }
 
   function setBossHpUI(){
@@ -803,14 +816,27 @@ export async function boot(cfg){
   function getPlayerProfile(){
     const accPct = shots ? Math.round((hits/shots)*100) : 0;
     return {
-      accPct,
+      score,
       missTotal,
       missGoodExpired,
       missJunkHit,
+      shots,
+      hits,
+      accPct,
+      combo,
       comboBest: bestCombo,
-      score,
       stage,
-      tLeft
+      tLeft,
+      plannedSec,
+      bossHp,
+      bossHpMax,
+      scoreTarget: WIN_TARGET.scoreTarget,
+      goodHitCount,
+      goodTarget: WIN_TARGET.goodTarget,
+      medianRtGoodMs: median(rtList),
+      fever,
+      shield,
+      streakMiss
     };
   }
 
@@ -833,6 +859,11 @@ export async function boot(cfg){
       goodBias = -0.03;
       ttlMul = 0.96;
       coach = 'เก่งมาก ลองเร่งคอมโบต่อ!';
+    }
+
+    if(profile.tLeft <= 10){
+      spawnMul *= 1.10;
+      coach = coach || 'ช่วงท้ายแล้ว เร่งเก็บแต้ม!';
     }
 
     return { spawnMul, junkBias, goodBias, ttlMul, coach };
@@ -875,6 +906,8 @@ export async function boot(cfg){
       bossCleared: bossHp <= 0,
       bossHpLeft: bossHp,
       bossHpMax,
+      fever,
+      shield,
 
       grade,
       reason,
@@ -1083,7 +1116,6 @@ export async function boot(cfg){
     };
     const opp = pack.opp || null;
 
-    const rule = String(detail?.battleReason || detail?.reason || '');
     const winScore = compareForRule('score', me, opp);
     const winAcc = compareForRule('acc', me, opp);
     const winMiss = compareForRule('miss', me, opp);
@@ -1099,8 +1131,8 @@ export async function boot(cfg){
     setCmpCell(cmpYouMiss, String(Number(me.miss||0)), winMiss.you);
     setCmpCell(cmpOppMiss, opp ? String(Number(opp.miss||0)) : '—', winMiss.opp);
 
-    setCmpCell(cmpYouRt, fmtMs(me.medianRT), winRt.you || rule==='medianRT' && winRt.you);
-    setCmpCell(cmpOppRt, opp ? fmtMs(opp.medianRT) : '—', winRt.opp || rule==='medianRT' && winRt.opp);
+    setCmpCell(cmpYouRt, fmtMs(me.medianRT), winRt.you);
+    setCmpCell(cmpOppRt, opp ? fmtMs(opp.medianRT) : '—', winRt.opp);
 
     setCmpCell(cmpYouFinish, fmtMs(me.finishMs), winFinish.you);
     setCmpCell(cmpOppFinish, opp ? fmtMs(opp.finishMs) : '—', winFinish.opp);
@@ -1127,6 +1159,20 @@ export async function boot(cfg){
     endDecision.textContent = `ผู้ชนะ: ${who} • rule=${rule || 'score'} • ลำดับตัดสิน: score → acc → miss → medianRT`;
   }
 
+  function myRematchVote(){
+    if(!battle || !battle.enabled) return null;
+    const meKey = String(battle.meKey || '');
+    return (battleRematchState?.votes || {})[meKey] || null;
+  }
+
+  function oppRematchVote(){
+    if(!battle || !battle.enabled) return null;
+    const meKey = String(battle.meKey || '');
+    const votes = battleRematchState?.votes || {};
+    const entry = Object.entries(votes).find(([k]) => k !== meKey);
+    return entry ? entry[1] : null;
+  }
+
   function renderRematchEndStatus(){
     if(!endRematchStatus) return;
 
@@ -1136,22 +1182,131 @@ export async function boot(cfg){
     }
 
     const requestedBy = String(battleRematchState?.requestedBy || '');
-    const votes = battleRematchState?.votes || {};
     const meKey = String(battle?.meKey || '');
-    const oppVote = Object.entries(votes).find(([k]) => k !== meKey)?.[1] || null;
-    const myVote = votes[meKey] || null;
+    const myVote = myRematchVote();
+    const oppVote = oppRematchVote();
 
     if(!requestedBy){
       endRematchStatus.textContent = 'ยังไม่มีคำขอ rematch';
       return;
     }
 
-    const bits = [];
-    bits.push(`requestedBy=${requestedBy === meKey ? 'you' : 'opponent'}`);
-    bits.push(`you=${myVote?.accepted ? 'accepted' : myVote?.declined ? 'declined' : 'pending'}`);
-    bits.push(`opponent=${oppVote?.accepted ? 'accepted' : oppVote?.declined ? 'declined' : 'pending'}`);
-    endRematchStatus.textContent = bits.join(' • ');
+    const parts = [];
+    parts.push(`requestedBy=${requestedBy === meKey ? 'you' : 'opponent'}`);
+    parts.push(`you=${myVote?.accepted ? 'accepted' : myVote?.declined ? 'declined' : 'pending'}`);
+    parts.push(`opponent=${oppVote?.accepted ? 'accepted' : oppVote?.declined ? 'declined' : 'pending'}`);
+
+    endRematchStatus.textContent = parts.join(' • ');
   }
+
+  function renderRematchUI(){
+    if(!btnRequestRematch || !btnAcceptRematch || !btnDeclineRematch) return;
+
+    if(!battleOn || !battle || !battle.enabled){
+      btnRequestRematch.style.display = '';
+      btnAcceptRematch.style.display = 'none';
+      btnDeclineRematch.style.display = 'none';
+      btnRequestRematch.textContent = 'Replay';
+      return;
+    }
+
+    const requestedBy = String(battleRematchState?.requestedBy || '');
+    const meKey = String(battle?.meKey || '');
+    const myVote = myRematchVote();
+    const oppVote = oppRematchVote();
+
+    btnRequestRematch.style.display = '';
+    btnAcceptRematch.style.display = 'none';
+    btnDeclineRematch.style.display = 'none';
+
+    if(!requestedBy){
+      btnRequestRematch.textContent = 'Request Rematch';
+      btnRequestRematch.disabled = false;
+      return;
+    }
+
+    if(requestedBy === meKey){
+      btnRequestRematch.textContent = myVote?.accepted ? 'Waiting Opponent…' : 'Request Rematch';
+      btnRequestRematch.disabled = true;
+      return;
+    }
+
+    if(myVote?.accepted){
+      btnRequestRematch.textContent = 'Accepted';
+      btnRequestRematch.disabled = true;
+      btnDeclineRematch.style.display = '';
+      btnDeclineRematch.textContent = 'Decline Instead';
+      btnDeclineRematch.disabled = !!oppVote?.accepted;
+      return;
+    }
+
+    if(myVote?.declined){
+      btnRequestRematch.textContent = 'Declined';
+      btnRequestRematch.disabled = true;
+      btnAcceptRematch.style.display = '';
+      btnAcceptRematch.textContent = 'Accept Instead';
+      return;
+    }
+
+    btnRequestRematch.style.display = 'none';
+    btnAcceptRematch.style.display = '';
+    btnDeclineRematch.style.display = '';
+    btnAcceptRematch.disabled = false;
+    btnDeclineRematch.disabled = false;
+  }
+
+  async function requestRematchAction(){
+    if(!battleOn || !battle || !battle.enabled){
+      location.href = new URL(location.href).toString();
+      return;
+    }
+    try{
+      const requestedBy = String(battleRematchState?.requestedBy || '');
+      const meKey = String(battle.meKey || '');
+
+      if(!requestedBy){
+        await battle.requestRematch?.();
+        sayCoach('ส่งคำขอ Rematch แล้ว', true);
+      }else if(requestedBy === meKey){
+        sayCoach('รออีกฝ่ายตอบรับ Rematch', true);
+      }
+      renderRematchUI();
+      renderRematchEndStatus();
+    }catch(err){
+      console.warn('[GoodJunk] request rematch failed', err);
+      sayCoach('ส่งคำขอ Rematch ไม่สำเร็จ', true);
+    }
+  }
+
+  async function acceptRematchAction(){
+    if(!battleOn || !battle || !battle.enabled) return;
+    try{
+      await battle.acceptRematch?.();
+      sayCoach('ตอบรับ Rematch แล้ว', true);
+      renderRematchUI();
+      renderRematchEndStatus();
+    }catch(err){
+      console.warn('[GoodJunk] accept rematch failed', err);
+      sayCoach('ตอบรับ Rematch ไม่สำเร็จ', true);
+    }
+  }
+
+  async function declineRematchAction(){
+    if(!battleOn || !battle || !battle.enabled) return;
+    try{
+      await battle.declineRematch?.();
+      sayCoach('ปฏิเสธ Rematch แล้ว', true);
+      renderRematchUI();
+      renderRematchEndStatus();
+    }catch(err){
+      console.warn('[GoodJunk] decline rematch failed', err);
+      sayCoach('ปฏิเสธ Rematch ไม่สำเร็จ', true);
+    }
+  }
+
+  WIN.__GJ_REMATCH_REQUEST__ = requestRematchAction;
+  WIN.__GJ_REMATCH_ACCEPT__ = acceptRematchAction;
+  WIN.__GJ_REMATCH_DECLINE__ = declineRematchAction;
 
   function renderEndOverlay(detail){
     if(!endOverlay) return;
@@ -1185,42 +1340,15 @@ export async function boot(cfg){
     renderDecision(detail);
     renderCompareTable(detail);
     renderRematchEndStatus();
+    renderRematchUI();
     hhInjectCooldownButton({ endOverlayEl:endOverlay, hub:hubUrl, cat:HH_CAT, gameKey:HH_GAME, pid });
   }
-
-  async function doRematch(){
-    if(!battleOn || !battle || !battle.enabled){
-      location.href = new URL(location.href).toString();
-      return;
-    }
-
-    try{
-      const current = battle.getRematchState?.() || battleRematchState || {};
-      const requestedBy = String(current.requestedBy || '');
-      const meKey = String(battle.meKey || '');
-
-      if(!requestedBy){
-        await battle.requestRematch?.();
-        sayCoach('ส่งคำขอ Rematch แล้ว', true);
-      }else if(requestedBy === meKey){
-        sayCoach('รออีกฝ่ายตอบรับ Rematch', true);
-      }else{
-        await battle.acceptRematch?.();
-        sayCoach('ตอบรับ Rematch แล้ว', true);
-      }
-      renderRematchEndStatus();
-    }catch(err){
-      console.warn('[GoodJunk] rematch failed', err);
-      sayCoach('Rematch ไม่สำเร็จ', true);
-    }
-  }
-
-  WIN.__GJ_REMATCH__ = doRematch;
 
   function endGame(reason){
     if(!playing || ended) return;
     ended = true;
     playing = false;
+    setDanger(false);
 
     for(const [,t] of targets){
       try{ t.el.remove(); }catch(e){}
@@ -1274,7 +1402,7 @@ export async function boot(cfg){
     el.style.left = `${x}px`;
     el.style.top  = `${y}px`;
     el.style.transform = 'translate(-50%,-50%)';
-    el.style.fontSize = (type==='bossweak') ? '52px' : '46px';
+    el.style.fontSize = (type==='bossweak') ? '54px' : '46px';
     el.style.lineHeight = '1';
     el.style.userSelect = 'none';
     el.style.cursor = 'pointer';
@@ -1306,6 +1434,13 @@ export async function boot(cfg){
     try{ t.el.remove(); }catch(e){}
   }
 
+  function enterFever(sec=6){
+    fever = Math.max(fever, sec);
+    mini.name = 'FEVER 🔥';
+    mini.t = Math.max(mini.t, sec);
+    sayCoach('FEVER! แต้มคูณช่วงสั้น ๆ 🔥', true);
+  }
+
   function hitTarget(id){
     const t = targets.get(id);
     if(!t || !playing) return;
@@ -1318,6 +1453,7 @@ export async function boot(cfg){
     fxBurst(x,y);
 
     const missionKey = currentMissionKey();
+    streakMiss = 0;
 
     if(t.type === 'good'){
       hits++;
@@ -1328,6 +1464,7 @@ export async function boot(cfg){
       let plus = 12 + Math.min(8, combo);
       if(missionKey === 'green_focus' && GREEN_FOCUS.includes(t.emoji)) plus += 6;
       if(missionKey === 'speed_clear') plus += 4;
+      if(fever > 0) plus = Math.round(plus * 1.35);
 
       score += plus;
 
@@ -1337,8 +1474,12 @@ export async function boot(cfg){
       fxState.hitScalePulse = 0.18;
       fxState.comboPulse = Math.min(1, combo / 15);
 
+      if(combo === 8 || combo === 14){
+        enterFever(5);
+      }
+
       const milestone = comboMilestoneText(combo);
-      if(milestone && (combo === 5 || combo === 10 || combo === 15)){
+      if(milestone && (combo === 5 || combo === 10 || combo === 15 || combo === 20)){
         fxState.milestoneText = milestone;
         fxState.milestoneTextLeft = 1.2;
         emitFx();
@@ -1350,6 +1491,7 @@ export async function boot(cfg){
       hits++;
       missTotal++;
       missJunkHit++;
+      streakMiss++;
       combo = 0;
       let minus = 8;
       if(missionKey === 'avoid_junk') minus = 14;
@@ -1358,10 +1500,11 @@ export async function boot(cfg){
       fxFloatText(x,y,`-${minus}`,true);
     }else if(t.type === 'bonus'){
       hits++;
-      score += 25;
-      fxFloatText(x,y,'+25',false);
+      score += fever > 0 ? 34 : 25;
+      fxFloatText(x,y, fever > 0 ? '+34' : '+25', false);
       mini.name = 'BONUS ⚡';
       mini.t = 6;
+      if(r01() < 0.35) enterFever(4);
     }else if(t.type === 'shield'){
       hits++;
       shield = Math.min(9, shield + 1);
@@ -1375,9 +1518,9 @@ export async function boot(cfg){
         score += 8;
         fxFloatText(x,y,'🛡️',false);
       }else{
-        bossHp = Math.max(0, bossHp - 1);
-        score += 10;
-        fxFloatText(x,y,'🎯',false);
+        bossHp = Math.max(0, bossHp - (fever > 0 ? 2 : 1));
+        score += fever > 0 ? 16 : 10;
+        fxFloatText(x,y,fever > 0 ? '💥' : '🎯',false);
       }
       setBossHpUI();
       if(bossHp <= 0) return endGame('win');
@@ -1405,10 +1548,6 @@ export async function boot(cfg){
       sayCoach('บอสมาแล้ว! ตีโล่ก่อนแล้วค่อยยิง 🎯');
     }
 
-    const acc = shots ? Math.round((hits/shots)*100) : 0;
-    const explain = coachTop2(missGoodExpired, missJunkHit, shots, acc);
-    if(explain) sayCoach(explain);
-
     setHUD();
 
     if(missTotal >= TUNE.lifeMissLimit){
@@ -1424,6 +1563,7 @@ export async function boot(cfg){
         if(obj.type === 'good'){
           missTotal++;
           missGoodExpired++;
+          streakMiss++;
           combo = 0;
           const r = obj.el.getBoundingClientRect();
           fxFloatText(r.left + r.width/2, r.top + r.height/2, 'ช้า!', true);
@@ -1447,22 +1587,23 @@ export async function boot(cfg){
         makeTarget('bossweak', WEAK, 1.6 * ttlMul);
       }else{
         if(missionSet.boss === 'storm_boss'){
-          if(r01() < 0.75) makeTarget('junk', rPick(JUNK), TUNE.ttlJunk * ttlMul);
+          if(r01() < 0.82) makeTarget('junk', rPick(JUNK), TUNE.ttlJunk * ttlMul);
         }else{
-          if(r01() < 0.55) makeTarget('junk', rPick(JUNK), TUNE.ttlJunk * ttlMul);
+          if(r01() < 0.60) makeTarget('junk', rPick(JUNK), TUNE.ttlJunk * ttlMul);
         }
       }
       return;
     }
 
     let pShield = (diff==='hard') ? 0.10 : 0.12;
-    let pBonus  = 0.12;
+    let pBonus  = 0.12 + (fever > 0 ? 0.04 : 0);
     let pJunk   = (diff==='easy') ? 0.28 : (diff==='hard' ? 0.38 : 0.33);
 
-    pJunk = clamp(pJunk + (adaptive.junkBias || 0), 0.15, 0.55);
+    pJunk = clamp(pJunk + (adaptive.junkBias || 0), 0.15, 0.58);
 
     if(missionKey === 'bonus_hunt') pBonus += 0.10;
     if(missionKey === 'avoid_junk') pJunk += 0.06;
+    if(tLeft <= 10) pJunk += 0.05;
 
     const r = r01();
     if(r < pShield){
@@ -1502,6 +1643,7 @@ export async function boot(cfg){
     if(best) hitTarget(best);
     else{
       shots++;
+      streakMiss++;
       combo = 0;
       setHUD();
     }
@@ -1510,6 +1652,26 @@ export async function boot(cfg){
   WIN.addEventListener('hha:shoot', ()=>{
     try{ shootAtCenter(); }catch(e){}
   });
+
+  function getOpponentLead(){
+    if(!battleOn || !battle || !battle.enabled) return 0;
+    const meKey = battle.meKey || '';
+    const me = battlePlayersState.find(p => p.key === meKey);
+    const opp = battlePlayersState.find(p => p.key !== meKey);
+    const myScore = Number(me?.score ?? score) || 0;
+    const opScore = Number(opp?.score ?? 0) || 0;
+    return opScore - myScore;
+  }
+
+  function maybeComebackBoost(){
+    if(!battleOn) return;
+    const lead = getOpponentLead();
+    if(lead >= 140 && tLeft <= 20){
+      comebackReady = true;
+      if(fever <= 0) enterFever(5);
+      sayCoach('ยังกลับมาได้! ช่วง COMEBACK 🔥', true);
+    }
+  }
 
   function tick(){
     const t = nowMs();
@@ -1527,6 +1689,16 @@ export async function boot(cfg){
     }
 
     tLeft = Math.max(0, tLeft - dt);
+    fever = Math.max(0, fever - dt);
+
+    if(tLeft <= 10 || (stage===2 && bossHpMax>0 && bossHp/bossHpMax >= 0.55 && tLeft <= 18)){
+      setDanger(true);
+    }else{
+      setDanger(false);
+    }
+
+    maybeComebackBoost();
+
     if(tLeft <= 0){
       const win = (score >= WIN_TARGET.scoreTarget) || (stage===2 && bossHp<=0);
       endGame(win ? 'win' : 'time');
@@ -1535,7 +1707,10 @@ export async function boot(cfg){
 
     if(mini.t > 0){
       mini.t = Math.max(0, mini.t - dt);
-      if(mini.t <= 0) mini.name = '—';
+      if(mini.t <= 0) mini.name = fever > 0 ? 'FEVER 🔥' : '—';
+    }else if(fever > 0){
+      mini.name = 'FEVER 🔥';
+      mini.t = Math.max(1, fever);
     }
 
     if(tLeft <= 10) fxState.nearEndPulse = Math.min(1, fxState.nearEndPulse + dt * 2.2);
@@ -1551,7 +1726,11 @@ export async function boot(cfg){
     let adaptive = { spawnMul:1, junkBias:0, goodBias:0, ttlMul:1, coach:null };
     if(AI_PLAY_ADAPT){
       adaptive = aiDirector(getPlayerProfile());
-      if(adaptive.coach) setAIHud({ hazardRisk: 0.5, next5: [adaptive.coach] });
+    }
+
+    if(fever > 0){
+      adaptive.spawnMul *= 1.06;
+      adaptive.ttlMul *= 0.98;
     }
 
     spawnAcc += dt * (1 / (TUNE.spawnBase / adaptive.spawnMul));
@@ -1578,15 +1757,21 @@ export async function boot(cfg){
       setBossUI(false);
     }
 
-    if(AI && typeof AI.predict === 'function'){
-      try{
-        const accPct = shots ? Math.round((hits/shots)*100) : 0;
-        const pred = AI.predict({
-          score, missTotal, missGoodExpired, missJunkHit, shots, hits, accPct, stage, tLeft
-        });
+    try{
+      const profile = getPlayerProfile();
+      if(AI && typeof AI.recommend === 'function'){
+        const rec = AI.recommend(profile);
+        setAIHud(rec);
+        if(rec.coach && (!coachInline || coachInline.textContent !== rec.coach)){
+          if(rec.hazardRisk >= 0.72 || rec.frustrationRisk >= 0.68 || rec.winChance >= 0.82){
+            sayCoach(rec.coach, false, rec.explainText || '');
+          }
+        }
+      }else if(AI && typeof AI.predict === 'function'){
+        const pred = AI.predict(profile);
         setAIHud(pred);
-      }catch(e){}
-    }
+      }
+    }catch(e){}
 
     syncBattleScore(false);
     emitFx();
@@ -1599,13 +1784,20 @@ export async function boot(cfg){
   if(btnBackHub){
     btnBackHub.onclick = ()=> location.href = hubUrl;
   }
-  if(btnRematch){
-    btnRematch.onclick = ()=> doRematch();
+  if(btnRequestRematch){
+    btnRequestRematch.onclick = ()=> requestRematchAction();
+  }
+  if(btnAcceptRematch){
+    btnAcceptRematch.onclick = ()=> acceptRematchAction();
+  }
+  if(btnDeclineRematch){
+    btnDeclineRematch.onclick = ()=> declineRematchAction();
   }
 
   setMissionUI();
   setHUD();
   renderRematchEndStatus();
+  renderRematchUI();
 
   if(WAIT_START) sayCoach('BATTLE/RACE: รอเริ่มพร้อมกัน… ⏳', true);
   else sayCoach('พร้อมแล้ว! ยิงของดี 🥦', true);
