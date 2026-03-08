@@ -92,8 +92,14 @@ body{
   -webkit-user-select:none;
   touch-action:manipulation;
   transform: translate(-50%, -50%);
+  animation: hydFloat 2.2s ease-in-out infinite alternate;
 }
 .bubble:active{ transform: translate(-50%, -50%) scale(.96); }
+
+@keyframes hydFloat{
+  0%{ transform:translate(-50%, -50%) translateY(0px) scale(1); }
+  100%{ transform:translate(-50%, -50%) translateY(-10px) scale(1.03); }
+}
 
 .bubble.fx-pop{ animation: fxPop .18s ease-out 1; }
 @keyframes fxPop{
