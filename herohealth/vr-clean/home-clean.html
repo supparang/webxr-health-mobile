@@ -1,22 +1,3 @@
-<!-- === /herohealth/vr-clean/home-clean.html ===
-Clean Objects — RUN (PC/Mobile/cVR) — PRODUCTION
-FULL v20260301-RUN-HHA-STANDARD-CLEAN
-
-Requires (same folder):
-- ./clean.data.js
-- ./clean.core.js
-- ./clean.ui.js
-
-Shared (optional):
-- ../vr/vr-ui.js   (for Cardboard/cVR: ENTER VR/RECENTER + crosshair -> emits hha:shoot)
-- api/log params: log=1 & api=<AppsScript /exec> (safe forward)
-
-✅ Detect mode: view=cvr => Mode B (Create), else Mode A (Evaluate)
-✅ Pass-through hub/run/diff/time/seed/pid/view/log/api/studyId/phase/conditionGroup
-✅ HHA summary saved: localStorage.HHA_LAST_SUMMARY + HHA_SUMMARY_HISTORY
-✅ Back HUB + Go Cooldown (via warmup-gate)
-✅ Safe logger forward (won't break UI if 403/offline)
--->
 <!doctype html>
 <html lang="th">
 <head>
@@ -75,9 +56,7 @@ Shared (optional):
       box-shadow:0 20px 70px rgba(0,0,0,.35);
       overflow:hidden;
     }
-    /* ui.js will fill inside #root */
     #root{ position:relative; min-height: calc(100vh - 120px); }
-    /* small toast */
     .toast{
       position:fixed; left:50%; transform:translateX(-50%);
       bottom:calc(14px + var(--sab)); z-index:9999;
@@ -111,7 +90,7 @@ Shared (optional):
       </div>
 
       <div class="pillrow">
-        <button class="btn warn" id="btnCooldown" type="button">Go Cooldown</button>
+        <button class="btn warn" id="btnCooldown" type="button">➡ Go Cooldown</button>
         <button class="btn" id="btnBackHub" type="button">Back HUB</button>
         <button class="btn bad" id="btnReset" type="button">Reset</button>
       </div>
@@ -124,18 +103,15 @@ Shared (optional):
     <div class="toast" id="toast"></div>
   </div>
 
-  <!-- Optional: VR UI (Cardboard/cVR) -->
   <script type="module">
     import '../vr/vr-ui.js';
-    // vr-ui.js will add ENTER VR/RECENTER + crosshair and emit hha:shoot.
-    // If file doesn't exist yet, this will 404 in console but the game still works for PC/Mobile.
   </script>
 
   <script type="module">
+    import { buildCooldownUrlForCurrentGame } from '../gate/helpers/gate-link.js';
     import { createCleanCore } from './clean.core.js';
     import { mountCleanUI } from './clean.ui.js';
 
-    // ===== helpers =====
     const $ = (id)=>document.getElementById(id);
     function qs(k, d=''){
       try{ return (new URL(location.href)).searchParams.get(k) ?? d; }
@@ -158,6 +134,7 @@ Shared (optional):
       }
       return v.trim();
     }
+
     let toastT=0;
     function toast(msg){
       const el = $('toast');
@@ -167,7 +144,6 @@ Shared (optional):
       toastT = setTimeout(()=>el.classList.remove('show'), 1100);
     }
 
-    // ===== params (aligned with hub) =====
     const P = {
       run: String(qs('run','play')).toLowerCase() || 'play',
       diff: String(qs('diff','normal')).toLowerCase() || 'normal',
@@ -187,22 +163,19 @@ Shared (optional):
       debug: String(qs('debug','')),
       ai: String(qs('ai','')),
 
-      // clean extras
       boss: String(qs('boss','toilet_flush') || 'toilet_flush')
     };
 
-    // show pills
+    let lastSummary = null;
+
     $('pRun').textContent = P.run;
     $('pDiff').textContent = P.diff;
     $('pTime').textContent = String(P.time);
     $('pPid').textContent = P.pid;
     $('pView').textContent = P.view || '(auto)';
 
-    // build HUB url fallback
     function hubFallback(){
-      // prefer explicit hub param
       if(P.hub) return P.hub;
-      // fallback to /herohealth/hub.html same folder up
       return new URL('../hub.html', location.href).toString();
     }
 
@@ -210,44 +183,54 @@ Shared (optional):
       location.href = hubFallback();
     }
 
-    function goCooldown(){
-      const hub = hubFallback();
-      const base = new URL(location.href);
-      const g = new URL('../warmup-gate.html', base);
-
-      g.searchParams.set('cat','hygiene');
-      g.searchParams.set('theme','cleanobjects');
-      g.searchParams.set('cd','1');
-      g.searchParams.set('next', hub);
-      g.searchParams.set('hub', hub);
-
-      // pass-through
-      const keep = ['run','diff','time','seed','pid','view','ai','debug','api','log','studyId','phase','conditionGroup','boss'];
-      keep.forEach(k=>{
-        const v = base.searchParams.get(k);
-        if(v !== null && v !== '') g.searchParams.set(k, v);
+    function buildCleanCooldownUrl(){
+      const summary = lastSummary || {};
+      return buildCooldownUrlForCurrentGame({
+        cat: 'hygiene',
+        game: 'cleanobjects',
+        theme: 'cleanobjects',
+        fallbackHub: '../hub.html',
+        extras: {
+          mode: P.view === 'cvr' ? 'B' : 'A',
+          boss: P.boss,
+          scoreFinal: summary.scoreFinal ?? '',
+          grade: summary.grade ?? '',
+          accuracyPct: summary.accuracyPct ?? '',
+          contaminationPct: summary.contaminationPct ?? '',
+          selectedCount: summary.selectedCount ?? '',
+          routeCount: summary.routeCount ?? '',
+          summaryText: summary.summaryText ?? '',
+          evalResult: summary.evalResult ?? '',
+          createResult: summary.createResult ?? '',
+          run: P.run,
+          diff: P.diff,
+          time: P.time,
+          pid: P.pid,
+          view: P.view,
+          studyId: P.studyId,
+          phase: P.phase,
+          conditionGroup: P.conditionGroup
+        }
       });
+    }
 
-      location.href = g.toString();
+    function goCooldown(){
+      location.href = buildCleanCooldownUrl();
     }
 
     $('btnBackHub').addEventListener('click', goHub);
     $('btnCooldown').addEventListener('click', goCooldown);
     $('btnReset').addEventListener('click', ()=>{
       try{
-        // safe reset only for this game local caches
         localStorage.removeItem('HHA_LAST_SUMMARY');
       }catch(e){}
       location.reload();
     });
 
-    // ===== logger forward (safe, optional) =====
     async function postToApi(payload){
-      // Only if log enabled and api provided
       const logOn = (String(P.log||'') === '1' || String(P.log||'').toLowerCase() === 'true');
       if(!logOn || !P.api) return { ok:false, skipped:true };
 
-      // Many Apps Script endpoints are GET/POST; here we do POST JSON best-effort.
       try{
         const res = await fetch(P.api, {
           method: 'POST',
@@ -261,11 +244,9 @@ Shared (optional):
       }
     }
 
-    // Forward any hha:event (session_start/select/contamination/session_end)
     window.addEventListener('hha:event', async (ev)=>{
       const d = ev && ev.detail ? ev.detail : null;
       if(!d) return;
-      // attach minimal context
       const payload = Object.assign({}, d, {
         projectTag: 'HeroHealth',
         game: 'cleanobjects',
@@ -280,11 +261,9 @@ Shared (optional):
       if(P.debug==='1' && r && !r.skipped && !r.ok) console.warn('[clean] api log failed', r);
     });
 
-    // ===== HHA summary storage =====
     function saveSummary(summary){
       try{
         localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(summary));
-        // append small history
         const key = 'HHA_SUMMARY_HISTORY';
         const arr = JSON.parse(localStorage.getItem(key) || '[]');
         arr.unshift(summary);
@@ -293,7 +272,6 @@ Shared (optional):
       }catch(e){}
     }
 
-    // ===== mount UI + core =====
     const ui = mountCleanUI(document.getElementById('root'), {
       selectA: (id, reasonTag)=> core.selectA(id, reasonTag),
       toggleRouteB: (id)=> core.toggleRouteB(id),
@@ -308,25 +286,26 @@ Shared (optional):
       view: P.view,
       hub: hubFallback(),
       bossId: P.boss,
-      // time policy: align with hub time; core will fallback A=45,B=60 if timeA/timeB absent
-      // You can override via params: timeA, timeB, sprays, maxPoints, danger, contamAt, contamBoost
     }, {
       onState: ui.onState,
       onTick: ui.onTick,
       onCoach: (m)=> ui.onCoach(m),
       onSummary: async (summary)=>{
-        // store
+        lastSummary = summary;
         saveSummary(summary);
-        // log summary (optional)
+
         const r = await postToApi({ type:'summary', data: summary });
         if(P.debug==='1' && r && !r.skipped && !r.ok) console.warn('[clean] summary log failed', r);
 
-        // show
         ui.onSummary(summary);
+
+        const autoCooldown = String(qs('autocooldown','0')) === '1';
+        if(autoCooldown){
+          setTimeout(()=> goCooldown(), 900);
+        }
       }
     });
 
-    // Start + loop
     core.start();
 
     let raf = 0;
@@ -336,7 +315,6 @@ Shared (optional):
     }
     raf = requestAnimationFrame(loop);
 
-    // small hint toast
     if(P.view === 'cvr'){
       toast('Cardboard: ใช้ crosshair ยิงเลือกจุดได้ ✅');
     }else{
