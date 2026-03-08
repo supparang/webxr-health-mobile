@@ -1,6 +1,6 @@
 <!-- === /herohealth/goodjunk-board.html ===
 HeroHealth • GoodJunk Board
-PATCH v20260308-GJ-BOARD-MATCH-WINS
+PATCH v20260308-GJ-BOARD-HISTORY
 -->
 <!doctype html>
 <html lang="th">
@@ -30,7 +30,7 @@ PATCH v20260308-GJ-BOARD-MATCH-WINS
       overflow:hidden;
     }
     .wrap{
-      width:min(1440px, calc(100vw - 24px));
+      width:min(1480px, calc(100vw - 24px));
       margin:0 auto;
       padding:14px 12px 20px;
     }
@@ -40,7 +40,6 @@ PATCH v20260308-GJ-BOARD-MATCH-WINS
       border-radius:24px;
       box-shadow:var(--shadow);
     }
-
     .top{
       padding:16px 18px;
       margin-bottom:14px;
@@ -80,6 +79,12 @@ PATCH v20260308-GJ-BOARD-MATCH-WINS
       border:1px solid var(--stroke);
       font-weight:900;
       font-size:14px;
+    }
+
+    .layout{
+      display:grid;
+      grid-template-columns:1.3fr .7fr;
+      gap:16px;
     }
 
     .match{
@@ -173,7 +178,53 @@ PATCH v20260308-GJ-BOARD-MATCH-WINS
         0 0 34px rgba(251,191,36,.18);
     }
 
-    @media (max-width:1100px){
+    .history-panel{
+      padding:16px;
+      min-height:100%;
+    }
+    .history-head{
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      align-items:center;
+      margin-bottom:10px;
+      flex-wrap:wrap;
+    }
+    .history-title{
+      font-size:24px;
+      font-weight:1000;
+    }
+    .history-sub{
+      color:var(--muted);
+      font-size:13px;
+    }
+    .history-list{
+      display:grid;
+      gap:10px;
+      max-height:680px;
+      overflow:auto;
+      padding-right:4px;
+    }
+    .history-item{
+      border:1px solid rgba(148,163,184,.14);
+      background:rgba(2,6,23,.44);
+      border-radius:16px;
+      padding:12px;
+    }
+    .history-item-title{
+      font-size:14px;
+      font-weight:1000;
+      margin-bottom:6px;
+    }
+    .history-item-line{
+      font-size:12px;
+      line-height:1.6;
+      color:#cbd5e1;
+      word-break:break-word;
+    }
+
+    @media (max-width:1200px){
+      .layout{ grid-template-columns:1fr; }
       .match,
       .scoreboard{
         grid-template-columns:1fr;
@@ -196,47 +247,62 @@ PATCH v20260308-GJ-BOARD-MATCH-WINS
       <div class="pill">Winner: <span id="winnerTxt">—</span></div>
       <div class="pill">Rule: <span id="ruleTxt">—</span></div>
       <div class="pill">Champion: <span id="championTxt">—</span></div>
+      <div class="pill">History: <span id="historyCountTxt">0</span></div>
     </div>
   </section>
 
-  <section class="match">
-    <div class="panel match-card">
-      <div class="match-k">Best Of</div>
-      <div id="bestOfTxt" class="match-v">3</div>
-    </div>
-    <div class="panel match-card">
-      <div class="match-k">Wins To Champion</div>
-      <div id="winsToChampionTxt" class="match-v">2</div>
-    </div>
-    <div class="panel match-card">
-      <div class="match-k">Match Status</div>
-      <div id="matchStatusTxt" class="match-v">LIVE</div>
-    </div>
-  </section>
+  <div class="layout">
+    <div>
+      <section class="match">
+        <div class="panel match-card">
+          <div class="match-k">Best Of</div>
+          <div id="bestOfTxt" class="match-v">3</div>
+        </div>
+        <div class="panel match-card">
+          <div class="match-k">Wins To Champion</div>
+          <div id="winsToChampionTxt" class="match-v">2</div>
+        </div>
+        <div class="panel match-card">
+          <div class="match-k">Match Status</div>
+          <div id="matchStatusTxt" class="match-v">LIVE</div>
+        </div>
+      </section>
 
-  <section id="winnerBox" class="winner panel">
-    <div class="winner-badge">🏆 CHAMPION</div>
-    <div id="winnerName" class="winner-name">—</div>
-    <div id="winnerSub" class="winner-sub">ผู้ชนะรวมของแมตช์</div>
-  </section>
+      <section id="winnerBox" class="winner panel">
+        <div class="winner-badge">🏆 CHAMPION</div>
+        <div id="winnerName" class="winner-name">—</div>
+        <div id="winnerSub" class="winner-sub">ผู้ชนะรวมของแมตช์</div>
+      </section>
 
-  <section class="scoreboard">
-    <div id="p1Card" class="panel player-card">
-      <div class="medal">🥇</div>
-      <div id="p1Name" class="player-name">—</div>
-      <div id="p1Score" class="player-score">0</div>
-      <div id="p1Sub" class="player-sub">acc 0% • miss 0 • rt —</div>
-      <div id="p1Wins" class="wins-line">wins 0</div>
+      <section class="scoreboard">
+        <div id="p1Card" class="panel player-card">
+          <div class="medal">🥇</div>
+          <div id="p1Name" class="player-name">—</div>
+          <div id="p1Score" class="player-score">0</div>
+          <div id="p1Sub" class="player-sub">acc 0% • miss 0 • rt —</div>
+          <div id="p1Wins" class="wins-line">wins 0</div>
+        </div>
+
+        <div id="p2Card" class="panel player-card">
+          <div class="medal">🥈</div>
+          <div id="p2Name" class="player-name">—</div>
+          <div id="p2Score" class="player-score">0</div>
+          <div id="p2Sub" class="player-sub">acc 0% • miss 0 • rt —</div>
+          <div id="p2Wins" class="wins-line">wins 0</div>
+        </div>
+      </section>
     </div>
 
-    <div id="p2Card" class="panel player-card">
-      <div class="medal">🥈</div>
-      <div id="p2Name" class="player-name">—</div>
-      <div id="p2Score" class="player-score">0</div>
-      <div id="p2Sub" class="player-sub">acc 0% • miss 0 • rt —</div>
-      <div id="p2Wins" class="wins-line">wins 0</div>
-    </div>
-  </section>
+    <aside class="panel history-panel">
+      <div class="history-head">
+        <div>
+          <div class="history-title">Round Archive</div>
+          <div class="history-sub">แสดงรอบล่าสุดแบบย่อ</div>
+        </div>
+      </div>
+      <div id="historyList" class="history-list"></div>
+    </aside>
+  </div>
 </div>
 
 <script>
@@ -247,6 +313,7 @@ PATCH v20260308-GJ-BOARD-MATCH-WINS
   let boardPlayersRaw = {};
   let lastStateRaw = {};
   let matchRaw = {};
+  let roundHistoryRaw = {};
 
   function getDbCompat(){
     if(window.firebase?.database) return window.firebase.database();
@@ -272,10 +339,48 @@ PATCH v20260308-GJ-BOARD-MATCH-WINS
     );
   }
 
-  function winnerNameFromKey(key){
-    const rows = Object.entries(boardPlayersRaw || {}).map(([k,v])=>({ key:k, ...(v||{}) }));
+  function sortHistoryRows(rows){
+    return rows.sort((a,b)=>(Number(b.createdAtMs||0)-Number(a.createdAtMs||0)));
+  }
+
+  function winnerNameFromKey(key, players){
+    const rows = players || Object.entries(boardPlayersRaw || {}).map(([k,v])=>({ key:k, ...(v||{}) }));
     const row = rows.find(r => String(r.key || '') === String(key || ''));
     return row?.nick || key || 'WINNER';
+  }
+
+  function renderHistory(){
+    const rows = sortHistoryRows(
+      Object.entries(roundHistoryRaw || {}).map(([key,v])=>({ key, ...(v||{}) }))
+    );
+    $('historyCountTxt').textContent = String(rows.length);
+
+    const box = $('historyList');
+    box.innerHTML = '';
+
+    if(!rows.length){
+      box.innerHTML = `
+        <div class="history-item">
+          <div class="history-item-title">ยังไม่มีประวัติรอบ</div>
+          <div class="history-item-line">เมื่อจบรอบ battle แล้วจะมาแสดงที่นี่</div>
+        </div>`;
+      return;
+    }
+
+    rows.slice(0,10).forEach((r, i)=>{
+      const players = Array.isArray(r.players) ? r.players : [];
+      const winner = winnerNameFromKey(r.winner, players);
+      const champion = winnerNameFromKey(r.matchChampion, players);
+
+      const div = document.createElement('div');
+      div.className = 'history-item';
+      div.innerHTML = `
+        <div class="history-item-title">#${rows.length - i} • winner ${winner}</div>
+        <div class="history-item-line">round ${r.roundId || '-'} • reason ${r.reason || '-'}</div>
+        <div class="history-item-line">champion ${champion} • complete ${!!r.matchComplete}</div>
+      `;
+      box.appendChild(div);
+    });
   }
 
   function renderMatch(){
@@ -359,6 +464,7 @@ PATCH v20260308-GJ-BOARD-MATCH-WINS
     const stateRef = db.ref(`${base}/state`);
     const playersRef = db.ref(`${base}/players`);
     const matchRef = db.ref(`${base}/match`);
+    const historyRef = db.ref(`${base}/roundHistory`);
 
     const stateCb = snap => renderState(snap.val() || {});
     const playersCb = snap => {
@@ -369,14 +475,20 @@ PATCH v20260308-GJ-BOARD-MATCH-WINS
       matchRaw = snap.val() || {};
       renderMatch();
     };
+    const historyCb = snap => {
+      roundHistoryRaw = snap.val() || {};
+      renderHistory();
+    };
 
     stateRef.on('value', stateCb);
     playersRef.on('value', playersCb);
     matchRef.on('value', matchCb);
+    historyRef.on('value', historyCb);
 
     offFns.push(()=>stateRef.off('value', stateCb));
     offFns.push(()=>playersRef.off('value', playersCb));
     offFns.push(()=>matchRef.off('value', matchCb));
+    offFns.push(()=>historyRef.off('value', historyCb));
   }
 
   connect();
