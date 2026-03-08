@@ -1,6 +1,6 @@
 <!-- === /herohealth/goodjunk-teacher-essential.html ===
 HeroHealth • GoodJunk Teacher Essential
-FULL PATCH v20260308-GJ-TEACHER-ESSENTIAL-CSV
+FULL PATCH v20260308-GJ-TEACHER-ESSENTIAL-MASTERCSV
 -->
 <!doctype html>
 <html lang="th">
@@ -157,7 +157,7 @@ FULL PATCH v20260308-GJ-TEACHER-ESSENTIAL-CSV
     <div class="eyebrow">⚡ Teacher Essential</div>
     <h1>GoodJunk Classroom Control</h1>
     <div class="sub">
-      หน้าใช้งานเร็วสำหรับครูในคาบจริง เปิดห้อง ส่งลิงก์นักเรียน คุม countdown / announcement / policy / rematch / match และ export CSV summary ได้
+      หน้าใช้งานเร็วสำหรับครูในคาบจริง เปิดห้อง ส่งลิงก์นักเรียน คุม countdown / announcement / policy / rematch / match และ export master CSV ได้ในไฟล์เดียว
     </div>
 
     <div class="top-grid">
@@ -363,13 +363,18 @@ FULL PATCH v20260308-GJ-TEACHER-ESSENTIAL-CSV
 
     <section class="card" style="grid-column:1 / -1;">
       <h2>Battle History / Round Archive</h2>
-      <div class="desc">ดูย้อนหลังและ export เป็น CSV ได้</div>
+      <div class="desc">ดูย้อนหลังและ export เป็น summary/master CSV ได้</div>
 
       <div class="actions-4">
         <button id="btnRefreshHistory" class="secondary">Refresh History</button>
         <button id="btnClearHistory" class="warn">Clear History</button>
         <button id="btnExportText" class="secondary">Copy Summary Text</button>
-        <button id="btnExportCsv" class="good">Export CSV</button>
+        <button id="btnExportCsv" class="secondary">Export History CSV</button>
+      </div>
+
+      <div class="actions-2" style="margin-top:10px;">
+        <button id="btnExportMasterCsv" class="good">Export Master CSV</button>
+        <button id="btnCopyMasterPreview" class="secondary">Copy Master Preview</button>
       </div>
 
       <div id="historySummary" class="status">History: —</div>
@@ -660,7 +665,6 @@ FULL PATCH v20260308-GJ-TEACHER-ESSENTIAL-CSV
       'player2MedianRT',
       'createdAtMs'
     ];
-
     const lines = [headers.map(csvEscape).join(',')];
 
     rows.forEach(r=>{
@@ -694,6 +698,149 @@ FULL PATCH v20260308-GJ-TEACHER-ESSENTIAL-CSV
     });
 
     return lines.join('\n');
+  }
+
+  function buildMasterRows(){
+    const rows = [];
+
+    const s = getAttendanceStats();
+    rows.push({
+      rowType:'summary',
+      room: room(),
+      phase: stateRaw.phase || '',
+      winner: stateRaw.winner || '',
+      bestOf: Number(matchRaw.bestOf || 3),
+      winsToChampion: Number(matchRaw.winsToChampion || 2),
+      champion: String(matchRaw.champion || ''),
+      matchComplete: !!matchRaw.matchComplete,
+      rosterTotal: s.total,
+      joinedCount: s.joinedCount,
+      enteredCount: s.enteredCount,
+      absentCount: s.absentCount,
+      note: 'room summary'
+    });
+
+    Object.entries(attendanceRaw || {}).forEach(([key,v])=>{
+      const row = v || {};
+      rows.push({
+        rowType:'attendance',
+        room: row.room || room(),
+        phase: '',
+        winner: '',
+        bestOf: '',
+        winsToChampion: '',
+        champion: '',
+        matchComplete: '',
+        rosterTotal: '',
+        joinedCount: '',
+        enteredCount: '',
+        absentCount: '',
+        attendanceKey: key,
+        pid: row.pid || '',
+        nick: row.nick || '',
+        source: row.source || '',
+        view: row.view || '',
+        diff: row.diff || '',
+        time: row.time || '',
+        mode: row.mode || '',
+        atIso: row.atIso || '',
+        atMs: row.atMs || '',
+        note: 'attendance row'
+      });
+    });
+
+    sortHistoryItems().forEach(r=>{
+      const players = Array.isArray(r.players) ? r.players : [];
+      const p1 = players[0] || {};
+      const p2 = players[1] || {};
+      rows.push({
+        rowType:'roundHistory',
+        room: room(),
+        phase: '',
+        winner: winnerName(r.winner, players),
+        bestOf: Number(r.matchBestOf || 3),
+        winsToChampion: Number(r.matchWinsToChampion || 2),
+        champion: winnerName(r.matchChampion, players),
+        matchComplete: !!r.matchComplete,
+        rosterTotal: '',
+        joinedCount: '',
+        enteredCount: '',
+        absentCount: '',
+        roundId: r.roundId || '',
+        reason: r.reason || '',
+        player1Key: p1.key || '',
+        player1Nick: p1.nick || '',
+        player1Score: Number(p1.score || 0),
+        player1Acc: Number(p1.acc || 0),
+        player1Miss: Number(p1.miss || 0),
+        player1MedianRT: Number(p1.medianRT || 0),
+        player2Key: p2.key || '',
+        player2Nick: p2.nick || '',
+        player2Score: Number(p2.score || 0),
+        player2Acc: Number(p2.acc || 0),
+        player2Miss: Number(p2.miss || 0),
+        player2MedianRT: Number(p2.medianRT || 0),
+        createdAtMs: Number(r.createdAtMs || 0),
+        note: 'round history row'
+      });
+    });
+
+    return rows;
+  }
+
+  function exportMasterCsv(){
+    const rows = buildMasterRows();
+    const headers = [
+      'rowType',
+      'room',
+      'phase',
+      'winner',
+      'bestOf',
+      'winsToChampion',
+      'champion',
+      'matchComplete',
+      'rosterTotal',
+      'joinedCount',
+      'enteredCount',
+      'absentCount',
+      'attendanceKey',
+      'pid',
+      'nick',
+      'source',
+      'view',
+      'diff',
+      'time',
+      'mode',
+      'atIso',
+      'atMs',
+      'roundId',
+      'reason',
+      'player1Key',
+      'player1Nick',
+      'player1Score',
+      'player1Acc',
+      'player1Miss',
+      'player1MedianRT',
+      'player2Key',
+      'player2Nick',
+      'player2Score',
+      'player2Acc',
+      'player2Miss',
+      'player2MedianRT',
+      'createdAtMs',
+      'note'
+    ];
+
+    const lines = [headers.map(csvEscape).join(',')];
+    rows.forEach(r=>{
+      lines.push(headers.map(h => csvEscape(r[h] ?? '')).join(','));
+    });
+    return lines.join('\n');
+  }
+
+  function masterPreviewText(){
+    const rows = buildMasterRows();
+    return rows.slice(0,12).map(r => JSON.stringify(r)).join('\n');
   }
 
   async function refreshAttendance(){
@@ -1013,10 +1160,29 @@ FULL PATCH v20260308-GJ-TEACHER-ESSENTIAL-CSV
     try{
       const csv = exportHistoryCsv();
       downloadCsv(`goodjunk-history-${room()}.csv`, csv);
-      setStatus('Export CSV แล้ว');
+      setStatus('Export history CSV แล้ว');
     }catch(err){
       console.warn(err);
-      setStatus(`Export CSV ไม่สำเร็จ: ${err?.message || err}`);
+      setStatus(`Export history CSV ไม่สำเร็จ: ${err?.message || err}`);
+    }
+  };
+  $('btnExportMasterCsv').onclick = ()=>{
+    try{
+      const csv = exportMasterCsv();
+      downloadCsv(`goodjunk-master-${room()}.csv`, csv);
+      setStatus('Export master CSV แล้ว');
+    }catch(err){
+      console.warn(err);
+      setStatus(`Export master CSV ไม่สำเร็จ: ${err?.message || err}`);
+    }
+  };
+  $('btnCopyMasterPreview').onclick = async ()=>{
+    try{
+      await copyText(masterPreviewText());
+      setStatus('คัดลอก master preview แล้ว');
+    }catch(err){
+      console.warn(err);
+      setStatus(`Copy master preview ไม่สำเร็จ: ${err?.message || err}`);
     }
   };
 
