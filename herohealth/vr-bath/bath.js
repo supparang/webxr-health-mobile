@@ -300,6 +300,25 @@ function goCooldownOnce(){
   goBathCooldown();
 }
 
+function setEndPanelScrollMode(on){
+  const app = D.getElementById('app');
+  const card = UI.panelEnd?.querySelector('.panel-card');
+
+  if (on){
+    D.body.style.overflow = 'hidden';
+    if (app) app.style.overflow = 'visible';
+
+    try{ UI.panelEnd?.scrollTo(0, 0); }catch(e){}
+    try{ card?.scrollTo(0, 0); }catch(e){}
+  } else {
+    D.body.style.overflow = '';
+    if (app) app.style.overflow = '';
+
+    try{ UI.panelEnd?.scrollTo(0, 0); }catch(e){}
+    try{ card?.scrollTo(0, 0); }catch(e){}
+  }
+}
+
 function resetSpotStats(){
   S.spot = {};
   (SPOTS[S.view]||[]).forEach(sp=>{
@@ -364,15 +383,10 @@ function updatePhysicalProxy(){
 function hud(){
   const rub = computeRubric();
   UI.phasePill && (
-    UI.phasePill.textContent = `PHASE: ${
-      S.started ? (PHASES[S.phase] || '—') : 'READY'
-    }`
+    UI.phasePill.textContent = `PHASE: ${S.started ? (PHASES[S.phase] || '—') : 'READY'}`
   );
   UI.questPill && (
-    UI.questPill.textContent = `QUEST: ${
-      MISS?.text?.() ||
-      (S.started ? 'ทำภารกิจตาม phase ปัจจุบัน' : 'กดเริ่มเพื่อทำแบบทดสอบก่อนเล่น')
-    }`
+    UI.questPill.textContent = `QUEST: ${MISS?.text?.() || (S.started ? 'ทำภารกิจตาม phase ปัจจุบัน' : 'กดเริ่มเพื่อทำแบบทดสอบก่อนเล่น')}`
   );
   UI.timePill && (UI.timePill.textContent = `TIME: ${Math.max(0, Math.ceil(S.timeLeft))}`);
   UI.viewPill && (UI.viewPill.textContent = `VIEW: ${S.view.toUpperCase()}`);
@@ -402,11 +416,7 @@ function hud(){
   const cov = (cleared/total)*100;
   const mastery = computeMastery();
 
-  let rawClean = cov
-    - (S.residue * 0.45)
-    - (S.fungusRisk * 0.45)
-    - (S.pressurePct * 0.10);
-
+  let rawClean = cov - (S.residue * 0.45) - (S.fungusRisk * 0.45) - (S.pressurePct * 0.10);
   rawClean = clamp(rawClean, 0, 100);
   if (!mastery.missionDone) rawClean = Math.min(rawClean, 59);
   if (!mastery.bossPass)    rawClean = Math.min(rawClean, 49);
@@ -1103,6 +1113,7 @@ function endGame(reason='complete'){
   }
 
   UI.panelEnd?.classList.remove('hidden');
+  setEndPanelScrollMode(true);
   saveLastSummary(reason);
 
   safePost(API, {
@@ -1115,7 +1126,7 @@ function endGame(reason='complete'){
     misses: S.pressureBurst,
     accuracyGoodPct: Math.round(S.steadyPct),
     device: qs('view','pc'),
-    gameVersion: 'v20260308-BATH-COOLDOWN',
+    gameVersion: 'v20260308f',
     reason,
     __extraJson: JSON.stringify({
       pro: !!PRO,
@@ -1251,6 +1262,7 @@ function startGame(mode='standard'){
   UI.panelQuiz?.classList.add('hidden');
   UI.panelHelp?.classList.add('hidden');
   UI.panelEnd?.classList.add('hidden');
+  setEndPanelScrollMode(false);
 
   console.log('[Bath] startGame', { mode, pid: PID, diff: DIFF, time: TIME, pro: PRO });
 
@@ -1363,6 +1375,7 @@ if (UI.btnQuizNext){
 if (UI.btnReplay){
   UI.btnReplay.addEventListener('click', ()=>{
     UI.panelEnd?.classList.add('hidden');
+    setEndPanelScrollMode(false);
     showQuiz('standard');
   });
 }
@@ -1372,6 +1385,7 @@ if (UI.btnPlayPlan){
     savePlan(S.view, S.plan);
     logEvent(S.sessionId,'plan_play',{view:S.view, plan:S.plan});
     UI.panelEnd?.classList.add('hidden');
+    setEndPanelScrollMode(false);
     showQuiz('plan');
   });
 }
