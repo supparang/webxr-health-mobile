@@ -1,0 +1,128 @@
+.bath-layer{
+  position:relative;
+  min-height:52vh;
+  padding:18px;
+}
+
+.bath-brief{
+  position:absolute;
+  inset:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:18px;
+  z-index:3;
+}
+
+.bath-brief-card{
+  width:min(680px, 100%);
+  background:linear-gradient(180deg, rgba(2,6,23,.90), rgba(15,23,42,.82));
+  border:1px solid rgba(148,163,184,.14);
+  border-radius:24px;
+  box-shadow:0 18px 50px rgba(0,0,0,.26);
+  padding:18px;
+  text-align:center;
+}
+
+.bath-brief-title{
+  font-size:clamp(22px, 4vw, 34px);
+  font-weight:900;
+  margin:0 0 6px;
+}
+
+.bath-brief-sub{
+  color:#94a3b8;
+  margin:0 0 14px;
+}
+
+.bath-playfield{
+  position:relative;
+  min-height:52vh;
+  overflow:hidden;
+  border-radius:24px;
+  background:
+    radial-gradient(380px 220px at 50% 24%, rgba(34,211,238,.10), transparent 70%),
+    linear-gradient(180deg, rgba(8,47,73,.16), rgba(2,6,23,.70));
+}
+
+.bath-scene{
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  user-select:none;
+}
+
+.bath-deco{
+  position:absolute;
+  opacity:.16;
+  filter:drop-shadow(0 8px 20px rgba(0,0,0,.15));
+}
+.bath-deco.tub{ left:50%; top:50%; transform:translate(-50%,-50%); font-size:min(22vw, 140px); }
+.bath-deco.shower{ left:10%; bottom:14%; font-size:min(12vw, 72px); }
+.bath-deco.sponge{ right:10%; bottom:14%; font-size:min(12vw, 72px); }
+
+.bath-targets{
+  position:absolute;
+  inset:0;
+  z-index:2;
+}
+
+.bath-target{
+  position:absolute;
+  transform:translate(-50%,-50%);
+  width:58px;
+  height:58px;
+  border-radius:18px;
+  display:grid;
+  place-items:center;
+  font-size:30px;
+  line-height:1;
+  border:1px solid rgba(148,163,184,.14);
+  box-shadow:0 10px 22px rgba(0,0,0,.18);
+  user-select:none;
+  -webkit-tap-highlight-color:transparent;
+  touch-action:manipulation;
+  cursor:pointer;
+}
+
+.bath-target.good{
+  background:rgba(239,68,68,.16);
+  animation:bathBob 1.8s ease-in-out infinite;
+}
+
+.bath-target.bad{
+  background:rgba(59,130,246,.14);
+  animation:bathFloat 2.3s ease-in-out infinite;
+}
+
+@keyframes bathBob{
+  0%,100%{ transform:translate(-50%,-50%) translateY(0); }
+  50%{ transform:translate(-50%,-50%) translateY(-5px); }
+}
+
+@keyframes bathFloat{
+  0%,100%{ transform:translate(-50%,-50%) rotate(0deg); }
+  50%{ transform:translate(-50%,-50%) rotate(4deg); }
+}
+
+.bath-pop{
+  position:absolute;
+  transform:translate(-50%,-50%);
+  font-weight:900;
+  color:#a7f3d0;
+  text-shadow:0 10px 18px rgba(0,0,0,.35);
+  pointer-events:none;
+  animation:bathPop .55s ease-out forwards;
+  z-index:4;
+}
+
+@keyframes bathPop{
+  0%{ opacity:0; transform:translate(-50%,-50%) translateY(6px) scale(.92); }
+  20%{ opacity:1; }
+  100%{ opacity:0; transform:translate(-50%,-50%) translateY(-22px) scale(1.06); }
+}
+
+@media (max-width:760px){
+  .bath-layer{ padding:12px; min-height:50vh; }
+  .bath-target{ width:56px; height:56px; font-size:28px; }
+}
