@@ -1,6 +1,6 @@
 <!-- === /herohealth/goodjunk-teacher-essential.html ===
 HeroHealth • GoodJunk Teacher Essential
-FULL PATCH v20260308-GJ-TEACHER-ESSENTIAL-REMATCH-QA
+FULL PATCH v20260308-GJ-TEACHER-ESSENTIAL-MATCH
 -->
 <!doctype html>
 <html lang="th">
@@ -251,7 +251,7 @@ FULL PATCH v20260308-GJ-TEACHER-ESSENTIAL-REMATCH-QA
     <div class="eyebrow">⚡ Teacher Essential</div>
     <h1>GoodJunk Classroom Control</h1>
     <div class="sub">
-      หน้าใช้งานเร็วสำหรับครูในคาบจริง เปิดห้อง ส่งลิงก์นักเรียน คุม countdown / announcement / policy / rematch และดูสถานะ joined-entered ได้ในหน้าเดียว
+      หน้าใช้งานเร็วสำหรับครูในคาบจริง เปิดห้อง ส่งลิงก์นักเรียน คุม countdown / announcement / policy / rematch / match และดูสถานะ joined-entered ได้ในหน้าเดียว
     </div>
 
     <div class="top-grid">
@@ -424,15 +424,16 @@ FULL PATCH v20260308-GJ-TEACHER-ESSENTIAL-REMATCH-QA
     </section>
 
     <section class="card">
-      <h2>Rematch & Emergency</h2>
-      <div class="desc">ดู rematch state ปัจจุบัน และสั่งล้างเมื่อระบบค้าง</div>
+      <h2>Rematch / Match / Emergency</h2>
+      <div class="desc">ดู rematch และ match state ปัจจุบัน และสั่งล้างเมื่อระบบค้าง</div>
 
       <div id="rematchStatus" class="status">Rematch: —</div>
+      <div id="matchStatus" class="status">Match: —</div>
 
       <div class="actions-3" style="margin-top:10px;">
         <button id="btnRefreshRematch" class="secondary">Refresh Rematch</button>
         <button id="btnClearRematch" class="warn">Clear Rematch</button>
-        <button id="btnQuickReset" class="danger">Reset + Clear</button>
+        <button id="btnResetMatch" class="danger">Reset Match</button>
       </div>
 
       <div class="actions-3" style="margin-top:10px;">
@@ -448,10 +449,10 @@ FULL PATCH v20260308-GJ-TEACHER-ESSENTIAL-REMATCH-QA
       </div>
 
       <div class="note">
-        ถ้า rematch ค้าง:
-        <br>1) ดู rematch state
+        ถ้า rematch/match ค้าง:
+        <br>1) ดู rematch และ match state
         <br>2) กด Clear Rematch
-        <br>3) ถ้ายังค้าง กด Reset + Clear
+        <br>3) ถ้าต้องล้างผลรวม ให้กด Reset Match
       </div>
     </section>
   </div>
@@ -472,6 +473,7 @@ FULL PATCH v20260308-GJ-TEACHER-ESSENTIAL-REMATCH-QA
   let policyRaw = {};
   let announcementRaw = {};
   let rematchRaw = {};
+  let matchRaw = {};
   let lastQrLink = '';
 
   function setStatus(msg){
@@ -637,6 +639,14 @@ FULL PATCH v20260308-GJ-TEACHER-ESSENTIAL-REMATCH-QA
       `Rematch: requestedBy=${r.requestedBy} • roundId=${r.roundId || '-'} • ${rows.join(' | ') || 'no votes'}`;
   }
 
+  function renderMatch(){
+    const m = matchRaw || {};
+    const wins = m.wins || {};
+    const winsText = Object.entries(wins).map(([k,v])=>`${k}:${v}`).join(' | ') || 'no wins';
+    $('matchStatus').textContent =
+      `Match: bestOf=${Number(m.bestOf || 3)} • winsToChampion=${Number(m.winsToChampion || 2)} • champion=${m.champion || '-'} • complete=${!!m.matchComplete} • ${winsText}`;
+  }
+
   async function refreshAttendance(){
     try{
       const d = db();
@@ -668,6 +678,18 @@ FULL PATCH v20260308-GJ-TEACHER-ESSENTIAL-REMATCH-QA
       const snap = await d.ref(`hha-battle/goodjunk/rooms/${room()}/rematch`).get();
       rematchRaw = snap.val() || {};
       renderRematch();
+    }catch(err){
+      console.warn(err);
+    }
+  }
+
+  async function refreshMatchOnce(){
+    try{
+      const d = db();
+      if(!d) return;
+      const snap = await d.ref(`hha-battle/goodjunk/rooms/${room()}/match`).get();
+      matchRaw = snap.val() || {};
+      renderMatch();
     }catch(err){
       console.warn(err);
     }
@@ -717,10 +739,17 @@ FULL PATCH v20260308-GJ-TEACHER-ESSENTIAL-REMATCH-QA
         rematchRaw = v || {};
         renderRematch();
       }));
+      if(admin.watchMatch){
+        offFns.push(admin.watchMatch(v=>{
+          matchRaw = v || {};
+          renderMatch();
+        }));
+      }
 
       await refreshRoster();
       await refreshAttendance();
       await refreshRematchOnce();
+      await refreshMatchOnce();
       refreshLinks();
       setStatus(`เชื่อมต่อ room ${room()} แล้ว`);
     }catch(err){
@@ -864,7 +893,8 @@ FULL PATCH v20260308-GJ-TEACHER-ESSENTIAL-REMATCH-QA
   $('btnRefreshRematch').onclick = async ()=>{
     try{
       await refreshRematchOnce();
-      setStatus('Refresh rematch แล้ว');
+      await refreshMatchOnce();
+      setStatus('Refresh rematch/match แล้ว');
     }catch(err){ console.warn(err); }
   };
   $('btnClearRematch').onclick = async ()=>{
@@ -872,6 +902,14 @@ FULL PATCH v20260308-GJ-TEACHER-ESSENTIAL-REMATCH-QA
       if(!admin) await connect();
       await admin.clearRematch();
       setStatus('Clear rematch แล้ว');
+    }catch(err){ console.warn(err); }
+  };
+  $('btnResetMatch').onclick = async ()=>{
+    try{
+      if(!admin) await connect();
+      await admin.resetRoom();
+      await admin.clearRematch();
+      setStatus('Reset match แล้ว');
     }catch(err){ console.warn(err); }
   };
 
@@ -899,16 +937,6 @@ FULL PATCH v20260308-GJ-TEACHER-ESSENTIAL-REMATCH-QA
       await admin.clearRematch();
       await admin.setAnnouncement('กลับสู่ lobby แล้ว เตรียมเริ่มใหม่', { tone:'warn', ttlSec:12 });
       setStatus('Force lobby แล้ว');
-    }catch(err){ console.warn(err); }
-  };
-  $('btnQuickReset').onclick = async ()=>{
-    try{
-      if(!admin) await connect();
-      await admin.clearAnnouncement();
-      await admin.clearRematch();
-      await admin.resetRoom();
-      await admin.setAnnouncement('รีเซ็ตห้องแล้ว เตรียมเริ่มใหม่', { tone:'warn', ttlSec:12 });
-      setStatus('Reset + clear แล้ว');
     }catch(err){ console.warn(err); }
   };
 
