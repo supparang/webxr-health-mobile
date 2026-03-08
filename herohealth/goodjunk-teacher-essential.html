@@ -1,6 +1,6 @@
 <!-- === /herohealth/goodjunk-teacher-essential.html ===
 HeroHealth • GoodJunk Teacher Essential
-FULL PATCH v20260308-GJ-TEACHER-ESSENTIAL-READY
+FULL PATCH v20260308-GJ-TEACHER-ESSENTIAL-REMATCH-QA
 -->
 <!doctype html>
 <html lang="th">
@@ -251,7 +251,7 @@ FULL PATCH v20260308-GJ-TEACHER-ESSENTIAL-READY
     <div class="eyebrow">⚡ Teacher Essential</div>
     <h1>GoodJunk Classroom Control</h1>
     <div class="sub">
-      หน้าใช้งานเร็วสำหรับครูในคาบจริง เปิดห้อง ส่งลิงก์นักเรียน คุม countdown / announcement / policy และดูสถานะ joined-entered ได้ในหน้าเดียว
+      หน้าใช้งานเร็วสำหรับครูในคาบจริง เปิดห้อง ส่งลิงก์นักเรียน คุม countdown / announcement / policy / rematch และดูสถานะ joined-entered ได้ในหน้าเดียว
     </div>
 
     <div class="top-grid">
@@ -424,10 +424,18 @@ FULL PATCH v20260308-GJ-TEACHER-ESSENTIAL-READY
     </section>
 
     <section class="card">
-      <h2>Emergency Shortcuts</h2>
-      <div class="desc">ใช้เมื่อระบบเริ่มติดขัดหรืออยากเปลี่ยน flow เร็ว ๆ</div>
+      <h2>Rematch & Emergency</h2>
+      <div class="desc">ดู rematch state ปัจจุบัน และสั่งล้างเมื่อระบบค้าง</div>
 
-      <div class="actions-3">
+      <div id="rematchStatus" class="status">Rematch: —</div>
+
+      <div class="actions-3" style="margin-top:10px;">
+        <button id="btnRefreshRematch" class="secondary">Refresh Rematch</button>
+        <button id="btnClearRematch" class="warn">Clear Rematch</button>
+        <button id="btnQuickReset" class="danger">Reset + Clear</button>
+      </div>
+
+      <div class="actions-3" style="margin-top:10px;">
         <button id="btnOpenBoardTab" class="secondary">Board Tab</button>
         <button id="btnOpenKioskTab" class="secondary">Kiosk Tab</button>
         <button id="btnOpenJoinTab" class="secondary">Join Tab</button>
@@ -436,14 +444,14 @@ FULL PATCH v20260308-GJ-TEACHER-ESSENTIAL-READY
       <div class="actions-3" style="margin-top:10px;">
         <button id="btnQuickSpectator" class="secondary">เปิดให้ชมแทน</button>
         <button id="btnQuickResume" class="good">กลับมาเปิดห้อง</button>
-        <button id="btnQuickReset" class="danger">รีเซ็ตด่วน</button>
+        <button id="btnQuickForceLobby" class="secondary">Force Lobby</button>
       </div>
 
       <div class="note">
-        ถ้าห้องเริ่มมีปัญหา:
-        <br>• เปิด Board/Kiosk ใหม่
-        <br>• ให้เด็กเข้า Join ผ่านลิงก์เดิม
-        <br>• ใช้ Reset Room แล้ว Countdown ใหม่
+        ถ้า rematch ค้าง:
+        <br>1) ดู rematch state
+        <br>2) กด Clear Rematch
+        <br>3) ถ้ายังค้าง กด Reset + Clear
       </div>
     </section>
   </div>
@@ -463,6 +471,7 @@ FULL PATCH v20260308-GJ-TEACHER-ESSENTIAL-READY
   let attendanceRaw = {};
   let policyRaw = {};
   let announcementRaw = {};
+  let rematchRaw = {};
   let lastQrLink = '';
 
   function setStatus(msg){
@@ -611,6 +620,23 @@ FULL PATCH v20260308-GJ-TEACHER-ESSENTIAL-READY
       `Coverage: roster ${s.total} • joined ${s.joinedCount} • entered ${s.enteredCount} • absent ${s.absentCount}`;
   }
 
+  function renderRematch(){
+    const r = rematchRaw || {};
+    const votes = r.votes || {};
+    const rows = Object.entries(votes).map(([k,v])=>{
+      const s = v?.accepted ? 'accepted' : v?.declined ? 'declined' : 'pending';
+      return `${k}:${s}`;
+    });
+
+    if(!r.requestedBy){
+      $('rematchStatus').textContent = 'Rematch: —';
+      return;
+    }
+
+    $('rematchStatus').textContent =
+      `Rematch: requestedBy=${r.requestedBy} • roundId=${r.roundId || '-'} • ${rows.join(' | ') || 'no votes'}`;
+  }
+
   async function refreshAttendance(){
     try{
       const d = db();
@@ -630,6 +656,18 @@ FULL PATCH v20260308-GJ-TEACHER-ESSENTIAL-READY
       const snap = await d.ref(`hha-battle/goodjunk/rooms/${room()}/roster`).get();
       rosterRaw = snap.val() || {};
       renderCoverage();
+    }catch(err){
+      console.warn(err);
+    }
+  }
+
+  async function refreshRematchOnce(){
+    try{
+      const d = db();
+      if(!d) return;
+      const snap = await d.ref(`hha-battle/goodjunk/rooms/${room()}/rematch`).get();
+      rematchRaw = snap.val() || {};
+      renderRematch();
     }catch(err){
       console.warn(err);
     }
@@ -675,9 +713,14 @@ FULL PATCH v20260308-GJ-TEACHER-ESSENTIAL-READY
         announcementRaw = v || {};
         renderAnnouncement();
       }));
+      offFns.push(admin.watchRematch(v=>{
+        rematchRaw = v || {};
+        renderRematch();
+      }));
 
       await refreshRoster();
       await refreshAttendance();
+      await refreshRematchOnce();
       refreshLinks();
       setStatus(`เชื่อมต่อ room ${room()} แล้ว`);
     }catch(err){
@@ -748,7 +791,7 @@ FULL PATCH v20260308-GJ-TEACHER-ESSENTIAL-READY
   $('btnCountdown3').onclick = async ()=>{ try{ if(!admin) await connect(); await admin.forceCountdown(3); }catch(err){ console.warn(err); } };
   $('btnCountdown5').onclick = async ()=>{ try{ if(!admin) await connect(); await admin.forceCountdown(5); }catch(err){ console.warn(err); } };
   $('btnForceStart').onclick = async ()=>{ try{ if(!admin) await connect(); await admin.forceStart(); }catch(err){ console.warn(err); } };
-  $('btnResetRoom').onclick = async ()=>{ try{ if(!admin) await connect(); await admin.resetRoom(); }catch(err){ console.warn(err); } };
+  $('btnResetRoom').onclick = async ()=>{ try{ if(!admin) await connect(); await admin.resetRoom(); await admin.clearRematch(); setStatus('Reset room แล้ว'); }catch(err){ console.warn(err); } };
 
   $('btnPresetStart10').onclick = async ()=>{
     try{
@@ -818,6 +861,20 @@ FULL PATCH v20260308-GJ-TEACHER-ESSENTIAL-READY
     }catch(err){ console.warn(err); }
   };
 
+  $('btnRefreshRematch').onclick = async ()=>{
+    try{
+      await refreshRematchOnce();
+      setStatus('Refresh rematch แล้ว');
+    }catch(err){ console.warn(err); }
+  };
+  $('btnClearRematch').onclick = async ()=>{
+    try{
+      if(!admin) await connect();
+      await admin.clearRematch();
+      setStatus('Clear rematch แล้ว');
+    }catch(err){ console.warn(err); }
+  };
+
   $('btnQuickSpectator').onclick = async ()=>{
     try{
       if(!admin) await connect();
@@ -835,6 +892,15 @@ FULL PATCH v20260308-GJ-TEACHER-ESSENTIAL-READY
       await admin.setAnnouncement('ห้องเปิดอีกครั้ง สามารถเข้าได้แล้ว', { tone:'success', ttlSec:12 });
     }catch(err){ console.warn(err); }
   };
+  $('btnQuickForceLobby').onclick = async ()=>{
+    try{
+      if(!admin) await connect();
+      await admin.resetRoom();
+      await admin.clearRematch();
+      await admin.setAnnouncement('กลับสู่ lobby แล้ว เตรียมเริ่มใหม่', { tone:'warn', ttlSec:12 });
+      setStatus('Force lobby แล้ว');
+    }catch(err){ console.warn(err); }
+  };
   $('btnQuickReset').onclick = async ()=>{
     try{
       if(!admin) await connect();
@@ -842,6 +908,7 @@ FULL PATCH v20260308-GJ-TEACHER-ESSENTIAL-READY
       await admin.clearRematch();
       await admin.resetRoom();
       await admin.setAnnouncement('รีเซ็ตห้องแล้ว เตรียมเริ่มใหม่', { tone:'warn', ttlSec:12 });
+      setStatus('Reset + clear แล้ว');
     }catch(err){ console.warn(err); }
   };
 
