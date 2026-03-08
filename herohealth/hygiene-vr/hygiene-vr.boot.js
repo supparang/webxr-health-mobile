@@ -1,9 +1,18 @@
 // === /herohealth/hygiene-vr/hygiene-vr.boot.js ===
-// Boot HygieneVR — PRODUCTION — PATCH v20260219c
+// Boot HygieneVR — PRODUCTION — PATCH v20260308d
 // ✅ Wait for deferred globals (Particles + Quiz bank) then boot engine safely
+// ✅ Wire Handwash end overlay -> cooldown gate
+// ✅ Auto-relabel end button to cooldown
 'use strict';
 
+import { buildCooldownUrlForCurrentGame } from '../gate/helpers/gate-link.js';
+
 function $id(id){ return document.getElementById(id); }
+
+function qs(k, d=null){
+  try{ return new URL(location.href).searchParams.get(k) ?? d; }
+  catch{ return d; }
+}
 
 function showBanner(msg){
   const banner = $id('banner');
@@ -52,6 +61,78 @@ function waitForGlobal(getter, ms){
   });
 }
 
+function goHub(){
+  const hub = qs('hub', '../hub.html');
+  location.href = hub;
+}
+
+function buildHandwashCooldownUrl(){
+  const endTitle = $id('endTitle')?.textContent?.trim() || '';
+  const endSub   = $id('endSub')?.textContent?.trim() || '';
+  const sumAcc   = $id('sumAcc')?.textContent?.trim() || '';
+  const sumMiss  = $id('sumMiss')?.textContent?.trim() || '';
+  const sumTop   = $id('sumTop')?.textContent?.trim() || '';
+  const sumTip   = $id('sumTip')?.textContent?.trim() || '';
+
+  return buildCooldownUrlForCurrentGame({
+    cat: 'hygiene',
+    game: 'handwash',
+    theme: 'handwash',
+    fallbackHub: '../hub.html',
+    extras: {
+      endTitle,
+      endSub,
+      sumAcc,
+      sumMiss,
+      sumTop,
+      sumTip
+    }
+  });
+}
+
+function goHandwashCooldown(){
+  location.href = buildHandwashCooldownUrl();
+}
+
+function wireStaticButtons(){
+  $id('btnBack2')?.addEventListener('click', goHub);
+}
+
+function wireEndOverlayButtons(){
+  const btnBackEnd = $id('btnBackEnd');
+  if(btnBackEnd && !btnBackEnd.dataset.cooldownWired){
+    btnBackEnd.dataset.cooldownWired = '1';
+    btnBackEnd.textContent = '➡ ไปคูลดาวน์';
+    btnBackEnd.addEventListener('click', (ev)=>{
+      ev.preventDefault();
+      goHandwashCooldown();
+    });
+  }
+
+  const endOverlay = $id('endOverlay');
+  if(!endOverlay) return;
+
+  // บาง engine อาจโชว์ overlay ทีหลัง / re-render ปุ่ม
+  const mo = new MutationObserver(()=>{
+    const btn = $id('btnBackEnd');
+    if(btn && !btn.dataset.cooldownWired){
+      btn.dataset.cooldownWired = '1';
+      btn.textContent = '➡ ไปคูลดาวน์';
+      btn.addEventListener('click', (ev)=>{
+        ev.preventDefault();
+        goHandwashCooldown();
+      });
+    }
+  });
+
+  mo.observe(endOverlay, {
+    childList: true,
+    subtree: true,
+    attributes: true,
+    attributeFilter: ['style', 'class']
+  });
+}
+
 async function main(){
   const stage = $id('stage');
   if(!stage){
@@ -59,7 +140,9 @@ async function main(){
     return;
   }
 
-  // let deferred scripts populate
+  wireStaticButtons();
+  wireEndOverlayButtons();
+
   const P = await waitForGlobal(()=>window.Particles, 900);
   if(!P) showBanner('⚠️ FX ไม่พร้อม (particles.js อาจหาย/404)');
 
@@ -82,9 +165,13 @@ async function main(){
   try{
     engine.boot();
     console.log('[HygieneBoot] engine.boot OK');
+
+    // กันกรณี engine สร้าง/แก้ปุ่มหลัง boot
+    setTimeout(wireEndOverlayButtons, 0);
+    setTimeout(wireEndOverlayButtons, 300);
+    setTimeout(wireEndOverlayButtons, 1000);
   }catch(err){
     showFatal('engine.boot() crash', err);
   }
 }
-
 main();
