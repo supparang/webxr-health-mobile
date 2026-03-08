@@ -1,6 +1,6 @@
 <!-- === /herohealth/goodjunk-kiosk.html ===
 HeroHealth • GoodJunk Kiosk
-PATCH v20260307-GJ-KIOSK-FULL
+PATCH v20260308-GJ-KIOSK-FULL-ALIGNED
 -->
 <!doctype html>
 <html lang="th">
@@ -44,7 +44,6 @@ PATCH v20260307-GJ-KIOSK-FULL
       box-shadow:var(--shadow);
     }
 
-    /* floating controls */
     #kioskControls{
       position:fixed;
       top:12px;
@@ -157,6 +156,7 @@ PATCH v20260307-GJ-KIOSK-FULL
       font-size:44px;
       line-height:1.15;
       font-weight:1000;
+      word-break:break-word;
     }
     .tone-info{ border-color: rgba(34,211,238,.22); }
     .tone-success{ border-color: rgba(34,197,94,.26); }
@@ -179,6 +179,7 @@ PATCH v20260307-GJ-KIOSK-FULL
       font-size:80px;
       line-height:1.0;
       font-weight:1000;
+      word-break:break-word;
     }
     .winner-sub{
       margin-top:10px;
@@ -233,6 +234,7 @@ PATCH v20260307-GJ-KIOSK-FULL
       width:0%;
       height:100%;
       border-radius:999px;
+      transition:width .18s ease;
     }
     #joinedFill{ background:linear-gradient(90deg,#22d3ee,#3b82f6); }
     #enteredFill{ background:linear-gradient(90deg,#34d399,#22c55e); }
@@ -265,6 +267,7 @@ PATCH v20260307-GJ-KIOSK-FULL
       line-height:1.05;
       font-weight:1000;
       margin-bottom:10px;
+      word-break:break-word;
     }
     .player-score{
       font-size:90px;
@@ -276,6 +279,7 @@ PATCH v20260307-GJ-KIOSK-FULL
       color:#cbd5e1;
       font-size:22px;
       font-weight:800;
+      word-break:break-word;
     }
 
     .winner-glow{
@@ -389,14 +393,14 @@ PATCH v20260307-GJ-KIOSK-FULL
         <div class="medal">🥇</div>
         <div id="p1Name" class="player-name">—</div>
         <div id="p1Score" class="player-score">0</div>
-        <div id="p1Sub" class="player-sub">acc 0% • miss 0</div>
+        <div id="p1Sub" class="player-sub">acc 0% • miss 0 • rt —</div>
       </div>
 
       <div id="p2Card" class="panel player-card">
         <div class="medal">🥈</div>
         <div id="p2Name" class="player-name">—</div>
         <div id="p2Score" class="player-score">0</div>
-        <div id="p2Sub" class="player-sub">acc 0% • miss 0</div>
+        <div id="p2Sub" class="player-sub">acc 0% • miss 0 • rt —</div>
       </div>
     </section>
 
@@ -418,6 +422,7 @@ PATCH v20260307-GJ-KIOSK-FULL
     let controlsHidden = false;
     let cleanMode = false;
     let controlsTimer = 0;
+    let announceExpireTimer = 0;
 
     function getDbCompat(){
       if(window.firebase?.database) return window.firebase.database();
@@ -435,12 +440,18 @@ PATCH v20260307-GJ-KIOSK-FULL
       el.style.width = `${pct}%`;
     }
 
+    function fmtMs(v){
+      const n = Number(v || 0) || 0;
+      return n > 0 ? `${n} ms` : '—';
+    }
+
     function getAttendanceStats(){
       const room = currentRoom();
 
-      const roster = Object.values(boardRosterRaw || {}).filter(r =>
-        String(r?.room || '').trim().toUpperCase() === room
-      );
+      const roster = Object.values(boardRosterRaw || {}).filter(r => {
+        const rr = String(r?.room || '').trim().toUpperCase();
+        return rr === room || !rr;
+      });
 
       const attendance = Object.values(boardAttendanceRaw || {}).filter(r =>
         String(r?.room || '').trim().toUpperCase() === room
@@ -487,15 +498,20 @@ PATCH v20260307-GJ-KIOSK-FULL
         `Roster ${s.total} คน • Joined ${s.joinedCount} • Entered ${s.enteredCount} • Absent ${s.absentCount}`;
     }
 
+    function sortPlayers(rows){
+      return rows.sort((a,b)=>
+        (Number(b.score||0)-Number(a.score||0)) ||
+        (Number(b.acc||0)-Number(a.acc||0)) ||
+        (Number(a.miss||0)-Number(b.miss||0)) ||
+        ((Number(a.medianRT||0) || Number.MAX_SAFE_INTEGER) - (Number(b.medianRT||0) || Number.MAX_SAFE_INTEGER)) ||
+        ((Number(a.finishMs||0) || Number.MAX_SAFE_INTEGER) - (Number(b.finishMs||0) || Number.MAX_SAFE_INTEGER))
+      );
+    }
+
     function renderPlayers(){
-      const rows = Object.entries(boardPlayersRaw || {})
-        .map(([k,v])=>({ key:k, ...(v||{}) }))
-        .sort((a,b)=>
-          (Number(b.score||0)-Number(a.score||0)) ||
-          (Number(b.acc||0)-Number(a.acc||0)) ||
-          (Number(a.miss||0)-Number(b.miss||0)) ||
-          (Number(a.medianRT||0)-Number(b.medianRT||0))
-        );
+      const rows = sortPlayers(
+        Object.entries(boardPlayersRaw || {}).map(([k,v])=>({ key:k, ...(v||{}) }))
+      );
 
       $('stPlayers').textContent = String(rows.length);
       $('stReady').textContent = String(rows.filter(r => !!r.ready).length);
@@ -505,11 +521,11 @@ PATCH v20260307-GJ-KIOSK-FULL
 
       $('p1Name').textContent = p1?.nick || '—';
       $('p1Score').textContent = String(Number(p1?.score || 0));
-      $('p1Sub').textContent = `acc ${Number(p1?.acc || 0)}% • miss ${Number(p1?.miss || 0)}`;
+      $('p1Sub').textContent = `acc ${Number(p1?.acc || 0)}% • miss ${Number(p1?.miss || 0)} • rt ${fmtMs(p1?.medianRT)}`;
 
       $('p2Name').textContent = p2?.nick || '—';
       $('p2Score').textContent = String(Number(p2?.score || 0));
-      $('p2Sub').textContent = `acc ${Number(p2?.acc || 0)}% • miss ${Number(p2?.miss || 0)}`;
+      $('p2Sub').textContent = `acc ${Number(p2?.acc || 0)}% • miss ${Number(p2?.miss || 0)} • rt ${fmtMs(p2?.medianRT)}`;
 
       $('p1Card').classList.remove('winner-glow');
       $('p2Card').classList.remove('winner-glow');
@@ -530,17 +546,27 @@ PATCH v20260307-GJ-KIOSK-FULL
     function renderWinner(st){
       const phase = String(st?.phase || '').toLowerCase();
       const winner = String(st?.winner || '');
+      const reason = String(st?.reason || '');
       const box = $('winnerBox');
 
       if(phase === 'ended' && winner){
         $('winnerName').textContent = winnerNameFromKey(winner);
+        $('winnerSub').textContent = reason ? `ผู้ชนะประจำรอบ • rule ${reason}` : 'ผู้ชนะประจำรอบ';
         box.style.display = 'block';
       }else{
         box.style.display = 'none';
       }
     }
 
+    function clearAnnouncementTimer(){
+      if(announceExpireTimer){
+        clearTimeout(announceExpireTimer);
+        announceExpireTimer = 0;
+      }
+    }
+
     function hideAnnouncement(){
+      clearAnnouncementTimer();
       const box = $('announcementBox');
       box.style.display = 'none';
       box.classList.remove('tone-info','tone-success','tone-warn','tone-danger');
@@ -550,6 +576,7 @@ PATCH v20260307-GJ-KIOSK-FULL
 
     function renderAnnouncement(a){
       boardAnnouncementRaw = a || {};
+      clearAnnouncementTimer();
 
       const msg = String(a?.message || '').trim();
       const tone = String(a?.tone || 'info').trim();
@@ -576,7 +603,11 @@ PATCH v20260307-GJ-KIOSK-FULL
 
       if(ttlSec > 0 && updatedAtMs > 0){
         const leftMs = Math.max(0, (updatedAtMs + ttlSec * 1000) - Date.now());
-        if(leftMs <= 0) hideAnnouncement();
+        if(leftMs <= 0){
+          hideAnnouncement();
+        }else{
+          announceExpireTimer = setTimeout(()=> hideAnnouncement(), leftMs);
+        }
       }
     }
 
@@ -622,9 +653,13 @@ PATCH v20260307-GJ-KIOSK-FULL
       $('btnCleanMode').textContent = cleanMode ? 'Normal Mode' : 'Clean Mode';
     }
 
-    function connect(){
+    function clearConnections(){
       offFns.forEach(fn=>{ try{ fn(); }catch(_){} });
       offFns = [];
+    }
+
+    function connect(){
+      clearConnections();
 
       const db = getDbCompat();
       if(!db){
@@ -695,13 +730,18 @@ PATCH v20260307-GJ-KIOSK-FULL
       if(controlsHidden) revealControlsTemp();
     };
 
+    $('roomInput').addEventListener('change', connect);
+    $('roomInput').addEventListener('keydown', (ev)=>{
+      if(ev.key === 'Enter') connect();
+    });
+
     document.addEventListener('mousemove', ()=> revealControlsTemp(), { passive:true });
     document.addEventListener('touchstart', ()=> revealControlsTemp(), { passive:true });
     document.addEventListener('keydown', ()=> revealControlsTemp());
 
     $('roomInput').value = qs('room', 'P5A');
-    setCleanMode(false);
-    setControlsHidden(false);
+    setCleanMode(qs('clean','0') === '1');
+    setControlsHidden(qs('hideui','0') === '1');
     connect();
   </script>
 </body>
