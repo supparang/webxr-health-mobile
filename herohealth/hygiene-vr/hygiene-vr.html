@@ -1,8 +1,9 @@
 <!-- === /herohealth/hygiene-vr/hygiene-vr.html ===
-HygieneVR RUN — PRODUCTION (HHA Standard) — PATCH v20260219c
+HygieneVR RUN — PRODUCTION (HHA Standard) — PATCH v20260308d
 ✅ FIX: End overlay scroll/tap on mobile
 ✅ FIX: Friendly summary for kids + JSON hidden in <details>
 ✅ Quiz bank: ./hygiene-quiz-bank.js (window.HHA_HYGIENE_QUIZ_BANK)
+✅ Handwash end flow -> cooldown gate
 -->
 <!doctype html>
 <html lang="th">
@@ -26,11 +27,11 @@ HygieneVR RUN — PRODUCTION (HHA Standard) — PATCH v20260219c
   <script src="../vr/hha-difficulty-director.js" defer></script>
   <script src="../vr/hha-badges.js" defer></script>
 
-  <!-- Quiz bank (✅ correct name) -->
+  <!-- Quiz bank -->
   <script src="./hygiene-quiz-bank.js" defer></script>
 
   <!-- Boot (module) -->
-  <script type="module" src="./hygiene-vr.boot.js?v=20260219c"></script>
+  <script type="module" src="./hygiene-vr.boot.js?v=20260308d"></script>
 </head>
 
 <body class="view-pc">
@@ -50,7 +51,6 @@ HygieneVR RUN — PRODUCTION (HHA Standard) — PATCH v20260219c
           <div class="hw-pill bad" id="pillMiss">MISS 0 / 3</div>
         </div>
 
-        <!-- Progress bars -->
         <div class="hw-bars">
           <div class="hw-bar">
             <div class="hw-bar-lab">STEP</div>
@@ -72,7 +72,6 @@ HygieneVR RUN — PRODUCTION (HHA Standard) — PATCH v20260219c
           <button class="hw-pill btn" id="btnBack" type="button">↩ HUB</button>
         </div>
 
-        <!-- Quiz box -->
         <div class="hw-quiz" id="quizBox" style="display:none">
           <div class="hw-quiz-q" id="quizQ">QUIZ</div>
           <div class="hw-quiz-sub" id="quizSub">—</div>
@@ -116,7 +115,6 @@ HygieneVR RUN — PRODUCTION (HHA Standard) — PATCH v20260219c
         <div class="hw-card-title" id="endTitle">จบเกม ✅</div>
         <div class="hw-card-sub" id="endSub">—</div>
 
-        <!-- Friendly summary -->
         <div class="hw-summary" id="kidSummary">
           <div class="hw-summary-title">สรุปแบบเข้าใจง่าย</div>
           <div class="hw-summary-grid">
@@ -127,7 +125,6 @@ HygieneVR RUN — PRODUCTION (HHA Standard) — PATCH v20260219c
           </div>
         </div>
 
-        <!-- Evaluate/Analyze -->
         <div class="hw-eval" id="evalBox">
           <div class="hw-eval-title">🧠 Evaluate + Analyze (เลือก “จุดเสี่ยงสุด”)</div>
           <div class="hw-eval-sub" id="evalSub">
@@ -155,7 +152,6 @@ HygieneVR RUN — PRODUCTION (HHA Standard) — PATCH v20260219c
           </div>
         </div>
 
-        <!-- Create routine -->
         <div class="hw-create" id="createBox" style="display:none">
           <div class="hw-eval-title">🧩 Create (ทำ Routine 30 วิ)</div>
           <div class="hw-eval-sub">เลือก “เวลาที่ต้องล้างมือ” 3 ข้อ เพื่อสร้างนิสัยของตัวเอง</div>
@@ -181,7 +177,6 @@ HygieneVR RUN — PRODUCTION (HHA Standard) — PATCH v20260219c
           </div>
         </div>
 
-        <!-- Raw JSON hidden -->
         <details class="hw-details" id="rawBox" style="margin-top:12px">
           <summary>ดูข้อมูลวิจัย (JSON)</summary>
           <pre class="hw-pre" id="endJson"></pre>
@@ -190,32 +185,10 @@ HygieneVR RUN — PRODUCTION (HHA Standard) — PATCH v20260219c
         <div class="hw-card-row" style="margin-top:12px">
           <button class="hw-cta" id="btnPlayAgain" type="button">▶ เล่นอีกครั้ง</button>
           <button class="hw-ghost" id="btnCopyJson" type="button">📋 Copy Summary</button>
-          <button class="hw-ghost" id="btnBackEnd" type="button">↩ กลับ HUB</button>
+          <button class="hw-ghost" id="btnBackEnd" type="button">➡ ไปคูลดาวน์</button>
         </div>
       </div>
     </div>
   </div>
-
-<script>
-(function(){
-  'use strict';
-  const qs = (k,d=null)=>{ try{return new URL(location.href).searchParams.get(k) ?? d;}catch{return d;} };
-
-  function setViewClass(){
-    const view = (qs('view','pc')||'pc').toLowerCase();
-    document.body.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
-    document.body.classList.add(view==='mobile'?'view-mobile':(view==='vr'?'view-vr':(view==='cvr'?'view-cvr':'view-pc')));
-    document.getElementById('labView').textContent = view;
-  }
-  setViewClass();
-  document.getElementById('labMode').textContent = (qs('run','play')||'play');
-  document.getElementById('labDiff').textContent = (qs('diff','normal')||'normal');
-
-  // end overlay back button (exists only there)
-  const hub = qs('hub','../hub.html');
-  document.getElementById('btnBackEnd')?.addEventListener('click', ()=>{ location.href = hub; });
-  document.getElementById('btnBack2')?.addEventListener('click', ()=>{ location.href = hub; });
-})();
-</script>
 </body>
 </html>
