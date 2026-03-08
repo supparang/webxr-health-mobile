@@ -89,7 +89,7 @@
     }
     .filters{
       display:grid; gap:10px;
-      grid-template-columns:1fr 1fr 1fr;
+      grid-template-columns:1.2fr 1fr 1fr 1fr;
       margin-top:12px;
     }
     input,select{
@@ -171,6 +171,43 @@
       overflow:auto;
       font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono",monospace;
     }
+    .cardish{
+      background:rgba(15,23,42,.58);
+      border:1px solid var(--stroke);
+      border-radius:18px;
+      padding:12px;
+    }
+    .chart-title{
+      font-size:13px;
+      font-weight:1000;
+      color:#cbd5e1;
+      margin-bottom:8px;
+    }
+    .phase-strip{
+      display:flex;
+      gap:6px;
+      flex-wrap:wrap;
+      min-height:48px;
+      align-items:flex-start;
+    }
+    .phase-pill{
+      padding:8px 10px;
+      border-radius:999px;
+      font-size:12px;
+      font-weight:1000;
+      border:1px solid rgba(255,255,255,.08);
+      background:rgba(2,6,23,.66);
+    }
+    .phase-pill.normal{ background:rgba(56,189,248,.16); }
+    .phase-pill.storm{ background:rgba(245,158,11,.16); }
+    .phase-pill.boss1,.phase-pill.boss2,.phase-pill.boss3{ background:rgba(168,85,247,.16); }
+    .phase-pill.final{ background:rgba(239,68,68,.16); }
+    canvas{
+      width:100%;
+      display:block;
+      background:rgba(2,6,23,.35);
+      border-radius:14px;
+    }
     @media (max-width: 980px){
       .hero,.layout,.stats,.filters,.detail-grid{ grid-template-columns:1fr; }
     }
@@ -184,10 +221,11 @@
         <h1>Teacher Dashboard</h1>
         <div class="sub">
           หน้านี้อ่านข้อมูลจาก <b>HHA_HYD_SUMMARY_HISTORY</b> และ <b>HHA_HYD_LAST_SUMMARY</b>
-          เพื่อให้ครูดูผลหลายรอบได้ในเครื่องเดียว
+          เพื่อให้ครูดูผลหลายรอบได้ในเครื่องเดียว หรือดึงจาก Apps Script/Google Sheet ได้
         </div>
 
         <div class="filters">
+          <input id="fApi" placeholder="Apps Script API URL" />
           <input id="fPid" placeholder="กรอง PID เช่น anon" />
           <select id="fGrade">
             <option value="">ทุกเกรด</option>
@@ -207,6 +245,8 @@
         </div>
 
         <div class="row">
+          <button class="btn primary" id="btnLoadLocal">ใช้ข้อมูลในเครื่อง</button>
+          <button class="btn good" id="btnLoadCloud">โหลดจาก Cloud</button>
           <button class="btn primary" id="btnRefresh">รีเฟรช</button>
           <button class="btn good" id="btnCopyHistory">คัดลอก history ทั้งหมด</button>
           <button class="btn warn" id="btnClearHistory">ล้าง history ทั้งหมด</button>
@@ -269,6 +309,26 @@
             <button class="btn good" id="btnCopyResearch">คัดลอก research packet</button>
           </div>
 
+          <div class="detail-grid" style="margin-top:14px">
+            <div class="cardish">
+              <div class="chart-title">Risk over time</div>
+              <canvas id="riskChart" height="180"></canvas>
+            </div>
+            <div class="cardish">
+              <div class="chart-title">Water over time</div>
+              <canvas id="waterChart" height="180"></canvas>
+            </div>
+            <div class="cardish">
+              <div class="chart-title">Combo over time</div>
+              <canvas id="comboChart" height="180"></canvas>
+            </div>
+            <div class="cardish">
+              <div class="chart-title">Phase timeline</div>
+              <div id="phaseStrip" class="phase-strip">—</div>
+            </div>
+          </div>
+
+          <div class="mono" id="detailEventsText">—</div>
           <div class="mono" id="detailJson">—</div>
         </div>
       </div>
@@ -280,12 +340,15 @@
       const $ = (id)=> document.getElementById(id);
 
       const ui = {
+        fApi: $('fApi'),
         fPid: $('fPid'),
         fGrade: $('fGrade'),
         fResult: $('fResult'),
         btnRefresh: $('btnRefresh'),
         btnCopyHistory: $('btnCopyHistory'),
         btnClearHistory: $('btnClearHistory'),
+        btnLoadLocal: $('btnLoadLocal'),
+        btnLoadCloud: $('btnLoadCloud'),
 
         emptyState: $('emptyState'),
         overviewText: $('overviewText'),
@@ -315,12 +378,21 @@
         detailChips: $('detailChips'),
         detailJson: $('detailJson'),
         btnCopyTeacher: $('btnCopyTeacher'),
-        btnCopyResearch: $('btnCopyResearch')
+        btnCopyResearch: $('btnCopyResearch'),
+
+        riskChart: $('riskChart'),
+        waterChart: $('waterChart'),
+        comboChart: $('comboChart'),
+        phaseStrip: $('phaseStrip'),
+        detailEventsText: $('detailEventsText'),
       };
 
       let rawHistory = [];
       let filtered = [];
       let activeIndex = -1;
+      let dataMode = 'local';
+      let cloudApi = '';
+      let activeCloudDetail = null;
 
       function safeJson(obj){
         try{ return JSON.stringify(obj, null, 2); }
@@ -333,6 +405,27 @@
         }catch(e){
           try{ prompt(label || 'Copy', String(txt || '')); }catch(_){}
         }
+      }
+
+      function mapReasonTextLocal(reason){
+        reason = String(reason || '');
+        if (reason === 'final-clear') return 'ชนะ Final Boss สำเร็จ';
+        if (reason === 'time') return 'หมดเวลา';
+        if (reason === 'miss-limit') return 'พลาดมากเกินไป';
+        if (reason === 'dehydrated') return 'ค่าน้ำหมด';
+        return reason;
+      }
+
+      function interpret(t){
+        if(!t) return '—';
+        const lines = [];
+        if((t.grade || '') === 'S' || (t.grade || '') === 'A') lines.push('ผลการเล่นโดยรวมอยู่ในระดับดี');
+        if((t.missBadHit || 0) >= 4) lines.push('ควรฝึกหลบของไม่ดีเพิ่มเติม');
+        if((t.missGoodExpired || 0) >= 4) lines.push('ควรฝึกเก็บน้ำให้เร็วขึ้น');
+        if((t.lightningHitCount || 0) >= 2) lines.push('ควรฝึกอ่าน safe zone และเตรียมโล่ก่อนฟ้าผ่า');
+        if((t.lightningBlockCount || 0) >= 2) lines.push('มีแนวโน้มอ่านเกมและกันฟ้าผ่าได้ดี');
+        if((t.feverUsed || 0) >= 1) lines.push('มีการเล่นต่อเนื่องดีจนเข้าสู่ FEVER');
+        return lines.length ? lines.join('\n') : 'รูปแบบการเล่นค่อนข้างสมดุล';
       }
 
       function loadHistory(){
@@ -398,6 +491,154 @@ Final clear rate: ${clearRate}%
 เกรดที่พบมากที่สุด: ${topGrade}`;
       }
 
+      function drawLineChart(canvas, rows, xKey, yKey, maxY){
+        if(!canvas) return;
+        const ctx = canvas.getContext('2d');
+        const w = canvas.width = Math.max(320, canvas.clientWidth || 320);
+        const h = canvas.height = 180;
+
+        ctx.clearRect(0,0,w,h);
+        ctx.fillStyle = 'rgba(2,6,23,.35)';
+        ctx.fillRect(0,0,w,h);
+
+        const pad = { l:34, r:12, t:12, b:24 };
+        const iw = w - pad.l - pad.r;
+        const ih = h - pad.t - pad.b;
+
+        ctx.strokeStyle = 'rgba(255,255,255,.10)';
+        ctx.lineWidth = 1;
+
+        for(let i=0;i<4;i++){
+          const y = pad.t + (ih * i / 3);
+          ctx.beginPath();
+          ctx.moveTo(pad.l, y);
+          ctx.lineTo(w - pad.r, y);
+          ctx.stroke();
+        }
+
+        if(!rows || !rows.length){
+          ctx.fillStyle = 'rgba(229,231,235,.7)';
+          ctx.font = '12px system-ui';
+          ctx.fillText('No data', pad.l, pad.t + 20);
+          return;
+        }
+
+        const xs = rows.map(r => Number(r[xKey] || 0));
+        const ys = rows.map(r => Number(r[yKey] || 0));
+
+        const minX = Math.min(...xs);
+        const maxX = Math.max(...xs, minX + 1);
+        const hiY = Math.max(maxY != null ? maxY : Math.max(...ys, 1), 1);
+
+        const px = (x)=> pad.l + ((x - minX) / Math.max(1, maxX - minX)) * iw;
+        const py = (y)=> pad.t + ih - (Math.max(0, y) / hiY) * ih;
+
+        ctx.strokeStyle = 'rgba(56,189,248,.95)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        rows.forEach((r, i)=>{
+          const x = px(Number(r[xKey] || 0));
+          const y = py(Number(r[yKey] || 0));
+          if(i===0) ctx.moveTo(x,y);
+          else ctx.lineTo(x,y);
+        });
+        ctx.stroke();
+
+        ctx.fillStyle = 'rgba(148,163,184,.9)';
+        ctx.font = '11px system-ui';
+        ctx.fillText(String(minX), pad.l, h - 6);
+        ctx.fillText(String(maxX), w - pad.r - 18, h - 6);
+        ctx.fillText(String(hiY), 6, pad.t + 10);
+      }
+
+      function renderPhaseStrip(rows){
+        if(!ui.phaseStrip) return;
+        if(!rows || !rows.length){
+          ui.phaseStrip.textContent = '—';
+          return;
+        }
+
+        const counts = {};
+        rows.forEach(r=>{
+          const p = String(r.phase || 'normal');
+          counts[p] = (counts[p] || 0) + 1;
+        });
+
+        ui.phaseStrip.innerHTML = Object.entries(counts).map(([phase,count])=>{
+          const cls = phase.replace(/\s+/g,'').toLowerCase();
+          return `<span class="phase-pill ${cls}">${phase} • ${count}s</span>`;
+        }).join('');
+      }
+
+      function renderEventSummary(detail){
+        if(!ui.detailEventsText) return;
+        if(!detail){
+          ui.detailEventsText.textContent = '—';
+          return;
+        }
+
+        const ec = detail.eventCounts || {};
+        const lines = [
+          `phase_enter: ${ec.phase_enter || 0}`,
+          `good_hit: ${ec.good_hit || 0}`,
+          `bad_hit: ${ec.bad_hit || 0}`,
+          `good_expire: ${ec.good_expire || 0}`,
+          `shield_hit: ${ec.shield_hit || 0}`,
+          `bad_block: ${ec.bad_block || 0}`,
+          `lightning_hit: ${ec.lightning_hit || 0}`,
+          `lightning_block: ${ec.lightning_block || 0}`,
+          `fever_start: ${ec.fever_start || 0}`,
+          `game_end: ${ec.game_end || 0}`
+        ];
+        ui.detailEventsText.textContent = lines.join('\n');
+      }
+
+      async function fetchJson(url){
+        const res = await fetch(url, { method:'GET' });
+        if(!res.ok) throw new Error(`HTTP ${res.status}`);
+        return await res.json();
+      }
+
+      async function loadCloudHistory(){
+        cloudApi = String(ui.fApi.value || '').trim();
+        if(!cloudApi) throw new Error('Missing Apps Script API URL');
+
+        const pid = encodeURIComponent(String(ui.fPid.value || '').trim());
+        const grade = encodeURIComponent(String(ui.fGrade.value || '').trim());
+        const result = encodeURIComponent(String(ui.fResult.value || '').trim());
+
+        const url =
+          `${cloudApi}?action=sessions` +
+          `&pid=${pid}` +
+          `&grade=${grade}` +
+          `&result=${result}` +
+          `&limit=150`;
+
+        const data = await fetchJson(url);
+        if(!data.ok) throw new Error(data.error || 'Cloud load failed');
+
+        rawHistory = (data.rows || []).map(r => ({
+          teacherSummary: {
+            sessionId: r.sessionId,
+            pid: r.pid,
+            result: mapReasonTextLocal(String(r.reason || '')),
+            reachedPhase: r.reachedPhaseText || r.phaseFinal || '—',
+            score: Number(r.scoreFinal || 0),
+            grade: r.grade || '',
+            waterPct: Number(r.waterPct || 0),
+            comboMax: Number(r.comboMax || 0),
+            missBadHit: Number(r.missBadHit || 0),
+            missGoodExpired: Number(r.missGoodExpired || 0),
+            lightningHitCount: Number(r.lightningHitCount || 0),
+            lightningBlockCount: Number(r.lightningBlockCount || 0),
+            feverUsed: Number(r.feverUsed || 0),
+            coachSummary: r.coachSummary || ''
+          },
+          researchPacket: { summary: r },
+          savedAtIso: r.receivedAtIso || r.endTimeIso || ''
+        }));
+      }
+
       function renderList(){
         ui.sessionList.innerHTML = '';
         ui.emptyState.hidden = filtered.length > 0;
@@ -419,9 +660,26 @@ Final clear rate: ${clearRate}%
               <span class="chip">Water ${t.waterPct ?? '—'}%</span>
             </div>
           `;
-          div.addEventListener('click', ()=>{
+          div.addEventListener('click', async ()=>{
             activeIndex = idx;
             renderList();
+
+            if(dataMode === 'cloud'){
+              try{
+                const sessionId = filtered[idx]?.teacherSummary?.sessionId || '';
+                if(sessionId && cloudApi){
+                  const url = `${cloudApi}?action=session_detail&sessionId=${encodeURIComponent(sessionId)}`;
+                  const detail = await fetchJson(url);
+                  if(detail.ok) activeCloudDetail = detail;
+                }
+              }catch(err){
+                console.error(err);
+                activeCloudDetail = null;
+              }
+            }else{
+              activeCloudDetail = null;
+            }
+
             renderDetail();
           });
           ui.sessionList.appendChild(div);
@@ -438,6 +696,7 @@ Final clear rate: ${clearRate}%
         const item = filtered[activeIndex];
         const t = item?.teacherSummary || {};
         const r = item?.researchPacket || {};
+        const detail = (dataMode === 'cloud') ? activeCloudDetail : null;
 
         ui.detailEmpty.hidden = true;
         ui.detailBlock.hidden = false;
@@ -468,9 +727,19 @@ Final clear rate: ${clearRate}%
 
         ui.btnCopyTeacher.onclick = ()=> copyText(safeJson(t), 'Copy teacher summary');
         ui.btnCopyResearch.onclick = ()=> copyText(safeJson(r), 'Copy research packet');
+
+        const timelineRows = detail?.timeline || [];
+        const featureRows = detail?.features_labels || [];
+
+        drawLineChart(ui.riskChart, timelineRows, 't', 'risk', 1);
+        drawLineChart(ui.waterChart, timelineRows, 't', 'waterPct', 100);
+        drawLineChart(ui.comboChart, timelineRows, 't', 'combo', Math.max(10, ...featureRows.map(r => Number(r.combo || 0), 0)));
+
+        renderPhaseStrip(timelineRows);
+        renderEventSummary(detail);
       }
 
-      function renderAll(){
+      function renderAllLocal(){
         loadHistory();
         applyFilters();
         computeStats();
@@ -480,11 +749,60 @@ Final clear rate: ${clearRate}%
         renderDetail();
       }
 
-      ui.fPid.addEventListener('input', ()=>{ activeIndex = -1; renderAll(); });
-      ui.fGrade.addEventListener('change', ()=>{ activeIndex = -1; renderAll(); });
-      ui.fResult.addEventListener('change', ()=>{ activeIndex = -1; renderAll(); });
+      async function renderAllAsync(){
+        if(dataMode === 'cloud'){
+          await loadCloudHistory();
+          applyFilters();
+          computeStats();
+          if(activeIndex >= filtered.length) activeIndex = filtered.length ? 0 : -1;
+          if(activeIndex === -1 && filtered.length) activeIndex = 0;
+          renderList();
+          renderDetail();
+          return;
+        }
+        renderAllLocal();
+      }
 
-      ui.btnRefresh.onclick = ()=> renderAll();
+      ui.fPid.addEventListener('input', ()=>{
+        activeIndex = -1;
+        activeCloudDetail = null;
+        renderAllAsync();
+      });
+      ui.fGrade.addEventListener('change', ()=>{
+        activeIndex = -1;
+        activeCloudDetail = null;
+        renderAllAsync();
+      });
+      ui.fResult.addEventListener('change', ()=>{
+        activeIndex = -1;
+        activeCloudDetail = null;
+        renderAllAsync();
+      });
+
+      ui.btnLoadLocal.onclick = ()=>{
+        dataMode = 'local';
+        activeIndex = -1;
+        renderAllLocal();
+      };
+
+      ui.btnLoadCloud.onclick = async ()=>{
+        try{
+          dataMode = 'cloud';
+          activeIndex = -1;
+          await renderAllAsync();
+        }catch(err){
+          alert(`Cloud load failed: ${err.message || err}`);
+        }
+      };
+
+      ui.btnRefresh.onclick = async ()=>{
+        try{
+          await renderAllAsync();
+        }catch(err){
+          alert(`Refresh failed: ${err.message || err}`);
+        }
+      };
+
       ui.btnCopyHistory.onclick = ()=> copyText(safeJson(rawHistory), 'Copy history');
       ui.btnClearHistory.onclick = ()=>{
         try{
@@ -492,10 +810,10 @@ Final clear rate: ${clearRate}%
           localStorage.removeItem('HHA_HYD_LAST_SUMMARY');
         }catch(e){}
         activeIndex = -1;
-        renderAll();
+        renderAllLocal();
       };
 
-      renderAll();
+      renderAllLocal();
     })();
   </script>
 </body>
