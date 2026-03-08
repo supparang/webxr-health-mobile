@@ -1,6 +1,6 @@
 <!-- === /herohealth/goodjunk-kiosk.html ===
 HeroHealth • GoodJunk Kiosk
-PATCH v20260308-GJ-KIOSK-MATCH-WINS
+PATCH v20260308-GJ-KIOSK-HISTORY
 -->
 <!doctype html>
 <html lang="th">
@@ -33,7 +33,7 @@ PATCH v20260308-GJ-KIOSK-MATCH-WINS
       overflow:hidden;
     }
     .wrap{
-      width:min(1440px, calc(100vw - 24px));
+      width:min(1540px, calc(100vw - 24px));
       margin:0 auto;
       padding:14px 12px 20px;
     }
@@ -94,13 +94,6 @@ PATCH v20260308-GJ-KIOSK-MATCH-WINS
     .top{
       padding:16px 18px;
       margin-bottom:14px;
-    }
-    .top-head{
-      display:flex;
-      align-items:flex-start;
-      justify-content:space-between;
-      gap:12px;
-      flex-wrap:wrap;
     }
     .badge{
       display:inline-block;
@@ -176,7 +169,7 @@ PATCH v20260308-GJ-KIOSK-MATCH-WINS
       margin-bottom:8px;
     }
     .winner-name{
-      font-size:80px;
+      font-size:72px;
       line-height:1.0;
       font-weight:1000;
       word-break:break-word;
@@ -185,6 +178,12 @@ PATCH v20260308-GJ-KIOSK-MATCH-WINS
       margin-top:10px;
       font-size:24px;
       color:#cbd5e1;
+    }
+
+    .layout{
+      display:grid;
+      grid-template-columns:1.3fr .7fr;
+      gap:16px;
     }
 
     .match{
@@ -214,19 +213,9 @@ PATCH v20260308-GJ-KIOSK-MATCH-WINS
       gap:14px;
       margin-bottom:14px;
     }
-    .stat{
-      padding:16px;
-    }
-    .k{
-      color:var(--muted);
-      font-size:13px;
-      margin-bottom:6px;
-    }
-    .v{
-      font-size:32px;
-      font-weight:1000;
-      line-height:1.05;
-    }
+    .stat{ padding:16px; }
+    .k{ color:var(--muted); font-size:13px; margin-bottom:6px; }
+    .v{ font-size:32px; font-weight:1000; line-height:1.05; }
 
     .progress{
       padding:16px;
@@ -308,12 +297,55 @@ PATCH v20260308-GJ-KIOSK-MATCH-WINS
       font-weight:1000;
       color:#fde68a;
     }
-
     .winner-glow{
       border-color:rgba(251,191,36,.40);
       box-shadow:
         0 0 0 1px rgba(251,191,36,.16) inset,
         0 0 34px rgba(251,191,36,.18);
+    }
+
+    .history-panel{
+      padding:16px;
+    }
+    .history-head{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-bottom:10px;
+    }
+    .history-title{
+      font-size:24px;
+      font-weight:1000;
+    }
+    .history-sub{
+      color:var(--muted);
+      font-size:13px;
+    }
+    .history-list{
+      display:grid;
+      gap:10px;
+      max-height:720px;
+      overflow:auto;
+      padding-right:4px;
+    }
+    .history-item{
+      border:1px solid rgba(148,163,184,.14);
+      background:rgba(2,6,23,.44);
+      border-radius:16px;
+      padding:12px;
+    }
+    .history-item-title{
+      font-size:14px;
+      font-weight:1000;
+      margin-bottom:6px;
+    }
+    .history-item-line{
+      font-size:12px;
+      line-height:1.6;
+      color:#cbd5e1;
+      word-break:break-word;
     }
 
     .bottom-note{
@@ -324,11 +356,10 @@ PATCH v20260308-GJ-KIOSK-MATCH-WINS
       font-weight:700;
     }
 
-    body.clean-mode .top{
-      display:none;
-    }
+    body.clean-mode .top{ display:none; }
 
-    @media (max-width:1100px){
+    @media (max-width:1280px){
+      .layout{ grid-template-columns:1fr; }
       .match,
       .stats,
       .progress-grid,
@@ -354,13 +385,9 @@ PATCH v20260308-GJ-KIOSK-MATCH-WINS
 
   <div class="wrap">
     <section class="top panel">
-      <div class="top-head">
-        <div>
-          <div class="badge">📺 GoodJunk Kiosk</div>
-          <div class="title">Classroom Battle Board</div>
-          <div class="sub">จอหน้าห้องสำหรับโปรเจกเตอร์ / ทีวี / kiosk mode</div>
-        </div>
-      </div>
+      <div class="badge">📺 GoodJunk Kiosk</div>
+      <div class="title">Classroom Battle Board</div>
+      <div class="sub">จอหน้าห้องสำหรับโปรเจกเตอร์ / ทีวี / kiosk mode</div>
 
       <div class="pill-row">
         <div class="pill">Room: <span id="roomTxt">P5A</span></div>
@@ -368,6 +395,7 @@ PATCH v20260308-GJ-KIOSK-MATCH-WINS
         <div class="pill">Round: <span id="roundTxt">—</span></div>
         <div class="pill">Winner: <span id="winnerTxt">—</span></div>
         <div class="pill">Champion: <span id="championTxt">—</span></div>
+        <div class="pill">History: <span id="historyCountTxt">0</span></div>
       </div>
     </section>
 
@@ -376,83 +404,91 @@ PATCH v20260308-GJ-KIOSK-MATCH-WINS
       <div id="announcementText" class="announce-text">—</div>
     </section>
 
-    <section class="match">
-      <div class="panel match-card">
-        <div class="match-k">Best Of</div>
-        <div id="bestOfTxt" class="match-v">3</div>
-      </div>
-      <div class="panel match-card">
-        <div class="match-k">Wins To Champion</div>
-        <div id="winsToChampionTxt" class="match-v">2</div>
-      </div>
-      <div class="panel match-card">
-        <div class="match-k">Match Status</div>
-        <div id="matchStatusTxt" class="match-v">LIVE</div>
-      </div>
-    </section>
-
-    <section id="winnerBox" class="winner panel">
-      <div class="winner-badge">🏆 CHAMPION</div>
-      <div id="winnerName" class="winner-name">—</div>
-      <div id="winnerSub" class="winner-sub">ผู้ชนะรวมของแมตช์</div>
-    </section>
-
-    <section class="stats">
-      <div class="stat panel"><div class="k">Players</div><div id="stPlayers" class="v">0</div></div>
-      <div class="stat panel"><div class="k">Ready</div><div id="stReady" class="v">0</div></div>
-      <div class="stat panel"><div class="k">Joined</div><div id="stJoined" class="v">0/0</div></div>
-      <div class="stat panel"><div class="k">Entered Game</div><div id="stEntered" class="v">0/0</div></div>
-    </section>
-
-    <section class="progress panel">
-      <div class="progress-grid">
-        <div>
-          <div class="bar-head">
-            <div>Joined</div>
-            <div id="joinedLabel">0/0</div>
+    <div class="layout">
+      <div>
+        <section class="match">
+          <div class="panel match-card">
+            <div class="match-k">Best Of</div>
+            <div id="bestOfTxt" class="match-v">3</div>
           </div>
-          <div class="bar-bg">
-            <div id="joinedFill" class="bar-fill"></div>
+          <div class="panel match-card">
+            <div class="match-k">Wins To Champion</div>
+            <div id="winsToChampionTxt" class="match-v">2</div>
+          </div>
+          <div class="panel match-card">
+            <div class="match-k">Match Status</div>
+            <div id="matchStatusTxt" class="match-v">LIVE</div>
+          </div>
+        </section>
+
+        <section id="winnerBox" class="winner panel">
+          <div class="winner-badge">🏆 CHAMPION</div>
+          <div id="winnerName" class="winner-name">—</div>
+          <div id="winnerSub" class="winner-sub">ผู้ชนะรวมของแมตช์</div>
+        </section>
+
+        <section class="stats">
+          <div class="stat panel"><div class="k">Players</div><div id="stPlayers" class="v">0</div></div>
+          <div class="stat panel"><div class="k">Ready</div><div id="stReady" class="v">0</div></div>
+          <div class="stat panel"><div class="k">Joined</div><div id="stJoined" class="v">0/0</div></div>
+          <div class="stat panel"><div class="k">Entered Game</div><div id="stEntered" class="v">0/0</div></div>
+        </section>
+
+        <section class="progress panel">
+          <div class="progress-grid">
+            <div>
+              <div class="bar-head">
+                <div>Joined</div>
+                <div id="joinedLabel">0/0</div>
+              </div>
+              <div class="bar-bg"><div id="joinedFill" class="bar-fill"></div></div>
+            </div>
+
+            <div>
+              <div class="bar-head">
+                <div>Entered Game</div>
+                <div id="enteredLabel">0/0</div>
+              </div>
+              <div class="bar-bg"><div id="enteredFill" class="bar-fill"></div></div>
+            </div>
+          </div>
+
+          <div id="progressSummary" class="progress-summary">
+            Roster 0 คน • Joined 0 • Entered 0 • Absent 0
+          </div>
+        </section>
+
+        <section class="scoreboard">
+          <div id="p1Card" class="panel player-card">
+            <div class="medal">🥇</div>
+            <div id="p1Name" class="player-name">—</div>
+            <div id="p1Score" class="player-score">0</div>
+            <div id="p1Sub" class="player-sub">acc 0% • miss 0 • rt —</div>
+            <div id="p1Wins" class="wins-line">wins 0</div>
+          </div>
+
+          <div id="p2Card" class="panel player-card">
+            <div class="medal">🥈</div>
+            <div id="p2Name" class="player-name">—</div>
+            <div id="p2Score" class="player-score">0</div>
+            <div id="p2Sub" class="player-sub">acc 0% • miss 0 • rt —</div>
+            <div id="p2Wins" class="wins-line">wins 0</div>
+          </div>
+        </section>
+      </div>
+
+      <aside class="panel history-panel">
+        <div class="history-head">
+          <div>
+            <div class="history-title">Round Archive</div>
+            <div class="history-sub">รายการรอบล่าสุดแบบย่อ</div>
           </div>
         </div>
-
-        <div>
-          <div class="bar-head">
-            <div>Entered Game</div>
-            <div id="enteredLabel">0/0</div>
-          </div>
-          <div class="bar-bg">
-            <div id="enteredFill" class="bar-fill"></div>
-          </div>
-        </div>
-      </div>
-
-      <div id="progressSummary" class="progress-summary">
-        Roster 0 คน • Joined 0 • Entered 0 • Absent 0
-      </div>
-    </section>
-
-    <section class="scoreboard">
-      <div id="p1Card" class="panel player-card">
-        <div class="medal">🥇</div>
-        <div id="p1Name" class="player-name">—</div>
-        <div id="p1Score" class="player-score">0</div>
-        <div id="p1Sub" class="player-sub">acc 0% • miss 0 • rt —</div>
-        <div id="p1Wins" class="wins-line">wins 0</div>
-      </div>
-
-      <div id="p2Card" class="panel player-card">
-        <div class="medal">🥈</div>
-        <div id="p2Name" class="player-name">—</div>
-        <div id="p2Score" class="player-score">0</div>
-        <div id="p2Sub" class="player-sub">acc 0% • miss 0 • rt —</div>
-        <div id="p2Wins" class="wins-line">wins 0</div>
-      </div>
-    </section>
-
-    <div class="bottom-note">
-      HeroHealth • GoodJunk • Kiosk Mode
+        <div id="historyList" class="history-list"></div>
+      </aside>
     </div>
+
+    <div class="bottom-note">HeroHealth • GoodJunk • Kiosk Mode</div>
   </div>
 
   <script>
@@ -466,6 +502,7 @@ PATCH v20260308-GJ-KIOSK-MATCH-WINS
     let boardAnnouncementRaw = {};
     let lastStateRaw = {};
     let matchRaw = {};
+    let roundHistoryRaw = {};
     let controlsHidden = false;
     let cleanMode = false;
     let controlsTimer = 0;
@@ -490,6 +527,20 @@ PATCH v20260308-GJ-KIOSK-MATCH-WINS
     function fmtMs(v){
       const n = Number(v || 0) || 0;
       return n > 0 ? `${n} ms` : '—';
+    }
+
+    function sortPlayers(rows){
+      return rows.sort((a,b)=>
+        (Number(b.score||0)-Number(a.score||0)) ||
+        (Number(b.acc||0)-Number(a.acc||0)) ||
+        (Number(a.miss||0)-Number(b.miss||0)) ||
+        ((Number(a.medianRT||0) || Number.MAX_SAFE_INTEGER) - (Number(b.medianRT||0) || Number.MAX_SAFE_INTEGER)) ||
+        ((Number(a.finishMs||0) || Number.MAX_SAFE_INTEGER) - (Number(b.finishMs||0) || Number.MAX_SAFE_INTEGER))
+      );
+    }
+
+    function sortHistoryRows(rows){
+      return rows.sort((a,b)=>(Number(b.createdAtMs||0)-Number(a.createdAtMs||0)));
     }
 
     function getAttendanceStats(){
@@ -545,20 +596,44 @@ PATCH v20260308-GJ-KIOSK-MATCH-WINS
         `Roster ${s.total} คน • Joined ${s.joinedCount} • Entered ${s.enteredCount} • Absent ${s.absentCount}`;
     }
 
-    function sortPlayers(rows){
-      return rows.sort((a,b)=>
-        (Number(b.score||0)-Number(a.score||0)) ||
-        (Number(b.acc||0)-Number(a.acc||0)) ||
-        (Number(a.miss||0)-Number(b.miss||0)) ||
-        ((Number(a.medianRT||0) || Number.MAX_SAFE_INTEGER) - (Number(b.medianRT||0) || Number.MAX_SAFE_INTEGER)) ||
-        ((Number(a.finishMs||0) || Number.MAX_SAFE_INTEGER) - (Number(b.finishMs||0) || Number.MAX_SAFE_INTEGER))
-      );
-    }
-
-    function winnerNameFromKey(key){
-      const rows = Object.entries(boardPlayersRaw || {}).map(([k,v])=>({ key:k, ...(v||{}) }));
+    function winnerNameFromKey(key, players){
+      const rows = players || Object.entries(boardPlayersRaw || {}).map(([k,v])=>({ key:k, ...(v||{}) }));
       const row = rows.find(r => String(r.key || '') === String(key || ''));
       return row?.nick || key || 'WINNER';
+    }
+
+    function renderHistory(){
+      const rows = sortHistoryRows(
+        Object.entries(roundHistoryRaw || {}).map(([key,v])=>({ key, ...(v||{}) }))
+      );
+      $('historyCountTxt').textContent = String(rows.length);
+
+      const box = $('historyList');
+      box.innerHTML = '';
+
+      if(!rows.length){
+        box.innerHTML = `
+          <div class="history-item">
+            <div class="history-item-title">ยังไม่มีประวัติรอบ</div>
+            <div class="history-item-line">เมื่อจบรอบ battle แล้วจะมีรายการแสดงตรงนี้</div>
+          </div>`;
+        return;
+      }
+
+      rows.slice(0,10).forEach((r, i)=>{
+        const players = Array.isArray(r.players) ? r.players : [];
+        const winner = winnerNameFromKey(r.winner, players);
+        const champion = winnerNameFromKey(r.matchChampion, players);
+
+        const div = document.createElement('div');
+        div.className = 'history-item';
+        div.innerHTML = `
+          <div class="history-item-title">#${rows.length - i} • winner ${winner}</div>
+          <div class="history-item-line">round ${r.roundId || '-'} • reason ${r.reason || '-'}</div>
+          <div class="history-item-line">champion ${champion} • complete ${!!r.matchComplete}</div>
+        `;
+        box.appendChild(div);
+      });
     }
 
     function renderPlayers(){
@@ -611,10 +686,6 @@ PATCH v20260308-GJ-KIOSK-MATCH-WINS
       }
 
       renderPlayers();
-    }
-
-    function renderWinner(st){
-      $('winnerTxt').textContent = st?.winner ? winnerNameFromKey(st.winner) : '—';
     }
 
     function clearAnnouncementTimer(){
@@ -675,7 +746,7 @@ PATCH v20260308-GJ-KIOSK-MATCH-WINS
       $('roomTxt').textContent = currentRoom();
       $('phaseTxt').textContent = st?.phase || '—';
       $('roundTxt').textContent = st?.roundId || '—';
-      renderWinner(st || {});
+      $('winnerTxt').textContent = st?.winner ? winnerNameFromKey(st.winner) : '—';
       renderPlayers();
       renderMatch();
     }
@@ -735,6 +806,7 @@ PATCH v20260308-GJ-KIOSK-MATCH-WINS
       const rosterRef = db.ref(`${base}/roster`);
       const announcementRef = db.ref(`${base}/announcement`);
       const matchRef = db.ref(`${base}/match`);
+      const historyRef = db.ref(`${base}/roundHistory`);
 
       const stateCb = snap => renderState(snap.val() || {});
       const playersCb = snap => {
@@ -749,12 +821,14 @@ PATCH v20260308-GJ-KIOSK-MATCH-WINS
         boardRosterRaw = snap.val() || {};
         renderProgress();
       };
-      const announcementCb = snap => {
-        renderAnnouncement(snap.val() || {});
-      };
+      const announcementCb = snap => renderAnnouncement(snap.val() || {});
       const matchCb = snap => {
         matchRaw = snap.val() || {};
         renderMatch();
+      };
+      const historyCb = snap => {
+        roundHistoryRaw = snap.val() || {};
+        renderHistory();
       };
 
       stateRef.on('value', stateCb);
@@ -763,6 +837,7 @@ PATCH v20260308-GJ-KIOSK-MATCH-WINS
       rosterRef.on('value', rosterCb);
       announcementRef.on('value', announcementCb);
       matchRef.on('value', matchCb);
+      historyRef.on('value', historyCb);
 
       offFns.push(()=>stateRef.off('value', stateCb));
       offFns.push(()=>playersRef.off('value', playersCb));
@@ -770,6 +845,7 @@ PATCH v20260308-GJ-KIOSK-MATCH-WINS
       offFns.push(()=>rosterRef.off('value', rosterCb));
       offFns.push(()=>announcementRef.off('value', announcementCb));
       offFns.push(()=>matchRef.off('value', matchCb));
+      offFns.push(()=>historyRef.off('value', historyCb));
     }
 
     $('btnConnect').onclick = connect;
@@ -787,10 +863,7 @@ PATCH v20260308-GJ-KIOSK-MATCH-WINS
       }
     };
 
-    $('btnCleanMode').onclick = ()=>{
-      setCleanMode(!cleanMode);
-    };
-
+    $('btnCleanMode').onclick = ()=> setCleanMode(!cleanMode);
     $('btnHideControls').onclick = ()=>{
       setControlsHidden(!controlsHidden);
       if(controlsHidden) revealControlsTemp();
