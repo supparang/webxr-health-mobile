@@ -1,50 +1,39 @@
 <!-- === /herohealth/goodjunk-board.html ===
-HeroHealth • GoodJunk Live Board
-FULL PATCH v20260308-GJ-BOARD-FULL-LIVE-PROJECTOR
+HeroHealth • GoodJunk Board
+PATCH v20260308-GJ-BOARD-MATCH-WINS
 -->
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>GoodJunk Live Board</title>
-  <meta name="color-scheme" content="dark light" />
+  <title>GoodJunk Board</title>
   <link rel="icon" href="./favicon.ico" />
+  <meta name="color-scheme" content="dark light" />
   <script src="./firebase-config.js"></script>
   <style>
     :root{
-      --bg1:#020617;
-      --bg2:#0b1226;
+      --bg1:#020617; --bg2:#0b1226;
       --panel:rgba(2,6,23,.74);
-      --panel2:rgba(15,23,42,.70);
       --stroke:rgba(148,163,184,.18);
-      --text:#e5e7eb;
-      --muted:#94a3b8;
-      --blue:#3b82f6;
-      --cyan:#22d3ee;
-      --good:#22c55e;
-      --warn:#f59e0b;
-      --danger:#ef4444;
+      --text:#e5e7eb; --muted:#94a3b8;
       --shadow:0 18px 60px rgba(0,0,0,.35);
     }
     *{ box-sizing:border-box; }
     html,body{
-      margin:0;
-      min-height:100%;
+      margin:0; min-height:100%;
       background:
         radial-gradient(1400px 900px at 50% -20%, rgba(34,211,238,.10), transparent 55%),
-        linear-gradient(180deg,var(--bg1),var(--bg2));
+        linear-gradient(180deg, var(--bg1), var(--bg2));
       color:var(--text);
       font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", sans-serif;
-      overflow-x:hidden;
+      overflow:hidden;
     }
-
     .wrap{
       width:min(1440px, calc(100vw - 24px));
       margin:0 auto;
-      padding:16px 12px 24px;
+      padding:14px 12px 20px;
     }
-
     .panel{
       background:linear-gradient(180deg, rgba(15,23,42,.82), rgba(2,6,23,.76));
       border:1px solid var(--stroke);
@@ -52,87 +41,32 @@ FULL PATCH v20260308-GJ-BOARD-FULL-LIVE-PROJECTOR
       box-shadow:var(--shadow);
     }
 
-    #controls{
-      position:fixed;
-      top:12px;
-      right:12px;
-      z-index:9999;
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      justify-content:flex-end;
-      transition:opacity .22s ease, transform .22s ease;
+    .top{
+      padding:16px 18px;
+      margin-bottom:14px;
     }
-    #controls.hidden-ui{
-      opacity:0;
-      pointer-events:none;
-      transform:translateY(-8px);
-    }
-    #controls button,
-    #controls input{
-      min-height:42px;
-      border-radius:14px;
-      border:1px solid var(--stroke);
-      background:rgba(2,6,23,.90);
-      color:var(--text);
-      padding:10px 12px;
-      font:inherit;
-      box-shadow:var(--shadow);
-    }
-    #controls button{
-      cursor:pointer;
-      border:0;
-      font-weight:1000;
-      color:white;
-      background:linear-gradient(135deg,#2563eb,#06b6d4);
-    }
-    #controls button.secondary{
-      background:rgba(15,23,42,.92);
-      color:var(--text);
-      border:1px solid var(--stroke);
-      box-shadow:none;
-    }
-    #roomInput{
-      width:110px;
-      text-transform:uppercase;
-      text-align:center;
-      font-weight:1000;
-    }
-
-    .hero{
-      padding:18px;
-      margin-bottom:16px;
-    }
-    .hero-top{
-      display:flex;
-      align-items:flex-start;
-      justify-content:space-between;
-      gap:12px;
-      flex-wrap:wrap;
-    }
-    .eyebrow{
+    .badge{
       display:inline-block;
       padding:8px 12px;
       border-radius:999px;
       background:rgba(34,211,238,.10);
       color:#a5f3fc;
       font-size:12px;
-      font-weight:1000;
+      font-weight:900;
       border:1px solid rgba(34,211,238,.18);
       margin-bottom:8px;
     }
-    h1{
-      margin:0;
+    .title{
       font-size:40px;
       line-height:1.03;
+      font-weight:1000;
+      margin:0;
     }
     .sub{
       margin-top:8px;
       color:var(--muted);
       font-size:14px;
-      line-height:1.6;
     }
-
     .pill-row{
       display:flex;
       flex-wrap:wrap;
@@ -144,824 +78,308 @@ FULL PATCH v20260308-GJ-BOARD-FULL-LIVE-PROJECTOR
       border-radius:999px;
       background:rgba(2,6,23,.66);
       border:1px solid var(--stroke);
+      font-weight:900;
       font-size:14px;
-      font-weight:1000;
     }
 
-    .announce{
-      display:none;
-      padding:18px;
-      margin-bottom:16px;
+    .match{
+      display:grid;
+      grid-template-columns:1fr 1fr 1fr;
+      gap:14px;
+      margin-bottom:14px;
+    }
+    .match-card{
+      padding:16px;
       text-align:center;
     }
-    .announce-title{
-      font-size:16px;
-      font-weight:1000;
-      margin-bottom:10px;
-      color:#a5f3fc;
-      letter-spacing:.5px;
+    .match-k{
+      color:var(--muted);
+      font-size:13px;
+      margin-bottom:8px;
     }
-    .announce-text{
-      font-size:42px;
-      line-height:1.15;
+    .match-v{
+      font-size:34px;
       font-weight:1000;
+      line-height:1.04;
     }
-    .tone-info{ border-color: rgba(34,211,238,.22); }
-    .tone-success{ border-color: rgba(34,197,94,.26); }
-    .tone-warn{ border-color: rgba(245,158,11,.28); }
-    .tone-danger{ border-color: rgba(239,68,68,.30); }
 
     .winner{
       display:none;
       padding:22px;
-      margin-bottom:16px;
+      margin-bottom:14px;
       text-align:center;
-      position:relative;
-      overflow:hidden;
-    }
-    .winner::before{
-      content:"";
-      position:absolute;
-      inset:-20%;
-      background:
-        radial-gradient(circle at center, rgba(251,191,36,.20), transparent 42%),
-        radial-gradient(circle at 20% 20%, rgba(34,211,238,.10), transparent 28%);
-      pointer-events:none;
     }
     .winner-badge{
-      position:relative;
       font-size:18px;
       font-weight:1000;
       color:#fde68a;
       margin-bottom:8px;
     }
     .winner-name{
-      position:relative;
       font-size:72px;
       line-height:1.0;
       font-weight:1000;
     }
     .winner-sub{
-      position:relative;
       margin-top:10px;
-      font-size:22px;
-      color:#cbd5e1;
-    }
-
-    .grid-top{
-      display:grid;
-      grid-template-columns:repeat(5,minmax(0,1fr));
-      gap:14px;
-      margin-bottom:16px;
-    }
-    .stat{
-      padding:16px;
-    }
-    .k{
-      color:var(--muted);
-      font-size:12px;
-      margin-bottom:6px;
-    }
-    .v{
-      font-size:30px;
-      line-height:1.05;
-      font-weight:1000;
-    }
-
-    .progress{
-      padding:16px;
-      margin-bottom:16px;
-    }
-    .progress-grid{
-      display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:16px;
-    }
-    .bar-head{
-      display:flex;
-      justify-content:space-between;
-      gap:10px;
-      margin-bottom:6px;
-      font-size:17px;
-      font-weight:1000;
-    }
-    .bar-bg{
-      height:16px;
-      border-radius:999px;
-      background:rgba(148,163,184,.14);
-      overflow:hidden;
-    }
-    .bar-fill{
-      height:100%;
-      width:0%;
-      border-radius:999px;
-      transition:width .18s ease;
-    }
-    #joinedFill{
-      background:linear-gradient(90deg,#22d3ee,#3b82f6);
-    }
-    #enteredFill{
-      background:linear-gradient(90deg,#34d399,#22c55e);
-    }
-    .progress-summary{
-      margin-top:12px;
-      text-align:center;
-      color:#cbd5e1;
-      font-size:18px;
-      font-weight:900;
-    }
-
-    .main-grid{
-      display:grid;
-      grid-template-columns:1.05fr .95fr;
-      gap:16px;
-      align-items:start;
-    }
-
-    .leaderboard{
-      padding:18px;
-    }
-    .leaderboard-head{
-      display:flex;
-      align-items:end;
-      justify-content:space-between;
-      gap:12px;
-      margin-bottom:12px;
-    }
-    .leaderboard h2,
-    .players-panel h2{
-      margin:0;
       font-size:24px;
-      line-height:1.1;
-    }
-    .muted{
-      color:var(--muted);
-      font-size:13px;
-      line-height:1.6;
+      color:#cbd5e1;
     }
 
-    .top2{
+    .scoreboard{
       display:grid;
       grid-template-columns:1fr 1fr;
-      gap:14px;
-      margin-top:12px;
+      gap:16px;
     }
     .player-card{
-      padding:18px;
+      padding:22px;
       text-align:center;
       position:relative;
       overflow:hidden;
     }
-    .player-medal{
-      font-size:40px;
+    .medal{
+      font-size:52px;
       margin-bottom:8px;
     }
     .player-name{
-      font-size:34px;
+      font-size:46px;
       line-height:1.05;
       font-weight:1000;
-      margin-bottom:8px;
+      margin-bottom:10px;
       word-break:break-word;
     }
     .player-score{
-      font-size:68px;
+      font-size:90px;
       line-height:1;
       font-weight:1000;
-      margin-bottom:10px;
+      margin-bottom:12px;
     }
     .player-sub{
-      font-size:18px;
       color:#cbd5e1;
-      font-weight:900;
+      font-size:22px;
+      font-weight:800;
+      word-break:break-word;
+    }
+    .wins-line{
+      margin-top:10px;
+      font-size:18px;
+      font-weight:1000;
+      color:#fde68a;
     }
     .winner-glow{
-      border-color:rgba(251,191,36,.42);
+      border-color:rgba(251,191,36,.40);
       box-shadow:
         0 0 0 1px rgba(251,191,36,.16) inset,
-        0 0 34px rgba(251,191,36,.16),
-        var(--shadow);
+        0 0 34px rgba(251,191,36,.18);
     }
 
-    .compare{
-      margin-top:14px;
-      border-radius:18px;
-      border:1px solid rgba(148,163,184,.14);
-      background:rgba(2,6,23,.44);
-      padding:12px;
-      overflow:auto;
-    }
-    .compare-title{
-      font-size:14px;
-      font-weight:1000;
-      margin-bottom:8px;
-    }
-    table.cmp{
-      width:100%;
-      border-collapse:collapse;
-    }
-    .cmp th,.cmp td{
-      padding:10px 8px;
-      border-bottom:1px solid rgba(148,163,184,.12);
-      text-align:center;
-      font-size:13px;
-    }
-    .cmp th:first-child,.cmp td:first-child{
-      text-align:left;
-    }
-    .cmp-win{
-      color:#86efac;
-      font-weight:1000;
-    }
-
-    .players-panel{
-      padding:16px;
-    }
-    .table-wrap{
-      overflow:auto;
-      border-radius:18px;
-      border:1px solid rgba(148,163,184,.12);
-      background:rgba(2,6,23,.44);
-      margin-top:10px;
-    }
-    table{
-      width:100%;
-      border-collapse:collapse;
-      font-size:13px;
-    }
-    th,td{
-      padding:10px 8px;
-      border-bottom:1px solid rgba(148,163,184,.10);
-      text-align:left;
-      white-space:nowrap;
-      vertical-align:top;
-    }
-    th{
-      color:#cbd5e1;
-      font-weight:1000;
-      background:rgba(15,23,42,.46);
-      position:sticky;
-      top:0;
-      z-index:1;
-    }
-
-    .footer-note{
-      margin-top:16px;
-      text-align:center;
-      color:#94a3b8;
-      font-size:13px;
-      font-weight:800;
-    }
-
-    body.clean-mode .hero{
-      display:none;
-    }
-
-    @media (max-width:1180px){
-      .grid-top{ grid-template-columns:repeat(3,minmax(0,1fr)); }
-      .main-grid{ grid-template-columns:1fr; }
-    }
-    @media (max-width:860px){
-      .progress-grid,.top2{ grid-template-columns:1fr; }
-      .winner-name{ font-size:52px; }
-      .announce-text{ font-size:32px; }
-      .player-name{ font-size:28px; }
-      .player-score{ font-size:56px; }
-      .player-sub{ font-size:16px; }
-    }
-    @media (max-width:640px){
-      .grid-top{ grid-template-columns:1fr 1fr; }
+    @media (max-width:1100px){
+      .match,
+      .scoreboard{
+        grid-template-columns:1fr;
+      }
+      .winner-name{ font-size:54px; }
+      .player-name{ font-size:34px; }
+      .player-score{ font-size:68px; }
+      .player-sub{ font-size:18px; }
     }
   </style>
 </head>
 <body>
-  <div id="controls">
-    <input id="roomInput" value="P5A" />
-    <button id="btnConnect">Connect</button>
-    <button id="btnFullscreen" class="secondary">Fullscreen</button>
-    <button id="btnCleanMode" class="secondary">Clean Mode</button>
-    <button id="btnHideUi" class="secondary">Hide UI</button>
-  </div>
+<div class="wrap">
+  <section class="top panel">
+    <div class="badge">🏁 GoodJunk Battle Board</div>
+    <div class="title">Classroom Battle Board</div>
+    <div class="sub">Room <span id="roomTxt">P5A</span> • Phase <span id="phaseTxt">—</span> • Round <span id="roundTxt">—</span></div>
 
-  <div class="wrap">
-    <section class="hero panel">
-      <div class="hero-top">
-        <div>
-          <div class="eyebrow">📺 GoodJunk Live Board</div>
-          <h1>Battle Room Monitor</h1>
-          <div class="sub">จอแสดงผลสดสำหรับหน้าห้องเรียน / โปรเจกเตอร์ / ทีวี แสดง phase, players, winner, announcement และ coverage แบบ realtime</div>
-        </div>
-      </div>
+    <div class="pill-row">
+      <div class="pill">Winner: <span id="winnerTxt">—</span></div>
+      <div class="pill">Rule: <span id="ruleTxt">—</span></div>
+      <div class="pill">Champion: <span id="championTxt">—</span></div>
+    </div>
+  </section>
 
-      <div class="pill-row">
-        <div class="pill">Room: <span id="roomTxt">P5A</span></div>
-        <div class="pill">Phase: <span id="phaseTxt">—</span></div>
-        <div class="pill">Round: <span id="roundTxt">—</span></div>
-        <div class="pill">Winner: <span id="winnerTxt">—</span></div>
-      </div>
-    </section>
+  <section class="match">
+    <div class="panel match-card">
+      <div class="match-k">Best Of</div>
+      <div id="bestOfTxt" class="match-v">3</div>
+    </div>
+    <div class="panel match-card">
+      <div class="match-k">Wins To Champion</div>
+      <div id="winsToChampionTxt" class="match-v">2</div>
+    </div>
+    <div class="panel match-card">
+      <div class="match-k">Match Status</div>
+      <div id="matchStatusTxt" class="match-v">LIVE</div>
+    </div>
+  </section>
 
-    <section id="announcementBox" class="announce panel">
-      <div id="announcementTitle" class="announce-title">📢 ANNOUNCEMENT</div>
-      <div id="announcementText" class="announce-text">—</div>
-    </section>
+  <section id="winnerBox" class="winner panel">
+    <div class="winner-badge">🏆 CHAMPION</div>
+    <div id="winnerName" class="winner-name">—</div>
+    <div id="winnerSub" class="winner-sub">ผู้ชนะรวมของแมตช์</div>
+  </section>
 
-    <section id="winnerBox" class="winner panel">
-      <div class="winner-badge">🏆 WINNER</div>
-      <div id="winnerName" class="winner-name">—</div>
-      <div id="winnerSub" class="winner-sub">ผู้ชนะประจำรอบ</div>
-    </section>
-
-    <section class="grid-top">
-      <div class="stat panel"><div class="k">Players</div><div id="stPlayers" class="v">0</div></div>
-      <div class="stat panel"><div class="k">Ready</div><div id="stReady" class="v">0</div></div>
-      <div class="stat panel"><div class="k">Joined</div><div id="stJoined" class="v">0/0</div></div>
-      <div class="stat panel"><div class="k">Entered</div><div id="stEntered" class="v">0/0</div></div>
-      <div class="stat panel"><div class="k">Absent</div><div id="stAbsent" class="v">0</div></div>
-    </section>
-
-    <section class="progress panel">
-      <div class="progress-grid">
-        <div>
-          <div class="bar-head">
-            <div>Joined</div>
-            <div id="joinedLabel">0/0</div>
-          </div>
-          <div class="bar-bg">
-            <div id="joinedFill" class="bar-fill"></div>
-          </div>
-        </div>
-
-        <div>
-          <div class="bar-head">
-            <div>Entered Game</div>
-            <div id="enteredLabel">0/0</div>
-          </div>
-          <div class="bar-bg">
-            <div id="enteredFill" class="bar-fill"></div>
-          </div>
-        </div>
-      </div>
-
-      <div id="progressSummary" class="progress-summary">
-        Roster 0 คน • Joined 0 • Entered 0 • Absent 0
-      </div>
-    </section>
-
-    <div class="main-grid">
-      <section class="leaderboard panel">
-        <div class="leaderboard-head">
-          <div>
-            <h2>Leaderboard</h2>
-            <div class="muted">Top 2 battle players และ compare metrics แบบสด</div>
-          </div>
-        </div>
-
-        <div class="top2">
-          <div id="p1Card" class="player-card panel">
-            <div class="player-medal">🥇</div>
-            <div id="p1Name" class="player-name">—</div>
-            <div id="p1Score" class="player-score">0</div>
-            <div id="p1Sub" class="player-sub">acc 0% • miss 0 • rt —</div>
-          </div>
-
-          <div id="p2Card" class="player-card panel">
-            <div class="player-medal">🥈</div>
-            <div id="p2Name" class="player-name">—</div>
-            <div id="p2Score" class="player-score">0</div>
-            <div id="p2Sub" class="player-sub">acc 0% • miss 0 • rt —</div>
-          </div>
-        </div>
-
-        <div class="compare">
-          <div class="compare-title">Live Compare</div>
-          <table class="cmp">
-            <thead>
-              <tr>
-                <th>Metric</th>
-                <th>P1</th>
-                <th>P2</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr><td>Score</td><td id="cmpScore1">—</td><td id="cmpScore2">—</td></tr>
-              <tr><td>Accuracy</td><td id="cmpAcc1">—</td><td id="cmpAcc2">—</td></tr>
-              <tr><td>Miss</td><td id="cmpMiss1">—</td><td id="cmpMiss2">—</td></tr>
-              <tr><td>Median RT</td><td id="cmpRt1">—</td><td id="cmpRt2">—</td></tr>
-              <tr><td>Finish</td><td id="cmpFinish1">—</td><td id="cmpFinish2">—</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <section class="players-panel panel">
-        <h2>Players & Room State</h2>
-        <div class="muted">รายชื่อผู้เล่นใน room ปัจจุบัน รวมสถานะ ready / connected / finish</div>
-
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Nick</th>
-                <th>PID</th>
-                <th>Ready</th>
-                <th>Conn</th>
-                <th>Score</th>
-                <th>Acc</th>
-                <th>Miss</th>
-                <th>Median RT</th>
-                <th>Finish</th>
-              </tr>
-            </thead>
-            <tbody id="tbodyPlayers">
-              <tr><td colspan="9" class="muted">ยังไม่มีผู้เล่น</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
+  <section class="scoreboard">
+    <div id="p1Card" class="panel player-card">
+      <div class="medal">🥇</div>
+      <div id="p1Name" class="player-name">—</div>
+      <div id="p1Score" class="player-score">0</div>
+      <div id="p1Sub" class="player-sub">acc 0% • miss 0 • rt —</div>
+      <div id="p1Wins" class="wins-line">wins 0</div>
     </div>
 
-    <div class="footer-note">
-      HeroHealth • GoodJunk • Live Board
+    <div id="p2Card" class="panel player-card">
+      <div class="medal">🥈</div>
+      <div id="p2Name" class="player-name">—</div>
+      <div id="p2Score" class="player-score">0</div>
+      <div id="p2Sub" class="player-sub">acc 0% • miss 0 • rt —</div>
+      <div id="p2Wins" class="wins-line">wins 0</div>
     </div>
-  </div>
+  </section>
+</div>
 
-  <script>
-    const $ = id => document.getElementById(id);
-    const qs = (k,d='')=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
+<script>
+  const $ = id => document.getElementById(id);
+  const qs = (k,d='')=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
 
-    let offFns = [];
-    let playersRaw = {};
-    let stateRaw = {};
-    let attendanceRaw = {};
-    let rosterRaw = {};
-    let announcementRaw = {};
-    let controlsHidden = false;
-    let cleanMode = false;
-    let controlsTimer = 0;
+  let offFns = [];
+  let boardPlayersRaw = {};
+  let lastStateRaw = {};
+  let matchRaw = {};
 
-    function db(){
-      return window.firebase?.database?.() || null;
-    }
+  function getDbCompat(){
+    if(window.firebase?.database) return window.firebase.database();
+    return null;
+  }
 
-    function room(){
-      return ($('roomInput').value || 'P5A').trim().toUpperCase();
-    }
+  function currentRoom(){
+    return String(qs('room', 'P5A')).trim().toUpperCase();
+  }
 
-    function fmtMs(v){
-      const n = Number(v || 0) || 0;
-      return n > 0 ? `${n} ms` : '—';
-    }
+  function fmtMs(v){
+    const n = Number(v || 0) || 0;
+    return n > 0 ? `${n} ms` : '—';
+  }
 
-    function setFill(id, pct){
-      const el = $(id);
-      if(!el) return;
-      pct = Math.max(0, Math.min(100, Number(pct || 0) || 0));
-      el.style.width = `${pct}%`;
-    }
+  function sortPlayers(rows){
+    return rows.sort((a,b)=>
+      (Number(b.score||0)-Number(a.score||0)) ||
+      (Number(b.acc||0)-Number(a.acc||0)) ||
+      (Number(a.miss||0)-Number(b.miss||0)) ||
+      ((Number(a.medianRT||0) || Number.MAX_SAFE_INTEGER) - (Number(b.medianRT||0) || Number.MAX_SAFE_INTEGER)) ||
+      ((Number(a.finishMs||0) || Number.MAX_SAFE_INTEGER) - (Number(b.finishMs||0) || Number.MAX_SAFE_INTEGER))
+    );
+  }
 
-    function clearControlsTimer(){
-      if(controlsTimer){
-        clearTimeout(controlsTimer);
-        controlsTimer = 0;
-      }
-    }
+  function winnerNameFromKey(key){
+    const rows = Object.entries(boardPlayersRaw || {}).map(([k,v])=>({ key:k, ...(v||{}) }));
+    const row = rows.find(r => String(r.key || '') === String(key || ''));
+    return row?.nick || key || 'WINNER';
+  }
 
-    function revealControlsTemp(){
-      if(!controlsHidden) return;
-      $('controls').classList.remove('hidden-ui');
-      clearControlsTimer();
-      controlsTimer = setTimeout(()=>{
-        if(controlsHidden) $('controls').classList.add('hidden-ui');
-      }, 3500);
-    }
+  function renderMatch(){
+    const m = matchRaw || {};
+    $('bestOfTxt').textContent = String(Number(m.bestOf || 3));
+    $('winsToChampionTxt').textContent = String(Number(m.winsToChampion || 2));
+    $('championTxt').textContent = m.champion ? winnerNameFromKey(m.champion) : '—';
+    $('matchStatusTxt').textContent = m.matchComplete ? 'COMPLETE' : 'LIVE';
 
-    function setControlsHidden(on){
-      controlsHidden = !!on;
-      $('btnHideUi').textContent = controlsHidden ? 'Show UI' : 'Hide UI';
-      if(controlsHidden){
-        $('controls').classList.add('hidden-ui');
-      }else{
-        $('controls').classList.remove('hidden-ui');
-      }
-    }
+    const rows = sortPlayers(
+      Object.entries(boardPlayersRaw || {}).map(([k,v])=>({ key:k, ...(v||{}) }))
+    );
+    const p1 = rows[0] || null;
+    const p2 = rows[1] || null;
 
-    function setCleanMode(on){
-      cleanMode = !!on;
-      document.body.classList.toggle('clean-mode', cleanMode);
-      $('btnCleanMode').textContent = cleanMode ? 'Normal Mode' : 'Clean Mode';
-    }
+    $('p1Wins').textContent = `wins ${Number((m.wins || {})[p1?.key] || 0)}`;
+    $('p2Wins').textContent = `wins ${Number((m.wins || {})[p2?.key] || 0)}`;
 
-    function getAttendanceStats(){
-      const roomCode = room();
-
-      const roster = Object.values(rosterRaw || {}).filter(r =>
-        String(r?.room || '').trim().toUpperCase() === roomCode || !r?.room
-      );
-
-      const attendance = Object.values(attendanceRaw || {}).filter(r =>
-        String(r?.room || '').trim().toUpperCase() === roomCode
-      );
-
-      const rosterKeys = new Set(
-        roster.map(r => String(r?.pid || r?.nick || '').trim()).filter(Boolean)
-      );
-
-      const joinedSet = new Set();
-      const enteredSet = new Set();
-
-      attendance.forEach(r=>{
-        const key = String(r?.pid || r?.nick || '').trim();
-        const source = String(r?.source || '');
-        if(!key) return;
-        if(source === 'student-join') joinedSet.add(key);
-        if(source === 'game-run') enteredSet.add(key);
-      });
-
-      const total = rosterKeys.size || roster.length || 0;
-      const joinedCount = total ? [...joinedSet].filter(k => rosterKeys.has(k)).length : joinedSet.size;
-      const enteredCount = total ? [...enteredSet].filter(k => rosterKeys.has(k)).length : enteredSet.size;
-      const absentCount = Math.max(0, total - enteredCount);
-
-      return { total, joinedCount, enteredCount, absentCount };
-    }
-
-    function compareWin(a, b, mode){
-      if(!a && !b) return { a:false, b:false };
-      if(a && !b) return { a:true, b:false };
-      if(!a && b) return { a:false, b:true };
-
-      const va = Number(a || 0) || 0;
-      const vb = Number(b || 0) || 0;
-
-      if(mode === 'higher'){
-        return { a: va > vb, b: vb > va };
-      }
-      if(mode === 'lower'){
-        return { a: va > 0 && (vb <= 0 || va < vb), b: vb > 0 && (va <= 0 || vb < va) };
-      }
-      return { a:false, b:false };
-    }
-
-    function renderAnnouncement(){
-      const a = announcementRaw || {};
-      const msg = String(a?.message || '').trim();
-      const tone = String(a?.tone || 'info').trim();
-      const ttlSec = Number(a?.ttlSec || 0) || 0;
-      const updatedAtMs = Number(a?.updatedAtMs || a?.createdAtMs || 0) || 0;
-
-      if(!msg){
-        hideAnnouncement();
-        return;
-      }
-
-      const box = $('announcementBox');
+    const box = $('winnerBox');
+    if(m.matchComplete && m.champion){
+      $('winnerName').textContent = winnerNameFromKey(m.champion);
+      $('winnerSub').textContent = `ชนะรวม ${Number((m.wins || {})[m.champion] || 0)} รอบ`;
       box.style.display = 'block';
-      box.classList.remove('tone-info','tone-success','tone-warn','tone-danger');
-      box.classList.add(`tone-${tone}`);
-
-      $('announcementTitle').textContent =
-        tone === 'danger' ? '🚨 ALERT' :
-        tone === 'warn' ? '⚠️ NOTICE' :
-        tone === 'success' ? '✅ UPDATE' :
-        '📢 ANNOUNCEMENT';
-
-      $('announcementText').textContent = msg;
-
-      if(ttlSec > 0 && updatedAtMs > 0){
-        const leftMs = Math.max(0, (updatedAtMs + ttlSec * 1000) - Date.now());
-        if(leftMs <= 0){
-          hideAnnouncement();
-        }
-      }
-    }
-
-    function hideAnnouncement(){
-      const box = $('announcementBox');
+    }else{
       box.style.display = 'none';
-      box.classList.remove('tone-info','tone-success','tone-warn','tone-danger');
-      $('announcementTitle').textContent = '📢 ANNOUNCEMENT';
-      $('announcementText').textContent = '—';
+    }
+  }
+
+  function renderState(st){
+    lastStateRaw = st || {};
+    $('roomTxt').textContent = currentRoom();
+    $('phaseTxt').textContent = st?.phase || '—';
+    $('roundTxt').textContent = st?.roundId || '—';
+    $('winnerTxt').textContent = st?.winner ? winnerNameFromKey(st.winner) : '—';
+    $('ruleTxt').textContent = st?.reason || '—';
+    renderPlayers();
+    renderMatch();
+  }
+
+  function renderPlayers(){
+    const rows = sortPlayers(
+      Object.entries(boardPlayersRaw || {}).map(([k,v])=>({ key:k, ...(v||{}) }))
+    );
+
+    const p1 = rows[0] || null;
+    const p2 = rows[1] || null;
+
+    $('p1Name').textContent = p1?.nick || '—';
+    $('p1Score').textContent = String(Number(p1?.score || 0));
+    $('p1Sub').textContent = `acc ${Number(p1?.acc || 0)}% • miss ${Number(p1?.miss || 0)} • rt ${fmtMs(p1?.medianRT)}`;
+
+    $('p2Name').textContent = p2?.nick || '—';
+    $('p2Score').textContent = String(Number(p2?.score || 0));
+    $('p2Sub').textContent = `acc ${Number(p2?.acc || 0)}% • miss ${Number(p2?.miss || 0)} • rt ${fmtMs(p2?.medianRT)}`;
+
+    $('p1Card').classList.remove('winner-glow');
+    $('p2Card').classList.remove('winner-glow');
+
+    const winnerKey = String(lastStateRaw?.winner || '');
+    if(winnerKey){
+      if(p1 && p1.key === winnerKey) $('p1Card').classList.add('winner-glow');
+      if(p2 && p2.key === winnerKey) $('p2Card').classList.add('winner-glow');
     }
 
-    function renderWinner(){
-      const phase = String(stateRaw?.phase || '').toLowerCase();
-      const winnerKey = String(stateRaw?.winner || '');
-      const box = $('winnerBox');
+    renderMatch();
+  }
 
-      if(phase !== 'ended' || !winnerKey){
-        box.style.display = 'none';
-        return;
-      }
+  function connect(){
+    offFns.forEach(fn=>{ try{ fn(); }catch(_){} });
+    offFns = [];
 
-      const rows = Object.entries(playersRaw || {}).map(([k,v])=>({ key:k, ...(v||{}) }));
-      const row = rows.find(r => String(r.key || '') === winnerKey);
-
-      $('winnerName').textContent = row?.nick || winnerKey || 'WINNER';
-      $('winnerSub').textContent = `ชนะจากรอบ ${stateRaw?.roundId || '—'} • rule ${stateRaw?.reason || 'score'}`;
-      box.style.display = 'block';
+    const db = getDbCompat();
+    if(!db){
+      alert('Firebase compat ยังไม่พร้อมใน firebase-config.js');
+      return;
     }
 
-    function renderHeaderState(){
-      $('roomTxt').textContent = room();
-      $('phaseTxt').textContent = stateRaw?.phase || '—';
-      $('roundTxt').textContent = stateRaw?.roundId || '—';
-      $('winnerTxt').textContent = stateRaw?.winner || '—';
-    }
+    const room = currentRoom();
+    const base = `hha-battle/goodjunk/rooms/${room}`;
 
-    function renderCoverage(){
-      const s = getAttendanceStats();
+    const stateRef = db.ref(`${base}/state`);
+    const playersRef = db.ref(`${base}/players`);
+    const matchRef = db.ref(`${base}/match`);
 
-      $('stJoined').textContent = `${s.joinedCount}/${s.total}`;
-      $('stEntered').textContent = `${s.enteredCount}/${s.total}`;
-      $('stAbsent').textContent = String(s.absentCount);
-
-      $('joinedLabel').textContent = `${s.joinedCount}/${s.total}`;
-      $('enteredLabel').textContent = `${s.enteredCount}/${s.total}`;
-
-      setFill('joinedFill', s.total ? (s.joinedCount / s.total) * 100 : 0);
-      setFill('enteredFill', s.total ? (s.enteredCount / s.total) * 100 : 0);
-
-      $('progressSummary').textContent =
-        `Roster ${s.total} คน • Joined ${s.joinedCount} • Entered ${s.enteredCount} • Absent ${s.absentCount}`;
-    }
-
-    function renderPlayers(){
-      const rows = Object.entries(playersRaw || {})
-        .map(([k,v])=>({ key:k, ...(v||{}) }))
-        .sort((a,b)=>
-          (Number(b.score||0)-Number(a.score||0)) ||
-          (Number(b.acc||0)-Number(a.acc||0)) ||
-          (Number(a.miss||0)-Number(b.miss||0)) ||
-          (Number(a.medianRT||0)-Number(b.medianRT||0))
-        );
-
-      $('stPlayers').textContent = String(rows.length);
-      $('stReady').textContent = String(rows.filter(r => !!r.ready).length);
-
-      if(!rows.length){
-        $('tbodyPlayers').innerHTML = `<tr><td colspan="9" class="muted">ยังไม่มีผู้เล่น</td></tr>`;
-      } else {
-        $('tbodyPlayers').innerHTML = rows.map(r=>`
-          <tr>
-            <td>${escapeHtml(r.nick || '-')}</td>
-            <td>${escapeHtml(r.pid || '-')}</td>
-            <td>${r.ready ? 'yes' : 'no'}</td>
-            <td>${r.connected !== false ? 'yes' : 'no'}</td>
-            <td>${Number(r.score || 0)}</td>
-            <td>${Number(r.acc || 0)}%</td>
-            <td>${Number(r.miss || 0)}</td>
-            <td>${fmtMs(r.medianRT)}</td>
-            <td>${fmtMs(r.finishMs)}</td>
-          </tr>
-        `).join('');
-      }
-
-      const p1 = rows[0] || null;
-      const p2 = rows[1] || null;
-
-      $('p1Name').textContent = p1?.nick || '—';
-      $('p1Score').textContent = String(Number(p1?.score || 0));
-      $('p1Sub').textContent = `acc ${Number(p1?.acc || 0)}% • miss ${Number(p1?.miss || 0)} • rt ${fmtMs(p1?.medianRT)}`;
-
-      $('p2Name').textContent = p2?.nick || '—';
-      $('p2Score').textContent = String(Number(p2?.score || 0));
-      $('p2Sub').textContent = `acc ${Number(p2?.acc || 0)}% • miss ${Number(p2?.miss || 0)} • rt ${fmtMs(p2?.medianRT)}`;
-
-      const winnerKey = String(stateRaw?.winner || '');
-      $('p1Card').classList.toggle('winner-glow', !!(p1 && winnerKey && p1.key === winnerKey));
-      $('p2Card').classList.toggle('winner-glow', !!(p2 && winnerKey && p2.key === winnerKey));
-
-      const scoreWin = compareWin(p1?.score, p2?.score, 'higher');
-      const accWin = compareWin(p1?.acc, p2?.acc, 'higher');
-      const missWin = compareWin(p1?.miss, p2?.miss, 'lower');
-      const rtWin = compareWin(p1?.medianRT, p2?.medianRT, 'lower');
-      const finishWin = compareWin(p1?.finishMs, p2?.finishMs, 'lower');
-
-      setCmp('cmpScore1', p1 ? String(Number(p1.score || 0)) : '—', scoreWin.a);
-      setCmp('cmpScore2', p2 ? String(Number(p2.score || 0)) : '—', scoreWin.b);
-
-      setCmp('cmpAcc1', p1 ? `${Number(p1.acc || 0)}%` : '—', accWin.a);
-      setCmp('cmpAcc2', p2 ? `${Number(p2.acc || 0)}%` : '—', accWin.b);
-
-      setCmp('cmpMiss1', p1 ? String(Number(p1.miss || 0)) : '—', missWin.a);
-      setCmp('cmpMiss2', p2 ? String(Number(p2.miss || 0)) : '—', missWin.b);
-
-      setCmp('cmpRt1', p1 ? fmtMs(p1.medianRT) : '—', rtWin.a);
-      setCmp('cmpRt2', p2 ? fmtMs(p2.medianRT) : '—', rtWin.b);
-
-      setCmp('cmpFinish1', p1 ? fmtMs(p1.finishMs) : '—', finishWin.a);
-      setCmp('cmpFinish2', p2 ? fmtMs(p2.finishMs) : '—', finishWin.b);
-    }
-
-    function setCmp(id, text, win){
-      const el = $(id);
-      if(!el) return;
-      el.textContent = text;
-      el.classList.toggle('cmp-win', !!win);
-    }
-
-    function escapeHtml(s){
-      return String(s)
-        .replaceAll('&', '&amp;')
-        .replaceAll('<', '&lt;')
-        .replaceAll('>', '&gt;')
-        .replaceAll('"', '&quot;')
-        .replaceAll("'", '&#39;');
-    }
-
-    function clearWatchers(){
-      offFns.forEach(fn=>{ try{ fn(); }catch(_){} });
-      offFns = [];
-    }
-
-    function watchPath(refObj, handler){
-      refObj.on('value', handler);
-      offFns.push(()=> refObj.off('value', handler));
-    }
-
-    function connect(){
-      clearWatchers();
-
-      const d = db();
-      if(!d){
-        alert('Firebase compat ยังไม่พร้อมใน firebase-config.js');
-        return;
-      }
-
-      const base = `hha-battle/goodjunk/rooms/${room()}`;
-
-      const stateRef = d.ref(`${base}/state`);
-      const playersRef = d.ref(`${base}/players`);
-      const attendanceRef = d.ref(`${base}/attendance`);
-      const rosterRef = d.ref(`${base}/roster`);
-      const announcementRef = d.ref(`${base}/announcement`);
-
-      watchPath(stateRef, snap=>{
-        stateRaw = snap.val() || {};
-        renderHeaderState();
-        renderWinner();
-        renderPlayers();
-      });
-
-      watchPath(playersRef, snap=>{
-        playersRaw = snap.val() || {};
-        renderPlayers();
-      });
-
-      watchPath(attendanceRef, snap=>{
-        attendanceRaw = snap.val() || {};
-        renderCoverage();
-      });
-
-      watchPath(rosterRef, snap=>{
-        rosterRaw = snap.val() || {};
-        renderCoverage();
-      });
-
-      watchPath(announcementRef, snap=>{
-        announcementRaw = snap.val() || {};
-        renderAnnouncement();
-      });
-
-      renderHeaderState();
-      renderCoverage();
+    const stateCb = snap => renderState(snap.val() || {});
+    const playersCb = snap => {
+      boardPlayersRaw = snap.val() || {};
       renderPlayers();
-      renderWinner();
-      renderAnnouncement();
-    }
-
-    $('btnConnect').onclick = connect;
-
-    $('btnFullscreen').onclick = async ()=>{
-      try{
-        const root = document.documentElement;
-        if(!document.fullscreenElement){
-          await root.requestFullscreen?.();
-        }else{
-          await document.exitFullscreen?.();
-        }
-      }catch(err){
-        console.warn(err);
-      }
+    };
+    const matchCb = snap => {
+      matchRaw = snap.val() || {};
+      renderMatch();
     };
 
-    $('btnCleanMode').onclick = ()=>{
-      setCleanMode(!cleanMode);
-    };
+    stateRef.on('value', stateCb);
+    playersRef.on('value', playersCb);
+    matchRef.on('value', matchCb);
 
-    $('btnHideUi').onclick = ()=>{
-      setControlsHidden(!controlsHidden);
-      if(controlsHidden) revealControlsTemp();
-    };
+    offFns.push(()=>stateRef.off('value', stateCb));
+    offFns.push(()=>playersRef.off('value', playersCb));
+    offFns.push(()=>matchRef.off('value', matchCb));
+  }
 
-    document.addEventListener('mousemove', ()=> revealControlsTemp(), { passive:true });
-    document.addEventListener('touchstart', ()=> revealControlsTemp(), { passive:true });
-    document.addEventListener('keydown', ()=> revealControlsTemp());
-
-    $('roomInput').value = qs('room', 'P5A');
-    setCleanMode(false);
-    setControlsHidden(false);
-    connect();
-  </script>
+  connect();
+</script>
 </body>
 </html>
