@@ -1,3 +1,7 @@
+// === /herohealth/gate/gate-common.js ===
+// HeroHealth Gate Common Helpers
+// PATCH v20260308-HYGIENE-GATE-COMMON
+
 export function qs(key, fallback=''){
   try{
     const u = new URL(location.href);
@@ -62,7 +66,7 @@ export function safeHub(){
 
 export function safeNext(){
   const v = qs('next', '');
-  if(!v) return '';
+  if(!v || v === '...') return '';
   try{
     return new URL(v, location.href).toString();
   }catch(_){
@@ -102,7 +106,9 @@ export function buildCtx(){
   const cat = qs('cat', 'hygiene').toLowerCase();
 
   const seedRaw = qs('seed', '');
-  const seed = seedRaw ? Number(seedRaw) || seedFrom(seedRaw) : seedFrom(`${game}|${mode}|${Date.now()}`);
+  const seed = seedRaw
+    ? Number(seedRaw) || seedFrom(seedRaw)
+    : seedFrom(`${game}|${mode}|${Date.now()}`);
 
   return {
     mode,
@@ -128,4 +134,20 @@ export function setText(elOrSel, value){
 
 export function pct(a, b){
   return b > 0 ? Math.round((a / b) * 100) : 0;
+}
+
+export function sanitizeBuffs(buffs={}){
+  const out = {};
+  Object.entries(buffs || {}).forEach(([k,v])=>{
+    if(v == null) return;
+    if(typeof v === 'number' && !Number.isFinite(v)) return;
+    out[k] = v;
+  });
+  return out;
+}
+
+export function saveLastSummary(payload){
+  try{
+    localStorage.setItem('HHA_GATE_LAST_SUMMARY', JSON.stringify(payload));
+  }catch(_){}
 }
