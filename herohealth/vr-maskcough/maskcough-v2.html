@@ -6,7 +6,7 @@
   <title>HeroHealth — MaskCough Arcade v2</title>
   <meta name="color-scheme" content="dark light" />
   <link rel="icon" href="../favicon.ico" />
-  <link rel="stylesheet" href="./maskcough-v2.css?v=20260306a" />
+  <link rel="stylesheet" href="./maskcough-v2.css?v=20260308b" />
 </head>
 <body>
   <div id="mcfxFlash" class="mcfx-flash" aria-hidden="true"></div>
@@ -88,7 +88,7 @@
 
       <div class="end-actions">
         <button id="btnEndRetry" class="btn accent" type="button">↻ เล่นอีกครั้ง</button>
-        <button id="btnEndBack" class="btn primary" type="button">🏰 กลับ HUB</button>
+        <button id="btnEndBack" class="btn primary" type="button">➡ ไป Cooldown</button>
       </div>
     </div>
   </section>
@@ -97,5 +97,103 @@
 
   <script src="../vr/vr-ui.js?v=20260306a"></script>
   <script src="./maskcough-v2.js?v=20260306a"></script>
+
+  <script type="module">
+    import { buildCooldownUrlForCurrentGame } from '../gate/helpers/gate-link.js';
+
+    const qs = (k, d='') => {
+      try { return new URL(location.href).searchParams.get(k) ?? d; }
+      catch { return d; }
+    };
+
+    function goHub(){
+      const hub = qs('hub', '../hub.html');
+      location.href = hub;
+    }
+
+    function buildMaskCoughCooldownUrl(){
+      const sScore = document.getElementById('sScore')?.textContent?.trim() || '';
+      const sComboMax = document.getElementById('sComboMax')?.textContent?.trim() || '';
+      const sPerfect = document.getElementById('sPerfect')?.textContent?.trim() || '';
+      const sMiss = document.getElementById('sMiss')?.textContent?.trim() || '';
+      const sShield = document.getElementById('sShield')?.textContent?.trim() || '';
+      const sThreat = document.getElementById('sThreat')?.textContent?.trim() || '';
+      const endNote = document.getElementById('endNote')?.textContent?.trim() || '';
+      const tPhase = document.getElementById('tPhase')?.textContent?.trim() || '';
+      const tMission = document.getElementById('tMission')?.textContent?.trim() || '';
+
+      return buildCooldownUrlForCurrentGame({
+        cat: 'hygiene',
+        game: 'maskcough',
+        theme: 'maskcough',
+        fallbackHub: '../hub.html',
+        extras: {
+          sScore,
+          sComboMax,
+          sPerfect,
+          sMiss,
+          sShield,
+          sThreat,
+          endNote,
+          tPhase,
+          tMission
+        }
+      });
+    }
+
+    function goMaskCoughCooldown(){
+      location.href = buildMaskCoughCooldownUrl();
+    }
+
+    function wireMaskCoughFlow(){
+      const btnBack = document.getElementById('btnBack');
+      const btnEndBack = document.getElementById('btnEndBack');
+      const endScreen = document.getElementById('endScreen');
+
+      if (btnBack && !btnBack.dataset.hubWired) {
+        btnBack.dataset.hubWired = '1';
+        btnBack.addEventListener('click', (ev) => {
+          ev.preventDefault();
+          goHub();
+        });
+      }
+
+      if (btnEndBack && !btnEndBack.dataset.cooldownWired) {
+        btnEndBack.dataset.cooldownWired = '1';
+        btnEndBack.textContent = '➡ ไป Cooldown';
+        btnEndBack.addEventListener('click', (ev) => {
+          ev.preventDefault();
+          goMaskCoughCooldown();
+        });
+      }
+
+      if (!endScreen || endScreen.dataset.observeWired) return;
+      endScreen.dataset.observeWired = '1';
+
+      const mo = new MutationObserver(() => {
+        const endBtn = document.getElementById('btnEndBack');
+        if (endBtn && !endBtn.dataset.cooldownWired) {
+          endBtn.dataset.cooldownWired = '1';
+          endBtn.textContent = '➡ ไป Cooldown';
+          endBtn.addEventListener('click', (ev) => {
+            ev.preventDefault();
+            goMaskCoughCooldown();
+          });
+        }
+      });
+
+      mo.observe(endScreen, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ['hidden', 'class', 'style']
+      });
+    }
+
+    wireMaskCoughFlow();
+    setTimeout(wireMaskCoughFlow, 0);
+    setTimeout(wireMaskCoughFlow, 300);
+    setTimeout(wireMaskCoughFlow, 1000);
+  </script>
 </body>
 </html>
