@@ -1,6 +1,6 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
 // GoodJunkVR SAFE — PRODUCTION
-// PATCH v20260308-GJ-SAFE-FULL-ATTENDANCE-SOUND-BOSSPACK
+// PATCH v20260308-GJ-SAFE-BATTLE-REMATCH-QA
 'use strict';
 
 export async function boot(cfg){
@@ -24,6 +24,7 @@ export async function boot(cfg){
   let battleRematchState = { roundId:'', requestedBy:'', requestedAtMs:0, votes:{} };
   let oppDisconnectedWarned = false;
   let lastOppConnected = true;
+  let rematchTransitioning = false;
 
   async function initBattleMaybe(pid, gameKey){
     if(!battleOn) return null;
@@ -615,12 +616,39 @@ export async function boot(cfg){
     sayCoach('GO! 🔥', true);
   };
 
+  function rebuildUrlForNextRound(nextRoundId){
+    const u = new URL(location.href);
+    if(nextRoundId) u.searchParams.set('roundId', String(nextRoundId));
+    u.searchParams.set('wait', '1');
+    return u.toString();
+  }
+
+  function handleBattleRematchReady(detail){
+    if(rematchTransitioning) return;
+    rematchTransitioning = true;
+    sayCoach('Rematch พร้อมแล้ว กลับ lobby รอบใหม่...', true);
+    try{
+      endOverlay && (endOverlay.style.display = 'none');
+    }catch(_){}
+    setTimeout(()=>{
+      location.href = rebuildUrlForNextRound(detail?.roundId || '');
+    }, 900);
+  }
+
   WIN.addEventListener('hha:battle-start', ()=>{ try{ WIN.__GJ_START_NOW__?.(); }catch(e){} });
   WIN.addEventListener('hha:battle-state', (ev)=>{
     try{
       const phase = String(ev?.detail?.phase || '').toLowerCase();
       if(phase === 'running' && paused) WIN.__GJ_START_NOW__?.();
     }catch(e){}
+  });
+
+  WIN.addEventListener('hha:battle-rematch-ready', (ev)=>{
+    try{
+      handleBattleRematchReady(ev?.detail || {});
+    }catch(e){
+      console.warn('[GoodJunk] rematch-ready handler failed', e);
+    }
   });
 
   WIN.addEventListener('hha:battle-players', (ev)=>{
@@ -663,6 +691,19 @@ export async function boot(cfg){
       battleRematchState = ev?.detail || { roundId:'', requestedBy:'', requestedAtMs:0, votes:{} };
       renderRematchUI();
       renderRematchEndStatus();
+
+      const meKey = String(battle?.meKey || '');
+      const requestedBy = String(battleRematchState?.requestedBy || '');
+      const myVote = (battleRematchState?.votes || {})[meKey] || null;
+      const others = Object.entries(battleRematchState?.votes || {}).filter(([k]) => k !== meKey);
+
+      if(requestedBy && requestedBy !== meKey && !myVote){
+        sayCoach('อีกฝ่ายขอ Rematch — ตอบรับหรือปฏิเสธได้เลย', true);
+      }else if(requestedBy && myVote?.accepted && others.length && others.some(([,v]) => v?.accepted)){
+        sayCoach('Rematch กำลังจะเริ่มใหม่...', true);
+      }else if(requestedBy && myVote?.declined){
+        sayCoach('คุณปฏิเสธ Rematch แล้ว', true);
+      }
     }catch(_){}
   });
 
@@ -1370,6 +1411,10 @@ export async function boot(cfg){
     const myVote = myRematchVote();
     const oppVote = oppRematchVote();
 
+    btnRequestRematch.disabled = false;
+    btnAcceptRematch.disabled = false;
+    btnDeclineRematch.disabled = false;
+
     btnRequestRematch.style.display = '';
     btnAcceptRematch.style.display = 'none';
     btnDeclineRematch.style.display = 'none';
@@ -1383,6 +1428,9 @@ export async function boot(cfg){
     if(requestedBy === meKey){
       btnRequestRematch.textContent = myVote?.accepted ? 'Waiting Opponent…' : 'Request Rematch';
       btnRequestRematch.disabled = true;
+      if(myVote?.declined){
+        btnRequestRematch.textContent = 'Declined';
+      }
       return;
     }
 
