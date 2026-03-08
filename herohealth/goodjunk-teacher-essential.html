@@ -1,7 +1,6 @@
-
 <!-- === /herohealth/goodjunk-teacher-essential.html ===
 HeroHealth • GoodJunk Teacher Essential
-FULL PATCH v20260308-GJ-TEACHER-ESSENTIAL-HISTORY
+FULL PATCH v20260308-GJ-TEACHER-ESSENTIAL-CSV
 -->
 <!doctype html>
 <html lang="th">
@@ -158,7 +157,7 @@ FULL PATCH v20260308-GJ-TEACHER-ESSENTIAL-HISTORY
     <div class="eyebrow">⚡ Teacher Essential</div>
     <h1>GoodJunk Classroom Control</h1>
     <div class="sub">
-      หน้าใช้งานเร็วสำหรับครูในคาบจริง เปิดห้อง ส่งลิงก์นักเรียน คุม countdown / announcement / policy / rematch / match และดู battle history ได้ในหน้าเดียว
+      หน้าใช้งานเร็วสำหรับครูในคาบจริง เปิดห้อง ส่งลิงก์นักเรียน คุม countdown / announcement / policy / rematch / match และ export CSV summary ได้
     </div>
 
     <div class="top-grid">
@@ -279,11 +278,6 @@ FULL PATCH v20260308-GJ-TEACHER-ESSENTIAL-HISTORY
         <button id="btnPresetPause" class="secondary">หยุดก่อน</button>
         <button id="btnPresetScan" class="secondary">สแกน QR ตอนนี้</button>
       </div>
-
-      <div class="note">
-        Reset Room = ล้างผู้เล่น/คะแนน/แมตช์/ประวัติรอบ
-        <br>Reset Match = คงผู้เล่น/roster/attendance แต่ล้าง wins/champion/ประวัติรอบ
-      </div>
     </section>
 
     <section class="card">
@@ -369,12 +363,13 @@ FULL PATCH v20260308-GJ-TEACHER-ESSENTIAL-HISTORY
 
     <section class="card" style="grid-column:1 / -1;">
       <h2>Battle History / Round Archive</h2>
-      <div class="desc">บันทึกรอบล่าสุดของ battle ใช้ดูว่าแต่ละรอบใครชนะและด้วยกติกาอะไร</div>
+      <div class="desc">ดูย้อนหลังและ export เป็น CSV ได้</div>
 
-      <div class="actions-3">
+      <div class="actions-4">
         <button id="btnRefreshHistory" class="secondary">Refresh History</button>
         <button id="btnClearHistory" class="warn">Clear History</button>
         <button id="btnExportText" class="secondary">Copy Summary Text</button>
+        <button id="btnExportCsv" class="good">Export CSV</button>
       </div>
 
       <div id="historySummary" class="status">History: —</div>
@@ -465,6 +460,23 @@ FULL PATCH v20260308-GJ-TEACHER-ESSENTIAL-HISTORY
     ta.select();
     document.execCommand('copy');
     ta.remove();
+  }
+
+  function downloadCsv(filename, text){
+    const blob = new Blob([text], { type:'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  function csvEscape(v){
+    const s = String(v ?? '');
+    return `"${s.replace(/"/g, '""')}"`;
   }
 
   function refreshLinks(){
@@ -597,13 +609,12 @@ FULL PATCH v20260308-GJ-TEACHER-ESSENTIAL-HISTORY
     }
 
     rows.slice(0,20).forEach((r, idx)=>{
-      const item = document.createElement('div');
-      item.className = 'history-item';
-
       const players = Array.isArray(r.players) ? r.players : [];
       const winner = winnerName(r.winner, players);
       const champion = winnerName(r.matchChampion, players);
 
+      const item = document.createElement('div');
+      item.className = 'history-item';
       item.innerHTML = `
         <div class="history-title">#${rows.length - idx} • round ${r.roundId || '-'} • winner ${winner}</div>
         <div class="history-line">reason = ${r.reason || '-'} • match bestOf = ${Number(r.matchBestOf || 3)} • complete = ${!!r.matchComplete}</div>
@@ -622,6 +633,67 @@ FULL PATCH v20260308-GJ-TEACHER-ESSENTIAL-HISTORY
       const champion = winnerName(r.matchChampion, players);
       return `${idx+1}. round=${r.roundId || '-'} winner=${winner} reason=${r.reason || '-'} champion=${champion} wins=${JSON.stringify(r.matchWins || {})}`;
     }).join('\n');
+  }
+
+  function exportHistoryCsv(){
+    const rows = sortHistoryItems();
+    const headers = [
+      'room',
+      'roundId',
+      'winner',
+      'reason',
+      'matchBestOf',
+      'matchWinsToChampion',
+      'matchChampion',
+      'matchComplete',
+      'player1Key',
+      'player1Nick',
+      'player1Score',
+      'player1Acc',
+      'player1Miss',
+      'player1MedianRT',
+      'player2Key',
+      'player2Nick',
+      'player2Score',
+      'player2Acc',
+      'player2Miss',
+      'player2MedianRT',
+      'createdAtMs'
+    ];
+
+    const lines = [headers.map(csvEscape).join(',')];
+
+    rows.forEach(r=>{
+      const players = Array.isArray(r.players) ? r.players : [];
+      const p1 = players[0] || {};
+      const p2 = players[1] || {};
+      const row = [
+        room(),
+        r.roundId || '',
+        winnerName(r.winner, players),
+        r.reason || '',
+        Number(r.matchBestOf || 3),
+        Number(r.matchWinsToChampion || 2),
+        winnerName(r.matchChampion, players),
+        !!r.matchComplete,
+        p1.key || '',
+        p1.nick || '',
+        Number(p1.score || 0),
+        Number(p1.acc || 0),
+        Number(p1.miss || 0),
+        Number(p1.medianRT || 0),
+        p2.key || '',
+        p2.nick || '',
+        Number(p2.score || 0),
+        Number(p2.acc || 0),
+        Number(p2.miss || 0),
+        Number(p2.medianRT || 0),
+        Number(r.createdAtMs || 0)
+      ];
+      lines.push(row.map(csvEscape).join(','));
+    });
+
+    return lines.join('\n');
   }
 
   async function refreshAttendance(){
@@ -936,6 +1008,16 @@ FULL PATCH v20260308-GJ-TEACHER-ESSENTIAL-HISTORY
       await copyText(historySummaryText());
       setStatus('คัดลอก history summary แล้ว');
     }catch(err){ console.warn(err); }
+  };
+  $('btnExportCsv').onclick = ()=>{
+    try{
+      const csv = exportHistoryCsv();
+      downloadCsv(`goodjunk-history-${room()}.csv`, csv);
+      setStatus('Export CSV แล้ว');
+    }catch(err){
+      console.warn(err);
+      setStatus(`Export CSV ไม่สำเร็จ: ${err?.message || err}`);
+    }
   };
 
   ['room','view','diff','time','hub','bestOf'].forEach(id=>{
