@@ -293,4 +293,120 @@ html,body{ height:100%; margin:0; background:var(--bg); color:var(--text);
   z-index:30;
   pointer-events:none;
 }
+/* =========================================================
+   Bath END PANEL — MOBILE SCROLL / TAP FIX
+   PATCH v20260308-BATH-ENDPANEL-SCROLLFIX
+   เติมท้ายไฟล์ bath.css เดิม
+   ========================================================= */
+
+#panelEnd{
+  position: fixed;
+  inset: 0;
+  z-index: 10000 !important;
+  display: grid;
+  place-items: center;
+  padding:
+    max(12px, env(safe-area-inset-top))
+    12px
+    max(12px, env(safe-area-inset-bottom));
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+}
+
+#panelEnd.hidden{
+  display: none !important;
+}
+
+#panelEnd .panel-card{
+  width: min(980px, 100%);
+  max-height: calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  pointer-events: auto;
+  box-sizing: border-box;
+  position: relative;
+}
+
+@supports not (height: 100dvh){
+  #panelEnd .panel-card{
+    max-height: calc(100vh - 24px);
+  }
+}
+
+#panelEnd .panel-card .row:last-child{
+  position: sticky;
+  bottom: 0;
+  z-index: 3;
+  background: inherit;
+  padding-top: 10px;
+  padding-bottom: max(8px, env(safe-area-inset-bottom));
+}
+
+#panelEnd .chips{
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+#panelEnd .chip,
+#panelEnd .star,
+#panelEnd .pbtn,
+#panelEnd .btn{
+  touch-action: manipulation;
+  pointer-events: auto;
+}
+
+#panelEnd,
+#panelEnd *{
+  pointer-events: auto;
+}
+
+#stage,
+#bath-layer,
+#body-wrap,
+#target-layer,
+#crosshair-fallback{
+  pointer-events: auto;
+}
+
+#panelEnd .heatmap{
+  overflow: visible;
+}
+
+@media (max-width: 768px){
+  #panelEnd{
+    align-items: start;
+    place-items: start center;
+    padding:
+      max(8px, env(safe-area-inset-top))
+      8px
+      max(8px, env(safe-area-inset-bottom));
+  }
+
+  #panelEnd .panel-card{
+    width: 100%;
+    max-height: calc(100dvh - 16px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    border-radius: 18px;
+  }
+
+  @supports not (height: 100dvh){
+    #panelEnd .panel-card{
+      max-height: calc(100vh - 16px);
+    }
+  }
+
+  #panelEnd .panel-card .row{
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  #panelEnd .chip,
+  #panelEnd .btn{
+    min-height: 42px;
+  }
+}
 #crosshair-fallback{ display:none; }
