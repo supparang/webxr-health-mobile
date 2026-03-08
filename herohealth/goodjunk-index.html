@@ -1,0 +1,663 @@
+<!-- === /herohealth/goodjunk-index.html ===
+HeroHealth • GoodJunk Index
+PATCH v20260307-GJ-INDEX-FULL
+-->
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>GoodJunk Index</title>
+  <meta name="color-scheme" content="dark light" />
+  <link rel="icon" href="./favicon.ico" />
+  <style>
+    :root{
+      --bg1:#020617;
+      --bg2:#0b1226;
+      --stroke:rgba(148,163,184,.18);
+      --text:#e5e7eb;
+      --muted:#94a3b8;
+      --shadow:0 18px 60px rgba(0,0,0,.35);
+    }
+    *{ box-sizing:border-box; }
+    html,body{
+      margin:0;
+      min-height:100%;
+      background:
+        radial-gradient(1400px 900px at 50% -20%, rgba(34,211,238,.10), transparent 55%),
+        linear-gradient(180deg, var(--bg1), var(--bg2));
+      color:var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", sans-serif;
+    }
+    .wrap{
+      width:min(1240px, calc(100vw - 24px));
+      margin:0 auto;
+      padding:20px 12px 32px;
+    }
+    .hero,.card,.tile{
+      background:linear-gradient(180deg, rgba(15,23,42,.82), rgba(2,6,23,.76));
+      border:1px solid var(--stroke);
+      border-radius:24px;
+      box-shadow:var(--shadow);
+    }
+    .hero{
+      padding:22px;
+      margin-bottom:18px;
+    }
+    .eyebrow{
+      display:inline-block;
+      padding:8px 12px;
+      border-radius:999px;
+      background:rgba(34,211,238,.10);
+      color:#a5f3fc;
+      font-size:12px;
+      font-weight:900;
+      border:1px solid rgba(34,211,238,.18);
+    }
+    h1{
+      margin:12px 0 8px;
+      font-size:40px;
+      line-height:1.03;
+    }
+    .sub{
+      color:var(--muted);
+      font-size:15px;
+      line-height:1.7;
+      max-width:860px;
+    }
+    .toolbar{
+      display:grid;
+      grid-template-columns:1.1fr .9fr .9fr .9fr;
+      gap:12px;
+      margin-top:16px;
+    }
+    label{
+      display:block;
+      font-size:12px;
+      color:var(--muted);
+      margin-bottom:6px;
+    }
+    input,select,button{
+      width:100%;
+      min-height:46px;
+      border-radius:14px;
+      border:1px solid var(--stroke);
+      background:rgba(2,6,23,.80);
+      color:var(--text);
+      padding:10px 12px;
+      font:inherit;
+    }
+    button{
+      cursor:pointer;
+      border:0;
+      font-weight:900;
+      color:white;
+      background:linear-gradient(135deg,#2563eb,#06b6d4);
+      box-shadow:0 10px 26px rgba(37,99,235,.28);
+    }
+    button.secondary{
+      background:rgba(15,23,42,.92);
+      border:1px solid var(--stroke);
+      color:var(--text);
+      box-shadow:none;
+    }
+    .row-actions{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:10px;
+      margin-top:12px;
+    }
+    .section{
+      margin-top:18px;
+    }
+    .section-head{
+      display:flex;
+      align-items:end;
+      justify-content:space-between;
+      gap:12px;
+      margin-bottom:12px;
+    }
+    .section-title{
+      font-size:24px;
+      font-weight:1000;
+      line-height:1.1;
+    }
+    .section-sub{
+      color:var(--muted);
+      font-size:13px;
+      margin-top:4px;
+    }
+    .grid{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:14px;
+    }
+    .tile{
+      padding:16px;
+    }
+    .tile .icon{
+      font-size:34px;
+      margin-bottom:8px;
+    }
+    .tile .title{
+      font-size:18px;
+      font-weight:1000;
+      margin-bottom:6px;
+    }
+    .tile .desc{
+      color:var(--muted);
+      font-size:13px;
+      line-height:1.6;
+      min-height:62px;
+      margin-bottom:12px;
+    }
+    .tile .btns{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+    }
+    .card{
+      padding:16px;
+    }
+    .status{
+      margin-top:12px;
+      padding:10px 12px;
+      border-radius:14px;
+      background:rgba(2,6,23,.56);
+      border:1px solid var(--stroke);
+      color:#cbd5e1;
+      font-size:13px;
+    }
+    .note{
+      margin-top:12px;
+      padding:12px 14px;
+      border-radius:16px;
+      background:rgba(2,6,23,.56);
+      border:1px solid var(--stroke);
+      color:#cbd5e1;
+      font-size:13px;
+      line-height:1.7;
+    }
+    .quick-links{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:12px;
+    }
+    .codebox{
+      margin-top:10px;
+      border-radius:16px;
+      border:1px solid rgba(148,163,184,.14);
+      background:rgba(2,6,23,.48);
+      padding:12px;
+      font-size:13px;
+      line-height:1.6;
+      word-break:break-all;
+      color:#e5e7eb;
+      min-height:58px;
+    }
+    @media (max-width:1080px){
+      .toolbar{ grid-template-columns:1fr 1fr; }
+      .grid{ grid-template-columns:1fr 1fr; }
+    }
+    @media (max-width:720px){
+      .toolbar,
+      .row-actions,
+      .grid,
+      .quick-links,
+      .tile .btns{
+        grid-template-columns:1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="hero">
+      <div class="eyebrow">🎮 HeroHealth • GoodJunk</div>
+      <h1>GoodJunk Index</h1>
+      <div class="sub">
+        หน้าเมนูกลางสำหรับเปิดทุกหน้าของ GoodJunk classroom suite จากจุดเดียว
+        ใช้ตั้งค่า room / view / diff / time ครั้งเดียว แล้วกดไปยัง Teacher, Board, Kiosk,
+        Student Join, Launcher, Run page หรือหน้า Essential ได้ทันที
+      </div>
+
+      <div class="toolbar">
+        <div>
+          <label for="room">Room</label>
+          <input id="room" value="P5A" />
+        </div>
+        <div>
+          <label for="view">View</label>
+          <select id="view">
+            <option value="mobile" selected>mobile</option>
+            <option value="pc">pc</option>
+            <option value="cvr">cvr</option>
+          </select>
+        </div>
+        <div>
+          <label for="diff">Difficulty</label>
+          <select id="diff">
+            <option value="easy" selected>easy</option>
+            <option value="normal">normal</option>
+            <option value="hard">hard</option>
+          </select>
+        </div>
+        <div>
+          <label for="time">Time</label>
+          <select id="time">
+            <option value="60">60</option>
+            <option value="80" selected>80</option>
+            <option value="100">100</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="row-actions">
+        <button id="btnCopyStudentJoin">Copy Student Join</button>
+        <button id="btnCopyBoard" class="secondary">Copy Board</button>
+        <button id="btnCopyTeacher" class="secondary">Copy Teacher</button>
+        <button id="btnCopyRun" class="secondary">Copy Run</button>
+      </div>
+
+      <div id="status" class="status">พร้อมใช้งาน</div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <div>
+          <div class="section-title">Classroom Control</div>
+          <div class="section-sub">หน้าสำหรับครูและการควบคุมห้องเรียน</div>
+        </div>
+      </div>
+
+      <div class="grid">
+        <article class="tile">
+          <div class="icon">👩‍🏫</div>
+          <div class="title">Teacher Dashboard</div>
+          <div class="desc">หน้าควบคุมเต็ม ดู roster, attendance, policy, broadcast, macros, QR และ export</div>
+          <div class="btns">
+            <button data-open="teacher">Open</button>
+            <button class="secondary" data-copy="teacher">Copy</button>
+          </div>
+        </article>
+
+        <article class="tile">
+          <div class="icon">✨</div>
+          <div class="title">Teacher Essential</div>
+          <div class="desc">เวอร์ชันย่อสำหรับใช้จริงหน้าห้อง เน้น Start/End class, QR, Board และ lock room</div>
+          <div class="btns">
+            <button data-open="teacher-essential">Open</button>
+            <button class="secondary" data-copy="teacher-essential">Copy</button>
+          </div>
+        </article>
+
+        <article class="tile">
+          <div class="icon">🧩</div>
+          <div class="title">Launcher</div>
+          <div class="desc">หน้า launch รวมสำหรับเลือก Teacher, Board, Student Join, Run, Battle test และ Solo test</div>
+          <div class="btns">
+            <button data-open="launcher">Open</button>
+            <button class="secondary" data-copy="launcher">Copy</button>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <div>
+          <div class="section-title">Board / Projector</div>
+          <div class="section-sub">หน้าสำหรับจอหน้าห้อง โปรเจกเตอร์ และ kiosk</div>
+        </div>
+      </div>
+
+      <div class="grid">
+        <article class="tile">
+          <div class="icon">📺</div>
+          <div class="title">Live Board</div>
+          <div class="desc">กระดานคะแนนเต็ม มี auto cycle, announcement, winner spotlight และ room summary</div>
+          <div class="btns">
+            <button data-open="board">Open</button>
+            <button class="secondary" data-copy="board">Copy</button>
+          </div>
+        </article>
+
+        <article class="tile">
+          <div class="icon">🪄</div>
+          <div class="title">Board Essential</div>
+          <div class="desc">เวอร์ชันเรียบมากสำหรับโปรเจกเตอร์ โฟกัส scoreboard, progress และ announcement</div>
+          <div class="btns">
+            <button data-open="board-essential">Open</button>
+            <button class="secondary" data-copy="board-essential">Copy</button>
+          </div>
+        </article>
+
+        <article class="tile">
+          <div class="icon">🖥️</div>
+          <div class="title">Kiosk</div>
+          <div class="desc">หน้า kiosk สำหรับทีวี/โปรเจกเตอร์ มี clean mode, hide UI และ fullscreen friendly</div>
+          <div class="btns">
+            <button data-open="kiosk">Open</button>
+            <button class="secondary" data-copy="kiosk">Copy</button>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <div>
+          <div class="section-title">Player Entry</div>
+          <div class="section-sub">หน้าสำหรับนักเรียนและลิงก์เข้าเล่น</div>
+        </div>
+      </div>
+
+      <div class="grid">
+        <article class="tile">
+          <div class="icon">🧑‍🎓</div>
+          <div class="title">Student Join</div>
+          <div class="desc">ให้นักเรียนกรอกชื่อ / PID รับ room จากลิงก์ครู และเช็ก duplicate PID / room policy</div>
+          <div class="btns">
+            <button data-open="student-join">Open</button>
+            <button class="secondary" data-copy="student-join">Copy</button>
+          </div>
+        </article>
+
+        <article class="tile">
+          <div class="icon">⚔️</div>
+          <div class="title">Run Game (Battle)</div>
+          <div class="desc">เปิด run page ตรงในโหมด battle สำหรับเดโม ทดสอบ compare table และ rematch</div>
+          <div class="btns">
+            <button data-open="run-battle">Open</button>
+            <button class="secondary" data-copy="run-battle">Copy</button>
+          </div>
+        </article>
+
+        <article class="tile">
+          <div class="icon">🥦</div>
+          <div class="title">Run Game (Solo)</div>
+          <div class="desc">เปิด run page ตรงในโหมด solo สำหรับทดสอบ gameplay และ end summary แบบเดี่ยว</div>
+          <div class="btns">
+            <button data-open="run-solo">Open</button>
+            <button class="secondary" data-copy="run-solo">Copy</button>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="quick-links">
+        <section class="card">
+          <div class="section-title" style="font-size:20px;">Quick Links</div>
+          <div class="section-sub">ลิงก์ล่าสุดจากค่าที่ตั้งตอนนี้</div>
+
+          <div class="k" style="margin-top:10px;">Student Join</div>
+          <div id="boxStudentJoin" class="codebox">—</div>
+
+          <div class="k" style="margin-top:12px;">Board</div>
+          <div id="boxBoard" class="codebox">—</div>
+
+          <div class="k" style="margin-top:12px;">Teacher</div>
+          <div id="boxTeacher" class="codebox">—</div>
+        </section>
+
+        <section class="card">
+          <div class="section-title" style="font-size:20px;">Suggested Flow</div>
+          <div class="note" style="margin-top:0;">
+            1) เปิด <strong>Teacher Essential</strong> หรือ <strong>Teacher Dashboard</strong><br>
+            2) เปิด <strong>Board Essential</strong> หรือ <strong>Kiosk</strong> บนจอหน้า class<br>
+            3) ส่งลิงก์ <strong>Student Join</strong> หรือ QR ให้นักเรียน<br>
+            4) เริ่มคาบด้วย <strong>Start Class Macro</strong><br>
+            5) จบคาบด้วย <strong>End Class Macro</strong>
+          </div>
+
+          <div class="note">
+            ถ้าจะใช้งานแบบง่ายสุดในห้องจริง:
+            <br>ครู → Teacher Essential
+            <br>โปรเจกเตอร์ → Kiosk
+            <br>นักเรียน → Student Join
+          </div>
+        </section>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const $ = id => document.getElementById(id);
+    const qs = (k,d='')=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
+
+    function setStatus(msg){
+      $('status').textContent = msg;
+    }
+
+    function safeHubDefault(){
+      return new URL('./hub.html', location.href).toString();
+    }
+
+    function room(){
+      return ($('room').value || 'P5A').trim().toUpperCase();
+    }
+
+    function view(){
+      return $('view').value || 'mobile';
+    }
+
+    function diff(){
+      return $('diff').value || 'easy';
+    }
+
+    function time(){
+      return $('time').value || '80';
+    }
+
+    function urlTeacher(){
+      const u = new URL('./goodjunk-teacher.html', location.href);
+      u.searchParams.set('room', room());
+      return u.toString();
+    }
+
+    function urlTeacherEssential(){
+      const u = new URL('./goodjunk-teacher-essential.html', location.href);
+      u.searchParams.set('room', room());
+      u.searchParams.set('view', view());
+      u.searchParams.set('diff', diff());
+      u.searchParams.set('time', time());
+      u.searchParams.set('hub', safeHubDefault());
+      return u.toString();
+    }
+
+    function urlLauncher(){
+      const u = new URL('./goodjunk-launcher.html', location.href);
+      u.searchParams.set('room', room());
+      u.searchParams.set('view', view());
+      u.searchParams.set('diff', diff());
+      u.searchParams.set('time', time());
+      u.searchParams.set('hub', safeHubDefault());
+      return u.toString();
+    }
+
+    function urlBoard(){
+      const u = new URL('./goodjunk-board.html', location.href);
+      u.searchParams.set('room', room());
+      u.searchParams.set('mode', 'battle');
+      return u.toString();
+    }
+
+    function urlBoardEssential(){
+      const u = new URL('./goodjunk-board-essential.html', location.href);
+      u.searchParams.set('room', room());
+      return u.toString();
+    }
+
+    function urlKiosk(){
+      const u = new URL('./goodjunk-kiosk.html', location.href);
+      u.searchParams.set('room', room());
+      return u.toString();
+    }
+
+    function urlStudentJoin(){
+      const u = new URL('./student-join-goodjunk.html', location.href);
+      u.searchParams.set('room', room());
+      u.searchParams.set('view', view());
+      u.searchParams.set('diff', diff());
+      u.searchParams.set('time', time());
+      u.searchParams.set('hub', safeHubDefault());
+      u.searchParams.set('mode', 'battle');
+      u.searchParams.set('lock_room', '1');
+      u.searchParams.set('lock_view', '1');
+      u.searchParams.set('lock_diff', '1');
+      u.searchParams.set('lock_time', '1');
+      return u.toString();
+    }
+
+    function urlRunBattle(){
+      const u = new URL('./vr-goodjunk/goodjunk-vr.html', location.href);
+      u.searchParams.set('room', room());
+      u.searchParams.set('mode', 'battle');
+      u.searchParams.set('view', view());
+      u.searchParams.set('diff', diff());
+      u.searchParams.set('time', time());
+      u.searchParams.set('hub', safeHubDefault());
+      u.searchParams.set('pid', 'anon');
+      u.searchParams.set('seed', String(Date.now()));
+      return u.toString();
+    }
+
+    function urlRunSolo(){
+      const u = new URL('./vr-goodjunk/goodjunk-vr.html', location.href);
+      u.searchParams.set('room', room());
+      u.searchParams.set('mode', 'solo');
+      u.searchParams.set('view', view());
+      u.searchParams.set('diff', diff());
+      u.searchParams.set('time', time());
+      u.searchParams.set('hub', safeHubDefault());
+      u.searchParams.set('pid', 'anon');
+      u.searchParams.set('seed', String(Date.now()));
+      return u.toString();
+    }
+
+    function getUrlByKey(key){
+      const map = {
+        'teacher': urlTeacher,
+        'teacher-essential': urlTeacherEssential,
+        'launcher': urlLauncher,
+        'board': urlBoard,
+        'board-essential': urlBoardEssential,
+        'kiosk': urlKiosk,
+        'student-join': urlStudentJoin,
+        'run-battle': urlRunBattle,
+        'run-solo': urlRunSolo
+      };
+      return map[key] ? map[key]() : '';
+    }
+
+    async function copyText(text){
+      text = String(text || '');
+      if(!text) throw new Error('ไม่มีข้อความให้คัดลอก');
+
+      if(navigator.clipboard?.writeText){
+        await navigator.clipboard.writeText(text);
+        return;
+      }
+
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      ta.remove();
+    }
+
+    function openKey(key){
+      const u = getUrlByKey(key);
+      if(!u) return;
+      location.href = u;
+    }
+
+    async function copyKey(key){
+      const u = getUrlByKey(key);
+      if(!u) throw new Error('ไม่พบลิงก์');
+      await copyText(u);
+    }
+
+    function refreshBoxes(){
+      $('boxStudentJoin').textContent = urlStudentJoin();
+      $('boxBoard').textContent = urlBoard();
+      $('boxTeacher').textContent = urlTeacher();
+    }
+
+    document.querySelectorAll('[data-open]').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const key = btn.getAttribute('data-open');
+        openKey(key);
+      });
+    });
+
+    document.querySelectorAll('[data-copy]').forEach(btn=>{
+      btn.addEventListener('click', async ()=>{
+        const key = btn.getAttribute('data-copy');
+        try{
+          await copyKey(key);
+          setStatus(`คัดลอกลิงก์ ${key} แล้ว`);
+        }catch(err){
+          console.warn(err);
+          setStatus(`คัดลอกลิงก์ ${key} ไม่สำเร็จ: ${err?.message || err}`);
+        }
+      });
+    });
+
+    $('btnCopyStudentJoin').onclick = async ()=>{
+      try{
+        await copyText(urlStudentJoin());
+        setStatus('คัดลอก Student Join แล้ว');
+      }catch(err){
+        console.warn(err);
+        setStatus(`คัดลอก Student Join ไม่สำเร็จ: ${err?.message || err}`);
+      }
+    };
+
+    $('btnCopyBoard').onclick = async ()=>{
+      try{
+        await copyText(urlBoard());
+        setStatus('คัดลอก Board แล้ว');
+      }catch(err){
+        console.warn(err);
+        setStatus(`คัดลอก Board ไม่สำเร็จ: ${err?.message || err}`);
+      }
+    };
+
+    $('btnCopyTeacher').onclick = async ()=>{
+      try{
+        await copyText(urlTeacher());
+        setStatus('คัดลอก Teacher แล้ว');
+      }catch(err){
+        console.warn(err);
+        setStatus(`คัดลอก Teacher ไม่สำเร็จ: ${err?.message || err}`);
+      }
+    };
+
+    $('btnCopyRun').onclick = async ()=>{
+      try{
+        await copyText(urlRunBattle());
+        setStatus('คัดลอก Run Battle แล้ว');
+      }catch(err){
+        console.warn(err);
+        setStatus(`คัดลอก Run Battle ไม่สำเร็จ: ${err?.message || err}`);
+      }
+    };
+
+    ['room','view','diff','time'].forEach(id=>{
+      $(id).addEventListener('input', refreshBoxes);
+      $(id).addEventListener('change', refreshBoxes);
+    });
+
+    $('room').value = qs('room', 'P5A');
+    $('view').value = qs('view', 'mobile');
+    $('diff').value = qs('diff', 'easy');
+    $('time').value = qs('time', '80');
+
+    refreshBoxes();
+    setStatus('พร้อมใช้งาน');
+  </script>
+</body>
+</html>
