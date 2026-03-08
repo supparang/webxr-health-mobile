@@ -1,6 +1,6 @@
 // === /herohealth/vr/battle-rtdb.js ===
-// Firebase RTDB Battle — v7 classroom-ready
-// FULL v20260307-BATTLE-RTDB-V7-CLASSROOM
+// Firebase RTDB Battle — v7 (admin tools + rematch votes + policy + announcement)
+// FULL PATCH v20260308-BATTLE-RTDB-V7-ADMIN-REMATCH-POLICY
 'use strict';
 
 const WIN = (typeof window !== 'undefined') ? window : globalThis;
@@ -45,7 +45,8 @@ async function loadFirebase(){
 }
 
 function getFirebaseConfig(){
-  return WIN.HHA_FIREBASE_CONFIG || WIN.__HHA_FIREBASE_CONFIG__ || WIN.firebaseConfig || null;
+  const cfg = WIN.HHA_FIREBASE_CONFIG || WIN.__HHA_FIREBASE_CONFIG__ || WIN.firebaseConfig || null;
+  return cfg || null;
 }
 
 function disabledBattle(){
@@ -134,6 +135,421 @@ function pickWinner(a, b){
   return { winnerKey:'', reason:'tie' };
 }
 
+function normalizePolicy(v){
+  v = v || {};
+  return {
+    roomLocked: !!v.roomLocked,
+    allowSpectatorOnly: !!v.allowSpectatorOnly,
+    spectatorUrl: String(v.spectatorUrl || ''),
+    message: String(v.message || ''),
+    updatedAtMs: Number(v.updatedAtMs || 0) || 0,
+  };
+}
+
+function normalizeAnnouncement(v){
+  v = v || {};
+  return {
+    message: String(v.message || ''),
+    tone: String(v.tone || 'info'),
+    ttlSec: Number(v.ttlSec || 0) || 0,
+    createdAtMs: Number(v.createdAtMs || 0) || 0,
+    updatedAtMs: Number(v.updatedAtMs || 0) || 0,
+  };
+}
+
+function normalizeRematch(v){
+  v = v || {};
+  return {
+    roundId: String(v.roundId || ''),
+    requestedBy: String(v.requestedBy || ''),
+    requestedAtMs: Number(v.requestedAtMs || 0) || 0,
+    votes: (v.votes && typeof v.votes === 'object') ? v.votes : {}
+  };
+}
+
+function buildBasePaths(gameKey, room){
+  const base = `hha-battle/${gameKey}/rooms/${room}`;
+  return {
+    base,
+    meta: `${base}/meta`,
+    players: `${base}/players`,
+    state: `${base}/state`,
+    rematch: `${base}/rematch`,
+    attendance: `${base}/attendance`,
+    roster: `${base}/roster`,
+    policy: `${base}/policy`,
+    announcement: `${base}/announcement`,
+    reports: `${base}/reports`
+  };
+}
+
+async function getFirebaseBundle(){
+  const fbCfg = getFirebaseConfig();
+  if(!fbCfg){
+    throw new Error('missing_firebase_config');
+  }
+  const fb = await loadFirebase();
+  const {
+    initializeApp, getApps, getApp,
+    getDatabase, ref, get, set, update, push,
+    onValue, off, runTransaction, serverTimestamp, onDisconnect
+  } = fb;
+
+  const app = getApps().length ? getApp() : initializeApp(fbCfg);
+  const db  = getDatabase(app);
+
+  return {
+    fbCfg, fb, db,
+    initializeApp, getApps, getApp,
+    getDatabase, ref, get, set, update, push,
+    onValue, off, runTransaction, serverTimestamp, onDisconnect
+  };
+}
+
+export async function adminOpenRoomTools(opts={}){
+  const gameKey = safeKey(opts.gameKey || 'game', 24) || 'game';
+  const room = safeKey(opts.room || qs('room',''), 10) || randRoom(6);
+
+  const {
+    db, ref, get, set, update, onValue, off,
+    serverTimestamp
+  } = await getFirebaseBundle();
+
+  const P = buildBasePaths(gameKey, room);
+
+  function roomNow(){ return Date.now(); }
+
+  async function setAnnouncement(message, options={}){
+    const row = {
+      message: String(message || ''),
+      tone: String(options.tone || 'info'),
+      ttlSec: clamp(options.ttlSec ?? 12, 0, 600),
+      createdAt: serverTimestamp(),
+      createdAtMs: roomNow(),
+      updatedAt: serverTimestamp(),
+      updatedAtMs: roomNow()
+    };
+    await set(ref(db, P.announcement), row);
+    emitBattleNotice('info', 'ส่ง announcement แล้ว', {
+      code:'announcement_set',
+      room,
+      gameKey
+    });
+    return row;
+  }
+
+  async function clearAnnouncement(){
+    await set(ref(db, P.announcement), {
+      message:'',
+      tone:'info',
+      ttlSec:0,
+      updatedAt: serverTimestamp(),
+      updatedAtMs: roomNow()
+    });
+    emitBattleNotice('info', 'ล้าง announcement แล้ว', {
+      code:'announcement_cleared',
+      room,
+      gameKey
+    });
+  }
+
+  async function getAnnouncement(){
+    const snap = await get(ref(db, P.announcement)).catch(()=>null);
+    return normalizeAnnouncement(snap?.val() || {});
+  }
+
+  async function setRoomLocked(on, options={}){
+    const row = {
+      roomLocked: !!on,
+      allowSpectatorOnly: !!options.allowSpectatorOnly,
+      spectatorUrl: String(options.spectatorUrl || ''),
+      message: String(options.message || ''),
+      updatedAt: serverTimestamp(),
+      updatedAtMs: roomNow()
+    };
+    await update(ref(db, P.policy), row);
+    emitBattleNotice('info', on ? 'ล็อกห้องแล้ว' : 'ปลดล็อกห้องแล้ว', {
+      code:on ? 'room_locked' : 'room_unlocked',
+      room,
+      gameKey
+    });
+    return row;
+  }
+
+  async function setSpectatorOnly(on, options={}){
+    const row = {
+      roomLocked: !!on,
+      allowSpectatorOnly: !!on,
+      spectatorUrl: String(options.spectatorUrl || ''),
+      message: String(options.message || ''),
+      updatedAt: serverTimestamp(),
+      updatedAtMs: roomNow()
+    };
+    await update(ref(db, P.policy), row);
+    emitBattleNotice('info', on ? 'ตั้ง spectator only แล้ว' : 'ปิด spectator only แล้ว', {
+      code:on ? 'spectator_only_on' : 'spectator_only_off',
+      room,
+      gameKey
+    });
+    return row;
+  }
+
+  async function getRoomPolicy(){
+    const snap = await get(ref(db, P.policy)).catch(()=>null);
+    return normalizePolicy(snap?.val() || {});
+  }
+
+  async function ensureState(){
+    const stSnap = await get(ref(db, P.state)).catch(()=>null);
+    const st = stSnap?.val() || {};
+    if(st.roundId) return st;
+    const newRoundId = `r_${Date.now()}`;
+    const row = {
+      phase:'lobby',
+      room,
+      roundId:newRoundId,
+      startAtMs:0,
+      winner:'',
+      reason:'',
+      updatedAt: serverTimestamp(),
+      updatedAtMs: roomNow()
+    };
+    await set(ref(db, P.state), row);
+    return row;
+  }
+
+  async function clearRematch(){
+    await set(ref(db, P.rematch), {
+      roundId:'',
+      requestedBy:'',
+      requestedAtMs:0,
+      votes:{},
+      updatedAt: serverTimestamp(),
+      updatedAtMs: roomNow()
+    });
+    emit('hha:battle-rematch-state', normalizeRematch({
+      roundId:'',
+      requestedBy:'',
+      requestedAtMs:0,
+      votes:{}
+    }));
+  }
+
+  async function resetScoresOnly(){
+    const pSnap = await get(ref(db, P.players)).catch(()=>null);
+    const raw = pSnap?.val() || {};
+    const updates = {};
+    Object.keys(raw).forEach(k=>{
+      updates[`${k}/score`] = 0;
+      updates[`${k}/acc`] = 0;
+      updates[`${k}/miss`] = 0;
+      updates[`${k}/medianRT`] = 0;
+      updates[`${k}/finishMs`] = 0;
+      updates[`${k}/ready`] = false;
+      updates[`${k}/forfeit`] = false;
+      updates[`${k}/lastSeenMs`] = roomNow();
+      updates[`${k}/lastSeen`] = serverTimestamp();
+    });
+    await update(ref(db, P.players), updates).catch(()=>{});
+    emitBattleNotice('info', 'รีเซ็ตคะแนนแล้ว', {
+      code:'scores_reset',
+      room,
+      gameKey
+    });
+  }
+
+  async function resetRoom(){
+    const st = await ensureState();
+    const nextRoundId = `r_${Date.now()}`;
+    await resetScoresOnly();
+    await update(ref(db, P.state), {
+      phase:'lobby',
+      room,
+      roundId: nextRoundId,
+      startAtMs:0,
+      winner:'',
+      reason:'',
+      updatedAt: serverTimestamp(),
+      updatedAtMs: roomNow()
+    });
+    await clearRematch();
+    emitBattleNotice('info', 'รีเซ็ตห้องแล้ว', {
+      code:'room_reset',
+      room,
+      gameKey,
+      previousRoundId: st.roundId || ''
+    });
+  }
+
+  async function forceCountdown(seconds=3){
+    const st = await ensureState();
+    const sec = clamp(seconds, 1, 30);
+    const startAtMs = roomNow() + (sec * 1000);
+    await update(ref(db, P.state), {
+      phase:'countdown',
+      room,
+      roundId: String(st.roundId || `r_${Date.now()}`),
+      startAtMs,
+      winner:'',
+      reason:'',
+      updatedAt: serverTimestamp(),
+      updatedAtMs: roomNow()
+    });
+    emitBattleNotice('info', `บังคับ countdown ${sec} วินาที`, {
+      code:'force_countdown',
+      room,
+      gameKey,
+      seconds: sec
+    });
+    return { startAtMs };
+  }
+
+  async function forceStart(){
+    const st = await ensureState();
+    await update(ref(db, P.state), {
+      phase:'running',
+      room,
+      roundId: String(st.roundId || `r_${Date.now()}`),
+      startAtMs: roomNow(),
+      winner:'',
+      reason:'',
+      updatedAt: serverTimestamp(),
+      updatedAtMs: roomNow()
+    });
+    emitBattleNotice('info', 'บังคับเริ่มรอบแล้ว', {
+      code:'force_start',
+      room,
+      gameKey
+    });
+  }
+
+  async function endRoundNow(reason='teacher-end'){
+    const pSnap = await get(ref(db, P.players)).catch(()=>null);
+    const raw = pSnap?.val() || {};
+    const players = Object.keys(raw)
+      .map(k => normalizePlayer(raw[k], k))
+      .sort((a,b)=>(a.joinedAtMs||0)-(b.joinedAtMs||0))
+      .slice(0,2);
+
+    const picked = players.length >= 2 ? pickWinner(players[0], players[1]) : { winnerKey:'', reason:'tie' };
+
+    await update(ref(db, P.state), {
+      phase:'ended',
+      winner: picked.winnerKey || '',
+      reason: String(reason || picked.reason || 'teacher-end'),
+      updatedAt: serverTimestamp(),
+      updatedAtMs: roomNow()
+    });
+
+    emit('hha:battle-ended', {
+      room,
+      roundId:'',
+      winner: picked.winnerKey || '',
+      reason: String(reason || picked.reason || 'teacher-end'),
+      results: players
+    });
+
+    emitBattleNotice('warn', 'ครูสั่งจบรอบแล้ว', {
+      code:'round_ended_by_teacher',
+      room,
+      gameKey
+    });
+  }
+
+  async function forceWinner(which='p1'){
+    const pSnap = await get(ref(db, P.players)).catch(()=>null);
+    const raw = pSnap?.val() || {};
+    const players = Object.keys(raw)
+      .map(k => normalizePlayer(raw[k], k))
+      .sort((a,b)=>(a.joinedAtMs||0)-(b.joinedAtMs||0))
+      .slice(0,2);
+
+    const winner = which === 'p2' ? players[1] : players[0];
+    await update(ref(db, P.state), {
+      phase:'ended',
+      winner: String(winner?.key || ''),
+      reason:'teacher-force-winner',
+      updatedAt: serverTimestamp(),
+      updatedAtMs: roomNow()
+    });
+
+    emit('hha:battle-ended', {
+      room,
+      roundId:'',
+      winner: String(winner?.key || ''),
+      reason:'teacher-force-winner',
+      results: players
+    });
+
+    emitBattleNotice('warn', 'ครูบังคับผู้ชนะแล้ว', {
+      code:'winner_forced',
+      room,
+      gameKey,
+      which
+    });
+  }
+
+  function watchState(cb){
+    const r = ref(db, P.state);
+    const handler = snap => cb(snap.val() || {});
+    r.onValueRef = handler;
+    onValue(r, handler);
+    return ()=>{ try{ off(r, 'value', handler); }catch(_){} };
+  }
+
+  function watchPlayers(cb){
+    const r = ref(db, P.players);
+    const handler = snap => cb(snap.val() || {});
+    onValue(r, handler);
+    return ()=>{ try{ off(r, 'value', handler); }catch(_){} };
+  }
+
+  function watchRematch(cb){
+    const r = ref(db, P.rematch);
+    const handler = snap => cb(normalizeRematch(snap.val() || {}));
+    onValue(r, handler);
+    return ()=>{ try{ off(r, 'value', handler); }catch(_){} };
+  }
+
+  function watchPolicy(cb){
+    const r = ref(db, P.policy);
+    const handler = snap => cb(normalizePolicy(snap.val() || {}));
+    onValue(r, handler);
+    return ()=>{ try{ off(r, 'value', handler); }catch(_){} };
+  }
+
+  function watchAnnouncement(cb){
+    const r = ref(db, P.announcement);
+    const handler = snap => cb(normalizeAnnouncement(snap.val() || {}));
+    onValue(r, handler);
+    return ()=>{ try{ off(r, 'value', handler); }catch(_){} };
+  }
+
+  return {
+    enabled:true,
+    room,
+    gameKey,
+    setAnnouncement,
+    clearAnnouncement,
+    getAnnouncement,
+    setRoomLocked,
+    setSpectatorOnly,
+    getRoomPolicy,
+    clearRematch,
+    resetScoresOnly,
+    resetRoom,
+    forceCountdown,
+    forceStart,
+    endRoundNow,
+    forceWinner,
+    watchState,
+    watchPlayers,
+    watchRematch,
+    watchPolicy,
+    watchAnnouncement
+  };
+}
+
 export async function initBattle(opts){
   opts = opts || {};
   const enabled = !!opts.enabled;
@@ -148,39 +564,27 @@ export async function initBattle(opts){
   const autostartMs = clamp(opts.autostartMs ?? qs('autostart','3000'), 500, 10000);
   const forfeitMs   = clamp(opts.forfeitMs   ?? qs('forfeit','5000'), 1500, 20000);
 
-  const fbCfg = getFirebaseConfig();
-  if(!fbCfg){
-    console.warn('[battle-rtdb] missing Firebase config');
-    emitBattleNotice('error', 'ยังไม่ได้ตั้งค่า Firebase สำหรับ Battle', { code:'missing_firebase_config' });
-    return disabledBattle();
-  }
-
-  let fb = null;
+  let bundle = null;
   try{
-    fb = await loadFirebase();
+    bundle = await getFirebaseBundle();
   }catch(err){
-    console.warn('[battle-rtdb] firebase load failed', err);
-    emitBattleNotice('error', 'เชื่อมต่อระบบ Battle ไม่สำเร็จ', { code:'firebase_load_failed' });
+    console.warn('[battle-rtdb] firebase init failed', err);
+    emitBattleNotice('error', err?.message === 'missing_firebase_config'
+      ? 'ยังไม่ได้ตั้งค่า Firebase สำหรับ Battle'
+      : 'เชื่อมต่อระบบ Battle ไม่สำเร็จ', {
+      code: err?.message === 'missing_firebase_config'
+        ? 'missing_firebase_config'
+        : 'firebase_load_failed'
+    });
     return disabledBattle();
   }
 
   const {
-    initializeApp, getApps, getApp,
-    getDatabase, ref, get, set, update, push,
-    onValue, runTransaction, serverTimestamp, onDisconnect
-  } = fb;
+    db, ref, get, set, update, push,
+    onValue, off, runTransaction, serverTimestamp, onDisconnect
+  } = bundle;
 
-  const app = getApps().length ? getApp() : initializeApp(fbCfg);
-  const db  = getDatabase(app);
-
-  const base = `hha-battle/${gameKey}/rooms/${room}`;
-  const metaRef = ref(db, `${base}/meta`);
-  const playersRef = ref(db, `${base}/players`);
-  const stateRef = ref(db, `${base}/state`);
-  const rematchRef = ref(db, `${base}/rematch`);
-  const rematchVotesRef = ref(db, `${base}/rematchVotes`);
-  const reportsRef = ref(db, `${base}/reports`);
-  const offsetRef = ref(db, `.info/serverTimeOffset`);
+  const P = buildBasePaths(gameKey, room);
 
   let localDestroyed = false;
   let meKey = safeKey(lsGet(`HHA_BATTLE_MEKEY:${gameKey}:${room}:${pid}`) || '', 32);
@@ -194,16 +598,11 @@ export async function initBattle(opts){
   let lateJoinFlag = false;
   let invalidRoomFlag = false;
 
-  let rematchState = {
-    roundId:'',
-    requestedBy:'',
-    requestedAtMs:0,
-    votes:{}
-  };
-
   let serverTimeOffset = 0;
   let unsubscribers = [];
   let countdownTimer = 0;
+  let rematchState = { roundId:'', requestedBy:'', requestedAtMs:0, votes:{} };
+  let policyState = { roomLocked:false, allowSpectatorOnly:false, spectatorUrl:'', message:'' };
 
   function clearCountdownTimer(){
     if(countdownTimer){
@@ -230,30 +629,8 @@ export async function initBattle(opts){
     emit('hha:battle-state', {
       room,
       roundId: currentRoundId,
-      ...(st || {})
+      ...(st||{})
     });
-  }
-  function emitRematchState(extra={}){
-    emit('hha:battle-rematch-state', {
-      room,
-      roundId: rematchState.roundId || currentRoundId,
-      requestedBy: rematchState.requestedBy || '',
-      requestedAtMs: rematchState.requestedAtMs || 0,
-      votes: rematchState.votes || {},
-      ...extra
-    });
-  }
-  function normalizeVoteMap(v){
-    const out = {};
-    Object.keys(v || {}).forEach(k=>{
-      const row = v[k] || {};
-      out[k] = {
-        accepted: !!row.accepted,
-        declined: !!row.declined,
-        ts: Number(row.ts || 0) || 0
-      };
-    });
-    return out;
   }
   function attachCountdown(startAtMs){
     clearCountdownTimer();
@@ -270,7 +647,7 @@ export async function initBattle(opts){
   }
 
   async function ensureMeta(){
-    await runTransaction(metaRef, (v)=>{
+    await runTransaction(ref(db, P.meta), (v)=>{
       v = v || {};
       if(!v.createdAt) v.createdAt = serverTimestamp();
       if(!v.createdAtMs) v.createdAtMs = Date.now();
@@ -281,14 +658,14 @@ export async function initBattle(opts){
   }
 
   async function ensureRoundIfMissing(){
-    const stateSnap = await get(stateRef).catch(()=>null);
+    const stateSnap = await get(ref(db, P.state)).catch(()=>null);
     const st = stateSnap?.val() || {};
     if(st.roundId){
       currentRoundId = String(st.roundId);
       return currentRoundId;
     }
     const newRoundId = `r_${Date.now()}`;
-    await set(stateRef, {
+    await set(ref(db, P.state), {
       phase:'lobby',
       room,
       roundId:newRoundId,
@@ -303,11 +680,41 @@ export async function initBattle(opts){
   }
 
   async function joinPlayer(){
-    const stateSnap = await get(stateRef).catch(()=>null);
+    const stateSnap = await get(ref(db, P.state)).catch(()=>null);
     const st = stateSnap?.val() || {};
     const phase = String(st.phase || 'lobby').toLowerCase();
 
-    const playersSnap = await get(playersRef).catch(()=>null);
+    const policySnap = await get(ref(db, P.policy)).catch(()=>null);
+    policyState = normalizePolicy(policySnap?.val() || {});
+    if(policyState.roomLocked && policyState.allowSpectatorOnly){
+      currentRole = 'spectator';
+      lateJoinFlag = (phase === 'countdown' || phase === 'running');
+      emitRoom({
+        meKey:'',
+        role:'spectator',
+        lateJoin: lateJoinFlag,
+        roomFull:false,
+        policy: policyState
+      });
+      emitBattleNotice('warn', policyState.message || 'ห้องนี้เปิดให้เข้าชมแทน', {
+        code:'policy_spectator_only',
+        room,
+        role:'spectator',
+        spectatorUrl: policyState.spectatorUrl || ''
+      });
+      return;
+    }
+
+    if(policyState.roomLocked && !policyState.allowSpectatorOnly){
+      invalidRoomFlag = true;
+      emitBattleNotice('warn', policyState.message || 'ห้องนี้ถูกล็อก', {
+        code:'policy_room_locked',
+        room
+      });
+      return;
+    }
+
+    const playersSnap = await get(ref(db, P.players)).catch(()=>null);
     const rawPlayers = playersSnap?.val() || {};
     const existingPlayers = Object.keys(rawPlayers)
       .map(k => normalizePlayer(rawPlayers[k], k))
@@ -317,7 +724,7 @@ export async function initBattle(opts){
 
     if(existingMine){
       currentRole = 'player';
-      const pRef = ref(db, `${base}/players/${existingMine.key}`);
+      const pRef = ref(db, `${P.players}/${existingMine.key}`);
       meKey = existingMine.key;
       lsSet(meLsKey, meKey);
 
@@ -327,7 +734,7 @@ export async function initBattle(opts){
         connected:true,
         lastSeenMs: serverNow(),
         lastSeen: serverTimestamp(),
-      }).catch(()=>{});
+      });
 
       try{
         await onDisconnect(pRef).update({
@@ -372,7 +779,7 @@ export async function initBattle(opts){
     }
 
     currentRole = 'player';
-    const pRef = ref(db, `${base}/players/${meKey}`);
+    const pRef = ref(db, `${P.players}/${meKey}`);
     await update(pRef, {
       pid,
       nick,
@@ -388,7 +795,7 @@ export async function initBattle(opts){
       miss:0,
       medianRT:0,
       finishMs:0,
-    }).catch(()=>{});
+    });
 
     try{
       await onDisconnect(pRef).update({
@@ -415,7 +822,7 @@ export async function initBattle(opts){
     if(!realPlayers.every(p => !!p.ready)) return;
 
     const startAtMs = serverNow() + autostartMs;
-    await update(stateRef, {
+    await update(ref(db, P.state), {
       phase:'countdown',
       startAtMs,
       winner:'',
@@ -432,7 +839,7 @@ export async function initBattle(opts){
     if(!startAtMs) return;
     if(serverNow() < startAtMs) return;
 
-    await update(stateRef, {
+    await update(ref(db, P.state), {
       phase:'running',
       updatedAt: serverTimestamp(),
       updatedAtMs: Date.now()
@@ -451,7 +858,7 @@ export async function initBattle(opts){
 
     if(!disconnected || !stillHere) return;
 
-    await update(stateRef, {
+    await update(ref(db, P.state), {
       phase:'ended',
       winner: stillHere.key,
       reason:'forfeit',
@@ -483,7 +890,7 @@ export async function initBattle(opts){
     if(finishedPlayers.length < 2) return;
 
     const picked = pickWinner(realPlayers[0], realPlayers[1]);
-    await update(stateRef, {
+    await update(ref(db, P.state), {
       phase:'ended',
       winner: picked.winnerKey || '',
       reason: picked.reason || 'tie',
@@ -505,39 +912,54 @@ export async function initBattle(opts){
     });
   }
 
-  async function maybeCommitAcceptedRematch(){
-    const votes = rematchState.votes || {};
-    const playersSnap = await get(playersRef).catch(()=>null);
-    const raw = playersSnap?.val() || {};
+  async function maybeResolveRematch(){
+    if(localDestroyed) return;
+    const stSnap = await get(ref(db, P.state)).catch(()=>null);
+    const st = stSnap?.val() || {};
+    if(String(st.phase || '').toLowerCase() !== 'ended') return;
+
+    const pSnap = await get(ref(db, P.players)).catch(()=>null);
+    const raw = pSnap?.val() || {};
     const players = Object.keys(raw)
       .map(k => normalizePlayer(raw[k], k))
-      .filter(p => p.connected !== false)
+      .sort((a,b)=>(a.joinedAtMs||0)-(b.joinedAtMs||0))
       .slice(0,2);
 
-    if(!players.length) return;
+    if(players.length < 2) return;
+    if(!rematchState.requestedBy) return;
 
-    const allAccepted = players.every(p => votes[p.key]?.accepted === true);
+    const votes = rematchState.votes || {};
+    const statuses = players.map(p => votes[p.key] || {});
+    const anyDeclined = statuses.some(v => !!v.declined);
+    const allAccepted = statuses.every(v => !!v.accepted);
+
+    if(anyDeclined){
+      emitBattleNotice('warn', 'Rematch ถูกปฏิเสธ', {
+        code:'rematch_declined',
+        room
+      });
+      return;
+    }
+
     if(!allAccepted) return;
 
-    const nextRoundId = rematchState.roundId || `r_${Date.now()}`;
-    currentRoundId = nextRoundId;
-
+    const nextRoundId = `r_${Date.now()}`;
     const updates = {};
-    Object.keys(raw).forEach(k=>{
-      updates[`${k}/ready`] = false;
-      updates[`${k}/forfeit`] = false;
-      updates[`${k}/score`] = 0;
-      updates[`${k}/acc`] = 0;
-      updates[`${k}/miss`] = 0;
-      updates[`${k}/medianRT`] = 0;
-      updates[`${k}/finishMs`] = 0;
-      updates[`${k}/connected`] = raw[k]?.connected !== false;
-      updates[`${k}/lastSeenMs`] = serverNow();
-      updates[`${k}/lastSeen`] = serverTimestamp();
+    players.forEach(p=>{
+      updates[`${p.key}/ready`] = false;
+      updates[`${p.key}/forfeit`] = false;
+      updates[`${p.key}/score`] = 0;
+      updates[`${p.key}/acc`] = 0;
+      updates[`${p.key}/miss`] = 0;
+      updates[`${p.key}/medianRT`] = 0;
+      updates[`${p.key}/finishMs`] = 0;
+      updates[`${p.key}/connected`] = p.connected !== false;
+      updates[`${p.key}/lastSeenMs`] = serverNow();
+      updates[`${p.key}/lastSeen`] = serverTimestamp();
     });
 
-    await update(playersRef, updates).catch(()=>{});
-    await update(stateRef, {
+    await update(ref(db, P.players), updates).catch(()=>{});
+    await update(ref(db, P.state), {
       phase:'lobby',
       room,
       roundId: nextRoundId,
@@ -548,21 +970,25 @@ export async function initBattle(opts){
       updatedAtMs: Date.now()
     }).catch(()=>{});
 
-    await set(rematchRef, {
-      requestedBy: rematchState.requestedBy || '',
-      requestedAt: serverTimestamp(),
-      requestedAtMs: Date.now(),
+    await set(ref(db, P.rematch), {
+      requestedBy:'',
+      requestedAt:'',
+      requestedAtMs:0,
       roundId: nextRoundId,
-      committed:true
+      votes:{},
+      updatedAt: serverTimestamp(),
+      updatedAtMs: Date.now()
     }).catch(()=>{});
 
-    emit('hha:battle-rematch-ready', {
-      room,
-      roundId: nextRoundId
-    });
+    emit('hha:battle-rematch-state', normalizeRematch({
+      requestedBy:'',
+      requestedAtMs:0,
+      roundId: nextRoundId,
+      votes:{}
+    }));
 
-    emitBattleNotice('info', 'ทั้งสองฝ่ายยอมรับ Rematch แล้ว', {
-      code:'rematch_both_accepted',
+    emitBattleNotice('info', 'Rematch เริ่มรอบใหม่แล้ว', {
+      code:'rematch_started',
       room,
       roundId: nextRoundId
     });
@@ -570,7 +996,7 @@ export async function initBattle(opts){
 
   async function setReady(on){
     if(localDestroyed || currentRole !== 'player') return;
-    await update(ref(db, `${base}/players/${meKey}`), {
+    await update(ref(db, `${P.players}/${meKey}`), {
       ready: !!on,
       connected:true,
       lastSeenMs: serverNow(),
@@ -581,7 +1007,7 @@ export async function initBattle(opts){
   async function syncScore(payload){
     if(localDestroyed || currentRole !== 'player') return;
     const safe = sanitizeScorePayload(payload);
-    await update(ref(db, `${base}/players/${meKey}`), {
+    await update(ref(db, `${P.players}/${meKey}`), {
       score: safe.score,
       acc: safe.acc,
       miss: safe.miss,
@@ -596,84 +1022,85 @@ export async function initBattle(opts){
   async function requestRematch(){
     if(localDestroyed || currentRole !== 'player') return;
 
-    const nextRoundId = `r_${Date.now()}`;
-    currentRoundId = nextRoundId;
+    const stSnap = await get(ref(db, P.state)).catch(()=>null);
+    const st = stSnap?.val() || {};
+    const roundId = String(st.roundId || currentRoundId || '');
+    const currentVotes = rematchState.votes || {};
 
-    await set(rematchRef, {
+    await set(ref(db, P.rematch), {
       requestedBy: meKey,
       requestedAt: serverTimestamp(),
       requestedAtMs: Date.now(),
-      roundId: nextRoundId,
-      committed:false
-    }).catch(()=>{});
-
-    await update(rematchVotesRef, {
-      [`${meKey}/accepted`]: true,
-      [`${meKey}/declined`]: false,
-      [`${meKey}/ts`]: Date.now()
-    }).catch(()=>{});
-
-    rematchState = {
-      roundId: nextRoundId,
-      requestedBy: meKey,
-      requestedAtMs: Date.now(),
+      roundId,
       votes: {
-        ...(rematchState.votes || {}),
-        [meKey]: { accepted:true, declined:false, ts:Date.now() }
-      }
-    };
+        ...currentVotes,
+        [meKey]: {
+          accepted:true,
+          declined:false,
+          atMs: Date.now()
+        }
+      },
+      updatedAt: serverTimestamp(),
+      updatedAtMs: Date.now()
+    }).catch(()=>{});
 
-    emit('hha:battle-rematch', {
+    emitBattleNotice('info', 'ส่งคำขอ Rematch แล้ว', {
+      code:'rematch_requested',
       room,
-      roundId: nextRoundId,
-      requestedBy: meKey,
-      requestedAtMs: Date.now(),
-      byMe: true
+      roundId
     });
-
-    emitRematchState({ byMe:true });
-    await maybeCommitAcceptedRematch();
   }
 
   async function acceptRematch(){
     if(localDestroyed || currentRole !== 'player') return;
-    const roundId = rematchState.roundId || `r_${Date.now()}`;
+    const roundId = String(rematchState.roundId || currentRoundId || '');
+    const votes = { ...(rematchState.votes || {}) };
+    votes[meKey] = {
+      accepted:true,
+      declined:false,
+      atMs: Date.now()
+    };
 
-    await update(rematchVotesRef, {
-      [`${meKey}/accepted`]: true,
-      [`${meKey}/declined`]: false,
-      [`${meKey}/ts`]: Date.now()
+    await update(ref(db, P.rematch), {
+      roundId,
+      votes,
+      updatedAt: serverTimestamp(),
+      updatedAtMs: Date.now()
     }).catch(()=>{});
 
-    rematchState.votes = {
-      ...(rematchState.votes || {}),
-      [meKey]: { accepted:true, declined:false, ts:Date.now() }
-    };
-    rematchState.roundId = roundId;
-
-    emitRematchState({ acceptedByMe:true });
-    await maybeCommitAcceptedRematch();
+    emitBattleNotice('info', 'ตอบรับ Rematch แล้ว', {
+      code:'rematch_accepted',
+      room,
+      roundId
+    });
   }
 
   async function declineRematch(){
     if(localDestroyed || currentRole !== 'player') return;
-
-    await update(rematchVotesRef, {
-      [`${meKey}/accepted`]: false,
-      [`${meKey}/declined`]: true,
-      [`${meKey}/ts`]: Date.now()
-    }).catch(()=>{});
-
-    rematchState.votes = {
-      ...(rematchState.votes || {}),
-      [meKey]: { accepted:false, declined:true, ts:Date.now() }
+    const roundId = String(rematchState.roundId || currentRoundId || '');
+    const votes = { ...(rematchState.votes || {}) };
+    votes[meKey] = {
+      accepted:false,
+      declined:true,
+      atMs: Date.now()
     };
 
-    emitRematchState({ declinedByMe:true });
+    await update(ref(db, P.rematch), {
+      roundId,
+      votes,
+      updatedAt: serverTimestamp(),
+      updatedAtMs: Date.now()
+    }).catch(()=>{});
+
     emitBattleNotice('warn', 'ปฏิเสธ Rematch แล้ว', {
       code:'rematch_declined',
-      room
+      room,
+      roundId
     });
+  }
+
+  function getRematchState(){
+    return normalizeRematch(rematchState);
   }
 
   async function saveRoundReport(report){
@@ -689,7 +1116,7 @@ export async function initBattle(opts){
     };
 
     try{
-      const rowRef = push(reportsRef);
+      const rowRef = push(ref(db, P.reports));
       await set(rowRef, row);
       emitBattleNotice('info', 'บันทึกรายงานรอบนี้ขึ้น cloud แล้ว', {
         code:'cloud_report_saved',
@@ -710,7 +1137,7 @@ export async function initBattle(opts){
   async function leave(){
     clearCountdownTimer();
     if(currentRole !== 'player') return;
-    await update(ref(db, `${base}/players/${meKey}`), {
+    await update(ref(db, `${P.players}/${meKey}`), {
       connected:false,
       lastSeenMs: serverNow(),
       lastSeen: serverTimestamp(),
@@ -725,11 +1152,15 @@ export async function initBattle(opts){
     unsubscribers = [];
   }
 
-  unsubscribers.push(onValue(offsetRef, (snap)=>{
+  const offsetRef = ref(db, `.info/serverTimeOffset`);
+  const offOffsetCb = (snap)=>{
     serverTimeOffset = Number(snap.val() || 0) || 0;
-  }));
+  };
+  onValue(offsetRef, offOffsetCb);
+  unsubscribers.push(()=> off(offsetRef, 'value', offOffsetCb));
 
-  unsubscribers.push(onValue(stateRef, async (snap)=>{
+  const stateRef = ref(db, P.state);
+  const offStateCb = async (snap)=>{
     if(localDestroyed) return;
     const st = snap.val() || {};
     currentRoundId = String(st.roundId || currentRoundId || '');
@@ -751,9 +1182,12 @@ export async function initBattle(opts){
     }
 
     await maybeStartRunning(st);
-  }));
+  };
+  onValue(stateRef, offStateCb);
+  unsubscribers.push(()=> off(stateRef, 'value', offStateCb));
 
-  unsubscribers.push(onValue(playersRef, async (snap)=>{
+  const playersRef = ref(db, P.players);
+  const offPlayersCb = async (snap)=>{
     if(localDestroyed) return;
     const raw = snap.val() || {};
     const allPlayers = Object.keys(raw)
@@ -773,65 +1207,41 @@ export async function initBattle(opts){
       leader: (!me || !opp) ? 'tie' : ((me.score > opp.score) ? 'you' : (me.score < opp.score ? 'opp' : 'tie'))
     });
 
-    const stSnap = await get(stateRef).catch(()=>null);
+    const stSnap = await get(ref(db, P.state)).catch(()=>null);
     const st = stSnap?.val() || {};
 
     await maybeStartCountdown(players, st);
     await markForfeitIfNeeded(players, st);
     await finalizeIfRoundFinished(players, st);
-  }));
+  };
+  onValue(playersRef, offPlayersCb);
+  unsubscribers.push(()=> off(playersRef, 'value', offPlayersCb));
 
-  unsubscribers.push(onValue(rematchRef, async (snap)=>{
+  const rematchRef = ref(db, P.rematch);
+  const offRematchCb = async (snap)=>{
     if(localDestroyed) return;
-    const v = snap.val() || null;
-    if(!v) return;
+    rematchState = normalizeRematch(snap.val() || {});
+    emit('hha:battle-rematch-state', rematchState);
+    await maybeResolveRematch();
+  };
+  onValue(rematchRef, offRematchCb);
+  unsubscribers.push(()=> off(rematchRef, 'value', offRematchCb));
 
-    rematchState.roundId = String(v.roundId || '');
-    rematchState.requestedBy = String(v.requestedBy || '');
-    rematchState.requestedAtMs = Number(v.requestedAtMs || 0) || 0;
+  const policyRef = ref(db, P.policy);
+  const offPolicyCb = (snap)=>{
+    policyState = normalizePolicy(snap.val() || {});
+    emit('hha:battle-policy', policyState);
+  };
+  onValue(policyRef, offPolicyCb);
+  unsubscribers.push(()=> off(policyRef, 'value', offPolicyCb));
 
-    emit('hha:battle-rematch', {
-      room,
-      roundId: rematchState.roundId,
-      requestedBy: rematchState.requestedBy,
-      requestedAtMs: rematchState.requestedAtMs,
-      byMe: rematchState.requestedBy === meKey
-    });
-
-    emitRematchState({
-      byMe: rematchState.requestedBy === meKey,
-      committed: !!v.committed
-    });
-
-    if(rematchState.requestedBy && rematchState.requestedBy !== meKey){
-      emitBattleNotice('info', 'อีกฝ่ายขอ Rematch', {
-        code:'opponent_requested_rematch',
-        room,
-        roundId: rematchState.roundId
-      });
-    }
-
-    if(rematchState.roundId && currentRoundId !== rematchState.roundId){
-      currentRoundId = rematchState.roundId;
-    }
-
-    const stSnap = await get(stateRef).catch(()=>null);
-    const st = stSnap?.val() || {};
-    const phase = String(st.phase || 'lobby').toLowerCase();
-
-    if(phase === 'lobby' && rematchState.roundId){
-      emit('hha:battle-rematch-ready', {
-        room,
-        roundId: rematchState.roundId
-      });
-    }
-  }));
-
-  unsubscribers.push(onValue(rematchVotesRef, (snap)=>{
-    if(localDestroyed) return;
-    rematchState.votes = normalizeVoteMap(snap.val() || {});
-    emitRematchState();
-  }));
+  const announcementRef = ref(db, P.announcement);
+  const offAnnouncementCb = (snap)=>{
+    const a = normalizeAnnouncement(snap.val() || {});
+    emit('hha:battle-announcement', a);
+  };
+  onValue(announcementRef, offAnnouncementCb);
+  unsubscribers.push(()=> off(announcementRef, 'value', offAnnouncementCb));
 
   await ensureMeta();
   await ensureRoundIfMissing();
@@ -849,7 +1259,7 @@ export async function initBattle(opts){
     requestRematch,
     acceptRematch,
     declineRematch,
-    getRematchState: ()=> ({ ...rematchState }),
+    getRematchState,
     saveRoundReport,
     leave,
     destroy,
@@ -861,375 +1271,5 @@ export async function initBattle(opts){
       lateJoin: lateJoinFlag,
       invalidRoom: invalidRoomFlag
     }),
-  };
-}
-
-export async function adminOpenRoomTools(opts){
-  opts = opts || {};
-
-  const gameKey = safeKey(opts.gameKey || 'game', 24) || 'game';
-  const room = safeKey(opts.room || '', 10);
-  if(!room) throw new Error('missing room');
-
-  const fbCfg = getFirebaseConfig();
-  if(!fbCfg) throw new Error('missing Firebase config');
-
-  const fb = await loadFirebase();
-  const {
-    initializeApp, getApps, getApp,
-    getDatabase, ref, get, set, update, remove, serverTimestamp
-  } = fb;
-
-  const app = getApps().length ? getApp() : initializeApp(fbCfg);
-  const db  = getDatabase(app);
-
-  const base = `hha-battle/${gameKey}/rooms/${room}`;
-  const stateRef = ref(db, `${base}/state`);
-  const playersRef = ref(db, `${base}/players`);
-  const rematchRef = ref(db, `${base}/rematch`);
-  const rematchVotesRef = ref(db, `${base}/rematchVotes`);
-  const rosterRef = ref(db, `${base}/roster`);
-  const policyRef = ref(db, `${base}/policy`);
-  const announcementRef = ref(db, `${base}/announcement`);
-
-  async function forceStart(){
-    const stSnap = await get(stateRef).catch(()=>null);
-    const st = stSnap?.val() || {};
-    const roundId = String(st.roundId || `r_${Date.now()}`);
-
-    await update(stateRef, {
-      phase:'running',
-      room,
-      roundId,
-      startAtMs: Date.now(),
-      winner:'',
-      reason:'',
-      updatedAt: serverTimestamp(),
-      updatedAtMs: Date.now()
-    }).catch(()=>{});
-  }
-
-  async function forceCountdown(sec=3){
-    sec = Math.max(1, Math.min(10, Number(sec || 3) || 3));
-
-    const stSnap = await get(stateRef).catch(()=>null);
-    const st = stSnap?.val() || {};
-    const roundId = String(st.roundId || `r_${Date.now()}`);
-
-    await update(stateRef, {
-      phase:'countdown',
-      room,
-      roundId,
-      startAtMs: Date.now() + (sec * 1000),
-      winner:'',
-      reason:'',
-      updatedAt: serverTimestamp(),
-      updatedAtMs: Date.now()
-    }).catch(()=>{});
-  }
-
-  async function resetRoom(){
-    const playersSnap = await get(playersRef).catch(()=>null);
-    const raw = playersSnap?.val() || {};
-    const nextRoundId = `r_${Date.now()}`;
-
-    const updates = {};
-    Object.keys(raw).forEach(k=>{
-      updates[`${k}/ready`] = false;
-      updates[`${k}/forfeit`] = false;
-      updates[`${k}/score`] = 0;
-      updates[`${k}/acc`] = 0;
-      updates[`${k}/miss`] = 0;
-      updates[`${k}/medianRT`] = 0;
-      updates[`${k}/finishMs`] = 0;
-    });
-
-    if(Object.keys(updates).length){
-      await update(playersRef, updates).catch(()=>{});
-    }
-
-    await update(stateRef, {
-      phase:'lobby',
-      room,
-      roundId: nextRoundId,
-      startAtMs:0,
-      winner:'',
-      reason:'',
-      updatedAt: serverTimestamp(),
-      updatedAtMs: Date.now()
-    }).catch(()=>{});
-  }
-
-  async function clearRematch(){
-    await remove(rematchRef).catch(()=>{});
-    await remove(rematchVotesRef).catch(()=>{});
-  }
-
-  async function setAllReady(on=true){
-    const playersSnap = await get(playersRef).catch(()=>null);
-    const raw = playersSnap?.val() || {};
-    const updates = {};
-    Object.keys(raw).forEach(k=>{
-      updates[`${k}/ready`] = !!on;
-    });
-    if(Object.keys(updates).length){
-      await update(playersRef, updates).catch(()=>{});
-    }
-  }
-
-  async function resetScoresOnly(){
-    const playersSnap = await get(playersRef).catch(()=>null);
-    const raw = playersSnap?.val() || {};
-    const updates = {};
-
-    Object.keys(raw).forEach(k=>{
-      updates[`${k}/score`] = 0;
-      updates[`${k}/acc`] = 0;
-      updates[`${k}/miss`] = 0;
-      updates[`${k}/medianRT`] = 0;
-      updates[`${k}/finishMs`] = 0;
-      updates[`${k}/forfeit`] = false;
-    });
-
-    if(Object.keys(updates).length){
-      await update(playersRef, updates).catch(()=>{});
-    }
-  }
-
-  async function kickDisconnectedPlayers(){
-    const playersSnap = await get(playersRef).catch(()=>null);
-    const raw = playersSnap?.val() || {};
-    const keys = Object.keys(raw);
-
-    for(const k of keys){
-      const p = raw[k] || {};
-      if(p.connected === false){
-        await remove(ref(db, `${base}/players/${k}`)).catch(()=>{});
-      }
-    }
-  }
-
-  async function clearSpectatorOverflow(){
-    const playersSnap = await get(playersRef).catch(()=>null);
-    const raw = playersSnap?.val() || {};
-    const rows = Object.keys(raw)
-      .map(k => ({ key:k, ...(raw[k] || {}) }))
-      .sort((a,b)=>(Number(a.joinedAtMs||0)-Number(b.joinedAtMs||0)));
-
-    const keep = rows.slice(0,2).map(r=>r.key);
-    const removeKeys = rows.slice(2).map(r=>r.key);
-
-    for(const k of removeKeys){
-      if(!keep.includes(k)){
-        await remove(ref(db, `${base}/players/${k}`)).catch(()=>{});
-      }
-    }
-  }
-
-  async function getTopTwoPlayers(){
-    const playersSnap = await get(playersRef).catch(()=>null);
-    const raw = playersSnap?.val() || {};
-    const rows = Object.keys(raw)
-      .map(k => ({ key:k, ...normalizePlayer(raw[k], k) }))
-      .sort((a,b)=>
-        (Number(b.score||0)-Number(a.score||0)) ||
-        (Number(b.acc||0)-Number(a.acc||0)) ||
-        (Number(a.miss||0)-Number(b.miss||0)) ||
-        (Number(a.medianRT||0)-Number(b.medianRT||0))
-      );
-
-    return rows.slice(0,2);
-  }
-
-  async function endRoundNow(){
-    const top2 = await getTopTwoPlayers();
-    const a = top2[0] || null;
-    const b = top2[1] || null;
-    const picked = pickWinner(a, b);
-
-    await update(stateRef, {
-      phase:'ended',
-      winner: picked.winnerKey || '',
-      reason: picked.reason || 'teacherEnd',
-      updatedAt: serverTimestamp(),
-      updatedAtMs: Date.now()
-    }).catch(()=>{});
-
-    return {
-      winnerKey: picked.winnerKey || '',
-      reason: picked.reason || 'teacherEnd',
-      players: top2
-    };
-  }
-
-  async function forceWinner(playerKey){
-    playerKey = safeKey(playerKey || '', 64);
-    if(!playerKey) throw new Error('missing playerKey');
-
-    await update(stateRef, {
-      phase:'ended',
-      winner: playerKey,
-      reason:'teacherForceWinner',
-      updatedAt: serverTimestamp(),
-      updatedAtMs: Date.now()
-    }).catch(()=>{});
-
-    return {
-      winnerKey: playerKey,
-      reason: 'teacherForceWinner'
-    };
-  }
-
-  async function exportRoundSnapshot(){
-    const stateSnap = await get(stateRef).catch(()=>null);
-    const playersSnap = await get(playersRef).catch(()=>null);
-    const rematchSnap = await get(rematchRef).catch(()=>null);
-    const rematchVotesSnap = await get(rematchVotesRef).catch(()=>null);
-
-    const state = stateSnap?.val() || {};
-    const playersRaw = playersSnap?.val() || {};
-    const rematch = rematchSnap?.val() || {};
-    const rematchVotes = rematchVotesSnap?.val() || {};
-
-    const players = Object.keys(playersRaw)
-      .map(k => ({ key:k, ...normalizePlayer(playersRaw[k], k) }))
-      .sort((a,b)=>(a.joinedAtMs||0)-(b.joinedAtMs||0));
-
-    return {
-      exportedAtIso: new Date().toISOString(),
-      room,
-      gameKey,
-      state,
-      players,
-      rematch,
-      rematchVotes
-    };
-  }
-
-  async function getAttendanceSnapshot(){
-    const attendanceRef = ref(db, `${base}/attendance`);
-    const snap = await get(attendanceRef).catch(()=>null);
-    return snap?.val() || {};
-  }
-
-  async function clearAttendance(){
-    const attendanceRef = ref(db, `${base}/attendance`);
-    await remove(attendanceRef).catch(()=>{});
-  }
-
-  async function getRosterSnapshot(){
-    const snap = await get(rosterRef).catch(()=>null);
-    return snap?.val() || {};
-  }
-
-  async function clearRoster(){
-    await remove(rosterRef).catch(()=>{});
-  }
-
-  async function saveRosterSnapshot(rows){
-    rows = Array.isArray(rows) ? rows : [];
-    const payload = {};
-
-    rows.forEach((r, i)=>{
-      const pid = String(r?.pid || '').trim();
-      const nick = String(r?.nick || '').trim();
-      const key = safeKey(pid || nick || `row_${i}`, 64);
-      if(!key) return;
-
-      payload[key] = {
-        nick: nick || '-',
-        pid: pid || '-',
-        room,
-        lastSeen: String(r?.lastSeen || ''),
-        savedAtMs: Date.now()
-      };
-    });
-
-    await set(rosterRef, payload).catch(()=>{});
-    return payload;
-  }
-
-  async function getRoomPolicy(){
-    const snap = await get(policyRef).catch(()=>null);
-    return snap?.val() || {};
-  }
-
-  async function setRoomLocked(on, extra={}){
-    await update(policyRef, {
-      roomLocked: !!on,
-      allowSpectatorOnly: !!extra?.allowSpectatorOnly,
-      spectatorUrl: String(extra?.spectatorUrl || ''),
-      message: String(extra?.message || ''),
-      updatedAtMs: Date.now()
-    }).catch(()=>{});
-  }
-
-  async function setSpectatorOnly(on, extra={}){
-    await update(policyRef, {
-      roomLocked: !!on,
-      allowSpectatorOnly: !!on,
-      spectatorUrl: String(extra?.spectatorUrl || ''),
-      message: String(extra?.message || ''),
-      updatedAtMs: Date.now()
-    }).catch(()=>{});
-  }
-
-  async function clearRoomPolicy(){
-    await remove(policyRef).catch(()=>{});
-  }
-
-  async function getAnnouncement(){
-    const snap = await get(announcementRef).catch(()=>null);
-    return snap?.val() || {};
-  }
-
-  async function setAnnouncement(message, extra={}){
-    const msg = String(message || '').trim();
-
-    if(!msg){
-      await remove(announcementRef).catch(()=>{});
-      return {};
-    }
-
-    const payload = {
-      message: msg,
-      tone: String(extra?.tone || 'info'),
-      ttlSec: Math.max(0, Number(extra?.ttlSec || 0) || 0),
-      createdAtMs: Date.now(),
-      updatedAtMs: Date.now()
-    };
-
-    await set(announcementRef, payload).catch(()=>{});
-    return payload;
-  }
-
-  async function clearAnnouncement(){
-    await remove(announcementRef).catch(()=>{});
-  }
-
-  return {
-    forceStart,
-    forceCountdown,
-    resetRoom,
-    resetScoresOnly,
-    clearRematch,
-    setAllReady,
-    kickDisconnectedPlayers,
-    clearSpectatorOverflow,
-    endRoundNow,
-    forceWinner,
-    exportRoundSnapshot,
-    getAttendanceSnapshot,
-    clearAttendance,
-    getRosterSnapshot,
-    saveRosterSnapshot,
-    clearRoster,
-    getRoomPolicy,
-    setRoomLocked,
-    setSpectatorOnly,
-    clearRoomPolicy,
-    getAnnouncement,
-    setAnnouncement,
-    clearAnnouncement
   };
 }
