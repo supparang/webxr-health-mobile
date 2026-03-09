@@ -2,12 +2,6 @@
 (function () {
   'use strict';
 
-  if (!window.firebase) {
-    console.error('[firebase-config] firebase compat SDK not loaded');
-    window.HHA_FIREBASE_READY = false;
-    return;
-  }
-
   const firebaseConfig = {
     apiKey: "AIzaSyB5WmSR9uMYX2bwDh2iFYZwGglXGIq5Ijo",
     authDomain: "herohealth-d7f8c.firebaseapp.com",
@@ -18,18 +12,32 @@
     appId: "1:680817376848:web:eed21b522b0703f6bd9b55"
   };
 
-  try {
-    if (!firebase.apps || !firebase.apps.length) {
-      firebase.initializeApp(firebaseConfig);
+  // ให้ battle-rtdb.js อ่าน config ได้แน่ ๆ
+  window.HHA_FIREBASE_CONFIG = firebaseConfig;
+  window.__HHA_FIREBASE_CONFIG__ = firebaseConfig;
+  window.firebaseConfig = firebaseConfig;
+
+  // compat branch (ถ้ามี firebase compat SDK อยู่แล้ว)
+  if (window.firebase) {
+    try {
+      if (!firebase.apps || !firebase.apps.length) {
+        firebase.initializeApp(firebaseConfig);
+      }
+
+      window.HHA_FIREBASE_APP = firebase.app();
+      window.HHA_FIREBASE_DB = firebase.database();
+      window.HHA_FIREBASE_READY = true;
+
+      console.log('[firebase-config] Firebase compat ready');
+      return;
+    } catch (err) {
+      console.error('[firebase-config] compat init failed:', err);
+      window.HHA_FIREBASE_READY = false;
+      return;
     }
-
-    window.HHA_FIREBASE_APP = firebase.app();
-    window.HHA_FIREBASE_DB = firebase.database();
-    window.HHA_FIREBASE_READY = true;
-
-    console.log('[firebase-config] Firebase compat ready');
-  } catch (err) {
-    console.error('[firebase-config] init failed:', err);
-    window.HHA_FIREBASE_READY = false;
   }
+
+  // modular users ยังใช้ config object ได้ แม้ไม่มี compat SDK
+  window.HHA_FIREBASE_READY = true;
+  console.log('[firebase-config] Firebase config exposed (modular/RTDB loader can use it)');
 })();
