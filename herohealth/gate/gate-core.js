@@ -1,11 +1,12 @@
 // === /herohealth/gate/gate-core.js ===
 // HeroHealth Gate Core
-// PATCH v20260309a-HARDFIX-DIRECT-RUN-CACHEBUST
-// ✅ cache-bust friendly
+// PATCH v20260309b-HARDFIX-DIRECT-RUN-SAFEPHASE
+// ✅ version match warmup-gate.html
 // ✅ Germ Detective direct run URL
 // ✅ MaskCough direct run URL
-// ✅ skip/continue use same destination logic
-// ✅ debug logs ชัด
+// ✅ skip/continue same destination
+// ✅ strip warmup/cooldown phase from run game
+// ✅ debug logs clearer
 
 import {
   buildCtx,
@@ -14,11 +15,11 @@ import {
   setText,
   sanitizeBuffs,
   saveLastSummary
-} from './gate-common.js?v=20260309a';
+} from './gate-common.js?v=20260309b';
 
-import { mountSummaryLayer, mountToast } from './gate-summary.js?v=20260309a';
-import { createGateLogger } from './gate-logger.js?v=20260309a';
-import { GATE_GAMES, getGameMeta } from './gate-games.js?v=20260309a';
+import { mountSummaryLayer, mountToast } from './gate-summary.js?v=20260309b';
+import { createGateLogger } from './gate-logger.js?v=20260309b';
+import { GATE_GAMES, getGameMeta } from './gate-games.js?v=20260309b';
 
 function titleOf(ctx){
   const meta = getGameMeta(ctx.game) || {
@@ -40,7 +41,7 @@ function subtitleOf(ctx){
 }
 
 function modulePath(ctx){
-  return `./games/${ctx.game}/${ctx.mode}.js?v=20260309a`;
+  return `./games/${ctx.game}/${ctx.mode}.js?v=20260309b`;
 }
 
 function safeHubUrl(ctx){
@@ -77,7 +78,12 @@ function appendCommonParams(u, ctx, hub){
   u.searchParams.set('hub', hub);
 
   if(ctx.studyId) u.searchParams.set('studyId', String(ctx.studyId));
-  if(ctx.phase) u.searchParams.set('phase', String(ctx.phase));
+
+  const safePhase = String(ctx.phase || '').toLowerCase();
+  if(safePhase && safePhase !== 'warmup' && safePhase !== 'cooldown'){
+    u.searchParams.set('phase', String(ctx.phase));
+  }
+
   if(ctx.conditionGroup) u.searchParams.set('conditionGroup', String(ctx.conditionGroup));
   if(ctx.sessionOrder) u.searchParams.set('sessionOrder', String(ctx.sessionOrder));
   if(ctx.blockLabel) u.searchParams.set('blockLabel', String(ctx.blockLabel));
@@ -113,6 +119,7 @@ function buildRawNextUrl(ctx, result=null){
   if(rawNext){
     try{
       const u = new URL(rawNext, location.href);
+
       if(/warmup-gate\.html$/i.test(u.pathname)){
         console.warn('[gate] raw next points back to warmup-gate, fallback to hub', rawNext);
         return hub;
@@ -184,7 +191,7 @@ function renderShell(root, ctx){
 }
 
 export async function bootGate(root){
-  console.log('[gate-core] v20260309a running');
+  console.log('[gate-core] v20260309b running');
 
   const ctx = buildCtx();
   ctx.dailyDone = getDailyDone(ctx);
