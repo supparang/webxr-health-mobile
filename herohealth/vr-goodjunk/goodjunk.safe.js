@@ -1,6 +1,6 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
 // GoodJunkVR SAFE — PRODUCTION
-// FULL PATCH v20260308-GJ-SAFE-LATEST
+// FULL PATCH v20260309-GJ-SAFE-BATTLE-READY-ENDGAME-FIX
 'use strict';
 
 export async function boot(cfg){
@@ -1660,28 +1660,6 @@ export async function boot(cfg){
     if(endMiss) endMiss.textContent = String(detail.missTotal);
     if(endTime) endTime.textContent = String(detail.timePlayedSec);
 
-    const endMatchLine1 = $('endMatchLine1');
-    const endMatchLine2 = $('endMatchLine2');
-
-    if(endMatchLine1){
-      endMatchLine1.textContent =
-        `bestOf ${Number(battleMatchState?.bestOf || 3)} • winsToChampion ${Number(battleMatchState?.winsToChampion || 2)}`;
-    }
-
-    if(endMatchLine2){
-      const meKey = String(battle?.meKey || '');
-      const opp = (battlePlayersState || []).find(p => p.key !== meKey);
-      const myWins = Number((battleMatchState?.wins || {})[meKey] || 0);
-      const oppWins = Number((battleMatchState?.wins || {})[opp?.key] || 0);
-      const championKey = String(battleMatchState?.champion || '');
-      const championName = championKey
-        ? ((battlePlayersState || []).find(p => p.key === championKey)?.nick || championKey)
-        : '—';
-
-      endMatchLine2.textContent =
-        `you ${myWins} • opponent ${oppWins} • champion ${championName}`;
-    }
-
     renderDecision(detail);
     renderCompareTable(detail);
     renderRematchEndStatus();
@@ -1689,52 +1667,98 @@ export async function boot(cfg){
     hhInjectCooldownButton({ endOverlayEl:endOverlay, hub:hubUrl, cat:HH_CAT, gameKey:HH_GAME, pid });
   }
 
-  function endGame(reason){
-    if(!playing || ended) return;
+  function endGame(reason='finish'){
+    if(ended) return;
     ended = true;
     playing = false;
+    paused = true;
+
     setDanger(false);
 
-    for(const [,t] of targets){
-      try{ t.el.remove(); }catch(e){}
-    }
-    targets.clear();
+    try{
+      for(const [id] of targets){
+        removeTarget(id);
+      }
+    }catch(_){}
 
-    let detail = buildEndDetail(reason);
+    const winByScore = score >= WIN_TARGET.scoreTarget;
+    const winByBoss = (stage === 2 && bossHp <= 0);
+    const normalizedReason =
+      reason === 'win'
+        ? 'win'
+        : (reason === 'time' && (winByScore || winByBoss))
+          ? 'win'
+          : String(reason || 'finish');
+
+    let detail = buildEndDetail(normalizedReason);
     detail = applyBattleResultToOverlay(detail);
 
     try{
-      battle?.syncScore?.({
-        score: detail.scoreFinal,
-        accPct: detail.accPct,
-        missTotal: detail.missTotal,
-        medianRtGoodMs: detail.medianRtGoodMs,
-        finishMs: detail.finishMs
-      });
-    }catch(e){
-      console.warn('[GoodJunk] final battle syncScore failed', e);
-    }
+      syncBattleScore(true);
+    }catch(_){}
 
     try{
-      hhLsSet(`HHA_LAST_SUMMARY:${HH_GAME}:${pid}`, JSON.stringify(detail));
+      WIN.__GJ_LAST_RESULT__ = detail;
+      WIN.__HHA_LAST_SUMMARY__ = detail;
       hhLsSet('HHA_LAST_SUMMARY', JSON.stringify(detail));
-    }catch(e){}
+      hhLsSet('HHA_LAST_SUMMARY_GAME', HH_GAME);
+    }catch(_){}
 
     try{
-      if(battle && battle.enabled && typeof battle.saveRoundReport === 'function'){
-        const cloudRow = buildCloudRoundReport(detail);
-        battle.saveRoundReport(cloudRow).catch(()=>{});
-      }
-    }catch(e){
-      console.warn('[GoodJunk] cloud saveRoundReport failed', e);
+      const cloudRow = buildCloudRoundReport(detail);
+      WIN.__GJ_LAST_CLOUD_ROW__ = cloudRow;
+    }catch(_){}
+
+    try{
+      renderEndOverlay(detail);
+    }catch(err){
+      console.error('[GoodJunk] renderEndOverlay failed', err);
+      alert(`จบเกมแล้ว\nscore=${detail.scoreFinal}\nacc=${detail.accPct}%\nmiss=${detail.missTotal}`);
     }
 
     try{
-      WIN.dispatchEvent(new CustomEvent('hha:end', { detail }));
-    }catch(e){}
+      if(battleOn && battle && battle.enabled){
+        battle.finishRound?.({
+          score: detail.scoreFinal,
+          accPct: detail.accPct,
+          missTotal: detail.missTotal,
+          medianRtGoodMs: detail.medianRtGoodMs,
+          finishMs: detail.finishMs,
+          reason: detail.reason,
+          win: !!detail.win
+        });
+      }
+    }catch(err){
+      console.warn('[GoodJunk] battle.finishRound failed', err);
+    }
 
-    sfx(detail.win ? 'win' : 'lose');
-    renderEndOverlay(detail);
+    try{
+      const logDetail = {
+        ...detail,
+        cooldownDoneToday: hhCooldownDone(HH_CAT, HH_GAME, pid) ? 1 : 0
+      };
+      WIN.dispatchEvent(new CustomEvent('hha:game-ended', { detail: logDetail }));
+    }catch(_){}
+
+    if(detail.win){
+      sfx('win');
+      sayCoach(
+        battleOn && detail.battleWinnerKey
+          ? (String(detail.battleWinnerKey) === String(battle?.meKey || '') ? 'ชนะ Battle! 🏆' : 'จบรอบ Battle แล้ว')
+          : 'ยอดเยี่ยม! ผ่านเป้าหมายแล้ว 🎉',
+        true
+      );
+    }else{
+      sfx('lose');
+      sayCoach(
+        normalizedReason === 'miss-limit'
+          ? 'พลาดเยอะเกินไป ลองใหม่อีกครั้งได้ 💪'
+          : normalizedReason === 'time'
+            ? 'หมดเวลาแล้ว ลองใหม่อีกครั้งนะ ⏳'
+            : 'จบเกมแล้ว',
+        true
+      );
+    }
   }
 
   function makeTarget(type, emoji, ttl, point=null){
@@ -1799,6 +1823,7 @@ export async function boot(cfg){
   }
 
   function hitTarget(id){
+    if(ended) return;
     const t = targets.get(id);
     if(!t || !playing || paused) return;
 
@@ -2282,6 +2307,7 @@ export async function boot(cfg){
   }
 
   function tick(){
+    if(ended) return;
     const t = nowMs();
     let dt = (t - lastTick) / 1000;
     lastTick = t;
