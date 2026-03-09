@@ -96,7 +96,7 @@
 <div class="wrap">
   <div class="card">
     <div class="title">🦠 Germ Detective — Launcher</div>
-    <div class="sub">เข้า warmup ก่อนเสมอ แล้วค่อยเข้าเกมจริงในโฟลเดอร์ germ-detective</div>
+    <div class="sub">เข้า warmup ก่อน แล้วค่อยเข้าเกมจริง</div>
 
     <div class="grid">
       <div class="box">
@@ -317,14 +317,6 @@
     return u.toString();
   }
 
-  function shouldEnterGameDirect(){
-    return qs('gateResult','') === '1' && qs('gateMode','') === 'warmup';
-  }
-
-  function buildEntryUrl(){
-    return shouldEnterGameDirect() ? buildGameUrl() : buildGateUrl();
-  }
-
   function render(){
     viewRow.innerHTML = '';
     diffRow.innerHTML = '';
@@ -344,7 +336,7 @@
     timeInp.value = String(state.time);
     seedInp.value = String(state.seed);
     sceneSel.value = state.scene || 'classroom';
-    preview.textContent = 'Preview: ' + buildEntryUrl();
+    preview.textContent = 'Preview: ' + buildGateUrl();
   }
 
   timeInp.addEventListener('change', ()=>{
@@ -369,7 +361,7 @@
 
   document.getElementById('btnGo')?.addEventListener('click', ()=>{
     persist();
-    location.href = buildEntryUrl();
+    location.href = buildGateUrl();
   });
 
   render();
