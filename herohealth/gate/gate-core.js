@@ -1,11 +1,11 @@
 // === /herohealth/gate/gate-core.js ===
 // HeroHealth Gate Core
-// PATCH v20260308-HYGIENE-GATE-CORE-r10-HARDFIX-DIRECT-RUN
+// PATCH v20260309a-HARDFIX-DIRECT-RUN-CACHEBUST
+// ✅ cache-bust friendly
 // ✅ Germ Detective direct run URL
 // ✅ MaskCough direct run URL
-// ✅ skip and continue share same destination logic
-// ✅ no launcher bounce
-// ✅ no duplicated germ-detective folder path
+// ✅ skip/continue use same destination logic
+// ✅ debug logs ชัด
 
 import {
   buildCtx,
@@ -14,11 +14,11 @@ import {
   setText,
   sanitizeBuffs,
   saveLastSummary
-} from './gate-common.js?v=20260308g';
+} from './gate-common.js?v=20260309a';
 
-import { mountSummaryLayer, mountToast } from './gate-summary.js?v=20260308g';
-import { createGateLogger } from './gate-logger.js?v=20260308g';
-import { GATE_GAMES, getGameMeta } from './gate-games.js?v=20260308g';
+import { mountSummaryLayer, mountToast } from './gate-summary.js?v=20260309a';
+import { createGateLogger } from './gate-logger.js?v=20260309a';
+import { GATE_GAMES, getGameMeta } from './gate-games.js?v=20260309a';
 
 function titleOf(ctx){
   const meta = getGameMeta(ctx.game) || {
@@ -40,7 +40,7 @@ function subtitleOf(ctx){
 }
 
 function modulePath(ctx){
-  return `./games/${ctx.game}/${ctx.mode}.js?v=20260308g`;
+  return `./games/${ctx.game}/${ctx.mode}.js?v=20260309a`;
 }
 
 function safeHubUrl(ctx){
@@ -90,7 +90,8 @@ function buildRawNextUrl(ctx, result=null){
   const hub = safeHubUrl(ctx);
   const game = String(ctx.game || '').toLowerCase();
 
-  // HARD FIX: Germ Detective ใช้ run game URL ตรง ๆ
+  console.log('[gate-core] direct game build for', game);
+
   if(game === 'germdetective'){
     const u = new URL('/webxr-health-mobile/herohealth/germ-detective/germ-detective.html', location.origin);
     appendCommonParams(u, ctx, hub);
@@ -100,7 +101,6 @@ function buildRawNextUrl(ctx, result=null){
     return u.toString();
   }
 
-  // HARD FIX: MaskCough ใช้ run game URL ตรง ๆ
   if(game === 'maskcough'){
     const u = new URL('/webxr-health-mobile/herohealth/vr-maskcough/maskcough-v2.html', location.origin);
     appendCommonParams(u, ctx, hub);
@@ -109,22 +109,18 @@ function buildRawNextUrl(ctx, result=null){
     return u.toString();
   }
 
-  // เกมอื่นยังใช้ next ได้ตามปกติ
   const rawNext = String(ctx.next || '').trim();
   if(rawNext){
     try{
       const u = new URL(rawNext, location.href);
-
       if(/warmup-gate\.html$/i.test(u.pathname)){
         console.warn('[gate] raw next points back to warmup-gate, fallback to hub', rawNext);
         return hub;
       }
 
       ['gatePhase','phase','cd','next'].forEach(k=>u.searchParams.delete(k));
-
       appendCommonParams(u, ctx, hub);
       appendResultParams(u, result);
-
       return u.toString();
     }catch(err){
       console.error('[gate] invalid raw next', rawNext, err);
@@ -188,10 +184,14 @@ function renderShell(root, ctx){
 }
 
 export async function bootGate(root){
+  console.log('[gate-core] v20260309a running');
+
   const ctx = buildCtx();
   ctx.dailyDone = getDailyDone(ctx);
 
   console.log('[gate ctx raw]', ctx);
+  console.log('[gate ctx.next]', ctx.next);
+  console.log('[gate ctx.game]', ctx.game);
 
   renderShell(root, ctx);
 
