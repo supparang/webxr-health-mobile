@@ -1,6 +1,6 @@
 // === /herohealth/gate/gate-core.js ===
 // HeroHealth Gate Core
-// PATCH v20260309b-HARDFIX-DIRECT-RUN-SAFEPHASE
+// PATCH v20260309c-HARDFIX-DIRECT-RUN-SAFEPHASE
 // ✅ version match warmup-gate.html
 // ✅ Germ Detective direct run URL
 // ✅ MaskCough direct run URL
@@ -15,11 +15,11 @@ import {
   setText,
   sanitizeBuffs,
   saveLastSummary
-} from './gate-common.js?v=20260309b';
+} from './gate-common.js?v=20260309c';
 
-import { mountSummaryLayer, mountToast } from './gate-summary.js?v=20260309b';
-import { createGateLogger } from './gate-logger.js?v=20260309b';
-import { GATE_GAMES, getGameMeta } from './gate-games.js?v=20260309b';
+import { mountSummaryLayer, mountToast } from './gate-summary.js?v=20260309c';
+import { createGateLogger } from './gate-logger.js?v=20260309c';
+import { GATE_GAMES, getGameMeta } from './gate-games.js?v=20260309c';
 
 function titleOf(ctx){
   const meta = getGameMeta(ctx.game) || {
@@ -41,7 +41,7 @@ function subtitleOf(ctx){
 }
 
 function modulePath(ctx){
-  return `./games/${ctx.game}/${ctx.mode}.js?v=20260309b`;
+  return `./games/${ctx.game}/${ctx.mode}.js?v=20260309c`;
 }
 
 function safeHubUrl(ctx){
@@ -191,7 +191,7 @@ function renderShell(root, ctx){
 }
 
 export async function bootGate(root){
-  console.log('[gate-core] v20260309b running');
+  console.log('[gate-core] v20260309c running');
 
   const ctx = buildCtx();
   ctx.dailyDone = getDailyDone(ctx);
