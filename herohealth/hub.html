@@ -716,22 +716,10 @@
           <div class="bookBig" id="bookTotal">0</div>
 
           <div class="rarityRow">
-            <div class="rarityCard rarity-s">
-              <div class="rk">S</div>
-              <div class="rv" id="bookS">0</div>
-            </div>
-            <div class="rarityCard rarity-a">
-              <div class="rk">A</div>
-              <div class="rv" id="bookA">0</div>
-            </div>
-            <div class="rarityCard rarity-b">
-              <div class="rk">B</div>
-              <div class="rv" id="bookB">0</div>
-            </div>
-            <div class="rarityCard rarity-c">
-              <div class="rk">C</div>
-              <div class="rv" id="bookC">0</div>
-            </div>
+            <div class="rarityCard rarity-s"><div class="rk">S</div><div class="rv" id="bookS">0</div></div>
+            <div class="rarityCard rarity-a"><div class="rk">A</div><div class="rv" id="bookA">0</div></div>
+            <div class="rarityCard rarity-b"><div class="rk">B</div><div class="rv" id="bookB">0</div></div>
+            <div class="rarityCard rarity-c"><div class="rk">C</div><div class="rv" id="bookC">0</div></div>
           </div>
         </div>
 
@@ -818,7 +806,6 @@
     </section>
 
     <div class="grid section">
-
       <section class="card">
         <h2>🥦 Nutrition Zone</h2>
         <div class="zoneRow">
@@ -869,11 +856,12 @@
           <a class="gameBtn" id="linkFitnessPlanner" href="#"><div class="t">📅 Fitness Planner</div><div class="s">วางแผนออกกำลัง</div></a>
         </div>
       </section>
-
     </div>
   </div>
 
   <script>
+    console.log('[hub] v20260309-germ-hardfix running');
+
     const qs = (k, d='')=>{ try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(e){ return d; } };
 
     const pid  = String(qs('pid','anon')).trim() || 'anon';
@@ -1104,18 +1092,15 @@
 
       const badgeCount = Object.values(badges || {}).filter(Boolean).length;
       document.getElementById('nutriHint').textContent =
-        nutritionUnlocked
-          ? `ปลดถ้วยแล้ว • badges ${badgeCount} • พร้อมลุยต่อ`
+        nutritionUnlocked ? `ปลดถ้วยแล้ว • badges ${badgeCount} • พร้อมลุยต่อ`
           : 'เคลียร์ GoodJunk หรือสะสมการ์ดเพื่อปลดถ้วย';
 
       document.getElementById('hygieneHint').textContent =
-        hygieneUnlocked
-          ? 'ทำโซน Hygiene สำเร็จวันนี้แล้ว'
+        hygieneUnlocked ? 'ทำโซน Hygiene สำเร็จวันนี้แล้ว'
           : 'ทำ zone hygiene ให้มี done today เพื่อโชว์ถ้วย';
 
       document.getElementById('fitnessHint').textContent =
-        fitnessUnlocked
-          ? 'ทำโซน Fitness สำเร็จวันนี้แล้ว'
+        fitnessUnlocked ? 'ทำโซน Fitness สำเร็จวันนี้แล้ว'
           : 'ทำ zone fitness ให้มี done today เพื่อโชว์ถ้วย';
     }
 
@@ -1154,14 +1139,11 @@
         const nick = String(heroNickInput?.value || pid).trim() || pid;
         const xp = Math.max(0, Number(heroXpInput?.value) || 0);
         const lvl = lvlFromXp(xp);
-
         const h = { pid, nick, xp, lvl };
         saveHero(h);
         try{ localStorage.setItem(`HHA_HERO_XP:${pid}`, String(xp)); }catch(_){}
-
         renderHero();
         renderHeroEditor();
-
         alert(`บันทึก Hero เรียบร้อย ✅\nNick: ${nick}\nXP: ${xp}\nLV: ${lvl}`);
       }catch(_){
         alert('บันทึก Hero ไม่สำเร็จ');
@@ -1173,14 +1155,12 @@
       groups:         './groups-vr.html',
       hydration:      './hydration-vr.html',
       plate:          './plate-vr.html',
-
       handwash:       './hygiene-vr.html',
       brush:          './brush-vr.html',
       bath:           './bath-vr.html',
       cleanObject:    './clean-objects.html',
       maskCough:      './maskcough-v2.html',
       germDetective:  '/webxr-health-mobile/herohealth/germ-detective.html',
-
       shadowBreaker:  './shadow-breaker-vr.html',
       rhythmBoxer:    './rhythm-boxer-vr.html',
       jumpDuck:       './jump-duck-vr.html',
@@ -1191,7 +1171,6 @@
     const btnGJsolo = document.getElementById('btnGJsolo');
     const btnPlateSoloHero = document.getElementById('btnPlateSoloHero');
     const btnPlateCoopHero = document.getElementById('btnPlateCoopHero');
-
     const btnNutritionMain = document.getElementById('btnNutritionMain');
     const btnPlateSolo = document.getElementById('btnPlateSolo');
     const btnPlateCoop = document.getElementById('btnPlateCoop');
@@ -1224,31 +1203,43 @@
     if(linkBath)          linkBath.href          = buildUrl(PATHS.bath,          { zone:'hygiene' });
     if(linkCleanObject)   linkCleanObject.href   = buildUrl(PATHS.cleanObject,   { zone:'hygiene' });
     if(linkMaskCough)     linkMaskCough.href     = buildUrl(PATHS.maskCough,     { zone:'hygiene' });
-    if(linkGermDetective) linkGermDetective.href = buildUrl(PATHS.germDetective, { zone:'hygiene' });
+
+    if(linkGermDetective){
+      const germLauncher = new URL('/webxr-health-mobile/herohealth/germ-detective.html', location.origin);
+      const current = new URL(location.href);
+
+      [
+        'run','diff','time','seed','studyId','phase','conditionGroup','log','view','pid','api','ai','debug'
+      ].forEach(k=>{
+        const v = current.searchParams.get(k);
+        if(v!=null && v!=='') germLauncher.searchParams.set(k, v);
+      });
+
+      germLauncher.searchParams.set('zone', 'hygiene');
+      germLauncher.searchParams.set('hub', hub);
+
+      linkGermDetective.href = germLauncher.toString();
+      console.log('[hub] germDetective href =', linkGermDetective.href);
+
+      linkGermDetective.addEventListener('click', (ev)=>{
+        ev.preventDefault();
+        location.href = germLauncher.toString();
+      });
+    }
+
+    if(linkShadowBreaker)  linkShadowBreaker.href  = buildUrl(PATHS.shadowBreaker,  { zone:'fitness' });
+    if(linkRhythmBoxer)    linkRhythmBoxer.href    = buildUrl(PATHS.rhythmBoxer,    { zone:'fitness' });
+    if(linkJumpDuck)       linkJumpDuck.href       = buildUrl(PATHS.jumpDuck,       { zone:'fitness' });
+    if(linkBalanceHold)    linkBalanceHold.href    = buildUrl(PATHS.balanceHold,    { zone:'fitness' });
+    if(linkFitnessPlanner) linkFitnessPlanner.href = buildUrl(PATHS.fitnessPlanner, { zone:'fitness' });
 
     btnGJsolo.onclick = ()=> location.href = buildUrl(PATHS.goodjunk, { mode:'solo' });
 
-    btnPlateSoloHero.onclick = ()=> location.href = buildUrl(PATHS.plate, {
-      mode:'solo',
-      zone:'nutrition'
-    });
-
-    btnPlateCoopHero.onclick = ()=> location.href = buildUrl(PATHS.plate, {
-      mode:'coop',
-      zone:'nutrition'
-    });
-
+    btnPlateSoloHero.onclick = ()=> location.href = buildUrl(PATHS.plate, { mode:'solo', zone:'nutrition' });
+    btnPlateCoopHero.onclick = ()=> location.href = buildUrl(PATHS.plate, { mode:'coop', zone:'nutrition' });
     btnNutritionMain.onclick = ()=> location.href = buildUrl(PATHS.goodjunk, { mode:'solo' });
-
-    btnPlateSolo.onclick = ()=> location.href = buildUrl(PATHS.plate, {
-      mode:'solo',
-      zone:'nutrition'
-    });
-
-    btnPlateCoop.onclick = ()=> location.href = buildUrl(PATHS.plate, {
-      mode:'coop',
-      zone:'nutrition'
-    });
+    btnPlateSolo.onclick = ()=> location.href = buildUrl(PATHS.plate, { mode:'solo', zone:'nutrition' });
+    btnPlateCoop.onclick = ()=> location.href = buildUrl(PATHS.plate, { mode:'coop', zone:'nutrition' });
 
     const btnHeroShow = document.getElementById('btnHeroShow');
     const btnHeroReset = document.getElementById('btnHeroReset');
@@ -1273,9 +1264,7 @@
     const btnOpenGJLauncher = document.getElementById('btnOpenGJLauncher');
     const btnResetCardBook = document.getElementById('btnResetCardBook');
 
-    btnOpenGJLauncher.onclick = ()=>{
-      location.href = buildUrl(PATHS.goodjunk, { mode:'solo' });
-    };
+    btnOpenGJLauncher.onclick = ()=>{ location.href = buildUrl(PATHS.goodjunk, { mode:'solo' }); };
 
     btnResetCardBook.onclick = ()=>{
       try{
