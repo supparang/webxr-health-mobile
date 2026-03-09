@@ -1,17 +1,3 @@
-// === /fitness/js/balance-hold.js ===
-// Balance Hold — DOM-based Balance Platform + Obstacle Avoidance
-// FULL BUILD (U) — warmup/cooldown per-game daily flow
-// ✅ URL prefill (diff/time/run/view/pid/group/phase)
-// ✅ autostart=1 support
-// ✅ summary stays first (no auto bounce to hub)
-// ✅ if cooldown not done today => result/back-hub routes to cooldown gate first
-// ✅ per-game daily keys: category=exercise, game=balance
-// ✅ deterministic seeded RNG
-// ✅ warmup passthrough buffs (wType/wPct/rank/wCrit/wDmg/wHeal)
-// ✅ practice + countdown
-// ✅ pause/resume/stop
-// ✅ result hero + rank + insight + badges/missions
-// ✅ local exports
 'use strict';
 
 /* ------------------------------------------------------------
@@ -52,141 +38,9 @@ function parseBoolLike(v, fallback=false){
   if (['0','false','no','n','off'].includes(s)) return false;
   return fallback;
 }
-function absUrlMaybe(url){
-  if(!url) return '';
-  try{ return new URL(url, location.href).toString(); }catch{ return String(url||''); }
-}
-function resolveHubSafe(raw){
-  const s = String(raw || '').trim();
-  if(!s) return '';
-  try{ return new URL(s, location.href).toString(); }catch{ return s; }
-}
-function setQueryParam(url, k, v){
-  const u = new URL(url, location.href);
-  if(v == null || v === '') u.searchParams.delete(k);
-  else u.searchParams.set(k, String(v));
-  return u.toString();
-}
 
 /* ------------------------------------------------------------
- * Daily per-game helpers
- * ------------------------------------------------------------ */
-const GAME_ID = 'balance-hold';
-const GAME_THEME = 'balance';
-const GAME_CATEGORY = 'exercise';
-
-function getLocalDayKey(){
-  const d = new Date();
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth()+1).padStart(2,'0');
-  const dd = String(d.getDate()).padStart(2,'0');
-  return `${yyyy}-${mm}-${dd}`;
-}
-function dailyKeyNew(prefix, category, gameKey, pid){
-  const day = getLocalDayKey();
-  const p = (pid || 'anon').trim() || 'anon';
-  const c = String(category || GAME_CATEGORY).toLowerCase();
-  const g = String(gameKey || GAME_THEME).toLowerCase();
-  return `${prefix}:${c}:${g}:${p}:${day}`;
-}
-function dailyKeyOld(prefix, category, pid){
-  const day = getLocalDayKey();
-  const p = (pid || 'anon').trim() || 'anon';
-  const c = String(category || GAME_CATEGORY).toLowerCase();
-  return `${prefix}:${c}:${p}:${day}`;
-}
-function isDailyDone(prefix, category, gameKey, pid){
-  try{
-    return localStorage.getItem(dailyKeyNew(prefix, category, gameKey, pid)) === '1'
-      || localStorage.getItem(dailyKeyOld(prefix, category, pid)) === '1';
-  }catch(e){
-    return false;
-  }
-}
-function markDailyDone(prefix, category, gameKey, pid){
-  try{
-    localStorage.setItem(dailyKeyNew(prefix, category, gameKey, pid), '1');
-  }catch(e){}
-}
-function getPidSafe(){
-  return String(qv('pid','anon')).trim() || 'anon';
-}
-function warmupDoneToday(){
-  return isDailyDone('HHA_WARMUP_DONE', GAME_CATEGORY, GAME_THEME, getPidSafe());
-}
-function cooldownDoneToday(){
-  return isDailyDone('HHA_COOLDOWN_DONE', GAME_CATEGORY, GAME_THEME, getPidSafe());
-}
-
-/* ------------------------------------------------------------
- * Gate URLs
- * ------------------------------------------------------------ */
-function buildCurrentRunUrl(autostart=false){
-  const u = new URL(location.href);
-  if(autostart) u.searchParams.set('autostart', '1');
-  else u.searchParams.delete('autostart');
-  return u.toString();
-}
-function buildHubUrlFromCurrent(){
-  const raw = String(qv('hub','')).trim();
-  return resolveHubSafe(raw) || '';
-}
-function buildCooldownUrl(){
-  const hub = buildHubUrlFromCurrent();
-  const nextTarget = hub || buildCurrentRunUrl(false);
-
-  const u = new URL('../herohealth/warmup-gate.html', location.href);
-  u.searchParams.set('gatePhase', 'cooldown');
-  u.searchParams.set('cat', GAME_CATEGORY);
-  u.searchParams.set('theme', GAME_THEME);
-  u.searchParams.set('game', GAME_THEME);
-  u.searchParams.set('pid', getPidSafe());
-  u.searchParams.set('run', String(qv('run','play')).toLowerCase());
-  u.searchParams.set('next', nextTarget);
-
-  // passthrough
-  [
-    'hub','diff','time','seed','view','log','api','ai',
-    'studyId','phase','conditionGroup','grade',
-    'planSeq','planDay','planSlot','planMode','planSlots','planIndex','autoNext',
-    'plannedGame','finalGame','zone','cdnext'
-  ].forEach(k=>{
-    const v = qv(k,'');
-    if(v !== '') u.searchParams.set(k, v);
-  });
-
-  if(!u.searchParams.has('hub') && hub) u.searchParams.set('hub', hub);
-  if(!u.searchParams.has('cdur')){
-    u.searchParams.set('cdur', String(qv('grade','') === 'p5' ? 30 : 15));
-  }
-
-  return u.toString();
-}
-function goCooldownOrHub(){
-  const hub = buildHubUrlFromCurrent();
-  if (!cooldownDoneToday()){
-    location.href = buildCooldownUrl();
-    return;
-  }
-  if (hub){
-    location.href = hub;
-    return;
-  }
-  showView('menu');
-}
-function updateCooldownCTA(){
-  const btn = $('[data-action="result-back-hub"]');
-  if(btn){
-    btn.textContent = cooldownDoneToday() ? '🏠 Back HUB' : '🧘 Go Cooldown';
-  }
-  const btn2 = $('[data-action="end-back-hub"]');
-  if(btn2){
-    btn2.textContent = cooldownDoneToday() ? 'Back HUB' : 'Go Cooldown';
-  }
-}
-
-/* ------------------------------------------------------------
- * Seeded RNG (deterministic)
+ * Seeded RNG
  * ------------------------------------------------------------ */
 function xmur3(str){
   str = String(str ?? '');
@@ -226,7 +80,7 @@ function buildSeedString(meta){
   const ymd = `${yyyy}${mm}${dd}`;
 
   return [
-    GAME_ID,
+    'balance-hold',
     meta?.mode || 'play',
     meta?.playerId || qv('pid','anon'),
     meta?.difficulty || qv('diff','normal'),
@@ -253,19 +107,17 @@ function showView(name){
   if (name==='research') viewResearch && viewResearch.classList.remove('hidden');
   if (name==='play')     viewPlay && viewPlay.classList.remove('hidden');
   if (name==='result')   viewResult && viewResult.classList.remove('hidden');
-  updateCooldownCTA();
 }
 function applyViewModeClass(mode){
   document.body.classList.remove('view-pc','view-mobile','view-cvr');
   const m = (mode === 'mobile' || mode === 'cvr') ? mode : 'pc';
   document.body.classList.add('view-' + m);
-
   const cvr = $('#cvrOverlay');
   if (cvr) cvr.classList.toggle('hidden', m !== 'cvr');
 }
 
 /* ------------------------------------------------------------
- * DOM refs (core)
+ * DOM refs
  * ------------------------------------------------------------ */
 const elDiffSel = $('#difficulty');
 const elDurSel  = $('#sessionDuration');
@@ -295,7 +147,6 @@ const obstacleLayer = $('#obstacle-layer');
 const coachLabel  = $('#coachLabel');
 const coachBubble = $('#coachBubble');
 
-/* result refs */
 const rankBadgeEl     = $('#rankBadge');
 const resultHeroSub   = $('#resultHeroSub');
 const heroInsightEl   = $('#heroInsight');
@@ -322,7 +173,6 @@ const resComboEl   = $('#res-maxCombo');
 const resAiTipEl   = $('#res-aiTip');
 const resDailyEl   = $('#res-daily');
 
-/* overlays */
 const tutorialOverlay = $('#tutorialOverlay');
 const tutorialDontShowAgain = $('#tutorialDontShowAgain');
 const endModal = $('#endModal');
@@ -330,7 +180,6 @@ const endModalRank = $('#endModalRank');
 const endModalScore= $('#endModalScore');
 const endModalInsight = $('#endModalInsight');
 
-/* cVR label */
 const cvrStrictLabel = $('#cvrStrictLabel');
 
 /* ------------------------------------------------------------
@@ -352,7 +201,7 @@ function mapEndReason(code){
 }
 
 /* ------------------------------------------------------------
- * Warmup passthrough buffs
+ * Warmup buffs
  * ------------------------------------------------------------ */
 function readWarmupBuff(){
   const wType = qv('wType','');
@@ -372,7 +221,7 @@ function readWarmupBuff(){
 }
 
 /* ------------------------------------------------------------
- * Tutorial / modal helpers
+ * Overlay helpers
  * ------------------------------------------------------------ */
 function openTutorial(){
   if (!tutorialOverlay) return;
@@ -396,7 +245,7 @@ function closeEndModal(){
 }
 
 /* ------------------------------------------------------------
- * Prefill UI from URL
+ * Query -> UI
  * ------------------------------------------------------------ */
 function applyQueryToUI(){
   const qDiff = String(qv('diff','')).toLowerCase();
@@ -404,7 +253,9 @@ function applyQueryToUI(){
   const qRun  = String(qv('run','')).toLowerCase();
   const qView = String(qv('view','')).toLowerCase();
 
-  if (elDiffSel && ['easy','normal','hard'].includes(qDiff)) elDiffSel.value = qDiff;
+  if (elDiffSel && ['easy','normal','hard'].includes(qDiff)){
+    elDiffSel.value = qDiff;
+  }
   if (elDurSel && qTime){
     const t = clampNum(qTime, 10, 600, 60);
     const tStr = String(t);
@@ -425,10 +276,14 @@ function applyQueryToUI(){
   if ($('#researchGroup') && grp) $('#researchGroup').value = grp;
   if ($('#researchPhase') && phs) $('#researchPhase').value = phs;
 
-  if (elViewSel && ['pc','mobile','cvr'].includes(qView)) elViewSel.value = qView;
+  if (elViewSel && ['pc','mobile','cvr'].includes(qView)){
+    elViewSel.value = qView;
+  }
   applyViewModeClass(qView || (elViewSel ? elViewSel.value : 'pc'));
 
-  if (qRun === 'research') showView('research');
+  if (qRun === 'research'){
+    showView('research');
+  }
 }
 
 /* ------------------------------------------------------------
@@ -511,11 +366,13 @@ function attachInput(){
 }
 
 /* ------------------------------------------------------------
- * Game State
+ * State
  * ------------------------------------------------------------ */
 let gameMode = 'play';
 let state = null;
 let rafId = null;
+let lastSummary = null;
+let lastEndReason = '';
 
 let isPaused = false;
 let pausedAt = 0;
@@ -543,7 +400,7 @@ function randomBetween(a,b){
 }
 
 /* ------------------------------------------------------------
- * Practice / Countdown phases
+ * Practice / Countdown
  * ------------------------------------------------------------ */
 function resetMotionForNewPhase(){
   if (!state) return;
@@ -589,9 +446,11 @@ function beginMainPhase(now){
   state.perfects = 0;
 
   const wu = state.warmup || {};
-  if (wu && (wu.wType || wu.wPct)) setText(hudStatus, `Playing • ${wu.wType || 'buff'} +${wu.wPct||0}%`);
-  else setText(hudStatus, 'Playing');
-
+  if (wu && (wu.wType || wu.wPct)){
+    setText(hudStatus, `Playing • ${wu.wType || 'buff'} +${wu.wPct||0}%`);
+  }else{
+    setText(hudStatus, 'Playing');
+  }
   setText(hudPhase, `Main • seed:${String(state.seedStr||'').slice(0,10)}`);
   setText(hudScore, '0');
   setText(hudCombo, '0');
@@ -623,8 +482,11 @@ function runCountdownPhase(now){
 
   if (remain <= 0){
     if (coachBubble) coachBubble.classList.add('hidden');
-    if (state.practiceEnabled && !state.practiceEnded) beginPracticePhase(now);
-    else beginMainPhase(now);
+    if (state.practiceEnabled && !state.practiceEnded){
+      beginPracticePhase(now);
+    }else{
+      beginMainPhase(now);
+    }
   }
   return true;
 }
@@ -654,7 +516,7 @@ function runPracticePhase(now){
 }
 
 /* ------------------------------------------------------------
- * Start / Pause / Resume / Stop
+ * Start / Pause / Resume
  * ------------------------------------------------------------ */
 function buildSessionMeta(diffKey, durSec){
   let playerId='anon', group='', phase='';
@@ -687,7 +549,6 @@ function startGame(kind){
   const diffKey = (elDiffSel?.value || qv('diff','normal') || 'normal').toLowerCase();
   const durSec  = parseInt(elDurSel?.value || qv('time','60') || '60', 10) || 60;
   const cfg     = pickDiff(diffKey);
-
   const warmup = readWarmupBuff();
   const meta = buildSessionMeta(diffKey, durSec);
   const seedStr = buildSeedString(meta);
@@ -771,7 +632,9 @@ function startGame(kind){
   if (centerPulse) centerPulse.classList.remove('good');
   if (obstacleLayer) obstacleLayer.innerHTML = '';
 
-  if (coachLabel) coachLabel.textContent = 'จับ/แตะแล้วเลื่อนไปซ้าย–ขวาเพื่อรักษาสมดุล / Drag left–right to balance';
+  if (coachLabel){
+    coachLabel.textContent = 'จับ/แตะแล้วเลื่อนไปซ้าย–ขวาเพื่อรักษาสมดุล / Drag left–right to balance';
+  }
   if (coachBubble) coachBubble.classList.add('hidden');
 
   const practiceOn = parseBoolLike(qv('practiceOn', qv('practice','0') !== '0' ? '1':'0'), true);
@@ -932,7 +795,10 @@ function spawnObstacle(now){
 
       let add = 10 + Math.min(20, (state.combo-1)*2);
       let perfectNow = nearPerfect;
-      if (!perfectNow && (wu.critBonusChance||0) > 0 && rand01() < wu.critBonusChance) perfectNow = true;
+      if (!perfectNow && (wu.critBonusChance||0) > 0 && rand01() < wu.critBonusChance){
+        perfectNow = true;
+      }
+
       if (perfectNow){
         add += 10;
         state.perfects = (state.perfects || 0) + 1;
@@ -961,7 +827,8 @@ function spawnObstacle(now){
 
     setText(hudScore, String(state.score || 0));
     setText(hudCombo, String(state.combo || 0));
-    pulseEl(hudScore); pulseEl(hudCombo);
+    pulseEl(hudScore);
+    pulseEl(hudCombo);
     updateVisuals();
 
   }, Math.max(0, impactAt - performance.now()));
@@ -974,7 +841,6 @@ function spawnObstacle(now){
  * ------------------------------------------------------------ */
 function computeAnalytics(){
   if (!state) return { stabilityRatio:0, meanTilt:0, rmsTilt:0, fatigueIndex:0, samples:0 };
-
   const n = state.totalSamples || 0;
   if (!n) return { stabilityRatio:0, meanTilt:0, rmsTilt:0, fatigueIndex:0, samples:0 };
 
@@ -997,7 +863,7 @@ function computeAnalytics(){
 }
 
 /* ------------------------------------------------------------
- * Ranking / insight / badges
+ * Rank / insight
  * ------------------------------------------------------------ */
 function calcRank(summary){
   const stab = Number(summary.stabilityRatio || 0);
@@ -1027,10 +893,18 @@ function buildInsight(summary){
   const avoidRate = avoidTotal ? (summary.obstaclesAvoided/avoidTotal) : 0;
   const fat = Number(summary.fatigueIndex || 0);
 
-  if (stab >= 0.72 && avoidRate >= 0.8) return 'ยอดเยี่ยมมาก! คุณคุมสมดุลนิ่งและหลบแรงรบกวนได้สม่ำเสมอ ลองเพิ่มความยากเพื่อท้าทายต่อได้เลย';
-  if (stab < 0.45) return 'โฟกัสการคุมใกล้กึ่งกลางให้มากขึ้นก่อน แล้วค่อยเร่งการตอบสนองตอน obstacle เข้ามา จะช่วยให้คะแนนขึ้นเร็วมาก';
-  if (avoidRate < 0.5) return 'จังหวะหลบยังพลาดบ่อย ลองเตรียมดึงกลับเข้ากลางทันทีเมื่อเห็นไอคอน obstacle จะช่วยเพิ่ม avoid rate ได้ชัดเจน';
-  if (fat > 0.35) return 'ช่วงท้ายเริ่มล้า (fatigue สูงขึ้น) ลองคุมแรงนิ้วให้เบาลงและสม่ำเสมอ จะช่วยไม่ให้แกว่งเกินในช่วงท้ายเกม';
+  if (stab >= 0.72 && avoidRate >= 0.8){
+    return 'ยอดเยี่ยมมาก! คุณคุมสมดุลนิ่งและหลบแรงรบกวนได้สม่ำเสมอ ลองเพิ่มความยากเพื่อท้าทายต่อได้เลย';
+  }
+  if (stab < 0.45){
+    return 'โฟกัสการคุมใกล้กึ่งกลางให้มากขึ้นก่อน แล้วค่อยเร่งการตอบสนองตอน obstacle เข้ามา จะช่วยให้คะแนนขึ้นเร็วมาก';
+  }
+  if (avoidRate < 0.5){
+    return 'จังหวะหลบยังพลาดบ่อย ลองเตรียมดึงกลับเข้ากลางทันทีเมื่อเห็นไอคอน obstacle จะช่วยเพิ่ม avoid rate ได้ชัดเจน';
+  }
+  if (fat > 0.35){
+    return 'ช่วงท้ายเริ่มล้า (fatigue สูงขึ้น) ลองคุมแรงนิ้วให้เบาลงและสม่ำเสมอ จะช่วยไม่ให้แกว่งเกินในช่วงท้ายเกม';
+  }
   return 'ทำได้ดีมาก! รักษาจังหวะคุมแท่นให้สม่ำเสมอ และลุ้น Perfect ตอน impact เพื่อเพิ่มคะแนนและคอมโบ';
 }
 function renderBadgesAndMissions(summary){
@@ -1083,12 +957,12 @@ function renderBadgesAndMissions(summary){
 }
 
 /* ------------------------------------------------------------
- * Save last summary
+ * HUB / Cooldown routing
  * ------------------------------------------------------------ */
 function saveLastSummaryForHub(summary, endedBy){
   try{
     const payload = {
-      gameId: GAME_ID,
+      gameId: 'balance-hold',
       endedBy: endedBy || '',
       ts: Date.now(),
       mode: summary.mode,
@@ -1107,12 +981,79 @@ function saveLastSummaryForHub(summary, endedBy){
       seed: summary.seed || qv('seed','')
     };
     localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(payload));
-    localStorage.setItem(`HHA_LAST_SUMMARY_${GAME_ID}`, JSON.stringify(payload));
+    localStorage.setItem('HHA_LAST_SUMMARY_balance-hold', JSON.stringify(payload));
   }catch(e){}
+}
+function goHubOrMenu(){
+  const hub = String(qv('hub',''));
+  if (!hub){
+    showView('menu');
+    return;
+  }
+  try{
+    const u = new URL(hub, location.href);
+    const raw = localStorage.getItem('HHA_LAST_SUMMARY_balance-hold') || localStorage.getItem('HHA_LAST_SUMMARY');
+    if (raw){
+      const s = JSON.parse(raw);
+      if (s && s.gameId === 'balance-hold'){
+        u.searchParams.set('lastGame', 'balance-hold');
+        u.searchParams.set('lastScore', String(s.score || 0));
+        u.searchParams.set('lastRank', String(s.rank || 'D'));
+        u.searchParams.set('lastStab', String(Math.round((s.stabilityRatio || 0)*100)));
+      }
+    }
+    location.href = u.toString();
+  }catch(e){
+    location.href = hub;
+  }
+}
+function goCooldown(){
+  const hub = String(qv('hub','')).trim();
+  const safeHub = hub || './../herohealth/hub.html';
+
+  try{
+    const u = new URL('./../herohealth/warmup-gate.html', location.href);
+
+    u.searchParams.set('gatePhase', 'cooldown');
+    u.searchParams.set('phase', 'cooldown');
+    u.searchParams.set('cat', 'exercise');
+    u.searchParams.set('theme', 'balance');
+    u.searchParams.set('game', 'balance');
+
+    u.searchParams.set('pid', qv('pid','anon') || 'anon');
+    u.searchParams.set('run', qv('run','play') || 'play');
+    u.searchParams.set('diff', qv('diff', (lastSummary?.difficulty || 'normal')));
+    u.searchParams.set('time', qv('time', String(lastSummary?.durationSec || 80)));
+    u.searchParams.set('view', qv('view','pc') || 'pc');
+    u.searchParams.set('seed', qv('seed','') || String(Date.now()));
+    u.searchParams.set('hub', safeHub);
+    u.searchParams.set('next', safeHub);
+
+    const grade = qv('grade','p5');
+    if (grade) u.searchParams.set('grade', grade);
+
+    const studyId = qv('studyId','');
+    const conditionGroup = qv('conditionGroup','');
+    const phase = qv('phase','');
+    const log = qv('log','');
+    const api = qv('api','');
+    const ai = qv('ai','');
+
+    if (studyId) u.searchParams.set('studyId', studyId);
+    if (conditionGroup) u.searchParams.set('conditionGroup', conditionGroup);
+    if (phase) u.searchParams.set('researchPhase', phase);
+    if (log) u.searchParams.set('log', log);
+    if (api) u.searchParams.set('api', api);
+    if (ai) u.searchParams.set('ai', ai);
+
+    location.href = u.toString();
+  }catch(e){
+    location.href = safeHub;
+  }
 }
 
 /* ------------------------------------------------------------
- * Result views
+ * Result render
  * ------------------------------------------------------------ */
 function fillResultView(endedBy, summary){
   const modeLabel = summary.mode === 'research' ? 'Research' : 'Play';
@@ -1138,6 +1079,7 @@ function fillResultView(endedBy, summary){
   if (resRankEl) setText(resRankEl, summary.rank || 'D');
   if (resPerfectEl) setText(resPerfectEl, summary.perfects || 0);
   if (resComboEl) setText(resComboEl, summary.comboMax || 0);
+
   if (resAiTipEl) setText(resAiTipEl, summary.insight || '-');
   if (resDailyEl){
     try{ setText(resDailyEl, new Date().toLocaleDateString('th-TH')); }catch(e){ setText(resDailyEl, '-'); }
@@ -1147,7 +1089,9 @@ function fillResultView(endedBy, summary){
     rankBadgeEl.textContent = summary.rank || 'D';
     rankBadgeEl.classList.remove('rank-S','rank-A','rank-B','rank-C','rank-D');
     rankBadgeEl.classList.add('rank-' + (summary.rank || 'D'));
-    rankBadgeEl.classList.remove('rank-pop'); void rankBadgeEl.offsetWidth; rankBadgeEl.classList.add('rank-pop');
+    rankBadgeEl.classList.remove('rank-pop');
+    void rankBadgeEl.offsetWidth;
+    rankBadgeEl.classList.add('rank-pop');
   }
   if (resultHeroSub){
     const sub = `${mapEndReason(endedBy)} • Stability ${fmtPercent(summary.stabilityRatio)} • Avoid ${summary.obstaclesAvoided||0}/${totalObs||0}`;
@@ -1156,7 +1100,6 @@ function fillResultView(endedBy, summary){
   if (heroInsightEl) setText(heroInsightEl, summary.insight || '-');
 
   renderBadgesAndMissions(summary);
-  updateCooldownCTA();
 }
 function fillEndModal(summary){
   if (!endModal) return;
@@ -1167,21 +1110,20 @@ function fillEndModal(summary){
   }
   if (endModalScore) setText(endModalScore, summary.score || 0);
   if (endModalInsight) setText(endModalInsight, summary.insight || '-');
-  updateCooldownCTA();
 }
 
 /* ------------------------------------------------------------
- * Stop & summary
+ * Stop / summary
  * ------------------------------------------------------------ */
 function stopGame(endedBy){
   if (!state) return;
   if (rafId != null){ cancelAnimationFrame(rafId); rafId = null; }
 
   const finalState = state;
-  const a = computeAnalytics();
 
+  const a = computeAnalytics();
   const summary = {
-    gameId: GAME_ID,
+    gameId: 'balance-hold',
     mode: gameMode,
     difficulty: finalState.diffKey,
     durationSec: (finalState.durationMs/1000),
@@ -1219,6 +1161,9 @@ function stopGame(endedBy){
 
   fillResultView(endedBy, summary);
   fillEndModal(summary);
+
+  lastSummary = summary;
+  lastEndReason = endedBy || '';
 
   state = null;
   isPaused = false;
@@ -1280,8 +1225,8 @@ function loop(now){
     const safeHalf = cfg.safeHalf;
     const inSafe = Math.abs(state.angle) <= safeHalf;
     const absTilt = Math.abs(state.angle);
-    const isPractice = state.phase === 'practice';
 
+    const isPractice = state.phase === 'practice';
     if (isPractice){
       state.practiceSamples++;
       if (inSafe) state.practiceStableSamples++;
@@ -1296,12 +1241,16 @@ function loop(now){
     }
 
     let stabRatio = 0;
-    if (isPractice) stabRatio = state.practiceSamples ? (state.practiceStableSamples/state.practiceSamples) : 0;
-    else stabRatio = state.totalSamples ? (state.stableSamples/state.totalSamples) : 0;
-
+    if (isPractice){
+      stabRatio = state.practiceSamples ? (state.practiceStableSamples/state.practiceSamples) : 0;
+    }else{
+      stabRatio = state.totalSamples ? (state.stableSamples/state.totalSamples) : 0;
+    }
     setText(hudStab, fmtPercent(stabRatio));
     if (stabilityFill) stabilityFill.style.width = `${clamp(stabRatio*100, 0, 100)}%`;
-    if (centerPulse) centerPulse.classList.toggle('good', Math.abs(state.angle) <= (state.cfg.safeHalf * 0.55));
+    if (centerPulse){
+      centerPulse.classList.toggle('good', Math.abs(state.angle) <= (state.cfg.safeHalf * 0.55));
+    }
 
     state.nextSampleAt = now + state.sampleEveryMs;
   }
@@ -1321,7 +1270,8 @@ function downloadTextFile(filename, text, type='text/plain'){
     const blob = new Blob([text], {type});
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url; a.download = filename;
+    a.href = url;
+    a.download = filename;
     document.body.appendChild(a);
     a.click();
     setTimeout(()=>{
@@ -1377,17 +1327,14 @@ function exportReleaseDebug(){
       time: elDurSel?.value || null,
       view: elViewSel?.value || null
     },
-    warmupDoneToday: warmupDoneToday(),
-    cooldownDoneToday: cooldownDoneToday(),
-    cooldownUrl: buildCooldownUrl(),
-    lastSummary: (()=>{ try{ return JSON.parse(localStorage.getItem(`HHA_LAST_SUMMARY_${GAME_ID}`)||'null'); }catch(e){ return null; }})(),
+    lastSummary: (()=>{ try{ return JSON.parse(localStorage.getItem('HHA_LAST_SUMMARY_balance-hold')||'null'); }catch(e){ return null; }})(),
     now: new Date().toISOString()
   };
   downloadTextFile(`balance-hold-debug-${Date.now()}.json`, JSON.stringify(debug, null, 2), 'application/json');
 }
 
 /* ------------------------------------------------------------
- * Init / bindings
+ * Init
  * ------------------------------------------------------------ */
 function init(){
   $('[data-action="start-normal"]')?.addEventListener('click', ()=>{
@@ -1407,12 +1354,14 @@ function init(){
 
   $('[data-action="play-again"]')?.addEventListener('click', ()=> showView('menu'));
   $('[data-action="result-play-again"]')?.addEventListener('click', ()=> { closeEndModal(); showView('menu'); });
-  $('[data-action="result-back-hub"]')?.addEventListener('click', ()=> goCooldownOrHub());
+  $('[data-action="result-go-cooldown"]')?.addEventListener('click', ()=> { closeEndModal(); goCooldown(); });
+  $('[data-action="result-back-hub"]')?.addEventListener('click', ()=> goHubOrMenu());
 
   $('[data-action="close-end-modal"]')?.addEventListener('click', closeEndModal);
   $('[data-action="end-retry"]')?.addEventListener('click', ()=> { closeEndModal(); showView('menu'); });
-  $('[data-action="end-next-mission"]')?.addEventListener('click', ()=> { closeEndModal(); showView('menu'); });
-  $('[data-action="end-back-hub"]')?.addEventListener('click', ()=> { closeEndModal(); goCooldownOrHub(); });
+  $('[data-action="end-next-mission"]')?.addEventListener('click', ()=> { closeEndModal(); goCooldown(); });
+  $('[data-action="end-go-cooldown"]')?.addEventListener('click', ()=> { closeEndModal(); goCooldown(); });
+  $('[data-action="end-back-hub"]')?.addEventListener('click', ()=> { closeEndModal(); goHubOrMenu(); });
 
   $('[data-action="tutorial-skip"]')?.addEventListener('click', ()=>{
     if (tutorialDontShowAgain?.checked){
@@ -1436,7 +1385,9 @@ function init(){
   $$('[data-action="export-sessions-csv"]').forEach(btn=> btn.addEventListener('click', exportSessionsCSV));
   $$('[data-action="export-release-debug"]').forEach(btn=> btn.addEventListener('click', exportReleaseDebug));
 
-  elViewSel?.addEventListener('change', (e)=> applyViewModeClass(String(e.target.value || 'pc')));
+  elViewSel?.addEventListener('change', (e)=>{
+    applyViewModeClass(String(e.target.value || 'pc'));
+  });
 
   $('[data-action="cvr-recenter"]')?.addEventListener('click', ()=>{
     if (!state) return;
@@ -1465,12 +1416,11 @@ function init(){
   attachInput();
   showView('menu');
   applyQueryToUI();
-  updateCooldownCTA();
 
-  // ✅ autostart support from launcher/warmup gate
-  if (parseBoolLike(qv('autostart','0'), false)){
-    const mode = String(qv('run','play')).toLowerCase() === 'research' ? 'research' : 'play';
-    setTimeout(()=> startGame(mode), 80);
+  const autoStart = parseBoolLike(qv('autostart','0'), false);
+  const runMode = String(qv('run','play')).toLowerCase();
+  if (autoStart){
+    startGame(runMode === 'research' ? 'research' : 'play');
   }
 }
 
