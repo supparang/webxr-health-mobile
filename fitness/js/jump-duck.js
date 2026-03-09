@@ -1,17 +1,15 @@
 // === /fitness/js/jump-duck.js ===
 // Jump-Duck — FULL PRODUCTION
-// PATCH v20260307-JD-FULL-HHA-AUTOSEND
+// PATCH v20260307-JD-VISUALSET-AVATAR3STATE-FULL
 'use strict';
 
 (function(){
   const $  = (s)=>document.querySelector(s);
 
-  // Views
   const viewMenu   = $('#view-menu');
   const viewPlay   = $('#view-play');
   const viewResult = $('#view-result');
 
-  // Menu
   const elMode     = $('#jd-mode');
   const elDiff     = $('#jd-diff');
   const elDuration = $('#jd-duration');
@@ -20,7 +18,6 @@
   const elGroup    = $('#jd-group');
   const elNote     = $('#jd-note');
 
-  // HUD
   const hudMode = $('#hud-mode');
   const hudDiff = $('#hud-diff');
   const hudTime = $('#hud-time');
@@ -39,14 +36,12 @@
   const bossFill = $('#hud-boss-fill');
   const bossStatus = $('#hud-boss-status');
 
-  // Playfield
   const playArea = $('#jd-play-area');
   const obsLayer = $('#jd-obstacles');
   const avatar   = $('#jd-avatar');
   const judgeEl  = $('#jd-judge');
   const teleEl   = $('#jd-tele');
 
-  // Result
   const resMode = $('#res-mode');
   const resDiff = $('#res-diff');
   const resDuration = $('#res-duration');
@@ -239,6 +234,14 @@
     return '—';
   }
 
+  function setAvatarState(kind){
+    if(!avatar) return;
+    avatar.classList.remove('avatar-idle','avatar-jump','avatar-duck');
+    if(kind === 'jump') avatar.classList.add('avatar-jump');
+    else if(kind === 'duck') avatar.classList.add('avatar-duck');
+    else avatar.classList.add('avatar-idle');
+  }
+
   function pickBossVariant(){
     const r = state.rng();
     const variants = ['tempo','feint','shield','mirror','chaos'];
@@ -260,9 +263,21 @@
     const obs = document.createElement('div');
     const low = type === 'low';
     obs.className = 'obs ' + (low ? 'low' : 'high');
-    obs.textContent = low ? '⬆' : '⬇';
     obs.style.left = '100%';
-    obs.style.top = low ? '300px' : '190px';
+
+    const inner = document.createElement('div');
+    inner.className = 'obs-inner';
+
+    const shape = document.createElement('div');
+    shape.className = low ? 'obs-low-shape' : 'obs-high-shape';
+
+    const label = document.createElement('div');
+    label.className = 'obs-label';
+    label.textContent = low ? 'JUMP' : 'DUCK';
+
+    inner.appendChild(shape);
+    inner.appendChild(label);
+    obs.appendChild(inner);
 
     let feint = false;
     let flipAtX = null;
@@ -323,15 +338,19 @@
   function handleInput(type){
     if(!state || !state.running) return;
     lastAction = { type, time: performance.now() };
-    avatar.classList.remove('jump','duck');
-    avatar.classList.add(type);
-    setTimeout(()=>avatar.classList.remove(type), 180);
+
+    if(type === 'jump') setAvatarState('jump');
+    else setAvatarState('duck');
+
+    setTimeout(()=>{
+      if(state && state.running) setAvatarState('idle');
+    }, 180);
   }
 
   function triggerBossBurst(){
     if(!state) return;
     state.bossBurstCount++;
-    telegraph(state.bossFrenzyOn ? '💥 BURST+' : '⚡ BURST', 600);
+    telegraph(state.bossFrenzyOn ? '💥 BURST+' : '⚡ BURST!', 600);
     showJudge(state.bossFrenzyOn ? '💥 FRENZY BURST!' : '⚡ BURST!');
 
     let patterns = ['mirror','abab','aab','random','stair','doubletap'];
@@ -546,7 +565,12 @@
           obs.need = obs.need === 'jump' ? 'duck' : 'jump';
           obs.el.classList.toggle('low', obs.type==='low');
           obs.el.classList.toggle('high', obs.type==='high');
-          obs.el.textContent = obs.type === 'low' ? '⬆' : '⬇';
+
+          const label = obs.el.querySelector('.obs-label');
+          const shape = obs.el.querySelector('.obs-low-shape, .obs-high-shape');
+          if(label) label.textContent = obs.type === 'low' ? 'JUMP' : 'DUCK';
+          if(shape) shape.className = obs.type === 'low' ? 'obs-low-shape' : 'obs-high-shape';
+
           showJudge('👀 หลอก! อ่านใหม่!');
         }
       }
@@ -974,6 +998,7 @@
     state.running = false;
     cancelAnimationFrame(rafId);
     rafId = 0;
+    setAvatarState('idle');
 
     const total = state.obstaclesSpawned || 0;
     const acc = computeAccPct();
@@ -1097,7 +1122,7 @@
     feverStatus.textContent = 'Ready';
     bossStatus.textContent = '—';
     hudBoss.textContent = '—';
-    avatar.classList.remove('jump','duck');
+    setAvatarState('idle');
     lastAction = null;
     lastTs = 0;
 
@@ -1195,7 +1220,6 @@
     if(HHA_CTX.mode) elMode.value = HHA_CTX.mode;
     if(HHA_CTX.diff) elDiff.value = HHA_CTX.diff;
     if(HHA_CTX.duration) elDuration.value = String(HHA_CTX.duration);
-
     if(elPidInput) elPidInput.value = HHA_CTX.pid || 'anon';
 
     elMode.addEventListener('change', updateResearchVisibility);
