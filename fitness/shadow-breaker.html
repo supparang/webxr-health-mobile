@@ -1,15 +1,10 @@
 <!-- === /fitness/shadow-breaker.html ===
-Shadow Breaker — MERGED HTML PATCH
-PATCH v20260307-SB-HUB-BACK-END-RETRY
-✅ Sync with engine.js selectors
+Shadow Breaker — CLEAN FINAL HTML
+✅ Sync with merged engine.js
+✅ No hidden start bridge
 ✅ Sync with dom-renderer-shadow.js safe-rect selectors
 ✅ Sync with shadow-breaker.css production classes
-✅ Keep current engine compatibility via hidden #sb-btn-start bridge
-✅ Add FEVER button / hint / meta toggle / stage structure
-✅ Back HUB via ?hub=
-✅ Result menu returns to menu safely
-✅ Retry keeps same page/query
-✅ Sync diff/time from query to menu
+✅ FEVER button / hint / meta toggle / stage structure ready
 -->
 <!doctype html>
 <html lang="th">
@@ -103,9 +98,6 @@ PATCH v20260307-SB-HUB-BACK-END-RETRY
             <button class="sb-btn sb-btn-primary" id="sb-btn-play" type="button">▶ Start Game</button>
             <button class="sb-btn" id="sb-btn-research" type="button">📊 Start Research</button>
             <button class="sb-btn sb-btn-ghost" id="sb-btn-howto" type="button">❓ How to play</button>
-
-            <!-- compatibility bridge for current engine.js -->
-            <button id="sb-btn-start" type="button" style="display:none;" aria-hidden="true" tabindex="-1">start</button>
           </div>
 
           <div id="sb-howto" class="sb-howto">
@@ -282,42 +274,9 @@ PATCH v20260307-SB-HUB-BACK-END-RETRY
   const rf = $('#sb-research-fields');
   const desc = $('#sb-mode-desc');
 
-  const btnPlay = $('#sb-btn-play');
-  const btnResearch = $('#sb-btn-research');
-  const hiddenStart = $('#sb-btn-start');
-  const btnHowto = $('#sb-btn-howto');
-  const howto = $('#sb-howto');
-
-  const inputDiff = $('#sb-input-diff');
-  const inputTime = $('#sb-input-time');
-
   function qs(k, d=''){
     try{ return (new URL(location.href)).searchParams.get(k) ?? d; }
     catch(_){ return d; }
-  }
-
-  function currentHubFallback(){
-    const hub = String(qs('hub','')).trim();
-    return hub || '../herohealth/hub.html';
-  }
-
-  function goHub(){
-    location.href = currentHubFallback();
-  }
-
-  function replaySamePage(extra = {}){
-    const u = new URL(location.href);
-    Object.entries(extra || {}).forEach(([k,v])=>{
-      if(v === null || v === undefined || v === '') u.searchParams.delete(k);
-      else u.searchParams.set(k, String(v));
-    });
-    location.href = u.toString();
-  }
-
-  function showMenu(){
-    $('#sb-view-menu')?.classList.add('is-active');
-    $('#sb-view-play')?.classList.remove('is-active');
-    $('#sb-view-result')?.classList.remove('is-active');
   }
 
   function setMode(m){
@@ -332,107 +291,14 @@ PATCH v20260307-SB-HUB-BACK-END-RETRY
     }
   }
 
-  function syncMenuFromQuery(){
-    const diff = String(qs('diff','normal')).trim() || 'normal';
-    const time = String(qs('time','70')).trim() || '70';
-    const run = String(qs('run','play')).trim().toLowerCase();
-
-    if(inputDiff){
-      const ok = Array.from(inputDiff.options).some(o => o.value === diff);
-      inputDiff.value = ok ? diff : 'normal';
-    }
-    if(inputTime){
-      const ok = Array.from(inputTime.options).some(o => o.value === time);
-      inputTime.value = ok ? time : '70';
-    }
-
-    if(run === 'research') setMode('research');
-    else setMode('normal');
-  }
-
-  function wireHub(){
-    const btnHub = $('#sb-link-hub');
-    if(btnHub){
-      btnHub.href = currentHubFallback();
-      btnHub.addEventListener('click', function(e){
-        e.preventDefault();
-        goHub();
-      }, {passive:false});
-    }
-  }
-
   tabN?.addEventListener('click', ()=> setMode('normal'));
   tabR?.addEventListener('click', ()=> setMode('research'));
 
-  btnHowto?.addEventListener('click', ()=>{
-    if(!howto) return;
-    const isOpen = howto.style.display === 'block' || howto.style.display === '';
-    howto.style.display = isOpen ? 'none' : 'block';
-  });
+  const hub = String(qs('hub','')).trim() || '../herohealth/hub.html';
+  const btnHub = $('#sb-link-hub');
+  if(btnHub) btnHub.href = hub;
 
-  // compatibility bridge:
-  // current engine.js still expects #sb-btn-start click to actually start.
-  btnPlay?.addEventListener('click', ()=>{
-    setMode('normal');
-    setTimeout(()=> hiddenStart?.click(), 0);
-  });
-
-  btnResearch?.addEventListener('click', ()=>{
-    setMode('research');
-    setTimeout(()=> hiddenStart?.click(), 0);
-  });
-
-  $('#sb-btn-back-menu')?.addEventListener('click', function(e){
-    e.preventDefault();
-    showMenu();
-  }, {passive:false});
-
-  $('#sb-btn-result-menu')?.addEventListener('click', function(e){
-    e.preventDefault();
-    showMenu();
-  }, {passive:false});
-
-  $('#sb-btn-result-retry')?.addEventListener('click', function(e){
-    e.preventDefault();
-    replaySamePage();
-  }, {passive:false});
-
-  // meta toggle
-  $('#sb-btn-meta')?.addEventListener('click', function(){
-    const body = $('#sb-meta-body');
-    const expanded = this.getAttribute('aria-expanded') !== 'false';
-    if(body){
-      body.style.display = expanded ? 'none' : '';
-    }
-    this.setAttribute('aria-expanded', expanded ? 'false' : 'true');
-    this.textContent = expanded ? '▸' : '▾';
-  });
-
-  // fever button bridge — engine may listen itself; here we emit a click-safe custom event
-  $('#sb-btn-fever')?.addEventListener('click', function(){
-    try{
-      window.dispatchEvent(new CustomEvent('sb:fever'));
-    }catch(_){}
-  });
-
-  // keep hub / menu state neat if result becomes active
-  const observer = new MutationObserver(function(){
-    const resultView = $('#sb-view-result');
-    if(!resultView) return;
-    const active = resultView.classList.contains('is-active');
-    if(active){
-      // nothing special, but ready for future result wiring
-    }
-  });
-
-  ['#sb-view-menu','#sb-view-play','#sb-view-result'].forEach(sel=>{
-    const el = $(sel);
-    if(el) observer.observe(el, { attributes:true, attributeFilter:['class'] });
-  });
-
-  wireHub();
-  syncMenuFromQuery();
-  if(howto) howto.style.display = 'none';
+  setMode('normal');
 })();
 </script>
 </body>
