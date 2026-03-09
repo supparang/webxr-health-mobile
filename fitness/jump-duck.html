@@ -1,6 +1,8 @@
 <!-- === /fitness/jump-duck.html ===
 Jump-Duck — PRODUCTION
-PATCH v20260307-JD-FULL-HHA-AUTOSEND
+PATCH v20260307-JD-VISUALSET-AVATAR3STATE-FULL
+✅ avatar 3 states: idle / jump / duck
+✅ obstacle visual set: low=JUMP / high=DUCK
 ✅ training / test / research
 ✅ top tap = jump / bottom tap = duck
 ✅ fever + boss + variants + overheat + rule cards
@@ -155,35 +157,270 @@ PATCH v20260307-JD-FULL-HHA-AUTOSEND
       height:2px; background:rgba(148,163,184,.18);
     }
 
+    /* ===== Avatar 3 states ===== */
     .avatar{
-      position:absolute; left:18%; bottom:86px;
+      position:absolute;
+      left:18%;
+      bottom:86px;
+      width:110px;
+      height:150px;
       transform:translateX(-50%);
-      font-size:52px;
       z-index:4;
-      transition:transform .10s ease;
       user-select:none;
+      pointer-events:none;
     }
-    .avatar.jump{ transform:translateX(-50%) translateY(-48px); }
-    .avatar.duck{ transform:translateX(-50%) translateY(16px) scale(.96); }
+
+    .avatar-shadow{
+      position:absolute;
+      left:50%;
+      bottom:0;
+      width:56px;
+      height:12px;
+      transform:translateX(-50%);
+      border-radius:999px;
+      background:rgba(2,6,23,.36);
+      filter:blur(2px);
+      transition:transform .10s ease, opacity .10s ease, width .10s ease;
+    }
+
+    .avatar-body{
+      position:absolute;
+      left:50%;
+      bottom:10px;
+      width:68px;
+      height:126px;
+      transform:translateX(-50%);
+      transition:transform .10s ease;
+    }
+
+    .avatar-head{
+      position:absolute;
+      top:0;
+      left:50%;
+      width:28px;
+      height:28px;
+      transform:translateX(-50%);
+      border-radius:50%;
+      background:linear-gradient(180deg,#fde68a,#f59e0b);
+      border:2px solid rgba(15,23,42,.28);
+      box-shadow:0 3px 10px rgba(0,0,0,.18);
+    }
+
+    .avatar-torso{
+      position:absolute;
+      top:28px;
+      left:50%;
+      width:26px;
+      height:42px;
+      transform:translateX(-50%);
+      border-radius:14px;
+      background:linear-gradient(180deg,#60a5fa,#2563eb);
+      border:2px solid rgba(15,23,42,.25);
+    }
+
+    .avatar-arm,
+    .avatar-leg{
+      position:absolute;
+      background:linear-gradient(180deg,#cbd5e1,#94a3b8);
+      border-radius:999px;
+      transform-origin:top center;
+      transition:transform .10s ease, height .10s ease, width .10s ease, top .10s ease, left .10s ease, right .10s ease;
+    }
+
+    .avatar-arm{
+      top:34px;
+      width:8px;
+      height:34px;
+    }
+
+    .avatar-arm-left{ left:14px; transform:rotate(18deg); }
+    .avatar-arm-right{ right:14px; transform:rotate(-18deg); }
+
+    .avatar-leg{
+      top:66px;
+      width:9px;
+      height:46px;
+    }
+
+    .avatar-leg-left{ left:23px; transform:rotate(6deg); }
+    .avatar-leg-right{ right:23px; transform:rotate(-6deg); }
+
+    .avatar.avatar-idle .avatar-body{
+      transform:translateX(-50%) translateY(0);
+    }
+    .avatar.avatar-idle .avatar-arm-left{ transform:rotate(16deg); }
+    .avatar.avatar-idle .avatar-arm-right{ transform:rotate(-16deg); }
+    .avatar.avatar-idle .avatar-leg-left{ transform:rotate(4deg); }
+    .avatar.avatar-idle .avatar-leg-right{ transform:rotate(-4deg); }
+
+    .avatar.avatar-jump .avatar-body{
+      transform:translateX(-50%) translateY(-42px);
+    }
+    .avatar.avatar-jump .avatar-shadow{
+      transform:translateX(-50%) scale(.82);
+      opacity:.68;
+    }
+    .avatar.avatar-jump .avatar-arm-left{
+      top:30px;
+      transform:rotate(-28deg);
+    }
+    .avatar.avatar-jump .avatar-arm-right{
+      top:30px;
+      transform:rotate(28deg);
+    }
+    .avatar.avatar-jump .avatar-leg-left{
+      top:68px;
+      transform:rotate(24deg);
+    }
+    .avatar.avatar-jump .avatar-leg-right{
+      top:68px;
+      transform:rotate(-24deg);
+    }
+
+    .avatar.avatar-duck .avatar-body{
+      transform:translateX(-50%) translateY(18px) scaleY(.92);
+    }
+    .avatar.avatar-duck .avatar-shadow{
+      width:68px;
+      opacity:.92;
+    }
+    .avatar.avatar-duck .avatar-head{
+      top:10px;
+    }
+    .avatar.avatar-duck .avatar-torso{
+      top:36px;
+      height:32px;
+    }
+    .avatar.avatar-duck .avatar-arm-left{
+      top:44px;
+      left:18px;
+      height:24px;
+      transform:rotate(72deg);
+    }
+    .avatar.avatar-duck .avatar-arm-right{
+      top:44px;
+      right:18px;
+      height:24px;
+      transform:rotate(-72deg);
+    }
+    .avatar.avatar-duck .avatar-leg-left{
+      top:68px;
+      left:22px;
+      height:34px;
+      transform:rotate(72deg);
+    }
+    .avatar.avatar-duck .avatar-leg-right{
+      top:68px;
+      right:22px;
+      height:34px;
+      transform:rotate(-72deg);
+    }
 
     .obsLayer{ position:absolute; inset:0; z-index:3; }
+
+    /* ===== Obstacle visual set ===== */
     .obs{
       position:absolute;
-      width:86px; height:86px;
+      width:90px;
+      height:90px;
       border-radius:18px;
       border:1px solid rgba(148,163,184,.16);
-      background:rgba(15,23,42,.76);
-      display:grid; place-items:center;
-      box-shadow:0 14px 34px rgba(0,0,0,.22);
-      font-size:34px;
-      font-weight:1100;
+      background:rgba(15,23,42,.80);
+      display:flex;
+      align-items:center;
+      justify-content:center;
       transform:translate(-50%,-50%);
+      box-shadow:0 14px 34px rgba(0,0,0,.22);
+      overflow:hidden;
     }
-    .obs.low{ bottom:86px; }
-    .obs.high{ bottom:190px; }
+
+    .obs.low{ top:300px; }
+    .obs.high{ top:190px; }
+
+    .obs-inner{
+      position:relative;
+      width:100%;
+      height:100%;
+    }
+
+    .obs-label{
+      position:absolute;
+      left:50%;
+      bottom:8px;
+      transform:translateX(-50%);
+      padding:4px 10px;
+      border-radius:999px;
+      font-size:11px;
+      font-weight:1100;
+      letter-spacing:.6px;
+      border:1px solid rgba(148,163,184,.16);
+      background:rgba(2,6,23,.72);
+      color:#e5e7eb;
+    }
+
+    .obs.low .obs-label{
+      border-color:rgba(34,211,238,.28);
+    }
+    .obs.high .obs-label{
+      border-color:rgba(245,158,11,.28);
+    }
+
+    .obs-low-shape{
+      position:absolute;
+      left:50%;
+      bottom:20px;
+      transform:translateX(-50%);
+      width:54px;
+      height:34px;
+      border-radius:10px;
+      background:linear-gradient(180deg,#38bdf8,#2563eb);
+      border:2px solid rgba(15,23,42,.28);
+      box-shadow:inset 0 -8px 0 rgba(2,6,23,.12);
+    }
+    .obs-low-shape::before,
+    .obs-low-shape::after{
+      content:"";
+      position:absolute;
+      top:6px;
+      width:10px;
+      height:18px;
+      border-radius:4px;
+      background:rgba(255,255,255,.18);
+    }
+    .obs-low-shape::before{ left:10px; }
+    .obs-low-shape::after{ right:10px; }
+
+    .obs-high-shape{
+      position:absolute;
+      left:50%;
+      top:24px;
+      transform:translateX(-50%);
+      width:64px;
+      height:14px;
+      border-radius:999px;
+      background:linear-gradient(180deg,#f59e0b,#ef4444);
+      border:2px solid rgba(15,23,42,.28);
+      box-shadow:0 0 0 6px rgba(239,68,68,.06);
+    }
+    .obs-high-shape::before,
+    .obs-high-shape::after{
+      content:"";
+      position:absolute;
+      top:10px;
+      width:8px;
+      height:22px;
+      border-radius:999px;
+      background:rgba(245,158,11,.82);
+    }
+    .obs-high-shape::before{ left:8px; }
+    .obs-high-shape::after{ right:8px; }
+
     .obs.feint{
       outline:2px solid rgba(167,139,250,.45);
       box-shadow:0 0 0 8px rgba(167,139,250,.08), 0 14px 34px rgba(0,0,0,.22);
+    }
+    .obs.feint .obs-label{
+      border-color:rgba(167,139,250,.34);
     }
 
     .judge{
@@ -389,7 +626,18 @@ PATCH v20260307-JD-FULL-HHA-AUTOSEND
           <div class="tele hidden" id="jd-tele"><div class="teleBox">READY</div></div>
           <div class="judge" id="jd-judge">READY</div>
 
-          <div class="avatar" id="jd-avatar">🧍</div>
+          <div class="avatar avatar-idle" id="jd-avatar" aria-label="player avatar">
+            <div class="avatar-shadow"></div>
+            <div class="avatar-body">
+              <div class="avatar-head"></div>
+              <div class="avatar-torso"></div>
+              <div class="avatar-arm avatar-arm-left"></div>
+              <div class="avatar-arm avatar-arm-right"></div>
+              <div class="avatar-leg avatar-leg-left"></div>
+              <div class="avatar-leg avatar-leg-right"></div>
+            </div>
+          </div>
+
           <div class="obsLayer" id="jd-obstacles"></div>
         </div>
       </div>
