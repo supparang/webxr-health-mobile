@@ -36,7 +36,7 @@
     (function(){
       'use strict';
 
-      console.log('[germ-launcher] v20260309c running');
+      console.log('[germ-launcher] v20260309d running');
 
       function qs(k, d=''){
         try{ return new URL(location.href).searchParams.get(k) ?? d; }
@@ -59,7 +59,7 @@
 
       const ORIGIN = location.origin;
       const HUB_URL = ORIGIN + '/webxr-health-mobile/herohealth/hub.html';
-      const GATE_URL = ORIGIN + '/webxr-health-mobile/herohealth/warmup-gate.html?v=20260309c';
+      const GATE_URL = ORIGIN + '/webxr-health-mobile/herohealth/warmup-gate.html?v=20260309d';
       const RUN_URL  = ORIGIN + '/webxr-health-mobile/herohealth/germ-detective/germ-detective.html';
 
       const pid   = String(qs('pid','anon')).trim() || 'anon';
@@ -74,6 +74,11 @@
       const phase = String(qs('phase',''));
       const safePhase = (phase && phase !== 'warmup' && phase !== 'cooldown') ? phase : '';
       const conditionGroup = String(qs('conditionGroup',''));
+      const sessionOrder = String(qs('sessionOrder',''));
+      const blockLabel = String(qs('blockLabel',''));
+      const siteCode = String(qs('siteCode',''));
+      const schoolYear = String(qs('schoolYear',''));
+      const semester = String(qs('semester',''));
 
       const hub = normalizeMaybeEncodedUrl(qs('hub','')) || HUB_URL;
 
@@ -94,6 +99,11 @@
       if(studyId) gameUrl.searchParams.set('studyId', studyId);
       if(safePhase) gameUrl.searchParams.set('phase', safePhase);
       if(conditionGroup) gameUrl.searchParams.set('conditionGroup', conditionGroup);
+      if(sessionOrder) gameUrl.searchParams.set('sessionOrder', sessionOrder);
+      if(blockLabel) gameUrl.searchParams.set('blockLabel', blockLabel);
+      if(siteCode) gameUrl.searchParams.set('siteCode', siteCode);
+      if(schoolYear) gameUrl.searchParams.set('schoolYear', schoolYear);
+      if(semester) gameUrl.searchParams.set('semester', semester);
 
       const alreadyWarm = (gateResult === '1' && gateMode === 'warmup');
       const currentlyInsideGate = /warmup-gate\.html$/i.test(location.pathname);
@@ -132,6 +142,11 @@
 
       if(studyId) warmupUrl.searchParams.set('studyId', studyId);
       if(conditionGroup) warmupUrl.searchParams.set('conditionGroup', conditionGroup);
+      if(sessionOrder) warmupUrl.searchParams.set('sessionOrder', sessionOrder);
+      if(blockLabel) warmupUrl.searchParams.set('blockLabel', blockLabel);
+      if(siteCode) warmupUrl.searchParams.set('siteCode', siteCode);
+      if(schoolYear) warmupUrl.searchParams.set('schoolYear', schoolYear);
+      if(semester) warmupUrl.searchParams.set('semester', semester);
 
       console.log('[germ-launcher] WARMUP_URL =', warmupUrl.toString());
 
