@@ -1,6 +1,6 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
 // GoodJunkVR SAFE — PRODUCTION
-// FULL PATCH v20260308-GJ-SAFE-BATTLE-READY-FIX
+// FULL PATCH v20260308-GJ-SAFE-LATEST
 'use strict';
 
 export async function boot(cfg){
@@ -1660,11 +1660,81 @@ export async function boot(cfg){
     if(endMiss) endMiss.textContent = String(detail.missTotal);
     if(endTime) endTime.textContent = String(detail.timePlayedSec);
 
+    const endMatchLine1 = $('endMatchLine1');
+    const endMatchLine2 = $('endMatchLine2');
+
+    if(endMatchLine1){
+      endMatchLine1.textContent =
+        `bestOf ${Number(battleMatchState?.bestOf || 3)} • winsToChampion ${Number(battleMatchState?.winsToChampion || 2)}`;
+    }
+
+    if(endMatchLine2){
+      const meKey = String(battle?.meKey || '');
+      const opp = (battlePlayersState || []).find(p => p.key !== meKey);
+      const myWins = Number((battleMatchState?.wins || {})[meKey] || 0);
+      const oppWins = Number((battleMatchState?.wins || {})[opp?.key] || 0);
+      const championKey = String(battleMatchState?.champion || '');
+      const championName = championKey
+        ? ((battlePlayersState || []).find(p => p.key === championKey)?.nick || championKey)
+        : '—';
+
+      endMatchLine2.textContent =
+        `you ${myWins} • opponent ${oppWins} • champion ${championName}`;
+    }
+
     renderDecision(detail);
     renderCompareTable(detail);
     renderRematchEndStatus();
     renderRematchUI();
     hhInjectCooldownButton({ endOverlayEl:endOverlay, hub:hubUrl, cat:HH_CAT, gameKey:HH_GAME, pid });
+  }
+
+  function endGame(reason){
+    if(!playing || ended) return;
+    ended = true;
+    playing = false;
+    setDanger(false);
+
+    for(const [,t] of targets){
+      try{ t.el.remove(); }catch(e){}
+    }
+    targets.clear();
+
+    let detail = buildEndDetail(reason);
+    detail = applyBattleResultToOverlay(detail);
+
+    try{
+      battle?.syncScore?.({
+        score: detail.scoreFinal,
+        accPct: detail.accPct,
+        missTotal: detail.missTotal,
+        medianRtGoodMs: detail.medianRtGoodMs,
+        finishMs: detail.finishMs
+      });
+    }catch(e){
+      console.warn('[GoodJunk] final battle syncScore failed', e);
+    }
+
+    try{
+      hhLsSet(`HHA_LAST_SUMMARY:${HH_GAME}:${pid}`, JSON.stringify(detail));
+      hhLsSet('HHA_LAST_SUMMARY', JSON.stringify(detail));
+    }catch(e){}
+
+    try{
+      if(battle && battle.enabled && typeof battle.saveRoundReport === 'function'){
+        const cloudRow = buildCloudRoundReport(detail);
+        battle.saveRoundReport(cloudRow).catch(()=>{});
+      }
+    }catch(e){
+      console.warn('[GoodJunk] cloud saveRoundReport failed', e);
+    }
+
+    try{
+      WIN.dispatchEvent(new CustomEvent('hha:end', { detail }));
+    }catch(e){}
+
+    sfx(detail.win ? 'win' : 'lose');
+    renderEndOverlay(detail);
   }
 
   function makeTarget(type, emoji, ttl, point=null){
