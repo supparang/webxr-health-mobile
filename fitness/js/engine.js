@@ -1,10 +1,9 @@
 // === /fitness/js/engine.js ===
-// Shadow Breaker engine (PATCH: robust AI import + expire removal + fair miss rules + adaptive size)
-// ✅ FIX: supports ai-predictor.js as ES module OR classic script (window.RB_AI)
-// ✅ FIX: targets expire & disappear smoothly
-// ✅ FIX: miss counting rule (expire counts only for normal/bossface)
-// ✅ FIX: no MISS FX for decoy/bomb/heal/shield expire
-// ✅ FIX: adaptive baseSize by screen/layer
+// Shadow Breaker engine — MERGED PATCH
+// ✅ Sync with merged shadow-breaker.html
+// ✅ Direct one-click start for Normal / Research
+// ✅ Sync selectors with production HTML/CSS
+// ✅ Keep robust AI import + expire removal + fair miss rules + adaptive size
 
 'use strict';
 
@@ -35,7 +34,7 @@ const MODE = (q('mode', q('run','normal')) || 'normal').toLowerCase(); // normal
 const PID  = q('pid','');
 const DIFF = (q('diff','normal') || 'normal').toLowerCase();
 const TIME = Math.max(20, Math.min(240, qNum('time', 70)));
-const HUB  = q('hub','./hub.html');
+const HUB  = q('hub','../herohealth/hub.html');
 
 const $ = (s)=>document.querySelector(s);
 const wrapEl = $('#sb-wrap');
@@ -49,7 +48,6 @@ const btnResearch = $('#sb-btn-research');
 const btnHowto    = $('#sb-btn-howto');
 const howtoBox    = $('#sb-howto');
 
-const btnStart    = $('#sb-btn-start');      // หน้า HTML ใหม่มีปุ่มนี้
 const btnBackMenu = $('#sb-btn-back-menu');
 const btnPause    = $('#sb-btn-pause');
 
@@ -99,6 +97,7 @@ const inputDiff = $('#sb-input-diff');
 const inputTime = $('#sb-input-time');
 
 const btnMeta   = $('#sb-btn-meta');
+const metaEl    = $('#sb-meta');
 const metaBody  = $('#sb-meta-body');
 
 // -------------------------
@@ -244,7 +243,7 @@ renderer.setDifficulty(currentDiff);
 function applyParamsToHeaderLink(){
   const a = $('#sb-link-hub');
   if (!a) return;
-  a.href = HUB || './../herohealth/hub.html';
+  a.href = HUB || '../herohealth/hub.html';
 }
 
 function syncMenuInputsFromQuery(){
@@ -434,13 +433,13 @@ function onTargetHit(id, pt){
   score = Math.max(0, score + scoreDelta);
   maxCombo = Math.max(maxCombo, combo);
 
-  // fever gain (ไม่สะสมระหว่างเปิด FEVER มากเกินไป)
+  // fever gain
   if (!feverOn) {
     fever = clamp(fever + (grade === 'perfect' ? 10 : 6), 0, FEVER_MAX);
   }
 
   renderer.playHitFx(id, { clientX: pt.clientX, clientY: pt.clientY, grade, scoreDelta });
-  renderer.removeTarget(id, 'hit');
+  renderer.removeTarget(id);
 
   events.push({ t: (currentTimeSec*1000 - timeLeft), type:'hit', id, targetType:type, grade, scoreDelta });
 
@@ -455,7 +454,6 @@ function endGame(reason='timeup'){
   ended = true;
   running = false;
 
-  // cleanup targets
   active.clear();
   renderer.destroy();
 
@@ -466,8 +464,8 @@ function endGame(reason='timeup'){
   session.phase = phase|0;
   session.bossesCleared = bossesCleared|0;
 
-  const totalShots = dl.getTotalShots();
-  const hits = dl.getHits();
+  const totalShots = dl.getTotalShots?.() || 0;
+  const hits = dl.getHits?.() || 0;
   const accPct = totalShots > 0 ? (hits/totalShots)*100 : 0;
   session.accPct = Number(accPct.toFixed(2));
 
@@ -505,7 +503,6 @@ function handleExpiry(){
 
     const counted = expireCountsMiss(info.type);
 
-    // ✅ MISS FX only when this expire truly counts as miss
     if (counted) {
       renderer.playHitFx(id, { grade:'expire' });
       miss++;
@@ -513,7 +510,6 @@ function handleExpiry(){
       say('พลาด! (Miss)', 'miss');
     }
 
-    // always remove softly
     renderer.expireTarget(id);
 
     events.push({
@@ -526,7 +522,6 @@ function handleExpiry(){
 
     active.delete(id);
 
-    // tiny HP penalty only for normal expire
     if(info.type === 'normal' && youHp > 0){
       youHp = Math.max(0, youHp - 2);
       if(youHp <= 0){
@@ -538,7 +533,6 @@ function handleExpiry(){
 }
 
 function maybeUseAIHint(){
-  // ไม่บังคับ gameplay — แค่ใช้ future hook/coach
   const totalShots = dl.getTotalShots?.() || 0;
   const hits = dl.getHits?.() || 0;
   const accPct = totalShots > 0 ? (hits/totalShots)*100 : 0;
@@ -549,7 +543,6 @@ function maybeUseAIHint(){
     combo
   });
 
-  // โชว์เป็นข้อความเบา ๆ เฉพาะโหมดเล่นและเปิด ai
   if (pred && currentMode !== 'research' && aiAssistEnabledSafe() && pred.tip && Math.random() < 0.08) {
     say(pred.tip, 'good');
   }
@@ -564,8 +557,6 @@ function tick(){
   const dt = t - tStart;
   timeLeft = Math.max(0, (currentTimeSec*1000) - dt);
 
-  // spawn interval (FEVER active => slightly faster pace feel but still fair)
-  const since = t - tLastSpawn;
   let spawnMin = CFG.spawnIntervalMin;
   let spawnMax = CFG.spawnIntervalMax;
 
@@ -574,6 +565,7 @@ function tick(){
     spawnMax = Math.max(700, Math.round(spawnMax * 0.94));
   }
 
+  const since = t - tLastSpawn;
   const targetInterval = clamp(
     spawnMin + Math.random()*(spawnMax - spawnMin),
     420, 1800
@@ -585,7 +577,6 @@ function tick(){
     dl.onShot();
   }
 
-  // FEVER passive decay only when not active
   if(fever >= FEVER_MAX && t >= feverActiveUntil){
     fever = clamp(fever - 0.22, 0, FEVER_MAX);
   }
@@ -612,7 +603,7 @@ function useFever(){
   if (fever < FEVER_MAX) return;
 
   fever = 0;
-  feverActiveUntil = now() + 6000; // 6s
+  feverActiveUntil = now() + 6000;
   say('⚡ FEVER MODE!', 'perfect');
 
   events.push({ t:(currentTimeSec*1000 - timeLeft), type:'fever_on', durMs:6000 });
@@ -636,6 +627,7 @@ function start(mode = 'normal'){
   ended = false;
   running = true;
   paused = false;
+  if(btnPause) btnPause.checked = false;
 
   score=0; combo=0; maxCombo=0; miss=0;
   fever=0; shield=0;
@@ -679,25 +671,8 @@ function start(mode = 'normal'){
 // -------------------------
 // Events
 // -------------------------
-btnPlay?.addEventListener('click', ()=>{
-  currentMode = 'normal';
-  btnPlay.classList.add('is-active');
-  btnResearch?.classList.remove('is-active');
-});
-
-btnResearch?.addEventListener('click', ()=>{
-  currentMode = 'research';
-  btnResearch.classList.add('is-active');
-  btnPlay?.classList.remove('is-active');
-});
-
-btnStart?.addEventListener('click', ()=>{
-  start(currentMode === 'research' ? 'research' : 'normal');
-});
-
-// backward compatibility (old UI)
-btnPlay?.addEventListener('dblclick', ()=> start('normal'));
-btnResearch?.addEventListener('dblclick', ()=> start('research'));
+btnPlay?.addEventListener('click', ()=> start('normal'));
+btnResearch?.addEventListener('click', ()=> start('research'));
 
 btnHowto?.addEventListener('click', ()=>{
   howtoBox?.classList.toggle('is-on');
@@ -726,10 +701,10 @@ btnMenu?.addEventListener('click', ()=>{
 btnFever?.addEventListener('click', useFever);
 
 btnMeta?.addEventListener('click', ()=>{
-  if (!metaBody || !btnMeta) return;
-  const hidden = metaBody.classList.toggle('is-collapsed');
-  btnMeta.setAttribute('aria-expanded', hidden ? 'false' : 'true');
-  btnMeta.textContent = hidden ? '▸' : '▾';
+  if (!metaBody || !btnMeta || !metaEl) return;
+  const collapsed = metaEl.classList.toggle('is-collapsed');
+  btnMeta.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+  btnMeta.textContent = collapsed ? '▸' : '▾';
 });
 
 function downloadCSV(filename, rows){
