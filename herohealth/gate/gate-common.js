@@ -1,6 +1,6 @@
 // === /herohealth/gate/gate-common.js ===
 // HeroHealth Gate Common Helpers
-// PATCH v20260308-HYGIENE-GATE-COMMON-r2
+// PATCH v20260309c-HYGIENE-GATE-COMMON
 
 export function qs(key, fallback=''){
   try{
