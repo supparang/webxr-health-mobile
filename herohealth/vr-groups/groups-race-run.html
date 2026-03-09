@@ -1,14 +1,13 @@
 <!-- === /herohealth/vr-groups/groups-race-run.html ===
-Groups Race — RUN PAGE (1v1)
-FULL v20260307c-GROUPS-RACE-RUN
-✅ Uses groups.safe.js as local engine
-✅ RTDB sync via groups-race-rtdb.js
-✅ Opponent live scoreboard
-✅ Shared countdown/start
-✅ Publish score + publish finished
-✅ Winner result overlay
+Groups Race — RUN PAGE (1v1) — FINAL POLISH
+FULL v20260308-GROUPS-RACE-RUN-FINAL-POLISH
+✅ sync with groups.safe.js polished events
+✅ score popup / hit fx / boss flash
+✅ cleaner HUD
+✅ opponent board compact
+✅ rematch / BO3 / result / celebration
 Requires:
-- Firebase initialized on page (window.firebase)
+- Firebase initialized on page
 - ./groups-race-score.js
 - ./groups-race-rtdb.js
 - ./groups.safe.js
@@ -56,9 +55,7 @@ Requires:
       position:relative;
       width:100%; height:100%;
       padding: calc(8px + var(--sat)) calc(8px + var(--sar)) calc(8px + var(--sab)) calc(8px + var(--sal));
-      display:flex;
-      flex-direction:column;
-      gap:8px;
+      display:flex; flex-direction:column; gap:8px;
     }
 
     .topbar{
@@ -83,7 +80,6 @@ Requires:
     .title span{
       color:var(--muted); font-size:11.5px; line-height:1.25;
     }
-
     .row{
       display:flex; gap:8px; align-items:center; flex-wrap:wrap; justify-content:flex-end;
     }
@@ -97,16 +93,11 @@ Requires:
       background: rgba(2,6,23,.55);
       font-size:11.5px;
       color:var(--muted);
-      user-select:none;
       white-space:nowrap;
       max-width:min(100%, 92vw);
-      overflow:hidden;
-      text-overflow:ellipsis;
-    }
-    .pill b{
-      color:var(--text); font-weight:1000;
       overflow:hidden; text-overflow:ellipsis;
     }
+    .pill b{ color:var(--text); font-weight:1000; overflow:hidden; text-overflow:ellipsis; }
     .dot{ width:8px; height:8px; border-radius:999px; background: var(--cyan); box-shadow:0 0 14px rgba(34,211,238,.55); }
     .dot.good{ background: var(--good); box-shadow:0 0 14px rgba(34,197,94,.55); }
     .dot.amber{ background: var(--amber); box-shadow:0 0 14px rgba(245,158,11,.55); }
@@ -128,8 +119,9 @@ Requires:
     button:active{ transform:translateY(0) scale(.99); }
     button.primary{ background: rgba(34,197,94,.14); border-color: rgba(34,197,94,.32); }
     button.ghost{ background: rgba(148,163,184,.08); }
+    button:disabled{ opacity:.56; cursor:not-allowed; transform:none; }
 
-    @media (max-width:760px){
+    @media (max-width:860px){
       .topbar{ grid-template-columns:1fr; }
       .row{ justify-content:flex-start; }
       #seedPill{ display:none; }
@@ -145,18 +137,12 @@ Requires:
       overflow:hidden;
       box-shadow: 0 20px 80px rgba(0,0,0,.35);
     }
-    #playLayer{
-      position:absolute; inset:0; overflow:hidden; pointer-events:auto;
-    }
+    #playLayer{ position:absolute; inset:0; overflow:hidden; pointer-events:auto; }
 
-    /* Our HUD */
     .hud{
       position:absolute;
       left:8px; right:8px;
-      display:flex;
-      align-items:flex-start;
-      justify-content:space-between;
-      gap:8px;
+      display:flex; align-items:flex-start; justify-content:space-between; gap:8px;
       pointer-events:none;
       z-index:30;
     }
@@ -171,53 +157,37 @@ Requires:
     .hudBox{
       display:grid;
       grid-template-columns:repeat(5, auto);
-      gap:10px;
+      gap:8px;
       align-items:center;
-      padding:6px 9px;
-      border-radius:16px;
-      border:1px solid rgba(148,163,184,.18);
-      background: rgba(2,6,23,.58);
-      backdrop-filter: blur(10px);
-      box-shadow: 0 12px 28px rgba(0,0,0,.22);
+      padding:5px 8px;
+      border-radius:14px;
+      border:1px solid rgba(148,163,184,.16);
+      background: rgba(2,6,23,.54);
+      backdrop-filter: blur(8px);
+      box-shadow: 0 10px 24px rgba(0,0,0,.18);
     }
     .hudMetric{
       display:flex; gap:5px; align-items:center; min-width:0;
     }
-    .hudMetric .k{ color:var(--muted); font-size:11px; font-weight:900; }
+    .hudMetric .k{ color:var(--muted); font-size:10px; font-weight:900; }
     .hudMetric .v{ color:var(--text); font-size:12px; font-weight:1000; }
 
     .questTop{
-      display:flex; flex-direction:column; gap:6px;
-      padding:7px 9px;
-      border-radius:16px;
-      border:1px solid rgba(148,163,184,.16);
-      background: rgba(2,6,23,.48);
-      backdrop-filter: blur(10px);
+      display:flex; flex-direction:column; gap:5px;
+      padding:6px 8px;
+      border-radius:14px;
+      border:1px solid rgba(148,163,184,.14);
+      background: rgba(2,6,23,.44);
+      backdrop-filter: blur(8px);
     }
     .questLine{
       display:flex; justify-content:space-between; gap:8px; align-items:flex-start; flex-wrap:wrap;
     }
-    .questTitle{ font-size:13px; font-weight:1000; line-height:1.28; }
-    .questMini{ color:var(--muted); font-size:11px; font-weight:900; line-height:1.25; }
-
-    .powerWrap{
-      width:min(210px, 34vw);
-      display:flex; flex-direction:column; gap:6px;
-      padding:7px 9px;
-      border-radius:16px;
-      border:1px solid rgba(148,163,184,.16);
-      background: rgba(2,6,23,.48);
-      backdrop-filter: blur(10px);
-      box-shadow: 0 12px 28px rgba(0,0,0,.18);
-    }
-    .powerHead{
-      display:flex; justify-content:space-between; gap:8px; align-items:center;
-    }
-    .powerHead b{ font-size:13px; line-height:1.2; }
-    .powerHead span{ color:var(--muted); font-size:11px; font-weight:1000; }
+    .questTitle{ font-size:12px; font-weight:1000; line-height:1.22; }
+    .questMini{ color:var(--muted); font-size:10px; font-weight:900; line-height:1.2; }
 
     .bar{
-      height:10px; border-radius:999px;
+      height:9px; border-radius:999px;
       border:1px solid rgba(148,163,184,.18);
       background: rgba(2,6,23,.55);
       overflow:hidden;
@@ -228,7 +198,23 @@ Requires:
       transition: width .10s linear;
     }
 
-    @media (max-width:640px){
+    .powerWrap{
+      width:min(176px, 32vw);
+      display:flex; flex-direction:column; gap:5px;
+      padding:6px 8px;
+      border-radius:14px;
+      border:1px solid rgba(148,163,184,.14);
+      background: rgba(2,6,23,.44);
+      backdrop-filter: blur(8px);
+      box-shadow: 0 10px 24px rgba(0,0,0,.16);
+    }
+    .powerHead{
+      display:flex; justify-content:space-between; gap:8px; align-items:center;
+    }
+    .powerHead b{ font-size:12px; line-height:1.15; }
+    .powerHead span{ color:var(--muted); font-size:10px; font-weight:1000; }
+
+    @media (max-width:680px){
       .hudLeftCol{ width:100%; max-width:100%; }
       .hudBox{
         grid-template-columns:repeat(5,minmax(0,1fr));
@@ -239,31 +225,27 @@ Requires:
       .powerWrap{
         position:absolute;
         left:0;
-        top:68px;
-        width:min(180px, 46vw);
+        top:62px;
+        width:min(170px, 45vw);
       }
     }
 
-    /* Opponent board */
     .opBoard{
       position:absolute;
       right:10px;
-      bottom: calc(10px + var(--sab) + 82px);
+      bottom: calc(10px + var(--sab) + 84px);
       z-index:32;
-      width:min(240px, 46vw);
-      border-radius:18px;
-      border:1px solid rgba(148,163,184,.16);
-      background: rgba(2,6,23,.60);
+      width:min(210px, 44vw);
+      border-radius:16px;
+      border:1px solid rgba(148,163,184,.15);
+      background: rgba(2,6,23,.56);
       backdrop-filter: blur(10px);
-      box-shadow: 0 16px 36px rgba(0,0,0,.22);
-      padding:10px;
+      box-shadow: 0 14px 30px rgba(0,0,0,.18);
+      padding:9px;
       pointer-events:none;
     }
-    .opHead{
-      display:flex; justify-content:space-between; gap:8px; align-items:center;
-      margin-bottom:8px;
-    }
-    .opName{ font-size:13px; font-weight:1000; line-height:1.2; }
+    .opHead{ display:flex; justify-content:space-between; gap:8px; align-items:center; margin-bottom:7px; }
+    .opName{ font-size:12.5px; font-weight:1000; line-height:1.2; }
     .leadPill{
       border-radius:999px;
       border:1px solid rgba(148,163,184,.18);
@@ -273,29 +255,24 @@ Requires:
       font-weight:1000;
       color:var(--muted);
     }
-    .opGrid{
-      display:grid;
-      grid-template-columns:repeat(2,minmax(0,1fr));
-      gap:8px;
-    }
+    .opGrid{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:7px; }
     .opCell{
-      border-radius:12px;
-      border:1px solid rgba(148,163,184,.12);
-      background: rgba(2,6,23,.28);
-      padding:7px 8px;
+      border-radius:11px;
+      border:1px solid rgba(148,163,184,.10);
+      background: rgba(2,6,23,.24);
+      padding:6px 7px;
     }
-    .opCell .k{ color:var(--muted); font-size:10px; font-weight:1000; }
-    .opCell .v{ margin-top:3px; font-size:13px; font-weight:1000; }
+    .opCell .k{ color:var(--muted); font-size:9.5px; font-weight:1000; }
+    .opCell .v{ margin-top:3px; font-size:12px; font-weight:1000; }
 
     @media (max-width:640px){
       .opBoard{
-        width:min(190px, 48vw);
+        width:min(176px, 46vw);
         right:8px;
-        bottom: calc(10px + var(--sab) + 92px);
+        bottom: calc(10px + var(--sab) + 86px);
       }
     }
 
-    /* Toast */
     .coachToast{
       position:absolute;
       left:10px; right:10px;
@@ -307,11 +284,7 @@ Requires:
       opacity:0;
       transition: opacity .18s ease, transform .18s ease;
     }
-    .coachToast.show{
-      display:block;
-      opacity:1;
-      transform:translateY(0);
-    }
+    .coachToast.show{ display:block; opacity:1; transform:translateY(0); }
     .coachWrap{
       display:flex; align-items:center; gap:10px;
       padding:7px 10px;
@@ -332,7 +305,6 @@ Requires:
     .coachWrap .txt{ font-weight:1000; font-size:13px; line-height:1.25; }
     .coachWrap .sub{ color:var(--muted); font-size:11px; font-weight:900; margin-top:2px; }
 
-    /* Countdown overlay */
     .overlay{
       position:absolute; inset:0;
       display:none;
@@ -361,8 +333,7 @@ Requires:
     .overlayCard main{
       padding:12px;
       display:flex; flex-direction:column; gap:10px;
-      overflow:auto;
-      min-height:0;
+      overflow:auto; min-height:0;
     }
     .overlayBtns{
       padding:12px;
@@ -370,11 +341,7 @@ Requires:
       display:flex; gap:10px; flex-wrap:wrap; justify-content:center;
     }
     .centerBig{
-      font-size:72px;
-      font-weight:1100;
-      line-height:1;
-      text-align:center;
-      margin:10px 0;
+      font-size:72px; font-weight:1100; line-height:1; text-align:center; margin:10px 0;
     }
     .centerSub{
       text-align:center;
@@ -384,14 +351,12 @@ Requires:
       line-height:1.35;
     }
 
-    /* Result */
     #resultCard main{
       padding:12px;
       display:grid;
       grid-template-columns:1fr 1fr;
       gap:10px;
-      overflow:auto;
-      min-height:0;
+      overflow:auto; min-height:0;
     }
     .panel{
       border-radius:18px;
@@ -421,10 +386,7 @@ Requires:
     .kvCard .k{ color:var(--muted); font-size:11px; font-weight:900; }
     .kvCard .v{ margin-top:4px; color:var(--text); font-size:14px; font-weight:1000; line-height:1.25; }
 
-    .vsBox{
-      display:grid;
-      gap:10px;
-    }
+    .vsBox{ display:grid; gap:10px; }
     .vsPlayer{
       border-radius:16px;
       border:1px solid rgba(148,163,184,.14);
@@ -464,12 +426,11 @@ Requires:
       .thaiGrid{ grid-template-columns:1fr; }
     }
 
-    /* feedback */
     .hudPulse{ animation:hudPulse .28s ease-out; }
     @keyframes hudPulse{
-      0%{ transform:scale(1); box-shadow:0 12px 28px rgba(0,0,0,.22); }
+      0%{ transform:scale(1); box-shadow:0 10px 24px rgba(0,0,0,.18); }
       40%{ transform:scale(1.05); box-shadow:0 0 0 1px rgba(34,211,238,.28), 0 0 26px rgba(34,211,238,.16); }
-      100%{ transform:scale(1); box-shadow:0 12px 28px rgba(0,0,0,.22); }
+      100%{ transform:scale(1); box-shadow:0 10px 24px rgba(0,0,0,.18); }
     }
     .comboHot{
       color:#fff;
@@ -481,6 +442,7 @@ Requires:
       35%{ transform:scale(1.18); opacity:1; }
       100%{ transform:scale(1); opacity:1; }
     }
+
     #stageFlash{
       position:absolute;
       inset:0;
@@ -493,6 +455,115 @@ Requires:
     #stageFlash.good{ background:radial-gradient(circle at 50% 50%, rgba(34,197,94,.16), rgba(34,197,94,0)); }
     #stageFlash.bad{ background:radial-gradient(circle at 50% 50%, rgba(239,68,68,.14), rgba(239,68,68,0)); }
     #stageFlash.boss{ background:radial-gradient(circle at 50% 50%, rgba(245,158,11,.18), rgba(245,158,11,0)); }
+
+    #fxLayer{
+      position:absolute;
+      inset:0;
+      pointer-events:none;
+      overflow:hidden;
+      z-index:38;
+    }
+    .scorePop{
+      position:absolute;
+      font-weight:1100;
+      font-size:22px;
+      line-height:1;
+      text-shadow: 0 2px 12px rgba(0,0,0,.28);
+      animation: scorePopUp .55s ease-out forwards;
+      will-change: transform, opacity;
+    }
+    .scorePop.good{ color:#86efac; }
+    .scorePop.bad{ color:#fca5a5; }
+    @keyframes scorePopUp{
+      0%{ transform: translate(-50%,-50%) scale(.72); opacity:0; }
+      15%{ transform: translate(-50%,-58%) scale(1.04); opacity:1; }
+      100%{ transform: translate(-50%,-110%) scale(.98); opacity:0; }
+    }
+
+    #celebrateLayer{
+      position:absolute;
+      inset:0;
+      pointer-events:none;
+      overflow:hidden;
+      z-index:74;
+    }
+    .confetti{
+      position:absolute;
+      width:10px;
+      height:16px;
+      border-radius:3px;
+      opacity:.95;
+      will-change: transform, opacity;
+      animation: confettiFall linear forwards;
+    }
+    @keyframes confettiFall{
+      0%{ transform: translate3d(0,0,0) rotate(0deg) scale(1); opacity:1; }
+      100%{ transform: translate3d(var(--dx, 0px), var(--dy, 520px), 0) rotate(var(--rot, 540deg)) scale(.9); opacity:0; }
+    }
+
+    #raceBanner{
+      position:absolute;
+      left:50%; top:50%;
+      transform:translate(-50%,-50%) scale(.92);
+      min-width:min(88vw,420px);
+      max-width:88vw;
+      padding:14px 18px;
+      border-radius:20px;
+      border:1px solid rgba(148,163,184,.22);
+      background:linear-gradient(180deg, rgba(2,6,23,.88), rgba(2,6,23,.72));
+      box-shadow:0 24px 80px rgba(0,0,0,.38);
+      text-align:center;
+      z-index:72;
+      pointer-events:none;
+      opacity:0;
+      display:none;
+      transition: opacity .18s ease, transform .18s ease;
+    }
+
+    #seriesBanner{
+      position:absolute;
+      left:50%; top:26%;
+      transform:translate(-50%,-50%) scale(.92);
+      min-width:min(86vw,420px);
+      max-width:86vw;
+      padding:12px 16px;
+      border-radius:18px;
+      border:1px solid rgba(255,79,216,.24);
+      background:linear-gradient(180deg, rgba(2,6,23,.90), rgba(2,6,23,.74));
+      box-shadow:0 24px 80px rgba(0,0,0,.34);
+      text-align:center;
+      z-index:73;
+      pointer-events:none;
+      opacity:0;
+      display:none;
+      transition: opacity .18s ease, transform .18s ease;
+    }
+
+    .winGlow{ animation: winGlow 1s ease-out; }
+    @keyframes winGlow{
+      0%{ box-shadow:0 0 0 rgba(255,255,255,0); filter:brightness(1); }
+      35%{
+        box-shadow:
+          0 0 0 2px rgba(255,215,0,.22),
+          0 0 36px rgba(255,215,0,.18),
+          0 0 84px rgba(34,197,94,.10);
+        filter:brightness(1.08);
+      }
+      100%{ box-shadow:0 0 0 rgba(255,255,255,0); filter:brightness(1); }
+    }
+    .seriesWinBadge{
+      margin-top:10px;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      border-radius:999px;
+      border:1px solid rgba(245,158,11,.28);
+      background: rgba(245,158,11,.10);
+      padding:8px 12px;
+      font-size:13px;
+      font-weight:1000;
+      color:#fde68a;
+    }
 
     .tgt{
       width:74px; height:74px;
@@ -523,7 +594,12 @@ Requires:
       <div class="pill"><span class="dot amber"></span> <span>DIFF:</span> <b id="diffPill">normal</b></div>
       <div class="pill"><span class="dot"></span> <span>VIEW:</span> <b id="viewPill">mobile</b></div>
       <div class="pill" id="seedPill"><span class="dot"></span> <span>SEED:</span> <b id="seedText">—</b></div>
+      <div class="pill"><span class="dot pink"></span> <span>SERIES:</span> <b id="seriesPill">BO3 · R1</b></div>
+      <div class="pill"><span class="dot good"></span> <span>WINS:</span> <b id="winsPill">0 - 0</b></div>
       <div class="pill"><span id="roomDot" class="dot"></span> <span>STATUS:</span> <b id="statusText">WAIT</b></div>
+      <button id="btnReadyRun" class="primary">READY</button>
+      <button id="btnUnreadyRun">UNREADY</button>
+      <button id="btnStartRun">START</button>
       <button class="ghost" id="btnBack">🏠 HUB</button>
     </div>
   </div>
@@ -531,6 +607,8 @@ Requires:
   <div class="stage" id="stage">
     <div id="playLayer"></div>
     <div id="stageFlash"></div>
+    <div id="fxLayer"></div>
+    <div id="celebrateLayer"></div>
 
     <div class="hud hudTop">
       <div class="hudLeftCol">
@@ -586,6 +664,18 @@ Requires:
       </div>
     </div>
 
+    <div id="raceBanner">
+      <div id="raceBannerTag" style="font-size:12px; color:var(--amber); font-weight:1000; letter-spacing:.3px;">RACE</div>
+      <div id="raceBannerTitle" style="margin-top:6px; font-size:22px; font-weight:1100;">READY</div>
+      <div id="raceBannerSub" style="margin-top:6px; color:var(--muted); font-size:12px; font-weight:900;">การแข่งขันกำลังเข้มข้น</div>
+    </div>
+
+    <div id="seriesBanner">
+      <div id="seriesBannerTag" style="font-size:11px; color:var(--pink); font-weight:1000; letter-spacing:.3px;">SERIES</div>
+      <div id="seriesBannerTitle" style="margin-top:6px; font-size:20px; font-weight:1100;">BO3</div>
+      <div id="seriesBannerSub" style="margin-top:6px; color:var(--muted); font-size:12px; font-weight:900;">กำลังเข้าสู่รอบสำคัญ</div>
+    </div>
+
     <div class="overlay" id="countdownOverlay" aria-hidden="false" style="display:flex;">
       <div class="overlayCard">
         <header>
@@ -612,7 +702,15 @@ Requires:
               <b>สรุปของเรา</b>
               <span class="mini">my result</span>
             </div>
-            <div id="myPretty" class="thaiGrid"></div>
+
+            <div id="myHeadline" style="font-size:22px; font-weight:1100; line-height:1.2; margin-bottom:6px;">ผลการแข่งขัน</div>
+            <div id="mySubThai" style="color:var(--muted); font-size:13px; font-weight:900; line-height:1.35; margin-bottom:10px;">สรุปรอบนี้</div>
+            <div id="seriesWinBadge" class="seriesWinBadge" style="display:none;">
+              <span>🏆</span>
+              <span>Series Champion</span>
+            </div>
+
+            <div id="myPretty" class="thaiGrid" style="margin-top:10px;"></div>
             <details style="margin-top:10px;">
               <summary style="cursor:pointer; color:var(--muted); font-weight:900;">ดู JSON</summary>
               <pre id="myJson" style="margin-top:8px;"></pre>
@@ -624,7 +722,33 @@ Requires:
               <b>เปรียบเทียบ</b>
               <span class="mini">vs opponent</span>
             </div>
-            <div class="vsBox" id="vsBox"></div>
+
+            <div id="vsBox" class="vsBox"></div>
+
+            <div id="seriesBox" style="
+              margin-top:10px;
+              border-radius:14px;
+              border:1px solid rgba(148,163,184,.14);
+              background: rgba(2,6,23,.34);
+              padding:10px;
+            ">
+              <div style="font-size:13px; font-weight:1000; margin-bottom:6px;">สถานะซีรีส์</div>
+              <div id="seriesText" style="color:var(--muted); font-size:13px; font-weight:900;">BO3 · รอบ 1 · 0-0</div>
+            </div>
+
+            <div id="rematchBox" style="
+              margin-top:10px;
+              border-radius:14px;
+              border:1px solid rgba(148,163,184,.14);
+              background: rgba(2,6,23,.34);
+              padding:10px;
+              font-size:13px;
+              font-weight:900;
+              color:var(--muted);
+            ">
+              สถานะ Rematch: ยังไม่เริ่ม
+            </div>
+
             <details style="margin-top:10px;">
               <summary style="cursor:pointer; color:var(--muted); font-weight:900;">ดู decision JSON</summary>
               <pre id="decisionJson" style="margin-top:8px;"></pre>
@@ -633,7 +757,8 @@ Requires:
         </main>
 
         <div class="overlayBtns">
-          <button id="btnAgain">เล่นใหม่</button>
+          <button id="btnRematch">🔁 Rematch</button>
+          <button id="btnAgain">กลับ Hub</button>
           <button class="primary" id="btnGoHub">🏠 กลับ HUB</button>
           <button class="ghost" id="btnCloseResult">ปิด</button>
         </div>
@@ -665,7 +790,6 @@ Requires:
   const NAME = String(q('name','') || '').trim() || (ROLE === 'host' ? 'Host' : 'Guest');
   const PLAYER_KEY = String(q('playerKey','') || '').trim() || ('p' + Math.random().toString(36).slice(2,8).toUpperCase());
   const HUB = String(q('hub','../hub.html') || '../hub.html');
-
   const CVR_STRICT = (VIEW === 'cvr') && (String(q('cvrStrict','1')||'1') !== '0');
 
   document.body.setAttribute('data-view', VIEW);
@@ -679,6 +803,8 @@ Requires:
   const seedText = $('#seedText');
   const statusText = $('#statusText');
   const roomDot = $('#roomDot');
+  const seriesPill = $('#seriesPill');
+  const winsPill = $('#winsPill');
 
   roomPill.textContent = ROOM || '—';
   diffPill.textContent = DIFF;
@@ -727,9 +853,30 @@ Requires:
   const myJson = $('#myJson');
   const vsBox = $('#vsBox');
   const decisionJson = $('#decisionJson');
+  const seriesText = $('#seriesText');
+  const rematchBox = $('#rematchBox');
+  const myHeadline = $('#myHeadline');
+  const mySubThai = $('#mySubThai');
+  const seriesWinBadge = $('#seriesWinBadge');
 
   const stageFlash = $('#stageFlash');
   const playLayer = $('#playLayer');
+  const fxLayer = $('#fxLayer');
+  const celebrateLayer = $('#celebrateLayer');
+
+  const raceBanner = $('#raceBanner');
+  const raceBannerTag = $('#raceBannerTag');
+  const raceBannerTitle = $('#raceBannerTitle');
+  const raceBannerSub = $('#raceBannerSub');
+
+  const seriesBanner = $('#seriesBanner');
+  const seriesBannerTag = $('#seriesBannerTag');
+  const seriesBannerTitle = $('#seriesBannerTitle');
+  const seriesBannerSub = $('#seriesBannerSub');
+
+  const btnReadyRun = $('#btnReadyRun');
+  const btnUnreadyRun = $('#btnUnreadyRun');
+  const btnStartRun = $('#btnStartRun');
 
   let race = null;
   let lastLocalSummary = null;
@@ -738,11 +885,17 @@ Requires:
   let finishedPublished = false;
   let countdownInt = null;
   let toastTimer = null;
+  let raceBannerTimer = null;
+  let seriesBannerTimer = null;
   let startPollInt = null;
-
-  function emitLog(s){
-    try{ console.log('[GroupsRaceRun]', s); }catch(_){}
-  }
+  let rematchBusy = false;
+  let currentRematchNo = 0;
+  let inResultMode = false;
+  let lastLeadState = 'WAIT';
+  let lastCloseAlertAt = 0;
+  let final10Shown = false;
+  let final5Shown = false;
+  let lastSeriesKey = '';
 
   function faceFromMood(mood){
     return (
@@ -779,26 +932,112 @@ Requires:
     setTimeout(()=>{ stageFlash.style.opacity = '0'; }, 120);
   }
 
+  function popScore(x, y, text, good){
+    if(!fxLayer) return;
+    const el = document.createElement('div');
+    el.className = 'scorePop ' + (good ? 'good' : 'bad');
+    el.textContent = text;
+    el.style.left = Math.round(x) + 'px';
+    el.style.top = Math.round(y) + 'px';
+    fxLayer.appendChild(el);
+    setTimeout(()=>{ try{ el.remove(); }catch(_){ } }, 700);
+  }
+
+  function rand(min, max){ return min + Math.random() * (max - min); }
+
+  function burstConfetti(count = 42){
+    if(!celebrateLayer) return;
+    const host = celebrateLayer;
+    const w = host.clientWidth || window.innerWidth || 360;
+    const colors = ['#22d3ee', '#a78bfa', '#f59e0b', '#22c55e', '#ff4fd8', '#ffffff'];
+
+    for(let i=0;i<count;i++){
+      const el = document.createElement('div');
+      el.className = 'confetti';
+      el.style.left = Math.round(rand(10, Math.max(12, w - 12))) + 'px';
+      el.style.top = '-24px';
+      el.style.background = colors[(Math.random() * colors.length) | 0];
+      el.style.setProperty('--dx', Math.round(rand(-120, 120)) + 'px');
+      el.style.setProperty('--dy', Math.round(rand(360, 620)) + 'px');
+      el.style.setProperty('--rot', Math.round(rand(240, 880)) + 'deg');
+      el.style.animationDuration = rand(1.3, 2.2) + 's';
+      host.appendChild(el);
+      setTimeout(()=>{ try{ el.remove(); }catch(_){ } }, 2400);
+    }
+  }
+
+  function showRaceBanner(tag, title, sub){
+    if(!raceBanner) return;
+    if(raceBannerTimer){ clearTimeout(raceBannerTimer); raceBannerTimer = null; }
+
+    raceBannerTag.textContent = tag || 'RACE';
+    raceBannerTitle.textContent = title || 'READY';
+    raceBannerSub.textContent = sub || '';
+
+    raceBanner.style.display = 'block';
+    requestAnimationFrame(()=>{
+      raceBanner.style.opacity = '1';
+      raceBanner.style.transform = 'translate(-50%,-50%) scale(1)';
+    });
+
+    raceBannerTimer = setTimeout(()=>{
+      raceBanner.style.opacity = '0';
+      raceBanner.style.transform = 'translate(-50%,-50%) scale(.94)';
+      setTimeout(()=>{ raceBanner.style.display = 'none'; }, 220);
+    }, 1500);
+  }
+
+  function showSeriesBanner(tag, title, sub){
+    if(!seriesBanner) return;
+    if(seriesBannerTimer){ clearTimeout(seriesBannerTimer); seriesBannerTimer = null; }
+
+    seriesBannerTag.textContent = tag || 'SERIES';
+    seriesBannerTitle.textContent = title || 'BO3';
+    seriesBannerSub.textContent = sub || '';
+
+    seriesBanner.style.display = 'block';
+    requestAnimationFrame(()=>{
+      seriesBanner.style.opacity = '1';
+      seriesBanner.style.transform = 'translate(-50%,-50%) scale(1)';
+    });
+
+    seriesBannerTimer = setTimeout(()=>{
+      seriesBanner.style.opacity = '0';
+      seriesBanner.style.transform = 'translate(-50%,-50%) scale(.94)';
+      setTimeout(()=>{ seriesBanner.style.display = 'none'; }, 220);
+    }, 1800);
+  }
+
+  function celebrateSeriesWin(){
+    burstConfetti(56);
+    burstConfetti(36);
+    flashStage('boss');
+    const resultCard = $('#resultCard');
+    if(resultCard){
+      resultCard.classList.remove('winGlow');
+      resultCard.offsetHeight;
+      resultCard.classList.add('winGlow');
+    }
+    if(seriesWinBadge) seriesWinBadge.style.display = 'inline-flex';
+    showSeriesBanner('SERIES WIN', 'คุณชนะซีรีส์! 🏆', 'ยอดเยี่ยมมาก');
+    showToast('คุณชนะซีรีส์แล้ว! 🎉', 'happy');
+  }
+
   function setStatus(text, dotCls=''){
     statusText.textContent = text || '—';
     roomDot.className = 'dot ' + (dotCls || '');
+  }
+
+  function setRematchText(text){
+    if(rematchBox) rematchBox.textContent = `สถานะ Rematch: ${text}`;
   }
 
   function updateSpawnSafe(){
     try{
       const r = playLayer.getBoundingClientRect();
       const pad = 14;
-
-      const topSafe =
-        (VIEW === 'pc') ? 118 :
-        (VIEW === 'cvr') ? 142 :
-        162;
-
-      const botSafe =
-        (VIEW === 'pc') ? 126 :
-        (VIEW === 'cvr') ? 220 :
-        188;
-
+      const topSafe = (VIEW === 'pc') ? 108 : (VIEW === 'cvr') ? 142 : 156;
+      const botSafe = (VIEW === 'pc') ? 120 : (VIEW === 'cvr') ? 220 : 186;
       window.__HHA_SPAWN_SAFE__ = {
         xMin: pad,
         xMax: Math.max(pad + 1, r.width - pad),
@@ -843,14 +1082,28 @@ Requires:
     showOverlay(countdownOverlay);
     cdRoom.textContent = ROOM || '—';
     cdHeaderSub.textContent = 'กำลังเริ่มแข่งขัน';
+
     const tick = ()=>{
       const leftMs = Number(startAt || 0) - Date.now();
       const s = Math.max(0, Math.ceil(leftMs / 1000));
+      const room = race?.getState?.()?.room || {};
+      const ctx = getSeriesContext(room);
+
       cdNum.textContent = (s <= 0) ? 'GO!' : String(s);
-      cdSub.textContent = (s <= 0)
-        ? 'เริ่มแข่งแล้ว'
-        : 'เตรียมตัวให้พร้อม';
+
+      if(s <= 0){
+        cdSub.textContent = 'เริ่มแข่งแล้ว';
+      }else if(ctx.finalRound){
+        cdSub.textContent = 'รอบตัดสิน — ผู้ชนะรอบนี้ชนะซีรีส์';
+      }else if(ctx.myWins > ctx.opWins && ctx.myWins === 1){
+        cdSub.textContent = 'รอบนี้คุณมีโอกาสปิดซีรีส์';
+      }else if(ctx.opWins > ctx.myWins && ctx.opWins === 1){
+        cdSub.textContent = 'รอบนี้ห้ามพลาด — คู่แข่งมีโอกาสปิดซีรีส์';
+      }else{
+        cdSub.textContent = 'เตรียมตัวให้พร้อม';
+      }
     };
+
     tick();
     countdownInt = setInterval(tick, 200);
   }
@@ -878,9 +1131,61 @@ Requires:
     };
   }
 
+  function resetRoundUI(){
+    finishedPublished = false;
+    gameStarted = false;
+    lastLocalSummary = null;
+    lastDecision = null;
+    inResultMode = false;
+
+    hudTime.textContent = TIME + 's';
+    hudScore.textContent = '0';
+    hudCombo.textContent = 'x0';
+    hudMiss.textContent = '0';
+    hudRank.textContent = '—';
+    hudCombo.classList.remove('comboHot');
+
+    qTitle.textContent = 'ภารกิจ';
+    qSub.textContent = '';
+    qBar.style.width = '0%';
+    qMini.textContent = 'MINI: —';
+    qMiniTime.textContent = '';
+
+    groupName.textContent = 'หมู่ 1 โปรตีน';
+    pBar.style.width = '0%';
+    pText.textContent = '0 / 8';
+
+    opScore.textContent = '0';
+    opCombo.textContent = 'x0';
+    opMiss.textContent = '0';
+    opAcc.textContent = '0%';
+    leadPill.textContent = 'WAIT';
+    leadPill.style.color = 'var(--muted)';
+    leadPill.style.borderColor = 'rgba(148,163,184,.18)';
+
+    hideOverlay(resultOverlay);
+    showOverlay(countdownOverlay);
+    cdNum.textContent = 'WAIT';
+    cdSub.textContent = 'รอผู้เล่น READY';
+    cdHeaderSub.textContent = 'รอเริ่มรอบใหม่';
+
+    final10Shown = false;
+    final5Shown = false;
+    lastLeadState = 'WAIT';
+    lastCloseAlertAt = 0;
+    lastSeriesKey = '';
+
+    if(seriesWinBadge) seriesWinBadge.style.display = 'none';
+  }
+
   function startEngine(){
     if(gameStarted) return;
     updateSpawnSafe();
+
+    final10Shown = false;
+    final5Shown = false;
+    lastLeadState = 'WAIT';
+    lastCloseAlertAt = 0;
 
     try{ window.GroupsVR?.GameEngine?.setLayerEl?.(playLayer); }catch(_){}
     try{
@@ -918,7 +1223,7 @@ Requires:
       ['ความแม่นยำ', (summary?.accuracyPct != null ? summary.accuracyPct + '%' : '-')],
       ['Miss', summary?.miss ?? '-'],
       ['ยิงทั้งหมด', summary?.shots ?? '-'],
-      ['ยิงถูก', summary?.hits ?? summary?.goodShots ?? '-'],
+      ['ยิงถูก', summary?.hits ?? '-'],
       ['คอมโบสูงสุด', summary?.comboMax ?? '-'],
       ['ด่านจบที่', summary?.stageEnded ?? '-'],
     ];
@@ -930,26 +1235,65 @@ Requires:
     `).join('');
   }
 
+  function headlineByRaceResult(dec){
+    const draw = !!dec?.isDraw;
+    const winnerKey = String(dec?.winnerKey || '');
+    if(draw) return ['เสมอ 🤝', 'ทั้งสองฝั่งทำได้สูสีกันมาก'];
+    if(winnerKey === PLAYER_KEY) return ['คุณชนะ! 🏆', 'ทำคะแนนและควบคุมเกมได้ดีกว่า'];
+    return ['รอบนี้ยังไม่ชนะ 💪', 'ลองใหม่อีกนิด คุณมีโอกาสแซงได้'];
+  }
+
   function showResult(decision){
     lastDecision = decision || null;
+    inResultMode = true;
 
     const dec = decision || {};
-    const winnerKey = String(dec.winnerKey || '');
     const draw = !!dec.isDraw;
+    const winnerKey = String(dec.winnerKey || '');
+    const hostWins = Number(dec?.hostWins || 0);
+    const guestWins = Number(dec?.guestWins || 0);
+    const seriesFinished = !!dec?.seriesFinished;
+    const seriesWinnerKey = String(dec?.seriesWinnerKey || '');
 
-    if(draw){
+    if(seriesFinished){
+      if(seriesWinnerKey === PLAYER_KEY){
+        resultTitle.textContent = 'SERIES WIN 🏆';
+        resultSub.textContent = `คุณชนะซีรีส์ ${hostWins}-${guestWins}`;
+        celebrateSeriesWin();
+      }else{
+        resultTitle.textContent = 'SERIES LOSE';
+        resultSub.textContent = `คุณแพ้ซีรีส์ ${hostWins}-${guestWins}`;
+        if(seriesWinBadge) seriesWinBadge.style.display = 'none';
+      }
+    }else if(draw){
       resultTitle.textContent = 'DRAW 🤝';
-      resultSub.textContent = 'คะแนนและเงื่อนไขเสมอกัน';
+      resultSub.textContent = 'รอบนี้เสมอกัน';
+      if(seriesWinBadge) seriesWinBadge.style.display = 'none';
+    }else if(dec.rule === 'disconnect'){
+      if(winnerKey === PLAYER_KEY){
+        resultTitle.textContent = 'ROUND WIN 🏁';
+        resultSub.textContent = 'คุณชนะรอบนี้เพราะคู่แข่งหลุดการเชื่อมต่อ';
+      }else{
+        resultTitle.textContent = 'ROUND LOSE';
+        resultSub.textContent = 'จบรอบด้วย disconnect';
+      }
+      if(seriesWinBadge) seriesWinBadge.style.display = 'none';
     }else if(winnerKey === PLAYER_KEY){
-      resultTitle.textContent = 'YOU WIN 🏆';
-      resultSub.textContent = `ชนะด้วย ${dec.tieReason ? ('tie-break: ' + dec.tieReason) : (dec.rule || 'score')}`;
+      resultTitle.textContent = 'ROUND WIN 🏁';
+      resultSub.textContent = `คุณชนะรอบนี้ · ซีรีส์ ${hostWins}-${guestWins}`;
+      if(seriesWinBadge) seriesWinBadge.style.display = 'none';
     }else{
-      resultTitle.textContent = 'YOU LOSE';
-      resultSub.textContent = `แพ้ด้วย ${dec.tieReason ? ('tie-break: ' + dec.tieReason) : (dec.rule || 'score')}`;
+      resultTitle.textContent = 'ROUND LOSE';
+      resultSub.textContent = `คุณแพ้รอบนี้ · ซีรีส์ ${hostWins}-${guestWins}`;
+      if(seriesWinBadge) seriesWinBadge.style.display = 'none';
     }
 
-    resultRoom.textContent = ROOM || '—';
+    const [head, sub] = headlineByRaceResult(dec);
+    if(myHeadline) myHeadline.textContent = head;
+    if(mySubThai) mySubThai.textContent = sub;
+    setRematchText(seriesFinished ? 'ซีรีส์จบแล้ว' : 'พร้อมเริ่มรอบถัดไป');
 
+    resultRoom.textContent = ROOM || '—';
     myPretty.innerHTML = prettyCards(lastLocalSummary || {});
     myJson.textContent = JSON.stringify(lastLocalSummary || {}, null, 2);
     decisionJson.textContent = JSON.stringify(dec || {}, null, 2);
@@ -975,17 +1319,235 @@ Requires:
       `;
     }).join('');
 
+    updateRunButtons();
     showOverlay(resultOverlay);
+
+    const btnAgain = $('#btnAgain');
+    const btnRematch = $('#btnRematch');
+    if(btnAgain && btnRematch){
+      if(seriesFinished){
+        btnRematch.disabled = true;
+        btnRematch.textContent = 'ซีรีส์จบแล้ว';
+        btnAgain.textContent = 'กลับ Lobby';
+      }else{
+        btnRematch.disabled = false;
+        btnRematch.textContent = '🔁 Rematch';
+        btnAgain.textContent = 'กลับ Hub';
+      }
+    }
   }
 
   function updateLeadUI(){
     if(!race) return;
     const st = race.getLeadStatus ? race.getLeadStatus() : 'WAIT';
     leadPill.textContent = st;
-    if(st === 'LEAD') leadPill.style.color = 'var(--good)';
-    else if(st === 'BEHIND') leadPill.style.color = 'var(--red)';
-    else if(st === 'CLOSE') leadPill.style.color = 'var(--amber)';
-    else leadPill.style.color = 'var(--muted)';
+
+    if(st === 'LEAD'){
+      leadPill.style.color = 'var(--good)';
+      leadPill.style.borderColor = 'rgba(34,197,94,.26)';
+    }else if(st === 'BEHIND'){
+      leadPill.style.color = 'var(--red)';
+      leadPill.style.borderColor = 'rgba(239,68,68,.24)';
+    }else if(st === 'CLOSE'){
+      leadPill.style.color = 'var(--amber)';
+      leadPill.style.borderColor = 'rgba(245,158,11,.26)';
+    }else{
+      leadPill.style.color = 'var(--muted)';
+      leadPill.style.borderColor = 'rgba(148,163,184,.18)';
+    }
+  }
+
+  function handleLeadAlerts(){
+    if(!race || !gameStarted) return;
+
+    const st = race.getLeadStatus ? race.getLeadStatus() : 'WAIT';
+    if(st === lastLeadState) return;
+
+    const prev = lastLeadState;
+    lastLeadState = st;
+
+    if(st === 'LEAD'){
+      if(prev === 'BEHIND'){
+        showRaceBanner('COMEBACK', 'แซงขึ้นนำแล้ว! 🚀', 'รักษาความแม่นไว้');
+        showToast('แซงแล้ว! รักษาคะแนนนำไว้ 🔥', 'happy');
+        flashStage('good');
+      }else{
+        showRaceBanner('LEAD', 'คุณกำลังนำ', 'เล่นนิ่ง ๆ แล้วคุมคอมโบ');
+        flashStage('good');
+      }
+    }else if(st === 'BEHIND'){
+      if(prev === 'LEAD'){
+        showRaceBanner('OVERTAKEN', 'โดนแซงแล้ว!', 'รีบคุมจังหวะกลับมา');
+        showToast('โดนแซงแล้ว — ใจเย็นและยิงให้ชัวร์ 🎯', 'sad');
+        flashStage('bad');
+      }else{
+        showRaceBanner('CHASE', 'กำลังตามอยู่', 'ยังกลับมาได้');
+        flashStage('bad');
+      }
+    }else if(st === 'CLOSE'){
+      showRaceBanner('CLOSE', 'คะแนนสูสีมาก', 'อีกนิดเดียวก็เปลี่ยนเกมได้');
+      flashStage('boss');
+    }
+  }
+
+  function handleCloseGameAlert(){
+    if(!race || !gameStarted) return;
+    const st = race.getState ? race.getState() : null;
+    const me = st?.me || null;
+    const op = st?.opponent || null;
+    if(!me || !op) return;
+
+    const diff = Math.abs(Number(me.score || 0) - Number(op.score || 0));
+    const now = Date.now();
+
+    if(diff <= 8 && (now - lastCloseAlertAt) > 4000){
+      lastCloseAlertAt = now;
+      showToast('คะแนนห่างกันนิดเดียว — ทุกช็อตมีผล!', 'neutral');
+    }
+  }
+
+  function handleFinalStretch(leftSec){
+    leftSec = Number(leftSec || 0);
+    if(!gameStarted) return;
+
+    if(leftSec <= 10 && leftSec > 5 && !final10Shown){
+      final10Shown = true;
+      showRaceBanner('FINAL 10', '10 วินาทีสุดท้าย! ⏳', 'เน้นแม่นก่อนเร็ว');
+      showToast('10 วินาทีสุดท้าย! คุมเกมให้ดี ⚡', 'fever');
+      flashStage('boss');
+    }
+
+    if(leftSec <= 5 && !final5Shown){
+      final5Shown = true;
+      showRaceBanner('FINAL 5', '5 วินาทีสุดท้าย! 🔥', 'เร่งได้ แต่ต้องแม่น');
+      showToast('5 วิสุดท้าย! เร่งปิดเกมได้เลย 🔥', 'fever');
+      flashStage('boss');
+    }
+  }
+
+  function getSeriesContext(room){
+    room = room || {};
+    const hostKey = String(room.hostKey || '');
+    const guestKey = String(room.guestKey || '');
+    const hostWins = Number(room.hostWins || 0);
+    const guestWins = Number(room.guestWins || 0);
+    const roundNo = Number(room.roundNo || 1);
+    const myIsHost = (PLAYER_KEY === hostKey);
+    const myWins = myIsHost ? hostWins : guestWins;
+    const opWins = myIsHost ? guestWins : hostWins;
+    const finalRound = (hostWins === 1 && guestWins === 1);
+
+    return {
+      roundNo,
+      hostWins,
+      guestWins,
+      myWins,
+      opWins,
+      finalRound,
+      isMatchPointMe: (myWins > opWins && myWins === 1),
+      isMatchPointOp: (opWins > myWins && opWins === 1),
+      seriesFinished: !!room.seriesFinished,
+      seriesWinnerKey: String(room.seriesWinnerKey || '')
+    };
+  }
+
+  function updateSeriesUI(room){
+    room = room || {};
+    const roundNo = Number(room.roundNo || 1);
+    const hostWins = Number(room.hostWins || 0);
+    const guestWins = Number(room.guestWins || 0);
+    const ctx = getSeriesContext(room);
+
+    if(seriesPill) seriesPill.textContent = `BO3 · R${roundNo}`;
+    if(winsPill) winsPill.textContent = `${hostWins} - ${guestWins}`;
+
+    if(seriesText){
+      if(room.seriesFinished){
+        const sw = String(room.seriesWinnerKey || '');
+        const isMe = sw === PLAYER_KEY;
+        seriesText.textContent = `ซีรีส์จบแล้ว · ${hostWins}-${guestWins} · ${isMe ? 'คุณชนะซีรีส์ 🏆' : 'คุณแพ้ซีรีส์'}`;
+      }else if(ctx.finalRound){
+        seriesText.textContent = `BO3 · รอบตัดสิน · สกอร์ซีรีส์ ${hostWins}-${guestWins}`;
+      }else if(ctx.myWins > ctx.opWins && ctx.myWins === 1){
+        seriesText.textContent = `BO3 · รอบ ${roundNo} · คุณมี match point (${hostWins}-${guestWins})`;
+      }else if(ctx.opWins > ctx.myWins && ctx.opWins === 1){
+        seriesText.textContent = `BO3 · รอบ ${roundNo} · คู่แข่งมี match point (${hostWins}-${guestWins})`;
+      }else{
+        seriesText.textContent = `BO3 · รอบ ${roundNo} · สกอร์ซีรีส์ ${hostWins}-${guestWins}`;
+      }
+    }
+  }
+
+  function handleSeriesAlerts(room){
+    const ctx = getSeriesContext(room);
+    const key = [ctx.roundNo, ctx.hostWins, ctx.guestWins, ctx.seriesFinished ? 1 : 0].join('|');
+    if(key === lastSeriesKey) return;
+    lastSeriesKey = key;
+
+    if(ctx.seriesFinished){
+      if(ctx.seriesWinnerKey === PLAYER_KEY){
+        celebrateSeriesWin();
+      }else{
+        showSeriesBanner('SERIES END', 'ซีรีส์จบแล้ว', `สกอร์ ${ctx.hostWins}-${ctx.guestWins}`);
+      }
+      return;
+    }
+
+    if(ctx.finalRound){
+      showSeriesBanner('FINAL ROUND', 'รอบตัดสิน! ⚔️', 'ผู้ชนะรอบนี้จะชนะซีรีส์');
+      showToast('รอบตัดสินแล้ว! ทุกช็อตสำคัญมาก 🔥', 'fever');
+      flashStage('boss');
+      return;
+    }
+
+    if(ctx.isMatchPointMe){
+      showSeriesBanner('MATCH POINT', 'คุณมีสิทธิ์ปิดซีรีส์', `นำอยู่ ${ctx.myWins}-${ctx.opWins}`);
+      showToast('รอบนี้คุณมีสิทธิ์ปิดซีรีส์ 🏁', 'happy');
+      return;
+    }
+
+    if(ctx.isMatchPointOp){
+      showSeriesBanner('DANGER', 'คู่แข่งมีสิทธิ์ปิดซีรีส์', `ตามอยู่ ${ctx.myWins}-${ctx.opWins}`);
+      showToast('รอบนี้ห้ามพลาด — คู่แข่งมี match point', 'sad');
+      return;
+    }
+
+    if(ctx.roundNo === 2){
+      showSeriesBanner('ROUND 2', 'เข้าสู่รอบที่ 2', `สกอร์ซีรีส์ ${ctx.hostWins}-${ctx.guestWins}`);
+      return;
+    }
+
+    if(ctx.roundNo === 1){
+      showSeriesBanner('ROUND 1', 'เริ่มซีรีส์ BO3', 'ใครชนะ 2 รอบก่อนชนะซีรีส์');
+    }
+  }
+
+  function updateRunButtons(){
+    if(!race){
+      btnReadyRun.disabled = true;
+      btnUnreadyRun.disabled = true;
+      btnStartRun.disabled = true;
+      return;
+    }
+
+    const st = race.getState ? race.getState() : null;
+    const room = st?.room || {};
+    const me = st?.me || {};
+    const op = st?.opponent || null;
+    const status = String(room.status || 'lobby');
+
+    const canReady = (status === 'lobby');
+    const canStart = (
+      String(race.role || '') === 'host' &&
+      status === 'lobby' &&
+      !!me.ready &&
+      !!op &&
+      !!op.ready
+    );
+
+    btnReadyRun.disabled = !canReady;
+    btnUnreadyRun.disabled = !canReady;
+    btnStartRun.disabled = !canStart;
   }
 
   async function setupRace(){
@@ -1012,14 +1574,80 @@ Requires:
   }
 
   function bindEvents(){
+    btnReadyRun.addEventListener('click', async ()=>{
+      if(!race) return;
+      try{
+        await race.setReady(true);
+        showToast('READY แล้ว', 'happy');
+      }catch(err){
+        console.error(err);
+        showToast('READY ไม่สำเร็จ', 'sad');
+      }
+    });
+
+    btnUnreadyRun.addEventListener('click', async ()=>{
+      if(!race) return;
+      try{
+        await race.setReady(false);
+        showToast('ยกเลิก READY แล้ว', 'neutral');
+      }catch(err){
+        console.error(err);
+        showToast('UNREADY ไม่สำเร็จ', 'sad');
+      }
+    });
+
+    btnStartRun.addEventListener('click', async ()=>{
+      if(!race) return;
+      try{
+        const ok = await race.maybeStartCountdown(3000);
+        showToast(ok ? 'เริ่ม countdown แล้ว' : 'ยังเริ่มไม่ได้', ok ? 'happy' : 'neutral');
+      }catch(err){
+        console.error(err);
+        showToast('START ไม่สำเร็จ', 'sad');
+      }
+    });
+
     $('#btnBack').addEventListener('click', goHub);
     $('#btnGoHub').addEventListener('click', goHub);
     $('#btnCloseResult').addEventListener('click', ()=> hideOverlay(resultOverlay));
-    $('#btnAgain').addEventListener('click', ()=>{
-      hideOverlay(resultOverlay);
-      stopEngine();
-      location.href = HUB;
+    $('#btnAgain').addEventListener('click', ()=> goHub());
+
+    $('#btnRematch').addEventListener('click', async ()=>{
+      if(!race || rematchBusy) return;
+
+      rematchBusy = true;
+      setRematchText('กำลังขอ rematch...');
+      showToast('กำลังขอ rematch...', 'neutral');
+
+      try{
+        if(String(race.role || '') === 'host'){
+          const ok = await race.rematchResetIfHost();
+          if(ok){
+            await race.resetMyRoundState?.();
+            resetRoundUI();
+            setRematchText('รีเซ็ตห้องแล้ว — กด READY ใหม่');
+            showToast('รีเซ็ตห้องแล้ว — กด READY ใหม่', 'happy');
+          }else{
+            setRematchText('reset ไม่สำเร็จ');
+            showToast('รีเซ็ตห้องไม่สำเร็จ', 'sad');
+          }
+        }else{
+          await race.resetMyRoundState?.();
+          resetRoundUI();
+          setRematchText('รอ host reset ห้อง...');
+          showToast('รอ host reset ห้อง...', 'neutral');
+        }
+      }catch(err){
+        console.error(err);
+        setRematchText('เกิดข้อผิดพลาด');
+        showToast('Rematch ไม่สำเร็จ', 'sad');
+      }finally{
+        rematchBusy = false;
+      }
     });
+
+    window.addEventListener('pagehide', ()=>{ try{ race?.leaveRoomSoft?.(); }catch(_){ } }, { passive:true });
+    window.addEventListener('beforeunload', ()=>{ try{ race?.leaveRoomSoft?.(); }catch(_){ } }, { passive:true });
 
     window.addEventListener('hha:coach', (ev)=>{
       const d = ev?.detail || {};
@@ -1028,19 +1656,23 @@ Requires:
 
     window.addEventListener('hha:time', (ev)=>{
       const left = ev?.detail?.left;
-      if(typeof left === 'number') hudTime.textContent = left + 's';
+      if(typeof left === 'number'){
+        hudTime.textContent = left + 's';
+        handleFinalStretch(left);
+      }
     });
 
     window.addEventListener('hha:score', async (ev)=>{
       const d = ev?.detail || {};
-
       if(d.score != null) hudScore.textContent = String(d.score|0);
+
       if(d.combo != null){
         const comboVal = Number(d.combo) || 0;
         hudCombo.textContent = 'x' + String(comboVal|0);
         if(comboVal >= 4) hudCombo.classList.add('comboHot');
         else hudCombo.classList.remove('comboHot');
       }
+
       const m = (d.misses != null) ? d.misses : d.miss;
       if(m != null) hudMiss.textContent = String(m|0);
 
@@ -1076,17 +1708,10 @@ Requires:
       const gNow = (d.goalNow!=null) ? d.goalNow : 0;
       const gTot = (d.goalTotal!=null) ? d.goalTotal : 1;
       qSub.textContent = `${gNow}/${gTot}`;
-      const pct = Math.round((gNow/Math.max(1,gTot))*100);
-      qBar.style.width = pct + '%';
+      qBar.style.width = Math.round((gNow/Math.max(1,gTot))*100) + '%';
 
-      if(d.miniTitle){
-        qMini.textContent = `${d.miniTitle} · ${d.miniNow||0}/${d.miniTotal||0}`;
-      }
-      if(d.miniTimeLeftSec != null && d.miniTimeLeftSec > 0){
-        qMiniTime.textContent = `⏳ ${d.miniTimeLeftSec}s`;
-      }else{
-        qMiniTime.textContent = '';
-      }
+      if(d.miniTitle) qMini.textContent = `${d.miniTitle} · ${d.miniNow||0}/${d.miniTotal||0}`;
+      qMiniTime.textContent = (d.miniTimeLeftSec != null && d.miniTimeLeftSec > 0) ? `⏳ ${d.miniTimeLeftSec}s` : '';
       if(d.groupName) groupName.textContent = d.groupName;
     });
 
@@ -1103,12 +1728,20 @@ Requires:
       const d = ev?.detail || {};
       const good = !!d.good;
       const kind = String(d.kind || '');
+      const x = Number(d.x || (window.innerWidth * 0.5));
+      const y = Number(d.y || (window.innerHeight * 0.5));
+
       pulseEl(hudScore);
+
       if(good){
         pulseEl(hudCombo);
         flashStage(kind === 'boss_hit' ? 'boss' : 'good');
+        const comboNow = Number(String(hudCombo.textContent || 'x0').replace('x','')) || 0;
+        const add = Math.max(10, comboNow >= 15 ? 22 : comboNow >= 10 ? 19 : comboNow >= 7 ? 16 : comboNow >= 5 ? 14 : comboNow >= 3 ? 12 : 10);
+        popScore(x, y, '+' + add, true);
       }else{
-        flashStage('bad');
+        flashStage(kind === 'timeout_miss' ? 'bad' : 'bad');
+        popScore(x, y, (kind === 'timeout_miss' ? '-2' : '-3'), false);
       }
     });
 
@@ -1144,16 +1777,28 @@ Requires:
     window.addEventListener('groups:race_room', (ev)=>{
       const room = ev?.detail?.room || {};
       const status = String(room.status || 'lobby');
-
       seedText.textContent = String(room.seed || SEED || '—').slice(0,18);
+      updateSeriesUI(room);
+      handleSeriesAlerts(room);
+
+      const rematchNo = Number(room.rematchNo || 0);
+      if(rematchNo !== currentRematchNo){
+        currentRematchNo = rematchNo;
+        if(rematchNo > 0){
+          stopEngine();
+          resetRoundUI();
+          setRematchText(`รอบที่ ${rematchNo + 1} พร้อมแล้ว`);
+          showToast('เริ่มรอบใหม่ได้แล้ว — กด READY', 'happy');
+        }
+      }
 
       if(status === 'lobby'){
-        setStatus('WAIT', '');
+        setStatus('LOBBY', '');
         showOverlay(countdownOverlay);
         cdRoom.textContent = ROOM || '—';
-        cdHeaderSub.textContent = 'รอห้องเริ่ม';
+        cdHeaderSub.textContent = currentRematchNo > 0 ? 'รอเริ่มรอบใหม่' : 'รอห้องเริ่ม';
         cdNum.textContent = 'WAIT';
-        cdSub.textContent = 'รอผู้เล่นทั้งสองพร้อม';
+        cdSub.textContent = currentRematchNo > 0 ? 'กด READY เพื่อเริ่ม rematch' : 'รอผู้เล่นทั้งสองพร้อม';
       }else if(status === 'countdown'){
         setStatus('COUNTDOWN', 'amber');
         startCountdownUI(room.startAt || 0);
@@ -1165,6 +1810,8 @@ Requires:
         setStatus('ENDED', 'red');
         stopCountdownUI();
       }
+
+      updateRunButtons();
     });
 
     window.addEventListener('groups:race_players', (ev)=>{
@@ -1177,6 +1824,13 @@ Requires:
         opCombo.textContent = 'x' + String(op.combo || 0);
         opMiss.textContent = String(op.miss || 0);
         opAcc.textContent = String(op.accuracyPct || 0) + '%';
+
+        const connected = ('connected' in op) ? !!op.connected : true;
+        if(!connected){
+          leadPill.textContent = 'OPPONENT OFFLINE';
+          leadPill.style.color = 'var(--red)';
+          showToast('คู่แข่งหลุดการเชื่อมต่อ', 'sad');
+        }
       }else{
         opName.textContent = 'Opponent';
         opScore.textContent = '0';
@@ -1186,6 +1840,9 @@ Requires:
       }
 
       updateLeadUI();
+      handleLeadAlerts();
+      handleCloseGameAlert();
+      updateRunButtons();
     });
 
     window.addEventListener('groups:race_end', (ev)=>{
@@ -1226,6 +1883,7 @@ Requires:
 
     try{
       await setupRace();
+      try{ await race.reconnectPresence?.(); }catch(_){}
       setStatus('CONNECT', '');
     }catch(err){
       console.error(err);
