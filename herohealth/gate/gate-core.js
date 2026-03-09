@@ -1,12 +1,6 @@
 // === /herohealth/gate/gate-core.js ===
 // HeroHealth Gate Core
-// PATCH v20260309c-HARDFIX-DIRECT-RUN-SAFEPHASE
-// ✅ version match warmup-gate.html
-// ✅ Germ Detective direct run URL
-// ✅ MaskCough direct run URL
-// ✅ skip/continue same destination
-// ✅ strip warmup/cooldown phase from run game
-// ✅ debug logs clearer
+// PATCH v20260309d-HARDFIX-DIRECT-RUN-SAFEPHASE
 
 import {
   buildCtx,
@@ -15,11 +9,11 @@ import {
   setText,
   sanitizeBuffs,
   saveLastSummary
-} from './gate-common.js?v=20260309c';
+} from './gate-common.js?v=20260309d';
 
-import { mountSummaryLayer, mountToast } from './gate-summary.js?v=20260309c';
-import { createGateLogger } from './gate-logger.js?v=20260309c';
-import { GATE_GAMES, getGameMeta } from './gate-games.js?v=20260309c';
+import { mountSummaryLayer, mountToast } from './gate-summary.js?v=20260309d';
+import { createGateLogger } from './gate-logger.js?v=20260309d';
+import { GATE_GAMES, getGameMeta } from './gate-games.js?v=20260309d';
 
 function titleOf(ctx){
   const meta = getGameMeta(ctx.game) || {
@@ -41,7 +35,7 @@ function subtitleOf(ctx){
 }
 
 function modulePath(ctx){
-  return `./games/${ctx.game}/${ctx.mode}.js?v=20260309c`;
+  return `./games/${ctx.game}/${ctx.mode}.js?v=20260309d`;
 }
 
 function safeHubUrl(ctx){
@@ -119,7 +113,6 @@ function buildRawNextUrl(ctx, result=null){
   if(rawNext){
     try{
       const u = new URL(rawNext, location.href);
-
       if(/warmup-gate\.html$/i.test(u.pathname)){
         console.warn('[gate] raw next points back to warmup-gate, fallback to hub', rawNext);
         return hub;
@@ -191,7 +184,7 @@ function renderShell(root, ctx){
 }
 
 export async function bootGate(root){
-  console.log('[gate-core] v20260309c running');
+  console.log('[gate-core] v20260309d running');
 
   const ctx = buildCtx();
   ctx.dailyDone = getDailyDone(ctx);
