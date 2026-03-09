@@ -1,341 +1,276 @@
 // === /herohealth/gate/gate-core.js ===
-// HeroHealth Gate Core
-// PATCH v20260309d-HARDFIX-DIRECT-RUN-SAFEPHASE
+// HeroHealth Warmup/Cooldown Gate Core
+// PATCH v20260308b-GATE-CORE-CANONICAL-GERM-FIX
+//
+// ✅ FIX: canonical herohealth root resolver
+// ✅ FIX: Germ Detective next URL -> /herohealth/germ-detective/germ-detective.html
+// ✅ FIX: anti-loop with wgskip=1
+// ✅ FIX: remove plannedGame/finalGame/autoNext before forwarding
+// ✅ KEEP: simple bootGate(appEl)
 
-import {
-  buildCtx,
-  getDailyDone,
-  setDailyDone,
-  setText,
-  sanitizeBuffs,
-  saveLastSummary
-} from './gate-common.js?v=20260309d';
+export function bootGate(appEl) {
+  'use strict';
 
-import { mountSummaryLayer, mountToast } from './gate-summary.js?v=20260309d';
-import { createGateLogger } from './gate-logger.js?v=20260309d';
-import { GATE_GAMES, getGameMeta } from './gate-games.js?v=20260309d';
+  const WIN = window;
+  const DOC = document;
 
-function titleOf(ctx){
-  const meta = getGameMeta(ctx.game) || {
-    label: ctx.game,
-    warmupTitle: ctx.game,
-    cooldownTitle: ctx.game
-  };
-  return ctx.mode === 'cooldown'
-    ? `Cooldown — ${meta.label}`
-    : `Warmup — ${meta.label}`;
-}
-
-function subtitleOf(ctx){
-  const meta = getGameMeta(ctx.game) || { label: ctx.game };
-  if(ctx.mode === 'warmup'){
-    return `เตรียมความพร้อมก่อนเข้าเกม ${meta.label}`;
+  function qs(k, d=''){
+    try{ return new URL(location.href).searchParams.get(k) ?? d; }
+    catch{ return d; }
   }
-  return `คูลดาวน์และสรุปก่อนออกจากเกม ${meta.label}`;
-}
 
-function modulePath(ctx){
-  return `./games/${ctx.game}/${ctx.mode}.js?v=20260309d`;
-}
+  function normalizeMaybeEncodedUrl(v){
+    v = String(v ?? '').trim();
+    if(!v || v === 'null' || v === 'undefined') return '';
+    if(/%3A|%2F|%3F|%26|%3D/i.test(v)){
+      try{ v = decodeURIComponent(v); }catch(e){}
+    }
+    return v.trim();
+  }
 
-function safeHubUrl(ctx){
-  try{
-    const u = new URL(ctx.hub || '../hub.html', location.href);
+  function safeText(v){ return String(v ?? ''); }
+
+  function normKey(v){
+    return String(v || '').toLowerCase().replace(/[\s_\-]+/g,'').trim();
+  }
+
+  function heroRoot(){
+    const origin = location.origin.replace(/\/+$/,'');
+    const path = location.pathname || '/';
+    const idx = path.indexOf('/herohealth/');
+    if(idx >= 0){
+      return origin + path.slice(0, idx + '/herohealth/'.length);
+    }
+    return origin + '/herohealth/';
+  }
+
+  function entryMap(){
+    return {
+      goodjunk: 'goodjunk-launcher.html',
+      groups: 'groups-vr.html',
+      hydration: 'hydration-vr.html',
+      plate: 'plate-vr.html',
+
+      handwash: 'hygiene-vr.html',
+      brush: 'brush-vr.html',
+      bath: 'bath-vr.html',
+      cleanobject: 'clean-objects.html',
+      cleanobjects: 'clean-objects.html',
+      maskcough: 'maskcough-vr.html',
+
+      germdetective: 'germ-detective.html',
+      germ: 'germ-detective.html',
+
+      shadowbreaker: 'shadow-breaker-vr.html',
+      rhythmboxer: 'rhythm-boxer-vr.html',
+      jumpduck: 'jump-duck-vr.html',
+      balancehold: 'balance-hold-vr.html',
+      fitnessplanner: 'fitness-planner/planner.html'
+    };
+  }
+
+  function runMap(){
+    return {
+      germdetective: 'germ-detective/germ-detective.html',
+      germ: 'germ-detective/germ-detective.html'
+    };
+  }
+
+  function canonicalGameUrl(gameKey, mode='entry'){
+    const gk = normKey(gameKey);
+    const rel = mode === 'run' ? runMap()[gk] : entryMap()[gk];
+    if(!rel) return '';
+    return new URL(rel, heroRoot()).toString();
+  }
+
+  function currentThemeKey(){
+    return normKey(
+      qs('theme','') ||
+      qs('game','') ||
+      qs('plannedGame','') ||
+      qs('finalGame','')
+    );
+  }
+
+  function currentCatKey(){
+    return String(qs('cat','') || qs('zone','')).toLowerCase().trim();
+  }
+
+  function currentScene(){
+    return String(qs('scene','classroom') || 'classroom').toLowerCase().trim();
+  }
+
+  function appendPassThrough(url, extra){
+    const u = new URL(url, location.href);
+    const src = new URL(location.href).searchParams;
+    const sp = u.searchParams;
+
     [
-      'gatePhase','phase','gateResult','gateMode',
-      'wType','wPct','wSteps','wTimeBonus','wScoreBonus','wRank',
-      'cd','next'
-    ].forEach(k=>u.searchParams.delete(k));
-    return u.toString();
-  }catch{
-    return '../hub.html';
-  }
-}
+      'run','diff','time','seed','studyId','phase','conditionGroup','log','view','pid','api','ai','debug',
+      'planSeq','planDay','planSlot','planMode','planSlots','planIndex','zone','cdnext','grade',
+      'scene','room','battle','autostart','forfeit'
+    ].forEach(k=>{
+      const v = src.get(k);
+      if(v != null && v !== '' && !sp.has(k)) sp.set(k, v);
+    });
 
-function appendResultParams(u, result){
-  if(!result) return;
-  const buffs = sanitizeBuffs(result?.buffs || {});
-  Object.entries(buffs).forEach(([k,v])=>{
-    u.searchParams.set(k, String(v));
-  });
-  u.searchParams.set('gateResult', result?.ok ? '1' : '0');
-  u.searchParams.set('gateMode', String(result?.mode || 'warmup'));
-}
+    sp.set('wgskip', '1');
 
-function appendCommonParams(u, ctx, hub){
-  if(ctx.run)  u.searchParams.set('run', String(ctx.run));
-  if(ctx.diff) u.searchParams.set('diff', String(ctx.diff));
-  if(ctx.time != null) u.searchParams.set('time', String(ctx.time));
-  if(ctx.seed) u.searchParams.set('seed', String(ctx.seed));
-  if(ctx.pid)  u.searchParams.set('pid', String(ctx.pid));
-  if(ctx.view) u.searchParams.set('view', String(ctx.view));
-  u.searchParams.set('hub', hub);
+    // IMPORTANT: remove loop-causing params
+    sp.delete('plannedGame');
+    sp.delete('finalGame');
+    sp.delete('autoNext');
 
-  if(ctx.studyId) u.searchParams.set('studyId', String(ctx.studyId));
+    if(extra && typeof extra === 'object'){
+      Object.keys(extra).forEach(k=>{
+        const v = extra[k];
+        if(v === null || v === undefined || v === '') sp.delete(k);
+        else sp.set(k, String(v));
+      });
+    }
 
-  const safePhase = String(ctx.phase || '').toLowerCase();
-  if(safePhase && safePhase !== 'warmup' && safePhase !== 'cooldown'){
-    u.searchParams.set('phase', String(ctx.phase));
-  }
-
-  if(ctx.conditionGroup) u.searchParams.set('conditionGroup', String(ctx.conditionGroup));
-  if(ctx.sessionOrder) u.searchParams.set('sessionOrder', String(ctx.sessionOrder));
-  if(ctx.blockLabel) u.searchParams.set('blockLabel', String(ctx.blockLabel));
-  if(ctx.siteCode) u.searchParams.set('siteCode', String(ctx.siteCode));
-  if(ctx.schoolYear) u.searchParams.set('schoolYear', String(ctx.schoolYear));
-  if(ctx.semester) u.searchParams.set('semester', String(ctx.semester));
-}
-
-function buildRawNextUrl(ctx, result=null){
-  const hub = safeHubUrl(ctx);
-  const game = String(ctx.game || '').toLowerCase();
-
-  console.log('[gate-core] direct game build for', game);
-
-  if(game === 'germdetective'){
-    const u = new URL('/webxr-health-mobile/herohealth/germ-detective/germ-detective.html', location.origin);
-    appendCommonParams(u, ctx, hub);
-    u.searchParams.set('scene', 'classroom');
-    u.searchParams.set('zone', 'hygiene');
-    appendResultParams(u, result);
     return u.toString();
   }
 
-  if(game === 'maskcough'){
-    const u = new URL('/webxr-health-mobile/herohealth/vr-maskcough/maskcough-v2.html', location.origin);
-    appendCommonParams(u, ctx, hub);
-    u.searchParams.set('zone', 'hygiene');
-    appendResultParams(u, result);
-    return u.toString();
+  function resolveNextUrl(){
+    const theme = currentThemeKey();
+    const cat = currentCatKey();
+
+    // Germ Detective must go to RUN page directly
+    if(theme === 'germdetective' || theme === 'germ'){
+      const runUrl = canonicalGameUrl('germdetective', 'run');
+      if(runUrl) return appendPassThrough(runUrl, { scene: currentScene() || 'classroom' });
+    }
+
+    const entryUrl = canonicalGameUrl(theme, 'entry');
+    if(entryUrl) return appendPassThrough(entryUrl, {});
+
+    if(cat === 'hygiene'){
+      return appendPassThrough(canonicalGameUrl('handwash', 'entry') || new URL('hygiene-vr.html', heroRoot()).toString(), {});
+    }
+    if(cat === 'nutrition' || cat === 'fitness'){
+      return appendPassThrough(new URL('hub.html', heroRoot()).toString(), {});
+    }
+
+    return appendPassThrough(new URL('hub.html', heroRoot()).toString(), {});
   }
 
-  const rawNext = String(ctx.next || '').trim();
-  if(rawNext){
+  const alreadySkipped = qs('wgskip','0') === '1';
+
+  function goNext(url, replace=true){
+    if(!url) return;
+    if(replace && alreadySkipped) return; // anti-loop
+    const next = appendPassThrough(url, {});
+    if(replace) location.replace(next);
+    else location.href = next;
+  }
+
+  function dayKey(){
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  }
+
+  function buildDoneKey(kind, cat, theme, pid){
+    return `HHA_${kind}_DONE:${pid}:${cat}:${theme}:${dayKey()}`;
+  }
+
+  function isWarmupDoneToday(){
+    const pid = String(qs('pid','anon')).trim() || 'anon';
+    const cat = currentCatKey() || 'hygiene';
+    const theme = currentThemeKey() || 'unknown';
+
     try{
-      const u = new URL(rawNext, location.href);
-      if(/warmup-gate\.html$/i.test(u.pathname)){
-        console.warn('[gate] raw next points back to warmup-gate, fallback to hub', rawNext);
-        return hub;
-      }
-
-      ['gatePhase','phase','cd','next'].forEach(k=>u.searchParams.delete(k));
-      appendCommonParams(u, ctx, hub);
-      appendResultParams(u, result);
-      return u.toString();
-    }catch(err){
-      console.error('[gate] invalid raw next', rawNext, err);
+      return (
+        localStorage.getItem(buildDoneKey('WARMUP', cat, theme, pid)) === '1' ||
+        localStorage.getItem(`HHA_WARMUP_DONE::${cat}::${theme}::${pid}::${dayKey()}`) === '1' ||
+        localStorage.getItem(`HHA_WARMUP_DONE:${pid}:${cat}:${theme}:${dayKey()}`) === '1'
+      );
+    }catch(_){
+      return false;
     }
   }
 
-  return hub;
-}
+  function markWarmupDoneToday(){
+    const pid = String(qs('pid','anon')).trim() || 'anon';
+    const cat = currentCatKey() || 'hygiene';
+    const theme = currentThemeKey() || 'unknown';
+    try{
+      localStorage.setItem(buildDoneKey('WARMUP', cat, theme, pid), '1');
+      localStorage.setItem(`HHA_WARMUP_DONE::${cat}::${theme}::${pid}::${dayKey()}`, '1');
+      localStorage.setItem(`HHA_WARMUP_DONE:${pid}:${cat}:${theme}:${dayKey()}`, '1');
+    }catch(_){}
+  }
 
-function renderShell(root, ctx){
-  root.innerHTML = `
-    <div class="gate-shell">
-      <div class="gate-card">
-        <section class="gate-head">
-          <div class="gate-title-row">
-            <div class="gate-badge-logo">HH</div>
-            <div class="gate-title-wrap">
-              <h1 class="gate-title" id="gateTitle">${titleOf(ctx)}</h1>
-              <div class="gate-subtitle" id="gateSubtitle">${subtitleOf(ctx)}</div>
+  function renderShell(){
+    const nextUrl = resolveNextUrl();
+    const theme = currentThemeKey() || 'game';
+    const title = theme === 'germdetective' || theme === 'germ'
+      ? 'Warmup — Germ Detective Scan'
+      : `Warmup — ${theme || 'HeroHealth'}`;
+
+    const doneToday = isWarmupDoneToday();
+
+    appEl.innerHTML = `
+      <div style="min-height:100dvh;background:#020617;color:#e5e7eb;font-family:system-ui,-apple-system,Segoe UI,Roboto,'Noto Sans Thai',sans-serif;padding:16px">
+        <div style="max-width:760px;margin:0 auto">
+          <div style="border:1px solid rgba(148,163,184,.18);background:rgba(2,6,23,.72);border-radius:20px;padding:16px;box-shadow:0 18px 55px rgba(0,0,0,.35)">
+            <div style="font-size:22px;font-weight:1000">${title}</div>
+            <div style="margin-top:8px;color:#94a3b8;font-size:13px;font-weight:900">
+              run=${safeText(qs('run','play'))} • diff=${safeText(qs('diff','normal'))} • scene=${safeText(currentScene())}
+            </div>
+
+            <div style="margin-top:14px;padding:14px;border:1px solid rgba(148,163,184,.16);border-radius:16px;background:rgba(255,255,255,.02)">
+              <div style="font-weight:1000">${doneToday ? 'วันนี้ทำ warmup ของเกมนี้แล้ว' : 'พร้อมเริ่ม warmup'}</div>
+              <div style="margin-top:6px;color:#94a3b8;font-size:13px;line-height:1.5">
+                ${doneToday
+                  ? 'ระบบจะข้ามไปเกมอัตโนมัติ โดยไม่ย้อน loop กลับเข้า warmup ซ้ำ'
+                  : 'กดปุ่มด้านล่างเพื่อไปต่อเข้าเกม'}
+              </div>
+            </div>
+
+            <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap">
+              <button id="btnContinue" type="button"
+                style="appearance:none;border:1px solid rgba(34,197,94,.30);background:rgba(34,197,94,.14);color:#e5e7eb;border-radius:14px;padding:12px 14px;font-weight:1000;cursor:pointer">
+                ▶ ต่อไป
+              </button>
+
+              <a href="${appendPassThrough(new URL('hub.html', heroRoot()).toString(), {})}"
+                style="display:inline-flex;align-items:center;justify-content:center;border:1px solid rgba(148,163,184,.18);background:rgba(255,255,255,.03);color:#e5e7eb;border-radius:14px;padding:12px 14px;font-weight:1000;text-decoration:none">
+                🏠 กลับ HUB
+              </a>
+            </div>
+
+            <div style="margin-top:14px;color:#94a3b8;font-size:12px;line-height:1.45;word-break:break-word">
+              next = ${safeText(nextUrl)}
             </div>
           </div>
-
-          <div class="gate-pills">
-            <div class="gate-pill">PHASE: ${ctx.mode.toUpperCase()}</div>
-            <div class="gate-pill">CAT: ${ctx.cat.toUpperCase()}</div>
-            <div class="gate-pill">GAME: ${ctx.game.toUpperCase()}</div>
-            <div class="gate-pill" id="gateDailyPill">DAILY: ${ctx.dailyDone ? 'DONE' : 'NEW'}</div>
-          </div>
-        </section>
-
-        <section class="gate-stats">
-          <div class="gate-stat"><div class="gate-stat-k">TIME</div><div class="gate-stat-v" id="hudTime">${ctx.time}s</div></div>
-          <div class="gate-stat"><div class="gate-stat-k">SCORE</div><div class="gate-stat-v" id="hudScore">0</div></div>
-          <div class="gate-stat"><div class="gate-stat-k">MISS</div><div class="gate-stat-v" id="hudMiss">0</div></div>
-          <div class="gate-stat"><div class="gate-stat-k">ACC / PROGRESS</div><div class="gate-stat-v" id="hudAcc">0%</div></div>
-        </section>
-
-        <div id="gateDailyAction" class="hidden" style="padding:12px 16px 0;">
-          <div style="padding:14px;border-radius:18px;border:1px solid rgba(148,163,184,.14);background:rgba(2,6,23,.45);">
-            <div style="font-weight:900;margin-bottom:6px;">วันนี้คุณเคยเล่นส่วนนี้แล้ว</div>
-            <div style="color:#94a3b8;font-size:13px;margin-bottom:10px;">
-              จะเล่นซ้ำเพื่อฝึกเพิ่ม หรือข้ามไปต่อเลยก็ได้
-            </div>
-            <div style="display:flex;gap:10px;flex-wrap:wrap;">
-              <button class="btn btn-ghost" id="gateReplayBtn">เล่นซ้ำ</button>
-              <button class="btn btn-primary" id="gateSkipBtn">ข้ามไปต่อ</button>
-            </div>
-          </div>
-        </div>
-
-        <section class="gate-stage">
-          <div class="gate-play" id="gatePlay"></div>
-        </section>
-
-        <div class="gate-footer">
-          <button class="btn btn-ghost" id="gateBackBtn">กลับ HUB</button>
         </div>
       </div>
-    </div>
-  `;
-}
+    `;
 
-export async function bootGate(root){
-  console.log('[gate-core] v20260309d running');
-
-  const ctx = buildCtx();
-  ctx.dailyDone = getDailyDone(ctx);
-
-  console.log('[gate ctx raw]', ctx);
-  console.log('[gate ctx.next]', ctx.next);
-  console.log('[gate ctx.game]', ctx.game);
-
-  renderShell(root, ctx);
-
-  const playEl = document.getElementById('gatePlay');
-  const summary = mountSummaryLayer(document.body);
-  const toast = mountToast(document.body);
-  const logger = createGateLogger(ctx);
-
-  const stats = {
-    time: document.getElementById('hudTime'),
-    score: document.getElementById('hudScore'),
-    miss: document.getElementById('hudMiss'),
-    acc: document.getElementById('hudAcc')
-  };
-
-  const dailyAction = document.getElementById('gateDailyAction');
-  const replayBtn = document.getElementById('gateReplayBtn');
-  const skipBtn = document.getElementById('gateSkipBtn');
-
-  const api = {
-    ctx,
-    logger,
-    toast,
-    setStats(patch={}){
-      if(patch.time != null) setText(stats.time, `${patch.time}s`);
-      if(patch.score != null) setText(stats.score, patch.score);
-      if(patch.miss != null) setText(stats.miss, patch.miss);
-      if(patch.acc != null) setText(stats.acc, patch.acc);
-    },
-    finish(result={}){
-      const finalResult = {
-        ok: !!result.ok,
-        mode: ctx.mode,
-        title: result.title || (ctx.mode === 'warmup' ? 'พร้อมแล้ว!' : 'คูลดาวน์เสร็จแล้ว'),
-        subtitle: result.subtitle || 'ไปต่อได้เลย',
-        lines: Array.isArray(result.lines) ? result.lines : [],
-        buffs: sanitizeBuffs(result.buffs || {}),
-        markDailyDone: result.markDailyDone !== false
+    const btnContinue = DOC.getElementById('btnContinue');
+    if(btnContinue){
+      btnContinue.onclick = ()=>{
+        markWarmupDoneToday();
+        const next = resolveNextUrl();
+        if(!next) return;
+        location.href = next; // manual continue can use href
       };
-
-      logger.push('finish', finalResult);
-      logger.flush(finalResult);
-
-      if(finalResult.markDailyDone){
-        setDailyDone(ctx, true);
-      }
-
-      saveLastSummary({
-        ts: new Date().toISOString(),
-        game: ctx.game,
-        cat: ctx.cat,
-        mode: ctx.mode,
-        result: finalResult
-      });
-
-      summary.show({
-        title: finalResult.title,
-        subtitle: finalResult.subtitle,
-        lines: finalResult.lines,
-        onBack: ()=>{
-          location.replace(ctx.hub || '../hub.html');
-        },
-        onContinue: ()=>{
-          if(ctx.mode === 'warmup'){
-            const nextUrl = buildRawNextUrl(ctx, finalResult);
-            console.log('[gate] RAW continue ->', String(ctx.next || ''));
-            console.log('[gate] FINAL continue ->', nextUrl);
-            location.replace(nextUrl);
-            return;
-          }
-          location.replace(ctx.hub || '../hub.html');
-        }
-      });
     }
-  };
 
-  document.getElementById('gateBackBtn')?.addEventListener('click', ()=>{
-    location.replace(ctx.hub || '../hub.html');
-  });
-
-  async function loadModuleNow(){
-    try{
-      logger.push('boot', {
-        modulePath: modulePath(ctx),
-        dailyDone: ctx.dailyDone,
-        gameKnown: !!GATE_GAMES[ctx.game],
-        game: ctx.game || '',
-        theme: ctx.theme || '',
-        next: ctx.next || '',
-        hub: ctx.hub || '',
-        rawNextResolved: buildRawNextUrl(ctx),
-        safeHub: safeHubUrl(ctx)
-      });
-
-      const mod = await import(modulePath(ctx));
-      if(!mod || typeof mod.mount !== 'function'){
-        throw new Error(`Module missing mount(): ${modulePath(ctx)}`);
-      }
-
-      if(typeof mod.loadStyle === 'function'){
-        mod.loadStyle();
-      }
-
-      const controller = await mod.mount(playEl, ctx, api);
-      if(controller && typeof controller.start === 'function'){
-        controller.start();
-      }
-    }catch(err){
-      console.error(err);
-      playEl.innerHTML = `
-        <div style="padding:22px;">
-          <h2 style="margin:0 0 8px;">โหลดมินิเกมไม่สำเร็จ</h2>
-          <p style="margin:0;color:#94a3b8;">
-            ไม่พบโมดูลของเกม ${ctx.game} โหมด ${ctx.mode}
-          </p>
-          <p style="margin:8px 0 0;color:#cbd5e1;font-size:13px;">
-            expected: ${modulePath(ctx)}
-          </p>
-        </div>
-      `;
-      toast('โหลด gate module ไม่สำเร็จ');
+    // auto-skip only if done today AND not already skipped
+    if(doneToday && !alreadySkipped){
+      setTimeout(()=>{
+        const next = resolveNextUrl();
+        if(!next) return;
+        goNext(next, true);
+      }, 600);
     }
   }
 
-  let shouldAutoLoadModule = true;
-
-  if(ctx.mode === 'warmup' && ctx.dailyDone){
-    dailyAction?.classList.remove('hidden');
-    shouldAutoLoadModule = false;
-
-    replayBtn?.addEventListener('click', async ()=>{
-      dailyAction?.classList.add('hidden');
-      await loadModuleNow();
-    });
-
-    skipBtn?.addEventListener('click', ()=>{
-      const nextUrl = buildRawNextUrl(ctx);
-      console.log('[gate] RAW skip ->', String(ctx.next || ''));
-      console.log('[gate] FINAL skip ->', nextUrl);
-      location.replace(nextUrl);
-    });
+  if(!appEl){
+    throw new Error('Missing #gate-app');
   }
 
-  if(shouldAutoLoadModule){
-    await loadModuleNow();
-  }
+  renderShell();
 }
