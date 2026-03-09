@@ -1,11 +1,11 @@
 // === /herohealth/gate/gate-core.js ===
 // HeroHealth Gate Core
-// PATCH v20260308-HYGIENE-GATE-CORE-r9-NORMALIZE-RUNURL
-// ✅ RAW next continue
-// ✅ normalize duplicated run paths
+// PATCH v20260308-HYGIENE-GATE-CORE-r10-HARDFIX-DIRECT-RUN
+// ✅ Germ Detective direct run URL
+// ✅ MaskCough direct run URL
+// ✅ skip and continue share same destination logic
 // ✅ no launcher bounce
-// ✅ skip uses same raw-next logic
-// ✅ location.replace for cleaner flow
+// ✅ no duplicated germ-detective folder path
 
 import {
   buildCtx,
@@ -57,149 +57,78 @@ function safeHubUrl(ctx){
   }
 }
 
-function normalizeRunUrl(url){
-  try{
-    const u = new URL(url, location.href);
+function appendResultParams(u, result){
+  if(!result) return;
+  const buffs = sanitizeBuffs(result?.buffs || {});
+  Object.entries(buffs).forEach(([k,v])=>{
+    u.searchParams.set(k, String(v));
+  });
+  u.searchParams.set('gateResult', result?.ok ? '1' : '0');
+  u.searchParams.set('gateMode', String(result?.mode || 'warmup'));
+}
 
-    // Germ Detective path ซ้อน
-    u.pathname = u.pathname.replace(
-      /\/herohealth\/germ-detective\/germ-detective\/germ-detective\.html$/i,
-      '/webxr-health-mobile/herohealth/germ-detective/germ-detective.html'
-    );
+function appendCommonParams(u, ctx, hub){
+  if(ctx.run)  u.searchParams.set('run', String(ctx.run));
+  if(ctx.diff) u.searchParams.set('diff', String(ctx.diff));
+  if(ctx.time != null) u.searchParams.set('time', String(ctx.time));
+  if(ctx.seed) u.searchParams.set('seed', String(ctx.seed));
+  if(ctx.pid)  u.searchParams.set('pid', String(ctx.pid));
+  if(ctx.view) u.searchParams.set('view', String(ctx.view));
+  u.searchParams.set('hub', hub);
 
-    // เผื่อมีรูปแบบซ้อนแบบ relative แปลก ๆ อีก
-    u.pathname = u.pathname.replace(
-      /\/germ-detective\/germ-detective\/germ-detective\.html$/i,
-      '/webxr-health-mobile/herohealth/germ-detective/germ-detective.html'
-    );
-
-    // MaskCough path ซ้อน
-    u.pathname = u.pathname.replace(
-      /\/herohealth\/vr-maskcough\/vr-maskcough\/maskcough-v2\.html$/i,
-      '/webxr-health-mobile/herohealth/vr-maskcough/maskcough-v2.html'
-    );
-
-    u.pathname = u.pathname.replace(
-      /\/vr-maskcough\/vr-maskcough\/maskcough-v2\.html$/i,
-      '/webxr-health-mobile/herohealth/vr-maskcough/maskcough-v2.html'
-    );
-
-    return u.toString();
-  }catch{
-    return url;
-  }
+  if(ctx.studyId) u.searchParams.set('studyId', String(ctx.studyId));
+  if(ctx.phase) u.searchParams.set('phase', String(ctx.phase));
+  if(ctx.conditionGroup) u.searchParams.set('conditionGroup', String(ctx.conditionGroup));
+  if(ctx.sessionOrder) u.searchParams.set('sessionOrder', String(ctx.sessionOrder));
+  if(ctx.blockLabel) u.searchParams.set('blockLabel', String(ctx.blockLabel));
+  if(ctx.siteCode) u.searchParams.set('siteCode', String(ctx.siteCode));
+  if(ctx.schoolYear) u.searchParams.set('schoolYear', String(ctx.schoolYear));
+  if(ctx.semester) u.searchParams.set('semester', String(ctx.semester));
 }
 
 function buildRawNextUrl(ctx, result=null){
-  const rawNext = String(ctx.next || '').trim();
   const hub = safeHubUrl(ctx);
+  const game = String(ctx.game || '').toLowerCase();
 
+  // HARD FIX: Germ Detective ใช้ run game URL ตรง ๆ
+  if(game === 'germdetective'){
+    const u = new URL('/webxr-health-mobile/herohealth/germ-detective/germ-detective.html', location.origin);
+    appendCommonParams(u, ctx, hub);
+    u.searchParams.set('scene', 'classroom');
+    u.searchParams.set('zone', 'hygiene');
+    appendResultParams(u, result);
+    return u.toString();
+  }
+
+  // HARD FIX: MaskCough ใช้ run game URL ตรง ๆ
+  if(game === 'maskcough'){
+    const u = new URL('/webxr-health-mobile/herohealth/vr-maskcough/maskcough-v2.html', location.origin);
+    appendCommonParams(u, ctx, hub);
+    u.searchParams.set('zone', 'hygiene');
+    appendResultParams(u, result);
+    return u.toString();
+  }
+
+  // เกมอื่นยังใช้ next ได้ตามปกติ
+  const rawNext = String(ctx.next || '').trim();
   if(rawNext){
     try{
-      const fixedNext = normalizeRunUrl(rawNext);
-      const u = new URL(fixedNext);
+      const u = new URL(rawNext, location.href);
 
-      // กันชี้กลับเข้า gate
       if(/warmup-gate\.html$/i.test(u.pathname)){
-        console.warn('[gate] raw next points back to warmup-gate, fallback to hub', fixedNext);
+        console.warn('[gate] raw next points back to warmup-gate, fallback to hub', rawNext);
         return hub;
       }
 
-      // ลบ query ฝั่ง gate ที่ไม่ควรติดไป
       ['gatePhase','phase','cd','next'].forEach(k=>u.searchParams.delete(k));
 
-      // context ขั้นต่ำที่เกมควรได้
-      if(ctx.run)  u.searchParams.set('run', String(ctx.run));
-      if(ctx.diff) u.searchParams.set('diff', String(ctx.diff));
-      if(ctx.time != null) u.searchParams.set('time', String(ctx.time));
-      if(ctx.seed) u.searchParams.set('seed', String(ctx.seed));
-      if(ctx.pid)  u.searchParams.set('pid', String(ctx.pid));
-      if(ctx.view) u.searchParams.set('view', String(ctx.view));
-      u.searchParams.set('hub', hub);
+      appendCommonParams(u, ctx, hub);
+      appendResultParams(u, result);
 
-      // research context
-      if(ctx.studyId) u.searchParams.set('studyId', String(ctx.studyId));
-      if(ctx.phase) u.searchParams.set('phase', String(ctx.phase));
-      if(ctx.conditionGroup) u.searchParams.set('conditionGroup', String(ctx.conditionGroup));
-      if(ctx.sessionOrder) u.searchParams.set('sessionOrder', String(ctx.sessionOrder));
-      if(ctx.blockLabel) u.searchParams.set('blockLabel', String(ctx.blockLabel));
-      if(ctx.siteCode) u.searchParams.set('siteCode', String(ctx.siteCode));
-      if(ctx.schoolYear) u.searchParams.set('schoolYear', String(ctx.schoolYear));
-      if(ctx.semester) u.searchParams.set('semester', String(ctx.semester));
-
-      // defaults รายเกม
-      const game = String(ctx.game || '').toLowerCase();
-      if(game === 'germdetective'){
-        if(!u.searchParams.get('scene')) u.searchParams.set('scene', 'classroom');
-        if(!u.searchParams.get('zone'))  u.searchParams.set('zone', 'hygiene');
-      }
-      if(game === 'maskcough'){
-        if(!u.searchParams.get('zone')) u.searchParams.set('zone', 'hygiene');
-      }
-
-      if(result){
-        const buffs = sanitizeBuffs(result?.buffs || {});
-        Object.entries(buffs).forEach(([k,v])=>{
-          u.searchParams.set(k, String(v));
-        });
-        u.searchParams.set('gateResult', result?.ok ? '1' : '0');
-        u.searchParams.set('gateMode', String(result?.mode || 'warmup'));
-      }
-
-      return normalizeRunUrl(u.toString());
+      return u.toString();
     }catch(err){
       console.error('[gate] invalid raw next', rawNext, err);
     }
-  }
-
-  // fallback กรณีไม่มี next จริง ๆ
-  const game = String(ctx.game || '').toLowerCase();
-
-  if(game === 'germdetective'){
-    const u = new URL('/webxr-health-mobile/herohealth/germ-detective/germ-detective.html', location.origin);
-    if(ctx.run)  u.searchParams.set('run', String(ctx.run));
-    if(ctx.diff) u.searchParams.set('diff', String(ctx.diff));
-    if(ctx.time != null) u.searchParams.set('time', String(ctx.time));
-    if(ctx.seed) u.searchParams.set('seed', String(ctx.seed));
-    if(ctx.pid)  u.searchParams.set('pid', String(ctx.pid));
-    if(ctx.view) u.searchParams.set('view', String(ctx.view));
-    u.searchParams.set('scene', 'classroom');
-    u.searchParams.set('zone', 'hygiene');
-    u.searchParams.set('hub', hub);
-
-    if(result){
-      const buffs = sanitizeBuffs(result?.buffs || {});
-      Object.entries(buffs).forEach(([k,v])=>{
-        u.searchParams.set(k, String(v));
-      });
-      u.searchParams.set('gateResult', result?.ok ? '1' : '0');
-      u.searchParams.set('gateMode', String(result?.mode || 'warmup'));
-    }
-
-    return normalizeRunUrl(u.toString());
-  }
-
-  if(game === 'maskcough'){
-    const u = new URL('/webxr-health-mobile/herohealth/vr-maskcough/maskcough-v2.html', location.origin);
-    if(ctx.run)  u.searchParams.set('run', String(ctx.run));
-    if(ctx.diff) u.searchParams.set('diff', String(ctx.diff));
-    if(ctx.time != null) u.searchParams.set('time', String(ctx.time));
-    if(ctx.seed) u.searchParams.set('seed', String(ctx.seed));
-    if(ctx.pid)  u.searchParams.set('pid', String(ctx.pid));
-    if(ctx.view) u.searchParams.set('view', String(ctx.view));
-    u.searchParams.set('zone', 'hygiene');
-    u.searchParams.set('hub', hub);
-
-    if(result){
-      const buffs = sanitizeBuffs(result?.buffs || {});
-      Object.entries(buffs).forEach(([k,v])=>{
-        u.searchParams.set(k, String(v));
-      });
-      u.searchParams.set('gateResult', result?.ok ? '1' : '0');
-      u.searchParams.set('gateMode', String(result?.mode || 'warmup'));
-    }
-
-    return normalizeRunUrl(u.toString());
   }
 
   return hub;
