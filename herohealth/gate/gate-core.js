@@ -1,11 +1,11 @@
 // === /herohealth/gate/gate-core.js ===
 // HeroHealth Gate Core
-// PATCH v20260308-HYGIENE-GATE-CORE-r8-RAWNEXT
+// PATCH v20260308-HYGIENE-GATE-CORE-r9-NORMALIZE-RUNURL
 // ✅ RAW next continue
+// ✅ normalize duplicated run paths
 // ✅ no launcher bounce
-// ✅ minimal continue logic
-// ✅ skip uses raw next too
-// ✅ simpler / less annoying path handling
+// ✅ skip uses same raw-next logic
+// ✅ location.replace for cleaner flow
 
 import {
   buildCtx,
@@ -57,24 +57,56 @@ function safeHubUrl(ctx){
   }
 }
 
+function normalizeRunUrl(url){
+  try{
+    const u = new URL(url, location.href);
+
+    // Germ Detective path ซ้อน
+    u.pathname = u.pathname.replace(
+      /\/herohealth\/germ-detective\/germ-detective\/germ-detective\.html$/i,
+      '/webxr-health-mobile/herohealth/germ-detective/germ-detective.html'
+    );
+
+    // เผื่อมีรูปแบบซ้อนแบบ relative แปลก ๆ อีก
+    u.pathname = u.pathname.replace(
+      /\/germ-detective\/germ-detective\/germ-detective\.html$/i,
+      '/webxr-health-mobile/herohealth/germ-detective/germ-detective.html'
+    );
+
+    // MaskCough path ซ้อน
+    u.pathname = u.pathname.replace(
+      /\/herohealth\/vr-maskcough\/vr-maskcough\/maskcough-v2\.html$/i,
+      '/webxr-health-mobile/herohealth/vr-maskcough/maskcough-v2.html'
+    );
+
+    u.pathname = u.pathname.replace(
+      /\/vr-maskcough\/vr-maskcough\/maskcough-v2\.html$/i,
+      '/webxr-health-mobile/herohealth/vr-maskcough/maskcough-v2.html'
+    );
+
+    return u.toString();
+  }catch{
+    return url;
+  }
+}
+
 function buildRawNextUrl(ctx, result=null){
   const rawNext = String(ctx.next || '').trim();
   const hub = safeHubUrl(ctx);
 
   if(rawNext){
     try{
-      const u = new URL(rawNext);
+      const fixedNext = normalizeRunUrl(rawNext);
+      const u = new URL(fixedNext);
 
-      // กันกรณี next ชี้กลับเข้า gate
+      // กันชี้กลับเข้า gate
       if(/warmup-gate\.html$/i.test(u.pathname)){
-        console.warn('[gate] raw next points back to warmup-gate, fallback to hub', rawNext);
+        console.warn('[gate] raw next points back to warmup-gate, fallback to hub', fixedNext);
         return hub;
       }
 
       // ลบ query ฝั่ง gate ที่ไม่ควรติดไป
-      [
-        'gatePhase','phase','cd','next'
-      ].forEach(k=>u.searchParams.delete(k));
+      ['gatePhase','phase','cd','next'].forEach(k=>u.searchParams.delete(k));
 
       // context ขั้นต่ำที่เกมควรได้
       if(ctx.run)  u.searchParams.set('run', String(ctx.run));
@@ -99,7 +131,7 @@ function buildRawNextUrl(ctx, result=null){
       const game = String(ctx.game || '').toLowerCase();
       if(game === 'germdetective'){
         if(!u.searchParams.get('scene')) u.searchParams.set('scene', 'classroom');
-        if(!u.searchParams.get('zone')) u.searchParams.set('zone', 'hygiene');
+        if(!u.searchParams.get('zone'))  u.searchParams.set('zone', 'hygiene');
       }
       if(game === 'maskcough'){
         if(!u.searchParams.get('zone')) u.searchParams.set('zone', 'hygiene');
@@ -114,13 +146,13 @@ function buildRawNextUrl(ctx, result=null){
         u.searchParams.set('gateMode', String(result?.mode || 'warmup'));
       }
 
-      return u.toString();
+      return normalizeRunUrl(u.toString());
     }catch(err){
       console.error('[gate] invalid raw next', rawNext, err);
     }
   }
 
-  // fallback กรณี next ไม่มีจริง ๆ
+  // fallback กรณีไม่มี next จริง ๆ
   const game = String(ctx.game || '').toLowerCase();
 
   if(game === 'germdetective'){
@@ -144,7 +176,7 @@ function buildRawNextUrl(ctx, result=null){
       u.searchParams.set('gateMode', String(result?.mode || 'warmup'));
     }
 
-    return u.toString();
+    return normalizeRunUrl(u.toString());
   }
 
   if(game === 'maskcough'){
@@ -167,7 +199,7 @@ function buildRawNextUrl(ctx, result=null){
       u.searchParams.set('gateMode', String(result?.mode || 'warmup'));
     }
 
-    return u.toString();
+    return normalizeRunUrl(u.toString());
   }
 
   return hub;
