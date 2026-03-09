@@ -165,24 +165,33 @@
       return Number.isFinite(v) ? v : d;
     }
 
-    function safeAbsUrl(raw, fallback){
-      const s = String(raw || '').trim();
-      if(s){
-        try{ return new URL(s, location.href).toString(); }catch(_){}
+    function appBase(){
+      return '/webxr-health-mobile/herohealth';
+    }
+
+    function safeAbsFromOrigin(pathname){
+      try{
+        return new URL(pathname, location.origin).toString();
+      }catch(_){
+        return pathname;
       }
-      try{ return new URL(fallback, location.href).toString(); }catch(_){ return fallback; }
     }
 
     function normalizeHub(){
-      return safeAbsUrl(qs('hub',''), './hub.html');
+      const raw = String(qs('hub','')).trim();
+      if(raw){
+        try{
+          return new URL(raw, location.href).toString();
+        }catch(_){}
+      }
+      return safeAbsFromOrigin(appBase() + '/hub.html');
     }
 
     const GAME = {
       cat: 'nutrition',
       game: 'goodjunk',
-      launcherPath: './goodjunk-vr.html',
-      gatePath: './warmup-gate.html',
-      runPath: './vr-goodjunk/goodjunk-vr.html'
+      gatePath: appBase() + '/warmup-gate.html',
+      runPath: appBase() + '/vr-goodjunk/goodjunk-vr.html'
     };
 
     const ctx = {
@@ -236,7 +245,7 @@
     }
 
     function buildRunUrl(extra){
-      const u = new URL(GAME.runPath, location.href);
+      const u = new URL(GAME.runPath, location.origin);
       copyPassthrough(u);
 
       if(!u.searchParams.get('pid'))  u.searchParams.set('pid', ctx.pid);
@@ -263,7 +272,7 @@
     }
 
     function buildWarmupUrl(extraRun){
-      const u = new URL(GAME.gatePath, location.href);
+      const u = new URL(GAME.gatePath, location.origin);
 
       u.searchParams.set('gatePhase', 'warmup');
       u.searchParams.set('cat', GAME.cat);
@@ -294,12 +303,12 @@
     const debugRun = buildRunUrl();
 
     debugBox.textContent =
-      '[GoodJunk Launcher]\\n' +
-      'launcher: ' + location.href + '\\n' +
-      'hub:      ' + ctx.hub + '\\n' +
-      'gatePath: ' + safeAbsUrl(GAME.gatePath, './warmup-gate.html') + '\\n' +
-      'runPath:  ' + debugRun + '\\n' +
-      'warmup:   ' + debugWarmup + '\\n';
+      '[GoodJunk Launcher]\n' +
+      'launcher: ' + location.href + '\n' +
+      'hub:      ' + ctx.hub + '\n' +
+      'gatePath: ' + safeAbsFromOrigin(GAME.gatePath) + '\n' +
+      'runPath:  ' + debugRun + '\n' +
+      'warmup:   ' + debugWarmup + '\n';
 
     btnStart.onclick = ()=>{
       location.href = buildWarmupUrl({ mode:'solo', battle:'0' });
@@ -339,7 +348,7 @@
         try{
           location.href = buildWarmupUrl();
         }catch(err){
-          debugBox.textContent += '\\nredirect failed: ' + (err && err.message ? err.message : String(err));
+          debugBox.textContent += '\nredirect failed: ' + (err && err.message ? err.message : String(err));
         }
       }, 120);
     }
