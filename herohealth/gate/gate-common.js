@@ -1,6 +1,6 @@
 // === /herohealth/gate/gate-common.js ===
 // HeroHealth Gate Common Helpers
-// PATCH v20260308-HYGIENE-GATE-COMMON
+// PATCH v20260308-HYGIENE-GATE-COMMON-r2
 
 export function qs(key, fallback=''){
   try{
@@ -69,7 +69,8 @@ export function safeNext(){
   if(!v || v === '...') return '';
   try{
     return new URL(v, location.href).toString();
-  }catch(_){
+  }catch(err){
+    console.warn('[gate-common] invalid next', v, err);
     return '';
   }
 }
@@ -123,6 +124,16 @@ export function buildCtx(){
     seed,
     hub: safeHub(),
     next: safeNext(),
+
+    studyId: qs('studyId', ''),
+    phase: qs('phase', ''),
+    conditionGroup: qs('conditionGroup', ''),
+    sessionOrder: qs('sessionOrder', ''),
+    blockLabel: qs('blockLabel', ''),
+    siteCode: qs('siteCode', ''),
+    schoolYear: qs('schoolYear', ''),
+    semester: qs('semester', ''),
+
     dailyDone: false
   };
 }
