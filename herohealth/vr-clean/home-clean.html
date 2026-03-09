@@ -19,31 +19,15 @@
       --sab: env(safe-area-inset-bottom, 0px);
       --sal: env(safe-area-inset-left, 0px);
     }
-    html,body{
-      height:100%;
-      margin:0;
-      background:var(--bg);
-      color:var(--fg);
-      font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif
-    }
-    #app{
-      min-height:100%;
-      padding:calc(10px + var(--sat)) calc(10px + var(--sar)) calc(10px + var(--sab)) calc(10px + var(--sal));
-    }
+    html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif}
+    #app{min-height:100%;padding:calc(10px + var(--sat)) calc(10px + var(--sar)) calc(10px + var(--sab)) calc(10px + var(--sal));}
     .topbar{
-      position:sticky;
-      top:0;
-      z-index:50;
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      align-items:center;
-      justify-content:space-between;
-      border:1px solid var(--stroke);
-      background:rgba(2,6,23,.62);
-      border-radius:18px;
-      padding:10px 10px;
-      backdrop-filter: blur(8px);
+      position:sticky; top:0; z-index:50;
+      display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:space-between;
+      border:1px solid var(--stroke); background:rgba(2,6,23,.62);
+      border-radius:18px; padding:10px 10px; backdrop-filter: blur(8px);
+      transition: border-color .2s ease, background .2s ease;
     }
     .brand{display:flex;gap:10px;align-items:center}
     .logo{
@@ -55,27 +39,14 @@
     .sub{font-weight:800;color:var(--mut);font-size:12px;margin-top:2px}
     .pillrow{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
     .pill{
-      border:1px solid var(--stroke);
-      background:rgba(2,6,23,.35);
-      border-radius:999px;
-      padding:7px 10px;
-      font-size:12px;
-      font-weight:950;
-      color:rgba(229,231,235,.92)
+      border:1px solid var(--stroke);background:rgba(2,6,23,.35);border-radius:999px;padding:7px 10px;
+      font-size:12px;font-weight:950;color:rgba(229,231,235,.92)
     }
     .pill b{color:#fff}
     .btn{
-      border:1px solid var(--stroke);
-      background:rgba(2,6,23,.35);
-      color:rgba(229,231,235,.94);
-      padding:9px 10px;
-      border-radius:14px;
-      font-weight:1000;
-      cursor:pointer;
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      gap:8px;
+      border:1px solid var(--stroke); background:rgba(2,6,23,.35); color:rgba(229,231,235,.94);
+      padding:9px 10px; border-radius:14px; font-weight:1000; cursor:pointer;
+      display:inline-flex; align-items:center; justify-content:center; gap:8px;
     }
     .btn:active{transform:translateY(1px)}
     .btn.primary{border-color:rgba(34,197,94,.35);background:rgba(34,197,94,.14)}
@@ -89,31 +60,56 @@
       padding:10px;
       box-shadow:0 20px 70px rgba(0,0,0,.35);
       overflow:hidden;
+      transition: box-shadow .2s ease, border-color .2s ease, background .2s ease;
     }
     #root{ position:relative; min-height: calc(100vh - 120px); }
     .toast{
-      position:fixed;
-      left:50%;
-      transform:translateX(-50%);
-      bottom:calc(14px + var(--sab));
-      z-index:9999;
-      padding:10px 12px;
-      border:1px solid var(--stroke);
-      border-radius:14px;
-      background:rgba(2,6,23,.78);
-      color:#e5e7eb;
-      font-weight:950;
-      font-size:13px;
+      position:fixed; left:50%; transform:translateX(-50%);
+      bottom:calc(14px + var(--sab)); z-index:9999;
+      padding:10px 12px; border:1px solid var(--stroke);
+      border-radius:14px; background:rgba(2,6,23,.78);
+      color:#e5e7eb; font-weight:950; font-size:13px;
       box-shadow:0 14px 44px rgba(0,0,0,.35);
-      opacity:0;
-      transition:opacity .18s ease;
-      pointer-events:none;
-      max-width:92vw;
+      opacity:0; transition:opacity .18s ease; pointer-events:none; max-width:92vw;
     }
     .toast.show{ opacity:1; }
+
+    .boss-banner{
+      display:none;
+      margin-top:10px;
+      padding:10px 12px;
+      border:1px solid rgba(245,158,11,.28);
+      border-radius:16px;
+      background: rgba(245,158,11,.10);
+      font-weight:1000;
+    }
+    .boss-actions{
+      display:none;
+      gap:8px;
+      flex-wrap:wrap;
+      margin-top:10px;
+    }
+
+    body.boss-mode .boss-banner{ display:block; }
+    body.boss-mode .boss-actions{ display:flex; }
+    body.boss-mode .topbar{
+      border-color: rgba(245,158,11,.30);
+      background: rgba(28,12,6,.72);
+    }
+    body.boss-mode .stage{
+      border-color: rgba(245,158,11,.30);
+      box-shadow: 0 0 0 2px rgba(245,158,11,.12), 0 20px 70px rgba(239,68,68,.10);
+    }
+
+    .ai-hot{
+      outline: 3px solid rgba(34,211,238,.85);
+      box-shadow: 0 0 0 7px rgba(34,211,238,.16);
+      border-radius: 16px;
+      animation: aihotPulse .9s ease-in-out infinite alternate;
+    }
+    @keyframes aihotPulse{ from{filter:brightness(1)} to{filter:brightness(1.25)} }
   </style>
 </head>
-
 <body>
   <div id="app">
     <div class="topbar">
@@ -131,13 +127,23 @@
         <div class="pill">time: <b id="pTime">—</b>s</div>
         <div class="pill">pid: <b id="pPid">—</b></div>
         <div class="pill">view: <b id="pView">—</b></div>
+        <div class="pill">AI risk: <b id="pAiRisk">—</b></div>
       </div>
 
       <div class="pillrow">
-        <button class="btn warn" id="btnCooldown" type="button">➡ Go Cooldown</button>
+        <button class="btn warn" id="btnCooldown" type="button">Go Cooldown</button>
         <button class="btn" id="btnBackHub" type="button">Back HUB</button>
         <button class="btn bad" id="btnReset" type="button">Reset</button>
       </div>
+    </div>
+
+    <div id="bossBanner" class="boss-banner">
+      ⚠️ BOSS MODE — รีบเก็บจุดคุ้มที่สุดก่อนบอสลงโทษ
+    </div>
+
+    <div id="bossActions" class="boss-actions">
+      <button class="btn warn" id="btnQuickPick" type="button">Quick Pick</button>
+      <button class="btn" id="btnShieldBoss" type="button">Shield Wipe</button>
     </div>
 
     <div class="stage">
@@ -152,23 +158,16 @@
   </script>
 
   <script type="module">
-    import { buildCooldownUrlForCurrentGame } from '../gate/helpers/gate-link.js';
     import { createCleanCore } from './clean.core.js';
     import { mountCleanUI } from './clean.ui.js';
+    import { createCleanAI } from './ai-clean.js';
 
     const $ = (id)=>document.getElementById(id);
-
     function qs(k, d=''){
       try{ return (new URL(location.href)).searchParams.get(k) ?? d; }
       catch(e){ return d; }
     }
-
-    function clamp(v,a,b){
-      v=Number(v);
-      if(!Number.isFinite(v)) v=a;
-      return Math.max(a, Math.min(b, v));
-    }
-
+    function clamp(v,a,b){ v=Number(v); if(!Number.isFinite(v)) v=a; return Math.max(a, Math.min(b, v)); }
     function normView(v){
       v = String(v||'').toLowerCase();
       if(v==='cvr' || v==='cardboard' || v==='vr') return 'cvr';
@@ -176,9 +175,7 @@
       if(v==='pc' || v==='desktop') return 'pc';
       return v || '';
     }
-
     function nowSeed(){ return String(Date.now()); }
-
     function normalizeMaybeEncodedUrl(v){
       v = String(v ?? '').trim();
       if(!v) return '';
@@ -187,7 +184,6 @@
       }
       return v.trim();
     }
-
     let toastT=0;
     function toast(msg){
       const el = $('toast');
@@ -214,78 +210,58 @@
       conditionGroup: String(qs('conditionGroup','')),
 
       debug: String(qs('debug','')),
-      ai: String(qs('ai','')),
-
+      ai: String(qs('ai','1')),
+      pro: String(qs('pro','')),
       boss: String(qs('boss','toilet_flush') || 'toilet_flush')
     };
 
-    let lastSummary = null;
+    const AI_ON = !(String(P.ai||'1') === '0' || String(P.ai||'1').toLowerCase() === 'false');
+    const PRO_ON = (String(P.pro) === '1' || P.diff === 'hard');
 
     $('pRun').textContent = P.run;
     $('pDiff').textContent = P.diff;
     $('pTime').textContent = String(P.time);
     $('pPid').textContent = P.pid;
     $('pView').textContent = P.view || '(auto)';
+    $('pAiRisk').textContent = AI_ON ? 'on' : 'off';
 
     function hubFallback(){
       if(P.hub) return P.hub;
       return new URL('../hub.html', location.href).toString();
     }
-
-    function goHub(){
-      location.href = hubFallback();
-    }
-
-    function buildCleanCooldownUrl(){
-      const summary = lastSummary || {};
-      return buildCooldownUrlForCurrentGame({
-        cat: 'hygiene',
-        game: 'cleanobjects',
-        theme: 'cleanobjects',
-        fallbackHub: '../hub.html',
-        extras: {
-          mode: P.view === 'cvr' ? 'B' : 'A',
-          boss: P.boss,
-
-          scoreFinal: summary.scoreFinal ?? summary.score ?? '',
-          grade: summary.grade ?? '',
-          accuracyPct: summary.accuracyPct ?? '',
-          contaminationPct: summary.contaminationPct ?? '',
-          selectedCount: summary.selectedCount ?? '',
-          routeCount: summary.routeCount ?? '',
-          summaryText: summary.summaryText ?? '',
-          evalResult: summary.evalResult ?? '',
-          createResult: summary.createResult ?? '',
-
-          run: P.run,
-          diff: P.diff,
-          time: P.time,
-          pid: P.pid,
-          view: P.view,
-          studyId: P.studyId,
-          phase: P.phase,
-          conditionGroup: P.conditionGroup
-        }
-      });
-    }
+    function goHub(){ location.href = hubFallback(); }
 
     function goCooldown(){
-      location.href = buildCleanCooldownUrl();
+      const hub = hubFallback();
+      const base = new URL(location.href);
+      const g = new URL('../warmup-gate.html', base);
+
+      g.searchParams.set('cat','hygiene');
+      g.searchParams.set('theme','cleanobjects');
+      g.searchParams.set('game','cleanobjects');
+      g.searchParams.set('cd','1');
+      g.searchParams.set('next', hub);
+      g.searchParams.set('hub', hub);
+
+      const keep = ['run','diff','time','seed','pid','view','ai','debug','api','log','studyId','phase','conditionGroup','boss','pro'];
+      keep.forEach(k=>{
+        const v = base.searchParams.get(k);
+        if(v !== null && v !== '') g.searchParams.set(k, v);
+      });
+
+      location.href = g.toString();
     }
 
     $('btnBackHub').addEventListener('click', goHub);
     $('btnCooldown').addEventListener('click', goCooldown);
     $('btnReset').addEventListener('click', ()=>{
-      try{
-        localStorage.removeItem('HHA_LAST_SUMMARY');
-      }catch(e){}
+      try{ localStorage.removeItem('HHA_LAST_SUMMARY'); }catch(e){}
       location.reload();
     });
 
     async function postToApi(payload){
       const logOn = (String(P.log||'') === '1' || String(P.log||'').toLowerCase() === 'true');
       if(!logOn || !P.api) return { ok:false, skipped:true };
-
       try{
         const res = await fetch(P.api, {
           method: 'POST',
@@ -327,46 +303,162 @@
       }catch(e){}
     }
 
-    let core = null;
-
     const ui = mountCleanUI(document.getElementById('root'), {
       selectA: (id, reasonTag)=> core.selectA(id, reasonTag),
       toggleRouteB: (id)=> core.toggleRouteB(id),
       undoB: ()=> core.undoB(),
       clearB: ()=> core.clearB(),
-      submitB: ()=> core.submitB(),
-      goCooldown: ()=> goCooldown(),
-      goHub: ()=> goHub(),
-      replay: ()=> location.reload()
+      submitB: ()=> core.submitB()
     });
 
-    core = createCleanCore({
+    const ai = AI_ON ? createCleanAI({
+      seed: P.seed,
+      pid:  P.pid,
+      diff: P.diff,
+      view: (P.view || (/(Android|iPhone|iPad|iPod)/i.test(navigator.userAgent) ? 'mobile' : 'pc')),
+      pro: PRO_ON
+    }) : null;
+
+    let lastSnap = null;
+    let lastPred = null;
+
+    const btnQuickPick = document.getElementById('btnQuickPick');
+    const btnShieldBoss = document.getElementById('btnShieldBoss');
+    const bossBanner = document.getElementById('bossBanner');
+
+    function setBossMode(on, boss){
+      document.body.classList.toggle('boss-mode', !!on);
+      if(bossBanner){
+        if(on){
+          const name = (boss?.type === 'wet') ? 'Bathroom Outbreak' : 'Shared Device Meltdown';
+          bossBanner.textContent = `⚠️ BOSS MODE — ${name} มาแล้ว!`;
+        }else{
+          bossBanner.textContent = '⚠️ BOSS MODE — รีบเก็บจุดคุ้มที่สุดก่อนบอสลงโทษ';
+        }
+      }
+    }
+
+    const core = createCleanCore({
       run: P.run,
       seed: P.seed,
       view: P.view,
       hub: hubFallback(),
-      bossId: P.boss,
+      bossId: P.boss
     }, {
-      onState: ui.onState,
+      onState: (snap)=>{
+        lastSnap = snap;
+        ui.onState(snap);
+
+        const boss = snap?.boss || null;
+        const bossOn = !!(snap?.mode === 'A' && boss?.active);
+        setBossMode(bossOn, boss);
+
+        if(bossOn && boss?.targets && ui.highlightBoss){
+          ui.highlightBoss(boss.targets);
+        }else if(ui.highlightBoss){
+          ui.highlightBoss([]);
+        }
+      },
       onTick: ui.onTick,
       onCoach: (m)=> ui.onCoach(m),
       onSummary: async (summary)=>{
-        lastSummary = summary;
         saveSummary(summary);
-
         const r = await postToApi({ type:'summary', data: summary });
         if(P.debug==='1' && r && !r.skipped && !r.ok) console.warn('[clean] summary log failed', r);
-
         ui.onSummary(summary);
+      }
+    });
 
-        const autoCooldown = String(qs('autocooldown','0')) === '1';
-        if(autoCooldown){
-          setTimeout(()=> goCooldown(), 900);
-        }
+    window.__CLEAN_CORE__ = core;
+    window.__CLEAN_UI__ = ui;
+
+    btnQuickPick?.addEventListener('click', ()=>{
+      if(!lastSnap || lastSnap.mode !== 'A') return;
+
+      const hs = (lastSnap.hotspots || []).slice().sort((a,b)=>{
+        const score = (h)=>{
+          const risk = (Number(h.risk||0)/100);
+          const touch = Number(h.touchLevel||0);
+          const traffic = Number(h.traffic||0);
+          const mins = Math.max(0, Number(h.timeLastCleanedMin||0));
+          const staleness = Math.min(2, mins/(24*60));
+          const staleW = 0.6 + 0.4*Math.min(1, staleness/2);
+          const s = String(h.surfaceType||'').toLowerCase();
+          const surfaceW =
+            (s==='metal' || s==='plastic') ? 1.15 :
+            (s==='glass') ? 1.05 :
+            (s==='tile') ? 1.00 :
+            (s==='wood') ? 0.95 :
+            (s==='fabric') ? 0.90 : 1.0;
+          const intensity = 0.45*touch + 0.35*traffic + 0.20;
+          return risk * intensity * surfaceW * staleW;
+        };
+        return score(b) - score(a);
+      });
+
+      const picked = new Set((lastSnap.A?.selected||[]).map(x=>x.id));
+      const best = hs.find(h=>!picked.has(h.id));
+      if(best){
+        ui.markQuickPick && ui.markQuickPick(best.id);
+        core.selectA(best.id, 'risk_high');
+        toast(`Quick Pick: ${best.name || best.id} ✅`);
+      }
+    });
+
+    btnShieldBoss?.addEventListener('click', ()=>{
+      if(typeof core.useShieldWipe === 'function'){
+        const ok = core.useShieldWipe();
+        toast(ok ? 'Shield Wipe! ✅' : 'ยังใช้ไม่ได้ตอนนี้');
+      }else{
+        toast('Shield พร้อมแล้ว');
       }
     });
 
     core.start();
+
+    if(ai){
+      setInterval(()=>{
+        if(!lastSnap) return;
+
+        const pred = ai.onTick(0.9, lastSnap);
+        if(!pred) return;
+        lastPred = pred;
+
+        const riskPct = Math.round((pred.hazardRisk||0) * 100);
+        const riskEl = document.getElementById('pAiRisk');
+        if(riskEl) riskEl.textContent = `${riskPct}%`;
+
+        try{
+          if(ui.highlight && Array.isArray(pred.top3)){
+            ui.highlight(pred.top3.map(x=>x.id), pred.top3);
+          }
+        }catch(e){}
+
+        try{
+          if(ui.onCoach && Array.isArray(pred.explainTop2) && pred.explainTop2.length>=2){
+            ui.onCoach({ kind:'ai', text:`AI: ${pred.explainTop2[0]} • ${pred.explainTop2[1]}`, data:{ hazardRisk: pred.hazardRisk }, ts: Date.now() });
+          }
+        }catch(e){}
+
+        try{
+          if(pred?.bossTip?.tipId === 'boss_warn'){
+            document.body.classList.add('boss-mode');
+          }
+          if(pred?.bossTip?.tipId === 'boss_final'){
+            document.body.classList.add('boss-mode');
+            if(pred?.top3?.[0] && ui.highlight){
+              ui.highlight([pred.top3[0].id], pred.top3);
+            }
+          }
+          if(lastSnap?.boss && !lastSnap.boss.active && !pred?.bossTip){
+            document.body.classList.remove('boss-mode');
+          }
+          if(pred.bossTip && pred.bossTip.text){
+            ui.onCoach({ kind: pred.bossTip.tipId, text: pred.bossTip.text, data:{}, ts: Date.now() });
+          }
+        }catch(e){}
+      }, 900);
+    }
 
     let raf = 0;
     function loop(){
@@ -378,7 +470,7 @@
     if(P.view === 'cvr'){
       toast('Cardboard: ใช้ crosshair ยิงเลือกจุดได้ ✅');
     }else{
-      toast('แตะจุดบนแผนที่เพื่อเล่น ✅');
+      toast('แตะ marker เพื่อเล่น ✅');
     }
   </script>
 </body>
