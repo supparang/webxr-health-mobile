@@ -1,116 +1,104 @@
-import { loadCssOnce } from '../../helpers/css.js';
-import { mulberry32 } from '../../helpers/rng.js';
-import { mountTargetHitWarmup } from '../../helpers/target-hit-warmup.js';
+// === /herohealth/gate/games/germdetective/warmup.js ===
+// Germ Detective Warmup — minimal working patch
+// PATCH v20260309a-MIN-WORKING
 
-export function loadStyle(){
-  loadCssOnce('./gate/games/germdetective/style.css?v=20260308a');
-}
+export async function mount(root, ctx, api){
+  let score = 0;
+  let left = 5;
+  let done = false;
 
-export async function mount(container, ctx, api){
-  const rng = mulberry32(ctx.seed || Date.now());
-
-  const RISK_POOL = [
-    { emoji:'🦠', label:'เชื้อโรค' },
-    { emoji:'🧦', label:'ถุงเท้าสกปรก' },
-    { emoji:'🟫', label:'คราบสกปรก' },
-    { emoji:'🤧', label:'ทิชชูใช้แล้ว' },
-    { emoji:'🗑️', label:'ขยะเปื้อน' },
-    { emoji:'👣', label:'รอยเปื้อน' }
-  ];
-
-  const SAFE_POOL = [
-    { emoji:'🧼', label:'สบู่' },
-    { emoji:'🧽', label:'ฟองน้ำสะอาด' },
-    { emoji:'🪥', label:'แปรงสีฟัน' },
-    { emoji:'🧴', label:'ขวดสบู่' },
-    { emoji:'🫧', label:'ฟองสะอาด' }
-  ];
-
-  return mountTargetHitWarmup({
-    container,
-    api,
-    ctx,
-    config: {
-      rng,
-      title: 'Warmup — Germ Detective Quick Scan',
-      subtitle: 'แตะจุดเสี่ยงหรือของสกปรกให้ครบ 5 จุดใน 20 วินาที และอย่าแตะของสะอาด',
-      startLabel: 'เริ่มสแกน',
-      timeLimit: 20,
-      goal: 5,
-
-      rootClass: 'germ',
-      goodPool: RISK_POOL,
-      badPool: SAFE_POOL,
-      initialGood: 7,
-      initialBad: 5,
-      minAliveGood: 3,
-      respawnGoodCount: 2,
-
-      renderShell: ({ title, subtitle, startLabel }) => `
-        <div class="germ-layer">
-          <div class="germ-brief" data-role="brief">
-            <div class="germ-brief-card">
-              <h2 class="germ-brief-title">${title}</h2>
-              <p class="germ-brief-sub">${subtitle}</p>
-              <button class="btn btn-primary" data-role="start">${startLabel}</button>
-            </div>
-          </div>
-
-          <div class="germ-playfield">
-            <div class="germ-scene" aria-hidden="true">
-              <div class="germ-deco detective">🕵️</div>
-              <div class="germ-deco germ">🦠</div>
-              <div class="germ-deco room">🧪</div>
-            </div>
-
-            <div class="germ-board">
-              <div class="germ-card">
-                <div class="germ-card-title">ภารกิจสแกนจุดเสี่ยง</div>
-                <div class="germ-card-sub">แตะเป้าหมายสีแดงให้ครบ และหลีกเลี่ยงของสะอาด</div>
-
-                <div class="germ-progress">
-                  <div class="germ-row"><span>เป้าหมายที่พบ</span><strong data-role="progress-text">0/5</strong></div>
-                  <div class="germ-row"><span>สถานะ</span><strong>Quick Scan</strong></div>
-                </div>
-
-                <div class="germ-targets" data-role="targets"></div>
-              </div>
-            </div>
-          </div>
+  root.innerHTML = `
+    <div style="padding:16px;display:grid;gap:14px;">
+      <div>
+        <div style="font-weight:1000;font-size:20px;">🦠 Warmup — Germ Detective</div>
+        <div style="opacity:.88;margin-top:6px;line-height:1.5;">
+          แตะจุดเสี่ยงให้ครบ <b>5 จุด</b> เพื่อเตรียมพร้อมก่อนเข้าเกมจริง
         </div>
-      `,
+      </div>
 
-      hostSelector: '[data-role="targets"]',
-      briefSelector: '[data-role="brief"]',
-      startSelector: '[data-role="start"]',
+      <div id="gdWarmGrid" style="
+        display:grid;
+        grid-template-columns:repeat(3,minmax(0,1fr));
+        gap:10px;
+      "></div>
 
-      goodItemClass: 'germ-item risk',
-      badItemClass: 'germ-item safe',
+      <div style="opacity:.9;font-size:14px;">
+        เก็บแล้ว: <b id="gdWarmScore">0</b> / 5
+      </div>
+    </div>
+  `;
 
-      onGoodToast: ()=> 'เจอจุดเสี่ยงแล้ว!',
-      onBadToast: ()=> 'อันนี้เป็นของสะอาด',
-      finishTitleSuccess: 'พร้อมสืบต่อแล้ว!',
-      finishTitleTimeout: 'หมดเวลา',
-      finishSubtitle: 'สรุปผล Warmup — Germ Detective Quick Scan',
+  const grid = root.querySelector('#gdWarmGrid');
+  const scoreEl = root.querySelector('#gdWarmScore');
 
-      progressText: ({ state }) => `${state.progress}/${state.goal}`,
+  function updateHUD(){
+    api.setStats({
+      score,
+      miss: 0,
+      acc: `${Math.round((score / 5) * 100)}%`
+    });
+    if(scoreEl) scoreEl.textContent = String(score);
+  }
 
-      finishLines: ({ state, acc, timeBonus })=>[
-        `พบจุดเสี่ยง ${state.progress}/${state.goal} จุด`,
-        `คะแนน ${state.score}`,
-        `พลาด ${state.miss}`,
-        `ความแม่นยำ ${acc}%`,
-        `โบนัสเวลา +${timeBonus} วินาที`
+  function finishNow(){
+    if(done) return;
+    done = true;
+    api.finish({
+      ok: true,
+      title: 'พร้อมแล้ว!',
+      subtitle: 'ไปต่อเข้า Germ Detective ได้เลย',
+      lines: [
+        `แตะจุดเสี่ยงครบ ${score}/5 จุด`,
+        'Warmup สำเร็จ'
       ],
+      buffs: {
+        wPct: 100,
+        wSteps: score
+      }
+    });
+  }
 
-      buildBuffs: ({ state, acc, timeBonus, scoreBonus, rank })=>({
-        wType: 'germdetective_quick_scan',
-        wPct: acc,
-        wFound: state.progress,
-        wTimeBonus: timeBonus,
-        wScoreBonus: scoreBonus,
-        wRank: rank
-      })
-    }
-  });
+  function makeCell(i){
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'btn';
+    btn.style.minHeight = '84px';
+    btn.style.fontWeight = '1000';
+    btn.style.fontSize = '18px';
+    btn.textContent = ['🚪','💡','🚰','📱','🪑','🧴','🖐️','🍽️','🦠'][i % 9];
+
+    let hit = false;
+    btn.addEventListener('click', ()=>{
+      if(hit || done) return;
+      hit = true;
+      btn.disabled = true;
+      btn.textContent = '✅';
+      score++;
+      left = Math.max(0, 5 - score);
+      updateHUD();
+      if(score >= 5){
+        setTimeout(finishNow, 250);
+      }
+    });
+
+    return btn;
+  }
+
+  for(let i=0;i<9;i++){
+    grid?.appendChild(makeCell(i));
+  }
+
+  updateHUD();
+
+  return {
+    start(){
+      api.setStats({
+        time: ctx.time || 20,
+        score: 0,
+        miss: 0,
+        acc: '0%'
+      });
+    },
+    stop(){}
+  };
 }
