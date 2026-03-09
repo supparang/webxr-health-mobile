@@ -1,599 +1,340 @@
-<!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
-GoodJunkVR — RUN PAGE
-PATCH v20260308-GJ-RUNPAGE-MATCH-OVERLAY
--->
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — GoodJunkVR</title>
+  <title>HeroHealth — GoodJunk Launcher</title>
   <meta name="color-scheme" content="dark light" />
-  <link rel="icon" href="../favicon.ico" />
+  <link rel="icon" href="./favicon.ico" />
   <style>
     :root{
-      --bg1:#020617; --bg2:#0b1226;
-      --panel:rgba(2,6,23,.70);
+      --bg1:#020617;
+      --bg2:#0b1226;
+      --panel:rgba(2,6,23,.72);
       --stroke:rgba(148,163,184,.18);
-      --text:#e5e7eb; --muted:#94a3b8;
-      --blue:#3b82f6; --cyan:#22d3ee; --good:#22c55e; --warn:#f59e0b; --danger:#ef4444;
-      --sat: env(safe-area-inset-top, 0px);
-      --sab: env(safe-area-inset-bottom, 0px);
+      --text:#e5e7eb;
+      --muted:#94a3b8;
+      --blue:rgba(59,130,246,.16);
+      --blue-bd:rgba(59,130,246,.34);
+      --green:rgba(34,197,94,.14);
+      --green-bd:rgba(34,197,94,.32);
+      --amber:rgba(245,158,11,.14);
+      --amber-bd:rgba(245,158,11,.32);
+      --shadow:0 18px 55px rgba(0,0,0,.28);
     }
-    *{ box-sizing:border-box; -webkit-tap-highlight-color: transparent; }
+
+    *{ box-sizing:border-box; }
+
     html,body{
-      margin:0; min-height:100%; overflow:hidden;
+      margin:0;
+      min-height:100%;
       background:
-        radial-gradient(1000px 700px at 50% -10%, rgba(34,211,238,.10), transparent 60%),
+        radial-gradient(1000px 700px at 50% -10%, rgba(59,130,246,.18), transparent 60%),
         linear-gradient(180deg,var(--bg1),var(--bg2));
       color:var(--text);
-      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", sans-serif;
-    }
-    #app{ position:fixed; inset:0; overflow:hidden; }
-
-    #gj-layer{
-      position:fixed;
-      inset:0;
-      overflow:hidden;
-      touch-action:manipulation;
-      user-select:none;
+      font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Thai",Arial,sans-serif;
     }
 
-    .hud-top{
-      position:fixed;
-      top:calc(var(--sat) + 8px);
-      left:8px; right:8px;
-      z-index:100;
-      display:grid;
-      grid-template-columns: repeat(5, minmax(0,1fr));
-      gap:8px;
-      pointer-events:none;
-    }
-    .hud-card{
-      border:1px solid var(--stroke);
-      background:var(--panel);
-      border-radius:16px;
-      padding:8px 10px;
-      box-shadow:0 14px 40px rgba(0,0,0,.28);
-      backdrop-filter: blur(10px);
-    }
-    .hud-k{ font-size:11px; color:var(--muted); margin-bottom:4px; font-weight:800; }
-    .hud-v{ font-size:22px; line-height:1; font-weight:1000; }
-    .hud-sub{ font-size:11px; margin-top:5px; color:#cbd5e1; }
-
-    .mid-mission{
-      position:fixed;
-      top:calc(var(--sat) + 98px);
-      left:50%;
-      transform:translateX(-50%);
-      z-index:100;
-      width:min(760px, calc(100vw - 16px));
-      pointer-events:none;
-    }
-    .mission-box{
-      border:1px solid var(--stroke);
-      background:rgba(2,6,23,.58);
-      border-radius:18px;
-      padding:10px 12px;
-      backdrop-filter: blur(10px);
-      box-shadow:0 18px 50px rgba(0,0,0,.28);
-    }
-    .mission-head{
-      display:flex; justify-content:space-between; gap:10px; align-items:center;
-      font-weight:1000; font-size:14px;
-      flex-wrap:wrap;
-    }
-    .mission-goal{ margin-top:4px; font-size:13px; color:#e5e7eb; font-weight:900; }
-    .mission-hint{ margin-top:3px; font-size:12px; color:#cbd5e1; }
-    .mission-bar{
-      height:10px; border-radius:999px; background:rgba(148,163,184,.14);
-      overflow:hidden; margin-top:10px;
-    }
-    .mission-bar > i{
-      display:block; height:100%; width:var(--p,0%);
-      background:linear-gradient(90deg,var(--blue),var(--cyan));
-      border-radius:999px;
-      transition:width .18s ease;
-    }
-
-    .boss-bar{
-      display:none;
-      position:fixed;
-      top:calc(var(--sat) + 182px);
-      left:50%;
-      transform:translateX(-50%);
-      z-index:101;
-      width:min(620px, calc(100vw - 24px));
-      border:1px solid rgba(239,68,68,.22);
-      background:rgba(2,6,23,.72);
-      border-radius:18px;
-      padding:10px 12px;
-      box-shadow:0 18px 52px rgba(0,0,0,.30);
-      backdrop-filter: blur(10px);
-      pointer-events:none;
-    }
-    .boss-head{
-      display:flex; justify-content:space-between; gap:10px; font-weight:1000; font-size:13px;
-      color:#fecaca;
-      flex-wrap:wrap;
-    }
-    .boss-track{
-      height:12px; border-radius:999px; background:rgba(127,29,29,.30);
-      overflow:hidden; margin-top:8px;
-    }
-    .boss-track > i{
-      display:block; height:100%; width:var(--hp,100%);
-      background:linear-gradient(90deg,#ef4444,#f59e0b);
-      transition:width .16s ease;
-      border-radius:999px;
-    }
-    .boss-hint{ margin-top:6px; font-size:12px; color:#fee2e2; }
-
-    .side-ai{
-      position:fixed;
-      right:8px;
-      bottom:calc(var(--sab) + 72px);
-      z-index:101;
-      width:min(320px, calc(100vw - 16px));
-    }
-    .ai-box{
-      border:1px solid var(--stroke);
-      background:rgba(2,6,23,.72);
-      border-radius:18px;
-      padding:12px;
-      box-shadow:0 18px 50px rgba(0,0,0,.30);
-      backdrop-filter: blur(10px);
-    }
-    .ai-title{ font-size:13px; font-weight:1000; color:#a5f3fc; }
-    .ai-line{ margin-top:6px; font-size:13px; color:#e5e7eb; }
-    .ai-small{ margin-top:4px; font-size:12px; color:#cbd5e1; }
-    .ai-pill{
-      display:inline-flex; align-items:center; gap:6px;
-      margin-top:8px;
-      padding:8px 10px;
-      border-radius:999px;
-      font-size:12px; font-weight:900;
-      background:rgba(15,23,42,.84);
-      border:1px solid var(--stroke);
-      color:#e5e7eb;
-      margin-right:6px;
-      margin-bottom:6px;
-    }
-
-    .match-chip-wrap{
-      margin-top:10px;
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-    }
-    .match-chip{
-      display:inline-flex;
-      align-items:center;
-      gap:6px;
-      padding:8px 10px;
-      border-radius:999px;
-      font-size:12px;
-      font-weight:1000;
-      border:1px solid var(--stroke);
-      background:rgba(15,23,42,.84);
-      color:#e5e7eb;
-    }
-
-    .bottom-bar{
-      position:fixed;
-      left:8px; right:8px;
-      bottom:calc(var(--sab) + 8px);
-      z-index:102;
-      display:flex; gap:8px; align-items:center; justify-content:space-between;
-      pointer-events:none;
-    }
-    .bottom-left,.bottom-right{
-      display:flex; gap:8px; align-items:center;
-      pointer-events:auto;
-      flex-wrap:wrap;
-    }
-    .mini-chip{
-      border:1px solid var(--stroke);
-      background:rgba(2,6,23,.74);
-      border-radius:999px;
-      padding:10px 12px;
-      font-size:12px; font-weight:900;
-      box-shadow:0 12px 28px rgba(0,0,0,.26);
-      backdrop-filter: blur(10px);
-    }
-    .btn{
-      min-height:42px;
-      border:0; border-radius:14px;
-      padding:10px 14px;
-      font:inherit; font-weight:1000;
-      cursor:pointer;
-      color:white;
-      background:linear-gradient(135deg,#2563eb,#06b6d4);
-      box-shadow:0 10px 24px rgba(37,99,235,.24);
-    }
-    .btn.secondary{
-      color:var(--text);
-      background:rgba(15,23,42,.92);
-      border:1px solid var(--stroke);
-      box-shadow:none;
-    }
-    .btn.warn{ background:linear-gradient(135deg,#d97706,#f59e0b); }
-    .btn.danger{ background:linear-gradient(135deg,#dc2626,#ef4444); }
-    .btn.good{ background:linear-gradient(135deg,#16a34a,#22c55e); }
-
-    #stageBanner,#milestoneBanner{
-      position:fixed;
-      left:50%;
-      transform:translateX(-50%) scale(.96);
-      z-index:160;
-      pointer-events:none;
-      opacity:0;
-      transition:opacity .16s ease, transform .16s ease;
-      text-align:center;
-      border:1px solid var(--stroke);
-      background:rgba(2,6,23,.80);
-      box-shadow:0 24px 70px rgba(0,0,0,.42);
-      backdrop-filter: blur(12px);
-    }
-    #stageBanner{
-      top:42%;
-      min-width:min(560px, calc(100vw - 32px));
-      border-radius:24px;
-      padding:18px 20px;
-    }
-    #stageBanner .big{ font-size:40px; font-weight:1000; letter-spacing:.5px; }
-    #stageBanner .small{ margin-top:6px; font-size:14px; color:#cbd5e1; }
-    #milestoneBanner{
-      top:28%;
-      border-radius:999px;
-      padding:12px 18px;
-      font-size:26px;
-      font-weight:1000;
-    }
-    #stageBanner.show,#milestoneBanner.show{
-      opacity:1;
-      transform:translateX(-50%) scale(1);
-    }
-
-    #dangerOverlay{
-      position:fixed;
-      inset:0;
-      z-index:120;
-      pointer-events:none;
-      opacity:0;
-      background:
-        radial-gradient(circle at center, rgba(239,68,68,.00) 0%, rgba(239,68,68,.00) 44%, rgba(239,68,68,.10) 76%, rgba(239,68,68,.18) 100%);
-      transition:opacity .14s ease;
-    }
-
-    #endOverlay{
-      display:none;
-      position:fixed;
-      inset:0;
-      z-index:200;
-      background:rgba(2,6,23,.76);
-      backdrop-filter: blur(10px);
-      align-items:center;
-      justify-content:center;
-      padding:16px;
-    }
-    #endOverlay .panel{
-      width:min(980px, 100%);
-      border-radius:24px;
-      border:1px solid var(--stroke);
-      background:linear-gradient(180deg, rgba(15,23,42,.92), rgba(2,6,23,.90));
-      box-shadow:0 26px 80px rgba(0,0,0,.48);
+    .wrap{
+      max-width:920px;
+      margin:0 auto;
       padding:18px;
     }
-    #endTop{
-      text-align:center;
-      margin-bottom:14px;
-    }
-    #endTitle{ font-size:32px; font-weight:1000; }
-    #endSub{ margin-top:6px; color:#cbd5e1; font-size:14px; }
 
-    .end-match-box{
-      margin-top:12px;
-      border-radius:18px;
-      border:1px solid rgba(148,163,184,.14);
-      background:rgba(2,6,23,.54);
-      padding:12px 14px;
+    .card{
+      border-radius:22px;
+      border:1px solid var(--stroke);
+      background:var(--panel);
+      box-shadow:var(--shadow);
+      padding:16px;
     }
-    .end-match-title{
-      font-size:14px;
+
+    .title{
+      font-size:28px;
       font-weight:1000;
-      margin-bottom:8px;
-      color:#a5f3fc;
-    }
-    .end-match-line{
-      font-size:14px;
-      line-height:1.7;
-      color:#e5e7eb;
-      word-break:break-word;
+      margin:0 0 6px;
     }
 
-    .end-stats{
-      display:grid;
-      grid-template-columns:repeat(4,minmax(0,1fr));
-      gap:10px;
-      margin-top:12px;
-    }
-    .end-stat{
-      border-radius:18px;
-      border:1px solid rgba(148,163,184,.14);
-      background:rgba(2,6,23,.54);
-      padding:12px;
-      text-align:center;
-    }
-    .end-stat .k{ font-size:12px; color:var(--muted); margin-bottom:6px; }
-    .end-stat .v{ font-size:26px; font-weight:1000; }
-
-    .decision-box{
-      margin-top:14px;
-      border-radius:18px;
-      border:1px solid rgba(148,163,184,.14);
-      background:rgba(2,6,23,.54);
-      padding:12px 14px;
-      font-size:14px;
+    .muted{
+      color:var(--muted);
+      font-size:13px;
       font-weight:900;
     }
 
-    .compare-box{
+    .row{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
       margin-top:14px;
-      border-radius:18px;
-      border:1px solid rgba(148,163,184,.14);
-      background:rgba(2,6,23,.54);
-      padding:12px;
-      overflow:auto;
     }
-    .compare-title{ font-size:14px; font-weight:1000; margin-bottom:8px; }
-    table.cmp{
-      width:100%;
-      border-collapse:collapse;
-    }
-    .cmp th,.cmp td{
-      padding:10px 8px;
-      border-bottom:1px solid rgba(148,163,184,.12);
-      text-align:center;
-      font-size:13px;
-    }
-    .cmp th:first-child,.cmp td:first-child{ text-align:left; }
-    .cmp-win{
-      color:#86efac;
+
+    .btn{
+      appearance:none;
+      border:1px solid rgba(148,163,184,.22);
+      border-radius:14px;
+      padding:12px 14px;
+      min-height:46px;
+      cursor:pointer;
+      color:var(--text);
+      background:rgba(148,163,184,.10);
       font-weight:1000;
     }
 
-    .end-actions{
-      display:flex; gap:10px; flex-wrap:wrap; justify-content:center;
-      margin-top:16px;
+    .btn.primary{
+      background:var(--blue);
+      border-color:var(--blue-bd);
     }
 
-    .gj-target{
-      animation: targetBob .85s ease-in-out infinite alternate;
-    }
-    @keyframes targetBob{
-      from{ transform:translate(-50%,-50%) scale(1); }
-      to{ transform:translate(-50%,-52%) scale(1.04); }
+    .btn.good{
+      background:var(--green);
+      border-color:var(--green-bd);
     }
 
-    @media (max-width:900px){
-      .hud-top{ grid-template-columns:repeat(2,minmax(0,1fr)); }
-      .end-stats{ grid-template-columns:repeat(2,minmax(0,1fr)); }
-      .side-ai{
-        left:8px; right:8px; width:auto; bottom:calc(var(--sab) + 64px);
-      }
-      .mid-mission{ top:calc(var(--sat) + 134px); }
-      .boss-bar{ top:calc(var(--sat) + 236px); }
-      .end-actions{ justify-content:stretch; }
-      .end-actions .btn{ flex:1 1 220px; }
+    .btn.warn{
+      background:var(--amber);
+      border-color:var(--amber-bd);
+    }
+
+    .pill{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 10px;
+      border-radius:999px;
+      border:1px solid var(--stroke);
+      background:rgba(2,6,23,.42);
+      color:var(--muted);
+      font-size:12px;
+      font-weight:1000;
+      margin:4px 6px 0 0;
+    }
+
+    .pill b{ color:var(--text); }
+
+    .debug{
+      margin-top:14px;
+      padding:12px;
+      border-radius:16px;
+      border:1px solid var(--stroke);
+      background:rgba(2,6,23,.35);
+      font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+      white-space:pre-wrap;
+      word-break:break-word;
+      color:#cbd5e1;
     }
   </style>
 </head>
 <body>
-<div id="app">
-  <div id="gj-layer"></div>
+  <div class="wrap">
+    <div class="card">
+      <div class="title">🍔🆚🥦 GoodJunk</div>
+      <div class="muted">Launcher สำหรับเข้าเกม GoodJunk ผ่าน Warmup Gate</div>
 
-  <div class="hud-top">
-    <div class="hud-card"><div class="hud-k">SCORE</div><div id="hud-score" class="hud-v">0</div><div class="hud-sub">grade <span id="hud-grade">D</span></div></div>
-    <div class="hud-card"><div class="hud-k">TIME</div><div id="hud-time" class="hud-v">80</div><div class="hud-sub">miss <span id="hud-miss">0</span></div></div>
-    <div class="hud-card"><div class="hud-k">GOAL</div><div class="hud-v"><span id="hud-goal">WARM</span></div><div class="hud-sub"><span id="hud-goal-cur">0</span>/<span id="hud-goal-target">0</span> • <span id="goalDesc">—</span></div></div>
-    <div class="hud-card"><div class="hud-k">BONUS</div><div id="hud-mini" class="hud-v">—</div><div class="hud-sub">timer <span id="miniTimer">0</span></div></div>
-    <div class="hud-card"><div class="hud-k">AI RISK</div><div id="aiRisk" class="hud-v">0.00</div><div class="hud-sub"><span id="aiHint">—</span></div></div>
-  </div>
-
-  <div class="mid-mission">
-    <div class="mission-box">
-      <div class="mission-head">
-        <div id="missionTitle">WARM</div>
-        <div>mode <span id="uiRun">play</span> • <span id="uiView">mobile</span> • <span id="uiDiff">easy</span></div>
-      </div>
-      <div id="missionGoal" class="mission-goal">เก็บของดี</div>
-      <div id="missionHint" class="mission-hint">—</div>
-
-      <div class="match-chip-wrap">
-        <div class="match-chip">Best Of <span id="matchBestOfInline">3</span></div>
-        <div class="match-chip">Wins To Champion <span id="matchWinsToChampionInline">2</span></div>
-        <div class="match-chip">Status <span id="matchStatusInline">LIVE</span></div>
-        <div class="match-chip">Champion <span id="matchChampionInline">—</span></div>
+      <div style="margin-top:10px;">
+        <span class="pill"><b>PID</b>: <span id="uiPid">anon</span></span>
+        <span class="pill"><b>view</b>: <span id="uiView">mobile</span></span>
+        <span class="pill"><b>run</b>: <span id="uiRun">play</span></span>
+        <span class="pill"><b>diff</b>: <span id="uiDiff">normal</span></span>
+        <span class="pill"><b>time</b>: <span id="uiTime">80</span></span>
+        <span class="pill"><b>mode</b>: <span id="uiMode">solo</span></span>
       </div>
 
-      <div class="mission-bar"><i id="missionFill" style="--p:0%"></i></div>
+      <div class="row">
+        <button class="btn primary" id="btnStart">เริ่มเกม</button>
+        <button class="btn warn" id="btnPro">Solo PRO</button>
+        <button class="btn good" id="btnBattle">Battle</button>
+        <button class="btn" id="btnHub">กลับ Hub</button>
+        <button class="btn" id="btnOpenRun">เปิด run ตรง</button>
+      </div>
+
+      <div class="debug" id="debugBox">loading...</div>
     </div>
   </div>
 
-  <div id="bossBar" class="boss-bar">
-    <div class="boss-head">
-      <div>BOSS HP</div>
-      <div id="bossHint">—</div>
-    </div>
-    <div class="boss-track"><i id="bossFill" style="--hp:100%"></i></div>
-  </div>
+  <script>
+    function qs(k,d=''){
+      try{
+        return (new URL(location.href)).searchParams.get(k) ?? d;
+      }catch(_){
+        return d;
+      }
+    }
 
-  <div class="side-ai">
-    <div class="ai-box">
-      <div class="ai-title">🧠 AI Coach</div>
-      <div id="coachInline" class="ai-line">พร้อมแล้ว! ยิงของดี 🥦</div>
-      <div id="coachExplain" class="ai-small">prediction-ready</div>
-      <div class="ai-pill">hazard <span id="hazardInline">0.00</span></div>
-      <div class="ai-pill">win <span id="winInline">0.00</span></div>
-      <div class="ai-pill">frustration <span id="frustrationInline">0.00</span></div>
-      <div class="ai-pill">you wins <span id="matchYouWinsInline">0</span></div>
-      <div class="ai-pill">opp wins <span id="matchOppWinsInline">0</span></div>
-    </div>
-  </div>
+    function safeNum(v,d){
+      v = Number(v);
+      return Number.isFinite(v) ? v : d;
+    }
 
-  <div class="bottom-bar">
-    <div class="bottom-left">
-      <div class="mini-chip">mode <span id="modeChip">solo</span></div>
-      <div class="mini-chip">room <span id="roomChip">—</span></div>
-    </div>
-    <div class="bottom-right">
-      <button id="btnBackHub" class="btn secondary" type="button">กลับ HUB</button>
-    </div>
-  </div>
+    function normalizeHub(){
+      const raw = String(qs('hub','')).trim();
+      if(raw){
+        try{
+          return new URL(raw, location.href).toString();
+        }catch(_){}
+      }
+      try{
+        return new URL('./hub.html', location.href).toString();
+      }catch(_){
+        return './hub.html';
+      }
+    }
 
-  <div id="stageBanner">
-    <div id="stageBannerBig" class="big">TRICK MODE</div>
-    <div id="stageBannerSmall" class="small">คอมโบให้เดือดขึ้น!</div>
-  </div>
+    const GAME = {
+      cat:'nutrition',
+      game:'goodjunk',
+      runPath:'./vr-goodjunk/goodjunk-vr.html'
+    };
 
-  <div id="milestoneBanner">NICE COMBO!</div>
-  <div id="dangerOverlay"></div>
+    const ctx = {
+      pid: String(qs('pid','anon')).trim() || 'anon',
+      view: String(qs('view','mobile')).trim() || 'mobile',
+      run: String(qs('run','play')).trim() || 'play',
+      diff: String(qs('diff','normal')).trim() || 'normal',
+      time: String(safeNum(qs('time','80'), 80)),
+      seed: String(qs('seed', String(Date.now()))),
+      zone: String(qs('zone','nutrition')).trim() || 'nutrition',
+      mode: String(qs('mode','solo')).trim() || 'solo',
+      hub: normalizeHub()
+    };
 
-  <div id="endOverlay">
-    <div class="panel">
-      <div id="endTop">
-        <div id="endTitle">จบเกม</div>
-        <div id="endSub">—</div>
-      </div>
+    const uiPid = document.getElementById('uiPid');
+    const uiView = document.getElementById('uiView');
+    const uiRun = document.getElementById('uiRun');
+    const uiDiff = document.getElementById('uiDiff');
+    const uiTime = document.getElementById('uiTime');
+    const uiMode = document.getElementById('uiMode');
+    const btnStart = document.getElementById('btnStart');
+    const btnPro = document.getElementById('btnPro');
+    const btnBattle = document.getElementById('btnBattle');
+    const btnHub = document.getElementById('btnHub');
+    const btnOpenRun = document.getElementById('btnOpenRun');
+    const debugBox = document.getElementById('debugBox');
 
-      <div class="end-match-box">
-        <div class="end-match-title">Match Summary</div>
-        <div id="endMatchLine1" class="end-match-line">bestOf 3 • winsToChampion 2</div>
-        <div id="endMatchLine2" class="end-match-line">you 0 • opponent 0 • champion —</div>
-      </div>
+    uiPid.textContent = ctx.pid;
+    uiView.textContent = ctx.view;
+    uiRun.textContent = ctx.run;
+    uiDiff.textContent = ctx.diff;
+    uiTime.textContent = ctx.time;
+    uiMode.textContent = ctx.mode;
 
-      <div class="end-stats">
-        <div class="end-stat"><div class="k">GRADE</div><div id="endGrade" class="v">D</div></div>
-        <div class="end-stat"><div class="k">SCORE</div><div id="endScore" class="v">0</div></div>
-        <div class="end-stat"><div class="k">MISS</div><div id="endMiss" class="v">0</div></div>
-        <div class="end-stat"><div class="k">TIME</div><div id="endTime" class="v">0</div></div>
-      </div>
+    function copyPassthrough(u){
+      const sp = new URL(location.href).searchParams;
+      [
+        'run','diff','time','seed',
+        'studyId','phase','conditionGroup','log',
+        'view','pid','api','ai','debug','mode',
+        'room','pro','auto',
+        'planSeq','planDay','planSlot','planMode','planSlots','planIndex',
+        'autoNext','plannedGame','finalGame',
+        'zone','cdnext','grade',
+        'siteCode','schoolYear','semester','sessionOrder','blockLabel'
+      ].forEach(k=>{
+        const v = sp.get(k);
+        if(v != null && v !== '') u.searchParams.set(k, v);
+      });
+    }
 
-      <div id="endDecision" class="decision-box">—</div>
+    function buildRunUrl(extra){
+      const u = new URL(GAME.runPath, location.href);
+      copyPassthrough(u);
 
-      <div class="compare-box">
-        <div class="compare-title">Battle Compare</div>
-        <table class="cmp">
-          <thead>
-            <tr>
-              <th>Metric</th>
-              <th>YOU</th>
-              <th>OPP</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr><td>Score</td><td id="cmpYouScore">—</td><td id="cmpOppScore">—</td></tr>
-            <tr><td>Accuracy</td><td id="cmpYouAcc">—</td><td id="cmpOppAcc">—</td></tr>
-            <tr><td>Miss</td><td id="cmpYouMiss">—</td><td id="cmpOppMiss">—</td></tr>
-            <tr><td>Median RT</td><td id="cmpYouRt">—</td><td id="cmpOppRt">—</td></tr>
-            <tr><td>Finish</td><td id="cmpYouFinish">—</td><td id="cmpOppFinish">—</td></tr>
-          </tbody>
-        </table>
-      </div>
+      if(!u.searchParams.get('pid'))  u.searchParams.set('pid', ctx.pid);
+      if(!u.searchParams.get('view')) u.searchParams.set('view', ctx.view);
+      if(!u.searchParams.get('run'))  u.searchParams.set('run', ctx.run);
+      if(!u.searchParams.get('diff')) u.searchParams.set('diff', ctx.diff);
+      if(!u.searchParams.get('time')) u.searchParams.set('time', ctx.time);
+      if(!u.searchParams.get('seed')) u.searchParams.set('seed', ctx.seed);
+      if(!u.searchParams.get('zone')) u.searchParams.set('zone', ctx.zone);
+      if(!u.searchParams.get('mode')) u.searchParams.set('mode', ctx.mode);
 
-      <div id="endRematchStatus" class="decision-box">ยังไม่มีคำขอ rematch</div>
+      u.searchParams.set('hub', ctx.hub);
 
-      <div class="end-actions">
-        <button id="btnReplay" class="btn" type="button">เล่นอีกครั้ง</button>
-        <button id="btnRequestRematch" class="btn warn" type="button">Request Rematch</button>
-        <button id="btnAcceptRematch" class="btn good" type="button" style="display:none;">Accept Rematch</button>
-        <button id="btnDeclineRematch" class="btn danger" type="button" style="display:none;">Decline Rematch</button>
-        <button id="btnEndBackHub" class="btn secondary" type="button">กลับ HUB</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<script type="module">
-  import { createDefaultAIHooksFromQuery } from './ai-hooks.js';
-  import { createDefaultSoundHooksFromQuery } from './sound-hooks.js';
-  import { boot } from './goodjunk.safe.js';
-
-  const qs = (k, d='')=>{ try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(_){ return d; } };
-
-  const mode = String(qs('mode','solo')).toLowerCase();
-  const room = String(qs('room','-')).toUpperCase() || '-';
-  document.getElementById('modeChip').textContent = mode;
-  document.getElementById('roomChip').textContent = room;
-
-  const hub = String(qs('hub','../hub.html'));
-  const backHub = ()=> location.href = hub;
-
-  document.getElementById('btnBackHub').onclick = backHub;
-  document.getElementById('btnEndBackHub').onclick = backHub;
-
-  const ai = createDefaultAIHooksFromQuery();
-  const sound = createDefaultSoundHooksFromQuery();
-
-  const unlockAudio = ()=>{
-    try{ sound.unlock?.(); }catch(_){}
-    window.removeEventListener('pointerdown', unlockAudio);
-    window.removeEventListener('touchstart', unlockAudio);
-    window.removeEventListener('keydown', unlockAudio);
-  };
-  window.addEventListener('pointerdown', unlockAudio, { passive:true });
-  window.addEventListener('touchstart', unlockAudio, { passive:true });
-  window.addEventListener('keydown', unlockAudio);
-
-  window.addEventListener('goodjunk:ai-event', (ev)=>{
-    try{
-      const row = ev.detail || {};
-      if(row.eventName !== 'recommend' && row.eventName !== 'predict') return;
-      const p = row.payload || {};
-      if(typeof p.hazardRisk === 'number') document.getElementById('hazardInline').textContent = Number(p.hazardRisk).toFixed(2);
-      if(typeof p.winChance === 'number') document.getElementById('winInline').textContent = Number(p.winChance).toFixed(2);
-      if(typeof p.frustrationRisk === 'number') document.getElementById('frustrationInline').textContent = Number(p.frustrationRisk).toFixed(2);
-      if(p.coach) document.getElementById('coachInline').textContent = p.coach;
-      if(p.explainText) document.getElementById('coachExplain').textContent = p.explainText;
-    }catch(_){}
-  });
-
-  window.addEventListener('hha:solo-fx', (ev)=>{
-    try{
-      const d = ev.detail || {};
-      const stage = document.getElementById('stageBanner');
-      const ms = document.getElementById('milestoneBanner');
-
-      if(d.stageOn){
-        document.getElementById('stageBannerBig').textContent = d.stageText || 'MODE';
-        document.getElementById('stageBannerSmall').textContent =
-          d.stageText === 'BOSS BATTLE' ? 'บอสมาแล้ว! เก็บสติแล้วบุก!' :
-          d.stageText === 'TRICK MODE' ? 'เร่งคอมโบและโบนัสให้เดือด!' :
-          'ลุยต่อ!';
-        stage.classList.add('show');
-      }else{
-        stage.classList.remove('show');
+      if(extra && typeof extra === 'object'){
+        Object.entries(extra).forEach(([k,v])=>{
+          if(v === undefined || v === null || v === ''){
+            u.searchParams.delete(k);
+          }else{
+            u.searchParams.set(k, String(v));
+          }
+        });
       }
 
-      if(d.milestoneOn){
-        ms.textContent = d.milestoneText || 'NICE!';
-        ms.classList.add('show');
-      }else{
-        ms.classList.remove('show');
-      }
-    }catch(_){}
-  });
+      return u.toString();
+    }
 
-  window.addEventListener('hha:danger', (ev)=>{
-    try{
-      const danger = document.getElementById('dangerOverlay');
-      const on = !!(ev.detail && ev.detail.on);
-      danger.style.opacity = on ? '1' : '0';
-    }catch(_){}
-  });
+    function buildWarmupUrl(extraRun){
+      const u = new URL('./warmup-gate.html', location.href);
 
-  await boot({ ai, sound });
-</script>
+      u.searchParams.set('gatePhase', 'warmup');
+      u.searchParams.set('cat', GAME.cat);
+      u.searchParams.set('game', GAME.game);
+      u.searchParams.set('pid', ctx.pid);
+      u.searchParams.set('hub', ctx.hub);
+      u.searchParams.set('next', buildRunUrl(extraRun));
+      u.searchParams.set('run', ctx.run);
+      u.searchParams.set('diff', (extraRun && extraRun.diff) ? String(extraRun.diff) : ctx.diff);
+      u.searchParams.set('time', ctx.time);
+      u.searchParams.set('view', ctx.view);
+      u.searchParams.set('seed', ctx.seed);
+
+      [
+        'grade','studyId','phase','conditionGroup','log',
+        'siteCode','schoolYear','semester','sessionOrder','blockLabel'
+      ].forEach(k=>{
+        const v = String(qs(k,'')).trim();
+        if(v) u.searchParams.set(k, v);
+      });
+
+      return u.toString();
+    }
+
+    debugBox.textContent =
+      '[GoodJunk Launcher]\n' +
+      'launcher: ' + location.href + '\n' +
+      'hub:      ' + ctx.hub + '\n' +
+      'warmup:   ' + buildWarmupUrl() + '\n' +
+      'runPath:  ' + buildRunUrl() + '\n';
+
+    btnStart.onclick = ()=>{
+      location.href = buildWarmupUrl({ mode:'solo' });
+    };
+
+    btnPro.onclick = ()=>{
+      location.href = buildWarmupUrl({
+        mode:'solo',
+        diff:'hard',
+        pro:'1',
+        auto:'0'
+      });
+    };
+
+    btnBattle.onclick = ()=>{
+      const room = String(qs('room','P5A')).trim() || 'P5A';
+      location.href = buildWarmupUrl({
+        mode:'battle',
+        room,
+        auto:'1'
+      });
+    };
+
+    btnOpenRun.onclick = ()=>{
+      location.href = buildRunUrl();
+    };
+
+    btnHub.onclick = ()=>{
+      location.href = ctx.hub;
+    };
+
+    const autostart = String(qs('autostart','0')).trim() === '1';
+    if(autostart){
+      setTimeout(()=>{
+        try{
+          location.href = buildWarmupUrl();
+        }catch(err){
+          debugBox.textContent += '\nredirect failed: ' + (err && err.message ? err.message : String(err));
+        }
+      },120);
+    }
+  </script>
 </body>
 </html>
