@@ -6,7 +6,7 @@
   <title>HeroHealth — MaskCough Arcade v2</title>
   <meta name="color-scheme" content="dark light" />
   <link rel="icon" href="../favicon.ico" />
-  <link rel="stylesheet" href="./maskcough-v2.css?v=20260308b" />
+  <link rel="stylesheet" href="./maskcough-v2.css?v=20260306a" />
 </head>
 <body>
   <div id="mcfxFlash" class="mcfx-flash" aria-hidden="true"></div>
@@ -15,6 +15,7 @@
   <div class="game-shell">
     <main id="arena" class="arena" aria-label="MaskCough Arcade v2">
       <div id="world" class="world"></div>
+      <div id="hazardLayer" class="hazard-layer" aria-hidden="true"></div>
 
       <div id="bossBanner" class="boss-banner" hidden>👿 BOSS INCOMING</div>
       <div id="crosshairHint" class="crosshair-hint" hidden>🎯 cVR ยิงจากกลางจอ</div>
@@ -57,16 +58,28 @@
       <div class="controls">
         <button id="btnStart" class="btn primary" type="button">▶ เริ่มเกม</button>
         <button id="btnRetry" class="btn accent" type="button">↻ เล่นใหม่</button>
+        <button id="btnBurst" class="btn accent" type="button">💥 Burst</button>
         <button id="btnPause" class="btn" type="button">⏸ Pause</button>
         <button id="btnBack" class="btn ghost" type="button">🏰 กลับ HUB</button>
       </div>
 
       <div class="help">
-        <div><b>วิธีเล่น</b></div>
-        <div>💦 เคลียร์ให้ทัน</div>
-        <div>😷 เก็บตอนโล่ต่ำ</div>
-        <div>🤧 รอจังหวะ <b>เขียว</b> แล้วค่อย Parry</div>
-        <div>🦠 อย่าปล่อยให้ลาม</div>
+        <div><b>เกมนี้สอนอะไร</b></div>
+        <div>💦 ละอองไอจามทำให้เชื้อแพร่ได้</div>
+        <div>😷 หน้ากากช่วยป้องกันเชื้อ</div>
+        <div>🦠 ถ้าปล่อยไว้นาน เชื้อจะลามมากขึ้น</div>
+
+        <div style="margin-top:8px"><b>วิธีเล่น</b></div>
+        <div>แตะ 💦 เพื่อลดละออง</div>
+        <div>เก็บ 😷 เพื่อเพิ่มการป้องกัน</div>
+        <div>รอ 🤧 ให้ถึงจังหวะ แล้วค่อยป้องกัน</div>
+        <div>อย่าปล่อย 🦠 ให้อยู่ในพื้นที่นานเกินไป</div>
+
+        <div style="margin-top:8px"><b>สัญลักษณ์</b></div>
+        <div>💦 = ละอองไอจาม</div>
+        <div>🤧 = การไอหรือจาม</div>
+        <div>😷 = หน้ากาก</div>
+        <div>🦠 = เชื้อที่กำลังลาม</div>
       </div>
     </aside>
   </div>
@@ -74,6 +87,7 @@
   <section id="endScreen" class="end-screen" hidden>
     <div class="end-card">
       <div class="end-title">สรุปผล — MaskCough Arcade v2</div>
+
       <div class="end-grid">
         <div class="end-item"><span>Score</span><b id="sScore">0</b></div>
         <div class="end-item"><span>Combo Max</span><b id="sComboMax">0</b></div>
@@ -84,115 +98,22 @@
       </div>
 
       <div id="endBadges" class="end-badges"></div>
+
+      <div style="margin-top:12px;font-weight:1000">สรุปการเรียนรู้</div>
+      <div id="learningSummary" class="end-note"></div>
+
       <div id="endNote" class="end-note"></div>
 
       <div class="end-actions">
         <button id="btnEndRetry" class="btn accent" type="button">↻ เล่นอีกครั้ง</button>
-        <button id="btnEndBack" class="btn primary" type="button">➡ ไป Cooldown</button>
+        <button id="btnEndBack" class="btn primary" type="button">🏰 กลับ HUB</button>
       </div>
     </div>
   </section>
 
   <div id="toast" class="toast"></div>
+
   <script src="../vr/vr-ui.js?v=20260306a"></script>
-  <script type="module" src="./maskcough-v2.js?v=20260308c"></script>
-  
-  <script type="module">
-    import { buildCooldownUrlForCurrentGame } from '../gate/helpers/gate-link.js';
-
-    const qs = (k, d='') => {
-      try { return new URL(location.href).searchParams.get(k) ?? d; }
-      catch { return d; }
-    };
-
-    function goHub(){
-      const hub = qs('hub', '../hub.html');
-      location.href = hub;
-    }
-
-    function buildMaskCoughCooldownUrl(){
-      const sScore = document.getElementById('sScore')?.textContent?.trim() || '';
-      const sComboMax = document.getElementById('sComboMax')?.textContent?.trim() || '';
-      const sPerfect = document.getElementById('sPerfect')?.textContent?.trim() || '';
-      const sMiss = document.getElementById('sMiss')?.textContent?.trim() || '';
-      const sShield = document.getElementById('sShield')?.textContent?.trim() || '';
-      const sThreat = document.getElementById('sThreat')?.textContent?.trim() || '';
-      const endNote = document.getElementById('endNote')?.textContent?.trim() || '';
-      const tPhase = document.getElementById('tPhase')?.textContent?.trim() || '';
-      const tMission = document.getElementById('tMission')?.textContent?.trim() || '';
-
-      return buildCooldownUrlForCurrentGame({
-        cat: 'hygiene',
-        game: 'maskcough',
-        theme: 'maskcough',
-        fallbackHub: '../hub.html',
-        extras: {
-          sScore,
-          sComboMax,
-          sPerfect,
-          sMiss,
-          sShield,
-          sThreat,
-          endNote,
-          tPhase,
-          tMission
-        }
-      });
-    }
-
-    function goMaskCoughCooldown(){
-      location.href = buildMaskCoughCooldownUrl();
-    }
-
-    function wireMaskCoughFlow(){
-      const btnBack = document.getElementById('btnBack');
-      const btnEndBack = document.getElementById('btnEndBack');
-      const endScreen = document.getElementById('endScreen');
-
-      if (btnBack && !btnBack.dataset.hubWired) {
-        btnBack.dataset.hubWired = '1';
-        btnBack.addEventListener('click', (ev) => {
-          ev.preventDefault();
-          goHub();
-        });
-      }
-
-      if (btnEndBack && !btnEndBack.dataset.cooldownWired) {
-        btnEndBack.dataset.cooldownWired = '1';
-        btnEndBack.textContent = '➡ ไป Cooldown';
-        btnEndBack.addEventListener('click', (ev) => {
-          ev.preventDefault();
-          goMaskCoughCooldown();
-        });
-      }
-
-      if (!endScreen || endScreen.dataset.observeWired) return;
-      endScreen.dataset.observeWired = '1';
-
-      const mo = new MutationObserver(() => {
-        const endBtn = document.getElementById('btnEndBack');
-        if (endBtn && !endBtn.dataset.cooldownWired) {
-          endBtn.dataset.cooldownWired = '1';
-          endBtn.textContent = '➡ ไป Cooldown';
-          endBtn.addEventListener('click', (ev) => {
-            ev.preventDefault();
-            goMaskCoughCooldown();
-          });
-        }
-      });
-
-      mo.observe(endScreen, {
-        childList: true,
-        subtree: true,
-        attributes: true,
-        attributeFilter: ['hidden', 'class', 'style']
-      });
-    }
-
-    wireMaskCoughFlow();
-    setTimeout(wireMaskCoughFlow, 0);
-    setTimeout(wireMaskCoughFlow, 300);
-    setTimeout(wireMaskCoughFlow, 1000);
-  </script>
+  <script src="./maskcough-v2.js?v=20260306a"></script>
 </body>
 </html>
