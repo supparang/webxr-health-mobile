@@ -1,0 +1,603 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <title>HeroHealth — JumpDuck Gallery</title>
+  <meta name="color-scheme" content="dark light"/>
+  <link rel="icon" href="./favicon.ico"/>
+  <style>
+    :root{
+      --bg1:#020617; --bg2:#0b1226;
+      --panel:rgba(2,6,23,.62);
+      --panel2:rgba(15,23,42,.58);
+      --stroke:rgba(148,163,184,.18);
+      --text:#e5e7eb;
+      --muted:#94a3b8;
+      --blue:#3b82f6;
+      --good:#22c55e;
+      --warn:#f59e0b;
+      --bad:#ef4444;
+      --violet:#a78bfa;
+      --sat: env(safe-area-inset-top, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
+      --sar: env(safe-area-inset-right, 0px);
+    }
+
+    *{ box-sizing:border-box; }
+    html,body{
+      margin:0;
+      min-height:100%;
+      background:
+        radial-gradient(1200px 800px at 50% -10%, rgba(59,130,246,.20), transparent 60%),
+        radial-gradient(900px 700px at 10% 10%, rgba(167,139,250,.14), transparent 60%),
+        linear-gradient(180deg, var(--bg1), var(--bg2));
+      color:var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", Arial, sans-serif;
+    }
+
+    a{ color:inherit; text-decoration:none; }
+
+    .wrap{
+      max-width:1120px;
+      margin:0 auto;
+      padding: calc(14px + var(--sat)) calc(14px + var(--sar)) calc(20px + var(--sab)) calc(14px + var(--sal));
+    }
+
+    .topbar{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-bottom:12px;
+    }
+
+    .brand{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      padding:10px 12px;
+      border-radius:18px;
+      border:1px solid var(--stroke);
+      background:rgba(2,6,23,.48);
+      backdrop-filter:blur(10px);
+      box-shadow:0 18px 55px rgba(0,0,0,.35);
+    }
+
+    .title{
+      font-size:20px;
+      font-weight:1100;
+      margin:0;
+    }
+
+    .sub{
+      color:var(--muted);
+      font-size:12px;
+      font-weight:900;
+    }
+
+    .btn{
+      cursor:pointer;
+      border-radius:16px;
+      border:1px solid rgba(148,163,184,.22);
+      background:rgba(148,163,184,.10);
+      color:var(--text);
+      padding:10px 12px;
+      font-weight:1100;
+      min-height:44px;
+    }
+    .btn.primary{ border-color:rgba(59,130,246,.30); background:rgba(59,130,246,.16); }
+    .btn.violet{ border-color:rgba(167,139,250,.28); background:rgba(167,139,250,.14); }
+    .btn.ghost{ background:transparent; color:var(--muted); }
+
+    .grid{
+      display:grid;
+      grid-template-columns: 1.1fr .9fr;
+      gap:12px;
+    }
+    @media (max-width:960px){
+      .grid{ grid-template-columns:1fr; }
+    }
+
+    .card{
+      border-radius:22px;
+      border:1px solid var(--stroke);
+      background:var(--panel);
+      backdrop-filter:blur(10px);
+      box-shadow:0 22px 80px rgba(0,0,0,.35);
+      padding:12px;
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+    }
+
+    .sectionTitle{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    .pill{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 10px;
+      border-radius:999px;
+      border:1px solid var(--stroke);
+      background:rgba(2,6,23,.46);
+      color:var(--muted);
+      font-size:12px;
+      font-weight:950;
+      white-space:nowrap;
+    }
+    .pill b{ color:var(--text); }
+
+    .stats{
+      display:grid;
+      grid-template-columns: repeat(4, minmax(0,1fr));
+      gap:10px;
+    }
+    @media (max-width:720px){
+      .stats{ grid-template-columns: repeat(2, minmax(0,1fr)); }
+    }
+
+    .stat{
+      border-radius:16px;
+      border:1px solid rgba(148,163,184,.16);
+      background:var(--panel2);
+      padding:12px 10px;
+    }
+    .stat .k{
+      color:var(--muted);
+      font-size:11px;
+      font-weight:1000;
+    }
+    .stat .v{
+      margin-top:6px;
+      font-size:22px;
+      font-weight:1100;
+    }
+
+    .lastCard{
+      display:grid;
+      grid-template-columns:80px 1fr;
+      gap:12px;
+      align-items:center;
+    }
+    .cardIcon{
+      width:80px;
+      height:80px;
+      border-radius:20px;
+      display:grid;
+      place-items:center;
+      font-size:40px;
+      border:1px solid rgba(148,163,184,.16);
+      background:rgba(2,6,23,.36);
+      box-shadow:0 12px 30px rgba(0,0,0,.24);
+    }
+    .cardTitle{
+      font-size:18px;
+      font-weight:1100;
+    }
+    .cardMeta{
+      color:var(--muted);
+      font-size:12px;
+      font-weight:900;
+      line-height:1.45;
+      margin-top:4px;
+    }
+
+    .badgeGrid{
+      display:grid;
+      grid-template-columns: repeat(3, minmax(0,1fr));
+      gap:10px;
+    }
+    @media (max-width:720px){
+      .badgeGrid{ grid-template-columns: repeat(2, minmax(0,1fr)); }
+    }
+
+    .badgeCard{
+      border-radius:18px;
+      border:1px solid rgba(148,163,184,.16);
+      background:var(--panel2);
+      padding:12px;
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+    }
+    .badgeTop{
+      display:flex;
+      align-items:center;
+      gap:10px;
+    }
+    .badgeIcon{
+      width:48px;
+      height:48px;
+      border-radius:14px;
+      display:grid;
+      place-items:center;
+      font-size:24px;
+      border:1px solid rgba(148,163,184,.16);
+      background:rgba(2,6,23,.34);
+    }
+    .badgeName{
+      font-size:14px;
+      font-weight:1100;
+      line-height:1.2;
+    }
+    .badgeDesc{
+      color:var(--muted);
+      font-size:12px;
+      font-weight:900;
+      line-height:1.4;
+    }
+    .status{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      padding:6px 10px;
+      border-radius:999px;
+      font-size:11px;
+      font-weight:1000;
+      width:max-content;
+      border:1px solid rgba(148,163,184,.16);
+      background:rgba(2,6,23,.28);
+      color:var(--muted);
+    }
+    .status.done{
+      color:#dcfce7;
+      border-color:rgba(34,197,94,.28);
+      background:rgba(34,197,94,.14);
+    }
+
+    .bossGrid{
+      display:grid;
+      grid-template-columns: repeat(5, minmax(0,1fr));
+      gap:10px;
+    }
+    @media (max-width:960px){
+      .bossGrid{ grid-template-columns: repeat(2, minmax(0,1fr)); }
+    }
+
+    .bossCard{
+      border-radius:18px;
+      border:1px solid rgba(148,163,184,.16);
+      background:var(--panel2);
+      padding:12px;
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+      text-align:center;
+    }
+
+    .bossIcon{
+      font-size:28px;
+    }
+
+    .bookGrid{
+      display:grid;
+      grid-template-columns: repeat(4, minmax(0,1fr));
+      gap:10px;
+    }
+    @media (max-width:960px){
+      .bookGrid{ grid-template-columns: repeat(2, minmax(0,1fr)); }
+    }
+
+    .bookCard{
+      border-radius:18px;
+      border:1px solid rgba(148,163,184,.16);
+      background:var(--panel2);
+      padding:12px;
+      text-align:center;
+    }
+    .bookCard .bk{
+      color:var(--muted);
+      font-size:11px;
+      font-weight:1000;
+    }
+    .bookCard .bv{
+      margin-top:6px;
+      font-size:28px;
+      font-weight:1100;
+    }
+
+    .galleryHint{
+      color:var(--muted);
+      font-size:12px;
+      font-weight:900;
+      line-height:1.5;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+
+    <div class="topbar">
+      <div class="brand">
+        <div style="font-size:20px;">🏃🖼️</div>
+        <div>
+          <h1 class="title">JumpDuck Gallery</h1>
+          <div class="sub" id="ctxLine">สะสมการ์ด • badge • boss collection</div>
+        </div>
+      </div>
+
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <a class="btn ghost" id="btnBackHub" href="./hub.html">⬅ กลับ Hub</a>
+        <a class="btn primary" id="btnOpenJumpDuck" href="./jump-duck-vr.html">🚀 เปิด JumpDuck</a>
+        <button class="btn violet" id="btnResetGallery" type="button">♻ Reset Gallery</button>
+      </div>
+    </div>
+
+    <div class="grid">
+      <section class="card">
+        <div class="sectionTitle">
+          <div>
+            <div class="title" style="font-size:18px;">Hero Progress</div>
+            <div class="sub">ภาพรวมความคืบหน้าของ JumpDuck</div>
+          </div>
+          <span class="pill"><b>PID</b>: <span id="uiPid">anon</span></span>
+        </div>
+
+        <div class="stats">
+          <div class="stat"><div class="k">Best Score</div><div class="v" id="jdBest">0</div></div>
+          <div class="stat"><div class="k">Streak</div><div class="v" id="jdStreak">0</div></div>
+          <div class="stat"><div class="k">Badges</div><div class="v" id="jdBadgeCount">0</div></div>
+          <div class="stat"><div class="k">Cards</div><div class="v" id="jdCardTotal">0</div></div>
+        </div>
+
+        <div class="card" style="padding:12px; background:rgba(15,23,42,.44); border-radius:18px;">
+          <div class="sub">การ์ดล่าสุด</div>
+          <div class="lastCard" style="margin-top:8px;">
+            <div class="cardIcon" id="jdLastCardIcon">🏃</div>
+            <div>
+              <div class="cardTitle" id="jdLastCardTitle">ยังไม่มีการ์ดล่าสุด</div>
+              <div class="cardMeta" id="jdLastCardMeta">เล่น JumpDuck แล้วกลับมาดูที่นี่</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="sectionTitle" style="margin-top:4px;">
+          <div>
+            <div class="title" style="font-size:18px;">Card Book</div>
+            <div class="sub">สรุประดับการ์ดทั้งหมด</div>
+          </div>
+        </div>
+
+        <div class="bookGrid">
+          <div class="bookCard"><div class="bk">TOTAL</div><div class="bv" id="bookTotal">0</div></div>
+          <div class="bookCard"><div class="bk">S</div><div class="bv" id="bookS">0</div></div>
+          <div class="bookCard"><div class="bk">A</div><div class="bv" id="bookA">0</div></div>
+          <div class="bookCard"><div class="bk">B / C / D</div><div class="bv" id="bookBC">0</div></div>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="sectionTitle">
+          <div>
+            <div class="title" style="font-size:18px;">Boss Collection</div>
+            <div class="sub">ชนะบอสแต่ละสายให้ครบ</div>
+          </div>
+        </div>
+
+        <div class="bossGrid">
+          <div class="bossCard">
+            <div class="bossIcon">🎵</div>
+            <div class="badgeName">Tempo Master</div>
+            <div class="sub">tempo</div>
+            <span class="status" id="bossTempoStatus">LOCKED</span>
+            <div class="galleryHint">wins: <span id="bossTempoWins">0</span></div>
+          </div>
+
+          <div class="bossCard">
+            <div class="bossIcon">🧠</div>
+            <div class="badgeName">Mind Reader</div>
+            <div class="sub">feint</div>
+            <span class="status" id="bossFeintStatus">LOCKED</span>
+            <div class="galleryHint">wins: <span id="bossFeintWins">0</span></div>
+          </div>
+
+          <div class="bossCard">
+            <div class="bossIcon">🛡️</div>
+            <div class="badgeName">Shield Breaker</div>
+            <div class="sub">shield</div>
+            <span class="status" id="bossShieldStatus">LOCKED</span>
+            <div class="galleryHint">wins: <span id="bossShieldWins">0</span></div>
+          </div>
+
+          <div class="bossCard">
+            <div class="bossIcon">🪞</div>
+            <div class="badgeName">Mirror Runner</div>
+            <div class="sub">mirror</div>
+            <span class="status" id="bossMirrorStatus">LOCKED</span>
+            <div class="galleryHint">wins: <span id="bossMirrorWins">0</span></div>
+          </div>
+
+          <div class="bossCard">
+            <div class="bossIcon">🌪️</div>
+            <div class="badgeName">Storm Runner</div>
+            <div class="sub">chaos</div>
+            <span class="status" id="bossChaosStatus">LOCKED</span>
+            <div class="galleryHint">wins: <span id="bossChaosWins">0</span></div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <section class="card" style="margin-top:12px;">
+      <div class="sectionTitle">
+        <div>
+          <div class="title" style="font-size:18px;">Badge Gallery</div>
+          <div class="sub">badge จากความสามารถและความสม่ำเสมอ</div>
+        </div>
+      </div>
+
+      <div class="badgeGrid">
+        <div class="badgeCard">
+          <div class="badgeTop">
+            <div class="badgeIcon">⚡</div>
+            <div>
+              <div class="badgeName">S Rank</div>
+              <div class="badgeDesc">จบเกมด้วยระดับ S</div>
+            </div>
+          </div>
+          <span class="status" id="badgeRankS">LOCKED</span>
+        </div>
+
+        <div class="badgeCard">
+          <div class="badgeTop">
+            <div class="badgeIcon">✅</div>
+            <div>
+              <div class="badgeName">No Miss</div>
+              <div class="badgeDesc">จบเกมโดยไม่พลาด</div>
+            </div>
+          </div>
+          <span class="status" id="badgeNoMiss">LOCKED</span>
+        </div>
+
+        <div class="badgeCard">
+          <div class="badgeTop">
+            <div class="badgeIcon">👾</div>
+            <div>
+              <div class="badgeName">Boss Down</div>
+              <div class="badgeDesc">ชนะบอสจนด่านจบ</div>
+            </div>
+          </div>
+          <span class="status" id="badgeBossDown">LOCKED</span>
+        </div>
+
+        <div class="badgeCard">
+          <div class="badgeTop">
+            <div class="badgeIcon">🔥</div>
+            <div>
+              <div class="badgeName">Combo 12</div>
+              <div class="badgeDesc">ทำคอมโบสูงสุด 12+</div>
+            </div>
+          </div>
+          <span class="status" id="badgeCombo12">LOCKED</span>
+        </div>
+
+        <div class="badgeCard">
+          <div class="badgeTop">
+            <div class="badgeIcon">🎯</div>
+            <div>
+              <div class="badgeName">Accuracy 85</div>
+              <div class="badgeDesc">ความแม่นยำ 85% ขึ้นไป</div>
+            </div>
+          </div>
+          <span class="status" id="badgeAcc85">LOCKED</span>
+        </div>
+
+        <div class="badgeCard">
+          <div class="badgeTop">
+            <div class="badgeIcon">🏅</div>
+            <div>
+              <div class="badgeName">Last Reward</div>
+              <div class="badgeDesc" id="lastRewardDesc">ยังไม่มีรางวัลล่าสุด</div>
+            </div>
+          </div>
+          <span class="status done" id="lastRewardLabel">—</span>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const qs = (k,d='')=>{ try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(_){ return d; } };
+    const pid = String(qs('pid','anon')).trim() || 'anon';
+
+    document.getElementById('uiPid').textContent = pid;
+
+    function loadJson(key, fallback){
+      try{
+        const raw = localStorage.getItem(key);
+        return raw ? JSON.parse(raw) : fallback;
+      }catch(_){ return fallback; }
+    }
+
+    function statusEl(id, on, onText='UNLOCKED', offText='LOCKED'){
+      const el = document.getElementById(id);
+      if(!el) return;
+      el.textContent = on ? onText : offText;
+      el.className = 'status' + (on ? ' done' : '');
+    }
+
+    function render(){
+      const profile = loadJson(`JD_PROFILE:${pid}`, {});
+      const book = loadJson(`JD_CARD_BOOK:${pid}`, {S:0,A:0,B:0,C:0,total:0});
+      const lastCard = loadJson(`JD_LAST_CARD:${pid}`, null);
+
+      document.getElementById('jdBest').textContent = String(profile.bestScore || 0);
+      document.getElementById('jdStreak').textContent = String(profile.streak || 0);
+      document.getElementById('jdBadgeCount').textContent = String(Object.values(profile.badges || {}).filter(Boolean).length);
+      document.getElementById('jdCardTotal').textContent = String(book.total || 0);
+
+      document.getElementById('bookTotal').textContent = String(book.total || 0);
+      document.getElementById('bookS').textContent = String(book.S || 0);
+      document.getElementById('bookA').textContent = String(book.A || 0);
+      document.getElementById('bookBC').textContent = String((book.B || 0) + (book.C || 0));
+
+      if(lastCard){
+        document.getElementById('jdLastCardIcon').textContent = lastCard.icon || '🏃';
+        document.getElementById('jdLastCardTitle').textContent = lastCard.title || 'Latest JumpDuck Card';
+        document.getElementById('jdLastCardMeta').textContent =
+          `rank=${lastCard.rank || '-'} • reward=${lastCard.rewardLabel || '-'} • score ${lastCard.scoreFinal ?? 0}`;
+      }
+
+      const badges = profile.badges || {};
+      statusEl('badgeRankS', !!badges.rankS);
+      statusEl('badgeNoMiss', !!badges.noMiss);
+      statusEl('badgeBossDown', !!badges.bossDown);
+      statusEl('badgeCombo12', !!badges.combo12);
+      statusEl('badgeAcc85', !!badges.acc85);
+
+      const lastReward = profile.lastReward || null;
+      document.getElementById('lastRewardDesc').textContent =
+        lastReward ? 'รางวัลล่าสุดจากการเล่นรอบล่าสุด' : 'ยังไม่มีรางวัลล่าสุด';
+      document.getElementById('lastRewardLabel').textContent =
+        lastReward ? `${lastReward.medal} ${lastReward.label}` : '—';
+
+      const bossWins = profile.bossWins || {};
+
+      document.getElementById('bossTempoWins').textContent = String(bossWins.tempo || 0);
+      document.getElementById('bossFeintWins').textContent = String(bossWins.feint || 0);
+      document.getElementById('bossShieldWins').textContent = String(bossWins.shield || 0);
+      document.getElementById('bossMirrorWins').textContent = String(bossWins.mirror || 0);
+      document.getElementById('bossChaosWins').textContent = String(bossWins.chaos || 0);
+
+      statusEl('bossTempoStatus', !!badges.bossTempo);
+      statusEl('bossFeintStatus', !!badges.bossFeint);
+      statusEl('bossShieldStatus', !!badges.bossShield);
+      statusEl('bossMirrorStatus', !!badges.bossMirror);
+      statusEl('bossChaosStatus', !!badges.bossChaos);
+
+      const btnOpen = document.getElementById('btnOpenJumpDuck');
+      const btnBack = document.getElementById('btnBackHub');
+
+      const here = new URL(location.href);
+      const hub = qs('hub','./hub.html');
+
+      btnOpen.href = `./jump-duck-vr.html?pid=${encodeURIComponent(pid)}&hub=${encodeURIComponent(hub)}&zone=fitness`;
+      btnBack.href = hub;
+    }
+
+    document.getElementById('btnResetGallery').onclick = ()=>{
+      try{
+        if(!confirm('Reset JumpDuck Gallery ของ PID นี้?')) return;
+        localStorage.removeItem(`JD_PROFILE:${pid}`);
+        localStorage.removeItem(`JD_CARD_BOOK:${pid}`);
+        localStorage.removeItem(`JD_LAST_CARD:${pid}`);
+        localStorage.removeItem(`HHA_JD_BEST:${pid}`);
+        render();
+        alert('Reset JumpDuck Gallery เรียบร้อย ✅');
+      }catch(_){}
+    };
+
+    render();
+    window.addEventListener('focus', render);
+  </script>
+</body>
+</html>
