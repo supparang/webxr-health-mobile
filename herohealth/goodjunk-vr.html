@@ -1,3 +1,12 @@
+<!-- === /herohealth/goodjunk-vr.html ===
+HeroHealth — GoodJunk Launcher
+PATCH v20260309-GOODJUNK-LAUNCHER-WARMUP-r2
+✅ Enter via warmup gate
+✅ No forced redirect unless autostart=1
+✅ Keep raw passthrough context
+✅ Safer gate params (use gatePhase, keep research phase if provided)
+✅ Solo / Solo PRO / Battle / Open Run / Back HUB
+-->
 <!doctype html>
 <html lang="th">
 <head>
@@ -8,46 +17,105 @@
   <link rel="icon" href="./favicon.ico" />
   <style>
     :root{
-      --bg1:#020617; --bg2:#0b1226;
+      --bg1:#020617;
+      --bg2:#0b1226;
       --panel:rgba(2,6,23,.72);
       --stroke:rgba(148,163,184,.18);
-      --text:#e5e7eb; --muted:#94a3b8;
+      --text:#e5e7eb;
+      --muted:#94a3b8;
+      --blue:rgba(59,130,246,.16);
+      --blue-bd:rgba(59,130,246,.34);
+      --green:rgba(34,197,94,.14);
+      --green-bd:rgba(34,197,94,.32);
+      --amber:rgba(245,158,11,.14);
+      --amber-bd:rgba(245,158,11,.32);
+      --shadow:0 18px 55px rgba(0,0,0,.28);
     }
-    *{box-sizing:border-box}
+    *{ box-sizing:border-box; }
     html,body{
-      margin:0; min-height:100%;
+      margin:0;
+      min-height:100%;
       background:
         radial-gradient(1000px 700px at 50% -10%, rgba(59,130,246,.18), transparent 60%),
         linear-gradient(180deg,var(--bg1),var(--bg2));
       color:var(--text);
       font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Thai",Arial,sans-serif;
     }
-    .wrap{max-width:920px;margin:0 auto;padding:18px}
+    .wrap{
+      max-width:920px;
+      margin:0 auto;
+      padding:18px;
+    }
     .card{
-      border-radius:22px;border:1px solid var(--stroke);background:var(--panel);
-      box-shadow:0 18px 55px rgba(0,0,0,.28);padding:16px;
+      border-radius:22px;
+      border:1px solid var(--stroke);
+      background:var(--panel);
+      box-shadow:var(--shadow);
+      padding:16px;
     }
-    .title{font-size:28px;font-weight:1000;margin:0 0 6px}
-    .muted{color:var(--muted);font-size:13px;font-weight:900}
-    .row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+    .title{
+      font-size:28px;
+      font-weight:1000;
+      margin:0 0 6px;
+    }
+    .muted{
+      color:var(--muted);
+      font-size:13px;
+      font-weight:900;
+    }
+    .row{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-top:14px;
+    }
     .btn{
-      appearance:none;border:1px solid rgba(148,163,184,.22);border-radius:14px;
-      padding:12px 14px;min-height:46px;cursor:pointer;color:var(--text);
-      background:rgba(148,163,184,.10);font-weight:1000;
+      appearance:none;
+      border:1px solid rgba(148,163,184,.22);
+      border-radius:14px;
+      padding:12px 14px;
+      min-height:46px;
+      cursor:pointer;
+      color:var(--text);
+      background:rgba(148,163,184,.10);
+      font-weight:1000;
     }
-    .btn.primary{background:rgba(59,130,246,.16);border-color:rgba(59,130,246,.34)}
-    .btn.good{background:rgba(34,197,94,.14);border-color:rgba(34,197,94,.32)}
-    .btn.warn{background:rgba(245,158,11,.14);border-color:rgba(245,158,11,.32)}
+    .btn.primary{
+      background:var(--blue);
+      border-color:var(--blue-bd);
+    }
+    .btn.good{
+      background:var(--green);
+      border-color:var(--green-bd);
+    }
+    .btn.warn{
+      background:var(--amber);
+      border-color:var(--amber-bd);
+    }
     .pill{
-      display:inline-flex;align-items:center;gap:8px;padding:8px 10px;border-radius:999px;
-      border:1px solid var(--stroke);background:rgba(2,6,23,.42);color:var(--muted);
-      font-size:12px;font-weight:1000;margin:4px 6px 0 0;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 10px;
+      border-radius:999px;
+      border:1px solid var(--stroke);
+      background:rgba(2,6,23,.42);
+      color:var(--muted);
+      font-size:12px;
+      font-weight:1000;
+      margin:4px 6px 0 0;
     }
-    .pill b{color:var(--text)}
+    .pill b{ color:var(--text); }
     .debug{
-      margin-top:14px;padding:12px;border-radius:16px;border:1px solid var(--stroke);
-      background:rgba(2,6,23,.35);font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
-      white-space:pre-wrap;word-break:break-word;color:#cbd5e1;
+      margin-top:14px;
+      padding:12px;
+      border-radius:16px;
+      border:1px solid var(--stroke);
+      background:rgba(2,6,23,.35);
+      font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+      white-space:pre-wrap;
+      word-break:break-word;
+      color:#cbd5e1;
     }
   </style>
 </head>
@@ -79,93 +147,188 @@
   </div>
 
   <script>
-    function qs(k,d=''){ try{return (new URL(location.href)).searchParams.get(k) ?? d;}catch(_){return d;} }
-    function safeNum(v,d){ v=Number(v); return Number.isFinite(v)?v:d; }
-    function normalizeHub(){ const raw=String(qs('hub','')).trim(); if(raw) return raw; try{return new URL('./hub.html', location.href).toString();}catch(_){ return './hub.html'; } }
+    function qs(k,d=''){
+      try{
+        return (new URL(location.href)).searchParams.get(k) ?? d;
+      }catch(_){
+        return d;
+      }
+    }
 
-    const GAME = { cat:'nutrition', theme:'goodjunk', game:'goodjunk', runPath:'./goodjunk-vr.html' };
-    const ctx = {
-      pid:String(qs('pid','anon')).trim()||'anon',
-      view:String(qs('view','mobile')).trim()||'mobile',
-      run:String(qs('run','play')).trim()||'play',
-      diff:String(qs('diff','normal')).trim()||'normal',
-      time:String(safeNum(qs('time','80'),80)),
-      seed:String(qs('seed', String(Date.now()))),
-      zone:String(qs('zone','nutrition')).trim()||'nutrition',
-      mode:String(qs('mode','solo')).trim()||'solo',
-      hub:normalizeHub()
+    function safeNum(v,d){
+      v = Number(v);
+      return Number.isFinite(v) ? v : d;
+    }
+
+    function normalizeHub(){
+      const raw = String(qs('hub','')).trim();
+      if(raw){
+        try{ return new URL(raw, location.href).toString(); }
+        catch(_){}
+      }
+      try{
+        return new URL('./hub.html', location.href).toString();
+      }catch(_){
+        return './hub.html';
+      }
+    }
+
+    const GAME = {
+      cat:'nutrition',
+      game:'goodjunk',
+      runPath:'./goodjunk-vr.html'
     };
 
-    uiPid.textContent=ctx.pid; uiView.textContent=ctx.view; uiRun.textContent=ctx.run; uiDiff.textContent=ctx.diff; uiTime.textContent=ctx.time; uiMode.textContent=ctx.mode;
+    const ctx = {
+      pid: String(qs('pid','anon')).trim() || 'anon',
+      view: String(qs('view','mobile')).trim() || 'mobile',
+      run: String(qs('run','play')).trim() || 'play',
+      diff: String(qs('diff','normal')).trim() || 'normal',
+      time: String(safeNum(qs('time','80'), 80)),
+      seed: String(qs('seed', String(Date.now()))),
+      zone: String(qs('zone','nutrition')).trim() || 'nutrition',
+      mode: String(qs('mode','solo')).trim() || 'solo',
+      hub: normalizeHub()
+    };
+
+    const uiPid = document.getElementById('uiPid');
+    const uiView = document.getElementById('uiView');
+    const uiRun = document.getElementById('uiRun');
+    const uiDiff = document.getElementById('uiDiff');
+    const uiTime = document.getElementById('uiTime');
+    const uiMode = document.getElementById('uiMode');
+    const btnStart = document.getElementById('btnStart');
+    const btnPro = document.getElementById('btnPro');
+    const btnBattle = document.getElementById('btnBattle');
+    const btnHub = document.getElementById('btnHub');
+    const btnOpenRun = document.getElementById('btnOpenRun');
+    const debugBox = document.getElementById('debugBox');
+
+    uiPid.textContent = ctx.pid;
+    uiView.textContent = ctx.view;
+    uiRun.textContent = ctx.run;
+    uiDiff.textContent = ctx.diff;
+    uiTime.textContent = ctx.time;
+    uiMode.textContent = ctx.mode;
 
     function copyPassthrough(u){
-      const sp=new URL(location.href).searchParams;
-      ['run','diff','time','seed','studyId','phase','conditionGroup','log','view','pid','api','ai','debug','mode','room','pro','auto','planSeq','planDay','planSlot','planMode','planSlots','planIndex','autoNext','plannedGame','finalGame','zone','cdnext','grade']
-      .forEach(k=>{ const v=sp.get(k); if(v!=null&&v!=='') u.searchParams.set(k,v); });
+      const sp = new URL(location.href).searchParams;
+      [
+        'run','diff','time','seed',
+        'studyId','phase','conditionGroup','log',
+        'view','pid','api','ai','debug','mode',
+        'room','pro','auto',
+        'planSeq','planDay','planSlot','planMode','planSlots','planIndex',
+        'autoNext','plannedGame','finalGame',
+        'zone','cdnext','grade',
+        'siteCode','schoolYear','semester','sessionOrder','blockLabel'
+      ].forEach(k=>{
+        const v = sp.get(k);
+        if(v != null && v !== '') u.searchParams.set(k, v);
+      });
     }
 
     function buildRunUrl(extra){
-      const u=new URL(GAME.runPath, location.href);
+      const u = new URL(GAME.runPath, location.href);
       copyPassthrough(u);
-      if(!u.searchParams.get('pid')) u.searchParams.set('pid', ctx.pid);
+
+      if(!u.searchParams.get('pid'))  u.searchParams.set('pid', ctx.pid);
       if(!u.searchParams.get('view')) u.searchParams.set('view', ctx.view);
-      if(!u.searchParams.get('run')) u.searchParams.set('run', ctx.run);
+      if(!u.searchParams.get('run'))  u.searchParams.set('run', ctx.run);
       if(!u.searchParams.get('diff')) u.searchParams.set('diff', ctx.diff);
       if(!u.searchParams.get('time')) u.searchParams.set('time', ctx.time);
       if(!u.searchParams.get('seed')) u.searchParams.set('seed', ctx.seed);
       if(!u.searchParams.get('zone')) u.searchParams.set('zone', ctx.zone);
       if(!u.searchParams.get('mode')) u.searchParams.set('mode', ctx.mode);
+
       u.searchParams.set('hub', ctx.hub);
 
       if(extra && typeof extra === 'object'){
         Object.entries(extra).forEach(([k,v])=>{
-          if(v===undefined || v===null || v==='') u.searchParams.delete(k);
-          else u.searchParams.set(k, String(v));
+          if(v === undefined || v === null || v === ''){
+            u.searchParams.delete(k);
+          }else{
+            u.searchParams.set(k, String(v));
+          }
         });
       }
+
       return u.toString();
     }
 
     function buildWarmupUrl(extraRun){
-      const u=new URL('./warmup-gate.html', location.href);
-      u.searchParams.set('gatePhase','warmup');
-      u.searchParams.set('phase','warmup');
+      const u = new URL('./warmup-gate.html', location.href);
+
+      u.searchParams.set('gatePhase', 'warmup');
       u.searchParams.set('cat', GAME.cat);
-      u.searchParams.set('theme', GAME.theme);
       u.searchParams.set('game', GAME.game);
       u.searchParams.set('pid', ctx.pid);
       u.searchParams.set('hub', ctx.hub);
       u.searchParams.set('next', buildRunUrl(extraRun));
       u.searchParams.set('run', ctx.run);
-      u.searchParams.set('diff', extraRun?.diff || ctx.diff);
+      u.searchParams.set('diff', (extraRun && extraRun.diff) ? String(extraRun.diff) : ctx.diff);
       u.searchParams.set('time', ctx.time);
       u.searchParams.set('view', ctx.view);
       u.searchParams.set('seed', ctx.seed);
 
-      ['grade','studyId','conditionGroup','log'].forEach(k=>{
-        const v=String(qs(k,'')).trim();
-        if(v) u.searchParams.set(k,v);
+      [
+        'grade','studyId','phase','conditionGroup','log',
+        'siteCode','schoolYear','semester','sessionOrder','blockLabel'
+      ].forEach(k=>{
+        const v = String(qs(k,'')).trim();
+        if(v) u.searchParams.set(k, v);
       });
+
       return u.toString();
     }
 
     debugBox.textContent =
-      '[GoodJunk Launcher]\\n' +
-      'launcher: ' + location.href + '\\n' +
-      'hub:      ' + ctx.hub + '\\n' +
-      'warmup:   ' + buildWarmupUrl() + '\\n' +
-      'runPath:  ' + buildRunUrl() + '\\n';
+      '[GoodJunk Launcher]\n' +
+      'launcher: ' + location.href + '\n' +
+      'hub:      ' + ctx.hub + '\n' +
+      'warmup:   ' + buildWarmupUrl() + '\n' +
+      'runPath:  ' + buildRunUrl() + '\n';
 
-    btnStart.onclick = ()=> location.href = buildWarmupUrl({ mode:'solo' });
-    btnPro.onclick = ()=> location.href = buildWarmupUrl({ mode:'solo', diff:'hard', pro:'1', auto:'0' });
-    btnBattle.onclick = ()=>{
-      const room = String(qs('room','P5A')) || 'P5A';
-      location.href = buildWarmupUrl({ mode:'battle', room, auto:'1' });
+    btnStart.onclick = ()=>{
+      location.href = buildWarmupUrl({ mode:'solo' });
     };
-    btnOpenRun.onclick = ()=> location.href = buildRunUrl();
-    btnHub.onclick = ()=> location.href = ctx.hub;
 
-    setTimeout(()=>{ try{ location.href = buildWarmupUrl(); }catch(err){ debugBox.textContent += '\\nredirect failed: ' + (err?.message || String(err)); } },120);
+    btnPro.onclick = ()=>{
+      location.href = buildWarmupUrl({
+        mode:'solo',
+        diff:'hard',
+        pro:'1',
+        auto:'0'
+      });
+    };
+
+    btnBattle.onclick = ()=>{
+      const room = String(qs('room','P5A')).trim() || 'P5A';
+      location.href = buildWarmupUrl({
+        mode:'battle',
+        room,
+        auto:'1'
+      });
+    };
+
+    btnOpenRun.onclick = ()=>{
+      location.href = buildRunUrl();
+    };
+
+    btnHub.onclick = ()=>{
+      location.href = ctx.hub;
+    };
+
+    const autostart = String(qs('autostart','0')).trim() === '1';
+    if(autostart){
+      setTimeout(()=>{
+        try{
+          location.href = buildWarmupUrl();
+        }catch(err){
+          debugBox.textContent += '\nredirect failed: ' + (err && err.message ? err.message : String(err));
+        }
+      }, 120);
+    }
   </script>
 </body>
 </html>
