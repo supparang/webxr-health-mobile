@@ -1,6 +1,6 @@
 // === /herohealth/vr/battle-rtdb.js ===
-// Firebase RTDB Battle — v10 (best-of configurable + champion event + soft reset match + round history)
-// FULL PATCH v20260308-BATTLE-RTDB-V10-HISTORY
+// Firebase RTDB Battle — v11 (activePlayers fix + proper unsubscribe + stale cleanup)
+// FULL PATCH v20260308-BATTLE-RTDB-V11-ACTIVEPLAYERS
 'use strict';
 
 const WIN = (typeof window !== 'undefined') ? window : globalThis;
@@ -174,7 +174,7 @@ export async function initBattle(opts){
   const {
     initializeApp, getApps, getApp,
     getDatabase, ref, get, set, update, push,
-    onValue, off, runTransaction, serverTimestamp, onDisconnect
+    onValue, runTransaction, serverTimestamp, onDisconnect, remove
   } = fb;
 
   const app = getApps().length ? getApp() : initializeApp(fbCfg);
@@ -357,6 +357,19 @@ export async function initBattle(opts){
     }
   }
 
+  async function cleanupStaleDisconnectedPlayers(allPlayers){
+    const now = serverNow();
+    const stalePlayers = (allPlayers || []).filter(p =>
+      p.connected === false && (now - Number(p.lastSeenMs || 0) > 30000)
+    );
+
+    for(const p of stalePlayers){
+      try{
+        await remove(ref(db, `${base}/players/${p.key}`));
+      }catch(_){}
+    }
+  }
+
   async function joinPlayer(){
     const stateSnap = await get(stateRef).catch(()=>null);
     const st = stateSnap?.val() || {};
@@ -364,11 +377,21 @@ export async function initBattle(opts){
 
     const playersSnap = await get(playersRef).catch(()=>null);
     const rawPlayers = playersSnap?.val() || {};
-    const existingPlayers = Object.keys(rawPlayers)
+
+    const allPlayers = Object.keys(rawPlayers)
       .map(k => normalizePlayer(rawPlayers[k], k))
       .sort((a,b)=>(a.joinedAtMs||0)-(b.joinedAtMs||0));
 
-    const existingMine = existingPlayers.find(p => p.key === meKey || p.pid === pid) || null;
+    await cleanupStaleDisconnectedPlayers(allPlayers);
+
+    const playersSnap2 = await get(playersRef).catch(()=>null);
+    const rawPlayers2 = playersSnap2?.val() || {};
+    const allPlayers2 = Object.keys(rawPlayers2)
+      .map(k => normalizePlayer(rawPlayers2[k], k))
+      .sort((a,b)=>(a.joinedAtMs||0)-(b.joinedAtMs||0));
+
+    const activePlayers = allPlayers2.filter(p => p.connected !== false);
+    const existingMine = allPlayers2.find(p => p.key === meKey || p.pid === pid) || null;
 
     if(existingMine){
       currentRole = 'player';
@@ -397,7 +420,7 @@ export async function initBattle(opts){
       return;
     }
 
-    if(existingPlayers.length >= 2){
+    if(activePlayers.length >= 2){
       roomFullFlag = true;
 
       if(phase === 'countdown' || phase === 'running' || phase === 'ended'){
@@ -724,13 +747,18 @@ export async function initBattle(opts){
 
     const playerCountSnap = await get(playersRef).catch(()=>null);
     const playersRaw = playerCountSnap?.val() || {};
-    const realKeys = Object.keys(playersRaw).slice(0,2);
-    const acceptedKeys = realKeys.filter(k => votes[k]?.accepted === true && votes[k]?.declined !== true);
+    const activeKeys = Object.keys(playersRaw)
+      .map(k => normalizePlayer(playersRaw[k], k))
+      .filter(p => p.connected !== false)
+      .slice(0,2)
+      .map(p => p.key);
+
+    const acceptedKeys = activeKeys.filter(k => votes[k]?.accepted === true && votes[k]?.declined !== true);
 
     currentRematch = { ...(rm || {}), votes };
     emitRematchState(currentRematch);
 
-    if(realKeys.length >= 2 && acceptedKeys.length >= 2){
+    if(activeKeys.length >= 2 && acceptedKeys.length >= 2){
       const nextRoundId = String(rm.roundId || `r_${Date.now()}`);
       currentRoundId = nextRoundId;
       await resetPlayersForNewRound(nextRoundId);
@@ -829,12 +857,12 @@ export async function initBattle(opts){
     unsubscribers = [];
   }
 
-  const offOffset = onValue(offsetRef, (snap)=>{
+  const unsubOffset = onValue(offsetRef, (snap)=>{
     serverTimeOffset = Number(snap.val() || 0) || 0;
   });
-  unsubscribers.push(()=> off(offsetRef, 'value', offOffset));
+  unsubscribers.push(unsubOffset);
 
-  const offState = onValue(stateRef, async (snap)=>{
+  const unsubState = onValue(stateRef, async (snap)=>{
     if(localDestroyed) return;
     const st = snap.val() || {};
     currentRoundId = String(st.roundId || currentRoundId || '');
@@ -855,18 +883,19 @@ export async function initBattle(opts){
 
     await maybeStartRunning(st);
   });
-  unsubscribers.push(()=> off(stateRef, 'value', offState));
+  unsubscribers.push(unsubState);
 
-  const offPlayers = onValue(playersRef, async (snap)=>{
+  const unsubPlayers = onValue(playersRef, async (snap)=>{
     if(localDestroyed) return;
     const raw = snap.val() || {};
     const allPlayers = Object.keys(raw)
       .map(k => normalizePlayer(raw[k], k))
       .sort((a,b)=>(a.joinedAtMs||0)-(b.joinedAtMs||0));
 
-    roomFullFlag = allPlayers.length > 2;
+    const activePlayers = allPlayers.filter(p => p.connected !== false);
+    roomFullFlag = activePlayers.length >= 2;
 
-    const players = allPlayers.slice(0,2);
+    const players = activePlayers.slice(0,2);
     emitPlayers(players);
 
     const me = players.find(p => p.key === meKey) || null;
@@ -884,16 +913,16 @@ export async function initBattle(opts){
     await markForfeitIfNeeded(players, st);
     await finalizeIfRoundFinished(players, st);
   });
-  unsubscribers.push(()=> off(playersRef, 'value', offPlayers));
+  unsubscribers.push(unsubPlayers);
 
-  const offRematch = onValue(rematchRef, (snap)=>{
+  const unsubRematch = onValue(rematchRef, (snap)=>{
     if(localDestroyed) return;
     currentRematch = snap.val() || { roundId:'', requestedBy:'', requestedAtMs:0, votes:{} };
     emitRematchState(currentRematch);
   });
-  unsubscribers.push(()=> off(rematchRef, 'value', offRematch));
+  unsubscribers.push(unsubRematch);
 
-  const offMatch = onValue(matchRef, (snap)=>{
+  const unsubMatch = onValue(matchRef, (snap)=>{
     if(localDestroyed) return;
     const m = snap.val() || {};
     currentMatch = {
@@ -906,7 +935,7 @@ export async function initBattle(opts){
     };
     emitMatchState(currentMatch);
   });
-  unsubscribers.push(()=> off(matchRef, 'value', offMatch));
+  unsubscribers.push(unsubMatch);
 
   await ensureMeta();
   await ensureMatchIfMissing();
@@ -952,7 +981,7 @@ export async function adminOpenRoomTools(opts){
   const fb = await loadFirebase();
   const {
     initializeApp, getApps, getApp,
-    getDatabase, ref, set, update, get, remove, onValue, off, serverTimestamp
+    getDatabase, ref, set, update, get, remove, onValue, serverTimestamp
   } = fb;
 
   const app = getApps().length ? getApp() : initializeApp(fbCfg);
@@ -968,9 +997,7 @@ export async function adminOpenRoomTools(opts){
   const roundHistoryRef = ref(db, `${base}/roundHistory`);
 
   function watchRef(targetRef, cb){
-    const handler = snap => cb(snap.val() || {});
-    onValue(targetRef, handler);
-    return ()=> off(targetRef, 'value', handler);
+    return onValue(targetRef, snap => cb(snap.val() || {}));
   }
 
   async function forceCountdown(sec=3){
