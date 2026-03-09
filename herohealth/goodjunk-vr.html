@@ -165,24 +165,24 @@
       return Number.isFinite(v) ? v : d;
     }
 
+    function safeAbsUrl(raw, fallback){
+      const s = String(raw || '').trim();
+      if(s){
+        try{ return new URL(s, location.href).toString(); }catch(_){}
+      }
+      try{ return new URL(fallback, location.href).toString(); }catch(_){ return fallback; }
+    }
+
     function normalizeHub(){
-      const raw = String(qs('hub','')).trim();
-      if(raw){
-        try{
-          return new URL(raw, location.href).toString();
-        }catch(_){}
-      }
-      try{
-        return new URL('./hub.html', location.href).toString();
-      }catch(_){
-        return './hub.html';
-      }
+      return safeAbsUrl(qs('hub',''), './hub.html');
     }
 
     const GAME = {
-      cat:'nutrition',
-      game:'goodjunk',
-      runPath:'./vr-goodjunk/goodjunk-vr.html'
+      cat: 'nutrition',
+      game: 'goodjunk',
+      launcherPath: './goodjunk-vr.html',
+      gatePath: './warmup-gate.html',
+      runPath: './vr-goodjunk/goodjunk-vr.html'
     };
 
     const ctx = {
@@ -223,11 +223,12 @@
         'run','diff','time','seed',
         'studyId','phase','conditionGroup','log',
         'view','pid','api','ai','debug','mode',
-        'room','pro','auto',
+        'room','pro','auto','battle',
         'planSeq','planDay','planSlot','planMode','planSlots','planIndex',
         'autoNext','plannedGame','finalGame',
         'zone','cdnext','grade',
-        'siteCode','schoolYear','semester','sessionOrder','blockLabel'
+        'siteCode','schoolYear','semester','sessionOrder','blockLabel',
+        'research','wait','bestOf','forfeit','autostart'
       ].forEach(k=>{
         const v = sp.get(k);
         if(v != null && v !== '') u.searchParams.set(k, v);
@@ -246,7 +247,6 @@
       if(!u.searchParams.get('seed')) u.searchParams.set('seed', ctx.seed);
       if(!u.searchParams.get('zone')) u.searchParams.set('zone', ctx.zone);
       if(!u.searchParams.get('mode')) u.searchParams.set('mode', ctx.mode);
-
       u.searchParams.set('hub', ctx.hub);
 
       if(extra && typeof extra === 'object'){
@@ -263,11 +263,12 @@
     }
 
     function buildWarmupUrl(extraRun){
-      const u = new URL('./warmup-gate.html', location.href);
+      const u = new URL(GAME.gatePath, location.href);
 
       u.searchParams.set('gatePhase', 'warmup');
       u.searchParams.set('cat', GAME.cat);
       u.searchParams.set('game', GAME.game);
+      u.searchParams.set('theme', GAME.game);
       u.searchParams.set('pid', ctx.pid);
       u.searchParams.set('hub', ctx.hub);
       u.searchParams.set('next', buildRunUrl(extraRun));
@@ -279,7 +280,8 @@
 
       [
         'grade','studyId','phase','conditionGroup','log',
-        'siteCode','schoolYear','semester','sessionOrder','blockLabel'
+        'siteCode','schoolYear','semester','sessionOrder','blockLabel',
+        'research'
       ].forEach(k=>{
         const v = String(qs(k,'')).trim();
         if(v) u.searchParams.set(k, v);
@@ -288,15 +290,19 @@
       return u.toString();
     }
 
+    const debugWarmup = buildWarmupUrl();
+    const debugRun = buildRunUrl();
+
     debugBox.textContent =
-      '[GoodJunk Launcher]\n' +
-      'launcher: ' + location.href + '\n' +
-      'hub:      ' + ctx.hub + '\n' +
-      'warmup:   ' + buildWarmupUrl() + '\n' +
-      'runPath:  ' + buildRunUrl() + '\n';
+      '[GoodJunk Launcher]\\n' +
+      'launcher: ' + location.href + '\\n' +
+      'hub:      ' + ctx.hub + '\\n' +
+      'gatePath: ' + safeAbsUrl(GAME.gatePath, './warmup-gate.html') + '\\n' +
+      'runPath:  ' + debugRun + '\\n' +
+      'warmup:   ' + debugWarmup + '\\n';
 
     btnStart.onclick = ()=>{
-      location.href = buildWarmupUrl({ mode:'solo' });
+      location.href = buildWarmupUrl({ mode:'solo', battle:'0' });
     };
 
     btnPro.onclick = ()=>{
@@ -304,7 +310,8 @@
         mode:'solo',
         diff:'hard',
         pro:'1',
-        auto:'0'
+        auto:'0',
+        battle:'0'
       });
     };
 
@@ -313,7 +320,8 @@
       location.href = buildWarmupUrl({
         mode:'battle',
         room,
-        auto:'1'
+        auto:'1',
+        battle:'1'
       });
     };
 
@@ -331,9 +339,9 @@
         try{
           location.href = buildWarmupUrl();
         }catch(err){
-          debugBox.textContent += '\nredirect failed: ' + (err && err.message ? err.message : String(err));
+          debugBox.textContent += '\\nredirect failed: ' + (err && err.message ? err.message : String(err));
         }
-      },120);
+      }, 120);
     }
   </script>
 </body>
