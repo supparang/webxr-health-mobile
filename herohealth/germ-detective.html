@@ -36,6 +36,8 @@
     (function(){
       'use strict';
 
+      console.log('[germ-launcher] v20260309c running');
+
       function qs(k, d=''){
         try{ return new URL(location.href).searchParams.get(k) ?? d; }
         catch{ return d; }
@@ -57,7 +59,7 @@
 
       const ORIGIN = location.origin;
       const HUB_URL = ORIGIN + '/webxr-health-mobile/herohealth/hub.html';
-      const GATE_URL = ORIGIN + '/webxr-health-mobile/herohealth/warmup-gate.html?v=20260309b';
+      const GATE_URL = ORIGIN + '/webxr-health-mobile/herohealth/warmup-gate.html?v=20260309c';
       const RUN_URL  = ORIGIN + '/webxr-health-mobile/herohealth/germ-detective/germ-detective.html';
 
       const pid   = String(qs('pid','anon')).trim() || 'anon';
@@ -70,13 +72,13 @@
 
       const studyId = String(qs('studyId',''));
       const phase = String(qs('phase',''));
+      const safePhase = (phase && phase !== 'warmup' && phase !== 'cooldown') ? phase : '';
       const conditionGroup = String(qs('conditionGroup',''));
 
       const hub = normalizeMaybeEncodedUrl(qs('hub','')) || HUB_URL;
 
       const gateResult = String(qs('gateResult',''));
       const gateMode = String(qs('gateMode',''));
-      const gatePhase = String(qs('gatePhase',''));
 
       const gameUrl = new URL(RUN_URL);
       gameUrl.searchParams.set('run', run);
@@ -90,14 +92,11 @@
       gameUrl.searchParams.set('hub', hub);
 
       if(studyId) gameUrl.searchParams.set('studyId', studyId);
-      if(phase) gameUrl.searchParams.set('phase', phase);
+      if(safePhase) gameUrl.searchParams.set('phase', safePhase);
       if(conditionGroup) gameUrl.searchParams.set('conditionGroup', conditionGroup);
 
       const alreadyWarm = (gateResult === '1' && gateMode === 'warmup');
-
-      const currentlyInsideGate =
-        /warmup-gate\.html$/i.test(location.pathname) ||
-        gatePhase === 'warmup';
+      const currentlyInsideGate = /warmup-gate\.html$/i.test(location.pathname);
 
       console.log('[germ-launcher] pathname =', location.pathname);
       console.log('[germ-launcher] alreadyWarm =', alreadyWarm);
