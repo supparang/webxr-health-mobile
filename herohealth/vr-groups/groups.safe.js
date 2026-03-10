@@ -1,6 +1,6 @@
 // === /herohealth/vr-groups/groups.safe.js ===
 // GroupsVR SAFE — FINAL POLISH
-// FULL v20260308-GROUPS-CORE-FINAL-POLISH
+// FULL v20260308-GROUPS-CORE-FINAL-POLISH-r2
 /* global window, document */
 (function(){
   'use strict';
@@ -29,7 +29,7 @@
   }
   function sfc32(a,b,c,d){
     return function(){
-      a>>>=0;b>>>=0;c>>>=0;d>>>=0;
+      a>>>=0; b>>>=0; c>>>=0; d>>>=0;
       let t=(a+b)|0;
       a=b^(b>>>9);
       b=(c+(c<<3))|0;
@@ -53,7 +53,7 @@
     emit('hha:coach', { text: String(text||''), mood: String(mood||'neutral') });
   }
 
-  // Safe spawn rect (local coords preferred)
+  // local safe rect preferred
   function getSafeRect(layerEl){
     const s = WIN.__HHA_SPAWN_SAFE__;
     if(s && Number.isFinite(s.xMin)) return s;
@@ -68,6 +68,14 @@
     };
   }
 
+  function setObjCenterFromEl(obj){
+    try{
+      const b = obj.el.getBoundingClientRect();
+      obj.lastX = b.left + b.width/2;
+      obj.lastY = b.top + b.height/2;
+    }catch(_){}
+  }
+
   // ---------------------------
   // Content: Thai 5 food groups
   // ---------------------------
@@ -75,8 +83,8 @@
     { id:1, short:'หมู่ 1', name:'หมู่ 1 โปรตีน', items:['🥚','🐟','🥛','🍗','🥜'] },
     { id:2, short:'หมู่ 2', name:'หมู่ 2 คาร์โบไฮเดรต', items:['🍚','🍞','🥔','🍜','🥖'] },
     { id:3, short:'หมู่ 3', name:'หมู่ 3 ผัก', items:['🥦','🥬','🥕','🥒','🌽'] },
-    { id:4, short:'หมู่ 4 ผลไม้', items:['🍌','🍎','🍊','🍉','🍇'] },
-    { id:5, short:'หมู่ 5 ไขมัน', items:['🥑','🫒','🧈','🥥','🧀'] },
+    { id:4, short:'หมู่ 4', name:'หมู่ 4 ผลไม้', items:['🍌','🍎','🍊','🍉','🍇'] },
+    { id:5, short:'หมู่ 5', name:'หมู่ 5 ไขมัน', items:['🥑','🫒','🧈','🥥','🧀'] },
   ];
 
   // ---------------------------
@@ -362,14 +370,15 @@
     }
   }
 
-  function emitHit(kind, good, obj){
+  function emitHit(kind, good, obj, delta){
     emit('groups:hit', {
       kind: String(kind || ''),
       good: !!good,
       x: Number(obj?.lastX || 0),
       y: Number(obj?.lastY || 0),
       score: STATE.score|0,
-      combo: STATE.combo|0
+      combo: STATE.combo|0,
+      delta: Number(delta || 0)
     });
   }
 
@@ -405,7 +414,7 @@
         WIN.HHA_AI?.onHit?.('groups_ok', { id: obj.id, emoji: obj.emoji, add });
       }catch(_){}
 
-      emitHit(STATE.stage === 'boss' ? 'boss_hit' : 'hit_good', true, obj);
+      emitHit(STATE.stage === 'boss' ? 'boss_hit' : 'hit_good', true, obj, add);
       removeTarget(obj.id, 'hit');
       return;
     }
@@ -417,7 +426,7 @@
       WIN.HHA_AI?.onHit?.('groups_wrong', { id: obj.id, emoji: obj.emoji });
     }catch(_){}
 
-    emitHit('hit_bad', false, obj);
+    emitHit('hit_bad', false, obj, -3);
     removeTarget(obj.id, 'hit');
   }
 
@@ -545,14 +554,8 @@
           });
         }catch(_){}
 
-        emit('groups:hit', {
-          kind: 'timeout_miss',
-          good: false,
-          x: Number(obj.lastX || 0),
-          y: Number(obj.lastY || 0),
-          score: STATE.score|0,
-          combo: STATE.combo|0
-        });
+        setObjCenterFromEl(obj);
+        emitHit('timeout_miss', false, obj, -2);
       }else{
         try{
           WIN.HHA_AI?.onExpire?.('groups_other', {
@@ -590,7 +593,7 @@
   function buildSummary(reason){
     return {
       projectTag: 'GroupsVR',
-      gameVersion: 'GroupsVR_SAFE_FINAL_POLISH',
+      gameVersion: 'GroupsVR_SAFE_FINAL_POLISH_R2',
       roomId: String(STATE.ctx?.roomId || ''),
       playerKey: String(STATE.ctx?.playerKey || ''),
       battle: !!STATE.ctx?.battle,
