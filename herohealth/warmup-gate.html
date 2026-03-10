@@ -6,17 +6,15 @@
   <title>HeroHealth — Warmup/Cooldown Gate</title>
   <meta name="color-scheme" content="dark light" />
   <link rel="icon" href="./favicon.ico" />
-  <link rel="stylesheet" href="./gate/gate-common.css?v=20260309d" />
+  <link rel="stylesheet" href="./gate/gate-common.css?v=20260310r1" />
 </head>
 <body>
   <div id="gate-app"></div>
 
   <script type="module">
-    console.log('[warmup-gate] load v20260309d');
-    const root = document.getElementById('gate-app');
-    const mod = await import('./gate/gate-core.js?v=20260309d');
-    console.log('[warmup-gate] gate-core imported v20260309d');
-    mod.bootGate(root);
+    console.log('[warmup-gate] load v20260310r1');
+    import { bootGate } from './gate/gate-core.js?v=20260310r1';
+    bootGate(document.getElementById('gate-app'));
   </script>
 </body>
 </html>
