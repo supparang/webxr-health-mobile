@@ -23,12 +23,7 @@
       padding:18px;
       box-shadow:0 20px 60px rgba(0,0,0,.35);
     }
-    .muted{
-      color:#94a3b8;
-      font-size:13px;
-      line-height:1.5;
-      word-break:break-word;
-    }
+    .muted{ color:#94a3b8; font-size:13px; line-height:1.5; }
   </style>
 </head>
 <body>
@@ -61,7 +56,7 @@
           [
             'gatePhase','phase','gateResult','gateMode',
             'wType','wPct','wSteps','wTimeBonus','wScoreBonus','wRank',
-            'next','cd','wskip','wgskip'
+            'next','cd','wskip'
           ].forEach(k=>u.searchParams.delete(k));
           return u.toString();
         }catch(_){
@@ -76,10 +71,8 @@
 
       const ORIGIN = location.origin;
       const HUB_URL  = ORIGIN + '/webxr-health-mobile/herohealth/hub.html';
-      const GATE_URL = ORIGIN + '/webxr-health-mobile/herohealth/warmup-gate.html?v=20260310z4';
-
-      // ✅ run game จริง
-      const RUN_URL  = ORIGIN + '/webxr-health-mobile/herohealth/germ-detective-vr.html';
+      const GATE_URL = ORIGIN + '/webxr-health-mobile/herohealth/warmup-gate.html?v=20260310z5';
+      const RUN_URL  = ORIGIN + '/webxr-health-mobile/herohealth/germ-detective/germ-detective-vr.html';
 
       const pid   = String(qs('pid','anon')).trim() || 'anon';
       const run   = String(qs('run','play')).toLowerCase() || 'play';
@@ -104,7 +97,7 @@
       const gateResult = String(qs('gateResult',''));
       const gateMode = String(qs('gateMode',''));
       const alreadyWarm = (gateResult === '1' && gateMode === 'warmup');
-      const alreadySkipped = String(qs('wgskip','0')) === '1';
+      const currentlyInsideGate = /warmup-gate\.html$/i.test(location.pathname);
 
       const gameUrl = new URL(RUN_URL);
       gameUrl.searchParams.set('run', run);
@@ -116,7 +109,6 @@
       gameUrl.searchParams.set('scene', scene || 'classroom');
       gameUrl.searchParams.set('zone', 'hygiene');
       gameUrl.searchParams.set('hub', hub);
-      gameUrl.searchParams.set('wgskip', '1');
 
       if(studyId) gameUrl.searchParams.set('studyId', studyId);
       if(safePhase) gameUrl.searchParams.set('phase', safePhase);
@@ -127,13 +119,14 @@
       if(schoolYear) gameUrl.searchParams.set('schoolYear', schoolYear);
       if(semester) gameUrl.searchParams.set('semester', semester);
 
-      console.log('[germ-launcher] pathname =', location.pathname);
-      console.log('[germ-launcher] alreadyWarm =', alreadyWarm);
-      console.log('[germ-launcher] alreadySkipped =', alreadySkipped);
-      console.log('[germ-launcher] RUN_URL =', gameUrl.toString());
-
-      if(alreadyWarm || alreadySkipped){
+      if(alreadyWarm){
         setMsg('ผ่าน warmup แล้ว กำลังเข้าเกม…');
+        location.replace(gameUrl.toString());
+        return;
+      }
+
+      if(currentlyInsideGate){
+        setMsg('อยู่ใน warmup gate แล้ว กำลังเข้าเกม…');
         location.replace(gameUrl.toString());
         return;
       }
@@ -152,8 +145,6 @@
       warmupUrl.searchParams.set('time', time);
       warmupUrl.searchParams.set('view', view);
       warmupUrl.searchParams.set('seed', seed);
-      warmupUrl.searchParams.set('scene', scene);
-      warmupUrl.searchParams.set('zone', 'hygiene');
 
       if(studyId) warmupUrl.searchParams.set('studyId', studyId);
       if(conditionGroup) warmupUrl.searchParams.set('conditionGroup', conditionGroup);
@@ -162,8 +153,6 @@
       if(siteCode) warmupUrl.searchParams.set('siteCode', siteCode);
       if(schoolYear) warmupUrl.searchParams.set('schoolYear', schoolYear);
       if(semester) warmupUrl.searchParams.set('semester', semester);
-
-      console.log('[germ-launcher] WARMUP_URL =', warmupUrl.toString());
 
       setMsg('กำลังเข้า warmup ก่อนเริ่มเกม…');
       location.replace(warmupUrl.toString());
