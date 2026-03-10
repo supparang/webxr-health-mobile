@@ -1,11 +1,6 @@
 <!-- === /herohealth/vr-groups/groups-vr.html ===
-GroupsVR — RUN PAGE (PC/Mobile/cVR) — PRODUCTION
-FULL v20260306c-GROUPS-LAYOUT-CLEAN-ENDSHEET
-✅ Mobile HUD compact + more play space
-✅ Coach toast only (no persistent large coach panel)
-✅ Result as mobile bottom-sheet, scrollable, sticky actions
-✅ Safer spawn rect to avoid HUD/VR buttons
-✅ AI pill + explainable coach toast
+GroupsVR — SOLO RUN PAGE — FX + MOBILE LAYOUT HOTFIX
+FULL v20260310-GROUPS-SOLO-FX-LAYOUT-HOTFIX
 Requires:
 - ../vr/vr-ui.js
 - ./ai-hooks.js
@@ -23,18 +18,25 @@ Requires:
     :root{
       --bg:#040610;
       --stroke: rgba(148,163,184,.18);
-      --text:#e5e7eb; --muted:#94a3b8;
-      --good:#22c55e; --cyan:#22d3ee; --violet:#a78bfa; --amber:#f59e0b; --red:#ef4444; --pink:#ff4fd8;
+      --text:#e5e7eb;
+      --muted:#94a3b8;
+      --good:#22c55e;
+      --cyan:#22d3ee;
+      --violet:#a78bfa;
+      --amber:#f59e0b;
+      --red:#ef4444;
+      --pink:#ff4fd8;
       --radius:18px;
       --sat: env(safe-area-inset-top, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
       --sar: env(safe-area-inset-right, 0px);
       --sal: env(safe-area-inset-left, 0px);
     }
+
     *{ box-sizing:border-box; }
     html,body{
       height:100%; margin:0; overflow:hidden; color:var(--text);
-      font-family: system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif;
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif;
       background:
         radial-gradient(1200px 800px at 20% 10%, rgba(34,211,238,.14) 0%, transparent 55%),
         radial-gradient(1100px 700px at 80% 30%, rgba(167,139,250,.16) 0%, transparent 55%),
@@ -49,7 +51,6 @@ Requires:
       display:flex; flex-direction:column; gap:8px;
     }
 
-    /* ============== TOPBAR ============== */
     .topbar{
       border-radius: var(--radius);
       border:1px solid var(--stroke);
@@ -57,24 +58,25 @@ Requires:
       box-shadow: 0 18px 60px rgba(0,0,0,.38);
       padding: 8px 10px;
       display:grid;
-      grid-template-columns: 1fr;
-      gap:8px;
+      grid-template-columns: 1fr auto;
+      gap:10px;
+      align-items:center;
       z-index:50;
       flex:0 0 auto;
     }
     .title{
-      display:flex; flex-direction:column; gap:2px;
-      min-width:0;
+      display:flex; flex-direction:column; gap:2px; min-width:0;
     }
     .title b{
-      font-weight:1000; letter-spacing:.2px; font-size:14px;
+      font-size:14px; font-weight:1000; letter-spacing:.2px;
     }
     .title span{
       color:var(--muted); font-size:11.5px; line-height:1.25;
     }
     .row{
-      display:flex; gap:8px; align-items:center; flex-wrap:wrap;
+      display:flex; gap:8px; align-items:center; flex-wrap:wrap; justify-content:flex-end;
     }
+
     .pill{
       display:inline-flex; gap:8px; align-items:center;
       min-height:34px;
@@ -84,20 +86,13 @@ Requires:
       background: rgba(2,6,23,.55);
       font-size:11.5px;
       color:var(--muted);
-      user-select:none;
       white-space:nowrap;
       max-width:min(100%, 92vw);
-      overflow:hidden;
-      text-overflow:ellipsis;
-    }
-    .pill b{
-      color:var(--text); font-weight:1000;
       overflow:hidden; text-overflow:ellipsis;
     }
+    .pill b{ color:var(--text); font-weight:1000; overflow:hidden; text-overflow:ellipsis; }
     .dot{ width:8px; height:8px; border-radius:999px; background: var(--cyan); box-shadow:0 0 14px rgba(34,211,238,.55); }
-    .dot.good{ background: var(--good); box-shadow:0 0 14px rgba(34,197,94,.55); }
     .dot.amber{ background: var(--amber); box-shadow:0 0 14px rgba(245,158,11,.55); }
-    .dot.pink{ background: var(--pink); box-shadow:0 0 14px rgba(255,79,216,.55); }
 
     button{
       cursor:pointer;
@@ -110,32 +105,18 @@ Requires:
       user-select:none;
       font-weight:900;
     }
-    button:hover{ transform: translateY(-1px); background: rgba(2,6,23,.72); border-color: rgba(148,163,184,.32); }
-    button:active{ transform: translateY(0px) scale(.99); }
-    button.ghost{ background: rgba(148,163,184,.08); }
-    button.primary{ background: rgba(34,197,94,.14); border-color: rgba(34,197,94,.32); }
+    button:hover{ transform:translateY(-1px); background: rgba(2,6,23,.72); border-color: rgba(148,163,184,.32); }
+    button:active{ transform:translateY(0) scale(.99); }
 
-    @media (max-width:640px){
-      .row{
-        display:grid;
-        grid-template-columns:repeat(2,minmax(0,1fr));
-        gap:8px;
-      }
-      .row .pill, .row button{
-        width:100%;
-        justify-content:center;
-      }
-      #dirPill{ display:none !important; }
-      .title span{ display:none; }
-    }
-    @media (max-width:420px){
-      #hudSeed{ display:none; }
+    @media (max-width:860px){
+      .topbar{ grid-template-columns:1fr; }
+      .row{ justify-content:flex-start; }
+      #seedPill{ display:none; }
     }
 
-    /* ============== STAGE ============== */
     .stage{
       position:relative;
-      flex: 1 1 auto;
+      flex:1 1 auto;
       min-height:0;
       border-radius: var(--radius);
       border:1px solid rgba(148,163,184,.14);
@@ -143,16 +124,12 @@ Requires:
       overflow:hidden;
       box-shadow: 0 20px 80px rgba(0,0,0,.35);
     }
-    #playLayer{
-      position:absolute; inset:0; overflow:hidden; pointer-events:auto;
-    }
+    #playLayer{ position:absolute; inset:0; overflow:hidden; pointer-events:auto; }
 
-    /* ============== HUD ============== */
     .hud{
       position:absolute;
       left:8px; right:8px;
-      display:flex; align-items:flex-start; justify-content:space-between;
-      gap:8px;
+      display:flex; align-items:flex-start; justify-content:space-between; gap:8px;
       pointer-events:none;
       z-index:30;
     }
@@ -161,82 +138,44 @@ Requires:
     .hudLeftCol{
       display:flex; flex-direction:column; gap:6px;
       min-width:0;
-      max-width:min(68vw, 520px);
+      max-width:100%;
+      width:100%;
     }
 
     .hudBox{
       display:grid;
       grid-template-columns:repeat(5, auto);
-      gap:10px;
+      gap:8px;
       align-items:center;
-      padding:6px 9px;
-      border-radius:16px;
-      border:1px solid rgba(148,163,184,.18);
-      background: rgba(2,6,23,.58);
-      backdrop-filter: blur(10px);
-      box-shadow: 0 12px 28px rgba(0,0,0,.22);
+      padding:5px 8px;
+      border-radius:14px;
+      border:1px solid rgba(148,163,184,.16);
+      background: rgba(2,6,23,.54);
+      backdrop-filter: blur(8px);
+      box-shadow: 0 10px 24px rgba(0,0,0,.18);
     }
     .hudMetric{
-      display:flex; gap:5px; align-items:center;
-      min-width:0;
+      display:flex; gap:5px; align-items:center; min-width:0;
     }
-    .hudMetric .k{
-      color:var(--muted);
-      font-size:11px;
-      font-weight:900;
-    }
-    .hudMetric .v{
-      color:var(--text);
-      font-size:12px;
-      font-weight:1000;
-    }
+    .hudMetric .k{ color:var(--muted); font-size:10px; font-weight:900; }
+    .hudMetric .v{ color:var(--text); font-size:12px; font-weight:1000; }
 
     .questTop{
-      display:flex; flex-direction:column; gap:6px;
-      padding:7px 9px;
-      border-radius:16px;
-      border:1px solid rgba(148,163,184,.16);
-      background: rgba(2,6,23,.48);
-      backdrop-filter: blur(10px);
+      display:flex; flex-direction:column; gap:5px;
+      padding:6px 8px;
+      border-radius:14px;
+      border:1px solid rgba(148,163,184,.14);
+      background: rgba(2,6,23,.44);
+      backdrop-filter: blur(8px);
     }
     .questLine{
       display:flex; justify-content:space-between; gap:8px; align-items:flex-start; flex-wrap:wrap;
     }
-    .questTitle{
-      font-size:13px;
-      font-weight:1000;
-      line-height:1.28;
-    }
-    .questMini{
-      color:var(--muted);
-      font-size:11px;
-      font-weight:900;
-      line-height:1.25;
-    }
-
-    .powerWrap{
-      width:min(210px, 34vw);
-      display:flex; flex-direction:column; gap:6px;
-      padding:7px 9px;
-      border-radius:16px;
-      border:1px solid rgba(148,163,184,.16);
-      background: rgba(2,6,23,.48);
-      backdrop-filter: blur(10px);
-      box-shadow: 0 12px 28px rgba(0,0,0,.18);
-    }
-    .powerHead{
-      display:flex; justify-content:space-between; gap:8px; align-items:center;
-    }
-    .powerHead b{
-      font-size:13px; line-height:1.2;
-    }
-    .powerHead span{
-      color:var(--muted); font-size:11px; font-weight:1000;
-    }
+    .questTitle{ font-size:12px; font-weight:1000; line-height:1.22; }
+    .questMini{ color:var(--muted); font-size:10px; font-weight:900; line-height:1.2; }
 
     .bar{
-      height:10px;
-      border-radius:999px;
+      height:9px; border-radius:999px;
       border:1px solid rgba(148,163,184,.18);
       background: rgba(2,6,23,.55);
       overflow:hidden;
@@ -247,34 +186,40 @@ Requires:
       transition: width .10s linear;
     }
 
-    @media (max-width:640px){
-      .hud{
-        left:8px; right:8px;
-      }
-      .hudLeftCol{
-        width:100%;
-        max-width:100%;
-      }
+    .powerWrap{
+      position:absolute;
+      left:8px;
+      top:98px;
+      width:min(178px, 46vw);
+      display:flex; flex-direction:column; gap:5px;
+      padding:6px 8px;
+      border-radius:14px;
+      border:1px solid rgba(148,163,184,.14);
+      background: rgba(2,6,23,.44);
+      backdrop-filter: blur(8px);
+      box-shadow: 0 10px 24px rgba(0,0,0,.16);
+      z-index:31;
+      pointer-events:none;
+    }
+    .powerHead{
+      display:flex; justify-content:space-between; gap:8px; align-items:center;
+    }
+    .powerHead b{ font-size:12px; line-height:1.15; }
+    .powerHead span{ color:var(--muted); font-size:10px; font-weight:1000; }
+
+    @media (max-width:680px){
       .hudBox{
         grid-template-columns:repeat(5,minmax(0,1fr));
         gap:6px;
         padding:6px 8px;
       }
-      .hudMetric{
-        justify-content:center;
-      }
-      .hudMetric .k, .hudMetric .v{
-        font-size:11px;
-      }
+      .hudMetric{ justify-content:center; }
       .powerWrap{
-        position:absolute;
-        left:0;
-        top:68px;
-        width:min(180px, 46vw);
+        top:100px;
+        width:min(168px, 44vw);
       }
     }
 
-    /* ============== COACH TOAST ============== */
     .coachToast{
       position:absolute;
       left:10px; right:10px;
@@ -286,11 +231,7 @@ Requires:
       opacity:0;
       transition: opacity .18s ease, transform .18s ease;
     }
-    .coachToast.show{
-      display:block;
-      opacity:1;
-      transform: translateY(0);
-    }
+    .coachToast.show{ display:block; opacity:1; transform:translateY(0); }
     .coachWrap{
       display:flex; align-items:center; gap:10px;
       padding:7px 10px;
@@ -306,22 +247,83 @@ Requires:
       display:flex; align-items:center; justify-content:center;
       background: rgba(148,163,184,.10);
       border:1px solid rgba(148,163,184,.14);
-      font-size:18px;
-      flex:0 0 auto;
+      font-size:18px; flex:0 0 auto;
     }
-    .coachWrap .txt{
-      font-weight:1000; font-size:13px; line-height:1.25;
+    .coachWrap .txt{ font-weight:1000; font-size:13px; line-height:1.25; }
+    .coachWrap .sub{ color:var(--muted); font-size:11px; font-weight:900; margin-top:2px; }
+
+    #stageFlash{
+      position:absolute;
+      inset:0;
+      pointer-events:none;
+      opacity:0;
+      z-index:35;
+      background:radial-gradient(circle at 50% 50%, rgba(255,255,255,.14), rgba(255,255,255,0));
+      transition:opacity .14s ease;
     }
-    .coachWrap .sub{
-      color:var(--muted); font-size:11px; font-weight:900; margin-top:2px;
+    #stageFlash.good{ background:radial-gradient(circle at 50% 50%, rgba(34,197,94,.16), rgba(34,197,94,0)); }
+    #stageFlash.bad{ background:radial-gradient(circle at 50% 50%, rgba(239,68,68,.14), rgba(239,68,68,0)); }
+    #stageFlash.boss{ background:radial-gradient(circle at 50% 50%, rgba(245,158,11,.18), rgba(245,158,11,0)); }
+
+    #fxLayer{
+      position:absolute;
+      inset:0;
+      pointer-events:none;
+      overflow:hidden;
+      z-index:38;
+    }
+    .scorePop{
+      position:absolute;
+      font-weight:1100;
+      font-size:22px;
+      line-height:1;
+      text-shadow: 0 2px 12px rgba(0,0,0,.28);
+      animation: scorePopUp .55s ease-out forwards;
+      will-change: transform, opacity;
+    }
+    .scorePop.good{ color:#86efac; }
+    .scorePop.bad{ color:#fca5a5; }
+    @keyframes scorePopUp{
+      0%{ transform: translate(-50%,-50%) scale(.72); opacity:0; }
+      15%{ transform: translate(-50%,-58%) scale(1.04); opacity:1; }
+      100%{ transform: translate(-50%,-110%) scale(.98); opacity:0; }
     }
 
-    /* ============== OVERLAYS ============== */
+    .hudPulse{ animation:hudPulse .28s ease-out; }
+    @keyframes hudPulse{
+      0%{ transform:scale(1); }
+      40%{ transform:scale(1.05); }
+      100%{ transform:scale(1); }
+    }
+    .comboHot{
+      color:#fff;
+      text-shadow:0 0 10px rgba(255,79,216,.45), 0 0 20px rgba(167,139,250,.28);
+    }
+    .rankFlash{ animation:rankFlash .42s ease-out; }
+    @keyframes rankFlash{
+      0%{ transform:scale(1); opacity:1; }
+      35%{ transform:scale(1.18); opacity:1; }
+      100%{ transform:scale(1); opacity:1; }
+    }
+
+    .tgt{
+      width:74px; height:74px;
+      border-radius:18px;
+      display:flex; align-items:center; justify-content:center;
+      font-size:34px; font-weight:1000;
+      background: rgba(15,23,42,.72);
+      border:1px solid rgba(148,163,184,.22);
+      box-shadow: 0 12px 30px rgba(0,0,0,.22);
+      pointer-events:auto;
+      user-select:none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    body[data-view="cvr"][data-cvr-strict="1"] .tgt{ pointer-events:none !important; }
+
     .overlay{
       position:absolute; inset:0;
       display:none;
-      align-items:center;
-      justify-content:center;
+      align-items:center; justify-content:center;
       background: rgba(0,0,0,.62);
       backdrop-filter: blur(10px);
       z-index:9000;
@@ -346,44 +348,20 @@ Requires:
     .overlayCard main{
       padding:12px;
       display:flex; flex-direction:column; gap:10px;
-      overflow:auto;
-      min-height:0;
+      overflow:auto; min-height:0;
     }
     .overlayBtns{
       padding:12px;
       border-top:1px solid rgba(148,163,184,.14);
       display:flex; gap:10px; flex-wrap:wrap; justify-content:center;
     }
-    .bigLine{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; font-weight:1000; }
-    .bigDot{ width:12px; height:12px; border-radius:99px; background: var(--cyan); box-shadow: 0 0 16px rgba(34,211,238,.55); }
-    .hint{ color: var(--muted); font-weight: 900; line-height: 1.35; font-size: 12.5px; }
-    .crossBox{
-      border-radius: 18px;
-      border:1px dashed rgba(148,163,184,.22);
-      background: rgba(2,6,23,.40);
-      padding: 14px;
-      display:flex; flex-direction:column; gap:8px;
-      align-items:center; justify-content:center;
-      min-height: 150px;
-      text-align:center;
-    }
-    .cross{ font-size: 34px; font-weight: 1000; letter-spacing: .4px; opacity: .92; }
 
-    /* ============== END SHEET ============== */
-    #endOverlay{ z-index:9999; }
-    #endCard{
-      width:min(920px,100%);
-      max-height:min(90vh,860px);
-      display:flex;
-      flex-direction:column;
-    }
     #endCard main{
       padding:12px;
       display:grid;
       grid-template-columns:1fr 1fr;
       gap:10px;
-      overflow:auto;
-      min-height:0;
+      overflow:auto; min-height:0;
     }
     .panel{
       border-radius:18px;
@@ -392,13 +370,6 @@ Requires:
       padding:10px;
       min-height:0;
     }
-    .panelHead{
-      display:flex; justify-content:space-between; gap:8px; align-items:center;
-      margin-bottom:8px;
-    }
-    .panelHead b{ font-size:14px; }
-    .panelHead .mini{ color:var(--muted); font-size:11px; font-weight:900; }
-
     pre{
       margin:0;
       white-space:pre-wrap;
@@ -408,53 +379,8 @@ Requires:
       color: rgba(229,231,235,.92);
       font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     }
-    .endBtns{
-      padding:12px;
-      border-top:1px solid rgba(148,163,184,.14);
-      display:flex; gap:10px; flex-wrap:wrap; justify-content:center;
-      background: rgba(2,6,23,.86);
-      position:sticky;
-      bottom:0;
-    }
     @media (max-width:760px){
-      #endOverlay{
-        align-items:flex-end;
-        padding:0;
-      }
-      #endCard{
-        width:100%;
-        max-height:min(86vh,100%);
-        border-radius:22px 22px 0 0;
-        border-left:none;
-        border-right:none;
-        border-bottom:none;
-      }
-      #endCard main{
-        grid-template-columns:1fr;
-        padding:10px;
-        gap:10px;
-      }
-      .endBtns{
-        padding-bottom: calc(14px + var(--sab) + 82px);
-      }
-    }
-
-    /* ============== TARGET ============== */
-    .tgt{
-      width:74px; height:74px;
-      border-radius:18px;
-      display:flex; align-items:center; justify-content:center;
-      font-size:34px;
-      font-weight:1000;
-      background: rgba(15,23,42,.72);
-      border:1px solid rgba(148,163,184,.22);
-      box-shadow: 0 12px 30px rgba(0,0,0,.22);
-      pointer-events:auto;
-      user-select:none;
-      -webkit-tap-highlight-color: transparent;
-    }
-    body[data-view="cvr"][data-cvr-strict="1"] .tgt{
-      pointer-events:none !important;
+      #endCard main{ grid-template-columns:1fr; }
     }
   </style>
 </head>
@@ -471,17 +397,7 @@ Requires:
       <div class="pill"><span class="dot"></span> <span>MODE:</span> <b id="modePill">PLAY</b></div>
       <div class="pill"><span class="dot amber"></span> <span>DIFF:</span> <b id="diffPill">normal</b></div>
       <div class="pill"><span class="dot"></span> <span>VIEW:</span> <b id="hudView">—</b></div>
-      <div class="pill"><span class="dot"></span> <span>SEED:</span> <b id="hudSeed">—</b></div>
-
-      <div class="pill" id="aiPill" style="display:none;">
-        <span class="dot pink"></span> <span>AI:</span>
-        <b id="aiRisk">—</b>
-      </div>
-
-      <div class="pill" id="dirPill" style="display:none;">
-        <span class="dot"></span> <span>DIR:</span> <b id="dirText">PLAY</b>
-      </div>
-
+      <div class="pill" id="seedPill"><span class="dot"></span> <span>SEED:</span> <b id="hudSeed">—</b></div>
       <button class="ghost" id="btnRestart">⟲ Restart</button>
       <button class="ghost" id="btnBack">🏠 HUB</button>
     </div>
@@ -489,6 +405,8 @@ Requires:
 
   <div class="stage" id="stage">
     <div id="playLayer"></div>
+    <div id="stageFlash"></div>
+    <div id="fxLayer"></div>
 
     <div class="hud hudTop">
       <div class="hudLeftCol">
@@ -503,21 +421,21 @@ Requires:
         <div class="questTop">
           <div class="questLine">
             <div class="questTitle"><span id="qTitle">ภารกิจ</span> <span id="qSub" style="color:var(--muted); font-weight:900;"></span></div>
-            <div class="questMini"><span id="qMini">MINI: —</span> <span id="qMiniTime"></span></div>
+            <div class="questMini"><span id="qMini">POWER · 0/0</span> <span id="qMiniTime"></span></div>
           </div>
           <div class="bar"><i id="qBar"></i></div>
         </div>
       </div>
+    </div>
 
-      <div class="powerWrap">
-        <div class="powerHead">
-          <b id="groupName">หมู่ 1 โปรตีน</b>
-          <span>POWER</span>
-        </div>
-        <div class="bar"><i id="pBar"></i></div>
-        <div style="color:var(--muted); font-size:12px; font-weight:900;">
-          <span id="pText">0 / 8</span>
-        </div>
+    <div class="powerWrap">
+      <div class="powerHead">
+        <b id="groupName">หมู่ 1 โปรตีน</b>
+        <span>POWER</span>
+      </div>
+      <div class="bar"><i id="pBar"></i></div>
+      <div style="color:var(--muted); font-size:12px; font-weight:900;">
+        <span id="pText">0 / 8</span>
       </div>
     </div>
 
@@ -531,79 +449,23 @@ Requires:
       </div>
     </div>
 
-    <div class="overlay" id="practiceOverlay" aria-hidden="true">
-      <div class="overlayCard">
-        <header>
-          <div><b>🧪 PRACTICE 15s</b> <span style="color:var(--muted); font-weight:900;" id="practiceSub">ก่อนเข้าเกมจริง</span></div>
-          <div class="pill"><span class="dot"></span> <span>Auto:</span> <b id="practiceTag">ON</b></div>
-        </header>
-        <main>
-          <div class="bigLine"><span class="bigDot"></span> <span>ซ้อม 15 วินาที เพื่อให้มือ “เข้าที่”</span></div>
-          <div class="crossBox">
-            <div class="cross">🎯 เล็ง + ยิง</div>
-            <div class="hint" id="practiceHint">แตะ/ยิงจาก crosshair แล้วลองเก็บคอมโบ</div>
-          </div>
-          <div class="hint">หมดเวลาแล้วจะเข้าเกมจริงให้อัตโนมัติ (ปิดได้ด้วย <b>?practice=0</b>)</div>
-        </main>
-        <div class="overlayBtns">
-          <button class="ghost" id="btnSkipPractice">ข้ามซ้อม</button>
-          <button class="primary" id="btnStartPractice">เริ่มซ้อม</button>
-        </div>
-      </div>
-    </div>
-
-    <div class="overlay" id="calibOverlay" aria-hidden="true">
-      <div class="overlayCard">
-        <header>
-          <div><b>🥽 cVR CALIBRATION</b> <span style="color:var(--muted); font-weight:900;">ตั้งท่ามอง + Recenter</span></div>
-          <div class="pill"><span class="dot pink"></span> <span>Strict:</span> <b id="strictTag">ON</b></div>
-        </header>
-        <main>
-          <div class="bigLine"><span class="bigDot"></span> <span>ถือมือถือไว้ใน Cardboard แล้วมอง “ตรงกลาง”</span></div>
-          <div class="crossBox">
-            <div class="cross">＋</div>
-            <div class="hint">ให้เครื่องหมาย + อยู่กึ่งกลางพอดี แล้วค่อยเริ่มเล่น</div>
-          </div>
-          <div class="hint">แนะนำ: Fullscreen + ล็อกแนวนอนก่อนเข้าเล่น เพื่อกันจอเด้ง/หมุน</div>
-        </main>
-        <div class="overlayBtns">
-          <button class="ghost" id="btnFS">Fullscreen</button>
-          <button class="ghost" id="btnLand">Lock Landscape</button>
-          <button class="ghost" id="btnRecenter">Recenter</button>
-          <button class="primary" id="btnCloseCalib">พร้อมแล้ว</button>
-        </div>
-      </div>
-    </div>
-
     <div class="overlay" id="endOverlay" aria-hidden="true">
       <div class="overlayCard" id="endCard">
         <header>
-          <div>
-            <b id="endTitle">RESULT</b>
-            <span style="color:var(--muted); font-weight:900;" id="endSub"></span>
-          </div>
-          <div class="pill"><span class="dot good"></span> <span>Saved:</span> <b id="savedTag">yes</b></div>
+          <div><b id="endTitle">RESULT</b> <span style="color:var(--muted); font-weight:900;" id="endSub"></span></div>
+          <div class="pill"><span class="dot"></span> <span>MODE:</span> <b id="endMode">PLAY</b></div>
         </header>
-
         <main>
           <div class="panel">
-            <div class="panelHead">
-              <b>Summary</b>
-              <span class="mini">ผลการเล่น</span>
-            </div>
+            <b>Summary</b>
             <pre id="endSummary"></pre>
           </div>
-
           <div class="panel">
-            <div class="panelHead">
-              <b>AI Pred</b>
-              <span class="mini">prediction snapshot</span>
-            </div>
+            <b>AI Pred</b>
             <pre id="endBuff"></pre>
           </div>
         </main>
-
-        <div class="endBtns">
+        <div class="overlayBtns">
           <button id="btnEndAgain">เล่นอีกครั้ง</button>
           <button class="primary" id="btnEndGoHub">🏠 กลับ HUB</button>
           <button class="ghost" id="btnEndClose">ปิด</button>
@@ -627,99 +489,173 @@ Requires:
   const RUN  = String(q('run','play')).toLowerCase();
   const DIFF = String(q('diff','normal')).toLowerCase();
   const VIEW = String(q('view','mobile')).toLowerCase();
-  const TIME = Number(q('time','90')||90);
+  const TIME = Number(q('time','80') || 80);
   const SEED = String(q('seed','') || Date.now());
-  const PRACTICE_ON = (String(q('practice','1')||'1') !== '0') && (RUN !== 'research');
-  const CVR_STRICT = (VIEW === 'cvr') && (String(q('cvrStrict','1')||'1') !== '0');
+  const HUB  = String(q('hub','../hub.html') || '../hub.html');
+  const CVR_STRICT = (VIEW === 'cvr') && (String(q('cvrStrict','1') || '1') !== '0');
 
   document.body.setAttribute('data-view', VIEW);
   document.body.setAttribute('data-cvr-strict', CVR_STRICT ? '1' : '0');
 
-  function herohealthBase(){
-    const href = String(location.href||'');
-    const i = href.indexOf('/herohealth/');
-    if(i>=0) return href.slice(0, i + '/herohealth/'.length);
-    try{ return new URL('../', location.href).toString(); }catch(_){ return '../'; }
-  }
-  const HH_BASE = herohealthBase();
-  const HUB_CANON = (()=>{ try{ return new URL('hub.html', HH_BASE).toString(); }catch(_){ return '../hub.html'; } })();
-  function absUrlMaybe(u){ try{ return new URL(u, location.href).toString(); }catch(_){ return ''; } }
-  function sanitizeHub(u){
-    const dflt = HUB_CANON;
-    if(!u) return dflt;
-    const abs = absUrlMaybe(u) || dflt;
-    const low = abs.toLowerCase();
-    if(low.includes('/herohealth/vr-groups/hub.html')) return dflt;
-    try{
-      const a = new URL(abs);
-      const w = new URL(dflt);
-      if(a.origin===w.origin){
-        const ap = a.pathname.split('/herohealth/')[0];
-        const wp = w.pathname.split('/herohealth/')[0];
-        if(ap !== wp) return dflt;
-      }
-    }catch(_){}
-    return abs;
-  }
-  const HUB = sanitizeHub(q('hub',''));
-
   const $ = (s)=>document.querySelector(s);
 
-  $('#modePill').textContent = (RUN||'play').toUpperCase();
+  $('#modePill').textContent = RUN.toUpperCase();
   $('#diffPill').textContent = DIFF;
-  $('#hudView').textContent  = VIEW + (CVR_STRICT ? ' (strict)' : '');
-  $('#hudSeed').textContent  = String(SEED).slice(0,16);
-  $('#hudTime').textContent  = TIME + 's';
+  $('#hudView').textContent = VIEW + (CVR_STRICT ? ' (strict)' : '');
+  $('#hudSeed').textContent = String(SEED).slice(0,16);
 
-  const aiPill = $('#aiPill');
-  const aiRisk = $('#aiRisk');
+  const hudTime = $('#hudTime');
+  const hudScore = $('#hudScore');
+  const hudCombo = $('#hudCombo');
+  const hudMiss = $('#hudMiss');
+  const hudRank = $('#hudRank');
+
+  const qTitle = $('#qTitle');
+  const qSub = $('#qSub');
+  const qBar = $('#qBar');
+  const qMini = $('#qMini');
+  const qMiniTime = $('#qMiniTime');
+
+  const groupName = $('#groupName');
+  const pBar = $('#pBar');
+  const pText = $('#pText');
 
   const coachToast = $('#coachToast');
   const toastFace = $('#toastFace');
-  const toastTxt  = $('#toastTxt');
-  const toastSub  = $('#toastSub');
+  const toastTxt = $('#toastTxt');
+  const toastSub = $('#toastSub');
+
+  const stageFlash = $('#stageFlash');
+  const fxLayer = $('#fxLayer');
+  const playLayer = $('#playLayer');
+
+  const endOverlay = $('#endOverlay');
+  const endSummary = $('#endSummary');
+  const endBuff = $('#endBuff');
+  const endSub = $('#endSub');
+  const endMode = $('#endMode');
+
+  let toastTimer = null;
 
   function faceFromMood(mood){
     return (
       mood === 'happy' ? '😄' :
       mood === 'fever' ? '🔥' :
-      mood === 'sad'   ? '😵' :
-      mood === 'neutral' ? '🙂' : '🙂'
+      mood === 'sad' ? '😵' :
+      '🙂'
     );
   }
 
-  let toastTimer=null;
   function showToast(text, mood){
-    if(!coachToast) return;
-    if(toastTimer){ clearTimeout(toastTimer); toastTimer=null; }
+    if(toastTimer){ clearTimeout(toastTimer); toastTimer = null; }
     toastTxt.textContent = text || '';
-    toastSub.textContent = mood ? String(mood) : 'coach';
+    toastSub.textContent = mood || 'coach';
     toastFace.textContent = faceFromMood(mood);
     coachToast.classList.add('show');
     toastTimer = setTimeout(()=> coachToast.classList.remove('show'), 2600);
   }
 
-  let lastAiHintAt = 0;
-  window.addEventListener('hha:ai_pred', (ev)=>{
-    const d = ev?.detail || {};
-    if(!aiPill || !aiRisk) return;
+  function pulseEl(el, cls='hudPulse', ms=320){
+    if(!el) return;
+    el.classList.remove(cls);
+    el.offsetHeight;
+    el.classList.add(cls);
+    setTimeout(()=> el.classList.remove(cls), ms);
+  }
 
-    if(!d.enabled){
-      aiPill.style.display = 'none';
-      return;
+  function flashStage(kind){
+    if(!stageFlash) return;
+    stageFlash.className = '';
+    stageFlash.offsetHeight;
+    stageFlash.classList.add(kind || 'good');
+    stageFlash.style.opacity = '1';
+    setTimeout(()=>{ stageFlash.style.opacity = '0'; }, 120);
+  }
+
+  function popScore(x, y, text, good){
+    if(!fxLayer) return;
+    const el = document.createElement('div');
+    el.className = 'scorePop ' + (good ? 'good' : 'bad');
+    el.textContent = text;
+    el.style.left = Math.round(x) + 'px';
+    el.style.top = Math.round(y) + 'px';
+    fxLayer.appendChild(el);
+    setTimeout(()=>{ try{ el.remove(); }catch(_){ } }, 700);
+  }
+
+  function updateSpawnSafe(){
+    try{
+      const r = playLayer.getBoundingClientRect();
+      const pad = 16;
+      const topSafe = 156;
+      const botSafe = 168;
+
+      window.__HHA_SPAWN_SAFE__ = {
+        xMin: pad,
+        xMax: Math.max(pad + 1, r.width - pad),
+        yMin: topSafe,
+        yMax: Math.max(topSafe + 1, r.height - botSafe)
+      };
+    }catch(_){}
+  }
+  window.addEventListener('resize', updateSpawnSafe, { passive:true });
+
+  function showOverlay(el){
+    el.style.display = 'flex';
+    el.setAttribute('aria-hidden', 'false');
+  }
+  function hideOverlay(el){
+    el.style.display = 'none';
+    el.setAttribute('aria-hidden', 'true');
+  }
+
+  function lockPxForView(){
+    if(VIEW === 'pc') return 10;
+    if(VIEW === 'cvr') return 22;
+    return 16;
+  }
+
+  function installLockPxShim(){
+    window.addEventListener('hha:shoot', (ev)=>{
+      try{
+        if(!ev || !ev.detail) return;
+        if(ev.detail.lockPx != null) return;
+        const d = ev.detail;
+        ev.stopImmediatePropagation();
+        window.dispatchEvent(new CustomEvent('hha:shoot', {
+          detail: { ...d, lockPx: lockPxForView(), source: d.source || 'shim' }
+        }));
+      }catch(_){}
+    }, true);
+  }
+
+  function startGame(){
+    updateSpawnSafe();
+    try{ window.GroupsVR?.GameEngine?.setLayerEl?.(playLayer); }catch(_){}
+    try{
+      window.GroupsVR.GameEngine.start(DIFF, {
+        runMode: RUN,
+        time: TIME,
+        seed: SEED,
+        view: VIEW,
+        classroom: true,
+        miniBoss: true,
+        bossSec: 12,
+        goalTotal: (DIFF==='easy') ? 10 : (DIFF==='hard') ? 14 : 12,
+        chargeNeed: (DIFF==='easy') ? 7 : (DIFF==='hard') ? 9 : 8
+      });
+      showToast('เริ่มแล้ว! ยิงให้ถูก “หมู่” แล้วเก็บคอมโบ 🔥', 'neutral');
+    }catch(e){
+      console.error(e);
+      showToast('เริ่มเกมไม่สำเร็จ — เปิด Console ดู error', 'sad');
     }
+  }
 
-    const r = Math.round((Number(d.hazardRisk)||0) * 100);
-    const f = Array.isArray(d.topFactors) ? d.topFactors.filter(Boolean) : [];
-    aiRisk.textContent = `Risk ${r}%` + (f[0] ? ` · ${f[0]}` : '');
-    aiPill.style.display = '';
-
-    const t = (performance && performance.now) ? performance.now() : Date.now();
-    if(r >= 78 && f[0] && (t - lastAiHintAt) > 2400){
-      lastAiHintAt = t;
-      showToast(f[0], 'neutral');
-    }
-  });
+  function restart(){
+    hideOverlay(endOverlay);
+    try{ window.GroupsVR?.GameEngine?.stop?.(); }catch(_){}
+    setTimeout(()=> startGame(), 60);
+  }
 
   window.addEventListener('hha:coach', (ev)=>{
     const d = ev?.detail || {};
@@ -728,237 +664,100 @@ Requires:
 
   window.addEventListener('hha:time', (ev)=>{
     const left = ev?.detail?.left;
-    if(typeof left === 'number') $('#hudTime').textContent = left + 's';
+    if(typeof left === 'number'){
+      hudTime.textContent = left + 's';
+    }
   });
 
   window.addEventListener('hha:score', (ev)=>{
     const d = ev?.detail || {};
-    if(d.score != null) $('#hudScore').textContent = String(d.score|0);
-    if(d.combo != null) $('#hudCombo').textContent = 'x' + String(d.combo|0);
+    if(d.score != null) hudScore.textContent = String(d.score|0);
+
+    if(d.combo != null){
+      const comboVal = Number(d.combo) || 0;
+      hudCombo.textContent = 'x' + String(comboVal|0);
+      if(comboVal >= 4) hudCombo.classList.add('comboHot');
+      else hudCombo.classList.remove('comboHot');
+    }
+
     const m = (d.misses != null) ? d.misses : d.miss;
-    if(m != null) $('#hudMiss').textContent = String(m|0);
+    if(m != null) hudMiss.textContent = String(m|0);
+
+    pulseEl(hudScore);
   });
 
   window.addEventListener('hha:rank', (ev)=>{
     const d = ev?.detail || {};
-    if(d.grade) $('#hudRank').textContent = String(d.grade);
+    if(d.grade){
+      const old = hudRank.textContent;
+      const next = String(d.grade);
+      hudRank.textContent = next;
+      if(old && old !== next) pulseEl(hudRank, 'rankFlash', 460);
+    }
   });
 
   window.addEventListener('quest:update', (ev)=>{
     const d = ev?.detail || {};
-    if(d.goalTitle) $('#qTitle').textContent = d.goalTitle;
+    if(d.goalTitle) qTitle.textContent = d.goalTitle;
     const gNow = (d.goalNow!=null) ? d.goalNow : 0;
     const gTot = (d.goalTotal!=null) ? d.goalTotal : 1;
-    $('#qSub').textContent = `${gNow}/${gTot}`;
-    const pct = Math.round((gNow/Math.max(1,gTot))*100);
-    $('#qBar').style.width = pct + '%';
+    qSub.textContent = `${gNow}/${gTot}`;
+    qBar.style.width = Math.round((gNow / Math.max(1, gTot)) * 100) + '%';
 
-    if(d.miniTitle){
-      $('#qMini').textContent = `${d.miniTitle} · ${d.miniNow||0}/${d.miniTotal||0}`;
-    }
-    if(d.miniTimeLeftSec != null && d.miniTimeLeftSec > 0){
-      $('#qMiniTime').textContent = `⏳ ${d.miniTimeLeftSec}s`;
-    }else{
-      $('#qMiniTime').textContent = '';
-    }
-    if(d.groupName) $('#groupName').textContent = d.groupName;
+    if(d.miniTitle) qMini.textContent = `${d.miniTitle} · ${d.miniNow||0}/${d.miniTotal||0}`;
+    qMiniTime.textContent = (d.miniTimeLeftSec != null && d.miniTimeLeftSec > 0) ? `⏳ ${d.miniTimeLeftSec}s` : '';
+    if(d.groupName) groupName.textContent = d.groupName;
   });
 
   window.addEventListener('groups:power', (ev)=>{
     const d = ev?.detail || {};
     const c = (d.charge!=null) ? d.charge : 0;
     const t = (d.threshold!=null) ? d.threshold : 1;
-    const pct = Math.round((c/Math.max(1,t))*100);
-    $('#pBar').style.width = pct + '%';
-    $('#pText').textContent = `${c}/${t}`;
+    const pct = Math.round((c / Math.max(1, t)) * 100);
+    pBar.style.width = pct + '%';
+    pText.textContent = `${c}/${t}`;
   });
 
-  window.addEventListener('groups:director', (ev)=>{
+  window.addEventListener('groups:hit', (ev)=>{
     const d = ev?.detail || {};
-    const pill = $('#dirPill');
-    if(!d.text){ pill.style.display='none'; return; }
-    $('#dirText').textContent = String(d.text);
-    pill.style.display = '';
+    const good = !!d.good;
+    const kind = String(d.kind || '');
+    const x = Number(d.x || (window.innerWidth * 0.5));
+    const y = Number(d.y || (window.innerHeight * 0.5));
+    const delta = Number(d.delta || (good ? 10 : -3));
+
+    pulseEl(hudScore);
+
+    if(good){
+      pulseEl(hudCombo);
+      flashStage(kind === 'boss_hit' ? 'boss' : 'good');
+      popScore(x, y, (delta > 0 ? '+' : '') + delta, true);
+    }else{
+      flashStage('bad');
+      popScore(x, y, (delta > 0 ? '+' : '') + delta, false);
+    }
   });
-
-  const practiceOverlay = $('#practiceOverlay');
-  const calibOverlay = $('#calibOverlay');
-  const endOverlay = $('#endOverlay');
-
-  function showOverlay(el){
-    el.style.display='flex';
-    el.setAttribute('aria-hidden','false');
-  }
-  function hideOverlay(el){
-    el.style.display='none';
-    el.setAttribute('aria-hidden','true');
-  }
-
-  $('#btnFS').addEventListener('click', async ()=>{
-    try{
-      const el = document.documentElement;
-      if(el.requestFullscreen) await el.requestFullscreen();
-      else if(el.webkitRequestFullscreen) el.webkitRequestFullscreen();
-    }catch(_){}
-  });
-
-  $('#btnLand').addEventListener('click', async ()=>{
-    try{
-      if(screen.orientation && screen.orientation.lock){
-        await screen.orientation.lock('landscape');
-      }
-    }catch(_){}
-  });
-
-  $('#btnRecenter').addEventListener('click', ()=>{
-    try{ window.dispatchEvent(new CustomEvent('hha:recenter', { detail:{ source:'calib' } })); }catch(_){}
-    showToast('Recenter แล้ว ✅', 'neutral');
-  });
-
-  $('#btnCloseCalib').addEventListener('click', ()=>hideOverlay(calibOverlay));
-
-  function showEnd(summary){
-    $('#endSub').textContent = `grade=${summary?.grade||'-'} · acc=${summary?.accuracyPct??'-'}% · miss=${summary?.miss??'-'}`;
-    $('#endSummary').textContent = JSON.stringify(summary || {}, null, 2);
-    const pred = (window.HHA_AI && window.HHA_AI.getPrediction) ? window.HHA_AI.getPrediction() : null;
-    $('#endBuff').textContent = JSON.stringify(pred || {note:'no ai'}, null, 2);
-    showOverlay(endOverlay);
-  }
-  function hideEnd(){ hideOverlay(endOverlay); }
-
-  $('#btnEndAgain').addEventListener('click', ()=>{ hideEnd(); restart(); });
-  $('#btnEndGoHub').addEventListener('click', ()=>goHub(true));
-  $('#btnEndClose').addEventListener('click', ()=>hideEnd());
-
-  $('#btnBack').addEventListener('click', ()=>goHub(true));
-  $('#btnRestart').addEventListener('click', ()=>restart());
-
-  const playLayer = $('#playLayer');
-  function updateSpawnSafe(){
-    try{
-      const r = playLayer.getBoundingClientRect();
-      const pad = 14;
-      const topSafe = (VIEW === 'pc') ? 114 : 128;
-      const botSafe = (VIEW === 'cvr') ? 196 : 164;
-
-      window.__HHA_SPAWN_SAFE__ = {
-        xMin: pad,
-        xMax: Math.max(pad + 1, r.width - pad),
-        yMin: topSafe,
-        yMax: Math.max(topSafe + 1, r.height - botSafe),
-      };
-    }catch(_){}
-  }
-  window.addEventListener('resize', ()=>updateSpawnSafe(), { passive:true });
-
-  let lastSummary=null;
-  let inPractice=false;
 
   window.addEventListener('hha:end', (ev)=>{
     const s = ev?.detail || {};
-    lastSummary = s;
+    endSub.textContent = `grade=${s?.grade || '-'} · acc=${s?.accuracyPct ?? '-'}% · miss=${s?.miss ?? '-'}`;
+    endSummary.textContent = JSON.stringify(s || {}, null, 2);
 
-    if(inPractice){
-      inPractice = false;
-      showToast('ซ้อมครบแล้ว! เข้าเกมจริง 🔥', 'happy');
-      setTimeout(()=>startRealRun(), 360);
-      return;
-    }
-    showEnd(s);
+    const pred = (window.HHA_AI && window.HHA_AI.getPrediction) ? window.HHA_AI.getPrediction() : null;
+    endBuff.textContent = JSON.stringify(pred || { note:'no ai' }, null, 2);
+    endMode.textContent = RUN.toUpperCase();
+
+    showOverlay(endOverlay);
   });
 
-  function stop(){
-    try{ window.GroupsVR?.GameEngine?.stop?.(); }catch(_){}
-  }
+  $('#btnRestart').addEventListener('click', restart);
+  $('#btnBack').addEventListener('click', ()=>{ location.href = HUB; });
+  $('#btnEndAgain').addEventListener('click', restart);
+  $('#btnEndGoHub').addEventListener('click', ()=>{ location.href = HUB; });
+  $('#btnEndClose').addEventListener('click', ()=> hideOverlay(endOverlay));
 
-  function goHub(flushFirst){
-    if(flushFirst){
-      try{ window.GroupsVR?.Telemetry?.flush?.(lastSummary||null); }catch(_){}
-    }
-    stop();
-    location.href = HUB;
-  }
-
-  function restart(){
-    hideEnd();
-    stop();
-    inPractice = false;
-    setTimeout(()=>bootFlow(), 60);
-  }
-
-  function buildCtx(runMode, timeSec, seedStr){
-    return {
-      runMode,
-      time: timeSec,
-      seed: seedStr,
-      view: VIEW,
-      classroom: (runMode !== 'practice'),
-      miniBoss: (runMode !== 'practice'),
-      bossSec: 12,
-      goalTotal: (DIFF==='easy') ? 10 : (DIFF==='hard') ? 14 : 12,
-      chargeNeed:(DIFF==='easy') ? 7  : (DIFF==='hard') ? 9  : 8
-    };
-  }
-
-  function startEngine(runMode, timeSec, seedStr){
-    updateSpawnSafe();
-    try{ window.GroupsVR?.GameEngine?.setLayerEl?.(playLayer); }catch(_){}
-    const ctx = buildCtx(runMode, timeSec, seedStr);
-    try{
-      window.GroupsVR.GameEngine.start(DIFF, ctx);
-    }catch(e){
-      console.error(e);
-      showToast('เริ่มเกมไม่สำเร็จ — เปิด Console ดู error', 'sad');
-    }
-  }
-
-  function startPracticeRun(){
-    inPractice = true;
-    showToast('PRACTICE 15s — ซ้อมก่อนเข้าเกมจริง 🧪', 'neutral');
-    startEngine('practice', 15, String(SEED) + '-p15');
-  }
-
-  function startRealRun(){
-    inPractice = false;
-    showToast('เริ่มแล้ว! ยิงให้ถูก “หมู่” แล้วเก็บคอมโบ 🔥', 'neutral');
-    startEngine((RUN === 'research') ? 'research' : 'play', TIME, SEED);
-  }
-
-  $('#btnSkipPractice').addEventListener('click', ()=>{
-    hideOverlay(practiceOverlay);
-    startRealRun();
-  });
-  $('#btnStartPractice').addEventListener('click', ()=>{
-    hideOverlay(practiceOverlay);
-    startPracticeRun();
-  });
-
-  function bootFlow(){
-    updateSpawnSafe();
-
-    if(!window.GroupsVR || !window.GroupsVR.GameEngine || typeof window.GroupsVR.GameEngine.start !== 'function'){
-      showToast('groups.safe.js โหลดไม่สำเร็จ (ดู Console)', 'sad');
-      return;
-    }
-
-    if(VIEW === 'cvr'){
-      showToast('โหมด Cardboard (cVR) ยิงจาก crosshair 🎯', 'neutral');
-      showOverlay(calibOverlay);
-    }
-
-    if(PRACTICE_ON){
-      $('#practiceTag').textContent = 'ON';
-      $('#practiceHint').textContent = (VIEW === 'cvr')
-        ? 'แตะจอเพื่อยิงจาก crosshair (อย่ารัว) แล้วลองเก็บคอมโบ'
-        : 'แตะ/คลิกยิง แล้วลองเก็บคอมโบ';
-      showOverlay(practiceOverlay);
-      return;
-    }
-
-    startRealRun();
-  }
-
-  bootFlow();
+  installLockPxShim();
+  startGame();
 })();
 </script>
 </body>
