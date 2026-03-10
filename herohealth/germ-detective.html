@@ -23,7 +23,12 @@
       padding:18px;
       box-shadow:0 20px 60px rgba(0,0,0,.35);
     }
-    .muted{ color:#94a3b8; font-size:13px; line-height:1.5; }
+    .muted{
+      color:#94a3b8;
+      font-size:13px;
+      line-height:1.5;
+      word-break:break-word;
+    }
   </style>
 </head>
 <body>
@@ -73,8 +78,8 @@
       const HUB_URL  = ORIGIN + '/webxr-health-mobile/herohealth/hub.html';
       const GATE_URL = ORIGIN + '/webxr-health-mobile/herohealth/warmup-gate.html?v=20260310z4';
 
-      // ✅ FIX: must be REAL run page, not germ-detective-vr.html wrapper
-      const RUN_URL  = ORIGIN + '/webxr-health-mobile/herohealth/germ-detective/germ-detective.html';
+      // ✅ run game จริง
+      const RUN_URL  = ORIGIN + '/webxr-health-mobile/herohealth/germ-detective-vr.html';
 
       const pid   = String(qs('pid','anon')).trim() || 'anon';
       const run   = String(qs('run','play')).toLowerCase() || 'play';
@@ -99,8 +104,6 @@
       const gateResult = String(qs('gateResult',''));
       const gateMode = String(qs('gateMode',''));
       const alreadyWarm = (gateResult === '1' && gateMode === 'warmup');
-
-      // กัน loop ถ้าผ่าน gate มาแล้ว
       const alreadySkipped = String(qs('wgskip','0')) === '1';
 
       const gameUrl = new URL(RUN_URL);
@@ -129,7 +132,6 @@
       console.log('[germ-launcher] alreadySkipped =', alreadySkipped);
       console.log('[germ-launcher] RUN_URL =', gameUrl.toString());
 
-      // ถ้าผ่าน warmup มาแล้ว หรือมี wgskip แล้ว เข้าเกมตรง
       if(alreadyWarm || alreadySkipped){
         setMsg('ผ่าน warmup แล้ว กำลังเข้าเกม…');
         location.replace(gameUrl.toString());
