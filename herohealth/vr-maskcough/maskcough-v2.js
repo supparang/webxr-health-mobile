@@ -1,7 +1,5 @@
 'use strict';
 
-import { buildCooldownUrlForCurrentGame } from '../gate/helpers/gate-link.js';
-
 (function(){
   const DOC = document;
   const WIN = window;
@@ -79,9 +77,11 @@ import { buildCooldownUrlForCurrentGame } from '../gate/helpers/gate-link.js';
   const sThreat = byId('sThreat');
   const endBadges = byId('endBadges');
   const endNote = byId('endNote');
+  const learningSummary = byId('learningSummary');
 
   let crosshairEl = null;
   let endFlowRedirected = false;
+  let lastSummary = null;
 
   // ---------- audio/vibrate ----------
   const FX = {
@@ -232,47 +232,39 @@ import { buildCooldownUrlForCurrentGame } from '../gate/helpers/gate-link.js';
     }catch(_){}
   }
 
-  // ---------- cooldown helpers ----------
+  // ---------- cooldown helpers (fallback, no import) ----------
   function buildMaskCoughCooldownUrl(summary){
     const safe = summary || {};
-    const endScore   = sScore?.textContent?.trim() || String(safe.score ?? '');
-    const endCombo   = sComboMax?.textContent?.trim() || String(safe.comboMax ?? '');
-    const endPerfect = sPerfect?.textContent?.trim() || String(safe.perfect ?? '');
-    const endMiss    = sMiss?.textContent?.trim() || String(safe.miss ?? '');
-    const endShield  = sShield?.textContent?.trim() || (safe.shieldEnd != null ? `${safe.shieldEnd}%` : '');
-    const endThreat  = sThreat?.textContent?.trim() || (safe.threatEnd != null ? `${safe.threatEnd}%` : '');
-    const noteText   = endNote?.textContent?.trim() || '';
+    try{
+      const u = new URL('../cooldown-gate.html', location.href);
 
-    const phaseText = tPhase?.textContent?.trim() || '';
-    const missionText = tMission?.textContent?.trim() || '';
+      u.searchParams.set('cat', 'hygiene');
+      u.searchParams.set('game', 'maskcough');
+      u.searchParams.set('theme', 'maskcough');
 
-    return buildCooldownUrlForCurrentGame({
-      cat: 'hygiene',
-      game: 'maskcough',
-      theme: 'maskcough',
-      fallbackHub: '../hub.html',
-      extras: {
-        endScore,
-        endCombo,
-        endPerfect,
-        endMiss,
-        endShield,
-        endThreat,
-        noteText,
-        phaseText,
-        missionText,
-        reason: safe.reason || '',
-        score: safe.score ?? '',
-        comboMax: safe.comboMax ?? '',
-        perfect: safe.perfect ?? '',
-        miss: safe.miss ?? '',
-        shieldEnd: safe.shieldEnd ?? '',
-        threatEnd: safe.threatEnd ?? '',
-        bossPerfect: safe.bossPerfect ?? '',
-        bossNeedPerfect: safe.bossNeedPerfect ?? '',
-        burstUsed: safe.burstUsed ?? ''
-      }
-    });
+      if(hub) u.searchParams.set('hub', hub);
+      if(pid) u.searchParams.set('pid', pid);
+      if(studyId) u.searchParams.set('studyId', studyId);
+      if(phase) u.searchParams.set('phase', phase);
+      if(conditionGroup) u.searchParams.set('conditionGroup', conditionGroup);
+      if(diff) u.searchParams.set('diff', diff);
+      if(view) u.searchParams.set('view', view);
+
+      u.searchParams.set('reason', safe.reason || '');
+      u.searchParams.set('score', String(safe.score ?? ''));
+      u.searchParams.set('comboMax', String(safe.comboMax ?? ''));
+      u.searchParams.set('perfect', String(safe.perfect ?? ''));
+      u.searchParams.set('miss', String(safe.miss ?? ''));
+      u.searchParams.set('shieldEnd', String(safe.shieldEnd ?? ''));
+      u.searchParams.set('threatEnd', String(safe.threatEnd ?? ''));
+      u.searchParams.set('bossPerfect', String(safe.bossPerfect ?? ''));
+      u.searchParams.set('bossNeedPerfect', String(safe.bossNeedPerfect ?? ''));
+      u.searchParams.set('burstUsed', String(safe.burstUsed ?? ''));
+
+      return u.toString();
+    }catch(_){
+      return hub || '../hub.html';
+    }
   }
 
   function goMaskCoughCooldown(summary){
@@ -288,13 +280,7 @@ import { buildCooldownUrlForCurrentGame } from '../gate/helpers/gate-link.js';
   function wireEndButtonForCooldown(){
     if(!btnEndBack) return;
     btnEndBack.textContent = '➡ ไป Cooldown';
-    btnEndBack.onclick = (ev)=>{
-      ev.preventDefault();
-      goCooldownOnce(lastSummary);
-    };
   }
-
-  let lastSummary = null;
 
   // ---------- config ----------
   const DIFF = {
@@ -406,6 +392,40 @@ import { buildCooldownUrlForCurrentGame } from '../gate/helpers/gate-link.js';
     tickTimer:null
   };
 
+  // ---------- learning / prompt ----------
+  function learningPrompt(key){
+    const map = {
+      round_start: 'เริ่มเลย! รีบลดละอองและป้องกันเชื้อ',
+      mask_pick: 'ดีมาก! หน้ากากช่วยป้องกันเชื้อ',
+      perfect_parry: 'เยี่ยม! คุณป้องกันละอองไอได้ทัน',
+      normal_block: 'ดีแล้ว! ลองจับจังหวะให้แม่นขึ้น',
+      cough_hit: 'ไม่ทัน! เชื้อเริ่มแพร่กระจาย',
+      infected_spread: 'ระวัง! เชื้อกำลังลาม',
+      high_threat: 'ตอนนี้เสี่ยงมาก รีบป้องกันก่อน',
+      burst_use: 'เยี่ยม! คุณหยุดเชื้อได้ทัน',
+      boss_cone: 'ระวัง! การไอจามรุนแรงกำลังมา',
+      boss_sweep: 'รีบจัดการ ก่อนเชื้อกระจายไปทั่ว',
+      boss_fake: 'ดูให้ดีก่อน อย่ารีบกดเร็วเกินไป'
+    };
+    prompt(map[key] || '');
+  }
+
+  function buildLearningSummary(){
+    const lines = [];
+    lines.push('วันนี้เราเรียนรู้ว่า');
+    lines.push('- การไอจามทำให้เชื้อแพร่ได้');
+    lines.push('- หน้ากากช่วยป้องกันเชื้อ');
+    lines.push('- ถ้าปล่อยไว้นาน เชื้อจะลามมากขึ้น');
+
+    if(st.perfect >= 3){
+      lines.push('- คุณป้องกันการไอจามได้ดี');
+    }else{
+      lines.push('- ครั้งหน้าลองป้องกันให้เร็วขึ้น');
+    }
+
+    return lines.join('\n');
+  }
+
   // ---------- helpers ----------
   function rect(){ return world.getBoundingClientRect(); }
 
@@ -497,6 +517,7 @@ import { buildCooldownUrlForCurrentGame } from '../gate/helpers/gate-link.js';
     bossBanner.hidden = false;
     bossBanner.textContent = text;
   }
+
   function hideBossBanner(){
     if(!bossBanner) return;
     bossBanner.hidden = true;
@@ -748,7 +769,7 @@ import { buildCooldownUrlForCurrentGame } from '../gate/helpers/gate-link.js';
     pop(sx, sy, `+${6 + c1 + c2}`, 'pro');
     shake();
     sfxParry();
-    prompt('✨ PERFECT PARRY!');
+    learningPrompt('perfect_parry');
     if(st.phase==='boss' && (c1 + c2) >= 3) prompt('🔥 Boss Break!');
     if(st.phase==='boss') toast('Boss Parry!');
 
@@ -780,6 +801,7 @@ import { buildCooldownUrlForCurrentGame } from '../gate/helpers/gate-link.js';
     removeEntity(e.id, true);
     pop(sx, sy, '+2', 'good');
     sfxBlock();
+    learningPrompt('normal_block');
 
     logger.push({
       type:'block',
@@ -807,7 +829,7 @@ import { buildCooldownUrlForCurrentGame } from '../gate/helpers/gate-link.js';
     shake();
     sfxBad();
     pop(sx, sy, '-16', 'bad');
-    prompt('😷 โดนละอองไอ!');
+    learningPrompt('cough_hit');
 
     for(let i=0;i<2;i++){
       const dx = (rng()*80)-40;
@@ -856,7 +878,7 @@ import { buildCooldownUrlForCurrentGame } from '../gate/helpers/gate-link.js';
       st.shield = clamp(st.shield + 15, 0, 100);
       removeEntity(id, true);
       pop(sx, sy, '+Shield', 'good');
-      prompt('🛡️ Shield +');
+      learningPrompt('mask_pick');
     }
     else if(e.type==='infected'){
       st.combo = 0;
@@ -945,20 +967,20 @@ import { buildCooldownUrlForCurrentGame } from '../gate/helpers/gate-link.js';
       const cy = 90 + rng() * Math.max(80, r.height - 180);
       showBossBanner('👿 BOSS: CONE COUGH');
       showConeHazard(cx, cy);
-      prompt('ระวังกรวยไอ — รอ parry!');
+      learningPrompt('boss_cone');
     }
     else if(st.bossPatternNow === 'sweep'){
       st.bossSweepDir = rng() < 0.5 ? 'ltr' : 'rtl';
       showBossBanner(st.bossSweepDir === 'ltr' ? '👿 BOSS: SWEEP →' : '👿 BOSS: ← SWEEP');
       showSweepHazard(st.bossSweepDir);
-      prompt('คลื่นกวาดมาแล้ว!');
+      learningPrompt('boss_sweep');
     }
     else{
       const fx = 90 + rng() * Math.max(80, r.width - 180);
       const fy = 90 + rng() * Math.max(80, r.height - 180);
       showBossBanner('👿 BOSS: FAKE → REAL');
       showFakeHazard(fx, fy);
-      prompt('อย่าหลอกกดเร็วเกิน!');
+      learningPrompt('boss_fake');
     }
 
     sfxBoss();
@@ -1024,11 +1046,7 @@ import { buildCooldownUrlForCurrentGame } from '../gate/helpers/gate-link.js';
     setTimeout(()=>{ const el = byId('mcfxFlash'); if(el) el.style.opacity='0'; }, 100);
     clearHazards();
 
-    if(clearD + clearI >= 6){
-      prompt(`💥 HERO BURST! เคลียร์ ${clearD + clearI}`);
-    }else{
-      prompt(`💥 BURST! เคลียร์ ${clearD + clearI} เป้า`);
-    }
+    learningPrompt('burst_use');
 
     logger.push({
       type:'burst',
@@ -1182,7 +1200,7 @@ import { buildCooldownUrlForCurrentGame } from '../gate/helpers/gate-link.js';
       shieldStart: st.shield
     });
 
-    prompt('💦 เคลียร์ฝูงก่อน แล้วรอ 🤧 ให้เข้าเขียว');
+    learningPrompt('round_start');
     spawnWave();
     st.tickTimer = setInterval(tick, 80);
   }
@@ -1260,7 +1278,7 @@ import { buildCooldownUrlForCurrentGame } from '../gate/helpers/gate-link.js';
                 clamp(oy+dy, 30, rect().height-30)
               );
             }
-            prompt('🦠 เชื้อลาม!');
+            learningPrompt('infected_spread');
           }
         }
       }
@@ -1278,6 +1296,10 @@ import { buildCooldownUrlForCurrentGame } from '../gate/helpers/gate-link.js';
 
     if(st.threat >= 75){
       st.shield = clamp(st.shield - 0.05, 0, 100);
+    }
+
+    if(st.threat >= 75 && ((performance.now() / 900) | 0) % 2 === 0){
+      learningPrompt('high_threat');
     }
 
     if(st.threat >= 85 && ((performance.now() / 260) | 0) % 2 === 0){
@@ -1374,6 +1396,10 @@ import { buildCooldownUrlForCurrentGame } from '../gate/helpers/gate-link.js';
     saveSummary(summary);
     logger.push({ type:'end', ...summary });
     logger.flush('end');
+
+    if(learningSummary){
+      learningSummary.textContent = buildLearningSummary();
+    }
 
     if(endNote){
       endNote.textContent =
