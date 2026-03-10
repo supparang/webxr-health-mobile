@@ -8,17 +8,29 @@
   <link rel="icon" href="./favicon.ico" />
   <style>
     :root{
-      --bg:#020617; --panel:rgba(2,6,23,.78); --stroke:rgba(148,163,184,.18);
-      --text:#e5e7eb; --muted:#94a3b8; --good:#22c55e; --cyan:#22d3ee; --warn:#f59e0b;
-      --sat: env(safe-area-inset-top, 0px); --sab: env(safe-area-inset-bottom, 0px);
-      --sal: env(safe-area-inset-left, 0px); --sar: env(safe-area-inset-right, 0px);
+      --bg:#020617;
+      --panel:rgba(2,6,23,.78);
+      --stroke:rgba(148,163,184,.18);
+      --text:#e5e7eb;
+      --muted:#94a3b8;
+      --good:#22c55e;
+      --cyan:#22d3ee;
+      --warn:#f59e0b;
+      --sat: env(safe-area-inset-top, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
+      --sar: env(safe-area-inset-right, 0px);
     }
     *{box-sizing:border-box}
-    html,body{margin:0;height:100%;background:
-      radial-gradient(1200px 800px at 20% 0%, rgba(99,102,241,.18), transparent 55%),
-      radial-gradient(900px 700px at 90% 20%, rgba(34,211,238,.14), transparent 55%),
-      var(--bg);
-      color:var(--text);font-family:system-ui,-apple-system,"Noto Sans Thai",Segoe UI,Roboto,sans-serif;
+    html,body{
+      margin:0;
+      height:100%;
+      background:
+        radial-gradient(1200px 800px at 20% 0%, rgba(99,102,241,.18), transparent 55%),
+        radial-gradient(900px 700px at 90% 20%, rgba(34,211,238,.14), transparent 55%),
+        var(--bg);
+      color:var(--text);
+      font-family:system-ui,-apple-system,"Noto Sans Thai",Segoe UI,Roboto,sans-serif;
     }
     .wrap{
       min-height:100%;
@@ -38,7 +50,7 @@
     .title{font-size:20px;font-weight:1000}
     .sub{margin-top:6px;color:rgba(229,231,235,.76);font-weight:800;font-size:13px;line-height:1.45}
     .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
-    @media (max-width:760px){ .grid{grid-template-columns:1fr} }
+    @media (max-width:760px){ .grid{grid-template-columns:1fr } }
     .box{
       border:1px solid var(--stroke);
       background:rgba(15,23,42,.52);
@@ -64,7 +76,8 @@
     .field{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:10px}
     label{font-size:12px;color:rgba(148,163,184,.95);font-weight:900}
     input{
-      width:170px;max-width:100%;
+      width:170px;
+      max-width:100%;
       background:rgba(2,6,23,.55);
       border:1px solid rgba(148,163,184,.18);
       color:rgba(229,231,235,.95);
@@ -93,19 +106,19 @@
 <div class="wrap">
   <div class="card">
     <div class="title">😷 MaskCough Arcade v2 — Launcher</div>
-    <div class="sub">เวอร์ชันเกมสนุก/ท้าทายสำหรับทดสอบ flow จริง (survival + parry + boss patterns)</div>
+    <div class="sub">เข้าเกมเวอร์ชันใหม่ที่ใช้ไฟล์ <code>maskcough-v2.html</code> โดยตรง</div>
 
     <div class="grid">
       <div class="box">
         <h3>VIEW</h3>
         <div class="row" id="viewRow"></div>
-        <div class="hint">mobile = แตะตรงเป้า, cvr = ยิงจากกลางจอ, pc = เมาส์/คลิก</div>
+        <div class="hint">mobile = แตะเป้า, cvr = ยิงจากกลางจอ, pc = เมาส์/คลิก</div>
       </div>
 
       <div class="box">
         <h3>DIFFICULTY</h3>
         <div class="row" id="diffRow"></div>
-        <div class="hint">แนะนำ: ป.5 เริ่มที่ <b>easy</b> หรือ <b>normal</b></div>
+        <div class="hint">แนะนำเริ่มที่ <b>easy</b> หรือ <b>normal</b></div>
       </div>
 
       <div class="box">
@@ -117,15 +130,14 @@
           <input id="seedInp" type="number" step="1" />
           <button class="btn" id="btnRandSeed" type="button">สุ่ม seed</button>
         </div>
-        <div class="hint">รอบเล่นแนะนำ: 70–80 วินาที</div>
+        <div class="hint">เวลาแนะนำ 75–80 วินาที</div>
       </div>
 
       <div class="box">
         <h3>OPTIONS</h3>
         <div class="hint">
-          ปิดเสียง: <code>?snd=0</code><br>
-          ปิดสั่น: <code>?vib=0</code><br>
-          ส่งต่อ hub/pid/studyId/phase/conditionGroup ได้
+          ส่งต่อ <code>hub</code>, <code>pid</code>, <code>studyId</code>, <code>phase</code>, <code>conditionGroup</code> ได้<br>
+          ไฟล์ปลายทางคือ <code>./vr-maskcough/maskcough-v2.html</code>
         </div>
       </div>
     </div>
@@ -144,8 +156,7 @@
   'use strict';
 
   const LS_KEY = 'HHA_LAUNCH_MASKCOUGH_V2';
-  const GAME_PATH = './vr-maskcough/maskcough-v2.html';
-  const GATE_PATH = './warmup-gate.html';
+  const RUN_URL = './vr-maskcough/maskcough-v2.html';
 
   const qs = (k, d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
   const pass = new URL(location.href);
@@ -167,36 +178,12 @@
       const s = localStorage.getItem(LS_KEY);
       if(!s) return null;
       const o = JSON.parse(s);
-      return o && typeof o==='object' ? o : null;
+      return o && typeof o === 'object' ? o : null;
     }catch(_){ return null; }
   }
+
   function saveState(o){
     try{ localStorage.setItem(LS_KEY, JSON.stringify(o)); }catch(_){}
-  }
-
-  function normalizeMaybeEncodedUrl(v){
-    v = String(v ?? '').trim();
-    if(!v || v === 'null' || v === 'undefined') return '';
-    if(/%3A|%2F|%3F|%26|%3D/i.test(v)){
-      try{ v = decodeURIComponent(v); }catch(e){}
-    }
-    return v.trim();
-  }
-
-  function cleanHubUrl(raw){
-    const fallback = new URL('./hub.html', location.href).toString();
-    raw = normalizeMaybeEncodedUrl(raw || fallback);
-    try{
-      const u = new URL(raw, location.href);
-      [
-        'gatePhase','phase','gateResult','gateMode',
-        'wType','wPct','wSteps','wTimeBonus','wScoreBonus','wRank',
-        'cd','next'
-      ].forEach(k=>u.searchParams.delete(k));
-      return u.toString();
-    }catch(_){
-      return fallback;
-    }
   }
 
   const state = Object.assign({
@@ -211,6 +198,7 @@
     {k:'mobile',t:'📱 mobile'},
     {k:'cvr',t:'📦 cvr'}
   ];
+
   const DIFFS = [
     {k:'easy',t:'🙂 easy',cls:'good'},
     {k:'normal',t:'😎 normal'},
@@ -222,82 +210,44 @@
   const timeInp = document.getElementById('timeInp');
   const seedInp = document.getElementById('seedInp');
   const preview = document.getElementById('preview');
+  const btnHub = document.getElementById('btnHub');
 
   function mkChip(item, key){
     const b = document.createElement('button');
-    b.type='button';
-    b.className='chip ' + (item.cls || '');
-    b.textContent=item.t;
+    b.type = 'button';
+    b.className = 'chip ' + (item.cls || '');
+    b.textContent = item.t;
     b.addEventListener('click', ()=>{
       state[key] = item.k;
-      render(); persist();
+      render();
+      persist();
     });
     return b;
   }
 
   function persist(){
-    saveState({ view:state.view, diff:state.diff, time:state.time, seed:state.seed });
+    saveState({
+      view: state.view,
+      diff: state.diff,
+      time: state.time,
+      seed: state.seed
+    });
   }
 
-  function buildGameUrl(){
-    const u = new URL(GAME_PATH, location.href);
+  function buildUrl(){
+    const u = new URL(RUN_URL, location.href);
 
-    // pass-through เดิม
     pass.searchParams.forEach((v,k)=> u.searchParams.set(k,v));
 
-    // ลบ query gate ที่ไม่ควรติดเข้าเกม
-    [
-      'gatePhase','phase','gateResult','gateMode',
-      'wType','wPct','wSteps','wTimeBonus','wScoreBonus','wRank',
-      'cd','next'
-    ].forEach(k=>u.searchParams.delete(k));
-
     u.searchParams.set('view', state.view);
     u.searchParams.set('diff', state.diff);
-    u.searchParams.set('time', String(Math.max(40, Number(state.time)||75)));
-    u.searchParams.set('seed', String(Number(state.seed)||Date.now()));
-    u.searchParams.set('zone', 'hygiene');
-    u.searchParams.set('hub', cleanHubUrl(qs('hub','./hub.html')));
+    u.searchParams.set('time', String(Math.max(40, Number(state.time) || 75)));
+    u.searchParams.set('seed', String(Number(state.seed) || Date.now()));
+
+    if(!u.searchParams.get('run')) u.searchParams.set('run', 'play');
+    if(!u.searchParams.get('hub')) u.searchParams.set('hub', './hub.html');
 
     return u.toString();
-  }
-
-  function buildGateUrl(){
-    const u = new URL(GATE_PATH, location.href);
-    const next = buildGameUrl();
-
-    u.searchParams.set('gatePhase', 'warmup');
-    u.searchParams.set('phase', 'warmup');
-    u.searchParams.set('cat', 'hygiene');
-    u.searchParams.set('theme', 'maskcough');
-    u.searchParams.set('game', 'maskcough');
-    u.searchParams.set('pid', qs('pid','anon') || 'anon');
-    u.searchParams.set('hub', cleanHubUrl(qs('hub','./hub.html')));
-    u.searchParams.set('next', next);
-    u.searchParams.set('run', qs('run','play') || 'play');
-    u.searchParams.set('diff', state.diff);
-    u.searchParams.set('time', String(Math.max(40, Number(state.time)||75)));
-    u.searchParams.set('view', state.view);
-    u.searchParams.set('seed', String(Number(state.seed)||Date.now()));
-
-    // ส่งต่อ research context ถ้ามี
-    [
-      'studyId','phase','conditionGroup','sessionOrder','blockLabel',
-      'siteCode','schoolYear','semester','pid'
-    ].forEach(k=>{
-      const v = qs(k,'');
-      if(v !== '' && v != null) u.searchParams.set(k, v);
-    });
-
-    return u.toString();
-  }
-
-  function shouldEnterGameDirect(){
-    return qs('gateResult','') === '1' && qs('gateMode','') === 'warmup';
-  }
-
-  function buildEntryUrl(){
-    return shouldEnterGameDirect() ? buildGameUrl() : buildGateUrl();
   }
 
   function render(){
@@ -306,39 +256,45 @@
 
     VIEWS.forEach(it=>{
       const c = mkChip(it,'view');
-      if(state.view===it.k) c.classList.add('on');
+      if(state.view === it.k) c.classList.add('on');
       viewRow.appendChild(c);
     });
 
     DIFFS.forEach(it=>{
       const c = mkChip(it,'diff');
-      if(state.diff===it.k) c.classList.add('on');
+      if(state.diff === it.k) c.classList.add('on');
       diffRow.appendChild(c);
     });
 
     timeInp.value = String(state.time);
     seedInp.value = String(state.seed);
-    preview.textContent = 'Preview: ' + buildEntryUrl();
+    preview.textContent = 'Preview: ' + buildUrl();
+
+    const hub = qs('hub','./hub.html') || './hub.html';
+    btnHub.href = hub;
   }
 
   timeInp.addEventListener('change', ()=>{
-    state.time = Math.max(40, Number(timeInp.value)||75);
-    render(); persist();
+    state.time = Math.max(40, Number(timeInp.value) || 75);
+    render();
+    persist();
   });
 
   seedInp.addEventListener('change', ()=>{
-    state.seed = Number(seedInp.value)||Date.now();
-    render(); persist();
+    state.seed = Number(seedInp.value) || Date.now();
+    render();
+    persist();
   });
 
   document.getElementById('btnRandSeed')?.addEventListener('click', ()=>{
     state.seed = Date.now();
-    render(); persist();
+    render();
+    persist();
   });
 
   document.getElementById('btnGo')?.addEventListener('click', ()=>{
     persist();
-    location.href = buildEntryUrl();
+    location.href = buildUrl();
   });
 
   render();
