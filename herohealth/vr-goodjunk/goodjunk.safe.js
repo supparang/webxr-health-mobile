@@ -1,6 +1,6 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
 // GoodJunkVR SAFE — PRODUCTION
-// FULL PATCH v20260308-GJ-SAFE-LATEST-WAITROOM
+// FULL PATCH v20260308-GJ-SAFE-LATEST-WAITROOM-SOLOSUMMARY
 'use strict';
 
 export async function boot(cfg){
@@ -1517,7 +1517,10 @@ export async function boot(cfg){
     if(!endDecision) return;
 
     if(!battleOn || !battle || !battle.enabled){
-      endDecision.textContent = `โหมดเดี่ยว • เป้าหมาย score ${detail.scoreTarget} หรือชนะบอส`;
+      endDecision.textContent =
+        detail.win
+          ? `โหมดเดี่ยว • ผ่านเป้าหมายแล้ว`
+          : `โหมดเดี่ยว • เป้าหมายคือ score ${detail.scoreTarget} หรือชนะบอส`;
       return;
     }
 
@@ -1578,10 +1581,10 @@ export async function boot(cfg){
     if(!btnRequestRematch || !btnAcceptRematch || !btnDeclineRematch) return;
 
     if(!battleOn || !battle || !battle.enabled){
-      btnRequestRematch.style.display = '';
+      btnRequestRematch.style.display = 'none';
       btnAcceptRematch.style.display = 'none';
       btnDeclineRematch.style.display = 'none';
-      btnRequestRematch.textContent = 'Replay';
+      if(btnReplay) btnReplay.textContent = 'เล่นอีกครั้ง';
       return;
     }
 
@@ -1635,6 +1638,32 @@ export async function boot(cfg){
     btnDeclineRematch.style.display = '';
     btnAcceptRematch.disabled = false;
     btnDeclineRematch.disabled = false;
+  }
+
+  function setEndOverlayMode(){
+    const matchBox = endOverlay?.querySelector('.end-match-box');
+    const compareBox = endOverlay?.querySelector('.compare-box');
+
+    if(!endOverlay) return;
+
+    if(!battleOn || !battle || !battle.enabled){
+      if(matchBox) matchBox.style.display = 'none';
+      if(compareBox) compareBox.style.display = 'none';
+      if(endRematchStatus) endRematchStatus.style.display = 'none';
+
+      if(btnRequestRematch) btnRequestRematch.style.display = 'none';
+      if(btnAcceptRematch) btnAcceptRematch.style.display = 'none';
+      if(btnDeclineRematch) btnDeclineRematch.style.display = 'none';
+
+      if(btnReplay) btnReplay.textContent = 'เล่นอีกครั้ง';
+    }else{
+      if(matchBox) matchBox.style.display = '';
+      if(compareBox) compareBox.style.display = '';
+      if(endRematchStatus) endRematchStatus.style.display = '';
+
+      renderRematchUI();
+      renderRematchEndStatus();
+    }
   }
 
   async function requestRematchAction(){
@@ -1710,7 +1739,7 @@ export async function boot(cfg){
         if(endSub) endSub.textContent = `winner=opponent • rule=${rule} • score ${detail.scoreFinal} • acc ${detail.accPct}% • miss ${detail.missTotal}`;
       }
     }else{
-      if(endTitle) endTitle.textContent = (detail.win) ? 'ชนะแล้ว! 🎉' : 'จบเกม';
+      if(endTitle) endTitle.textContent = detail.win ? 'ชนะแล้ว! 🎉' : 'จบเกม';
       if(endSub) endSub.textContent = `score ${detail.scoreFinal} • acc ${detail.accPct}% • miss ${detail.missTotal} • reason=${detail.reason}`;
     }
 
@@ -1737,15 +1766,25 @@ export async function boot(cfg){
         ? ((battlePlayersState || []).find(p => p.key === championKey)?.nick || championKey)
         : '—';
 
-      endMatchLine2.textContent =
-        `you ${myWins} • opponent ${oppWins} • champion ${championName}`;
+      endMatchLine2.textContent = `you ${myWins} • opponent ${oppWins} • champion ${championName}`;
     }
 
+    setEndOverlayMode();
     renderDecision(detail);
-    renderCompareTable(detail);
-    renderRematchEndStatus();
-    renderRematchUI();
-    hhInjectCooldownButton({ endOverlayEl:endOverlay, hub:hubUrl, cat:HH_CAT, gameKey:HH_GAME, pid });
+
+    if(battleOn && battle && battle.enabled){
+      renderCompareTable(detail);
+      renderRematchEndStatus();
+      renderRematchUI();
+    }
+
+    hhInjectCooldownButton({
+      endOverlayEl: endOverlay,
+      hub: hubUrl,
+      cat: HH_CAT,
+      gameKey: HH_GAME,
+      pid
+    });
   }
 
   function endGame(reason){
