@@ -860,9 +860,12 @@
   </div>
 
   <script>
-    console.log('[hub] v20260309-germ-hardfix running');
+    console.log('[hub] v20260310-clean-paths-pid-zone running');
 
-    const qs = (k, d='')=>{ try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(e){ return d; } };
+    const qs = (k, d='')=>{
+      try{ return (new URL(location.href)).searchParams.get(k) ?? d; }
+      catch(e){ return d; }
+    };
 
     const pid  = String(qs('pid','anon')).trim() || 'anon';
     const run  = String(qs('run','play'));
@@ -885,7 +888,7 @@
     ctxLine.textContent = `Hub • run=${run} • diff=${diff} • time=${time}s • view=${view}`;
 
     function hhDayKey(){
-      const d=new Date();
+      const d = new Date();
       return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
     }
 
@@ -893,7 +896,9 @@
       try{
         const raw = localStorage.getItem(k);
         return raw ? JSON.parse(raw) : fallback;
-      }catch(_){ return fallback; }
+      }catch(_){
+        return fallback;
+      }
     }
 
     function saveJson(k, v){
@@ -905,17 +910,17 @@
         const raw = localStorage.getItem(`HHA_PROFILE:${pid}`) || '';
         if(!raw){
           const xp = Math.max(0, Number(localStorage.getItem(`HHA_HERO_XP:${pid}`) || '0') || 0);
-          return { pid, nick: pid, xp, lvl:Math.max(1, Math.floor(xp/50)+1) };
+          return { pid, nick: pid, xp, lvl: Math.max(1, Math.floor(xp/50)+1) };
         }
         const j = JSON.parse(raw);
         const xpDirect = Number(j.xp);
         const xpFallback = Math.max(0, Number(localStorage.getItem(`HHA_HERO_XP:${pid}`) || '0') || 0);
         const xp = Math.max(0, Number.isFinite(xpDirect) ? xpDirect : xpFallback);
-        const lvl = Math.max(1, Number(j.lvl)|| (Math.floor(xp/50)+1));
-        return { pid, nick: String(j.nick||pid), xp, lvl };
+        const lvl = Math.max(1, Number(j.lvl) || (Math.floor(xp/50)+1));
+        return { pid, nick: String(j.nick || pid), xp, lvl };
       }catch(_){
         const xp = Math.max(0, Number(localStorage.getItem(`HHA_HERO_XP:${pid}`) || '0') || 0);
-        return { pid, nick: pid, xp, lvl:Math.max(1, Math.floor(xp/50)+1) };
+        return { pid, nick: pid, xp, lvl: Math.max(1, Math.floor(xp/50)+1) };
       }
     }
 
@@ -926,8 +931,8 @@
     function renderHero(){
       const h = loadHero();
       uiNick.textContent = h.nick || pid;
-      uiXp.textContent = String(h.xp|0);
-      uiLvl.textContent = String(h.lvl|0);
+      uiXp.textContent = String(h.xp | 0);
+      uiLvl.textContent = String(h.lvl | 0);
     }
 
     function buildUrl(path, extra){
@@ -940,7 +945,7 @@
         'plannedGame','finalGame','zone','cdnext','grade'
       ].forEach(k=>{
         const v = sp.get(k);
-        if(v!=null && v!=='') u.searchParams.set(k, v);
+        if(v != null && v !== '') u.searchParams.set(k, v);
       });
 
       u.searchParams.set('hub', hub);
@@ -948,10 +953,11 @@
       if(extra && typeof extra === 'object'){
         Object.keys(extra).forEach(k=>{
           const v = extra[k];
-          if(v===null || v===undefined || v==='') u.searchParams.delete(k);
+          if(v === null || v === undefined || v === '') u.searchParams.delete(k);
           else u.searchParams.set(k, String(v));
         });
       }
+
       return u.toString();
     }
 
@@ -961,11 +967,11 @@
         if(!raw) return { S:0, A:0, B:0, C:0, total:0 };
         const j = JSON.parse(raw);
         return {
-          S: Math.max(0, Number(j.S)||0),
-          A: Math.max(0, Number(j.A)||0),
-          B: Math.max(0, Number(j.B)||0),
-          C: Math.max(0, Number(j.C)||0),
-          total: Math.max(0, Number(j.total)||0)
+          S: Math.max(0, Number(j.S) || 0),
+          A: Math.max(0, Number(j.A) || 0),
+          B: Math.max(0, Number(j.B) || 0),
+          C: Math.max(0, Number(j.C) || 0),
+          total: Math.max(0, Number(j.total) || 0)
         };
       }catch(_){
         return { S:0, A:0, B:0, C:0, total:0 };
@@ -979,7 +985,7 @@
     }
 
     function cardSpecFromGrade(grade){
-      grade = String(grade||'C').toUpperCase();
+      grade = String(grade || 'C').toUpperCase();
       if(grade === 'S') return { icon:'🏆', title:'Legendary Nutrition Hero' };
       if(grade === 'A') return { icon:'⚡', title:'Elite Healthy Shooter' };
       if(grade === 'B') return { icon:'🛡️', title:'Balanced Food Defender' };
@@ -994,7 +1000,7 @@
         const raw2 = localStorage.getItem('HHA_LAST_SUMMARY') || '';
         if(!raw2) return null;
         const j = JSON.parse(raw2);
-        if(j && String(j.pid||'') === pid && String(j.game||'') === 'goodjunk') return j;
+        if(j && String(j.pid || '') === pid && String(j.game || '') === 'goodjunk') return j;
         return null;
       }catch(_){
         return null;
@@ -1005,7 +1011,9 @@
       try{
         const raw = localStorage.getItem(`HHA_LAST_CARD:${pid}`) || '';
         return raw ? JSON.parse(raw) : null;
-      }catch(_){ return null; }
+      }catch(_){
+        return null;
+      }
     }
 
     function renderCardBook(){
@@ -1036,6 +1044,7 @@
 
         if(!lastCard) lastDropIcon.textContent = spec.icon;
         if(!lastCard) lastDropTitle.textContent = spec.title;
+
         lastDropMeta.textContent =
           `ผลล่าสุด: reason=${sum.reason || '-'} • miss ${sum.missTotal ?? sum.miss ?? 0} • acc ${sum.accPct ?? 0}%`;
         lastDropGrade.textContent = grade;
@@ -1055,6 +1064,16 @@
       document.getElementById('streakCount').textContent = String(streak?.count || 0);
     }
 
+    function readZoneDone(zone, today){
+      try{
+        const k1 = `HHA_ZONE_DONE::${pid}::${zone}::${today}`;
+        const k2 = `HHA_ZONE_DONE::${zone}::${today}`; // fallback key เก่า
+        return localStorage.getItem(k1) === '1' || localStorage.getItem(k2) === '1';
+      }catch(_){
+        return false;
+      }
+    }
+
     function renderTrophyShelf(){
       const book = loadCardBook(pid);
       const bestNormal = loadJson(`HHA_GJ_BEST:${pid}:normal`, null);
@@ -1062,8 +1081,8 @@
       const today = hhDayKey();
 
       const nutritionUnlocked = (book.total || 0) > 0 || ((bestNormal?.scoreFinal ?? bestNormal?.score ?? 0) >= 500);
-      const hygieneUnlocked = localStorage.getItem(`HHA_ZONE_DONE::hygiene::${today}`) === '1';
-      const fitnessUnlocked = localStorage.getItem(`HHA_ZONE_DONE::fitness::${today}`) === '1';
+      const hygieneUnlocked = readZoneDone('hygiene', today);
+      const fitnessUnlocked = readZoneDone('fitness', today);
 
       const nutriStatus = document.getElementById('nutriStatus');
       const hygieneStatus = document.getElementById('hygieneStatus');
@@ -1092,15 +1111,18 @@
 
       const badgeCount = Object.values(badges || {}).filter(Boolean).length;
       document.getElementById('nutriHint').textContent =
-        nutritionUnlocked ? `ปลดถ้วยแล้ว • badges ${badgeCount} • พร้อมลุยต่อ`
+        nutritionUnlocked
+          ? `ปลดถ้วยแล้ว • badges ${badgeCount} • พร้อมลุยต่อ`
           : 'เคลียร์ GoodJunk หรือสะสมการ์ดเพื่อปลดถ้วย';
 
       document.getElementById('hygieneHint').textContent =
-        hygieneUnlocked ? 'ทำโซน Hygiene สำเร็จวันนี้แล้ว'
+        hygieneUnlocked
+          ? 'ทำโซน Hygiene สำเร็จวันนี้แล้ว'
           : 'ทำ zone hygiene ให้มี done today เพื่อโชว์ถ้วย';
 
       document.getElementById('fitnessHint').textContent =
-        fitnessUnlocked ? 'ทำโซน Fitness สำเร็จวันนี้แล้ว'
+        fitnessUnlocked
+          ? 'ทำโซน Fitness สำเร็จวันนี้แล้ว'
           : 'ทำ zone fitness ให้มี done today เพื่อโชว์ถ้วย';
     }
 
@@ -1160,7 +1182,7 @@
       bath:           './bath-vr.html',
       cleanObject:    './clean-objects.html',
       maskCough:      './maskcough-v2.html',
-      germDetective:  '/webxr-health-mobile/herohealth/germ-detective.html',
+      germDetective:  './germ-detective.html',
       shadowBreaker:  './shadow-breaker-vr.html',
       rhythmBoxer:    './rhythm-boxer-vr.html',
       jumpDuck:       './jump-duck-vr.html',
@@ -1193,39 +1215,17 @@
     const linkBalanceHold = document.getElementById('linkBalanceHold');
     const linkFitnessPlanner = document.getElementById('linkFitnessPlanner');
 
-    linkGoodjunk.href  = buildUrl(PATHS.goodjunk,   { mode:'solo' });
-    linkGroups.href    = buildUrl(PATHS.groups,     { zone:'nutrition' });
-    linkHydration.href = buildUrl(PATHS.hydration,  { zone:'nutrition' });
-    linkPlate.href     = buildUrl(PATHS.plate,      { zone:'nutrition' });
+    if(linkGoodjunk)       linkGoodjunk.href       = buildUrl(PATHS.goodjunk,      { mode:'solo' });
+    if(linkGroups)         linkGroups.href         = buildUrl(PATHS.groups,        { zone:'nutrition' });
+    if(linkHydration)      linkHydration.href      = buildUrl(PATHS.hydration,     { zone:'nutrition' });
+    if(linkPlate)          linkPlate.href          = buildUrl(PATHS.plate,         { zone:'nutrition' });
 
-    if(linkHandwash)      linkHandwash.href      = buildUrl(PATHS.handwash,      { zone:'hygiene' });
-    if(linkBrush)         linkBrush.href         = buildUrl(PATHS.brush,         { zone:'hygiene' });
-    if(linkBath)          linkBath.href          = buildUrl(PATHS.bath,          { zone:'hygiene' });
-    if(linkCleanObject)   linkCleanObject.href   = buildUrl(PATHS.cleanObject,   { zone:'hygiene' });
-    if(linkMaskCough)     linkMaskCough.href     = buildUrl(PATHS.maskCough,     { zone:'hygiene' });
-
-    if(linkGermDetective){
-      const germLauncher = new URL('/webxr-health-mobile/herohealth/germ-detective.html', location.origin);
-      const current = new URL(location.href);
-
-      [
-        'run','diff','time','seed','studyId','phase','conditionGroup','log','view','pid','api','ai','debug'
-      ].forEach(k=>{
-        const v = current.searchParams.get(k);
-        if(v!=null && v!=='') germLauncher.searchParams.set(k, v);
-      });
-
-      germLauncher.searchParams.set('zone', 'hygiene');
-      germLauncher.searchParams.set('hub', hub);
-
-      linkGermDetective.href = germLauncher.toString();
-      console.log('[hub] germDetective href =', linkGermDetective.href);
-
-      linkGermDetective.addEventListener('click', (ev)=>{
-        ev.preventDefault();
-        location.href = germLauncher.toString();
-      });
-    }
+    if(linkHandwash)       linkHandwash.href       = buildUrl(PATHS.handwash,      { zone:'hygiene' });
+    if(linkBrush)          linkBrush.href          = buildUrl(PATHS.brush,         { zone:'hygiene' });
+    if(linkBath)           linkBath.href           = buildUrl(PATHS.bath,          { zone:'hygiene' });
+    if(linkCleanObject)    linkCleanObject.href    = buildUrl(PATHS.cleanObject,   { zone:'hygiene' });
+    if(linkMaskCough)      linkMaskCough.href      = buildUrl(PATHS.maskCough,     { zone:'hygiene' });
+    if(linkGermDetective)  linkGermDetective.href  = buildUrl(PATHS.germDetective, { zone:'hygiene' });
 
     if(linkShadowBreaker)  linkShadowBreaker.href  = buildUrl(PATHS.shadowBreaker,  { zone:'fitness' });
     if(linkRhythmBoxer)    linkRhythmBoxer.href    = buildUrl(PATHS.rhythmBoxer,    { zone:'fitness' });
@@ -1233,8 +1233,9 @@
     if(linkBalanceHold)    linkBalanceHold.href    = buildUrl(PATHS.balanceHold,    { zone:'fitness' });
     if(linkFitnessPlanner) linkFitnessPlanner.href = buildUrl(PATHS.fitnessPlanner, { zone:'fitness' });
 
-    btnGJsolo.onclick = ()=> location.href = buildUrl(PATHS.goodjunk, { mode:'solo' });
+    console.log('[hub] germDetective href =', linkGermDetective?.href || '(missing)');
 
+    btnGJsolo.onclick = ()=> location.href = buildUrl(PATHS.goodjunk, { mode:'solo' });
     btnPlateSoloHero.onclick = ()=> location.href = buildUrl(PATHS.plate, { mode:'solo', zone:'nutrition' });
     btnPlateCoopHero.onclick = ()=> location.href = buildUrl(PATHS.plate, { mode:'coop', zone:'nutrition' });
     btnNutritionMain.onclick = ()=> location.href = buildUrl(PATHS.goodjunk, { mode:'solo' });
@@ -1264,7 +1265,9 @@
     const btnOpenGJLauncher = document.getElementById('btnOpenGJLauncher');
     const btnResetCardBook = document.getElementById('btnResetCardBook');
 
-    btnOpenGJLauncher.onclick = ()=>{ location.href = buildUrl(PATHS.goodjunk, { mode:'solo' }); };
+    btnOpenGJLauncher.onclick = ()=>{
+      location.href = buildUrl(PATHS.goodjunk, { mode:'solo' });
+    };
 
     btnResetCardBook.onclick = ()=>{
       try{
