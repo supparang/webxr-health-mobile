@@ -1,6 +1,6 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
 // GoodJunkVR SAFE — PRODUCTION
-// FULL PATCH v20260309-GJ-SAFE-BATTLE-READY-ENDGAME-FIX
+// FULL PATCH v20260308-GJ-SAFE-LATEST-WAITROOM
 'use strict';
 
 export async function boot(cfg){
@@ -27,6 +27,11 @@ export async function boot(cfg){
   let lastOppConnected = true;
   let rematchTransitioning = false;
   let championCelebrated = false;
+
+  let waitTimeoutSec = Number(qs('waitTimeout','30')) || 30;
+  let waitLeft = waitTimeoutSec;
+  let waitOverlayShown = false;
+  let fallbackToSolo = false;
 
   async function initBattleMaybe(pid, gameKey){
     if(!battleOn) return null;
@@ -182,7 +187,7 @@ export async function boot(cfg){
       'planSeq','planDay','planSlot','planMode','planSlots','planIndex','autoNext',
       'plannedGame','finalGame','zone','cdnext','grade',
       'battle','room','autostart','forfeit','mode',
-      'ai','pro','wait','bestOf'
+      'ai','pro','wait','bestOf','waitTimeout'
     ].forEach(k=>{
       const v = sp.get(k);
       if(v!=null && v!=='') gate.searchParams.set(k, v);
@@ -320,6 +325,12 @@ export async function boot(cfg){
   const cmpOppRt = $('cmpOppRt');
   const cmpYouFinish = $('cmpYouFinish');
   const cmpOppFinish = $('cmpOppFinish');
+
+  const waitOverlay = $('waitOverlay');
+  const waitOverlayTimer = $('waitOverlayTimer');
+  const waitOverlaySub = $('waitOverlaySub');
+  const btnWaitSolo = $('btnWaitSolo');
+  const btnWaitMore = $('btnWaitMore');
 
   if(!layer){
     console.warn('[GoodJunk] Missing #gj-layer');
@@ -671,6 +682,7 @@ export async function boot(cfg){
     lastTick = nowMs();
     lastBattleSyncAt = 0;
     writeGameRunAttendanceOnce();
+    hideWaitOverlay();
     sayCoach('GO! 🔥', true);
   };
 
@@ -685,6 +697,8 @@ export async function boot(cfg){
     if(rematchTransitioning) return;
     rematchTransitioning = true;
     championCelebrated = false;
+    waitLeft = waitTimeoutSec;
+    hideWaitOverlay();
     sayCoach('Rematch พร้อมแล้ว กลับ lobby รอบใหม่...', true);
     try{
       if(endOverlay) endOverlay.style.display = 'none';
@@ -692,6 +706,43 @@ export async function boot(cfg){
     setTimeout(()=>{
       location.href = rebuildUrlForNextRound(detail?.roundId || '');
     }, 900);
+  }
+
+  function showWaitOverlay(){
+    if(!waitOverlay || waitOverlayShown) return;
+    waitOverlayShown = true;
+    waitOverlay.style.display = 'flex';
+    if(waitOverlayTimer) waitOverlayTimer.textContent = String(Math.max(0, Math.ceil(waitLeft)));
+    if(waitOverlaySub){
+      waitOverlaySub.textContent = 'ยังไม่มีคู่แข่งในห้อง คุณจะเล่นเดี่ยวแทนตอนนี้ หรือรอต่ออีก 30 วินาทีก็ได้';
+    }
+  }
+
+  function hideWaitOverlay(){
+    if(!waitOverlay) return;
+    waitOverlayShown = false;
+    waitOverlay.style.display = 'none';
+  }
+
+  function goSoloFallback(){
+    if(fallbackToSolo) return;
+    fallbackToSolo = true;
+
+    try{ hideWaitOverlay(); }catch(_){}
+    try{ battle?.leave?.(); }catch(_){}
+
+    const u = new URL(location.href);
+    u.searchParams.set('mode', 'solo');
+    u.searchParams.delete('battle');
+    u.searchParams.delete('room');
+    u.searchParams.delete('wait');
+    u.searchParams.delete('bestOf');
+    u.searchParams.delete('waitTimeout');
+    location.href = u.toString();
+  }
+
+  function hasTwoActivePlayers(){
+    return Array.isArray(battlePlayersState) && battlePlayersState.length >= 2;
   }
 
   WIN.addEventListener('hha:battle-start', ()=>{ try{ WIN.__GJ_START_NOW__?.(); }catch(e){} });
@@ -705,12 +756,15 @@ export async function boot(cfg){
         if(WAIT_START) paused = true;
         sayCoach('อยู่ใน lobby • รอผู้เล่นพร้อม', true);
       }else if(phase === 'countdown'){
+        hideWaitOverlay();
         if(WAIT_START) paused = true;
         sayCoach('Countdown แล้ว เตรียมเริ่ม!', true);
       }else if(phase === 'running'){
+        hideWaitOverlay();
         sayCoach('เริ่มเกมแล้ว!', true);
         WIN.__GJ_START_NOW__?.();
       }else if(phase === 'ended'){
+        hideWaitOverlay();
         sayCoach('จบรอบ Battle แล้ว', true);
       }
     }catch(_){}
@@ -728,6 +782,11 @@ export async function boot(cfg){
     try{
       const players = Array.isArray(ev?.detail?.players) ? ev.detail.players : [];
       battlePlayersState = players;
+
+      if(hasTwoActivePlayers()){
+        waitLeft = waitTimeoutSec;
+        hideWaitOverlay();
+      }
 
       if(!battle || !battle.enabled) return;
       const meKey = battle.meKey || '';
@@ -1660,6 +1719,28 @@ export async function boot(cfg){
     if(endMiss) endMiss.textContent = String(detail.missTotal);
     if(endTime) endTime.textContent = String(detail.timePlayedSec);
 
+    const endMatchLine1 = $('endMatchLine1');
+    const endMatchLine2 = $('endMatchLine2');
+
+    if(endMatchLine1){
+      endMatchLine1.textContent =
+        `bestOf ${Number(battleMatchState?.bestOf || 3)} • winsToChampion ${Number(battleMatchState?.winsToChampion || 2)}`;
+    }
+
+    if(endMatchLine2){
+      const meKey = String(battle?.meKey || '');
+      const opp = (battlePlayersState || []).find(p => p.key !== meKey);
+      const myWins = Number((battleMatchState?.wins || {})[meKey] || 0);
+      const oppWins = Number((battleMatchState?.wins || {})[opp?.key] || 0);
+      const championKey = String(battleMatchState?.champion || '');
+      const championName = championKey
+        ? ((battlePlayersState || []).find(p => p.key === championKey)?.nick || championKey)
+        : '—';
+
+      endMatchLine2.textContent =
+        `you ${myWins} • opponent ${oppWins} • champion ${championName}`;
+    }
+
     renderDecision(detail);
     renderCompareTable(detail);
     renderRematchEndStatus();
@@ -1667,98 +1748,53 @@ export async function boot(cfg){
     hhInjectCooldownButton({ endOverlayEl:endOverlay, hub:hubUrl, cat:HH_CAT, gameKey:HH_GAME, pid });
   }
 
-  function endGame(reason='finish'){
-    if(ended) return;
+  function endGame(reason){
+    if(!playing || ended) return;
     ended = true;
     playing = false;
-    paused = true;
-
     setDanger(false);
+    hideWaitOverlay();
 
-    try{
-      for(const [id] of targets){
-        removeTarget(id);
-      }
-    }catch(_){}
+    for(const [,t] of targets){
+      try{ t.el.remove(); }catch(e){}
+    }
+    targets.clear();
 
-    const winByScore = score >= WIN_TARGET.scoreTarget;
-    const winByBoss = (stage === 2 && bossHp <= 0);
-    const normalizedReason =
-      reason === 'win'
-        ? 'win'
-        : (reason === 'time' && (winByScore || winByBoss))
-          ? 'win'
-          : String(reason || 'finish');
-
-    let detail = buildEndDetail(normalizedReason);
+    let detail = buildEndDetail(reason);
     detail = applyBattleResultToOverlay(detail);
 
     try{
-      syncBattleScore(true);
-    }catch(_){}
+      battle?.syncScore?.({
+        score: detail.scoreFinal,
+        accPct: detail.accPct,
+        missTotal: detail.missTotal,
+        medianRtGoodMs: detail.medianRtGoodMs,
+        finishMs: detail.finishMs
+      });
+    }catch(e){
+      console.warn('[GoodJunk] final battle syncScore failed', e);
+    }
 
     try{
-      WIN.__GJ_LAST_RESULT__ = detail;
-      WIN.__HHA_LAST_SUMMARY__ = detail;
+      hhLsSet(`HHA_LAST_SUMMARY:${HH_GAME}:${pid}`, JSON.stringify(detail));
       hhLsSet('HHA_LAST_SUMMARY', JSON.stringify(detail));
-      hhLsSet('HHA_LAST_SUMMARY_GAME', HH_GAME);
-    }catch(_){}
+    }catch(e){}
 
     try{
-      const cloudRow = buildCloudRoundReport(detail);
-      WIN.__GJ_LAST_CLOUD_ROW__ = cloudRow;
-    }catch(_){}
-
-    try{
-      renderEndOverlay(detail);
-    }catch(err){
-      console.error('[GoodJunk] renderEndOverlay failed', err);
-      alert(`จบเกมแล้ว\nscore=${detail.scoreFinal}\nacc=${detail.accPct}%\nmiss=${detail.missTotal}`);
-    }
-
-    try{
-      if(battleOn && battle && battle.enabled){
-        battle.finishRound?.({
-          score: detail.scoreFinal,
-          accPct: detail.accPct,
-          missTotal: detail.missTotal,
-          medianRtGoodMs: detail.medianRtGoodMs,
-          finishMs: detail.finishMs,
-          reason: detail.reason,
-          win: !!detail.win
-        });
+      if(battle && battle.enabled && typeof battle.saveRoundReport === 'function'){
+        const cloudRow = buildCloudRoundReport(detail);
+        battle.saveRoundReport(cloudRow).catch(()=>{});
       }
-    }catch(err){
-      console.warn('[GoodJunk] battle.finishRound failed', err);
+    }catch(e){
+      console.warn('[GoodJunk] cloud saveRoundReport failed', e);
     }
 
     try{
-      const logDetail = {
-        ...detail,
-        cooldownDoneToday: hhCooldownDone(HH_CAT, HH_GAME, pid) ? 1 : 0
-      };
-      WIN.dispatchEvent(new CustomEvent('hha:game-ended', { detail: logDetail }));
-    }catch(_){}
+      WIN.dispatchEvent(new CustomEvent('hha:end', { detail }));
+    }catch(e){}
 
-    if(detail.win){
-      sfx('win');
-      sayCoach(
-        battleOn && detail.battleWinnerKey
-          ? (String(detail.battleWinnerKey) === String(battle?.meKey || '') ? 'ชนะ Battle! 🏆' : 'จบรอบ Battle แล้ว')
-          : 'ยอดเยี่ยม! ผ่านเป้าหมายแล้ว 🎉',
-        true
-      );
-    }else{
-      sfx('lose');
-      sayCoach(
-        normalizedReason === 'miss-limit'
-          ? 'พลาดเยอะเกินไป ลองใหม่อีกครั้งได้ 💪'
-          : normalizedReason === 'time'
-            ? 'หมดเวลาแล้ว ลองใหม่อีกครั้งนะ ⏳'
-            : 'จบเกมแล้ว',
-        true
-      );
-    }
+    sfx(detail.win ? 'win' : 'lose');
+    renderEndOverlay(detail);
   }
 
   function makeTarget(type, emoji, ttl, point=null){
@@ -1823,7 +1859,6 @@ export async function boot(cfg){
   }
 
   function hitTarget(id){
-    if(ended) return;
     const t = targets.get(id);
     if(!t || !playing || paused) return;
 
@@ -2307,7 +2342,6 @@ export async function boot(cfg){
   }
 
   function tick(){
-    if(ended) return;
     const t = nowMs();
     let dt = (t - lastTick) / 1000;
     lastTick = t;
@@ -2316,6 +2350,23 @@ export async function boot(cfg){
     if(!playing) return;
 
     if(paused){
+      if(battleOn && WAIT_START && currentPhaseString() === 'lobby' && !hasTwoActivePlayers()){
+        waitLeft = Math.max(0, waitLeft - dt);
+
+        if(waitOverlayTimer){
+          waitOverlayTimer.textContent = String(Math.max(0, Math.ceil(waitLeft)));
+        }
+
+        if(waitLeft <= 0){
+          showWaitOverlay();
+        }
+      }else{
+        waitLeft = waitTimeoutSec;
+        if(hasTwoActivePlayers() || currentPhaseString() === 'countdown' || currentPhaseString() === 'running'){
+          hideWaitOverlay();
+        }
+      }
+
       setHUD();
       emitFx();
       requestAnimationFrame(tick);
@@ -2468,6 +2519,16 @@ export async function boot(cfg){
   }
   if(btnDeclineRematch){
     btnDeclineRematch.onclick = ()=> declineRematchAction();
+  }
+  if(btnWaitSolo){
+    btnWaitSolo.onclick = ()=> goSoloFallback();
+  }
+  if(btnWaitMore){
+    btnWaitMore.onclick = ()=>{
+      waitLeft = waitTimeoutSec;
+      hideWaitOverlay();
+      sayCoach(`รอคู่แข่งต่ออีก ${waitTimeoutSec} วินาที`, true);
+    };
   }
 
   const writeGameRunAttendanceOnce = writeGameRunAttendanceOnceFactory();
