@@ -1,305 +1,156 @@
-<!-- === /fitness/shadow-breaker.html ===
-Shadow Breaker — CLEAN FINAL HTML
-✅ Sync with merged engine.js
-✅ No hidden start bridge
-✅ Sync with dom-renderer-shadow.js safe-rect selectors
-✅ Sync with shadow-breaker.css production classes
-✅ FEVER button / hint / meta toggle / stage structure ready
--->
 <!doctype html>
 <html lang="th">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-  <title>Shadow Breaker — VR Fitness</title>
-  <meta name="color-scheme" content="dark light"/>
-  <link rel="icon" href="favicon.ico"/>
-  <link rel="stylesheet" href="./css/shadow-breaker.css?v=20260306e"/>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Redirecting… Shadow Breaker</title>
+  <meta name="color-scheme" content="dark light" />
+  <meta http-equiv="refresh" content="0; url=/webxr-health-mobile/fitness/shadow-breaker.html" />
+  <style>
+    :root{
+      color-scheme: dark;
+      --bg1:#020617;
+      --bg2:#0b1226;
+      --panel:rgba(2,6,23,.72);
+      --stroke:rgba(148,163,184,.18);
+      --text:#e5e7eb;
+      --muted:#94a3b8;
+      --blue:#3b82f6;
+      --violet:#a78bfa;
+    }
+    *{ box-sizing:border-box; }
+    html,body{
+      margin:0;
+      min-height:100%;
+      font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      background:
+        radial-gradient(circle at 15% 10%, rgba(59,130,246,.18), transparent 45%),
+        radial-gradient(circle at 85% 90%, rgba(167,139,250,.16), transparent 45%),
+        linear-gradient(180deg, var(--bg1), var(--bg2));
+      color:var(--text);
+    }
+    .wrap{
+      min-height:100vh;
+      display:grid;
+      place-items:center;
+      padding:24px;
+    }
+    .card{
+      width:min(680px,100%);
+      border-radius:24px;
+      border:1px solid var(--stroke);
+      background:var(--panel);
+      box-shadow:0 24px 80px rgba(0,0,0,.38);
+      padding:22px 20px;
+    }
+    .kicker{
+      color:var(--muted);
+      font-size:.82rem;
+      font-weight:800;
+      letter-spacing:.2px;
+    }
+    h1{
+      margin:8px 0 6px;
+      font-size:1.5rem;
+      line-height:1.15;
+    }
+    p{
+      margin:8px 0 0;
+      color:var(--muted);
+      line-height:1.5;
+    }
+    .row{
+      margin-top:14px;
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+    }
+    .pill{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 10px;
+      border-radius:999px;
+      border:1px solid var(--stroke);
+      background:rgba(15,23,42,.52);
+      color:var(--muted);
+      font-size:.84rem;
+      font-weight:800;
+    }
+    .btn{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-height:42px;
+      padding:10px 14px;
+      border-radius:999px;
+      border:1px solid rgba(59,130,246,.28);
+      background:rgba(59,130,246,.16);
+      color:var(--text);
+      text-decoration:none;
+      font-weight:900;
+    }
+    code{
+      font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+      font-size:.92em;
+      color:#c7d2fe;
+    }
+  </style>
+  <script>
+    (function(){
+      'use strict';
+
+      // run page จริงของ Shadow Breaker
+      const RUN_PATH = '/webxr-health-mobile/fitness/shadow-breaker.html';
+
+      const q = location.search || '';
+      const h = location.hash || '';
+      const target = location.origin + RUN_PATH + q + h;
+      const current = location.origin + location.pathname + q + h;
+
+      // กัน redirect วน ถ้าเผลอชี้ path เดิม
+      if (current === target) {
+        document.addEventListener('DOMContentLoaded', function(){
+          const msg = document.getElementById('bootMsg');
+          const debug = document.getElementById('debugBox');
+          if (msg) msg.textContent = 'พบการตั้งค่า launcher ผิด: target ซ้ำกับไฟล์ launcher เอง';
+          if (debug) {
+            debug.innerHTML =
+              '<p>ตรวจสอบค่า <code>RUN_PATH</code> ในไฟล์ <code>/herohealth/shadow-breaker-vr.html</code></p>' +
+              '<p><b>Launcher:</b> <code>' + location.pathname + '</code></p>' +
+              '<p><b>Target:</b> <code>' + RUN_PATH + '</code></p>';
+          }
+        });
+        return;
+      }
+
+      try {
+        location.replace(target);
+      } catch (e) {
+        location.href = target;
+      }
+    })();
+  </script>
 </head>
 <body>
-<div id="sb-wrap" class="sb-wrap">
+  <div class="wrap">
+    <div class="card">
+      <div class="kicker">HeroHealth • Exercise Zone</div>
+      <h1>กำลังเปิด Shadow Breaker…</h1>
+      <p id="bootMsg">ระบบกำลังส่งต่อไปยังหน้าเล่นจริงของเกม</p>
 
-  <!-- HEADER -->
-  <header class="sb-header">
-    <div class="sb-header-left">
-      <div class="sb-kicker">VR Fitness • Boss Targets</div>
-      <h1 class="sb-title">Shadow Breaker</h1>
-      <div class="sb-sub">
-        เกมตีเป้า Boss หลายเฟส • RT / Combo / FEVER / Shield • รองรับ Normal / Research<br/>
-        รองรับ: <b>PC</b> • <b>Mobile</b>
+      <div class="row">
+        <span class="pill">Launcher: <code>/herohealth/shadow-breaker-vr.html</code></span>
+        <span class="pill">Run: <code>/fitness/shadow-breaker.html</code></span>
       </div>
-    </div>
 
-    <div class="sb-header-right">
-      <div class="sb-tip">ชก/แตะเป้าให้ทัน รักษาคอมโบ แล้วกด FEVER ให้ถูกจังหวะ</div>
-      <div class="sb-links">
-        <a class="sb-link" id="sb-link-hub" href="../herohealth/hub.html">← กลับ Hub</a>
+      <div class="row">
+        <a class="btn" href="/webxr-health-mobile/fitness/shadow-breaker.html">เปิดหน้าเกมตรง ๆ</a>
       </div>
+
+      <div id="debugBox"></div>
     </div>
-  </header>
-
-  <main class="sb-main">
-
-    <!-- MENU VIEW -->
-    <section id="sb-view-menu" class="sb-view is-active">
-      <section class="sb-panel">
-
-        <div class="sb-mode-row">
-          <button class="sb-mode-btn is-active" id="sb-tab-normal" type="button">🎮 Normal</button>
-          <button class="sb-mode-btn" id="sb-tab-research" type="button">📊 Research</button>
-        </div>
-
-        <div id="sb-mode-desc" class="sb-mode-desc">
-          Normal: เล่นสนุก/สอนทั่วไป ไม่ต้องกรอกข้อมูลผู้เข้าร่วม
-        </div>
-
-        <div class="sb-form">
-          <div class="sb-field">
-            <label class="sb-label" for="sb-input-diff">Difficulty</label>
-            <select id="sb-input-diff" class="sb-input">
-              <option value="easy">Easy</option>
-              <option value="normal" selected>Normal</option>
-              <option value="hard">Hard</option>
-            </select>
-          </div>
-
-          <div class="sb-field">
-            <label class="sb-label" for="sb-input-time">Time (sec)</label>
-            <select id="sb-input-time" class="sb-input">
-              <option value="60">60</option>
-              <option value="70" selected>70</option>
-              <option value="80">80</option>
-              <option value="90">90</option>
-            </select>
-          </div>
-
-          <div id="sb-research-fields" style="display:none;">
-            <div class="sb-field">
-              <label class="sb-label" for="sb-input-pid">Participant ID</label>
-              <input id="sb-input-pid" class="sb-input" placeholder="เช่น S05-001"/>
-            </div>
-
-            <div class="sb-field">
-              <label class="sb-label" for="sb-inp-group">Group</label>
-              <input id="sb-inp-group" class="sb-input" placeholder="เช่น Control/Exp-A"/>
-            </div>
-
-            <div class="sb-field">
-              <label class="sb-label" for="sb-inp-note">Note</label>
-              <input id="sb-inp-note" class="sb-input" placeholder="โน้ตเพิ่มเติม (ไม่บังคับ)"/>
-            </div>
-          </div>
-
-          <div class="sb-mini-note">
-            AI (Play only): DL-lite Predictor • Explainable micro-tips • Pattern Generator • Fair adaptive pacing
-          </div>
-
-          <div class="sb-actions">
-            <button class="sb-btn sb-btn-primary" id="sb-btn-play" type="button">▶ Start Game</button>
-            <button class="sb-btn" id="sb-btn-research" type="button">📊 Start Research</button>
-            <button class="sb-btn sb-btn-ghost" id="sb-btn-howto" type="button">❓ How to play</button>
-          </div>
-
-          <div id="sb-howto" class="sb-howto">
-            <ul>
-              <li>ชก/แตะเป้า “Normal” เพื่อทำคอมโบและเพิ่มคะแนน</li>
-              <li>เป้า “Decoy/Bomb” ทำให้เสียจังหวะ ถ้ามี Shield จะกันระเบิดได้</li>
-              <li>เป้า “Heal/Shield” ช่วยเอาตัวรอดและรักษาคอมโบ</li>
-              <li>FEVER เต็ม → กด FEVER เพื่อเร่งคะแนน/ดาเมจบอสช่วงสั้น ๆ</li>
-              <li>เมื่อ HP บอสใกล้หมด อาจมี “Boss Face” โผล่มาให้คริติคอล</li>
-            </ul>
-          </div>
-        </div>
-
-      </section>
-    </section>
-
-    <!-- PLAY VIEW -->
-    <section id="sb-view-play" class="sb-view">
-      <section class="sb-play">
-
-        <!-- HUD -->
-        <div class="sb-hud">
-          <div class="sb-hud-left">
-            <div class="sb-stat"><span class="k">Time</span><span class="v" id="sb-text-time">0.0 s</span></div>
-            <div class="sb-stat"><span class="k">Score</span><span class="v" id="sb-text-score">0</span></div>
-            <div class="sb-stat"><span class="k">Combo</span><span class="v" id="sb-text-combo">0</span></div>
-          </div>
-
-          <div class="sb-hud-center">
-            <div class="sb-boss-name" id="sb-current-boss-name">Boss</div>
-          </div>
-
-          <div class="sb-hud-right">
-            <div class="sb-stat"><span class="k">Phase</span><span class="v" id="sb-text-phase">1</span></div>
-            <div class="sb-stat"><span class="k">Miss</span><span class="v" id="sb-text-miss">0</span></div>
-            <div class="sb-stat"><span class="k">Shield</span><span class="v" id="sb-text-shield">0</span></div>
-            <label class="sb-toggle">
-              <input id="sb-btn-pause" type="checkbox"/>
-              Pause
-            </label>
-          </div>
-        </div>
-
-        <!-- TOP BARS -->
-        <div class="sb-bars sb-bars-top">
-          <div class="sb-bar">
-            <div class="sb-bar-label">YOU</div>
-            <div class="sb-bar-track">
-              <div class="sb-bar-fill" id="sb-hp-you-top"></div>
-            </div>
-          </div>
-
-          <div class="sb-bar">
-            <div class="sb-bar-label">BOSS</div>
-            <div class="sb-bar-track">
-              <div class="sb-bar-fill boss" id="sb-hp-boss-top"></div>
-            </div>
-          </div>
-        </div>
-
-        <!-- STAGE -->
-        <div class="sb-stage">
-          <div id="sb-target-layer" class="sb-target-layer"></div>
-
-          <div class="sb-center-msg">
-            <div id="sb-msg-main" class="sb-msg-main">พร้อม!</div>
-          </div>
-
-          <!-- META CARD -->
-          <aside id="sb-meta" class="sb-meta">
-            <div class="sb-meta-rowtop">
-              <div class="sb-meta-emoji" id="sb-meta-emoji">🐣</div>
-              <button id="sb-btn-meta" class="sb-meta-toggle" type="button" aria-expanded="true">▾</button>
-            </div>
-
-            <div id="sb-meta-body" class="sb-meta-body">
-              <div class="sb-meta-name" id="sb-meta-name">Boss</div>
-              <div class="sb-meta-desc" id="sb-meta-desc">คำใบ้บอส…</div>
-
-              <div class="sb-meta-row">
-                <span>Phase</span>
-                <b id="sb-boss-phase-label">1</b>
-              </div>
-
-              <div class="sb-meta-row">
-                <span>Shield</span>
-                <b id="sb-boss-shield-label">0</b>
-              </div>
-
-              <div style="margin-top:10px;">
-                <button class="sb-btn sb-btn-ghost" id="sb-btn-back-menu" type="button">← กลับเมนู</button>
-              </div>
-            </div>
-          </aside>
-        </div>
-
-        <!-- BOTTOM -->
-        <div class="sb-bars-bottom">
-
-          <div class="sb-fever">
-            <div class="sb-fever-head">
-              <div><span class="k">FEVER</span> <span class="v" id="sb-label-fever">0%</span></div>
-              <button class="sb-fever-btn" id="sb-btn-fever" type="button">⚡ FEVER</button>
-            </div>
-
-            <div class="sb-fever-track">
-              <div class="sb-fever-fill" id="sb-fever-bar"></div>
-            </div>
-
-            <div class="sb-fever-hint" id="sb-fever-hint">
-              เก็บเกจจากการตีเป้าให้แม่น เพื่อเปิด FEVER
-            </div>
-          </div>
-
-          <div class="sb-bars-compact">
-            <div class="sb-row">
-              <span class="k">YOU HP</span>
-              <span class="v">สด</span>
-            </div>
-            <div class="sb-bar-track">
-              <div class="sb-bar-fill" id="sb-hp-you-bottom"></div>
-            </div>
-
-            <div class="sb-row">
-              <span class="k">BOSS HP</span>
-              <span class="v">เดือด</span>
-            </div>
-            <div class="sb-bar-track">
-              <div class="sb-bar-fill boss" id="sb-hp-boss-bottom"></div>
-            </div>
-          </div>
-
-        </div>
-
-      </section>
-    </section>
-
-    <!-- RESULT VIEW -->
-    <section id="sb-view-result" class="sb-view">
-      <section class="sb-panel">
-        <h2 class="sb-result-title">สรุปผล</h2>
-
-        <div class="sb-result-grid">
-          <div class="sb-result-card"><div class="k">Time</div><div class="v" id="sb-res-time">0.0 s</div></div>
-          <div class="sb-result-card"><div class="k">Score</div><div class="v" id="sb-res-score">0</div></div>
-          <div class="sb-result-card"><div class="k">Max Combo</div><div class="v" id="sb-res-max-combo">0</div></div>
-          <div class="sb-result-card"><div class="k">Miss</div><div class="v" id="sb-res-miss">0</div></div>
-          <div class="sb-result-card"><div class="k">Phase</div><div class="v" id="sb-res-phase">1</div></div>
-          <div class="sb-result-card"><div class="k">Boss Cleared</div><div class="v" id="sb-res-boss-cleared">0</div></div>
-          <div class="sb-result-card"><div class="k">Accuracy</div><div class="v" id="sb-res-acc">0%</div></div>
-          <div class="sb-result-card"><div class="k">Grade</div><div class="v" id="sb-res-grade">C</div></div>
-        </div>
-
-        <div class="sb-result-actions">
-          <button class="sb-btn sb-btn-primary" id="sb-btn-result-retry" type="button">เล่นอีกครั้ง</button>
-          <button class="sb-btn" id="sb-btn-result-menu" type="button">กลับเมนู</button>
-          <button class="sb-btn sb-btn-ghost" id="sb-btn-download-events" type="button">ดาวน์โหลด events.csv</button>
-          <button class="sb-btn sb-btn-ghost" id="sb-btn-download-session" type="button">ดาวน์โหลด session.csv</button>
-        </div>
-      </section>
-    </section>
-
-  </main>
-</div>
-
-<script type="module" src="./js/engine.js?v=20260306e"></script>
-
-<script>
-(function(){
-  const $ = (s)=>document.querySelector(s);
-
-  const tabN = $('#sb-tab-normal');
-  const tabR = $('#sb-tab-research');
-  const rf = $('#sb-research-fields');
-  const desc = $('#sb-mode-desc');
-
-  function qs(k, d=''){
-    try{ return (new URL(location.href)).searchParams.get(k) ?? d; }
-    catch(_){ return d; }
-  }
-
-  function setMode(m){
-    const isR = (m === 'research');
-    tabN?.classList.toggle('is-active', !isR);
-    tabR?.classList.toggle('is-active', isR);
-    if (rf) rf.style.display = isR ? '' : 'none';
-    if (desc) {
-      desc.textContent = isR
-        ? 'Research: ใช้เก็บข้อมูลการทดลอง (กรอก Participant/Group ได้)'
-        : 'Normal: เล่นสนุก/สอนทั่วไป ไม่ต้องกรอกข้อมูลผู้เข้าร่วม';
-    }
-  }
-
-  tabN?.addEventListener('click', ()=> setMode('normal'));
-  tabR?.addEventListener('click', ()=> setMode('research'));
-
-  const hub = String(qs('hub','')).trim() || '../herohealth/hub.html';
-  const btnHub = $('#sb-link-hub');
-  if(btnHub) btnHub.href = hub;
-
-  setMode('normal');
-})();
-</script>
+  </div>
 </body>
 </html>
