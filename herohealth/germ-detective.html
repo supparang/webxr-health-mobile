@@ -7,16 +7,20 @@
   <meta name="robots" content="noindex" />
   <style>
     html,body{
-      margin:0; min-height:100%;
-      background:#020617; color:#e5e7eb;
+      margin:0;
+      min-height:100%;
+      background:#020617;
+      color:#e5e7eb;
       font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif;
-      display:grid; place-items:center;
+      display:grid;
+      place-items:center;
     }
     .card{
       width:min(92vw,560px);
       border:1px solid rgba(148,163,184,.18);
       background:rgba(2,6,23,.78);
-      border-radius:20px; padding:18px;
+      border-radius:20px;
+      padding:18px;
       box-shadow:0 20px 60px rgba(0,0,0,.35);
     }
     .muted{ color:#94a3b8; font-size:13px; }
@@ -31,8 +35,6 @@
   <script>
     (function(){
       'use strict';
-
-      console.log('[germ-launcher] v20260309e running');
 
       function qs(k, d=''){
         try{ return new URL(location.href).searchParams.get(k) ?? d; }
@@ -54,19 +56,9 @@
       }
 
       const ORIGIN = location.origin;
-      const ROOT_LAUNCHER_PATH = '/webxr-health-mobile/herohealth/germ-detective.html';
       const HUB_URL = ORIGIN + '/webxr-health-mobile/herohealth/hub.html';
-      const GATE_URL = ORIGIN + '/webxr-health-mobile/herohealth/warmup-gate.html?v=20260309e';
+      const GATE_URL = ORIGIN + '/webxr-health-mobile/herohealth/warmup-gate.html?v=20260310g';
       const RUN_URL  = ORIGIN + '/webxr-health-mobile/herohealth/germ-detective/germ-detective.html';
-
-      // กันเปิด launcher จาก path ผิด
-      if (location.pathname !== ROOT_LAUNCHER_PATH && /germ-detective\.html$/i.test(location.pathname) && !/\/herohealth\/germ-detective\.html$/i.test(location.pathname)) {
-        const fixed = new URL(ORIGIN + ROOT_LAUNCHER_PATH);
-        fixed.search = location.search;
-        console.warn('[germ-launcher] wrong launcher path -> redirect root launcher', location.pathname, fixed.toString());
-        location.replace(fixed.toString());
-        return;
-      }
 
       const pid   = String(qs('pid','anon')).trim() || 'anon';
       const run   = String(qs('run','play')).toLowerCase() || 'play';
@@ -105,10 +97,18 @@
       const currentlyInsideGate = /warmup-gate\.html$/i.test(location.pathname);
 
       console.log('[germ-launcher] pathname =', location.pathname);
+      console.log('[germ-launcher] alreadyWarm =', alreadyWarm);
+      console.log('[germ-launcher] currentlyInsideGate =', currentlyInsideGate);
       console.log('[germ-launcher] RUN_URL =', gameUrl.toString());
 
-      if(alreadyWarm || currentlyInsideGate){
-        setMsg('กำลังเข้าเกม…');
+      if(alreadyWarm){
+        setMsg('ผ่าน warmup แล้ว กำลังเข้าเกม…');
+        location.replace(gameUrl.toString());
+        return;
+      }
+
+      if(currentlyInsideGate){
+        setMsg('อยู่ใน warmup gate แล้ว กำลังเข้าเกม…');
         location.replace(gameUrl.toString());
         return;
       }
