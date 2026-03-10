@@ -1,6 +1,6 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
 // GoodJunkVR SAFE — PRODUCTION
-// FULL PATCH v20260308-GJ-SAFE-LATEST-WAITROOM-SOLOSUMMARY
+// FULL PATCH v20260308-GJ-SAFE-LATEST-BATTLE-AUTO-WAIT
 'use strict';
 
 export async function boot(cfg){
@@ -670,7 +670,10 @@ export async function boot(cfg){
   let lastTick = nowMs();
 
   let paused = false;
-  const WAIT_START = (String(qs('wait','0')) === '1');
+
+  // battle ต้อง wait เสมอ แม้ URL จะไม่ได้ส่ง wait=1
+  const WAIT_START = battleOn ? true : (String(qs('wait','0')) === '1');
+
   if(WAIT_START) paused = true;
 
   WIN.__GJ_SET_PAUSED__ = function(on){
@@ -753,11 +756,11 @@ export async function boot(cfg){
       WIN.__HHA_BATTLE_LAST_PHASE = phase;
 
       if(phase === 'lobby'){
-        if(WAIT_START) paused = true;
+        paused = true;
         sayCoach('อยู่ใน lobby • รอผู้เล่นพร้อม', true);
       }else if(phase === 'countdown'){
         hideWaitOverlay();
-        if(WAIT_START) paused = true;
+        paused = true;
         sayCoach('Countdown แล้ว เตรียมเริ่ม!', true);
       }else if(phase === 'running'){
         hideWaitOverlay();
@@ -2389,7 +2392,7 @@ export async function boot(cfg){
     if(!playing) return;
 
     if(paused){
-      if(battleOn && WAIT_START && currentPhaseString() === 'lobby' && !hasTwoActivePlayers()){
+      if(battleOn && currentPhaseString() === 'lobby' && !hasTwoActivePlayers()){
         waitLeft = Math.max(0, waitLeft - dt);
 
         if(waitOverlayTimer){
@@ -2579,13 +2582,8 @@ export async function boot(cfg){
     try{
       if(battleOn && battle && battle.enabled){
         await battle.setReady?.(true);
+        paused = true;
         sayCoach('เชื่อม Battle แล้ว • พร้อมเริ่มเกม', true);
-
-        if(!WAIT_START){
-          paused = false;
-        }else{
-          paused = true;
-        }
 
         setHUD();
         renderRematchUI();
