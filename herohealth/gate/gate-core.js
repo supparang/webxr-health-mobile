@@ -1,11 +1,11 @@
 // === /herohealth/gate/gate-core.js ===
 // HeroHealth Gate Core
-// PATCH v20260310c-HYGIENE-DIRECT-RUN-FIX
-// ✅ handwash direct run bypass bad next
-// ✅ germdetective direct run bypass bad next
-// ✅ maskcough direct run bypass bad next
-// ✅ strip gate params before continue
-// ✅ skip/continue use same destination logic
+// PATCH v20260310-HYGIENE-STANDARD-r1
+// ✅ hygiene standard flow
+// ✅ sanitize next
+// ✅ block loop back to launcher/gate
+// ✅ continue/skip same resolver
+// ✅ one structure for all hygiene games
 
 import {
   buildCtx,
@@ -14,11 +14,11 @@ import {
   setText,
   sanitizeBuffs,
   saveLastSummary
-} from './gate-common.js?v=20260310c';
+} from './gate-common.js?v=20260310r1';
 
-import { mountSummaryLayer, mountToast } from './gate-summary.js?v=20260310c';
-import { createGateLogger } from './gate-logger.js?v=20260310c';
-import { GATE_GAMES, getGameMeta } from './gate-games.js?v=20260310c';
+import { mountSummaryLayer, mountToast } from './gate-summary.js?v=20260310r1';
+import { createGateLogger } from './gate-logger.js?v=20260310r1';
+import { GATE_GAMES, getGameMeta } from './gate-games.js?v=20260310r1';
 
 function titleOf(ctx){
   const meta = getGameMeta(ctx.game) || {
@@ -33,14 +33,12 @@ function titleOf(ctx){
 
 function subtitleOf(ctx){
   const meta = getGameMeta(ctx.game) || { label: ctx.game };
-  if(ctx.mode === 'warmup'){
-    return `เตรียมความพร้อมก่อนเข้าเกม ${meta.label}`;
-  }
+  if(ctx.mode === 'warmup') return `เตรียมความพร้อมก่อนเข้าเกม ${meta.label}`;
   return `คูลดาวน์และสรุปก่อนออกจากเกม ${meta.label}`;
 }
 
 function modulePath(ctx){
-  return `./games/${ctx.game}/${ctx.mode}.js?v=20260310c`;
+  return `./games/${ctx.game}/${ctx.mode}.js?v=20260310r1`;
 }
 
 function safeHubUrl(ctx){
@@ -86,28 +84,30 @@ function appendCommonParams(u, ctx, hub){
   if(ctx.semester) u.searchParams.set('semester', String(ctx.semester));
 }
 
-function directRunUrlByGame(ctx, result=null){
-  const hub = safeHubUrl(ctx);
+function hygieneRunUrlByGame(ctx, result=null){
   const game = String(ctx.game || '').toLowerCase();
+  const hub = safeHubUrl(ctx);
 
-  let u = null;
+  const MAP = {
+    handwash: '/webxr-health-mobile/herohealth/hygiene-vr/hygiene-vr.html',
+    brush: '/webxr-health-mobile/herohealth/brush-vr/brush-vr.html',
+    bath: '/webxr-health-mobile/herohealth/bath-vr/bath-vr.html',
+    cleanobject: '/webxr-health-mobile/herohealth/clean-objects/run.html',
+    maskcough: '/webxr-health-mobile/herohealth/vr-maskcough/maskcough-v2.html',
+    germdetective: '/webxr-health-mobile/herohealth/germ-detective/germ-detective.html'
+  };
 
-  if(game === 'handwash'){
-    u = new URL('/webxr-health-mobile/herohealth/hygiene-vr/hygiene-vr.html', location.origin);
-  }
-  else if(game === 'germdetective'){
-    u = new URL('/webxr-health-mobile/herohealth/germ-detective/germ-detective.html', location.origin);
-    u.searchParams.set('scene', 'classroom');
-  }
-  else if(game === 'maskcough'){
-    u = new URL('/webxr-health-mobile/herohealth/vr-maskcough/maskcough-v2.html', location.origin);
-  }
+  const path = MAP[game];
+  if(!path) return null;
 
-  if(!u) return null;
-
+  const u = new URL(path, location.origin);
   appendCommonParams(u, ctx, hub);
-  appendResultParams(u, result);
 
+  if(game === 'germdetective'){
+    if(!u.searchParams.get('scene')) u.searchParams.set('scene', 'classroom');
+  }
+
+  appendResultParams(u, result);
   return u.toString();
 }
 
@@ -122,14 +122,22 @@ function sanitizeArbitraryNext(rawNext, ctx, result=null){
       'cd','next','wskip'
     ].forEach(k=>u.searchParams.delete(k));
 
+    // block next -> gate
     if(/warmup-gate\.html$/i.test(u.pathname)){
-      console.warn('[gate] next points back to warmup-gate -> fallback hub');
+      console.warn('[gate] next points back to warmup-gate');
       return hub;
+    }
+
+    // block next -> hygiene root launcher pages
+    if(
+      /\/herohealth\/(hygiene-vr|brush-vr|bath-vr|clean-objects|maskcough-v2|germ-detective)\.html$/i.test(u.pathname)
+    ){
+      console.warn('[gate] next points to launcher root, use direct hygiene run instead');
+      return hygieneRunUrlByGame(ctx, result) || hub;
     }
 
     appendCommonParams(u, ctx, hub);
     appendResultParams(u, result);
-
     return u.toString();
   }catch(err){
     console.error('[gate] invalid next', rawNext, err);
@@ -138,13 +146,10 @@ function sanitizeArbitraryNext(rawNext, ctx, result=null){
 }
 
 function buildRawNextUrl(ctx, result=null){
-  const game = String(ctx.game || '').toLowerCase();
-
-  // ✅ บังคับเกม hygiene ที่มีปัญหาให้เข้า run page ตรง
-  const direct = directRunUrlByGame(ctx, result);
-  if(direct){
-    console.log('[gate-core] direct run for', game, direct);
-    return direct;
+  const hygieneDirect = hygieneRunUrlByGame(ctx, result);
+  if(hygieneDirect){
+    console.log('[gate] hygiene direct run ->', hygieneDirect);
+    return hygieneDirect;
   }
 
   const rawNext = String(ctx.next || '').trim();
@@ -209,13 +214,10 @@ function renderShell(root, ctx){
 }
 
 export async function bootGate(root){
-  console.log('[gate-core] v20260310c running');
+  console.log('[gate-core] v20260310r1 running');
 
   const ctx = buildCtx();
   ctx.dailyDone = getDailyDone(ctx);
-
-  console.log('[gate ctx raw]', ctx);
-  console.log('[gate ctx.next]', ctx.next);
 
   renderShell(root, ctx);
 
