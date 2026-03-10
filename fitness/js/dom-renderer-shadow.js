@@ -1,5 +1,5 @@
 // === /fitness/js/dom-renderer-shadow.js ===
-// PACK G: true safe-rect from HUD/BARS/META + grid slots (3 rows x 2 cols) + jitter
+// PACK G+ : raise targets upward + true safe-rect from HUD/BARS/META + grid slots + jitter
 'use strict';
 
 import { FxBurst } from './fx-burst.js';
@@ -19,7 +19,7 @@ export class DomRendererShadow {
     this._onPointer = this._onPointer.bind(this);
 
     // cache refs for true safe rect
-    this._hudEl  = document.querySelector('.sb-hud');
+    this._hudEl = document.querySelector('.sb-hud');
     this._barsTopEl = document.querySelector('.sb-bars-top');
     this._barsBottomEl = document.querySelector('.sb-bars-bottom');
     this._metaEl = document.getElementById('sb-meta');
@@ -65,7 +65,7 @@ export class DomRendererShadow {
     };
   }
 
-  // ✅ PACK G: true safe rect based on real HUD/BARS/META overlays (in viewport coords)
+  // ✅ ยกพื้นที่ spawn ขึ้นบน: ลดความรู้สึกว่าเป้าไปกองล่าง
   _safeRectViewport(){
     const layerR = this.layer.getBoundingClientRect();
     const { padBase, padTop, padSide, padBot } = this._readCssSafeVars();
@@ -95,20 +95,27 @@ export class DomRendererShadow {
 
     // meta blocks right side area (only if visible and overlaps stage)
     let rightBlock = 0;
-    if(metaR && metaR.right > layerR.left && metaR.left < layerR.right && metaR.bottom > layerR.top && metaR.top < layerR.bottom){
-      // block width from stage right edge to meta left edge
+    if (
+      metaR &&
+      metaR.right > layerR.left &&
+      metaR.left < layerR.right &&
+      metaR.bottom > layerR.top &&
+      metaR.top < layerR.bottom
+    ){
       rightBlock = Math.max(0, layerR.right - metaR.left);
-      // clamp insane
       rightBlock = Math.min(rightBlock, layerR.width * 0.55);
     }
 
     const left = layerR.left + pad + padSide;
     const right = layerR.right - pad - padSide - rightBlock;
 
-    const top = layerR.top + pad + padTop + topBlock;
-    const bottom = layerR.bottom - pad - padBot - bottomBlock;
+    // ✅ bias ขึ้นบน + กันพื้นที่ล่างเพิ่ม
+    const topBias = Math.min(42, Math.max(12, topBlock * 0.18));
+    const bottomExtra = Math.min(56, Math.max(20, (bottomBlock * 0.35) + 26));
 
-    // ensure valid
+    const top = layerR.top + pad + padTop + topBlock - topBias;
+    const bottom = layerR.bottom - pad - padBot - bottomBlock - bottomExtra;
+
     return {
       left: Math.min(left, right - 80),
       right: Math.max(right, left + 80),
@@ -118,57 +125,60 @@ export class DomRendererShadow {
     };
   }
 
-  // ✅ PACK G: grid slots 3 rows x 2 cols, avoid "rowเดียว"
+  // ✅ 3 rows x 2 cols, แต่ยก center ของ row ขึ้นเล็กน้อย
   _pickSlot(size){
     const { left, right, top, bottom } = this._safeRectViewport();
     const w = Math.max(1, right - left);
     const h = Math.max(1, bottom - top);
 
-    // 3 rows, 2 cols
     const cols = 2;
     const rows = 3;
 
     const cellW = w / cols;
     const cellH = h / rows;
 
-    // candidate slots
     const slots = [];
-    for(let r=0;r<rows;r++){
-      for(let c=0;c<cols;c++){
+    for(let r = 0; r < rows; r++){
+      for(let c = 0; c < cols; c++){
         const key = `${r}-${c}`;
-        // skip occupied
         if(this._occupied.has(key)) continue;
 
-        // compute cell center with jitter, keep within cell
-        const cx = left + c*cellW + cellW*0.5;
-        const cy = top + r*cellH + cellH*0.5;
+        const cx = left + c * cellW + cellW * 0.5;
 
-        // available bounds inside cell for top-left placement
-        const minX = left + c*cellW + 8;
-        const maxX = left + (c+1)*cellW - size - 8;
-        const minY = top + r*cellH + 8;
-        const maxY = top + (r+1)*cellH - size - 8;
+        // ✅ เดิม 0.50 ทำให้แถวค่อนไปล่างไปหน่อย
+        const cy = top + r * cellH + cellH * 0.42;
 
-        // if cell too small, still allow but clamp
-        const x = clamp(rand(cx - cellW*0.18, cx + cellW*0.18), minX, maxX);
-        const y = clamp(rand(cy - cellH*0.18, cy + cellH*0.18), minY, maxY);
+        const minX = left + c * cellW + 8;
+        const maxX = left + (c + 1) * cellW - size - 8;
+
+        const minY = top + r * cellH + 8;
+        const maxY = top + (r + 1) * cellH - size - 8;
+
+        const x = clamp(
+          rand(cx - cellW * 0.18, cx + cellW * 0.18),
+          minX,
+          maxX
+        );
+
+        // ✅ ลด jitter แนวตั้ง เพื่อไม่ให้หล่นลงล่างเกิน
+        const y = clamp(
+          rand(cy - cellH * 0.12, cy + cellH * 0.10),
+          minY,
+          maxY
+        );
 
         slots.push({ key, x, y });
       }
     }
 
-    // if all occupied, allow reuse by picking least recently used (simple: clear one random)
     if(!slots.length){
-      // free one slot randomly
       const keys = Array.from(this._occupied.keys());
-      const k = keys[Math.floor(Math.random()*keys.length)];
+      const k = keys[Math.floor(Math.random() * keys.length)];
       this._occupied.delete(k);
-      // retry once
       return this._pickSlot(size);
     }
 
-    // pick random slot among available
-    return slots[Math.floor(Math.random()*slots.length)];
+    return slots[Math.floor(Math.random() * slots.length)];
   }
 
   spawnTarget(data){
@@ -183,10 +193,9 @@ export class DomRendererShadow {
     el.style.width = size + 'px';
     el.style.height = size + 'px';
 
-    // pick grid slot (prevents rowเดียว)
     const slot = this._pickSlot(size);
     el.style.left = Math.round(slot.x) + 'px';
-    el.style.top  = Math.round(slot.y) + 'px';
+    el.style.top = Math.round(slot.y) + 'px';
 
     el.textContent = this._emojiForType(type, data.bossEmoji);
     el.addEventListener('pointerdown', this._onPointer, { passive: true });
@@ -215,9 +224,7 @@ export class DomRendererShadow {
     try { el.removeEventListener('pointerdown', this._onPointer); } catch {}
     try { el.remove(); } catch {}
 
-    // free slot
     if(obj?.slotKey) this._occupied.delete(obj.slotKey);
-
     this.targets.delete(id);
   }
 
@@ -239,21 +246,21 @@ export class DomRendererShadow {
     const el = obj?.el;
 
     const rect = el ? el.getBoundingClientRect() : null;
-    const x = info.clientX ?? (rect ? rect.left + rect.width/2 : window.innerWidth/2);
-    const y = info.clientY ?? (rect ? rect.top + rect.height/2 : window.innerHeight/2);
+    const x = info.clientX ?? (rect ? rect.left + rect.width / 2 : window.innerWidth / 2);
+    const y = info.clientY ?? (rect ? rect.top + rect.height / 2 : window.innerHeight / 2);
 
     const grade = info.grade || 'good';
     const scoreDelta = Number(info.scoreDelta) || 0;
 
     if (grade === 'perfect') {
       FxBurst.burst(x, y, { n: 14, spread: 68, ttlMs: 640, cls: 'sb-fx-fever' });
-      FxBurst.popText(x, y, `PERFECT +${Math.max(0,scoreDelta)}`, 'sb-fx-fever');
+      FxBurst.popText(x, y, `PERFECT +${Math.max(0, scoreDelta)}`, 'sb-fx-fever');
     } else if (grade === 'good') {
       FxBurst.burst(x, y, { n: 10, spread: 48, ttlMs: 540, cls: 'sb-fx-hit' });
-      FxBurst.popText(x, y, `+${Math.max(0,scoreDelta)}`, 'sb-fx-hit');
+      FxBurst.popText(x, y, `+${Math.max(0, scoreDelta)}`, 'sb-fx-hit');
     } else if (grade === 'bad') {
       FxBurst.burst(x, y, { n: 8, spread: 44, ttlMs: 520, cls: 'sb-fx-miss' });
-      FxBurst.popText(x, y, `+${Math.max(0,scoreDelta)}`, 'sb-fx-miss');
+      FxBurst.popText(x, y, `+${Math.max(0, scoreDelta)}`, 'sb-fx-miss');
     } else if (grade === 'bomb') {
       FxBurst.burst(x, y, { n: 16, spread: 86, ttlMs: 700, cls: 'sb-fx-bomb' });
       FxBurst.popText(x, y, `-${Math.abs(scoreDelta)}`, 'sb-fx-bomb');
@@ -265,7 +272,6 @@ export class DomRendererShadow {
       FxBurst.popText(x, y, '+SHIELD', 'sb-fx-shield');
     } else if (grade === 'expire') {
       FxBurst.burst(x, y, { n: 6, spread: 36, ttlMs: 420, cls: 'sb-fx-miss' });
-      // สำคัญ: engine จะเรียก expire เฉพาะที่นับ miss จริง (normal/bossface)
       FxBurst.popText(x, y, 'MISS', 'sb-fx-miss');
     } else {
       FxBurst.burst(x, y, { n: 8, spread: 46, ttlMs: 520 });
