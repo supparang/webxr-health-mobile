@@ -1,6 +1,6 @@
 // === /herohealth/vr-groups/groups.safe.js ===
-// GroupsVR SAFE — FINAL POLISH
-// FULL v20260308-GROUPS-CORE-FINAL-POLISH-r2
+// GroupsVR SAFE — FX + FAIR MISS + MOBILE LAYOUT FRIENDLY
+// FULL v20260310-GROUPS-FX-LAYOUT-HOTFIX
 /* global window, document */
 (function(){
   'use strict';
@@ -8,77 +8,70 @@
   const WIN = window;
   const DOC = document;
 
-  // ---------------------------
-  // Helpers
-  // ---------------------------
   const clamp = (v,a,b)=>{ v=Number(v); if(!Number.isFinite(v)) v=a; return Math.max(a, Math.min(b,v)); };
   const nowMs = ()=> (performance && performance.now) ? performance.now() : Date.now();
 
   function xmur3(str){
-    str=String(str||'');
-    let h=1779033703^str.length;
+    str = String(str || '');
+    let h = 1779033703 ^ str.length;
     for(let i=0;i<str.length;i++){
-      h=Math.imul(h^str.charCodeAt(i),3432918353);
-      h=(h<<13)|(h>>>19);
+      h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
+      h = (h << 13) | (h >>> 19);
     }
     return function(){
-      h=Math.imul(h^(h>>>16),2246822507);
-      h=Math.imul(h^(h>>>13),3266489909);
-      return (h^=(h>>>16))>>>0;
+      h = Math.imul(h ^ (h >>> 16), 2246822507);
+      h = Math.imul(h ^ (h >>> 13), 3266489909);
+      return (h ^= (h >>> 16)) >>> 0;
     };
   }
   function sfc32(a,b,c,d){
     return function(){
-      a>>>=0; b>>>=0; c>>>=0; d>>>=0;
-      let t=(a+b)|0;
-      a=b^(b>>>9);
-      b=(c+(c<<3))|0;
-      c=(c<<21)|(c>>>11);
-      d=(d+1)|0;
-      t=(t+d)|0;
-      c=(c+t)|0;
-      return (t>>>0)/4294967296;
+      a >>>= 0; b >>>= 0; c >>>= 0; d >>>= 0;
+      let t = (a + b) | 0;
+      a = b ^ (b >>> 9);
+      b = (c + (c << 3)) | 0;
+      c = (c << 21) | (c >>> 11);
+      d = (d + 1) | 0;
+      t = (t + d) | 0;
+      c = (c + t) | 0;
+      return (t >>> 0) / 4294967296;
     };
   }
   function makeRng(seedStr){
-    const s=xmur3(seedStr);
-    return sfc32(s(),s(),s(),s());
+    const s = xmur3(seedStr);
+    return sfc32(s(), s(), s(), s());
   }
-  const pick = (rng, arr)=> arr[(rng()*arr.length)|0];
+  const pick = (rng, arr)=> arr[(rng() * arr.length) | 0];
 
   function emit(name, detail){
     try{ WIN.dispatchEvent(new CustomEvent(name, { detail: detail || {} })); }catch(_){}
   }
   function coach(text, mood){
-    emit('hha:coach', { text: String(text||''), mood: String(mood||'neutral') });
+    emit('hha:coach', { text: String(text || ''), mood: String(mood || 'neutral') });
   }
 
-  // local safe rect preferred
   function getSafeRect(layerEl){
     const s = WIN.__HHA_SPAWN_SAFE__;
     if(s && Number.isFinite(s.xMin)) return s;
 
     const r = layerEl.getBoundingClientRect();
-    const PAD = 14;
+    const PAD = 16;
     return {
       xMin: PAD,
-      xMax: Math.max(PAD+1, r.width - PAD),
-      yMin: 132,
-      yMax: Math.max(220, r.height - 170)
+      xMax: Math.max(PAD + 1, r.width - PAD),
+      yMin: 154,
+      yMax: Math.max(230, r.height - 168)
     };
   }
 
   function setObjCenterFromEl(obj){
     try{
       const b = obj.el.getBoundingClientRect();
-      obj.lastX = b.left + b.width/2;
-      obj.lastY = b.top + b.height/2;
+      obj.lastX = b.left + b.width / 2;
+      obj.lastY = b.top + b.height / 2;
     }catch(_){}
   }
 
-  // ---------------------------
-  // Content: Thai 5 food groups
-  // ---------------------------
   const GROUPS = [
     { id:1, short:'หมู่ 1', name:'หมู่ 1 โปรตีน', items:['🥚','🐟','🥛','🍗','🥜'] },
     { id:2, short:'หมู่ 2', name:'หมู่ 2 คาร์โบไฮเดรต', items:['🍚','🍞','🥔','🍜','🥖'] },
@@ -87,26 +80,23 @@
     { id:5, short:'หมู่ 5', name:'หมู่ 5 ไขมัน', items:['🥑','🫒','🧈','🥥','🧀'] },
   ];
 
-  // ---------------------------
-  // AI warn + ramp
-  // ---------------------------
   const WARN_GAP_MS = 2200;
   let __lastWarnMs = 0;
 
   function smooth01(x){
     x = Math.max(0, Math.min(1, x));
-    return x*x*(3-2*x);
+    return x*x*(3 - 2*x);
   }
 
   function rampMul(elapsedSec, plannedSec, runMode, diff){
     if(runMode === 'practice') return 1;
-    const RAMP_MAX = (diff==='easy') ? 0.16 : (diff==='hard') ? 0.30 : 0.22;
+    const RAMP_MAX = (diff === 'easy') ? 0.15 : (diff === 'hard') ? 0.28 : 0.21;
     return 1 + RAMP_MAX * smooth01(elapsedSec / Math.max(1, plannedSec));
   }
 
   function ttlShrinkMul(elapsedSec, plannedSec, runMode, diff){
     if(runMode === 'practice') return 1;
-    const SHR = (diff==='easy') ? 0.16 : (diff==='hard') ? 0.28 : 0.22;
+    const SHR = (diff === 'easy') ? 0.14 : (diff === 'hard') ? 0.26 : 0.20;
     return 1 - SHR * smooth01(elapsedSec / Math.max(1, plannedSec));
   }
 
@@ -114,9 +104,9 @@
     combo = Number(combo) || 0;
     if(combo >= 15) return 12;
     if(combo >= 10) return 9;
-    if(combo >= 7)  return 6;
-    if(combo >= 5)  return 4;
-    if(combo >= 3)  return 2;
+    if(combo >= 7) return 6;
+    if(combo >= 5) return 4;
+    if(combo >= 3) return 2;
     return 0;
   }
 
@@ -130,13 +120,13 @@
       if(pred && pred.hazardRisk != null) hazard = Number(pred.hazardRisk);
     }catch(_){}
 
-    const late = elapsedSec > plannedSec*0.55;
+    const late = elapsedSec > plannedSec * 0.55;
 
     let msg = '';
     let mood = 'neutral';
 
     if(stage === 'boss'){
-      msg = 'บอสมา! เน้น “หมู่เดียว” ให้แม่น แล้วคุมคอมโบ ⚡';
+      msg = 'บอสมา! เน้น “หมู่เดียว” ให้แม่น ⚡';
       mood = 'fever';
     }else if(hazard != null && hazard >= 0.78 && late){
       msg = 'เริ่มพลาดถี่—ช้าลงนิด แล้วเล็งให้ตรงหมู่ 🎯';
@@ -148,7 +138,7 @@
       msg = 'คอมโบมา! รักษาจังหวะ 🔥';
       mood = 'happy';
     }else if(late){
-      msg = 'ช่วงท้ายเริ่มเดือดขึ้น—ใจเย็น แล้วคุมคอมโบ 🎯';
+      msg = 'ช่วงท้ายเริ่มเดือดขึ้น—ใจเย็นและคุมคอมโบ 🎯';
       mood = 'neutral';
     }else{
       return;
@@ -158,9 +148,6 @@
     coach(msg, mood);
   }
 
-  // ---------------------------
-  // Core state
-  // ---------------------------
   const STATE = {
     layerEl: null,
     running: false,
@@ -195,7 +182,7 @@
     charge: 0,
     chargeNeed: 8,
 
-    stage: 'main', // main | boss
+    stage: 'main',
     bossLeft: 0,
     bossSec: 12,
     bossHits: 0,
@@ -209,16 +196,16 @@
   };
 
   function accPct(){
-    return STATE.shots > 0 ? Math.round((STATE.hits/STATE.shots)*100) : 0;
+    return STATE.shots > 0 ? Math.round((STATE.hits / STATE.shots) * 100) : 0;
   }
 
   function gradeLetter(){
     const a = accPct();
     const x = (a * 0.68) + (STATE.bestCombo * 1.05) - Math.min(20, STATE.miss) * 0.8;
-    if(x>=92) return 'S';
-    if(x>=80) return 'A';
-    if(x>=66) return 'B';
-    if(x>=50) return 'C';
+    if(x >= 92) return 'S';
+    if(x >= 80) return 'A';
+    if(x >= 66) return 'B';
+    if(x >= 50) return 'C';
     return 'D';
   }
 
@@ -263,7 +250,7 @@
       mission = true;
       groupId = missionGroup.id;
     }else{
-      const others = GROUPS.filter(g=>g.id!==missionGroup.id);
+      const others = GROUPS.filter(g => g.id !== missionGroup.id);
       const og = pick(STATE.rng, others);
       emoji = pick(STATE.rng, og.items);
       mission = false;
@@ -276,11 +263,12 @@
     const p = posInSafe();
     el.style.position = 'absolute';
     el.style.left = `${p.x}px`;
-    el.style.top  = `${p.y}px`;
-    el.style.transform = 'translate(-50%,-50%) scale(.88)';
+    el.style.top = `${p.y}px`;
+    el.style.transform = 'translate(-50%,-50%) scale(.84)';
     el.style.opacity = '0';
 
     STATE.layerEl.appendChild(el);
+
     requestAnimationFrame(()=>{
       try{
         el.style.transition = 'transform .14s ease, opacity .12s ease';
@@ -290,17 +278,8 @@
     });
 
     const ttlMul = ttlShrinkMul(STATE.elapsed, STATE.plannedSec, STATE.runMode, STATE.diff);
-
-    const finalTtlMul =
-      (STATE.runMode !== 'practice' && STATE.tLeft <= 12)
-        ? 0.93
-        : 1.0;
-
-    const bossTtlMul =
-      (STATE.stage === 'boss')
-        ? 0.95
-        : 1.0;
-
+    const finalTtlMul = (STATE.runMode !== 'practice' && STATE.tLeft <= 12) ? 0.93 : 1.0;
+    const bossTtlMul = (STATE.stage === 'boss') ? 0.95 : 1.0;
     const ttl = Math.max(1.10, STATE.baseTtl * ttlMul * finalTtlMul * bossTtlMul);
     const ttlMs = ttl * 1000;
 
@@ -334,9 +313,10 @@
 
     try{
       if(cls) t.el.classList.add(cls);
-      t.el.style.transition = 'transform .12s ease, opacity .12s ease';
+      t.el.style.transition = 'transform .12s ease, opacity .12s ease, filter .12s ease';
       t.el.style.opacity = '0';
-      t.el.style.transform = 'translate(-50%,-50%) scale(.82)';
+      t.el.style.transform = 'translate(-50%,-50%) scale(.68)';
+      t.el.style.filter = cls === 'hit' ? 'brightness(1.35)' : 'brightness(.8)';
       setTimeout(()=>{ try{ t.el.remove(); }catch(_){ } }, 140);
     }catch(_){}
   }
@@ -361,9 +341,9 @@
         goalNow: STATE.goalNow,
         goalTotal: STATE.goalTotal,
         groupName: STATE.curGroup.name,
-        miniTitle: (STATE.stage==='boss') ? 'BOSS' : 'POWER',
-        miniNow: (STATE.stage==='boss') ? STATE.bossHits : STATE.charge,
-        miniTotal: (STATE.stage==='boss') ? 999 : STATE.chargeNeed
+        miniTitle: (STATE.stage === 'boss') ? 'BOSS' : 'POWER',
+        miniNow: (STATE.stage === 'boss') ? STATE.bossHits : STATE.charge,
+        miniTotal: (STATE.stage === 'boss') ? 999 : STATE.chargeNeed
       });
 
       coach(`สลับภารกิจ! หา “${STATE.curGroup.short}” 🎯`, 'neutral');
@@ -449,14 +429,14 @@
     let bestD = 1e9;
 
     const r = STATE.layerEl.getBoundingClientRect();
-    const cx = r.left + r.width/2;
-    const cy = r.top + r.height/2;
+    const cx = r.left + r.width / 2;
+    const cy = r.top + r.height / 2;
 
     for(const obj of STATE.map.values()){
       const b = obj.el.getBoundingClientRect();
-      const x = b.left + b.width/2;
-      const y = b.top + b.height/2;
-      const d = Math.hypot(x-cx, y-cy);
+      const x = b.left + b.width / 2;
+      const y = b.top + b.height / 2;
+      const d = Math.hypot(x - cx, y - cy);
       if(d < bestD){
         bestD = d;
         best = obj;
@@ -475,8 +455,8 @@
     if(!obj) return;
 
     const r = STATE.layerEl.getBoundingClientRect();
-    obj.lastX = r.left + r.width/2;
-    obj.lastY = r.top + r.height/2;
+    obj.lastX = r.left + r.width / 2;
+    obj.lastY = r.top + r.height / 2;
 
     onHit(obj);
   }
@@ -496,14 +476,14 @@
     emit('hha:rank', { grade: gradeLetter() });
 
     emit('quest:update', {
-      goalTitle: (STATE.stage==='boss') ? 'BOSS: ยิงให้ถูกหมู่ให้ได้มากสุด' : 'ภารกิจ: ยิงให้ถูก “หมู่”',
+      goalTitle: (STATE.stage === 'boss') ? 'BOSS: ยิงให้ถูกหมู่ให้ได้มากสุด' : 'ภารกิจ: ยิงให้ถูก “หมู่”',
       goalNow: STATE.goalNow,
       goalTotal: STATE.goalTotal,
       groupName: STATE.curGroup ? STATE.curGroup.name : '—',
-      miniTitle: (STATE.stage==='boss') ? 'BOSS' : 'POWER',
-      miniNow: (STATE.stage==='boss') ? STATE.bossHits : STATE.charge,
-      miniTotal: (STATE.stage==='boss') ? 999 : STATE.chargeNeed,
-      miniTimeLeftSec: (STATE.stage==='boss') ? Math.ceil(STATE.bossLeft) : 0
+      miniTitle: (STATE.stage === 'boss') ? 'BOSS' : 'POWER',
+      miniNow: (STATE.stage === 'boss') ? STATE.bossHits : STATE.charge,
+      miniTotal: (STATE.stage === 'boss') ? 999 : STATE.chargeNeed,
+      miniTimeLeftSec: (STATE.stage === 'boss') ? Math.ceil(STATE.bossLeft) : 0
     });
 
     emit('groups:power', { charge: STATE.charge, threshold: STATE.chargeNeed });
@@ -511,16 +491,8 @@
 
   function spawnTick(dt){
     const mul = rampMul(STATE.elapsed, STATE.plannedSec, STATE.runMode, STATE.diff);
-
-    const finalRush =
-      (STATE.runMode !== 'practice' && STATE.tLeft <= 12)
-        ? 1.10
-        : 1.0;
-
-    const bossRush =
-      (STATE.stage === 'boss')
-        ? 1.08
-        : 1.0;
+    const finalRush = (STATE.runMode !== 'practice' && STATE.tLeft <= 12) ? 1.10 : 1.0;
+    const bossRush = (STATE.stage === 'boss') ? 1.08 : 1.0;
 
     const sp = STATE.baseSpawnPerSec * mul * finalRush * bossRush;
 
@@ -593,7 +565,7 @@
   function buildSummary(reason){
     return {
       projectTag: 'GroupsVR',
-      gameVersion: 'GroupsVR_SAFE_FINAL_POLISH_R2',
+      gameVersion: 'GroupsVR_SAFE_FX_LAYOUT_HOTFIX',
       roomId: String(STATE.ctx?.roomId || ''),
       playerKey: String(STATE.ctx?.playerKey || ''),
       battle: !!STATE.ctx?.battle,
@@ -633,7 +605,6 @@
     STATE.running = false;
     STATE.paused = false;
     cancelAnimationFrame(STATE.raf);
-
     clearTargets();
 
     const summary = buildSummary(reason);
@@ -706,7 +677,7 @@
 
     stop();
 
-    STATE.diff = String(diff||'normal').toLowerCase();
+    STATE.diff = String(diff || 'normal').toLowerCase();
     STATE.ctx = ctx;
     STATE.runMode = String(ctx.runMode || 'play').toLowerCase();
     STATE.view = String(ctx.view || DOC.body.getAttribute('data-view') || 'mobile').toLowerCase();
@@ -798,22 +769,15 @@
     STATE.lastTick = nowMs();
   }
 
-  // ---------------------------
-  // Telemetry stub
-  // ---------------------------
   const Telemetry = {
     flush: function(summary){
-      try{
-        // hook cloud logger here later
-      }catch(_){}
+      try{}catch(_){}
     }
   };
 
   function bindFlushOnLeave(getSummary){
     const safeGet = ()=>{ try{ return (typeof getSummary === 'function') ? getSummary() : null; }catch(_){ return null; } };
-    const doFlush = ()=>{
-      try{ Telemetry.flush(safeGet()); }catch(_){}
-    };
+    const doFlush = ()=>{ try{ Telemetry.flush(safeGet()); }catch(_){ } };
 
     WIN.addEventListener('pagehide', doFlush, { passive:true });
     WIN.addEventListener('beforeunload', doFlush, { passive:true });
@@ -822,9 +786,6 @@
     }, { passive:true });
   }
 
-  // ---------------------------
-  // Expose API
-  // ---------------------------
   WIN.GroupsVR = WIN.GroupsVR || {};
   WIN.GroupsVR.Telemetry = Telemetry;
   WIN.GroupsVR.bindFlushOnLeave = bindFlushOnLeave;
