@@ -1,3 +1,12 @@
+<!-- === /fitness/balance-hold.html ===
+Balance Hold — RUN PAGE (FLOW PATCH)
+PATCH v20260310-BALANCEHOLD-RUN-FLOW-COOLDOWN
+✅ มีหน้าเลือก Difficulty / Duration / View ใน run page เอง
+✅ รองรับ launcher /hub params
+✅ จบเกมแล้วอยู่หน้า summary ก่อน
+✅ ปุ่ม Back HUB เปลี่ยนเป็น Cooldown → HUB
+✅ ใช้คู่กับ /fitness/js/balance-hold.js เวอร์ชัน FLOW PATCH
+-->
 <!doctype html>
 <html lang="th">
 <head>
@@ -91,6 +100,7 @@
     .btn:active{ transform: translateY(1px); }
     .btn-primary{ background: rgba(59,130,246,.22); border-color: rgba(59,130,246,.40); }
     .btn-danger{ background: rgba(239,68,68,.18); border-color: rgba(239,68,68,.40); }
+    .btn-good{ background: rgba(34,197,94,.16); border-color: rgba(34,197,94,.35); }
     .actions{ display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
 
     .hud-panel{
@@ -279,14 +289,6 @@
       25%{ transform:translateX(-4px); }
       50%{ transform:translateX(4px); }
       75%{ transform:translateX(-3px); }
-    }
-
-    .count-pop{
-      animation:countPop .18s ease-out;
-    }
-    @keyframes countPop{
-      0%{ transform:scale(.92); }
-      100%{ transform:scale(1); }
     }
 
     .coach-wrap{ display:grid; gap:8px; justify-items:center; }
@@ -502,9 +504,9 @@
           <div class="field-row">
             <label for="difficulty">Difficulty</label>
             <select id="difficulty">
-              <option value="easy">Easy</option>
-              <option value="normal" selected>Normal</option>
-              <option value="hard">Hard</option>
+              <option value="easy">Easy / ง่าย</option>
+              <option value="normal" selected>Normal / ปกติ</option>
+              <option value="hard">Hard / ยาก</option>
             </select>
           </div>
 
@@ -545,10 +547,11 @@
           <h2 class="title" style="font-size:1rem;">วิธีเล่น</h2>
           <ul class="sub" style="margin:.5rem 0 0 1.1rem; padding:0;">
             <li>ลากซ้าย–ขวาในพื้นที่เล่นเพื่อคุมแท่น</li>
-            <li>ให้อยู่ใน safe zone ให้นานที่สุด (Stability สูงขึ้น)</li>
-            <li>หลบ obstacle ตอน impact (Avoid) เพื่อเก็บคะแนน</li>
+            <li>ให้อยู่ใน safe zone ให้นานที่สุด</li>
+            <li>หลบ obstacle ตอน impact เพื่อเก็บคะแนน</li>
             <li>คุมใกล้กลางมาก ๆ ตอน impact = Perfect ✨</li>
             <li>โดนชน = Hit ❌ คอมโบแตก + เสียคะแนน</li>
+            <li>จบเกมแล้วจะเข้าสรุปผลก่อน แล้วค่อยไป Cooldown</li>
           </ul>
         </div>
       </div>
@@ -653,7 +656,7 @@
 
     <section id="view-result" class="card hidden">
       <h2 class="title">📊 Result</h2>
-      <p class="sub">สรุปผล: Stability/Obstacle/Score/Rank + คำแนะนำ</p>
+      <p class="sub">สรุปผลก่อนเข้าสู่ Cooldown</p>
 
       <section class="result-hero" style="margin-top:10px;">
         <div class="result-hero-main">
@@ -696,9 +699,8 @@
       </div>
 
       <div class="result-actions">
-        <button type="button" class="btn btn-primary" data-action="result-go-cooldown">🧘 Cooldown</button>
         <button type="button" class="btn btn-primary" data-action="result-play-again">🔁 Play Again</button>
-        <button type="button" class="btn" data-action="result-back-hub">🏠 Back HUB</button>
+        <button type="button" class="btn btn-good" data-action="result-back-hub">🫧 Cooldown → HUB</button>
         <button type="button" class="btn" data-action="export-sessions-csv">⬇ Export Sessions CSV</button>
         <button type="button" class="btn" data-action="export-release-debug">🧪 Export Debug JSON</button>
       </div>
@@ -714,7 +716,7 @@
         <li>อยู่ใน safe zone ให้ได้นานที่สุด (Stability สูงขึ้น)</li>
         <li>หลบ obstacle (💨/💣) โดยคุมสมดุลตอน impact</li>
         <li>Perfect เกิดเมื่อคุมใกล้กึ่งกลางมาก ๆ ตอน impact</li>
-        <li>ถ้าเปิด Practice จะมี Countdown → Practice → Main</li>
+        <li>หลังจบเกมจะมี Summary แล้วไป Cooldown ก่อนกลับ HUB</li>
       </ol>
       <label class="checkbox-row">
         <input type="checkbox" id="tutorialDontShowAgain" />
@@ -744,8 +746,8 @@
       <div class="overlay-actions">
         <button type="button" class="btn" data-action="close-end-modal">Close</button>
         <button type="button" class="btn" data-action="end-retry">Play Again</button>
-        <button type="button" class="btn" data-action="end-go-cooldown">Cooldown</button>
-        <button type="button" class="btn btn-primary" data-action="end-back-hub">Back HUB</button>
+        <button type="button" class="btn" data-action="end-next-mission">Back to Result</button>
+        <button type="button" class="btn btn-good" data-action="end-back-hub">🫧 Cooldown → HUB</button>
       </div>
     </div>
   </div>
