@@ -1,6 +1,6 @@
 <!-- === /herohealth/vr-groups/groups-race-run.html ===
 Groups Race — RUN PAGE (1v1) — FINAL POLISH
-FULL v20260308-GROUPS-RACE-RUN-FINAL-POLISH
+FULL v20260308-GROUPS-RACE-RUN-FINAL-POLISH-r2
 ✅ sync with groups.safe.js polished events
 ✅ score popup / hit fx / boss flash
 ✅ cleaner HUD
@@ -896,6 +896,7 @@ Requires:
   let final10Shown = false;
   let final5Shown = false;
   let lastSeriesKey = '';
+  let didCelebrateSeriesWin = false;
 
   function faceFromMood(mood){
     return (
@@ -1009,15 +1010,20 @@ Requires:
   }
 
   function celebrateSeriesWin(){
+    if(didCelebrateSeriesWin) return;
+    didCelebrateSeriesWin = true;
+
     burstConfetti(56);
     burstConfetti(36);
     flashStage('boss');
+
     const resultCard = $('#resultCard');
     if(resultCard){
       resultCard.classList.remove('winGlow');
       resultCard.offsetHeight;
       resultCard.classList.add('winGlow');
     }
+
     if(seriesWinBadge) seriesWinBadge.style.display = 'inline-flex';
     showSeriesBanner('SERIES WIN', 'คุณชนะซีรีส์! 🏆', 'ยอดเยี่ยมมาก');
     showToast('คุณชนะซีรีส์แล้ว! 🎉', 'happy');
@@ -1174,6 +1180,7 @@ Requires:
     lastLeadState = 'WAIT';
     lastCloseAlertAt = 0;
     lastSeriesKey = '';
+    didCelebrateSeriesWin = false;
 
     if(seriesWinBadge) seriesWinBadge.style.display = 'none';
   }
@@ -1730,18 +1737,17 @@ Requires:
       const kind = String(d.kind || '');
       const x = Number(d.x || (window.innerWidth * 0.5));
       const y = Number(d.y || (window.innerHeight * 0.5));
+      const delta = Number(d.delta || (good ? 10 : -3));
 
       pulseEl(hudScore);
 
       if(good){
         pulseEl(hudCombo);
         flashStage(kind === 'boss_hit' ? 'boss' : 'good');
-        const comboNow = Number(String(hudCombo.textContent || 'x0').replace('x','')) || 0;
-        const add = Math.max(10, comboNow >= 15 ? 22 : comboNow >= 10 ? 19 : comboNow >= 7 ? 16 : comboNow >= 5 ? 14 : comboNow >= 3 ? 12 : 10);
-        popScore(x, y, '+' + add, true);
+        popScore(x, y, (delta > 0 ? '+' : '') + delta, true);
       }else{
-        flashStage(kind === 'timeout_miss' ? 'bad' : 'bad');
-        popScore(x, y, (kind === 'timeout_miss' ? '-2' : '-3'), false);
+        flashStage('bad');
+        popScore(x, y, (delta > 0 ? '+' : '') + delta, false);
       }
     });
 
