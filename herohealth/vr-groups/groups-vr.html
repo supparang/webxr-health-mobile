@@ -1,6 +1,6 @@
 <!-- === /herohealth/vr-groups/groups-vr.html ===
-GroupsVR — SOLO RUN PAGE — FX + MOBILE LAYOUT HOTFIX + BG A + ACTIVE GROUP HIGHLIGHT
-FULL v20260310-GROUPS-SOLO-FX-LAYOUT-HOTFIX-BGA-ACTIVE
+GroupsVR — SOLO RUN PAGE — FX + MOBILE LAYOUT HOTFIX + BG A + ACTIVE GROUP HIGHLIGHT + REFRESH SAFE + ADAPTIVE SPAWN RECT
+FULL v20260310-GROUPS-SOLO-FX-LAYOUT-HOTFIX-BGA-ACTIVE-REFRESHSAFE-SPAWNADAPT
 Requires:
 - ../vr/vr-ui.js
 - ./ai-hooks.js
@@ -225,6 +225,74 @@ Requires:
       text-shadow:
         0 0 12px color-mix(in srgb, var(--cat) 42%, transparent 58%),
         0 2px 8px rgba(0,0,0,.30);
+    }
+
+    /* ===== ACTIVE GROUP FX ===== */
+    .bgCat.switchFx .bgCatBox{
+      animation: bgGroupSwitchPulse .46s ease-out;
+    }
+
+    .bgCat.hitFx .bgCatBox{
+      animation: bgGroupHitPulse .34s ease-out;
+    }
+
+    .powerWrap.switchFx{
+      animation: powerWrapSwitchFx .44s ease-out;
+    }
+
+    .powerWrap.hitFx{
+      animation: powerWrapHitFx .28s ease-out;
+    }
+
+    @keyframes bgGroupSwitchPulse{
+      0%{
+        transform: translateY(-2px) scale(1.04);
+        box-shadow:
+          0 0 0 0 color-mix(in srgb, var(--cat) 78%, white 22%),
+          0 0 0 0 color-mix(in srgb, var(--cat) 54%, transparent 46%),
+          0 14px 26px rgba(0,0,0,.24),
+          inset 0 1px 0 rgba(255,255,255,.18);
+      }
+      35%{
+        transform: translateY(-4px) scale(1.09);
+        box-shadow:
+          0 0 0 5px color-mix(in srgb, var(--cat) 72%, white 28%),
+          0 0 28px 8px color-mix(in srgb, var(--cat) 48%, transparent 52%),
+          0 16px 28px rgba(0,0,0,.24),
+          inset 0 1px 0 rgba(255,255,255,.20);
+      }
+      100%{
+        transform: translateY(-2px) scale(1.04);
+      }
+    }
+
+    @keyframes bgGroupHitPulse{
+      0%{
+        transform: translateY(-2px) scale(1.04);
+      }
+      40%{
+        transform: translateY(-3px) scale(1.12);
+        box-shadow:
+          0 0 0 4px color-mix(in srgb, var(--cat) 82%, white 18%),
+          0 0 24px 6px color-mix(in srgb, var(--cat) 62%, transparent 38%),
+          0 16px 30px rgba(0,0,0,.24),
+          inset 0 1px 0 rgba(255,255,255,.22);
+      }
+      100%{
+        transform: translateY(-2px) scale(1.04);
+      }
+    }
+
+    @keyframes powerWrapSwitchFx{
+      0%{ transform: scale(1); }
+      40%{ transform: scale(1.035); }
+      100%{ transform: scale(1); }
+    }
+
+    @keyframes powerWrapHitFx{
+      0%{ transform: scale(1); }
+      40%{ transform: scale(1.02); }
+      100%{ transform: scale(1); }
     }
 
     @media (max-width:760px){
@@ -721,19 +789,12 @@ Requires:
   const powerWrap = document.querySelector('.powerWrap');
   const bgCats = Array.from(document.querySelectorAll('.bgCat'));
 
-  const GROUP_COLORS = {
-    1: '#e11d48',
-    2: '#f97316',
-    3: '#22c55e',
-    4: '#38bdf8',
-    5: '#a855f7'
-  };
-
   const coachToast = $('#coachToast');
   const toastFace = $('#toastFace');
   const toastTxt = $('#toastTxt');
   const toastSub = $('#toastSub');
 
+  const stage = $('#stage');
   const stageFlash = $('#stageFlash');
   const fxLayer = $('#fxLayer');
   const playLayer = $('#playLayer');
@@ -744,7 +805,21 @@ Requires:
   const endSub = $('#endSub');
   const endMode = $('#endMode');
 
+  const GROUP_COLORS = {
+    1: '#e11d48',
+    2: '#f97316',
+    3: '#22c55e',
+    4: '#38bdf8',
+    5: '#a855f7'
+  };
+
   let toastTimer = null;
+  let activeGroupNo = null;
+  let isStarting = false;
+  let isRestarting = false;
+  let hasBooted = false;
+  let spawnSafeRaf = 0;
+  let bootNonce = 0;
 
   function faceFromMood(mood){
     return (
@@ -774,9 +849,37 @@ Requires:
     return null;
   }
 
+  function fxOnce(el, cls, ms){
+    if(!el) return;
+    el.classList.remove(cls);
+    void el.offsetWidth;
+    el.classList.add(cls);
+    setTimeout(()=> el.classList.remove(cls), ms || 420);
+  }
+
+  function getBgCatEl(groupNo){
+    const n = Number(groupNo);
+    return bgCats.find(el => Number(el.dataset.group) === n) || null;
+  }
+
+  function triggerGroupSwitchFx(groupNo){
+    const el = getBgCatEl(groupNo);
+    fxOnce(el, 'switchFx', 470);
+    fxOnce(powerWrap, 'switchFx', 450);
+  }
+
+  function triggerGroupHitFx(groupNo){
+    const el = getBgCatEl(groupNo);
+    fxOnce(el, 'hitFx', 350);
+    fxOnce(powerWrap, 'hitFx', 300);
+  }
+
   function setActiveGroup(groupNo){
     const n = Number(groupNo);
     if (!(n >= 1 && n <= 5)) return;
+
+    const changed = activeGroupNo !== n;
+    activeGroupNo = n;
 
     bgCats.forEach(el => {
       const on = Number(el.dataset.group) === n;
@@ -788,6 +891,10 @@ Requires:
       powerWrap.classList.add('activeGroup');
       powerWrap.style.setProperty('--group-accent', c);
     }
+
+    if(changed){
+      triggerGroupSwitchFx(n);
+    }
   }
 
   function showToast(text, mood){
@@ -797,6 +904,11 @@ Requires:
     toastFace.textContent = faceFromMood(mood);
     coachToast.classList.add('show');
     toastTimer = setTimeout(()=> coachToast.classList.remove('show'), 2600);
+  }
+
+  function hideToast(){
+    if(toastTimer){ clearTimeout(toastTimer); toastTimer = null; }
+    coachToast.classList.remove('show');
   }
 
   function pulseEl(el, cls='hudPulse', ms=320){
@@ -816,6 +928,11 @@ Requires:
     setTimeout(()=>{ stageFlash.style.opacity = '0'; }, 120);
   }
 
+  function clearStageFlash(){
+    stageFlash.className = '';
+    stageFlash.style.opacity = '0';
+  }
+
   function popScore(x, y, text, good){
     if(!fxLayer) return;
     const el = document.createElement('div');
@@ -827,30 +944,25 @@ Requires:
     setTimeout(()=>{ try{ el.remove(); }catch(_){ } }, 700);
   }
 
-  function updateSpawnSafe(){
-    try{
-      const r = playLayer.getBoundingClientRect();
-      const pad = 16;
-      const topSafe = 156;
-      const botSafe = 168;
-
-      window.__HHA_SPAWN_SAFE__ = {
-        xMin: pad,
-        xMax: Math.max(pad + 1, r.width - pad),
-        yMin: topSafe,
-        yMax: Math.max(topSafe + 1, r.height - botSafe)
-      };
-    }catch(_){}
+  function clearFxLayer(){
+    try{ fxLayer.replaceChildren(); }catch(_){ fxLayer.innerHTML = ''; }
   }
-  window.addEventListener('resize', updateSpawnSafe, { passive:true });
 
   function showOverlay(el){
     el.style.display = 'flex';
     el.setAttribute('aria-hidden', 'false');
   }
+
   function hideOverlay(el){
     el.style.display = 'none';
     el.setAttribute('aria-hidden', 'true');
+  }
+
+  function resetTransientUi(){
+    hideOverlay(endOverlay);
+    hideToast();
+    clearStageFlash();
+    clearFxLayer();
   }
 
   function lockPxForView(){
@@ -873,9 +985,123 @@ Requires:
     }, true);
   }
 
+  function safeStopEngine(){
+    try{
+      window.GroupsVR?.GameEngine?.stop?.();
+    }catch(_){}
+  }
+
+  function getRect(el){
+    try{
+      return el ? el.getBoundingClientRect() : null;
+    }catch(_){
+      return null;
+    }
+  }
+
+  function computeSpawnSafe(){
+    const r = getRect(playLayer);
+    if(!r) return {
+      xMin: 16, xMax: 320, yMin: 120, yMax: 420
+    };
+
+    const hudR = getRect(document.querySelector('.hudTop'));
+    const powerR = getRect(powerWrap);
+    const toastVisible = coachToast.classList.contains('show');
+    const toastR = toastVisible ? getRect(coachToast) : null;
+
+    const padX = Math.max(12, Math.round(Math.min(24, r.width * 0.025)));
+    const topPad = 12;
+    const bottomPad = 14;
+
+    const topBlock = Math.max(
+      0,
+      hudR ? Math.round((hudR.bottom - r.top) + topPad) : 108,
+      powerR ? Math.round((powerR.bottom - r.top) + 10) : 0
+    );
+
+    const bottomBlock = Math.max(
+      92,
+      toastR ? Math.round((r.bottom - toastR.top) + 10) : 0,
+      VIEW === 'mobile' ? Math.round(Math.min(164, r.height * 0.24)) : 112
+    );
+
+    let xMin = padX;
+    let xMax = Math.max(padX + 1, Math.round(r.width - padX));
+    let yMin = Math.max(18, topBlock);
+    let yMax = Math.max(yMin + 1, Math.round(r.height - bottomBlock));
+
+    if (powerR){
+      const powerW = Math.round(powerR.width + 14);
+      if (r.width <= 640){
+        xMin = Math.max(xMin, powerW);
+      }
+    }
+
+    if ((xMax - xMin) < 120){
+      xMin = padX;
+      xMax = Math.max(xMin + 120, Math.round(r.width - padX));
+    }
+
+    if ((yMax - yMin) < 160){
+      yMin = Math.max(26, Math.round(topBlock * 0.92));
+      yMax = Math.max(yMin + 160, Math.round(r.height - Math.max(86, bottomBlock * 0.86)));
+    }
+
+    yMax = Math.min(Math.round(r.height - 10), yMax);
+    xMax = Math.min(Math.round(r.width - 10), xMax);
+
+    return {
+      xMin,
+      xMax: Math.max(xMin + 1, xMax),
+      yMin,
+      yMax: Math.max(yMin + 1, yMax)
+    };
+  }
+
+  function applySpawnSafe(){
+    try{
+      window.__HHA_SPAWN_SAFE__ = computeSpawnSafe();
+    }catch(_){}
+  }
+
+  function scheduleSpawnSafe(){
+    if(spawnSafeRaf) cancelAnimationFrame(spawnSafeRaf);
+    spawnSafeRaf = requestAnimationFrame(()=>{
+      spawnSafeRaf = 0;
+      applySpawnSafe();
+    });
+  }
+
+  function syncUiToBootState(){
+    hudTime.textContent = TIME + 's';
+    hudScore.textContent = '0';
+    hudCombo.textContent = 'x0';
+    hudCombo.classList.remove('comboHot');
+    hudMiss.textContent = '0';
+    hudRank.textContent = '—';
+    qTitle.textContent = 'ภารกิจ';
+    qSub.textContent = '';
+    qMini.textContent = 'POWER · 0/0';
+    qMiniTime.textContent = '';
+    qBar.style.width = '0%';
+    pBar.style.width = '0%';
+    pText.textContent = '0 / 8';
+    endMode.textContent = RUN.toUpperCase();
+  }
+
   function startGame(){
-    updateSpawnSafe();
+    if(isStarting) return;
+    isStarting = true;
+    const myBoot = ++bootNonce;
+
+    resetTransientUi();
+    syncUiToBootState();
+    scheduleSpawnSafe();
+
+    safeStopEngine();
     try{ window.GroupsVR?.GameEngine?.setLayerEl?.(playLayer); }catch(_){}
+
     try{
       window.GroupsVR.GameEngine.start(DIFF, {
         runMode: RUN,
@@ -889,23 +1115,43 @@ Requires:
         chargeNeed: (DIFF==='easy') ? 7 : (DIFF==='hard') ? 9 : 8
       });
 
+      if (myBoot !== bootNonce) return;
+
       setActiveGroup(parseGroupNo(groupName.textContent) || 1);
+      scheduleSpawnSafe();
       showToast('เริ่มแล้ว! ยิงให้ถูก “หมู่” แล้วเก็บคอมโบ 🔥', 'neutral');
     }catch(e){
       console.error(e);
       showToast('เริ่มเกมไม่สำเร็จ — เปิด Console ดู error', 'sad');
+    }finally{
+      isStarting = false;
     }
   }
 
   function restart(){
-    hideOverlay(endOverlay);
-    try{ window.GroupsVR?.GameEngine?.stop?.(); }catch(_){}
-    setTimeout(()=> startGame(), 60);
+    if(isRestarting) return;
+    isRestarting = true;
+    resetTransientUi();
+    safeStopEngine();
+    scheduleSpawnSafe();
+    setTimeout(()=>{
+      startGame();
+      setTimeout(()=>{ isRestarting = false; }, 160);
+    }, 80);
+  }
+
+  function bootOnce(){
+    if(hasBooted) return;
+    hasBooted = true;
+    resetTransientUi();
+    scheduleSpawnSafe();
+    startGame();
   }
 
   window.addEventListener('hha:coach', (ev)=>{
     const d = ev?.detail || {};
     if(d.text) showToast(d.text, d.mood || 'neutral');
+    scheduleSpawnSafe();
   });
 
   window.addEventListener('hha:time', (ev)=>{
@@ -945,6 +1191,7 @@ Requires:
   window.addEventListener('quest:update', (ev)=>{
     const d = ev?.detail || {};
     if(d.goalTitle) qTitle.textContent = d.goalTitle;
+
     const gNow = (d.goalNow!=null) ? d.goalNow : 0;
     const gTot = (d.goalTotal!=null) ? d.goalTotal : 1;
     qSub.textContent = `${gNow}/${gTot}`;
@@ -963,6 +1210,8 @@ Requires:
       const gn = parseGroupNo(d.groupNo);
       if(gn) setActiveGroup(gn);
     }
+
+    scheduleSpawnSafe();
   });
 
   window.addEventListener('groups:power', (ev)=>{
@@ -988,6 +1237,7 @@ Requires:
       pulseEl(hudCombo);
       flashStage(kind === 'boss_hit' ? 'boss' : 'good');
       popScore(x, y, (delta > 0 ? '+' : '') + delta, true);
+      triggerGroupHitFx(activeGroupNo);
     }else{
       flashStage('bad');
       popScore(x, y, (delta > 0 ? '+' : '') + delta, false);
@@ -1004,16 +1254,52 @@ Requires:
     endMode.textContent = RUN.toUpperCase();
 
     showOverlay(endOverlay);
+    scheduleSpawnSafe();
+  });
+
+  const vv = window.visualViewport;
+  if (vv){
+    vv.addEventListener('resize', scheduleSpawnSafe, { passive:true });
+    vv.addEventListener('scroll', scheduleSpawnSafe, { passive:true });
+  }
+
+  window.addEventListener('resize', scheduleSpawnSafe, { passive:true });
+  window.addEventListener('orientationchange', scheduleSpawnSafe, { passive:true });
+
+  window.addEventListener('pageshow', (ev)=>{
+    resetTransientUi();
+    scheduleSpawnSafe();
+    if(ev.persisted){
+      safeStopEngine();
+      setTimeout(()=> restart(), 60);
+    }
+  });
+
+  window.addEventListener('pagehide', ()=>{
+    safeStopEngine();
+  });
+
+  window.addEventListener('beforeunload', ()=>{
+    safeStopEngine();
   });
 
   $('#btnRestart').addEventListener('click', restart);
-  $('#btnBack').addEventListener('click', ()=>{ location.href = HUB; });
+  $('#btnBack').addEventListener('click', ()=>{
+    safeStopEngine();
+    location.href = HUB;
+  });
   $('#btnEndAgain').addEventListener('click', restart);
-  $('#btnEndGoHub').addEventListener('click', ()=>{ location.href = HUB; });
-  $('#btnEndClose').addEventListener('click', ()=> hideOverlay(endOverlay));
+  $('#btnEndGoHub').addEventListener('click', ()=>{
+    safeStopEngine();
+    location.href = HUB;
+  });
+  $('#btnEndClose').addEventListener('click', ()=>{
+    hideOverlay(endOverlay);
+    scheduleSpawnSafe();
+  });
 
   installLockPxShim();
-  startGame();
+  bootOnce();
 })();
 </script>
 </body>
