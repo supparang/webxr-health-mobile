@@ -1,6 +1,6 @@
 <!-- === /herohealth/vr-groups/groups-vr.html ===
-GroupsVR — SOLO RUN PAGE — FX + MOBILE LAYOUT HOTFIX + BG A
-FULL v20260310-GROUPS-SOLO-FX-LAYOUT-HOTFIX-BGA
+GroupsVR — SOLO RUN PAGE — FX + MOBILE LAYOUT HOTFIX + BG A + ACTIVE GROUP HIGHLIGHT
+FULL v20260310-GROUPS-SOLO-FX-LAYOUT-HOTFIX-BGA-ACTIVE
 Requires:
 - ../vr/vr-ui.js
 - ./ai-hooks.js
@@ -172,6 +172,8 @@ Requires:
       align-items:center;
       gap:8px;
       transform:translateZ(0);
+      transition: transform .18s ease, opacity .18s ease, filter .18s ease;
+      opacity:.72;
     }
 
     .bgCatBox{
@@ -185,6 +187,11 @@ Requires:
         inset 0 1px 0 rgba(255,255,255,.12);
       background: var(--cat);
       opacity:.86;
+      transition:
+        transform .18s ease,
+        box-shadow .18s ease,
+        border-color .18s ease,
+        opacity .18s ease;
     }
 
     .bgCatLabel{
@@ -195,6 +202,29 @@ Requires:
       line-height:1.2;
       text-shadow:0 2px 8px rgba(0,0,0,.28);
       white-space:pre-line;
+    }
+
+    .bgCat.active{
+      opacity:1;
+      transform: translateY(-3px) scale(1.03);
+      filter: saturate(1.08);
+    }
+
+    .bgCat.active .bgCatBox{
+      border-color: rgba(255,255,255,.42);
+      box-shadow:
+        0 0 0 3px color-mix(in srgb, var(--cat) 78%, white 22%),
+        0 0 22px color-mix(in srgb, var(--cat) 64%, transparent 36%),
+        0 14px 26px rgba(0,0,0,.24),
+        inset 0 1px 0 rgba(255,255,255,.18);
+      transform: translateY(-2px) scale(1.04);
+      opacity:1;
+    }
+
+    .bgCat.active .bgCatLabel{
+      text-shadow:
+        0 0 12px color-mix(in srgb, var(--cat) 42%, transparent 58%),
+        0 2px 8px rgba(0,0,0,.30);
     }
 
     @media (max-width:760px){
@@ -308,7 +338,31 @@ Requires:
       box-shadow: 0 10px 24px rgba(0,0,0,.16);
       z-index:31;
       pointer-events:none;
+      --group-accent: rgba(148,163,184,.20);
+      transition:
+        border-color .18s ease,
+        box-shadow .18s ease,
+        background .18s ease;
     }
+    .powerWrap.activeGroup{
+      border-color: color-mix(in srgb, var(--group-accent) 58%, rgba(148,163,184,.18));
+      box-shadow:
+        0 0 0 1px color-mix(in srgb, var(--group-accent) 26%, transparent),
+        0 10px 24px rgba(0,0,0,.16),
+        0 0 22px color-mix(in srgb, var(--group-accent) 18%, transparent);
+      background:
+        linear-gradient(180deg,
+          color-mix(in srgb, var(--group-accent) 12%, rgba(2,6,23,.54)),
+          rgba(2,6,23,.44)
+        );
+    }
+    .powerWrap.activeGroup .powerHead b{
+      text-shadow: 0 0 10px color-mix(in srgb, var(--group-accent) 30%, transparent);
+    }
+    .powerWrap.activeGroup .bar{
+      border-color: color-mix(in srgb, var(--group-accent) 30%, rgba(148,163,184,.18));
+    }
+
     .powerHead{
       display:flex; justify-content:space-between; gap:8px; align-items:center;
     }
@@ -516,31 +570,31 @@ Requires:
       <div class="bgFloor"></div>
 
       <div class="bgCats">
-        <div class="bgCat">
+        <div class="bgCat" data-group="1">
           <div class="bgCatBox" style="--cat:#e11d48;"></div>
           <div class="bgCatLabel">หมู่ 1
 โปรตีน</div>
         </div>
 
-        <div class="bgCat">
+        <div class="bgCat" data-group="2">
           <div class="bgCatBox" style="--cat:#f97316;"></div>
           <div class="bgCatLabel">หมู่ 2
 คาร์โบไฮเดรต</div>
         </div>
 
-        <div class="bgCat">
+        <div class="bgCat" data-group="3">
           <div class="bgCatBox" style="--cat:#22c55e;"></div>
           <div class="bgCatLabel">หมู่ 3
 ผัก</div>
         </div>
 
-        <div class="bgCat">
+        <div class="bgCat" data-group="4">
           <div class="bgCatBox" style="--cat:#38bdf8;"></div>
           <div class="bgCatLabel">หมู่ 4
 ผลไม้</div>
         </div>
 
-        <div class="bgCat">
+        <div class="bgCat" data-group="5">
           <div class="bgCatBox" style="--cat:#a855f7;"></div>
           <div class="bgCatLabel">หมู่ 5
 ไขมัน</div>
@@ -664,6 +718,17 @@ Requires:
   const pBar = $('#pBar');
   const pText = $('#pText');
 
+  const powerWrap = document.querySelector('.powerWrap');
+  const bgCats = Array.from(document.querySelectorAll('.bgCat'));
+
+  const GROUP_COLORS = {
+    1: '#e11d48',
+    2: '#f97316',
+    3: '#22c55e',
+    4: '#38bdf8',
+    5: '#a855f7'
+  };
+
   const coachToast = $('#coachToast');
   const toastFace = $('#toastFace');
   const toastTxt = $('#toastTxt');
@@ -688,6 +753,41 @@ Requires:
       mood === 'sad' ? '😵' :
       '🙂'
     );
+  }
+
+  function parseGroupNo(input){
+    const s = String(input || '').trim();
+    if (!s) return null;
+
+    const m1 = s.match(/หมู่\s*([1-5])/);
+    if (m1) return Number(m1[1]);
+
+    const m2 = s.match(/\b([1-5])\b/);
+    if (m2) return Number(m2[1]);
+
+    if (/โปรตีน/.test(s)) return 1;
+    if (/คาร์โบ|แป้ง|ข้าว|เผือก|มัน/.test(s)) return 2;
+    if (/ผัก/.test(s)) return 3;
+    if (/ผลไม้/.test(s)) return 4;
+    if (/ไขมัน/.test(s)) return 5;
+
+    return null;
+  }
+
+  function setActiveGroup(groupNo){
+    const n = Number(groupNo);
+    if (!(n >= 1 && n <= 5)) return;
+
+    bgCats.forEach(el => {
+      const on = Number(el.dataset.group) === n;
+      el.classList.toggle('active', on);
+    });
+
+    const c = GROUP_COLORS[n] || 'rgba(148,163,184,.20)';
+    if (powerWrap){
+      powerWrap.classList.add('activeGroup');
+      powerWrap.style.setProperty('--group-accent', c);
+    }
   }
 
   function showToast(text, mood){
@@ -788,6 +888,8 @@ Requires:
         goalTotal: (DIFF==='easy') ? 10 : (DIFF==='hard') ? 14 : 12,
         chargeNeed: (DIFF==='easy') ? 7 : (DIFF==='hard') ? 9 : 8
       });
+
+      setActiveGroup(parseGroupNo(groupName.textContent) || 1);
       showToast('เริ่มแล้ว! ยิงให้ถูก “หมู่” แล้วเก็บคอมโบ 🔥', 'neutral');
     }catch(e){
       console.error(e);
@@ -850,7 +952,17 @@ Requires:
 
     if(d.miniTitle) qMini.textContent = `${d.miniTitle} · ${d.miniNow||0}/${d.miniTotal||0}`;
     qMiniTime.textContent = (d.miniTimeLeftSec != null && d.miniTimeLeftSec > 0) ? `⏳ ${d.miniTimeLeftSec}s` : '';
-    if(d.groupName) groupName.textContent = d.groupName;
+
+    if(d.groupName){
+      groupName.textContent = d.groupName;
+      const gn = parseGroupNo(d.groupName);
+      if(gn) setActiveGroup(gn);
+    }
+
+    if(d.groupNo != null){
+      const gn = parseGroupNo(d.groupNo);
+      if(gn) setActiveGroup(gn);
+    }
   });
 
   window.addEventListener('groups:power', (ev)=>{
