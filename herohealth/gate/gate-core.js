@@ -1,10 +1,10 @@
 // === /herohealth/gate/gate-core.js ===
 // HeroHealth Gate Core
-// PATCH v20260310g-GERM-FIX-FULL
-// ✅ fix Germ Detective continue/skip after warmup
-// ✅ force direct run path for germdetective
+// PATCH v20260310z4-GERM-VR-RUN
+// ✅ Germ Detective continue/skip -> germ-detective-vr.html
 // ✅ strip gate params before continue
-// ✅ no nested germ-detective path
+// ✅ no nested germ-detective path from gate side
+// ✅ keep other games behavior as-is
 
 import {
   buildCtx,
@@ -13,11 +13,11 @@ import {
   setText,
   sanitizeBuffs,
   saveLastSummary
-} from './gate-common.js?v=20260310g';
+} from './gate-common.js?v=20260310z4';
 
-import { mountSummaryLayer, mountToast } from './gate-summary.js?v=20260310g';
-import { createGateLogger } from './gate-logger.js?v=20260310g';
-import { GATE_GAMES, getGameMeta } from './gate-games.js?v=20260310g';
+import { mountSummaryLayer, mountToast } from './gate-summary.js?v=20260310z4';
+import { createGateLogger } from './gate-logger.js?v=20260310z4';
+import { GATE_GAMES, getGameMeta } from './gate-games.js?v=20260310z4';
 
 function titleOf(ctx){
   const meta = getGameMeta(ctx.game) || {
@@ -39,7 +39,7 @@ function subtitleOf(ctx){
 }
 
 function modulePath(ctx){
-  return `./games/${ctx.game}/${ctx.mode}.js?v=20260310g`;
+  return `./games/${ctx.game}/${ctx.mode}.js?v=20260310z4`;
 }
 
 function safeHubUrl(ctx){
@@ -89,9 +89,9 @@ function buildRawNextUrl(ctx, result=null){
   const hub = safeHubUrl(ctx);
   const game = String(ctx.game || '').toLowerCase();
 
-  // FIX เฉพาะ Germ Detective
+  // FIX เฉพาะ Germ Detective: ไปที่ vr entry ก่อน แล้วค่อย redirect เข้า run จริง
   if(game === 'germdetective'){
-    const u = new URL('/webxr-health-mobile/herohealth/germ-detective/germ-detective.html', location.origin);
+    const u = new URL('/webxr-health-mobile/herohealth/germ-detective/germ-detective-vr.html', location.origin);
 
     appendCommonParams(u, ctx, hub);
 
@@ -104,7 +104,7 @@ function buildRawNextUrl(ctx, result=null){
 
     appendResultParams(u, result);
 
-    console.log('[gate-core] germdetective direct run =', u.toString());
+    console.log('[gate-core] germdetective direct vr run =', u.toString());
     return u.toString();
   }
 
@@ -189,7 +189,7 @@ function renderShell(root, ctx){
 }
 
 export async function bootGate(root){
-  console.log('[gate-core] v20260310g running');
+  console.log('[gate-core] v20260310z4 running');
 
   const ctx = buildCtx();
   ctx.dailyDone = getDailyDone(ctx);
