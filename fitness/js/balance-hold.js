@@ -1,3 +1,17 @@
+// === /fitness/js/balance-hold.js ===
+// Balance Hold — DOM-based Balance Platform + Obstacle Avoidance
+// FULL BUILD (T+FLOW PATCH)
+// ✅ URL prefill (diff/time/run/view/pid/group/phase)
+// ✅ view mode classes (pc/mobile/cvr)
+// ✅ practice + countdown phases (practiceOn/practice)
+// ✅ deterministic seeded RNG (seed / research-safe repeatable)
+// ✅ warmup passthrough buffs (wType/wPct/rank/wCrit/wDmg/wHeal)
+// ✅ scoring + combo + perfect
+// ✅ pause/resume/stop
+// ✅ result hero + rank + insight + badges/missions (basic)
+// ✅ tutorial overlay + end modal (optional IDs)
+// ✅ summary -> cooldown -> hub flow
+// ✅ local exports (sessions CSV, debug JSON) — light + safe
 'use strict';
 
 /* ------------------------------------------------------------
@@ -26,6 +40,10 @@ function qv(k, def=''){
     return def;
   }
 }
+function qn(k, def=0){
+  const v = Number(qv(k,''));
+  return Number.isFinite(v) ? v : def;
+}
 function clampNum(v, min, max, def){
   v = Number(v);
   if (!Number.isFinite(v)) v = def;
@@ -40,7 +58,7 @@ function parseBoolLike(v, fallback=false){
 }
 
 /* ------------------------------------------------------------
- * Seeded RNG
+ * Seeded RNG (deterministic)
  * ------------------------------------------------------------ */
 function xmur3(str){
   str = String(str ?? '');
@@ -112,12 +130,13 @@ function applyViewModeClass(mode){
   document.body.classList.remove('view-pc','view-mobile','view-cvr');
   const m = (mode === 'mobile' || mode === 'cvr') ? mode : 'pc';
   document.body.classList.add('view-' + m);
+
   const cvr = $('#cvrOverlay');
   if (cvr) cvr.classList.toggle('hidden', m !== 'cvr');
 }
 
 /* ------------------------------------------------------------
- * DOM refs
+ * DOM refs (core)
  * ------------------------------------------------------------ */
 const elDiffSel = $('#difficulty');
 const elDurSel  = $('#sessionDuration');
@@ -147,6 +166,7 @@ const obstacleLayer = $('#obstacle-layer');
 const coachLabel  = $('#coachLabel');
 const coachBubble = $('#coachBubble');
 
+/* result refs */
 const rankBadgeEl     = $('#rankBadge');
 const resultHeroSub   = $('#resultHeroSub');
 const heroInsightEl   = $('#heroInsight');
@@ -173,6 +193,7 @@ const resComboEl   = $('#res-maxCombo');
 const resAiTipEl   = $('#res-aiTip');
 const resDailyEl   = $('#res-daily');
 
+/* overlays */
 const tutorialOverlay = $('#tutorialOverlay');
 const tutorialDontShowAgain = $('#tutorialDontShowAgain');
 const endModal = $('#endModal');
@@ -180,6 +201,7 @@ const endModalRank = $('#endModalRank');
 const endModalScore= $('#endModalScore');
 const endModalInsight = $('#endModalInsight');
 
+/* cVR label */
 const cvrStrictLabel = $('#cvrStrictLabel');
 
 /* ------------------------------------------------------------
@@ -201,7 +223,7 @@ function mapEndReason(code){
 }
 
 /* ------------------------------------------------------------
- * Warmup buffs
+ * Warmup passthrough buffs
  * ------------------------------------------------------------ */
 function readWarmupBuff(){
   const wType = qv('wType','');
@@ -221,7 +243,7 @@ function readWarmupBuff(){
 }
 
 /* ------------------------------------------------------------
- * Overlay helpers
+ * Tutorial / modal helpers
  * ------------------------------------------------------------ */
 function openTutorial(){
   if (!tutorialOverlay) return;
@@ -245,7 +267,7 @@ function closeEndModal(){
 }
 
 /* ------------------------------------------------------------
- * Query -> UI
+ * Prefill UI from URL
  * ------------------------------------------------------------ */
 function applyQueryToUI(){
   const qDiff = String(qv('diff','')).toLowerCase();
@@ -366,14 +388,11 @@ function attachInput(){
 }
 
 /* ------------------------------------------------------------
- * State
+ * Game State
  * ------------------------------------------------------------ */
 let gameMode = 'play';
 let state = null;
 let rafId = null;
-let lastSummary = null;
-let lastEndReason = '';
-
 let isPaused = false;
 let pausedAt = 0;
 let tutorialAccepted = false;
@@ -400,7 +419,7 @@ function randomBetween(a,b){
 }
 
 /* ------------------------------------------------------------
- * Practice / Countdown
+ * Practice / Countdown phases
  * ------------------------------------------------------------ */
 function resetMotionForNewPhase(){
   if (!state) return;
@@ -516,7 +535,7 @@ function runPracticePhase(now){
 }
 
 /* ------------------------------------------------------------
- * Start / Pause / Resume
+ * Start / Pause / Resume / Stop
  * ------------------------------------------------------------ */
 function buildSessionMeta(diffKey, durSec){
   let playerId='anon', group='', phase='';
@@ -549,7 +568,9 @@ function startGame(kind){
   const diffKey = (elDiffSel?.value || qv('diff','normal') || 'normal').toLowerCase();
   const durSec  = parseInt(elDurSel?.value || qv('time','60') || '60', 10) || 60;
   const cfg     = pickDiff(diffKey);
+
   const warmup = readWarmupBuff();
+
   const meta = buildSessionMeta(diffKey, durSec);
   const seedStr = buildSeedString(meta);
   const rng = makeRng(seedStr);
@@ -630,6 +651,7 @@ function startGame(kind){
 
   if (stabilityFill) stabilityFill.style.width = '0%';
   if (centerPulse) centerPulse.classList.remove('good');
+
   if (obstacleLayer) obstacleLayer.innerHTML = '';
 
   if (coachLabel){
@@ -790,11 +812,13 @@ function spawnObstacle(now){
     if (inSafe){
       span.classList.add('avoid');
       state.obstaclesAvoided++;
+
       state.combo = (state.combo || 0) + 1;
       state.maxCombo = Math.max(state.maxCombo || 0, state.combo);
 
       let add = 10 + Math.min(20, (state.combo-1)*2);
       let perfectNow = nearPerfect;
+
       if (!perfectNow && (wu.critBonusChance||0) > 0 && rand01() < wu.critBonusChance){
         perfectNow = true;
       }
@@ -806,6 +830,7 @@ function spawnObstacle(now){
 
       add = Math.round(add * (wu.scoreBoostMul || 1)) + (wu.healOnAvoid || 0);
       state.score = (state.score || 0) + add;
+
       spawnFloatFx(perfectNow ? `Perfect +${add}` : `Avoid +${add}`, perfectNow ? 'gold' : 'good', pxX, (playArea.clientHeight || 300) * 0.55);
     }else{
       span.classList.add('hit');
@@ -841,6 +866,7 @@ function spawnObstacle(now){
  * ------------------------------------------------------------ */
 function computeAnalytics(){
   if (!state) return { stabilityRatio:0, meanTilt:0, rmsTilt:0, fatigueIndex:0, samples:0 };
+
   const n = state.totalSamples || 0;
   if (!n) return { stabilityRatio:0, meanTilt:0, rmsTilt:0, fatigueIndex:0, samples:0 };
 
@@ -863,7 +889,7 @@ function computeAnalytics(){
 }
 
 /* ------------------------------------------------------------
- * Rank / insight
+ * Ranking / insight / badges
  * ------------------------------------------------------------ */
 function calcRank(summary){
   const stab = Number(summary.stabilityRatio || 0);
@@ -957,7 +983,7 @@ function renderBadgesAndMissions(summary){
 }
 
 /* ------------------------------------------------------------
- * HUB / Cooldown routing
+ * Save last summary for HUB + return query
  * ------------------------------------------------------------ */
 function saveLastSummaryForHub(summary, endedBy){
   try{
@@ -984,12 +1010,70 @@ function saveLastSummaryForHub(summary, endedBy){
     localStorage.setItem('HHA_LAST_SUMMARY_balance-hold', JSON.stringify(payload));
   }catch(e){}
 }
-function goHubOrMenu(){
+
+function buildCooldownUrlFromSummary(summary){
+  const hub = String(qv('hub','')).trim();
+  if(!hub) return '';
+
+  try{
+    const u = new URL('../herohealth/warmup-gate.html', location.href);
+
+    u.searchParams.set('gatePhase', 'cooldown');
+    u.searchParams.set('phase', 'cooldown');
+    u.searchParams.set('cat', 'exercise');
+    u.searchParams.set('theme', 'balance');
+    u.searchParams.set('game', 'balance');
+
+    u.searchParams.set('hub', hub);
+    u.searchParams.set('next', hub);
+
+    u.searchParams.set('pid', String(qv('pid','anon') || 'anon'));
+    u.searchParams.set('run', String(qv('run','play') || 'play'));
+    u.searchParams.set('diff', String(summary?.difficulty || qv('diff','normal') || 'normal'));
+    u.searchParams.set('time', String(summary?.durationSec || qv('time','60') || '60'));
+    u.searchParams.set('view', String(qv('view','pc') || 'pc'));
+    u.searchParams.set('seed', String(summary?.seed || qv('seed','') || ''));
+
+    const log = qv('log','');
+    const api = qv('api','');
+    const ai  = qv('ai','');
+    const studyId = qv('studyId','');
+    const phase = qv('phase','');
+    const conditionGroup = qv('conditionGroup','');
+    const grade = qv('grade','');
+
+    if(log) u.searchParams.set('log', log);
+    if(api) u.searchParams.set('api', api);
+    if(ai) u.searchParams.set('ai', ai);
+    if(studyId) u.searchParams.set('studyId', studyId);
+    if(phase) u.searchParams.set('researchPhase', phase);
+    if(conditionGroup) u.searchParams.set('conditionGroup', conditionGroup);
+    if(grade) u.searchParams.set('grade', grade);
+
+    u.searchParams.set('lastGame', 'balance-hold');
+    u.searchParams.set('lastScore', String(summary?.score || 0));
+    u.searchParams.set('lastRank', String(summary?.rank || 'D'));
+    u.searchParams.set('lastStab', String(Math.round((summary?.stabilityRatio || 0) * 100)));
+
+    return u.toString();
+  }catch(e){
+    return '';
+  }
+}
+
+function goHubOrMenu(summary){
+  const cooldownUrl = buildCooldownUrlFromSummary(summary);
+  if (cooldownUrl){
+    location.href = cooldownUrl;
+    return;
+  }
+
   const hub = String(qv('hub',''));
   if (!hub){
     showView('menu');
     return;
   }
+
   try{
     const u = new URL(hub, location.href);
     const raw = localStorage.getItem('HHA_LAST_SUMMARY_balance-hold') || localStorage.getItem('HHA_LAST_SUMMARY');
@@ -1007,53 +1091,9 @@ function goHubOrMenu(){
     location.href = hub;
   }
 }
-function goCooldown(){
-  const hub = String(qv('hub','')).trim();
-  const safeHub = hub || './../herohealth/hub.html';
-
-  try{
-    const u = new URL('./../herohealth/warmup-gate.html', location.href);
-
-    u.searchParams.set('gatePhase', 'cooldown');
-    u.searchParams.set('phase', 'cooldown');
-    u.searchParams.set('cat', 'exercise');
-    u.searchParams.set('theme', 'balance');
-    u.searchParams.set('game', 'balance');
-
-    u.searchParams.set('pid', qv('pid','anon') || 'anon');
-    u.searchParams.set('run', qv('run','play') || 'play');
-    u.searchParams.set('diff', qv('diff', (lastSummary?.difficulty || 'normal')));
-    u.searchParams.set('time', qv('time', String(lastSummary?.durationSec || 80)));
-    u.searchParams.set('view', qv('view','pc') || 'pc');
-    u.searchParams.set('seed', qv('seed','') || String(Date.now()));
-    u.searchParams.set('hub', safeHub);
-    u.searchParams.set('next', safeHub);
-
-    const grade = qv('grade','p5');
-    if (grade) u.searchParams.set('grade', grade);
-
-    const studyId = qv('studyId','');
-    const conditionGroup = qv('conditionGroup','');
-    const phase = qv('phase','');
-    const log = qv('log','');
-    const api = qv('api','');
-    const ai = qv('ai','');
-
-    if (studyId) u.searchParams.set('studyId', studyId);
-    if (conditionGroup) u.searchParams.set('conditionGroup', conditionGroup);
-    if (phase) u.searchParams.set('researchPhase', phase);
-    if (log) u.searchParams.set('log', log);
-    if (api) u.searchParams.set('api', api);
-    if (ai) u.searchParams.set('ai', ai);
-
-    location.href = u.toString();
-  }catch(e){
-    location.href = safeHub;
-  }
-}
 
 /* ------------------------------------------------------------
- * Result render
+ * Result views
  * ------------------------------------------------------------ */
 function fillResultView(endedBy, summary){
   const modeLabel = summary.mode === 'research' ? 'Research' : 'Play';
@@ -1101,6 +1141,7 @@ function fillResultView(endedBy, summary){
 
   renderBadgesAndMissions(summary);
 }
+
 function fillEndModal(summary){
   if (!endModal) return;
   if (endModalRank){
@@ -1113,15 +1154,15 @@ function fillEndModal(summary){
 }
 
 /* ------------------------------------------------------------
- * Stop / summary
+ * Stop & summary
  * ------------------------------------------------------------ */
 function stopGame(endedBy){
   if (!state) return;
   if (rafId != null){ cancelAnimationFrame(rafId); rafId = null; }
 
   const finalState = state;
-
   const a = computeAnalytics();
+
   const summary = {
     gameId: 'balance-hold',
     mode: gameMode,
@@ -1162,8 +1203,7 @@ function stopGame(endedBy){
   fillResultView(endedBy, summary);
   fillEndModal(summary);
 
-  lastSummary = summary;
-  lastEndReason = endedBy || '';
+  window.__BH_LAST_SUMMARY__ = summary;
 
   state = null;
   isPaused = false;
@@ -1334,7 +1374,7 @@ function exportReleaseDebug(){
 }
 
 /* ------------------------------------------------------------
- * Init
+ * Init / bindings
  * ------------------------------------------------------------ */
 function init(){
   $('[data-action="start-normal"]')?.addEventListener('click', ()=>{
@@ -1354,14 +1394,17 @@ function init(){
 
   $('[data-action="play-again"]')?.addEventListener('click', ()=> showView('menu'));
   $('[data-action="result-play-again"]')?.addEventListener('click', ()=> { closeEndModal(); showView('menu'); });
-  $('[data-action="result-go-cooldown"]')?.addEventListener('click', ()=> { closeEndModal(); goCooldown(); });
-  $('[data-action="result-back-hub"]')?.addEventListener('click', ()=> goHubOrMenu());
+  $('[data-action="result-back-hub"]')?.addEventListener('click', ()=>{
+    goHubOrMenu(window.__BH_LAST_SUMMARY__ || null);
+  });
 
   $('[data-action="close-end-modal"]')?.addEventListener('click', closeEndModal);
   $('[data-action="end-retry"]')?.addEventListener('click', ()=> { closeEndModal(); showView('menu'); });
-  $('[data-action="end-next-mission"]')?.addEventListener('click', ()=> { closeEndModal(); goCooldown(); });
-  $('[data-action="end-go-cooldown"]')?.addEventListener('click', ()=> { closeEndModal(); goCooldown(); });
-  $('[data-action="end-back-hub"]')?.addEventListener('click', ()=> { closeEndModal(); goHubOrMenu(); });
+  $('[data-action="end-next-mission"]')?.addEventListener('click', ()=> { closeEndModal(); showView('menu'); });
+  $('[data-action="end-back-hub"]')?.addEventListener('click', ()=>{
+    closeEndModal();
+    goHubOrMenu(window.__BH_LAST_SUMMARY__ || null);
+  });
 
   $('[data-action="tutorial-skip"]')?.addEventListener('click', ()=>{
     if (tutorialDontShowAgain?.checked){
@@ -1416,12 +1459,6 @@ function init(){
   attachInput();
   showView('menu');
   applyQueryToUI();
-
-  const autoStart = parseBoolLike(qv('autostart','0'), false);
-  const runMode = String(qv('run','play')).toLowerCase();
-  if (autoStart){
-    startGame(runMode === 'research' ? 'research' : 'play');
-  }
 }
 
 window.addEventListener('DOMContentLoaded', init);
