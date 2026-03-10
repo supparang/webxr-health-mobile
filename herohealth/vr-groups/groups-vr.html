@@ -1,6 +1,6 @@
 <!-- === /herohealth/vr-groups/groups-vr.html ===
-GroupsVR — SOLO RUN PAGE — FULL MERGED
-v20260310-GROUPS-SOLO-FULL-BGA-ACTIVE-FX-REFRESHSAFE-SPAWNADAPT-MOBILE-DEBUG
+GroupsVR — SOLO RUN PAGE — FULL MERGED + END OVERLAY MOBILE SAFE
+v20260310-GROUPS-SOLO-FULL-BGA-ACTIVE-FX-REFRESHSAFE-SPAWNADAPT-MOBILE-DEBUG-ENDSAFE
 Requires:
 - ../vr/vr-ui.js
 - ./ai-hooks.js
@@ -65,6 +65,7 @@ Debug:
       align-items:center;
       z-index:50;
       flex:0 0 auto;
+      transition: opacity .16s ease, transform .16s ease;
     }
     .title{
       display:flex; flex-direction:column; gap:2px; min-width:0;
@@ -412,7 +413,9 @@ Debug:
       transition:
         border-color .18s ease,
         box-shadow .18s ease,
-        background .18s ease;
+        background .18s ease,
+        opacity .18s ease,
+        transform .18s ease;
     }
     .powerWrap.activeGroup{
       border-color: color-mix(in srgb, var(--group-accent) 58%, rgba(148,163,184,.18));
@@ -555,22 +558,29 @@ Debug:
     .overlay{
       position:absolute; inset:0;
       display:none;
-      align-items:center; justify-content:center;
+      align-items:flex-start;
+      justify-content:center;
       background: rgba(0,0,0,.62);
       backdrop-filter: blur(10px);
       z-index:9000;
-      padding:14px;
+      padding:
+        calc(12px + var(--sat))
+        12px
+        calc(12px + var(--sab))
+        12px;
+      overflow:auto;
     }
     .overlayCard{
       width:min(860px, 100%);
       max-height:min(88vh, 760px);
       border-radius: var(--radius);
       border:1px solid rgba(148,163,184,.18);
-      background: linear-gradient(180deg, rgba(2,6,23,.90), rgba(2,6,23,.70));
+      background: linear-gradient(180deg, rgba(2,6,23,.94), rgba(2,6,23,.78));
       box-shadow: 0 30px 120px rgba(0,0,0,.55);
       overflow:hidden;
       display:flex;
       flex-direction:column;
+      margin:auto 0;
     }
     .overlayCard header{
       padding:12px;
@@ -588,10 +598,13 @@ Debug:
       display:flex; gap:10px; flex-wrap:wrap; justify-content:center;
     }
 
+    #endCard{
+      width:min(920px, 100%);
+    }
     #endCard main{
       padding:12px;
       display:grid;
-      grid-template-columns:1fr 1fr;
+      grid-template-columns:minmax(0,1.15fr) minmax(0,.85fr);
       gap:10px;
       overflow:auto; min-height:0;
     }
@@ -602,6 +615,73 @@ Debug:
       padding:10px;
       min-height:0;
     }
+    .panel h3,
+    .panel h4{
+      margin:0 0 8px;
+      font-size:14px;
+      line-height:1.2;
+    }
+    .statGrid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:8px;
+    }
+    .statCard{
+      border-radius:14px;
+      border:1px solid rgba(148,163,184,.12);
+      background: rgba(15,23,42,.52);
+      padding:10px;
+      min-width:0;
+    }
+    .statCard .k{
+      color:var(--muted);
+      font-size:10px;
+      font-weight:1000;
+      margin-bottom:4px;
+      letter-spacing:.2px;
+    }
+    .statCard .v{
+      color:var(--text);
+      font-size:18px;
+      font-weight:1000;
+      line-height:1.1;
+      word-break:break-word;
+    }
+    .miniList{
+      display:grid;
+      gap:8px;
+    }
+    .miniRow{
+      display:flex;
+      justify-content:space-between;
+      gap:8px;
+      align-items:flex-start;
+      padding:8px 10px;
+      border-radius:12px;
+      border:1px solid rgba(148,163,184,.10);
+      background: rgba(15,23,42,.38);
+    }
+    .miniRow .k{
+      color:var(--muted);
+      font-size:11px;
+      font-weight:900;
+      min-width:0;
+    }
+    .miniRow .v{
+      color:var(--text);
+      font-size:12px;
+      font-weight:1000;
+      text-align:right;
+      min-width:0;
+      word-break:break-word;
+    }
+    .jsonWrap{
+      border-radius:14px;
+      border:1px solid rgba(148,163,184,.12);
+      background: rgba(2,6,23,.38);
+      overflow:auto;
+      max-height:280px;
+    }
     pre{
       margin:0;
       white-space:pre-wrap;
@@ -610,9 +690,91 @@ Debug:
       line-height:1.35;
       color: rgba(229,231,235,.92);
       font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      padding:10px;
     }
+
     @media (max-width:760px){
-      #endCard main{ grid-template-columns:1fr; }
+      #endCard main{
+        grid-template-columns:1fr;
+        gap:8px;
+      }
+      .statGrid{
+        grid-template-columns:repeat(2,minmax(0,1fr));
+      }
+      .jsonWrap{
+        max-height:220px;
+      }
+    }
+
+    @media (max-width:560px){
+      .overlay{
+        padding:
+          calc(8px + var(--sat))
+          8px
+          calc(8px + var(--sab) + 84px)
+          8px;
+      }
+      .overlayCard{
+        max-height:none;
+        min-height:auto;
+        border-radius:16px;
+      }
+      .overlayCard header{
+        padding:10px;
+        gap:8px;
+      }
+      .overlayCard header .pill{
+        min-height:28px;
+        padding:4px 8px;
+        font-size:10px;
+      }
+      #endCard main{
+        padding:10px;
+        grid-template-columns:1fr;
+        gap:8px;
+      }
+      .overlayBtns{
+        padding:10px;
+        gap:8px;
+        position:sticky;
+        bottom:0;
+        background: linear-gradient(180deg, rgba(2,6,23,.72), rgba(2,6,23,.96));
+        backdrop-filter: blur(10px);
+      }
+      .overlayBtns button{
+        flex:1 1 calc(50% - 8px);
+        min-width:0;
+      }
+      .overlayBtns button.primary{
+        flex-basis:100%;
+      }
+      .statGrid{
+        grid-template-columns:repeat(2,minmax(0,1fr));
+        gap:6px;
+      }
+      .statCard{
+        padding:8px;
+      }
+      .statCard .k{
+        font-size:9px;
+      }
+      .statCard .v{
+        font-size:16px;
+      }
+      .miniRow{
+        padding:7px 8px;
+      }
+      .miniRow .k,
+      .miniRow .v{
+        font-size:11px;
+      }
+      .jsonWrap{
+        max-height:180px;
+      }
+      pre{
+        font-size:11px;
+        padding:8px;
+      }
     }
 
     /* ===== MOBILE TUNING PATCH ===== */
@@ -822,6 +984,272 @@ Debug:
       white-space:pre-line;
       max-width:min(84vw, 420px);
     }
+
+    /* ===== TINY SCREEN HUD COLLAPSE ===== */
+    body.hud-compact .topbar{
+      padding:6px 7px;
+      gap:6px;
+    }
+
+    body.hud-compact .title b{
+      font-size:12.5px;
+    }
+    body.hud-compact .title span{
+      font-size:9.5px;
+      line-height:1.15;
+    }
+
+    body.hud-compact .row{
+      gap:5px;
+    }
+
+    body.hud-compact .pill{
+      min-height:26px;
+      padding:4px 6px;
+      font-size:9.5px;
+      gap:5px;
+    }
+
+    body.hud-compact .hud{
+      left:5px;
+      right:5px;
+    }
+
+    body.hud-compact .hudBox{
+      padding:4px 5px;
+      gap:4px;
+      border-radius:10px;
+    }
+
+    body.hud-compact .hudMetric .k{
+      font-size:8px;
+    }
+    body.hud-compact .hudMetric .v{
+      font-size:9.5px;
+    }
+
+    body.hud-compact .questTop{
+      padding:4px 5px;
+      gap:3px;
+      border-radius:10px;
+    }
+
+    body.hud-compact .questTitle{
+      font-size:9.5px;
+    }
+    body.hud-compact .questMini{
+      font-size:8px;
+    }
+
+    body.hud-compact .powerWrap{
+      left:5px;
+      top:82px;
+      width:min(116px, 34vw);
+      padding:4px 5px;
+      gap:3px;
+      border-radius:10px;
+    }
+
+    body.hud-compact .powerHead b{
+      font-size:9px;
+    }
+    body.hud-compact .powerHead span{
+      font-size:8px;
+    }
+
+    body.hud-compact .coachToast{
+      left:6px;
+      right:6px;
+      bottom: calc(6px + var(--sab) + 60px);
+    }
+
+    body.hud-compact .coachWrap{
+      padding:5px 7px;
+      gap:7px;
+      border-radius:12px;
+    }
+
+    body.hud-compact .coachWrap .face{
+      width:28px;
+      height:28px;
+      font-size:15px;
+    }
+
+    body.hud-compact .coachWrap .txt{
+      font-size:10.5px;
+    }
+    body.hud-compact .coachWrap .sub{
+      font-size:8.5px;
+    }
+
+    body.hud-compact .bgCats{
+      bottom:6%;
+      gap:5px;
+      opacity:.68;
+    }
+
+    body.hud-compact .bgCatBox{
+      max-width:38px;
+      border-radius:9px;
+    }
+
+    body.hud-compact .bgCatLabel{
+      font-size:7px;
+      line-height:1.05;
+    }
+
+    /* ===== DEBUG BLOCKED ZONES ===== */
+    .spawnDebugBlocked{
+      position:absolute;
+      border:1px dashed rgba(239,68,68,.65);
+      background: rgba(239,68,68,.12);
+      border-radius:10px;
+    }
+
+    .spawnDebugBlocked.power{
+      border-color: rgba(245,158,11,.70);
+      background: rgba(245,158,11,.12);
+    }
+
+    .spawnDebugBlocked.toast{
+      border-color: rgba(167,139,250,.72);
+      background: rgba(167,139,250,.12);
+    }
+
+    /* ===== TINY SCREEN TOPBAR CLEANUP ===== */
+    body.topbar-compact #seedPill{
+      display:none !important;
+    }
+
+    body.topbar-compact .topbar{
+      grid-template-columns:1fr;
+      gap:6px;
+    }
+
+    body.topbar-compact .row{
+      justify-content:flex-start;
+      gap:5px;
+    }
+
+    body.topbar-compact .pill{
+      min-height:26px;
+      padding:4px 6px;
+      font-size:9.5px;
+      gap:5px;
+    }
+
+    body.topbar-compact .dot{
+      width:7px;
+      height:7px;
+    }
+
+    body.topbar-compact .title b{
+      font-size:12.5px;
+    }
+
+    body.topbar-compact .title span{
+      font-size:9.5px;
+      line-height:1.15;
+    }
+
+    body.topbar-compact button{
+      padding:6px 9px;
+      font-size:11px;
+      border-radius:11px;
+    }
+
+    body.topbar-ultra-compact .topbar{
+      padding:6px 7px;
+    }
+
+    body.topbar-ultra-compact .row{
+      gap:4px;
+    }
+
+    body.topbar-ultra-compact .pill{
+      min-height:24px;
+      padding:3px 6px;
+      font-size:9px;
+    }
+
+    body.topbar-ultra-compact button{
+      padding:6px 8px;
+      font-size:10.5px;
+    }
+
+    body.topbar-ultra-compact .pill.view-pill{
+      display:none !important;
+    }
+
+    body.topbar-ultra-compact .title span{
+      display:none;
+    }
+
+    /* ===== SMART POWER AUTO-HIDE ===== */
+    body.power-autohide .powerWrap{
+      opacity:.28;
+      transform: translateY(0) scale(.98);
+    }
+
+    body.power-autohide .powerWrap.peek{
+      opacity:.96;
+      transform: translateY(0) scale(1);
+    }
+
+    body.power-autohide .powerWrap.minimized{
+      opacity:.16;
+      transform: translateY(0) scale(.96);
+    }
+
+    body.power-autohide .powerWrap.minimized .bar,
+    body.power-autohide .powerWrap.minimized #pText{
+      opacity:.0;
+      max-height:0;
+      overflow:hidden;
+    }
+
+    body.power-autohide .powerWrap.minimized .powerHead{
+      margin:0;
+    }
+
+    body.power-autohide .powerWrap.minimized .powerHead b{
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      max-width:72px;
+    }
+
+    @media (max-width:640px){
+      body.power-autohide .powerWrap{
+        opacity:.22;
+      }
+      body.power-autohide .powerWrap.peek{
+        opacity:.98;
+      }
+    }
+
+    /* ===== END OVERLAY MOBILE SAFE ===== */
+    body.end-open .topbar{
+      opacity:.72;
+      transform: scale(.995);
+    }
+
+    body.end-open .coachToast,
+    body.end-open #spawnDebug{
+      opacity:0;
+      pointer-events:none;
+    }
+
+    body.end-open .powerWrap,
+    body.end-open #stageFlash,
+    body.end-open #fxLayer{
+      opacity:0;
+      pointer-events:none;
+    }
+
+    body.end-open #playLayer{
+      pointer-events:none;
+    }
   </style>
 </head>
 
@@ -836,7 +1264,7 @@ Debug:
     <div class="row">
       <div class="pill"><span class="dot"></span> <span>MODE:</span> <b id="modePill">PLAY</b></div>
       <div class="pill"><span class="dot amber"></span> <span>DIFF:</span> <b id="diffPill">normal</b></div>
-      <div class="pill"><span class="dot"></span> <span>VIEW:</span> <b id="hudView">—</b></div>
+      <div class="pill view-pill"><span class="dot"></span> <span>VIEW:</span> <b id="hudView">—</b></div>
       <div class="pill" id="seedPill"><span class="dot"></span> <span>SEED:</span> <b id="hudSeed">—</b></div>
       <button class="ghost" id="btnRestart">⟲ Restart</button>
       <button class="ghost" id="btnBack">🏠 HUB</button>
@@ -885,6 +1313,9 @@ Debug:
     <div id="fxLayer"></div>
 
     <div id="spawnDebug" aria-hidden="true">
+      <div class="spawnDebugBlocked" id="spawnDebugHud"></div>
+      <div class="spawnDebugBlocked power" id="spawnDebugPower"></div>
+      <div class="spawnDebugBlocked toast" id="spawnDebugToast"></div>
       <div class="spawnDebugRect" id="spawnDebugRect"></div>
       <div class="spawnDebugLabel" id="spawnDebugLabel"></div>
     </div>
@@ -933,19 +1364,70 @@ Debug:
     <div class="overlay" id="endOverlay" aria-hidden="true">
       <div class="overlayCard" id="endCard">
         <header>
-          <div><b id="endTitle">RESULT</b> <span style="color:var(--muted); font-weight:900;" id="endSub"></span></div>
+          <div>
+            <b id="endTitle">RESULT</b>
+            <span style="color:var(--muted); font-weight:900;" id="endSub"></span>
+          </div>
           <div class="pill"><span class="dot"></span> <span>MODE:</span> <b id="endMode">PLAY</b></div>
         </header>
+
         <main>
-          <div class="panel">
-            <b>Summary</b>
-            <pre id="endSummary"></pre>
-          </div>
-          <div class="panel">
-            <b>AI Pred</b>
-            <pre id="endBuff"></pre>
-          </div>
+          <section class="panel">
+            <h3>Summary</h3>
+            <div class="statGrid">
+              <div class="statCard">
+                <div class="k">GRADE</div>
+                <div class="v" id="sumGrade">—</div>
+              </div>
+              <div class="statCard">
+                <div class="k">SCORE</div>
+                <div class="v" id="sumScore">0</div>
+              </div>
+              <div class="statCard">
+                <div class="k">ACCURACY</div>
+                <div class="v" id="sumAcc">0%</div>
+              </div>
+              <div class="statCard">
+                <div class="k">MISS</div>
+                <div class="v" id="sumMiss">0</div>
+              </div>
+              <div class="statCard">
+                <div class="k">COMBO MAX</div>
+                <div class="v" id="sumCombo">0</div>
+              </div>
+              <div class="statCard">
+                <div class="k">TIME</div>
+                <div class="v" id="sumTime">0s</div>
+              </div>
+            </div>
+
+            <div class="miniList" style="margin-top:10px;">
+              <div class="miniRow"><div class="k">หมู่ล่าสุด</div><div class="v" id="sumGroupLast">—</div></div>
+              <div class="miniRow"><div class="k">Boss hits</div><div class="v" id="sumBossHits">0</div></div>
+              <div class="miniRow"><div class="k">เหตุผลจบเกม</div><div class="v" id="sumReason">—</div></div>
+              <div class="miniRow"><div class="k">โหมด / ระดับ</div><div class="v" id="sumModeDiff">—</div></div>
+            </div>
+
+            <div class="jsonWrap" style="margin-top:10px;">
+              <pre id="endSummary"></pre>
+            </div>
+          </section>
+
+          <section class="panel">
+            <h3>AI Pred</h3>
+
+            <div class="miniList">
+              <div class="miniRow"><div class="k">AI enabled</div><div class="v" id="aiEnabled">—</div></div>
+              <div class="miniRow"><div class="k">Hazard risk</div><div class="v" id="aiRisk">—</div></div>
+              <div class="miniRow"><div class="k">Top factors</div><div class="v" id="aiTopFactors">—</div></div>
+            </div>
+
+            <div class="jsonWrap" style="margin-top:10px;">
+              <pre id="endBuff"></pre>
+            </div>
+          </section>
         </main>
+
         <div class="overlayBtns">
           <button id="btnEndAgain">เล่นอีกครั้ง</button>
           <button class="primary" id="btnEndGoHub">🏠 กลับ HUB</button>
@@ -1010,7 +1492,6 @@ Debug:
   const toastTxt = $('#toastTxt');
   const toastSub = $('#toastSub');
 
-  const stage = $('#stage');
   const stageFlash = $('#stageFlash');
   const fxLayer = $('#fxLayer');
   const playLayer = $('#playLayer');
@@ -1021,9 +1502,27 @@ Debug:
   const endSub = $('#endSub');
   const endMode = $('#endMode');
 
+  const sumGrade = $('#sumGrade');
+  const sumScore = $('#sumScore');
+  const sumAcc = $('#sumAcc');
+  const sumMiss = $('#sumMiss');
+  const sumCombo = $('#sumCombo');
+  const sumTime = $('#sumTime');
+  const sumGroupLast = $('#sumGroupLast');
+  const sumBossHits = $('#sumBossHits');
+  const sumReason = $('#sumReason');
+  const sumModeDiff = $('#sumModeDiff');
+
+  const aiEnabled = $('#aiEnabled');
+  const aiRisk = $('#aiRisk');
+  const aiTopFactors = $('#aiTopFactors');
+
   const spawnDebug = $('#spawnDebug');
   const spawnDebugRect = $('#spawnDebugRect');
   const spawnDebugLabel = $('#spawnDebugLabel');
+  const spawnDebugHud = $('#spawnDebugHud');
+  const spawnDebugPower = $('#spawnDebugPower');
+  const spawnDebugToast = $('#spawnDebugToast');
 
   const GROUP_COLORS = {
     1: '#e11d48',
@@ -1034,6 +1533,7 @@ Debug:
   };
 
   let toastTimer = null;
+  let powerPeekTimer = null;
   let activeGroupNo = null;
   let isStarting = false;
   let isRestarting = false;
@@ -1171,11 +1671,27 @@ Debug:
   function showOverlay(el){
     el.style.display = 'flex';
     el.setAttribute('aria-hidden', 'false');
+    if(el === endOverlay){
+      document.body.classList.add('end-open');
+      try{ window.HHA_VR_UI?.hide?.(); }catch(_){}
+      try{ window.HHA_VRUI?.hide?.(); }catch(_){}
+      try{ document.querySelectorAll('.hha-vr-ui, .vr-ui, #vr-ui, #btnEnterVR, #btnRecenter, #btnExitVR').forEach(n => {
+        n.style.display = 'none';
+      }); }catch(_){}
+    }
   }
 
   function hideOverlay(el){
     el.style.display = 'none';
     el.setAttribute('aria-hidden', 'true');
+    if(el === endOverlay){
+      document.body.classList.remove('end-open');
+      try{ window.HHA_VR_UI?.show?.(); }catch(_){}
+      try{ window.HHA_VRUI?.show?.(); }catch(_){}
+      try{ document.querySelectorAll('.hha-vr-ui, .vr-ui, #vr-ui, #btnEnterVR, #btnRecenter, #btnExitVR').forEach(n => {
+        n.style.display = '';
+      }); }catch(_){}
+    }
   }
 
   function resetTransientUi(){
@@ -1212,6 +1728,57 @@ Debug:
   function getRect(el){
     try{ return el ? el.getBoundingClientRect() : null; }
     catch(_){ return null; }
+  }
+
+  function updateHudCompactMode(){
+    const w = window.innerWidth || 0;
+    const h = window.innerHeight || 0;
+    const compact = (w <= 390) || (w <= 430 && h <= 760) || (h <= 680);
+    document.body.classList.toggle('hud-compact', compact);
+  }
+
+  function updateTopbarCompactMode(){
+    const w = window.innerWidth || 0;
+    const h = window.innerHeight || 0;
+
+    const compact = (w <= 520) || (w <= 640 && h <= 760);
+    const ultra = (w <= 390) || (w <= 430 && h <= 700);
+
+    document.body.classList.toggle('topbar-compact', compact);
+    document.body.classList.toggle('topbar-ultra-compact', ultra);
+  }
+
+  function updatePowerAutohideMode(){
+    const w = window.innerWidth || 0;
+    const h = window.innerHeight || 0;
+
+    const autoHide = (VIEW === 'mobile') && ((w <= 640) || (h <= 720));
+    const minimized = (w <= 390) || (w <= 430 && h <= 700);
+
+    document.body.classList.toggle('power-autohide', autoHide);
+    if(powerWrap){
+      powerWrap.classList.toggle('minimized', autoHide && minimized);
+      if(!autoHide){
+        powerWrap.classList.remove('peek');
+      }
+    }
+  }
+
+  function peekPowerWrap(ms){
+    if(!powerWrap) return;
+    if(!document.body.classList.contains('power-autohide')) return;
+
+    powerWrap.classList.add('peek');
+
+    if(powerPeekTimer){
+      clearTimeout(powerPeekTimer);
+      powerPeekTimer = null;
+    }
+
+    powerPeekTimer = setTimeout(()=>{
+      powerWrap.classList.remove('peek');
+      powerPeekTimer = null;
+    }, ms || 1400);
   }
 
   function computeSpawnSafe(){
@@ -1287,23 +1854,67 @@ Debug:
     };
   }
 
+  function placeDebugBox(el, rect, baseRect){
+    if(!el || !rect || !baseRect){
+      if(el) el.style.display = 'none';
+      return;
+    }
+
+    const left = Math.max(0, Math.round(rect.left - baseRect.left));
+    const top = Math.max(0, Math.round(rect.top - baseRect.top));
+    const width = Math.max(0, Math.round(rect.width));
+    const height = Math.max(0, Math.round(rect.height));
+
+    if(width <= 0 || height <= 0){
+      el.style.display = 'none';
+      return;
+    }
+
+    el.style.display = 'block';
+    el.style.left = left + 'px';
+    el.style.top = top + 'px';
+    el.style.width = width + 'px';
+    el.style.height = height + 'px';
+  }
+
   function renderSpawnDebug(){
     if(!DEBUG_SPAWN || !spawnDebug || !spawnDebugRect || !spawnDebugLabel) return;
+
     const s = window.__HHA_SPAWN_SAFE__;
-    const r = getRect(playLayer);
-    if(!s || !r) return;
+    const playR = getRect(playLayer);
+    const hudR = getRect(document.querySelector('.hudTop'));
+    const powerR = getRect(powerWrap);
+    const toastR = coachToast.classList.contains('show') ? getRect(coachToast) : null;
+
+    if(!s || !playR) return;
 
     spawnDebug.classList.add('show');
+
     spawnDebugRect.style.left = Math.round(s.xMin) + 'px';
     spawnDebugRect.style.top = Math.round(s.yMin) + 'px';
     spawnDebugRect.style.width = Math.max(1, Math.round(s.xMax - s.xMin)) + 'px';
     spawnDebugRect.style.height = Math.max(1, Math.round(s.yMax - s.yMin)) + 'px';
 
+    placeDebugBox(spawnDebugHud, hudR, playR);
+    placeDebugBox(spawnDebugPower, powerR, playR);
+    placeDebugBox(spawnDebugToast, toastR, playR);
+
+    const compactOn = document.body.classList.contains('hud-compact') ? 'yes' : 'no';
+    const topbarCompactOn = document.body.classList.contains('topbar-compact') ? 'yes' : 'no';
+    const topbarUltraOn = document.body.classList.contains('topbar-ultra-compact') ? 'yes' : 'no';
+    const powerAutoOn = document.body.classList.contains('power-autohide') ? 'yes' : 'no';
+    const powerMiniOn = powerWrap.classList.contains('minimized') ? 'yes' : 'no';
+
     spawnDebugLabel.textContent =
-      'spawn-safe\\n' +
-      `view=${VIEW}${CVR_STRICT ? ' strict' : ''}\\n` +
-      `play=${Math.round(r.width)}x${Math.round(r.height)}\\n` +
-      `x: ${Math.round(s.xMin)}..${Math.round(s.xMax)}\\n` +
+      'spawn-safe\n' +
+      `view=${VIEW}${CVR_STRICT ? ' strict' : ''}\n` +
+      `hudCompact=${compactOn}\n` +
+      `topbarCompact=${topbarCompactOn}\n` +
+      `topbarUltra=${topbarUltraOn}\n` +
+      `powerAuto=${powerAutoOn}\n` +
+      `powerMini=${powerMiniOn}\n` +
+      `play=${Math.round(playR.width)}x${Math.round(playR.height)}\n` +
+      `x: ${Math.round(s.xMin)}..${Math.round(s.xMax)}\n` +
       `y: ${Math.round(s.yMin)}..${Math.round(s.yMax)}`;
   }
 
@@ -1330,6 +1941,9 @@ Debug:
     if(spawnSafeRaf) cancelAnimationFrame(spawnSafeRaf);
     spawnSafeRaf = requestAnimationFrame(()=>{
       spawnSafeRaf = 0;
+      updateHudCompactMode();
+      updateTopbarCompactMode();
+      updatePowerAutohideMode();
       applySpawnSafe();
       debugSpawnSafe();
     });
@@ -1350,6 +1964,22 @@ Debug:
     pBar.style.width = '0%';
     pText.textContent = '0 / 8';
     endMode.textContent = RUN.toUpperCase();
+
+    sumGrade.textContent = '—';
+    sumScore.textContent = '0';
+    sumAcc.textContent = '0%';
+    sumMiss.textContent = '0';
+    sumCombo.textContent = '0';
+    sumTime.textContent = '0s';
+    sumGroupLast.textContent = '—';
+    sumBossHits.textContent = '0';
+    sumReason.textContent = '—';
+    sumModeDiff.textContent = `${RUN}/${DIFF}`;
+    aiEnabled.textContent = '—';
+    aiRisk.textContent = '—';
+    aiTopFactors.textContent = '—';
+    endSummary.textContent = '';
+    endBuff.textContent = '';
   }
 
   function startGame(){
@@ -1359,6 +1989,9 @@ Debug:
 
     resetTransientUi();
     syncUiToBootState();
+    updateHudCompactMode();
+    updateTopbarCompactMode();
+    updatePowerAutohideMode();
     scheduleSpawnSafe();
 
     safeStopEngine();
@@ -1381,6 +2014,7 @@ Debug:
 
       setActiveGroup(parseGroupNo(groupName.textContent) || 1);
       scheduleSpawnSafe();
+      peekPowerWrap(1600);
       showToast('เริ่มแล้ว! ยิงให้ถูก “หมู่” แล้วเก็บคอมโบ 🔥', 'neutral');
     }catch(e){
       console.error(e);
@@ -1406,8 +2040,41 @@ Debug:
     if(hasBooted) return;
     hasBooted = true;
     resetTransientUi();
+    updateHudCompactMode();
+    updateTopbarCompactMode();
+    updatePowerAutohideMode();
     scheduleSpawnSafe();
     startGame();
+  }
+
+  function buildAiSummary(pred){
+    const enabled = !!pred?.enabled;
+    const risk = (pred?.hazardRisk != null) ? String(pred.hazardRisk) : '—';
+    let tf = pred?.topFactors;
+    if(Array.isArray(tf)) tf = tf.filter(Boolean).join(', ');
+    if(!tf) tf = '—';
+
+    aiEnabled.textContent = enabled ? 'yes' : 'no';
+    aiRisk.textContent = risk;
+    aiTopFactors.textContent = tf;
+  }
+
+  function buildEndSummary(summary, pred){
+    const s = summary || {};
+    sumGrade.textContent = s.grade || '—';
+    sumScore.textContent = String(s.scoreFinal ?? s.score ?? 0);
+    sumAcc.textContent = `${s.accuracyPct ?? 0}%`;
+    sumMiss.textContent = String(s.miss ?? 0);
+    sumCombo.textContent = String(s.comboMax ?? 0);
+    sumTime.textContent = `${s.durationPlayedSec ?? 0}s`;
+    sumGroupLast.textContent = s.groupLast || '—';
+    sumBossHits.textContent = String(s.bossHits ?? 0);
+    sumReason.textContent = s.reason || '—';
+    sumModeDiff.textContent = `${String(s.runMode || RUN).toUpperCase()} / ${s.diff || DIFF}`;
+
+    endSummary.textContent = JSON.stringify(s || {}, null, 2);
+    endBuff.textContent = JSON.stringify(pred || { note:'no ai' }, null, 2);
+    buildAiSummary(pred);
   }
 
   window.addEventListener('hha:coach', (ev)=>{
@@ -1462,16 +2129,29 @@ Debug:
     if(d.miniTitle) qMini.textContent = `${d.miniTitle} · ${d.miniNow||0}/${d.miniTotal||0}`;
     qMiniTime.textContent = (d.miniTimeLeftSec != null && d.miniTimeLeftSec > 0) ? `⏳ ${d.miniTimeLeftSec}s` : '';
 
+    let groupChanged = false;
+
     if(d.groupName){
       groupName.textContent = d.groupName;
+      const before = activeGroupNo;
       const gn = parseGroupNo(d.groupName);
-      if(gn) setActiveGroup(gn);
+      if(gn){
+        setActiveGroup(gn);
+        groupChanged = before !== activeGroupNo;
+      }
     }
 
     if(d.groupNo != null){
+      const before = activeGroupNo;
       const gn = parseGroupNo(d.groupNo);
-      if(gn) setActiveGroup(gn);
+      if(gn){
+        setActiveGroup(gn);
+        groupChanged = groupChanged || (before !== activeGroupNo);
+      }
     }
+
+    if(groupChanged) peekPowerWrap(1700);
+    else peekPowerWrap(900);
 
     scheduleSpawnSafe();
   });
@@ -1483,6 +2163,7 @@ Debug:
     const pct = Math.round((c / Math.max(1, t)) * 100);
     pBar.style.width = pct + '%';
     pText.textContent = `${c}/${t}`;
+    peekPowerWrap(1100);
   });
 
   window.addEventListener('groups:hit', (ev)=>{
@@ -1509,12 +2190,11 @@ Debug:
   window.addEventListener('hha:end', (ev)=>{
     const s = ev?.detail || {};
     endSub.textContent = `grade=${s?.grade || '-'} · acc=${s?.accuracyPct ?? '-'}% · miss=${s?.miss ?? '-'}`;
-    endSummary.textContent = JSON.stringify(s || {}, null, 2);
 
     const pred = (window.HHA_AI && window.HHA_AI.getPrediction) ? window.HHA_AI.getPrediction() : null;
-    endBuff.textContent = JSON.stringify(pred || { note:'no ai' }, null, 2);
     endMode.textContent = RUN.toUpperCase();
 
+    buildEndSummary(s, pred);
     showOverlay(endOverlay);
     scheduleSpawnSafe();
   });
