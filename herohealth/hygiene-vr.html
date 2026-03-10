@@ -7,14 +7,45 @@
   <meta name="color-scheme" content="dark light" />
   <link rel="icon" href="./favicon.ico" />
   <style>
-    :root{--bg1:#020617;--bg2:#0b1226;--panel:rgba(2,6,23,.72);--stroke:rgba(148,163,184,.18);--text:#e5e7eb;--muted:#94a3b8;--blue:#3b82f6;--good:#22c55e}
-    *{box-sizing:border-box} html,body{margin:0;min-height:100%;background:radial-gradient(1000px 700px at 50% -10%, rgba(59,130,246,.18), transparent 60%),linear-gradient(180deg,var(--bg1),var(--bg2));color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Thai",Arial}
-    .wrap{max-width:880px;margin:0 auto;padding:18px}.card{border-radius:22px;border:1px solid var(--stroke);background:var(--panel);box-shadow:0 18px 55px rgba(0,0,0,.28);padding:16px}
-    .title{font-size:28px;font-weight:1000;margin:0 0 6px}.muted{color:var(--muted);font-size:13px;font-weight:900}.row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
-    .btn{appearance:none;border:1px solid rgba(148,163,184,.22);border-radius:14px;padding:12px 14px;min-height:46px;cursor:pointer;color:var(--text);background:rgba(148,163,184,.10);font-weight:1000}
-    .btn.primary{background:rgba(59,130,246,.16);border-color:rgba(59,130,246,.34)} .btn.good{background:rgba(34,197,94,.14);border-color:rgba(34,197,94,.32)}
-    .pill{display:inline-flex;align-items:center;gap:8px;padding:8px 10px;border-radius:999px;border:1px solid var(--stroke);background:rgba(2,6,23,.42);color:var(--muted);font-size:12px;font-weight:1000;margin:4px 6px 0 0}.pill b{color:var(--text)}
-    .debug{margin-top:14px;padding:12px;border-radius:16px;border:1px solid var(--stroke);background:rgba(2,6,23,.35);font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;white-space:pre-wrap;word-break:break-word;color:#cbd5e1}
+    :root{
+      --bg1:#020617;--bg2:#0b1226;--panel:rgba(2,6,23,.72);--stroke:rgba(148,163,184,.18);
+      --text:#e5e7eb;--muted:#94a3b8;--blue:#3b82f6;--good:#22c55e
+    }
+    *{box-sizing:border-box}
+    html,body{
+      margin:0;min-height:100%;
+      background:
+        radial-gradient(1000px 700px at 50% -10%, rgba(59,130,246,.18), transparent 60%),
+        linear-gradient(180deg,var(--bg1),var(--bg2));
+      color:var(--text);
+      font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Thai",Arial
+    }
+    .wrap{max-width:880px;margin:0 auto;padding:18px}
+    .card{
+      border-radius:22px;border:1px solid var(--stroke);background:var(--panel);
+      box-shadow:0 18px 55px rgba(0,0,0,.28);padding:16px
+    }
+    .title{font-size:28px;font-weight:1000;margin:0 0 6px}
+    .muted{color:var(--muted);font-size:13px;font-weight:900}
+    .row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+    .btn{
+      appearance:none;border:1px solid rgba(148,163,184,.22);border-radius:14px;
+      padding:12px 14px;min-height:46px;cursor:pointer;color:var(--text);
+      background:rgba(148,163,184,.10);font-weight:1000
+    }
+    .btn.primary{background:rgba(59,130,246,.16);border-color:rgba(59,130,246,.34)}
+    .btn.good{background:rgba(34,197,94,.14);border-color:rgba(34,197,94,.32)}
+    .pill{
+      display:inline-flex;align-items:center;gap:8px;padding:8px 10px;border-radius:999px;
+      border:1px solid var(--stroke);background:rgba(2,6,23,.42);color:var(--muted);
+      font-size:12px;font-weight:1000;margin:4px 6px 0 0
+    }
+    .pill b{color:var(--text)}
+    .debug{
+      margin-top:14px;padding:12px;border-radius:16px;border:1px solid var(--stroke);
+      background:rgba(2,6,23,.35);font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+      white-space:pre-wrap;word-break:break-word;color:#cbd5e1
+    }
   </style>
 </head>
 <body>
@@ -32,9 +63,9 @@
       </div>
 
       <div class="row">
-        <button class="btn primary" id="btnStart">เริ่มเกม</button>
-        <button class="btn" id="btnHub">กลับ Hub</button>
-        <button class="btn good" id="btnOpenRun">เปิด run ตรง</button>
+        <button class="btn primary" id="btnStart" type="button">เริ่มเกม</button>
+        <button class="btn" id="btnHub" type="button">กลับ Hub</button>
+        <button class="btn good" id="btnOpenRun" type="button">เปิด run ตรง</button>
       </div>
 
       <div class="debug" id="debugBox">loading...</div>
@@ -42,85 +73,187 @@
   </div>
 
   <script>
-    function qs(k,d=''){ try{return (new URL(location.href)).searchParams.get(k) ?? d;}catch(_){return d;} }
-    function safeNum(v,d){ v=Number(v); return Number.isFinite(v)?v:d; }
-    function normalizeHub(){ const raw=String(qs('hub','')).trim(); if(raw) return raw; try{return new URL('./hub.html', location.href).toString();}catch(_){return './hub.html';} }
+    (function(){
+      'use strict';
 
-    const GAME = { title:'Handwash VR', cat:'hygiene', theme:'handwash', game:'handwash', runPath:'./hygiene-vr/hygiene-vr.html' };
-    const ctx = {
-      pid:String(qs('pid','anon')).trim()||'anon',
-      view:String(qs('view','mobile')).trim()||'mobile',
-      run:String(qs('run','play')).trim()||'play',
-      diff:String(qs('diff','normal')).trim()||'normal',
-      time:String(safeNum(qs('time','80'),80)),
-      seed:String(qs('seed', String(Date.now()))),
-      zone:String(qs('zone','hygiene')).trim()||'hygiene',
-      hub:normalizeHub()
-    };
+      console.log('[handwash-launcher] v20260310b running');
 
-    document.getElementById('uiPid').textContent=ctx.pid;
-    document.getElementById('uiView').textContent=ctx.view;
-    document.getElementById('uiRun').textContent=ctx.run;
-    document.getElementById('uiDiff').textContent=ctx.diff;
-    document.getElementById('uiTime').textContent=ctx.time;
+      function qs(k,d=''){
+        try{ return (new URL(location.href)).searchParams.get(k) ?? d; }
+        catch(_){ return d; }
+      }
 
-    function copyPassthrough(u){
-      const sp = new URL(location.href).searchParams;
-      ['run','diff','time','seed','studyId','phase','conditionGroup','log','view','pid','api','ai','debug','planSeq','planDay','planSlot','planMode','planSlots','planIndex','autoNext','plannedGame','finalGame','zone','cdnext','grade']
-      .forEach(k=>{ const v=sp.get(k); if(v!=null && v!=='') u.searchParams.set(k,v); });
-    }
+      function safeNum(v,d){
+        v = Number(v);
+        return Number.isFinite(v) ? v : d;
+      }
 
-    function buildRunUrl(){
-      const u = new URL(GAME.runPath, location.href);
-      copyPassthrough(u);
-      if(!u.searchParams.get('pid')) u.searchParams.set('pid', ctx.pid);
-      if(!u.searchParams.get('view')) u.searchParams.set('view', ctx.view);
-      if(!u.searchParams.get('run')) u.searchParams.set('run', ctx.run);
-      if(!u.searchParams.get('diff')) u.searchParams.set('diff', ctx.diff);
-      if(!u.searchParams.get('time')) u.searchParams.set('time', ctx.time);
-      if(!u.searchParams.get('seed')) u.searchParams.set('seed', ctx.seed);
-      if(!u.searchParams.get('zone')) u.searchParams.set('zone', ctx.zone);
-      u.searchParams.set('hub', ctx.hub);
-      return u.toString();
-    }
+      function normalizeMaybeEncodedUrl(v){
+        v = String(v ?? '').trim();
+        if(!v || v === 'null' || v === 'undefined') return '';
+        if(/%3A|%2F|%3F|%26|%3D/i.test(v)){
+          try{ v = decodeURIComponent(v); }catch(e){}
+        }
+        return v.trim();
+      }
 
-    function buildWarmupUrl(){
-      const warm = new URL('./warmup-gate.html', location.href);
-      warm.searchParams.set('gatePhase','warmup');
-      warm.searchParams.set('phase','warmup');
-      warm.searchParams.set('cat', GAME.cat);
-      warm.searchParams.set('theme', GAME.theme);
-      warm.searchParams.set('game', GAME.game);
-      warm.searchParams.set('pid', ctx.pid);
-      warm.searchParams.set('hub', ctx.hub);
-      warm.searchParams.set('next', buildRunUrl());
-      warm.searchParams.set('run', ctx.run);
-      warm.searchParams.set('diff', ctx.diff);
-      warm.searchParams.set('time', ctx.time);
-      warm.searchParams.set('view', ctx.view);
-      warm.searchParams.set('seed', ctx.seed);
+      const ORIGIN = location.origin;
+      const ROOT_LAUNCHER_PATH = '/webxr-health-mobile/herohealth/hygiene-vr.html';
+      const HUB_URL  = ORIGIN + '/webxr-health-mobile/herohealth/hub.html';
+      const GATE_URL = ORIGIN + '/webxr-health-mobile/herohealth/warmup-gate.html?v=20260310b';
+      const RUN_URL  = ORIGIN + '/webxr-health-mobile/herohealth/hygiene-vr/hygiene-vr.html';
 
-      const grade=String(qs('grade','')).trim(); if(grade) warm.searchParams.set('grade', grade);
-      const studyId=String(qs('studyId','')).trim(); if(studyId) warm.searchParams.set('studyId', studyId);
-      const conditionGroup=String(qs('conditionGroup','')).trim(); if(conditionGroup) warm.searchParams.set('conditionGroup', conditionGroup);
-      const log=String(qs('log','')).trim(); if(log) warm.searchParams.set('log', log);
+      const GATE_KEYS = [
+        'gatePhase','phase','gateResult','gateMode',
+        'wType','wPct','wSteps','wTimeBonus','wScoreBonus','wRank',
+        'next','cd','cooldown','warmup'
+      ];
 
-      return warm.toString();
-    }
+      function cleanUrl(raw, fallback){
+        try{
+          const u = new URL(raw || fallback, location.href);
+          GATE_KEYS.forEach(k=>u.searchParams.delete(k));
+          return u.toString();
+        }catch(_){
+          return fallback;
+        }
+      }
 
-    const debugBox = document.getElementById('debugBox');
-    debugBox.textContent =
-      '[Handwash Launcher]\\n' +
-      'launcher: ' + location.href + '\\n' +
-      'hub:      ' + ctx.hub + '\\n' +
-      'warmup:   ' + buildWarmupUrl() + '\\n' +
-      'runPath:  ' + buildRunUrl() + '\\n';
+      // กัน path เปิดผิด
+      if (
+        location.pathname !== ROOT_LAUNCHER_PATH &&
+        /hygiene-vr\.html$/i.test(location.pathname) &&
+        !/\/herohealth\/hygiene-vr\.html$/i.test(location.pathname)
+      ){
+        const fixed = new URL(ORIGIN + ROOT_LAUNCHER_PATH);
+        fixed.search = location.search;
+        console.warn('[handwash-launcher] wrong launcher path -> redirect root launcher', fixed.toString());
+        location.replace(fixed.toString());
+        return;
+      }
 
-    document.getElementById('btnStart').onclick = ()=> location.href = buildWarmupUrl();
-    document.getElementById('btnOpenRun').onclick = ()=> location.href = buildRunUrl();
-    document.getElementById('btnHub').onclick = ()=> location.href = ctx.hub;
+      const ctx = {
+        pid:  String(qs('pid','anon')).trim() || 'anon',
+        view: String(qs('view','mobile')).trim() || 'mobile',
+        run:  String(qs('run','play')).trim() || 'play',
+        diff: String(qs('diff','normal')).trim() || 'normal',
+        time: String(safeNum(qs('time','80'),80)),
+        seed: String(qs('seed', String(Date.now()))),
+        zone: String(qs('zone','hygiene')).trim() || 'hygiene',
+        hub:  cleanUrl(normalizeMaybeEncodedUrl(qs('hub','')) || HUB_URL, HUB_URL)
+      };
 
-    setTimeout(()=>{ try{ location.href = buildWarmupUrl(); }catch(err){ debugBox.textContent += '\\nredirect failed: ' + (err?.message || String(err)); } }, 120);
+      const gateResult = String(qs('gateResult',''));
+      const gateMode = String(qs('gateMode',''));
+      const alreadyWarm = (gateResult === '1' && gateMode === 'warmup');
+      const currentlyInsideGate = /warmup-gate\.html$/i.test(location.pathname);
+
+      document.getElementById('uiPid').textContent = ctx.pid;
+      document.getElementById('uiView').textContent = ctx.view;
+      document.getElementById('uiRun').textContent = ctx.run;
+      document.getElementById('uiDiff').textContent = ctx.diff;
+      document.getElementById('uiTime').textContent = ctx.time;
+
+      function copyPassthrough(u){
+        const sp = new URL(cleanUrl(location.href, location.href)).searchParams;
+        [
+          'run','diff','time','seed','studyId','conditionGroup','log','view','pid','api','ai','debug',
+          'planSeq','planDay','planSlot','planMode','planSlots','planIndex','autoNext',
+          'plannedGame','finalGame','zone','cdnext','grade',
+          'sessionOrder','blockLabel','siteCode','schoolYear','semester'
+        ].forEach(k=>{
+          const v = sp.get(k);
+          if(v != null && v !== '') u.searchParams.set(k, v);
+        });
+      }
+
+      function buildRunUrl(){
+        const u = new URL(RUN_URL);
+
+        copyPassthrough(u);
+
+        if(!u.searchParams.get('pid'))  u.searchParams.set('pid', ctx.pid);
+        if(!u.searchParams.get('view')) u.searchParams.set('view', ctx.view);
+        if(!u.searchParams.get('run'))  u.searchParams.set('run', ctx.run);
+        if(!u.searchParams.get('diff')) u.searchParams.set('diff', ctx.diff);
+        if(!u.searchParams.get('time')) u.searchParams.set('time', ctx.time);
+        if(!u.searchParams.get('seed')) u.searchParams.set('seed', ctx.seed);
+        if(!u.searchParams.get('zone')) u.searchParams.set('zone', ctx.zone);
+
+        u.searchParams.set('hub', ctx.hub);
+        return u.toString();
+      }
+
+      function buildWarmupUrl(){
+        const warm = new URL(GATE_URL);
+
+        warm.searchParams.set('gatePhase','warmup');
+        warm.searchParams.set('phase','warmup');
+        warm.searchParams.set('cat','hygiene');
+        warm.searchParams.set('theme','handwash');
+        warm.searchParams.set('game','handwash');
+        warm.searchParams.set('pid', ctx.pid);
+        warm.searchParams.set('hub', ctx.hub);
+        warm.searchParams.set('next', buildRunUrl());
+        warm.searchParams.set('run', ctx.run);
+        warm.searchParams.set('diff', ctx.diff);
+        warm.searchParams.set('time', ctx.time);
+        warm.searchParams.set('view', ctx.view);
+        warm.searchParams.set('seed', ctx.seed);
+
+        const studyId = String(qs('studyId','')).trim();
+        const conditionGroup = String(qs('conditionGroup','')).trim();
+        const log = String(qs('log','')).trim();
+        const grade = String(qs('grade','')).trim();
+        const sessionOrder = String(qs('sessionOrder','')).trim();
+        const blockLabel = String(qs('blockLabel','')).trim();
+        const siteCode = String(qs('siteCode','')).trim();
+        const schoolYear = String(qs('schoolYear','')).trim();
+        const semester = String(qs('semester','')).trim();
+
+        if(grade) warm.searchParams.set('grade', grade);
+        if(studyId) warm.searchParams.set('studyId', studyId);
+        if(conditionGroup) warm.searchParams.set('conditionGroup', conditionGroup);
+        if(log) warm.searchParams.set('log', log);
+        if(sessionOrder) warm.searchParams.set('sessionOrder', sessionOrder);
+        if(blockLabel) warm.searchParams.set('blockLabel', blockLabel);
+        if(siteCode) warm.searchParams.set('siteCode', siteCode);
+        if(schoolYear) warm.searchParams.set('schoolYear', schoolYear);
+        if(semester) warm.searchParams.set('semester', semester);
+
+        return warm.toString();
+      }
+
+      const debugBox = document.getElementById('debugBox');
+      debugBox.textContent =
+        '[Handwash Launcher v20260310b]\n' +
+        'launcher: ' + location.href + '\n' +
+        'hub:      ' + ctx.hub + '\n' +
+        'alreadyWarm: ' + alreadyWarm + '\n' +
+        'insideGate:  ' + currentlyInsideGate + '\n' +
+        'warmup:   ' + buildWarmupUrl() + '\n' +
+        'runPath:  ' + buildRunUrl() + '\n';
+
+      document.getElementById('btnStart').onclick = ()=> location.href = buildWarmupUrl();
+      document.getElementById('btnOpenRun').onclick = ()=> location.href = buildRunUrl();
+      document.getElementById('btnHub').onclick = ()=> location.href = ctx.hub;
+
+      // auto flow แบบปลอด loop
+      if(alreadyWarm || currentlyInsideGate){
+        console.log('[handwash-launcher] already warm -> run');
+        location.replace(buildRunUrl());
+        return;
+      }
+
+      setTimeout(()=>{
+        try{
+          console.log('[handwash-launcher] auto -> warmup');
+          location.replace(buildWarmupUrl());
+        }catch(err){
+          debugBox.textContent += '\nredirect failed: ' + (err?.message || String(err));
+        }
+      }, 120);
+    })();
   </script>
 </body>
 </html>
