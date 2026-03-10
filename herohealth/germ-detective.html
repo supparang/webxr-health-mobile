@@ -71,7 +71,7 @@
 
       const ORIGIN = location.origin;
       const HUB_URL  = ORIGIN + '/webxr-health-mobile/herohealth/hub.html';
-      const GATE_URL = ORIGIN + '/webxr-health-mobile/herohealth/warmup-gate.html?v=20260310z2';
+      const GATE_URL = ORIGIN + '/webxr-health-mobile/herohealth/warmup-gate.html?v=20260310z3';
       const RUN_URL  = ORIGIN + '/webxr-health-mobile/herohealth/germ-detective/germ-detective.html';
 
       const pid   = String(qs('pid','anon')).trim() || 'anon';
@@ -96,7 +96,6 @@
 
       const gateResult = String(qs('gateResult',''));
       const gateMode = String(qs('gateMode',''));
-
       const alreadyWarm = (gateResult === '1' && gateMode === 'warmup');
       const currentlyInsideGate = /warmup-gate\.html$/i.test(location.pathname);
 
