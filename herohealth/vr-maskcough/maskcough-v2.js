@@ -236,11 +236,13 @@
   function buildMaskCoughCooldownUrl(summary){
     const safe = summary || {};
     try{
-      const u = new URL('../cooldown-gate.html', location.href);
+      const u = new URL('/webxr-health-mobile/herohealth/warmup-gate.html', location.origin);
 
+      u.searchParams.set('gatePhase', 'cooldown');
       u.searchParams.set('cat', 'hygiene');
       u.searchParams.set('game', 'maskcough');
       u.searchParams.set('theme', 'maskcough');
+      u.searchParams.set('run', mode || 'play');
 
       if(hub) u.searchParams.set('hub', hub);
       if(pid) u.searchParams.set('pid', pid);
@@ -249,8 +251,9 @@
       if(conditionGroup) u.searchParams.set('conditionGroup', conditionGroup);
       if(diff) u.searchParams.set('diff', diff);
       if(view) u.searchParams.set('view', view);
+      if(seed) u.searchParams.set('seed', String(seed));
 
-      u.searchParams.set('reason', safe.reason || '');
+      u.searchParams.set('reason', String(safe.reason ?? ''));
       u.searchParams.set('score', String(safe.score ?? ''));
       u.searchParams.set('comboMax', String(safe.comboMax ?? ''));
       u.searchParams.set('perfect', String(safe.perfect ?? ''));
