@@ -1,10 +1,12 @@
 <!-- === /herohealth/vr-groups/groups-vr.html ===
-GroupsVR — SOLO RUN PAGE — FX + MOBILE LAYOUT HOTFIX + BG A + ACTIVE GROUP HIGHLIGHT + REFRESH SAFE + ADAPTIVE SPAWN RECT
-FULL v20260310-GROUPS-SOLO-FX-LAYOUT-HOTFIX-BGA-ACTIVE-REFRESHSAFE-SPAWNADAPT
+GroupsVR — SOLO RUN PAGE — FULL MERGED
+v20260310-GROUPS-SOLO-FULL-BGA-ACTIVE-FX-REFRESHSAFE-SPAWNADAPT-MOBILE-DEBUG
 Requires:
 - ../vr/vr-ui.js
 - ./ai-hooks.js
 - ./groups.safe.js
+Debug:
+- ?debugSpawn=1   => show spawn-safe overlay
 -->
 <!doctype html>
 <html lang="th">
@@ -612,6 +614,214 @@ Requires:
     @media (max-width:760px){
       #endCard main{ grid-template-columns:1fr; }
     }
+
+    /* ===== MOBILE TUNING PATCH ===== */
+    @media (max-width:640px){
+      #app{
+        gap:6px;
+        padding:
+          calc(6px + var(--sat))
+          calc(6px + var(--sar))
+          calc(6px + var(--sab))
+          calc(6px + var(--sal));
+      }
+
+      .topbar{
+        padding:7px 8px;
+        gap:8px;
+        border-radius:16px;
+      }
+
+      .title b{ font-size:13px; }
+      .title span{ font-size:10.5px; line-height:1.2; }
+
+      .row{ gap:6px; }
+
+      .pill{
+        min-height:30px;
+        padding:5px 8px;
+        font-size:10.5px;
+        gap:6px;
+      }
+
+      button{
+        padding:7px 10px;
+        border-radius:12px;
+        font-size:12px;
+      }
+
+      .hud{ left:6px; right:6px; }
+
+      .hudBox{
+        gap:5px;
+        padding:5px 6px;
+        border-radius:12px;
+      }
+
+      .hudMetric .k{ font-size:9px; }
+      .hudMetric .v{ font-size:11px; }
+
+      .questTop{
+        gap:4px;
+        padding:5px 6px;
+        border-radius:12px;
+      }
+
+      .questTitle{ font-size:11px; }
+      .questMini{ font-size:9px; }
+
+      .bar{ height:8px; }
+
+      .powerWrap{
+        left:6px;
+        top:92px;
+        width:min(144px, 40vw);
+        gap:4px;
+        padding:5px 6px;
+        border-radius:12px;
+      }
+      .powerHead b{ font-size:11px; }
+      .powerHead span{ font-size:9px; }
+
+      .coachToast{
+        left:8px;
+        right:8px;
+        bottom: calc(8px + var(--sab) + 78px);
+      }
+      .coachWrap{
+        gap:8px;
+        padding:6px 8px;
+        border-radius:14px;
+      }
+      .coachWrap .face{
+        width:30px;
+        height:30px;
+        border-radius:10px;
+        font-size:16px;
+      }
+      .coachWrap .txt{ font-size:12px; }
+      .coachWrap .sub{ font-size:10px; }
+
+      .scorePop{ font-size:19px; }
+
+      .bgCats{
+        bottom:10%;
+        width:min(94%, 620px);
+        gap:8px;
+        opacity:.82;
+      }
+      .bgCat{ opacity:.64; }
+      .bgCat.active{ opacity:.95; }
+      .bgCatBox{
+        max-width:50px;
+        border-radius:11px;
+      }
+      .bgCatLabel{
+        font-size:8.5px;
+        line-height:1.1;
+      }
+    }
+
+    @media (max-width:460px){
+      .topbar{ padding:6px 7px; }
+
+      .title b{ font-size:12.5px; }
+      .title span{ font-size:10px; }
+
+      .pill{
+        min-height:28px;
+        padding:4px 7px;
+        font-size:10px;
+      }
+
+      .hudBox{
+        grid-template-columns:repeat(5,minmax(0,1fr));
+        gap:4px;
+        padding:4px 5px;
+      }
+      .hudMetric{
+        justify-content:center;
+        gap:4px;
+      }
+      .hudMetric .k{ font-size:8.5px; }
+      .hudMetric .v{ font-size:10px; }
+
+      .questTop{ padding:4px 5px; }
+      .questTitle{ font-size:10px; }
+      .questMini{ font-size:8.5px; }
+
+      .powerWrap{
+        top:88px;
+        width:min(128px, 37vw);
+        padding:4px 5px;
+      }
+      .powerHead b{ font-size:10px; }
+
+      .coachToast{
+        bottom: calc(8px + var(--sab) + 72px);
+      }
+      .coachWrap .txt{ font-size:11px; }
+      .coachWrap .sub{ font-size:9px; }
+
+      .scorePop{ font-size:17px; }
+
+      .bgCats{
+        bottom:8%;
+        gap:6px;
+        opacity:.76;
+      }
+      .bgCatBox{
+        max-width:42px;
+        border-radius:10px;
+      }
+      .bgCatLabel{ font-size:7.5px; }
+    }
+
+    @media (max-height:720px) and (max-width:640px){
+      .powerWrap{
+        top:86px;
+        width:min(132px, 38vw);
+      }
+      .coachToast{
+        bottom: calc(6px + var(--sab) + 66px);
+      }
+      .bgCats{ bottom:7%; }
+    }
+
+    /* ===== DEBUG SPAWN OVERLAY ===== */
+    #spawnDebug{
+      position:absolute;
+      inset:0;
+      pointer-events:none;
+      z-index:80;
+      display:none;
+    }
+    #spawnDebug.show{
+      display:block;
+    }
+    .spawnDebugRect{
+      position:absolute;
+      border:2px dashed rgba(34,211,238,.95);
+      background: rgba(34,211,238,.08);
+      box-shadow:
+        inset 0 0 0 1px rgba(255,255,255,.10),
+        0 0 0 1px rgba(34,211,238,.18);
+      border-radius:14px;
+    }
+    .spawnDebugLabel{
+      position:absolute;
+      left:8px;
+      top:8px;
+      padding:6px 8px;
+      border-radius:10px;
+      font-size:11px;
+      font-weight:1000;
+      color:#dff9ff;
+      background: rgba(2,6,23,.72);
+      border:1px solid rgba(34,211,238,.32);
+      white-space:pre-line;
+      max-width:min(84vw, 420px);
+    }
   </style>
 </head>
 
@@ -673,6 +883,11 @@ Requires:
     <div id="playLayer"></div>
     <div id="stageFlash"></div>
     <div id="fxLayer"></div>
+
+    <div id="spawnDebug" aria-hidden="true">
+      <div class="spawnDebugRect" id="spawnDebugRect"></div>
+      <div class="spawnDebugLabel" id="spawnDebugLabel"></div>
+    </div>
 
     <div class="hud hudTop">
       <div class="hudLeftCol">
@@ -759,6 +974,7 @@ Requires:
   const SEED = String(q('seed','') || Date.now());
   const HUB  = String(q('hub','../hub.html') || '../hub.html');
   const CVR_STRICT = (VIEW === 'cvr') && (String(q('cvrStrict','1') || '1') !== '0');
+  const DEBUG_SPAWN = String(q('debugSpawn','0')) === '1';
 
   document.body.setAttribute('data-view', VIEW);
   document.body.setAttribute('data-cvr-strict', CVR_STRICT ? '1' : '0');
@@ -804,6 +1020,10 @@ Requires:
   const endBuff = $('#endBuff');
   const endSub = $('#endSub');
   const endMode = $('#endMode');
+
+  const spawnDebug = $('#spawnDebug');
+  const spawnDebugRect = $('#spawnDebugRect');
+  const spawnDebugLabel = $('#spawnDebugLabel');
 
   const GROUP_COLORS = {
     1: '#e11d48',
@@ -986,66 +1206,74 @@ Requires:
   }
 
   function safeStopEngine(){
-    try{
-      window.GroupsVR?.GameEngine?.stop?.();
-    }catch(_){}
+    try{ window.GroupsVR?.GameEngine?.stop?.(); }catch(_){}
   }
 
   function getRect(el){
-    try{
-      return el ? el.getBoundingClientRect() : null;
-    }catch(_){
-      return null;
-    }
+    try{ return el ? el.getBoundingClientRect() : null; }
+    catch(_){ return null; }
   }
 
   function computeSpawnSafe(){
     const r = getRect(playLayer);
-    if(!r) return {
-      xMin: 16, xMax: 320, yMin: 120, yMax: 420
-    };
+    if(!r) return { xMin: 16, xMax: 320, yMin: 120, yMax: 420 };
 
     const hudR = getRect(document.querySelector('.hudTop'));
     const powerR = getRect(powerWrap);
     const toastVisible = coachToast.classList.contains('show');
     const toastR = toastVisible ? getRect(coachToast) : null;
 
-    const padX = Math.max(12, Math.round(Math.min(24, r.width * 0.025)));
-    const topPad = 12;
-    const bottomPad = 14;
+    const narrow = r.width <= 640;
+    const shortH = r.height <= 720;
+
+    const padX = Math.max(12, Math.round(Math.min(narrow ? 18 : 24, r.width * (narrow ? 0.022 : 0.025))));
+    const topPad = narrow ? 8 : 12;
+    const bottomPad = narrow ? 10 : 14;
 
     const topBlock = Math.max(
       0,
-      hudR ? Math.round((hudR.bottom - r.top) + topPad) : 108,
-      powerR ? Math.round((powerR.bottom - r.top) + 10) : 0
+      hudR ? Math.round((hudR.bottom - r.top) + topPad) : (narrow ? 96 : 108),
+      powerR ? Math.round((powerR.bottom - r.top) + (narrow ? 8 : 10)) : 0
     );
 
-    const bottomBlock = Math.max(
-      92,
+    let bottomBlock = Math.max(
+      narrow ? 76 : 92,
       toastR ? Math.round((r.bottom - toastR.top) + 10) : 0,
-      VIEW === 'mobile' ? Math.round(Math.min(164, r.height * 0.24)) : 112
+      VIEW === 'mobile'
+        ? Math.round(Math.min(narrow ? 132 : 164, r.height * (narrow ? 0.18 : 0.24)))
+        : 112
     );
 
     let xMin = padX;
     let xMax = Math.max(padX + 1, Math.round(r.width - padX));
     let yMin = Math.max(18, topBlock);
-    let yMax = Math.max(yMin + 1, Math.round(r.height - bottomBlock));
+    let yMax = Math.max(yMin + 1, Math.round(r.height - bottomBlock - bottomPad));
 
     if (powerR){
-      const powerW = Math.round(powerR.width + 14);
+      const powerW = Math.round(powerR.width + (narrow ? 10 : 14));
       if (r.width <= 640){
         xMin = Math.max(xMin, powerW);
       }
     }
 
-    if ((xMax - xMin) < 120){
-      xMin = padX;
-      xMax = Math.max(xMin + 120, Math.round(r.width - padX));
+    if (narrow){
+      xMin = Math.max(xMin, 54);
+      yMin = Math.max(yMin, shortH ? 112 : 120);
+      bottomBlock = Math.max(bottomBlock, shortH ? 82 : 92);
+      yMax = Math.max(yMin + 1, Math.round(r.height - bottomBlock));
     }
 
-    if ((yMax - yMin) < 160){
-      yMin = Math.max(26, Math.round(topBlock * 0.92));
-      yMax = Math.max(yMin + 160, Math.round(r.height - Math.max(86, bottomBlock * 0.86)));
+    if ((xMax - xMin) < (narrow ? 108 : 120)){
+      xMin = padX;
+      xMax = Math.max(xMin + (narrow ? 108 : 120), Math.round(r.width - padX));
+    }
+
+    if ((yMax - yMin) < (narrow ? 138 : 160)){
+      yMin = Math.max(24, Math.round(topBlock * 0.94));
+      yMax = Math.max(
+        yMin + (narrow ? 138 : 160),
+        Math.round(r.height - Math.max(narrow ? 74 : 86, bottomBlock * 0.86))
+      );
     }
 
     yMax = Math.min(Math.round(r.height - 10), yMax);
@@ -1059,9 +1287,42 @@ Requires:
     };
   }
 
+  function renderSpawnDebug(){
+    if(!DEBUG_SPAWN || !spawnDebug || !spawnDebugRect || !spawnDebugLabel) return;
+    const s = window.__HHA_SPAWN_SAFE__;
+    const r = getRect(playLayer);
+    if(!s || !r) return;
+
+    spawnDebug.classList.add('show');
+    spawnDebugRect.style.left = Math.round(s.xMin) + 'px';
+    spawnDebugRect.style.top = Math.round(s.yMin) + 'px';
+    spawnDebugRect.style.width = Math.max(1, Math.round(s.xMax - s.xMin)) + 'px';
+    spawnDebugRect.style.height = Math.max(1, Math.round(s.yMax - s.yMin)) + 'px';
+
+    spawnDebugLabel.textContent =
+      'spawn-safe\\n' +
+      `view=${VIEW}${CVR_STRICT ? ' strict' : ''}\\n` +
+      `play=${Math.round(r.width)}x${Math.round(r.height)}\\n` +
+      `x: ${Math.round(s.xMin)}..${Math.round(s.xMax)}\\n` +
+      `y: ${Math.round(s.yMin)}..${Math.round(s.yMax)}`;
+  }
+
   function applySpawnSafe(){
     try{
       window.__HHA_SPAWN_SAFE__ = computeSpawnSafe();
+      renderSpawnDebug();
+    }catch(_){}
+  }
+
+  function debugSpawnSafe(){
+    try{
+      const s = window.__HHA_SPAWN_SAFE__;
+      console.log('[GroupsVR spawn-safe]', {
+        view: VIEW,
+        width: Math.round(playLayer.getBoundingClientRect().width),
+        height: Math.round(playLayer.getBoundingClientRect().height),
+        safe: s
+      });
     }catch(_){}
   }
 
@@ -1070,6 +1331,7 @@ Requires:
     spawnSafeRaf = requestAnimationFrame(()=>{
       spawnSafeRaf = 0;
       applySpawnSafe();
+      debugSpawnSafe();
     });
   }
 
@@ -1297,6 +1559,10 @@ Requires:
     hideOverlay(endOverlay);
     scheduleSpawnSafe();
   });
+
+  if (DEBUG_SPAWN && spawnDebug){
+    spawnDebug.classList.add('show');
+  }
 
   installLockPxShim();
   bootOnce();
