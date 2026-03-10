@@ -1,6 +1,6 @@
 <!-- === /herohealth/vr-groups/groups-vr.html ===
-GroupsVR — SOLO RUN PAGE — FX + MOBILE LAYOUT HOTFIX
-FULL v20260310-GROUPS-SOLO-FX-LAYOUT-HOTFIX
+GroupsVR — SOLO RUN PAGE — FX + MOBILE LAYOUT HOTFIX + BG A
+FULL v20260310-GROUPS-SOLO-FX-LAYOUT-HOTFIX-BGA
 Requires:
 - ../vr/vr-ui.js
 - ./ai-hooks.js
@@ -124,7 +124,115 @@ Requires:
       overflow:hidden;
       box-shadow: 0 20px 80px rgba(0,0,0,.35);
     }
-    #playLayer{ position:absolute; inset:0; overflow:hidden; pointer-events:auto; }
+
+    /* ===== BG LAYER A ===== */
+    #bgLayer{
+      position:absolute;
+      inset:0;
+      overflow:hidden;
+      pointer-events:none;
+      z-index:0;
+      background:
+        radial-gradient(900px 420px at 50% 115%, rgba(56,189,248,.06), transparent 60%),
+        linear-gradient(180deg, rgba(15,23,42,.22), rgba(2,6,23,.04));
+    }
+
+    .bgFloor{
+      position:absolute;
+      left:-4%;
+      right:-4%;
+      bottom:-2%;
+      height:42%;
+      background:
+        linear-gradient(180deg, rgba(30,41,59,.10), rgba(30,41,59,.34)),
+        repeating-linear-gradient(
+          90deg,
+          rgba(255,255,255,.018) 0 32px,
+          rgba(255,255,255,.00) 32px 64px
+        );
+      border-top:1px solid rgba(148,163,184,.10);
+    }
+
+    .bgCats{
+      position:absolute;
+      left:50%;
+      bottom:14%;
+      transform:translateX(-50%);
+      width:min(820px, 92%);
+      display:grid;
+      grid-template-columns:repeat(5, 1fr);
+      gap:16px;
+      align-items:end;
+      opacity:.92;
+    }
+
+    .bgCat{
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      gap:8px;
+      transform:translateZ(0);
+    }
+
+    .bgCatBox{
+      width:100%;
+      aspect-ratio:1/1;
+      max-width:98px;
+      border-radius:18px;
+      border:1px solid rgba(255,255,255,.16);
+      box-shadow:
+        0 14px 26px rgba(0,0,0,.22),
+        inset 0 1px 0 rgba(255,255,255,.12);
+      background: var(--cat);
+      opacity:.86;
+    }
+
+    .bgCatLabel{
+      text-align:center;
+      color:#fff;
+      font-size:12px;
+      font-weight:1000;
+      line-height:1.2;
+      text-shadow:0 2px 8px rgba(0,0,0,.28);
+      white-space:pre-line;
+    }
+
+    @media (max-width:760px){
+      .bgCats{
+        bottom:13%;
+        gap:10px;
+        width:min(96%, 760px);
+      }
+      .bgCatBox{
+        max-width:72px;
+        border-radius:14px;
+      }
+      .bgCatLabel{
+        font-size:10px;
+      }
+    }
+
+    @media (max-width:520px){
+      .bgCats{
+        bottom:12%;
+        gap:8px;
+      }
+      .bgCatBox{
+        max-width:58px;
+        border-radius:12px;
+      }
+      .bgCatLabel{
+        font-size:9px;
+      }
+    }
+
+    #playLayer{
+      position:absolute;
+      inset:0;
+      overflow:hidden;
+      pointer-events:auto;
+      z-index:1;
+    }
 
     .hud{
       position:absolute;
@@ -404,6 +512,42 @@ Requires:
   </div>
 
   <div class="stage" id="stage">
+    <div id="bgLayer" aria-hidden="true">
+      <div class="bgFloor"></div>
+
+      <div class="bgCats">
+        <div class="bgCat">
+          <div class="bgCatBox" style="--cat:#e11d48;"></div>
+          <div class="bgCatLabel">หมู่ 1
+โปรตีน</div>
+        </div>
+
+        <div class="bgCat">
+          <div class="bgCatBox" style="--cat:#f97316;"></div>
+          <div class="bgCatLabel">หมู่ 2
+คาร์โบไฮเดรต</div>
+        </div>
+
+        <div class="bgCat">
+          <div class="bgCatBox" style="--cat:#22c55e;"></div>
+          <div class="bgCatLabel">หมู่ 3
+ผัก</div>
+        </div>
+
+        <div class="bgCat">
+          <div class="bgCatBox" style="--cat:#38bdf8;"></div>
+          <div class="bgCatLabel">หมู่ 4
+ผลไม้</div>
+        </div>
+
+        <div class="bgCat">
+          <div class="bgCatBox" style="--cat:#a855f7;"></div>
+          <div class="bgCatLabel">หมู่ 5
+ไขมัน</div>
+        </div>
+      </div>
+    </div>
+
     <div id="playLayer"></div>
     <div id="stageFlash"></div>
     <div id="fxLayer"></div>
