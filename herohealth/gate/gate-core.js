@@ -1,6 +1,6 @@
-// === /herohealth/gate/gate-core.js ===
+// === /webxr-health-mobile/herohealth/gate/gate-core.js ===
 // HeroHealth Gate Core
-// PATCH v20260311-GATE-CORE-GROUPS-FLOW-LOG
+// PATCH v20260311-GATE-CORE-GROUPS-FLOW-LOG-WEBXRROOT
 // ✅ Germ Detective continue/skip -> germ-detective-vr.html
 // ✅ strip gate params before continue
 // ✅ no nested germ-detective path from gate side
