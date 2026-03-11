@@ -1,6 +1,6 @@
 // === /herohealth/vr/battle-rtdb.js ===
-// Firebase RTDB Battle — v11 (activePlayers fix + proper unsubscribe + stale cleanup)
-// FULL PATCH v20260308-BATTLE-RTDB-V11-ACTIVEPLAYERS
+// Firebase RTDB Battle — v12
+// FULL PATCH v20260308-BATTLE-RTDB-V12-COUNTDOWN-RUNNING-FIX
 'use strict';
 
 const WIN = (typeof window !== 'undefined') ? window : globalThis;
@@ -205,6 +205,8 @@ export async function initBattle(opts){
   let serverTimeOffset = 0;
   let unsubscribers = [];
   let countdownTimer = 0;
+  let runningPollTimer = 0;
+
   let currentRematch = { roundId:'', requestedBy:'', requestedAtMs:0, votes:{} };
   let currentMatch = {
     bestOf,
@@ -221,9 +223,18 @@ export async function initBattle(opts){
       countdownTimer = 0;
     }
   }
+
+  function clearRunningPollTimer(){
+    if(runningPollTimer){
+      clearInterval(runningPollTimer);
+      runningPollTimer = 0;
+    }
+  }
+
   function serverNow(){
     return Date.now() + serverTimeOffset;
   }
+
   function emitRoom(detail={}){
     emit('hha:battle-room', {
       room,
@@ -233,9 +244,11 @@ export async function initBattle(opts){
       ...detail
     });
   }
+
   function emitPlayers(players){
     emit('hha:battle-players', { players });
   }
+
   function emitState(st){
     emit('hha:battle-state', {
       room,
@@ -243,6 +256,7 @@ export async function initBattle(opts){
       ...(st||{})
     });
   }
+
   function emitRematchState(detail){
     emit('hha:battle-rematch-state', {
       room,
@@ -250,6 +264,7 @@ export async function initBattle(opts){
       ...(detail || {})
     });
   }
+
   function emitMatchState(detail){
     emit('hha:battle-match', {
       room,
@@ -257,6 +272,7 @@ export async function initBattle(opts){
       ...(detail || {})
     });
   }
+
   function attachCountdown(startAtMs){
     clearCountdownTimer();
     if(!startAtMs || startAtMs <= 0) return;
@@ -269,6 +285,24 @@ export async function initBattle(opts){
       emit('hha:battle-countdown', { room, roundId: currentRoundId, startAtMs, leftMs });
       if(leftMs <= 0) clearCountdownTimer();
     }, 200);
+  }
+
+  function attachRunningPoll(){
+    clearRunningPollTimer();
+    runningPollTimer = setInterval(async ()=>{
+      if(localDestroyed){
+        clearRunningPollTimer();
+        return;
+      }
+      try{
+        const snap = await get(stateRef).catch(()=>null);
+        const st = snap?.val() || {};
+        await maybeStartRunning(st);
+        if(String(st.phase || '').toLowerCase() === 'running'){
+          clearRunningPollTimer();
+        }
+      }catch(_){}
+    }, 250);
   }
 
   async function ensureMeta(){
@@ -841,6 +875,7 @@ export async function initBattle(opts){
 
   async function leave(){
     clearCountdownTimer();
+    clearRunningPollTimer();
     if(currentRole !== 'player') return;
     await update(ref(db, `${base}/players/${meKey}`), {
       connected:false,
@@ -853,6 +888,7 @@ export async function initBattle(opts){
   async function destroy(){
     localDestroyed = true;
     clearCountdownTimer();
+    clearRunningPollTimer();
     unsubscribers.forEach(fn=>{ try{ fn(); }catch(_){ } });
     unsubscribers = [];
   }
@@ -870,8 +906,13 @@ export async function initBattle(opts){
     emitState(st);
 
     const phase = String(st.phase || 'lobby').toLowerCase();
-    if(phase === 'countdown') attachCountdown(Number(st.startAtMs || 0) || 0);
-    else clearCountdownTimer();
+    if(phase === 'countdown'){
+      attachCountdown(Number(st.startAtMs || 0) || 0);
+      attachRunningPoll();
+    }else{
+      clearCountdownTimer();
+      clearRunningPollTimer();
+    }
 
     if(phase === 'running'){
       emit('hha:battle-start', {
