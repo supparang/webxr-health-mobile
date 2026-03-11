@@ -1,6 +1,9 @@
 <!-- === /herohealth/hydration-vr/hydration-vr.html ===
-Hydration VR RUN — PRODUCTION
-FULL v20260307-HYDRATION-RUN-FULL
+Hydration VR RUN — PATCH A
+FULL v20260311-HYDRATION-RUN-PATCH-A
+✅ FEVER 2.0 layer
+✅ stronger hit / block / streak feedback
+✅ Patch A only (no Patch B/C yet)
 -->
 <!doctype html>
 <html lang="th">
@@ -17,8 +20,7 @@ FULL v20260307-HYDRATION-RUN-FULL
 
   <style>
     #dbg{
-      position:fixed; inset:0; z-index:9999;
-      display:none; padding:12px;
+      position:fixed; inset:0; z-index:9999; display:none; padding:12px;
       background:rgba(0,0,0,.85); color:#e5e7eb;
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
       overflow:auto;
@@ -31,87 +33,43 @@ FULL v20260307-HYDRATION-RUN-FULL
       border-radius:12px; border:1px solid rgba(255,255,255,.15);
       background:rgba(255,255,255,.08); color:#e5e7eb; font-weight:900;
     }
-
     .timeline-dock{
-      position:fixed;
-      right:10px;
-      bottom:calc(env(safe-area-inset-bottom,0px) + 82px);
-      width:min(260px, 42vw);
-      z-index:45;
-      background:rgba(2,6,23,.70);
-      border:1px solid rgba(255,255,255,.08);
-      border-radius:16px;
-      padding:10px;
-      backdrop-filter:blur(10px);
-      box-shadow:0 12px 30px rgba(0,0,0,.35);
+      position:fixed; right:10px; bottom:calc(env(safe-area-inset-bottom,0px) + 82px);
+      width:min(260px, 42vw); z-index:45; background:rgba(2,6,23,.70);
+      border:1px solid rgba(255,255,255,.08); border-radius:16px; padding:10px;
+      backdrop-filter:blur(10px); box-shadow:0 12px 30px rgba(0,0,0,.35);
     }
-    .timeline-title{
-      font-size:12px;
-      font-weight:1000;
-      margin-bottom:6px;
-    }
+    .timeline-title{ font-size:12px; font-weight:1000; margin-bottom:6px; }
     .timeline-track{
-      position:relative;
-      height:8px;
-      border-radius:999px;
-      background:rgba(255,255,255,.08);
-      overflow:hidden;
+      position:relative; height:8px; border-radius:999px;
+      background:rgba(255,255,255,.08); overflow:hidden;
     }
     .timeline-fill{
-      position:absolute;
-      left:0; top:0; bottom:0;
-      width:0%;
+      position:absolute; left:0; top:0; bottom:0; width:0%;
       background:linear-gradient(90deg, rgba(34,197,94,.9), rgba(245,158,11,.9), rgba(239,68,68,.95));
     }
     .timeline-note{
-      margin-top:8px;
-      font-size:12px;
-      line-height:1.4;
-      color:#e5e7eb;
-      opacity:.95;
-      min-height:32px;
+      margin-top:8px; font-size:12px; line-height:1.4; color:#e5e7eb;
+      opacity:.95; min-height:32px;
     }
-
     #coachToast{
-      position:fixed;
-      left:50%;
-      bottom:calc(env(safe-area-inset-bottom,0px) + 18px);
-      transform:translateX(-50%) translateY(10px);
-      z-index:70;
-      opacity:0;
-      pointer-events:none;
+      position:fixed; left:50%; bottom:calc(env(safe-area-inset-bottom,0px) + 18px);
+      transform:translateX(-50%) translateY(10px); z-index:70; opacity:0; pointer-events:none;
       transition:opacity .18s ease, transform .18s ease;
     }
-    #coachToast[aria-hidden="false"]{
-      opacity:1;
-      transform:translateX(-50%) translateY(0);
-    }
+    #coachToast[aria-hidden="false"]{ opacity:1; transform:translateX(-50%) translateY(0); }
     #coachToastText{
-      max-width:min(88vw,560px);
-      background:rgba(2,6,23,.86);
-      color:#e5e7eb;
-      border:1px solid rgba(255,255,255,.10);
-      border-radius:16px;
-      padding:10px 14px;
-      font-weight:1000;
-      text-align:center;
-      box-shadow:0 12px 28px rgba(0,0,0,.35);
+      max-width:min(88vw,560px); background:rgba(2,6,23,.86); color:#e5e7eb;
+      border:1px solid rgba(255,255,255,.10); border-radius:16px; padding:10px 14px;
+      font-weight:1000; text-align:center; box-shadow:0 12px 28px rgba(0,0,0,.35);
     }
-
     .end-coach{
-      margin-top:10px;
-      padding:10px 12px;
-      border-radius:14px;
-      background:rgba(15,23,42,.56);
-      border:1px solid rgba(255,255,255,.08);
-      color:#e5e7eb;
-      line-height:1.55;
-      font-size:14px;
-      font-weight:800;
+      margin-top:10px; padding:10px 12px; border-radius:14px;
+      background:rgba(15,23,42,.56); border:1px solid rgba(255,255,255,.08);
+      color:#e5e7eb; line-height:1.55; font-size:14px; font-weight:800;
     }
   </style>
 </head>
-
 <body>
   <div id="dbg">
     <div class="title">HYDRATION DEBUG</div>
@@ -135,6 +93,7 @@ FULL v20260307-HYDRATION-RUN-FULL
         <span class="chip">💧 WATER <span id="uiWater">0%</span></span>
         <span class="chip">🔥 COMBO <span id="uiCombo">0</span></span>
         <span class="chip">🛡️ SHIELD <span id="uiShield">0</span></span>
+        <span class="chip">🔥 FEVER <span id="uiFever">OFF</span></span>
         <span class="chip"><span id="uiPhase">—</span></span>
       </div>
 
@@ -168,7 +127,9 @@ FULL v20260307-HYDRATION-RUN-FULL
 
   <div class="stage" id="stage">
     <div id="stormFx" aria-hidden="true"></div>
+    <div id="feverFx" aria-hidden="true"></div>
     <div id="zoneSign" aria-hidden="true"></div>
+    <div id="streakToast" aria-hidden="true"></div>
 
     <div id="cvrZonePad" aria-hidden="true">
       <button id="btnZoneL" type="button">LEFT</button>
@@ -191,7 +152,7 @@ FULL v20260307-HYDRATION-RUN-FULL
         <p>3) เก็บ <b>🛡️ โล่</b> เพื่อกันฟ้าผ่าและกันของไม่ดี</p>
         <p>4) ตอน <b>STORM / BOSS / FINAL</b> ให้ดูป้าย <b>LEFT / RIGHT</b></p>
         <p>5) กันฟ้าผ่าได้เมื่อ <b>มีโล่ + อยู่ฝั่งถูก</b></p>
-        <p>6) ผ่านบอสแต่ละด่านด้วยการเก็บน้ำให้ครบเป้า</p>
+        <p>6) ถ้าเก็บน้ำต่อเนื่องจะเข้า <b>FEVER</b> และคะแนนจะแรงขึ้น</p>
       </div>
       <div class="actions">
         <button class="btn primary" id="btnHelpStart">เริ่มเล่น</button>
@@ -202,9 +163,7 @@ FULL v20260307-HYDRATION-RUN-FULL
   <div id="pauseOverlay" aria-hidden="true">
     <div class="overlay-card">
       <div class="overlay-title">Paused</div>
-      <div class="overlay-body">
-        <p>เกมหยุดชั่วคราว</p>
-      </div>
+      <div class="overlay-body"><p>เกมหยุดชั่วคราว</p></div>
       <div class="actions">
         <button class="btn primary" id="btnResume">Resume</button>
       </div>
