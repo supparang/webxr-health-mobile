@@ -1,13 +1,13 @@
-<!-- === /herohealth/groups-vr.html ===
+<!-- === /webxr-health-mobile/herohealth/groups-vr.html ===
 GroupsVR — LAUNCHER PAGE (canonical entry)
-FULL v20260311-GROUPS-LAUNCHER-CANONICAL-WARMUP
+FULL v20260311-GROUPS-LAUNCHER-CANONICAL-WARMUP-WEBXRROOT
 Flow:
-launcher /herohealth/groups-vr.html
--> /herohealth/warmup-gate.html?Phase=warmup
--> /herohealth/vr-groups/groups-vr.html
+launcher /webxr-health-mobile/herohealth/groups-vr.html
+-> /webxr-health-mobile/herohealth/warmup-gate.html?Phase=warmup
+-> /webxr-health-mobile/herohealth/vr-groups/groups-vr.html
 -> summary
--> /herohealth/warmup-gate.html?Phase=cooldown
--> hub
+-> /webxr-health-mobile/herohealth/warmup-gate.html?Phase=cooldown
+-> /webxr-health-mobile/herohealth/hub.html
 -->
 <!doctype html>
 <html lang="th">
@@ -184,9 +184,7 @@ launcher /herohealth/groups-vr.html
       align-items:end;
     }
 
-    .cat{
-      text-align:center;
-    }
+    .cat{ text-align:center; }
 
     .catBox{
       width:100%;
@@ -267,7 +265,6 @@ launcher /herohealth/groups-vr.html
       gap:6px;
       min-width:0;
     }
-
     .field.full{ grid-column:1 / -1; }
 
     label{
@@ -424,38 +421,19 @@ launcher /herohealth/groups-vr.html
           calc(12px + var(--sal));
       }
 
-      .heroInner{
-        padding:16px;
-      }
+      .heroInner{ padding:16px; }
+      .heroStats{ grid-template-columns:1fr; }
+      .formGrid{ grid-template-columns:1fr; }
+      .viewBtns{ grid-template-columns:1fr; }
 
-      .heroStats{
-        grid-template-columns:1fr;
-      }
-
-      .formGrid{
-        grid-template-columns:1fr;
-      }
-
-      .viewBtns{
-        grid-template-columns:1fr;
-      }
-
-      .catBoard{
-        gap:8px;
-      }
-
+      .catBoard{ gap:8px; }
       .catBox{
         max-width:56px;
         border-radius:14px;
       }
+      .catLabel{ font-size:9px; }
 
-      .catLabel{
-        font-size:9px;
-      }
-
-      .ctaRow button{
-        flex:1 1 100%;
-      }
+      .ctaRow button{ flex:1 1 100%; }
     }
   </style>
 </head>
@@ -585,6 +563,7 @@ launcher /herohealth/groups-vr.html
           <div class="ctaRow">
             <button class="primary" id="btnStart" type="button">เริ่มผ่าน Warmup</button>
             <button class="secondary" id="btnRefreshSeed" type="button">สุ่ม Seed ใหม่</button>
+            <button class="secondary" id="btnResetPrefs" type="button">ล้างค่าจำ</button>
             <button class="secondary" id="btnGoHub" type="button">กลับ HUB</button>
           </div>
         </div>
@@ -606,11 +585,11 @@ launcher /herohealth/groups-vr.html
             </div>
             <div class="helpItem">
               <b>Run Page จริง</b>
-              <span>หน้าเกมจริงคือ <code>/herohealth/vr-groups/groups-vr.html</code> ไม่ใช่ canonical entry แรก</span>
+              <span>หน้าเกมจริงคือ <code>/webxr-health-mobile/herohealth/vr-groups/groups-vr.html</code> ไม่ใช่ canonical entry แรก</span>
             </div>
             <div class="helpItem">
               <b>Cooldown</b>
-              <span>หลัง summary ปุ่มหลัก “ไปต่อ” จะส่งกลับไป <code>/herohealth/warmup-gate.html?Phase=cooldown</code></span>
+              <span>หลัง summary ปุ่มหลัก “ไปต่อ” จะส่งกลับไป <code>/webxr-health-mobile/herohealth/warmup-gate.html?Phase=cooldown</code></span>
             </div>
           </div>
 
@@ -625,6 +604,9 @@ launcher /herohealth/groups-vr.html
   <script>
     (() => {
       'use strict';
+
+      const ROOT = '/webxr-health-mobile/herohealth';
+      const PREF_KEY = 'HHA_GROUPS_LAUNCHER_PREFS';
 
       const qs = (k, d='') => {
         try { return new URL(location.href).searchParams.get(k) ?? d; }
@@ -648,6 +630,7 @@ launcher /herohealth/groups-vr.html
       const btnStartPC     = $('#btnStartPC');
       const btnStartCVR    = $('#btnStartCVR');
       const btnRefreshSeed = $('#btnRefreshSeed');
+      const btnResetPrefs  = $('#btnResetPrefs');
       const btnGoHub       = $('#btnGoHub');
 
       function makeAbs(path){
@@ -656,7 +639,7 @@ launcher /herohealth/groups-vr.html
 
       function loadLauncherPrefs(){
         try{
-          return JSON.parse(localStorage.getItem('HHA_GROUPS_LAUNCHER_PREFS') || '{}') || {};
+          return JSON.parse(localStorage.getItem(PREF_KEY) || '{}') || {};
         }catch(_){
           return {};
         }
@@ -664,8 +647,18 @@ launcher /herohealth/groups-vr.html
 
       function saveLauncherPrefs(params){
         try{
-          localStorage.setItem('HHA_GROUPS_LAUNCHER_PREFS', JSON.stringify(params));
+          localStorage.setItem(PREF_KEY, JSON.stringify(params));
         }catch(_){}
+      }
+
+      function clearLauncherPrefs(){
+        try{
+          localStorage.removeItem(PREF_KEY);
+        }catch(_){}
+      }
+
+      function defaultHub(){
+        return makeAbs(`${ROOT}/hub.html`);
       }
 
       function refreshSeed(){
@@ -682,7 +675,7 @@ launcher /herohealth/groups-vr.html
         viewEl.value = qs('view', saved.view || 'mobile');
         timeEl.value = qs('time', saved.time || '80');
         seedEl.value = qs('seed', saved.seed || String(Date.now()));
-        hubEl.value  = qs('hub',  saved.hub  || makeAbs('/herohealth/hub.html'));
+        hubEl.value  = qs('hub',  saved.hub  || defaultHub());
       }
 
       function collectLauncherParams(){
@@ -695,13 +688,13 @@ launcher /herohealth/groups-vr.html
         const time = Number.isFinite(timeRaw) ? Math.max(30, Math.min(180, Math.round(timeRaw))) : 80;
 
         const seed = String(seedEl.value || Date.now());
-        const hub  = (hubEl.value || makeAbs('/herohealth/hub.html')).trim() || makeAbs('/herohealth/hub.html');
+        const hub  = (hubEl.value || defaultHub()).trim() || defaultHub();
 
         return { pid, run, diff, time, seed, view, hub };
       }
 
       function buildRunUrl(params){
-        const run = new URL('/herohealth/vr-groups/groups-vr.html', location.origin);
+        const run = new URL(`${ROOT}/vr-groups/groups-vr.html`, location.origin);
 
         run.searchParams.set('pid', params.pid);
         run.searchParams.set('run', params.run);
@@ -717,7 +710,7 @@ launcher /herohealth/groups-vr.html
       }
 
       function buildWarmupUrl(params){
-        const warm = new URL('/herohealth/warmup-gate.html', location.origin);
+        const warm = new URL(`${ROOT}/warmup-gate.html`, location.origin);
 
         warm.searchParams.set('Phase', 'warmup');
         warm.searchParams.set('cat', 'nutrition');
@@ -741,11 +734,11 @@ launcher /herohealth/groups-vr.html
         const warmUrl = buildWarmupUrl(params);
 
         previewBox.textContent =
-          '[params]\n' +
+          '[params]\\n' +
           JSON.stringify(params, null, 2) +
-          '\n\n[warmup]\n' +
+          '\\n\\n[warmup]\\n' +
           warmUrl +
-          '\n\n[next run]\n' +
+          '\\n\\n[next run]\\n' +
           runUrl;
       }
 
@@ -773,8 +766,13 @@ launcher /herohealth/groups-vr.html
       btnStartCVR?.addEventListener('click', () => goStart('cvr'));
 
       btnRefreshSeed?.addEventListener('click', refreshSeed);
+      btnResetPrefs?.addEventListener('click', () => {
+        clearLauncherPrefs();
+        prefillLauncher();
+        updatePreview();
+      });
       btnGoHub?.addEventListener('click', () => {
-        location.href = hubEl.value || makeAbs('/herohealth/hub.html');
+        location.href = hubEl.value || defaultHub();
       });
 
       prefillLauncher();
