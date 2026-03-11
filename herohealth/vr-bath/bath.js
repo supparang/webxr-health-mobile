@@ -1,59 +1,57 @@
 'use strict';
 
-window.__BATH_BOOT_OK__ = false;
-console.log('[Bath] script loaded', location.href);
+const W = window;
+const D = document;
 
-const W = window, D = document;
-const qs = (k, d='')=>{ try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(e){ return d; } };
-const qbool = (k,d=false)=>{ const v=String(qs(k,d?'1':'0')).toLowerCase(); return ['1','true','yes','y','on'].includes(v); };
-const clamp=(v,a,b)=>Math.max(a,Math.min(b, Number(v)||0));
+const qs = (k, d='')=>{
+  try{ return (new URL(location.href)).searchParams.get(k) ?? d; }
+  catch(e){ return d; }
+};
+const qbool = (k,d=false)=>{
+  const v = String(qs(k,d?'1':'0')).toLowerCase();
+  return ['1','true','yes','y','on'].includes(v);
+};
+const clamp = (v,a,b)=> Math.max(a, Math.min(b, Number(v)||0));
 const now = ()=> (performance && performance.now) ? performance.now() : Date.now();
 const isoNow = ()=> new Date().toISOString();
 
-function cleanHubUrl(raw){
-  raw = String(raw || '../hub.html').trim();
-  raw = raw.replace(/[.]+$/, '');
-  return raw || '../hub.html';
-}
-
 function mulberry32(seed){
-  let t=seed>>>0;
+  let t = seed >>> 0;
   return ()=>{
-    t+=0x6D2B79F5;
-    let r=Math.imul(t^(t>>>15),1|t);
-    r^=r+Math.imul(r^(r>>>7),61|r);
-    return ((r^(r>>>14))>>>0)/4294967296;
+    t += 0x6D2B79F5;
+    let r = Math.imul(t ^ (t >>> 15), 1 | t);
+    r ^= r + Math.imul(r ^ (r >>> 7), 61 | r);
+    return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
   };
 }
 function seedFrom(str){
-  let h=2166136261>>>0;
-  const s=String(str||'');
+  let h = 2166136261 >>> 0;
+  const s = String(str || '');
   for(let i=0;i<s.length;i++){
-    h^=s.charCodeAt(i);
-    h=Math.imul(h,16777619);
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
   }
-  return h>>>0;
+  return h >>> 0;
 }
-const avg = (a)=> (!a||!a.length)?0:a.reduce((x,y)=>x+y,0)/a.length;
-const std = (a)=>{
-  if(!a||a.length<2) return 0;
-  const m=avg(a);
-  const v=a.reduce((s,x)=>s+(x-m)*(x-m),0)/(a.length-1);
+const avg = a => (!a || !a.length) ? 0 : a.reduce((x,y)=>x+y,0)/a.length;
+const std = a => {
+  if(!a || a.length < 2) return 0;
+  const m = avg(a);
+  const v = a.reduce((s,x)=>s + (x-m)*(x-m), 0) / (a.length - 1);
   return Math.sqrt(Math.max(0,v));
 };
-const clamp01 = (x)=>Math.max(0,Math.min(1,x));
+const clamp01 = x => Math.max(0, Math.min(1, x));
 
-const RUN = String(qs('run','play')).toLowerCase();
+const RUN  = String(qs('run','play')).toLowerCase();
 const DIFF = String(qs('diff','normal')).toLowerCase();
-const TIME = clamp(qs('time','90'), 45, 180);
+const TIME = clamp(qs('time','80'), 45, 180);
 const PID  = String(qs('pid','anon'));
 const SEED = String(qs('seed', String(Date.now())));
-const HUB  = cleanHubUrl(qs('hub','../hub.html'));
-const LOG_ON = qbool('log', false);
-const API = String(qs('api',''));
-const PRO = qbool('pro', false);
+const HUB  = String(qs('hub','../hub.html'));
+const PRO  = qbool('pro', false);
+const VIEW_QS = String(qs('view','mobile'));
 
-const rng = mulberry32(seedFrom(`${PID}|${SEED}|bath|${DIFF}|${PRO?1:0}`));
+const rng = mulberry32(seedFrom(`${PID}|${SEED}|bath-hero|${DIFF}|${PRO?1:0}`));
 
 const UI = {
   phasePill: D.getElementById('phasePill'),
@@ -67,17 +65,20 @@ const UI = {
   riskPill: D.getElementById('riskPill'),
   meterPill: D.getElementById('meterPill'),
   viewPill: D.getElementById('viewPill'),
-  proPill: D.getElementById('proPill'),
+  comboPill: D.getElementById('comboPill'),
+  bossPill: D.getElementById('bossPill'),
   coachPill: D.getElementById('coachPill'),
   fatiguePill: D.getElementById('fatiguePill'),
   steadyPill: D.getElementById('steadyPill'),
   pressurePill: D.getElementById('pressurePill'),
   progressBar: D.getElementById('progressBar'),
+  readyBar: D.getElementById('readyBar'),
+  feverBar: D.getElementById('feverBar'),
 
+  bodyWrap: D.getElementById('body-wrap'),
   targetLayer: D.getElementById('target-layer'),
   stateLayer: D.getElementById('state-layer'),
   guideLayer: D.getElementById('guide-layer'),
-  bodyWrap: D.getElementById('body-wrap'),
   silhouetteOverlay: D.getElementById('silhouette-overlay'),
   toolCursor: D.getElementById('tool-cursor'),
 
@@ -86,11 +87,16 @@ const UI = {
   btnFlip: D.getElementById('btnFlip'),
   btnHelp: D.getElementById('btnHelp'),
   btnCloseHelp: D.getElementById('btnCloseHelp'),
+  btnReadyStart: D.getElementById('btnReadyStart'),
+  btnReadyLearn: D.getElementById('btnReadyLearn'),
+  panelReady: D.getElementById('panelReady'),
   panelHelp: D.getElementById('panelHelp'),
 
   panelQuiz: D.getElementById('panelQuiz'),
   quizBody: D.getElementById('quizBody'),
   btnQuizNext: D.getElementById('btnQuizNext'),
+
+  phaseBanner: D.getElementById('phaseBanner'),
 
   panelEnd: D.getElementById('panelEnd'),
   endSummary: D.getElementById('endSummary'),
@@ -104,6 +110,7 @@ const UI = {
   btnPlayPlan: D.getElementById('btnPlayPlan'),
   btnReplay: D.getElementById('btnReplay'),
   btnCooldown: D.getElementById('btnCooldown'),
+  btnExport: D.getElementById('btnExport'),
   btnBack: D.getElementById('btnBack'),
 
   aiTipPill: D.getElementById('aiTipPill'),
@@ -120,510 +127,392 @@ const UI = {
   baAfterClean: D.getElementById('baAfterClean'),
 
   badgeShelf: D.getElementById('badgeShelf'),
-  teacherSummary: D.getElementById('teacherSummary'),
-  btnExport: D.getElementById('btnExport')
+  teacherSummary: D.getElementById('teacherSummary')
 };
 
-async function safePost(url, payload){
-  try{
-    if(!LOG_ON || !url) return;
-    await fetch(url, {
-      method:'POST',
-      headers:{'content-type':'application/json'},
-      body: JSON.stringify(payload),
-      keepalive:true
-    });
-  }catch(e){}
-}
-function studentMeta(){
-  const q = (k)=> String(qs(k,'')||'');
-  return {
-    studentKey: q('studentKey') || PID,
-    schoolCode: q('schoolCode'),
-    schoolName: q('schoolName'),
-    classRoom: q('classRoom'),
-    studentNo: q('studentNo'),
-    nickName: q('nickName'),
-    gender: q('gender'),
-    age: q('age'),
-    gradeLevel: q('gradeLevel')
-  };
-}
-function baseCtx(sessionId){
-  return {
-    timestampIso: isoNow(),
-    projectTag: String(qs('projectTag','HeroHealth')),
-    runMode: String(qs('runMode', RUN)),
-    studyId: String(qs('studyId','')),
-    phase: String(qs('phase','')),
-    conditionGroup: String(qs('conditionGroup','')),
-    sessionId,
-    gameMode: RUN,
-    diff: DIFF,
-    ...studentMeta()
-  };
-}
-function logEvent(sessionId, eventType, extra={}){
-  safePost(API, {
-    table:'events',
-    ...baseCtx(sessionId),
-    eventType,
-    timeFromStartMs: Math.round(now() - S.startMs),
-    extra: JSON.stringify(extra||{})
-  });
-}
+const PHASES = ['PREP','WET','SOAP','SCRUB','RINSE','DRY','DRESS','END'];
+const QUIZ = [
+  { q:'ลำดับที่ถูกต้องควรเริ่มจากอะไร?', a:['ฟอกสบู่', 'ทำให้เปียกก่อน'], correct:1 },
+  { q:'ถ้ายังมีฟองค้าง ควรทำอะไร?', a:['ล้างออกให้หมด', 'ใส่เสื้อเลย'], correct:0 },
+  { q:'ซอกนิ้วเท้าหลังอาบน้ำควรทำอย่างไร?', a:['เช็ดให้แห้ง', 'ปล่อยไว้'], correct:0 }
+];
+const REASONS = [
+  { id:'skip', label:'ฉันข้ามขั้น' },
+  { id:'fast', label:'ฉันรีบเกินไป' },
+  { id:'soap', label:'ฉันใช้สบู่/ฟองไม่พอ' },
+  { id:'boss', label:'ฉันพลาดจุดอับสำคัญ' }
+];
+const IMPROVES = [
+  { id:'wet', label:'ทำให้เปียกทั่วก่อน' },
+  { id:'rinse', label:'ล้างฟองให้หมด' },
+  { id:'dry', label:'เช็ดจุดอับให้แห้ง' },
+  { id:'boss', label:'ถูจุดอับให้ครบ' }
+];
 
-let FX=null, MISS=null;
-(async ()=>{
-  try{ FX = (await import('./bath.fx.js?v=20260308b')).bootFx(); }catch(e){ console.warn('[Bath] bath.fx import failed', e); }
-  try{
-    MISS = (await import('./bath.missions.js?v=20260308b')).bootMissions({
-      warmNeed: PRO ? 5 : 4,
-      trickNeed: PRO ? 6 : 4,
-      bossNeed: 1
-    });
-  }catch(e){
-    console.warn('[Bath] bath.missions import failed', e);
-  }
-})();
+const TOOL_LABEL = {
+  water:'น้ำ',
+  soap:'สบู่',
+  scrub:'ถูจุดอับ',
+  rinse:'ล้างฟอง',
+  towel:'ผ้าขนหนู',
+  dress:'เสื้อ'
+};
 
 const SPOTS = {
   front: [
-    { id:'earL', label:'หลังหูซ้าย', x:36, y:14, hard:3, boss:true },
-    { id:'earR', label:'หลังหูขวา', x:64, y:14, hard:3, boss:true },
-    { id:'neck', label:'คอ', x:50, y:22, hard:3 },
-    { id:'armpitL', label:'รักแร้ซ้าย', x:28, y:34, hard:4, boss:true },
-    { id:'armpitR', label:'รักแร้ขวา', x:72, y:34, hard:4, boss:true },
-    { id:'elbowL', label:'ข้อพับแขนซ้าย', x:20, y:44, hard:3 },
-    { id:'elbowR', label:'ข้อพับแขนขวา', x:80, y:44, hard:3 },
-    { id:'kneeL', label:'ข้อพับขาซ้าย', x:44, y:74, hard:3 },
-    { id:'kneeR', label:'ข้อพับขาขวา', x:56, y:74, hard:3 },
-    { id:'toeL', label:'ซอกนิ้วเท้าซ้าย', x:46, y:92, hard:4, boss:true },
-    { id:'toeR', label:'ซอกนิ้วเท้าขวา', x:54, y:92, hard:4, boss:true },
+    { id:'neck', label:'คอ', x:50, y:22, hard:2, boss:false, part:'torso' },
+    { id:'armpitL', label:'รักแร้ซ้าย', x:30, y:34, hard:3, boss:true, part:'armL' },
+    { id:'armpitR', label:'รักแร้ขวา', x:70, y:34, hard:3, boss:true, part:'armR' },
+    { id:'elbowL', label:'ข้อพับแขนซ้าย', x:20, y:46, hard:2, boss:false, part:'armL' },
+    { id:'elbowR', label:'ข้อพับแขนขวา', x:80, y:46, hard:2, boss:false, part:'armR' },
+    { id:'kneeL', label:'ข้อพับขาซ้าย', x:46, y:73, hard:2, boss:false, part:'legL' },
+    { id:'kneeR', label:'ข้อพับขาขวา', x:54, y:73, hard:2, boss:false, part:'legR' },
+    { id:'toeL', label:'ซอกนิ้วเท้าซ้าย', x:46, y:93, hard:4, boss:true, part:'legL' },
+    { id:'toeR', label:'ซอกนิ้วเท้าขวา', x:54, y:93, hard:4, boss:true, part:'legR' }
   ],
   back: [
-    { id:'backNeck', label:'ท้ายทอย', x:50, y:18, hard:3 },
-    { id:'backL', label:'หลังซ้าย', x:42, y:36, hard:3 },
-    { id:'backR', label:'หลังขวา', x:58, y:36, hard:3 },
-    { id:'waist', label:'เอว', x:50, y:52, hard:4, boss:true },
-    { id:'behindKneeL', label:'หลังเข่าซ้าย', x:44, y:76, hard:3 },
-    { id:'behindKneeR', label:'หลังเข่าขวา', x:56, y:76, hard:3 },
-    { id:'heelL', label:'ส้นเท้าซ้าย', x:46, y:94, hard:3 },
-    { id:'heelR', label:'ส้นเท้าขวา', x:54, y:94, hard:3 },
+    { id:'earL', label:'หลังหูซ้าย', x:40, y:14, hard:3, boss:true, part:'head' },
+    { id:'earR', label:'หลังหูขวา', x:60, y:14, hard:3, boss:true, part:'head' },
+    { id:'backNeck', label:'ท้ายทอย', x:50, y:18, hard:2, boss:false, part:'head' },
+    { id:'backL', label:'หลังซ้าย', x:42, y:36, hard:2, boss:false, part:'torso' },
+    { id:'backR', label:'หลังขวา', x:58, y:36, hard:2, boss:false, part:'torso' },
+    { id:'waist', label:'เอว', x:50, y:52, hard:3, boss:true, part:'torso' },
+    { id:'behindKneeL', label:'หลังเข่าซ้าย', x:44, y:76, hard:3, boss:true, part:'legL' },
+    { id:'behindKneeR', label:'หลังเข่าขวา', x:56, y:76, hard:3, boss:true, part:'legR' },
+    { id:'heelL', label:'ส้นเท้าซ้าย', x:46, y:94, hard:2, boss:false, part:'legL' },
+    { id:'heelR', label:'ส้นเท้าขวา', x:54, y:94, hard:2, boss:false, part:'legR' }
   ]
 };
 
-const SPOT_HINT = {
-  earL:'หลังหูมีเหงื่อและคราบสะสมได้',
-  earR:'หลังหูมีเหงื่อและคราบสะสมได้',
-  neck:'คอมีเหงื่อและฝุ่นสะสม',
-  armpitL:'รักแร้เป็นจุดอับ ควรถูให้สะอาด',
-  armpitR:'รักแร้เป็นจุดอับ ควรถูให้สะอาด',
+const HINTS = {
+  neck:'คอมีเหงื่อสะสมได้ ควรล้างให้ทั่ว',
+  armpitL:'รักแร้เป็นจุดอับ ต้องถูให้สะอาด',
+  armpitR:'รักแร้เป็นจุดอับ ต้องถูให้สะอาด',
   elbowL:'ข้อพับแขนมีเหงื่อสะสมได้',
   elbowR:'ข้อพับแขนมีเหงื่อสะสมได้',
   kneeL:'ข้อพับขาเป็นจุดอับ ควรถูให้ทั่ว',
   kneeR:'ข้อพับขาเป็นจุดอับ ควรถูให้ทั่ว',
-  toeL:'ซอกนิ้วเท้าถ้าไม่ล้างและเช็ดให้แห้ง เสี่ยงเชื้อรา',
-  toeR:'ซอกนิ้วเท้าถ้าไม่ล้างและเช็ดให้แห้ง เสี่ยงเชื้อรา',
+  toeL:'ซอกนิ้วเท้าต้องล้างและเช็ดให้แห้ง',
+  toeR:'ซอกนิ้วเท้าต้องล้างและเช็ดให้แห้ง',
+  earL:'หลังหูเป็นจุดอับที่มักลืมล้าง',
+  earR:'หลังหูเป็นจุดอับที่มักลืมล้าง',
   backNeck:'ท้ายทอยมีเหงื่อสะสมได้',
-  backL:'แผ่นหลังมีเหงื่อและคราบ',
-  backR:'แผ่นหลังมีเหงื่อและคราบ',
-  waist:'บริเวณเอวเป็นจุดอับ',
-  behindKneeL:'หลังเข่าเป็นจุดอับ ควรถูให้ดี',
-  behindKneeR:'หลังเข่าเป็นจุดอับ ควรถูให้ดี',
-  heelL:'ส้นเท้าควรล้างและเช็ดให้แห้ง',
-  heelR:'ส้นเท้าควรล้างและเช็ดให้แห้ง'
+  backL:'หลังมีเหงื่อและคราบ',
+  backR:'หลังมีเหงื่อและคราบ',
+  waist:'เอวเป็นจุดอับที่ควรถูให้ดี',
+  behindKneeL:'หลังเข่าเป็นจุดอับ ควรล้างและเช็ดให้แห้ง',
+  behindKneeR:'หลังเข่าเป็นจุดอับ ควรล้างและเช็ดให้แห้ง',
+  heelL:'ส้นเท้าควรล้างและเช็ดให้สะอาด',
+  heelR:'ส้นเท้าควรล้างและเช็ดให้สะอาด'
 };
 
-const SPOT_SHORT_TH = {
-  earL:'หลังหู',
-  earR:'หลังหู',
-  neck:'คอ',
-  armpitL:'รักแร้',
-  armpitR:'รักแร้',
-  elbowL:'ข้อพับแขน',
-  elbowR:'ข้อพับแขน',
-  kneeL:'ข้อพับขา',
-  kneeR:'ข้อพับขา',
-  toeL:'ซอกนิ้วเท้า',
-  toeR:'ซอกนิ้วเท้า',
-  backNeck:'ท้ายทอย',
-  backL:'หลัง',
-  backR:'หลัง',
-  waist:'เอว',
-  behindKneeL:'หลังเข่า',
-  behindKneeR:'หลังเข่า',
-  heelL:'ส้นเท้า',
-  heelR:'ส้นเท้า'
+const S = {
+  sessionId: `bath_${PID}_${Date.now()}`,
+  started:false,
+  ended:false,
+  mode:'standard',
+  phase:0,
+  phaseStartedAt:0,
+  view:'front',
+  timeLeft:TIME,
+
+  cleanScore:0,
+  residue:15,
+  fungusRisk:10,
+  sweat:0,
+  readyPct:0,
+  fever:0,
+
+  combo:0,
+  comboMax:0,
+  feverOn:false,
+
+  rtGood:[],
+  rtEarly:[],
+  rtLate:[],
+  pressureBurst:0,
+  fatiguePct:0,
+  steadyPct:100,
+  pressurePct:0,
+
+  foamPower:0,
+  wetHits:0,
+  rinseHits:0,
+  dryHits:0,
+  fakeHits:0,
+  oilHits:0,
+  bossHits:0,
+  bossFails:0,
+
+  dragging:false,
+  dragKind:'',
+  dragSeen:new Set(),
+
+  spotState:{},
+  wetMap:{},
+  foamMap:{},
+  dryMap:{},
+  targets:new Map(),
+  tid:0,
+
+  bossActive:false,
+  bossHp:0,
+  bossMax:0,
+  bossSpotId:'',
+  bossDeadline:0,
+
+  quizIndex:0,
+  quizCorrect:0,
+  selfReason:'',
+  selfRating:0,
+  improvePick:'',
+
+  beforeStats:{ residue:15, risk:10, sweat:0, clean:0 },
+  aiSnapshot:null,
+  plan:[]
 };
-function spotThaiLabel(spotId){
-  if (!spotId) return '';
-  return SPOT_SHORT_TH[spotId] || spotId;
-}
-function shouldShowSpotTag(kind, spotId){
-  if (!spotId) return false;
-  if (kind === 'boss' || kind === 'warn') return true;
-  if (kind === 'good' && (PHASES[S.phase] === 'SOAP' || PHASES[S.phase] === 'SCRUB')) return true;
-  return false;
-}
 
-const PLAN_KEY = `HHA_BATH_PLAN::${PID}`;
-function loadPlan(view){
-  try{
-    const raw = localStorage.getItem(`${PLAN_KEY}:${view}`);
-    const a = JSON.parse(raw||'null');
-    const ids = (SPOTS[view]||[]).map(s=>s.id);
-    if (Array.isArray(a) && a.length && a.every(x=>ids.includes(x))) return a.slice();
-  }catch(e){}
-  return (SPOTS[view]||[]).slice().sort((a,b)=>(b.boss?1:0)-(a.boss?1:0)).map(s=>s.id);
+function currentSpots(){
+  return SPOTS[S.view] || [];
 }
-function savePlan(view, plan){
-  try{ localStorage.setItem(`${PLAN_KEY}:${view}`, JSON.stringify(plan)); }catch(e){}
+function resetSpotState(){
+  S.spotState = {};
+  S.wetMap = {};
+  S.foamMap = {};
+  S.dryMap = {};
+  currentSpots().forEach(sp=>{
+    S.spotState[sp.id] = { cleared:false, hits:0, misses:0, need:sp.hard, boss:!!sp.boss };
+    S.wetMap[sp.id] = 0;
+    S.foamMap[sp.id] = 0;
+    S.dryMap[sp.id] = 0;
+  });
+  S.plan = currentSpots().map(s=>s.id);
 }
-
-const TOOLS = [
-  { id:'soap', label:'สบู่', foamGain: 10, scrubBonus: 0.0 },
-  { id:'sponge', label:'ฟองน้ำ', foamGain: 6, scrubBonus: 0.15 },
-  { id:'shampoo', label:'แชมพู', foamGain: 8, scrubBonus: 0.08 },
-];
-
-function isLearnMode(){
-  return String(S.mode || '').toLowerCase() === 'learn';
+function setCoach(text){
+  if(UI.coachPill) UI.coachPill.textContent = `COACH: ${text}`.slice(0, 96);
 }
-function phaseThai(p){
+function phaseName(p){
   const map = {
     PREP:'เตรียมตัว',
     WET:'ทำให้เปียก',
-    SOAP:'ฟอกสบู่',
+    SOAP:'ใช้สบู่',
     SCRUB:'ถูจุดอับ',
     RINSE:'ล้างฟอง',
     DRY:'เช็ดให้แห้ง',
     DRESS:'ใส่เสื้อ',
     END:'สรุปผล'
   };
-  return map[p] || 'พร้อมเริ่ม';
+  return map[p] || '—';
 }
-function toolThai(t){
-  const map = { soap:'สบู่', sponge:'ฟองน้ำ', shampoo:'แชมพู' };
-  return map[t] || t;
+function currentToolLabel(){
+  const p = PHASES[S.phase];
+  if(p === 'WET') return TOOL_LABEL.water;
+  if(p === 'SOAP') return TOOL_LABEL.soap;
+  if(p === 'SCRUB') return TOOL_LABEL.scrub;
+  if(p === 'RINSE') return TOOL_LABEL.rinse;
+  if(p === 'DRY') return TOOL_LABEL.towel;
+  if(p === 'DRESS') return TOOL_LABEL.dress;
+  return '—';
 }
-function explainMistake(reason){
-  const map = {
-    wrong_wet:'ตอนนี้ต้องทำให้เปียกก่อน ยังไม่ควรทำขั้นอื่น',
-    no_foam:'ฟองไม่พอ ต้องใช้สบู่ก่อนถู',
-    fake_bubble:'อันนี้เป็นฟองหลอก ไม่ช่วยให้สะอาด',
-    wrong_scrub:'ตอนนี้ต้องถูจุดอับ ไม่ใช่กดอย่างอื่น',
-    oil_decoy:'คราบมันทำให้สกปรกเพิ่ม ต้องระวัง',
-    wrong_rinse:'ตอนนี้ต้องล้างฟองออกให้หมด',
-    wrong_dry:'ตอนนี้ต้องเช็ดตัวให้แห้ง',
-    wrong_dress:'ยังใส่เสื้อไม่ได้ เพราะยังไม่พร้อม',
-  };
-  return map[reason] || 'ลองทำตามขั้นตอนปัจจุบันอีกครั้ง';
+function phaseQuest(){
+  const p = PHASES[S.phase];
+  if(p === 'WET') return 'ลากน้ำให้เปียกทั่ว';
+  if(p === 'SOAP') return 'เก็บฟองจริง ระวังฟองหลอก';
+  if(p === 'SCRUB') return 'เคลียร์จุดอับสำคัญ';
+  if(p === 'RINSE') return 'ล้างฟองออกให้หมด';
+  if(p === 'DRY') return 'เช็ดตัวให้แห้ง โดยเฉพาะจุดอับ';
+  if(p === 'DRESS') return 'ใส่เสื้อเมื่อพร้อมจริง';
+  return 'ช่วยอาบน้ำให้พร้อมออกไป';
 }
-
-const PHASES = ['PREP','WET','SOAP','SCRUB','RINSE','DRY','DRESS','END'];
-const EM = { water:'💧', foam:'🫧', fake:'🫧', shimmer:'✨', towel:'🧻', shirt:'👕', boss:'😷', oil:'🛢️' };
-
-const QUIZ = [
-  { q:'ลำดับที่ถูกต้องควรเริ่มจากอะไร?', a:['ฟอกสบู่', 'ทำให้เปียก (WET)'], correct:1 },
-  { q:'ถ้ารีบข้าม RINSE จะเกิดอะไร?', a:['ฟองค้าง', 'สะอาดขึ้น'], correct:0 },
-  { q:'จุดอับต้องทำยังไง?', a:['ถูซ้ำให้พอ', 'แตะครั้งเดียวพอ'], correct:0 }
-];
-const REASONS = [
-  { id:'skip', label:'ฉันข้ามขั้น' },
-  { id:'fast', label:'ฉันรีบเกินไป' },
-  { id:'tool', label:'ฉันใช้ฟอง/เครื่องมือไม่พอ' },
-  { id:'boss', label:'ฉันแพ้บอส' },
-];
-const IMPROVES = [
-  { id:'wet', label:'ทำ WET ให้ครบก่อน' },
-  { id:'rinse', label:'อย่าข้าม RINSE' },
-  { id:'focusBoss', label:'โฟกัสจุดอับที่ยาก' },
-  { id:'slow', label:'ช้าลงนิดเพื่อความแม่น' },
-];
-
-const S = {
-  sessionId: `bath_${PID}_${Date.now()}`,
-  started:false, ended:false,
-  phase:0,
-  view:'front',
-  tool:'soap',
-  timeLeft: TIME,
-  startMs: 0,
-  lastFrameMs:0,
-  lastSpawnMs:0,
-
-  dragging:false,
-  dragKind:'',
-  dragHits:new Set(),
-  lastDragAt:0,
-
-  foam: 0,
-  sweat: 0,
-  residue: 15,
-  fungusRisk: 10,
-  cleanScore: 0,
-
-  wetMap:{},
-  foamMap:{},
-  dryMap:{},
-
-  spot: {},
-  targets: new Map(),
-  tidSeq:0,
-
-  rtGood: [], rtEarly: [], rtLate: [],
-  missTimes: [], pressureBurst:0,
-  combo:0, comboMax:0,
-  steadyPct:100, fatiguePct:0, pressurePct:0,
-
-  quizIndex:0, quizCorrect:0,
-  selfReason:'', selfRating:0, improvePick:'',
-  mode:'standard',
-  plan: loadPlan('front'),
-  planCursor:0,
-
-  bossActive:false,
-  bossHp:0,
-  bossDeadline:0,
-  bossSpotId:null,
-
-  fakeHits:0,
-  oilHits:0,
-  foamSpent:0,
-  rinseHits:0,
-  wetHits:0,
-  dryHits:0,
-  bossHits:0,
-  bossFails:0,
-
-  lastCoachMs:0,
-  aiSnapshot:null,
-
-  dragTraceCount:0,
-  dragDistinctSpots:new Set(),
-  dragPhaseScore:{ wet:0, rinse:0, dry:0 },
-
-  beforeStats:{ residue:15, risk:10, sweat:0, clean:0 },
-};
-
-function resetBodyMaps(){
-  S.wetMap = {};
-  S.foamMap = {};
-  S.dryMap = {};
-  (SPOTS[S.view] || []).forEach(sp=>{
-    S.wetMap[sp.id] = 0;
-    S.foamMap[sp.id] = 0;
-    S.dryMap[sp.id] = 0;
-  });
+function showPhaseBanner(text){
+  if(!UI.phaseBanner) return;
+  UI.phaseBanner.textContent = text;
+  UI.phaseBanner.classList.remove('hidden');
+  clearTimeout(showPhaseBanner._tm);
+  showPhaseBanner._tm = setTimeout(()=>{
+    UI.phaseBanner.classList.add('hidden');
+  }, 1300);
 }
-function resetSpotStats(){
-  S.spot = {};
-  (SPOTS[S.view]||[]).forEach(sp=>{
-    S.spot[sp.id] = { spawn:0, hit:0, miss:0, cleared:0, need: sp.hard, lastSeenMs:0, boss:!!sp.boss };
-  });
-}
-function tuneByDiff(){
-  S.timeLeft = TIME;
-  if (PRO) S.timeLeft = clamp(TIME, 60, 180);
-}
-
-function computeMastery(){
-  const list = SPOTS[S.view] || [];
-  const total = list.length || 1;
-  const cleared = list.reduce((a,sp)=>a + (S.spot[sp.id]?.cleared ? 1 : 0), 0);
-  const coveragePct = Math.round((cleared / total) * 100);
-
-  const missionDone = !!(MISS && MISS.done && MISS.done());
-  const rinsePass = S.residue <= (PRO ? 16 : 18);
-  const dryPass = S.fungusRisk <= (PRO ? 22 : 25);
-  const bossPass = missionDone && S.bossFails === 0;
-  const pass = missionDone && rinsePass && dryPass && bossPass;
-
-  return { pass, missionDone, rinsePass, dryPass, bossPass, coveragePct };
-}
-
-function computeRubric(){
-  const mastery = computeMastery();
-  const pass = mastery.pass && mastery.coveragePct >= 80;
-  return {
-    pass,
-    cov: mastery.coveragePct,
-    residue: Math.round(S.residue),
-    risk: Math.round(S.fungusRisk),
-    missionDone: mastery.missionDone,
-    bossPass: mastery.bossPass,
-    rinsePass: mastery.rinsePass,
-    dryPass: mastery.dryPass
-  };
-}
-
-function dragQuality(){
-  const wetQ = Math.min(100, Math.round((S.dragPhaseScore.wet || 0) * 8));
-  const rinseQ = Math.min(100, Math.round((S.dragPhaseScore.rinse || 0) * 10));
-  const dryQ = Math.min(100, Math.round((S.dragPhaseScore.dry || 0) * 10));
-  const distinct = S.dragDistinctSpots ? S.dragDistinctSpots.size : 0;
-  const coverageBonus = Math.min(20, distinct);
-  return {
-    wet: Math.min(100, wetQ + Math.round(coverageBonus * 0.5)),
-    rinse: Math.min(100, rinseQ + Math.round(coverageBonus * 0.4)),
-    dry: Math.min(100, dryQ + Math.round(coverageBonus * 0.4))
-  };
-}
-
-function learningSummary(){
-  const points = [];
-  const dq = dragQuality();
-
-  if (S.residue > 18) points.push('หนูยังล้างฟองออกไม่หมด');
-  else points.push('หนูล้างฟองออกได้ดี');
-
-  if (S.fungusRisk > 25) points.push('หนูยังเช็ดตัวไม่แห้งพอ โดยเฉพาะจุดอับ');
-  else points.push('หนูเช็ดตัวได้แห้งดี ลดความเสี่ยงอับชื้น');
-
-  if (S.bossFails > 0) points.push('จุดอับสำคัญยังต้องฝึกเพิ่ม');
-  else points.push('หนูจัดการจุดอับสำคัญได้ดี');
-
-  if (!computeMastery().missionDone) points.push('รอบหน้าควรทำตามลำดับให้ครบทุกช่วง');
-  else points.push('หนูทำตามลำดับการอาบน้ำได้ดี');
-
-  if (dq.wet < 45) points.push('หนูยังทำให้ตัวเปียกไม่ทั่วพอ');
-  else points.push('หนูทำให้ตัวเปียกได้ทั่วดี');
-
-  if (dq.rinse < 45) points.push('หนูยังล้างฟองออกไม่ทั่ว');
-  if (dq.dry < 45) points.push('หนูยังเช็ดตัวไม่ทั่ว โดยเฉพาะจุดอับ');
-
-  return points;
-}
-
 function updatePhysicalProxy(){
   const early = avg(S.rtEarly), late = avg(S.rtLate);
   const drift = (S.rtEarly.length>=3 && S.rtLate.length>=3) ? (late-early) : 0;
   const rtStd = std(S.rtGood);
   const stead = clamp01(1 - (rtStd/420) - (S.pressureBurst/8));
-  const press = clamp01((S.pressureBurst/4) + (S.sweat/260) + (S.fungusRisk/260));
+  const press = clamp01((S.pressureBurst/5) + (S.sweat/280) + (S.fungusRisk/280));
   const fat = clamp01((drift/380) + (S.sweat/260));
-  S.steadyPct = stead*100;
-  S.pressurePct = press*100;
-  S.fatiguePct = fat*100;
+  S.steadyPct = stead * 100;
+  S.pressurePct = press * 100;
+  S.fatiguePct = fat * 100;
 }
+function computeMastery(){
+  const list = currentSpots();
+  const total = list.length || 1;
+  const cleared = list.reduce((a,sp)=> a + (S.spotState[sp.id]?.cleared ? 1 : 0), 0);
+  const coveragePct = Math.round((cleared / total) * 100);
 
-function spotToBodyPart(spotId){
-  const map = {
-    earL:'head', earR:'head', neck:'head', backNeck:'head',
-    armpitL:'armL', elbowL:'armL',
-    armpitR:'armR', elbowR:'armR',
-    backL:'torso', backR:'torso', waist:'torso',
-    kneeL:'legL', behindKneeL:'legL', toeL:'legL', heelL:'legL',
-    kneeR:'legR', behindKneeR:'legR', toeR:'legR', heelR:'legR'
-  };
-  return map[spotId] || 'torso';
+  const missionDone = coveragePct >= (S.mode === 'learn' ? 55 : 70);
+  const rinsePass = S.residue <= (PRO ? 16 : 18);
+  const dryPass = S.fungusRisk <= (PRO ? 22 : 25);
+  const bossPass = S.bossFails === 0 || !S.bossSpotId;
+  const pass = missionDone && rinsePass && dryPass && bossPass;
+
+  return { pass, missionDone, rinsePass, dryPass, bossPass, coveragePct };
 }
-
-function renderSilhouetteOverlay(){
-  if (!UI.silhouetteOverlay) return;
-
-  const nodes = {
-    head: UI.silhouetteOverlay.querySelector('[data-part="head"]'),
-    torso: UI.silhouetteOverlay.querySelector('[data-part="torso"]'),
-    armL: UI.silhouetteOverlay.querySelector('[data-part="armL"]'),
-    armR: UI.silhouetteOverlay.querySelector('[data-part="armR"]'),
-    legL: UI.silhouetteOverlay.querySelector('[data-part="legL"]'),
-    legR: UI.silhouetteOverlay.querySelector('[data-part="legR"]')
+function computeRubric(){
+  const m = computeMastery();
+  return {
+    pass:m.pass,
+    cov:m.coveragePct,
+    residue:Math.round(S.residue),
+    risk:Math.round(S.fungusRisk),
+    missionDone:m.missionDone,
+    bossPass:m.bossPass,
+    rinsePass:m.rinsePass,
+    dryPass:m.dryPass
   };
+}
+function dragQuality(){
+  const wet = Math.min(100, Math.round((S.wetHits / Math.max(1, currentSpots().length*3)) * 100));
+  const rinse = Math.min(100, Math.round((S.rinseHits / Math.max(1, currentSpots().length*2.2)) * 100));
+  const dry = Math.min(100, Math.round((S.dryHits / Math.max(1, currentSpots().length*2.2)) * 100));
+  return { wet, rinse, dry };
+}
+function updateScores(){
+  const mastery = computeMastery();
+  let score = mastery.coveragePct
+    - (S.residue * 0.45)
+    - (S.fungusRisk * 0.45)
+    + Math.min(18, S.comboMax * 0.8)
+    + Math.min(12, S.fever * 0.12);
 
-  const parts = {
-    head:{ wet:0, foam:0, dry:0, n:0 },
-    torso:{ wet:0, foam:0, dry:0, n:0 },
-    armL:{ wet:0, foam:0, dry:0, n:0 },
-    armR:{ wet:0, foam:0, dry:0, n:0 },
-    legL:{ wet:0, foam:0, dry:0, n:0 },
-    legR:{ wet:0, foam:0, dry:0, n:0 }
-  };
+  if(!mastery.rinsePass) score = Math.min(score, 58);
+  if(!mastery.dryPass) score = Math.min(score, 58);
+  if(!mastery.bossPass) score = Math.min(score, 52);
+  if(!mastery.missionDone) score = Math.min(score, 60);
 
-  for (const sp of (SPOTS[S.view] || [])){
-    const part = spotToBodyPart(sp.id);
-    if (!parts[part]) continue;
-    parts[part].wet += (S.wetMap[sp.id] || 0);
-    parts[part].foam += (S.foamMap[sp.id] || 0);
-    parts[part].dry += (S.dryMap[sp.id] || 0);
-    parts[part].n++;
+  S.cleanScore = clamp(score, 0, 100);
+  S.readyPct = clamp(
+    S.cleanScore
+    + (mastery.rinsePass ? 10 : 0)
+    + (mastery.dryPass ? 10 : 0)
+    + (mastery.bossPass ? 10 : 0),
+    0, 100
+  );
+}
+function updateHUD(){
+  updateScores();
+  updatePhysicalProxy();
+  const p = PHASES[S.phase];
+
+  if(UI.phasePill) UI.phasePill.textContent = `ขั้นตอน: ${phaseName(p)}`;
+  if(UI.questPill) UI.questPill.textContent = `ภารกิจ: ${phaseQuest()}`;
+  if(UI.timePill) UI.timePill.textContent = `TIME: ${Math.max(0, Math.ceil(S.timeLeft))}`;
+  if(UI.cleanPill) UI.cleanPill.textContent = `สะอาดแล้ว: ${Math.round(S.cleanScore)}%`;
+  if(UI.rubricPill) UI.rubricPill.textContent = `RUBRIC: ${computeRubric().pass ? 'PASS' : 'TRY AGAIN'}`;
+  if(UI.toolPill) UI.toolPill.textContent = `อุปกรณ์: ${currentToolLabel()}`;
+  if(UI.foamPill) UI.foamPill.textContent = `SOAP POWER: ${Math.round(S.foamPower)}`;
+  if(UI.residuePill) UI.residuePill.textContent = `ฟองค้าง: ${Math.round(S.residue)}%`;
+  if(UI.riskPill) UI.riskPill.textContent = `เสี่ยงอับชื้น: ${Math.round(S.fungusRisk)}%`;
+  if(UI.meterPill) UI.meterPill.textContent = `เหงื่อ: ${Math.round(S.sweat)}%`;
+  if(UI.viewPill) UI.viewPill.textContent = `VIEW: ${S.view.toUpperCase()}`;
+  if(UI.comboPill) UI.comboPill.textContent = `COMBO: ${S.combo}`;
+  if(UI.bossPill){
+    UI.bossPill.textContent = S.bossActive ? `BOSS: ${S.bossHp}/${S.bossMax}` : 'BOSS: —';
   }
 
-  Object.entries(parts).forEach(([part, v])=>{
-    const el = nodes[part];
-    if (!el) return;
+  if(UI.fatiguePill) UI.fatiguePill.textContent = `FATIGUE: ${Math.round(S.fatiguePct)}%`;
+  if(UI.steadyPill) UI.steadyPill.textContent = `STEADY: ${Math.round(S.steadyPct)}%`;
+  if(UI.pressurePill) UI.pressurePill.textContent = `PRESSURE: ${Math.round(S.pressurePct)}%`;
 
-    const wet = v.n ? v.wet / v.n : 0;
-    const foam = v.n ? v.foam / v.n : 0;
-    const dry = v.n ? v.dry / v.n : 0;
-
+  const mastery = computeMastery();
+  if(UI.progressBar) UI.progressBar.style.width = `${mastery.coveragePct}%`;
+  if(UI.readyBar) UI.readyBar.style.width = `${Math.round(S.readyPct)}%`;
+  if(UI.feverBar) UI.feverBar.style.width = `${Math.round(S.fever)}%`;
+}
+function comboPlus(v=1){
+  S.combo += v;
+  S.comboMax = Math.max(S.comboMax, S.combo);
+  S.fever = clamp(S.fever + 4 + v, 0, 100);
+  S.feverOn = S.fever >= 70;
+}
+function comboBreak(){
+  if(S.combo >= 4) S.pressureBurst += 1;
+  S.combo = 0;
+  S.fever = clamp(S.fever - 10, 0, 100);
+  S.feverOn = S.fever >= 70;
+}
+function feverMultiplier(){
+  return S.feverOn ? 1.35 : 1;
+}
+function partNode(part){
+  return UI.silhouetteOverlay?.querySelector(`[data-part="${part}"]`);
+}
+function renderOverlay(){
+  if(!UI.silhouetteOverlay) return;
+  const parts = ['head','torso','armL','armR','legL','legR'];
+  parts.forEach(part=>{
+    const el = partNode(part);
+    if(!el) return;
     el.classList.remove('wet','foam','dry');
     el.style.opacity = '0';
+  });
 
-    if (PHASES[S.phase] === 'WET' && wet > 0.15){
+  const buckets = {
+    head:{wet:0,foam:0,dry:0,n:0},
+    torso:{wet:0,foam:0,dry:0,n:0},
+    armL:{wet:0,foam:0,dry:0,n:0},
+    armR:{wet:0,foam:0,dry:0,n:0},
+    legL:{wet:0,foam:0,dry:0,n:0},
+    legR:{wet:0,foam:0,dry:0,n:0}
+  };
+  currentSpots().forEach(sp=>{
+    const b = buckets[sp.part];
+    if(!b) return;
+    b.wet += (S.wetMap[sp.id] || 0);
+    b.foam += (S.foamMap[sp.id] || 0);
+    b.dry += (S.dryMap[sp.id] || 0);
+    b.n += 1;
+  });
+
+  Object.keys(buckets).forEach(part=>{
+    const el = partNode(part);
+    const b = buckets[part];
+    if(!el || !b.n) return;
+
+    const wet = b.wet / b.n;
+    const foam = b.foam / b.n;
+    const dry = b.dry / b.n;
+
+    const p = PHASES[S.phase];
+    if(p === 'WET' && wet > 0.15){
       el.classList.add('wet');
-      el.style.opacity = String(Math.min(0.9, 0.15 + wet * 0.75));
-    } else if ((PHASES[S.phase] === 'SOAP' || PHASES[S.phase] === 'SCRUB' || PHASES[S.phase] === 'RINSE') && foam > 0.12){
+      el.style.opacity = String(Math.min(.9, .18 + wet * .72));
+    }else if((p === 'SOAP' || p === 'SCRUB' || p === 'RINSE') && foam > 0.15){
       el.classList.add('foam');
-      el.style.opacity = String(Math.min(0.88, 0.12 + foam * 0.72));
-    } else if ((PHASES[S.phase] === 'DRY' || PHASES[S.phase] === 'DRESS') && dry > 0.12){
+      el.style.opacity = String(Math.min(.9, .18 + foam * .72));
+    }else if((p === 'DRY' || p === 'DRESS') && dry > 0.15){
       el.classList.add('dry');
-      el.style.opacity = String(Math.min(0.88, 0.12 + dry * 0.72));
+      el.style.opacity = String(Math.min(.9, .18 + dry * .72));
     }
   });
 }
-
-function currentGuideSpotIds(){
-  if (PHASES[S.phase] === 'WET'){
-    const order = ['neck','armpitL','armpitR','toeL','toeR','earL','earR'];
-    return order.filter(id => (S.wetMap[id] || 0) < 0.6).slice(0, 3);
-  }
-  if (PHASES[S.phase] === 'SOAP'){
-    const order = ['neck','armpitL','armpitR','backL','backR','toeL','toeR'];
-    return order.filter(id => (S.foamMap[id] || 0) < 0.5).slice(0, 3);
-  }
-  if (PHASES[S.phase] === 'SCRUB'){
-    const list = SPOTS[S.view] || [];
-    return list.filter(sp => !S.spot[sp.id]?.cleared).slice(0,3).map(sp => sp.id);
-  }
-  if (PHASES[S.phase] === 'RINSE'){
-    const order = ['neck','armpitL','armpitR','toeL','toeR'];
-    return order.filter(id => (S.foamMap[id] || 0) > 0.2).slice(0, 3);
-  }
-  if (PHASES[S.phase] === 'DRY'){
-    const order = ['toeL','toeR','armpitL','armpitR','neck'];
-    return order.filter(id => (S.dryMap[id] || 0) < 0.6).slice(0, 3);
-  }
-  return [];
-}
-
-function renderBodyOverlay(){
-  if (!UI.stateLayer || !UI.guideLayer) return;
-
+function renderStateLayer(){
+  if(!UI.stateLayer || !UI.guideLayer) return;
   UI.stateLayer.innerHTML = '';
   UI.guideLayer.innerHTML = '';
 
-  const list = SPOTS[S.view] || [];
-  const guideIds = new Set(currentGuideSpotIds());
+  currentSpots().forEach(sp=>{
+    const p = PHASES[S.phase];
+    const wet = S.wetMap[sp.id] || 0;
+    const foam = S.foamMap[sp.id] || 0;
+    const dry = S.dryMap[sp.id] || 0;
 
-  for (const sp of list){
-    const wet = clamp(S.wetMap[sp.id] || 0, 0, 1);
-    const foam = clamp(S.foamMap[sp.id] || 0, 0, 1);
-    const dry = clamp(S.dryMap[sp.id] || 0, 0, 1);
+    let type = '', icon = '';
+    if(p === 'WET' && wet > 0.15){ type='wet'; icon='💧'; }
+    if((p === 'SOAP' || p === 'SCRUB' || p === 'RINSE') && foam > 0.18){ type='foam'; icon='🫧'; }
+    if((p === 'DRY' || p === 'DRESS') && dry > 0.18){ type='dry'; icon='🧻'; }
 
-    let type = '';
-    let icon = '';
-
-    if (PHASES[S.phase] === 'WET' && wet > 0.15){
-      type = 'wet'; icon = '💧';
-    } else if ((PHASES[S.phase] === 'SOAP' || PHASES[S.phase] === 'SCRUB' || PHASES[S.phase] === 'RINSE') && foam > 0.15){
-      type = 'foam'; icon = '🫧';
-    } else if ((PHASES[S.phase] === 'DRY' || PHASES[S.phase] === 'DRESS') && dry > 0.15){
-      type = 'dry'; icon = '🧻';
-    }
-
-    if (type){
+    if(type){
       const el = D.createElement('div');
       el.className = `stateDot ${type}`;
       el.style.left = `${sp.x}%`;
@@ -631,640 +520,731 @@ function renderBodyOverlay(){
       el.textContent = icon;
       UI.stateLayer.appendChild(el);
     }
+  });
 
-    if (guideIds.has(sp.id)){
-      const g = D.createElement('div');
-      g.className = 'guideArrow';
-      g.style.left = `${sp.x}%`;
-      g.style.top = `${sp.y}%`;
-      g.textContent = '➡';
-      UI.guideLayer.appendChild(g);
-    }
-  }
+  const guide = currentGuideSpots();
+  guide.forEach(sp=>{
+    const el = D.createElement('div');
+    el.className = 'guideArrow';
+    el.style.left = `${sp.x}%`;
+    el.style.top = `${sp.y}%`;
+    el.textContent = '➡';
+    UI.guideLayer.appendChild(el);
+  });
 
-  renderSilhouetteOverlay();
+  renderOverlay();
 }
+function currentGuideSpots(){
+  const p = PHASES[S.phase];
+  const list = currentSpots();
 
-function hud(){
-  const rub = computeRubric();
-  UI.phasePill && (UI.phasePill.textContent = `ขั้นตอน: ${S.started ? phaseThai(PHASES[S.phase]) : 'พร้อมเริ่ม'}`);
-  UI.questPill && (UI.questPill.textContent = `ภารกิจตอนนี้: ${MISS?.text?.() || (S.started ? 'ทำตามขั้นตอนปัจจุบัน' : 'กดเริ่มเพื่อทำแบบทดสอบก่อนเล่น')}`);
-  UI.timePill && (UI.timePill.textContent = `TIME: ${Math.max(0, Math.ceil(S.timeLeft))}`);
-  UI.viewPill && (UI.viewPill.textContent = `VIEW: ${S.view.toUpperCase()}`);
-  UI.toolPill && (UI.toolPill.textContent = `อุปกรณ์: ${toolThai(S.tool)}`);
-  UI.foamPill && (UI.foamPill.textContent = `FOAM: ${Math.round(S.foam)}`);
-  UI.meterPill && (UI.meterPill.textContent = `SWEAT: ${Math.round(S.sweat)}%`);
-  UI.residuePill && (UI.residuePill.textContent = `ฟองค้าง: ${Math.round(S.residue)}%`);
-  UI.riskPill && (UI.riskPill.textContent = `เสี่ยงอับชื้น: ${Math.round(S.fungusRisk)}%`);
-  UI.rubricPill && (UI.rubricPill.textContent = `RUBRIC: ${rub.pass?'PASS':'TRY AGAIN'}`);
-
-  if (UI.proPill){
-    UI.proPill.textContent = `PRO: ${PRO?'ON':'OFF'}`;
-    UI.proPill.classList.toggle('on', !!PRO);
-    UI.proPill.classList.toggle('off', !PRO);
+  if(p === 'WET'){
+    return list.filter(sp => (S.wetMap[sp.id] || 0) < 0.55).slice(0,3);
   }
-
-  UI.fatiguePill && (UI.fatiguePill.textContent = `FATIGUE: ${Math.round(S.fatiguePct)}%`);
-  UI.steadyPill && (UI.steadyPill.textContent = `STEADY: ${Math.round(S.steadyPct)}%`);
-  UI.pressurePill && (UI.pressurePill.textContent = `PRESSURE: ${Math.round(S.pressurePct)}%`);
-
-  const p = MISS?.progress01?.() ?? 0;
-  UI.progressBar && (UI.progressBar.style.width = `${Math.round(p*100)}%`);
-
-  const list = SPOTS[S.view]||[];
-  const total = list.length || 1;
-  const cleared = list.reduce((a,sp)=>a + (S.spot[sp.id]?.cleared?1:0), 0);
-  const cov = (cleared/total)*100;
-  const mastery = computeMastery();
-
-  let rawClean = cov - (S.residue * 0.45) - (S.fungusRisk * 0.45) - (S.pressurePct * 0.10);
-  rawClean = clamp(rawClean, 0, 100);
-  if (!mastery.missionDone) rawClean = Math.min(rawClean, 59);
-  if (!mastery.bossPass) rawClean = Math.min(rawClean, 49);
-  if (!mastery.rinsePass) rawClean = Math.min(rawClean, 54);
-  if (!mastery.dryPass) rawClean = Math.min(rawClean, 54);
-
-  S.cleanScore = rawClean;
-  UI.cleanPill && (UI.cleanPill.textContent = `สะอาดแล้ว: ${Math.round(S.cleanScore)}%`);
+  if(p === 'SOAP'){
+    return list.filter(sp => (S.foamMap[sp.id] || 0) < 0.4).slice(0,3);
+  }
+  if(p === 'SCRUB'){
+    return list.filter(sp => !S.spotState[sp.id]?.cleared).slice(0,3);
+  }
+  if(p === 'RINSE'){
+    return list.filter(sp => (S.foamMap[sp.id] || 0) > 0.22).slice(0,3);
+  }
+  if(p === 'DRY'){
+    return list.filter(sp => (S.dryMap[sp.id] || 0) < 0.55).slice(0,3);
+  }
+  return [];
 }
-
 function clearTargets(){
-  UI.targetLayer && (UI.targetLayer.innerHTML = '');
+  if(UI.targetLayer) UI.targetLayer.innerHTML = '';
   S.targets.clear();
 }
-
 function removeTarget(id){
   const t = S.targets.get(id);
   if(!t) return;
   try{ t.el.remove(); }catch(e){}
   S.targets.delete(id);
 }
-
-function makeTarget({ kind, label, x, y, spotId=null, ttlMs=1400, needHits=1, boss=false }){
+function makeTarget({kind,label,x,y,spotId='',ttlMs=1400,hitsNeed=1,boss=false}){
+  const id = `t${++S.tid}`;
   const el = D.createElement('div');
-  el.className = `target ${kind}${boss?' boss':''}`;
+  el.className = `target ${kind}${boss ? ' boss' : ''}`;
   el.style.left = `${x}%`;
   el.style.top  = `${y}%`;
-
-  const thaiTag = shouldShowSpotTag(kind, spotId) ? spotThaiLabel(spotId) : '';
-  el.innerHTML = `<div class="ico">${label}</div><div class="tag">${thaiTag}</div>`;
-
-  const id = `t${++S.tidSeq}`;
-  const bornAt = now();
-  const ttlAt = bornAt + ttlMs;
-
-  const t = { id, el, kind, label, x, y, spotId, bornAt, ttlAt, needHits, hits:0, boss };
-  S.targets.set(id, t);
-
-  el.addEventListener('pointerdown', (e)=>{
+  el.innerHTML = `
+    <div class="ico">${label}</div>
+    <div class="tag">${spotId ? (currentSpots().find(s=>s.id===spotId)?.label || '') : ''}</div>
+  `;
+  const target = {
+    id, el, kind, label, x, y, spotId,
+    bornAt: now(),
+    ttlAt: now() + ttlMs,
+    hits:0,
+    hitsNeed,
+    boss
+  };
+  el.addEventListener('pointerdown', e=>{
     e.preventDefault();
-    handleHit(id, e);
-  }, { passive:false });
-
+    handleTargetHit(id);
+  }, {passive:false});
   UI.targetLayer.appendChild(el);
-  return t;
+  S.targets.set(id, target);
+  return target;
 }
-
-function spawnWater(){ return makeTarget({ kind:'good', label:EM.water, x:25 + rng()*50, y:18 + rng()*72, ttlMs: PRO?1000:1200 }); }
-function spawnFoam(real=true){
-  const fake = !real;
-  return makeTarget({ kind: fake?'bad':'good', label: fake?EM.fake:EM.foam, x:25 + rng()*50, y:18 + rng()*72, ttlMs: PRO?1200:1400 });
+function spawnSoapTarget(){
+  const fakeRateBase = DIFF === 'hard' ? .30 : DIFF === 'easy' ? .12 : .18;
+  const fakeRate = S.mode === 'learn' ? fakeRateBase * 0.45 : fakeRateBase;
+  const isFake = rng() < fakeRate;
+  makeTarget({
+    kind:isFake ? 'bad' : 'good',
+    label:'🫧',
+    x:22 + rng()*56,
+    y:18 + rng()*70,
+    ttlMs:S.mode === 'learn' ? 1700 : (PRO ? 1150 : 1400),
+    hitsNeed:1
+  }).isFake = isFake;
 }
-function spawnShimmerSpot(isTrick=false){
-  const list = SPOTS[S.view]||[];
+function pickScrubSpot(){
+  const list = currentSpots().filter(sp => !S.spotState[sp.id]?.cleared);
   if(!list.length) return null;
+  list.sort((a,b)=>{
+    const wa = (S.spotState[a.id]?.need || a.hard) + (a.boss ? 1.2 : 0);
+    const wb = (S.spotState[b.id]?.need || b.hard) + (b.boss ? 1.2 : 0);
+    return wb - wa;
+  });
+  if(S.mode === 'learn') return list[0];
+  return list[(rng() * Math.min(4, list.length)) | 0];
+}
+function spawnScrubTarget(){
+  const spot = pickScrubSpot();
+  if(!spot) return;
+  const p = scrubStage();
 
-  let pick;
-  if (S.mode==='plan' && S.plan?.length){
-    const sid = S.plan[S.planCursor % S.plan.length];
-    S.planCursor++;
-    pick = list.find(s=>s.id===sid) || list[Math.floor(rng()*list.length)];
-  } else {
-    const arr = list.map(s=>{
-      const st = S.spot[s.id];
-      const uncleared = st && !st.cleared;
-      const w = (uncleared?1.6:0.7) * (s.boss?1.4:1.0);
-      return { s, w };
+  if(p === 'trick' && rng() < (S.mode === 'learn' ? .18 : .38)){
+    makeTarget({
+      kind:'bad',
+      label:'🛢️',
+      x:spot.x + (rng()*8-4),
+      y:spot.y + (rng()*8-4),
+      ttlMs:PRO ? 1300 : 1500
     });
-    const sum = arr.reduce((a,b)=>a+b.w,0);
-    let r = rng()*sum;
-    for(const it of arr){ r -= it.w; if(r<=0){ pick = it.s; break; } }
-    if(!pick) pick = arr[0].s;
+    return;
   }
 
-  const st = S.spot[pick.id];
-  st.spawn++; st.lastSeenMs = now();
+  if(p === 'boss' && spot.boss && !S.bossActive){
+    spawnBoss(spot);
+    return;
+  }
 
-  const tool = TOOLS.find(t=>t.id===S.tool) || TOOLS[0];
-  let need = pick.hard + (PRO?1:0) + (DIFF==='hard'?1:0) - (DIFF==='easy'?1:0);
-  need = Math.max(2, Math.round(need * (1 - (tool.scrubBonus||0))));
-  const ttl = (PRO?1500:1650) + (pick.boss?500:0) + Math.round(S.sweat*4);
-
-  return makeTarget({
-    kind: isTrick ? 'bad' : 'warn',
-    label: isTrick ? EM.oil : EM.shimmer,
-    x: pick.x + (rng()*6-3),
-    y: pick.y + (rng()*6-3),
-    spotId: pick.id,
-    ttlMs: ttl,
-    needHits: isTrick ? 1 : need
+  makeTarget({
+    kind:'warn',
+    label:'✨',
+    x:spot.x + (rng()*6-3),
+    y:spot.y + (rng()*6-3),
+    spotId:spot.id,
+    ttlMs:S.mode === 'learn' ? 2000 : (PRO ? 1450 : 1750),
+    hitsNeed:Math.max(1, spot.hard - (S.feverOn ? 1 : 0))
   });
 }
-function spawnTowel(){ return makeTarget({ kind:'good', label:EM.towel, x:28 + rng()*44, y:20 + rng()*72, ttlMs: PRO?1400:1600 }); }
-function spawnDress(){ return makeTarget({ kind:'good', label:EM.shirt, x:50 + (rng()*12-6), y:58 + (rng()*10-5), ttlMs: PRO?1600:1800 }); }
-
-function maybeSpawnBoss(){
-  if (S.bossActive || !MISS || MISS.S.stage !== 3) return;
-  const list = (SPOTS[S.view]||[]).filter(s=>s.boss);
-  if(!list.length) return;
-  const s = list[Math.floor(rng()*list.length)];
-
+function spawnBoss(spot){
   S.bossActive = true;
-  S.bossSpotId = s.id;
-  S.bossHp = (PRO?9:0) + (DIFF==='hard'?8:(DIFF==='easy'?5:6));
-  S.bossDeadline = now() + (PRO?5200:6500);
-
-  makeTarget({ kind:'boss', label:EM.boss, x:s.x, y:s.y, spotId:s.id, ttlMs:(PRO?5200:6500), needHits:S.bossHp, boss:true });
-  FX?.toast?.('บอสมา! ถูให้ทัน!', 'warn', 950);
-  S.lastCoachMs = 0;
-  logEvent(S.sessionId, 'boss_spawn', { spotId:s.id, hp:S.bossHp });
+  S.bossSpotId = spot.id;
+  S.bossMax = spot.hard + (PRO ? 3 : 2) + (DIFF === 'hard' ? 2 : 0);
+  S.bossHp = S.bossMax;
+  S.bossDeadline = now() + (S.mode === 'learn' ? 6800 : (PRO ? 4600 : 5800));
+  makeTarget({
+    kind:'boss',
+    label:'😷',
+    x:spot.x,
+    y:spot.y,
+    spotId:spot.id,
+    ttlMs:S.bossDeadline - now(),
+    hitsNeed:S.bossHp,
+    boss:true
+  });
+  setCoach(`บอสมาแล้ว! โฟกัส ${spot.label}`);
+  showPhaseBanner(`BOSS: ${spot.label}`);
 }
-
-function bossFailSpread(){
-  S.residue = clamp(S.residue + 12, 0, 100);
-  S.sweat = clamp(S.sweat + 10, 0, 100);
-  for(let i=0;i<4;i++) spawnShimmerSpot(false);
-  S.bossFails++;
-  S.bossActive=false; S.bossHp=0; S.bossSpotId=null; S.bossDeadline=0;
-  FX?.toast?.('บอสหนี! คราบกระจาย!', 'bad', 900);
-  logEvent(S.sessionId, 'boss_fail', {});
+function spawnDressTarget(){
+  makeTarget({
+    kind:'good',
+    label:'👕',
+    x:50,
+    y:56,
+    ttlMs:1800
+  });
 }
-function bossWin(){
-  S.residue = clamp(S.residue - 10, 0, 100);
-  MISS?.onBossWin?.();
-  S.bossActive=false; S.bossHp=0; S.bossSpotId=null; S.bossDeadline=0;
-  FX?.toast?.('ชนะบอส! ดีมาก!', 'good', 900);
-  logEvent(S.sessionId, 'boss_win', {});
+function scrubStage(){
+  const cleared = currentSpots().reduce((a,sp)=> a + (S.spotState[sp.id]?.cleared ? 1 : 0), 0);
+  const total = currentSpots().length || 1;
+  const pct = cleared / total;
+  if(pct < .35) return 'warm';
+  if(pct < .75) return 'trick';
+  return 'boss';
 }
-
-function activeDragKind(){
-  const phase = PHASES[S.phase];
-  if (phase === 'WET') return 'wet';
-  if (phase === 'RINSE') return 'rinse';
-  if (phase === 'DRY') return 'dry';
-  return '';
-}
-function bodyPointToPercent(clientX, clientY){
-  const box = UI.bodyWrap?.getBoundingClientRect();
-  if (!box) return null;
+function percentPointFromClient(clientX, clientY){
+  const box = UI.bodyWrap.getBoundingClientRect();
   const x = ((clientX - box.left) / box.width) * 100;
   const y = ((clientY - box.top) / box.height) * 100;
-  if (x < 0 || x > 100 || y < 0 || y > 100) return null;
-  return { x, y };
+  if(x < 0 || x > 100 || y < 0 || y > 100) return null;
+  return {x,y};
 }
-function nearestSpotId(px, py){
-  const list = SPOTS[S.view] || [];
+function nearestSpot(pt){
   let best = null, bestD = Infinity;
-  for (const sp of list){
-    const dx = sp.x - px;
-    const dy = sp.y - py;
+  currentSpots().forEach(sp=>{
+    const dx = sp.x - pt.x;
+    const dy = sp.y - pt.y;
     const d = Math.sqrt(dx*dx + dy*dy);
-    if (d < bestD){ bestD = d; best = sp.id; }
-  }
-  return bestD <= 12 ? best : null;
+    if(d < bestD){
+      best = sp;
+      bestD = d;
+    }
+  });
+  return bestD <= 14 ? best : null;
 }
-function applyDragOnSpot(spotId, dragKind){
-  const st = S.spot[spotId];
-  if (!st) return;
-
-  S.dragTraceCount++;
-  S.dragDistinctSpots.add(`${dragKind}:${spotId}`);
-
-  if (dragKind === 'wet'){
-    S.dragPhaseScore.wet += 1;
-    S.wetHits++;
-    S.combo++;
-    S.comboMax = Math.max(S.comboMax, S.combo);
-    S.residue = clamp(S.residue - 0.45, 0, 100);
-    S.sweat = clamp(S.sweat - 0.25, 0, 100);
-    S.wetMap[spotId] = clamp((S.wetMap[spotId] || 0) + 0.22, 0, 1);
-    return;
-  }
-  if (dragKind === 'rinse'){
-    S.dragPhaseScore.rinse += 1;
-    S.rinseHits++;
-    S.combo++;
-    S.comboMax = Math.max(S.comboMax, S.combo);
-    S.residue = clamp(S.residue - 1.25, 0, 100);
-    S.foamMap[spotId] = clamp((S.foamMap[spotId] || 0) - 0.28, 0, 1);
-    S.wetMap[spotId] = clamp((S.wetMap[spotId] || 0) + 0.05, 0, 1);
-    return;
-  }
-  if (dragKind === 'dry'){
-    S.dragPhaseScore.dry += 1;
-    S.dryHits++;
-    S.combo++;
-    S.comboMax = Math.max(S.comboMax, S.combo);
-    S.fungusRisk = clamp(S.fungusRisk - 1.15, 0, 100);
-    S.dryMap[spotId] = clamp((S.dryMap[spotId] || 0) + 0.24, 0, 1);
-    S.wetMap[spotId] = clamp((S.wetMap[spotId] || 0) - 0.18, 0, 1);
-  }
-}
-function beginDragTool(kind){
-  if (!kind || !S.started || S.ended) return;
-  S.dragging = true;
-  S.dragKind = kind;
-  S.dragHits = new Set();
-  S.lastDragAt = now();
-}
-function endDragTool(){
-  S.dragging = false;
-  S.dragKind = '';
-  S.dragHits = new Set();
-}
-function onBodyDragAt(clientX, clientY){
-  if (!S.dragging || !S.dragKind) return;
-  const pt = bodyPointToPercent(clientX, clientY);
-  if (!pt) return;
-  const sid = nearestSpotId(pt.x, pt.y);
-  if (!sid) return;
-
-  const key = `${S.dragKind}:${sid}`;
-  const tnow = now();
-  if (S.dragHits.has(key) && (tnow - S.lastDragAt) < 90) return;
-
-  S.dragHits.add(key);
-  S.lastDragAt = tnow;
-  applyDragOnSpot(sid, S.dragKind);
-
-  if (isLearnMode()){
-    const tip = SPOT_HINT[sid] || 'ทำจุดนี้ให้ครบ';
-    UI.coachPill && (UI.coachPill.textContent = `COACH: ${tip}`.slice(0, 86));
-  }
-
-  updatePhysicalProxy();
-  hud();
-  renderBodyOverlay();
-}
-
-function phaseCursorIcon(){
+function cursorIconForPhase(){
   const p = PHASES[S.phase];
-  if (p === 'WET') return { cls:'wet', icon:'💧' };
-  if (p === 'SOAP') return { cls:'soap', icon:'🧼' };
-  if (p === 'SCRUB') return { cls:'scrub', icon:'🫧' };
-  if (p === 'RINSE') return { cls:'rinse', icon:'🚿' };
-  if (p === 'DRY') return { cls:'dry', icon:'🧻' };
-  if (p === 'DRESS') return { cls:'dress', icon:'👕' };
-  return { cls:'', icon:'•' };
+  if(p === 'WET') return { icon:'💧', cls:'wet' };
+  if(p === 'SOAP') return { icon:'🧼', cls:'soap' };
+  if(p === 'SCRUB') return { icon:'🫧', cls:'scrub' };
+  if(p === 'RINSE') return { icon:'🚿', cls:'rinse' };
+  if(p === 'DRY') return { icon:'🧻', cls:'dry' };
+  if(p === 'DRESS') return { icon:'👕', cls:'dress' };
+  return { icon:'•', cls:'' };
 }
-function updateToolCursor(clientX, clientY, forceShow=false){
-  if (!UI.toolCursor || !UI.bodyWrap) return;
+function showCursor(clientX, clientY){
+  if(!UI.toolCursor) return;
   const box = UI.bodyWrap.getBoundingClientRect();
-  const inside = clientX >= box.left && clientX <= box.right && clientY >= box.top && clientY <= box.bottom;
-  const p = phaseCursorIcon();
   UI.toolCursor.className = '';
   UI.toolCursor.id = 'tool-cursor';
-  if (p.cls) UI.toolCursor.classList.add(p.cls);
-  UI.toolCursor.textContent = p.icon;
+  const c = cursorIconForPhase();
+  if(c.cls) UI.toolCursor.classList.add(c.cls);
+  UI.toolCursor.textContent = c.icon;
+  UI.toolCursor.classList.add('show');
+  UI.toolCursor.style.left = `${clientX - box.left}px`;
+  UI.toolCursor.style.top = `${clientY - box.top}px`;
+}
+function hideCursor(){
+  if(UI.toolCursor) UI.toolCursor.classList.remove('show');
+}
+function activeDragKind(){
+  const p = PHASES[S.phase];
+  if(p === 'WET') return 'wet';
+  if(p === 'RINSE') return 'rinse';
+  if(p === 'DRY') return 'dry';
+  return '';
+}
+function beginDrag(kind){
+  if(!kind || !S.started || S.ended) return;
+  S.dragging = true;
+  S.dragKind = kind;
+  S.dragSeen = new Set();
+}
+function endDrag(){
+  S.dragging = false;
+  S.dragKind = '';
+  S.dragSeen = new Set();
+}
+function applyDragToSpot(spot, kind){
+  if(!spot) return;
+  const key = `${kind}:${spot.id}`;
+  if(S.dragSeen.has(key)) return;
+  S.dragSeen.add(key);
 
-  if (inside || forceShow){
-    UI.toolCursor.classList.add('show');
-    UI.toolCursor.style.left = `${clientX - box.left}px`;
-    UI.toolCursor.style.top  = `${clientY - box.top}px`;
-  } else {
-    UI.toolCursor.classList.remove('show');
+  if(kind === 'wet'){
+    S.wetHits += 1;
+    comboPlus(1);
+    S.sweat = clamp(S.sweat - 0.20, 0, 100);
+    S.wetMap[spot.id] = clamp((S.wetMap[spot.id] || 0) + (0.20 * feverMultiplier()), 0, 1);
+    if(S.wetMap[spot.id] > 0.72) S.foamMap[spot.id] = clamp((S.foamMap[spot.id] || 0) + 0.04, 0, 1);
   }
-}
-function hideToolCursor(){
-  if (!UI.toolCursor) return;
-  UI.toolCursor.classList.remove('show');
-}
+  if(kind === 'rinse'){
+    S.rinseHits += 1;
+    comboPlus(1);
+    S.residue = clamp(S.residue - (1.20 * feverMultiplier()), 0, 100);
+    S.foamMap[spot.id] = clamp((S.foamMap[spot.id] || 0) - 0.28, 0, 1);
+    S.wetMap[spot.id] = clamp((S.wetMap[spot.id] || 0) + 0.06, 0, 1);
+  }
+  if(kind === 'dry'){
+    S.dryHits += 1;
+    comboPlus(1);
+    S.fungusRisk = clamp(S.fungusRisk - (1.10 * feverMultiplier()), 0, 100);
+    S.dryMap[spot.id] = clamp((S.dryMap[spot.id] || 0) + 0.25, 0, 1);
+    S.wetMap[spot.id] = clamp((S.wetMap[spot.id] || 0) - 0.16, 0, 1);
+  }
 
-function handleHit(id, e){
+  if(S.mode === 'learn'){
+    setCoach(HINTS[spot.id] || 'ทำจุดนี้ให้ครบ');
+  }
+
+  updateHUD();
+  renderStateLayer();
+}
+function onBodyPointer(clientX, clientY){
+  showCursor(clientX, clientY);
+  if(!S.dragging || !S.dragKind) return;
+  const pt = percentPointFromClient(clientX, clientY);
+  if(!pt) return;
+  const spot = nearestSpot(pt);
+  if(!spot) return;
+  applyDragToSpot(spot, S.dragKind);
+}
+function handleTargetHit(id){
   const t = S.targets.get(id);
-  if(!t || S.ended || !S.started) return;
+  if(!t || !S.started || S.ended) return;
+
   const rt = Math.max(0, Math.round(now() - t.bornAt));
+  S.rtGood.push(rt);
 
-  const phase = PHASES[S.phase];
+  const elapsed = TIME - S.timeLeft;
+  if(elapsed <= TIME*0.33) S.rtEarly.push(rt);
+  else if(elapsed >= TIME*0.66) S.rtLate.push(rt);
 
-  if (phase==='SOAP'){
-    if (t.label === EM.foam){
-      if (S.foam <= 0){
-        UI.coachPill && (UI.coachPill.textContent = `COACH: ${explainMistake('no_foam')}`.slice(0, 86));
-        return;
-      }
-      S.foamSpent++;
-      S.foam = Math.max(0, S.foam - 1);
-      S.combo++;
-      S.comboMax = Math.max(S.comboMax, S.combo);
-      S.residue = clamp(S.residue - 1.1, 0, 100);
-      const sid = nearestSpotId(t.x, t.y);
-      if (sid) S.foamMap[sid] = clamp((S.foamMap[sid] || 0) + 0.35, 0, 1);
+  const p = PHASES[S.phase];
+
+  if(p === 'SOAP'){
+    if(t.kind === 'good'){
+      S.foamPower = clamp(S.foamPower + (12 * feverMultiplier()), 0, 100);
+      const spot = nearestSpot({x:t.x,y:t.y});
+      if(spot) S.foamMap[spot.id] = clamp((S.foamMap[spot.id] || 0) + 0.32, 0, 1);
+      comboPlus(1);
+      setCoach('ดีมาก ได้ฟองจริง');
       removeTarget(id);
-      renderBodyOverlay();
-      return;
-    } else {
-      S.fakeHits++;
-      S.foam = Math.max(0, S.foam - 1);
-      S.residue = clamp(S.residue + 2.0, 0, 100);
+    }else{
+      S.fakeHits += 1;
+      S.residue = clamp(S.residue + 2.2, 0, 100);
+      S.sweat = clamp(S.sweat + 0.9, 0, 100);
+      comboBreak();
+      setCoach('ฟองหลอก! เลือกฟองจริงเท่านั้น');
       removeTarget(id);
-      renderBodyOverlay();
-      UI.coachPill && (UI.coachPill.textContent = `COACH: ${explainMistake('fake_bubble')}`.slice(0, 86));
-      return;
     }
-  }
-
-  if (phase==='SCRUB'){
-    if (t.boss){
-      t.hits++;
-      S.bossHp = Math.max(0, S.bossHp - 1);
-      if (S.bossHp <= 0){
-        removeTarget(id);
-        return bossWin();
-      }
-      return;
-    }
-
-    if (t.kind === 'warn' && t.label === EM.shimmer){
-      const st = S.spot[t.spotId];
-      if (!st) return;
-      t.hits++;
-      st.hit++;
-      S.combo++;
-      S.comboMax = Math.max(S.comboMax, S.combo);
-
-      if (t.hits >= t.needHits){
-        st.cleared = 1;
-        S.residue = clamp(S.residue - 2.6, 0, 100);
-        if (t.spotId) S.foamMap[t.spotId] = clamp((S.foamMap[t.spotId] || 0) + 0.10, 0, 1);
-        removeTarget(id);
-        if (MISS){
-          if (MISS.S.stage === 1) MISS.onWarmClear();
-          else if (MISS.S.stage === 2) MISS.onTrickClear();
-        }
-        const hint = SPOT_HINT[t.spotId] || 'จุดนี้ควรทำความสะอาดให้ครบ';
-        UI.coachPill && (UI.coachPill.textContent = `COACH: ${hint}`.slice(0, 86));
-        renderBodyOverlay();
-        if (MISS && MISS.S.stage === 3) setTimeout(()=> maybeSpawnBoss(), 450);
-      }
-      return;
-    }
-
-    if (t.kind === 'bad' && t.label === EM.oil){
-      S.oilHits++;
-      S.residue = clamp(S.residue + 3.0, 0, 100);
-      removeTarget(id);
-      renderBodyOverlay();
-      UI.coachPill && (UI.coachPill.textContent = `COACH: ${explainMistake('oil_decoy')}`.slice(0, 86));
-      return;
-    }
-  }
-
-  if (phase==='DRESS'){
-    if (t.label === EM.shirt){
-      removeTarget(id);
-      S.combo++;
-      return;
-    }
-    UI.coachPill && (UI.coachPill.textContent = `COACH: ${explainMistake('wrong_dress')}`.slice(0, 86));
+    updateHUD();
+    renderStateLayer();
     return;
   }
-}
 
-function guidedCoachForPhase(){
-  if (!isLearnMode()) return;
-  const map = {
-    WET:'ลากผ่านร่างกายเพื่อทำให้เปียกทั่ว',
-    SOAP:'ใช้สบู่เพื่อช่วยทำความสะอาด',
-    SCRUB:'ถูจุดอับสำคัญ เช่น คอ รักแร้ หลังหู ซอกนิ้วเท้า',
-    RINSE:'ลากล้างฟองและคราบออกให้หมด',
-    DRY:'ลากเช็ดตัวให้แห้ง โดยเฉพาะจุดอับ',
-    DRESS:'เมื่อแห้งแล้วค่อยใส่เสื้อ'
-  };
-  const msg = map[PHASES[S.phase]];
-  if (msg) UI.coachPill && (UI.coachPill.textContent = `COACH: ${msg}`.slice(0, 86));
-}
+  if(p === 'SCRUB'){
+    if(t.kind === 'bad'){
+      S.oilHits += 1;
+      S.residue = clamp(S.residue + 3.2, 0, 100);
+      S.sweat = clamp(S.sweat + 1.6, 0, 100);
+      comboBreak();
+      setCoach('โดนคราบหลอก! โฟกัสจุดอับจริง');
+      removeTarget(id);
+      updateHUD();
+      renderStateLayer();
+      return;
+    }
 
-function phaseAdvance(){
-  S.phase = Math.min(S.phase+1, PHASES.length-1);
-  S.lastSpawnMs = 0;
+    if(t.boss){
+      t.hits += 1;
+      S.bossHits += 1;
+      comboPlus(2);
+      S.bossHp = Math.max(0, S.bossHp - 1);
+      setCoach(`ถูต่อ! ${currentSpots().find(s=>s.id===t.spotId)?.label || 'จุดอับ'} ยังไม่หมด`);
+      if(S.bossHp <= 0){
+        S.spotState[t.spotId].cleared = true;
+        S.residue = clamp(S.residue - 8, 0, 100);
+        S.bossActive = false;
+        S.bossSpotId = '';
+        setCoach('ชนะบอส! จุดอับนี้สะอาดแล้ว');
+        removeTarget(id);
+      }
+      updateHUD();
+      renderStateLayer();
+      return;
+    }
 
-  if (PHASES[S.phase] === 'SCRUB'){
-    MISS?.reset?.();
-    S.planCursor = 0;
+    if(t.kind === 'warn'){
+      t.hits += 1;
+      comboPlus(1);
+      S.spotState[t.spotId].hits += 1;
+      if(t.hits >= t.hitsNeed){
+        S.spotState[t.spotId].cleared = true;
+        S.residue = clamp(S.residue - (2.6 * feverMultiplier()), 0, 100);
+        setCoach(HINTS[t.spotId] || 'เคลียร์จุดอับแล้ว');
+        removeTarget(id);
+      }
+      updateHUD();
+      renderStateLayer();
+      return;
+    }
   }
-  if (PHASES[S.phase] === 'END'){
-    const mastery = computeMastery();
-    return endGame(mastery.pass ? 'complete' : 'incomplete_mastery');
+
+  if(p === 'DRESS'){
+    if(computeMastery().pass){
+      comboPlus(2);
+      removeTarget(id);
+      endGame('complete');
+    }else{
+      comboBreak();
+      if(!computeMastery().rinsePass) setCoach('ยังมีฟองค้าง ต้องล้างก่อน');
+      else if(!computeMastery().dryPass) setCoach('ยังชื้นอยู่ ต้องเช็ดให้แห้งก่อน');
+      else if(!computeMastery().missionDone) setCoach('ยังมีจุดอับที่ต้องจัดการ');
+      else setCoach('ยังไม่พร้อมใส่เสื้อ');
+    }
   }
-
-  renderBodyOverlay();
-  guidedCoachForPhase();
 }
-
 function phaseGate(){
-  if (isLearnMode()){
-    if (PHASES[S.phase] === 'WET') return S.wetHits >= 8;
-    if (PHASES[S.phase] === 'SOAP') return S.foamSpent >= 2 || S.residue <= 45;
-    if (PHASES[S.phase] === 'SCRUB') return computeMastery().coveragePct >= 60;
-    if (PHASES[S.phase] === 'RINSE') return S.rinseHits >= 6 || S.residue <= 25;
-    if (PHASES[S.phase] === 'DRY') return S.dryHits >= 6 || S.fungusRisk <= 30;
-    if (PHASES[S.phase] === 'DRESS') return true;
+  const p = PHASES[S.phase];
+  const list = currentSpots();
+
+  if(p === 'WET'){
+    const wetAvg = avg(list.map(sp => S.wetMap[sp.id] || 0));
+    return wetAvg >= (S.mode === 'learn' ? 0.45 : 0.58);
   }
-  if (PHASES[S.phase] === 'WET') return S.wetHits >= (PRO?10:8);
-  if (PHASES[S.phase] === 'SOAP') return S.foamSpent >= 2 || S.residue <= 40;
-  if (PHASES[S.phase] === 'SCRUB') return !!(MISS && MISS.done && MISS.done());
-  if (PHASES[S.phase] === 'RINSE') return S.rinseHits >= (PRO?8:6) || S.residue <= 18;
-  if (PHASES[S.phase] === 'DRY') return S.dryHits >= (PRO?8:6) || S.fungusRisk <= 25;
-  if (PHASES[S.phase] === 'DRESS') return true;
+  if(p === 'SOAP'){
+    return S.foamPower >= (S.mode === 'learn' ? 28 : 36);
+  }
+  if(p === 'SCRUB'){
+    return computeMastery().coveragePct >= (S.mode === 'learn' ? 55 : 70) && !S.bossActive;
+  }
+  if(p === 'RINSE'){
+    return S.residue <= (S.mode === 'learn' ? 24 : 18);
+  }
+  if(p === 'DRY'){
+    return S.fungusRisk <= (S.mode === 'learn' ? 30 : 25);
+  }
+  if(p === 'DRESS'){
+    return false;
+  }
   return false;
 }
+function enterPhase(i){
+  S.phase = i;
+  S.phaseStartedAt = now();
+  clearTargets();
 
-function spawnLoop(tnow){
-  if (!S.lastSpawnMs) S.lastSpawnMs = tnow;
-  const baseEvery = (PHASES[S.phase]==='SCRUB') ? (PRO?650:820) : (PRO?780:980);
-  const learnMul = isLearnMode() ? 1.35 : 1;
-  const every = clamp(baseEvery * learnMul, 420, 1600);
-  if (tnow - S.lastSpawnMs < every) return;
-  S.lastSpawnMs = tnow;
+  const p = PHASES[S.phase];
+  showPhaseBanner(phaseName(p));
 
-  if (PHASES[S.phase]==='SOAP'){
-    let fakeRate = (DIFF==='hard') ? (PRO?0.34:0.28) : (DIFF==='easy' ? 0.12 : 0.18);
-    if (isLearnMode()) fakeRate *= 0.45;
-    spawnFoam(rng() > fakeRate);
-  } else if (PHASES[S.phase]==='SCRUB'){
-    const stage = MISS?.S?.stage || 1;
-    if (stage===1){
-      spawnShimmerSpot(false);
-    } else if (stage===2){
-      spawnShimmerSpot(rng() < (isLearnMode() ? 0.18 : (PRO?0.45:0.35)));
-    } else {
-      if (!S.bossActive) maybeSpawnBoss();
-      if (rng() < 0.35) spawnShimmerSpot(false);
+  if(p === 'WET'){
+    setCoach('ลากน้ำให้เปียกทั่ว โดยเฉพาะจุดอับ');
+  }
+  if(p === 'SOAP'){
+    setCoach('เก็บฟองจริง ระวังฟองหลอก');
+  }
+  if(p === 'SCRUB'){
+    setCoach('ถูจุดอับสำคัญให้ครบ');
+  }
+  if(p === 'RINSE'){
+    setCoach('ล้างฟองออกให้หมด');
+  }
+  if(p === 'DRY'){
+    setCoach('เช็ดให้แห้ง โดยเฉพาะจุดอับ');
+  }
+  if(p === 'DRESS'){
+    setCoach('ถ้าพร้อมจริง จะใส่เสื้อได้');
+    spawnDressTarget();
+  }
+
+  updateHUD();
+  renderStateLayer();
+}
+function nextPhase(){
+  const next = Math.min(S.phase + 1, PHASES.length - 1);
+  if(next !== S.phase) enterPhase(next);
+}
+function spawnLoop(){
+  const p = PHASES[S.phase];
+  if(p === 'SOAP'){
+    if(S.targets.size < (S.mode === 'learn' ? 2 : 3)) spawnSoapTarget();
+  }
+  if(p === 'SCRUB'){
+    if(S.bossActive && now() > S.bossDeadline){
+      S.bossFails += 1;
+      S.residue = clamp(S.residue + 7, 0, 100);
+      S.sweat = clamp(S.sweat + 3, 0, 100);
+      S.bossActive = false;
+      comboBreak();
+      setCoach('บอสหนี! คราบกระจาย ต้องรีบแก้');
+      clearTargets();
     }
-  } else if (PHASES[S.phase]==='DRESS'){
-    spawnDress();
+    if(S.targets.size < (S.mode === 'learn' ? 2 : 3)) spawnScrubTarget();
   }
 }
+function tick(){
+  if(!S.started || S.ended) return;
 
-function loop(){
-  if (!S.started || S.ended) return;
-  const tnow = now();
-  const dt = S.lastFrameMs ? Math.min(80, Math.max(0, tnow - S.lastFrameMs)) : 16.7;
-  S.lastFrameMs = tnow;
+  const t = now();
+  if(!tick._last) tick._last = t;
+  const dt = Math.min(50, Math.max(0, t - tick._last)) / 1000;
+  tick._last = t;
 
-  S.timeLeft = Math.max(0, S.timeLeft - dt/1000);
-  if (S.timeLeft <= 0) return endGame('timeout');
+  S.timeLeft = Math.max(0, S.timeLeft - dt);
+  if(S.timeLeft <= 0){
+    endGame('timeout');
+    return;
+  }
 
-  if (S.bossActive && now() > S.bossDeadline) bossFailSpread();
+  S.sweat = clamp(S.sweat + (S.mode === 'learn' ? 0.012 : 0.018), 0, 100);
+  if(S.fever > 0) S.fever = clamp(S.fever - 0.12, 0, 100);
+  S.feverOn = S.fever >= 70;
 
-  for (const [id,t] of S.targets.entries()){
-    if (tnow >= t.ttlAt){
-      if (PHASES[S.phase]==='SCRUB' && t.kind==='warn' && t.spotId){
-        const st = S.spot[t.spotId];
-        if (st) st.miss++;
+  for(const [id,tg] of S.targets.entries()){
+    if(now() >= tg.ttlAt){
+      if(tg.kind === 'warn' && tg.spotId){
+        S.spotState[tg.spotId].misses += 1;
+        comboBreak();
       }
       removeTarget(id);
     }
   }
 
-  if (phaseGate()){
-    const elapsed = (tnow - S.startMs)/1000;
-    const minSec = (PHASES[S.phase]==='WET'?8:PHASES[S.phase]==='SOAP'?8:PHASES[S.phase]==='SCRUB'?(PRO?18:14):PHASES[S.phase]==='RINSE'?8:PHASES[S.phase]==='DRY'?8:PHASES[S.phase]==='DRESS'?2:0);
-    if (elapsed > minSec){
-      phaseAdvance();
+  if(phaseGate()){
+    const p = PHASES[S.phase];
+    const spent = (now() - S.phaseStartedAt) / 1000;
+    const min = p === 'WET' ? 5 : p === 'SOAP' ? 4 : p === 'SCRUB' ? 8 : p === 'RINSE' ? 5 : p === 'DRY' ? 5 : 1;
+    if(spent >= min){
+      nextPhase();
     }
   }
 
-  updatePhysicalProxy();
-  hud();
-  renderBodyOverlay();
-  spawnLoop(tnow);
-  requestAnimationFrame(loop);
-}
+  if(PHASES[S.phase] === 'DRESS' && computeMastery().pass && S.targets.size === 0){
+    spawnDressTarget();
+  }
 
+  updateHUD();
+  renderStateLayer();
+  spawnLoop();
+  requestAnimationFrame(tick);
+}
+function renderQuiz(){
+  const item = QUIZ[S.quizIndex];
+  if(!item || !UI.quizBody) return;
+
+  UI.quizBody.innerHTML = '';
+  const q = D.createElement('div');
+  q.style.fontWeight = '1000';
+  q.style.marginBottom = '10px';
+  q.textContent = `${S.quizIndex + 1}/3 — ${item.q}`;
+  UI.quizBody.appendChild(q);
+
+  item.a.forEach((txt, idx)=>{
+    const b = D.createElement('button');
+    b.className = 'chip';
+    b.textContent = txt;
+    b.addEventListener('click', ()=>{
+      [...UI.quizBody.querySelectorAll('.chip')].forEach(x=>x.classList.remove('on'));
+      b.classList.add('on');
+      b.dataset.ok = String(idx === item.correct ? 1 : 0);
+    });
+    UI.quizBody.appendChild(b);
+  });
+
+  UI.btnQuizNext.textContent = (S.quizIndex === QUIZ.length - 1) ? 'เริ่มเกม' : 'ข้อถัดไป';
+}
+function showQuiz(mode){
+  S.mode = mode;
+  S.quizIndex = 0;
+  S.quizCorrect = 0;
+  UI.panelReady.classList.add('hidden');
+  UI.panelQuiz.classList.remove('hidden');
+  UI.btnQuizNext.dataset.mode = mode;
+  renderQuiz();
+}
+function nextQuiz(){
+  const picked = UI.quizBody.querySelector('.chip.on');
+  if(!picked) return;
+  if(String(picked.dataset.ok) === '1') S.quizCorrect += 1;
+
+  if(S.quizIndex < QUIZ.length - 1){
+    S.quizIndex += 1;
+    renderQuiz();
+    return;
+  }
+
+  UI.panelQuiz.classList.add('hidden');
+  startGame(UI.btnQuizNext.dataset.mode || 'standard');
+}
+function resetGameState(){
+  S.started = false;
+  S.ended = false;
+  S.sessionId = `bath_${PID}_${Date.now()}`;
+  S.phase = 0;
+  S.phaseStartedAt = 0;
+  S.view = 'front';
+  S.timeLeft = TIME;
+
+  S.cleanScore = 0;
+  S.residue = 15;
+  S.fungusRisk = 10;
+  S.sweat = 0;
+  S.readyPct = 0;
+  S.fever = 0;
+  S.feverOn = false;
+
+  S.combo = 0;
+  S.comboMax = 0;
+
+  S.rtGood = [];
+  S.rtEarly = [];
+  S.rtLate = [];
+  S.pressureBurst = 0;
+  S.fatiguePct = 0;
+  S.steadyPct = 100;
+  S.pressurePct = 0;
+
+  S.foamPower = 0;
+  S.wetHits = 0;
+  S.rinseHits = 0;
+  S.dryHits = 0;
+  S.fakeHits = 0;
+  S.oilHits = 0;
+  S.bossHits = 0;
+  S.bossFails = 0;
+
+  S.dragging = false;
+  S.dragKind = '';
+  S.dragSeen = new Set();
+
+  S.targets = new Map();
+  S.tid = 0;
+
+  S.bossActive = false;
+  S.bossHp = 0;
+  S.bossMax = 0;
+  S.bossSpotId = '';
+  S.bossDeadline = 0;
+
+  S.selfReason = '';
+  S.selfRating = 0;
+  S.improvePick = '';
+  S.beforeStats = { residue:15, risk:10, sweat:0, clean:0 };
+  S.aiSnapshot = null;
+
+  resetSpotState();
+  clearTargets();
+}
+function startGame(mode='standard'){
+  resetGameState();
+  S.mode = mode;
+  S.started = true;
+  S.phase = 0;
+  UI.panelEnd.classList.add('hidden');
+  UI.panelHelp.classList.add('hidden');
+  enterPhase(1);
+  tick._last = 0;
+  requestAnimationFrame(tick);
+}
+function flipView(){
+  S.view = S.view === 'front' ? 'back' : 'front';
+  resetSpotState();
+  clearTargets();
+  renderStateLayer();
+  updateHUD();
+}
 function renderHeatmap(){
-  if (!UI.heatmap) return;
   UI.heatmap.innerHTML = '';
-  const list = SPOTS[S.view]||[];
-  list.forEach(sp=>{
-    const st = S.spot[sp.id];
-    const cov = st?.cleared ? 100 : clamp(100 - (st?.need||3)*18 - (st?.miss||0)*10, 0, 100);
-    const cls = cov>=85?'good':cov>=60?'mid':'bad';
-    const card = D.createElement('div');
-    card.className = `hm ${cls}`;
-    card.innerHTML = `<div class="t">${sp.label}</div><div class="v">${Math.round(cov)}%</div>`;
-    UI.heatmap.appendChild(card);
+  currentSpots().forEach(sp=>{
+    const st = S.spotState[sp.id];
+    const base = st.cleared ? 92 : clamp(78 - st.misses*10 - (st.need*6), 0, 100);
+    const cls = base >= 85 ? 'good' : base >= 60 ? 'mid' : 'bad';
+    const el = D.createElement('div');
+    el.className = `hm ${cls}`;
+    el.innerHTML = `<div class="t">${sp.label}</div><div class="v">${Math.round(base)}%</div>`;
+    UI.heatmap.appendChild(el);
   });
 }
-function renderChips(container, list, get, set){
-  if (!container) return;
+function renderChips(container, list, getter, setter){
   container.innerHTML = '';
   list.forEach(o=>{
     const b = D.createElement('button');
-    b.className = `chip ${get()===o.id?'on':''}`;
+    b.className = `chip ${getter() === o.id ? 'on' : ''}`;
     b.textContent = o.label;
     b.addEventListener('click', ()=>{
-      set(o.id);
-      renderChips(container, list, get, set);
+      setter(o.id);
+      renderChips(container, list, getter, setter);
     });
     container.appendChild(b);
   });
 }
 function renderStars(){
-  if(!UI.stars) return;
   UI.stars.innerHTML = '';
   for(let i=1;i<=5;i++){
     const b = D.createElement('button');
-    b.className = `star ${S.selfRating>=i?'on':''}`;
+    b.className = `star ${S.selfRating >= i ? 'on' : ''}`;
     b.textContent = '★';
     b.addEventListener('click', ()=>{
-      S.selfRating=i;
+      S.selfRating = i;
       renderStars();
     });
     UI.stars.appendChild(b);
   }
 }
+function movePlan(idx, dir){
+  const j = idx + dir;
+  if(j < 0 || j >= S.plan.length) return;
+  [S.plan[idx], S.plan[j]] = [S.plan[j], S.plan[idx]];
+  renderPlan();
+}
 function renderPlan(){
-  if(!UI.planList) return;
   UI.planList.innerHTML = '';
-  const list = SPOTS[S.view]||[];
-  const map = Object.fromEntries(list.map(s=>[s.id,s]));
   S.plan.forEach((id, idx)=>{
-    const sp = map[id] || {label:id,id};
+    const sp = currentSpots().find(x=>x.id===id) || { id, label:id };
     const row = D.createElement('div');
     row.className = 'planItem';
-    row.innerHTML = `<div class="name">${idx+1}. ${sp.label} <span class="muted">(${sp.id})</span></div>`;
+    row.innerHTML = `<div class="name">${idx+1}. ${sp.label}</div>`;
     const btns = D.createElement('div');
     btns.className = 'planBtns';
 
     const up = D.createElement('button');
     up.className = 'pbtn';
-    up.textContent='▲';
+    up.textContent = '▲';
     up.addEventListener('click', ()=> movePlan(idx,-1));
 
-    const dn = D.createElement('button');
-    dn.className = 'pbtn';
-    dn.textContent='▼';
-    dn.addEventListener('click', ()=> movePlan(idx,+1));
+    const down = D.createElement('button');
+    down.className = 'pbtn';
+    down.textContent = '▼';
+    down.addEventListener('click', ()=> movePlan(idx,1));
 
     btns.appendChild(up);
-    btns.appendChild(dn);
+    btns.appendChild(down);
     row.appendChild(btns);
     UI.planList.appendChild(row);
   });
 }
-function movePlan(idx, dir){
-  const j = idx+dir;
-  if (j<0 || j>=S.plan.length) return;
-  [S.plan[idx], S.plan[j]] = [S.plan[j], S.plan[idx]];
-  savePlan(S.view, S.plan);
-  renderPlan();
-}
-function renderRubric(){
-  const rub = computeRubric();
-  UI.selfRubric && (UI.selfRubric.textContent = `RUBRIC: ${rub.pass?'PASS':'TRY AGAIN'}`);
-  UI.rubricDesc && (UI.rubricDesc.textContent =
-    `Coverage ${rub.cov}% • ฟองค้าง ${rub.residue}% • เสี่ยงอับชื้น ${rub.risk}% • Mission ${rub.missionDone?'PASS':'FAIL'} • Boss ${rub.bossPass?'PASS':'FAIL'} • Rinse ${rub.rinsePass?'PASS':'FAIL'} • Dry ${rub.dryPass?'PASS':'FAIL'}`);
-}
+function learningLines(){
+  const out = [];
+  const m = computeMastery();
+  const dq = dragQuality();
 
-function renderAIExplain(){
-  if(!UI.aiTipPill || !UI.aiCauseChips || !UI.aiMetaText) return;
-  UI.aiTipPill.textContent = 'AI TIP: ทำตามลำดับ เปียก → ฟอก → ถู → ล้าง → เช็ด → ใส่เสื้อ';
-  UI.aiCauseChips.innerHTML = '';
-  UI.aiMetaText.textContent = 'AI จะเน้นจุดอับ ฟองค้าง และความแห้งหลังอาบ';
-}
+  out.push(dq.wet >= 55 ? 'หนูทำให้ตัวเปียกได้ค่อนข้างทั่ว' : 'หนูยังทำให้ตัวเปียกไม่ทั่วพอ');
+  out.push(m.rinsePass ? 'หนูล้างฟองออกได้ดี' : 'หนูยังล้างฟองออกไม่หมด');
+  out.push(m.dryPass ? 'หนูเช็ดตัวได้แห้งดี' : 'หนูยังเช็ดจุดอับไม่แห้งพอ');
+  out.push(m.bossPass ? 'หนูจัดการจุดอับสำคัญได้ดี' : 'จุดอับสำคัญยังต้องฝึกเพิ่ม');
 
+  return out;
+}
+function weakSpotList(){
+  return currentSpots()
+    .map(sp=>{
+      const st = S.spotState[sp.id] || {};
+      const score = (st.cleared ? 0 : 1) + ((st.misses || 0) * 0.45);
+      return { id:sp.id, label:sp.label, score };
+    })
+    .sort((a,b)=>b.score - a.score)
+    .slice(0,3);
+}
 function computeBadges(){
   const badges = [];
   const dq = dragQuality();
-  const mastery = computeMastery();
+  const m = computeMastery();
 
-  if (dq.wet >= 70){
-    badges.push({ id:'wet-master', icon:'💧', title:'เปียกทั่ว', desc:'ทำให้ร่างกายเปียกได้ทั่วดี' });
-  }
-  if (dq.rinse >= 70 && S.residue <= 18){
-    badges.push({ id:'rinse-master', icon:'🚿', title:'ล้างเก่ง', desc:'ล้างฟองออกได้ดี' });
-  }
-  if (dq.dry >= 70 && S.fungusRisk <= 25){
-    badges.push({ id:'dry-master', icon:'🧻', title:'เช็ดแห้งดี', desc:'เช็ดตัวได้ดี ลดอับชื้น' });
-  }
-  if (mastery.bossPass){
-    badges.push({ id:'boss-clear', icon:'🏅', title:'พิชิตจุดอับ', desc:'ผ่านภารกิจจุดอับสำคัญ' });
-  }
-  if (mastery.pass){
-    badges.push({ id:'bath-pass', icon:'🏆', title:'อาบถูกขั้น', desc:'ทำครบลำดับการอาบน้ำ' });
-  }
-  if (!badges.length){
-    badges.push({ id:'keep-going', icon:'🌱', title:'กำลังพัฒนา', desc:'ลองอีกครั้งเพื่อปลดเหรียญ' });
+  if(dq.wet >= 70) badges.push({ icon:'💧', title:'เปียกทั่ว', desc:'ทำให้ร่างกายเปียกได้ทั่ว' });
+  if(m.rinsePass && dq.rinse >= 70) badges.push({ icon:'🚿', title:'ล้างเก่ง', desc:'ล้างฟองออกได้ดี' });
+  if(m.dryPass && dq.dry >= 70) badges.push({ icon:'🧻', title:'เช็ดแห้งดี', desc:'เช็ดตัวได้แห้งดี' });
+  if(m.bossPass) badges.push({ icon:'🏅', title:'พิชิตจุดอับ', desc:'ผ่านจุดอับสำคัญ' });
+  if(m.pass) badges.push({ icon:'🏆', title:'พร้อมออกไป', desc:'อาบน้ำครบขั้นและพร้อมจริง' });
+
+  if(!badges.length){
+    badges.push({ icon:'🌱', title:'กำลังพัฒนา', desc:'ลองอีกครั้งเพื่อเก่งขึ้น' });
   }
   return badges;
 }
 function renderBadges(){
-  if (!UI.badgeShelf) return;
   UI.badgeShelf.innerHTML = '';
-  const badges = computeBadges();
-  badges.forEach(b=>{
+  computeBadges().forEach(b=>{
     const el = D.createElement('div');
     el.className = 'badgeCard';
     el.innerHTML = `
@@ -1277,117 +1257,165 @@ function renderBadges(){
     UI.badgeShelf.appendChild(el);
   });
 }
-
-function weakSpotList(){
-  const list = SPOTS[S.view] || [];
-  return list
-    .map(sp=>{
-      const st = S.spot[sp.id] || {};
-      const score = (st.cleared ? 0 : 1) + ((st.miss || 0) * 0.4);
-      return { id: sp.id, label: sp.label, score };
-    })
-    .sort((a,b)=>b.score-a.score)
-    .slice(0,3);
+function renderRubric(){
+  const r = computeRubric();
+  UI.selfRubric.textContent = `RUBRIC: ${r.pass ? 'PASS' : 'TRY AGAIN'}`;
+  UI.rubricDesc.textContent =
+    `Coverage ${r.cov}% • ฟองค้าง ${r.residue}% • เสี่ยงอับชื้น ${r.risk}% • Mission ${r.missionDone ? 'PASS' : 'FAIL'} • Boss ${r.bossPass ? 'PASS' : 'FAIL'} • Rinse ${r.rinsePass ? 'PASS' : 'FAIL'} • Dry ${r.dryPass ? 'PASS' : 'FAIL'}`;
 }
-
-function renderTeacherSummary(){
-  if (!UI.teacherSummary) return;
-  UI.teacherSummary.innerHTML = '';
-
-  const mastery = computeMastery();
-  const dq = dragQuality();
-  const weak = weakSpotList();
-
-  const top = D.createElement('div');
-  top.className = 'tsCard';
-  top.innerHTML = `
-    <div class="tsTitle">ภาพรวม</div>
-    <div class="tsText">
-      CLEAN ${Math.round(S.cleanScore)}% •
-      Residue ${Math.round(S.residue)}% •
-      Risk ${Math.round(S.fungusRisk)}% •
-      Wet ${dq.wet}% •
-      Rinse ${dq.rinse}% •
-      Dry ${dq.dry}%
-    </div>
-  `;
-  UI.teacherSummary.appendChild(top);
-
-  const strengths = [];
-  if (dq.wet >= 70) strengths.push('ทำให้เปียกได้ทั่ว');
-  if (dq.rinse >= 70) strengths.push('ล้างฟองได้ดี');
-  if (dq.dry >= 70) strengths.push('เช็ดตัวได้ดี');
-  if (mastery.bossPass) strengths.push('ผ่านจุดอับสำคัญ');
-
-  const sCard = D.createElement('div');
-  sCard.className = 'tsCard';
-  sCard.innerHTML = `<div class="tsTitle">จุดเด่น</div>`;
-  const sList = D.createElement('div');
-  sList.className = 'tsList';
-  (strengths.length ? strengths : ['ยังไม่มีจุดเด่นชัดเจนในรอบนี้']).forEach(t=>{
-    const chip = D.createElement('div');
-    chip.className = 'tsChip';
-    chip.textContent = t;
-    sList.appendChild(chip);
-  });
-  sCard.appendChild(sList);
-  UI.teacherSummary.appendChild(sCard);
-
-  const wCard = D.createElement('div');
-  wCard.className = 'tsCard';
-  wCard.innerHTML = `<div class="tsTitle">จุดที่ควรเสริม</div>`;
-  const wList = D.createElement('div');
-  wList.className = 'tsList';
-  weak.forEach(x=>{
-    const chip = D.createElement('div');
-    chip.className = 'tsChip';
-    chip.textContent = x.label;
-    wList.appendChild(chip);
-  });
-  wCard.appendChild(wList);
-  UI.teacherSummary.appendChild(wCard);
-
-  const rec = [];
-  if (!mastery.rinsePass) rec.push('ฝึกขั้น RINSE เพิ่ม');
-  if (!mastery.dryPass) rec.push('ฝึกเช็ดจุดอับให้แห้ง');
-  if (!mastery.bossPass) rec.push('ฝึกถูจุดอับสำคัญ');
-  if (dq.wet < 50) rec.push('ฝึกลากน้ำให้ทั่ว');
-  if (dq.rinse < 50) rec.push('ฝึกล้างฟองให้ทั่ว');
-  if (dq.dry < 50) rec.push('ฝึกเช็ดแห้งให้ครบ');
-
-  const rCard = D.createElement('div');
-  rCard.className = 'tsCard';
-  rCard.innerHTML = `
-    <div class="tsTitle">ข้อเสนอแนะสำหรับครู</div>
-    <div class="tsText">${rec.length ? rec.join(' • ') : 'ผู้เรียนทำได้ดี สามารถขยับไปโหมด PRO ได้'}</div>
-  `;
-  UI.teacherSummary.appendChild(rCard);
-}
-
-function renderBeforeAfterBoard(){
-  if (!UI.baBeforeResidue) return;
-
-  UI.baBeforeResidue.textContent = `${Math.round(S.beforeStats?.residue ?? 15)}%`;
-  UI.baBeforeRisk.textContent    = `${Math.round(S.beforeStats?.risk ?? 10)}%`;
-  UI.baBeforeSweat.textContent   = `${Math.round(S.beforeStats?.sweat ?? 0)}%`;
-  UI.baBeforeClean.textContent   = `${Math.round(S.beforeStats?.clean ?? 0)}%`;
+function renderBeforeAfter(){
+  UI.baBeforeResidue.textContent = `${Math.round(S.beforeStats.residue)}%`;
+  UI.baBeforeRisk.textContent = `${Math.round(S.beforeStats.risk)}%`;
+  UI.baBeforeSweat.textContent = `${Math.round(S.beforeStats.sweat)}%`;
+  UI.baBeforeClean.textContent = `${Math.round(S.beforeStats.clean)}%`;
 
   UI.baAfterResidue.textContent = `${Math.round(S.residue)}%`;
-  UI.baAfterRisk.textContent    = `${Math.round(S.fungusRisk)}%`;
-  UI.baAfterSweat.textContent   = `${Math.round(S.sweat)}%`;
-  UI.baAfterClean.textContent   = `${Math.round(S.cleanScore)}%`;
+  UI.baAfterRisk.textContent = `${Math.round(S.fungusRisk)}%`;
+  UI.baAfterSweat.textContent = `${Math.round(S.sweat)}%`;
+  UI.baAfterClean.textContent = `${Math.round(S.cleanScore)}%`;
 }
+function renderAIExplain(){
+  const weak = weakSpotList().map(x=>x.label);
+  let tip = 'ทำตามลำดับ เปียก → ฟอก → ถู → ล้าง → เช็ด → ใส่เสื้อ';
+  if(!computeMastery().rinsePass) tip = 'ตอนนี้ควรฝึกล้างฟองให้หมด';
+  else if(!computeMastery().dryPass) tip = 'ตอนนี้ควรฝึกเช็ดจุดอับให้แห้ง';
+  else if(!computeMastery().bossPass) tip = 'ตอนนี้ควรฝึกจุดอับสำคัญให้ครบ';
+  else if(computeMastery().pass) tip = 'ดีมาก หนูอาบน้ำได้ถูกขั้นแล้ว';
 
-function bathReportData(){
-  const mastery = computeMastery();
-  const rubric = computeRubric();
+  UI.aiTipPill.textContent = `AI TIP: ${tip}`;
+  UI.aiCauseChips.innerHTML = '';
+  weak.forEach(w=>{
+    const c = D.createElement('div');
+    c.className = 'chip on';
+    c.textContent = w;
+    UI.aiCauseChips.appendChild(c);
+  });
+  UI.aiMetaText.textContent =
+    `หลักฐาน: coverage ${computeMastery().coveragePct}% • residue ${Math.round(S.residue)}% • risk ${Math.round(S.fungusRisk)}% • comboMax ${S.comboMax} • fakeHits ${S.fakeHits} • bossFails ${S.bossFails}`;
+}
+function renderTeacherSummary(){
+  UI.teacherSummary.innerHTML = '';
+
   const dq = dragQuality();
-  const badges = computeBadges();
+  const m = computeMastery();
   const weak = weakSpotList();
 
+  const blocks = [
+    {
+      title:'ภาพรวม',
+      text:`สะอาดแล้ว ${Math.round(S.cleanScore)}% • ฟองค้าง ${Math.round(S.residue)}% • เสี่ยงอับชื้น ${Math.round(S.fungusRisk)}% • Wet ${dq.wet}% • Rinse ${dq.rinse}% • Dry ${dq.dry}%`
+    },
+    {
+      title:'จุดเด่น',
+      chips:[
+        dq.wet >= 70 ? 'ทำให้เปียกได้ทั่ว' : '',
+        m.rinsePass ? 'ล้างฟองได้ดี' : '',
+        m.dryPass ? 'เช็ดแห้งได้ดี' : '',
+        m.bossPass ? 'ผ่านจุดอับสำคัญ' : ''
+      ].filter(Boolean)
+    },
+    {
+      title:'จุดที่ควรเสริม',
+      chips:weak.map(x=>x.label)
+    },
+    {
+      title:'ข้อเสนอแนะสำหรับครู',
+      text:[
+        !m.rinsePass ? 'ฝึกขั้น RINSE เพิ่ม' : '',
+        !m.dryPass ? 'ฝึกเช็ดจุดอับให้แห้ง' : '',
+        !m.bossPass ? 'ฝึกจุดอับสำคัญ เช่น หลังหู/ซอกนิ้วเท้า' : '',
+        dq.wet < 50 ? 'ฝึกทำให้เปียกทั่วมากขึ้น' : ''
+      ].filter(Boolean).join(' • ') || 'ผู้เรียนทำได้ดี สามารถขยับไปโหมดที่ท้าทายขึ้นได้'
+    }
+  ];
+
+  blocks.forEach(b=>{
+    const card = D.createElement('div');
+    card.className = 'tsCard';
+    card.innerHTML = `<div class="tsTitle">${b.title}</div>`;
+    if(b.text){
+      const txt = D.createElement('div');
+      txt.className = 'tsText';
+      txt.textContent = b.text;
+      card.appendChild(txt);
+    }
+    if(b.chips){
+      const list = D.createElement('div');
+      list.className = 'tsList';
+      (b.chips.length ? b.chips : ['-']).forEach(x=>{
+        const c = D.createElement('div');
+        c.className = 'tsChip';
+        c.textContent = x;
+        list.appendChild(c);
+      });
+      card.appendChild(list);
+    }
+    UI.teacherSummary.appendChild(card);
+  });
+}
+function saveBathLastSummary(reason){
+  const payload = {
+    game:'bath',
+    ts: isoNow(),
+    pid: PID,
+    run: RUN,
+    diff: DIFF,
+    pro: !!PRO,
+    mode: S.mode,
+    view: S.view,
+    reason,
+    scoreFinal: Math.round(S.cleanScore),
+    residue: Math.round(S.residue),
+    fungusRisk: Math.round(S.fungusRisk),
+    sweat: Math.round(S.sweat),
+    mastery: computeMastery(),
+    rubric: computeRubric(),
+    dragQuality: dragQuality(),
+    weakSpots: weakSpotList(),
+    badges: computeBadges(),
+    hub: HUB,
+    seed: SEED
+  };
+  try{ localStorage.setItem(`HHA_LAST_SUMMARY:bath:${PID}`, JSON.stringify(payload)); }catch(e){}
+}
+function saveTeacherSummary(){
+  try{
+    localStorage.setItem(`HHA_BATH_TEACHER_SUMMARY:${PID}`, JSON.stringify({
+      ts: isoNow(),
+      pid: PID,
+      game:'bath',
+      cleanScore: Math.round(S.cleanScore),
+      residue: Math.round(S.residue),
+      fungusRisk: Math.round(S.fungusRisk),
+      dragQuality: dragQuality(),
+      weakSpots: weakSpotList(),
+      badges: computeBadges()
+    }));
+  }catch(e){}
+}
+function saveGlobalLastSummary(reason){
+  try{
+    localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify({
+      game:'bath',
+      ts: isoNow(),
+      pid: PID,
+      run: RUN,
+      diff: DIFF,
+      mode: S.mode,
+      reason,
+      scoreFinal: Math.round(S.cleanScore),
+      residue: Math.round(S.residue),
+      fungusRisk: Math.round(S.fungusRisk),
+      sweat: Math.round(S.sweat),
+      seed: SEED,
+      hub: HUB
+    }));
+  }catch(e){}
+}
+function reportData(){
   return {
     ts: isoNow(),
-    game: 'bath',
+    game:'bath',
     pid: PID,
     run: RUN,
     diff: DIFF,
@@ -1399,47 +1427,37 @@ function bathReportData(){
     residue: Math.round(S.residue),
     fungusRisk: Math.round(S.fungusRisk),
     sweat: Math.round(S.sweat),
-    wetHits: S.wetHits,
-    rinseHits: S.rinseHits,
-    dryHits: S.dryHits,
-    foamSpent: S.foamSpent,
+    comboMax: S.comboMax,
     fakeHits: S.fakeHits,
     oilHits: S.oilHits,
     bossHits: S.bossHits,
     bossFails: S.bossFails,
-    comboMax: S.comboMax,
-    mastery,
-    rubric,
-    dragQuality: dq,
-    weakSpots: weak,
-    badges,
-    selfReason: S.selfReason || '',
-    selfRating: S.selfRating || 0,
-    improvePick: S.improvePick || '',
-    beforeStats: S.beforeStats || {},
-    aiLast: S.aiSnapshot || null
+    wetHits: S.wetHits,
+    rinseHits: S.rinseHits,
+    dryHits: S.dryHits,
+    mastery: computeMastery(),
+    rubric: computeRubric(),
+    dragQuality: dragQuality(),
+    weakSpots: weakSpotList(),
+    badges: computeBadges(),
+    selfReason:S.selfReason,
+    selfRating:S.selfRating,
+    improvePick:S.improvePick
   };
 }
-function bathReportText(){
-  const r = bathReportData();
-  const weak = (r.weakSpots || []).map(x=>x.label).join(', ') || '-';
-  const badges = (r.badges || []).map(x=>x.title).join(', ') || '-';
-
+function reportText(){
+  const r = reportData();
   return [
-    'HeroHealth Bath Report',
+    'HeroHealth Bath Hero Report',
     `เวลา: ${r.ts}`,
     `PID: ${r.pid}`,
-    `โหมด: ${r.mode} / run=${r.run} / diff=${r.diff} / PRO=${r.pro ? 'ON' : 'OFF'}`,
-    `มุมมอง: ${r.view}`,
-    `คะแนนความสะอาด: ${r.scoreFinal}%`,
-    `ฟองค้าง: ${r.residue}%`,
-    `เสี่ยงอับชื้น: ${r.fungusRisk}%`,
-    `เหงื่อ: ${r.sweat}%`,
-    `Wet=${r.dragQuality.wet}% / Rinse=${r.dragQuality.rinse}% / Dry=${r.dragQuality.dry}%`,
-    `Mission=${r.mastery.missionDone ? 'PASS' : 'FAIL'} / Boss=${r.mastery.bossPass ? 'PASS' : 'FAIL'} / Rinse=${r.mastery.rinsePass ? 'PASS' : 'FAIL'} / Dry=${r.mastery.dryPass ? 'PASS' : 'FAIL'}`,
-    `จุดที่ควรเสริม: ${weak}`,
-    `เหรียญ: ${badges}`,
-    `ประเมินตนเอง: reason=${r.selfReason || '-'} / rating=${r.selfRating || 0} / improve=${r.improvePick || '-'}`,
+    `mode=${r.mode} run=${r.run} diff=${r.diff} pro=${r.pro ? 'ON' : 'OFF'}`,
+    `score=${r.scoreFinal}% residue=${r.residue}% risk=${r.fungusRisk}% sweat=${r.sweat}%`,
+    `wet=${r.dragQuality.wet}% rinse=${r.dragQuality.rinse}% dry=${r.dragQuality.dry}%`,
+    `bossFails=${r.bossFails} comboMax=${r.comboMax}`,
+    `weak=${(r.weakSpots||[]).map(x=>x.label).join(', ') || '-'}`,
+    `badges=${(r.badges||[]).map(x=>x.title).join(', ') || '-'}`,
+    `selfReason=${r.selfReason || '-'} selfRating=${r.selfRating || 0} improve=${r.improvePick || '-'}`,
     `seed=${r.seed}`
   ].join('\n');
 }
@@ -1454,360 +1472,119 @@ function downloadTextFile(filename, text){
   a.remove();
   setTimeout(()=> URL.revokeObjectURL(url), 1000);
 }
-function exportBathReport(){
+function exportReport(){
   const stamp = new Date().toISOString().replace(/[:.]/g,'-');
-  const text = bathReportText();
-  const json = JSON.stringify(bathReportData(), null, 2);
-
-  downloadTextFile(`bath-report-${PID}-${stamp}.txt`, text);
+  downloadTextFile(`bath-report-${PID}-${stamp}.txt`, reportText());
   setTimeout(()=>{
-    downloadTextFile(`bath-report-${PID}-${stamp}.json`, json);
+    downloadTextFile(`bath-report-${PID}-${stamp}.json`, JSON.stringify(reportData(), null, 2));
   }, 120);
 }
-
-function saveBathLastSummary(reason){
-  const mastery = computeMastery();
-  const rubric = computeRubric();
-  const dq = dragQuality();
-  const weak = weakSpotList();
-  const badges = computeBadges();
-
-  const payload = {
-    game:'bath',
-    ts: isoNow(),
-    pid: PID,
-    run: RUN,
-    diff: DIFF,
-    pro: !!PRO,
-    mode: S.mode,
-    view: S.view,
-    reason,
-    scoreFinal: Math.round(S.cleanScore),
-    residue: Math.round(S.residue),
-    fungusRisk: Math.round(S.fungusRisk),
-    sweat: Math.round(S.sweat),
-    mastery,
-    rubric,
-    dragQuality: dq,
-    weakSpots: weak,
-    badges,
-    hub: HUB,
-    seed: SEED
-  };
-
-  try{
-    localStorage.setItem(`HHA_LAST_SUMMARY:bath:${PID}`, JSON.stringify(payload));
-  }catch(e){}
-}
-
-function saveLastSummary(reason){
-  const payload = {
-    game:'bath',
-    ts: isoNow(),
-    pid: PID,
-    run: RUN,
-    diff: DIFF,
-    pro: !!PRO,
-    view: S.view,
-    reason,
-    scoreFinal: Math.round(S.cleanScore),
-    residue: Math.round(S.residue),
-    fungusRisk: Math.round(S.fungusRisk),
-    sweat: Math.round(S.sweat),
-    seed: SEED,
-    hub: HUB
-  };
-  try{ localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(payload)); }catch(e){}
-}
-
 function endGame(reason='complete'){
-  if (S.ended) return;
+  if(S.ended) return;
   S.ended = true;
   S.started = false;
   clearTargets();
-
-  updatePhysicalProxy();
-
-  const mastery = computeMastery();
-  const rub = computeRubric();
-  const dq = dragQuality();
+  updateHUD();
 
   renderHeatmap();
-  renderStars();
   renderChips(UI.reasonChips, REASONS, ()=>S.selfReason, v=>S.selfReason=v);
+  renderStars();
   renderChips(UI.improveChips, IMPROVES, ()=>S.improvePick, v=>S.improvePick=v);
-  renderPlan();
   renderRubric();
-  renderAIExplain();
-  renderBeforeAfterBoard();
+  renderBeforeAfter();
   renderBadges();
+  renderAIExplain();
   renderTeacherSummary();
+  renderPlan();
 
-  let nextStep = 'แนะนำ: เล่นใหม่';
-  if (rub.pass) nextStep = 'แนะนำ: ไป Cooldown หรือกลับ HUB';
-  else if (!mastery.bossPass) nextStep = 'แนะนำ: เล่นใหม่และโฟกัสจุดอับ';
-  else if (!mastery.rinsePass) nextStep = 'แนะนำ: เล่นใหม่และอย่าข้าม RINSE';
-  else if (!mastery.dryPass) nextStep = 'แนะนำ: เล่นใหม่และ DRY ให้ครบ';
+  const m = computeMastery();
+  const lines = learningLines();
 
-  if (UI.endSummary){
-    UI.endSummary.innerHTML =
-      `PRO <b>${PRO?'ON':'OFF'}</b> • Mode <b>${S.mode}</b> • View <b>${S.view.toUpperCase()}</b><br/>`+
-      `สะอาดแล้ว <b>${Math.round(S.cleanScore)}%</b> • ฟองค้าง <b>${Math.round(S.residue)}%</b> • เสี่ยงอับชื้น <b>${Math.round(S.fungusRisk)}%</b><br/>`+
-      `Mission <b>${mastery.missionDone ? 'PASS' : 'NOT YET'}</b> • Boss <b>${mastery.bossPass ? 'PASS' : 'FAIL'}</b> • Rinse <b>${mastery.rinsePass ? 'PASS' : 'FAIL'}</b> • Dry <b>${mastery.dryPass ? 'PASS' : 'FAIL'}</b><br/>`+
-      `คุณภาพการลาก: เปียก <b>${dq.wet}%</b> • ล้าง <b>${dq.rinse}%</b> • เช็ด <b>${dq.dry}%</b><br/>`+
-      `<b>${nextStep}</b>`;
+  UI.endSummary.innerHTML =
+    `Mode <b>${S.mode}</b> • View <b>${S.view.toUpperCase()}</b> • PRO <b>${PRO ? 'ON' : 'OFF'}</b><br/>`+
+    `สะอาดแล้ว <b>${Math.round(S.cleanScore)}%</b> • ฟองค้าง <b>${Math.round(S.residue)}%</b> • เสี่ยงอับชื้น <b>${Math.round(S.fungusRisk)}%</b><br/>`+
+    `Mission <b>${m.missionDone ? 'PASS' : 'NOT YET'}</b> • Boss <b>${m.bossPass ? 'PASS' : 'FAIL'}</b> • Rinse <b>${m.rinsePass ? 'PASS' : 'FAIL'}</b> • Dry <b>${m.dryPass ? 'PASS' : 'FAIL'}</b><br/><br/>`+
+    `<b>สิ่งที่ได้เรียนรู้</b><br/>`+
+    lines.map(x=>`• ${x}`).join('<br/>')+
+    `<br/><br/><b>จบด้วย:</b> ${reason}`;
 
-    const learn = learningSummary();
-    UI.endSummary.innerHTML += '<br/><br/><b>สิ่งที่ได้เรียนรู้</b><br/>' + learn.map(x => `• ${x}`).join('<br/>');
-  }
-
-  UI.panelEnd?.classList.remove('hidden');
-
-  try{
-    const key = `HHA_BATH_TEACHER_SUMMARY:${PID}`;
-    const payload = {
-      ts: isoNow(),
-      pid: PID,
-      game: 'bath',
-      cleanScore: Math.round(S.cleanScore),
-      residue: Math.round(S.residue),
-      fungusRisk: Math.round(S.fungusRisk),
-      dragQuality: dragQuality(),
-      weakSpots: weakSpotList(),
-      badges: computeBadges()
-    };
-    localStorage.setItem(key, JSON.stringify(payload));
-  }catch(e){}
+  UI.panelEnd.classList.remove('hidden');
 
   saveBathLastSummary(reason);
-  saveLastSummary(reason);
+  saveTeacherSummary();
+  saveGlobalLastSummary(reason);
 }
+function bindBodyInput(){
+  if(!UI.bodyWrap) return;
 
-function showQuiz(nextMode='standard'){
-  try{
-    S.quizIndex = 0;
-    S.quizCorrect = 0;
-    UI.btnQuizNext.dataset.nextMode = nextMode;
-    renderQuiz();
-    UI.panelQuiz.classList.remove('hidden');
-  }catch(err){
-    console.error('[Bath] showQuiz failed', err);
-    startGame(nextMode);
-  }
+  UI.bodyWrap.addEventListener('pointerdown', e=>{
+    const k = activeDragKind();
+    showCursor(e.clientX, e.clientY);
+    if(!k) return;
+    beginDrag(k);
+    onBodyPointer(e.clientX, e.clientY);
+  }, {passive:true});
+
+  UI.bodyWrap.addEventListener('pointermove', e=>{
+    showCursor(e.clientX, e.clientY);
+    onBodyPointer(e.clientX, e.clientY);
+  }, {passive:true});
+
+  UI.bodyWrap.addEventListener('pointerup', ()=>{
+    endDrag();
+    hideCursor();
+  }, {passive:true});
+
+  UI.bodyWrap.addEventListener('pointerleave', ()=>{
+    endDrag();
+    hideCursor();
+  }, {passive:true});
+
+  UI.bodyWrap.addEventListener('pointercancel', ()=>{
+    endDrag();
+    hideCursor();
+  }, {passive:true});
 }
-function renderQuiz(){
-  const item = QUIZ[S.quizIndex];
-  if(!UI.quizBody || !item) return;
-
-  UI.quizBody.innerHTML = '';
-
-  const q = D.createElement('div');
-  q.style.fontWeight = '900';
-  q.style.marginBottom = '10px';
-  q.textContent = `${S.quizIndex + 1}/3 — ${item.q}`;
-  UI.quizBody.appendChild(q);
-
-  item.a.forEach((txt, idx)=>{
-    const b = D.createElement('button');
-    b.className = 'chip';
-    b.textContent = txt;
-    b.addEventListener('click', ()=>{
-      Array.from(UI.quizBody.querySelectorAll('button.chip')).forEach(x=>x.classList.remove('on'));
-      b.classList.add('on');
-      b.dataset.ok = (idx === item.correct) ? '1' : '0';
-    });
-    UI.quizBody.appendChild(b);
-  });
-
-  UI.btnQuizNext.textContent = (S.quizIndex === QUIZ.length - 1) ? 'เริ่มเกม' : 'ข้อถัดไป';
-}
-function nextQuizOrStart(){
-  const picked = UI.quizBody.querySelector('button.chip.on');
-  if(!picked) return;
-  if (picked.dataset.ok === '1') S.quizCorrect++;
-
-  if (S.quizIndex < QUIZ.length - 1){
-    S.quizIndex++;
-    renderQuiz();
-    return;
-  }
-
+function bootReady(){
+  resetGameState();
+  UI.panelReady.classList.remove('hidden');
   UI.panelQuiz.classList.add('hidden');
-  startGame(UI.btnQuizNext.dataset.nextMode || 'standard');
+  UI.panelHelp.classList.add('hidden');
+  UI.panelEnd.classList.add('hidden');
+  renderStateLayer();
+  updateHUD();
 }
 
-function startGame(mode='standard'){
-  S.mode = mode;
-  S.sessionId = `bath_${PID}_${Date.now()}`;
-  S.started = true;
-  S.ended = false;
-  S.phase = 0;
-
-  UI.panelQuiz?.classList.add('hidden');
-  UI.panelHelp?.classList.add('hidden');
-  UI.panelEnd?.classList.add('hidden');
-
-  S.view = S.view || 'front';
-  tuneByDiff();
-  S.startMs = now();
-  S.lastFrameMs = 0;
-  S.lastSpawnMs = 0;
-
-  S.foam = 0;
-  S.sweat = 0;
-  S.residue = 15;
-  S.fungusRisk = 10;
-  S.cleanScore = 0;
-
-  S.beforeStats = { residue: 15, risk: 10, sweat: 0, clean: 0 };
-
-  S.rtGood=[]; S.rtEarly=[]; S.rtLate=[];
-  S.missTimes=[]; S.pressureBurst=0;
-  S.combo=0; S.comboMax=0;
-  S.steadyPct=100; S.fatiguePct=0; S.pressurePct=0;
-
-  S.bossActive=false; S.bossHp=0; S.bossDeadline=0; S.bossSpotId=null;
-  S.fakeHits=0; S.oilHits=0; S.foamSpent=0;
-  S.rinseHits=0; S.wetHits=0; S.dryHits=0;
-  S.bossHits=0; S.bossFails=0;
-
-  S.dragTraceCount = 0;
-  S.dragDistinctSpots = new Set();
-  S.dragPhaseScore = { wet:0, rinse:0, dry:0 };
-
-  S.plan = loadPlan(S.view);
-  S.planCursor = 0;
-  resetSpotStats();
-  resetBodyMaps();
-  clearTargets();
-
-  const t = TOOLS.find(x=>x.id==='soap') || TOOLS[0];
-  S.tool = t.id;
-  S.foam = t.foamGain + (PRO ? 3 : 0) + (DIFF === 'hard' ? 2 : 0);
-
-  UI.coachPill && (UI.coachPill.textContent = mode === 'learn'
-    ? 'COACH: วันนี้เราจะอาบน้ำทีละขั้นอย่างถูกต้อง'
-    : 'COACH: เริ่มจากทำให้ตัวเปียกก่อน');
-
-  renderBodyOverlay();
-  hud();
-
-  setTimeout(()=>{
-    if(!S.started || S.ended) return;
-    S.phase = 1;
-    guidedCoachForPhase();
-    hud();
-    renderBodyOverlay();
-  }, 700);
-
-  requestAnimationFrame(loop);
-}
-
-function flipView(){
-  S.view = (S.view==='front') ? 'back' : 'front';
-  S.plan = loadPlan(S.view);
-  S.planCursor = 0;
-  resetSpotStats();
-  resetBodyMaps();
-  clearTargets();
-  hud();
-  renderBodyOverlay();
-}
-
-function bootPreviewState(){
-  S.timeLeft = TIME;
-  S.tool = S.tool || 'soap';
-  S.view = S.view || 'front';
-  hud();
-}
-
-function bindBodyDrag(){
-  if (!UI.bodyWrap) return;
-
-  UI.bodyWrap.addEventListener('pointerdown', (e)=>{
-    const kind = activeDragKind();
-    updateToolCursor(e.clientX, e.clientY, true);
-    if (!kind) return;
-    beginDragTool(kind);
-    onBodyDragAt(e.clientX, e.clientY);
-  }, { passive:true });
-
-  UI.bodyWrap.addEventListener('pointermove', (e)=>{
-    updateToolCursor(e.clientX, e.clientY, false);
-    if (!S.dragging) return;
-    onBodyDragAt(e.clientX, e.clientY);
-  }, { passive:true });
-
-  UI.bodyWrap.addEventListener('pointerup', ()=> { endDragTool(); hideToolCursor(); }, { passive:true });
-  UI.bodyWrap.addEventListener('pointercancel', ()=> { endDragTool(); hideToolCursor(); }, { passive:true });
-  UI.bodyWrap.addEventListener('pointerleave', ()=> { endDragTool(); hideToolCursor(); }, { passive:true });
-}
-
-UI.btnHelp?.addEventListener('click', ()=> UI.panelHelp?.classList.remove('hidden'));
-UI.btnCloseHelp?.addEventListener('click', ()=> UI.panelHelp?.classList.add('hidden'));
-
-UI.btnFlip?.addEventListener('click', ()=>{
-  if (!S.started || S.ended){ flipView(); return; }
-  flipView();
-});
+UI.btnHelp?.addEventListener('click', ()=> UI.panelHelp.classList.remove('hidden'));
+UI.btnCloseHelp?.addEventListener('click', ()=> UI.panelHelp.classList.add('hidden'));
 
 UI.btnStart?.addEventListener('click', ()=> showQuiz('standard'));
 UI.btnLearn?.addEventListener('click', ()=> showQuiz('learn'));
-UI.btnQuizNext?.addEventListener('click', ()=> nextQuizOrStart());
+UI.btnReadyStart?.addEventListener('click', ()=> showQuiz('standard'));
+UI.btnReadyLearn?.addEventListener('click', ()=> showQuiz('learn'));
+UI.btnQuizNext?.addEventListener('click', ()=> nextQuiz());
+
+UI.btnFlip?.addEventListener('click', ()=>{
+  flipView();
+});
 
 UI.btnReplay?.addEventListener('click', ()=>{
-  UI.panelEnd?.classList.add('hidden');
+  UI.panelEnd.classList.add('hidden');
   showQuiz('standard');
 });
-
 UI.btnPlayPlan?.addEventListener('click', ()=>{
-  savePlan(S.view, S.plan);
-  UI.panelEnd?.classList.add('hidden');
-  showQuiz('plan');
+  UI.panelEnd.classList.add('hidden');
+  startGame('plan');
 });
-
 UI.btnCooldown?.addEventListener('click', ()=>{
   const hub = encodeURIComponent(HUB);
-  const next = `../warmup-gate.html?gatePhase=cooldown&phase=cooldown&cat=hygiene&theme=bath&game=bath&hub=${hub}&pid=${encodeURIComponent(PID)}&diff=${encodeURIComponent(DIFF)}&pro=${PRO?1:0}&run=${encodeURIComponent(RUN)}&time=${encodeURIComponent(TIME)}&view=${encodeURIComponent(qs('view','mobile'))}&seed=${encodeURIComponent(SEED)}`;
+  const next = `../warmup-gate.html?gatePhase=cooldown&phase=cooldown&cat=hygiene&theme=bath&game=bath&hub=${hub}&pid=${encodeURIComponent(PID)}&diff=${encodeURIComponent(DIFF)}&pro=${PRO?1:0}&run=${encodeURIComponent(RUN)}&time=${encodeURIComponent(TIME)}&view=${encodeURIComponent(VIEW_QS)}&seed=${encodeURIComponent(SEED)}`;
   location.href = next;
 });
-
-UI.btnBack?.addEventListener('click', ()=>{ location.href = HUB; });
-
-UI.btnExport?.addEventListener('click', ()=>{
-  exportBathReport();
+UI.btnBack?.addEventListener('click', ()=>{
+  location.href = HUB;
 });
+UI.btnExport?.addEventListener('click', ()=> exportReport());
 
-function bootBathSafe(){
-  try{
-    bootPreviewState();
-    renderPlan();
-    bindBodyDrag();
-    renderBodyOverlay();
-    window.__BATH_BOOT_OK__ = true;
-  }catch(err){
-    console.error('[Bath] bootBathSafe failed', err);
-  }
-}
-
-window.__bathDebug = function(){
-  return {
-    started: S.started,
-    ended: S.ended,
-    phase: PHASES[S.phase],
-    timeLeft: S.timeLeft,
-    tool: S.tool,
-    view: S.view,
-    hasBtnStart: !!UI.btnStart,
-    hasQuizPanel: !!UI.panelQuiz,
-    hasQuizBody: !!UI.quizBody,
-    hasTargetLayer: !!UI.targetLayer,
-    bootOk: !!window.__BATH_BOOT_OK__
-  };
-};
-
-if (D.readyState === 'loading'){
-  D.addEventListener('DOMContentLoaded', bootBathSafe, { once:true });
-} else {
-  bootBathSafe();
-}
+bindBodyInput();
+bootReady();
