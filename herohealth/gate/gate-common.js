@@ -1,6 +1,9 @@
 // === /herohealth/gate/gate-common.js ===
 // HeroHealth Gate Common Helpers
-// PATCH v20260309c-HYGIENE-GATE-COMMON
+// PATCH v20260311-GATE-COMMON-PHASE
+// ✅ read Phase (canonical) first
+// ✅ keep gatePhase/phase fallback
+// ✅ expose raw Phase fields in ctx for debug
 
 export function qs(key, fallback=''){
   try{
@@ -101,8 +104,9 @@ export function setDailyDone(ctx, value=true){
 }
 
 export function buildCtx(){
-  const gatePhase = qs('gatePhase', qs('phase', 'warmup')).toLowerCase();
-  const mode = gatePhase === 'cooldown' ? 'cooldown' : 'warmup';
+  const rawPhase = qs('Phase', qs('gatePhase', qs('phase', 'warmup'))).toLowerCase();
+  const mode = rawPhase === 'cooldown' ? 'cooldown' : 'warmup';
+
   const game = qs('game', qs('theme', 'bath')).toLowerCase();
   const cat = qs('cat', 'hygiene').toLowerCase();
 
@@ -127,6 +131,8 @@ export function buildCtx(){
 
     studyId: qs('studyId', ''),
     phase: qs('phase', ''),
+    gatePhase: qs('gatePhase', ''),
+    Phase: qs('Phase', ''),
     conditionGroup: qs('conditionGroup', ''),
     sessionOrder: qs('sessionOrder', ''),
     blockLabel: qs('blockLabel', ''),
