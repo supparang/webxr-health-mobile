@@ -1,6 +1,7 @@
 <!-- === /herohealth/hub.html ===
 HeroHealth — Hub (3 Zones) — PRODUCTION
-PATCH v20260311-HUB-HYDRATION-STARTFLOW-FIX
+PATCH v20260311-HUB-HYDRATION-STARTFLOW-FIX-r2
+✅ GoodJunk launcher = ./goodjunk-vr.html
 ✅ Hydration launcher = ./hydration-vr.html
 ✅ Hydration Start Flow passes zone/cat/gate/cdur/cooldown
 ✅ Start Flow target: launcher -> warmup-gate -> run -> summary -> cooldown -> hub
@@ -614,7 +615,7 @@ PATCH v20260311-HUB-HYDRATION-STARTFLOW-FIX
           <a class="gameBtn" id="linkHydration" href="#"><div class="t">💧 Hydration</div><div class="s">Start Flow → warmup → run → cooldown</div></a>
           <a class="gameBtn" id="linkPlate" href="#"><div class="t">🍽 Balanced Plate</div><div class="s">Bloom missions</div></a>
         </div>
-        <div class="small" style="margin-top:4px;">Tip: Hydration uses launcher=./hydration-vr.html แล้วค่อยผ่าน warmup-gate ไป run game จริง</div>
+        <div class="small" style="margin-top:4px;">Tip: GoodJunk/Hydration ใช้ launcher ก่อน แล้วค่อยผ่าน warmup-gate ไป run game จริง</div>
       </section>
 
       <section class="card">
@@ -1035,7 +1036,7 @@ PATCH v20260311-HUB-HYDRATION-STARTFLOW-FIX
     }
 
     const PATHS = {
-      goodjunk:       './goodjunk-launcher.html',
+      goodjunk:       './goodjunk-vr.html',
       groups:         './groups-vr.html',
       hydration:      './hydration-vr.html',
       plate:          './plate-vr.html',
