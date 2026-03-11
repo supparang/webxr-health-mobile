@@ -264,6 +264,14 @@ body{
   50%{ filter:saturate(1.25) brightness(1.08); }
 }
 
+.stage.is-critical{
+  animation: criticalPulse .8s ease-in-out infinite;
+}
+@keyframes criticalPulse{
+  0%,100%{ filter:none; }
+  50%{ filter:brightness(1.08) saturate(1.08); }
+}
+
 .stage.is-storm .storm-flash,
 .stage.is-boss .storm-flash,
 .stage.is-final .storm-flash{
