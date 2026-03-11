@@ -1,7 +1,8 @@
 // === /herohealth/launch/backhub.js ===
-// Back-to-Hub + Last Summary (PRODUCTION)
+// Back-to-Hub + Last Summary + Session Log (PRODUCTION)
 // ✅ Shows floating "Back to Hub" button if ?hub= exists
 // ✅ Saves last summary to localStorage (HHA_LAST_SUMMARY)
+// ✅ Appends session log to localStorage (HHA_SESSION_LOG)
 // ✅ Emits hha:before-exit for engines to flush/stop audio/log if they listen
 // ✅ Safe: if hub missing, button hidden
 
@@ -13,35 +14,70 @@
   function qsObj(){
     try{ return new URL(location.href).searchParams; }catch{ return new URLSearchParams(); }
   }
+
   function getHub(){
     const q = qsObj();
     const hub = q.get('hub');
     return hub && String(hub).trim() ? String(hub).trim() : '';
   }
-  function safeJsonParse(s){
-    try{ return JSON.parse(s); }catch{ return null; }
-  }
+
   function nowISO(){
     try{ return new Date().toISOString(); }catch{ return ''; }
   }
 
+  function loadSessionLog(){
+    try{
+      const s = localStorage.getItem('HHA_SESSION_LOG');
+      const a = s ? JSON.parse(s) : [];
+      return Array.isArray(a) ? a : [];
+    }catch{ return []; }
+  }
+
+  function saveSessionLog(arr){
+    try{ localStorage.setItem('HHA_SESSION_LOG', JSON.stringify(arr||[])); }catch(_){}
+  }
+
+  function appendSession(entry){
+    const a = loadSessionLog();
+    a.push(entry);
+    if(a.length > 300) a.splice(0, a.length - 300);
+    saveSessionLog(a);
+  }
+
   function saveLastSummary(summary){
     try{
-      const payload = Object.assign({ savedAt: nowISO(), page: location.pathname }, summary||{});
+      const q = qsObj();
+      const payload = Object.assign({
+        savedAt: nowISO(),
+        page: location.pathname,
+        href: location.href,
+        pid: q.get('pid') || '',
+        run: q.get('run') || '',
+        diff: q.get('diff') || '',
+        time: q.get('time') || '',
+        seed: q.get('seed') || '',
+        studyId: q.get('studyId') || '',
+        phase: q.get('phase') || '',
+        conditionGroup: q.get('conditionGroup') || ''
+      }, summary || {});
+
+      if(!payload.gameId){
+        payload.gameId = q.get('gameId') || '';
+      }
+      if(!payload.gameTitle){
+        payload.gameTitle = q.get('gameTitle') || '';
+      }
+
       localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(payload));
+      appendSession(payload);
     }catch(_){}
   }
 
-  // Public API for game engines:
-  // window.HHA_BACKHUB.setSummary({ gameId, scoreFinal, accuracyPct, miss, timePlayedSec, endReason, meta })
-  WIN.HHA_BACKHUB = {
-    setSummary: saveLastSummary,
-    goHub: goHub
-  };
-
   function emitBeforeExit(){
     try{
-      const ev = new CustomEvent('hha:before-exit', { detail:{ href: location.href, at: Date.now() } });
+      const ev = new CustomEvent('hha:before-exit', {
+        detail:{ href: location.href, at: Date.now() }
+      });
       WIN.dispatchEvent(ev);
       DOC.dispatchEvent(ev);
     }catch(_){}
@@ -51,9 +87,13 @@
     const hub = getHub();
     if(!hub) return;
     emitBeforeExit();
-    // tiny delay for listeners to flush
     setTimeout(()=>{ location.href = hub; }, 60);
   }
+
+  WIN.HHA_BACKHUB = {
+    setSummary: saveLastSummary,
+    goHub
+  };
 
   function mountBtn(){
     const hub = getHub();
@@ -82,7 +122,6 @@
 
     btn.addEventListener('click', goHub);
 
-    // ESC = back
     WIN.addEventListener('keydown', (e)=>{
       if(e.key === 'Escape') goHub();
     });
@@ -95,5 +134,4 @@
   }else{
     mountBtn();
   }
-
 })();
