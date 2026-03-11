@@ -1,6 +1,6 @@
 <!-- === /herohealth/vr-groups/groups-vr.html ===
 GroupsVR — SOLO RUN PAGE — FULL MERGED + CHILD SUMMARY + CONTINUE TO COOLDOWN
-v20260310-GROUPS-SOLO-FULL-CHILDSUMMARY-COOLDOWN
+v20260311-GROUPS-SOLO-FULL-CHILDSUMMARY-COOLDOWN-PHASE
 Requires:
 - ../vr/vr-ui.js
 - ./ai-hooks.js
@@ -244,15 +244,9 @@ Requires:
     }
 
     @keyframes bgGroupSwitchPulse{
-      0%{
-        transform: translateY(-2px) scale(1.04);
-      }
-      35%{
-        transform: translateY(-4px) scale(1.09);
-      }
-      100%{
-        transform: translateY(-2px) scale(1.04);
-      }
+      0%{ transform: translateY(-2px) scale(1.04); }
+      35%{ transform: translateY(-4px) scale(1.09); }
+      100%{ transform: translateY(-2px) scale(1.04); }
     }
 
     @keyframes bgGroupHitPulse{
@@ -969,10 +963,6 @@ Requires:
       transform: scale(.995);
     }
     body.end-open .coachToast,
-    body.end-open #spawnDebug{
-      opacity:0;
-      pointer-events:none;
-    }
     body.end-open .powerWrap,
     body.end-open #stageFlash,
     body.end-open #fxLayer{
@@ -1296,21 +1286,21 @@ Requires:
 
   function buildCooldownUrl(){
     try{
-      const url = new URL('../cooldown-gate.html', location.href);
-      url.searchParams.set('gatePhase', 'cooldown');
-      url.searchParams.set('cat', 'nutrition');
+      const url = new URL('/herohealth/warmup-gate.html', location.origin);
+      url.searchParams.set('Phase', 'cooldown');
+      url.searchParams.set('cat', q('cat', 'nutrition'));
       url.searchParams.set('game', 'groups');
+      url.searchParams.set('pid', q('pid', 'anon'));
       url.searchParams.set('run', RUN);
       url.searchParams.set('diff', DIFF);
       url.searchParams.set('time', String(TIME));
-      url.searchParams.set('view', VIEW);
       url.searchParams.set('seed', String(SEED));
+      url.searchParams.set('view', VIEW);
       url.searchParams.set('hub', HUB);
-      const pid = q('pid','anon');
-      if(pid) url.searchParams.set('pid', pid);
+      url.searchParams.set('zone', q('zone', 'nutrition'));
       return url.toString();
     }catch(_){
-      return '../cooldown-gate.html';
+      return '/herohealth/warmup-gate.html?Phase=cooldown&game=groups&cat=nutrition';
     }
   }
 
