@@ -1,12 +1,10 @@
 <!-- === /herohealth/vr-groups/groups-vr.html ===
-GroupsVR — SOLO RUN PAGE — FULL MERGED + END OVERLAY MOBILE SAFE
-v20260310-GROUPS-SOLO-FULL-BGA-ACTIVE-FX-REFRESHSAFE-SPAWNADAPT-MOBILE-DEBUG-ENDSAFE
+GroupsVR — SOLO RUN PAGE — FULL MERGED + CHILD SUMMARY + CONTINUE TO COOLDOWN
+v20260310-GROUPS-SOLO-FULL-CHILDSUMMARY-COOLDOWN
 Requires:
 - ../vr/vr-ui.js
 - ./ai-hooks.js
 - ./groups.safe.js
-Debug:
-- ?debugSpawn=1   => show spawn-safe overlay
 -->
 <!doctype html>
 <html lang="th">
@@ -128,7 +126,6 @@ Debug:
       box-shadow: 0 20px 80px rgba(0,0,0,.35);
     }
 
-    /* ===== BG LAYER A ===== */
     #bgLayer{
       position:absolute;
       inset:0;
@@ -230,7 +227,6 @@ Debug:
         0 2px 8px rgba(0,0,0,.30);
     }
 
-    /* ===== ACTIVE GROUP FX ===== */
     .bgCat.switchFx .bgCatBox{
       animation: bgGroupSwitchPulse .46s ease-out;
     }
@@ -250,19 +246,9 @@ Debug:
     @keyframes bgGroupSwitchPulse{
       0%{
         transform: translateY(-2px) scale(1.04);
-        box-shadow:
-          0 0 0 0 color-mix(in srgb, var(--cat) 78%, white 22%),
-          0 0 0 0 color-mix(in srgb, var(--cat) 54%, transparent 46%),
-          0 14px 26px rgba(0,0,0,.24),
-          inset 0 1px 0 rgba(255,255,255,.18);
       }
       35%{
         transform: translateY(-4px) scale(1.09);
-        box-shadow:
-          0 0 0 5px color-mix(in srgb, var(--cat) 72%, white 28%),
-          0 0 28px 8px color-mix(in srgb, var(--cat) 48%, transparent 52%),
-          0 16px 28px rgba(0,0,0,.24),
-          inset 0 1px 0 rgba(255,255,255,.20);
       }
       100%{
         transform: translateY(-2px) scale(1.04);
@@ -270,20 +256,9 @@ Debug:
     }
 
     @keyframes bgGroupHitPulse{
-      0%{
-        transform: translateY(-2px) scale(1.04);
-      }
-      40%{
-        transform: translateY(-3px) scale(1.12);
-        box-shadow:
-          0 0 0 4px color-mix(in srgb, var(--cat) 82%, white 18%),
-          0 0 24px 6px color-mix(in srgb, var(--cat) 62%, transparent 38%),
-          0 16px 30px rgba(0,0,0,.24),
-          inset 0 1px 0 rgba(255,255,255,.22);
-      }
-      100%{
-        transform: translateY(-2px) scale(1.04);
-      }
+      0%{ transform: translateY(-2px) scale(1.04); }
+      40%{ transform: translateY(-3px) scale(1.12); }
+      100%{ transform: translateY(-2px) scale(1.04); }
     }
 
     @keyframes powerWrapSwitchFx{
@@ -428,12 +403,6 @@ Debug:
           color-mix(in srgb, var(--group-accent) 12%, rgba(2,6,23,.54)),
           rgba(2,6,23,.44)
         );
-    }
-    .powerWrap.activeGroup .powerHead b{
-      text-shadow: 0 0 10px color-mix(in srgb, var(--group-accent) 30%, transparent);
-    }
-    .powerWrap.activeGroup .bar{
-      border-color: color-mix(in srgb, var(--group-accent) 30%, rgba(148,163,184,.18));
     }
 
     .powerHead{
@@ -587,11 +556,6 @@ Debug:
       border-bottom:1px solid rgba(148,163,184,.14);
       display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;
     }
-    .overlayCard main{
-      padding:12px;
-      display:flex; flex-direction:column; gap:10px;
-      overflow:auto; min-height:0;
-    }
     .overlayBtns{
       padding:12px;
       border-top:1px solid rgba(148,163,184,.14);
@@ -608,6 +572,7 @@ Debug:
       gap:10px;
       overflow:auto; min-height:0;
     }
+
     .panel{
       border-radius:18px;
       border:1px solid rgba(148,163,184,.14);
@@ -615,12 +580,12 @@ Debug:
       padding:10px;
       min-height:0;
     }
-    .panel h3,
-    .panel h4{
+    .panel h3, .panel h4{
       margin:0 0 8px;
       font-size:14px;
       line-height:1.2;
     }
+
     .statGrid{
       display:grid;
       grid-template-columns:repeat(2,minmax(0,1fr));
@@ -647,6 +612,7 @@ Debug:
       line-height:1.1;
       word-break:break-word;
     }
+
     .miniList{
       display:grid;
       gap:8px;
@@ -675,6 +641,7 @@ Debug:
       min-width:0;
       word-break:break-word;
     }
+
     .jsonWrap{
       border-radius:14px;
       border:1px solid rgba(148,163,184,.12);
@@ -722,11 +689,6 @@ Debug:
       .overlayCard header{
         padding:10px;
         gap:8px;
-      }
-      .overlayCard header .pill{
-        min-height:28px;
-        padding:4px 8px;
-        font-size:10px;
       }
       #endCard main{
         padding:10px;
@@ -777,7 +739,6 @@ Debug:
       }
     }
 
-    /* ===== MOBILE TUNING PATCH ===== */
     @media (max-width:640px){
       #app{
         gap:6px;
@@ -787,53 +748,41 @@ Debug:
           calc(6px + var(--sab))
           calc(6px + var(--sal));
       }
-
       .topbar{
         padding:7px 8px;
         gap:8px;
         border-radius:16px;
       }
-
       .title b{ font-size:13px; }
       .title span{ font-size:10.5px; line-height:1.2; }
-
       .row{ gap:6px; }
-
       .pill{
         min-height:30px;
         padding:5px 8px;
         font-size:10.5px;
         gap:6px;
       }
-
       button{
         padding:7px 10px;
         border-radius:12px;
         font-size:12px;
       }
-
       .hud{ left:6px; right:6px; }
-
       .hudBox{
         gap:5px;
         padding:5px 6px;
         border-radius:12px;
       }
-
       .hudMetric .k{ font-size:9px; }
       .hudMetric .v{ font-size:11px; }
-
       .questTop{
         gap:4px;
         padding:5px 6px;
         border-radius:12px;
       }
-
       .questTitle{ font-size:11px; }
       .questMini{ font-size:9px; }
-
       .bar{ height:8px; }
-
       .powerWrap{
         left:6px;
         top:92px;
@@ -844,7 +793,6 @@ Debug:
       }
       .powerHead b{ font-size:11px; }
       .powerHead span{ font-size:9px; }
-
       .coachToast{
         left:8px;
         right:8px;
@@ -863,9 +811,7 @@ Debug:
       }
       .coachWrap .txt{ font-size:12px; }
       .coachWrap .sub{ font-size:10px; }
-
       .scorePop{ font-size:19px; }
-
       .bgCats{
         bottom:10%;
         width:min(94%, 620px);
@@ -886,16 +832,13 @@ Debug:
 
     @media (max-width:460px){
       .topbar{ padding:6px 7px; }
-
       .title b{ font-size:12.5px; }
       .title span{ font-size:10px; }
-
       .pill{
         min-height:28px;
         padding:4px 7px;
         font-size:10px;
       }
-
       .hudBox{
         grid-template-columns:repeat(5,minmax(0,1fr));
         gap:4px;
@@ -907,26 +850,21 @@ Debug:
       }
       .hudMetric .k{ font-size:8.5px; }
       .hudMetric .v{ font-size:10px; }
-
       .questTop{ padding:4px 5px; }
       .questTitle{ font-size:10px; }
       .questMini{ font-size:8.5px; }
-
       .powerWrap{
         top:88px;
         width:min(128px, 37vw);
         padding:4px 5px;
       }
       .powerHead b{ font-size:10px; }
-
       .coachToast{
         bottom: calc(8px + var(--sab) + 72px);
       }
       .coachWrap .txt{ font-size:11px; }
       .coachWrap .sub{ font-size:9px; }
-
       .scorePop{ font-size:17px; }
-
       .bgCats{
         bottom:8%;
         gap:6px;
@@ -950,268 +888,70 @@ Debug:
       .bgCats{ bottom:7%; }
     }
 
-    /* ===== DEBUG SPAWN OVERLAY ===== */
-    #spawnDebug{
-      position:absolute;
-      inset:0;
-      pointer-events:none;
-      z-index:80;
-      display:none;
-    }
-    #spawnDebug.show{
-      display:block;
-    }
-    .spawnDebugRect{
-      position:absolute;
-      border:2px dashed rgba(34,211,238,.95);
-      background: rgba(34,211,238,.08);
-      box-shadow:
-        inset 0 0 0 1px rgba(255,255,255,.10),
-        0 0 0 1px rgba(34,211,238,.18);
-      border-radius:14px;
-    }
-    .spawnDebugLabel{
-      position:absolute;
-      left:8px;
-      top:8px;
-      padding:6px 8px;
-      border-radius:10px;
-      font-size:11px;
-      font-weight:1000;
-      color:#dff9ff;
-      background: rgba(2,6,23,.72);
-      border:1px solid rgba(34,211,238,.32);
-      white-space:pre-line;
-      max-width:min(84vw, 420px);
-    }
-
-    /* ===== TINY SCREEN HUD COLLAPSE ===== */
-    body.hud-compact .topbar{
-      padding:6px 7px;
-      gap:6px;
-    }
-
-    body.hud-compact .title b{
-      font-size:12.5px;
-    }
-    body.hud-compact .title span{
-      font-size:9.5px;
-      line-height:1.15;
-    }
-
-    body.hud-compact .row{
-      gap:5px;
-    }
-
-    body.hud-compact .pill{
-      min-height:26px;
-      padding:4px 6px;
-      font-size:9.5px;
-      gap:5px;
-    }
-
-    body.hud-compact .hud{
-      left:5px;
-      right:5px;
-    }
-
-    body.hud-compact .hudBox{
-      padding:4px 5px;
-      gap:4px;
-      border-radius:10px;
-    }
-
-    body.hud-compact .hudMetric .k{
-      font-size:8px;
-    }
-    body.hud-compact .hudMetric .v{
-      font-size:9.5px;
-    }
-
-    body.hud-compact .questTop{
-      padding:4px 5px;
-      gap:3px;
-      border-radius:10px;
-    }
-
-    body.hud-compact .questTitle{
-      font-size:9.5px;
-    }
-    body.hud-compact .questMini{
-      font-size:8px;
-    }
-
+    body.hud-compact .topbar{ padding:6px 7px; gap:6px; }
+    body.hud-compact .title b{ font-size:12.5px; }
+    body.hud-compact .title span{ font-size:9.5px; line-height:1.15; }
+    body.hud-compact .row{ gap:5px; }
+    body.hud-compact .pill{ min-height:26px; padding:4px 6px; font-size:9.5px; gap:5px; }
+    body.hud-compact .hud{ left:5px; right:5px; }
+    body.hud-compact .hudBox{ padding:4px 5px; gap:4px; border-radius:10px; }
+    body.hud-compact .hudMetric .k{ font-size:8px; }
+    body.hud-compact .hudMetric .v{ font-size:9.5px; }
+    body.hud-compact .questTop{ padding:4px 5px; gap:3px; border-radius:10px; }
+    body.hud-compact .questTitle{ font-size:9.5px; }
+    body.hud-compact .questMini{ font-size:8px; }
     body.hud-compact .powerWrap{
-      left:5px;
-      top:82px;
-      width:min(116px, 34vw);
-      padding:4px 5px;
-      gap:3px;
-      border-radius:10px;
+      left:5px; top:82px; width:min(116px, 34vw);
+      padding:4px 5px; gap:3px; border-radius:10px;
     }
-
-    body.hud-compact .powerHead b{
-      font-size:9px;
-    }
-    body.hud-compact .powerHead span{
-      font-size:8px;
-    }
-
+    body.hud-compact .powerHead b{ font-size:9px; }
+    body.hud-compact .powerHead span{ font-size:8px; }
     body.hud-compact .coachToast{
-      left:6px;
-      right:6px;
+      left:6px; right:6px;
       bottom: calc(6px + var(--sab) + 60px);
     }
+    body.hud-compact .coachWrap{ padding:5px 7px; gap:7px; border-radius:12px; }
+    body.hud-compact .coachWrap .face{ width:28px; height:28px; font-size:15px; }
+    body.hud-compact .coachWrap .txt{ font-size:10.5px; }
+    body.hud-compact .coachWrap .sub{ font-size:8.5px; }
+    body.hud-compact .bgCats{ bottom:6%; gap:5px; opacity:.68; }
+    body.hud-compact .bgCatBox{ max-width:38px; border-radius:9px; }
+    body.hud-compact .bgCatLabel{ font-size:7px; line-height:1.05; }
 
-    body.hud-compact .coachWrap{
-      padding:5px 7px;
-      gap:7px;
-      border-radius:12px;
-    }
+    body.topbar-compact #seedPill{ display:none !important; }
+    body.topbar-compact .topbar{ grid-template-columns:1fr; gap:6px; }
+    body.topbar-compact .row{ justify-content:flex-start; gap:5px; }
+    body.topbar-compact .pill{ min-height:26px; padding:4px 6px; font-size:9.5px; gap:5px; }
+    body.topbar-compact .dot{ width:7px; height:7px; }
+    body.topbar-compact .title b{ font-size:12.5px; }
+    body.topbar-compact .title span{ font-size:9.5px; line-height:1.15; }
+    body.topbar-compact button{ padding:6px 9px; font-size:11px; border-radius:11px; }
 
-    body.hud-compact .coachWrap .face{
-      width:28px;
-      height:28px;
-      font-size:15px;
-    }
+    body.topbar-ultra-compact .topbar{ padding:6px 7px; }
+    body.topbar-ultra-compact .row{ gap:4px; }
+    body.topbar-ultra-compact .pill{ min-height:24px; padding:3px 6px; font-size:9px; }
+    body.topbar-ultra-compact button{ padding:6px 8px; font-size:10.5px; }
+    body.topbar-ultra-compact .pill.view-pill{ display:none !important; }
+    body.topbar-ultra-compact .title span{ display:none; }
 
-    body.hud-compact .coachWrap .txt{
-      font-size:10.5px;
-    }
-    body.hud-compact .coachWrap .sub{
-      font-size:8.5px;
-    }
-
-    body.hud-compact .bgCats{
-      bottom:6%;
-      gap:5px;
-      opacity:.68;
-    }
-
-    body.hud-compact .bgCatBox{
-      max-width:38px;
-      border-radius:9px;
-    }
-
-    body.hud-compact .bgCatLabel{
-      font-size:7px;
-      line-height:1.05;
-    }
-
-    /* ===== DEBUG BLOCKED ZONES ===== */
-    .spawnDebugBlocked{
-      position:absolute;
-      border:1px dashed rgba(239,68,68,.65);
-      background: rgba(239,68,68,.12);
-      border-radius:10px;
-    }
-
-    .spawnDebugBlocked.power{
-      border-color: rgba(245,158,11,.70);
-      background: rgba(245,158,11,.12);
-    }
-
-    .spawnDebugBlocked.toast{
-      border-color: rgba(167,139,250,.72);
-      background: rgba(167,139,250,.12);
-    }
-
-    /* ===== TINY SCREEN TOPBAR CLEANUP ===== */
-    body.topbar-compact #seedPill{
-      display:none !important;
-    }
-
-    body.topbar-compact .topbar{
-      grid-template-columns:1fr;
-      gap:6px;
-    }
-
-    body.topbar-compact .row{
-      justify-content:flex-start;
-      gap:5px;
-    }
-
-    body.topbar-compact .pill{
-      min-height:26px;
-      padding:4px 6px;
-      font-size:9.5px;
-      gap:5px;
-    }
-
-    body.topbar-compact .dot{
-      width:7px;
-      height:7px;
-    }
-
-    body.topbar-compact .title b{
-      font-size:12.5px;
-    }
-
-    body.topbar-compact .title span{
-      font-size:9.5px;
-      line-height:1.15;
-    }
-
-    body.topbar-compact button{
-      padding:6px 9px;
-      font-size:11px;
-      border-radius:11px;
-    }
-
-    body.topbar-ultra-compact .topbar{
-      padding:6px 7px;
-    }
-
-    body.topbar-ultra-compact .row{
-      gap:4px;
-    }
-
-    body.topbar-ultra-compact .pill{
-      min-height:24px;
-      padding:3px 6px;
-      font-size:9px;
-    }
-
-    body.topbar-ultra-compact button{
-      padding:6px 8px;
-      font-size:10.5px;
-    }
-
-    body.topbar-ultra-compact .pill.view-pill{
-      display:none !important;
-    }
-
-    body.topbar-ultra-compact .title span{
-      display:none;
-    }
-
-    /* ===== SMART POWER AUTO-HIDE ===== */
     body.power-autohide .powerWrap{
       opacity:.28;
       transform: translateY(0) scale(.98);
     }
-
     body.power-autohide .powerWrap.peek{
       opacity:.96;
       transform: translateY(0) scale(1);
     }
-
     body.power-autohide .powerWrap.minimized{
       opacity:.16;
       transform: translateY(0) scale(.96);
     }
-
     body.power-autohide .powerWrap.minimized .bar,
     body.power-autohide .powerWrap.minimized #pText{
-      opacity:.0;
+      opacity:0;
       max-height:0;
       overflow:hidden;
     }
-
-    body.power-autohide .powerWrap.minimized .powerHead{
-      margin:0;
-    }
-
     body.power-autohide .powerWrap.minimized .powerHead b{
       white-space:nowrap;
       overflow:hidden;
@@ -1220,35 +960,51 @@ Debug:
     }
 
     @media (max-width:640px){
-      body.power-autohide .powerWrap{
-        opacity:.22;
-      }
-      body.power-autohide .powerWrap.peek{
-        opacity:.98;
-      }
+      body.power-autohide .powerWrap{ opacity:.22; }
+      body.power-autohide .powerWrap.peek{ opacity:.98; }
     }
 
-    /* ===== END OVERLAY MOBILE SAFE ===== */
     body.end-open .topbar{
       opacity:.72;
       transform: scale(.995);
     }
-
     body.end-open .coachToast,
     body.end-open #spawnDebug{
       opacity:0;
       pointer-events:none;
     }
-
     body.end-open .powerWrap,
     body.end-open #stageFlash,
     body.end-open #fxLayer{
       opacity:0;
       pointer-events:none;
     }
-
     body.end-open #playLayer{
       pointer-events:none;
+    }
+
+    body.child-summary #researchSummaryPanel,
+    body.child-summary #aiPanel{
+      display:none !important;
+    }
+    body.child-summary #endCard main{
+      grid-template-columns:1fr !important;
+    }
+    body.child-summary #childSummaryPanel{
+      max-width:min(720px, 100%);
+      margin:0 auto;
+    }
+    body.child-summary .overlayBtns{
+      justify-content:center;
+    }
+    body.child-summary .overlayBtns .primary{
+      min-width:180px;
+    }
+
+    @media (max-width:560px){
+      body.child-summary .overlayBtns button{
+        flex:1 1 100%;
+      }
     }
   </style>
 </head>
@@ -1274,32 +1030,27 @@ Debug:
   <div class="stage" id="stage">
     <div id="bgLayer" aria-hidden="true">
       <div class="bgFloor"></div>
-
       <div class="bgCats">
         <div class="bgCat" data-group="1">
           <div class="bgCatBox" style="--cat:#e11d48;"></div>
           <div class="bgCatLabel">หมู่ 1
 โปรตีน</div>
         </div>
-
         <div class="bgCat" data-group="2">
           <div class="bgCatBox" style="--cat:#f97316;"></div>
           <div class="bgCatLabel">หมู่ 2
 คาร์โบไฮเดรต</div>
         </div>
-
         <div class="bgCat" data-group="3">
           <div class="bgCatBox" style="--cat:#22c55e;"></div>
           <div class="bgCatLabel">หมู่ 3
 ผัก</div>
         </div>
-
         <div class="bgCat" data-group="4">
           <div class="bgCatBox" style="--cat:#38bdf8;"></div>
           <div class="bgCatLabel">หมู่ 4
 ผลไม้</div>
         </div>
-
         <div class="bgCat" data-group="5">
           <div class="bgCatBox" style="--cat:#a855f7;"></div>
           <div class="bgCatLabel">หมู่ 5
@@ -1311,14 +1062,6 @@ Debug:
     <div id="playLayer"></div>
     <div id="stageFlash"></div>
     <div id="fxLayer"></div>
-
-    <div id="spawnDebug" aria-hidden="true">
-      <div class="spawnDebugBlocked" id="spawnDebugHud"></div>
-      <div class="spawnDebugBlocked power" id="spawnDebugPower"></div>
-      <div class="spawnDebugBlocked toast" id="spawnDebugToast"></div>
-      <div class="spawnDebugRect" id="spawnDebugRect"></div>
-      <div class="spawnDebugLabel" id="spawnDebugLabel"></div>
-    </div>
 
     <div class="hud hudTop">
       <div class="hudLeftCol">
@@ -1365,63 +1108,74 @@ Debug:
       <div class="overlayCard" id="endCard">
         <header>
           <div>
-            <b id="endTitle">RESULT</b>
+            <b id="endTitle">สรุปผลเกม</b>
             <span style="color:var(--muted); font-weight:900;" id="endSub"></span>
           </div>
           <div class="pill"><span class="dot"></span> <span>MODE:</span> <b id="endMode">PLAY</b></div>
         </header>
 
         <main>
-          <section class="panel">
-            <h3>Summary</h3>
+          <section class="panel" id="childSummaryPanel">
+            <h3 id="childHeadline">เก่งมาก!</h3>
+
             <div class="statGrid">
               <div class="statCard">
-                <div class="k">GRADE</div>
-                <div class="v" id="sumGrade">—</div>
-              </div>
-              <div class="statCard">
-                <div class="k">SCORE</div>
+                <div class="k">คะแนน</div>
                 <div class="v" id="sumScore">0</div>
               </div>
               <div class="statCard">
-                <div class="k">ACCURACY</div>
+                <div class="k">ระดับ</div>
+                <div class="v" id="sumGrade">—</div>
+              </div>
+              <div class="statCard">
+                <div class="k">ความแม่นยำ</div>
                 <div class="v" id="sumAcc">0%</div>
               </div>
               <div class="statCard">
-                <div class="k">MISS</div>
+                <div class="k">พลาด</div>
                 <div class="v" id="sumMiss">0</div>
               </div>
               <div class="statCard">
-                <div class="k">COMBO MAX</div>
+                <div class="k">คอมโบสูงสุด</div>
                 <div class="v" id="sumCombo">0</div>
               </div>
               <div class="statCard">
-                <div class="k">TIME</div>
+                <div class="k">เวลาเล่น</div>
                 <div class="v" id="sumTime">0s</div>
               </div>
             </div>
 
             <div class="miniList" style="margin-top:10px;">
               <div class="miniRow"><div class="k">หมู่ล่าสุด</div><div class="v" id="sumGroupLast">—</div></div>
-              <div class="miniRow"><div class="k">Boss hits</div><div class="v" id="sumBossHits">0</div></div>
+              <div class="miniRow"><div class="k">เป้าพิเศษที่ทำได้</div><div class="v" id="sumBossHits">0</div></div>
+            </div>
+
+            <div class="panel" style="margin-top:10px; background:rgba(15,23,42,.40);">
+              <h4 style="margin:0 0 6px;">ข้อความจากโค้ช</h4>
+              <div id="childCoachMsg" style="font-size:14px; font-weight:1000; line-height:1.35;">
+                เยี่ยมเลย! ไปผ่อนคลายต่อกัน
+              </div>
+            </div>
+          </section>
+
+          <section class="panel" id="researchSummaryPanel">
+            <h3>Summary</h3>
+            <div class="miniList">
               <div class="miniRow"><div class="k">เหตุผลจบเกม</div><div class="v" id="sumReason">—</div></div>
               <div class="miniRow"><div class="k">โหมด / ระดับ</div><div class="v" id="sumModeDiff">—</div></div>
             </div>
-
             <div class="jsonWrap" style="margin-top:10px;">
               <pre id="endSummary"></pre>
             </div>
           </section>
 
-          <section class="panel">
+          <section class="panel" id="aiPanel">
             <h3>AI Pred</h3>
-
             <div class="miniList">
               <div class="miniRow"><div class="k">AI enabled</div><div class="v" id="aiEnabled">—</div></div>
               <div class="miniRow"><div class="k">Hazard risk</div><div class="v" id="aiRisk">—</div></div>
               <div class="miniRow"><div class="k">Top factors</div><div class="v" id="aiTopFactors">—</div></div>
             </div>
-
             <div class="jsonWrap" style="margin-top:10px;">
               <pre id="endBuff"></pre>
             </div>
@@ -1429,9 +1183,9 @@ Debug:
         </main>
 
         <div class="overlayBtns">
+          <button class="primary" id="btnEndContinue">ไปต่อ</button>
           <button id="btnEndAgain">เล่นอีกครั้ง</button>
-          <button class="primary" id="btnEndGoHub">🏠 กลับ HUB</button>
-          <button class="ghost" id="btnEndClose">ปิด</button>
+          <button class="ghost" id="btnEndGoHub">🏠 กลับ HUB</button>
         </div>
       </div>
     </div>
@@ -1456,7 +1210,10 @@ Debug:
   const SEED = String(q('seed','') || Date.now());
   const HUB  = String(q('hub','../hub.html') || '../hub.html');
   const CVR_STRICT = (VIEW === 'cvr') && (String(q('cvrStrict','1') || '1') !== '0');
-  const DEBUG_SPAWN = String(q('debugSpawn','0')) === '1';
+
+  const DEBUG_MODE = String(q('debug','0')) === '1';
+  const RESEARCH_MODE = RUN === 'research';
+  const CHILD_SUMMARY_MODE = !RESEARCH_MODE && !DEBUG_MODE;
 
   document.body.setAttribute('data-view', VIEW);
   document.body.setAttribute('data-cvr-strict', CVR_STRICT ? '1' : '0');
@@ -1502,6 +1259,10 @@ Debug:
   const endSub = $('#endSub');
   const endMode = $('#endMode');
 
+  const btnEndContinue = $('#btnEndContinue');
+  const childHeadline = $('#childHeadline');
+  const childCoachMsg = $('#childCoachMsg');
+
   const sumGrade = $('#sumGrade');
   const sumScore = $('#sumScore');
   const sumAcc = $('#sumAcc');
@@ -1517,13 +1278,6 @@ Debug:
   const aiRisk = $('#aiRisk');
   const aiTopFactors = $('#aiTopFactors');
 
-  const spawnDebug = $('#spawnDebug');
-  const spawnDebugRect = $('#spawnDebugRect');
-  const spawnDebugLabel = $('#spawnDebugLabel');
-  const spawnDebugHud = $('#spawnDebugHud');
-  const spawnDebugPower = $('#spawnDebugPower');
-  const spawnDebugToast = $('#spawnDebugToast');
-
   const GROUP_COLORS = {
     1: '#e11d48',
     2: '#f97316',
@@ -1538,8 +1292,52 @@ Debug:
   let isStarting = false;
   let isRestarting = false;
   let hasBooted = false;
-  let spawnSafeRaf = 0;
   let bootNonce = 0;
+
+  function buildCooldownUrl(){
+    try{
+      const url = new URL('../cooldown-gate.html', location.href);
+      url.searchParams.set('gatePhase', 'cooldown');
+      url.searchParams.set('cat', 'nutrition');
+      url.searchParams.set('game', 'groups');
+      url.searchParams.set('run', RUN);
+      url.searchParams.set('diff', DIFF);
+      url.searchParams.set('time', String(TIME));
+      url.searchParams.set('view', VIEW);
+      url.searchParams.set('seed', String(SEED));
+      url.searchParams.set('hub', HUB);
+      const pid = q('pid','anon');
+      if(pid) url.searchParams.set('pid', pid);
+      return url.toString();
+    }catch(_){
+      return '../cooldown-gate.html';
+    }
+  }
+
+  function getChildHeadline(grade){
+    const g = String(grade || '').toUpperCase();
+    if(g === 'A+' || g === 'A') return 'ยอดเยี่ยม!';
+    if(g === 'B') return 'เก่งมาก!';
+    if(g === 'C') return 'ทำได้ดี!';
+    return 'เล่นได้ดีเลย!';
+  }
+
+  function getChildCoachMessage(s){
+    const acc = Number(s?.accuracyPct || 0);
+    const miss = Number(s?.miss || 0);
+
+    if(acc >= 90 && miss <= 2){
+      return 'แม่นมาก! ไปผ่อนคลายต่อกันได้เลย';
+    }
+    if(acc >= 75){
+      return 'ดีมาก! รอบหน้าลองเก็บคอมโบให้สูงขึ้นนะ';
+    }
+    return 'ทำได้ดีแล้ว! ลองเล่นอีกครั้ง หรือไปผ่อนคลายต่อได้เลย';
+  }
+
+  function updateSummaryMode(){
+    document.body.classList.toggle('child-summary', CHILD_SUMMARY_MODE);
+  }
 
   function faceFromMood(mood){
     return (
@@ -1553,19 +1351,15 @@ Debug:
   function parseGroupNo(input){
     const s = String(input || '').trim();
     if (!s) return null;
-
     const m1 = s.match(/หมู่\s*([1-5])/);
     if (m1) return Number(m1[1]);
-
     const m2 = s.match(/\b([1-5])\b/);
     if (m2) return Number(m2[1]);
-
     if (/โปรตีน/.test(s)) return 1;
     if (/คาร์โบ|แป้ง|ข้าว|เผือก|มัน/.test(s)) return 2;
     if (/ผัก/.test(s)) return 3;
     if (/ผลไม้/.test(s)) return 4;
     if (/ไขมัน/.test(s)) return 5;
-
     return null;
   }
 
@@ -1612,9 +1406,7 @@ Debug:
       powerWrap.style.setProperty('--group-accent', c);
     }
 
-    if(changed){
-      triggerGroupSwitchFx(n);
-    }
+    if(changed) triggerGroupSwitchFx(n);
   }
 
   function showToast(text, mood){
@@ -1675,9 +1467,11 @@ Debug:
       document.body.classList.add('end-open');
       try{ window.HHA_VR_UI?.hide?.(); }catch(_){}
       try{ window.HHA_VRUI?.hide?.(); }catch(_){}
-      try{ document.querySelectorAll('.hha-vr-ui, .vr-ui, #vr-ui, #btnEnterVR, #btnRecenter, #btnExitVR').forEach(n => {
-        n.style.display = 'none';
-      }); }catch(_){}
+      try{
+        document.querySelectorAll('.hha-vr-ui, .vr-ui, #vr-ui, #btnEnterVR, #btnRecenter, #btnExitVR').forEach(n => {
+          n.style.display = 'none';
+        });
+      }catch(_){}
     }
   }
 
@@ -1688,9 +1482,11 @@ Debug:
       document.body.classList.remove('end-open');
       try{ window.HHA_VR_UI?.show?.(); }catch(_){}
       try{ window.HHA_VRUI?.show?.(); }catch(_){}
-      try{ document.querySelectorAll('.hha-vr-ui, .vr-ui, #vr-ui, #btnEnterVR, #btnRecenter, #btnExitVR').forEach(n => {
-        n.style.display = '';
-      }); }catch(_){}
+      try{
+        document.querySelectorAll('.hha-vr-ui, .vr-ui, #vr-ui, #btnEnterVR, #btnRecenter, #btnExitVR').forEach(n => {
+          n.style.display = '';
+        });
+      }catch(_){}
     }
   }
 
@@ -1701,33 +1497,8 @@ Debug:
     clearFxLayer();
   }
 
-  function lockPxForView(){
-    if(VIEW === 'pc') return 10;
-    if(VIEW === 'cvr') return 22;
-    return 16;
-  }
-
-  function installLockPxShim(){
-    window.addEventListener('hha:shoot', (ev)=>{
-      try{
-        if(!ev || !ev.detail) return;
-        if(ev.detail.lockPx != null) return;
-        const d = ev.detail;
-        ev.stopImmediatePropagation();
-        window.dispatchEvent(new CustomEvent('hha:shoot', {
-          detail: { ...d, lockPx: lockPxForView(), source: d.source || 'shim' }
-        }));
-      }catch(_){}
-    }, true);
-  }
-
   function safeStopEngine(){
     try{ window.GroupsVR?.GameEngine?.stop?.(); }catch(_){}
-  }
-
-  function getRect(el){
-    try{ return el ? el.getBoundingClientRect() : null; }
-    catch(_){ return null; }
   }
 
   function updateHudCompactMode(){
@@ -1740,10 +1511,8 @@ Debug:
   function updateTopbarCompactMode(){
     const w = window.innerWidth || 0;
     const h = window.innerHeight || 0;
-
     const compact = (w <= 520) || (w <= 640 && h <= 760);
     const ultra = (w <= 390) || (w <= 430 && h <= 700);
-
     document.body.classList.toggle('topbar-compact', compact);
     document.body.classList.toggle('topbar-ultra-compact', ultra);
   }
@@ -1751,16 +1520,13 @@ Debug:
   function updatePowerAutohideMode(){
     const w = window.innerWidth || 0;
     const h = window.innerHeight || 0;
-
     const autoHide = (VIEW === 'mobile') && ((w <= 640) || (h <= 720));
     const minimized = (w <= 390) || (w <= 430 && h <= 700);
 
     document.body.classList.toggle('power-autohide', autoHide);
     if(powerWrap){
       powerWrap.classList.toggle('minimized', autoHide && minimized);
-      if(!autoHide){
-        powerWrap.classList.remove('peek');
-      }
+      if(!autoHide) powerWrap.classList.remove('peek');
     }
   }
 
@@ -1779,174 +1545,6 @@ Debug:
       powerWrap.classList.remove('peek');
       powerPeekTimer = null;
     }, ms || 1400);
-  }
-
-  function computeSpawnSafe(){
-    const r = getRect(playLayer);
-    if(!r) return { xMin: 16, xMax: 320, yMin: 120, yMax: 420 };
-
-    const hudR = getRect(document.querySelector('.hudTop'));
-    const powerR = getRect(powerWrap);
-    const toastVisible = coachToast.classList.contains('show');
-    const toastR = toastVisible ? getRect(coachToast) : null;
-
-    const narrow = r.width <= 640;
-    const shortH = r.height <= 720;
-
-    const padX = Math.max(12, Math.round(Math.min(narrow ? 18 : 24, r.width * (narrow ? 0.022 : 0.025))));
-    const topPad = narrow ? 8 : 12;
-    const bottomPad = narrow ? 10 : 14;
-
-    const topBlock = Math.max(
-      0,
-      hudR ? Math.round((hudR.bottom - r.top) + topPad) : (narrow ? 96 : 108),
-      powerR ? Math.round((powerR.bottom - r.top) + (narrow ? 8 : 10)) : 0
-    );
-
-    let bottomBlock = Math.max(
-      narrow ? 76 : 92,
-      toastR ? Math.round((r.bottom - toastR.top) + 10) : 0,
-      VIEW === 'mobile'
-        ? Math.round(Math.min(narrow ? 132 : 164, r.height * (narrow ? 0.18 : 0.24)))
-        : 112
-    );
-
-    let xMin = padX;
-    let xMax = Math.max(padX + 1, Math.round(r.width - padX));
-    let yMin = Math.max(18, topBlock);
-    let yMax = Math.max(yMin + 1, Math.round(r.height - bottomBlock - bottomPad));
-
-    if (powerR){
-      const powerW = Math.round(powerR.width + (narrow ? 10 : 14));
-      if (r.width <= 640){
-        xMin = Math.max(xMin, powerW);
-      }
-    }
-
-    if (narrow){
-      xMin = Math.max(xMin, 54);
-      yMin = Math.max(yMin, shortH ? 112 : 120);
-      bottomBlock = Math.max(bottomBlock, shortH ? 82 : 92);
-      yMax = Math.max(yMin + 1, Math.round(r.height - bottomBlock));
-    }
-
-    if ((xMax - xMin) < (narrow ? 108 : 120)){
-      xMin = padX;
-      xMax = Math.max(xMin + (narrow ? 108 : 120), Math.round(r.width - padX));
-    }
-
-    if ((yMax - yMin) < (narrow ? 138 : 160)){
-      yMin = Math.max(24, Math.round(topBlock * 0.94));
-      yMax = Math.max(
-        yMin + (narrow ? 138 : 160),
-        Math.round(r.height - Math.max(narrow ? 74 : 86, bottomBlock * 0.86))
-      );
-    }
-
-    yMax = Math.min(Math.round(r.height - 10), yMax);
-    xMax = Math.min(Math.round(r.width - 10), xMax);
-
-    return {
-      xMin,
-      xMax: Math.max(xMin + 1, xMax),
-      yMin,
-      yMax: Math.max(yMin + 1, yMax)
-    };
-  }
-
-  function placeDebugBox(el, rect, baseRect){
-    if(!el || !rect || !baseRect){
-      if(el) el.style.display = 'none';
-      return;
-    }
-
-    const left = Math.max(0, Math.round(rect.left - baseRect.left));
-    const top = Math.max(0, Math.round(rect.top - baseRect.top));
-    const width = Math.max(0, Math.round(rect.width));
-    const height = Math.max(0, Math.round(rect.height));
-
-    if(width <= 0 || height <= 0){
-      el.style.display = 'none';
-      return;
-    }
-
-    el.style.display = 'block';
-    el.style.left = left + 'px';
-    el.style.top = top + 'px';
-    el.style.width = width + 'px';
-    el.style.height = height + 'px';
-  }
-
-  function renderSpawnDebug(){
-    if(!DEBUG_SPAWN || !spawnDebug || !spawnDebugRect || !spawnDebugLabel) return;
-
-    const s = window.__HHA_SPAWN_SAFE__;
-    const playR = getRect(playLayer);
-    const hudR = getRect(document.querySelector('.hudTop'));
-    const powerR = getRect(powerWrap);
-    const toastR = coachToast.classList.contains('show') ? getRect(coachToast) : null;
-
-    if(!s || !playR) return;
-
-    spawnDebug.classList.add('show');
-
-    spawnDebugRect.style.left = Math.round(s.xMin) + 'px';
-    spawnDebugRect.style.top = Math.round(s.yMin) + 'px';
-    spawnDebugRect.style.width = Math.max(1, Math.round(s.xMax - s.xMin)) + 'px';
-    spawnDebugRect.style.height = Math.max(1, Math.round(s.yMax - s.yMin)) + 'px';
-
-    placeDebugBox(spawnDebugHud, hudR, playR);
-    placeDebugBox(spawnDebugPower, powerR, playR);
-    placeDebugBox(spawnDebugToast, toastR, playR);
-
-    const compactOn = document.body.classList.contains('hud-compact') ? 'yes' : 'no';
-    const topbarCompactOn = document.body.classList.contains('topbar-compact') ? 'yes' : 'no';
-    const topbarUltraOn = document.body.classList.contains('topbar-ultra-compact') ? 'yes' : 'no';
-    const powerAutoOn = document.body.classList.contains('power-autohide') ? 'yes' : 'no';
-    const powerMiniOn = powerWrap.classList.contains('minimized') ? 'yes' : 'no';
-
-    spawnDebugLabel.textContent =
-      'spawn-safe\n' +
-      `view=${VIEW}${CVR_STRICT ? ' strict' : ''}\n` +
-      `hudCompact=${compactOn}\n` +
-      `topbarCompact=${topbarCompactOn}\n` +
-      `topbarUltra=${topbarUltraOn}\n` +
-      `powerAuto=${powerAutoOn}\n` +
-      `powerMini=${powerMiniOn}\n` +
-      `play=${Math.round(playR.width)}x${Math.round(playR.height)}\n` +
-      `x: ${Math.round(s.xMin)}..${Math.round(s.xMax)}\n` +
-      `y: ${Math.round(s.yMin)}..${Math.round(s.yMax)}`;
-  }
-
-  function applySpawnSafe(){
-    try{
-      window.__HHA_SPAWN_SAFE__ = computeSpawnSafe();
-      renderSpawnDebug();
-    }catch(_){}
-  }
-
-  function debugSpawnSafe(){
-    try{
-      const s = window.__HHA_SPAWN_SAFE__;
-      console.log('[GroupsVR spawn-safe]', {
-        view: VIEW,
-        width: Math.round(playLayer.getBoundingClientRect().width),
-        height: Math.round(playLayer.getBoundingClientRect().height),
-        safe: s
-      });
-    }catch(_){}
-  }
-
-  function scheduleSpawnSafe(){
-    if(spawnSafeRaf) cancelAnimationFrame(spawnSafeRaf);
-    spawnSafeRaf = requestAnimationFrame(()=>{
-      spawnSafeRaf = 0;
-      updateHudCompactMode();
-      updateTopbarCompactMode();
-      updatePowerAutohideMode();
-      applySpawnSafe();
-      debugSpawnSafe();
-    });
   }
 
   function syncUiToBootState(){
@@ -1980,6 +1578,42 @@ Debug:
     aiTopFactors.textContent = '—';
     endSummary.textContent = '';
     endBuff.textContent = '';
+    childHeadline.textContent = 'เก่งมาก!';
+    childCoachMsg.textContent = 'เยี่ยมเลย! ไปผ่อนคลายต่อกัน';
+  }
+
+  function buildAiSummary(pred){
+    const enabled = !!pred?.enabled;
+    const risk = (pred?.hazardRisk != null) ? String(pred.hazardRisk) : '—';
+    let tf = pred?.topFactors;
+    if(Array.isArray(tf)) tf = tf.filter(Boolean).join(', ');
+    if(!tf) tf = '—';
+
+    aiEnabled.textContent = enabled ? 'yes' : 'no';
+    aiRisk.textContent = risk;
+    aiTopFactors.textContent = tf;
+  }
+
+  function buildEndSummary(summary, pred){
+    const s = summary || {};
+
+    sumGrade.textContent = s.grade || '—';
+    sumScore.textContent = String(s.scoreFinal ?? s.score ?? 0);
+    sumAcc.textContent = `${s.accuracyPct ?? 0}%`;
+    sumMiss.textContent = String(s.miss ?? 0);
+    sumCombo.textContent = String(s.comboMax ?? 0);
+    sumTime.textContent = `${s.durationPlayedSec ?? 0}s`;
+    sumGroupLast.textContent = s.groupLast || '—';
+    sumBossHits.textContent = String(s.bossHits ?? 0);
+    sumReason.textContent = s.reason || '—';
+    sumModeDiff.textContent = `${String(s.runMode || RUN).toUpperCase()} / ${s.diff || DIFF}`;
+
+    childHeadline.textContent = getChildHeadline(s.grade);
+    childCoachMsg.textContent = getChildCoachMessage(s);
+
+    endSummary.textContent = JSON.stringify(s || {}, null, 2);
+    endBuff.textContent = JSON.stringify(pred || { note:'no ai' }, null, 2);
+    buildAiSummary(pred);
   }
 
   function startGame(){
@@ -1989,10 +1623,10 @@ Debug:
 
     resetTransientUi();
     syncUiToBootState();
+    updateSummaryMode();
     updateHudCompactMode();
     updateTopbarCompactMode();
     updatePowerAutohideMode();
-    scheduleSpawnSafe();
 
     safeStopEngine();
     try{ window.GroupsVR?.GameEngine?.setLayerEl?.(playLayer); }catch(_){}
@@ -2013,7 +1647,6 @@ Debug:
       if (myBoot !== bootNonce) return;
 
       setActiveGroup(parseGroupNo(groupName.textContent) || 1);
-      scheduleSpawnSafe();
       peekPowerWrap(1600);
       showToast('เริ่มแล้ว! ยิงให้ถูก “หมู่” แล้วเก็บคอมโบ 🔥', 'neutral');
     }catch(e){
@@ -2029,7 +1662,6 @@ Debug:
     isRestarting = true;
     resetTransientUi();
     safeStopEngine();
-    scheduleSpawnSafe();
     setTimeout(()=>{
       startGame();
       setTimeout(()=>{ isRestarting = false; }, 160);
@@ -2040,47 +1672,16 @@ Debug:
     if(hasBooted) return;
     hasBooted = true;
     resetTransientUi();
+    updateSummaryMode();
     updateHudCompactMode();
     updateTopbarCompactMode();
     updatePowerAutohideMode();
-    scheduleSpawnSafe();
     startGame();
-  }
-
-  function buildAiSummary(pred){
-    const enabled = !!pred?.enabled;
-    const risk = (pred?.hazardRisk != null) ? String(pred.hazardRisk) : '—';
-    let tf = pred?.topFactors;
-    if(Array.isArray(tf)) tf = tf.filter(Boolean).join(', ');
-    if(!tf) tf = '—';
-
-    aiEnabled.textContent = enabled ? 'yes' : 'no';
-    aiRisk.textContent = risk;
-    aiTopFactors.textContent = tf;
-  }
-
-  function buildEndSummary(summary, pred){
-    const s = summary || {};
-    sumGrade.textContent = s.grade || '—';
-    sumScore.textContent = String(s.scoreFinal ?? s.score ?? 0);
-    sumAcc.textContent = `${s.accuracyPct ?? 0}%`;
-    sumMiss.textContent = String(s.miss ?? 0);
-    sumCombo.textContent = String(s.comboMax ?? 0);
-    sumTime.textContent = `${s.durationPlayedSec ?? 0}s`;
-    sumGroupLast.textContent = s.groupLast || '—';
-    sumBossHits.textContent = String(s.bossHits ?? 0);
-    sumReason.textContent = s.reason || '—';
-    sumModeDiff.textContent = `${String(s.runMode || RUN).toUpperCase()} / ${s.diff || DIFF}`;
-
-    endSummary.textContent = JSON.stringify(s || {}, null, 2);
-    endBuff.textContent = JSON.stringify(pred || { note:'no ai' }, null, 2);
-    buildAiSummary(pred);
   }
 
   window.addEventListener('hha:coach', (ev)=>{
     const d = ev?.detail || {};
     if(d.text) showToast(d.text, d.mood || 'neutral');
-    scheduleSpawnSafe();
   });
 
   window.addEventListener('hha:time', (ev)=>{
@@ -2103,7 +1704,6 @@ Debug:
 
     const m = (d.misses != null) ? d.misses : d.miss;
     if(m != null) hudMiss.textContent = String(m|0);
-
     pulseEl(hudScore);
   });
 
@@ -2152,8 +1752,6 @@ Debug:
 
     if(groupChanged) peekPowerWrap(1700);
     else peekPowerWrap(900);
-
-    scheduleSpawnSafe();
   });
 
   window.addEventListener('groups:power', (ev)=>{
@@ -2190,39 +1788,21 @@ Debug:
   window.addEventListener('hha:end', (ev)=>{
     const s = ev?.detail || {};
     endSub.textContent = `grade=${s?.grade || '-'} · acc=${s?.accuracyPct ?? '-'}% · miss=${s?.miss ?? '-'}`;
-
     const pred = (window.HHA_AI && window.HHA_AI.getPrediction) ? window.HHA_AI.getPrediction() : null;
     endMode.textContent = RUN.toUpperCase();
 
     buildEndSummary(s, pred);
     showOverlay(endOverlay);
-    scheduleSpawnSafe();
   });
 
-  const vv = window.visualViewport;
-  if (vv){
-    vv.addEventListener('resize', scheduleSpawnSafe, { passive:true });
-    vv.addEventListener('scroll', scheduleSpawnSafe, { passive:true });
-  }
-
-  window.addEventListener('resize', scheduleSpawnSafe, { passive:true });
-  window.addEventListener('orientationchange', scheduleSpawnSafe, { passive:true });
-
+  window.addEventListener('pagehide', ()=> safeStopEngine());
+  window.addEventListener('beforeunload', ()=> safeStopEngine());
   window.addEventListener('pageshow', (ev)=>{
     resetTransientUi();
-    scheduleSpawnSafe();
     if(ev.persisted){
       safeStopEngine();
       setTimeout(()=> restart(), 60);
     }
-  });
-
-  window.addEventListener('pagehide', ()=>{
-    safeStopEngine();
-  });
-
-  window.addEventListener('beforeunload', ()=>{
-    safeStopEngine();
   });
 
   $('#btnRestart').addEventListener('click', restart);
@@ -2230,22 +1810,40 @@ Debug:
     safeStopEngine();
     location.href = HUB;
   });
+
+  btnEndContinue.addEventListener('click', ()=>{
+    safeStopEngine();
+    location.href = buildCooldownUrl();
+  });
+
   $('#btnEndAgain').addEventListener('click', restart);
   $('#btnEndGoHub').addEventListener('click', ()=>{
     safeStopEngine();
     location.href = HUB;
   });
-  $('#btnEndClose').addEventListener('click', ()=>{
-    hideOverlay(endOverlay);
-    scheduleSpawnSafe();
-  });
-
-  if (DEBUG_SPAWN && spawnDebug){
-    spawnDebug.classList.add('show');
-  }
 
   installLockPxShim();
   bootOnce();
+
+  function installLockPxShim(){
+    window.addEventListener('hha:shoot', (ev)=>{
+      try{
+        if(!ev || !ev.detail) return;
+        if(ev.detail.lockPx != null) return;
+        const d = ev.detail;
+        ev.stopImmediatePropagation();
+        window.dispatchEvent(new CustomEvent('hha:shoot', {
+          detail: { ...d, lockPx: lockPxForView(), source: d.source || 'shim' }
+        }));
+      }catch(_){}
+    }, true);
+  }
+
+  function lockPxForView(){
+    if(VIEW === 'pc') return 10;
+    if(VIEW === 'cvr') return 22;
+    return 16;
+  }
 })();
 </script>
 </body>
