@@ -1,13 +1,10 @@
 <!-- === /herohealth/hub.html ===
 HeroHealth — Hub (3 Zones) — PRODUCTION
-PATCH v20260310-HUB-SHADOWBREAKER-LAUNCHER-FIX
-✅ Last Run card
-✅ GoodJunk card book
-✅ JumpDuck card book
-✅ Fitness shelf reads JumpDuck reward / best / streak / boss badge
-✅ JumpDuck launcher = ./jump-duck-vr.html
-✅ JumpDuck gallery = ./jump-duck-gallery.html
-✅ FIX: Shadow Breaker launcher = ./shadow-breaker-vr.html
+PATCH v20260311-HUB-HYDRATION-STARTFLOW-FIX
+✅ Hydration launcher = ./hydration-vr.html
+✅ Hydration Start Flow passes zone/cat/gate/cdur/cooldown
+✅ Start Flow target: launcher -> warmup-gate -> run -> summary -> cooldown -> hub
+✅ Keep current GoodJunk / JumpDuck / ShadowBreaker launcher wiring
 -->
 <!doctype html>
 <html lang="th">
@@ -43,13 +40,11 @@ PATCH v20260310-HUB-SHADOWBREAKER-LAUNCHER-FIX
       overflow-x:hidden;
     }
     a{ color:inherit; text-decoration:none; }
-
     .wrap{
       max-width: 1080px;
       margin: 0 auto;
       padding: calc(14px + var(--sat)) calc(14px + var(--sar)) calc(18px + var(--sab)) calc(14px + var(--sal));
     }
-
     .topbar{
       display:flex;
       gap:10px;
@@ -58,7 +53,6 @@ PATCH v20260310-HUB-SHADOWBREAKER-LAUNCHER-FIX
       flex-wrap:wrap;
       margin-bottom: 12px;
     }
-
     .brand{
       display:flex;
       align-items:center;
@@ -71,7 +65,6 @@ PATCH v20260310-HUB-SHADOWBREAKER-LAUNCHER-FIX
       box-shadow: 0 18px 55px rgba(0,0,0,.35);
     }
     .brand b{ font-weight:1100; }
-
     .pill{
       display:inline-flex;
       align-items:center;
@@ -87,7 +80,6 @@ PATCH v20260310-HUB-SHADOWBREAKER-LAUNCHER-FIX
       white-space:nowrap;
     }
     .pill b{ color:var(--text); }
-
     .hero{
       display:flex;
       gap:8px;
@@ -95,7 +87,6 @@ PATCH v20260310-HUB-SHADOWBREAKER-LAUNCHER-FIX
       align-items:center;
       justify-content:flex-end;
     }
-
     .btn{
       cursor:pointer;
       border-radius: 16px;
@@ -110,7 +101,6 @@ PATCH v20260310-HUB-SHADOWBREAKER-LAUNCHER-FIX
     .btn.violet{ border-color: rgba(167,139,250,.28); background: rgba(167,139,250,.14); }
     .btn.good{ border-color: rgba(34,197,94,.28); background: rgba(34,197,94,.14); }
     .btn.ghost{ background: transparent; color: var(--muted); }
-
     .grid{
       display:grid;
       grid-template-columns: repeat(3, minmax(0,1fr));
@@ -120,7 +110,6 @@ PATCH v20260310-HUB-SHADOWBREAKER-LAUNCHER-FIX
     @media (max-width:900px){
       .grid{ grid-template-columns:1fr; }
     }
-
     .card{
       border-radius: 22px;
       border:1px solid rgba(148,163,184,.18);
@@ -132,7 +121,6 @@ PATCH v20260310-HUB-SHADOWBREAKER-LAUNCHER-FIX
       flex-direction:column;
       gap:10px;
     }
-
     .card h2{
       margin:0;
       font-size:16px;
@@ -141,13 +129,11 @@ PATCH v20260310-HUB-SHADOWBREAKER-LAUNCHER-FIX
       gap:10px;
       align-items:center;
     }
-
     .muted{
       color:var(--muted);
       font-weight:900;
       font-size:12px;
     }
-
     .zoneRow{
       display:flex;
       gap:10px;
@@ -155,7 +141,6 @@ PATCH v20260310-HUB-SHADOWBREAKER-LAUNCHER-FIX
       align-items:center;
       justify-content:space-between;
     }
-
     .games{
       display:grid;
       grid-template-columns: repeat(2, minmax(0,1fr));
@@ -164,7 +149,6 @@ PATCH v20260310-HUB-SHADOWBREAKER-LAUNCHER-FIX
     @media (max-width:520px){
       .games{ grid-template-columns:1fr; }
     }
-
     .gameBtn{
       display:flex;
       flex-direction:column;
@@ -179,26 +163,22 @@ PATCH v20260310-HUB-SHADOWBREAKER-LAUNCHER-FIX
     .gameBtn .t{ font-weight:1100; }
     .gameBtn .s{ font-size:12px; font-weight:900; color:var(--muted); }
     .gameBtn:hover{ border-color: rgba(59,130,246,.28); }
-
     .inlineRow{
       display:flex;
       gap:10px;
       flex-wrap:wrap;
       align-items:center;
     }
-
     .sep{
       height:1px;
       background: rgba(148,163,184,.14);
       margin: 6px 0;
     }
-
     .small{
       font-size:12px;
       font-weight:900;
       color: var(--muted);
     }
-
     .cardBook{
       border-radius:22px;
       border:1px solid rgba(148,163,184,.18);
@@ -211,7 +191,6 @@ PATCH v20260310-HUB-SHADOWBREAKER-LAUNCHER-FIX
       gap:10px;
       margin-top:12px;
     }
-
     .cardBookTop{
       display:flex;
       align-items:center;
@@ -219,7 +198,6 @@ PATCH v20260310-HUB-SHADOWBREAKER-LAUNCHER-FIX
       gap:10px;
       flex-wrap:wrap;
     }
-
     .cardBookTitle{
       display:flex;
       align-items:center;
@@ -227,13 +205,11 @@ PATCH v20260310-HUB-SHADOWBREAKER-LAUNCHER-FIX
       font-size:16px;
       font-weight:1100;
     }
-
     .cardBookSub{
       color:var(--muted);
       font-size:12px;
       font-weight:900;
     }
-
     .cardBookGrid{
       display:grid;
       grid-template-columns: 1.2fr .8fr;
@@ -242,7 +218,6 @@ PATCH v20260310-HUB-SHADOWBREAKER-LAUNCHER-FIX
     @media (max-width: 900px){
       .cardBookGrid{ grid-template-columns:1fr; }
     }
-
     .bookPanel{
       border-radius:18px;
       border:1px solid rgba(148,163,184,.16);
@@ -250,21 +225,18 @@ PATCH v20260310-HUB-SHADOWBREAKER-LAUNCHER-FIX
       padding:12px;
       box-shadow: 0 18px 55px rgba(0,0,0,.25);
     }
-
     .bookBig{
       font-size:30px;
       font-weight:1100;
       line-height:1;
       margin-top:4px;
     }
-
     .bookMini{
       color:var(--muted);
       font-size:12px;
       font-weight:900;
       line-height:1.4;
     }
-
     .rarityRow{
       display:grid;
       grid-template-columns: repeat(4, minmax(0,1fr));
@@ -274,7 +246,6 @@ PATCH v20260310-HUB-SHADOWBREAKER-LAUNCHER-FIX
     @media (max-width: 520px){
       .rarityRow{ grid-template-columns: repeat(2, minmax(0,1fr)); }
     }
-
     .rarityCard{
       border-radius:16px;
       border:1px solid rgba(148,163,184,.16);
@@ -296,14 +267,12 @@ PATCH v20260310-HUB-SHADOWBREAKER-LAUNCHER-FIX
     .rarity-a .rv{ color:#60a5fa; }
     .rarity-b .rv{ color:#4ade80; }
     .rarity-c .rv{ color:#cbd5e1; }
-
     .lastDrop{
       display:grid;
       grid-template-columns: 72px 1fr;
       gap:12px;
       align-items:center;
     }
-
     .lastDropIcon{
       width:72px;
       height:72px;
@@ -315,33 +284,28 @@ PATCH v20260310-HUB-SHADOWBREAKER-LAUNCHER-FIX
       background: rgba(2,6,23,.36);
       box-shadow: 0 12px 30px rgba(0,0,0,.24);
     }
-
     .lastDropBody{
       display:flex;
       flex-direction:column;
       gap:4px;
     }
-
     .lastDropTitle{
       font-size:16px;
       font-weight:1100;
       line-height:1.2;
     }
-
     .lastDropMeta{
       color:var(--muted);
       font-size:12px;
       font-weight:900;
       line-height:1.4;
     }
-
     .bookActions{
       display:flex;
       gap:8px;
       flex-wrap:wrap;
       margin-top:8px;
     }
-
     .trophyShelf{
       border-radius:22px;
       border:1px solid rgba(148,163,184,.18);
@@ -354,7 +318,6 @@ PATCH v20260310-HUB-SHADOWBREAKER-LAUNCHER-FIX
       gap:10px;
       margin-top:12px;
     }
-
     .shelfGrid{
       display:grid;
       grid-template-columns: repeat(3, minmax(0,1fr));
@@ -363,7 +326,6 @@ PATCH v20260310-HUB-SHADOWBREAKER-LAUNCHER-FIX
     @media (max-width:900px){
       .shelfGrid{ grid-template-columns:1fr; }
     }
-
     .shelfCard{
       border-radius:18px;
       border:1px solid rgba(148,163,184,.16);
@@ -374,7 +336,6 @@ PATCH v20260310-HUB-SHADOWBREAKER-LAUNCHER-FIX
       flex-direction:column;
       gap:8px;
     }
-
     .shelfTop{
       display:flex;
       align-items:center;
@@ -382,7 +343,6 @@ PATCH v20260310-HUB-SHADOWBREAKER-LAUNCHER-FIX
       gap:10px;
       flex-wrap:wrap;
     }
-
     .trophyIcon{
       width:54px;
       height:54px;
@@ -394,13 +354,11 @@ PATCH v20260310-HUB-SHADOWBREAKER-LAUNCHER-FIX
       background: rgba(2,6,23,.36);
       box-shadow: 0 12px 30px rgba(0,0,0,.24);
     }
-
     .trophyTitle{
       font-size:15px;
       font-weight:1100;
       line-height:1.2;
     }
-
     .statusChip{
       display:inline-flex;
       align-items:center;
@@ -423,14 +381,12 @@ PATCH v20260310-HUB-SHADOWBREAKER-LAUNCHER-FIX
       border-color: rgba(239,68,68,.26);
       background: rgba(239,68,68,.10);
     }
-
     .shelfMeta{
       color:var(--muted);
       font-size:12px;
       font-weight:900;
       line-height:1.45;
     }
-
     .miniRow{
       display:flex;
       gap:8px;
@@ -441,7 +397,6 @@ PATCH v20260310-HUB-SHADOWBREAKER-LAUNCHER-FIX
 </head>
 <body>
   <div class="wrap">
-
     <div class="topbar">
       <div class="brand">
         <span style="font-size:18px">🧠🎮</span>
@@ -459,7 +414,6 @@ PATCH v20260310-HUB-SHADOWBREAKER-LAUNCHER-FIX
         <span class="pill"><b>Hero</b>: <span id="uiNick">anon</span></span>
         <span class="pill"><b>LV</b>: <span id="uiLvl">1</span></span>
         <span class="pill"><b>XP</b>: <span id="uiXp">0</span></span>
-
         <button class="btn violet" id="btnHeroShow" type="button">🧾 ดู Hero</button>
         <button class="btn ghost" id="btnHeroReset" type="button">♻ Reset Hero</button>
       </div>
@@ -481,24 +435,11 @@ PATCH v20260310-HUB-SHADOWBREAKER-LAUNCHER-FIX
         <div class="bookPanel">
           <div class="bookMini">จำนวนการ์ดสะสมทั้งหมด</div>
           <div class="bookBig" id="bookTotal">0</div>
-
           <div class="rarityRow">
-            <div class="rarityCard rarity-s">
-              <div class="rk">S</div>
-              <div class="rv" id="bookS">0</div>
-            </div>
-            <div class="rarityCard rarity-a">
-              <div class="rk">A</div>
-              <div class="rv" id="bookA">0</div>
-            </div>
-            <div class="rarityCard rarity-b">
-              <div class="rk">B</div>
-              <div class="rv" id="bookB">0</div>
-            </div>
-            <div class="rarityCard rarity-c">
-              <div class="rk">C</div>
-              <div class="rv" id="bookC">0</div>
-            </div>
+            <div class="rarityCard rarity-s"><div class="rk">S</div><div class="rv" id="bookS">0</div></div>
+            <div class="rarityCard rarity-a"><div class="rk">A</div><div class="rv" id="bookA">0</div></div>
+            <div class="rarityCard rarity-b"><div class="rk">B</div><div class="rv" id="bookB">0</div></div>
+            <div class="rarityCard rarity-c"><div class="rk">C</div><div class="rv" id="bookC">0</div></div>
           </div>
         </div>
 
@@ -629,24 +570,11 @@ PATCH v20260310-HUB-SHADOWBREAKER-LAUNCHER-FIX
         <div class="bookPanel">
           <div class="bookMini">จำนวนการ์ดสะสมทั้งหมด</div>
           <div class="bookBig" id="jdBookTotal">0</div>
-
           <div class="rarityRow">
-            <div class="rarityCard rarity-s">
-              <div class="rk">S</div>
-              <div class="rv" id="jdBookS">0</div>
-            </div>
-            <div class="rarityCard rarity-a">
-              <div class="rk">A</div>
-              <div class="rv" id="jdBookA">0</div>
-            </div>
-            <div class="rarityCard rarity-b">
-              <div class="rk">B</div>
-              <div class="rv" id="jdBookB">0</div>
-            </div>
-            <div class="rarityCard rarity-c">
-              <div class="rk">C/D</div>
-              <div class="rv" id="jdBookC">0</div>
-            </div>
+            <div class="rarityCard rarity-s"><div class="rk">S</div><div class="rv" id="jdBookS">0</div></div>
+            <div class="rarityCard rarity-a"><div class="rk">A</div><div class="rv" id="jdBookA">0</div></div>
+            <div class="rarityCard rarity-b"><div class="rk">B</div><div class="rv" id="jdBookB">0</div></div>
+            <div class="rarityCard rarity-c"><div class="rk">C/D</div><div class="rv" id="jdBookC">0</div></div>
           </div>
         </div>
 
@@ -668,7 +596,6 @@ PATCH v20260310-HUB-SHADOWBREAKER-LAUNCHER-FIX
     </section>
 
     <div class="grid">
-
       <section class="card">
         <h2>🥦 Nutrition Zone</h2>
         <div class="zoneRow">
@@ -677,16 +604,17 @@ PATCH v20260310-HUB-SHADOWBREAKER-LAUNCHER-FIX
             <button class="btn primary" id="btnGJsolo" type="button">🎯 GoodJunk (Solo)</button>
             <button class="btn violet" id="btnGJpro" type="button">🔥 Solo PRO</button>
             <button class="btn good" id="btnGJbattle" type="button">⚔ Battle</button>
+            <button class="btn primary" id="btnHydrationStart" type="button">💧 Hydration Start Flow</button>
           </div>
         </div>
         <div class="sep"></div>
         <div class="games">
           <a class="gameBtn" id="linkGoodjunk" href="#"><div class="t">🍔🆚🥦 GoodJunk</div><div class="s">Launcher • Solo/PRO/Battle • Hero + Card Book</div></a>
           <a class="gameBtn" id="linkGroups" href="#"><div class="t">🥚🍚 Food Groups</div><div class="s">Classroom ramp + AI warn</div></a>
-          <a class="gameBtn" id="linkHydration" href="#"><div class="t">💧 Hydration</div><div class="s">Storm boss + shield</div></a>
+          <a class="gameBtn" id="linkHydration" href="#"><div class="t">💧 Hydration</div><div class="s">Start Flow → warmup → run → cooldown</div></a>
           <a class="gameBtn" id="linkPlate" href="#"><div class="t">🍽 Balanced Plate</div><div class="s">Bloom missions</div></a>
         </div>
-        <div class="small" style="margin-top:4px;">Tip: Solo PRO = diff=hard & pro=1 (ผ่าน Launcher)</div>
+        <div class="small" style="margin-top:4px;">Tip: Hydration uses launcher=./hydration-vr.html แล้วค่อยผ่าน warmup-gate ไป run game จริง</div>
       </section>
 
       <section class="card">
@@ -715,7 +643,6 @@ PATCH v20260310-HUB-SHADOWBREAKER-LAUNCHER-FIX
           <a class="gameBtn" id="linkFitnessPlanner" href="#"><div class="t">📅 Fitness Planner</div><div class="s">วางแผนออกกำลัง</div></a>
         </div>
       </section>
-
     </div>
   </div>
 
@@ -795,7 +722,7 @@ PATCH v20260310-HUB-SHADOWBREAKER-LAUNCHER-FIX
       [
         'run','diff','time','seed','studyId','phase','conditionGroup','log','view','pid','api','ai','debug',
         'planSeq','planDay','planSlot','planMode','planSlots','planIndex','autoNext',
-        'plannedGame','finalGame','zone','cdnext','grade'
+        'plannedGame','finalGame','zone','cat','cdnext','grade'
       ].forEach(k=>{
         const v = sp.get(k);
         if(v!=null && v!=='') u.searchParams.set(k, v);
@@ -831,9 +758,7 @@ PATCH v20260310-HUB-SHADOWBREAKER-LAUNCHER-FIX
     }
 
     function saveCardBook(pid, book){
-      try{
-        localStorage.setItem(`HHA_CARD_BOOK:${pid}`, JSON.stringify(book));
-      }catch(_){}
+      try{ localStorage.setItem(`HHA_CARD_BOOK:${pid}`, JSON.stringify(book)); }catch(_){}
     }
 
     function cardSpecFromGrade(grade){
@@ -894,8 +819,7 @@ PATCH v20260310-HUB-SHADOWBREAKER-LAUNCHER-FIX
 
         if(!lastCard) lastDropIcon.textContent = spec.icon;
         if(!lastCard) lastDropTitle.textContent = spec.title;
-        lastDropMeta.textContent =
-          `ผลล่าสุด: reason=${sum.reason || '-'} • miss ${sum.missTotal ?? sum.miss ?? 0} • acc ${sum.accPct ?? 0}%`;
+        lastDropMeta.textContent = `ผลล่าสุด: reason=${sum.reason || '-'} • miss ${sum.missTotal ?? sum.miss ?? 0} • acc ${sum.accPct ?? 0}%`;
         lastDropGrade.textContent = grade;
         lastDropScore.textContent = String(sum.scoreFinal ?? sum.score ?? 0);
       }else{
@@ -955,14 +879,10 @@ PATCH v20260310-HUB-SHADOWBREAKER-LAUNCHER-FIX
           : 'เคลียร์ GoodJunk หรือสะสมการ์ดเพื่อปลดถ้วย';
 
       document.getElementById('hygieneHint').textContent =
-        hygieneUnlocked
-          ? 'ทำโซน Hygiene สำเร็จวันนี้แล้ว'
-          : 'ทำ zone hygiene ให้มี done today เพื่อโชว์ถ้วย';
+        hygieneUnlocked ? 'ทำโซน Hygiene สำเร็จวันนี้แล้ว' : 'ทำ zone hygiene ให้มี done today เพื่อโชว์ถ้วย';
 
       document.getElementById('fitnessHint').textContent =
-        fitnessUnlocked
-          ? 'ทำโซน Fitness สำเร็จวันนี้แล้ว'
-          : 'ทำ zone fitness ให้มี done today เพื่อโชว์ถ้วย';
+        fitnessUnlocked ? 'ทำโซน Fitness สำเร็จวันนี้แล้ว' : 'ทำ zone fitness ให้มี done today เพื่อโชว์ถ้วย';
     }
 
     function renderLastRun(){
@@ -1061,38 +981,21 @@ PATCH v20260310-HUB-SHADOWBREAKER-LAUNCHER-FIX
       if(grid) grid.style.display = 'grid';
     }
 
-    function loadJDProfile(pid){
-      return loadJson(`JD_PROFILE:${pid}`, {});
-    }
-
-    function loadJDCardBook(pid){
-      return loadJson(`JD_CARD_BOOK:${pid}`, { S:0, A:0, B:0, C:0, total:0 });
-    }
-
-    function saveJDCardBook(pid, book){
-      saveJson(`JD_CARD_BOOK:${pid}`, book);
-    }
-
-    function loadJDLastCard(pid){
-      return loadJson(`JD_LAST_CARD:${pid}`, null);
-    }
+    function loadJDProfile(pid){ return loadJson(`JD_PROFILE:${pid}`, {}); }
+    function loadJDCardBook(pid){ return loadJson(`JD_CARD_BOOK:${pid}`, { S:0, A:0, B:0, C:0, total:0 }); }
+    function saveJDCardBook(pid, book){ saveJson(`JD_CARD_BOOK:${pid}`, book); }
+    function loadJDLastCard(pid){ return loadJson(`JD_LAST_CARD:${pid}`, null); }
 
     function renderJDCardBook(){
       const book = loadJDCardBook(pid);
       const lastCard = loadJDLastCard(pid);
       const jd = loadJDProfile(pid);
 
-      const totalEl = document.getElementById('jdBookTotal');
-      const sEl = document.getElementById('jdBookS');
-      const aEl = document.getElementById('jdBookA');
-      const bEl = document.getElementById('jdBookB');
-      const cEl = document.getElementById('jdBookC');
-
-      if(totalEl) totalEl.textContent = String(book.total || 0);
-      if(sEl) sEl.textContent = String(book.S || 0);
-      if(aEl) aEl.textContent = String(book.A || 0);
-      if(bEl) bEl.textContent = String(book.B || 0);
-      if(cEl) cEl.textContent = String(book.C || 0);
+      document.getElementById('jdBookTotal').textContent = String(book.total || 0);
+      document.getElementById('jdBookS').textContent = String(book.S || 0);
+      document.getElementById('jdBookA').textContent = String(book.A || 0);
+      document.getElementById('jdBookB').textContent = String(book.B || 0);
+      document.getElementById('jdBookC').textContent = String(book.C || 0);
 
       const icon = document.getElementById('jdLastCardIcon');
       const title = document.getElementById('jdLastCardTitle');
@@ -1119,17 +1022,11 @@ PATCH v20260310-HUB-SHADOWBREAKER-LAUNCHER-FIX
       const jd = loadJDProfile(pid);
       const badgeCount = Object.values(jd.badges || {}).filter(Boolean).length;
 
-      const elBest = document.getElementById('fitnessJDBest');
-      const elStreak = document.getElementById('fitnessJDStreak');
-      const elBadgeCount = document.getElementById('fitnessJDBadgeCount');
-      const elReward = document.getElementById('fitnessJDReward');
-      const elBossBadge = document.getElementById('fitnessJDBossBadge');
-
-      if(elBest) elBest.textContent = String(jd.bestScore || 0);
-      if(elStreak) elStreak.textContent = String(jd.streak || 0);
-      if(elBadgeCount) elBadgeCount.textContent = String(badgeCount);
-      if(elReward) elReward.textContent = String(jd.lastReward?.medal ? `${jd.lastReward.medal} ${jd.lastReward.label}` : '-');
-      if(elBossBadge) elBossBadge.textContent = String(jd.lastBossBadge?.icon ? `${jd.lastBossBadge.icon} ${jd.lastBossBadge.label}` : '-');
+      document.getElementById('fitnessJDBest').textContent = String(jd.bestScore || 0);
+      document.getElementById('fitnessJDStreak').textContent = String(jd.streak || 0);
+      document.getElementById('fitnessJDBadgeCount').textContent = String(badgeCount);
+      document.getElementById('fitnessJDReward').textContent = String(jd.lastReward?.medal ? `${jd.lastReward.medal} ${jd.lastReward.label}` : '-');
+      document.getElementById('fitnessJDBossBadge').textContent = String(jd.lastBossBadge?.icon ? `${jd.lastBossBadge.icon} ${jd.lastBossBadge.label}` : '-');
 
       const fitnessHint = document.getElementById('fitnessHint');
       if(fitnessHint && (jd.bestScore || 0) > 0){
@@ -1160,6 +1057,7 @@ PATCH v20260310-HUB-SHADOWBREAKER-LAUNCHER-FIX
     const btnGJsolo = document.getElementById('btnGJsolo');
     const btnGJpro = document.getElementById('btnGJpro');
     const btnGJbattle = document.getElementById('btnGJbattle');
+    const btnHydrationStart = document.getElementById('btnHydrationStart');
 
     const linkGoodjunk = document.getElementById('linkGoodjunk');
     const linkGroups = document.getElementById('linkGroups');
@@ -1180,40 +1078,47 @@ PATCH v20260310-HUB-SHADOWBREAKER-LAUNCHER-FIX
     const linkFitnessPlanner = document.getElementById('linkFitnessPlanner');
 
     linkGoodjunk.href  = buildUrl(PATHS.goodjunk,   { mode:'solo' });
-    linkGroups.href    = buildUrl(PATHS.groups,     { zone:'nutrition' });
-    linkHydration.href = buildUrl(PATHS.hydration,  { zone:'nutrition' });
-    linkPlate.href     = buildUrl(PATHS.plate,      { zone:'nutrition' });
+    linkGroups.href    = buildUrl(PATHS.groups,     { zone:'nutrition', cat:'nutrition' });
+    linkHydration.href = buildUrl(PATHS.hydration,  {
+      zone:'nutrition',
+      cat:'nutrition',
+      gate:'1',
+      cdur:'20',
+      cooldown:'1'
+    });
+    linkPlate.href     = buildUrl(PATHS.plate,      { zone:'nutrition', cat:'nutrition' });
 
-    if(linkHandwash)      linkHandwash.href      = buildUrl(PATHS.handwash,      { zone:'hygiene' });
-    if(linkBrush)         linkBrush.href         = buildUrl(PATHS.brush,         { zone:'hygiene' });
-    if(linkBath)          linkBath.href          = buildUrl(PATHS.bath,          { zone:'hygiene' });
-    if(linkCleanObject)   linkCleanObject.href   = buildUrl(PATHS.cleanObject,   { zone:'hygiene' });
-    if(linkMaskCough)     linkMaskCough.href     = buildUrl(PATHS.maskCough,     { zone:'hygiene' });
-    if(linkGermDetective) linkGermDetective.href = buildUrl(PATHS.germDetective, { zone:'hygiene' });
+    if(linkHandwash)      linkHandwash.href      = buildUrl(PATHS.handwash,      { zone:'hygiene', cat:'hygiene' });
+    if(linkBrush)         linkBrush.href         = buildUrl(PATHS.brush,         { zone:'hygiene', cat:'hygiene' });
+    if(linkBath)          linkBath.href          = buildUrl(PATHS.bath,          { zone:'hygiene', cat:'hygiene' });
+    if(linkCleanObject)   linkCleanObject.href   = buildUrl(PATHS.cleanObject,   { zone:'hygiene', cat:'hygiene' });
+    if(linkMaskCough)     linkMaskCough.href     = buildUrl(PATHS.maskCough,     { zone:'hygiene', cat:'hygiene' });
+    if(linkGermDetective) linkGermDetective.href = buildUrl(PATHS.germDetective, { zone:'hygiene', cat:'hygiene' });
 
-    if(linkShadowBreaker)  linkShadowBreaker.href  = buildUrl(PATHS.shadowBreaker,  { zone:'fitness' });
-    if(linkRhythmBoxer)    linkRhythmBoxer.href    = buildUrl(PATHS.rhythmBoxer,    { zone:'fitness' });
-    if(linkJumpDuck)       linkJumpDuck.href       = buildUrl(PATHS.jumpDuck,       { zone:'fitness' });
-    if(linkBalanceHold)    linkBalanceHold.href    = buildUrl(PATHS.balanceHold,    { zone:'fitness' });
-    if(linkFitnessPlanner) linkFitnessPlanner.href = buildUrl(PATHS.fitnessPlanner, { zone:'fitness' });
+    if(linkShadowBreaker)  linkShadowBreaker.href  = buildUrl(PATHS.shadowBreaker,  { zone:'fitness', cat:'fitness' });
+    if(linkRhythmBoxer)    linkRhythmBoxer.href    = buildUrl(PATHS.rhythmBoxer,    { zone:'fitness', cat:'fitness' });
+    if(linkJumpDuck)       linkJumpDuck.href       = buildUrl(PATHS.jumpDuck,       { zone:'fitness', cat:'fitness' });
+    if(linkBalanceHold)    linkBalanceHold.href    = buildUrl(PATHS.balanceHold,    { zone:'fitness', cat:'fitness' });
+    if(linkFitnessPlanner) linkFitnessPlanner.href = buildUrl(PATHS.fitnessPlanner, { zone:'fitness', cat:'fitness' });
 
     btnGJsolo.onclick = ()=> location.href = buildUrl(PATHS.goodjunk, { mode:'solo' });
-
-    btnGJpro.onclick  = ()=> location.href = buildUrl(PATHS.goodjunk, {
-      mode:'solo',
-      diff:'hard',
-      pro:'1',
-      auto:'0'
-    });
-
+    btnGJpro.onclick  = ()=> location.href = buildUrl(PATHS.goodjunk, { mode:'solo', diff:'hard', pro:'1', auto:'0' });
     btnGJbattle.onclick = ()=> {
       const room = String(qs('room','P5A')) || 'P5A';
-      location.href = buildUrl(PATHS.goodjunk, {
-        mode:'battle',
-        room,
-        auto:'1'
-      });
+      location.href = buildUrl(PATHS.goodjunk, { mode:'battle', room, auto:'1' });
     };
+
+    if(btnHydrationStart){
+      btnHydrationStart.onclick = ()=> {
+        location.href = buildUrl(PATHS.hydration, {
+          zone:'nutrition',
+          cat:'nutrition',
+          gate:'1',
+          cdur:'20',
+          cooldown:'1'
+        });
+      };
+    }
 
     const btnHeroShow = document.getElementById('btnHeroShow');
     const btnHeroReset = document.getElementById('btnHeroReset');
@@ -1241,9 +1146,7 @@ PATCH v20260310-HUB-SHADOWBREAKER-LAUNCHER-FIX
     const btnResetJDCardBook = document.getElementById('btnResetJDCardBook');
     const linkJDGallery = document.getElementById('linkJDGallery');
 
-    btnOpenGJLauncher.onclick = ()=>{
-      location.href = buildUrl(PATHS.goodjunk, { mode:'solo' });
-    };
+    btnOpenGJLauncher.onclick = ()=> location.href = buildUrl(PATHS.goodjunk, { mode:'solo' });
 
     btnResetCardBook.onclick = ()=>{
       try{
@@ -1258,21 +1161,14 @@ PATCH v20260310-HUB-SHADOWBREAKER-LAUNCHER-FIX
     };
 
     if(btnOpenJDLauncher){
-      btnOpenJDLauncher.onclick = ()=>{
-        location.href = buildUrl(PATHS.jumpDuck, { zone:'fitness' });
-      };
+      btnOpenJDLauncher.onclick = ()=> location.href = buildUrl(PATHS.jumpDuck, { zone:'fitness', cat:'fitness' });
     }
-
     if(btnOpenJDGallery){
-      btnOpenJDGallery.onclick = ()=>{
-        location.href = buildUrl('./jump-duck-gallery.html', { zone:'fitness' });
-      };
+      btnOpenJDGallery.onclick = ()=> location.href = buildUrl('./jump-duck-gallery.html', { zone:'fitness', cat:'fitness' });
     }
-
     if(linkJDGallery){
-      linkJDGallery.href = buildUrl('./jump-duck-gallery.html', { zone:'fitness' });
+      linkJDGallery.href = buildUrl('./jump-duck-gallery.html', { zone:'fitness', cat:'fitness' });
     }
-
     if(btnResetJDCardBook){
       btnResetJDCardBook.onclick = ()=>{
         try{
