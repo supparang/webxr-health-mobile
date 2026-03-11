@@ -1,10 +1,10 @@
 <!-- === /herohealth/hydration-vr/hydration-vr.html ===
-Hydration VR RUN — PATCH C
-FULL v20260311-HYDRATION-RUN-PATCH-C
-✅ keeps Patch A + Patch B
-✅ live mini missions
-✅ stars earned
-✅ coach hype lines
+Hydration VR RUN — PATCH D
+FULL v20260311-HYDRATION-RUN-PATCH-D
+✅ keeps Patch A + B + C
+✅ safer HUD layout for mobile
+✅ stronger summary blocks
+✅ edge-case ready hooks
 -->
 <!doctype html>
 <html lang="th">
@@ -34,6 +34,7 @@ FULL v20260311-HYDRATION-RUN-PATCH-C
       border-radius:12px; border:1px solid rgba(255,255,255,.15);
       background:rgba(255,255,255,.08); color:#e5e7eb; font-weight:900;
     }
+
     .timeline-dock{
       position:fixed; right:10px; bottom:calc(env(safe-area-inset-bottom,0px) + 82px);
       width:min(260px, 42vw); z-index:45; background:rgba(2,6,23,.70);
@@ -53,6 +54,7 @@ FULL v20260311-HYDRATION-RUN-PATCH-C
       margin-top:8px; font-size:12px; line-height:1.4; color:#e5e7eb;
       opacity:.95; min-height:32px;
     }
+
     #coachToast{
       position:fixed; left:50%; bottom:calc(env(safe-area-inset-bottom,0px) + 18px);
       transform:translateX(-50%) translateY(10px); z-index:70; opacity:0; pointer-events:none;
@@ -64,10 +66,50 @@ FULL v20260311-HYDRATION-RUN-PATCH-C
       border:1px solid rgba(255,255,255,.10); border-radius:16px; padding:10px 14px;
       font-weight:1000; text-align:center; box-shadow:0 12px 28px rgba(0,0,0,.35);
     }
+
     .end-coach{
       margin-top:10px; padding:10px 12px; border-radius:14px;
       background:rgba(15,23,42,.56); border:1px solid rgba(255,255,255,.08);
       color:#e5e7eb; line-height:1.55; font-size:14px; font-weight:800;
+    }
+    .end-extra{
+      margin-top:10px;
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:10px;
+    }
+    .end-box{
+      padding:10px 12px;
+      border-radius:14px;
+      background:rgba(15,23,42,.48);
+      border:1px solid rgba(255,255,255,.08);
+    }
+    .end-box .ek{
+      font-size:12px;
+      color:#94a3b8;
+      font-weight:1000;
+      margin-bottom:4px;
+    }
+    .end-box .ev{
+      font-size:14px;
+      font-weight:900;
+      line-height:1.5;
+      color:#e5e7eb;
+    }
+
+    @media (max-width: 900px){
+      .timeline-dock{
+        width:min(220px, 52vw);
+      }
+    }
+    @media (max-width: 700px){
+      .timeline-dock{
+        left:10px; right:10px; bottom:calc(env(safe-area-inset-bottom,0px) + 72px);
+        width:auto;
+      }
+      .end-extra{
+        grid-template-columns:1fr;
+      }
     }
   </style>
 </head>
@@ -191,6 +233,17 @@ FULL v20260311-HYDRATION-RUN-PATCH-C
         <div class="item"><div class="kk">WATER</div><div class="vv" id="endWater">0%</div></div>
         <div class="item"><div class="kk">STARS</div><div class="vv" id="endStars">0</div></div>
         <div class="item"><div class="kk">MISSIONS</div><div class="vv" id="endMissionCount">0</div></div>
+      </div>
+
+      <div class="end-extra">
+        <div class="end-box">
+          <div class="ek">Mission Summary</div>
+          <div class="ev" id="endMissionSummary">—</div>
+        </div>
+        <div class="end-box">
+          <div class="ek">Phase Summary</div>
+          <div class="ev" id="endPhaseSummary">—</div>
+        </div>
       </div>
 
       <div class="actions">
