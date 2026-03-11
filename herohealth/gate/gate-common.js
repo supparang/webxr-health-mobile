@@ -1,6 +1,6 @@
-// === /herohealth/gate/gate-common.js ===
+// === /webxr-health-mobile/herohealth/gate/gate-common.js ===
 // HeroHealth Gate Common Helpers
-// PATCH v20260311-GATE-COMMON-PHASE
+// PATCH v20260311-GATE-COMMON-PHASE-WEBXRROOT
 // ✅ read Phase (canonical) first
 // ✅ keep gatePhase/phase fallback
 // ✅ expose raw Phase fields in ctx for debug
