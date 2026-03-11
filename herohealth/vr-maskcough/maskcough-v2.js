@@ -21,7 +21,9 @@
   }
 
   // ---------- query/context ----------
-  const hub = qs('hub','../hub.html');
+  const HUB_FALLBACK = location.origin + '/webxr-health-mobile/herohealth/hub.html';
+  const hub = qs('hub', HUB_FALLBACK) || HUB_FALLBACK;
+
   const diff = String(qs('diff','normal')).toLowerCase();
   const mode = String(qs('run','play')).toLowerCase();
   const seed = Number(qs('seed', Date.now()));
@@ -232,7 +234,7 @@
     }catch(_){}
   }
 
-  // ---------- cooldown helpers (fallback, no import) ----------
+  // ---------- cooldown helpers ----------
   function buildMaskCoughCooldownUrl(summary){
     const safe = summary || {};
     try{
@@ -244,7 +246,8 @@
       u.searchParams.set('theme', 'maskcough');
       u.searchParams.set('run', mode || 'play');
 
-      if(hub) u.searchParams.set('hub', hub);
+      u.searchParams.set('hub', hub || HUB_FALLBACK);
+
       if(pid) u.searchParams.set('pid', pid);
       if(studyId) u.searchParams.set('studyId', studyId);
       if(phase) u.searchParams.set('phase', phase);
@@ -266,7 +269,7 @@
 
       return u.toString();
     }catch(_){
-      return hub || '../hub.html';
+      return hub || HUB_FALLBACK;
     }
   }
 
@@ -395,7 +398,7 @@
     tickTimer:null
   };
 
-  // ---------- learning / prompt ----------
+  // ---------- learning ----------
   function learningPrompt(key){
     const map = {
       round_start: 'เริ่มเลย! รีบลดละอองและป้องกันเชื้อ',
@@ -615,13 +618,7 @@
     el.dataset.type = type;
 
     const now = performance.now();
-
-    const e = {
-      id, el, type, x, y,
-      bornMs: now,
-      dieMs: now + ttl,
-      state: 'idle'
-    };
+    const e = { id, el, type, x, y, bornMs: now, dieMs: now + ttl, state: 'idle' };
 
     if(type==='cough'){
       e.state='warn';
@@ -1429,17 +1426,21 @@ log=${logEndpoint || '-'}`;
 
   function backHub(){
     try{
-      const u = new URL(hub, location.href);
+      const rawHub = hub || HUB_FALLBACK;
+      const u = new URL(rawHub, HUB_FALLBACK);
+
       const keep = ['pid','studyId','phase','conditionGroup','run','view','diff','time'];
       const src = new URL(location.href);
+
       keep.forEach(k=>{
         const v = src.searchParams.get(k);
         if(v) u.searchParams.set(k, v);
       });
+
       u.searchParams.set('from', 'maskcough-v2');
       location.href = u.toString();
     }catch(_){
-      location.href = hub || '../hub.html';
+      location.href = HUB_FALLBACK;
     }
   }
 
