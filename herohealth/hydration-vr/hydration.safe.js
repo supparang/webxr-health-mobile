@@ -172,6 +172,8 @@ export function boot(cfg){
     combo: DOC.getElementById('uiCombo'),
     shield: DOC.getElementById('uiShield'),
     fever: DOC.getElementById('uiFever'),
+    stars: DOC.getElementById('uiStars'),
+    mission: DOC.getElementById('uiMission'),
     phase: DOC.getElementById('uiPhase'),
     aiRisk: DOC.getElementById('aiRisk'),
     aiHint: DOC.getElementById('aiHint'),
@@ -191,6 +193,8 @@ export function boot(cfg){
     endScore: DOC.getElementById('endScore'),
     endMiss: DOC.getElementById('endMiss'),
     endWater: DOC.getElementById('endWater'),
+    endStars: DOC.getElementById('endStars'),
+    endMissionCount: DOC.getElementById('endMissionCount'),
     endCoach: DOC.getElementById('endCoach'),
 
     btnCopy: DOC.getElementById('btnCopy'),
@@ -418,6 +422,12 @@ export function boot(cfg){
   let comebackCooldown = 0;
   let comebackCount = 0;
 
+  let stars = 0;
+  let mission = null;
+  let missionDone = false;
+  let missionHistory = [];
+  let currentMissionKey = '';
+
   function currentPhaseKey(){
     if(phase === 'boss') return `boss${bossLevel}`;
     return phase;
@@ -598,7 +608,7 @@ export function boot(cfg){
     fxPhaseBanner(text);
   }
 
-  function toastCoach(msg, minGapMs=1600){
+  function toastCoach(msg, minGapMs=1200){
     const t = nowMs();
     if(t - coachToastLock < minGapMs) return;
     coachToastLock = t;
@@ -734,59 +744,109 @@ export function boot(cfg){
 
   function bossProfile(){
     if(phase !== 'boss' && phase !== 'final'){
-      return {
-        badBias:0,
-        lightningMul:1,
-        swapMul:1,
-        shieldBias:0,
-        label:'NORMAL'
-      };
+      return { badBias:0, lightningMul:1, swapMul:1, shieldBias:0, label:'NORMAL' };
     }
-
     if(phase === 'boss' && bossLevel === 1){
-      return {
-        badBias:-0.04,
-        lightningMul:0.92,
-        swapMul:1.00,
-        shieldBias:0.03,
-        label:'LEARN THE RULE'
-      };
+      return { badBias:-0.04, lightningMul:0.92, swapMul:1.00, shieldBias:0.03, label:'LEARN THE RULE' };
     }
     if(phase === 'boss' && bossLevel === 2){
-      return {
-        badBias:0.02,
-        lightningMul:1.05,
-        swapMul:1.15,
-        shieldBias:0.00,
-        label:'PRESSURE BUILDER'
-      };
+      return { badBias:0.02, lightningMul:1.05, swapMul:1.15, shieldBias:0.00, label:'PRESSURE BUILDER' };
     }
     if(phase === 'boss' && bossLevel === 3){
-      return {
-        badBias:0.06,
-        lightningMul:1.18,
-        swapMul:1.28,
-        shieldBias:-0.02,
-        label:'CHAOS CONTROL'
-      };
+      return { badBias:0.06, lightningMul:1.18, swapMul:1.28, shieldBias:-0.02, label:'CHAOS CONTROL' };
     }
     if(phase === 'final'){
-      return {
-        badBias:0.10,
-        lightningMul:1.35,
-        swapMul:1.35,
-        shieldBias:-0.03,
-        label:'BURST FINISH'
-      };
+      return { badBias:0.10, lightningMul:1.35, swapMul:1.35, shieldBias:-0.03, label:'BURST FINISH' };
     }
+    return { badBias:0, lightningMul:1, swapMul:1, shieldBias:0, label:'NORMAL' };
+  }
 
-    return {
-      badBias:0,
-      lightningMul:1,
-      swapMul:1,
-      shieldBias:0,
-      label:'NORMAL'
-    };
+  function totalGoodHits(){
+    return phaseStats.normal.goodHit + phaseStats.storm.goodHit + phaseStats.boss1.goodHit + phaseStats.boss2.goodHit + phaseStats.boss3.goodHit + phaseStats.final.goodHit;
+  }
+
+  function totalBlocks(){
+    return blockCount + lightningBlockCount;
+  }
+
+  function nextMission(){
+    const pool = [
+      {
+        key:'combo6',
+        text:'คอมโบให้ถึง 6',
+        check:()=> combo >= 6,
+        reward:()=>{ score += 25; }
+      },
+      {
+        key:'shield2',
+        text:'เก็บโล่ให้ครบ 2',
+        check:()=> shield >= 2,
+        reward:()=>{ score += 20; }
+      },
+      {
+        key:'block1',
+        text:'กันฟ้าผ่า 1 ครั้ง',
+        check:()=> lightningBlockCount >= 1,
+        reward:()=>{ waterPct = clamp(waterPct + 8, 0, 100); }
+      },
+      {
+        key:'good8',
+        text:'เก็บน้ำรวม 8 ครั้ง',
+        check:()=> totalGoodHits() >= 8,
+        reward:()=>{ score += 30; }
+      },
+      {
+        key:'stormReach',
+        text:'ไปให้ถึง STORM',
+        check:()=> stormEntered === 1,
+        reward:()=>{ score += 18; }
+      },
+      {
+        key:'fever1',
+        text:'เข้า FEVER 1 ครั้ง',
+        check:()=> eventLog.some(e=>e.type==='fever_start'),
+        reward:()=>{ score += 26; }
+      },
+      {
+        key:'boss1reach',
+        text:'ไปให้ถึง BOSS 1',
+        check:()=> boss1Entered === 1,
+        reward:()=>{ score += 22; }
+      },
+      {
+        key:'water50',
+        text:'รักษาน้ำให้ถึง 50%',
+        check:()=> waterPct >= 50,
+        reward:()=>{ score += 16; }
+      }
+    ];
+
+    const available = pool.filter(m => !missionHistory.includes(m.key));
+    const source = available.length ? available : pool;
+    mission = source[(r01()*source.length)|0];
+    missionDone = false;
+    currentMissionKey = mission.key;
+    if(ui.mission) ui.mission.textContent = mission.text;
+    logEvent('mission_assign', { missionKey: mission.key, missionText: mission.text });
+  }
+
+  function resolveMission(){
+    if(!mission || missionDone) return;
+    if(!mission.check()) return;
+
+    missionDone = true;
+    stars++;
+    missionHistory.push(mission.key);
+
+    try{ mission.reward(); }catch(e){}
+
+    if(ui.stars) ui.stars.textContent = String(stars);
+    showStreakToast('🎯 MISSION CLEAR');
+    fxPhaseBanner('⭐ MISSION CLEAR');
+    toastCoach('ภารกิจสำเร็จ! โบนัสมาแล้ว', 300);
+    logEvent('mission_clear', { missionKey: mission.key, stars });
+
+    setTimeout(nextMission, 1200);
   }
 
   function setHUD(){
@@ -800,6 +860,8 @@ export function boot(cfg){
     if(ui.shield) ui.shield.textContent = String(shield|0);
     if(ui.grade) ui.grade.textContent = gradeText();
     if(ui.fever) ui.fever.textContent = feverOn ? `${Math.ceil(feverLeft)}s` : 'OFF';
+    if(ui.stars) ui.stars.textContent = String(stars);
+    if(ui.mission && mission) ui.mission.textContent = mission.text;
 
     if(ui.phase){
       if(phase === 'storm'){
@@ -948,6 +1010,7 @@ export function boot(cfg){
         }
       }
 
+      resolveMission();
       setTimeout(()=> removeBubble(b.id), 50);
       return;
     }
@@ -960,6 +1023,7 @@ export function boot(cfg){
       fxRing(bx, by);
       fxScore(bx, by, '🛡️+1');
       logEvent('shield_hit', { shield });
+      resolveMission();
       setTimeout(()=> removeBubble(b.id), 50);
       return;
     }
@@ -974,6 +1038,7 @@ export function boot(cfg){
       fxRing(bx, by);
       fxScore(bx, by, 'BLOCK');
       logEvent('bad_block', { shield });
+      resolveMission();
       setTimeout(()=> removeBubble(b.id), 50);
       return;
     }
@@ -1099,7 +1164,7 @@ export function boot(cfg){
       score, waterPct: Math.round(waterPct), shield, combo, streakGood,
       feverOn: feverOn ? 1 : 0, feverLeft: +feverLeft.toFixed(3),
       missBadHit, missGoodExpired, blockCount, lightningHitCount, lightningBlockCount,
-      comebackCount,
+      comebackCount, stars, missionKey: currentMissionKey || '',
       inDangerPhase, inCorrectZone,
       riskHeuristic: +riskHeuristic.toFixed(4),
       recentBadHitRate: +(missBadHit / Math.max(1, playedSec)).toFixed(4),
@@ -1181,6 +1246,7 @@ export function boot(cfg){
     if(summary.lightningBlockCount >= 2) lines.push('กันฟ้าผ่าได้ดี แสดงว่าเริ่มอ่านเกมได้ถูก');
     if(summary.feverUsed) lines.push('เข้าสู่ FEVER ได้แล้ว แปลว่าเล่นต่อเนื่องดี');
     if(summary.comebackCount >= 1) lines.push('มีการกลับเกมได้ดีในช่วงวิกฤต');
+    if(summary.starsEarned >= 2) lines.push('ทำภารกิจได้หลายครั้ง แปลว่าคุมเกมและวางแผนดี');
 
     return lines.slice(0,3).join(' • ');
   }
@@ -1201,6 +1267,8 @@ export function boot(cfg){
       lightningBlockCount: summary.lightningBlockCount,
       feverUsed: summary.feverUsed,
       comebackCount: summary.comebackCount,
+      starsEarned: summary.starsEarned,
+      missionsCleared: summary.missionsCleared,
       coachSummary: summary.coachSummary
     };
   }
@@ -1209,7 +1277,7 @@ export function boot(cfg){
     const playedSec = Math.round(plannedSec - tLeft);
     return {
       sessionId, pid, seed: seedStr, studyId, phaseName, conditionGroup, schoolCode, classRoom,
-      projectTag:'HydrationVR', gameVersion:'HydrationVR_PATCH_B_2026-03-11',
+      projectTag:'HydrationVR', gameVersion:'HydrationVR_PATCH_C_2026-03-11',
       device:view, runMode, diff, zone:'nutrition', game:'hydration',
       reason:String(reason || ''), endReasonText: endReasonText(reason), reachedPhaseText: reachedPhaseText(),
       durationPlannedSec: plannedSec, durationPlayedSec: playedSec,
@@ -1218,6 +1286,9 @@ export function boot(cfg){
       missBadHit: missBadHit|0, missGoodExpired: missGoodExpired|0, badHitCount: badHitCount|0, goodExpireCount: goodExpireCount|0,
       blockCount: blockCount|0, lightningHitCount: lightningHitCount|0, lightningBlockCount: lightningBlockCount|0,
       comebackCount: comebackCount|0,
+      starsEarned: stars|0,
+      missionsCleared: missionHistory.length|0,
+      missionHistory: missionHistory.slice(),
       stormEntered, boss1Entered, boss2Entered, boss3Entered, finalEntered, finalCleared,
       phaseFinal: currentPhaseKey(), bossLevel, bossHits: bossHits|0, finalHits: finalHits|0,
       feverUsed: eventLog.some(e => e.type === 'fever_start') ? 1 : 0,
@@ -1230,7 +1301,7 @@ export function boot(cfg){
   function buildResearchPacket(reason){
     const summary = buildSummary(reason);
     return {
-      packetVersion: 'HHA_HYD_RESEARCH_PACKET_2026-03-11_PATCH_B',
+      packetVersion: 'HHA_HYD_RESEARCH_PACKET_2026-03-11_PATCH_C',
       session: { ...sessionMeta }, summary, phaseStats,
       tables: { events: eventLog, timeline: riskTimeline, features: featureRows, labels: labelRows }
     };
@@ -1240,7 +1311,7 @@ export function boot(cfg){
     const packet = buildResearchPacket(reason);
     return {
       source: 'HeroHealth-HydrationVR',
-      schemaVersion: '2026-03-11-PATCH-B',
+      schemaVersion: '2026-03-11-PATCH-C',
       session: packet.session,
       summary: packet.summary,
       phaseStats: packet.phaseStats,
@@ -1390,6 +1461,8 @@ export function boot(cfg){
       ui.endScore.textContent = String(summary.scoreFinal|0);
       ui.endMiss.textContent = `${summary.missBadHit|0} / expire ${summary.missGoodExpired|0}`;
       ui.endWater.textContent = `${summary.waterPct}%`;
+      if(ui.endStars) ui.endStars.textContent = String(summary.starsEarned || 0);
+      if(ui.endMissionCount) ui.endMissionCount.textContent = String(summary.missionsCleared || 0);
 
       setEndButtons(summary);
     }
@@ -1484,6 +1557,7 @@ export function boot(cfg){
     phaseBanner(`${emojiFor(diff,'boss',bossLevel)} BOSS ${bossLevel}`);
     toastCoach(`บอส ${level} • ${bossProfile().label}`, 300);
     logEvent('phase_enter', { phase:`boss${bossLevel}` });
+    resolveMission();
   }
 
   function spawnTick(dt){
@@ -1504,6 +1578,7 @@ export function boot(cfg){
       phaseBanner(`${emojiFor(diff,'storm')} STORM`);
       toastCoach(`ฟ้าผ่าแล้ว! ไป${needZone==='L'?'ซ้าย':'ขวา'} และต้องมีโล่ 🛡️`, 300);
       logEvent('phase_enter', { phase:'storm' });
+      resolveMission();
     }
 
     if(phase === 'storm'){
@@ -1591,6 +1666,7 @@ export function boot(cfg){
 
     spawnTick(dt);
     updateBubbles();
+    resolveMission();
 
     const risk = buildRisk();
     const features = buildFeatureRow(risk);
@@ -1639,10 +1715,12 @@ export function boot(cfg){
       missBadHit, missGoodExpired, lightningHitCount, lightningBlockCount,
       stormEntered, boss1Entered, boss2Entered, boss3Entered, finalEntered, finalCleared,
       feverOn, feverLeft, streakGood, comebackCooldown, comebackCount,
+      stars, mission: mission?.text || '', missionDone, missionHistory: missionHistory.slice(),
       events: eventLog.length, timeline: riskTimeline.length, features: featureRows.length, labels: labelRows.length
     })
   };
 
+  nextMission();
   SFX.setPhaseVolume('normal');
   helpOpen = false;
   paused = false;
