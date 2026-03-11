@@ -48,8 +48,7 @@ export function boot(cfg){
       const text = await res.text().catch(()=> '');
       throw new Error(`HTTP ${res.status} ${text}`.trim());
     }
-    try{ return await res.json(); }
-    catch{ return { ok:true }; }
+    try{ return await res.json(); } catch { return { ok:true }; }
   }
   function buildCsvBundle(){
     return {
@@ -76,27 +75,11 @@ export function boot(cfg){
   const schoolCode = String(qs('schoolCode','')).trim();
   const classRoom = String(qs('classRoom','')).trim();
 
-  const sessionId = [
-    'HYD',
-    pid || 'anon',
-    seedStr,
-    Date.now()
-  ].join('_');
+  const sessionId = ['HYD', pid || 'anon', seedStr, Date.now()].join('_');
 
   const sessionMeta = {
-    sessionId,
-    pid,
-    seed: seedStr,
-    studyId,
-    phaseName,
-    conditionGroup,
-    schoolCode,
-    classRoom,
-    game: 'hydration',
-    zone: 'nutrition',
-    runMode,
-    diff,
-    view
+    sessionId, pid, seed: seedStr, studyId, phaseName, conditionGroup, schoolCode, classRoom,
+    game: 'hydration', zone: 'nutrition', runMode, diff, view
   };
 
   function emojiFor(diffKey, phase, level=0){
@@ -136,6 +119,7 @@ export function boot(cfg){
     gate.searchParams.set('gatePhase','cooldown');
     gate.searchParams.set('cat', String(cat || 'nutrition'));
     gate.searchParams.set('theme', String(gameKey || 'hydration'));
+    gate.searchParams.set('game', String(gameKey || 'hydration'));
     gate.searchParams.set('pid', String(who || 'anon'));
     if(hub) gate.searchParams.set('hub', String(hub));
     gate.searchParams.set('next', String(nextAfterCooldown || hub || '../hub.html'));
@@ -187,6 +171,7 @@ export function boot(cfg){
     water: DOC.getElementById('uiWater'),
     combo: DOC.getElementById('uiCombo'),
     shield: DOC.getElementById('uiShield'),
+    fever: DOC.getElementById('uiFever'),
     phase: DOC.getElementById('uiPhase'),
     aiRisk: DOC.getElementById('aiRisk'),
     aiHint: DOC.getElementById('aiHint'),
@@ -232,12 +217,11 @@ export function boot(cfg){
   const zoneSign = DOC.getElementById('zoneSign');
   const btnZoneL = DOC.getElementById('btnZoneL');
   const btnZoneR = DOC.getElementById('btnZoneR');
+  const feverFx = DOC.getElementById('feverFx');
+  const streakToast = DOC.getElementById('streakToast');
 
   const SFX = (() => {
-    let ctx = null;
-    let unlocked = false;
-    let enabled = true;
-    let volumeMul = 1.0;
+    let ctx = null, unlocked = false, enabled = true, volumeMul = 1.0;
     let last = new Map();
 
     try{
@@ -262,8 +246,7 @@ export function boot(cfg){
         const g = c.createGain();
         g.gain.value = 0.0001;
         o.connect(g); g.connect(c.destination);
-        o.start();
-        o.stop(c.currentTime + 0.01);
+        o.start(); o.stop(c.currentTime + 0.01);
         unlocked = true;
       }catch(e){}
     }
@@ -276,6 +259,7 @@ export function boot(cfg){
       if(p==='storm') volumeMul = 0.95;
       else if(p==='boss') volumeMul = 1.00;
       else if(p==='final') volumeMul = 1.08;
+      else if(p==='fever') volumeMul = 1.14;
       else volumeMul = 0.88;
     }
     function canPlay(key, minGapMs){
@@ -338,6 +322,9 @@ export function boot(cfg){
         beep({ f0:360, f1:540, dur:0.14, type:'sawtooth', vol:0.10 });
         beep({ f0:720, f1:980, dur:0.10, type:'triangle', vol:0.08 });
         noise({ dur:0.10, vol:0.06, hp:700 });
+      }else if(name==='fever'){
+        beep({ f0:620, f1:920, dur:0.14, type:'triangle', vol:0.10 });
+        beep({ f0:980, f1:1120, dur:0.10, type:'square', vol:0.08 });
       }
     }
     return { unlock, pop, shield, bad, block, thunder, phase, setEnabled, isEnabled, setPhaseVolume };
@@ -364,8 +351,7 @@ export function boot(cfg){
   if(ui.btnSfx){
     refreshSfxBtn();
     ui.btnSfx.addEventListener('click', async (ev)=>{
-      ev.preventDefault();
-      ev.stopPropagation();
+      ev.preventDefault(); ev.stopPropagation();
       await SFX.unlock();
       SFX.setEnabled(!SFX.isEnabled());
       refreshSfxBtn();
@@ -436,19 +422,8 @@ export function boot(cfg){
   }
   function logEvent(type, data={}){
     const item = {
-      ts: nowIso(),
-      ms: nowMs(),
-      sessionId,
-      pid,
-      seed: seedStr,
-      studyId,
-      phaseName,
-      conditionGroup,
-      game: 'hydration',
-      zone: 'nutrition',
-      type,
-      phase: currentPhaseKey(),
-      ...data
+      ts: nowIso(), ms: nowMs(), sessionId, pid, seed: seedStr, studyId, phaseName, conditionGroup,
+      game: 'hydration', zone: 'nutrition', type, phase: currentPhaseKey(), ...data
     };
     eventLog.push(item);
     try{ WIN.dispatchEvent(new CustomEvent('hha:event', { detail:item })); }catch(e){}
@@ -485,13 +460,16 @@ export function boot(cfg){
   let needZone = 'L';
   let zoneT = 0;
   let aimX01 = 0.5;
-
   let lastTimelineAt = -1;
 
   function setStagePhase(p){
     stageEl?.classList?.toggle('is-storm', p==='storm');
     stageEl?.classList?.toggle('is-boss', p==='boss');
     stageEl?.classList?.toggle('is-final', p==='final');
+  }
+  function setFeverStage(on){
+    stageEl?.classList?.toggle('is-fever', !!on);
+    if(ui.fever) ui.fever.textContent = on ? `${Math.ceil(feverLeft)}s` : 'OFF';
   }
   function isInNeededZone(){ return (needZone==='L') ? (aimX01 < 0.5) : (aimX01 >= 0.5); }
   function swapZone(){ needZone = (needZone === 'L') ? 'R' : 'L'; }
@@ -511,13 +489,8 @@ export function boot(cfg){
   }
 
   function showHelp(){
-    if(!ui.helpOverlay){
-      helpOpen = false;
-      paused = false;
-      return;
-    }
-    helpOpen = true;
-    paused = true;
+    if(!ui.helpOverlay){ helpOpen = false; paused = false; return; }
+    helpOpen = true; paused = true;
     ui.helpOverlay.setAttribute('aria-hidden','false');
   }
   function hideHelp(){
@@ -528,12 +501,8 @@ export function boot(cfg){
     requestAnimationFrame(loop);
   }
   function showPause(){
-    if(!ui.pauseOverlay){
-      paused = true;
-      return;
-    }
-    paused = true;
-    ui.pauseOverlay.setAttribute('aria-hidden','false');
+    if(!ui.pauseOverlay){ paused = true; return; }
+    paused = true; ui.pauseOverlay.setAttribute('aria-hidden','false');
   }
   function hidePause(){
     if(ui.pauseOverlay) ui.pauseOverlay.setAttribute('aria-hidden','true');
@@ -570,7 +539,7 @@ export function boot(cfg){
     el.style.left = `${x}px`;
     el.style.top = `${y}px`;
     layer.appendChild(el);
-    setTimeout(()=> el.remove(), 900);
+    setTimeout(()=> el.remove(), 920);
   }
   function fxBubblePop(el, kind){
     el.classList.remove('fx-pop','fx-bad');
@@ -585,11 +554,25 @@ export function boot(cfg){
     fxScore(cx, cy, text);
     fxShake();
   }
+  function showStreakToast(text){
+    if(!streakToast) return;
+    streakToast.textContent = String(text || '');
+    streakToast.setAttribute('aria-hidden','false');
+    clearTimeout(WIN.__HYD_STREAK_TIMER__);
+    WIN.__HYD_STREAK_TIMER__ = setTimeout(()=>{
+      try{ streakToast.setAttribute('aria-hidden','true'); }catch(e){}
+    }, 720);
+  }
 
-  function startFever(sec=5){
+  function startFever(sec=5.5){
     feverOn = true;
     feverLeft = Math.max(feverLeft, sec);
-    fxPhaseBanner('🔥 FEVER');
+    setFeverStage(true);
+    SFX.setPhaseVolume('fever');
+    SFX.phase('fever');
+    showStreakToast('🔥 FEVER!');
+    fxPhaseBanner('🔥 FEVER!');
+    toastCoach('เข้า FEVER แล้ว! โกยคะแนนเลย', 200);
     logEvent('fever_start', { sec });
   }
 
@@ -597,6 +580,9 @@ export function boot(cfg){
     if(!feverOn) return;
     feverOn = false;
     feverLeft = 0;
+    setFeverStage(false);
+    SFX.setPhaseVolume(phase === 'final' ? 'final' : phase === 'boss' ? 'boss' : phase === 'storm' ? 'storm' : 'normal');
+    if(ui.fever) ui.fever.textContent = 'OFF';
     logEvent('fever_end', {});
   }
 
@@ -611,11 +597,9 @@ export function boot(cfg){
     const t = nowMs();
     if(t - coachToastLock < minGapMs) return;
     coachToastLock = t;
-
     if(!ui.coachToast || !ui.coachToastText) return;
     ui.coachToastText.textContent = String(msg || '');
     ui.coachToast.setAttribute('aria-hidden','false');
-
     clearTimeout(WIN.__HYD_TOAST_TIMER__);
     WIN.__HYD_TOAST_TIMER__ = setTimeout(()=>{
       try{ ui.coachToast.setAttribute('aria-hidden','true'); }catch(e){}
@@ -650,15 +634,9 @@ export function boot(cfg){
       let top = 18;
       let bottom = 90;
 
-      if(hudRect && hudRect.height > 0){
-        top = Math.max(top, hudRect.bottom - layerRect.top + 14);
-      }
-      if(zoneRect && zoneRect.height > 0 && zoneSign && zoneSign.textContent){
-        top = Math.max(top, zoneRect.bottom - layerRect.top + 14);
-      }
-      if(dockRect && dockRect.height > 0){
-        bottom = Math.max(bottom, layerRect.bottom - dockRect.top + 14);
-      }
+      if(hudRect && hudRect.height > 0) top = Math.max(top, hudRect.bottom - layerRect.top + 14);
+      if(zoneRect && zoneRect.height > 0 && zoneSign && zoneSign.textContent) top = Math.max(top, zoneRect.bottom - layerRect.top + 14);
+      if(dockRect && dockRect.height > 0) bottom = Math.max(bottom, layerRect.bottom - dockRect.top + 14);
 
       _safeTop = Math.round(top);
       _safeBottom = Math.round(bottom);
@@ -673,7 +651,6 @@ export function boot(cfg){
 
     const x = padX + r01() * Math.max(1, r.width - padX * 2);
     const y = yMin + r01() * Math.max(1, yMax - yMin);
-
     return { x, y };
   }
 
@@ -760,6 +737,7 @@ export function boot(cfg){
     if(ui.combo) ui.combo.textContent = String(combo|0);
     if(ui.shield) ui.shield.textContent = String(shield|0);
     if(ui.grade) ui.grade.textContent = gradeText();
+    if(ui.fever) ui.fever.textContent = feverOn ? `${Math.ceil(feverLeft)}s` : 'OFF';
 
     if(ui.phase){
       if(phase === 'storm'){
@@ -790,9 +768,7 @@ export function boot(cfg){
     if(ui.coachExplain) ui.coachExplain.textContent = explainRisk(risk);
   }
 
-  function predictRiskFromFeatures(features){
-    return features.riskHeuristic;
-  }
+  function predictRiskFromFeatures(features){ return features.riskHeuristic; }
   function predictFailSoon(features){
     return (features.waterPct < 18 || (features.inDangerPhase && features.shield === 0 && !features.inCorrectZone)) ? 1 : 0;
   }
@@ -812,6 +788,7 @@ export function boot(cfg){
         phaseStats[currentPhaseKey()].lightningBlock++;
         phaseStats[currentPhaseKey()].block++;
         SFX.block();
+        showStreakToast('⚡ PERFECT BLOCK');
         fxScore(120, 230, 'BLOCK⚡');
         toastCoach('กันฟ้าผ่าสำเร็จ! ดีมาก', 500);
         logEvent('lightning_block', { shield });
@@ -845,9 +822,11 @@ export function boot(cfg){
       combo++;
       bestCombo = Math.max(bestCombo, combo);
 
-      if(streakGood >= 8 && !feverOn){
-        startFever(5.5);
-      }
+      if(streakGood >= 8 && !feverOn) startFever(5.5);
+
+      if(combo === 5) showStreakToast('NICE!');
+      else if(combo === 8) showStreakToast('HOT STREAK!');
+      else if(combo === 12) showStreakToast('UNSTOPPABLE!');
 
       const comboTier = combo>=18 ? 4 : combo>=12 ? 3 : combo>=7 ? 2 : 1;
       const feverMul = feverOn ? 1.35 : 1.0;
@@ -966,8 +945,7 @@ export function boot(cfg){
 
   function pickClosestToCenter(lockPx){
     lockPx = clamp(lockPx ?? 56, 16, 160);
-    let best = null;
-    let bestD = 1e9;
+    let best = null, bestD = 1e9;
     const r = layer.getBoundingClientRect();
     const cx = r.left + r.width/2;
     const cy = r.top + r.height/2;
@@ -1031,41 +1009,14 @@ export function boot(cfg){
     const inCorrectZone = isInNeededZone() ? 1 : 0;
 
     return {
-      sessionId,
-      pid,
-      seed: seedStr,
-      studyId,
-      phaseName,
-      conditionGroup,
-      diff,
-      view,
-      runMode,
-
-      t: playedSec,
-      timeLeft: Math.ceil(tLeft),
-
-      phase: currentPhaseKey(),
-      bossLevel,
-
-      score,
-      waterPct: Math.round(waterPct),
-      shield,
-      combo,
-      streakGood,
-      feverOn: feverOn ? 1 : 0,
-      feverLeft: +feverLeft.toFixed(3),
-
-      missBadHit,
-      missGoodExpired,
-      blockCount,
-      lightningHitCount,
-      lightningBlockCount,
-
-      inDangerPhase,
-      inCorrectZone,
-
+      sessionId, pid, seed: seedStr, studyId, phaseName, conditionGroup, diff, view, runMode,
+      t: playedSec, timeLeft: Math.ceil(tLeft),
+      phase: currentPhaseKey(), bossLevel,
+      score, waterPct: Math.round(waterPct), shield, combo, streakGood,
+      feverOn: feverOn ? 1 : 0, feverLeft: +feverLeft.toFixed(3),
+      missBadHit, missGoodExpired, blockCount, lightningHitCount, lightningBlockCount,
+      inDangerPhase, inCorrectZone,
       riskHeuristic: +riskHeuristic.toFixed(4),
-
       recentBadHitRate: +(missBadHit / Math.max(1, playedSec)).toFixed(4),
       recentExpireRate: +(missGoodExpired / Math.max(1, playedSec)).toFixed(4),
       recentBlockRate: +(blockCount / Math.max(1, playedSec)).toFixed(4),
@@ -1081,24 +1032,14 @@ export function boot(cfg){
     const highRisk = featureRow.riskHeuristic >= 0.60 ? 1 : 0;
 
     return {
-      sessionId,
-      pid,
-      seed: seedStr,
-      studyId,
-      phaseName,
-      conditionGroup,
-
-      t: featureRow.t,
-      phase: featureRow.phase,
-
+      sessionId, pid, seed: seedStr, studyId, phaseName, conditionGroup,
+      t: featureRow.t, phase: featureRow.phase,
       fail_soon_5s: predictFailSoon(featureRow),
       fail_soon_10s: (featureRow.waterPct < 12 || (featureRow.inDangerPhase && featureRow.shield===0)) ? 1 : 0,
-
       low_water_label: lowWater,
       no_shield_label: noShield,
       wrong_zone_label: wrongZone,
       high_risk_label: highRisk,
-
       fever_label: featureRow.feverOn ? 1 : 0,
       final_clear_label: 0
     };
@@ -1116,25 +1057,11 @@ export function boot(cfg){
     labelRows.push(labelRow);
 
     riskTimeline.push({
-      sessionId,
-      pid,
-      seed: seedStr,
-      studyId,
-      phaseName,
-      conditionGroup,
-      t: featureRow.t,
-      timeLeft: featureRow.timeLeft,
-      phase: featureRow.phase,
-      bossLevel: featureRow.bossLevel,
-      risk: featureRow.riskHeuristic,
-      waterPct: featureRow.waterPct,
-      shield: featureRow.shield,
-      combo: featureRow.combo,
-      missBadHit: featureRow.missBadHit,
-      missGoodExpired: featureRow.missGoodExpired,
-      blockCount: featureRow.blockCount,
-      inDangerPhase: featureRow.inDangerPhase,
-      inCorrectZone: featureRow.inCorrectZone
+      sessionId, pid, seed: seedStr, studyId, phaseName, conditionGroup,
+      t: featureRow.t, timeLeft: featureRow.timeLeft, phase: featureRow.phase, bossLevel: featureRow.bossLevel,
+      risk: featureRow.riskHeuristic, waterPct: featureRow.waterPct, shield: featureRow.shield, combo: featureRow.combo,
+      missBadHit: featureRow.missBadHit, missGoodExpired: featureRow.missGoodExpired, blockCount: featureRow.blockCount,
+      inDangerPhase: featureRow.inDangerPhase, inCorrectZone: featureRow.inCorrectZone
     });
   }
 
@@ -1158,7 +1085,6 @@ export function boot(cfg){
 
   function buildEndCoachSummary(summary){
     const lines = [];
-
     if(summary.finalCleared) lines.push('ยอดเยี่ยม! ผ่าน Final Boss ได้สำเร็จ');
     else if(summary.waterPct < 20) lines.push('ควรเก็บน้ำให้เร็วขึ้นเพราะค่าน้ำต่ำบ่อย');
     else if(summary.missBadHit >= Math.max(3, Math.floor(TUNE.missLimit*0.5))) lines.push('ควรหลบของไม่ดีให้มากขึ้น');
@@ -1194,88 +1120,31 @@ export function boot(cfg){
 
   function buildSummary(reason){
     const playedSec = Math.round(plannedSec - tLeft);
-
     return {
-      sessionId,
-      pid,
-      seed: seedStr,
-      studyId,
-      phaseName,
-      conditionGroup,
-      schoolCode,
-      classRoom,
-
-      projectTag:'HydrationVR',
-      gameVersion:'HydrationVR_RESEARCH_POLISH_2026-03-07',
-      device:view,
-      runMode,
-      diff,
-      zone:'nutrition',
-      game:'hydration',
-
-      reason:String(reason || ''),
-      endReasonText: endReasonText(reason),
-      reachedPhaseText: reachedPhaseText(),
-
-      durationPlannedSec: plannedSec,
-      durationPlayedSec: playedSec,
-
-      scoreFinal: score|0,
-      grade: gradeText(),
-
-      waterPct: Math.round(clamp(waterPct,0,100)),
-      shield: shield|0,
-      comboMax: bestCombo|0,
-
-      missBadHit: missBadHit|0,
-      missGoodExpired: missGoodExpired|0,
-      badHitCount: badHitCount|0,
-      goodExpireCount: goodExpireCount|0,
-
-      blockCount: blockCount|0,
-      lightningHitCount: lightningHitCount|0,
-      lightningBlockCount: lightningBlockCount|0,
-
-      stormEntered,
-      boss1Entered,
-      boss2Entered,
-      boss3Entered,
-      finalEntered,
-      finalCleared,
-
-      phaseFinal: currentPhaseKey(),
-      bossLevel,
-      bossHits: bossHits|0,
-      finalHits: finalHits|0,
-
+      sessionId, pid, seed: seedStr, studyId, phaseName, conditionGroup, schoolCode, classRoom,
+      projectTag:'HydrationVR', gameVersion:'HydrationVR_PATCH_A_2026-03-11',
+      device:view, runMode, diff, zone:'nutrition', game:'hydration',
+      reason:String(reason || ''), endReasonText: endReasonText(reason), reachedPhaseText: reachedPhaseText(),
+      durationPlannedSec: plannedSec, durationPlayedSec: playedSec,
+      scoreFinal: score|0, grade: gradeText(),
+      waterPct: Math.round(clamp(waterPct,0,100)), shield: shield|0, comboMax: bestCombo|0,
+      missBadHit: missBadHit|0, missGoodExpired: missGoodExpired|0, badHitCount: badHitCount|0, goodExpireCount: goodExpireCount|0,
+      blockCount: blockCount|0, lightningHitCount: lightningHitCount|0, lightningBlockCount: lightningBlockCount|0,
+      stormEntered, boss1Entered, boss2Entered, boss3Entered, finalEntered, finalCleared,
+      phaseFinal: currentPhaseKey(), bossLevel, bossHits: bossHits|0, finalHits: finalHits|0,
       feverUsed: eventLog.some(e => e.type === 'fever_start') ? 1 : 0,
-
-      eventCount: eventLog.length,
-      timelineCount: riskTimeline.length,
-      featureCount: featureRows.length,
-      labelCount: labelRows.length,
-
-      startTimeIso: nowIso(),
-      endTimeIso: nowIso(),
-
-      coachSummary: '',
-      phaseStats
+      eventCount: eventLog.length, timelineCount: riskTimeline.length, featureCount: featureRows.length, labelCount: labelRows.length,
+      startTimeIso: nowIso(), endTimeIso: nowIso(),
+      coachSummary: '', phaseStats
     };
   }
 
   function buildResearchPacket(reason){
     const summary = buildSummary(reason);
     return {
-      packetVersion: 'HHA_HYD_RESEARCH_PACKET_2026-03-07',
-      session: { ...sessionMeta },
-      summary,
-      phaseStats,
-      tables: {
-        events: eventLog,
-        timeline: riskTimeline,
-        features: featureRows,
-        labels: labelRows
-      }
+      packetVersion: 'HHA_HYD_RESEARCH_PACKET_2026-03-11',
+      session: { ...sessionMeta }, summary, phaseStats,
+      tables: { events: eventLog, timeline: riskTimeline, features: featureRows, labels: labelRows }
     };
   }
 
@@ -1283,7 +1152,7 @@ export function boot(cfg){
     const packet = buildResearchPacket(reason);
     return {
       source: 'HeroHealth-HydrationVR',
-      schemaVersion: '2026-03-07',
+      schemaVersion: '2026-03-11',
       session: packet.session,
       summary: packet.summary,
       phaseStats: packet.phaseStats,
@@ -1339,28 +1208,13 @@ export function boot(cfg){
         await copyText(safeJson(packet), 'Copy Summary');
       };
     }
-
     if(ui.btnCopyEvents) ui.btnCopyEvents.onclick = async ()=> copyText(safeJson(eventLog), 'Copy Events JSON');
     if(ui.btnCopyTimeline) ui.btnCopyTimeline.onclick = async ()=> copyText(safeJson(riskTimeline), 'Copy Timeline JSON');
     if(ui.btnCopyFeatures) ui.btnCopyFeatures.onclick = async ()=> copyText(safeJson(featureRows), 'Copy Features JSON');
     if(ui.btnCopyLabels) ui.btnCopyLabels.onclick = async ()=> copyText(safeJson(labelRows), 'Copy Labels JSON');
-
-    if(ui.btnCopyFeaturesCsv){
-      ui.btnCopyFeaturesCsv.onclick = async ()=>{
-        await copyText(rowsToCsv(featureRows), 'Copy Features CSV');
-      };
-    }
-    if(ui.btnCopyLabelsCsv){
-      ui.btnCopyLabelsCsv.onclick = async ()=>{
-        await copyText(rowsToCsv(labelRows), 'Copy Labels CSV');
-      };
-    }
-    if(ui.btnCopyCsvBundle){
-      ui.btnCopyCsvBundle.onclick = async ()=>{
-        const bundle = buildCsvBundle();
-        await copyText(safeJson(bundle), 'Copy CSV bundle');
-      };
-    }
+    if(ui.btnCopyFeaturesCsv) ui.btnCopyFeaturesCsv.onclick = async ()=> copyText(rowsToCsv(featureRows), 'Copy Features CSV');
+    if(ui.btnCopyLabelsCsv) ui.btnCopyLabelsCsv.onclick = async ()=> copyText(rowsToCsv(labelRows), 'Copy Labels CSV');
+    if(ui.btnCopyCsvBundle) ui.btnCopyCsvBundle.onclick = async ()=> copyText(safeJson(buildCsvBundle()), 'Copy CSV bundle');
     if(ui.btnSendCloud){
       ui.btnSendCloud.onclick = async ()=>{
         try{
@@ -1375,11 +1229,11 @@ export function boot(cfg){
   }
 
   function showEnd(reason){
-    playing = false;
-    paused = false;
+    playing = false; paused = false;
     ui.pauseOverlay?.setAttribute('aria-hidden','true');
     ui.helpOverlay?.setAttribute('aria-hidden','true');
     setStagePhase('normal');
+    stopFever();
 
     for(const b of bubbles.values()){
       try{ b.el.remove(); }catch(e){}
@@ -1389,6 +1243,7 @@ export function boot(cfg){
     if(reason === 'final-clear'){
       finalCleared = 1;
       for(const row of labelRows) row.final_clear_label = 1;
+      showStreakToast('🏆 FINAL CLEAR!');
       for(let i=0;i<5;i++){
         setTimeout(()=>{
           try{
@@ -1417,17 +1272,14 @@ export function boot(cfg){
         researchPacket: buildResearchPacket(reason),
         savedAtIso: new Date().toISOString()
       };
-
       const k = 'HHA_HYD_SUMMARY_HISTORY';
       let arr = [];
       try{
         arr = JSON.parse(localStorage.getItem(k) || '[]');
         if(!Array.isArray(arr)) arr = [];
       }catch(e){ arr = []; }
-
       arr.unshift(teacherPacket);
       if(arr.length > 120) arr = arr.slice(0, 120);
-
       localStorage.setItem(k, JSON.stringify(arr));
     }catch(e){}
 
@@ -1435,7 +1287,6 @@ export function boot(cfg){
 
     if(ui.end){
       ui.end.setAttribute('aria-hidden','false');
-
       ui.endTitle.textContent = (reason === 'final-clear') ? '🏆 FINAL CLEAR!' : 'Game Over';
 
       const subParts = [
@@ -1465,7 +1316,7 @@ export function boot(cfg){
   let spawnAcc = 0;
 
   function phaseSpawnMul(){
-    if(feverOn && phase === 'normal') return 1.12;
+    if(feverOn && phase === 'normal') return 1.10;
     if(phase === 'storm') return diff==='easy' ? 1.24 : diff==='hard' ? 1.52 : 1.34;
     if(phase === 'boss'){
       if(bossLevel === 1) return diff==='easy' ? 1.16 : diff==='hard' ? 1.30 : 1.22;
@@ -1476,14 +1327,19 @@ export function boot(cfg){
     return 1.0;
   }
   function phaseBadP(){
-    if(phase === 'storm') return diff==='easy' ? 0.38 : diff==='hard' ? 0.56 : 0.46;
-    if(phase === 'boss'){
-      if(bossLevel === 1) return diff==='easy' ? 0.34 : diff==='hard' ? 0.46 : 0.40;
-      if(bossLevel === 2) return diff==='easy' ? 0.38 : diff==='hard' ? 0.52 : 0.44;
-      return diff==='easy' ? 0.42 : diff==='hard' ? 0.58 : 0.48;
+    let base;
+    if(phase === 'storm') base = diff==='easy' ? 0.38 : diff==='hard' ? 0.56 : 0.46;
+    else if(phase === 'boss'){
+      if(bossLevel === 1) base = diff==='easy' ? 0.34 : diff==='hard' ? 0.46 : 0.40;
+      else if(bossLevel === 2) base = diff==='easy' ? 0.38 : diff==='hard' ? 0.52 : 0.44;
+      else base = diff==='easy' ? 0.42 : diff==='hard' ? 0.58 : 0.48;
+    }else if(phase === 'final'){
+      base = diff==='easy' ? 0.46 : diff==='hard' ? 0.62 : 0.52;
+    }else{
+      base = 0.22;
     }
-    if(phase === 'final') return diff==='easy' ? 0.46 : diff==='hard' ? 0.62 : 0.52;
-    return 0.22;
+    if(feverOn && phase === 'normal') base = Math.max(0.12, base - 0.06);
+    return base;
   }
   function phaseLightningRate(){
     if(phase === 'storm') return diff==='easy' ? 0.75 : diff==='hard' ? 1.15 : 0.96;
@@ -1525,26 +1381,8 @@ export function boot(cfg){
     logEvent('phase_enter', { phase:`boss${bossLevel}` });
   }
 
-  function startFinal(){
-    phase = 'final';
-    finalEntered = 1;
-    finalHits = 0;
-    finalGoal = TUNE.finalNeedHits;
-    setStagePhase('final');
-    SFX.setPhaseVolume('final');
-    SFX.phase('final');
-    zoneT = 0;
-    needZone = (r01() < 0.5) ? 'L' : 'R';
-    lightning();
-    phaseBanner(`${emojiFor(diff,'final')} FINAL BOSS`);
-    toastCoach('FINAL BOSS! อย่าพลาด เก็บน้ำต่อเนื่องและดู safe zone', 300);
-    logEvent('phase_enter', { phase:'final' });
-  }
-
   function spawnTick(dt){
-    if(shield > 0 && r01() < dt*TUNE.shieldDrop){
-      shield = Math.max(0, shield - 1);
-    }
+    if(shield > 0 && r01() < dt*TUNE.shieldDrop) shield = Math.max(0, shield - 1);
 
     if(!stormDone && phase === 'normal' && tLeft <= plannedSec*0.72){
       phase = 'storm';
@@ -1565,29 +1403,20 @@ export function boot(cfg){
     if(phase === 'storm'){
       stormLeft = Math.max(0, stormLeft - dt);
       zoneT += dt;
-      if(zoneT >= phaseZoneChunk()){
-        zoneT = 0;
-        swapZone();
-      }
+      if(zoneT >= phaseZoneChunk()){ zoneT = 0; swapZone(); }
       applyLightningStrike(dt * phaseLightningRate());
       if(stormLeft <= 0) startBoss(1);
     }
 
     if(phase === 'boss'){
       zoneT += dt;
-      if(zoneT >= phaseZoneChunk()){
-        zoneT = 0;
-        swapZone();
-      }
+      if(zoneT >= phaseZoneChunk()){ zoneT = 0; swapZone(); }
       applyLightningStrike(dt * phaseLightningRate());
     }
 
     if(phase === 'final'){
       zoneT += dt;
-      if(zoneT >= phaseZoneChunk()){
-        zoneT = 0;
-        swapZone();
-      }
+      if(zoneT >= phaseZoneChunk()){ zoneT = 0; swapZone(); }
       applyLightningStrike(dt * phaseLightningRate());
     }
 
@@ -1651,21 +1480,19 @@ export function boot(cfg){
 
     let hint = 'เก็บน้ำ 💧 + หาโล่ 🛡️';
     if(phase === 'storm'){
-      hint = `${emojiFor(diff,'storm')} ฟ้าผ่า! ไป ${needZone==='L'?'ซ้าย':'ขวา'} + มีโล่`;
+      hint = `${emojiFor(diff,'storm')} ฟ้าจะลง! ไป${needZone==='L'?'ซ้าย':'ขวา'}เดี๋ยวนี้`;
     }else if(phase === 'boss'){
-      hint = `${emojiFor(diff,'boss',bossLevel)} บอส ${bossLevel} • ${bossHits}/${bossGoal} • ${needZone==='L'?'ซ้าย':'ขวา'} + โล่`;
+      hint = `${emojiFor(diff,'boss',bossLevel)} บอส ${bossLevel}! เหลือ ${Math.max(0,bossGoal-bossHits)} hit`;
     }else if(phase === 'final'){
-      hint = `${emojiFor(diff,'final')} FINAL • ${finalHits}/${finalGoal} • ${needZone==='L'?'ซ้าย':'ขวา'} + โล่`;
+      hint = `${emojiFor(diff,'final')} FINAL! อีก ${Math.max(0,finalGoal-finalHits)} hit`;
     }else if(feverOn){
-      hint = `🔥 FEVER ACTIVE • รีบเก็บน้ำต่อเนื่อง`;
-    }else if(waterPct < 30){
-      hint = 'น้ำต่ำ! รีบเก็บ 💧';
-    }else if(shield === 0){
-      hint = 'หาโล่ 🛡️ ไว้กันฟ้าผ่า';
+      hint = '🔥 FEVER! เร่งเก็บน้ำเลย';
+    }else if(waterPct < 20){
+      hint = 'วิกฤตแล้ว รีบเก็บน้ำ!';
     }else if(combo >= 10){
-      hint = 'คอมโบแรงแล้ว อย่าพลาด!';
-    }else if(missGoodExpired >= 3){
-      hint = 'เก็บน้ำให้ไวขึ้น อย่าปล่อยหมดเวลา';
+      hint = 'คอมโบสวยมาก อย่าหลุด!';
+    }else if(shield === 0 && (phase==='storm'||phase==='boss'||phase==='final')){
+      hint = 'ต้องหาโล่เดี๋ยวนี้';
     }
 
     updateTimelineAndFeatures(predictedRisk);
@@ -1686,26 +1513,20 @@ export function boot(cfg){
 
   WIN.__HYD_DEBUG__ = {
     getState: ()=>({
-      sessionId,
-      playing, paused, helpOpen,
-      phase, bossLevel, bossHits, bossGoal,
-      finalHits, finalGoal,
-      tLeft, score, waterPct, shield,
-      bubbleCount: bubbles.size,
-      missBadHit, missGoodExpired,
-      lightningHitCount, lightningBlockCount,
+      sessionId, playing, paused, helpOpen,
+      phase, bossLevel, bossHits, bossGoal, finalHits, finalGoal,
+      tLeft, score, waterPct, shield, bubbleCount: bubbles.size,
+      missBadHit, missGoodExpired, lightningHitCount, lightningBlockCount,
       stormEntered, boss1Entered, boss2Entered, boss3Entered, finalEntered, finalCleared,
       feverOn, feverLeft, streakGood,
-      events: eventLog.length,
-      timeline: riskTimeline.length,
-      features: featureRows.length,
-      labels: labelRows.length
+      events: eventLog.length, timeline: riskTimeline.length, features: featureRows.length, labels: labelRows.length
     })
   };
 
   SFX.setPhaseVolume('normal');
   helpOpen = false;
   paused = false;
+  setFeverStage(false);
   setHUD();
   requestAnimationFrame(loop);
 }
