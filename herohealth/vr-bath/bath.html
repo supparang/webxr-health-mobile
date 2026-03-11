@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth — Bath Hero: Ready to Go!</title>
   <meta name="color-scheme" content="dark light" />
-  <link rel="stylesheet" href="./bath.css?v=20260310-bath-hero-r1" />
+  <link rel="stylesheet" href="./bath.css?v=20260311-bath-hero-r2" />
 </head>
 <body>
   <div id="app">
@@ -134,7 +134,7 @@
               <li><b>SOAP</b> เก็บฟองจริง ระวังฟองหลอก</li>
               <li><b>SCRUB</b> ถูจุดอับสำคัญให้ครบ</li>
               <li><b>RINSE</b> ล้างฟองออกให้หมด</li>
-              <li><b>DRY</b> เช็ดให้แห้ง โดยเฉพาะจุดอับ</li>
+              <li><b>DRY</b> เช็ดตัวให้แห้ง โดยเฉพาะจุดอับ</li>
               <li><b>DRESS</b> ใส่เสื้อได้เมื่อพร้อมจริง</li>
             </ol>
             <div class="row">
@@ -144,7 +144,7 @@
         </div>
 
         <div id="panelEnd" class="panel hidden">
-          <div class="panel-card">
+          <div class="panel-card panel-end-card">
             <h2>สรุปผล</h2>
             <p id="endSummary" class="summary"></p>
 
@@ -203,11 +203,11 @@
 
             <hr class="hr"/>
 
-            <h3 class="h3">แผนอาบของฉัน</h3>
-            <p class="muted">เรียงจุดอับที่อยากโฟกัสรอบหน้า</p>
+            <h3 class="h3">แผนรอบหน้า</h3>
+            <p class="muted">เลือกจุดที่อยากโฟกัสก่อน แล้วค่อยกด “เล่นตามแผน”</p>
             <div id="planList" class="planList"></div>
 
-            <div class="row">
+            <div class="row stickyActions">
               <button id="btnPlayPlan" class="btn primary" type="button">เล่นตามแผน</button>
               <button id="btnReplay" class="btn" type="button">เล่นใหม่</button>
               <button id="btnCooldown" class="btn" type="button">ไป Cooldown</button>
@@ -220,10 +220,10 @@
     </main>
 
     <footer id="footer">
-      <span class="muted">HeroHealth — Bath Hero • Ready to Go! • v20260310-bath-hero-r1</span>
+      <span class="muted">HeroHealth — Bath Hero • Ready to Go! • v20260311-bath-hero-r2</span>
     </footer>
   </div>
 
-  <script src="./bath.js?v=20260310-bath-hero-r1"></script>
+  <script src="./bath.js?v=20260311-bath-hero-r2"></script>
 </body>
 </html>
