@@ -1,17 +1,6 @@
 // === /fitness/js/balance-hold.js ===
 // Balance Hold — DOM-based Balance Platform + Obstacle Avoidance
-// FULL BUILD (T+FLOW PATCH)
-// ✅ URL prefill (diff/time/run/view/pid/group/phase)
-// ✅ view mode classes (pc/mobile/cvr)
-// ✅ practice + countdown phases (practiceOn/practice)
-// ✅ deterministic seeded RNG (seed / research-safe repeatable)
-// ✅ warmup passthrough buffs (wType/wPct/rank/wCrit/wDmg/wHeal)
-// ✅ scoring + combo + perfect
-// ✅ pause/resume/stop
-// ✅ result hero + rank + insight + badges/missions (basic)
-// ✅ tutorial overlay + end modal (optional IDs)
-// ✅ summary -> cooldown -> hub flow
-// ✅ local exports (sessions CSV, debug JSON) — light + safe
+// FLOW PATCH: warmup -> game -> summary -> cooldown -> hub
 'use strict';
 
 /* ------------------------------------------------------------
@@ -40,10 +29,6 @@ function qv(k, def=''){
     return def;
   }
 }
-function qn(k, def=0){
-  const v = Number(qv(k,''));
-  return Number.isFinite(v) ? v : def;
-}
 function clampNum(v, min, max, def){
   v = Number(v);
   if (!Number.isFinite(v)) v = def;
@@ -55,6 +40,10 @@ function parseBoolLike(v, fallback=false){
   if (['1','true','yes','y','on'].includes(s)) return true;
   if (['0','false','no','n','off'].includes(s)) return false;
   return fallback;
+}
+function absUrlMaybe(url){
+  if(!url) return '';
+  try{ return new URL(url, location.href).toString(); }catch(e){ return String(url || ''); }
 }
 
 /* ------------------------------------------------------------
@@ -130,13 +119,12 @@ function applyViewModeClass(mode){
   document.body.classList.remove('view-pc','view-mobile','view-cvr');
   const m = (mode === 'mobile' || mode === 'cvr') ? mode : 'pc';
   document.body.classList.add('view-' + m);
-
   const cvr = $('#cvrOverlay');
   if (cvr) cvr.classList.toggle('hidden', m !== 'cvr');
 }
 
 /* ------------------------------------------------------------
- * DOM refs (core)
+ * DOM refs
  * ------------------------------------------------------------ */
 const elDiffSel = $('#difficulty');
 const elDurSel  = $('#sessionDuration');
@@ -166,7 +154,6 @@ const obstacleLayer = $('#obstacle-layer');
 const coachLabel  = $('#coachLabel');
 const coachBubble = $('#coachBubble');
 
-/* result refs */
 const rankBadgeEl     = $('#rankBadge');
 const resultHeroSub   = $('#resultHeroSub');
 const heroInsightEl   = $('#heroInsight');
@@ -193,7 +180,6 @@ const resComboEl   = $('#res-maxCombo');
 const resAiTipEl   = $('#res-aiTip');
 const resDailyEl   = $('#res-daily');
 
-/* overlays */
 const tutorialOverlay = $('#tutorialOverlay');
 const tutorialDontShowAgain = $('#tutorialDontShowAgain');
 const endModal = $('#endModal');
@@ -201,7 +187,6 @@ const endModalRank = $('#endModalRank');
 const endModalScore= $('#endModalScore');
 const endModalInsight = $('#endModalInsight');
 
-/* cVR label */
 const cvrStrictLabel = $('#cvrStrictLabel');
 
 /* ------------------------------------------------------------
@@ -213,7 +198,6 @@ const GAME_DIFF = {
   hard:   { safeHalf:0.18, disturbMinMs: 900, disturbMaxMs:1800, disturbStrength:0.30, passiveDrift:0.030 }
 };
 function pickDiff(k){ return GAME_DIFF[k] || GAME_DIFF.normal; }
-
 function mapEndReason(code){
   switch(code){
     case 'timeout': return 'ครบเวลาที่กำหนด / Timeout';
@@ -223,7 +207,7 @@ function mapEndReason(code){
 }
 
 /* ------------------------------------------------------------
- * Warmup passthrough buffs
+ * Warmup buffs
  * ------------------------------------------------------------ */
 function readWarmupBuff(){
   const wType = qv('wType','');
@@ -243,7 +227,7 @@ function readWarmupBuff(){
 }
 
 /* ------------------------------------------------------------
- * Tutorial / modal helpers
+ * Tutorial / modal
  * ------------------------------------------------------------ */
 function openTutorial(){
   if (!tutorialOverlay) return;
@@ -267,7 +251,7 @@ function closeEndModal(){
 }
 
 /* ------------------------------------------------------------
- * Prefill UI from URL
+ * Query -> UI
  * ------------------------------------------------------------ */
 function applyQueryToUI(){
   const qDiff = String(qv('diff','')).toLowerCase();
@@ -275,9 +259,8 @@ function applyQueryToUI(){
   const qRun  = String(qv('run','')).toLowerCase();
   const qView = String(qv('view','')).toLowerCase();
 
-  if (elDiffSel && ['easy','normal','hard'].includes(qDiff)){
-    elDiffSel.value = qDiff;
-  }
+  if (elDiffSel && ['easy','normal','hard'].includes(qDiff)) elDiffSel.value = qDiff;
+
   if (elDurSel && qTime){
     const t = clampNum(qTime, 10, 600, 60);
     const tStr = String(t);
@@ -298,14 +281,10 @@ function applyQueryToUI(){
   if ($('#researchGroup') && grp) $('#researchGroup').value = grp;
   if ($('#researchPhase') && phs) $('#researchPhase').value = phs;
 
-  if (elViewSel && ['pc','mobile','cvr'].includes(qView)){
-    elViewSel.value = qView;
-  }
+  if (elViewSel && ['pc','mobile','cvr'].includes(qView)) elViewSel.value = qView;
   applyViewModeClass(qView || (elViewSel ? elViewSel.value : 'pc'));
 
-  if (qRun === 'research'){
-    showView('research');
-  }
+  if (qRun === 'research') showView('research');
 }
 
 /* ------------------------------------------------------------
@@ -388,7 +367,7 @@ function attachInput(){
 }
 
 /* ------------------------------------------------------------
- * Game State
+ * State
  * ------------------------------------------------------------ */
 let gameMode = 'play';
 let state = null;
@@ -396,9 +375,9 @@ let rafId = null;
 let isPaused = false;
 let pausedAt = 0;
 let tutorialAccepted = false;
+let __BH_LAST_SUMMARY__ = null;
 
 const SESS_KEY = 'vrfit_sessions_balance-hold';
-
 function recordSessionToLocal(summary){
   try{
     const arr = JSON.parse(localStorage.getItem(SESS_KEY) || '[]');
@@ -419,7 +398,7 @@ function randomBetween(a,b){
 }
 
 /* ------------------------------------------------------------
- * Practice / Countdown phases
+ * Practice / Countdown
  * ------------------------------------------------------------ */
 function resetMotionForNewPhase(){
   if (!state) return;
@@ -442,7 +421,6 @@ function beginMainPhase(now){
   if (!state) return;
   state.phase = 'main';
   state.phaseLabel = 'Main';
-
   state.startTime = now;
   state.elapsed = 0;
   state.lastFrame = now;
@@ -478,7 +456,6 @@ function beginMainPhase(now){
   if (hudObsB) setText(hudObsB, '0 / 0');
   if (stabilityFill) stabilityFill.style.width = '0%';
   if (centerPulse) centerPulse.classList.remove('good');
-
   resetMotionForNewPhase();
 }
 function runCountdownPhase(now){
@@ -501,11 +478,8 @@ function runCountdownPhase(now){
 
   if (remain <= 0){
     if (coachBubble) coachBubble.classList.add('hidden');
-    if (state.practiceEnabled && !state.practiceEnded){
-      beginPracticePhase(now);
-    }else{
-      beginMainPhase(now);
-    }
+    if (state.practiceEnabled && !state.practiceEnded) beginPracticePhase(now);
+    else beginMainPhase(now);
   }
   return true;
 }
@@ -550,7 +524,6 @@ function buildSessionMeta(diffKey, durSec){
   }
   return { mode: gameMode, difficulty: diffKey, durationSec: durSec, playerId, group, phase };
 }
-
 function maybeShowTutorialBeforeStart(kind){
   const tutorialFlag = String(qv('tutorial','0'));
   const dontShow = localStorage.getItem('bh_tutorial_skip') === '1';
@@ -561,16 +534,13 @@ function maybeShowTutorialBeforeStart(kind){
   }
   return false;
 }
-
 function startGame(kind){
   gameMode = (kind==='research' ? 'research' : 'play');
 
   const diffKey = (elDiffSel?.value || qv('diff','normal') || 'normal').toLowerCase();
   const durSec  = parseInt(elDurSel?.value || qv('time','60') || '60', 10) || 60;
   const cfg     = pickDiff(diffKey);
-
   const warmup = readWarmupBuff();
-
   const meta = buildSessionMeta(diffKey, durSec);
   const seedStr = buildSeedString(meta);
   const rng = makeRng(seedStr);
@@ -651,7 +621,6 @@ function startGame(kind){
 
   if (stabilityFill) stabilityFill.style.width = '0%';
   if (centerPulse) centerPulse.classList.remove('good');
-
   if (obstacleLayer) obstacleLayer.innerHTML = '';
 
   if (coachLabel){
@@ -686,10 +655,8 @@ function startGame(kind){
 
   if (rafId != null) cancelAnimationFrame(rafId);
   rafId = requestAnimationFrame(loop);
-
   showView('play');
 }
-
 function pauseGame(){
   if (!state || isPaused) return;
   isPaused = true;
@@ -699,7 +666,6 @@ function pauseGame(){
   $('[data-action="pause"]')?.classList.add('hidden');
   $('[data-action="resume"]')?.classList.remove('hidden');
 }
-
 function resumeGame(){
   if (!state || !isPaused) return;
   const now = performance.now();
@@ -722,7 +688,7 @@ function resumeGame(){
 }
 
 /* ------------------------------------------------------------
- * Physics + visuals
+ * Visuals
  * ------------------------------------------------------------ */
 function updateVisuals(){
   if (!state) return;
@@ -812,17 +778,14 @@ function spawnObstacle(now){
     if (inSafe){
       span.classList.add('avoid');
       state.obstaclesAvoided++;
-
       state.combo = (state.combo || 0) + 1;
       state.maxCombo = Math.max(state.maxCombo || 0, state.combo);
 
       let add = 10 + Math.min(20, (state.combo-1)*2);
       let perfectNow = nearPerfect;
-
       if (!perfectNow && (wu.critBonusChance||0) > 0 && rand01() < wu.critBonusChance){
         perfectNow = true;
       }
-
       if (perfectNow){
         add += 10;
         state.perfects = (state.perfects || 0) + 1;
@@ -855,7 +818,6 @@ function spawnObstacle(now){
     pulseEl(hudScore);
     pulseEl(hudCombo);
     updateVisuals();
-
   }, Math.max(0, impactAt - performance.now()));
 
   state.nextObstacleAt = now + randomBetween(cfg.disturbMinMs, cfg.disturbMaxMs);
@@ -889,7 +851,7 @@ function computeAnalytics(){
 }
 
 /* ------------------------------------------------------------
- * Ranking / insight / badges
+ * Rank / insight / badges
  * ------------------------------------------------------------ */
 function calcRank(summary){
   const stab = Number(summary.stabilityRatio || 0);
@@ -929,7 +891,7 @@ function buildInsight(summary){
     return 'จังหวะหลบยังพลาดบ่อย ลองเตรียมดึงกลับเข้ากลางทันทีเมื่อเห็นไอคอน obstacle จะช่วยเพิ่ม avoid rate ได้ชัดเจน';
   }
   if (fat > 0.35){
-    return 'ช่วงท้ายเริ่มล้า (fatigue สูงขึ้น) ลองคุมแรงนิ้วให้เบาลงและสม่ำเสมอ จะช่วยไม่ให้แกว่งเกินในช่วงท้ายเกม';
+    return 'ช่วงท้ายเริ่มล้า ลองคุมแรงนิ้วให้เบาลงและสม่ำเสมอ จะช่วยไม่ให้แกว่งเกินในช่วงท้ายเกม';
   }
   return 'ทำได้ดีมาก! รักษาจังหวะคุมแท่นให้สม่ำเสมอ และลุ้น Perfect ตอน impact เพื่อเพิ่มคะแนนและคอมโบ';
 }
@@ -983,7 +945,7 @@ function renderBadgesAndMissions(summary){
 }
 
 /* ------------------------------------------------------------
- * Save last summary for HUB + return query
+ * Summary save
  * ------------------------------------------------------------ */
 function saveLastSummaryForHub(summary, endedBy){
   try{
@@ -1011,89 +973,49 @@ function saveLastSummaryForHub(summary, endedBy){
   }catch(e){}
 }
 
-function buildCooldownUrlFromSummary(summary){
-  const hub = String(qv('hub','')).trim();
-  if(!hub) return '';
+/* ------------------------------------------------------------
+ * Cooldown flow builder
+ * ------------------------------------------------------------ */
+function buildCooldownUrl(summary){
+  const hubRaw = String(qv('hub','')).trim();
+  const hub = absUrlMaybe(hubRaw) || absUrlMaybe('../herohealth/hub.html');
 
-  try{
-    const u = new URL('../herohealth/warmup-gate.html', location.href);
+  const u = new URL('../herohealth/warmup-gate.html', location.href);
+  u.searchParams.set('gatePhase', 'cooldown');
+  u.searchParams.set('phase', 'cooldown');
+  u.searchParams.set('cat', 'exercise');
+  u.searchParams.set('game', 'balance');
+  u.searchParams.set('theme', 'balance');
+  u.searchParams.set('pid', String(qv('pid','anon') || 'anon'));
+  u.searchParams.set('run', String(qv('run','play') || 'play'));
+  u.searchParams.set('hub', hub);
+  u.searchParams.set('next', hub);
 
-    u.searchParams.set('gatePhase', 'cooldown');
-    u.searchParams.set('phase', 'cooldown');
-    u.searchParams.set('cat', 'exercise');
-    u.searchParams.set('theme', 'balance');
-    u.searchParams.set('game', 'balance');
+  [
+    'diff','time','seed','view','studyId','phase','conditionGroup','log','grade',
+    'planSeq','planDay','planSlot','planMode','planSlots','planIndex','autoNext',
+    'plannedGame','finalGame','zone','cdnext'
+  ].forEach(k=>{
+    const v = qv(k,'');
+    if(v !== '') u.searchParams.set(k, v);
+  });
 
-    u.searchParams.set('hub', hub);
-    u.searchParams.set('next', hub);
-
-    u.searchParams.set('pid', String(qv('pid','anon') || 'anon'));
-    u.searchParams.set('run', String(qv('run','play') || 'play'));
-    u.searchParams.set('diff', String(summary?.difficulty || qv('diff','normal') || 'normal'));
-    u.searchParams.set('time', String(summary?.durationSec || qv('time','60') || '60'));
-    u.searchParams.set('view', String(qv('view','pc') || 'pc'));
-    u.searchParams.set('seed', String(summary?.seed || qv('seed','') || ''));
-
-    const log = qv('log','');
-    const api = qv('api','');
-    const ai  = qv('ai','');
-    const studyId = qv('studyId','');
-    const phase = qv('phase','');
-    const conditionGroup = qv('conditionGroup','');
-    const grade = qv('grade','');
-
-    if(log) u.searchParams.set('log', log);
-    if(api) u.searchParams.set('api', api);
-    if(ai) u.searchParams.set('ai', ai);
-    if(studyId) u.searchParams.set('studyId', studyId);
-    if(phase) u.searchParams.set('researchPhase', phase);
-    if(conditionGroup) u.searchParams.set('conditionGroup', conditionGroup);
-    if(grade) u.searchParams.set('grade', grade);
-
+  if (summary){
     u.searchParams.set('lastGame', 'balance-hold');
-    u.searchParams.set('lastScore', String(summary?.score || 0));
-    u.searchParams.set('lastRank', String(summary?.rank || 'D'));
-    u.searchParams.set('lastStab', String(Math.round((summary?.stabilityRatio || 0) * 100)));
-
-    return u.toString();
-  }catch(e){
-    return '';
+    u.searchParams.set('lastScore', String(summary.score || 0));
+    u.searchParams.set('lastRank', String(summary.rank || 'D'));
+    u.searchParams.set('lastStab', String(Math.round((summary.stabilityRatio || 0) * 100)));
   }
+
+  return u.toString();
 }
-
 function goHubOrMenu(summary){
-  const cooldownUrl = buildCooldownUrlFromSummary(summary);
-  if (cooldownUrl){
-    location.href = cooldownUrl;
-    return;
-  }
-
-  const hub = String(qv('hub',''));
-  if (!hub){
-    showView('menu');
-    return;
-  }
-
-  try{
-    const u = new URL(hub, location.href);
-    const raw = localStorage.getItem('HHA_LAST_SUMMARY_balance-hold') || localStorage.getItem('HHA_LAST_SUMMARY');
-    if (raw){
-      const s = JSON.parse(raw);
-      if (s && s.gameId === 'balance-hold'){
-        u.searchParams.set('lastGame', 'balance-hold');
-        u.searchParams.set('lastScore', String(s.score || 0));
-        u.searchParams.set('lastRank', String(s.rank || 'D'));
-        u.searchParams.set('lastStab', String(Math.round((s.stabilityRatio || 0)*100)));
-      }
-    }
-    location.href = u.toString();
-  }catch(e){
-    location.href = hub;
-  }
+  const cooldownUrl = buildCooldownUrl(summary || __BH_LAST_SUMMARY__);
+  location.href = cooldownUrl;
 }
 
 /* ------------------------------------------------------------
- * Result views
+ * Result fill
  * ------------------------------------------------------------ */
 function fillResultView(endedBy, summary){
   const modeLabel = summary.mode === 'research' ? 'Research' : 'Play';
@@ -1141,7 +1063,6 @@ function fillResultView(endedBy, summary){
 
   renderBadgesAndMissions(summary);
 }
-
 function fillEndModal(summary){
   if (!endModal) return;
   if (endModalRank){
@@ -1162,7 +1083,6 @@ function stopGame(endedBy){
 
   const finalState = state;
   const a = computeAnalytics();
-
   const summary = {
     gameId: 'balance-hold',
     mode: gameMode,
@@ -1200,10 +1120,11 @@ function stopGame(endedBy){
   recordSessionToLocal(summary);
   saveLastSummaryForHub(summary, endedBy);
 
+  __BH_LAST_SUMMARY__ = summary;
+  window.__BH_LAST_SUMMARY__ = summary;
+
   fillResultView(endedBy, summary);
   fillEndModal(summary);
-
-  window.__BH_LAST_SUMMARY__ = summary;
 
   state = null;
   isPaused = false;
@@ -1281,11 +1202,9 @@ function loop(now){
     }
 
     let stabRatio = 0;
-    if (isPractice){
-      stabRatio = state.practiceSamples ? (state.practiceStableSamples/state.practiceSamples) : 0;
-    }else{
-      stabRatio = state.totalSamples ? (state.stableSamples/state.totalSamples) : 0;
-    }
+    if (isPractice) stabRatio = state.practiceSamples ? (state.practiceStableSamples/state.practiceSamples) : 0;
+    else stabRatio = state.totalSamples ? (state.stableSamples/state.totalSamples) : 0;
+
     setText(hudStab, fmtPercent(stabRatio));
     if (stabilityFill) stabilityFill.style.width = `${clamp(stabRatio*100, 0, 100)}%`;
     if (centerPulse){
@@ -1303,15 +1222,14 @@ function loop(now){
 }
 
 /* ------------------------------------------------------------
- * Exports
+ * Export
  * ------------------------------------------------------------ */
 function downloadTextFile(filename, text, type='text/plain'){
   try{
     const blob = new Blob([text], {type});
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
+    a.href = url; a.download = filename;
     document.body.appendChild(a);
     a.click();
     setTimeout(()=>{
@@ -1374,7 +1292,7 @@ function exportReleaseDebug(){
 }
 
 /* ------------------------------------------------------------
- * Init / bindings
+ * Init
  * ------------------------------------------------------------ */
 function init(){
   $('[data-action="start-normal"]')?.addEventListener('click', ()=>{
@@ -1392,18 +1310,26 @@ function init(){
   $('[data-action="pause"]')?.addEventListener('click', pauseGame);
   $('[data-action="resume"]')?.addEventListener('click', resumeGame);
 
-  $('[data-action="play-again"]')?.addEventListener('click', ()=> showView('menu'));
-  $('[data-action="result-play-again"]')?.addEventListener('click', ()=> { closeEndModal(); showView('menu'); });
+  $('[data-action="result-play-again"]')?.addEventListener('click', ()=>{
+    closeEndModal();
+    showView('menu');
+  });
   $('[data-action="result-back-hub"]')?.addEventListener('click', ()=>{
-    goHubOrMenu(window.__BH_LAST_SUMMARY__ || null);
+    goHubOrMenu(__BH_LAST_SUMMARY__);
   });
 
   $('[data-action="close-end-modal"]')?.addEventListener('click', closeEndModal);
-  $('[data-action="end-retry"]')?.addEventListener('click', ()=> { closeEndModal(); showView('menu'); });
-  $('[data-action="end-next-mission"]')?.addEventListener('click', ()=> { closeEndModal(); showView('menu'); });
+  $('[data-action="end-retry"]')?.addEventListener('click', ()=>{
+    closeEndModal();
+    showView('menu');
+  });
+  $('[data-action="end-next-mission"]')?.addEventListener('click', ()=>{
+    closeEndModal();
+    showView('result');
+  });
   $('[data-action="end-back-hub"]')?.addEventListener('click', ()=>{
     closeEndModal();
-    goHubOrMenu(window.__BH_LAST_SUMMARY__ || null);
+    goHubOrMenu(__BH_LAST_SUMMARY__);
   });
 
   $('[data-action="tutorial-skip"]')?.addEventListener('click', ()=>{
@@ -1459,6 +1385,14 @@ function init(){
   attachInput();
   showView('menu');
   applyQueryToUI();
+
+  const autostart = parseBoolLike(qv('autostart','0'), false);
+  if (autostart){
+    setTimeout(()=>{
+      if (maybeShowTutorialBeforeStart('play')) return;
+      startGame(qv('run','play') === 'research' ? 'research' : 'play');
+    }, 80);
+  }
 }
 
 window.addEventListener('DOMContentLoaded', init);
