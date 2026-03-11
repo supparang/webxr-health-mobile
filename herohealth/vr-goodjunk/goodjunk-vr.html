@@ -1,6 +1,6 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
 GoodJunkVR — RUN PAGE
-FULL PATCH v20260308-GJ-RUNPAGE-FIREBASE-MATCHFIX-WAITOVERLAY
+PATCH v20260311-GJ-RUNPAGE-BATTLE-WAIT-MERGED
 -->
 <!doctype html>
 <html lang="th">
@@ -10,9 +10,6 @@ FULL PATCH v20260308-GJ-RUNPAGE-FIREBASE-MATCHFIX-WAITOVERLAY
   <title>HeroHealth — GoodJunkVR</title>
   <meta name="color-scheme" content="dark light" />
   <link rel="icon" href="../favicon.ico" />
-
-  <script src="../firebase-config.js"></script>
-
   <style>
     :root{
       --bg1:#020617; --bg2:#0b1226;
@@ -269,33 +266,45 @@ FULL PATCH v20260308-GJ-RUNPAGE-FIREBASE-MATCHFIX-WAITOVERLAY
       transition:opacity .14s ease;
     }
 
-    #battleDebug{
-      position:fixed;
-      left:8px;
-      bottom:calc(env(safe-area-inset-bottom,0px) + 64px);
-      z-index:140;
-      min-width:220px;
-      max-width:min(420px, calc(100vw - 16px));
-      border:1px solid rgba(148,163,184,.18);
-      background:rgba(2,6,23,.78);
-      color:#e5e7eb;
-      border-radius:16px;
-      padding:10px 12px;
-      box-shadow:0 16px 40px rgba(0,0,0,.32);
-      backdrop-filter:blur(10px);
-      font:800 12px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
-    }
-
     #waitOverlay{
       display:none;
       position:fixed;
       inset:0;
       z-index:190;
-      background:rgba(2,6,23,.70);
-      backdrop-filter:blur(8px);
+      background:rgba(2,6,23,.72);
+      backdrop-filter:blur(10px);
       align-items:center;
       justify-content:center;
       padding:16px;
+    }
+    #waitOverlay .wait-panel{
+      width:min(680px,100%);
+      border-radius:24px;
+      border:1px solid rgba(148,163,184,.18);
+      background:linear-gradient(180deg, rgba(15,23,42,.94), rgba(2,6,23,.92));
+      box-shadow:0 26px 80px rgba(0,0,0,.48);
+      padding:20px;
+      text-align:center;
+    }
+    #waitOverlayTimer{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-width:120px;
+      padding:12px 16px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(15,23,42,.84);
+      font-size:28px;
+      font-weight:1000;
+      color:#fff;
+    }
+    .wait-actions{
+      margin-top:16px;
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      justify-content:center;
     }
 
     #endOverlay{
@@ -418,10 +427,6 @@ FULL PATCH v20260308-GJ-RUNPAGE-FIREBASE-MATCHFIX-WAITOVERLAY
       .boss-bar{ top:calc(var(--sat) + 236px); }
       .end-actions{ justify-content:stretch; }
       .end-actions .btn{ flex:1 1 220px; }
-      #battleDebug{
-        right:8px;
-        max-width:none;
-      }
     }
   </style>
 </head>
@@ -447,10 +452,10 @@ FULL PATCH v20260308-GJ-RUNPAGE-FIREBASE-MATCHFIX-WAITOVERLAY
       <div id="missionHint" class="mission-hint">—</div>
 
       <div class="match-chip-wrap">
-        <div class="match-chip">Best Of <span id="battleBestOf">3</span></div>
-        <div class="match-chip">Wins To Champion <span id="battleWinsToChampion">2</span></div>
-        <div class="match-chip">Status <span id="battleStatus">LIVE</span></div>
-        <div class="match-chip">Champion <span id="battleChampion">—</span></div>
+        <div class="match-chip">Best Of <span id="matchBestOfInline">3</span></div>
+        <div class="match-chip">Wins To Champion <span id="matchWinsToChampionInline">2</span></div>
+        <div class="match-chip">Status <span id="matchStatusInline">LIVE</span></div>
+        <div class="match-chip">Champion <span id="matchChampionInline">—</span></div>
       </div>
 
       <div class="mission-bar"><i id="missionFill" style="--p:0%"></i></div>
@@ -473,8 +478,8 @@ FULL PATCH v20260308-GJ-RUNPAGE-FIREBASE-MATCHFIX-WAITOVERLAY
       <div class="ai-pill">hazard <span id="hazardInline">0.00</span></div>
       <div class="ai-pill">win <span id="winInline">0.00</span></div>
       <div class="ai-pill">frustration <span id="frustrationInline">0.00</span></div>
-      <div class="ai-pill">you wins <span id="battleMyWins">0</span></div>
-      <div class="ai-pill">opp wins <span id="battleOppWins">0</span></div>
+      <div class="ai-pill">you wins <span id="matchYouWinsInline">0</span></div>
+      <div class="ai-pill">opp wins <span id="matchOppWinsInline">0</span></div>
     </div>
   </div>
 
@@ -496,35 +501,21 @@ FULL PATCH v20260308-GJ-RUNPAGE-FIREBASE-MATCHFIX-WAITOVERLAY
   <div id="milestoneBanner">NICE COMBO!</div>
   <div id="dangerOverlay"></div>
 
-  <div id="battleDebug">
-    <div>role: <span id="dbgRole">-</span></div>
-    <div>phase: <span id="dbgPhase">-</span></div>
-    <div>room: <span id="dbgRoom">-</span></div>
-    <div>players: <span id="dbgPlayers">0/2</span></div>
-    <div>you ready: <span id="dbgReady">no</span></div>
-    <div>opp ready: <span id="dbgOppReady">no</span></div>
-  </div>
-
   <div id="waitOverlay">
-    <div style="
-      width:min(560px,100%);
-      border-radius:24px;
-      border:1px solid rgba(148,163,184,.18);
-      background:linear-gradient(180deg, rgba(15,23,42,.92), rgba(2,6,23,.90));
-      box-shadow:0 26px 80px rgba(0,0,0,.48);
-      padding:20px;
-      text-align:center;
-      color:#e5e7eb;
-    ">
-      <div style="font-size:28px;font-weight:1000;">กำลังรอคู่แข่ง…</div>
-      <div id="waitOverlaySub" style="margin-top:8px;color:#cbd5e1;font-size:14px;">
-        ถ้ายังไม่มีผู้เล่นอีกคน คุณสามารถเล่นเดี่ยวแทนได้
+    <div class="wait-panel">
+      <div style="font-size:16px;font-weight:1000;color:#a5f3fc;">BATTLE WAITING</div>
+      <div style="margin-top:10px;font-size:34px;font-weight:1000;line-height:1.08;">รอผู้เล่นอีก 1 คน</div>
+      <div id="waitOverlaySub" style="margin-top:10px;font-size:14px;color:#cbd5e1;">
+        ยังไม่มีคู่แข่งในห้อง คุณจะเล่นเดี่ยวแทนตอนนี้ หรือรอต่ออีก 30 วินาทีก็ได้
       </div>
-      <div id="waitOverlayTimer" style="margin-top:14px;font-size:42px;font-weight:1000;">30</div>
 
-      <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:18px;">
-        <button id="btnWaitSolo" class="btn warn" type="button">เล่นเดี่ยวแทน</button>
-        <button id="btnWaitMore" class="btn secondary" type="button">รอต่ออีก 30 วิ</button>
+      <div style="margin-top:14px;">
+        <div id="waitOverlayTimer">30</div>
+      </div>
+
+      <div class="wait-actions">
+        <button id="btnWaitSolo" class="btn warn" type="button">เล่นเดี่ยวตอนนี้</button>
+        <button id="btnWaitMore" class="btn secondary" type="button">รอต่ออีก 30 วินาที</button>
       </div>
     </div>
   </div>
@@ -659,59 +650,6 @@ FULL PATCH v20260308-GJ-RUNPAGE-FIREBASE-MATCHFIX-WAITOVERLAY
       const danger = document.getElementById('dangerOverlay');
       const on = !!(ev.detail && ev.detail.on);
       danger.style.opacity = on ? '1' : '0';
-    }catch(_){}
-  });
-
-  const dbg = {
-    role: document.getElementById('dbgRole'),
-    phase: document.getElementById('dbgPhase'),
-    room: document.getElementById('dbgRoom'),
-    players: document.getElementById('dbgPlayers'),
-    ready: document.getElementById('dbgReady'),
-    oppReady: document.getElementById('dbgOppReady')
-  };
-
-  dbg.room.textContent = room;
-
-  let dbgRole = 'unknown';
-  let dbgPhase = 'unknown';
-  let dbgPlayers = [];
-  let dbgMeKey = '';
-
-  function refreshBattleDebug(){
-    dbg.role.textContent = dbgRole;
-    dbg.phase.textContent = dbgPhase;
-
-    const me = dbgPlayers.find(p => p.key === dbgMeKey) || null;
-    const opp = dbgPlayers.find(p => p.key !== dbgMeKey) || null;
-
-    dbg.players.textContent = `${dbgPlayers.length}/2`;
-    dbg.ready.textContent = me?.ready ? 'yes' : 'no';
-    dbg.oppReady.textContent = opp?.ready ? 'yes' : 'no';
-  }
-
-  window.addEventListener('hha:battle-room', (ev)=>{
-    try{
-      const d = ev.detail || {};
-      dbgRole = String(d.role || 'unknown');
-      dbgMeKey = String(d.meKey || '');
-      if(d.room) dbg.room.textContent = String(d.room);
-      refreshBattleDebug();
-    }catch(_){}
-  });
-
-  window.addEventListener('hha:battle-state', (ev)=>{
-    try{
-      const d = ev.detail || {};
-      dbgPhase = String(d.phase || 'unknown');
-      refreshBattleDebug();
-    }catch(_){}
-  });
-
-  window.addEventListener('hha:battle-players', (ev)=>{
-    try{
-      dbgPlayers = Array.isArray(ev.detail?.players) ? ev.detail.players : [];
-      refreshBattleDebug();
     }catch(_){}
   });
 
