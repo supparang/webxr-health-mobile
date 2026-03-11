@@ -1,10 +1,10 @@
 <!-- === /herohealth/hydration-vr/hydration-vr.html ===
-Hydration VR RUN — PATCH B
-FULL v20260311-HYDRATION-RUN-PATCH-B
-✅ keeps Patch A
-✅ Boss identity 1–4
-✅ comeback system
-✅ critical state visual
+Hydration VR RUN — PATCH C
+FULL v20260311-HYDRATION-RUN-PATCH-C
+✅ keeps Patch A + Patch B
+✅ live mini missions
+✅ stars earned
+✅ coach hype lines
 -->
 <!doctype html>
 <html lang="th">
@@ -95,7 +95,12 @@ FULL v20260311-HYDRATION-RUN-PATCH-B
         <span class="chip">🔥 COMBO <span id="uiCombo">0</span></span>
         <span class="chip">🛡️ SHIELD <span id="uiShield">0</span></span>
         <span class="chip">🔥 FEVER <span id="uiFever">OFF</span></span>
+        <span class="chip">⭐ STARS <span id="uiStars">0</span></span>
         <span class="chip"><span id="uiPhase">—</span></span>
+      </div>
+
+      <div class="chips">
+        <span class="chip">🎯 MISSION <span id="uiMission">—</span></span>
       </div>
 
       <div class="chips">
@@ -155,6 +160,7 @@ FULL v20260311-HYDRATION-RUN-PATCH-B
         <p>5) กันฟ้าผ่าได้เมื่อ <b>มีโล่ + อยู่ฝั่งถูก</b></p>
         <p>6) ถ้าเก็บน้ำต่อเนื่องจะเข้า <b>FEVER</b> และคะแนนจะแรงขึ้น</p>
         <p>7) ถ้าน้ำต่ำมาก เกมจะมีโอกาสปล่อย <b>comeback set</b> ให้กู้สถานการณ์</p>
+        <p>8) ทำ <b>MISSION</b> ให้สำเร็จเพื่อรับดาวและโบนัส</p>
       </div>
       <div class="actions">
         <button class="btn primary" id="btnHelpStart">เริ่มเล่น</button>
@@ -183,6 +189,8 @@ FULL v20260311-HYDRATION-RUN-PATCH-B
         <div class="item"><div class="kk">SCORE</div><div class="vv" id="endScore">0</div></div>
         <div class="item"><div class="kk">MISS</div><div class="vv" id="endMiss">0</div></div>
         <div class="item"><div class="kk">WATER</div><div class="vv" id="endWater">0%</div></div>
+        <div class="item"><div class="kk">STARS</div><div class="vv" id="endStars">0</div></div>
+        <div class="item"><div class="kk">MISSIONS</div><div class="vv" id="endMissionCount">0</div></div>
       </div>
 
       <div class="actions">
