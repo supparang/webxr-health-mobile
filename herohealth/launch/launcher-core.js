@@ -1,37 +1,92 @@
-// === /herohealth/launch/launcher-core.js — passthrough ctx + log (v20260217a) ===
-'use strict';
+// === /herohealth/launch/launcher-core.js ===
+// HeroHealth Launcher Core — v2.8+ (PRODUCTION)
+// ✅ Pass-through all params (NO override)
+// ✅ Always attaches hub backlink (?hub=...)
+// ✅ Auto-fill view if missing (pc/mobile/cvr) but never override
+// ✅ Optional defaults (fill only missing)
+// ✅ Optional injectParams (fill only missing) เช่น gameId
 
-function getQS(){
-  try { return new URL(location.href).searchParams; }
-  catch { return new URLSearchParams(); }
-}
-const QS = getQS();
+export function hhDetectView() {
+  try {
+    const u = new URL(location.href);
+    const v = (u.searchParams.get('view') || '').toLowerCase();
+    if (v) return v; // NO OVERRIDE
+  } catch {}
 
-function mergeParams(defaults){
-  const out = Object.assign({}, defaults || {});
-  QS.forEach((v,k)=>{ out[k] = v; });
+  const ua = navigator.userAgent || '';
+  const touch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+  const w = Math.min(window.innerWidth || 0, document.documentElement.clientWidth || 0, screen.width || 9999);
+  const h = Math.min(window.innerHeight || 0, document.documentElement.clientHeight || 0, screen.height || 9999);
+  const small = Math.min(w, h) <= 520;
+  const isMobileUA = /Android|iPhone|iPad|iPod/i.test(ua);
 
-  if (out.run && !out.runMode) out.runMode = out.run;
-  if (out.mode && !out.runMode) out.runMode = out.mode;
-  return out;
-}
-
-function buildUrl(target, params){
-  const u = new URL(target, location.href);
-  const sp = new URLSearchParams();
-  Object.keys(params||{}).forEach(k=>{
-    const v = params[k];
-    if (v === undefined || v === null) return;
-    const s = String(v);
-    if (!s.trim()) return;
-    sp.set(k, s);
-  });
-  u.search = sp.toString();
-  return u.toString();
+  if ((touch || isMobileUA) && small) return 'cvr';
+  if (touch || isMobileUA) return 'mobile';
+  return 'pc';
 }
 
-export function hhGo(target, opts={}){
-  const merged = mergeParams((opts && opts.defaults) ? opts.defaults : {});
-  const url = buildUrl(target, merged);
+function hubUrlClean() {
+  try { return location.href.split('#')[0]; } catch { return location.href; }
+}
+
+function parseQS(urlStr) {
+  try { return new URL(urlStr).searchParams; } catch { return new URLSearchParams(); }
+}
+
+function setIfMissing(sp, k, v) {
+  if (!sp) return;
+  if (sp.has(k) && String(sp.get(k) || '').trim() !== '') return; // NO OVERRIDE
+  if (v == null) return;
+  const s = String(v).trim();
+  if (!s) return;
+  sp.set(k, s);
+}
+
+export function hhBuildRedirectUrl(targetHref, options = {}) {
+  const {
+    defaults = {},
+    injectParams = {},
+    ensureHub = true,
+    ensureView = true,
+  } = options;
+
+  const from = hubUrlClean();
+  const cur = parseQS(from);
+  const target = new URL(targetHref, location.href);
+
+  for (const [k, v] of cur.entries()) {
+    if (k === 'hub') continue;
+    target.searchParams.set(k, v);
+  }
+
+  if (ensureHub) {
+    target.searchParams.set('hub', from);
+  }
+
+  if (ensureView) {
+    const hasView = target.searchParams.has('view') && String(target.searchParams.get('view') || '').trim() !== '';
+    const hubHasView = cur.has('view') && String(cur.get('view') || '').trim() !== '';
+    if (!hasView && !hubHasView) {
+      target.searchParams.set('view', hhDetectView());
+    }
+  }
+
+  if (injectParams && typeof injectParams === 'object') {
+    for (const [k, v] of Object.entries(injectParams)) {
+      setIfMissing(target.searchParams, k, v);
+    }
+  }
+
+  if (defaults && typeof defaults === 'object') {
+    for (const [k, v] of Object.entries(defaults)) {
+      setIfMissing(target.searchParams, k, v);
+    }
+  }
+
+  return target.toString();
+}
+
+export function hhGo(targetHref, options = {}) {
+  const url = hhBuildRedirectUrl(targetHref, options);
   location.replace(url);
 }
