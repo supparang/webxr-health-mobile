@@ -195,6 +195,8 @@ export function boot(cfg){
     endWater: DOC.getElementById('endWater'),
     endStars: DOC.getElementById('endStars'),
     endMissionCount: DOC.getElementById('endMissionCount'),
+    endMissionSummary: DOC.getElementById('endMissionSummary'),
+    endPhaseSummary: DOC.getElementById('endPhaseSummary'),
     endCoach: DOC.getElementById('endCoach'),
 
     btnCopy: DOC.getElementById('btnCopy'),
@@ -427,6 +429,8 @@ export function boot(cfg){
   let missionDone = false;
   let missionHistory = [];
   let currentMissionKey = '';
+  let missionAssignCount = 0;
+  let lastMissionCompleteAt = -999;
 
   function currentPhaseKey(){
     if(phase === 'boss') return `boss${bossLevel}`;
@@ -765,67 +769,120 @@ export function boot(cfg){
     return phaseStats.normal.goodHit + phaseStats.storm.goodHit + phaseStats.boss1.goodHit + phaseStats.boss2.goodHit + phaseStats.boss3.goodHit + phaseStats.final.goodHit;
   }
 
-  function totalBlocks(){
-    return blockCount + lightningBlockCount;
+  function uniqueMissionKeys(){
+    return Array.from(new Set(missionHistory));
+  }
+
+  function missionSummaryText(){
+    if(!missionHistory.length) return 'ยังไม่สำเร็จภารกิจ';
+    return uniqueMissionKeys().join(', ');
+  }
+
+  function phaseSummaryText(){
+    const arr = [];
+    if(stormEntered) arr.push('Storm');
+    if(boss1Entered) arr.push('Boss1');
+    if(boss2Entered) arr.push('Boss2');
+    if(boss3Entered) arr.push('Boss3');
+    if(finalEntered) arr.push('Final');
+    if(finalCleared) arr.push('Clear');
+    return arr.length ? arr.join(' → ') : 'Normal only';
   }
 
   function nextMission(){
-    const pool = [
-      {
-        key:'combo6',
-        text:'คอมโบให้ถึง 6',
-        check:()=> combo >= 6,
-        reward:()=>{ score += 25; }
-      },
-      {
-        key:'shield2',
-        text:'เก็บโล่ให้ครบ 2',
-        check:()=> shield >= 2,
-        reward:()=>{ score += 20; }
-      },
-      {
-        key:'block1',
-        text:'กันฟ้าผ่า 1 ครั้ง',
-        check:()=> lightningBlockCount >= 1,
-        reward:()=>{ waterPct = clamp(waterPct + 8, 0, 100); }
-      },
-      {
-        key:'good8',
-        text:'เก็บน้ำรวม 8 ครั้ง',
-        check:()=> totalGoodHits() >= 8,
-        reward:()=>{ score += 30; }
-      },
-      {
+    const playedSec = Math.round(plannedSec - tLeft);
+    const pool = [];
+
+    pool.push({
+      key:'combo6',
+      text:'คอมโบให้ถึง 6',
+      check:()=> combo >= 6,
+      reward:()=>{ score += 25; }
+    });
+
+    pool.push({
+      key:'shield2',
+      text:'เก็บโล่ให้ครบ 2',
+      check:()=> shield >= 2,
+      reward:()=>{ score += 20; }
+    });
+
+    pool.push({
+      key:'block1',
+      text:'กันฟ้าผ่า 1 ครั้ง',
+      check:()=> lightningBlockCount >= 1,
+      reward:()=>{ waterPct = clamp(waterPct + 8, 0, 100); }
+    });
+
+    pool.push({
+      key:'good8',
+      text:'เก็บน้ำรวม 8 ครั้ง',
+      check:()=> totalGoodHits() >= 8,
+      reward:()=>{ score += 30; }
+    });
+
+    if(!stormEntered){
+      pool.push({
         key:'stormReach',
         text:'ไปให้ถึง STORM',
         check:()=> stormEntered === 1,
         reward:()=>{ score += 18; }
-      },
-      {
+      });
+    }
+
+    if(!eventLog.some(e=>e.type==='fever_start')){
+      pool.push({
         key:'fever1',
         text:'เข้า FEVER 1 ครั้ง',
         check:()=> eventLog.some(e=>e.type==='fever_start'),
         reward:()=>{ score += 26; }
-      },
-      {
+      });
+    }
+
+    if(!boss1Entered){
+      pool.push({
         key:'boss1reach',
         text:'ไปให้ถึง BOSS 1',
         check:()=> boss1Entered === 1,
         reward:()=>{ score += 22; }
-      },
-      {
+      });
+    }
+
+    if(playedSec > 20){
+      pool.push({
         key:'water50',
         text:'รักษาน้ำให้ถึง 50%',
         check:()=> waterPct >= 50,
         reward:()=>{ score += 16; }
-      }
-    ];
+      });
+    }
 
-    const available = pool.filter(m => !missionHistory.includes(m.key));
+    if(playedSec > 28){
+      pool.push({
+        key:'lowMiss',
+        text:'คุม miss ไม่เกิน 2',
+        check:()=> missBadHit <= 2 && playedSec >= 36,
+        reward:()=>{ score += 22; }
+      });
+    }
+
+    if(playedSec > 35){
+      pool.push({
+        key:'survive60',
+        text:'เอาตัวรอดถึงช่วงท้าย',
+        check:()=> tLeft <= plannedSec * 0.25,
+        reward:()=>{ score += 20; }
+      });
+    }
+
+    const recentBan = missionHistory.slice(-2);
+    const available = pool.filter(m => !recentBan.includes(m.key));
     const source = available.length ? available : pool;
+
     mission = source[(r01()*source.length)|0];
     missionDone = false;
     currentMissionKey = mission.key;
+    missionAssignCount++;
     if(ui.mission) ui.mission.textContent = mission.text;
     logEvent('mission_assign', { missionKey: mission.key, missionText: mission.text });
   }
@@ -837,6 +894,7 @@ export function boot(cfg){
     missionDone = true;
     stars++;
     missionHistory.push(mission.key);
+    lastMissionCompleteAt = Math.round(plannedSec - tLeft);
 
     try{ mission.reward(); }catch(e){}
 
@@ -846,7 +904,9 @@ export function boot(cfg){
     toastCoach('ภารกิจสำเร็จ! โบนัสมาแล้ว', 300);
     logEvent('mission_clear', { missionKey: mission.key, stars });
 
-    setTimeout(nextMission, 1200);
+    setTimeout(()=>{
+      if(playing) nextMission();
+    }, 1200);
   }
 
   function setHUD(){
@@ -917,6 +977,7 @@ export function boot(cfg){
         fxScore(120, 230, 'BLOCK⚡');
         toastCoach('กันฟ้าผ่าสำเร็จ! ดีมาก', 500);
         logEvent('lightning_block', { shield });
+        resolveMission();
       }else{
         streakGood = 0;
         stopFever();
@@ -1165,6 +1226,7 @@ export function boot(cfg){
       feverOn: feverOn ? 1 : 0, feverLeft: +feverLeft.toFixed(3),
       missBadHit, missGoodExpired, blockCount, lightningHitCount, lightningBlockCount,
       comebackCount, stars, missionKey: currentMissionKey || '',
+      missionAssignCount,
       inDangerPhase, inCorrectZone,
       riskHeuristic: +riskHeuristic.toFixed(4),
       recentBadHitRate: +(missBadHit / Math.max(1, playedSec)).toFixed(4),
@@ -1277,7 +1339,7 @@ export function boot(cfg){
     const playedSec = Math.round(plannedSec - tLeft);
     return {
       sessionId, pid, seed: seedStr, studyId, phaseName, conditionGroup, schoolCode, classRoom,
-      projectTag:'HydrationVR', gameVersion:'HydrationVR_PATCH_C_2026-03-11',
+      projectTag:'HydrationVR', gameVersion:'HydrationVR_PATCH_D_2026-03-11',
       device:view, runMode, diff, zone:'nutrition', game:'hydration',
       reason:String(reason || ''), endReasonText: endReasonText(reason), reachedPhaseText: reachedPhaseText(),
       durationPlannedSec: plannedSec, durationPlayedSec: playedSec,
@@ -1287,8 +1349,10 @@ export function boot(cfg){
       blockCount: blockCount|0, lightningHitCount: lightningHitCount|0, lightningBlockCount: lightningBlockCount|0,
       comebackCount: comebackCount|0,
       starsEarned: stars|0,
-      missionsCleared: missionHistory.length|0,
+      missionsCleared: uniqueMissionKeys().length|0,
       missionHistory: missionHistory.slice(),
+      missionAssignCount: missionAssignCount|0,
+      lastMissionCompleteAt,
       stormEntered, boss1Entered, boss2Entered, boss3Entered, finalEntered, finalCleared,
       phaseFinal: currentPhaseKey(), bossLevel, bossHits: bossHits|0, finalHits: finalHits|0,
       feverUsed: eventLog.some(e => e.type === 'fever_start') ? 1 : 0,
@@ -1301,7 +1365,7 @@ export function boot(cfg){
   function buildResearchPacket(reason){
     const summary = buildSummary(reason);
     return {
-      packetVersion: 'HHA_HYD_RESEARCH_PACKET_2026-03-11_PATCH_C',
+      packetVersion: 'HHA_HYD_RESEARCH_PACKET_2026-03-11_PATCH_D',
       session: { ...sessionMeta }, summary, phaseStats,
       tables: { events: eventLog, timeline: riskTimeline, features: featureRows, labels: labelRows }
     };
@@ -1311,7 +1375,7 @@ export function boot(cfg){
     const packet = buildResearchPacket(reason);
     return {
       source: 'HeroHealth-HydrationVR',
-      schemaVersion: '2026-03-11-PATCH-C',
+      schemaVersion: '2026-03-11-PATCH-D',
       session: packet.session,
       summary: packet.summary,
       phaseStats: packet.phaseStats,
@@ -1387,6 +1451,34 @@ export function boot(cfg){
     }
   }
 
+  function hardSaveLastSummary(summary, reason){
+    try{
+      const teacherPacket = {
+        teacherSummary: buildTeacherSummary(summary),
+        researchPacket: buildResearchPacket(reason),
+        savedAtIso: new Date().toISOString()
+      };
+      localStorage.setItem('HHA_HYD_LAST_SUMMARY', JSON.stringify(teacherPacket));
+    }catch(e){}
+
+    try{
+      const teacherPacket = {
+        teacherSummary: buildTeacherSummary(summary),
+        researchPacket: buildResearchPacket(reason),
+        savedAtIso: new Date().toISOString()
+      };
+      const k = 'HHA_HYD_SUMMARY_HISTORY';
+      let arr = [];
+      try{
+        arr = JSON.parse(localStorage.getItem(k) || '[]');
+        if(!Array.isArray(arr)) arr = [];
+      }catch(e){ arr = []; }
+      arr.unshift(teacherPacket);
+      if(arr.length > 120) arr = arr.slice(0, 120);
+      localStorage.setItem(k, JSON.stringify(arr));
+    }catch(e){}
+  }
+
   function showEnd(reason){
     playing = false; paused = false;
     ui.pauseOverlay?.setAttribute('aria-hidden','true');
@@ -1417,32 +1509,7 @@ export function boot(cfg){
     const summary = buildSummary(reason);
     summary.coachSummary = buildEndCoachSummary(summary);
 
-    try{
-      const teacherPacket = {
-        teacherSummary: buildTeacherSummary(summary),
-        researchPacket: buildResearchPacket(reason),
-        savedAtIso: new Date().toISOString()
-      };
-      localStorage.setItem('HHA_HYD_LAST_SUMMARY', JSON.stringify(teacherPacket));
-    }catch(e){}
-
-    try{
-      const teacherPacket = {
-        teacherSummary: buildTeacherSummary(summary),
-        researchPacket: buildResearchPacket(reason),
-        savedAtIso: new Date().toISOString()
-      };
-      const k = 'HHA_HYD_SUMMARY_HISTORY';
-      let arr = [];
-      try{
-        arr = JSON.parse(localStorage.getItem(k) || '[]');
-        if(!Array.isArray(arr)) arr = [];
-      }catch(e){ arr = []; }
-      arr.unshift(teacherPacket);
-      if(arr.length > 120) arr = arr.slice(0, 120);
-      localStorage.setItem(k, JSON.stringify(arr));
-    }catch(e){}
-
+    hardSaveLastSummary(summary, reason);
     logEvent('game_end', { reason });
 
     if(ui.end){
@@ -1463,6 +1530,8 @@ export function boot(cfg){
       ui.endWater.textContent = `${summary.waterPct}%`;
       if(ui.endStars) ui.endStars.textContent = String(summary.starsEarned || 0);
       if(ui.endMissionCount) ui.endMissionCount.textContent = String(summary.missionsCleared || 0);
+      if(ui.endMissionSummary) ui.endMissionSummary.textContent = missionSummaryText();
+      if(ui.endPhaseSummary) ui.endPhaseSummary.textContent = phaseSummaryText();
 
       setEndButtons(summary);
     }
@@ -1634,6 +1703,27 @@ export function boot(cfg){
     }
   }
 
+  function shouldTriggerComeback(){
+    if(!playing || paused) return false;
+    if(phase === 'final') return false;
+    if(comebackCooldown > 0) return false;
+    if(waterPct > 18) return false;
+    if(combo > 0) return false;
+    if(r01() > 0.18) return false;
+    return true;
+  }
+
+  function triggerComebackSet(){
+    comebackCooldown = 7.5;
+    comebackCount++;
+    makeBubble('good', pick(GOOD), TUNE.ttlGood + 0.25);
+    if(r01() < 0.60) makeBubble('good', pick(GOOD), TUNE.ttlGood + 0.25);
+    if(shield === 0 && r01() < 0.45) makeBubble('shield', pick(SHLD), 2.8);
+    showStreakToast('💧 COMEBACK');
+    toastCoach('โอกาสกลับมาแล้ว! รีบเก็บน้ำ', 500);
+    logEvent('comeback_spawn', { comebackCount, waterPct, shield });
+  }
+
   function loop(){
     if(!playing) return;
 
@@ -1704,6 +1794,16 @@ export function boot(cfg){
     if(DOC.hidden){
       paused = true;
       if(ui.pauseOverlay) ui.pauseOverlay.setAttribute('aria-hidden','false');
+    }
+  });
+
+  WIN.addEventListener('pagehide', ()=>{
+    if(!playing){
+      try{
+        const summary = buildSummary('pagehide');
+        summary.coachSummary = buildEndCoachSummary(summary);
+        hardSaveLastSummary(summary, 'pagehide');
+      }catch(e){}
     }
   });
 
