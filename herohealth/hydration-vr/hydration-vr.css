@@ -104,13 +104,13 @@ body{
 .bubble.fx-pop{ animation: fxPop .18s ease-out 1; }
 @keyframes fxPop{
   0%{ transform: translate(-50%, -50%) scale(1); opacity:1; }
-  100%{ transform: translate(-50%, -50%) scale(1.45); opacity:0; }
+  100%{ transform: translate(-50%, -50%) scale(1.58); opacity:0; }
 }
 .bubble.fx-bad{ animation: fxBad .22s ease-out 1; }
 @keyframes fxBad{
   0%{ transform: translate(-50%, -50%) scale(1); }
-  40%{ transform: translate(-50%, -50%) scale(.86); }
-  100%{ transform: translate(-50%, -50%) scale(1.15); opacity:0; }
+  30%{ transform: translate(-50%, -50%) scale(.76) rotate(-8deg); }
+  100%{ transform: translate(-50%, -50%) scale(1.22) rotate(8deg); opacity:0; }
 }
 
 .fx-score{
@@ -122,12 +122,12 @@ body{
   pointer-events:none;
   z-index:30;
   opacity:0;
-  animation: fxScore 0.7s ease-out 1;
+  animation: fxScore 0.78s ease-out 1;
 }
 @keyframes fxScore{
-  0%{ opacity:0; transform: translate(-50%, -50%) translateY(10px) scale(.96); }
+  0%{ opacity:0; transform: translate(-50%, -50%) translateY(10px) scale(.92); }
   15%{ opacity:1; }
-  100%{ opacity:0; transform: translate(-50%, -50%) translateY(-40px) scale(1.05); }
+  100%{ opacity:0; transform: translate(-50%, -50%) translateY(-46px) scale(1.1); }
 }
 
 .fx-ring{
@@ -140,12 +140,12 @@ body{
   pointer-events:none;
   z-index:20;
   opacity:0;
-  animation: fxRing .38s ease-out 1;
+  animation: fxRing .42s ease-out 1;
 }
 @keyframes fxRing{
   0%{ opacity:0; width:10px; height:10px; }
   15%{ opacity:1; }
-  100%{ opacity:0; width:160px; height:160px; }
+  100%{ opacity:0; width:180px; height:180px; }
 }
 
 .stage.fx-shake{ animation: fxShake .18s linear 1; }
@@ -244,6 +244,26 @@ body{
   50%{ filter:saturate(1.25); }
 }
 
+#feverFx{
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  opacity:0;
+  z-index:8;
+  background:
+    radial-gradient(circle at 50% 45%, rgba(251,191,36,.22), transparent 45%),
+    radial-gradient(circle at 50% 60%, rgba(239,68,68,.12), transparent 55%);
+  transition:opacity .16s ease;
+}
+.stage.is-fever #feverFx{
+  opacity:1;
+  animation: feverGlow 1s ease-in-out infinite;
+}
+@keyframes feverGlow{
+  0%,100%{ filter:saturate(1) brightness(1); }
+  50%{ filter:saturate(1.25) brightness(1.08); }
+}
+
 .stage.is-storm .storm-flash,
 .stage.is-boss .storm-flash,
 .stage.is-final .storm-flash{
@@ -284,6 +304,17 @@ body{
   100%{ opacity:0; }
 }
 
+.stage.is-fever .bubble[data-kind="good"]{
+  box-shadow:
+    0 10px 20px rgba(0,0,0,.25),
+    0 0 18px rgba(56,189,248,.20),
+    0 0 28px rgba(251,191,36,.18);
+}
+.stage.is-fever .fx-score{
+  font-size:20px;
+  filter:drop-shadow(0 0 10px rgba(251,191,36,.35));
+}
+
 #zoneSign{
   position:absolute;
   left:50%;
@@ -303,6 +334,24 @@ body{
 .stage.is-boss #zoneSign,
 .stage.is-final #zoneSign{
   opacity:1;
+}
+
+#streakToast{
+  position:absolute;
+  left:50%;
+  top:38%;
+  transform:translate(-50%,-50%) scale(.92);
+  z-index:42;
+  pointer-events:none;
+  opacity:0;
+  font-weight:1000;
+  font-size:clamp(24px,4vw,42px);
+  text-shadow:0 10px 26px rgba(0,0,0,.45);
+  transition:opacity .14s ease, transform .14s ease;
+}
+#streakToast[aria-hidden="false"]{
+  opacity:1;
+  transform:translate(-50%,-50%) scale(1);
 }
 
 #cvrZonePad{
