@@ -3,37 +3,80 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>Redirecting… Shadow Breaker Run</title>
-  <meta http-equiv="refresh" content="0; url=/webxr-health-mobile/fitness/shadow-breaker.html" />
+  <title>Redirecting… Shadow Breaker</title>
+  <meta http-equiv="refresh" content="0; url=./shadow-breaker-vr.html" />
   <script>
     (function(){
       'use strict';
-
-      const RUN_PATH = '/webxr-health-mobile/fitness/shadow-breaker.html';
       const q = location.search || '';
       const h = location.hash || '';
-      const target = location.origin + RUN_PATH + q + h;
-      const current = location.origin + location.pathname + q + h;
+      const target = './shadow-breaker-vr.html' + q + h;
 
-      if (current === target) {
-        document.addEventListener('DOMContentLoaded', function(){
-          document.body.innerHTML =
-            '<main style="font-family:system-ui;padding:24px;line-height:1.5">' +
-            '<h1>Shadow Breaker</h1>' +
-            '<p>Launcher path ชี้มาที่ run page เดิมตัวเอง ทำให้ redirect วน</p>' +
-            '<p>กรุณาตรวจสอบ RUN_PATH ใน <code>/herohealth/shadow-breaker-vr.html</code></p>' +
-            '</main>';
-        });
-        return;
-      }
-
-      try {
+      try{
         location.replace(target);
-      } catch(e) {
+      }catch(e){
         location.href = target;
       }
     })();
   </script>
+  <style>
+    :root{
+      color-scheme: dark;
+      --bg1:#020617;
+      --bg2:#0b1226;
+      --panel:rgba(2,6,23,.72);
+      --stroke:rgba(148,163,184,.18);
+      --text:#e5e7eb;
+      --muted:#94a3b8;
+    }
+    *{ box-sizing:border-box; }
+    html,body{
+      margin:0;
+      min-height:100%;
+      font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      background:
+        radial-gradient(circle at 15% 10%, rgba(59,130,246,.18), transparent 45%),
+        radial-gradient(circle at 85% 90%, rgba(167,139,250,.16), transparent 45%),
+        linear-gradient(180deg, var(--bg1), var(--bg2));
+      color:var(--text);
+    }
+    .wrap{
+      min-height:100vh;
+      display:grid;
+      place-items:center;
+      padding:24px;
+    }
+    .card{
+      width:min(640px,100%);
+      border-radius:24px;
+      border:1px solid var(--stroke);
+      background:var(--panel);
+      box-shadow:0 24px 80px rgba(0,0,0,.38);
+      padding:22px 20px;
+    }
+    h1{
+      margin:0 0 8px;
+      font-size:1.4rem;
+      line-height:1.15;
+    }
+    p{
+      margin:0;
+      color:var(--muted);
+      line-height:1.5;
+    }
+    code{
+      font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+      font-size:.92em;
+      color:#c7d2fe;
+    }
+  </style>
 </head>
-<body></body>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>กำลังพาไปหน้า Shadow Breaker ตัวใหม่…</h1>
+      <p>ลิงก์เก่านี้จะถูกส่งต่อไปที่ <code>/herohealth/shadow-breaker-vr.html</code> อัตโนมัติ</p>
+    </div>
+  </div>
+</body>
 </html>
