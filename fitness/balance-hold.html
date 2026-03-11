@@ -1,11 +1,11 @@
 <!-- === /fitness/balance-hold.html ===
-Balance Hold — RUN PAGE (FLOW PATCH)
-PATCH v20260310-BALANCEHOLD-RUN-FLOW-COOLDOWN
-✅ มีหน้าเลือก Difficulty / Duration / View ใน run page เอง
-✅ รองรับ launcher /hub params
-✅ จบเกมแล้วอยู่หน้า summary ก่อน
-✅ ปุ่ม Back HUB เปลี่ยนเป็น Cooldown → HUB
-✅ ใช้คู่กับ /fitness/js/balance-hold.js เวอร์ชัน FLOW PATCH
+Balance Hold — RUN PAGE (latest production run shell)
+PATCH v20260311-BALANCEHOLD-RUN-FLOW-READY
+✅ Menu / Research / Play / Result views
+✅ Works with launcher /herohealth/balance-hold-vr.html
+✅ Works with warmup-gate passthrough buffs
+✅ Keeps result screen before going to cooldown/hub
+✅ Compatible with ./js/balance-hold.js
 -->
 <!doctype html>
 <html lang="th">
@@ -100,7 +100,7 @@ PATCH v20260310-BALANCEHOLD-RUN-FLOW-COOLDOWN
     .btn:active{ transform: translateY(1px); }
     .btn-primary{ background: rgba(59,130,246,.22); border-color: rgba(59,130,246,.40); }
     .btn-danger{ background: rgba(239,68,68,.18); border-color: rgba(239,68,68,.40); }
-    .btn-good{ background: rgba(34,197,94,.16); border-color: rgba(34,197,94,.35); }
+    .btn-good{ background: rgba(34,197,94,.16); border-color: rgba(34,197,94,.36); }
     .actions{ display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
 
     .hud-panel{
@@ -281,6 +281,14 @@ PATCH v20260310-BALANCEHOLD-RUN-FLOW-COOLDOWN
       0%   { opacity:0; transform:translate(-50%,-40%) scale(.92); }
       15%  { opacity:1; }
       100% { opacity:0; transform:translate(-50%,-140%) scale(1.03); }
+    }
+
+    .count-pop{
+      animation: countPop .22s ease-out;
+    }
+    @keyframes countPop{
+      0%{ transform:scale(.92); }
+      100%{ transform:scale(1); }
     }
 
     .shake-hit{ animation:shakeHit .22s linear; }
@@ -489,6 +497,7 @@ PATCH v20260310-BALANCEHOLD-RUN-FLOW-COOLDOWN
 <body>
   <div class="app">
 
+    <!-- MENU -->
     <section id="view-menu" class="card">
       <div>
         <h1 class="title">⚖️ Balance Hold</h1>
@@ -504,9 +513,9 @@ PATCH v20260310-BALANCEHOLD-RUN-FLOW-COOLDOWN
           <div class="field-row">
             <label for="difficulty">Difficulty</label>
             <select id="difficulty">
-              <option value="easy">Easy / ง่าย</option>
-              <option value="normal" selected>Normal / ปกติ</option>
-              <option value="hard">Hard / ยาก</option>
+              <option value="easy">Easy</option>
+              <option value="normal" selected>Normal</option>
+              <option value="hard">Hard</option>
             </select>
           </div>
 
@@ -534,12 +543,11 @@ PATCH v20260310-BALANCEHOLD-RUN-FLOW-COOLDOWN
           <div class="actions">
             <button type="button" class="btn btn-primary" data-action="start-normal">▶ Start Play</button>
             <button type="button" class="btn" data-action="goto-research">🧪 Research Mode</button>
-            <button type="button" class="btn" data-action="export-sessions-csv">⬇ Export Sessions CSV</button>
-            <button type="button" class="btn" data-action="export-release-debug">🧪 Export Debug JSON</button>
+            <button type="button" class="btn" id="btn-menu-back-launcher">⬅ Launcher</button>
           </div>
 
           <p class="sub" style="margin-top:10px;">
-            Tip: เปิดด้วย URL เช่น <code>?run=play&diff=normal&time=80&seed=...&view=mobile</code>
+            Tip: หน้า Launcher จะเป็นตัวเลือก flow แบบ warmup → game → cooldown ส่วนหน้านี้คือ run page จริง
           </p>
         </div>
 
@@ -547,16 +555,16 @@ PATCH v20260310-BALANCEHOLD-RUN-FLOW-COOLDOWN
           <h2 class="title" style="font-size:1rem;">วิธีเล่น</h2>
           <ul class="sub" style="margin:.5rem 0 0 1.1rem; padding:0;">
             <li>ลากซ้าย–ขวาในพื้นที่เล่นเพื่อคุมแท่น</li>
-            <li>ให้อยู่ใน safe zone ให้นานที่สุด</li>
-            <li>หลบ obstacle ตอน impact เพื่อเก็บคะแนน</li>
+            <li>ให้อยู่ใน safe zone ให้นานที่สุด (Stability สูงขึ้น)</li>
+            <li>หลบ obstacle ตอน impact (Avoid) เพื่อเก็บคะแนน</li>
             <li>คุมใกล้กลางมาก ๆ ตอน impact = Perfect ✨</li>
             <li>โดนชน = Hit ❌ คอมโบแตก + เสียคะแนน</li>
-            <li>จบเกมแล้วจะเข้าสรุปผลก่อน แล้วค่อยไป Cooldown</li>
           </ul>
         </div>
       </div>
     </section>
 
+    <!-- RESEARCH -->
     <section id="view-research" class="card hidden">
       <h2 class="title">🧪 Research Mode</h2>
       <p class="sub">กรอกข้อมูลผู้เข้าร่วม แล้วกด Start Research</p>
@@ -582,6 +590,7 @@ PATCH v20260310-BALANCEHOLD-RUN-FLOW-COOLDOWN
       </div>
     </section>
 
+    <!-- PLAY -->
     <section id="view-play" class="card hidden">
       <div class="hud-panel" id="playHud">
         <div class="hud-row">
@@ -654,9 +663,10 @@ PATCH v20260310-BALANCEHOLD-RUN-FLOW-COOLDOWN
       </div>
     </section>
 
+    <!-- RESULT -->
     <section id="view-result" class="card hidden">
       <h2 class="title">📊 Result</h2>
-      <p class="sub">สรุปผลก่อนเข้าสู่ Cooldown</p>
+      <p class="sub">สรุปผล: Stability/Obstacle/Score/Rank + คำแนะนำ</p>
 
       <section class="result-hero" style="margin-top:10px;">
         <div class="result-hero-main">
@@ -700,7 +710,8 @@ PATCH v20260310-BALANCEHOLD-RUN-FLOW-COOLDOWN
 
       <div class="result-actions">
         <button type="button" class="btn btn-primary" data-action="result-play-again">🔁 Play Again</button>
-        <button type="button" class="btn btn-good" data-action="result-back-hub">🫧 Cooldown → HUB</button>
+        <button type="button" class="btn btn-good" id="btn-result-cooldown">🌿 Go Cooldown</button>
+        <button type="button" class="btn" data-action="result-back-hub">🏠 Back HUB</button>
         <button type="button" class="btn" data-action="export-sessions-csv">⬇ Export Sessions CSV</button>
         <button type="button" class="btn" data-action="export-release-debug">🧪 Export Debug JSON</button>
       </div>
@@ -708,6 +719,7 @@ PATCH v20260310-BALANCEHOLD-RUN-FLOW-COOLDOWN
 
   </div>
 
+  <!-- Tutorial -->
   <div id="tutorialOverlay" class="overlay hidden" aria-hidden="true">
     <div class="overlay-card">
       <h3>วิธีเล่น Balance Hold</h3>
@@ -716,7 +728,7 @@ PATCH v20260310-BALANCEHOLD-RUN-FLOW-COOLDOWN
         <li>อยู่ใน safe zone ให้ได้นานที่สุด (Stability สูงขึ้น)</li>
         <li>หลบ obstacle (💨/💣) โดยคุมสมดุลตอน impact</li>
         <li>Perfect เกิดเมื่อคุมใกล้กึ่งกลางมาก ๆ ตอน impact</li>
-        <li>หลังจบเกมจะมี Summary แล้วไป Cooldown ก่อนกลับ HUB</li>
+        <li>ถ้าเปิด Practice จะมี Countdown → Practice → Main</li>
       </ol>
       <label class="checkbox-row">
         <input type="checkbox" id="tutorialDontShowAgain" />
@@ -729,6 +741,7 @@ PATCH v20260310-BALANCEHOLD-RUN-FLOW-COOLDOWN
     </div>
   </div>
 
+  <!-- End Modal -->
   <div id="endModal" class="overlay hidden" aria-hidden="true">
     <div class="overlay-card">
       <div style="display:flex; gap:12px; align-items:center;">
@@ -746,11 +759,99 @@ PATCH v20260310-BALANCEHOLD-RUN-FLOW-COOLDOWN
       <div class="overlay-actions">
         <button type="button" class="btn" data-action="close-end-modal">Close</button>
         <button type="button" class="btn" data-action="end-retry">Play Again</button>
-        <button type="button" class="btn" data-action="end-next-mission">Back to Result</button>
-        <button type="button" class="btn btn-good" data-action="end-back-hub">🫧 Cooldown → HUB</button>
+        <button type="button" class="btn btn-good" id="btn-end-cooldown">Go Cooldown</button>
+        <button type="button" class="btn btn-primary" data-action="end-back-hub">Back HUB</button>
       </div>
     </div>
   </div>
+
+  <script>
+    (function(){
+      'use strict';
+
+      function qs(k, d=''){
+        try{ return new URL(location.href).searchParams.get(k) ?? d; }
+        catch(e){ return d; }
+      }
+      function setParam(u, k, v){
+        if(v === '' || v == null) u.searchParams.delete(k);
+        else u.searchParams.set(k, String(v));
+      }
+
+      const btnMenuBackLauncher = document.getElementById('btn-menu-back-launcher');
+      const btnResultCooldown = document.getElementById('btn-result-cooldown');
+      const btnEndCooldown = document.getElementById('btn-end-cooldown');
+
+      function buildHubUrl(){
+        const hub = qs('hub','');
+        if(hub) return hub;
+
+        const u = new URL('../herohealth/hub.html', location.href);
+        ['run','diff','time','seed','pid','view','log','api','ai','studyId','phase','conditionGroup','grade'].forEach(k=>{
+          const v = qs(k,'');
+          if(v !== '') setParam(u, k, v);
+        });
+        return u.toString();
+      }
+
+      function buildLauncherUrl(){
+        const u = new URL('../herohealth/balance-hold-vr.html', location.href);
+        setParam(u, 'hub', buildHubUrl());
+        ['run','diff','time','seed','pid','view','log','api','ai','studyId','phase','conditionGroup','grade'].forEach(k=>{
+          const v = qs(k,'');
+          if(v !== '') setParam(u, k, v);
+        });
+        return u.toString();
+      }
+
+      function buildCooldownUrl(){
+        const hub = buildHubUrl();
+        const u = new URL('../herohealth/warmup-gate.html', location.href);
+
+        setParam(u, 'gatePhase', 'cooldown');
+        setParam(u, 'phase', 'cooldown');
+        setParam(u, 'cat', 'exercise');
+        setParam(u, 'game', 'balance');
+        setParam(u, 'theme', 'balance');
+        setParam(u, 'hub', hub);
+        setParam(u, 'next', hub);
+
+        ['run','diff','time','seed','pid','view','log','api','ai','studyId','phase','conditionGroup','grade'].forEach(k=>{
+          const v = qs(k,'');
+          if(v !== '') setParam(u, k, v);
+        });
+
+        setParam(u, 'cdur', '15');
+        return u.toString();
+      }
+
+      if(btnMenuBackLauncher){
+        btnMenuBackLauncher.addEventListener('click', ()=>{
+          location.href = buildLauncherUrl();
+        });
+      }
+
+      if(btnResultCooldown){
+        btnResultCooldown.addEventListener('click', ()=>{
+          location.href = buildCooldownUrl();
+        });
+      }
+
+      if(btnEndCooldown){
+        btnEndCooldown.addEventListener('click', ()=>{
+          location.href = buildCooldownUrl();
+        });
+      }
+
+      const auto = String(qs('autostart','')).toLowerCase();
+      if(['1','true','yes','on'].includes(auto)){
+        window.addEventListener('DOMContentLoaded', ()=>{
+          const btn = document.querySelector('[data-action="start-normal"]');
+          if(btn) setTimeout(()=> btn.click(), 120);
+        });
+      }
+    })();
+  </script>
 
   <script src="./js/balance-hold.js"></script>
 </body>
