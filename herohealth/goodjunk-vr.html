@@ -1,3 +1,9 @@
+<!-- === /herohealth/goodjunk-vr.html ===
+HeroHealth — GoodJunk Launcher
+PATCH v20260311-GJ-LAUNCHER-FLOW-CANONICAL
+FLOW:
+launcher -> warmup-gate -> /herohealth/vr-goodjunk/goodjunk-vr.html -> summary -> cooldown-gate -> hub
+-->
 <!doctype html>
 <html lang="th">
 <head>
@@ -8,350 +14,360 @@
   <link rel="icon" href="./favicon.ico" />
   <style>
     :root{
-      --bg1:#020617;
-      --bg2:#0b1226;
+      --bg1:#020617; --bg2:#0b1226;
       --panel:rgba(2,6,23,.72);
       --stroke:rgba(148,163,184,.18);
-      --text:#e5e7eb;
-      --muted:#94a3b8;
-      --blue:rgba(59,130,246,.16);
-      --blue-bd:rgba(59,130,246,.34);
-      --green:rgba(34,197,94,.14);
-      --green-bd:rgba(34,197,94,.32);
-      --amber:rgba(245,158,11,.14);
-      --amber-bd:rgba(245,158,11,.32);
-      --shadow:0 18px 55px rgba(0,0,0,.28);
+      --text:#e5e7eb; --muted:#94a3b8;
+      --blue:#2563eb; --cyan:#22d3ee; --good:#22c55e; --warn:#f59e0b;
     }
-
     *{ box-sizing:border-box; }
-
     html,body{
-      margin:0;
-      min-height:100%;
-      background:
-        radial-gradient(1000px 700px at 50% -10%, rgba(59,130,246,.18), transparent 60%),
-        linear-gradient(180deg,var(--bg1),var(--bg2));
+      margin:0; min-height:100%;
+      font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Thai",sans-serif;
       color:var(--text);
-      font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Thai",Arial,sans-serif;
+      background:
+        radial-gradient(1000px 700px at 50% -10%, rgba(34,211,238,.10), transparent 60%),
+        linear-gradient(180deg,var(--bg1),var(--bg2));
     }
-
     .wrap{
-      max-width:920px;
+      width:min(980px, calc(100vw - 24px));
       margin:0 auto;
-      padding:18px;
+      padding:18px 12px 28px;
     }
-
-    .card{
-      border-radius:22px;
+    .hero,.panel{
       border:1px solid var(--stroke);
       background:var(--panel);
-      box-shadow:var(--shadow);
-      padding:16px;
+      border-radius:24px;
+      box-shadow:0 18px 60px rgba(0,0,0,.34);
+      backdrop-filter:blur(10px);
     }
-
-    .title{
-      font-size:28px;
-      font-weight:1000;
-      margin:0 0 6px;
+    .hero{
+      padding:22px 20px;
+      margin-bottom:14px;
     }
-
-    .muted{
+    .badge{
+      display:inline-block;
+      padding:8px 12px;
+      border-radius:999px;
+      background:rgba(34,211,238,.10);
+      border:1px solid rgba(34,211,238,.18);
+      color:#a5f3fc;
+      font-size:12px; font-weight:1000;
+    }
+    h1{
+      margin:10px 0 6px;
+      font-size:34px; line-height:1.05;
+    }
+    .sub{
       color:var(--muted);
+      font-size:14px;
+    }
+    .grid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:14px;
+    }
+    .panel{ padding:16px; }
+    .k{ font-size:12px; color:var(--muted); margin-bottom:8px; font-weight:900; }
+    label{
+      display:block;
       font-size:13px;
       font-weight:900;
+      margin:10px 0 6px;
     }
-
-    .row{
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      margin-top:14px;
-    }
-
-    .btn{
-      appearance:none;
-      border:1px solid rgba(148,163,184,.22);
+    input,select{
+      width:100%;
+      min-height:44px;
       border-radius:14px;
-      padding:12px 14px;
-      min-height:46px;
-      cursor:pointer;
-      color:var(--text);
-      background:rgba(148,163,184,.10);
-      font-weight:1000;
-    }
-
-    .btn.primary{
-      background:var(--blue);
-      border-color:var(--blue-bd);
-    }
-
-    .btn.good{
-      background:var(--green);
-      border-color:var(--green-bd);
-    }
-
-    .btn.warn{
-      background:var(--amber);
-      border-color:var(--amber-bd);
-    }
-
-    .pill{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      padding:8px 10px;
-      border-radius:999px;
       border:1px solid var(--stroke);
-      background:rgba(2,6,23,.42);
-      color:var(--muted);
-      font-size:12px;
-      font-weight:1000;
-      margin:4px 6px 0 0;
+      background:rgba(15,23,42,.82);
+      color:var(--text);
+      padding:10px 12px;
+      font:inherit;
     }
-
-    .pill b{ color:var(--text); }
-
-    .debug{
+    .row{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+    }
+    .flow{
+      margin-top:10px;
+      padding:14px;
+      border-radius:18px;
+      border:1px solid rgba(148,163,184,.14);
+      background:rgba(15,23,42,.50);
+      font-size:14px;
+      line-height:1.7;
+      color:#cbd5e1;
+    }
+    .actions{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      margin-top:16px;
+    }
+    .btn{
+      min-height:46px;
+      border:0;
+      border-radius:14px;
+      padding:11px 16px;
+      font:inherit;
+      font-weight:1000;
+      cursor:pointer;
+      color:white;
+      background:linear-gradient(135deg,var(--blue),var(--cyan));
+      box-shadow:0 12px 28px rgba(37,99,235,.26);
+    }
+    .btn.secondary{
+      color:var(--text);
+      background:rgba(15,23,42,.92);
+      border:1px solid var(--stroke);
+      box-shadow:none;
+    }
+    .btn.warn{
+      background:linear-gradient(135deg,#d97706,#f59e0b);
+    }
+    .urlbox{
       margin-top:14px;
       padding:12px;
       border-radius:16px;
-      border:1px solid var(--stroke);
-      background:rgba(2,6,23,.35);
-      font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
-      white-space:pre-wrap;
-      word-break:break-word;
+      border:1px solid rgba(148,163,184,.14);
+      background:rgba(15,23,42,.42);
       color:#cbd5e1;
+      font-size:12px;
+      word-break:break-all;
+    }
+    @media (max-width:860px){
+      .grid,.row{ grid-template-columns:1fr; }
+      h1{ font-size:28px; }
     }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <div class="card">
-      <div class="title">🍔🆚🥦 GoodJunk</div>
-      <div class="muted">Launcher สำหรับเข้าเกม GoodJunk ผ่าน Warmup Gate</div>
+    <section class="hero">
+      <div class="badge">🥦 Nutrition Zone • GoodJunk</div>
+      <h1>GoodJunk Launcher</h1>
+      <div class="sub">launcher → warmup → run game → summary → cooldown → hub</div>
+    </section>
 
-      <div style="margin-top:10px;">
-        <span class="pill"><b>PID</b>: <span id="uiPid">anon</span></span>
-        <span class="pill"><b>view</b>: <span id="uiView">mobile</span></span>
-        <span class="pill"><b>run</b>: <span id="uiRun">play</span></span>
-        <span class="pill"><b>diff</b>: <span id="uiDiff">normal</span></span>
-        <span class="pill"><b>time</b>: <span id="uiTime">80</span></span>
-        <span class="pill"><b>mode</b>: <span id="uiMode">solo</span></span>
+    <section class="grid">
+      <div class="panel">
+        <div class="k">PLAYER / ROOM</div>
+
+        <label for="pid">PID</label>
+        <input id="pid" value="anon" />
+
+        <label for="nick">Nick</label>
+        <input id="nick" value="Player" />
+
+        <div class="row">
+          <div>
+            <label for="mode">Mode</label>
+            <select id="mode">
+              <option value="solo">solo</option>
+              <option value="battle">battle</option>
+            </select>
+          </div>
+          <div>
+            <label for="room">Room</label>
+            <input id="room" value="P5A" />
+          </div>
+        </div>
+
+        <div class="row">
+          <div>
+            <label for="view">View</label>
+            <select id="view">
+              <option value="mobile">mobile</option>
+              <option value="pc">pc</option>
+              <option value="cvr">cvr</option>
+              <option value="vr">vr</option>
+            </select>
+          </div>
+          <div>
+            <label for="diff">Difficulty</label>
+            <select id="diff">
+              <option value="easy">easy</option>
+              <option value="normal">normal</option>
+              <option value="hard">hard</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="row">
+          <div>
+            <label for="time">Time (sec)</label>
+            <input id="time" type="number" min="20" max="300" value="80" />
+          </div>
+          <div>
+            <label for="bestOf">Best Of</label>
+            <input id="bestOf" type="number" min="1" max="9" value="3" />
+          </div>
+        </div>
+
+        <div class="row">
+          <div>
+            <label for="autostart">Autostart (ms)</label>
+            <input id="autostart" type="number" min="500" max="15000" value="3000" />
+          </div>
+          <div>
+            <label for="waitTimeout">Wait timeout (sec)</label>
+            <input id="waitTimeout" type="number" min="5" max="120" value="30" />
+          </div>
+        </div>
+
+        <label for="hub">Hub URL</label>
+        <input id="hub" value="./hub.html" />
+
+        <div class="actions">
+          <button id="btnStartFlow" class="btn" type="button">Start Flow</button>
+          <button id="btnOpenRun" class="btn secondary" type="button">Open Run Direct</button>
+          <button id="btnRandomSeed" class="btn warn" type="button">Random Seed</button>
+        </div>
+
+        <div id="launchUrlBox" class="urlbox">—</div>
       </div>
 
-      <div class="row">
-        <button class="btn primary" id="btnStart">เริ่มเกม</button>
-        <button class="btn warn" id="btnPro">Solo PRO</button>
-        <button class="btn good" id="btnBattle">Battle</button>
-        <button class="btn" id="btnHub">กลับ Hub</button>
-        <button class="btn" id="btnOpenRun">เปิด run ตรง</button>
-      </div>
+      <div class="panel">
+        <div class="k">FLOW</div>
+        <div class="flow">
+          1) launcher = <b>/herohealth/goodjunk-vr.html</b><br/>
+          2) warmup-gate = <b>/herohealth/warmup-gate.html?gatePhase=warmup</b><br/>
+          3) run game = <b>/herohealth/vr-goodjunk/goodjunk-vr.html</b><br/>
+          4) end = <b>summary overlay</b><br/>
+          5) cooldown-gate = <b>/herohealth/warmup-gate.html?gatePhase=cooldown</b><br/>
+          6) return = <b>/herohealth/hub.html</b>
+        </div>
 
-      <div class="debug" id="debugBox">loading...</div>
-    </div>
+        <div class="flow" style="margin-top:12px;">
+          หมายเหตุ:<br/>
+          • <b>solo</b> = launcher → warmup → run → summary → cooldown → hub<br/>
+          • <b>battle</b> = launcher → warmup → run(wait/countdown/running) → summary → cooldown → hub
+        </div>
+      </div>
+    </section>
   </div>
 
   <script>
-    function qs(k,d=''){
-      try{
-        return (new URL(location.href)).searchParams.get(k) ?? d;
-      }catch(_){
-        return d;
-      }
+    const $ = id => document.getElementById(id);
+    const qs = (k,d='')=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
+    const clamp = (v,a,b)=> Math.max(a, Math.min(b, Number(v)||0));
+    const safeUpper = s => String(s||'').trim().toUpperCase();
+    const enc = s => encodeURIComponent(String(s ?? ''));
+
+    function setDefaultsFromQuery(){
+      $('pid').value = qs('pid','anon');
+      $('nick').value = qs('nick','Player');
+      $('mode').value = qs('mode','solo');
+      $('room').value = qs('room','P5A');
+      $('view').value = qs('view','mobile');
+      $('diff').value = qs('diff','easy');
+      $('time').value = qs('time','80');
+      $('bestOf').value = qs('bestOf','3');
+      $('autostart').value = qs('autostart','3000');
+      $('waitTimeout').value = qs('waitTimeout','30');
+      $('hub').value = qs('hub','./hub.html');
     }
 
-    function safeNum(v,d){
-      v = Number(v);
-      return Number.isFinite(v) ? v : d;
-    }
+    function buildRunUrl(){
+      const pid = String($('pid').value || 'anon').trim() || 'anon';
+      const nick = String($('nick').value || pid).trim() || pid;
+      const mode = String($('mode').value || 'solo').toLowerCase();
+      const room = safeUpper($('room').value || 'P5A');
+      const view = String($('view').value || 'mobile').toLowerCase();
+      const diff = String($('diff').value || 'easy').toLowerCase();
+      const time = clamp($('time').value || 80, 20, 300);
+      const bestOf = clamp($('bestOf').value || 3, 1, 9);
+      const autostart = clamp($('autostart').value || 3000, 500, 15000);
+      const waitTimeout = clamp($('waitTimeout').value || 30, 5, 120);
+      const hub = String($('hub').value || './hub.html').trim() || './hub.html';
+      const seed = Date.now();
 
-    function appBase(){
-      return '/webxr-health-mobile/herohealth';
-    }
+      const run = new URL('./vr-goodjunk/goodjunk-vr.html', location.href);
+      run.searchParams.set('pid', pid);
+      run.searchParams.set('nick', nick);
+      run.searchParams.set('view', view);
+      run.searchParams.set('diff', diff);
+      run.searchParams.set('time', String(time));
+      run.searchParams.set('hub', hub);
+      run.searchParams.set('seed', String(seed));
+      run.searchParams.set('mode', mode);
 
-    function safeAbsFromOrigin(pathname){
-      try{
-        return new URL(pathname, location.origin).toString();
-      }catch(_){
-        return pathname;
-      }
-    }
-
-    function normalizeHub(){
-      const raw = String(qs('hub','')).trim();
-      if(raw){
-        try{
-          return new URL(raw, location.href).toString();
-        }catch(_){}
-      }
-      return safeAbsFromOrigin(appBase() + '/hub.html');
-    }
-
-    const GAME = {
-      cat: 'nutrition',
-      game: 'goodjunk',
-      gatePath: appBase() + '/warmup-gate.html',
-      runPath: appBase() + '/vr-goodjunk/goodjunk-vr.html'
-    };
-
-    const ctx = {
-      pid: String(qs('pid','anon')).trim() || 'anon',
-      view: String(qs('view','mobile')).trim() || 'mobile',
-      run: String(qs('run','play')).trim() || 'play',
-      diff: String(qs('diff','normal')).trim() || 'normal',
-      time: String(safeNum(qs('time','80'), 80)),
-      seed: String(qs('seed', String(Date.now()))),
-      zone: String(qs('zone','nutrition')).trim() || 'nutrition',
-      mode: String(qs('mode','solo')).trim() || 'solo',
-      hub: normalizeHub()
-    };
-
-    const uiPid = document.getElementById('uiPid');
-    const uiView = document.getElementById('uiView');
-    const uiRun = document.getElementById('uiRun');
-    const uiDiff = document.getElementById('uiDiff');
-    const uiTime = document.getElementById('uiTime');
-    const uiMode = document.getElementById('uiMode');
-    const btnStart = document.getElementById('btnStart');
-    const btnPro = document.getElementById('btnPro');
-    const btnBattle = document.getElementById('btnBattle');
-    const btnHub = document.getElementById('btnHub');
-    const btnOpenRun = document.getElementById('btnOpenRun');
-    const debugBox = document.getElementById('debugBox');
-
-    uiPid.textContent = ctx.pid;
-    uiView.textContent = ctx.view;
-    uiRun.textContent = ctx.run;
-    uiDiff.textContent = ctx.diff;
-    uiTime.textContent = ctx.time;
-    uiMode.textContent = ctx.mode;
-
-    function copyPassthrough(u){
-      const sp = new URL(location.href).searchParams;
-      [
-        'run','diff','time','seed',
-        'studyId','phase','conditionGroup','log',
-        'view','pid','api','ai','debug','mode',
-        'room','pro','auto','battle',
-        'planSeq','planDay','planSlot','planMode','planSlots','planIndex',
-        'autoNext','plannedGame','finalGame',
-        'zone','cdnext','grade',
-        'siteCode','schoolYear','semester','sessionOrder','blockLabel',
-        'research','wait','bestOf','forfeit','autostart'
-      ].forEach(k=>{
-        const v = sp.get(k);
-        if(v != null && v !== '') u.searchParams.set(k, v);
-      });
-    }
-
-    function buildRunUrl(extra){
-      const u = new URL(GAME.runPath, location.origin);
-      copyPassthrough(u);
-
-      if(!u.searchParams.get('pid'))  u.searchParams.set('pid', ctx.pid);
-      if(!u.searchParams.get('view')) u.searchParams.set('view', ctx.view);
-      if(!u.searchParams.get('run'))  u.searchParams.set('run', ctx.run);
-      if(!u.searchParams.get('diff')) u.searchParams.set('diff', ctx.diff);
-      if(!u.searchParams.get('time')) u.searchParams.set('time', ctx.time);
-      if(!u.searchParams.get('seed')) u.searchParams.set('seed', ctx.seed);
-      if(!u.searchParams.get('zone')) u.searchParams.set('zone', ctx.zone);
-      if(!u.searchParams.get('mode')) u.searchParams.set('mode', ctx.mode);
-      u.searchParams.set('hub', ctx.hub);
-
-      if(extra && typeof extra === 'object'){
-        Object.entries(extra).forEach(([k,v])=>{
-          if(v === undefined || v === null || v === ''){
-            u.searchParams.delete(k);
-          }else{
-            u.searchParams.set(k, String(v));
-          }
-        });
+      if(mode === 'battle'){
+        run.searchParams.set('battle', '1');
+        run.searchParams.set('room', room);
+        run.searchParams.set('bestOf', String(bestOf));
+        run.searchParams.set('autostart', String(autostart));
+        run.searchParams.set('waitTimeout', String(waitTimeout));
+        run.searchParams.set('wait', '1');
       }
 
-      return u.toString();
+      return run.toString();
     }
 
-    function buildWarmupUrl(extraRun){
-      const u = new URL(GAME.gatePath, location.origin);
+    function buildWarmupUrl(){
+      const pid = String($('pid').value || 'anon').trim() || 'anon';
+      const mode = String($('mode').value || 'solo').toLowerCase();
+      const room = safeUpper($('room').value || 'P5A');
+      const view = String($('view').value || 'mobile').toLowerCase();
+      const diff = String($('diff').value || 'easy').toLowerCase();
+      const time = clamp($('time').value || 80, 20, 300);
+      const bestOf = clamp($('bestOf').value || 3, 1, 9);
+      const autostart = clamp($('autostart').value || 3000, 500, 15000);
+      const waitTimeout = clamp($('waitTimeout').value || 30, 5, 120);
+      const hub = String($('hub').value || './hub.html').trim() || './hub.html';
 
-      u.searchParams.set('gatePhase', 'warmup');
-      u.searchParams.set('cat', GAME.cat);
-      u.searchParams.set('game', GAME.game);
-      u.searchParams.set('theme', GAME.game);
-      u.searchParams.set('pid', ctx.pid);
-      u.searchParams.set('hub', ctx.hub);
-      u.searchParams.set('next', buildRunUrl(extraRun));
-      u.searchParams.set('run', ctx.run);
-      u.searchParams.set('diff', (extraRun && extraRun.diff) ? String(extraRun.diff) : ctx.diff);
-      u.searchParams.set('time', ctx.time);
-      u.searchParams.set('view', ctx.view);
-      u.searchParams.set('seed', ctx.seed);
+      const nextRun = buildRunUrl();
+      const gate = new URL('./warmup-gate.html', location.href);
+      gate.searchParams.set('gatePhase', 'warmup');
+      gate.searchParams.set('cat', 'nutrition');
+      gate.searchParams.set('game', 'goodjunk');
+      gate.searchParams.set('theme', 'goodjunk');
+      gate.searchParams.set('pid', pid);
+      gate.searchParams.set('hub', hub);
+      gate.searchParams.set('next', nextRun);
 
-      [
-        'grade','studyId','phase','conditionGroup','log',
-        'siteCode','schoolYear','semester','sessionOrder','blockLabel',
-        'research'
-      ].forEach(k=>{
-        const v = String(qs(k,'')).trim();
-        if(v) u.searchParams.set(k, v);
-      });
+      gate.searchParams.set('run', 'play');
+      gate.searchParams.set('diff', diff);
+      gate.searchParams.set('time', String(time));
+      gate.searchParams.set('view', view);
+      gate.searchParams.set('mode', mode);
 
-      return u.toString();
+      if(mode === 'battle'){
+        gate.searchParams.set('battle', '1');
+        gate.searchParams.set('room', room);
+        gate.searchParams.set('bestOf', String(bestOf));
+        gate.searchParams.set('autostart', String(autostart));
+        gate.searchParams.set('waitTimeout', String(waitTimeout));
+        gate.searchParams.set('wait', '1');
+      }
+
+      return gate.toString();
     }
 
-    const debugWarmup = buildWarmupUrl();
-    const debugRun = buildRunUrl();
+    function refreshPreview(){
+      $('launchUrlBox').textContent = buildWarmupUrl();
+    }
 
-    debugBox.textContent =
-      '[GoodJunk Launcher]\n' +
-      'launcher: ' + location.href + '\n' +
-      'hub:      ' + ctx.hub + '\n' +
-      'gatePath: ' + safeAbsFromOrigin(GAME.gatePath) + '\n' +
-      'runPath:  ' + debugRun + '\n' +
-      'warmup:   ' + debugWarmup + '\n';
-
-    btnStart.onclick = ()=>{
-      location.href = buildWarmupUrl({ mode:'solo', battle:'0' });
+    $('btnStartFlow').onclick = ()=>{
+      location.href = buildWarmupUrl();
     };
 
-    btnPro.onclick = ()=>{
-      location.href = buildWarmupUrl({
-        mode:'solo',
-        diff:'hard',
-        pro:'1',
-        auto:'0',
-        battle:'0'
-      });
-    };
-
-    btnBattle.onclick = ()=>{
-      const room = String(qs('room','P5A')).trim() || 'P5A';
-      location.href = buildWarmupUrl({
-        mode:'battle',
-        room,
-        auto:'1',
-        battle:'1'
-      });
-    };
-
-    btnOpenRun.onclick = ()=>{
+    $('btnOpenRun').onclick = ()=>{
       location.href = buildRunUrl();
     };
 
-    btnHub.onclick = ()=>{
-      location.href = ctx.hub;
-    };
+    $('btnRandomSeed').onclick = refreshPreview;
 
-    const autostart = String(qs('autostart','0')).trim() === '1';
-    if(autostart){
-      setTimeout(()=>{
-        try{
-          location.href = buildWarmupUrl();
-        }catch(err){
-          debugBox.textContent += '\nredirect failed: ' + (err && err.message ? err.message : String(err));
-        }
-      }, 120);
-    }
+    ['pid','nick','mode','room','view','diff','time','bestOf','autostart','waitTimeout','hub']
+      .forEach(id => {
+        $(id).addEventListener('input', refreshPreview);
+        $(id).addEventListener('change', refreshPreview);
+      });
+
+    setDefaultsFromQuery();
+    refreshPreview();
   </script>
 </body>
 </html>
