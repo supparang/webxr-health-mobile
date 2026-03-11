@@ -407,7 +407,9 @@ body{
   background:rgba(2,6,23,.66);
   backdrop-filter:blur(4px);
   z-index:30;
+  overflow:auto;
 }
+
 .panel-card{
   width:min(760px,100%);
   border-radius:24px;
@@ -416,6 +418,14 @@ body{
   padding:18px;
   box-shadow:var(--shadow);
 }
+
+.panel-end-card{
+  max-height:min(88vh, 920px);
+  overflow:auto;
+  position:relative;
+  padding:18px 18px 92px;
+}
+
 .heroCard h1{
   margin:0 0 8px;
   font-size:30px;
@@ -468,6 +478,16 @@ body{
   flex-wrap:wrap;
   gap:10px;
   margin-top:14px;
+}
+
+.stickyActions{
+  position:sticky;
+  bottom:-18px;
+  left:0;
+  right:0;
+  margin-top:18px;
+  padding-top:14px;
+  background:linear-gradient(180deg, rgba(15,23,42,0), rgba(15,23,42,.96) 28%);
 }
 
 .summary{
