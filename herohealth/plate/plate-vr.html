@@ -1,6 +1,6 @@
 <!-- === /herohealth/plate/plate-vr.html ===
-PlateVR — RUN PAGE (Solo + Coop Lite)
-FULL v20260307-PLATE-RUN-SOLO-COOP-LITE
+PlateVR — RUN PAGE (Solo + Coop Lite) — MOBILE COMPACT HUD
+FULL v20260311-PLATE-RUN-MOBILE-COMPACT-HUD-r4
 -->
 <!doctype html>
 <html lang="th">
@@ -10,7 +10,6 @@ FULL v20260307-PLATE-RUN-SOLO-COOP-LITE
   <title>HeroHealth — Plate VR</title>
   <meta name="color-scheme" content="dark light" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
-
   <script type="module" src="../vr/vr-ui.js?v=20260307b"></script>
 
   <style>
@@ -20,19 +19,21 @@ FULL v20260307-PLATE-RUN-SOLO-COOP-LITE
       --sab: env(safe-area-inset-bottom, 0px);
       --sal: env(safe-area-inset-left, 0px);
 
-      --hud-top: calc(var(--sat) + 10px);
-      --hud-bottom: calc(var(--sab) + 12px);
+      --hud-top: calc(var(--sat) + 8px);
+      --hud-bottom: calc(var(--sab) + 10px);
 
-      --panel: rgba(2,6,23,.78);
-      --line: rgba(148,163,184,.18);
+      --line: rgba(148,163,184,.16);
       --txt: rgba(229,231,235,.96);
-      --mut: rgba(148,163,184,.95);
-      --radius: 18px;
+      --mut: rgba(148,163,184,.92);
     }
+
     *{ box-sizing:border-box; }
     html,body{
-      margin:0; height:100%; overflow:hidden;
-      background:#020617; color:var(--txt);
+      margin:0;
+      height:100%;
+      overflow:hidden;
+      background:#020617;
+      color:var(--txt);
       font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif;
     }
     body{
@@ -46,25 +47,28 @@ FULL v20260307-PLATE-RUN-SOLO-COOP-LITE
     #world{ position:absolute; inset:0; z-index:0; pointer-events:none; }
 
     #plate-layer{
-      position:absolute; inset:0;
+      position:absolute;
+      inset:0;
       z-index:30;
       pointer-events:none;
       overflow:hidden;
       transform: translateZ(0);
       will-change: contents;
-      min-width: 1px;
-      min-height: 1px;
+      min-width:1px;
+      min-height:1px;
     }
+
     #plate-layer .plateTarget{
       position:absolute;
       display:grid;
       place-items:center;
-      width:56px; height:56px;
+      width:56px;
+      height:56px;
       border-radius:999px;
-      background:rgba(15,23,42,.82);
+      background:rgba(15,23,42,.84);
       border:1px solid rgba(255,255,255,.14);
-      box-shadow: 0 8px 20px rgba(2,6,23,.35);
-      font-size: 28px;
+      box-shadow:0 8px 20px rgba(2,6,23,.35);
+      font-size:28px;
       line-height:1;
       user-select:none;
       pointer-events:auto;
@@ -73,73 +77,180 @@ FULL v20260307-PLATE-RUN-SOLO-COOP-LITE
       transform: translate(-50%,-50%);
     }
     #plate-layer .plateTarget[data-kind="shield"]{
-      background: rgba(30,58,138,.55);
-      border-color: rgba(96,165,250,.35);
-      box-shadow: 0 10px 26px rgba(59,130,246,.18);
+      background:rgba(30,58,138,.58);
+      border-color:rgba(96,165,250,.35);
+      box-shadow:0 10px 26px rgba(59,130,246,.18);
     }
-    #plate-layer .plateTarget.hit{ transform: translate(-50%,-50%) scale(.88); opacity:.25; }
-    #plate-layer .plateTarget.expire{ transform: translate(-50%,-50%) scale(.78); opacity:0; }
+    #plate-layer .plateTarget.hit{
+      transform: translate(-50%,-50%) scale(.88);
+      opacity:.25;
+    }
+    #plate-layer .plateTarget.expire{
+      transform: translate(-50%,-50%) scale(.78);
+      opacity:0;
+    }
 
     .hud{
       position:absolute;
-      left:max(10px, calc(var(--sal) + 10px));
-      right:max(10px, calc(var(--sar) + 10px));
+      left:max(8px, calc(var(--sal) + 8px));
+      right:max(8px, calc(var(--sar) + 8px));
       z-index:80;
       display:grid;
-      gap:8px;
+      gap:6px;
       pointer-events:none;
     }
     #hudTop{ top:var(--hud-top); }
-    #hudBottom{ bottom:var(--hud-bottom); grid-template-columns:1fr; gap:10px; }
-
-    .row{ display:grid; gap:8px; }
-    .row.cols-4{ grid-template-columns: 1.05fr 1.05fr .9fr .95fr; }
-    @media (max-width: 900px){
-      .row.cols-4{ grid-template-columns: 1fr; }
-    }
+    #hudBottom{ bottom:var(--hud-bottom); }
 
     .card{
-      background: linear-gradient(180deg, rgba(2,6,23,.84), rgba(2,6,23,.72));
+      background:linear-gradient(180deg, rgba(2,6,23,.88), rgba(2,6,23,.74));
       border:1px solid var(--line);
-      border-radius: var(--radius);
-      padding:10px 12px;
-      box-shadow: 0 8px 24px rgba(2,6,23,.22);
+      border-radius:16px;
+      padding:8px 10px;
+      box-shadow:0 8px 24px rgba(2,6,23,.22);
       pointer-events:none;
     }
-    .card h4{
-      margin:0 0 8px 0;
-      font-size:12px;
-      color:var(--mut);
-      font-weight:900;
-      letter-spacing:.2px;
-    }
-    .stats{
+
+    .statsCompact{
       display:grid;
-      grid-template-columns: repeat(3, minmax(0,1fr));
-      gap:8px;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:6px;
     }
+
     .pill{
-      background: rgba(15,23,42,.7);
-      border:1px solid rgba(148,163,184,.16);
-      border-radius: 999px;
-      min-height: 42px;
-      display:flex; align-items:center; justify-content:center;
-      gap:8px; padding: 8px 10px;
-      font-weight:900;
-      font-size: 13px;
+      min-height:34px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.14);
+      background:rgba(15,23,42,.74);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:6px;
+      padding:6px 8px;
+      font-size:12px;
+      font-weight:950;
+      line-height:1;
     }
-    .pill .v{ font-size:15px; font-weight:1000; }
+    .pill .v{
+      font-size:13px;
+      font-weight:1000;
+    }
+
+    .missionRow{
+      display:grid;
+      grid-template-columns:1fr;
+      gap:6px;
+    }
+
+    .targetLine{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      min-height:34px;
+      padding:7px 10px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.14);
+      background:rgba(15,23,42,.74);
+      font-size:12px;
+      font-weight:1000;
+      overflow:hidden;
+    }
+    .targetLine span:last-child{
+      min-width:0;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+
     .bar{
-      height: 10px;
-      border-radius: 999px;
-      background: rgba(148,163,184,.18);
+      height:8px;
+      border-radius:999px;
+      background:rgba(148,163,184,.18);
       border:1px solid rgba(148,163,184,.14);
       overflow:hidden;
     }
     .bar > i{
-      display:block; height:100%; width:0%;
-      background: linear-gradient(90deg, rgba(34,197,94,.9), rgba(167,139,250,.9));
+      display:block;
+      height:100%;
+      width:0%;
+      background:linear-gradient(90deg, rgba(34,197,94,.9), rgba(167,139,250,.9));
       transition: width .12s linear;
+    }
+
+    .subMeta{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      align-items:center;
+      font-size:11px;
+      color:var(--mut);
+      font-weight:900;
+      line-height:1.2;
+    }
+
+    .coachMini{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      min-height:38px;
+      padding:8px 10px;
+      font-size:12px;
+      font-weight:1000;
+      line-height:1.25;
+    }
+    .coachMini .coachText{
+      flex:1 1 auto;
+      min-width:0;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+
+    .toggleRow,
+    #controls{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      pointer-events:auto;
+    }
+
+    .btn{
+      appearance:none;
+      border:1px solid rgba(148,163,184,.22);
+      background:rgba(2,6,23,.78);
+      color:var(--txt);
+      border-radius:999px;
+      padding:8px 10px;
+      min-height:38px;
+      font-weight:1000;
+      font-size:12px;
+      cursor:pointer;
+      box-shadow:0 6px 18px rgba(2,6,23,.22);
+    }
+    .btn.warn{
+      border-color:rgba(245,158,11,.25);
+      background:linear-gradient(180deg, rgba(120,53,15,.8), rgba(92,45,14,.8));
+    }
+    .btn.primary{
+      border-color:rgba(59,130,246,.30);
+      background:linear-gradient(180deg, rgba(30,64,175,.92), rgba(30,58,138,.92));
+    }
+
+    #plateDrawer{
+      position:absolute;
+      left:10px;
+      right:10px;
+      bottom:66px;
+      z-index:95;
+      display:none;
+    }
+    #plateDrawer[aria-hidden="false"]{ display:block; }
+
+    .drawerTitle{
+      font-size:11px;
+      color:var(--mut);
+      font-weight:900;
+      margin-bottom:8px;
     }
 
     .phaseBanner{
@@ -147,11 +258,11 @@ FULL v20260307-PLATE-RUN-SOLO-COOP-LITE
       top:42%;
       left:50%;
       transform:translate(-50%,-50%);
-      font-size:28px;
+      font-size:22px;
       font-weight:1000;
       background:rgba(0,0,0,.68);
-      padding:14px 24px;
-      border-radius:20px;
+      padding:12px 18px;
+      border-radius:18px;
       border:1px solid rgba(148,163,184,.25);
       z-index:120;
       pointer-events:none;
@@ -165,209 +276,175 @@ FULL v20260307-PLATE-RUN-SOLO-COOP-LITE
       20%{ opacity:1; transform:translate(-50%,-50%) scale(1.02); }
       100%{ opacity:0; transform:translate(-50%,-50%) scale(1.03); }
     }
+
     .popScore{
       position:absolute;
       z-index:110;
       pointer-events:none;
       font-weight:1000;
-      font-size:16px;
+      font-size:15px;
       opacity:0;
-      transform: translate(-50%,-50%) translateY(6px);
+      transform:translate(-50%,-50%) translateY(6px);
       animation: popUp .55s ease forwards;
-      text-shadow: 0 8px 20px rgba(0,0,0,.35);
+      text-shadow:0 8px 20px rgba(0,0,0,.35);
       white-space:nowrap;
     }
     @keyframes popUp{
-      0%{ opacity:0; transform: translate(-50%,-50%) translateY(8px) scale(.98); }
+      0%{ opacity:0; transform:translate(-50%,-50%) translateY(8px) scale(.98); }
       20%{ opacity:1; }
-      100%{ opacity:0; transform: translate(-50%,-50%) translateY(-16px) scale(1.03); }
-    }
-
-    #controls{ display:flex; flex-wrap:wrap; gap:8px; pointer-events:auto; }
-    .btn{
-      appearance:none;
-      border:1px solid rgba(148,163,184,.22);
-      background: rgba(2,6,23,.78);
-      color:var(--txt);
-      border-radius: 999px;
-      padding:10px 14px;
-      min-height:44px;
-      font-weight:1000;
-      font-size:14px;
-      cursor:pointer;
-      box-shadow: 0 6px 18px rgba(2,6,23,.22);
-    }
-    .btn.warn{
-      border-color: rgba(245,158,11,.25);
-      background: linear-gradient(180deg, rgba(120,53,15,.8), rgba(92,45,14,.8));
-    }
-    .btn.primary{
-      border-color: rgba(59,130,246,.30);
-      background: linear-gradient(180deg, rgba(30,64,175,.92), rgba(30,58,138,.92));
+      100%{ opacity:0; transform:translate(-50%,-50%) translateY(-16px) scale(1.03); }
     }
 
     #endOverlay{
-      position:absolute; inset:0;
+      position:absolute;
+      inset:0;
       z-index:120;
-      display:flex; align-items:center; justify-content:center;
+      display:flex;
+      align-items:center;
+      justify-content:center;
       padding:16px;
-      background: rgba(0,0,0,.55);
-      backdrop-filter: blur(8px);
-      -webkit-backdrop-filter: blur(8px);
+      background:rgba(0,0,0,.55);
+      backdrop-filter:blur(8px);
+      -webkit-backdrop-filter:blur(8px);
     }
     #endOverlay[aria-hidden="true"]{ display:none; }
+
     .endCard{
-      width:min(700px, 94vw);
-      border-radius: 18px;
+      width:min(700px,94vw);
+      border-radius:18px;
       border:1px solid rgba(148,163,184,.18);
-      background: rgba(2,6,23,.82);
-      color: rgba(229,231,235,.95);
-      box-shadow: 0 18px 60px rgba(0,0,0,.45);
-      padding: 14px;
+      background:rgba(2,6,23,.82);
+      color:rgba(229,231,235,.95);
+      box-shadow:0 18px 60px rgba(0,0,0,.45);
+      padding:14px;
     }
     .endGrid{
       margin-top:10px;
       display:grid;
-      grid-template-columns: repeat(2, minmax(0,1fr));
+      grid-template-columns:repeat(2,minmax(0,1fr));
       gap:10px;
     }
     .endItem{
       border:1px solid rgba(148,163,184,.14);
-      background: rgba(2,6,23,.55);
-      border-radius: 14px;
-      padding: 10px 12px;
+      background:rgba(2,6,23,.55);
+      border-radius:14px;
+      padding:10px 12px;
       font-weight:1000;
     }
-    .endItem .k{ font-size:12px; opacity:.82; font-weight:900; }
-    .endItem .v{ margin-top:4px; font-size:18px; font-variant-numeric: tabular-nums; }
+    .endItem .k{
+      font-size:12px;
+      opacity:.82;
+      font-weight:900;
+    }
+    .endItem .v{
+      margin-top:4px;
+      font-size:18px;
+      font-variant-numeric:tabular-nums;
+    }
     .endActions{
-      margin-top: 12px;
+      margin-top:12px;
       display:flex;
-      gap: 10px;
+      gap:10px;
       flex-wrap:wrap;
       justify-content:flex-end;
     }
+
     .is-hidden{ display:none !important; }
 
-    @media (max-width: 640px){
-      #hudTop{
-        left: max(6px, calc(var(--sal) + 6px));
-        right: max(6px, calc(var(--sar) + 6px));
-        gap: 6px;
-      }
-      .card{
-        padding: 8px 10px;
-        border-radius: 14px;
-      }
-      .card h4{
-        font-size: 11px;
-        margin-bottom: 6px;
-      }
-      .pill{
-        min-height: 36px;
-        padding: 6px 8px;
-        font-size: 11.5px;
-        gap: 6px;
-      }
-      .pill .v{ font-size: 13px; }
-      .bar{ height: 8px; }
-      .btn{
-        min-height: 38px;
-        padding: 8px 10px;
-        font-size: 12px;
-      }
-      .endGrid{ grid-template-columns: 1fr; }
-      .endActions .btn{ flex: 1 1 100%; }
+    @media (min-width: 761px){
+      .card{ padding:10px 12px; border-radius:18px; }
+      .pill{ min-height:40px; font-size:13px; }
+      .pill .v{ font-size:15px; }
+      .bar{ height:10px; }
+      .btn{ min-height:42px; padding:10px 14px; font-size:14px; }
+      .coachMini{ min-height:44px; font-size:13px; }
+      #plateDrawer{ bottom:74px; }
+    }
+
+    @media (max-width: 380px){
+      .statsCompact{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .endGrid{ grid-template-columns:1fr; }
+      .endActions .btn{ flex:1 1 100%; }
     }
   </style>
 </head>
-
 <body>
   <div id="app">
     <div id="world" aria-hidden="true"></div>
     <div id="plate-layer" aria-label="plate targets layer"></div>
 
     <div id="hudTop" class="hud">
-      <div class="row cols-4">
-        <div class="card">
-          <h4>คะแนน / คอมโบ / พลาด</h4>
-          <div class="stats">
-            <div class="pill">🏆 <span id="uiScore" class="v">0</span></div>
-            <div class="pill">🔥 <span id="uiCombo" class="v">0</span> <span style="opacity:.8">(max <span id="uiComboMax">0</span>)</span></div>
-            <div class="pill">💥 <span id="uiMiss" class="v">0</span></div>
-          </div>
-        </div>
-
-        <div class="card">
-          <h4>จาน 5 หมู่ / ความแม่นยำ / เกรด</h4>
-          <div class="stats">
-            <div class="pill">🍽️ <span id="uiPlateHave" class="v">0</span>/5</div>
-            <div class="pill">🎯 <span id="uiAcc" class="v">0%</span></div>
-            <div class="pill">🏅 <span id="uiGrade" class="v">D</span></div>
-          </div>
-          <div style="height:8px"></div>
-          <div class="pill" style="justify-content:flex-start;padding-inline:12px;">
-            🎯 <span id="uiTargetText">—</span>
-          </div>
-          <div style="height:6px"></div>
-          <div class="bar"><i id="uiGoalFill"></i></div>
-          <div style="margin-top:6px; font-size:12px; color:var(--mut); font-weight:900;">
-            MODE: <span id="uiModeTag">SOLO</span> • PRO: <span id="uiProTag">OFF</span> • Phase: <span id="uiPhase">WARM</span> • <span id="uiPhaseProg">0/0</span>
-          </div>
-        </div>
-
-        <div class="card">
-          <h4>เวลา / Fever / Shield</h4>
-          <div class="stats">
-            <div class="pill">⏱️ <span id="uiTime" class="v">0</span>s</div>
-            <div class="pill">🛡️ <span id="uiShield" class="v">0</span></div>
-            <div class="pill">⚡ <span id="uiFever" class="v">0%</span></div>
-          </div>
-          <div style="height:8px"></div>
-          <div style="font-weight:1000; margin-bottom:6px;">FEVER</div>
-          <div class="bar"><i id="uiFeverFill"></i></div>
-        </div>
-
-        <div class="card" id="coopCard" style="display:none;">
-          <h4>COOP TEAM</h4>
-          <div class="stats">
-            <div class="pill">🅰️ <span id="uiCoopA" class="v">0</span></div>
-            <div class="pill">🅱️ <span id="uiCoopB" class="v">0</span></div>
-            <div class="pill">⏳ <span id="uiTurnLeft" class="v">0</span></div>
-          </div>
-          <div style="margin-top:6px;font-size:12px;color:var(--mut);font-weight:900;">
-            TURN: <span id="uiTurnActive">A</span>
-          </div>
+      <div class="card">
+        <div class="statsCompact">
+          <div class="pill">🏆 <span id="uiScore" class="v">0</span></div>
+          <div class="pill">🔥 <span id="uiCombo" class="v">0</span> <span style="opacity:.75">(max <span id="uiComboMax">0</span>)</span></div>
+          <div class="pill">💥 <span id="uiMiss" class="v">0</span></div>
+          <div class="pill">⏱️ <span id="uiTime" class="v">0</span>s</div>
         </div>
       </div>
 
-      <div class="row">
-        <div class="card">
-          <h4>จำนวนที่เก็บได้ (5 หมู่)</h4>
-          <div class="stats" style="grid-template-columns:repeat(5,minmax(0,1fr));">
-            <div class="pill">🐟 <span id="uiG1" class="v">0</span></div>
-            <div class="pill">🍚 <span id="uiG2" class="v">0</span></div>
-            <div class="pill">🥦 <span id="uiG3" class="v">0</span></div>
-            <div class="pill">🍎 <span id="uiG4" class="v">0</span></div>
-            <div class="pill">🥑 <span id="uiG5" class="v">0</span></div>
+      <div class="card">
+        <div class="missionRow">
+          <div class="targetLine">
+            <span>🎯</span>
+            <span id="uiTargetText">—</span>
           </div>
+
+          <div class="bar"><i id="uiGoalFill"></i></div>
+
+          <div class="subMeta">
+            <span>MODE: <span id="uiModeTag">SOLO</span></span>
+            <span>PRO: <span id="uiProTag">OFF</span></span>
+            <span>Phase: <span id="uiPhase">WARM</span></span>
+            <span><span id="uiPhaseProg">0/0</span></span>
+            <span>🎯 <span id="uiAcc">0%</span></span>
+            <span>🏅 <span id="uiGrade">D</span></span>
+            <span>⚡ <span id="uiFever">0%</span></span>
+            <span>🛡️ <span id="uiShield">0</span></span>
+            <span>🍽️ <span id="uiPlateHave">0</span>/5</span>
+          </div>
+
+          <div class="bar"><i id="uiFeverFill"></i></div>
+        </div>
+      </div>
+
+      <div class="card is-hidden" id="coopCard">
+        <div class="statsCompact">
+          <div class="pill">🅰️ <span id="uiCoopA" class="v">0</span></div>
+          <div class="pill">🅱️ <span id="uiCoopB" class="v">0</span></div>
+          <div class="pill">⏳ <span id="uiTurnLeft" class="v">0</span></div>
+          <div class="pill">TURN <span id="uiTurnActive" class="v">A</span></div>
         </div>
       </div>
     </div>
 
     <div id="hudBottom" class="hud">
-      <div class="card">
-        <div style="font-weight:1000">🧑‍🏫 Coach</div>
-        <div id="coachMsg" style="margin-top:6px;font-weight:1000">พร้อมลุย! เติมจานให้ครบ 5 หมู่ 💪</div>
-        <div style="font-size:12px;opacity:.85;margin-top:4px;">
-          ยิง/แตะ = โดนเป้า • cVR/VR = ยิงจาก crosshair
-        </div>
+      <div class="card coachMini">
+        <div>🧑‍🏫</div>
+        <div id="coachMsg" class="coachText">พร้อมลุย! เติมจานให้ครบ 5 หมู่ 💪</div>
+      </div>
+
+      <div class="toggleRow">
+        <button id="btnPlateToggle" class="btn" type="button">🍽 ดูจาน</button>
       </div>
 
       <div id="controls">
         <button id="btnPause" class="btn warn" type="button">⏸️ PAUSE</button>
         <button id="btnRestart" class="btn" type="button">🔄 RESTART</button>
-        <button id="btnBackHub" class="btn" type="button">↩ กลับ HUB</button>
+        <button id="btnBackHub" class="btn" type="button">↩ HUB</button>
+      </div>
+    </div>
+
+    <div id="plateDrawer" aria-hidden="true">
+      <div class="card">
+        <div class="drawerTitle">จำนวนที่เก็บได้ (5 หมู่)</div>
+        <div class="statsCompact" style="grid-template-columns:repeat(5,minmax(0,1fr));">
+          <div class="pill">🐟 <span id="uiG1" class="v">0</span></div>
+          <div class="pill">🍚 <span id="uiG2" class="v">0</span></div>
+          <div class="pill">🥦 <span id="uiG3" class="v">0</span></div>
+          <div class="pill">🍎 <span id="uiG4" class="v">0</span></div>
+          <div class="pill">🥑 <span id="uiG5" class="v">0</span></div>
+        </div>
       </div>
     </div>
 
@@ -448,9 +525,25 @@ FULL v20260307-PLATE-RUN-SOLO-COOP-LITE
     const coopCard = document.getElementById('coopCard');
     const coopSummary = document.getElementById('coopSummary');
     const uiModeTag = document.getElementById('uiModeTag');
-    if(coopCard) coopCard.style.display = isCoop ? '' : 'none';
+
+    if(coopCard) coopCard.classList.toggle('is-hidden', !isCoop);
     if(coopSummary) coopSummary.classList.toggle('is-hidden', !isCoop);
     if(uiModeTag) uiModeTag.textContent = isCoop ? 'COOP' : 'SOLO';
+
+    const plateDrawer = document.getElementById('plateDrawer');
+    const btnPlateToggle = document.getElementById('btnPlateToggle');
+    let drawerOpen = false;
+
+    function renderDrawer(){
+      if(!plateDrawer || !btnPlateToggle) return;
+      plateDrawer.setAttribute('aria-hidden', drawerOpen ? 'false' : 'true');
+      btnPlateToggle.textContent = drawerOpen ? '🍽 ซ่อนจาน' : '🍽 ดูจาน';
+    }
+    btnPlateToggle?.addEventListener('click', ()=>{
+      drawerOpen = !drawerOpen;
+      renderDrawer();
+    });
+    renderDrawer();
 
     const ai = createAIHooks({
       seed: String(seed),
@@ -466,7 +559,9 @@ FULL v20260307-PLATE-RUN-SOLO-COOP-LITE
     const btnBackHub = document.getElementById('btnBackHub');
 
     let paused = false;
-    function setPauseBtn(){ if(btnPause) btnPause.textContent = paused ? '▶️ RESUME' : '⏸️ PAUSE'; }
+    function setPauseBtn(){
+      if(btnPause) btnPause.textContent = paused ? '▶️ RESUME' : '⏸️ PAUSE';
+    }
     setPauseBtn();
 
     btnPause?.addEventListener('click', ()=>{
@@ -479,9 +574,14 @@ FULL v20260307-PLATE-RUN-SOLO-COOP-LITE
     btnRestart?.addEventListener('click', ()=>{
       try{
         const u = new URL(location.href);
-        if(runMode !== 'research') u.searchParams.set('seed', String((Date.now() ^ (Math.random()*1e9))|0));
+        if(runMode !== 'research'){
+          u.searchParams.set('seed', String((Date.now() ^ (Math.random()*1e9))|0));
+        }
+        if(!u.searchParams.get('mode')) u.searchParams.set('mode', isCoop ? 'coop' : 'solo');
         location.href = u.toString();
-      }catch(e){ location.reload(); }
+      }catch(e){
+        location.reload();
+      }
     });
 
     btnBackHub?.addEventListener('click', ()=> location.href = hub);
@@ -491,7 +591,9 @@ FULL v20260307-PLATE-RUN-SOLO-COOP-LITE
 
     bootPlate({
       mount: document.getElementById('plate-layer'),
-      view, run: runMode, diff,
+      view,
+      run: runMode,
+      diff,
       time: Number(U.searchParams.get('time') || 90),
       seed,
       pid: String(U.searchParams.get('pid') || 'anon'),
