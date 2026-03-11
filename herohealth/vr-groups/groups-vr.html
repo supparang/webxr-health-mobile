@@ -1,6 +1,6 @@
-<!-- === /herohealth/vr-groups/groups-vr.html ===
+<!-- === /webxr-health-mobile/herohealth/vr-groups/groups-vr.html ===
 GroupsVR — SOLO RUN PAGE — FULL MERGED + CHILD SUMMARY + CONTINUE TO COOLDOWN
-v20260311-GROUPS-SOLO-FULL-CHILDSUMMARY-COOLDOWN-PHASE
+v20260311-GROUPS-SOLO-FULL-CHILDSUMMARY-COOLDOWN-WEBXRROOT
 Requires:
 - ../vr/vr-ui.js
 - ./ai-hooks.js
@@ -227,21 +227,10 @@ Requires:
         0 2px 8px rgba(0,0,0,.30);
     }
 
-    .bgCat.switchFx .bgCatBox{
-      animation: bgGroupSwitchPulse .46s ease-out;
-    }
-
-    .bgCat.hitFx .bgCatBox{
-      animation: bgGroupHitPulse .34s ease-out;
-    }
-
-    .powerWrap.switchFx{
-      animation: powerWrapSwitchFx .44s ease-out;
-    }
-
-    .powerWrap.hitFx{
-      animation: powerWrapHitFx .28s ease-out;
-    }
+    .bgCat.switchFx .bgCatBox{ animation: bgGroupSwitchPulse .46s ease-out; }
+    .bgCat.hitFx .bgCatBox{ animation: bgGroupHitPulse .34s ease-out; }
+    .powerWrap.switchFx{ animation: powerWrapSwitchFx .44s ease-out; }
+    .powerWrap.hitFx{ animation: powerWrapHitFx .28s ease-out; }
 
     @keyframes bgGroupSwitchPulse{
       0%{ transform: translateY(-2px) scale(1.04); }
@@ -277,9 +266,7 @@ Requires:
         max-width:72px;
         border-radius:14px;
       }
-      .bgCatLabel{
-        font-size:10px;
-      }
+      .bgCatLabel{ font-size:10px; }
     }
 
     @media (max-width:520px){
@@ -291,9 +278,7 @@ Requires:
         max-width:58px;
         border-radius:12px;
       }
-      .bgCatLabel{
-        font-size:9px;
-      }
+      .bgCatLabel{ font-size:9px; }
     }
 
     #playLayer{
@@ -662,9 +647,7 @@ Requires:
       .statGrid{
         grid-template-columns:repeat(2,minmax(0,1fr));
       }
-      .jsonWrap{
-        max-height:220px;
-      }
+      .jsonWrap{ max-height:220px; }
     }
 
     @media (max-width:560px){
@@ -708,25 +691,13 @@ Requires:
         grid-template-columns:repeat(2,minmax(0,1fr));
         gap:6px;
       }
-      .statCard{
-        padding:8px;
-      }
-      .statCard .k{
-        font-size:9px;
-      }
-      .statCard .v{
-        font-size:16px;
-      }
-      .miniRow{
-        padding:7px 8px;
-      }
+      .statCard{ padding:8px; }
+      .statCard .k{ font-size:9px; }
+      .statCard .v{ font-size:16px; }
+      .miniRow{ padding:7px 8px; }
       .miniRow .k,
-      .miniRow .v{
-        font-size:11px;
-      }
-      .jsonWrap{
-        max-height:180px;
-      }
+      .miniRow .v{ font-size:11px; }
+      .jsonWrap{ max-height:180px; }
       pre{
         font-size:11px;
         padding:8px;
@@ -998,7 +969,6 @@ Requires:
     }
   </style>
 </head>
-
 <body>
 <div id="app">
   <div class="topbar">
@@ -1190,6 +1160,8 @@ Requires:
 (() => {
   'use strict';
 
+  const ROOT = '/webxr-health-mobile/herohealth';
+
   const QS = (()=>{ try{ return new URL(location.href).searchParams; }catch(_){ return new URLSearchParams(); } })();
   const q = (k, d='') => (QS.get(k) ?? d);
 
@@ -1198,7 +1170,7 @@ Requires:
   const VIEW = String(q('view','mobile')).toLowerCase();
   const TIME = Number(q('time','80') || 80);
   const SEED = String(q('seed','') || Date.now());
-  const HUB  = String(q('hub','../hub.html') || '../hub.html');
+  const HUB  = String(q('hub', `${ROOT}/hub.html`) || `${ROOT}/hub.html`);
   const CVR_STRICT = (VIEW === 'cvr') && (String(q('cvrStrict','1') || '1') !== '0');
 
   const DEBUG_MODE = String(q('debug','0')) === '1';
@@ -1286,7 +1258,7 @@ Requires:
 
   function buildCooldownUrl(){
     try{
-      const url = new URL('/herohealth/warmup-gate.html', location.origin);
+      const url = new URL(`${ROOT}/warmup-gate.html`, location.origin);
       url.searchParams.set('Phase', 'cooldown');
       url.searchParams.set('cat', q('cat', 'nutrition'));
       url.searchParams.set('game', 'groups');
@@ -1300,7 +1272,7 @@ Requires:
       url.searchParams.set('zone', q('zone', 'nutrition'));
       return url.toString();
     }catch(_){
-      return '/herohealth/warmup-gate.html?Phase=cooldown&game=groups&cat=nutrition';
+      return `${ROOT}/warmup-gate.html?Phase=cooldown&game=groups&cat=nutrition`;
     }
   }
 
