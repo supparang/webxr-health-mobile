@@ -1,3 +1,13 @@
+<!-- === /herohealth/balance-hold-vr.html ===
+Balance Hold — LAUNCHER (HeroHealth Root)
+PATCH v20260311-BALANCEHOLD-LAUNCHER-FLOW-WARMUP
+✅ Choose diff/time/view BEFORE entering run
+✅ Start Flow = warmup -> game -> summary -> cooldown -> hub
+✅ Open RUN only = direct run page (no warmup)
+✅ Pass-through hub/run/diff/time/seed/pid/view/log/api/ai/studyId/phase/conditionGroup
+✅ Uses /herohealth/warmup-gate.html with per-game daily gate
+✅ Game key = balance / category = exercise
+-->
 <!doctype html>
 <html lang="th">
 <head>
@@ -15,41 +25,156 @@
       --muted:#94a3b8;
       --good:#22c55e;
       --cyan:#22d3ee;
+      --violet:#a78bfa;
       --sab: env(safe-area-inset-bottom, 0px);
       --sat: env(safe-area-inset-top, 0px);
       --sar: env(safe-area-inset-right, 0px);
       --sal: env(safe-area-inset-left, 0px);
     }
     *{box-sizing:border-box}
-    html,body{height:100%;margin:0;background:var(--bg);color:var(--text);
-      font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif}
-    .wrap{min-height:100%;max-width:880px;margin:0 auto;
-      padding:calc(16px + var(--sat)) calc(14px + var(--sar)) calc(18px + var(--sab)) calc(14px + var(--sal))}
-    .card{border:1px solid var(--stroke);background:linear-gradient(180deg, rgba(2,6,23,.86), rgba(2,6,23,.55));
-      border-radius:20px;padding:14px;box-shadow:0 14px 50px rgba(0,0,0,.35)}
-    .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between}
-    h1{margin:0;font-size:16px;font-weight:1000}
-    p{margin:8px 0 0;color:rgba(229,231,235,.78);font-weight:750;font-size:13px;line-height:1.35}
-    .grid{margin-top:12px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
-    @media (max-width:720px){.grid{grid-template-columns:1fr}}
-    label{display:block;font-size:12px;color:var(--muted);font-weight:900;margin-bottom:6px}
-    select,input{
-      width:100%;min-height:42px;border-radius:14px;border:1px solid var(--stroke);
-      background:rgba(2,6,23,.35);color:var(--text);padding:9px 10px;font:inherit;font-weight:900
+    html,body{
+      height:100%;
+      margin:0;
+      background:
+        radial-gradient(1000px 700px at 20% 0%, rgba(59,130,246,.16), transparent 60%),
+        radial-gradient(900px 700px at 90% 20%, rgba(34,197,94,.10), transparent 60%),
+        var(--bg);
+      color:var(--text);
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif
     }
-    .btnrow{margin-top:12px;display:flex;gap:10px;flex-wrap:wrap}
+    .wrap{
+      min-height:100%;
+      max-width:880px;
+      margin:0 auto;
+      padding:calc(16px + var(--sat)) calc(14px + var(--sar)) calc(18px + var(--sab)) calc(14px + var(--sal))
+    }
+    .card{
+      border:1px solid var(--stroke);
+      background:linear-gradient(180deg, rgba(2,6,23,.86), rgba(2,6,23,.55));
+      border-radius:20px;
+      padding:14px;
+      box-shadow:0 14px 50px rgba(0,0,0,.35)
+    }
+    .row{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+      justify-content:space-between
+    }
+    h1{
+      margin:0;
+      font-size:16px;
+      font-weight:1000
+    }
+    p{
+      margin:8px 0 0;
+      color:rgba(229,231,235,.78);
+      font-weight:750;
+      font-size:13px;
+      line-height:1.35
+    }
+    .grid{
+      margin-top:12px;
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:10px
+    }
+    @media (max-width:720px){
+      .grid{grid-template-columns:1fr}
+    }
+    label{
+      display:block;
+      font-size:12px;
+      color:var(--muted);
+      font-weight:900;
+      margin-bottom:6px
+    }
+    select,input{
+      width:100%;
+      min-height:42px;
+      border-radius:14px;
+      border:1px solid var(--stroke);
+      background:rgba(2,6,23,.35);
+      color:var(--text);
+      padding:9px 10px;
+      font:inherit;
+      font-weight:900
+    }
+    .btnrow{
+      margin-top:12px;
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap
+    }
     .btn{
-      display:inline-flex;align-items:center;justify-content:center;gap:8px;
-      padding:10px 12px;border-radius:14px;border:1px solid var(--stroke);
-      background:rgba(2,6,23,.35);font-weight:1000;font-size:13px;color:inherit;text-decoration:none;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+      padding:10px 12px;
+      border-radius:14px;
+      border:1px solid var(--stroke);
+      background:rgba(2,6,23,.35);
+      font-weight:1000;
+      font-size:13px;
+      color:inherit;
+      text-decoration:none;
       cursor:pointer
     }
     .btn.primary{border-color:rgba(34,197,94,.35);background:rgba(34,197,94,.16)}
     .btn.cyan{border-color:rgba(34,211,238,.35);background:rgba(34,211,238,.14)}
-    .chiprow{margin-top:10px;display:flex;gap:8px;flex-wrap:wrap}
-    .chip{border:1px solid var(--stroke);background:rgba(2,6,23,.35);border-radius:999px;padding:7px 10px;font-size:12px;font-weight:900;color:rgba(229,231,235,.92)}
+    .btn.violet{border-color:rgba(167,139,250,.35);background:rgba(167,139,250,.14)}
+    .chiprow{
+      margin-top:10px;
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap
+    }
+    .chip{
+      border:1px solid var(--stroke);
+      background:rgba(2,6,23,.35);
+      border-radius:999px;
+      padding:7px 10px;
+      font-size:12px;
+      font-weight:900;
+      color:rgba(229,231,235,.92)
+    }
     .chip b{color:#fff}
-    .small{margin-top:10px;font-size:12px;color:var(--muted);font-weight:850}
+    .small{
+      margin-top:10px;
+      font-size:12px;
+      color:var(--muted);
+      font-weight:850
+    }
+    .stack{
+      margin-top:12px;
+      display:grid;
+      gap:10px
+    }
+    .subcard{
+      border:1px solid var(--stroke);
+      background:rgba(15,23,42,.34);
+      border-radius:16px;
+      padding:12px
+    }
+    .subcard h2{
+      margin:0;
+      font-size:14px;
+      font-weight:1000
+    }
+    .list{
+      margin:8px 0 0;
+      padding-left:18px;
+      color:rgba(229,231,235,.82);
+      font-size:13px;
+      line-height:1.45;
+      font-weight:750
+    }
+    code{
+      font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+      font-size:12px
+    }
   </style>
 </head>
 <body>
@@ -58,7 +183,7 @@
       <div class="row">
         <div>
           <h1>⚖️ Balance Hold — Launcher</h1>
-          <p>เลือกระดับ/เวลา/โหมดมุมมองก่อนเข้าเล่น แล้วค่อยเข้า flow: Warmup → Game → Result → Cooldown</p>
+          <p>เลือกระดับ / เวลา / มุมมองก่อนเข้าเล่น และเริ่ม flow แบบครบ: warmup → game → summary → cooldown → hub</p>
         </div>
         <a class="btn" id="backHub" href="./hub.html">🏠 Back HUB</a>
       </div>
@@ -67,6 +192,8 @@
         <div class="chip">pid: <b id="cPid">anon</b></div>
         <div class="chip">seed: <b id="cSeed">-</b></div>
         <div class="chip">run: <b id="cRun">play</b></div>
+        <div class="chip">zone: <b>fitness</b></div>
+        <div class="chip">game: <b>balance</b></div>
       </div>
 
       <div class="grid">
@@ -78,6 +205,7 @@
             <option value="hard">Hard</option>
           </select>
         </div>
+
         <div>
           <label for="time">Duration (sec)</label>
           <select id="time">
@@ -88,6 +216,7 @@
             <option value="120">120</option>
           </select>
         </div>
+
         <div>
           <label for="view">View</label>
           <select id="view">
@@ -99,13 +228,37 @@
       </div>
 
       <div class="btnrow">
-        <button class="btn primary" id="btnStart">▶ Start Flow</button>
-        <a class="btn cyan" id="btnOpenRun" href="#">🧩 Open RUN (skip warmup)</a>
-        <button class="btn" id="btnReseed">🎲 Reseed</button>
+        <button class="btn primary" id="btnStartFlow" type="button">▶ Start Flow</button>
+        <a class="btn cyan" id="btnOpenRun" href="#">🧩 Open RUN only</a>
+        <button class="btn violet" id="btnReseed" type="button">🎲 Reseed</button>
+      </div>
+
+      <div class="stack">
+        <div class="subcard">
+          <h2>Start Flow</h2>
+          <ul class="list">
+            <li>เข้า <code>/herohealth/warmup-gate.html</code></li>
+            <li>ถ้าวันนี้ยังไม่ทำ warmup ของเกมนี้ จะเล่น warmup ก่อน</li>
+            <li>จากนั้นเข้า <code>/fitness/balance-hold.html</code></li>
+            <li>เมื่อจบเกม จะค้างหน้า Result ก่อน</li>
+            <li>กด Back HUB / Continue แล้วจึงไป cooldown gate</li>
+            <li>สุดท้ายกลับ HUB</li>
+          </ul>
+        </div>
+
+        <div class="subcard">
+          <h2>Open RUN only</h2>
+          <ul class="list">
+            <li>เปิดเกมตรงทันที</li>
+            <li>ไม่ผ่าน warmup gate</li>
+            <li>เหมาะสำหรับ debug / layout test / tuning effect</li>
+          </ul>
+        </div>
       </div>
 
       <div class="small">
-        Flow ปกติจะเข้า <code>/herohealth/warmup-gate.html</code> ก่อน แล้วค่อยไป <code>/fitness/balance-hold.html</code>
+        RUN page: <code>/fitness/balance-hold.html</code><br/>
+        Warmup gate: <code>/herohealth/warmup-gate.html?cat=exercise&game=balance</code>
       </div>
     </div>
   </div>
@@ -114,9 +267,14 @@
 'use strict';
 
 function qs(k, d=''){
-  try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(e){ return d; }
+  try{ return new URL(location.href).searchParams.get(k) ?? d; }
+  catch(e){ return d; }
 }
-function clamp(v,a,b){ v=Number(v); if(!Number.isFinite(v)) v=a; return Math.max(a, Math.min(b, v)); }
+function clamp(v,a,b){
+  v = Number(v);
+  if(!Number.isFinite(v)) v = a;
+  return Math.max(a, Math.min(b, v));
+}
 function nowSeed(){ return String(Date.now()); }
 function setParam(u, k, v){
   if (v === '' || v == null) u.searchParams.delete(k);
@@ -125,7 +283,9 @@ function setParam(u, k, v){
 function normalizeMaybeEncodedUrl(v){
   v = String(v ?? '').trim();
   if(!v || v==='null' || v==='undefined') return '';
-  if(/%3A|%2F|%3F|%26|%3D/i.test(v)){ try{ v = decodeURIComponent(v); }catch(e){} }
+  if(/%3A|%2F|%3F|%26|%3D/i.test(v)){
+    try{ v = decodeURIComponent(v); }catch(e){}
+  }
   return v.trim();
 }
 
@@ -144,7 +304,7 @@ const P = {
   studyId: String(qs('studyId','')),
   phase: String(qs('phase','')),
   conditionGroup: String(qs('conditionGroup','')),
-  grade: String(qs('grade','p5')).trim() || 'p5'
+  grade: String(qs('grade',''))
 };
 
 document.getElementById('cPid').textContent = P.pid;
@@ -162,13 +322,36 @@ if (['pc','mobile','cvr'].includes(P.view)) elView.value = P.view;
 const backHub = document.getElementById('backHub');
 if (P.hub) backHub.href = P.hub;
 
+function buildHubUrl(){
+  if (P.hub) return P.hub;
+
+  const u = new URL('./hub.html', location.href);
+  setParam(u, 'run', P.run);
+  setParam(u, 'diff', elDiff.value);
+  setParam(u, 'time', elTime.value);
+  setParam(u, 'seed', P.seed);
+  setParam(u, 'pid', P.pid);
+  setParam(u, 'view', elView.value);
+
+  setParam(u, 'log', P.log);
+  setParam(u, 'api', P.api);
+  setParam(u, 'ai', P.ai);
+  setParam(u, 'studyId', P.studyId);
+  setParam(u, 'phase', P.phase);
+  setParam(u, 'conditionGroup', P.conditionGroup);
+  setParam(u, 'grade', P.grade);
+
+  return u.toString();
+}
+
 function buildRunUrl(autostart){
   const u = new URL('../fitness/balance-hold.html', location.href);
 
-  setParam(u, 'hub', P.hub || '');
+  setParam(u, 'hub', buildHubUrl());
   setParam(u, 'run', P.run);
   setParam(u, 'pid', P.pid);
   setParam(u, 'seed', P.seed);
+
   setParam(u, 'diff', elDiff.value);
   setParam(u, 'time', elTime.value);
   setParam(u, 'view', elView.value);
@@ -176,7 +359,6 @@ function buildRunUrl(autostart){
   setParam(u, 'log', P.log);
   setParam(u, 'api', P.api);
   setParam(u, 'ai', P.ai);
-
   setParam(u, 'studyId', P.studyId);
   setParam(u, 'phase', P.phase);
   setParam(u, 'conditionGroup', P.conditionGroup);
@@ -186,40 +368,46 @@ function buildRunUrl(autostart){
   return u.toString();
 }
 
-function buildWarmupUrl(){
+function buildWarmupFlowUrl(){
   const runUrl = buildRunUrl(true);
+  const hubUrl = buildHubUrl();
+
   const u = new URL('./warmup-gate.html', location.href);
 
   setParam(u, 'gatePhase', 'warmup');
   setParam(u, 'phase', 'warmup');
   setParam(u, 'cat', 'exercise');
-  setParam(u, 'theme', 'balance');
   setParam(u, 'game', 'balance');
+  setParam(u, 'theme', 'balance');
 
-  setParam(u, 'hub', P.hub || './hub.html');
   setParam(u, 'next', runUrl);
+  setParam(u, 'hub', hubUrl);
 
-  setParam(u, 'pid', P.pid);
   setParam(u, 'run', P.run);
+  setParam(u, 'pid', P.pid);
+  setParam(u, 'seed', P.seed);
+
   setParam(u, 'diff', elDiff.value);
   setParam(u, 'time', elTime.value);
   setParam(u, 'view', elView.value);
-  setParam(u, 'seed', P.seed);
 
   setParam(u, 'log', P.log);
   setParam(u, 'api', P.api);
   setParam(u, 'ai', P.ai);
-
   setParam(u, 'studyId', P.studyId);
+  setParam(u, 'phase', P.phase);
   setParam(u, 'conditionGroup', P.conditionGroup);
-  setParam(u, 'researchPhase', P.phase);
   setParam(u, 'grade', P.grade);
+
+  // duration for gate
+  setParam(u, 'dur', '20');
+  setParam(u, 'cdur', '15');
 
   return u.toString();
 }
 
-document.getElementById('btnStart').addEventListener('click', ()=>{
-  location.href = buildWarmupUrl();
+document.getElementById('btnStartFlow').addEventListener('click', ()=>{
+  location.href = buildWarmupFlowUrl();
 });
 
 document.getElementById('btnOpenRun').addEventListener('click', (e)=>{
