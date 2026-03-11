@@ -1,6 +1,11 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
 GoodJunkVR — RUN PAGE
-PATCH v20260311-GJ-RUNPAGE-BATTLE-WAIT-MERGED
+FULL PATCH v20260311-GJ-RUNPAGE-MOBILE-LAYOUT-SPACEFIX
+✅ more gameplay space on mobile
+✅ compact mission/battle/coach
+✅ hide battleDebug on mobile
+✅ expandable mission/coach
+✅ safer bottom area
 -->
 <!doctype html>
 <html lang="th">
@@ -10,6 +15,9 @@ PATCH v20260311-GJ-RUNPAGE-BATTLE-WAIT-MERGED
   <title>HeroHealth — GoodJunkVR</title>
   <meta name="color-scheme" content="dark light" />
   <link rel="icon" href="../favicon.ico" />
+
+  <script src="../firebase-config.js"></script>
+
   <style>
     :root{
       --bg1:#020617; --bg2:#0b1226;
@@ -31,12 +39,15 @@ PATCH v20260311-GJ-RUNPAGE-BATTLE-WAIT-MERGED
     }
     #app{ position:fixed; inset:0; overflow:hidden; }
 
+    /* gameplay area */
     #gj-layer{
       position:fixed;
-      inset:0;
+      left:0; right:0;
+      top:0; bottom:0;
       overflow:hidden;
       touch-action:manipulation;
       user-select:none;
+      z-index:1;
     }
 
     .hud-top{
@@ -56,6 +67,7 @@ PATCH v20260311-GJ-RUNPAGE-BATTLE-WAIT-MERGED
       padding:8px 10px;
       box-shadow:0 14px 40px rgba(0,0,0,.28);
       backdrop-filter: blur(10px);
+      min-height:76px;
     }
     .hud-k{ font-size:11px; color:var(--muted); margin-bottom:4px; font-weight:800; }
     .hud-v{ font-size:22px; line-height:1; font-weight:1000; }
@@ -68,7 +80,7 @@ PATCH v20260311-GJ-RUNPAGE-BATTLE-WAIT-MERGED
       transform:translateX(-50%);
       z-index:100;
       width:min(760px, calc(100vw - 16px));
-      pointer-events:none;
+      pointer-events:auto;
     }
     .mission-box{
       border:1px solid var(--stroke);
@@ -77,6 +89,14 @@ PATCH v20260311-GJ-RUNPAGE-BATTLE-WAIT-MERGED
       padding:10px 12px;
       backdrop-filter: blur(10px);
       box-shadow:0 18px 50px rgba(0,0,0,.28);
+      transition:max-height .18s ease, padding .18s ease, opacity .18s ease;
+    }
+    .mission-box.compact{
+      padding:8px 10px;
+    }
+    .mission-box.compact .mission-hint,
+    .mission-box.compact .match-chip-wrap{
+      display:none;
     }
     .mission-head{
       display:flex; justify-content:space-between; gap:10px; align-items:center;
@@ -135,6 +155,7 @@ PATCH v20260311-GJ-RUNPAGE-BATTLE-WAIT-MERGED
       bottom:calc(var(--sab) + 72px);
       z-index:101;
       width:min(320px, calc(100vw - 16px));
+      pointer-events:auto;
     }
     .ai-box{
       border:1px solid var(--stroke);
@@ -143,6 +164,14 @@ PATCH v20260311-GJ-RUNPAGE-BATTLE-WAIT-MERGED
       padding:12px;
       box-shadow:0 18px 50px rgba(0,0,0,.30);
       backdrop-filter: blur(10px);
+      transition:max-height .18s ease, padding .18s ease;
+    }
+    .ai-box.compact{
+      padding:9px 10px;
+    }
+    .ai-box.compact .ai-small,
+    .ai-box.compact .ai-pill{
+      display:none;
     }
     .ai-title{ font-size:13px; font-weight:1000; color:#a5f3fc; }
     .ai-line{ margin-top:6px; font-size:13px; color:#e5e7eb; }
@@ -266,45 +295,33 @@ PATCH v20260311-GJ-RUNPAGE-BATTLE-WAIT-MERGED
       transition:opacity .14s ease;
     }
 
+    #battleDebug{
+      position:fixed;
+      left:8px;
+      bottom:calc(env(safe-area-inset-bottom,0px) + 64px);
+      z-index:140;
+      min-width:220px;
+      max-width:min(420px, calc(100vw - 16px));
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(2,6,23,.78);
+      color:#e5e7eb;
+      border-radius:16px;
+      padding:10px 12px;
+      box-shadow:0 16px 40px rgba(0,0,0,.32);
+      backdrop-filter:blur(10px);
+      font:800 12px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+    }
+
     #waitOverlay{
       display:none;
       position:fixed;
       inset:0;
       z-index:190;
-      background:rgba(2,6,23,.72);
-      backdrop-filter:blur(10px);
+      background:rgba(2,6,23,.70);
+      backdrop-filter:blur(8px);
       align-items:center;
       justify-content:center;
       padding:16px;
-    }
-    #waitOverlay .wait-panel{
-      width:min(680px,100%);
-      border-radius:24px;
-      border:1px solid rgba(148,163,184,.18);
-      background:linear-gradient(180deg, rgba(15,23,42,.94), rgba(2,6,23,.92));
-      box-shadow:0 26px 80px rgba(0,0,0,.48);
-      padding:20px;
-      text-align:center;
-    }
-    #waitOverlayTimer{
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      min-width:120px;
-      padding:12px 16px;
-      border-radius:999px;
-      border:1px solid rgba(148,163,184,.18);
-      background:rgba(15,23,42,.84);
-      font-size:28px;
-      font-weight:1000;
-      color:#fff;
-    }
-    .wait-actions{
-      margin-top:16px;
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      justify-content:center;
     }
 
     #endOverlay{
@@ -418,15 +435,93 @@ PATCH v20260311-GJ-RUNPAGE-BATTLE-WAIT-MERGED
     }
 
     @media (max-width:900px){
-      .hud-top{ grid-template-columns:repeat(2,minmax(0,1fr)); }
-      .end-stats{ grid-template-columns:repeat(2,minmax(0,1fr)); }
-      .side-ai{
-        left:8px; right:8px; width:auto; bottom:calc(var(--sab) + 64px);
+      .hud-top{
+        grid-template-columns:repeat(2,minmax(0,1fr));
       }
-      .mid-mission{ top:calc(var(--sat) + 134px); }
-      .boss-bar{ top:calc(var(--sat) + 236px); }
-      .end-actions{ justify-content:stretch; }
-      .end-actions .btn{ flex:1 1 220px; }
+      .hud-card{
+        min-height:64px;
+        padding:8px 9px;
+      }
+      .hud-v{
+        font-size:18px;
+      }
+      .hud-sub{
+        font-size:10px;
+      }
+
+      .end-stats{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+
+      .mid-mission{
+        top:calc(var(--sat) + 150px);
+        width:calc(100vw - 16px);
+      }
+      .mission-box{
+        padding:8px 10px;
+      }
+      .mission-box.compact .mission-bar{
+        margin-top:6px;
+      }
+      .mission-head{
+        font-size:13px;
+      }
+      .mission-goal{
+        font-size:13px;
+      }
+      .mission-hint{
+        font-size:11px;
+      }
+
+      .boss-bar{
+        top:calc(var(--sat) + 214px);
+        width:calc(100vw - 16px);
+        padding:8px 10px;
+      }
+
+      .side-ai{
+        left:8px; right:8px; width:auto;
+        bottom:calc(var(--sab) + 62px);
+      }
+      .ai-box{
+        padding:9px 10px;
+      }
+
+      .bottom-bar{
+        gap:6px;
+      }
+
+      .mini-chip{
+        padding:8px 10px;
+        font-size:11px;
+      }
+
+      .btn{
+        min-height:40px;
+        padding:8px 12px;
+      }
+
+      #battleDebug{
+        display:none;
+      }
+
+      #gj-layer{
+        top:0;
+        bottom:0;
+      }
+    }
+
+    @media (max-width:420px){
+      .mid-mission{
+        top:calc(var(--sat) + 142px);
+      }
+      .boss-bar{
+        top:calc(var(--sat) + 202px);
+      }
+      .side-ai{
+        bottom:calc(var(--sab) + 58px);
+      }
+      .hud-card{
+        border-radius:14px;
+      }
     }
   </style>
 </head>
@@ -443,7 +538,7 @@ PATCH v20260311-GJ-RUNPAGE-BATTLE-WAIT-MERGED
   </div>
 
   <div class="mid-mission">
-    <div class="mission-box">
+    <div id="missionBox" class="mission-box compact" title="แตะเพื่อขยาย/ย่อ">
       <div class="mission-head">
         <div id="missionTitle">WARM</div>
         <div>mode <span id="uiRun">play</span> • <span id="uiView">mobile</span> • <span id="uiDiff">easy</span></div>
@@ -452,10 +547,10 @@ PATCH v20260311-GJ-RUNPAGE-BATTLE-WAIT-MERGED
       <div id="missionHint" class="mission-hint">—</div>
 
       <div class="match-chip-wrap">
-        <div class="match-chip">Best Of <span id="matchBestOfInline">3</span></div>
-        <div class="match-chip">Wins To Champion <span id="matchWinsToChampionInline">2</span></div>
-        <div class="match-chip">Status <span id="matchStatusInline">LIVE</span></div>
-        <div class="match-chip">Champion <span id="matchChampionInline">—</span></div>
+        <div class="match-chip">Best Of <span id="battleBestOf">3</span></div>
+        <div class="match-chip">Wins To Champion <span id="battleWinsToChampion">2</span></div>
+        <div class="match-chip">Status <span id="battleStatus">LIVE</span></div>
+        <div class="match-chip">Champion <span id="battleChampion">—</span></div>
       </div>
 
       <div class="mission-bar"><i id="missionFill" style="--p:0%"></i></div>
@@ -471,15 +566,15 @@ PATCH v20260311-GJ-RUNPAGE-BATTLE-WAIT-MERGED
   </div>
 
   <div class="side-ai">
-    <div class="ai-box">
+    <div id="aiBox" class="ai-box compact" title="แตะเพื่อขยาย/ย่อ">
       <div class="ai-title">🧠 AI Coach</div>
       <div id="coachInline" class="ai-line">พร้อมแล้ว! ยิงของดี 🥦</div>
       <div id="coachExplain" class="ai-small">prediction-ready</div>
       <div class="ai-pill">hazard <span id="hazardInline">0.00</span></div>
       <div class="ai-pill">win <span id="winInline">0.00</span></div>
       <div class="ai-pill">frustration <span id="frustrationInline">0.00</span></div>
-      <div class="ai-pill">you wins <span id="matchYouWinsInline">0</span></div>
-      <div class="ai-pill">opp wins <span id="matchOppWinsInline">0</span></div>
+      <div class="ai-pill">you wins <span id="battleMyWins">0</span></div>
+      <div class="ai-pill">opp wins <span id="battleOppWins">0</span></div>
     </div>
   </div>
 
@@ -501,21 +596,35 @@ PATCH v20260311-GJ-RUNPAGE-BATTLE-WAIT-MERGED
   <div id="milestoneBanner">NICE COMBO!</div>
   <div id="dangerOverlay"></div>
 
+  <div id="battleDebug">
+    <div>role: <span id="dbgRole">-</span></div>
+    <div>phase: <span id="dbgPhase">-</span></div>
+    <div>room: <span id="dbgRoom">-</span></div>
+    <div>players: <span id="dbgPlayers">0/2</span></div>
+    <div>you ready: <span id="dbgReady">no</span></div>
+    <div>opp ready: <span id="dbgOppReady">no</span></div>
+  </div>
+
   <div id="waitOverlay">
-    <div class="wait-panel">
-      <div style="font-size:16px;font-weight:1000;color:#a5f3fc;">BATTLE WAITING</div>
-      <div style="margin-top:10px;font-size:34px;font-weight:1000;line-height:1.08;">รอผู้เล่นอีก 1 คน</div>
-      <div id="waitOverlaySub" style="margin-top:10px;font-size:14px;color:#cbd5e1;">
-        ยังไม่มีคู่แข่งในห้อง คุณจะเล่นเดี่ยวแทนตอนนี้ หรือรอต่ออีก 30 วินาทีก็ได้
+    <div style="
+      width:min(560px,100%);
+      border-radius:24px;
+      border:1px solid rgba(148,163,184,.18);
+      background:linear-gradient(180deg, rgba(15,23,42,.92), rgba(2,6,23,.90));
+      box-shadow:0 26px 80px rgba(0,0,0,.48);
+      padding:20px;
+      text-align:center;
+      color:#e5e7eb;
+    ">
+      <div style="font-size:28px;font-weight:1000;">กำลังรอคู่แข่ง…</div>
+      <div id="waitOverlaySub" style="margin-top:8px;color:#cbd5e1;font-size:14px;">
+        ถ้ายังไม่มีผู้เล่นอีกคน คุณสามารถเล่นเดี่ยวแทนได้
       </div>
+      <div id="waitOverlayTimer" style="margin-top:14px;font-size:42px;font-weight:1000;">30</div>
 
-      <div style="margin-top:14px;">
-        <div id="waitOverlayTimer">30</div>
-      </div>
-
-      <div class="wait-actions">
-        <button id="btnWaitSolo" class="btn warn" type="button">เล่นเดี่ยวตอนนี้</button>
-        <button id="btnWaitMore" class="btn secondary" type="button">รอต่ออีก 30 วินาที</button>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:18px;">
+        <button id="btnWaitSolo" class="btn warn" type="button">เล่นเดี่ยวแทน</button>
+        <button id="btnWaitMore" class="btn secondary" type="button">รอต่ออีก 30 วิ</button>
       </div>
     </div>
   </div>
@@ -651,6 +760,70 @@ PATCH v20260311-GJ-RUNPAGE-BATTLE-WAIT-MERGED
       const on = !!(ev.detail && ev.detail.on);
       danger.style.opacity = on ? '1' : '0';
     }catch(_){}
+  });
+
+  const dbg = {
+    role: document.getElementById('dbgRole'),
+    phase: document.getElementById('dbgPhase'),
+    room: document.getElementById('dbgRoom'),
+    players: document.getElementById('dbgPlayers'),
+    ready: document.getElementById('dbgReady'),
+    oppReady: document.getElementById('dbgOppReady')
+  };
+
+  dbg.room.textContent = room;
+
+  let dbgRole = 'unknown';
+  let dbgPhase = 'unknown';
+  let dbgPlayers = [];
+  let dbgMeKey = '';
+
+  function refreshBattleDebug(){
+    dbg.role.textContent = dbgRole;
+    dbg.phase.textContent = dbgPhase;
+
+    const me = dbgPlayers.find(p => p.key === dbgMeKey) || null;
+    const opp = dbgPlayers.find(p => p.key !== dbgMeKey) || null;
+
+    dbg.players.textContent = `${dbgPlayers.length}/2`;
+    dbg.ready.textContent = me?.ready ? 'yes' : 'no';
+    dbg.oppReady.textContent = opp?.ready ? 'yes' : 'no';
+  }
+
+  window.addEventListener('hha:battle-room', (ev)=>{
+    try{
+      const d = ev.detail || {};
+      dbgRole = String(d.role || 'unknown');
+      dbgMeKey = String(d.meKey || '');
+      if(d.room) dbg.room.textContent = String(d.room);
+      refreshBattleDebug();
+    }catch(_){}
+  });
+
+  window.addEventListener('hha:battle-state', (ev)=>{
+    try{
+      const d = ev.detail || {};
+      dbgPhase = String(d.phase || 'unknown');
+      refreshBattleDebug();
+    }catch(_){}
+  });
+
+  window.addEventListener('hha:battle-players', (ev)=>{
+    try{
+      dbgPlayers = Array.isArray(ev.detail?.players) ? ev.detail.players : [];
+      refreshBattleDebug();
+    }catch(_){}
+  });
+
+  const missionBox = document.getElementById('missionBox');
+  const aiBox = document.getElementById('aiBox');
+
+  missionBox?.addEventListener('click', ()=>{
+    missionBox.classList.toggle('compact');
+  });
+
+  aiBox?.addEventListener('click', ()=>{
+    aiBox.classList.toggle('compact');
   });
 
   await boot({ ai, sound });
