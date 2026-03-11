@@ -1,10 +1,11 @@
 // === /herohealth/gate/gate-core.js ===
 // HeroHealth Gate Core
-// PATCH v20260310z4-GERM-VR-RUN
+// PATCH v20260311-GATE-CORE-GROUPS-FLOW-LOG
 // ✅ Germ Detective continue/skip -> germ-detective-vr.html
 // ✅ strip gate params before continue
 // ✅ no nested germ-detective path from gate side
 // ✅ keep other games behavior as-is
+// ✅ extra ctx validation/log for Phase/groups flow
 
 import {
   buildCtx,
@@ -13,11 +14,11 @@ import {
   setText,
   sanitizeBuffs,
   saveLastSummary
-} from './gate-common.js?v=20260310z4';
+} from './gate-common.js?v=20260311';
 
-import { mountSummaryLayer, mountToast } from './gate-summary.js?v=20260310z4';
-import { createGateLogger } from './gate-logger.js?v=20260310z4';
-import { GATE_GAMES, getGameMeta } from './gate-games.js?v=20260310z4';
+import { mountSummaryLayer, mountToast } from './gate-summary.js?v=20260311';
+import { createGateLogger } from './gate-logger.js?v=20260311';
+import { GATE_GAMES, getGameMeta } from './gate-games.js?v=20260311';
 
 function titleOf(ctx){
   const meta = getGameMeta(ctx.game) || {
@@ -39,14 +40,14 @@ function subtitleOf(ctx){
 }
 
 function modulePath(ctx){
-  return `./games/${ctx.game}/${ctx.mode}.js?v=20260310z4`;
+  return `./games/${ctx.game}/${ctx.mode}.js?v=20260311`;
 }
 
 function safeHubUrl(ctx){
   try{
     const u = new URL(ctx.hub || '../hub.html', location.href);
     [
-      'gatePhase','phase','gateResult','gateMode',
+      'gatePhase','phase','Phase','gateResult','gateMode',
       'wType','wPct','wSteps','wTimeBonus','wScoreBonus','wRank',
       'cd','next','wskip'
     ].forEach(k=>u.searchParams.delete(k));
@@ -85,11 +86,44 @@ function appendCommonParams(u, ctx, hub){
   if(ctx.semester) u.searchParams.set('semester', String(ctx.semester));
 }
 
+function coreParamsOf(ctx){
+  return {
+    pid: ctx.pid || 'anon',
+    run: ctx.run || 'play',
+    diff: ctx.diff || 'normal',
+    time: ctx.time != null ? String(ctx.time) : '80',
+    seed: ctx.seed || '',
+    view: ctx.view || 'mobile',
+    hub: ctx.hub || '../hub.html',
+    cat: ctx.cat || '',
+    game: ctx.game || '',
+    next: ctx.next || '',
+    mode: ctx.mode || ''
+  };
+}
+
+function validateGateCtx(ctx){
+  const missing = [];
+  ['pid','run','diff','time','view','game','mode'].forEach(k=>{
+    const v = ctx[k];
+    if(v == null || String(v).trim() === ''){
+      missing.push(k);
+    }
+  });
+
+  if(missing.length){
+    console.warn('[gate-core] missing ctx keys:', missing, coreParamsOf(ctx));
+  }else{
+    console.log('[gate-core] ctx OK', coreParamsOf(ctx));
+  }
+
+  return missing;
+}
+
 function buildRawNextUrl(ctx, result=null){
   const hub = safeHubUrl(ctx);
   const game = String(ctx.game || '').toLowerCase();
 
-  // FIX เฉพาะ Germ Detective: ไปที่ vr entry ก่อน แล้วค่อย redirect เข้า run จริง
   if(game === 'germdetective'){
     const u = new URL('/webxr-health-mobile/herohealth/germ-detective/germ-detective-vr.html', location.origin);
 
@@ -114,7 +148,7 @@ function buildRawNextUrl(ctx, result=null){
       const u = new URL(rawNext, location.href);
 
       [
-        'gatePhase','phase','gateResult','gateMode',
+        'gatePhase','phase','Phase','gateResult','gateMode',
         'wType','wPct','wSteps','wTimeBonus','wScoreBonus','wRank',
         'cd','next','wskip'
       ].forEach(k=>u.searchParams.delete(k));
@@ -132,6 +166,7 @@ function buildRawNextUrl(ctx, result=null){
     }
   }
 
+  console.warn('[gate-core] no usable next, fallback hub =', hub, coreParamsOf(ctx));
   return hub;
 }
 
@@ -189,7 +224,7 @@ function renderShell(root, ctx){
 }
 
 export async function bootGate(root){
-  console.log('[gate-core] v20260310z4 running');
+  console.log('[gate-core] v20260311 running');
 
   const ctx = buildCtx();
   ctx.dailyDone = getDailyDone(ctx);
@@ -197,6 +232,17 @@ export async function bootGate(root){
   console.log('[gate ctx raw]', ctx);
   console.log('[gate ctx.next]', ctx.next);
   console.log('[gate ctx.game]', ctx.game);
+  console.log('[gate ctx.mode]', ctx.mode);
+  console.log('[gate ctx.hub]', ctx.hub);
+  console.log('[gate ctx.Phase]', ctx.Phase);
+  console.log('[gate ctx.gatePhase]', ctx.gatePhase);
+  console.log('[gate ctx.phase]', ctx.phase);
+
+  validateGateCtx(ctx);
+
+  if(ctx.mode !== 'warmup' && ctx.mode !== 'cooldown'){
+    console.warn('[gate-core] unexpected mode:', ctx.mode, '-> fallback warmup');
+  }
 
   renderShell(root, ctx);
 
@@ -262,11 +308,14 @@ export async function bootGate(root){
         onContinue: ()=>{
           if(ctx.mode === 'warmup'){
             const nextUrl = buildRawNextUrl(ctx, finalResult);
-            console.log('[gate] continue ->', nextUrl);
+            console.log('[gate] warmup continue ->', nextUrl, coreParamsOf(ctx));
             location.replace(nextUrl);
             return;
           }
-          location.replace(ctx.hub || '../hub.html');
+
+          const hubUrl = ctx.hub || '../hub.html';
+          console.log('[gate] cooldown continue -> hub', hubUrl, coreParamsOf(ctx));
+          location.replace(hubUrl);
         }
       });
     }
@@ -333,7 +382,7 @@ export async function bootGate(root){
 
     skipBtn?.addEventListener('click', ()=>{
       const nextUrl = buildRawNextUrl(ctx);
-      console.log('[gate] skip ->', nextUrl);
+      console.log('[gate] skip ->', nextUrl, coreParamsOf(ctx));
       location.replace(nextUrl);
     });
   }
