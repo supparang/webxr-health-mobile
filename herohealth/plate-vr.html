@@ -1,6 +1,9 @@
 <!-- === /herohealth/plate-vr.html ===
-PlateVR — LAUNCHER -> /herohealth/plate/plate-vr.html
-FULL v20260307-LAUNCHER-PLATE-SOLO-COOP
+PlateVR — CANONICAL LAUNCHER
+FULL v20260311-LAUNCHER-PLATE-CANONICAL-WARMUP
+Flow:
+Start Flow -> /herohealth/plate-vr.html -> warmup-gate -> /herohealth/plate/plate-vr.html
+-> summary -> cooldown-gate -> hub
 -->
 <!doctype html>
 <html lang="th">
@@ -49,7 +52,7 @@ FULL v20260307-LAUNCHER-PLATE-SOLO-COOP
       color:var(--muted);
       font-size:13px;
       font-weight:900;
-      line-height:1.5;
+      line-height:1.55;
     }
     .grid{
       display:grid;
@@ -149,7 +152,7 @@ FULL v20260307-LAUNCHER-PLATE-SOLO-COOP
       color:var(--muted);
       font-size:12px;
       font-weight:900;
-      line-height:1.5;
+      line-height:1.55;
       word-break:break-word;
     }
   </style>
@@ -158,8 +161,8 @@ FULL v20260307-LAUNCHER-PLATE-SOLO-COOP
   <div class="card">
     <div class="title">🍽️ PlateVR Launcher</div>
     <div class="sub">
-      เลือกเข้าเล่นแบบ <b>Solo</b> หรือ <b>Coop Lite</b><br>
-      Coop Lite = ผู้เล่น 2 คนช่วยกันเติมจานเดียวกันแบบสลับเทิร์น
+      ทุกโหมดจะผ่าน <b>warmup-gate</b> ก่อนเข้าเกมจริงเสมอ<br>
+      Flow มาตรฐาน: <b>Launcher → Warmup → Run → Summary → Cooldown → Hub</b>
     </div>
 
     <div class="grid">
@@ -171,7 +174,7 @@ FULL v20260307-LAUNCHER-PLATE-SOLO-COOP
         </div>
         <div class="chips">
           <span class="pill"><b>Mode</b>: solo</span>
-          <span class="pill"><b>Mission</b>: เดี่ยว</span>
+          <span class="pill"><b>Warmup</b>: required</span>
           <span class="pill"><b>Summary</b>: รายคน</span>
         </div>
         <div class="row">
@@ -184,11 +187,11 @@ FULL v20260307-LAUNCHER-PLATE-SOLO-COOP
         <h3>🤝 Coop Lite</h3>
         <div class="mut">
           ผู้เล่น A/B ช่วยกันเติมจานเดียวกันแบบสลับเทิร์น<br>
-          เหมาะกับ classroom และการร่วมมือกันทำภารกิจ
+          ใช้เครื่องเดียวก่อน และผ่าน warmup ก่อนเข้าเกมจริง
         </div>
         <div class="chips">
           <span class="pill"><b>Mode</b>: coop</span>
-          <span class="pill"><b>Players</b>: 2</span>
+          <span class="pill"><b>Players</b>: hotseat 2</span>
           <span class="pill"><b>Summary</b>: ทีม + รายคน</span>
         </div>
         <div class="row">
@@ -199,7 +202,7 @@ FULL v20260307-LAUNCHER-PLATE-SOLO-COOP
     </div>
 
     <div class="toolbar">
-      <div class="mut">RUN page: <code>/herohealth/plate/plate-vr.html</code></div>
+      <div class="mut">RUN page จริง: <code>/herohealth/plate/plate-vr.html</code></div>
       <button class="btn" id="back">🏠 กลับ HUB</button>
     </div>
 
@@ -215,7 +218,6 @@ FULL v20260307-LAUNCHER-PLATE-SOLO-COOP
     raw = String(raw || '').trim();
     const DEFAULT = new URL('./hub.html', location.href).toString();
     if(!raw) return DEFAULT;
-
     try{
       const u = new URL(raw, location.href);
       u.pathname = u.pathname
@@ -230,6 +232,7 @@ FULL v20260307-LAUNCHER-PLATE-SOLO-COOP
   }
 
   const hub = normalizeHub(sp.get('hub'));
+  const pid = String(sp.get('pid') || 'anon').trim() || 'anon';
 
   function buildRunUrl(mode, extra){
     const run = new URL('./plate/plate-vr.html', location.href);
@@ -240,7 +243,7 @@ FULL v20260307-LAUNCHER-PLATE-SOLO-COOP
       'cooldown','cd','cdnext',
       'planSeq','planDay','planSlot','planMode','planSlots','planIndex','autoNext',
       'wType','wPct','rank','wCrit','wDmg','wHeal','calm',
-      'practice','cvrStrict','pro'
+      'practice','cvrStrict','pro','zone'
     ].forEach(k=>{
       const v = sp.get(k);
       if(v != null && v !== '') run.searchParams.set(k, v);
@@ -252,8 +255,10 @@ FULL v20260307-LAUNCHER-PLATE-SOLO-COOP
     if(!run.searchParams.get('time')) run.searchParams.set('time', '90');
     if(!run.searchParams.get('seed')) run.searchParams.set('seed', String((Date.now() ^ (Math.random()*1e9))|0));
     if(!run.searchParams.get('hub'))  run.searchParams.set('hub', hub);
+    if(!run.searchParams.get('pid'))  run.searchParams.set('pid', pid);
+    if(!run.searchParams.get('zone')) run.searchParams.set('zone', 'nutrition');
 
-    run.searchParams.set('mode', mode);
+    run.searchParams.set('mode', String(mode || 'solo').toLowerCase());
 
     if(extra && typeof extra === 'object'){
       Object.keys(extra).forEach(k=>{
@@ -263,25 +268,57 @@ FULL v20260307-LAUNCHER-PLATE-SOLO-COOP
       });
     }
 
+    const finalMode = String(run.searchParams.get('mode') || mode || 'solo').toLowerCase();
+    run.searchParams.set('mode', finalMode);
+
     return run;
   }
 
-  const soloUrl = buildRunUrl('solo');
-  const soloProUrl = buildRunUrl('solo', { diff:'hard', pro:'1' });
-  const coopUrl = buildRunUrl('coop');
-  const coopProUrl = buildRunUrl('coop', { diff:'hard', pro:'1' });
+  function buildWarmupUrl(runUrl){
+    const gate = new URL('./warmup-gate.html', location.href);
 
-  document.getElementById('goSolo').onclick = ()=> location.href = soloUrl.toString();
-  document.getElementById('goSoloPro').onclick = ()=> location.href = soloProUrl.toString();
-  document.getElementById('goCoop').onclick = ()=> location.href = coopUrl.toString();
-  document.getElementById('goCoopPro').onclick = ()=> location.href = coopProUrl.toString();
+    gate.searchParams.set('gatePhase', 'warmup');
+    gate.searchParams.set('cat', 'nutrition');
+    gate.searchParams.set('theme', 'plate');
+    gate.searchParams.set('game', 'plate');
+    gate.searchParams.set('pid', String(runUrl.searchParams.get('pid') || pid));
+    gate.searchParams.set('hub', hub);
+    gate.searchParams.set('next', runUrl.toString());
+
+    [
+      'run','diff','time','seed','view','pid','studyId','phase','conditionGroup',
+      'log','planSeq','planDay','planSlot','planMode','planSlots','planIndex',
+      'autoNext','wType','wPct','rank','wCrit','wDmg','wHeal','calm','mode','pro','zone'
+    ].forEach(k=>{
+      const v = runUrl.searchParams.get(k);
+      if(v != null && v !== '') gate.searchParams.set(k, v);
+    });
+
+    return gate;
+  }
+
+  function buildLaunchUrl(mode, extra){
+    const runUrl = buildRunUrl(mode, extra);
+    return buildWarmupUrl(runUrl);
+  }
+
+  const soloGate = buildLaunchUrl('solo');
+  const soloProGate = buildLaunchUrl('solo', { diff:'hard', pro:'1' });
+  const coopGate = buildLaunchUrl('coop');
+  const coopProGate = buildLaunchUrl('coop', { diff:'hard', pro:'1' });
+
+  document.getElementById('goSolo').onclick = ()=> location.href = soloGate.toString();
+  document.getElementById('goSoloPro').onclick = ()=> location.href = soloProGate.toString();
+  document.getElementById('goCoop').onclick = ()=> location.href = coopGate.toString();
+  document.getElementById('goCoopPro').onclick = ()=> location.href = coopProGate.toString();
   document.getElementById('back').onclick = ()=> location.href = hub;
 
   const info = document.getElementById('info');
   if(info){
     info.innerHTML =
-      `SOLO: <code>${soloUrl.pathname}?mode=solo</code><br>` +
-      `COOP: <code>${coopUrl.pathname}?mode=coop</code><br>` +
+      `SOLO gate: <code>${soloGate.pathname}</code><br>` +
+      `COOP gate: <code>${coopGate.pathname}</code><br>` +
+      `RUN page: <code>/herohealth/plate/plate-vr.html</code><br>` +
       `hub: <code>${hub}</code>`;
   }
 })();
