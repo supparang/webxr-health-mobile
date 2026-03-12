@@ -1,0 +1,259 @@
+/* === /herohealth/gate/games/jumpduck/style.css === */
+
+:root{
+  --jdg-bg1:#052e16;
+  --jdg-bg2:#071827;
+  --jdg-panel:rgba(2,6,23,.72);
+  --jdg-stroke:rgba(148,163,184,.18);
+  --jdg-text:#e5e7eb;
+  --jdg-muted:#94a3b8;
+  --jdg-accent:#22c55e;
+  --jdg-accent2:#60a5fa;
+  --jdg-good:#22c55e;
+  --jdg-warn:#f59e0b;
+}
+
+.jdg-wrap{
+  min-height:100vh;
+  padding:18px;
+  color:var(--jdg-text);
+  background:
+    radial-gradient(900px 520px at 50% -10%, rgba(34,197,94,.18), transparent 60%),
+    linear-gradient(180deg, var(--jdg-bg1), var(--jdg-bg2));
+}
+
+.jdg-card{
+  width:min(980px, 100%);
+  margin:0 auto;
+  border:1px solid var(--jdg-stroke);
+  background:rgba(2,6,23,.68);
+  border-radius:24px;
+  padding:20px;
+  box-shadow:0 18px 48px rgba(0,0,0,.28);
+  backdrop-filter:blur(8px);
+}
+
+.jdg-kicker{
+  font-size:.82rem;
+  letter-spacing:.12em;
+  color:#bbf7d0;
+  opacity:.95;
+  margin-bottom:8px;
+}
+
+.jdg-title{
+  margin:0;
+  font-size:clamp(1.6rem, 4vw, 2.3rem);
+  line-height:1.1;
+}
+
+.jdg-subtitle{
+  margin:8px 0 0;
+  color:var(--jdg-muted);
+  font-size:1rem;
+}
+
+.jdg-grid{
+  display:grid;
+  grid-template-columns:1fr 1.2fr;
+  gap:16px;
+  margin-top:18px;
+}
+
+.jdg-panel{
+  border:1px solid var(--jdg-stroke);
+  border-radius:20px;
+  padding:16px;
+  background:var(--jdg-panel);
+}
+
+.jdg-play{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:flex-start;
+  text-align:center;
+  min-height:320px;
+}
+
+.jdg-h2{
+  margin:0 0 10px;
+  font-size:1.05rem;
+}
+
+.jdg-list{
+  margin:0;
+  padding-left:18px;
+  color:#dbeafe;
+  line-height:1.7;
+}
+
+.jdg-phase-badge{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-width:120px;
+  padding:8px 14px;
+  border-radius:999px;
+  background:rgba(34,197,94,.14);
+  color:#bbf7d0;
+  border:1px solid rgba(34,197,94,.28);
+  font-weight:700;
+  margin-bottom:14px;
+}
+
+.jdg-phase-badge-cool{
+  background:rgba(96,165,250,.14);
+  color:#bfdbfe;
+  border-color:rgba(96,165,250,.28);
+}
+
+.jdg-cue{
+  min-height:84px;
+  width:100%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  border-radius:18px;
+  border:1px solid var(--jdg-stroke);
+  background:linear-gradient(180deg, rgba(15,23,42,.9), rgba(2,6,23,.86));
+  font-size:clamp(1.3rem, 4vw, 2rem);
+  font-weight:800;
+  padding:14px;
+  margin-bottom:12px;
+}
+
+.jdg-timer{
+  font-size:1.2rem;
+  font-weight:800;
+  color:#fde68a;
+  margin-bottom:10px;
+}
+
+.jdg-stats{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+  justify-content:center;
+  margin-bottom:14px;
+  color:#cbd5e1;
+  font-size:.96rem;
+}
+
+.jdg-stats span{
+  padding:7px 12px;
+  border-radius:999px;
+  background:rgba(15,23,42,.7);
+  border:1px solid var(--jdg-stroke);
+}
+
+.jdg-actions{
+  width:100%;
+  display:grid;
+  grid-template-columns:repeat(2, minmax(0,1fr));
+  gap:10px;
+}
+
+.jdg-actions-stars{
+  grid-template-columns:1fr;
+}
+
+.jdg-btn-action{
+  appearance:none;
+  border:1px solid rgba(148,163,184,.24);
+  background:linear-gradient(180deg, rgba(30,41,59,.95), rgba(15,23,42,.95));
+  color:var(--jdg-text);
+  border-radius:18px;
+  min-height:72px;
+  padding:12px;
+  font-size:1rem;
+  font-weight:700;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:10px;
+}
+
+.jdg-btn-action:disabled{
+  opacity:.55;
+}
+
+.jdg-btn-action.is-done{
+  border-color:rgba(34,197,94,.5);
+  box-shadow:0 0 0 2px rgba(34,197,94,.12) inset;
+  opacity:.92;
+}
+
+.jdg-emoji{
+  font-size:1.3rem;
+}
+
+.jdg-footer{
+  margin-top:16px;
+  display:flex;
+  gap:10px;
+  justify-content:flex-end;
+  flex-wrap:wrap;
+}
+
+.jdg-btn{
+  appearance:none;
+  border:1px solid var(--jdg-stroke);
+  border-radius:14px;
+  padding:12px 16px;
+  font-size:1rem;
+  font-weight:800;
+  cursor:pointer;
+}
+
+.jdg-btn:disabled{
+  opacity:.55;
+  cursor:default;
+}
+
+.jdg-btn-primary{
+  color:#052e16;
+  background:linear-gradient(180deg, #86efac, #22c55e);
+  border-color:rgba(34,197,94,.35);
+}
+
+.jdg-btn-ghost{
+  color:#e2e8f0;
+  background:rgba(15,23,42,.88);
+}
+
+@media (max-width: 760px){
+  .jdg-wrap{
+    padding:12px;
+  }
+
+  .jdg-card{
+    padding:14px;
+    border-radius:18px;
+  }
+
+  .jdg-grid{
+    grid-template-columns:1fr;
+  }
+
+  .jdg-play{
+    min-height:auto;
+  }
+
+  .jdg-actions{
+    grid-template-columns:1fr 1fr;
+  }
+
+  .jdg-btn-action{
+    min-height:64px;
+    font-size:.96rem;
+  }
+
+  .jdg-footer{
+    justify-content:stretch;
+  }
+
+  .jdg-footer .jdg-btn{
+    flex:1 1 auto;
+  }
+}
