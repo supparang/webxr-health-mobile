@@ -1,6 +1,6 @@
 // === /herohealth/gate/gate-games.js ===
 // HeroHealth Gate Game Registry
-// FULL PATCH v20260312c-ALL-ZONES-GATE-GAMES
+// FULL PATCH v20260312-ALL-ZONES-GATE-GAMES
 
 export const GATE_GAMES = {
   // =========================
@@ -149,9 +149,9 @@ export const GATE_GAMES = {
     warmupTitle: 'Quick Feet Prep',
     cooldownTitle: 'Leg Stretch Stars',
     files: {
-      warmup: './games/jumpduck/warmup.js?v=20260312c',
-      cooldown: './games/jumpduck/cooldown.js?v=20260312c',
-      style: './games/jumpduck/style.css?v=20260312c'
+      warmup: './games/jumpduck/warmup.js',
+      cooldown: './games/jumpduck/cooldown.js',
+      style: './games/jumpduck/style.css'
     }
   },
 
@@ -209,6 +209,7 @@ export const GATE_GAMES = {
 };
 
 export const GAME_ALIASES = {
+  // exercise
   'jump-duck': 'jumpduck',
   'jump_duck': 'jumpduck',
   'jump duck': 'jumpduck',
@@ -229,6 +230,7 @@ export const GAME_ALIASES = {
   'fitness_planner': 'fitnessplanner',
   'fitness planner': 'fitnessplanner',
 
+  // hygiene
   'clean-objects': 'cleanobjects',
   'clean_objects': 'cleanobjects',
 
@@ -238,6 +240,7 @@ export const GAME_ALIASES = {
   'mask-cough': 'maskcough',
   'mask_cough': 'maskcough',
 
+  // nutrition
   'good-junk': 'goodjunk',
   'good_junk': 'goodjunk'
 };
