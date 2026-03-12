@@ -1,0 +1,255 @@
+/* === /herohealth/gate/games/fitnessplanner/style.css === */
+
+:root{
+  --fpg-bg1:#1e293b;
+  --fpg-bg2:#134e4a;
+  --fpg-panel:rgba(2,6,23,.72);
+  --fpg-stroke:rgba(148,163,184,.18);
+  --fpg-text:#e5e7eb;
+  --fpg-muted:#94a3b8;
+  --fpg-accent:#f59e0b;
+  --fpg-accent2:#38bdf8;
+}
+
+.fpg-wrap{
+  min-height:100vh;
+  padding:18px;
+  color:var(--fpg-text);
+  background:
+    radial-gradient(900px 520px at 50% -10%, rgba(245,158,11,.18), transparent 60%),
+    linear-gradient(180deg, var(--fpg-bg1), var(--fpg-bg2));
+}
+
+.fpg-wrap-cool{
+  background:
+    radial-gradient(900px 520px at 50% -10%, rgba(56,189,248,.18), transparent 60%),
+    linear-gradient(180deg, #0f172a, #164e63);
+}
+
+.fpg-card{
+  width:min(980px, 100%);
+  margin:0 auto;
+  border:1px solid var(--fpg-stroke);
+  background:rgba(2,6,23,.68);
+  border-radius:24px;
+  padding:20px;
+  box-shadow:0 18px 48px rgba(0,0,0,.28);
+  backdrop-filter:blur(8px);
+}
+
+.fpg-kicker{
+  font-size:.82rem;
+  letter-spacing:.12em;
+  color:#fde68a;
+  opacity:.95;
+  margin-bottom:8px;
+}
+
+.fpg-title{
+  margin:0;
+  font-size:clamp(1.6rem, 4vw, 2.3rem);
+  line-height:1.1;
+}
+
+.fpg-subtitle{
+  margin:8px 0 0;
+  color:var(--fpg-muted);
+  font-size:1rem;
+}
+
+.fpg-grid{
+  display:grid;
+  grid-template-columns:1fr 1.2fr;
+  gap:16px;
+  margin-top:18px;
+}
+
+.fpg-panel{
+  border:1px solid var(--fpg-stroke);
+  border-radius:20px;
+  padding:16px;
+  background:var(--fpg-panel);
+}
+
+.fpg-play{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:flex-start;
+  text-align:center;
+  min-height:320px;
+}
+
+.fpg-h2{
+  margin:0 0 10px;
+  font-size:1.05rem;
+}
+
+.fpg-list{
+  margin:0;
+  padding-left:18px;
+  color:#dbeafe;
+  line-height:1.7;
+}
+
+.fpg-phase-badge{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-width:120px;
+  padding:8px 14px;
+  border-radius:999px;
+  background:rgba(245,158,11,.14);
+  color:#fde68a;
+  border:1px solid rgba(245,158,11,.28);
+  font-weight:700;
+  margin-bottom:14px;
+}
+
+.fpg-phase-badge-cool{
+  background:rgba(56,189,248,.14);
+  color:#bae6fd;
+  border-color:rgba(56,189,248,.28);
+}
+
+.fpg-cue{
+  min-height:84px;
+  width:100%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  border-radius:18px;
+  border:1px solid var(--fpg-stroke);
+  background:linear-gradient(180deg, rgba(15,23,42,.9), rgba(2,6,23,.86));
+  font-size:clamp(1.2rem, 4vw, 1.9rem);
+  font-weight:800;
+  padding:14px;
+  margin-bottom:12px;
+}
+
+.fpg-cue-cool{
+  color:#bae6fd;
+}
+
+.fpg-timer{
+  font-size:1.2rem;
+  font-weight:800;
+  color:#fde68a;
+  margin-bottom:10px;
+}
+
+.fpg-stats{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+  justify-content:center;
+  margin-bottom:14px;
+  color:#cbd5e1;
+  font-size:.96rem;
+}
+
+.fpg-stats span{
+  padding:7px 12px;
+  border-radius:999px;
+  background:rgba(15,23,42,.7);
+  border:1px solid var(--fpg-stroke);
+}
+
+.fpg-actions{
+  width:100%;
+  display:grid;
+  grid-template-columns:repeat(2, minmax(0,1fr));
+  gap:10px;
+}
+
+.fpg-btn-action{
+  appearance:none;
+  border:1px solid rgba(148,163,184,.24);
+  background:linear-gradient(180deg, rgba(30,41,59,.95), rgba(15,23,42,.95));
+  color:var(--fpg-text);
+  border-radius:18px;
+  min-height:72px;
+  padding:12px;
+  font-size:1rem;
+  font-weight:700;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:10px;
+}
+
+.fpg-btn-action:disabled{
+  opacity:.55;
+}
+
+.fpg-btn-action.is-picked{
+  border-color:rgba(56,189,248,.48);
+  box-shadow:0 0 0 2px rgba(56,189,248,.14) inset;
+}
+
+.fpg-emoji{
+  font-size:1.3rem;
+}
+
+.fpg-select-group{
+  width:100%;
+  margin-top:10px;
+}
+
+.fpg-select-title{
+  text-align:left;
+  font-size:.92rem;
+  color:#cbd5e1;
+  margin:4px 0 8px;
+}
+
+.fpg-footer{
+  margin-top:16px;
+  display:flex;
+  gap:10px;
+  justify-content:flex-end;
+  flex-wrap:wrap;
+}
+
+.fpg-btn{
+  appearance:none;
+  border:1px solid var(--fpg-stroke);
+  border-radius:14px;
+  padding:12px 16px;
+  font-size:1rem;
+  font-weight:800;
+  cursor:pointer;
+}
+
+.fpg-btn:disabled{
+  opacity:.55;
+  cursor:default;
+}
+
+.fpg-btn-primary{
+  color:#1e293b;
+  background:linear-gradient(180deg, #fcd34d, #f59e0b);
+  border-color:rgba(245,158,11,.35);
+}
+
+.fpg-btn-ghost{
+  color:#e2e8f0;
+  background:rgba(15,23,42,.88);
+}
+
+@media (max-width: 760px){
+  .fpg-wrap{ padding:12px; }
+  .fpg-card{
+    padding:14px;
+    border-radius:18px;
+  }
+  .fpg-grid{ grid-template-columns:1fr; }
+  .fpg-play{ min-height:auto; }
+  .fpg-actions{ grid-template-columns:1fr; }
+  .fpg-btn-action{
+    min-height:64px;
+    font-size:.96rem;
+  }
+  .fpg-footer{ justify-content:stretch; }
+  .fpg-footer .fpg-btn{ flex:1 1 auto; }
+}
