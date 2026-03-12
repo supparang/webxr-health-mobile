@@ -1,6 +1,6 @@
 /* === /herohealth/gate/games/jumpduck/cooldown.js ===
  * HeroHealth Gate Game: JumpDuck Cooldown
- * PATCH v20260312c-JUMPDUCK-COOLDOWN-MOBILE-CACHE
+ * PATCH v20260312d-JUMPDUCK-COOLDOWN-SCOREFIX
  */
 
 function clamp(v, a, b){ return Math.max(a, Math.min(b, v)); }
@@ -34,9 +34,22 @@ function starsFromScore(score){
   return 1;
 }
 
+function computeScore(state){
+  const starGoal = 3;
+  const holdGoal = 6;
+
+  const starPct = clamp(state.starsDone / starGoal, 0, 1);
+  const holdPct = clamp(state.holdSeconds / holdGoal, 0, 1);
+
+  // ดาวสำคัญกว่าเวลา
+  const weighted = (starPct * 0.60) + (holdPct * 0.40);
+  return clamp(Math.round(weighted * 100), 0, 100);
+}
+
 function makeResult(state){
-  const score = clamp(Math.round((state.starsDone * 28) + (state.holdSeconds * 4)), 0, 100);
+  const score = computeScore(state);
   const passed = state.starsDone >= 3 && state.holdSeconds >= 6;
+
   return {
     ok: true,
     zone: 'exercise',
@@ -56,7 +69,7 @@ function makeResult(state){
       tone: passed ? 'calm' : 'gentle',
       line: passed
         ? 'ยืดขาเรียบร้อยแล้ว ร่างกายพร้อมพัก'
-        : 'ค้างท่ายืดอีกนิด จะช่วยให้ขาผ่อนคลายมากขึ้น'
+        : 'ค้างท่ายืดอีกนิด และเก็บดาวให้ครบ จะช่วยให้ขาผ่อนคลายมากขึ้น'
     },
     nextAction: 'hub'
   };
