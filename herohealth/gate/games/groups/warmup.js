@@ -2,7 +2,7 @@
    HeroHealth Gate Mini-game
    GAME: groups
    MODE: warmup
-   PATCH v20260312-GATE-GROUPS-WARMUP-THAI-G5
+   PATCH v20260312-GATE-GROUPS-WARMUP-THAI-G5-SHORTBTN
 */
 
 let __styleLoaded = false;
@@ -78,11 +78,11 @@ export async function mount(root, ctx, api){
   const rng = mulberry32(Number(ctx.seed || Date.now()) + 41);
 
   const GROUPS = [
-    { key:'g1', label:'หมู่ 1 โปรตีน' },
-    { key:'g2', label:'หมู่ 2 คาร์โบไฮเดรต' },
-    { key:'g3', label:'หมู่ 3 ผัก' },
-    { key:'g4', label:'หมู่ 4 ผลไม้' },
-    { key:'g5', label:'หมู่ 5 ไขมัน' }
+    { key:'g1', label:'หมู่ 1 โปรตีน', short:'โปรตีน' },
+    { key:'g2', label:'หมู่ 2 คาร์โบไฮเดรต', short:'แป้ง' },
+    { key:'g3', label:'หมู่ 3 ผัก', short:'ผัก' },
+    { key:'g4', label:'หมู่ 4 ผลไม้', short:'ผลไม้' },
+    { key:'g5', label:'หมู่ 5 ไขมัน', short:'ไขมัน' }
   ];
 
   const ITEMS = [
@@ -186,7 +186,9 @@ export async function mount(root, ctx, api){
     choices.innerHTML = '';
 
     for(const g of GROUPS){
-      const btn = el('button', 'grp-btn ghost', g.label);
+      const btn = el('button', 'grp-btn ghost', g.short);
+      btn.title = g.label;
+      btn.setAttribute('aria-label', g.label);
 
       btn.addEventListener('click', ()=>{
         if(ended) return;
@@ -207,6 +209,7 @@ export async function mount(root, ctx, api){
           round: idx,
           item: item.text,
           selected: g.key,
+          selectedLabel: g.label,
           correct: item.group,
           score,
           miss,
