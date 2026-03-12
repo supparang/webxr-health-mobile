@@ -1,41 +1,38 @@
 /* === /herohealth/gate/games/jumpduck/cooldown.js ===
- * JumpDuck Cooldown Mini Game
- * Phase: cooldown
- * HeroHealth Gate Game Module
+ * HeroHealth Gate Game: JumpDuck Cooldown
+ * PATCH v20260312-JUMPDUCK-COOLDOWN-A
  */
 
-function clamp(v, a, b) {
-  return Math.max(a, Math.min(b, v));
-}
+function clamp(v, a, b){ return Math.max(a, Math.min(b, v)); }
 
-function qs(ctx, key, fallback = '') {
-  try {
-    if (ctx && ctx.url) return ctx.url.searchParams.get(key) ?? fallback;
+function getParam(ctx, key, fallback=''){
+  try{
+    if (ctx?.url) return ctx.url.searchParams.get(key) ?? fallback;
     return new URL(window.location.href).searchParams.get(key) ?? fallback;
-  } catch {
+  }catch(_){
     return fallback;
   }
 }
 
-function makeStars(score) {
-  if (score >= 90) return 3;
-  if (score >= 70) return 2;
-  return 1;
-}
-
-function ensureGameStyle() {
-  const href = './gate/games/jumpduck/style.css';
+function ensureStyle(){
   const id = 'hh-gate-style-jumpduck';
   if (document.getElementById(id)) return;
   const link = document.createElement('link');
   link.id = id;
   link.rel = 'stylesheet';
-  link.href = href;
+  link.href = './gate/games/jumpduck/style.css';
   document.head.appendChild(link);
 }
 
-function makeResult(state, extra = {}) {
+function starsFromScore(score){
+  if (score >= 90) return 3;
+  if (score >= 70) return 2;
+  return 1;
+}
+
+function makeResult(state){
   const score = clamp(Math.round((state.starsDone * 28) + (state.holdSeconds * 4)), 0, 100);
+  const passed = state.starsDone >= 3 && state.holdSeconds >= 6;
   return {
     ok: true,
     zone: 'exercise',
@@ -43,40 +40,47 @@ function makeResult(state, extra = {}) {
     phase: 'cooldown',
     activityId: 'jumpduck-leg-stretch-stars',
     title: 'Leg Stretch Stars',
-    passed: state.starsDone >= 3 && state.holdSeconds >= 6,
+    passed,
     score,
-    stars: makeStars(score),
+    stars: starsFromScore(score),
     metrics: {
       starsDone: state.starsDone,
       holdSeconds: state.holdSeconds,
       finished: state.finished ? 1 : 0
     },
     coach: {
-      tone: score >= 60 ? 'calm' : 'gentle',
-      line: score >= 60
+      tone: passed ? 'calm' : 'gentle',
+      line: passed
         ? 'ยืดขาเรียบร้อยแล้ว ร่างกายพร้อมพัก'
         : 'ค้างท่ายืดอีกนิด จะช่วยให้ขาผ่อนคลายมากขึ้น'
     },
-    nextAction: 'hub',
-    ...extra
+    nextAction: 'hub'
   };
 }
 
-export function mount(root, ctx = {}) {
-  ensureGameStyle();
+export function mount(root, ctx = {}){
+  ensureStyle();
 
-  const onComplete = typeof ctx.onComplete === 'function' ? ctx.onComplete : () => {};
-  const phase = qs(ctx, 'phase', 'cooldown');
-  if (phase !== 'cooldown') {
-    root.innerHTML = `<div class="jdg-wrap"><div class="jdg-card"><h2>Phase ไม่ตรง</h2><p>โมดูลนี้ใช้สำหรับ cooldown เท่านั้น</p></div></div>`;
+  const phase = String(getParam(ctx, 'phase', 'cooldown')).toLowerCase();
+  const onComplete = typeof ctx?.onComplete === 'function' ? ctx.onComplete : () => {};
+  if (phase !== 'cooldown'){
+    root.innerHTML = `
+      <div class="jdg-wrap">
+        <section class="jdg-card">
+          <div class="jdg-kicker">EXERCISE ZONE • COOLDOWN</div>
+          <h1 class="jdg-title">⭐ Leg Stretch Stars</h1>
+          <p class="jdg-subtitle">โมดูลนี้ใช้สำหรับ phase=cooldown เท่านั้น</p>
+        </section>
+      </div>
+    `;
     return;
   }
 
   const GAME_SEC = 18;
   const STAR_LIST = [
     { id: 'front', label: 'ยืดด้านหน้า', emoji: '⭐' },
-    { id: 'side', label: 'ยืดด้านข้าง', emoji: '✨' },
-    { id: 'calf', label: 'ยืดน่อง', emoji: '🌟' }
+    { id: 'side',  label: 'ยืดด้านข้าง', emoji: '✨' },
+    { id: 'calf',  label: 'ยืดน่อง',     emoji: '🌟' }
   ];
 
   const state = {
@@ -142,19 +146,19 @@ export function mount(root, ctx = {}) {
   const startBtn = root.querySelector('#jdg-start');
   const finishBtn = root.querySelector('#jdg-finish');
 
-  function renderStats() {
+  function renderStats(){
     statsEl.innerHTML = `
       <span>ดาว ${state.starsDone}/3</span>
       <span>ค้าง ${state.holdSeconds}s</span>
     `;
   }
 
-  function finishGame() {
+  function finishGame(){
     if (state.finished) return;
     state.finished = true;
     clearInterval(state.gameTimer);
     clearInterval(state.holdTimer);
-    actionsEl.querySelectorAll('.jdg-btn-action').forEach(btn => btn.disabled = true);
+    actionsEl.querySelectorAll('.jdg-btn-action').forEach(btn => { btn.disabled = true; });
     startBtn.disabled = true;
     finishBtn.disabled = false;
     cueEl.textContent = 'เสร็จแล้ว กดสรุปผล';
@@ -175,7 +179,7 @@ export function mount(root, ctx = {}) {
     cueEl.textContent = `ดีมาก ${btn.textContent.trim()}`;
     renderStats();
 
-    if (state.starsDone >= 3 && state.holdSeconds >= 6) {
+    if (state.starsDone >= 3 && state.holdSeconds >= 6){
       finishGame();
     }
   });
@@ -184,7 +188,7 @@ export function mount(root, ctx = {}) {
     if (state.started) return;
     state.started = true;
     startBtn.disabled = true;
-    actionsEl.querySelectorAll('.jdg-btn-action').forEach(btn => btn.disabled = false);
+    actionsEl.querySelectorAll('.jdg-btn-action').forEach(btn => { btn.disabled = false; });
 
     state.gameTimer = setInterval(() => {
       state.remainSec -= 1;
@@ -193,10 +197,10 @@ export function mount(root, ctx = {}) {
     }, 1000);
 
     state.holdTimer = setInterval(() => {
-      if (!state.finished && state.starsDone > 0) {
+      if (!state.finished && state.starsDone > 0){
         state.holdSeconds += 1;
         renderStats();
-        if (state.starsDone >= 3 && state.holdSeconds >= 6) {
+        if (state.starsDone >= 3 && state.holdSeconds >= 6){
           finishGame();
         }
       }
