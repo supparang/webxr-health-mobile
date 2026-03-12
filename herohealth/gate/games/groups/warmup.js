@@ -2,7 +2,7 @@
    HeroHealth Gate Mini-game
    GAME: groups
    MODE: warmup
-   PATCH v20260308-GATE-GROUPS-WARMUP
+   PATCH v20260312-GATE-GROUPS-WARMUP-THAI-G5
 */
 
 let __styleLoaded = false;
@@ -106,10 +106,10 @@ export async function mount(root, ctx, api){
     { text:'🍉 แตงโม', group:'g4' },
     { text:'🍎 แอปเปิล', group:'g4' },
 
-    { text:'🫒 น้ำมันพืช', group:'g5' },
     { text:'🧈 เนย', group:'g5' },
     { text:'🥥 กะทิ', group:'g5' },
-    { text:'🥑 อะโวคาโด', group:'g5' }
+    { text:'🐷 มันหมู', group:'g5' },
+    { text:'🛢️ น้ำมันปรุงอาหาร', group:'g5' }
   ];
 
   const rounds = shuffle(ITEMS, rng).slice(0, 8);
