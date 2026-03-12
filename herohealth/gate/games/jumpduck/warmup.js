@@ -1,6 +1,6 @@
 /* === /herohealth/gate/games/jumpduck/warmup.js ===
  * HeroHealth Gate Game: JumpDuck Warmup
- * PATCH v20260312-JUMPDUCK-WARMUP-A
+ * PATCH v20260312c-JUMPDUCK-WARMUP-MOBILE-CACHE
  */
 
 function clamp(v, a, b){ return Math.max(a, Math.min(b, v)); }
@@ -16,11 +16,15 @@ function getParam(ctx, key, fallback=''){
 
 function ensureStyle(){
   const id = 'hh-gate-style-jumpduck';
-  if (document.getElementById(id)) return;
+  const href = './gate/games/jumpduck/style.css?v=20260312c';
+
+  const old = document.getElementById(id);
+  if (old) old.remove();
+
   const link = document.createElement('link');
   link.id = id;
   link.rel = 'stylesheet';
-  link.href = './gate/games/jumpduck/style.css';
+  link.href = href;
   document.head.appendChild(link);
 }
 
@@ -126,7 +130,7 @@ export function mount(root, ctx = {}){
             <ol class="jdg-list">
               <li>กดปุ่มให้ตรงกับคำสั่งที่ขึ้นบนจอ</li>
               <li>มี 4 ท่า: ซ้าย ขวา ย่อ กระโดด</li>
-              <li>ทำให้ถูกอย่างน้อย 4 ครั้ง หรือคะแนนรวม 60%</li>
+              <li>ทำให้ถูกอย่างน้อย 4 ครั้ง</li>
             </ol>
           </div>
 
