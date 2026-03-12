@@ -1,22 +1,113 @@
-// === /fitness/js/jump-duck.js ===
-// Jump-Duck — FULL PRODUCTION
-// PATCH v20260307-JD-VISUALSET-AVATAR3STATE-FULL
-'use strict';
+ฃ/* === /fitness/js/jump-duck.js ===
+ * Jump-Duck — PRODUCTION
+ * PATCH v20260312-JD-GATEFLOW-ENGINE-FULL
+ */
 
-(function(){
-  const $  = (s)=>document.querySelector(s);
+(function () {
+  'use strict';
 
-  const viewMenu   = $('#view-menu');
-  const viewPlay   = $('#view-play');
+  const W = window;
+  const D = document;
+
+  const $ = (sel, root = D) => root.querySelector(sel);
+  const $$ = (sel, root = D) => Array.from(root.querySelectorAll(sel));
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const rint = (a, b) => Math.floor(Math.random() * (b - a + 1)) + a;
+  const now = () => performance.now();
+
+  /* ===== HeroHealth Gate Flow ===== */
+  const JD_GATE = W.JD_GATE_CONFIG || {};
+
+  function jdSafe(v, d = '') {
+    return (v == null || v === '') ? d : String(v);
+  }
+
+  function jdRoot() {
+    return jdSafe(JD_GATE.ROOT, 'https://supparang.github.io/webxr-health-mobile/herohealth/');
+  }
+
+  function jdHub() {
+    return jdSafe(JD_GATE.hub, jdRoot() + 'hub.html');
+  }
+
+  function jdBuildCooldownUrl(extra = {}) {
+    const u = new URL(jdRoot() + 'warmup-gate.html');
+    u.searchParams.set('zone', 'exercise');
+    u.searchParams.set('game', 'jumpduck');
+    u.searchParams.set('phase', 'cooldown');
+    u.searchParams.set('hub', jdHub());
+
+    const base = {
+      pid: jdSafe(JD_GATE.pid, 'anon'),
+      studyId: jdSafe(JD_GATE.studyId, ''),
+      seed: jdSafe(JD_GATE.seed, Date.now()),
+      run: jdSafe(JD_GATE.run, 'play'),
+      view: jdSafe(JD_GATE.view, 'mobile'),
+      diff: jdSafe(JD_GATE.diff, 'normal'),
+      time: jdSafe(JD_GATE.time, JD_GATE.duration || '60'),
+      duration: jdSafe(JD_GATE.duration, JD_GATE.time || '60'),
+      log: jdSafe(JD_GATE.log, ''),
+      api: jdSafe(JD_GATE.api, ''),
+      ai: jdSafe(JD_GATE.ai, ''),
+      debug: jdSafe(JD_GATE.debug, ''),
+      conditionGroup: jdSafe(JD_GATE.conditionGroup, ''),
+      grade: jdSafe(JD_GATE.grade, ''),
+      planSeq: jdSafe(JD_GATE.planSeq, ''),
+      planDay: jdSafe(JD_GATE.planDay, ''),
+      planSlot: jdSafe(JD_GATE.planSlot, ''),
+      planMode: jdSafe(JD_GATE.planMode, ''),
+      planSlots: jdSafe(JD_GATE.planSlots, ''),
+      planIndex: jdSafe(JD_GATE.planIndex, ''),
+      autoNext: jdSafe(JD_GATE.autoNext, ''),
+      plannedGame: jdSafe(JD_GATE.plannedGame, ''),
+      finalGame: jdSafe(JD_GATE.finalGame, ''),
+      cdnext: jdSafe(JD_GATE.cdnext, '')
+    };
+
+    Object.entries({ ...base, ...extra }).forEach(([k, v]) => {
+      if (v != null && v !== '') u.searchParams.set(k, String(v));
+    });
+
+    return u.toString();
+  }
+
+  function jdGoCooldown(extra = {}) {
+    location.href = jdBuildCooldownUrl(extra);
+  }
+
+  /* ===== URL params ===== */
+  const URLX = new URL(location.href);
+  const qp = (k, d = '') => URLX.searchParams.get(k) ?? d;
+
+  /* ===== Core config ===== */
+  const CFG = {
+    mode: qp('mode', 'training'),
+    diff: qp('diff', 'normal'),
+    duration: Number(qp('duration', qp('time', '60'))) || 60,
+    pid: qp('pid', 'anon'),
+    studyId: qp('studyId', ''),
+    hub: qp('hub', jdHub()),
+    debug: ['1','true','yes','on'].includes(String(qp('debug','0')).toLowerCase()),
+    tutorial: false
+  };
+
+  /* ===== DOM refs ===== */
+  const viewMenu = $('#view-menu');
+  const viewPlay = $('#view-play');
   const viewResult = $('#view-result');
 
-  const elMode     = $('#jd-mode');
-  const elDiff     = $('#jd-diff');
-  const elDuration = $('#jd-duration');
+  const menuMode = $('#jd-mode');
+  const menuDiff = $('#jd-diff');
+  const menuDuration = $('#jd-duration');
+
   const researchBlock = $('#jd-research-block');
-  const elPidInput = $('#jd-participant-id');
-  const elGroup    = $('#jd-group');
-  const elNote     = $('#jd-note');
+  const participantId = $('#jd-participant-id');
+  const groupInput = $('#jd-group');
+  const noteInput = $('#jd-note');
+
+  const backHubMenu = $('#jd-back-hub-menu');
+  const backHubPlay = $('#jd-back-hub-play');
+  const backHubResult = $('#jd-back-hub-result');
 
   const hudMode = $('#hud-mode');
   const hudDiff = $('#hud-diff');
@@ -26,21 +117,19 @@
   const hudCombo = $('#hud-combo');
   const hudStability = $('#hud-stability');
   const hudBoss = $('#hud-boss');
-
-  const progFill = $('#hud-prog-fill');
-  const progText = $('#hud-prog-text');
-  const feverFill = $('#hud-fever-fill');
-  const feverStatus = $('#hud-fever-status');
-
-  const bossWrap = $('#boss-bar-wrap');
-  const bossFill = $('#hud-boss-fill');
-  const bossStatus = $('#hud-boss-status');
+  const hudProgFill = $('#hud-prog-fill');
+  const hudProgText = $('#hud-prog-text');
+  const hudFeverFill = $('#hud-fever-fill');
+  const hudFeverStatus = $('#hud-fever-status');
+  const bossBarWrap = $('#boss-bar-wrap');
+  const hudBossFill = $('#hud-boss-fill');
+  const hudBossStatus = $('#hud-boss-status');
 
   const playArea = $('#jd-play-area');
+  const judge = $('#jd-judge');
+  const tele = $('#jd-tele');
+  const avatar = $('#jd-avatar');
   const obsLayer = $('#jd-obstacles');
-  const avatar   = $('#jd-avatar');
-  const judgeEl  = $('#jd-judge');
-  const teleEl   = $('#jd-tele');
 
   const resMode = $('#res-mode');
   const resDiff = $('#res-diff');
@@ -53,1265 +142,683 @@
   const resJumpMiss = $('#res-jump-miss');
   const resDuckMiss = $('#res-duck-miss');
   const resAcc = $('#res-acc');
-  const resRTMean = $('#res-rt-mean');
+  const resRtMean = $('#res-rt-mean');
   const resStabilityMin = $('#res-stability-min');
   const resScore = $('#res-score');
   const resRank = $('#res-rank');
 
-  const btnDlEvents   = $('#jd-btn-dl-events');
-  const btnDlSessions = $('#jd-btn-dl-sessions');
-  const btnSendLog    = $('#jd-btn-send-log');
-  const logStatus     = $('#jd-log-status');
+  const logStatus = $('#jd-log-status');
 
-  const qs = (k,d='')=>{ try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(_){ return d; } };
-  const qsBool = (k)=>{
-    const v = String(qs(k,'')).toLowerCase();
-    return (v==='1'||v==='true'||v==='yes'||v==='on');
-  };
+  const btnEvents = $('#jd-btn-dl-events');
+  const btnSessions = $('#jd-btn-dl-sessions');
+  const btnSendLog = $('#jd-btn-send-log');
 
-  const HHA_CTX = {
-    run: qs('run','play'),
-    diff: qs('diff','normal'),
-    time: qs('time','60'),
-    seed: qs('seed',''),
-    studyId: qs('studyId',''),
-    phase: qs('phase',''),
-    conditionGroup: qs('conditionGroup',''),
-    log: qs('log',''),
-    view: qs('view',''),
-    pid: qs('pid','anon'),
-    api: qs('api',''),
-    ai: qs('ai',''),
-    debug: qs('debug',''),
-    hub: qs('hub',''),
-    mode: qs('mode','training'),
-    duration: qs('duration', qs('time','60')),
-    pro: qs('pro','')
-  };
+  /* ===== Button groups ===== */
+  const menuActionBtns = $$('[data-action]', viewMenu);
+  const playActionBtns = $$('[data-action]', viewPlay);
+  const resultActionBtns = $$('[data-action]', viewResult);
 
-  const PATH_PENDING = 'JD_PENDING_LOGS_V1';
-
+  /* ===== State ===== */
   let state = null;
   let rafId = 0;
+  let obstacleSpawnTimer = 0;
+  let phaseTickTimer = 0;
+  let feverTimer = 0;
+  let bossActive = false;
+  let bossHP = 0;
+  let bossMaxHP = 0;
   let lastTs = 0;
-  let nextObstacleId = 1;
-  let judgeTimer = 0;
-  let teleTimer = 0;
-  let lastAction = null;
+  let gameStartedAt = 0;
 
-  const DIFFS = {
-    easy:   { speed: 33, spawnMs: 1300, hitWinMs: 260, stabDmg: 10, stabGain: 4, score: 12 },
-    normal: { speed: 45, spawnMs: 1000, hitWinMs: 220, stabDmg: 13, stabGain: 3, score: 16 },
-    hard:   { speed: 58, spawnMs:  820, hitWinMs: 190, stabDmg: 16, stabGain: 3, score: 20 }
-  };
+  W.__JD_LAST_SUMMARY = null;
 
-  const PRO = {
-    spawnMul: .92,
-    speedMul: 1.08,
-    hitWinMul: .92,
-    stabDmgMul: 1.05
-  };
+  const eventsLog = [];
+  const sessionsLog = [];
 
-  const PHASE_THRESH = [0.33, 0.70];
-
-  const FEVER = {
-    threshold: 100,
-    decayPerSec: 12,
-    durationSec: 5.5,
-    gainOnHit: { easy:18, normal:16, hard:14 }
-  };
-
-  const BOSS = {
-    hpMax: 110,
-    dmgOnHit: 6,
-    dmgOnPerfect: 9,
-    burstEveryMs: 5200,
-    tempoShiftEveryMs: 4200,
-    shieldPhaseAtHp: 60,
-    shieldNeedStreak: 6,
-    shieldBreakBonusDmg: 16,
-    frenzyAtHp: 18,
-    frenzyBurstEveryMs: 3200,
-    frenzyLenBoost: 2,
-    feintChance: 0.18,
-    feintFlipAtX: 34,
-    revealAtX: 30,
-    proFeintMul: 1.35,
-    proFrenzyMul: 0.82,
-    ruleWindowMs: 3200,
-    ruleRestMs: 2200
-  };
-
-  function showView(name){
-    viewMenu.classList.add('hidden');
-    viewPlay.classList.add('hidden');
-    viewResult.classList.add('hidden');
-    if(name==='menu') viewMenu.classList.remove('hidden');
-    if(name==='play') viewPlay.classList.remove('hidden');
-    if(name==='result') viewResult.classList.remove('hidden');
+  /* ===== Difficulty ===== */
+  function getDiffCfg(diff) {
+    if (diff === 'easy') return { speed: 280, spawnEvery: 1450, bossEvery: 22, feverGain: 6 };
+    if (diff === 'hard') return { speed: 380, spawnEvery: 950, bossEvery: 14, feverGain: 9 };
+    return { speed: 330, spawnEvery: 1150, bossEvery: 18, feverGain: 7 };
   }
 
-  function showJudge(msg){
-    judgeEl.textContent = msg;
-    judgeEl.classList.add('show');
-    clearTimeout(judgeTimer);
-    judgeTimer = setTimeout(()=>judgeEl.classList.remove('show'), 520);
+  /* ===== UI helpers ===== */
+  function showView(name) {
+    viewMenu.classList.toggle('hidden', name !== 'menu');
+    viewPlay.classList.toggle('hidden', name !== 'play');
+    viewResult.classList.toggle('hidden', name !== 'result');
   }
 
-  function telegraph(msg, ms=650){
-    const box = teleEl.querySelector('.teleBox');
-    if(box) box.textContent = msg;
-    teleEl.classList.remove('hidden');
-    teleEl.classList.add('on');
-    clearTimeout(teleTimer);
-    teleTimer = setTimeout(()=>{
-      teleEl.classList.remove('on');
-      setTimeout(()=>teleEl.classList.add('hidden'), 120);
-    }, ms);
-  }
-
-  function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
-  function nowIso(){ return new Date().toISOString(); }
-
-  function mulberry32(seed){
-    let t = seed >>> 0;
-    return function(){
-      t += 0x6D2B79F5;
-      let x = Math.imul(t ^ (t >>> 15), 1 | t);
-      x ^= x + Math.imul(x ^ (x >>> 7), 61 | x);
-      return ((x ^ (x >>> 14)) >>> 0) / 4294967296;
-    };
-  }
-  function strToSeed(s){
-    const str = String(s||'');
-    let h = 2166136261 >>> 0;
-    for(let i=0;i<str.length;i++){
-      h ^= str.charCodeAt(i);
-      h = Math.imul(h, 16777619);
-    }
-    return h >>> 0;
-  }
-
-  function setHubLinks(){
-    const hub = HHA_CTX.hub || '#';
-    ['jd-back-hub-menu','jd-back-hub-play','jd-back-hub-result'].forEach(id=>{
-      const el = document.getElementById(id);
-      if(el) el.href = hub;
+  function setHubLinks() {
+    const hub = CFG.hub || jdHub();
+    [backHubMenu, backHubPlay].forEach(a => {
+      if (a) a.href = hub;
     });
-  }
-
-  function updateResearchVisibility(){
-    const mode = (elMode.value || 'training').toLowerCase();
-    researchBlock.classList.toggle('hidden', mode !== 'research');
-  }
-
-  function buildParticipant(mode){
-    if(mode !== 'research'){
-      return {
-        id: String(HHA_CTX.pid || 'anon').trim(),
-        group: '',
-        note: ''
-      };
-    }
-    return {
-      id: (elPidInput.value || HHA_CTX.pid || 'anon').trim(),
-      group: (elGroup.value || '').trim(),
-      note: (elNote.value || '').trim()
-    };
-  }
-
-  function getPhase(progress){
-    if(progress < PHASE_THRESH[0]) return 1;
-    if(progress < PHASE_THRESH[1]) return 2;
-    return 3;
-  }
-
-  function ruleLabel(rule){
-    if(rule === 'perfect-only') return 'PERFECT';
-    if(rule === 'no-repeat') return 'NO-REPEAT';
-    if(rule === 'alternate') return 'ALTERNATE';
-    if(rule === 'no-miss') return 'NO-MISS';
-    return '—';
-  }
-
-  function setAvatarState(kind){
-    if(!avatar) return;
-    avatar.classList.remove('avatar-idle','avatar-jump','avatar-duck');
-    if(kind === 'jump') avatar.classList.add('avatar-jump');
-    else if(kind === 'duck') avatar.classList.add('avatar-duck');
-    else avatar.classList.add('avatar-idle');
-  }
-
-  function pickBossVariant(){
-    const r = state.rng();
-    const variants = ['tempo','feint','shield','mirror','chaos'];
-    return variants[Math.floor(r * variants.length)];
-  }
-
-  function pickBossRule(){
-    const v = state.bossVariant || 'tempo';
-    let pool = ['perfect-only','no-repeat','alternate','no-miss'];
-    if(v === 'feint')  pool = ['no-repeat','perfect-only','alternate','no-miss'];
-    if(v === 'tempo')  pool = ['alternate','perfect-only','no-repeat','no-miss'];
-    if(v === 'shield') pool = ['no-miss','alternate','perfect-only','no-repeat'];
-    if(v === 'mirror') pool = ['no-repeat','alternate','perfect-only','no-miss'];
-    if(v === 'chaos')  pool = ['perfect-only','no-miss','alternate','no-repeat'];
-    return pool[Math.floor(state.rng() * pool.length)];
-  }
-
-  function createObstacle(type, isBoss, allowFeint){
-    const obs = document.createElement('div');
-    const low = type === 'low';
-    obs.className = 'obs ' + (low ? 'low' : 'high');
-    obs.style.left = '100%';
-
-    const inner = document.createElement('div');
-    inner.className = 'obs-inner';
-
-    const shape = document.createElement('div');
-    shape.className = low ? 'obs-low-shape' : 'obs-high-shape';
-
-    const label = document.createElement('div');
-    label.className = 'obs-label';
-    label.textContent = low ? 'JUMP' : 'DUCK';
-
-    inner.appendChild(shape);
-    inner.appendChild(label);
-    obs.appendChild(inner);
-
-    let feint = false;
-    let flipAtX = null;
-    let revealAtX = null;
-
-    if(allowFeint){
-      let feintP = BOSS.feintChance;
-      if(state.bossVariant === 'feint') feintP *= 1.55;
-      if(state.bossVariant === 'tempo') feintP *= 1.15;
-      if(state.bossVariant === 'shield') feintP *= 0.90;
-      if(state.pro) feintP *= BOSS.proFeintMul;
-
-      if(state.rng() < feintP){
-        feint = true;
-        flipAtX = BOSS.feintFlipAtX + (state.rng()*2 - 1);
-        revealAtX = BOSS.revealAtX + (state.rng()*2 - 1);
-        obs.classList.add('feint');
-      }
-    }
-
-    const item = {
-      id: nextObstacleId++,
-      x: 100,
-      type,
-      need: low ? 'jump' : 'duck',
-      isBoss: !!isBoss,
-      feint,
-      flipped: false,
-      flipAtX,
-      revealAtX,
-      resolved: false,
-      el: obs
-    };
-
-    obsLayer.appendChild(obs);
-    state.obstacles.push(item);
-    state.obstaclesSpawned++;
-  }
-
-  function spawnObstacle(phase){
-    if(!state) return;
-    const last = state.obstacles[state.obstacles.length - 1];
-    if(last && last.x > 72) return;
-
-    const type = state.rng() < 0.5 ? 'low' : 'high';
-    createObstacle(type, phase===3, phase===3);
-
-    const pairP = (phase===3 ? 0.10 : 0.06) * (state.mode==='training' ? 1 : 0.65);
-    if(state.rng() < pairP){
-      setTimeout(()=>{
-        if(state && state.running){
-          createObstacle(state.rng() < 0.5 ? 'low' : 'high', phase===3, phase===3);
-        }
-      }, 150);
+    if (backHubResult) {
+      backHubResult.href = '#';
     }
   }
 
-  function handleInput(type){
-    if(!state || !state.running) return;
-    lastAction = { type, time: performance.now() };
-
-    if(type === 'jump') setAvatarState('jump');
-    else setAvatarState('duck');
-
-    setTimeout(()=>{
-      if(state && state.running) setAvatarState('idle');
-    }, 180);
+  function toastJudge(text) {
+    judge.textContent = text;
+    judge.classList.add('show');
+    setTimeout(() => judge.classList.remove('show'), 260);
   }
 
-  function triggerBossBurst(){
-    if(!state) return;
-    state.bossBurstCount++;
-    telegraph(state.bossFrenzyOn ? '💥 BURST+' : '⚡ BURST!', 600);
-    showJudge(state.bossFrenzyOn ? '💥 FRENZY BURST!' : '⚡ BURST!');
-
-    let patterns = ['mirror','abab','aab','random','stair','doubletap'];
-    if(state.bossVariant === 'mirror') patterns = ['mirror','abab','doubletap','stair'];
-    if(state.bossVariant === 'feint') patterns = ['random','aab','abab','stair'];
-    if(state.bossVariant === 'tempo') patterns = ['abab','mirror','aab','doubletap'];
-    if(state.bossVariant === 'shield') patterns = ['mirror','aab','stair','doubletap'];
-    if(state.bossVariant === 'chaos') patterns = ['random','stair','abab','doubletap','aab'];
-
-    const p = patterns[Math.floor(state.rng()*patterns.length)];
-    const baseN = 5 + Math.floor(state.rng()*3);
-    const n = state.bossFrenzyOn ? (baseN + BOSS.frenzyLenBoost) : baseN;
-    const baseDelay = state.bossFrenzyOn ? 105 : 125;
-    const flip = (x)=> x==='low' ? 'high' : 'low';
-
-    const seq = [];
-    if (p === 'mirror'){
-      const start = state.rng()<0.5 ? 'low' : 'high';
-      for(let i=0;i<n;i++) seq.push((i%2===0)?start:flip(start));
-    } else if (p === 'abab'){
-      const a = state.rng()<0.5 ? 'low' : 'high';
-      const b = flip(a);
-      for(let i=0;i<n;i++) seq.push(i%2===0?a:b);
-    } else if (p === 'aab'){
-      const a = state.rng()<0.5 ? 'low' : 'high';
-      const b = flip(a);
-      for(let i=0;i<n;i++) seq.push((i%3===2)?b:a);
-    } else if (p === 'stair'){
-      const start = state.rng()<0.5 ? 'low' : 'high';
-      for(let i=0;i<n;i++){
-        const block = Math.floor(i/2)%2;
-        seq.push(block===0 ? start : flip(start));
-      }
-    } else if (p === 'doubletap'){
-      const start = state.rng()<0.5 ? 'low' : 'high';
-      for(let i=0;i<n;i++){
-        const k = Math.floor(i/2);
-        seq.push((k%2===0)?start:flip(start));
-      }
-    } else {
-      for(let i=0;i<n;i++) seq.push(state.rng()<0.5 ? 'low' : 'high');
-    }
-
-    seq.forEach((type,i)=>{
-      setTimeout(()=>{
-        if(state && state.running) createObstacle(type, true, true);
-      }, baseDelay*i);
-    });
+  function showTele(text) {
+    tele.classList.remove('hidden');
+    tele.classList.add('on');
+    $('.teleBox', tele).textContent = text;
+    setTimeout(() => {
+      tele.classList.remove('on');
+      setTimeout(() => tele.classList.add('hidden'), 180);
+    }, 600);
   }
 
-  function updateBoss(ts){
-    if(!state || !state.bossAlive) return;
-
-    if(state.bossVariant === 'chaos' && !state.bossOverheatNeed && state.rng() < 0.005){
-      state.bossOverheatNeed = 1;
-      state.bossOverheatHits = 0;
-      state.bossOverheatEndAt = ts + 2200;
-      telegraph('🔥 OVERHEAT!', 550);
-      showJudge('🔥 OVERHEAT! 2 วิ ห้ามพลาด!');
-    }
-
-    if(state.bossOverheatNeed && ts >= state.bossOverheatEndAt){
-      state.bossOverheatNeed = 0;
-      telegraph('✅ COOL', 400);
-      showJudge('✅ ผ่าน OVERHEAT!');
-    }
-
-    if(!state.bossRuleActive && ts >= state.bossRuleNextAt){
-      state.bossRule = pickBossRule();
-      state.bossRuleActive = true;
-      state.bossRuleEndAt = ts + BOSS.ruleWindowMs;
-      state.bossLastNeed = null;
-      telegraph('🎴 RULE: ' + ruleLabel(state.bossRule), 650);
-      showJudge('🎴 RULE: ' + ruleLabel(state.bossRule));
-    }
-
-    if(state.bossRuleActive && ts >= state.bossRuleEndAt){
-      state.bossRuleActive = false;
-      state.bossRuleNextAt = ts + BOSS.ruleRestMs + (state.rng()*600);
-      telegraph('✅ RULE CLEAR', 450);
-      showJudge('✅ RULE CLEAR!');
-    }
-
-    if(state.bossHp <= BOSS.shieldPhaseAtHp && state.bossShieldNeedStreak === 0){
-      state.bossShieldNeedStreak = BOSS.shieldNeedStreak;
-      state.bossShieldStreak = 0;
-      telegraph('🛡️ SHIELD', 700);
-      showJudge(`🛡️ SHIELD! ถูกติดกัน ${BOSS.shieldNeedStreak} ครั้ง`);
-    }
-
-    if(!state.bossFrenzyOn && state.bossHp <= BOSS.frenzyAtHp){
-      state.bossFrenzyOn = true;
-      telegraph('💥 FINAL', 650);
-      showJudge('💥 FINAL FRENZY!');
-    }
-
-    let tempoEvery = state.bossFrenzyOn ? (BOSS.tempoShiftEveryMs*0.80) : BOSS.tempoShiftEveryMs;
-    if(state.bossVariant === 'tempo') tempoEvery *= 0.85;
-    if(state.bossVariant === 'mirror') tempoEvery *= 0.92;
-
-    if(ts >= state.bossNextTempoAt){
-      state.bossNextTempoAt = ts + tempoEvery + (state.rng()*420 - 200);
-      telegraph('⚡ TEMPO SHIFT', 550);
-    }
-
-    let burstEvery = state.bossFrenzyOn ? BOSS.frenzyBurstEveryMs : BOSS.burstEveryMs;
-    if(state.bossVariant === 'mirror') burstEvery *= 0.92;
-    if(state.bossVariant === 'chaos') burstEvery *= 0.88;
-    if(state.pro) burstEvery *= BOSS.proFrenzyMul;
-    burstEvery = Math.max(2400, burstEvery);
-
-    if(ts >= state.bossNextBurstAt){
-      state.bossNextBurstAt = ts + burstEvery + (state.rng()*520 - 240);
-      triggerBossBurst();
-    }
-
-    bossWrap.classList.remove('hidden');
-    hudBoss.textContent = `${Math.max(0, Math.round(state.bossHp))}%`;
-    bossFill.style.width = `${Math.max(0, (state.bossHp / BOSS.hpMax) * 100)}%`;
-
-    bossStatus.textContent =
-      state.bossOverheatNeed ? 'OVERHEAT!' :
-      (state.bossRuleActive ? ('RULE ' + ruleLabel(state.bossRule)) :
-      (state.bossShieldNeedStreak > 0 ? `SHIELD ${state.bossShieldStreak}/${state.bossShieldNeedStreak}` :
-      (state.bossFrenzyOn ? 'FRENZY!' : 'BOSS!')));
-
-    if(state.bossHp <= 0){
-      state.bossHp = 0;
-      state.bossAlive = false;
-      showJudge('🏆 BOSS DOWN!');
-      endGame('boss-down');
-    }
+  function setAvatarMode(mode) {
+    avatar.classList.remove('avatar-idle', 'avatar-jump', 'avatar-duck');
+    avatar.classList.add(`avatar-${mode}`);
   }
 
-  function startBoss(ts){
-    state.bossAlive = true;
-    state.bossHp = BOSS.hpMax;
-    state.bossEnterAtMs = state.elapsedMs;
-    state.bossNextBurstAt = ts + 1200;
-    state.bossNextTempoAt = ts + 1400;
-    state.bossShieldNeedStreak = 0;
-    state.bossShieldStreak = 0;
-    state.bossBurstCount = 0;
-    state.bossFrenzyOn = false;
-    state.bossVariant = pickBossVariant();
-    state.bossOverheatNeed = 0;
-    state.bossOverheatHits = 0;
-    state.bossRule = '';
-    state.bossRuleActive = false;
-    state.bossRuleEndAt = 0;
-    state.bossRuleNextAt = ts + 1600;
-    state.bossLastNeed = null;
-    telegraph('👾 BOSS: ' + state.bossVariant.toUpperCase(), 650);
-    showJudge('👾 BOSS: ' + state.bossVariant.toUpperCase());
+  function setLogStatus(text) {
+    logStatus.textContent = text || '';
   }
 
-  function judgeRuleOnHit(obs, perfect){
-    if(!state.bossRuleActive) return false;
-
-    const rule = state.bossRule;
-    if(rule === 'perfect-only' && !perfect){
-      state.combo = 0;
-      state.miss++;
-      const stabDmg = state.pro ? (state.cfg.stabDmg * PRO.stabDmgMul) : state.cfg.stabDmg;
-      state.stability = Math.max(0, state.stability - Math.max(6, stabDmg*0.6));
-      state.minStability = Math.min(state.minStability, state.stability);
-      showJudge('RULE FAIL: NEED PERFECT!');
-      return true;
-    }
-
-    if(rule === 'no-repeat' && state.bossLastNeed && state.bossLastNeed === obs.need){
-      state.combo = 0;
-      state.miss++;
-      state.stability = Math.max(0, state.stability - 8);
-      state.minStability = Math.min(state.minStability, state.stability);
-      showJudge('RULE FAIL: NO-REPEAT!');
-      return true;
-    }
-
-    if(rule === 'alternate' && state.bossLastNeed && state.bossLastNeed === obs.need){
-      state.combo = 0;
-      state.miss++;
-      state.stability = Math.max(0, state.stability - 8);
-      state.minStability = Math.min(state.minStability, state.stability);
-      showJudge('RULE FAIL: ALTERNATE!');
-      return true;
-    }
-
-    return false;
-  }
-
-  function updateObstacles(dtMs, ts, phase, progress){
-    let speed = state.cfg.speed;
-    if(phase===2) speed *= 1.12;
-    if(phase===3) speed *= 1.26;
-    if(state.mode==='training') speed *= (1 + 0.18*progress);
-    if(state.pro) speed *= PRO.speedMul;
-    if(phase===3 && state.bossAlive){
-      speed *= (1 + 0.06*Math.sin((ts - state.startTs)/420));
-    }
-
-    const move = speed * (dtMs/1000);
-    const keep = [];
-
-    for(const obs of state.obstacles){
-      obs.x -= move;
-
-      if(obs.feint && !obs.resolved){
-        if(!obs.flipped && obs.flipAtX != null && obs.x <= obs.flipAtX){
-          obs.flipped = true;
-          obs.type = obs.type === 'low' ? 'high' : 'low';
-          obs.need = obs.need === 'jump' ? 'duck' : 'jump';
-          obs.el.classList.toggle('low', obs.type==='low');
-          obs.el.classList.toggle('high', obs.type==='high');
-
-          const label = obs.el.querySelector('.obs-label');
-          const shape = obs.el.querySelector('.obs-low-shape, .obs-high-shape');
-          if(label) label.textContent = obs.type === 'low' ? 'JUMP' : 'DUCK';
-          if(shape) shape.className = obs.type === 'low' ? 'obs-low-shape' : 'obs-high-shape';
-
-          showJudge('👀 หลอก! อ่านใหม่!');
-        }
-      }
-
-      obs.el.style.left = obs.x + '%';
-
-      if(!obs.resolved && obs.x <= 28 && obs.x >= 18){
-        if(lastAction){
-          const hitWin = state.pro ? (state.cfg.hitWinMs * PRO.hitWinMul) : state.cfg.hitWinMs;
-          const rt = Math.abs(lastAction.time - ts);
-          const perfect = rt <= (hitWin * 0.55);
-
-          if(lastAction.type === obs.need && rt <= hitWin){
-            if(phase===3 && judgeRuleOnHit(obs, perfect)){
-              obs.resolved = true;
-              obs.el.remove();
-              continue;
-            }
-
-            obs.resolved = true;
-
-            state.hits++;
-            state.combo++;
-            state.maxCombo = Math.max(state.maxCombo, state.combo);
-            state.needSeq.push(obs.need);
-
-            let gain = state.cfg.score;
-            gain *= (1 + Math.min(state.combo-1, 6)*0.15);
-            gain *= (phase===3 ? 1.18 : (phase===2 ? 1.08 : 1));
-            gain *= (state.feverActive ? 1.35 : 1);
-            gain *= (perfect ? 1.15 : 1);
-            gain = Math.round(gain);
-
-            state.score += gain;
-            state.stability = Math.min(100, state.stability + state.cfg.stabGain);
-            state.minStability = Math.min(state.minStability, state.stability);
-            state.hitRTs.push(rt);
-
-            if(obs.need === 'jump') state.jumpHit++;
-            else state.duckHit++;
-
-            state.fever = Math.min(100, state.fever + (FEVER.gainOnHit[state.diffKey] || 16));
-            if(!state.feverActive && state.fever >= FEVER.threshold){
-              state.feverActive = true;
-              state.feverRemain = FEVER.durationSec;
-              showJudge('🔥 FEVER!');
-            }
-
-            if(phase===3 && state.bossAlive){
-              let dmg = perfect ? BOSS.dmgOnPerfect : BOSS.dmgOnHit;
-              dmg *= state.feverActive ? 1.2 : 1;
-              state.bossHp = Math.max(0, state.bossHp - dmg);
-
-              if(state.bossShieldNeedStreak > 0){
-                state.bossShieldStreak++;
-                if(state.bossShieldStreak >= state.bossShieldNeedStreak){
-                  state.bossShieldNeedStreak = 0;
-                  state.bossShieldStreak = 0;
-                  state.bossHp = Math.max(0, state.bossHp - BOSS.shieldBreakBonusDmg);
-                  showJudge('💥 SHIELD BREAK!');
-                }
-              }
-
-              if(state.bossOverheatNeed) state.bossOverheatHits++;
-              if(state.bossRuleActive) state.bossLastNeed = obs.need;
-            }
-
-            showJudge(perfect ? `PERFECT ${obs.need.toUpperCase()}!` : `${obs.need.toUpperCase()}!`);
-            pushEvent('hit', {
-              targetId: obs.id,
-              itemType: obs.type,
-              required_action: obs.need,
-              action: lastAction.type,
-              rtMs: Math.round(rt),
-              judgment: perfect ? 'perfect' : 'good',
-              totalScore: Math.round(state.score),
-              combo: state.combo,
-              feverState: state.feverActive ? 1 : 0,
-              feverValue: +state.fever.toFixed(1),
-              bossHp: +state.bossHp.toFixed(1),
-              bossVariant: state.bossVariant,
-              bossRule: state.bossRuleActive ? state.bossRule : '',
-              overheat: state.bossOverheatNeed ? 1 : 0,
-              feint: obs.feint ? 1 : 0,
-              pro: state.pro ? 1 : 0
-            });
-
-            obs.el.remove();
-            continue;
-          }
-
-          if(rt <= hitWin && lastAction.type !== obs.need){
-            obs.resolved = true;
-            state.miss++;
-            state.combo = 0;
-            state.needSeq.push(obs.need);
-
-            if(obs.need === 'jump') state.jumpMiss++;
-            else state.duckMiss++;
-
-            const stabDmg = state.pro ? (state.cfg.stabDmg * PRO.stabDmgMul) : state.cfg.stabDmg;
-            state.stability = Math.max(0, state.stability - stabDmg);
-            state.minStability = Math.min(state.minStability, state.stability);
-
-            if(phase===3 && state.bossShieldNeedStreak > 0){
-              state.bossShieldStreak = 0;
-            }
-            if(phase===3 && state.bossRuleActive && state.bossRule === 'no-miss'){
-              state.bossNextBurstAt = Math.min(state.bossNextBurstAt, ts + 900);
-            }
-            if(phase===3 && state.bossOverheatNeed){
-              state.stability = Math.max(0, state.stability - 6);
-              state.bossOverheatNeed = 0;
-              showJudge('🔥 OVERHEAT FAIL!');
-            } else {
-              showJudge('MISS');
-            }
-
-            pushEvent('miss', {
-              targetId: obs.id,
-              itemType: obs.type,
-              required_action: obs.need,
-              action: lastAction.type,
-              rtMs: Math.round(rt),
-              judgment: 'miss',
-              extra: 'wrong-action',
-              totalScore: Math.round(state.score),
-              combo: 0
-            });
-
-            obs.el.remove();
-            if(state.stability <= 0){
-              endGame('stability-zero');
-              return;
-            }
-            continue;
-          }
-        }
-      }
-
-      if(!obs.resolved && obs.x <= 4){
-        obs.resolved = true;
-        state.miss++;
-        state.combo = 0;
-        state.needSeq.push(obs.need);
-
-        if(obs.need === 'jump') state.jumpMiss++;
-        else state.duckMiss++;
-
-        const stabDmg = state.pro ? (state.cfg.stabDmg * PRO.stabDmgMul) : state.cfg.stabDmg;
-        state.stability = Math.max(0, state.stability - stabDmg);
-        state.minStability = Math.min(state.minStability, state.stability);
-
-        if(phase===3 && state.bossShieldNeedStreak > 0){
-          state.bossShieldStreak = 0;
-        }
-        if(phase===3 && state.bossRuleActive && state.bossRule === 'no-miss'){
-          state.bossNextBurstAt = Math.min(state.bossNextBurstAt, ts + 900);
-        }
-        if(phase===3 && state.bossOverheatNeed){
-          state.stability = Math.max(0, state.stability - 6);
-          state.bossOverheatNeed = 0;
-          showJudge('🔥 OVERHEAT FAIL!');
-        } else {
-          showJudge('MISS');
-        }
-
-        pushEvent('miss', {
-          targetId: obs.id,
-          itemType: obs.type,
-          required_action: obs.need,
-          action: lastAction ? lastAction.type : '',
-          judgment: 'miss',
-          extra: 'late-no-action',
-          totalScore: Math.round(state.score),
-          combo: 0
-        });
-
-        obs.el.remove();
-        if(state.stability <= 0){
-          endGame('stability-zero');
-          return;
-        }
-        continue;
-      }
-
-      if(obs.x > -20) keep.push(obs);
-      else obs.el.remove();
-    }
-
-    state.obstacles = keep;
-
-    if(lastAction && ts - lastAction.time > 260){
-      lastAction = null;
-    }
-  }
-
-  function updateFever(dtSec){
-    if(!state) return;
-    if(state.feverActive){
-      state.feverRemain -= dtSec;
-      if(state.feverRemain <= 0){
-        state.feverActive = false;
-        state.feverRemain = 0;
-        showJudge('FEVER END');
-      }
-    }else{
-      state.fever = Math.max(0, state.fever - FEVER.decayPerSec * dtSec);
-    }
-
-    feverFill.style.width = `${Math.min(100, state.fever)}%`;
-    feverStatus.textContent = state.feverActive ? 'FEVER!' : 'Ready';
-  }
-
-  function updateHUD(progress, phase){
-    hudMode.textContent = state.mode + (state.pro ? ' PRO' : '');
-    hudDiff.textContent = state.diffKey;
-    hudTime.textContent = (state.remainingMs/1000).toFixed(1);
-    hudPhase.textContent = String(phase);
-    hudScore.textContent = String(Math.round(state.score));
-    hudCombo.textContent = String(state.combo);
-    hudStability.textContent = `${state.stability.toFixed(1)}%`;
-    hudBoss.textContent = state.bossAlive ? `${Math.round(state.bossHp)}%` : '—';
-
-    progFill.style.width = `${Math.round(progress*100)}%`;
-    progText.textContent = `${Math.round(progress*100)}%`;
-  }
-
-  function gameLoop(ts){
-    if(!state || !state.running) return;
-    if(!lastTs) lastTs = ts;
-    const dt = ts - lastTs;
-    lastTs = ts;
-
-    state.elapsedMs = ts - state.startTs;
-    state.remainingMs = Math.max(0, state.durationMs - state.elapsedMs);
-
-    const progress = Math.min(1, state.elapsedMs / state.durationMs);
-    const phase = getPhase(progress);
-
-    if(state.elapsedMs >= state.durationMs){
-      endGame('timeup');
-      return;
-    }
-
-    updateFever(dt/1000);
-
-    if(phase===3){
-      if(!state.bossAlive) startBoss(ts);
-      updateBoss(ts);
-    }
-
-    while(ts >= state.nextSpawnAt){
-      spawnObstacle(phase);
-      let interval = state.cfg.spawnMs;
-
-      if(state.mode==='training'){
-        const factor = 1 - 0.30*progress;
-        interval = interval * Math.max(0.58, factor);
-        if(state.pro){
-          interval *= PRO.spawnMul;
-          interval = Math.max(480, interval);
-        }
-      }else{
-        if(phase===3) interval *= 0.90;
-        interval = Math.max(620, Math.min(1800, interval));
-      }
-
-      state.nextSpawnAt += interval;
-    }
-
-    updateObstacles(dt, ts, phase, progress);
-    updateHUD(progress, phase);
-
-    rafId = requestAnimationFrame(gameLoop);
-  }
-
-  function modeLabel(mode){
-    if(mode==='training') return 'training';
-    if(mode==='test') return 'test';
-    if(mode==='research') return 'research';
-    return mode || 'training';
-  }
-
-  function computeAccPct(){
-    const total = state.obstaclesSpawned || 0;
-    return total ? (state.hits / total) * 100 : 0;
-  }
-
-  function computeRTMean(){
-    if(!state.hitRTs.length) return 0;
-    return state.hitRTs.reduce((a,b)=>a+b,0) / state.hitRTs.length;
-  }
-
-  function computeRank(acc, stabMin){
-    if(acc >= 90 && stabMin >= 85) return 'S';
-    if(acc >= 80 && stabMin >= 75) return 'A';
-    if(acc >= 65 && stabMin >= 60) return 'B';
-    if(acc < 40 || stabMin < 40) return 'D';
-    return 'C';
-  }
-
-  function pushEvent(type, extra){
-    if(!state) return;
-    state.events.push(Object.assign({
-      timestampIso: nowIso(),
-      projectTag: 'jumpduck',
-      runMode: state.mode,
-      studyId: HHA_CTX.studyId || '',
-      phase: HHA_CTX.phase || '',
-      conditionGroup: HHA_CTX.conditionGroup || '',
-      sessionId: state.sessionId,
-      eventType: type,
-      gameMode: 'jumpduck',
-      diff: state.diffKey,
-      timeFromStartMs: Math.round(state.elapsedMs || 0),
-      studentKey: HHA_CTX.pid || '',
-      group: state.participant?.group || '',
-      note: state.participant?.note || ''
-    }, extra || {}));
-  }
-
-  function escCsv(v){
-    if(v == null) return '';
-    const s = String(v);
-    if(s.includes('"') || s.includes(',') || s.includes('\n')) return '"' + s.replace(/"/g,'""') + '"';
-    return s;
-  }
-  function toCsv(rows){
-    if(!rows || !rows.length) return '';
-    const cols = Object.keys(rows[0]);
-    const out = [cols.join(',')];
-    rows.forEach(r=> out.push(cols.map(c=>escCsv(r[c])).join(',')));
-    return out.join('\n');
-  }
-  function downloadCsv(text, filename){
-    if(!text) return;
-    const blob = new Blob([text], {type:'text/csv;charset=utf-8;'});
+  /* ===== CSV ===== */
+  function downloadText(filename, text) {
+    const blob = new Blob([text], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const a = D.createElement('a');
     a.href = url;
     a.download = filename;
-    document.body.appendChild(a);
+    D.body.appendChild(a);
     a.click();
     a.remove();
-    URL.revokeObjectURL(url);
+    setTimeout(() => URL.revokeObjectURL(url), 500);
   }
 
-  function setLogStatus(msg, ok){
-    if(!logStatus) return;
-    logStatus.textContent = msg;
-    logStatus.style.color = ok ? '#22c55e' : '#f59e0b';
-  }
-
-  async function postBatch(kind, rows){
-    const url = HHA_CTX.log || '';
-    if(!url) return { ok:false, error:'no_log_url' };
-    try{
-      const res = await fetch(url, {
-        method:'POST',
-        headers:{ 'Content-Type':'application/json' },
-        body: JSON.stringify({ kind, rows }),
-        keepalive:true
-      });
-      return { ok: !!res.ok, status: res.status };
-    }catch(e){
-      return { ok:false, error:String(e?.message || e) };
-    }
-  }
-
-  function queuePayload(payload){
-    try{
-      const arr = JSON.parse(localStorage.getItem(PATH_PENDING) || '[]');
-      arr.push(payload);
-      while(arr.length > 60) arr.shift();
-      localStorage.setItem(PATH_PENDING, JSON.stringify(arr));
-    }catch(_){}
-  }
-
-  function readQueue(){
-    try{ return JSON.parse(localStorage.getItem(PATH_PENDING) || '[]'); }catch(_){ return []; }
-  }
-
-  async function flushQueue(){
-    const q = readQueue();
-    if(!q.length) return { ok:true, sent:0 };
-
-    let sent = 0;
-    const remain = [];
-    for(const p of q){
-      const r = await postBatch(p.kind, p.rows);
-      if(r.ok) sent++;
-      else remain.push(p);
-    }
-
-    try{
-      if(remain.length) localStorage.setItem(PATH_PENDING, JSON.stringify(remain));
-      else localStorage.removeItem(PATH_PENDING);
-    }catch(_){}
-
-    return { ok: remain.length===0, sent, remain: remain.length };
-  }
-
-  function saveLastSummary(summary){
-    try{
-      localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(summary));
-      const histKey = 'HHA_SUMMARY_HISTORY';
-      const old = JSON.parse(localStorage.getItem(histKey) || '[]');
-      old.unshift(summary);
-      while(old.length > 30) old.pop();
-      localStorage.setItem(histKey, JSON.stringify(old));
-    }catch(_){}
-  }
-
-  function localDayKey(){
-    const d = new Date();
-    const y = d.getFullYear();
-    const m = String(d.getMonth()+1).padStart(2,'0');
-    const dd = String(d.getDate()).padStart(2,'0');
-    return `${y}-${m}-${dd}`;
-  }
-
-  async function endGame(reason='end'){
-    if(!state || !state.running) return;
-    state.running = false;
-    cancelAnimationFrame(rafId);
-    rafId = 0;
-    setAvatarState('idle');
-
-    const total = state.obstaclesSpawned || 0;
-    const acc = computeAccPct();
-    const rtMean = computeRTMean();
-    const rank = computeRank(acc, state.minStability);
-
-    const sessionRow = {
-      timestampIso: nowIso(),
-      projectTag: 'jumpduck',
-      runMode: state.mode,
-      studyId: HHA_CTX.studyId || '',
-      phase: HHA_CTX.phase || '',
-      conditionGroup: HHA_CTX.conditionGroup || '',
-      sessionId: state.sessionId,
-      gameMode: 'jumpduck',
-      diff: state.diffKey,
-      pro: state.pro ? 1 : 0,
-
-      durationPlannedSec: state.durationMs/1000,
-      durationPlayedSec: +(state.elapsedMs/1000).toFixed(2),
-
-      scoreFinal: Math.round(state.score),
-      comboMax: state.maxCombo,
-      misses: state.miss,
-
-      obstaclesTotal: total,
-      hitsTotal: state.hits,
-      accPct: +acc.toFixed(2),
-      avgRtMs: rtMean ? +rtMean.toFixed(1) : 0,
-
-      jumpHit: state.jumpHit,
-      duckHit: state.duckHit,
-      jumpMiss: state.jumpMiss,
-      duckMiss: state.duckMiss,
-
-      stabilityMinPct: +state.minStability.toFixed(1),
-
-      bossVariant: state.bossVariant || '',
-      bossRule: state.bossRule || '',
-      bossHpEnd: +state.bossHp.toFixed(1),
-      bossBurstCount: state.bossBurstCount || 0,
-      bossOverheatHits: state.bossOverheatHits || 0,
-      bossFrenzyOn: state.bossFrenzyOn ? 1 : 0,
-
-      studentKey: HHA_CTX.pid || '',
-      group: state.participant?.group || '',
-      note: state.participant?.note || '',
-      end_reason: reason
+  function toCSV(rows) {
+    if (!rows.length) return '';
+    const keys = [...new Set(rows.flatMap(r => Object.keys(r)))];
+    const esc = (v) => {
+      const s = String(v ?? '');
+      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
     };
-
-    state.sessions.push(sessionRow);
-
-    const summary = {
-      timestampIso: nowIso(),
-      projectTag: 'jumpduck',
-      game: 'jumpduck',
-      sessionId: state.sessionId,
-      runMode: state.mode,
-      diff: state.diffKey,
-      pro: state.pro ? 1 : 0,
-      studyId: HHA_CTX.studyId || '',
-      phase: HHA_CTX.phase || '',
-      conditionGroup: HHA_CTX.conditionGroup || '',
-      studentKey: HHA_CTX.pid || '',
-      durationPlannedSec: state.durationMs/1000,
-      durationPlayedSec: +(state.elapsedMs/1000).toFixed(2),
-      obstaclesTotal: total,
-      hitsTotal: state.hits,
-      missTotal: state.miss,
-      accPct: +acc.toFixed(2),
-      scoreFinal: Math.round(state.score),
-      comboMax: state.maxCombo,
-      stabilityMinPct: +state.minStability.toFixed(1),
-      bossVariant: state.bossVariant || '',
-      bossRule: state.bossRule || '',
-      bossHpEnd: +state.bossHp.toFixed(1),
-      end_reason: reason,
-      __extraJson: JSON.stringify({ url: location.href, dayKey: localDayKey() })
-    };
-
-    saveLastSummary(summary);
-
-    const autoSend = (state.mode === 'test' || state.mode === 'research' || qsBool('autosend'));
-    if(autoSend && HHA_CTX.log){
-      const p1 = { kind:'events', rows: state.events || [] };
-      const p2 = { kind:'sessions', rows: state.sessions || [] };
-      const r1 = await postBatch(p1.kind, p1.rows);
-      const r2 = await postBatch(p2.kind, p2.rows);
-      if(!(r1.ok && r2.ok)){
-        queuePayload(p1);
-        queuePayload(p2);
-      }
-    }
-
-    resMode.textContent = modeLabel(state.mode) + (state.pro ? ' PRO' : '');
-    resDiff.textContent = state.diffKey;
-    resDuration.textContent = `${state.durationMs/1000}s`;
-    resTotalObs.textContent = String(total);
-    resHits.textContent = String(state.hits);
-    resMiss.textContent = String(state.miss);
-    resJumpHit.textContent = String(state.jumpHit);
-    resDuckHit.textContent = String(state.duckHit);
-    resJumpMiss.textContent = String(state.jumpMiss);
-    resDuckMiss.textContent = String(state.duckMiss);
-    resAcc.textContent = `${acc.toFixed(1)}%`;
-    resRTMean.textContent = rtMean ? `${rtMean.toFixed(0)} ms` : '-';
-    resStabilityMin.textContent = `${state.minStability.toFixed(1)}%`;
-    resScore.textContent = String(Math.round(state.score));
-    resRank.textContent = rank;
-
-    showView('result');
+    return [
+      keys.join(','),
+      ...rows.map(r => keys.map(k => esc(r[k])).join(','))
+    ].join('\n');
   }
 
-  function startGameBase(opts){
-    nextObstacleId = 1;
-    obsLayer.innerHTML = '';
-    bossWrap.classList.add('hidden');
-    bossFill.style.width = '100%';
-    progFill.style.width = '0%';
-    feverFill.style.width = '0%';
-    feverStatus.textContent = 'Ready';
-    bossStatus.textContent = '—';
-    hudBoss.textContent = '—';
-    setAvatarState('idle');
-    lastAction = null;
-    lastTs = 0;
+  function logEvent(type, data = {}) {
+    eventsLog.push({
+      ts: Date.now(),
+      type,
+      pid: CFG.pid,
+      studyId: CFG.studyId,
+      mode: CFG.mode,
+      diff: CFG.diff,
+      ...data
+    });
+  }
 
-    const mode = opts.mode || 'training';
-    const diffKey = opts.diffKey || 'normal';
-    const durationMs = opts.durationMs || 60000;
-    const cfg = DIFFS[diffKey] || DIFFS.normal;
-    const rng = mulberry32(strToSeed(HHA_CTX.seed || Date.now()));
+  function logSession(data = {}) {
+    sessionsLog.push({
+      ts: Date.now(),
+      pid: CFG.pid,
+      studyId: CFG.studyId,
+      mode: CFG.mode,
+      diff: CFG.diff,
+      duration: CFG.duration,
+      ...data
+    });
+  }
 
-    state = {
-      running: true,
-      sessionId: `JD-${Date.now()}`,
-      mode,
-      diffKey,
-      cfg,
-      durationMs,
-      pro: (mode === 'training') && String(HHA_CTX.pro || '').toLowerCase() === '1',
-      participant: buildParticipant(mode),
-      rng,
-
-      startTs: performance.now(),
-      elapsedMs: 0,
-      remainingMs: durationMs,
-      nextSpawnAt: performance.now() + 700,
-
-      obstacles: [],
-      obstaclesSpawned: 0,
-
+  /* ===== Game state ===== */
+  function buildState() {
+    return {
+      mode: CFG.mode,
+      diff: CFG.diff,
+      duration: CFG.duration,
+      totalTime: CFG.duration,
+      timeLeft: CFG.duration,
+      score: 0,
+      combo: 0,
+      stability: 100,
+      stabilityMin: 100,
+      fever: 0,
+      phase: 1,
+      totalObs: 0,
       hits: 0,
       miss: 0,
       jumpHit: 0,
       duckHit: 0,
       jumpMiss: 0,
       duckMiss: 0,
+      rts: [],
+      obstacles: [],
+      nextSpawnAt: 0,
+      stopped: false,
+      tutorial: CFG.tutorial,
+      overheat: 0
+    };
+  }
 
-      score: 0,
-      combo: 0,
-      maxCombo: 0,
-      stability: 100,
-      minStability: 100,
+  function updateHUD() {
+    hudMode.textContent = state.mode;
+    hudDiff.textContent = state.diff;
+    hudTime.textContent = state.timeLeft.toFixed(1);
+    hudPhase.textContent = String(state.phase);
+    hudScore.textContent = String(Math.round(state.score));
+    hudCombo.textContent = String(state.combo);
+    hudStability.textContent = `${Math.round(state.stability)}%`;
+    hudBoss.textContent = bossActive ? `${bossHP}/${bossMaxHP}` : '—';
 
-      fever: 0,
-      feverActive: false,
-      feverRemain: 0,
+    const prog = clamp(((state.totalTime - state.timeLeft) / Math.max(1, state.totalTime)) * 100, 0, 100);
+    hudProgFill.style.width = `${prog}%`;
+    hudProgText.textContent = `${Math.round(prog)}%`;
 
-      bossAlive: false,
-      bossHp: BOSS.hpMax,
-      bossVariant: '',
-      bossRule: '',
-      bossRuleActive: false,
-      bossRuleEndAt: 0,
-      bossRuleNextAt: 0,
-      bossLastNeed: null,
-      bossShieldNeedStreak: 0,
-      bossShieldStreak: 0,
-      bossBurstCount: 0,
-      bossOverheatNeed: 0,
-      bossOverheatEndAt: 0,
-      bossOverheatHits: 0,
-      bossFrenzyOn: false,
-      bossNextBurstAt: 0,
-      bossNextTempoAt: 0,
-      bossEnterAtMs: 0,
+    const feverPct = clamp(state.fever, 0, 100);
+    hudFeverFill.style.width = `${feverPct}%`;
+    hudFeverStatus.textContent = feverPct >= 100 ? 'FEVER!' : `${Math.round(feverPct)}%`;
 
-      hitRTs: [],
-      needSeq: [],
-      events: [],
-      sessions: []
+    bossBarWrap.classList.toggle('hidden', !bossActive);
+    if (bossActive) {
+      const hpPct = clamp((bossHP / Math.max(1, bossMaxHP)) * 100, 0, 100);
+      hudBossFill.style.width = `${hpPct}%`;
+      hudBossStatus.textContent = `${Math.round(hpPct)}%`;
+    }
+  }
+
+  /* ===== Obstacle visual ===== */
+  function makeObstacle(kind, isBoss = false, isFeint = false) {
+    const el = D.createElement('div');
+    el.className = `obs ${kind} ${isFeint ? 'feint' : ''}`;
+    el.innerHTML = `
+      <div class="obs-inner">
+        ${kind === 'low'
+          ? '<div class="obs-low-shape"></div><div class="obs-label">JUMP</div>'
+          : '<div class="obs-high-shape"></div><div class="obs-label">DUCK</div>'}
+      </div>
+    `;
+
+    const speedBase = getDiffCfg(state.diff).speed;
+    const speed = speedBase * (isBoss ? 1.12 : 1) * (state.fever >= 100 ? 1.15 : 1);
+    const x = playArea.clientWidth + 60;
+
+    const obstacle = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      kind,
+      isBoss,
+      isFeint,
+      x,
+      speed,
+      hit: false,
+      resolved: false,
+      spawnedAt: now(),
+      el
     };
 
-    hudMode.textContent = mode;
-    hudDiff.textContent = diffKey;
-    hudTime.textContent = (durationMs/1000).toFixed(1);
-    hudPhase.textContent = '1';
-    hudScore.textContent = '0';
-    hudCombo.textContent = '0';
-    hudStability.textContent = '100%';
+    el.style.left = `${x}px`;
+    obsLayer.appendChild(el);
+    state.obstacles.push(obstacle);
+    state.totalObs += 1;
+    return obstacle;
+  }
 
-    showView('play');
-    showJudge(opts.isTutorial ? 'Tutorial: Low=JUMP / High=DUCK' : 'READY');
+  function removeObstacle(ob) {
+    ob.resolved = true;
+    ob.el?.remove();
+  }
+
+  /* ===== Spawn ===== */
+  function maybeStartBoss() {
+    if (bossActive) return;
+    if (state.totalObs === 0) return;
+    const diffCfg = getDiffCfg(state.diff);
+    if (state.totalObs % diffCfg.bossEvery !== 0) return;
+
+    bossActive = true;
+    bossMaxHP = state.diff === 'hard' ? 4 : state.diff === 'easy' ? 2 : 3;
+    bossHP = bossMaxHP;
+    showTele('BOSS!');
+    toastJudge('Boss incoming');
+    logEvent('boss_start', { hp: bossHP });
+    updateHUD();
+  }
+
+  function spawnOne() {
+    if (state.stopped) return;
+
+    if (bossActive) {
+      const kind = Math.random() < 0.5 ? 'low' : 'high';
+      const ob = makeObstacle(kind, true, Math.random() < 0.15);
+      ob.el.style.boxShadow = '0 0 0 2px rgba(239,68,68,.34), 0 18px 36px rgba(0,0,0,.28)';
+      return;
+    }
+
+    const kind = Math.random() < 0.5 ? 'low' : 'high';
+    makeObstacle(kind, false, Math.random() < 0.12);
+  }
+
+  /* ===== Action ===== */
+  let inputLockUntil = 0;
+  function doAction(action) {
+    if (!state || state.stopped) return;
+    const t = now();
+    if (t < inputLockUntil) return;
+    inputLockUntil = t + 80;
+
+    if (action === 'jump') {
+      setAvatarMode('jump');
+      setTimeout(() => setAvatarMode('idle'), 340);
+    } else {
+      setAvatarMode('duck');
+      setTimeout(() => setAvatarMode('idle'), 360);
+    }
+
+    const hitX = playArea.clientWidth * 0.22;
+    const candidates = state.obstacles
+      .filter(o => !o.resolved && !o.hit && Math.abs(o.x - hitX) < 70)
+      .sort((a, b) => Math.abs(a.x - hitX) - Math.abs(b.x - hitX));
+
+    if (!candidates.length) {
+      toastJudge('MISS');
+      state.combo = 0;
+      state.stability = clamp(state.stability - 2.5, 0, 100);
+      updateHUD();
+      logEvent('input_empty', { action });
+      return;
+    }
+
+    const ob = candidates[0];
+    const want = ob.kind === 'low' ? 'jump' : 'duck';
+    const rt = Math.max(0, Math.round(t - ob.spawnedAt));
+
+    if (ob.isFeint) {
+      state.combo = 0;
+      state.stability = clamp(state.stability - 5, 0, 100);
+      toastJudge('FEINT');
+      removeObstacle(ob);
+      logEvent('feint_hit', { action, kind: ob.kind, rt });
+      updateHUD();
+      return;
+    }
+
+    if (action === want) {
+      ob.hit = true;
+      removeObstacle(ob);
+
+      state.hits += 1;
+      state.combo += 1;
+      state.score += ob.isBoss ? 220 : 100 + Math.min(80, state.combo * 4);
+      state.stability = clamp(state.stability + 0.7, 0, 100);
+      state.rts.push(rt);
+      state.fever = clamp(state.fever + getDiffCfg(state.diff).feverGain, 0, 100);
+
+      if (ob.kind === 'low') state.jumpHit += 1;
+      if (ob.kind === 'high') state.duckHit += 1;
+
+      if (bossActive && ob.isBoss) {
+        bossHP -= 1;
+        if (bossHP <= 0) {
+          bossActive = false;
+          bossHP = 0;
+          state.score += 300;
+          toastJudge('BOSS BREAK!');
+          logEvent('boss_break', {});
+        }
+      }
+
+      toastJudge('HIT');
+      logEvent('hit', { action, kind: ob.kind, rt, combo: state.combo, boss: ob.isBoss ? 1 : 0 });
+    } else {
+      state.miss += 1;
+      state.combo = 0;
+      state.stability = clamp(state.stability - 7, 0, 100);
+
+      if (ob.kind === 'low') state.jumpMiss += 1;
+      if (ob.kind === 'high') state.duckMiss += 1;
+
+      removeObstacle(ob);
+      toastJudge('WRONG');
+      logEvent('wrong', { action, want, kind: ob.kind, rt, boss: ob.isBoss ? 1 : 0 });
+    }
+
+    state.stabilityMin = Math.min(state.stabilityMin, state.stability);
+    updateHUD();
+  }
+
+  /* ===== Loop ===== */
+  function gameLoop(ts) {
+    if (!state || state.stopped) return;
+
+    if (!lastTs) lastTs = ts;
+    const dt = Math.min(50, ts - lastTs);
+    lastTs = ts;
+
+    state.timeLeft = Math.max(0, state.timeLeft - dt / 1000);
+
+    if (state.timeLeft <= 0) {
+      stopGame(false);
+      return;
+    }
+
+    const elapsed = state.totalTime - state.timeLeft;
+    state.phase = elapsed < state.totalTime * 0.33 ? 1 : elapsed < state.totalTime * 0.66 ? 2 : 3;
+
+    const diffCfg = getDiffCfg(state.diff);
+    obstacleSpawnTimer += dt;
+    const spawnGap = state.tutorial ? 1550 : diffCfg.spawnEvery;
+
+    if (obstacleSpawnTimer >= spawnGap) {
+      obstacleSpawnTimer = 0;
+      maybeStartBoss();
+      spawnOne();
+    }
+
+    const hitX = playArea.clientWidth * 0.22;
+
+    state.obstacles.forEach(ob => {
+      if (ob.resolved) return;
+      ob.x -= (ob.speed * dt) / 1000;
+      ob.el.style.left = `${ob.x}px`;
+
+      if (ob.x < hitX - 30 && !ob.hit) {
+        state.miss += 1;
+        state.combo = 0;
+        state.stability = clamp(state.stability - (ob.isBoss ? 8 : 5), 0, 100);
+        state.stabilityMin = Math.min(state.stabilityMin, state.stability);
+
+        if (ob.kind === 'low') state.jumpMiss += 1;
+        if (ob.kind === 'high') state.duckMiss += 1;
+
+        logEvent('miss_pass', { kind: ob.kind, boss: ob.isBoss ? 1 : 0 });
+
+        if (bossActive && ob.isBoss) {
+          bossHP = Math.max(0, bossHP - 1);
+          if (bossHP <= 0) {
+            bossActive = false;
+            toastJudge('BOSS LOST');
+          }
+        }
+
+        removeObstacle(ob);
+      } else if (ob.x < -100) {
+        removeObstacle(ob);
+      }
+    });
+
+    state.obstacles = state.obstacles.filter(ob => !ob.resolved);
+    updateHUD();
     rafId = requestAnimationFrame(gameLoop);
   }
 
-  function startGameFromMenu(){
-    startGameBase({
-      mode: (elMode.value || HHA_CTX.mode || 'training').toLowerCase(),
-      diffKey: (elDiff.value || HHA_CTX.diff || 'normal').toLowerCase(),
-      durationMs: (parseInt(elDuration.value || HHA_CTX.duration || '60',10) || 60) * 1000
-    });
+  /* ===== Start/stop ===== */
+  function applyMenuToConfig() {
+    CFG.mode = menuMode.value;
+    CFG.diff = menuDiff.value;
+    CFG.duration = Number(menuDuration.value) || 60;
+    CFG.pid = participantId?.value?.trim() || CFG.pid || 'anon';
+
+    URLX.searchParams.set('mode', CFG.mode);
+    URLX.searchParams.set('diff', CFG.diff);
+    URLX.searchParams.set('duration', String(CFG.duration));
   }
 
-  function initBindings(){
+  function setupMenuFromURL() {
+    menuMode.value = CFG.mode;
+    menuDiff.value = CFG.diff;
+    menuDuration.value = String(CFG.duration);
+    if (participantId) participantId.value = CFG.pid || '';
+    researchBlock.classList.toggle('hidden', CFG.mode !== 'research');
+  }
+
+  function startGame(opts = {}) {
+    applyMenuToConfig();
+    CFG.tutorial = !!opts.tutorial;
+
+    showView('play');
     setHubLinks();
 
-    if(HHA_CTX.mode) elMode.value = HHA_CTX.mode;
-    if(HHA_CTX.diff) elDiff.value = HHA_CTX.diff;
-    if(HHA_CTX.duration) elDuration.value = String(HHA_CTX.duration);
-    if(elPidInput) elPidInput.value = HHA_CTX.pid || 'anon';
-
-    elMode.addEventListener('change', updateResearchVisibility);
-    updateResearchVisibility();
-
-    document.querySelector('[data-action="start"]').addEventListener('click', startGameFromMenu);
-    document.querySelector('[data-action="tutorial"]').addEventListener('click', ()=>{
-      startGameBase({ mode:'training', diffKey:'easy', durationMs:15000, isTutorial:true });
-    });
-
-    document.querySelector('[data-action="jump"]').addEventListener('click', ()=>handleInput('jump'));
-    document.querySelector('[data-action="duck"]').addEventListener('click', ()=>handleInput('duck'));
-    document.querySelector('[data-action="stop-early"]').addEventListener('click', ()=>endGame('stop-early'));
-    document.querySelector('[data-action="play-again"]').addEventListener('click', startGameFromMenu);
-    document.querySelector('[data-action="back-menu"]').addEventListener('click', ()=>showView('menu'));
-
-    playArea.addEventListener('pointerdown', (ev)=>{
-      if(!state || !state.running) return;
-      const rect = playArea.getBoundingClientRect();
-      const mid = rect.top + rect.height/2;
-      if(ev.clientY < mid) handleInput('jump');
-      else handleInput('duck');
-    }, { passive:true });
-
-    window.addEventListener('keydown', (ev)=>{
-      if(!state || !state.running) return;
-      const k = (ev.key || '').toLowerCase();
-      if(k === 'arrowup' || k === 'w') handleInput('jump');
-      if(k === 'arrowdown' || k === 's') handleInput('duck');
-    });
-
-    window.addEventListener('hha:shoot', (ev)=>{
-      if(!state || !state.running) return;
-      const d = ev?.detail || {};
-      const rect = playArea.getBoundingClientRect();
-      const y = Number.isFinite(d.y) ? d.y : (rect.top + rect.height/2);
-      const mid = rect.top + rect.height/2;
-      if(y < mid) handleInput('jump');
-      else handleInput('duck');
-    });
-
-    if(btnDlEvents){
-      btnDlEvents.addEventListener('click', ()=>{
-        if(!state) return;
-        downloadCsv(toCsv(state.events || []), `jd-events-${state.sessionId}.csv`);
-      });
+    state = buildState();
+    state.tutorial = CFG.tutorial;
+    if (CFG.tutorial) {
+      state.duration = 15;
+      state.totalTime = 15;
+      state.timeLeft = 15;
     }
 
-    if(btnDlSessions){
-      btnDlSessions.addEventListener('click', ()=>{
-        if(!state) return;
-        downloadCsv(toCsv(state.sessions || []), `jd-sessions-${state.sessionId}.csv`);
-      });
-    }
+    hudMode.textContent = CFG.mode;
+    hudDiff.textContent = CFG.diff;
+    hudTime.textContent = state.totalTime.toFixed(1);
 
-    if(btnSendLog){
-      btnSendLog.addEventListener('click', async ()=>{
-        if(!state){
-          setLogStatus('No state', false);
-          return;
-        }
-        if(!HHA_CTX.log){
-          setLogStatus('No ?log= URL', false);
-          return;
-        }
-        setLogStatus('Sending...', true);
-        const q = await flushQueue();
-        const r1 = await postBatch('events', state.events || []);
-        const r2 = await postBatch('sessions', state.sessions || []);
-        if(r1.ok && r2.ok){
-          setLogStatus(`Sent ✅ (queued sent ${q.sent||0})`, true);
-        }else{
-          queuePayload({ kind:'events', rows: state.events || [] });
-          queuePayload({ kind:'sessions', rows: state.sessions || [] });
-          setLogStatus('Send failed → queued ⚠️', false);
-        }
-      });
-    }
+    obsLayer.innerHTML = '';
+    state.obstacles = [];
+    obstacleSpawnTimer = 0;
+    bossActive = false;
+    bossHP = 0;
+    bossMaxHP = 0;
+    lastTs = 0;
+    gameStartedAt = Date.now();
+    W.__JD_LAST_SUMMARY = null;
 
-    if(HHA_CTX.log){
-      flushQueue().then(r=>{
-        if(r && r.sent) setLogStatus(`Queued sent ✅ (${r.sent})`, true);
-      }).catch(()=>{});
+    setAvatarMode('idle');
+    showTele(CFG.tutorial ? 'TUTORIAL' : 'READY');
+    updateHUD();
+    logEvent('game_start', { tutorial: CFG.tutorial ? 1 : 0 });
+
+    cancelAnimationFrame(rafId);
+    rafId = requestAnimationFrame(gameLoop);
+  }
+
+  function calcRank(score, acc) {
+    if (score >= 2400 && acc >= 90) return 'S';
+    if (score >= 1700 && acc >= 80) return 'A';
+    if (score >= 1100 && acc >= 70) return 'B';
+    return 'C';
+  }
+
+  function buildSummary() {
+    const totalObs = state.totalObs;
+    const hits = state.hits;
+    const miss = state.miss;
+    const acc = totalObs > 0 ? Math.round((hits / totalObs) * 100) : 0;
+    const rtMean = state.rts.length
+      ? Math.round(state.rts.reduce((a, b) => a + b, 0) / state.rts.length)
+      : 0;
+    const score = Math.round(state.score);
+    const rank = calcRank(score, acc);
+    const stars = rank === 'S' ? 3 : rank === 'A' ? 3 : rank === 'B' ? 2 : 1;
+
+    return {
+      mode: CFG.mode,
+      diff: CFG.diff,
+      duration: state.totalTime,
+      totalObs,
+      hits,
+      miss,
+      jumpHit: state.jumpHit,
+      duckHit: state.duckHit,
+      jumpMiss: state.jumpMiss,
+      duckMiss: state.duckMiss,
+      acc,
+      rtMean,
+      stabilityMin: Math.round(state.stabilityMin),
+      score,
+      rank,
+      stars,
+      pid: CFG.pid,
+      studyId: CFG.studyId,
+      seed: JD_GATE.seed || '',
+      run: JD_GATE.run || 'play',
+      view: JD_GATE.view || 'mobile'
+    };
+  }
+
+  function fillResult(summary) {
+    resMode.textContent = summary.mode;
+    resDiff.textContent = summary.diff;
+    resDuration.textContent = `${summary.duration}s`;
+    resTotalObs.textContent = String(summary.totalObs);
+    resHits.textContent = String(summary.hits);
+    resMiss.textContent = String(summary.miss);
+    resJumpHit.textContent = String(summary.jumpHit);
+    resDuckHit.textContent = String(summary.duckHit);
+    resJumpMiss.textContent = String(summary.jumpMiss);
+    resDuckMiss.textContent = String(summary.duckMiss);
+    resAcc.textContent = `${summary.acc}%`;
+    resRtMean.textContent = `${summary.rtMean} ms`;
+    resStabilityMin.textContent = `${summary.stabilityMin}%`;
+    resScore.textContent = String(summary.score);
+    resRank.textContent = summary.rank;
+  }
+
+  function stopGame(early) {
+    if (!state || state.stopped) return;
+    state.stopped = true;
+    cancelAnimationFrame(rafId);
+
+    const summary = buildSummary();
+    W.__JD_LAST_SUMMARY = summary;
+
+    logEvent('game_end', { early: early ? 1 : 0, score: summary.score, acc: summary.acc, rank: summary.rank });
+    logSession({
+      early: early ? 1 : 0,
+      score: summary.score,
+      acc: summary.acc,
+      rank: summary.rank,
+      totalObs: summary.totalObs,
+      hits: summary.hits,
+      miss: summary.miss,
+      rtMean: summary.rtMean,
+      stabilityMin: summary.stabilityMin,
+      startedAt: gameStartedAt,
+      endedAt: Date.now()
+    });
+
+    fillResult(summary);
+    setLogStatus('');
+    showView('result');
+    setHubLinks();
+  }
+
+  /* ===== Events ===== */
+  function onTapPlay(ev) {
+    if (!state || state.stopped) return;
+    const rect = playArea.getBoundingClientRect();
+    const y = ev.clientY - rect.top;
+    const action = y < rect.height / 2 ? 'jump' : 'duck';
+    doAction(action);
+  }
+
+  D.addEventListener('keydown', (ev) => {
+    if (viewPlay.classList.contains('hidden')) return;
+    if (ev.key === 'ArrowUp' || ev.key === 'w' || ev.key === 'W') {
+      ev.preventDefault();
+      doAction('jump');
+    }
+    if (ev.key === 'ArrowDown' || ev.key === 's' || ev.key === 'S') {
+      ev.preventDefault();
+      doAction('duck');
+    }
+  });
+
+  playArea.addEventListener('pointerdown', onTapPlay);
+
+  menuMode.addEventListener('change', () => {
+    researchBlock.classList.toggle('hidden', menuMode.value !== 'research');
+  });
+
+  menuActionBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const action = btn.dataset.action;
+      if (action === 'start') startGame({ tutorial: false });
+      if (action === 'tutorial') startGame({ tutorial: true });
+    });
+  });
+
+  playActionBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const action = btn.dataset.action;
+      if (action === 'jump') doAction('jump');
+      if (action === 'duck') doAction('duck');
+      if (action === 'stop-early') stopGame(true);
+    });
+  });
+
+  resultActionBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const action = btn.dataset.action;
+
+      if (action === 'play-again') {
+        location.reload();
+        return;
+      }
+
+      if (action === 'back-menu') {
+        const s = W.__JD_LAST_SUMMARY || {};
+        jdGoCooldown({
+          score: s.score ?? '',
+          stars: s.stars ?? '',
+          rank: s.rank ?? '',
+          totalObs: s.totalObs ?? '',
+          hits: s.hits ?? '',
+          miss: s.miss ?? '',
+          acc: s.acc ?? ''
+        });
+      }
+    });
+  });
+
+  if (backHubResult) {
+    backHubResult.addEventListener('click', (ev) => {
+      ev.preventDefault();
+      const s = W.__JD_LAST_SUMMARY || {};
+      jdGoCooldown({
+        score: s.score ?? '',
+        stars: s.stars ?? '',
+        rank: s.rank ?? '',
+        totalObs: s.totalObs ?? '',
+        hits: s.hits ?? '',
+        miss: s.miss ?? '',
+        acc: s.acc ?? ''
+      });
+    });
+  }
+
+  btnEvents?.addEventListener('click', () => {
+    downloadText('jumpduck-events.csv', toCSV(eventsLog));
+    setLogStatus('ดาวน์โหลด events.csv แล้ว');
+  });
+
+  btnSessions?.addEventListener('click', () => {
+    downloadText('jumpduck-sessions.csv', toCSV(sessionsLog));
+    setLogStatus('ดาวน์โหลด sessions.csv แล้ว');
+  });
+
+  btnSendLog?.addEventListener('click', () => {
+    const count = eventsLog.length + sessionsLog.length;
+    setLogStatus(`จำลองส่ง Cloud Logger แล้ว (${count} records)`);
+  });
+
+  /* ===== Init ===== */
+  function init() {
+    setHubLinks();
+    setupMenuFromURL();
+    showView('menu');
+
+    logEvent('page_load', {
+      pid: CFG.pid,
+      mode: CFG.mode,
+      diff: CFG.diff,
+      duration: CFG.duration
+    });
+
+    if (CFG.debug) {
+      console.log('[JumpDuck init]', { CFG, JD_GATE });
     }
   }
 
-  window.JD_EXPORT = {
-    getState(){ return state ? JSON.parse(JSON.stringify(state)) : null; },
-    getEvents(){ return state ? JSON.parse(JSON.stringify(state.events || [])) : []; },
-    getSessions(){ return state ? JSON.parse(JSON.stringify(state.sessions || [])) : []; }
-  };
-
-  initBindings();
-  showView('menu');
+  init();
 })();
