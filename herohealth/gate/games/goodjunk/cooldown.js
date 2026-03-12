@@ -2,7 +2,7 @@
    HeroHealth Gate Mini-game
    GAME: goodjunk
    MODE: cooldown
-   PATCH v20260308-GATE-GOODJUNK-COOLDOWN
+   PATCH v20260312d-GATE-GOODJUNK-COOLDOWN-API-GUARD
 */
 
 let __styleLoaded = false;
@@ -73,6 +73,23 @@ function buildBuffs({ score, accuracy }){
 
 export async function mount(root, ctx, api){
   loadStyle();
+
+  if(!api){
+    root.innerHTML = `
+      <div class="gj-result">
+        <div class="gj-badge">⚠️ Gate API Missing</div>
+        <div class="gj-big">ต้องอัปเดต gate-core.js</div>
+        <div class="gj-list">
+          <div class="gj-item">cooldown โหลดหน้าจอได้ แต่ยังไม่ได้รับ api</div>
+          <div class="gj-item">กรุณารีเฟรชใหม่ หรือเคลียร์ cache</div>
+        </div>
+      </div>
+    `;
+    return {
+      start(){},
+      destroy(){}
+    };
+  }
 
   const rng = mulberry32(Number(ctx.seed || Date.now()) + 12);
 
@@ -224,6 +241,7 @@ export async function mount(root, ctx, api){
   return {
     start(){
       renderRound();
-    }
+    },
+    destroy(){}
   };
 }
