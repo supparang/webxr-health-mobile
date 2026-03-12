@@ -1,6 +1,6 @@
 <!-- === /webxr-health-mobile/herohealth/vr-groups/groups-vr.html ===
 GroupsVR — CHILD-FRIENDLY SOLO RUN PAGE
-FULL v20260312-GROUPS-SOLO-CHILD-BIGTARGET
+FULL v20260312-GROUPS-SOLO-CHILD-BIGTARGET-LESSCRAMPED
 Requires:
 - ../vr/vr-ui.js
 - ./ai-hooks.js
@@ -476,8 +476,8 @@ Requires:
     .tgt::before{
       content:"";
       position:absolute;
-      inset:-14px;
-      border-radius:30px;
+      inset:-18px;
+      border-radius:32px;
     }
 
     body[data-view="pc"] .tgt{
@@ -488,10 +488,10 @@ Requires:
     }
 
     body[data-view="mobile"] .tgt{
-      width:108px;
-      height:108px;
-      font-size:48px;
-      border-radius:24px;
+      width:118px;
+      height:118px;
+      font-size:52px;
+      border-radius:26px;
     }
 
     body[data-view="cvr"] .tgt{
@@ -655,44 +655,65 @@ Requires:
         gap:6px;
         padding: calc(6px + var(--sat)) calc(6px + var(--sar)) calc(6px + var(--sab)) calc(6px + var(--sal));
       }
+
       .topbar{
-        padding:7px 8px;
-        gap:8px;
-        border-radius:16px;
+        padding:6px 8px;
+        gap:6px;
+        border-radius:14px;
       }
-      .title b{ font-size:13px; }
-      .title span{ font-size:10.5px; line-height:1.2; }
-      .row{ gap:6px; }
+
+      .title b{ font-size:12px; }
+      .title span{
+        font-size:9px;
+        line-height:1.1;
+      }
+
+      .row{ gap:5px; }
+
       button{
-        padding:7px 10px;
-        border-radius:12px;
-        font-size:12px;
+        padding:6px 9px;
+        font-size:11px;
+        border-radius:10px;
       }
+
       .hud{ left:6px; right:6px; }
+
       .hudBox{
-        gap:5px;
-        padding:5px 6px;
-        border-radius:12px;
-      }
-      .hudMetric .k{ font-size:9px; }
-      .hudMetric .v{ font-size:11px; }
-      .questTop{
         gap:4px;
-        padding:5px 6px;
-        border-radius:12px;
+        padding:4px 6px;
+        border-radius:10px;
       }
-      .questTitle{ font-size:11px; }
-      .questMini{ font-size:9px; }
+      .hudMetric .k{ font-size:8px; }
+      .hudMetric .v{ font-size:10px; }
+
+      .questTop{
+        gap:3px;
+        padding:4px 6px;
+        border-radius:10px;
+      }
+      .questTitle{ font-size:10px; }
+      .questMini{ font-size:8px; }
+
+      .bar{ height:7px; }
+
       .powerWrap{
         left:6px;
-        top:92px;
-        width:min(144px, 40vw);
-        gap:4px;
-        padding:5px 6px;
-        border-radius:12px;
+        top:82px;
+        width:min(126px, 35vw);
+        gap:3px;
+        padding:4px 5px;
+        border-radius:10px;
       }
-      .powerHead b{ font-size:11px; }
-      .powerHead span{ font-size:9px; }
+      .powerHead b{
+        font-size:9px;
+        white-space:nowrap;
+        overflow:hidden;
+        text-overflow:ellipsis;
+        max-width:70px;
+      }
+      .powerHead span{ font-size:8px; }
+      #pText{ font-size:10px !important; }
+
       .coachToast{
         left:8px;
         right:8px;
@@ -711,10 +732,15 @@ Requires:
       }
       .coachWrap .txt{ font-size:12px; }
       .coachWrap .sub{ font-size:10px; }
+
       body[data-view="mobile"] .tgt{
-        width:112px;
-        height:112px;
-        font-size:50px;
+        width:118px;
+        height:118px;
+        font-size:52px;
+      }
+
+      .bgFloor{
+        height:36%;
       }
     }
 
@@ -766,8 +792,9 @@ Requires:
 
     @media (max-width:460px){
       .topbar{ padding:6px 7px; }
-      .title b{ font-size:12.5px; }
-      .title span{ font-size:10px; }
+      .title b{ font-size:12px; }
+      .title span{ font-size:9px; }
+
       .hudBox{
         grid-template-columns:repeat(5,minmax(0,1fr));
         gap:4px;
@@ -777,22 +804,27 @@ Requires:
         justify-content:center;
         gap:4px;
       }
-      .hudMetric .k{ font-size:8.5px; }
-      .hudMetric .v{ font-size:10px; }
+      .hudMetric .k{ font-size:8px; }
+      .hudMetric .v{ font-size:9.5px; }
+
       .questTop{ padding:4px 5px; }
-      .questTitle{ font-size:10px; }
-      .questMini{ font-size:8.5px; }
+      .questTitle{ font-size:9.5px; }
+      .questMini{ font-size:8px; }
+
       .powerWrap{
-        top:88px;
-        width:min(128px, 37vw);
+        top:80px;
+        width:min(120px, 34vw);
         padding:4px 5px;
       }
-      .powerHead b{ font-size:10px; }
+      .powerHead b{ font-size:9px; }
+
       body[data-view="mobile"] .tgt{
-        width:104px;
-        height:104px;
-        font-size:46px;
+        width:112px;
+        height:112px;
+        font-size:48px;
+        border-radius:24px;
       }
+
       .bgCats{
         bottom:8%;
         gap:6px;
@@ -806,26 +838,57 @@ Requires:
     }
 
     body.hud-compact .topbar{ padding:6px 7px; gap:6px; }
-    body.hud-compact .title b{ font-size:12.5px; }
-    body.hud-compact .title span{ font-size:9.5px; line-height:1.15; }
+    body.hud-compact .title b{ font-size:12px; }
+    body.hud-compact .title span{ font-size:9px; line-height:1.1; }
     body.hud-compact .row{ gap:5px; }
     body.hud-compact .hud{ left:5px; right:5px; }
     body.hud-compact .hudBox{ padding:4px 5px; gap:4px; border-radius:10px; }
     body.hud-compact .hudMetric .k{ font-size:8px; }
-    body.hud-compact .hudMetric .v{ font-size:9.5px; }
+    body.hud-compact .hudMetric .v{ font-size:9px; }
     body.hud-compact .questTop{ padding:4px 5px; gap:3px; border-radius:10px; }
-    body.hud-compact .questTitle{ font-size:9.5px; }
-    body.hud-compact .questMini{ font-size:8px; }
+    body.hud-compact .questTitle{ font-size:9px; }
+    body.hud-compact .questMini{ font-size:7.5px; }
     body.hud-compact .powerWrap{
       left:5px;
-      top:82px;
-      width:min(116px, 34vw);
+      top:78px;
+      width:min(112px, 33vw);
       padding:4px 5px;
       gap:3px;
       border-radius:10px;
     }
-    body.hud-compact .powerHead b{ font-size:9px; }
-    body.hud-compact .powerHead span{ font-size:8px; }
+    body.hud-compact .powerHead b{ font-size:8.5px; }
+    body.hud-compact .powerHead span{ font-size:7.5px; }
+
+    body.power-autohide .powerWrap{
+      opacity:.28;
+      transform: translateY(0) scale(.98);
+    }
+    body.power-autohide .powerWrap.peek{
+      opacity:.96;
+      transform: translateY(0) scale(1);
+    }
+    body.power-autohide .powerWrap.minimized{
+      opacity:.16;
+      transform: translateY(0) scale(.96);
+    }
+    body.power-autohide .powerWrap.minimized .bar,
+    body.power-autohide .powerWrap.minimized #pText{
+      opacity:0;
+      max-height:0;
+      overflow:hidden;
+    }
+
+    body.end-open .topbar{
+      opacity:.72;
+      transform: scale(.995);
+    }
+    body.end-open .coachToast,
+    body.end-open .powerWrap,
+    body.end-open #stageFlash,
+    body.end-open #fxLayer{
+      opacity:0;
+      pointer-events:none;
+    }
   </style>
 </head>
 <body>
@@ -1109,7 +1172,6 @@ Requires:
     if (!(n >= 1 && n <= 5)) return;
     const changed = activeGroupNo !== n;
     activeGroupNo = n;
-
     bgCats.forEach(el => el.classList.toggle('active', Number(el.dataset.group) === n));
 
     const c = GROUP_COLORS[n] || 'rgba(148,163,184,.20)';
@@ -1225,7 +1287,6 @@ Requires:
   function peekPowerWrap(ms){
     if(!powerWrap) return;
     if(!document.body.classList.contains('power-autohide')) return;
-
     powerWrap.classList.add('peek');
     if(powerPeekTimer) clearTimeout(powerPeekTimer);
     powerPeekTimer = setTimeout(()=>{
@@ -1240,9 +1301,9 @@ Requires:
       const isMobile = VIEW === 'mobile';
       const isCVR = VIEW === 'cvr';
 
-      const pad = isCVR ? 42 : isMobile ? 34 : 24;
-      const topSafe = isCVR ? 196 : isMobile ? 176 : 156;
-      const botSafe = isCVR ? 210 : isMobile ? 196 : 176;
+      const pad = isCVR ? 42 : isMobile ? 36 : 24;
+      const topSafe = isCVR ? 188 : isMobile ? 164 : 150;
+      const botSafe = isCVR ? 238 : isMobile ? 228 : 176;
 
       window.__HHA_SPAWN_SAFE__ = {
         xMin: pad,
@@ -1510,9 +1571,9 @@ Requires:
   }
 
   function lockPxForView(){
-    if(VIEW === 'pc') return 18;
-    if(VIEW === 'cvr') return 34;
-    return 28;
+    if(VIEW === 'pc') return 20;
+    if(VIEW === 'cvr') return 38;
+    return 32;
   }
 })();
 </script>
