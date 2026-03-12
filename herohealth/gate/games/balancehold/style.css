@@ -1,0 +1,242 @@
+/* === /herohealth/gate/games/balancehold/style.css === */
+
+:root{
+  --bhg-bg1:#0f172a;
+  --bhg-bg2:#052e2b;
+  --bhg-panel:rgba(2,6,23,.72);
+  --bhg-stroke:rgba(148,163,184,.18);
+  --bhg-text:#e5e7eb;
+  --bhg-muted:#94a3b8;
+  --bhg-accent:#34d399;
+  --bhg-accent2:#93c5fd;
+}
+
+.bhg-wrap{
+  min-height:100vh;
+  padding:18px;
+  color:var(--bhg-text);
+  background:
+    radial-gradient(900px 520px at 50% -10%, rgba(52,211,153,.18), transparent 60%),
+    linear-gradient(180deg, var(--bhg-bg1), var(--bhg-bg2));
+}
+
+.bhg-wrap-cool{
+  background:
+    radial-gradient(900px 520px at 50% -10%, rgba(147,197,253,.18), transparent 60%),
+    linear-gradient(180deg, #0f172a, #082f49);
+}
+
+.bhg-card{
+  width:min(980px, 100%);
+  margin:0 auto;
+  border:1px solid var(--bhg-stroke);
+  background:rgba(2,6,23,.68);
+  border-radius:24px;
+  padding:20px;
+  box-shadow:0 18px 48px rgba(0,0,0,.28);
+  backdrop-filter:blur(8px);
+}
+
+.bhg-kicker{
+  font-size:.82rem;
+  letter-spacing:.12em;
+  color:#a7f3d0;
+  opacity:.95;
+  margin-bottom:8px;
+}
+
+.bhg-title{
+  margin:0;
+  font-size:clamp(1.6rem, 4vw, 2.3rem);
+  line-height:1.1;
+}
+
+.bhg-subtitle{
+  margin:8px 0 0;
+  color:var(--bhg-muted);
+  font-size:1rem;
+}
+
+.bhg-grid{
+  display:grid;
+  grid-template-columns:1fr 1.2fr;
+  gap:16px;
+  margin-top:18px;
+}
+
+.bhg-panel{
+  border:1px solid var(--bhg-stroke);
+  border-radius:20px;
+  padding:16px;
+  background:var(--bhg-panel);
+}
+
+.bhg-play{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:flex-start;
+  text-align:center;
+  min-height:320px;
+}
+
+.bhg-h2{
+  margin:0 0 10px;
+  font-size:1.05rem;
+}
+
+.bhg-list{
+  margin:0;
+  padding-left:18px;
+  color:#dbeafe;
+  line-height:1.7;
+}
+
+.bhg-phase-badge{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-width:120px;
+  padding:8px 14px;
+  border-radius:999px;
+  background:rgba(52,211,153,.14);
+  color:#a7f3d0;
+  border:1px solid rgba(52,211,153,.28);
+  font-weight:700;
+  margin-bottom:14px;
+}
+
+.bhg-phase-badge-cool{
+  background:rgba(147,197,253,.14);
+  color:#bfdbfe;
+  border-color:rgba(147,197,253,.28);
+}
+
+.bhg-cue{
+  min-height:84px;
+  width:100%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  border-radius:18px;
+  border:1px solid var(--bhg-stroke);
+  background:linear-gradient(180deg, rgba(15,23,42,.9), rgba(2,6,23,.86));
+  font-size:clamp(1.2rem, 4vw, 1.9rem);
+  font-weight:800;
+  padding:14px;
+  margin-bottom:12px;
+}
+
+.bhg-cue-cool{
+  color:#bfdbfe;
+}
+
+.bhg-timer{
+  font-size:1.2rem;
+  font-weight:800;
+  color:#fde68a;
+  margin-bottom:10px;
+}
+
+.bhg-stats{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+  justify-content:center;
+  margin-bottom:14px;
+  color:#cbd5e1;
+  font-size:.96rem;
+}
+
+.bhg-stats span{
+  padding:7px 12px;
+  border-radius:999px;
+  background:rgba(15,23,42,.7);
+  border:1px solid var(--bhg-stroke);
+}
+
+.bhg-actions{
+  width:100%;
+  display:grid;
+  grid-template-columns:repeat(2, minmax(0,1fr));
+  gap:10px;
+}
+
+.bhg-actions-single{
+  grid-template-columns:1fr;
+}
+
+.bhg-btn-action{
+  appearance:none;
+  border:1px solid rgba(148,163,184,.24);
+  background:linear-gradient(180deg, rgba(30,41,59,.95), rgba(15,23,42,.95));
+  color:var(--bhg-text);
+  border-radius:18px;
+  min-height:72px;
+  padding:12px;
+  font-size:1rem;
+  font-weight:700;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:10px;
+}
+
+.bhg-btn-action:disabled{
+  opacity:.55;
+}
+
+.bhg-emoji{
+  font-size:1.3rem;
+}
+
+.bhg-footer{
+  margin-top:16px;
+  display:flex;
+  gap:10px;
+  justify-content:flex-end;
+  flex-wrap:wrap;
+}
+
+.bhg-btn{
+  appearance:none;
+  border:1px solid var(--bhg-stroke);
+  border-radius:14px;
+  padding:12px 16px;
+  font-size:1rem;
+  font-weight:800;
+  cursor:pointer;
+}
+
+.bhg-btn:disabled{
+  opacity:.55;
+  cursor:default;
+}
+
+.bhg-btn-primary{
+  color:#052e2b;
+  background:linear-gradient(180deg, #a7f3d0, #34d399);
+  border-color:rgba(52,211,153,.35);
+}
+
+.bhg-btn-ghost{
+  color:#e2e8f0;
+  background:rgba(15,23,42,.88);
+}
+
+@media (max-width: 760px){
+  .bhg-wrap{ padding:12px; }
+  .bhg-card{
+    padding:14px;
+    border-radius:18px;
+  }
+  .bhg-grid{ grid-template-columns:1fr; }
+  .bhg-play{ min-height:auto; }
+  .bhg-actions{ grid-template-columns:1fr; }
+  .bhg-btn-action{
+    min-height:64px;
+    font-size:.96rem;
+  }
+  .bhg-footer{ justify-content:stretch; }
+  .bhg-footer .bhg-btn{ flex:1 1 auto; }
+}
