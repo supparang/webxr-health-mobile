@@ -1,6 +1,6 @@
 // === /herohealth/gate/gate-core.js ===
 // HeroHealth Gate Core
-// PATCH v20260312g-ALL-ZONES-GATE-CORE-CHILD-FRIENDLY
+// PATCH v20260312h-ALL-ZONES-GATE-CORE-CHILD-UI
 
 import {
   getGameMeta,
@@ -109,37 +109,37 @@ function renderLoading(root, meta, phase) {
 
 function metricMeta(key) {
   const map = {
-    total:        { label: 'ทั้งหมด',         icon: '🎯' },
-    correct:      { label: 'ทำถูก',           icon: '✅' },
-    wrong:        { label: 'ทำผิด',           icon: '❌' },
-    misses:       { label: 'พลาด',            icon: '⚠️' },
-    avgReactionMs:{ label: 'ตอบเร็วเฉลี่ย',    icon: '⚡' },
+    total:         { label: 'ทั้งหมด',         icon: '🎯', tone: 'blue' },
+    correct:       { label: 'ทำถูก',           icon: '✅', tone: 'green' },
+    wrong:         { label: 'ทำผิด',           icon: '❌', tone: 'red' },
+    misses:        { label: 'พลาด',            icon: '⚠️', tone: 'amber' },
+    avgReactionMs: { label: 'ตอบเร็วเฉลี่ย',    icon: '⚡', tone: 'violet' },
 
-    success:      { label: 'สำเร็จ',          icon: '✅' },
-    fail:         { label: 'พลาด',            icon: '⚠️' },
+    success:       { label: 'สำเร็จ',          icon: '✅', tone: 'green' },
+    fail:          { label: 'พลาด',            icon: '⚠️', tone: 'amber' },
 
-    starsDone:    { label: 'เก็บดาว',         icon: '⭐' },
-    holdSeconds:  { label: 'ค้างท่า',         icon: '⏱️' },
+    starsDone:     { label: 'เก็บดาว',         icon: '⭐', tone: 'yellow' },
+    holdSeconds:   { label: 'ค้างท่า',         icon: '⏱️', tone: 'cyan' },
 
-    breathCycles: { label: 'รอบหายใจ',        icon: '💨' },
-    calmTicks:    { label: 'ช่วงผ่อนคลาย',    icon: '🌿' },
-    relaxTicks:   { label: 'ช่วงผ่อนคลาย',    icon: '🌿' },
+    breathCycles:  { label: 'รอบหายใจ',        icon: '💨', tone: 'cyan' },
+    calmTicks:     { label: 'ช่วงผ่อนคลาย',    icon: '🌿', tone: 'green' },
+    relaxTicks:    { label: 'ช่วงผ่อนคลาย',    icon: '🌿', tone: 'green' },
 
-    swayRounds:   { label: 'รอบแกว่ง',        icon: '↔️' },
-    stillnessSec: { label: 'ยืนนิ่ง',         icon: '🧍' },
+    swayRounds:    { label: 'รอบแกว่ง',        icon: '↔️', tone: 'blue' },
+    stillnessSec:  { label: 'ยืนนิ่ง',         icon: '🧍', tone: 'cyan' },
 
-    leftHoldSec:  { label: 'ค้างซ้าย',        icon: '⬅️' },
-    rightHoldSec: { label: 'ค้างขวา',         icon: '➡️' },
-    centerHoldSec:{ label: 'ค้างตรงกลาง',     icon: '🟦' },
+    leftHoldSec:   { label: 'ค้างซ้าย',        icon: '⬅️', tone: 'blue' },
+    rightHoldSec:  { label: 'ค้างขวา',         icon: '➡️', tone: 'blue' },
+    centerHoldSec: { label: 'ค้างตรงกลาง',     icon: '🟦', tone: 'violet' },
 
-    done:         { label: 'ทำครบ',           icon: '✅' },
-    skipped:      { label: 'ข้าม',            icon: '⏭️' },
+    done:          { label: 'ทำครบ',           icon: '✅', tone: 'green' },
+    skipped:       { label: 'ข้าม',            icon: '⏭️', tone: 'amber' },
 
-    answers:      { label: 'ตอบแล้ว',         icon: '💬' },
-    mood:         { label: 'ความรู้สึก',      icon: '😊' },
-    energy:       { label: 'พลังงาน',         icon: '⚡' }
+    answers:       { label: 'ตอบแล้ว',         icon: '💬', tone: 'violet' },
+    mood:          { label: 'ความรู้สึก',      icon: '😊', tone: 'pink' },
+    energy:        { label: 'พลังงาน',         icon: '⚡', tone: 'yellow' }
   };
-  return map[key] || { label: key, icon: '•' };
+  return map[key] || { label: key, icon: '•', tone: 'blue' };
 }
 
 function metricValue(key, value) {
@@ -151,20 +151,12 @@ function metricValue(key, value) {
   if (key === 'centerHoldSec') return `${value} วินาที`;
 
   if (key === 'mood') {
-    const moodMap = {
-      happy: 'สนุก',
-      calm: 'สงบ',
-      tired: 'เหนื่อย'
-    };
+    const moodMap = { happy: 'สนุก', calm: 'สงบ', tired: 'เหนื่อย' };
     return moodMap[value] || value;
   }
 
   if (key === 'energy') {
-    const energyMap = {
-      low: 'น้อย',
-      medium: 'ปานกลาง',
-      high: 'มาก'
-    };
+    const energyMap = { low: 'น้อย', medium: 'ปานกลาง', high: 'มาก' };
     return energyMap[value] || value;
   }
 
@@ -181,6 +173,7 @@ function sanitizeMetrics(metrics) {
         key: k,
         label: meta.label,
         icon: meta.icon,
+        tone: meta.tone,
         value: metricValue(k, v)
       };
     });
@@ -189,6 +182,19 @@ function sanitizeMetrics(metrics) {
 function childStatusText(result) {
   if (result?.passed) return 'เยี่ยมมาก';
   return 'ทำเสร็จแล้ว';
+}
+
+function toneStyle(tone) {
+  const styles = {
+    green:  'border:1px solid rgba(34,197,94,.22);background:linear-gradient(180deg,rgba(34,197,94,.16),rgba(15,23,42,.78));',
+    blue:   'border:1px solid rgba(59,130,246,.22);background:linear-gradient(180deg,rgba(59,130,246,.16),rgba(15,23,42,.78));',
+    cyan:   'border:1px solid rgba(34,211,238,.22);background:linear-gradient(180deg,rgba(34,211,238,.16),rgba(15,23,42,.78));',
+    amber:  'border:1px solid rgba(245,158,11,.22);background:linear-gradient(180deg,rgba(245,158,11,.16),rgba(15,23,42,.78));',
+    violet: 'border:1px solid rgba(167,139,250,.22);background:linear-gradient(180deg,rgba(167,139,250,.16),rgba(15,23,42,.78));',
+    pink:   'border:1px solid rgba(244,114,182,.22);background:linear-gradient(180deg,rgba(244,114,182,.16),rgba(15,23,42,.78));',
+    red:    'border:1px solid rgba(239,68,68,.22);background:linear-gradient(180deg,rgba(239,68,68,.16),rgba(15,23,42,.78));'
+  };
+  return styles[tone] || styles.blue;
 }
 
 function renderBuiltInSummary(root, result, ctx) {
@@ -200,33 +206,55 @@ function renderBuiltInSummary(root, result, ctx) {
   const showSecondaryHub = !isCooldown && !!ctx.hubUrl;
 
   root.innerHTML = `
-    <section style="padding:20px;max-width:960px;margin:0 auto;color:#e5e7eb">
-      <div style="border:1px solid rgba(148,163,184,.18);background:rgba(2,6,23,.78);border-radius:24px;padding:20px">
-        <div style="font-size:.82rem;letter-spacing:.08em;color:#94a3b8;margin-bottom:8px">
+    <section style="padding:14px;max-width:960px;margin:0 auto;color:#e5e7eb">
+      <div style="
+        border:1px solid rgba(148,163,184,.18);
+        background:
+          radial-gradient(900px 420px at 50% -10%, rgba(59,130,246,.12), transparent 60%),
+          rgba(2,6,23,.82);
+        border-radius:28px;
+        padding:18px;
+        box-shadow:0 18px 48px rgba(0,0,0,.28);
+      ">
+        <div style="font-size:.82rem;letter-spacing:.08em;color:#94a3b8;margin-bottom:8px;font-weight:800">
           ${esc(String(ctx.meta?.cat || '').toUpperCase())} • ${esc(String(ctx.phase).toUpperCase())}
         </div>
 
-        <h1 style="margin:0 0 10px;font-size:1.6rem">${esc(result?.title || ctx.defaultTitle || 'สรุปผล')}</h1>
-        <p style="margin:0 0 14px;color:#cbd5e1">${esc(result?.coach?.line || '')}</p>
+        <h1 style="margin:0 0 10px;font-size:clamp(1.55rem,5vw,2.1rem);line-height:1.08;font-weight:1000">
+          ${esc(result?.title || ctx.defaultTitle || 'สรุปผล')}
+        </h1>
 
-        <div style="display:flex;flex-wrap:wrap;gap:10px;margin:0 0 14px">
-          <span style="padding:8px 12px;border-radius:999px;background:rgba(15,23,42,.9);border:1px solid rgba(148,163,184,.18)">
+        <p style="margin:0 0 14px;color:#dbeafe;line-height:1.55;font-size:1rem">
+          ${esc(result?.coach?.line || '')}
+        </p>
+
+        <div style="display:flex;flex-wrap:wrap;gap:10px;margin:0 0 16px">
+          <span style="padding:10px 14px;border-radius:999px;background:rgba(15,23,42,.95);border:1px solid rgba(245,158,11,.22);font-weight:900">
             🏅 คะแนน ${esc(result?.score ?? 0)}
           </span>
-          <span style="padding:8px 12px;border-radius:999px;background:rgba(15,23,42,.9);border:1px solid rgba(148,163,184,.18)">
+          <span style="padding:10px 14px;border-radius:999px;background:rgba(15,23,42,.95);border:1px solid rgba(250,204,21,.22);font-weight:900">
             ⭐ ดาว ${esc(result?.stars ?? 1)}
           </span>
-          <span style="padding:8px 12px;border-radius:999px;background:rgba(15,23,42,.9);border:1px solid rgba(148,163,184,.18)">
+          <span style="padding:10px 14px;border-radius:999px;background:rgba(15,23,42,.95);border:1px solid rgba(34,197,94,.22);font-weight:900">
             🎉 ${esc(childStatusText(result))}
           </span>
         </div>
 
         ${metrics.length ? `
-          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin:0 0 16px">
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(165px,1fr));gap:10px;margin:0 0 18px">
             ${metrics.map(m => `
-              <div style="border:1px solid rgba(148,163,184,.16);border-radius:16px;padding:12px;background:rgba(15,23,42,.7)">
-                <div style="font-size:.8rem;color:#94a3b8;margin-bottom:4px">${esc(m.icon)} ${esc(m.label)}</div>
-                <div style="font-weight:800;font-size:1.05rem">${esc(m.value)}</div>
+              <div style="
+                ${toneStyle(m.tone)}
+                border-radius:18px;
+                padding:14px;
+                min-height:92px;
+              ">
+                <div style="font-size:.84rem;color:#cbd5e1;margin-bottom:6px;font-weight:800">
+                  ${esc(m.icon)} ${esc(m.label)}
+                </div>
+                <div style="font-weight:1000;font-size:1.15rem;line-height:1.2">
+                  ${esc(m.value)}
+                </div>
               </div>
             `).join('')}
           </div>
@@ -234,13 +262,35 @@ function renderBuiltInSummary(root, result, ctx) {
 
         <div style="display:flex;gap:10px;flex-wrap:wrap">
           ${primaryUrl ? `
-            <button id="hh-gate-primary" style="appearance:none;border:0;border-radius:14px;padding:12px 16px;font-weight:800;background:linear-gradient(180deg,#86efac,#22c55e);color:#052e16;cursor:pointer">
+            <button id="hh-gate-primary" style="
+              appearance:none;
+              border:0;
+              border-radius:16px;
+              padding:14px 18px;
+              min-height:50px;
+              font-weight:1000;
+              font-size:1rem;
+              background:linear-gradient(180deg,#86efac,#22c55e);
+              color:#052e16;
+              cursor:pointer
+            ">
               ${esc(primaryLabel)}
             </button>
           ` : ''}
 
           ${showSecondaryHub ? `
-            <button id="hh-gate-hub" style="appearance:none;border:1px solid rgba(148,163,184,.18);border-radius:14px;padding:12px 16px;font-weight:800;background:rgba(15,23,42,.9);color:#e5e7eb;cursor:pointer">
+            <button id="hh-gate-hub" style="
+              appearance:none;
+              border:1px solid rgba(148,163,184,.18);
+              border-radius:16px;
+              padding:14px 18px;
+              min-height:50px;
+              font-weight:1000;
+              font-size:1rem;
+              background:rgba(15,23,42,.9);
+              color:#e5e7eb;
+              cursor:pointer
+            ">
               กลับ HUB
             </button>
           ` : ''}
