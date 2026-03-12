@@ -1,6 +1,6 @@
 <!-- === /webxr-health-mobile/herohealth/vr-groups/groups-vr.html ===
 GroupsVR — CHILD-FRIENDLY SOLO RUN PAGE
-FULL v20260312-GROUPS-SOLO-CHILD
+FULL v20260312-GROUPS-SOLO-CHILD-BIGTARGET
 Requires:
 - ../vr/vr-ui.js
 - ./ai-hooks.js
@@ -20,12 +20,6 @@ Requires:
       --stroke: rgba(148,163,184,.18);
       --text:#e5e7eb;
       --muted:#94a3b8;
-      --good:#22c55e;
-      --cyan:#22d3ee;
-      --violet:#a78bfa;
-      --amber:#f59e0b;
-      --red:#ef4444;
-      --pink:#ff4fd8;
       --radius:18px;
       --sat: env(safe-area-inset-top, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
@@ -35,7 +29,10 @@ Requires:
 
     *{ box-sizing:border-box; }
     html,body{
-      height:100%; margin:0; overflow:hidden; color:var(--text);
+      height:100%;
+      margin:0;
+      overflow:hidden;
+      color:var(--text);
       font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif;
       background:
         radial-gradient(1200px 800px at 20% 10%, rgba(34,211,238,.14) 0%, transparent 55%),
@@ -46,9 +43,12 @@ Requires:
 
     #app{
       position:relative;
-      width:100%; height:100%;
+      width:100%;
+      height:100%;
       padding: calc(8px + var(--sat)) calc(8px + var(--sar)) calc(8px + var(--sab)) calc(8px + var(--sal));
-      display:flex; flex-direction:column; gap:8px;
+      display:flex;
+      flex-direction:column;
+      gap:8px;
     }
 
     .topbar{
@@ -63,21 +63,31 @@ Requires:
       align-items:center;
       z-index:50;
       flex:0 0 auto;
-      transition: opacity .16s ease, transform .16s ease;
     }
 
     .title{
-      display:flex; flex-direction:column; gap:2px; min-width:0;
+      display:flex;
+      flex-direction:column;
+      gap:2px;
+      min-width:0;
     }
     .title b{
-      font-size:14px; font-weight:1000; letter-spacing:.2px;
+      font-size:14px;
+      font-weight:1000;
+      letter-spacing:.2px;
     }
     .title span{
-      color:var(--muted); font-size:11.5px; line-height:1.25;
+      color:var(--muted);
+      font-size:11.5px;
+      line-height:1.25;
     }
 
     .row{
-      display:flex; gap:8px; align-items:center; flex-wrap:wrap; justify-content:flex-end;
+      display:flex;
+      gap:8px;
+      align-items:center;
+      flex-wrap:wrap;
+      justify-content:flex-end;
     }
 
     button{
@@ -95,12 +105,6 @@ Requires:
       transform:translateY(-1px);
       background: rgba(2,6,23,.72);
       border-color: rgba(148,163,184,.32);
-    }
-    button:active{ transform:translateY(0) scale(.99); }
-
-    @media (max-width:860px){
-      .topbar{ grid-template-columns:1fr; }
-      .row{ justify-content:flex-start; }
     }
 
     .stage{
@@ -159,7 +163,6 @@ Requires:
       flex-direction:column;
       align-items:center;
       gap:8px;
-      transform:translateZ(0);
       transition: transform .18s ease, opacity .18s ease, filter .18s ease;
       opacity:.72;
     }
@@ -170,16 +173,10 @@ Requires:
       max-width:98px;
       border-radius:18px;
       border:1px solid rgba(255,255,255,.16);
-      box-shadow:
-        0 14px 26px rgba(0,0,0,.22),
-        inset 0 1px 0 rgba(255,255,255,.12);
+      box-shadow:0 14px 26px rgba(0,0,0,.22), inset 0 1px 0 rgba(255,255,255,.12);
       background: var(--cat);
       opacity:.86;
-      transition:
-        transform .18s ease,
-        box-shadow .18s ease,
-        border-color .18s ease,
-        opacity .18s ease;
+      transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease, opacity .18s ease;
     }
 
     .bgCatLabel{
@@ -195,7 +192,6 @@ Requires:
     .bgCat.active{
       opacity:1;
       transform: translateY(-3px) scale(1.03);
-      filter: saturate(1.08);
     }
 
     .bgCat.active .bgCatBox{
@@ -209,60 +205,6 @@ Requires:
       opacity:1;
     }
 
-    .bgCat.switchFx .bgCatBox{ animation: bgGroupSwitchPulse .46s ease-out; }
-    .bgCat.hitFx .bgCatBox{ animation: bgGroupHitPulse .34s ease-out; }
-    .powerWrap.switchFx{ animation: powerWrapSwitchFx .44s ease-out; }
-    .powerWrap.hitFx{ animation: powerWrapHitFx .28s ease-out; }
-
-    @keyframes bgGroupSwitchPulse{
-      0%{ transform: translateY(-2px) scale(1.04); }
-      35%{ transform: translateY(-4px) scale(1.09); }
-      100%{ transform: translateY(-2px) scale(1.04); }
-    }
-
-    @keyframes bgGroupHitPulse{
-      0%{ transform: translateY(-2px) scale(1.04); }
-      40%{ transform: translateY(-3px) scale(1.12); }
-      100%{ transform: translateY(-2px) scale(1.04); }
-    }
-
-    @keyframes powerWrapSwitchFx{
-      0%{ transform: scale(1); }
-      40%{ transform: scale(1.035); }
-      100%{ transform: scale(1); }
-    }
-
-    @keyframes powerWrapHitFx{
-      0%{ transform: scale(1); }
-      40%{ transform: scale(1.02); }
-      100%{ transform: scale(1); }
-    }
-
-    @media (max-width:760px){
-      .bgCats{
-        bottom:13%;
-        gap:10px;
-        width:min(96%, 760px);
-      }
-      .bgCatBox{
-        max-width:72px;
-        border-radius:14px;
-      }
-      .bgCatLabel{ font-size:10px; }
-    }
-
-    @media (max-width:520px){
-      .bgCats{
-        bottom:12%;
-        gap:8px;
-      }
-      .bgCatBox{
-        max-width:58px;
-        border-radius:12px;
-      }
-      .bgCatLabel{ font-size:9px; }
-    }
-
     #playLayer{
       position:absolute;
       inset:0;
@@ -273,17 +215,21 @@ Requires:
 
     .hud{
       position:absolute;
-      left:8px; right:8px;
-      display:flex; align-items:flex-start; justify-content:space-between; gap:8px;
+      left:8px;
+      right:8px;
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:8px;
       pointer-events:none;
       z-index:30;
     }
     .hudTop{ top: calc(8px + var(--sat)); }
 
     .hudLeftCol{
-      display:flex; flex-direction:column; gap:6px;
-      min-width:0;
-      max-width:100%;
+      display:flex;
+      flex-direction:column;
+      gap:6px;
       width:100%;
     }
 
@@ -297,36 +243,67 @@ Requires:
       border:1px solid rgba(148,163,184,.16);
       background: rgba(2,6,23,.54);
       backdrop-filter: blur(8px);
-      box-shadow: 0 10px 24px rgba(0,0,0,.18);
     }
+
     .hudMetric{
-      display:flex; gap:5px; align-items:center; min-width:0;
+      display:flex;
+      gap:5px;
+      align-items:center;
+      min-width:0;
     }
-    .hudMetric .k{ color:var(--muted); font-size:10px; font-weight:900; }
-    .hudMetric .v{ color:var(--text); font-size:12px; font-weight:1000; }
+    .hudMetric .k{
+      color:var(--muted);
+      font-size:10px;
+      font-weight:900;
+    }
+    .hudMetric .v{
+      color:var(--text);
+      font-size:12px;
+      font-weight:1000;
+    }
 
     .questTop{
-      display:flex; flex-direction:column; gap:5px;
+      display:flex;
+      flex-direction:column;
+      gap:5px;
       padding:6px 8px;
       border-radius:14px;
       border:1px solid rgba(148,163,184,.14);
       background: rgba(2,6,23,.44);
       backdrop-filter: blur(8px);
     }
+
     .questLine{
-      display:flex; justify-content:space-between; gap:8px; align-items:flex-start; flex-wrap:wrap;
+      display:flex;
+      justify-content:space-between;
+      gap:8px;
+      align-items:flex-start;
+      flex-wrap:wrap;
     }
-    .questTitle{ font-size:12px; font-weight:1000; line-height:1.22; }
-    .questMini{ color:var(--muted); font-size:10px; font-weight:900; line-height:1.2; }
+
+    .questTitle{
+      font-size:12px;
+      font-weight:1000;
+      line-height:1.22;
+    }
+    .questMini{
+      color:var(--muted);
+      font-size:10px;
+      font-weight:900;
+      line-height:1.2;
+    }
 
     .bar{
-      height:9px; border-radius:999px;
+      height:9px;
+      border-radius:999px;
       border:1px solid rgba(148,163,184,.18);
       background: rgba(2,6,23,.55);
       overflow:hidden;
     }
     .bar > i{
-      display:block; height:100%; width:0%;
+      display:block;
+      height:100%;
+      width:0%;
       background: linear-gradient(90deg, rgba(34,211,238,.95), rgba(167,139,250,.92), rgba(255,79,216,.86));
       transition: width .10s linear;
     }
@@ -336,7 +313,9 @@ Requires:
       left:8px;
       top:98px;
       width:min(178px, 46vw);
-      display:flex; flex-direction:column; gap:5px;
+      display:flex;
+      flex-direction:column;
+      gap:5px;
       padding:6px 8px;
       border-radius:14px;
       border:1px solid rgba(148,163,184,.14);
@@ -346,12 +325,6 @@ Requires:
       z-index:31;
       pointer-events:none;
       --group-accent: rgba(148,163,184,.20);
-      transition:
-        border-color .18s ease,
-        box-shadow .18s ease,
-        background .18s ease,
-        opacity .18s ease,
-        transform .18s ease;
     }
     .powerWrap.activeGroup{
       border-color: color-mix(in srgb, var(--group-accent) 58%, rgba(148,163,184,.18));
@@ -359,35 +332,25 @@ Requires:
         0 0 0 1px color-mix(in srgb, var(--group-accent) 26%, transparent),
         0 10px 24px rgba(0,0,0,.16),
         0 0 22px color-mix(in srgb, var(--group-accent) 18%, transparent);
-      background:
-        linear-gradient(180deg,
-          color-mix(in srgb, var(--group-accent) 12%, rgba(2,6,23,.54)),
-          rgba(2,6,23,.44)
-        );
     }
 
     .powerHead{
-      display:flex; justify-content:space-between; gap:8px; align-items:center;
+      display:flex;
+      justify-content:space-between;
+      gap:8px;
+      align-items:center;
     }
     .powerHead b{ font-size:12px; line-height:1.15; }
-    .powerHead span{ color:var(--muted); font-size:10px; font-weight:1000; }
-
-    @media (max-width:680px){
-      .hudBox{
-        grid-template-columns:repeat(5,minmax(0,1fr));
-        gap:6px;
-        padding:6px 8px;
-      }
-      .hudMetric{ justify-content:center; }
-      .powerWrap{
-        top:100px;
-        width:min(168px, 44vw);
-      }
+    .powerHead span{
+      color:var(--muted);
+      font-size:10px;
+      font-weight:1000;
     }
 
     .coachToast{
       position:absolute;
-      left:10px; right:10px;
+      left:10px;
+      right:10px;
       bottom: calc(10px + var(--sab) + 92px);
       display:none;
       z-index:40;
@@ -396,9 +359,15 @@ Requires:
       opacity:0;
       transition: opacity .18s ease, transform .18s ease;
     }
-    .coachToast.show{ display:block; opacity:1; transform:translateY(0); }
+    .coachToast.show{
+      display:block;
+      opacity:1;
+      transform:translateY(0);
+    }
     .coachWrap{
-      display:flex; align-items:center; gap:10px;
+      display:flex;
+      align-items:center;
+      gap:10px;
       padding:7px 10px;
       border-radius:16px;
       border:1px solid rgba(148,163,184,.16);
@@ -408,14 +377,28 @@ Requires:
       max-width:min(560px,100%);
     }
     .coachWrap .face{
-      width:34px; height:34px; border-radius:12px;
-      display:flex; align-items:center; justify-content:center;
+      width:34px;
+      height:34px;
+      border-radius:12px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
       background: rgba(148,163,184,.10);
       border:1px solid rgba(148,163,184,.14);
-      font-size:18px; flex:0 0 auto;
+      font-size:18px;
+      flex:0 0 auto;
     }
-    .coachWrap .txt{ font-weight:1000; font-size:13px; line-height:1.25; }
-    .coachWrap .sub{ color:var(--muted); font-size:11px; font-weight:900; margin-top:2px; }
+    .coachWrap .txt{
+      font-weight:1000;
+      font-size:13px;
+      line-height:1.25;
+    }
+    .coachWrap .sub{
+      color:var(--muted);
+      font-size:11px;
+      font-weight:900;
+      margin-top:2px;
+    }
 
     #stageFlash{
       position:absolute;
@@ -437,6 +420,7 @@ Requires:
       overflow:hidden;
       z-index:38;
     }
+
     .scorePop{
       position:absolute;
       font-weight:1100;
@@ -448,6 +432,7 @@ Requires:
     }
     .scorePop.good{ color:#86efac; }
     .scorePop.bad{ color:#fca5a5; }
+
     @keyframes scorePopUp{
       0%{ transform: translate(-50%,-50%) scale(.72); opacity:0; }
       15%{ transform: translate(-50%,-58%) scale(1.04); opacity:1; }
@@ -471,8 +456,58 @@ Requires:
       100%{ transform:scale(1); opacity:1; }
     }
 
+    .tgt{
+      width:92px;
+      height:92px;
+      border-radius:22px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size:42px;
+      font-weight:1000;
+      background: rgba(15,23,42,.72);
+      border:1px solid rgba(148,163,184,.22);
+      box-shadow: 0 12px 30px rgba(0,0,0,.22);
+      pointer-events:auto;
+      user-select:none;
+      -webkit-tap-highlight-color: transparent;
+      position:absolute;
+    }
+    .tgt::before{
+      content:"";
+      position:absolute;
+      inset:-14px;
+      border-radius:30px;
+    }
+
+    body[data-view="pc"] .tgt{
+      width:88px;
+      height:88px;
+      font-size:40px;
+      border-radius:21px;
+    }
+
+    body[data-view="mobile"] .tgt{
+      width:108px;
+      height:108px;
+      font-size:48px;
+      border-radius:24px;
+    }
+
+    body[data-view="cvr"] .tgt{
+      width:120px;
+      height:120px;
+      font-size:52px;
+      border-radius:28px;
+    }
+
+    body[data-view="cvr"][data-cvr-strict="1"] .tgt{
+      pointer-events:none !important;
+    }
+
     .overlay{
-      position:absolute; inset:0;
+      position:absolute;
+      inset:0;
       display:none;
       align-items:flex-start;
       justify-content:center;
@@ -486,6 +521,7 @@ Requires:
         12px;
       overflow:auto;
     }
+
     .overlayCard{
       width:min(860px, 100%);
       max-height:min(88vh, 760px);
@@ -498,26 +534,33 @@ Requires:
       flex-direction:column;
       margin:auto 0;
     }
+
     .overlayCard header{
       padding:12px;
       border-bottom:1px solid rgba(148,163,184,.14);
-      display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      flex-wrap:wrap;
     }
+
     .overlayBtns{
       padding:12px;
       border-top:1px solid rgba(148,163,184,.14);
-      display:flex; gap:10px; flex-wrap:wrap; justify-content:center;
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      justify-content:center;
     }
 
-    #endCard{
-      width:min(920px, 100%);
-    }
     #endCard main{
       padding:12px;
       display:grid;
       grid-template-columns:1fr;
       gap:10px;
-      overflow:auto; min-height:0;
+      overflow:auto;
+      min-height:0;
     }
 
     .panel{
@@ -525,8 +568,8 @@ Requires:
       border:1px solid rgba(148,163,184,.14);
       background: rgba(2,6,23,.50);
       padding:10px;
-      min-height:0;
     }
+
     .panel h3, .panel h4{
       margin:0 0 8px;
       font-size:14px;
@@ -538,6 +581,7 @@ Requires:
       grid-template-columns:repeat(2,minmax(0,1fr));
       gap:8px;
     }
+
     .statCard{
       border-radius:14px;
       border:1px solid rgba(148,163,184,.12);
@@ -545,6 +589,7 @@ Requires:
       padding:10px;
       min-width:0;
     }
+
     .statCard .k{
       color:var(--muted);
       font-size:10px;
@@ -564,6 +609,7 @@ Requires:
       display:grid;
       gap:8px;
     }
+
     .miniRow{
       display:flex;
       justify-content:space-between;
@@ -574,24 +620,101 @@ Requires:
       border:1px solid rgba(148,163,184,.10);
       background: rgba(15,23,42,.38);
     }
+
     .miniRow .k{
       color:var(--muted);
       font-size:11px;
       font-weight:900;
-      min-width:0;
     }
     .miniRow .v{
       color:var(--text);
       font-size:12px;
       font-weight:1000;
       text-align:right;
-      min-width:0;
       word-break:break-word;
     }
 
     @media (max-width:760px){
       .statGrid{
         grid-template-columns:repeat(2,minmax(0,1fr));
+      }
+      .bgCats{
+        bottom:13%;
+        gap:10px;
+        width:min(96%, 760px);
+      }
+      .bgCatBox{
+        max-width:72px;
+        border-radius:14px;
+      }
+      .bgCatLabel{ font-size:10px; }
+    }
+
+    @media (max-width:640px){
+      #app{
+        gap:6px;
+        padding: calc(6px + var(--sat)) calc(6px + var(--sar)) calc(6px + var(--sab)) calc(6px + var(--sal));
+      }
+      .topbar{
+        padding:7px 8px;
+        gap:8px;
+        border-radius:16px;
+      }
+      .title b{ font-size:13px; }
+      .title span{ font-size:10.5px; line-height:1.2; }
+      .row{ gap:6px; }
+      button{
+        padding:7px 10px;
+        border-radius:12px;
+        font-size:12px;
+      }
+      .hud{ left:6px; right:6px; }
+      .hudBox{
+        gap:5px;
+        padding:5px 6px;
+        border-radius:12px;
+      }
+      .hudMetric .k{ font-size:9px; }
+      .hudMetric .v{ font-size:11px; }
+      .questTop{
+        gap:4px;
+        padding:5px 6px;
+        border-radius:12px;
+      }
+      .questTitle{ font-size:11px; }
+      .questMini{ font-size:9px; }
+      .powerWrap{
+        left:6px;
+        top:92px;
+        width:min(144px, 40vw);
+        gap:4px;
+        padding:5px 6px;
+        border-radius:12px;
+      }
+      .powerHead b{ font-size:11px; }
+      .powerHead span{ font-size:9px; }
+      .coachToast{
+        left:8px;
+        right:8px;
+        bottom: calc(8px + var(--sab) + 78px);
+      }
+      .coachWrap{
+        gap:8px;
+        padding:6px 8px;
+        border-radius:14px;
+      }
+      .coachWrap .face{
+        width:30px;
+        height:30px;
+        border-radius:10px;
+        font-size:16px;
+      }
+      .coachWrap .txt{ font-size:12px; }
+      .coachWrap .sub{ font-size:10px; }
+      body[data-view="mobile"] .tgt{
+        width:112px;
+        height:112px;
+        font-size:50px;
       }
     }
 
@@ -626,103 +749,19 @@ Requires:
       }
       .overlayBtns button{
         flex:1 1 100%;
-        min-width:0;
       }
-      .statGrid{
-        grid-template-columns:repeat(2,minmax(0,1fr));
-        gap:6px;
-      }
-      .statCard{ padding:8px; }
-      .statCard .k{ font-size:9px; }
-      .statCard .v{ font-size:16px; }
-      .miniRow{ padding:7px 8px; }
-      .miniRow .k,
-      .miniRow .v{ font-size:11px; }
     }
 
-    @media (max-width:640px){
-      #app{
-        gap:6px;
-        padding:
-          calc(6px + var(--sat))
-          calc(6px + var(--sar))
-          calc(6px + var(--sab))
-          calc(6px + var(--sal));
-      }
-      .topbar{
-        padding:7px 8px;
-        gap:8px;
-        border-radius:16px;
-      }
-      .title b{ font-size:13px; }
-      .title span{ font-size:10.5px; line-height:1.2; }
-      .row{ gap:6px; }
-      button{
-        padding:7px 10px;
-        border-radius:12px;
-        font-size:12px;
-      }
-      .hud{ left:6px; right:6px; }
-      .hudBox{
-        gap:5px;
-        padding:5px 6px;
-        border-radius:12px;
-      }
-      .hudMetric .k{ font-size:9px; }
-      .hudMetric .v{ font-size:11px; }
-      .questTop{
-        gap:4px;
-        padding:5px 6px;
-        border-radius:12px;
-      }
-      .questTitle{ font-size:11px; }
-      .questMini{ font-size:9px; }
-      .bar{ height:8px; }
-      .powerWrap{
-        left:6px;
-        top:92px;
-        width:min(144px, 40vw);
-        gap:4px;
-        padding:5px 6px;
-        border-radius:12px;
-      }
-      .powerHead b{ font-size:11px; }
-      .powerHead span{ font-size:9px; }
-      .coachToast{
-        left:8px;
-        right:8px;
-        bottom: calc(8px + var(--sab) + 78px);
-      }
-      .coachWrap{
-        gap:8px;
-        padding:6px 8px;
-        border-radius:14px;
-      }
-      .coachWrap .face{
-        width:30px;
-        height:30px;
-        border-radius:10px;
-        font-size:16px;
-      }
-      .coachWrap .txt{ font-size:12px; }
-      .coachWrap .sub{ font-size:10px; }
-      .scorePop{ font-size:19px; }
+    @media (max-width:520px){
       .bgCats{
-        bottom:10%;
-        width:min(94%, 620px);
+        bottom:12%;
         gap:8px;
-        opacity:.82;
       }
-      .bgCat{ opacity:.64; }
-      .bgCat.active{ opacity:.95; }
       .bgCatBox{
-        max-width:50px;
-        border-radius:11px;
+        max-width:58px;
+        border-radius:12px;
       }
-      .bgCatLabel{
-        font-size:8.5px;
-        line-height:1.1;
-      }
+      .bgCatLabel{ font-size:9px; }
     }
 
     @media (max-width:460px){
@@ -749,12 +788,11 @@ Requires:
         padding:4px 5px;
       }
       .powerHead b{ font-size:10px; }
-      .coachToast{
-        bottom: calc(8px + var(--sab) + 72px);
+      body[data-view="mobile"] .tgt{
+        width:104px;
+        height:104px;
+        font-size:46px;
       }
-      .coachWrap .txt{ font-size:11px; }
-      .coachWrap .sub{ font-size:9px; }
-      .scorePop{ font-size:17px; }
       .bgCats{
         bottom:8%;
         gap:6px;
@@ -779,67 +817,15 @@ Requires:
     body.hud-compact .questTitle{ font-size:9.5px; }
     body.hud-compact .questMini{ font-size:8px; }
     body.hud-compact .powerWrap{
-      left:5px; top:82px; width:min(116px, 34vw);
-      padding:4px 5px; gap:3px; border-radius:10px;
+      left:5px;
+      top:82px;
+      width:min(116px, 34vw);
+      padding:4px 5px;
+      gap:3px;
+      border-radius:10px;
     }
     body.hud-compact .powerHead b{ font-size:9px; }
     body.hud-compact .powerHead span{ font-size:8px; }
-    body.hud-compact .coachToast{
-      left:6px; right:6px;
-      bottom: calc(6px + var(--sab) + 60px);
-    }
-    body.hud-compact .coachWrap{ padding:5px 7px; gap:7px; border-radius:12px; }
-    body.hud-compact .coachWrap .face{ width:28px; height:28px; font-size:15px; }
-    body.hud-compact .coachWrap .txt{ font-size:10.5px; }
-    body.hud-compact .coachWrap .sub{ font-size:8.5px; }
-    body.hud-compact .bgCats{ bottom:6%; gap:5px; opacity:.68; }
-    body.hud-compact .bgCatBox{ max-width:38px; border-radius:9px; }
-    body.hud-compact .bgCatLabel{ font-size:7px; line-height:1.05; }
-
-    body.power-autohide .powerWrap{
-      opacity:.28;
-      transform: translateY(0) scale(.98);
-    }
-    body.power-autohide .powerWrap.peek{
-      opacity:.96;
-      transform: translateY(0) scale(1);
-    }
-    body.power-autohide .powerWrap.minimized{
-      opacity:.16;
-      transform: translateY(0) scale(.96);
-    }
-    body.power-autohide .powerWrap.minimized .bar,
-    body.power-autohide .powerWrap.minimized #pText{
-      opacity:0;
-      max-height:0;
-      overflow:hidden;
-    }
-    body.power-autohide .powerWrap.minimized .powerHead b{
-      white-space:nowrap;
-      overflow:hidden;
-      text-overflow:ellipsis;
-      max-width:72px;
-    }
-
-    @media (max-width:640px){
-      body.power-autohide .powerWrap{ opacity:.22; }
-      body.power-autohide .powerWrap.peek{ opacity:.98; }
-    }
-
-    body.end-open .topbar{
-      opacity:.72;
-      transform: scale(.995);
-    }
-    body.end-open .coachToast,
-    body.end-open .powerWrap,
-    body.end-open #stageFlash,
-    body.end-open #fxLayer{
-      opacity:0;
-      pointer-events:none;
-    }
-    body.end-open #playLayer{
-      pointer-events:none;
-    }
   </style>
 </head>
 <body>
@@ -849,7 +835,6 @@ Requires:
       <b>🥗 เกมอาหาร 5 หมู่</b>
       <span id="subline">ยิงให้ถูกหมวด เก็บคะแนน และสะสมคอมโบ</span>
     </div>
-
     <div class="row">
       <button id="btnRestart">เริ่มใหม่</button>
       <button id="btnBack">กลับหน้าหลัก</button>
@@ -860,31 +845,16 @@ Requires:
     <div id="bgLayer" aria-hidden="true">
       <div class="bgFloor"></div>
       <div class="bgCats">
-        <div class="bgCat" data-group="1">
-          <div class="bgCatBox" style="--cat:#e11d48;"></div>
-          <div class="bgCatLabel">หมู่ 1
-โปรตีน</div>
-        </div>
-        <div class="bgCat" data-group="2">
-          <div class="bgCatBox" style="--cat:#f97316;"></div>
-          <div class="bgCatLabel">หมู่ 2
-คาร์โบไฮเดรต</div>
-        </div>
-        <div class="bgCat" data-group="3">
-          <div class="bgCatBox" style="--cat:#22c55e;"></div>
-          <div class="bgCatLabel">หมู่ 3
-ผัก</div>
-        </div>
-        <div class="bgCat" data-group="4">
-          <div class="bgCatBox" style="--cat:#38bdf8;"></div>
-          <div class="bgCatLabel">หมู่ 4
-ผลไม้</div>
-        </div>
-        <div class="bgCat" data-group="5">
-          <div class="bgCatBox" style="--cat:#a855f7;"></div>
-          <div class="bgCatLabel">หมู่ 5
-ไขมัน</div>
-        </div>
+        <div class="bgCat" data-group="1"><div class="bgCatBox" style="--cat:#e11d48;"></div><div class="bgCatLabel">หมู่ 1
+โปรตีน</div></div>
+        <div class="bgCat" data-group="2"><div class="bgCatBox" style="--cat:#f97316;"></div><div class="bgCatLabel">หมู่ 2
+คาร์โบไฮเดรต</div></div>
+        <div class="bgCat" data-group="3"><div class="bgCatBox" style="--cat:#22c55e;"></div><div class="bgCatLabel">หมู่ 3
+ผัก</div></div>
+        <div class="bgCat" data-group="4"><div class="bgCatBox" style="--cat:#38bdf8;"></div><div class="bgCatLabel">หมู่ 4
+ผลไม้</div></div>
+        <div class="bgCat" data-group="5"><div class="bgCatBox" style="--cat:#a855f7;"></div><div class="bgCatLabel">หมู่ 5
+ไขมัน</div></div>
       </div>
     </div>
 
@@ -941,36 +911,16 @@ Requires:
             <span style="color:var(--muted); font-weight:900;" id="endSub"></span>
           </div>
         </header>
-
         <main>
-          <section class="panel" id="childSummaryPanel">
+          <section class="panel">
             <h3 id="childHeadline">เก่งมาก!</h3>
-
             <div class="statGrid">
-              <div class="statCard">
-                <div class="k">คะแนน</div>
-                <div class="v" id="sumScore">0</div>
-              </div>
-              <div class="statCard">
-                <div class="k">ระดับ</div>
-                <div class="v" id="sumGrade">—</div>
-              </div>
-              <div class="statCard">
-                <div class="k">ความแม่นยำ</div>
-                <div class="v" id="sumAcc">0%</div>
-              </div>
-              <div class="statCard">
-                <div class="k">พลาด</div>
-                <div class="v" id="sumMiss">0</div>
-              </div>
-              <div class="statCard">
-                <div class="k">คอมโบสูงสุด</div>
-                <div class="v" id="sumCombo">0</div>
-              </div>
-              <div class="statCard">
-                <div class="k">เวลาเล่น</div>
-                <div class="v" id="sumTime">0s</div>
-              </div>
+              <div class="statCard"><div class="k">คะแนน</div><div class="v" id="sumScore">0</div></div>
+              <div class="statCard"><div class="k">ระดับ</div><div class="v" id="sumGrade">—</div></div>
+              <div class="statCard"><div class="k">ความแม่นยำ</div><div class="v" id="sumAcc">0%</div></div>
+              <div class="statCard"><div class="k">พลาด</div><div class="v" id="sumMiss">0</div></div>
+              <div class="statCard"><div class="k">คอมโบสูงสุด</div><div class="v" id="sumCombo">0</div></div>
+              <div class="statCard"><div class="k">เวลาเล่น</div><div class="v" id="sumTime">0s</div></div>
             </div>
 
             <div class="miniList" style="margin-top:10px;">
@@ -986,7 +936,6 @@ Requires:
             </div>
           </section>
         </main>
-
         <div class="overlayBtns">
           <button id="btnEndContinue">ไปต่อ</button>
           <button id="btnEndAgain">เล่นอีกครั้ง</button>
@@ -1021,41 +970,32 @@ Requires:
   document.body.setAttribute('data-cvr-strict', CVR_STRICT ? '1' : '0');
 
   const $ = (s)=>document.querySelector(s);
-
   const hudTime = $('#hudTime');
   const hudScore = $('#hudScore');
   const hudCombo = $('#hudCombo');
   const hudMiss = $('#hudMiss');
   const hudRank = $('#hudRank');
-
   const qTitle = $('#qTitle');
   const qSub = $('#qSub');
   const qBar = $('#qBar');
   const qMini = $('#qMini');
   const qMiniTime = $('#qMiniTime');
-
   const groupName = $('#groupName');
   const pBar = $('#pBar');
   const pText = $('#pText');
-
   const powerWrap = document.querySelector('.powerWrap');
   const bgCats = Array.from(document.querySelectorAll('.bgCat'));
-
   const coachToast = $('#coachToast');
   const toastFace = $('#toastFace');
   const toastTxt = $('#toastTxt');
   const toastSub = $('#toastSub');
-
   const stageFlash = $('#stageFlash');
   const fxLayer = $('#fxLayer');
   const playLayer = $('#playLayer');
-
   const endOverlay = $('#endOverlay');
   const endSub = $('#endSub');
-
   const childHeadline = $('#childHeadline');
   const childCoachMsg = $('#childCoachMsg');
-
   const sumGrade = $('#sumGrade');
   const sumScore = $('#sumScore');
   const sumAcc = $('#sumAcc');
@@ -1112,23 +1052,16 @@ Requires:
   function getChildCoachMessage(s){
     const acc = Number(s?.accuracyPct || 0);
     const miss = Number(s?.miss || 0);
-
-    if(acc >= 90 && miss <= 2){
-      return 'แม่นมาก! ไปผ่อนคลายต่อกันได้เลย';
-    }
-    if(acc >= 75){
-      return 'ดีมาก! รอบหน้าลองเก็บคอมโบให้สูงขึ้นนะ';
-    }
+    if(acc >= 90 && miss <= 2) return 'แม่นมาก! ไปผ่อนคลายต่อกันได้เลย';
+    if(acc >= 75) return 'ดีมาก! รอบหน้าลองเก็บคอมโบให้สูงขึ้นนะ';
     return 'ทำได้ดีแล้ว! ลองเล่นอีกครั้ง หรือไปผ่อนคลายต่อได้เลย';
   }
 
   function faceFromMood(mood){
-    return (
-      mood === 'happy' ? '😄' :
-      mood === 'fever' ? '🔥' :
-      mood === 'sad' ? '😵' :
-      '🙂'
-    );
+    return mood === 'happy' ? '😄'
+      : mood === 'fever' ? '🔥'
+      : mood === 'sad' ? '😵'
+      : '🙂';
   }
 
   function parseGroupNo(input){
@@ -1174,26 +1107,21 @@ Requires:
   function setActiveGroup(groupNo){
     const n = Number(groupNo);
     if (!(n >= 1 && n <= 5)) return;
-
     const changed = activeGroupNo !== n;
     activeGroupNo = n;
 
-    bgCats.forEach(el => {
-      const on = Number(el.dataset.group) === n;
-      el.classList.toggle('active', on);
-    });
+    bgCats.forEach(el => el.classList.toggle('active', Number(el.dataset.group) === n));
 
     const c = GROUP_COLORS[n] || 'rgba(148,163,184,.20)';
     if (powerWrap){
       powerWrap.classList.add('activeGroup');
       powerWrap.style.setProperty('--group-accent', c);
     }
-
     if(changed) triggerGroupSwitchFx(n);
   }
 
   function showToast(text, mood){
-    if(toastTimer){ clearTimeout(toastTimer); toastTimer = null; }
+    if(toastTimer) clearTimeout(toastTimer);
     toastTxt.textContent = text || '';
     toastSub.textContent = mood || 'coach';
     toastFace.textContent = faceFromMood(mood);
@@ -1202,7 +1130,8 @@ Requires:
   }
 
   function hideToast(){
-    if(toastTimer){ clearTimeout(toastTimer); toastTimer = null; }
+    if(toastTimer) clearTimeout(toastTimer);
+    toastTimer = null;
     coachToast.classList.remove('show');
   }
 
@@ -1250,11 +1179,6 @@ Requires:
       document.body.classList.add('end-open');
       try{ window.HHA_VR_UI?.hide?.(); }catch(_){}
       try{ window.HHA_VRUI?.hide?.(); }catch(_){}
-      try{
-        document.querySelectorAll('.hha-vr-ui, .vr-ui, #vr-ui, #btnEnterVR, #btnRecenter, #btnExitVR').forEach(n => {
-          n.style.display = 'none';
-        });
-      }catch(_){}
     }
   }
 
@@ -1265,11 +1189,6 @@ Requires:
       document.body.classList.remove('end-open');
       try{ window.HHA_VR_UI?.show?.(); }catch(_){}
       try{ window.HHA_VRUI?.show?.(); }catch(_){}
-      try{
-        document.querySelectorAll('.hha-vr-ui, .vr-ui, #vr-ui, #btnEnterVR, #btnRecenter, #btnExitVR').forEach(n => {
-          n.style.display = '';
-        });
-      }catch(_){}
     }
   }
 
@@ -1296,7 +1215,6 @@ Requires:
     const h = window.innerHeight || 0;
     const autoHide = (VIEW === 'mobile') && ((w <= 640) || (h <= 720));
     const minimized = (w <= 390) || (w <= 430 && h <= 700);
-
     document.body.classList.toggle('power-autohide', autoHide);
     if(powerWrap){
       powerWrap.classList.toggle('minimized', autoHide && minimized);
@@ -1309,16 +1227,30 @@ Requires:
     if(!document.body.classList.contains('power-autohide')) return;
 
     powerWrap.classList.add('peek');
-
-    if(powerPeekTimer){
-      clearTimeout(powerPeekTimer);
-      powerPeekTimer = null;
-    }
-
+    if(powerPeekTimer) clearTimeout(powerPeekTimer);
     powerPeekTimer = setTimeout(()=>{
       powerWrap.classList.remove('peek');
       powerPeekTimer = null;
     }, ms || 1400);
+  }
+
+  function updateSpawnSafe(){
+    try{
+      const r = playLayer.getBoundingClientRect();
+      const isMobile = VIEW === 'mobile';
+      const isCVR = VIEW === 'cvr';
+
+      const pad = isCVR ? 42 : isMobile ? 34 : 24;
+      const topSafe = isCVR ? 196 : isMobile ? 176 : 156;
+      const botSafe = isCVR ? 210 : isMobile ? 196 : 176;
+
+      window.__HHA_SPAWN_SAFE__ = {
+        xMin: pad,
+        xMax: Math.max(pad + 1, r.width - pad),
+        yMin: topSafe,
+        yMax: Math.max(topSafe + 1, r.height - botSafe)
+      };
+    }catch(_){}
   }
 
   function syncUiToBootState(){
@@ -1350,7 +1282,6 @@ Requires:
 
   function buildEndSummary(summary){
     const s = summary || {};
-
     sumGrade.textContent = s.grade || '—';
     sumScore.textContent = String(s.scoreFinal ?? s.score ?? 0);
     sumAcc.textContent = `${s.accuracyPct ?? 0}%`;
@@ -1359,7 +1290,6 @@ Requires:
     sumTime.textContent = `${s.durationPlayedSec ?? 0}s`;
     sumGroupLast.textContent = s.groupLast || '—';
     sumBossHits.textContent = String(s.bossHits ?? 0);
-
     childHeadline.textContent = getChildHeadline(s.grade);
     childCoachMsg.textContent = getChildCoachMessage(s);
   }
@@ -1373,6 +1303,7 @@ Requires:
     syncUiToBootState();
     updateHudCompactMode();
     updatePowerAutohideMode();
+    updateSpawnSafe();
 
     safeStopEngine();
     try{ window.GroupsVR?.GameEngine?.setLayerEl?.(playLayer); }catch(_){}
@@ -1420,6 +1351,7 @@ Requires:
     resetTransientUi();
     updateHudCompactMode();
     updatePowerAutohideMode();
+    updateSpawnSafe();
     startGame();
   }
 
@@ -1430,9 +1362,7 @@ Requires:
 
   window.addEventListener('hha:time', (ev)=>{
     const left = ev?.detail?.left;
-    if(typeof left === 'number'){
-      hudTime.textContent = left + 's';
-    }
+    if(typeof left === 'number') hudTime.textContent = left + 's';
   });
 
   window.addEventListener('hha:score', (ev)=>{
@@ -1545,18 +1475,17 @@ Requires:
       setTimeout(()=> restart(), 60);
     }
   });
+  window.addEventListener('resize', updateSpawnSafe, { passive:true });
 
   $('#btnRestart').addEventListener('click', restart);
   $('#btnBack').addEventListener('click', ()=>{
     safeStopEngine();
     location.href = HUB;
   });
-
   $('#btnEndContinue').addEventListener('click', ()=>{
     safeStopEngine();
     location.href = buildCooldownUrl();
   });
-
   $('#btnEndAgain').addEventListener('click', restart);
   $('#btnEndGoHub').addEventListener('click', ()=>{
     safeStopEngine();
@@ -1581,9 +1510,9 @@ Requires:
   }
 
   function lockPxForView(){
-    if(VIEW === 'pc') return 10;
-    if(VIEW === 'cvr') return 22;
-    return 16;
+    if(VIEW === 'pc') return 18;
+    if(VIEW === 'cvr') return 34;
+    return 28;
   }
 })();
 </script>
