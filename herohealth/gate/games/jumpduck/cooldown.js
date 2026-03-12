@@ -1,6 +1,6 @@
 /* === /herohealth/gate/games/jumpduck/cooldown.js ===
  * HeroHealth Gate Game: JumpDuck Cooldown
- * PATCH v20260312-JUMPDUCK-COOLDOWN-A
+ * PATCH v20260312c-JUMPDUCK-COOLDOWN-MOBILE-CACHE
  */
 
 function clamp(v, a, b){ return Math.max(a, Math.min(b, v)); }
@@ -16,11 +16,15 @@ function getParam(ctx, key, fallback=''){
 
 function ensureStyle(){
   const id = 'hh-gate-style-jumpduck';
-  if (document.getElementById(id)) return;
+  const href = './gate/games/jumpduck/style.css?v=20260312c';
+
+  const old = document.getElementById(id);
+  if (old) old.remove();
+
   const link = document.createElement('link');
   link.id = id;
   link.rel = 'stylesheet';
-  link.href = './gate/games/jumpduck/style.css';
+  link.href = href;
   document.head.appendChild(link);
 }
 
