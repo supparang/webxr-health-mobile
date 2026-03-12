@@ -1,265 +1,105 @@
-/* === /herohealth/gate/games/jumpduck/warmup.js ===
- * HeroHealth Gate Game: JumpDuck Warmup
- * PATCH v20260312-JUMPDUCK-WARMUP-A
- */
+import { loadCssOnce } from '../../helpers/css.js';
+import { mulberry32 } from '../../helpers/rng.js';
+import { mountTargetHitWarmup } from '../../helpers/target-hit-warmup.js';
 
-function clamp(v, a, b){ return Math.max(a, Math.min(b, v)); }
-
-function getParam(ctx, key, fallback=''){
-  try{
-    if (ctx?.url) return ctx.url.searchParams.get(key) ?? fallback;
-    return new URL(window.location.href).searchParams.get(key) ?? fallback;
-  }catch(_){
-    return fallback;
-  }
+export function loadStyle(){
+  loadCssOnce('./gate/games/bath/style.css?v=20260308a');
 }
 
-function ensureStyle(){
-  const id = 'hh-gate-style-jumpduck';
-  if (document.getElementById(id)) return;
-  const link = document.createElement('link');
-  link.id = id;
-  link.rel = 'stylesheet';
-  link.href = './gate/games/jumpduck/style.css';
-  document.head.appendChild(link);
-}
+export async function mount(container, ctx, api){
+  const rng = mulberry32(ctx.seed || Date.now());
 
-function starsFromScore(score){
-  if (score >= 90) return 3;
-  if (score >= 70) return 2;
-  return 1;
-}
-
-function makeResult(state){
-  const score = clamp(Math.round((state.correct / Math.max(1, state.total)) * 100), 0, 100);
-  const passed = score >= 60 || state.correct >= 4;
-  return {
-    ok: true,
-    zone: 'exercise',
-    game: 'jumpduck',
-    phase: 'warmup',
-    activityId: 'jumpduck-quick-feet-prep',
-    title: 'Quick Feet Prep',
-    passed,
-    score,
-    stars: starsFromScore(score),
-    metrics: {
-      total: state.total,
-      correct: state.correct,
-      wrong: state.wrong,
-      misses: state.misses,
-      avgReactionMs: state.reactionCount ? Math.round(state.reactionSum / state.reactionCount) : 0,
-      finished: state.finished ? 1 : 0
-    },
-    coach: {
-      tone: passed ? 'positive' : 'gentle',
-      line: passed
-        ? 'ขาพร้อมแล้ว ไปเริ่ม Jump Duck กัน'
-        : 'อุ่นเครื่องอีกนิดนะ จับจังหวะซ้าย ขวา ย่อ กระโดดให้แม่นขึ้น'
-    },
-    nextAction: 'run'
-  };
-}
-
-export function mount(root, ctx = {}){
-  ensureStyle();
-
-  const phase = String(getParam(ctx, 'phase', 'warmup')).toLowerCase();
-  const onComplete = typeof ctx?.onComplete === 'function' ? ctx.onComplete : () => {};
-  if (phase !== 'warmup'){
-    root.innerHTML = `
-      <div class="jdg-wrap">
-        <section class="jdg-card">
-          <div class="jdg-kicker">EXERCISE ZONE • WARMUP</div>
-          <h1 class="jdg-title">🦘 Quick Feet Prep</h1>
-          <p class="jdg-subtitle">โมดูลนี้ใช้สำหรับ phase=warmup เท่านั้น</p>
-        </section>
-      </div>
-    `;
-    return;
-  }
-
-  const seed = Number(getParam(ctx, 'seed', Date.now()));
-  const TOTAL_ROUNDS = 8;
-  const ROUND_MS = 1800;
-  const GAME_SEC = 20;
-
-  const cues = [
-    { id:'left',  label:'ซ้าย',    emoji:'⬅️' },
-    { id:'right', label:'ขวา',    emoji:'➡️' },
-    { id:'duck',  label:'ย่อ',     emoji:'⬇️' },
-    { id:'jump',  label:'กระโดด', emoji:'⬆️' }
+  const GOOD_POOL = [
+    { emoji:'🦠', label:'เชื้อโรค' },
+    { emoji:'👣', label:'รอยเท้าเปื้อน' },
+    { emoji:'🧦', label:'ถุงเท้าสกปรก' },
+    { emoji:'💨', label:'กลิ่นเหม็น' },
+    { emoji:'⬛', label:'คราบดำ' },
+    { emoji:'💧', label:'คราบเหงื่อ' },
+    { emoji:'🟫', label:'คราบโคลน' },
+    { emoji:'🟤', label:'คราบเปื้อน' }
   ];
 
-  const state = {
-    started: false,
-    finished: false,
-    total: 0,
-    correct: 0,
-    wrong: 0,
-    misses: 0,
-    reactionSum: 0,
-    reactionCount: 0,
-    roundIndex: -1,
-    cueAt: 0,
-    remainSec: GAME_SEC,
-    roundTimer: null,
-    gameTimer: null,
-    sequence: []
-  };
+  const BAD_POOL = [
+    { emoji:'🧼', label:'สบู่' },
+    { emoji:'🧽', label:'ฟองน้ำ' },
+    { emoji:'🚿', label:'ฝักบัว' },
+    { emoji:'🧴', label:'แชมพู' },
+    { emoji:'🦆', label:'เป็ดยาง' }
+  ];
 
-  for (let i = 0; i < TOTAL_ROUNDS; i++){
-    const idx = Math.abs((seed + i * 11) % cues.length);
-    state.sequence.push(cues[idx]);
-  }
+  return mountTargetHitWarmup({
+    container,
+    api,
+    ctx,
+    config: {
+      rng,
+      title: 'Warmup — Bath Clean Hunt',
+      subtitle: 'แตะคราบสกปรกให้ครบ 6 จุดใน 20 วินาที และอย่าแตะของใช้ในห้องน้ำ',
+      startLabel: 'เริ่มล่าคราบ!',
+      timeLimit: 20,
+      goal: 6,
 
-  root.innerHTML = `
-    <div class="jdg-wrap">
-      <section class="jdg-card">
-        <div class="jdg-kicker">EXERCISE ZONE • WARMUP</div>
-        <h1 class="jdg-title">🦘 Quick Feet Prep</h1>
-        <p class="jdg-subtitle">เตรียมขาและรีเฟล็กซ์ก่อนเข้าเกม Jump Duck</p>
+      rootClass: 'bath',
+      goodPool: GOOD_POOL,
+      badPool: BAD_POOL,
+      initialGood: 9,
+      initialBad: 5,
+      minAliveGood: 4,
+      respawnGoodCount: 3,
 
-        <div class="jdg-grid">
-          <div class="jdg-panel">
-            <h2 class="jdg-h2">วิธีเล่น</h2>
-            <ol class="jdg-list">
-              <li>กดปุ่มให้ตรงกับคำสั่งที่ขึ้นบนจอ</li>
-              <li>มี 4 ท่า: ซ้าย ขวา ย่อ กระโดด</li>
-              <li>ทำให้ถูกอย่างน้อย 4 ครั้ง หรือคะแนนรวม 60%</li>
-            </ol>
-          </div>
-
-          <div class="jdg-panel jdg-play">
-            <div class="jdg-phase-badge">WARMUP</div>
-            <div class="jdg-cue" id="jdg-cue">พร้อม</div>
-            <div class="jdg-timer" id="jdg-timer">${GAME_SEC}s</div>
-            <div class="jdg-stats" id="jdg-stats">
-              <span>รอบ 0/${TOTAL_ROUNDS}</span>
-              <span>ถูก 0</span>
-              <span>ผิด 0</span>
-            </div>
-
-            <div class="jdg-actions" id="jdg-actions">
-              ${cues.map(c => `
-                <button class="jdg-btn-action" type="button" data-action="${c.id}" disabled>
-                  <span class="jdg-emoji">${c.emoji}</span>
-                  <span>${c.label}</span>
-                </button>
-              `).join('')}
+      renderShell: ({ title, subtitle, startLabel }) => `
+        <div class="bath-layer">
+          <div class="bath-brief" data-role="brief">
+            <div class="bath-brief-card">
+              <div class="bath-brief-title">${title}</div>
+              <p class="bath-brief-sub">${subtitle}</p>
+              <button class="btn btn-primary" data-role="start">${startLabel}</button>
             </div>
           </div>
+
+          <div class="bath-playfield">
+            <div class="bath-scene" aria-hidden="true">
+              <div class="bath-deco tub">🛁</div>
+              <div class="bath-deco shower">🚿</div>
+              <div class="bath-deco sponge">🧽</div>
+            </div>
+            <div class="bath-targets" data-role="targets"></div>
+          </div>
         </div>
+      `,
 
-        <div class="jdg-footer">
-          <button class="jdg-btn jdg-btn-primary" id="jdg-start">เริ่มอุ่นเครื่อง</button>
-          <button class="jdg-btn jdg-btn-ghost" id="jdg-finish" disabled>สรุปผล</button>
-        </div>
-      </section>
-    </div>
-  `;
+      hostSelector: '[data-role="targets"]',
+      briefSelector: '[data-role="brief"]',
+      startSelector: '[data-role="start"]',
 
-  const cueEl = root.querySelector('#jdg-cue');
-  const timerEl = root.querySelector('#jdg-timer');
-  const statsEl = root.querySelector('#jdg-stats');
-  const actionsEl = root.querySelector('#jdg-actions');
-  const startBtn = root.querySelector('#jdg-start');
-  const finishBtn = root.querySelector('#jdg-finish');
+      goodItemClass: 'bath-target good',
+      badItemClass: 'bath-target bad',
 
-  function renderStats(){
-    statsEl.innerHTML = `
-      <span>รอบ ${Math.max(0, state.roundIndex + 1)}/${TOTAL_ROUNDS}</span>
-      <span>ถูก ${state.correct}</span>
-      <span>ผิด ${state.wrong + state.misses}</span>
-    `;
-  }
+      onGoodToast: ()=> 'เก็บคราบได้แล้ว!',
+      onBadToast: ()=> 'อุ๊ปส์! นั่นเป็นของใช้ในห้องน้ำ',
+      finishTitleSuccess: 'พร้อมอาบน้ำแล้ว!',
+      finishTitleTimeout: 'หมดเวลา',
+      finishSubtitle: 'สรุปผล Warmup — Bath Clean Hunt',
 
-  function lockActions(locked){
-    actionsEl.querySelectorAll('.jdg-btn-action').forEach(btn => { btn.disabled = locked; });
-  }
+      progressText: ({ state }) => `${state.progress}/${state.goal}`,
 
-  function finishGame(){
-    if (state.finished) return;
-    state.finished = true;
-    clearTimeout(state.roundTimer);
-    clearInterval(state.gameTimer);
-    lockActions(true);
-    startBtn.disabled = true;
-    finishBtn.disabled = false;
-    cueEl.textContent = 'เสร็จแล้ว กดสรุปผล';
-    renderStats();
-  }
+      finishLines: ({ state, acc, timeBonus })=>[
+        `เก็บคราบได้ ${state.progress}/${state.goal} จุด`,
+        `คะแนน ${state.score}`,
+        `พลาด ${state.miss}`,
+        `ความแม่นยำ ${acc}%`,
+        `โบนัสเวลา +${timeBonus} วินาที`
+      ],
 
-  function nextCue(){
-    if (state.finished) return;
-    state.roundIndex += 1;
-
-    if (state.roundIndex >= state.sequence.length){
-      finishGame();
-      return;
+      buildBuffs: ({ state, acc, timeBonus, scoreBonus, rank })=>({
+        wType: 'bath_clean_hunt',
+        wPct: acc,
+        wCleaned: state.progress,
+        wTimeBonus: timeBonus,
+        wScoreBonus: scoreBonus,
+        wRank: rank
+      })
     }
-
-    const cue = state.sequence[state.roundIndex];
-    state.total += 1;
-    state.cueAt = performance.now();
-    cueEl.textContent = `${cue.emoji} ${cue.label}`;
-    renderStats();
-
-    clearTimeout(state.roundTimer);
-    state.roundTimer = setTimeout(() => {
-      state.misses += 1;
-      cueEl.textContent = `ไม่ทัน! คำตอบคือ ${cue.label}`;
-      renderStats();
-      setTimeout(nextCue, 480);
-    }, ROUND_MS);
-  }
-
-  function answer(action){
-    if (!state.started || state.finished || state.roundIndex < 0) return;
-
-    const cue = state.sequence[state.roundIndex];
-    clearTimeout(state.roundTimer);
-
-    const rt = Math.max(0, Math.round(performance.now() - state.cueAt));
-    state.reactionSum += rt;
-    state.reactionCount += 1;
-
-    if (action === cue.id){
-      state.correct += 1;
-      cueEl.textContent = `ถูกต้อง! ${cue.label}`;
-    }else{
-      state.wrong += 1;
-      cueEl.textContent = `ยังไม่ใช่ — ต้องเป็น ${cue.label}`;
-    }
-
-    renderStats();
-    setTimeout(nextCue, 420);
-  }
-
-  actionsEl.addEventListener('click', (ev) => {
-    const btn = ev.target.closest('.jdg-btn-action');
-    if (!btn) return;
-    answer(btn.dataset.action || '');
-  });
-
-  startBtn.addEventListener('click', () => {
-    if (state.started) return;
-    state.started = true;
-    startBtn.disabled = true;
-    lockActions(false);
-    cueEl.textContent = 'เริ่ม!';
-    renderStats();
-
-    state.gameTimer = setInterval(() => {
-      state.remainSec -= 1;
-      timerEl.textContent = `${Math.max(0, state.remainSec)}s`;
-      if (state.remainSec <= 0) finishGame();
-    }, 1000);
-
-    setTimeout(nextCue, 500);
-  });
-
-  finishBtn.addEventListener('click', () => {
-    onComplete(makeResult(state));
   });
 }
