@@ -1,42 +1,32 @@
-<!-- === /webxr-health-mobile/herohealth/groups-vr.html ===
-GroupsVR — CHILD-FRIENDLY LAUNCHER
-FULL v20260312-GROUPS-LAUNCHER-CHILD
-Flow:
-launcher /webxr-health-mobile/herohealth/groups-vr.html
--> /webxr-health-mobile/herohealth/warmup-gate.html?Phase=warmup
--> /webxr-health-mobile/herohealth/vr-groups/groups-vr.html
--> summary
--> /webxr-health-mobile/herohealth/warmup-gate.html?Phase=cooldown
--> /webxr-health-mobile/herohealth/hub.html
+<!-- === /webxr-health-mobile/herohealth/vr-groups/groups-vr.html ===
+GroupsVR — CHILD-FRIENDLY SOLO RUN PAGE
+FULL v20260312-GROUPS-SOLO-CHILD
+Requires:
+- ../vr/vr-ui.js
+- ./ai-hooks.js
+- ./groups.safe.js
 -->
 <!doctype html>
 <html lang="th">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
   <title>HeroHealth — GroupsVR</title>
-  <meta name="color-scheme" content="dark light" />
-  <link rel="icon" href="./favicon.ico" />
+  <meta name="color-scheme" content="dark light"/>
+  <link rel="icon" href="../favicon.ico"/>
   <style>
     :root{
-      --bg1:#020617;
-      --bg2:#0b1226;
-      --panel:rgba(2,6,23,.74);
-      --stroke:rgba(148,163,184,.18);
+      --bg:#040610;
+      --stroke: rgba(148,163,184,.18);
       --text:#e5e7eb;
       --muted:#94a3b8;
-      --soft:#cbd5e1;
-
-      --red:#e11d48;
-      --orange:#f97316;
-      --green:#22c55e;
-      --sky:#38bdf8;
-      --violet:#a855f7;
-
-      --primary:#22d3ee;
-      --primary2:#3b82f6;
-
-      --radius:24px;
+      --good:#22c55e;
+      --cyan:#22d3ee;
+      --violet:#a78bfa;
+      --amber:#f59e0b;
+      --red:#ef4444;
+      --pink:#ff4fd8;
+      --radius:18px;
       --sat: env(safe-area-inset-top, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
       --sar: env(safe-area-inset-right, 0px);
@@ -45,508 +35,1557 @@ launcher /webxr-health-mobile/herohealth/groups-vr.html
 
     *{ box-sizing:border-box; }
     html,body{
-      margin:0;
-      min-height:100%;
-      color:var(--text);
+      height:100%; margin:0; overflow:hidden; color:var(--text);
       font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif;
       background:
-        radial-gradient(1000px 700px at 20% 8%, rgba(56,189,248,.14), transparent 60%),
-        radial-gradient(900px 620px at 80% 22%, rgba(168,85,247,.14), transparent 60%),
-        radial-gradient(900px 500px at 50% 100%, rgba(225,29,72,.08), transparent 62%),
-        linear-gradient(180deg,var(--bg1),var(--bg2));
+        radial-gradient(1200px 800px at 20% 10%, rgba(34,211,238,.14) 0%, transparent 55%),
+        radial-gradient(1100px 700px at 80% 30%, rgba(167,139,250,.16) 0%, transparent 55%),
+        radial-gradient(900px 700px at 50% 95%, rgba(255,79,216,.08) 0%, transparent 60%),
+        linear-gradient(180deg, #0b1026, var(--bg));
     }
 
-    .page{
-      min-height:100dvh;
-      max-width:1080px;
-      margin:0 auto;
-      padding:
-        calc(16px + var(--sat))
-        calc(16px + var(--sar))
-        calc(18px + var(--sab))
-        calc(16px + var(--sal));
-      display:grid;
-      gap:14px;
-      align-content:start;
+    #app{
+      position:relative;
+      width:100%; height:100%;
+      padding: calc(8px + var(--sat)) calc(8px + var(--sar)) calc(8px + var(--sab)) calc(8px + var(--sal));
+      display:flex; flex-direction:column; gap:8px;
     }
 
-    .hero{
-      border-radius:30px;
+    .topbar{
+      border-radius: var(--radius);
       border:1px solid var(--stroke);
-      background:
-        linear-gradient(180deg, rgba(2,6,23,.80), rgba(2,6,23,.60)),
-        radial-gradient(500px 180px at 12% 0%, rgba(56,189,248,.12), transparent 65%);
-      box-shadow:0 26px 90px rgba(0,0,0,.35);
-      overflow:hidden;
-      position:relative;
-    }
-
-    .hero::after{
-      content:"";
-      position:absolute;
-      inset:auto -8% -20% -8%;
-      height:140px;
-      background:
-        radial-gradient(circle at 14% 50%, rgba(225,29,72,.22), transparent 30%),
-        radial-gradient(circle at 32% 50%, rgba(249,115,22,.22), transparent 30%),
-        radial-gradient(circle at 50% 50%, rgba(34,197,94,.22), transparent 30%),
-        radial-gradient(circle at 68% 50%, rgba(56,189,248,.22), transparent 30%),
-        radial-gradient(circle at 86% 50%, rgba(168,85,247,.22), transparent 30%);
-      filter: blur(22px);
-      pointer-events:none;
-    }
-
-    .heroInner{
-      position:relative;
-      z-index:1;
-      padding:22px;
+      background: linear-gradient(180deg, rgba(2,6,23,.80), rgba(2,6,23,.58));
+      box-shadow: 0 18px 60px rgba(0,0,0,.38);
+      padding: 8px 10px;
       display:grid;
-      grid-template-columns:1.2fr .8fr;
-      gap:18px;
+      grid-template-columns: 1fr auto;
+      gap:10px;
       align-items:center;
-    }
-
-    .kicker{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      min-height:34px;
-      padding:7px 12px;
-      border-radius:999px;
-      border:1px solid rgba(148,163,184,.18);
-      background:rgba(2,6,23,.46);
-      color:var(--soft);
-      font-size:12px;
-      font-weight:1000;
-      width:max-content;
-    }
-
-    .dot{
-      width:8px;height:8px;border-radius:999px;
-      background:var(--primary);
-      box-shadow:0 0 14px rgba(34,211,238,.55);
+      z-index:50;
       flex:0 0 auto;
+      transition: opacity .16s ease, transform .16s ease;
     }
 
-    h1{
-      margin:10px 0 8px;
-      font-size:clamp(28px,4vw,42px);
-      line-height:1.05;
+    .title{
+      display:flex; flex-direction:column; gap:2px; min-width:0;
+    }
+    .title b{
+      font-size:14px; font-weight:1000; letter-spacing:.2px;
+    }
+    .title span{
+      color:var(--muted); font-size:11.5px; line-height:1.25;
     }
 
-    .hero p{
-      margin:0;
-      color:var(--soft);
-      font-size:15px;
-      line-height:1.5;
-      max-width:60ch;
+    .row{
+      display:flex; gap:8px; align-items:center; flex-wrap:wrap; justify-content:flex-end;
     }
 
-    .catBoard{
-      border-radius:24px;
-      border:1px solid rgba(148,163,184,.16);
-      background:rgba(2,6,23,.42);
-      padding:14px;
-      display:grid;
-      grid-template-columns:repeat(5,minmax(0,1fr));
-      gap:10px;
-      align-items:end;
-    }
-
-    .cat{ text-align:center; }
-    .catBox{
-      width:100%;
-      aspect-ratio:1/1;
-      max-width:72px;
-      margin:0 auto 8px;
-      border-radius:18px;
-      border:1px solid rgba(255,255,255,.16);
-      box-shadow:0 12px 24px rgba(0,0,0,.24), inset 0 1px 0 rgba(255,255,255,.14);
-    }
-    .cat:nth-child(1) .catBox{ background:var(--red); }
-    .cat:nth-child(2) .catBox{ background:var(--orange); }
-    .cat:nth-child(3) .catBox{ background:var(--green); }
-    .cat:nth-child(4) .catBox{ background:var(--sky); }
-    .cat:nth-child(5) .catBox{ background:var(--violet); }
-
-    .catLabel{
-      white-space:pre-line;
-      font-size:11px;
-      line-height:1.15;
-      font-weight:1000;
-      color:#fff;
-      text-shadow:0 2px 8px rgba(0,0,0,.28);
-    }
-
-    .card{
-      border-radius:26px;
-      border:1px solid var(--stroke);
-      background:linear-gradient(180deg, rgba(2,6,23,.74), rgba(2,6,23,.56));
-      box-shadow:0 20px 70px rgba(0,0,0,.28);
-      overflow:hidden;
-    }
-
-    .cardHead{
-      padding:18px 18px 12px;
-      border-bottom:1px solid rgba(148,163,184,.12);
-    }
-    .cardHead h2{
-      margin:0;
-      font-size:20px;
-    }
-    .cardHead p{
-      margin:6px 0 0;
-      color:var(--muted);
-      font-size:14px;
-      line-height:1.45;
-    }
-
-    .cardBody{
-      padding:18px;
-      display:grid;
-      gap:14px;
-    }
-
-    .levelRow{
-      display:grid;
-      grid-template-columns:repeat(3,minmax(0,1fr));
-      gap:10px;
-    }
-
-    .levelBtn,
-    .viewBtn{
-      min-height:82px;
-      border-radius:18px;
-      border:1px solid rgba(148,163,184,.16);
-      background:rgba(15,23,42,.54);
-      color:var(--text);
-      padding:12px;
-      text-align:left;
-      display:grid;
-      gap:4px;
+    button{
       cursor:pointer;
-      transition:transform .08s ease, background .15s ease, border-color .15s ease;
-    }
-    .levelBtn:hover,
-    .viewBtn:hover{
-      transform:translateY(-1px);
-      border-color:rgba(148,163,184,.28);
-      background:rgba(15,23,42,.68);
-    }
-
-    .levelBtn.active,
-    .viewBtn.active{
-      border-color:rgba(34,211,238,.42);
-      box-shadow:0 0 0 3px rgba(34,211,238,.12);
-      background:rgba(15,23,42,.74);
-    }
-
-    .levelBtn b,
-    .viewBtn b{
-      font-size:16px;
-      line-height:1.15;
-    }
-    .levelBtn span,
-    .viewBtn span{
-      color:var(--muted);
-      font-size:12px;
-      line-height:1.3;
+      border-radius:14px;
+      border:1px solid rgba(148,163,184,.18);
+      background: rgba(2,6,23,.55);
+      color:var(--text);
+      padding:8px 12px;
+      transition: transform .08s ease, background .15s ease, border-color .15s ease;
+      user-select:none;
       font-weight:900;
     }
+    button:hover{
+      transform:translateY(-1px);
+      background: rgba(2,6,23,.72);
+      border-color: rgba(148,163,184,.32);
+    }
+    button:active{ transform:translateY(0) scale(.99); }
 
-    .ctaRow{
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
+    @media (max-width:860px){
+      .topbar{ grid-template-columns:1fr; }
+      .row{ justify-content:flex-start; }
     }
 
-    button.main,
-    button.secondary{
-      min-height:48px;
-      border-radius:16px;
-      border:1px solid rgba(148,163,184,.18);
-      padding:11px 14px;
-      font:inherit;
-      font-weight:1000;
-      cursor:pointer;
-      color:var(--text);
-      background:rgba(15,23,42,.56);
+    .stage{
+      position:relative;
+      flex:1 1 auto;
+      min-height:0;
+      border-radius: var(--radius);
+      border:1px solid rgba(148,163,184,.14);
+      background: rgba(2,6,23,.22);
+      overflow:hidden;
+      box-shadow: 0 20px 80px rgba(0,0,0,.35);
     }
 
-    button.main{
-      background:linear-gradient(135deg,var(--primary),var(--primary2));
-      color:#00111a;
-      border-color:transparent;
+    #bgLayer{
+      position:absolute;
+      inset:0;
+      overflow:hidden;
+      pointer-events:none;
+      z-index:0;
+      background:
+        radial-gradient(900px 420px at 50% 115%, rgba(56,189,248,.06), transparent 60%),
+        linear-gradient(180deg, rgba(15,23,42,.22), rgba(2,6,23,.04));
     }
 
-    .miniInfo{
+    .bgFloor{
+      position:absolute;
+      left:-4%;
+      right:-4%;
+      bottom:-2%;
+      height:42%;
+      background:
+        linear-gradient(180deg, rgba(30,41,59,.10), rgba(30,41,59,.34)),
+        repeating-linear-gradient(
+          90deg,
+          rgba(255,255,255,.018) 0 32px,
+          rgba(255,255,255,.00) 32px 64px
+        );
+      border-top:1px solid rgba(148,163,184,.10);
+    }
+
+    .bgCats{
+      position:absolute;
+      left:50%;
+      bottom:14%;
+      transform:translateX(-50%);
+      width:min(820px, 92%);
       display:grid;
-      gap:10px;
-      grid-template-columns:repeat(3,minmax(0,1fr));
+      grid-template-columns:repeat(5, 1fr);
+      gap:16px;
+      align-items:end;
+      opacity:.92;
     }
 
-    .miniCard{
-      border-radius:18px;
-      border:1px solid rgba(148,163,184,.12);
-      background:rgba(15,23,42,.42);
-      padding:12px;
+    .bgCat{
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      gap:8px;
+      transform:translateZ(0);
+      transition: transform .18s ease, opacity .18s ease, filter .18s ease;
+      opacity:.72;
     }
-    .miniCard .k{
+
+    .bgCatBox{
+      width:100%;
+      aspect-ratio:1/1;
+      max-width:98px;
+      border-radius:18px;
+      border:1px solid rgba(255,255,255,.16);
+      box-shadow:
+        0 14px 26px rgba(0,0,0,.22),
+        inset 0 1px 0 rgba(255,255,255,.12);
+      background: var(--cat);
+      opacity:.86;
+      transition:
+        transform .18s ease,
+        box-shadow .18s ease,
+        border-color .18s ease,
+        opacity .18s ease;
+    }
+
+    .bgCatLabel{
+      text-align:center;
+      color:#fff;
+      font-size:12px;
+      font-weight:1000;
+      line-height:1.2;
+      text-shadow:0 2px 8px rgba(0,0,0,.28);
+      white-space:pre-line;
+    }
+
+    .bgCat.active{
+      opacity:1;
+      transform: translateY(-3px) scale(1.03);
+      filter: saturate(1.08);
+    }
+
+    .bgCat.active .bgCatBox{
+      border-color: rgba(255,255,255,.42);
+      box-shadow:
+        0 0 0 3px color-mix(in srgb, var(--cat) 78%, white 22%),
+        0 0 22px color-mix(in srgb, var(--cat) 64%, transparent 36%),
+        0 14px 26px rgba(0,0,0,.24),
+        inset 0 1px 0 rgba(255,255,255,.18);
+      transform: translateY(-2px) scale(1.04);
+      opacity:1;
+    }
+
+    .bgCat.switchFx .bgCatBox{ animation: bgGroupSwitchPulse .46s ease-out; }
+    .bgCat.hitFx .bgCatBox{ animation: bgGroupHitPulse .34s ease-out; }
+    .powerWrap.switchFx{ animation: powerWrapSwitchFx .44s ease-out; }
+    .powerWrap.hitFx{ animation: powerWrapHitFx .28s ease-out; }
+
+    @keyframes bgGroupSwitchPulse{
+      0%{ transform: translateY(-2px) scale(1.04); }
+      35%{ transform: translateY(-4px) scale(1.09); }
+      100%{ transform: translateY(-2px) scale(1.04); }
+    }
+
+    @keyframes bgGroupHitPulse{
+      0%{ transform: translateY(-2px) scale(1.04); }
+      40%{ transform: translateY(-3px) scale(1.12); }
+      100%{ transform: translateY(-2px) scale(1.04); }
+    }
+
+    @keyframes powerWrapSwitchFx{
+      0%{ transform: scale(1); }
+      40%{ transform: scale(1.035); }
+      100%{ transform: scale(1); }
+    }
+
+    @keyframes powerWrapHitFx{
+      0%{ transform: scale(1); }
+      40%{ transform: scale(1.02); }
+      100%{ transform: scale(1); }
+    }
+
+    @media (max-width:760px){
+      .bgCats{
+        bottom:13%;
+        gap:10px;
+        width:min(96%, 760px);
+      }
+      .bgCatBox{
+        max-width:72px;
+        border-radius:14px;
+      }
+      .bgCatLabel{ font-size:10px; }
+    }
+
+    @media (max-width:520px){
+      .bgCats{
+        bottom:12%;
+        gap:8px;
+      }
+      .bgCatBox{
+        max-width:58px;
+        border-radius:12px;
+      }
+      .bgCatLabel{ font-size:9px; }
+    }
+
+    #playLayer{
+      position:absolute;
+      inset:0;
+      overflow:hidden;
+      pointer-events:auto;
+      z-index:1;
+    }
+
+    .hud{
+      position:absolute;
+      left:8px; right:8px;
+      display:flex; align-items:flex-start; justify-content:space-between; gap:8px;
+      pointer-events:none;
+      z-index:30;
+    }
+    .hudTop{ top: calc(8px + var(--sat)); }
+
+    .hudLeftCol{
+      display:flex; flex-direction:column; gap:6px;
+      min-width:0;
+      max-width:100%;
+      width:100%;
+    }
+
+    .hudBox{
+      display:grid;
+      grid-template-columns:repeat(5, auto);
+      gap:8px;
+      align-items:center;
+      padding:5px 8px;
+      border-radius:14px;
+      border:1px solid rgba(148,163,184,.16);
+      background: rgba(2,6,23,.54);
+      backdrop-filter: blur(8px);
+      box-shadow: 0 10px 24px rgba(0,0,0,.18);
+    }
+    .hudMetric{
+      display:flex; gap:5px; align-items:center; min-width:0;
+    }
+    .hudMetric .k{ color:var(--muted); font-size:10px; font-weight:900; }
+    .hudMetric .v{ color:var(--text); font-size:12px; font-weight:1000; }
+
+    .questTop{
+      display:flex; flex-direction:column; gap:5px;
+      padding:6px 8px;
+      border-radius:14px;
+      border:1px solid rgba(148,163,184,.14);
+      background: rgba(2,6,23,.44);
+      backdrop-filter: blur(8px);
+    }
+    .questLine{
+      display:flex; justify-content:space-between; gap:8px; align-items:flex-start; flex-wrap:wrap;
+    }
+    .questTitle{ font-size:12px; font-weight:1000; line-height:1.22; }
+    .questMini{ color:var(--muted); font-size:10px; font-weight:900; line-height:1.2; }
+
+    .bar{
+      height:9px; border-radius:999px;
+      border:1px solid rgba(148,163,184,.18);
+      background: rgba(2,6,23,.55);
+      overflow:hidden;
+    }
+    .bar > i{
+      display:block; height:100%; width:0%;
+      background: linear-gradient(90deg, rgba(34,211,238,.95), rgba(167,139,250,.92), rgba(255,79,216,.86));
+      transition: width .10s linear;
+    }
+
+    .powerWrap{
+      position:absolute;
+      left:8px;
+      top:98px;
+      width:min(178px, 46vw);
+      display:flex; flex-direction:column; gap:5px;
+      padding:6px 8px;
+      border-radius:14px;
+      border:1px solid rgba(148,163,184,.14);
+      background: rgba(2,6,23,.44);
+      backdrop-filter: blur(8px);
+      box-shadow: 0 10px 24px rgba(0,0,0,.16);
+      z-index:31;
+      pointer-events:none;
+      --group-accent: rgba(148,163,184,.20);
+      transition:
+        border-color .18s ease,
+        box-shadow .18s ease,
+        background .18s ease,
+        opacity .18s ease,
+        transform .18s ease;
+    }
+    .powerWrap.activeGroup{
+      border-color: color-mix(in srgb, var(--group-accent) 58%, rgba(148,163,184,.18));
+      box-shadow:
+        0 0 0 1px color-mix(in srgb, var(--group-accent) 26%, transparent),
+        0 10px 24px rgba(0,0,0,.16),
+        0 0 22px color-mix(in srgb, var(--group-accent) 18%, transparent);
+      background:
+        linear-gradient(180deg,
+          color-mix(in srgb, var(--group-accent) 12%, rgba(2,6,23,.54)),
+          rgba(2,6,23,.44)
+        );
+    }
+
+    .powerHead{
+      display:flex; justify-content:space-between; gap:8px; align-items:center;
+    }
+    .powerHead b{ font-size:12px; line-height:1.15; }
+    .powerHead span{ color:var(--muted); font-size:10px; font-weight:1000; }
+
+    @media (max-width:680px){
+      .hudBox{
+        grid-template-columns:repeat(5,minmax(0,1fr));
+        gap:6px;
+        padding:6px 8px;
+      }
+      .hudMetric{ justify-content:center; }
+      .powerWrap{
+        top:100px;
+        width:min(168px, 44vw);
+      }
+    }
+
+    .coachToast{
+      position:absolute;
+      left:10px; right:10px;
+      bottom: calc(10px + var(--sab) + 92px);
+      display:none;
+      z-index:40;
+      pointer-events:none;
+      transform: translateY(10px);
+      opacity:0;
+      transition: opacity .18s ease, transform .18s ease;
+    }
+    .coachToast.show{ display:block; opacity:1; transform:translateY(0); }
+    .coachWrap{
+      display:flex; align-items:center; gap:10px;
+      padding:7px 10px;
+      border-radius:16px;
+      border:1px solid rgba(148,163,184,.16);
+      background: rgba(2,6,23,.60);
+      backdrop-filter: blur(10px);
+      box-shadow: 0 14px 32px rgba(0,0,0,.22);
+      max-width:min(560px,100%);
+    }
+    .coachWrap .face{
+      width:34px; height:34px; border-radius:12px;
+      display:flex; align-items:center; justify-content:center;
+      background: rgba(148,163,184,.10);
+      border:1px solid rgba(148,163,184,.14);
+      font-size:18px; flex:0 0 auto;
+    }
+    .coachWrap .txt{ font-weight:1000; font-size:13px; line-height:1.25; }
+    .coachWrap .sub{ color:var(--muted); font-size:11px; font-weight:900; margin-top:2px; }
+
+    #stageFlash{
+      position:absolute;
+      inset:0;
+      pointer-events:none;
+      opacity:0;
+      z-index:35;
+      background:radial-gradient(circle at 50% 50%, rgba(255,255,255,.14), rgba(255,255,255,0));
+      transition:opacity .14s ease;
+    }
+    #stageFlash.good{ background:radial-gradient(circle at 50% 50%, rgba(34,197,94,.16), rgba(34,197,94,0)); }
+    #stageFlash.bad{ background:radial-gradient(circle at 50% 50%, rgba(239,68,68,.14), rgba(239,68,68,0)); }
+    #stageFlash.boss{ background:radial-gradient(circle at 50% 50%, rgba(245,158,11,.18), rgba(245,158,11,0)); }
+
+    #fxLayer{
+      position:absolute;
+      inset:0;
+      pointer-events:none;
+      overflow:hidden;
+      z-index:38;
+    }
+    .scorePop{
+      position:absolute;
+      font-weight:1100;
+      font-size:22px;
+      line-height:1;
+      text-shadow: 0 2px 12px rgba(0,0,0,.28);
+      animation: scorePopUp .55s ease-out forwards;
+      will-change: transform, opacity;
+    }
+    .scorePop.good{ color:#86efac; }
+    .scorePop.bad{ color:#fca5a5; }
+    @keyframes scorePopUp{
+      0%{ transform: translate(-50%,-50%) scale(.72); opacity:0; }
+      15%{ transform: translate(-50%,-58%) scale(1.04); opacity:1; }
+      100%{ transform: translate(-50%,-110%) scale(.98); opacity:0; }
+    }
+
+    .hudPulse{ animation:hudPulse .28s ease-out; }
+    @keyframes hudPulse{
+      0%{ transform:scale(1); }
+      40%{ transform:scale(1.05); }
+      100%{ transform:scale(1); }
+    }
+    .comboHot{
+      color:#fff;
+      text-shadow:0 0 10px rgba(255,79,216,.45), 0 0 20px rgba(167,139,250,.28);
+    }
+    .rankFlash{ animation:rankFlash .42s ease-out; }
+    @keyframes rankFlash{
+      0%{ transform:scale(1); opacity:1; }
+      35%{ transform:scale(1.18); opacity:1; }
+      100%{ transform:scale(1); opacity:1; }
+    }
+
+    .overlay{
+      position:absolute; inset:0;
+      display:none;
+      align-items:flex-start;
+      justify-content:center;
+      background: rgba(0,0,0,.62);
+      backdrop-filter: blur(10px);
+      z-index:9000;
+      padding:
+        calc(12px + var(--sat))
+        12px
+        calc(12px + var(--sab))
+        12px;
+      overflow:auto;
+    }
+    .overlayCard{
+      width:min(860px, 100%);
+      max-height:min(88vh, 760px);
+      border-radius: var(--radius);
+      border:1px solid rgba(148,163,184,.18);
+      background: linear-gradient(180deg, rgba(2,6,23,.94), rgba(2,6,23,.78));
+      box-shadow: 0 30px 120px rgba(0,0,0,.55);
+      overflow:hidden;
+      display:flex;
+      flex-direction:column;
+      margin:auto 0;
+    }
+    .overlayCard header{
+      padding:12px;
+      border-bottom:1px solid rgba(148,163,184,.14);
+      display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;
+    }
+    .overlayBtns{
+      padding:12px;
+      border-top:1px solid rgba(148,163,184,.14);
+      display:flex; gap:10px; flex-wrap:wrap; justify-content:center;
+    }
+
+    #endCard{
+      width:min(920px, 100%);
+    }
+    #endCard main{
+      padding:12px;
+      display:grid;
+      grid-template-columns:1fr;
+      gap:10px;
+      overflow:auto; min-height:0;
+    }
+
+    .panel{
+      border-radius:18px;
+      border:1px solid rgba(148,163,184,.14);
+      background: rgba(2,6,23,.50);
+      padding:10px;
+      min-height:0;
+    }
+    .panel h3, .panel h4{
+      margin:0 0 8px;
+      font-size:14px;
+      line-height:1.2;
+    }
+
+    .statGrid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:8px;
+    }
+    .statCard{
+      border-radius:14px;
+      border:1px solid rgba(148,163,184,.12);
+      background: rgba(15,23,42,.52);
+      padding:10px;
+      min-width:0;
+    }
+    .statCard .k{
       color:var(--muted);
-      font-size:11px;
+      font-size:10px;
       font-weight:1000;
       margin-bottom:4px;
+      letter-spacing:.2px;
     }
-    .miniCard .v{
+    .statCard .v{
+      color:var(--text);
       font-size:18px;
       font-weight:1000;
+      line-height:1.1;
+      word-break:break-word;
     }
 
-    @media (max-width:920px){
-      .heroInner{
-        grid-template-columns:1fr;
+    .miniList{
+      display:grid;
+      gap:8px;
+    }
+    .miniRow{
+      display:flex;
+      justify-content:space-between;
+      gap:8px;
+      align-items:flex-start;
+      padding:8px 10px;
+      border-radius:12px;
+      border:1px solid rgba(148,163,184,.10);
+      background: rgba(15,23,42,.38);
+    }
+    .miniRow .k{
+      color:var(--muted);
+      font-size:11px;
+      font-weight:900;
+      min-width:0;
+    }
+    .miniRow .v{
+      color:var(--text);
+      font-size:12px;
+      font-weight:1000;
+      text-align:right;
+      min-width:0;
+      word-break:break-word;
+    }
+
+    @media (max-width:760px){
+      .statGrid{
+        grid-template-columns:repeat(2,minmax(0,1fr));
       }
+    }
+
+    @media (max-width:560px){
+      .overlay{
+        padding:
+          calc(8px + var(--sat))
+          8px
+          calc(8px + var(--sab) + 84px)
+          8px;
+      }
+      .overlayCard{
+        max-height:none;
+        min-height:auto;
+        border-radius:16px;
+      }
+      .overlayCard header{
+        padding:10px;
+        gap:8px;
+      }
+      #endCard main{
+        padding:10px;
+        gap:8px;
+      }
+      .overlayBtns{
+        padding:10px;
+        gap:8px;
+        position:sticky;
+        bottom:0;
+        background: linear-gradient(180deg, rgba(2,6,23,.72), rgba(2,6,23,.96));
+        backdrop-filter: blur(10px);
+      }
+      .overlayBtns button{
+        flex:1 1 100%;
+        min-width:0;
+      }
+      .statGrid{
+        grid-template-columns:repeat(2,minmax(0,1fr));
+        gap:6px;
+      }
+      .statCard{ padding:8px; }
+      .statCard .k{ font-size:9px; }
+      .statCard .v{ font-size:16px; }
+      .miniRow{ padding:7px 8px; }
+      .miniRow .k,
+      .miniRow .v{ font-size:11px; }
     }
 
     @media (max-width:640px){
-      .page{
+      #app{
+        gap:6px;
         padding:
-          calc(12px + var(--sat))
-          calc(12px + var(--sar))
-          calc(14px + var(--sab))
-          calc(12px + var(--sal));
+          calc(6px + var(--sat))
+          calc(6px + var(--sar))
+          calc(6px + var(--sab))
+          calc(6px + var(--sal));
       }
-      .heroInner{ padding:16px; }
-      .catBoard{ gap:8px; }
-      .catBox{
-        max-width:56px;
+      .topbar{
+        padding:7px 8px;
+        gap:8px;
+        border-radius:16px;
+      }
+      .title b{ font-size:13px; }
+      .title span{ font-size:10.5px; line-height:1.2; }
+      .row{ gap:6px; }
+      button{
+        padding:7px 10px;
+        border-radius:12px;
+        font-size:12px;
+      }
+      .hud{ left:6px; right:6px; }
+      .hudBox{
+        gap:5px;
+        padding:5px 6px;
+        border-radius:12px;
+      }
+      .hudMetric .k{ font-size:9px; }
+      .hudMetric .v{ font-size:11px; }
+      .questTop{
+        gap:4px;
+        padding:5px 6px;
+        border-radius:12px;
+      }
+      .questTitle{ font-size:11px; }
+      .questMini{ font-size:9px; }
+      .bar{ height:8px; }
+      .powerWrap{
+        left:6px;
+        top:92px;
+        width:min(144px, 40vw);
+        gap:4px;
+        padding:5px 6px;
+        border-radius:12px;
+      }
+      .powerHead b{ font-size:11px; }
+      .powerHead span{ font-size:9px; }
+      .coachToast{
+        left:8px;
+        right:8px;
+        bottom: calc(8px + var(--sab) + 78px);
+      }
+      .coachWrap{
+        gap:8px;
+        padding:6px 8px;
         border-radius:14px;
       }
-      .catLabel{ font-size:9px; }
-      .levelRow,
-      .miniInfo{
-        grid-template-columns:1fr;
+      .coachWrap .face{
+        width:30px;
+        height:30px;
+        border-radius:10px;
+        font-size:16px;
       }
-      .ctaRow button{
-        flex:1 1 100%;
+      .coachWrap .txt{ font-size:12px; }
+      .coachWrap .sub{ font-size:10px; }
+      .scorePop{ font-size:19px; }
+      .bgCats{
+        bottom:10%;
+        width:min(94%, 620px);
+        gap:8px;
+        opacity:.82;
       }
+      .bgCat{ opacity:.64; }
+      .bgCat.active{ opacity:.95; }
+      .bgCatBox{
+        max-width:50px;
+        border-radius:11px;
+      }
+      .bgCatLabel{
+        font-size:8.5px;
+        line-height:1.1;
+      }
+    }
+
+    @media (max-width:460px){
+      .topbar{ padding:6px 7px; }
+      .title b{ font-size:12.5px; }
+      .title span{ font-size:10px; }
+      .hudBox{
+        grid-template-columns:repeat(5,minmax(0,1fr));
+        gap:4px;
+        padding:4px 5px;
+      }
+      .hudMetric{
+        justify-content:center;
+        gap:4px;
+      }
+      .hudMetric .k{ font-size:8.5px; }
+      .hudMetric .v{ font-size:10px; }
+      .questTop{ padding:4px 5px; }
+      .questTitle{ font-size:10px; }
+      .questMini{ font-size:8.5px; }
+      .powerWrap{
+        top:88px;
+        width:min(128px, 37vw);
+        padding:4px 5px;
+      }
+      .powerHead b{ font-size:10px; }
+      .coachToast{
+        bottom: calc(8px + var(--sab) + 72px);
+      }
+      .coachWrap .txt{ font-size:11px; }
+      .coachWrap .sub{ font-size:9px; }
+      .scorePop{ font-size:17px; }
+      .bgCats{
+        bottom:8%;
+        gap:6px;
+        opacity:.76;
+      }
+      .bgCatBox{
+        max-width:42px;
+        border-radius:10px;
+      }
+      .bgCatLabel{ font-size:7.5px; }
+    }
+
+    body.hud-compact .topbar{ padding:6px 7px; gap:6px; }
+    body.hud-compact .title b{ font-size:12.5px; }
+    body.hud-compact .title span{ font-size:9.5px; line-height:1.15; }
+    body.hud-compact .row{ gap:5px; }
+    body.hud-compact .hud{ left:5px; right:5px; }
+    body.hud-compact .hudBox{ padding:4px 5px; gap:4px; border-radius:10px; }
+    body.hud-compact .hudMetric .k{ font-size:8px; }
+    body.hud-compact .hudMetric .v{ font-size:9.5px; }
+    body.hud-compact .questTop{ padding:4px 5px; gap:3px; border-radius:10px; }
+    body.hud-compact .questTitle{ font-size:9.5px; }
+    body.hud-compact .questMini{ font-size:8px; }
+    body.hud-compact .powerWrap{
+      left:5px; top:82px; width:min(116px, 34vw);
+      padding:4px 5px; gap:3px; border-radius:10px;
+    }
+    body.hud-compact .powerHead b{ font-size:9px; }
+    body.hud-compact .powerHead span{ font-size:8px; }
+    body.hud-compact .coachToast{
+      left:6px; right:6px;
+      bottom: calc(6px + var(--sab) + 60px);
+    }
+    body.hud-compact .coachWrap{ padding:5px 7px; gap:7px; border-radius:12px; }
+    body.hud-compact .coachWrap .face{ width:28px; height:28px; font-size:15px; }
+    body.hud-compact .coachWrap .txt{ font-size:10.5px; }
+    body.hud-compact .coachWrap .sub{ font-size:8.5px; }
+    body.hud-compact .bgCats{ bottom:6%; gap:5px; opacity:.68; }
+    body.hud-compact .bgCatBox{ max-width:38px; border-radius:9px; }
+    body.hud-compact .bgCatLabel{ font-size:7px; line-height:1.05; }
+
+    body.power-autohide .powerWrap{
+      opacity:.28;
+      transform: translateY(0) scale(.98);
+    }
+    body.power-autohide .powerWrap.peek{
+      opacity:.96;
+      transform: translateY(0) scale(1);
+    }
+    body.power-autohide .powerWrap.minimized{
+      opacity:.16;
+      transform: translateY(0) scale(.96);
+    }
+    body.power-autohide .powerWrap.minimized .bar,
+    body.power-autohide .powerWrap.minimized #pText{
+      opacity:0;
+      max-height:0;
+      overflow:hidden;
+    }
+    body.power-autohide .powerWrap.minimized .powerHead b{
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      max-width:72px;
+    }
+
+    @media (max-width:640px){
+      body.power-autohide .powerWrap{ opacity:.22; }
+      body.power-autohide .powerWrap.peek{ opacity:.98; }
+    }
+
+    body.end-open .topbar{
+      opacity:.72;
+      transform: scale(.995);
+    }
+    body.end-open .coachToast,
+    body.end-open .powerWrap,
+    body.end-open #stageFlash,
+    body.end-open #fxLayer{
+      opacity:0;
+      pointer-events:none;
+    }
+    body.end-open #playLayer{
+      pointer-events:none;
     }
   </style>
 </head>
 <body>
-  <div class="page">
-    <section class="hero">
-      <div class="heroInner">
-        <div>
-          <div class="kicker"><span class="dot"></span> Nutrition Zone</div>
-          <h1>🥗 เกมอาหาร 5 หมู่</h1>
-          <p>เลือกอุปกรณ์และระดับความยาก จากนั้นเริ่มวอร์มอัพก่อนเข้าเกมจริง</p>
-        </div>
+<div id="app">
+  <div class="topbar">
+    <div class="title">
+      <b>🥗 เกมอาหาร 5 หมู่</b>
+      <span id="subline">ยิงให้ถูกหมวด เก็บคะแนน และสะสมคอมโบ</span>
+    </div>
 
-        <div class="catBoard" aria-hidden="true">
-          <div class="cat"><div class="catBox"></div><div class="catLabel">หมู่ 1
-โปรตีน</div></div>
-          <div class="cat"><div class="catBox"></div><div class="catLabel">หมู่ 2
-คาร์โบ</div></div>
-          <div class="cat"><div class="catBox"></div><div class="catLabel">หมู่ 3
-ผัก</div></div>
-          <div class="cat"><div class="catBox"></div><div class="catLabel">หมู่ 4
-ผลไม้</div></div>
-          <div class="cat"><div class="catBox"></div><div class="catLabel">หมู่ 5
-ไขมัน</div></div>
-        </div>
-      </div>
-    </section>
-
-    <section class="card">
-      <div class="cardHead">
-        <h2>เริ่มเล่นเกม</h2>
-        <p>เลือกระดับและอุปกรณ์ที่ต้องการเล่น</p>
-      </div>
-
-      <div class="cardBody">
-        <div>
-          <div style="margin-bottom:8px; font-weight:1000;">เลือกระดับ</div>
-          <div class="levelRow">
-            <button class="levelBtn active" id="btnDiffEasy" type="button">
-              <b>ง่าย</b>
-              <span>เหมาะสำหรับเริ่มเล่น</span>
-            </button>
-            <button class="levelBtn" id="btnDiffNormal" type="button">
-              <b>ปกติ</b>
-              <span>ท้าทายขึ้นอีกนิด</span>
-            </button>
-            <button class="levelBtn" id="btnDiffHard" type="button">
-              <b>ยาก</b>
-              <span>เร็วขึ้นและท้าทายมากขึ้น</span>
-            </button>
-          </div>
-        </div>
-
-        <div>
-          <div style="margin-bottom:8px; font-weight:1000;">เลือกอุปกรณ์</div>
-          <div class="levelRow">
-            <button class="viewBtn active" id="btnStartMobile" type="button">
-              <b>📱 มือถือ</b>
-              <span>แตะหน้าจอเพื่อเล่น</span>
-            </button>
-            <button class="viewBtn" id="btnStartPC" type="button">
-              <b>🖥️ คอมพิวเตอร์</b>
-              <span>เหมาะกับหน้าจอใหญ่</span>
-            </button>
-            <button class="viewBtn" id="btnStartCVR" type="button">
-              <b>🥽 VR</b>
-              <span>เหมาะกับแว่น Cardboard</span>
-            </button>
-          </div>
-        </div>
-
-        <div class="miniInfo">
-          <div class="miniCard">
-            <div class="k">เวลาเล่น</div>
-            <div class="v">80 วินาที</div>
-          </div>
-          <div class="miniCard">
-            <div class="k">โหมด</div>
-            <div class="v">เล่นปกติ</div>
-          </div>
-          <div class="miniCard">
-            <div class="k">ลำดับการเล่น</div>
-            <div class="v">วอร์มอัพ → เกม → คูลดาวน์</div>
-          </div>
-        </div>
-
-        <div class="ctaRow">
-          <button class="main" id="btnStart" type="button">เริ่มเล่นเลย</button>
-          <button class="secondary" id="btnGoHub" type="button">กลับหน้าหลัก</button>
-        </div>
-      </div>
-    </section>
+    <div class="row">
+      <button id="btnRestart">เริ่มใหม่</button>
+      <button id="btnBack">กลับหน้าหลัก</button>
+    </div>
   </div>
 
-  <script>
-    (() => {
-      'use strict';
+  <div class="stage" id="stage">
+    <div id="bgLayer" aria-hidden="true">
+      <div class="bgFloor"></div>
+      <div class="bgCats">
+        <div class="bgCat" data-group="1">
+          <div class="bgCatBox" style="--cat:#e11d48;"></div>
+          <div class="bgCatLabel">หมู่ 1
+โปรตีน</div>
+        </div>
+        <div class="bgCat" data-group="2">
+          <div class="bgCatBox" style="--cat:#f97316;"></div>
+          <div class="bgCatLabel">หมู่ 2
+คาร์โบไฮเดรต</div>
+        </div>
+        <div class="bgCat" data-group="3">
+          <div class="bgCatBox" style="--cat:#22c55e;"></div>
+          <div class="bgCatLabel">หมู่ 3
+ผัก</div>
+        </div>
+        <div class="bgCat" data-group="4">
+          <div class="bgCatBox" style="--cat:#38bdf8;"></div>
+          <div class="bgCatLabel">หมู่ 4
+ผลไม้</div>
+        </div>
+        <div class="bgCat" data-group="5">
+          <div class="bgCatBox" style="--cat:#a855f7;"></div>
+          <div class="bgCatLabel">หมู่ 5
+ไขมัน</div>
+        </div>
+      </div>
+    </div>
 
-      const ROOT = '/webxr-health-mobile/herohealth';
+    <div id="playLayer"></div>
+    <div id="stageFlash"></div>
+    <div id="fxLayer"></div>
 
-      let selectedDiff = 'easy';
-      let selectedView = 'mobile';
+    <div class="hud hudTop">
+      <div class="hudLeftCol">
+        <div class="hudBox">
+          <div class="hudMetric"><span class="k">เวลา</span><span class="v" id="hudTime">—</span></div>
+          <div class="hudMetric"><span class="k">คะแนน</span><span class="v" id="hudScore">0</span></div>
+          <div class="hudMetric"><span class="k">คอมโบ</span><span class="v" id="hudCombo">x0</span></div>
+          <div class="hudMetric"><span class="k">พลาด</span><span class="v" id="hudMiss">0</span></div>
+          <div class="hudMetric"><span class="k">ระดับ</span><span class="v" id="hudRank">—</span></div>
+        </div>
 
-      const $ = (s) => document.querySelector(s);
+        <div class="questTop">
+          <div class="questLine">
+            <div class="questTitle"><span id="qTitle">ภารกิจ</span> <span id="qSub" style="color:var(--muted); font-weight:900;"></span></div>
+            <div class="questMini"><span id="qMini">พลังพิเศษ · 0/0</span> <span id="qMiniTime"></span></div>
+          </div>
+          <div class="bar"><i id="qBar"></i></div>
+        </div>
+      </div>
+    </div>
 
-      const diffBtns = {
-        easy: $('#btnDiffEasy'),
-        normal: $('#btnDiffNormal'),
-        hard: $('#btnDiffHard')
-      };
+    <div class="powerWrap">
+      <div class="powerHead">
+        <b id="groupName">หมู่ 1 โปรตีน</b>
+        <span>POWER</span>
+      </div>
+      <div class="bar"><i id="pBar"></i></div>
+      <div style="color:var(--muted); font-size:12px; font-weight:900;">
+        <span id="pText">0 / 8</span>
+      </div>
+    </div>
 
-      const viewBtns = {
-        mobile: $('#btnStartMobile'),
-        pc: $('#btnStartPC'),
-        cvr: $('#btnStartCVR')
-      };
+    <div class="coachToast" id="coachToast" aria-live="polite">
+      <div class="coachWrap">
+        <div class="face" id="toastFace">🙂</div>
+        <div>
+          <div class="txt" id="toastTxt">เริ่มได้เลย!</div>
+          <div class="sub" id="toastSub">แตะหรือยิงเป้าให้ถูกหมวด</div>
+        </div>
+      </div>
+    </div>
 
-      const btnStart = $('#btnStart');
-      const btnGoHub = $('#btnGoHub');
+    <div class="overlay" id="endOverlay" aria-hidden="true">
+      <div class="overlayCard" id="endCard">
+        <header>
+          <div>
+            <b id="endTitle">สรุปผลเกม</b>
+            <span style="color:var(--muted); font-weight:900;" id="endSub"></span>
+          </div>
+        </header>
 
-      function makeAbs(path){
-        return new URL(path, location.origin).toString();
-      }
+        <main>
+          <section class="panel" id="childSummaryPanel">
+            <h3 id="childHeadline">เก่งมาก!</h3>
 
-      function defaultHub(){
-        return makeAbs(`${ROOT}/hub.html`);
-      }
+            <div class="statGrid">
+              <div class="statCard">
+                <div class="k">คะแนน</div>
+                <div class="v" id="sumScore">0</div>
+              </div>
+              <div class="statCard">
+                <div class="k">ระดับ</div>
+                <div class="v" id="sumGrade">—</div>
+              </div>
+              <div class="statCard">
+                <div class="k">ความแม่นยำ</div>
+                <div class="v" id="sumAcc">0%</div>
+              </div>
+              <div class="statCard">
+                <div class="k">พลาด</div>
+                <div class="v" id="sumMiss">0</div>
+              </div>
+              <div class="statCard">
+                <div class="k">คอมโบสูงสุด</div>
+                <div class="v" id="sumCombo">0</div>
+              </div>
+              <div class="statCard">
+                <div class="k">เวลาเล่น</div>
+                <div class="v" id="sumTime">0s</div>
+              </div>
+            </div>
 
-      function setActive(map, activeKey){
-        Object.entries(map).forEach(([k, btn])=>{
-          btn?.classList.toggle('active', k === activeKey);
+            <div class="miniList" style="margin-top:10px;">
+              <div class="miniRow"><div class="k">หมู่ล่าสุด</div><div class="v" id="sumGroupLast">—</div></div>
+              <div class="miniRow"><div class="k">เป้าพิเศษที่ทำได้</div><div class="v" id="sumBossHits">0</div></div>
+            </div>
+
+            <div class="panel" style="margin-top:10px; background:rgba(15,23,42,.40);">
+              <h4 style="margin:0 0 6px;">ข้อความจากโค้ช</h4>
+              <div id="childCoachMsg" style="font-size:14px; font-weight:1000; line-height:1.35;">
+                เยี่ยมเลย! ไปผ่อนคลายต่อกัน
+              </div>
+            </div>
+          </section>
+        </main>
+
+        <div class="overlayBtns">
+          <button id="btnEndContinue">ไปต่อ</button>
+          <button id="btnEndAgain">เล่นอีกครั้ง</button>
+          <button id="btnEndGoHub">กลับหน้าหลัก</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="../vr/vr-ui.js"></script>
+<script src="./ai-hooks.js"></script>
+<script src="./groups.safe.js"></script>
+
+<script>
+(() => {
+  'use strict';
+
+  const ROOT = '/webxr-health-mobile/herohealth';
+  const QS = (()=>{ try{ return new URL(location.href).searchParams; }catch(_){ return new URLSearchParams(); } })();
+  const q = (k, d='') => (QS.get(k) ?? d);
+
+  const RUN  = String(q('run','play')).toLowerCase();
+  const DIFF = String(q('diff','easy')).toLowerCase();
+  const VIEW = String(q('view','mobile')).toLowerCase();
+  const TIME = Number(q('time','80') || 80);
+  const SEED = String(q('seed','') || Date.now());
+  const HUB  = String(q('hub', `${ROOT}/hub.html`) || `${ROOT}/hub.html`);
+  const CVR_STRICT = (VIEW === 'cvr') && (String(q('cvrStrict','1') || '1') !== '0');
+
+  document.body.setAttribute('data-view', VIEW);
+  document.body.setAttribute('data-cvr-strict', CVR_STRICT ? '1' : '0');
+
+  const $ = (s)=>document.querySelector(s);
+
+  const hudTime = $('#hudTime');
+  const hudScore = $('#hudScore');
+  const hudCombo = $('#hudCombo');
+  const hudMiss = $('#hudMiss');
+  const hudRank = $('#hudRank');
+
+  const qTitle = $('#qTitle');
+  const qSub = $('#qSub');
+  const qBar = $('#qBar');
+  const qMini = $('#qMini');
+  const qMiniTime = $('#qMiniTime');
+
+  const groupName = $('#groupName');
+  const pBar = $('#pBar');
+  const pText = $('#pText');
+
+  const powerWrap = document.querySelector('.powerWrap');
+  const bgCats = Array.from(document.querySelectorAll('.bgCat'));
+
+  const coachToast = $('#coachToast');
+  const toastFace = $('#toastFace');
+  const toastTxt = $('#toastTxt');
+  const toastSub = $('#toastSub');
+
+  const stageFlash = $('#stageFlash');
+  const fxLayer = $('#fxLayer');
+  const playLayer = $('#playLayer');
+
+  const endOverlay = $('#endOverlay');
+  const endSub = $('#endSub');
+
+  const childHeadline = $('#childHeadline');
+  const childCoachMsg = $('#childCoachMsg');
+
+  const sumGrade = $('#sumGrade');
+  const sumScore = $('#sumScore');
+  const sumAcc = $('#sumAcc');
+  const sumMiss = $('#sumMiss');
+  const sumCombo = $('#sumCombo');
+  const sumTime = $('#sumTime');
+  const sumGroupLast = $('#sumGroupLast');
+  const sumBossHits = $('#sumBossHits');
+
+  const GROUP_COLORS = {
+    1: '#e11d48',
+    2: '#f97316',
+    3: '#22c55e',
+    4: '#38bdf8',
+    5: '#a855f7'
+  };
+
+  let toastTimer = null;
+  let powerPeekTimer = null;
+  let activeGroupNo = null;
+  let isStarting = false;
+  let isRestarting = false;
+  let hasBooted = false;
+  let bootNonce = 0;
+
+  function buildCooldownUrl(){
+    try{
+      const url = new URL(`${ROOT}/warmup-gate.html`, location.origin);
+      url.searchParams.set('Phase', 'cooldown');
+      url.searchParams.set('cat', q('cat', 'nutrition'));
+      url.searchParams.set('game', 'groups');
+      url.searchParams.set('pid', q('pid', 'anon'));
+      url.searchParams.set('run', RUN);
+      url.searchParams.set('diff', DIFF);
+      url.searchParams.set('time', String(TIME));
+      url.searchParams.set('seed', String(SEED));
+      url.searchParams.set('view', VIEW);
+      url.searchParams.set('hub', HUB);
+      url.searchParams.set('zone', q('zone', 'nutrition'));
+      return url.toString();
+    }catch(_){
+      return `${ROOT}/warmup-gate.html?Phase=cooldown&game=groups&cat=nutrition`;
+    }
+  }
+
+  function getChildHeadline(grade){
+    const g = String(grade || '').toUpperCase();
+    if(g === 'A+' || g === 'A') return 'ยอดเยี่ยม!';
+    if(g === 'B') return 'เก่งมาก!';
+    if(g === 'C') return 'ทำได้ดี!';
+    return 'เล่นได้ดีเลย!';
+  }
+
+  function getChildCoachMessage(s){
+    const acc = Number(s?.accuracyPct || 0);
+    const miss = Number(s?.miss || 0);
+
+    if(acc >= 90 && miss <= 2){
+      return 'แม่นมาก! ไปผ่อนคลายต่อกันได้เลย';
+    }
+    if(acc >= 75){
+      return 'ดีมาก! รอบหน้าลองเก็บคอมโบให้สูงขึ้นนะ';
+    }
+    return 'ทำได้ดีแล้ว! ลองเล่นอีกครั้ง หรือไปผ่อนคลายต่อได้เลย';
+  }
+
+  function faceFromMood(mood){
+    return (
+      mood === 'happy' ? '😄' :
+      mood === 'fever' ? '🔥' :
+      mood === 'sad' ? '😵' :
+      '🙂'
+    );
+  }
+
+  function parseGroupNo(input){
+    const s = String(input || '').trim();
+    if (!s) return null;
+    const m1 = s.match(/หมู่\s*([1-5])/);
+    if (m1) return Number(m1[1]);
+    const m2 = s.match(/\b([1-5])\b/);
+    if (m2) return Number(m2[1]);
+    if (/โปรตีน/.test(s)) return 1;
+    if (/คาร์โบ|แป้ง|ข้าว|เผือก|มัน/.test(s)) return 2;
+    if (/ผัก/.test(s)) return 3;
+    if (/ผลไม้/.test(s)) return 4;
+    if (/ไขมัน/.test(s)) return 5;
+    return null;
+  }
+
+  function fxOnce(el, cls, ms){
+    if(!el) return;
+    el.classList.remove(cls);
+    void el.offsetWidth;
+    el.classList.add(cls);
+    setTimeout(()=> el.classList.remove(cls), ms || 420);
+  }
+
+  function getBgCatEl(groupNo){
+    const n = Number(groupNo);
+    return bgCats.find(el => Number(el.dataset.group) === n) || null;
+  }
+
+  function triggerGroupSwitchFx(groupNo){
+    const el = getBgCatEl(groupNo);
+    fxOnce(el, 'switchFx', 470);
+    fxOnce(powerWrap, 'switchFx', 450);
+  }
+
+  function triggerGroupHitFx(groupNo){
+    const el = getBgCatEl(groupNo);
+    fxOnce(el, 'hitFx', 350);
+    fxOnce(powerWrap, 'hitFx', 300);
+  }
+
+  function setActiveGroup(groupNo){
+    const n = Number(groupNo);
+    if (!(n >= 1 && n <= 5)) return;
+
+    const changed = activeGroupNo !== n;
+    activeGroupNo = n;
+
+    bgCats.forEach(el => {
+      const on = Number(el.dataset.group) === n;
+      el.classList.toggle('active', on);
+    });
+
+    const c = GROUP_COLORS[n] || 'rgba(148,163,184,.20)';
+    if (powerWrap){
+      powerWrap.classList.add('activeGroup');
+      powerWrap.style.setProperty('--group-accent', c);
+    }
+
+    if(changed) triggerGroupSwitchFx(n);
+  }
+
+  function showToast(text, mood){
+    if(toastTimer){ clearTimeout(toastTimer); toastTimer = null; }
+    toastTxt.textContent = text || '';
+    toastSub.textContent = mood || 'coach';
+    toastFace.textContent = faceFromMood(mood);
+    coachToast.classList.add('show');
+    toastTimer = setTimeout(()=> coachToast.classList.remove('show'), 2600);
+  }
+
+  function hideToast(){
+    if(toastTimer){ clearTimeout(toastTimer); toastTimer = null; }
+    coachToast.classList.remove('show');
+  }
+
+  function pulseEl(el, cls='hudPulse', ms=320){
+    if(!el) return;
+    el.classList.remove(cls);
+    el.offsetHeight;
+    el.classList.add(cls);
+    setTimeout(()=> el.classList.remove(cls), ms);
+  }
+
+  function flashStage(kind){
+    if(!stageFlash) return;
+    stageFlash.className = '';
+    stageFlash.offsetHeight;
+    stageFlash.classList.add(kind || 'good');
+    stageFlash.style.opacity = '1';
+    setTimeout(()=>{ stageFlash.style.opacity = '0'; }, 120);
+  }
+
+  function clearStageFlash(){
+    stageFlash.className = '';
+    stageFlash.style.opacity = '0';
+  }
+
+  function popScore(x, y, text, good){
+    if(!fxLayer) return;
+    const el = document.createElement('div');
+    el.className = 'scorePop ' + (good ? 'good' : 'bad');
+    el.textContent = text;
+    el.style.left = Math.round(x) + 'px';
+    el.style.top = Math.round(y) + 'px';
+    fxLayer.appendChild(el);
+    setTimeout(()=>{ try{ el.remove(); }catch(_){ } }, 700);
+  }
+
+  function clearFxLayer(){
+    try{ fxLayer.replaceChildren(); }catch(_){ fxLayer.innerHTML = ''; }
+  }
+
+  function showOverlay(el){
+    el.style.display = 'flex';
+    el.setAttribute('aria-hidden', 'false');
+    if(el === endOverlay){
+      document.body.classList.add('end-open');
+      try{ window.HHA_VR_UI?.hide?.(); }catch(_){}
+      try{ window.HHA_VRUI?.hide?.(); }catch(_){}
+      try{
+        document.querySelectorAll('.hha-vr-ui, .vr-ui, #vr-ui, #btnEnterVR, #btnRecenter, #btnExitVR').forEach(n => {
+          n.style.display = 'none';
         });
+      }catch(_){}
+    }
+  }
+
+  function hideOverlay(el){
+    el.style.display = 'none';
+    el.setAttribute('aria-hidden', 'true');
+    if(el === endOverlay){
+      document.body.classList.remove('end-open');
+      try{ window.HHA_VR_UI?.show?.(); }catch(_){}
+      try{ window.HHA_VRUI?.show?.(); }catch(_){}
+      try{
+        document.querySelectorAll('.hha-vr-ui, .vr-ui, #vr-ui, #btnEnterVR, #btnRecenter, #btnExitVR').forEach(n => {
+          n.style.display = '';
+        });
+      }catch(_){}
+    }
+  }
+
+  function resetTransientUi(){
+    hideOverlay(endOverlay);
+    hideToast();
+    clearStageFlash();
+    clearFxLayer();
+  }
+
+  function safeStopEngine(){
+    try{ window.GroupsVR?.GameEngine?.stop?.(); }catch(_){}
+  }
+
+  function updateHudCompactMode(){
+    const w = window.innerWidth || 0;
+    const h = window.innerHeight || 0;
+    const compact = (w <= 390) || (w <= 430 && h <= 760) || (h <= 680);
+    document.body.classList.toggle('hud-compact', compact);
+  }
+
+  function updatePowerAutohideMode(){
+    const w = window.innerWidth || 0;
+    const h = window.innerHeight || 0;
+    const autoHide = (VIEW === 'mobile') && ((w <= 640) || (h <= 720));
+    const minimized = (w <= 390) || (w <= 430 && h <= 700);
+
+    document.body.classList.toggle('power-autohide', autoHide);
+    if(powerWrap){
+      powerWrap.classList.toggle('minimized', autoHide && minimized);
+      if(!autoHide) powerWrap.classList.remove('peek');
+    }
+  }
+
+  function peekPowerWrap(ms){
+    if(!powerWrap) return;
+    if(!document.body.classList.contains('power-autohide')) return;
+
+    powerWrap.classList.add('peek');
+
+    if(powerPeekTimer){
+      clearTimeout(powerPeekTimer);
+      powerPeekTimer = null;
+    }
+
+    powerPeekTimer = setTimeout(()=>{
+      powerWrap.classList.remove('peek');
+      powerPeekTimer = null;
+    }, ms || 1400);
+  }
+
+  function syncUiToBootState(){
+    hudTime.textContent = TIME + 's';
+    hudScore.textContent = '0';
+    hudCombo.textContent = 'x0';
+    hudCombo.classList.remove('comboHot');
+    hudMiss.textContent = '0';
+    hudRank.textContent = '—';
+    qTitle.textContent = 'ภารกิจ';
+    qSub.textContent = '';
+    qMini.textContent = 'พลังพิเศษ · 0/0';
+    qMiniTime.textContent = '';
+    qBar.style.width = '0%';
+    pBar.style.width = '0%';
+    pText.textContent = '0 / 8';
+
+    sumGrade.textContent = '—';
+    sumScore.textContent = '0';
+    sumAcc.textContent = '0%';
+    sumMiss.textContent = '0';
+    sumCombo.textContent = '0';
+    sumTime.textContent = '0s';
+    sumGroupLast.textContent = '—';
+    sumBossHits.textContent = '0';
+    childHeadline.textContent = 'เก่งมาก!';
+    childCoachMsg.textContent = 'เยี่ยมเลย! ไปผ่อนคลายต่อกัน';
+  }
+
+  function buildEndSummary(summary){
+    const s = summary || {};
+
+    sumGrade.textContent = s.grade || '—';
+    sumScore.textContent = String(s.scoreFinal ?? s.score ?? 0);
+    sumAcc.textContent = `${s.accuracyPct ?? 0}%`;
+    sumMiss.textContent = String(s.miss ?? 0);
+    sumCombo.textContent = String(s.comboMax ?? 0);
+    sumTime.textContent = `${s.durationPlayedSec ?? 0}s`;
+    sumGroupLast.textContent = s.groupLast || '—';
+    sumBossHits.textContent = String(s.bossHits ?? 0);
+
+    childHeadline.textContent = getChildHeadline(s.grade);
+    childCoachMsg.textContent = getChildCoachMessage(s);
+  }
+
+  function startGame(){
+    if(isStarting) return;
+    isStarting = true;
+    const myBoot = ++bootNonce;
+
+    resetTransientUi();
+    syncUiToBootState();
+    updateHudCompactMode();
+    updatePowerAutohideMode();
+
+    safeStopEngine();
+    try{ window.GroupsVR?.GameEngine?.setLayerEl?.(playLayer); }catch(_){}
+
+    try{
+      window.GroupsVR.GameEngine.start(DIFF, {
+        runMode: RUN,
+        time: TIME,
+        seed: SEED,
+        view: VIEW,
+        classroom: true,
+        miniBoss: true,
+        bossSec: 12,
+        goalTotal: (DIFF==='easy') ? 10 : (DIFF==='hard') ? 14 : 12,
+        chargeNeed: (DIFF==='easy') ? 7 : (DIFF==='hard') ? 9 : 8
+      });
+
+      if (myBoot !== bootNonce) return;
+
+      setActiveGroup(parseGroupNo(groupName.textContent) || 1);
+      peekPowerWrap(1600);
+      showToast('เริ่มแล้ว! ยิงให้ถูกหมวดแล้วเก็บคอมโบ', 'neutral');
+    }catch(e){
+      console.error(e);
+      showToast('เริ่มเกมไม่สำเร็จ', 'sad');
+    }finally{
+      isStarting = false;
+    }
+  }
+
+  function restart(){
+    if(isRestarting) return;
+    isRestarting = true;
+    resetTransientUi();
+    safeStopEngine();
+    setTimeout(()=>{
+      startGame();
+      setTimeout(()=>{ isRestarting = false; }, 160);
+    }, 80);
+  }
+
+  function bootOnce(){
+    if(hasBooted) return;
+    hasBooted = true;
+    resetTransientUi();
+    updateHudCompactMode();
+    updatePowerAutohideMode();
+    startGame();
+  }
+
+  window.addEventListener('hha:coach', (ev)=>{
+    const d = ev?.detail || {};
+    if(d.text) showToast(d.text, d.mood || 'neutral');
+  });
+
+  window.addEventListener('hha:time', (ev)=>{
+    const left = ev?.detail?.left;
+    if(typeof left === 'number'){
+      hudTime.textContent = left + 's';
+    }
+  });
+
+  window.addEventListener('hha:score', (ev)=>{
+    const d = ev?.detail || {};
+    if(d.score != null) hudScore.textContent = String(d.score|0);
+
+    if(d.combo != null){
+      const comboVal = Number(d.combo) || 0;
+      hudCombo.textContent = 'x' + String(comboVal|0);
+      if(comboVal >= 4) hudCombo.classList.add('comboHot');
+      else hudCombo.classList.remove('comboHot');
+    }
+
+    const m = (d.misses != null) ? d.misses : d.miss;
+    if(m != null) hudMiss.textContent = String(m|0);
+    pulseEl(hudScore);
+  });
+
+  window.addEventListener('hha:rank', (ev)=>{
+    const d = ev?.detail || {};
+    if(d.grade){
+      const old = hudRank.textContent;
+      const next = String(d.grade);
+      hudRank.textContent = next;
+      if(old && old !== next) pulseEl(hudRank, 'rankFlash', 460);
+    }
+  });
+
+  window.addEventListener('quest:update', (ev)=>{
+    const d = ev?.detail || {};
+    if(d.goalTitle) qTitle.textContent = d.goalTitle;
+
+    const gNow = (d.goalNow!=null) ? d.goalNow : 0;
+    const gTot = (d.goalTotal!=null) ? d.goalTotal : 1;
+    qSub.textContent = `${gNow}/${gTot}`;
+    qBar.style.width = Math.round((gNow / Math.max(1, gTot)) * 100) + '%';
+
+    if(d.miniTitle) qMini.textContent = `${d.miniTitle} · ${d.miniNow||0}/${d.miniTotal||0}`;
+    qMiniTime.textContent = (d.miniTimeLeftSec != null && d.miniTimeLeftSec > 0) ? `⏳ ${d.miniTimeLeftSec}s` : '';
+
+    let groupChanged = false;
+
+    if(d.groupName){
+      groupName.textContent = d.groupName;
+      const before = activeGroupNo;
+      const gn = parseGroupNo(d.groupName);
+      if(gn){
+        setActiveGroup(gn);
+        groupChanged = before !== activeGroupNo;
       }
+    }
 
-      function buildRunUrl(params){
-        const run = new URL(`${ROOT}/vr-groups/groups-vr.html`, location.origin);
-        run.searchParams.set('pid', params.pid);
-        run.searchParams.set('run', params.run);
-        run.searchParams.set('diff', params.diff);
-        run.searchParams.set('time', String(params.time));
-        run.searchParams.set('seed', String(params.seed));
-        run.searchParams.set('view', params.view);
-        run.searchParams.set('hub', params.hub);
-        run.searchParams.set('zone', 'nutrition');
-        run.searchParams.set('cat', 'nutrition');
-        return run.toString();
+    if(d.groupNo != null){
+      const before = activeGroupNo;
+      const gn = parseGroupNo(d.groupNo);
+      if(gn){
+        setActiveGroup(gn);
+        groupChanged = groupChanged || (before !== activeGroupNo);
       }
+    }
 
-      function buildWarmupUrl(params){
-        const warm = new URL(`${ROOT}/warmup-gate.html`, location.origin);
-        warm.searchParams.set('Phase', 'warmup');
-        warm.searchParams.set('cat', 'nutrition');
-        warm.searchParams.set('game', 'groups');
-        warm.searchParams.set('pid', params.pid);
-        warm.searchParams.set('run', params.run);
-        warm.searchParams.set('diff', params.diff);
-        warm.searchParams.set('time', String(params.time));
-        warm.searchParams.set('seed', String(params.seed));
-        warm.searchParams.set('view', params.view);
-        warm.searchParams.set('hub', params.hub);
-        warm.searchParams.set('zone', 'nutrition');
-        warm.searchParams.set('next', buildRunUrl(params));
-        return warm.toString();
-      }
+    if(groupChanged) peekPowerWrap(1700);
+    else peekPowerWrap(900);
+  });
 
-      function collectParams(){
-        return {
-          pid: 'anon',
-          run: 'play',
-          diff: selectedDiff,
-          time: 80,
-          seed: String(Date.now()),
-          view: selectedView,
-          hub: defaultHub()
-        };
-      }
+  window.addEventListener('groups:power', (ev)=>{
+    const d = ev?.detail || {};
+    const c = (d.charge!=null) ? d.charge : 0;
+    const t = (d.threshold!=null) ? d.threshold : 1;
+    const pct = Math.round((c / Math.max(1, t)) * 100);
+    pBar.style.width = pct + '%';
+    pText.textContent = `${c}/${t}`;
+    peekPowerWrap(1100);
+  });
 
-      function goStart(){
-        const params = collectParams();
-        const url = buildWarmupUrl(params);
-        location.href = url;
-      }
+  window.addEventListener('groups:hit', (ev)=>{
+    const d = ev?.detail || {};
+    const good = !!d.good;
+    const kind = String(d.kind || '');
+    const x = Number(d.x || (window.innerWidth * 0.5));
+    const y = Number(d.y || (window.innerHeight * 0.5));
+    const delta = Number(d.delta || (good ? 10 : -3));
 
-      diffBtns.easy?.addEventListener('click', ()=>{
-        selectedDiff = 'easy';
-        setActive(diffBtns, selectedDiff);
-      });
-      diffBtns.normal?.addEventListener('click', ()=>{
-        selectedDiff = 'normal';
-        setActive(diffBtns, selectedDiff);
-      });
-      diffBtns.hard?.addEventListener('click', ()=>{
-        selectedDiff = 'hard';
-        setActive(diffBtns, selectedDiff);
-      });
+    pulseEl(hudScore);
 
-      viewBtns.mobile?.addEventListener('click', ()=>{
-        selectedView = 'mobile';
-        setActive(viewBtns, selectedView);
-      });
-      viewBtns.pc?.addEventListener('click', ()=>{
-        selectedView = 'pc';
-        setActive(viewBtns, selectedView);
-      });
-      viewBtns.cvr?.addEventListener('click', ()=>{
-        selectedView = 'cvr';
-        setActive(viewBtns, selectedView);
-      });
+    if(good){
+      pulseEl(hudCombo);
+      flashStage(kind === 'boss_hit' ? 'boss' : 'good');
+      popScore(x, y, (delta > 0 ? '+' : '') + delta, true);
+      triggerGroupHitFx(activeGroupNo);
+    }else{
+      flashStage('bad');
+      popScore(x, y, (delta > 0 ? '+' : '') + delta, false);
+    }
+  });
 
-      btnStart?.addEventListener('click', goStart);
-      btnGoHub?.addEventListener('click', ()=>{
-        location.href = defaultHub();
-      });
+  window.addEventListener('hha:end', (ev)=>{
+    const s = ev?.detail || {};
+    endSub.textContent = `ระดับ ${s?.grade || '-'} · แม่น ${s?.accuracyPct ?? '-'}%`;
+    buildEndSummary(s);
+    showOverlay(endOverlay);
+  });
 
-      setActive(diffBtns, selectedDiff);
-      setActive(viewBtns, selectedView);
-    })();
-  </script>
+  window.addEventListener('pagehide', ()=> safeStopEngine());
+  window.addEventListener('beforeunload', ()=> safeStopEngine());
+  window.addEventListener('pageshow', (ev)=>{
+    resetTransientUi();
+    if(ev.persisted){
+      safeStopEngine();
+      setTimeout(()=> restart(), 60);
+    }
+  });
+
+  $('#btnRestart').addEventListener('click', restart);
+  $('#btnBack').addEventListener('click', ()=>{
+    safeStopEngine();
+    location.href = HUB;
+  });
+
+  $('#btnEndContinue').addEventListener('click', ()=>{
+    safeStopEngine();
+    location.href = buildCooldownUrl();
+  });
+
+  $('#btnEndAgain').addEventListener('click', restart);
+  $('#btnEndGoHub').addEventListener('click', ()=>{
+    safeStopEngine();
+    location.href = HUB;
+  });
+
+  installLockPxShim();
+  bootOnce();
+
+  function installLockPxShim(){
+    window.addEventListener('hha:shoot', (ev)=>{
+      try{
+        if(!ev || !ev.detail) return;
+        if(ev.detail.lockPx != null) return;
+        const d = ev.detail;
+        ev.stopImmediatePropagation();
+        window.dispatchEvent(new CustomEvent('hha:shoot', {
+          detail: { ...d, lockPx: lockPxForView(), source: d.source || 'shim' }
+        }));
+      }catch(_){}
+    }, true);
+  }
+
+  function lockPxForView(){
+    if(VIEW === 'pc') return 10;
+    if(VIEW === 'cvr') return 22;
+    return 16;
+  }
+})();
+</script>
 </body>
 </html>
