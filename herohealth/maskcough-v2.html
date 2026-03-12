@@ -156,6 +156,7 @@
   'use strict';
 
   const LS_KEY = 'HHA_LAUNCH_MASKCOUGH_V2';
+  const HUB_FALLBACK = location.origin + '/webxr-health-mobile/herohealth/hub.html';
   const RUN_URL = './vr-maskcough/maskcough-v2.html';
 
   const qs = (k, d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
@@ -245,7 +246,7 @@
     u.searchParams.set('seed', String(Number(state.seed) || Date.now()));
 
     if(!u.searchParams.get('run')) u.searchParams.set('run', 'play');
-    if(!u.searchParams.get('hub')) u.searchParams.set('hub', './hub.html');
+    if(!u.searchParams.get('hub')) u.searchParams.set('hub', HUB_FALLBACK);
 
     return u.toString();
   }
@@ -270,7 +271,7 @@
     seedInp.value = String(state.seed);
     preview.textContent = 'Preview: ' + buildUrl();
 
-    const hub = qs('hub','./hub.html') || './hub.html';
+    const hub = qs('hub', HUB_FALLBACK) || HUB_FALLBACK;
     btnHub.href = hub;
   }
 
