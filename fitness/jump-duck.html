@@ -1,42 +1,48 @@
-<!-- === /fitness/jump-duck.html ===
-Jump-Duck — PRODUCTION
-PATCH v20260312-JD-GATEFLOW-FULL
-✅ warmup gate -> run game
-✅ result -> cooldown gate
-✅ hub passthrough
-✅ JD_GATE_CONFIG injected
-✅ avatar 3 states: idle / jump / duck
-✅ obstacle visual set: low=JUMP / high=DUCK
-✅ training / test / research
-✅ top tap = jump / bottom tap = duck
-✅ fever + boss + variants + overheat + rule cards
-✅ result summary + CSV export + send log
--->
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-  <title>Jump-Duck</title>
+  <title>JumpDuck</title>
   <meta name="color-scheme" content="dark light"/>
   <link rel="icon" href="favicon.ico"/>
   <style>
     :root{
-      --bg:#050814; --panel:rgba(2,6,23,.72); --stroke:rgba(148,163,184,.18);
-      --text:#e5e7eb; --muted:#94a3b8; --good:#22c55e; --cyan:#22d3ee; --warn:#f59e0b; --bad:#ef4444;
-      --sat: env(safe-area-inset-top, 0px); --sab: env(safe-area-inset-bottom, 0px);
+      --bg:#050814;
+      --panel:rgba(2,6,23,.72);
+      --stroke:rgba(148,163,184,.18);
+      --text:#e5e7eb;
+      --muted:#94a3b8;
+      --good:#22c55e;
+      --cyan:#22d3ee;
+      --warn:#f59e0b;
+      --bad:#ef4444;
+      --violet:#a78bfa;
+      --sat: env(safe-area-inset-top, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
     }
+
     *{ box-sizing:border-box; }
+
     html,body{
-      margin:0; min-height:100%;
+      margin:0;
+      min-height:100%;
       background:
         radial-gradient(1000px 700px at 50% -10%, rgba(59,130,246,.18), transparent 60%),
         linear-gradient(180deg,#050814,#0b1226);
       color:var(--text);
       font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", Arial, sans-serif;
     }
-    body{ padding: calc(12px + var(--sat)) 12px calc(14px + var(--sab)); }
-    .app{ max-width:1100px; margin:0 auto; }
+
+    body{
+      padding: calc(12px + var(--sat)) 12px calc(14px + var(--sab));
+    }
+
+    .app{
+      max-width:1100px;
+      margin:0 auto;
+    }
+
     .hidden{ display:none !important; }
 
     .card{
@@ -48,11 +54,24 @@ PATCH v20260312-JD-GATEFLOW-FULL
     }
 
     .top{
-      display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      flex-wrap:wrap;
       margin-bottom:12px;
     }
-    .title{ font-size:24px; font-weight:1100; }
-    .sub{ color:var(--muted); font-size:13px; font-weight:900; }
+
+    .title{
+      font-size:24px;
+      font-weight:1100;
+    }
+
+    .sub{
+      color:var(--muted);
+      font-size:13px;
+      font-weight:900;
+    }
 
     .btn{
       cursor:pointer;
@@ -63,29 +82,73 @@ PATCH v20260312-JD-GATEFLOW-FULL
       padding:10px 12px;
       min-height:44px;
       font-weight:1100;
-      text-decoration:none;
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
     }
-    .btn.primary{ border-color:rgba(59,130,246,.30); background:rgba(59,130,246,.16); }
-    .btn.good{ border-color:rgba(34,197,94,.28); background:rgba(34,197,94,.14); }
-    .btn.warn{ border-color:rgba(245,158,11,.28); background:rgba(245,158,11,.14); }
-    .btn.ghost{ background:transparent; color:var(--muted); }
 
-    .row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
-    .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
-    .grid3{ display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; }
-    @media (max-width:900px){ .grid2,.grid3{ grid-template-columns:1fr; } }
+    .btn.primary{
+      border-color:rgba(59,130,246,.30);
+      background:rgba(59,130,246,.16);
+    }
+
+    .btn.good{
+      border-color:rgba(34,197,94,.28);
+      background:rgba(34,197,94,.14);
+    }
+
+    .btn.warn{
+      border-color:rgba(245,158,11,.28);
+      background:rgba(245,158,11,.14);
+    }
+
+    .btn.ghost{
+      background:transparent;
+      color:var(--muted);
+    }
+
+    .row{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+    }
+
+    .grid2{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:12px;
+    }
+
+    .grid3{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:10px;
+    }
+
+    @media (max-width:900px){
+      .grid2,.grid3{ grid-template-columns:1fr; }
+    }
 
     .field{
-      display:flex; flex-direction:column; gap:6px;
+      display:flex;
+      flex-direction:column;
+      gap:6px;
       padding:10px;
       border-radius:16px;
       border:1px solid rgba(148,163,184,.14);
       background:rgba(15,23,42,.46);
+      transition:transform .12s ease, border-color .12s ease, background .12s ease;
     }
-    .field label{ font-size:12px; font-weight:1000; color:var(--muted); }
+
+    .field:hover{
+      transform:translateY(-1px);
+      border-color:rgba(59,130,246,.24);
+    }
+
+    .field label{
+      font-size:12px;
+      font-weight:1000;
+      color:var(--muted);
+    }
+
     .field input,.field select{
       width:100%;
       border-radius:12px;
@@ -101,43 +164,107 @@ PATCH v20260312-JD-GATEFLOW-FULL
       gap:10px;
       margin:12px 0;
     }
-    @media (max-width:900px){ .hud{ grid-template-columns:repeat(2,minmax(0,1fr)); } }
+
+    @media (max-width:900px){
+      .hud{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+    }
+
+    .hud-mini{
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      margin-top:10px;
+    }
+
+    @media (max-width:900px){
+      .hud-mini{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+    }
+
     .hudCard{
       border-radius:16px;
       border:1px solid rgba(148,163,184,.14);
       background:rgba(15,23,42,.46);
       padding:10px 12px;
     }
-    .hudK{ color:var(--muted); font-size:11px; font-weight:1000; }
-    .hudV{ margin-top:4px; font-size:18px; font-weight:1100; }
+
+    .hudCard.mini{
+      min-height:72px;
+    }
+
+    .hudK{
+      color:var(--muted);
+      font-size:11px;
+      font-weight:1000;
+    }
+
+    .hudV{
+      margin-top:4px;
+      font-size:18px;
+      font-weight:1100;
+    }
+
+    .miniV{
+      font-size:16px;
+      line-height:1.2;
+    }
+
+    .accent-cyan{
+      box-shadow: inset 0 0 0 1px rgba(34,211,238,.12);
+    }
+
+    .accent-warn{
+      box-shadow: inset 0 0 0 1px rgba(245,158,11,.12);
+    }
+
+    .accent-red{
+      box-shadow: inset 0 0 0 1px rgba(239,68,68,.12);
+    }
+
+    .accent-violet{
+      box-shadow: inset 0 0 0 1px rgba(167,139,250,.12);
+    }
 
     .barWrap{
-      display:grid; gap:10px; margin:10px 0 12px;
+      display:grid;
+      gap:10px;
+      margin:10px 0 12px;
     }
+
     .barLine{
-      display:grid; grid-template-columns:90px 1fr 80px; gap:10px; align-items:center;
+      display:grid;
+      grid-template-columns:90px 1fr 90px;
+      gap:10px;
+      align-items:center;
     }
+
     .barTrack{
-      height:12px; overflow:hidden; border-radius:999px;
+      height:12px;
+      overflow:hidden;
+      border-radius:999px;
       background:rgba(148,163,184,.14);
     }
+
     .barFill{
       height:100%;
       width:0%;
       background:linear-gradient(90deg,#22d3ee,#3b82f6);
-      transition:width .16s ease;
     }
+
     .barFill.warn{
       background:linear-gradient(90deg,#f59e0b,#ef4444);
     }
-    .barTxt{ text-align:right; color:var(--muted); font-weight:1000; font-size:12px; }
+
+    .barTxt{
+      text-align:right;
+      color:var(--muted);
+      font-weight:1000;
+      font-size:12px;
+    }
 
     .bossWrap{
       margin:10px 0 12px;
       padding:10px 12px;
       border-radius:16px;
       border:1px solid rgba(239,68,68,.22);
-      background:rgba(127,29,29,.12);
+      background:linear-gradient(180deg, rgba(127,29,29,.15), rgba(69,10,10,.12));
     }
 
     .play{
@@ -146,24 +273,45 @@ PATCH v20260312-JD-GATEFLOW-FULL
       border-radius:20px;
       border:1px solid rgba(148,163,184,.18);
       background:
-        radial-gradient(900px 500px at 50% -10%, rgba(59,130,246,.16), transparent 60%),
-        linear-gradient(180deg, rgba(15,23,42,.72), rgba(2,6,23,.72));
+        radial-gradient(900px 500px at 50% -10%, rgba(34,211,238,.14), transparent 60%),
+        linear-gradient(180deg, rgba(8,15,35,.82), rgba(2,6,23,.82));
       min-height:420px;
       touch-action:manipulation;
+      isolation:isolate;
+      transition:filter .18s ease, box-shadow .18s ease, transform .18s ease;
     }
+
     .arena{
       position:relative;
       height:420px;
     }
-    .hitline{
-      position:absolute; left:22%; top:0; bottom:0;
-      width:2px; background:rgba(34,211,238,.6);
-      box-shadow:0 0 0 6px rgba(34,211,238,.08);
+
+    .ground{
+      position:absolute;
+      left:0;
+      right:0;
+      bottom:86px;
+      height:4px;
+      background:linear-gradient(90deg, rgba(34,197,94,0), rgba(34,197,94,.35), rgba(34,197,94,0));
+      box-shadow:0 0 0 1px rgba(34,197,94,.10);
       z-index:2;
     }
-    .ground{
-      position:absolute; left:0; right:0; bottom:86px;
-      height:2px; background:rgba(148,163,184,.18);
+
+    .hitline{
+      position:absolute;
+      left:180px;
+      top:0;
+      bottom:0;
+      width:2px;
+      background:rgba(34,211,238,.75);
+      box-shadow:0 0 0 6px rgba(34,211,238,.10), 0 0 18px rgba(34,211,238,.18);
+      z-index:2;
+    }
+
+    .obsLayer{
+      position:absolute;
+      inset:0;
+      z-index:8;
     }
 
     .avatar{
@@ -173,8 +321,7 @@ PATCH v20260312-JD-GATEFLOW-FULL
       width:110px;
       height:150px;
       transform:translateX(-50%);
-      z-index:4;
-      user-select:none;
+      z-index:10;
       pointer-events:none;
     }
 
@@ -210,8 +357,6 @@ PATCH v20260312-JD-GATEFLOW-FULL
       transform:translateX(-50%);
       border-radius:50%;
       background:linear-gradient(180deg,#fde68a,#f59e0b);
-      border:2px solid rgba(15,23,42,.28);
-      box-shadow:0 3px 10px rgba(0,0,0,.18);
     }
 
     .avatar-torso{
@@ -223,16 +368,14 @@ PATCH v20260312-JD-GATEFLOW-FULL
       transform:translateX(-50%);
       border-radius:14px;
       background:linear-gradient(180deg,#60a5fa,#2563eb);
-      border:2px solid rgba(15,23,42,.25);
     }
 
-    .avatar-arm,
-    .avatar-leg{
+    .avatar-arm,.avatar-leg{
       position:absolute;
       background:linear-gradient(180deg,#cbd5e1,#94a3b8);
       border-radius:999px;
       transform-origin:top center;
-      transition:transform .10s ease, height .10s ease, width .10s ease, top .10s ease, left .10s ease, right .10s ease;
+      transition:transform .10s ease, height .10s ease, top .10s ease;
     }
 
     .avatar-arm{
@@ -256,232 +399,290 @@ PATCH v20260312-JD-GATEFLOW-FULL
     .avatar.avatar-idle .avatar-body{
       transform:translateX(-50%) translateY(0);
     }
-    .avatar.avatar-idle .avatar-arm-left{ transform:rotate(16deg); }
-    .avatar.avatar-idle .avatar-arm-right{ transform:rotate(-16deg); }
-    .avatar.avatar-idle .avatar-leg-left{ transform:rotate(4deg); }
-    .avatar.avatar-idle .avatar-leg-right{ transform:rotate(-4deg); }
 
     .avatar.avatar-jump .avatar-body{
       transform:translateX(-50%) translateY(-42px);
     }
+
     .avatar.avatar-jump .avatar-shadow{
       transform:translateX(-50%) scale(.82);
       opacity:.68;
     }
-    .avatar.avatar-jump .avatar-arm-left{
-      top:30px;
-      transform:rotate(-28deg);
-    }
-    .avatar.avatar-jump .avatar-arm-right{
-      top:30px;
-      transform:rotate(28deg);
-    }
-    .avatar.avatar-jump .avatar-leg-left{
-      top:68px;
-      transform:rotate(24deg);
-    }
-    .avatar.avatar-jump .avatar-leg-right{
-      top:68px;
-      transform:rotate(-24deg);
-    }
+
+    .avatar.avatar-jump .avatar-arm-left{ top:30px; transform:rotate(-28deg); }
+    .avatar.avatar-jump .avatar-arm-right{ top:30px; transform:rotate(28deg); }
+    .avatar.avatar-jump .avatar-leg-left{ top:68px; transform:rotate(24deg); }
+    .avatar.avatar-jump .avatar-leg-right{ top:68px; transform:rotate(-24deg); }
 
     .avatar.avatar-duck .avatar-body{
       transform:translateX(-50%) translateY(18px) scaleY(.92);
     }
+
     .avatar.avatar-duck .avatar-shadow{
       width:68px;
       opacity:.92;
     }
-    .avatar.avatar-duck .avatar-head{
-      top:10px;
-    }
-    .avatar.avatar-duck .avatar-torso{
-      top:36px;
-      height:32px;
-    }
-    .avatar.avatar-duck .avatar-arm-left{
-      top:44px;
-      left:18px;
-      height:24px;
-      transform:rotate(72deg);
-    }
-    .avatar.avatar-duck .avatar-arm-right{
-      top:44px;
-      right:18px;
-      height:24px;
-      transform:rotate(-72deg);
-    }
-    .avatar.avatar-duck .avatar-leg-left{
-      top:68px;
-      left:22px;
-      height:34px;
-      transform:rotate(72deg);
-    }
-    .avatar.avatar-duck .avatar-leg-right{
-      top:68px;
-      right:22px;
-      height:34px;
-      transform:rotate(-72deg);
-    }
 
-    .obsLayer{ position:absolute; inset:0; z-index:3; }
+    .avatar.avatar-duck .avatar-head{ top:10px; }
+    .avatar.avatar-duck .avatar-torso{ top:36px; height:32px; }
+    .avatar.avatar-duck .avatar-arm-left{ top:44px; left:18px; height:24px; transform:rotate(72deg); }
+    .avatar.avatar-duck .avatar-arm-right{ top:44px; right:18px; height:24px; transform:rotate(-72deg); }
+    .avatar.avatar-duck .avatar-leg-left{ top:68px; left:22px; height:34px; transform:rotate(72deg); }
+    .avatar.avatar-duck .avatar-leg-right{ top:68px; right:22px; height:34px; transform:rotate(-72deg); }
 
-    .obs{
+    .tele{
       position:absolute;
-      width:90px;
-      height:90px;
-      border-radius:18px;
-      border:1px solid rgba(148,163,184,.16);
-      background:rgba(15,23,42,.80);
+      inset:0;
       display:flex;
       align-items:center;
       justify-content:center;
-      transform:translate(-50%,-50%);
-      box-shadow:0 14px 34px rgba(0,0,0,.22);
-      overflow:hidden;
+      pointer-events:none;
+      opacity:0;
+      z-index:24;
+      transition:opacity .15s ease;
     }
 
-    .obs.low{ top:300px; }
-    .obs.high{ top:190px; }
-
-    .obs-inner{
-      position:relative;
-      width:100%;
-      height:100%;
+    .tele.on{
+      opacity:1;
     }
 
-    .obs-label{
-      position:absolute;
-      left:50%;
-      bottom:8px;
-      transform:translateX(-50%);
-      padding:4px 10px;
-      border-radius:999px;
-      font-size:11px;
+    .teleBox{
+      padding:14px 18px;
+      border-radius:18px;
+      background:rgba(2,6,23,.84);
+      border:1px solid rgba(34,211,238,.28);
+      box-shadow:0 0 0 10px rgba(34,211,238,.06), 0 14px 34px rgba(0,0,0,.24);
+      font-size:20px;
       font-weight:1100;
-      letter-spacing:.6px;
-      border:1px solid rgba(148,163,184,.16);
-      background:rgba(2,6,23,.72);
-      color:#e5e7eb;
-      white-space:nowrap;
     }
 
-    .obs.low .obs-label{
-      border-color:rgba(34,211,238,.28);
-    }
-    .obs.high .obs-label{
-      border-color:rgba(245,158,11,.28);
-    }
-
-    .obs-low-shape{
-      position:absolute;
-      left:50%;
-      bottom:20px;
-      transform:translateX(-50%);
-      width:54px;
-      height:34px;
-      border-radius:10px;
-      background:linear-gradient(180deg,#38bdf8,#2563eb);
-      border:2px solid rgba(15,23,42,.28);
-      box-shadow:inset 0 -8px 0 rgba(2,6,23,.12);
-    }
-    .obs-low-shape::before,
-    .obs-low-shape::after{
-      content:"";
-      position:absolute;
-      top:6px;
-      width:10px;
-      height:18px;
-      border-radius:4px;
-      background:rgba(255,255,255,.18);
-    }
-    .obs-low-shape::before{ left:10px; }
-    .obs-low-shape::after{ right:10px; }
-
-    .obs-high-shape{
-      position:absolute;
-      left:50%;
-      top:24px;
-      transform:translateX(-50%);
-      width:64px;
-      height:14px;
-      border-radius:999px;
-      background:linear-gradient(180deg,#f59e0b,#ef4444);
-      border:2px solid rgba(15,23,42,.28);
-      box-shadow:0 0 0 6px rgba(239,68,68,.06);
-    }
-    .obs-high-shape::before,
-    .obs-high-shape::after{
-      content:"";
-      position:absolute;
-      top:10px;
-      width:8px;
-      height:22px;
-      border-radius:999px;
-      background:rgba(245,158,11,.82);
-    }
-    .obs-high-shape::before{ left:8px; }
-    .obs-high-shape::after{ right:8px; }
-
-    .obs.feint{
-      outline:2px solid rgba(167,139,250,.45);
-      box-shadow:0 0 0 8px rgba(167,139,250,.08), 0 14px 34px rgba(0,0,0,.22);
-    }
-    .obs.feint .obs-label{
-      border-color:rgba(167,139,250,.34);
+    #jd-boss-intro .teleBox{
+      background:linear-gradient(180deg, rgba(127,29,29,.92), rgba(69,10,10,.90));
+      border-color:rgba(248,113,113,.34);
+      box-shadow:0 0 0 10px rgba(239,68,68,.08), 0 18px 42px rgba(0,0,0,.28);
     }
 
     .judge{
-      position:absolute; top:12px; left:50%;
+      position:absolute;
+      top:72px;
+      left:50%;
       transform:translateX(-50%);
-      z-index:7;
+      z-index:25;
       padding:10px 14px;
       border-radius:999px;
       border:1px solid rgba(148,163,184,.16);
-      background:rgba(2,6,23,.70);
+      background:rgba(2,6,23,.72);
       font-weight:1100;
       opacity:0;
-      transition:opacity .12s ease;
       pointer-events:none;
+      transition:opacity .12s ease, transform .12s ease;
     }
-    .judge.show{ opacity:1; }
 
-    .tele{
-      position:absolute; inset:0;
-      display:flex; align-items:center; justify-content:center;
-      pointer-events:none;
-      opacity:0; z-index:6;
-      transition:opacity .15s ease;
+    .judge.show{
+      opacity:1;
+      transform:translateX(-50%) translateY(-4px);
     }
-    .tele.on{ opacity:1; }
-    .teleBox{
-      padding:12px 16px;
+
+    .rushBanner{
+      position:absolute;
+      top:14px;
+      left:50%;
+      transform:translateX(-50%);
+      z-index:22;
+      pointer-events:none;
+    }
+
+    .rushBanner .rushText{
+      padding:10px 16px;
       border-radius:999px;
-      background:rgba(2,6,23,.78);
-      border:1px solid rgba(34,211,238,.26);
-      font-weight:1100;
-      box-shadow:0 0 0 10px rgba(34,211,238,.06);
-    }
-
-    .tapHints{
-      position:absolute; inset:0; z-index:1;
-      display:flex; flex-direction:column;
-      pointer-events:none;
-    }
-    .tapHalf{
-      flex:1 1 0;
-      display:flex; align-items:center; justify-content:center;
-      opacity:.18;
+      border:1px solid rgba(245,158,11,.32);
+      background:linear-gradient(180deg, rgba(120,53,15,.88), rgba(69,26,3,.86));
+      color:#fff7ed;
       font-weight:1100;
       letter-spacing:.8px;
+      box-shadow:0 0 0 8px rgba(245,158,11,.08);
     }
-    .tapTop{ background:linear-gradient(180deg, rgba(34,211,238,.18), transparent 60%); }
-    .tapBottom{ background:linear-gradient(0deg, rgba(245,158,11,.16), transparent 60%); }
 
     .actions{
-      display:flex; gap:10px; margin-top:12px; flex-wrap:wrap;
+      display:flex;
+      gap:10px;
+      margin-top:12px;
+      flex-wrap:wrap;
     }
-    .actions .btn{ flex:1 1 180px; }
+
+    .actions .btn{
+      flex:1 1 180px;
+    }
+
+    .resultHero{
+      display:grid;
+      grid-template-columns:110px 1fr;
+      gap:14px;
+      padding:14px;
+      border-radius:22px;
+      border:1px solid rgba(148,163,184,.18);
+      background:linear-gradient(180deg, rgba(15,23,42,.52), rgba(2,6,23,.56));
+      box-shadow:0 22px 80px rgba(0,0,0,.28);
+      margin-bottom:12px;
+    }
+
+    @media (max-width:800px){
+      .resultHero{ grid-template-columns:1fr; }
+    }
+
+    .resultBadgeWrap{
+      display:flex;
+      align-items:center;
+      justify-content:center;
+    }
+
+    .resultRankBadge{
+      width:92px;
+      height:92px;
+      border-radius:22px;
+      display:grid;
+      place-items:center;
+      font-size:34px;
+      font-weight:1100;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(2,6,23,.58);
+      box-shadow:0 12px 30px rgba(0,0,0,.24);
+    }
+
+    .resultRankBadge.rank-s{
+      background:linear-gradient(180deg, rgba(250,204,21,.24), rgba(245,158,11,.16));
+      color:#fde68a;
+    }
+
+    .resultRankBadge.rank-a{
+      background:linear-gradient(180deg, rgba(96,165,250,.22), rgba(37,99,235,.14));
+      color:#bfdbfe;
+    }
+
+    .resultRankBadge.rank-b{
+      background:linear-gradient(180deg, rgba(74,222,128,.22), rgba(21,128,61,.14));
+      color:#bbf7d0;
+    }
+
+    .resultRankBadge.rank-c,
+    .resultRankBadge.rank-d{
+      background:linear-gradient(180deg, rgba(148,163,184,.18), rgba(51,65,85,.18));
+      color:#e2e8f0;
+    }
+
+    .resultHeroBody{
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+    }
+
+    .resultHeroTop{
+      display:flex;
+      justify-content:space-between;
+      gap:12px;
+      flex-wrap:wrap;
+    }
+
+    .resultHeroTitle{
+      font-size:22px;
+      font-weight:1100;
+      line-height:1.2;
+    }
+
+    .resultHeroSub{
+      margin-top:4px;
+      color:var(--muted);
+      font-size:12px;
+      font-weight:900;
+    }
+
+    .resultHeroPills{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      align-items:flex-start;
+    }
+
+    .pill{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 10px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(2,6,23,.46);
+      color:var(--muted);
+      font-size:12px;
+      font-weight:950;
+      white-space:nowrap;
+    }
+
+    .pill b{ color:var(--text); }
+
+    .resultRewardCard{
+      display:grid;
+      grid-template-columns:64px 1fr;
+      gap:12px;
+      align-items:center;
+      padding:12px;
+      border-radius:18px;
+      border:1px solid rgba(148,163,184,.16);
+      background:rgba(15,23,42,.46);
+    }
+
+    .resultRewardIcon{
+      width:64px;
+      height:64px;
+      border-radius:18px;
+      display:grid;
+      place-items:center;
+      font-size:30px;
+      border:1px solid rgba(148,163,184,.16);
+      background:rgba(2,6,23,.38);
+    }
+
+    .resultRewardTitle{
+      font-size:18px;
+      font-weight:1100;
+    }
+
+    .resultRewardSub{
+      margin-top:4px;
+      color:var(--muted);
+      font-size:12px;
+      font-weight:900;
+      line-height:1.45;
+    }
+
+    .resultHighlights{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:10px;
+      margin-bottom:12px;
+    }
+
+    @media (max-width:900px){
+      .resultHighlights{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+    }
+
+    .highlightCard{
+      border-radius:18px;
+      border:1px solid rgba(148,163,184,.16);
+      background:rgba(15,23,42,.46);
+      padding:12px;
+    }
+
+    .highlightK{
+      color:var(--muted);
+      font-size:11px;
+      font-weight:1000;
+    }
+
+    .highlightV{
+      margin-top:6px;
+      font-size:24px;
+      font-weight:1100;
+    }
 
     .resultGrid{
       display:grid;
@@ -489,14 +690,25 @@ PATCH v20260312-JD-GATEFLOW-FULL
       gap:10px;
       margin-top:10px;
     }
-    @media (max-width:800px){ .resultGrid{ grid-template-columns:1fr; } }
+
+    @media (max-width:800px){
+      .resultGrid{ grid-template-columns:1fr; }
+    }
 
     .resultItem{
-      display:flex; justify-content:space-between; gap:10px;
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
       padding:10px 12px;
       border-radius:14px;
       border:1px solid rgba(148,163,184,.14);
       background:rgba(15,23,42,.46);
+      transition:transform .12s ease, border-color .12s ease, background .12s ease;
+    }
+
+    .resultItem:hover{
+      transform:translateY(-1px);
+      border-color:rgba(59,130,246,.24);
     }
 
     .statusLine{
@@ -505,16 +717,59 @@ PATCH v20260312-JD-GATEFLOW-FULL
       font-size:12px;
       font-weight:1000;
     }
+
+    .phase-1{ filter:saturate(1) brightness(1); }
+    .phase-2{ filter:saturate(1.04) brightness(1.02); }
+    .phase-3{ filter:saturate(1.08) brightness(1.03); }
+
+    .final-rush{
+      box-shadow:
+        inset 0 0 0 2px rgba(245,158,11,.20),
+        0 0 34px rgba(245,158,11,.10);
+      animation: jdFinalRushPulse .55s ease-in-out infinite alternate;
+    }
+
+    .boss-frenzy{
+      box-shadow:
+        inset 0 0 0 2px rgba(239,68,68,.24),
+        0 0 38px rgba(239,68,68,.14);
+    }
+
+    @keyframes jdFinalRushPulse{
+      from{ transform:translateZ(0); }
+      to{ transform:translateZ(0) scale(1.002); }
+    }
+
+    .resultHero,
+    .resultHighlights,
+    .resultGrid{
+      animation: jdResultIn .28s ease both;
+    }
+
+    .resultHighlights{ animation-delay:.04s; }
+    .resultGrid{ animation-delay:.08s; }
+
+    @keyframes jdResultIn{
+      from{
+        opacity:0;
+        transform:translateY(8px);
+      }
+      to{
+        opacity:1;
+        transform:translateY(0);
+      }
+    }
   </style>
 </head>
 <body>
   <div class="app">
 
+    <!-- MENU -->
     <section id="view-menu" class="card">
       <div class="top">
         <div>
           <div class="title">⬆️⬇️ Jump-Duck</div>
-          <div class="sub">หลบ-กระโดด • Boss • Fever • AI Coach • Research-ready</div>
+          <div class="sub">Fitness Academy Run • หลบอุปกรณ์ฝึก • Boss • Fever • Final Rush</div>
         </div>
         <div class="row">
           <a class="btn ghost" id="jd-back-hub-menu" href="#">⬅ กลับ Hub</a>
@@ -551,7 +806,7 @@ PATCH v20260312-JD-GATEFLOW-FULL
 
         <div class="field">
           <label>Guide</label>
-          <div class="sub">แตะบน = Jump • แตะล่าง = Duck • W/S หรือ ↑/↓ ก็ได้</div>
+          <div class="sub">แตะบน = Jump • แตะล่าง = Duck • ↑/↓ หรือ W/S ก็ได้</div>
         </div>
       </div>
 
@@ -571,16 +826,17 @@ PATCH v20260312-JD-GATEFLOW-FULL
       </div>
 
       <div class="actions">
-        <button class="btn primary" data-action="start">▶ เริ่มเล่น</button>
-        <button class="btn warn" data-action="tutorial">🎯 Tutorial 15s</button>
+        <button class="btn primary" data-action="start" type="button">▶ เริ่มเล่น</button>
+        <button class="btn warn" data-action="tutorial" type="button">🎯 Tutorial</button>
       </div>
     </section>
 
+    <!-- PLAY -->
     <section id="view-play" class="card hidden">
       <div class="top">
         <div>
           <div class="title">Jump-Duck Run</div>
-          <div class="sub">Top tap = Jump • Bottom tap = Duck</div>
+          <div class="sub">อ่าน silhouette ให้ชัด • low = jump • high = duck</div>
         </div>
         <div class="row">
           <a class="btn ghost" id="jd-back-hub-play" href="#">⬅ Hub</a>
@@ -591,12 +847,34 @@ PATCH v20260312-JD-GATEFLOW-FULL
         <div class="hudCard"><div class="hudK">Mode</div><div class="hudV" id="hud-mode">training</div></div>
         <div class="hudCard"><div class="hudK">Diff</div><div class="hudV" id="hud-diff">normal</div></div>
         <div class="hudCard"><div class="hudK">Time</div><div class="hudV" id="hud-time">60.0</div></div>
-        <div class="hudCard"><div class="hudK">Phase</div><div class="hudV" id="hud-phase">1</div></div>
+        <div class="hudCard"><div class="hudK">Phase</div><div class="hudV" id="hud-phase">1 • warmup</div></div>
 
         <div class="hudCard"><div class="hudK">Score</div><div class="hudV" id="hud-score">0</div></div>
         <div class="hudCard"><div class="hudK">Combo</div><div class="hudV" id="hud-combo">0</div></div>
         <div class="hudCard"><div class="hudK">Stability</div><div class="hudV" id="hud-stability">100%</div></div>
-        <div class="hudCard"><div class="hudK">Boss</div><div class="hudV" id="hud-boss">—</div></div>
+        <div class="hudCard"><div class="hudK">Boss HP</div><div class="hudV" id="hud-boss">—</div></div>
+      </div>
+
+      <div class="hud hud-mini">
+        <div class="hudCard mini accent-cyan">
+          <div class="hudK">Pattern</div>
+          <div class="hudV miniV" id="hud-pattern">—</div>
+        </div>
+
+        <div class="hudCard mini accent-warn">
+          <div class="hudK">Rush</div>
+          <div class="hudV miniV" id="hud-rush">—</div>
+        </div>
+
+        <div class="hudCard mini accent-red">
+          <div class="hudK">Boss</div>
+          <div class="hudV miniV" id="hud-boss-label">—</div>
+        </div>
+
+        <div class="hudCard mini accent-violet">
+          <div class="hudK">Rule</div>
+          <div class="hudV miniV" id="hud-boss-status">—</div>
+        </div>
       </div>
 
       <div class="barWrap">
@@ -617,21 +895,27 @@ PATCH v20260312-JD-GATEFLOW-FULL
         <div class="barLine">
           <div class="sub">Boss HP</div>
           <div class="barTrack"><div class="barFill warn" id="hud-boss-fill"></div></div>
-          <div class="barTxt" id="hud-boss-status">—</div>
+          <div class="barTxt" id="hud-boss-status-right">—</div>
         </div>
       </div>
 
       <div class="play" id="jd-play-area">
-        <div class="arena">
+        <div class="arena" id="jd-arena">
           <div class="ground"></div>
-          <div class="hitline"></div>
+          <div class="hitline" id="jd-hitline"></div>
 
-          <div class="tapHints">
-            <div class="tapHalf tapTop">⬆ TAP TOP = JUMP</div>
-            <div class="tapHalf tapBottom">⬇ TAP BOTTOM = DUCK</div>
+          <div class="rushBanner hidden" id="jd-rush-banner">
+            <div class="rushText">FINAL RUSH!</div>
           </div>
 
-          <div class="tele hidden" id="jd-tele"><div class="teleBox">READY</div></div>
+          <div class="tele hidden" id="jd-tele">
+            <div class="teleBox">READY</div>
+          </div>
+
+          <div class="tele hidden" id="jd-boss-intro">
+            <div class="teleBox" id="jd-boss-intro-text">BOSS INCOMING</div>
+          </div>
+
           <div class="judge" id="jd-judge">READY</div>
 
           <div class="avatar avatar-idle" id="jd-avatar" aria-label="player avatar">
@@ -651,20 +935,72 @@ PATCH v20260312-JD-GATEFLOW-FULL
       </div>
 
       <div class="actions">
-        <button class="btn good" data-action="jump">⬆ JUMP</button>
-        <button class="btn warn" data-action="duck">⬇ DUCK</button>
-        <button class="btn ghost" data-action="stop-early">⏹ Stop</button>
+        <button class="btn good" id="btn-jump" type="button">⬆ JUMP</button>
+        <button class="btn warn" id="btn-duck" type="button">⬇ DUCK</button>
+        <button class="btn ghost" id="btn-stop-early" type="button">⏹ Stop</button>
       </div>
     </section>
 
+    <!-- RESULT -->
     <section id="view-result" class="card hidden">
       <div class="top">
         <div>
           <div class="title">📊 Result Summary</div>
-          <div class="sub">สรุปผล Jump-Duck รอบล่าสุด</div>
+          <div class="sub">สรุปรอบล่าสุดของ JumpDuck</div>
         </div>
         <div class="row">
           <a class="btn ghost" id="jd-back-hub-result" href="#">⬅ Hub</a>
+        </div>
+      </div>
+
+      <div class="resultHero" id="jd-result-hero">
+        <div class="resultBadgeWrap">
+          <div class="resultRankBadge rank-c" id="jd-rank-badge">C</div>
+        </div>
+
+        <div class="resultHeroBody">
+          <div class="resultHeroTop">
+            <div>
+              <div class="resultHeroTitle" id="jd-result-title">ผ่านด่านฝึกแล้ว!</div>
+              <div class="resultHeroSub" id="jd-result-sub">สรุปรอบล่าสุดของ JumpDuck</div>
+            </div>
+
+            <div class="resultHeroPills">
+              <span class="pill"><b>Boss</b>: <span id="jd-result-boss">—</span></span>
+              <span class="pill"><b>Pattern</b>: <span id="jd-result-pattern">—</span></span>
+              <span class="pill"><b>Rush</b>: <span id="jd-result-rush">—</span></span>
+            </div>
+          </div>
+
+          <div class="resultRewardCard" id="jd-result-reward-card">
+            <div class="resultRewardIcon" id="jd-result-reward-icon">⭐</div>
+            <div class="resultRewardText">
+              <div class="resultRewardTitle" id="jd-result-reward">Keep Training</div>
+              <div class="resultRewardSub" id="jd-result-reward-sub">ฝึกต่ออีกนิด แล้วรอบหน้าจะดีกว่าเดิม</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="resultHighlights">
+        <div class="highlightCard">
+          <div class="highlightK">Score</div>
+          <div class="highlightV" id="res-score-big">0</div>
+        </div>
+
+        <div class="highlightCard">
+          <div class="highlightK">Accuracy</div>
+          <div class="highlightV" id="res-acc-big">0%</div>
+        </div>
+
+        <div class="highlightCard">
+          <div class="highlightK">Combo Max</div>
+          <div class="highlightV" id="res-combo-big">0</div>
+        </div>
+
+        <div class="highlightCard">
+          <div class="highlightK">Boss HP End</div>
+          <div class="highlightV" id="res-boss-end-big">—</div>
         </div>
       </div>
 
@@ -684,64 +1020,24 @@ PATCH v20260312-JD-GATEFLOW-FULL
         <div class="resultItem"><span>Stability Min</span><b id="res-stability-min">0%</b></div>
         <div class="resultItem"><span>Score</span><b id="res-score">0</b></div>
         <div class="resultItem"><span>Rank</span><b id="res-rank">C</b></div>
+        <div class="resultItem"><span>Phase End</span><b id="res-phase-end">-</b></div>
+        <div class="resultItem"><span>Last Pattern</span><b id="res-pattern">-</b></div>
+        <div class="resultItem"><span>Boss Label</span><b id="res-boss-label">-</b></div>
+        <div class="resultItem"><span>Rush State</span><b id="res-rush">-</b></div>
       </div>
 
       <div class="actions">
-        <button class="btn primary" data-action="play-again">🔁 เล่นอีกครั้ง</button>
-        <button class="btn" id="jd-btn-dl-events">⬇ events.csv</button>
-        <button class="btn" id="jd-btn-dl-sessions">⬇ sessions.csv</button>
-        <button class="btn good" id="jd-btn-send-log">☁ ส่งขึ้น Cloud Logger</button>
-        <button class="btn ghost" data-action="back-menu">🏠 กลับเมนู</button>
+        <button class="btn primary" data-action="play-again" type="button">🔁 เล่นอีกครั้ง</button>
+        <button class="btn" id="jd-btn-dl-events" type="button">⬇ events.csv</button>
+        <button class="btn" id="jd-btn-dl-sessions" type="button">⬇ sessions.csv</button>
+        <button class="btn good" id="jd-btn-send-log" type="button">☁ ส่งขึ้น Cloud Logger</button>
+        <button class="btn ghost" data-action="back-menu" type="button">🏠 กลับเมนู</button>
       </div>
 
       <div class="statusLine" id="jd-log-status"></div>
     </section>
-
   </div>
 
-  <script>
-    (function () {
-      'use strict';
-      const ROOT = 'https://supparang.github.io/webxr-health-mobile/herohealth/';
-      const HUB_URL = ROOT + 'hub.html';
-      const url = new URL(location.href);
-
-      const qp = (k, d='') => url.searchParams.get(k) ?? d;
-
-      window.JD_GATE_CONFIG = {
-        ROOT,
-        HUB_URL,
-        zone: 'exercise',
-        game: 'jumpduck',
-        pid: qp('pid', 'anon'),
-        studyId: qp('studyId', ''),
-        seed: qp('seed', String(Date.now())),
-        run: qp('run', 'play'),
-        view: qp('view', 'mobile'),
-        diff: qp('diff', 'normal'),
-        time: qp('time', qp('duration', '60')),
-        duration: qp('duration', qp('time', '60')),
-        hub: qp('hub', HUB_URL),
-        log: qp('log', ''),
-        api: qp('api', ''),
-        ai: qp('ai', ''),
-        debug: qp('debug', ''),
-        conditionGroup: qp('conditionGroup', ''),
-        grade: qp('grade', ''),
-        phase: qp('phase', ''),
-        planSeq: qp('planSeq', ''),
-        planDay: qp('planDay', ''),
-        planSlot: qp('planSlot', ''),
-        planMode: qp('planMode', ''),
-        planSlots: qp('planSlots', ''),
-        planIndex: qp('planIndex', ''),
-        autoNext: qp('autoNext', ''),
-        plannedGame: qp('plannedGame', ''),
-        finalGame: qp('finalGame', ''),
-        cdnext: qp('cdnext', '')
-      };
-    })();
-  </script>
   <script src="./js/jump-duck.js"></script>
 </body>
 </html>
