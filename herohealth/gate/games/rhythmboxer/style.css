@@ -1,0 +1,246 @@
+/* === /herohealth/gate/games/rhythmboxer/style.css === */
+
+:root{
+  --rbg-bg1:#3f0f46;
+  --rbg-bg2:#0f172a;
+  --rbg-panel:rgba(2,6,23,.72);
+  --rbg-stroke:rgba(148,163,184,.18);
+  --rbg-text:#e5e7eb;
+  --rbg-muted:#94a3b8;
+  --rbg-accent:#f472b6;
+  --rbg-accent2:#22d3ee;
+}
+
+.rbg-wrap{
+  min-height:100vh;
+  padding:18px;
+  color:var(--rbg-text);
+  background:
+    radial-gradient(900px 520px at 50% -10%, rgba(244,114,182,.20), transparent 60%),
+    linear-gradient(180deg, var(--rbg-bg1), var(--rbg-bg2));
+}
+
+.rbg-wrap-cool{
+  background:
+    radial-gradient(900px 520px at 50% -10%, rgba(34,211,238,.16), transparent 60%),
+    linear-gradient(180deg, #0f172a, #082f49);
+}
+
+.rbg-card{
+  width:min(980px, 100%);
+  margin:0 auto;
+  border:1px solid var(--rbg-stroke);
+  background:rgba(2,6,23,.68);
+  border-radius:24px;
+  padding:20px;
+  box-shadow:0 18px 48px rgba(0,0,0,.28);
+  backdrop-filter:blur(8px);
+}
+
+.rbg-kicker{
+  font-size:.82rem;
+  letter-spacing:.12em;
+  color:#fbcfe8;
+  opacity:.95;
+  margin-bottom:8px;
+}
+
+.rbg-title{
+  margin:0;
+  font-size:clamp(1.6rem, 4vw, 2.3rem);
+  line-height:1.1;
+}
+
+.rbg-subtitle{
+  margin:8px 0 0;
+  color:var(--rbg-muted);
+  font-size:1rem;
+}
+
+.rbg-grid{
+  display:grid;
+  grid-template-columns:1fr 1.2fr;
+  gap:16px;
+  margin-top:18px;
+}
+
+.rbg-panel{
+  border:1px solid var(--rbg-stroke);
+  border-radius:20px;
+  padding:16px;
+  background:var(--rbg-panel);
+}
+
+.rbg-play{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:flex-start;
+  text-align:center;
+  min-height:320px;
+}
+
+.rbg-h2{
+  margin:0 0 10px;
+  font-size:1.05rem;
+}
+
+.rbg-list{
+  margin:0;
+  padding-left:18px;
+  color:#dbeafe;
+  line-height:1.7;
+}
+
+.rbg-phase-badge{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-width:120px;
+  padding:8px 14px;
+  border-radius:999px;
+  background:rgba(244,114,182,.14);
+  color:#fbcfe8;
+  border:1px solid rgba(244,114,182,.28);
+  font-weight:700;
+  margin-bottom:14px;
+}
+
+.rbg-phase-badge-cool{
+  background:rgba(34,211,238,.14);
+  color:#bae6fd;
+  border-color:rgba(34,211,238,.28);
+}
+
+.rbg-cue{
+  min-height:84px;
+  width:100%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  border-radius:18px;
+  border:1px solid var(--rbg-stroke);
+  background:linear-gradient(180deg, rgba(15,23,42,.9), rgba(2,6,23,.86));
+  font-size:clamp(1.25rem, 4vw, 1.95rem);
+  font-weight:800;
+  padding:14px;
+  margin-bottom:12px;
+}
+
+.rbg-cue-cool{
+  color:#bae6fd;
+}
+
+.rbg-timer{
+  font-size:1.2rem;
+  font-weight:800;
+  color:#fde68a;
+  margin-bottom:10px;
+}
+
+.rbg-stats{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+  justify-content:center;
+  margin-bottom:14px;
+  color:#cbd5e1;
+  font-size:.96rem;
+}
+
+.rbg-stats span{
+  padding:7px 12px;
+  border-radius:999px;
+  background:rgba(15,23,42,.7);
+  border:1px solid var(--rbg-stroke);
+}
+
+.rbg-actions{
+  width:100%;
+  display:grid;
+  grid-template-columns:repeat(3, minmax(0,1fr));
+  gap:10px;
+}
+
+.rbg-actions-single{
+  grid-template-columns:1fr;
+}
+
+.rbg-btn-action{
+  appearance:none;
+  border:1px solid rgba(148,163,184,.24);
+  background:linear-gradient(180deg, rgba(30,41,59,.95), rgba(15,23,42,.95));
+  color:var(--rbg-text);
+  border-radius:18px;
+  min-height:72px;
+  padding:12px;
+  font-size:1rem;
+  font-weight:700;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:10px;
+}
+
+.rbg-btn-action:disabled{
+  opacity:.55;
+}
+
+.rbg-btn-breath{
+  min-height:84px;
+}
+
+.rbg-emoji{
+  font-size:1.3rem;
+}
+
+.rbg-footer{
+  margin-top:16px;
+  display:flex;
+  gap:10px;
+  justify-content:flex-end;
+  flex-wrap:wrap;
+}
+
+.rbg-btn{
+  appearance:none;
+  border:1px solid var(--rbg-stroke);
+  border-radius:14px;
+  padding:12px 16px;
+  font-size:1rem;
+  font-weight:800;
+  cursor:pointer;
+}
+
+.rbg-btn:disabled{
+  opacity:.55;
+  cursor:default;
+}
+
+.rbg-btn-primary{
+  color:#3f0f46;
+  background:linear-gradient(180deg, #f9a8d4, #f472b6);
+  border-color:rgba(244,114,182,.35);
+}
+
+.rbg-btn-ghost{
+  color:#e2e8f0;
+  background:rgba(15,23,42,.88);
+}
+
+@media (max-width: 760px){
+  .rbg-wrap{ padding:12px; }
+  .rbg-card{
+    padding:14px;
+    border-radius:18px;
+  }
+  .rbg-grid{ grid-template-columns:1fr; }
+  .rbg-play{ min-height:auto; }
+  .rbg-actions{ grid-template-columns:1fr; }
+  .rbg-btn-action{
+    min-height:64px;
+    font-size:.96rem;
+  }
+  .rbg-footer{ justify-content:stretch; }
+  .rbg-footer .rbg-btn{ flex:1 1 auto; }
+}
