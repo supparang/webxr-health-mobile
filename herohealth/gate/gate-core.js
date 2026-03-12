@@ -1,393 +1,302 @@
-// === /webxr-health-mobile/herohealth/gate/gate-core.js ===
+// === /herohealth/gate/gate-core.js ===
 // HeroHealth Gate Core
-// PATCH v20260311-GATE-CORE-GROUPS-FLOW-LOG-WEBXRROOT
-// ✅ Germ Detective continue/skip -> germ-detective-vr.html
-// ✅ strip gate params before continue
-// ✅ no nested germ-detective path from gate side
-// ✅ keep other games behavior as-is
-// ✅ extra ctx validation/log for Phase/groups flow
+// FULL PATCH v20260312-ALL-ZONES-GATE-CORE
 
 import {
-  buildCtx,
-  getDailyDone,
-  setDailyDone,
-  setText,
-  sanitizeBuffs,
-  saveLastSummary
-} from './gate-common.js?v=20260311';
+  getGameMeta,
+  getPhaseFile,
+  getGameStyleFile,
+  normalizeGameId
+} from './gate-games.js';
 
-import { mountSummaryLayer, mountToast } from './gate-summary.js?v=20260311';
-import { createGateLogger } from './gate-logger.js?v=20260311';
-import { GATE_GAMES, getGameMeta } from './gate-games.js?v=20260311';
-
-function titleOf(ctx){
-  const meta = getGameMeta(ctx.game) || {
-    label: ctx.game,
-    warmupTitle: ctx.game,
-    cooldownTitle: ctx.game
-  };
-  return ctx.mode === 'cooldown'
-    ? `Cooldown — ${meta.label}`
-    : `Warmup — ${meta.label}`;
+function esc(s) {
+  return String(s ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;');
 }
 
-function subtitleOf(ctx){
-  const meta = getGameMeta(ctx.game) || { label: ctx.game };
-  if(ctx.mode === 'warmup'){
-    return `เตรียมความพร้อมก่อนเข้าเกม ${meta.label}`;
-  }
-  return `คูลดาวน์และสรุปก่อนออกจากเกม ${meta.label}`;
-}
-
-function modulePath(ctx){
-  return `./games/${ctx.game}/${ctx.mode}.js?v=20260311`;
-}
-
-function safeHubUrl(ctx){
-  try{
-    const u = new URL(ctx.hub || '../hub.html', location.href);
-    [
-      'gatePhase','phase','Phase','gateResult','gateMode',
-      'wType','wPct','wSteps','wTimeBonus','wScoreBonus','wRank',
-      'cd','next','wskip'
-    ].forEach(k=>u.searchParams.delete(k));
-    return u.toString();
-  }catch{
-    return '../hub.html';
+function qs(url, key, fallback = '') {
+  try {
+    return url.searchParams.get(key) ?? fallback;
+  } catch {
+    return fallback;
   }
 }
 
-function appendResultParams(u, result){
-  if(!result) return;
-  const buffs = sanitizeBuffs(result?.buffs || {});
-  Object.entries(buffs).forEach(([k,v])=>{
-    u.searchParams.set(k, String(v));
-  });
-  u.searchParams.set('gateResult', result?.ok ? '1' : '0');
-  u.searchParams.set('gateMode', String(result?.mode || 'warmup'));
+function qbool(url, key, fallback = false) {
+  const v = String(qs(url, key, fallback ? '1' : '0')).toLowerCase();
+  return ['1', 'true', 'yes', 'y', 'on'].includes(v);
 }
 
-function appendCommonParams(u, ctx, hub){
-  if(ctx.run)  u.searchParams.set('run', String(ctx.run));
-  if(ctx.diff) u.searchParams.set('diff', String(ctx.diff));
-  if(ctx.time != null) u.searchParams.set('time', String(ctx.time));
-  if(ctx.seed) u.searchParams.set('seed', String(ctx.seed));
-  if(ctx.pid)  u.searchParams.set('pid', String(ctx.pid));
-  if(ctx.view) u.searchParams.set('view', String(ctx.view));
-  if(ctx.cat)  u.searchParams.set('zone', String(ctx.cat));
-  u.searchParams.set('hub', hub);
-
-  if(ctx.studyId) u.searchParams.set('studyId', String(ctx.studyId));
-  if(ctx.conditionGroup) u.searchParams.set('conditionGroup', String(ctx.conditionGroup));
-  if(ctx.sessionOrder) u.searchParams.set('sessionOrder', String(ctx.sessionOrder));
-  if(ctx.blockLabel) u.searchParams.set('blockLabel', String(ctx.blockLabel));
-  if(ctx.siteCode) u.searchParams.set('siteCode', String(ctx.siteCode));
-  if(ctx.schoolYear) u.searchParams.set('schoolYear', String(ctx.schoolYear));
-  if(ctx.semester) u.searchParams.set('semester', String(ctx.semester));
-}
-
-function coreParamsOf(ctx){
-  return {
-    pid: ctx.pid || 'anon',
-    run: ctx.run || 'play',
-    diff: ctx.diff || 'normal',
-    time: ctx.time != null ? String(ctx.time) : '80',
-    seed: ctx.seed || '',
-    view: ctx.view || 'mobile',
-    hub: ctx.hub || '../hub.html',
-    cat: ctx.cat || '',
-    game: ctx.game || '',
-    next: ctx.next || '',
-    mode: ctx.mode || ''
-  };
-}
-
-function validateGateCtx(ctx){
-  const missing = [];
-  ['pid','run','diff','time','view','game','mode'].forEach(k=>{
-    const v = ctx[k];
-    if(v == null || String(v).trim() === ''){
-      missing.push(k);
-    }
-  });
-
-  if(missing.length){
-    console.warn('[gate-core] missing ctx keys:', missing, coreParamsOf(ctx));
-  }else{
-    console.log('[gate-core] ctx OK', coreParamsOf(ctx));
+function safeUrl(raw, fallback = '') {
+  try {
+    if (!raw) return fallback;
+    return new URL(raw, window.location.href).toString();
+  } catch {
+    return fallback;
   }
-
-  return missing;
 }
 
-function buildRawNextUrl(ctx, result=null){
-  const hub = safeHubUrl(ctx);
-  const game = String(ctx.game || '').toLowerCase();
+function ensureStyleFile(href, id) {
+  if (!href) return;
+  if (document.getElementById(id)) return;
 
-  if(game === 'germdetective'){
-    const u = new URL('/webxr-health-mobile/herohealth/germ-detective/germ-detective-vr.html', location.origin);
-
-    appendCommonParams(u, ctx, hub);
-
-    if(!u.searchParams.get('scene')){
-      u.searchParams.set('scene', 'classroom');
-    }
-    if(!u.searchParams.get('zone')){
-      u.searchParams.set('zone', 'hygiene');
-    }
-
-    appendResultParams(u, result);
-
-    console.log('[gate-core] germdetective direct vr run =', u.toString());
-    return u.toString();
-  }
-
-  const rawNext = String(ctx.next || '').trim();
-  if(rawNext){
-    try{
-      const u = new URL(rawNext, location.href);
-
-      [
-        'gatePhase','phase','Phase','gateResult','gateMode',
-        'wType','wPct','wSteps','wTimeBonus','wScoreBonus','wRank',
-        'cd','next','wskip'
-      ].forEach(k=>u.searchParams.delete(k));
-
-      if(/warmup-gate\.html$/i.test(u.pathname)){
-        console.warn('[gate] next points back to warmup-gate -> fallback hub');
-        return hub;
-      }
-
-      appendCommonParams(u, ctx, hub);
-      appendResultParams(u, result);
-      return u.toString();
-    }catch(err){
-      console.error('[gate] invalid next', rawNext, err);
-    }
-  }
-
-  console.warn('[gate-core] no usable next, fallback hub =', hub, coreParamsOf(ctx));
-  return hub;
+  const link = document.createElement('link');
+  link.id = id;
+  link.rel = 'stylesheet';
+  link.href = href;
+  document.head.appendChild(link);
 }
 
-function renderShell(root, ctx){
+function setDocTitle(meta, phase) {
+  const phaseText = phase === 'cooldown' ? 'Cooldown' : 'Warmup';
+  const label = meta?.label || 'Gate';
+  document.title = `HeroHealth — ${label} ${phaseText}`;
+}
+
+function getPhase(url) {
+  const raw = String(qs(url, 'phase', 'warmup')).trim().toLowerCase();
+  return raw === 'cooldown' ? 'cooldown' : 'warmup';
+}
+
+function getGame(url) {
+  return normalizeGameId(qs(url, 'game', ''));
+}
+
+function getNextRunUrl(url) {
+  const next = qs(url, 'next', '');
+  if (next) return safeUrl(next, '');
+
+  const runUrl = qs(url, 'runUrl', '');
+  if (runUrl) return safeUrl(runUrl, '');
+
+  return '';
+}
+
+function getHubUrl(url) {
+  return safeUrl(qs(url, 'hub', ''), '');
+}
+
+function renderError(root, title, detail = '') {
   root.innerHTML = `
-    <div class="gate-shell">
-      <div class="gate-card">
-        <section class="gate-head">
-          <div class="gate-title-row">
-            <div class="gate-badge-logo">HH</div>
-            <div class="gate-title-wrap">
-              <h1 class="gate-title" id="gateTitle">${titleOf(ctx)}</h1>
-              <div class="gate-subtitle" id="gateSubtitle">${subtitleOf(ctx)}</div>
-            </div>
-          </div>
-
-          <div class="gate-pills">
-            <div class="gate-pill">PHASE: ${ctx.mode.toUpperCase()}</div>
-            <div class="gate-pill">CAT: ${ctx.cat.toUpperCase()}</div>
-            <div class="gate-pill">GAME: ${ctx.game.toUpperCase()}</div>
-            <div class="gate-pill" id="gateDailyPill">DAILY: ${ctx.dailyDone ? 'DONE' : 'NEW'}</div>
-          </div>
-        </section>
-
-        <section class="gate-stats">
-          <div class="gate-stat"><div class="gate-stat-k">TIME</div><div class="gate-stat-v" id="hudTime">${ctx.time}s</div></div>
-          <div class="gate-stat"><div class="gate-stat-k">SCORE</div><div class="gate-stat-v" id="hudScore">0</div></div>
-          <div class="gate-stat"><div class="gate-stat-k">MISS</div><div class="gate-stat-v" id="hudMiss">0</div></div>
-          <div class="gate-stat"><div class="gate-stat-k">ACC / PROGRESS</div><div class="gate-stat-v" id="hudAcc">0%</div></div>
-        </section>
-
-        <div id="gateDailyAction" class="hidden" style="padding:12px 16px 0;">
-          <div style="padding:14px;border-radius:18px;border:1px solid rgba(148,163,184,.14);background:rgba(2,6,23,.45);">
-            <div style="font-weight:900;margin-bottom:6px;">วันนี้คุณเคยเล่นส่วนนี้แล้ว</div>
-            <div style="color:#94a3b8;font-size:13px;margin-bottom:10px;">
-              จะเล่นซ้ำเพื่อฝึกเพิ่ม หรือข้ามไปต่อเลยก็ได้
-            </div>
-            <div style="display:flex;gap:10px;flex-wrap:wrap;">
-              <button class="btn btn-ghost" id="gateReplayBtn">เล่นซ้ำ</button>
-              <button class="btn btn-primary" id="gateSkipBtn">ข้ามไปต่อ</button>
-            </div>
-          </div>
-        </div>
-
-        <section class="gate-stage">
-          <div class="gate-play" id="gatePlay"></div>
-        </section>
-
-        <div class="gate-footer">
-          <button class="btn btn-ghost" id="gateBackBtn">กลับ HUB</button>
-        </div>
+    <section class="gate-error-wrap" style="padding:20px;max-width:960px;margin:0 auto;color:#e5e7eb">
+      <div class="gate-error-card" style="border:1px solid rgba(148,163,184,.18);background:rgba(2,6,23,.78);border-radius:24px;padding:20px">
+        <div style="font-size:.82rem;letter-spacing:.08em;color:#94a3b8;margin-bottom:8px">HEROHEALTH GATE</div>
+        <h1 style="margin:0 0 10px;font-size:1.45rem">${esc(title)}</h1>
+        <p style="margin:0;color:#cbd5e1;line-height:1.6">${esc(detail)}</p>
       </div>
-    </div>
+    </section>
   `;
 }
 
-export async function bootGate(root){
-  console.log('[gate-core] v20260311 running');
-
-  const ctx = buildCtx();
-  ctx.dailyDone = getDailyDone(ctx);
-
-  console.log('[gate ctx raw]', ctx);
-  console.log('[gate ctx.next]', ctx.next);
-  console.log('[gate ctx.game]', ctx.game);
-  console.log('[gate ctx.mode]', ctx.mode);
-  console.log('[gate ctx.hub]', ctx.hub);
-  console.log('[gate ctx.Phase]', ctx.Phase);
-  console.log('[gate ctx.gatePhase]', ctx.gatePhase);
-  console.log('[gate ctx.phase]', ctx.phase);
-
-  validateGateCtx(ctx);
-
-  if(ctx.mode !== 'warmup' && ctx.mode !== 'cooldown'){
-    console.warn('[gate-core] unexpected mode:', ctx.mode, '-> fallback warmup');
-  }
-
-  renderShell(root, ctx);
-
-  const playEl = document.getElementById('gatePlay');
-  const summary = mountSummaryLayer(document.body);
-  const toast = mountToast(document.body);
-  const logger = createGateLogger(ctx);
-
-  const stats = {
-    time: document.getElementById('hudTime'),
-    score: document.getElementById('hudScore'),
-    miss: document.getElementById('hudMiss'),
-    acc: document.getElementById('hudAcc')
-  };
-
-  const dailyAction = document.getElementById('gateDailyAction');
-  const replayBtn = document.getElementById('gateReplayBtn');
-  const skipBtn = document.getElementById('gateSkipBtn');
-
-  const api = {
-    ctx,
-    logger,
-    toast,
-    setStats(patch={}){
-      if(patch.time != null) setText(stats.time, `${patch.time}s`);
-      if(patch.score != null) setText(stats.score, patch.score);
-      if(patch.miss != null) setText(stats.miss, patch.miss);
-      if(patch.acc != null) setText(stats.acc, patch.acc);
-    },
-    finish(result={}){
-      const finalResult = {
-        ok: !!result.ok,
-        mode: ctx.mode,
-        title: result.title || (ctx.mode === 'warmup' ? 'พร้อมแล้ว!' : 'คูลดาวน์เสร็จแล้ว'),
-        subtitle: result.subtitle || 'ไปต่อได้เลย',
-        lines: Array.isArray(result.lines) ? result.lines : [],
-        buffs: sanitizeBuffs(result.buffs || {}),
-        markDailyDone: result.markDailyDone !== false
-      };
-
-      logger.push('finish', finalResult);
-      logger.flush(finalResult);
-
-      if(finalResult.markDailyDone){
-        setDailyDone(ctx, true);
-      }
-
-      saveLastSummary({
-        ts: new Date().toISOString(),
-        game: ctx.game,
-        cat: ctx.cat,
-        mode: ctx.mode,
-        result: finalResult
-      });
-
-      summary.show({
-        title: finalResult.title,
-        subtitle: finalResult.subtitle,
-        lines: finalResult.lines,
-        onBack: ()=>{
-          location.replace(ctx.hub || '../hub.html');
-        },
-        onContinue: ()=>{
-          if(ctx.mode === 'warmup'){
-            const nextUrl = buildRawNextUrl(ctx, finalResult);
-            console.log('[gate] warmup continue ->', nextUrl, coreParamsOf(ctx));
-            location.replace(nextUrl);
-            return;
-          }
-
-          const hubUrl = ctx.hub || '../hub.html';
-          console.log('[gate] cooldown continue -> hub', hubUrl, coreParamsOf(ctx));
-          location.replace(hubUrl);
-        }
-      });
-    }
-  };
-
-  document.getElementById('gateBackBtn')?.addEventListener('click', ()=>{
-    location.replace(ctx.hub || '../hub.html');
-  });
-
-  async function loadModuleNow(){
-    try{
-      logger.push('boot', {
-        modulePath: modulePath(ctx),
-        dailyDone: ctx.dailyDone,
-        gameKnown: !!GATE_GAMES[ctx.game],
-        game: ctx.game || '',
-        theme: ctx.theme || '',
-        next: ctx.next || '',
-        hub: ctx.hub || '',
-        rawNextResolved: buildRawNextUrl(ctx),
-        safeHub: safeHubUrl(ctx)
-      });
-
-      const mod = await import(modulePath(ctx));
-      if(!mod || typeof mod.mount !== 'function'){
-        throw new Error(`Module missing mount(): ${modulePath(ctx)}`);
-      }
-
-      if(typeof mod.loadStyle === 'function'){
-        mod.loadStyle();
-      }
-
-      const controller = await mod.mount(playEl, ctx, api);
-      if(controller && typeof controller.start === 'function'){
-        controller.start();
-      }
-    }catch(err){
-      console.error(err);
-      playEl.innerHTML = `
-        <div style="padding:22px;">
-          <h2 style="margin:0 0 8px;">โหลดมินิเกมไม่สำเร็จ</h2>
-          <p style="margin:0;color:#94a3b8;">
-            ไม่พบโมดูลของเกม ${ctx.game} โหมด ${ctx.mode}
-          </p>
-          <p style="margin:8px 0 0;color:#cbd5e1;font-size:13px;">
-            expected: ${modulePath(ctx)}
-          </p>
+function renderLoading(root, meta, phase) {
+  root.innerHTML = `
+    <section style="padding:20px;max-width:960px;margin:0 auto;color:#e5e7eb">
+      <div style="border:1px solid rgba(148,163,184,.18);background:rgba(2,6,23,.78);border-radius:24px;padding:20px">
+        <div style="font-size:.82rem;letter-spacing:.08em;color:#94a3b8;margin-bottom:8px">
+          ${esc(String(meta?.cat || '').toUpperCase())} • ${esc(String(phase).toUpperCase())}
         </div>
-      `;
-      toast('โหลด gate module ไม่สำเร็จ');
+        <h1 style="margin:0 0 10px;font-size:1.45rem">${esc(meta?.label || 'Gate')}</h1>
+        <p style="margin:0;color:#cbd5e1">กำลังโหลด mini game...</p>
+      </div>
+    </section>
+  `;
+}
+
+function renderBuiltInSummary(root, result, ctx) {
+  const isCooldown = ctx.phase === 'cooldown';
+  const primaryLabel = isCooldown ? 'กลับ HUB' : 'ไปเกมหลัก';
+  const primaryUrl = isCooldown ? ctx.hubUrl : (ctx.nextRunUrl || ctx.hubUrl);
+
+  const metrics = result?.metrics && typeof result.metrics === 'object'
+    ? Object.entries(result.metrics)
+    : [];
+
+  root.innerHTML = `
+    <section style="padding:20px;max-width:960px;margin:0 auto;color:#e5e7eb">
+      <div style="border:1px solid rgba(148,163,184,.18);background:rgba(2,6,23,.78);border-radius:24px;padding:20px">
+        <div style="font-size:.82rem;letter-spacing:.08em;color:#94a3b8;margin-bottom:8px">
+          ${esc(String(ctx.meta?.cat || '').toUpperCase())} • ${esc(String(ctx.phase).toUpperCase())}
+        </div>
+
+        <h1 style="margin:0 0 10px;font-size:1.6rem">${esc(result?.title || ctx.defaultTitle || 'สรุปผล')}</h1>
+        <p style="margin:0 0 14px;color:#cbd5e1">${esc(result?.coach?.line || '')}</p>
+
+        <div style="display:flex;flex-wrap:wrap;gap:10px;margin:0 0 14px">
+          <span style="padding:8px 12px;border-radius:999px;background:rgba(15,23,42,.9);border:1px solid rgba(148,163,184,.18)">
+            คะแนน ${esc(result?.score ?? 0)}
+          </span>
+          <span style="padding:8px 12px;border-radius:999px;background:rgba(15,23,42,.9);border:1px solid rgba(148,163,184,.18)">
+            ดาว ${esc(result?.stars ?? 1)}
+          </span>
+          <span style="padding:8px 12px;border-radius:999px;background:rgba(15,23,42,.9);border:1px solid rgba(148,163,184,.18)">
+            ${result?.passed ? 'ผ่าน' : 'เสร็จแล้ว'}
+          </span>
+        </div>
+
+        ${metrics.length ? `
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin:0 0 16px">
+            ${metrics.map(([k, v]) => `
+              <div style="border:1px solid rgba(148,163,184,.16);border-radius:16px;padding:12px;background:rgba(15,23,42,.7)">
+                <div style="font-size:.8rem;color:#94a3b8;margin-bottom:4px">${esc(k)}</div>
+                <div style="font-weight:800;font-size:1.05rem">${esc(v)}</div>
+              </div>
+            `).join('')}
+          </div>
+        ` : ''}
+
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          ${primaryUrl ? `
+            <button id="hh-gate-primary" style="appearance:none;border:0;border-radius:14px;padding:12px 16px;font-weight:800;background:linear-gradient(180deg,#86efac,#22c55e);color:#052e16;cursor:pointer">
+              ${esc(primaryLabel)}
+            </button>
+          ` : ''}
+
+          ${ctx.hubUrl ? `
+            <button id="hh-gate-hub" style="appearance:none;border:1px solid rgba(148,163,184,.18);border-radius:14px;padding:12px 16px;font-weight:800;background:rgba(15,23,42,.9);color:#e5e7eb;cursor:pointer">
+              กลับ HUB
+            </button>
+          ` : ''}
+        </div>
+      </div>
+    </section>
+  `;
+
+  const primaryBtn = root.querySelector('#hh-gate-primary');
+  const hubBtn = root.querySelector('#hh-gate-hub');
+
+  if (primaryBtn && primaryUrl) {
+    primaryBtn.addEventListener('click', () => {
+      window.location.href = primaryUrl;
+    });
+  }
+
+  if (hubBtn && ctx.hubUrl) {
+    hubBtn.addEventListener('click', () => {
+      window.location.href = ctx.hubUrl;
+    });
+  }
+}
+
+async function loadGameModule(meta, phase) {
+  const modPath = getPhaseFile(meta?.theme || meta?.label || '', phase);
+  if (!modPath) {
+    throw new Error(`ไม่พบไฟล์ phase=${phase}`);
+  }
+  return import(modPath);
+}
+
+function getDefaultTitle(meta, phase) {
+  return phase === 'cooldown'
+    ? (meta?.cooldownTitle || `${meta?.label || 'Game'} Cooldown`)
+    : (meta?.warmupTitle || `${meta?.label || 'Game'} Warmup`);
+}
+
+export async function bootGate(root) {
+  if (!root) {
+    console.error('[gate-core] root not found');
+    return;
+  }
+
+  const url = new URL(window.location.href);
+  const game = getGame(url);
+  const phase = getPhase(url);
+  const meta = getGameMeta(game);
+
+  if (!meta) {
+    renderError(root, 'ไม่พบเกมใน Gate Registry', `game=${game || '(empty)'}`);
+    return;
+  }
+
+  const zone = qs(url, 'zone', meta.cat || '');
+  const seed = Number(qs(url, 'seed', Date.now()));
+  const pid = qs(url, 'pid', 'anon');
+  const studyId = qs(url, 'studyId', '');
+  const run = qs(url, 'run', 'play');
+  const view = qs(url, 'view', 'mobile');
+  const hubUrl = getHubUrl(url);
+  const nextRunUrl = getNextRunUrl(url);
+  const debug = qbool(url, 'debug', false);
+  const defaultTitle = getDefaultTitle(meta, phase);
+
+  setDocTitle(meta, phase);
+
+  const styleFile = getGameStyleFile(game);
+  if (styleFile) {
+    ensureStyleFile(styleFile, `hh-gate-style-${game}`);
+  }
+
+  renderLoading(root, meta, phase);
+
+  try {
+    const modPath = getPhaseFile(game, phase);
+    if (!modPath) {
+      throw new Error(`ไม่พบ path ของ ${game}/${phase}`);
     }
-  }
 
-  let shouldAutoLoadModule = true;
+    const mod = await import(modPath);
+    if (!mod || typeof mod.mount !== 'function') {
+      throw new Error(`Module ${modPath} ต้อง export mount(root, ctx)`);
+    }
 
-  if(ctx.mode === 'warmup' && ctx.dailyDone){
-    dailyAction?.classList.remove('hidden');
-    shouldAutoLoadModule = false;
+    const ctx = {
+      url,
+      root,
+      game,
+      phase,
+      zone,
+      meta,
+      seed,
+      pid,
+      studyId,
+      run,
+      view,
+      hubUrl,
+      nextRunUrl,
+      defaultTitle,
+      debug,
 
-    replayBtn?.addEventListener('click', async ()=>{
-      dailyAction?.classList.add('hidden');
-      await loadModuleNow();
-    });
+      onComplete(result) {
+        try {
+          console.log('[gate complete]', {
+            game,
+            phase,
+            zone,
+            pid,
+            studyId,
+            result
+          });
 
-    skipBtn?.addEventListener('click', ()=>{
-      const nextUrl = buildRawNextUrl(ctx);
-      console.log('[gate] skip ->', nextUrl, coreParamsOf(ctx));
-      location.replace(nextUrl);
-    });
-  }
+          // TODO:
+          // - ผูก gate-logger.js
+          // - ผูก gate-summary.js
+          // ตอนนี้ใช้ built-in summary ไปก่อน
 
-  if(shouldAutoLoadModule){
-    await loadModuleNow();
+          renderBuiltInSummary(root, result, {
+            game,
+            phase,
+            zone,
+            meta,
+            hubUrl,
+            nextRunUrl,
+            defaultTitle
+          });
+        } catch (err) {
+          console.error('[gate-core onComplete]', err);
+          renderError(root, 'สรุปผลไม่สำเร็จ', String(err?.message || err));
+        }
+      }
+    };
+
+    mod.mount(root, ctx);
+  } catch (err) {
+    console.error('[gate-core] load fail', err);
+    renderError(
+      root,
+      'โหลด mini game ไม่สำเร็จ',
+      `${game}/${phase}: ${String(err?.message || err)}`
+    );
   }
 }
