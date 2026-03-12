@@ -7,28 +7,58 @@
 </head>
 <body>
 <script>
-  const sp = new URL(location.href).searchParams;
-  const target = new URL('../fitness/jump-duck.html', location.href);
+  (function () {
+    'use strict';
 
-  [
-    'run','diff','time','seed','studyId','phase','conditionGroup','log','view','pid','api','ai','debug',
-    'planSeq','planDay','planSlot','planMode','planSlots','planIndex','autoNext',
-    'plannedGame','finalGame','zone','cdnext','grade','hub'
-  ].forEach(k=>{
-    const v = sp.get(k);
-    if(v!=null && v!=='') target.searchParams.set(k, v);
-  });
+    const ROOT = 'https://supparang.github.io/webxr-health-mobile/herohealth/';
+    const HUB_URL = ROOT + 'hub.html';
 
-  if(!target.searchParams.get('duration')){
-    const t = sp.get('time') || '60';
-    target.searchParams.set('duration', t);
-  }
+    const sp = new URL(location.href).searchParams;
 
-  if(!target.searchParams.get('mode')){
-    target.searchParams.set('mode', 'training');
-  }
+    // run game จริง
+    const runUrl = new URL('../fitness/jump-duck.html', location.href);
 
-  location.replace(target.toString());
+    [
+      'run','diff','time','seed','studyId','phase','conditionGroup','log','view','pid','api','ai','debug',
+      'planSeq','planDay','planSlot','planMode','planSlots','planIndex','autoNext',
+      'plannedGame','finalGame','zone','cdnext','grade','hub'
+    ].forEach(k => {
+      const v = sp.get(k);
+      if (v != null && v !== '') runUrl.searchParams.set(k, v);
+    });
+
+    // ให้ run page รู้ว่าเล่นโหมดไหน
+    if (!runUrl.searchParams.get('duration')) {
+      const t = sp.get('time') || '60';
+      runUrl.searchParams.set('duration', t);
+    }
+
+    if (!runUrl.searchParams.get('mode')) {
+      runUrl.searchParams.set('mode', 'training');
+    }
+
+    // ตั้ง hub ให้ชัด
+    runUrl.searchParams.set('hub', sp.get('hub') || HUB_URL);
+
+    // ส่งเข้า warmup gate ก่อน
+    const gateUrl = new URL(ROOT + 'warmup-gate.html');
+    gateUrl.searchParams.set('zone', 'exercise');
+    gateUrl.searchParams.set('game', 'jumpduck');
+    gateUrl.searchParams.set('phase', 'warmup');
+    gateUrl.searchParams.set('next', runUrl.toString());
+    gateUrl.searchParams.set('hub', sp.get('hub') || HUB_URL);
+
+    [
+      'run','diff','time','seed','studyId','conditionGroup','log','view','pid','api','ai','debug',
+      'planSeq','planDay','planSlot','planMode','planSlots','planIndex','autoNext',
+      'plannedGame','finalGame','grade'
+    ].forEach(k => {
+      const v = sp.get(k);
+      if (v != null && v !== '') gateUrl.searchParams.set(k, v);
+    });
+
+    location.replace(gateUrl.toString());
+  })();
 </script>
 </body>
 </html>
