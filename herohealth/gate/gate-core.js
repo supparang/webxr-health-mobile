@@ -307,6 +307,7 @@ export async function bootGate(root) {
   const studyId = qs(url, 'studyId', '');
   const run = qs(url, 'run', 'play');
   const view = qs(url, 'view', 'mobile');
+  const time = Number(qs(url, 'time', 20));
   const hubUrl = getHubUrl(url);
   const nextRunUrl = getNextRunUrl(url);
   const debug = qbool(url, 'debug', false);
@@ -368,6 +369,7 @@ export async function bootGate(root) {
       studyId,
       run,
       view,
+      time,
       hubUrl,
       nextRunUrl,
       defaultTitle,
@@ -424,6 +426,7 @@ export async function bootGate(root) {
       studyId,
       run,
       view,
+      time,
       rawPhaseFields,
       hubUrl,
       nextRunUrl
