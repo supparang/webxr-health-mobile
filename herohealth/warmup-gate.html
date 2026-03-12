@@ -6,25 +6,15 @@
   <title>HeroHealth — Warmup/Cooldown Gate</title>
   <meta name="color-scheme" content="dark light" />
   <link rel="icon" href="./favicon.ico" />
-  <link rel="stylesheet" href="./gate/gate-common.css?v=20260312a" />
+  <link rel="stylesheet" href="./gate/gate-common.css?v=20260312c" />
 </head>
 <body>
   <div id="gate-app"></div>
 
-  <!-- โหลด logger ก่อน -->
-  <script src="./logger/session-logger.js?v=20260312a"></script>
-
   <script type="module">
-    console.log('[warmup-gate] load v20260312a');
-
-    import { bootGate } from './gate/gate-core.js?v=20260312a';
-
-    const root = document.getElementById('gate-app');
-
-    // กันกรณี logger ยังไม่ถูก expose ออกมา
-    window.HHA_SESSION_LOGGER = window.HHA_SESSION_LOGGER || window.SessionLogger || window.sessionLogger || null;
-
-    bootGate(root);
+    console.log('[warmup-gate] load v20260312c');
+    import { bootGate } from './gate/gate-core.js?v=20260312c';
+    bootGate(document.getElementById('gate-app'));
   </script>
 </body>
 </html>
