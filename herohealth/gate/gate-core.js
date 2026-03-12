@@ -1,6 +1,6 @@
 // === /herohealth/gate/gate-core.js ===
 // HeroHealth Gate Core
-// FULL PATCH v20260312-ALL-ZONES-GATE-CORE
+// FULL PATCH v20260312b-GATE-PHASE-LOGGER-SAFE
 
 import {
   getGameMeta,
@@ -8,6 +8,8 @@ import {
   getGameStyleFile,
   normalizeGameId
 } from './gate-games.js';
+
+import { createGateLogger } from './gate-logger.js';
 
 function esc(s) {
   return String(s ?? '')
@@ -57,7 +59,10 @@ function setDocTitle(meta, phase) {
 }
 
 function getPhase(url) {
-  const raw = String(qs(url, 'phase', 'warmup')).trim().toLowerCase();
+  const raw = String(
+    qs(url, 'Phase', qs(url, 'gatePhase', qs(url, 'phase', 'warmup')))
+  ).trim().toLowerCase();
+
   return raw === 'cooldown' ? 'cooldown' : 'warmup';
 }
 
@@ -77,6 +82,31 @@ function getNextRunUrl(url) {
 
 function getHubUrl(url) {
   return safeUrl(qs(url, 'hub', ''), '');
+}
+
+function createNoopLogger() {
+  const fn = () => {};
+  return {
+    log: fn,
+    info: fn,
+    warn: fn,
+    error: fn,
+    event: fn,
+    flush: async () => true
+  };
+}
+
+function getSafeLogger(ctxMeta = {}) {
+  try {
+    const logger = typeof createGateLogger === 'function'
+      ? createGateLogger(ctxMeta)
+      : null;
+
+    if (logger && typeof logger === 'object') return logger;
+  } catch (err) {
+    console.warn('[gate-core] createGateLogger failed', err);
+  }
+  return createNoopLogger();
 }
 
 function renderError(root, title, detail = '') {
@@ -180,14 +210,6 @@ function renderBuiltInSummary(root, result, ctx) {
   }
 }
 
-async function loadGameModule(meta, phase) {
-  const modPath = getPhaseFile(meta?.theme || meta?.label || '', phase);
-  if (!modPath) {
-    throw new Error(`ไม่พบไฟล์ phase=${phase}`);
-  }
-  return import(modPath);
-}
-
 function getDefaultTitle(meta, phase) {
   return phase === 'cooldown'
     ? (meta?.cooldownTitle || `${meta?.label || 'Game'} Cooldown`)
@@ -211,7 +233,8 @@ export async function bootGate(root) {
   }
 
   const zone = qs(url, 'zone', meta.cat || '');
-  const seed = Number(qs(url, 'seed', Date.now()));
+  const seedRaw = qs(url, 'seed', '');
+  const seed = seedRaw ? (Number(seedRaw) || seedRaw) : Date.now();
   const pid = qs(url, 'pid', 'anon');
   const studyId = qs(url, 'studyId', '');
   const run = qs(url, 'run', 'play');
@@ -220,6 +243,22 @@ export async function bootGate(root) {
   const nextRunUrl = getNextRunUrl(url);
   const debug = qbool(url, 'debug', false);
   const defaultTitle = getDefaultTitle(meta, phase);
+
+  const rawPhaseFields = {
+    Phase: qs(url, 'Phase', ''),
+    gatePhase: qs(url, 'gatePhase', ''),
+    phase: qs(url, 'phase', '')
+  };
+
+  const logger = getSafeLogger({
+    game,
+    phase,
+    zone,
+    pid,
+    studyId,
+    run,
+    view
+  });
 
   setDocTitle(meta, phase);
 
@@ -257,10 +296,12 @@ export async function bootGate(root) {
       nextRunUrl,
       defaultTitle,
       debug,
+      logger,
+      rawPhaseFields,
 
-      onComplete(result) {
+      onComplete(result = {}) {
         try {
-          console.log('[gate complete]', {
+          logger?.log?.('gate_complete', {
             game,
             phase,
             zone,
@@ -268,11 +309,6 @@ export async function bootGate(root) {
             studyId,
             result
           });
-
-          // TODO:
-          // - ผูก gate-logger.js
-          // - ผูก gate-summary.js
-          // ตอนนี้ใช้ built-in summary ไปก่อน
 
           renderBuiltInSummary(root, result, {
             game,
@@ -284,14 +320,36 @@ export async function bootGate(root) {
             defaultTitle
           });
         } catch (err) {
+          logger?.error?.('gate_complete_fail', {
+            message: String(err?.message || err)
+          });
           console.error('[gate-core onComplete]', err);
           renderError(root, 'สรุปผลไม่สำเร็จ', String(err?.message || err));
         }
       }
     };
 
-    mod.mount(root, ctx);
+    logger?.log?.('gate_boot', {
+      game,
+      phase,
+      zone,
+      pid,
+      studyId,
+      run,
+      view,
+      rawPhaseFields,
+      hubUrl,
+      nextRunUrl
+    });
+
+    await mod.mount(root, ctx);
   } catch (err) {
+    logger?.error?.('gate_load_fail', {
+      game,
+      phase,
+      message: String(err?.message || err)
+    });
+
     console.error('[gate-core] load fail', err);
     renderError(
       root,
