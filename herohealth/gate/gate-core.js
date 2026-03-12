@@ -1,6 +1,6 @@
 // === /herohealth/gate/gate-core.js ===
 // HeroHealth Gate Core
-// PATCH v20260312e-ALL-ZONES-GATE-CORE-NO-DUP-HUB
+// PATCH v20260312f-ALL-ZONES-GATE-CORE-CHILD-SUMMARY
 
 import {
   getGameMeta,
@@ -105,15 +105,57 @@ function renderLoading(root, meta, phase) {
   `;
 }
 
+function metricLabel(key) {
+  const map = {
+    total: 'ทั้งหมด',
+    correct: 'ทำถูก',
+    wrong: 'ทำผิด',
+    misses: 'พลาด',
+    avgReactionMs: 'ตอบสนองเฉลี่ย',
+    success: 'สำเร็จ',
+    fail: 'พลาด',
+    starsDone: 'เก็บดาว',
+    holdSeconds: 'ค้างท่า',
+    breathCycles: 'รอบหายใจ',
+    calmTicks: 'ช่วงผ่อนคลาย',
+    relaxTicks: 'ช่วงผ่อนคลาย',
+    swayRounds: 'รอบแกว่ง',
+    stillnessSec: 'ยืนนิ่ง',
+    leftHoldSec: 'ค้างซ้าย',
+    rightHoldSec: 'ค้างขวา',
+    centerHoldSec: 'ค้างตรงกลาง',
+    done: 'ทำครบ',
+    skipped: 'ข้าม',
+    answers: 'ตอบแล้ว',
+    score: 'คะแนน',
+    rank: 'ระดับ'
+  };
+  return map[key] || key;
+}
+
+function metricValue(key, value) {
+  if (key === 'avgReactionMs') return `${value} ms`;
+  if (key === 'holdSeconds') return `${value} วินาที`;
+  if (key === 'stillnessSec') return `${value} วินาที`;
+  if (key === 'leftHoldSec') return `${value} วินาที`;
+  if (key === 'rightHoldSec') return `${value} วินาที`;
+  if (key === 'centerHoldSec') return `${value} วินาที`;
+  return value;
+}
+
+function sanitizeMetrics(metrics) {
+  if (!metrics || typeof metrics !== 'object') return [];
+  return Object.entries(metrics)
+    .filter(([k, v]) => k !== 'finished' && v !== '' && v != null)
+    .map(([k, v]) => [metricLabel(k), metricValue(k, v)]);
+}
+
 function renderBuiltInSummary(root, result, ctx) {
   const isCooldown = ctx.phase === 'cooldown';
   const primaryLabel = isCooldown ? 'กลับ HUB' : 'ไปเกมหลัก';
   const primaryUrl = isCooldown ? ctx.hubUrl : (ctx.nextRunUrl || ctx.hubUrl);
 
-  const metrics = result?.metrics && typeof result.metrics === 'object'
-    ? Object.entries(result.metrics)
-    : [];
-
+  const metrics = sanitizeMetrics(result?.metrics);
   const showSecondaryHub = !isCooldown && !!ctx.hubUrl;
 
   root.innerHTML = `
@@ -134,7 +176,7 @@ function renderBuiltInSummary(root, result, ctx) {
             ดาว ${esc(result?.stars ?? 1)}
           </span>
           <span style="padding:8px 12px;border-radius:999px;background:rgba(15,23,42,.9);border:1px solid rgba(148,163,184,.18)">
-            ${result?.passed ? 'ผ่าน' : 'เสร็จแล้ว'}
+            ${result?.passed ? 'ผ่านแล้ว' : 'เสร็จแล้ว'}
           </span>
         </div>
 
