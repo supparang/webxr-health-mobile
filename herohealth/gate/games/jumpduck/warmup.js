@@ -1,41 +1,38 @@
 /* === /herohealth/gate/games/jumpduck/warmup.js ===
- * JumpDuck Warmup Mini Game
- * Phase: warmup
- * HeroHealth Gate Game Module
+ * HeroHealth Gate Game: JumpDuck Warmup
+ * PATCH v20260312-JUMPDUCK-WARMUP-A
  */
 
-function clamp(v, a, b) {
-  return Math.max(a, Math.min(b, v));
-}
+function clamp(v, a, b){ return Math.max(a, Math.min(b, v)); }
 
-function qs(ctx, key, fallback = '') {
-  try {
-    if (ctx && ctx.url) return ctx.url.searchParams.get(key) ?? fallback;
+function getParam(ctx, key, fallback=''){
+  try{
+    if (ctx?.url) return ctx.url.searchParams.get(key) ?? fallback;
     return new URL(window.location.href).searchParams.get(key) ?? fallback;
-  } catch {
+  }catch(_){
     return fallback;
   }
 }
 
-function makeStars(score) {
-  if (score >= 90) return 3;
-  if (score >= 70) return 2;
-  return 1;
-}
-
-function ensureGameStyle(ctx) {
-  const href = './gate/games/jumpduck/style.css';
+function ensureStyle(){
   const id = 'hh-gate-style-jumpduck';
   if (document.getElementById(id)) return;
   const link = document.createElement('link');
   link.id = id;
   link.rel = 'stylesheet';
-  link.href = href;
+  link.href = './gate/games/jumpduck/style.css';
   document.head.appendChild(link);
 }
 
-function makeResult(state, extra = {}) {
+function starsFromScore(score){
+  if (score >= 90) return 3;
+  if (score >= 70) return 2;
+  return 1;
+}
+
+function makeResult(state){
   const score = clamp(Math.round((state.correct / Math.max(1, state.total)) * 100), 0, 100);
+  const passed = score >= 60 || state.correct >= 4;
   return {
     ok: true,
     zone: 'exercise',
@@ -43,9 +40,9 @@ function makeResult(state, extra = {}) {
     phase: 'warmup',
     activityId: 'jumpduck-quick-feet-prep',
     title: 'Quick Feet Prep',
-    passed: score >= 60 || state.correct >= 4,
+    passed,
     score,
-    stars: makeStars(score),
+    stars: starsFromScore(score),
     metrics: {
       total: state.total,
       correct: state.correct,
@@ -55,40 +52,46 @@ function makeResult(state, extra = {}) {
       finished: state.finished ? 1 : 0
     },
     coach: {
-      tone: score >= 60 ? 'positive' : 'gentle',
-      line: score >= 60
+      tone: passed ? 'positive' : 'gentle',
+      line: passed
         ? 'ขาพร้อมแล้ว ไปเริ่ม Jump Duck กัน'
-        : 'อุ่นเครื่องอีกนิดนะ ตั้งจังหวะซ้าย ขวา ย่อ กระโดดให้แม่นขึ้น'
+        : 'อุ่นเครื่องอีกนิดนะ จับจังหวะซ้าย ขวา ย่อ กระโดดให้แม่นขึ้น'
     },
-    nextAction: 'run',
-    ...extra
+    nextAction: 'run'
   };
 }
 
-export function mount(root, ctx = {}) {
-  ensureGameStyle(ctx);
+export function mount(root, ctx = {}){
+  ensureStyle();
 
-  const onComplete = typeof ctx.onComplete === 'function' ? ctx.onComplete : () => {};
-  const seed = Number(qs(ctx, 'seed', Date.now()));
-  const phase = qs(ctx, 'phase', 'warmup');
-  if (phase !== 'warmup') {
-    root.innerHTML = `<div class="jdg-wrap"><div class="jdg-card"><h2>Phase ไม่ตรง</h2><p>โมดูลนี้ใช้สำหรับ warmup เท่านั้น</p></div></div>`;
+  const phase = String(getParam(ctx, 'phase', 'warmup')).toLowerCase();
+  const onComplete = typeof ctx?.onComplete === 'function' ? ctx.onComplete : () => {};
+  if (phase !== 'warmup'){
+    root.innerHTML = `
+      <div class="jdg-wrap">
+        <section class="jdg-card">
+          <div class="jdg-kicker">EXERCISE ZONE • WARMUP</div>
+          <h1 class="jdg-title">🦘 Quick Feet Prep</h1>
+          <p class="jdg-subtitle">โมดูลนี้ใช้สำหรับ phase=warmup เท่านั้น</p>
+        </section>
+      </div>
+    `;
     return;
   }
 
-  const CUES = [
-    { id: 'left', label: 'ซ้าย', emoji: '⬅️' },
-    { id: 'right', label: 'ขวา', emoji: '➡️' },
-    { id: 'duck', label: 'ย่อ', emoji: '⬇️' },
-    { id: 'jump', label: 'กระโดด', emoji: '⬆️' }
-  ];
-
+  const seed = Number(getParam(ctx, 'seed', Date.now()));
   const TOTAL_ROUNDS = 8;
   const ROUND_MS = 1800;
   const GAME_SEC = 20;
 
+  const cues = [
+    { id:'left',  label:'ซ้าย',    emoji:'⬅️' },
+    { id:'right', label:'ขวา',    emoji:'➡️' },
+    { id:'duck',  label:'ย่อ',     emoji:'⬇️' },
+    { id:'jump',  label:'กระโดด', emoji:'⬆️' }
+  ];
+
   const state = {
-    seed,
     started: false,
     finished: false,
     total: 0,
@@ -99,15 +102,15 @@ export function mount(root, ctx = {}) {
     reactionCount: 0,
     roundIndex: -1,
     cueAt: 0,
-    cues: [],
+    remainSec: GAME_SEC,
     roundTimer: null,
     gameTimer: null,
-    remainSec: GAME_SEC
+    sequence: []
   };
 
-  for (let i = 0; i < TOTAL_ROUNDS; i++) {
-    const idx = Math.abs((seed + i * 11) % CUES.length);
-    state.cues.push(CUES[idx]);
+  for (let i = 0; i < TOTAL_ROUNDS; i++){
+    const idx = Math.abs((seed + i * 11) % cues.length);
+    state.sequence.push(cues[idx]);
   }
 
   root.innerHTML = `
@@ -121,7 +124,7 @@ export function mount(root, ctx = {}) {
           <div class="jdg-panel">
             <h2 class="jdg-h2">วิธีเล่น</h2>
             <ol class="jdg-list">
-              <li>กดปุ่มให้ตรงกับคำสั่งที่ขึ้น</li>
+              <li>กดปุ่มให้ตรงกับคำสั่งที่ขึ้นบนจอ</li>
               <li>มี 4 ท่า: ซ้าย ขวา ย่อ กระโดด</li>
               <li>ทำให้ถูกอย่างน้อย 4 ครั้ง หรือคะแนนรวม 60%</li>
             </ol>
@@ -138,7 +141,7 @@ export function mount(root, ctx = {}) {
             </div>
 
             <div class="jdg-actions" id="jdg-actions">
-              ${CUES.map(c => `
+              ${cues.map(c => `
                 <button class="jdg-btn-action" type="button" data-action="${c.id}" disabled>
                   <span class="jdg-emoji">${c.emoji}</span>
                   <span>${c.label}</span>
@@ -163,7 +166,7 @@ export function mount(root, ctx = {}) {
   const startBtn = root.querySelector('#jdg-start');
   const finishBtn = root.querySelector('#jdg-finish');
 
-  function renderStats() {
+  function renderStats(){
     statsEl.innerHTML = `
       <span>รอบ ${Math.max(0, state.roundIndex + 1)}/${TOTAL_ROUNDS}</span>
       <span>ถูก ${state.correct}</span>
@@ -171,13 +174,11 @@ export function mount(root, ctx = {}) {
     `;
   }
 
-  function lockActions(locked) {
-    actionsEl.querySelectorAll('.jdg-btn-action').forEach(btn => {
-      btn.disabled = locked;
-    });
+  function lockActions(locked){
+    actionsEl.querySelectorAll('.jdg-btn-action').forEach(btn => { btn.disabled = locked; });
   }
 
-  function finishGame() {
+  function finishGame(){
     if (state.finished) return;
     state.finished = true;
     clearTimeout(state.roundTimer);
@@ -189,15 +190,16 @@ export function mount(root, ctx = {}) {
     renderStats();
   }
 
-  function nextCue() {
+  function nextCue(){
     if (state.finished) return;
     state.roundIndex += 1;
-    if (state.roundIndex >= state.cues.length) {
+
+    if (state.roundIndex >= state.sequence.length){
       finishGame();
       return;
     }
 
-    const cue = state.cues[state.roundIndex];
+    const cue = state.sequence[state.roundIndex];
     state.total += 1;
     state.cueAt = performance.now();
     cueEl.textContent = `${cue.emoji} ${cue.label}`;
@@ -208,23 +210,24 @@ export function mount(root, ctx = {}) {
       state.misses += 1;
       cueEl.textContent = `ไม่ทัน! คำตอบคือ ${cue.label}`;
       renderStats();
-      setTimeout(nextCue, 500);
+      setTimeout(nextCue, 480);
     }, ROUND_MS);
   }
 
-  function answer(action) {
+  function answer(action){
     if (!state.started || state.finished || state.roundIndex < 0) return;
-    const cue = state.cues[state.roundIndex];
+
+    const cue = state.sequence[state.roundIndex];
     clearTimeout(state.roundTimer);
 
     const rt = Math.max(0, Math.round(performance.now() - state.cueAt));
     state.reactionSum += rt;
     state.reactionCount += 1;
 
-    if (action === cue.id) {
+    if (action === cue.id){
       state.correct += 1;
       cueEl.textContent = `ถูกต้อง! ${cue.label}`;
-    } else {
+    }else{
       state.wrong += 1;
       cueEl.textContent = `ยังไม่ใช่ — ต้องเป็น ${cue.label}`;
     }
