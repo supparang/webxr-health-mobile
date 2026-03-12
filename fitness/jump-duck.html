@@ -1,6 +1,10 @@
 <!-- === /fitness/jump-duck.html ===
 Jump-Duck — PRODUCTION
-PATCH v20260307-JD-VISUALSET-AVATAR3STATE-FULL
+PATCH v20260312-JD-GATEFLOW-FULL
+✅ warmup gate -> run game
+✅ result -> cooldown gate
+✅ hub passthrough
+✅ JD_GATE_CONFIG injected
 ✅ avatar 3 states: idle / jump / duck
 ✅ obstacle visual set: low=JUMP / high=DUCK
 ✅ training / test / research
@@ -59,6 +63,10 @@ PATCH v20260307-JD-VISUALSET-AVATAR3STATE-FULL
       padding:10px 12px;
       min-height:44px;
       font-weight:1100;
+      text-decoration:none;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
     }
     .btn.primary{ border-color:rgba(59,130,246,.30); background:rgba(59,130,246,.16); }
     .btn.good{ border-color:rgba(34,197,94,.28); background:rgba(34,197,94,.14); }
@@ -117,6 +125,7 @@ PATCH v20260307-JD-VISUALSET-AVATAR3STATE-FULL
       height:100%;
       width:0%;
       background:linear-gradient(90deg,#22d3ee,#3b82f6);
+      transition:width .16s ease;
     }
     .barFill.warn{
       background:linear-gradient(90deg,#f59e0b,#ef4444);
@@ -157,7 +166,6 @@ PATCH v20260307-JD-VISUALSET-AVATAR3STATE-FULL
       height:2px; background:rgba(148,163,184,.18);
     }
 
-    /* ===== Avatar 3 states ===== */
     .avatar{
       position:absolute;
       left:18%;
@@ -318,7 +326,6 @@ PATCH v20260307-JD-VISUALSET-AVATAR3STATE-FULL
 
     .obsLayer{ position:absolute; inset:0; z-index:3; }
 
-    /* ===== Obstacle visual set ===== */
     .obs{
       position:absolute;
       width:90px;
@@ -356,6 +363,7 @@ PATCH v20260307-JD-VISUALSET-AVATAR3STATE-FULL
       border:1px solid rgba(148,163,184,.16);
       background:rgba(2,6,23,.72);
       color:#e5e7eb;
+      white-space:nowrap;
     }
 
     .obs.low .obs-label{
@@ -691,6 +699,49 @@ PATCH v20260307-JD-VISUALSET-AVATAR3STATE-FULL
 
   </div>
 
+  <script>
+    (function () {
+      'use strict';
+      const ROOT = 'https://supparang.github.io/webxr-health-mobile/herohealth/';
+      const HUB_URL = ROOT + 'hub.html';
+      const url = new URL(location.href);
+
+      const qp = (k, d='') => url.searchParams.get(k) ?? d;
+
+      window.JD_GATE_CONFIG = {
+        ROOT,
+        HUB_URL,
+        zone: 'exercise',
+        game: 'jumpduck',
+        pid: qp('pid', 'anon'),
+        studyId: qp('studyId', ''),
+        seed: qp('seed', String(Date.now())),
+        run: qp('run', 'play'),
+        view: qp('view', 'mobile'),
+        diff: qp('diff', 'normal'),
+        time: qp('time', qp('duration', '60')),
+        duration: qp('duration', qp('time', '60')),
+        hub: qp('hub', HUB_URL),
+        log: qp('log', ''),
+        api: qp('api', ''),
+        ai: qp('ai', ''),
+        debug: qp('debug', ''),
+        conditionGroup: qp('conditionGroup', ''),
+        grade: qp('grade', ''),
+        phase: qp('phase', ''),
+        planSeq: qp('planSeq', ''),
+        planDay: qp('planDay', ''),
+        planSlot: qp('planSlot', ''),
+        planMode: qp('planMode', ''),
+        planSlots: qp('planSlots', ''),
+        planIndex: qp('planIndex', ''),
+        autoNext: qp('autoNext', ''),
+        plannedGame: qp('plannedGame', ''),
+        finalGame: qp('finalGame', ''),
+        cdnext: qp('cdnext', '')
+      };
+    })();
+  </script>
   <script src="./js/jump-duck.js"></script>
 </body>
 </html>
