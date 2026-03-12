@@ -1,6 +1,6 @@
-ฃ/* === /fitness/js/jump-duck.js ===
+/* === /fitness/js/jump-duck.js ===
  * Jump-Duck — PRODUCTION
- * PATCH v20260312-JD-GATEFLOW-ENGINE-FULL
+ * PATCH v20260312d-JD-GATEFLOW-DIRECTRUN-FIX
  */
 
 (function () {
@@ -12,11 +12,44 @@
   const $ = (sel, root = D) => root.querySelector(sel);
   const $$ = (sel, root = D) => Array.from(root.querySelectorAll(sel));
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
-  const rint = (a, b) => Math.floor(Math.random() * (b - a + 1)) + a;
   const now = () => performance.now();
 
   /* ===== HeroHealth Gate Flow ===== */
-  const JD_GATE = W.JD_GATE_CONFIG || {};
+  const URLX = new URL(location.href);
+  const qp = (k, d = '') => URLX.searchParams.get(k) ?? d;
+
+  const JD_GATE = W.JD_GATE_CONFIG || {
+    ROOT: 'https://supparang.github.io/webxr-health-mobile/herohealth/',
+    HUB_URL: 'https://supparang.github.io/webxr-health-mobile/herohealth/hub.html',
+    zone: qp('zone', 'fitness'),
+    game: 'jumpduck',
+    pid: qp('pid', 'anon'),
+    studyId: qp('studyId', ''),
+    seed: qp('seed', String(Date.now())),
+    run: qp('run', 'play'),
+    view: qp('view', 'mobile'),
+    diff: qp('diff', 'normal'),
+    time: qp('time', qp('duration', '60')),
+    duration: qp('duration', qp('time', '60')),
+    hub: qp('hub', 'https://supparang.github.io/webxr-health-mobile/herohealth/hub.html'),
+    log: qp('log', ''),
+    api: qp('api', ''),
+    ai: qp('ai', ''),
+    debug: qp('debug', ''),
+    conditionGroup: qp('conditionGroup', ''),
+    grade: qp('grade', ''),
+    phase: qp('phase', ''),
+    planSeq: qp('planSeq', ''),
+    planDay: qp('planDay', ''),
+    planSlot: qp('planSlot', ''),
+    planMode: qp('planMode', ''),
+    planSlots: qp('planSlots', ''),
+    planIndex: qp('planIndex', ''),
+    autoNext: qp('autoNext', ''),
+    plannedGame: qp('plannedGame', ''),
+    finalGame: qp('finalGame', ''),
+    cdnext: qp('cdnext', '')
+  };
 
   function jdSafe(v, d = '') {
     return (v == null || v === '') ? d : String(v);
@@ -75,10 +108,6 @@
     location.href = jdBuildCooldownUrl(extra);
   }
 
-  /* ===== URL params ===== */
-  const URLX = new URL(location.href);
-  const qp = (k, d = '') => URLX.searchParams.get(k) ?? d;
-
   /* ===== Core config ===== */
   const CFG = {
     mode: qp('mode', 'training'),
@@ -102,8 +131,6 @@
 
   const researchBlock = $('#jd-research-block');
   const participantId = $('#jd-participant-id');
-  const groupInput = $('#jd-group');
-  const noteInput = $('#jd-note');
 
   const backHubMenu = $('#jd-back-hub-menu');
   const backHubPlay = $('#jd-back-hub-play');
@@ -148,22 +175,13 @@
   const resRank = $('#res-rank');
 
   const logStatus = $('#jd-log-status');
-
   const btnEvents = $('#jd-btn-dl-events');
   const btnSessions = $('#jd-btn-dl-sessions');
   const btnSendLog = $('#jd-btn-send-log');
 
-  /* ===== Button groups ===== */
-  const menuActionBtns = $$('[data-action]', viewMenu);
-  const playActionBtns = $$('[data-action]', viewPlay);
-  const resultActionBtns = $$('[data-action]', viewResult);
-
-  /* ===== State ===== */
   let state = null;
   let rafId = 0;
   let obstacleSpawnTimer = 0;
-  let phaseTickTimer = 0;
-  let feverTimer = 0;
   let bossActive = false;
   let bossHP = 0;
   let bossMaxHP = 0;
@@ -175,14 +193,12 @@
   const eventsLog = [];
   const sessionsLog = [];
 
-  /* ===== Difficulty ===== */
   function getDiffCfg(diff) {
     if (diff === 'easy') return { speed: 280, spawnEvery: 1450, bossEvery: 22, feverGain: 6 };
     if (diff === 'hard') return { speed: 380, spawnEvery: 950, bossEvery: 14, feverGain: 9 };
     return { speed: 330, spawnEvery: 1150, bossEvery: 18, feverGain: 7 };
   }
 
-  /* ===== UI helpers ===== */
   function showView(name) {
     viewMenu.classList.toggle('hidden', name !== 'menu');
     viewPlay.classList.toggle('hidden', name !== 'play');
@@ -194,9 +210,7 @@
     [backHubMenu, backHubPlay].forEach(a => {
       if (a) a.href = hub;
     });
-    if (backHubResult) {
-      backHubResult.href = '#';
-    }
+    if (backHubResult) backHubResult.href = '#';
   }
 
   function toastJudge(text) {
@@ -224,7 +238,6 @@
     logStatus.textContent = text || '';
   }
 
-  /* ===== CSV ===== */
   function downloadText(filename, text) {
     const blob = new Blob([text], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
@@ -244,10 +257,7 @@
       const s = String(v ?? '');
       return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
     };
-    return [
-      keys.join(','),
-      ...rows.map(r => keys.map(k => esc(r[k])).join(','))
-    ].join('\n');
+    return [keys.join(','), ...rows.map(r => keys.map(k => esc(r[k])).join(','))].join('\n');
   }
 
   function logEvent(type, data = {}) {
@@ -274,7 +284,6 @@
     });
   }
 
-  /* ===== Game state ===== */
   function buildState() {
     return {
       mode: CFG.mode,
@@ -299,8 +308,7 @@
       obstacles: [],
       nextSpawnAt: 0,
       stopped: false,
-      tutorial: CFG.tutorial,
-      overheat: 0
+      tutorial: CFG.tutorial
     };
   }
 
@@ -330,7 +338,6 @@
     }
   }
 
-  /* ===== Obstacle visual ===== */
   function makeObstacle(kind, isBoss = false, isFeint = false) {
     const el = D.createElement('div');
     el.className = `obs ${kind} ${isFeint ? 'feint' : ''}`;
@@ -371,10 +378,8 @@
     ob.el?.remove();
   }
 
-  /* ===== Spawn ===== */
   function maybeStartBoss() {
-    if (bossActive) return;
-    if (state.totalObs === 0) return;
+    if (bossActive || state.totalObs === 0) return;
     const diffCfg = getDiffCfg(state.diff);
     if (state.totalObs % diffCfg.bossEvery !== 0) return;
 
@@ -401,7 +406,6 @@
     makeObstacle(kind, false, Math.random() < 0.12);
   }
 
-  /* ===== Action ===== */
   let inputLockUntil = 0;
   function doAction(action) {
     if (!state || state.stopped) return;
@@ -489,7 +493,6 @@
     updateHUD();
   }
 
-  /* ===== Loop ===== */
   function gameLoop(ts) {
     if (!state || state.stopped) return;
 
@@ -554,16 +557,11 @@
     rafId = requestAnimationFrame(gameLoop);
   }
 
-  /* ===== Start/stop ===== */
   function applyMenuToConfig() {
     CFG.mode = menuMode.value;
     CFG.diff = menuDiff.value;
     CFG.duration = Number(menuDuration.value) || 60;
     CFG.pid = participantId?.value?.trim() || CFG.pid || 'anon';
-
-    URLX.searchParams.set('mode', CFG.mode);
-    URLX.searchParams.set('diff', CFG.diff);
-    URLX.searchParams.set('duration', String(CFG.duration));
   }
 
   function setupMenuFromURL() {
@@ -703,7 +701,6 @@
     setHubLinks();
   }
 
-  /* ===== Events ===== */
   function onTapPlay(ev) {
     if (!state || state.stopped) return;
     const rect = playArea.getBoundingClientRect();
@@ -730,44 +727,24 @@
     researchBlock.classList.toggle('hidden', menuMode.value !== 'research');
   });
 
-  menuActionBtns.forEach(btn => {
-    btn.addEventListener('click', () => {
-      const action = btn.dataset.action;
-      if (action === 'start') startGame({ tutorial: false });
-      if (action === 'tutorial') startGame({ tutorial: true });
-    });
-  });
+  // direct binding
+  $('[data-action="start"]', viewMenu)?.addEventListener('click', () => startGame({ tutorial: false }));
+  $('[data-action="tutorial"]', viewMenu)?.addEventListener('click', () => startGame({ tutorial: true }));
+  $('[data-action="jump"]', viewPlay)?.addEventListener('click', () => doAction('jump'));
+  $('[data-action="duck"]', viewPlay)?.addEventListener('click', () => doAction('duck'));
+  $('[data-action="stop-early"]', viewPlay)?.addEventListener('click', () => stopGame(true));
 
-  playActionBtns.forEach(btn => {
-    btn.addEventListener('click', () => {
-      const action = btn.dataset.action;
-      if (action === 'jump') doAction('jump');
-      if (action === 'duck') doAction('duck');
-      if (action === 'stop-early') stopGame(true);
-    });
-  });
-
-  resultActionBtns.forEach(btn => {
-    btn.addEventListener('click', () => {
-      const action = btn.dataset.action;
-
-      if (action === 'play-again') {
-        location.reload();
-        return;
-      }
-
-      if (action === 'back-menu') {
-        const s = W.__JD_LAST_SUMMARY || {};
-        jdGoCooldown({
-          score: s.score ?? '',
-          stars: s.stars ?? '',
-          rank: s.rank ?? '',
-          totalObs: s.totalObs ?? '',
-          hits: s.hits ?? '',
-          miss: s.miss ?? '',
-          acc: s.acc ?? ''
-        });
-      }
+  $('[data-action="play-again"]', viewResult)?.addEventListener('click', () => location.reload());
+  $('[data-action="back-menu"]', viewResult)?.addEventListener('click', () => {
+    const s = W.__JD_LAST_SUMMARY || {};
+    jdGoCooldown({
+      score: s.score ?? '',
+      stars: s.stars ?? '',
+      rank: s.rank ?? '',
+      totalObs: s.totalObs ?? '',
+      hits: s.hits ?? '',
+      miss: s.miss ?? '',
+      acc: s.acc ?? ''
     });
   });
 
@@ -802,7 +779,6 @@
     setLogStatus(`จำลองส่ง Cloud Logger แล้ว (${count} records)`);
   });
 
-  /* ===== Init ===== */
   function init() {
     setHubLinks();
     setupMenuFromURL();
