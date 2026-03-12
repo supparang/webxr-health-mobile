@@ -1,36 +1,34 @@
-export function createGateLogger(ctx){
-  const events = [];
+// === /herohealth/gate/gate-logger.js ===
+export function createGateLogger(base = {}) {
+  const prefix = '[gate-logger]';
 
-  function push(type, data={}){
-    const row = {
-      ts: new Date().toISOString(),
+  function pack(type, payload = {}) {
+    return {
+      ts: Date.now(),
+      ...base,
       type,
-      game: ctx.game,
-      cat: ctx.cat,
-      mode: ctx.mode,
-      pid: ctx.pid,
-      run: ctx.run,
-      diff: ctx.diff,
-      ...data
+      ...payload
     };
-    events.push(row);
-    try{
-      window.dispatchEvent(new CustomEvent('hha:gate-log', { detail: row }));
-    }catch(_){}
-    console.log('[HHA_GATE]', row);
   }
 
-  function flush(result=null){
-    const payload = {
-      ctx,
-      result,
-      events
-    };
-    try{
-      localStorage.setItem('HHA_GATE_LAST', JSON.stringify(payload));
-    }catch(_){}
-    return payload;
-  }
-
-  return { push, flush, events };
+  return {
+    log(type, payload = {}) {
+      console.log(prefix, pack(type, payload));
+    },
+    info(type, payload = {}) {
+      console.info(prefix, pack(type, payload));
+    },
+    warn(type, payload = {}) {
+      console.warn(prefix, pack(type, payload));
+    },
+    error(type, payload = {}) {
+      console.error(prefix, pack(type, payload));
+    },
+    event(type, payload = {}) {
+      console.log(prefix, pack(type, payload));
+    },
+    async flush() {
+      return true;
+    }
+  };
 }
