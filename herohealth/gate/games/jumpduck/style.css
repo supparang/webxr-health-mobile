@@ -1,5 +1,5 @@
 /* === /herohealth/gate/games/jumpduck/style.css ===
- * PATCH v20260312-JUMPDUCK-GATE-MOBILE-TUNE-B
+ * PATCH v20260312c-JUMPDUCK-GATE-MOBILE-TUNE-C
  */
 
 :root{
@@ -246,7 +246,6 @@
   background:rgba(15,23,42,.88);
 }
 
-/* ===== Tablet / mobile ===== */
 @media (max-width: 900px){
   .jdg-grid{
     grid-template-columns:1fr;
@@ -257,7 +256,6 @@
   }
 }
 
-/* ===== Mobile tune ===== */
 @media (max-width: 640px){
   .jdg-wrap{
     padding:10px;
@@ -366,7 +364,6 @@
   }
 }
 
-/* ===== Extra small phones ===== */
 @media (max-width: 420px){
   .jdg-title{
     font-size:clamp(1.08rem, 6vw, 1.45rem);
