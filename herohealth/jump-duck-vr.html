@@ -27,17 +27,18 @@
       if (v != null && v !== '') runUrl.searchParams.set(k, v);
     });
 
-    // ให้ run page รู้ว่าเล่นโหมดไหน
+    // duration ให้ run page
     if (!runUrl.searchParams.get('duration')) {
       const t = sp.get('time') || '60';
       runUrl.searchParams.set('duration', t);
     }
 
+    // mode มาตรฐาน
     if (!runUrl.searchParams.get('mode')) {
       runUrl.searchParams.set('mode', 'training');
     }
 
-    // ตั้ง hub ให้ชัด
+    // hub path
     runUrl.searchParams.set('hub', sp.get('hub') || HUB_URL);
 
     // ส่งเข้า warmup gate ก่อน
