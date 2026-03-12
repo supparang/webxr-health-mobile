@@ -1,6 +1,6 @@
 // === /herohealth/gate/gate-core.js ===
 // HeroHealth Gate Core
-// FULL PATCH v20260312c-GATE-LEGACY-API-COMPAT
+// PATCH v20260312e-ALL-ZONES-GATE-CORE-NO-DUP-HUB
 
 import {
   getGameMeta,
@@ -8,8 +8,6 @@ import {
   getGameStyleFile,
   normalizeGameId
 } from './gate-games.js';
-
-import { createGateLogger } from './gate-logger.js';
 
 function esc(s) {
   return String(s ?? '')
@@ -59,10 +57,7 @@ function setDocTitle(meta, phase) {
 }
 
 function getPhase(url) {
-  const raw = String(
-    qs(url, 'Phase', qs(url, 'gatePhase', qs(url, 'phase', 'warmup')))
-  ).trim().toLowerCase();
-
+  const raw = String(qs(url, 'phase', 'warmup')).trim().toLowerCase();
   return raw === 'cooldown' ? 'cooldown' : 'warmup';
 }
 
@@ -82,30 +77,6 @@ function getNextRunUrl(url) {
 
 function getHubUrl(url) {
   return safeUrl(qs(url, 'hub', ''), '');
-}
-
-function createNoopLogger() {
-  const fn = () => {};
-  return {
-    log: fn,
-    info: fn,
-    warn: fn,
-    error: fn,
-    event: fn,
-    flush: async () => true
-  };
-}
-
-function getSafeLogger(base = {}) {
-  try {
-    const logger = typeof createGateLogger === 'function'
-      ? createGateLogger(base)
-      : null;
-    if (logger && typeof logger === 'object') return logger;
-  } catch (err) {
-    console.warn('[gate-core] createGateLogger failed', err);
-  }
-  return createNoopLogger();
 }
 
 function renderError(root, title, detail = '') {
@@ -128,8 +99,7 @@ function renderLoading(root, meta, phase) {
           ${esc(String(meta?.cat || '').toUpperCase())} • ${esc(String(phase).toUpperCase())}
         </div>
         <h1 style="margin:0 0 10px;font-size:1.45rem">${esc(meta?.label || 'Gate')}</h1>
-        <p style="margin:0 0 12px;color:#cbd5e1">กำลังโหลด mini game...</p>
-        <div data-gate-stats style="display:flex;gap:10px;flex-wrap:wrap;font-size:.92rem;color:#cbd5e1"></div>
+        <p style="margin:0;color:#cbd5e1">กำลังโหลด mini game...</p>
       </div>
     </section>
   `;
@@ -144,6 +114,8 @@ function renderBuiltInSummary(root, result, ctx) {
     ? Object.entries(result.metrics)
     : [];
 
+  const showSecondaryHub = !isCooldown && !!ctx.hubUrl;
+
   root.innerHTML = `
     <section style="padding:20px;max-width:960px;margin:0 auto;color:#e5e7eb">
       <div style="border:1px solid rgba(148,163,184,.18);background:rgba(2,6,23,.78);border-radius:24px;padding:20px">
@@ -153,14 +125,6 @@ function renderBuiltInSummary(root, result, ctx) {
 
         <h1 style="margin:0 0 10px;font-size:1.6rem">${esc(result?.title || ctx.defaultTitle || 'สรุปผล')}</h1>
         <p style="margin:0 0 14px;color:#cbd5e1">${esc(result?.coach?.line || '')}</p>
-
-        ${Array.isArray(result?.lines) && result.lines.length ? `
-          <div style="margin:0 0 14px">
-            ${result.lines.map(line => `
-              <div style="color:#cbd5e1;line-height:1.6">${esc(line)}</div>
-            `).join('')}
-          </div>
-        ` : ''}
 
         <div style="display:flex;flex-wrap:wrap;gap:10px;margin:0 0 14px">
           <span style="padding:8px 12px;border-radius:999px;background:rgba(15,23,42,.9);border:1px solid rgba(148,163,184,.18)">
@@ -192,7 +156,7 @@ function renderBuiltInSummary(root, result, ctx) {
             </button>
           ` : ''}
 
-          ${ctx.hubUrl ? `
+          ${showSecondaryHub ? `
             <button id="hh-gate-hub" style="appearance:none;border:1px solid rgba(148,163,184,.18);border-radius:14px;padding:12px 16px;font-weight:800;background:rgba(15,23,42,.9);color:#e5e7eb;cursor:pointer">
               กลับ HUB
             </button>
@@ -224,66 +188,6 @@ function getDefaultTitle(meta, phase) {
     : (meta?.warmupTitle || `${meta?.label || 'Game'} Warmup`);
 }
 
-function createLegacyApi(root, ctx, logger) {
-  let latestStats = {};
-
-  return {
-    logger: {
-      push(type, payload = {}) {
-        logger?.log?.(type, payload);
-      }
-    },
-
-    setStats(stats = {}) {
-      latestStats = { ...latestStats, ...stats };
-
-      const hud = root.querySelector('[data-gate-stats]');
-      if (hud) {
-        hud.innerHTML = `
-          <span>เวลา: ${esc(latestStats.time ?? '-')}</span>
-          <span>คะแนน: ${esc(latestStats.score ?? 0)}</span>
-          <span>พลาด: ${esc(latestStats.miss ?? 0)}</span>
-          <span>แม่นยำ: ${esc(latestStats.acc ?? '0%')}</span>
-        `;
-      }
-    },
-
-    finish(payload = {}) {
-      const buffs = payload?.buffs || {};
-      const score = Number(
-        buffs.score ??
-        payload.score ??
-        latestStats.score ??
-        0
-      );
-
-      const rank = String(buffs.rank || '').toUpperCase();
-      const stars =
-        rank === 'S' ? 3 :
-        rank === 'A' ? 3 :
-        rank === 'B' ? 2 :
-        rank === 'C' ? 1 : 1;
-
-      ctx?.onComplete?.({
-        passed: Boolean(payload?.ok ?? true),
-        title: payload?.title || ctx.defaultTitle || 'สรุปผล',
-        coach: {
-          line: payload?.subtitle || ''
-        },
-        lines: Array.isArray(payload?.lines) ? payload.lines : [],
-        score,
-        stars,
-        metrics: {
-          ...latestStats,
-          ...(payload?.buffs || {})
-        },
-        buffs,
-        markDailyDone: Boolean(payload?.markDailyDone)
-      });
-    }
-  };
-}
-
 export async function bootGate(root) {
   if (!root) {
     console.error('[gate-core] root not found');
@@ -301,33 +205,15 @@ export async function bootGate(root) {
   }
 
   const zone = qs(url, 'zone', meta.cat || '');
-  const seedRaw = qs(url, 'seed', '');
-  const seed = seedRaw ? (Number(seedRaw) || seedRaw) : Date.now();
+  const seed = Number(qs(url, 'seed', Date.now()));
   const pid = qs(url, 'pid', 'anon');
   const studyId = qs(url, 'studyId', '');
   const run = qs(url, 'run', 'play');
   const view = qs(url, 'view', 'mobile');
-  const time = Number(qs(url, 'time', 20));
   const hubUrl = getHubUrl(url);
   const nextRunUrl = getNextRunUrl(url);
   const debug = qbool(url, 'debug', false);
   const defaultTitle = getDefaultTitle(meta, phase);
-
-  const rawPhaseFields = {
-    Phase: qs(url, 'Phase', ''),
-    gatePhase: qs(url, 'gatePhase', ''),
-    phase: qs(url, 'phase', '')
-  };
-
-  const logger = getSafeLogger({
-    game,
-    phase,
-    zone,
-    pid,
-    studyId,
-    run,
-    view
-  });
 
   setDocTitle(meta, phase);
 
@@ -340,21 +226,13 @@ export async function bootGate(root) {
 
   try {
     const modPath = getPhaseFile(game, phase);
-
-    logger?.log?.('gate_phase_file', {
-      game,
-      phase,
-      modPath
-    });
-
     if (!modPath) {
       throw new Error(`ไม่พบ path ของ ${game}/${phase}`);
     }
 
     const mod = await import(modPath);
-
     if (!mod || typeof mod.mount !== 'function') {
-      throw new Error(`Module ${modPath} ต้อง export mount(root, ctx, api)`);
+      throw new Error(`Module ${modPath} ต้อง export mount(root, ctx)`);
     }
 
     const ctx = {
@@ -369,17 +247,14 @@ export async function bootGate(root) {
       studyId,
       run,
       view,
-      time,
       hubUrl,
       nextRunUrl,
       defaultTitle,
       debug,
-      logger,
-      rawPhaseFields,
 
-      onComplete(result = {}) {
+      onComplete(result) {
         try {
-          logger?.log?.('gate_complete', {
+          console.log('[gate complete]', {
             game,
             phase,
             zone,
@@ -398,50 +273,14 @@ export async function bootGate(root) {
             defaultTitle
           });
         } catch (err) {
-          logger?.error?.('gate_complete_fail', {
-            message: String(err?.message || err)
-          });
           console.error('[gate-core onComplete]', err);
           renderError(root, 'สรุปผลไม่สำเร็จ', String(err?.message || err));
         }
       }
     };
 
-    const api = createLegacyApi(root, ctx, logger);
-    const controller = await mod.mount(root, ctx, api);
-
-    logger?.log?.('gate_phase_loaded', {
-      game,
-      phase,
-      exports: Object.keys(mod || {}),
-      hasStart: Boolean(controller && typeof controller.start === 'function'),
-      hasDestroy: Boolean(controller && typeof controller.destroy === 'function')
-    });
-
-    logger?.log?.('gate_boot', {
-      game,
-      phase,
-      zone,
-      pid,
-      studyId,
-      run,
-      view,
-      time,
-      rawPhaseFields,
-      hubUrl,
-      nextRunUrl
-    });
-
-    if (controller && typeof controller.start === 'function') {
-      controller.start();
-    }
+    mod.mount(root, ctx);
   } catch (err) {
-    logger?.error?.('gate_load_fail', {
-      game,
-      phase,
-      message: String(err?.message || err)
-    });
-
     console.error('[gate-core] load fail', err);
     renderError(
       root,
