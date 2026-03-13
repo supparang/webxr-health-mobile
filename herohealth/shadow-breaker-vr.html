@@ -3,37 +3,431 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>Redirecting… Shadow Breaker</title>
+  <title>HeroHealth — Shadow Breaker Launcher</title>
   <meta name="color-scheme" content="dark light" />
-  <meta http-equiv="refresh" content="0; url=/webxr-health-mobile/fitness/shadow-breaker.html" />
+  <link rel="icon" href="./favicon.ico" />
+  <style>
+    :root{
+      color-scheme: dark;
+      --bg1:#020617;
+      --bg2:#0b1226;
+      --panel:rgba(2,6,23,.72);
+      --panel2:rgba(15,23,42,.56);
+      --stroke:rgba(148,163,184,.18);
+      --text:#e5e7eb;
+      --muted:#94a3b8;
+      --blue:#3b82f6;
+      --violet:#a78bfa;
+      --good:#22c55e;
+      --warn:#f59e0b;
+      --bad:#ef4444;
+      --sat: env(safe-area-inset-top, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
+      --sar: env(safe-area-inset-right, 0px);
+    }
+    *{ box-sizing:border-box; }
+    html,body{
+      margin:0;
+      min-height:100%;
+      font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      background:
+        radial-gradient(circle at 15% 10%, rgba(59,130,246,.18), transparent 45%),
+        radial-gradient(circle at 85% 90%, rgba(167,139,250,.16), transparent 45%),
+        linear-gradient(180deg, var(--bg1), var(--bg2));
+      color:var(--text);
+    }
+    a{ color:inherit; text-decoration:none; }
+
+    .wrap{
+      max-width:920px;
+      margin:0 auto;
+      padding:
+        calc(14px + var(--sat))
+        calc(14px + var(--sar))
+        calc(18px + var(--sab))
+        calc(14px + var(--sal));
+      min-height:100vh;
+    }
+
+    .hero{
+      border-radius:24px;
+      border:1px solid var(--stroke);
+      background:var(--panel);
+      box-shadow:0 24px 80px rgba(0,0,0,.38);
+      padding:20px 18px;
+    }
+
+    .kicker{
+      color:var(--muted);
+      font-size:.82rem;
+      font-weight:900;
+      letter-spacing:.2px;
+    }
+
+    h1{
+      margin:8px 0 6px;
+      font-size:1.7rem;
+      line-height:1.1;
+    }
+
+    .sub{
+      color:rgba(226,232,240,.88);
+      line-height:1.5;
+      font-size:.96rem;
+    }
+
+    .row{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+      margin-top:14px;
+    }
+
+    .pill{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 10px;
+      border-radius:999px;
+      border:1px solid var(--stroke);
+      background:rgba(15,23,42,.52);
+      color:var(--muted);
+      font-size:.84rem;
+      font-weight:900;
+    }
+    .pill b{ color:var(--text); }
+
+    .grid{
+      display:grid;
+      grid-template-columns:1.15fr .85fr;
+      gap:12px;
+      margin-top:14px;
+    }
+    @media (max-width:860px){
+      .grid{ grid-template-columns:1fr; }
+    }
+
+    .card{
+      border-radius:22px;
+      border:1px solid var(--stroke);
+      background:var(--panel2);
+      box-shadow:0 18px 55px rgba(0,0,0,.28);
+      padding:14px;
+    }
+
+    .cardTitle{
+      font-size:1rem;
+      font-weight:1000;
+      margin-bottom:8px;
+    }
+
+    .muted{
+      color:var(--muted);
+      font-size:.88rem;
+      line-height:1.45;
+      font-weight:800;
+    }
+
+    .field{
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+      margin-top:10px;
+    }
+
+    .label{
+      font-size:.82rem;
+      color:rgba(226,232,240,.92);
+      font-weight:900;
+    }
+
+    .input, .select{
+      width:100%;
+      min-height:44px;
+      padding:10px 12px;
+      border-radius:14px;
+      border:1px solid rgba(148,163,184,.22);
+      background:rgba(2,6,23,.45);
+      color:var(--text);
+      outline:none;
+      font:inherit;
+    }
+
+    .input:focus, .select:focus{
+      border-color:rgba(59,130,246,.42);
+      box-shadow:0 0 0 3px rgba(59,130,246,.12);
+    }
+
+    .actions{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-top:14px;
+    }
+
+    .btn{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-height:44px;
+      padding:10px 14px;
+      border-radius:16px;
+      border:1px solid rgba(148,163,184,.22);
+      background:rgba(148,163,184,.10);
+      color:var(--text);
+      font-weight:1000;
+      cursor:pointer;
+    }
+    .btn.primary{
+      border-color:rgba(59,130,246,.28);
+      background:rgba(59,130,246,.16);
+    }
+    .btn.violet{
+      border-color:rgba(167,139,250,.28);
+      background:rgba(167,139,250,.14);
+    }
+    .btn.good{
+      border-color:rgba(34,197,94,.28);
+      background:rgba(34,197,94,.14);
+    }
+    .btn.ghost{
+      background:transparent;
+      color:var(--muted);
+    }
+
+    .list{
+      margin:10px 0 0;
+      padding-left:18px;
+      color:rgba(226,232,240,.9);
+      line-height:1.55;
+      font-size:.92rem;
+    }
+
+    .mini{
+      margin-top:10px;
+      padding:10px 12px;
+      border-radius:16px;
+      border:1px solid rgba(148,163,184,.14);
+      background:rgba(2,6,23,.20);
+      color:var(--muted);
+      font-size:.84rem;
+      font-weight:800;
+      line-height:1.45;
+    }
+
+    .debug{
+      margin-top:12px;
+      padding:10px 12px;
+      border-radius:16px;
+      border:1px solid rgba(148,163,184,.14);
+      background:rgba(2,6,23,.18);
+      color:var(--muted);
+      font-size:.82rem;
+      line-height:1.5;
+      word-break:break-word;
+    }
+
+    code{
+      font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+      font-size:.92em;
+      color:#c7d2fe;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="hero">
+      <div class="kicker">HeroHealth • Exercise Zone</div>
+      <h1>Shadow Breaker Launcher</h1>
+      <div class="sub">
+        เตรียมเข้าเล่นเกม Shadow Breaker แบบลุยบอส 3 ตัว + Final Boss<br/>
+        Flow นี้ใช้แบบเดียว: <b>Hub → Launcher → Run</b>
+      </div>
+
+      <div class="row">
+        <span class="pill"><b>Launcher</b>: <span>/herohealth/shadow-breaker-vr.html</span></span>
+        <span class="pill"><b>Run</b>: <span>/fitness/shadow-breaker.html</span></span>
+      </div>
+
+      <div class="grid">
+        <section class="card">
+          <div class="cardTitle">ตั้งค่าก่อนเข้าเล่น</div>
+
+          <div class="field">
+            <label class="label" for="inpPid">PID</label>
+            <input id="inpPid" class="input" placeholder="เช่น anon หรือ S05-001" />
+          </div>
+
+          <div class="field">
+            <label class="label" for="selDiff">Difficulty</label>
+            <select id="selDiff" class="select">
+              <option value="easy">Easy</option>
+              <option value="normal" selected>Normal</option>
+              <option value="hard">Hard</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label class="label" for="selTime">Time (sec)</label>
+            <select id="selTime" class="select">
+              <option value="60">60</option>
+              <option value="70">70</option>
+              <option value="80" selected>80</option>
+              <option value="90">90</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label class="label" for="selMode">Mode</label>
+            <select id="selMode" class="select">
+              <option value="normal" selected>Normal</option>
+              <option value="research">Research</option>
+            </select>
+          </div>
+
+          <div class="actions">
+            <button class="btn primary" id="btnStartNormal" type="button">▶ Start Normal</button>
+            <button class="btn violet" id="btnStartHard" type="button">🔥 Start Hard</button>
+            <button class="btn good" id="btnStartResearch" type="button">📊 Start Research</button>
+            <a class="btn ghost" id="btnBackHub" href="./hub.html">← กลับ Hub</a>
+          </div>
+
+          <div class="mini">
+            เด็กเล่นแนะนำ <b>Normal / 80s</b><br/>
+            ถ้าทดสอบความท้าทายเพิ่ม ใช้ <b>Hard</b>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="cardTitle">สิ่งที่มีในเกม</div>
+          <ul class="list">
+            <li>Bubble Glove → Meteor Punch → Neon Hydra → Final Boss</li>
+            <li>Boss Clear Banner</li>
+            <li>Result Badge System</li>
+            <li>บันทึก best reached boss และ best badge</li>
+            <li>กลับ Hub ผ่าน <code>?hub=...</code></li>
+          </ul>
+
+          <div class="mini">
+            ถ้าเปิดจาก Hub ระบบจะส่ง query เดิมต่อให้ครบ เช่น
+            <code>pid</code>, <code>diff</code>, <code>time</code>, <code>view</code>, <code>zone</code>
+          </div>
+
+          <div class="debug" id="debugBox">กำลังเตรียมเส้นทางเข้าเกม…</div>
+        </section>
+      </div>
+    </section>
+  </div>
+
   <script>
     (function(){
       'use strict';
-      const RUN_PATH = '/webxr-health-mobile/fitness/shadow-breaker.html';
-      const q = location.search || '';
-      const h = location.hash || '';
-      const target = location.origin + RUN_PATH + q + h;
-      const current = location.origin + location.pathname + q + h;
 
-      if (current === target) {
-        document.addEventListener('DOMContentLoaded', function(){
-          document.body.innerHTML =
-            '<main style="font-family:system-ui;padding:24px;line-height:1.5">' +
-            '<h1>Shadow Breaker</h1>' +
-            '<p>Launcher path ชี้มาที่ run page เดิมตัวเอง ทำให้ redirect วน</p>' +
-            '<p>กรุณาตรวจสอบ RUN_PATH ใน <code>/herohealth/shadow-breaker-vr.html</code></p>' +
-            '</main>';
+      const RUN_PATH = '/webxr-health-mobile/fitness/shadow-breaker.html';
+
+      const $ = (s)=>document.querySelector(s);
+      const qs = (k, d='')=>{
+        try{ return (new URL(location.href)).searchParams.get(k) ?? d; }
+        catch(_){ return d; }
+      };
+
+      const inpPid = $('#inpPid');
+      const selDiff = $('#selDiff');
+      const selTime = $('#selTime');
+      const selMode = $('#selMode');
+
+      const btnStartNormal = $('#btnStartNormal');
+      const btnStartHard = $('#btnStartHard');
+      const btnStartResearch = $('#btnStartResearch');
+      const btnBackHub = $('#btnBackHub');
+      const debugBox = $('#debugBox');
+
+      const currentUrl = new URL(location.href);
+      const sp = currentUrl.searchParams;
+
+      const hubFromQuery = String(qs('hub','')).trim() || './hub.html';
+      if (btnBackHub) btnBackHub.href = hubFromQuery;
+
+      if (inpPid)  inpPid.value = String(qs('pid','anon')).trim() || 'anon';
+      if (selDiff) selDiff.value = String(qs('diff','normal')).trim() || 'normal';
+      if (selTime) selTime.value = String(qs('time','80')).trim() || '80';
+      if (selMode) selMode.value = String(qs('mode', qs('run','normal'))).trim() || 'normal';
+
+      function buildRunUrl(extra){
+        const u = new URL(RUN_PATH, location.origin);
+        const passKeys = [
+          'run','mode','diff','time','seed','studyId','phase','conditionGroup','log',
+          'view','pid','api','ai','debug','planSeq','planDay','planSlot','planMode',
+          'planSlots','planIndex','autoNext','plannedGame','finalGame','zone','cdnext','grade'
+        ];
+
+        passKeys.forEach(k=>{
+          const v = sp.get(k);
+          if(v != null && v !== '') u.searchParams.set(k, v);
         });
-        return;
+
+        u.searchParams.set('pid', (inpPid?.value || qs('pid','anon') || 'anon').trim() || 'anon');
+        u.searchParams.set('diff', selDiff?.value || 'normal');
+        u.searchParams.set('time', selTime?.value || '80');
+        u.searchParams.set('mode', selMode?.value || 'normal');
+        u.searchParams.set('run', selMode?.value || 'normal');
+        u.searchParams.set('zone', sp.get('zone') || 'fitness');
+        u.searchParams.set('hub', new URL(hubFromQuery, location.href).toString());
+
+        if (extra && typeof extra === 'object'){
+          Object.keys(extra).forEach(k=>{
+            const v = extra[k];
+            if(v == null || v === '') u.searchParams.delete(k);
+            else u.searchParams.set(k, String(v));
+          });
+        }
+
+        return u.toString();
       }
 
-      try {
-        location.replace(target);
-      } catch(e) {
-        location.href = target;
+      function go(extra){
+        const target = buildRunUrl(extra);
+        try{
+          location.href = target;
+        }catch(_){
+          location.assign(target);
+        }
+      }
+
+      btnStartNormal?.addEventListener('click', ()=>{
+        if (selMode) selMode.value = 'normal';
+        if (selDiff) selDiff.value = selDiff.value || 'normal';
+        go({ mode:'normal', run:'normal' });
+      });
+
+      btnStartHard?.addEventListener('click', ()=>{
+        if (selMode) selMode.value = 'normal';
+        if (selDiff) selDiff.value = 'hard';
+        go({ mode:'normal', run:'normal', diff:'hard' });
+      });
+
+      btnStartResearch?.addEventListener('click', ()=>{
+        if (selMode) selMode.value = 'research';
+        go({ mode:'research', run:'research' });
+      });
+
+      const auto = String(qs('auto','0')).toLowerCase();
+      const autostart = ['1','true','yes','on'].includes(auto);
+
+      const previewUrl = buildRunUrl();
+      if (debugBox){
+        debugBox.innerHTML =
+          `<div><b>Hub:</b> <code>${new URL(hubFromQuery, location.href).pathname}</code></div>` +
+          `<div><b>Run target:</b> <code>${previewUrl}</code></div>` +
+          `<div><b>Auto:</b> <code>${autostart ? 'ON' : 'OFF'}</code></div>`;
+      }
+
+      if (autostart) {
+        go({});
       }
     })();
   </script>
-</head>
-<body></body>
+</body>
 </html>
