@@ -1,477 +1,326 @@
-<!doctype html>
-<html lang="th">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <meta name="color-scheme" content="dark light" />
-  <meta name="google" content="notranslate" />
-  <title>HeroHealth • Clean Objects</title>
-  <link rel="icon" href="../favicon.ico" />
-  <style>
-    :root{
-      --bg:#020617;
-      --fg:#e5e7eb;
-      --mut:#94a3b8;
-      --stroke: rgba(148,163,184,.18);
-      --panel: rgba(2,6,23,.72);
-      --sat: env(safe-area-inset-top, 0px);
-      --sar: env(safe-area-inset-right, 0px);
-      --sab: env(safe-area-inset-bottom, 0px);
-      --sal: env(safe-area-inset-left, 0px);
+<script type="module">
+  import { createCleanCore } from './clean.core.js';
+  import { mountCleanUI } from './clean.ui.js';
+  import { createCleanAI } from './ai-clean.js';
+
+  const $ = (id)=>document.getElementById(id);
+  function qs(k, d=''){
+    try{ return (new URL(location.href)).searchParams.get(k) ?? d; }
+    catch(e){ return d; }
+  }
+  function clamp(v,a,b){ v=Number(v); if(!Number.isFinite(v)) v=a; return Math.max(a, Math.min(b, v)); }
+  function normView(v){
+    v = String(v||'').toLowerCase();
+    if(v==='cvr' || v==='cardboard' || v==='vr') return 'cvr';
+    if(v==='mobile' || v==='m') return 'mobile';
+    if(v==='pc' || v==='desktop') return 'pc';
+    return v || '';
+  }
+  function nowSeed(){ return String(Date.now()); }
+  function normalizeMaybeEncodedUrl(v){
+    v = String(v ?? '').trim();
+    if(!v) return '';
+    if(/%3A|%2F|%3F|%26|%3D/i.test(v)){
+      try{ v = decodeURIComponent(v); }catch(e){}
     }
-    html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);
-      font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif}
-    #app{min-height:100%;padding:calc(10px + var(--sat)) calc(10px + var(--sar)) calc(10px + var(--sab)) calc(10px + var(--sal));}
-    .topbar{
-      position:sticky; top:0; z-index:50;
-      display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:space-between;
-      border:1px solid var(--stroke); background:rgba(2,6,23,.62);
-      border-radius:18px; padding:10px 10px; backdrop-filter: blur(8px);
-      transition: border-color .2s ease, background .2s ease;
-    }
-    .brand{display:flex;gap:10px;align-items:center}
-    .logo{
-      width:38px;height:38px;border-radius:14px;border:1px solid var(--stroke);
-      background:linear-gradient(135deg, rgba(34,211,238,.18), rgba(167,139,250,.14));
-      display:grid;place-items:center;font-weight:1000
-    }
-    .title{font-weight:1000;font-size:14px}
-    .sub{font-weight:800;color:var(--mut);font-size:12px;margin-top:2px}
-    .pillrow{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-    .pill{
-      border:1px solid var(--stroke);background:rgba(2,6,23,.35);border-radius:999px;padding:7px 10px;
-      font-size:12px;font-weight:950;color:rgba(229,231,235,.92)
-    }
-    .pill b{color:#fff}
-    .btn{
-      border:1px solid var(--stroke); background:rgba(2,6,23,.35); color:rgba(229,231,235,.94);
-      padding:9px 10px; border-radius:14px; font-weight:1000; cursor:pointer;
-      display:inline-flex; align-items:center; justify-content:center; gap:8px;
-    }
-    .btn:active{transform:translateY(1px)}
-    .btn.primary{border-color:rgba(34,197,94,.35);background:rgba(34,197,94,.14)}
-    .btn.warn{border-color:rgba(245,158,11,.35);background:rgba(245,158,11,.12)}
-    .btn.bad{border-color:rgba(239,68,68,.35);background:rgba(239,68,68,.10)}
-    .stage{
-      margin-top:10px;
-      border:1px solid var(--stroke);
-      background:linear-gradient(180deg, rgba(2,6,23,.80), rgba(2,6,23,.55));
-      border-radius:22px;
-      padding:10px;
-      box-shadow:0 20px 70px rgba(0,0,0,.35);
-      overflow:hidden;
-      transition: box-shadow .2s ease, border-color .2s ease, background .2s ease;
-    }
-    #root{ position:relative; min-height: calc(100vh - 120px); }
-    .toast{
-      position:fixed; left:50%; transform:translateX(-50%);
-      bottom:calc(14px + var(--sab)); z-index:9999;
-      padding:10px 12px; border:1px solid var(--stroke);
-      border-radius:14px; background:rgba(2,6,23,.78);
-      color:#e5e7eb; font-weight:950; font-size:13px;
-      box-shadow:0 14px 44px rgba(0,0,0,.35);
-      opacity:0; transition:opacity .18s ease; pointer-events:none; max-width:92vw;
-    }
-    .toast.show{ opacity:1; }
+    return v.trim();
+  }
+  let toastT=0;
+  function toast(msg){
+    const el = $('toast');
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(toastT);
+    toastT = setTimeout(()=>el.classList.remove('show'), 1100);
+  }
 
-    .boss-banner{
-      display:none;
-      margin-top:10px;
-      padding:10px 12px;
-      border:1px solid rgba(245,158,11,.28);
-      border-radius:16px;
-      background: rgba(245,158,11,.10);
-      font-weight:1000;
-    }
-    .boss-actions{
-      display:none;
-      gap:8px;
-      flex-wrap:wrap;
-      margin-top:10px;
-    }
+  const P = {
+    run: String(qs('run','play')).toLowerCase() || 'play',
+    diff: String(qs('diff','normal')).toLowerCase() || 'normal',
+    time: clamp(qs('time','80'), 20, 300),
+    seed: String(qs('seed','') || nowSeed()),
+    pid: (String(qs('pid','')).trim() || 'anon'),
+    view: normView(qs('view','')),
 
-    body.boss-mode .boss-banner{ display:block; }
-    body.boss-mode .boss-actions{ display:flex; }
-    body.boss-mode .topbar{
-      border-color: rgba(245,158,11,.30);
-      background: rgba(28,12,6,.72);
-    }
-    body.boss-mode .stage{
-      border-color: rgba(245,158,11,.30);
-      box-shadow: 0 0 0 2px rgba(245,158,11,.12), 0 20px 70px rgba(239,68,68,.10);
-    }
+    hub: normalizeMaybeEncodedUrl(qs('hub','')),
+    log: String(qs('log','')),
+    api: normalizeMaybeEncodedUrl(qs('api','')),
 
-    .ai-hot{
-      outline: 3px solid rgba(34,211,238,.85);
-      box-shadow: 0 0 0 7px rgba(34,211,238,.16);
-      border-radius: 16px;
-      animation: aihotPulse .9s ease-in-out infinite alternate;
-    }
-    @keyframes aihotPulse{ from{filter:brightness(1)} to{filter:brightness(1.25)} }
-  </style>
-</head>
-<body>
-  <div id="app">
-    <div class="topbar">
-      <div class="brand">
-        <div class="logo">🧽</div>
-        <div>
-          <div class="title">Clean Objects (Evaluate → Create)</div>
-          <div class="sub">Home map • Boss + Contamination + Danger pulse</div>
-        </div>
-      </div>
+    studyId: String(qs('studyId','')),
+    phase: String(qs('phase','')),
+    conditionGroup: String(qs('conditionGroup','')),
 
-      <div class="pillrow" id="pillRow">
-        <div class="pill">run: <b id="pRun">—</b></div>
-        <div class="pill">diff: <b id="pDiff">—</b></div>
-        <div class="pill">time: <b id="pTime">—</b>s</div>
-        <div class="pill">pid: <b id="pPid">—</b></div>
-        <div class="pill">view: <b id="pView">—</b></div>
-        <div class="pill">AI risk: <b id="pAiRisk">—</b></div>
-      </div>
+    debug: String(qs('debug','')),
+    ai: String(qs('ai','1')),
+    pro: String(qs('pro','')),
+    boss: String(qs('boss','toilet_flush') || 'toilet_flush')
+  };
 
-      <div class="pillrow">
-        <button class="btn warn" id="btnCooldown" type="button">Go Cooldown</button>
-        <button class="btn" id="btnBackHub" type="button">Back HUB</button>
-        <button class="btn bad" id="btnReset" type="button">Reset</button>
-      </div>
-    </div>
+  const AI_ON = !(String(P.ai||'1') === '0' || String(P.ai||'1').toLowerCase() === 'false');
+  const PRO_ON = (String(P.pro) === '1' || P.diff === 'hard');
 
-    <div id="bossBanner" class="boss-banner">
-      ⚠️ BOSS MODE — รีบเก็บจุดคุ้มที่สุดก่อนบอสลงโทษ
-    </div>
+  $('pRun').textContent = P.run;
+  $('pDiff').textContent = P.diff;
+  $('pTime').textContent = String(P.time);
+  $('pPid').textContent = P.pid;
+  $('pView').textContent = P.view || '(auto)';
+  $('pAiRisk').textContent = AI_ON ? 'on' : 'off';
 
-    <div id="bossActions" class="boss-actions">
-      <button class="btn warn" id="btnQuickPick" type="button">Quick Pick</button>
-      <button class="btn" id="btnShieldBoss" type="button">Shield Wipe</button>
-    </div>
+  function hubFallback(){
+    if(P.hub) return P.hub;
+    return new URL('../hub.html', location.href).toString();
+  }
+  function goHub(){ location.href = hubFallback(); }
 
-    <div class="stage">
-      <div id="root"></div>
-    </div>
+  function goCooldown(){
+    const hub = hubFallback();
+    const base = new URL(location.href);
+    const g = new URL('../warmup-gate.html', base);
 
-    <div class="toast" id="toast"></div>
-  </div>
+    g.searchParams.set('cat','hygiene');
+    g.searchParams.set('theme','cleanobjects');
+    g.searchParams.set('game','cleanobjects');
+    g.searchParams.set('cd','1');
+    g.searchParams.set('next', hub);
+    g.searchParams.set('hub', hub);
 
-  <script type="module">
-    import '../vr/vr-ui.js';
-  </script>
+    const keep = ['run','diff','time','seed','pid','view','ai','debug','api','log','studyId','phase','conditionGroup','boss','pro'];
+    keep.forEach(k=>{
+      const v = base.searchParams.get(k);
+      if(v !== null && v !== '') g.searchParams.set(k, v);
+    });
 
-  <script type="module">
-    import { createCleanCore } from './clean.core.js';
-    import { mountCleanUI } from './clean.ui.js';
-    import { createCleanAI } from './ai-clean.js';
+    location.href = g.toString();
+  }
 
-    const $ = (id)=>document.getElementById(id);
-    function qs(k, d=''){
-      try{ return (new URL(location.href)).searchParams.get(k) ?? d; }
-      catch(e){ return d; }
-    }
-    function clamp(v,a,b){ v=Number(v); if(!Number.isFinite(v)) v=a; return Math.max(a, Math.min(b, v)); }
-    function normView(v){
-      v = String(v||'').toLowerCase();
-      if(v==='cvr' || v==='cardboard' || v==='vr') return 'cvr';
-      if(v==='mobile' || v==='m') return 'mobile';
-      if(v==='pc' || v==='desktop') return 'pc';
-      return v || '';
-    }
-    function nowSeed(){ return String(Date.now()); }
-    function normalizeMaybeEncodedUrl(v){
-      v = String(v ?? '').trim();
-      if(!v) return '';
-      if(/%3A|%2F|%3F|%26|%3D/i.test(v)){
-        try{ v = decodeURIComponent(v); }catch(e){}
-      }
-      return v.trim();
-    }
-    let toastT=0;
-    function toast(msg){
-      const el = $('toast');
-      el.textContent = msg;
-      el.classList.add('show');
-      clearTimeout(toastT);
-      toastT = setTimeout(()=>el.classList.remove('show'), 1100);
-    }
+  $('btnBackHub').addEventListener('click', goHub);
+  $('btnCooldown').addEventListener('click', goCooldown);
+  $('btnReset').addEventListener('click', ()=>{
+    try{ localStorage.removeItem('HHA_LAST_SUMMARY'); }catch(e){}
+    location.reload();
+  });
 
-    const P = {
-      run: String(qs('run','play')).toLowerCase() || 'play',
-      diff: String(qs('diff','normal')).toLowerCase() || 'normal',
-      time: clamp(qs('time','80'), 20, 300),
-      seed: String(qs('seed','') || nowSeed()),
-      pid: (String(qs('pid','')).trim() || 'anon'),
-      view: normView(qs('view','')),
-
-      hub: normalizeMaybeEncodedUrl(qs('hub','')),
-      log: String(qs('log','')),
-      api: normalizeMaybeEncodedUrl(qs('api','')),
-
-      studyId: String(qs('studyId','')),
-      phase: String(qs('phase','')),
-      conditionGroup: String(qs('conditionGroup','')),
-
-      debug: String(qs('debug','')),
-      ai: String(qs('ai','1')),
-      pro: String(qs('pro','')),
-      boss: String(qs('boss','toilet_flush') || 'toilet_flush')
-    };
-
-    const AI_ON = !(String(P.ai||'1') === '0' || String(P.ai||'1').toLowerCase() === 'false');
-    const PRO_ON = (String(P.pro) === '1' || P.diff === 'hard');
-
-    $('pRun').textContent = P.run;
-    $('pDiff').textContent = P.diff;
-    $('pTime').textContent = String(P.time);
-    $('pPid').textContent = P.pid;
-    $('pView').textContent = P.view || '(auto)';
-    $('pAiRisk').textContent = AI_ON ? 'on' : 'off';
-
-    function hubFallback(){
-      if(P.hub) return P.hub;
-      return new URL('../hub.html', location.href).toString();
-    }
-    function goHub(){ location.href = hubFallback(); }
-
-    function goCooldown(){
-      const hub = hubFallback();
-      const base = new URL(location.href);
-      const g = new URL('../warmup-gate.html', base);
-
-      g.searchParams.set('cat','hygiene');
-      g.searchParams.set('theme','cleanobjects');
-      g.searchParams.set('game','cleanobjects');
-      g.searchParams.set('cd','1');
-      g.searchParams.set('next', hub);
-      g.searchParams.set('hub', hub);
-
-      const keep = ['run','diff','time','seed','pid','view','ai','debug','api','log','studyId','phase','conditionGroup','boss','pro'];
-      keep.forEach(k=>{
-        const v = base.searchParams.get(k);
-        if(v !== null && v !== '') g.searchParams.set(k, v);
+  async function postToApi(payload){
+    const logOn = (String(P.log||'') === '1' || String(P.log||'').toLowerCase() === 'true');
+    if(!logOn || !P.api) return { ok:false, skipped:true };
+    try{
+      const res = await fetch(P.api, {
+        method: 'POST',
+        mode: 'cors',
+        headers: { 'content-type':'application/json' },
+        body: JSON.stringify(payload)
       });
-
-      location.href = g.toString();
+      return { ok: res.ok, status: res.status };
+    }catch(e){
+      return { ok:false, err: String(e&&e.message||e) };
     }
+  }
 
-    $('btnBackHub').addEventListener('click', goHub);
-    $('btnCooldown').addEventListener('click', goCooldown);
-    $('btnReset').addEventListener('click', ()=>{
-      try{ localStorage.removeItem('HHA_LAST_SUMMARY'); }catch(e){}
-      location.reload();
+  window.addEventListener('hha:event', async (ev)=>{
+    const d = ev && ev.detail ? ev.detail : null;
+    if(!d) return;
+    const payload = Object.assign({}, d, {
+      projectTag: 'HeroHealth',
+      game: 'cleanobjects',
+      zone: 'hygiene',
+      runMode: P.run,
+      studyId: P.studyId || '',
+      phase: P.phase || '',
+      conditionGroup: P.conditionGroup || '',
+      hub: P.hub || ''
     });
+    const r = await postToApi({ type:'event', data: payload });
+    if(P.debug==='1' && r && !r.skipped && !r.ok) console.warn('[clean] api log failed', r);
+  });
 
-    async function postToApi(payload){
-      const logOn = (String(P.log||'') === '1' || String(P.log||'').toLowerCase() === 'true');
-      if(!logOn || !P.api) return { ok:false, skipped:true };
-      try{
-        const res = await fetch(P.api, {
-          method: 'POST',
-          mode: 'cors',
-          headers: { 'content-type':'application/json' },
-          body: JSON.stringify(payload)
-        });
-        return { ok: res.ok, status: res.status };
-      }catch(e){
-        return { ok:false, err: String(e&&e.message||e) };
-      }
-    }
+  function saveSummary(summary){
+    try{
+      localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(summary));
+      const key = 'HHA_SUMMARY_HISTORY';
+      const arr = JSON.parse(localStorage.getItem(key) || '[]');
+      arr.unshift(summary);
+      while(arr.length > 30) arr.pop();
+      localStorage.setItem(key, JSON.stringify(arr));
+    }catch(e){}
+  }
 
-    window.addEventListener('hha:event', async (ev)=>{
-      const d = ev && ev.detail ? ev.detail : null;
-      if(!d) return;
-      const payload = Object.assign({}, d, {
-        projectTag: 'HeroHealth',
-        game: 'cleanobjects',
-        zone: 'hygiene',
-        runMode: P.run,
-        studyId: P.studyId || '',
-        phase: P.phase || '',
-        conditionGroup: P.conditionGroup || '',
-        hub: P.hub || ''
-      });
-      const r = await postToApi({ type:'event', data: payload });
-      if(P.debug==='1' && r && !r.skipped && !r.ok) console.warn('[clean] api log failed', r);
-    });
+  const ui = mountCleanUI(document.getElementById('root'), {
+    selectA: (id, reasonTag)=> core.selectA(id, reasonTag),
+    toggleRouteB: (id)=> core.toggleRouteB(id),
+    undoB: ()=> core.undoB(),
+    clearB: ()=> core.clearB(),
+    submitB: ()=> core.submitB()
+  });
 
-    function saveSummary(summary){
-      try{
-        localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(summary));
-        const key = 'HHA_SUMMARY_HISTORY';
-        const arr = JSON.parse(localStorage.getItem(key) || '[]');
-        arr.unshift(summary);
-        while(arr.length > 30) arr.pop();
-        localStorage.setItem(key, JSON.stringify(arr));
-      }catch(e){}
-    }
+  const ai = AI_ON ? createCleanAI({
+    seed: P.seed,
+    pid:  P.pid,
+    diff: P.diff,
+    view: (P.view || (/(Android|iPhone|iPad|iPod)/i.test(navigator.userAgent) ? 'mobile' : 'pc')),
+    pro: PRO_ON
+  }) : null;
 
-    const ui = mountCleanUI(document.getElementById('root'), {
-      selectA: (id, reasonTag)=> core.selectA(id, reasonTag),
-      toggleRouteB: (id)=> core.toggleRouteB(id),
-      undoB: ()=> core.undoB(),
-      clearB: ()=> core.clearB(),
-      submitB: ()=> core.submitB()
-    });
+  let lastSnap = null;
 
-    const ai = AI_ON ? createCleanAI({
-      seed: P.seed,
-      pid:  P.pid,
-      diff: P.diff,
-      view: (P.view || (/(Android|iPhone|iPad|iPod)/i.test(navigator.userAgent) ? 'mobile' : 'pc')),
-      pro: PRO_ON
-    }) : null;
+  const btnQuickPick = document.getElementById('btnQuickPick');
+  const btnShieldBoss = document.getElementById('btnShieldBoss');
+  const bossBanner = document.getElementById('bossBanner');
 
-    let lastSnap = null;
-    let lastPred = null;
+  function setBossMode(on, boss){
+    document.body.classList.toggle('boss-mode', !!on);
+    if(!bossBanner) return;
 
-    const btnQuickPick = document.getElementById('btnQuickPick');
-    const btnShieldBoss = document.getElementById('btnShieldBoss');
-    const bossBanner = document.getElementById('bossBanner');
-
-    function setBossMode(on, boss){
-      document.body.classList.toggle('boss-mode', !!on);
-      if(bossBanner){
-        if(on){
-          const name = (boss?.type === 'wet') ? 'Bathroom Outbreak' : 'Shared Device Meltdown';
-          bossBanner.textContent = `⚠️ BOSS MODE — ${name} มาแล้ว!`;
-        }else{
-          bossBanner.textContent = '⚠️ BOSS MODE — รีบเก็บจุดคุ้มที่สุดก่อนบอสลงโทษ';
-        }
-      }
-    }
-
-    const core = createCleanCore({
-      run: P.run,
-      seed: P.seed,
-      view: P.view,
-      hub: hubFallback(),
-      bossId: P.boss
-    }, {
-      onState: (snap)=>{
-        lastSnap = snap;
-        ui.onState(snap);
-
-        const boss = snap?.boss || null;
-        const bossOn = !!(snap?.mode === 'A' && boss?.active);
-        setBossMode(bossOn, boss);
-
-        if(bossOn && boss?.targets && ui.highlightBoss){
-          ui.highlightBoss(boss.targets);
-        }else if(ui.highlightBoss){
-          ui.highlightBoss([]);
-        }
-      },
-      onTick: ui.onTick,
-      onCoach: (m)=> ui.onCoach(m),
-      onSummary: async (summary)=>{
-        saveSummary(summary);
-        const r = await postToApi({ type:'summary', data: summary });
-        if(P.debug==='1' && r && !r.skipped && !r.ok) console.warn('[clean] summary log failed', r);
-        ui.onSummary(summary);
-      }
-    });
-
-    window.__CLEAN_CORE__ = core;
-    window.__CLEAN_UI__ = ui;
-
-    btnQuickPick?.addEventListener('click', ()=>{
-      if(!lastSnap || lastSnap.mode !== 'A') return;
-
-      const hs = (lastSnap.hotspots || []).slice().sort((a,b)=>{
-        const score = (h)=>{
-          const risk = (Number(h.risk||0)/100);
-          const touch = Number(h.touchLevel||0);
-          const traffic = Number(h.traffic||0);
-          const mins = Math.max(0, Number(h.timeLastCleanedMin||0));
-          const staleness = Math.min(2, mins/(24*60));
-          const staleW = 0.6 + 0.4*Math.min(1, staleness/2);
-          const s = String(h.surfaceType||'').toLowerCase();
-          const surfaceW =
-            (s==='metal' || s==='plastic') ? 1.15 :
-            (s==='glass') ? 1.05 :
-            (s==='tile') ? 1.00 :
-            (s==='wood') ? 0.95 :
-            (s==='fabric') ? 0.90 : 1.0;
-          const intensity = 0.45*touch + 0.35*traffic + 0.20;
-          return risk * intensity * surfaceW * staleW;
-        };
-        return score(b) - score(a);
-      });
-
-      const picked = new Set((lastSnap.A?.selected||[]).map(x=>x.id));
-      const best = hs.find(h=>!picked.has(h.id));
-      if(best){
-        ui.markQuickPick && ui.markQuickPick(best.id);
-        core.selectA(best.id, 'risk_high');
-        toast(`Quick Pick: ${best.name || best.id} ✅`);
-      }
-    });
-
-    btnShieldBoss?.addEventListener('click', ()=>{
-      if(typeof core.useShieldWipe === 'function'){
-        const ok = core.useShieldWipe();
-        toast(ok ? 'Shield Wipe! ✅' : 'ยังใช้ไม่ได้ตอนนี้');
-      }else{
-        toast('Shield พร้อมแล้ว');
-      }
-    });
-
-    core.start();
-
-    if(ai){
-      setInterval(()=>{
-        if(!lastSnap) return;
-
-        const pred = ai.onTick(0.9, lastSnap);
-        if(!pred) return;
-        lastPred = pred;
-
-        const riskPct = Math.round((pred.hazardRisk||0) * 100);
-        const riskEl = document.getElementById('pAiRisk');
-        if(riskEl) riskEl.textContent = `${riskPct}%`;
-
-        try{
-          if(ui.highlight && Array.isArray(pred.top3)){
-            ui.highlight(pred.top3.map(x=>x.id), pred.top3);
-          }
-        }catch(e){}
-
-        try{
-          if(ui.onCoach && Array.isArray(pred.explainTop2) && pred.explainTop2.length>=2){
-            ui.onCoach({ kind:'ai', text:`AI: ${pred.explainTop2[0]} • ${pred.explainTop2[1]}`, data:{ hazardRisk: pred.hazardRisk }, ts: Date.now() });
-          }
-        }catch(e){}
-
-        try{
-          if(pred?.bossTip?.tipId === 'boss_warn'){
-            document.body.classList.add('boss-mode');
-          }
-          if(pred?.bossTip?.tipId === 'boss_final'){
-            document.body.classList.add('boss-mode');
-            if(pred?.top3?.[0] && ui.highlight){
-              ui.highlight([pred.top3[0].id], pred.top3);
-            }
-          }
-          if(lastSnap?.boss && !lastSnap.boss.active && !pred?.bossTip){
-            document.body.classList.remove('boss-mode');
-          }
-          if(pred.bossTip && pred.bossTip.text){
-            ui.onCoach({ kind: pred.bossTip.tipId, text: pred.bossTip.text, data:{}, ts: Date.now() });
-          }
-        }catch(e){}
-      }, 900);
-    }
-
-    let raf = 0;
-    function loop(){
-      core.tick();
-      raf = requestAnimationFrame(loop);
-    }
-    raf = requestAnimationFrame(loop);
-
-    if(P.view === 'cvr'){
-      toast('Cardboard: ใช้ crosshair ยิงเลือกจุดได้ ✅');
+    if(on){
+      const progress = `${boss?.progress || 0}/${boss?.total || 0}`;
+      const left = Math.max(0, Math.ceil((boss?.expireAtS || 0) - (lastSnap?.elapsedSec || 0)));
+      bossBanner.textContent = `🔥 BOSS TARGETS ${progress} • เหลือ ${left} วิ`;
     }else{
-      toast('แตะ marker เพื่อเล่น ✅');
+      bossBanner.textContent = '⚠️ BOSS MODE — รีบเก็บจุดคุ้มที่สุดก่อนบอสลงโทษ';
     }
-  </script>
-</body>
-</html>
+  }
+
+  const core = createCleanCore({
+    run: P.run,
+    seed: P.seed,
+    view: P.view,
+    hub: hubFallback(),
+    bossId: P.boss
+  }, {
+    onState: (snap)=>{
+      lastSnap = snap;
+      ui.onState(snap);
+
+      const boss = snap?.boss || null;
+      const bossOn = !!(snap?.mode === 'A' && boss?.active);
+      setBossMode(bossOn, boss);
+
+      if(bossOn && Array.isArray(boss?.targets) && ui.highlightBoss){
+        ui.highlightBoss(boss.targets);
+      }else if(ui.highlightBoss){
+        ui.highlightBoss([]);
+      }
+    },
+    onTick: ui.onTick,
+    onCoach: (m)=> ui.onCoach(m),
+    onSummary: async (summary)=>{
+      saveSummary(summary);
+      const r = await postToApi({ type:'summary', data: summary });
+      if(P.debug==='1' && r && !r.skipped && !r.ok) console.warn('[clean] summary log failed', r);
+      ui.onSummary(summary);
+    }
+  });
+
+  window.__CLEAN_CORE__ = core;
+  window.__CLEAN_UI__ = ui;
+
+  btnQuickPick?.addEventListener('click', ()=>{
+    if(!lastSnap || lastSnap.mode !== 'A') return;
+
+    if(lastSnap.boss?.active && Array.isArray(lastSnap.boss.targets) && lastSnap.boss.targets.length){
+      const picked = new Set((lastSnap.A?.selected||[]).map(x=>x.id));
+      const nextBoss = lastSnap.boss.targets.find(id=>!picked.has(id));
+      if(nextBoss){
+        ui.markQuickPick && ui.markQuickPick(nextBoss);
+        core.selectA(nextBoss, 'risk_high');
+        toast(`Boss Pick: ${nextBoss} ✅`);
+        return;
+      }
+    }
+
+    const hs = (lastSnap.hotspots || []).slice().sort((a,b)=>{
+      const score = (h)=>{
+        const risk = (Number(h.risk||0)/100);
+        const touch = Number(h.touchLevel||0);
+        const traffic = Number(h.traffic||0);
+        const mins = Math.max(0, Number(h.timeLastCleanedMin||0));
+        const staleness = Math.min(2, mins/(24*60));
+        const staleW = 0.6 + 0.4*Math.min(1, staleness/2);
+        const s = String(h.surfaceType||'').toLowerCase();
+        const surfaceW =
+          (s==='metal' || s==='plastic') ? 1.15 :
+          (s==='glass') ? 1.05 :
+          (s==='tile') ? 1.00 :
+          (s==='wood') ? 0.95 :
+          (s==='fabric') ? 0.90 : 1.0;
+        const intensity = 0.45*touch + 0.35*traffic + 0.20;
+        return risk * intensity * surfaceW * staleW;
+      };
+      return score(b) - score(a);
+    });
+
+    const picked = new Set((lastSnap.A?.selected||[]).map(x=>x.id));
+    const best = hs.find(h=>!picked.has(h.id));
+    if(best){
+      ui.markQuickPick && ui.markQuickPick(best.id);
+      core.selectA(best.id, 'risk_high');
+      toast(`Quick Pick: ${best.name || best.id} ✅`);
+    }
+  });
+
+  btnShieldBoss?.addEventListener('click', ()=>{
+    if(typeof core.useShieldWipe === 'function'){
+      const ok = core.useShieldWipe();
+      toast(ok ? 'Shield Wipe! ✅' : 'ยังใช้ไม่ได้ตอนนี้');
+    }else{
+      toast('Shield พร้อมแล้ว');
+    }
+  });
+
+  core.start();
+
+  if(ai){
+    setInterval(()=>{
+      if(!lastSnap) return;
+
+      const pred = ai.onTick(0.9, lastSnap);
+      if(!pred) return;
+
+      const riskPct = Math.round((pred.hazardRisk||0) * 100);
+      const riskEl = document.getElementById('pAiRisk');
+      if(riskEl) riskEl.textContent = `${riskPct}%`;
+
+      try{
+        if(ui.highlight && Array.isArray(pred.top3)){
+          ui.highlight(pred.top3.map(x=>x.id), pred.top3);
+        }
+      }catch(e){}
+
+      try{
+        if(ui.onCoach && Array.isArray(pred.explainTop2) && pred.explainTop2.length>=2){
+          ui.onCoach({ kind:'ai', text:`AI: ${pred.explainTop2[0]} • ${pred.explainTop2[1]}`, data:{ hazardRisk: pred.hazardRisk }, ts: Date.now() });
+        }
+      }catch(e){}
+
+      try{
+        if(pred?.bossTip?.tipId === 'boss_warn'){
+          document.body.classList.add('boss-mode');
+        }
+        if(pred?.bossTip?.tipId === 'boss_final'){
+          document.body.classList.add('boss-mode');
+          if(pred?.top3?.[0] && ui.highlight){
+            ui.highlight([pred.top3[0].id], pred.top3);
+          }
+        }
+        if(lastSnap?.boss && !lastSnap.boss.active && !pred?.bossTip){
+          document.body.classList.remove('boss-mode');
+        }
+        if(pred.bossTip && pred.bossTip.text){
+          ui.onCoach({ kind: pred.bossTip.tipId, text: pred.bossTip.text, data:{}, ts: Date.now() });
+        }
+      }catch(e){}
+    }, 900);
+  }
+
+  let raf = 0;
+  function loop(){
+    core.tick();
+    raf = requestAnimationFrame(loop);
+  }
+  raf = requestAnimationFrame(loop);
+
+  if(P.view === 'cvr'){
+    toast('Cardboard: ใช้ crosshair ยิงเลือกจุดได้ ✅');
+  }else{
+    toast('แตะ marker เพื่อเล่น ✅');
+  }
+</script>
