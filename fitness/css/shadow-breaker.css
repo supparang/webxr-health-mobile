@@ -1,15 +1,3 @@
-/* === /fitness/css/shadow-breaker.css ===
-   Shadow Breaker UI (DOM) — PRODUCTION (PACK A)
-   ✅ Fix: layout tight on mobile
-   ✅ Fix: HUD/Meta overlay blocking play
-   ✅ Fix: safe-zone vars for spawn (used by dom-renderer-shadow.js)
-   ✅ Fix: compact mobile + meta collapsible UX
-   ✅ Fix: expire animation (soft fade/shrink)
-*/
-
-/* -------------------------------------------------
-   THEME TOKENS
-------------------------------------------------- */
 :root{
   color-scheme: dark;
 
@@ -35,19 +23,15 @@
   --sat: env(safe-area-inset-top,0px);
   --sab: env(safe-area-inset-bottom,0px);
 
-  /* -------------------------------------------------
-     SAFE ZONE FOR SPAWN (USED BY DOM RENDERER)
-     dom-renderer-shadow.js reads these from :root
-     ------------------------------------------------- */
-  --sb-safe-pad: 16;   /* base padding */
-  --sb-safe-top: 14;   /* extra avoid top HUD area inside stage */
-  --sb-safe-side: 14;  /* extra avoid side meta card */
-  --sb-safe-bot: 14;   /* extra avoid bottom bars */
+  /* child-friendly safe zone */
+  --sb-safe-pad: 14;
+  --sb-safe-top: 6;
+  --sb-safe-side: 10;
+  --sb-safe-bot: 28;
 
-  /* sizing */
-  --sb-wrap-max: 980px;
-  --sb-gap: 12px;
-  --sb-pad: 14px;
+  --sb-wrap-max: 1120px;
+  --sb-gap: 10px;
+  --sb-pad: 12px;
 }
 
 *{ box-sizing:border-box; }
@@ -65,15 +49,6 @@ html,body{
 a{ color:var(--accent); text-decoration:none; }
 a:hover{ text-decoration:underline; }
 
-code{
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-  font-size: .9em;
-  color: #c7d2fe;
-}
-
-/* -------------------------------------------------
-   WRAP / HEADER
-------------------------------------------------- */
 .sb-wrap{
   width:100%;
   max-width: var(--sb-wrap-max);
@@ -87,31 +62,31 @@ code{
   justify-content:space-between;
   align-items:flex-start;
   gap: var(--sb-gap);
-  padding: 14px 14px;
+  padding: 14px;
   border-radius: var(--radius);
   background: linear-gradient(180deg, rgba(15,23,42,.78), rgba(2,6,23,.55));
   border:1px solid var(--stroke);
   box-shadow: 0 16px 40px rgba(0,0,0,.48);
 }
-
-.sb-header-left{ max-width: 660px; }
+.sb-header-compact{
+  padding: 12px 14px;
+}
+.sb-header-left{ max-width: 720px; }
 .sb-kicker{
-  font-size:.78rem;
+  font-size:.76rem;
   color:var(--muted);
-  letter-spacing:.4px;
-  opacity:.95;
+  letter-spacing:.3px;
 }
 .sb-title{
-  margin:6px 0 6px;
-  font-size:1.72rem;
-  letter-spacing:.2px;
+  margin:4px 0 4px;
+  font-size:1.55rem;
+  letter-spacing:.1px;
 }
 .sb-sub{
   font-size:.92rem;
   color:rgba(226,232,240,.88);
-  line-height:1.35;
+  line-height:1.28;
 }
-
 .sb-header-right{
   text-align:right;
   font-size:.84rem;
@@ -119,9 +94,12 @@ code{
   display:flex;
   flex-direction:column;
   gap:8px;
-  min-width: 220px;
 }
-.sb-tip{ color:#cbd5e1; opacity:.92; }
+.sb-tip{
+  color:#cbd5e1;
+  opacity:.92;
+  max-width: 280px;
+}
 .sb-links{ margin-top:2px; }
 .sb-link{
   display:inline-flex;
@@ -133,16 +111,10 @@ code{
   background: rgba(2,6,23,.45);
 }
 
-/* -------------------------------------------------
-   VIEW SWITCH
-------------------------------------------------- */
-.sb-main{ margin-top: 14px; }
+.sb-main{ margin-top: 12px; }
 .sb-view{ display:none; }
 .sb-view.is-active{ display:block; }
 
-/* -------------------------------------------------
-   PANEL (MENU / RESULT)
-------------------------------------------------- */
 .sb-panel{
   border-radius: var(--radius);
   padding: 14px 14px 16px;
@@ -154,7 +126,6 @@ code{
   box-shadow: 0 16px 40px rgba(0,0,0,.48);
 }
 
-/* --- Menu controls --- */
 .sb-mode-row{
   display:flex;
   gap:8px;
@@ -221,7 +192,7 @@ code{
   display:flex;
   flex-wrap:wrap;
   gap:10px;
-  margin-top: 2px;
+  margin-top:2px;
 }
 .sb-btn{
   border-radius: var(--pill);
@@ -235,12 +206,6 @@ code{
   align-items:center;
   justify-content:center;
   gap:8px;
-  transition: transform .12s, filter .12s, box-shadow .12s, background .12s;
-}
-.sb-btn:hover{
-  transform: translateY(-1px);
-  filter: brightness(1.04);
-  box-shadow: 0 12px 28px rgba(0,0,0,.35);
 }
 .sb-btn-primary{
   background: linear-gradient(135deg, var(--accent), var(--violet));
@@ -252,8 +217,6 @@ code{
   background: rgba(2,6,23,.18);
   color: var(--muted);
 }
-.sb-btn-ghost:hover{ color: var(--text); }
-
 .sb-howto{
   display:none;
   margin-top:10px;
@@ -280,12 +243,9 @@ code{
   line-height:1.35;
 }
 
-/* -------------------------------------------------
-   PLAY LAYOUT (LESS CRAMPED)
-------------------------------------------------- */
 .sb-play{
   border-radius: var(--radius);
-  padding: 12px;
+  padding: 10px;
   background:
     radial-gradient(circle at 15% 0%, rgba(56,189,248,.12), transparent 60%),
     radial-gradient(circle at 90% 90%, rgba(245,158,11,.08), transparent 60%),
@@ -294,39 +254,40 @@ code{
   box-shadow: 0 16px 40px rgba(0,0,0,.48);
   position:relative;
 }
+.sb-play-child{
+  padding: 10px;
+}
 
-/* HUD row becomes compact grid on mobile */
 .sb-hud{
   display:flex;
   align-items:center;
   justify-content:space-between;
   gap:10px;
-  padding: 10px 10px;
+  padding: 8px 10px;
   border-radius: var(--radius2);
   border:1px solid rgba(148,163,184,.16);
   background: rgba(2,6,23,.26);
 }
-
+.sb-hud-child{
+  padding: 8px 10px;
+}
 .sb-hud-left{
   display:flex;
   flex-wrap:wrap;
   gap:10px 12px;
   align-items:baseline;
 }
-
 .sb-hud-center{
   flex:1;
   display:flex;
   justify-content:center;
   min-width: 120px;
 }
-
 .sb-hud-right{
   display:flex;
   align-items:center;
   gap:10px;
 }
-
 .sb-stat{
   display:flex;
   gap:6px;
@@ -335,7 +296,6 @@ code{
 }
 .sb-stat .k{ color: var(--muted); }
 .sb-stat .v{ font-weight:900; color: var(--text); }
-
 .sb-boss-name{
   font-weight:950;
   letter-spacing:.2px;
@@ -343,12 +303,11 @@ code{
   border-radius: var(--pill);
   border:1px solid rgba(56,189,248,.20);
   background: rgba(2,6,23,.22);
-  max-width: 52vw;
+  max-width: 50vw;
   overflow:hidden;
   text-overflow:ellipsis;
   white-space:nowrap;
 }
-
 .sb-toggle{
   display:flex;
   align-items:center;
@@ -359,14 +318,15 @@ code{
 }
 .sb-toggle input{ width:18px; height:18px; }
 
-/* top hp bars */
 .sb-bars{
-  margin-top:10px;
+  margin-top:8px;
   display:flex;
   gap:10px;
   align-items:center;
 }
-.sb-bars-top{ margin-top:10px; }
+.sb-bars-top-child{
+  margin-top:8px;
+}
 .sb-bar{
   flex:1;
   display:flex;
@@ -398,36 +358,33 @@ code{
   background: linear-gradient(90deg, #fb7185, #f43f5e);
 }
 
-/* -------------------------------------------------
-   STAGE (PLAY FIELD) + SAFE ZONE TUNING
-------------------------------------------------- */
+/* KEY FIX */
 .sb-stage{
   position:relative;
-  margin-top:12px;
+  margin-top:10px;
   border-radius: var(--radius2);
   border:1px solid rgba(148,163,184,.14);
   background: rgba(2,6,23,.18);
   overflow:hidden;
-
-  /* give more play space on small screens */
-  min-height: 46vh;
+  min-height: 60vh;
+}
+.sb-stage-child{
+  min-height: 62vh;
 }
 
-/* target layer always on top of stage */
 .sb-target-layer{
   position:absolute;
   inset:0;
-  z-index: 3;
+  z-index:3;
 }
 
-/* center message sits behind targets */
 .sb-center-msg{
   position:absolute;
   inset:0;
   display:flex;
   align-items:center;
   justify-content:center;
-  z-index: 2;
+  z-index:2;
   pointer-events:none;
   padding: 12px;
 }
@@ -439,76 +396,72 @@ code{
   color: rgba(226,232,240,.92);
   font-weight:800;
   text-align:center;
-  max-width: 520px;
+  max-width: 420px;
 }
 .sb-msg-main.good{ border-color: rgba(34,197,94,.22); }
 .sb-msg-main.bad{ border-color: rgba(251,113,133,.22); }
 .sb-msg-main.miss{ border-color: rgba(245,158,11,.22); }
 .sb-msg-main.perfect{ border-color: rgba(168,85,247,.26); }
 
-/* -------------------------------------------------
-   META CARD (COLLAPSIBLE) — PREVENT HUD BLOCKING
-------------------------------------------------- */
 .sb-meta{
   position:absolute;
-  top:10px;
-  right:10px;
-  width: min(260px, 44vw);
-  z-index: 4;
-  border-radius: 18px;
+  top:8px;
+  right:8px;
+  width: min(210px, 28vw);
+  z-index:4;
+  border-radius: 16px;
   border:1px solid rgba(148,163,184,.16);
-  background: rgba(2,6,23,.26);
-  padding: 10px;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  background: rgba(2,6,23,.20);
+  padding: 8px;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
-
+.sb-meta-child{
+  width: min(190px, 24vw);
+  padding: 8px;
+}
 .sb-meta-rowtop{
   display:flex;
   align-items:center;
   justify-content:space-between;
-  gap:10px;
+  gap:8px;
 }
-.sb-meta-emoji{ font-size:1.6rem; }
+.sb-meta-emoji{ font-size:1.35rem; }
 .sb-meta-toggle{
   border:none;
   cursor:pointer;
   border-radius: 12px;
-  padding: 6px 10px;
+  padding: 5px 9px;
   background: rgba(2,6,23,.25);
   color: rgba(226,232,240,.86);
   border:1px solid rgba(148,163,184,.16);
 }
-.sb-meta-body{
-  margin-top: 6px;
-}
-.sb-meta-name{ font-weight:950; margin-top:2px; }
-.sb-meta-desc{ color: var(--muted); font-size:.82rem; margin-top:4px; line-height:1.3; }
+.sb-meta-body{ margin-top: 6px; }
+.sb-meta-name{ font-weight:950; margin-top:2px; font-size:.96rem; }
+.sb-meta-desc{ color: var(--muted); font-size:.78rem; margin-top:4px; line-height:1.25; }
 .sb-meta-row{
   display:flex;
   justify-content:space-between;
-  margin-top:8px;
-  font-size:.84rem;
+  margin-top:7px;
+  font-size:.82rem;
   color: rgba(226,232,240,.86);
 }
 .sb-meta-row span{ color: var(--muted); }
-
-/* collapsed state (JS can toggle by adding .is-collapsed to #sb-meta) */
 .sb-meta.is-collapsed{
-  width: min(210px, 42vw);
-  padding: 8px 10px;
+  width: 64px;
+  padding: 8px;
 }
 .sb-meta.is-collapsed .sb-meta-body{ display:none; }
-.sb-meta.is-collapsed .sb-meta-emoji{ font-size:1.45rem; }
+.sb-meta.is-collapsed .sb-meta-emoji{ font-size:1.2rem; }
 
-/* -------------------------------------------------
-   FEVER + BOTTOM BARS (COMPACT)
-------------------------------------------------- */
 .sb-bars-bottom{
   margin-top:10px;
   display:flex;
   gap:12px;
   align-items:stretch;
+}
+.sb-bars-bottom-child{
+  margin-top:10px;
 }
 
 .sb-fever{
@@ -540,11 +493,6 @@ code{
   padding: 8px 12px;
   cursor:pointer;
 }
-.sb-fever-btn:hover{
-  filter: brightness(1.06);
-  box-shadow: 0 10px 24px rgba(0,0,0,.30);
-}
-
 .sb-fever-track{
   height:12px;
   border-radius: var(--pill);
@@ -567,7 +515,7 @@ code{
 }
 
 .sb-bars-compact{
-  flex: .9;
+  flex: .95;
   display:flex;
   flex-direction:column;
   gap:10px;
@@ -585,18 +533,15 @@ code{
 .sb-row .k{ color: var(--muted); }
 .sb-row .v{ font-weight:950; }
 
-/* -------------------------------------------------
-   TARGETS + EXPIRE (SMOOTH)
-------------------------------------------------- */
 .sb-target{
   position:absolute;
-  border-radius: 999px;
+  border-radius:999px;
   display:flex;
   align-items:center;
   justify-content:center;
-  font-size: 42px;
-  font-weight: 900;
-  cursor: pointer;
+  font-size: 44px;
+  font-weight:900;
+  cursor:pointer;
   user-select:none;
   -webkit-tap-highlight-color: transparent;
   transform: translateZ(0);
@@ -607,7 +552,6 @@ code{
   from{ transform: scale(.84); opacity:0; }
   to{ transform: scale(1); opacity:1; }
 }
-
 .sb-target.is-expiring{
   animation: sb-expire .18s ease-out forwards;
 }
@@ -642,9 +586,6 @@ code{
   box-shadow: 0 24px 70px rgba(168,85,247,.16), 0 18px 44px rgba(0,0,0,.50);
 }
 
-/* -------------------------------------------------
-   FX LAYER (FxBurst)
-------------------------------------------------- */
 #sb-fx-layer{
   position: fixed;
   inset: 0;
@@ -657,7 +598,6 @@ code{
   border-radius: 999px;
   background: rgba(255,255,255,.90);
   box-shadow: 0 0 18px rgba(255,255,255,.30);
-  will-change: transform, opacity;
 }
 .sb-fx-text{
   font-weight: 950;
@@ -667,23 +607,8 @@ code{
   background: rgba(2,6,23,.55);
   border: 1px solid rgba(148,163,184,.22);
   color: rgba(255,255,255,.95);
-  text-shadow: 0 1px 10px rgba(0,0,0,.35);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  will-change: transform, opacity;
 }
 
-/* optional FX styles */
-.sb-fx-hit { background: rgba(34,197,94,.16); border-color: rgba(34,197,94,.30); }
-.sb-fx-miss { background: rgba(239,68,68,.18); border-color: rgba(239,68,68,.30); }
-.sb-fx-bomb { background: rgba(245,158,11,.20); border-color: rgba(245,158,11,.34); }
-.sb-fx-heal { background: rgba(16,185,129,.16); border-color: rgba(16,185,129,.30); }
-.sb-fx-shield{ background: rgba(59,130,246,.16); border-color: rgba(59,130,246,.30); }
-.sb-fx-fever{ background: rgba(168,85,247,.18); border-color: rgba(168,85,247,.34); }
-
-/* -------------------------------------------------
-   RESULT VIEW
-------------------------------------------------- */
 .sb-result-title{ margin:0 0 12px; font-size:1.18rem; font-weight:950; }
 .sb-result-grid{
   display:grid;
@@ -698,7 +623,6 @@ code{
 }
 .sb-result-card .k{ color: var(--muted); font-size:.82rem; }
 .sb-result-card .v{ font-weight:950; font-size:1.06rem; margin-top:4px; }
-
 .sb-result-actions{
   margin-top:12px;
   display:flex;
@@ -706,43 +630,41 @@ code{
   gap:10px;
 }
 
-/* -------------------------------------------------
-   RESPONSIVE — MOBILE COMPACT (IMPORTANT)
-------------------------------------------------- */
 @media (max-width: 900px){
   .sb-result-grid{ grid-template-columns: repeat(2, minmax(0,1fr)); }
+  .sb-meta,
+  .sb-meta-child{
+    width: min(180px, 34vw);
+  }
 }
 
-/* Mobile: reduce header + give stage more room */
 @media (max-width: 640px){
   :root{
-    --sb-pad: 12px;
-    --sb-gap: 10px;
-
-    /* SAFE ZONE tuned for mobile so targets avoid HUD/meta/bottom bars */
+    --sb-pad: 10px;
+    --sb-gap: 8px;
     --sb-safe-pad: 12;
-    --sb-safe-top: 10;
-    --sb-safe-side: 10;
-    --sb-safe-bot: 12;
+    --sb-safe-top: 4;
+    --sb-safe-side: 8;
+    --sb-safe-bot: 26;
   }
 
   .sb-header{
     flex-direction:column;
     align-items:flex-start;
-    padding: 12px;
+    padding: 10px 12px;
   }
   .sb-header-right{
     text-align:left;
-    min-width: unset;
-    width: 100%;
+    width:100%;
   }
-  .sb-title{ font-size:1.56rem; }
+  .sb-tip{ display:none; }
+  .sb-title{ font-size:1.42rem; }
 
   .sb-hud{
     flex-direction:column;
     align-items:stretch;
-    gap:10px;
-    padding: 10px;
+    gap:8px;
+    padding: 8px;
   }
   .sb-hud-center{ justify-content:flex-start; }
   .sb-boss-name{ max-width: 100%; }
@@ -750,33 +672,33 @@ code{
   .sb-bars{ flex-direction:column; align-items:stretch; }
   .sb-bars-bottom{ flex-direction:column; }
 
-  .sb-stage{
-    min-height: 52vh; /* MORE SPACE to play */
+  .sb-stage,
+  .sb-stage-child{
+    min-height: 64vh;
   }
 
-  /* meta collapses by default style (still controllable by JS) */
-  .sb-meta{
-    width: min(220px, 58vw);
-    top: 8px;
-    right: 8px;
-    padding: 8px 10px;
+  .sb-meta,
+  .sb-meta-child{
+    width: min(156px, 48vw);
+    top: 6px;
+    right: 6px;
+    padding: 7px;
   }
-  .sb-meta-desc{
-    font-size:.80rem;
-  }
+  .sb-meta-desc{ font-size:.75rem; }
 
-  /* Reduce target font a bit for small screens */
-  .sb-target{ font-size: 40px; }
+  .sb-target{ font-size: 42px; }
 }
 
-/* Ultra small phones: prioritize play area */
 @media (max-width: 390px){
   :root{
     --sb-safe-pad: 10;
-    --sb-safe-top: 8;
+    --sb-safe-top: 4;
     --sb-safe-side: 8;
-    --sb-safe-bot: 10;
+    --sb-safe-bot: 24;
   }
-  .sb-stage{ min-height: 56vh; }
-  .sb-target{ font-size: 38px; }
+  .sb-stage,
+  .sb-stage-child{
+    min-height: 66vh;
+  }
+  .sb-target{ font-size: 40px; }
 }
