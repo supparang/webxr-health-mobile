@@ -1,11 +1,13 @@
 // === /herohealth/gate/gate-core.js ===
 // HeroHealth Gate Core
-// PATCH v20260313b-GATE-CORE-LOGGER-SAFE-ALLZONES
+// FULL PATCH v20260313d-GATE-CORE-FILES-SCHEMA-FIX
+// ✅ supports gate-games.js schema with files.warmup/files.cooldown/files.style
 // ✅ logger.push safe wrapper
 // ✅ supports phase / gatePhase / mode
 // ✅ warmup -> next(run)
 // ✅ cooldown -> hub
 // ✅ strips gate params before continue
+// ✅ auto inject game style
 // ✅ better error details when module import fails
 // ✅ shared for all zones
 
@@ -20,7 +22,13 @@ import {
 
 import { mountSummaryLayer, mountToast } from './gate-summary.js?v=20260313a';
 import { createGateLogger } from './gate-logger.js?v=20260313b-GATE-LOGGER-PUSH-FIX';
-import { GATE_GAMES, getGameMeta } from './gate-games.js?v=20260313a';
+import {
+  GATE_GAMES,
+  getGameMeta,
+  getPhaseFile,
+  getGameStyleFile,
+  normalizeGameId
+} from './gate-games.js?v=20260313c';
 
 function esc(s) {
   return String(s ?? '')
@@ -82,13 +90,26 @@ function subtitleOf(ctx) {
 }
 
 function getPhaseModulePath(ctx) {
-  const meta = getGameMeta(ctx.game);
-  if (!meta) return '';
+  return getPhaseFile(ctx.game, ctx.mode) || '';
+}
 
-  if (ctx.mode === 'cooldown') {
-    return meta.cooldown || '';
+function ensureGameStyle(game) {
+  const href = getGameStyleFile(game);
+  if (!href) return;
+
+  const id = 'gate-game-style';
+  let link = document.getElementById(id);
+
+  if (!link) {
+    link = document.createElement('link');
+    link.id = id;
+    link.rel = 'stylesheet';
+    document.head.appendChild(link);
   }
-  return meta.warmup || '';
+
+  if (link.getAttribute('href') !== href) {
+    link.setAttribute('href', href);
+  }
 }
 
 function stripGateParams(urlLike) {
@@ -272,9 +293,9 @@ export async function bootGate(rootEl) {
   const ctx = buildCtx(url);
   ctx.mode = phase;
   ctx.phase = phase;
-  ctx.game = String(ctx.game || qs(url, 'game', '')).toLowerCase();
+  ctx.game = normalizeGameId(String(ctx.game || qs(url, 'game', '')).toLowerCase());
   ctx.cat = String(ctx.cat || qs(url, 'cat', '')).toLowerCase();
-  ctx.theme = String(ctx.theme || qs(url, 'theme', '')).toLowerCase();
+  ctx.theme = normalizeGameId(String(ctx.theme || qs(url, 'theme', '')).toLowerCase());
   ctx.pid = ctx.pid || qs(url, 'pid', 'anon');
   ctx.run = ctx.run || qs(url, 'run', 'play');
   ctx.view = ctx.view || qs(url, 'view', 'pc');
@@ -303,9 +324,13 @@ export async function bootGate(rootEl) {
 
   safeLog('boot', {
     href: window.location.href,
-    detectedPhase: phase
+    detectedPhase: phase,
+    game: ctx.game,
+    theme: ctx.theme,
+    cat: ctx.cat
   });
 
+  ensureGameStyle(ctx.game || ctx.theme);
   renderShell(root, ctx);
 
   const mount = root.querySelector('#gate-mount');
@@ -332,13 +357,13 @@ export async function bootGate(rootEl) {
     btnContinue.addEventListener('click', goNext);
   }
 
-  const modulePath = getPhaseModulePath(ctx);
+  const modulePath = getPhaseModulePath(ctx) || getPhaseFile(ctx.theme, ctx.mode) || '';
   safeLog('resolve-module', { modulePath });
 
   if (!modulePath) {
     live.setTitle('ยังไม่พบมินิเกม');
-    live.setSub(`ไม่พบ path ของ ${ctx.mode} สำหรับเกม ${ctx.game}`);
-    safeLog('module-missing', { game: ctx.game, mode: ctx.mode });
+    live.setSub(`ไม่พบ path ของ ${ctx.mode} สำหรับเกม ${ctx.game || ctx.theme}`);
+    safeLog('module-missing', { game: ctx.game, theme: ctx.theme, mode: ctx.mode });
     return;
   }
 
