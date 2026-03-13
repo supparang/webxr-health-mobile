@@ -1,8 +1,7 @@
 // === /fitness/js/balance-hold.js ===
 // Balance Hold — DOM-based Balance Platform + Obstacle Avoidance
-// FULL BUILD (FLOW-RUN-LATEST)
-// Flow:
-// launcher -> warmup -> game -> result -> cooldown -> hub
+// FULL BUILD (RUN HTML MATCHED + FLOW FIXED)
+// Flow: launcher -> warmup -> game -> result -> cooldown -> hub
 'use strict';
 
 /* ------------------------------------------------------------
@@ -65,15 +64,12 @@ function setParam(u, k, v){
 }
 function absUrlMaybe(url){
   if(!url) return '';
-  try{
-    return new URL(url, location.href).toString();
-  }catch(e){
-    return String(url || '');
-  }
+  try{ return new URL(url, location.href).toString(); }
+  catch(e){ return String(url || ''); }
 }
 
 /* ------------------------------------------------------------
- * Deterministic RNG
+ * Seeded RNG
  * ------------------------------------------------------------ */
 function xmur3(str){
   str = String(str ?? '');
@@ -215,6 +211,11 @@ const endModalScore= $('#endModalScore');
 const endModalInsight = $('#endModalInsight');
 
 const cvrStrictLabel = $('#cvrStrictLabel');
+
+/* extra buttons from latest run html */
+const btnMenuBackLauncher = $('#btn-menu-back-launcher');
+const btnResultCooldown   = $('#btn-result-cooldown');
+const btnEndCooldown      = $('#btn-end-cooldown');
 
 /* ------------------------------------------------------------
  * Config
@@ -468,7 +469,6 @@ let rafId = null;
 let isPaused = false;
 let pausedAt = 0;
 let tutorialAccepted = false;
-let lastSummary = null;
 
 const SESS_KEY = 'vrfit_sessions_balance-hold';
 
@@ -860,7 +860,6 @@ function spawnObstacle(now){
     const safeHalf = cfg.safeHalf;
     const absTilt = Math.abs(state.angle);
 
-    // ต้องมี input จริงก่อน ไม่งั้นไม่ถือว่าหลบสำเร็จ
     const inSafe = !!state.hasInput && absTilt <= safeHalf;
     const nearPerfect = !!state.hasInput && absTilt <= Math.max(0.06, safeHalf * 0.28);
 
@@ -1225,7 +1224,6 @@ function stopGame(endedBy){
   fillResultView(endedBy, summary);
   fillEndModal(summary);
 
-  lastSummary = summary;
   state = null;
   isPaused = false;
   pausedAt = 0;
@@ -1396,7 +1394,7 @@ function exportReleaseDebug(){
 }
 
 /* ------------------------------------------------------------
- * Buttons for flow
+ * Flow buttons
  * ------------------------------------------------------------ */
 function goCooldownFromResult(){
   location.href = buildCooldownUrl();
@@ -1430,27 +1428,28 @@ function init(){
   });
   $('[data-action="result-back-hub"]')?.addEventListener('click', ()=> goHubOrMenu());
 
-  // รองรับปุ่ม flow ใหม่ ถ้ามีใน HTML
-  $('[data-action="result-go-cooldown"]')?.addEventListener('click', goCooldownFromResult);
-  $('[data-action="result-back-launcher"]')?.addEventListener('click', backToLauncher);
-
   $('[data-action="close-end-modal"]')?.addEventListener('click', closeEndModal);
   $('[data-action="end-retry"]')?.addEventListener('click', ()=>{
     closeEndModal();
     showView('menu');
   });
-  $('[data-action="end-next-mission"]')?.addEventListener('click', ()=>{
-    closeEndModal();
-    goCooldownFromResult();
-  });
   $('[data-action="end-back-hub"]')?.addEventListener('click', ()=>{
     closeEndModal();
     goHubOrMenu();
   });
-  $('[data-action="end-go-cooldown"]')?.addEventListener('click', ()=>{
-    closeEndModal();
-    goCooldownFromResult();
-  });
+
+  if (btnMenuBackLauncher){
+    btnMenuBackLauncher.addEventListener('click', backToLauncher);
+  }
+  if (btnResultCooldown){
+    btnResultCooldown.addEventListener('click', goCooldownFromResult);
+  }
+  if (btnEndCooldown){
+    btnEndCooldown.addEventListener('click', ()=>{
+      closeEndModal();
+      goCooldownFromResult();
+    });
+  }
 
   $('[data-action="tutorial-skip"]')?.addEventListener('click', ()=>{
     if (tutorialDontShowAgain?.checked){
