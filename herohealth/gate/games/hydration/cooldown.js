@@ -1,236 +1,181 @@
-/* === /herohealth/gate/games/hydration/cooldown.js ===
-   HeroHealth Gate Mini-game
-   GAME: hydration
-   MODE: cooldown
-   PATCH v20260308-GATE-HYDRATION-COOLDOWN
-*/
+// === /herohealth/gate/games/hydration/cooldown.js ===
+// Hydration Gate Cooldown
+// CHILD-FRIENDLY PATCH v20260313a
 
-let __styleLoaded = false;
+function createHydrationCooldownGame() {
+  function boot(root, ctx = {}) {
+    if (!root) return;
 
-export function loadStyle(){
-  if(__styleLoaded) return;
-  __styleLoaded = true;
-
-  const id = 'gate-style-hydration';
-  if(document.getElementById(id)) return;
-
-  const link = document.createElement('link');
-  link.id = id;
-  link.rel = 'stylesheet';
-  link.href = new URL('./style.css', import.meta.url).toString();
-  document.head.appendChild(link);
-}
-
-function el(tag, cls='', text=''){
-  const n = document.createElement(tag);
-  if(cls) n.className = cls;
-  if(text) n.textContent = text;
-  return n;
-}
-
-function shuffle(arr, rng=Math.random){
-  const a = arr.slice();
-  for(let i=a.length-1;i>0;i--){
-    const j = Math.floor(rng()*(i+1));
-    [a[i],a[j]] = [a[j],a[i]];
-  }
-  return a;
-}
-
-function mulberry32(seed){
-  let t = (seed >>> 0) || 1;
-  return function(){
-    t += 0x6D2B79F5;
-    let r = Math.imul(t ^ (t >>> 15), 1 | t);
-    r ^= r + Math.imul(r ^ (r >>> 7), 61 | r);
-    return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-function calcRank(acc){
-  if(acc >= 90) return 'S';
-  if(acc >= 75) return 'A';
-  if(acc >= 60) return 'B';
-  if(acc >= 40) return 'C';
-  return 'D';
-}
-
-function buildBuffs({ score, accuracy }){
-  const speed = 76;
-  const calm = Math.max(0, Math.min(100, Math.round(accuracy * 0.8)));
-  return {
-    wType: 'hydration',
-    score,
-    accuracy,
-    speed,
-    calm,
-    rank: calcRank(accuracy),
-    wPct: Math.min(20, Math.round(accuracy / 5)),
-    wCrit: Math.min(14, Math.round(speed / 7)),
-    wDmg: Math.min(12, Math.round((accuracy + speed) / 15)),
-    wHeal: Math.min(18, Math.round(calm / 6)),
-    hydrationSensePct: accuracy
-  };
-}
-
-export async function mount(root, ctx, api){
-  loadStyle();
-
-  const rng = mulberry32(Number(ctx.seed || Date.now()) + 52);
-
-  const rounds = shuffle([
-    { text:'หลังตื่นนอน', answer:true },
-    { text:'หลังเล่นกีฬา', answer:true },
-    { text:'ตอนกระหายน้ำ', answer:true },
-    { text:'ระหว่างอากาศร้อน', answer:true },
-    { text:'แทนน้ำทุกมื้อด้วยน้ำอัดลม', answer:false },
-    { text:'ดื่มแต่น้ำหวานแทนน้ำเปล่า', answer:false },
-    { text:'ก่อนนอนแบบพอดี', answer:true }
-  ], rng).slice(0, 5);
-
-  let idx = 0;
-  let score = 0;
-  let miss = 0;
-  let correct = 0;
-
-  root.innerHTML = '';
-  const wrap = el('div', 'hyd-wrap');
-  const hero = el('div', 'hyd-hero');
-  const stage = el('div', 'hyd-stage');
-  const panelTop = el('div', 'hyd-panel');
-  const panelBottom = el('div', 'hyd-panel');
-
-  hero.innerHTML = `
-    <div class="hyd-kicker">NUTRITION ZONE • HYDRATION • COOLDOWN</div>
-    <div class="hyd-title">เมื่อไรควรดื่มน้ำ</div>
-    <div class="hyd-sub">ทบทวนพฤติกรรมการดื่มน้ำเปล่า และหลีกเลี่ยงการใช้น้ำหวานแทนน้ำจริง</div>
-  `;
-
-  const target = el('div', 'hyd-target', 'เตรียมทบทวน…');
-  const prompt = el('div', 'hyd-prompt', 'สถานการณ์นี้ควรดื่มน้ำเปล่าไหม');
-  const choices = el('div', 'hyd-choices');
-  const note = el('div', 'hyd-note', 'Cooldown ใช้สรุปความเข้าใจ ไม่เน้นความเร็วอย่างเดียว');
-
-  panelTop.appendChild(target);
-  panelBottom.appendChild(prompt);
-  panelBottom.appendChild(choices);
-  panelBottom.appendChild(note);
-  stage.appendChild(panelTop);
-  stage.appendChild(panelBottom);
-  wrap.appendChild(hero);
-  wrap.appendChild(stage);
-  root.appendChild(wrap);
-
-  api.logger?.push?.('mini_start', {
-    game: 'hydration',
-    mode: 'cooldown',
-    seed: ctx.seed
-  });
-
-  api.setStats({
-    time: ctx.time || 0,
-    score: 0,
-    miss: 0,
-    acc: '0%'
-  });
-
-  function updateHud(){
-    const acc = idx > 0 ? Math.round((correct / idx) * 100) : 0;
-    api.setStats({
-      time: 0,
-      score,
-      miss,
-      acc: `${acc}%`
-    });
-  }
-
-  function renderRound(){
-    if(idx >= rounds.length){
-      return finishNow();
-    }
-
-    const q = rounds[idx];
-    target.textContent = q.text;
-    choices.innerHTML = '';
-
-    const options = shuffle([
-      { label:'ควร', value:true, cls:'good' },
-      { label:'ไม่ควร', value:false, cls:'bad' }
-    ], rng);
-
-    for(const opt of options){
-      const btn = el('button', `hyd-btn ${opt.cls}`, opt.label);
-
-      btn.addEventListener('click', ()=>{
-        idx++;
-
-        if(opt.value === q.answer){
-          score += 10;
-          correct++;
-        }else{
-          score -= 4;
-          miss++;
-        }
-
-        api.logger?.push?.('mini_answer', {
-          game: 'hydration',
-          mode: 'cooldown',
-          round: idx,
-          prompt: q.text,
-          selected: opt.label,
-          correctAnswer: q.answer,
-          score,
-          miss,
-          correctCount: correct
-        });
-
-        updateHud();
-        renderRound();
-      });
-
-      choices.appendChild(btn);
-    }
-  }
-
-  function finishNow(){
-    const accuracy = rounds.length > 0 ? Math.round((correct / rounds.length) * 100) : 0;
-    const buffs = buildBuffs({ score, accuracy });
+    const state = {
+      roundsTarget: 3,
+      roundsDone: 0,
+      holding: false,
+      holdMs: 0,
+      releaseMs: 0,
+      done: false,
+      raf: 0,
+      last: 0
+    };
 
     root.innerHTML = `
-      <div class="hyd-result">
-        <div class="hyd-badge">✨ Rank ${buffs.rank}</div>
-        <div class="hyd-big">คูลดาวน์เสร็จแล้ว</div>
-        <div class="hyd-list">
-          <div class="hyd-item">คะแนน: ${score}</div>
-          <div class="hyd-item">ความแม่นยำ: ${accuracy}%</div>
-          <div class="hyd-item">สรุป: เลือกน้ำเปล่าให้บ่อยขึ้น และอย่าใช้น้ำหวานแทนน้ำจริง</div>
-        </div>
-        <div class="hyd-actions">
-          <button class="hyd-btn good" id="hydCooldownFinishBtn">กลับ HUB / ไปต่อ</button>
+      <div class="hyd-gate hyd-theme-cooldown">
+        <div class="hyd-card">
+          <div class="hyd-top">
+            <div class="hyd-icon">🌙</div>
+            <div>
+              <div class="hyd-title">ผ่อนคลายหลังเล่น</div>
+              <div class="hyd-sub">กดค้างตอน “หายใจเข้า” แล้วปล่อยตอน “หายใจออก” ให้ครบ 3 รอบ</div>
+            </div>
+          </div>
+
+          <div class="hyd-breathWrap">
+            <div class="hyd-breathCircle" id="hydBreathCircle">
+              <div class="hyd-breathEmoji" id="hydBreathEmoji">😮‍💨</div>
+            </div>
+          </div>
+
+          <div class="hyd-progressRow">
+            <div class="hyd-progressText">รอบที่ทำแล้ว <span id="hydCoolCount">0</span> / 3</div>
+            <div class="hyd-progressBar"><div class="hyd-progressFill" id="hydCoolFill"></div></div>
+          </div>
+
+          <div class="hyd-helper" id="hydCoolHint">กดค้างเมื่อเห็นคำว่า “หายใจเข้า” 🌬️</div>
+
+          <div class="hyd-actions">
+            <button class="hyd-btn hyd-btn-main" id="hydBreathBtn" type="button">เริ่มหายใจเข้า</button>
+            <button class="hyd-btn hyd-btn-ghost" id="hydCoolSkip" type="button">ข้าม</button>
+          </div>
         </div>
       </div>
     `;
 
-    root.querySelector('#hydCooldownFinishBtn')?.addEventListener('click', ()=>{
-      api.finish({
-        ok: true,
-        title: 'คูลดาวน์เสร็จแล้ว',
-        subtitle: 'สรุปนิสัยดื่มน้ำเรียบร้อย',
-        lines: [
-          `คะแนน: ${score}`,
-          `ความแม่นยำ: ${accuracy}%`,
-          'เลือกน้ำเปล่าให้บ่อยขึ้น',
-          'ลดเครื่องดื่มหวาน'
-        ],
-        buffs,
-        markDailyDone: true
-      });
-    });
+    const circle = root.querySelector('#hydBreathCircle');
+    const emoji = root.querySelector('#hydBreathEmoji');
+    const countEl = root.querySelector('#hydCoolCount');
+    const fillEl = root.querySelector('#hydCoolFill');
+    const hintEl = root.querySelector('#hydCoolHint');
+    const breathBtn = root.querySelector('#hydBreathBtn');
+    const skipBtn = root.querySelector('#hydCoolSkip');
+
+    function updateProgress(){
+      if (countEl) countEl.textContent = String(state.roundsDone);
+      if (fillEl) fillEl.style.width = `${(state.roundsDone / state.roundsTarget) * 100}%`;
+    }
+
+    function finishRound(){
+      state.roundsDone += 1;
+      updateProgress();
+
+      if (state.roundsDone >= state.roundsTarget){
+        done();
+      } else {
+        hintEl.textContent = `ดีมาก! อีก ${state.roundsTarget - state.roundsDone} รอบ 🌈`;
+        breathBtn.textContent = 'เริ่มหายใจเข้า';
+        circle.classList.remove('is-inhale', 'is-exhale');
+        emoji.textContent = '😊';
+      }
+    }
+
+    function done(){
+      if (state.done) return;
+      state.done = true;
+      hintEl.textContent = 'เยี่ยมเลย ผ่อนคลายเสร็จแล้ว 💤';
+      breathBtn.disabled = true;
+      breathBtn.textContent = 'เสร็จแล้ว';
+      circle.classList.remove('is-inhale', 'is-exhale');
+      circle.classList.add('is-done');
+      emoji.textContent = '🌙';
+
+      cancelAnimationFrame(state.raf);
+
+      setTimeout(() => {
+        try{
+          if (typeof ctx.onDone === 'function') ctx.onDone({ ok:true, kind:'cooldown', score: state.roundsDone });
+          else if (typeof window.__HHA_GATE_ON_DONE__ === 'function') window.__HHA_GATE_ON_DONE__({ ok:true, kind:'cooldown', score: state.roundsDone });
+        }catch(e){}
+      }, 550);
+    }
+
+    function frame(ts){
+      if (state.done) return;
+      if (!state.last) state.last = ts;
+      const dt = ts - state.last;
+      state.last = ts;
+
+      if (state.holding){
+        state.holdMs += dt;
+        if (state.holdMs >= 1400){
+          circle.classList.remove('is-exhale');
+          circle.classList.add('is-inhale');
+          hintEl.textContent = 'ดีมาก! ตอนนี้ปล่อยเพื่อหายใจออก 💨';
+          breathBtn.textContent = 'ปล่อยเพื่อหายใจออก';
+          emoji.textContent = '🌬️';
+        }
+      } else {
+        if (state.holdMs > 0){
+          state.releaseMs += dt;
+          circle.classList.remove('is-inhale');
+          circle.classList.add('is-exhale');
+          hintEl.textContent = 'หายใจออกช้า ๆ 💨';
+          emoji.textContent = '😌';
+
+          if (state.releaseMs >= 800){
+            state.holdMs = 0;
+            state.releaseMs = 0;
+            finishRound();
+          }
+        }
+      }
+
+      state.raf = requestAnimationFrame(frame);
+    }
+
+    function holdStart(){
+      if (state.done) return;
+      state.holding = true;
+      hintEl.textContent = 'กดค้างไว้ หายใจเข้าาา 🌬️';
+      breathBtn.textContent = 'กำลังกดค้าง…';
+      circle.classList.add('is-inhale');
+      circle.classList.remove('is-exhale');
+      emoji.textContent = '🙂';
+    }
+
+    function holdEnd(){
+      if (state.done) return;
+      state.holding = false;
+    }
+
+    breathBtn?.addEventListener('pointerdown', holdStart);
+    breathBtn?.addEventListener('pointerup', holdEnd);
+    breathBtn?.addEventListener('pointerleave', holdEnd);
+    breathBtn?.addEventListener('pointercancel', holdEnd);
+
+    breathBtn?.addEventListener('touchstart', holdStart, { passive:true });
+    breathBtn?.addEventListener('touchend', holdEnd, { passive:true });
+
+    skipBtn?.addEventListener('click', done);
+
+    updateProgress();
+    state.raf = requestAnimationFrame(frame);
+
+    return {
+      destroy(){
+        cancelAnimationFrame(state.raf);
+      }
+    };
   }
 
-  return {
-    start(){
-      renderRound();
-    }
-  };
+  return { boot };
+}
+
+const api = createHydrationCooldownGame();
+
+export function boot(root, ctx) {
+  return api.boot(root, ctx);
+}
+
+if (typeof window !== 'undefined') {
+  window.HHA_GATE_GAME = window.HHA_GATE_GAME || {};
+  window.HHA_GATE_GAME.hydrationCooldown = api;
+  window.HHA_GATE_BOOT = api.boot;
 }
