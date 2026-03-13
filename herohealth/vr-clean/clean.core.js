@@ -1,5 +1,5 @@
 // === /herohealth/vr-clean/clean.core.js ===
-// Clean Objects CORE — SAFE/PRODUCTION — v20260301-FULL-EXCITE1234-PATCH-B
+// Clean Objects CORE — SAFE/PRODUCTION — v20260301-FULL-EXCITE1234-PATCH-D
 'use strict';
 
 import { HOTSPOTS, MAP } from './clean.data.js';
@@ -174,9 +174,7 @@ function scoreA(state){
 
   const baseScore = Math.round(rrTotal * 1.6 + coverage * 1.1 + dq * 1.2);
 
-  const bossId = String(state.cfg?.bossId || 'toilet_flush');
-  const bossPicked = sel.some(s=>s.id===bossId);
-  const bossPenalty = bossPicked ? 0 : 120;
+  const bossPenalty = state.boss.cleared ? 0 : 120;
   const spreadPenalty = Math.round(state.spread.totalPenalty || 0);
 
   const score = Math.max(0, baseScore - bossPenalty - spreadPenalty);
@@ -265,6 +263,7 @@ export function createCleanCore(cfg={}, hooks={}){
   const dangerWindowSec = clamp(qs('danger', cfg.dangerWindowSec ?? 10), 5, 20);
   const bossAtSec = clamp(qs('bossAt', cfg.bossAtSec ?? (mode==='A' ? 34 : 0)), 0, 200);
   const bossWarnSec = clamp(qs('bossWarn', cfg.bossWarnSec ?? 8), 3, 20);
+  const bossWindowSec = clamp(qs('bossWindow', cfg.bossWindowSec ?? 10), 5, 20);
 
   const spreadTickSec = clamp(qs('spreadTick', cfg.spreadTickSec ?? 2.4), 1.2, 6);
   const spreadBoost = clamp(qs('spreadBoost', cfg.spreadBoost ?? 8), 3, 18);
@@ -283,6 +282,7 @@ export function createCleanCore(cfg={}, hooks={}){
     dangerWindowSec,
     bossAtSec,
     bossWarnSec,
+    bossWindowSec,
     spreadTickSec,
     spreadBoost,
     spreadThreshold,
@@ -332,11 +332,17 @@ export function createCleanCore(cfg={}, hooks={}){
     },
 
     boss: {
-      type: 'penalty',
+      type: 'outbreak',
       nextAtS: bossAtSec,
       warnSec: bossWarnSec,
+      windowSec: bossWindowSec,
       active: false,
-      cleared: false
+      cleared: false,
+      failed: false,
+      expireAtS: 0,
+      targets: [],
+      progress: 0,
+      total: 0
     },
 
     spread: {
@@ -361,7 +367,8 @@ export function createCleanCore(cfg={}, hooks={}){
           spraysLeft: state.A.spraysLeft,
           chosen: (state.A.selected||[]).length,
           rrPreview: Math.round(rr),
-          spreadPenalty: Math.round(state.spread.totalPenalty||0)
+          spreadPenalty: Math.round(state.spread.totalPenalty||0),
+          bossProgress: `${state.boss.progress||0}/${state.boss.total||0}`
         };
       }else{
         preview = { routeN: (state.B.routeIds||[]).length, maxPoints: state.B.maxPoints };
@@ -387,7 +394,7 @@ export function createCleanCore(cfg={}, hooks={}){
 
       elapsedSec: state.elapsed,
       timeLimitS: state.timeTotal,
-      boss: state.boss ? Object.assign({}, state.boss) : null,
+      boss: state.boss ? Object.assign({}, state.boss, { targets: state.boss.targets.slice(0) }) : null,
       bossId: state.cfg.bossId,
 
       pickedIds: (state.mode==='A') ? pickedIdsA : (state.B.routeIds||[]).slice(0),
@@ -416,6 +423,121 @@ export function createCleanCore(cfg={}, hooks={}){
 
   function isCleanedA(id){
     return (state.A.selected||[]).some(s=>s.id===id);
+  }
+
+  function makeBossTargets(){
+    const bossMain = state.hotspots.find(h=>String(h.id) === String(state.cfg.bossId));
+    const ranked = rankHotspotsByValue(state.hotspots).filter(h=>!isCleanedA(h.id));
+    const ids = [];
+    if(bossMain) ids.push(String(bossMain.id));
+
+    const near = (bossMain
+      ? ranked.filter(h=>h.id !== bossMain.id).sort((a,b)=>gridDist(a,bossMain)-gridDist(b,bossMain))
+      : ranked
+    ).slice(0, 6);
+
+    for(const h of near){
+      if(ids.length >= 3) break;
+      if(!ids.includes(String(h.id))) ids.push(String(h.id));
+    }
+
+    while(ids.length < 3 && ranked.length){
+      const h = ranked.shift();
+      if(h && !ids.includes(String(h.id))) ids.push(String(h.id));
+    }
+
+    return ids.slice(0,3);
+  }
+
+  function startBossPhase(){
+    if(state.mode !== 'A' || state.boss.active || state.boss.cleared) return;
+
+    state.boss.active = true;
+    state.boss.failed = false;
+    state.boss.targets = makeBossTargets();
+    state.boss.total = state.boss.targets.length;
+    state.boss.progress = 0;
+    state.boss.expireAtS = state.elapsed + state.cfg.bossWindowSec;
+
+    for(const id of state.boss.targets){
+      const h = state.hotspots.find(x=>String(x.id)===String(id));
+      if(h) h.risk = clamp(Number(h.risk||0) + 18, 0, 100);
+    }
+
+    emitHHAEvent('boss_start', {
+      sessionId: state.cfg.sessionId,
+      mode: state.mode,
+      bossType: state.boss.type,
+      atSec: state.elapsed,
+      targets: state.boss.targets.slice(0),
+      total: state.boss.total
+    });
+
+    emitCoach('boss', `🔥 BOSS MODE! เก็บเป้าบอส ${state.boss.total} จุดภายใน ${state.cfg.bossWindowSec} วิ`, {
+      targets: state.boss.targets.slice(0),
+      total: state.boss.total
+    });
+
+    emitState();
+  }
+
+  function updateBossProgressOnPick(id){
+    if(state.mode !== 'A' || !state.boss.active || state.boss.cleared || state.boss.failed) return;
+
+    if(state.boss.targets.includes(String(id))){
+      const done = state.boss.targets.filter(tid=>isCleanedA(tid)).length;
+      state.boss.progress = done;
+
+      emitHHAEvent('boss_progress', {
+        sessionId: state.cfg.sessionId,
+        mode: state.mode,
+        progress: state.boss.progress,
+        total: state.boss.total,
+        targetId: String(id)
+      });
+
+      if(state.boss.progress >= state.boss.total){
+        state.boss.cleared = true;
+        state.boss.active = false;
+
+        emitHHAEvent('boss_cleared', {
+          sessionId: state.cfg.sessionId,
+          mode: state.mode,
+          progress: state.boss.progress,
+          total: state.boss.total
+        });
+
+        emitCoach('good', `🏁 Boss Cleared! จัดการครบ ${state.boss.total}/${state.boss.total}`, {
+          progress: state.boss.progress,
+          total: state.boss.total
+        });
+      } else {
+        emitCoach('good', `🎯 Boss ${state.boss.progress}/${state.boss.total}`, {
+          progress: state.boss.progress,
+          total: state.boss.total
+        });
+      }
+    }
+  }
+
+  function checkBossTimeout(){
+    if(state.mode !== 'A' || !state.boss.active || state.boss.cleared || state.boss.failed) return;
+    if(state.elapsed >= state.boss.expireAtS){
+      state.boss.failed = true;
+      state.boss.active = false;
+
+      emitHHAEvent('boss_failed', {
+        sessionId: state.cfg.sessionId,
+        mode: state.mode,
+        progress: state.boss.progress,
+        total: state.boss.total
+      });
+
+      emitCoach('boss', `💥 Boss Failed! ทำได้ ${state.boss.progress}/${state.boss.total}`, {
+        progress: state.boss.progress,
+        total: state.boss.total
+      });
+    }
   }
 
   function applyRiskDrift(dt){
@@ -570,6 +692,13 @@ export function createCleanCore(cfg={}, hooks={}){
         top3: r.top3,
         combo: { best: state.combo.best || 0 },
         bossId: state.cfg.bossId,
+        boss: {
+          cleared: !!state.boss.cleared,
+          failed: !!state.boss.failed,
+          progress: state.boss.progress,
+          total: state.boss.total,
+          targets: state.boss.targets.slice(0)
+        },
         spread: {
           waves: state.spread.waveCount,
           penalty: Math.round(state.spread.totalPenalty || 0)
@@ -645,19 +774,12 @@ export function createCleanCore(cfg={}, hooks={}){
     state.timeLeft = Math.max(0, state.timeLeft - dt);
 
     if(state.mode==='A' && state.boss && state.boss.nextAtS>0){
-      const t = state.boss.nextAtS;
-      if(!state.boss.active && state.elapsed >= t){
-        state.boss.active = true;
-        emitHHAEvent('boss_start', {
-          sessionId: state.cfg.sessionId,
-          mode: state.mode,
-          bossType: state.boss.type,
-          atSec: t
-        });
-        emitCoach('boss', '🔥 BOSS MODE! รีบจัดการจุดสำคัญก่อนโดนหัก', { bossId: state.cfg.bossId });
+      if(!state.boss.active && !state.boss.cleared && state.elapsed >= state.boss.nextAtS){
+        startBossPhase();
       }
     }
 
+    checkBossTimeout();
     applyRiskDrift(dt);
 
     if(!state.events.contamFired && state.elapsed >= state.events.contamAt){
@@ -732,6 +854,8 @@ export function createCleanCore(cfg={}, hooks={}){
       mode: 'A',
       extra: { id, scoreGain: Math.round(rr), spraysLeft: state.A.spraysLeft }
     });
+
+    updateBossProgressOnPick(id);
 
     const top3 = rankHotspotsByValue(state.hotspots).slice(0,3).map(x=>x.id);
     const hitTop = top3.includes(id);
