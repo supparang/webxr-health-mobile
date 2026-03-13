@@ -243,12 +243,14 @@
       <h1>Shadow Breaker Launcher</h1>
       <div class="sub">
         เตรียมเข้าเล่นเกม Shadow Breaker แบบลุยบอส 3 ตัว + Final Boss<br/>
-        Flow นี้ใช้แบบเดียว: <b>Hub → Launcher → Run</b>
+        Flow นี้ใช้แบบเดียว: <b>Hub → Warmup → Game → Cooldown → Summary → Hub</b>
       </div>
 
       <div class="row">
         <span class="pill"><b>Launcher</b>: <span>/herohealth/shadow-breaker-vr.html</span></span>
+        <span class="pill"><b>Warmup/Cooldown</b>: <span>/herohealth/warmup-gate.html</span></span>
         <span class="pill"><b>Run</b>: <span>/fitness/shadow-breaker.html</span></span>
+        <span class="pill"><b>Summary</b>: <span>/herohealth/shadow-breaker-summary.html</span></span>
       </div>
 
       <div class="grid">
@@ -304,15 +306,16 @@
           <div class="cardTitle">สิ่งที่มีในเกม</div>
           <ul class="list">
             <li>Bubble Glove → Meteor Punch → Neon Hydra → Final Boss</li>
-            <li>Boss Clear Banner</li>
-            <li>Result Badge System</li>
+            <li>Warmup ก่อนเล่นจริง</li>
+            <li>Cooldown หลังจบเกม</li>
+            <li>Summary แยกก่อนกลับ Hub</li>
             <li>บันทึก best reached boss และ best badge</li>
-            <li>กลับ Hub ผ่าน <code>?hub=...</code></li>
           </ul>
 
           <div class="mini">
-            ถ้าเปิดจาก Hub ระบบจะส่ง query เดิมต่อให้ครบ เช่น
-            <code>pid</code>, <code>diff</code>, <code>time</code>, <code>view</code>, <code>zone</code>
+            warmup/cooldown ใช้ไฟล์เดียวกันคือ
+            <code>warmup-gate.html</code><br/>
+            แล้วสลับด้วย <code>Phase=warmup</code> หรือ <code>Phase=cooldown</code>
           </div>
 
           <div class="debug" id="debugBox">กำลังเตรียมเส้นทางเข้าเกม…</div>
@@ -325,7 +328,9 @@
     (function(){
       'use strict';
 
-      const RUN_PATH = '/webxr-health-mobile/fitness/shadow-breaker.html';
+      const WARMUP_PATH  = '/webxr-health-mobile/herohealth/warmup-gate.html';
+      const RUN_PATH     = '/webxr-health-mobile/fitness/shadow-breaker.html';
+      const SUMMARY_PATH = '/webxr-health-mobile/herohealth/shadow-breaker-summary.html';
 
       const $ = (s)=>document.querySelector(s);
       const qs = (k, d='')=>{
@@ -348,7 +353,9 @@
       const sp = currentUrl.searchParams;
 
       const hubFromQuery = String(qs('hub','')).trim() || './hub.html';
-      if (btnBackHub) btnBackHub.href = hubFromQuery;
+      const hubAbs = new URL(hubFromQuery, location.href).toString();
+
+      if (btnBackHub) btnBackHub.href = hubAbs;
 
       if (inpPid)  inpPid.value = String(qs('pid','anon')).trim() || 'anon';
       if (selDiff) selDiff.value = String(qs('diff','normal')).trim() || 'normal';
@@ -374,7 +381,10 @@
         u.searchParams.set('mode', selMode?.value || 'normal');
         u.searchParams.set('run', selMode?.value || 'normal');
         u.searchParams.set('zone', sp.get('zone') || 'fitness');
-        u.searchParams.set('hub', new URL(hubFromQuery, location.href).toString());
+        u.searchParams.set('cat', sp.get('cat') || 'fitness');
+        u.searchParams.set('game', 'shadowbreaker');
+        u.searchParams.set('hub', hubAbs);
+        u.searchParams.set('cdnext', SUMMARY_PATH);
 
         if (extra && typeof extra === 'object'){
           Object.keys(extra).forEach(k=>{
@@ -387,8 +397,43 @@
         return u.toString();
       }
 
+      function buildWarmupUrl(extra){
+        const u = new URL(WARMUP_PATH, location.origin);
+        const passKeys = [
+          'run','mode','diff','time','seed','studyId','phase','conditionGroup','log',
+          'view','pid','api','ai','debug','planSeq','planDay','planSlot','planMode',
+          'planSlots','planIndex','autoNext','plannedGame','finalGame','zone','cdnext','grade'
+        ];
+
+        passKeys.forEach(k=>{
+          const v = sp.get(k);
+          if(v != null && v !== '') u.searchParams.set(k, v);
+        });
+
+        u.searchParams.set('Phase', 'warmup');
+        u.searchParams.set('pid', (inpPid?.value || qs('pid','anon') || 'anon').trim() || 'anon');
+        u.searchParams.set('diff', selDiff?.value || 'normal');
+        u.searchParams.set('time', selTime?.value || '80');
+        u.searchParams.set('mode', selMode?.value || 'normal');
+        u.searchParams.set('run', selMode?.value || 'normal');
+        u.searchParams.set('zone', sp.get('zone') || 'fitness');
+        u.searchParams.set('cat', sp.get('cat') || 'fitness');
+        u.searchParams.set('game', 'shadowbreaker');
+        u.searchParams.set('gate', '1');
+        u.searchParams.set('hub', hubAbs);
+        u.searchParams.set('next', buildRunUrl(extra));
+
+        if (extra && typeof extra === 'object'){
+          if (extra.diff) u.searchParams.set('diff', String(extra.diff));
+          if (extra.mode) u.searchParams.set('mode', String(extra.mode));
+          if (extra.run)  u.searchParams.set('run',  String(extra.run));
+        }
+
+        return u.toString();
+      }
+
       function go(extra){
-        const target = buildRunUrl(extra);
+        const target = buildWarmupUrl(extra);
         try{
           location.href = target;
         }catch(_){
@@ -416,11 +461,12 @@
       const auto = String(qs('auto','0')).toLowerCase();
       const autostart = ['1','true','yes','on'].includes(auto);
 
-      const previewUrl = buildRunUrl();
       if (debugBox){
         debugBox.innerHTML =
-          `<div><b>Hub:</b> <code>${new URL(hubFromQuery, location.href).pathname}</code></div>` +
-          `<div><b>Run target:</b> <code>${previewUrl}</code></div>` +
+          `<div><b>Hub:</b> <code>${new URL(hubAbs).pathname}</code></div>` +
+          `<div><b>Warmup:</b> <code>${buildWarmupUrl()}</code></div>` +
+          `<div><b>Run:</b> <code>${buildRunUrl()}</code></div>` +
+          `<div><b>Summary:</b> <code>${SUMMARY_PATH}</code></div>` +
           `<div><b>Auto:</b> <code>${autostart ? 'ON' : 'OFF'}</code></div>`;
       }
 
