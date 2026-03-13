@@ -1,16 +1,16 @@
 // === /fitness/js/engine.js ===
-// Shadow Breaker engine — MERGED PATCH
-// ✅ Sync with merged shadow-breaker.html
-// ✅ Direct one-click start for Normal / Research
-// ✅ Sync selectors with production HTML/CSS
-// ✅ Keep robust AI import + expire removal + fair miss rules + adaptive size
+// Shadow Breaker engine — FINAL RUN BUILD
+// ✅ Sync with /fitness/shadow-breaker.html
+// ✅ One-click start (Normal / Research)
+// ✅ Sync with dom-renderer-shadow.js + shadow-breaker.css
+// ✅ AI import fallback + fair miss rules + adaptive size
 
 'use strict';
 
 import { DomRendererShadow } from './dom-renderer-shadow.js';
 import { DLFeatures } from './dl-features.js';
 
-// ✅ ai-predictor may be ES module OR classic script (window.RB_AI)
+// ai-predictor may be ES module OR classic script (window.RB_AI)
 let AIPredictor = null;
 try {
   const mod = await import('./ai-predictor.js');
@@ -30,11 +30,11 @@ const qNum = (k, def=0) => {
   return Number.isFinite(v) ? v : def;
 };
 
-const MODE = (q('mode', q('run','normal')) || 'normal').toLowerCase(); // normal | research | play
-const PID  = q('pid','');
-const DIFF = (q('diff','normal') || 'normal').toLowerCase();
+const MODE = (q('mode', q('run', 'normal')) || 'normal').toLowerCase();
+const PID  = q('pid', '');
+const DIFF = (q('diff', 'normal') || 'normal').toLowerCase();
 const TIME = Math.max(20, Math.min(240, qNum('time', 70)));
-const HUB  = q('hub','../herohealth/hub.html');
+const HUB  = q('hub', '../herohealth/hub.html');
 
 const $ = (s)=>document.querySelector(s);
 const wrapEl = $('#sb-wrap');
@@ -54,54 +54,56 @@ const btnPause    = $('#sb-btn-pause');
 const layerEl   = $('#sb-target-layer');
 const msgMainEl = $('#sb-msg-main');
 
-const textTime  = $('#sb-text-time');
-const textScore = $('#sb-text-score');
-const textCombo = $('#sb-text-combo');
-const textPhase = $('#sb-text-phase');
-const textMiss  = $('#sb-text-miss');
-const textShield= $('#sb-text-shield');
+const textTime   = $('#sb-text-time');
+const textScore  = $('#sb-text-score');
+const textCombo  = $('#sb-text-combo');
+const textPhase  = $('#sb-text-phase');
+const textMiss   = $('#sb-text-miss');
+const textShield = $('#sb-text-shield');
 
-const hpYouTop    = $('#sb-hp-you-top');
-const hpBossTop   = $('#sb-hp-boss-top');
-const hpYouBottom = $('#sb-hp-you-bottom');
-const hpBossBottom= $('#sb-hp-boss-bottom');
+const hpYouTop     = $('#sb-hp-you-top');
+const hpBossTop    = $('#sb-hp-boss-top');
+const hpYouBottom  = $('#sb-hp-you-bottom');
+const hpBossBottom = $('#sb-hp-boss-bottom');
 
-const bossNameEl = $('#sb-current-boss-name');
-const metaEmoji  = $('#sb-meta-emoji');
-const metaName   = $('#sb-meta-name');
-const metaDesc   = $('#sb-meta-desc');
-const bossPhaseLabel = $('#sb-boss-phase-label');
-const bossShieldLabel= $('#sb-boss-shield-label');
+const bossNameEl       = $('#sb-current-boss-name');
+const metaEmoji        = $('#sb-meta-emoji');
+const metaName         = $('#sb-meta-name');
+const metaDesc         = $('#sb-meta-desc');
+const bossPhaseLabel   = $('#sb-boss-phase-label');
+const bossShieldLabel  = $('#sb-boss-shield-label');
 
 const feverBar   = $('#sb-fever-bar');
 const feverLabel = $('#sb-label-fever');
 const btnFever   = $('#sb-btn-fever');
 const feverHint  = $('#sb-fever-hint');
 
-const resTime   = $('#sb-res-time');
-const resScore  = $('#sb-res-score');
-const resMaxCombo = $('#sb-res-max-combo');
-const resMiss   = $('#sb-res-miss');
-const resPhase  = $('#sb-res-phase');
+const resTime        = $('#sb-res-time');
+const resScore       = $('#sb-res-score');
+const resMaxCombo    = $('#sb-res-max-combo');
+const resMiss        = $('#sb-res-miss');
+const resPhase       = $('#sb-res-phase');
 const resBossCleared = $('#sb-res-boss-cleared');
-const resAcc    = $('#sb-res-acc');
-const resGrade  = $('#sb-res-grade');
+const resAcc         = $('#sb-res-acc');
+const resGrade       = $('#sb-res-grade');
 
 const btnRetry  = $('#sb-btn-result-retry');
 const btnMenu   = $('#sb-btn-result-menu');
 const btnEvtCsv = $('#sb-btn-download-events');
 const btnSesCsv = $('#sb-btn-download-session');
 
-const inputPid  = $('#sb-input-pid');
-const inputDiff = $('#sb-input-diff');
-const inputTime = $('#sb-input-time');
+const inputPid   = $('#sb-input-pid');
+const inputDiff  = $('#sb-input-diff');
+const inputTime  = $('#sb-input-time');
+const inputGroup = $('#sb-input-group'); // optional
+const inputNote  = $('#sb-input-note');  // optional
 
-const btnMeta   = $('#sb-btn-meta');
-const metaEl    = $('#sb-meta');
-const metaBody  = $('#sb-meta-body');
+const btnMeta  = $('#sb-btn-meta');
+const metaEl   = $('#sb-meta');
+const metaBody = $('#sb-meta-body');
 
 // -------------------------
-// Data (bosses)
+// Boss data
 // -------------------------
 const BOSSES = [
   { name:'Bubble Glove', emoji:'🐣', desc:'โฟกัสที่ฟองใหญ่ ๆ แล้วตีให้ทัน', phases: 3 },
@@ -112,8 +114,8 @@ const BOSSES = [
 const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
 const now = ()=>performance.now();
 
-const FEVER_MAX = 100;
-const YOU_HP_MAX = 100;
+const FEVER_MAX   = 100;
+const YOU_HP_MAX  = 100;
 const BOSS_HP_MAX = 100;
 
 function setScaleX(el, pct){
@@ -129,32 +131,29 @@ function showView(which){
 }
 
 function boss(){
-  const i = clamp(bossIndex,0,BOSSES.length-1);
+  const i = clamp(bossIndex, 0, BOSSES.length - 1);
   return BOSSES[i];
 }
 
-// ✅ adaptive base size by layer width (prevents too-big on small screens)
 function adaptiveBaseSize(raw){
   const r = layerEl?.getBoundingClientRect?.();
   const w = r?.width || window.innerWidth || 360;
   const h = r?.height || window.innerHeight || 640;
-  const m = Math.max(280, Math.min(860, Math.min(w,h)));
+  const m = Math.max(280, Math.min(860, Math.min(w, h)));
   const scale = m / 520;
   const s = raw * scale;
   return clamp(s, 84, 130);
 }
 
-// ----- Difficulty config -----
-// NOTE: baseSize below is "raw" then adaptiveBaseSize() applies at spawn time
 const DIFF_CONFIG = {
-  easy:   { label:'Easy — ผ่อนคลาย',  spawnIntervalMin:950, spawnIntervalMax:1350, targetLifetime:1500, baseSize:112, bossDamageNormal:0.040, bossDamageBossFace:0.45 },
-  normal: { label:'Normal — สมดุล',   spawnIntervalMin:800, spawnIntervalMax:1200, targetLifetime:1300, baseSize:106, bossDamageNormal:0.035, bossDamageBossFace:0.40 },
-  hard:   { label:'Hard — ท้าทาย',    spawnIntervalMin:650, spawnIntervalMax:1000, targetLifetime:1150, baseSize:100, bossDamageNormal:0.030, bossDamageBossFace:0.35 }
+  easy:   { label:'Easy — ผ่อนคลาย', spawnIntervalMin:950, spawnIntervalMax:1350, targetLifetime:1500, baseSize:112, bossDamageNormal:0.040, bossDamageBossFace:0.45 },
+  normal: { label:'Normal — สมดุล',  spawnIntervalMin:800, spawnIntervalMax:1200, targetLifetime:1300, baseSize:106, bossDamageNormal:0.035, bossDamageBossFace:0.40 },
+  hard:   { label:'Hard — ท้าทาย',   spawnIntervalMin:650, spawnIntervalMax:1000, targetLifetime:1150, baseSize:100, bossDamageNormal:0.030, bossDamageBossFace:0.35 }
 };
 
 let running = false;
-let ended = false;
-let paused = false;
+let ended   = false;
+let paused  = false;
 
 let tStart = 0;
 let tLastSpawn = 0;
@@ -169,7 +168,7 @@ let fever = 0;
 let shield = 0;
 let feverActiveUntil = 0;
 
-let youHp = YOU_HP_MAX;
+let youHp  = YOU_HP_MAX;
 let bossHp = BOSS_HP_MAX;
 
 let bossIndex = 0;
@@ -182,10 +181,11 @@ let currentTimeSec = TIME;
 
 let CFG = DIFF_CONFIG[currentDiff];
 
-// events/session
 const events = [];
 const session = {
   pid: PID || '',
+  group: '',
+  note: '',
   mode: currentMode,
   diff: currentDiff,
   timeSec: currentTimeSec,
@@ -201,7 +201,6 @@ const session = {
 
 const dl = new DLFeatures();
 
-// ✅ fallback to global classic script API if no ES export
 const ai = (AIPredictor && typeof AIPredictor === 'function')
   ? new AIPredictor()
   : (window.RB_AI || null);
@@ -227,7 +226,6 @@ function aiAssistEnabledSafe(){
   }
 }
 
-// ✅ active target expiry source of truth
 const active = new Map(); // id -> { type, expireAtMs, sizePx }
 
 const renderer = new DomRendererShadow(layerEl, {
@@ -238,7 +236,7 @@ const renderer = new DomRendererShadow(layerEl, {
 renderer.setDifficulty(currentDiff);
 
 // -------------------------
-// UI sync / helpers
+// UI / helpers
 // -------------------------
 function applyParamsToHeaderLink(){
   const a = $('#sb-link-hub');
@@ -254,10 +252,15 @@ function syncMenuInputsFromQuery(){
 
 function readMenuConfig(){
   const pid = (inputPid?.value || PID || '').trim();
+  const group = (inputGroup?.value || '').trim();
+  const note = (inputNote?.value || '').trim();
   const diff = (inputDiff?.value || currentDiff || 'normal').toLowerCase();
   const timeSec = clamp(Number(inputTime?.value || currentTimeSec || 70) || 70, 20, 240);
+
   return {
     pid,
+    group,
+    note,
     diff: DIFF_CONFIG[diff] ? diff : 'normal',
     timeSec
   };
@@ -320,7 +323,7 @@ function nextBossOrPhase(){
     say(`Phase ${phase} — เร็วขึ้น!`, 'good');
   }else{
     bossesCleared++;
-    bossIndex = Math.min(BOSSES.length-1, bossIndex+1);
+    bossIndex = Math.min(BOSSES.length - 1, bossIndex + 1);
     phase = 1;
     bossHp = BOSS_HP_MAX;
     say(`Boss Clear! ไปต่อ 🎉`, 'perfect');
@@ -328,13 +331,12 @@ function nextBossOrPhase(){
   setBossUI();
 }
 
-// ✅ miss rule (expire counts only normal/bossface)
 function expireCountsMiss(type){
   return (type === 'normal' || type === 'bossface');
 }
 
 function spawnOne(){
-  const id = Math.floor(Math.random()*1e9);
+  const id = Math.floor(Math.random() * 1e9);
   const roll = Math.random();
 
   let type = 'normal';
@@ -347,18 +349,17 @@ function spawnOne(){
     type = 'bossface';
   }
 
-  // adaptive baseSize
   let sizePx = adaptiveBaseSize(CFG.baseSize);
   if(type === 'bossface') sizePx *= 1.14;
   if(type === 'bomb') sizePx *= 1.06;
   sizePx = clamp(sizePx, 78, 150);
 
-  // FEVER active: tiny lifetime bonus = makes it feel powerful
   let ttlMs = CFG.targetLifetime;
   if (now() < feverActiveUntil) ttlMs = Math.round(ttlMs * 1.10);
 
   renderer.spawnTarget({
-    id, type,
+    id,
+    type,
     sizePx,
     bossEmoji: boss().emoji,
     ttlMs
@@ -367,7 +368,14 @@ function spawnOne(){
   const tNow = now();
   active.set(id, { type, expireAtMs: tNow + ttlMs, sizePx: Math.round(sizePx) });
 
-  events.push({ t: (currentTimeSec*1000 - timeLeft), type:'spawn', id, targetType:type, sizePx: Math.round(sizePx), ttlMs });
+  events.push({
+    t: (currentTimeSec * 1000 - timeLeft),
+    type:'spawn',
+    id,
+    targetType:type,
+    sizePx: Math.round(sizePx),
+    ttlMs
+  });
 }
 
 function onTargetHit(id, pt){
@@ -379,9 +387,7 @@ function onTargetHit(id, pt){
 
   const type = obj?.type || (el.className.match(/sb-target--(\w+)/)?.[1]) || 'normal';
 
-  // ✅ remove from active immediately to prevent expire race
   active.delete(id);
-
   dl.onHit();
 
   let grade = 'good';
@@ -393,11 +399,12 @@ function onTargetHit(id, pt){
     scoreDelta = -6;
     combo = 0;
     say('หลงเป้าล่อ!', 'bad');
+
   }else if(type === 'bomb'){
     grade = 'bomb';
     scoreDelta = -14;
     combo = 0;
-    if(shield>0){
+    if(shield > 0){
       shield--;
       say('กันระเบิดด้วย Shield!', 'good');
       scoreDelta = 0;
@@ -406,34 +413,43 @@ function onTargetHit(id, pt){
       youHp = Math.max(0, youHp - 18);
       say('โดนระเบิด!', 'bad');
     }
+
   }else if(type === 'heal'){
     grade = 'heal';
     scoreDelta = 6;
     youHp = Math.min(YOU_HP_MAX, youHp + 16);
     say('+HP!', 'good');
+
   }else if(type === 'shield'){
     grade = 'shield';
     scoreDelta = 6;
     shield = Math.min(5, shield + 1);
     say('+SHIELD!', 'good');
+
   }else if(type === 'bossface'){
     grade = 'perfect';
     scoreDelta = feverOn ? 24 : 18;
     combo++;
-    bossHp = Math.max(0, bossHp - (BOSS_HP_MAX * (feverOn ? (CFG.bossDamageBossFace * 1.12) : CFG.bossDamageBossFace)));
+    bossHp = Math.max(
+      0,
+      bossHp - (BOSS_HP_MAX * (feverOn ? (CFG.bossDamageBossFace * 1.12) : CFG.bossDamageBossFace))
+    );
     say(feverOn ? 'FEVER CRIT!!' : 'CRIT! ใส่หน้า Boss!', 'perfect');
+
   }else{
     grade = (fever >= FEVER_MAX || feverOn) ? 'perfect' : 'good';
     scoreDelta = (grade === 'perfect') ? (feverOn ? 18 : 14) : 10;
     combo++;
-    bossHp = Math.max(0, bossHp - (BOSS_HP_MAX * (feverOn ? (CFG.bossDamageNormal * 1.12) : CFG.bossDamageNormal)));
+    bossHp = Math.max(
+      0,
+      bossHp - (BOSS_HP_MAX * (feverOn ? (CFG.bossDamageNormal * 1.12) : CFG.bossDamageNormal))
+    );
     say(grade === 'perfect' ? 'PERFECT!' : 'ดีมาก!', grade === 'perfect' ? 'perfect' : 'good');
   }
 
   score = Math.max(0, score + scoreDelta);
   maxCombo = Math.max(maxCombo, combo);
 
-  // fever gain
   if (!feverOn) {
     fever = clamp(fever + (grade === 'perfect' ? 10 : 6), 0, FEVER_MAX);
   }
@@ -441,7 +457,14 @@ function onTargetHit(id, pt){
   renderer.playHitFx(id, { clientX: pt.clientX, clientY: pt.clientY, grade, scoreDelta });
   renderer.removeTarget(id);
 
-  events.push({ t: (currentTimeSec*1000 - timeLeft), type:'hit', id, targetType:type, grade, scoreDelta });
+  events.push({
+    t: (currentTimeSec * 1000 - timeLeft),
+    type:'hit',
+    id,
+    targetType:type,
+    grade,
+    scoreDelta
+  });
 
   if(bossHp <= 0) nextBossOrPhase();
   if(youHp <= 0) endGame('dead');
@@ -449,7 +472,7 @@ function onTargetHit(id, pt){
   setHUD();
 }
 
-function endGame(reason='timeup'){
+function endGame(reason = 'timeup'){
   if(ended) return;
   ended = true;
   running = false;
@@ -466,7 +489,7 @@ function endGame(reason='timeup'){
 
   const totalShots = dl.getTotalShots?.() || 0;
   const hits = dl.getHits?.() || 0;
-  const accPct = totalShots > 0 ? (hits/totalShots)*100 : 0;
+  const accPct = totalShots > 0 ? (hits / totalShots) * 100 : 0;
   session.accPct = Number(accPct.toFixed(2));
 
   if(resTime) resTime.textContent = `${(currentTimeSec - timeLeft/1000).toFixed(1)} s`;
@@ -478,18 +501,25 @@ function endGame(reason='timeup'){
   if(resAcc) resAcc.textContent = `${accPct.toFixed(1)} %`;
 
   let g = 'C';
-  if(accPct >= 85 && bossesCleared >= 1) g='A';
-  else if(accPct >= 70) g='B';
-  else if(accPct >= 55) g='C';
-  else g='D';
+  if(accPct >= 85 && bossesCleared >= 1) g = 'A';
+  else if(accPct >= 70) g = 'B';
+  else if(accPct >= 55) g = 'C';
+  else g = 'D';
   if(resGrade) resGrade.textContent = g;
 
-  events.push({ t:(currentTimeSec*1000 - timeLeft), type:'end', reason, score, miss, maxCombo, accPct:Number(accPct.toFixed(2)) });
+  events.push({
+    t:(currentTimeSec * 1000 - timeLeft),
+    type:'end',
+    reason,
+    score,
+    miss,
+    maxCombo,
+    accPct:Number(accPct.toFixed(2))
+  });
 
   showView('result');
 }
 
-// ✅ handle expiry each tick
 function handleExpiry(){
   const tNow = now();
   for(const [id, info] of active.entries()){
@@ -513,7 +543,7 @@ function handleExpiry(){
     renderer.expireTarget(id);
 
     events.push({
-      t: (currentTimeSec*1000 - timeLeft),
+      t: (currentTimeSec * 1000 - timeLeft),
       type:'expire',
       id,
       targetType: info.type,
@@ -535,7 +565,7 @@ function handleExpiry(){
 function maybeUseAIHint(){
   const totalShots = dl.getTotalShots?.() || 0;
   const hits = dl.getHits?.() || 0;
-  const accPct = totalShots > 0 ? (hits/totalShots)*100 : 0;
+  const accPct = totalShots > 0 ? (hits / totalShots) * 100 : 0;
 
   const pred = aiPredictSafe({
     accPct,
@@ -555,7 +585,7 @@ function tick(){
 
   const t = now();
   const dt = t - tStart;
-  timeLeft = Math.max(0, (currentTimeSec*1000) - dt);
+  timeLeft = Math.max(0, (currentTimeSec * 1000) - dt);
 
   let spawnMin = CFG.spawnIntervalMin;
   let spawnMax = CFG.spawnIntervalMax;
@@ -567,7 +597,7 @@ function tick(){
 
   const since = t - tLastSpawn;
   const targetInterval = clamp(
-    spawnMin + Math.random()*(spawnMax - spawnMin),
+    spawnMin + Math.random() * (spawnMax - spawnMin),
     420, 1800
   );
 
@@ -583,7 +613,7 @@ function tick(){
 
   handleExpiry();
 
-  if ((Math.floor(timeLeft/1000) % 3) === 0) {
+  if ((Math.floor(timeLeft / 1000) % 3) === 0) {
     maybeUseAIHint();
   }
 
@@ -596,7 +626,7 @@ function tick(){
 }
 
 // -------------------------
-// Fever
+// FEVER
 // -------------------------
 function useFever(){
   if (!running || ended || paused) return;
@@ -606,13 +636,17 @@ function useFever(){
   feverActiveUntil = now() + 6000;
   say('⚡ FEVER MODE!', 'perfect');
 
-  events.push({ t:(currentTimeSec*1000 - timeLeft), type:'fever_on', durMs:6000 });
+  events.push({
+    t:(currentTimeSec * 1000 - timeLeft),
+    type:'fever_on',
+    durMs:6000
+  });
 
   setHUD();
 }
 
 // -------------------------
-// Boot / Start
+// START
 // -------------------------
 function start(mode = 'normal'){
   const cfg = readMenuConfig();
@@ -629,12 +663,21 @@ function start(mode = 'normal'){
   paused = false;
   if(btnPause) btnPause.checked = false;
 
-  score=0; combo=0; maxCombo=0; miss=0;
-  fever=0; shield=0;
-  feverActiveUntil=0;
-  youHp=YOU_HP_MAX;
-  bossHp=BOSS_HP_MAX;
-  bossIndex=0; phase=1; bossesCleared=0;
+  score = 0;
+  combo = 0;
+  maxCombo = 0;
+  miss = 0;
+
+  fever = 0;
+  shield = 0;
+  feverActiveUntil = 0;
+
+  youHp = YOU_HP_MAX;
+  bossHp = BOSS_HP_MAX;
+
+  bossIndex = 0;
+  phase = 1;
+  bossesCleared = 0;
 
   timeLeft = currentTimeSec * 1000;
 
@@ -645,6 +688,8 @@ function start(mode = 'normal'){
   renderer.destroy();
 
   session.pid = cfg.pid || PID || '';
+  session.group = cfg.group || '';
+  session.note = cfg.note || '';
   session.mode = currentMode;
   session.diff = currentDiff;
   session.timeSec = currentTimeSec;
@@ -669,7 +714,7 @@ function start(mode = 'normal'){
 }
 
 // -------------------------
-// Events
+// EVENTS
 // -------------------------
 btnPlay?.addEventListener('click', ()=> start('normal'));
 btnResearch?.addEventListener('click', ()=> start('research'));
@@ -737,14 +782,14 @@ btnSesCsv?.addEventListener('click', ()=>{
 
   const totalShots = dl.getTotalShots?.() || 0;
   const hits = dl.getHits?.() || 0;
-  const accPct = totalShots > 0 ? (hits/totalShots)*100 : 0;
+  const accPct = totalShots > 0 ? (hits / totalShots) * 100 : 0;
   session.accPct = Number(accPct.toFixed(2));
 
   downloadCSV('shadowbreaker_session.csv', [session]);
 });
 
 // -------------------------
-// Init
+// INIT
 // -------------------------
 applyParamsToHeaderLink();
 syncMenuInputsFromQuery();
