@@ -1,6 +1,6 @@
 /* === /herohealth/gate/games/rhythmboxer/cooldown.js ===
  * HeroHealth Gate Game: RhythmBoxer Cooldown
- * PATCH v20260312-RHYTHMBOXER-COOLDOWN-A
+ * PATCH v20260312e-RHYTHMBOXER-COOLDOWN-TH-CHILD
  */
 
 function clamp(v, a, b){ return Math.max(a, Math.min(b, v)); }
@@ -39,7 +39,7 @@ function makeResult(state){
     game: 'rhythmboxer',
     phase: 'cooldown',
     activityId: 'rhythmboxer-calm-breathing-rings',
-    title: 'Calm Breathing Rings',
+    title: 'หายใจผ่อนคลาย',
     passed,
     score,
     stars: starsFromScore(score),
@@ -51,8 +51,8 @@ function makeResult(state){
     coach: {
       tone: passed ? 'calm' : 'gentle',
       line: passed
-        ? 'หายใจสม่ำเสมอแล้ว ร่างกายพร้อมพัก'
-        : 'ค่อย ๆ หายใจลึก ๆ ต่ออีกนิด ให้ไหล่และแขนผ่อนลง'
+        ? 'หายใจผ่อนคลายแล้ว เก่งมาก'
+        : 'หายใจช้า ๆ อีกนิด แล้วค่อยกลับไปพัก'
     },
     nextAction: 'hub'
   };
@@ -68,7 +68,7 @@ export function mount(root, ctx = {}){
       <div class="rbg-wrap rbg-wrap-cool">
         <section class="rbg-card">
           <div class="rbg-kicker">EXERCISE ZONE • COOLDOWN</div>
-          <h1 class="rbg-title">🫧 Calm Breathing Rings</h1>
+          <h1 class="rbg-title">🫧 หายใจผ่อนคลาย</h1>
           <p class="rbg-subtitle">โมดูลนี้ใช้สำหรับ phase=cooldown เท่านั้น</p>
         </section>
       </div>
@@ -92,16 +92,16 @@ export function mount(root, ctx = {}){
     <div class="rbg-wrap rbg-wrap-cool">
       <section class="rbg-card">
         <div class="rbg-kicker">EXERCISE ZONE • COOLDOWN</div>
-        <h1 class="rbg-title">🫧 Calm Breathing Rings</h1>
-        <p class="rbg-subtitle">ปรับลมหายใจให้ช้าลงหลังจบเกม Rhythm Boxer</p>
+        <h1 class="rbg-title">🫧 หายใจผ่อนคลาย</h1>
+        <p class="rbg-subtitle">หายใจลึก ๆ และผ่อนคลายหลังจบเกม Rhythm Boxer</p>
 
         <div class="rbg-grid">
           <div class="rbg-panel">
-            <h2 class="rbg-h2">วิธีทำ</h2>
+            <h2 class="rbg-h2">วิธีเล่น</h2>
             <ol class="rbg-list">
-              <li>กดปุ่ม “หายใจ 1 รอบ” ตามจังหวะช้า ๆ</li>
-              <li>ทำให้ครบอย่างน้อย 5 รอบ</li>
-              <li>อยู่ในโหมดผ่อนคลายต่อเพื่อเก็บ relax ticks</li>
+              <li>กดปุ่มหายใจทีละ 1 ครั้ง</li>
+              <li>ทำให้ครบอย่างน้อย 5 ครั้ง</li>
+              <li>หายใจช้า ๆ ต่ออีกนิด</li>
             </ol>
           </div>
 
@@ -110,22 +110,22 @@ export function mount(root, ctx = {}){
             <div class="rbg-cue rbg-cue-cool" id="rbg-cue">หายใจเข้า... หายใจออก...</div>
             <div class="rbg-timer" id="rbg-timer">${GAME_SEC}s</div>
             <div class="rbg-stats" id="rbg-stats">
-              <span>รอบหายใจ 0</span>
-              <span>relax 0</span>
+              <span>หายใจ 0</span>
+              <span>ผ่อนคลาย 0</span>
             </div>
 
             <div class="rbg-actions rbg-actions-single">
               <button class="rbg-btn-action rbg-btn-breath" type="button" id="rbg-breath" disabled>
                 <span class="rbg-emoji">💨</span>
-                <span>หายใจ 1 รอบ</span>
+                <span>หายใจ 1 ครั้ง</span>
               </button>
             </div>
           </div>
         </div>
 
         <div class="rbg-footer">
-          <button class="rbg-btn rbg-btn-primary" id="rbg-start">เริ่มคูลดาวน์</button>
-          <button class="rbg-btn rbg-btn-ghost" id="rbg-finish" disabled>สรุปผล</button>
+          <button class="rbg-btn rbg-btn-primary" id="rbg-start">เริ่มผ่อนคลาย</button>
+          <button class="rbg-btn rbg-btn-ghost" id="rbg-finish" disabled>ดูผล</button>
         </div>
       </section>
     </div>
@@ -140,8 +140,8 @@ export function mount(root, ctx = {}){
 
   function renderStats(){
     statsEl.innerHTML = `
-      <span>รอบหายใจ ${state.breathCycles}</span>
-      <span>relax ${state.relaxTicks}</span>
+      <span>หายใจ ${state.breathCycles}</span>
+      <span>ผ่อนคลาย ${state.relaxTicks}</span>
     `;
   }
 
@@ -153,7 +153,7 @@ export function mount(root, ctx = {}){
     breathBtn.disabled = true;
     startBtn.disabled = true;
     finishBtn.disabled = false;
-    cueEl.textContent = 'เสร็จแล้ว กดสรุปผล';
+    cueEl.textContent = 'เสร็จแล้ว กดดูผล';
     renderStats();
   }
 
