@@ -1,166 +1,140 @@
-// === /webxr-health-mobile/herohealth/gate/gate-common.js ===
-// PATCH v20260313-PHASE-FIX
+// === /herohealth/gate/gate-common.js ===
+// HeroHealth Gate Common
+// FULL PATCH v20260314a-GATE-COMMON-DAILY-ONCE-ALLGAMES
 
-export function qs(key, fallback=''){
-  try{
-    const u = new URL(location.href);
-    const v = u.searchParams.get(key);
-    return v == null ? fallback : v;
-  }catch(_){
+import { normalizeGameId } from './gate-games.js?v=20260313c';
+
+function qs(url, key, fallback = '') {
+  try {
+    return url.searchParams.get(key) ?? fallback;
+  } catch {
     return fallback;
   }
 }
 
-export function qbool(key, fallback=false){
-  const v = String(qs(key, fallback ? '1' : '0')).toLowerCase();
-  return ['1','true','yes','y','on'].includes(v);
-}
-
-export function qnum(key, fallback=0){
-  const n = Number(qs(key, fallback));
-  return Number.isFinite(n) ? n : fallback;
-}
-
-export function clamp(v, a, b){
-  v = Number(v) || 0;
-  return Math.max(a, Math.min(b, v));
-}
-
-export function seedFrom(str=''){
-  let h = 2166136261 >>> 0;
-  const s = String(str);
-  for(let i=0;i<s.length;i++){
-    h ^= s.charCodeAt(i);
-    h = Math.imul(h, 16777619);
+function safeUrl(raw, fallback = '') {
+  try {
+    if (!raw) return fallback;
+    return new URL(raw, window.location.href).toString();
+  } catch {
+    return fallback || '';
   }
-  return h >>> 0;
 }
 
-export function mulberry32(seed){
-  let t = seed >>> 0;
-  return function(){
-    t += 0x6D2B79F5;
-    let r = Math.imul(t ^ (t >>> 15), 1 | t);
-    r ^= r + Math.imul(r ^ (r >>> 7), 61 | r);
-    return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-export function todayKey(){
+function hhDayKey() {
   const d = new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth()+1).padStart(2,'0');
-  const dd = String(d.getDate()).padStart(2,'0');
-  return `${y}-${m}-${dd}`;
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-export function safeHub(){
-  const v = qs('hub', './hub.html');
-  try{
-    return new URL(v, location.href).toString();
-  }catch(_){
-    return new URL('./hub.html', location.href).toString();
-  }
+function lsGet(k) {
+  try { return localStorage.getItem(k); } catch { return null; }
 }
 
-export function safeNext(){
-  const v = qs('next', '');
-  if(!v || v === '...') return '';
-  try{
-    return new URL(v, location.href).toString();
-  }catch(err){
-    console.warn('[gate-common] invalid next', v, err);
-    return '';
-  }
+function lsSet(k, v) {
+  try { localStorage.setItem(k, v); } catch {}
 }
 
-export function makeDailyKey(ctx){
-  return [
-    'HHA_GATE_DAILY',
-    ctx.mode,
-    ctx.cat,
-    ctx.game,
-    ctx.pid || 'anon',
-    todayKey()
-  ].join('|');
+function lsRemove(k) {
+  try { localStorage.removeItem(k); } catch {}
 }
 
-export function getDailyDone(ctx){
-  try{
-    return localStorage.getItem(makeDailyKey(ctx)) === '1';
-  }catch(_){
-    return false;
-  }
+export function setText(el, value = '') {
+  if (el) el.textContent = String(value ?? '');
 }
 
-export function setDailyDone(ctx, value=true){
-  try{
-    localStorage.setItem(makeDailyKey(ctx), value ? '1' : '0');
-  }catch(_){}
-}
-
-export function buildCtx(){
-  const rawPhase = qs('Phase', qs('gatePhase', qs('phase', 'warmup'))).toLowerCase();
-  const mode = rawPhase === 'cooldown' ? 'cooldown' : 'warmup';
-
-  const game = qs('game', qs('theme', 'bath')).toLowerCase();
-  const cat = qs('cat', 'hygiene').toLowerCase();
-
-  const seedRaw = qs('seed', '');
-  const seed = seedRaw
-    ? Number(seedRaw) || seedFrom(seedRaw)
-    : seedFrom(`${game}|${mode}|${Date.now()}`);
-
-  return {
-    mode,
-    cat,
-    theme: qs('theme', game),
-    game,
-    pid: qs('pid', 'anon'),
-    run: qs('run', 'play'),
-    diff: qs('diff', 'normal'),
-    time: qnum('time', 20),
-    view: qs('view', 'mobile'),
-    seed,
-    hub: safeHub(),
-    next: safeNext(),
-
-    studyId: qs('studyId', ''),
-    phase: qs('phase', ''),
-    gatePhase: qs('gatePhase', ''),
-    Phase: qs('Phase', ''),
-    conditionGroup: qs('conditionGroup', ''),
-    sessionOrder: qs('sessionOrder', ''),
-    blockLabel: qs('blockLabel', ''),
-    siteCode: qs('siteCode', ''),
-    schoolYear: qs('schoolYear', ''),
-    semester: qs('semester', ''),
-
-    dailyDone: false
-  };
-}
-
-export function setText(elOrSel, value){
-  const el = typeof elOrSel === 'string' ? document.querySelector(elOrSel) : elOrSel;
-  if(el) el.textContent = String(value);
-}
-
-export function pct(a, b){
-  return b > 0 ? Math.round((a / b) * 100) : 0;
-}
-
-export function sanitizeBuffs(buffs={}){
+export function sanitizeBuffs(obj = {}) {
   const out = {};
-  Object.entries(buffs || {}).forEach(([k,v])=>{
-    if(v == null) return;
-    if(typeof v === 'number' && !Number.isFinite(v)) return;
-    out[k] = v;
-  });
+  for (const [k, v] of Object.entries(obj || {})) {
+    if (v == null) continue;
+    if (typeof v === 'number') {
+      out[k] = Number.isFinite(v) ? v : 0;
+    } else if (typeof v === 'string' || typeof v === 'boolean') {
+      out[k] = v;
+    }
+  }
   return out;
 }
 
-export function saveLastSummary(payload){
-  try{
-    localStorage.setItem('HHA_GATE_LAST_SUMMARY', JSON.stringify(payload));
-  }catch(_){}
+export function saveLastSummary(summary = {}) {
+  try {
+    const game = normalizeGameId(String(summary.game || summary.gameKey || '').toLowerCase());
+    const pid = String(summary.pid || 'anon').trim() || 'anon';
+
+    const row = {
+      ...summary,
+      game,
+      pid,
+      ts: Number(summary.ts || Date.now()),
+      iso: new Date(Number(summary.ts || Date.now())).toISOString()
+    };
+
+    lsSet('HHA_LAST_SUMMARY', JSON.stringify(row));
+    if (game) {
+      lsSet(`HHA_LAST_SUMMARY:${game}:${pid}`, JSON.stringify(row));
+    }
+    return row;
+  } catch {
+    return null;
+  }
+}
+
+export function buildCtx(url = new URL(window.location.href)) {
+  const game = normalizeGameId(String(qs(url, 'game', '')).toLowerCase());
+  const theme = normalizeGameId(String(qs(url, 'theme', game)).toLowerCase());
+  const cat = String(qs(url, 'cat', qs(url, 'zone', ''))).toLowerCase() || 'nutrition';
+
+  return {
+    game,
+    theme,
+    cat,
+    zone: String(qs(url, 'zone', cat)).toLowerCase() || cat,
+    pid: String(qs(url, 'pid', 'anon')).trim() || 'anon',
+    run: String(qs(url, 'run', 'play')).toLowerCase(),
+    mode: String(qs(url, 'mode', qs(url, 'phase', 'warmup'))).toLowerCase(),
+    phase: String(qs(url, 'phase', 'warmup')).toLowerCase(),
+    diff: String(qs(url, 'diff', 'easy')).toLowerCase(),
+    view: String(qs(url, 'view', 'mobile')).toLowerCase(),
+    seed: String(qs(url, 'seed', '')),
+    time: Number(qs(url, 'time', 60) || 60),
+    hub: safeUrl(qs(url, 'hub', './hub.html'), './hub.html'),
+    next: safeUrl(qs(url, 'next', ''), ''),
+    runUrl: safeUrl(qs(url, 'runUrl', ''), ''),
+    studyId: String(qs(url, 'studyId', '')),
+    conditionGroup: String(qs(url, 'conditionGroup', ''))
+  };
+}
+
+export function getDailyDone(ctx = {}) {
+  const mode = String(ctx.mode || ctx.phase || 'warmup').toLowerCase() === 'cooldown' ? 'cooldown' : 'warmup';
+  const cat = String(ctx.cat || ctx.zone || 'nutrition').toLowerCase();
+  const game = normalizeGameId(String(ctx.game || ctx.theme || '').toLowerCase());
+  const pid = String(ctx.pid || 'anon').trim() || 'anon';
+  const day = hhDayKey();
+
+  if (!game) return false;
+
+  const key =
+    mode === 'cooldown'
+      ? `HHA_COOLDOWN_DONE:${cat}:${game}:${pid}:${day}`
+      : `HHA_WARMUP_DONE:${cat}:${game}:${pid}:${day}`;
+
+  return lsGet(key) === '1';
+}
+
+export function setDailyDone(ctx = {}, done = true) {
+  const mode = String(ctx.mode || ctx.phase || 'warmup').toLowerCase() === 'cooldown' ? 'cooldown' : 'warmup';
+  const cat = String(ctx.cat || ctx.zone || 'nutrition').toLowerCase();
+  const game = normalizeGameId(String(ctx.game || ctx.theme || '').toLowerCase());
+  const pid = String(ctx.pid || 'anon').trim() || 'anon';
+  const day = hhDayKey();
+
+  if (!game) return;
+
+  const key =
+    mode === 'cooldown'
+      ? `HHA_COOLDOWN_DONE:${cat}:${game}:${pid}:${day}`
+      : `HHA_WARMUP_DONE:${cat}:${game}:${pid}:${day}`;
+
+  if (done) lsSet(key, '1');
+  else lsRemove(key);
 }
