@@ -1,14 +1,6 @@
 // === /herohealth/gate/gate-core.js ===
 // HeroHealth Gate Core
-// FULL PATCH v20260313p-GATE-CORE-COMPAT-STYLEURL-NEXTFIX
-// ✅ supports gate-games.js files schema
-// ✅ supports mod.mount(api) and mod.mount(container, ctx, api)
-// ✅ supports mod.loadStyle()
-// ✅ compat api: setStats / logger.push / toast()
-// ✅ warmup -> next
-// ✅ cooldown -> hub
-// ✅ fixes summary overlay blocking Continue / Back buttons
-// ✅ resolves style url relative to gate-core import.meta.url
+// FULL PATCH v20260313q-GATE-CORE-BUTTON-CLICK-FIX
 
 import {
   buildCtx,
@@ -284,46 +276,53 @@ function createLiveApi(root, ctx) {
   };
 }
 
-function liftActionButtons(root, ctx) {
-  const actions = root.querySelector('#gate-actions');
+function liftActionButtons(root, ctx, goNext) {
   const btnContinue = root.querySelector('#gate-continue');
   const btnBackHub = root.querySelector('#gate-backhub');
-
-  if (actions) {
-    actions.style.position = 'relative';
-    actions.style.zIndex = '9999';
-    actions.style.pointerEvents = 'auto';
-  }
 
   if (btnContinue) {
     btnContinue.hidden = false;
     btnContinue.textContent = ctx.mode === 'cooldown' ? 'กลับ HUB' : 'ไปต่อ';
-    btnContinue.style.position = 'relative';
-    btnContinue.style.zIndex = '10000';
+    btnContinue.disabled = false;
     btnContinue.style.pointerEvents = 'auto';
+    btnContinue.style.touchAction = 'manipulation';
+    btnContinue.style.cursor = 'pointer';
+    btnContinue.style.position = 'relative';
+    btnContinue.style.zIndex = '10001';
+
+    btnContinue.onclick = (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      goNext();
+    };
+
+    btnContinue.addEventListener('touchend', (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      goNext();
+    }, { passive: false });
   }
 
   if (btnBackHub) {
-    btnBackHub.style.position = 'relative';
-    btnBackHub.style.zIndex = '10000';
+    const hubTarget = safeUrl(ctx.hub, './hub.html');
+
     btnBackHub.style.pointerEvents = 'auto';
-  }
-}
+    btnBackHub.style.touchAction = 'manipulation';
+    btnBackHub.style.cursor = 'pointer';
+    btnBackHub.style.position = 'relative';
+    btnBackHub.style.zIndex = '10001';
 
-function disableSummaryOverlayHitbox(root) {
-  const selectors = [
-    '.gate-summary-layer',
-    '.gate-summary-overlay',
-    '.summary-layer',
-    '.summary-overlay'
-  ];
+    btnBackHub.onclick = (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      window.location.href = hubTarget;
+    };
 
-  for (const sel of selectors) {
-    const nodes = root.querySelectorAll(sel);
-    nodes.forEach(node => {
-      node.style.pointerEvents = 'none';
-      node.style.zIndex = '1';
-    });
+    btnBackHub.addEventListener('touchend', (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      window.location.href = hubTarget;
+    }, { passive: false });
   }
 }
 
@@ -537,18 +536,15 @@ export async function bootGate(rootEl) {
         }
 
         requestAnimationFrame(() => {
-          disableSummaryOverlayHitbox(root);
-          liftActionButtons(root, ctx);
+          liftActionButtons(root, ctx, goNext);
         });
 
         setTimeout(() => {
-          disableSummaryOverlayHitbox(root);
-          liftActionButtons(root, ctx);
+          liftActionButtons(root, ctx, goNext);
         }, 50);
 
         setTimeout(() => {
-          disableSummaryOverlayHitbox(root);
-          liftActionButtons(root, ctx);
+          liftActionButtons(root, ctx, goNext);
         }, 180);
 
         showToast(
