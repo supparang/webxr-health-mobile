@@ -1,6 +1,6 @@
 // === /herohealth/gate/gate-games.js ===
 // HeroHealth Gate Game Registry
-// FULL PATCH v20260312f-ALL-ZONES-GATE-GAMES-TH-EXERCISE
+// FULL PATCH v20260312g-ALL-ZONES-GATE-GAMES-TH-EXERCISE-SYNC
 
 export const GATE_GAMES = {
   // =========================
@@ -162,9 +162,9 @@ export const GATE_GAMES = {
     warmupTitle: 'ซ้อมหลบเร็ว',
     cooldownTitle: 'หายใจให้ช้าลง',
     files: {
-      warmup: './games/shadowbreaker/warmup.js?v=20260312e',
-      cooldown: './games/shadowbreaker/cooldown.js?v=20260312e',
-      style: './games/shadowbreaker/style.css?v=20260312b'
+      warmup: './games/shadowbreaker/warmup.js?v=20260312f',
+      cooldown: './games/shadowbreaker/cooldown.js?v=20260312f',
+      style: './games/shadowbreaker/style.css?v=20260312f'
     }
   },
 
@@ -175,9 +175,9 @@ export const GATE_GAMES = {
     warmupTitle: 'ซ้อมต่อยตามจังหวะ',
     cooldownTitle: 'หายใจผ่อนคลาย',
     files: {
-      warmup: './games/rhythmboxer/warmup.js?v=20260312e',
-      cooldown: './games/rhythmboxer/cooldown.js?v=20260312e',
-      style: './games/rhythmboxer/style.css?v=20260312b'
+      warmup: './games/rhythmboxer/warmup.js?v=20260312f',
+      cooldown: './games/rhythmboxer/cooldown.js?v=20260312f',
+      style: './games/rhythmboxer/style.css?v=20260312f'
     }
   },
 
@@ -188,9 +188,9 @@ export const GATE_GAMES = {
     warmupTitle: 'ซ้อมทรงตัว',
     cooldownTitle: 'ผ่อนคลายช้า ๆ',
     files: {
-      warmup: './games/balancehold/warmup.js?v=20260312e',
-      cooldown: './games/balancehold/cooldown.js?v=20260312e',
-      style: './games/balancehold/style.css?v=20260312b'
+      warmup: './games/balancehold/warmup.js?v=20260312f',
+      cooldown: './games/balancehold/cooldown.js?v=20260312f',
+      style: './games/balancehold/style.css?v=20260312f'
     }
   },
 
@@ -201,9 +201,9 @@ export const GATE_GAMES = {
     warmupTitle: 'ปลุกร่างกาย',
     cooldownTitle: 'ทบทวนความรู้สึก',
     files: {
-      warmup: './games/fitnessplanner/warmup.js?v=20260312e',
-      cooldown: './games/fitnessplanner/cooldown.js?v=20260312e',
-      style: './games/fitnessplanner/style.css?v=20260312b'
+      warmup: './games/fitnessplanner/warmup.js?v=20260312f',
+      cooldown: './games/fitnessplanner/cooldown.js?v=20260312f',
+      style: './games/fitnessplanner/style.css?v=20260312f'
     }
   }
 };
