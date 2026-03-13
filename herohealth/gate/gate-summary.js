@@ -1,3 +1,6 @@
+// === /herohealth/gate/gate-summary.js ===
+// FULL PATCH v20260313b-GATE-SUMMARY-CALLBACKS-TOASTOBJ
+
 export function mountSummaryLayer(root){
   const overlay = document.createElement('div');
   overlay.className = 'gate-overlay';
@@ -15,14 +18,16 @@ export function mountSummaryLayer(root){
   root.appendChild(overlay);
 
   return {
-    show({ title='สรุปผล', subtitle='พร้อมไปต่อ', lines=[], onContinue, onBack }){
+    show({ title='สรุปผล', subtitle='พร้อมไปต่อ', lines=[], onContinue, onBack } = {}){
       overlay.classList.add('show');
+
       overlay.querySelector('#gateSummaryTitle').textContent = title;
       overlay.querySelector('#gateSummarySub').textContent = subtitle;
 
       const list = overlay.querySelector('#gateSummaryList');
       list.innerHTML = '';
-      lines.forEach(line=>{
+
+      (Array.isArray(lines) ? lines : []).forEach(line => {
         const item = document.createElement('div');
         item.className = 'gate-summary-line';
         item.textContent = String(line);
@@ -32,9 +37,19 @@ export function mountSummaryLayer(root){
       const cont = overlay.querySelector('#gateSummaryContinueBtn');
       const back = overlay.querySelector('#gateSummaryBackBtn');
 
-      cont.onclick = ()=>{ if(onContinue) onContinue(); };
-      back.onclick = ()=>{ if(onBack) onBack(); };
+      cont.onclick = (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        if (onContinue) onContinue();
+      };
+
+      back.onclick = (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        if (onBack) onBack();
+      };
     },
+
     hide(){
       overlay.classList.remove('show');
     }
@@ -47,10 +62,17 @@ export function mountToast(root=document.body){
   root.appendChild(el);
 
   let timer = null;
-  return function toast(msg=''){
-    el.textContent = String(msg);
-    el.classList.add('show');
-    clearTimeout(timer);
-    timer = setTimeout(()=> el.classList.remove('show'), 1400);
+
+  return {
+    show(msg=''){
+      el.textContent = String(msg);
+      el.classList.add('show');
+      clearTimeout(timer);
+      timer = setTimeout(() => el.classList.remove('show'), 1400);
+    },
+    hide(){
+      clearTimeout(timer);
+      el.classList.remove('show');
+    }
   };
 }
