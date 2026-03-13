@@ -3,7 +3,7 @@ import { mulberry32 } from '../../helpers/rng.js';
 import { mountTargetHitWarmup } from '../../helpers/target-hit-warmup.js';
 
 export function loadStyle(){
-  loadCssOnce('./gate/games/bath/style.css?v=20260308a');
+  loadCssOnce(new URL('./style.css?v=20260308a', import.meta.url).toString());
 }
 
 export async function mount(container, ctx, api){
@@ -76,15 +76,15 @@ export async function mount(container, ctx, api){
       goodItemClass: 'bath-target good',
       badItemClass: 'bath-target bad',
 
-      onGoodToast: ()=> 'เก็บคราบได้แล้ว!',
-      onBadToast: ()=> 'อุ๊ปส์! นั่นเป็นของใช้ในห้องน้ำ',
+      onGoodToast: () => 'เก็บคราบได้แล้ว!',
+      onBadToast: () => 'อุ๊ปส์! นั่นเป็นของใช้ในห้องน้ำ',
       finishTitleSuccess: 'พร้อมอาบน้ำแล้ว!',
       finishTitleTimeout: 'หมดเวลา',
       finishSubtitle: 'สรุปผล Warmup — Bath Clean Hunt',
 
       progressText: ({ state }) => `${state.progress}/${state.goal}`,
 
-      finishLines: ({ state, acc, timeBonus })=>[
+      finishLines: ({ state, acc, timeBonus }) => [
         `เก็บคราบได้ ${state.progress}/${state.goal} จุด`,
         `คะแนน ${state.score}`,
         `พลาด ${state.miss}`,
@@ -92,7 +92,7 @@ export async function mount(container, ctx, api){
         `โบนัสเวลา +${timeBonus} วินาที`
       ],
 
-      buildBuffs: ({ state, acc, timeBonus, scoreBonus, rank })=>({
+      buildBuffs: ({ state, acc, timeBonus, scoreBonus, rank }) => ({
         wType: 'bath_clean_hunt',
         wPct: acc,
         wCleaned: state.progress,
