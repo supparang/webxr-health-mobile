@@ -1,14 +1,13 @@
 <!-- === /herohealth/balance-hold-vr.html ===
 Balance Hold — LAUNCHER (HeroHealth Root)
-PATCH v20260313-BALANCEHOLD-LAUNCHER-FLOW-FINAL
+PATCH v20260313-BALANCEHOLD-LAUNCHER-FLOW-FIX
 ✅ Choose diff/time/view BEFORE entering run
 ✅ Start Flow = warmup -> game -> summary -> cooldown -> hub
 ✅ Open RUN only = direct run page (no warmup)
-✅ Pass-through hub/run/diff/time/seed/pid/view/log/api/ai/studyId/conditionGroup/grade
+✅ Uses gatePhase=warmup / gatePhase=cooldown correctly
+✅ Does NOT overwrite research phase with phase=warmup
 ✅ Uses /herohealth/warmup-gate.html with per-game daily gate
 ✅ Game key = balance / category = exercise
-✅ FIX: do not overwrite gate phase with research/game phase
-✅ FIX: back hub uses current selected values
 -->
 <!doctype html>
 <html lang="th">
@@ -239,7 +238,7 @@ PATCH v20260313-BALANCEHOLD-LAUNCHER-FLOW-FINAL
         <div class="subcard">
           <h2>Start Flow</h2>
           <ul class="list">
-            <li>เข้า <code>/herohealth/warmup-gate.html</code></li>
+            <li>เข้า <code>/herohealth/warmup-gate.html?gatePhase=warmup</code></li>
             <li>ถ้าวันนี้ยังไม่ทำ warmup ของเกมนี้ จะเล่น warmup ก่อน</li>
             <li>จากนั้นเข้า <code>/fitness/balance-hold.html</code></li>
             <li>เมื่อจบเกม จะค้างหน้า Result ก่อน</li>
@@ -260,7 +259,7 @@ PATCH v20260313-BALANCEHOLD-LAUNCHER-FLOW-FINAL
 
       <div class="small">
         RUN page: <code>/fitness/balance-hold.html</code><br/>
-        Warmup gate: <code>/herohealth/warmup-gate.html?cat=exercise&game=balance</code>
+        Warmup gate: <code>/herohealth/warmup-gate.html?gatePhase=warmup&cat=exercise&game=balance</code>
       </div>
     </div>
   </div>
@@ -304,7 +303,7 @@ const P = {
   api: normalizeMaybeEncodedUrl(qs('api','')),
   ai: String(qs('ai','')),
   studyId: String(qs('studyId','')),
-  phase: String(qs('phase','')),
+  phase: String(qs('phase','')), // research/use-case phase only
   conditionGroup: String(qs('conditionGroup','')),
   grade: String(qs('grade',''))
 };
@@ -316,11 +315,13 @@ document.getElementById('cRun').textContent = P.run;
 const elDiff = document.getElementById('diff');
 const elTime = document.getElementById('time');
 const elView = document.getElementById('view');
-const backHub = document.getElementById('backHub');
 
 if (['easy','normal','hard'].includes(P.diff)) elDiff.value = P.diff;
 if (P.time) elTime.value = String(P.time);
 if (['pc','mobile','cvr'].includes(P.view)) elView.value = P.view;
+
+const backHub = document.getElementById('backHub');
+if (P.hub) backHub.href = P.hub;
 
 function buildHubUrl(){
   if (P.hub) return P.hub;
@@ -337,21 +338,15 @@ function buildHubUrl(){
   setParam(u, 'api', P.api);
   setParam(u, 'ai', P.ai);
   setParam(u, 'studyId', P.studyId);
-  setParam(u, 'phase', P.phase);
   setParam(u, 'conditionGroup', P.conditionGroup);
   setParam(u, 'grade', P.grade);
 
+  if (P.phase && P.run === 'research') {
+    setParam(u, 'phase', P.phase);
+  }
+
   return u.toString();
 }
-
-function syncBackHub(){
-  backHub.href = buildHubUrl();
-}
-syncBackHub();
-
-elDiff.addEventListener('change', syncBackHub);
-elTime.addEventListener('change', syncBackHub);
-elView.addEventListener('change', syncBackHub);
 
 function buildRunUrl(autostart){
   const u = new URL('../fitness/balance-hold.html', location.href);
@@ -369,9 +364,12 @@ function buildRunUrl(autostart){
   setParam(u, 'api', P.api);
   setParam(u, 'ai', P.ai);
   setParam(u, 'studyId', P.studyId);
-  setParam(u, 'phase', P.phase);
   setParam(u, 'conditionGroup', P.conditionGroup);
   setParam(u, 'grade', P.grade);
+
+  if (P.phase && P.run === 'research') {
+    setParam(u, 'phase', P.phase);
+  }
 
   setParam(u, 'autostart', autostart ? '1' : '');
   return u.toString();
@@ -406,6 +404,10 @@ function buildWarmupFlowUrl(){
   setParam(u, 'conditionGroup', P.conditionGroup);
   setParam(u, 'grade', P.grade);
 
+  if (P.phase && P.run === 'research') {
+    setParam(u, 'phase', P.phase);
+  }
+
   setParam(u, 'dur', '20');
   setParam(u, 'cdur', '15');
 
@@ -429,7 +431,6 @@ document.getElementById('btnReseed').addEventListener('click', ()=>{
     u.searchParams.set('seed', P.seed);
     history.replaceState(null,'',u.toString());
   }catch(e){}
-  syncBackHub();
 });
 </script>
 </body>
