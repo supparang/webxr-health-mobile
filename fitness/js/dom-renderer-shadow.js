@@ -114,7 +114,125 @@ export class DomRendererShadow {
     };
   }
 
-  _pickSlot(size){
+  _bossVisualProfile(data){
+    const bossId = String(data?.bossId || '');
+    const type = String(data?.type || '');
+
+    if (type !== 'bossface') {
+      return {
+        extraSizeMul: 1,
+        rowBiases: [0.34, 0.38, 0.42],
+        jitterX: 0.14,
+        jitterYTop: 0.08,
+        jitterYBottom: 0.06,
+        extraClass: ''
+      };
+    }
+
+    if (bossId === 'bubble') {
+      return {
+        extraSizeMul: 1.14,
+        rowBiases: [0.28, 0.34, 0.40],
+        jitterX: 0.12,
+        jitterYTop: 0.06,
+        jitterYBottom: 0.05,
+        extraClass: 'sb-bossface-bubble'
+      };
+    }
+
+    if (bossId === 'meteor') {
+      return {
+        extraSizeMul: 1.02,
+        rowBiases: [0.30, 0.36, 0.42],
+        jitterX: 0.18,
+        jitterYTop: 0.08,
+        jitterYBottom: 0.08,
+        extraClass: 'sb-bossface-meteor'
+      };
+    }
+
+    if (bossId === 'hydra') {
+      return {
+        extraSizeMul: 1.08,
+        rowBiases: [0.26, 0.34, 0.40],
+        jitterX: 0.16,
+        jitterYTop: 0.07,
+        jitterYBottom: 0.06,
+        extraClass: 'sb-bossface-hydra'
+      };
+    }
+
+    if (bossId === 'final') {
+      return {
+        extraSizeMul: 1.22,
+        rowBiases: [0.24, 0.30, 0.36],
+        jitterX: 0.10,
+        jitterYTop: 0.05,
+        jitterYBottom: 0.04,
+        extraClass: 'sb-bossface-final'
+      };
+    }
+
+    return {
+      extraSizeMul: 1.08,
+      rowBiases: [0.30, 0.36, 0.42],
+      jitterX: 0.14,
+      jitterYTop: 0.07,
+      jitterYBottom: 0.06,
+      extraClass: ''
+    };
+  }
+
+  _pickSlotFromLane(size, data = {}){
+    const { left, right, top, bottom } = this._safeRectViewport();
+    const visual = this._bossVisualProfile(data);
+
+    const cols = 2;
+    const rows = 3;
+
+    const w = Math.max(1, right - left);
+    const h = Math.max(1, bottom - top);
+    const cellW = w / cols;
+    const cellH = h / rows;
+
+    const lane = (data?.laneHint === 0 || data?.laneHint === 1) ? data.laneHint : null;
+    if (lane == null) return null;
+
+    const candidates = [];
+    for(let r = 0; r < rows; r++){
+      const c = lane;
+      const key = `${r}-${c}`;
+      if(this._occupied.has(key)) continue;
+
+      const cx = left + c * cellW + cellW * 0.5;
+      const rowBias = visual.rowBiases?.[r] ?? 0.38;
+      const cy = top + r * cellH + cellH * rowBias;
+
+      const minX = left + c * cellW + 8;
+      const maxX = left + (c + 1) * cellW - size - 8;
+
+      const minY = top + r * cellH + 8;
+      const maxY = top + (r + 1) * cellH - size - 8;
+
+      const x = clamp(
+        rand(cx - cellW * visual.jitterX, cx + cellW * visual.jitterX),
+        minX,
+        maxX
+      );
+      const y = clamp(
+        rand(cy - cellH * visual.jitterYTop, cy + cellH * visual.jitterYBottom),
+        minY,
+        maxY
+      );
+
+      candidates.push({ key, x, y });
+    }
+
+    if (!candidates.length) return null;
+    return candidates[Math.floor(Math.random() * candidates.length)];
+  }
+
+  _pickSlot(size, data = {}){
     const { left, right, top, bottom } = this._safeRectViewport();
     const w = Math.max(1, right - left);
     const h = Math.max(1, bottom - top);
@@ -125,6 +243,8 @@ export class DomRendererShadow {
     const cellW = w / cols;
     const cellH = h / rows;
 
+    const visual = this._bossVisualProfile(data);
+
     const slots = [];
     for(let r = 0; r < rows; r++){
       for(let c = 0; c < cols; c++){
@@ -132,9 +252,7 @@ export class DomRendererShadow {
         if(this._occupied.has(key)) continue;
 
         const cx = left + c * cellW + cellW * 0.5;
-
-        /* ยกขึ้นชัดเจน */
-        const rowBias = (r === 0) ? 0.34 : (r === 1 ? 0.38 : 0.42);
+        const rowBias = visual.rowBiases?.[r] ?? 0.38;
         const cy = top + r * cellH + cellH * rowBias;
 
         const minX = left + c * cellW + 8;
@@ -144,13 +262,13 @@ export class DomRendererShadow {
         const maxY = top + (r + 1) * cellH - size - 8;
 
         const x = clamp(
-          rand(cx - cellW * 0.14, cx + cellW * 0.14),
+          rand(cx - cellW * visual.jitterX, cx + cellW * visual.jitterX),
           minX,
           maxX
         );
 
         const y = clamp(
-          rand(cy - cellH * 0.08, cy + cellH * 0.06),
+          rand(cy - cellH * visual.jitterYTop, cy + cellH * visual.jitterYBottom),
           minY,
           maxY
         );
@@ -163,7 +281,7 @@ export class DomRendererShadow {
       const keys = Array.from(this._occupied.keys());
       const k = keys[Math.floor(Math.random() * keys.length)];
       this._occupied.delete(k);
-      return this._pickSlot(size);
+      return this._pickSlot(size, data);
     }
 
     return slots[Math.floor(Math.random() * slots.length)];
@@ -174,14 +292,22 @@ export class DomRendererShadow {
 
     const el = document.createElement('div');
     const type = (data.type || 'normal');
-    el.className = 'sb-target sb-target--' + type;
-    el.dataset.id = String(data.id);
+    const visual = this._bossVisualProfile(data);
 
-    const size = clamp(Number(data.sizePx) || 110, 70, 240);
+    el.className = 'sb-target sb-target--' + type;
+    if (visual.extraClass) el.classList.add(visual.extraClass);
+    el.dataset.id = String(data.id);
+    if (data.bossId) el.dataset.bossId = String(data.bossId);
+
+    let size = clamp(Number(data.sizePx) || 110, 70, 240);
+    if (type === 'bossface') {
+      size = clamp(size * visual.extraSizeMul, 82, 190);
+    }
+
     el.style.width = size + 'px';
     el.style.height = size + 'px';
 
-    const slot = this._pickSlot(size);
+    const slot = this._pickSlotFromLane(size, data) || this._pickSlot(size, data);
     el.style.left = Math.round(slot.x) + 'px';
     el.style.top  = Math.round(slot.y) + 'px';
 
@@ -189,7 +315,12 @@ export class DomRendererShadow {
     el.addEventListener('pointerdown', this._onPointer, { passive: true });
 
     this.layer.appendChild(el);
-    this.targets.set(Number(data.id), { el, type, slotKey: slot.key });
+    this.targets.set(Number(data.id), {
+      el,
+      type,
+      slotKey: slot.key,
+      bossId: String(data.bossId || '')
+    });
     this._occupied.set(slot.key, Number(data.id));
   }
 
