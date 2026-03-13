@@ -1,6 +1,6 @@
 // === /herohealth/gate/gate-games.js ===
 // HeroHealth Gate Game Registry
-// FULL PATCH v20260313a-ALL-ZONES-GATE-GAMES-HYDRATION-FLOW-SYNC
+// FULL PATCH v20260313b-ALL-ZONES-GATE-GAMES-HYDRATION-ONCE-PER-DAY
 
 export const GATE_GAMES = {
   // =========================
@@ -209,7 +209,6 @@ export const GATE_GAMES = {
 };
 
 export const GAME_ALIASES = {
-  // exercise / fitness aliases
   'jump-duck': 'jumpduck',
   'jump_duck': 'jumpduck',
   'jump duck': 'jumpduck',
@@ -230,7 +229,6 @@ export const GAME_ALIASES = {
   'fitness_planner': 'fitnessplanner',
   'fitness planner': 'fitnessplanner',
 
-  // hygiene aliases
   'clean-objects': 'cleanobjects',
   'clean_objects': 'cleanobjects',
   'clean objects': 'cleanobjects',
@@ -243,7 +241,6 @@ export const GAME_ALIASES = {
   'mask_cough': 'maskcough',
   'mask cough': 'maskcough',
 
-  // nutrition aliases
   'good-junk': 'goodjunk',
   'good_junk': 'goodjunk',
   'good junk': 'goodjunk',
@@ -301,10 +298,6 @@ export function listGateGamesByCat(cat = '') {
     .map(([key]) => key);
 }
 
-/**
- * ใช้สำหรับ gate-core เวลา query มาบางทีก็มี game/theme/cat ไม่ครบ
- * จะพยายาม resolve ให้ดีที่สุด
- */
 export function getGateGame(rawGame = '', rawTheme = '', rawCat = '') {
   const game = normalizeGameId(rawGame);
   const theme = normalizeGameId(rawTheme);
