@@ -1,6 +1,6 @@
 // === /herohealth/gate/gate-core.js ===
 // HeroHealth Gate Core
-// PATCH v20260313a-ALL-ZONES-GATE-CORE-BACKCOMPAT-API-START-FIX
+// FULL PATCH v20260313i-GATE-CORE-API-PHASE-FIX
 
 import {
   getGameMeta,
@@ -142,16 +142,14 @@ function metricMeta(key) {
     mood:          { label: 'ความรู้สึก',      icon: '😊', tone: 'pink' },
     energy:        { label: 'พลังงาน',         icon: '⚡', tone: 'yellow' },
 
-    score:             { label: 'คะแนน',             icon: '🏅', tone: 'yellow' },
-    accuracy:          { label: 'ความแม่นยำ',        icon: '🎯', tone: 'green' },
-    speed:             { label: 'ความเร็ว',          icon: '⚡', tone: 'violet' },
-    calm:              { label: 'ความนิ่ง',          icon: '🌿', tone: 'cyan' },
-    rank:              { label: 'Rank',              icon: '✨', tone: 'pink' },
-    wPct:              { label: 'โบนัสรวม',          icon: '🪄', tone: 'blue' },
-    wCrit:             { label: 'คริติคอล',          icon: '💥', tone: 'red' },
-    wDmg:              { label: 'พลังโจมตี',         icon: '⚔️', tone: 'amber' },
-    wHeal:             { label: 'พลังฟื้นฟู',        icon: '💚', tone: 'green' },
-    groupMasteryPct:   { label: 'เข้าใจหมวดอาหาร',   icon: '🍽️', tone: 'blue' }
+    score:         { label: 'คะแนน',           icon: '🏅', tone: 'blue' },
+    accuracy:      { label: 'ความแม่นยำ',      icon: '🎯', tone: 'green' },
+    speed:         { label: 'ความเร็ว',        icon: '⚡', tone: 'violet' },
+    calm:          { label: 'ความนิ่ง',        icon: '🌿', tone: 'green' },
+    focus:         { label: 'สมาธิ',           icon: '🧠', tone: 'blue' },
+    junkSafe:      { label: 'หลบของขยะ',      icon: '🛡️', tone: 'amber' },
+    rank:          { label: 'แรงก์',           icon: '✨', tone: 'yellow' },
+    foodJudgementPct: { label: 'แยกอาหาร',    icon: '🥦', tone: 'green' }
   };
   return map[key] || { label: key, icon: '•', tone: 'blue' };
 }
@@ -163,15 +161,6 @@ function metricValue(key, value) {
   if (key === 'leftHoldSec') return `${value} วินาที`;
   if (key === 'rightHoldSec') return `${value} วินาที`;
   if (key === 'centerHoldSec') return `${value} วินาที`;
-
-  if (key === 'accuracy') return `${value}%`;
-  if (key === 'speed') return `${value}%`;
-  if (key === 'calm') return `${value}%`;
-  if (key === 'wPct') return `+${value}%`;
-  if (key === 'wCrit') return `+${value}`;
-  if (key === 'wDmg') return `+${value}`;
-  if (key === 'wHeal') return `+${value}`;
-  if (key === 'groupMasteryPct') return `${value}%`;
 
   if (key === 'mood') {
     const moodMap = { happy: 'สนุก', calm: 'สงบ', tired: 'เหนื่อย' };
@@ -345,6 +334,104 @@ function getDefaultTitle(meta, phase) {
     : (meta?.warmupTitle || `${meta?.label || 'Game'} Warmup`);
 }
 
+function dayKey() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+function markCooldownDone(cat, game, pid) {
+  try {
+    const day = dayKey();
+    const c = String(cat || 'unknown').toLowerCase();
+    const g = String(game || 'unknown').toLowerCase();
+    const p = String(pid || 'anon').trim() || 'anon';
+    localStorage.setItem(`HHA_COOLDOWN_DONE:${c}:${g}:${p}:${day}`, '1');
+    localStorage.setItem(`HHA_COOLDOWN_DONE:${c}:${p}:${day}`, '1');
+  } catch {}
+}
+
+function createGateApi(root, ctx) {
+  let stats = {
+    time: 0,
+    score: 0,
+    miss: 0,
+    acc: '0%'
+  };
+
+  return {
+    logger: {
+      push(eventName, payload = {}) {
+        try {
+          console.log('[gate mini event]', {
+            game: ctx.game,
+            phase: ctx.phase,
+            eventName,
+            payload
+          });
+        } catch {}
+      }
+    },
+
+    setStats(next = {}) {
+      stats = { ...stats, ...(next || {}) };
+      try {
+        window.__HH_GATE_STATS__ = {
+          game: ctx.game,
+          phase: ctx.phase,
+          ...stats
+        };
+      } catch {}
+    },
+
+    getStats() {
+      return { ...stats };
+    },
+
+    finish(payload = {}) {
+      try {
+        if (ctx.phase === 'cooldown') {
+          markCooldownDone(ctx.meta?.cat, ctx.game, ctx.pid);
+        }
+
+        const metrics = payload.metrics || {};
+        const score =
+          payload.score ??
+          payload.buffs?.score ??
+          metrics.score ??
+          stats.score ??
+          0;
+
+        const stars =
+          payload.stars ??
+          (payload.buffs?.rank === 'S' ? 3 :
+           payload.buffs?.rank === 'A' ? 3 :
+           payload.buffs?.rank === 'B' ? 2 :
+           1);
+
+        const result = {
+          passed: payload.ok !== false,
+          title: payload.title || ctx.defaultTitle || 'สรุปผล',
+          score,
+          stars,
+          coach: {
+            line:
+              payload.subtitle ||
+              payload.lines?.[0] ||
+              (ctx.phase === 'cooldown' ? 'พักเสร็จแล้ว' : 'พร้อมแล้ว!')
+          },
+          metrics,
+          raw: payload
+        };
+
+        ctx.onComplete(result);
+      } catch (err) {
+        console.error('[gate api.finish]', err);
+        renderError(root, 'สรุปผลไม่สำเร็จ', String(err?.message || err));
+      }
+    }
+  };
+}
+
 export async function bootGate(root) {
   if (!root) {
     console.error('[gate-core] root not found');
@@ -380,8 +467,6 @@ export async function bootGate(root) {
   }
 
   renderLoading(root, meta, phase);
-
-  let controller = null;
 
   try {
     const modPath = getPhaseFile(game, phase);
@@ -422,8 +507,6 @@ export async function bootGate(root) {
             result
           });
 
-          controller?.destroy?.();
-
           renderBuiltInSummary(root, result, {
             game,
             phase,
@@ -440,54 +523,19 @@ export async function bootGate(root) {
       }
     };
 
-    const api = {
-      logger: {
-        push(event, payload = {}) {
-          try {
-            console.log('[gate log]', event, payload);
-          } catch {}
-        }
-      },
+    const api = createGateApi(root, ctx);
+    const mounted = await mod.mount(root, ctx, api);
 
-      setStats(stats = {}) {
-        try {
-          console.log('[gate stats]', stats);
-        } catch {}
-      },
-
-      finish(result = {}) {
-        const passed = !!(result.ok ?? result.passed ?? true);
-        const linesText = Array.isArray(result.lines)
-          ? result.lines.join(' • ')
-          : '';
-
-        ctx.onComplete({
-          passed,
-          title: result.title || defaultTitle,
-          score: Number(result?.buffs?.score ?? result.score ?? 0),
-          stars: Number(result.stars ?? (passed ? 1 : 0)),
-          coach: {
-            line:
-              result.subtitle ||
-              linesText ||
-              (passed ? 'ทำได้ดีมาก' : 'ลองใหม่อีกครั้ง')
-          },
-          metrics: {
-            ...(result.metrics || {}),
-            ...(result.buffs || {})
-          }
-        });
+    if (mounted && typeof mounted.start === 'function') {
+      try {
+        mounted.start();
+      } catch (err) {
+        console.error('[gate-core start fail]', err);
+        renderError(root, 'เริ่ม mini game ไม่สำเร็จ', String(err?.message || err));
       }
-    };
-
-    controller = await mod.mount(root, ctx, api);
-
-    if (controller && typeof controller.start === 'function') {
-      controller.start();
     }
   } catch (err) {
     console.error('[gate-core] load fail', err);
-    controller?.destroy?.();
     renderError(
       root,
       'โหลด mini game ไม่สำเร็จ',
