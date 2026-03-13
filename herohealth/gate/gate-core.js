@@ -269,7 +269,6 @@ export async function bootGate(app){
     gatePhase, pid, view, run, diff, time, seed, hub, next, zone, cat, gameId
   });
 
-  // ข้ามทันทีถ้าวันนี้ทำ phase นี้แล้ว
   if (isGateDone(gatePhase, cat, gameId, pid)) {
     location.replace(targetUrl);
     return;
@@ -312,7 +311,6 @@ export async function bootGate(app){
 
     const mounted = bootFn(app, ctx);
 
-    // ถ้าเกม mount ไม่สำเร็จและไม่ใส่อะไรลง app เลย ค่อย fallback
     setTimeout(() => {
       const hasChild = !!app.firstElementChild;
       if (!hasChild) {
