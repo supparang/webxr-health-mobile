@@ -1,6 +1,6 @@
 /* === /herohealth/gate/games/jumpduck/cooldown.js ===
  * HeroHealth Gate Game: JumpDuck Cooldown
- * PATCH v20260312d-JUMPDUCK-COOLDOWN-SCOREFIX
+ * PATCH v20260312e-JUMPDUCK-COOLDOWN-TH-CHILD
  */
 
 function clamp(v, a, b){ return Math.max(a, Math.min(b, v)); }
@@ -37,11 +37,8 @@ function starsFromScore(score){
 function computeScore(state){
   const starGoal = 3;
   const holdGoal = 6;
-
   const starPct = clamp(state.starsDone / starGoal, 0, 1);
   const holdPct = clamp(state.holdSeconds / holdGoal, 0, 1);
-
-  // ดาวสำคัญกว่าเวลา
   const weighted = (starPct * 0.60) + (holdPct * 0.40);
   return clamp(Math.round(weighted * 100), 0, 100);
 }
@@ -56,7 +53,7 @@ function makeResult(state){
     game: 'jumpduck',
     phase: 'cooldown',
     activityId: 'jumpduck-leg-stretch-stars',
-    title: 'Leg Stretch Stars',
+    title: 'ยืดขาหลังเล่น',
     passed,
     score,
     stars: starsFromScore(score),
@@ -68,8 +65,8 @@ function makeResult(state){
     coach: {
       tone: passed ? 'calm' : 'gentle',
       line: passed
-        ? 'ยืดขาเรียบร้อยแล้ว ร่างกายพร้อมพัก'
-        : 'ค้างท่ายืดอีกนิด และเก็บดาวให้ครบ จะช่วยให้ขาผ่อนคลายมากขึ้น'
+        ? 'ยืดขาเสร็จแล้ว เก่งมาก'
+        : 'ยืดขาอีกนิด แล้วค่อยกลับไปพัก'
     },
     nextAction: 'hub'
   };
@@ -85,7 +82,7 @@ export function mount(root, ctx = {}){
       <div class="jdg-wrap">
         <section class="jdg-card">
           <div class="jdg-kicker">EXERCISE ZONE • COOLDOWN</div>
-          <h1 class="jdg-title">⭐ Leg Stretch Stars</h1>
+          <h1 class="jdg-title">⭐ ยืดขาหลังเล่น</h1>
           <p class="jdg-subtitle">โมดูลนี้ใช้สำหรับ phase=cooldown เท่านั้น</p>
         </section>
       </div>
@@ -115,16 +112,16 @@ export function mount(root, ctx = {}){
     <div class="jdg-wrap">
       <section class="jdg-card">
         <div class="jdg-kicker">EXERCISE ZONE • COOLDOWN</div>
-        <h1 class="jdg-title">⭐ Leg Stretch Stars</h1>
-        <p class="jdg-subtitle">ยืดขาหลังจบเกม Jump Duck</p>
+        <h1 class="jdg-title">⭐ ยืดขาหลังเล่น</h1>
+        <p class="jdg-subtitle">ยืดขาเบา ๆ หลังจบเกม Jump Duck</p>
 
         <div class="jdg-grid">
           <div class="jdg-panel">
-            <h2 class="jdg-h2">วิธีทำ</h2>
+            <h2 class="jdg-h2">วิธีเล่น</h2>
             <ol class="jdg-list">
-              <li>แตะดาวทีละดวงตามลำดับ</li>
+              <li>แตะดาวทีละดวง</li>
               <li>ค้างท่ายืดเบา ๆ ระหว่างทำ</li>
-              <li>ทำครบ 3 ดวง และค้างรวมอย่างน้อย 6 วินาที</li>
+              <li>ทำครบ 3 ดวง และค้างอย่างน้อย 6 วินาที</li>
             </ol>
           </div>
 
@@ -149,8 +146,8 @@ export function mount(root, ctx = {}){
         </div>
 
         <div class="jdg-footer">
-          <button class="jdg-btn jdg-btn-primary" id="jdg-start">เริ่มคูลดาวน์</button>
-          <button class="jdg-btn jdg-btn-ghost" id="jdg-finish" disabled>สรุปผล</button>
+          <button class="jdg-btn jdg-btn-primary" id="jdg-start">เริ่มผ่อนคลาย</button>
+          <button class="jdg-btn jdg-btn-ghost" id="jdg-finish" disabled>ดูผล</button>
         </div>
       </section>
     </div>
@@ -178,7 +175,7 @@ export function mount(root, ctx = {}){
     actionsEl.querySelectorAll('.jdg-btn-action').forEach(btn => { btn.disabled = true; });
     startBtn.disabled = true;
     finishBtn.disabled = false;
-    cueEl.textContent = 'เสร็จแล้ว กดสรุปผล';
+    cueEl.textContent = 'เสร็จแล้ว กดดูผล';
     renderStats();
   }
 
