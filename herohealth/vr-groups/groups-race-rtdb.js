@@ -1,178 +1,219 @@
 // === /herohealth/vr-groups/groups-race-rtdb.js ===
 // Groups Race RTDB Adapter
-// FULL v20260310-GROUPS-RACE-RTDB-FINAL
+// FULL PATCH v20260313-GROUPS-RACE-RTDB-BO3-r1
+// Requires:
+// - ../firebase-config.js loaded first
+// - Firebase compat SDK already available on window.firebase
+
 (function(){
   'use strict';
 
   function n(v, d=0){
-    v = Number(v);
-    return Number.isFinite(v) ? v : d;
-  }
-
-  function emit(name, detail){
-    try{
-      window.dispatchEvent(new CustomEvent(name, { detail: detail || {} }));
-    }catch(_){}
+    const x = Number(v);
+    return Number.isFinite(x) ? x : d;
   }
 
   function now(){ return Date.now(); }
 
-  function getFirebaseDB(){
-    if(window.firebase && window.firebase.database){
-      return window.firebase.database();
-    }
-    throw new Error('Firebase RTDB not available');
+  function dispatch(name, detail){
+    try{ window.dispatchEvent(new CustomEvent(name, { detail })); }catch(_){}
   }
 
-  function clone(obj){
-    try{ return JSON.parse(JSON.stringify(obj || null)); }
-    catch(_){ return obj || null; }
+  function clone(v){
+    try{ return JSON.parse(JSON.stringify(v)); }catch(_){ return v; }
+  }
+
+  function hasFirebase(){
+    return !!(window.firebase && typeof window.firebase.database === 'function');
+  }
+
+  function db(){
+    if (!hasFirebase()) throw new Error('Firebase compat database not available');
+    return window.firebase.database();
+  }
+
+  function roomPath(roomId){
+    return `groupsRaceRooms/${roomId}`;
+  }
+
+  function playerDefaults(opts){
+    return {
+      playerKey: String(opts.playerKey || ''),
+      role: String(opts.role || 'guest'),
+      pid: String(opts.pid || ''),
+      name: String(opts.name || ''),
+      view: String(opts.view || 'mobile'),
+      diff: String(opts.diff || 'normal'),
+      timeSec: n(opts.timeSec, 80),
+      seed: String(opts.seed || ''),
+      connected: true,
+      ready: false,
+      finished: false,
+      score: 0,
+      combo: 0,
+      comboMax: 0,
+      miss: 0,
+      accuracyPct: 0,
+      timeLeft: n(opts.timeSec, 80),
+      finishAt: 0,
+      joinedAt: now(),
+      lastSeenAt: now()
+    };
   }
 
   class GroupsRaceRTDB {
-    constructor(cfg){
-      cfg = cfg || {};
+    constructor(opts={}){
+      this.roomId = String(opts.roomId || '').trim();
+      this.playerKey = String(opts.playerKey || '').trim();
+      this.role = String(opts.role || 'guest').trim().toLowerCase();
+      this.pid = String(opts.pid || '').trim();
+      this.name = String(opts.name || '').trim();
+      this.diff = String(opts.diff || 'normal').trim().toLowerCase();
+      this.timeSec = n(opts.timeSec, 80);
+      this.seed = String(opts.seed || '').trim() || String(now());
+      this.view = String(opts.view || 'mobile').trim().toLowerCase();
 
-      this.roomId = String(cfg.roomId || '').trim();
-      this.playerKey = String(cfg.playerKey || '').trim();
-      this.role = String(cfg.role || 'guest').toLowerCase();
-      this.pid = String(cfg.pid || '').trim();
-      this.name = String(cfg.name || this.playerKey || 'Player').trim();
-      this.diff = String(cfg.diff || 'normal').toLowerCase();
-      this.timeSec = n(cfg.timeSec, 90);
-      this.seed = String(cfg.seed || Date.now());
-      this.view = String(cfg.view || 'mobile').toLowerCase();
+      if (!this.roomId) throw new Error('roomId required');
+      if (!this.playerKey) throw new Error('playerKey required');
+      if (!hasFirebase()) throw new Error('Firebase not initialized');
 
-      if(!this.roomId) throw new Error('missing roomId');
-      if(!this.playerKey) throw new Error('missing playerKey');
-
-      this.db = getFirebaseDB();
-      this.baseRef = this.db.ref('herohealth/groupsRaceRooms/' + this.roomId);
-      this.roomRef = this.baseRef.child('room');
-      this.playersRef = this.baseRef.child('players');
+      this.db = db();
+      this.roomRef = this.db.ref(roomPath(this.roomId));
+      this.playersRef = this.roomRef.child('players');
       this.meRef = this.playersRef.child(this.playerKey);
 
       this._room = null;
       this._players = {};
-      this._me = null;
-      this._opponent = null;
-
       this._roomCb = null;
       this._playersCb = null;
-      this._presenceTimer = 0;
-      this._settleLock = false;
-      this._lastEndKey = '';
+      this._joined = false;
+      this._disconnectArmed = false;
     }
 
-    // -----------------------------
-    // Public getters
-    // -----------------------------
     getState(){
-      return {
-        room: clone(this._room),
-        players: clone(this._players),
-        me: clone(this._me),
-        opponent: clone(this._opponent)
-      };
+      const room = clone(this._room || {});
+      const players = clone(this._players || {});
+      const me = players[this.playerKey] || null;
+      const opponent = Object.values(players).find(p => String(p?.playerKey||'') !== this.playerKey) || null;
+      return { room, players, me, opponent };
     }
 
     getLeadStatus(){
-      const me = this._me || null;
-      const op = this._opponent || null;
-      if(!me || !op) return 'WAIT';
+      const st = this.getState();
+      const me = st.me;
+      const op = st.opponent;
+      if (!me || !op) return 'WAIT';
 
-      const myScore = n(me.score, 0);
-      const opScore = n(op.score, 0);
-      const diff = myScore - opScore;
-
-      if(Math.abs(diff) <= 8) return 'CLOSE';
-      return diff > 0 ? 'LEAD' : 'BEHIND';
+      const ds = n(me.score,0) - n(op.score,0);
+      if (Math.abs(ds) <= 8) return 'CLOSE';
+      return ds > 0 ? 'LEAD' : 'BEHIND';
     }
 
-    // -----------------------------
-    // Subscribe / Presence
-    // -----------------------------
     async subscribe(){
-      await this.ensureRoomSkeleton();
-      await this.reconnectPresence();
+      await this.ensureRoom();
+      await this.joinRoom();
+      this.attachListeners();
+      return true;
+    }
+
+    async ensureRoom(){
+      const snap = await this.roomRef.get();
+      const room = snap.val();
+
+      if (room) return room;
+
+      if (this.role !== 'host'){
+        return null;
+      }
+
+      const init = {
+        roomId: this.roomId,
+        status: 'lobby',
+        diff: this.diff,
+        timeSec: this.timeSec,
+        seed: this.seed,
+        createdAt: now(),
+        updatedAt: now(),
+        roundNo: 1,
+        rematchNo: 0,
+        hostWins: 0,
+        guestWins: 0,
+        hostKey: this.playerKey,
+        guestKey: '',
+        startAt: 0,
+        seriesFinished: false,
+        seriesWinnerKey: '',
+        decision: null
+      };
+
+      await this.roomRef.set(init);
+      return init;
+    }
+
+    async joinRoom(){
+      const roomSnap = await this.roomRef.get();
+      const room = roomSnap.val() || {};
+
+      const updates = {};
+      if (!room.hostKey){
+        updates.hostKey = this.role === 'host' ? this.playerKey : '';
+      }
+      if (!room.guestKey && this.role !== 'host'){
+        updates.guestKey = this.playerKey;
+      }
+
+      if (Object.keys(updates).length){
+        updates.updatedAt = now();
+        await this.roomRef.update(updates);
+      }
+
+      const me = playerDefaults(this);
+      await this.meRef.update(me);
+
+      if (!this._disconnectArmed){
+        this._disconnectArmed = true;
+        try{
+          this.meRef.onDisconnect().update({
+            connected: false,
+            ready: false,
+            lastSeenAt: now()
+          });
+        }catch(_){}
+      }
+
+      this._joined = true;
+    }
+
+    attachListeners(){
+      if (this._roomCb || this._playersCb) return;
 
       this._roomCb = snap => {
         this._room = snap.val() || {};
-        emit('groups:race_room', { room: this._room });
-        this._refreshDerived();
-        this._maybeEmitEnd();
+        dispatch('groups:race_room', { room: clone(this._room) });
       };
 
       this._playersCb = snap => {
         this._players = snap.val() || {};
-        this._refreshDerived();
-        emit('groups:race_players', {
-          room: this._room || {},
-          me: this._me,
-          opponent: this._opponent,
-          players: this._players
+        dispatch('groups:race_players', {
+          room: clone(this._room || {}),
+          players: clone(this._players)
         });
-        this._maybeAutoSettle();
       };
 
       this.roomRef.on('value', this._roomCb);
       this.playersRef.on('value', this._playersCb);
-
-      this._presenceTimer = setInterval(()=>{
-        this.meRef.child('lastSeenAt').set(now()).catch(()=>{});
-      }, 5000);
     }
 
     async reconnectPresence(){
-      const connectedRef = this.db.ref('.info/connected');
-      connectedRef.on('value', snap=>{
-        if(snap.val() === true){
-          try{
-            this.meRef.onDisconnect().update({
-              connected: false,
-              ready: false,
-              lastSeenAt: now()
-            });
-          }catch(_){}
-          this.meRef.update({
-            connected: true,
-            lastSeenAt: now()
-          }).catch(()=>{});
-        }
-      });
-
+      if (!this._joined) await this.joinRoom();
       await this.meRef.update({
-        playerKey: this.playerKey,
-        pid: this.pid,
-        name: this.name,
-        role: this.role,
-        view: this.view,
         connected: true,
-        ready: false,
-        score: 0,
-        combo: 0,
-        comboMax: 0,
-        miss: 0,
-        accuracyPct: 0,
-        timeLeft: this.timeSec,
-        finished: false,
-        finishAt: 0,
-        summary: null,
         lastSeenAt: now()
       });
+      return true;
     }
 
     async leaveRoomSoft(){
-      try{
-        clearInterval(this._presenceTimer);
-        this._presenceTimer = 0;
-      }catch(_){}
-
-      try{
-        if(this._roomCb) this.roomRef.off('value', this._roomCb);
-        if(this._playersCb) this.playersRef.off('value', this._playersCb);
-      }catch(_){}
-
       try{
         await this.meRef.update({
           connected: false,
@@ -182,332 +223,211 @@
       }catch(_){}
     }
 
-    // -----------------------------
-    // Room setup
-    // -----------------------------
-    async ensureRoomSkeleton(){
-      const roomSnap = await this.roomRef.once('value');
-      const room = roomSnap.val();
-
-      if(room) return;
-
-      const baseRoom = {
-        roomId: this.roomId,
-        status: 'lobby',           // lobby | countdown | playing | ended
-        hostKey: this.role === 'host' ? this.playerKey : '',
-        guestKey: this.role === 'guest' ? this.playerKey : '',
-        diff: this.diff,
-        timeSec: this.timeSec,
-        seed: this.seed,
-        roundNo: 1,
-        rematchNo: 0,
-        hostWins: 0,
-        guestWins: 0,
-        startAt: 0,
-        countdownMs: 3000,
-        endedAt: 0,
-        decision: null,
-        seriesFinished: false,
-        seriesWinnerKey: '',
-        createdAt: now(),
-        updatedAt: now()
-      };
-
-      await this.roomRef.set(baseRoom);
-    }
-
-    async _bindRoleKeysIfNeeded(){
-      const snap = await this.roomRef.once('value');
-      const room = snap.val() || {};
-
-      const patch = {};
-      if(this.role === 'host' && !room.hostKey) patch.hostKey = this.playerKey;
-      if(this.role === 'guest' && !room.guestKey) patch.guestKey = this.playerKey;
-
-      if(Object.keys(patch).length){
-        patch.updatedAt = now();
-        await this.roomRef.update(patch);
-      }
-    }
-
-    // -----------------------------
-    // Player actions
-    // -----------------------------
-    async setReady(on){
-      await this._bindRoleKeysIfNeeded();
+    async setReady(flag){
       await this.meRef.update({
-        ready: !!on,
+        ready: !!flag,
         connected: true,
         lastSeenAt: now()
       });
+      return true;
     }
 
-    async resetMyRoundState(){
+    async publishScore(partial={}){
       await this.meRef.update({
+        connected: true,
+        lastSeenAt: now(),
+        score: n(partial.score, 0),
+        combo: n(partial.combo, 0),
+        comboMax: n(partial.comboMax, 0),
+        miss: n(partial.miss, 0),
+        accuracyPct: n(partial.accuracyPct, 0),
+        timeLeft: n(partial.timeLeft, this.timeSec)
+      });
+      return true;
+    }
+
+    async publishFinished(payload={}){
+      await this.meRef.update({
+        connected: true,
         ready: false,
-        connected: true,
-        score: 0,
-        combo: 0,
-        comboMax: 0,
-        miss: 0,
-        accuracyPct: 0,
-        timeLeft: this.timeSec,
-        finished: false,
-        finishAt: 0,
-        summary: null,
-        lastSeenAt: now()
-      });
-    }
-
-    async publishScore(payload){
-      payload = payload || {};
-      await this.meRef.update({
-        score: n(payload.score, 0),
-        combo: n(payload.combo, 0),
-        comboMax: n(payload.comboMax, 0),
-        miss: n(payload.miss, 0),
-        accuracyPct: n(payload.accuracyPct, 0),
-        timeLeft: n(payload.timeLeft, 0),
-        connected: true,
-        lastSeenAt: now()
-      });
-    }
-
-    async publishFinished(payload){
-      payload = payload || {};
-      await this.meRef.update({
-        score: n(payload.score, 0),
-        combo: n(payload.combo, 0),
-        comboMax: n(payload.comboMax, 0),
-        miss: n(payload.miss, 0),
-        accuracyPct: n(payload.accuracyPct, 0),
-        timeLeft: n(payload.timeLeft, 0),
         finished: true,
+        lastSeenAt: now(),
+        score: n(payload.score, 0),
+        combo: n(payload.combo, 0),
+        comboMax: n(payload.comboMax, 0),
+        miss: n(payload.miss, 0),
+        accuracyPct: n(payload.accuracyPct, 0),
+        timeLeft: n(payload.timeLeft, 0),
         finishAt: n(payload.finishAt, now()),
-        summary: payload.summary || null,
-        connected: true,
-        lastSeenAt: now()
+        summary: payload.summary || null
       });
-      await this._maybeAutoSettle();
+
+      await this.maybeDecideWinner();
+      return true;
     }
 
-    async maybeStartCountdown(countdownMs){
-      countdownMs = n(countdownMs, 3000);
-      await this._bindRoleKeysIfNeeded();
-
-      if(this.role !== 'host') return false;
-
-      const roomSnap = await this.roomRef.once('value');
+    async maybeStartCountdown(ms=3000){
+      const roomSnap = await this.roomRef.get();
       const room = roomSnap.val() || {};
-      if(room.status !== 'lobby') return false;
-      if(room.seriesFinished) return false;
-
-      const playersSnap = await this.playersRef.once('value');
+      const playersSnap = await this.playersRef.get();
       const players = playersSnap.val() || {};
-      const host = room.hostKey ? players[room.hostKey] : null;
-      const guest = room.guestKey ? players[room.guestKey] : null;
+      const me = players[this.playerKey] || null;
+      const opponent = Object.values(players).find(p => String(p?.playerKey||'') !== this.playerKey) || null;
 
-      if(!host || !guest) return false;
-      if(!host.ready || !guest.ready) return false;
-
-      const startAt = now() + countdownMs;
+      if (this.role !== 'host') return false;
+      if (String(room.status || 'lobby') !== 'lobby') return false;
+      if (!me || !me.ready) return false;
+      if (!opponent || !opponent.ready) return false;
 
       await this.roomRef.update({
         status: 'countdown',
-        countdownMs,
-        startAt,
-        endedAt: 0,
+        startAt: now() + Math.max(1000, n(ms, 3000)),
+        updatedAt: now(),
         decision: null,
-        updatedAt: now()
+        seriesFinished: !!room.seriesFinished,
+        seriesWinnerKey: room.seriesWinnerKey || ''
       });
-
       return true;
     }
 
     async setPlayingIfCountdownReached(){
-      const roomSnap = await this.roomRef.once('value');
+      const roomSnap = await this.roomRef.get();
       const room = roomSnap.val() || {};
-      if(room.status !== 'countdown') return false;
-      if(n(room.startAt, 0) > now()) return false;
-
-      if(this.role !== 'host') return false;
-
-      const playersSnap = await this.playersRef.once('value');
-      const players = playersSnap.val() || {};
-      const updates = {};
-      Object.keys(players).forEach(k=>{
-        updates[k + '/ready'] = false;
-        updates[k + '/score'] = 0;
-        updates[k + '/combo'] = 0;
-        updates[k + '/comboMax'] = 0;
-        updates[k + '/miss'] = 0;
-        updates[k + '/accuracyPct'] = 0;
-        updates[k + '/timeLeft'] = n(room.timeSec, this.timeSec);
-        updates[k + '/finished'] = false;
-        updates[k + '/finishAt'] = 0;
-        updates[k + '/summary'] = null;
-        updates[k + '/connected'] = true;
-        updates[k + '/lastSeenAt'] = now();
-      });
-      if(Object.keys(updates).length){
-        await this.playersRef.update(updates);
-      }
+      if (String(room.status || '') !== 'countdown') return false;
+      if (n(room.startAt, 0) > now()) return false;
 
       await this.roomRef.update({
         status: 'playing',
         updatedAt: now()
       });
 
-      return true;
-    }
-
-    async rematchResetIfHost(){
-      if(this.role !== 'host') return false;
-
-      const roomSnap = await this.roomRef.once('value');
-      const room = roomSnap.val() || {};
-
-      if(room.seriesFinished) return false;
-
-      const nextRoundNo = n(room.roundNo, 1) + 1;
-      const nextRematchNo = n(room.rematchNo, 0) + 1;
-
-      const playersSnap = await this.playersRef.once('value');
+      const playersSnap = await this.playersRef.get();
       const players = playersSnap.val() || {};
       const updates = {};
-
       Object.keys(players).forEach(k=>{
-        updates[k + '/ready'] = false;
-        updates[k + '/score'] = 0;
-        updates[k + '/combo'] = 0;
-        updates[k + '/comboMax'] = 0;
-        updates[k + '/miss'] = 0;
-        updates[k + '/accuracyPct'] = 0;
-        updates[k + '/timeLeft'] = n(room.timeSec, this.timeSec);
-        updates[k + '/finished'] = false;
-        updates[k + '/finishAt'] = 0;
-        updates[k + '/summary'] = null;
-        updates[k + '/connected'] = true;
-        updates[k + '/lastSeenAt'] = now();
+        updates[`${k}/ready`] = false;
+        updates[`${k}/finished`] = false;
+        updates[`${k}/score`] = 0;
+        updates[`${k}/combo`] = 0;
+        updates[`${k}/comboMax`] = 0;
+        updates[`${k}/miss`] = 0;
+        updates[`${k}/accuracyPct`] = 0;
+        updates[`${k}/timeLeft`] = n(room.timeSec, this.timeSec);
+        updates[`${k}/finishAt`] = 0;
+        updates[`${k}/summary`] = null;
+        updates[`${k}/connected`] = true;
+        updates[`${k}/lastSeenAt`] = now();
       });
-      if(Object.keys(updates).length){
+      if (Object.keys(updates).length){
         await this.playersRef.update(updates);
       }
 
+      return true;
+    }
+
+    async maybeDecideWinner(){
+      const roomSnap = await this.roomRef.get();
+      const room = roomSnap.val() || {};
+      if (String(room.status || '') === 'ended') return room.decision || null;
+      if (String(room.status || '') !== 'playing') return null;
+
+      const playersSnap = await this.playersRef.get();
+      const players = playersSnap.val() || {};
+      const arr = Object.values(players);
+
+      if (arr.length < 2) return null;
+
+      const finishedArr = arr.filter(p => !!p?.finished);
+      const disconnectedArr = arr.filter(p => p?.connected === false);
+
+      let decision = null;
+
+      if (finishedArr.length >= 2){
+        decision = window.GroupsRaceScore.buildDecision(room, arr[0], arr[1], 'score');
+      } else if (disconnectedArr.length >= 1 && arr.length >= 2){
+        const quitter = disconnectedArr[0];
+        const other = arr.find(p => String(p?.playerKey||'') !== String(quitter?.playerKey||'')) || null;
+        if (other) {
+          decision = window.GroupsRaceScore.buildDisconnectDecision(room, quitter, other);
+        }
+      }
+
+      if (!decision) return null;
+
+      await this.roomRef.update({
+        status: 'ended',
+        updatedAt: now(),
+        hostWins: n(decision.hostWins, 0),
+        guestWins: n(decision.guestWins, 0),
+        seriesFinished: !!decision.seriesFinished,
+        seriesWinnerKey: String(decision.seriesWinnerKey || ''),
+        decision
+      });
+
+      dispatch('groups:race_end', decision);
+      return decision;
+    }
+
+    async rematchResetIfHost(){
+      if (this.role !== 'host') return false;
+
+      const roomSnap = await this.roomRef.get();
+      const room = roomSnap.val() || {};
+
+      if (room.seriesFinished) return false;
+
+      const nextRound = n(room.roundNo, 1) + 1;
+      const nextRematch = n(room.rematchNo, 0) + 1;
+
       await this.roomRef.update({
         status: 'lobby',
-        roundNo: nextRoundNo,
-        rematchNo: nextRematchNo,
+        updatedAt: now(),
         startAt: 0,
-        endedAt: 0,
-        decision: null,
-        updatedAt: now()
+        roundNo: nextRound,
+        rematchNo: nextRematch,
+        decision: null
       });
+
+      const playersSnap = await this.playersRef.get();
+      const players = playersSnap.val() || {};
+      const updates = {};
+      Object.keys(players).forEach(k=>{
+        updates[`${k}/ready`] = false;
+        updates[`${k}/finished`] = false;
+        updates[`${k}/score`] = 0;
+        updates[`${k}/combo`] = 0;
+        updates[`${k}/comboMax`] = 0;
+        updates[`${k}/miss`] = 0;
+        updates[`${k}/accuracyPct`] = 0;
+        updates[`${k}/timeLeft`] = this.timeSec;
+        updates[`${k}/finishAt`] = 0;
+        updates[`${k}/summary`] = null;
+        updates[`${k}/connected`] = true;
+        updates[`${k}/lastSeenAt`] = now();
+      });
+      if (Object.keys(updates).length){
+        await this.playersRef.update(updates);
+      }
 
       return true;
     }
 
-    // -----------------------------
-    // Internal derived state
-    // -----------------------------
-    _refreshDerived(){
-      const room = this._room || {};
-      const players = this._players || {};
-
-      this._me = players[this.playerKey] || null;
-
-      const keys = Object.keys(players).filter(k => k !== this.playerKey);
-      const opKey = keys[0] || '';
-      this._opponent = opKey ? players[opKey] : null;
-
-      if(room.hostKey && !players[room.hostKey]){}
-      if(room.guestKey && !players[room.guestKey]){}
-    }
-
-    // -----------------------------
-    // Decision / settle
-    // -----------------------------
-    async _maybeAutoSettle(){
-      if(this._settleLock) return;
-      if(this.role !== 'host') return;
-
-      const room = this._room || {};
-      if(room.status !== 'playing') return;
-
-      const players = this._players || {};
-      const host = room.hostKey ? players[room.hostKey] : null;
-      const guest = room.guestKey ? players[room.guestKey] : null;
-
-      if(!host || !guest) return;
-
-      const hostFinished = !!host.finished;
-      const guestFinished = !!guest.finished;
-      const hostDisconnected = host.connected === false;
-      const guestDisconnected = guest.connected === false;
-
-      const shouldSettle =
-        (hostFinished && guestFinished) ||
-        (hostDisconnected && !guestDisconnected) ||
-        (guestDisconnected && !hostDisconnected);
-
-      if(!shouldSettle) return;
-
-      this._settleLock = true;
-      try{
-        await this._settleRound();
-      }finally{
-        this._settleLock = false;
-      }
-    }
-
-    async _settleRound(){
-      const roomSnap = await this.roomRef.once('value');
-      const room = roomSnap.val() || {};
-      if(room.status === 'ended') return;
-
-      const playersSnap = await this.playersRef.once('value');
-      const players = playersSnap.val() || {};
-
-      const host = room.hostKey ? (players[room.hostKey] || null) : null;
-      const guest = room.guestKey ? (players[room.guestKey] || null) : null;
-      if(!host || !guest) return;
-
-      if(!window.GroupsRaceScore || !window.GroupsRaceScore.buildRoundDecision){
-        throw new Error('GroupsRaceScore not loaded');
-      }
-
-      const decision = window.GroupsRaceScore.buildRoundDecision(room, host, guest);
-
-      await this.roomRef.update({
-        status: 'ended',
-        decision,
-        hostWins: n(decision.hostWins, 0),
-        guestWins: n(decision.guestWins, 0),
-        endedAt: now(),
-        seriesFinished: !!decision.seriesFinished,
-        seriesWinnerKey: String(decision.seriesWinnerKey || ''),
-        updatedAt: now()
+    async resetMyRoundState(){
+      await this.meRef.update({
+        ready: false,
+        finished: false,
+        score: 0,
+        combo: 0,
+        comboMax: 0,
+        miss: 0,
+        accuracyPct: 0,
+        timeLeft: this.timeSec,
+        finishAt: 0,
+        summary: null,
+        connected: true,
+        lastSeenAt: now()
       });
-
-      emit('groups:race_end', clone(decision));
-    }
-
-    _maybeEmitEnd(){
-      const room = this._room || {};
-      if(room.status !== 'ended') return;
-      if(!room.decision) return;
-
-      const key = [
-        room.roundNo,
-        room.rematchNo,
-        room.endedAt,
-        room.decision && room.decision.winnerKey
-      ].join('|');
-
-      if(key === this._lastEndKey) return;
-      this._lastEndKey = key;
-
-      emit('groups:race_end', clone(room.decision));
+      return true;
     }
   }
 
