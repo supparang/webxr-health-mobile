@@ -127,9 +127,6 @@ export function boot(cfg){
     lsSet(gateDoneKey(kind, cat, game, who), '1');
   }
 
-  const warmupDoneToday = isGateDone('warmup', catKey, gameKey, pid);
-  const cooldownDoneToday = isGateDone('cooldown', catKey, gameKey, pid);
-
   if ((qs('gateMode','') === 'warmup') || (qs('gateResult','') === '1' && qs('wType',''))) {
     setGateDone('warmup', catKey, gameKey, pid);
   }
@@ -357,7 +354,7 @@ export function boot(cfg){
   DOC.addEventListener('keydown', unlockOnce, true);
 
   function refreshSfxBtn(){
-    if(ui.btnSfx) ui.btnSfx.textContent = SFX.isEnabled() ? '🔊 SFX' : '🔇 SFX';
+    if(ui.btnSfx) ui.btnSfx.textContent = SFX.isEnabled() ? '🔊 เสียง' : '🔇 ปิดเสียง';
   }
   if(ui.btnSfx){
     refreshSfxBtn();
@@ -700,24 +697,24 @@ export function boot(cfg){
     if(ui.grade) ui.grade.textContent = gradeText();
 
     if(ui.phase){
-      let feverTxt = feverOn ? ' • FEVER🔥' : '';
+      let feverTxt = feverOn ? ' • ไฟลุก🔥' : '';
       if(phase === 'storm'){
-        ui.phase.textContent = `${emojiFor(diff,'storm')} STORM ${needZone==='L'?'LEFT':'RIGHT'}${feverTxt}`;
+        ui.phase.textContent = `${emojiFor(diff,'storm')} พายุ ${needZone==='L'?'ซ้าย':'ขวา'}${feverTxt}`;
       }else if(phase === 'boss'){
-        ui.phase.textContent = `${emojiFor(diff,'boss',bossLevel)} BOSS ${bossLevel} ${bossHits}/${bossGoal} ${needZone==='L'?'LEFT':'RIGHT'}${feverTxt}`;
+        ui.phase.textContent = `${emojiFor(diff,'boss',bossLevel)} บอส ${bossLevel} ${bossHits}/${bossGoal} ${needZone==='L'?'ซ้าย':'ขวา'}${feverTxt}`;
       }else if(phase === 'final'){
-        ui.phase.textContent = `${emojiFor(diff,'final')} FINAL ${finalHits}/${finalGoal} ${needZone==='L'?'LEFT':'RIGHT'}${feverTxt}`;
+        ui.phase.textContent = `${emojiFor(diff,'final')} ด่านสุดท้าย ${finalHits}/${finalGoal} ${needZone==='L'?'ซ้าย':'ขวา'}${feverTxt}`;
       }else{
-        ui.phase.textContent = `💧 NORMAL${feverTxt}`;
+        ui.phase.textContent = `💧 ปกติ${feverTxt}`;
       }
     }
 
     if(zoneSign){
       if(phase==='storm' || phase==='boss' || phase==='final'){
         const emo = phase==='boss' ? emojiFor(diff,'boss',bossLevel) : emojiFor(diff,phase);
-        zoneSign.textContent = `${emo} SAFE: ${needZone==='L'?'⬅️LEFT':'➡️RIGHT'} + 🛡️`;
+        zoneSign.textContent = `${emo} ฝั่งปลอดภัย: ${needZone==='L'?'⬅️ซ้าย':'➡️ขวา'} + 🛡️`;
       }else if(feverOn){
-        zoneSign.textContent = `🔥 FEVER TIME! เก็บน้ำให้ไว`;
+        zoneSign.textContent = `🔥 ช่วงไฟลุก! เก็บน้ำให้ไว`;
       }else{
         zoneSign.textContent = '';
       }
@@ -725,10 +722,19 @@ export function boot(cfg){
   }
 
   function setAIHud(risk, hint){
+    const isPlayMode = String(runMode || 'play').toLowerCase() === 'play';
+
     if(ui.aiRisk) ui.aiRisk.textContent = String((+risk).toFixed(2));
     if(ui.aiHint) ui.aiHint.textContent = String(hint || '—');
     if(ui.riskFill) ui.riskFill.style.width = `${Math.round(clamp(risk,0,1)*100)}%`;
-    if(ui.coachExplain) ui.coachExplain.textContent = explainRisk(risk);
+
+    if(ui.coachExplain){
+      if(isPlayMode){
+        ui.coachExplain.textContent = String(hint || 'เก็บน้ำและหลีกเลี่ยงของไม่ดี');
+      }else{
+        ui.coachExplain.textContent = explainRisk(risk);
+      }
+    }
   }
 
   function predictRiskFromFeatures(features){
@@ -1069,10 +1075,10 @@ export function boot(cfg){
     return 'เล่นรอบปกติสำเร็จ';
   }
   function childSummaryText(summary){
-    if(summary.reason === 'final-clear') return 'เก่งมาก! ชนะด่านสุดท้ายได้แล้ว 🏆';
-    if(summary.waterPct <= 15) return 'คราวหน้าลองเก็บน้ำให้เร็วขึ้นนะ 💧';
+    if(summary.reason === 'final-clear') return 'เก่งมาก! ผ่านด่านสุดท้ายได้แล้ว 🏆';
+    if(summary.waterPct <= 15) return 'คราวหน้าลองเก็บน้ำให้เร็วขึ้นอีกนิดนะ 💧';
     if(summary.missBadHit >= Math.max(3, Math.floor(BASE_TUNE.missLimit * 0.5))) return 'ระวังของไม่ดีเพิ่มอีกนิดนะ 🚫';
-    if((summary.phaseStats?.storm?.lightningHit || 0) + (summary.phaseStats?.boss1?.lightningHit || 0) + (summary.phaseStats?.boss2?.lightningHit || 0) + (summary.phaseStats?.boss3?.lightningHit || 0) + (summary.phaseStats?.final?.lightningHit || 0) >= 2) return 'ลองดูฝั่งซ้าย-ขวาและหาโล่ให้ไวขึ้น ⚡';
+    if((summary.phaseStats?.storm?.lightningHit || 0) + (summary.phaseStats?.boss1?.lightningHit || 0) + (summary.phaseStats?.boss2?.lightningHit || 0) + (summary.phaseStats?.boss3?.lightningHit || 0) + (summary.phaseStats?.final?.lightningHit || 0) >= 2) return 'ลองดูฝั่งซ้าย-ขวาและหาโล่ให้ไวขึ้นนะ ⚡';
     return 'ทำได้ดีมาก ลองเล่นอีกครั้งเพื่อทำคะแนนให้สูงขึ้น ✨';
   }
 
@@ -1169,6 +1175,73 @@ export function boot(cfg){
     };
   }
 
+  function refreshEndScreenLayout(summary){
+    const isPlayMode = String(runMode || 'play').toLowerCase() === 'play';
+    const debugOn = ['1','true','yes','on'].includes(String(qs('debug','0')).toLowerCase());
+    const needCooldown = !!cooldownRequired && !isGateDone('cooldown', catKey, gameKey, pid);
+
+    if(ui.btnReplay) ui.btnReplay.textContent = 'เล่นอีกครั้ง';
+    if(ui.btnBackHub) ui.btnBackHub.textContent = 'กลับหน้าหลัก';
+    if(ui.btnNextCooldown) ui.btnNextCooldown.textContent = 'ไปผ่อนคลายหลังเล่น';
+
+    const debugButtons = [
+      ui.btnCopyEvents,
+      ui.btnCopyTimeline,
+      ui.btnCopyFeatures,
+      ui.btnCopyLabels,
+      ui.btnCopyFeaturesCsv,
+      ui.btnCopyLabelsCsv,
+      ui.btnSendCloud
+    ];
+
+    debugButtons.forEach(btn=>{
+      if(!btn) return;
+      btn.classList.toggle('is-hidden', isPlayMode);
+    });
+
+    if(ui.btnCopy){
+      ui.btnCopy.classList.toggle('is-hidden', isPlayMode && !debugOn);
+    }
+
+    if(ui.btnNextCooldown){
+      ui.btnNextCooldown.classList.toggle('is-hidden', !needCooldown);
+    }
+
+    if(ui.endReward && !String(ui.endReward.textContent || '').trim()){
+      ui.endReward.textContent = '✨ เล่นจบแล้ว เก่งมาก';
+    }
+    if(ui.endBadge && !String(ui.endBadge.textContent || '').trim()){
+      ui.endBadge.textContent = '💧 Water Hero';
+    }
+  }
+
+  function reorderEndActions(){
+    try{
+      const actions = DOC.querySelector('#end .actions');
+      if(!actions) return;
+
+      const wanted = [
+        'btnNextCooldown',
+        'btnReplay',
+        'btnBackHub',
+        'btnEmergencyContinue',
+        'btnCopy',
+        'btnCopyEvents',
+        'btnCopyTimeline',
+        'btnCopyFeatures',
+        'btnCopyLabels',
+        'btnCopyFeaturesCsv',
+        'btnCopyLabelsCsv',
+        'btnSendCloud'
+      ];
+
+      wanted.forEach(id=>{
+        const el = DOC.getElementById(id);
+        if(el) actions.appendChild(el);
+      });
+    }catch(e){}
+  }
+
   function setEndButtons(summary){
     const done = isGateDone('cooldown', catKey, gameKey, pid) || cooldownDone(catKey, gameKey, pid);
     const needCooldown = !!cooldownRequired && !done;
@@ -1176,6 +1249,7 @@ export function boot(cfg){
     if(ui.btnNextCooldown){
       ui.btnNextCooldown.classList.toggle('is-hidden', !needCooldown);
       ui.btnNextCooldown.onclick = null;
+
       if(needCooldown){
         const safeCooldownUrl = buildCooldownUrl({
           hub: hubUrl || '../hub.html',
@@ -1184,6 +1258,7 @@ export function boot(cfg){
           gameKey,
           who: pid
         });
+
         ui.btnNextCooldown.onclick = ()=>{
           setVrUiVisibility(false);
           location.href = safeCooldownUrl;
@@ -1192,12 +1267,13 @@ export function boot(cfg){
     }
 
     if(ui.btnBackHub){
-      ui.btnBackHub.textContent = !needCooldown ? 'กลับหน้าหลัก' : 'กลับ HUB';
+      ui.btnBackHub.textContent = 'กลับหน้าหลัก';
       ui.btnBackHub.onclick = ()=>{
         setVrUiVisibility(false);
         location.href = hubUrl || '../hub.html';
       };
     }
+
     if(ui.btnReplay){
       ui.btnReplay.textContent = 'เล่นอีกครั้ง';
       ui.btnReplay.onclick = ()=>{
@@ -1207,11 +1283,10 @@ export function boot(cfg){
             u.searchParams.set('seed', String((Date.now() ^ (Math.random()*1e9))|0));
           }
           location.href = u.toString();
-        }catch(e){ location.reload(); }
+        }catch(e){
+          location.reload();
+        }
       };
-    }
-    if(needCooldown && ui.btnNextCooldown){
-      ui.btnNextCooldown.textContent = 'ไปผ่อนคลายหลังเล่น';
     }
 
     if(ui.btnCopy) ui.btnCopy.onclick = async ()=> copyText(safeJson(summary), 'Copy Summary JSON');
@@ -1225,22 +1300,30 @@ export function boot(cfg){
         await copyText(rowsToCsv(featureRows), 'Copy Features CSV');
       };
     }
+
     if(ui.btnCopyLabelsCsv){
       ui.btnCopyLabelsCsv.onclick = async ()=>{
         await copyText(rowsToCsv(labelRows), 'Copy Labels CSV');
       };
     }
+
     if(ui.btnSendCloud){
       ui.btnSendCloud.onclick = async ()=>{
         try{
           const payload = buildCloudEnvelope(summary?.reason || 'end');
           const out = await postToHHACloud(payload);
-          try{ alert(`Cloud log sent${out?.ok===false ? ' (server returned not ok)' : ''}`); }catch(e){}
+          try{
+            alert(`Cloud log sent${out?.ok===false ? ' (server returned not ok)' : ''}`);
+          }catch(e){}
         }catch(err){
-          try{ alert(`Send cloud failed: ${err.message || err}`); }catch(e){}
+          try{
+            alert(`Send cloud failed: ${err.message || err}`);
+          }catch(e){}
         }
       };
     }
+
+    refreshEndScreenLayout(summary);
   }
 
   function showEnd(reason){
@@ -1273,12 +1356,19 @@ export function boot(cfg){
 
     if(ui.end){
       ui.end.setAttribute('aria-hidden','false');
-      ui.endTitle.textContent = (reason === 'final-clear') ? 'FINAL CLEAR!' : 'เล่นจบรอบแล้ว';
-      ui.endSub.textContent = `mode=${runMode} • view=${view} • seed=${seedStr}`;
+      ui.endTitle.textContent = (reason === 'final-clear') ? 'ผ่านด่านสุดท้ายแล้ว!' : 'เล่นจบรอบแล้ว';
+
+      if(String(runMode || 'play').toLowerCase() === 'play'){
+        ui.endSub.textContent = `มุมมอง ${view} • ระดับ ${diff}`;
+      }else{
+        ui.endSub.textContent = `mode=${runMode} • view=${view} • seed=${seedStr}`;
+      }
+
       ui.endGrade.textContent = summary.grade || '—';
       ui.endScore.textContent = String(summary.scoreFinal|0);
       ui.endMiss.textContent = String(summary.missBadHit|0);
       ui.endWater.textContent = `${summary.waterPct}%`;
+
       if(ui.endCoach) ui.endCoach.textContent = childSummaryText(summary);
 
       const cooldownDoneNow = isGateDone('cooldown', catKey, gameKey, pid);
@@ -1286,37 +1376,48 @@ export function boot(cfg){
         const extra = ` • ${childCooldownText(cooldownDoneNow)}`;
         ui.endPhaseSummary.textContent = `${phaseSummaryText()}${extra}`;
       }
-      if(ui.endReward) ui.endReward.textContent = summary.reason === 'final-clear' ? '🏆 ด่านสุดท้ายสำเร็จ' : `✨ ภารกิจสำเร็จ ${summary.missionsDone || 0} อย่าง`;
-      if(ui.endBadge) ui.endBadge.textContent = summary.reason === 'final-clear' ? '👑 Final Winner' : (summary.grade === 'S' ? '⭐ Water Master' : '💧 Water Hero');
+
+      if(ui.endReward){
+        ui.endReward.textContent = summary.reason === 'final-clear'
+          ? '🏆 ผ่านด่านสุดท้ายสำเร็จ'
+          : `✨ ทำภารกิจสำเร็จ ${summary.missionsDone || 0} อย่าง`;
+      }
+
+      if(ui.endBadge){
+        ui.endBadge.textContent = summary.reason === 'final-clear'
+          ? '👑 ผู้ชนะด่านสุดท้าย'
+          : (summary.grade === 'S' ? '⭐ เจ้าน้ำตัวจริง' : '💧 ฮีโร่น้ำ');
+      }
 
       setEndButtons(summary);
+      reorderEndActions();
     }
 
     try{
-      if(!DOC.getElementById('btnEmergencyContinue')){
+      const oldEmergency = DOC.getElementById('btnEmergencyContinue');
+      if(oldEmergency) oldEmergency.remove();
+
+      const needCooldownNow = cooldownRequired && !isGateDone('cooldown', catKey, gameKey, pid);
+
+      if(needCooldownNow){
         const emergency = DOC.createElement('button');
         emergency.id = 'btnEmergencyContinue';
         emergency.className = 'btn primary';
-
-        const needCooldownNow = cooldownRequired && !isGateDone('cooldown', catKey, gameKey, pid);
-        emergency.textContent = needCooldownNow ? 'ไปผ่อนคลายหลังเล่น' : 'กลับหน้าหลัก';
+        emergency.textContent = 'ไปผ่อนคลายหลังเล่น';
 
         emergency.onclick = ()=>{
           setVrUiVisibility(false);
-          if(needCooldownNow){
-            location.href = buildCooldownUrl({
-              hub: hubUrl || '../hub.html',
-              nextAfterCooldown: hubUrl || '../hub.html',
-              cat: catKey,
-              gameKey,
-              who: pid
-            });
-          }else{
-            location.href = hubUrl || '../hub.html';
-          }
+          location.href = buildCooldownUrl({
+            hub: hubUrl || '../hub.html',
+            nextAfterCooldown: hubUrl || '../hub.html',
+            cat: catKey,
+            gameKey,
+            who: pid
+          });
         };
 
         DOC.querySelector('#end .actions')?.appendChild(emergency);
+        reorderEndActions();
       }
     }catch(e){}
   }
@@ -1488,14 +1589,14 @@ export function boot(cfg){
     const features = buildFeatureRow(risk);
     const predictedRisk = predictRiskFromFeatures(features);
 
-    let hint = 'เก็บน้ำ 💧 + หาโล่ 🛡️';
-    if(phase === 'storm') hint = `${emojiFor(diff,'storm')} ฟ้าผ่า! อยู่ ${needZone==='L'?'ซ้าย':'ขวา'} + มีโล่`;
-    else if(phase === 'boss') hint = `${emojiFor(diff,'boss',bossLevel)} บอส ${bossLevel}! ${bossHits}/${bossGoal} | อยู่ ${needZone==='L'?'ซ้าย':'ขวา'} + โล่`;
-    else if(phase === 'final') hint = `${emojiFor(diff,'final')} FINAL! ${finalHits}/${finalGoal} | อยู่ ${needZone==='L'?'ซ้าย':'ขวา'} + โล่`;
-    else if(feverOn) hint = '🔥 FEVER! เก็บน้ำให้ไว';
-    else if(waterPct < 35) hint = 'น้ำต่ำ! รีบเก็บ 💧';
-    else if(shield === 0) hint = 'หาโล่ 🛡️ ไว้กันฟ้าผ่า';
-    else if(combo >= 6) hint = 'คอมโบมาแล้ว!';
+    let hint = 'เก็บน้ำและหาโล่';
+    if(phase === 'storm') hint = `ช่วงพายุ! ไปฝั่ง${needZone==='L'?'ซ้าย':'ขวา'}`;
+    else if(phase === 'boss') hint = `บอส ${bossLevel}! ไปฝั่ง${needZone==='L'?'ซ้าย':'ขวา'}`;
+    else if(phase === 'final') hint = `ด่านสุดท้าย! ไปฝั่ง${needZone==='L'?'ซ้าย':'ขวา'}`;
+    else if(feverOn) hint = 'ช่วงไฟลุก! เก็บน้ำให้ไว';
+    else if(waterPct < 35) hint = 'น้ำต่ำแล้ว รีบเก็บน้ำ';
+    else if(shield === 0) hint = 'หาโล่ไว้กันฟ้าผ่า';
+    else if(combo >= 6) hint = 'คอมโบมาแล้ว เก่งมาก!';
 
     updateTimelineAndFeatures(predictedRisk);
     setAIHud(predictedRisk, hint);
