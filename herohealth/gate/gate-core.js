@@ -1,6 +1,6 @@
 // === /herohealth/gate/gate-core.js ===
 // HeroHealth Gate Core
-// FULL PATCH v20260313q-GATE-CORE-BUTTON-CLICK-FIX
+// FULL PATCH v20260313r-GATE-CORE-SUMMARY-CALLBACK-FIX
 
 import {
   buildCtx,
@@ -276,56 +276,6 @@ function createLiveApi(root, ctx) {
   };
 }
 
-function liftActionButtons(root, ctx, goNext) {
-  const btnContinue = root.querySelector('#gate-continue');
-  const btnBackHub = root.querySelector('#gate-backhub');
-
-  if (btnContinue) {
-    btnContinue.hidden = false;
-    btnContinue.textContent = ctx.mode === 'cooldown' ? 'กลับ HUB' : 'ไปต่อ';
-    btnContinue.disabled = false;
-    btnContinue.style.pointerEvents = 'auto';
-    btnContinue.style.touchAction = 'manipulation';
-    btnContinue.style.cursor = 'pointer';
-    btnContinue.style.position = 'relative';
-    btnContinue.style.zIndex = '10001';
-
-    btnContinue.onclick = (ev) => {
-      ev.preventDefault();
-      ev.stopPropagation();
-      goNext();
-    };
-
-    btnContinue.addEventListener('touchend', (ev) => {
-      ev.preventDefault();
-      ev.stopPropagation();
-      goNext();
-    }, { passive: false });
-  }
-
-  if (btnBackHub) {
-    const hubTarget = safeUrl(ctx.hub, './hub.html');
-
-    btnBackHub.style.pointerEvents = 'auto';
-    btnBackHub.style.touchAction = 'manipulation';
-    btnBackHub.style.cursor = 'pointer';
-    btnBackHub.style.position = 'relative';
-    btnBackHub.style.zIndex = '10001';
-
-    btnBackHub.onclick = (ev) => {
-      ev.preventDefault();
-      ev.stopPropagation();
-      window.location.href = hubTarget;
-    };
-
-    btnBackHub.addEventListener('touchend', (ev) => {
-      ev.preventDefault();
-      ev.stopPropagation();
-      window.location.href = hubTarget;
-    }, { passive: false });
-  }
-}
-
 export async function bootGate(rootEl) {
   const root = ensureRoot(rootEl);
   const url = new URL(window.location.href);
@@ -385,11 +335,14 @@ export async function bootGate(rootEl) {
   const live = createLiveApi(root, ctx);
   const toastUi = mountToast?.(root);
   const summaryLayer = mountSummaryLayer?.(root);
-
   const continueUrl = buildContinueUrl(ctx);
 
   function showToast(message) {
     try {
+      if (typeof toastUi === 'function') {
+        toastUi(String(message || ''));
+        return;
+      }
       if (toastUi && typeof toastUi.show === 'function') {
         toastUi.show(String(message || ''));
       }
@@ -402,8 +355,26 @@ export async function bootGate(rootEl) {
     window.location.href = target;
   }
 
+  function goHub() {
+    const target = safeUrl(ctx.hub, './hub.html');
+    safeLog('back-hub', { target });
+    window.location.href = target;
+  }
+
   if (btnContinue) {
-    btnContinue.addEventListener('click', goNext);
+    btnContinue.onclick = (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      goNext();
+    };
+  }
+
+  if (btnBackHub) {
+    btnBackHub.onclick = (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      goHub();
+    };
   }
 
   const modulePath = getPhaseModulePath(ctx) || getPhaseFile(ctx.theme, ctx.mode) || '';
@@ -530,22 +501,19 @@ export async function bootGate(rootEl) {
         });
 
         if (summaryLayer && typeof summaryLayer.show === 'function') {
-          summaryLayer.show(summary, {
-            title: ctx.mode === 'cooldown' ? 'เสร็จสิ้นช่วง cooldown' : 'ผ่าน warmup แล้ว'
+          summaryLayer.show({
+            title: summary.title || (ctx.mode === 'cooldown' ? 'คูลดาวน์เสร็จแล้ว' : 'ผ่าน warmup แล้ว'),
+            subtitle: summary.subtitle || 'พร้อมไปต่อ',
+            lines: Array.isArray(summary.lines) ? summary.lines : [],
+            onContinue: ctx.mode === 'cooldown' ? goHub : goNext,
+            onBack: goHub
           });
         }
 
-        requestAnimationFrame(() => {
-          liftActionButtons(root, ctx, goNext);
-        });
-
-        setTimeout(() => {
-          liftActionButtons(root, ctx, goNext);
-        }, 50);
-
-        setTimeout(() => {
-          liftActionButtons(root, ctx, goNext);
-        }, 180);
+        if (btnContinue) {
+          btnContinue.hidden = false;
+          btnContinue.textContent = ctx.mode === 'cooldown' ? 'กลับ HUB' : 'ไปต่อ';
+        }
 
         showToast(
           ctx.mode === 'cooldown'
