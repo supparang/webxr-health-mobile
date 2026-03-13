@@ -1,6 +1,6 @@
 <!-- === /herohealth/vr-groups/groups-race-join.html ===
 Groups Race — Join by Room Code
-FULL v20260310-GROUPS-RACE-JOIN-FINAL
+FULL v20260313-GROUPS-RACE-JOIN-MEMORY-r2
 -->
 <!doctype html>
 <html lang="th">
@@ -217,6 +217,8 @@ FULL v20260310-GROUPS-RACE-JOIN-FINAL
       <div class="row">
         <button id="btnJoin">เข้าห้อง</button>
         <button class="secondary" id="btnPaste">วางรหัส</button>
+        <button class="secondary" id="btnUseLast">ใช้ค่าล่าสุด</button>
+        <button class="secondary" id="btnClearLast">ล้างค่าล่าสุด</button>
         <button class="secondary" id="btnBack">กลับ HUB</button>
       </div>
     </div>
@@ -232,6 +234,7 @@ FULL v20260310-GROUPS-RACE-JOIN-FINAL
   const diff = qs.get('diff') || 'normal';
   const time = qs.get('time') || '80';
   const seed = qs.get('seed') || String(Date.now());
+  const MEM_KEY = 'HHA_GROUPS_RACE_JOIN_LAST';
 
   const $ = (id)=>document.getElementById(id);
 
@@ -252,10 +255,58 @@ FULL v20260310-GROUPS-RACE-JOIN-FINAL
       .trim();
   }
 
-  $('room').value = sanitizeRoom(qs.get('room') || '');
-  $('name').value = qs.get('name') || 'Guest';
-  $('pid').value  = qs.get('pid')  || 'G001';
-  $('view').value = qs.get('view') || 'mobile';
+  function loadLast(){
+    try{
+      return JSON.parse(localStorage.getItem(MEM_KEY) || 'null');
+    }catch(_){
+      return null;
+    }
+  }
+
+  function saveLast(v){
+    try{
+      localStorage.setItem(MEM_KEY, JSON.stringify(v));
+    }catch(_){}
+  }
+
+  function clearLast(){
+    try{ localStorage.removeItem(MEM_KEY); }catch(_){}
+  }
+
+  function fillForm(v){
+    if(!v) return;
+    $('room').value = sanitizeRoom(v.room || '');
+    $('name').value = v.name || '';
+    $('pid').value = v.pid || '';
+    $('view').value = v.view || 'mobile';
+    $('playerKey').value = v.playerKey || '';
+  }
+
+  function initForm(){
+    const fromQuery = {
+      room: qs.get('room') || '',
+      name: qs.get('name') || '',
+      pid: qs.get('pid') || '',
+      view: qs.get('view') || '',
+      playerKey: qs.get('playerKey') || ''
+    };
+    const hasQuery = Object.values(fromQuery).some(Boolean);
+    if(hasQuery){
+      fillForm(fromQuery);
+      setStatus('เติมค่าจาก query แล้ว');
+      return;
+    }
+
+    const last = loadLast();
+    if(last){
+      fillForm(last);
+      setStatus('เติมค่าล่าสุดให้อัตโนมัติ');
+      return;
+    }
+
+    $('name').value = 'Guest';
+    $('pid').value = 'G001';
+  }
 
   $('room').addEventListener('input', ()=>{
     const cur = $('room').value;
@@ -272,8 +323,9 @@ FULL v20260310-GROUPS-RACE-JOIN-FINAL
         const u = new URL(txt);
         const roomFromUrl = sanitizeRoom(u.searchParams.get('room') || '');
         if(roomFromUrl) $('room').value = roomFromUrl;
-
-        if(u.searchParams.get('diff')) {}
+        if(u.searchParams.get('name')) $('name').value = u.searchParams.get('name');
+        if(u.searchParams.get('pid')) $('pid').value = u.searchParams.get('pid');
+        if(u.searchParams.get('view')) $('view').value = u.searchParams.get('view');
       }catch(_){
         $('room').value = sanitizeRoom(txt);
       }
@@ -282,6 +334,21 @@ FULL v20260310-GROUPS-RACE-JOIN-FINAL
     }catch(_){
       setStatus('วางจาก clipboard ไม่สำเร็จ', 'bad');
     }
+  });
+
+  $('btnUseLast').addEventListener('click', ()=>{
+    const last = loadLast();
+    if(last){
+      fillForm(last);
+      setStatus('ใช้ค่าล่าสุดแล้ว', 'good');
+    }else{
+      setStatus('ยังไม่มีค่าล่าสุด');
+    }
+  });
+
+  $('btnClearLast').addEventListener('click', ()=>{
+    clearLast();
+    setStatus('ล้างค่าล่าสุดแล้ว');
   });
 
   $('btnBack').addEventListener('click', ()=>{
@@ -301,6 +368,7 @@ FULL v20260310-GROUPS-RACE-JOIN-FINAL
       return;
     }
 
+    saveLast({ room, name, pid, view, playerKey });
     setStatus('กำลังเข้าห้อง...', 'good');
 
     const u = new URL('./groups-race.html', location.href);
@@ -317,6 +385,8 @@ FULL v20260310-GROUPS-RACE-JOIN-FINAL
 
     location.href = u.toString();
   });
+
+  initForm();
 })();
 </script>
 </body>
