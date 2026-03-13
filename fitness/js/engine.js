@@ -1,12 +1,5 @@
 // === /fitness/js/engine.js ===
-// Shadow Breaker engine — PATCH A: Boss Ladder child-friendly
-// ✅ 3 bosses + Final Boss
-// ✅ boss-specific HP + spawn weights
-// ✅ bossface is primary target per boss
-// ✅ reachedBoss / bossesCleared in result
-// ✅ one-click start
-// ✅ sync with /fitness/shadow-breaker.html
-
+// Shadow Breaker engine — FINAL PATCH A-E
 'use strict';
 
 import { DomRendererShadow } from './dom-renderer-shadow.js';
@@ -67,12 +60,12 @@ const hpBossTop    = $('#sb-hp-boss-top');
 const hpYouBottom  = $('#sb-hp-you-bottom');
 const hpBossBottom = $('#sb-hp-boss-bottom');
 
-const bossNameEl       = $('#sb-current-boss-name');
-const metaEmoji        = $('#sb-meta-emoji');
-const metaName         = $('#sb-meta-name');
-const metaDesc         = $('#sb-meta-desc');
-const bossPhaseLabel   = $('#sb-boss-phase-label');
-const bossShieldLabel  = $('#sb-boss-shield-label');
+const bossNameEl      = $('#sb-current-boss-name');
+const metaEmoji       = $('#sb-meta-emoji');
+const metaName        = $('#sb-meta-name');
+const metaDesc        = $('#sb-meta-desc');
+const bossPhaseLabel  = $('#sb-boss-phase-label');
+const bossShieldLabel = $('#sb-boss-shield-label');
 
 const feverBar   = $('#sb-fever-bar');
 const feverLabel = $('#sb-label-fever');
@@ -87,6 +80,16 @@ const resPhase       = $('#sb-res-phase');
 const resBossCleared = $('#sb-res-boss-cleared');
 const resAcc         = $('#sb-res-acc');
 const resGrade       = $('#sb-res-grade');
+const resMessage     = $('#sb-res-message');
+
+const resBadge = $('#sb-res-badge');
+const resBadgeIcon = $('#sb-res-badge-icon');
+const resBadgeTitle = $('#sb-res-badge-title');
+const resBadgeDesc = $('#sb-res-badge-desc');
+
+const bossBanner = $('#sb-boss-banner');
+const bossBannerTitle = $('#sb-boss-banner-title');
+const bossBannerSub = $('#sb-boss-banner-sub');
 
 const btnRetry  = $('#sb-btn-result-retry');
 const btnMenu   = $('#sb-btn-result-menu');
@@ -103,9 +106,6 @@ const btnMeta  = $('#sb-btn-meta');
 const metaEl   = $('#sb-meta');
 const metaBody = $('#sb-meta-body');
 
-// -------------------------
-// Boss Ladder
-// -------------------------
 const BOSSES = [
   {
     id:'bubble',
@@ -238,9 +238,16 @@ let bossHp = 100;
 let bossHpMax = 100;
 
 let bossIndex = 0;
-let phase = 1; // keep for UI, mapped to boss ladder stage
+let phase = 1;
 let bossesCleared = 0;
 let reachedBossIndex = 0;
+
+let bossPatternState = {
+  lastLane: 0,
+  burstLeft: 0,
+  finalWindowUntil: 0,
+  finalCooldownUntil: 0
+};
 
 let currentMode = (MODE === 'research') ? 'research' : 'normal';
 let currentDiff = DIFF_CONFIG[DIFF] ? DIFF : 'normal';
@@ -294,7 +301,7 @@ function aiAssistEnabledSafe(){
   }
 }
 
-const active = new Map(); // id -> { type, expireAtMs, sizePx }
+const active = new Map();
 
 const renderer = new DomRendererShadow(layerEl, {
   wrapEl,
@@ -303,9 +310,6 @@ const renderer = new DomRendererShadow(layerEl, {
 });
 renderer.setDifficulty(currentDiff);
 
-// -------------------------
-// helpers
-// -------------------------
 function bossHpForCurrent(){
   const b = boss();
   return Number(b.hp?.[currentDiff]) || 100;
@@ -327,6 +331,198 @@ function weightedPick(weights){
     if(r <= 0) return k;
   }
   return entries[0]?.[0] || 'bossface';
+}
+
+function resetBossPatternState(){
+  bossPatternState = {
+    lastLane: Math.random() < 0.5 ? 0 : 1,
+    burstLeft: 0,
+    finalWindowUntil: 0,
+    finalCooldownUntil: 0
+  };
+}
+
+function currentLaneFlip(){
+  bossPatternState.lastLane = bossPatternState.lastLane === 0 ? 1 : 0;
+  return bossPatternState.lastLane;
+}
+
+function pickTypeForBossPattern(b){
+  const tNow = now();
+
+  if (b.id === 'bubble') {
+    return weightedPick(b.spawnWeights);
+  }
+
+  if (b.id === 'meteor') {
+    if (bossPatternState.burstLeft > 0) {
+      bossPatternState.burstLeft--;
+      return Math.random() < 0.72 ? 'bossface' : weightedPick(b.spawnWeights);
+    }
+    if (Math.random() < 0.24) {
+      bossPatternState.burstLeft = 1;
+      return 'bossface';
+    }
+    return weightedPick(b.spawnWeights);
+  }
+
+  if (b.id === 'hydra') {
+    if (Math.random() < 0.18) return 'decoy';
+    if (Math.random() < 0.14) return 'bomb';
+    return weightedPick(b.spawnWeights);
+  }
+
+  if (b.id === 'final') {
+    if (tNow < bossPatternState.finalWindowUntil) {
+      return Math.random() < 0.78 ? 'bossface' : weightedPick(b.spawnWeights);
+    }
+
+    if (tNow >= bossPatternState.finalCooldownUntil && Math.random() < 0.18) {
+      bossPatternState.finalWindowUntil = tNow + 1500;
+      bossPatternState.finalCooldownUntil = tNow + 3800;
+      return 'bossface';
+    }
+
+    if (Math.random() < 0.22) return 'decoy';
+    if (Math.random() < 0.18) return 'bomb';
+    return weightedPick(b.spawnWeights);
+  }
+
+  return weightedPick(b.spawnWeights);
+}
+
+function bossSpawnCount(b){
+  if (b.id === 'bubble') return 1;
+  if (b.id === 'meteor') return (Math.random() < 0.36 ? 2 : 1);
+  if (b.id === 'hydra') return (Math.random() < 0.42 ? 2 : 1);
+  if (b.id === 'final') return (Math.random() < 0.48 ? 2 : 1);
+  return 1;
+}
+
+function pickLaneHint(b, type, indexInWave, totalInWave){
+  if (b.id === 'bubble') {
+    return null;
+  }
+
+  if (b.id === 'meteor') {
+    if (totalInWave >= 2) return indexInWave % 2;
+    return Math.random() < 0.5 ? 0 : 1;
+  }
+
+  if (b.id === 'hydra') {
+    return currentLaneFlip();
+  }
+
+  if (b.id === 'final') {
+    if (type === 'bossface') return Math.random() < 0.5 ? 0 : 1;
+    return indexInWave % 2;
+  }
+
+  return null;
+}
+
+function bossIntroText(b){
+  if (!b) return 'เริ่มเกม!';
+  if (b.id === 'bubble') return 'Bubble Glove มาแล้ว! ตีฟองใหญ่ให้ทัน';
+  if (b.id === 'meteor') return 'Meteor Punch เร็วขึ้นแล้ว ระวังเป้าหลอก';
+  if (b.id === 'hydra') return 'Neon Hydra มาแล้ว เลือกเป้าให้ดี';
+  if (b.id === 'final') return 'FINAL BOSS! Shadow King ปรากฏตัวแล้ว';
+  return `เริ่มสู้ ${b.name}!`;
+}
+
+function bossClearText(b){
+  if (!b) return 'ผ่านบอสแล้ว!';
+  if (b.id === 'bubble') return 'ชนะ Bubble Glove แล้ว!';
+  if (b.id === 'meteor') return 'ชนะ Meteor Punch แล้ว!';
+  if (b.id === 'hydra') return 'ชนะ Neon Hydra แล้ว!';
+  if (b.id === 'final') return 'ชนะ Shadow King แล้ว!';
+  return `ชนะ ${b.name} แล้ว!`;
+}
+
+function resultPraise(reason, bossesCleared, reachedBossName){
+  if (reason === 'all_bosses_cleared') {
+    return 'สุดยอดมาก! ชนะครบทุกบอสแล้ว คุณคือ Shadow Breaker Hero!';
+  }
+  if (bossesCleared >= 3) {
+    return `ยอดเยี่ยม! คุณไปถึง ${reachedBossName} แล้ว`;
+  }
+  if (bossesCleared >= 2) {
+    return 'เก่งมาก! ผ่านได้หลายบอสแล้ว';
+  }
+  if (bossesCleared >= 1) {
+    return 'เยี่ยมเลย! ชนะบอสแรกได้แล้ว';
+  }
+  return `ดีมาก! คุณไปถึง ${reachedBossName} แล้ว ลองอีกครั้งเพื่อไปต่อให้ลึกกว่าเดิม`;
+}
+
+function bestBossStorageKey(){
+  return `SB_BEST_REACHED_BOSS:${session.pid || PID || 'anon'}`;
+}
+
+function bestBadgeStorageKey(){
+  return `SB_BEST_BADGE:${session.pid || PID || 'anon'}`;
+}
+
+function getResultBadge(reason, bossesCleared, reachedBossName){
+  if (reason === 'all_bosses_cleared') {
+    return {
+      icon:'👑',
+      title:'Shadow King Champion',
+      desc:'ชนะครบทุกบอสแล้ว สุดยอดมาก!'
+    };
+  }
+  if (bossesCleared >= 3) {
+    return {
+      icon:'🔥',
+      title:'Final Challenger',
+      desc:`ไปถึง ${reachedBossName} แล้ว เก่งมาก!`
+    };
+  }
+  if (bossesCleared >= 2) {
+    return {
+      icon:'🐉',
+      title:'Hydra Hunter',
+      desc:'ผ่านได้หลายบอสแล้ว ฟอร์มดีมาก'
+    };
+  }
+  if (bossesCleared >= 1) {
+    return {
+      icon:'☄️',
+      title:'Meteor Dodger',
+      desc:'ชนะบอสแรกได้แล้ว เยี่ยมเลย!'
+    };
+  }
+  return {
+    icon:'🫧',
+    title:'Bubble Starter',
+    desc:`เริ่มต้นได้ดีแล้ว ไปถึง ${reachedBossName} แล้ว`
+  };
+}
+
+function saveBestProgress(reachedBossName, badge){
+  try{
+    const prevBoss = localStorage.getItem(bestBossStorageKey()) || '';
+    const order = BOSSES.map(b=>b.name);
+    const prevIdx = Math.max(0, order.indexOf(prevBoss));
+    const nowIdx = Math.max(0, order.indexOf(reachedBossName));
+    if (!prevBoss || nowIdx >= prevIdx) {
+      localStorage.setItem(bestBossStorageKey(), reachedBossName);
+    }
+    if (badge) {
+      localStorage.setItem(bestBadgeStorageKey(), JSON.stringify(badge));
+    }
+  }catch(_){}
+}
+
+function showBossBanner(title, sub=''){
+  if (!bossBanner || !bossBannerTitle || !bossBannerSub) return;
+  bossBannerTitle.textContent = title;
+  bossBannerSub.textContent = sub || '';
+  bossBanner.classList.add('is-on');
+  clearTimeout(showBossBanner._t);
+  showBossBanner._t = setTimeout(()=>{
+    bossBanner.classList.remove('is-on');
+  }, 1400);
 }
 
 function applyParamsToHeaderLink(){
@@ -411,63 +607,66 @@ function expireCountsMiss(type){
   return (type === 'normal' || type === 'bossface');
 }
 
-function advanceBoss(){
-  bossesCleared++;
-  if(bossIndex < BOSSES.length - 1){
-    bossIndex++;
-    reachedBossIndex = Math.max(reachedBossIndex, bossIndex);
-    phase = bossIndex + 1;
-    bossHpMax = bossHpForCurrent();
-    bossHp = bossHpMax;
-    shield = Math.max(0, shield - 1);
-
-    const isFinal = bossIndex === BOSSES.length - 1;
-    say(isFinal ? 'FINAL BOSS!' : `ผ่านบอสแล้ว! ไปต่อ ${boss().name}`, isFinal ? 'perfect' : 'good');
-    setBossUI();
-    setHUD();
-  }else{
-    endGame('all_bosses_cleared');
-  }
-}
-
 function spawnOne(){
   const b = boss();
-  const id = Math.floor(Math.random() * 1e9);
+  const total = bossSpawnCount(b);
 
-  let type = weightedPick(b.spawnWeights);
+  for(let i = 0; i < total; i++){
+    const id = Math.floor(Math.random() * 1e9);
+    let type = pickTypeForBossPattern(b);
 
-  // final boss: occasionally force bossface for excitement
-  if (b.id === 'final' && Math.random() < 0.10) type = 'bossface';
+    let sizePx = adaptiveBaseSize(CFG.baseSize * (b.baseSizeMul || 1));
 
-  let sizePx = adaptiveBaseSize(CFG.baseSize * (b.baseSizeMul || 1));
-  if(type === 'bossface') sizePx *= 1.16;
-  if(type === 'bomb') sizePx *= 1.02;
-  if(type === 'heal' || type === 'shield') sizePx *= 0.96;
-  sizePx = clamp(sizePx, 78, 160);
+    if(type === 'bossface') sizePx *= 1.16;
+    if(type === 'bomb') sizePx *= 1.02;
+    if(type === 'heal' || type === 'shield') sizePx *= 0.96;
 
-  let ttlMs = Math.round(CFG.targetLifetime * (b.targetLifetimeMul || 1));
-  if (now() < feverActiveUntil) ttlMs = Math.round(ttlMs * 1.08);
+    if (b.id === 'bubble' && type === 'bossface') sizePx *= 1.08;
+    if (b.id === 'meteor' && type === 'bossface') sizePx *= 0.98;
+    if (b.id === 'hydra' && type === 'bossface') sizePx *= 1.04;
+    if (b.id === 'final' && type === 'bossface') sizePx *= 1.10;
 
-  renderer.spawnTarget({
-    id,
-    type,
-    sizePx,
-    bossEmoji: b.emoji,
-    ttlMs
-  });
+    sizePx = clamp(sizePx, 78, 168);
 
-  const tNow = now();
-  active.set(id, { type, expireAtMs: tNow + ttlMs, sizePx: Math.round(sizePx) });
+    let ttlMs = Math.round(CFG.targetLifetime * (b.targetLifetimeMul || 1));
 
-  events.push({
-    t: (currentTimeSec * 1000 - timeLeft),
-    type:'spawn',
-    bossId:b.id,
-    id,
-    targetType:type,
-    sizePx: Math.round(sizePx),
-    ttlMs
-  });
+    if (b.id === 'bubble') ttlMs = Math.round(ttlMs * 1.10);
+    if (b.id === 'meteor') ttlMs = Math.round(ttlMs * 0.95);
+    if (b.id === 'hydra') ttlMs = Math.round(ttlMs * 0.92);
+    if (b.id === 'final') ttlMs = Math.round(ttlMs * 0.88);
+
+    if (now() < feverActiveUntil) ttlMs = Math.round(ttlMs * 1.08);
+
+    const laneHint = pickLaneHint(b, type, i, total);
+
+    renderer.spawnTarget({
+      id,
+      type,
+      sizePx,
+      bossEmoji: b.emoji,
+      bossId: b.id,
+      laneHint,
+      ttlMs
+    });
+
+    const tNow = now();
+    active.set(id, {
+      type,
+      expireAtMs: tNow + ttlMs,
+      sizePx: Math.round(sizePx)
+    });
+
+    events.push({
+      t: (currentTimeSec * 1000 - timeLeft),
+      type:'spawn',
+      bossId:b.id,
+      id,
+      targetType:type,
+      laneHint,
+      sizePx: Math.round(sizePx),
+      ttlMs
+    });
+  }
 }
 
 function onTargetHit(id, pt){
@@ -521,16 +720,23 @@ function onTargetHit(id, pt){
 
   }else if(type === 'bossface'){
     grade = 'perfect';
-    scoreDelta = feverOn ? 26 : 18;
+    scoreDelta = feverOn ? 28 : 20;
     combo++;
-    const dmg = bossHpMax * (feverOn ? (CFG.bossDamageBossFace * 1.18) : CFG.bossDamageBossFace);
+
+    const dmg = bossHpMax * (feverOn ? (CFG.bossDamageBossFace * 1.20) : CFG.bossDamageBossFace);
     bossHp = Math.max(0, bossHp - dmg);
-    say(
-      b.id === 'final'
-        ? (feverOn ? 'FEVER CRIT!! ใส่ Final Boss!' : 'CRIT! ใส่ Final Boss!')
-        : (feverOn ? 'FEVER CRIT!!' : `โดน ${b.name}!`),
-      'perfect'
-    );
+
+    if (b.id === 'bubble') {
+      say(feverOn ? 'FEVER HIT! ฟองแตกกระจาย!' : 'โดน Bubble Glove!', 'perfect');
+    } else if (b.id === 'meteor') {
+      say(feverOn ? 'FEVER CRASH! ดาวตกแตก!' : 'โดน Meteor Punch!', 'perfect');
+    } else if (b.id === 'hydra') {
+      say(feverOn ? 'FEVER SLASH! มังกรสะเทือน!' : 'โดน Neon Hydra!', 'perfect');
+    } else if (b.id === 'final') {
+      say(feverOn ? 'FEVER CRIT!! ใส่ Shadow King!' : 'CRIT! ใส่ Shadow King!', 'perfect');
+    } else {
+      say('CRIT!', 'perfect');
+    }
 
   }else{
     grade = (fever >= FEVER_MAX || feverOn) ? 'perfect' : 'good';
@@ -573,6 +779,40 @@ function onTargetHit(id, pt){
   setHUD();
 }
 
+function advanceBoss(){
+  const clearedBoss = boss();
+  bossesCleared++;
+
+  if(bossIndex < BOSSES.length - 1){
+    showBossBanner(
+      `${bossClearText(clearedBoss)}`,
+      `เตรียมเจอ ${BOSSES[bossIndex + 1].name}`
+    );
+
+    say(bossClearText(clearedBoss), 'perfect');
+
+    bossIndex++;
+    reachedBossIndex = Math.max(reachedBossIndex, bossIndex);
+    phase = bossIndex + 1;
+    bossHpMax = bossHpForCurrent();
+    bossHp = bossHpMax;
+    shield = Math.max(0, shield - 1);
+    resetBossPatternState();
+
+    setBossUI();
+    setHUD();
+
+    setTimeout(()=>{
+      if(!ended){
+        say(bossIntroText(boss()), boss().id === 'final' ? 'perfect' : 'good');
+      }
+    }, 700);
+  }else{
+    showBossBanner('ชนะครบทุกบอส!', 'คุณคือ Shadow Breaker Hero!');
+    endGame('all_bosses_cleared');
+  }
+}
+
 function endGame(reason = 'timeup'){
   if(ended) return;
   ended = true;
@@ -610,13 +850,16 @@ function endGame(reason = 'timeup'){
   else g = 'D';
   if(resGrade) resGrade.textContent = g;
 
-  const praise =
-    reason === 'all_bosses_cleared' ? 'ชนะครบทุกบอส!' :
-    bossesCleared >= 3 ? 'สุดยอด! ไปถึง Final Boss แล้ว' :
-    bossesCleared >= 2 ? 'เก่งมาก! ผ่านได้หลายบอสแล้ว' :
-    bossesCleared >= 1 ? 'เยี่ยม! ชนะบอสแรกได้แล้ว' :
-    `ไปถึง ${reachedBossLabel()} แล้ว`;
+  const praise = resultPraise(reason, bossesCleared, reachedBossLabel());
+  const badge = getResultBadge(reason, bossesCleared, reachedBossLabel());
 
+  if (resMessage) resMessage.textContent = praise;
+  if (resBadge) resBadge.style.display = '';
+  if (resBadgeIcon) resBadgeIcon.textContent = badge.icon;
+  if (resBadgeTitle) resBadgeTitle.textContent = badge.title;
+  if (resBadgeDesc) resBadgeDesc.textContent = badge.desc;
+
+  saveBestProgress(reachedBossLabel(), badge);
   say(praise, 'good');
 
   events.push({
@@ -708,7 +951,6 @@ function tick(){
   let spawnMin = CFG.spawnIntervalMin;
   let spawnMax = CFG.spawnIntervalMax;
 
-  // boss pacing
   if (boss().id === 'bubble') {
     spawnMin *= 1.04;
     spawnMax *= 1.04;
@@ -719,8 +961,8 @@ function tick(){
     spawnMin *= 0.94;
     spawnMax *= 0.94;
   } else if (boss().id === 'final') {
-    spawnMin *= 0.90;
-    spawnMax *= 0.92;
+    spawnMin *= 0.88;
+    spawnMax *= 0.90;
   }
 
   if (t < feverActiveUntil) {
@@ -758,9 +1000,6 @@ function tick(){
   setHUD();
 }
 
-// -------------------------
-// FEVER
-// -------------------------
 function useFever(){
   if (!running || ended || paused) return;
   if (fever < FEVER_MAX) return;
@@ -768,7 +1007,7 @@ function useFever(){
   fever = 0;
   feverActiveUntil = now() + CFG.feverDurMs;
   feverUsed++;
-  say('⚡ FEVER MODE!', 'perfect');
+  say(boss().id === 'final' ? '⚡ FEVER MODE! ลุย Final Boss!' : '⚡ FEVER MODE!', 'perfect');
 
   events.push({
     t:(currentTimeSec * 1000 - timeLeft),
@@ -780,9 +1019,6 @@ function useFever(){
   setHUD();
 }
 
-// -------------------------
-// START
-// -------------------------
 function start(mode = 'normal'){
   const cfg = readMenuConfig();
 
@@ -822,6 +1058,7 @@ function start(mode = 'normal'){
 
   events.length = 0;
   active.clear();
+  resetBossPatternState();
 
   dl.reset?.();
   renderer.destroy();
@@ -844,8 +1081,13 @@ function start(mode = 'normal'){
 
   setBossUI();
   setHUD();
-  say(`เริ่มสู้ ${boss().name}!`, '');
 
+  if (resMessage) resMessage.textContent = 'เก่งมาก! ลองอีกครั้งเพื่อไปให้ไกลกว่าเดิม';
+  if (resBadgeIcon) resBadgeIcon.textContent = '🏅';
+  if (resBadgeTitle) resBadgeTitle.textContent = 'Shadow Starter';
+  if (resBadgeDesc) resBadgeDesc.textContent = 'เริ่มต้นได้ดีแล้ว ลองอีกครั้งเพื่อไปให้ไกลกว่าเดิม';
+
+  say(bossIntroText(boss()), 'good');
   showView('play');
 
   tStart = now();
@@ -853,9 +1095,6 @@ function start(mode = 'normal'){
   requestAnimationFrame(tick);
 }
 
-// -------------------------
-// EVENTS
-// -------------------------
 btnPlay?.addEventListener('click', ()=> start('normal'));
 btnResearch?.addEventListener('click', ()=> start('research'));
 
@@ -929,9 +1168,6 @@ btnSesCsv?.addEventListener('click', ()=>{
   downloadCSV('shadowbreaker_session.csv', [session]);
 });
 
-// -------------------------
-// INIT
-// -------------------------
 applyParamsToHeaderLink();
 syncMenuInputsFromQuery();
 showView('menu');
