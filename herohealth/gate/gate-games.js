@@ -1,6 +1,6 @@
 // === /herohealth/gate/gate-games.js ===
 // HeroHealth Gate Game Registry
-// FULL PATCH v20260312-ALL-ZONES-GATE-GAMES
+// FULL PATCH v20260312f-ALL-ZONES-GATE-GAMES-TH-EXERCISE
 
 export const GATE_GAMES = {
   // =========================
@@ -146,12 +146,12 @@ export const GATE_GAMES = {
     cat: 'exercise',
     label: 'Jump Duck',
     theme: 'jumpduck',
-    warmupTitle: 'Quick Feet Prep',
-    cooldownTitle: 'Leg Stretch Stars',
+    warmupTitle: 'ซ้อมกระโดด-ย่อ',
+    cooldownTitle: 'ยืดขาหลังเล่น',
     files: {
-      warmup: './games/jumpduck/warmup.js',
-      cooldown: './games/jumpduck/cooldown.js',
-      style: './games/jumpduck/style.css'
+      warmup: './games/jumpduck/warmup.js?v=20260312e',
+      cooldown: './games/jumpduck/cooldown.js?v=20260312e',
+      style: './games/jumpduck/style.css?v=20260312c'
     }
   },
 
@@ -159,12 +159,12 @@ export const GATE_GAMES = {
     cat: 'exercise',
     label: 'Shadow Breaker',
     theme: 'shadowbreaker',
-    warmupTitle: 'Light Dodge Prep',
-    cooldownTitle: 'Energy Fade',
+    warmupTitle: 'ซ้อมหลบเร็ว',
+    cooldownTitle: 'หายใจให้ช้าลง',
     files: {
-      warmup: './games/shadowbreaker/warmup.js',
-      cooldown: './games/shadowbreaker/cooldown.js',
-      style: './games/shadowbreaker/style.css'
+      warmup: './games/shadowbreaker/warmup.js?v=20260312e',
+      cooldown: './games/shadowbreaker/cooldown.js?v=20260312e',
+      style: './games/shadowbreaker/style.css?v=20260312b'
     }
   },
 
@@ -172,12 +172,12 @@ export const GATE_GAMES = {
     cat: 'exercise',
     label: 'Rhythm Boxer',
     theme: 'rhythmboxer',
-    warmupTitle: 'Shoulder Roll Beat',
-    cooldownTitle: 'Calm Breathing Rings',
+    warmupTitle: 'ซ้อมต่อยตามจังหวะ',
+    cooldownTitle: 'หายใจผ่อนคลาย',
     files: {
-      warmup: './games/rhythmboxer/warmup.js',
-      cooldown: './games/rhythmboxer/cooldown.js',
-      style: './games/rhythmboxer/style.css'
+      warmup: './games/rhythmboxer/warmup.js?v=20260312e',
+      cooldown: './games/rhythmboxer/cooldown.js?v=20260312e',
+      style: './games/rhythmboxer/style.css?v=20260312b'
     }
   },
 
@@ -185,12 +185,12 @@ export const GATE_GAMES = {
     cat: 'exercise',
     label: 'Balance Hold',
     theme: 'balancehold',
-    warmupTitle: 'Core Activate',
-    cooldownTitle: 'Slow Sway Relax',
+    warmupTitle: 'ซ้อมทรงตัว',
+    cooldownTitle: 'ผ่อนคลายช้า ๆ',
     files: {
-      warmup: './games/balancehold/warmup.js',
-      cooldown: './games/balancehold/cooldown.js',
-      style: './games/balancehold/style.css'
+      warmup: './games/balancehold/warmup.js?v=20260312e',
+      cooldown: './games/balancehold/cooldown.js?v=20260312e',
+      style: './games/balancehold/style.css?v=20260312b'
     }
   },
 
@@ -198,18 +198,17 @@ export const GATE_GAMES = {
     cat: 'exercise',
     label: 'Fitness Planner',
     theme: 'fitnessplanner',
-    warmupTitle: 'Body Wake Flow',
-    cooldownTitle: 'Mindful Reflection',
+    warmupTitle: 'ปลุกร่างกาย',
+    cooldownTitle: 'ทบทวนความรู้สึก',
     files: {
-      warmup: './games/fitnessplanner/warmup.js',
-      cooldown: './games/fitnessplanner/cooldown.js',
-      style: './games/fitnessplanner/style.css'
+      warmup: './games/fitnessplanner/warmup.js?v=20260312e',
+      cooldown: './games/fitnessplanner/cooldown.js?v=20260312e',
+      style: './games/fitnessplanner/style.css?v=20260312b'
     }
   }
 };
 
 export const GAME_ALIASES = {
-  // exercise
   'jump-duck': 'jumpduck',
   'jump_duck': 'jumpduck',
   'jump duck': 'jumpduck',
@@ -230,7 +229,6 @@ export const GAME_ALIASES = {
   'fitness_planner': 'fitnessplanner',
   'fitness planner': 'fitnessplanner',
 
-  // hygiene
   'clean-objects': 'cleanobjects',
   'clean_objects': 'cleanobjects',
 
@@ -240,7 +238,6 @@ export const GAME_ALIASES = {
   'mask-cough': 'maskcough',
   'mask_cough': 'maskcough',
 
-  // nutrition
   'good-junk': 'goodjunk',
   'good_junk': 'goodjunk'
 };
