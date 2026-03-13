@@ -1,6 +1,6 @@
 /* === /herohealth/gate/games/rhythmboxer/warmup.js ===
  * HeroHealth Gate Game: RhythmBoxer Warmup
- * PATCH v20260312-RHYTHMBOXER-WARMUP-A
+ * PATCH v20260312e-RHYTHMBOXER-WARMUP-TH-CHILD
  */
 
 function clamp(v, a, b){ return Math.max(a, Math.min(b, v)); }
@@ -39,7 +39,7 @@ function makeResult(state){
     game: 'rhythmboxer',
     phase: 'warmup',
     activityId: 'rhythmboxer-shoulder-roll-beat',
-    title: 'Shoulder Roll Beat',
+    title: 'ซ้อมต่อยตามจังหวะ',
     passed,
     score,
     stars: starsFromScore(score),
@@ -54,8 +54,8 @@ function makeResult(state){
     coach: {
       tone: passed ? 'positive' : 'gentle',
       line: passed
-        ? 'ไหล่และแขนพร้อมแล้ว ไปเริ่ม Rhythm Boxer กัน'
-        : 'ลองจับจังหวะให้แม่นขึ้นอีกนิด แล้วค่อยเข้าด่านหลัก'
+        ? 'พร้อมแล้ว ไปเล่น Rhythm Boxer กัน'
+        : 'ลองจับจังหวะอีกนิด แล้วค่อยเริ่มเกม'
     },
     nextAction: 'run'
   };
@@ -71,7 +71,7 @@ export function mount(root, ctx = {}){
       <div class="rbg-wrap">
         <section class="rbg-card">
           <div class="rbg-kicker">EXERCISE ZONE • WARMUP</div>
-          <h1 class="rbg-title">🥊 Shoulder Roll Beat</h1>
+          <h1 class="rbg-title">🥊 ซ้อมต่อยตามจังหวะ</h1>
           <p class="rbg-subtitle">โมดูลนี้ใช้สำหรับ phase=warmup เท่านั้น</p>
         </section>
       </div>
@@ -87,7 +87,7 @@ export function mount(root, ctx = {}){
   const cues = [
     { id:'left', label:'ซ้าย', emoji:'👊', side:'L' },
     { id:'right', label:'ขวา', emoji:'👊', side:'R' },
-    { id:'both', label:'พร้อมกัน', emoji:'🥊', side:'LR' }
+    { id:'both', label:'สองมือ', emoji:'🥊', side:'LR' }
   ];
 
   const state = {
@@ -116,16 +116,16 @@ export function mount(root, ctx = {}){
     <div class="rbg-wrap">
       <section class="rbg-card">
         <div class="rbg-kicker">EXERCISE ZONE • WARMUP</div>
-        <h1 class="rbg-title">🥊 Shoulder Roll Beat</h1>
-        <p class="rbg-subtitle">เปิดไหล่และจับจังหวะก่อนเข้าเกม Rhythm Boxer</p>
+        <h1 class="rbg-title">🥊 ซ้อมต่อยตามจังหวะ</h1>
+        <p class="rbg-subtitle">ซ้อมต่อยซ้าย ขวา และสองมือ ก่อนเข้าเกม Rhythm Boxer</p>
 
         <div class="rbg-grid">
           <div class="rbg-panel">
             <h2 class="rbg-h2">วิธีเล่น</h2>
             <ol class="rbg-list">
               <li>กดปุ่มให้ตรงกับจังหวะที่ขึ้นบนจอ</li>
-              <li>มี 3 แบบ: ซ้าย ขวา พร้อมกัน</li>
-              <li>ทำให้ถูกอย่างน้อย 5 ครั้ง หรือคะแนนรวม 60%</li>
+              <li>มี 3 แบบ: ซ้าย ขวา สองมือ</li>
+              <li>ทำให้ถูกอย่างน้อย 5 ครั้ง</li>
             </ol>
           </div>
 
@@ -146,7 +146,7 @@ export function mount(root, ctx = {}){
               </button>
               <button class="rbg-btn-action" type="button" data-action="both" disabled>
                 <span class="rbg-emoji">🥊</span>
-                <span>พร้อมกัน</span>
+                <span>สองมือ</span>
               </button>
               <button class="rbg-btn-action" type="button" data-action="right" disabled>
                 <span class="rbg-emoji">👉</span>
@@ -158,7 +158,7 @@ export function mount(root, ctx = {}){
 
         <div class="rbg-footer">
           <button class="rbg-btn rbg-btn-primary" id="rbg-start">เริ่มอุ่นเครื่อง</button>
-          <button class="rbg-btn rbg-btn-ghost" id="rbg-finish" disabled>สรุปผล</button>
+          <button class="rbg-btn rbg-btn-ghost" id="rbg-finish" disabled>ดูผล</button>
         </div>
       </section>
     </div>
@@ -191,7 +191,7 @@ export function mount(root, ctx = {}){
     lockActions(true);
     startBtn.disabled = true;
     finishBtn.disabled = false;
-    cueEl.textContent = 'เสร็จแล้ว กดสรุปผล';
+    cueEl.textContent = 'เสร็จแล้ว กดดูผล';
     renderStats();
   }
 
