@@ -255,34 +255,6 @@
     return h >>> 0;
   }
 
-  function setHubLinks() {
-    const hub = HHA_CTX.hub || '#';
-    ['jd-back-hub-menu', 'jd-back-hub-play', 'jd-back-hub-result'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.href = hub;
-    });
-  }
-
-  function updateResearchVisibility() {
-    const mode = (elMode?.value || 'training').toLowerCase();
-    researchBlock?.classList.toggle('hidden', mode !== 'research');
-  }
-
-  function buildParticipant(mode) {
-    if (mode !== 'research') {
-      return {
-        id: String(HHA_CTX.pid || 'anon').trim(),
-        group: '',
-        note: ''
-      };
-    }
-    return {
-      id: (elPidInput?.value || HHA_CTX.pid || 'anon').trim(),
-      group: (elGroup?.value || '').trim(),
-      note: (elNote?.value || '').trim()
-    };
-  }
-
   function loadJson(key, fallback) {
     try {
       const raw = localStorage.getItem(key);
@@ -341,6 +313,34 @@
     if (!logStatus) return;
     logStatus.textContent = msg;
     logStatus.style.color = ok ? '#22c55e' : '#f59e0b';
+  }
+
+  function setHubLinks() {
+    const hub = HHA_CTX.hub || '#';
+    ['jd-back-hub-menu', 'jd-back-hub-play', 'jd-back-hub-result'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.href = hub;
+    });
+  }
+
+  function updateResearchVisibility() {
+    const mode = (elMode?.value || 'training').toLowerCase();
+    researchBlock?.classList.toggle('hidden', mode !== 'research');
+  }
+
+  function buildParticipant(mode) {
+    if (mode !== 'research') {
+      return {
+        id: String(HHA_CTX.pid || 'anon').trim(),
+        group: '',
+        note: ''
+      };
+    }
+    return {
+      id: (elPidInput?.value || HHA_CTX.pid || 'anon').trim(),
+      group: (elGroup?.value || '').trim(),
+      note: (elNote?.value || '').trim()
+    };
   }
 
   function jdShowJudge(msg) {
@@ -523,42 +523,6 @@
 
       .high-beam{ top:16px; width:68px; height:16px; border-radius:8px; background:linear-gradient(180deg,#fb7185,#dc2626); }
       .high-tape{ top:22px; width:64px; height:8px; border-radius:999px; background:linear-gradient(90deg,#fda4af,#ef4444,#fda4af); box-shadow:0 0 0 6px rgba(239,68,68,.06); }
-
-      @media (max-width: 768px){
-        .jd-obstacle{
-          width:96px;
-          height:96px;
-          border-radius:22px;
-        }
-
-        .jd-obstacle.low{
-          bottom:110px;
-        }
-
-        .jd-obstacle.high{
-          bottom:224px;
-        }
-
-        .jd-obstacle .tag{
-          font-size:11px;
-          padding:5px 10px;
-        }
-      }
-
-      @media (max-width: 420px){
-        .jd-obstacle{
-          width:92px;
-          height:92px;
-        }
-
-        .jd-obstacle.low{
-          bottom:108px;
-        }
-
-        .jd-obstacle.high{
-          bottom:220px;
-        }
-      }
     `;
     document.head.appendChild(css);
   }
@@ -728,6 +692,78 @@
     return 3;
   }
 
+  function jdGetArenaMetrics() {
+    const w = Math.max(320, playRoot?.clientWidth || arena?.clientWidth || window.innerWidth || 360);
+
+    let profile = 'desktop';
+    if (w <= 430) profile = 'tiny';
+    else if (w <= 820) profile = 'compact';
+    else profile = 'desktop';
+
+    let hitLineX;
+    let avatarLeftPct;
+    let startX;
+    let gapBase;
+    let speedBase;
+    let hitHalfWindow;
+
+    if (profile === 'tiny') {
+      hitLineX = 92;
+      avatarLeftPct = 0.10;
+      startX = Math.round(w * 0.74);
+      gapBase = 170;
+      speedBase = 6.0;
+      hitHalfWindow = 27;
+    } else if (profile === 'compact') {
+      hitLineX = 108;
+      avatarLeftPct = 0.115;
+      startX = Math.round(w * 0.78);
+      gapBase = 160;
+      speedBase = 6.2;
+      hitHalfWindow = 26;
+    } else {
+      hitLineX = 144;
+      avatarLeftPct = 0.14;
+      startX = Math.round(w * 0.82);
+      gapBase = 136;
+      speedBase = 7.1;
+      hitHalfWindow = 28;
+    }
+
+    return {
+      width: w,
+      profile,
+      hitLineX,
+      avatarLeftPct,
+      startX,
+      gapBase,
+      speedBase,
+      hitHalfWindow
+    };
+  }
+
+  function jdApplyResponsiveLayout(s) {
+    if (!s) return;
+    const m = jdGetArenaMetrics();
+
+    s.layoutProfile = m.profile;
+    s.hitLineX = m.hitLineX;
+    s.hitHalfWindow = m.hitHalfWindow;
+    s.startXBase = m.startX;
+    s.gapBase = m.gapBase;
+
+    if (!s.userBaseSpeedLocked) {
+      s.baseSpeed = m.speedBase;
+    }
+
+    const hitline = document.getElementById('jd-hitline');
+    if (hitline) hitline.style.left = `${m.hitLineX}px`;
+
+    if (avatar) {
+      avatar.style.left = `${Math.round(m.avatarLeftPct * 1000) / 10}%`;
+    }
+  }
+
   function jdPatternToSeq(pattern, rng = Math.random) {
     switch (pattern) {
       case 'single':
@@ -832,42 +868,40 @@
 
   function jdWaveGap(s, indexInSeq, seqLength) {
     const rng = s.rng || Math.random;
-    const isMobile = s.mobileScale === 'mobile' || s.mobileScale === 'tiny';
+    const compact = s.layoutProfile === 'compact' || s.layoutProfile === 'tiny';
 
-    let baseGap = isMobile ? 170 : 136;
+    let baseGap = Number(s.gapBase || (compact ? 160 : 136));
 
-    if (s.phase === 1) baseGap = isMobile ? 184 : 150;
-    if (s.phase === 2) baseGap = isMobile ? 162 : 132;
-    if (s.phase === 3) baseGap = isMobile ? 146 : 118;
+    if (s.phase === 1) baseGap += compact ? 14 : 12;
+    if (s.phase === 2) baseGap += compact ? 4 : -4;
+    if (s.phase === 3) baseGap += compact ? -10 : -18;
 
-    if (s.finalRush) baseGap -= isMobile ? 4 : 8;
-    if (s.bossActive) baseGap -= isMobile ? 3 : 6;
-    if (s.bossFrenzy) baseGap -= isMobile ? 4 : 8;
+    if (s.finalRush) baseGap -= compact ? 4 : 8;
+    if (s.bossActive) baseGap -= compact ? 3 : 6;
+    if (s.bossFrenzy) baseGap -= compact ? 4 : 8;
 
-    if (seqLength >= 4) baseGap -= isMobile ? 4 : 8;
-    if (seqLength >= 5) baseGap -= isMobile ? 2 : 6;
+    if (seqLength >= 4) baseGap -= compact ? 4 : 8;
+    if (seqLength >= 5) baseGap -= compact ? 2 : 6;
 
-    const jitter = isMobile
-      ? (12 + Math.floor(rng() * 14))
-      : (8 + Math.floor(rng() * 10));
+    const jitter = compact ? (12 + Math.floor(rng() * 12)) : (8 + Math.floor(rng() * 10));
 
-    return Math.max(isMobile ? 108 : 82, baseGap + (indexInSeq * 2) + jitter);
+    return Math.max(compact ? 108 : 82, baseGap + (indexInSeq * 2) + jitter);
   }
 
   function jdFeintChance(s) {
-    const isMobile = s.mobileScale === 'mobile' || s.mobileScale === 'tiny';
+    const compact = s.layoutProfile === 'compact' || s.layoutProfile === 'tiny';
 
     if (s.bossActive && s.bossProfile) {
       const base = Number(s.bossProfile.feintChance || 0);
-      return isMobile ? base * 0.72 : base;
+      return compact ? base * 0.72 : base;
     }
 
     if (s.phase === 1) return 0;
-    if (s.phase === 2) return isMobile ? 0.01 : 0.02;
+    if (s.phase === 2) return compact ? 0.01 : 0.02;
     if (s.phase === 3) {
       return s.finalRush
-        ? (isMobile ? 0.035 : 0.05)
-        : (isMobile ? 0.028 : 0.04);
+        ? (compact ? 0.035 : 0.05)
+        : (compact ? 0.028 : 0.04);
     }
 
     return 0;
@@ -924,12 +958,10 @@
     if (!s.running) return;
 
     const rng = s.rng || Math.random;
-    const isMobile = s.mobileScale === 'mobile' || s.mobileScale === 'tiny';
-
     const pattern = jdPickPattern(s);
     const seq = jdPatternToSeq(pattern, rng);
 
-    const startX = isMobile ? 300 : 102;
+    const startX = Number(s.startXBase || 300);
     const feintChance = jdFeintChance(s);
 
     s.lastPattern = pattern;
@@ -971,7 +1003,7 @@
   function jdUpdatePhaseAndPacing(s) {
     const progress = jdGetProgress(s);
     const diffKey = s.diff || 'normal';
-    const isMobile = s.mobileScale === 'mobile' || s.mobileScale === 'tiny';
+    const compact = s.layoutProfile === 'compact' || s.layoutProfile === 'tiny';
 
     s.phase = jdPhaseByProgress(progress);
 
@@ -983,65 +1015,65 @@
 
     if (s.mode === 'training') {
       if (s.phase === 1) {
-        speed *= 1 + (progress * (isMobile ? 0.03 : 0.05));
-        spawnMs *= 1 - (progress * (isMobile ? 0.03 : 0.04));
+        speed *= 1 + (progress * (compact ? 0.03 : 0.05));
+        spawnMs *= 1 - (progress * (compact ? 0.03 : 0.04));
       } else if (s.phase === 2) {
-        speed *= 1 + (progress * (isMobile ? 0.07 : 0.10));
-        spawnMs *= 1 - (progress * (isMobile ? 0.06 : 0.08));
+        speed *= 1 + (progress * (compact ? 0.07 : 0.10));
+        spawnMs *= 1 - (progress * (compact ? 0.06 : 0.08));
       } else {
-        speed *= 1 + (progress * (isMobile ? 0.10 : 0.14));
-        spawnMs *= 1 - (progress * (isMobile ? 0.08 : 0.10));
+        speed *= 1 + (progress * (compact ? 0.10 : 0.14));
+        spawnMs *= 1 - (progress * (compact ? 0.08 : 0.10));
       }
     }
 
     if (s.mode === 'test' || s.mode === 'research') {
       if (s.phase === 2) {
-        speed *= isMobile ? 1.01 : 1.02;
-        spawnMs *= isMobile ? 0.99 : 0.98;
+        speed *= compact ? 1.01 : 1.02;
+        spawnMs *= compact ? 0.99 : 0.98;
       }
       if (s.phase === 3) {
-        speed *= isMobile ? 1.03 : 1.04;
-        spawnMs *= isMobile ? 0.97 : 0.95;
+        speed *= compact ? 1.03 : 1.04;
+        spawnMs *= compact ? 0.97 : 0.95;
       }
     }
 
     if (s.feverActive) {
-      speed *= isMobile ? 1.05 : 1.08;
+      speed *= compact ? 1.05 : 1.08;
     }
 
     if (s.bossActive && s.bossProfile) {
       speed *= (s.bossProfile.speedMul || 1);
-      spawnMs = Math.min(spawnMs, (s.bossProfile.burstEveryMs || 4200) / (isMobile ? 5.3 : 4.9));
+      spawnMs = Math.min(spawnMs, (s.bossProfile.burstEveryMs || 4200) / (compact ? 5.3 : 4.9));
     }
 
-    const finalRushStart = isMobile ? 0.88 : 0.86;
+    const finalRushStart = compact ? 0.88 : 0.86;
     const inFinalRush = progress >= finalRushStart && !s.ended;
     s.finalRush = inFinalRush;
 
     if (inFinalRush) {
       const rushT = (progress - finalRushStart) / (1 - finalRushStart);
-      const rushBoost = 1 + (rushT * (isMobile ? 0.11 : 0.16));
-      const rushSpawnCut = 1 - (rushT * (isMobile ? 0.10 : 0.14));
+      const rushBoost = 1 + (rushT * (compact ? 0.11 : 0.16));
+      const rushSpawnCut = 1 - (rushT * (compact ? 0.10 : 0.14));
 
       speed *= rushBoost;
       spawnMs *= rushSpawnCut;
 
       if (!s.bossActive) {
-        speed *= isMobile ? 1.01 : 1.03;
-        spawnMs *= isMobile ? 0.98 : 0.96;
+        speed *= compact ? 1.01 : 1.03;
+        spawnMs *= compact ? 0.98 : 0.96;
       }
     }
 
     if (s.bossActive && typeof s.bossHp === 'number' && s.bossHp <= 25) {
-      speed *= isMobile ? 1.05 : 1.08;
-      spawnMs *= isMobile ? 0.95 : 0.92;
+      speed *= compact ? 1.05 : 1.08;
+      spawnMs *= compact ? 0.95 : 0.92;
       s.bossFrenzy = true;
     } else {
       s.bossFrenzy = false;
     }
 
-    spawnMs = jdClamp(Math.round(spawnMs), isMobile ? 430 : 360, 1800);
-    speed = jdClamp(speed, isMobile ? 4.8 : 4.9, isMobile ? 13.8 : 16.2);
+    spawnMs = jdClamp(Math.round(spawnMs), compact ? 430 : 360, 1800);
+    speed = jdClamp(speed, compact ? 4.8 : 4.9, compact ? 13.8 : 16.2);
 
     s.progress = progress;
     s.currentSpawnMs = spawnMs;
@@ -1083,49 +1115,49 @@
     if (!s || !s.bossActive || !s.bossProfile) return;
     if (now < s.nextBossBurstAt) return;
 
-    const isMobile = s.mobileScale === 'mobile' || s.mobileScale === 'tiny';
+    const compact = s.layoutProfile === 'compact' || s.layoutProfile === 'tiny';
 
     jdSpawnWave(s);
 
     let nextMs = Number(s.bossProfile.burstEveryMs || 4200);
 
     if (s.bossProfile.key === 'chaos') {
-      nextMs *= isMobile ? 0.97 : 0.92;
+      nextMs *= compact ? 0.97 : 0.92;
     }
 
     if (s.bossFrenzy) {
-      nextMs *= isMobile ? 0.86 : 0.76;
+      nextMs *= compact ? 0.86 : 0.76;
     }
 
     if (s.finalRush) {
-      nextMs *= isMobile ? 0.95 : 0.90;
+      nextMs *= compact ? 0.95 : 0.90;
     }
 
-    s.nextBossBurstAt = now + Math.max(isMobile ? 1320 : 1050, Math.round(nextMs));
+    s.nextBossBurstAt = now + Math.max(compact ? 1320 : 1050, Math.round(nextMs));
   }
 
   function jdJudgeTiming(inputAgeMs, s) {
-    const isMobile = s.mobileScale === 'mobile' || s.mobileScale === 'tiny';
+    const compact = s.layoutProfile === 'compact' || s.layoutProfile === 'tiny';
 
-    let perfectWindow = isMobile ? 114 : 105;
-    let goodWindow = isMobile ? 210 : 195;
+    let perfectWindow = compact ? 114 : 105;
+    let goodWindow = compact ? 210 : 195;
 
     if (s.diff === 'easy') {
-      perfectWindow = isMobile ? 126 : 118;
-      goodWindow = isMobile ? 232 : 220;
+      perfectWindow = compact ? 126 : 118;
+      goodWindow = compact ? 232 : 220;
     } else if (s.diff === 'hard') {
-      perfectWindow = isMobile ? 100 : 92;
-      goodWindow = isMobile ? 182 : 172;
+      perfectWindow = compact ? 100 : 92;
+      goodWindow = compact ? 182 : 172;
     }
 
     if (s.finalRush) {
-      perfectWindow -= isMobile ? 4 : 6;
-      goodWindow -= isMobile ? 5 : 8;
+      perfectWindow -= compact ? 4 : 6;
+      goodWindow -= compact ? 5 : 8;
     }
 
     if (s.bossActive) {
-      perfectWindow -= isMobile ? 3 : 4;
-      goodWindow -= isMobile ? 4 : 6;
+      perfectWindow -= compact ? 3 : 4;
+      goodWindow -= compact ? 4 : 6;
     }
 
     if (inputAgeMs <= perfectWindow) return 'perfect';
@@ -1192,13 +1224,9 @@
   }
 
   function jdObstaclePopY(obs) {
-    const isMobile = window.matchMedia('(max-width: 768px)').matches;
-    if (!obs) return isMobile ? 170 : 180;
-
-    if (isMobile) {
-      return obs.type === 'low' ? 220 : 110;
-    }
-
+    const compact = state?.layoutProfile === 'compact' || state?.layoutProfile === 'tiny';
+    if (!obs) return compact ? 170 : 180;
+    if (compact) return obs.type === 'low' ? 220 : 110;
     return obs.type === 'low' ? 245 : 135;
   }
 
@@ -1324,7 +1352,6 @@
           if (judge !== 'late') {
             obs.resolved = true;
             jdApplySuccessfulHit(s, obs, judge);
-
             obs.el.remove();
             s.obstacles.splice(i, 1);
             s.lastInput = null;
@@ -1333,7 +1360,6 @@
         } else {
           obs.resolved = true;
           jdApplyMissPenalty(s, obs, 'wrong');
-
           obs.el.remove();
           s.obstacles.splice(i, 1);
           s.lastInput = null;
@@ -1344,7 +1370,6 @@
       if (!obs.resolved && obs.x < (hitX - hitHalfWindow - 12)) {
         obs.resolved = true;
         jdApplyMissPenalty(s, obs, 'miss');
-
         obs.el.remove();
         s.obstacles.splice(i, 1);
         continue;
@@ -1491,8 +1516,7 @@
   function createState(opts) {
     const seedVal = HHA_CTX.seed || Date.now();
     const rng = mulberry32(strToSeed(seedVal));
-    const isMobile = window.matchMedia('(max-width: 768px)').matches;
-    const isTiny = window.matchMedia('(max-width: 420px)').matches;
+    const metrics = jdGetArenaMetrics();
 
     return {
       running: true,
@@ -1515,9 +1539,10 @@
       progress: 0,
       phaseLabel: 'warmup',
 
-      baseSpeed: isMobile ? 6.1 : 7.1,
-      currentSpeed: isMobile ? 6.1 : 7.1,
+      baseSpeed: metrics.speedBase,
+      currentSpeed: metrics.speedBase,
       currentSpawnMs: 900,
+      userBaseSpeedLocked: false,
 
       hit: 0,
       miss: 0,
@@ -1550,12 +1575,12 @@
       finalRush: false,
       lastPattern: '',
 
-      hitLineX: isTiny ? 96 : (isMobile ? 108 : 144),
-      hitHalfWindow: isMobile ? 26 : 28,
-      removeX: isMobile ? -170 : -120,
-
-      mobileScale: isTiny ? 'tiny' : (isMobile ? 'mobile' : 'desktop'),
-      compactHud: window.matchMedia('(max-width: 768px)').matches,
+      layoutProfile: metrics.profile,
+      hitLineX: metrics.hitLineX,
+      hitHalfWindow: metrics.hitHalfWindow,
+      startXBase: metrics.startX,
+      gapBase: metrics.gapBase,
+      removeX: -170,
 
       playRoot,
       arena: obsLayer,
@@ -1567,6 +1592,7 @@
     hardResetBeforeRun();
 
     state = createState(opts);
+    jdApplyResponsiveLayout(state);
     resetResultHUD();
 
     if (hudMode) hudMode.textContent = state.mode;
@@ -1711,6 +1737,11 @@
     if (!state.lastNow) state.lastNow = now;
     const dt = now - state.lastNow;
     state.lastNow = now;
+
+    if (!state._lastLayoutCheck || now - state._lastLayoutCheck > 250) {
+      jdApplyResponsiveLayout(state);
+      state._lastLayoutCheck = now;
+    }
 
     state.elapsed = now - state.startedAt;
     state.timeLeft = Math.max(0, state.duration - state.elapsed);
@@ -1866,6 +1897,11 @@
       const k = String(ev.key || '').toLowerCase();
       if (k === 'arrowup' || k === 'w') jdHandleInput(state, 'jump');
       if (k === 'arrowdown' || k === 's') jdHandleInput(state, 'duck');
+    });
+
+    window.addEventListener('resize', () => {
+      if (!state) return;
+      jdApplyResponsiveLayout(state);
     });
 
     btnDlEvents?.addEventListener('click', () => {
