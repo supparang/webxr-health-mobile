@@ -1,9 +1,9 @@
 // === /herohealth/gate/gate-core.js ===
 // HeroHealth Gate Core
-// PATCH v20260313k-ALL-ZONES-GATE-CORE-PARAM-COMPAT
-// ✅ FIX: support phase + gatePhase
-// ✅ FIX: support game + theme
-// ✅ FIX: support zone + cat
+// PATCH v20260313m-ALL-ZONES-GATE-CORE-PARAM-COMPAT-FULL
+// ✅ FIX: support phase + gatePhase + Phase
+// ✅ FIX: support game + theme + Game + Theme
+// ✅ FIX: support zone + cat + Zone + Cat
 // ✅ KEEP: built-in summary / API start / hardened cleanup
 
 import {
@@ -45,6 +45,7 @@ function safeUrl(raw, fallback = '') {
 
 function ensureStyleFile(href, id) {
   if (!href) return;
+
   const old = document.getElementById(id);
   if (old && old.getAttribute('href') === href) return;
   if (old) old.remove();
@@ -64,7 +65,11 @@ function setDocTitle(meta, phase) {
 
 function getPhase(url) {
   const raw = String(
-    qs(url, 'phase', qs(url, 'gatePhase', 'warmup'))
+    qs(
+      url,
+      'phase',
+      qs(url, 'gatePhase', qs(url, 'Phase', 'warmup'))
+    )
   ).trim().toLowerCase();
 
   return raw === 'cooldown' ? 'cooldown' : 'warmup';
@@ -72,7 +77,11 @@ function getPhase(url) {
 
 function getGame(url) {
   return normalizeGameId(
-    qs(url, 'game', qs(url, 'theme', ''))
+    qs(
+      url,
+      'game',
+      qs(url, 'theme', qs(url, 'Game', qs(url, 'Theme', '')))
+    )
   );
 }
 
@@ -87,7 +96,7 @@ function getNextRunUrl(url) {
 }
 
 function getHubUrl(url) {
-  return safeUrl(qs(url, 'hub', ''), '');
+  return safeUrl(qs(url, 'hub', ''));
 }
 
 function renderError(root, title, detail = '') {
@@ -152,12 +161,12 @@ function metricMeta(key) {
     accuracy:          { label: 'ความแม่นยำ',        icon: '🎯', tone: 'green' },
     speed:             { label: 'ความเร็ว',          icon: '⚡', tone: 'violet' },
     calm:              { label: 'ความนิ่ง',          icon: '🌿', tone: 'cyan' },
-    rank:              { label: 'Rank',             icon: '✨', tone: 'pink' },
-    wPct:              { label: 'โบนัสรวม',         icon: '🪄', tone: 'blue' },
-    wCrit:             { label: 'คริติคอล',         icon: '💥', tone: 'red' },
-    wDmg:              { label: 'พลังโจมตี',        icon: '⚔️', tone: 'amber' },
-    wHeal:             { label: 'พลังฟื้นฟู',       icon: '💚', tone: 'green' },
-    groupMasteryPct:   { label: 'เข้าใจหมวดอาหาร',  icon: '🍽️', tone: 'blue' }
+    rank:              { label: 'Rank',              icon: '✨', tone: 'pink' },
+    wPct:              { label: 'โบนัสรวม',          icon: '🪄', tone: 'blue' },
+    wCrit:             { label: 'คริติคอล',          icon: '💥', tone: 'red' },
+    wDmg:              { label: 'พลังโจมตี',         icon: '⚔️', tone: 'amber' },
+    wHeal:             { label: 'พลังฟื้นฟู',        icon: '💚', tone: 'green' },
+    groupMasteryPct:   { label: 'เข้าใจหมวดอาหาร',   icon: '🍽️', tone: 'blue' }
   };
   return map[key] || { label: key, icon: '•', tone: 'blue' };
 }
@@ -209,8 +218,7 @@ function sanitizeMetrics(metrics) {
 }
 
 function childStatusText(result) {
-  if (result?.passed) return 'เยี่ยมมาก';
-  return 'ทำเสร็จแล้ว';
+  return result?.passed ? 'เยี่ยมมาก' : 'ทำเสร็จแล้ว';
 }
 
 function toneStyle(tone) {
@@ -375,7 +383,12 @@ export async function bootGate(root) {
     return;
   }
 
-  const zone = qs(url, 'zone', qs(url, 'cat', meta.cat || ''));
+  const zone = qs(
+    url,
+    'zone',
+    qs(url, 'cat', qs(url, 'Zone', qs(url, 'Cat', meta.cat || '')))
+  );
+
   const seed = Number(qs(url, 'seed', Date.now()));
   const pid = qs(url, 'pid', 'anon');
   const studyId = qs(url, 'studyId', '');
