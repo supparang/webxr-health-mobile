@@ -1,6 +1,6 @@
 /* === /herohealth/gate/games/balancehold/warmup.js ===
  * HeroHealth Gate Game: BalanceHold Warmup
- * PATCH v20260312-BALANCEHOLD-WARMUP-A
+ * PATCH v20260312e-BALANCEHOLD-WARMUP-TH-CHILD
  */
 
 function clamp(v, a, b){ return Math.max(a, Math.min(b, v)); }
@@ -39,7 +39,7 @@ function makeResult(state){
     game: 'balancehold',
     phase: 'warmup',
     activityId: 'balancehold-core-activate',
-    title: 'Core Activate',
+    title: 'ซ้อมทรงตัว',
     passed,
     score,
     stars: starsFromScore(score),
@@ -54,8 +54,8 @@ function makeResult(state){
     coach: {
       tone: passed ? 'positive' : 'gentle',
       line: passed
-        ? 'แกนกลางลำตัวพร้อมแล้ว ไปเริ่ม Balance Hold กัน'
-        : 'ลองค้างท่าให้นิ่งขึ้นอีกนิด แล้วค่อยเริ่มเกมหลัก'
+        ? 'พร้อมแล้ว ไปเล่น Balance Hold กัน'
+        : 'ลองยืนนิ่งอีกนิด แล้วค่อยเริ่มเกม'
     },
     nextAction: 'run'
   };
@@ -71,7 +71,7 @@ export function mount(root, ctx = {}){
       <div class="bhg-wrap">
         <section class="bhg-card">
           <div class="bhg-kicker">EXERCISE ZONE • WARMUP</div>
-          <h1 class="bhg-title">⚖️ Core Activate</h1>
+          <h1 class="bhg-title">⚖️ ซ้อมทรงตัว</h1>
           <p class="bhg-subtitle">โมดูลนี้ใช้สำหรับ phase=warmup เท่านั้น</p>
         </section>
       </div>
@@ -104,16 +104,16 @@ export function mount(root, ctx = {}){
     <div class="bhg-wrap">
       <section class="bhg-card">
         <div class="bhg-kicker">EXERCISE ZONE • WARMUP</div>
-        <h1 class="bhg-title">⚖️ Core Activate</h1>
-        <p class="bhg-subtitle">ปลุกแกนกลางลำตัวก่อนเข้าเกม Balance Hold</p>
+        <h1 class="bhg-title">⚖️ ซ้อมทรงตัว</h1>
+        <p class="bhg-subtitle">ซ้อมยืนให้มั่นคงก่อนเข้าเกม Balance Hold</p>
 
         <div class="bhg-grid">
           <div class="bhg-panel">
             <h2 class="bhg-h2">วิธีเล่น</h2>
             <ol class="bhg-list">
               <li>ทำตามท่าที่ขึ้นบนจอทีละท่า</li>
-              <li>กดปุ่ม “ค้างครบ 4 วินาที” เมื่อทำท่าเสร็จ</li>
-              <li>ทำสำเร็จอย่างน้อย 3 ท่าเพื่อผ่าน warmup</li>
+              <li>กด “ทำครบแล้ว” เมื่อทำท่าเสร็จ</li>
+              <li>ทำสำเร็จอย่างน้อย 3 ท่า</li>
             </ol>
           </div>
 
@@ -130,7 +130,7 @@ export function mount(root, ctx = {}){
             <div class="bhg-actions bhg-actions-single">
               <button class="bhg-btn-action" type="button" id="bhg-hold" disabled>
                 <span class="bhg-emoji">✅</span>
-                <span>ค้างครบ 4 วินาที</span>
+                <span>ทำครบแล้ว</span>
               </button>
             </div>
           </div>
@@ -138,7 +138,7 @@ export function mount(root, ctx = {}){
 
         <div class="bhg-footer">
           <button class="bhg-btn bhg-btn-primary" id="bhg-start">เริ่มอุ่นเครื่อง</button>
-          <button class="bhg-btn bhg-btn-ghost" id="bhg-finish" disabled>สรุปผล</button>
+          <button class="bhg-btn bhg-btn-ghost" id="bhg-finish" disabled>ดูผล</button>
         </div>
       </section>
     </div>
@@ -166,13 +166,13 @@ export function mount(root, ctx = {}){
     holdBtn.disabled = true;
     startBtn.disabled = true;
     finishBtn.disabled = false;
-    cueEl.textContent = 'เสร็จแล้ว กดสรุปผล';
+    cueEl.textContent = 'เสร็จแล้ว กดดูผล';
     renderStats();
   }
 
   function failStep(){
     state.fail += 1;
-    cueEl.textContent = 'หมดเวลา ลองค้างให้นิ่งขึ้น';
+    cueEl.textContent = 'หมดเวลา ลองใหม่นะ';
     renderStats();
     clearInterval(state.stepTimer);
     setTimeout(nextStep, 500);
