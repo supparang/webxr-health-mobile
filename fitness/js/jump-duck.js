@@ -3,12 +3,10 @@
 (function () {
   const $ = (s) => document.querySelector(s);
 
-  // ========= VIEWS =========
   const viewMenu = $('#view-menu');
   const viewPlay = $('#view-play');
   const viewResult = $('#view-result');
 
-  // ========= MENU FIELDS =========
   const elMode = $('#jd-mode');
   const elDiff = $('#jd-diff');
   const elDuration = $('#jd-duration');
@@ -17,13 +15,11 @@
   const elGroup = $('#jd-group');
   const elNote = $('#jd-note');
 
-  // ========= PLAY ROOT =========
   const playRoot = $('#jd-play-area');
   const arena = $('#jd-arena');
   const obsLayer = $('#jd-obstacles');
   const avatar = $('#jd-avatar');
 
-  // ========= HUD =========
   const hudMode = $('#hud-mode');
   const hudDiff = $('#hud-diff');
   const hudTime = $('#hud-time');
@@ -37,6 +33,7 @@
   const hudRush = $('#hud-rush');
   const hudBossLabel = $('#hud-boss-label');
   const hudBossStatus = $('#hud-boss-status');
+  const hudBossCompact = $('#hud-boss-compact');
 
   const progFill = $('#hud-prog-fill');
   const progText = $('#hud-prog-text');
@@ -47,14 +44,12 @@
   const bossFill = $('#hud-boss-fill');
   const bossStatusRight = $('#hud-boss-status-right');
 
-  // ========= TELEGRAPH / JUDGE =========
   const tele = $('#jd-tele');
   const bossIntro = $('#jd-boss-intro');
   const bossIntroText = $('#jd-boss-intro-text');
   const judgeEl = $('#jd-judge');
   const rushBanner = $('#jd-rush-banner');
 
-  // ========= RESULT =========
   const rankBadge = $('#jd-rank-badge');
   const resultTitle = $('#jd-result-title');
   const resultSub = $('#jd-result-sub');
@@ -96,7 +91,6 @@
   const btnSendLog = $('#jd-btn-send-log');
   const logStatus = $('#jd-log-status');
 
-  // ========= QUERY =========
   const qs = (k, d = '') => {
     try {
       return (new URL(location.href)).searchParams.get(k) ?? d;
@@ -125,11 +119,9 @@
     pro: qs('pro', '')
   };
 
-  // ========= GLOBAL STATE =========
   let state = null;
   let rafId = 0;
 
-  // ========= CONSTS =========
   const JD_VISUALS = {
     low: [
       { key: 'low-hurdle', label: 'JUMP', cls: 'low-hurdle' },
@@ -150,20 +142,20 @@
   const JD_PHASE_TABLE = {
     1: {
       label: 'warmup',
-      spawnMs: { easy: 1150, normal: 980, hard: 840 },
-      speedMul: 0.96,
+      spawnMs: { easy: 1320, normal: 1140, hard: 980 },
+      speedMul: 0.90,
       patterns: ['single', 'single', 'single', 'alt2']
     },
     2: {
       label: 'pressure',
-      spawnMs: { easy: 980, normal: 820, hard: 700 },
-      speedMul: 1.06,
+      spawnMs: { easy: 1080, normal: 900, hard: 780 },
+      speedMul: 1.00,
       patterns: ['single', 'alt2', 'pair', 'zigzag3']
     },
     3: {
       label: 'boss',
-      spawnMs: { easy: 860, normal: 700, hard: 580 },
-      speedMul: 1.18,
+      spawnMs: { easy: 940, normal: 780, hard: 660 },
+      speedMul: 1.10,
       patterns: ['pair', 'zigzag3', 'burst4', 'mirror4']
     }
   };
@@ -173,55 +165,54 @@
       key: 'tempo',
       label: 'Tempo Boss',
       icon: '🎵',
-      intro: 'จับจังหวะให้ดี!',
+      intro: 'จับจังหวะ 2-2-1 ให้ดี!',
       patterns: ['alt2', 'alt4', 'double-low-high', 'double-high-low'],
-      burstEveryMs: 4200,
-      feintChance: 0.04,
-      speedMul: 1.06
+      burstEveryMs: 4000,
+      feintChance: 0.02,
+      speedMul: 1.08
     },
     feint: {
       key: 'feint',
       label: 'Feint Boss',
       icon: '🧠',
-      intro: 'อย่ารีบกดเร็วเกินไป!',
+      intro: 'อย่ารีบกด! บางอันจะกลับด้าน',
       patterns: ['feint2', 'feint3', 'single', 'alt2'],
-      burstEveryMs: 4500,
-      feintChance: 0.28,
-      speedMul: 1.00
+      burstEveryMs: 4600,
+      feintChance: 0.34,
+      speedMul: 0.98
     },
     shield: {
       key: 'shield',
       label: 'Shield Boss',
       icon: '🛡️',
-      intro: 'ต้องตีติดกันเพื่อแตกเกราะ!',
+      intro: 'ต้องตีติด ๆ กันถึงจะลดเกราะได้แรง',
       patterns: ['pair', 'double-low-high', 'double-high-low', 'mirror4'],
-      burstEveryMs: 5000,
-      feintChance: 0.02,
-      speedMul: 1.02
+      burstEveryMs: 5100,
+      feintChance: 0.01,
+      speedMul: 1.00
     },
     mirror: {
       key: 'mirror',
       label: 'Mirror Boss',
       icon: '🪞',
-      intro: 'จำแพทเทิร์นสลับให้ทัน!',
+      intro: 'จำแพทเทิร์นสลับให้ทัน',
       patterns: ['mirror4', 'alt4', 'zigzag3'],
-      burstEveryMs: 4300,
-      feintChance: 0.08,
-      speedMul: 1.05
+      burstEveryMs: 4200,
+      feintChance: 0.06,
+      speedMul: 1.04
     },
     chaos: {
       key: 'chaos',
       label: 'Chaos Boss',
       icon: '🌪️',
-      intro: 'ช่วงท้ายปั่นสุด ๆ !',
+      intro: 'ช่วงท้ายถี่และปั่นมาก!',
       patterns: ['burst4', 'burst5', 'zigzag3', 'pair'],
-      burstEveryMs: 3200,
-      feintChance: 0.12,
-      speedMul: 1.12
+      burstEveryMs: 3000,
+      feintChance: 0.10,
+      speedMul: 1.14
     }
   };
 
-  // ========= HELPERS =========
   function showView(name) {
     viewMenu?.classList.add('hidden');
     viewPlay?.classList.add('hidden');
@@ -292,15 +283,66 @@
     };
   }
 
-  function localDayKey() {
-    const d = new Date();
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const dd = String(d.getDate()).padStart(2, '0');
-    return `${y}-${m}-${dd}`;
+  function loadJson(key, fallback) {
+    try {
+      const raw = localStorage.getItem(key);
+      return raw ? JSON.parse(raw) : fallback;
+    } catch (_) {
+      return fallback;
+    }
   }
 
-  // ========= FEEDBACK HELPERS =========
+  function saveJson(key, value) {
+    try {
+      localStorage.setItem(key, JSON.stringify(value));
+    } catch (_) {}
+  }
+
+  function saveLastSummary(summary) {
+    try {
+      localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(summary));
+      const histKey = 'HHA_SUMMARY_HISTORY';
+      const old = JSON.parse(localStorage.getItem(histKey) || '[]');
+      old.unshift(summary);
+      while (old.length > 30) old.pop();
+      localStorage.setItem(histKey, JSON.stringify(old));
+    } catch (_) {}
+  }
+
+  function escCsv(v) {
+    if (v == null) return '';
+    const s = String(v);
+    if (s.includes('"') || s.includes(',') || s.includes('\n')) return '"' + s.replace(/"/g, '""') + '"';
+    return s;
+  }
+
+  function toCsv(rows) {
+    if (!rows || !rows.length) return '';
+    const cols = Object.keys(rows[0]);
+    const out = [cols.join(',')];
+    rows.forEach(r => out.push(cols.map(c => escCsv(r[c])).join(',')));
+    return out.join('\n');
+  }
+
+  function downloadCsv(text, filename) {
+    if (!text) return;
+    const blob = new Blob([text], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  function setLogStatus(msg, ok) {
+    if (!logStatus) return;
+    logStatus.textContent = msg;
+    logStatus.style.color = ok ? '#22c55e' : '#f59e0b';
+  }
+
   function jdShowJudge(msg) {
     if (!judgeEl) return;
     judgeEl.textContent = msg;
@@ -402,8 +444,6 @@
 
       .jd-obstacle{
         position:absolute;
-        width:86px;
-        height:86px;
         border-radius:20px;
         display:flex;
         align-items:center;
@@ -413,6 +453,8 @@
         background:rgba(15,23,42,.88);
         box-shadow:0 16px 34px rgba(0,0,0,.24);
         z-index:12;
+        width:86px;
+        height:86px;
       }
       .jd-obstacle.low { bottom:78px; }
       .jd-obstacle.high { bottom:172px; }
@@ -481,11 +523,200 @@
 
       .high-beam{ top:16px; width:68px; height:16px; border-radius:8px; background:linear-gradient(180deg,#fb7185,#dc2626); }
       .high-tape{ top:22px; width:64px; height:8px; border-radius:999px; background:linear-gradient(90deg,#fda4af,#ef4444,#fda4af); box-shadow:0 0 0 6px rgba(239,68,68,.06); }
+
+      @media (max-width: 768px){
+        .jd-obstacle{
+          width:96px;
+          height:96px;
+          border-radius:22px;
+        }
+
+        .jd-obstacle.low{
+          bottom:110px;
+        }
+
+        .jd-obstacle.high{
+          bottom:224px;
+        }
+
+        .jd-obstacle .tag{
+          font-size:11px;
+          padding:5px 10px;
+        }
+      }
+
+      @media (max-width: 420px){
+        .jd-obstacle{
+          width:92px;
+          height:92px;
+        }
+
+        .jd-obstacle.low{
+          bottom:108px;
+        }
+
+        .jd-obstacle.high{
+          bottom:220px;
+        }
+      }
     `;
     document.head.appendChild(css);
   }
 
-  // ========= GAME HELPERS =========
+  function clearRunTimers(s) {
+    if (!s) return;
+
+    if (s.judgeTimer) {
+      clearTimeout(s.judgeTimer);
+      s.judgeTimer = 0;
+    }
+
+    if (s.teleTimer) {
+      clearTimeout(s.teleTimer);
+      s.teleTimer = 0;
+    }
+
+    if (s.bossIntroTimer) {
+      clearTimeout(s.bossIntroTimer);
+      s.bossIntroTimer = 0;
+    }
+
+    if (s.avatarResetTimer) {
+      clearTimeout(s.avatarResetTimer);
+      s.avatarResetTimer = 0;
+    }
+  }
+
+  function stopLoop() {
+    if (rafId) {
+      cancelAnimationFrame(rafId);
+      rafId = 0;
+    }
+  }
+
+  function resetTransientUI() {
+    judgeEl?.classList.remove('show');
+
+    if (tele) {
+      tele.classList.remove('on');
+      tele.classList.add('hidden');
+    }
+
+    if (bossIntro) {
+      bossIntro.classList.remove('on');
+      bossIntro.classList.add('hidden');
+    }
+
+    rushBanner?.classList.add('hidden');
+
+    if (playRoot) {
+      playRoot.classList.remove('phase-1', 'phase-2', 'phase-3', 'final-rush', 'boss-frenzy');
+      playRoot.classList.remove('fx-good', 'fx-perfect', 'fx-miss', 'fx-fever', 'fx-bosshit');
+    }
+  }
+
+  function resetPlayHUD() {
+    if (hudMode) hudMode.textContent = 'training';
+    if (hudDiff) hudDiff.textContent = 'normal';
+    if (hudTime) hudTime.textContent = '60.0';
+    if (hudPhase) hudPhase.textContent = '1 • warmup';
+    if (hudScore) hudScore.textContent = '0';
+    if (hudCombo) hudCombo.textContent = '0';
+    if (hudStability) hudStability.textContent = '100%';
+    if (hudBoss) hudBoss.textContent = '—';
+
+    if (hudPattern) hudPattern.textContent = '—';
+    if (hudRush) hudRush.textContent = '—';
+    if (hudBossLabel) hudBossLabel.textContent = '—';
+    if (hudBossStatus) hudBossStatus.textContent = '—';
+    if (hudBossCompact) hudBossCompact.textContent = '—';
+
+    if (progFill) progFill.style.width = '0%';
+    if (progText) progText.textContent = '0%';
+    if (feverFill) feverFill.style.width = '0%';
+    if (feverStatus) feverStatus.textContent = 'Ready';
+
+    if (bossBarWrap) bossBarWrap.classList.add('hidden');
+    if (bossFill) bossFill.style.width = '0%';
+    if (bossStatusRight) bossStatusRight.textContent = '—';
+  }
+
+  function resetResultHUD() {
+    if (rankBadge) {
+      rankBadge.textContent = 'C';
+      rankBadge.classList.remove('rank-s', 'rank-a', 'rank-b', 'rank-c', 'rank-d');
+      rankBadge.classList.add('rank-c');
+    }
+
+    if (resultTitle) resultTitle.textContent = 'ผ่านด่านฝึกแล้ว!';
+    if (resultSub) resultSub.textContent = 'สรุปรอบล่าสุดของ JumpDuck';
+    if (resultBoss) resultBoss.textContent = '—';
+    if (resultPattern) resultPattern.textContent = '—';
+    if (resultRush) resultRush.textContent = '—';
+    if (resultReward) resultReward.textContent = 'Keep Training';
+    if (resultRewardIcon) resultRewardIcon.textContent = '⭐';
+    if (resultRewardSub) resultRewardSub.textContent = 'ฝึกต่ออีกนิด แล้วรอบหน้าจะดีกว่าเดิม';
+
+    if (resMode) resMode.textContent = '-';
+    if (resDiff) resDiff.textContent = '-';
+    if (resDuration) resDuration.textContent = '-';
+    if (resTotalObs) resTotalObs.textContent = '0';
+    if (resHits) resHits.textContent = '0';
+    if (resMiss) resMiss.textContent = '0';
+    if (resJumpHit) resJumpHit.textContent = '0';
+    if (resDuckHit) resDuckHit.textContent = '0';
+    if (resJumpMiss) resJumpMiss.textContent = '0';
+    if (resDuckMiss) resDuckMiss.textContent = '0';
+    if (resAcc) resAcc.textContent = '0%';
+    if (resRTMean) resRTMean.textContent = '0';
+    if (resStabilityMin) resStabilityMin.textContent = '0%';
+    if (resScore) resScore.textContent = '0';
+    if (resRank) resRank.textContent = 'C';
+
+    if (resScoreBig) resScoreBig.textContent = '0';
+    if (resAccBig) resAccBig.textContent = '0%';
+    if (resComboBig) resComboBig.textContent = '0';
+    if (resBossEndBig) resBossEndBig.textContent = '—';
+
+    if (resPhaseEnd) resPhaseEnd.textContent = '-';
+    if (resPattern) resPattern.textContent = '-';
+    if (resBossLabel) resBossLabel.textContent = '-';
+    if (resRush) resRush.textContent = '-';
+
+    if (logStatus) {
+      logStatus.textContent = '';
+      logStatus.style.color = '';
+    }
+  }
+
+  function clearArena() {
+    if (obsLayer) {
+      obsLayer.innerHTML = '';
+    }
+
+    document.querySelectorAll('.jd-score-pop').forEach(el => el.remove());
+
+    if (avatar) {
+      avatar.classList.remove('avatar-jump', 'avatar-duck');
+      avatar.classList.add('avatar-idle');
+    }
+  }
+
+  function hardResetBeforeRun() {
+    stopLoop();
+    clearRunTimers(state);
+    resetTransientUI();
+    clearArena();
+    resetPlayHUD();
+  }
+
+  function canFinishRun(s) {
+    if (!s) return false;
+    if (s.finishing) return false;
+    if (s.finished) return false;
+    return true;
+  }
+
   function jdGetProgress(s) {
     if (!s || !s.duration) return 0;
     return jdClamp(s.elapsed / s.duration, 0, 1);
@@ -499,9 +730,8 @@
 
   function jdPatternToSeq(pattern, rng = Math.random) {
     switch (pattern) {
-      case 'single': {
+      case 'single':
         return [rng() < 0.5 ? 'low' : 'high'];
-      }
       case 'alt2': {
         const a = rng() < 0.5 ? 'low' : 'high';
         const b = a === 'low' ? 'high' : 'low';
@@ -547,6 +777,12 @@
     const rng = s.rng || Math.random;
 
     if (s.bossActive && s.bossProfile) {
+      if (s.bossProfile.key === 'mirror' && rng() < 0.55) return 'mirror4';
+      if (s.bossProfile.key === 'tempo' && rng() < 0.45) return rng() < 0.5 ? 'alt4' : 'double-low-high';
+      if (s.bossProfile.key === 'chaos' && rng() < 0.45) return rng() < 0.5 ? 'burst4' : 'burst5';
+      if (s.bossProfile.key === 'feint' && rng() < 0.50) return rng() < 0.5 ? 'feint2' : 'feint3';
+      if (s.bossProfile.key === 'shield' && rng() < 0.45) return rng() < 0.5 ? 'pair' : 'double-high-low';
+
       const bossPatterns = s.bossProfile.patterns || ['alt2'];
       return bossPatterns[Math.floor(rng() * bossPatterns.length)];
     }
@@ -596,29 +832,44 @@
 
   function jdWaveGap(s, indexInSeq, seqLength) {
     const rng = s.rng || Math.random;
-    let baseGap = 132;
-    if (s.phase === 1) baseGap = 144;
-    if (s.phase === 2) baseGap = 126;
-    if (s.phase === 3) baseGap = 112;
+    const isMobile = s.mobileScale === 'mobile' || s.mobileScale === 'tiny';
 
-    if (s.finalRush) baseGap -= 12;
-    if (s.bossActive) baseGap -= 8;
-    if (s.bossFrenzy) baseGap -= 10;
+    let baseGap = isMobile ? 170 : 136;
 
-    if (seqLength >= 4) baseGap -= 10;
-    if (seqLength >= 5) baseGap -= 8;
+    if (s.phase === 1) baseGap = isMobile ? 184 : 150;
+    if (s.phase === 2) baseGap = isMobile ? 162 : 132;
+    if (s.phase === 3) baseGap = isMobile ? 146 : 118;
 
-    const jitter = 10 + Math.floor(rng() * 10);
-    return Math.max(72, baseGap + (indexInSeq * 2) + jitter);
+    if (s.finalRush) baseGap -= isMobile ? 4 : 8;
+    if (s.bossActive) baseGap -= isMobile ? 3 : 6;
+    if (s.bossFrenzy) baseGap -= isMobile ? 4 : 8;
+
+    if (seqLength >= 4) baseGap -= isMobile ? 4 : 8;
+    if (seqLength >= 5) baseGap -= isMobile ? 2 : 6;
+
+    const jitter = isMobile
+      ? (12 + Math.floor(rng() * 14))
+      : (8 + Math.floor(rng() * 10));
+
+    return Math.max(isMobile ? 108 : 82, baseGap + (indexInSeq * 2) + jitter);
   }
 
   function jdFeintChance(s) {
+    const isMobile = s.mobileScale === 'mobile' || s.mobileScale === 'tiny';
+
     if (s.bossActive && s.bossProfile) {
-      return Number(s.bossProfile.feintChance || 0);
+      const base = Number(s.bossProfile.feintChance || 0);
+      return isMobile ? base * 0.72 : base;
     }
+
     if (s.phase === 1) return 0;
-    if (s.phase === 2) return 0.04;
-    if (s.phase === 3) return s.finalRush ? 0.08 : 0.06;
+    if (s.phase === 2) return isMobile ? 0.01 : 0.02;
+    if (s.phase === 3) {
+      return s.finalRush
+        ? (isMobile ? 0.035 : 0.05)
+        : (isMobile ? 0.028 : 0.04);
+    }
+
     return 0;
   }
 
@@ -669,23 +920,25 @@
   }
 
   function jdSpawnWave(s) {
-    if (!s || !s.arena || !s.running) return;
+    if (!s || !s.arena) return;
+    if (!s.running) return;
 
     const rng = s.rng || Math.random;
+    const isMobile = s.mobileScale === 'mobile' || s.mobileScale === 'tiny';
+
     const pattern = jdPickPattern(s);
     const seq = jdPatternToSeq(pattern, rng);
 
-    const startX = 102;
+    const startX = isMobile ? 300 : 102;
     const feintChance = jdFeintChance(s);
 
     s.lastPattern = pattern;
 
-    seq.forEach((type, index) => {
-      const x = index === 0
-        ? startX
-        : (startX + seq.slice(0, index).reduce((sum, _t, i) => sum + jdWaveGap(s, i, seq.length), 0));
+    let cursorX = startX;
 
+    seq.forEach((type, index) => {
       let isFeint = false;
+
       if (pattern.startsWith('feint')) {
         isFeint = true;
       } else if (index === seq.length - 1 && rng() < feintChance) {
@@ -693,9 +946,10 @@
       }
 
       const visualKey = jdPickVisualKey(s, type);
+
       const obs = jdCreateObstacle(s, {
         type,
-        x,
+        x: cursorX,
         phase: s.phase,
         isBoss: !!s.bossActive,
         feint: isFeint,
@@ -703,9 +957,12 @@
       });
 
       obs.speed = s.currentSpeed;
+
       s.obstacles.push(obs);
       s.arena.appendChild(obs.el);
       s.totalObstacles = Number(s.totalObstacles || 0) + 1;
+
+      cursorX += jdWaveGap(s, index, seq.length);
     });
 
     if (hudPattern) hudPattern.textContent = pattern;
@@ -714,76 +971,77 @@
   function jdUpdatePhaseAndPacing(s) {
     const progress = jdGetProgress(s);
     const diffKey = s.diff || 'normal';
+    const isMobile = s.mobileScale === 'mobile' || s.mobileScale === 'tiny';
 
     s.phase = jdPhaseByProgress(progress);
 
     const phaseCfg = JD_PHASE_TABLE[s.phase] || JD_PHASE_TABLE[1];
     let spawnMs = phaseCfg.spawnMs[diffKey] || 900;
-    let speed = s.baseSpeed || 7.4;
+    let speed = s.baseSpeed || 7.1;
 
     speed *= (phaseCfg.speedMul || 1);
 
     if (s.mode === 'training') {
       if (s.phase === 1) {
-        speed *= 1 + (progress * 0.08);
-        spawnMs *= 1 - (progress * 0.06);
+        speed *= 1 + (progress * (isMobile ? 0.03 : 0.05));
+        spawnMs *= 1 - (progress * (isMobile ? 0.03 : 0.04));
       } else if (s.phase === 2) {
-        speed *= 1 + (progress * 0.14);
-        spawnMs *= 1 - (progress * 0.10);
+        speed *= 1 + (progress * (isMobile ? 0.07 : 0.10));
+        spawnMs *= 1 - (progress * (isMobile ? 0.06 : 0.08));
       } else {
-        speed *= 1 + (progress * 0.18);
-        spawnMs *= 1 - (progress * 0.14);
+        speed *= 1 + (progress * (isMobile ? 0.10 : 0.14));
+        spawnMs *= 1 - (progress * (isMobile ? 0.08 : 0.10));
       }
     }
 
     if (s.mode === 'test' || s.mode === 'research') {
       if (s.phase === 2) {
-        speed *= 1.03;
-        spawnMs *= 0.97;
+        speed *= isMobile ? 1.01 : 1.02;
+        spawnMs *= isMobile ? 0.99 : 0.98;
       }
       if (s.phase === 3) {
-        speed *= 1.06;
-        spawnMs *= 0.94;
+        speed *= isMobile ? 1.03 : 1.04;
+        spawnMs *= isMobile ? 0.97 : 0.95;
       }
     }
 
     if (s.feverActive) {
-      speed *= 1.12;
+      speed *= isMobile ? 1.05 : 1.08;
     }
 
     if (s.bossActive && s.bossProfile) {
       speed *= (s.bossProfile.speedMul || 1);
-      spawnMs = Math.min(spawnMs, (s.bossProfile.burstEveryMs || 4200) / 4.6);
+      spawnMs = Math.min(spawnMs, (s.bossProfile.burstEveryMs || 4200) / (isMobile ? 5.3 : 4.9));
     }
 
-    const finalRushStart = 0.84;
+    const finalRushStart = isMobile ? 0.88 : 0.86;
     const inFinalRush = progress >= finalRushStart && !s.ended;
     s.finalRush = inFinalRush;
 
     if (inFinalRush) {
       const rushT = (progress - finalRushStart) / (1 - finalRushStart);
-      const rushBoost = 1 + (rushT * 0.22);
-      const rushSpawnCut = 1 - (rushT * 0.18);
+      const rushBoost = 1 + (rushT * (isMobile ? 0.11 : 0.16));
+      const rushSpawnCut = 1 - (rushT * (isMobile ? 0.10 : 0.14));
 
       speed *= rushBoost;
       spawnMs *= rushSpawnCut;
 
       if (!s.bossActive) {
-        speed *= 1.05;
-        spawnMs *= 0.95;
+        speed *= isMobile ? 1.01 : 1.03;
+        spawnMs *= isMobile ? 0.98 : 0.96;
       }
     }
 
     if (s.bossActive && typeof s.bossHp === 'number' && s.bossHp <= 25) {
-      speed *= 1.10;
-      spawnMs *= 0.90;
+      speed *= isMobile ? 1.05 : 1.08;
+      spawnMs *= isMobile ? 0.95 : 0.92;
       s.bossFrenzy = true;
     } else {
       s.bossFrenzy = false;
     }
 
-    spawnMs = jdClamp(Math.round(spawnMs), 320, 1800);
-    speed = jdClamp(speed, 4.8, 18);
+    spawnMs = jdClamp(Math.round(spawnMs), isMobile ? 430 : 360, 1800);
+    speed = jdClamp(speed, isMobile ? 4.8 : 4.9, isMobile ? 13.8 : 16.2);
 
     s.progress = progress;
     s.currentSpawnMs = spawnMs;
@@ -825,35 +1083,49 @@
     if (!s || !s.bossActive || !s.bossProfile) return;
     if (now < s.nextBossBurstAt) return;
 
+    const isMobile = s.mobileScale === 'mobile' || s.mobileScale === 'tiny';
+
     jdSpawnWave(s);
 
     let nextMs = Number(s.bossProfile.burstEveryMs || 4200);
-    if (s.bossFrenzy) nextMs *= 0.78;
-    if (s.finalRush) nextMs *= 0.92;
-    s.nextBossBurstAt = now + Math.max(1200, Math.round(nextMs));
-  }
 
-  // ========= HIT/MISS =========
-  function jdJudgeTiming(inputAgeMs, s) {
-    let perfectWindow = 95;
-    let goodWindow = 185;
+    if (s.bossProfile.key === 'chaos') {
+      nextMs *= isMobile ? 0.97 : 0.92;
+    }
 
-    if (s.diff === 'easy') {
-      perfectWindow = 110;
-      goodWindow = 210;
-    } else if (s.diff === 'hard') {
-      perfectWindow = 82;
-      goodWindow = 165;
+    if (s.bossFrenzy) {
+      nextMs *= isMobile ? 0.86 : 0.76;
     }
 
     if (s.finalRush) {
-      perfectWindow -= 8;
-      goodWindow -= 10;
+      nextMs *= isMobile ? 0.95 : 0.90;
+    }
+
+    s.nextBossBurstAt = now + Math.max(isMobile ? 1320 : 1050, Math.round(nextMs));
+  }
+
+  function jdJudgeTiming(inputAgeMs, s) {
+    const isMobile = s.mobileScale === 'mobile' || s.mobileScale === 'tiny';
+
+    let perfectWindow = isMobile ? 114 : 105;
+    let goodWindow = isMobile ? 210 : 195;
+
+    if (s.diff === 'easy') {
+      perfectWindow = isMobile ? 126 : 118;
+      goodWindow = isMobile ? 232 : 220;
+    } else if (s.diff === 'hard') {
+      perfectWindow = isMobile ? 100 : 92;
+      goodWindow = isMobile ? 182 : 172;
+    }
+
+    if (s.finalRush) {
+      perfectWindow -= isMobile ? 4 : 6;
+      goodWindow -= isMobile ? 5 : 8;
     }
 
     if (s.bossActive) {
-      perfectWindow -= 6;
-      goodWindow -= 8;
+      perfectWindow -= isMobile ? 3 : 4;
+      goodWindow -= isMobile ? 4 : 6;
     }
 
     if (inputAgeMs <= perfectWindow) return 'perfect';
@@ -872,17 +1144,17 @@
 
   function jdScoreGainFromJudge(judge, s) {
     let base = 0;
-    if (judge === 'perfect') base = 18;
-    else if (judge === 'good') base = 11;
+    if (judge === 'perfect') base = 20;
+    else if (judge === 'good') base = 12;
     else base = 0;
 
-    const comboBonus = Math.min(12, Math.floor((s.combo || 0) * 0.8));
+    const comboBonus = Math.min(14, Math.floor((s.combo || 0) * 0.9));
     let gain = base + comboBonus;
 
-    if (s.phase === 2) gain += 2;
-    if (s.phase === 3) gain += 4;
+    if (s.phase === 2) gain += 1;
+    if (s.phase === 3) gain += 3;
     if (s.finalRush) gain += 3;
-    if (s.feverActive) gain += 4;
+    if (s.feverActive) gain += 5;
     if (s.bossActive) gain += 2;
 
     return Math.max(0, Math.round(gain));
@@ -892,17 +1164,18 @@
     if (typeof s.fever !== 'number') s.fever = 0;
 
     let gain = 0;
-    if (judge === 'perfect') gain = 18;
-    else if (judge === 'good') gain = 11;
+    if (judge === 'perfect') gain = 16;
+    else if (judge === 'good') gain = 10;
 
-    if (s.phase === 3) gain += 2;
-    if (s.finalRush) gain += 2;
+    if ((s.combo || 0) >= 5) gain += 2;
+    if (s.phase === 3) gain += 1;
+    if (s.finalRush) gain += 1;
 
     s.fever = Math.min(100, s.fever + gain);
 
     if (s.fever >= 100 && !s.feverActive) {
       s.feverActive = true;
-      s.feverUntil = performance.now() + 4500;
+      s.feverUntil = performance.now() + 4200;
       if (s.playRoot) jdFlash(s.playRoot, 'fever');
       jdShowJudge('🔥 FEVER!');
     }
@@ -919,7 +1192,13 @@
   }
 
   function jdObstaclePopY(obs) {
-    if (!obs) return 180;
+    const isMobile = window.matchMedia('(max-width: 768px)').matches;
+    if (!obs) return isMobile ? 170 : 180;
+
+    if (isMobile) {
+      return obs.type === 'low' ? 220 : 110;
+    }
+
     return obs.type === 'low' ? 245 : 135;
   }
 
@@ -942,15 +1221,20 @@
     if (obs?.need === 'jump') s.jumpMiss = Number(s.jumpMiss || 0) + 1;
     else if (obs?.need === 'duck') s.duckMiss = Number(s.duckMiss || 0) + 1;
 
-    let stabLoss = 10;
-    if (s.phase === 2) stabLoss = 12;
-    if (s.phase === 3) stabLoss = 14;
+    let stabLoss = 8;
+    if (s.phase === 2) stabLoss = 10;
+    if (s.phase === 3) stabLoss = 12;
     if (s.finalRush) stabLoss += 2;
     if (s.bossActive) stabLoss += 2;
 
     s.stability = Math.max(0, Number(s.stability || 100) - stabLoss);
 
+    if (s.bossProfile?.key === 'shield') {
+      s.bossChain = 0;
+    }
+
     if (s.playRoot) jdFlash(s.playRoot, 'miss');
+
     if (s.arena && obs) {
       jdScorePop(s.arena, obs.x + 42, jdObstaclePopY(obs), reason === 'wrong' ? 'WRONG' : 'MISS', 'miss');
     }
@@ -971,12 +1255,28 @@
     jdAddFever(s, judge);
 
     if (s.playRoot) jdFlash(s.playRoot, judge === 'perfect' ? 'perfect' : 'good');
+
     if (s.arena) {
-      jdScorePop(s.arena, obs.x + 42, jdObstaclePopY(obs), `+${gain}`, judge === 'perfect' ? 'perfect' : 'good');
+      jdScorePop(
+        s.arena,
+        obs.x + 42,
+        jdObstaclePopY(obs),
+        `+${gain}`,
+        judge === 'perfect' ? 'perfect' : 'good'
+      );
     }
 
     if (s.bossActive) {
-      const dmg = jdBossDamageFromJudge(judge, s);
+      let dmg = jdBossDamageFromJudge(judge, s);
+
+      if (s.bossProfile?.key === 'shield') {
+        s.bossChain = Number(s.bossChain || 0) + 1;
+        if (s.bossChain >= 3) dmg += 3;
+        if (s.bossChain >= 5) dmg += 4;
+      } else {
+        s.bossChain = 0;
+      }
+
       s.bossHp = Math.max(0, Number(s.bossHp || 100) - dmg);
       if (s.playRoot) jdFlash(s.playRoot, 'bosshit');
     }
@@ -990,7 +1290,7 @@
     const now = performance.now();
     jdUpdateFeverRuntime(s, now);
 
-    const hitX = Number(s.hitLineX || 180);
+    const hitX = Number(s.hitLineX || 144);
     const hitHalfWindow = Number(s.hitHalfWindow || 28);
     const removeX = Number(s.removeX || -120);
 
@@ -1016,14 +1316,13 @@
 
       if (!obs.resolved && inHitZone && s.lastInput) {
         const input = s.lastInput;
-        const inputAgeMs = Math.abs(now - input.at);
+        const inputAgeMs = Math.abs(obs.x - hitX) * 3.2;
 
         if (input.type === obs.need) {
           const judge = jdJudgeTiming(inputAgeMs, s);
 
           if (judge !== 'late') {
             obs.resolved = true;
-            if (obs.type === 'jump') s.jumpHit++;
             jdApplySuccessfulHit(s, obs, judge);
 
             obs.el.remove();
@@ -1083,7 +1382,6 @@
     }
   }
 
-  // ========= RESULT HELPERS =========
   function jdRankByPerformance(accPct, miss, maxCombo, bossDown) {
     if (accPct >= 92 && miss === 0 && bossDown) return 'S';
     if (accPct >= 84 && miss <= 2) return 'A';
@@ -1190,33 +1488,110 @@
     if (resRush) resRush.textContent = s.finalRush ? 'FINAL RUSH' : 'NO';
   }
 
-  function saveLastSummary(summary) {
-    try {
-      localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(summary));
-      const histKey = 'HHA_SUMMARY_HISTORY';
-      const old = JSON.parse(localStorage.getItem(histKey) || '[]');
-      old.unshift(summary);
-      while (old.length > 30) old.pop();
-      localStorage.setItem(histKey, JSON.stringify(old));
-    } catch (_) {}
+  function createState(opts) {
+    const seedVal = HHA_CTX.seed || Date.now();
+    const rng = mulberry32(strToSeed(seedVal));
+    const isMobile = window.matchMedia('(max-width: 768px)').matches;
+    const isTiny = window.matchMedia('(max-width: 420px)').matches;
+
+    return {
+      running: true,
+      ended: false,
+
+      pid: String(HHA_CTX.pid || 'anon'),
+      diff: opts.diff,
+      mode: opts.mode,
+      duration: opts.durationMs,
+      participant: buildParticipant(opts.mode),
+
+      startedAt: performance.now(),
+      elapsed: 0,
+      timeLeft: opts.durationMs,
+      lastNow: 0,
+
+      rng,
+
+      phase: 1,
+      progress: 0,
+      phaseLabel: 'warmup',
+
+      baseSpeed: isMobile ? 6.1 : 7.1,
+      currentSpeed: isMobile ? 6.1 : 7.1,
+      currentSpawnMs: 900,
+
+      hit: 0,
+      miss: 0,
+      jumpHit: 0,
+      duckHit: 0,
+      jumpMiss: 0,
+      duckMiss: 0,
+      score: 0,
+      combo: 0,
+      maxCombo: 0,
+      stability: 100,
+
+      fever: 0,
+      feverActive: false,
+      feverUntil: 0,
+
+      totalObstacles: 0,
+      nextObsId: 1,
+      obstacles: [],
+      nextSpawnAt: 0,
+      lastInput: null,
+
+      bossActive: false,
+      bossHp: 100,
+      bossProfile: null,
+      bossFrenzy: false,
+      nextBossBurstAt: 0,
+      bossChain: 0,
+
+      finalRush: false,
+      lastPattern: '',
+
+      hitLineX: isTiny ? 96 : (isMobile ? 108 : 144),
+      hitHalfWindow: isMobile ? 26 : 28,
+      removeX: isMobile ? -170 : -120,
+
+      mobileScale: isTiny ? 'tiny' : (isMobile ? 'mobile' : 'desktop'),
+      compactHud: window.matchMedia('(max-width: 768px)').matches,
+
+      playRoot,
+      arena: obsLayer,
+      avatar
+    };
   }
 
-  function loadJson(key, fallback) {
-    try {
-      const raw = localStorage.getItem(key);
-      return raw ? JSON.parse(raw) : fallback;
-    } catch (_) {
-      return fallback;
-    }
-  }
+  function startGame(opts) {
+    hardResetBeforeRun();
 
-  function saveJson(key, value) {
-    try {
-      localStorage.setItem(key, JSON.stringify(value));
-    } catch (_) {}
+    state = createState(opts);
+    resetResultHUD();
+
+    if (hudMode) hudMode.textContent = state.mode;
+    if (hudDiff) hudDiff.textContent = state.diff;
+    if (hudTime) hudTime.textContent = (state.duration / 1000).toFixed(1);
+
+    showView('play');
+
+    jdShowJudge('READY!');
+    jdTelegraph('แตะบน = JUMP • แตะล่าง = DUCK', 900);
+
+    rafId = requestAnimationFrame(jdTick);
   }
 
   function jdFinishRun(s, endReason) {
+    if (!canFinishRun(s)) return;
+
+    s.finishing = true;
+    s.running = false;
+    s.ended = true;
+
+    stopLoop();
+    clearRunTimers(s);
+    resetTransientUI();
+
     const total = Math.max(1, Number(s.totalObstacles || 0));
     const hit = Number(s.hit || 0);
     const miss = Number(s.miss || 0);
@@ -1322,161 +1697,16 @@
       bossBadge
     });
 
+    s.finished = true;
+    s.finishing = false;
+
     showView('result');
   }
 
-  // ========= CSV / LOG =========
-  function escCsv(v) {
-    if (v == null) return '';
-    const s = String(v);
-    if (s.includes('"') || s.includes(',') || s.includes('\n')) return '"' + s.replace(/"/g, '""') + '"';
-    return s;
-  }
-
-  function toCsv(rows) {
-    if (!rows || !rows.length) return '';
-    const cols = Object.keys(rows[0]);
-    const out = [cols.join(',')];
-    rows.forEach(r => out.push(cols.map(c => escCsv(r[c])).join(',')));
-    return out.join('\n');
-  }
-
-  function downloadCsv(text, filename) {
-    if (!text) return;
-    const blob = new Blob([text], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-  }
-
-  function setLogStatus(msg, ok) {
-    if (!logStatus) return;
-    logStatus.textContent = msg;
-    logStatus.style.color = ok ? '#22c55e' : '#f59e0b';
-  }
-
-  // ========= STATE INIT =========
-  function createState(opts) {
-    const seedVal = HHA_CTX.seed || Date.now();
-    const rng = mulberry32(strToSeed(seedVal));
-
-    return {
-      running: true,
-      ended: false,
-
-      pid: String(HHA_CTX.pid || 'anon'),
-      diff: opts.diff,
-      mode: opts.mode,
-      duration: opts.durationMs,
-      participant: buildParticipant(opts.mode),
-
-      startedAt: performance.now(),
-      elapsed: 0,
-      timeLeft: opts.durationMs,
-      lastNow: 0,
-
-      rng,
-
-      phase: 1,
-      progress: 0,
-      phaseLabel: 'warmup',
-      baseSpeed: 7.4,
-      currentSpeed: 7.4,
-      currentSpawnMs: 900,
-
-      hit: 0,
-      miss: 0,
-      jumpHit: 0,
-      duckHit: 0,
-      jumpMiss: 0,
-      duckMiss: 0,
-      score: 0,
-      combo: 0,
-      maxCombo: 0,
-      stability: 100,
-
-      fever: 0,
-      feverActive: false,
-      feverUntil: 0,
-
-      totalObstacles: 0,
-      nextObsId: 1,
-      obstacles: [],
-      nextSpawnAt: 0,
-      lastInput: null,
-
-      bossActive: false,
-      bossHp: 100,
-      bossProfile: null,
-      bossFrenzy: false,
-      nextBossBurstAt: 0,
-
-      finalRush: false,
-      lastPattern: '',
-
-      hitLineX: 180,
-      hitHalfWindow: 28,
-      removeX: -120,
-
-      playRoot,
-      arena: obsLayer,
-      avatar
-    };
-  }
-
-  // ========= START / STOP =========
-  function startGame(opts) {
-    cancelAnimationFrame(rafId);
-    state = createState(opts);
-
-    if (obsLayer) obsLayer.innerHTML = '';
-    if (avatar) {
-      avatar.classList.remove('avatar-jump', 'avatar-duck');
-      avatar.classList.add('avatar-idle');
-    }
-
-    if (bossBarWrap) bossBarWrap.classList.add('hidden');
-    if (bossFill) bossFill.style.width = '0%';
-    if (progFill) progFill.style.width = '0%';
-    if (progText) progText.textContent = '0%';
-    if (feverFill) feverFill.style.width = '0%';
-    if (feverStatus) feverStatus.textContent = 'Ready';
-
-    if (hudMode) hudMode.textContent = state.mode;
-    if (hudDiff) hudDiff.textContent = state.diff;
-    if (hudTime) hudTime.textContent = (state.duration / 1000).toFixed(1);
-    if (hudPhase) hudPhase.textContent = '1 • warmup';
-    if (hudScore) hudScore.textContent = '0';
-    if (hudCombo) hudCombo.textContent = '0';
-    if (hudStability) hudStability.textContent = '100%';
-    if (hudBoss) hudBoss.textContent = '—';
-    if (hudPattern) hudPattern.textContent = '—';
-    if (hudRush) hudRush.textContent = '—';
-    if (hudBossLabel) hudBossLabel.textContent = '—';
-    if (hudBossStatus) hudBossStatus.textContent = '—';
-    if (bossStatusRight) bossStatusRight.textContent = '—';
-
-    judgeEl?.classList.remove('show');
-    tele?.classList.add('hidden');
-    tele?.classList.remove('on');
-    bossIntro?.classList.add('hidden');
-    bossIntro?.classList.remove('on');
-
-    showView('play');
-    jdShowJudge('READY!');
-    jdTelegraph('แตะบน = JUMP • แตะล่าง = DUCK', 900);
-
-    rafId = requestAnimationFrame(jdTick);
-  }
-
-  // ========= MAIN LOOP =========
   function jdTick(now) {
-    if (!state || !state.running) return;
+    if (!state) return;
+    if (!state.running) return;
+    if (state.finished || state.finishing) return;
 
     if (!state.lastNow) state.lastNow = now;
     const dt = now - state.lastNow;
@@ -1534,33 +1764,41 @@
         : '—';
     }
 
+    if (hudBossCompact) {
+      if (!state.bossActive) {
+        hudBossCompact.textContent = '—';
+      } else if (state.bossFrenzy) {
+        hudBossCompact.textContent = `${state.bossProfile?.icon || '👾'} FRENZY!`;
+      } else {
+        hudBossCompact.textContent = `${state.bossProfile?.icon || '👾'} ${state.bossProfile?.label || 'Boss'}`;
+      }
+    }
+
     if (bossFill) {
       bossFill.style.width = state.bossActive ? `${Math.max(0, Math.round(state.bossHp || 0))}%` : '0%';
     }
 
     if (bossStatusRight) {
-      bossStatusRight.textContent = state.bossActive
-        ? `${Math.round(state.bossHp || 0)}%`
-        : '—';
+      if (!state.bossActive) {
+        bossStatusRight.textContent = '—';
+      } else if (state.bossProfile?.key === 'shield') {
+        bossStatusRight.textContent = `HP ${Math.round(state.bossHp || 0)}% • CHAIN ${state.bossChain || 0}`;
+      } else {
+        bossStatusRight.textContent = `${Math.round(state.bossHp || 0)}%`;
+      }
     }
 
     if (state.timeLeft <= 0) {
-      state.running = false;
-      state.ended = true;
       jdFinishRun(state, 'timeup');
       return;
     }
 
     if (state.stability <= 0) {
-      state.running = false;
-      state.ended = true;
       jdFinishRun(state, 'stability-zero');
       return;
     }
 
     if (state.bossActive && state.bossHp <= 0) {
-      state.running = false;
-      state.ended = true;
       jdFinishRun(state, 'boss-down');
       return;
     }
@@ -1568,9 +1806,10 @@
     rafId = requestAnimationFrame(jdTick);
   }
 
-  // ========= BUTTONS =========
   function bindEvents() {
     document.querySelector('[data-action="start"]')?.addEventListener('click', () => {
+      if (state && state.running) return;
+
       startGame({
         mode: (elMode?.value || HHA_CTX.mode || 'training').toLowerCase(),
         diff: (elDiff?.value || HHA_CTX.diff || 'normal').toLowerCase(),
@@ -1579,6 +1818,8 @@
     });
 
     document.querySelector('[data-action="tutorial"]')?.addEventListener('click', () => {
+      if (state && state.running) return;
+
       startGame({
         mode: 'training',
         diff: 'easy',
@@ -1588,19 +1829,25 @@
     });
 
     document.querySelector('[data-action="play-again"]')?.addEventListener('click', () => {
+      stopLoop();
+      clearRunTimers(state);
+      resetTransientUI();
+      clearArena();
       showView('menu');
     });
 
     document.querySelector('[data-action="back-menu"]')?.addEventListener('click', () => {
+      stopLoop();
+      clearRunTimers(state);
+      resetTransientUI();
+      clearArena();
       showView('menu');
     });
 
     $('#btn-jump')?.addEventListener('click', () => jdHandleInput(state, 'jump'));
     $('#btn-duck')?.addEventListener('click', () => jdHandleInput(state, 'duck'));
     $('#btn-stop-early')?.addEventListener('click', () => {
-      if (!state) return;
-      state.running = false;
-      state.ended = true;
+      if (!state || state.finished || state.finishing) return;
       jdFinishRun(state, 'stop-early');
     });
 
@@ -1611,7 +1858,7 @@
         const midY = rect.top + rect.height / 2;
         if (ev.clientY < midY) jdHandleInput(state, 'jump');
         else jdHandleInput(state, 'duck');
-      }, { passive: true });
+      }, { passive:true });
     }
 
     window.addEventListener('keydown', (ev) => {
@@ -1622,39 +1869,53 @@
     });
 
     btnDlEvents?.addEventListener('click', () => {
-      if (!state) return;
+      const summary = loadJson('HHA_LAST_SUMMARY', null);
+      if (!summary) {
+        setLogStatus('ยังไม่มีข้อมูลรอบล่าสุดให้ export', false);
+        return;
+      }
+
       const rows = [{
-        game: 'jumpduck',
-        pattern: state.lastPattern || '',
-        boss: state.bossProfile?.key || '',
-        rush: !!state.finalRush,
-        score: state.score || 0,
-        hit: state.hit || 0,
-        miss: state.miss || 0,
-        comboMax: state.maxCombo || 0,
-        timestampIso: nowIso()
+        game: summary.game,
+        boss: summary.bossVariant || '',
+        bossLabel: summary.bossLabel || '',
+        pattern: summary.pattern || '',
+        rush: !!summary.rush,
+        score: summary.scoreFinal || 0,
+        miss: summary.missTotal || 0,
+        comboMax: summary.comboMax || 0,
+        rank: summary.rank || '',
+        timestampIso: summary.timestampIso || ''
       }];
+
       downloadCsv(toCsv(rows), `jd-events-${Date.now()}.csv`);
+      setLogStatus('export events.csv เรียบร้อย', true);
     });
 
     btnDlSessions?.addEventListener('click', () => {
-      if (!state) return;
+      const summary = loadJson('HHA_LAST_SUMMARY', null);
+      if (!summary) {
+        setLogStatus('ยังไม่มีข้อมูลรอบล่าสุดให้ export', false);
+        return;
+      }
+
       const rows = [{
-        game: 'jumpduck',
-        pid: HHA_CTX.pid || 'anon',
-        diff: state.diff,
-        mode: state.mode,
-        durationSec: Math.round((state.duration || 0) / 1000),
-        totalObstacles: state.totalObstacles || 0,
-        hit: state.hit || 0,
-        miss: state.miss || 0,
-        score: state.score || 0,
-        comboMax: state.maxCombo || 0,
-        boss: state.bossProfile?.key || '',
-        rush: !!state.finalRush,
-        timestampIso: nowIso()
+        game: summary.game,
+        pid: summary.pid || 'anon',
+        boss: summary.bossVariant || '',
+        bossLabel: summary.bossLabel || '',
+        rush: !!summary.rush,
+        scoreFinal: summary.scoreFinal || 0,
+        accPct: summary.accPct || 0,
+        rank: summary.rank || '',
+        comboMax: summary.comboMax || 0,
+        missTotal: summary.missTotal || 0,
+        end_reason: summary.end_reason || '',
+        timestampIso: summary.timestampIso || ''
       }];
+
       downloadCsv(toCsv(rows), `jd-sessions-${Date.now()}.csv`);
+      setLogStatus('export sessions.csv เรียบร้อย', true);
     });
 
     btnSendLog?.addEventListener('click', async () => {
@@ -1664,7 +1925,6 @@
     elMode?.addEventListener('change', updateResearchVisibility);
   }
 
-  // ========= INIT =========
   function init() {
     injectPatchCSS();
     setHubLinks();
@@ -1676,6 +1936,8 @@
     if (elPidInput) elPidInput.value = HHA_CTX.pid || 'anon';
 
     bindEvents();
+    resetPlayHUD();
+    resetResultHUD();
     showView('menu');
   }
 
