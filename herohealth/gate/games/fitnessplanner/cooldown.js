@@ -1,6 +1,6 @@
 /* === /herohealth/gate/games/fitnessplanner/cooldown.js ===
  * HeroHealth Gate Game: FitnessPlanner Cooldown
- * PATCH v20260312-FITNESSPLANNER-COOLDOWN-A
+ * PATCH v20260312e-FITNESSPLANNER-COOLDOWN-TH-CHILD
  */
 
 function clamp(v, a, b){ return Math.max(a, Math.min(b, v)); }
@@ -39,7 +39,7 @@ function makeResult(state){
     game: 'fitnessplanner',
     phase: 'cooldown',
     activityId: 'fitnessplanner-mindful-reflection',
-    title: 'Mindful Reflection',
+    title: 'ทบทวนความรู้สึก',
     passed,
     score,
     stars: starsFromScore(score),
@@ -53,8 +53,8 @@ function makeResult(state){
     coach: {
       tone: passed ? 'calm' : 'gentle',
       line: passed
-        ? 'สะท้อนความรู้สึกเรียบร้อยแล้ว พร้อมกลับ HUB'
-        : 'ลองเลือกความรู้สึกและทบทวนตัวเองอีกนิด จะช่วยวางแผนครั้งต่อไปได้ดีขึ้น'
+        ? 'ทบทวนเสร็จแล้ว เก่งมาก'
+        : 'เลือกความรู้สึกของตัวเองอีกนิด แล้วค่อยกลับ'
     },
     nextAction: 'hub'
   };
@@ -70,7 +70,7 @@ export function mount(root, ctx = {}){
       <div class="fpg-wrap fpg-wrap-cool">
         <section class="fpg-card">
           <div class="fpg-kicker">EXERCISE ZONE • COOLDOWN</div>
-          <h1 class="fpg-title">🌙 Mindful Reflection</h1>
+          <h1 class="fpg-title">🌙 ทบทวนความรู้สึก</h1>
           <p class="fpg-subtitle">โมดูลนี้ใช้สำหรับ phase=cooldown เท่านั้น</p>
         </section>
       </div>
@@ -96,26 +96,26 @@ export function mount(root, ctx = {}){
     <div class="fpg-wrap fpg-wrap-cool">
       <section class="fpg-card">
         <div class="fpg-kicker">EXERCISE ZONE • COOLDOWN</div>
-        <h1 class="fpg-title">🌙 Mindful Reflection</h1>
-        <p class="fpg-subtitle">ทบทวนความรู้สึกสั้น ๆ หลังจบ Fitness Planner</p>
+        <h1 class="fpg-title">🌙 ทบทวนความรู้สึก</h1>
+        <p class="fpg-subtitle">บอกความรู้สึกของตัวเองหลังจบเกม Fitness Planner</p>
 
         <div class="fpg-grid">
           <div class="fpg-panel">
-            <h2 class="fpg-h2">วิธีทำ</h2>
+            <h2 class="fpg-h2">วิธีเล่น</h2>
             <ol class="fpg-list">
               <li>เลือกความรู้สึกวันนี้ 1 อย่าง</li>
-              <li>เลือกระดับพลังงานของตัวเอง 1 อย่าง</li>
-              <li>อยู่ในช่วง reflection ต่ออย่างน้อย 2 วินาที</li>
+              <li>เลือกระดับพลังงาน 1 อย่าง</li>
+              <li>อยู่ต่ออีกนิดเพื่อทบทวนตัวเอง</li>
             </ol>
           </div>
 
           <div class="fpg-panel fpg-play">
             <div class="fpg-phase-badge fpg-phase-badge-cool">COOLDOWN</div>
-            <div class="fpg-cue fpg-cue-cool" id="fpg-cue">วันนี้รู้สึกอย่างไรบ้าง?</div>
+            <div class="fpg-cue fpg-cue-cool" id="fpg-cue">วันนี้รู้สึกยังไง?</div>
             <div class="fpg-timer" id="fpg-timer">${GAME_SEC}s</div>
             <div class="fpg-stats" id="fpg-stats">
               <span>ตอบ 0</span>
-              <span>reflect 0s</span>
+              <span>คิดทบทวน 0s</span>
             </div>
 
             <div class="fpg-select-group">
@@ -139,8 +139,8 @@ export function mount(root, ctx = {}){
         </div>
 
         <div class="fpg-footer">
-          <button class="fpg-btn fpg-btn-primary" id="fpg-start">เริ่มคูลดาวน์</button>
-          <button class="fpg-btn fpg-btn-ghost" id="fpg-finish" disabled>สรุปผล</button>
+          <button class="fpg-btn fpg-btn-primary" id="fpg-start">เริ่มผ่อนคลาย</button>
+          <button class="fpg-btn fpg-btn-ghost" id="fpg-finish" disabled>ดูผล</button>
         </div>
       </section>
     </div>
@@ -158,7 +158,7 @@ export function mount(root, ctx = {}){
   function renderStats(){
     statsEl.innerHTML = `
       <span>ตอบ ${state.answers}</span>
-      <span>reflect ${state.reflectSec}s</span>
+      <span>คิดทบทวน ${state.reflectSec}s</span>
     `;
   }
 
@@ -182,7 +182,7 @@ export function mount(root, ctx = {}){
     [...moodBtns, ...energyBtns].forEach(btn => btn.disabled = true);
     startBtn.disabled = true;
     finishBtn.disabled = false;
-    cueEl.textContent = 'เสร็จแล้ว กดสรุปผล';
+    cueEl.textContent = 'เสร็จแล้ว กดดูผล';
     renderStats();
   }
 
@@ -191,7 +191,7 @@ export function mount(root, ctx = {}){
       if (!state.started || state.finished) return;
       state.mood = btn.dataset.mood || '';
       moodBtns.forEach(b => b.classList.toggle('is-picked', b === btn));
-      cueEl.textContent = 'บันทึกความรู้สึกแล้ว';
+      cueEl.textContent = 'เลือกความรู้สึกแล้ว';
       updateAnswers();
     });
   });
@@ -201,7 +201,7 @@ export function mount(root, ctx = {}){
       if (!state.started || state.finished) return;
       state.energy = btn.dataset.energy || '';
       energyBtns.forEach(b => b.classList.toggle('is-picked', b === btn));
-      cueEl.textContent = 'บันทึกระดับพลังงานแล้ว';
+      cueEl.textContent = 'เลือกระดับพลังงานแล้ว';
       updateAnswers();
     });
   });
