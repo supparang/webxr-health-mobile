@@ -1,7 +1,11 @@
 // === /fitness/js/balance-hold.js ===
 // Balance Hold — DOM-based Balance Platform + Obstacle Avoidance
-// FULL BUILD (RUN HTML MATCHED + FLOW FIXED)
-// Flow: launcher -> warmup -> game -> result -> cooldown -> hub
+// FULL BUILD v20260313-BALANCEHOLD-FLOW-FINAL
+// ✅ launcher -> warmup -> game -> result -> cooldown -> hub
+// ✅ no forced jump to hub on timeout
+// ✅ result screen stays until player chooses next action
+// ✅ supports /herohealth/balance-hold-vr.html
+// ✅ supports /fitness/balance-hold.html latest run shell
 'use strict';
 
 /* ------------------------------------------------------------
@@ -22,7 +26,7 @@ function clamp(v, a, b){
 function fmtPercent(v){
   v = Number(v);
   if(!Number.isFinite(v)) return '-';
-  return (v * 100).toFixed(1) + '%';
+  return (v*100).toFixed(1) + '%';
 }
 function fmtFloat(v, d=3){
   v = Number(v);
@@ -58,18 +62,18 @@ function parseBoolLike(v, fallback=false){
   if (['0','false','no','n','off'].includes(s)) return false;
   return fallback;
 }
+function absUrlMaybe(url){
+  if(!url) return '';
+  try{ return new URL(url, location.href).toString(); }
+  catch(e){ return String(url||''); }
+}
 function setParam(u, k, v){
   if (v === '' || v == null) u.searchParams.delete(k);
   else u.searchParams.set(k, String(v));
 }
-function absUrlMaybe(url){
-  if(!url) return '';
-  try{ return new URL(url, location.href).toString(); }
-  catch(e){ return String(url || ''); }
-}
 
 /* ------------------------------------------------------------
- * Seeded RNG
+ * Seeded RNG (deterministic)
  * ------------------------------------------------------------ */
 function xmur3(str){
   str = String(str ?? '');
@@ -123,7 +127,7 @@ function makeRng(seedStr){
 }
 
 /* ------------------------------------------------------------
- * Views
+ * View handling
  * ------------------------------------------------------------ */
 const viewMenu     = $('#view-menu');
 const viewResearch = $('#view-research');
@@ -212,18 +216,17 @@ const endModalInsight = $('#endModalInsight');
 
 const cvrStrictLabel = $('#cvrStrictLabel');
 
-/* extra buttons from latest run html */
+const btnResultCooldown = $('#btn-result-cooldown');
+const btnEndCooldown    = $('#btn-end-cooldown');
 const btnMenuBackLauncher = $('#btn-menu-back-launcher');
-const btnResultCooldown   = $('#btn-result-cooldown');
-const btnEndCooldown      = $('#btn-end-cooldown');
 
 /* ------------------------------------------------------------
  * Config
  * ------------------------------------------------------------ */
 const GAME_DIFF = {
-  easy:   { safeHalf:0.35, disturbMinMs:1500, disturbMaxMs:2700, disturbStrength:0.18, passiveDrift:0.006 },
-  normal: { safeHalf:0.25, disturbMinMs:1200, disturbMaxMs:2200, disturbStrength:0.23, passiveDrift:0.010 },
-  hard:   { safeHalf:0.18, disturbMinMs: 900, disturbMaxMs:1800, disturbStrength:0.30, passiveDrift:0.014 }
+  easy:   { safeHalf:0.35, disturbMinMs:1400, disturbMaxMs:2600, disturbStrength:0.18, passiveDrift:0.010 },
+  normal: { safeHalf:0.25, disturbMinMs:1200, disturbMaxMs:2200, disturbStrength:0.23, passiveDrift:0.020 },
+  hard:   { safeHalf:0.18, disturbMinMs: 900, disturbMaxMs:1800, disturbStrength:0.30, passiveDrift:0.030 }
 };
 function pickDiff(k){ return GAME_DIFF[k] || GAME_DIFF.normal; }
 
@@ -236,11 +239,11 @@ function mapEndReason(code){
 }
 
 /* ------------------------------------------------------------
- * Flow helpers
+ * Flow URL builders
  * ------------------------------------------------------------ */
 function buildHubUrl(){
-  const hub = String(qv('hub','')).trim();
-  if (hub) return absUrlMaybe(hub) || hub;
+  const rawHub = qv('hub','');
+  if (rawHub) return rawHub;
 
   const u = new URL('../herohealth/hub.html', location.href);
   [
@@ -248,11 +251,10 @@ function buildHubUrl(){
     'studyId','phase','conditionGroup','grade'
   ].forEach(k=>{
     const v = qv(k,'');
-    if(v !== '') setParam(u, k, v);
+    if (v !== '') setParam(u, k, v);
   });
   return u.toString();
 }
-
 function buildLauncherUrl(){
   const u = new URL('../herohealth/balance-hold-vr.html', location.href);
   setParam(u, 'hub', buildHubUrl());
@@ -261,11 +263,10 @@ function buildLauncherUrl(){
     'studyId','phase','conditionGroup','grade'
   ].forEach(k=>{
     const v = qv(k,'');
-    if(v !== '') setParam(u, k, v);
+    if (v !== '') setParam(u, k, v);
   });
   return u.toString();
 }
-
 function buildCooldownUrl(){
   const hub = buildHubUrl();
   const u = new URL('../herohealth/warmup-gate.html', location.href);
@@ -274,25 +275,24 @@ function buildCooldownUrl(){
   setParam(u, 'cat', 'exercise');
   setParam(u, 'game', 'balance');
   setParam(u, 'theme', 'balance');
+
   setParam(u, 'hub', hub);
   setParam(u, 'next', hub);
 
   [
     'run','diff','time','seed','pid','view','log','api','ai',
-    'studyId','phase','conditionGroup','grade',
-    'planSeq','planDay','planSlot','planMode','planSlots','planIndex','autoNext',
-    'plannedGame','finalGame','zone','cdnext'
+    'studyId','conditionGroup','grade'
   ].forEach(k=>{
     const v = qv(k,'');
-    if(v !== '') setParam(u, k, v);
+    if (v !== '') setParam(u, k, v);
   });
 
-  if (!u.searchParams.has('cdur')) setParam(u, 'cdur', '15');
+  setParam(u, 'cdur', qv('cdur','15') || '15');
   return u.toString();
 }
 
 /* ------------------------------------------------------------
- * Warmup buffs
+ * Warmup passthrough buffs
  * ------------------------------------------------------------ */
 function readWarmupBuff(){
   const wType = qv('wType','');
@@ -312,7 +312,7 @@ function readWarmupBuff(){
 }
 
 /* ------------------------------------------------------------
- * Tutorial / modal
+ * Tutorial / modal helpers
  * ------------------------------------------------------------ */
 function openTutorial(){
   if (!tutorialOverlay) return;
@@ -336,7 +336,7 @@ function closeEndModal(){
 }
 
 /* ------------------------------------------------------------
- * Prefill UI
+ * Prefill UI from URL
  * ------------------------------------------------------------ */
 function applyQueryToUI(){
   const qDiff = String(qv('diff','')).toLowerCase();
@@ -347,7 +347,6 @@ function applyQueryToUI(){
   if (elDiffSel && ['easy','normal','hard'].includes(qDiff)){
     elDiffSel.value = qDiff;
   }
-
   if (elDurSel && qTime){
     const t = clampNum(qTime, 10, 600, 60);
     const tStr = String(t);
@@ -382,7 +381,6 @@ function applyQueryToUI(){
  * FX helpers
  * ------------------------------------------------------------ */
 function fxEnabled(){ return String(qv('fx','1')) !== '0'; }
-
 function spawnFloatFx(text, kind, pxX, pxY){
   if (!fxEnabled() || !playArea) return;
   const el = document.createElement('div');
@@ -431,8 +429,6 @@ function attachInput(){
 
     const curr = Number(state.targetAngle || 0);
     state.targetAngle = curr + (norm - curr) * p.smoothing;
-
-    if (Math.abs(norm) > 0.08) state.hasInput = true;
   }
 
   playArea.addEventListener('pointerdown', ev=>{
@@ -461,7 +457,7 @@ function attachInput(){
 }
 
 /* ------------------------------------------------------------
- * State
+ * Game State
  * ------------------------------------------------------------ */
 let gameMode = 'play';
 let state = null;
@@ -536,7 +532,6 @@ function beginMainPhase(now){
   state.combo = 0;
   state.maxCombo = 0;
   state.perfects = 0;
-  state.hasInput = false;
 
   const wu = state.warmup || {};
   if (wu && (wu.wType || wu.wPct)){
@@ -644,7 +639,6 @@ function startGame(kind){
   const cfg     = pickDiff(diffKey);
 
   const warmup = readWarmupBuff();
-
   const meta = buildSessionMeta(diffKey, durSec);
   const seedStr = buildSeedString(meta);
   const rng = makeRng(seedStr);
@@ -691,7 +685,6 @@ function startGame(kind){
     perfects: 0,
 
     fatigueIndex: 0,
-
     seedStr,
     rand: rng,
     warmup,
@@ -699,9 +692,7 @@ function startGame(kind){
     phase: 'main',
     phaseLabel: 'Main',
     countdownMs: 0,
-    countdownStartedAt: 0,
-
-    hasInput: false
+    countdownStartedAt: 0
   };
 
   setText(hudMode, gameMode === 'research' ? 'Research' : 'Play');
@@ -859,9 +850,8 @@ function spawnObstacle(now){
 
     const safeHalf = cfg.safeHalf;
     const absTilt = Math.abs(state.angle);
-
-    const inSafe = !!state.hasInput && absTilt <= safeHalf;
-    const nearPerfect = !!state.hasInput && absTilt <= Math.max(0.06, safeHalf * 0.28);
+    const inSafe = absTilt <= safeHalf;
+    const nearPerfect = absTilt <= Math.max(0.06, safeHalf * 0.28);
 
     if (isPractice){
       if (inSafe){
@@ -911,6 +901,7 @@ function spawnObstacle(now){
     }else{
       span.classList.add('hit');
       state.obstaclesHit++;
+
       state.combo = 0;
 
       const basePenalty = 8;
@@ -930,8 +921,8 @@ function spawnObstacle(now){
     setText(hudCombo, String(state.combo || 0));
     pulseEl(hudScore);
     pulseEl(hudCombo);
-
     updateVisuals();
+
   }, Math.max(0, impactAt - performance.now()));
 
   state.nextObstacleAt = now + randomBetween(cfg.disturbMinMs, cfg.disturbMaxMs);
@@ -1005,7 +996,7 @@ function buildInsight(summary){
     return 'จังหวะหลบยังพลาดบ่อย ลองเตรียมดึงกลับเข้ากลางทันทีเมื่อเห็นไอคอน obstacle จะช่วยเพิ่ม avoid rate ได้ชัดเจน';
   }
   if (fat > 0.35){
-    return 'ช่วงท้ายเริ่มล้า ลองคุมแรงนิ้วให้เบาลงและสม่ำเสมอ จะช่วยไม่ให้แกว่งเกินในช่วงท้ายเกม';
+    return 'ช่วงท้ายเริ่มล้า ลองคุมแรงนิ้วให้เบาและนิ่งขึ้น จะช่วยให้ไม่แกว่งเกินในช่วงท้ายเกม';
   }
   return 'ทำได้ดีมาก! รักษาจังหวะคุมแท่นให้สม่ำเสมอ และลุ้น Perfect ตอน impact เพื่อเพิ่มคะแนนและคอมโบ';
 }
@@ -1111,6 +1102,9 @@ function goHubOrMenu(){
     location.href = hub;
   }
 }
+function goCooldown(){
+  location.href = buildCooldownUrl();
+}
 
 /* ------------------------------------------------------------
  * Result views
@@ -1181,11 +1175,10 @@ function stopGame(endedBy){
   if (rafId != null){ cancelAnimationFrame(rafId); rafId = null; }
 
   const finalState = state;
-  const a = computeAnalytics();
 
+  const a = computeAnalytics();
   const summary = {
     gameId: 'balance-hold',
-    game: 'balance-hold',
     mode: gameMode,
     difficulty: finalState.diffKey,
     durationSec: (finalState.durationMs/1000),
@@ -1220,7 +1213,6 @@ function stopGame(endedBy){
 
   recordSessionToLocal(summary);
   saveLastSummaryForHub(summary, endedBy);
-
   fillResultView(endedBy, summary);
   fillEndModal(summary);
 
@@ -1271,7 +1263,6 @@ function loop(now){
 
   const cfg = state.cfg;
   const lerp = 0.11;
-
   const driftDir = (rand01() < 0.5 ? -1 : 1) * cfg.passiveDrift * (dt/1000);
   const target = state.targetAngle + driftDir;
   state.angle += (target - state.angle) * lerp;
@@ -1306,6 +1297,7 @@ function loop(now){
     }else{
       stabRatio = state.totalSamples ? (state.stableSamples/state.totalSamples) : 0;
     }
+
     setText(hudStab, fmtPercent(stabRatio));
     if (stabilityFill) stabilityFill.style.width = `${clamp(stabRatio*100, 0, 100)}%`;
     if (centerPulse){
@@ -1330,8 +1322,7 @@ function downloadTextFile(filename, text, type='text/plain'){
     const blob = new Blob([text], {type});
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
+    a.href = url; a.download = filename;
     document.body.appendChild(a);
     a.click();
     setTimeout(()=>{
@@ -1394,16 +1385,6 @@ function exportReleaseDebug(){
 }
 
 /* ------------------------------------------------------------
- * Flow buttons
- * ------------------------------------------------------------ */
-function goCooldownFromResult(){
-  location.href = buildCooldownUrl();
-}
-function backToLauncher(){
-  location.href = buildLauncherUrl();
-}
-
-/* ------------------------------------------------------------
  * Init / bindings
  * ------------------------------------------------------------ */
 function init(){
@@ -1422,34 +1403,27 @@ function init(){
   $('[data-action="pause"]')?.addEventListener('click', pauseGame);
   $('[data-action="resume"]')?.addEventListener('click', resumeGame);
 
-  $('[data-action="result-play-again"]')?.addEventListener('click', ()=>{
+  $('[data-action="result-play-again"]')?.addEventListener('click', ()=> {
     closeEndModal();
     showView('menu');
   });
   $('[data-action="result-back-hub"]')?.addEventListener('click', ()=> goHubOrMenu());
 
   $('[data-action="close-end-modal"]')?.addEventListener('click', closeEndModal);
-  $('[data-action="end-retry"]')?.addEventListener('click', ()=>{
+  $('[data-action="end-retry"]')?.addEventListener('click', ()=> {
     closeEndModal();
     showView('menu');
   });
-  $('[data-action="end-back-hub"]')?.addEventListener('click', ()=>{
+  $('[data-action="end-back-hub"]')?.addEventListener('click', ()=> {
     closeEndModal();
     goHubOrMenu();
   });
 
-  if (btnMenuBackLauncher){
-    btnMenuBackLauncher.addEventListener('click', backToLauncher);
-  }
-  if (btnResultCooldown){
-    btnResultCooldown.addEventListener('click', goCooldownFromResult);
-  }
-  if (btnEndCooldown){
-    btnEndCooldown.addEventListener('click', ()=>{
-      closeEndModal();
-      goCooldownFromResult();
-    });
-  }
+  btnResultCooldown?.addEventListener('click', ()=> goCooldown());
+  btnEndCooldown?.addEventListener('click', ()=> {
+    closeEndModal();
+    goCooldown();
+  });
 
   $('[data-action="tutorial-skip"]')?.addEventListener('click', ()=>{
     if (tutorialDontShowAgain?.checked){
@@ -1481,21 +1455,22 @@ function init(){
     if (!state) return;
     state.targetAngle = 0;
     state.angle *= 0.5;
-    state.hasInput = true;
   });
   $('[data-action="cvr-calibrate-left"]')?.addEventListener('click', ()=>{
     if (!state) return;
     state.targetAngle = Math.max(-1, (state.targetAngle||0) - 0.08);
-    state.hasInput = true;
   });
   $('[data-action="cvr-calibrate-right"]')?.addEventListener('click', ()=>{
     if (!state) return;
     state.targetAngle = Math.min(1, (state.targetAngle||0) + 0.08);
-    state.hasInput = true;
   });
   $('[data-action="cvr-toggle-strict"]')?.addEventListener('click', ()=>{
     if (!cvrStrictLabel) return;
     cvrStrictLabel.textContent = (String(cvrStrictLabel.textContent||'OFF').toUpperCase() === 'ON') ? 'OFF' : 'ON';
+  });
+
+  btnMenuBackLauncher?.addEventListener('click', ()=>{
+    location.href = buildLauncherUrl();
   });
 
   document.addEventListener('visibilitychange', ()=>{
@@ -1511,8 +1486,8 @@ function init(){
   const auto = String(qv('autostart','')).toLowerCase();
   if (['1','true','yes','on'].includes(auto)){
     setTimeout(()=>{
-      if (maybeShowTutorialBeforeStart('play')) return;
-      startGame(qv('run','play') === 'research' ? 'research' : 'play');
+      const btn = document.querySelector('[data-action="start-normal"]');
+      if (btn) btn.click();
     }, 120);
   }
 }
