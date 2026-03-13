@@ -1,10 +1,11 @@
 <!-- === /herohealth/vr-groups/groups-race.html ===
 Groups Race — Lobby / Join / Start
-FULL PATCH v20260313-GROUPS-RACE-LOBBY-FIREBASE-WAIT-r4
+FULL PATCH v20260313-GROUPS-RACE-LOBBY-GO-REDIRECT-r5
 ✅ FIX: wait for firebase compat ready before RTDB
 ✅ FIX: buttons bind before async room setup
 ✅ FIX: HUB button always works
 ✅ FIX: clearer boot error
+✅ FIX: force redirect to run page when countdown reaches GO
 -->
 <!doctype html>
 <html lang="th">
@@ -528,35 +529,6 @@ FULL PATCH v20260313-GROUPS-RACE-LOBBY-FIREBASE-WAIT-r4
     $('countdownBox').hidden = true;
   }
 
-  function showCountdown(roomState){
-    const box = $('countdownBox');
-    const big = $('countBig');
-    const sub = $('countSub');
-    box.hidden = false;
-
-    const startAt = Number(roomState?.startAt || 0);
-    if(startAt <= 0){
-      big.textContent = 'WAIT';
-      sub.textContent = 'รอ Host เริ่ม countdown';
-      return;
-    }
-
-    clearCountdown();
-    const tick = ()=>{
-      const leftMs = startAt - Date.now();
-      const sec = Math.max(0, Math.ceil(leftMs / 1000));
-      if(sec <= 0){
-        big.textContent = 'GO!';
-        sub.textContent = 'กำลังเข้าเกม...';
-      }else{
-        big.textContent = String(sec);
-        sub.textContent = 'เตรียมตัวให้พร้อม';
-      }
-    };
-    tick();
-    countdownTimer = setInterval(tick, 200);
-  }
-
   function goRunPage(force){
     if(enteredRun && !force) return;
     enteredRun = true;
@@ -573,7 +545,51 @@ FULL PATCH v20260313-GROUPS-RACE-LOBBY-FIREBASE-WAIT-r4
     u.searchParams.set('seed', seed);
     u.searchParams.set('playerKey', playerKey);
     u.searchParams.set('hub', hub);
+
+    console.log('[groups-race] goRunPage', {
+      room, role, playerKey, diff, time, view, seed
+    });
+
     location.href = u.toString();
+  }
+
+  function showCountdown(roomState){
+    const box = $('countdownBox');
+    const big = $('countBig');
+    const sub = $('countSub');
+    box.hidden = false;
+
+    const startAt = Number(roomState?.startAt || 0);
+    if(startAt <= 0){
+      big.textContent = 'WAIT';
+      sub.textContent = 'รอ Host เริ่ม countdown';
+      return;
+    }
+
+    clearCountdown();
+
+    const tick = ()=>{
+      const leftMs = startAt - Date.now();
+      const sec = Math.max(0, Math.ceil(leftMs / 1000));
+
+      if(sec <= 0){
+        big.textContent = 'GO!';
+        sub.textContent = 'กำลังเข้าเกม...';
+        clearCountdown();
+
+        setTimeout(()=>{
+          goRunPage(false);
+        }, 180);
+
+        return;
+      }
+
+      big.textContent = String(sec);
+      sub.textContent = 'เตรียมตัวให้พร้อม';
+    };
+
+    tick();
+    countdownTimer = setInterval(tick, 200);
   }
 
   function bindButtonsAlways(){
