@@ -1,6 +1,6 @@
 /* === /herohealth/gate/games/fitnessplanner/warmup.js ===
  * HeroHealth Gate Game: FitnessPlanner Warmup
- * PATCH v20260312-FITNESSPLANNER-WARMUP-A
+ * PATCH v20260312e-FITNESSPLANNER-WARMUP-TH-CHILD
  */
 
 function clamp(v, a, b){ return Math.max(a, Math.min(b, v)); }
@@ -39,7 +39,7 @@ function makeResult(state){
     game: 'fitnessplanner',
     phase: 'warmup',
     activityId: 'fitnessplanner-body-wake-flow',
-    title: 'Body Wake Flow',
+    title: 'ปลุกร่างกาย',
     passed,
     score,
     stars: starsFromScore(score),
@@ -52,8 +52,8 @@ function makeResult(state){
     coach: {
       tone: passed ? 'positive' : 'gentle',
       line: passed
-        ? 'ร่างกายพร้อมแล้ว ไปวางแผนการออกกำลังกายกัน'
-        : 'ลองทำ flow ให้ครบขึ้นอีกนิด จะช่วยให้ร่างกายพร้อมมากขึ้น'
+        ? 'พร้อมแล้ว ไปเล่น Fitness Planner กัน'
+        : 'ขยับร่างกายอีกนิด แล้วค่อยเริ่มเกม'
     },
     nextAction: 'run'
   };
@@ -69,7 +69,7 @@ export function mount(root, ctx = {}){
       <div class="fpg-wrap">
         <section class="fpg-card">
           <div class="fpg-kicker">EXERCISE ZONE • WARMUP</div>
-          <h1 class="fpg-title">🧘 Body Wake Flow</h1>
+          <h1 class="fpg-title">🧘 ปลุกร่างกาย</h1>
           <p class="fpg-subtitle">โมดูลนี้ใช้สำหรับ phase=warmup เท่านั้น</p>
         </section>
       </div>
@@ -100,16 +100,16 @@ export function mount(root, ctx = {}){
     <div class="fpg-wrap">
       <section class="fpg-card">
         <div class="fpg-kicker">EXERCISE ZONE • WARMUP</div>
-        <h1 class="fpg-title">🧘 Body Wake Flow</h1>
-        <p class="fpg-subtitle">ปลุกร่างกายทั้งตัวก่อนเข้า Fitness Planner</p>
+        <h1 class="fpg-title">🧘 ปลุกร่างกาย</h1>
+        <p class="fpg-subtitle">ขยับร่างกายเบา ๆ ก่อนเข้า Fitness Planner</p>
 
         <div class="fpg-grid">
           <div class="fpg-panel">
             <h2 class="fpg-h2">วิธีเล่น</h2>
             <ol class="fpg-list">
               <li>ทำตามท่าที่ขึ้นบนจอทีละท่า</li>
-              <li>กด “ทำครบแล้ว” เมื่อทำท่านั้นเสร็จ</li>
-              <li>ทำครบอย่างน้อย 3 จาก 4 ท่าเพื่อผ่าน warmup</li>
+              <li>กด “ทำครบแล้ว” เมื่อทำท่าเสร็จ</li>
+              <li>ทำครบอย่างน้อย 3 จาก 4 ท่า</li>
             </ol>
           </div>
 
@@ -130,7 +130,7 @@ export function mount(root, ctx = {}){
               </button>
               <button class="fpg-btn-action" type="button" id="fpg-skip" disabled>
                 <span class="fpg-emoji">⏭️</span>
-                <span>ข้ามท่านี้</span>
+                <span>ข้าม</span>
               </button>
             </div>
           </div>
@@ -138,7 +138,7 @@ export function mount(root, ctx = {}){
 
         <div class="fpg-footer">
           <button class="fpg-btn fpg-btn-primary" id="fpg-start">เริ่มอุ่นเครื่อง</button>
-          <button class="fpg-btn fpg-btn-ghost" id="fpg-finish" disabled>สรุปผล</button>
+          <button class="fpg-btn fpg-btn-ghost" id="fpg-finish" disabled>ดูผล</button>
         </div>
       </section>
     </div>
@@ -168,7 +168,7 @@ export function mount(root, ctx = {}){
     skipBtn.disabled = true;
     startBtn.disabled = true;
     finishBtn.disabled = false;
-    cueEl.textContent = 'เสร็จแล้ว กดสรุปผล';
+    cueEl.textContent = 'เสร็จแล้ว กดดูผล';
     renderStats();
   }
 
