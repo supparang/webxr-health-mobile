@@ -1,6 +1,6 @@
 // === /herohealth/gate/gate-core.js ===
 // HeroHealth Gate Core
-// PATCH v20260312i-ALL-ZONES-GATE-CORE-API-START-FIX
+// PATCH v20260312j-ALL-ZONES-GATE-CORE-API-START-FIX-HARDENED
 
 import {
   getGameMeta,
@@ -218,6 +218,14 @@ function toneStyle(tone) {
   return styles[tone] || styles.blue;
 }
 
+function scoreToStars(score = 0) {
+  const s = Number(score) || 0;
+  if (s >= 90) return 3;
+  if (s >= 70) return 2;
+  if (s > 0) return 1;
+  return 0;
+}
+
 function renderBuiltInSummary(root, result, ctx) {
   const isCooldown = ctx.phase === 'cooldown';
   const primaryLabel = isCooldown ? 'กลับ HUB' : 'ไปเกมหลัก';
@@ -379,6 +387,16 @@ export async function bootGate(root) {
   renderLoading(root, meta, phase);
 
   let controller = null;
+  let cleanedUp = false;
+
+  const cleanup = () => {
+    if (cleanedUp) return;
+    cleanedUp = true;
+    try { controller?.destroy?.(); } catch {}
+  };
+
+  window.addEventListener('pagehide', cleanup, { once: true });
+  window.addEventListener('beforeunload', cleanup, { once: true });
 
   try {
     const modPath = getPhaseFile(game, phase);
@@ -419,7 +437,7 @@ export async function bootGate(root) {
             result
           });
 
-          controller?.destroy?.();
+          cleanup();
 
           renderBuiltInSummary(root, result, {
             game,
@@ -453,7 +471,14 @@ export async function bootGate(root) {
       },
 
       finish(result = {}) {
-        const passed = !!(result.ok ?? result.passed ?? true);
+        const scoreNum = Number(result?.buffs?.score ?? result.score ?? 0);
+
+        const passed = Boolean(
+          result.passed ??
+          result.ok ??
+          (scoreNum >= 60)
+        );
+
         const linesText = Array.isArray(result.lines)
           ? result.lines.join(' • ')
           : '';
@@ -461,8 +486,8 @@ export async function bootGate(root) {
         ctx.onComplete({
           passed,
           title: result.title || defaultTitle,
-          score: Number(result?.buffs?.score ?? result.score ?? 0),
-          stars: Number(result.stars ?? (passed ? 1 : 0)),
+          score: scoreNum,
+          stars: Number(result.stars ?? scoreToStars(scoreNum)),
           coach: {
             line:
               result.subtitle ||
@@ -484,7 +509,7 @@ export async function bootGate(root) {
     }
   } catch (err) {
     console.error('[gate-core] load fail', err);
-    controller?.destroy?.();
+    cleanup();
     renderError(
       root,
       'โหลด mini game ไม่สำเร็จ',
