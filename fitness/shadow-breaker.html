@@ -6,7 +6,7 @@
   <title>Shadow Breaker — VR Fitness</title>
   <meta name="color-scheme" content="dark light"/>
   <link rel="icon" href="../herohealth/favicon.ico"/>
-  <link rel="stylesheet" href="./css/shadow-breaker.css?v=20260311c-child"/>
+  <link rel="stylesheet" href="./css/shadow-breaker.css?v=20260313-shadowboss-final"/>
 </head>
 <body>
 <div id="sb-wrap" class="sb-wrap">
@@ -146,6 +146,11 @@
 
         <!-- STAGE -->
         <div class="sb-stage sb-stage-child">
+          <div id="sb-boss-banner" class="sb-boss-banner">
+            <div class="sb-boss-banner-title" id="sb-boss-banner-title">Boss Clear!</div>
+            <div class="sb-boss-banner-sub" id="sb-boss-banner-sub">เตรียมเจอบอสถัดไป</div>
+          </div>
+
           <div id="sb-target-layer" class="sb-target-layer"></div>
 
           <div class="sb-center-msg">
@@ -234,6 +239,16 @@
           <div class="sb-result-card"><div class="k">Grade</div><div class="v" id="sb-res-grade">C</div></div>
         </div>
 
+        <div id="sb-res-message" class="sb-res-message">เก่งมาก! ลองอีกครั้งเพื่อไปให้ไกลกว่าเดิม</div>
+
+        <div id="sb-res-badge" class="sb-res-badge">
+          <div class="sb-res-badge-icon" id="sb-res-badge-icon">🏅</div>
+          <div class="sb-res-badge-body">
+            <div class="sb-res-badge-title" id="sb-res-badge-title">Shadow Starter</div>
+            <div class="sb-res-badge-desc" id="sb-res-badge-desc">เริ่มต้นได้ดีแล้ว ลองอีกครั้งเพื่อไปให้ไกลกว่าเดิม</div>
+          </div>
+        </div>
+
         <div class="sb-result-actions">
           <button class="sb-btn sb-btn-primary" id="sb-btn-result-retry" type="button">เล่นอีกครั้ง</button>
           <button class="sb-btn" id="sb-btn-result-menu" type="button">กลับเมนู</button>
@@ -246,7 +261,7 @@
   </main>
 </div>
 
-<script type="module" src="./js/engine.js?v=20260311c-child"></script>
+<script type="module" src="./js/engine.js?v=20260313-shadowboss-final"></script>
 
 <script>
 (function(){
