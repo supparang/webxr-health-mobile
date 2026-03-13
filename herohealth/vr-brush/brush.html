@@ -992,18 +992,9 @@
           <div class="pill">gameId: <b id="pillGameId">brush</b></div>
         </div>
         <div class="stats">
-          <div class="stat">
-            <div class="k">Score</div>
-            <div class="v" id="statScore">0</div>
-          </div>
-          <div class="stat">
-            <div class="k">Combo</div>
-            <div class="v" id="statCombo">0</div>
-          </div>
-          <div class="stat">
-            <div class="k">Time</div>
-            <div class="v" id="statTime">90</div>
-          </div>
+          <div class="stat"><div class="k">Score</div><div class="v" id="statScore">0</div></div>
+          <div class="stat"><div class="k">Combo</div><div class="v" id="statCombo">0</div></div>
+          <div class="stat"><div class="k">Time</div><div class="v" id="statTime">90</div></div>
         </div>
       </div>
 
@@ -1013,18 +1004,9 @@
           <div class="pill">Phase: <b id="pillPhase">เรียนรู้</b></div>
         </div>
         <div class="stats">
-          <div class="stat">
-            <div class="k">Clean</div>
-            <div class="v" id="statClean">0%</div>
-          </div>
-          <div class="stat">
-            <div class="k">Miss</div>
-            <div class="v" id="statMiss">0</div>
-          </div>
-          <div class="stat">
-            <div class="k">Boss HP</div>
-            <div class="v" id="statBoss">—</div>
-          </div>
+          <div class="stat"><div class="k">Clean</div><div class="v" id="statClean">0%</div></div>
+          <div class="stat"><div class="k">Miss</div><div class="v" id="statMiss">0</div></div>
+          <div class="stat"><div class="k">Boss HP</div><div class="v" id="statBoss">—</div></div>
         </div>
       </div>
 
@@ -1035,18 +1017,9 @@
           <div class="pill">view: <b id="pillView">pc</b></div>
         </div>
         <div class="stats">
-          <div class="stat">
-            <div class="k">pid</div>
-            <div class="v" id="statPid">—</div>
-          </div>
-          <div class="stat">
-            <div class="k">seed</div>
-            <div class="v" id="statSeed">—</div>
-          </div>
-          <div class="stat">
-            <div class="k">Study</div>
-            <div class="v" id="statStudy">—</div>
-          </div>
+          <div class="stat"><div class="k">pid</div><div class="v" id="statPid">—</div></div>
+          <div class="stat"><div class="k">seed</div><div class="v" id="statSeed">—</div></div>
+          <div class="stat"><div class="k">Study</div><div class="v" id="statStudy">—</div></div>
         </div>
       </div>
     </section>
@@ -1056,8 +1029,8 @@
         <div class="arenaHead">
           <div style="display:grid; gap:8px; min-width:0;">
             <div class="instruction" id="instruction">
-              แตะ/คลิกที่โซนที่เรืองแสงเพื่อแปรงฟัน
-              <span class="sub" id="instructionSub">เริ่มจากทำความสะอาดทีละส่วนให้ครบก่อนเข้าสู่บอส</span>
+              แปรง <b>ฟันบนด้านนอก</b> ให้สะอาด
+              <span class="sub" id="instructionSub">เป้าหมายของโซนนี้ ≥ 85% • แตะซ้ำที่โซนเดิมเพื่อเก็บคราบให้หมด</span>
             </div>
             <div class="hintBadge" id="hintBadge">💡 แตะโซนที่เรืองแสง</div>
           </div>
@@ -1066,7 +1039,6 @@
             <div class="cleanBar" aria-label="Clean progress">
               <div class="cleanFill" id="cleanFill"></div>
             </div>
-
             <div class="bossHpWrap" id="bossHpWrap" style="display:none;">
               <div class="bossHpLabel">
                 <span>Boss HP</span>
@@ -1169,30 +1141,12 @@
       </div>
 
       <div class="summaryGrid">
-        <div class="summaryBox">
-          <div class="k">Score</div>
-          <div class="v sumBig" id="sumScore">0</div>
-        </div>
-        <div class="summaryBox">
-          <div class="k">Accuracy</div>
-          <div class="v" id="sumAcc">0%</div>
-        </div>
-        <div class="summaryBox">
-          <div class="k">Clean</div>
-          <div class="v" id="sumClean">0%</div>
-        </div>
-        <div class="summaryBox">
-          <div class="k">Boss</div>
-          <div class="v" id="sumBoss">—</div>
-        </div>
-        <div class="summaryBox">
-          <div class="k">Max Combo</div>
-          <div class="v" id="sumCombo">0</div>
-        </div>
-        <div class="summaryBox">
-          <div class="k">Quest</div>
-          <div class="v" id="sumQuest">—</div>
-        </div>
+        <div class="summaryBox"><div class="k">Score</div><div class="v sumBig" id="sumScore">0</div></div>
+        <div class="summaryBox"><div class="k">Accuracy</div><div class="v" id="sumAcc">0%</div></div>
+        <div class="summaryBox"><div class="k">Clean</div><div class="v" id="sumClean">0%</div></div>
+        <div class="summaryBox"><div class="k">Boss</div><div class="v" id="sumBoss">—</div></div>
+        <div class="summaryBox"><div class="k">Max Combo</div><div class="v" id="sumCombo">0</div></div>
+        <div class="summaryBox"><div class="k">Quest</div><div class="v" id="sumQuest">—</div></div>
       </div>
 
       <div class="summaryQuestRow" id="summaryQuestRow">
@@ -1222,22 +1176,24 @@
       'use strict';
 
       const $ = (s)=>document.querySelector(s);
-      const zoneLayer = $('#zoneLayer');
-      const fxLayer = $('#fxLayer');
-      const zoneList = $('#zoneList');
-      const arenaCore = $('#arenaCore');
-      const brushCursor = $('#brushCursor');
-      const cleanFill = $('#cleanFill');
-      const bossBanner = $('#bossBanner');
-      const summaryOverlay = $('#summaryOverlay');
-      const laserLine = $('#laserLine');
-      const shockRing = $('#shockRing');
-      const bossHpWrap = $('#bossHpWrap');
-      const bossHpFill = $('#bossHpFill');
-      const bossHpText = $('#bossHpText');
-      const phaseToast = $('#phaseToast');
-      const comboBadge = $('#comboBadge');
-      const screenFlash = $('#screenFlash');
+      const byId = (id)=>document.getElementById(id);
+
+      const zoneLayer = byId('zoneLayer');
+      const fxLayer = byId('fxLayer');
+      const zoneList = byId('zoneList');
+      const arenaCore = byId('arenaCore');
+      const brushCursor = byId('brushCursor');
+      const cleanFill = byId('cleanFill');
+      const bossBanner = byId('bossBanner');
+      const summaryOverlay = byId('summaryOverlay');
+      const laserLine = byId('laserLine');
+      const shockRing = byId('shockRing');
+      const bossHpWrap = byId('bossHpWrap');
+      const bossHpFill = byId('bossHpFill');
+      const bossHpText = byId('bossHpText');
+      const phaseToast = byId('phaseToast');
+      const comboBadge = byId('comboBadge');
+      const screenFlash = byId('screenFlash');
 
       const qs = (k, d='')=>{
         try{ return new URL(location.href).searchParams.get(k) ?? d; }
@@ -1250,6 +1206,16 @@
         return Number.isFinite(n) ? n : d;
       };
       const nowISO = ()=> new Date().toISOString();
+
+      function setText(id, value){
+        const el = byId(id);
+        if(el) el.textContent = value;
+      }
+
+      function setHtml(id, value){
+        const el = byId(id);
+        if(el) el.innerHTML = value;
+      }
 
       const CFG = {
         gameId: qs('gameId','brush'),
@@ -1312,14 +1278,12 @@
         uvUntil: 0,
         uvCdUntil: 0,
         polishCdUntil: 0,
-
         bossMode: 'idle',
         bossModeUntil: 0,
         bossNextPatternAt: 0,
         laserY: 50,
         shockGoodAt: 0,
         decoyZoneIdx: -1,
-
         quest: {
           perfectShock: 0,
           decoyAvoid: 0,
@@ -1328,13 +1292,11 @@
           doneDecoyAvoid: false,
           doneLaserSurvive: false
         },
-
         metrics: {
           laserPunish: 0,
           shockPerfect: 0,
           decoyPunish: 0
         },
-
         zoneState: ZONES.map(z => ({
           id: z.id,
           label: z.label,
@@ -1370,69 +1332,13 @@
       }
 
       function setTopPills(){
-        $('#pillGameId').textContent = CFG.gameId;
-        $('#pillRun').textContent = CFG.run || 'play';
-        $('#pillDiff').textContent = CFG.diff || 'normal';
-        $('#pillView').textContent = CFG.view || 'pc';
-        $('#statPid').textContent = CFG.pid || '—';
-        $('#statSeed').textContent = CFG.seed || '—';
-        $('#statStudy').textContent = CFG.studyId || '—';
-      }
-
-      function buildZones(){
-        zoneLayer.innerHTML = '';
-        zoneList.innerHTML = '';
-
-        S.zoneState.forEach((zs, idx)=>{
-          const meta = ZONES[idx];
-
-          const el = document.createElement('button');
-          el.type = 'button';
-          el.className = 'zone';
-          if (CFG.view === 'mobile' || CFG.view === 'cvr') {
-            el.classList.add('tapBoost');
-          }
-          el.style.left = meta.x + '%';
-          el.style.top = meta.y + '%';
-          el.style.width = meta.w + '%';
-          el.style.height = meta.h + '%';
-          el.dataset.zoneId = zs.id;
-
-          const label = document.createElement('div');
-          label.className = 'zoneLabel';
-          label.textContent = zs.label;
-          el.appendChild(label);
-
-          const dirt = document.createElement('div');
-          dirt.className = 'dirt';
-          el.appendChild(dirt);
-
-          zs.el = el;
-          zs.dirtEl = dirt;
-
-          renderDirtForZone(idx);
-
-          el.addEventListener('pointerdown', (ev)=>{
-            ev.preventDefault();
-            onBrushZone(idx, ev);
-          });
-
-          zoneLayer.appendChild(el);
-
-          const item = document.createElement('div');
-          item.className = 'zoneItem';
-          item.id = 'zoneItem_' + zs.id;
-          item.innerHTML = `
-            <div class="zoneRow">
-              <div class="zoneName">${zs.label}</div>
-              <div class="zonePct" id="zonePct_${zs.id}">0%</div>
-            </div>
-            <div class="miniBar"><div class="miniFill" id="zoneFill_${zs.id}"></div></div>
-          `;
-          zoneList.appendChild(item);
-        });
-
-        refreshZoneUI();
+        setText('pillGameId', CFG.gameId);
+        setText('pillRun', CFG.run || 'play');
+        setText('pillDiff', CFG.diff || 'normal');
+        setText('pillView', CFG.view || 'pc');
+        setText('statPid', CFG.pid || '—');
+        setText('statSeed', CFG.seed || '—');
+        setText('statStudy', CFG.studyId || '—');
       }
 
       function renderDirtForZone(idx){
@@ -1460,6 +1366,60 @@
         }
       }
 
+      function buildZones(){
+        if(!zoneLayer || !zoneList) return;
+        zoneLayer.innerHTML = '';
+        zoneList.innerHTML = '';
+
+        S.zoneState.forEach((zs, idx)=>{
+          const meta = ZONES[idx];
+
+          const el = document.createElement('button');
+          el.type = 'button';
+          el.className = 'zone';
+          if (CFG.view === 'mobile' || CFG.view === 'cvr') el.classList.add('tapBoost');
+          el.style.left = meta.x + '%';
+          el.style.top = meta.y + '%';
+          el.style.width = meta.w + '%';
+          el.style.height = meta.h + '%';
+          el.dataset.zoneId = zs.id;
+
+          const label = document.createElement('div');
+          label.className = 'zoneLabel';
+          label.textContent = zs.label;
+          el.appendChild(label);
+
+          const dirt = document.createElement('div');
+          dirt.className = 'dirt';
+          el.appendChild(dirt);
+
+          zs.el = el;
+          zs.dirtEl = dirt;
+          renderDirtForZone(idx);
+
+          el.addEventListener('pointerdown', (ev)=>{
+            ev.preventDefault();
+            onBrushZone(idx, ev);
+          });
+
+          zoneLayer.appendChild(el);
+
+          const item = document.createElement('div');
+          item.className = 'zoneItem';
+          item.id = 'zoneItem_' + zs.id;
+          item.innerHTML = `
+            <div class="zoneRow">
+              <div class="zoneName">${zs.label}</div>
+              <div class="zonePct" id="zonePct_${zs.id}">0%</div>
+            </div>
+            <div class="miniBar"><div class="miniFill" id="zoneFill_${zs.id}"></div></div>
+          `;
+          zoneList.appendChild(item);
+        });
+
+        refreshZoneUI();
+      }
+
       function zoneCleanPct(zs){
         return clamp(Math.round(zs.clean), 0, 100);
       }
@@ -1471,17 +1431,12 @@
 
       function flashScreen(kind){
         if(!screenFlash) return;
-        if(kind === 'good'){
-          screenFlash.style.background = 'rgba(34,197,94,.12)';
-        } else if(kind === 'bad'){
-          screenFlash.style.background = 'rgba(239,68,68,.13)';
-        } else if(kind === 'boss'){
-          screenFlash.style.background = 'rgba(245,158,11,.12)';
-        } else {
-          screenFlash.style.background = 'rgba(255,255,255,.08)';
-        }
+        if(kind === 'good') screenFlash.style.background = 'rgba(34,197,94,.12)';
+        else if(kind === 'bad') screenFlash.style.background = 'rgba(239,68,68,.13)';
+        else if(kind === 'boss') screenFlash.style.background = 'rgba(245,158,11,.12)';
+        else screenFlash.style.background = 'rgba(255,255,255,.08)';
         screenFlash.style.opacity = '1';
-        setTimeout(()=> screenFlash.style.opacity = '0', 90);
+        setTimeout(()=> { if(screenFlash) screenFlash.style.opacity = '0'; }, 90);
       }
 
       function showComboBadge(){
@@ -1514,6 +1469,7 @@
       }
 
       function spawnPop(x, y, text){
+        if(!fxLayer) return;
         const el = document.createElement('div');
         el.className = 'pop';
         el.textContent = text;
@@ -1524,6 +1480,7 @@
       }
 
       function spawnSparkle(x, y){
+        if(!fxLayer) return;
         for(let i=0;i<5;i++){
           const s = document.createElement('div');
           s.className = 'spark';
@@ -1542,11 +1499,9 @@
         S.totalActions++;
 
         const now = performance.now();
-        if(now - S.lastTapAt <= DIFF.comboWindow){
-          S.combo++;
-        } else {
-          S.combo = 1;
-        }
+        if(now - S.lastTapAt <= DIFF.comboWindow) S.combo++;
+        else S.combo = 1;
+
         S.lastTapAt = now;
         S.maxCombo = Math.max(S.maxCombo, S.combo);
 
@@ -1569,6 +1524,7 @@
       }
 
       function updateBrushCursor(ev){
+        if(!arenaCore || !brushCursor) return;
         const r = arenaCore.getBoundingClientRect();
         const x = ev.clientX - r.left;
         const y = ev.clientY - r.top;
@@ -1577,15 +1533,18 @@
         brushCursor.style.opacity = '1';
       }
 
-      arenaCore.addEventListener('pointermove', updateBrushCursor);
-      arenaCore.addEventListener('pointerdown', updateBrushCursor);
-      arenaCore.addEventListener('pointerleave', ()=> brushCursor.style.opacity = '0');
+      if(arenaCore){
+        arenaCore.addEventListener('pointermove', updateBrushCursor);
+        arenaCore.addEventListener('pointerdown', updateBrushCursor);
+        arenaCore.addEventListener('pointerleave', ()=> { if(brushCursor) brushCursor.style.opacity = '0'; });
+      }
 
       function bossPhaseCfg(phase){
         return CFG.bossPhases.find(p => p.phase === phase) || CFG.bossPhases[CFG.bossPhases.length - 1];
       }
 
       function setBossBanner(text){
+        if(!bossBanner) return;
         bossBanner.textContent = text;
         bossBanner.classList.add('on');
       }
@@ -1627,14 +1586,12 @@
         }
         S.bossCompleted = true;
         S.phase = 'polish';
-        bossBanner.classList.remove('on');
+        if(bossBanner) bossBanner.classList.remove('on');
         clearDecoy();
-        laserLine.classList.remove('on');
-        shockRing.classList.remove('on');
+        if(laserLine) laserLine.classList.remove('on');
+        if(shockRing) shockRing.classList.remove('on');
         spawnPop(x, y, 'ชนะบอส!');
-        emitHha('hha:event', eventPayload('boss_complete', {
-          bossPhase: S.bossPhase
-        }));
+        emitHha('hha:event', eventPayload('boss_complete', { bossPhase: S.bossPhase }));
         return true;
       }
 
@@ -1646,8 +1603,7 @@
 
       function pickBossPattern(){
         const pool = bossPhasePatternPool();
-        const r = Math.floor(Math.random() * pool.length);
-        return pool[r];
+        return pool[Math.floor(Math.random() * pool.length)];
       }
 
       function bossEnterLaser(){
@@ -1655,8 +1611,10 @@
         S.bossMode = 'laserWarn';
         S.bossModeUntil = performance.now() + 1000;
         S.laserY = 28 + Math.random()*44;
-        laserLine.style.top = S.laserY + '%';
-        laserLine.classList.add('on');
+        if(laserLine){
+          laserLine.style.top = S.laserY + '%';
+          laserLine.classList.add('on');
+        }
         setBossBanner('🚫 LASER! หยุดแปรงชั่วคราว');
         emitHha('hha:event', eventPayload('boss_laser_warn', { y:S.laserY }));
       }
@@ -1664,13 +1622,13 @@
       function bossLaserLive(){
         S.bossMode = 'laserLive';
         S.bossModeUntil = performance.now() + 1100;
-        laserLine.classList.add('on');
+        if(laserLine) laserLine.classList.add('on');
         setBossBanner('🚫 LASER ACTIVE — แตะจะโดนหักคะแนน');
         emitHha('hha:event', eventPayload('boss_laser_live', { y:S.laserY }));
       }
 
       function bossExitLaser(){
-        laserLine.classList.remove('on');
+        if(laserLine) laserLine.classList.remove('on');
         S.quest.laserSurvive++;
         if(S.quest.laserSurvive >= 2) S.quest.doneLaserSurvive = true;
         S.bossMode = 'idle';
@@ -1683,15 +1641,17 @@
         S.bossMode = 'shockWait';
         S.shockGoodAt = performance.now() + 700;
         S.bossModeUntil = S.shockGoodAt + 260;
-        shockRing.classList.remove('on');
-        void shockRing.offsetWidth;
-        shockRing.classList.add('on');
+        if(shockRing){
+          shockRing.classList.remove('on');
+          void shockRing.offsetWidth;
+          shockRing.classList.add('on');
+        }
         setBossBanner('⚡ SHOCK! แตะให้ตรงจังหวะวงแหวน');
         emitHha('hha:event', eventPayload('boss_shock_start', {}));
       }
 
       function bossExitShock(){
-        shockRing.classList.remove('on');
+        if(shockRing) shockRing.classList.remove('on');
         S.bossMode = 'idle';
         S.bossPattern = 'none';
         scheduleNextBossPattern(950);
@@ -1738,22 +1698,10 @@
           return;
         }
 
-        if(S.bossMode === 'laserWarn' && now >= S.bossModeUntil){
-          bossLaserLive();
-          return;
-        }
-        if(S.bossMode === 'laserLive' && now >= S.bossModeUntil){
-          bossExitLaser();
-          return;
-        }
-        if(S.bossMode === 'shockWait' && now >= S.bossModeUntil){
-          bossExitShock();
-          return;
-        }
-        if(S.bossMode === 'decoy' && now >= S.bossModeUntil){
-          bossExitDecoy();
-          return;
-        }
+        if(S.bossMode === 'laserWarn' && now >= S.bossModeUntil) return bossLaserLive();
+        if(S.bossMode === 'laserLive' && now >= S.bossModeUntil) return bossExitLaser();
+        if(S.bossMode === 'shockWait' && now >= S.bossModeUntil) return bossExitShock();
+        if(S.bossMode === 'decoy' && now >= S.bossModeUntil) return bossExitDecoy();
       }
 
       function punishLaser(x, y){
@@ -1804,9 +1752,7 @@
         const active = S.zoneState[S.activeZoneIdx];
         if(!active || !active.completed) return;
         const nextIdx = S.zoneState.findIndex(z => !z.completed);
-        if(nextIdx >= 0){
-          S.activeZoneIdx = nextIdx;
-        }
+        if(nextIdx >= 0) S.activeZoneIdx = nextIdx;
       }
 
       function maybeStartBoss(){
@@ -1848,7 +1794,7 @@
         if(now < S.uvCdUntil || S.finished) return;
         S.uvUntil = now + 3200;
         S.uvCdUntil = now + CFG.uvCdMs;
-        spawnPop(arenaCore.clientWidth * .5, 60, 'UV ON');
+        if(arenaCore) spawnPop(arenaCore.clientWidth * .5, 60, 'UV ON');
         refreshZoneUI();
       }
 
@@ -1865,7 +1811,7 @@
         });
 
         S.score += 30;
-        spawnPop(arenaCore.clientWidth * .5, 86, 'POLISH!');
+        if(arenaCore) spawnPop(arenaCore.clientWidth * .5, 86, 'POLISH!');
         maybeStartBoss();
         refreshZoneUI();
       }
@@ -1899,17 +1845,18 @@
       function refreshZoneUI(){
         S.clean = totalCleanPct();
 
-        cleanFill.style.width = S.clean + '%';
-        $('#statClean').textContent = S.clean + '%';
-        $('#statScore').textContent = Math.round(S.score);
-        $('#statCombo').textContent = S.combo;
-        $('#statMiss').textContent = S.miss;
-        $('#statTime').textContent = String(Math.ceil(S.timeLeft));
-
-        $('#statBoss').textContent =
+        if(cleanFill) cleanFill.style.width = S.clean + '%';
+        setText('statClean', S.clean + '%');
+        setText('statScore', String(Math.round(S.score)));
+        setText('statCombo', String(S.combo));
+        setText('statMiss', String(S.miss));
+        setText('statTime', String(Math.ceil(S.timeLeft)));
+        setText(
+          'statBoss',
           S.bossStarted && !S.bossCompleted
             ? `${Math.max(0, Math.ceil(S.bossHP))}/${Math.max(0, Math.ceil(S.bossMaxHP))}`
-            : '—';
+            : '—'
+        );
 
         if(bossHpWrap && bossHpFill && bossHpText){
           if(S.bossStarted && !S.bossCompleted){
@@ -1925,37 +1872,43 @@
         const phaseText = S.phase === 'boss'
           ? `บอส P${S.bossPhase || 1}`
           : (S.phase === 'polish' ? 'เก็บรายละเอียด' : 'เรียนรู้');
-        $('#pillPhase').textContent = phaseText;
+        setText('pillPhase', phaseText);
 
         const active = S.zoneState[S.activeZoneIdx];
-        $('#pillZone').textContent = active ? active.label : '—';
+        setText('pillZone', active ? active.label : '—');
 
         S.zoneState.forEach((zs, idx)=>{
           const activeNow = idx === S.activeZoneIdx;
+
           if(zs.el){
             zs.el.classList.toggle('active', activeNow && !S.finished);
             zs.el.classList.toggle('completed', zs.completed);
             zs.el.style.zIndex = activeNow ? '3' : '1';
           }
-          const item = $('#zoneItem_' + zs.id);
+
+          const item = byId('zoneItem_' + zs.id);
           if(item){
             item.classList.toggle('active', activeNow && !S.finished);
             item.classList.toggle('completed', zs.completed);
           }
+
           const pct = zoneCleanPct(zs);
-          const fill = $('#zoneFill_' + zs.id);
-          const pctEl = $('#zonePct_' + zs.id);
+          const fill = byId('zoneFill_' + zs.id);
+          const pctEl = byId('zonePct_' + zs.id);
           if(fill) fill.style.width = pct + '%';
           if(pctEl) pctEl.textContent = pct + '%';
         });
 
         if(!S.bossStarted){
-          $('#instruction').innerHTML = `
-            แปรง <b>${active ? active.label : '—'}</b> ให้สะอาด
-            <span class="sub">เป้าหมายของโซนนี้ ≥ ${CFG.cleanTarget}% • แตะซ้ำที่โซนเดิมเพื่อเก็บคราบให้หมด</span>
-          `;
-          $('#instructionSub').textContent = 'ทำความสะอาดทีละส่วนให้ครบก่อนเข้าสู่บอส';
-          $('#questText').textContent = `ทำความสะอาดโซนทั้งหมดให้เกิน ${CFG.cleanTarget}% แล้วจะเข้าสู่บอสหินปูน`;
+          setHtml(
+            'instruction',
+            `แปรง <b>${active ? active.label : '—'}</b> ให้สะอาด
+             <span class="sub" id="instructionSub">เป้าหมายของโซนนี้ ≥ ${CFG.cleanTarget}% • แตะซ้ำที่โซนเดิมเพื่อเก็บคราบให้หมด</span>`
+          );
+          setText(
+            'questText',
+            `ทำความสะอาดโซนทั้งหมดให้เกิน ${CFG.cleanTarget}% แล้วจะเข้าสู่บอสหินปูน`
+          );
         } else if (!S.bossCompleted){
           let sub = 'แตะเร็วอย่างแม่นยำเพื่อลด HP บอส • ใช้ UV เพื่อ boost และ Polish เพื่อเก็บโบนัส';
           if(S.bossMode === 'laserWarn') sub = 'เตือนเลเซอร์: เตรียมหยุดแปรง';
@@ -1963,30 +1916,36 @@
           else if(S.bossMode === 'shockWait') sub = 'Shockwave: แตะให้ตรงจังหวะวงแหวน';
           else if(S.bossMode === 'decoy') sub = 'Decoy: แตะเฉพาะโซนจริงที่เรืองแสง';
 
-          $('#instruction').innerHTML = `
-            บอสหินปูนกำลังเกาะที่ ${active ? active.label : '—'}
-            <span class="sub">${sub}</span>
-          `;
+          setHtml(
+            'instruction',
+            `บอสหินปูนกำลังเกาะที่ ${active ? active.label : '—'}
+             <span class="sub" id="instructionSub">${sub}</span>`
+          );
 
-          $('#questText').innerHTML =
-            `ลด HP บอสให้เหลือ 0 • ตอนนี้ HP ${Math.max(0, Math.ceil(S.bossHP))}<br>` +
-            `Shock Perfect: <b>${S.quest.perfectShock}/3</b> ${S.quest.donePerfectShock ? '✅' : ''} • ` +
-            `Survive Laser: <b>${S.quest.laserSurvive}/2</b> ${S.quest.doneLaserSurvive ? '✅' : ''} • ` +
-            `Avoid Decoy: <b>${S.quest.decoyAvoid}/2</b> ${S.quest.doneDecoyAvoid ? '✅' : ''}`;
+          setHtml(
+            'questText',
+            `ลด HP บอสให้เหลือ 0 • ตอนนี้ HP ${Math.max(0, Math.ceil(S.bossHP))}<br>
+             Shock Perfect: <b>${S.quest.perfectShock}/3</b> ${S.quest.donePerfectShock ? '✅' : ''} •
+             Survive Laser: <b>${S.quest.laserSurvive}/2</b> ${S.quest.doneLaserSurvive ? '✅' : ''} •
+             Avoid Decoy: <b>${S.quest.decoyAvoid}/2</b> ${S.quest.doneDecoyAvoid ? '✅' : ''}`
+          );
         } else {
-          $('#instruction').innerHTML = `
-            ฟันสะอาดแล้ว! เก็บรายละเอียดหรือจบเกมได้
-            <span class="sub">กด Finish เพื่อดูคะแนน/quest หรือแปรงต่อเก็บคะแนนเพิ่ม</span>
-          `;
+          setHtml(
+            'instruction',
+            `ฟันสะอาดแล้ว! เก็บรายละเอียดหรือจบเกมได้
+             <span class="sub" id="instructionSub">กด Finish เพื่อดูคะแนน/quest หรือแปรงต่อเก็บคะแนนเพิ่ม</span>`
+          );
 
-          $('#questText').innerHTML =
-            `บอสถูกกำจัดแล้ว • คุณสามารถแปรงเก็บคะแนนต่อหรือจบเกมได้<br>` +
-            `Quest: Shock ${S.quest.donePerfectShock ? '✅' : '⬜'} • ` +
-            `Laser ${S.quest.doneLaserSurvive ? '✅' : '⬜'} • ` +
-            `Decoy ${S.quest.doneDecoyAvoid ? '✅' : '⬜'}`;
+          setHtml(
+            'questText',
+            `บอสถูกกำจัดแล้ว • คุณสามารถแปรงเก็บคะแนนต่อหรือจบเกมได้<br>
+             Quest: Shock ${S.quest.donePerfectShock ? '✅' : '⬜'} •
+             Laser ${S.quest.doneLaserSurvive ? '✅' : '⬜'} •
+             Decoy ${S.quest.doneDecoyAvoid ? '✅' : '⬜'}`
+          );
         }
 
-        const hintBadge = $('#hintBadge');
+        const hintBadge = byId('hintBadge');
         if(hintBadge){
           if(!S.bossStarted){
             hintBadge.textContent = `💡 โซนตอนนี้: ${active ? active.label : '—'}`;
@@ -2003,20 +1962,21 @@
 
         const uvReady = performance.now() >= S.uvCdUntil;
         const polishReady = performance.now() >= S.polishCdUntil;
-        $('#btnUV').classList.toggle('disabled', !uvReady);
-        $('#btnPolish').classList.toggle('disabled', !polishReady);
+        const btnUV = byId('btnUV');
+        const btnPolish = byId('btnPolish');
+        if(btnUV) btnUV.classList.toggle('disabled', !uvReady);
+        if(btnPolish) btnPolish.classList.toggle('disabled', !polishReady);
       }
 
       function onBrushZone(idx, ev){
-        if(S.finished) return;
+        if(S.finished || !arenaCore) return;
 
         const rect = arenaCore.getBoundingClientRect();
         const x = ev.clientX - rect.left;
         const y = ev.clientY - rect.top;
 
         const zs = S.zoneState[idx];
-        const activeIdx = S.activeZoneIdx;
-        const isActive = idx === activeIdx;
+        const isActive = idx === S.activeZoneIdx;
         const now = performance.now();
 
         if(S.phase === 'boss' && !S.bossCompleted){
@@ -2031,11 +1991,7 @@
             if(isActive && goodWindow){
               rewardShockPerfect(x, y);
               renderDirtForZone(idx);
-
-              if(S.bossHP <= 0){
-                maybeAdvanceBossPhase(x, y);
-              }
-
+              if(S.bossHP <= 0) maybeAdvanceBossPhase(x, y);
               refreshZoneUI();
               emitProgress();
               return;
@@ -2096,10 +2052,7 @@
           flashScreen('boss');
 
           renderDirtForZone(idx);
-
-          if(S.bossHP <= 0){
-            maybeAdvanceBossPhase(x, y);
-          }
+          if(S.bossHP <= 0) maybeAdvanceBossPhase(x, y);
 
           refreshZoneUI();
           emitProgress();
@@ -2140,9 +2093,7 @@
           savedAt: nowISO(),
           href: location.href
         };
-        try{
-          localStorage.setItem(LS_BRUSH_DRAFT, JSON.stringify(draft));
-        }catch(e){}
+        try{ localStorage.setItem(LS_BRUSH_DRAFT, JSON.stringify(draft)); }catch(e){}
       }
 
       function clearDraft(){
@@ -2151,9 +2102,8 @@
 
       function tryRestoreDraft(){
         let draft = null;
-        try{
-          draft = JSON.parse(localStorage.getItem(LS_BRUSH_DRAFT) || 'null');
-        }catch(e){ draft = null; }
+        try{ draft = JSON.parse(localStorage.getItem(LS_BRUSH_DRAFT) || 'null'); }
+        catch(e){ draft = null; }
 
         if(!draft) return;
         if((draft.gameId||'') !== CFG.gameId) return;
@@ -2198,7 +2148,7 @@
         if(draft.metrics) S.metrics = Object.assign(S.metrics, draft.metrics);
 
         S.zoneState.forEach((_, idx)=> renderDirtForZone(idx));
-        spawnPop(arenaCore.clientWidth * 0.5, 64, 'RESTORED');
+        if(arenaCore) spawnPop(arenaCore.clientWidth * 0.5, 64, 'RESTORED');
         showPhaseToast('CONTINUE');
 
         emitHha('hha:event', eventPayload('brush_restore', {
@@ -2234,9 +2184,9 @@
         S.finished = true;
         clearDraft();
         clearDecoy();
-        laserLine.classList.remove('on');
-        shockRing.classList.remove('on');
-        bossBanner.classList.remove('on');
+        if(laserLine) laserLine.classList.remove('on');
+        if(shockRing) shockRing.classList.remove('on');
+        if(bossBanner) bossBanner.classList.remove('on');
 
         const acc = S.totalActions > 0 ? (S.hits / S.totalActions) * 100 : 0;
         const clean = totalCleanPct();
@@ -2276,9 +2226,7 @@
           href: location.href
         };
 
-        try{
-          window.HHA_BACKHUB?.setSummary?.(summary);
-        }catch(e){}
+        try{ window.HHA_BACKHUB?.setSummary?.(summary); }catch(e){}
 
         emitHha('hha:end', eventPayload('end', summary));
         emitHha('hha:event', eventPayload('brush_summary', {
@@ -2303,24 +2251,19 @@
           summaryQuestDone('decoy')
         ].filter(Boolean).length;
 
-        $('#summaryRank').textContent = rank;
-        $('#sumScore').textContent = String(summary.scoreFinal);
-        $('#sumAcc').textContent = summary.accuracyPct + '%';
-        $('#sumClean').textContent = summary.cleanPct + '%';
-        $('#sumBoss').textContent = summary.bossCompleted ? 'ชนะแล้ว' : 'ยังไม่ชนะ';
-        $('#sumCombo').textContent = String(summary.maxCombo || 0);
-        $('#sumQuest').textContent = `${qDone}/3`;
+        setText('summaryRank', rank);
+        setText('sumScore', String(summary.scoreFinal));
+        setText('sumAcc', summary.accuracyPct + '%');
+        setText('sumClean', summary.cleanPct + '%');
+        setText('sumBoss', summary.bossCompleted ? 'ชนะแล้ว' : 'ยังไม่ชนะ');
+        setText('sumCombo', String(summary.maxCombo || 0));
+        setText('sumQuest', `${qDone}/3`);
+        setText('summarySub', `${summary.gameTitle} • end=${summary.endReason} • pid=${summary.pid || '—'}`);
+        setText('resultHeroRank', rank);
+        setText('resultHeroTitle', S.bossCompleted ? 'คุณกำจัดบอสหินปูนได้แล้ว!' : 'สรุปการแปรงฟันรอบนี้');
+        setText('resultHeroSub', `Clean ${summary.cleanPct}% • Accuracy ${summary.accuracyPct}% • Quest ${qDone}/3`);
 
-        $('#summarySub').textContent =
-          `${summary.gameTitle} • end=${summary.endReason} • pid=${summary.pid || '—'}`;
-
-        $('#resultHeroRank').textContent = rank;
-        $('#resultHeroTitle').textContent =
-          S.bossCompleted ? 'คุณกำจัดบอสหินปูนได้แล้ว!' : 'สรุปการแปรงฟันรอบนี้';
-        $('#resultHeroSub').textContent =
-          `Clean ${summary.cleanPct}% • Accuracy ${summary.accuracyPct}% • Quest ${qDone}/3`;
-
-        const rankEl = $('#resultHeroRank');
+        const rankEl = byId('resultHeroRank');
         if(rankEl){
           rankEl.style.color =
             rank === 'S' ? '#22c55e' :
@@ -2329,23 +2272,25 @@
             rank === 'C' ? '#fb7185' : '#94a3b8';
         }
 
-        const qShock = $('#sumQShock');
-        const qLaser = $('#sumQLaser');
-        const qDecoy = $('#sumQDecoy');
+        const qShock = byId('sumQShock');
+        const qLaser = byId('sumQLaser');
+        const qDecoy = byId('sumQDecoy');
+        [qShock, qLaser, qDecoy].forEach(el => el && el.classList.remove('ok'));
 
-        [qShock, qLaser, qDecoy].forEach(el => {
-          el.classList.remove('ok');
-        });
+        if(qShock){
+          qShock.textContent = `Shock ${summary.questDonePerfectShock ? '✅' : '⬜'}`;
+          qShock.classList.toggle('ok', !!summary.questDonePerfectShock);
+        }
+        if(qLaser){
+          qLaser.textContent = `Laser ${summary.questDoneLaserSurvive ? '✅' : '⬜'}`;
+          qLaser.classList.toggle('ok', !!summary.questDoneLaserSurvive);
+        }
+        if(qDecoy){
+          qDecoy.textContent = `Decoy ${summary.questDoneDecoyAvoid ? '✅' : '⬜'}`;
+          qDecoy.classList.toggle('ok', !!summary.questDoneDecoyAvoid);
+        }
 
-        qShock.textContent = `Shock ${summary.questDonePerfectShock ? '✅' : '⬜'}`;
-        qLaser.textContent = `Laser ${summary.questDoneLaserSurvive ? '✅' : '⬜'}`;
-        qDecoy.textContent = `Decoy ${summary.questDoneDecoyAvoid ? '✅' : '⬜'}`;
-
-        qShock.classList.toggle('ok', !!summary.questDonePerfectShock);
-        qLaser.classList.toggle('ok', !!summary.questDoneLaserSurvive);
-        qDecoy.classList.toggle('ok', !!summary.questDoneDecoyAvoid);
-
-        summaryOverlay.style.display = 'grid';
+        if(summaryOverlay) summaryOverlay.style.display = 'grid';
       }
 
       function restartGame(){
@@ -2360,37 +2305,35 @@
       }
 
       function bindButtons(){
-        $('#btnUV').addEventListener('click', ()=>{
-          if($('#btnUV').classList.contains('disabled')) return;
+        byId('btnUV')?.addEventListener('click', ()=>{
+          if(byId('btnUV')?.classList.contains('disabled')) return;
           useUV();
         });
 
-        $('#btnPolish').addEventListener('click', ()=>{
-          if($('#btnPolish').classList.contains('disabled')) return;
+        byId('btnPolish')?.addEventListener('click', ()=>{
+          if(byId('btnPolish')?.classList.contains('disabled')) return;
           usePolish();
         });
 
-        $('#btnRestart').addEventListener('click', restartGame);
-        $('#btnStartBoss').addEventListener('click', startBossNow);
-        $('#btnFinish').addEventListener('click', ()=> finishGame(S.bossCompleted ? 'complete' : 'quit'));
-        $('#btnCloseSummary').addEventListener('click', ()=> summaryOverlay.style.display = 'none');
-        $('#btnSummaryRestart').addEventListener('click', restartGame);
+        byId('btnRestart')?.addEventListener('click', restartGame);
+        byId('btnStartBoss')?.addEventListener('click', startBossNow);
+        byId('btnFinish')?.addEventListener('click', ()=> finishGame(S.bossCompleted ? 'complete' : 'quit'));
+        byId('btnCloseSummary')?.addEventListener('click', ()=> { if(summaryOverlay) summaryOverlay.style.display = 'none'; });
+        byId('btnSummaryRestart')?.addEventListener('click', restartGame);
 
-        $('#btnBackHub').addEventListener('click', ()=>{
-          try{
-            window.HHA_BACKHUB?.goHub?.();
-          }catch(e){
+        byId('btnBackHub')?.addEventListener('click', ()=>{
+          try{ window.HHA_BACKHUB?.goHub?.(); }
+          catch(e){
             const hub = qs('hub','');
             if(hub) location.href = hub;
           }
         });
 
-        $('#btnDockRestart').addEventListener('click', restartGame);
-        $('#btnDockSummary').addEventListener('click', ()=> finishGame(S.bossCompleted ? 'complete' : 'quit'));
-        $('#btnDockHub').addEventListener('click', ()=>{
-          try{
-            window.HHA_BACKHUB?.goHub?.();
-          }catch(e){
+        byId('btnDockRestart')?.addEventListener('click', restartGame);
+        byId('btnDockSummary')?.addEventListener('click', ()=> finishGame(S.bossCompleted ? 'complete' : 'quit'));
+        byId('btnDockHub')?.addEventListener('click', ()=>{
+          try{ window.HHA_BACKHUB?.goHub?.(); }
+          catch(e){
             const hub = qs('hub','');
             if(hub) location.href = hub;
           }
@@ -2418,13 +2361,8 @@
         runBossPatternController();
         refreshZoneUI();
 
-        if(Math.round(S.timeLeft) % 5 === 0){
-          emitProgress();
-        }
-
-        if(Math.floor(S.timeLeft * 10) % 20 === 0){
-          saveDraft();
-        }
+        if(Math.round(S.timeLeft) % 5 === 0) emitProgress();
+        if(Math.floor(S.timeLeft * 10) % 20 === 0) saveDraft();
 
         if(S.timeLeft <= 0){
           finishGame(S.bossCompleted ? 'complete' : 'timeup');
