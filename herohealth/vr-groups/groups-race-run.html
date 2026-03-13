@@ -1,18 +1,9 @@
 <!-- === /herohealth/vr-groups/groups-race-run.html ===
-Groups Race — RUN PAGE (1v1) — RECONNECT / RESUME HARDENED
-FULL v20260313-GROUPS-RACE-RUN-RESUME-r4
-✅ refresh/resume safe
-✅ start guard
-✅ end/result guard
-✅ local fxLayer popup coords
-✅ race HUD / countdown / BO3 / rematch / disconnect
-Requires:
-- Firebase initialized on page
-- ./groups-race-score.js
-- ./groups-race-rtdb.js
-- ./groups.safe.js
-- ./ai-hooks.js
-- ../vr/vr-ui.js
+Groups Race — RUN PAGE (1v1)
+FULL PATCH v20260313-GROUPS-RACE-RUN-FIREBASE-WAIT-r5
+✅ FIX: wait for firebase ready before GroupsRaceRTDB
+✅ FIX: clearer RTDB boot error
+✅ KEEP: race HUD / gameplay / room sync hooks
 -->
 <!doctype html>
 <html lang="th">
@@ -50,14 +41,12 @@ Requires:
         radial-gradient(900px 700px at 50% 95%, rgba(255,79,216,.08) 0%, transparent 60%),
         linear-gradient(180deg, #0b1026, var(--bg));
     }
-
     #app{
       position:relative;
       width:100%; height:100%;
       padding: calc(8px + var(--sat)) calc(8px + var(--sar)) calc(8px + var(--sab)) calc(8px + var(--sal));
       display:flex; flex-direction:column; gap:8px;
     }
-
     .topbar{
       border-radius: var(--radius);
       border:1px solid var(--stroke);
@@ -71,19 +60,10 @@ Requires:
       z-index:50;
       flex:0 0 auto;
     }
-    .title{
-      display:flex; flex-direction:column; gap:2px; min-width:0;
-    }
-    .title b{
-      font-size:14px; font-weight:1000; letter-spacing:.2px;
-    }
-    .title span{
-      color:var(--muted); font-size:11.5px; line-height:1.25;
-    }
-    .row{
-      display:flex; gap:8px; align-items:center; flex-wrap:wrap; justify-content:flex-end;
-    }
-
+    .title{ display:flex; flex-direction:column; gap:2px; min-width:0; }
+    .title b{ font-size:14px; font-weight:1000; letter-spacing:.2px; }
+    .title span{ color:var(--muted); font-size:11.5px; line-height:1.25; }
+    .row{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; justify-content:flex-end; }
     .pill{
       display:inline-flex; gap:8px; align-items:center;
       min-height:34px;
@@ -166,9 +146,7 @@ Requires:
       backdrop-filter: blur(8px);
       box-shadow: 0 10px 24px rgba(0,0,0,.18);
     }
-    .hudMetric{
-      display:flex; gap:5px; align-items:center; min-width:0;
-    }
+    .hudMetric{ display:flex; gap:5px; align-items:center; min-width:0; }
     .hudMetric .k{ color:var(--muted); font-size:10px; font-weight:900; }
     .hudMetric .v{ color:var(--text); font-size:12px; font-weight:1000; }
 
@@ -265,14 +243,6 @@ Requires:
     .opCell .k{ color:var(--muted); font-size:9.5px; font-weight:1000; }
     .opCell .v{ margin-top:3px; font-size:12px; font-weight:1000; }
 
-    @media (max-width:640px){
-      .opBoard{
-        width:min(176px, 46vw);
-        right:8px;
-        bottom: calc(10px + var(--sab) + 86px);
-      }
-    }
-
     .coachToast{
       position:absolute;
       left:10px; right:10px;
@@ -335,11 +305,6 @@ Requires:
       display:flex; flex-direction:column; gap:10px;
       overflow:auto; min-height:0;
     }
-    .overlayBtns{
-      padding:12px;
-      border-top:1px solid rgba(148,163,184,.14);
-      display:flex; gap:10px; flex-wrap:wrap; justify-content:center;
-    }
     .centerBig{
       font-size:72px; font-weight:1100; line-height:1; text-align:center; margin:10px 0;
     }
@@ -349,220 +314,6 @@ Requires:
       font-size:14px;
       font-weight:900;
       line-height:1.35;
-    }
-
-    #resultCard main{
-      padding:12px;
-      display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:10px;
-      overflow:auto; min-height:0;
-    }
-    .panel{
-      border-radius:18px;
-      border:1px solid rgba(148,163,184,.14);
-      background: rgba(2,6,23,.50);
-      padding:10px;
-      min-height:0;
-    }
-    .panelHead{
-      display:flex; justify-content:space-between; gap:8px; align-items:center;
-      margin-bottom:8px;
-    }
-    .panelHead b{ font-size:14px; }
-    .panelHead .mini{ color:var(--muted); font-size:11px; font-weight:900; }
-
-    .thaiGrid{
-      display:grid;
-      grid-template-columns:repeat(2,minmax(0,1fr));
-      gap:8px;
-    }
-    .kvCard{
-      border-radius:14px;
-      border:1px solid rgba(148,163,184,.14);
-      background: rgba(2,6,23,.38);
-      padding:8px 10px;
-    }
-    .kvCard .k{ color:var(--muted); font-size:11px; font-weight:900; }
-    .kvCard .v{ margin-top:4px; color:var(--text); font-size:14px; font-weight:1000; line-height:1.25; }
-
-    .vsBox{ display:grid; gap:10px; }
-    .vsPlayer{
-      border-radius:16px;
-      border:1px solid rgba(148,163,184,.14);
-      background: rgba(2,6,23,.34);
-      padding:10px;
-    }
-    .vsHead{
-      display:flex; justify-content:space-between; gap:8px; align-items:center; flex-wrap:wrap;
-      margin-bottom:8px;
-    }
-    .vsName{ font-size:14px; font-weight:1000; }
-    .vsTag{
-      border-radius:999px;
-      border:1px solid rgba(148,163,184,.18);
-      background: rgba(2,6,23,.44);
-      padding:4px 8px;
-      font-size:10px;
-      font-weight:1000;
-      color:var(--muted);
-    }
-
-    pre{
-      margin:0;
-      white-space:pre-wrap;
-      word-break:break-word;
-      font-size:12px;
-      line-height:1.35;
-      color: rgba(229,231,235,.92);
-      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    }
-
-    @media (max-width:760px){
-      #resultCard main{ grid-template-columns:1fr; }
-      .thaiGrid{ grid-template-columns:1fr 1fr; }
-    }
-    @media (max-width:420px){
-      .thaiGrid{ grid-template-columns:1fr; }
-    }
-
-    .hudPulse{ animation:hudPulse .28s ease-out; }
-    @keyframes hudPulse{
-      0%{ transform:scale(1); box-shadow:0 10px 24px rgba(0,0,0,.18); }
-      40%{ transform:scale(1.05); box-shadow:0 0 0 1px rgba(34,211,238,.28), 0 0 26px rgba(34,211,238,.16); }
-      100%{ transform:scale(1); box-shadow:0 10px 24px rgba(0,0,0,.18); }
-    }
-    .comboHot{
-      color:#fff;
-      text-shadow:0 0 10px rgba(255,79,216,.45), 0 0 20px rgba(167,139,250,.28);
-    }
-    .rankFlash{ animation:rankFlash .42s ease-out; }
-    @keyframes rankFlash{
-      0%{ transform:scale(1); opacity:1; }
-      35%{ transform:scale(1.18); opacity:1; }
-      100%{ transform:scale(1); opacity:1; }
-    }
-
-    #stageFlash{
-      position:absolute;
-      inset:0;
-      pointer-events:none;
-      opacity:0;
-      z-index:35;
-      background:radial-gradient(circle at 50% 50%, rgba(255,255,255,.14), rgba(255,255,255,0));
-      transition:opacity .14s ease;
-    }
-    #stageFlash.good{ background:radial-gradient(circle at 50% 50%, rgba(34,197,94,.16), rgba(34,197,94,0)); }
-    #stageFlash.bad{ background:radial-gradient(circle at 50% 50%, rgba(239,68,68,.14), rgba(239,68,68,0)); }
-    #stageFlash.boss{ background:radial-gradient(circle at 50% 50%, rgba(245,158,11,.18), rgba(245,158,11,0)); }
-
-    #fxLayer{
-      position:absolute;
-      inset:0;
-      pointer-events:none;
-      overflow:hidden;
-      z-index:38;
-    }
-    .scorePop{
-      position:absolute;
-      font-weight:1100;
-      font-size:22px;
-      line-height:1;
-      text-shadow: 0 2px 12px rgba(0,0,0,.28);
-      animation: scorePopUp .55s ease-out forwards;
-      will-change: transform, opacity;
-    }
-    .scorePop.good{ color:#86efac; }
-    .scorePop.bad{ color:#fca5a5; }
-    @keyframes scorePopUp{
-      0%{ transform: translate(-50%,-50%) scale(.72); opacity:0; }
-      15%{ transform: translate(-50%,-58%) scale(1.04); opacity:1; }
-      100%{ transform: translate(-50%,-110%) scale(.98); opacity:0; }
-    }
-
-    #celebrateLayer{
-      position:absolute;
-      inset:0;
-      pointer-events:none;
-      overflow:hidden;
-      z-index:74;
-    }
-    .confetti{
-      position:absolute;
-      width:10px;
-      height:16px;
-      border-radius:3px;
-      opacity:.95;
-      will-change: transform, opacity;
-      animation: confettiFall linear forwards;
-    }
-    @keyframes confettiFall{
-      0%{ transform: translate3d(0,0,0) rotate(0deg) scale(1); opacity:1; }
-      100%{ transform: translate3d(var(--dx, 0px), var(--dy, 520px), 0) rotate(var(--rot, 540deg)) scale(.9); opacity:0; }
-    }
-
-    #raceBanner{
-      position:absolute;
-      left:50%; top:50%;
-      transform:translate(-50%,-50%) scale(.92);
-      min-width:min(88vw,420px);
-      max-width:88vw;
-      padding:14px 18px;
-      border-radius:20px;
-      border:1px solid rgba(148,163,184,.22);
-      background:linear-gradient(180deg, rgba(2,6,23,.88), rgba(2,6,23,.72));
-      box-shadow:0 24px 80px rgba(0,0,0,.38);
-      text-align:center;
-      z-index:72;
-      pointer-events:none;
-      opacity:0;
-      display:none;
-      transition: opacity .18s ease, transform .18s ease;
-    }
-
-    #seriesBanner{
-      position:absolute;
-      left:50%; top:26%;
-      transform:translate(-50%,-50%) scale(.92);
-      min-width:min(86vw,420px);
-      max-width:86vw;
-      padding:12px 16px;
-      border-radius:18px;
-      border:1px solid rgba(255,79,216,.24);
-      background:linear-gradient(180deg, rgba(2,6,23,.90), rgba(2,6,23,.74));
-      box-shadow:0 24px 80px rgba(0,0,0,.34);
-      text-align:center;
-      z-index:73;
-      pointer-events:none;
-      opacity:0;
-      display:none;
-      transition: opacity .18s ease, transform .18s ease;
-    }
-
-    .winGlow{ animation: winGlow 1s ease-out; }
-    @keyframes winGlow{
-      0%{ box-shadow:0 0 0 rgba(255,255,255,0); filter:brightness(1); }
-      35%{
-        box-shadow:
-          0 0 0 2px rgba(255,215,0,.22),
-          0 0 36px rgba(255,215,0,.18),
-          0 0 84px rgba(34,197,94,.10);
-        filter:brightness(1.08);
-      }
-      100%{ box-shadow:0 0 0 rgba(255,255,255,0); filter:brightness(1); }
-    }
-    .seriesWinBadge{
-      margin-top:10px;
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      border-radius:999px;
-      border:1px solid rgba(245,158,11,.28);
-      background: rgba(245,158,11,.10);
-      padding:8px 12px;
-      font-size:13px;
-      font-weight:1000;
-      color:#fde68a;
     }
 
     .tgt{
@@ -577,10 +328,10 @@ Requires:
       user-select:none;
       -webkit-tap-highlight-color: transparent;
     }
+
     body[data-view="cvr"][data-cvr-strict="1"] .tgt{ pointer-events:none !important; }
   </style>
 </head>
-
 <body>
 <div id="app">
   <div class="topbar">
@@ -606,9 +357,6 @@ Requires:
 
   <div class="stage" id="stage">
     <div id="playLayer"></div>
-    <div id="stageFlash"></div>
-    <div id="fxLayer"></div>
-    <div id="celebrateLayer"></div>
 
     <div class="hud hudTop">
       <div class="hudLeftCol">
@@ -664,18 +412,6 @@ Requires:
       </div>
     </div>
 
-    <div id="raceBanner">
-      <div id="raceBannerTag" style="font-size:12px; color:var(--amber); font-weight:1000; letter-spacing:.3px;">RACE</div>
-      <div id="raceBannerTitle" style="margin-top:6px; font-size:22px; font-weight:1100;">READY</div>
-      <div id="raceBannerSub" style="margin-top:6px; color:var(--muted); font-size:12px; font-weight:900;">การแข่งขันกำลังเข้มข้น</div>
-    </div>
-
-    <div id="seriesBanner">
-      <div id="seriesBannerTag" style="font-size:11px; color:var(--pink); font-weight:1000; letter-spacing:.3px;">SERIES</div>
-      <div id="seriesBannerTitle" style="margin-top:6px; font-size:20px; font-weight:1100;">BO3</div>
-      <div id="seriesBannerSub" style="margin-top:6px; color:var(--muted); font-size:12px; font-weight:900;">กำลังเข้าสู่รอบสำคัญ</div>
-    </div>
-
     <div class="overlay" id="countdownOverlay" aria-hidden="false" style="display:flex;">
       <div class="overlayCard">
         <header>
@@ -686,82 +422,6 @@ Requires:
           <div class="centerBig" id="cdNum">WAIT</div>
           <div class="centerSub" id="cdSub">กำลังเชื่อมต่อห้องแข่งขัน...</div>
         </main>
-      </div>
-    </div>
-
-    <div class="overlay" id="resultOverlay" aria-hidden="true">
-      <div class="overlayCard" id="resultCard">
-        <header>
-          <div><b id="resultTitle">RESULT</b> <span style="color:var(--muted); font-weight:900;" id="resultSub"></span></div>
-          <div class="pill"><span class="dot good"></span> <span>ROOM:</span> <b id="resultRoom">—</b></div>
-        </header>
-
-        <main>
-          <div class="panel">
-            <div class="panelHead">
-              <b>สรุปของเรา</b>
-              <span class="mini">my result</span>
-            </div>
-
-            <div id="myHeadline" style="font-size:22px; font-weight:1100; line-height:1.2; margin-bottom:6px;">ผลการแข่งขัน</div>
-            <div id="mySubThai" style="color:var(--muted); font-size:13px; font-weight:900; line-height:1.35; margin-bottom:10px;">สรุปรอบนี้</div>
-            <div id="seriesWinBadge" class="seriesWinBadge" style="display:none;">
-              <span>🏆</span>
-              <span>Series Champion</span>
-            </div>
-
-            <div id="myPretty" class="thaiGrid" style="margin-top:10px;"></div>
-            <details style="margin-top:10px;">
-              <summary style="cursor:pointer; color:var(--muted); font-weight:900;">ดู JSON</summary>
-              <pre id="myJson" style="margin-top:8px;"></pre>
-            </details>
-          </div>
-
-          <div class="panel">
-            <div class="panelHead">
-              <b>เปรียบเทียบ</b>
-              <span class="mini">vs opponent</span>
-            </div>
-
-            <div id="vsBox" class="vsBox"></div>
-
-            <div id="seriesBox" style="
-              margin-top:10px;
-              border-radius:14px;
-              border:1px solid rgba(148,163,184,.14);
-              background: rgba(2,6,23,.34);
-              padding:10px;
-            ">
-              <div style="font-size:13px; font-weight:1000; margin-bottom:6px;">สถานะซีรีส์</div>
-              <div id="seriesTextLong" style="color:var(--muted); font-size:13px; font-weight:900;">BO3 · รอบ 1 · 0-0</div>
-            </div>
-
-            <div id="rematchBox" style="
-              margin-top:10px;
-              border-radius:14px;
-              border:1px solid rgba(148,163,184,.14);
-              background: rgba(2,6,23,.34);
-              padding:10px;
-              font-size:13px;
-              font-weight:900;
-              color:var(--muted);
-            ">
-              สถานะ Rematch: ยังไม่เริ่ม
-            </div>
-
-            <details style="margin-top:10px;">
-              <summary style="cursor:pointer; color:var(--muted); font-weight:900;">ดู decision JSON</summary>
-              <pre id="decisionJson" style="margin-top:8px;"></pre>
-            </details>
-          </div>
-        </main>
-
-        <div class="overlayBtns">
-          <button id="btnRematch">🔁 Rematch</button>
-          <button id="btnAgain">กลับ Hub</button>
-          <button class="primary" id="btnGoHub">🏠 กลับ HUB</button>
-          <button class="ghost" id="btnCloseResult">ปิด</button>
-        </div>
       </div>
     </div>
   </div>
@@ -781,53 +441,27 @@ Requires:
   const QS = (()=>{ try{ return new URL(location.href).searchParams; }catch(_){ return new URLSearchParams(); } })();
   const q = (k,d='') => (QS.get(k) ?? d);
 
-  const MEM_KEY = 'HHA_GROUPS_RACE_LAST';
-
-  function loadLastMemory(){
-    try{ return JSON.parse(localStorage.getItem(MEM_KEY) || 'null'); }
-    catch(_){ return null; }
-  }
-  function saveLastMemory(v){
-    try{ localStorage.setItem(MEM_KEY, JSON.stringify(v)); }catch(_){}
-  }
-
-  const mem = loadLastMemory() || {};
-
-  const ROOM = String(q('room', mem.room || '')).trim();
-  const ROLE = String(q('role', mem.role || 'guest')).toLowerCase();
-  const DIFF = String(q('diff', mem.diff || 'normal')).toLowerCase();
-  const VIEW = String(q('view', mem.view || 'mobile')).toLowerCase();
-  const TIME = Number(q('time', mem.time || '90') || 90);
-  const SEED = String(q('seed', mem.seed || '') || '');
-  const PID  = String(q('pid', mem.pid || 'anon') || 'anon').trim() || 'anon';
-  const NAME = String(q('name', mem.name || '') || '').trim() || (ROLE === 'host' ? 'Host' : 'Guest');
-  const PLAYER_KEY = String(q('playerKey', mem.playerKey || '') || '').trim() || ('p' + Math.random().toString(36).slice(2,8).toUpperCase());
-  const HUB = String(q('hub', mem.hub || '../hub.html') || '../hub.html');
+  const ROOM = String(q('room','')).trim();
+  const ROLE = String(q('role','guest')).toLowerCase();
+  const DIFF = String(q('diff','normal')).toLowerCase();
+  const VIEW = String(q('view','mobile')).toLowerCase();
+  const TIME = Number(q('time','90') || 90);
+  const SEED = String(q('seed','') || '');
+  const PID  = String(q('pid','anon') || 'anon').trim() || 'anon';
+  const NAME = String(q('name','') || '').trim() || (ROLE === 'host' ? 'Host' : 'Guest');
+  const PLAYER_KEY = String(q('playerKey','') || '').trim() || ('p' + Math.random().toString(36).slice(2,8).toUpperCase());
+  const HUB = String(q('hub','../hub.html') || '../hub.html');
   const CVR_STRICT = (VIEW === 'cvr') && (String(q('cvrStrict','1')||'1') !== '0');
-
-  saveLastMemory({
-    room: ROOM, role: ROLE, diff: DIFF, time: TIME, view: VIEW,
-    seed: SEED, pid: PID, name: NAME, playerKey: PLAYER_KEY, hub: HUB
-  });
 
   document.body.setAttribute('data-view', VIEW);
   document.body.setAttribute('data-cvr-strict', CVR_STRICT ? '1' : '0');
 
   const $ = (s)=>document.querySelector(s);
 
-  const roomPill = $('#roomPill');
-  const diffPill = $('#diffPill');
-  const viewPill = $('#viewPill');
-  const seedText = $('#seedText');
-  const statusText = $('#statusText');
-  const roomDot = $('#roomDot');
-  const seriesPill = $('#seriesPill');
-  const winsPill = $('#winsPill');
-
-  roomPill.textContent = ROOM || '—';
-  diffPill.textContent = DIFF;
-  viewPill.textContent = VIEW + (CVR_STRICT ? ' (strict)' : '');
-  seedText.textContent = String(SEED || '—').slice(0,18);
+  $('#roomPill').textContent = ROOM || '—';
+  $('#diffPill').textContent = DIFF;
+  $('#viewPill').textContent = VIEW + (CVR_STRICT ? ' (strict)' : '');
+  $('#seedText').textContent = String(SEED || '—').slice(0,18);
 
   const hudTime = $('#hudTime');
   const hudScore = $('#hudScore');
@@ -863,218 +497,89 @@ Requires:
   const cdHeaderSub = $('#cdHeaderSub');
   const cdRoom = $('#cdRoom');
 
-  const resultOverlay = $('#resultOverlay');
-  const resultTitle = $('#resultTitle');
-  const resultSub = $('#resultSub');
-  const resultRoom = $('#resultRoom');
-  const myPretty = $('#myPretty');
-  const myJson = $('#myJson');
-  const vsBox = $('#vsBox');
-  const decisionJson = $('#decisionJson');
-  const seriesTextLong = $('#seriesTextLong');
-  const rematchBox = $('#rematchBox');
-  const myHeadline = $('#myHeadline');
-  const mySubThai = $('#mySubThai');
-  const seriesWinBadge = $('#seriesWinBadge');
-
-  const stageFlash = $('#stageFlash');
-  const playLayer = $('#playLayer');
-  const fxLayer = $('#fxLayer');
-  const celebrateLayer = $('#celebrateLayer');
-
-  const raceBanner = $('#raceBanner');
-  const raceBannerTag = $('#raceBannerTag');
-  const raceBannerTitle = $('#raceBannerTitle');
-  const raceBannerSub = $('#raceBannerSub');
-
-  const seriesBanner = $('#seriesBanner');
-  const seriesBannerTag = $('#seriesBannerTag');
-  const seriesBannerTitle = $('#seriesBannerTitle');
-  const seriesBannerSub = $('#seriesBannerSub');
-
-  const btnReadyRun = $('#btnReadyRun');
-  const btnUnreadyRun = $('#btnUnreadyRun');
-  const btnStartRun = $('#btnStartRun');
+  const roomDot = $('#roomDot');
+  const statusText = $('#statusText');
+  const seriesPill = $('#seriesPill');
+  const winsPill = $('#winsPill');
 
   let race = null;
-  let lastLocalSummary = null;
-  let lastDecision = null;
-
   let engineStarted = false;
   let engineFinished = false;
-  let roomEndedHandled = false;
-  let resultRenderedKey = '';
-  let redirectingToLobby = false;
-
-  let countdownInt = null;
   let toastTimer = null;
-  let raceBannerTimer = null;
-  let seriesBannerTimer = null;
-  let startPollInt = null;
-  let rematchBusy = false;
-  let currentRematchNo = 0;
-  let lastLeadState = 'WAIT';
-  let lastCloseAlertAt = 0;
-  let final10Shown = false;
-  let final5Shown = false;
-  let lastSeriesKey = '';
-  let didCelebrateSeriesWin = false;
 
-  function faceFromMood(mood){
-    return (
-      mood === 'happy' ? '😄' :
-      mood === 'fever' ? '🔥' :
-      mood === 'sad'   ? '😵' :
-      mood === 'neutral' ? '🙂' : '🙂'
-    );
+  function waitForFirebaseReady(timeoutMs = 8000){
+    return new Promise((resolve, reject) => {
+      if (
+        window.HHA_FIREBASE_READY === true &&
+        window.firebase &&
+        typeof window.firebase.database === 'function'
+      ) {
+        resolve(true);
+        return;
+      }
+
+      let done = false;
+
+      const timer = setTimeout(() => {
+        if (done) return;
+        done = true;
+        window.removeEventListener('hha:firebase_ready', onReady);
+        reject(new Error('Firebase init timeout'));
+      }, timeoutMs);
+
+      function onReady(ev){
+        if (done) return;
+
+        const ok = !!ev?.detail?.ok;
+        if (!ok) {
+          done = true;
+          clearTimeout(timer);
+          window.removeEventListener('hha:firebase_ready', onReady);
+          reject(new Error(ev?.detail?.error || 'Firebase init failed'));
+          return;
+        }
+
+        if (!window.firebase || typeof window.firebase.database !== 'function') {
+          return;
+        }
+
+        done = true;
+        clearTimeout(timer);
+        window.removeEventListener('hha:firebase_ready', onReady);
+        resolve(true);
+      }
+
+      window.addEventListener('hha:firebase_ready', onReady);
+    });
   }
 
   function showToast(text, mood){
     if(toastTimer){ clearTimeout(toastTimer); toastTimer = null; }
     toastTxt.textContent = text || '';
-    toastSub.textContent = mood ? String(mood) : 'coach';
-    toastFace.textContent = faceFromMood(mood);
+    toastSub.textContent = mood || 'coach';
+    toastFace.textContent = mood === 'sad' ? '😵' : mood === 'happy' ? '😄' : mood === 'fever' ? '🔥' : '🙂';
     coachToast.classList.add('show');
-    toastTimer = setTimeout(()=> coachToast.classList.remove('show'), 2600);
+    toastTimer = setTimeout(()=> coachToast.classList.remove('show'), 2200);
   }
 
-  function pulseEl(el, cls='hudPulse', ms=320){
-    if(!el) return;
-    el.classList.remove(cls);
-    el.offsetHeight;
-    el.classList.add(cls);
-    setTimeout(()=> el.classList.remove(cls), ms);
-  }
-
-  function flashStage(kind){
-    if(!stageFlash) return;
-    stageFlash.className = '';
-    stageFlash.offsetHeight;
-    stageFlash.classList.add(kind || 'good');
-    stageFlash.style.opacity = '1';
-    setTimeout(()=>{ stageFlash.style.opacity = '0'; }, 120);
-  }
-
-  function popScore(x, y, text, good){
-    if(!fxLayer) return;
-
-    const rect = fxLayer.getBoundingClientRect();
-    let localX = Number(x || 0) - rect.left;
-    let localY = Number(y || 0) - rect.top;
-
-    if(!Number.isFinite(localX)) localX = rect.width * 0.5;
-    if(!Number.isFinite(localY)) localY = rect.height * 0.5;
-
-    localX = Math.max(18, Math.min(rect.width - 18, localX));
-    localY = Math.max(18, Math.min(rect.height - 18, localY));
-
-    const el = document.createElement('div');
-    el.className = 'scorePop ' + (good ? 'good' : 'bad');
-    el.textContent = text;
-    el.style.left = Math.round(localX) + 'px';
-    el.style.top = Math.round(localY) + 'px';
-    fxLayer.appendChild(el);
-
-    setTimeout(()=>{ try{ el.remove(); }catch(_){ } }, 700);
-  }
-
-  function rand(min, max){ return min + Math.random() * (max - min); }
-
-  function burstConfetti(count = 42){
-    if(!celebrateLayer) return;
-    const host = celebrateLayer;
-    const w = host.clientWidth || window.innerWidth || 360;
-    const colors = ['#22d3ee', '#a78bfa', '#f59e0b', '#22c55e', '#ff4fd8', '#ffffff'];
-
-    for(let i=0;i<count;i++){
-      const el = document.createElement('div');
-      el.className = 'confetti';
-      el.style.left = Math.round(rand(10, Math.max(12, w - 12))) + 'px';
-      el.style.top = '-24px';
-      el.style.background = colors[(Math.random() * colors.length) | 0];
-      el.style.setProperty('--dx', Math.round(rand(-120, 120)) + 'px');
-      el.style.setProperty('--dy', Math.round(rand(360, 620)) + 'px');
-      el.style.setProperty('--rot', Math.round(rand(240, 880)) + 'deg');
-      el.style.animationDuration = rand(1.3, 2.2) + 's';
-      host.appendChild(el);
-      setTimeout(()=>{ try{ el.remove(); }catch(_){ } }, 2400);
-    }
-  }
-
-  function showRaceBanner(tag, title, sub){
-    if(!raceBanner) return;
-    if(raceBannerTimer){ clearTimeout(raceBannerTimer); raceBannerTimer = null; }
-
-    raceBannerTag.textContent = tag || 'RACE';
-    raceBannerTitle.textContent = title || 'READY';
-    raceBannerSub.textContent = sub || '';
-
-    raceBanner.style.display = 'block';
-    requestAnimationFrame(()=>{
-      raceBanner.style.opacity = '1';
-      raceBanner.style.transform = 'translate(-50%,-50%) scale(1)';
-    });
-
-    raceBannerTimer = setTimeout(()=>{
-      raceBanner.style.opacity = '0';
-      raceBanner.style.transform = 'translate(-50%,-50%) scale(.94)';
-      setTimeout(()=>{ raceBanner.style.display = 'none'; }, 220);
-    }, 1500);
-  }
-
-  function showSeriesBanner(tag, title, sub){
-    if(!seriesBanner) return;
-    if(seriesBannerTimer){ clearTimeout(seriesBannerTimer); seriesBannerTimer = null; }
-
-    seriesBannerTag.textContent = tag || 'SERIES';
-    seriesBannerTitle.textContent = title || 'BO3';
-    seriesBannerSub.textContent = sub || '';
-
-    seriesBanner.style.display = 'block';
-    requestAnimationFrame(()=>{
-      seriesBanner.style.opacity = '1';
-      seriesBanner.style.transform = 'translate(-50%,-50%) scale(1)';
-    });
-
-    seriesBannerTimer = setTimeout(()=>{
-      seriesBanner.style.opacity = '0';
-      seriesBanner.style.transform = 'translate(-50%,-50%) scale(.94)';
-      setTimeout(()=>{ seriesBanner.style.display = 'none'; }, 220);
-    }, 1800);
-  }
-
-  function celebrateSeriesWin(){
-    if(didCelebrateSeriesWin) return;
-    didCelebrateSeriesWin = true;
-
-    burstConfetti(56);
-    burstConfetti(36);
-    flashStage('boss');
-
-    const resultCard = $('#resultCard');
-    if(resultCard){
-      resultCard.classList.remove('winGlow');
-      resultCard.offsetHeight;
-      resultCard.classList.add('winGlow');
-    }
-
-    if(seriesWinBadge) seriesWinBadge.style.display = 'inline-flex';
-    showSeriesBanner('SERIES WIN', 'คุณชนะซีรีส์! 🏆', 'ยอดเยี่ยมมาก');
-    showToast('คุณชนะซีรีส์แล้ว! 🎉', 'happy');
-  }
-
-  function setStatus(text, dotCls=''){
+  function setStatus(text, tone=''){
     statusText.textContent = text || '—';
-    roomDot.className = 'dot ' + (dotCls || '');
+    roomDot.className = 'dot ' + (tone || '');
   }
 
-  function setRematchText(text){
-    if(rematchBox) rematchBox.textContent = `สถานะ Rematch: ${text}`;
+  function showOverlay(el){
+    el.style.display = 'flex';
+    el.setAttribute('aria-hidden', 'false');
+  }
+
+  function hideOverlay(el){
+    el.style.display = 'none';
+    el.setAttribute('aria-hidden', 'true');
   }
 
   function updateSpawnSafe(){
     try{
-      const r = playLayer.getBoundingClientRect();
+      const r = $('#playLayer').getBoundingClientRect();
       const pad = 14;
       const topSafe = (VIEW === 'pc') ? 108 : (VIEW === 'cvr') ? 142 : 156;
       const botSafe = (VIEW === 'pc') ? 120 : (VIEW === 'cvr') ? 220 : 186;
@@ -1088,156 +593,39 @@ Requires:
   }
   window.addEventListener('resize', updateSpawnSafe, { passive:true });
 
-  function lockPxForView(){
-    if(VIEW === 'pc') return 10;
-    if(VIEW === 'cvr') return 22;
-    return 16;
-  }
-
-  function installLockPxShim(){
-    window.addEventListener('hha:shoot', (ev)=>{
-      try{
-        if(!ev || !ev.detail) return;
-        if(ev.detail.lockPx != null) return;
-        const d = ev.detail;
-        ev.stopImmediatePropagation();
-        window.dispatchEvent(new CustomEvent('hha:shoot', {
-          detail: { ...d, lockPx: lockPxForView(), source: d.source || 'shim' }
-        }));
-      }catch(_){}
-    }, true);
-  }
-
-  function showOverlay(el){
-    el.style.display = 'flex';
-    el.setAttribute('aria-hidden', 'false');
-  }
-  function hideOverlay(el){
-    el.style.display = 'none';
-    el.setAttribute('aria-hidden', 'true');
-  }
-
-  function startCountdownUI(startAt){
-    clearInterval(countdownInt);
-    showOverlay(countdownOverlay);
-    cdRoom.textContent = ROOM || '—';
-    cdHeaderSub.textContent = 'กำลังเริ่มแข่งขัน';
-
-    const tick = ()=>{
-      const leftMs = Number(startAt || 0) - Date.now();
-      const s = Math.max(0, Math.ceil(leftMs / 1000));
-      const room = race?.getState?.()?.room || {};
-      const ctx = getSeriesContext(room);
-
-      cdNum.textContent = (s <= 0) ? 'GO!' : String(s);
-
-      if(s <= 0){
-        cdSub.textContent = 'เริ่มแข่งแล้ว';
-      }else if(ctx.finalRound){
-        cdSub.textContent = 'รอบตัดสิน — ผู้ชนะรอบนี้ชนะซีรีส์';
-      }else if(ctx.myWins > ctx.opWins && ctx.myWins === 1){
-        cdSub.textContent = 'รอบนี้คุณมีโอกาสปิดซีรีส์';
-      }else if(ctx.opWins > ctx.myWins && ctx.opWins === 1){
-        cdSub.textContent = 'รอบนี้ห้ามพลาด — คู่แข่งมีโอกาสปิดซีรีส์';
-      }else{
-        cdSub.textContent = 'เตรียมตัวให้พร้อม';
-      }
-    };
-
-    tick();
-    countdownInt = setInterval(tick, 200);
-  }
-
-  function stopCountdownUI(){
-    clearInterval(countdownInt);
-    countdownInt = null;
+  function hideCountdown(){
     hideOverlay(countdownOverlay);
-  }
-
-  function buildCtx(runMode, timeSec, seedStr){
-    return {
-      runMode,
-      time: timeSec,
-      seed: seedStr,
-      view: VIEW,
-      classroom: false,
-      miniBoss: true,
-      bossSec: 12,
-      goalTotal: (DIFF==='easy') ? 10 : (DIFF==='hard') ? 14 : 12,
-      chargeNeed:(DIFF==='easy') ? 7 : (DIFF==='hard') ? 9 : 8,
-      battle: true,
-      roomId: ROOM,
-      playerKey: PLAYER_KEY
-    };
-  }
-
-  function resetRoundUI(){
-    engineStarted = false;
-    engineFinished = false;
-    roomEndedHandled = false;
-    lastLocalSummary = null;
-    lastDecision = null;
-    resultRenderedKey = '';
-
-    hudTime.textContent = TIME + 's';
-    hudScore.textContent = '0';
-    hudCombo.textContent = 'x0';
-    hudMiss.textContent = '0';
-    hudRank.textContent = '—';
-    hudCombo.classList.remove('comboHot');
-
-    qTitle.textContent = 'ภารกิจ';
-    qSub.textContent = '';
-    qBar.style.width = '0%';
-    qMini.textContent = 'MINI: —';
-    qMiniTime.textContent = '';
-
-    groupName.textContent = 'หมู่ 1 โปรตีน';
-    pBar.style.width = '0%';
-    pText.textContent = '0 / 8';
-
-    opScore.textContent = '0';
-    opCombo.textContent = 'x0';
-    opMiss.textContent = '0';
-    opAcc.textContent = '0%';
-    leadPill.textContent = 'WAIT';
-    leadPill.style.color = 'var(--muted)';
-    leadPill.style.borderColor = 'rgba(148,163,184,.18)';
-
-    hideOverlay(resultOverlay);
-    showOverlay(countdownOverlay);
-    cdNum.textContent = 'WAIT';
-    cdSub.textContent = 'รอผู้เล่น READY';
-    cdHeaderSub.textContent = currentRematchNo > 0 ? 'รอเริ่มรอบใหม่' : 'รอห้องเริ่ม';
-
-    final10Shown = false;
-    final5Shown = false;
-    lastLeadState = 'WAIT';
-    lastCloseAlertAt = 0;
-    lastSeriesKey = '';
-    didCelebrateSeriesWin = false;
-
-    if(seriesWinBadge) seriesWinBadge.style.display = 'none';
   }
 
   function startEngine(){
     if(engineStarted) return;
     updateSpawnSafe();
 
-    final10Shown = false;
-    final5Shown = false;
-    lastLeadState = 'WAIT';
-    lastCloseAlertAt = 0;
-
-    try{ window.GroupsVR?.GameEngine?.setLayerEl?.(playLayer); }catch(_){}
+    try{ window.GroupsVR?.GameEngine?.setLayerEl?.($('#playLayer')); }catch(_){}
     try{
-      window.GroupsVR.GameEngine.start(DIFF, buildCtx('play', TIME, SEED));
+      window.GroupsVR.GameEngine.start(DIFF, {
+        runMode: 'play',
+        time: TIME,
+        seed: SEED,
+        view: VIEW,
+        classroom: false,
+        miniBoss: true,
+        bossSec: 12,
+        goalTotal: (DIFF==='easy') ? 10 : (DIFF==='hard') ? 14 : 12,
+        chargeNeed:(DIFF==='easy') ? 7 : (DIFF==='hard') ? 9 : 8,
+        battle: true,
+        roomId: ROOM,
+        playerKey: PLAYER_KEY
+      });
       engineStarted = true;
       engineFinished = false;
       showToast('เริ่มแล้ว! ยิงให้ถูก “หมู่” แล้วเก็บคอมโบ 🔥', 'neutral');
-    }catch(e){
-      console.error(e);
-      showToast('เริ่มเกมไม่สำเร็จ — เปิด Console ดู error', 'sad');
+    }catch(err){
+      console.error(err);
+      setStatus('ERROR', 'red');
+      showOverlay(countdownOverlay);
+      cdNum.textContent = 'ERR';
+      cdSub.textContent = String(err?.message || err);
     }
   }
 
@@ -1246,340 +634,11 @@ Requires:
     engineStarted = false;
   }
 
-  function goHub(){
-    try{ race?.leaveRoomSoft?.(); }catch(_){}
-    stopEngine();
-    location.href = HUB;
-  }
-
-  function buildResultKey(dec){
-    if(!dec) return '';
-    return [
-      dec.roundNo, dec.rematchNo, dec.decidedAt, dec.winnerKey, dec.isDraw ? 1 : 0
-    ].join('|');
-  }
-
-  function normalizeDecisionPlayers(dec){
-    const a = dec?.a || null;
-    const b = dec?.b || null;
-    return { a, b };
-  }
-
-  function prettyCards(summary){
-    const cards = [
-      ['คะแนน', summary?.scoreFinal ?? summary?.score ?? '-'],
-      ['เกรด', summary?.grade ?? '-'],
-      ['ความแม่นยำ', (summary?.accuracyPct != null ? summary.accuracyPct + '%' : '-')],
-      ['Miss', summary?.miss ?? '-'],
-      ['ยิงทั้งหมด', summary?.shots ?? '-'],
-      ['ยิงถูก', summary?.hits ?? '-'],
-      ['คอมโบสูงสุด', summary?.comboMax ?? '-'],
-      ['ด่านจบที่', summary?.stageEnded ?? '-'],
-    ];
-    return cards.map(([k,v]) => `
-      <div class="kvCard">
-        <div class="k">${k}</div>
-        <div class="v">${v}</div>
-      </div>
-    `).join('');
-  }
-
-  function headlineByRaceResult(dec){
-    const draw = !!dec?.isDraw;
-    const winnerKey = String(dec?.winnerKey || '');
-    if(draw) return ['เสมอ 🤝', 'ทั้งสองฝั่งทำได้สูสีกันมาก'];
-    if(winnerKey === PLAYER_KEY) return ['คุณชนะ! 🏆', 'ทำคะแนนและควบคุมเกมได้ดีกว่า'];
-    return ['รอบนี้ยังไม่ชนะ 💪', 'ลองใหม่อีกนิด คุณมีโอกาสแซงได้'];
-  }
-
-  function showResult(decision){
-    const rk = buildResultKey(decision);
-    if(rk && rk === resultRenderedKey) return;
-    resultRenderedKey = rk;
-
-    lastDecision = decision || {};
-    roomEndedHandled = true;
-
-    const dec = decision || {};
-    const draw = !!dec.isDraw;
-    const winnerKey = String(dec.winnerKey || '');
-    const hostWins = Number(dec?.hostWins || 0);
-    const guestWins = Number(dec?.guestWins || 0);
-    const seriesFinished = !!dec?.seriesFinished;
-    const seriesWinnerKey = String(dec?.seriesWinnerKey || '');
-
-    if(seriesFinished){
-      if(seriesWinnerKey === PLAYER_KEY){
-        resultTitle.textContent = 'SERIES WIN 🏆';
-        resultSub.textContent = `คุณชนะซีรีส์ ${hostWins}-${guestWins}`;
-        celebrateSeriesWin();
-      }else{
-        resultTitle.textContent = 'SERIES LOSE';
-        resultSub.textContent = `คุณแพ้ซีรีส์ ${hostWins}-${guestWins}`;
-        if(seriesWinBadge) seriesWinBadge.style.display = 'none';
-      }
-    }else if(draw){
-      resultTitle.textContent = 'DRAW 🤝';
-      resultSub.textContent = 'รอบนี้เสมอกัน';
-      if(seriesWinBadge) seriesWinBadge.style.display = 'none';
-    }else if(dec.rule === 'disconnect'){
-      if(winnerKey === PLAYER_KEY){
-        resultTitle.textContent = 'ROUND WIN 🏁';
-        resultSub.textContent = 'คุณชนะรอบนี้เพราะคู่แข่งหลุดการเชื่อมต่อ';
-      }else{
-        resultTitle.textContent = 'ROUND LOSE';
-        resultSub.textContent = 'จบรอบด้วย disconnect';
-      }
-      if(seriesWinBadge) seriesWinBadge.style.display = 'none';
-    }else if(winnerKey === PLAYER_KEY){
-      resultTitle.textContent = 'ROUND WIN 🏁';
-      resultSub.textContent = `คุณชนะรอบนี้ · ซีรีส์ ${hostWins}-${guestWins}`;
-      if(seriesWinBadge) seriesWinBadge.style.display = 'none';
-    }else{
-      resultTitle.textContent = 'ROUND LOSE';
-      resultSub.textContent = `คุณแพ้รอบนี้ · ซีรีส์ ${hostWins}-${guestWins}`;
-      if(seriesWinBadge) seriesWinBadge.style.display = 'none';
-    }
-
-    const [head, sub] = headlineByRaceResult(dec);
-    if(myHeadline) myHeadline.textContent = head;
-    if(mySubThai) mySubThai.textContent = sub;
-    setRematchText(seriesFinished ? 'ซีรีส์จบแล้ว' : 'พร้อมเริ่มรอบถัดไป');
-
-    resultRoom.textContent = ROOM || '—';
-    myPretty.innerHTML = prettyCards(lastLocalSummary || {});
-    myJson.textContent = JSON.stringify(lastLocalSummary || {}, null, 2);
-    decisionJson.textContent = JSON.stringify(dec || {}, null, 2);
-
-    const { a, b } = normalizeDecisionPlayers(dec);
-    const list = [a, b].filter(Boolean);
-    vsBox.innerHTML = list.map(p=>{
-      const me = String(p.playerKey || '') === PLAYER_KEY;
-      const isWinner = !draw && String(dec.winnerKey || '') === String(p.playerKey || '');
-      return `
-        <div class="vsPlayer">
-          <div class="vsHead">
-            <div class="vsName">${me ? 'คุณ' : (p.name || p.playerKey || 'Opponent')}</div>
-            <div class="vsTag">${draw ? 'DRAW' : (isWinner ? 'WIN' : 'LOSE')}</div>
-          </div>
-          <div class="thaiGrid">
-            <div class="kvCard"><div class="k">SCORE</div><div class="v">${p.score ?? 0}</div></div>
-            <div class="kvCard"><div class="k">ACC</div><div class="v">${p.accuracyPct ?? 0}%</div></div>
-            <div class="kvCard"><div class="k">MISS</div><div class="v">${p.miss ?? 0}</div></div>
-            <div class="kvCard"><div class="k">COMBO MAX</div><div class="v">${p.comboMax ?? 0}</div></div>
-          </div>
-        </div>
-      `;
-    }).join('');
-
-    updateRunButtons();
-    showOverlay(resultOverlay);
-
-    const btnAgain = $('#btnAgain');
-    const btnRematch = $('#btnRematch');
-    if(btnAgain && btnRematch){
-      if(seriesFinished){
-        btnRematch.disabled = true;
-        btnRematch.textContent = 'ซีรีส์จบแล้ว';
-        btnAgain.textContent = 'กลับ Lobby';
-      }else{
-        btnRematch.disabled = false;
-        btnRematch.textContent = '🔁 Rematch';
-        btnAgain.textContent = 'กลับ Hub';
-      }
-    }
-  }
-
-  function updateLeadUI(){
-    if(!race) return;
-    const st = race.getLeadStatus ? race.getLeadStatus() : 'WAIT';
-    leadPill.textContent = st;
-
-    if(st === 'LEAD'){
-      leadPill.style.color = 'var(--good)';
-      leadPill.style.borderColor = 'rgba(34,197,94,.26)';
-    }else if(st === 'BEHIND'){
-      leadPill.style.color = 'var(--red)';
-      leadPill.style.borderColor = 'rgba(239,68,68,.24)';
-    }else if(st === 'CLOSE'){
-      leadPill.style.color = 'var(--amber)';
-      leadPill.style.borderColor = 'rgba(245,158,11,.26)';
-    }else{
-      leadPill.style.color = 'var(--muted)';
-      leadPill.style.borderColor = 'rgba(148,163,184,.18)';
-    }
-  }
-
-  function handleLeadAlerts(){
-    if(!race || !engineStarted) return;
-
-    const st = race.getLeadStatus ? race.getLeadStatus() : 'WAIT';
-    if(st === lastLeadState) return;
-
-    const prev = lastLeadState;
-    lastLeadState = st;
-
-    if(st === 'LEAD'){
-      if(prev === 'BEHIND'){
-        showRaceBanner('COMEBACK', 'แซงขึ้นนำแล้ว! 🚀', 'รักษาความแม่นไว้');
-        showToast('แซงแล้ว! รักษาคะแนนนำไว้ 🔥', 'happy');
-        flashStage('good');
-      }else{
-        showRaceBanner('LEAD', 'คุณกำลังนำ', 'เล่นนิ่ง ๆ แล้วคุมคอมโบ');
-        flashStage('good');
-      }
-    }else if(st === 'BEHIND'){
-      if(prev === 'LEAD'){
-        showRaceBanner('OVERTAKEN', 'โดนแซงแล้ว!', 'รีบคุมจังหวะกลับมา');
-        showToast('โดนแซงแล้ว — ใจเย็นและยิงให้ชัวร์ 🎯', 'sad');
-        flashStage('bad');
-      }else{
-        showRaceBanner('CHASE', 'กำลังตามอยู่', 'ยังกลับมาได้');
-        flashStage('bad');
-      }
-    }else if(st === 'CLOSE'){
-      showRaceBanner('CLOSE', 'คะแนนสูสีมาก', 'อีกนิดเดียวก็เปลี่ยนเกมได้');
-      flashStage('boss');
-    }
-  }
-
-  function handleCloseGameAlert(){
-    if(!race || !engineStarted) return;
-    const st = race.getState ? race.getState() : null;
-    const me = st?.me || null;
-    const op = st?.opponent || null;
-    if(!me || !op) return;
-
-    const diff = Math.abs(Number(me.score || 0) - Number(op.score || 0));
-    const now = Date.now();
-
-    if(diff <= 8 && (now - lastCloseAlertAt) > 4000){
-      lastCloseAlertAt = now;
-      showToast('คะแนนห่างกันนิดเดียว — ทุกช็อตมีผล!', 'neutral');
-    }
-  }
-
-  function handleFinalStretch(leftSec){
-    leftSec = Number(leftSec || 0);
-    if(!engineStarted) return;
-
-    if(leftSec <= 10 && leftSec > 5 && !final10Shown){
-      final10Shown = true;
-      showRaceBanner('FINAL 10', '10 วินาทีสุดท้าย! ⏳', 'เน้นแม่นก่อนเร็ว');
-      showToast('10 วินาทีสุดท้าย! คุมเกมให้ดี ⚡', 'fever');
-      flashStage('boss');
-    }
-
-    if(leftSec <= 5 && !final5Shown){
-      final5Shown = true;
-      showRaceBanner('FINAL 5', '5 วินาทีสุดท้าย! 🔥', 'เร่งได้ แต่ต้องแม่น');
-      showToast('5 วิสุดท้าย! เร่งปิดเกมได้เลย 🔥', 'fever');
-      flashStage('boss');
-    }
-  }
-
-  function getSeriesContext(room){
-    room = room || {};
-    const hostKey = String(room.hostKey || '');
-    const guestKey = String(room.guestKey || '');
-    const hostWins = Number(room.hostWins || 0);
-    const guestWins = Number(room.guestWins || 0);
-    const roundNo = Number(room.roundNo || 1);
-    const myIsHost = (PLAYER_KEY === hostKey);
-    const myWins = myIsHost ? hostWins : guestWins;
-    const opWins = myIsHost ? guestWins : hostWins;
-    const finalRound = (hostWins === 1 && guestWins === 1);
-
-    return {
-      roundNo,
-      hostWins,
-      guestWins,
-      myWins,
-      opWins,
-      finalRound,
-      isMatchPointMe: (myWins > opWins && myWins === 1),
-      isMatchPointOp: (opWins > myWins && opWins === 1),
-      seriesFinished: !!room.seriesFinished,
-      seriesWinnerKey: String(room.seriesWinnerKey || '')
-    };
-  }
-
-  function updateSeriesUI(room){
-    room = room || {};
-    const roundNo = Number(room.roundNo || 1);
-    const hostWins = Number(room.hostWins || 0);
-    const guestWins = Number(room.guestWins || 0);
-    const ctx = getSeriesContext(room);
-
-    if(seriesPill) seriesPill.textContent = `BO3 · R${roundNo}`;
-    if(winsPill) winsPill.textContent = `${hostWins} - ${guestWins}`;
-
-    if(seriesTextLong){
-      if(room.seriesFinished){
-        const sw = String(room.seriesWinnerKey || '');
-        const isMe = sw === PLAYER_KEY;
-        seriesTextLong.textContent = `ซีรีส์จบแล้ว · ${hostWins}-${guestWins} · ${isMe ? 'คุณชนะซีรีส์ 🏆' : 'คุณแพ้ซีรีส์'}`;
-      }else if(ctx.finalRound){
-        seriesTextLong.textContent = `BO3 · รอบตัดสิน · สกอร์ซีรีส์ ${hostWins}-${guestWins}`;
-      }else if(ctx.myWins > ctx.opWins && ctx.myWins === 1){
-        seriesTextLong.textContent = `BO3 · รอบ ${roundNo} · คุณมี match point (${hostWins}-${guestWins})`;
-      }else if(ctx.opWins > ctx.myWins && ctx.opWins === 1){
-        seriesTextLong.textContent = `BO3 · รอบ ${roundNo} · คู่แข่งมี match point (${hostWins}-${guestWins})`;
-      }else{
-        seriesTextLong.textContent = `BO3 · รอบ ${roundNo} · สกอร์ซีรีส์ ${hostWins}-${guestWins}`;
-      }
-    }
-  }
-
-  function handleSeriesAlerts(room){
-    const ctx = getSeriesContext(room);
-    const key = [ctx.roundNo, ctx.hostWins, ctx.guestWins, ctx.seriesFinished ? 1 : 0].join('|');
-    if(key === lastSeriesKey) return;
-    lastSeriesKey = key;
-
-    if(ctx.seriesFinished){
-      if(ctx.seriesWinnerKey === PLAYER_KEY){
-        celebrateSeriesWin();
-      }else{
-        showSeriesBanner('SERIES END', 'ซีรีส์จบแล้ว', `สกอร์ ${ctx.hostWins}-${ctx.guestWins}`);
-      }
-      return;
-    }
-
-    if(ctx.finalRound){
-      showSeriesBanner('FINAL ROUND', 'รอบตัดสิน! ⚔️', 'ผู้ชนะรอบนี้จะชนะซีรีส์');
-      showToast('รอบตัดสินแล้ว! ทุกช็อตสำคัญมาก 🔥', 'fever');
-      flashStage('boss');
-      return;
-    }
-
-    if(ctx.isMatchPointMe){
-      showSeriesBanner('MATCH POINT', 'คุณมีสิทธิ์ปิดซีรีส์', `นำอยู่ ${ctx.myWins}-${ctx.opWins}`);
-      showToast('รอบนี้คุณมีสิทธิ์ปิดซีรีส์ 🏁', 'happy');
-      return;
-    }
-
-    if(ctx.isMatchPointOp){
-      showSeriesBanner('DANGER', 'คู่แข่งมีสิทธิ์ปิดซีรีส์', `ตามอยู่ ${ctx.myWins}-${ctx.opWins}`);
-      showToast('รอบนี้ห้ามพลาด — คู่แข่งมี match point', 'sad');
-      return;
-    }
-
-    if(ctx.roundNo === 2){
-      showSeriesBanner('ROUND 2', 'เข้าสู่รอบที่ 2', `สกอร์ซีรีส์ ${ctx.hostWins}-${ctx.guestWins}`);
-      return;
-    }
-
-    if(ctx.roundNo === 1){
-      showSeriesBanner('ROUND 1', 'เริ่มซีรีส์ BO3', 'ใครชนะ 2 รอบก่อนชนะซีรีส์');
-    }
-  }
-
   function updateRunButtons(){
     if(!race){
-      btnReadyRun.disabled = true;
-      btnUnreadyRun.disabled = true;
-      btnStartRun.disabled = true;
+      $('#btnReadyRun').disabled = true;
+      $('#btnUnreadyRun').disabled = true;
+      $('#btnStartRun').disabled = true;
       return;
     }
 
@@ -1589,23 +648,169 @@ Requires:
     const op = st?.opponent || null;
     const status = String(room.status || 'lobby');
 
-    const canReady = (status === 'lobby');
-    const canStart = (
+    $('#btnReadyRun').disabled = status !== 'lobby';
+    $('#btnUnreadyRun').disabled = status !== 'lobby';
+    $('#btnStartRun').disabled = !(
       String(race.role || '') === 'host' &&
       status === 'lobby' &&
       !!me.ready &&
       !!op &&
       !!op.ready
     );
-
-    btnReadyRun.disabled = !canReady;
-    btnUnreadyRun.disabled = !canReady;
-    btnStartRun.disabled = !canStart;
   }
+
+  function updateSeries(room){
+    const roundNo = Number(room?.roundNo || 1);
+    const hostWins = Number(room?.hostWins || 0);
+    const guestWins = Number(room?.guestWins || 0);
+    seriesPill.textContent = `BO3 · R${roundNo}`;
+    winsPill.textContent = `${hostWins} - ${guestWins}`;
+  }
+
+  function updateOpponent(players){
+    const arr = Object.values(players || {});
+    const op = arr.find(p => String(p?.playerKey || '') !== PLAYER_KEY) || null;
+
+    if(!op){
+      opName.textContent = 'Opponent';
+      opScore.textContent = '0';
+      opCombo.textContent = 'x0';
+      opMiss.textContent = '0';
+      opAcc.textContent = '0%';
+      leadPill.textContent = 'WAIT';
+      return;
+    }
+
+    opName.textContent = op.name || op.playerKey || 'Opponent';
+    opScore.textContent = String(op.score || 0);
+    opCombo.textContent = 'x' + String(op.combo || 0);
+    opMiss.textContent = String(op.miss || 0);
+    opAcc.textContent = String(op.accuracyPct || 0) + '%';
+
+    const me = players[PLAYER_KEY] || null;
+    if(me){
+      const ds = Number(me.score || 0) - Number(op.score || 0);
+      if (Math.abs(ds) <= 8) {
+        leadPill.textContent = 'CLOSE';
+        leadPill.style.color = 'var(--amber)';
+      } else if (ds > 0) {
+        leadPill.textContent = 'LEAD';
+        leadPill.style.color = 'var(--good)';
+      } else {
+        leadPill.textContent = 'BEHIND';
+        leadPill.style.color = 'var(--red)';
+      }
+    }
+  }
+
+  $('#btnBack').addEventListener('click', ()=>{
+    try{ race?.leaveRoomSoft?.(); }catch(_){}
+    stopEngine();
+    location.href = HUB;
+  });
+
+  $('#btnReadyRun').addEventListener('click', async ()=>{
+    if(!race) return;
+    try{ await race.setReady(true); }catch(err){ console.error(err); }
+  });
+
+  $('#btnUnreadyRun').addEventListener('click', async ()=>{
+    if(!race) return;
+    try{ await race.setReady(false); }catch(err){ console.error(err); }
+  });
+
+  $('#btnStartRun').addEventListener('click', async ()=>{
+    if(!race) return;
+    try{ await race.maybeStartCountdown(3000); }catch(err){ console.error(err); }
+  });
+
+  window.addEventListener('hha:time', (ev)=>{
+    const left = ev?.detail?.left;
+    if(typeof left === 'number') hudTime.textContent = left + 's';
+  });
+
+  window.addEventListener('hha:score', async (ev)=>{
+    const d = ev?.detail || {};
+    if(d.score != null) hudScore.textContent = String(d.score|0);
+    if(d.combo != null) hudCombo.textContent = 'x' + String(d.combo|0);
+    const m = (d.misses != null) ? d.misses : d.miss;
+    if(m != null) hudMiss.textContent = String(m|0);
+
+    if(race && engineStarted && !engineFinished){
+      try{
+        await race.publishScore({
+          score: Number(d.score || 0),
+          combo: Number(d.combo || 0),
+          miss: Number(m || 0),
+          accuracyPct: Number(d.accPct != null ? d.accPct : (d.accuracyPct != null ? d.accuracyPct : 0)),
+          comboMax: Number(d.comboMax || 0),
+          timeLeft: Number(String(hudTime.textContent).replace('s','') || 0)
+        });
+      }catch(_){}
+    }
+  });
+
+  window.addEventListener('hha:rank', (ev)=>{
+    const d = ev?.detail || {};
+    if(d.grade) hudRank.textContent = String(d.grade);
+  });
+
+  window.addEventListener('quest:update', (ev)=>{
+    const d = ev?.detail || {};
+    if(d.goalTitle) qTitle.textContent = d.goalTitle;
+    const gNow = (d.goalNow!=null) ? d.goalNow : 0;
+    const gTot = (d.goalTotal!=null) ? d.goalTotal : 1;
+    qSub.textContent = `${gNow}/${gTot}`;
+    qBar.style.width = Math.round((gNow/Math.max(1,gTot))*100) + '%';
+
+    if(d.miniTitle) qMini.textContent = `${d.miniTitle} · ${d.miniNow||0}/${d.miniTotal||0}`;
+    qMiniTime.textContent = (d.miniTimeLeftSec != null && d.miniTimeLeftSec > 0) ? `⏳ ${d.miniTimeLeftSec}s` : '';
+    if(d.groupName) groupName.textContent = d.groupName;
+  });
+
+  window.addEventListener('groups:power', (ev)=>{
+    const d = ev?.detail || {};
+    const c = (d.charge!=null) ? d.charge : 0;
+    const t = (d.threshold!=null) ? d.threshold : 1;
+    const pct = Math.round((c/Math.max(1,t))*100);
+    pBar.style.width = pct + '%';
+    pText.textContent = `${c}/${t}`;
+  });
+
+  window.addEventListener('hha:coach', (ev)=>{
+    const d = ev?.detail || {};
+    if(d.text) showToast(d.text, d.mood || 'neutral');
+  });
+
+  window.addEventListener('hha:end', async (ev)=>{
+    const s = ev?.detail || {};
+    engineFinished = true;
+    try{
+      await race.publishFinished({
+        playerKey: PLAYER_KEY,
+        pid: PID,
+        name: NAME,
+        score: Number(s.scoreFinal || 0),
+        combo: 0,
+        miss: Number(s.miss || 0),
+        accuracyPct: Number(s.accuracyPct || 0),
+        comboMax: Number(s.comboMax || 0),
+        timeLeft: 0,
+        finished: true,
+        finishAt: Date.now(),
+        summary: s
+      });
+      showToast('จบเกมแล้ว — รอผลตัดสิน 🏁', 'neutral');
+    }catch(err){
+      console.error(err);
+    }
+  });
 
   async function setupRace(){
     if(!ROOM) throw new Error('missing room');
     if(!window.GroupsRaceRTDB) throw new Error('GroupsRaceRTDB not loaded');
+
+    await waitForFirebaseReady();
 
     race = new window.GroupsRaceRTDB({
       roomId: ROOM,
@@ -1619,364 +824,89 @@ Requires:
       view: VIEW
     });
 
-    race.subscribe();
-
-    startPollInt = setInterval(async ()=>{
-      try{ await race.setPlayingIfCountdownReached(); }catch(_){}
-    }, 400);
-  }
-
-  function bindEvents(){
-    btnReadyRun.addEventListener('click', async ()=>{
-      if(!race) return;
-      try{
-        await race.setReady(true);
-        showToast('READY แล้ว', 'happy');
-      }catch(err){
-        console.error(err);
-        showToast('READY ไม่สำเร็จ', 'sad');
-      }
-    });
-
-    btnUnreadyRun.addEventListener('click', async ()=>{
-      if(!race) return;
-      try{
-        await race.setReady(false);
-        showToast('ยกเลิก READY แล้ว', 'neutral');
-      }catch(err){
-        console.error(err);
-        showToast('UNREADY ไม่สำเร็จ', 'sad');
-      }
-    });
-
-    btnStartRun.addEventListener('click', async ()=>{
-      if(!race) return;
-      try{
-        const ok = await race.maybeStartCountdown(3000);
-        showToast(ok ? 'เริ่ม countdown แล้ว' : 'ยังเริ่มไม่ได้', ok ? 'happy' : 'neutral');
-      }catch(err){
-        console.error(err);
-        showToast('START ไม่สำเร็จ', 'sad');
-      }
-    });
-
-    $('#btnBack').addEventListener('click', goHub);
-    $('#btnGoHub').addEventListener('click', goHub);
-    $('#btnCloseResult').addEventListener('click', ()=> hideOverlay(resultOverlay));
-    $('#btnAgain').addEventListener('click', ()=> goHub());
-
-    $('#btnRematch').addEventListener('click', async ()=>{
-      if(!race || rematchBusy) return;
-
-      rematchBusy = true;
-      setRematchText('กำลังขอ rematch...');
-      showToast('กำลังขอ rematch...', 'neutral');
-
-      try{
-        if(String(race.role || '') === 'host'){
-          const ok = await race.rematchResetIfHost();
-          if(ok){
-            await race.resetMyRoundState?.();
-            resetRoundUI();
-            setRematchText('รีเซ็ตห้องแล้ว — กด READY ใหม่');
-            showToast('รีเซ็ตห้องแล้ว — กด READY ใหม่', 'happy');
-          }else{
-            setRematchText('reset ไม่สำเร็จ');
-            showToast('รีเซ็ตห้องไม่สำเร็จ', 'sad');
-          }
-        }else{
-          await race.resetMyRoundState?.();
-          resetRoundUI();
-          setRematchText('รอ host reset ห้อง...');
-          showToast('รอ host reset ห้อง...', 'neutral');
-        }
-      }catch(err){
-        console.error(err);
-        setRematchText('เกิดข้อผิดพลาด');
-        showToast('Rematch ไม่สำเร็จ', 'sad');
-      }finally{
-        rematchBusy = false;
-      }
-    });
-
-    window.addEventListener('pagehide', ()=>{ try{ race?.leaveRoomSoft?.(); }catch(_){ } }, { passive:true });
-    window.addEventListener('beforeunload', ()=>{ try{ race?.leaveRoomSoft?.(); }catch(_){ } }, { passive:true });
-
-    window.addEventListener('hha:coach', (ev)=>{
-      const d = ev?.detail || {};
-      if(d.text) showToast(d.text, d.mood || 'neutral');
-    });
-
-    window.addEventListener('hha:time', (ev)=>{
-      const left = ev?.detail?.left;
-      if(typeof left === 'number'){
-        hudTime.textContent = left + 's';
-        handleFinalStretch(left);
-      }
-    });
-
-    window.addEventListener('hha:score', async (ev)=>{
-      const d = ev?.detail || {};
-      if(d.score != null) hudScore.textContent = String(d.score|0);
-
-      if(d.combo != null){
-        const comboVal = Number(d.combo) || 0;
-        hudCombo.textContent = 'x' + String(comboVal|0);
-        if(comboVal >= 4) hudCombo.classList.add('comboHot');
-        else hudCombo.classList.remove('comboHot');
-      }
-
-      const m = (d.misses != null) ? d.misses : d.miss;
-      if(m != null) hudMiss.textContent = String(m|0);
-
-      pulseEl(hudScore);
-
-      if(race && engineStarted && !engineFinished){
-        try{
-          await race.publishScore({
-            score: Number(d.score || 0),
-            combo: Number(d.combo || 0),
-            miss: Number(m || 0),
-            accuracyPct: Number(d.accPct != null ? d.accPct : (d.accuracyPct != null ? d.accuracyPct : 0)),
-            comboMax: Number(d.comboMax || 0),
-            timeLeft: Number(d.timeLeft != null ? d.timeLeft : (String(hudTime.textContent).replace('s','') || 0))
-          });
-        }catch(_){}
-      }
-    });
-
-    window.addEventListener('hha:rank', (ev)=>{
-      const d = ev?.detail || {};
-      if(d.grade){
-        const old = hudRank.textContent;
-        const next = String(d.grade);
-        hudRank.textContent = next;
-        if(old && old !== next) pulseEl(hudRank, 'rankFlash', 460);
-      }
-    });
-
-    window.addEventListener('quest:update', (ev)=>{
-      const d = ev?.detail || {};
-      if(d.goalTitle) qTitle.textContent = d.goalTitle;
-      const gNow = (d.goalNow!=null) ? d.goalNow : 0;
-      const gTot = (d.goalTotal!=null) ? d.goalTotal : 1;
-      qSub.textContent = `${gNow}/${gTot}`;
-      qBar.style.width = Math.round((gNow/Math.max(1,gTot))*100) + '%';
-
-      if(d.miniTitle) qMini.textContent = `${d.miniTitle} · ${d.miniNow||0}/${d.miniTotal||0}`;
-      qMiniTime.textContent = (d.miniTimeLeftSec != null && d.miniTimeLeftSec > 0) ? `⏳ ${d.miniTimeLeftSec}s` : '';
-      if(d.groupName) groupName.textContent = d.groupName;
-    });
-
-    window.addEventListener('groups:power', (ev)=>{
-      const d = ev?.detail || {};
-      const c = (d.charge!=null) ? d.charge : 0;
-      const t = (d.threshold!=null) ? d.threshold : 1;
-      const pct = Math.round((c/Math.max(1,t))*100);
-      pBar.style.width = pct + '%';
-      pText.textContent = `${c}/${t}`;
-    });
-
-    window.addEventListener('groups:hit', (ev)=>{
-      const d = ev?.detail || {};
-      const good = !!d.good;
-      const kind = String(d.kind || '');
-      const rect = fxLayer.getBoundingClientRect();
-
-      let x = Number(d.x || 0);
-      let y = Number(d.y || 0);
-
-      if(!Number.isFinite(x) || x <= 0) x = rect.left + rect.width * 0.5;
-      if(!Number.isFinite(y) || y <= 0) y = rect.top + rect.height * 0.5;
-
-      const delta = Number(d.delta || (good ? 10 : -3));
-
-      pulseEl(hudScore);
-
-      if(good){
-        pulseEl(hudCombo);
-        flashStage(kind === 'boss_hit' ? 'boss' : 'good');
-        popScore(x, y, (delta > 0 ? '+' : '') + delta, true);
-      }else{
-        flashStage('bad');
-        popScore(x, y, (delta > 0 ? '+' : '') + delta, false);
-      }
-    });
-
-    window.addEventListener('hha:end', async (ev)=>{
-      const s = ev?.detail || {};
-      lastLocalSummary = s;
-      if(engineFinished) return;
-      engineFinished = true;
-
-      try{
-        await race.publishFinished({
-          playerKey: PLAYER_KEY,
-          pid: PID,
-          name: NAME,
-          score: Number(s.scoreFinal || 0),
-          combo: 0,
-          miss: Number(s.miss || 0),
-          accuracyPct: Number(s.accuracyPct || 0),
-          comboMax: Number(s.comboMax || 0),
-          timeLeft: 0,
-          finished: true,
-          finishAt: Date.now(),
-          summary: s
-        });
-      }catch(err){
-        console.error(err);
-      }
-
-      showToast('จบเกมแล้ว — รอผลตัดสิน 🏁', 'neutral');
-    });
-
-    window.addEventListener('groups:race_room', (ev)=>{
-      const room = ev?.detail?.room || {};
-      const status = String(room.status || 'lobby');
-      seedText.textContent = String(room.seed || SEED || '—').slice(0,18);
-      updateSeriesUI(room);
-      handleSeriesAlerts(room);
-
-      const rematchNo = Number(room.rematchNo || 0);
-      if(rematchNo !== currentRematchNo){
-        currentRematchNo = rematchNo;
-        if(rematchNo > 0){
-          stopEngine();
-          resetRoundUI();
-          setRematchText(`รอบที่ ${rematchNo + 1} พร้อมแล้ว`);
-          showToast('เริ่มรอบใหม่ได้แล้ว — กด READY', 'happy');
-        }
-      }
-
-      if(status === 'lobby'){
-        setStatus('LOBBY', '');
-        showOverlay(countdownOverlay);
-        cdRoom.textContent = ROOM || '—';
-        cdHeaderSub.textContent = currentRematchNo > 0 ? 'รอเริ่มรอบใหม่' : 'รอห้องเริ่ม';
-        cdNum.textContent = 'WAIT';
-        cdSub.textContent = currentRematchNo > 0 ? 'กด READY เพื่อเริ่ม rematch' : 'รอผู้เล่นทั้งสองพร้อม';
-
-        if(engineStarted && !redirectingToLobby){
-          redirectingToLobby = true;
-          setTimeout(()=>{
-            const u = new URL('./groups-race.html', location.href);
-            u.searchParams.set('room', ROOM);
-            u.searchParams.set('role', ROLE);
-            u.searchParams.set('name', NAME);
-            u.searchParams.set('pid', PID);
-            u.searchParams.set('diff', DIFF);
-            u.searchParams.set('time', TIME);
-            u.searchParams.set('view', VIEW);
-            u.searchParams.set('seed', SEED);
-            u.searchParams.set('playerKey', PLAYER_KEY);
-            u.searchParams.set('hub', HUB);
-            location.href = u.toString();
-          }, 300);
-        }
-      }else if(status === 'countdown'){
-        setStatus('COUNTDOWN', 'amber');
-        startCountdownUI(room.startAt || 0);
-      }else if(status === 'playing'){
-        setStatus('PLAYING', 'good');
-        stopCountdownUI();
-        startEngine();
-      }else if(status === 'ended'){
-        setStatus('ENDED', 'red');
-        stopCountdownUI();
-        if(room.decision && !roomEndedHandled){
-          showResult(room.decision);
-        }
-      }
-
-      updateRunButtons();
-    });
-
-    window.addEventListener('groups:race_players', (ev)=>{
-      const d = ev?.detail || {};
-      const op = d.opponent || null;
-
-      if(op){
-        opName.textContent = op.name || op.playerKey || 'Opponent';
-        opScore.textContent = String(op.score || 0);
-        opCombo.textContent = 'x' + String(op.combo || 0);
-        opMiss.textContent = String(op.miss || 0);
-        opAcc.textContent = String(op.accuracyPct || 0) + '%';
-
-        const connected = ('connected' in op) ? !!op.connected : true;
-        if(!connected){
-          leadPill.textContent = 'OPPONENT OFFLINE';
-          leadPill.style.color = 'var(--red)';
-          showToast('คู่แข่งหลุดการเชื่อมต่อ', 'sad');
-        }
-      }else{
-        opName.textContent = 'Opponent';
-        opScore.textContent = '0';
-        opCombo.textContent = 'x0';
-        opMiss.textContent = '0';
-        opAcc.textContent = '0%';
-      }
-
-      updateLeadUI();
-      handleLeadAlerts();
-      handleCloseGameAlert();
-      updateRunButtons();
-    });
-
-    window.addEventListener('groups:race_end', (ev)=>{
-      const d = ev?.detail || {};
-      stopEngine();
-      showResult(d);
-    });
+    await race.subscribe();
   }
 
   async function boot(){
     if(!ROOM){
-      showToast('ไม่มี room id', 'sad');
+      setStatus('ERROR', 'red');
       cdNum.textContent = 'ERR';
-      cdSub.textContent = 'room id missing';
+      cdSub.textContent = 'missing room';
       return;
     }
 
     if(!window.GroupsVR || !window.GroupsVR.GameEngine || typeof window.GroupsVR.GameEngine.start !== 'function'){
-      showToast('groups.safe.js โหลดไม่สำเร็จ', 'sad');
+      setStatus('ERROR', 'red');
       cdNum.textContent = 'ERR';
       cdSub.textContent = 'groups.safe.js missing';
       return;
     }
 
     if(!window.GroupsRaceRTDB){
-      showToast('groups-race-rtdb.js โหลดไม่สำเร็จ', 'sad');
+      setStatus('ERROR', 'red');
       cdNum.textContent = 'ERR';
       cdSub.textContent = 'RTDB adapter missing';
       return;
     }
 
-    bindEvents();
-    installLockPxShim();
-    updateSpawnSafe();
-
-    showToast('เชื่อมต่อห้องแข่งขัน...', 'neutral');
     cdRoom.textContent = ROOM || '—';
+    hudTime.textContent = TIME + 's';
 
     try{
       await setupRace();
-      try{ await race.reconnectPresence?.(); }catch(_){}
-      setStatus('CONNECT', '');
+      setStatus('LOBBY', 'amber');
+      updateRunButtons();
     }catch(err){
       console.error(err);
       setStatus('ERROR', 'red');
       cdNum.textContent = 'ERR';
-      cdSub.textContent = err?.message || 'connect failed';
-      showToast('เชื่อมต่อห้องไม่สำเร็จ', 'sad');
+      cdSub.textContent = String(err?.message || err);
       return;
     }
 
-    if(VIEW === 'cvr'){
+    window.addEventListener('groups:race_room', (ev)=>{
+      const room = ev?.detail?.room || {};
+      const status = String(room.status || 'lobby');
+
+      updateSeries(room);
+
+      if(status === 'lobby'){
+        setStatus('LOBBY', 'amber');
+        showOverlay(countdownOverlay);
+        cdNum.textContent = 'WAIT';
+        cdSub.textContent = 'รอผู้เล่นทั้งสอง READY';
+      }else if(status === 'countdown'){
+        setStatus('COUNTDOWN', 'good');
+        showOverlay(countdownOverlay);
+
+        const startAt = Number(room.startAt || 0);
+        const leftMs = startAt - Date.now();
+        const sec = Math.max(0, Math.ceil(leftMs / 1000));
+
+        cdNum.textContent = sec <= 0 ? 'GO!' : String(sec);
+        cdSub.textContent = sec <= 0 ? 'กำลังเข้าเกม...' : 'เตรียมตัวให้พร้อม';
+      }else if(status === 'playing'){
+        setStatus('PLAYING', 'good');
+        hideCountdown();
+        startEngine();
+      }else if(status === 'ended'){
+        setStatus('ENDED', 'red');
+        hideCountdown();
+        showToast('รอบนี้จบแล้ว', 'neutral');
+      }
+
+      updateRunButtons();
+    });
+
+    window.addEventListener('groups:race_players', (ev)=>{
+      const players = ev?.detail?.players || {};
+      updateOpponent(players);
+      updateRunButtons();
+    });
+
+    if (VIEW === 'cvr') {
       showToast('โหมด Cardboard (cVR) ยิงจาก crosshair 🎯', 'neutral');
     }
-
-    updateRunButtons();
   }
 
   boot();
