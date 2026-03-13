@@ -1,12 +1,14 @@
 <!-- === /herohealth/balance-hold-vr.html ===
 Balance Hold — LAUNCHER (HeroHealth Root)
-PATCH v20260311-BALANCEHOLD-LAUNCHER-FLOW-WARMUP
+PATCH v20260313-BALANCEHOLD-LAUNCHER-FLOW-FINAL
 ✅ Choose diff/time/view BEFORE entering run
 ✅ Start Flow = warmup -> game -> summary -> cooldown -> hub
 ✅ Open RUN only = direct run page (no warmup)
-✅ Pass-through hub/run/diff/time/seed/pid/view/log/api/ai/studyId/phase/conditionGroup
+✅ Pass-through hub/run/diff/time/seed/pid/view/log/api/ai/studyId/conditionGroup/grade
 ✅ Uses /herohealth/warmup-gate.html with per-game daily gate
 ✅ Game key = balance / category = exercise
+✅ FIX: do not overwrite gate phase with research/game phase
+✅ FIX: back hub uses current selected values
 -->
 <!doctype html>
 <html lang="th">
@@ -241,7 +243,7 @@ PATCH v20260311-BALANCEHOLD-LAUNCHER-FLOW-WARMUP
             <li>ถ้าวันนี้ยังไม่ทำ warmup ของเกมนี้ จะเล่น warmup ก่อน</li>
             <li>จากนั้นเข้า <code>/fitness/balance-hold.html</code></li>
             <li>เมื่อจบเกม จะค้างหน้า Result ก่อน</li>
-            <li>กด Back HUB / Continue แล้วจึงไป cooldown gate</li>
+            <li>กด Go Cooldown แล้วจึงไป cooldown gate</li>
             <li>สุดท้ายกลับ HUB</li>
           </ul>
         </div>
@@ -314,13 +316,11 @@ document.getElementById('cRun').textContent = P.run;
 const elDiff = document.getElementById('diff');
 const elTime = document.getElementById('time');
 const elView = document.getElementById('view');
+const backHub = document.getElementById('backHub');
 
 if (['easy','normal','hard'].includes(P.diff)) elDiff.value = P.diff;
 if (P.time) elTime.value = String(P.time);
 if (['pc','mobile','cvr'].includes(P.view)) elView.value = P.view;
-
-const backHub = document.getElementById('backHub');
-if (P.hub) backHub.href = P.hub;
 
 function buildHubUrl(){
   if (P.hub) return P.hub;
@@ -343,6 +343,15 @@ function buildHubUrl(){
 
   return u.toString();
 }
+
+function syncBackHub(){
+  backHub.href = buildHubUrl();
+}
+syncBackHub();
+
+elDiff.addEventListener('change', syncBackHub);
+elTime.addEventListener('change', syncBackHub);
+elView.addEventListener('change', syncBackHub);
 
 function buildRunUrl(autostart){
   const u = new URL('../fitness/balance-hold.html', location.href);
@@ -375,7 +384,6 @@ function buildWarmupFlowUrl(){
   const u = new URL('./warmup-gate.html', location.href);
 
   setParam(u, 'gatePhase', 'warmup');
-  setParam(u, 'phase', 'warmup');
   setParam(u, 'cat', 'exercise');
   setParam(u, 'game', 'balance');
   setParam(u, 'theme', 'balance');
@@ -395,11 +403,9 @@ function buildWarmupFlowUrl(){
   setParam(u, 'api', P.api);
   setParam(u, 'ai', P.ai);
   setParam(u, 'studyId', P.studyId);
-  setParam(u, 'phase', P.phase);
   setParam(u, 'conditionGroup', P.conditionGroup);
   setParam(u, 'grade', P.grade);
 
-  // duration for gate
   setParam(u, 'dur', '20');
   setParam(u, 'cdur', '15');
 
@@ -423,6 +429,7 @@ document.getElementById('btnReseed').addEventListener('click', ()=>{
     u.searchParams.set('seed', P.seed);
     history.replaceState(null,'',u.toString());
   }catch(e){}
+  syncBackHub();
 });
 </script>
 </body>
