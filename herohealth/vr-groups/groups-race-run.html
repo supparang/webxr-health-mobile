@@ -1,11 +1,11 @@
 <!-- === /herohealth/vr-groups/groups-race-run.html ===
-Groups Race — RUN PAGE (1v1) — FINAL POLISH
-FULL v20260308-GROUPS-RACE-RUN-FINAL-POLISH-r2
-✅ sync with groups.safe.js polished events
-✅ score popup / hit fx / boss flash
-✅ cleaner HUD
-✅ opponent board compact
-✅ rematch / BO3 / result / celebration
+Groups Race — RUN PAGE (1v1) — RECONNECT / RESUME HARDENED
+FULL v20260313-GROUPS-RACE-RUN-RESUME-r4
+✅ refresh/resume safe
+✅ start guard
+✅ end/result guard
+✅ local fxLayer popup coords
+✅ race HUD / countdown / BO3 / rematch / disconnect
 Requires:
 - Firebase initialized on page
 - ./groups-race-score.js
@@ -733,7 +733,7 @@ Requires:
               padding:10px;
             ">
               <div style="font-size:13px; font-weight:1000; margin-bottom:6px;">สถานะซีรีส์</div>
-              <div id="seriesText" style="color:var(--muted); font-size:13px; font-weight:900;">BO3 · รอบ 1 · 0-0</div>
+              <div id="seriesTextLong" style="color:var(--muted); font-size:13px; font-weight:900;">BO3 · รอบ 1 · 0-0</div>
             </div>
 
             <div id="rematchBox" style="
@@ -780,17 +780,34 @@ Requires:
   const QS = (()=>{ try{ return new URL(location.href).searchParams; }catch(_){ return new URLSearchParams(); } })();
   const q = (k,d='') => (QS.get(k) ?? d);
 
-  const ROOM = String(q('room','')).trim();
-  const ROLE = String(q('role','guest')).toLowerCase();
-  const DIFF = String(q('diff','normal')).toLowerCase();
-  const VIEW = String(q('view','mobile')).toLowerCase();
-  const TIME = Number(q('time','90') || 90);
-  const SEED = String(q('seed','') || '');
-  const PID  = String(q('pid','anon') || 'anon').trim() || 'anon';
-  const NAME = String(q('name','') || '').trim() || (ROLE === 'host' ? 'Host' : 'Guest');
-  const PLAYER_KEY = String(q('playerKey','') || '').trim() || ('p' + Math.random().toString(36).slice(2,8).toUpperCase());
-  const HUB = String(q('hub','../hub.html') || '../hub.html');
+  const MEM_KEY = 'HHA_GROUPS_RACE_LAST';
+
+  function loadLastMemory(){
+    try{ return JSON.parse(localStorage.getItem(MEM_KEY) || 'null'); }
+    catch(_){ return null; }
+  }
+  function saveLastMemory(v){
+    try{ localStorage.setItem(MEM_KEY, JSON.stringify(v)); }catch(_){}
+  }
+
+  const mem = loadLastMemory() || {};
+
+  const ROOM = String(q('room', mem.room || '')).trim();
+  const ROLE = String(q('role', mem.role || 'guest')).toLowerCase();
+  const DIFF = String(q('diff', mem.diff || 'normal')).toLowerCase();
+  const VIEW = String(q('view', mem.view || 'mobile')).toLowerCase();
+  const TIME = Number(q('time', mem.time || '90') || 90);
+  const SEED = String(q('seed', mem.seed || '') || '');
+  const PID  = String(q('pid', mem.pid || 'anon') || 'anon').trim() || 'anon';
+  const NAME = String(q('name', mem.name || '') || '').trim() || (ROLE === 'host' ? 'Host' : 'Guest');
+  const PLAYER_KEY = String(q('playerKey', mem.playerKey || '') || '').trim() || ('p' + Math.random().toString(36).slice(2,8).toUpperCase());
+  const HUB = String(q('hub', mem.hub || '../hub.html') || '../hub.html');
   const CVR_STRICT = (VIEW === 'cvr') && (String(q('cvrStrict','1')||'1') !== '0');
+
+  saveLastMemory({
+    room: ROOM, role: ROLE, diff: DIFF, time: TIME, view: VIEW,
+    seed: SEED, pid: PID, name: NAME, playerKey: PLAYER_KEY, hub: HUB
+  });
 
   document.body.setAttribute('data-view', VIEW);
   document.body.setAttribute('data-cvr-strict', CVR_STRICT ? '1' : '0');
@@ -853,7 +870,7 @@ Requires:
   const myJson = $('#myJson');
   const vsBox = $('#vsBox');
   const decisionJson = $('#decisionJson');
-  const seriesText = $('#seriesText');
+  const seriesTextLong = $('#seriesTextLong');
   const rematchBox = $('#rematchBox');
   const myHeadline = $('#myHeadline');
   const mySubThai = $('#mySubThai');
@@ -881,8 +898,13 @@ Requires:
   let race = null;
   let lastLocalSummary = null;
   let lastDecision = null;
-  let gameStarted = false;
-  let finishedPublished = false;
+
+  let engineStarted = false;
+  let engineFinished = false;
+  let roomEndedHandled = false;
+  let resultRenderedKey = '';
+  let redirectingToLobby = false;
+
   let countdownInt = null;
   let toastTimer = null;
   let raceBannerTimer = null;
@@ -890,7 +912,6 @@ Requires:
   let startPollInt = null;
   let rematchBusy = false;
   let currentRematchNo = 0;
-  let inResultMode = false;
   let lastLeadState = 'WAIT';
   let lastCloseAlertAt = 0;
   let final10Shown = false;
@@ -935,12 +956,24 @@ Requires:
 
   function popScore(x, y, text, good){
     if(!fxLayer) return;
+
+    const rect = fxLayer.getBoundingClientRect();
+    let localX = Number(x || 0) - rect.left;
+    let localY = Number(y || 0) - rect.top;
+
+    if(!Number.isFinite(localX)) localX = rect.width * 0.5;
+    if(!Number.isFinite(localY)) localY = rect.height * 0.5;
+
+    localX = Math.max(18, Math.min(rect.width - 18, localX));
+    localY = Math.max(18, Math.min(rect.height - 18, localY));
+
     const el = document.createElement('div');
     el.className = 'scorePop ' + (good ? 'good' : 'bad');
     el.textContent = text;
-    el.style.left = Math.round(x) + 'px';
-    el.style.top = Math.round(y) + 'px';
+    el.style.left = Math.round(localX) + 'px';
+    el.style.top = Math.round(localY) + 'px';
     fxLayer.appendChild(el);
+
     setTimeout(()=>{ try{ el.remove(); }catch(_){ } }, 700);
   }
 
@@ -1138,11 +1171,12 @@ Requires:
   }
 
   function resetRoundUI(){
-    finishedPublished = false;
-    gameStarted = false;
+    engineStarted = false;
+    engineFinished = false;
+    roomEndedHandled = false;
     lastLocalSummary = null;
     lastDecision = null;
-    inResultMode = false;
+    resultRenderedKey = '';
 
     hudTime.textContent = TIME + 's';
     hudScore.textContent = '0';
@@ -1173,7 +1207,7 @@ Requires:
     showOverlay(countdownOverlay);
     cdNum.textContent = 'WAIT';
     cdSub.textContent = 'รอผู้เล่น READY';
-    cdHeaderSub.textContent = 'รอเริ่มรอบใหม่';
+    cdHeaderSub.textContent = currentRematchNo > 0 ? 'รอเริ่มรอบใหม่' : 'รอห้องเริ่ม';
 
     final10Shown = false;
     final5Shown = false;
@@ -1186,7 +1220,7 @@ Requires:
   }
 
   function startEngine(){
-    if(gameStarted) return;
+    if(engineStarted) return;
     updateSpawnSafe();
 
     final10Shown = false;
@@ -1197,8 +1231,8 @@ Requires:
     try{ window.GroupsVR?.GameEngine?.setLayerEl?.(playLayer); }catch(_){}
     try{
       window.GroupsVR.GameEngine.start(DIFF, buildCtx('play', TIME, SEED));
-      gameStarted = true;
-      finishedPublished = false;
+      engineStarted = true;
+      engineFinished = false;
       showToast('เริ่มแล้ว! ยิงให้ถูก “หมู่” แล้วเก็บคอมโบ 🔥', 'neutral');
     }catch(e){
       console.error(e);
@@ -1208,13 +1242,20 @@ Requires:
 
   function stopEngine(){
     try{ window.GroupsVR?.GameEngine?.stop?.(); }catch(_){}
-    gameStarted = false;
+    engineStarted = false;
   }
 
   function goHub(){
     try{ race?.leaveRoomSoft?.(); }catch(_){}
     stopEngine();
     location.href = HUB;
+  }
+
+  function buildResultKey(dec){
+    if(!dec) return '';
+    return [
+      dec.roundNo, dec.rematchNo, dec.decidedAt, dec.winnerKey, dec.isDraw ? 1 : 0
+    ].join('|');
   }
 
   function normalizeDecisionPlayers(dec){
@@ -1251,8 +1292,12 @@ Requires:
   }
 
   function showResult(decision){
-    lastDecision = decision || null;
-    inResultMode = true;
+    const rk = buildResultKey(decision);
+    if(rk && rk === resultRenderedKey) return;
+    resultRenderedKey = rk;
+
+    lastDecision = decision || {};
+    roomEndedHandled = true;
 
     const dec = decision || {};
     const draw = !!dec.isDraw;
@@ -1365,7 +1410,7 @@ Requires:
   }
 
   function handleLeadAlerts(){
-    if(!race || !gameStarted) return;
+    if(!race || !engineStarted) return;
 
     const st = race.getLeadStatus ? race.getLeadStatus() : 'WAIT';
     if(st === lastLeadState) return;
@@ -1398,7 +1443,7 @@ Requires:
   }
 
   function handleCloseGameAlert(){
-    if(!race || !gameStarted) return;
+    if(!race || !engineStarted) return;
     const st = race.getState ? race.getState() : null;
     const me = st?.me || null;
     const op = st?.opponent || null;
@@ -1415,7 +1460,7 @@ Requires:
 
   function handleFinalStretch(leftSec){
     leftSec = Number(leftSec || 0);
-    if(!gameStarted) return;
+    if(!engineStarted) return;
 
     if(leftSec <= 10 && leftSec > 5 && !final10Shown){
       final10Shown = true;
@@ -1468,19 +1513,19 @@ Requires:
     if(seriesPill) seriesPill.textContent = `BO3 · R${roundNo}`;
     if(winsPill) winsPill.textContent = `${hostWins} - ${guestWins}`;
 
-    if(seriesText){
+    if(seriesTextLong){
       if(room.seriesFinished){
         const sw = String(room.seriesWinnerKey || '');
         const isMe = sw === PLAYER_KEY;
-        seriesText.textContent = `ซีรีส์จบแล้ว · ${hostWins}-${guestWins} · ${isMe ? 'คุณชนะซีรีส์ 🏆' : 'คุณแพ้ซีรีส์'}`;
+        seriesTextLong.textContent = `ซีรีส์จบแล้ว · ${hostWins}-${guestWins} · ${isMe ? 'คุณชนะซีรีส์ 🏆' : 'คุณแพ้ซีรีส์'}`;
       }else if(ctx.finalRound){
-        seriesText.textContent = `BO3 · รอบตัดสิน · สกอร์ซีรีส์ ${hostWins}-${guestWins}`;
+        seriesTextLong.textContent = `BO3 · รอบตัดสิน · สกอร์ซีรีส์ ${hostWins}-${guestWins}`;
       }else if(ctx.myWins > ctx.opWins && ctx.myWins === 1){
-        seriesText.textContent = `BO3 · รอบ ${roundNo} · คุณมี match point (${hostWins}-${guestWins})`;
+        seriesTextLong.textContent = `BO3 · รอบ ${roundNo} · คุณมี match point (${hostWins}-${guestWins})`;
       }else if(ctx.opWins > ctx.myWins && ctx.opWins === 1){
-        seriesText.textContent = `BO3 · รอบ ${roundNo} · คู่แข่งมี match point (${hostWins}-${guestWins})`;
+        seriesTextLong.textContent = `BO3 · รอบ ${roundNo} · คู่แข่งมี match point (${hostWins}-${guestWins})`;
       }else{
-        seriesText.textContent = `BO3 · รอบ ${roundNo} · สกอร์ซีรีส์ ${hostWins}-${guestWins}`;
+        seriesTextLong.textContent = `BO3 · รอบ ${roundNo} · สกอร์ซีรีส์ ${hostWins}-${guestWins}`;
       }
     }
   }
@@ -1685,7 +1730,7 @@ Requires:
 
       pulseEl(hudScore);
 
-      if(race && gameStarted){
+      if(race && engineStarted && !engineFinished){
         try{
           await race.publishScore({
             score: Number(d.score || 0),
@@ -1735,8 +1780,14 @@ Requires:
       const d = ev?.detail || {};
       const good = !!d.good;
       const kind = String(d.kind || '');
-      const x = Number(d.x || (window.innerWidth * 0.5));
-      const y = Number(d.y || (window.innerHeight * 0.5));
+      const rect = fxLayer.getBoundingClientRect();
+
+      let x = Number(d.x || 0);
+      let y = Number(d.y || 0);
+
+      if(!Number.isFinite(x) || x <= 0) x = rect.left + rect.width * 0.5;
+      if(!Number.isFinite(y) || y <= 0) y = rect.top + rect.height * 0.5;
+
       const delta = Number(d.delta || (good ? 10 : -3));
 
       pulseEl(hudScore);
@@ -1754,9 +1805,8 @@ Requires:
     window.addEventListener('hha:end', async (ev)=>{
       const s = ev?.detail || {};
       lastLocalSummary = s;
-
-      if(finishedPublished) return;
-      finishedPublished = true;
+      if(engineFinished) return;
+      engineFinished = true;
 
       try{
         await race.publishFinished({
@@ -1805,6 +1855,24 @@ Requires:
         cdHeaderSub.textContent = currentRematchNo > 0 ? 'รอเริ่มรอบใหม่' : 'รอห้องเริ่ม';
         cdNum.textContent = 'WAIT';
         cdSub.textContent = currentRematchNo > 0 ? 'กด READY เพื่อเริ่ม rematch' : 'รอผู้เล่นทั้งสองพร้อม';
+
+        if(engineStarted && !redirectingToLobby){
+          redirectingToLobby = true;
+          setTimeout(()=>{
+            const u = new URL('./groups-race.html', location.href);
+            u.searchParams.set('room', ROOM);
+            u.searchParams.set('role', ROLE);
+            u.searchParams.set('name', NAME);
+            u.searchParams.set('pid', PID);
+            u.searchParams.set('diff', DIFF);
+            u.searchParams.set('time', TIME);
+            u.searchParams.set('view', VIEW);
+            u.searchParams.set('seed', SEED);
+            u.searchParams.set('playerKey', PLAYER_KEY);
+            u.searchParams.set('hub', HUB);
+            location.href = u.toString();
+          }, 300);
+        }
       }else if(status === 'countdown'){
         setStatus('COUNTDOWN', 'amber');
         startCountdownUI(room.startAt || 0);
@@ -1815,6 +1883,9 @@ Requires:
       }else if(status === 'ended'){
         setStatus('ENDED', 'red');
         stopCountdownUI();
+        if(room.decision && !roomEndedHandled){
+          showResult(room.decision);
+        }
       }
 
       updateRunButtons();
@@ -1903,6 +1974,8 @@ Requires:
     if(VIEW === 'cvr'){
       showToast('โหมด Cardboard (cVR) ยิงจาก crosshair 🎯', 'neutral');
     }
+
+    updateRunButtons();
   }
 
   boot();
