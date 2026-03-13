@@ -1,4 +1,6 @@
-/* === /herohealth/gate/games/rhythmboxer/style.css === */
+/* === /herohealth/gate/games/rhythmboxer/style.css ===
+ * PATCH v20260312b-RHYTHMBOXER-MOBILE-TUNE
+ */
 
 :root{
   --rbg-bg1:#3f0f46;
@@ -10,6 +12,8 @@
   --rbg-accent:#f472b6;
   --rbg-accent2:#22d3ee;
 }
+
+*{ box-sizing:border-box; }
 
 .rbg-wrap{
   min-height:100vh;
@@ -27,7 +31,7 @@
 }
 
 .rbg-card{
-  width:min(980px, 100%);
+  width:min(980px,100%);
   margin:0 auto;
   border:1px solid var(--rbg-stroke);
   background:rgba(2,6,23,.68);
@@ -39,27 +43,34 @@
 
 .rbg-kicker{
   font-size:.82rem;
-  letter-spacing:.12em;
+  letter-spacing:.08em;
   color:#fbcfe8;
   opacity:.95;
   margin-bottom:8px;
+  font-weight:900;
 }
 
 .rbg-title{
   margin:0;
-  font-size:clamp(1.6rem, 4vw, 2.3rem);
-  line-height:1.1;
+  font-size:clamp(1.55rem,4vw,2.3rem);
+  line-height:1.08;
+  font-weight:1000;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  flex-wrap:wrap;
 }
 
 .rbg-subtitle{
-  margin:8px 0 0;
-  color:var(--rbg-muted);
-  font-size:1rem;
+  margin:10px 0 0;
+  color:var(--rbg-text);
+  font-size:1.02rem;
+  line-height:1.5;
 }
 
 .rbg-grid{
   display:grid;
-  grid-template-columns:1fr 1.2fr;
+  grid-template-columns:1fr 1.15fr;
   gap:16px;
   margin-top:18px;
 }
@@ -81,16 +92,21 @@
 }
 
 .rbg-h2{
-  margin:0 0 10px;
-  font-size:1.05rem;
+  margin:0 0 12px;
+  font-size:1.15rem;
+  line-height:1.2;
+  font-weight:1000;
 }
 
 .rbg-list{
   margin:0;
-  padding-left:18px;
+  padding-left:22px;
   color:#dbeafe;
-  line-height:1.7;
+  line-height:1.8;
+  font-size:1rem;
 }
+
+.rbg-list li + li{ margin-top:4px; }
 
 .rbg-phase-badge{
   display:inline-flex;
@@ -102,8 +118,9 @@
   background:rgba(244,114,182,.14);
   color:#fbcfe8;
   border:1px solid rgba(244,114,182,.28);
-  font-weight:700;
+  font-weight:800;
   margin-bottom:14px;
+  font-size:.92rem;
 }
 
 .rbg-phase-badge-cool{
@@ -121,19 +138,19 @@
   border-radius:18px;
   border:1px solid var(--rbg-stroke);
   background:linear-gradient(180deg, rgba(15,23,42,.9), rgba(2,6,23,.86));
-  font-size:clamp(1.25rem, 4vw, 1.95rem);
-  font-weight:800;
+  font-size:clamp(1.15rem,3.4vw,1.8rem);
+  font-weight:1000;
+  line-height:1.25;
   padding:14px;
   margin-bottom:12px;
+  text-align:center;
 }
 
-.rbg-cue-cool{
-  color:#bae6fd;
-}
+.rbg-cue-cool{ color:#bae6fd; }
 
 .rbg-timer{
-  font-size:1.2rem;
-  font-weight:800;
+  font-size:1.18rem;
+  font-weight:900;
   color:#fde68a;
   margin-bottom:10px;
 }
@@ -145,7 +162,7 @@
   justify-content:center;
   margin-bottom:14px;
   color:#cbd5e1;
-  font-size:.96rem;
+  font-size:.95rem;
 }
 
 .rbg-stats span{
@@ -153,18 +170,17 @@
   border-radius:999px;
   background:rgba(15,23,42,.7);
   border:1px solid var(--rbg-stroke);
+  white-space:nowrap;
 }
 
 .rbg-actions{
   width:100%;
   display:grid;
-  grid-template-columns:repeat(3, minmax(0,1fr));
+  grid-template-columns:repeat(3,minmax(0,1fr));
   gap:10px;
 }
 
-.rbg-actions-single{
-  grid-template-columns:1fr;
-}
+.rbg-actions-single{ grid-template-columns:1fr; }
 
 .rbg-btn-action{
   appearance:none;
@@ -173,25 +189,24 @@
   color:var(--rbg-text);
   border-radius:18px;
   min-height:72px;
-  padding:12px;
+  padding:12px 10px;
   font-size:1rem;
-  font-weight:700;
+  font-weight:900;
   display:flex;
   align-items:center;
   justify-content:center;
-  gap:10px;
+  gap:8px;
+  line-height:1.2;
+  text-align:center;
 }
 
-.rbg-btn-action:disabled{
-  opacity:.55;
-}
+.rbg-btn-action:disabled{ opacity:.55; }
 
-.rbg-btn-breath{
-  min-height:84px;
-}
+.rbg-btn-breath{ min-height:84px; }
 
 .rbg-emoji{
-  font-size:1.3rem;
+  font-size:1.18rem;
+  flex:0 0 auto;
 }
 
 .rbg-footer{
@@ -208,8 +223,9 @@
   border-radius:14px;
   padding:12px 16px;
   font-size:1rem;
-  font-weight:800;
+  font-weight:1000;
   cursor:pointer;
+  min-height:46px;
 }
 
 .rbg-btn:disabled{
@@ -219,7 +235,7 @@
 
 .rbg-btn-primary{
   color:#3f0f46;
-  background:linear-gradient(180deg, #f9a8d4, #f472b6);
+  background:linear-gradient(180deg,#f9a8d4,#f472b6);
   border-color:rgba(244,114,182,.35);
 }
 
@@ -228,19 +244,101 @@
   background:rgba(15,23,42,.88);
 }
 
-@media (max-width: 760px){
-  .rbg-wrap{ padding:12px; }
+@media (max-width:900px){
+  .rbg-grid{ grid-template-columns:1fr; }
+  .rbg-play{ min-height:auto; }
+}
+
+@media (max-width:640px){
+  .rbg-wrap{ padding:10px; }
   .rbg-card{
     padding:14px;
     border-radius:18px;
   }
-  .rbg-grid{ grid-template-columns:1fr; }
-  .rbg-play{ min-height:auto; }
-  .rbg-actions{ grid-template-columns:1fr; }
-  .rbg-btn-action{
-    min-height:64px;
-    font-size:.96rem;
+  .rbg-kicker{
+    font-size:.78rem;
+    letter-spacing:.04em;
   }
-  .rbg-footer{ justify-content:stretch; }
-  .rbg-footer .rbg-btn{ flex:1 1 auto; }
+  .rbg-title{
+    font-size:clamp(1.18rem,6.4vw,1.7rem);
+    gap:8px;
+    line-height:1.12;
+  }
+  .rbg-subtitle{
+    font-size:.98rem;
+    line-height:1.45;
+    margin-top:8px;
+  }
+  .rbg-panel{
+    padding:13px;
+    border-radius:16px;
+  }
+  .rbg-h2{
+    font-size:1.02rem;
+    margin-bottom:10px;
+  }
+  .rbg-list{
+    padding-left:18px;
+    font-size:.95rem;
+    line-height:1.7;
+  }
+  .rbg-phase-badge{
+    min-width:96px;
+    font-size:.82rem;
+    padding:7px 12px;
+    margin-bottom:10px;
+  }
+  .rbg-cue{
+    min-height:70px;
+    font-size:clamp(1rem,5.5vw,1.28rem);
+    padding:12px 10px;
+    margin-bottom:10px;
+    border-radius:14px;
+  }
+  .rbg-timer{
+    font-size:1.05rem;
+    margin-bottom:8px;
+  }
+  .rbg-stats{
+    gap:8px;
+    margin-bottom:10px;
+    font-size:.88rem;
+  }
+  .rbg-stats span{ padding:6px 10px; }
+  .rbg-actions{
+    grid-template-columns:1fr;
+    gap:8px;
+  }
+  .rbg-btn-action{
+    min-height:58px;
+    border-radius:14px;
+    padding:10px 8px;
+    font-size:.92rem;
+    gap:6px;
+  }
+  .rbg-btn-breath{ min-height:64px; }
+  .rbg-emoji{ font-size:1rem; }
+  .rbg-footer{
+    margin-top:12px;
+    gap:8px;
+  }
+  .rbg-footer .rbg-btn{ flex:1 1 calc(50% - 8px); }
+  .rbg-btn{
+    min-height:42px;
+    padding:10px 12px;
+    font-size:.95rem;
+    border-radius:12px;
+  }
+}
+
+@media (max-width:420px){
+  .rbg-title{ font-size:clamp(1.08rem,6vw,1.45rem); }
+  .rbg-subtitle{ font-size:.92rem; }
+  .rbg-list{ font-size:.9rem; }
+  .rbg-btn-action{
+    min-height:54px;
+    font-size:.86rem;
+    padding:8px 6px;
+  }
+  .rbg-btn{ font-size:.9rem; }
 }
