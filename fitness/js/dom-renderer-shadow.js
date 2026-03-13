@@ -1,5 +1,3 @@
-// === /fitness/js/dom-renderer-shadow.js ===
-// PACK G+ : raise targets upward + true safe-rect from HUD/BARS/META + grid slots + jitter
 'use strict';
 
 import { FxBurst } from './fx-burst.js';
@@ -15,17 +13,15 @@ export class DomRendererShadow {
     this.onTargetHit = typeof opts.onTargetHit === 'function' ? opts.onTargetHit : null;
 
     this.diffKey = 'normal';
-    this.targets = new Map(); // id -> { el, type, slotKey }
+    this.targets = new Map();
     this._onPointer = this._onPointer.bind(this);
 
-    // cache refs for true safe rect
     this._hudEl = document.querySelector('.sb-hud');
     this._barsTopEl = document.querySelector('.sb-bars-top');
     this._barsBottomEl = document.querySelector('.sb-bars-bottom');
     this._metaEl = document.getElementById('sb-meta');
 
-    // slot occupancy
-    this._occupied = new Map(); // slotKey -> targetId
+    this._occupied = new Map();
   }
 
   setDifficulty(k){ this.diffKey = k || 'normal'; }
@@ -40,7 +36,6 @@ export class DomRendererShadow {
     this._occupied.clear();
   }
 
-  // --- helpers ---
   _emojiForType(t, bossEmoji){
     if (t === 'normal') return '🎯';
     if (t === 'decoy') return '👀';
@@ -59,27 +54,23 @@ export class DomRendererShadow {
     };
     return {
       padBase: n('--sb-safe-pad', 16),
-      padTop:  n('--sb-safe-top', 12),
-      padSide: n('--sb-safe-side', 12),
-      padBot:  n('--sb-safe-bot', 14),
+      padTop:  n('--sb-safe-top', 6),
+      padSide: n('--sb-safe-side', 10),
+      padBot:  n('--sb-safe-bot', 24),
     };
   }
 
-  // ✅ ยกพื้นที่ spawn ขึ้นบน: ลดความรู้สึกว่าเป้าไปกองล่าง
   _safeRectViewport(){
     const layerR = this.layer.getBoundingClientRect();
     const { padBase, padTop, padSide, padBot } = this._readCssSafeVars();
 
-    // baseline padding (inside the stage)
-    const pad = Math.min(44, Math.max(padBase, layerR.width * 0.03));
+    const pad = Math.min(38, Math.max(padBase, layerR.width * 0.025));
 
-    // measure overlays (viewport coords)
     const hudR = this._hudEl?.getBoundingClientRect?.();
     const topBarsR = this._barsTopEl?.getBoundingClientRect?.();
     const botBarsR = this._barsBottomEl?.getBoundingClientRect?.();
     const metaR = this._metaEl?.getBoundingClientRect?.();
 
-    // compute forbidden bands relative to stage
     const topBlock = Math.max(
       0,
       Math.max(
@@ -93,9 +84,8 @@ export class DomRendererShadow {
       (botBarsR ? (layerR.bottom - botBarsR.top) : 0)
     );
 
-    // meta blocks right side area (only if visible and overlaps stage)
     let rightBlock = 0;
-    if (
+    if(
       metaR &&
       metaR.right > layerR.left &&
       metaR.left < layerR.right &&
@@ -103,29 +93,27 @@ export class DomRendererShadow {
       metaR.top < layerR.bottom
     ){
       rightBlock = Math.max(0, layerR.right - metaR.left);
-      rightBlock = Math.min(rightBlock, layerR.width * 0.55);
+      rightBlock = Math.min(rightBlock, layerR.width * 0.34);
     }
 
     const left = layerR.left + pad + padSide;
     const right = layerR.right - pad - padSide - rightBlock;
 
-    // ✅ bias ขึ้นบน + กันพื้นที่ล่างเพิ่ม
-    const topBias = Math.min(42, Math.max(12, topBlock * 0.18));
-    const bottomExtra = Math.min(56, Math.max(20, (bottomBlock * 0.35) + 26));
+    const topBias = Math.min(58, Math.max(18, topBlock * 0.28));
+    const bottomExtra = Math.min(72, Math.max(28, (bottomBlock * 0.38) + 38));
 
     const top = layerR.top + pad + padTop + topBlock - topBias;
     const bottom = layerR.bottom - pad - padBot - bottomBlock - bottomExtra;
 
     return {
-      left: Math.min(left, right - 80),
-      right: Math.max(right, left + 80),
-      top: Math.min(top, bottom - 80),
-      bottom: Math.max(bottom, top + 80),
+      left: Math.min(left, right - 96),
+      right: Math.max(right, left + 96),
+      top: Math.min(top, bottom - 96),
+      bottom: Math.max(bottom, top + 96),
       layerR
     };
   }
 
-  // ✅ 3 rows x 2 cols, แต่ยก center ของ row ขึ้นเล็กน้อย
   _pickSlot(size){
     const { left, right, top, bottom } = this._safeRectViewport();
     const w = Math.max(1, right - left);
@@ -145,8 +133,9 @@ export class DomRendererShadow {
 
         const cx = left + c * cellW + cellW * 0.5;
 
-        // ✅ เดิม 0.50 ทำให้แถวค่อนไปล่างไปหน่อย
-        const cy = top + r * cellH + cellH * 0.42;
+        /* ยกขึ้นชัดเจน */
+        const rowBias = (r === 0) ? 0.34 : (r === 1 ? 0.38 : 0.42);
+        const cy = top + r * cellH + cellH * rowBias;
 
         const minX = left + c * cellW + 8;
         const maxX = left + (c + 1) * cellW - size - 8;
@@ -155,14 +144,13 @@ export class DomRendererShadow {
         const maxY = top + (r + 1) * cellH - size - 8;
 
         const x = clamp(
-          rand(cx - cellW * 0.18, cx + cellW * 0.18),
+          rand(cx - cellW * 0.14, cx + cellW * 0.14),
           minX,
           maxX
         );
 
-        // ✅ ลด jitter แนวตั้ง เพื่อไม่ให้หล่นลงล่างเกิน
         const y = clamp(
-          rand(cy - cellH * 0.12, cy + cellH * 0.10),
+          rand(cy - cellH * 0.08, cy + cellH * 0.06),
           minY,
           maxY
         );
@@ -189,13 +177,13 @@ export class DomRendererShadow {
     el.className = 'sb-target sb-target--' + type;
     el.dataset.id = String(data.id);
 
-    const size = clamp(Number(data.sizePx) || 110, 64, 240);
+    const size = clamp(Number(data.sizePx) || 110, 70, 240);
     el.style.width = size + 'px';
     el.style.height = size + 'px';
 
     const slot = this._pickSlot(size);
     el.style.left = Math.round(slot.x) + 'px';
-    el.style.top = Math.round(slot.y) + 'px';
+    el.style.top  = Math.round(slot.y) + 'px';
 
     el.textContent = this._emojiForType(type, data.bossEmoji);
     el.addEventListener('pointerdown', this._onPointer, { passive: true });
