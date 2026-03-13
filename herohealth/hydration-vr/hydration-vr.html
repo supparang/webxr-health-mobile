@@ -1,11 +1,3 @@
-<!-- === /herohealth/hydration-vr/hydration-vr.html ===
-Hydration VR RUN — PATCH E
-FULL v20260311-HYDRATION-RUN-PATCH-E
-✅ keeps Patch A + B + C + D
-✅ AI Coach personalized
-✅ Adaptive Director
-✅ richer analytics / labels
--->
 <!doctype html>
 <html lang="th">
 <head>
@@ -104,10 +96,21 @@ FULL v20260311-HYDRATION-RUN-PATCH-E
       margin-bottom:4px;
     }
     .end-box .ev{
-      font-size:14px;
-      font-weight:900;
-      line-height:1.5;
+      font-size:15px;
+      font-weight:1000;
+      line-height:1.55;
       color:#e5e7eb;
+    }
+
+    #hydDevTray button{
+      cursor:pointer;
+      border:1px solid rgba(255,255,255,.12);
+      background:rgba(255,255,255,.06);
+      color:#e5e7eb;
+      border-radius:10px;
+      padding:8px 10px;
+      font:inherit;
+      font-weight:900;
     }
 
     @media (max-width: 900px){
@@ -263,6 +266,14 @@ FULL v20260311-HYDRATION-RUN-PATCH-E
           <div class="ek">Phase Summary</div>
           <div class="ev" id="endPhaseSummary">—</div>
         </div>
+        <div class="end-box">
+          <div class="ek">Reward</div>
+          <div class="ev" id="endReward">—</div>
+        </div>
+        <div class="end-box">
+          <div class="ek">Badge</div>
+          <div class="ev" id="endBadge">—</div>
+        </div>
       </div>
 
       <div class="actions">
@@ -282,6 +293,31 @@ FULL v20260311-HYDRATION-RUN-PATCH-E
     </div>
   </div>
 
+  <div id="hydDevTray" style="display:none;position:fixed;left:10px;right:10px;bottom:10px;z-index:9998;">
+    <div style="
+      background:rgba(2,6,23,.92);
+      color:#e5e7eb;
+      border:1px solid rgba(255,255,255,.12);
+      border-radius:16px;
+      box-shadow:0 12px 28px rgba(0,0,0,.4);
+      padding:10px;
+      font:12px/1.45 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+      backdrop-filter:blur(8px);
+    ">
+      <div style="display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap;">
+        <b>HYD DEV TRAY</b>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button id="hydDevDump" type="button">Dump</button>
+          <button id="hydDevLauncher" type="button">Launcher</button>
+          <button id="hydDevRun" type="button">Run</button>
+          <button id="hydDevCooldown" type="button">Cooldown</button>
+          <button id="hydDevHub" type="button">Hub</button>
+        </div>
+      </div>
+      <pre id="hydDevOut" style="margin:8px 0 0 0;white-space:pre-wrap;word-break:break-word;max-height:32vh;overflow:auto;">—</pre>
+    </div>
+  </div>
+
   <script>
     (function(){
       const dbg = document.getElementById('dbg');
@@ -297,6 +333,70 @@ FULL v20260311-HYDRATION-RUN-PATCH-E
         show(`[unhandledrejection]\n${(e.reason && (e.reason.stack || e.reason.message)) || e.reason}`);
       });
       window.__HYD_SHOW_DEBUG__ = show;
+    })();
+  </script>
+
+  <script>
+    (function(){
+      const on = ['1','true','yes','on'].includes(String((new URL(location.href)).searchParams.get('debug') || '').toLowerCase());
+      if(!on) return;
+
+      const tray = document.getElementById('hydDevTray');
+      const out = document.getElementById('hydDevOut');
+      if(tray) tray.style.display = 'block';
+
+      function setText(v){
+        if(out) out.textContent = String(v || '—');
+      }
+
+      window.__HYD_DEV_SET__ = setText;
+
+      function later(fn){ setTimeout(fn, 600); }
+
+      later(()=>{
+        try{
+          const dump = {
+            href: location.href,
+            path: location.pathname,
+            query: Object.fromEntries(new URL(location.href).searchParams.entries()),
+            hasLayer: !!document.getElementById('layer'),
+            hasEnd: !!document.getElementById('end'),
+            hasHUD: !!document.querySelector('.hud')
+          };
+          setText(JSON.stringify(dump, null, 2));
+        }catch(e){
+          setText(String(e?.stack || e));
+        }
+      });
+
+      document.getElementById('hydDevDump')?.addEventListener('click', ()=>{
+        try{
+          const getState = window.__HYD_DEBUG__?.getState;
+          const state = typeof getState === 'function' ? getState() : { note:'no __HYD_DEBUG__ yet' };
+          setText(JSON.stringify({
+            href: location.href,
+            state
+          }, null, 2));
+        }catch(e){
+          setText(String(e?.stack || e));
+        }
+      });
+
+      document.getElementById('hydDevLauncher')?.addEventListener('click', ()=>{
+        try{ window.__HYD_DEBUG__?.openLauncher?.(); }catch(e){}
+      });
+      document.getElementById('hydDevRun')?.addEventListener('click', ()=>{
+        try{ window.__HYD_DEBUG__?.openRun?.(); }catch(e){}
+      });
+      document.getElementById('hydDevCooldown')?.addEventListener('click', ()=>{
+        try{ window.__HYD_DEBUG__?.openCooldown?.(); }catch(e){}
+      });
+      document.getElementById('hydDevHub')?.addEventListener('click', ()=>{
+        try{
+          const hub = window.__HYD_DEBUG__?.getState?.()?.hubUrl || '../hub.html';
+          location.href = hub;
+        }catch(e){}
+      });
     })();
   </script>
 
