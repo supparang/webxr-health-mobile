@@ -1,6 +1,6 @@
 // === /herohealth/gate/gate-games.js ===
 // HeroHealth Gate Game Registry
-// FULL PATCH v20260313b-ALL-ZONES-GATE-GAMES-HYDRATION-ONCE-PER-DAY
+// FULL PATCH v20260313c-ALL-ZONES-GATE-GAMES-HYDRATION-CHILD-FRIENDLY
 
 export const GATE_GAMES = {
   // =========================
@@ -117,8 +117,8 @@ export const GATE_GAMES = {
     cat: 'nutrition',
     label: 'Hydration',
     theme: 'hydration',
-    warmupTitle: 'Hydration Quick Prep',
-    cooldownTitle: 'Water Balance Review',
+    warmupTitle: 'ดื่มน้ำก่อนเริ่มเล่น',
+    cooldownTitle: 'หายใจสบาย ๆ หลังเล่น',
     files: {
       warmup: './games/hydration/warmup.js',
       cooldown: './games/hydration/cooldown.js',
