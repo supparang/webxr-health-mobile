@@ -1,6 +1,10 @@
 // === /herohealth/gate/gate-core.js ===
 // HeroHealth Gate Core
-// PATCH v20260312j-ALL-ZONES-GATE-CORE-API-START-FIX-HARDENED
+// PATCH v20260313k-ALL-ZONES-GATE-CORE-PARAM-COMPAT
+// ✅ FIX: support phase + gatePhase
+// ✅ FIX: support game + theme
+// ✅ FIX: support zone + cat
+// ✅ KEEP: built-in summary / API start / hardened cleanup
 
 import {
   getGameMeta,
@@ -59,12 +63,17 @@ function setDocTitle(meta, phase) {
 }
 
 function getPhase(url) {
-  const raw = String(qs(url, 'phase', 'warmup')).trim().toLowerCase();
+  const raw = String(
+    qs(url, 'phase', qs(url, 'gatePhase', 'warmup'))
+  ).trim().toLowerCase();
+
   return raw === 'cooldown' ? 'cooldown' : 'warmup';
 }
 
 function getGame(url) {
-  return normalizeGameId(qs(url, 'game', ''));
+  return normalizeGameId(
+    qs(url, 'game', qs(url, 'theme', ''))
+  );
 }
 
 function getNextRunUrl(url) {
@@ -366,7 +375,7 @@ export async function bootGate(root) {
     return;
   }
 
-  const zone = qs(url, 'zone', meta.cat || '');
+  const zone = qs(url, 'zone', qs(url, 'cat', meta.cat || ''));
   const seed = Number(qs(url, 'seed', Date.now()));
   const pid = qs(url, 'pid', 'anon');
   const studyId = qs(url, 'studyId', '');
