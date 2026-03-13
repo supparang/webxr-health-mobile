@@ -1,12 +1,12 @@
 <!-- === /fitness/balance-hold.html ===
-Balance Hold — RUN PAGE
-FULL PATCH v20260313-BALANCEHOLD-RUN-FINAL-FLOW-LOCK
-✅ launcher -> warmup-gate -> game -> result -> cooldown-gate -> hub
+Balance Hold — RUN PAGE (latest production run shell)
+PATCH v20260313-BALANCEHOLD-RUN-FINAL-FLOWLOCK
 ✅ Menu / Research / Play / Result views
-✅ difficulty selector before play
-✅ autostart supported
-✅ result screen stays first before cooldown
-✅ compatible with ./js/balance-hold.js
+✅ Match /fitness/js/balance-hold.js latest
+✅ launcher → warmup-gate → game → result → cooldown-gate → hub
+✅ Result first, then player chooses cooldown or back hub
+✅ Works with /herohealth/balance-hold-vr.html
+✅ Works with /herohealth/warmup-gate.html per-game daily gate
 -->
 <!doctype html>
 <html lang="th">
@@ -284,7 +284,9 @@ FULL PATCH v20260313-BALANCEHOLD-RUN-FINAL-FLOW-LOCK
       100% { opacity:0; transform:translate(-50%,-140%) scale(1.03); }
     }
 
-    .count-pop{ animation: countPop .22s ease-out; }
+    .count-pop{
+      animation: countPop .22s ease-out;
+    }
     @keyframes countPop{
       0%{ transform:scale(.92); }
       100%{ transform:scale(1); }
@@ -496,6 +498,7 @@ FULL PATCH v20260313-BALANCEHOLD-RUN-FINAL-FLOW-LOCK
 <body>
   <div class="app">
 
+    <!-- MENU -->
     <section id="view-menu" class="card">
       <div>
         <h1 class="title">⚖️ Balance Hold</h1>
@@ -545,7 +548,7 @@ FULL PATCH v20260313-BALANCEHOLD-RUN-FINAL-FLOW-LOCK
           </div>
 
           <p class="sub" style="margin-top:10px;">
-            Tip: launcher จะเป็นตัวเข้า flow แบบ warmup → game → result → cooldown → hub ส่วนหน้านี้คือ run page จริง
+            Tip: หน้า Launcher จะเป็นตัวเลือก flow แบบ warmup → game → result → cooldown → hub ส่วนหน้านี้คือ run page จริง
           </p>
         </div>
 
@@ -553,15 +556,16 @@ FULL PATCH v20260313-BALANCEHOLD-RUN-FINAL-FLOW-LOCK
           <h2 class="title" style="font-size:1rem;">วิธีเล่น</h2>
           <ul class="sub" style="margin:.5rem 0 0 1.1rem; padding:0;">
             <li>ลากซ้าย–ขวาในพื้นที่เล่นเพื่อคุมแท่น</li>
-            <li>ให้อยู่ใน safe zone ให้นานที่สุด</li>
-            <li>หลบ obstacle ตอน impact เพื่อเก็บคะแนน</li>
-            <li>คุมใกล้กึ่งกลางตอน impact = Perfect</li>
-            <li>โดนชน = เสียคะแนนและคอมโบแตก</li>
+            <li>ให้อยู่ใน safe zone ให้นานที่สุด (Stability สูงขึ้น)</li>
+            <li>หลบ obstacle ตอน impact (Avoid) เพื่อเก็บคะแนน</li>
+            <li>คุมใกล้กลางมาก ๆ ตอน impact = Perfect ✨</li>
+            <li>โดนชน = Hit ❌ คอมโบแตก + เสียคะแนน</li>
           </ul>
         </div>
       </div>
     </section>
 
+    <!-- RESEARCH -->
     <section id="view-research" class="card hidden">
       <h2 class="title">🧪 Research Mode</h2>
       <p class="sub">กรอกข้อมูลผู้เข้าร่วม แล้วกด Start Research</p>
@@ -587,6 +591,7 @@ FULL PATCH v20260313-BALANCEHOLD-RUN-FINAL-FLOW-LOCK
       </div>
     </section>
 
+    <!-- PLAY -->
     <section id="view-play" class="card hidden">
       <div class="hud-panel" id="playHud">
         <div class="hud-row">
@@ -659,9 +664,10 @@ FULL PATCH v20260313-BALANCEHOLD-RUN-FINAL-FLOW-LOCK
       </div>
     </section>
 
+    <!-- RESULT -->
     <section id="view-result" class="card hidden">
       <h2 class="title">📊 Result</h2>
-      <p class="sub">สรุปผล: Stability / Obstacle / Score / Rank + คำแนะนำ</p>
+      <p class="sub">สรุปผล: Stability/Obstacle/Score/Rank + คำแนะนำ</p>
 
       <section class="result-hero" style="margin-top:10px;">
         <div class="result-hero-main">
@@ -714,13 +720,14 @@ FULL PATCH v20260313-BALANCEHOLD-RUN-FINAL-FLOW-LOCK
 
   </div>
 
+  <!-- Tutorial -->
   <div id="tutorialOverlay" class="overlay hidden" aria-hidden="true">
     <div class="overlay-card">
       <h3>วิธีเล่น Balance Hold</h3>
       <ol class="tutorial-list">
         <li>ลากซ้าย–ขวาเพื่อคุมแท่นให้สมดุล</li>
-        <li>อยู่ใน safe zone ให้ได้นานที่สุด</li>
-        <li>หลบ obstacle โดยคุมสมดุลตอน impact</li>
+        <li>อยู่ใน safe zone ให้ได้นานที่สุด (Stability สูงขึ้น)</li>
+        <li>หลบ obstacle (💨/💣) โดยคุมสมดุลตอน impact</li>
         <li>Perfect เกิดเมื่อคุมใกล้กึ่งกลางมาก ๆ ตอน impact</li>
         <li>ถ้าเปิด Practice จะมี Countdown → Practice → Main</li>
       </ol>
@@ -735,6 +742,7 @@ FULL PATCH v20260313-BALANCEHOLD-RUN-FINAL-FLOW-LOCK
     </div>
   </div>
 
+  <!-- End Modal -->
   <div id="endModal" class="overlay hidden" aria-hidden="true">
     <div class="overlay-card">
       <div style="display:flex; gap:12px; align-items:center;">
@@ -801,10 +809,14 @@ FULL PATCH v20260313-BALANCEHOLD-RUN-FINAL-FLOW-LOCK
         const hub = buildHubUrl();
         const u = new URL('../herohealth/warmup-gate.html', location.href);
 
+        // สำคัญ: gate-core รองรับทั้ง gatePhase และ phase
         setParam(u, 'gatePhase', 'cooldown');
+        setParam(u, 'phase', 'cooldown');
+
         setParam(u, 'cat', 'exercise');
         setParam(u, 'game', 'balance');
         setParam(u, 'theme', 'balance');
+
         setParam(u, 'hub', hub);
         setParam(u, 'next', hub);
 
@@ -813,7 +825,9 @@ FULL PATCH v20260313-BALANCEHOLD-RUN-FINAL-FLOW-LOCK
           if(v !== '') setParam(u, k, v);
         });
 
+        // cooldown ใช้เวลาสั้น
         setParam(u, 'cdur', '15');
+
         return u.toString();
       }
 
