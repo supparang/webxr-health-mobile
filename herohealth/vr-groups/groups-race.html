@@ -1,9 +1,10 @@
 <!-- === /herohealth/vr-groups/groups-race.html ===
 Groups Race — Lobby / Join / Start
-FULL v20260313-GROUPS-RACE-LOBBY-POLISH-r2
-Requires:
-- Firebase initialized
-- ./groups-race-rtdb.js
+FULL PATCH v20260313-GROUPS-RACE-LOBBY-FIX-BUTTONS-r3
+✅ FIX: buttons bind before async room setup
+✅ FIX: HUB button always works
+✅ FIX: clearer boot error
+✅ FIX: lobby still usable even if subscribe fails
 -->
 <!doctype html>
 <html lang="th">
@@ -103,7 +104,7 @@ Requires:
       color:var(--muted);
       font-weight:800;
     }
-    input,select{
+    input{
       width:100%;
       border-radius:16px;
       border:1px solid rgba(148,163,184,.16);
@@ -243,6 +244,17 @@ Requires:
       background:rgba(2,6,23,.28);
       padding:12px;
     }
+    .errBox{
+      border-radius:16px;
+      border:1px solid rgba(239,68,68,.18);
+      background:rgba(239,68,68,.08);
+      color:#fecaca;
+      padding:12px;
+      font-size:13px;
+      font-weight:900;
+      line-height:1.45;
+      display:none;
+    }
   </style>
 </head>
 <body>
@@ -254,6 +266,8 @@ Requires:
     </div>
 
     <div class="body">
+      <div class="errBox" id="errBox"></div>
+
       <div class="grid">
         <div class="panel">
           <div class="title2">ข้อมูลห้อง</div>
@@ -353,16 +367,10 @@ Requires:
   function saveLobbyMemory(){
     try{
       localStorage.setItem('HHA_GROUPS_RACE_LAST', JSON.stringify({
-        room,
-        role,
+        room, role,
         name: $('joinName').value.trim(),
         pid: $('joinPid').value.trim(),
-        diff,
-        time,
-        view,
-        seed,
-        playerKey,
-        hub
+        diff, time, view, seed, playerKey, hub
       }));
     }catch(_){}
   }
@@ -375,7 +383,13 @@ Requires:
       .replaceAll('"','&quot;');
   }
 
-  function renderPlayers(roomState, me, op, players){
+  function showError(msg){
+    const el = $('errBox');
+    el.style.display = 'block';
+    el.textContent = msg || 'เกิดข้อผิดพลาด';
+  }
+
+  function renderPlayers(players){
     const box = $('playersBox');
     const arr = Object.values(players || {});
     if(!arr.length){
@@ -409,7 +423,7 @@ Requires:
     statusDot.className = 'dot';
     if(status === 'lobby') statusDot.classList.add('warn');
     if(status === 'countdown' || status === 'playing') statusDot.classList.add('good');
-    if(status === 'ended') statusDot.classList.add('bad');
+    if(status === 'ended' || status === 'error') statusDot.classList.add('bad');
   }
 
   function updateStatus(roomState, me, op){
@@ -428,8 +442,8 @@ Requires:
       !!me?.ready &&
       !!op?.ready
     );
-    $('btnStart').disabled = !canStart;
 
+    $('btnStart').disabled = !canStart;
     $('btnReady').disabled = st !== 'lobby';
     $('btnUnready').disabled = st !== 'lobby';
 
@@ -443,7 +457,9 @@ Requires:
     }else if(st === 'playing'){
       hint.innerHTML = 'เกมเริ่มแล้ว — กำลังพาเข้า run page';
     }else if(st === 'ended'){
-      hint.innerHTML = 'รอบนี้จบแล้ว — เข้า run page เพื่อดูผลหรือ rematch';
+      hint.innerHTML = 'รอบนี้จบแล้ว';
+    }else if(st === 'error'){
+      hint.innerHTML = 'เชื่อมต่อห้องไม่สำเร็จ';
     }
   }
 
@@ -476,7 +492,6 @@ Requires:
     const tick = ()=>{
       const leftMs = startAt - Date.now();
       const sec = Math.max(0, Math.ceil(leftMs / 1000));
-
       if(sec <= 0){
         big.textContent = 'GO!';
         sub.textContent = 'กำลังเข้าเกม...';
@@ -508,96 +523,9 @@ Requires:
     location.href = u.toString();
   }
 
-  async function boot(){
-    if(!room){
-      $('statusText').textContent = 'MISSING ROOM';
-      setStatusDot('ended');
-      return;
-    }
-
-    try{
-      race = new window.GroupsRaceRTDB({
-        roomId: room,
-        playerKey,
-        role,
-        pid,
-        name,
-        diff,
-        timeSec: Number(time),
-        seed,
-        view
-      });
-      await race.subscribe();
-      saveLobbyMemory();
-    }catch(err){
-      console.error(err);
-      $('statusText').textContent = 'ERROR';
-      setStatusDot('ended');
-      return;
-    }
-
-    window.addEventListener('groups:race_room', (ev)=>{
-      const roomState = ev.detail?.room || {};
-      const st = String(roomState.status || 'lobby');
-      const state = race.getState();
-
-      updateStatus(roomState, state.me, state.opponent);
-
-      if(st === 'countdown'){
-        showCountdown(roomState);
-      }else{
-        hideCountdown();
-      }
-
-      if(st === 'playing'){
-        setTimeout(()=> goRunPage(false), 120);
-      }
-    });
-
-    window.addEventListener('groups:race_players', ()=>{
-      const state = race.getState();
-      renderPlayers(state.room, state.me, state.opponent, state.players || {});
-      updateStatus(state.room || {}, state.me, state.opponent);
-    });
-
-    $('joinName').addEventListener('change', async ()=>{
-      saveLobbyMemory();
-      try{
-        await race?.meRef?.update?.({ name: $('joinName').value.trim(), lastSeenAt: Date.now() });
-      }catch(_){}
-    });
-
-    $('joinPid').addEventListener('change', async ()=>{
-      saveLobbyMemory();
-      try{
-        await race?.meRef?.update?.({ pid: $('joinPid').value.trim(), lastSeenAt: Date.now() });
-      }catch(_){}
-    });
-
-    $('btnReady').addEventListener('click', async ()=>{
-      try{
-        saveLobbyMemory();
-        await race.setReady(true);
-      }catch(err){
-        console.error(err);
-      }
-    });
-
-    $('btnUnready').addEventListener('click', async ()=>{
-      try{
-        await race.setReady(false);
-      }catch(err){
-        console.error(err);
-      }
-    });
-
-    $('btnStart').addEventListener('click', async ()=>{
-      try{
-        saveLobbyMemory();
-        await race.maybeStartCountdown(3000);
-      }catch(err){
-        console.error(err);
-      }
+  function bindButtonsAlways(){
+    $('btnHub').addEventListener('click', ()=>{
+      location.href = hub;
     });
 
     $('btnCopyInvite').addEventListener('click', async ()=>{
@@ -616,9 +544,114 @@ Requires:
       }catch(_){}
     });
 
-    $('btnHub').addEventListener('click', async ()=>{
-      try{ await race?.leaveRoomSoft?.(); }catch(_){}
-      location.href = hub;
+    $('btnReady').addEventListener('click', async ()=>{
+      if(!race){ showError('ยังเชื่อมต่อห้องไม่สำเร็จ'); return; }
+      try{
+        saveLobbyMemory();
+        await race.setReady(true);
+      }catch(err){
+        console.error(err);
+        showError('READY ไม่สำเร็จ');
+      }
+    });
+
+    $('btnUnready').addEventListener('click', async ()=>{
+      if(!race){ showError('ยังเชื่อมต่อห้องไม่สำเร็จ'); return; }
+      try{
+        await race.setReady(false);
+      }catch(err){
+        console.error(err);
+        showError('UNREADY ไม่สำเร็จ');
+      }
+    });
+
+    $('btnStart').addEventListener('click', async ()=>{
+      if(!race){ showError('ยังเชื่อมต่อห้องไม่สำเร็จ'); return; }
+      try{
+        saveLobbyMemory();
+        await race.maybeStartCountdown(3000);
+      }catch(err){
+        console.error(err);
+        showError('START ไม่สำเร็จ');
+      }
+    });
+
+    $('joinName').addEventListener('change', async ()=>{
+      saveLobbyMemory();
+      try{
+        await race?.meRef?.update?.({ name: $('joinName').value.trim(), lastSeenAt: Date.now() });
+      }catch(_){}
+    });
+
+    $('joinPid').addEventListener('change', async ()=>{
+      saveLobbyMemory();
+      try{
+        await race?.meRef?.update?.({ pid: $('joinPid').value.trim(), lastSeenAt: Date.now() });
+      }catch(_){}
+    });
+  }
+
+  async function boot(){
+    bindButtonsAlways();
+
+    if(!room){
+      $('statusText').textContent = 'MISSING ROOM';
+      setStatusDot('error');
+      showError('ไม่พบ room code ใน URL');
+      return;
+    }
+
+    if(!window.GroupsRaceRTDB){
+      $('statusText').textContent = 'RTDB MISSING';
+      setStatusDot('error');
+      showError('โหลด groups-race-rtdb.js ไม่สำเร็จ หรือ Firebase ยังไม่พร้อม');
+      return;
+    }
+
+    try{
+      race = new window.GroupsRaceRTDB({
+        roomId: room,
+        playerKey,
+        role,
+        pid,
+        name,
+        diff,
+        timeSec: Number(time),
+        seed,
+        view
+      });
+
+      await race.subscribe();
+      saveLobbyMemory();
+    }catch(err){
+      console.error(err);
+      $('statusText').textContent = 'ERROR';
+      setStatusDot('error');
+      showError('เชื่อมต่อห้องไม่สำเร็จ: ' + (err?.message || err));
+      return;
+    }
+
+    window.addEventListener('groups:race_room', (ev)=>{
+      const roomState = ev.detail?.room || {};
+      const state = race.getState();
+
+      updateStatus(roomState, state.me, state.opponent);
+
+      if(String(roomState.status || '') === 'countdown'){
+        showCountdown(roomState);
+      }else{
+        hideCountdown();
+      }
+
+      if(String(roomState.status || '') === 'playing'){
+        setTimeout(()=> goRunPage(false), 120);
+      }
+    });
+
+    window.addEventListener('groups:race_players', ()=>{
+      const state = race.getState();
+      renderPlayers(state.players || {});
+      updateStatus(state.room || {}, state.me, state.opponent);
     });
   }
 
