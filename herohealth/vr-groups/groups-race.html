@@ -1,10 +1,10 @@
 <!-- === /herohealth/vr-groups/groups-race.html ===
 Groups Race — Lobby / Join / Start
-FULL PATCH v20260313-GROUPS-RACE-LOBBY-FIX-BUTTONS-r3
+FULL PATCH v20260313-GROUPS-RACE-LOBBY-FIREBASE-WAIT-r4
+✅ FIX: wait for firebase compat ready before RTDB
 ✅ FIX: buttons bind before async room setup
 ✅ FIX: HUB button always works
 ✅ FIX: clearer boot error
-✅ FIX: lobby still usable even if subscribe fails
 -->
 <!doctype html>
 <html lang="th">
@@ -164,6 +164,7 @@ FULL PATCH v20260313-GROUPS-RACE-LOBBY-FIX-BUTTONS-r3
       font-weight:800;
       white-space:nowrap;
     }
+    .pill b{ color:var(--text); }
     .dot{
       width:8px; height:8px; border-radius:999px;
       background:var(--cyan);
@@ -389,6 +390,58 @@ FULL PATCH v20260313-GROUPS-RACE-LOBBY-FIX-BUTTONS-r3
     el.textContent = msg || 'เกิดข้อผิดพลาด';
   }
 
+  function clearError(){
+    const el = $('errBox');
+    el.style.display = 'none';
+    el.textContent = '';
+  }
+
+  function waitForFirebaseReady(timeoutMs = 8000){
+    return new Promise((resolve, reject) => {
+      if (
+        window.HHA_FIREBASE_READY === true &&
+        window.firebase &&
+        typeof window.firebase.database === 'function'
+      ) {
+        resolve(true);
+        return;
+      }
+
+      let done = false;
+
+      const timer = setTimeout(() => {
+        if (done) return;
+        done = true;
+        window.removeEventListener('hha:firebase_ready', onReady);
+        reject(new Error('Firebase init timeout'));
+      }, timeoutMs);
+
+      function onReady(ev){
+        if (done) return;
+
+        const ok = !!ev?.detail?.ok;
+        if (!ok) {
+          done = true;
+          clearTimeout(timer);
+          window.removeEventListener('hha:firebase_ready', onReady);
+          reject(new Error(ev?.detail?.error || 'Firebase init failed'));
+          return;
+        }
+
+        if (!window.firebase || typeof window.firebase.database !== 'function') {
+          return;
+        }
+
+        done = true;
+        clearTimeout(timer);
+        window.removeEventListener('hha:firebase_ready', onReady);
+        resolve(true);
+      }
+
+      window.addEventListener('hha:firebase_ready', onReady);
+    });
+  }
+
   function renderPlayers(players){
     const box = $('playersBox');
     const arr = Object.values(players || {});
@@ -547,6 +600,7 @@ FULL PATCH v20260313-GROUPS-RACE-LOBBY-FIX-BUTTONS-r3
     $('btnReady').addEventListener('click', async ()=>{
       if(!race){ showError('ยังเชื่อมต่อห้องไม่สำเร็จ'); return; }
       try{
+        clearError();
         saveLobbyMemory();
         await race.setReady(true);
       }catch(err){
@@ -558,6 +612,7 @@ FULL PATCH v20260313-GROUPS-RACE-LOBBY-FIX-BUTTONS-r3
     $('btnUnready').addEventListener('click', async ()=>{
       if(!race){ showError('ยังเชื่อมต่อห้องไม่สำเร็จ'); return; }
       try{
+        clearError();
         await race.setReady(false);
       }catch(err){
         console.error(err);
@@ -568,6 +623,7 @@ FULL PATCH v20260313-GROUPS-RACE-LOBBY-FIX-BUTTONS-r3
     $('btnStart').addEventListener('click', async ()=>{
       if(!race){ showError('ยังเชื่อมต่อห้องไม่สำเร็จ'); return; }
       try{
+        clearError();
         saveLobbyMemory();
         await race.maybeStartCountdown(3000);
       }catch(err){
@@ -601,10 +657,20 @@ FULL PATCH v20260313-GROUPS-RACE-LOBBY-FIX-BUTTONS-r3
       return;
     }
 
+    try{
+      await waitForFirebaseReady();
+    }catch(err){
+      console.error(err);
+      $('statusText').textContent = 'FIREBASE ERROR';
+      setStatusDot('error');
+      showError('Firebase ยังไม่พร้อม: ' + (err?.message || err));
+      return;
+    }
+
     if(!window.GroupsRaceRTDB){
       $('statusText').textContent = 'RTDB MISSING';
       setStatusDot('error');
-      showError('โหลด groups-race-rtdb.js ไม่สำเร็จ หรือ Firebase ยังไม่พร้อม');
+      showError('โหลด groups-race-rtdb.js ไม่สำเร็จ');
       return;
     }
 
@@ -623,6 +689,7 @@ FULL PATCH v20260313-GROUPS-RACE-LOBBY-FIX-BUTTONS-r3
 
       await race.subscribe();
       saveLobbyMemory();
+      clearError();
     }catch(err){
       console.error(err);
       $('statusText').textContent = 'ERROR';
