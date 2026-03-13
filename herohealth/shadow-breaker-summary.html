@@ -1,0 +1,492 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth — Shadow Breaker Summary</title>
+  <meta name="color-scheme" content="dark light" />
+  <link rel="icon" href="./favicon.ico" />
+  <style>
+    :root{
+      color-scheme: dark;
+      --bg1:#020617;
+      --bg2:#0b1226;
+      --panel:rgba(2,6,23,.72);
+      --panel2:rgba(15,23,42,.56);
+      --stroke:rgba(148,163,184,.18);
+      --text:#e5e7eb;
+      --muted:#94a3b8;
+      --blue:#3b82f6;
+      --violet:#a78bfa;
+      --good:#22c55e;
+      --warn:#f59e0b;
+      --bad:#ef4444;
+      --sat: env(safe-area-inset-top, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
+      --sar: env(safe-area-inset-right, 0px);
+    }
+    *{ box-sizing:border-box; }
+    html,body{
+      margin:0;
+      min-height:100%;
+      font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      background:
+        radial-gradient(circle at 15% 10%, rgba(59,130,246,.18), transparent 45%),
+        radial-gradient(circle at 85% 90%, rgba(167,139,250,.16), transparent 45%),
+        linear-gradient(180deg, var(--bg1), var(--bg2));
+      color:var(--text);
+    }
+    a{ color:inherit; text-decoration:none; }
+
+    .wrap{
+      max-width:980px;
+      margin:0 auto;
+      padding:
+        calc(14px + var(--sat))
+        calc(14px + var(--sar))
+        calc(18px + var(--sab))
+        calc(14px + var(--sal));
+      min-height:100vh;
+    }
+
+    .hero{
+      border-radius:24px;
+      border:1px solid var(--stroke);
+      background:var(--panel);
+      box-shadow:0 24px 80px rgba(0,0,0,.38);
+      padding:20px 18px;
+    }
+
+    .kicker{
+      color:var(--muted);
+      font-size:.82rem;
+      font-weight:900;
+      letter-spacing:.2px;
+    }
+
+    h1{
+      margin:8px 0 6px;
+      font-size:1.7rem;
+      line-height:1.1;
+    }
+
+    .sub{
+      color:rgba(226,232,240,.88);
+      line-height:1.5;
+      font-size:.96rem;
+    }
+
+    .row{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+      margin-top:14px;
+    }
+
+    .pill{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 10px;
+      border-radius:999px;
+      border:1px solid var(--stroke);
+      background:rgba(15,23,42,.52);
+      color:var(--muted);
+      font-size:.84rem;
+      font-weight:900;
+    }
+    .pill b{ color:var(--text); }
+
+    .grid{
+      display:grid;
+      grid-template-columns:1.15fr .85fr;
+      gap:12px;
+      margin-top:14px;
+    }
+    @media (max-width:860px){
+      .grid{ grid-template-columns:1fr; }
+    }
+
+    .card{
+      border-radius:22px;
+      border:1px solid var(--stroke);
+      background:var(--panel2);
+      box-shadow:0 18px 55px rgba(0,0,0,.28);
+      padding:14px;
+    }
+
+    .cardTitle{
+      font-size:1rem;
+      font-weight:1000;
+      margin-bottom:8px;
+    }
+
+    .resultGrid{
+      display:grid;
+      grid-template-columns:repeat(2, minmax(0,1fr));
+      gap:10px;
+    }
+    @media (max-width:560px){
+      .resultGrid{ grid-template-columns:1fr; }
+    }
+
+    .stat{
+      border-radius:18px;
+      border:1px solid rgba(148,163,184,.16);
+      background:rgba(2,6,23,.26);
+      padding:12px;
+    }
+    .stat .k{
+      color:var(--muted);
+      font-size:.78rem;
+      font-weight:900;
+    }
+    .stat .v{
+      margin-top:4px;
+      font-size:1.2rem;
+      font-weight:1000;
+      line-height:1.1;
+    }
+
+    .bigBadge{
+      border-radius:22px;
+      border:1px solid rgba(148,163,184,.16);
+      background:rgba(2,6,23,.24);
+      padding:14px;
+      display:grid;
+      grid-template-columns:78px 1fr;
+      gap:12px;
+      align-items:center;
+      margin-top:10px;
+    }
+    .badgeIcon{
+      width:78px;
+      height:78px;
+      border-radius:20px;
+      display:grid;
+      place-items:center;
+      font-size:42px;
+      background:rgba(15,23,42,.58);
+      border:1px solid rgba(148,163,184,.16);
+      box-shadow:0 14px 30px rgba(0,0,0,.24);
+    }
+    .badgeTitle{
+      font-size:1.12rem;
+      font-weight:1000;
+      line-height:1.15;
+    }
+    .badgeMeta{
+      margin-top:4px;
+      color:var(--muted);
+      font-size:.9rem;
+      line-height:1.45;
+      font-weight:800;
+    }
+
+    .mini{
+      margin-top:10px;
+      padding:10px 12px;
+      border-radius:16px;
+      border:1px solid rgba(148,163,184,.14);
+      background:rgba(2,6,23,.20);
+      color:var(--muted);
+      font-size:.84rem;
+      font-weight:800;
+      line-height:1.45;
+    }
+
+    .actions{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-top:16px;
+    }
+
+    .btn{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-height:44px;
+      padding:10px 14px;
+      border-radius:16px;
+      border:1px solid rgba(148,163,184,.22);
+      background:rgba(148,163,184,.10);
+      color:var(--text);
+      font-weight:1000;
+      cursor:pointer;
+    }
+    .btn.primary{
+      border-color:rgba(59,130,246,.28);
+      background:rgba(59,130,246,.16);
+    }
+    .btn.violet{
+      border-color:rgba(167,139,250,.28);
+      background:rgba(167,139,250,.14);
+    }
+    .btn.ghost{
+      background:transparent;
+      color:var(--muted);
+    }
+
+    .debug{
+      margin-top:12px;
+      padding:10px 12px;
+      border-radius:16px;
+      border:1px solid rgba(148,163,184,.14);
+      background:rgba(2,6,23,.18);
+      color:var(--muted);
+      font-size:.82rem;
+      line-height:1.5;
+      word-break:break-word;
+    }
+
+    code{
+      font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+      font-size:.92em;
+      color:#c7d2fe;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="hero">
+      <div class="kicker">HeroHealth • Exercise Zone</div>
+      <h1>Shadow Breaker Summary</h1>
+      <div class="sub">
+        สรุปผลหลังจบเกม Shadow Breaker<br/>
+        ตรวจผลการผ่านบอส คะแนน ความแม่น และ badge ที่ได้ในรอบนี้
+      </div>
+
+      <div class="row">
+        <span class="pill"><b>Game</b>: <span id="uiGame">shadowbreaker</span></span>
+        <span class="pill"><b>PID</b>: <span id="uiPid">anon</span></span>
+        <span class="pill"><b>Mode</b>: <span id="uiMode">normal</span></span>
+        <span class="pill"><b>Diff</b>: <span id="uiDiff">normal</span></span>
+      </div>
+
+      <div class="grid">
+        <section class="card">
+          <div class="cardTitle">สรุปผลหลัก</div>
+
+          <div class="resultGrid">
+            <div class="stat"><div class="k">SCORE</div><div class="v" id="vScore">0</div></div>
+            <div class="stat"><div class="k">ACCURACY</div><div class="v" id="vAcc">0%</div></div>
+            <div class="stat"><div class="k">MAX COMBO</div><div class="v" id="vCombo">0</div></div>
+            <div class="stat"><div class="k">MISSES</div><div class="v" id="vMiss">0</div></div>
+            <div class="stat"><div class="k">BOSSES CLEARED</div><div class="v" id="vBosses">0</div></div>
+            <div class="stat"><div class="k">REACHED BOSS</div><div class="v" id="vBestBoss">-</div></div>
+          </div>
+
+          <div class="bigBadge">
+            <div class="badgeIcon" id="vBadgeIcon">🥊</div>
+            <div>
+              <div class="badgeTitle" id="vBadgeTitle">Rookie Boss Breaker</div>
+              <div class="badgeMeta" id="vBadgeMeta">เริ่มต้นลุยบอสได้ดีแล้ว ไปต่ออีกนิดจะปลด badge สูงขึ้น</div>
+            </div>
+          </div>
+
+          <div class="mini" id="vBossRuleBox">
+            rule: -
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="cardTitle">รายละเอียดรอบล่าสุด</div>
+
+          <div class="resultGrid">
+            <div class="stat"><div class="k">SESSION</div><div class="v" id="vSession">-</div></div>
+            <div class="stat"><div class="k">END REASON</div><div class="v" id="vEnd">-</div></div>
+            <div class="stat"><div class="k">PHASE FINAL</div><div class="v" id="vPhase">1</div></div>
+            <div class="stat"><div class="k">STABILITY</div><div class="v" id="vStability">0%</div></div>
+          </div>
+
+          <div class="mini" id="vWhenBox">
+            timestamp: -
+          </div>
+
+          <div class="actions">
+            <button class="btn primary" id="btnPlayAgain" type="button">▶ เล่นอีกครั้ง</button>
+            <a class="btn violet" id="btnBackHub" href="./hub.html">🏠 กลับ Hub</a>
+            <button class="btn ghost" id="btnClearSummary" type="button">♻ ล้าง summary</button>
+          </div>
+
+          <div class="debug" id="debugBox">กำลังอ่าน summary…</div>
+        </section>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    (function(){
+      'use strict';
+
+      const $ = (s)=>document.querySelector(s);
+      const qs = (k, d='')=>{
+        try{ return (new URL(location.href)).searchParams.get(k) ?? d; }
+        catch(_){ return d; }
+      };
+
+      function safeJsonParse(v, fb=null){
+        try { return JSON.parse(v); } catch { return fb; }
+      }
+
+      const pid = String(qs('pid','anon')).trim() || 'anon';
+      const hub = String(qs('hub','./hub.html')).trim() || './hub.html';
+
+      const uiGame = $('#uiGame');
+      const uiPid = $('#uiPid');
+      const uiMode = $('#uiMode');
+      const uiDiff = $('#uiDiff');
+
+      const vScore = $('#vScore');
+      const vAcc = $('#vAcc');
+      const vCombo = $('#vCombo');
+      const vMiss = $('#vMiss');
+      const vBosses = $('#vBosses');
+      const vBestBoss = $('#vBestBoss');
+
+      const vBadgeIcon = $('#vBadgeIcon');
+      const vBadgeTitle = $('#vBadgeTitle');
+      const vBadgeMeta = $('#vBadgeMeta');
+
+      const vSession = $('#vSession');
+      const vEnd = $('#vEnd');
+      const vPhase = $('#vPhase');
+      const vStability = $('#vStability');
+      const vWhenBox = $('#vWhenBox');
+      const vBossRuleBox = $('#vBossRuleBox');
+
+      const btnPlayAgain = $('#btnPlayAgain');
+      const btnBackHub = $('#btnBackHub');
+      const btnClearSummary = $('#btnClearSummary');
+      const debugBox = $('#debugBox');
+
+      const hubAbs = new URL(hub, location.href).toString();
+      if (btnBackHub) btnBackHub.href = hubAbs;
+
+      function loadSummary(){
+        const a = safeJsonParse(localStorage.getItem(`SB_LAST_SUMMARY:${pid}`), null);
+        if (a) return a;
+
+        const b = safeJsonParse(localStorage.getItem(`HHA_LAST_SUMMARY:shadowbreaker:${pid}`), null);
+        if (b) return b;
+
+        const c = safeJsonParse(localStorage.getItem('HHA_LAST_SUMMARY'), null);
+        if (c && String(c.game || '') === 'shadowbreaker') return c;
+
+        return null;
+      }
+
+      function buildLauncherUrl(sum){
+        const u = new URL('/webxr-health-mobile/herohealth/shadow-breaker-vr.html', location.origin);
+        u.searchParams.set('pid', sum?.pid || pid || 'anon');
+        u.searchParams.set('diff', sum?.diff || 'normal');
+        u.searchParams.set('time', String(sum?.timeSec || 80));
+        u.searchParams.set('mode', sum?.mode || 'normal');
+        u.searchParams.set('run', sum?.runMode || sum?.mode || 'normal');
+        u.searchParams.set('zone', sum?.zone || 'fitness');
+        u.searchParams.set('cat', sum?.cat || 'fitness');
+        u.searchParams.set('game', 'shadowbreaker');
+        u.searchParams.set('gate', '1');
+        u.searchParams.set('hub', hubAbs);
+        return u.toString();
+      }
+
+      function badgeMetaText(badge, sum){
+        const boss = sum?.bestReachedBoss || '-';
+        const cleared = Number(sum?.bossesCleared || 0);
+        if (!badge) return 'ยังไม่มี badge';
+        if (badge.key === 'legend') return `สุดยอด! ผ่านถึง ${boss} และเคลียร์ ${cleared} บอสด้วยความแม่นสูงมาก`;
+        if (badge.key === 'elite') return `เยี่ยมมาก! ไปถึง ${boss} และรักษาฟอร์มได้ดีมาก`;
+        if (badge.key === 'hero') return `ทำได้ดี! ผ่านบอสไปหลายด่านแล้ว มุ่งไป Final Boss ต่อได้เลย`;
+        return `เริ่มต้นดีแล้ว ไปถึง ${boss} แล้ว ลองเล่นอีกครั้งเพื่อปลด badge สูงขึ้น`;
+      }
+
+      function render(sum){
+        if (!sum){
+          if (uiGame) uiGame.textContent = 'shadowbreaker';
+          if (uiPid) uiPid.textContent = pid;
+          if (uiMode) uiMode.textContent = '-';
+          if (uiDiff) uiDiff.textContent = '-';
+
+          if (vScore) vScore.textContent = '0';
+          if (vAcc) vAcc.textContent = '0%';
+          if (vCombo) vCombo.textContent = '0';
+          if (vMiss) vMiss.textContent = '0';
+          if (vBosses) vBosses.textContent = '0';
+          if (vBestBoss) vBestBoss.textContent = '-';
+          if (vBadgeIcon) vBadgeIcon.textContent = '🥊';
+          if (vBadgeTitle) vBadgeTitle.textContent = 'ยังไม่มีข้อมูล summary';
+          if (vBadgeMeta) vBadgeMeta.textContent = 'กลับไปเล่นเกม Shadow Breaker ก่อน แล้วค่อยกลับมาดูหน้านี้';
+          if (vSession) vSession.textContent = '-';
+          if (vEnd) vEnd.textContent = '-';
+          if (vPhase) vPhase.textContent = '-';
+          if (vStability) vStability.textContent = '0%';
+          if (vWhenBox) vWhenBox.textContent = 'timestamp: -';
+          if (vBossRuleBox) vBossRuleBox.textContent = 'rule: -';
+
+          if (debugBox) {
+            debugBox.innerHTML =
+              `<div><b>Summary:</b> <code>not found</code></div>` +
+              `<div><b>PID:</b> <code>${pid}</code></div>` +
+              `<div><b>Hub:</b> <code>${hubAbs}</code></div>`;
+          }
+          return;
+        }
+
+        if (uiGame) uiGame.textContent = String(sum.game || 'shadowbreaker');
+        if (uiPid) uiPid.textContent = String(sum.pid || pid || 'anon');
+        if (uiMode) uiMode.textContent = String(sum.mode || sum.runMode || 'normal');
+        if (uiDiff) uiDiff.textContent = String(sum.diff || 'normal');
+
+        if (vScore) vScore.textContent = String(sum.scoreFinal ?? 0);
+        if (vAcc) vAcc.textContent = `${Number(sum.accPct ?? 0).toFixed(1)}%`;
+        if (vCombo) vCombo.textContent = String(sum.comboMax ?? 0);
+        if (vMiss) vMiss.textContent = String(sum.missTotal ?? 0);
+        if (vBosses) vBosses.textContent = String(sum.bossesCleared ?? 0);
+        if (vBestBoss) vBestBoss.textContent = String(sum.bestReachedBoss || '-');
+
+        const badge = sum.badge || null;
+        if (vBadgeIcon) vBadgeIcon.textContent = badge?.icon || '🥊';
+        if (vBadgeTitle) vBadgeTitle.textContent = badge?.title || 'Rookie Boss Breaker';
+        if (vBadgeMeta) vBadgeMeta.textContent = badgeMetaText(badge, sum);
+
+        if (vSession) vSession.textContent = String(sum.sessionId || '-');
+        if (vEnd) vEnd.textContent = String(sum.end_reason || sum.reason || '-');
+        if (vPhase) vPhase.textContent = String(sum.phaseFinal ?? 1);
+        if (vStability) vStability.textContent = `${Number(sum.stabilityMinPct ?? 0).toFixed(0)}%`;
+        if (vWhenBox) vWhenBox.textContent = `timestamp: ${String(sum.timestampIso || '-')}`;
+        if (vBossRuleBox) vBossRuleBox.textContent =
+          `rule: ${String(sum.bossRule || '-')} • reached: ${String(sum.reachedPhaseText || '-')}`;
+
+        if (debugBox) {
+          debugBox.innerHTML =
+            `<div><b>Summary:</b> <code>loaded</code></div>` +
+            `<div><b>Session:</b> <code>${String(sum.sessionId || '-')}</code></div>` +
+            `<div><b>Best boss:</b> <code>${String(sum.bestReachedBoss || '-')}</code></div>` +
+            `<div><b>Hub:</b> <code>${hubAbs}</code></div>`;
+        }
+
+        if (btnPlayAgain){
+          btnPlayAgain.onclick = ()=>{
+            location.href = buildLauncherUrl(sum);
+          };
+        }
+      }
+
+      btnClearSummary?.addEventListener('click', ()=>{
+        try{
+          localStorage.removeItem(`SB_LAST_SUMMARY:${pid}`);
+          localStorage.removeItem(`HHA_LAST_SUMMARY:shadowbreaker:${pid}`);
+          localStorage.removeItem('HHA_LAST_SUMMARY');
+        }catch(_){}
+        render(null);
+      });
+
+      render(loadSummary());
+    })();
+  </script>
+</body>
+</html>
