@@ -1,8 +1,11 @@
 <!-- === /herohealth/vr-groups/groups-race-run.html ===
 Groups Race — RUN PAGE (1v1)
-FULL PATCH v20260313-GROUPS-RACE-RUN-FIREBASE-WAIT-r5
+FULL PATCH v20260313-GROUPS-RACE-RUN-END-RESULT-r6
 ✅ FIX: wait for firebase ready before GroupsRaceRTDB
 ✅ FIX: clearer RTDB boot error
+✅ FIX: finish watchdog when time hits 0
+✅ FIX: publishFinished only once
+✅ ADD: result overlay / win-lose-draw / rematch / back hub
 ✅ KEEP: race HUD / gameplay / room sync hooks
 -->
 <!doctype html>
@@ -424,6 +427,69 @@ FULL PATCH v20260313-GROUPS-RACE-RUN-FIREBASE-WAIT-r5
         </main>
       </div>
     </div>
+
+    <div class="overlay" id="resultOverlay" aria-hidden="true">
+      <div class="overlayCard">
+        <header>
+          <div>
+            <b id="resultTitle">RESULT</b>
+            <span style="color:var(--muted); font-weight:900;" id="resultSub">สรุปรอบแข่ง</span>
+          </div>
+          <div class="pill">
+            <span class="dot good"></span>
+            <span>ROOM:</span>
+            <b id="resultRoom">—</b>
+          </div>
+        </header>
+
+        <main>
+          <div style="display:grid; gap:10px;">
+            <div style="
+              border-radius:16px;
+              border:1px solid rgba(148,163,184,.14);
+              background: rgba(2,6,23,.38);
+              padding:12px;
+            ">
+              <div style="font-size:15px; font-weight:1000; margin-bottom:8px;">ผลของเรา</div>
+              <div id="myResultGrid" style="display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px;"></div>
+            </div>
+
+            <div style="
+              border-radius:16px;
+              border:1px solid rgba(148,163,184,.14);
+              background: rgba(2,6,23,.38);
+              padding:12px;
+            ">
+              <div style="font-size:15px; font-weight:1000; margin-bottom:8px;">เปรียบเทียบกับคู่แข่ง</div>
+              <div id="vsResultGrid" style="display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px;"></div>
+            </div>
+
+            <div style="
+              border-radius:16px;
+              border:1px solid rgba(148,163,184,.14);
+              background: rgba(2,6,23,.38);
+              padding:12px;
+            ">
+              <div style="font-size:15px; font-weight:1000; margin-bottom:6px;">สถานะซีรีส์</div>
+              <div id="seriesSummaryText" style="color:var(--muted); font-size:13px; font-weight:900;">BO3</div>
+            </div>
+          </div>
+        </main>
+
+        <div style="
+          padding:12px;
+          border-top:1px solid rgba(148,163,184,.14);
+          display:flex;
+          gap:10px;
+          flex-wrap:wrap;
+          justify-content:center;
+        ">
+          <button id="btnRematch">🔁 Rematch</button>
+          <button class="primary" id="btnGoHubResult">🏠 กลับ HUB</button>
+          <button class="ghost" id="btnCloseResult">ปิด</button>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -497,6 +563,14 @@ FULL PATCH v20260313-GROUPS-RACE-RUN-FIREBASE-WAIT-r5
   const cdHeaderSub = $('#cdHeaderSub');
   const cdRoom = $('#cdRoom');
 
+  const resultOverlay = $('#resultOverlay');
+  const resultTitle = $('#resultTitle');
+  const resultSub = $('#resultSub');
+  const resultRoom = $('#resultRoom');
+  const myResultGrid = $('#myResultGrid');
+  const vsResultGrid = $('#vsResultGrid');
+  const seriesSummaryText = $('#seriesSummaryText');
+
   const roomDot = $('#roomDot');
   const statusText = $('#statusText');
   const seriesPill = $('#seriesPill');
@@ -505,7 +579,11 @@ FULL PATCH v20260313-GROUPS-RACE-RUN-FIREBASE-WAIT-r5
   let race = null;
   let engineStarted = false;
   let engineFinished = false;
+  let finishSent = false;
   let toastTimer = null;
+  let finishWatchdog = null;
+  let lastLocalSummary = null;
+  let rematchBusy = false;
 
   function waitForFirebaseReady(timeoutMs = 8000){
     return new Promise((resolve, reject) => {
@@ -577,6 +655,221 @@ FULL PATCH v20260313-GROUPS-RACE-RUN-FIREBASE-WAIT-r5
     el.setAttribute('aria-hidden', 'true');
   }
 
+  function safeNum(v, d = 0){
+    const n = Number(v);
+    return Number.isFinite(n) ? n : d;
+  }
+
+  function currentTimeLeftFromHud(){
+    const txt = String(hudTime?.textContent || '').replace('s', '').trim();
+    return Math.max(0, safeNum(txt, 0));
+  }
+
+  function buildFallbackSummary(){
+    return {
+      scoreFinal: safeNum(hudScore?.textContent, 0),
+      score: safeNum(hudScore?.textContent, 0),
+      comboMax: safeNum(String(hudCombo?.textContent || '').replace('x',''), 0),
+      miss: safeNum(hudMiss?.textContent, 0),
+      accuracyPct: 0,
+      grade: String(hudRank?.textContent || 'D').trim() || 'D',
+      source: 'race-watchdog'
+    };
+  }
+
+  async function sendFinishOnce(summary){
+    if (finishSent) return;
+    if (!race) return;
+
+    finishSent = true;
+    engineFinished = true;
+
+    const s = summary || buildFallbackSummary();
+    lastLocalSummary = s;
+
+    try{
+      await race.publishFinished({
+        playerKey: PLAYER_KEY,
+        pid: PID,
+        name: NAME,
+        score: safeNum(s.scoreFinal ?? s.score, 0),
+        combo: 0,
+        miss: safeNum(s.miss, 0),
+        accuracyPct: safeNum(s.accuracyPct, 0),
+        comboMax: safeNum(s.comboMax, 0),
+        timeLeft: 0,
+        finished: true,
+        finishAt: Date.now(),
+        summary: s
+      });
+
+      showToast('จบเกมแล้ว — ส่งผลแข่งเรียบร้อย 🏁', 'neutral');
+    }catch(err){
+      finishSent = false;
+      console.error('[groups-race-run] publishFinished failed', err);
+      showToast('ส่งผลแข่งไม่สำเร็จ', 'sad');
+    }
+  }
+
+  function startFinishWatchdog(){
+    stopFinishWatchdog();
+
+    finishWatchdog = setInterval(async ()=>{
+      if (!engineStarted) return;
+      if (finishSent) return;
+
+      const left = currentTimeLeftFromHud();
+      if (left <= 0) {
+        await sendFinishOnce(lastLocalSummary || buildFallbackSummary());
+      }
+    }, 300);
+  }
+
+  function stopFinishWatchdog(){
+    if (finishWatchdog){
+      clearInterval(finishWatchdog);
+      finishWatchdog = null;
+    }
+  }
+
+  function kvCard(label, value){
+    return `
+      <div style="
+        border-radius:12px;
+        border:1px solid rgba(148,163,184,.12);
+        background:rgba(2,6,23,.28);
+        padding:8px 10px;
+      ">
+        <div style="color:var(--muted); font-size:11px; font-weight:800;">${label}</div>
+        <div style="margin-top:4px; font-size:14px; font-weight:1000;">${value}</div>
+      </div>
+    `;
+  }
+
+  function safePlayerView(p){
+    return {
+      playerKey: String(p?.playerKey || ''),
+      name: String(p?.name || 'Opponent'),
+      score: safeNum(p?.score, 0),
+      accuracyPct: safeNum(p?.accuracyPct, 0),
+      miss: safeNum(p?.miss, 0),
+      comboMax: safeNum(p?.comboMax, 0),
+      timeLeft: safeNum(p?.timeLeft, 0)
+    };
+  }
+
+  function showResultOverlayFromDecision(decision){
+    if (!decision) return;
+
+    const a = safePlayerView(decision.a || {});
+    const b = safePlayerView(decision.b || {});
+    const mine = a.playerKey === PLAYER_KEY ? a : (b.playerKey === PLAYER_KEY ? b : safePlayerView({}));
+    const opp  = a.playerKey === PLAYER_KEY ? b : a;
+
+    const isDraw = !!decision.isDraw;
+    const iWon = !isDraw && String(decision.winnerKey || '') === PLAYER_KEY;
+    const seriesFinished = !!decision.seriesFinished;
+    const seriesWinnerKey = String(decision.seriesWinnerKey || '');
+
+    resultRoom.textContent = ROOM || '—';
+
+    if (seriesFinished) {
+      if (seriesWinnerKey === PLAYER_KEY) {
+        resultTitle.textContent = '🏆 SERIES WIN';
+        resultSub.textContent = 'คุณชนะซีรีส์';
+      } else {
+        resultTitle.textContent = 'SERIES LOSE';
+        resultSub.textContent = 'คุณแพ้ซีรีส์';
+      }
+    } else if (isDraw) {
+      resultTitle.textContent = 'DRAW 🤝';
+      resultSub.textContent = 'รอบนี้เสมอ';
+    } else if (iWon) {
+      resultTitle.textContent = 'ROUND WIN 🏁';
+      resultSub.textContent = 'คุณชนะรอบนี้';
+    } else {
+      resultTitle.textContent = 'ROUND LOSE';
+      resultSub.textContent = 'คุณแพ้รอบนี้';
+    }
+
+    myResultGrid.innerHTML = [
+      kvCard('คะแนน', mine.score),
+      kvCard('ACC', mine.accuracyPct + '%'),
+      kvCard('MISS', mine.miss),
+      kvCard('COMBO MAX', mine.comboMax),
+      kvCard('TIME LEFT', mine.timeLeft + 's'),
+      kvCard('RANK', String(hudRank?.textContent || '-'))
+    ].join('');
+
+    vsResultGrid.innerHTML = [
+      kvCard('คู่แข่ง', opp.name || 'Opponent'),
+      kvCard('คะแนนคู่แข่ง', opp.score),
+      kvCard('ACC คู่แข่ง', opp.accuracyPct + '%'),
+      kvCard('MISS คู่แข่ง', opp.miss),
+      kvCard('COMBO MAX คู่แข่ง', opp.comboMax),
+      kvCard('TIME LEFT คู่แข่ง', opp.timeLeft + 's')
+    ].join('');
+
+    seriesSummaryText.textContent =
+      `BO3 · R${safeNum(decision.roundNo, 1)} · ${safeNum(decision.hostWins, 0)}-${safeNum(decision.guestWins, 0)}` +
+      (seriesFinished
+        ? (seriesWinnerKey === PLAYER_KEY ? ' · คุณชนะซีรีส์ 🏆' : ' · คุณแพ้ซีรีส์')
+        : '');
+
+    showOverlay(resultOverlay);
+
+    const btnRematch = $('#btnRematch');
+    if (btnRematch) {
+      btnRematch.disabled = seriesFinished;
+      btnRematch.textContent = seriesFinished ? 'ซีรีส์จบแล้ว' : '🔁 Rematch';
+    }
+  }
+
+  async function requestRematch(){
+    if (!race || rematchBusy) return;
+    rematchBusy = true;
+
+    try{
+      if (String(race.role || '') === 'host') {
+        const ok = await race.rematchResetIfHost();
+        if (ok) {
+          hideOverlay(resultOverlay);
+          showOverlay(countdownOverlay);
+          cdNum.textContent = 'WAIT';
+          cdSub.textContent = 'รีเซ็ตรอบใหม่แล้ว — กด READY';
+          finishSent = false;
+          engineFinished = false;
+          engineStarted = false;
+          lastLocalSummary = null;
+          hudTime.textContent = TIME + 's';
+          hudScore.textContent = '0';
+          hudCombo.textContent = 'x0';
+          hudMiss.textContent = '0';
+          hudRank.textContent = '—';
+          showToast('รีเซ็ตรอบใหม่แล้ว กด READY ได้เลย', 'happy');
+        } else {
+          showToast('รีเซ็ตรอบใหม่ไม่สำเร็จ', 'sad');
+        }
+      } else {
+        await race.resetMyRoundState?.();
+        hideOverlay(resultOverlay);
+        showOverlay(countdownOverlay);
+        cdNum.textContent = 'WAIT';
+        cdSub.textContent = 'รอ Host รีเซ็ตรอบใหม่';
+        finishSent = false;
+        engineFinished = false;
+        engineStarted = false;
+        lastLocalSummary = null;
+        showToast('ส่งคำขอ rematch แล้ว', 'neutral');
+      }
+    }catch(err){
+      console.error(err);
+      showToast('Rematch ไม่สำเร็จ', 'sad');
+    }finally{
+      rematchBusy = false;
+    }
+  }
+
   function updateSpawnSafe(){
     try{
       const r = $('#playLayer').getBoundingClientRect();
@@ -601,6 +894,10 @@ FULL PATCH v20260313-GROUPS-RACE-RUN-FIREBASE-WAIT-r5
     if(engineStarted) return;
     updateSpawnSafe();
 
+    finishSent = false;
+    engineFinished = false;
+    lastLocalSummary = null;
+
     try{ window.GroupsVR?.GameEngine?.setLayerEl?.($('#playLayer')); }catch(_){}
     try{
       window.GroupsVR.GameEngine.start(DIFF, {
@@ -619,6 +916,7 @@ FULL PATCH v20260313-GROUPS-RACE-RUN-FIREBASE-WAIT-r5
       });
       engineStarted = true;
       engineFinished = false;
+      startFinishWatchdog();
       showToast('เริ่มแล้ว! ยิงให้ถูก “หมู่” แล้วเก็บคอมโบ 🔥', 'neutral');
     }catch(err){
       console.error(err);
@@ -630,6 +928,7 @@ FULL PATCH v20260313-GROUPS-RACE-RUN-FIREBASE-WAIT-r5
   }
 
   function stopEngine(){
+    stopFinishWatchdog();
     try{ window.GroupsVR?.GameEngine?.stop?.(); }catch(_){}
     engineStarted = false;
   }
@@ -724,9 +1023,28 @@ FULL PATCH v20260313-GROUPS-RACE-RUN-FIREBASE-WAIT-r5
     try{ await race.maybeStartCountdown(3000); }catch(err){ console.error(err); }
   });
 
-  window.addEventListener('hha:time', (ev)=>{
+  $('#btnGoHubResult').addEventListener('click', ()=>{
+    try{ race?.leaveRoomSoft?.(); }catch(_){}
+    stopEngine();
+    location.href = HUB;
+  });
+
+  $('#btnCloseResult').addEventListener('click', ()=>{
+    hideOverlay(resultOverlay);
+  });
+
+  $('#btnRematch').addEventListener('click', async ()=>{
+    await requestRematch();
+  });
+
+  window.addEventListener('hha:time', async (ev)=>{
     const left = ev?.detail?.left;
-    if(typeof left === 'number') hudTime.textContent = left + 's';
+    if(typeof left === 'number'){
+      hudTime.textContent = left + 's';
+      if (left <= 0 && engineStarted && !finishSent){
+        await sendFinishOnce(lastLocalSummary || buildFallbackSummary());
+      }
+    }
   });
 
   window.addEventListener('hha:score', async (ev)=>{
@@ -784,26 +1102,8 @@ FULL PATCH v20260313-GROUPS-RACE-RUN-FIREBASE-WAIT-r5
 
   window.addEventListener('hha:end', async (ev)=>{
     const s = ev?.detail || {};
-    engineFinished = true;
-    try{
-      await race.publishFinished({
-        playerKey: PLAYER_KEY,
-        pid: PID,
-        name: NAME,
-        score: Number(s.scoreFinal || 0),
-        combo: 0,
-        miss: Number(s.miss || 0),
-        accuracyPct: Number(s.accuracyPct || 0),
-        comboMax: Number(s.comboMax || 0),
-        timeLeft: 0,
-        finished: true,
-        finishAt: Date.now(),
-        summary: s
-      });
-      showToast('จบเกมแล้ว — รอผลตัดสิน 🏁', 'neutral');
-    }catch(err){
-      console.error(err);
-    }
+    lastLocalSummary = s;
+    await sendFinishOnce(s);
   });
 
   async function setupRace(){
@@ -871,6 +1171,35 @@ FULL PATCH v20260313-GROUPS-RACE-RUN-FIREBASE-WAIT-r5
       updateSeries(room);
 
       if(status === 'lobby'){
+        stopEngine();
+        finishSent = false;
+        engineFinished = false;
+        engineStarted = false;
+        lastLocalSummary = null;
+
+        hudTime.textContent = TIME + 's';
+        hudScore.textContent = '0';
+        hudCombo.textContent = 'x0';
+        hudMiss.textContent = '0';
+        hudRank.textContent = '—';
+
+        qTitle.textContent = 'ภารกิจ';
+        qSub.textContent = '';
+        qBar.style.width = '0%';
+        qMini.textContent = 'MINI: —';
+        qMiniTime.textContent = '';
+        groupName.textContent = 'หมู่ 1 โปรตีน';
+        pBar.style.width = '0%';
+        pText.textContent = '0 / 8';
+
+        opScore.textContent = '0';
+        opCombo.textContent = 'x0';
+        opMiss.textContent = '0';
+        opAcc.textContent = '0%';
+        leadPill.textContent = 'WAIT';
+        leadPill.style.color = 'var(--muted)';
+
+        hideOverlay(resultOverlay);
         setStatus('LOBBY', 'amber');
         showOverlay(countdownOverlay);
         cdNum.textContent = 'WAIT';
@@ -890,9 +1219,14 @@ FULL PATCH v20260313-GROUPS-RACE-RUN-FIREBASE-WAIT-r5
         hideCountdown();
         startEngine();
       }else if(status === 'ended'){
+        stopEngine();
         setStatus('ENDED', 'red');
         hideCountdown();
         showToast('รอบนี้จบแล้ว', 'neutral');
+
+        if (room.decision) {
+          showResultOverlayFromDecision(room.decision);
+        }
       }
 
       updateRunButtons();
