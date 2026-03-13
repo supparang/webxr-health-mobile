@@ -94,6 +94,10 @@
       padding: 10px 12px;
       font-weight:1100;
       min-height: 44px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
     }
     .btn.primary{ border-color: rgba(59,130,246,.30); background: rgba(59,130,246,.16); }
     .btn.violet{ border-color: rgba(167,139,250,.28); background: rgba(167,139,250,.14); }
@@ -430,7 +434,454 @@
 </head>
 <body>
   <div class="wrap">
-    <!-- เนื้อหาเดิมทั้งหมดของคุณคงไว้เหมือนเดิม -->
+
+    <div class="topbar">
+      <div class="brand">
+        <div style="font-size:28px;">🩺</div>
+        <div>
+          <div style="font-size:18px;font-weight:1100;"><b>HeroHealth</b> — Hub</div>
+          <div id="ctxLine" class="muted">run=play • diff=normal • time=80s • view=mobile</div>
+        </div>
+      </div>
+
+      <div class="hero">
+        <span class="pill">PID <b id="uiPid">anon</b></span>
+        <span class="pill">Nick <b id="uiNick">anon</b></span>
+        <span class="pill">LV <b id="uiLvl">1</b></span>
+        <span class="pill">XP <b id="uiXp">0</b></span>
+        <button class="btn ghost" id="btnHeroShow" type="button">ดู Hero</button>
+        <button class="btn ghost" id="btnHeroReset" type="button">Reset Hero</button>
+      </div>
+    </div>
+
+    <div class="grid">
+      <section class="card">
+        <div class="zoneRow">
+          <h2>🥗 Nutrition Zone</h2>
+          <div class="muted">อาหาร • น้ำ • จานสุขภาพ</div>
+        </div>
+
+        <div class="inlineRow">
+          <button class="btn primary" id="btnGJsolo" type="button">GoodJunk Solo</button>
+          <button class="btn violet" id="btnGJpro" type="button">GoodJunk Pro</button>
+          <button class="btn good" id="btnGJbattle" type="button">GoodJunk Battle</button>
+        </div>
+
+        <div class="games">
+          <a class="gameBtn" id="linkGoodjunk" href="#">
+            <div class="t">🍔 GoodJunk VR</div>
+            <div class="s">ยิงของดี หลบของไม่ดี เก็บการ์ด</div>
+          </a>
+          <a class="gameBtn" id="linkGroups" href="#">
+            <div class="t">🥦 Food Groups VR</div>
+            <div class="s">แยกอาหารหลัก 5 หมู่</div>
+          </a>
+          <a class="gameBtn" id="linkHydration" href="#">
+            <div class="t">💧 Hydration VR</div>
+            <div class="s">เลือกเครื่องดื่มและดูแลสมดุลน้ำ</div>
+          </a>
+          <a class="gameBtn" id="linkPlate" href="#">
+            <div class="t">🍽️ Plate VR</div>
+            <div class="s">จัดจานอาหารให้สมดุล</div>
+          </a>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="zoneRow">
+          <h2>🪥 Hygiene Zone</h2>
+          <div class="muted">อนามัยส่วนบุคคล</div>
+        </div>
+
+        <div class="games">
+          <a class="gameBtn" id="linkHandwash" href="#">
+            <div class="t">🧼 Handwash</div>
+            <div class="s">ล้างมือให้ครบขั้นตอน</div>
+          </a>
+          <a class="gameBtn" id="linkBrush" href="#">
+            <div class="t">🪥 Brush VR</div>
+            <div class="s">แปรงฟันให้ถูกตำแหน่ง</div>
+          </a>
+          <a class="gameBtn" id="linkBath" href="#">
+            <div class="t">🛁 Bath VR</div>
+            <div class="s">อาบน้ำให้สะอาดทั่วร่างกาย</div>
+          </a>
+          <a class="gameBtn" id="linkCleanObject" href="#">
+            <div class="t">🧽 Clean Objects</div>
+            <div class="s">แยกของสะอาดและควรทำความสะอาด</div>
+          </a>
+          <a class="gameBtn" id="linkMaskCough" href="#">
+            <div class="t">😷 Mask & Cough</div>
+            <div class="s">มารยาทไอจามและหน้ากาก</div>
+          </a>
+          <a class="gameBtn" id="linkGermDetective" href="#">
+            <div class="t">🦠 Germ Detective</div>
+            <div class="s">ตามหาจุดเสี่ยงเชื้อโรค</div>
+          </a>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="zoneRow">
+          <h2>🏃 Fitness Zone</h2>
+          <div class="muted">การเคลื่อนไหว • ความฟิต</div>
+        </div>
+
+        <div class="games">
+          <a class="gameBtn" id="linkShadowBreaker" href="#">
+            <div class="t">🥊 Shadow Breaker</div>
+            <div class="s">ต่อยเป้า เก็บคอมโบ ลุยบอส</div>
+          </a>
+          <a class="gameBtn" id="linkRhythmBoxer" href="#">
+            <div class="t">🎵 Rhythm Boxer</div>
+            <div class="s">ต่อยตามจังหวะ สนุกเร้าใจ</div>
+          </a>
+          <a class="gameBtn" id="linkJumpDuck" href="#">
+            <div class="t">🦘 Jump Duck</div>
+            <div class="s">กระโดด หลบ ก้ม ต่อเนื่อง</div>
+          </a>
+          <a class="gameBtn" id="linkBalanceHold" href="#">
+            <div class="t">🧘 Balance Hold</div>
+            <div class="s">ทรงตัว ต้านแรงกดดัน</div>
+          </a>
+          <a class="gameBtn" id="linkFitnessPlanner" href="#">
+            <div class="t">📋 Fitness Planner</div>
+            <div class="s">วางแผนการออกกำลังกาย</div>
+          </a>
+        </div>
+      </section>
+    </div>
+
+    <section class="cardBook">
+      <div class="cardBookTop">
+        <div>
+          <div class="cardBookTitle">🃏 GoodJunk Card Book</div>
+          <div class="cardBookSub">สรุปการ์ดและผลงานล่าสุดจาก GoodJunk</div>
+        </div>
+        <div class="bookActions">
+          <button class="btn primary" id="btnOpenGJLauncher" type="button">เปิด GoodJunk</button>
+          <button class="btn ghost" id="btnResetCardBook" type="button">Reset Card Book</button>
+        </div>
+      </div>
+
+      <div class="cardBookGrid">
+        <div class="bookPanel">
+          <div class="bookMini">จำนวนการ์ดทั้งหมด</div>
+          <div class="bookBig" id="bookTotal">0</div>
+
+          <div class="rarityRow">
+            <div class="rarityCard rarity-s">
+              <div class="rk">S</div>
+              <div class="rv" id="bookS">0</div>
+            </div>
+            <div class="rarityCard rarity-a">
+              <div class="rk">A</div>
+              <div class="rv" id="bookA">0</div>
+            </div>
+            <div class="rarityCard rarity-b">
+              <div class="rk">B</div>
+              <div class="rv" id="bookB">0</div>
+            </div>
+            <div class="rarityCard rarity-c">
+              <div class="rk">C</div>
+              <div class="rv" id="bookC">0</div>
+            </div>
+          </div>
+
+          <div class="rarityRow">
+            <div class="rarityCard">
+              <div class="rk">Best Normal</div>
+              <div class="rv" id="bestNormalScore">0</div>
+            </div>
+            <div class="rarityCard">
+              <div class="rk">Streak</div>
+              <div class="rv" id="streakCount">0</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="bookPanel">
+          <div class="lastDrop">
+            <div class="lastDropIcon" id="lastDropIcon">🃏</div>
+            <div class="lastDropBody">
+              <div class="lastDropTitle" id="lastDropTitle">ยังไม่มีการ์ดล่าสุด</div>
+              <div class="lastDropMeta" id="lastDropMeta">เล่น GoodJunk แล้วกลับมาดูที่นี่</div>
+            </div>
+          </div>
+
+          <div class="rarityRow" style="grid-template-columns:repeat(2,minmax(0,1fr));">
+            <div class="rarityCard">
+              <div class="rk">Grade</div>
+              <div class="rv" id="lastDropGrade">—</div>
+            </div>
+            <div class="rarityCard">
+              <div class="rk">Score</div>
+              <div class="rv" id="lastDropScore">0</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="cardBook">
+      <div class="cardBookTop">
+        <div>
+          <div class="cardBookTitle">💧 Hydration Reward Shelf</div>
+          <div class="cardBookSub">ผลงานล่าสุดและ badge ของเกม Hydration</div>
+        </div>
+        <div class="bookActions">
+          <button class="btn primary" id="btnOpenHydrationLauncher" type="button">เปิด Hydration</button>
+          <button class="btn ghost" id="btnResetHydrationReward" type="button">Reset Hydration</button>
+        </div>
+      </div>
+
+      <div class="cardBookGrid">
+        <div class="bookPanel">
+          <div class="lastDrop">
+            <div class="lastDropIcon" id="hydLastRewardIcon">💧</div>
+            <div class="lastDropBody">
+              <div class="lastDropTitle" id="hydLastRewardTitle">ยังไม่มีรางวัลล่าสุด</div>
+              <div class="lastDropMeta" id="hydLastRewardMeta">เล่น Hydration แล้วกลับมาดูที่นี่</div>
+            </div>
+          </div>
+
+          <div class="rarityRow" style="grid-template-columns:repeat(2,minmax(0,1fr));">
+            <div class="rarityCard">
+              <div class="rk">Grade</div>
+              <div class="rv" id="hydLastRewardGrade">—</div>
+            </div>
+            <div class="rarityCard">
+              <div class="rk">Score</div>
+              <div class="rv" id="hydLastRewardScore">0</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="bookPanel">
+          <div class="rarityRow">
+            <div class="rarityCard">
+              <div class="rk">Best Score</div>
+              <div class="rv" id="hydBestScore">0</div>
+            </div>
+            <div class="rarityCard">
+              <div class="rk">Runs</div>
+              <div class="rv" id="hydTotalRuns">0</div>
+            </div>
+            <div class="rarityCard">
+              <div class="rk">Final Clear</div>
+              <div class="rv" id="hydFinalClearCount">0</div>
+            </div>
+            <div class="rarityCard">
+              <div class="rk">Best Combo</div>
+              <div class="rv" id="hydBestCombo">0</div>
+            </div>
+          </div>
+
+          <div class="rarityRow" style="grid-template-columns:repeat(1,minmax(0,1fr));">
+            <div class="rarityCard">
+              <div class="rk">Best Stars</div>
+              <div class="rv" id="hydBestStars">0</div>
+            </div>
+          </div>
+
+          <div class="sep"></div>
+          <div class="bookMini">Badge Shelf</div>
+          <div id="hydBadgeShelf" class="miniRow"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="trophyShelf">
+      <div class="cardBookTop">
+        <div>
+          <div class="cardBookTitle">🏆 Zone Trophy Shelf</div>
+          <div class="cardBookSub">ปลดล็อกความก้าวหน้าแต่ละโซน</div>
+        </div>
+      </div>
+
+      <div class="shelfGrid">
+        <div class="shelfCard">
+          <div class="shelfTop">
+            <div class="miniRow">
+              <div class="trophyIcon" id="nutriTrophyIcon">🥦</div>
+              <div class="trophyTitle">Nutrition Trophy</div>
+            </div>
+            <div class="statusChip locked" id="nutriStatus">LOCKED</div>
+          </div>
+          <div class="shelfMeta" id="nutriHint">เคลียร์ GoodJunk หรือทำผลงานใน Hydration เพื่อปลดถ้วย</div>
+          <div class="rarityRow" style="grid-template-columns:repeat(2,minmax(0,1fr));">
+            <div class="rarityCard">
+              <div class="rk">Best Score</div>
+              <div class="rv" id="nutriBestScore">0</div>
+            </div>
+            <div class="rarityCard">
+              <div class="rk">Cards</div>
+              <div class="rv" id="nutriCardTotal">0</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="shelfCard">
+          <div class="shelfTop">
+            <div class="miniRow">
+              <div class="trophyIcon" id="hygieneTrophyIcon">🪥</div>
+              <div class="trophyTitle">Hygiene Trophy</div>
+            </div>
+            <div class="statusChip locked" id="hygieneStatus">LOCKED</div>
+          </div>
+          <div class="shelfMeta" id="hygieneHint">ทำ zone hygiene ให้มี done today เพื่อโชว์ถ้วย</div>
+          <div class="rarityRow" style="grid-template-columns:repeat(1,minmax(0,1fr));">
+            <div class="rarityCard">
+              <div class="rk">Zone Done Today</div>
+              <div class="rv" id="hygieneZoneDone">0</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="shelfCard">
+          <div class="shelfTop">
+            <div class="miniRow">
+              <div class="trophyIcon" id="fitnessTrophyIcon">🏃</div>
+              <div class="trophyTitle">Fitness Trophy</div>
+            </div>
+            <div class="statusChip locked" id="fitnessStatus">LOCKED</div>
+          </div>
+          <div class="shelfMeta" id="fitnessHint">ทำ zone fitness ให้มี done today หรือเล่น Shadow Breaker เพื่อโชว์ความก้าวหน้า</div>
+          <div class="rarityRow" style="grid-template-columns:repeat(2,minmax(0,1fr));">
+            <div class="rarityCard">
+              <div class="rk">Zone Done</div>
+              <div class="rv" id="fitnessZoneDone">0</div>
+            </div>
+            <div class="rarityCard">
+              <div class="rk">SB Best Boss</div>
+              <div class="rv" id="fitnessSBBestBoss">-</div>
+            </div>
+          </div>
+          <div class="rarityRow" style="grid-template-columns:repeat(1,minmax(0,1fr));">
+            <div class="rarityCard">
+              <div class="rk">SB Best Badge</div>
+              <div class="rv" id="fitnessSBBestBadge">-</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="cardBook">
+      <div class="cardBookTop">
+        <div>
+          <div class="cardBookTitle">🕒 Last Run Summary</div>
+          <div class="cardBookSub" id="hhLastRunSub">ยังไม่มีผลล่าสุด — เล่นเกมสักรอบก่อนนะ</div>
+        </div>
+        <div class="bookActions">
+          <a class="btn primary" id="hhLastRunOpen" href="#" style="display:none;">เปิดรอบล่าสุด</a>
+          <button class="btn ghost" id="hhLastRunClear" type="button">Clear Last Summary</button>
+        </div>
+      </div>
+
+      <div class="cardBookGrid" id="hhLastRunGrid" style="display:none;">
+        <div class="bookPanel" id="hhLastRunLeft"></div>
+        <div class="bookPanel" id="hhLastRunRight"></div>
+      </div>
+    </section>
+
+    <section class="cardBook">
+      <div class="cardBookTop">
+        <div>
+          <div class="cardBookTitle">🦘 JumpDuck Card Book</div>
+          <div class="cardBookSub">การ์ดและสถิติจาก JumpDuck</div>
+        </div>
+        <div class="bookActions">
+          <button class="btn primary" id="btnOpenJDLauncher" type="button">เปิด JumpDuck</button>
+          <button class="btn violet" id="btnOpenJDGallery" type="button">เปิด Gallery</button>
+          <a class="btn ghost" id="linkJDGallery" href="#">Link Gallery</a>
+          <button class="btn ghost" id="btnResetJDCardBook" type="button">Reset JumpDuck</button>
+        </div>
+      </div>
+
+      <div class="cardBookGrid">
+        <div class="bookPanel">
+          <div class="bookMini">จำนวนการ์ดทั้งหมด</div>
+          <div class="bookBig" id="jdBookTotal">0</div>
+
+          <div class="rarityRow">
+            <div class="rarityCard rarity-s">
+              <div class="rk">S</div>
+              <div class="rv" id="jdBookS">0</div>
+            </div>
+            <div class="rarityCard rarity-a">
+              <div class="rk">A</div>
+              <div class="rv" id="jdBookA">0</div>
+            </div>
+            <div class="rarityCard rarity-b">
+              <div class="rk">B</div>
+              <div class="rv" id="jdBookB">0</div>
+            </div>
+            <div class="rarityCard rarity-c">
+              <div class="rk">C</div>
+              <div class="rv" id="jdBookC">0</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="bookPanel">
+          <div class="lastDrop">
+            <div class="lastDropIcon" id="jdLastCardIcon">🏃</div>
+            <div class="lastDropBody">
+              <div class="lastDropTitle" id="jdLastCardTitle">ยังไม่มีการ์ดล่าสุด</div>
+              <div class="lastDropMeta" id="jdLastCardMeta">เล่น JumpDuck แล้วกลับมาดูที่นี่</div>
+            </div>
+          </div>
+
+          <div class="rarityRow" style="grid-template-columns:repeat(2,minmax(0,1fr));">
+            <div class="rarityCard">
+              <div class="rk">Rank</div>
+              <div class="rv" id="jdLastCardRank">—</div>
+            </div>
+            <div class="rarityCard">
+              <div class="rk">Best</div>
+              <div class="rv" id="jdLastCardBest">0</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="trophyShelf">
+      <div class="cardBookTop">
+        <div>
+          <div class="cardBookTitle">🏃 Fitness JumpDuck Shelf</div>
+          <div class="cardBookSub">สถิติเด่นของ JumpDuck</div>
+        </div>
+      </div>
+
+      <div class="rarityRow">
+        <div class="rarityCard">
+          <div class="rk">Best Score</div>
+          <div class="rv" id="fitnessJDBest">0</div>
+        </div>
+        <div class="rarityCard">
+          <div class="rk">Streak</div>
+          <div class="rv" id="fitnessJDStreak">0</div>
+        </div>
+        <div class="rarityCard">
+          <div class="rk">Badge Count</div>
+          <div class="rv" id="fitnessJDBadgeCount">0</div>
+        </div>
+        <div class="rarityCard">
+          <div class="rk">Reward</div>
+          <div class="rv" id="fitnessJDReward">-</div>
+        </div>
+      </div>
+
+      <div class="rarityRow" style="grid-template-columns:repeat(1,minmax(0,1fr));">
+        <div class="rarityCard">
+          <div class="rk">Boss Badge</div>
+          <div class="rv" id="fitnessJDBossBadge">-</div>
+        </div>
+      </div>
+    </section>
+
   </div>
 
   <script>
@@ -449,8 +900,8 @@
     const uiLvl = document.getElementById('uiLvl');
     const uiXp = document.getElementById('uiXp');
 
-    uiPid.textContent = pid;
-    ctxLine.textContent = `run=${run} • diff=${diff} • time=${time}s • view=${view}`;
+    if (uiPid) uiPid.textContent = pid;
+    if (ctxLine) ctxLine.textContent = `run=${run} • diff=${diff} • time=${time}s • view=${view}`;
 
     function hhDayKey(){
       const d=new Date();
@@ -492,9 +943,9 @@
     }
     function renderHero(){
       const h = loadHero();
-      uiNick.textContent = h.nick || pid;
-      uiXp.textContent = String(h.xp|0);
-      uiLvl.textContent = String(h.lvl|0);
+      if (uiNick) uiNick.textContent = h.nick || pid;
+      if (uiXp) uiXp.textContent = String(h.xp|0);
+      if (uiLvl) uiLvl.textContent = String(h.lvl|0);
     }
 
     function buildUrl(path, extra){
@@ -520,6 +971,15 @@
         });
       }
       return u.toString();
+    }
+
+    function setText(id, value){
+      const el = document.getElementById(id);
+      if (el) el.textContent = String(value);
+    }
+    function setHref(id, value){
+      const el = document.getElementById(id);
+      if (el) el.href = value;
     }
 
     function loadCardBook(pid){
@@ -573,11 +1033,11 @@
       const sum = loadLastGoodjunkSummary(pid);
       const lastCard = loadLastCard(pid);
 
-      document.getElementById('bookTotal').textContent = String(book.total || 0);
-      document.getElementById('bookS').textContent = String(book.S || 0);
-      document.getElementById('bookA').textContent = String(book.A || 0);
-      document.getElementById('bookB').textContent = String(book.B || 0);
-      document.getElementById('bookC').textContent = String(book.C || 0);
+      setText('bookTotal', book.total || 0);
+      setText('bookS', book.S || 0);
+      setText('bookA', book.A || 0);
+      setText('bookB', book.B || 0);
+      setText('bookC', book.C || 0);
 
       const lastDropIcon = document.getElementById('lastDropIcon');
       const lastDropTitle = document.getElementById('lastDropTitle');
@@ -586,33 +1046,33 @@
       const lastDropScore = document.getElementById('lastDropScore');
 
       if(lastCard){
-        lastDropIcon.textContent = lastCard.icon || '🃏';
-        lastDropTitle.textContent = lastCard.title || 'Latest Card';
+        if (lastDropIcon) lastDropIcon.textContent = lastCard.icon || '🃏';
+        if (lastDropTitle) lastDropTitle.textContent = lastCard.title || 'Latest Card';
       }
 
       if(sum){
         const grade = String(sum.grade || 'C').toUpperCase();
         const spec = cardSpecFromGrade(grade);
 
-        if(!lastCard) lastDropIcon.textContent = spec.icon;
-        if(!lastCard) lastDropTitle.textContent = spec.title;
-        lastDropMeta.textContent =
+        if(!lastCard && lastDropIcon) lastDropIcon.textContent = spec.icon;
+        if(!lastCard && lastDropTitle) lastDropTitle.textContent = spec.title;
+        if (lastDropMeta) lastDropMeta.textContent =
           `ผลล่าสุด: reason=${sum.reason || '-'} • miss ${sum.missTotal ?? sum.miss ?? 0} • acc ${sum.accPct ?? 0}%`;
-        lastDropGrade.textContent = grade;
-        lastDropScore.textContent = String(sum.scoreFinal ?? sum.score ?? 0);
+        if (lastDropGrade) lastDropGrade.textContent = grade;
+        if (lastDropScore) lastDropScore.textContent = String(sum.scoreFinal ?? sum.score ?? 0);
       }else{
-        lastDropIcon.textContent = '🃏';
-        lastDropTitle.textContent = 'ยังไม่มีการ์ดล่าสุด';
-        lastDropMeta.textContent = 'เล่น GoodJunk แล้วกลับมาดูที่นี่';
-        lastDropGrade.textContent = '—';
-        lastDropScore.textContent = '0';
+        if (lastDropIcon) lastDropIcon.textContent = '🃏';
+        if (lastDropTitle) lastDropTitle.textContent = 'ยังไม่มีการ์ดล่าสุด';
+        if (lastDropMeta) lastDropMeta.textContent = 'เล่น GoodJunk แล้วกลับมาดูที่นี่';
+        if (lastDropGrade) lastDropGrade.textContent = '—';
+        if (lastDropScore) lastDropScore.textContent = '0';
       }
 
       const bestNormal = loadJson(`HHA_GJ_BEST:${pid}:normal`, null);
-      document.getElementById('bestNormalScore').textContent = String(bestNormal?.scoreFinal ?? bestNormal?.score ?? 0);
+      setText('bestNormalScore', bestNormal?.scoreFinal ?? bestNormal?.score ?? 0);
 
       const streak = loadJson(`HHA_GJ_STREAK:${pid}`, { count:0 });
-      document.getElementById('streakCount').textContent = String(streak?.count || 0);
+      setText('streakCount', streak?.count || 0);
     }
 
     function loadHydrationProfile(pid){
@@ -725,24 +1185,28 @@
       const hygieneTrophyIcon = document.getElementById('hygieneTrophyIcon');
       const fitnessTrophyIcon = document.getElementById('fitnessTrophyIcon');
 
-      nutriStatus.textContent = nutritionUnlocked ? 'UNLOCKED' : 'LOCKED';
-      hygieneStatus.textContent = hygieneUnlocked ? 'DONE TODAY' : 'LOCKED';
-      fitnessStatus.textContent = fitnessUnlocked ? 'UNLOCKED' : 'LOCKED';
+      if (nutriStatus){
+        nutriStatus.textContent = nutritionUnlocked ? 'UNLOCKED' : 'LOCKED';
+        nutriStatus.className = `statusChip ${nutritionUnlocked ? 'done' : 'locked'}`;
+      }
+      if (hygieneStatus){
+        hygieneStatus.textContent = hygieneUnlocked ? 'DONE TODAY' : 'LOCKED';
+        hygieneStatus.className = `statusChip ${hygieneUnlocked ? 'done' : 'locked'}`;
+      }
+      if (fitnessStatus){
+        fitnessStatus.textContent = fitnessUnlocked ? 'UNLOCKED' : 'LOCKED';
+        fitnessStatus.className = `statusChip ${fitnessUnlocked ? 'done' : 'locked'}`;
+      }
 
-      nutriStatus.className = `statusChip ${nutritionUnlocked ? 'done' : 'locked'}`;
-      hygieneStatus.className = `statusChip ${hygieneUnlocked ? 'done' : 'locked'}`;
-      fitnessStatus.className = `statusChip ${fitnessUnlocked ? 'done' : 'locked'}`;
+      if (nutriTrophyIcon) nutriTrophyIcon.textContent = nutritionUnlocked ? '🏆' : '🥦';
+      if (hygieneTrophyIcon) hygieneTrophyIcon.textContent = hygieneUnlocked ? '🏅' : '🪥';
+      if (fitnessTrophyIcon) fitnessTrophyIcon.textContent = fitnessUnlocked ? '🎖️' : '🏃';
 
-      nutriTrophyIcon.textContent = nutritionUnlocked ? '🏆' : '🥦';
-      hygieneTrophyIcon.textContent = hygieneUnlocked ? '🏅' : '🪥';
-      fitnessTrophyIcon.textContent = fitnessUnlocked ? '🎖️' : '🏃';
+      setText('nutriBestScore', bestNormal?.scoreFinal ?? bestNormal?.score ?? 0);
+      setText('nutriCardTotal', book.total || 0);
+      setText('hygieneZoneDone', hygieneUnlocked ? '1' : '0');
+      setText('fitnessZoneDone', fitnessUnlocked ? '1' : '0');
 
-      document.getElementById('nutriBestScore').textContent = String(bestNormal?.scoreFinal ?? bestNormal?.score ?? 0);
-      document.getElementById('nutriCardTotal').textContent = String(book.total || 0);
-      document.getElementById('hygieneZoneDone').textContent = hygieneUnlocked ? '1' : '0';
-      document.getElementById('fitnessZoneDone').textContent = fitnessUnlocked ? '1' : '0';
-
-      const badgeCount = Object.values(badges || {}).filter(Boolean).length;
       document.getElementById('nutriHint').textContent =
         nutritionUnlocked
           ? `ปลดถ้วยแล้ว • GJ cards ${book.total || 0} • HYD best ${hydProfile?.bestScore || 0}`
@@ -753,9 +1217,8 @@
           ? 'ทำโซน Hygiene สำเร็จวันนี้แล้ว'
           : 'ทำ zone hygiene ให้มี done today เพื่อโชว์ถ้วย';
 
-      document.getElementById('fitnessSBBestBoss').textContent = sbBestBoss || '-';
-      document.getElementById('fitnessSBBestBadge').textContent =
-        sbBestBadge ? `${sbBestBadge.icon || '🏅'} ${sbBestBadge.title || 'Badge'}` : '-';
+      setText('fitnessSBBestBoss', sbBestBoss || '-');
+      setText('fitnessSBBestBadge', sbBestBadge ? `${sbBestBadge.icon || '🏅'} ${sbBestBadge.title || 'Badge'}` : '-');
 
       document.getElementById('fitnessHint').textContent =
         sbBestBoss || sbBestBadge
@@ -876,11 +1339,11 @@
       const lastCard = loadJDLastCard(pid);
       const jd = loadJDProfile(pid);
 
-      document.getElementById('jdBookTotal').textContent = String(book.total || 0);
-      document.getElementById('jdBookS').textContent = String(book.S || 0);
-      document.getElementById('jdBookA').textContent = String(book.A || 0);
-      document.getElementById('jdBookB').textContent = String(book.B || 0);
-      document.getElementById('jdBookC').textContent = String(book.C || 0);
+      setText('jdBookTotal', book.total || 0);
+      setText('jdBookS', book.S || 0);
+      setText('jdBookA', book.A || 0);
+      setText('jdBookB', book.B || 0);
+      setText('jdBookC', book.C || 0);
 
       const icon = document.getElementById('jdLastCardIcon');
       const title = document.getElementById('jdLastCardTitle');
@@ -906,11 +1369,11 @@
       const jd = loadJDProfile(pid);
       const badgeCount = Object.values(jd.badges || {}).filter(Boolean).length;
 
-      document.getElementById('fitnessJDBest').textContent = String(jd.bestScore || 0);
-      document.getElementById('fitnessJDStreak').textContent = String(jd.streak || 0);
-      document.getElementById('fitnessJDBadgeCount').textContent = String(badgeCount);
-      document.getElementById('fitnessJDReward').textContent = String(jd.lastReward?.medal ? `${jd.lastReward.medal} ${jd.lastReward.label}` : '-');
-      document.getElementById('fitnessJDBossBadge').textContent = String(jd.lastBossBadge?.icon ? `${jd.lastBossBadge.icon} ${jd.lastBossBadge.label}` : '-');
+      setText('fitnessJDBest', jd.bestScore || 0);
+      setText('fitnessJDStreak', jd.streak || 0);
+      setText('fitnessJDBadgeCount', badgeCount);
+      setText('fitnessJDReward', jd.lastReward?.medal ? `${jd.lastReward.medal} ${jd.lastReward.label}` : '-');
+      setText('fitnessJDBossBadge', jd.lastBossBadge?.icon ? `${jd.lastBossBadge.icon} ${jd.lastBossBadge.label}` : '-');
 
       const fitnessHint = document.getElementById('fitnessHint');
       if(fitnessHint && (jd.bestScore || 0) > 0){
@@ -942,36 +1405,39 @@
     const btnGJpro = document.getElementById('btnGJpro');
     const btnGJbattle = document.getElementById('btnGJbattle');
 
-    document.getElementById('linkGoodjunk').href  = buildUrl(PATHS.goodjunk,   { mode:'solo' });
-    document.getElementById('linkGroups').href    = buildUrl(PATHS.groups,     { zone:'nutrition' });
-    document.getElementById('linkHydration').href = buildUrl(PATHS.hydration,  { zone:'nutrition' });
-    document.getElementById('linkPlate').href     = buildUrl(PATHS.plate,      { zone:'nutrition' });
+    setHref('linkGoodjunk',  buildUrl(PATHS.goodjunk,   { mode:'solo' }));
+    setHref('linkGroups',    buildUrl(PATHS.groups,     { zone:'nutrition' }));
+    setHref('linkHydration', buildUrl(PATHS.hydration,  { zone:'nutrition' }));
+    setHref('linkPlate',     buildUrl(PATHS.plate,      { zone:'nutrition' }));
 
-    document.getElementById('linkHandwash').href      = buildUrl(PATHS.handwash,      { zone:'hygiene' });
-    document.getElementById('linkBrush').href         = buildUrl(PATHS.brush,         { zone:'hygiene' });
-    document.getElementById('linkBath').href          = buildUrl(PATHS.bath,          { zone:'hygiene' });
-    document.getElementById('linkCleanObject').href   = buildUrl(PATHS.cleanObject,   { zone:'hygiene' });
-    document.getElementById('linkMaskCough').href     = buildUrl(PATHS.maskCough,     { zone:'hygiene' });
-    document.getElementById('linkGermDetective').href = buildUrl(PATHS.germDetective, { zone:'hygiene' });
+    setHref('linkHandwash',      buildUrl(PATHS.handwash,      { zone:'hygiene' }));
+    setHref('linkBrush',         buildUrl(PATHS.brush,         { zone:'hygiene' }));
+    setHref('linkBath',          buildUrl(PATHS.bath,          { zone:'hygiene' }));
+    setHref('linkCleanObject',   buildUrl(PATHS.cleanObject,   { zone:'hygiene' }));
+    setHref('linkMaskCough',     buildUrl(PATHS.maskCough,     { zone:'hygiene' }));
+    setHref('linkGermDetective', buildUrl(PATHS.germDetective, { zone:'hygiene' }));
 
-    document.getElementById('linkShadowBreaker').href  = buildUrl(PATHS.shadowBreaker,  { zone:'fitness' });
-    document.getElementById('linkRhythmBoxer').href    = buildUrl(PATHS.rhythmBoxer,    { zone:'fitness' });
-    document.getElementById('linkJumpDuck').href       = buildUrl(PATHS.jumpDuck,       { zone:'fitness' });
-    document.getElementById('linkBalanceHold').href    = buildUrl(PATHS.balanceHold,    { zone:'fitness' });
-    document.getElementById('linkFitnessPlanner').href = buildUrl(PATHS.fitnessPlanner, { zone:'fitness' });
+    setHref('linkShadowBreaker',  buildUrl(PATHS.shadowBreaker,  { zone:'fitness' }));
+    setHref('linkRhythmBoxer',    buildUrl(PATHS.rhythmBoxer,    { zone:'fitness' }));
+    setHref('linkJumpDuck',       buildUrl(PATHS.jumpDuck,       { zone:'fitness' }));
+    setHref('linkBalanceHold',    buildUrl(PATHS.balanceHold,    { zone:'fitness' }));
+    setHref('linkFitnessPlanner', buildUrl(PATHS.fitnessPlanner, { zone:'fitness' }));
 
-    btnGJsolo.onclick = ()=> location.href = buildUrl(PATHS.goodjunk, { mode:'solo' });
-    btnGJpro.onclick  = ()=> location.href = buildUrl(PATHS.goodjunk, { mode:'solo', diff:'hard', pro:'1', auto:'0' });
-    btnGJbattle.onclick = ()=> {
+    if (btnGJsolo) btnGJsolo.onclick = ()=> location.href = buildUrl(PATHS.goodjunk, { mode:'solo' });
+    if (btnGJpro) btnGJpro.onclick  = ()=> location.href = buildUrl(PATHS.goodjunk, { mode:'solo', diff:'hard', pro:'1', auto:'0' });
+    if (btnGJbattle) btnGJbattle.onclick = ()=> {
       const room = String(qs('room','P5A')) || 'P5A';
       location.href = buildUrl(PATHS.goodjunk, { mode:'battle', room, auto:'1' });
     };
 
-    document.getElementById('btnHeroShow').onclick = ()=>{
+    const btnHeroShow = document.getElementById('btnHeroShow');
+    if (btnHeroShow) btnHeroShow.onclick = ()=>{
       const h = loadHero();
       alert(`HERO\nPID: ${h.pid}\nNick: ${h.nick}\nLV: ${h.lvl}\nXP: ${h.xp}\n\n(localStorage: HHA_PROFILE:${pid})`);
     };
-    document.getElementById('btnHeroReset').onclick = ()=>{
+
+    const btnHeroReset = document.getElementById('btnHeroReset');
+    if (btnHeroReset) btnHeroReset.onclick = ()=>{
       try{
         if(!confirm('Reset Hero ของ PID นี้? (ลบ XP/LV)')) return;
         const h = { pid, nick: pid, xp:0, lvl:1 };
@@ -982,10 +1448,13 @@
       }catch(_){}
     };
 
-    document.getElementById('btnOpenGJLauncher').onclick = ()=>{
+    const btnOpenGJLauncher = document.getElementById('btnOpenGJLauncher');
+    if (btnOpenGJLauncher) btnOpenGJLauncher.onclick = ()=>{
       location.href = buildUrl(PATHS.goodjunk, { mode:'solo' });
     };
-    document.getElementById('btnResetCardBook').onclick = ()=>{
+
+    const btnResetCardBook = document.getElementById('btnResetCardBook');
+    if (btnResetCardBook) btnResetCardBook.onclick = ()=>{
       try{
         if(!confirm('Reset Card Book ของ PID นี้?')) return;
         saveCardBook(pid, { S:0, A:0, B:0, C:0, total:0 });
@@ -997,10 +1466,13 @@
       }catch(_){}
     };
 
-    document.getElementById('btnOpenHydrationLauncher').onclick = ()=>{
+    const btnOpenHydrationLauncher = document.getElementById('btnOpenHydrationLauncher');
+    if (btnOpenHydrationLauncher) btnOpenHydrationLauncher.onclick = ()=>{
       location.href = buildUrl(PATHS.hydration, { zone:'nutrition' });
     };
-    document.getElementById('btnResetHydrationReward').onclick = ()=>{
+
+    const btnResetHydrationReward = document.getElementById('btnResetHydrationReward');
+    if (btnResetHydrationReward) btnResetHydrationReward.onclick = ()=>{
       try{
         if(!confirm('Reset Hydration reward shelf ของ PID นี้?')) return;
 
@@ -1017,14 +1489,20 @@
       }catch(_){}
     };
 
-    document.getElementById('btnOpenJDLauncher').onclick = ()=>{
+    const btnOpenJDLauncher = document.getElementById('btnOpenJDLauncher');
+    if (btnOpenJDLauncher) btnOpenJDLauncher.onclick = ()=>{
       location.href = buildUrl(PATHS.jumpDuck, { zone:'fitness' });
     };
-    document.getElementById('btnOpenJDGallery').onclick = ()=>{
+
+    const btnOpenJDGallery = document.getElementById('btnOpenJDGallery');
+    if (btnOpenJDGallery) btnOpenJDGallery.onclick = ()=>{
       location.href = buildUrl('./jump-duck-gallery.html', { zone:'fitness' });
     };
-    document.getElementById('linkJDGallery').href = buildUrl('./jump-duck-gallery.html', { zone:'fitness' });
-    document.getElementById('btnResetJDCardBook').onclick = ()=>{
+
+    setHref('linkJDGallery', buildUrl('./jump-duck-gallery.html', { zone:'fitness' }));
+
+    const btnResetJDCardBook = document.getElementById('btnResetJDCardBook');
+    if (btnResetJDCardBook) btnResetJDCardBook.onclick = ()=>{
       try{
         if(!confirm('Reset JumpDuck Card Book ของ PID นี้?')) return;
         saveJDCardBook(pid, { S:0, A:0, B:0, C:0, total:0 });
