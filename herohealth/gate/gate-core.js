@@ -1,29 +1,23 @@
 // === /herohealth/gate/gate-core.js ===
 // HeroHealth Gate Core
-// FULL PATCH v20260313d-GATE-CORE-FILES-SCHEMA-FIX
-// ✅ supports gate-games.js schema with files.warmup/files.cooldown/files.style
-// ✅ logger.push safe wrapper
-// ✅ supports phase / gatePhase / mode
-// ✅ warmup -> next(run)
+// FULL PATCH v20260313m-GATE-CORE-COMPAT-MOUNT-API
+// ✅ supports gate-games.js files schema
+// ✅ supports mod.mount(api) and mod.mount(container, ctx, api)
+// ✅ supports mod.loadStyle()
+// ✅ compat api: setStats / logger.push / toast()
+// ✅ warmup -> next
 // ✅ cooldown -> hub
-// ✅ strips gate params before continue
-// ✅ auto inject game style
-// ✅ better error details when module import fails
-// ✅ shared for all zones
 
 import {
   buildCtx,
   getDailyDone,
   setDailyDone,
-  setText,
-  sanitizeBuffs,
   saveLastSummary
 } from './gate-common.js?v=20260313a';
 
 import { mountSummaryLayer, mountToast } from './gate-summary.js?v=20260313a';
 import { createGateLogger } from './gate-logger.js?v=20260313b-GATE-LOGGER-PUSH-FIX';
 import {
-  GATE_GAMES,
   getGameMeta,
   getPhaseFile,
   getGameStyleFile,
@@ -46,11 +40,6 @@ function qs(url, key, fallback = '') {
   }
 }
 
-function qbool(url, key, fallback = false) {
-  const v = String(qs(url, key, fallback ? '1' : '0')).toLowerCase();
-  return ['1', 'true', 'yes', 'y', 'on'].includes(v);
-}
-
 function safeUrl(raw, fallback = '') {
   try {
     if (!raw) return fallback;
@@ -64,10 +53,8 @@ function detectPhase(url) {
   const gatePhase = String(qs(url, 'gatePhase', '')).toLowerCase();
   const phase = String(qs(url, 'phase', '')).toLowerCase();
   const mode = String(qs(url, 'mode', '')).toLowerCase();
-
   const p = gatePhase || phase || mode || 'warmup';
-  if (p === 'cooldown') return 'cooldown';
-  return 'warmup';
+  return p === 'cooldown' ? 'cooldown' : 'warmup';
 }
 
 function titleOf(ctx) {
@@ -83,10 +70,9 @@ function titleOf(ctx) {
 }
 
 function subtitleOf(ctx) {
-  if (ctx.mode === 'cooldown') {
-    return `ผ่อนคลายหลังจบเกม ${ctx.game}`;
-  }
-  return `เตรียมความพร้อมก่อนเข้าเกม ${ctx.game}`;
+  return ctx.mode === 'cooldown'
+    ? `ผ่อนคลายหลังจบเกม ${ctx.game}`
+    : `เตรียมความพร้อมก่อนเข้าเกม ${ctx.game}`;
 }
 
 function getPhaseModulePath(ctx) {
@@ -115,7 +101,6 @@ function ensureGameStyle(game) {
 function stripGateParams(urlLike) {
   try {
     const u = new URL(urlLike, window.location.href);
-
     [
       'gatePhase', 'phase', 'mode',
       'gate', 'gateDone',
@@ -123,7 +108,6 @@ function stripGateParams(urlLike) {
       'warmup', 'cooldownDone',
       'daily', 'gateResult'
     ].forEach(k => u.searchParams.delete(k));
-
     return u.toString();
   } catch {
     return String(urlLike || '');
@@ -211,6 +195,7 @@ function createLiveApi(root, ctx) {
   const elTitle = root.querySelector('#gate-card-title');
   const elSub = root.querySelector('#gate-card-sub');
   const elContinue = root.querySelector('#gate-continue');
+  const elTime = root.querySelector('#gate-time');
 
   let state = {
     score: 0,
@@ -221,6 +206,11 @@ function createLiveApi(root, ctx) {
     passed: false,
     summary: null
   };
+
+  function setTime(v) {
+    const n = Math.max(0, Number(v || 0));
+    if (elTime) elTime.textContent = `${Math.round(n)}s`;
+  }
 
   function setScore(v) {
     state.score = Number(v || 0);
@@ -236,6 +226,10 @@ function createLiveApi(root, ctx) {
     const n = Math.max(0, Math.min(100, Number(v || 0)));
     state.acc = n;
     if (elAcc) elAcc.textContent = `${Math.round(n)}%`;
+  }
+
+  function setAccText(v) {
+    if (elAcc) elAcc.textContent = String(v || '0%');
   }
 
   function setProgress(v) {
@@ -273,9 +267,11 @@ function createLiveApi(root, ctx) {
   }
 
   return {
+    setTime,
     setScore,
     setMiss,
     setAcc,
+    setAccText,
     setProgress,
     setTitle,
     setSub,
@@ -287,7 +283,6 @@ function createLiveApi(root, ctx) {
 export async function bootGate(rootEl) {
   const root = ensureRoot(rootEl);
   const url = new URL(window.location.href);
-
   const phase = detectPhase(url);
 
   const ctx = buildCtx(url);
@@ -305,7 +300,7 @@ export async function bootGate(rootEl) {
   ctx.time = Number(ctx.time || qs(url, 'time', 60) || 60);
   ctx.next = safeUrl(ctx.next || qs(url, 'next', ''), '');
   ctx.runUrl = safeUrl(ctx.runUrl || qs(url, 'runUrl', ''), '');
-  ctx.zone = String(ctx.zone || qs(url, 'zone', ''), '').toLowerCase();
+  ctx.zone = String(ctx.zone || qs(url, 'zone', '')).toLowerCase();
 
   ctx.dailyDone = !!getDailyDone(ctx);
 
@@ -342,10 +337,18 @@ export async function bootGate(rootEl) {
   }
 
   const live = createLiveApi(root, ctx);
-  const toast = mountToast?.(root);
+  const toastUi = mountToast?.(root);
   const summaryLayer = mountSummaryLayer?.(root);
 
   const continueUrl = buildContinueUrl(ctx);
+
+  function showToast(message) {
+    try {
+      if (toastUi && typeof toastUi.show === 'function') {
+        toastUi.show(String(message || ''));
+      }
+    } catch {}
+  }
 
   function goNext() {
     const target = stripGateParams(continueUrl || ctx.hub || './hub.html');
@@ -377,14 +380,15 @@ export async function bootGate(rootEl) {
       keys: Object.keys(mod || {})
     });
 
-    const mountFn =
-      mod.mountGateGame ||
-      mod.mountWarmup ||
-      mod.mountCooldown ||
-      mod.default;
-
-    if (typeof mountFn !== 'function') {
-      throw new Error(`module has no mount function: ${modulePath}`);
+    if (typeof mod.loadStyle === 'function') {
+      try {
+        mod.loadStyle();
+      } catch (e) {
+        safeLog('style-load-error', {
+          modulePath,
+          message: e?.message || String(e)
+        });
+      }
     }
 
     const api = {
@@ -393,10 +397,48 @@ export async function bootGate(rootEl) {
       mount,
       live,
       log: safeLog,
-      toast,
       summaryLayer,
+
+      toast(message) {
+        showToast(message);
+      },
+
+      toastUi,
+
+      logger: {
+        push(type, payload = {}) {
+          return safeLog(type, payload);
+        }
+      },
+
+      setStats(stats = {}) {
+        if (stats.time != null) live.setTime(stats.time);
+        if (stats.score != null) live.setScore(stats.score);
+        if (stats.miss != null) live.setMiss(stats.miss);
+
+        if (stats.acc != null) {
+          if (typeof stats.acc === 'number') {
+            live.setAcc(stats.acc);
+          } else {
+            live.setAccText(stats.acc);
+          }
+        }
+
+        if (stats.progress != null) {
+          if (typeof stats.progress === 'number') {
+            live.setProgress(stats.progress);
+          } else {
+            live.setAccText(stats.progress);
+          }
+        }
+      },
+
       finish(result = {}) {
-        const passed = result.passed !== false;
+        const passed =
+          result.passed != null ? !!result.passed :
+          result.ok != null ? !!result.ok :
+          true;
+
         const summary = {
           ...result,
           passed,
@@ -415,7 +457,7 @@ export async function bootGate(rootEl) {
             game: ctx.game,
             cat: ctx.cat,
             mode: ctx.mode,
-            score: Number(summary.score || 0),
+            score: Number(summary.score || summary.cScore || 0),
             miss: Number(summary.miss || 0),
             acc: Number(summary.acc || summary.progress || 0),
             passed,
@@ -427,7 +469,19 @@ export async function bootGate(rootEl) {
           setDailyDone?.(ctx, true);
         } catch {}
 
-        live.complete(summary);
+        live.complete({
+          score: Number(summary.score || summary.cScore || 0),
+          miss: Number(summary.miss || 0),
+          acc:
+            typeof summary.acc === 'number'
+              ? summary.acc
+              : (typeof summary.progress === 'number' ? summary.progress : 100),
+          progress:
+            typeof summary.progress === 'number'
+              ? summary.progress
+              : (passed ? 100 : 0),
+          passed
+        });
 
         if (summaryLayer && typeof summaryLayer.show === 'function') {
           summaryLayer.show(summary, {
@@ -435,17 +489,30 @@ export async function bootGate(rootEl) {
           });
         }
 
-        if (toast && typeof toast.show === 'function') {
-          toast.show(
-            ctx.mode === 'cooldown'
-              ? 'เสร็จแล้ว กลับไป HUB ได้เลย'
-              : 'พร้อมแล้ว เข้าเกมหลักได้เลย'
-          );
-        }
+        showToast(
+          ctx.mode === 'cooldown'
+            ? 'เสร็จแล้ว กลับไป HUB ได้เลย'
+            : 'พร้อมแล้ว เข้าเกมหลักได้เลย'
+        );
       }
     };
 
-    await mountFn(api);
+    const mountFn =
+      mod.mountGateGame ||
+      mod.mountWarmup ||
+      mod.mountCooldown ||
+      mod.mount ||
+      mod.default;
+
+    if (typeof mountFn !== 'function') {
+      throw new Error(`module has no mount function: ${modulePath}`);
+    }
+
+    if (mod.mount) {
+      await mod.mount(mount, ctx, api);
+    } else {
+      await mountFn(api);
+    }
 
     safeLog('module-mounted', {
       modulePath,
@@ -473,8 +540,6 @@ export async function bootGate(rootEl) {
       `;
     }
 
-    if (toast && typeof toast.show === 'function') {
-      toast.show('มินิเกมโหลดไม่สำเร็จ');
-    }
+    showToast('มินิเกมโหลดไม่สำเร็จ');
   }
 }
