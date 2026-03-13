@@ -1,6 +1,6 @@
 <!-- === /herohealth/vr-groups/groups-race-host.html ===
 Groups Race — Host Quick Launch
-FULL v20260310-GROUPS-RACE-HOST-QUICK
+FULL v20260313-GROUPS-RACE-HOST-MEMORY-r2
 -->
 <!doctype html>
 <html lang="th">
@@ -134,6 +134,12 @@ FULL v20260310-GROUPS-RACE-HOST-QUICK
       font-size:13px;
       line-height:1.45;
     }
+    .status{
+      min-height:20px;
+      color:var(--muted);
+      font-size:13px;
+      font-weight:900;
+    }
   </style>
 </head>
 <body>
@@ -190,8 +196,12 @@ FULL v20260310-GROUPS-RACE-HOST-QUICK
         </div>
       </div>
 
+      <div class="status" id="status"></div>
+
       <div class="row">
         <button id="btnCreate">สร้างห้อง</button>
+        <button class="secondary" id="btnUseLast">ใช้ค่าล่าสุด</button>
+        <button class="secondary" id="btnClearLast">ล้างค่าล่าสุด</button>
         <button class="secondary" id="btnBack">กลับ HUB</button>
       </div>
 
@@ -216,6 +226,7 @@ FULL v20260310-GROUPS-RACE-HOST-QUICK
 
   const qs = new URL(location.href).searchParams;
   const hub = qs.get('hub') || '../hub.html';
+  const MEM_KEY = 'HHA_GROUPS_RACE_HOST_LAST';
 
   const $ = (id)=>document.getElementById(id);
 
@@ -229,20 +240,110 @@ FULL v20260310-GROUPS-RACE-HOST-QUICK
     return 'p' + Math.random().toString(36).slice(2, 8).toUpperCase();
   }
 
+  function loadLast(){
+    try{
+      return JSON.parse(localStorage.getItem(MEM_KEY) || 'null');
+    }catch(_){
+      return null;
+    }
+  }
+
+  function saveLast(v){
+    try{
+      localStorage.setItem(MEM_KEY, JSON.stringify(v));
+    }catch(_){}
+  }
+
+  function clearLast(){
+    try{ localStorage.removeItem(MEM_KEY); }catch(_){}
+  }
+
+  function setStatus(msg){
+    $('status').textContent = msg || '';
+  }
+
+  function fillForm(v){
+    if(!v) return;
+    $('name').value = v.name || '';
+    $('pid').value = v.pid || '';
+    $('diff').value = v.diff || 'normal';
+    $('time').value = String(v.time || '80');
+    $('view').value = v.view || 'mobile';
+    $('seed').value = v.seed || '';
+  }
+
+  function currentForm(){
+    return {
+      name: ($('name').value || 'Host').trim(),
+      pid: ($('pid').value || 'H001').trim(),
+      diff: $('diff').value,
+      time: $('time').value,
+      view: $('view').value,
+      seed: ($('seed').value || '').trim()
+    };
+  }
+
+  function initForm(){
+    const fromQuery = {
+      name: qs.get('name') || '',
+      pid: qs.get('pid') || '',
+      diff: qs.get('diff') || '',
+      time: qs.get('time') || '',
+      view: qs.get('view') || '',
+      seed: qs.get('seed') || ''
+    };
+    const hasQuery = Object.values(fromQuery).some(Boolean);
+    if(hasQuery){
+      fillForm(fromQuery);
+      setStatus('เติมค่าจาก query แล้ว');
+      return;
+    }
+
+    const last = loadLast();
+    if(last){
+      fillForm(last);
+      setStatus('เติมค่าล่าสุดให้อัตโนมัติ');
+      return;
+    }
+
+    $('name').value = 'Host';
+    $('pid').value = 'H001';
+    $('seed').value = nowSeed();
+  }
+
   $('btnBack').addEventListener('click', ()=> location.href = hub);
+
+  $('btnUseLast').addEventListener('click', ()=>{
+    const last = loadLast();
+    if(last){
+      fillForm(last);
+      setStatus('ใช้ค่าล่าสุดแล้ว');
+    }else{
+      setStatus('ยังไม่มีค่าล่าสุด');
+    }
+  });
+
+  $('btnClearLast').addEventListener('click', ()=>{
+    clearLast();
+    setStatus('ล้างค่าล่าสุดแล้ว');
+  });
 
   $('btnCreate').addEventListener('click', ()=>{
     const room = randCode();
-    const name = ($('name').value || 'Host').trim();
-    const pid  = ($('pid').value || 'H001').trim();
-    const diff = $('diff').value;
-    const time = $('time').value;
-    const view = $('view').value;
-    const seed = ($('seed').value || nowSeed()).trim();
+    const form = currentForm();
+    const name = form.name || 'Host';
+    const pid  = form.pid || 'H001';
+    const diff = form.diff;
+    const time = form.time;
+    const view = form.view;
+    const seed = form.seed || nowSeed();
     const playerKey = nowPlayerKey();
+
+    saveLast({ name, pid, diff, time, view, seed });
 
     $('roomBox').hidden = false;
     $('roomCode').textContent = room;
+    setStatus('สร้างห้องแล้ว ✅');
 
     $('btnCopy').onclick = async ()=>{
       try{
@@ -267,6 +368,8 @@ FULL v20260310-GROUPS-RACE-HOST-QUICK
       location.href = u.toString();
     };
   });
+
+  initForm();
 })();
 </script>
 </body>
