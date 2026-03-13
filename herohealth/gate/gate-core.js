@@ -1,12 +1,13 @@
 // === /herohealth/gate/gate-core.js ===
 // HeroHealth Gate Core
-// FULL PATCH v20260313m-GATE-CORE-COMPAT-MOUNT-API
+// FULL PATCH v20260313n-GATE-CORE-COMPAT-NEXT-BTN-FIX
 // ✅ supports gate-games.js files schema
 // ✅ supports mod.mount(api) and mod.mount(container, ctx, api)
 // ✅ supports mod.loadStyle()
 // ✅ compat api: setStats / logger.push / toast()
 // ✅ warmup -> next
 // ✅ cooldown -> hub
+// ✅ fixes summary overlay blocking Continue / Back buttons
 
 import {
   buildCtx,
@@ -180,7 +181,7 @@ function renderShell(root, ctx) {
         <div id="gate-mount"></div>
       </div>
 
-      <div class="gate-actions">
+      <div class="gate-actions" id="gate-actions">
         <button class="gate-btn gate-btn-primary" id="gate-continue" hidden>ไปต่อ</button>
         <a class="gate-btn gate-btn-ghost" id="gate-backhub" href="${esc(safeUrl(ctx.hub, './hub.html'))}">กลับ HUB</a>
       </div>
@@ -258,7 +259,7 @@ function createLiveApi(root, ctx) {
 
     if (elContinue) {
       elContinue.hidden = false;
-      elContinue.textContent = ctx.mode === 'cooldown' ? 'กลับ HUB' : 'เข้าเกมหลัก';
+      elContinue.textContent = ctx.mode === 'cooldown' ? 'กลับ HUB' : 'ไปต่อ';
     }
   }
 
@@ -278,6 +279,49 @@ function createLiveApi(root, ctx) {
     complete,
     getState
   };
+}
+
+function liftActionButtons(root, ctx) {
+  const actions = root.querySelector('#gate-actions');
+  const btnContinue = root.querySelector('#gate-continue');
+  const btnBackHub = root.querySelector('#gate-backhub');
+
+  if (actions) {
+    actions.style.position = 'relative';
+    actions.style.zIndex = '9999';
+    actions.style.pointerEvents = 'auto';
+  }
+
+  if (btnContinue) {
+    btnContinue.hidden = false;
+    btnContinue.textContent = ctx.mode === 'cooldown' ? 'กลับ HUB' : 'ไปต่อ';
+    btnContinue.style.position = 'relative';
+    btnContinue.style.zIndex = '10000';
+    btnContinue.style.pointerEvents = 'auto';
+  }
+
+  if (btnBackHub) {
+    btnBackHub.style.position = 'relative';
+    btnBackHub.style.zIndex = '10000';
+    btnBackHub.style.pointerEvents = 'auto';
+  }
+}
+
+function disableSummaryOverlayHitbox(root) {
+  const selectors = [
+    '.gate-summary-layer',
+    '.gate-summary-overlay',
+    '.summary-layer',
+    '.summary-overlay'
+  ];
+
+  for (const sel of selectors) {
+    const nodes = root.querySelectorAll(sel);
+    nodes.forEach(node => {
+      node.style.pointerEvents = 'none';
+      node.style.zIndex = '1';
+    });
+  }
 }
 
 export async function bootGate(rootEl) {
@@ -489,10 +533,25 @@ export async function bootGate(rootEl) {
           });
         }
 
+        requestAnimationFrame(() => {
+          disableSummaryOverlayHitbox(root);
+          liftActionButtons(root, ctx);
+        });
+
+        setTimeout(() => {
+          disableSummaryOverlayHitbox(root);
+          liftActionButtons(root, ctx);
+        }, 50);
+
+        setTimeout(() => {
+          disableSummaryOverlayHitbox(root);
+          liftActionButtons(root, ctx);
+        }, 180);
+
         showToast(
           ctx.mode === 'cooldown'
             ? 'เสร็จแล้ว กลับไป HUB ได้เลย'
-            : 'พร้อมแล้ว เข้าเกมหลักได้เลย'
+            : 'พร้อมแล้ว ไปต่อได้เลย'
         );
       }
     };
