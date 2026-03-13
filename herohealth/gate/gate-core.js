@@ -1,6 +1,6 @@
 // === /herohealth/gate/gate-core.js ===
 // HeroHealth Gate Core
-// FULL PATCH v20260313r-GATE-CORE-SUMMARY-CALLBACK-FIX
+// FULL PATCH v20260313s-GATE-CORE-GOODJUNK-SUMMARY-FIX
 
 import {
   buildCtx,
@@ -9,7 +9,7 @@ import {
   saveLastSummary
 } from './gate-common.js?v=20260313a';
 
-import { mountSummaryLayer, mountToast } from './gate-summary.js?v=20260313a';
+import { mountSummaryLayer, mountToast } from './gate-summary.js?v=20260313c';
 import { createGateLogger } from './gate-logger.js?v=20260313b-GATE-LOGGER-PUSH-FIX';
 import {
   getGameMeta,
@@ -474,25 +474,29 @@ export async function bootGate(rootEl) {
             game: ctx.game,
             cat: ctx.cat,
             mode: ctx.mode,
-            score: Number(summary.score || summary.cScore || 0),
-            miss: Number(summary.miss || 0),
-            acc: Number(summary.acc || summary.progress || 0),
+            score: Number(summary.score || summary.cScore || summary.metrics?.score || 0),
+            miss: Number(summary.miss || summary.metrics?.miss || 0),
+            acc: Number(summary.acc || summary.progress || summary.metrics?.accuracy || 0),
             passed,
             ts: summary.ts
           });
         } catch {}
 
         try {
-          setDailyDone?.(ctx, true);
+          if (result.markDailyDone !== false) {
+            setDailyDone?.(ctx, true);
+          }
         } catch {}
 
         live.complete({
-          score: Number(summary.score || summary.cScore || 0),
-          miss: Number(summary.miss || 0),
+          score: Number(summary.score || summary.cScore || summary.metrics?.score || 0),
+          miss: Number(summary.miss || summary.metrics?.miss || 0),
           acc:
             typeof summary.acc === 'number'
               ? summary.acc
-              : (typeof summary.progress === 'number' ? summary.progress : 100),
+              : (typeof summary.progress === 'number'
+                  ? summary.progress
+                  : (typeof summary.metrics?.accuracy === 'number' ? summary.metrics.accuracy : 100)),
           progress:
             typeof summary.progress === 'number'
               ? summary.progress
@@ -501,10 +505,15 @@ export async function bootGate(rootEl) {
         });
 
         if (summaryLayer && typeof summaryLayer.show === 'function') {
+          const summaryLines =
+            Array.isArray(summary.lines) ? summary.lines :
+            Array.isArray(summary.detail?.lines) ? summary.detail.lines :
+            [];
+
           summaryLayer.show({
             title: summary.title || (ctx.mode === 'cooldown' ? 'คูลดาวน์เสร็จแล้ว' : 'ผ่าน warmup แล้ว'),
             subtitle: summary.subtitle || 'พร้อมไปต่อ',
-            lines: Array.isArray(summary.lines) ? summary.lines : [],
+            lines: summaryLines,
             onContinue: ctx.mode === 'cooldown' ? goHub : goNext,
             onBack: goHub
           });
