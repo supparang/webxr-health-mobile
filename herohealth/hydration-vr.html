@@ -6,19 +6,29 @@
   <title>HeroHealth — Hydration Launcher</title>
   <meta name="color-scheme" content="dark light" />
   <link rel="icon" href="./favicon.ico" />
+
   <style>
     :root{
-      --bg1:#020617; --bg2:#0b1226;
+      --bg1:#020617;
+      --bg2:#0b1226;
       --panel:rgba(2,6,23,.72);
+      --panel2:rgba(15,23,42,.46);
       --stroke:rgba(148,163,184,.18);
-      --text:#e5e7eb; --muted:#94a3b8;
-      --blue:#3b82f6; --cyan:#22d3ee; --good:#22c55e;
+      --text:#e5e7eb;
+      --muted:#94a3b8;
+      --blue:#3b82f6;
+      --cyan:#22d3ee;
+      --good:#22c55e;
+      --warn:#f59e0b;
+      --violet:#8b5cf6;
       --sat: env(safe-area-inset-top, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
       --sal: env(safe-area-inset-left, 0px);
       --sar: env(safe-area-inset-right, 0px);
     }
+
     *{ box-sizing:border-box; }
+
     html,body{
       margin:0;
       min-height:100%;
@@ -27,85 +37,66 @@
         radial-gradient(1000px 700px at 0% 0%, rgba(59,130,246,.12), transparent 55%),
         linear-gradient(180deg, var(--bg1), var(--bg2));
       color:var(--text);
-      font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Thai",sans-serif;
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", sans-serif;
     }
+
     .wrap{
-      max-width:860px;
-      margin:0 auto;
+      max-width: 980px;
+      margin: 0 auto;
       padding:
         calc(16px + var(--sat))
         calc(16px + var(--sar))
         calc(22px + var(--sab))
         calc(16px + var(--sal));
     }
-    .card{
+
+    .shell{
+      display:grid;
+      gap:14px;
+    }
+
+    .hero{
       border:1px solid var(--stroke);
       background:var(--panel);
       backdrop-filter:blur(12px);
       border-radius:24px;
       box-shadow:0 24px 80px rgba(0,0,0,.35);
-      padding:18px;
+      overflow:hidden;
     }
-    .hero{
+
+    .heroGrid{
       display:grid;
-      grid-template-columns: 1.2fr .8fr;
+      grid-template-columns: 1.15fr .85fr;
       gap:14px;
+      padding:18px;
       align-items:stretch;
     }
-    @media (max-width: 820px){
-      .hero{ grid-template-columns:1fr; }
+
+    @media (max-width: 860px){
+      .heroGrid{ grid-template-columns:1fr; }
     }
+
     .title{
-      font-size:clamp(28px, 5vw, 42px);
+      font-size:clamp(30px, 5vw, 46px);
       line-height:1;
       font-weight:1100;
       margin:0 0 8px 0;
     }
+
     .sub{
       color:var(--muted);
       font-weight:900;
-      line-height:1.55;
+      line-height:1.6;
       font-size:14px;
     }
-    .panel{
-      border:1px solid rgba(148,163,184,.16);
-      background:rgba(15,23,42,.46);
-      border-radius:20px;
-      padding:14px;
-    }
-    .grid{
-      display:grid;
-      grid-template-columns:repeat(2,minmax(0,1fr));
-      gap:12px;
-      margin-top:12px;
-    }
-    @media (max-width: 640px){
-      .grid{ grid-template-columns:1fr; }
-    }
-    label{
-      display:block;
-      font-size:12px;
-      color:var(--muted);
-      font-weight:1000;
-      margin-bottom:6px;
-    }
-    select,input{
-      width:100%;
-      min-height:46px;
-      border-radius:14px;
-      border:1px solid rgba(148,163,184,.18);
-      background:rgba(2,6,23,.70);
-      color:var(--text);
-      padding:10px 12px;
-      font:inherit;
-      font-weight:900;
-    }
-    .chips{
+
+    .miniRow{
       display:flex;
-      flex-wrap:wrap;
       gap:8px;
+      flex-wrap:wrap;
       margin-top:12px;
     }
+
     .chip{
       display:inline-flex;
       align-items:center;
@@ -114,71 +105,298 @@
       border-radius:999px;
       border:1px solid rgba(148,163,184,.16);
       background:rgba(2,6,23,.34);
+      color:var(--muted);
       font-size:12px;
       font-weight:1000;
-      color:var(--muted);
+      white-space:nowrap;
     }
+
+    .chip b{ color:var(--text); }
+
+    .previewCard{
+      min-height:260px;
+      border-radius:22px;
+      border:1px solid rgba(148,163,184,.16);
+      background:
+        radial-gradient(720px 280px at 50% 0%, rgba(34,211,238,.14), transparent 60%),
+        radial-gradient(420px 180px at 50% 100%, rgba(59,130,246,.12), transparent 60%),
+        var(--panel2);
+      display:grid;
+      place-items:center;
+      text-align:center;
+      padding:18px;
+      box-shadow:0 18px 55px rgba(0,0,0,.25);
+    }
+
+    .previewEmoji{
+      font-size:84px;
+      line-height:1;
+    }
+
+    .previewTitle{
+      margin-top:12px;
+      font-size:22px;
+      font-weight:1100;
+    }
+
+    .previewSub{
+      margin-top:8px;
+      color:var(--muted);
+      font-size:13px;
+      font-weight:900;
+      line-height:1.55;
+    }
+
+    .statusGrid{
+      display:grid;
+      grid-template-columns: repeat(3, minmax(0,1fr));
+      gap:12px;
+    }
+
+    @media (max-width: 860px){
+      .statusGrid{ grid-template-columns:1fr; }
+    }
+
+    .statusCard,
+    .formCard,
+    .guideCard{
+      border:1px solid var(--stroke);
+      background:var(--panel);
+      backdrop-filter:blur(12px);
+      border-radius:22px;
+      box-shadow:0 18px 55px rgba(0,0,0,.25);
+      padding:14px;
+    }
+
+    .cardTitle{
+      margin:0 0 10px 0;
+      font-size:16px;
+      font-weight:1100;
+      display:flex;
+      align-items:center;
+      gap:10px;
+    }
+
+    .cardSub{
+      color:var(--muted);
+      font-size:12px;
+      font-weight:900;
+      line-height:1.55;
+    }
+
+    .bigStatus{
+      margin-top:8px;
+      font-size:24px;
+      font-weight:1100;
+      line-height:1.15;
+    }
+
+    .statusHint{
+      margin-top:8px;
+      color:var(--muted);
+      font-size:12px;
+      font-weight:900;
+      line-height:1.5;
+    }
+
+    .formGrid{
+      display:grid;
+      grid-template-columns: repeat(2, minmax(0,1fr));
+      gap:12px;
+      margin-top:12px;
+    }
+
+    @media (max-width: 700px){
+      .formGrid{ grid-template-columns:1fr; }
+    }
+
+    label{
+      display:block;
+      margin-bottom:6px;
+      color:var(--muted);
+      font-size:12px;
+      font-weight:1000;
+    }
+
+    input, select{
+      width:100%;
+      min-height:48px;
+      border-radius:16px;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(2,6,23,.68);
+      color:var(--text);
+      padding:10px 12px;
+      font:inherit;
+      font-weight:900;
+      outline:none;
+    }
+
+    input:focus, select:focus{
+      border-color:rgba(34,211,238,.4);
+      box-shadow:0 0 0 3px rgba(34,211,238,.12);
+    }
+
     .actions{
       display:flex;
       gap:10px;
       flex-wrap:wrap;
       margin-top:16px;
     }
+
     .btn{
       cursor:pointer;
-      min-height:48px;
+      min-height:50px;
       border-radius:16px;
       border:1px solid rgba(148,163,184,.20);
       background:rgba(148,163,184,.10);
       color:var(--text);
       padding:12px 14px;
-      font-weight:1100;
       font:inherit;
+      font-weight:1100;
+      box-shadow:0 10px 22px rgba(0,0,0,.18);
     }
-    .btn.primary{ background:rgba(34,211,238,.18); border-color:rgba(34,211,238,.28); }
-    .btn.good{ background:rgba(34,197,94,.16); border-color:rgba(34,197,94,.26); }
-    .hint{
+
+    .btn.primary{
+      background:rgba(34,211,238,.18);
+      border-color:rgba(34,211,238,.28);
+    }
+
+    .btn.good{
+      background:rgba(34,197,94,.16);
+      border-color:rgba(34,197,94,.26);
+    }
+
+    .btn.violet{
+      background:rgba(139,92,246,.16);
+      border-color:rgba(139,92,246,.28);
+    }
+
+    .btn.warn{
+      background:rgba(245,158,11,.14);
+      border-color:rgba(245,158,11,.28);
+    }
+
+    .note{
       margin-top:12px;
+      color:var(--muted);
+      font-size:12px;
+      font-weight:900;
+      line-height:1.55;
+    }
+
+    .steps{
+      display:grid;
+      gap:10px;
+      margin-top:10px;
+    }
+
+    .step{
+      border:1px solid rgba(148,163,184,.14);
+      background:rgba(2,6,23,.28);
+      border-radius:16px;
+      padding:12px;
+    }
+
+    .step b{
+      display:block;
+      margin-bottom:4px;
+      font-size:13px;
+    }
+
+    .step span{
       color:var(--muted);
       font-size:12px;
       font-weight:900;
       line-height:1.5;
     }
-    .bigIcon{
-      display:grid;
-      place-items:center;
-      min-height:220px;
-      border-radius:22px;
-      border:1px solid rgba(148,163,184,.16);
-      background:
-        radial-gradient(700px 280px at 50% 0%, rgba(34,211,238,.14), transparent 60%),
-        rgba(15,23,42,.46);
-      font-size:84px;
-    }
-    .mini{
-      margin-top:12px;
-      font-size:13px;
-      font-weight:900;
-      color:var(--muted);
-      line-height:1.55;
+
+    .ctx{
+      margin-top:10px;
+      font:12px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      color:#cbd5e1;
+      white-space:pre-wrap;
+      word-break:break-word;
+      border:1px solid rgba(148,163,184,.14);
+      background:rgba(2,6,23,.28);
+      border-radius:14px;
+      padding:10px 12px;
     }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <div class="card hero">
-      <div>
-        <h1 class="title">💧 Hydration VR</h1>
-        <div class="sub">
-          เก็บน้ำ • หลบของไม่ดี • ใช้โล่กันฟ้าผ่า • ผ่าน Storm → Boss → Final
+    <div class="shell">
+
+      <section class="hero">
+        <div class="heroGrid">
+          <div>
+            <h1 class="title">💧 Hydration VR</h1>
+            <div class="sub">
+              เก็บน้ำดี ๆ • หลีกเลี่ยงของไม่ดี • หาโล่ไว้กันฟ้าผ่า • ผ่าน Storm → Boss → Final
+            </div>
+
+            <div class="miniRow">
+              <span class="chip">🌩️ Storm</span>
+              <span class="chip">🛡️ Shield</span>
+              <span class="chip">🔥 Fever</span>
+              <span class="chip">⭐ Mission</span>
+            </div>
+
+            <div class="miniRow" style="margin-top:10px;">
+              <span class="chip">👤 PID: <b id="uiPidPreview">anon</b></span>
+              <span class="chip">🖥 View: <b id="uiViewPreview">mobile</b></span>
+              <span class="chip">🎯 Difficulty: <b id="uiDiffPreview">normal</b></span>
+              <span class="chip">⏱ Time: <b id="uiTimePreview">80</b>s</span>
+            </div>
+          </div>
+
+          <div class="previewCard">
+            <div>
+              <div class="previewEmoji">💧⚡</div>
+              <div class="previewTitle" id="previewTitle">พร้อมเริ่มภารกิจดื่มน้ำ</div>
+              <div class="previewSub" id="previewSub">
+                ถ้าวันนี้วอร์มอัปแล้ว ระบบจะพาเข้าเกมเลย
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="statusGrid">
+        <div class="statusCard">
+          <h2 class="cardTitle">🏃 วอร์มอัปวันนี้</h2>
+          <div class="cardSub">ทำได้วันละ 1 ครั้งต่อเกม</div>
+          <div class="bigStatus" id="uiWarmupToday">—</div>
+          <div class="statusHint">ถ้าทำแล้ว รอบถัดไปจะเข้าเกมเลย</div>
         </div>
 
-        <div class="grid">
-          <div class="panel">
+        <div class="statusCard">
+          <h2 class="cardTitle">🌙 คูลดาวน์วันนี้</h2>
+          <div class="cardSub">ทำได้วันละ 1 ครั้งต่อเกม</div>
+          <div class="bigStatus" id="uiCooldownToday">—</div>
+          <div class="statusHint">ถ้าทำแล้ว หลังจบเกมจะกลับหน้าหลักได้เลย</div>
+        </div>
+
+        <div class="statusCard">
+          <h2 class="cardTitle">➡️ รอบนี้ระบบจะพาไป</h2>
+          <div class="cardSub">ระบบเลือกให้อัตโนมัติตามสถานะของวันนี้</div>
+          <div class="bigStatus" id="uiFlowPlan">—</div>
+          <div class="statusHint" id="launchHint">—</div>
+        </div>
+      </section>
+
+      <section class="formCard">
+        <h2 class="cardTitle">🎮 ตั้งค่าก่อนเข้าเล่น</h2>
+        <div class="cardSub">เลือกค่าให้เหมาะกับเด็กหรือรอบทดลองเล่น</div>
+
+        <div class="formGrid">
+          <div>
             <label for="pid">PID</label>
             <input id="pid" type="text" value="anon" />
+          </div>
 
-            <label for="view" style="margin-top:10px;">View</label>
+          <div>
+            <label for="view">รูปแบบการเล่น</label>
             <select id="view">
               <option value="mobile">Mobile</option>
               <option value="pc">PC</option>
@@ -186,15 +404,17 @@
             </select>
           </div>
 
-          <div class="panel">
-            <label for="diff">Difficulty</label>
+          <div>
+            <label for="diff">ระดับความยาก</label>
             <select id="diff">
               <option value="easy">Easy</option>
               <option value="normal" selected>Normal</option>
               <option value="hard">Hard</option>
             </select>
+          </div>
 
-            <label for="time" style="margin-top:10px;">Time (sec)</label>
+          <div>
+            <label for="time">เวลาเล่น (วินาที)</label>
             <select id="time">
               <option value="60">60</option>
               <option value="80" selected>80</option>
@@ -203,29 +423,38 @@
           </div>
         </div>
 
-        <div class="chips">
-          <span class="chip">🌩️ Storm Boss</span>
-          <span class="chip">🛡️ Shield + Safe Zone</span>
-          <span class="chip">🔥 Fever</span>
-          <span class="chip">⭐ Missions</span>
-        </div>
-
         <div class="actions">
-          <button class="btn primary" id="btnStartFlow" type="button">▶ Start Flow</button>
-          <button class="btn" id="btnDirectRun" type="button">🎮 Run ตรง</button>
-          <button class="btn" id="btnRecoveryRun" type="button">🩹 Recovery Run</button>
-          <button class="btn good" id="btnBackHub" type="button">🏠 Back HUB</button>
+          <button class="btn primary" id="btnStartFlow" type="button">▶ เริ่มเล่น</button>
+          <button class="btn violet" id="btnDirectRun" type="button">🎮 เข้าเกมตรง</button>
+          <button class="btn warn" id="btnRecoveryRun" type="button">🩹 Recovery Run</button>
+          <button class="btn good" id="btnBackHub" type="button">🏠 กลับหน้าหลัก</button>
         </div>
 
-        <div class="hint">
-          ถ้าวันนี้ทำ warmup ไปแล้ว ระบบจะข้าม warmup ให้อัตโนมัติ
+        <div class="note">
+          กด <b>เริ่มเล่น</b> ระบบจะเช็กให้อัตโนมัติว่า วันนี้ต้องไปวอร์มอัปก่อน หรือเข้าเกมได้เลย
         </div>
-      </div>
+      </section>
 
-      <div>
-        <div class="bigIcon">💧⚡</div>
-        <div class="mini" id="ctxPreview">—</div>
-      </div>
+      <section class="guideCard">
+        <h2 class="cardTitle">🧭 Flow ของเกมนี้</h2>
+        <div class="steps">
+          <div class="step">
+            <b>Step 1 — วอร์มอัป</b>
+            <span>ถ้าวันนี้ยังไม่ได้วอร์มอัป ระบบจะพาไป warmup gate ก่อน</span>
+          </div>
+          <div class="step">
+            <b>Step 2 — เล่นเกมหลัก</b>
+            <span>เข้า run game ที่ <code>/herohealth/hydration-vr/hydration-vr.html</code></span>
+          </div>
+          <div class="step">
+            <b>Step 3 — ผ่อนคลายหลังเล่น</b>
+            <span>ถ้าวันนี้ยังไม่ได้ cooldown ระบบจะพาไป cooldown gate หลัง summary</span>
+          </div>
+        </div>
+
+        <div class="ctx" id="ctxPreview">—</div>
+      </section>
+
     </div>
   </div>
 
@@ -237,15 +466,18 @@
       v = String(v || 'mobile').toLowerCase();
       return ['mobile','pc','cvr'].includes(v) ? v : 'mobile';
     }
+
     function normDiff(v){
       v = String(v || 'normal').toLowerCase();
       return ['easy','normal','hard'].includes(v) ? v : 'normal';
     }
+
     function normTime(v){
       v = Number(v);
       if(!Number.isFinite(v)) return 80;
       return Math.max(20, Math.min(300, Math.round(v)));
     }
+
     function ensureSeed(v){
       return String(v || ((Date.now() ^ (Math.random()*1e9))|0));
     }
@@ -267,11 +499,45 @@
       }
     }
 
+    function childYesNo(done){
+      return done ? 'เสร็จแล้ว ✅' : 'ยังไม่ได้ ✨';
+    }
+
+    function flowPlanText(warmupDone){
+      return warmupDone ? 'เข้าเกมเลย 🎮' : 'ไปวอร์มอัปก่อน 🏃';
+    }
+
     const pidEl   = document.getElementById('pid');
     const viewEl  = document.getElementById('view');
     const diffEl  = document.getElementById('diff');
     const timeEl  = document.getElementById('time');
+
+    const uiPidPreview = document.getElementById('uiPidPreview');
+    const uiViewPreview = document.getElementById('uiViewPreview');
+    const uiDiffPreview = document.getElementById('uiDiffPreview');
+    const uiTimePreview = document.getElementById('uiTimePreview');
+
+    const uiWarmupToday = document.getElementById('uiWarmupToday');
+    const uiCooldownToday = document.getElementById('uiCooldownToday');
+    const uiFlowPlan = document.getElementById('uiFlowPlan');
+    const launchHint = document.getElementById('launchHint');
+    const previewTitle = document.getElementById('previewTitle');
+    const previewSub = document.getElementById('previewSub');
     const ctxPrev = document.getElementById('ctxPreview');
+
+    const pidQ   = String(qs('pid','anon')).trim() || 'anon';
+    const viewQ  = normView(qs('view','mobile'));
+    const diffQ  = normDiff(qs('diff','normal'));
+    const timeQ  = String(normTime(qs('time','80')));
+    const runQ   = String(qs('run','play')).toLowerCase() || 'play';
+    const hubQ   = String(qs('hub','./hub.html'));
+    const zoneQ  = String(qs('zone','nutrition'));
+    const catQ   = String(qs('cat', zoneQ || 'nutrition'));
+
+    pidEl.value = pidQ;
+    viewEl.value = viewQ;
+    diffEl.value = diffQ;
+    if(['60','80','100'].includes(timeQ)) timeEl.value = timeQ;
 
     function savePrefs(){
       try{
@@ -283,31 +549,18 @@
         }));
       }catch(e){}
     }
+
     function loadPrefs(){
       try{
         const raw = localStorage.getItem(HYD_LAUNCH_PREFS_KEY);
         if(!raw) return;
         const j = JSON.parse(raw);
-        if(j.pid) pidEl.value = j.pid;
-        if(j.view) viewEl.value = j.view;
-        if(j.diff) diffEl.value = j.diff;
-        if(j.time) timeEl.value = j.time;
+        if(j.pid && !qs('pid','')) pidEl.value = j.pid;
+        if(j.view && !qs('view','')) viewEl.value = j.view;
+        if(j.diff && !qs('diff','')) diffEl.value = j.diff;
+        if(j.time && !qs('time','')) timeEl.value = j.time;
       }catch(e){}
     }
-
-    const pidQ   = String(qs('pid','anon')).trim() || 'anon';
-    const viewQ  = normView(qs('view','mobile'));
-    const diffQ  = normDiff(qs('diff','normal'));
-    const timeQ  = String(normTime(qs('time','80')));
-    const runQ   = String(qs('run','play')).toLowerCase();
-    const hubQ   = String(qs('hub','./hub.html'));
-    const zoneQ  = String(qs('zone','nutrition'));
-    const catQ   = String(qs('cat','nutrition'));
-
-    pidEl.value = pidQ;
-    viewEl.value = viewQ;
-    diffEl.value = diffQ;
-    if(['60','80','100'].includes(timeQ)) timeEl.value = timeQ;
 
     loadPrefs();
 
@@ -367,13 +620,68 @@
     }
 
     function refreshPreview(){
-      ctxPrev.textContent =
-        `PID=${pidEl.value || 'anon'} • view=${viewEl.value} • diff=${diffEl.value} • time=${timeEl.value}s • run=${runQ}`;
+      const pid = String(pidEl.value || 'anon').trim() || 'anon';
+      const view = normView(viewEl.value || 'mobile');
+      const diff = normDiff(diffEl.value || 'normal');
+      const time = String(normTime(timeEl.value || '80'));
+
+      uiPidPreview.textContent = pid;
+      uiViewPreview.textContent = view;
+      uiDiffPreview.textContent = diff;
+      uiTimePreview.textContent = time;
+
+      ctxPrev.textContent = JSON.stringify({
+        pid,
+        view,
+        diff,
+        time,
+        run: runQ,
+        zone: zoneQ,
+        cat: catQ,
+        hub: hubQ,
+        nextRun: buildRunUrl()
+      }, null, 2);
+    }
+
+    function refreshGateStatus(){
+      const pid = String(pidEl.value || 'anon').trim() || 'anon';
+      const cat = String(catQ || 'nutrition');
+      const game = 'hydration';
+
+      const warmupDone = isGateDone('warmup', cat, game, pid);
+      const cooldownDone = isGateDone('cooldown', cat, game, pid);
+
+      uiWarmupToday.textContent = childYesNo(warmupDone);
+      uiCooldownToday.textContent = childYesNo(cooldownDone);
+      uiFlowPlan.textContent = flowPlanText(warmupDone);
+
+      if (warmupDone){
+        launchHint.textContent = 'วันนี้วอร์มอัปแล้ว รอบนี้เข้าเกมได้เลย';
+        previewTitle.textContent = 'พร้อมเข้าเกมหลัก';
+        previewSub.textContent = 'ระบบจะพาเข้า run game ทันที';
+      } else {
+        launchHint.textContent = 'รอบนี้จะพาไปวอร์มอัปก่อนเข้าเกม';
+        previewTitle.textContent = 'เริ่มจากวอร์มอัปก่อน';
+        previewSub.textContent = 'แตะหยดน้ำสั้น ๆ แล้วค่อยเข้าเล่น';
+      }
     }
 
     refreshPreview();
-    [pidEl, viewEl, diffEl, timeEl].forEach(el=> el.addEventListener('input', refreshPreview));
-    [viewEl, diffEl, timeEl].forEach(el=> el.addEventListener('change', refreshPreview));
+    refreshGateStatus();
+
+    [pidEl, viewEl, diffEl, timeEl].forEach(el=>{
+      el.addEventListener('input', ()=>{
+        refreshPreview();
+        refreshGateStatus();
+      });
+    });
+
+    [viewEl, diffEl, timeEl].forEach(el=>{
+      el.addEventListener('change', ()=>{
+        refreshPreview();
+        refreshGateStatus();
+      });
+    });
 
     document.getElementById('btnStartFlow').onclick = ()=>{
       savePrefs();
@@ -388,11 +696,14 @@
         const runUrl = new URL(buildRunUrl());
         runUrl.searchParams.set('gate', '1');
         runUrl.searchParams.set('warmupSkipped', '1');
+        runUrl.searchParams.set('childFlow', 'play_now');
         location.href = runUrl.toString();
         return;
       }
 
-      location.href = buildWarmupUrl();
+      const warmupUrl = new URL(buildWarmupUrl());
+      warmupUrl.searchParams.set('childFlow', 'warmup_first');
+      location.href = warmupUrl.toString();
     };
 
     document.getElementById('btnDirectRun').onclick = ()=>{
