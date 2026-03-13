@@ -299,7 +299,7 @@
 
     .hitline{
       position:absolute;
-      left:180px;
+      left:144px;
       top:0;
       bottom:0;
       width:2px;
@@ -316,7 +316,7 @@
 
     .avatar{
       position:absolute;
-      left:18%;
+      left:14%;
       bottom:86px;
       width:110px;
       height:150px;
@@ -759,12 +759,372 @@
         transform:translateY(0);
       }
     }
+
+    /* ===== JumpDuck MOBILE LAYOUT FIX PATCH ===== */
+    @media (max-width: 768px){
+      .card{
+        padding:12px;
+        border-radius:18px;
+      }
+
+      .hud{
+        grid-template-columns: repeat(2, minmax(0,1fr));
+        gap:8px;
+        margin:10px 0;
+      }
+
+      .hud-mini{
+        grid-template-columns: repeat(2, minmax(0,1fr));
+        gap:8px;
+      }
+
+      .hudCard{
+        padding:10px;
+        border-radius:14px;
+      }
+
+      .hudCard.mini{
+        min-height:68px;
+      }
+
+      .hudV{
+        font-size:17px;
+      }
+
+      .miniV{
+        font-size:15px;
+      }
+
+      .barWrap{
+        gap:8px;
+        margin:8px 0 10px;
+      }
+
+      .barLine{
+        grid-template-columns:72px 1fr 58px;
+        gap:8px;
+      }
+
+      .play{
+        min-height:560px;
+        border-radius:22px;
+      }
+
+      .arena{
+        height:560px;
+      }
+
+      .ground{
+        bottom:112px;
+      }
+
+      .hitline{
+        left:112px !important;
+        width:2px;
+        box-shadow:
+          0 0 0 6px rgba(34,211,238,.08),
+          0 0 18px rgba(34,211,238,.16);
+      }
+
+      .avatar{
+        left:12% !important;
+        bottom:112px;
+        width:96px;
+        height:138px;
+      }
+
+      .avatar-body{
+        width:60px;
+        height:118px;
+      }
+
+      .avatar-head{
+        width:24px;
+        height:24px;
+      }
+
+      .avatar-torso{
+        top:24px;
+        width:24px;
+        height:38px;
+      }
+
+      .avatar-arm{
+        top:30px;
+        height:30px;
+      }
+
+      .avatar-leg{
+        top:60px;
+        height:42px;
+      }
+
+      .avatar.avatar-jump .avatar-body{
+        transform:translateX(-50%) translateY(-34px);
+      }
+
+      .avatar.avatar-duck .avatar-body{
+        transform:translateX(-50%) translateY(16px) scaleY(.92);
+      }
+
+      .rushBanner{
+        top:10px;
+      }
+
+      .rushBanner .rushText{
+        padding:8px 12px;
+        font-size:14px;
+      }
+
+      .judge{
+        top:58px;
+        font-size:18px;
+        padding:8px 12px;
+      }
+
+      .teleBox{
+        font-size:18px;
+        padding:12px 16px;
+      }
+
+      .actions{
+        gap:12px;
+        margin-top:12px;
+      }
+
+      .actions .btn{
+        min-height:56px;
+        font-size:18px;
+        border-radius:18px;
+      }
+
+      .resultHero{
+        grid-template-columns:1fr;
+        gap:12px;
+      }
+
+      .resultHighlights{
+        grid-template-columns:repeat(2,minmax(0,1fr));
+        gap:8px;
+      }
+
+      .highlightV{
+        font-size:22px;
+      }
+
+      .resultGrid{
+        grid-template-columns:1fr;
+        gap:8px;
+      }
+    }
+
+    @media (max-width: 420px){
+      .play{
+        min-height:540px;
+      }
+
+      .arena{
+        height:540px;
+      }
+
+      .hitline{
+        left:100px !important;
+      }
+
+      .avatar{
+        left:11% !important;
+        width:88px;
+        height:128px;
+      }
+    }
+
+    /* ===== JumpDuck COMPACT MOBILE HUD PATCH ===== */
+    @media (max-width: 768px){
+      #view-play.card{
+        padding:10px;
+      }
+
+      #view-play .top{
+        margin-bottom:8px;
+        gap:8px;
+      }
+
+      #view-play .title{
+        font-size:20px;
+        line-height:1.15;
+      }
+
+      #view-play .sub{
+        font-size:11px;
+        line-height:1.25;
+      }
+
+      #view-play .top .btn{
+        min-height:40px;
+        padding:8px 10px;
+        border-radius:14px;
+        font-size:14px;
+      }
+
+      .hud{
+        gap:6px;
+        margin:8px 0;
+      }
+
+      .hudCard{
+        padding:8px 9px;
+        border-radius:12px;
+      }
+
+      .hudK{
+        font-size:10px;
+        line-height:1.1;
+      }
+
+      .hudV{
+        margin-top:3px;
+        font-size:15px;
+        line-height:1.1;
+      }
+
+      .hud-mini{
+        gap:6px;
+        margin-top:6px;
+      }
+
+      .hudCard.mini{
+        min-height:56px;
+        padding:7px 8px;
+      }
+
+      .miniV{
+        font-size:13px;
+        line-height:1.15;
+      }
+
+      .hud-mini .hudCard.accent-violet{
+        display:none;
+      }
+
+      .hud-mini{
+        grid-template-columns: repeat(3, minmax(0,1fr));
+      }
+
+      .barWrap{
+        gap:6px;
+        margin:6px 0 8px;
+      }
+
+      .barLine{
+        grid-template-columns:58px 1fr 52px;
+        gap:6px;
+      }
+
+      .barTrack{
+        height:10px;
+      }
+
+      .barTxt{
+        font-size:11px;
+      }
+
+      .bossWrap{
+        margin:6px 0 8px;
+        padding:8px 10px;
+        border-radius:14px;
+      }
+
+      .play{
+        min-height:590px;
+      }
+
+      .arena{
+        height:590px;
+      }
+
+      .ground{
+        bottom:118px;
+      }
+
+      .avatar{
+        bottom:118px;
+      }
+
+      .actions{
+        gap:10px;
+        margin-top:10px;
+      }
+
+      .actions .btn{
+        min-height:52px;
+        font-size:17px;
+        padding:10px 12px;
+      }
+    }
+
+    @media (max-width: 420px){
+      #view-play .title{
+        font-size:18px;
+      }
+
+      #view-play .sub{
+        font-size:10px;
+      }
+
+      .hudV{
+        font-size:14px;
+      }
+
+      .miniV{
+        font-size:12px;
+      }
+
+      .play{
+        min-height:575px;
+      }
+
+      .arena{
+        height:575px;
+      }
+
+      .ground{
+        bottom:116px;
+      }
+
+      .avatar{
+        bottom:116px;
+      }
+
+      .actions .btn{
+        min-height:50px;
+        font-size:16px;
+      }
+    }
+
+    @media (max-width: 768px){
+      .hud-rule-desktop{
+        display:none !important;
+      }
+
+      #hud-mode,
+      #hud-diff{
+        font-size:13px;
+      }
+
+      #view-play .hud:first-of-type .hudCard:nth-child(1),
+      #view-play .hud:first-of-type .hudCard:nth-child(2){
+        display:none;
+      }
+
+      #view-play .hud:first-of-type{
+        grid-template-columns: repeat(3, minmax(0,1fr));
+      }
+    }
   </style>
 </head>
 <body>
   <div class="app">
 
-    <!-- MENU -->
     <section id="view-menu" class="card">
       <div class="top">
         <div>
@@ -831,7 +1191,6 @@
       </div>
     </section>
 
-    <!-- PLAY -->
     <section id="view-play" class="card hidden">
       <div class="top">
         <div>
@@ -867,13 +1226,18 @@
         </div>
 
         <div class="hudCard mini accent-red">
-          <div class="hudK">Boss</div>
-          <div class="hudV miniV" id="hud-boss-label">—</div>
+          <div class="hudK">Boss / Rule</div>
+          <div class="hudV miniV" id="hud-boss-compact">—</div>
         </div>
 
-        <div class="hudCard mini accent-violet">
+        <div class="hudCard mini accent-violet hud-rule-desktop">
           <div class="hudK">Rule</div>
           <div class="hudV miniV" id="hud-boss-status">—</div>
+        </div>
+
+        <div class="hudCard mini accent-red hidden">
+          <div class="hudK">Boss</div>
+          <div class="hudV miniV" id="hud-boss-label">—</div>
         </div>
       </div>
 
@@ -941,7 +1305,6 @@
       </div>
     </section>
 
-    <!-- RESULT -->
     <section id="view-result" class="card hidden">
       <div class="top">
         <div>
