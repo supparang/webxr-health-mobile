@@ -206,21 +206,10 @@
       line-height:1.2;
     }
 
-    .accent-cyan{
-      box-shadow: inset 0 0 0 1px rgba(34,211,238,.12);
-    }
-
-    .accent-warn{
-      box-shadow: inset 0 0 0 1px rgba(245,158,11,.12);
-    }
-
-    .accent-red{
-      box-shadow: inset 0 0 0 1px rgba(239,68,68,.12);
-    }
-
-    .accent-violet{
-      box-shadow: inset 0 0 0 1px rgba(167,139,250,.12);
-    }
+    .accent-cyan{ box-shadow: inset 0 0 0 1px rgba(34,211,238,.12); }
+    .accent-warn{ box-shadow: inset 0 0 0 1px rgba(245,158,11,.12); }
+    .accent-red{ box-shadow: inset 0 0 0 1px rgba(239,68,68,.12); }
+    .accent-violet{ box-shadow: inset 0 0 0 1px rgba(167,139,250,.12); }
 
     .barWrap{
       display:grid;
@@ -442,9 +431,7 @@
       transition:opacity .15s ease;
     }
 
-    .tele.on{
-      opacity:1;
-    }
+    .tele.on{ opacity:1; }
 
     .teleBox{
       padding:14px 18px;
@@ -760,66 +747,127 @@
       }
     }
 
-    /* ===== JumpDuck MOBILE LAYOUT FIX PATCH ===== */
     @media (max-width: 768px){
       .card{
         padding:12px;
         border-radius:18px;
       }
 
-      .hud{
-        grid-template-columns: repeat(2, minmax(0,1fr));
-        gap:8px;
-        margin:10px 0;
+      #view-play.card{
+        padding:10px;
       }
 
-      .hud-mini{
-        grid-template-columns: repeat(2, minmax(0,1fr));
+      #view-play .top{
+        margin-bottom:8px;
         gap:8px;
+      }
+
+      #view-play .title{
+        font-size:20px;
+        line-height:1.15;
+      }
+
+      #view-play .sub{
+        font-size:11px;
+        line-height:1.25;
+      }
+
+      #view-play .top .btn{
+        min-height:40px;
+        padding:8px 10px;
+        border-radius:14px;
+        font-size:14px;
+      }
+
+      .hud{
+        grid-template-columns:repeat(2,minmax(0,1fr));
+        gap:6px;
+        margin:8px 0;
       }
 
       .hudCard{
-        padding:10px;
-        border-radius:14px;
+        padding:8px 9px;
+        border-radius:12px;
       }
 
       .hudCard.mini{
-        min-height:68px;
+        min-height:56px;
+        padding:7px 8px;
+      }
+
+      .hudK{
+        font-size:10px;
+        line-height:1.1;
       }
 
       .hudV{
-        font-size:17px;
+        margin-top:3px;
+        font-size:15px;
+        line-height:1.1;
       }
 
       .miniV{
-        font-size:15px;
+        font-size:13px;
+        line-height:1.15;
+      }
+
+      .hud-mini{
+        grid-template-columns:repeat(3,minmax(0,1fr));
+        gap:6px;
+        margin-top:6px;
+      }
+
+      .hud-rule-desktop{
+        display:none !important;
+      }
+
+      #view-play .hud:first-of-type .hudCard:nth-child(1),
+      #view-play .hud:first-of-type .hudCard:nth-child(2){
+        display:none;
+      }
+
+      #view-play .hud:first-of-type{
+        grid-template-columns:repeat(3,minmax(0,1fr));
       }
 
       .barWrap{
-        gap:8px;
-        margin:8px 0 10px;
+        gap:6px;
+        margin:6px 0 8px;
       }
 
       .barLine{
-        grid-template-columns:72px 1fr 58px;
-        gap:8px;
+        grid-template-columns:58px 1fr 52px;
+        gap:6px;
+      }
+
+      .barTrack{
+        height:10px;
+      }
+
+      .barTxt{
+        font-size:11px;
+      }
+
+      .bossWrap{
+        margin:6px 0 8px;
+        padding:8px 10px;
+        border-radius:14px;
       }
 
       .play{
-        min-height:560px;
+        min-height:590px;
         border-radius:22px;
       }
 
       .arena{
-        height:560px;
+        height:590px;
       }
 
       .ground{
-        bottom:112px;
+        bottom:118px;
       }
 
       .hitline{
-        left:112px !important;
         width:2px;
         box-shadow:
           0 0 0 6px rgba(34,211,238,.08),
@@ -827,8 +875,7 @@
       }
 
       .avatar{
-        left:12% !important;
-        bottom:112px;
+        bottom:118px;
         width:96px;
         height:138px;
       }
@@ -888,13 +935,14 @@
       }
 
       .actions{
-        gap:12px;
-        margin-top:12px;
+        gap:10px;
+        margin-top:10px;
       }
 
       .actions .btn{
-        min-height:56px;
-        font-size:18px;
+        min-height:52px;
+        font-size:17px;
+        padding:10px 12px;
         border-radius:18px;
       }
 
@@ -915,150 +963,6 @@
       .resultGrid{
         grid-template-columns:1fr;
         gap:8px;
-      }
-    }
-
-    @media (max-width: 420px){
-      .play{
-        min-height:540px;
-      }
-
-      .arena{
-        height:540px;
-      }
-
-      .hitline{
-        left:100px !important;
-      }
-
-      .avatar{
-        left:11% !important;
-        width:88px;
-        height:128px;
-      }
-    }
-
-    /* ===== JumpDuck COMPACT MOBILE HUD PATCH ===== */
-    @media (max-width: 768px){
-      #view-play.card{
-        padding:10px;
-      }
-
-      #view-play .top{
-        margin-bottom:8px;
-        gap:8px;
-      }
-
-      #view-play .title{
-        font-size:20px;
-        line-height:1.15;
-      }
-
-      #view-play .sub{
-        font-size:11px;
-        line-height:1.25;
-      }
-
-      #view-play .top .btn{
-        min-height:40px;
-        padding:8px 10px;
-        border-radius:14px;
-        font-size:14px;
-      }
-
-      .hud{
-        gap:6px;
-        margin:8px 0;
-      }
-
-      .hudCard{
-        padding:8px 9px;
-        border-radius:12px;
-      }
-
-      .hudK{
-        font-size:10px;
-        line-height:1.1;
-      }
-
-      .hudV{
-        margin-top:3px;
-        font-size:15px;
-        line-height:1.1;
-      }
-
-      .hud-mini{
-        gap:6px;
-        margin-top:6px;
-      }
-
-      .hudCard.mini{
-        min-height:56px;
-        padding:7px 8px;
-      }
-
-      .miniV{
-        font-size:13px;
-        line-height:1.15;
-      }
-
-      .hud-mini .hudCard.accent-violet{
-        display:none;
-      }
-
-      .hud-mini{
-        grid-template-columns: repeat(3, minmax(0,1fr));
-      }
-
-      .barWrap{
-        gap:6px;
-        margin:6px 0 8px;
-      }
-
-      .barLine{
-        grid-template-columns:58px 1fr 52px;
-        gap:6px;
-      }
-
-      .barTrack{
-        height:10px;
-      }
-
-      .barTxt{
-        font-size:11px;
-      }
-
-      .bossWrap{
-        margin:6px 0 8px;
-        padding:8px 10px;
-        border-radius:14px;
-      }
-
-      .play{
-        min-height:590px;
-      }
-
-      .arena{
-        height:590px;
-      }
-
-      .ground{
-        bottom:118px;
-      }
-
-      .avatar{
-        bottom:118px;
-      }
-
-      .actions{
-        gap:10px;
-        margin-top:10px;
-      }
-
-      .actions .btn{
-        min-height:52px;
-        font-size:17px;
-        padding:10px 12px;
       }
     }
 
@@ -1092,32 +996,14 @@
       }
 
       .avatar{
+        width:88px;
+        height:128px;
         bottom:116px;
       }
 
       .actions .btn{
         min-height:50px;
         font-size:16px;
-      }
-    }
-
-    @media (max-width: 768px){
-      .hud-rule-desktop{
-        display:none !important;
-      }
-
-      #hud-mode,
-      #hud-diff{
-        font-size:13px;
-      }
-
-      #view-play .hud:first-of-type .hudCard:nth-child(1),
-      #view-play .hud:first-of-type .hudCard:nth-child(2){
-        display:none;
-      }
-
-      #view-play .hud:first-of-type{
-        grid-template-columns: repeat(3, minmax(0,1fr));
       }
     }
   </style>
