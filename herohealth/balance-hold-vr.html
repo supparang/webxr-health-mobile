@@ -1,13 +1,12 @@
 <!-- === /herohealth/balance-hold-vr.html ===
 Balance Hold — LAUNCHER (HeroHealth Root)
-PATCH v20260313-BALANCEHOLD-LAUNCHER-FLOW-FIX
+FULL PATCH v20260313-BALANCEHOLD-LAUNCHER-FINAL-FLOW-LOCK
 ✅ Choose diff/time/view BEFORE entering run
-✅ Start Flow = warmup -> game -> summary -> cooldown -> hub
+✅ Start Flow = launcher -> warmup-gate -> game -> result -> cooldown-gate -> hub
 ✅ Open RUN only = direct run page (no warmup)
-✅ Uses gatePhase=warmup / gatePhase=cooldown correctly
-✅ Does NOT overwrite research phase with phase=warmup
-✅ Uses /herohealth/warmup-gate.html with per-game daily gate
-✅ Game key = balance / category = exercise
+✅ Uses gatePhase=warmup correctly
+✅ per-game daily warmup/cooldown supported by warmup-gate
+✅ game key = balance / category = exercise
 -->
 <!doctype html>
 <html lang="th">
@@ -41,45 +40,45 @@ PATCH v20260313-BALANCEHOLD-LAUNCHER-FLOW-FIX
         radial-gradient(900px 700px at 90% 20%, rgba(34,197,94,.10), transparent 60%),
         var(--bg);
       color:var(--text);
-      font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif;
     }
     .wrap{
       min-height:100%;
       max-width:880px;
       margin:0 auto;
-      padding:calc(16px + var(--sat)) calc(14px + var(--sar)) calc(18px + var(--sab)) calc(14px + var(--sal))
+      padding:calc(16px + var(--sat)) calc(14px + var(--sar)) calc(18px + var(--sab)) calc(14px + var(--sal));
     }
     .card{
       border:1px solid var(--stroke);
       background:linear-gradient(180deg, rgba(2,6,23,.86), rgba(2,6,23,.55));
       border-radius:20px;
       padding:14px;
-      box-shadow:0 14px 50px rgba(0,0,0,.35)
+      box-shadow:0 14px 50px rgba(0,0,0,.35);
     }
     .row{
       display:flex;
       gap:10px;
       flex-wrap:wrap;
       align-items:center;
-      justify-content:space-between
+      justify-content:space-between;
     }
     h1{
       margin:0;
       font-size:16px;
-      font-weight:1000
+      font-weight:1000;
     }
     p{
       margin:8px 0 0;
       color:rgba(229,231,235,.78);
       font-weight:750;
       font-size:13px;
-      line-height:1.35
+      line-height:1.35;
     }
     .grid{
       margin-top:12px;
       display:grid;
       grid-template-columns:repeat(3,minmax(0,1fr));
-      gap:10px
+      gap:10px;
     }
     @media (max-width:720px){
       .grid{grid-template-columns:1fr}
@@ -89,7 +88,7 @@ PATCH v20260313-BALANCEHOLD-LAUNCHER-FLOW-FIX
       font-size:12px;
       color:var(--muted);
       font-weight:900;
-      margin-bottom:6px
+      margin-bottom:6px;
     }
     select,input{
       width:100%;
@@ -100,13 +99,13 @@ PATCH v20260313-BALANCEHOLD-LAUNCHER-FLOW-FIX
       color:var(--text);
       padding:9px 10px;
       font:inherit;
-      font-weight:900
+      font-weight:900;
     }
     .btnrow{
       margin-top:12px;
       display:flex;
       gap:10px;
-      flex-wrap:wrap
+      flex-wrap:wrap;
     }
     .btn{
       display:inline-flex;
@@ -121,7 +120,7 @@ PATCH v20260313-BALANCEHOLD-LAUNCHER-FLOW-FIX
       font-size:13px;
       color:inherit;
       text-decoration:none;
-      cursor:pointer
+      cursor:pointer;
     }
     .btn.primary{border-color:rgba(34,197,94,.35);background:rgba(34,197,94,.16)}
     .btn.cyan{border-color:rgba(34,211,238,.35);background:rgba(34,211,238,.14)}
@@ -130,7 +129,7 @@ PATCH v20260313-BALANCEHOLD-LAUNCHER-FLOW-FIX
       margin-top:10px;
       display:flex;
       gap:8px;
-      flex-wrap:wrap
+      flex-wrap:wrap;
     }
     .chip{
       border:1px solid var(--stroke);
@@ -139,30 +138,30 @@ PATCH v20260313-BALANCEHOLD-LAUNCHER-FLOW-FIX
       padding:7px 10px;
       font-size:12px;
       font-weight:900;
-      color:rgba(229,231,235,.92)
+      color:rgba(229,231,235,.92);
     }
     .chip b{color:#fff}
     .small{
       margin-top:10px;
       font-size:12px;
       color:var(--muted);
-      font-weight:850
+      font-weight:850;
     }
     .stack{
       margin-top:12px;
       display:grid;
-      gap:10px
+      gap:10px;
     }
     .subcard{
       border:1px solid var(--stroke);
       background:rgba(15,23,42,.34);
       border-radius:16px;
-      padding:12px
+      padding:12px;
     }
     .subcard h2{
       margin:0;
       font-size:14px;
-      font-weight:1000
+      font-weight:1000;
     }
     .list{
       margin:8px 0 0;
@@ -170,11 +169,11 @@ PATCH v20260313-BALANCEHOLD-LAUNCHER-FLOW-FIX
       color:rgba(229,231,235,.82);
       font-size:13px;
       line-height:1.45;
-      font-weight:750
+      font-weight:750;
     }
     code{
       font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
-      font-size:12px
+      font-size:12px;
     }
   </style>
 </head>
@@ -184,7 +183,7 @@ PATCH v20260313-BALANCEHOLD-LAUNCHER-FLOW-FIX
       <div class="row">
         <div>
           <h1>⚖️ Balance Hold — Launcher</h1>
-          <p>เลือกระดับ / เวลา / มุมมองก่อนเข้าเล่น และเริ่ม flow แบบครบ: warmup → game → summary → cooldown → hub</p>
+          <p>เลือกระดับ / เวลา / มุมมองก่อนเข้าเล่น และเริ่ม flow แบบครบ: warmup → game → result → cooldown → hub</p>
         </div>
         <a class="btn" id="backHub" href="./hub.html">🏠 Back HUB</a>
       </div>
@@ -240,9 +239,9 @@ PATCH v20260313-BALANCEHOLD-LAUNCHER-FLOW-FIX
           <ul class="list">
             <li>เข้า <code>/herohealth/warmup-gate.html?gatePhase=warmup</code></li>
             <li>ถ้าวันนี้ยังไม่ทำ warmup ของเกมนี้ จะเล่น warmup ก่อน</li>
-            <li>จากนั้นเข้า <code>/fitness/balance-hold.html</code></li>
+            <li>จากนั้นเข้า <code>/fitness/balance-hold.html?autostart=1</code></li>
             <li>เมื่อจบเกม จะค้างหน้า Result ก่อน</li>
-            <li>กด Go Cooldown แล้วจึงไป cooldown gate</li>
+            <li>ค่อยกด Go Cooldown ไป cooldown gate</li>
             <li>สุดท้ายกลับ HUB</li>
           </ul>
         </div>
@@ -252,14 +251,14 @@ PATCH v20260313-BALANCEHOLD-LAUNCHER-FLOW-FIX
           <ul class="list">
             <li>เปิดเกมตรงทันที</li>
             <li>ไม่ผ่าน warmup gate</li>
-            <li>เหมาะสำหรับ debug / layout test / tuning effect</li>
+            <li>เหมาะสำหรับ debug / layout test / tuning</li>
           </ul>
         </div>
       </div>
 
       <div class="small">
         RUN page: <code>/fitness/balance-hold.html</code><br/>
-        Warmup gate: <code>/herohealth/warmup-gate.html?gatePhase=warmup&cat=exercise&game=balance</code>
+        Warmup gate: <code>/herohealth/warmup-gate.html?gatePhase=warmup&amp;cat=exercise&amp;game=balance</code>
       </div>
     </div>
   </div>
@@ -303,7 +302,7 @@ const P = {
   api: normalizeMaybeEncodedUrl(qs('api','')),
   ai: String(qs('ai','')),
   studyId: String(qs('studyId','')),
-  phase: String(qs('phase','')), // research/use-case phase only
+  phase: String(qs('phase','')),
   conditionGroup: String(qs('conditionGroup','')),
   grade: String(qs('grade',''))
 };
@@ -338,12 +337,9 @@ function buildHubUrl(){
   setParam(u, 'api', P.api);
   setParam(u, 'ai', P.ai);
   setParam(u, 'studyId', P.studyId);
+  setParam(u, 'phase', P.phase);
   setParam(u, 'conditionGroup', P.conditionGroup);
   setParam(u, 'grade', P.grade);
-
-  if (P.phase && P.run === 'research') {
-    setParam(u, 'phase', P.phase);
-  }
 
   return u.toString();
 }
@@ -364,12 +360,9 @@ function buildRunUrl(autostart){
   setParam(u, 'api', P.api);
   setParam(u, 'ai', P.ai);
   setParam(u, 'studyId', P.studyId);
+  setParam(u, 'phase', P.phase);
   setParam(u, 'conditionGroup', P.conditionGroup);
   setParam(u, 'grade', P.grade);
-
-  if (P.phase && P.run === 'research') {
-    setParam(u, 'phase', P.phase);
-  }
 
   setParam(u, 'autostart', autostart ? '1' : '');
   return u.toString();
@@ -401,12 +394,9 @@ function buildWarmupFlowUrl(){
   setParam(u, 'api', P.api);
   setParam(u, 'ai', P.ai);
   setParam(u, 'studyId', P.studyId);
+  setParam(u, 'phase', P.phase);
   setParam(u, 'conditionGroup', P.conditionGroup);
   setParam(u, 'grade', P.grade);
-
-  if (P.phase && P.run === 'research') {
-    setParam(u, 'phase', P.phase);
-  }
 
   setParam(u, 'dur', '20');
   setParam(u, 'cdur', '15');
