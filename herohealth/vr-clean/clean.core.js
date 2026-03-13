@@ -1,5 +1,5 @@
 // === /herohealth/vr-clean/clean.core.js ===
-// Clean Objects CORE — SAFE/PRODUCTION — v20260301-FULL-EXCITE1234-PATCH
+// Clean Objects CORE — SAFE/PRODUCTION — v20260301-FULL-EXCITE1234-PATCH-B
 'use strict';
 
 import { HOTSPOTS, MAP } from './clean.data.js';
@@ -153,6 +153,12 @@ function applyComboBonus(score, streakBest){
   return Math.round(score * (1 + pct));
 }
 
+function gridDist(a,b){
+  const dx = Number(a.x||0) - Number(b.x||0);
+  const dy = Number(a.y||0) - Number(b.y||0);
+  return Math.sqrt(dx*dx + dy*dy);
+}
+
 function scoreA(state){
   const sel = state.A.selected || [];
   const top = rankHotspotsByValue(state.hotspots).slice(0,3).map(h=>h.id);
@@ -171,12 +177,19 @@ function scoreA(state){
   const bossId = String(state.cfg?.bossId || 'toilet_flush');
   const bossPicked = sel.some(s=>s.id===bossId);
   const bossPenalty = bossPicked ? 0 : 120;
+  const spreadPenalty = Math.round(state.spread.totalPenalty || 0);
 
-  const score = Math.max(0, baseScore - bossPenalty);
+  const score = Math.max(0, baseScore - bossPenalty - spreadPenalty);
 
   return {
     score,
-    breakdown: { rrTotal: Math.round(rrTotal), coverage: Math.round(coverage), dq: Math.round(dq), bossPenalty },
+    breakdown: {
+      rrTotal: Math.round(rrTotal),
+      coverage: Math.round(coverage),
+      dq: Math.round(dq),
+      bossPenalty,
+      spreadPenalty
+    },
     top3: top
   };
 }
@@ -253,6 +266,11 @@ export function createCleanCore(cfg={}, hooks={}){
   const bossAtSec = clamp(qs('bossAt', cfg.bossAtSec ?? (mode==='A' ? 34 : 0)), 0, 200);
   const bossWarnSec = clamp(qs('bossWarn', cfg.bossWarnSec ?? 8), 3, 20);
 
+  const spreadTickSec = clamp(qs('spreadTick', cfg.spreadTickSec ?? 2.4), 1.2, 6);
+  const spreadBoost = clamp(qs('spreadBoost', cfg.spreadBoost ?? 8), 3, 18);
+  const spreadThreshold = clamp(qs('spreadThreshold', cfg.spreadThreshold ?? 82), 60, 95);
+  const crisisThreshold = clamp(qs('crisisThreshold', cfg.crisisThreshold ?? 3), 2, 6);
+
   cfg = Object.assign({}, cfg, {
     run: runMode,
     seed: seedStr,
@@ -264,7 +282,11 @@ export function createCleanCore(cfg={}, hooks={}){
     contamBoost,
     dangerWindowSec,
     bossAtSec,
-    bossWarnSec
+    bossWarnSec,
+    spreadTickSec,
+    spreadBoost,
+    spreadThreshold,
+    crisisThreshold
   });
 
   const rng = makeRng(seedStr + '::cleanobjects');
@@ -300,18 +322,28 @@ export function createCleanCore(cfg={}, hooks={}){
     events: {
       contamFired: false,
       contamAt: contamAtSec,
-      contamTargets: []
+      contamTargets: [],
+      crisisOn: false
     },
+
     combo: {
       streak: 0,
       best: 0
     },
+
     boss: {
       type: 'penalty',
       nextAtS: bossAtSec,
       warnSec: bossWarnSec,
       active: false,
       cleared: false
+    },
+
+    spread: {
+      nextTickAt: spreadTickSec,
+      waveCount: 0,
+      totalPenalty: 0,
+      recentTargets: []
     }
   };
 
@@ -325,7 +357,12 @@ export function createCleanCore(cfg={}, hooks={}){
       let preview = {};
       if(state.mode === 'A'){
         const rr = (state.A.selected||[]).reduce((a,b)=>a+Number(b.rr||0),0);
-        preview = { spraysLeft: state.A.spraysLeft, chosen: (state.A.selected||[]).length, rrPreview: Math.round(rr) };
+        preview = {
+          spraysLeft: state.A.spraysLeft,
+          chosen: (state.A.selected||[]).length,
+          rrPreview: Math.round(rr),
+          spreadPenalty: Math.round(state.spread.totalPenalty||0)
+        };
       }else{
         preview = { routeN: (state.B.routeIds||[]).length, maxPoints: state.B.maxPoints };
       }
@@ -355,7 +392,10 @@ export function createCleanCore(cfg={}, hooks={}){
 
       pickedIds: (state.mode==='A') ? pickedIdsA : (state.B.routeIds||[]).slice(0),
       riskReduced: (state.mode==='A') ? riskReduced : 0,
-      contamFired: !!(state.events && state.events.contamFired),
+      contamFired: !!state.events.contamFired,
+      spreadPenalty: Math.round(state.spread.totalPenalty || 0),
+      crisisOn: !!state.events.crisisOn,
+      spreadTargets: state.spread.recentTargets.slice(0),
 
       spraysMax: (state.mode==='A') ? state.A.maxSelect : 0,
       maxSelect: (state.mode==='A') ? state.A.maxSelect : 0,
@@ -374,6 +414,10 @@ export function createCleanCore(cfg={}, hooks={}){
     emitScore('state');
   }
 
+  function isCleanedA(id){
+    return (state.A.selected||[]).some(s=>s.id===id);
+  }
+
   function applyRiskDrift(dt){
     if(runMode !== 'research') return;
     if(state.mode !== 'A') return;
@@ -386,9 +430,7 @@ export function createCleanCore(cfg={}, hooks={}){
       const jitter = (rng()-0.5) * 0.08;
       const inc = (0.9*base + jitter) * dt * 1.8;
 
-      const wasCleaned = (state.A.selected||[]).some(s=>s.id===h.id);
-      const mult = wasCleaned ? 0.25 : 1.0;
-
+      const mult = isCleanedA(h.id) ? 0.25 : 1.0;
       h.risk = clamp(Number(h.risk||0) + inc*mult, 0, 100);
     }
   }
@@ -409,6 +451,7 @@ export function createCleanCore(cfg={}, hooks={}){
       if(h) h.risk = clamp(Number(h.risk||0) + state.cfg.contamBoost, 0, 100);
     }
     state.events.contamTargets = ids.slice(0);
+    state.spread.recentTargets = ids.slice(0);
 
     emitHHAEvent('contamination', {
       sessionId: state.cfg.sessionId,
@@ -420,6 +463,73 @@ export function createCleanCore(cfg={}, hooks={}){
 
     emitCoach('contamination', `⚠️ เหตุการณ์ปนเปื้อน! ความเสี่ยงเพิ่มที่ ${ids.join(', ')}`, { targets: ids.slice(0) });
     emitState();
+  }
+
+  function spreadWave(){
+    if(state.mode !== 'A' || state.ended) return;
+
+    const red = state.hotspots.filter(h => !isCleanedA(h.id) && Number(h.risk||0) >= state.cfg.spreadThreshold);
+    if(!red.length) return;
+
+    const spreadTargets = new Map();
+
+    for(const src of red){
+      const near = state.hotspots
+        .filter(h => h.id !== src.id && !isCleanedA(h.id) && gridDist(src, h) <= 2.2)
+        .sort((a,b)=> gridDist(src,a) - gridDist(src,b))
+        .slice(0, 2);
+
+      for(const t of near){
+        const key = String(t.id);
+        if(!spreadTargets.has(key)) spreadTargets.set(key, t);
+      }
+    }
+
+    const targets = Array.from(spreadTargets.values());
+    if(!targets.length) return;
+
+    for(const h of targets){
+      h.risk = clamp(Number(h.risk||0) + state.cfg.spreadBoost, 0, 100);
+    }
+
+    state.spread.waveCount += 1;
+    state.spread.recentTargets = targets.map(h=>h.id);
+    state.spread.totalPenalty += targets.length * 6;
+
+    emitHHAEvent('spread_wave', {
+      sessionId: state.cfg.sessionId,
+      mode: state.mode,
+      wave: state.spread.waveCount,
+      targets: state.spread.recentTargets.slice(0),
+      penaltyAdd: targets.length * 6
+    });
+
+    emitCoach('warn', `🦠 เชื้อแพร่ไป ${targets.length} จุด! รีบเก็บจุดวิกฤต`, {
+      targets: state.spread.recentTargets.slice(0)
+    });
+  }
+
+  function checkCrisis(){
+    if(state.mode !== 'A' || state.ended) return;
+    const redCount = state.hotspots.filter(h => !isCleanedA(h.id) && Number(h.risk||0) >= state.cfg.spreadThreshold).length;
+    const crisisNow = redCount >= state.cfg.crisisThreshold;
+
+    if(crisisNow && !state.events.crisisOn){
+      state.events.crisisOn = true;
+      emitHHAEvent('crisis_start', {
+        sessionId: state.cfg.sessionId,
+        mode: state.mode,
+        redCount
+      });
+      emitCoach('boss', `🚨 CRISIS! มีจุดวิกฤต ${redCount} จุดพร้อมกัน`, { redCount });
+    } else if(!crisisNow && state.events.crisisOn){
+      state.events.crisisOn = false;
+      emitHHAEvent('crisis_end', {
+        sessionId: state.cfg.sessionId,
+        mode: state.mode,
+        redCount
+      });
+    }
   }
 
   function buildSummaryPayload(finalScore, metrics){
@@ -460,6 +570,10 @@ export function createCleanCore(cfg={}, hooks={}){
         top3: r.top3,
         combo: { best: state.combo.best || 0 },
         bossId: state.cfg.bossId,
+        spread: {
+          waves: state.spread.waveCount,
+          penalty: Math.round(state.spread.totalPenalty || 0)
+        },
         reasons: state.A.selected.map(s=>({ id:s.id, rr:s.rr, reasonTag:s.reasonTag||'', reasonText:s.reasonText||'' }))
       };
     }else{
@@ -550,6 +664,13 @@ export function createCleanCore(cfg={}, hooks={}){
       fireContaminationEvent();
     }
 
+    if(state.mode === 'A' && state.elapsed >= state.spread.nextTickAt){
+      state.spread.nextTickAt += state.cfg.spreadTickSec;
+      spreadWave();
+      checkCrisis();
+      emitState();
+    }
+
     if(state.timeLeft <= state.cfg.dangerWindowSec && state.timeLeft > 0){
       emitEvt('clean:danger', {
         game:'cleanobjects',
@@ -557,7 +678,9 @@ export function createCleanCore(cfg={}, hooks={}){
         timeLeft: Math.round(state.timeLeft),
         window: state.cfg.dangerWindowSec
       });
-      emitCoach('danger', `⏱️ เหลือ ${Math.round(state.timeLeft)} วิ! รีบเก็บจุดวิกฤต`, {});
+      if(Math.round(state.timeLeft) % 2 === 0){
+        emitCoach('danger', `⏱️ เหลือ ${Math.round(state.timeLeft)} วิ! รีบเก็บจุดวิกฤต`, {});
+      }
     }
 
     try{ hooks.onTick && hooks.onTick(snapshot(), dt); }catch(e){}
@@ -627,6 +750,10 @@ export function createCleanCore(cfg={}, hooks={}){
         ? `ดีมาก! จุดนี้คุ้ม เพราะ ${reasonText}`
         : `โอเค! แต่ลองดูจุดสัมผัสสูง/เสี่ยงสูงอีกที`;
       emitCoach('evaluate_pick', msg, { id, hitTop, reasonText });
+    }
+
+    if(state.events.crisisOn){
+      checkCrisis();
     }
 
     emitState();
@@ -723,8 +850,35 @@ export function createCleanCore(cfg={}, hooks={}){
   }
 
   function useShieldWipe(){
-    emitCoach('warn', 'Shield Wipe พร้อมเชื่อม logic เพิ่มภายหลัง', {});
-    return false;
+    if(state.mode !== 'A' || state.ended) return false;
+
+    const reds = state.hotspots
+      .filter(h => !isCleanedA(h.id) && Number(h.risk||0) >= state.cfg.spreadThreshold)
+      .sort((a,b)=> Number(b.risk||0) - Number(a.risk||0))
+      .slice(0, 2);
+
+    if(!reds.length){
+      emitCoach('warn', 'ตอนนี้ยังไม่มีจุดวิกฤตให้ล้าง', {});
+      return false;
+    }
+
+    for(const h of reds){
+      h.risk = clamp(Number(h.risk||0) - 28, 0, 100);
+    }
+
+    emitHHAEvent('shield_wipe', {
+      sessionId: state.cfg.sessionId,
+      mode: state.mode,
+      targets: reds.map(h=>h.id)
+    });
+
+    emitCoach('good', `🛡️ Shield Wipe! ลดความเสี่ยง ${reds.length} จุด`, {
+      targets: reds.map(h=>h.id)
+    });
+
+    checkCrisis();
+    emitState();
+    return true;
   }
 
   return { cfg, start, tick, snapshot, selectA, toggleRouteB, undoB, clearB, submitB, useShieldWipe };
