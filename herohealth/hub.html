@@ -534,7 +534,7 @@
             <span class="pill"><b>best</b>: <span id="nutriBestScore">0</span></span>
             <span class="pill"><b>cards</b>: <span id="nutriCardTotal">0</span></span>
           </div>
-          <div class="shelfMeta" id="nutriHint">เคลียร์ GoodJunk หรือสะสมการ์ดเพื่อปลดถ้วย</div>
+          <div class="shelfMeta" id="nutriHint">เคลียร์ GoodJunk หรือทำผลงานใน Hydration เพื่อปลดถ้วย</div>
         </div>
 
         <div class="shelfCard">
@@ -574,6 +574,10 @@
             <span class="pill"><b>JD badge</b>: <span id="fitnessJDBadgeCount">0</span></span>
             <span class="pill"><b>JD reward</b>: <span id="fitnessJDReward">-</span></span>
             <span class="pill"><b>Boss badge</b>: <span id="fitnessJDBossBadge">-</span></span>
+          </div>
+          <div class="miniRow">
+            <span class="pill"><b>SB boss</b>: <span id="fitnessSBBestBoss">-</span></span>
+            <span class="pill"><b>SB badge</b>: <span id="fitnessSBBestBadge">-</span></span>
           </div>
           <div class="miniRow">
             <a class="btn violet" id="linkJDGallery" href="#">🖼 JumpDuck Gallery</a>
@@ -756,7 +760,7 @@
         <div class="muted">Shadow Breaker • Rhythm Boxer • JumpDuck • Balance Hold • Fitness Planner</div>
         <div class="sep"></div>
         <div class="games">
-          <a class="gameBtn" id="linkShadowBreaker" href="#"><div class="t">🥊 Shadow Breaker</div><div class="s">คอมโบ & รีแอคชั่น</div></a>
+          <a class="gameBtn" id="linkShadowBreaker" href="#"><div class="t">🥊 Shadow Breaker</div><div class="s">Launcher → Boss Ladder run</div></a>
           <a class="gameBtn" id="linkRhythmBoxer" href="#"><div class="t">🎵 Rhythm Boxer</div><div class="s">จังหวะ + พลัง</div></a>
           <a class="gameBtn" id="linkJumpDuck" href="#"><div class="t">⬆️⬇️ JumpDuck</div><div class="s">หลบ-กระโดด</div></a>
           <a class="gameBtn" id="linkBalanceHold" href="#"><div class="t">⚖️ Balance Hold</div><div class="s">ทรงตัวแบบท้าทาย</div></a>
@@ -1021,12 +1025,22 @@
       }
     }
 
+    function loadShadowBreakerBestBoss(pid){
+      return localStorage.getItem(`SB_BEST_REACHED_BOSS:${pid}`) || '';
+    }
+    function loadShadowBreakerBestBadge(pid){
+      return loadJson(`SB_BEST_BADGE:${pid}`, null);
+    }
+
     function renderTrophyShelf(){
       const book = loadCardBook(pid);
       const bestNormal = loadJson(`HHA_GJ_BEST:${pid}:normal`, null);
       const badges = loadJson(`HHA_GJ_BADGES:${pid}`, {});
       const hydProfile = loadHydrationProfile(pid);
       const today = hhDayKey();
+
+      const sbBestBoss = loadShadowBreakerBestBoss(pid);
+      const sbBestBadge = loadShadowBreakerBestBadge(pid);
 
       const nutritionUnlocked =
         (book.total || 0) > 0
@@ -1035,7 +1049,10 @@
         || ((hydProfile?.finalClearCount || 0) >= 1);
 
       const hygieneUnlocked = localStorage.getItem(`HHA_ZONE_DONE::hygiene::${today}`) === '1';
-      const fitnessUnlocked = localStorage.getItem(`HHA_ZONE_DONE::fitness::${today}`) === '1';
+      const fitnessUnlocked =
+        localStorage.getItem(`HHA_ZONE_DONE::fitness::${today}`) === '1'
+        || !!sbBestBoss
+        || !!sbBestBadge;
 
       const nutriStatus = document.getElementById('nutriStatus');
       const hygieneStatus = document.getElementById('hygieneStatus');
@@ -1047,7 +1064,7 @@
 
       nutriStatus.textContent = nutritionUnlocked ? 'UNLOCKED' : 'LOCKED';
       hygieneStatus.textContent = hygieneUnlocked ? 'DONE TODAY' : 'LOCKED';
-      fitnessStatus.textContent = fitnessUnlocked ? 'DONE TODAY' : 'LOCKED';
+      fitnessStatus.textContent = fitnessUnlocked ? 'UNLOCKED' : 'LOCKED';
 
       nutriStatus.className = `statusChip ${nutritionUnlocked ? 'done' : 'locked'}`;
       hygieneStatus.className = `statusChip ${hygieneUnlocked ? 'done' : 'locked'}`;
@@ -1073,10 +1090,14 @@
           ? 'ทำโซน Hygiene สำเร็จวันนี้แล้ว'
           : 'ทำ zone hygiene ให้มี done today เพื่อโชว์ถ้วย';
 
+      document.getElementById('fitnessSBBestBoss').textContent = sbBestBoss || '-';
+      document.getElementById('fitnessSBBestBadge').textContent =
+        sbBestBadge ? `${sbBestBadge.icon || '🏅'} ${sbBestBadge.title || 'Badge'}` : '-';
+
       document.getElementById('fitnessHint').textContent =
-        fitnessUnlocked
-          ? 'ทำโซน Fitness สำเร็จวันนี้แล้ว'
-          : 'ทำ zone fitness ให้มี done today เพื่อโชว์ถ้วย';
+        sbBestBoss || sbBestBadge
+          ? `Shadow Breaker best ${sbBestBoss || '-'} • ${sbBestBadge?.title || 'ยังไม่มี badge'}`
+          : 'ทำ zone fitness ให้มี done today หรือเล่น Shadow Breaker เพื่อโชว์ความก้าวหน้า';
     }
 
     function renderLastRun(){
