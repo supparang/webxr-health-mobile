@@ -3,7 +3,6 @@
 (function(){
   const DOC = document;
   const WIN = window;
-  const $ = (s)=>DOC.querySelector(s);
   const byId = (id)=>DOC.getElementById(id);
 
   const clamp = (v,a,b)=>Math.max(a,Math.min(b,Number(v)));
@@ -393,7 +392,6 @@
     entities:new Map(),
     uid:0,
 
-    freezeUntil:0,
     spawnTimer:null,
     tickTimer:null
   };
@@ -569,8 +567,6 @@
       btnBurst.disabled = !ready;
       btnBurst.style.opacity = ready ? '1' : '.6';
       btnBurst.style.cursor = ready ? 'pointer' : 'not-allowed';
-      btnBurst.classList.toggle('primary', ready);
-      btnBurst.classList.toggle('accent', !ready);
       btnBurst.textContent = ready ? '💥 Burst READY' : '💥 Burst';
     }
 
@@ -729,7 +725,6 @@
       prompt('🛡️ Combo Shield!');
     }else if(st.combo === 8){
       st.parry = clamp(st.parry + (diff==='easy' ? 22 : 18), 0, 100);
-      st.freezeUntil = performance.now() + (diff==='easy' ? 850 : 700);
       prompt('⏳ Slow Time!');
     }else if(st.combo === 12){
       const n = clearNearbyDroplets(rect().width/2, rect().height/2, 9999);
@@ -770,8 +765,6 @@
     shake();
     sfxParry();
     learningPrompt('perfect_parry');
-    if(st.phase==='boss' && (c1 + c2) >= 3) prompt('🔥 Boss Break!');
-    if(st.phase==='boss') toast('Boss Parry!');
 
     logger.push({
       type:'perfect_parry',
@@ -897,28 +890,12 @@
         onNormalBlock(e);
       }else{
         st.combo = 0;
-        st.threat = clamp(st.threat + (st.bossPatternNow==='fake' ? 9 : 5), 0, 100);
-        if(st.bossPatternNow==='fake'){
-          st.shield = clamp(st.shield - 4, 0, 100);
-        }
+        st.threat = clamp(st.threat + 5, 0, 100);
         pop(sx, sy, 'EARLY!', 'bad');
       }
     }
 
     applyComboRewards();
-
-    logger.push({
-      type:'tap',
-      entityType: e.type,
-      entityId: e.id,
-      state: e.state || '',
-      score: st.score,
-      combo: st.combo,
-      shield: Math.round(st.shield),
-      threat: Math.round(st.threat),
-      phase: st.phase
-    });
-
     updateHud();
   }
 
@@ -970,9 +947,8 @@
       learningPrompt('boss_cone');
     }
     else if(st.bossPatternNow === 'sweep'){
-      st.bossSweepDir = rng() < 0.5 ? 'ltr' : 'rtl';
-      showBossBanner(st.bossSweepDir === 'ltr' ? '👿 BOSS: SWEEP →' : '👿 BOSS: ← SWEEP');
-      showSweepHazard(st.bossSweepDir);
+      showBossBanner('👿 BOSS: SWEEP');
+      showSweepHazard(rng() < 0.5 ? 'ltr' : 'rtl');
       learningPrompt('boss_sweep');
     }
     else{
@@ -985,13 +961,6 @@
 
     sfxBoss();
     if(arena) arena.classList.add('boss-hot');
-
-    logger.push({
-      type:'boss_pattern',
-      pattern: st.bossPatternNow,
-      bossNeedPerfect: st.bossNeedPerfect,
-      bossGotPerfect: st.bossGotPerfect
-    });
   }
 
   function maybeBoss(){
@@ -1024,17 +993,12 @@
     st.shield = clamp(st.shield + CFG.burstShieldGain, 0, 100);
     st.threat = Math.max(0, st.threat - CFG.burstThreatDrop);
 
-    let clearD = 0;
-    let clearI = 0;
-
     for(const [id,e] of [...st.entities]){
       if(e.type==='droplet'){
         removeEntity(id, true);
-        clearD++;
       }else if(e.type==='infected'){
         if(rng() < CFG.burstInfectedClearChance){
           removeEntity(id, true);
-          clearI++;
         }
       }
     }
@@ -1042,20 +1006,7 @@
     recomputeCounts();
     shake();
     sfxBurst();
-    flashBad();
-    setTimeout(()=>{ const el = byId('mcfxFlash'); if(el) el.style.opacity='0'; }, 100);
-    clearHazards();
-
     learningPrompt('burst_use');
-
-    logger.push({
-      type:'burst',
-      burstUsed: st.burstUsed,
-      shield: Math.round(st.shield),
-      threat: Math.round(st.threat),
-      score: st.score
-    });
-
     updateHud();
   }
 
@@ -1093,9 +1044,7 @@
       }
     }
 
-    if(st.threat >= 70 && rng() < 0.25){
-      spawnDroplet();
-    }
+    if(st.threat >= 70 && rng() < 0.25) spawnDroplet();
     if(st.threat >= 85 && rng() < 0.16){
       const p = randomXY();
       spawnInfected(p.x,p.y);
@@ -1214,41 +1163,6 @@
     updatePhase();
     maybeBoss();
 
-    if(st.phase==='boss' && st.bossActive){
-      if(st.bossPatternNow === 'cone'){
-        if(rng() < 0.030) spawnCough();
-        if(rng() < 0.014){
-          const p = randomXY();
-          spawnInfected(p.x, p.y);
-          spawnInfected(clamp(p.x+34,30,rect().width-30), clamp(p.y+22,30,rect().height-30));
-          spawnInfected(clamp(p.x-34,30,rect().width-30), clamp(p.y-18,30,rect().height-30));
-        }
-      }
-      else if(st.bossPatternNow === 'sweep'){
-        if(rng() < 0.070){
-          const r = rect();
-          const y = 60 + rng() * Math.max(30, r.height - 120);
-          const x = st.bossSweepDir === 'ltr' ? 40 + rng()*120 : r.width - 40 - rng()*120;
-          addEntity('droplet', x, y, CFG.ttlDroplet * 0.78);
-        }
-        if(rng() < 0.030){
-          const y = 60 + rng() * Math.max(30, rect().height - 120);
-          const x = st.bossSweepDir === 'ltr' ? 60 : rect().width - 60;
-          addEntity('infected', x, y, CFG.ttlInfected * 0.92);
-        }
-      }
-      else if(st.bossPatternNow === 'fake'){
-        if(rng() < 0.034){
-          const p = randomXY();
-          addEntity('cough', p.x, p.y, CFG.coughWarnMs + CFG.coughChargeMs + CFG.coughStrikeMs);
-        }
-        if(rng() < 0.022){
-          const p = randomXY();
-          spawnInfected(p.x,p.y);
-        }
-      }
-    }
-
     for(const [id,e] of [...st.entities]){
       if(e.type==='cough'){
         advanceCoughState(e, now);
@@ -1296,26 +1210,8 @@
 
     if(st.threat >= 75){
       st.shield = clamp(st.shield - 0.05, 0, 100);
-    }
-
-    if(st.threat >= 75 && ((performance.now() / 900) | 0) % 2 === 0){
-      learningPrompt('high_threat');
-    }
-
-    if(st.threat >= 85 && ((performance.now() / 260) | 0) % 2 === 0){
-      const toastEl = byId('toast');
-      if(toastEl) toastEl.classList.add('urgent');
-    }else{
-      const toastEl = byId('toast');
-      if(toastEl) toastEl.classList.remove('urgent');
-    }
-
-    if(st.phase==='boss' && st.elapsedSec >= timeLimit - 0.3){
-      if(st.bossGotPerfect < st.bossNeedPerfect){
-        const shieldPenalty = diff==='easy' ? 8 : diff==='hard' ? 14 : 12;
-        const scorePenalty  = diff==='easy' ? 4 : diff==='hard' ? 8 : 6;
-        st.shield = clamp(st.shield - shieldPenalty, 0, 100);
-        st.score = Math.max(0, st.score - scorePenalty);
+      if(((performance.now() / 900) | 0) % 2 === 0){
+        learningPrompt('high_threat');
       }
     }
 
@@ -1351,25 +1247,16 @@
     const badges = [];
     if(st.perfect >= 4) badges.push('✨ Perfect x4');
     if(st.comboMax >= 12) badges.push('🔥 Combo 12');
-    if(st.bossGotPerfect >= st.bossNeedPerfect && st.bossNeedPerfect > 0) badges.push('👑 Crown Clear');
-    if(st.infectedCount === 0 && st.threat < 30) badges.push('🧼 Clean Arena');
     if(st.burstUsed >= 1) badges.push('💥 Burst Used');
-    if(st.burstUsed >= 2) badges.push('⚡ Burst Master');
 
     let verdict = 'Keep going';
     if(st.score >= (diff==='easy' ? 28 : diff==='hard' ? 48 : 38)) verdict = 'Great Run';
-    if(st.bossGotPerfect >= st.bossNeedPerfect && st.comboMax >= (diff==='easy' ? 8 : 12)) verdict = 'Hero Run';
 
     if(endBadges){
       endBadges.innerHTML = badges.length
-        ? badges.map(b=>`<span class="badge ${b.includes('👑')?'crown':''}">${b}</span>`).join('')
+        ? badges.map(b=>`<span class="badge">${b}</span>`).join('')
         : `<span class="badge">🙂 Keep going</span>`;
-
-      if(verdict === 'Hero Run'){
-        endBadges.insertAdjacentHTML('afterbegin', `<span class="badge crown">🏆 ${verdict}</span>`);
-      }else{
-        endBadges.insertAdjacentHTML('afterbegin', `<span class="badge">${verdict}</span>`);
-      }
+      endBadges.insertAdjacentHTML('afterbegin', `<span class="badge">${verdict}</span>`);
     }
 
     const summary = {
@@ -1413,7 +1300,6 @@ perfect=${st.perfect}
 miss=${st.miss}
 shield=${Math.round(st.shield)}%
 threat=${Math.round(st.threat)}%
-bossPerfect=${st.bossGotPerfect}/${st.bossNeedPerfect}
 burstUsed=${st.burstUsed}
 diff=${diff} view=${view} time=${timeLimit}s seed=${seed}
 log=${logEndpoint || '-'}`;
@@ -1495,8 +1381,7 @@ log=${logEndpoint || '-'}`;
     }else{
       prompt('▶ กลับมาแล้ว ลุยต่อ!');
       if(st.phase==='boss' && st.bossActive){
-        const now = performance.now();
-        startBossPattern(now);
+        startBossPattern(performance.now());
       }
     }
   });
