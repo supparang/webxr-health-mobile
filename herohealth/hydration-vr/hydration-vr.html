@@ -112,17 +112,12 @@
         auto
         calc(10px + var(--sal));
       display:grid;
-      grid-template-columns: 1fr auto;
+      grid-template-columns:minmax(0, 1fr);
       gap:10px;
       align-items:start;
       z-index:20;
       pointer-events:none;
-    }
-
-    @media (max-width: 900px){
-      .hud{
-        grid-template-columns:1fr;
-      }
+      max-width:760px;
     }
 
     .card{
@@ -145,22 +140,22 @@
     .stat{
       display:flex;
       flex-wrap:wrap;
-      gap:10px 12px;
+      gap:12px 16px;
       align-items:center;
     }
 
     .stat .k{
       color:var(--muted);
-      font-size:11px;
+      font-size:12px;
       font-weight:1000;
       letter-spacing:.02em;
     }
 
     .stat .v{
       color:var(--text);
-      font-size:15px;
+      font-size:20px;
       font-weight:1100;
-      margin-right:4px;
+      margin-right:6px;
     }
 
     .chips{
@@ -229,26 +224,15 @@
       gap:8px;
     }
 
-    .riskBar{
-      height:10px;
-      border-radius:999px;
-      overflow:hidden;
-      background:rgba(255,255,255,.08);
-      border:1px solid rgba(255,255,255,.06);
-    }
-
-    #riskFill{
-      width:0%;
-      height:100%;
-      background:linear-gradient(90deg, rgba(34,197,94,.95), rgba(245,158,11,.95), rgba(239,68,68,.95));
-      transition:width .15s linear;
-    }
-
     #coachExplain{
-      color:#cbd5e1;
-      font-size:12px;
-      font-weight:900;
+      color:#e5e7eb;
+      font-size:13px;
+      font-weight:1000;
       line-height:1.5;
+    }
+
+    #debugHudCard.is-hidden{
+      display:none !important;
     }
 
     #layer{
@@ -485,23 +469,23 @@
     }
 
     .btn.primary{
-      background:rgba(59,130,246,.16);
-      border-color:rgba(59,130,246,.28);
+      background:linear-gradient(180deg, rgba(59,130,246,.28), rgba(59,130,246,.18));
+      border-color:rgba(59,130,246,.34);
     }
 
     .btn.good{
-      background:rgba(34,197,94,.16);
-      border-color:rgba(34,197,94,.28);
+      background:linear-gradient(180deg, rgba(34,197,94,.28), rgba(34,197,94,.18));
+      border-color:rgba(34,197,94,.34);
     }
 
     .btn.violet{
-      background:rgba(139,92,246,.16);
-      border-color:rgba(139,92,246,.28);
+      background:linear-gradient(180deg, rgba(139,92,246,.28), rgba(139,92,246,.18));
+      border-color:rgba(139,92,246,.34);
     }
 
     .btn.danger{
-      background:rgba(239,68,68,.14);
-      border-color:rgba(239,68,68,.26);
+      background:linear-gradient(180deg, rgba(239,68,68,.24), rgba(239,68,68,.16));
+      border-color:rgba(239,68,68,.30);
     }
 
     #end{
@@ -511,7 +495,7 @@
       display:grid;
       place-items:center;
       padding:18px;
-      background:rgba(2,6,23,.76);
+      background:rgba(2,6,23,.78);
       backdrop-filter:blur(10px);
     }
 
@@ -520,25 +504,30 @@
     }
 
     .end-card{
-      width:min(860px,100%);
-      border-radius:26px;
+      width:min(940px,100%);
+      max-height:calc(100vh - 36px);
+      overflow:auto;
+      border-radius:28px;
       border:1px solid var(--stroke);
-      background:var(--panel);
-      box-shadow:0 26px 80px rgba(0,0,0,.36);
+      background:
+        radial-gradient(900px 320px at 50% 0%, rgba(34,211,238,.10), transparent 60%),
+        radial-gradient(700px 260px at 50% 100%, rgba(59,130,246,.08), transparent 60%),
+        var(--panel);
+      box-shadow:0 28px 90px rgba(0,0,0,.38);
       padding:18px;
       display:grid;
       gap:14px;
     }
 
     .end-title{
-      font-size:34px;
+      font-size:clamp(28px, 5vw, 40px);
       font-weight:1100;
       line-height:1.05;
     }
 
     .end-sub{
       color:var(--muted);
-      font-size:13px;
+      font-size:14px;
       font-weight:900;
       line-height:1.55;
     }
@@ -546,7 +535,7 @@
     .grid{
       display:grid;
       grid-template-columns:repeat(4,minmax(0,1fr));
-      gap:10px;
+      gap:12px;
     }
 
     @media (max-width: 860px){
@@ -555,12 +544,19 @@
       }
     }
 
+    @media (max-width: 520px){
+      .grid{
+        grid-template-columns:1fr 1fr;
+        gap:10px;
+      }
+    }
+
     .item{
-      border-radius:18px;
+      border-radius:20px;
       border:1px solid rgba(148,163,184,.14);
-      background:rgba(15,23,42,.46);
-      padding:12px;
-      box-shadow:0 12px 30px rgba(0,0,0,.18);
+      background:rgba(15,23,42,.52);
+      padding:14px;
+      box-shadow:0 14px 34px rgba(0,0,0,.18);
     }
 
     .kk{
@@ -568,50 +564,141 @@
       font-size:11px;
       font-weight:1000;
       margin-bottom:6px;
+      letter-spacing:.02em;
     }
 
     .vv{
       color:var(--text);
-      font-size:24px;
+      font-size:clamp(22px, 4vw, 30px);
       font-weight:1100;
       line-height:1.1;
     }
 
     .summaryBlocks{
       display:grid;
-      gap:10px;
+      gap:12px;
     }
 
     .summaryBox{
-      border-radius:18px;
+      border-radius:20px;
       border:1px solid rgba(148,163,184,.14);
-      background:rgba(15,23,42,.46);
-      padding:12px;
-      box-shadow:0 12px 30px rgba(0,0,0,.18);
+      background:rgba(15,23,42,.52);
+      padding:14px;
+      box-shadow:0 14px 34px rgba(0,0,0,.18);
     }
 
     .summaryBoxTitle{
       color:var(--muted);
       font-size:11px;
       font-weight:1000;
-      margin-bottom:6px;
+      margin-bottom:8px;
+      letter-spacing:.02em;
     }
 
     .summaryBoxText{
       color:var(--text);
-      font-size:14px;
+      font-size:15px;
       font-weight:1000;
-      line-height:1.6;
+      line-height:1.65;
     }
 
     .actions{
       display:flex;
       gap:10px;
       flex-wrap:wrap;
+      align-items:center;
+    }
+
+    .actions .btn{
+      min-height:50px;
+      border-radius:16px;
+      padding:12px 14px;
+      font-size:14px;
+      font-weight:1100;
+    }
+
+    .actions .btn.primary,
+    .actions .btn.good,
+    .actions .btn.danger{
+      box-shadow:0 12px 26px rgba(0,0,0,.18);
+    }
+
+    .actions #btnNextCooldown,
+    .actions #btnReplay,
+    .actions #btnBackHub,
+    .actions #btnEmergencyContinue{
+      order:1;
+    }
+
+    .actions #btnCopy,
+    .actions #btnCopyEvents,
+    .actions #btnCopyTimeline,
+    .actions #btnCopyFeatures,
+    .actions #btnCopyLabels,
+    .actions #btnCopyFeaturesCsv,
+    .actions #btnCopyLabelsCsv,
+    .actions #btnSendCloud{
+      order:2;
     }
 
     .is-hidden{
       display:none !important;
+    }
+
+    @media (max-width: 640px){
+      .hud{
+        max-width:none;
+      }
+
+      .stat .v{
+        font-size:18px;
+      }
+
+      .chip{
+        font-size:12px;
+      }
+
+      .hudActions{
+        gap:8px;
+      }
+
+      .hudBtn{
+        min-height:38px;
+        padding:8px 10px;
+        font-size:12px;
+      }
+
+      .end-card{
+        padding:14px;
+        gap:12px;
+      }
+
+      .summaryBox{
+        padding:12px;
+      }
+
+      .summaryBoxText{
+        font-size:14px;
+        line-height:1.6;
+      }
+
+      .actions{
+        gap:8px;
+      }
+
+      .actions .btn{
+        flex:1 1 calc(50% - 8px);
+        min-width:0;
+        padding:12px 10px;
+        font-size:13px;
+      }
+
+      .actions #btnNextCooldown,
+      .actions #btnReplay,
+      .actions #btnBackHub,
+      .actions #btnEmergencyContinue{
+        flex:1 1 100%;
+      }
     }
   </style>
 </head>
@@ -620,44 +707,42 @@
   <div class="hud">
     <div class="card">
       <div class="stat">
-        <span class="k">SCORE</span> <span id="uiScore" class="v">0</span>
-        <span class="k">TIME</span> <span id="uiTime" class="v">0</span>
-        <span class="k">MISS</span> <span id="uiMiss" class="v">0</span>
-        <span class="k">EXPIRE</span> <span id="uiExpire" class="v">0</span>
-        <span class="k">BLOCK</span> <span id="uiBlock" class="v">0</span>
-        <span class="k">GRADE</span> <span id="uiGrade" class="v">—</span>
+        <span class="k">คะแนน</span> <span id="uiScore" class="v">0</span>
+        <span class="k">เวลา</span> <span id="uiTime" class="v">0</span>
       </div>
 
       <div class="chips">
-        <span class="chip">💧 WATER <span id="uiWater">0%</span></span>
-        <span class="chip">🔥 COMBO <span id="uiCombo">0</span></span>
-        <span class="chip">🛡️ SHIELD <span id="uiShield">0</span></span>
-        <span class="chip"><span id="uiPhase">—</span></span>
-      </div>
-
-      <div class="chips">
-        <span class="chip">🤖 RISK <span id="aiRisk">—</span></span>
-        <span class="chip"><span id="aiHint">—</span></span>
+        <span class="chip">💧 น้ำ <span id="uiWater">0%</span></span>
+        <span class="chip">🛡️ โล่ <span id="uiShield">0</span></span>
+        <span class="chip"><span id="uiPhase">💧 ปกติ</span></span>
       </div>
 
       <div class="riskWrap">
-        <div class="riskBar"><div id="riskFill"></div></div>
-        <div id="coachExplain">—</div>
+        <div id="coachExplain">เก็บน้ำและหลีกเลี่ยงของไม่ดี</div>
       </div>
 
       <div class="hudActions">
-        <button class="hudBtn" id="btnSfx" type="button">🔊 SFX</button>
+        <button class="hudBtn" id="btnSfx" type="button">🔊 เสียง</button>
         <button class="hudBtn primary" id="btnPause" type="button">⏸ พักเกม</button>
         <button class="hudBtn violet" id="btnHelp" type="button">❓ วิธีเล่น</button>
       </div>
+
+      <span id="uiMiss" class="is-hidden">0</span>
+      <span id="uiExpire" class="is-hidden">0</span>
+      <span id="uiBlock" class="is-hidden">0</span>
+      <span id="uiGrade" class="is-hidden">—</span>
+      <span id="uiCombo" class="is-hidden">0</span>
+      <span id="aiRisk" class="is-hidden">—</span>
+      <span id="aiHint" class="is-hidden">—</span>
+      <div id="riskFill" class="is-hidden"></div>
     </div>
 
-    <div class="card small">
-      <div style="font-weight:1100;font-size:16px;">HYDRATION</div>
+    <div class="card small is-hidden" id="debugHudCard">
+      <div style="font-weight:1100;font-size:16px;">ภารกิจดื่มน้ำ</div>
       <div class="smalltext">
-        view=<span id="uiView">—</span><br/>
-        run=<span id="uiRun">—</span><br/>
-        diff=<span id="uiDiff">—</span>
+        มุมมอง=<span id="uiView">—</span><br/>
+        โหมด=<span id="uiRun">—</span><br/>
+        ระดับ=<span id="uiDiff">—</span>
       </div>
     </div>
   </div>
@@ -695,12 +780,12 @@
           <span>แตะ 🛡️ เพื่อป้องกันฟ้าผ่าและของไม่ดี</span>
         </div>
         <div class="tip">
-          <b>4) ตอน Storm / Boss</b>
-          <span>ดูป้าย SAFE แล้วอยู่ฝั่งซ้ายหรือขวาตามที่บอก</span>
+          <b>4) ตอนช่วงพายุ / บอส</b>
+          <span>ดูป้ายฝั่งปลอดภัย แล้วอยู่ฝั่งซ้ายหรือขวาตามที่บอก</span>
         </div>
         <div class="tip">
-          <b>5) โหมด VR / cVR</b>
-          <span>ใช้ปุ่ม LEFT/RIGHT หรือยิงจากกลางจอเมื่อมี crosshair</span>
+          <b>5) ตอนใช้แว่นหรือกระดาษ VR</b>
+          <span>ใช้ปุ่ม ซ้าย/ขวา หรือยิงจากกลางจอเมื่อมีเป้าเล็ง</span>
         </div>
       </div>
 
@@ -725,7 +810,7 @@
 
   <div id="end" aria-hidden="true">
     <div class="end-card">
-      <div class="end-title" id="endTitle">Completed</div>
+      <div class="end-title" id="endTitle">เล่นจบรอบแล้ว</div>
       <div class="end-sub" id="endSub">—</div>
 
       <div class="grid">
@@ -749,38 +834,39 @@
 
       <div class="summaryBlocks">
         <div class="summaryBox">
-          <div class="summaryBoxTitle">COACH</div>
+          <div class="summaryBoxTitle">💬 COACH</div>
           <div class="summaryBoxText" id="endCoach">—</div>
         </div>
 
         <div class="summaryBox">
-          <div class="summaryBoxTitle">PHASE SUMMARY</div>
+          <div class="summaryBoxTitle">🗺 PHASE SUMMARY</div>
           <div class="summaryBoxText" id="endPhaseSummary">—</div>
         </div>
 
         <div class="summaryBox">
-          <div class="summaryBoxTitle">REWARD</div>
+          <div class="summaryBoxTitle">🎁 REWARD</div>
           <div class="summaryBoxText" id="endReward">—</div>
         </div>
 
         <div class="summaryBox">
-          <div class="summaryBoxTitle">BADGE</div>
+          <div class="summaryBoxTitle">🏅 BADGE</div>
           <div class="summaryBoxText" id="endBadge">—</div>
         </div>
       </div>
 
       <div class="actions">
-        <button class="btn" id="btnCopy" type="button">Copy Summary</button>
-        <button class="btn" id="btnCopyEvents" type="button">Copy Events</button>
-        <button class="btn" id="btnCopyTimeline" type="button">Copy Timeline</button>
-        <button class="btn" id="btnCopyFeatures" type="button">Copy Features</button>
-        <button class="btn" id="btnCopyLabels" type="button">Copy Labels</button>
-        <button class="btn" id="btnCopyFeaturesCsv" type="button">Copy Features CSV</button>
-        <button class="btn" id="btnCopyLabelsCsv" type="button">Copy Labels CSV</button>
-        <button class="btn violet" id="btnSendCloud" type="button">Send Cloud</button>
-        <button class="btn danger" id="btnReplay" type="button">Replay</button>
-        <button class="btn primary is-hidden" id="btnNextCooldown" type="button">ถัดไป: Cooldown</button>
-        <button class="btn good" id="btnBackHub" type="button">Back HUB</button>
+        <button class="btn primary is-hidden" id="btnNextCooldown" type="button">ไปผ่อนคลายหลังเล่น</button>
+        <button class="btn danger" id="btnReplay" type="button">เล่นอีกครั้ง</button>
+        <button class="btn good" id="btnBackHub" type="button">กลับหน้าหลัก</button>
+
+        <button class="btn is-hidden" id="btnCopy" type="button">Copy Summary</button>
+        <button class="btn is-hidden" id="btnCopyEvents" type="button">Copy Events</button>
+        <button class="btn is-hidden" id="btnCopyTimeline" type="button">Copy Timeline</button>
+        <button class="btn is-hidden" id="btnCopyFeatures" type="button">Copy Features</button>
+        <button class="btn is-hidden" id="btnCopyLabels" type="button">Copy Labels</button>
+        <button class="btn is-hidden" id="btnCopyFeaturesCsv" type="button">Copy Features CSV</button>
+        <button class="btn is-hidden" id="btnCopyLabelsCsv" type="button">Copy Labels CSV</button>
+        <button class="btn violet is-hidden" id="btnSendCloud" type="button">Send Cloud</button>
       </div>
     </div>
   </div>
@@ -797,6 +883,13 @@
       s('uiView',view);
       s('uiRun',runMode);
       s('uiDiff',diff);
+
+      const debugHudCard = document.getElementById('debugHudCard');
+      const debugOn = ['1','true','yes','on'].includes(String(U.searchParams.get('debug') || '0').toLowerCase());
+      const isResearch = String(U.searchParams.get('run') || 'play').toLowerCase() === 'research';
+      if(debugHudCard && (debugOn || isResearch)){
+        debugHudCard.classList.remove('is-hidden');
+      }
 
       if(view === 'cvr'){
         try{ document.getElementById('layer').style.pointerEvents = 'none'; }catch(e){}
