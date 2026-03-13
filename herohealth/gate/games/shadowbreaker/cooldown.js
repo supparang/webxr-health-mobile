@@ -1,6 +1,6 @@
 /* === /herohealth/gate/games/shadowbreaker/cooldown.js ===
  * HeroHealth Gate Game: ShadowBreaker Cooldown
- * PATCH v20260312-SHADOWBREAKER-COOLDOWN-A
+ * PATCH v20260312e-SHADOWBREAKER-COOLDOWN-TH-CHILD
  */
 
 function clamp(v, a, b){ return Math.max(a, Math.min(b, v)); }
@@ -39,7 +39,7 @@ function makeResult(state){
     game: 'shadowbreaker',
     phase: 'cooldown',
     activityId: 'shadowbreaker-energy-fade',
-    title: 'Energy Fade',
+    title: 'หายใจให้ช้าลง',
     passed,
     score,
     stars: starsFromScore(score),
@@ -51,8 +51,8 @@ function makeResult(state){
     coach: {
       tone: passed ? 'calm' : 'gentle',
       line: passed
-        ? 'ผ่อนพลังลงเรียบร้อยแล้ว ร่างกายพร้อมพัก'
-        : 'หายใจช้า ๆ อีกนิด ให้ร่างกายค่อย ๆ ผ่อนลง'
+        ? 'หายใจช้าลงแล้ว เก่งมาก'
+        : 'หายใจช้า ๆ อีกนิด แล้วค่อยกลับไปพัก'
     },
     nextAction: 'hub'
   };
@@ -68,7 +68,7 @@ export function mount(root, ctx = {}){
       <div class="sbg-wrap">
         <section class="sbg-card">
           <div class="sbg-kicker">EXERCISE ZONE • COOLDOWN</div>
-          <h1 class="sbg-title">🌙 Energy Fade</h1>
+          <h1 class="sbg-title">🌙 หายใจให้ช้าลง</h1>
           <p class="sbg-subtitle">โมดูลนี้ใช้สำหรับ phase=cooldown เท่านั้น</p>
         </section>
       </div>
@@ -92,16 +92,16 @@ export function mount(root, ctx = {}){
     <div class="sbg-wrap sbg-wrap-cool">
       <section class="sbg-card">
         <div class="sbg-kicker">EXERCISE ZONE • COOLDOWN</div>
-        <h1 class="sbg-title">🌙 Energy Fade</h1>
-        <p class="sbg-subtitle">ค่อย ๆ ผ่อนจังหวะหลังจบเกม Shadow Breaker</p>
+        <h1 class="sbg-title">🌙 หายใจให้ช้าลง</h1>
+        <p class="sbg-subtitle">หายใจช้า ๆ หลังจบเกม Shadow Breaker</p>
 
         <div class="sbg-grid">
           <div class="sbg-panel">
-            <h2 class="sbg-h2">วิธีทำ</h2>
+            <h2 class="sbg-h2">วิธีเล่น</h2>
             <ol class="sbg-list">
-              <li>กดปุ่ม “หายใจ 1 รอบ” ตามจังหวะช้า ๆ</li>
-              <li>ทำให้ครบอย่างน้อย 4 รอบ</li>
-              <li>อยู่ในช่วงคูลดาวน์ให้นิ่งต่อเนื่องเพื่อเก็บ calm ticks</li>
+              <li>กดปุ่มหายใจทีละ 1 ครั้ง</li>
+              <li>ทำให้ครบอย่างน้อย 4 ครั้ง</li>
+              <li>หายใจช้า ๆ ต่ออีกนิด</li>
             </ol>
           </div>
 
@@ -110,22 +110,22 @@ export function mount(root, ctx = {}){
             <div class="sbg-cue sbg-cue-cool" id="sbg-cue">หายใจเข้า... หายใจออก...</div>
             <div class="sbg-timer" id="sbg-timer">${GAME_SEC}s</div>
             <div class="sbg-stats" id="sbg-stats">
-              <span>รอบหายใจ 0</span>
-              <span>calm 0</span>
+              <span>หายใจ 0</span>
+              <span>ผ่อนคลาย 0</span>
             </div>
 
             <div class="sbg-actions sbg-actions-single">
               <button class="sbg-btn-action sbg-btn-breath" type="button" id="sbg-breath" disabled>
                 <span class="sbg-emoji">💨</span>
-                <span>หายใจ 1 รอบ</span>
+                <span>หายใจ 1 ครั้ง</span>
               </button>
             </div>
           </div>
         </div>
 
         <div class="sbg-footer">
-          <button class="sbg-btn sbg-btn-primary" id="sbg-start">เริ่มคูลดาวน์</button>
-          <button class="sbg-btn sbg-btn-ghost" id="sbg-finish" disabled>สรุปผล</button>
+          <button class="sbg-btn sbg-btn-primary" id="sbg-start">เริ่มผ่อนคลาย</button>
+          <button class="sbg-btn sbg-btn-ghost" id="sbg-finish" disabled>ดูผล</button>
         </div>
       </section>
     </div>
@@ -140,8 +140,8 @@ export function mount(root, ctx = {}){
 
   function renderStats(){
     statsEl.innerHTML = `
-      <span>รอบหายใจ ${state.breathCycles}</span>
-      <span>calm ${state.calmTicks}</span>
+      <span>หายใจ ${state.breathCycles}</span>
+      <span>ผ่อนคลาย ${state.calmTicks}</span>
     `;
   }
 
@@ -153,16 +153,14 @@ export function mount(root, ctx = {}){
     breathBtn.disabled = true;
     startBtn.disabled = true;
     finishBtn.disabled = false;
-    cueEl.textContent = 'เสร็จแล้ว กดสรุปผล';
+    cueEl.textContent = 'เสร็จแล้ว กดดูผล';
     renderStats();
   }
 
   breathBtn.addEventListener('click', () => {
     if (!state.started || state.finished) return;
     state.breathCycles += 1;
-    cueEl.textContent = state.breathCycles % 2 === 0
-      ? 'หายใจเข้า...'
-      : 'หายใจออก...';
+    cueEl.textContent = state.breathCycles % 2 === 0 ? 'หายใจเข้า...' : 'หายใจออก...';
     renderStats();
 
     if (state.breathCycles >= 4 && state.calmTicks >= 4){
