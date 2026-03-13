@@ -1,6 +1,6 @@
 /* === /herohealth/gate/games/shadowbreaker/warmup.js ===
  * HeroHealth Gate Game: ShadowBreaker Warmup
- * PATCH v20260312-SHADOWBREAKER-WARMUP-A
+ * PATCH v20260312e-SHADOWBREAKER-WARMUP-TH-CHILD
  */
 
 function clamp(v, a, b){ return Math.max(a, Math.min(b, v)); }
@@ -39,7 +39,7 @@ function makeResult(state){
     game: 'shadowbreaker',
     phase: 'warmup',
     activityId: 'shadowbreaker-light-dodge-prep',
-    title: 'Light Dodge Prep',
+    title: 'ซ้อมหลบเร็ว',
     passed,
     score,
     stars: starsFromScore(score),
@@ -54,8 +54,8 @@ function makeResult(state){
     coach: {
       tone: passed ? 'positive' : 'gentle',
       line: passed
-        ? 'รีเฟล็กซ์พร้อมแล้ว ไปเริ่ม Shadow Breaker กัน'
-        : 'ลองจับจังหวะหลบซ้าย ขวา ย่อ ให้ไวขึ้นอีกนิด'
+        ? 'พร้อมแล้ว ไปเล่น Shadow Breaker กัน'
+        : 'ลองซ้อมหลบอีกนิด ให้ไวขึ้นอีกหน่อย'
     },
     nextAction: 'run'
   };
@@ -71,7 +71,7 @@ export function mount(root, ctx = {}){
       <div class="sbg-wrap">
         <section class="sbg-card">
           <div class="sbg-kicker">EXERCISE ZONE • WARMUP</div>
-          <h1 class="sbg-title">⚡ Light Dodge Prep</h1>
+          <h1 class="sbg-title">⚡ ซ้อมหลบเร็ว</h1>
           <p class="sbg-subtitle">โมดูลนี้ใช้สำหรับ phase=warmup เท่านั้น</p>
         </section>
       </div>
@@ -116,8 +116,8 @@ export function mount(root, ctx = {}){
     <div class="sbg-wrap">
       <section class="sbg-card">
         <div class="sbg-kicker">EXERCISE ZONE • WARMUP</div>
-        <h1 class="sbg-title">⚡ Light Dodge Prep</h1>
-        <p class="sbg-subtitle">เตรียมรีเฟล็กซ์การหลบก่อนเข้าเกม Shadow Breaker</p>
+        <h1 class="sbg-title">⚡ ซ้อมหลบเร็ว</h1>
+        <p class="sbg-subtitle">ซ้อมหลบซ้าย ขวา และย่อ ก่อนเข้าเกม Shadow Breaker</p>
 
         <div class="sbg-grid">
           <div class="sbg-panel">
@@ -125,7 +125,7 @@ export function mount(root, ctx = {}){
             <ol class="sbg-list">
               <li>กดปุ่มให้ตรงกับท่าหลบที่ขึ้นบนจอ</li>
               <li>มี 3 ท่า: หลบซ้าย หลบขวา ย่อหลบ</li>
-              <li>ทำสำเร็จอย่างน้อย 5 ครั้ง หรือคะแนนรวม 60%</li>
+              <li>ทำสำเร็จอย่างน้อย 5 ครั้ง</li>
             </ol>
           </div>
 
@@ -152,7 +152,7 @@ export function mount(root, ctx = {}){
 
         <div class="sbg-footer">
           <button class="sbg-btn sbg-btn-primary" id="sbg-start">เริ่มอุ่นเครื่อง</button>
-          <button class="sbg-btn sbg-btn-ghost" id="sbg-finish" disabled>สรุปผล</button>
+          <button class="sbg-btn sbg-btn-ghost" id="sbg-finish" disabled>ดูผล</button>
         </div>
       </section>
     </div>
@@ -185,7 +185,7 @@ export function mount(root, ctx = {}){
     lockActions(true);
     startBtn.disabled = true;
     finishBtn.disabled = false;
-    cueEl.textContent = 'เสร็จแล้ว กดสรุปผล';
+    cueEl.textContent = 'เสร็จแล้ว กดดูผล';
     renderStats();
   }
 
