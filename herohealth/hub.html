@@ -1,8 +1,9 @@
 <!-- === /herohealth/hub.html ===
 HeroHealth — Hub (3 Zones) — PRODUCTION
-PATCH v20260311-HUB-RHYTHMBOXER-LAUNCHER-FIX-r1
-✅ FIX: Rhythm Boxer launcher = ./rhythm-boxer-vr.html
-✅ Keep GoodJunk / Hydration / JumpDuck / ShadowBreaker wiring
+PATCH v20260313-HUB-GROUPS-RACE-INTEGRATED
+✅ ADD: Groups Race Host / Join entry from Hub
+✅ ADD: Quick Race buttons on topbar
+✅ KEEP: GoodJunk / Hydration / JumpDuck / ShadowBreaker / Rhythm Boxer wiring
 -->
 <!doctype html>
 <html lang="th">
@@ -98,6 +99,7 @@ PATCH v20260311-HUB-RHYTHMBOXER-LAUNCHER-FIX-r1
     .btn.primary{ border-color: rgba(59,130,246,.30); background: rgba(59,130,246,.16); }
     .btn.violet{ border-color: rgba(167,139,250,.28); background: rgba(167,139,250,.14); }
     .btn.good{ border-color: rgba(34,197,94,.28); background: rgba(34,197,94,.14); }
+    .btn.warn{ border-color: rgba(245,158,11,.28); background: rgba(245,158,11,.14); }
     .btn.ghost{ background: transparent; color: var(--muted); }
     .grid{
       display:grid;
@@ -412,6 +414,8 @@ PATCH v20260311-HUB-RHYTHMBOXER-LAUNCHER-FIX-r1
         <span class="pill"><b>Hero</b>: <span id="uiNick">anon</span></span>
         <span class="pill"><b>LV</b>: <span id="uiLvl">1</span></span>
         <span class="pill"><b>XP</b>: <span id="uiXp">0</span></span>
+        <button class="btn warn" id="btnGroupsRaceHostTop" type="button">🏁 Groups Race Host</button>
+        <button class="btn violet" id="btnGroupsRaceJoinTop" type="button">🎮 Groups Race Join</button>
         <button class="btn violet" id="btnHeroShow" type="button">🧾 ดู Hero</button>
         <button class="btn ghost" id="btnHeroReset" type="button">♻ Reset Hero</button>
       </div>
@@ -608,11 +612,13 @@ PATCH v20260311-HUB-RHYTHMBOXER-LAUNCHER-FIX-r1
         <div class="sep"></div>
         <div class="games">
           <a class="gameBtn" id="linkGoodjunk" href="#"><div class="t">🍔🆚🥦 GoodJunk</div><div class="s">Launcher • Solo/PRO/Battle • Hero + Card Book</div></a>
-          <a class="gameBtn" id="linkGroups" href="#"><div class="t">🥚🍚 Food Groups</div><div class="s">Classroom ramp + AI warn</div></a>
+          <a class="gameBtn" id="linkGroups" href="#"><div class="t">🥚🍚 Food Groups</div><div class="s">Solo Mode • Classroom ramp + AI warn</div></a>
+          <a class="gameBtn" id="linkGroupsRaceHost" href="#"><div class="t">🏁 Groups Race Host</div><div class="s">สร้างห้องแข่ง 1v1 แบบ BO3</div></a>
+          <a class="gameBtn" id="linkGroupsRaceJoin" href="#"><div class="t">🎮 Groups Race Join</div><div class="s">เข้าห้องแข่งด้วย ROOM CODE</div></a>
           <a class="gameBtn" id="linkHydration" href="#"><div class="t">💧 Hydration</div><div class="s">Start Flow → warmup → run → cooldown</div></a>
           <a class="gameBtn" id="linkPlate" href="#"><div class="t">🍽 Balanced Plate</div><div class="s">Bloom missions</div></a>
         </div>
-        <div class="small" style="margin-top:4px;">Tip: GoodJunk/Hydration ใช้ launcher ก่อน แล้วค่อยผ่าน warmup-gate ไป run game จริง</div>
+        <div class="small" style="margin-top:4px;">Tip: Groups ตอนนี้มีทั้ง Solo และ Race แล้ว • Race flow = Host → Lobby → Run → Rematch/BO3</div>
       </section>
 
       <section class="card">
@@ -1033,23 +1039,26 @@ PATCH v20260311-HUB-RHYTHMBOXER-LAUNCHER-FIX-r1
     }
 
     const PATHS = {
-      goodjunk:       './goodjunk-vr.html',
-      groups:         './groups-vr.html',
-      hydration:      './hydration-vr.html',
-      plate:          './plate-vr.html',
+      goodjunk:         './goodjunk-vr.html',
+      groups:           './groups-vr.html',
+      groupsRaceHost:   './groups-race-host.html',
+      groupsRaceJoin:   './groups-race-join.html',
+      groupsRaceLobby:  './groups-race.html',
+      hydration:        './hydration-vr.html',
+      plate:            './plate-vr.html',
 
-      handwash:       './hygiene-vr.html',
-      brush:          './brush-vr.html',
-      bath:           './bath-vr.html',
-      cleanObject:    './clean-objects.html',
-      maskCough:      './maskcough-vr.html',
-      germDetective:  './germ-detective-vr.html',
+      handwash:         './hygiene-vr.html',
+      brush:            './brush-vr.html',
+      bath:             './bath-vr.html',
+      cleanObject:      './clean-objects.html',
+      maskCough:        './maskcough-vr.html',
+      germDetective:    './germ-detective-vr.html',
 
-      shadowBreaker:  './shadow-breaker-vr.html',
-      rhythmBoxer:    './rhythm-boxer-vr.html',
-      jumpDuck:       './jump-duck-vr.html',
-      balanceHold:    './balance-hold-vr.html',
-      fitnessPlanner: './fitness-planner.html'
+      shadowBreaker:    './shadow-breaker-vr.html',
+      rhythmBoxer:      './rhythm-boxer-vr.html',
+      jumpDuck:         './jump-duck-vr.html',
+      balanceHold:      './balance-hold-vr.html',
+      fitnessPlanner:   './fitness-planner.html'
     };
 
     const btnGJsolo = document.getElementById('btnGJsolo');
@@ -1057,8 +1066,13 @@ PATCH v20260311-HUB-RHYTHMBOXER-LAUNCHER-FIX-r1
     const btnGJbattle = document.getElementById('btnGJbattle');
     const btnHydrationStart = document.getElementById('btnHydrationStart');
 
+    const btnGroupsRaceHostTop = document.getElementById('btnGroupsRaceHostTop');
+    const btnGroupsRaceJoinTop = document.getElementById('btnGroupsRaceJoinTop');
+
     const linkGoodjunk = document.getElementById('linkGoodjunk');
     const linkGroups = document.getElementById('linkGroups');
+    const linkGroupsRaceHost = document.getElementById('linkGroupsRaceHost');
+    const linkGroupsRaceJoin = document.getElementById('linkGroupsRaceJoin');
     const linkHydration = document.getElementById('linkHydration');
     const linkPlate = document.getElementById('linkPlate');
 
@@ -1075,16 +1089,12 @@ PATCH v20260311-HUB-RHYTHMBOXER-LAUNCHER-FIX-r1
     const linkBalanceHold = document.getElementById('linkBalanceHold');
     const linkFitnessPlanner = document.getElementById('linkFitnessPlanner');
 
-    linkGoodjunk.href  = buildUrl(PATHS.goodjunk,   { mode:'solo' });
-    linkGroups.href    = buildUrl(PATHS.groups,     { zone:'nutrition', cat:'nutrition' });
-    linkHydration.href = buildUrl(PATHS.hydration,  {
-      zone:'nutrition',
-      cat:'nutrition',
-      gate:'1',
-      cdur:'20',
-      cooldown:'1'
-    });
-    linkPlate.href     = buildUrl(PATHS.plate,      { zone:'nutrition', cat:'nutrition' });
+    linkGoodjunk.href        = buildUrl(PATHS.goodjunk,        { mode:'solo' });
+    linkGroups.href          = buildUrl(PATHS.groups,          { zone:'nutrition', cat:'nutrition' });
+    linkGroupsRaceHost.href  = buildUrl(PATHS.groupsRaceHost,  { zone:'nutrition', cat:'nutrition' });
+    linkGroupsRaceJoin.href  = buildUrl(PATHS.groupsRaceJoin,  { zone:'nutrition', cat:'nutrition' });
+    linkHydration.href       = buildUrl(PATHS.hydration,       { zone:'nutrition', cat:'nutrition', gate:'1', cdur:'20', cooldown:'1' });
+    linkPlate.href           = buildUrl(PATHS.plate,           { zone:'nutrition', cat:'nutrition' });
 
     if(linkHandwash)      linkHandwash.href      = buildUrl(PATHS.handwash,      { zone:'hygiene', cat:'hygiene' });
     if(linkBrush)         linkBrush.href         = buildUrl(PATHS.brush,         { zone:'hygiene', cat:'hygiene' });
@@ -1115,6 +1125,18 @@ PATCH v20260311-HUB-RHYTHMBOXER-LAUNCHER-FIX-r1
           cdur:'20',
           cooldown:'1'
         });
+      };
+    }
+
+    if(btnGroupsRaceHostTop){
+      btnGroupsRaceHostTop.onclick = ()=> {
+        location.href = buildUrl(PATHS.groupsRaceHost, { zone:'nutrition', cat:'nutrition' });
+      };
+    }
+
+    if(btnGroupsRaceJoinTop){
+      btnGroupsRaceJoinTop.onclick = ()=> {
+        location.href = buildUrl(PATHS.groupsRaceJoin, { zone:'nutrition', cat:'nutrition' });
       };
     }
 
