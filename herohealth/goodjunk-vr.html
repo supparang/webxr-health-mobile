@@ -1,6 +1,6 @@
 <!-- === /herohealth/goodjunk-vr.html ===
 HeroHealth — GoodJunk Launcher
-PATCH v20260311-GJ-LAUNCHER-FLOW-CANONICAL
+FULL PATCH v20260313i-GJ-LAUNCHER-PHASE-FIX
 FLOW:
 launcher -> warmup-gate -> /herohealth/vr-goodjunk/goodjunk-vr.html -> summary -> cooldown-gate -> hub
 -->
@@ -233,10 +233,10 @@ launcher -> warmup-gate -> /herohealth/vr-goodjunk/goodjunk-vr.html -> summary -
         <div class="k">FLOW</div>
         <div class="flow">
           1) launcher = <b>/herohealth/goodjunk-vr.html</b><br/>
-          2) warmup-gate = <b>/herohealth/warmup-gate.html?gatePhase=warmup</b><br/>
+          2) warmup-gate = <b>/herohealth/warmup-gate.html?phase=warmup&amp;game=goodjunk</b><br/>
           3) run game = <b>/herohealth/vr-goodjunk/goodjunk-vr.html</b><br/>
           4) end = <b>summary overlay</b><br/>
-          5) cooldown-gate = <b>/herohealth/warmup-gate.html?gatePhase=cooldown</b><br/>
+          5) cooldown-gate = <b>/herohealth/warmup-gate.html?phase=cooldown&amp;game=goodjunk</b><br/>
           6) return = <b>/herohealth/hub.html</b>
         </div>
 
@@ -254,7 +254,6 @@ launcher -> warmup-gate -> /herohealth/vr-goodjunk/goodjunk-vr.html -> summary -
     const qs = (k,d='')=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
     const clamp = (v,a,b)=> Math.max(a, Math.min(b, Number(v)||0));
     const safeUpper = s => String(s||'').trim().toUpperCase();
-    const enc = s => encodeURIComponent(String(s ?? ''));
 
     function setDefaultsFromQuery(){
       $('pid').value = qs('pid','anon');
@@ -293,6 +292,9 @@ launcher -> warmup-gate -> /herohealth/vr-goodjunk/goodjunk-vr.html -> summary -
       run.searchParams.set('hub', hub);
       run.searchParams.set('seed', String(seed));
       run.searchParams.set('mode', mode);
+      run.searchParams.set('run', 'play');
+      run.searchParams.set('zone', 'nutrition');
+      run.searchParams.set('cat', 'nutrition');
 
       if(mode === 'battle'){
         run.searchParams.set('battle', '1');
@@ -320,10 +322,11 @@ launcher -> warmup-gate -> /herohealth/vr-goodjunk/goodjunk-vr.html -> summary -
 
       const nextRun = buildRunUrl();
       const gate = new URL('./warmup-gate.html', location.href);
-      gate.searchParams.set('gatePhase', 'warmup');
+
+      gate.searchParams.set('phase', 'warmup');
       gate.searchParams.set('cat', 'nutrition');
+      gate.searchParams.set('zone', 'nutrition');
       gate.searchParams.set('game', 'goodjunk');
-      gate.searchParams.set('theme', 'goodjunk');
       gate.searchParams.set('pid', pid);
       gate.searchParams.set('hub', hub);
       gate.searchParams.set('next', nextRun);
