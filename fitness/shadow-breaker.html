@@ -6,27 +6,23 @@
   <title>Shadow Breaker — VR Fitness</title>
   <meta name="color-scheme" content="dark light"/>
   <link rel="icon" href="../herohealth/favicon.ico"/>
-  <link rel="stylesheet" href="./css/shadow-breaker.css?v=20260311b"/>
+  <link rel="stylesheet" href="./css/shadow-breaker.css?v=20260311c-child"/>
 </head>
 <body>
 <div id="sb-wrap" class="sb-wrap">
 
   <!-- HEADER -->
-  <header class="sb-header">
+  <header class="sb-header sb-header-compact">
     <div class="sb-header-left">
       <div class="sb-kicker">VR Fitness • Boss Targets</div>
       <h1 class="sb-title">Shadow Breaker</h1>
       <div class="sb-sub">
-        เกมตีเป้า Boss หลายเฟส • RT / Combo / FEVER / Shield • รองรับ Normal / Research<br/>
-        รองรับ: <b>PC</b> • <b>Mobile</b>
+        ตีเป้าให้ทัน • เก็บคอมโบ • เปิด FEVER
       </div>
     </div>
 
     <div class="sb-header-right">
-      <div class="sb-tip">ชก/แตะเป้าให้ทัน รักษาคอมโบ แล้วกด FEVER ให้ถูกจังหวะ</div>
-      <div class="sb-links">
-        <a class="sb-link" id="sb-link-hub" href="../herohealth/hub.html">← กลับ Hub</a>
-      </div>
+      <a class="sb-link" id="sb-link-hub" href="../herohealth/hub.html">← กลับ Hub</a>
     </div>
   </header>
 
@@ -42,7 +38,7 @@
         </div>
 
         <div id="sb-mode-desc" class="sb-mode-desc">
-          Normal: เล่นสนุก/สอนทั่วไป ไม่ต้องกรอกข้อมูลผู้เข้าร่วม
+          Normal: เล่นสนุก ไม่ต้องกรอกข้อมูลผู้เข้าร่วม
         </div>
 
         <div class="sb-form">
@@ -78,12 +74,12 @@
 
             <div class="sb-field">
               <label class="sb-label" for="sb-input-note">Note</label>
-              <input id="sb-input-note" class="sb-input" placeholder="โน้ตเพิ่มเติม (ไม่บังคับ)"/>
+              <input id="sb-input-note" class="sb-input" placeholder="โน้ตเพิ่มเติม"/>
             </div>
           </div>
 
           <div class="sb-mini-note">
-            AI (Play only): DL-lite Predictor • Explainable micro-tips • Pattern Generator • Fair adaptive pacing
+            ตีเป้าให้ทัน • หลบ Bomb • เก็บ Heal/Shield • เปิด FEVER
           </div>
 
           <div class="sb-actions">
@@ -94,11 +90,10 @@
 
           <div id="sb-howto" class="sb-howto">
             <ul>
-              <li>ชก/แตะเป้า “Normal” เพื่อทำคอมโบและเพิ่มคะแนน</li>
-              <li>เป้า “Decoy/Bomb” ทำให้เสียจังหวะ ถ้ามี Shield จะกันระเบิดได้</li>
-              <li>เป้า “Heal/Shield” ช่วยเอาตัวรอดและรักษาคอมโบ</li>
-              <li>FEVER เต็ม → กด FEVER เพื่อเร่งคะแนน/ดาเมจบอสช่วงสั้น ๆ</li>
-              <li>เมื่อ HP บอสใกล้หมด อาจมี “Boss Face” โผล่มาให้คริติคอล</li>
+              <li>แตะเป้า 🎯 ให้ทัน</li>
+              <li>เลี่ยง 💣 และ 👀</li>
+              <li>เก็บ 🩹 และ 🛡️ เมื่อจำเป็น</li>
+              <li>เกจเต็มแล้วกด ⚡ FEVER</li>
             </ul>
           </div>
         </div>
@@ -108,9 +103,10 @@
 
     <!-- PLAY VIEW -->
     <section id="sb-view-play" class="sb-view">
-      <section class="sb-play">
+      <section class="sb-play sb-play-child">
 
-        <div class="sb-hud">
+        <!-- HUD -->
+        <div class="sb-hud sb-hud-child">
           <div class="sb-hud-left">
             <div class="sb-stat"><span class="k">Time</span><span class="v" id="sb-text-time">0.0 s</span></div>
             <div class="sb-stat"><span class="k">Score</span><span class="v" id="sb-text-score">0</span></div>
@@ -124,7 +120,6 @@
           <div class="sb-hud-right">
             <div class="sb-stat"><span class="k">Phase</span><span class="v" id="sb-text-phase">1</span></div>
             <div class="sb-stat"><span class="k">Miss</span><span class="v" id="sb-text-miss">0</span></div>
-            <div class="sb-stat"><span class="k">Shield</span><span class="v" id="sb-text-shield">0</span></div>
             <label class="sb-toggle">
               <input id="sb-btn-pause" type="checkbox"/>
               Pause
@@ -132,7 +127,8 @@
           </div>
         </div>
 
-        <div class="sb-bars sb-bars-top">
+        <!-- TOP BARS -->
+        <div class="sb-bars sb-bars-top sb-bars-top-child">
           <div class="sb-bar">
             <div class="sb-bar-label">YOU</div>
             <div class="sb-bar-track">
@@ -148,14 +144,15 @@
           </div>
         </div>
 
-        <div class="sb-stage">
+        <!-- STAGE -->
+        <div class="sb-stage sb-stage-child">
           <div id="sb-target-layer" class="sb-target-layer"></div>
 
           <div class="sb-center-msg">
             <div id="sb-msg-main" class="sb-msg-main">พร้อม!</div>
           </div>
 
-          <aside id="sb-meta" class="sb-meta">
+          <aside id="sb-meta" class="sb-meta sb-meta-child">
             <div class="sb-meta-rowtop">
               <div class="sb-meta-emoji" id="sb-meta-emoji">🐣</div>
               <button id="sb-btn-meta" class="sb-meta-toggle" type="button" aria-expanded="true">▾</button>
@@ -175,15 +172,15 @@
                 <b id="sb-boss-shield-label">0</b>
               </div>
 
-              <div style="margin-top:10px;">
+              <div style="margin-top:8px;">
                 <button class="sb-btn sb-btn-ghost" id="sb-btn-back-menu" type="button">← กลับเมนู</button>
               </div>
             </div>
           </aside>
         </div>
 
-        <div class="sb-bars-bottom">
-
+        <!-- BOTTOM -->
+        <div class="sb-bars-bottom sb-bars-bottom-child">
           <div class="sb-fever">
             <div class="sb-fever-head">
               <div><span class="k">FEVER</span> <span class="v" id="sb-label-fever">0%</span></div>
@@ -195,7 +192,7 @@
             </div>
 
             <div class="sb-fever-hint" id="sb-fever-hint">
-              เก็บเกจจากการตีเป้าให้แม่น เพื่อเปิด FEVER
+              ตีแม่น ๆ เพื่อเปิด FEVER
             </div>
           </div>
 
@@ -216,7 +213,6 @@
               <div class="sb-bar-fill boss" id="sb-hp-boss-bottom"></div>
             </div>
           </div>
-
         </div>
 
       </section>
@@ -250,12 +246,11 @@
   </main>
 </div>
 
-<script type="module" src="./js/engine.js?v=20260311b"></script>
+<script type="module" src="./js/engine.js?v=20260311c-child"></script>
 
 <script>
 (function(){
   const $ = (s)=>document.querySelector(s);
-
   const tabN = $('#sb-tab-normal');
   const tabR = $('#sb-tab-research');
   const rf = $('#sb-research-fields');
@@ -273,8 +268,8 @@
     if (rf) rf.style.display = isR ? '' : 'none';
     if (desc) {
       desc.textContent = isR
-        ? 'Research: ใช้เก็บข้อมูลการทดลอง (กรอก Participant/Group ได้)'
-        : 'Normal: เล่นสนุก/สอนทั่วไป ไม่ต้องกรอกข้อมูลผู้เข้าร่วม';
+        ? 'Research: ใช้เก็บข้อมูลการทดลอง'
+        : 'Normal: เล่นสนุก ไม่ต้องกรอกข้อมูลผู้เข้าร่วม';
     }
   }
 
