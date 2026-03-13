@@ -1,6 +1,6 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
 // GoodJunkVR SAFE — PRODUCTION
-// FULL PATCH v20260311-GJ-SAFE-BATTLE-MERGED
+// FULL PATCH v20260313a-GJ-SAFE-COOLDOWN-FLOW-FIX
 'use strict';
 
 export async function boot(cfg){
@@ -14,6 +14,14 @@ export async function boot(cfg){
   const nowMs = ()=> (performance && performance.now) ? performance.now() : Date.now();
   const nowIso = ()=> new Date().toISOString();
   function $(id){ return DOC.getElementById(id); }
+  function safeUrl(raw, fallback=''){
+    try{
+      if(!raw) return fallback;
+      return new URL(raw, location.href).toString();
+    }catch(_){
+      return fallback;
+    }
+  }
 
   const mode = String(qs('mode', cfg.mode || 'solo')).toLowerCase();
   const battleOn = (String(qs('battle','0')) === '1') || (mode === 'battle');
@@ -174,61 +182,77 @@ export async function boot(cfg){
 
   function hhBuildCooldownUrl({ hub, nextAfterCooldown, cat, gameKey, pid }){
     const gate = new URL('../warmup-gate.html', location.href);
-    gate.searchParams.set('gatePhase','cooldown');
-    gate.searchParams.set('cat', String(cat||'nutrition'));
-    gate.searchParams.set('theme', String(gameKey||'unknown'));
-    gate.searchParams.set('pid', String(pid||'anon'));
-    if(hub) gate.searchParams.set('hub', String(hub));
+    const sp = new URL(location.href).searchParams;
+
+    const zone = String(sp.get('zone') || cat || 'nutrition');
+    const run = String(
+      sp.get('run') ||
+      (sp.get('mode') === 'solo' ? 'play' : (sp.get('mode') || 'play'))
+    );
+
+    gate.searchParams.set('phase', 'cooldown');
+    gate.searchParams.set('game', String(gameKey || 'unknown'));
+    gate.searchParams.set('zone', zone);
+    gate.searchParams.set('cat', String(cat || zone || 'nutrition'));
+    gate.searchParams.set('pid', String(pid || 'anon'));
+    gate.searchParams.set('run', run);
+
+    if (hub) gate.searchParams.set('hub', String(hub));
     gate.searchParams.set('next', String(nextAfterCooldown || hub || '../hub.html'));
 
-    const sp = new URL(location.href).searchParams;
     [
-      'run','diff','time','seed','studyId','phase','conditionGroup','view','log',
+      'diff','time','seed','studyId','conditionGroup','view','log',
       'planSeq','planDay','planSlot','planMode','planSlots','planIndex','autoNext',
-      'plannedGame','finalGame','zone','cdnext','grade',
-      'battle','room','autostart','forfeit','mode',
+      'plannedGame','finalGame','cdnext','grade',
+      'battle','room','autostart','forfeit',
       'ai','pro','wait','bestOf','waitTimeout'
     ].forEach(k=>{
       const v = sp.get(k);
-      if(v!=null && v!=='') gate.searchParams.set(k, v);
+      if(v != null && v !== '') gate.searchParams.set(k, v);
     });
+
+    gate.searchParams.set('phase', 'cooldown');
+    gate.searchParams.set('game', String(gameKey || 'unknown'));
 
     return gate.toString();
   }
 
   function hhInjectCooldownButton({ endOverlayEl, hub, cat, gameKey, pid }){
-    if(!endOverlayEl) return;
+    if (!endOverlayEl) return;
+
     const cdDone = hhCooldownDone(cat, gameKey, pid);
-    if(cdDone) return;
+    if (cdDone) return;
 
     const sp = new URL(location.href).searchParams;
     const cdnext = sp.get('cdnext') || '';
     const nextAfterCooldown = cdnext || hub || '../hub.html';
     const url = hhBuildCooldownUrl({ hub, nextAfterCooldown, cat, gameKey, pid });
 
-    const panel = endOverlayEl.querySelector('.panel') || endOverlayEl;
-    let row = panel.querySelector('.hh-end-actions');
-    if(!row){
-      row = DOC.createElement('div');
-      row.className = 'hh-end-actions';
-      row.style.display='flex';
-      row.style.gap='10px';
-      row.style.flexWrap='wrap';
-      row.style.justifyContent='center';
-      row.style.marginTop='12px';
-      row.style.paddingTop='10px';
-      row.style.borderTop='1px solid rgba(148,163,184,.16)';
-      panel.appendChild(row);
-    }
-    if(row.querySelector('[data-hh-cd="1"]')) return;
+    console.log('[GoodJunk cooldown url]', url);
+
+    const row =
+      endOverlayEl.querySelector('.end-actions') ||
+      endOverlayEl.querySelector('.panel') ||
+      endOverlayEl;
+
+    if (!row) return;
+    if (row.querySelector('[data-hh-cd="1"]')) return;
 
     const btn = DOC.createElement('button');
-    btn.type='button';
+    btn.type = 'button';
     btn.dataset.hhCd = '1';
-    btn.textContent='🧘 ไป Cooldown';
-    btn.className = 'btn cooldown';
-    btn.addEventListener('click', ()=> location.href = url);
-    row.appendChild(btn);
+    btn.textContent = '🧘 ไป Cooldown';
+    btn.className = 'btn good';
+    btn.addEventListener('click', () => {
+      location.href = url;
+    });
+
+    const backHubBtn = row.querySelector('#btnEndBackHub');
+    if (backHubBtn && backHubBtn.parentNode === row) {
+      row.insertBefore(btn, backHubBtn);
+    } else {
+      row.appendChild(btn);
+    }
   }
 
   function xmur3(str){
@@ -344,7 +368,7 @@ export async function boot(cfg){
 
   const pid = String(cfg.pid || qs('pid','anon')).trim() || 'anon';
   const nick = String(cfg.nick || qs('nick', pid)).trim() || pid;
-  const hubUrl = String(cfg.hub || qs('hub','../hub.html'));
+  const hubUrl = safeUrl(cfg.hub || qs('hub','../hub.html'), '../hub.html');
   const HH_CAT = 'nutrition';
   const HH_GAME = 'goodjunk';
 
@@ -1124,12 +1148,12 @@ export async function boot(cfg){
     }
 
     if(battleMatchState){
-      const bestOfEl = $('matchBestOfInline');
-      const winsToChampionEl = $('matchWinsToChampionInline');
-      const battleStatusEl = $('matchStatusInline');
-      const battleChampionEl = $('matchChampionInline');
-      const myWinsEl = $('matchYouWinsInline');
-      const oppWinsEl = $('matchOppWinsInline');
+      const bestOfEl = $('battleBestOf');
+      const winsToChampionEl = $('battleWinsToChampion');
+      const battleStatusEl = $('battleStatus');
+      const battleChampionEl = $('battleChampion');
+      const myWinsEl = $('battleMyWins');
+      const oppWinsEl = $('battleOppWins');
 
       if(bestOfEl) bestOfEl.textContent = String(Number(battleMatchState.bestOf || 3));
       if(winsToChampionEl) winsToChampionEl.textContent = String(Number(battleMatchState.winsToChampion || 2));
@@ -2579,8 +2603,27 @@ export async function boot(cfg){
   if(btnReplay){
     btnReplay.onclick = ()=> location.href = new URL(location.href).toString();
   }
-  if(btnBackHub){
-    btnBackHub.onclick = ()=> location.href = hubUrl;
+  if (btnBackHub) {
+    btnBackHub.onclick = () => {
+      const cdDone = hhCooldownDone(HH_CAT, HH_GAME, pid);
+      if (cdDone) {
+        location.href = hubUrl;
+        return;
+      }
+
+      const sp = new URL(location.href).searchParams;
+      const cdnext = sp.get('cdnext') || '';
+      const nextAfterCooldown = cdnext || hubUrl || '../hub.html';
+      const cdUrl = hhBuildCooldownUrl({
+        hub: hubUrl,
+        nextAfterCooldown,
+        cat: HH_CAT,
+        gameKey: HH_GAME,
+        pid
+      });
+
+      location.href = cdUrl;
+    };
   }
   if(btnRequestRematch){
     btnRequestRematch.onclick = ()=> requestRematchAction();
