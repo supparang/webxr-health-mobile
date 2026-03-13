@@ -1,6 +1,6 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
 // GoodJunkVR SAFE — SOLO STABLE MASTER PATCH
-// FULL PATCH v20260313e-GJ-SAFE-SOLO-BOOTFIX-FULL
+// FULL PATCH v20260313f-GJ-SAFE-SOLO-BOOTFIX-GATEFLOW
 'use strict';
 
 import {
@@ -58,8 +58,8 @@ export async function boot(cfg){
   const SOUND = cfg.sound || null;
 
   const qs = (k, d='')=>{
-    try { return (new URL(location.href)).searchParams.get(k) ?? d; }
-    catch { return d; }
+    try{ return (new URL(location.href)).searchParams.get(k) ?? d; }
+    catch(_){ return d; }
   };
   const clamp = (v,a,b)=>{
     v = Number(v);
@@ -70,11 +70,11 @@ export async function boot(cfg){
   const nowIso = ()=> new Date().toISOString();
   const $ = (id)=> DOC.getElementById(id);
 
-  function safeUrl(raw, fallback = ''){
+  function safeUrl(raw, fallback=''){
     try{
       if(!raw) return fallback;
       return new URL(raw, location.href).toString();
-    }catch{
+    }catch(_){
       return fallback;
     }
   }
@@ -121,7 +121,7 @@ export async function boot(cfg){
   }
 
   function sfx(name, meta){
-    try { SOUND?.play?.(name, meta || {}); } catch {}
+    try{ SOUND?.play?.(name, meta || {}); }catch(_){}
   }
 
   const seedStr = String(cfg.seed || qs('seed', String(Date.now())));
@@ -140,6 +140,7 @@ export async function boot(cfg){
   const hubUrl = safeUrl(cfg.hub || qs('hub','../hub.html'), '../hub.html');
 
   const HH_CAT = 'nutrition';
+  const HH_ZONE = 'nutrition';
   const HH_GAME = 'goodjunk';
 
   const RESEARCH_MODE = String(qs('research','0')) === '1';
@@ -173,24 +174,24 @@ export async function boot(cfg){
   const bossHint = $('bossHint');
 
   const missionTitle = $('missionTitle');
-  const missionGoal  = $('missionGoal');
-  const missionHint  = $('missionHint');
-  const missionFill  = $('missionFill');
+  const missionGoal = $('missionGoal');
+  const missionHint = $('missionHint');
+  const missionFill = $('missionFill');
 
   const endOverlay = $('endOverlay');
   const endTitle = $('endTitle');
   const endSub = $('endSub');
   const endGrade = $('endGrade');
   const endScore = $('endScore');
-  const endMiss  = $('endMiss');
-  const endTime  = $('endTime');
+  const endMiss = $('endMiss');
+  const endTime = $('endTime');
   const endDecision = $('endDecision');
 
   const uiView = $('uiView');
-  const uiRun  = $('uiRun');
+  const uiRun = $('uiRun');
   const uiDiff = $('uiDiff');
 
-  const btnReplay  = $('btnReplay');
+  const btnReplay = $('btnReplay');
   const btnBackHub = $('btnEndBackHub');
   const btnBackHubBottom = $('btnBackHub');
 
@@ -232,7 +233,7 @@ export async function boot(cfg){
 
   const WIN_TARGET = (function(){
     let scoreTarget = 650;
-    let goodTarget  = 40;
+    let goodTarget = 40;
     if(diff === 'easy'){ scoreTarget = 520; goodTarget = 32; }
     else if(diff === 'hard'){ scoreTarget = 780; goodTarget = 46; }
     if(view === 'cvr' || view === 'vr'){ scoreTarget = Math.round(scoreTarget * 0.96); }
@@ -353,7 +354,7 @@ export async function boot(cfg){
   let shield = 0;
   let goodHitCount = 0;
   let shots = 0;
-  let hits  = 0;
+  let hits = 0;
   let streakMiss = 0;
   let fever = 0;
   let comebackReady = false;
@@ -365,7 +366,6 @@ export async function boot(cfg){
   let bossHp = bossHpMax;
   let bossShieldHp = bossShieldBase();
   let bossStormTimer = 0;
-  let bossPhase2 = false;
   let bossRage = false;
   let decoyWeakId = '';
   let mirrorWeakIds = [];
@@ -458,12 +458,12 @@ export async function boot(cfg){
           payload
         }
       }));
-    }catch{}
+    }catch(_){}
   }
 
   function setCoachInline(msg, explain=''){
     if(coachInline) coachInline.textContent = String(msg || '—');
-    if(coachExplain && explain) coachExplain.textContent = String(explain || '');
+    if(coachExplain) coachExplain.textContent = String(explain || '');
   }
 
   function sayCoach(msg, bypass=false, explain=''){
@@ -483,12 +483,14 @@ export async function boot(cfg){
   function setAIHud(pred){
     try{
       if(!pred) return;
-      if(hud.aiRisk && typeof pred.hazardRisk === 'number') hud.aiRisk.textContent = String((+pred.hazardRisk).toFixed(2));
-      if(hud.aiHint && pred.next5 && pred.next5[0]) hud.aiHint.textContent = String(pred.next5[0]);
-      const explain = pred.explainText || (pred.topFactors || []).map(x => x.key).join(', ');
-      if(pred.coach) setCoachInline(pred.coach, explain);
-      if(hud.aiHint && !pred.next5?.[0]) hud.aiHint.textContent = pred.explainText || '—';
-    }catch{}
+      if(hud.aiRisk && typeof pred.hazardRisk === 'number'){
+        hud.aiRisk.textContent = String((+pred.hazardRisk).toFixed(2));
+      }
+      if(hud.aiHint){
+        hud.aiHint.textContent = pred.explainText || '—';
+      }
+      if(pred.coach) setCoachInline(pred.coach, pred.explainText || '');
+    }catch(_){}
   }
 
   function getMasterState(){
@@ -636,7 +638,6 @@ export async function boot(cfg){
       bossHpMax = cfgBoss.bossHpMax;
       bossHp = bossHpMax;
       bossShieldHp = cfgBoss.bossShieldHp;
-      bossPhase2 = false;
       bossRage = false;
       precisionWindow = 0;
       decoyWeakId = '';
@@ -674,11 +675,6 @@ export async function boot(cfg){
 
     if(!next || next === phaseMachine.phase) return;
 
-    if(next === PHASES.BOSS_PHASE_2){
-      bossPhase2 = true;
-      if(bossPersona.id === 'rage_beast') bossRage = true;
-    }
-
     if(next === PHASES.LAST_STAND){
       bossRage = true;
     }
@@ -703,7 +699,7 @@ export async function boot(cfg){
           payload
         }
       }));
-    }catch{}
+    }catch(_){}
   }
 
   function updateAiDirector(now){
@@ -725,7 +721,6 @@ export async function boot(cfg){
     );
 
     setAIHud(aiSnapshot.pred);
-
     pushAiEvent('predict', aiSnapshot.pred);
 
     const predRow = buildPredictionRow({
@@ -862,22 +857,22 @@ export async function boot(cfg){
     if(missionTitle) missionTitle.textContent = getPhaseDisplayLabel();
 
     if (phase === PHASES.WARM_OPEN) {
-      if(missionGoal) missionGoal.textContent = `เปิดเกมให้แม่น เก็บของดี`;
-      if(missionHint) missionHint.textContent = `เริ่มเบา ๆ ก่อน อ่านเป้าให้ชัด`;
+      if(missionGoal) missionGoal.textContent = 'เปิดเกมให้แม่น เก็บของดี';
+      if(missionHint) missionHint.textContent = 'เริ่มเบา ๆ ก่อน อ่านเป้าให้ชัด';
     } else if (phase === PHASES.WARM_PRESSURE) {
-      if(missionGoal) missionGoal.textContent = `แยกของดี/ขยะให้เร็วขึ้น`;
-      if(missionHint) missionHint.textContent = `เริ่มมีเป้าหลอกมากขึ้น`;
+      if(missionGoal) missionGoal.textContent = 'แยกของดี/ขยะให้เร็วขึ้น';
+      if(missionHint) missionHint.textContent = 'เริ่มมีเป้าหลอกมากขึ้น';
     } else if (phase === PHASES.TRICK_BURST) {
-      if(missionGoal) missionGoal.textContent = `ช่วงเดือด ทำคอมโบให้ติด`;
-      if(missionHint) missionHint.textContent = `โบนัสและหลอกตาจะมาเยอะขึ้น`;
+      if(missionGoal) missionGoal.textContent = 'ช่วงเดือด ทำคอมโบให้ติด';
+      if(missionHint) missionHint.textContent = 'โบนัสและหลอกตาจะมาเยอะขึ้น';
     } else if (phase === PHASES.RELIEF) {
-      if(missionGoal) missionGoal.textContent = `พักจังหวะ เก็บแต้มให้เนียน`;
-      if(missionHint) missionHint.textContent = `ช่วงนี้เป็นหน้าต่างฟื้นตัว`;
+      if(missionGoal) missionGoal.textContent = 'พักจังหวะ เก็บแต้มให้เนียน';
+      if(missionHint) missionHint.textContent = 'ช่วงนี้เป็นหน้าต่างฟื้นตัว';
     } else if (phase === PHASES.FINAL_RUSH) {
-      if(missionGoal) missionGoal.textContent = `เร่งแต้มก่อนเข้าบอส`;
-      if(missionHint) missionHint.textContent = `ช่วงท้ายก่อนบอส เกมจะถาโถมขึ้น`;
+      if(missionGoal) missionGoal.textContent = 'เร่งแต้มก่อนเข้าบอส';
+      if(missionHint) missionHint.textContent = 'ช่วงท้ายก่อนบอส เกมจะถาโถมขึ้น';
     } else if (phase === PHASES.BOSS_INTRO) {
-      if(missionGoal) missionGoal.textContent = `${bossPersona.label}`;
+      if(missionGoal) missionGoal.textContent = bossPersona.label;
       if(missionHint) missionHint.textContent = bossPersona.introLine;
     } else if (phase === PHASES.BOSS_PHASE_1) {
       if(missionGoal) missionGoal.textContent = `${bossPersona.label} • Phase 1`;
@@ -886,10 +881,10 @@ export async function boot(cfg){
       if(missionGoal) missionGoal.textContent = `${bossPersona.label} • Phase 2`;
       if(missionHint) missionHint.textContent = `pattern: ${patternId}`;
     } else if (phase === PHASES.LAST_STAND) {
-      if(missionGoal) missionGoal.textContent = `หมดหน้าตักแล้ว ลุยเต็มที่`;
-      if(missionHint) missionHint.textContent = `last stand • ห้ามหลุดสมาธิ`;
+      if(missionGoal) missionGoal.textContent = 'หมดหน้าตักแล้ว ลุยเต็มที่';
+      if(missionHint) missionHint.textContent = 'last stand • ห้ามหลุดสมาธิ';
     } else {
-      if(missionGoal) missionGoal.textContent = `เก็บของดี`;
+      if(missionGoal) missionGoal.textContent = 'เก็บของดี';
       if(missionHint) missionHint.textContent = `pattern: ${patternId}`;
     }
   }
@@ -1009,6 +1004,7 @@ export async function boot(cfg){
     const t0 = nowMs();
     const dur = 520;
     const rise = 34 + (r01() * 14);
+
     function tickFloat(){
       const p = Math.min(1, (nowMs() - t0) / dur);
       n.style.top = `${y - rise * p}px`;
@@ -1045,7 +1041,7 @@ export async function boot(cfg){
       function tickBurst(){
         const p = Math.min(1, (nowMs() - t0) / dur);
         dot.style.left = `${x + vx * p}px`;
-        dot.style.top  = `${y + vy * p - 30 * p * p}px`;
+        dot.style.top = `${y + vy * p - 30 * p * p}px`;
         dot.style.opacity = String(1 - p);
         dot.style.transform = `translate(-50%,-50%) scale(${1 - 0.4 * p})`;
         if(p < 1) requestAnimationFrame(tickBurst);
@@ -1053,14 +1049,6 @@ export async function boot(cfg){
       }
       requestAnimationFrame(tickBurst);
     }
-  }
-
-  function comboMilestoneText(c){
-    if(c >= 20) return 'ULTRA COMBO!';
-    if(c >= 15) return 'MEGA COMBO!';
-    if(c >= 10) return 'AWESOME!';
-    if(c >= 5) return 'NICE COMBO!';
-    return '';
   }
 
   function makeTarget(type, emoji, ttl, point=null){
@@ -1072,7 +1060,7 @@ export async function boot(cfg){
 
     n.style.position = 'absolute';
     n.style.left = `${x}px`;
-    n.style.top  = `${y}px`;
+    n.style.top = `${y}px`;
     n.style.transform = 'translate(-50%,-50%)';
     n.style.fontSize = (type === 'bossweak') ? '54px' : (type === 'bossdecoy' ? '48px' : '46px');
     n.style.lineHeight = '1';
@@ -1085,7 +1073,7 @@ export async function boot(cfg){
 
     layer.appendChild(n);
 
-    const id = String(Date.now()) + '_' + String(Math.random()).slice(2);
+    const id = `${Date.now()}_${String(Math.random()).slice(2)}`;
     const born = nowMs();
     const t = { id, type, emoji, ttl, born, el:n };
     targets.set(id, t);
@@ -1123,13 +1111,14 @@ export async function boot(cfg){
     const t = targets.get(id);
     if(!t) return;
     targets.delete(id);
-    try { t.el.remove(); } catch {}
+    try{ t.el.remove(); }catch(_){}
   }
 
   function spawnLaneRush(adaptive){
     const ttlMul = adaptive.ttlMul || 1;
     lanePulse = (lanePulse + 1) % 3;
     const goodLane = lanePulse;
+
     for(let i=0;i<3;i++){
       const pt = spawnPointLane(i, 3);
       if(i === goodLane){
@@ -1221,7 +1210,7 @@ export async function boot(cfg){
     const y = br.top + br.height/2;
 
     shots++;
-    fxBurst(x,y);
+    fxBurst(x, y);
     streakMiss = 0;
 
     if(t.type === 'good'){
@@ -1260,15 +1249,11 @@ export async function boot(cfg){
         rt
       });
 
-      const milestone = comboMilestoneText(combo);
-      if(milestone && (combo === 5 || combo === 10 || combo === 15 || combo === 20)){
-        showMilestone(milestone);
-        sfx('combo', { tier: combo >= 20 ? 4 : combo >= 15 ? 3 : combo >= 10 ? 2 : 1 });
-        sayCoach(milestone);
-      }else{
-        sfx('hit-good');
+      if(combo === 5 || combo === 10 || combo === 15 || combo === 20){
+        showMilestone(combo >= 20 ? 'ULTRA COMBO!' : combo >= 15 ? 'MEGA COMBO!' : combo >= 10 ? 'AWESOME!' : 'NICE COMBO!');
       }
 
+      sfx('hit-good');
       emitPatternEvent('hit', { targetType:'good', scorePlus:plus, combo, rt });
       fxFloatText(x, y, `+${plus}`, false);
 
@@ -1584,7 +1569,10 @@ export async function boot(cfg){
 
       let hasWeak = false;
       for(const [,t] of targets){
-        if(t.type === 'bossweak' || t.type === 'bossdecoy'){ hasWeak = true; break; }
+        if(t.type === 'bossweak' || t.type === 'bossdecoy'){
+          hasWeak = true;
+          break;
+        }
       }
 
       if(!hasWeak){
@@ -1633,8 +1621,8 @@ export async function boot(cfg){
     }
 
     let pShield = (diff === 'hard') ? 0.10 : 0.12;
-    let pBonus  = 0.12 + (fever > 0 ? 0.04 : 0) + (plan.bonusWindow || 0) + (aiDirectorState.bonusBias || 0);
-    let pJunk   = (diff === 'easy') ? 0.28 : (diff === 'hard' ? 0.38 : 0.33);
+    let pBonus = 0.12 + (fever > 0 ? 0.04 : 0) + (plan.bonusWindow || 0) + (aiDirectorState.bonusBias || 0);
+    let pJunk = (diff === 'easy') ? 0.28 : (diff === 'hard' ? 0.38 : 0.33);
 
     pJunk = clamp(
       pJunk +
@@ -1719,14 +1707,15 @@ export async function boot(cfg){
     try{
       SOUND?.unlock?.();
       shootAtCenter();
-    }catch{}
+    }catch(_){}
   });
 
   function buildEndDetail(reason){
     const accPct = shots ? Math.round((hits / shots) * 100) : 0;
     const grade = gradeFromScore();
     const timePlayedSec = Math.round(plannedSec - tLeft);
-    const detail = {
+
+    return {
       game: HH_GAME,
       gameKey: HH_GAME,
       cat: HH_CAT,
@@ -1776,19 +1765,10 @@ export async function boot(cfg){
       planDay: String(qs('planDay','') || ''),
       planSlot: String(qs('planSlot','') || ''),
       planMode: String(qs('planMode','') || ''),
-      zone: String(qs('zone','nutrition') || 'nutrition'),
+      zone: String(qs('zone', HH_ZONE) || HH_ZONE),
       startTimeIso,
       endTimeIso: nowIso()
     };
-    return detail;
-  }
-
-  function currentAccPct(){
-    return shots ? Math.round((hits / shots) * 100) : 0;
-  }
-
-  function currentMedianRtGoodMs(){
-    return median(rtList);
   }
 
   function renderDecision(detail){
@@ -1857,12 +1837,12 @@ export async function boot(cfg){
     paused = true;
     setDanger(false);
 
-    for(const [,t] of targets){
-      try { t.el.remove(); } catch {}
+    for(const [, t] of targets){
+      try{ t.el.remove(); }catch(_){}
     }
     targets.clear();
 
-    let detail = buildEndDetail(reason);
+    const detail = buildEndDetail(reason);
     const summary = buildEndSummary(detail, aiSnapshot);
     detail.summary = summary;
 
@@ -1892,7 +1872,7 @@ export async function boot(cfg){
 
     try{
       WIN.dispatchEvent(new CustomEvent('hha:end', { detail }));
-    }catch{}
+    }catch(_){}
 
     try{
       flushGameTelemetry('end-game', {
@@ -2059,19 +2039,19 @@ export async function boot(cfg){
         payload: d
       }));
       flushGameTelemetry(String(d.action || 'flow-next'), d);
-    }catch{}
+    }catch(_){}
   });
 
   WIN.addEventListener('pagehide', ()=>{
     try{
       flushGameTelemetry('pagehide', { phase: phaseNow(), score, tLeft });
-    }catch{}
+    }catch(_){}
   });
 
   WIN.addEventListener('beforeunload', ()=>{
     try{
       flushGameTelemetry('beforeunload', { phase: phaseNow(), score, tLeft });
-    }catch{}
+    }catch(_){}
   });
 
   if(missionBox){
@@ -2092,7 +2072,7 @@ export async function boot(cfg){
           payload:{ action:'replay' }
         }));
         flushGameTelemetry('replay', { action:'replay' });
-      }catch{}
+      }catch(_){}
       location.href = new URL(location.href).toString();
     };
   }
@@ -2110,7 +2090,7 @@ export async function boot(cfg){
           payload:{ action:'back-hub-direct' }
         }));
         flushGameTelemetry('back-hub-direct', { action:'back-hub-direct' });
-      }catch{}
+      }catch(_){}
       location.href = hubUrl;
       return;
     }
@@ -2133,10 +2113,13 @@ export async function boot(cfg){
         tGameMs: tGameMsNow(),
         phase: phaseNow(),
         eventName:'cooldown-enter',
-        payload:{ action:'back-hub-via-cooldown', cooldownUrl: cdUrl }
+        payload:{
+          action:'back-hub-via-cooldown',
+          cooldownUrl: cdUrl
+        }
       }));
       flushGameTelemetry('back-hub-via-cooldown', { cooldownUrl: cdUrl });
-    }catch{}
+    }catch(_){}
 
     location.href = cdUrl;
   }
