@@ -1,6 +1,6 @@
 // === /herohealth/gate/gate-core.js ===
 // HeroHealth Gate Core
-// FULL PATCH v20260313n-GATE-CORE-COMPAT-NEXT-BTN-FIX
+// FULL PATCH v20260313p-GATE-CORE-COMPAT-STYLEURL-NEXTFIX
 // ✅ supports gate-games.js files schema
 // ✅ supports mod.mount(api) and mod.mount(container, ctx, api)
 // ✅ supports mod.loadStyle()
@@ -8,6 +8,7 @@
 // ✅ warmup -> next
 // ✅ cooldown -> hub
 // ✅ fixes summary overlay blocking Continue / Back buttons
+// ✅ resolves style url relative to gate-core import.meta.url
 
 import {
   buildCtx,
@@ -81,8 +82,10 @@ function getPhaseModulePath(ctx) {
 }
 
 function ensureGameStyle(game) {
-  const href = getGameStyleFile(game);
-  if (!href) return;
+  const rawHref = getGameStyleFile(game);
+  if (!rawHref) return;
+
+  const href = new URL(rawHref, import.meta.url).toString();
 
   const id = 'gate-game-style';
   let link = document.getElementById(id);
