@@ -1,0 +1,323 @@
+<!-- === /herohealth/vr-groups/groups-race-join.html ===
+Groups Race — Join by Room Code
+FULL v20260310-GROUPS-RACE-JOIN-FINAL
+-->
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth — Groups Race Join</title>
+  <meta name="color-scheme" content="dark light" />
+  <link rel="icon" href="../favicon.ico" />
+  <style>
+    :root{
+      --bg1:#020617; --bg2:#0b1226;
+      --stroke:rgba(148,163,184,.18);
+      --text:#e5e7eb; --muted:#94a3b8;
+      --blue:#3b82f6; --cyan:#22d3ee; --violet:#a78bfa;
+      --good:#22c55e; --warn:#f59e0b; --bad:#ef4444;
+      --radius:22px;
+      --sat: env(safe-area-inset-top, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sar: env(safe-area-inset-right, 0px);
+      --sal: env(safe-area-inset-left, 0px);
+    }
+    *{ box-sizing:border-box; }
+    html,body{
+      margin:0; min-height:100%;
+      font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Thai",sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(1200px 780px at 20% 10%, rgba(34,211,238,.14) 0%, transparent 55%),
+        radial-gradient(1000px 700px at 80% 20%, rgba(167,139,250,.14) 0%, transparent 55%),
+        linear-gradient(180deg, var(--bg2), var(--bg1));
+    }
+    .page{
+      min-height:100vh;
+      padding:calc(14px + var(--sat)) calc(14px + var(--sar)) calc(20px + var(--sab)) calc(14px + var(--sal));
+      display:grid;
+      place-items:center;
+    }
+    .card{
+      width:min(760px, 100%);
+      border-radius:var(--radius);
+      border:1px solid var(--stroke);
+      background:linear-gradient(180deg, rgba(2,6,23,.82), rgba(2,6,23,.64));
+      box-shadow:0 28px 100px rgba(0,0,0,.35);
+      overflow:hidden;
+    }
+    .head{
+      padding:18px 18px 10px;
+      border-bottom:1px solid rgba(148,163,184,.12);
+    }
+    .head h1{
+      margin:0 0 6px;
+      font-size:24px;
+      line-height:1.2;
+    }
+    .sub{
+      color:var(--muted);
+      font-size:14px;
+    }
+    .body{
+      padding:16px 18px 18px;
+      display:grid;
+      gap:14px;
+    }
+    .grid{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:12px;
+    }
+    @media (max-width:700px){
+      .grid{ grid-template-columns:1fr; }
+    }
+    .field{
+      display:grid;
+      gap:6px;
+    }
+    .label{
+      font-size:13px;
+      color:var(--muted);
+      font-weight:800;
+    }
+    input,select{
+      width:100%;
+      border-radius:16px;
+      border:1px solid rgba(148,163,184,.16);
+      background:rgba(15,23,42,.72);
+      color:var(--text);
+      padding:12px 14px;
+      font:inherit;
+      outline:none;
+    }
+    input.room{
+      text-transform:uppercase;
+      letter-spacing:1px;
+      font-size:22px;
+      font-weight:1000;
+      text-align:center;
+    }
+    .row{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+    button{
+      appearance:none;
+      border:0;
+      cursor:pointer;
+      border-radius:16px;
+      padding:12px 16px;
+      font:inherit;
+      font-weight:900;
+      color:white;
+      background:linear-gradient(135deg, var(--blue), var(--violet));
+      box-shadow:0 12px 28px rgba(59,130,246,.22);
+    }
+    button.secondary{
+      background:rgba(148,163,184,.12);
+      color:var(--text);
+      box-shadow:none;
+      border:1px solid rgba(148,163,184,.16);
+    }
+    .info{
+      border-radius:18px;
+      border:1px dashed rgba(34,211,238,.28);
+      background:rgba(34,211,238,.06);
+      padding:14px;
+      display:grid;
+      gap:8px;
+    }
+    .hint{
+      color:var(--muted);
+      font-size:13px;
+      line-height:1.45;
+    }
+    .pill{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      min-height:34px;
+      padding:6px 10px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.16);
+      background:rgba(2,6,23,.42);
+      color:var(--muted);
+      font-size:12px;
+      font-weight:800;
+      width:max-content;
+      max-width:100%;
+    }
+    .dot{
+      width:8px; height:8px; border-radius:999px;
+      background:var(--cyan);
+      box-shadow:0 0 14px rgba(34,211,238,.55);
+    }
+    .status{
+      min-height:22px;
+      font-size:13px;
+      color:var(--muted);
+      font-weight:800;
+    }
+    .status.bad{ color:#fca5a5; }
+    .status.good{ color:#86efac; }
+  </style>
+</head>
+<body>
+<div class="page">
+  <div class="card">
+    <div class="head">
+      <h1>🎮 Join Groups Race</h1>
+      <div class="sub">กรอกรหัสห้องเพื่อเข้าห้องแข่งขันในฝั่ง Guest</div>
+    </div>
+
+    <div class="body">
+      <div class="field">
+        <label class="label" for="room">ROOM CODE</label>
+        <input id="room" class="room" type="text" maxlength="12" placeholder="เช่น GRA1B2C3" />
+      </div>
+
+      <div class="grid">
+        <div class="field">
+          <label class="label" for="name">ชื่อผู้เล่น</label>
+          <input id="name" type="text" placeholder="เช่น Guest 1" />
+        </div>
+
+        <div class="field">
+          <label class="label" for="pid">PID</label>
+          <input id="pid" type="text" placeholder="เช่น G001" />
+        </div>
+
+        <div class="field">
+          <label class="label" for="view">view</label>
+          <select id="view">
+            <option value="mobile" selected>mobile</option>
+            <option value="pc">pc</option>
+            <option value="cvr">cvr</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label class="label" for="playerKey">playerKey</label>
+          <input id="playerKey" type="text" placeholder="ปล่อยว่าง = สุ่มใหม่" />
+        </div>
+      </div>
+
+      <div class="info">
+        <div class="pill"><span class="dot"></span> หน้านี้จะพาเข้า Lobby ก่อน แล้วค่อยเข้า Run ตอน Host กด START</div>
+        <div class="hint">
+          ถ้ามาจากลิงก์เชิญ ระบบจะรับค่า <b>diff / time / seed / hub</b> ต่อให้เองอัตโนมัติ
+        </div>
+      </div>
+
+      <div class="status" id="status"></div>
+
+      <div class="row">
+        <button id="btnJoin">เข้าห้อง</button>
+        <button class="secondary" id="btnPaste">วางรหัส</button>
+        <button class="secondary" id="btnBack">กลับ HUB</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  'use strict';
+
+  const qs = new URL(location.href).searchParams;
+  const hub  = qs.get('hub')  || '../hub.html';
+  const diff = qs.get('diff') || 'normal';
+  const time = qs.get('time') || '80';
+  const seed = qs.get('seed') || String(Date.now());
+
+  const $ = (id)=>document.getElementById(id);
+
+  function randPlayerKey(){
+    return 'p' + Math.random().toString(36).slice(2,8).toUpperCase();
+  }
+
+  function setStatus(msg, tone=''){
+    const el = $('status');
+    el.className = 'status' + (tone ? ' ' + tone : '');
+    el.textContent = msg || '';
+  }
+
+  function sanitizeRoom(v){
+    return String(v || '')
+      .toUpperCase()
+      .replace(/[^A-Z0-9_-]/g, '')
+      .trim();
+  }
+
+  $('room').value = sanitizeRoom(qs.get('room') || '');
+  $('name').value = qs.get('name') || 'Guest';
+  $('pid').value  = qs.get('pid')  || 'G001';
+  $('view').value = qs.get('view') || 'mobile';
+
+  $('room').addEventListener('input', ()=>{
+    const cur = $('room').value;
+    const clean = sanitizeRoom(cur);
+    if(cur !== clean) $('room').value = clean;
+  });
+
+  $('btnPaste').addEventListener('click', async ()=>{
+    try{
+      const txt = await navigator.clipboard.readText();
+      if(!txt) return;
+
+      try{
+        const u = new URL(txt);
+        const roomFromUrl = sanitizeRoom(u.searchParams.get('room') || '');
+        if(roomFromUrl) $('room').value = roomFromUrl;
+
+        if(u.searchParams.get('diff')) {}
+      }catch(_){
+        $('room').value = sanitizeRoom(txt);
+      }
+
+      setStatus('วางรหัสแล้ว', 'good');
+    }catch(_){
+      setStatus('วางจาก clipboard ไม่สำเร็จ', 'bad');
+    }
+  });
+
+  $('btnBack').addEventListener('click', ()=>{
+    location.href = hub;
+  });
+
+  $('btnJoin').addEventListener('click', ()=>{
+    const room = sanitizeRoom($('room').value);
+    const name = ($('name').value || 'Guest').trim();
+    const pid  = ($('pid').value  || 'G001').trim();
+    const view = ($('view').value || 'mobile').trim().toLowerCase();
+    const playerKey = ($('playerKey').value || randPlayerKey()).trim();
+
+    if(!room){
+      setStatus('กรุณากรอก ROOM CODE', 'bad');
+      $('room').focus();
+      return;
+    }
+
+    setStatus('กำลังเข้าห้อง...', 'good');
+
+    const u = new URL('./groups-race.html', location.href);
+    u.searchParams.set('room', room);
+    u.searchParams.set('role', 'guest');
+    u.searchParams.set('name', name);
+    u.searchParams.set('pid', pid);
+    u.searchParams.set('diff', diff);
+    u.searchParams.set('time', time);
+    u.searchParams.set('view', view);
+    u.searchParams.set('seed', seed);
+    u.searchParams.set('playerKey', playerKey);
+    u.searchParams.set('hub', hub);
+
+    location.href = u.toString();
+  });
+})();
+</script>
+</body>
+</html>
