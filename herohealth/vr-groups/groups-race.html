@@ -1,6 +1,6 @@
 <!-- === /herohealth/vr-groups/groups-race.html ===
 Groups Race — Lobby / Join / Start
-FULL v20260310-GROUPS-RACE-LOBBY-FINAL
+FULL v20260313-GROUPS-RACE-LOBBY-POLISH-r2
 Requires:
 - Firebase initialized
 - ./groups-race-rtdb.js
@@ -144,6 +144,11 @@ Requires:
       background:linear-gradient(135deg, #d97706, #f59e0b);
       box-shadow:0 12px 28px rgba(245,158,11,.22);
     }
+    button:disabled{
+      opacity:.55;
+      cursor:not-allowed;
+      box-shadow:none;
+    }
     .pill{
       display:inline-flex;
       align-items:center;
@@ -156,6 +161,7 @@ Requires:
       color:var(--muted);
       font-size:12px;
       font-weight:800;
+      white-space:nowrap;
     }
     .dot{
       width:8px; height:8px; border-radius:999px;
@@ -218,6 +224,25 @@ Requires:
       display:grid;
       gap:8px;
     }
+    .countdownBox{
+      border-radius:18px;
+      border:1px solid rgba(245,158,11,.18);
+      background:rgba(245,158,11,.08);
+      padding:14px;
+      display:grid;
+      gap:8px;
+    }
+    .countBig{
+      font-size:42px;
+      line-height:1;
+      font-weight:1100;
+    }
+    .hintCard{
+      border-radius:16px;
+      border:1px solid rgba(148,163,184,.14);
+      background:rgba(2,6,23,.28);
+      padding:12px;
+    }
   </style>
 </head>
 <body>
@@ -241,6 +266,12 @@ Requires:
               <div class="pill"><span class="dot warn"></span> ROLE: <b id="roleText">—</b></div>
               <div class="pill"><span class="dot good"></span> SERIES: <b id="seriesText">BO3 · R1</b></div>
             </div>
+          </div>
+
+          <div class="countdownBox" id="countdownBox" hidden>
+            <div class="label">COUNTDOWN</div>
+            <div class="countBig" id="countBig">WAIT</div>
+            <div class="muted" id="countSub">รอผู้เล่นทั้งสอง READY</div>
           </div>
 
           <div class="field">
@@ -270,9 +301,11 @@ Requires:
             <button class="secondary" id="btnHub">กลับ HUB</button>
           </div>
 
-          <div class="muted" id="hintText">
-            Host: รอผู้เล่นอีกคน READY แล้วค่อยกด START<br>
-            Guest: กด READY แล้วรอ Host เริ่ม
+          <div class="hintCard">
+            <div class="muted" id="hintText">
+              Host: รอผู้เล่นอีกคน READY แล้วค่อยกด START<br>
+              Guest: กด READY แล้วรอ Host เริ่ม
+            </div>
           </div>
         </div>
 
@@ -313,6 +346,25 @@ Requires:
   $('joinPid').value = pid;
 
   let race = null;
+  let countdownTimer = null;
+  let enteredRun = false;
+
+  function saveLobbyMemory(){
+    try{
+      localStorage.setItem('HHA_GROUPS_RACE_LAST', JSON.stringify({
+        room,
+        role,
+        name: $('joinName').value.trim(),
+        pid: $('joinPid').value.trim(),
+        diff,
+        time,
+        view,
+        seed,
+        playerKey,
+        hub
+      }));
+    }catch(_){}
+  }
 
   function escapeHtml(s){
     return String(s || '')
@@ -351,17 +403,18 @@ Requires:
     }).join('');
   }
 
+  function setStatusDot(status){
+    const statusDot = $('statusDot');
+    statusDot.className = 'dot';
+    if(status === 'lobby') statusDot.classList.add('warn');
+    if(status === 'countdown' || status === 'playing') statusDot.classList.add('good');
+    if(status === 'ended') statusDot.classList.add('bad');
+  }
+
   function updateStatus(roomState, me, op){
     const st = String(roomState?.status || 'connecting');
-    const statusDot = $('statusDot');
-    const statusText = $('statusText');
-
-    statusDot.className = 'dot';
-    if(st === 'lobby') statusDot.classList.add('warn');
-    if(st === 'countdown' || st === 'playing') statusDot.classList.add('good');
-    if(st === 'ended') statusDot.classList.add('bad');
-
-    statusText.textContent = st.toUpperCase();
+    $('statusText').textContent = st.toUpperCase();
+    setStatusDot(st);
 
     const roundNo = Number(roomState?.roundNo || 1);
     const hostWins = Number(roomState?.hostWins || 0);
@@ -375,9 +428,71 @@ Requires:
       !!op?.ready
     );
     $('btnStart').disabled = !canStart;
+
+    $('btnReady').disabled = st !== 'lobby';
+    $('btnUnready').disabled = st !== 'lobby';
+
+    const hint = $('hintText');
+    if(st === 'lobby'){
+      hint.innerHTML = role === 'host'
+        ? 'Host: รอผู้เล่นอีกคน READY แล้วค่อยกด START'
+        : 'Guest: กด READY แล้วรอ Host เริ่ม';
+    }else if(st === 'countdown'){
+      hint.innerHTML = 'กำลังนับถอยหลัง — เตรียมเข้าเกม';
+    }else if(st === 'playing'){
+      hint.innerHTML = 'เกมเริ่มแล้ว — กำลังพาเข้า run page';
+    }else if(st === 'ended'){
+      hint.innerHTML = 'รอบนี้จบแล้ว — เข้า run page เพื่อดูผลหรือ rematch';
+    }
   }
 
-  function goRunPage(){
+  function clearCountdown(){
+    if(countdownTimer){
+      clearInterval(countdownTimer);
+      countdownTimer = null;
+    }
+  }
+
+  function hideCountdown(){
+    clearCountdown();
+    $('countdownBox').hidden = true;
+  }
+
+  function showCountdown(roomState){
+    const box = $('countdownBox');
+    const big = $('countBig');
+    const sub = $('countSub');
+    box.hidden = false;
+
+    const startAt = Number(roomState?.startAt || 0);
+    if(startAt <= 0){
+      big.textContent = 'WAIT';
+      sub.textContent = 'รอ Host เริ่ม countdown';
+      return;
+    }
+
+    clearCountdown();
+    const tick = ()=>{
+      const leftMs = startAt - Date.now();
+      const sec = Math.max(0, Math.ceil(leftMs / 1000));
+
+      if(sec <= 0){
+        big.textContent = 'GO!';
+        sub.textContent = 'กำลังเข้าเกม...';
+      }else{
+        big.textContent = String(sec);
+        sub.textContent = 'เตรียมตัวให้พร้อม';
+      }
+    };
+    tick();
+    countdownTimer = setInterval(tick, 200);
+  }
+
+  function goRunPage(force){
+    if(enteredRun && !force) return;
+    enteredRun = true;
+    saveLobbyMemory();
+
     const u = new URL('./groups-race-run.html', location.href);
     u.searchParams.set('room', room);
     u.searchParams.set('role', role);
@@ -395,6 +510,7 @@ Requires:
   async function boot(){
     if(!room){
       $('statusText').textContent = 'MISSING ROOM';
+      setStatusDot('ended');
       return;
     }
 
@@ -411,9 +527,11 @@ Requires:
         view
       });
       await race.subscribe();
+      saveLobbyMemory();
     }catch(err){
       console.error(err);
       $('statusText').textContent = 'ERROR';
+      setStatusDot('ended');
       return;
     }
 
@@ -421,10 +539,17 @@ Requires:
       const roomState = ev.detail?.room || {};
       const st = String(roomState.status || 'lobby');
       const state = race.getState();
+
       updateStatus(roomState, state.me, state.opponent);
 
+      if(st === 'countdown'){
+        showCountdown(roomState);
+      }else{
+        hideCountdown();
+      }
+
       if(st === 'playing'){
-        goRunPage();
+        setTimeout(()=> goRunPage(false), 120);
       }
     });
 
@@ -434,22 +559,44 @@ Requires:
       updateStatus(state.room || {}, state.me, state.opponent);
     });
 
+    $('joinName').addEventListener('change', async ()=>{
+      saveLobbyMemory();
+      try{
+        await race?.meRef?.update?.({ name: $('joinName').value.trim(), lastSeenAt: Date.now() });
+      }catch(_){}
+    });
+
+    $('joinPid').addEventListener('change', async ()=>{
+      saveLobbyMemory();
+      try{
+        await race?.meRef?.update?.({ pid: $('joinPid').value.trim(), lastSeenAt: Date.now() });
+      }catch(_){}
+    });
+
     $('btnReady').addEventListener('click', async ()=>{
       try{
+        saveLobbyMemory();
         await race.setReady(true);
-      }catch(err){ console.error(err); }
+      }catch(err){
+        console.error(err);
+      }
     });
 
     $('btnUnready').addEventListener('click', async ()=>{
       try{
         await race.setReady(false);
-      }catch(err){ console.error(err); }
+      }catch(err){
+        console.error(err);
+      }
     });
 
     $('btnStart').addEventListener('click', async ()=>{
       try{
+        saveLobbyMemory();
         await race.maybeStartCountdown(3000);
-      }catch(err){ console.error(err); }
+      }catch(err){
+        console.error(err);
+      }
     });
 
     $('btnCopyInvite').addEventListener('click', async ()=>{
@@ -468,7 +615,10 @@ Requires:
       }catch(_){}
     });
 
-    $('btnHub').addEventListener('click', ()=> location.href = hub);
+    $('btnHub').addEventListener('click', async ()=>{
+      try{ await race?.leaveRoomSoft?.(); }catch(_){}
+      location.href = hub;
+    });
   }
 
   boot();
