@@ -2,7 +2,7 @@
    HeroHealth Gate Mini-game
    GAME: goodjunk
    MODE: cooldown
-   FULL PATCH v20260313d-GATE-GOODJUNK-COOLDOWN-CALM-REFLECT-SUMMARY
+   FULL PATCH v20260313e-GATE-GOODJUNK-COOLDOWN-OK-FIX
 */
 
 let __styleLoaded = false;
@@ -348,33 +348,7 @@ export async function mount(root, ctx, api){
     calmProgress.textContent = `ช่วงผ่อนคลาย ${calmTicks} / 3`;
   }
 
-  calmBtn.addEventListener('click', ()=>{
-    if(ended) return;
-    calmTicks = Math.min(3, calmTicks + 1);
-
-    const scale = 1 + (calmTicks * 0.06);
-    orb.style.transform = `scale(${scale})`;
-    orb.style.boxShadow = `0 0 0 ${12 + calmTicks * 10}px rgba(34,197,94,.08)`;
-
-    breatheTitle.textContent =
-      calmTicks >= 3 ? 'เยี่ยมมาก ร่างกายเริ่มผ่อนคลายแล้ว' :
-      calmTicks === 2 ? 'ดีมาก... หายใจสบาย ๆ อีกครั้ง' :
-      'ค่อย ๆ ผ่อนคลายต่อ';
-
-    api.logger?.push?.('mini_calm_tick', {
-      game: 'goodjunk',
-      mode: 'cooldown',
-      calmTicks
-    });
-
-    updateHud();
-
-    if(calmTicks >= 3){
-      setTimeout(()=> finishNow(), 500 + ((rng() * 250) | 0));
-    }
-  });
-
-  function finishNow(){
+  function finishNow(ok=true){
     if(ended) return;
     ended = true;
     clearInterval(timer);
@@ -400,7 +374,7 @@ export async function mount(root, ctx, api){
           box-shadow:0 18px 48px rgba(0,0,0,.28);
         ">
           <div style="font-size:.82rem;letter-spacing:.08em;color:#94a3b8;font-weight:900">GOODJUNK COOLDOWN COMPLETE</div>
-          <h1 style="margin:8px 0 0;font-size:clamp(1.5rem,5vw,2.1rem);font-weight:1000;line-height:1.08">พักเสร็จแล้ว กลับ HUB ได้เลย</h1>
+          <h1 style="margin:8px 0 0;font-size:clamp(1.5rem,5vw,2.1rem);font-weight:1000;line-height:1.08">${ok ? 'พักเสร็จแล้ว กลับ HUB ได้เลย' : 'หมดเวลาพักแล้ว'}</h1>
           <p style="margin:10px 0 0;color:#dbeafe;line-height:1.6">${coachLine}</p>
 
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-top:16px">
@@ -435,14 +409,25 @@ export async function mount(root, ctx, api){
 
     root.querySelector('#gjc-finish')?.addEventListener('click', ()=>{
       api.finish({
-        ok: true,
-        title: 'พักเสร็จแล้ว',
+        ok,
+        title: ok ? 'พักเสร็จแล้ว' : 'หมดเวลาพักแล้ว',
         subtitle: coachLine,
+        lines: [
+          `ช่วงผ่อนคลาย: ${calmTicks}/3`,
+          `ความรู้สึก: ${moodLabel(mood)}`,
+          `พลังงาน: ${energyLabel(energy)}`,
+          `คำตอบสะท้อนตน: ${answers}`
+        ],
         metrics: {
           calmTicks,
           answers,
           mood,
           energy
+        },
+        buffs: {
+          cType: 'goodjunk_calm_reflect',
+          cDone: ok ? 1 : 0,
+          cScore: calmTicks
         }
       });
     });
@@ -469,9 +454,35 @@ export async function mount(root, ctx, api){
     updateHud();
 
     if(timeLeft <= 0){
-      finishNow();
+      finishNow(false);
     }
   }, 1000);
+
+  calmBtn.addEventListener('click', ()=>{
+    if(ended) return;
+    calmTicks = Math.min(3, calmTicks + 1);
+
+    const scale = 1 + (calmTicks * 0.06);
+    orb.style.transform = `scale(${scale})`;
+    orb.style.boxShadow = `0 0 0 ${12 + calmTicks * 10}px rgba(34,197,94,.08)`;
+
+    breatheTitle.textContent =
+      calmTicks >= 3 ? 'เยี่ยมมาก ร่างกายเริ่มผ่อนคลายแล้ว' :
+      calmTicks === 2 ? 'ดีมาก... หายใจสบาย ๆ อีกครั้ง' :
+      'ค่อย ๆ ผ่อนคลายต่อ';
+
+    api.logger?.push?.('mini_calm_tick', {
+      game: 'goodjunk',
+      mode: 'cooldown',
+      calmTicks
+    });
+
+    updateHud();
+
+    if(calmTicks >= 3){
+      setTimeout(()=> finishNow(true), 500 + ((rng() * 250) | 0));
+    }
+  });
 
   updateHud();
 
