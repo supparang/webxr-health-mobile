@@ -6,20 +6,12 @@ function createHydrationWarmupGame() {
   function boot(root, ctx = {}) {
     if (!root) return;
 
-    const qs = (k, d='') => {
-      try { return (new URL(location.href)).searchParams.get(k) ?? d; }
-      catch(e){ return d; }
-    };
-
     const state = {
       target: 3,
       hit: 0,
       done: false,
       bubbles: [],
-      timer: null,
-      pid: String(qs('pid', 'anon')).trim() || 'anon',
-      game: String(qs('game', 'hydration')),
-      cat: String(qs('cat', 'nutrition')),
+      timer: null
     };
 
     root.innerHTML = `
@@ -74,7 +66,6 @@ function createHydrationWarmupGame() {
       if (state.done) return;
       state.done = true;
       updateProgress();
-
       stage.classList.add('is-done');
       hintEl.textContent = 'พร้อมเล่นแล้ว ไปกันเลย 🎮';
 
