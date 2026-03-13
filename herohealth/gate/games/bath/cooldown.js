@@ -3,7 +3,7 @@ import { mulberry32 } from '../../helpers/rng.js';
 import { runBubblePhase } from '../../helpers/bubbles.js';
 
 export function loadStyle(){
-  loadCssOnce('./gate/games/bath/style.css?v=20260308a');
+  loadCssOnce(new URL('./style.css?v=20260308a', import.meta.url).toString());
 }
 
 export async function mount(container, ctx, api){
@@ -98,12 +98,12 @@ export async function mount(container, ctx, api){
       emoji: '🫧',
       countStart: 3,
       goal: state.goal,
-      onPop: ()=>{
+      onPop: () => {
         state.taps++;
         api.toast('ผ่อนคลายขึ้นอีกนิด');
         setHud();
       },
-      onGoal: ()=>{
+      onGoal: () => {
         finish(true);
       }
     });
@@ -111,7 +111,7 @@ export async function mount(container, ctx, api){
     api.logger.push('bath_cooldown_start', { seed: ctx.seed });
     setHud();
 
-    timer = setInterval(()=>{
+    timer = setInterval(() => {
       time--;
       setHud();
       if(time <= 0){
