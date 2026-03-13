@@ -173,6 +173,7 @@ body{
   pointer-events:none;
   transition: opacity .18s ease;
 }
+
 #end[aria-hidden="false"],
 #helpOverlay[aria-hidden="false"],
 #pauseOverlay[aria-hidden="false"]{
@@ -182,16 +183,31 @@ body{
 
 .end-card,.overlay-card{
   width:min(560px, calc(100vw - 24px));
-  max-height:calc(100vh - 28px);
+  max-height:calc(100vh - 18px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));
   overflow:auto;
-  background: rgba(2,6,23,.85);
+  background: rgba(2,6,23,.88);
   border: 1px solid rgba(255,255,255,.10);
   border-radius:22px;
-  box-shadow: 0 18px 40px rgba(0,0,0,.45);
+  box-shadow:
+    0 18px 40px rgba(0,0,0,.45),
+    0 0 24px rgba(56,189,248,.08);
   padding:16px;
+  padding-bottom: calc(120px + env(safe-area-inset-bottom,0px));
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
-.end-title,.overlay-title{ font-weight:1000; font-size:20px; }
-.end-sub{ color: var(--muted); font-size:12px; margin-top:6px; }
+
+.end-title,.overlay-title{
+  font-weight:1000;
+  font-size:20px;
+  letter-spacing:.02em;
+}
+.end-sub{
+  color: var(--muted);
+  font-size:12px;
+  margin-top:6px;
+  line-height:1.45;
+}
 .overlay-body{ color:#e5e7eb; opacity:.95; line-height:1.6; }
 
 .grid{
@@ -210,11 +226,20 @@ body{
 .vv{ font-weight:1000; font-size:18px; margin-top:2px; }
 
 .actions{
+  position: sticky;
+  bottom: calc(-6px + env(safe-area-inset-bottom,0px));
   display:flex;
   gap:10px;
   margin-top:12px;
   flex-wrap:wrap;
+  padding-top:10px;
+  padding-bottom: calc(8px + env(safe-area-inset-bottom,0px));
+  background:
+    linear-gradient(180deg, rgba(2,6,23,0), rgba(2,6,23,.78) 18%, rgba(2,6,23,.96) 100%);
+  backdrop-filter: blur(8px);
+  z-index:3;
 }
+
 .btn{
   border: 1px solid rgba(255,255,255,.10);
   background: rgba(15,23,42,.70);
@@ -227,6 +252,10 @@ body{
 .btn.primary{ background: rgba(56,189,248,.18); }
 .btn.danger{ background: rgba(239,68,68,.16); }
 .is-hidden{ display:none !important; }
+.actions .btn{
+  flex: 1 1 140px;
+  min-height: 46px;
+}
 
 #stormFx{
   position:absolute;
@@ -345,11 +374,20 @@ body{
   opacity:0;
   max-width:min(88vw, 680px);
   text-align:center;
+  transition: transform .12s ease, opacity .12s ease, box-shadow .12s ease;
 }
 .stage.is-storm #zoneSign,
 .stage.is-boss #zoneSign,
 .stage.is-final #zoneSign{
   opacity:1;
+  box-shadow: 0 0 18px rgba(255,255,255,.08);
+}
+.stage.is-final #zoneSign{
+  animation: zonePulse .9s ease-in-out infinite;
+}
+@keyframes zonePulse{
+  0%,100%{ transform: translateX(-50%) scale(1); }
+  50%{ transform: translateX(-50%) scale(1.04); }
 }
 
 #streakToast{
@@ -392,6 +430,35 @@ body{
   background: rgba(56,189,248,.10);
 }
 
+html.hyd-end-open .vr-ui-root,
+html.hyd-end-open .vr-ui,
+html.hyd-end-open .vr-controls,
+html.hyd-end-open .hha-vr-ui,
+html.hyd-end-open #btnEnterVR,
+html.hyd-end-open #btnExitVR,
+html.hyd-end-open #btnRecenter,
+html.hyd-end-open #enterVR,
+html.hyd-end-open #exitVR,
+html.hyd-end-open #recenter,
+html.hyd-end-open .a-enter-vr,
+html.hyd-end-open .a-orientation-modal,
+body.hyd-end-open .vr-ui-root,
+body.hyd-end-open .vr-ui,
+body.hyd-end-open .vr-controls,
+body.hyd-end-open .hha-vr-ui,
+body.hyd-end-open #btnEnterVR,
+body.hyd-end-open #btnExitVR,
+body.hyd-end-open #btnRecenter,
+body.hyd-end-open #enterVR,
+body.hyd-end-open #exitVR,
+body.hyd-end-open #recenter,
+body.hyd-end-open .a-enter-vr,
+body.hyd-end-open .a-orientation-modal{
+  visibility:hidden !important;
+  opacity:0 !important;
+  pointer-events:none !important;
+}
+
 @media (max-width: 760px){
   .hud{
     gap:8px;
@@ -419,6 +486,19 @@ body{
   .grid{
     grid-template-columns:1fr 1fr;
   }
+  .end-card,.overlay-card{
+    width:min(96vw, 560px);
+    max-height:calc(100vh - 10px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));
+    padding:14px;
+    padding-bottom: calc(132px + env(safe-area-inset-bottom,0px));
+    border-radius:18px;
+  }
+  .actions{
+    gap:8px;
+  }
+  .actions .btn{
+    flex: 1 1 100%;
+  }
 }
 @media (max-width: 520px){
   .stat{
@@ -426,9 +506,5 @@ body{
   }
   .grid{
     grid-template-columns:1fr;
-  }
-  .end-card,.overlay-card{
-    width:min(96vw, 560px);
-    padding:14px;
   }
 }
