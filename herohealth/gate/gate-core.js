@@ -1,13 +1,13 @@
 // === /herohealth/gate/gate-core.js ===
 // HeroHealth Gate Core
-// FULL PATCH v20260313s-GATE-CORE-GOODJUNK-SUMMARY-FIX
+// FULL PATCH v20260314a-GATE-CORE-DAILY-ONCE-ALLGAMES
 
 import {
   buildCtx,
   getDailyDone,
   setDailyDone,
   saveLastSummary
-} from './gate-common.js?v=20260313a';
+} from './gate-common.js?v=20260314a';
 
 import { mountSummaryLayer, mountToast } from './gate-summary.js?v=20260313c';
 import { createGateLogger } from './gate-logger.js?v=20260313b-GATE-LOGGER-PUSH-FIX';
@@ -298,7 +298,15 @@ export async function bootGate(rootEl) {
   ctx.runUrl = safeUrl(ctx.runUrl || qs(url, 'runUrl', ''), '');
   ctx.zone = String(ctx.zone || qs(url, 'zone', '')).toLowerCase();
 
-  ctx.dailyDone = !!getDailyDone(ctx);
+  ctx.dailyDone = !!getDailyDone({
+    mode: ctx.mode,
+    phase: ctx.phase,
+    cat: ctx.cat,
+    zone: ctx.zone,
+    game: ctx.game,
+    theme: ctx.theme,
+    pid: ctx.pid
+  });
 
   const logger = createGateLogger(ctx);
 
@@ -313,44 +321,8 @@ export async function bootGate(rootEl) {
     }
   }
 
-  safeLog('boot', {
-    href: window.location.href,
-    detectedPhase: phase,
-    game: ctx.game,
-    theme: ctx.theme,
-    cat: ctx.cat
-  });
-
-  ensureGameStyle(ctx.game || ctx.theme);
-  renderShell(root, ctx);
-
-  const mount = root.querySelector('#gate-mount');
-  const btnContinue = root.querySelector('#gate-continue');
-  const btnBackHub = root.querySelector('#gate-backhub');
-
-  if (btnBackHub) {
-    btnBackHub.href = safeUrl(ctx.hub, './hub.html');
-  }
-
-  const live = createLiveApi(root, ctx);
-  const toastUi = mountToast?.(root);
-  const summaryLayer = mountSummaryLayer?.(root);
-  const continueUrl = buildContinueUrl(ctx);
-
-  function showToast(message) {
-    try {
-      if (typeof toastUi === 'function') {
-        toastUi(String(message || ''));
-        return;
-      }
-      if (toastUi && typeof toastUi.show === 'function') {
-        toastUi.show(String(message || ''));
-      }
-    } catch {}
-  }
-
   function goNext() {
-    const target = stripGateParams(continueUrl || ctx.hub || './hub.html');
+    const target = stripGateParams(buildContinueUrl(ctx) || ctx.hub || './hub.html');
     safeLog('continue', { target });
     window.location.href = target;
   }
@@ -361,20 +333,65 @@ export async function bootGate(rootEl) {
     window.location.href = target;
   }
 
-  if (btnContinue) {
-    btnContinue.onclick = (ev) => {
-      ev.preventDefault();
-      ev.stopPropagation();
+  safeLog('boot', {
+    href: window.location.href,
+    detectedPhase: phase,
+    game: ctx.game,
+    theme: ctx.theme,
+    cat: ctx.cat,
+    dailyDone: ctx.dailyDone
+  });
+
+  // ข้าม warmup/cooldown ถ้าทำแล้ววันนี้
+  if (ctx.dailyDone) {
+    safeLog('daily-skip', {
+      mode: ctx.mode,
+      target: ctx.mode === 'cooldown' ? ctx.hub : buildContinueUrl(ctx)
+    });
+
+    if (ctx.mode === 'cooldown') {
+      goHub();
+    } else {
       goNext();
-    };
+    }
+    return;
   }
 
+  ensureGameStyle(ctx.game || ctx.theme);
+  renderShell(root, ctx);
+
+  const mount = root.querySelector('#gate-mount');
+  const btnContinue = root.querySelector('#gate-continue');
+  const btnBackHub = root.querySelector('#gate-backhub');
+
   if (btnBackHub) {
+    btnBackHub.href = safeUrl(ctx.hub, './hub.html');
     btnBackHub.onclick = (ev) => {
       ev.preventDefault();
       ev.stopPropagation();
       goHub();
     };
+  }
+
+  if (btnContinue) {
+    btnContinue.onclick = (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      if (ctx.mode === 'cooldown') goHub();
+      else goNext();
+    };
+  }
+
+  const live = createLiveApi(root, ctx);
+  const toastUi = mountToast?.(root);
+  const summaryLayer = mountSummaryLayer?.(root);
+
+  function showToast(message) {
+    try {
+      if (toastUi && typeof toastUi.show === 'function') {
+        toastUi.show(String(message || ''));
+      }
+    } catch {}
   }
 
   const modulePath = getPhaseModulePath(ctx) || getPhaseFile(ctx.theme, ctx.mode) || '';
@@ -434,19 +451,13 @@ export async function bootGate(rootEl) {
         if (stats.miss != null) live.setMiss(stats.miss);
 
         if (stats.acc != null) {
-          if (typeof stats.acc === 'number') {
-            live.setAcc(stats.acc);
-          } else {
-            live.setAccText(stats.acc);
-          }
+          if (typeof stats.acc === 'number') live.setAcc(stats.acc);
+          else live.setAccText(stats.acc);
         }
 
         if (stats.progress != null) {
-          if (typeof stats.progress === 'number') {
-            live.setProgress(stats.progress);
-          } else {
-            live.setAccText(stats.progress);
-          }
+          if (typeof stats.progress === 'number') live.setProgress(stats.progress);
+          else live.setAccText(stats.progress);
         }
       },
 
@@ -463,6 +474,7 @@ export async function bootGate(rootEl) {
           cat: ctx.cat,
           mode: ctx.mode,
           phase: ctx.phase,
+          pid: ctx.pid,
           ts: Date.now()
         };
 
@@ -474,6 +486,7 @@ export async function bootGate(rootEl) {
             game: ctx.game,
             cat: ctx.cat,
             mode: ctx.mode,
+            pid: ctx.pid,
             score: Number(summary.score || summary.cScore || summary.metrics?.score || 0),
             miss: Number(summary.miss || summary.metrics?.miss || 0),
             acc: Number(summary.acc || summary.progress || summary.metrics?.accuracy || 0),
@@ -484,7 +497,15 @@ export async function bootGate(rootEl) {
 
         try {
           if (result.markDailyDone !== false) {
-            setDailyDone?.(ctx, true);
+            setDailyDone({
+              mode: ctx.mode,
+              phase: ctx.phase,
+              cat: ctx.cat,
+              zone: ctx.zone,
+              game: ctx.game,
+              theme: ctx.theme,
+              pid: ctx.pid
+            }, true);
           }
         } catch {}
 
