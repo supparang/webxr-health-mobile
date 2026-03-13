@@ -1,6 +1,6 @@
 /* === /herohealth/gate/games/balancehold/cooldown.js ===
  * HeroHealth Gate Game: BalanceHold Cooldown
- * PATCH v20260312-BALANCEHOLD-COOLDOWN-A
+ * PATCH v20260312e-BALANCEHOLD-COOLDOWN-TH-CHILD
  */
 
 function clamp(v, a, b){ return Math.max(a, Math.min(b, v)); }
@@ -39,7 +39,7 @@ function makeResult(state){
     game: 'balancehold',
     phase: 'cooldown',
     activityId: 'balancehold-slow-sway-relax',
-    title: 'Slow Sway Relax',
+    title: 'ผ่อนคลายช้า ๆ',
     passed,
     score,
     stars: starsFromScore(score),
@@ -51,8 +51,8 @@ function makeResult(state){
     coach: {
       tone: passed ? 'calm' : 'gentle',
       line: passed
-        ? 'ร่างกายผ่อนคลายแล้ว พร้อมพัก'
-        : 'แกว่งช้า ๆ และยืนนิ่งต่ออีกนิด จะช่วยให้สมดุลนิ่งขึ้น'
+        ? 'ผ่อนคลายเสร็จแล้ว เก่งมาก'
+        : 'ค่อย ๆ ผ่อนคลายอีกนิด แล้วค่อยกลับไปพัก'
     },
     nextAction: 'hub'
   };
@@ -68,7 +68,7 @@ export function mount(root, ctx = {}){
       <div class="bhg-wrap bhg-wrap-cool">
         <section class="bhg-card">
           <div class="bhg-kicker">EXERCISE ZONE • COOLDOWN</div>
-          <h1 class="bhg-title">🌿 Slow Sway Relax</h1>
+          <h1 class="bhg-title">🌿 ผ่อนคลายช้า ๆ</h1>
           <p class="bhg-subtitle">โมดูลนี้ใช้สำหรับ phase=cooldown เท่านั้น</p>
         </section>
       </div>
@@ -92,16 +92,16 @@ export function mount(root, ctx = {}){
     <div class="bhg-wrap bhg-wrap-cool">
       <section class="bhg-card">
         <div class="bhg-kicker">EXERCISE ZONE • COOLDOWN</div>
-        <h1 class="bhg-title">🌿 Slow Sway Relax</h1>
-        <p class="bhg-subtitle">แกว่งตัวช้า ๆ และกลับมายืนนิ่งหลังจบ Balance Hold</p>
+        <h1 class="bhg-title">🌿 ผ่อนคลายช้า ๆ</h1>
+        <p class="bhg-subtitle">ค่อย ๆ ผ่อนคลายร่างกายหลังจบ Balance Hold</p>
 
         <div class="bhg-grid">
           <div class="bhg-panel">
-            <h2 class="bhg-h2">วิธีทำ</h2>
+            <h2 class="bhg-h2">วิธีเล่น</h2>
             <ol class="bhg-list">
-              <li>กดปุ่ม “แกว่ง 1 รอบ” ช้า ๆ ให้ครบอย่างน้อย 4 รอบ</li>
-              <li>จากนั้นยืนนิ่งต่อเพื่อเก็บ stillness อย่างน้อย 3 วินาที</li>
-              <li>คูลดาวน์ครบแล้วจึงสรุปผล</li>
+              <li>กดปุ่มแกว่งช้า ๆ ทีละ 1 ครั้ง</li>
+              <li>ทำให้ครบอย่างน้อย 4 ครั้ง</li>
+              <li>จากนั้นยืนนิ่งอีกนิด</li>
             </ol>
           </div>
 
@@ -110,26 +110,26 @@ export function mount(root, ctx = {}){
             <div class="bhg-cue bhg-cue-cool" id="bhg-cue">ค่อย ๆ แกว่งซ้ายขวาช้า ๆ</div>
             <div class="bhg-timer" id="bhg-timer">${GAME_SEC}s</div>
             <div class="bhg-stats" id="bhg-stats">
-              <span>รอบแกว่ง 0</span>
+              <span>แกว่ง 0</span>
               <span>นิ่ง 0s</span>
             </div>
 
             <div class="bhg-actions">
               <button class="bhg-btn-action" type="button" id="bhg-sway" disabled>
                 <span class="bhg-emoji">↔️</span>
-                <span>แกว่ง 1 รอบ</span>
+                <span>แกว่ง 1 ครั้ง</span>
               </button>
               <button class="bhg-btn-action" type="button" id="bhg-still" disabled>
                 <span class="bhg-emoji">🧍</span>
-                <span>เริ่มยืนนิ่ง</span>
+                <span>ยืนนิ่ง</span>
               </button>
             </div>
           </div>
         </div>
 
         <div class="bhg-footer">
-          <button class="bhg-btn bhg-btn-primary" id="bhg-start">เริ่มคูลดาวน์</button>
-          <button class="bhg-btn bhg-btn-ghost" id="bhg-finish" disabled>สรุปผล</button>
+          <button class="bhg-btn bhg-btn-primary" id="bhg-start">เริ่มผ่อนคลาย</button>
+          <button class="bhg-btn bhg-btn-ghost" id="bhg-finish" disabled>ดูผล</button>
         </div>
       </section>
     </div>
@@ -145,7 +145,7 @@ export function mount(root, ctx = {}){
 
   function renderStats(){
     statsEl.innerHTML = `
-      <span>รอบแกว่ง ${state.swayRounds}</span>
+      <span>แกว่ง ${state.swayRounds}</span>
       <span>นิ่ง ${state.stillnessSec}s</span>
     `;
   }
@@ -159,7 +159,7 @@ export function mount(root, ctx = {}){
     stillBtn.disabled = true;
     startBtn.disabled = true;
     finishBtn.disabled = false;
-    cueEl.textContent = 'เสร็จแล้ว กดสรุปผล';
+    cueEl.textContent = 'เสร็จแล้ว กดดูผล';
     renderStats();
   }
 
