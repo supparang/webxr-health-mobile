@@ -3,9 +3,6 @@
 // FULL PATCH v20260313c-ALL-ZONES-GATE-GAMES-HYDRATION-CHILD-FRIENDLY
 
 export const GATE_GAMES = {
-  // =========================
-  // HYGIENE ZONE
-  // =========================
   bath: {
     cat: 'hygiene',
     label: 'Bath',
@@ -84,9 +81,6 @@ export const GATE_GAMES = {
     }
   },
 
-  // =========================
-  // NUTRITION ZONE
-  // =========================
   goodjunk: {
     cat: 'nutrition',
     label: 'GoodJunk',
@@ -139,9 +133,6 @@ export const GATE_GAMES = {
     }
   },
 
-  // =========================
-  // EXERCISE / FITNESS ZONE
-  // =========================
   jumpduck: {
     cat: 'exercise',
     label: 'Jump Duck',
