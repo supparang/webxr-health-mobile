@@ -1,4 +1,6 @@
-/* === /herohealth/gate/games/fitnessplanner/style.css === */
+/* === /herohealth/gate/games/fitnessplanner/style.css ===
+ * PATCH v20260312b-FITNESSPLANNER-MOBILE-TUNE
+ */
 
 :root{
   --fpg-bg1:#1e293b;
@@ -10,6 +12,8 @@
   --fpg-accent:#f59e0b;
   --fpg-accent2:#38bdf8;
 }
+
+*{ box-sizing:border-box; }
 
 .fpg-wrap{
   min-height:100vh;
@@ -27,7 +31,7 @@
 }
 
 .fpg-card{
-  width:min(980px, 100%);
+  width:min(980px,100%);
   margin:0 auto;
   border:1px solid var(--fpg-stroke);
   background:rgba(2,6,23,.68);
@@ -39,27 +43,34 @@
 
 .fpg-kicker{
   font-size:.82rem;
-  letter-spacing:.12em;
+  letter-spacing:.08em;
   color:#fde68a;
   opacity:.95;
   margin-bottom:8px;
+  font-weight:900;
 }
 
 .fpg-title{
   margin:0;
-  font-size:clamp(1.6rem, 4vw, 2.3rem);
-  line-height:1.1;
+  font-size:clamp(1.55rem,4vw,2.3rem);
+  line-height:1.08;
+  font-weight:1000;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  flex-wrap:wrap;
 }
 
 .fpg-subtitle{
-  margin:8px 0 0;
-  color:var(--fpg-muted);
-  font-size:1rem;
+  margin:10px 0 0;
+  color:var(--fpg-text);
+  font-size:1.02rem;
+  line-height:1.5;
 }
 
 .fpg-grid{
   display:grid;
-  grid-template-columns:1fr 1.2fr;
+  grid-template-columns:1fr 1.15fr;
   gap:16px;
   margin-top:18px;
 }
@@ -81,16 +92,21 @@
 }
 
 .fpg-h2{
-  margin:0 0 10px;
-  font-size:1.05rem;
+  margin:0 0 12px;
+  font-size:1.15rem;
+  line-height:1.2;
+  font-weight:1000;
 }
 
 .fpg-list{
   margin:0;
-  padding-left:18px;
+  padding-left:22px;
   color:#dbeafe;
-  line-height:1.7;
+  line-height:1.8;
+  font-size:1rem;
 }
+
+.fpg-list li + li{ margin-top:4px; }
 
 .fpg-phase-badge{
   display:inline-flex;
@@ -102,8 +118,9 @@
   background:rgba(245,158,11,.14);
   color:#fde68a;
   border:1px solid rgba(245,158,11,.28);
-  font-weight:700;
+  font-weight:800;
   margin-bottom:14px;
+  font-size:.92rem;
 }
 
 .fpg-phase-badge-cool{
@@ -121,19 +138,19 @@
   border-radius:18px;
   border:1px solid var(--fpg-stroke);
   background:linear-gradient(180deg, rgba(15,23,42,.9), rgba(2,6,23,.86));
-  font-size:clamp(1.2rem, 4vw, 1.9rem);
-  font-weight:800;
+  font-size:clamp(1.15rem,3.4vw,1.8rem);
+  font-weight:1000;
+  line-height:1.25;
   padding:14px;
   margin-bottom:12px;
+  text-align:center;
 }
 
-.fpg-cue-cool{
-  color:#bae6fd;
-}
+.fpg-cue-cool{ color:#bae6fd; }
 
 .fpg-timer{
-  font-size:1.2rem;
-  font-weight:800;
+  font-size:1.18rem;
+  font-weight:900;
   color:#fde68a;
   margin-bottom:10px;
 }
@@ -145,7 +162,7 @@
   justify-content:center;
   margin-bottom:14px;
   color:#cbd5e1;
-  font-size:.96rem;
+  font-size:.95rem;
 }
 
 .fpg-stats span{
@@ -153,12 +170,13 @@
   border-radius:999px;
   background:rgba(15,23,42,.7);
   border:1px solid var(--fpg-stroke);
+  white-space:nowrap;
 }
 
 .fpg-actions{
   width:100%;
   display:grid;
-  grid-template-columns:repeat(2, minmax(0,1fr));
+  grid-template-columns:repeat(2,minmax(0,1fr));
   gap:10px;
 }
 
@@ -169,18 +187,18 @@
   color:var(--fpg-text);
   border-radius:18px;
   min-height:72px;
-  padding:12px;
+  padding:12px 10px;
   font-size:1rem;
-  font-weight:700;
+  font-weight:900;
   display:flex;
   align-items:center;
   justify-content:center;
-  gap:10px;
+  gap:8px;
+  line-height:1.2;
+  text-align:center;
 }
 
-.fpg-btn-action:disabled{
-  opacity:.55;
-}
+.fpg-btn-action:disabled{ opacity:.55; }
 
 .fpg-btn-action.is-picked{
   border-color:rgba(56,189,248,.48);
@@ -188,7 +206,8 @@
 }
 
 .fpg-emoji{
-  font-size:1.3rem;
+  font-size:1.18rem;
+  flex:0 0 auto;
 }
 
 .fpg-select-group{
@@ -201,6 +220,7 @@
   font-size:.92rem;
   color:#cbd5e1;
   margin:4px 0 8px;
+  font-weight:800;
 }
 
 .fpg-footer{
@@ -217,8 +237,9 @@
   border-radius:14px;
   padding:12px 16px;
   font-size:1rem;
-  font-weight:800;
+  font-weight:1000;
   cursor:pointer;
+  min-height:46px;
 }
 
 .fpg-btn:disabled{
@@ -228,7 +249,7 @@
 
 .fpg-btn-primary{
   color:#1e293b;
-  background:linear-gradient(180deg, #fcd34d, #f59e0b);
+  background:linear-gradient(180deg,#fcd34d,#f59e0b);
   border-color:rgba(245,158,11,.35);
 }
 
@@ -237,19 +258,100 @@
   background:rgba(15,23,42,.88);
 }
 
-@media (max-width: 760px){
-  .fpg-wrap{ padding:12px; }
+@media (max-width:900px){
+  .fpg-grid{ grid-template-columns:1fr; }
+  .fpg-play{ min-height:auto; }
+}
+
+@media (max-width:640px){
+  .fpg-wrap{ padding:10px; }
   .fpg-card{
     padding:14px;
     border-radius:18px;
   }
-  .fpg-grid{ grid-template-columns:1fr; }
-  .fpg-play{ min-height:auto; }
-  .fpg-actions{ grid-template-columns:1fr; }
-  .fpg-btn-action{
-    min-height:64px;
-    font-size:.96rem;
+  .fpg-kicker{
+    font-size:.78rem;
+    letter-spacing:.04em;
   }
-  .fpg-footer{ justify-content:stretch; }
-  .fpg-footer .fpg-btn{ flex:1 1 auto; }
+  .fpg-title{
+    font-size:clamp(1.18rem,6.4vw,1.7rem);
+    gap:8px;
+    line-height:1.12;
+  }
+  .fpg-subtitle{
+    font-size:.98rem;
+    line-height:1.45;
+    margin-top:8px;
+  }
+  .fpg-panel{
+    padding:13px;
+    border-radius:16px;
+  }
+  .fpg-h2{
+    font-size:1.02rem;
+    margin-bottom:10px;
+  }
+  .fpg-list{
+    padding-left:18px;
+    font-size:.95rem;
+    line-height:1.7;
+  }
+  .fpg-phase-badge{
+    min-width:96px;
+    font-size:.82rem;
+    padding:7px 12px;
+    margin-bottom:10px;
+  }
+  .fpg-cue{
+    min-height:70px;
+    font-size:clamp(1rem,5.5vw,1.28rem);
+    padding:12px 10px;
+    margin-bottom:10px;
+    border-radius:14px;
+  }
+  .fpg-timer{
+    font-size:1.05rem;
+    margin-bottom:8px;
+  }
+  .fpg-stats{
+    gap:8px;
+    margin-bottom:10px;
+    font-size:.88rem;
+  }
+  .fpg-stats span{ padding:6px 10px; }
+  .fpg-actions{
+    grid-template-columns:1fr;
+    gap:8px;
+  }
+  .fpg-btn-action{
+    min-height:58px;
+    border-radius:14px;
+    padding:10px 8px;
+    font-size:.92rem;
+    gap:6px;
+  }
+  .fpg-emoji{ font-size:1rem; }
+  .fpg-footer{
+    margin-top:12px;
+    gap:8px;
+  }
+  .fpg-footer .fpg-btn{ flex:1 1 calc(50% - 8px); }
+  .fpg-btn{
+    min-height:42px;
+    padding:10px 12px;
+    font-size:.95rem;
+    border-radius:12px;
+  }
+}
+
+@media (max-width:420px){
+  .fpg-title{ font-size:clamp(1.08rem,6vw,1.45rem); }
+  .fpg-subtitle{ font-size:.92rem; }
+  .fpg-list{ font-size:.9rem; }
+  .fpg-btn-action{
+    min-height:54px;
+    font-size:.86rem;
+    padding:8px 6px;
+  }
+  .fpg-btn{ font-size:.9rem; }
 }
