@@ -1,6 +1,6 @@
 // === /herohealth/vr-goodjunk/goodjunk.summary.js ===
 // GoodJunk Solo Master Pack
-// FULL PATCH v20260313c-GJ-SUMMARY-SOLO-MASTER
+// FULL PATCH v20260313d-GJ-SUMMARY-COOLDOWN-HUB-FIX
 
 'use strict';
 
@@ -31,6 +31,15 @@ function dayKey() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
+function safeUrl(raw, base = location.href, fallback = '') {
+  try {
+    if (!raw) return fallback;
+    return new URL(raw, base).toString();
+  } catch {
+    return fallback;
+  }
+}
+
 export function getCooldownDone(cat, gameKey, pid) {
   const day = dayKey();
   const p = String(pid || 'anon').trim() || 'anon';
@@ -49,25 +58,43 @@ export function buildCooldownUrl({
   gameKey,
   pid
 }) {
-  const here = new URL(currentUrl || location.href);
+  const here = new URL(currentUrl || location.href, location.href);
   const gate = new URL('../warmup-gate.html', here);
   const sp = here.searchParams;
 
-  const zone = String(sp.get('zone') || cat || 'nutrition');
+  const zone = String(sp.get('zone') || cat || 'nutrition').toLowerCase();
   const run = String(
     sp.get('run') ||
     (sp.get('mode') === 'solo' ? 'play' : (sp.get('mode') || 'play'))
   );
 
+  const resolvedHub = safeUrl(
+    hub || sp.get('hub') || '../hub.html',
+    here,
+    new URL('../hub.html', here).toString()
+  );
+
+  const resolvedNext = safeUrl(
+    nextAfterCooldown || resolvedHub,
+    here,
+    resolvedHub
+  );
+
   gate.searchParams.set('phase', 'cooldown');
-  gate.searchParams.set('game', String(gameKey || 'unknown'));
+  gate.searchParams.set('gatePhase', 'cooldown');
+  gate.searchParams.set('mode', 'cooldown');
+
+  gate.searchParams.set('game', String(gameKey || 'unknown').toLowerCase());
   gate.searchParams.set('zone', zone);
-  gate.searchParams.set('cat', String(cat || zone || 'nutrition'));
+  gate.searchParams.set('cat', String(cat || zone || 'nutrition').toLowerCase());
   gate.searchParams.set('pid', String(pid || 'anon'));
   gate.searchParams.set('run', run);
 
-  if (hub) gate.searchParams.set('hub', String(hub));
-  gate.searchParams.set('next', String(nextAfterCooldown || hub || '../hub.html'));
+  // สำคัญ: hub ต้องเป็น hub จริงเสมอ
+  gate.searchParams.set('hub', resolvedHub);
+
+  // สำคัญ: next ของ cooldown คือปลายทางหลัง cooldown
+  gate.searchParams.set('next', resolvedNext);
 
   [
     'diff','time','seed','studyId','conditionGroup','view','log',
@@ -79,9 +106,6 @@ export function buildCooldownUrl({
     const v = sp.get(k);
     if (v != null && v !== '') gate.searchParams.set(k, v);
   });
-
-  gate.searchParams.set('phase', 'cooldown');
-  gate.searchParams.set('game', String(gameKey || 'unknown'));
 
   return gate.toString();
 }
@@ -316,10 +340,12 @@ export function injectCooldownButton({
 
   const here = new URL(currentUrl, location.href);
   const cdnext = here.searchParams.get('cdnext') || '';
-  const nextAfterCooldown = cdnext || hub || '../hub.html';
+  const resolvedHub = safeUrl(hub || '../hub.html', here, new URL('../hub.html', here).toString());
+  const nextAfterCooldown = safeUrl(cdnext || resolvedHub, here, resolvedHub);
+
   const url = buildCooldownUrl({
     currentUrl,
-    hub,
+    hub: resolvedHub,
     nextAfterCooldown,
     cat,
     gameKey,
