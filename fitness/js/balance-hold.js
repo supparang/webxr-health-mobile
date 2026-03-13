@@ -1,19 +1,13 @@
 // === /fitness/js/balance-hold.js ===
 // Balance Hold — DOM-based Balance Platform + Obstacle Avoidance
-// FULL BUILD v20260313-BALANCEHOLD-RUN-FLOW-FIX
-// ✅ URL prefill (diff/time/run/view/pid/group/phase)
-// ✅ view mode classes (pc/mobile/cvr)
-// ✅ practice + countdown phases
-// ✅ deterministic seeded RNG
-// ✅ warmup passthrough buffs
-// ✅ scoring + combo + perfect
-// ✅ pause/resume/stop
-// ✅ result hero + rank + insight + badges/missions
-// ✅ tutorial overlay + end modal
-// ✅ result screen stays first, then user chooses cooldown / hub
-// ✅ launcher back + cooldown flow helpers
-// ✅ local exports (sessions CSV, debug JSON)
-
+// FULL PATCH v20260313-BALANCEHOLD-JS-FLOW-LOCK
+// ✅ match /fitness/balance-hold.html latest run shell
+// ✅ result first, no auto jump to hub/cooldown
+// ✅ popup fx back (Perfect / Avoid / Hit)
+// ✅ prevent idle scoring: must have recent real input near impact
+// ✅ warmup buff passthrough
+// ✅ practice + countdown
+// ✅ exports + result + hub summary
 'use strict';
 
 /* ------------------------------------------------------------
@@ -55,12 +49,12 @@ function qv(k, def=''){
   }
 }
 function qn(k, def=0){
-  const v = Number(qv(k,''));
+  const v = Number(qv(k, ''));
   return Number.isFinite(v) ? v : def;
 }
 function clampNum(v, min, max, def){
   v = Number(v);
-  if (!Number.isFinite(v)) v = def;
+  if(!Number.isFinite(v)) v = def;
   return Math.max(min, Math.min(max, v));
 }
 function parseBoolLike(v, fallback=false){
@@ -69,10 +63,6 @@ function parseBoolLike(v, fallback=false){
   if (['1','true','yes','y','on'].includes(s)) return true;
   if (['0','false','no','n','off'].includes(s)) return false;
   return fallback;
-}
-function setParam(u, k, v){
-  if (v === '' || v == null) u.searchParams.delete(k);
-  else u.searchParams.set(k, String(v));
 }
 
 /* ------------------------------------------------------------
@@ -219,10 +209,6 @@ const endModalInsight = $('#endModalInsight');
 
 const cvrStrictLabel = $('#cvrStrictLabel');
 
-const btnMenuBackLauncher = $('#btn-menu-back-launcher');
-const btnResultCooldown   = $('#btn-result-cooldown');
-const btnEndCooldown      = $('#btn-end-cooldown');
-
 /* ------------------------------------------------------------
  * Config
  * ------------------------------------------------------------ */
@@ -286,7 +272,7 @@ function closeEndModal(){
 }
 
 /* ------------------------------------------------------------
- * Prefill UI
+ * Prefill UI from URL
  * ------------------------------------------------------------ */
 function applyQueryToUI(){
   const qDiff = String(qv('diff','')).toLowerCase();
@@ -337,7 +323,6 @@ function spawnFloatFx(text, kind, pxX, pxY){
   playArea.appendChild(el);
   setTimeout(()=>{ try{ el.remove(); }catch(e){} }, 820);
 }
-
 function pulseEl(el){
   if (!el || !fxEnabled()) return;
   el.classList.remove('count-pop');
@@ -351,6 +336,12 @@ function pulseEl(el){
 function attachInput(){
   if (!playArea) return;
   let active = false;
+
+  function markInput(now){
+    if (!state) return;
+    state.recentInputAt = now;
+    state.inputCount = (state.inputCount || 0) + 1;
+  }
 
   function updateTargetFromEvent(ev){
     if (!state) return;
@@ -370,46 +361,52 @@ function attachInput(){
     norm = clamp(norm, -p.maxTarget, p.maxTarget);
 
     const isCvr = view === 'cvr';
-    if (isCvr && cvrStrictLabel && String(cvrStrictLabel.textContent || 'OFF').toUpperCase() === 'ON'){
+    if (isCvr && cvrStrictLabel && String(cvrStrictLabel.textContent||'OFF').toUpperCase() === 'ON'){
       norm *= 0.78;
     }
 
     const curr = Number(state.targetAngle || 0);
-    state.targetAngle = curr + (norm - curr) * p.smoothing;
+    const next = curr + (norm - curr) * p.smoothing;
+    const changed = Math.abs(next - curr) > 0.006;
+
+    state.targetAngle = next;
+    if (changed) markInput(performance.now());
   }
 
   playArea.addEventListener('pointerdown', ev=>{
     active = true;
     try{ playArea.setPointerCapture(ev.pointerId); }catch(e){}
     updateTargetFromEvent(ev);
+    if (state) state.dragActive = true;
     ev.preventDefault();
-  }, { passive:false });
+  }, {passive:false});
 
   playArea.addEventListener('pointermove', ev=>{
     if (!active) return;
     updateTargetFromEvent(ev);
     ev.preventDefault();
-  }, { passive:false });
+  }, {passive:false});
 
   playArea.addEventListener('pointerup', ev=>{
     active = false;
+    if (state) state.dragActive = false;
     try{ playArea.releasePointerCapture(ev.pointerId); }catch(e){}
     ev.preventDefault();
-  }, { passive:false });
+  }, {passive:false});
 
   playArea.addEventListener('pointercancel', ev=>{
     active = false;
+    if (state) state.dragActive = false;
     ev.preventDefault();
-  }, { passive:false });
+  }, {passive:false});
 }
 
 /* ------------------------------------------------------------
- * Game state
+ * Game State
  * ------------------------------------------------------------ */
 let gameMode = 'play';
 let state = null;
 let rafId = null;
-
 let isPaused = false;
 let pausedAt = 0;
 let tutorialAccepted = false;
@@ -432,81 +429,7 @@ function rand01(){
 }
 function randomBetween(a,b){
   const r = rand01();
-  return a + r*(b-a);
-}
-
-/* ------------------------------------------------------------
- * Flow helpers
- * ------------------------------------------------------------ */
-function buildHubUrl(){
-  const hub = qv('hub','');
-  if (hub) return hub;
-
-  try{
-    const u = new URL('../herohealth/hub.html', location.href);
-    ['run','diff','time','seed','pid','view','log','api','ai','studyId','conditionGroup','grade'].forEach(k=>{
-      const v = qv(k,'');
-      if (v !== '') setParam(u, k, v);
-    });
-
-    if (qv('run','play') === 'research' && qv('phase','')) {
-      setParam(u, 'phase', qv('phase',''));
-    }
-    return u.toString();
-  }catch(e){
-    return '../herohealth/hub.html';
-  }
-}
-
-function buildLauncherUrl(){
-  try{
-    const u = new URL('../herohealth/balance-hold-vr.html', location.href);
-    setParam(u, 'hub', buildHubUrl());
-
-    ['run','diff','time','seed','pid','view','log','api','ai','studyId','conditionGroup','grade'].forEach(k=>{
-      const v = qv(k,'');
-      if (v !== '') setParam(u, k, v);
-    });
-
-    if (qv('run','play') === 'research' && qv('phase','')) {
-      setParam(u, 'phase', qv('phase',''));
-    }
-    return u.toString();
-  }catch(e){
-    return '../herohealth/balance-hold-vr.html';
-  }
-}
-
-function buildCooldownUrl(){
-  try{
-    const hub = buildHubUrl();
-    const u = new URL('../herohealth/warmup-gate.html', location.href);
-
-    setParam(u, 'gatePhase', 'cooldown');
-    setParam(u, 'cat', 'exercise');
-    setParam(u, 'game', 'balance');
-    setParam(u, 'theme', 'balance');
-    setParam(u, 'hub', hub);
-    setParam(u, 'next', hub);
-
-    ['run','diff','time','seed','pid','view','log','api','ai','studyId','conditionGroup','grade'].forEach(k=>{
-      const v = qv(k,'');
-      if (v !== '') setParam(u, k, v);
-    });
-
-    if (qv('run','play') === 'research' && qv('phase','')) {
-      setParam(u, 'phase', qv('phase',''));
-    }
-
-    setParam(u, 'cdur', '15');
-    return u.toString();
-  }catch(e){
-    return buildHubUrl();
-  }
-}
-
-function goCooldown(){
-  location.href = buildCooldownUrl();
+  return a + r * (b-a);
 }
 
 /* ------------------------------------------------------------
@@ -517,6 +440,8 @@ function resetMotionForNewPhase(){
   state.angle = 0;
   state.targetAngle = 0;
   state.lastFrame = performance.now();
+  state.recentInputAt = 0;
+  state.inputCount = 0;
   if (obstacleLayer) obstacleLayer.innerHTML = '';
 }
 
@@ -557,6 +482,9 @@ function beginMainPhase(now){
   state.maxCombo = 0;
   state.perfects = 0;
 
+  state.recentInputAt = 0;
+  state.inputCount = 0;
+
   const wu = state.warmup || {};
   if (wu && (wu.wType || wu.wPct)){
     setText(hudStatus, `Playing • ${wu.wType || 'buff'} +${wu.wPct||0}%`);
@@ -596,11 +524,8 @@ function runCountdownPhase(now){
 
   if (remain <= 0){
     if (coachBubble) coachBubble.classList.add('hidden');
-    if (state.practiceEnabled && !state.practiceEnded){
-      beginPracticePhase(now);
-    }else{
-      beginMainPhase(now);
-    }
+    if (state.practiceEnabled && !state.practiceEnded) beginPracticePhase(now);
+    else beginMainPhase(now);
   }
   return true;
 }
@@ -666,7 +591,6 @@ function startGame(kind){
   const cfg     = pickDiff(diffKey);
 
   const warmup = readWarmupBuff();
-
   const meta = buildSessionMeta(diffKey, durSec);
   const seedStr = buildSeedString(meta);
   const rng = makeRng(seedStr);
@@ -674,7 +598,7 @@ function startGame(kind){
   const now = performance.now();
   state = {
     diffKey, cfg,
-    durationMs: durSec*1000,
+    durationMs: durSec * 1000,
     startTime: now,
     elapsed: 0,
     lastFrame: now,
@@ -721,7 +645,12 @@ function startGame(kind){
     phase: 'main',
     phaseLabel: 'Main',
     countdownMs: 0,
-    countdownStartedAt: 0
+    countdownStartedAt: 0,
+
+    recentInputAt: 0,
+    inputCount: 0,
+    dragActive: false,
+    recentInputScoreWindowMs: 850
   };
 
   setText(hudMode, gameMode === 'research' ? 'Research' : 'Play');
@@ -807,6 +736,7 @@ function resumeGame(){
   state.nextObstacleAt += pausedMs;
   state.countdownStartedAt += pausedMs;
   state.practiceStartedAt += pausedMs;
+  if (state.recentInputAt) state.recentInputAt += pausedMs;
 
   setText(hudStatus, state.phase === 'practice' ? 'Practice' : 'Playing');
   $('[data-action="pause"]')?.classList.remove('hidden');
@@ -881,12 +811,17 @@ function spawnObstacle(now){
     const absTilt = Math.abs(state.angle);
     const inSafe = absTilt <= safeHalf;
     const nearPerfect = absTilt <= Math.max(0.06, safeHalf * 0.28);
+    const hasRecentInput = !!state.recentInputAt && (performance.now() - state.recentInputAt <= state.recentInputScoreWindowMs);
 
     if (isPractice){
       if (inSafe){
         state.practiceObstaclesAvoided++;
-        state.practiceScore = (state.practiceScore || 0) + (nearPerfect ? 20 : 10);
-        spawnFloatFx(nearPerfect ? 'Practice Perfect' : 'Practice Avoid', nearPerfect ? 'gold' : 'good', pxX, (playArea.clientHeight || 300) * 0.55);
+        if (hasRecentInput){
+          state.practiceScore = (state.practiceScore || 0) + (nearPerfect ? 20 : 10);
+          spawnFloatFx(nearPerfect ? 'Practice Perfect' : 'Practice Avoid', nearPerfect ? 'gold' : 'good', pxX, (playArea.clientHeight || 300) * 0.55);
+        }else{
+          spawnFloatFx('Hold', 'good', pxX, (playArea.clientHeight || 300) * 0.55);
+        }
         span.classList.add('avoid');
       }else{
         state.practiceObstaclesHit++;
@@ -908,25 +843,33 @@ function spawnObstacle(now){
       span.classList.add('avoid');
       state.obstaclesAvoided++;
 
-      state.combo = (state.combo || 0) + 1;
-      state.maxCombo = Math.max(state.maxCombo || 0, state.combo);
+      if (hasRecentInput){
+        state.combo = (state.combo || 0) + 1;
+        state.maxCombo = Math.max(state.maxCombo || 0, state.combo);
 
-      let add = 10 + Math.min(20, (state.combo - 1) * 2);
+        let add = 10 + Math.min(20, (state.combo - 1) * 2);
 
-      let perfectNow = nearPerfect;
-      if (!perfectNow && (wu.critBonusChance || 0) > 0 && rand01() < wu.critBonusChance){
-        perfectNow = true;
+        let perfectNow = nearPerfect;
+        if (!perfectNow && (wu.critBonusChance || 0) > 0 && rand01() < wu.critBonusChance){
+          perfectNow = true;
+        }
+
+        if (perfectNow){
+          add += 10;
+          state.perfects = (state.perfects || 0) + 1;
+        }
+
+        add = Math.round(add * (wu.scoreBoostMul || 1)) + (wu.healOnAvoid || 0);
+        state.score = (state.score || 0) + add;
+
+        spawnFloatFx(perfectNow ? `Perfect +${add}` : `Avoid +${add}`, perfectNow ? 'gold' : 'good', pxX, (playArea.clientHeight || 300) * 0.55);
+        pulseEl(hudScore);
+        pulseEl(hudCombo);
+      }else{
+        // idle hold: survive counted in analytics, but NO score / NO combo
+        state.combo = 0;
+        spawnFloatFx('Hold', 'good', pxX, (playArea.clientHeight || 300) * 0.55);
       }
-
-      if (perfectNow){
-        add += 10;
-        state.perfects = (state.perfects || 0) + 1;
-      }
-
-      add = Math.round(add * (wu.scoreBoostMul || 1)) + (wu.healOnAvoid || 0);
-      state.score = (state.score || 0) + add;
-
-      spawnFloatFx(perfectNow ? `Perfect +${add}` : `Avoid +${add}`, perfectNow ? 'gold' : 'good', pxX, (playArea.clientHeight || 300) * 0.55);
     }else{
       span.classList.add('hit');
       state.obstaclesHit++;
@@ -943,12 +886,13 @@ function spawnObstacle(now){
       spawnFloatFx(`Hit -${penalty}`, 'bad', pxX, (playArea.clientHeight || 300) * 0.55);
       playArea.classList.add('shake-hit');
       setTimeout(()=> playArea.classList.remove('shake-hit'), 240);
+
+      pulseEl(hudScore);
+      pulseEl(hudCombo);
     }
 
     setText(hudScore, String(state.score || 0));
     setText(hudCombo, String(state.combo || 0));
-    pulseEl(hudScore);
-    pulseEl(hudCombo);
     updateVisuals();
 
   }, Math.max(0, impactAt - performance.now()));
@@ -988,7 +932,7 @@ function computeAnalytics(){
  * ------------------------------------------------------------ */
 function calcRank(summary){
   const stab = Number(summary.stabilityRatio || 0);
-  const avoidTotal = (summary.obstaclesAvoided || 0) + (summary.obstaclesHit || 0);
+  const avoidTotal = (summary.obstaclesAvoided||0) + (summary.obstaclesHit||0);
   const avoidRate = avoidTotal ? (summary.obstaclesAvoided / avoidTotal) : 0;
   const fat = Number(summary.fatigueIndex || 0);
   const perfects = Number(summary.perfects || 0);
@@ -1025,7 +969,7 @@ function buildInsight(summary){
     return 'จังหวะหลบยังพลาดบ่อย ลองเตรียมดึงกลับเข้ากลางทันทีเมื่อเห็นไอคอน obstacle จะช่วยเพิ่ม avoid rate ได้ชัดเจน';
   }
   if (fat > 0.35){
-    return 'ช่วงท้ายเริ่มล้า ลองคุมแรงนิ้วให้เบาลงและสม่ำเสมอ จะช่วยไม่ให้แกว่งเกินในช่วงท้ายเกม';
+    return 'ช่วงท้ายเริ่มล้า ลองคุมแรงนิ้วให้เบาและสม่ำเสมอ จะช่วยไม่ให้แกว่งเกินในช่วงท้ายเกม';
   }
   return 'ทำได้ดีมาก! รักษาจังหวะคุมแท่นให้สม่ำเสมอ และลุ้น Perfect ตอน impact เพื่อเพิ่มคะแนนและคอมโบ';
 }
@@ -1035,16 +979,16 @@ function renderBadgesAndMissions(summary){
   if (heroMissionEl) heroMissionEl.innerHTML = '';
 
   const badges = [];
-  if ((summary.perfects || 0) >= 5) badges.push({t:'✨ Perfect Keeper', c:'good'});
-  if ((summary.comboMax || 0) >= 8) badges.push({t:'🔥 Combo Flow', c:'good'});
-  if ((summary.obstaclesHit || 0) === 0 && ((summary.obstaclesAvoided || 0) > 0)) badges.push({t:'🛡️ No Hit Run', c:'good'});
-  if ((summary.fatigueIndex || 0) > 0.35) badges.push({t:'😮‍💨 Fatigue Alert', c:'warn'});
+  if ((summary.perfects||0) >= 5) badges.push({t:'✨ Perfect Keeper', c:'good'});
+  if ((summary.comboMax||0) >= 8) badges.push({t:'🔥 Combo Flow', c:'good'});
+  if ((summary.obstaclesHit||0) === 0 && ((summary.obstaclesAvoided||0) > 0)) badges.push({t:'🛡️ No Hit Run', c:'good'});
+  if ((summary.fatigueIndex||0) > 0.35) badges.push({t:'😮‍💨 Fatigue Alert', c:'warn'});
 
   const missions = [];
-  if ((summary.perfects || 0) < 5) missions.push('ทำ Perfect ≥ 5 ครั้ง');
-  if ((summary.comboMax || 0) < 10) missions.push('ทำ Max Combo ≥ 10');
-  if ((summary.stabilityRatio || 0) < 0.70) missions.push('ดัน Stability ≥ 70%');
-  if ((summary.obstaclesHit || 0) > 0) missions.push('ลองรอบไร้ Hit');
+  if ((summary.perfects||0) < 5) missions.push('ทำ Perfect ≥ 5 ครั้ง');
+  if ((summary.comboMax||0) < 10) missions.push('ทำ Max Combo ≥ 10');
+  if ((summary.stabilityRatio||0) < 0.70) missions.push('ดัน Stability ≥ 70%');
+  if ((summary.obstaclesHit||0) > 0) missions.push('ลองรอบไร้ Hit');
 
   if (heroBadgesEl){
     if (!badges.length){
@@ -1055,7 +999,7 @@ function renderBadgesAndMissions(summary){
     }else{
       badges.forEach(b=>{
         const el = document.createElement('div');
-        el.className = `mini-badge ${b.c || ''}`;
+        el.className = `mini-badge ${b.c||''}`;
         el.textContent = b.t;
         heroBadgesEl.appendChild(el);
       });
@@ -1080,7 +1024,7 @@ function renderBadgesAndMissions(summary){
 }
 
 /* ------------------------------------------------------------
- * Save summary for HUB
+ * Save last summary for HUB
  * ------------------------------------------------------------ */
 function saveLastSummaryForHub(summary, endedBy){
   try{
@@ -1114,7 +1058,6 @@ function goHubOrMenu(){
     showView('menu');
     return;
   }
-
   try{
     const u = new URL(hub, location.href);
     const raw = localStorage.getItem('HHA_LAST_SUMMARY_balance-hold') || localStorage.getItem('HHA_LAST_SUMMARY');
@@ -1150,9 +1093,8 @@ function fillResultView(endedBy, summary){
   if (resAvoid) setText(resAvoid, String(summary.obstaclesAvoided || 0));
   if (resHit) setText(resHit, String(summary.obstaclesHit || 0));
 
-  const totalObs = (summary.obstaclesAvoided || 0) + (summary.obstaclesHit || 0);
+  const totalObs = (summary.obstaclesAvoided||0) + (summary.obstaclesHit||0);
   const avoidRate = totalObs ? (summary.obstaclesAvoided / totalObs) : 0;
-
   if (resAvoidRate) setText(resAvoidRate, fmtPercent(avoidRate));
   if (resFatigue) setText(resFatigue, fmtFloat(summary.fatigueIndex || 0, 3));
   if (resSamples) setText(resSamples, String(summary.samples ?? 0));
@@ -1178,17 +1120,16 @@ function fillResultView(endedBy, summary){
   }
 
   if (resultHeroSub){
-    const sub = `${mapEndReason(endedBy)} • Stability ${fmtPercent(summary.stabilityRatio)} • Avoid ${summary.obstaclesAvoided || 0}/${totalObs || 0}`;
+    const sub = `${mapEndReason(endedBy)} • Stability ${fmtPercent(summary.stabilityRatio)} • Avoid ${summary.obstaclesAvoided||0}/${totalObs||0}`;
     setText(resultHeroSub, sub);
   }
-
   if (heroInsightEl) setText(heroInsightEl, summary.insight || '-');
+
   renderBadgesAndMissions(summary);
 }
 
 function fillEndModal(summary){
   if (!endModal) return;
-
   if (endModalRank){
     endModalRank.textContent = summary.rank || 'D';
     endModalRank.classList.remove('rank-S','rank-A','rank-B','rank-C','rank-D');
@@ -1206,8 +1147,8 @@ function stopGame(endedBy){
   if (rafId != null){ cancelAnimationFrame(rafId); rafId = null; }
 
   const finalState = state;
-
   const a = computeAnalytics();
+
   const summary = {
     gameId: 'balance-hold',
     mode: gameMode,
@@ -1347,11 +1288,11 @@ function loop(now){
 }
 
 /* ------------------------------------------------------------
- * Export helpers
+ * Exports
  * ------------------------------------------------------------ */
 function downloadTextFile(filename, text, type='text/plain'){
   try{
-    const blob = new Blob([text], { type });
+    const blob = new Blob([text], {type});
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -1417,10 +1358,9 @@ function exportReleaseDebug(){
       time: elDurSel?.value || null,
       view: elViewSel?.value || null
     },
-    lastSummary: (()=>{ try{ return JSON.parse(localStorage.getItem('HHA_LAST_SUMMARY_balance-hold') || 'null'); }catch(e){ return null; }})(),
+    lastSummary: (()=>{ try{ return JSON.parse(localStorage.getItem('HHA_LAST_SUMMARY_balance-hold') || 'null'); }catch(e){ return null; } })(),
     now: new Date().toISOString()
   };
-
   downloadTextFile(`balance-hold-debug-${Date.now()}.json`, JSON.stringify(debug, null, 2), 'application/json');
 }
 
@@ -1492,41 +1432,26 @@ function init(){
     if (!state) return;
     state.targetAngle = 0;
     state.angle *= 0.5;
+    state.recentInputAt = performance.now();
   });
 
   $('[data-action="cvr-calibrate-left"]')?.addEventListener('click', ()=>{
     if (!state) return;
     state.targetAngle = Math.max(-1, (state.targetAngle || 0) - 0.08);
+    state.recentInputAt = performance.now();
   });
 
   $('[data-action="cvr-calibrate-right"]')?.addEventListener('click', ()=>{
     if (!state) return;
     state.targetAngle = Math.min(1, (state.targetAngle || 0) + 0.08);
+    state.recentInputAt = performance.now();
   });
 
   $('[data-action="cvr-toggle-strict"]')?.addEventListener('click', ()=>{
     if (!cvrStrictLabel) return;
-    cvrStrictLabel.textContent = (String(cvrStrictLabel.textContent || 'OFF').toUpperCase() === 'ON') ? 'OFF' : 'ON';
+    cvrStrictLabel.textContent =
+      (String(cvrStrictLabel.textContent || 'OFF').toUpperCase() === 'ON') ? 'OFF' : 'ON';
   });
-
-  if (btnMenuBackLauncher){
-    btnMenuBackLauncher.addEventListener('click', ()=>{
-      location.href = buildLauncherUrl();
-    });
-  }
-
-  if (btnResultCooldown){
-    btnResultCooldown.addEventListener('click', ()=>{
-      goCooldown();
-    });
-  }
-
-  if (btnEndCooldown){
-    btnEndCooldown.addEventListener('click', ()=>{
-      closeEndModal();
-      goCooldown();
-    });
-  }
 
   document.addEventListener('visibilitychange', ()=>{
     if (document.visibilityState === 'hidden'){
@@ -1537,14 +1462,6 @@ function init(){
   attachInput();
   showView('menu');
   applyQueryToUI();
-
-  const auto = String(qv('autostart','')).toLowerCase();
-  if (['1','true','yes','on'].includes(auto)){
-    setTimeout(()=>{
-      const btn = document.querySelector('[data-action="start-normal"]');
-      if (btn) btn.click();
-    }, 120);
-  }
 }
 
 window.addEventListener('DOMContentLoaded', init);
