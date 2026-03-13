@@ -1,5 +1,5 @@
 // === /herohealth/gate/gate-summary.js ===
-// FULL PATCH v20260313b-GATE-SUMMARY-CALLBACKS-TOASTOBJ
+// FULL PATCH v20260313c-GATE-SUMMARY-HIDE-BEFORE-CALLBACK
 
 export function mountSummaryLayer(root){
   const overlay = document.createElement('div');
@@ -16,6 +16,10 @@ export function mountSummaryLayer(root){
     </div>
   `;
   root.appendChild(overlay);
+
+  function hide(){
+    overlay.classList.remove('show');
+  }
 
   return {
     show({ title='สรุปผล', subtitle='พร้อมไปต่อ', lines=[], onContinue, onBack } = {}){
@@ -40,19 +44,19 @@ export function mountSummaryLayer(root){
       cont.onclick = (ev) => {
         ev.preventDefault();
         ev.stopPropagation();
+        hide();
         if (onContinue) onContinue();
       };
 
       back.onclick = (ev) => {
         ev.preventDefault();
         ev.stopPropagation();
+        hide();
         if (onBack) onBack();
       };
     },
 
-    hide(){
-      overlay.classList.remove('show');
-    }
+    hide
   };
 }
 
