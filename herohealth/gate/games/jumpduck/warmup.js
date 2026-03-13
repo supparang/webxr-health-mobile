@@ -1,6 +1,6 @@
 /* === /herohealth/gate/games/jumpduck/warmup.js ===
  * HeroHealth Gate Game: JumpDuck Warmup
- * PATCH v20260312c-JUMPDUCK-WARMUP-MOBILE-CACHE
+ * PATCH v20260312e-JUMPDUCK-WARMUP-TH-CHILD
  */
 
 function clamp(v, a, b){ return Math.max(a, Math.min(b, v)); }
@@ -43,7 +43,7 @@ function makeResult(state){
     game: 'jumpduck',
     phase: 'warmup',
     activityId: 'jumpduck-quick-feet-prep',
-    title: 'Quick Feet Prep',
+    title: 'ซ้อมกระโดด-ย่อ',
     passed,
     score,
     stars: starsFromScore(score),
@@ -58,8 +58,8 @@ function makeResult(state){
     coach: {
       tone: passed ? 'positive' : 'gentle',
       line: passed
-        ? 'ขาพร้อมแล้ว ไปเริ่ม Jump Duck กัน'
-        : 'อุ่นเครื่องอีกนิดนะ จับจังหวะซ้าย ขวา ย่อ กระโดดให้แม่นขึ้น'
+        ? 'พร้อมแล้ว ไปเล่น Jump Duck กัน'
+        : 'ลองซ้อมอีกนิด จับจังหวะกระโดดและย่อให้แม่นขึ้น'
     },
     nextAction: 'run'
   };
@@ -75,7 +75,7 @@ export function mount(root, ctx = {}){
       <div class="jdg-wrap">
         <section class="jdg-card">
           <div class="jdg-kicker">EXERCISE ZONE • WARMUP</div>
-          <h1 class="jdg-title">🦘 Quick Feet Prep</h1>
+          <h1 class="jdg-title">🦘 ซ้อมกระโดด-ย่อ</h1>
           <p class="jdg-subtitle">โมดูลนี้ใช้สำหรับ phase=warmup เท่านั้น</p>
         </section>
       </div>
@@ -90,9 +90,9 @@ export function mount(root, ctx = {}){
 
   const cues = [
     { id:'left',  label:'ซ้าย',    emoji:'⬅️' },
-    { id:'right', label:'ขวา',    emoji:'➡️' },
+    { id:'right', label:'ขวา',     emoji:'➡️' },
     { id:'duck',  label:'ย่อ',     emoji:'⬇️' },
-    { id:'jump',  label:'กระโดด', emoji:'⬆️' }
+    { id:'jump',  label:'กระโดด',  emoji:'⬆️' }
   ];
 
   const state = {
@@ -121,8 +121,8 @@ export function mount(root, ctx = {}){
     <div class="jdg-wrap">
       <section class="jdg-card">
         <div class="jdg-kicker">EXERCISE ZONE • WARMUP</div>
-        <h1 class="jdg-title">🦘 Quick Feet Prep</h1>
-        <p class="jdg-subtitle">เตรียมขาและรีเฟล็กซ์ก่อนเข้าเกม Jump Duck</p>
+        <h1 class="jdg-title">🦘 ซ้อมกระโดด-ย่อ</h1>
+        <p class="jdg-subtitle">ซ้อมกระโดดและย่อก่อนเข้าเกม Jump Duck</p>
 
         <div class="jdg-grid">
           <div class="jdg-panel">
@@ -157,7 +157,7 @@ export function mount(root, ctx = {}){
 
         <div class="jdg-footer">
           <button class="jdg-btn jdg-btn-primary" id="jdg-start">เริ่มอุ่นเครื่อง</button>
-          <button class="jdg-btn jdg-btn-ghost" id="jdg-finish" disabled>สรุปผล</button>
+          <button class="jdg-btn jdg-btn-ghost" id="jdg-finish" disabled>ดูผล</button>
         </div>
       </section>
     </div>
@@ -190,7 +190,7 @@ export function mount(root, ctx = {}){
     lockActions(true);
     startBtn.disabled = true;
     finishBtn.disabled = false;
-    cueEl.textContent = 'เสร็จแล้ว กดสรุปผล';
+    cueEl.textContent = 'เสร็จแล้ว กดดูผล';
     renderStats();
   }
 
