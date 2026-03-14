@@ -1,10 +1,9 @@
 <!-- === /herohealth/goodjunk-launcher.html ===
 HeroHealth • GoodJunk Launcher
-PATCH v20260314b-GJ-LAUNCHER-DAILY-STATUS
+PATCH v20260314-GJ-LAUNCHER-SOLO-WARMUP-NEXTFIX
 ✅ Solo -> warmup-gate -> run
+✅ FIX: pass next=/herohealth/vr-goodjunk/goodjunk-vr.html
 ✅ Battle / Debug Battle direct to run page
-✅ Daily status box: warmup / cooldown / next action
-✅ Child-friendly status text before entering game
 -->
 <!doctype html>
 <html lang="th">
@@ -21,7 +20,6 @@ PATCH v20260314b-GJ-LAUNCHER-DAILY-STATUS
       --stroke:rgba(148,163,184,.18);
       --text:#e5e7eb; --muted:#94a3b8;
       --blue:#3b82f6; --cyan:#22d3ee;
-      --good:#22c55e; --warn:#f59e0b;
       --shadow:0 18px 60px rgba(0,0,0,.35);
       --sat: env(safe-area-inset-top, 0px);
       --sar: env(safe-area-inset-right, 0px);
@@ -103,52 +101,9 @@ PATCH v20260314b-GJ-LAUNCHER-DAILY-STATUS
       grid-template-columns:repeat(3,minmax(0,1fr));
       gap:10px; margin-top:12px;
     }
-
-    .status-box{
-      margin-top:14px;
-      border:1px solid rgba(148,163,184,.18);
-      background:rgba(15,23,42,.64);
-      border-radius:18px;
-      padding:12px;
-      box-shadow:0 14px 40px rgba(0,0,0,.24);
-    }
-    .status-title{
-      font-size:14px;
-      font-weight:1000;
-      margin-bottom:10px;
-      color:#a5f3fc;
-    }
-    .status-grid{
-      display:grid;
-      grid-template-columns:repeat(3,minmax(0,1fr));
-      gap:10px;
-    }
-    .status-item{
-      border:1px solid rgba(148,163,184,.14);
-      background:rgba(2,6,23,.54);
-      border-radius:16px;
-      padding:10px;
-      min-height:80px;
-    }
-    .status-k{
-      font-size:11px;
-      font-weight:1000;
-      color:var(--muted);
-      margin-bottom:6px;
-    }
-    .status-v{
-      font-size:15px;
-      font-weight:1000;
-      line-height:1.3;
-    }
-    .status-v.good{ color:#dcfce7; }
-    .status-v.warn{ color:#fde68a; }
-    .status-v.info{ color:#bfdbfe; }
-
     .hint{ color:var(--muted); font-size:12px; margin-top:10px; }
-
     @media (max-width:860px){
-      .grid,.form,.actions,.mini-actions,.status-grid{ grid-template-columns:1fr; }
+      .grid,.form,.actions,.mini-actions{ grid-template-columns:1fr; }
     }
   </style>
 </head>
@@ -206,24 +161,6 @@ PATCH v20260314b-GJ-LAUNCHER-DAILY-STATUS
           </div>
         </div>
 
-        <div class="status-box">
-          <div class="status-title">📅 สถานะวันนี้</div>
-          <div class="status-grid">
-            <div class="status-item">
-              <div class="status-k">Warmup วันนี้</div>
-              <div id="warmStatus" class="status-v warn">ยังไม่ได้ ✨</div>
-            </div>
-            <div class="status-item">
-              <div class="status-k">Cooldown วันนี้</div>
-              <div id="coolStatus" class="status-v warn">ยังไม่ได้ ✨</div>
-            </div>
-            <div class="status-item">
-              <div class="status-k">ถ้ากด Solo ตอนนี้</div>
-              <div id="flowStatus" class="status-v info">ต้องวอร์มอัปก่อน 🏃</div>
-            </div>
-          </div>
-        </div>
-
         <div class="actions">
           <button id="btnSolo">▶️ Solo</button>
           <button id="btnBattle">⚔️ Battle</button>
@@ -234,7 +171,6 @@ PATCH v20260314b-GJ-LAUNCHER-DAILY-STATUS
         </div>
 
         <div class="hint">Solo ใช้ flow: launcher → warmup-gate → run → summary → cooldown-gate → hub</div>
-        <div class="hint">ถ้าทำ Warmup/Countdown ของวันนี้แล้ว ระบบจะข้ามให้เองตาม daily-once</div>
       </div>
 
       <div class="card">
@@ -244,7 +180,6 @@ PATCH v20260314b-GJ-LAUNCHER-DAILY-STATUS
           <button id="btnBoard">Board</button>
           <button id="btnBoardNew" class="secondary">Board Tab ใหม่</button>
         </div>
-        <div class="hint">Teacher Dashboard ใช้ดูผู้เล่น คะแนน ความเสี่ยง และเปิด Board ต่อได้</div>
       </div>
     </section>
   </div>
@@ -267,70 +202,6 @@ PATCH v20260314b-GJ-LAUNCHER-DAILY-STATUS
       return String(Date.now());
     }
 
-    function dayKey(){
-      const d = new Date();
-      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-    }
-
-    function warmupDoneKey(cat, game, pid){
-      return `HHA_WARMUP_DONE:${String(cat).toLowerCase()}:${String(game).toLowerCase()}:${String(pid || 'anon').trim() || 'anon'}:${dayKey()}`;
-    }
-
-    function cooldownDoneKeyNew(cat, game, pid){
-      return `HHA_COOLDOWN_DONE:${String(cat).toLowerCase()}:${String(game).toLowerCase()}:${String(pid || 'anon').trim() || 'anon'}:${dayKey()}`;
-    }
-
-    function cooldownDoneKeyOld(cat, pid){
-      return `HHA_COOLDOWN_DONE:${String(cat).toLowerCase()}:${String(pid || 'anon').trim() || 'anon'}:${dayKey()}`;
-    }
-
-    function lsGet(key){
-      try{ return localStorage.getItem(key); }catch(_){ return null; }
-    }
-
-    function isWarmupDone(cat, game, pid){
-      return lsGet(warmupDoneKey(cat, game, pid)) === '1';
-    }
-
-    function isCooldownDone(cat, game, pid){
-      return (
-        lsGet(cooldownDoneKeyNew(cat, game, pid)) === '1' ||
-        lsGet(cooldownDoneKeyOld(cat, pid)) === '1'
-      );
-    }
-
-    function childDoneText(done){
-      return done ? 'เสร็จแล้ว ✅' : 'ยังไม่ได้ ✨';
-    }
-
-    function nextFlowText(warmDone, coolDone){
-      if(!warmDone) return 'ต้องวอร์มอัปก่อน 🏃';
-      if(warmDone && !coolDone) return 'เข้าเกมได้เลย 🎮';
-      return 'วันนี้ครบแล้ว เข้าเกมได้เลย 🌟';
-    }
-
-    function applyStatusStyles(el, type){
-      el.classList.remove('good','warn','info');
-      el.classList.add(type);
-    }
-
-    function renderDailyStatus(){
-      const pid = clean($('pid').value, 'anon');
-      const cat = 'nutrition';
-      const game = 'goodjunk';
-
-      const warmDone = isWarmupDone(cat, game, pid);
-      const coolDone = isCooldownDone(cat, game, pid);
-
-      $('warmStatus').textContent = childDoneText(warmDone);
-      $('coolStatus').textContent = childDoneText(coolDone);
-      $('flowStatus').textContent = nextFlowText(warmDone, coolDone);
-
-      applyStatusStyles($('warmStatus'), warmDone ? 'good' : 'warn');
-      applyStatusStyles($('coolStatus'), coolDone ? 'good' : 'warn');
-      applyStatusStyles($('flowStatus'), warmDone ? 'info' : 'warn');
-    }
-
     function buildRunBase(){
       const u = new URL('./vr-goodjunk/goodjunk-vr.html', location.href);
       u.searchParams.set('pid', clean($('pid').value, 'anon'));
@@ -348,29 +219,42 @@ PATCH v20260314b-GJ-LAUNCHER-DAILY-STATUS
 
     function buildWarmupBase(){
       const u = new URL('./warmup-gate.html', location.href);
+      const runUrl = new URL('./vr-goodjunk/goodjunk-vr.html', location.href);
+
+      runUrl.searchParams.set('pid', clean($('pid').value, 'anon'));
+      runUrl.searchParams.set('nick', clean($('nick').value, clean($('pid').value, 'anon')));
+      runUrl.searchParams.set('room', clean($('room').value, 'P5A'));
+      runUrl.searchParams.set('view', clean($('view').value, 'mobile'));
+      runUrl.searchParams.set('diff', clean($('diff').value, 'easy'));
+      runUrl.searchParams.set('time', clean($('time').value, '80'));
+      runUrl.searchParams.set('hub', clean($('hub').value, './hub.html'));
+      runUrl.searchParams.set('seed', nowSeed());
+      runUrl.searchParams.set('cat', 'nutrition');
+      runUrl.searchParams.set('game', 'goodjunk');
+      runUrl.searchParams.set('mode', 'solo');
+
       u.searchParams.set('Phase', 'warmup');
       u.searchParams.set('cat', 'nutrition');
       u.searchParams.set('game', 'goodjunk');
-
       u.searchParams.set('pid', clean($('pid').value, 'anon'));
       u.searchParams.set('nick', clean($('nick').value, clean($('pid').value, 'anon')));
       u.searchParams.set('room', clean($('room').value, 'P5A'));
-
       u.searchParams.set('run', 'play');
       u.searchParams.set('mode', 'solo');
-
       u.searchParams.set('view', clean($('view').value, 'mobile'));
       u.searchParams.set('diff', clean($('diff').value, 'easy'));
       u.searchParams.set('time', clean($('time').value, '80'));
       u.searchParams.set('seed', nowSeed());
       u.searchParams.set('hub', clean($('hub').value, './hub.html'));
 
+      // สำคัญมาก: บอกปลายทางหลัง warmup ให้ชัด
+      u.searchParams.set('next', runUrl.toString());
+
       return u;
     }
 
     $('btnSolo').onclick = ()=>{
-      const u = buildWarmupBase();
-      location.href = u.toString();
+      location.href = buildWarmupBase().toString();
     };
 
     $('btnBattle').onclick = ()=>{
@@ -410,14 +294,6 @@ PATCH v20260314b-GJ-LAUNCHER-DAILY-STATUS
     $('btnBackHub').onclick = ()=>{
       location.href = clean($('hub').value, './hub.html');
     };
-
-    ['pid','nick','room','view','diff','time','hub'].forEach(id=>{
-      $(id).addEventListener('input', renderDailyStatus);
-      $(id).addEventListener('change', renderDailyStatus);
-    });
-
-    renderDailyStatus();
-    window.addEventListener('focus', renderDailyStatus);
   </script>
 </body>
 </html>
