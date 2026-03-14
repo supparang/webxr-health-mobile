@@ -177,6 +177,8 @@ export function boot(cfg){
     combo: DOC.getElementById('uiCombo'),
     shield: DOC.getElementById('uiShield'),
     phase: DOC.getElementById('uiPhase'),
+    warmDone: DOC.getElementById('uiWarmDone'),
+    coolDone: DOC.getElementById('uiCoolDone'),
     aiRisk: DOC.getElementById('aiRisk'),
     aiHint: DOC.getElementById('aiHint'),
 
@@ -685,6 +687,10 @@ export function boot(cfg){
     return `เสี่ยง: ${reasons.slice(0,2).join(' + ')}`;
   }
 
+  function childDoneText(done){
+    return done ? 'เสร็จแล้ว ✅' : 'ยังไม่ได้ ✨';
+  }
+
   function setHUD(){
     if(ui.score) ui.score.textContent = String(score|0);
     if(ui.time) ui.time.textContent = String(Math.ceil(tLeft));
@@ -719,6 +725,12 @@ export function boot(cfg){
         zoneSign.textContent = '';
       }
     }
+
+    const warmDoneToday = isGateDone('warmup', catKey, gameKey, pid);
+    const coolDoneToday = isGateDone('cooldown', catKey, gameKey, pid) || cooldownDone(catKey, gameKey, pid);
+
+    if(ui.warmDone) ui.warmDone.textContent = childDoneText(warmDoneToday);
+    if(ui.coolDone) ui.coolDone.textContent = childDoneText(coolDoneToday);
   }
 
   function setAIHud(risk, hint){
@@ -1371,10 +1383,12 @@ export function boot(cfg){
 
       if(ui.endCoach) ui.endCoach.textContent = childSummaryText(summary);
 
-      const cooldownDoneNow = isGateDone('cooldown', catKey, gameKey, pid);
+      const warmDoneNow = isGateDone('warmup', catKey, gameKey, pid);
+      const cooldownDoneNow = isGateDone('cooldown', catKey, gameKey, pid) || cooldownDone(catKey, gameKey, pid);
+
       if(ui.endPhaseSummary){
-        const extra = ` • ${childCooldownText(cooldownDoneNow)}`;
-        ui.endPhaseSummary.textContent = `${phaseSummaryText()}${extra}`;
+        ui.endPhaseSummary.textContent =
+          `${phaseSummaryText()} • วอร์มอัป: ${childDoneText(warmDoneNow)} • คูลดาวน์: ${childDoneText(cooldownDoneNow)}`;
       }
 
       if(ui.endReward){
