@@ -12,8 +12,11 @@
   <div id="gate-app"></div>
 
   <script type="module">
-    import bootGate from './gate/gate-core.js?v=20260314i';
-    bootGate(document.getElementById('gate-app'));
+    const el = document.getElementById('gate-app');
+    console.log('[warmup-gate] v20260314j gate-app =', el);
+
+    import bootGate from './gate/gate-core.js?v=20260314j';
+    bootGate(el);
   </script>
 </body>
 </html>
