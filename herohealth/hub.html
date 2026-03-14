@@ -12,10 +12,6 @@
       --bg2:#172554;
       --bg3:#1e3a8a;
 
-      --panel:rgba(15,23,42,.74);
-      --panel2:rgba(30,41,59,.72);
-      --stroke:rgba(255,255,255,.14);
-
       --text:#f8fafc;
       --muted:#dbeafe;
 
@@ -28,15 +24,6 @@
       --yellow:#facc15;
       --cyan:#22d3ee;
 
-      --nutriA:rgba(34,197,94,.20);
-      --nutriB:rgba(250,204,21,.12);
-
-      --hygA:rgba(34,211,238,.18);
-      --hygB:rgba(59,130,246,.10);
-
-      --fitA:rgba(244,114,182,.16);
-      --fitB:rgba(167,139,250,.14);
-
       --shadow:0 18px 50px rgba(0,0,0,.28);
       --shadow-big:0 24px 70px rgba(0,0,0,.34);
 
@@ -47,7 +34,6 @@
     }
 
     *{ box-sizing:border-box; }
-
     html,body{
       height:100%;
       margin:0;
@@ -67,7 +53,6 @@
 
     a{ color:inherit; text-decoration:none; }
     button{ font:inherit; }
-
     .wrap{
       max-width: 1180px;
       margin: 0 auto;
@@ -78,20 +63,30 @@
         calc(14px + var(--sal));
     }
 
-    .heroBanner{
-      border-radius: 28px;
-      padding: 18px;
-      margin-bottom: 14px;
-      border:1px solid rgba(255,255,255,.16);
-      background:
-        linear-gradient(135deg, rgba(56,189,248,.18), rgba(167,139,250,.18)),
-        rgba(2,6,23,.42);
+    .heroBanner,
+    .rewardBar,
+    .missionCard,
+    .quickLaunch,
+    .cardBook,
+    .trophyShelf,
+    .missionBoard{
+      border-radius: 26px;
+      border:1px solid rgba(255,255,255,.14);
+      background: rgba(2,6,23,.58);
       backdrop-filter: blur(12px);
       box-shadow: var(--shadow-big);
+      padding:14px;
+    }
+
+    .heroBanner{
       display:grid;
       grid-template-columns: 1.15fr .85fr;
       gap:14px;
       align-items:stretch;
+      margin-bottom:14px;
+      background:
+        linear-gradient(135deg, rgba(56,189,248,.18), rgba(167,139,250,.18)),
+        rgba(2,6,23,.42);
     }
 
     @media (max-width: 920px){
@@ -122,9 +117,8 @@
     .heroTitle{
       margin:0;
       font-size: clamp(24px, 4vw, 34px);
-      font-weight: 1000;
+      font-weight:1000;
       line-height:1.05;
-      letter-spacing:.2px;
     }
 
     .heroSub{
@@ -174,7 +168,6 @@
       font-size:12px;
       font-weight:1000;
       color:#dbeafe;
-      opacity:.95;
     }
 
     .statValue{
@@ -185,17 +178,12 @@
 
     .rewardBar{
       margin-bottom:14px;
-      border-radius:26px;
-      border:1px solid rgba(255,255,255,.14);
-      background:
-        linear-gradient(135deg, rgba(250,204,21,.14), rgba(167,139,250,.12)),
-        rgba(2,6,23,.58);
-      backdrop-filter: blur(12px);
-      box-shadow: var(--shadow-big);
-      padding:14px;
       display:grid;
       grid-template-columns: 1.15fr .85fr;
       gap:12px;
+      background:
+        linear-gradient(135deg, rgba(250,204,21,.14), rgba(167,139,250,.12)),
+        rgba(2,6,23,.58);
     }
 
     @media (max-width:900px){
@@ -206,6 +194,7 @@
       display:grid;
       grid-template-columns: repeat(3, minmax(0,1fr));
       gap:10px;
+      margin-top:12px;
     }
 
     @media (max-width:560px){
@@ -239,7 +228,6 @@
       font-size:12px;
       font-weight:1000;
       color:#dbeafe;
-      line-height:1.3;
     }
 
     .rewardValue{
@@ -290,23 +278,6 @@
       line-height:1.5;
     }
 
-    .missionCard,
-    .quickLaunch,
-    .card,
-    .cardBook,
-    .trophyShelf,
-    .missionBoard{
-      border-radius: 26px;
-      border:1px solid rgba(255,255,255,.14);
-      background: rgba(2,6,23,.58);
-      backdrop-filter: blur(12px);
-      box-shadow: var(--shadow-big);
-      padding: 14px;
-      display:flex;
-      flex-direction:column;
-      gap:12px;
-    }
-
     .missionCard{
       margin-bottom:14px;
       background:
@@ -314,7 +285,9 @@
         rgba(2,6,23,.58);
     }
 
-    .missionTop{
+    .missionTop,
+    .cardBookTop,
+    .shelfTop{
       display:flex;
       justify-content:space-between;
       gap:10px;
@@ -322,7 +295,8 @@
       flex-wrap:wrap;
     }
 
-    .missionTitle{
+    .missionTitle,
+    .cardBookTitle{
       font-size:19px;
       font-weight:1100;
       display:flex;
@@ -330,17 +304,20 @@
       gap:10px;
     }
 
-    .missionSub{
+    .missionSub,
+    .cardBookSub{
       color:#dbeafe;
       font-size:13px;
       font-weight:900;
       line-height:1.5;
+      margin-top:4px;
     }
 
     .missionGrid{
       display:grid;
       grid-template-columns: repeat(3, minmax(0,1fr));
       gap:12px;
+      margin-top:12px;
     }
 
     @media (max-width:900px){
@@ -370,12 +347,14 @@
       flex:0 0 auto;
     }
 
-    .missionBody{ display:flex; flex-direction:column; gap:5px; }
     .missionName{ font-size:16px; font-weight:1100; }
     .missionHint{ color:#dbeafe; font-size:13px; font-weight:900; line-height:1.45; }
 
     .quickLaunch{
       margin-bottom:14px;
+      display:flex;
+      flex-direction:column;
+      gap:12px;
     }
 
     .quickLaunchGrid{
@@ -400,25 +379,13 @@
       color:var(--text);
       text-align:left;
       box-shadow: var(--shadow);
-      transition: transform .12s ease, filter .12s ease, border-color .12s ease;
+      transition: transform .12s ease, filter .12s ease;
     }
 
-    .quickBtn:hover{
-      transform: translateY(-2px);
-      filter:brightness(1.04);
-    }
-
-    .quickBtn.easy{
-      background: linear-gradient(135deg, rgba(34,197,94,.22), rgba(250,204,21,.14));
-    }
-
-    .quickBtn.resume{
-      background: linear-gradient(135deg, rgba(56,189,248,.22), rgba(167,139,250,.14));
-    }
-
-    .quickBtn.random{
-      background: linear-gradient(135deg, rgba(244,114,182,.18), rgba(56,189,248,.14));
-    }
+    .quickBtn:hover{ transform: translateY(-2px); filter:brightness(1.04); }
+    .quickBtn.easy{ background: linear-gradient(135deg, rgba(34,197,94,.22), rgba(250,204,21,.14)); }
+    .quickBtn.resume{ background: linear-gradient(135deg, rgba(56,189,248,.22), rgba(167,139,250,.14)); }
+    .quickBtn.random{ background: linear-gradient(135deg, rgba(244,114,182,.18), rgba(56,189,248,.14)); }
 
     .quickIcon{
       width:62px;
@@ -432,74 +399,14 @@
       flex:0 0 auto;
     }
 
-    .quickTitle{
-      font-size:18px;
-      font-weight:1100;
-      line-height:1.15;
-    }
-
-    .quickMeta{
-      margin-top:5px;
-      color:#dbeafe;
-      font-size:13px;
-      font-weight:900;
-      line-height:1.45;
-    }
-
-    .smartCard{
-      border-radius:22px;
-      border:1px solid rgba(255,255,255,.14);
-      background:
-        linear-gradient(135deg, rgba(56,189,248,.14), rgba(250,204,21,.12)),
-        rgba(15,23,42,.56);
-      padding:14px;
-      display:grid;
-      grid-template-columns: 74px 1fr auto;
-      gap:12px;
-      align-items:center;
-      box-shadow: var(--shadow);
-    }
-
-    @media (max-width:720px){
-      .smartCard{
-        grid-template-columns: 1fr;
-      }
-    }
-
-    .smartIcon{
-      width:74px;
-      height:74px;
-      border-radius:20px;
-      display:grid;
-      place-items:center;
-      font-size:38px;
-      border:1px solid rgba(255,255,255,.14);
-      background: rgba(255,255,255,.08);
-    }
-
-    .smartTitle{
-      font-size:18px;
-      font-weight:1100;
-      line-height:1.2;
-    }
-
-    .smartMeta{
-      margin-top:4px;
-      color:#dbeafe;
-      font-size:13px;
-      font-weight:900;
-      line-height:1.5;
-    }
-
-    .zoneTools{
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-      align-items:center;
-    }
+    .quickTitle{ font-size:18px; font-weight:1100; line-height:1.15; }
+    .quickMeta{ margin-top:5px; color:#dbeafe; font-size:13px; font-weight:900; line-height:1.45; }
 
     .missionBoard{
       margin-bottom:14px;
+      display:flex;
+      flex-direction:column;
+      gap:12px;
       background:
         linear-gradient(135deg, rgba(56,189,248,.12), rgba(244,114,182,.10)),
         rgba(2,6,23,.58);
@@ -526,12 +433,7 @@
       gap:10px;
     }
 
-    .boardTop{
-      display:flex;
-      gap:10px;
-      align-items:center;
-    }
-
+    .boardTop{ display:flex; gap:10px; align-items:center; }
     .boardIcon{
       width:52px;
       height:52px;
@@ -542,26 +444,9 @@
       background: rgba(255,255,255,.08);
       border:1px solid rgba(255,255,255,.12);
     }
-
-    .boardTitle{
-      font-size:16px;
-      font-weight:1100;
-      line-height:1.2;
-    }
-
-    .boardMeta{
-      color:#dbeafe;
-      font-size:13px;
-      font-weight:900;
-      line-height:1.5;
-    }
-
-    .boardAction{
-      margin-top:auto;
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-    }
+    .boardTitle{ font-size:16px; font-weight:1100; }
+    .boardMeta{ color:#dbeafe; font-size:13px; font-weight:900; line-height:1.5; }
+    .boardAction{ margin-top:auto; display:flex; gap:8px; flex-wrap:wrap; }
 
     .topbar{
       display:flex;
@@ -569,15 +454,15 @@
       align-items:stretch;
       justify-content:space-between;
       flex-wrap:wrap;
-      margin-bottom: 14px;
+      margin-bottom:14px;
     }
 
     .brand{
       display:flex;
       align-items:center;
       gap:12px;
-      padding: 12px 14px;
-      border-radius: 22px;
+      padding:12px 14px;
+      border-radius:22px;
       border:1px solid rgba(255,255,255,.14);
       background: rgba(2,6,23,.44);
       backdrop-filter: blur(10px);
@@ -596,15 +481,7 @@
       border:1px solid rgba(255,255,255,.14);
     }
 
-    .brand b{
-      font-weight:1100;
-      font-size:18px;
-      letter-spacing:.2px;
-    }
-
-    .brand .muted{
-      font-size:12px;
-    }
+    .brand b{ font-weight:1100; font-size:18px; }
 
     .hero{
       display:flex;
@@ -614,148 +491,206 @@
       justify-content:flex-end;
     }
 
-    .pill{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      min-height: 40px;
-      padding: 10px 12px;
-      border-radius: 999px;
-      border:1px solid rgba(255,255,255,.14);
-      background: rgba(2,6,23,.46);
-      backdrop-filter: blur(10px);
-      color: #e0f2fe;
-      font-size: 12px;
-      font-weight: 1000;
-      white-space:nowrap;
-      box-shadow: 0 8px 22px rgba(0,0,0,.18);
-    }
-
-    .pill b{
-      color:#ffffff;
-      font-weight:1100;
-    }
-
     .btn{
       cursor:pointer;
-      border-radius: 18px;
+      border-radius:18px;
       border:1px solid rgba(255,255,255,.16);
       background: rgba(148,163,184,.12);
-      color: var(--text);
-      padding: 12px 16px;
+      color:var(--text);
+      padding:12px 16px;
       font-weight:1100;
-      min-height: 48px;
+      min-height:48px;
       box-shadow: 0 10px 26px rgba(0,0,0,.18);
       transition: transform .12s ease, filter .12s ease, border-color .12s ease;
     }
 
     .btn:hover{ transform: translateY(-1px); filter:brightness(1.05); }
-    .btn:active{ transform: translateY(0); }
+    .btn.primary{ border-color: rgba(56,189,248,.32); background: linear-gradient(180deg, rgba(56,189,248,.22), rgba(56,189,248,.16)); }
+    .btn.violet{ border-color: rgba(167,139,250,.30); background: linear-gradient(180deg, rgba(167,139,250,.22), rgba(167,139,250,.14)); }
+    .btn.good{ border-color: rgba(34,197,94,.30); background: linear-gradient(180deg, rgba(34,197,94,.22), rgba(34,197,94,.14)); }
+    .btn.warn{ border-color: rgba(245,158,11,.30); background: linear-gradient(180deg, rgba(245,158,11,.24), rgba(245,158,11,.14)); }
+    .btn.ghost{ background: rgba(255,255,255,.04); color:#e2e8f0; }
 
-    .btn.primary{
-      border-color: rgba(56,189,248,.32);
-      background: linear-gradient(180deg, rgba(56,189,248,.22), rgba(56,189,248,.16));
-    }
-    .btn.violet{
-      border-color: rgba(167,139,250,.30);
-      background: linear-gradient(180deg, rgba(167,139,250,.22), rgba(167,139,250,.14));
-    }
-    .btn.good{
-      border-color: rgba(34,197,94,.30);
-      background: linear-gradient(180deg, rgba(34,197,94,.22), rgba(34,197,94,.14));
-    }
-    .btn.warn{
-      border-color: rgba(245,158,11,.30);
-      background: linear-gradient(180deg, rgba(245,158,11,.24), rgba(245,158,11,.14));
-    }
-    .btn.ghost{
-      background: rgba(255,255,255,.04);
-      color: #e2e8f0;
-    }
-
-    .card h2{
-      margin:0;
-      font-size:20px;
-      font-weight:1100;
-      display:flex;
-      gap:10px;
-      align-items:center;
-      line-height:1.2;
-    }
-
-    .card.nutrition{
-      background:
-        linear-gradient(180deg, var(--nutriA), transparent 38%),
-        linear-gradient(135deg, var(--nutriB), transparent 55%),
-        rgba(2,6,23,.58);
-    }
-
-    .card.hygiene{
-      background:
-        linear-gradient(180deg, var(--hygA), transparent 38%),
-        linear-gradient(135deg, var(--hygB), transparent 55%),
-        rgba(2,6,23,.58);
-    }
-
-    .card.fitness{
-      background:
-        linear-gradient(180deg, var(--fitA), transparent 38%),
-        linear-gradient(135deg, var(--fitB), transparent 55%),
-        rgba(2,6,23,.58);
-    }
-
-    .sectionSub{
-      color:#dbeafe;
-      font-size:13px;
-      font-weight:900;
-      line-height:1.5;
-    }
-
-    .muted{
-      color:#dbeafe;
-      font-weight:900;
-      font-size:13px;
-      line-height:1.45;
-    }
-
-    .grid{
-      display:grid;
-      grid-template-columns: repeat(3, minmax(0,1fr));
-      gap:14px;
-      margin-top:14px;
-    }
-
-    @media (max-width:980px){
-      .grid{ grid-template-columns:1fr; }
-    }
-
-    .zoneRow{
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      align-items:center;
-      justify-content:space-between;
-    }
-
-    .zoneBadge{
+    .pill,
+    .worldStar,
+    .zoneBadge,
+    .worldBadge,
+    .worldGate{
       display:inline-flex;
       align-items:center;
       gap:8px;
-      padding:8px 12px;
+      white-space:nowrap;
+    }
+
+    .pill{
+      min-height:40px;
+      padding:10px 12px;
       border-radius:999px;
-      background: rgba(255,255,255,.08);
-      border:1px solid rgba(255,255,255,.12);
+      border:1px solid rgba(255,255,255,.14);
+      background: rgba(2,6,23,.46);
+      color:#e0f2fe;
       font-size:12px;
       font-weight:1000;
-      color:#fff;
+      box-shadow: 0 8px 22px rgba(0,0,0,.18);
+    }
+
+    .pill b{ color:#fff; }
+
+    .cardBookGrid{
+      display:grid;
+      grid-template-columns: 1.15fr .85fr;
+      gap:12px;
+      margin-top:12px;
+    }
+
+    @media (max-width:900px){
+      .cardBookGrid{ grid-template-columns:1fr; }
+    }
+
+    .bookPanel,
+    .shelfCard{
+      border-radius:22px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(15,23,42,.52);
+      padding:14px;
+      box-shadow: var(--shadow);
+    }
+
+    .bookMini{ color:#dbeafe; font-size:13px; font-weight:1000; line-height:1.45; }
+    .bookBig{ font-size:36px; font-weight:1100; line-height:1; margin-top:6px; }
+
+    .rarityRow{
+      display:grid;
+      grid-template-columns: repeat(4, minmax(0,1fr));
+      gap:10px;
+      margin-top:12px;
+    }
+
+    @media (max-width:520px){
+      .rarityRow{ grid-template-columns: repeat(2, minmax(0,1fr)); }
+    }
+
+    .rarityCard{
+      border-radius:18px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(2,6,23,.34);
+      padding:12px 10px;
+      text-align:center;
+    }
+
+    .rarityCard .rk{ color:#dbeafe; font-size:12px; font-weight:1000; }
+    .rarityCard .rv{ margin-top:6px; font-size:22px; font-weight:1100; }
+    .rarity-s .rv{ color:#fde047; }
+    .rarity-a .rv{ color:#7dd3fc; }
+    .rarity-b .rv{ color:#86efac; }
+    .rarity-c .rv{ color:#e2e8f0; }
+
+    .lastDrop{
+      display:grid;
+      grid-template-columns: 76px 1fr;
+      gap:12px;
+      align-items:center;
+      margin-top:10px;
+    }
+
+    .lastDropIcon,
+    .trophyIcon{
+      width:76px;
+      height:76px;
+      border-radius:20px;
+      display:grid;
+      place-items:center;
+      font-size:40px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(2,6,23,.34);
+      box-shadow: 0 12px 28px rgba(0,0,0,.20);
+    }
+
+    .lastDropTitle,
+    .trophyTitle{ font-size:17px; font-weight:1100; line-height:1.25; }
+    .lastDropMeta,
+    .shelfMeta{ color:#dbeafe; font-size:13px; font-weight:900; line-height:1.5; }
+
+    .bookActions,
+    .inlineRow,
+    .miniRow,
+    .worldActions,
+    .worldStars,
+    .boardAction{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      align-items:center;
+    }
+
+    .shelfGrid{
+      display:grid;
+      grid-template-columns: repeat(3, minmax(0,1fr));
+      gap:12px;
+      margin-top:12px;
+    }
+
+    @media (max-width:900px){
+      .shelfGrid{ grid-template-columns:1fr; }
+    }
+
+    .statusChip{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      padding:8px 12px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.14);
+      background: rgba(2,6,23,.28);
+      font-size:12px;
+      font-weight:1000;
+      color:#e2e8f0;
+      white-space:nowrap;
+    }
+
+    .statusChip.done{
+      color:#ecfdf5;
+      border-color: rgba(34,197,94,.28);
+      background: rgba(34,197,94,.18);
+    }
+
+    .statusChip.locked{
+      color:#fef2f2;
+      border-color: rgba(239,68,68,.24);
+      background: rgba(239,68,68,.14);
+    }
+
+    .dailyBadge{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      padding:7px 10px;
+      border-radius:999px;
+      font-size:11px;
+      font-weight:1000;
+      border:1px solid rgba(255,255,255,.14);
+      background: rgba(255,255,255,.05);
+      color:#e2e8f0;
       width:max-content;
     }
 
-    .progressWrap{
+    .dailyBadge.done{
+      border-color: rgba(34,197,94,.28);
+      background: rgba(34,197,94,.16);
+      color:#ecfdf5;
+    }
+
+    .dailyBadge.todo{
+      border-color: rgba(245,158,11,.28);
+      background: rgba(245,158,11,.16);
+      color:#fef3c7;
+    }
+
+    .progressWrap,
+    .worldMiniProgress{
       display:flex;
       flex-direction:column;
       gap:8px;
-      margin-top:4px;
     }
 
     .progressHead{
@@ -789,97 +724,241 @@
       transition: width .25s ease;
     }
 
-    .progressFill.nutri{
-      background: linear-gradient(90deg, #22c55e, #facc15);
-    }
+    .progressFill.nutri{ background: linear-gradient(90deg, #22c55e, #facc15); }
+    .progressFill.hyg{ background: linear-gradient(90deg, #22d3ee, #60a5fa); }
+    .progressFill.fit{ background: linear-gradient(90deg, #f472b6, #a78bfa); }
 
-    .progressFill.hyg{
-      background: linear-gradient(90deg, #22d3ee, #60a5fa);
-    }
-
-    .progressFill.fit{
-      background: linear-gradient(90deg, #f472b6, #a78bfa);
-    }
-
-    .games{
+    .worldMap{
+      margin-top:14px;
       display:grid;
-      grid-template-columns: repeat(2, minmax(0,1fr));
+      grid-template-columns:1fr;
+      gap:18px;
+    }
+
+    .worldZone{
+      position:relative;
+      overflow:hidden;
+      border-radius:30px;
+      border:1px solid rgba(255,255,255,.14);
+      backdrop-filter: blur(12px);
+      box-shadow: var(--shadow-big);
+      padding:18px;
+      display:grid;
+      grid-template-columns: 1.06fr .94fr;
+      gap:18px;
+      min-height:340px;
+      isolation:isolate;
+    }
+
+    @media (max-width:980px){
+      .worldZone{ grid-template-columns:1fr; }
+    }
+
+    .worldZone::before,
+    .worldZone::after{
+      content:"";
+      position:absolute;
+      border-radius:999px;
+      pointer-events:none;
+      z-index:0;
+      filter: blur(10px);
+      opacity:.55;
+    }
+
+    .worldZone::before{
+      width:220px;
+      height:220px;
+      top:-40px;
+      right:-20px;
+    }
+
+    .worldZone::after{
+      width:180px;
+      height:180px;
+      bottom:-40px;
+      left:-20px;
+    }
+
+    .worldZone.nutrition{
+      background:
+        radial-gradient(500px 220px at 15% 15%, rgba(34,197,94,.22), transparent 60%),
+        radial-gradient(420px 220px at 85% 85%, rgba(250,204,21,.14), transparent 60%),
+        linear-gradient(180deg, rgba(20,83,45,.24), rgba(2,6,23,.72));
+    }
+    .worldZone.nutrition::before{ background: rgba(34,197,94,.20); }
+    .worldZone.nutrition::after{ background: rgba(250,204,21,.14); }
+
+    .worldZone.hygiene{
+      background:
+        radial-gradient(500px 220px at 15% 15%, rgba(34,211,238,.20), transparent 60%),
+        radial-gradient(420px 220px at 85% 85%, rgba(96,165,250,.14), transparent 60%),
+        linear-gradient(180deg, rgba(8,47,73,.24), rgba(2,6,23,.72));
+    }
+    .worldZone.hygiene::before{ background: rgba(34,211,238,.18); }
+    .worldZone.hygiene::after{ background: rgba(96,165,250,.14); }
+
+    .worldZone.fitness{
+      background:
+        radial-gradient(500px 220px at 15% 15%, rgba(244,114,182,.18), transparent 60%),
+        radial-gradient(420px 220px at 85% 85%, rgba(167,139,250,.16), transparent 60%),
+        linear-gradient(180deg, rgba(76,29,149,.20), rgba(2,6,23,.72));
+    }
+    .worldZone.fitness::before{ background: rgba(244,114,182,.16); }
+    .worldZone.fitness::after{ background: rgba(167,139,250,.14); }
+
+    .worldDecor{
+      position:absolute;
+      inset:0;
+      pointer-events:none;
+      z-index:0;
+      overflow:hidden;
+    }
+
+    .cloud{
+      position:absolute;
+      border-radius:999px;
+      background: rgba(255,255,255,.10);
+      filter: blur(2px);
+      opacity:.8;
+    }
+
+    .cloud.c1{ width:110px; height:28px; top:34px; left:52%; }
+    .cloud.c2{ width:80px; height:22px; top:76px; right:12%; }
+    .cloud.c3{ width:96px; height:24px; bottom:48px; left:10%; }
+
+    .spark{
+      position:absolute;
+      width:8px;
+      height:8px;
+      border-radius:999px;
+      background: rgba(255,255,255,.82);
+      box-shadow: 0 0 16px rgba(255,255,255,.34);
+      opacity:.75;
+    }
+
+    .spark.s1{ top:26px; left:24px; }
+    .spark.s2{ top:62px; left:120px; }
+    .spark.s3{ bottom:30px; right:70px; }
+    .spark.s4{ top:20px; right:120px; }
+
+    .worldHero,
+    .worldRight{
+      position:relative;
+      z-index:1;
+    }
+
+    .worldHero{
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+      justify-content:space-between;
+    }
+
+    .worldBadge{
+      width:max-content;
+      padding:8px 12px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.14);
+      background: rgba(255,255,255,.08);
+      font-size:12px;
+      font-weight:1000;
+      color:#fff;
+    }
+
+    .worldTopRow{
+      display:flex;
+      gap:14px;
+      align-items:flex-start;
+      margin-top:12px;
+    }
+
+    .worldBigIcon{
+      width:92px;
+      height:92px;
+      border-radius:26px;
+      display:grid;
+      place-items:center;
+      font-size:48px;
+      border:1px solid rgba(255,255,255,.14);
+      background: rgba(255,255,255,.08);
+      box-shadow: 0 12px 28px rgba(0,0,0,.20);
+      flex:0 0 auto;
+    }
+
+    .worldTitle{
+      font-size: clamp(24px, 4vw, 34px);
+      font-weight:1100;
+      line-height:1.05;
+      margin:0;
+    }
+
+    .worldSub{
+      color:#dbeafe;
+      font-size:14px;
+      font-weight:900;
+      line-height:1.6;
+      margin-top:6px;
+    }
+
+    .worldGate{
+      width:max-content;
+      padding:10px 14px;
+      border-radius:20px;
+      border:1px solid rgba(255,255,255,.14);
+      background: rgba(255,255,255,.07);
+      font-size:13px;
+      font-weight:1000;
+      color:#fff;
+    }
+
+    .worldEnter{
+      font-size:16px;
+      padding:14px 18px;
+      min-height:54px;
+    }
+
+    .worldStar{
+      padding:7px 10px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(255,255,255,.06);
+      font-size:12px;
+      font-weight:1000;
+      color:#fff;
+    }
+
+    .worldRight{
+      display:flex;
+      flex-direction:column;
       gap:12px;
     }
 
-    @media (max-width:620px){
-      .games{ grid-template-columns:1fr; }
-    }
-
-    .gameBtn{
-      display:flex;
-      flex-direction:column;
-      gap:8px;
-      padding:14px;
+    .worldPanel{
+      position:relative;
       border-radius:22px;
-      border:1px solid rgba(255,255,255,.14);
-      background:
-        linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02)),
-        rgba(15,23,42,.54);
-      box-shadow: 0 16px 38px rgba(0,0,0,.24);
-      min-height:142px;
-      transition: transform .12s ease, border-color .12s ease, filter .12s ease;
-    }
-
-    .gameBtn:hover{
-      transform: translateY(-2px);
-      border-color: rgba(56,189,248,.30);
-      filter:brightness(1.05);
-    }
-
-    .gameHead{
-      display:flex;
-      gap:10px;
-      align-items:flex-start;
-    }
-
-    .gameIcon{
-      width:50px;
-      height:50px;
-      border-radius:16px;
-      display:grid;
-      place-items:center;
-      font-size:26px;
-      flex:0 0 auto;
       border:1px solid rgba(255,255,255,.12);
-      background: rgba(255,255,255,.06);
-      box-shadow: 0 10px 20px rgba(0,0,0,.16);
+      background: rgba(15,23,42,.46);
+      padding:14px;
+      box-shadow: var(--shadow);
     }
 
-    .gameBtn .t{
-      font-size:17px;
+    .worldPanelTitle{
+      font-size:15px;
       font-weight:1100;
       line-height:1.2;
+      margin-bottom:8px;
     }
 
-    .gameBtn .s{
-      font-size:13px;
-      font-weight:900;
-      color:#dbeafe;
-      line-height:1.45;
-    }
-
-    .playTag{
-      display:inline-flex;
-      align-items:center;
+    .worldLegend{
+      display:flex;
       gap:8px;
-      width:max-content;
-      padding:8px 10px;
-      border-radius:999px;
-      font-size:12px;
-      font-weight:1000;
-      color:#082f49;
-      background: linear-gradient(180deg, #fde68a, #fcd34d);
-      border:1px solid rgba(255,255,255,.16);
-      margin-top:2px;
+      flex-wrap:wrap;
+      align-items:center;
+      margin-top:6px;
+      margin-bottom:8px;
     }
 
-    .dailyBadge{
+    .legendChip{
       display:inline-flex;
       align-items:center;
       gap:6px;
@@ -887,248 +966,158 @@
       border-radius:999px;
       font-size:11px;
       font-weight:1000;
-      border:1px solid rgba(255,255,255,.14);
+      border:1px solid rgba(255,255,255,.12);
       background: rgba(255,255,255,.05);
-      color:#e2e8f0;
-      width:max-content;
+      color:#fff;
     }
 
-    .dailyBadge.done{
+    .legendChip.start{ background: rgba(250,204,21,.14); color:#fef3c7; }
+    .legendChip.next{ background: rgba(56,189,248,.14); color:#e0f2fe; }
+    .legendChip.done{ background: rgba(34,197,94,.16); color:#ecfdf5; }
+    .legendChip.locked{ background: rgba(148,163,184,.12); color:#cbd5e1; }
+
+    .pathMap{
+      position:relative;
+      display:grid;
+      grid-template-columns: repeat(2, minmax(0,1fr));
+      gap:12px;
+      padding-top:4px;
+    }
+
+    @media (max-width:560px){
+      .pathMap{ grid-template-columns:1fr; }
+    }
+
+    .pathSvg{
+      position:absolute;
+      inset:0;
+      width:100%;
+      height:100%;
+      pointer-events:none;
+      overflow:visible;
+      opacity:.55;
+    }
+
+    .pathLine{
+      fill:none;
+      stroke:rgba(255,255,255,.22);
+      stroke-width:4;
+      stroke-linecap:round;
+      stroke-dasharray:8 10;
+    }
+
+    .worldNode{
+      position:relative;
+      z-index:1;
+      border-radius:18px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(2,6,23,.34);
+      padding:12px;
+      display:flex;
+      gap:10px;
+      align-items:flex-start;
+      min-height:96px;
+      transition: transform .14s ease, filter .14s ease, border-color .14s ease, opacity .14s ease, box-shadow .14s ease;
+    }
+
+    .worldNode:hover{
+      transform: translateY(-2px) scale(1.01);
+      filter:brightness(1.04);
+    }
+
+    .worldNode.start{
+      border-color: rgba(250,204,21,.30);
+      background:
+        linear-gradient(135deg, rgba(250,204,21,.12), rgba(255,255,255,.02)),
+        rgba(2,6,23,.34);
+    }
+
+    .worldNode.recommended{
+      border-color: rgba(56,189,248,.30);
+      box-shadow: 0 12px 26px rgba(56,189,248,.10);
+    }
+
+    .worldNode.done{
+      border-color: rgba(34,197,94,.30);
+      background:
+        linear-gradient(135deg, rgba(34,197,94,.12), rgba(255,255,255,.02)),
+        rgba(2,6,23,.34);
+    }
+
+    .worldNode.locked{
+      opacity:.72;
+      border-style:dashed;
+    }
+
+    .worldNodeIcon{
+      width:44px;
+      height:44px;
+      border-radius:14px;
+      display:grid;
+      place-items:center;
+      font-size:24px;
+      border:1px solid rgba(255,255,255,.10);
+      background: rgba(255,255,255,.07);
+      flex:0 0 auto;
+    }
+
+    .worldNodeTitle{
+      font-size:14px;
+      font-weight:1100;
+      line-height:1.2;
+    }
+
+    .worldNodeMeta{
+      margin-top:4px;
+      color:#dbeafe;
+      font-size:12px;
+      font-weight:900;
+      line-height:1.45;
+    }
+
+    .nodeStatus{
+      margin-top:6px;
+      display:flex;
+      gap:6px;
+      flex-wrap:wrap;
+      align-items:center;
+    }
+
+    .nodeChip{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      padding:6px 9px;
+      border-radius:999px;
+      font-size:11px;
+      font-weight:1000;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(255,255,255,.05);
+      color:#e2e8f0;
+    }
+
+    .nodeChip.start{
+      border-color: rgba(250,204,21,.28);
+      background: rgba(250,204,21,.14);
+      color:#fef3c7;
+    }
+
+    .nodeChip.done{
       border-color: rgba(34,197,94,.28);
       background: rgba(34,197,94,.16);
       color:#ecfdf5;
     }
 
-    .dailyBadge.todo{
-      border-color: rgba(245,158,11,.28);
-      background: rgba(245,158,11,.16);
-      color:#fef3c7;
+    .nodeChip.locked{
+      border-color: rgba(148,163,184,.22);
+      background: rgba(148,163,184,.10);
+      color:#cbd5e1;
     }
 
-    .inlineRow,
-    .miniRow{
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-      align-items:center;
-    }
-
-    .sep{
-      height:1px;
-      background: linear-gradient(90deg, transparent, rgba(255,255,255,.12), transparent);
-      margin:2px 0;
-    }
-
-    .helperBox{
-      border-radius:20px;
-      border:1px dashed rgba(255,255,255,.18);
-      background: rgba(255,255,255,.04);
-      padding:12px;
+    .nodeChip.next{
+      border-color: rgba(56,189,248,.30);
+      background: rgba(56,189,248,.14);
       color:#e0f2fe;
-      font-size:13px;
-      font-weight:900;
-      line-height:1.5;
-    }
-
-    .miniGuide{
-      border-radius:18px;
-      border:1px dashed rgba(255,255,255,.16);
-      background: rgba(255,255,255,.04);
-      padding:10px 12px;
-      color:#e0f2fe;
-      font-size:12px;
-      font-weight:900;
-      line-height:1.45;
-    }
-
-    .zoneFooterRow{
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      align-items:center;
-      justify-content:space-between;
-      margin-top:2px;
-    }
-
-    .cardBookTop,
-    .shelfTop{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
-      flex-wrap:wrap;
-    }
-
-    .cardBookTitle{
-      display:flex;
-      align-items:center;
-      gap:10px;
-      font-size:19px;
-      font-weight:1100;
-      line-height:1.2;
-    }
-
-    .cardBookSub{
-      color:#dbeafe;
-      font-size:13px;
-      font-weight:900;
-      line-height:1.5;
-      margin-top:4px;
-    }
-
-    .cardBookGrid{
-      display:grid;
-      grid-template-columns: 1.15fr .85fr;
-      gap:12px;
-    }
-
-    @media (max-width:900px){
-      .cardBookGrid{ grid-template-columns:1fr; }
-    }
-
-    .bookPanel,
-    .shelfCard{
-      border-radius:22px;
-      border:1px solid rgba(255,255,255,.12);
-      background: rgba(15,23,42,.52);
-      padding:14px;
-      box-shadow: var(--shadow);
-    }
-
-    .bookMini{
-      color:#dbeafe;
-      font-size:13px;
-      font-weight:1000;
-      line-height:1.45;
-    }
-
-    .bookBig{
-      font-size:36px;
-      font-weight:1100;
-      line-height:1;
-      margin-top:6px;
-    }
-
-    .rarityRow{
-      display:grid;
-      grid-template-columns: repeat(4, minmax(0,1fr));
-      gap:10px;
-      margin-top:12px;
-    }
-
-    @media (max-width:520px){
-      .rarityRow{ grid-template-columns: repeat(2, minmax(0,1fr)); }
-    }
-
-    .rarityCard{
-      border-radius:18px;
-      border:1px solid rgba(255,255,255,.12);
-      background: rgba(2,6,23,.34);
-      padding:12px 10px;
-      text-align:center;
-    }
-
-    .rarityCard .rk{
-      color:#dbeafe;
-      font-size:12px;
-      font-weight:1000;
-      line-height:1.2;
-    }
-
-    .rarityCard .rv{
-      margin-top:6px;
-      font-size:22px;
-      font-weight:1100;
-      line-height:1.1;
-    }
-
-    .rarity-s .rv{ color:#fde047; }
-    .rarity-a .rv{ color:#7dd3fc; }
-    .rarity-b .rv{ color:#86efac; }
-    .rarity-c .rv{ color:#e2e8f0; }
-
-    .lastDrop{
-      display:grid;
-      grid-template-columns: 76px 1fr;
-      gap:12px;
-      align-items:center;
-    }
-
-    .lastDropIcon,
-    .trophyIcon{
-      width:76px;
-      height:76px;
-      border-radius:20px;
-      display:grid;
-      place-items:center;
-      font-size:40px;
-      border:1px solid rgba(255,255,255,.12);
-      background: rgba(2,6,23,.34);
-      box-shadow: 0 12px 28px rgba(0,0,0,.20);
-    }
-
-    .lastDropBody{
-      display:flex;
-      flex-direction:column;
-      gap:5px;
-    }
-
-    .lastDropTitle,
-    .trophyTitle{
-      font-size:17px;
-      font-weight:1100;
-      line-height:1.25;
-    }
-
-    .lastDropMeta,
-    .shelfMeta{
-      color:#dbeafe;
-      font-size:13px;
-      font-weight:900;
-      line-height:1.5;
-    }
-
-    .bookActions{
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-      margin-top:10px;
-    }
-
-    .shelfGrid{
-      display:grid;
-      grid-template-columns: repeat(3, minmax(0,1fr));
-      gap:12px;
-    }
-
-    @media (max-width:900px){
-      .shelfGrid{ grid-template-columns:1fr; }
-    }
-
-    .statusChip{
-      display:inline-flex;
-      align-items:center;
-      gap:6px;
-      padding:8px 12px;
-      border-radius:999px;
-      border:1px solid rgba(255,255,255,.14);
-      background: rgba(2,6,23,.28);
-      font-size:12px;
-      font-weight:1000;
-      color:#e2e8f0;
-      white-space:nowrap;
-    }
-
-    .statusChip.done{
-      color:#ecfdf5;
-      border-color: rgba(34,197,94,.28);
-      background: rgba(34,197,94,.18);
-    }
-
-    .statusChip.locked{
-      color:#fef2f2;
-      border-color: rgba(239,68,68,.24);
-      background: rgba(239,68,68,.14);
     }
 
     .footerSpace{ height:8px; }
@@ -1144,7 +1133,7 @@
           <div>
             <h1 class="heroTitle">ยินดีต้อนรับสู่ HeroHealth!</h1>
             <div class="heroSub">
-              เลือกโซนที่อยากเล่น แล้วพาฮีโร่ของเราไปเก็บแต้ม เก็บการ์ด และปลดถ้วยรางวัลกันเลย ✨
+              เลือกโลกที่อยากเล่น แล้วพาฮีโร่ของเราไปเก็บแต้ม เก็บการ์ด และปลดถ้วยรางวัลกันเลย ✨
             </div>
             <div class="ctxLine" id="ctxLine">—</div>
           </div>
@@ -1176,7 +1165,7 @@
         <div class="cardBookTitle">🌟 รางวัลของฮีโร่</div>
         <div class="cardBookSub">ยิ่งเล่น ยิ่งสะสม ยิ่งเก่งขึ้น</div>
 
-        <div class="rewardGrid" style="margin-top:12px;">
+        <div class="rewardGrid">
           <div class="rewardCard">
             <div class="rewardIcon">⭐</div>
             <div>
@@ -1207,7 +1196,7 @@
         <div class="todayRewardIcon" id="todayRewardIcon">🎁</div>
         <div>
           <div class="todayRewardTitle" id="todayRewardTitle">ของรางวัลวันนี้</div>
-          <div class="todayRewardMeta" id="todayRewardMeta">เล่นให้ครบ 1 โซนเพื่อรับรางวัลพิเศษวันนี้</div>
+          <div class="todayRewardMeta" id="todayRewardMeta">เล่นให้ครบ 1 โลกเพื่อรับรางวัลพิเศษวันนี้</div>
         </div>
       </div>
     </section>
@@ -1216,7 +1205,7 @@
       <div class="missionTop">
         <div>
           <div class="missionTitle">🎯 ภารกิจของวันนี้</div>
-          <div class="missionSub">ทำให้ครบทีละโซน วันละนิด ก็เก่งขึ้นทุกวัน</div>
+          <div class="missionSub">ทำให้ครบทีละโลก วันละนิด ก็เก่งขึ้นทุกวัน</div>
         </div>
         <div class="inlineRow">
           <a class="btn primary" id="btnMissionLastRun" href="#" style="display:none;">▶ เล่นต่อจากเกมล่าสุด</a>
@@ -1226,10 +1215,10 @@
       <div class="missionGrid">
         <div class="missionItem">
           <div class="missionIcon">🥦</div>
-          <div class="missionBody">
-            <div class="missionName">โซนโภชนาการ</div>
+          <div>
+            <div class="missionName">โลกโภชนาการ</div>
             <div class="missionHint" id="missionNutriHint">เริ่มที่ GoodJunk หรือ Hydration ก่อน</div>
-            <div class="miniRow">
+            <div class="miniRow" style="margin-top:6px;">
               <span class="dailyBadge todo" id="missionNutriBadge">ยังไม่เริ่ม</span>
             </div>
           </div>
@@ -1237,10 +1226,10 @@
 
         <div class="missionItem">
           <div class="missionIcon">🪥</div>
-          <div class="missionBody">
-            <div class="missionName">โซนสุขอนามัย</div>
+          <div>
+            <div class="missionName">โลกสุขอนามัย</div>
             <div class="missionHint" id="missionHygHint">ลอง Handwash หรือ Brush ก่อน</div>
-            <div class="miniRow">
+            <div class="miniRow" style="margin-top:6px;">
               <span class="dailyBadge todo" id="missionHygBadge">ยังไม่เริ่ม</span>
             </div>
           </div>
@@ -1248,10 +1237,10 @@
 
         <div class="missionItem">
           <div class="missionIcon">🏃</div>
-          <div class="missionBody">
-            <div class="missionName">โซนออกกำลังกาย</div>
+          <div>
+            <div class="missionName">โลกออกกำลังกาย</div>
             <div class="missionHint" id="missionFitHint">ลอง JumpDuck หรือ Shadow Breaker ก่อน</div>
-            <div class="miniRow">
+            <div class="miniRow" style="margin-top:6px;">
               <span class="dailyBadge todo" id="missionFitBadge">ยังไม่เริ่ม</span>
             </div>
           </div>
@@ -1292,7 +1281,7 @@
       </div>
     </section>
 
-    <section class="cardBook">
+    <section class="cardBook" style="margin-bottom:14px;">
       <div class="cardBookTop">
         <div>
           <div class="cardBookTitle">🚀 เริ่มเล่นแบบแนะนำ</div>
@@ -1304,13 +1293,13 @@
         </div>
       </div>
 
-      <div class="smartCard">
-        <div class="smartIcon" id="smartGameIcon">🎮</div>
+      <div class="bookPanel" style="margin-top:12px; display:grid; grid-template-columns:74px 1fr auto; gap:12px; align-items:center;">
+        <div class="lastDropIcon" style="width:74px;height:74px;font-size:38px;" id="smartGameIcon">🎮</div>
         <div>
-          <div class="smartTitle" id="smartGameTitle">กำลังเลือกเกมแนะนำ...</div>
-          <div class="smartMeta" id="smartGameMeta">ระบบจะดูจากสิ่งที่เล่นวันนี้และเลือกเกมที่เหมาะให้</div>
+          <div class="lastDropTitle" id="smartGameTitle">กำลังเลือกเกมแนะนำ...</div>
+          <div class="lastDropMeta" id="smartGameMeta">ระบบจะดูจากสิ่งที่เล่นวันนี้และเลือกเกมที่เหมาะให้</div>
         </div>
-        <div class="zoneTools">
+        <div class="inlineRow">
           <a class="btn good" id="smartGameLink" href="#">ไปเกมนี้</a>
         </div>
       </div>
@@ -1370,9 +1359,9 @@
         <div>
           <div style="display:flex; gap:10px; align-items:baseline; flex-wrap:wrap;">
             <b>HeroHealth Hub</b>
-            <span class="muted">บ้านของฮีโร่ทั้ง 3 โซน</span>
+            <span class="missionHint">บ้านของฮีโร่ทั้ง 3 โลก</span>
           </div>
-          <div class="muted">เลือกเล่นเกม ดูของสะสม และเช็กความก้าวหน้าได้ที่นี่</div>
+          <div class="missionHint">เลือกเล่นเกม ดูของสะสม และเช็กความก้าวหน้าได้ที่นี่</div>
         </div>
       </div>
 
@@ -1382,7 +1371,7 @@
       </div>
     </div>
 
-    <section class="cardBook">
+    <section class="cardBook" style="margin-bottom:14px;">
       <div class="cardBookTop">
         <div>
           <div class="cardBookTitle">🃏 สมุดการ์ด GoodJunk</div>
@@ -1408,9 +1397,9 @@
 
         <div class="bookPanel">
           <div class="bookMini">การ์ดล่าสุดที่ได้</div>
-          <div class="lastDrop" style="margin-top:10px;">
+          <div class="lastDrop">
             <div class="lastDropIcon" id="lastDropIcon">🃏</div>
-            <div class="lastDropBody">
+            <div>
               <div class="lastDropTitle" id="lastDropTitle">ยังไม่มีการ์ดล่าสุด</div>
               <div class="lastDropMeta" id="lastDropMeta">ลองเล่น GoodJunk แล้วกลับมาดูตรงนี้อีกครั้งนะ</div>
             </div>
@@ -1425,11 +1414,11 @@
       </div>
     </section>
 
-    <section class="trophyShelf">
+    <section class="trophyShelf" style="margin-bottom:14px;">
       <div class="cardBookTop">
         <div>
           <div class="cardBookTitle">🏆 ชั้นถ้วยรางวัลของฮีโร่</div>
-          <div class="cardBookSub">ดูว่าแต่ละโซนปลดถ้วยแล้วหรือยัง</div>
+          <div class="cardBookSub">ดูว่าแต่ละโลกปลดถ้วยแล้วหรือยัง</div>
         </div>
       </div>
 
@@ -1466,7 +1455,7 @@
           <div class="miniRow">
             <span class="pill"><b>ทำวันนี้</b>: <span id="hygieneZoneDone">0</span></span>
           </div>
-          <div class="shelfMeta" id="hygieneHint">เล่นเกมในโซนสุขอนามัยให้สำเร็จวันนี้เพื่อโชว์ถ้วย</div>
+          <div class="shelfMeta" id="hygieneHint">เล่นเกมในโลกสุขอนามัยให้สำเร็จวันนี้เพื่อโชว์ถ้วย</div>
         </div>
 
         <div class="shelfCard">
@@ -1493,12 +1482,12 @@
           <div class="miniRow">
             <a class="btn violet" id="linkJDGallery" href="#">🖼 ดู JumpDuck Gallery</a>
           </div>
-          <div class="shelfMeta" id="fitnessHint">เล่นเกมในโซนออกกำลังกายให้สำเร็จวันนี้เพื่อโชว์ถ้วย</div>
+          <div class="shelfMeta" id="fitnessHint">เล่นเกมในโลกออกกำลังกายให้สำเร็จวันนี้เพื่อโชว์ถ้วย</div>
         </div>
       </div>
     </section>
 
-    <section class="cardBook" id="hhLastRun">
+    <section class="cardBook" id="hhLastRun" style="margin-bottom:14px;">
       <div class="cardBookTop">
         <div>
           <div class="cardBookTitle">🧾 ผลล่าสุดที่เล่น</div>
@@ -1516,7 +1505,7 @@
       </div>
     </section>
 
-    <section class="cardBook">
+    <section class="cardBook" style="margin-bottom:14px;">
       <div class="cardBookTop">
         <div>
           <div class="cardBookTitle">🏃 สมุดการ์ด JumpDuck</div>
@@ -1543,9 +1532,9 @@
 
         <div class="bookPanel">
           <div class="bookMini">การ์ดล่าสุดที่ได้</div>
-          <div class="lastDrop" style="margin-top:10px;">
+          <div class="lastDrop">
             <div class="lastDropIcon" id="jdLastCardIcon">🏃</div>
-            <div class="lastDropBody">
+            <div>
               <div class="lastDropTitle" id="jdLastCardTitle">ยังไม่มีการ์ดล่าสุด</div>
               <div class="lastDropMeta" id="jdLastCardMeta">ลองเล่น JumpDuck แล้วกลับมาดูตรงนี้อีกครั้ง</div>
             </div>
@@ -1558,287 +1547,378 @@
       </div>
     </section>
 
-    <div class="grid">
+    <div class="worldMap">
 
-      <section class="card nutrition">
-        <h2>🥦 โซนโภชนาการ</h2>
-        <div class="sectionSub">เรียนรู้เรื่องอาหาร น้ำ และการกินให้สมดุล ผ่านเกมสนุก ๆ</div>
+      <section class="worldZone nutrition">
+        <div class="worldDecor">
+          <div class="cloud c1"></div><div class="cloud c2"></div><div class="cloud c3"></div>
+          <div class="spark s1"></div><div class="spark s2"></div><div class="spark s3"></div><div class="spark s4"></div>
+        </div>
 
-        <div class="zoneRow">
-          <div class="zoneBadge">🎯 เล่นแนะนำ: GoodJunk หรือ Hydration</div>
-          <div class="inlineRow">
-            <button class="btn primary" id="btnGJsolo" type="button">🎯 เล่น GoodJunk</button>
-            <button class="btn violet" id="btnGJpro" type="button">🔥 โหมดท้าทาย</button>
-            <button class="btn good" id="btnGJbattle" type="button">⚔ โหมด Battle</button>
-            <button class="btn warn" id="btnHydrationStart" type="button">💧 เริ่ม Hydration</button>
+        <div class="worldHero">
+          <div>
+            <div class="worldBadge">🥦 Nutrition World</div>
+
+            <div class="worldTopRow">
+              <div class="worldBigIcon">🥦</div>
+              <div>
+                <h2 class="worldTitle">โลกโภชนาการ</h2>
+                <div class="worldSub">ฝึกแยกอาหาร ดื่มน้ำให้พอดี และจัดจานให้สมดุล</div>
+              </div>
+            </div>
+
+            <div class="worldMiniProgress" style="margin-top:14px;">
+              <div class="progressHead">
+                <div class="progressLabel">ความคืบหน้าโลกนี้</div>
+                <div class="progressLabel" id="nutriProgressText">0 / 4 เกม</div>
+              </div>
+              <div class="progressTrack">
+                <div class="progressFill nutri" id="nutriProgressBar"></div>
+              </div>
+            </div>
+
+            <div class="worldStars" style="margin-top:14px;">
+              <span class="worldStar">🎯 เริ่มง่าย: GoodJunk</span>
+              <span class="worldStar">💧 ต่อด้วย: Hydration</span>
+              <span class="worldStar">🍽 เป้าหมาย: Plate</span>
+            </div>
+
+            <div style="margin-top:14px;">
+              <span class="worldGate">🚪 ประตูโลกนี้เปิดแล้ว พร้อมผจญภัย</span>
+            </div>
+          </div>
+
+          <div class="worldActions">
+            <button class="btn primary worldEnter" id="btnNutriRecommended" type="button">▶ เข้าโลกนี้</button>
+            <button class="btn violet" id="btnGJsolo" type="button">🎯 GoodJunk</button>
+            <button class="btn warn" id="btnHydrationStart" type="button">💧 Hydration</button>
           </div>
         </div>
 
-        <div class="progressWrap">
-          <div class="progressHead">
-            <div class="progressLabel">ความคืบหน้าโซนโภชนาการ</div>
-            <div class="progressLabel" id="nutriProgressText">0 / 4 เกม</div>
+        <div class="worldRight">
+          <div class="worldPanel">
+            <div class="worldPanelTitle">เส้นทางด่านในโลกนี้</div>
+
+            <div class="worldLegend">
+              <span class="legendChip start">⭐ จุดเริ่ม</span>
+              <span class="legendChip next">➡ ด่านถัดไป</span>
+              <span class="legendChip done">✅ เล่นแล้ว</span>
+              <span class="legendChip locked">🔒 ยังล็อกอยู่</span>
+            </div>
+
+            <div class="pathMap">
+              <svg class="pathSvg" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+                <path class="pathLine" d="M18,24 C38,24 34,48 52,48 S72,76 84,76"></path>
+              </svg>
+
+              <a class="worldNode start" id="linkGoodjunk" href="#">
+                <div class="worldNodeIcon">🍔</div>
+                <div>
+                  <div class="worldNodeTitle">GoodJunk</div>
+                  <div class="worldNodeMeta">ด่านเริ่มต้นของโลกโภชนาการ</div>
+                  <div class="miniRow" style="margin-top:6px;">
+                    <span class="dailyBadge todo" id="goodjunkDaily">ยังไม่เล่นวันนี้</span>
+                  </div>
+                  <div class="nodeStatus">
+                    <span class="nodeChip start">จุดเริ่ม</span>
+                    <span class="nodeChip" id="chipGoodjunk">พร้อมเล่น</span>
+                  </div>
+                </div>
+              </a>
+
+              <a class="worldNode" id="linkHydration" href="#">
+                <div class="worldNodeIcon">💧</div>
+                <div>
+                  <div class="worldNodeTitle">Hydration</div>
+                  <div class="worldNodeMeta">ด่านถัดไป ฝึกเรื่องการดื่มน้ำ</div>
+                  <div class="miniRow" style="margin-top:6px;">
+                    <span class="dailyBadge todo" id="hydrationDaily">ยังไม่เล่นวันนี้</span>
+                  </div>
+                  <div class="nodeStatus">
+                    <span class="nodeChip" id="chipHydration">รอเริ่ม</span>
+                  </div>
+                </div>
+              </a>
+
+              <a class="worldNode" id="linkGroups" href="#">
+                <div class="worldNodeIcon">🥚</div>
+                <div>
+                  <div class="worldNodeTitle">Food Groups</div>
+                  <div class="worldNodeMeta">ด่านแยกหมวดอาหาร</div>
+                  <div class="miniRow" style="margin-top:6px;">
+                    <span class="dailyBadge todo" id="groupsDaily">ยังไม่เล่นวันนี้</span>
+                  </div>
+                  <div class="nodeStatus">
+                    <span class="nodeChip" id="chipGroups">รอเริ่ม</span>
+                  </div>
+                </div>
+              </a>
+
+              <a class="worldNode" id="linkPlate" href="#">
+                <div class="worldNodeIcon">🍽</div>
+                <div>
+                  <div class="worldNodeTitle">Balanced Plate</div>
+                  <div class="worldNodeMeta">ด่านปลายทาง จัดจานให้สมดุล</div>
+                  <div class="miniRow" style="margin-top:6px;">
+                    <span class="dailyBadge todo" id="plateDaily">ยังไม่เล่นวันนี้</span>
+                  </div>
+                  <div class="nodeStatus">
+                    <span class="nodeChip" id="chipPlate">รอเริ่ม</span>
+                  </div>
+                </div>
+              </a>
+            </div>
           </div>
-          <div class="progressTrack">
-            <div class="progressFill nutri" id="nutriProgressBar"></div>
+
+          <div class="worldPanel">
+            <div class="worldPanelTitle">สถานะวันนี้</div>
+            <div class="miniRow">
+              <span class="pill"><b>GoodJunk วอร์มอัป</b>: <span id="gjWarmToday">—</span></span>
+              <span class="pill"><b>GoodJunk คูลดาวน์</b>: <span id="gjCoolToday">—</span></span>
+            </div>
+            <div class="miniRow" style="margin-top:8px;">
+              <span class="pill"><b>Hydration วอร์มอัป</b>: <span id="hydWarmToday">—</span></span>
+              <span class="pill"><b>Hydration คูลดาวน์</b>: <span id="hydCoolToday">—</span></span>
+            </div>
           </div>
-        </div>
-
-        <div class="sep"></div>
-
-        <div class="games">
-          <a class="gameBtn" id="linkGoodjunk" href="#">
-            <div class="gameHead">
-              <div class="gameIcon">🍔</div>
-              <div>
-                <div class="t">GoodJunk</div>
-                <div class="s">ยิงเลือกอาหารดี หลีกเลี่ยงอาหารไม่ดี สนุกและได้การ์ดสะสม</div>
-              </div>
-            </div>
-            <div class="playTag">▶ แตะเพื่อเล่น</div>
-            <div class="miniRow">
-              <span class="dailyBadge todo" id="goodjunkDaily">ยังไม่เล่นวันนี้</span>
-              <span class="pill"><b>วอร์มอัป</b>: <span id="gjWarmToday">—</span></span>
-              <span class="pill"><b>คูลดาวน์</b>: <span id="gjCoolToday">—</span></span>
-            </div>
-            <div class="miniRow">
-              <span class="pill"><b>สถานะวันนี้</b>: <span id="gjFlowToday">—</span></span>
-            </div>
-          </a>
-
-          <a class="gameBtn" id="linkGroups" href="#">
-            <div class="gameHead">
-              <div class="gameIcon">🥚</div>
-              <div>
-                <div class="t">Food Groups</div>
-                <div class="s">จับคู่หมวดอาหารให้ถูก ต้องไวและแม่นยำ</div>
-              </div>
-            </div>
-            <div class="playTag">▶ แตะเพื่อเล่น</div>
-            <div class="miniRow"><span class="dailyBadge todo" id="groupsDaily">ยังไม่เล่นวันนี้</span></div>
-          </a>
-
-          <a class="gameBtn" id="linkHydration" href="#">
-            <div class="gameHead">
-              <div class="gameIcon">💧</div>
-              <div>
-                <div class="t">Hydration</div>
-                <div class="s">เก็บน้ำดี หลบตัวรบกวน และสู้บอสพายุน้ำ</div>
-              </div>
-            </div>
-            <div class="playTag">▶ แตะเพื่อเล่น</div>
-            <div class="miniRow">
-              <span class="dailyBadge todo" id="hydrationDaily">ยังไม่เล่นวันนี้</span>
-              <span class="pill"><b>วอร์มอัป</b>: <span id="hydWarmToday">—</span></span>
-              <span class="pill"><b>คูลดาวน์</b>: <span id="hydCoolToday">—</span></span>
-            </div>
-            <div class="miniRow">
-              <span class="pill"><b>สถานะวันนี้</b>: <span id="hydFlowToday">—</span></span>
-            </div>
-          </a>
-
-          <a class="gameBtn" id="linkPlate" href="#">
-            <div class="gameHead">
-              <div class="gameIcon">🍽</div>
-              <div>
-                <div class="t">Balanced Plate</div>
-                <div class="s">จัดจานอาหารให้สมดุล ครบหมู่ และพอดี</div>
-              </div>
-            </div>
-            <div class="playTag">▶ แตะเพื่อเล่น</div>
-            <div class="miniRow"><span class="dailyBadge todo" id="plateDaily">ยังไม่เล่นวันนี้</span></div>
-          </a>
-        </div>
-
-        <div class="helperBox">เคล็ดลับ: ถ้าอยากเริ่มแบบง่าย ให้กด GoodJunk หรือ Hydration ก่อนนะ ✨</div>
-
-        <div class="zoneFooterRow">
-          <div class="miniGuide">ถ้าเด็กยังเลือกไม่ถูก ให้เริ่มจาก GoodJunk หรือ Hydration ก่อน</div>
-          <button class="btn primary" id="btnNutriRecommended" type="button">🥦 เล่นเกมแนะนำของโซนนี้</button>
         </div>
       </section>
 
-      <section class="card hygiene">
-        <h2>🪥 โซนสุขอนามัย</h2>
-        <div class="sectionSub">ฝึกนิสัยดูแลตัวเองให้สะอาด ปลอดภัย และแข็งแรงทุกวัน</div>
+      <section class="worldZone hygiene">
+        <div class="worldDecor">
+          <div class="cloud c1"></div><div class="cloud c2"></div><div class="cloud c3"></div>
+          <div class="spark s1"></div><div class="spark s2"></div><div class="spark s3"></div><div class="spark s4"></div>
+        </div>
 
-        <div class="progressWrap">
-          <div class="progressHead">
-            <div class="progressLabel">ความคืบหน้าโซนสุขอนามัย</div>
-            <div class="progressLabel" id="hygProgressText">0 / 6 เกม</div>
+        <div class="worldHero">
+          <div>
+            <div class="worldBadge">🪥 Hygiene World</div>
+
+            <div class="worldTopRow">
+              <div class="worldBigIcon">🪥</div>
+              <div>
+                <h2 class="worldTitle">โลกสุขอนามัย</h2>
+                <div class="worldSub">ดูแลร่างกายให้สะอาด ปลอดภัย และแข็งแรงทุกวัน</div>
+              </div>
+            </div>
+
+            <div class="worldMiniProgress" style="margin-top:14px;">
+              <div class="progressHead">
+                <div class="progressLabel">ความคืบหน้าโลกนี้</div>
+                <div class="progressLabel" id="hygProgressText">0 / 6 เกม</div>
+              </div>
+              <div class="progressTrack">
+                <div class="progressFill hyg" id="hygProgressBar"></div>
+              </div>
+            </div>
+
+            <div class="worldStars" style="margin-top:14px;">
+              <span class="worldStar">🧼 เริ่มง่าย: Handwash</span>
+              <span class="worldStar">🪥 ต่อด้วย: Brush</span>
+              <span class="worldStar">🛁 ลุยต่อ: Bath</span>
+            </div>
+
+            <div style="margin-top:14px;">
+              <span class="worldGate">🚪 ประตูโลกนี้เปิดแล้ว พร้อมผจญภัย</span>
+            </div>
           </div>
-          <div class="progressTrack">
-            <div class="progressFill hyg" id="hygProgressBar"></div>
+
+          <div class="worldActions">
+            <button class="btn primary worldEnter" id="btnHygRecommended" type="button">▶ เข้าโลกนี้</button>
           </div>
         </div>
 
-        <div class="sep"></div>
+        <div class="worldRight">
+          <div class="worldPanel">
+            <div class="worldPanelTitle">เส้นทางด่านในโลกนี้</div>
 
-        <div class="games">
-          <a class="gameBtn" id="linkHandwash" href="#">
-            <div class="gameHead">
-              <div class="gameIcon">🧼</div>
-              <div>
-                <div class="t">Handwash</div>
-                <div class="s">ล้างมือให้ครบทุกขั้นตอนแบบฮีโร่สะอาด</div>
-              </div>
+            <div class="worldLegend">
+              <span class="legendChip start">⭐ จุดเริ่ม</span>
+              <span class="legendChip next">➡ ด่านถัดไป</span>
+              <span class="legendChip done">✅ เล่นแล้ว</span>
+              <span class="legendChip locked">🔒 ยังล็อกอยู่</span>
             </div>
-            <div class="playTag">▶ แตะเพื่อเล่น</div>
-            <div class="miniRow"><span class="dailyBadge todo" id="handwashDaily">ยังไม่เล่นวันนี้</span></div>
-          </a>
 
-          <a class="gameBtn" id="linkBrush" href="#">
-            <div class="gameHead">
-              <div class="gameIcon">🪥</div>
-              <div>
-                <div class="t">Brush</div>
-                <div class="s">แปรงฟันให้ถูกตำแหน่งและครบทุกส่วน</div>
-              </div>
+            <div class="pathMap">
+              <svg class="pathSvg" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+                <path class="pathLine" d="M18,20 C40,20 30,50 52,50 S74,82 84,82"></path>
+              </svg>
+
+              <a class="worldNode start" id="linkHandwash" href="#">
+                <div class="worldNodeIcon">🧼</div>
+                <div>
+                  <div class="worldNodeTitle">Handwash</div>
+                  <div class="worldNodeMeta">เริ่มจากการล้างมือให้ถูกต้อง</div>
+                  <div class="miniRow" style="margin-top:6px;"><span class="dailyBadge todo" id="handwashDaily">ยังไม่เล่นวันนี้</span></div>
+                  <div class="nodeStatus"><span class="nodeChip start">จุดเริ่ม</span><span class="nodeChip" id="chipHandwash">พร้อมเล่น</span></div>
+                </div>
+              </a>
+
+              <a class="worldNode" id="linkBrush" href="#">
+                <div class="worldNodeIcon">🪥</div>
+                <div>
+                  <div class="worldNodeTitle">Brush</div>
+                  <div class="worldNodeMeta">ต่อด้วยการแปรงฟันให้ครบส่วน</div>
+                  <div class="miniRow" style="margin-top:6px;"><span class="dailyBadge todo" id="brushDaily">ยังไม่เล่นวันนี้</span></div>
+                  <div class="nodeStatus"><span class="nodeChip" id="chipBrush">รอเริ่ม</span></div>
+                </div>
+              </a>
+
+              <a class="worldNode" id="linkBath" href="#">
+                <div class="worldNodeIcon">🛁</div>
+                <div>
+                  <div class="worldNodeTitle">Bath</div>
+                  <div class="worldNodeMeta">ค้นหาจุดสกปรกและอาบน้ำให้สะอาด</div>
+                  <div class="miniRow" style="margin-top:6px;"><span class="dailyBadge todo" id="bathDaily">ยังไม่เล่นวันนี้</span></div>
+                  <div class="nodeStatus"><span class="nodeChip" id="chipBath">รอเริ่ม</span></div>
+                </div>
+              </a>
+
+              <a class="worldNode" id="linkGermDetective" href="#">
+                <div class="worldNodeIcon">🦠</div>
+                <div>
+                  <div class="worldNodeTitle">Germ Detective</div>
+                  <div class="worldNodeMeta">ภารกิจขั้นสูง นักสืบเชื้อโรค</div>
+                  <div class="miniRow" style="margin-top:6px;"><span class="dailyBadge todo" id="germDetectiveDaily">ยังไม่เล่นวันนี้</span></div>
+                  <div class="nodeStatus"><span class="nodeChip" id="chipGerm">รอเริ่ม</span></div>
+                </div>
+              </a>
+
+              <a class="worldNode" id="linkCleanObject" href="#">
+                <div class="worldNodeIcon">🧴</div>
+                <div>
+                  <div class="worldNodeTitle">Clean Object</div>
+                  <div class="worldNodeMeta">แยกของสะอาด-ไม่สะอาด</div>
+                  <div class="miniRow" style="margin-top:6px;"><span class="dailyBadge todo" id="cleanObjectDaily">ยังไม่เล่นวันนี้</span></div>
+                  <div class="nodeStatus"><span class="nodeChip" id="chipCleanObject">รอเริ่ม</span></div>
+                </div>
+              </a>
+
+              <a class="worldNode" id="linkMaskCough" href="#">
+                <div class="worldNodeIcon">😷</div>
+                <div>
+                  <div class="worldNodeTitle">Mask &amp; Cough</div>
+                  <div class="worldNodeMeta">ฝึกมารยาทสุขอนามัย</div>
+                  <div class="miniRow" style="margin-top:6px;"><span class="dailyBadge todo" id="maskCoughDaily">ยังไม่เล่นวันนี้</span></div>
+                  <div class="nodeStatus"><span class="nodeChip" id="chipMaskCough">รอเริ่ม</span></div>
+                </div>
+              </a>
             </div>
-            <div class="playTag">▶ แตะเพื่อเล่น</div>
-            <div class="miniRow"><span class="dailyBadge todo" id="brushDaily">ยังไม่เล่นวันนี้</span></div>
-          </a>
-
-          <a class="gameBtn" id="linkBath" href="#">
-            <div class="gameHead">
-              <div class="gameIcon">🛁</div>
-              <div>
-                <div class="t">Bath</div>
-                <div class="s">ค้นหาจุดสกปรกและอาบน้ำให้สะอาดทั่วตัว</div>
-              </div>
-            </div>
-            <div class="playTag">▶ แตะเพื่อเล่น</div>
-            <div class="miniRow"><span class="dailyBadge todo" id="bathDaily">ยังไม่เล่นวันนี้</span></div>
-          </a>
-
-          <a class="gameBtn" id="linkCleanObject" href="#">
-            <div class="gameHead">
-              <div class="gameIcon">🧴</div>
-              <div>
-                <div class="t">Clean Object</div>
-                <div class="s">แยกของสะอาด-ไม่สะอาด และเลือกวิธีดูแลให้เหมาะ</div>
-              </div>
-            </div>
-            <div class="playTag">▶ แตะเพื่อเล่น</div>
-            <div class="miniRow"><span class="dailyBadge todo" id="cleanObjectDaily">ยังไม่เล่นวันนี้</span></div>
-          </a>
-
-          <a class="gameBtn" id="linkMaskCough" href="#">
-            <div class="gameHead">
-              <div class="gameIcon">😷</div>
-              <div>
-                <div class="t">Mask &amp; Cough</div>
-                <div class="s">ฝึกใส่หน้ากากและไอมารยาทอย่างถูกต้อง</div>
-              </div>
-            </div>
-            <div class="playTag">▶ แตะเพื่อเล่น</div>
-            <div class="miniRow"><span class="dailyBadge todo" id="maskCoughDaily">ยังไม่เล่นวันนี้</span></div>
-          </a>
-
-          <a class="gameBtn" id="linkGermDetective" href="#">
-            <div class="gameHead">
-              <div class="gameIcon">🦠</div>
-              <div>
-                <div class="t">Germ Detective</div>
-                <div class="s">ตามหาจุลินทรีย์ตัวร้ายด้วยภารกิจนักสืบ</div>
-              </div>
-            </div>
-            <div class="playTag">▶ แตะเพื่อเล่น</div>
-            <div class="miniRow"><span class="dailyBadge todo" id="germDetectiveDaily">ยังไม่เล่นวันนี้</span></div>
-          </a>
-        </div>
-
-        <div class="helperBox">เริ่มง่ายสุด: ลอง Handwash หรือ Brush ก่อน แล้วค่อยไปเกมนักสืบเชื้อโรค 🔍</div>
-
-        <div class="zoneFooterRow">
-          <div class="miniGuide">เริ่มง่ายสุด: Handwash → Brush → Bath</div>
-          <button class="btn primary" id="btnHygRecommended" type="button">🪥 เล่นเกมแนะนำของโซนนี้</button>
+          </div>
         </div>
       </section>
 
-      <section class="card fitness">
-        <h2>🏃 โซนออกกำลังกาย</h2>
-        <div class="sectionSub">ขยับร่างกาย ฝึกการทรงตัว จังหวะ และความคล่องตัวให้แข็งแรง</div>
+      <section class="worldZone fitness">
+        <div class="worldDecor">
+          <div class="cloud c1"></div><div class="cloud c2"></div><div class="cloud c3"></div>
+          <div class="spark s1"></div><div class="spark s2"></div><div class="spark s3"></div><div class="spark s4"></div>
+        </div>
 
-        <div class="progressWrap">
-          <div class="progressHead">
-            <div class="progressLabel">ความคืบหน้าโซนออกกำลังกาย</div>
-            <div class="progressLabel" id="fitProgressText">0 / 5 เกม</div>
+        <div class="worldHero">
+          <div>
+            <div class="worldBadge">🏃 Fitness World</div>
+
+            <div class="worldTopRow">
+              <div class="worldBigIcon">🏃</div>
+              <div>
+                <h2 class="worldTitle">โลกออกกำลังกาย</h2>
+                <div class="worldSub">ขยับร่างกาย ฝึกความเร็ว การทรงตัว และพลังให้แข็งแรง</div>
+              </div>
+            </div>
+
+            <div class="worldMiniProgress" style="margin-top:14px;">
+              <div class="progressHead">
+                <div class="progressLabel">ความคืบหน้าโลกนี้</div>
+                <div class="progressLabel" id="fitProgressText">0 / 5 เกม</div>
+              </div>
+              <div class="progressTrack">
+                <div class="progressFill fit" id="fitProgressBar"></div>
+              </div>
+            </div>
+
+            <div class="worldStars" style="margin-top:14px;">
+              <span class="worldStar">⬆️ เริ่มง่าย: JumpDuck</span>
+              <span class="worldStar">🥊 ต่อด้วย: Shadow Breaker</span>
+              <span class="worldStar">⚖️ ท้าทาย: Balance Hold</span>
+            </div>
+
+            <div style="margin-top:14px;">
+              <span class="worldGate">🚪 ประตูโลกนี้เปิดแล้ว พร้อมผจญภัย</span>
+            </div>
           </div>
-          <div class="progressTrack">
-            <div class="progressFill fit" id="fitProgressBar"></div>
+
+          <div class="worldActions">
+            <button class="btn primary worldEnter" id="btnFitRecommended" type="button">▶ เข้าโลกนี้</button>
           </div>
         </div>
 
-        <div class="sep"></div>
+        <div class="worldRight">
+          <div class="worldPanel">
+            <div class="worldPanelTitle">เส้นทางด่านในโลกนี้</div>
 
-        <div class="games">
-          <a class="gameBtn" id="linkShadowBreaker" href="#">
-            <div class="gameHead">
-              <div class="gameIcon">🥊</div>
-              <div>
-                <div class="t">Shadow Breaker</div>
-                <div class="s">ต่อยเป้า เก็บคอมโบ และฝึกรีแอคชันให้ไว</div>
-              </div>
+            <div class="worldLegend">
+              <span class="legendChip start">⭐ จุดเริ่ม</span>
+              <span class="legendChip next">➡ ด่านถัดไป</span>
+              <span class="legendChip done">✅ เล่นแล้ว</span>
+              <span class="legendChip locked">🔒 ยังล็อกอยู่</span>
             </div>
-            <div class="playTag">▶ แตะเพื่อเล่น</div>
-            <div class="miniRow"><span class="dailyBadge todo" id="shadowBreakerDaily">ยังไม่เล่นวันนี้</span></div>
-          </a>
 
-          <a class="gameBtn" id="linkRhythmBoxer" href="#">
-            <div class="gameHead">
-              <div class="gameIcon">🎵</div>
-              <div>
-                <div class="t">Rhythm Boxer</div>
-                <div class="s">ขยับตามจังหวะเพลงให้ถูกและสนุกสุดพลัง</div>
-              </div>
+            <div class="pathMap">
+              <svg class="pathSvg" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+                <path class="pathLine" d="M18,22 C40,22 28,50 52,50 S76,78 84,78"></path>
+              </svg>
+
+              <a class="worldNode start" id="linkJumpDuck" href="#">
+                <div class="worldNodeIcon">⬆️</div>
+                <div>
+                  <div class="worldNodeTitle">JumpDuck</div>
+                  <div class="worldNodeMeta">จุดเริ่มของโลกออกกำลังกาย</div>
+                  <div class="miniRow" style="margin-top:6px;"><span class="dailyBadge todo" id="jumpDuckDaily">ยังไม่เล่นวันนี้</span></div>
+                  <div class="nodeStatus"><span class="nodeChip start">จุดเริ่ม</span><span class="nodeChip" id="chipJumpDuck">พร้อมเล่น</span></div>
+                </div>
+              </a>
+
+              <a class="worldNode" id="linkShadowBreaker" href="#">
+                <div class="worldNodeIcon">🥊</div>
+                <div>
+                  <div class="worldNodeTitle">Shadow Breaker</div>
+                  <div class="worldNodeMeta">ต่อยเป้า เก็บคอมโบ</div>
+                  <div class="miniRow" style="margin-top:6px;"><span class="dailyBadge todo" id="shadowBreakerDaily">ยังไม่เล่นวันนี้</span></div>
+                  <div class="nodeStatus"><span class="nodeChip" id="chipShadowBreaker">รอเริ่ม</span></div>
+                </div>
+              </a>
+
+              <a class="worldNode" id="linkBalanceHold" href="#">
+                <div class="worldNodeIcon">⚖️</div>
+                <div>
+                  <div class="worldNodeTitle">Balance Hold</div>
+                  <div class="worldNodeMeta">ด่านทรงตัวแบบท้าทาย</div>
+                  <div class="miniRow" style="margin-top:6px;"><span class="dailyBadge todo" id="balanceHoldDaily">ยังไม่เล่นวันนี้</span></div>
+                  <div class="nodeStatus"><span class="nodeChip" id="chipBalanceHold">รอเริ่ม</span></div>
+                </div>
+              </a>
+
+              <a class="worldNode" id="linkRhythmBoxer" href="#">
+                <div class="worldNodeIcon">🎵</div>
+                <div>
+                  <div class="worldNodeTitle">Rhythm Boxer</div>
+                  <div class="worldNodeMeta">ขยับตามจังหวะ</div>
+                  <div class="miniRow" style="margin-top:6px;"><span class="dailyBadge todo" id="rhythmBoxerDaily">ยังไม่เล่นวันนี้</span></div>
+                  <div class="nodeStatus"><span class="nodeChip" id="chipRhythmBoxer">รอเริ่ม</span></div>
+                </div>
+              </a>
+
+              <a class="worldNode" id="linkFitnessPlanner" href="#">
+                <div class="worldNodeIcon">📅</div>
+                <div>
+                  <div class="worldNodeTitle">Fitness Planner</div>
+                  <div class="worldNodeMeta">วางแผนการออกกำลัง</div>
+                  <div class="miniRow" style="margin-top:6px;"><span class="dailyBadge todo" id="fitnessPlannerDaily">ยังไม่เล่นวันนี้</span></div>
+                  <div class="nodeStatus"><span class="nodeChip" id="chipFitnessPlanner">รอเริ่ม</span></div>
+                </div>
+              </a>
             </div>
-            <div class="playTag">▶ แตะเพื่อเล่น</div>
-            <div class="miniRow"><span class="dailyBadge todo" id="rhythmBoxerDaily">ยังไม่เล่นวันนี้</span></div>
-          </a>
-
-          <a class="gameBtn" id="linkJumpDuck" href="#">
-            <div class="gameHead">
-              <div class="gameIcon">⬆️</div>
-              <div>
-                <div class="t">JumpDuck</div>
-                <div class="s">กระโดด หลบ และวิ่งให้ผ่านอุปสรรค</div>
-              </div>
-            </div>
-            <div class="playTag">▶ แตะเพื่อเล่น</div>
-            <div class="miniRow"><span class="dailyBadge todo" id="jumpDuckDaily">ยังไม่เล่นวันนี้</span></div>
-          </a>
-
-          <a class="gameBtn" id="linkBalanceHold" href="#">
-            <div class="gameHead">
-              <div class="gameIcon">⚖️</div>
-              <div>
-                <div class="t">Balance Hold</div>
-                <div class="s">ทรงตัวให้นิ่ง ฝ่าด่าน และเอาชนะความท้าทาย</div>
-              </div>
-            </div>
-            <div class="playTag">▶ แตะเพื่อเล่น</div>
-            <div class="miniRow"><span class="dailyBadge todo" id="balanceHoldDaily">ยังไม่เล่นวันนี้</span></div>
-          </a>
-
-          <a class="gameBtn" id="linkFitnessPlanner" href="#">
-            <div class="gameHead">
-              <div class="gameIcon">📅</div>
-              <div>
-                <div class="t">Fitness Planner</div>
-                <div class="s">วางแผนออกกำลังกายประจำวันแบบฮีโร่ตัวจริง</div>
-              </div>
-            </div>
-            <div class="playTag">▶ แตะเพื่อเล่น</div>
-            <div class="miniRow"><span class="dailyBadge todo" id="fitnessPlannerDaily">ยังไม่เล่นวันนี้</span></div>
-          </a>
-        </div>
-
-        <div class="helperBox">อยากได้เกมเคลื่อนไหวชัด ๆ ให้ลอง JumpDuck หรือ Shadow Breaker ก่อน 💥</div>
-
-        <div class="zoneFooterRow">
-          <div class="miniGuide">เริ่มง่ายสุด: JumpDuck หรือ Shadow Breaker</div>
-          <button class="btn primary" id="btnFitRecommended" type="button">🏃 เล่นเกมแนะนำของโซนนี้</button>
+          </div>
         </div>
       </section>
 
@@ -2013,7 +2093,7 @@
         const raw2 = localStorage.getItem('HHA_LAST_SUMMARY') || '';
         if(!raw2) return null;
         const j = JSON.parse(raw2);
-        if(j && String(j.pid||'') === pid && String(j.game||'') === 'goodjunk') return j;
+        if(j && String(j.pid||'') === pid && String(j.game||'').toLowerCase() === 'goodjunk') return j;
         return null;
       }catch(_){
         return null;
@@ -2025,6 +2105,22 @@
         const raw = localStorage.getItem(`HHA_LAST_CARD:${pid}`) || '';
         return raw ? JSON.parse(raw) : null;
       }catch(_){ return null; }
+    }
+
+    function loadJDProfile(pid){
+      return loadJson(`JD_PROFILE:${pid}`, {});
+    }
+
+    function loadJDCardBook(pid){
+      return loadJson(`JD_CARD_BOOK:${pid}`, { S:0, A:0, B:0, C:0, total:0 });
+    }
+
+    function saveJDCardBook(pid, book){
+      saveJson(`JD_CARD_BOOK:${pid}`, book);
+    }
+
+    function loadJDLastCard(pid){
+      return loadJson(`JD_LAST_CARD:${pid}`, null);
     }
 
     function renderCardBook(){
@@ -2052,11 +2148,9 @@
       if(sum){
         const grade = String(sum.grade || 'C').toUpperCase();
         const spec = cardSpecFromGrade(grade);
-
         if(!lastCard) lastDropIcon.textContent = spec.icon;
         if(!lastCard) lastDropTitle.textContent = spec.title;
-        lastDropMeta.textContent =
-          `ผลล่าสุด: reason=${sum.reason || '-'} • miss ${sum.missTotal ?? sum.miss ?? 0} • acc ${sum.accPct ?? 0}%`;
+        lastDropMeta.textContent = `ผลล่าสุด: reason=${sum.reason || '-'} • miss ${sum.missTotal ?? sum.miss ?? 0} • acc ${sum.accPct ?? 0}%`;
         lastDropGrade.textContent = grade;
         lastDropScore.textContent = String(sum.scoreFinal ?? sum.score ?? 0);
       }else{
@@ -2074,6 +2168,54 @@
       document.getElementById('streakCount').textContent = String(streak?.count || 0);
     }
 
+    function renderJDCardBook(){
+      const book = loadJDCardBook(pid);
+      const lastCard = loadJDLastCard(pid);
+      const jd = loadJDProfile(pid);
+
+      document.getElementById('jdBookTotal').textContent = String(book.total || 0);
+      document.getElementById('jdBookS').textContent = String(book.S || 0);
+      document.getElementById('jdBookA').textContent = String(book.A || 0);
+      document.getElementById('jdBookB').textContent = String(book.B || 0);
+      document.getElementById('jdBookC').textContent = String(book.C || 0);
+
+      const icon = document.getElementById('jdLastCardIcon');
+      const title = document.getElementById('jdLastCardTitle');
+      const meta = document.getElementById('jdLastCardMeta');
+      const rank = document.getElementById('jdLastCardRank');
+      const best = document.getElementById('jdLastCardBest');
+
+      if(lastCard){
+        icon.textContent = lastCard.icon || '🏃';
+        title.textContent = lastCard.title || 'Latest JumpDuck Card';
+        meta.textContent = `reward=${lastCard.rewardLabel || '-'} • score ${lastCard.scoreFinal ?? 0}`;
+        rank.textContent = String(lastCard.rank || '—');
+      }else{
+        icon.textContent = '🏃';
+        title.textContent = 'ยังไม่มีการ์ดล่าสุด';
+        meta.textContent = 'เล่น JumpDuck แล้วกลับมาดูที่นี่';
+        rank.textContent = '—';
+      }
+
+      best.textContent = String(jd.bestScore || 0);
+    }
+
+    function renderFitnessJumpDuckShelf(){
+      const jd = loadJDProfile(pid);
+      const badgeCount = Object.values(jd.badges || {}).filter(Boolean).length;
+
+      document.getElementById('fitnessJDBest').textContent = String(jd.bestScore || 0);
+      document.getElementById('fitnessJDStreak').textContent = String(jd.streak || 0);
+      document.getElementById('fitnessJDBadgeCount').textContent = String(badgeCount);
+      document.getElementById('fitnessJDReward').textContent = String(jd.lastReward?.medal ? `${jd.lastReward.medal} ${jd.lastReward.label}` : '-');
+      document.getElementById('fitnessJDBossBadge').textContent = String(jd.lastBossBadge?.icon ? `${jd.lastBossBadge.icon} ${jd.lastBossBadge.label}` : '-');
+
+      const fitnessHint = document.getElementById('fitnessHint');
+      if((jd.bestScore || 0) > 0){
+        fitnessHint.textContent = `JumpDuck best ${jd.bestScore || 0} • streak ${jd.streak || 0} • badges ${badgeCount}`;
+      }
+    }
+
     function renderTrophyShelf(){
       const book = loadCardBook(pid);
       const bestNormal = loadJson(`HHA_GJ_BEST:${pid}:normal`, null);
@@ -2088,10 +2230,6 @@
       const hygieneStatus = document.getElementById('hygieneStatus');
       const fitnessStatus = document.getElementById('fitnessStatus');
 
-      const nutriTrophyIcon = document.getElementById('nutriTrophyIcon');
-      const hygieneTrophyIcon = document.getElementById('hygieneTrophyIcon');
-      const fitnessTrophyIcon = document.getElementById('fitnessTrophyIcon');
-
       nutriStatus.textContent = nutritionUnlocked ? 'ปลดล็อกแล้ว 🎉' : 'ยังไม่ปลดล็อก';
       hygieneStatus.textContent = hygieneUnlocked ? 'สำเร็จวันนี้ ✅' : 'ยังไม่ปลดล็อก';
       fitnessStatus.textContent = fitnessUnlocked ? 'สำเร็จวันนี้ ✅' : 'ยังไม่ปลดล็อก';
@@ -2100,9 +2238,9 @@
       hygieneStatus.className = `statusChip ${hygieneUnlocked ? 'done' : 'locked'}`;
       fitnessStatus.className = `statusChip ${fitnessUnlocked ? 'done' : 'locked'}`;
 
-      nutriTrophyIcon.textContent = nutritionUnlocked ? '🏆' : '🥦';
-      hygieneTrophyIcon.textContent = hygieneUnlocked ? '🏅' : '🪥';
-      fitnessTrophyIcon.textContent = fitnessUnlocked ? '🎖️' : '🏃';
+      document.getElementById('nutriTrophyIcon').textContent = nutritionUnlocked ? '🏆' : '🥦';
+      document.getElementById('hygieneTrophyIcon').textContent = hygieneUnlocked ? '🏅' : '🪥';
+      document.getElementById('fitnessTrophyIcon').textContent = fitnessUnlocked ? '🎖️' : '🏃';
 
       document.getElementById('nutriBestScore').textContent = String(bestNormal?.scoreFinal ?? bestNormal?.score ?? 0);
       document.getElementById('nutriCardTotal').textContent = String(book.total || 0);
@@ -2111,19 +2249,13 @@
 
       const badgeCount = Object.values(badges || {}).filter(Boolean).length;
       document.getElementById('nutriHint').textContent =
-        nutritionUnlocked
-          ? `ปลดถ้วยแล้ว • badges ${badgeCount} • เก่งมาก!`
-          : 'เล่น GoodJunk หรือสะสมการ์ดเพื่อปลดถ้วยนี้';
+        nutritionUnlocked ? `ปลดถ้วยแล้ว • badges ${badgeCount} • เก่งมาก!` : 'เล่น GoodJunk หรือสะสมการ์ดเพื่อปลดถ้วยนี้';
 
       document.getElementById('hygieneHint').textContent =
-        hygieneUnlocked
-          ? 'วันนี้ทำโซนสุขอนามัยสำเร็จแล้ว'
-          : 'เล่นโซนสุขอนามัยให้สำเร็จวันนี้เพื่อโชว์ถ้วย';
+        hygieneUnlocked ? 'วันนี้ทำโลกสุขอนามัยสำเร็จแล้ว' : 'เล่นโลกสุขอนามัยให้สำเร็จวันนี้เพื่อโชว์ถ้วย';
 
       document.getElementById('fitnessHint').textContent =
-        fitnessUnlocked
-          ? 'วันนี้ทำโซนออกกำลังกายสำเร็จแล้ว'
-          : 'เล่นโซนออกกำลังกายให้สำเร็จวันนี้เพื่อโชว์ถ้วย';
+        fitnessUnlocked ? 'วันนี้ทำโลกออกกำลังกายสำเร็จแล้ว' : 'เล่นโลกออกกำลังกายให้สำเร็จวันนี้เพื่อโชว์ถ้วย';
     }
 
     function renderLastRun(){
@@ -2139,16 +2271,14 @@
       const sum = raw ? safeJsonParse(raw) : null;
 
       if(!sum){
-        if(sub) sub.textContent = 'ยังไม่มีผลล่าสุด — ลองเล่นเกมสักรอบก่อนนะ';
-        if(grid) grid.style.display = 'none';
-        if(open) open.style.display = 'none';
-        if(missionOpen) missionOpen.style.display = 'none';
-        if(clear){
-          clear.onclick = ()=>{
-            try{ localStorage.removeItem('HHA_LAST_SUMMARY'); }catch(_){}
-            renderLastRun();
-          };
-        }
+        sub.textContent = 'ยังไม่มีผลล่าสุด — ลองเล่นเกมสักรอบก่อนนะ';
+        grid.style.display = 'none';
+        open.style.display = 'none';
+        missionOpen.style.display = 'none';
+        clear.onclick = ()=>{
+          try{ localStorage.removeItem('HHA_LAST_SUMMARY'); }catch(_){}
+          renderLastRun();
+        };
         return;
       }
 
@@ -2162,38 +2292,26 @@
       const when  = String(sum.timestampIso || sum.created_at_iso || '');
       const endr  = String(sum.end_reason || sum.reason || '-');
 
-      if(sub){
-        sub.textContent = `${game.toUpperCase()} • mode=${mode} • diff=${diffx} • score=${score} • acc=${acc}` + (when ? ` • ${when}` : '');
-      }
+      sub.textContent = `${game.toUpperCase()} • mode=${mode} • diff=${diffx} • score=${score} • acc=${acc}` + (when ? ` • ${when}` : '');
 
       let lastUrl = '';
       const ex = sum.__extraJson ? safeJsonParse(sum.__extraJson) : null;
       if(ex && ex.url) lastUrl = String(ex.url);
 
-      if(open){
-        if(lastUrl){
-          open.href = lastUrl;
-          open.style.display = 'inline-flex';
-        }else{
-          open.style.display = 'none';
-        }
+      if(lastUrl){
+        open.href = lastUrl;
+        open.style.display = 'inline-flex';
+        missionOpen.href = lastUrl;
+        missionOpen.style.display = 'inline-flex';
+      }else{
+        open.style.display = 'none';
+        missionOpen.style.display = 'none';
       }
 
-      if(missionOpen){
-        if(lastUrl){
-          missionOpen.href = lastUrl;
-          missionOpen.style.display = 'inline-flex';
-        }else{
-          missionOpen.style.display = 'none';
-        }
-      }
-
-      if(clear){
-        clear.onclick = ()=>{
-          try{ localStorage.removeItem('HHA_LAST_SUMMARY'); }catch(_){}
-          renderLastRun();
-        };
-      }
+      clear.onclick = ()=>{
+        try{ localStorage.removeItem('HHA_LAST_SUMMARY'); }catch(_){}
+        renderLastRun();
+      };
 
       const kv = (k,v)=>`
         <div class="rarityCard" style="text-align:left;">
@@ -2202,215 +2320,31 @@
         </div>
       `;
 
-      if(left){
-        left.innerHTML = `
-          <div class="bookMini">สรุปหลัก</div>
-          <div class="rarityRow" style="grid-template-columns:repeat(2,minmax(0,1fr));">
-            ${kv('Game', game)}
-            ${kv('Mode', mode)}
-            ${kv('Diff', diffx)}
-            ${kv('Score', score)}
-            ${kv('Acc', acc)}
-            ${kv('End', endr)}
-          </div>
-        `;
-      }
+      left.innerHTML = `
+        <div class="bookMini">สรุปหลัก</div>
+        <div class="rarityRow" style="grid-template-columns:repeat(2,minmax(0,1fr));">
+          ${kv('Game', game)}
+          ${kv('Mode', mode)}
+          ${kv('Diff', diffx)}
+          ${kv('Score', score)}
+          ${kv('Acc', acc)}
+          ${kv('End', endr)}
+        </div>
+      `;
 
-      if(right){
-        right.innerHTML = `
-          <div class="bookMini">Metrics / Boss</div>
-          <div class="rarityRow" style="grid-template-columns:repeat(2,minmax(0,1fr));">
-            ${kv('Session', sum.sessionId || sum.session_id || '-')}
-            ${kv('ComboMax', sum.comboMax ?? sum.max_combo ?? '-')}
-            ${kv('Misses', sum.misses ?? sum.missTotal ?? sum.miss_total ?? '-')}
-            ${kv('Stability', (sum.stabilityMinPct ?? sum.stability_min_pct ?? '-') + '%')}
-            ${kv('Boss', sum.bossVariant ?? sum.boss_variant ?? '-')}
-            ${kv('Rule', sum.bossRule ?? sum.boss_rule ?? '-')}
-          </div>
-        `;
-      }
+      right.innerHTML = `
+        <div class="bookMini">Metrics / Boss</div>
+        <div class="rarityRow" style="grid-template-columns:repeat(2,minmax(0,1fr));">
+          ${kv('Session', sum.sessionId || sum.session_id || '-')}
+          ${kv('ComboMax', sum.comboMax ?? sum.max_combo ?? '-')}
+          ${kv('Misses', sum.misses ?? sum.missTotal ?? sum.miss_total ?? '-')}
+          ${kv('Stability', (sum.stabilityMinPct ?? sum.stability_min_pct ?? '-') + '%')}
+          ${kv('Boss', sum.bossVariant ?? sum.boss_variant ?? '-')}
+          ${kv('Rule', sum.bossRule ?? sum.boss_rule ?? '-')}
+        </div>
+      `;
 
-      if(grid) grid.style.display = 'grid';
-    }
-
-    function loadJDProfile(pid){
-      return loadJson(`JD_PROFILE:${pid}`, {});
-    }
-
-    function loadJDCardBook(pid){
-      return loadJson(`JD_CARD_BOOK:${pid}`, { S:0, A:0, B:0, C:0, total:0 });
-    }
-
-    function saveJDCardBook(pid, book){
-      saveJson(`JD_CARD_BOOK:${pid}`, book);
-    }
-
-    function loadJDLastCard(pid){
-      return loadJson(`JD_LAST_CARD:${pid}`, null);
-    }
-
-    function renderJDCardBook(){
-      const book = loadJDCardBook(pid);
-      const lastCard = loadJDLastCard(pid);
-      const jd = loadJDProfile(pid);
-
-      const totalEl = document.getElementById('jdBookTotal');
-      const sEl = document.getElementById('jdBookS');
-      const aEl = document.getElementById('jdBookA');
-      const bEl = document.getElementById('jdBookB');
-      const cEl = document.getElementById('jdBookC');
-
-      if(totalEl) totalEl.textContent = String(book.total || 0);
-      if(sEl) sEl.textContent = String(book.S || 0);
-      if(aEl) aEl.textContent = String(book.A || 0);
-      if(bEl) bEl.textContent = String(book.B || 0);
-      if(cEl) cEl.textContent = String(book.C || 0);
-
-      const icon = document.getElementById('jdLastCardIcon');
-      const title = document.getElementById('jdLastCardTitle');
-      const meta = document.getElementById('jdLastCardMeta');
-      const rank = document.getElementById('jdLastCardRank');
-      const best = document.getElementById('jdLastCardBest');
-
-      if(lastCard){
-        if(icon) icon.textContent = lastCard.icon || '🏃';
-        if(title) title.textContent = lastCard.title || 'Latest JumpDuck Card';
-        if(meta) meta.textContent = `reward=${lastCard.rewardLabel || '-'} • score ${lastCard.scoreFinal ?? 0}`;
-        if(rank) rank.textContent = String(lastCard.rank || '—');
-      }else{
-        if(icon) icon.textContent = '🏃';
-        if(title) title.textContent = 'ยังไม่มีการ์ดล่าสุด';
-        if(meta) meta.textContent = 'เล่น JumpDuck แล้วกลับมาดูที่นี่';
-        if(rank) rank.textContent = '—';
-      }
-
-      if(best) best.textContent = String(jd.bestScore || 0);
-    }
-
-    function renderFitnessJumpDuckShelf(){
-      const jd = loadJDProfile(pid);
-      const badgeCount = Object.values(jd.badges || {}).filter(Boolean).length;
-
-      const elBest = document.getElementById('fitnessJDBest');
-      const elStreak = document.getElementById('fitnessJDStreak');
-      const elBadgeCount = document.getElementById('fitnessJDBadgeCount');
-      const elReward = document.getElementById('fitnessJDReward');
-      const elBossBadge = document.getElementById('fitnessJDBossBadge');
-
-      if(elBest) elBest.textContent = String(jd.bestScore || 0);
-      if(elStreak) elStreak.textContent = String(jd.streak || 0);
-      if(elBadgeCount) elBadgeCount.textContent = String(badgeCount);
-      if(elReward) elReward.textContent = String(jd.lastReward?.medal ? `${jd.lastReward.medal} ${jd.lastReward.label}` : '-');
-      if(elBossBadge) elBossBadge.textContent = String(jd.lastBossBadge?.icon ? `${jd.lastBossBadge.icon} ${jd.lastBossBadge.label}` : '-');
-
-      const fitnessHint = document.getElementById('fitnessHint');
-      if(fitnessHint && (jd.bestScore || 0) > 0){
-        fitnessHint.textContent = `JumpDuck best ${jd.bestScore || 0} • streak ${jd.streak || 0} • badges ${badgeCount}`;
-      }
-    }
-
-    function renderGoodJunkDailyStatus(){
-      const warmEl = document.getElementById('gjWarmToday');
-      const coolEl = document.getElementById('gjCoolToday');
-      const flowEl = document.getElementById('gjFlowToday');
-      if(!warmEl || !coolEl || !flowEl) return;
-
-      const warmDone = isGateDone('warmup', 'nutrition', 'goodjunk', pid);
-      const coolDone = isCooldownDone('nutrition', 'goodjunk', pid);
-
-      warmEl.textContent = childDoneText(warmDone);
-      coolEl.textContent = childDoneText(coolDone);
-      flowEl.textContent = flowText(warmDone);
-    }
-
-    function decorateGoodJunkCard(){
-      const link = document.getElementById('linkGoodjunk');
-      if(!link) return;
-
-      const warmDone = isGateDone('warmup', 'nutrition', 'goodjunk', pid);
-      const coolDone = isCooldownDone('nutrition', 'goodjunk', pid);
-
-      if(warmDone && coolDone){
-        link.style.borderColor = 'rgba(34,197,94,.36)';
-        link.style.boxShadow = '0 16px 38px rgba(34,197,94,.12)';
-      }else if(warmDone){
-        link.style.borderColor = 'rgba(56,189,248,.34)';
-        link.style.boxShadow = '0 16px 38px rgba(56,189,248,.12)';
-      }else{
-        link.style.borderColor = 'rgba(255,255,255,.14)';
-        link.style.boxShadow = '0 16px 38px rgba(0,0,0,.24)';
-      }
-    }
-
-    function decorateGoodJunkFlowChip(){
-      const flowEl = document.getElementById('gjFlowToday');
-      if(!flowEl) return;
-
-      const warmDone = isGateDone('warmup', 'nutrition', 'goodjunk', pid);
-      const parent = flowEl.closest('.pill');
-      if(!parent) return;
-
-      if(warmDone){
-        parent.style.borderColor = 'rgba(34,197,94,.28)';
-        parent.style.background = 'rgba(34,197,94,.18)';
-        parent.style.color = '#ecfdf5';
-      }else{
-        parent.style.borderColor = 'rgba(245,158,11,.28)';
-        parent.style.background = 'rgba(245,158,11,.18)';
-        parent.style.color = '#fef3c7';
-      }
-    }
-
-    function renderHydrationDailyStatus(){
-      const warmEl = document.getElementById('hydWarmToday');
-      const coolEl = document.getElementById('hydCoolToday');
-      const flowEl = document.getElementById('hydFlowToday');
-      if(!warmEl || !coolEl || !flowEl) return;
-
-      const warmDone = isGateDone('warmup', 'nutrition', 'hydration', pid);
-      const coolDone = isCooldownDone('nutrition', 'hydration', pid);
-
-      warmEl.textContent = childDoneText(warmDone);
-      coolEl.textContent = childDoneText(coolDone);
-      flowEl.textContent = flowText(warmDone);
-    }
-
-    function decorateHydrationCard(){
-      const link = document.getElementById('linkHydration');
-      if(!link) return;
-
-      const warmDone = isGateDone('warmup', 'nutrition', 'hydration', pid);
-      const coolDone = isCooldownDone('nutrition', 'hydration', pid);
-
-      if(warmDone && coolDone){
-        link.style.borderColor = 'rgba(34,197,94,.36)';
-        link.style.boxShadow = '0 16px 38px rgba(34,197,94,.12)';
-      }else if(warmDone){
-        link.style.borderColor = 'rgba(56,189,248,.34)';
-        link.style.boxShadow = '0 16px 38px rgba(56,189,248,.12)';
-      }else{
-        link.style.borderColor = 'rgba(255,255,255,.14)';
-        link.style.boxShadow = '0 16px 38px rgba(0,0,0,.24)';
-      }
-    }
-
-    function decorateHydrationFlowChip(){
-      const flowEl = document.getElementById('hydFlowToday');
-      if(!flowEl) return;
-
-      const warmDone = isGateDone('warmup', 'nutrition', 'hydration', pid);
-      const parent = flowEl.closest('.pill');
-      if(!parent) return;
-
-      if(warmDone){
-        parent.style.borderColor = 'rgba(34,197,94,.28)';
-        parent.style.background = 'rgba(34,197,94,.18)';
-        parent.style.color = '#ecfdf5';
-      }else{
-        parent.style.borderColor = 'rgba(245,158,11,.28)';
-        parent.style.background = 'rgba(245,158,11,.18)';
-        parent.style.color = '#fef3c7';
-      }
+      grid.style.display = 'grid';
     }
 
     function gamePlayedToday(game){
@@ -2432,80 +2366,31 @@
     }
 
     function renderDailyBadges(){
-      paintDailyBadge(document.getElementById('goodjunkDaily'),
-        isGateDone('warmup','nutrition','goodjunk',pid) || gamePlayedToday('goodjunk'));
-
-      paintDailyBadge(document.getElementById('groupsDaily'),
-        isGateDone('warmup','nutrition','groups',pid) || gamePlayedToday('groups'));
-
-      paintDailyBadge(document.getElementById('hydrationDaily'),
-        isGateDone('warmup','nutrition','hydration',pid) || gamePlayedToday('hydration'));
-
-      paintDailyBadge(document.getElementById('plateDaily'),
-        isGateDone('warmup','nutrition','plate',pid) || gamePlayedToday('plate'));
-
-      paintDailyBadge(document.getElementById('handwashDaily'),
-        isGateDone('warmup','hygiene','handwash',pid) || gamePlayedToday('handwash'));
-
-      paintDailyBadge(document.getElementById('brushDaily'),
-        isGateDone('warmup','hygiene','brush',pid) || gamePlayedToday('brush'));
-
-      paintDailyBadge(document.getElementById('bathDaily'),
-        isGateDone('warmup','hygiene','bath',pid) || gamePlayedToday('bath'));
-
-      paintDailyBadge(document.getElementById('cleanObjectDaily'),
-        isGateDone('warmup','hygiene','cleanobject',pid) || gamePlayedToday('cleanobject'));
-
-      paintDailyBadge(document.getElementById('maskCoughDaily'),
-        isGateDone('warmup','hygiene','maskcough',pid) || gamePlayedToday('maskcough'));
-
-      paintDailyBadge(document.getElementById('germDetectiveDaily'),
-        isGateDone('warmup','hygiene','germdetective',pid) || gamePlayedToday('germdetective'));
-
-      paintDailyBadge(document.getElementById('shadowBreakerDaily'),
-        isGateDone('warmup','fitness','shadowbreaker',pid) || gamePlayedToday('shadowbreaker'));
-
-      paintDailyBadge(document.getElementById('rhythmBoxerDaily'),
-        isGateDone('warmup','fitness','rhythmboxer',pid) || gamePlayedToday('rhythmboxer'));
-
-      paintDailyBadge(document.getElementById('jumpDuckDaily'),
-        isGateDone('warmup','fitness','jumpduck',pid) || gamePlayedToday('jumpduck'));
-
-      paintDailyBadge(document.getElementById('balanceHoldDaily'),
-        isGateDone('warmup','fitness','balancehold',pid) || gamePlayedToday('balancehold'));
-
-      paintDailyBadge(document.getElementById('fitnessPlannerDaily'),
-        isGateDone('warmup','fitness','fitnessplanner',pid) || gamePlayedToday('fitnessplanner'));
+      paintDailyBadge(document.getElementById('goodjunkDaily'),      isGateDone('warmup','nutrition','goodjunk',pid) || gamePlayedToday('goodjunk'));
+      paintDailyBadge(document.getElementById('groupsDaily'),        isGateDone('warmup','nutrition','groups',pid) || gamePlayedToday('groups'));
+      paintDailyBadge(document.getElementById('hydrationDaily'),     isGateDone('warmup','nutrition','hydration',pid) || gamePlayedToday('hydration'));
+      paintDailyBadge(document.getElementById('plateDaily'),         isGateDone('warmup','nutrition','plate',pid) || gamePlayedToday('plate'));
+      paintDailyBadge(document.getElementById('handwashDaily'),      isGateDone('warmup','hygiene','handwash',pid) || gamePlayedToday('handwash'));
+      paintDailyBadge(document.getElementById('brushDaily'),         isGateDone('warmup','hygiene','brush',pid) || gamePlayedToday('brush'));
+      paintDailyBadge(document.getElementById('bathDaily'),          isGateDone('warmup','hygiene','bath',pid) || gamePlayedToday('bath'));
+      paintDailyBadge(document.getElementById('cleanObjectDaily'),   isGateDone('warmup','hygiene','cleanobject',pid) || gamePlayedToday('cleanobject'));
+      paintDailyBadge(document.getElementById('maskCoughDaily'),     isGateDone('warmup','hygiene','maskcough',pid) || gamePlayedToday('maskcough'));
+      paintDailyBadge(document.getElementById('germDetectiveDaily'), isGateDone('warmup','hygiene','germdetective',pid) || gamePlayedToday('germdetective'));
+      paintDailyBadge(document.getElementById('shadowBreakerDaily'), isGateDone('warmup','fitness','shadowbreaker',pid) || gamePlayedToday('shadowbreaker'));
+      paintDailyBadge(document.getElementById('rhythmBoxerDaily'),   isGateDone('warmup','fitness','rhythmboxer',pid) || gamePlayedToday('rhythmboxer'));
+      paintDailyBadge(document.getElementById('jumpDuckDaily'),      isGateDone('warmup','fitness','jumpduck',pid) || gamePlayedToday('jumpduck'));
+      paintDailyBadge(document.getElementById('balanceHoldDaily'),   isGateDone('warmup','fitness','balancehold',pid) || gamePlayedToday('balancehold'));
+      paintDailyBadge(document.getElementById('fitnessPlannerDaily'),isGateDone('warmup','fitness','fitnessplanner',pid) || gamePlayedToday('fitnessplanner'));
     }
 
-    function renderMissionToday(){
-      const today = hhDayKey();
-      const nutrBadge = document.getElementById('missionNutriBadge');
-      const hygBadge  = document.getElementById('missionHygBadge');
-      const fitBadge  = document.getElementById('missionFitBadge');
+    function renderGoodJunkDailyStatus(){
+      document.getElementById('gjWarmToday').textContent = childDoneText(isGateDone('warmup', 'nutrition', 'goodjunk', pid));
+      document.getElementById('gjCoolToday').textContent = childDoneText(isCooldownDone('nutrition', 'goodjunk', pid));
+    }
 
-      const nutrHint = document.getElementById('missionNutriHint');
-      const hygHint  = document.getElementById('missionHygHint');
-      const fitHint  = document.getElementById('missionFitHint');
-
-      const nutrDone = (
-        isGateDone('warmup','nutrition','goodjunk',pid) ||
-        isGateDone('warmup','nutrition','groups',pid) ||
-        isGateDone('warmup','nutrition','hydration',pid) ||
-        isGateDone('warmup','nutrition','plate',pid) ||
-        localStorage.getItem(`HHA_ZONE_DONE::nutrition::${today}`) === '1'
-      );
-
-      const hygDone = localStorage.getItem(`HHA_ZONE_DONE::hygiene::${today}`) === '1';
-      const fitDone = localStorage.getItem(`HHA_ZONE_DONE::fitness::${today}`) === '1';
-
-      paintDailyBadge(nutrBadge, nutrDone, 'เริ่มแล้ว ✅', 'ยังไม่เริ่ม');
-      paintDailyBadge(hygBadge, hygDone, 'สำเร็จแล้ว ✅', 'ยังไม่เริ่ม');
-      paintDailyBadge(fitBadge, fitDone, 'สำเร็จแล้ว ✅', 'ยังไม่เริ่ม');
-
-      nutrHint.textContent = nutrDone ? 'วันนี้เริ่มโซนโภชนาการแล้ว เก่งมาก' : 'เริ่มที่ GoodJunk หรือ Hydration ก่อน';
-      hygHint.textContent  = hygDone ? 'วันนี้ทำโซนสุขอนามัยแล้ว' : 'ลอง Handwash หรือ Brush ก่อน';
-      fitHint.textContent  = fitDone ? 'วันนี้ทำโซนออกกำลังกายแล้ว' : 'ลอง JumpDuck หรือ Shadow Breaker ก่อน';
+    function renderHydrationDailyStatus(){
+      document.getElementById('hydWarmToday').textContent = childDoneText(isGateDone('warmup', 'nutrition', 'hydration', pid));
+      document.getElementById('hydCoolToday').textContent = childDoneText(isCooldownDone('nutrition', 'hydration', pid));
     }
 
     function playedTodayByGate(cat, game){
@@ -2531,110 +2416,36 @@
     function renderZoneProgress(){
       const p = computeZoneProgress();
 
-      const nutriText = document.getElementById('nutriProgressText');
-      const hygText   = document.getElementById('hygProgressText');
-      const fitText   = document.getElementById('fitProgressText');
+      document.getElementById('nutriProgressText').textContent = `${p.nutrition.done} / ${p.nutrition.total} เกม`;
+      document.getElementById('hygProgressText').textContent   = `${p.hygiene.done} / ${p.hygiene.total} เกม`;
+      document.getElementById('fitProgressText').textContent   = `${p.fitness.done} / ${p.fitness.total} เกม`;
 
-      const nutriBar = document.getElementById('nutriProgressBar');
-      const hygBar   = document.getElementById('hygProgressBar');
-      const fitBar   = document.getElementById('fitProgressBar');
-
-      if(nutriText) nutriText.textContent = `${p.nutrition.done} / ${p.nutrition.total} เกม`;
-      if(hygText)   hygText.textContent   = `${p.hygiene.done} / ${p.hygiene.total} เกม`;
-      if(fitText)   fitText.textContent   = `${p.fitness.done} / ${p.fitness.total} เกม`;
-
-      if(nutriBar) nutriBar.style.width = `${(p.nutrition.done / p.nutrition.total) * 100}%`;
-      if(hygBar)   hygBar.style.width   = `${(p.hygiene.done / p.hygiene.total) * 100}%`;
-      if(fitBar)   fitBar.style.width   = `${(p.fitness.done / p.fitness.total) * 100}%`;
+      document.getElementById('nutriProgressBar').style.width = `${(p.nutrition.done / p.nutrition.total) * 100}%`;
+      document.getElementById('hygProgressBar').style.width   = `${(p.hygiene.done / p.hygiene.total) * 100}%`;
+      document.getElementById('fitProgressBar').style.width   = `${(p.fitness.done / p.fitness.total) * 100}%`;
     }
 
-    const PATHS = {
-      goodjunk:       './goodjunk-launcher.html',
-      groups:         './groups-vr.html',
-      hydration:      './hydration-vr.html',
-      plate:          './plate-vr.html',
+    function renderMissionToday(){
+      const today = hhDayKey();
 
-      handwash:       './hygiene-vr.html',
-      brush:          './brush-vr.html',
-      bath:           './bath-vr.html',
-      cleanObject:    './clean-objects.html',
-      maskCough:      './maskcough-vr.html',
-      germDetective:  './germ-detective-vr.html',
+      const nutrDone = (
+        isGateDone('warmup','nutrition','goodjunk',pid) ||
+        isGateDone('warmup','nutrition','groups',pid) ||
+        isGateDone('warmup','nutrition','hydration',pid) ||
+        isGateDone('warmup','nutrition','plate',pid) ||
+        localStorage.getItem(`HHA_ZONE_DONE::nutrition::${today}`) === '1'
+      );
 
-      shadowBreaker:  './shadow-breaker-vr.html',
-      rhythmBoxer:    './rhythm-boxer.html',
-      jumpDuck:       './jump-duck-vr.html',
-      balanceHold:    './balance-hold-vr.html',
-      fitnessPlanner: './fitness-planner.html'
-    };
+      const hygDone = localStorage.getItem(`HHA_ZONE_DONE::hygiene::${today}`) === '1';
+      const fitDone = localStorage.getItem(`HHA_ZONE_DONE::fitness::${today}`) === '1';
 
-    function getRecommendedGame(){
-      const nutritionOrder = [
-        { id:'goodjunk', icon:'🍔', title:'GoodJunk', meta:'เริ่มง่าย สนุก และได้การ์ดสะสม', path:'goodjunk', extra:{ mode:'solo' } },
-        { id:'hydration', icon:'💧', title:'Hydration', meta:'ฝึกเรื่องการดื่มน้ำและเล่นง่ายสำหรับเริ่มต้น', path:'hydration', extra:{ zone:'nutrition' } },
-        { id:'groups', icon:'🥚', title:'Food Groups', meta:'ต่อยอดการแยกหมวดอาหาร', path:'groups', extra:{ zone:'nutrition' } },
-        { id:'plate', icon:'🍽', title:'Balanced Plate', meta:'จัดจานอาหารให้ครบและสมดุล', path:'plate', extra:{ zone:'nutrition' } }
-      ];
+      paintDailyBadge(document.getElementById('missionNutriBadge'), nutrDone, 'เริ่มแล้ว ✅', 'ยังไม่เริ่ม');
+      paintDailyBadge(document.getElementById('missionHygBadge'), hygDone, 'สำเร็จแล้ว ✅', 'ยังไม่เริ่ม');
+      paintDailyBadge(document.getElementById('missionFitBadge'), fitDone, 'สำเร็จแล้ว ✅', 'ยังไม่เริ่ม');
 
-      const hygieneOrder = [
-        { id:'handwash', icon:'🧼', title:'Handwash', meta:'เริ่มง่ายสุดในโซนสุขอนามัย', path:'handwash', extra:{ zone:'hygiene' } },
-        { id:'brush', icon:'🪥', title:'Brush', meta:'ต่อยอดนิสัยดูแลตัวเองทุกวัน', path:'brush', extra:{ zone:'hygiene' } },
-        { id:'bath', icon:'🛁', title:'Bath', meta:'ค้นหาจุดสกปรกและอาบน้ำให้สะอาด', path:'bath', extra:{ zone:'hygiene' } },
-        { id:'germdetective', icon:'🦠', title:'Germ Detective', meta:'ไปภารกิจนักสืบเชื้อโรคกัน', path:'germDetective', extra:{ zone:'hygiene' } }
-      ];
-
-      const fitnessOrder = [
-        { id:'jumpduck', icon:'⬆️', title:'JumpDuck', meta:'เริ่มง่ายและเคลื่อนไหวชัด', path:'jumpDuck', extra:{ zone:'fitness' } },
-        { id:'shadowbreaker', icon:'🥊', title:'Shadow Breaker', meta:'ต่อยเป้าและเก็บคอมโบ', path:'shadowBreaker', extra:{ zone:'fitness' } },
-        { id:'balancehold', icon:'⚖️', title:'Balance Hold', meta:'ฝึกทรงตัวแบบสนุก', path:'balanceHold', extra:{ zone:'fitness' } },
-        { id:'rhythmboxer', icon:'🎵', title:'Rhythm Boxer', meta:'ขยับตามจังหวะ', path:'rhythmBoxer', extra:{ zone:'fitness' } }
-      ];
-
-      const allPriority = [...nutritionOrder, ...hygieneOrder, ...fitnessOrder];
-      const firstNotDone = allPriority.find(g => !gamePlayedToday(g.id));
-
-      return firstNotDone || allPriority[0];
-    }
-
-    function getNextGameAfterLastRun(){
-      try{
-        const raw = localStorage.getItem('HHA_LAST_SUMMARY') || '';
-        if(!raw) return getRecommendedGame();
-        const j = JSON.parse(raw);
-        const lastGame = String(j.game || '').toLowerCase();
-
-        const sequence = [
-          { id:'goodjunk', icon:'🍔', title:'GoodJunk', meta:'เล่นต่อที่ GoodJunk', path:'goodjunk', extra:{ mode:'solo' } },
-          { id:'hydration', icon:'💧', title:'Hydration', meta:'เล่นต่อที่ Hydration', path:'hydration', extra:{ zone:'nutrition' } },
-          { id:'groups', icon:'🥚', title:'Food Groups', meta:'เล่นต่อที่ Food Groups', path:'groups', extra:{ zone:'nutrition' } },
-          { id:'plate', icon:'🍽', title:'Balanced Plate', meta:'เล่นต่อที่ Balanced Plate', path:'plate', extra:{ zone:'nutrition' } },
-          { id:'handwash', icon:'🧼', title:'Handwash', meta:'เล่นต่อที่ Handwash', path:'handwash', extra:{ zone:'hygiene' } },
-          { id:'brush', icon:'🪥', title:'Brush', meta:'เล่นต่อที่ Brush', path:'brush', extra:{ zone:'hygiene' } },
-          { id:'bath', icon:'🛁', title:'Bath', meta:'เล่นต่อที่ Bath', path:'bath', extra:{ zone:'hygiene' } },
-          { id:'shadowbreaker', icon:'🥊', title:'Shadow Breaker', meta:'เล่นต่อที่ Shadow Breaker', path:'shadowBreaker', extra:{ zone:'fitness' } },
-          { id:'jumpduck', icon:'⬆️', title:'JumpDuck', meta:'เล่นต่อที่ JumpDuck', path:'jumpDuck', extra:{ zone:'fitness' } },
-          { id:'balancehold', icon:'⚖️', title:'Balance Hold', meta:'เล่นต่อที่ Balance Hold', path:'balanceHold', extra:{ zone:'fitness' } }
-        ];
-
-        const idx = sequence.findIndex(x => x.id === lastGame);
-        if(idx >= 0 && idx < sequence.length - 1) return sequence[idx + 1];
-        return getRecommendedGame();
-      }catch(_){
-        return getRecommendedGame();
-      }
-    }
-
-    function renderSmartStart(){
-      const card = getRecommendedGame();
-      const iconEl = document.getElementById('smartGameIcon');
-      const titleEl = document.getElementById('smartGameTitle');
-      const metaEl = document.getElementById('smartGameMeta');
-      const linkEl = document.getElementById('smartGameLink');
-
-      if(iconEl) iconEl.textContent = card.icon;
-      if(titleEl) titleEl.textContent = `เกมแนะนำตอนนี้: ${card.title}`;
-      if(metaEl) metaEl.textContent = card.meta;
-      if(linkEl) linkEl.href = buildUrl(PATHS[card.path], card.extra || {});
+      document.getElementById('missionNutriHint').textContent = nutrDone ? 'วันนี้เริ่มโลกโภชนาการแล้ว เก่งมาก' : 'เริ่มที่ GoodJunk หรือ Hydration ก่อน';
+      document.getElementById('missionHygHint').textContent  = hygDone ? 'วันนี้ทำโลกสุขอนามัยแล้ว' : 'ลอง Handwash หรือ Brush ก่อน';
+      document.getElementById('missionFitHint').textContent  = fitDone ? 'วันนี้ทำโลกออกกำลังกายแล้ว' : 'ลอง JumpDuck หรือ Shadow Breaker ก่อน';
     }
 
     function loadHubRewards(){
@@ -2667,13 +2478,9 @@
 
     function renderRewardBar(){
       const reward = loadHubRewards();
-      const starsEl = document.getElementById('hubStars');
-      const coinsEl = document.getElementById('hubCoins');
-      const streakEl = document.getElementById('hubDailyStreak');
-
-      if(starsEl) starsEl.textContent = String(reward.stars || 0);
-      if(coinsEl) coinsEl.textContent = String(reward.coins || 0);
-      if(streakEl) streakEl.textContent = String(reward.streak || 0);
+      document.getElementById('hubStars').textContent = String(reward.stars || 0);
+      document.getElementById('hubCoins').textContent = String(reward.coins || 0);
+      document.getElementById('hubDailyStreak').textContent = String(reward.streak || 0);
     }
 
     function renderTodayReward(){
@@ -2688,29 +2495,101 @@
         Number(zone.fitness.done === zone.fitness.total);
 
       if(completedZones >= 3){
-        if(iconEl) iconEl.textContent = '👑';
-        if(titleEl) titleEl.textContent = 'รางวัลวันนี้: Super Hero Crown';
-        if(metaEl) metaEl.textContent = 'วันนี้ทำครบทุกโซนแล้ว เก่งสุดยอดเลย!';
+        iconEl.textContent = '👑';
+        titleEl.textContent = 'รางวัลวันนี้: Super Hero Crown';
+        metaEl.textContent = 'วันนี้ทำครบทุกโลกแล้ว เก่งสุดยอดเลย!';
         return;
       }
 
       if(completedZones >= 2){
-        if(iconEl) iconEl.textContent = '🏆';
-        if(titleEl) titleEl.textContent = 'รางวัลวันนี้: Mega Trophy';
-        if(metaEl) metaEl.textContent = 'ทำครบอีก 1 โซน จะได้รางวัลใหญ่กว่าเดิม';
+        iconEl.textContent = '🏆';
+        titleEl.textContent = 'รางวัลวันนี้: Mega Trophy';
+        metaEl.textContent = 'ทำครบอีก 1 โลก จะได้รางวัลใหญ่กว่าเดิม';
         return;
       }
 
       if(completedZones >= 1){
-        if(iconEl) iconEl.textContent = '🎁';
-        if(titleEl) titleEl.textContent = 'รางวัลวันนี้: Mystery Gift';
-        if(metaEl) metaEl.textContent = 'ทำอีก 1 โซนเพื่ออัปเกรดของรางวัลวันนี้';
+        iconEl.textContent = '🎁';
+        titleEl.textContent = 'รางวัลวันนี้: Mystery Gift';
+        metaEl.textContent = 'ทำอีก 1 โลกเพื่ออัปเกรดของรางวัลวันนี้';
         return;
       }
 
-      if(iconEl) iconEl.textContent = '✨';
-      if(titleEl) titleEl.textContent = 'ของรางวัลวันนี้';
-      if(metaEl) metaEl.textContent = 'เล่นให้ครบ 1 โซนเพื่อรับรางวัลพิเศษวันนี้';
+      iconEl.textContent = '✨';
+      titleEl.textContent = 'ของรางวัลวันนี้';
+      metaEl.textContent = 'เล่นให้ครบ 1 โลกเพื่อรับรางวัลพิเศษวันนี้';
+    }
+
+    const PATHS = {
+      goodjunk:       './goodjunk-launcher.html',
+      groups:         './groups-vr.html',
+      hydration:      './hydration-vr.html',
+      plate:          './plate-vr.html',
+
+      handwash:       './hygiene-vr.html',
+      brush:          './brush-vr.html',
+      bath:           './bath-vr.html',
+      cleanObject:    './clean-objects.html',
+      maskCough:      './maskcough-vr.html',
+      germDetective:  './germ-detective-vr.html',
+
+      shadowBreaker:  './shadow-breaker-vr.html',
+      rhythmBoxer:    './rhythm-boxer.html',
+      jumpDuck:       './jump-duck-vr.html',
+      balanceHold:    './balance-hold-vr.html',
+      fitnessPlanner: './fitness-planner.html'
+    };
+
+    function getRecommendedGame(){
+      const priority = [
+        { id:'goodjunk', icon:'🍔', title:'GoodJunk', meta:'เริ่มง่าย สนุก และได้การ์ดสะสม', path:'goodjunk', extra:{ mode:'solo' } },
+        { id:'hydration', icon:'💧', title:'Hydration', meta:'ฝึกเรื่องการดื่มน้ำและเล่นง่ายสำหรับเริ่มต้น', path:'hydration', extra:{ zone:'nutrition' } },
+        { id:'handwash', icon:'🧼', title:'Handwash', meta:'เริ่มง่ายสุดในโลกสุขอนามัย', path:'handwash', extra:{ zone:'hygiene' } },
+        { id:'jumpduck', icon:'⬆️', title:'JumpDuck', meta:'เริ่มง่ายและเคลื่อนไหวชัด', path:'jumpDuck', extra:{ zone:'fitness' } },
+        { id:'groups', icon:'🥚', title:'Food Groups', meta:'ต่อยอดการแยกหมวดอาหาร', path:'groups', extra:{ zone:'nutrition' } },
+        { id:'brush', icon:'🪥', title:'Brush', meta:'ต่อยอดนิสัยดูแลตัวเองทุกวัน', path:'brush', extra:{ zone:'hygiene' } },
+        { id:'shadowbreaker', icon:'🥊', title:'Shadow Breaker', meta:'ต่อยเป้าและเก็บคอมโบ', path:'shadowBreaker', extra:{ zone:'fitness' } },
+        { id:'plate', icon:'🍽', title:'Balanced Plate', meta:'จัดจานอาหารให้ครบและสมดุล', path:'plate', extra:{ zone:'nutrition' } }
+      ];
+
+      const firstNotDone = priority.find(g => !gamePlayedToday(g.id));
+      return firstNotDone || priority[0];
+    }
+
+    function getNextGameAfterLastRun(){
+      try{
+        const raw = localStorage.getItem('HHA_LAST_SUMMARY') || '';
+        if(!raw) return getRecommendedGame();
+        const j = JSON.parse(raw);
+        const lastGame = String(j.game || '').toLowerCase();
+
+        const sequence = [
+          { id:'goodjunk', path:'goodjunk', extra:{ mode:'solo' } },
+          { id:'hydration', path:'hydration', extra:{ zone:'nutrition' } },
+          { id:'groups', path:'groups', extra:{ zone:'nutrition' } },
+          { id:'plate', path:'plate', extra:{ zone:'nutrition' } },
+          { id:'handwash', path:'handwash', extra:{ zone:'hygiene' } },
+          { id:'brush', path:'brush', extra:{ zone:'hygiene' } },
+          { id:'bath', path:'bath', extra:{ zone:'hygiene' } },
+          { id:'shadowbreaker', path:'shadowBreaker', extra:{ zone:'fitness' } },
+          { id:'jumpduck', path:'jumpDuck', extra:{ zone:'fitness' } },
+          { id:'balancehold', path:'balanceHold', extra:{ zone:'fitness' } }
+        ];
+
+        const idx = sequence.findIndex(x => x.id === lastGame);
+        if(idx >= 0 && idx < sequence.length - 1) return sequence[idx + 1];
+        return getRecommendedGame();
+      }catch(_){
+        return getRecommendedGame();
+      }
+    }
+
+    function renderSmartStart(){
+      const card = getRecommendedGame();
+      document.getElementById('smartGameIcon').textContent = card.icon;
+      document.getElementById('smartGameTitle').textContent = `เกมแนะนำตอนนี้: ${card.title}`;
+      document.getElementById('smartGameMeta').textContent = card.meta;
+      document.getElementById('smartGameLink').href = buildUrl(PATHS[card.path], card.extra || {});
     }
 
     function pickRandomGame(){
@@ -2733,278 +2612,291 @@
 
     function renderMissionBoard(){
       const zone = computeZoneProgress();
+      document.getElementById('boardNutriMeta').textContent = `เล่นแล้ว ${zone.nutrition.done}/${zone.nutrition.total} เกม • เริ่ม GoodJunk → Hydration → Plate`;
+      document.getElementById('boardHygMeta').textContent  = `เล่นแล้ว ${zone.hygiene.done}/${zone.hygiene.total} เกม • เริ่ม Handwash → Brush → Bath`;
+      document.getElementById('boardFitMeta').textContent  = `เล่นแล้ว ${zone.fitness.done}/${zone.fitness.total} เกม • เริ่ม JumpDuck → Shadow Breaker → Balance Hold`;
+    }
 
-      const nutrMeta = document.getElementById('boardNutriMeta');
-      const hygMeta  = document.getElementById('boardHygMeta');
-      const fitMeta  = document.getElementById('boardFitMeta');
+    function decorateWorldZones(){
+      const nutritionStarted = document.getElementById('goodjunkDaily')?.classList.contains('done') || document.getElementById('hydrationDaily')?.classList.contains('done');
+      const hygieneStarted = document.getElementById('handwashDaily')?.classList.contains('done');
+      const fitnessStarted = document.getElementById('jumpDuckDaily')?.classList.contains('done');
 
-      if(nutrMeta) nutrMeta.textContent = `เล่นแล้ว ${zone.nutrition.done}/${zone.nutrition.total} เกม • เริ่ม GoodJunk → Hydration → Plate`;
-      if(hygMeta)  hygMeta.textContent  = `เล่นแล้ว ${zone.hygiene.done}/${zone.hygiene.total} เกม • เริ่ม Handwash → Brush → Bath`;
-      if(fitMeta)  fitMeta.textContent  = `เล่นแล้ว ${zone.fitness.done}/${zone.fitness.total} เกม • เริ่ม JumpDuck → Shadow Breaker → Balance Hold`;
+      document.querySelectorAll('.worldZone.nutrition').forEach(el=>{
+        el.style.borderColor = nutritionStarted ? 'rgba(34,197,94,.34)' : 'rgba(255,255,255,.14)';
+      });
+      document.querySelectorAll('.worldZone.hygiene').forEach(el=>{
+        el.style.borderColor = hygieneStarted ? 'rgba(34,211,238,.34)' : 'rgba(255,255,255,.14)';
+      });
+      document.querySelectorAll('.worldZone.fitness').forEach(el=>{
+        el.style.borderColor = fitnessStarted ? 'rgba(244,114,182,.30)' : 'rgba(255,255,255,.14)';
+      });
+    }
+
+    function setNodeState(nodeId, chipId, state, label){
+      const node = document.getElementById(nodeId);
+      const chip = document.getElementById(chipId);
+      if(!node || !chip) return;
+
+      node.classList.remove('start','recommended','done','locked');
+      chip.className = 'nodeChip';
+
+      if(state === 'done'){
+        node.classList.add('done');
+        chip.classList.add('done');
+      }else if(state === 'next'){
+        node.classList.add('recommended');
+        chip.classList.add('next');
+      }else if(state === 'locked'){
+        node.classList.add('locked');
+        chip.classList.add('locked');
+      }else if(state === 'start'){
+        node.classList.add('start');
+        chip.classList.add('start');
+      }
+
+      chip.textContent = label;
+    }
+
+    function renderPathLocks(){
+      const nutr = {
+        goodjunk: gamePlayedToday('goodjunk') || isGateDone('warmup','nutrition','goodjunk',pid),
+        hydration: gamePlayedToday('hydration') || isGateDone('warmup','nutrition','hydration',pid),
+        groups: gamePlayedToday('groups') || isGateDone('warmup','nutrition','groups',pid),
+        plate: gamePlayedToday('plate') || isGateDone('warmup','nutrition','plate',pid)
+      };
+
+      setNodeState('linkGoodjunk','chipGoodjunk', nutr.goodjunk ? 'done' : 'start', nutr.goodjunk ? 'เล่นแล้ว' : 'จุดเริ่ม');
+      setNodeState('linkHydration','chipHydration',
+        nutr.hydration ? 'done' : (!nutr.goodjunk ? 'locked' : 'next'),
+        nutr.hydration ? 'เล่นแล้ว' : (!nutr.goodjunk ? 'ยังล็อกอยู่' : 'ด่านถัดไป')
+      );
+      setNodeState('linkGroups','chipGroups',
+        nutr.groups ? 'done' : ((nutr.goodjunk || nutr.hydration) ? 'next' : 'locked'),
+        nutr.groups ? 'เล่นแล้ว' : ((nutr.goodjunk || nutr.hydration) ? 'ด่านถัดไป' : 'ยังล็อกอยู่')
+      );
+      setNodeState('linkPlate','chipPlate',
+        nutr.plate ? 'done' : ((nutr.goodjunk || nutr.hydration || nutr.groups) ? 'next' : 'locked'),
+        nutr.plate ? 'เล่นแล้ว' : ((nutr.goodjunk || nutr.hydration || nutr.groups) ? 'ด่านปลายทาง' : 'ยังล็อกอยู่')
+      );
+
+      const hyg = {
+        handwash: gamePlayedToday('handwash') || isGateDone('warmup','hygiene','handwash',pid),
+        brush: gamePlayedToday('brush') || isGateDone('warmup','hygiene','brush',pid),
+        bath: gamePlayedToday('bath') || isGateDone('warmup','hygiene','bath',pid),
+        germ: gamePlayedToday('germdetective') || isGateDone('warmup','hygiene','germdetective',pid),
+        clean: gamePlayedToday('cleanobject') || isGateDone('warmup','hygiene','cleanobject',pid),
+        mask: gamePlayedToday('maskcough') || isGateDone('warmup','hygiene','maskcough',pid)
+      };
+
+      setNodeState('linkHandwash','chipHandwash', hyg.handwash ? 'done' : 'start', hyg.handwash ? 'เล่นแล้ว' : 'จุดเริ่ม');
+      setNodeState('linkBrush','chipBrush',
+        hyg.brush ? 'done' : (!hyg.handwash ? 'locked' : 'next'),
+        hyg.brush ? 'เล่นแล้ว' : (!hyg.handwash ? 'ยังล็อกอยู่' : 'ด่านถัดไป')
+      );
+      setNodeState('linkBath','chipBath',
+        hyg.bath ? 'done' : ((hyg.handwash || hyg.brush) ? 'next' : 'locked'),
+        hyg.bath ? 'เล่นแล้ว' : ((hyg.handwash || hyg.brush) ? 'ด่านถัดไป' : 'ยังล็อกอยู่')
+      );
+      setNodeState('linkGermDetective','chipGerm',
+        hyg.germ ? 'done' : ((hyg.handwash || hyg.brush || hyg.bath) ? 'next' : 'locked'),
+        hyg.germ ? 'เล่นแล้ว' : ((hyg.handwash || hyg.brush || hyg.bath) ? 'ด่านท้าทาย' : 'ยังล็อกอยู่')
+      );
+      setNodeState('linkCleanObject','chipCleanObject',
+        hyg.clean ? 'done' : ((hyg.handwash || hyg.brush) ? 'next' : 'locked'),
+        hyg.clean ? 'เล่นแล้ว' : ((hyg.handwash || hyg.brush) ? 'ด่านเสริม' : 'ยังล็อกอยู่')
+      );
+      setNodeState('linkMaskCough','chipMaskCough',
+        hyg.mask ? 'done' : ((hyg.handwash || hyg.brush) ? 'next' : 'locked'),
+        hyg.mask ? 'เล่นแล้ว' : ((hyg.handwash || hyg.brush) ? 'ด่านเสริม' : 'ยังล็อกอยู่')
+      );
+
+      const fit = {
+        jumpduck: gamePlayedToday('jumpduck') || isGateDone('warmup','fitness','jumpduck',pid),
+        shadowbreaker: gamePlayedToday('shadowbreaker') || isGateDone('warmup','fitness','shadowbreaker',pid),
+        balancehold: gamePlayedToday('balancehold') || isGateDone('warmup','fitness','balancehold',pid),
+        rhythmboxer: gamePlayedToday('rhythmboxer') || isGateDone('warmup','fitness','rhythmboxer',pid),
+        planner: gamePlayedToday('fitnessplanner') || isGateDone('warmup','fitness','fitnessplanner',pid)
+      };
+
+      setNodeState('linkJumpDuck','chipJumpDuck', fit.jumpduck ? 'done' : 'start', fit.jumpduck ? 'เล่นแล้ว' : 'จุดเริ่ม');
+      setNodeState('linkShadowBreaker','chipShadowBreaker',
+        fit.shadowbreaker ? 'done' : (!fit.jumpduck ? 'locked' : 'next'),
+        fit.shadowbreaker ? 'เล่นแล้ว' : (!fit.jumpduck ? 'ยังล็อกอยู่' : 'ด่านถัดไป')
+      );
+      setNodeState('linkBalanceHold','chipBalanceHold',
+        fit.balancehold ? 'done' : ((fit.jumpduck || fit.shadowbreaker) ? 'next' : 'locked'),
+        fit.balancehold ? 'เล่นแล้ว' : ((fit.jumpduck || fit.shadowbreaker) ? 'ด่านท้าทาย' : 'ยังล็อกอยู่')
+      );
+      setNodeState('linkRhythmBoxer','chipRhythmBoxer',
+        fit.rhythmboxer ? 'done' : ((fit.jumpduck || fit.shadowbreaker) ? 'next' : 'locked'),
+        fit.rhythmboxer ? 'เล่นแล้ว' : ((fit.jumpduck || fit.shadowbreaker) ? 'ด่านเสริม' : 'ยังล็อกอยู่')
+      );
+      setNodeState('linkFitnessPlanner','chipFitnessPlanner',
+        fit.planner ? 'done' : ((fit.jumpduck || fit.shadowbreaker) ? 'next' : 'locked'),
+        fit.planner ? 'เล่นแล้ว' : ((fit.jumpduck || fit.shadowbreaker) ? 'ด่านเสริม' : 'ยังล็อกอยู่')
+      );
     }
 
     const btnGJsolo = document.getElementById('btnGJsolo');
-    const btnGJpro = document.getElementById('btnGJpro');
-    const btnGJbattle = document.getElementById('btnGJbattle');
     const btnHydrationStart = document.getElementById('btnHydrationStart');
 
-    const linkGoodjunk = document.getElementById('linkGoodjunk');
-    const linkGroups = document.getElementById('linkGroups');
-    const linkHydration = document.getElementById('linkHydration');
-    const linkPlate = document.getElementById('linkPlate');
-
-    const linkHandwash = document.getElementById('linkHandwash');
-    const linkBrush = document.getElementById('linkBrush');
-    const linkBath = document.getElementById('linkBath');
-    const linkCleanObject = document.getElementById('linkCleanObject');
-    const linkMaskCough = document.getElementById('linkMaskCough');
-    const linkGermDetective = document.getElementById('linkGermDetective');
-
-    const linkShadowBreaker = document.getElementById('linkShadowBreaker');
-    const linkRhythmBoxer = document.getElementById('linkRhythmBoxer');
-    const linkJumpDuck = document.getElementById('linkJumpDuck');
-    const linkBalanceHold = document.getElementById('linkBalanceHold');
-    const linkFitnessPlanner = document.getElementById('linkFitnessPlanner');
-
-    linkGoodjunk.href  = buildUrl(PATHS.goodjunk,   { mode:'solo' });
-    linkGroups.href    = buildUrl(PATHS.groups,     { zone:'nutrition' });
-    linkHydration.href = buildUrl(PATHS.hydration,  { zone:'nutrition' });
-    linkPlate.href     = buildUrl(PATHS.plate,      { zone:'nutrition' });
-
-    if(linkHandwash)      linkHandwash.href      = buildUrl(PATHS.handwash,      { zone:'hygiene' });
-    if(linkBrush)         linkBrush.href         = buildUrl(PATHS.brush,         { zone:'hygiene' });
-    if(linkBath)          linkBath.href          = buildUrl(PATHS.bath,          { zone:'hygiene' });
-    if(linkCleanObject)   linkCleanObject.href   = buildUrl(PATHS.cleanObject,   { zone:'hygiene' });
-    if(linkMaskCough)     linkMaskCough.href     = buildUrl(PATHS.maskCough,     { zone:'hygiene' });
-    if(linkGermDetective) linkGermDetective.href = buildUrl(PATHS.germDetective, { zone:'hygiene' });
-
-    if(linkShadowBreaker)  linkShadowBreaker.href  = buildUrl(PATHS.shadowBreaker,  { zone:'fitness' });
-    if(linkRhythmBoxer)    linkRhythmBoxer.href    = buildUrl(PATHS.rhythmBoxer,    { zone:'fitness' });
-    if(linkJumpDuck)       linkJumpDuck.href       = buildUrl(PATHS.jumpDuck,       { zone:'fitness' });
-    if(linkBalanceHold)    linkBalanceHold.href    = buildUrl(PATHS.balanceHold,    { zone:'fitness' });
-    if(linkFitnessPlanner) linkFitnessPlanner.href = buildUrl(PATHS.fitnessPlanner, { zone:'fitness' });
+    document.getElementById('linkGoodjunk').href      = buildUrl(PATHS.goodjunk, { mode:'solo' });
+    document.getElementById('linkGroups').href        = buildUrl(PATHS.groups, { zone:'nutrition' });
+    document.getElementById('linkHydration').href     = buildUrl(PATHS.hydration, { zone:'nutrition' });
+    document.getElementById('linkPlate').href         = buildUrl(PATHS.plate, { zone:'nutrition' });
+    document.getElementById('linkHandwash').href      = buildUrl(PATHS.handwash, { zone:'hygiene' });
+    document.getElementById('linkBrush').href         = buildUrl(PATHS.brush, { zone:'hygiene' });
+    document.getElementById('linkBath').href          = buildUrl(PATHS.bath, { zone:'hygiene' });
+    document.getElementById('linkCleanObject').href   = buildUrl(PATHS.cleanObject, { zone:'hygiene' });
+    document.getElementById('linkMaskCough').href     = buildUrl(PATHS.maskCough, { zone:'hygiene' });
+    document.getElementById('linkGermDetective').href = buildUrl(PATHS.germDetective, { zone:'hygiene' });
+    document.getElementById('linkShadowBreaker').href = buildUrl(PATHS.shadowBreaker, { zone:'fitness' });
+    document.getElementById('linkRhythmBoxer').href   = buildUrl(PATHS.rhythmBoxer, { zone:'fitness' });
+    document.getElementById('linkJumpDuck').href      = buildUrl(PATHS.jumpDuck, { zone:'fitness' });
+    document.getElementById('linkBalanceHold').href   = buildUrl(PATHS.balanceHold, { zone:'fitness' });
+    document.getElementById('linkFitnessPlanner').href= buildUrl(PATHS.fitnessPlanner, { zone:'fitness' });
 
     btnGJsolo.onclick = ()=> location.href = buildUrl(PATHS.goodjunk, { mode:'solo' });
+    btnHydrationStart.onclick = ()=> location.href = buildUrl(PATHS.hydration, { zone:'nutrition' });
 
-    btnGJpro.onclick  = ()=> location.href = buildUrl(PATHS.goodjunk, {
-      mode:'solo',
-      diff:'hard',
-      pro:'1',
-      auto:'0'
-    });
-
-    btnGJbattle.onclick = ()=> {
-      const room = String(qs('room','P5A')) || 'P5A';
-      location.href = buildUrl(PATHS.goodjunk, {
-        mode:'battle',
-        room,
-        auto:'1'
-      });
-    };
-
-    if(btnHydrationStart){
-      btnHydrationStart.onclick = ()=>{
-        location.href = buildUrl(PATHS.hydration, { zone:'nutrition' });
-      };
-    }
-
-    const btnHeroShow = document.getElementById('btnHeroShow');
-    const btnHeroReset = document.getElementById('btnHeroReset');
-
-    btnHeroShow.onclick = ()=>{
+    document.getElementById('btnHeroShow').onclick = ()=>{
       const h = loadHero();
       alert(`HERO\nPID: ${h.pid}\nNick: ${h.nick}\nLV: ${h.lvl}\nXP: ${h.xp}\n\n(localStorage: HHA_PROFILE:${pid})`);
     };
 
-    btnHeroReset.onclick = ()=>{
-      try{
-        if(!confirm('รีเซ็ต Hero ของ PID นี้หรือไม่? (จะลบ XP/LV)')) return;
-        const h = { pid, nick: pid, xp:0, lvl:1 };
-        saveHero(h);
-        try{ localStorage.setItem(`HHA_HERO_XP:${pid}`, '0'); }catch(_){}
-        renderHero();
-        alert('รีเซ็ตฮีโร่เรียบร้อย ✅');
-      }catch(_){}
+    document.getElementById('btnHeroReset').onclick = ()=>{
+      if(!confirm('รีเซ็ต Hero ของ PID นี้หรือไม่? (จะลบ XP/LV)')) return;
+      const h = { pid, nick: pid, xp:0, lvl:1 };
+      saveHero(h);
+      try{ localStorage.setItem(`HHA_HERO_XP:${pid}`, '0'); }catch(_){}
+      renderHero();
+      renderRewardBar();
+      alert('รีเซ็ตฮีโร่เรียบร้อย ✅');
     };
 
-    const btnOpenGJLauncher = document.getElementById('btnOpenGJLauncher');
-    const btnResetCardBook = document.getElementById('btnResetCardBook');
-    const btnOpenJDLauncher = document.getElementById('btnOpenJDLauncher');
-    const btnOpenJDGallery = document.getElementById('btnOpenJDGallery');
-    const btnResetJDCardBook = document.getElementById('btnResetJDCardBook');
-    const linkJDGallery = document.getElementById('linkJDGallery');
-
-    btnOpenGJLauncher.onclick = ()=>{
+    document.getElementById('btnOpenGJLauncher').onclick = ()=>{
       location.href = buildUrl(PATHS.goodjunk, { mode:'solo' });
     };
 
-    btnResetCardBook.onclick = ()=>{
-      try{
-        if(!confirm('ล้าง Card Book ของ PID นี้หรือไม่?')) return;
-        saveCardBook(pid, { S:0, A:0, B:0, C:0, total:0 });
-        localStorage.removeItem(`HHA_LAST_CARD:${pid}`);
-        renderCardBook();
-        renderTrophyShelf();
-        renderLastRun();
-        renderRewardBar();
-        alert('ล้างสมุดการ์ดเรียบร้อย ✅');
-      }catch(_){}
+    document.getElementById('btnResetCardBook').onclick = ()=>{
+      if(!confirm('ล้าง Card Book ของ PID นี้หรือไม่?')) return;
+      saveCardBook(pid, { S:0, A:0, B:0, C:0, total:0 });
+      localStorage.removeItem(`HHA_LAST_CARD:${pid}`);
+      renderCardBook();
+      renderTrophyShelf();
+      renderRewardBar();
+      alert('ล้างสมุดการ์ดเรียบร้อย ✅');
     };
 
-    if(btnOpenJDLauncher){
-      btnOpenJDLauncher.onclick = ()=>{
-        location.href = buildUrl(PATHS.jumpDuck, { zone:'fitness' });
-      };
-    }
+    document.getElementById('btnOpenJDLauncher').onclick = ()=>{
+      location.href = buildUrl(PATHS.jumpDuck, { zone:'fitness' });
+    };
 
-    if(btnOpenJDGallery){
-      btnOpenJDGallery.onclick = ()=>{
-        location.href = buildUrl('./jump-duck-gallery.html', { zone:'fitness' });
-      };
-    }
+    document.getElementById('btnOpenJDGallery').onclick = ()=>{
+      location.href = buildUrl('./jump-duck-gallery.html', { zone:'fitness' });
+    };
 
-    if(linkJDGallery){
-      linkJDGallery.href = buildUrl('./jump-duck-gallery.html', { zone:'fitness' });
-    }
+    document.getElementById('linkJDGallery').href = buildUrl('./jump-duck-gallery.html', { zone:'fitness' });
 
-    if(btnResetJDCardBook){
-      btnResetJDCardBook.onclick = ()=>{
-        try{
-          if(!confirm('ล้าง JumpDuck Card Book ของ PID นี้หรือไม่?')) return;
-          saveJDCardBook(pid, { S:0, A:0, B:0, C:0, total:0 });
-          localStorage.removeItem(`JD_LAST_CARD:${pid}`);
-          localStorage.removeItem(`JD_PROFILE:${pid}`);
-          localStorage.removeItem(`HHA_JD_BEST:${pid}`);
-          renderJDCardBook();
-          renderFitnessJumpDuckShelf();
-          renderRewardBar();
-          alert('ล้างการ์ด JumpDuck เรียบร้อย ✅');
-        }catch(_){}
-      };
-    }
+    document.getElementById('btnResetJDCardBook').onclick = ()=>{
+      if(!confirm('ล้าง JumpDuck Card Book ของ PID นี้หรือไม่?')) return;
+      saveJDCardBook(pid, { S:0, A:0, B:0, C:0, total:0 });
+      localStorage.removeItem(`JD_LAST_CARD:${pid}`);
+      localStorage.removeItem(`JD_PROFILE:${pid}`);
+      localStorage.removeItem(`HHA_JD_BEST:${pid}`);
+      renderJDCardBook();
+      renderFitnessJumpDuckShelf();
+      renderRewardBar();
+      alert('ล้างการ์ด JumpDuck เรียบร้อย ✅');
+    };
 
-    const btnStartRecommended = document.getElementById('btnStartRecommended');
-    const btnStartNextGame = document.getElementById('btnStartNextGame');
-    const btnNutriRecommended = document.getElementById('btnNutriRecommended');
-    const btnHygRecommended = document.getElementById('btnHygRecommended');
-    const btnFitRecommended = document.getElementById('btnFitRecommended');
+    document.getElementById('btnStartRecommended').onclick = ()=>{
+      const g = getRecommendedGame();
+      location.href = buildUrl(PATHS[g.path], g.extra || {});
+    };
 
-    if(btnStartRecommended){
-      btnStartRecommended.onclick = ()=>{
-        const g = getRecommendedGame();
-        location.href = buildUrl(PATHS[g.path], g.extra || {});
-      };
-    }
+    document.getElementById('btnStartNextGame').onclick = ()=>{
+      const g = getNextGameAfterLastRun();
+      location.href = buildUrl(PATHS[g.path], g.extra || {});
+    };
 
-    if(btnStartNextGame){
-      btnStartNextGame.onclick = ()=>{
-        const g = getNextGameAfterLastRun();
-        location.href = buildUrl(PATHS[g.path], g.extra || {});
-      };
-    }
+    document.getElementById('btnQuickEasy').onclick = ()=>{
+      location.href = buildUrl(PATHS.goodjunk, { mode:'solo' });
+    };
 
-    if(btnNutriRecommended){
-      btnNutriRecommended.onclick = ()=>{
-        const options = [
-          { id:'goodjunk', path:'goodjunk', extra:{ mode:'solo' } },
-          { id:'hydration', path:'hydration', extra:{ zone:'nutrition' } },
-          { id:'groups', path:'groups', extra:{ zone:'nutrition' } },
-          { id:'plate', path:'plate', extra:{ zone:'nutrition' } }
-        ];
-        const pick = options.find(x => !gamePlayedToday(x.id)) || options[0];
-        location.href = buildUrl(PATHS[pick.path], pick.extra || {});
-      };
-    }
+    document.getElementById('btnQuickResume').onclick = ()=>{
+      const g = getNextGameAfterLastRun();
+      location.href = buildUrl(PATHS[g.path], g.extra || {});
+    };
 
-    if(btnHygRecommended){
-      btnHygRecommended.onclick = ()=>{
-        const options = [
-          { id:'handwash', path:'handwash', extra:{ zone:'hygiene' } },
-          { id:'brush', path:'brush', extra:{ zone:'hygiene' } },
-          { id:'bath', path:'bath', extra:{ zone:'hygiene' } },
-          { id:'germdetective', path:'germDetective', extra:{ zone:'hygiene' } }
-        ];
-        const pick = options.find(x => !gamePlayedToday(x.id)) || options[0];
-        location.href = buildUrl(PATHS[pick.path], pick.extra || {});
-      };
-    }
+    document.getElementById('btnQuickRandom').onclick = ()=>{
+      const g = pickRandomGame();
+      location.href = buildUrl(PATHS[g.path], g.extra || {});
+    };
 
-    if(btnFitRecommended){
-      btnFitRecommended.onclick = ()=>{
-        const options = [
-          { id:'jumpduck', path:'jumpDuck', extra:{ zone:'fitness' } },
-          { id:'shadowbreaker', path:'shadowBreaker', extra:{ zone:'fitness' } },
-          { id:'balancehold', path:'balanceHold', extra:{ zone:'fitness' } },
-          { id:'rhythmboxer', path:'rhythmBoxer', extra:{ zone:'fitness' } }
-        ];
-        const pick = options.find(x => !gamePlayedToday(x.id)) || options[0];
-        location.href = buildUrl(PATHS[pick.path], pick.extra || {});
-      };
-    }
+    document.getElementById('btnBoardNutri').onclick = ()=>{
+      const options = [
+        { id:'goodjunk', path:'goodjunk', extra:{ mode:'solo' } },
+        { id:'hydration', path:'hydration', extra:{ zone:'nutrition' } },
+        { id:'plate', path:'plate', extra:{ zone:'nutrition' } }
+      ];
+      const pick = options.find(x => !gamePlayedToday(x.id)) || options[0];
+      location.href = buildUrl(PATHS[pick.path], pick.extra || {});
+    };
 
-    const btnQuickEasy = document.getElementById('btnQuickEasy');
-    const btnQuickResume = document.getElementById('btnQuickResume');
-    const btnQuickRandom = document.getElementById('btnQuickRandom');
+    document.getElementById('btnBoardHyg').onclick = ()=>{
+      const options = [
+        { id:'handwash', path:'handwash', extra:{ zone:'hygiene' } },
+        { id:'brush', path:'brush', extra:{ zone:'hygiene' } },
+        { id:'bath', path:'bath', extra:{ zone:'hygiene' } }
+      ];
+      const pick = options.find(x => !gamePlayedToday(x.id)) || options[0];
+      location.href = buildUrl(PATHS[pick.path], pick.extra || {});
+    };
 
-    const btnBoardNutri = document.getElementById('btnBoardNutri');
-    const btnBoardHyg = document.getElementById('btnBoardHyg');
-    const btnBoardFit = document.getElementById('btnBoardFit');
+    document.getElementById('btnBoardFit').onclick = ()=>{
+      const options = [
+        { id:'jumpduck', path:'jumpDuck', extra:{ zone:'fitness' } },
+        { id:'shadowbreaker', path:'shadowBreaker', extra:{ zone:'fitness' } },
+        { id:'balancehold', path:'balanceHold', extra:{ zone:'fitness' } }
+      ];
+      const pick = options.find(x => !gamePlayedToday(x.id)) || options[0];
+      location.href = buildUrl(PATHS[pick.path], pick.extra || {});
+    };
 
-    if(btnQuickEasy){
-      btnQuickEasy.onclick = ()=>{
-        location.href = buildUrl(PATHS.goodjunk, { mode:'solo' });
-      };
-    }
+    document.getElementById('btnNutriRecommended').onclick = ()=>{
+      const options = [
+        { id:'goodjunk', path:'goodjunk', extra:{ mode:'solo' } },
+        { id:'hydration', path:'hydration', extra:{ zone:'nutrition' } },
+        { id:'groups', path:'groups', extra:{ zone:'nutrition' } },
+        { id:'plate', path:'plate', extra:{ zone:'nutrition' } }
+      ];
+      const pick = options.find(x => !gamePlayedToday(x.id)) || options[0];
+      location.href = buildUrl(PATHS[pick.path], pick.extra || {});
+    };
 
-    if(btnQuickResume){
-      btnQuickResume.onclick = ()=>{
-        const g = getNextGameAfterLastRun();
-        location.href = buildUrl(PATHS[g.path], g.extra || {});
-      };
-    }
+    document.getElementById('btnHygRecommended').onclick = ()=>{
+      const options = [
+        { id:'handwash', path:'handwash', extra:{ zone:'hygiene' } },
+        { id:'brush', path:'brush', extra:{ zone:'hygiene' } },
+        { id:'bath', path:'bath', extra:{ zone:'hygiene' } },
+        { id:'germdetective', path:'germDetective', extra:{ zone:'hygiene' } }
+      ];
+      const pick = options.find(x => !gamePlayedToday(x.id)) || options[0];
+      location.href = buildUrl(PATHS[pick.path], pick.extra || {});
+    };
 
-    if(btnQuickRandom){
-      btnQuickRandom.onclick = ()=>{
-        const g = pickRandomGame();
-        location.href = buildUrl(PATHS[g.path], g.extra || {});
-      };
-    }
-
-    if(btnBoardNutri){
-      btnBoardNutri.onclick = ()=>{
-        const options = [
-          { id:'goodjunk', path:'goodjunk', extra:{ mode:'solo' } },
-          { id:'hydration', path:'hydration', extra:{ zone:'nutrition' } },
-          { id:'plate', path:'plate', extra:{ zone:'nutrition' } }
-        ];
-        const pick = options.find(x => !gamePlayedToday(x.id)) || options[0];
-        location.href = buildUrl(PATHS[pick.path], pick.extra || {});
-      };
-    }
-
-    if(btnBoardHyg){
-      btnBoardHyg.onclick = ()=>{
-        const options = [
-          { id:'handwash', path:'handwash', extra:{ zone:'hygiene' } },
-          { id:'brush', path:'brush', extra:{ zone:'hygiene' } },
-          { id:'bath', path:'bath', extra:{ zone:'hygiene' } }
-        ];
-        const pick = options.find(x => !gamePlayedToday(x.id)) || options[0];
-        location.href = buildUrl(PATHS[pick.path], pick.extra || {});
-      };
-    }
-
-    if(btnBoardFit){
-      btnBoardFit.onclick = ()=>{
-        const options = [
-          { id:'jumpduck', path:'jumpDuck', extra:{ zone:'fitness' } },
-          { id:'shadowbreaker', path:'shadowBreaker', extra:{ zone:'fitness' } },
-          { id:'balancehold', path:'balanceHold', extra:{ zone:'fitness' } }
-        ];
-        const pick = options.find(x => !gamePlayedToday(x.id)) || options[0];
-        location.href = buildUrl(PATHS[pick.path], pick.extra || {});
-      };
-    }
+    document.getElementById('btnFitRecommended').onclick = ()=>{
+      const options = [
+        { id:'jumpduck', path:'jumpDuck', extra:{ zone:'fitness' } },
+        { id:'shadowbreaker', path:'shadowBreaker', extra:{ zone:'fitness' } },
+        { id:'balancehold', path:'balanceHold', extra:{ zone:'fitness' } },
+        { id:'rhythmboxer', path:'rhythmBoxer', extra:{ zone:'fitness' } }
+      ];
+      const pick = options.find(x => !gamePlayedToday(x.id)) || options[0];
+      location.href = buildUrl(PATHS[pick.path], pick.extra || {});
+    };
 
     function renderAll(){
       renderHero();
@@ -3016,16 +2908,14 @@
       renderJDCardBook();
       renderFitnessJumpDuckShelf();
       renderGoodJunkDailyStatus();
-      decorateGoodJunkCard();
-      decorateGoodJunkFlowChip();
       renderHydrationDailyStatus();
-      decorateHydrationCard();
-      decorateHydrationFlowChip();
       renderDailyBadges();
       renderMissionToday();
       renderZoneProgress();
       renderSmartStart();
       renderMissionBoard();
+      decorateWorldZones();
+      renderPathLocks();
     }
 
     renderAll();
