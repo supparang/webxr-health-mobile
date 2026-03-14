@@ -1,6 +1,6 @@
 // === /herohealth/germ-detective/germ-detective.js ===
 // Germ Detective — core runtime
-// FULL PATCH v20260314-GD-CORE-MATCH-RUNPAGE
+// FULL PATCH v20260314-GD-CORE-MATCH-RUNPAGE-FIX2
 //
 // Match with:
 // /herohealth/germ-detective/germ-detective-vr.html
@@ -9,7 +9,6 @@
 // search -> investigate -> action -> report
 
 export default function GameApp(opts = {}) {
-  'use strict';
 
   const WIN = window;
   const DOC = document;
@@ -39,13 +38,13 @@ export default function GameApp(opts = {}) {
 
   function qs(id){ return DOC.getElementById(id); }
 
-  function el(tag='div', cls=''){
+  function el(tag = 'div', cls = ''){
     const n = DOC.createElement(tag);
     if(cls) n.className = cls;
     return n;
   }
 
-  function clamp(v,a,b){
+  function clamp(v, a, b){
     v = Number(v);
     if(!Number.isFinite(v)) v = a;
     return Math.max(a, Math.min(b, v));
@@ -54,7 +53,7 @@ export default function GameApp(opts = {}) {
   function hashSeed(s){
     s = String(s ?? '0');
     let h = 2166136261 >>> 0;
-    for(let i=0;i<s.length;i++){
+    for(let i = 0; i < s.length; i++){
       h ^= s.charCodeAt(i);
       h = Math.imul(h, 16777619);
     }
@@ -63,7 +62,8 @@ export default function GameApp(opts = {}) {
 
   function mulberry32(a){
     return function(){
-      a |= 0; a = a + 0x6D2B79F5 | 0;
+      a |= 0;
+      a = a + 0x6D2B79F5 | 0;
       let t = Math.imul(a ^ (a >>> 15), 1 | a);
       t = t + Math.imul(t ^ (t >>> 7), 61 | t) ^ t;
       return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
@@ -75,7 +75,7 @@ export default function GameApp(opts = {}) {
   function emit(name, payload){
     try{
       WIN.dispatchEvent(new CustomEvent(name, { detail: payload || {} }));
-    }catch{}
+    }catch(_){}
   }
 
   function emitHHAEvent(name, payload){
@@ -256,9 +256,21 @@ export default function GameApp(opts = {}) {
 
   function markSpotVisual(h){
     if(!h?.el) return;
-    h.el.classList.toggle('is-sus', !!h.suspicious);
-    h.el.classList.toggle('is-confirmed', !!h.investigated);
-    h.el.classList.toggle('is-cleaned', !!h.cleaned);
+    h.el.style.borderColor = 'rgba(148,163,184,.18)';
+    h.el.style.background = 'rgba(255,255,255,.04)';
+
+    if(h.suspicious){
+      h.el.style.borderColor = 'rgba(34,211,238,.34)';
+      h.el.style.background = 'rgba(34,211,238,.10)';
+    }
+    if(h.investigated){
+      h.el.style.borderColor = 'rgba(251,191,36,.34)';
+      h.el.style.background = 'rgba(251,191,36,.12)';
+    }
+    if(h.cleaned){
+      h.el.style.borderColor = 'rgba(34,197,94,.34)';
+      h.el.style.background = 'rgba(34,197,94,.14)';
+    }
   }
 
   function changePhase(next){
@@ -307,9 +319,9 @@ export default function GameApp(opts = {}) {
     const poses = POSITIONS[cfg.scene] || POSITIONS.classroom;
 
     defs.forEach((src, i)=>{
-      const pos = poses[i] || { x: 20 + i*8, y: 20 + i*7 };
+      const pos = poses[i] || { x: 20 + i * 8, y: 20 + i * 7 };
 
-      const d = el('button','gd-spot');
+      const d = el('button', 'gd-spot');
       d.type = 'button';
       d.textContent = src.name;
       d.style.position = 'absolute';
@@ -352,7 +364,7 @@ export default function GameApp(opts = {}) {
       });
     });
 
-    STATE.criticalTotal = STATE.hotspots.filter(h=>h.critical).length;
+    STATE.criticalTotal = STATE.hotspots.filter(h => h.critical).length;
   }
 
   // --------------------------------------------------
@@ -476,8 +488,8 @@ export default function GameApp(opts = {}) {
       const n = h.el;
       if(!n || !n.getBoundingClientRect) continue;
       const r = n.getBoundingClientRect();
-      const cx = r.left + r.width/2;
-      const cy = r.top + r.height/2;
+      const cx = r.left + r.width / 2;
+      const cy = r.top + r.height / 2;
       const d = Math.hypot(cx - x, cy - y);
       if(d < bestD){
         bestD = d;
@@ -486,6 +498,7 @@ export default function GameApp(opts = {}) {
     }
 
     if(!best) return null;
+
     const th = Math.max(24, Number(lockPx) || 28) + 16;
     if(bestD > th) return null;
     return best;
@@ -599,7 +612,7 @@ export default function GameApp(opts = {}) {
     return summary;
   }
 
-  function end(reason='end'){
+  function end(reason = 'end'){
     if(STATE.ended) return null;
 
     STATE.ended = true;
