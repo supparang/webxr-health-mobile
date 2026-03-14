@@ -1,10 +1,3 @@
-<!-- === /herohealth/hub.html ===
-HeroHealth — Hub (3 Zones) — PRODUCTION
-PATCH v20260314-HUB-MASKCOUGH-V2-RUN-FIX-r1
-✅ FIX: MaskCough run game = ./vr-maskcough/maskcough-v2.html
-✅ FIX: Keep Rhythm Boxer launcher = ./rhythm-boxer-vr.html
-✅ Keep GoodJunk / Hydration / JumpDuck / ShadowBreaker wiring
--->
 <!doctype html>
 <html lang="th">
 <head>
@@ -39,11 +32,13 @@ PATCH v20260314-HUB-MASKCOUGH-V2-RUN-FIX-r1
       overflow-x:hidden;
     }
     a{ color:inherit; text-decoration:none; }
+
     .wrap{
       max-width: 1080px;
       margin: 0 auto;
       padding: calc(14px + var(--sat)) calc(14px + var(--sar)) calc(18px + var(--sab)) calc(14px + var(--sal));
     }
+
     .topbar{
       display:flex;
       gap:10px;
@@ -52,6 +47,7 @@ PATCH v20260314-HUB-MASKCOUGH-V2-RUN-FIX-r1
       flex-wrap:wrap;
       margin-bottom: 12px;
     }
+
     .brand{
       display:flex;
       align-items:center;
@@ -64,6 +60,7 @@ PATCH v20260314-HUB-MASKCOUGH-V2-RUN-FIX-r1
       box-shadow: 0 18px 55px rgba(0,0,0,.35);
     }
     .brand b{ font-weight:1100; }
+
     .pill{
       display:inline-flex;
       align-items:center;
@@ -79,6 +76,7 @@ PATCH v20260314-HUB-MASKCOUGH-V2-RUN-FIX-r1
       white-space:nowrap;
     }
     .pill b{ color:var(--text); }
+
     .hero{
       display:flex;
       gap:8px;
@@ -86,6 +84,7 @@ PATCH v20260314-HUB-MASKCOUGH-V2-RUN-FIX-r1
       align-items:center;
       justify-content:flex-end;
     }
+
     .btn{
       cursor:pointer;
       border-radius: 16px;
@@ -100,6 +99,7 @@ PATCH v20260314-HUB-MASKCOUGH-V2-RUN-FIX-r1
     .btn.violet{ border-color: rgba(167,139,250,.28); background: rgba(167,139,250,.14); }
     .btn.good{ border-color: rgba(34,197,94,.28); background: rgba(34,197,94,.14); }
     .btn.ghost{ background: transparent; color: var(--muted); }
+
     .grid{
       display:grid;
       grid-template-columns: repeat(3, minmax(0,1fr));
@@ -109,6 +109,7 @@ PATCH v20260314-HUB-MASKCOUGH-V2-RUN-FIX-r1
     @media (max-width:900px){
       .grid{ grid-template-columns:1fr; }
     }
+
     .card{
       border-radius: 22px;
       border:1px solid rgba(148,163,184,.18);
@@ -120,6 +121,7 @@ PATCH v20260314-HUB-MASKCOUGH-V2-RUN-FIX-r1
       flex-direction:column;
       gap:10px;
     }
+
     .card h2{
       margin:0;
       font-size:16px;
@@ -128,11 +130,13 @@ PATCH v20260314-HUB-MASKCOUGH-V2-RUN-FIX-r1
       gap:10px;
       align-items:center;
     }
+
     .muted{
       color:var(--muted);
       font-weight:900;
       font-size:12px;
     }
+
     .zoneRow{
       display:flex;
       gap:10px;
@@ -140,6 +144,7 @@ PATCH v20260314-HUB-MASKCOUGH-V2-RUN-FIX-r1
       align-items:center;
       justify-content:space-between;
     }
+
     .games{
       display:grid;
       grid-template-columns: repeat(2, minmax(0,1fr));
@@ -148,6 +153,7 @@ PATCH v20260314-HUB-MASKCOUGH-V2-RUN-FIX-r1
     @media (max-width:520px){
       .games{ grid-template-columns:1fr; }
     }
+
     .gameBtn{
       display:flex;
       flex-direction:column;
@@ -162,22 +168,26 @@ PATCH v20260314-HUB-MASKCOUGH-V2-RUN-FIX-r1
     .gameBtn .t{ font-weight:1100; }
     .gameBtn .s{ font-size:12px; font-weight:900; color:var(--muted); }
     .gameBtn:hover{ border-color: rgba(59,130,246,.28); }
+
     .inlineRow{
       display:flex;
       gap:10px;
       flex-wrap:wrap;
       align-items:center;
     }
+
     .sep{
       height:1px;
       background: rgba(148,163,184,.14);
       margin: 6px 0;
     }
+
     .small{
       font-size:12px;
       font-weight:900;
       color: var(--muted);
     }
+
     .cardBook{
       border-radius:22px;
       border:1px solid rgba(148,163,184,.18);
@@ -190,6 +200,7 @@ PATCH v20260314-HUB-MASKCOUGH-V2-RUN-FIX-r1
       gap:10px;
       margin-top:12px;
     }
+
     .cardBookTop{
       display:flex;
       align-items:center;
@@ -197,6 +208,7 @@ PATCH v20260314-HUB-MASKCOUGH-V2-RUN-FIX-r1
       gap:10px;
       flex-wrap:wrap;
     }
+
     .cardBookTitle{
       display:flex;
       align-items:center;
@@ -204,11 +216,13 @@ PATCH v20260314-HUB-MASKCOUGH-V2-RUN-FIX-r1
       font-size:16px;
       font-weight:1100;
     }
+
     .cardBookSub{
       color:var(--muted);
       font-size:12px;
       font-weight:900;
     }
+
     .cardBookGrid{
       display:grid;
       grid-template-columns: 1.2fr .8fr;
@@ -217,6 +231,7 @@ PATCH v20260314-HUB-MASKCOUGH-V2-RUN-FIX-r1
     @media (max-width: 900px){
       .cardBookGrid{ grid-template-columns:1fr; }
     }
+
     .bookPanel{
       border-radius:18px;
       border:1px solid rgba(148,163,184,.16);
@@ -224,18 +239,21 @@ PATCH v20260314-HUB-MASKCOUGH-V2-RUN-FIX-r1
       padding:12px;
       box-shadow: 0 18px 55px rgba(0,0,0,.25);
     }
+
     .bookBig{
       font-size:30px;
       font-weight:1100;
       line-height:1;
       margin-top:4px;
     }
+
     .bookMini{
       color:var(--muted);
       font-size:12px;
       font-weight:900;
       line-height:1.4;
     }
+
     .rarityRow{
       display:grid;
       grid-template-columns: repeat(4, minmax(0,1fr));
@@ -245,6 +263,7 @@ PATCH v20260314-HUB-MASKCOUGH-V2-RUN-FIX-r1
     @media (max-width: 520px){
       .rarityRow{ grid-template-columns: repeat(2, minmax(0,1fr)); }
     }
+
     .rarityCard{
       border-radius:16px;
       border:1px solid rgba(148,163,184,.16);
@@ -266,12 +285,14 @@ PATCH v20260314-HUB-MASKCOUGH-V2-RUN-FIX-r1
     .rarity-a .rv{ color:#60a5fa; }
     .rarity-b .rv{ color:#4ade80; }
     .rarity-c .rv{ color:#cbd5e1; }
+
     .lastDrop{
       display:grid;
       grid-template-columns: 72px 1fr;
       gap:12px;
       align-items:center;
     }
+
     .lastDropIcon{
       width:72px;
       height:72px;
@@ -283,28 +304,33 @@ PATCH v20260314-HUB-MASKCOUGH-V2-RUN-FIX-r1
       background: rgba(2,6,23,.36);
       box-shadow: 0 12px 30px rgba(0,0,0,.24);
     }
+
     .lastDropBody{
       display:flex;
       flex-direction:column;
       gap:4px;
     }
+
     .lastDropTitle{
       font-size:16px;
       font-weight:1100;
       line-height:1.2;
     }
+
     .lastDropMeta{
       color:var(--muted);
       font-size:12px;
       font-weight:900;
       line-height:1.4;
     }
+
     .bookActions{
       display:flex;
       gap:8px;
       flex-wrap:wrap;
       margin-top:8px;
     }
+
     .trophyShelf{
       border-radius:22px;
       border:1px solid rgba(148,163,184,.18);
@@ -317,6 +343,7 @@ PATCH v20260314-HUB-MASKCOUGH-V2-RUN-FIX-r1
       gap:10px;
       margin-top:12px;
     }
+
     .shelfGrid{
       display:grid;
       grid-template-columns: repeat(3, minmax(0,1fr));
@@ -325,6 +352,7 @@ PATCH v20260314-HUB-MASKCOUGH-V2-RUN-FIX-r1
     @media (max-width:900px){
       .shelfGrid{ grid-template-columns:1fr; }
     }
+
     .shelfCard{
       border-radius:18px;
       border:1px solid rgba(148,163,184,.16);
@@ -335,6 +363,7 @@ PATCH v20260314-HUB-MASKCOUGH-V2-RUN-FIX-r1
       flex-direction:column;
       gap:8px;
     }
+
     .shelfTop{
       display:flex;
       align-items:center;
@@ -342,6 +371,7 @@ PATCH v20260314-HUB-MASKCOUGH-V2-RUN-FIX-r1
       gap:10px;
       flex-wrap:wrap;
     }
+
     .trophyIcon{
       width:54px;
       height:54px;
@@ -353,11 +383,13 @@ PATCH v20260314-HUB-MASKCOUGH-V2-RUN-FIX-r1
       background: rgba(2,6,23,.36);
       box-shadow: 0 12px 30px rgba(0,0,0,.24);
     }
+
     .trophyTitle{
       font-size:15px;
       font-weight:1100;
       line-height:1.2;
     }
+
     .statusChip{
       display:inline-flex;
       align-items:center;
@@ -380,12 +412,14 @@ PATCH v20260314-HUB-MASKCOUGH-V2-RUN-FIX-r1
       border-color: rgba(239,68,68,.26);
       background: rgba(239,68,68,.10);
     }
+
     .shelfMeta{
       color:var(--muted);
       font-size:12px;
       font-weight:900;
       line-height:1.45;
     }
+
     .miniRow{
       display:flex;
       gap:8px;
@@ -396,6 +430,7 @@ PATCH v20260314-HUB-MASKCOUGH-V2-RUN-FIX-r1
 </head>
 <body>
   <div class="wrap">
+
     <div class="topbar">
       <div class="brand">
         <span style="font-size:18px">🧠🎮</span>
@@ -413,6 +448,7 @@ PATCH v20260314-HUB-MASKCOUGH-V2-RUN-FIX-r1
         <span class="pill"><b>Hero</b>: <span id="uiNick">anon</span></span>
         <span class="pill"><b>LV</b>: <span id="uiLvl">1</span></span>
         <span class="pill"><b>XP</b>: <span id="uiXp">0</span></span>
+
         <button class="btn violet" id="btnHeroShow" type="button">🧾 ดู Hero</button>
         <button class="btn ghost" id="btnHeroReset" type="button">♻ Reset Hero</button>
       </div>
@@ -434,11 +470,24 @@ PATCH v20260314-HUB-MASKCOUGH-V2-RUN-FIX-r1
         <div class="bookPanel">
           <div class="bookMini">จำนวนการ์ดสะสมทั้งหมด</div>
           <div class="bookBig" id="bookTotal">0</div>
+
           <div class="rarityRow">
-            <div class="rarityCard rarity-s"><div class="rk">S</div><div class="rv" id="bookS">0</div></div>
-            <div class="rarityCard rarity-a"><div class="rk">A</div><div class="rv" id="bookA">0</div></div>
-            <div class="rarityCard rarity-b"><div class="rk">B</div><div class="rv" id="bookB">0</div></div>
-            <div class="rarityCard rarity-c"><div class="rk">C</div><div class="rv" id="bookC">0</div></div>
+            <div class="rarityCard rarity-s">
+              <div class="rk">S</div>
+              <div class="rv" id="bookS">0</div>
+            </div>
+            <div class="rarityCard rarity-a">
+              <div class="rk">A</div>
+              <div class="rv" id="bookA">0</div>
+            </div>
+            <div class="rarityCard rarity-b">
+              <div class="rk">B</div>
+              <div class="rv" id="bookB">0</div>
+            </div>
+            <div class="rarityCard rarity-c">
+              <div class="rk">C</div>
+              <div class="rv" id="bookC">0</div>
+            </div>
           </div>
         </div>
 
@@ -485,7 +534,7 @@ PATCH v20260314-HUB-MASKCOUGH-V2-RUN-FIX-r1
             <span class="pill"><b>best</b>: <span id="nutriBestScore">0</span></span>
             <span class="pill"><b>cards</b>: <span id="nutriCardTotal">0</span></span>
           </div>
-          <div class="shelfMeta" id="nutriHint">เคลียร์ GoodJunk หรือสะสมการ์ดเพื่อปลดถ้วย</div>
+          <div class="shelfMeta" id="nutriHint">เคลียร์ GoodJunk หรือทำผลงานใน Hydration เพื่อปลดถ้วย</div>
         </div>
 
         <div class="shelfCard">
@@ -527,6 +576,10 @@ PATCH v20260314-HUB-MASKCOUGH-V2-RUN-FIX-r1
             <span class="pill"><b>Boss badge</b>: <span id="fitnessJDBossBadge">-</span></span>
           </div>
           <div class="miniRow">
+            <span class="pill"><b>SB boss</b>: <span id="fitnessSBBestBoss">-</span></span>
+            <span class="pill"><b>SB badge</b>: <span id="fitnessSBBestBadge">-</span></span>
+          </div>
+          <div class="miniRow">
             <a class="btn violet" id="linkJDGallery" href="#">🖼 JumpDuck Gallery</a>
           </div>
           <div class="shelfMeta" id="fitnessHint">ทำ zone fitness ให้มี done today เพื่อโชว์ถ้วย</div>
@@ -552,6 +605,66 @@ PATCH v20260314-HUB-MASKCOUGH-V2-RUN-FIX-r1
       </div>
     </section>
 
+    <section class="cardBook" id="hydrationRewardShelf">
+      <div class="cardBookTop">
+        <div>
+          <div class="cardBookTitle">💧 Hydration Reward Shelf</div>
+          <div class="cardBookSub">รางวัลล่าสุด แบดจ์ และสถิติจาก Hydration</div>
+        </div>
+        <div class="inlineRow">
+          <button class="btn primary" id="btnOpenHydrationLauncher" type="button">🚀 เปิด Hydration</button>
+          <button class="btn ghost" id="btnResetHydrationReward" type="button">♻ Reset Hydration Shelf</button>
+        </div>
+      </div>
+
+      <div class="cardBookGrid">
+        <div class="bookPanel">
+          <div class="bookMini">รางวัลล่าสุด</div>
+          <div class="lastDrop" style="margin-top:10px;">
+            <div class="lastDropIcon" id="hydLastRewardIcon">💧</div>
+            <div class="lastDropBody">
+              <div class="lastDropTitle" id="hydLastRewardTitle">ยังไม่มีรางวัลล่าสุด</div>
+              <div class="lastDropMeta" id="hydLastRewardMeta">เล่น Hydration แล้วกลับมาดูที่นี่</div>
+            </div>
+          </div>
+          <div class="bookActions">
+            <span class="pill"><b>grade</b>: <span id="hydLastRewardGrade">—</span></span>
+            <span class="pill"><b>score</b>: <span id="hydLastRewardScore">0</span></span>
+            <span class="pill"><b>best</b>: <span id="hydBestScore">0</span></span>
+          </div>
+        </div>
+
+        <div class="bookPanel">
+          <div class="bookMini">Hydration Progress</div>
+          <div class="rarityRow">
+            <div class="rarityCard">
+              <div class="rk">RUNS</div>
+              <div class="rv" id="hydTotalRuns">0</div>
+            </div>
+            <div class="rarityCard">
+              <div class="rk">FINAL CLEAR</div>
+              <div class="rv" id="hydFinalClearCount">0</div>
+            </div>
+            <div class="rarityCard">
+              <div class="rk">BEST COMBO</div>
+              <div class="rv" id="hydBestCombo">0</div>
+            </div>
+            <div class="rarityCard">
+              <div class="rk">BEST STARS</div>
+              <div class="rv" id="hydBestStars">0</div>
+            </div>
+          </div>
+
+          <div class="sep"></div>
+
+          <div class="bookMini">Badge Shelf</div>
+          <div class="miniRow" id="hydBadgeShelf">
+            <span class="pill">ยังไม่มี badge</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <section class="cardBook">
       <div class="cardBookTop">
         <div>
@@ -569,11 +682,24 @@ PATCH v20260314-HUB-MASKCOUGH-V2-RUN-FIX-r1
         <div class="bookPanel">
           <div class="bookMini">จำนวนการ์ดสะสมทั้งหมด</div>
           <div class="bookBig" id="jdBookTotal">0</div>
+
           <div class="rarityRow">
-            <div class="rarityCard rarity-s"><div class="rk">S</div><div class="rv" id="jdBookS">0</div></div>
-            <div class="rarityCard rarity-a"><div class="rk">A</div><div class="rv" id="jdBookA">0</div></div>
-            <div class="rarityCard rarity-b"><div class="rk">B</div><div class="rv" id="jdBookB">0</div></div>
-            <div class="rarityCard rarity-c"><div class="rk">C/D</div><div class="rv" id="jdBookC">0</div></div>
+            <div class="rarityCard rarity-s">
+              <div class="rk">S</div>
+              <div class="rv" id="jdBookS">0</div>
+            </div>
+            <div class="rarityCard rarity-a">
+              <div class="rk">A</div>
+              <div class="rv" id="jdBookA">0</div>
+            </div>
+            <div class="rarityCard rarity-b">
+              <div class="rk">B</div>
+              <div class="rv" id="jdBookB">0</div>
+            </div>
+            <div class="rarityCard rarity-c">
+              <div class="rk">C/D</div>
+              <div class="rv" id="jdBookC">0</div>
+            </div>
           </div>
         </div>
 
@@ -603,17 +729,16 @@ PATCH v20260314-HUB-MASKCOUGH-V2-RUN-FIX-r1
             <button class="btn primary" id="btnGJsolo" type="button">🎯 GoodJunk (Solo)</button>
             <button class="btn violet" id="btnGJpro" type="button">🔥 Solo PRO</button>
             <button class="btn good" id="btnGJbattle" type="button">⚔ Battle</button>
-            <button class="btn primary" id="btnHydrationStart" type="button">💧 Hydration Start Flow</button>
           </div>
         </div>
         <div class="sep"></div>
         <div class="games">
           <a class="gameBtn" id="linkGoodjunk" href="#"><div class="t">🍔🆚🥦 GoodJunk</div><div class="s">Launcher • Solo/PRO/Battle • Hero + Card Book</div></a>
           <a class="gameBtn" id="linkGroups" href="#"><div class="t">🥚🍚 Food Groups</div><div class="s">Classroom ramp + AI warn</div></a>
-          <a class="gameBtn" id="linkHydration" href="#"><div class="t">💧 Hydration</div><div class="s">Start Flow → warmup → run → cooldown</div></a>
+          <a class="gameBtn" id="linkHydration" href="#"><div class="t">💧 Hydration</div><div class="s">Storm boss + shield</div></a>
           <a class="gameBtn" id="linkPlate" href="#"><div class="t">🍽 Balanced Plate</div><div class="s">Bloom missions</div></a>
         </div>
-        <div class="small" style="margin-top:4px;">Tip: GoodJunk/Hydration ใช้ launcher ก่อน แล้วค่อยผ่าน warmup-gate ไป run game จริง</div>
+        <div class="small" style="margin-top:4px;">Tip: Solo PRO = diff=hard & pro=1 (ผ่าน Launcher)</div>
       </section>
 
       <section class="card">
@@ -635,7 +760,7 @@ PATCH v20260314-HUB-MASKCOUGH-V2-RUN-FIX-r1
         <div class="muted">Shadow Breaker • Rhythm Boxer • JumpDuck • Balance Hold • Fitness Planner</div>
         <div class="sep"></div>
         <div class="games">
-          <a class="gameBtn" id="linkShadowBreaker" href="#"><div class="t">🥊 Shadow Breaker</div><div class="s">คอมโบ & รีแอคชั่น</div></a>
+          <a class="gameBtn" id="linkShadowBreaker" href="#"><div class="t">🥊 Shadow Breaker</div><div class="s">Launcher → Boss Ladder run</div></a>
           <a class="gameBtn" id="linkRhythmBoxer" href="#"><div class="t">🎵 Rhythm Boxer</div><div class="s">จังหวะ + พลัง</div></a>
           <a class="gameBtn" id="linkJumpDuck" href="#"><div class="t">⬆️⬇️ JumpDuck</div><div class="s">หลบ-กระโดด</div></a>
           <a class="gameBtn" id="linkBalanceHold" href="#"><div class="t">⚖️ Balance Hold</div><div class="s">ทรงตัวแบบท้าทาย</div></a>
@@ -668,18 +793,15 @@ PATCH v20260314-HUB-MASKCOUGH-V2-RUN-FIX-r1
       const d=new Date();
       return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
     }
-
     function loadJson(k, fallback){
       try{
         const raw = localStorage.getItem(k);
         return raw ? JSON.parse(raw) : fallback;
       }catch(_){ return fallback; }
     }
-
     function saveJson(k, v){
       try{ localStorage.setItem(k, JSON.stringify(v)); }catch(_){}
     }
-
     function safeJsonParse(s){
       try{ return JSON.parse(s); }catch(_){ return null; }
     }
@@ -702,11 +824,9 @@ PATCH v20260314-HUB-MASKCOUGH-V2-RUN-FIX-r1
         return { pid, nick: pid, xp, lvl:Math.max(1, Math.floor(xp/50)+1) };
       }
     }
-
     function saveHero(h){
       try{ localStorage.setItem(`HHA_PROFILE:${pid}`, JSON.stringify(h)); }catch(_){}
     }
-
     function renderHero(){
       const h = loadHero();
       uiNick.textContent = h.nick || pid;
@@ -719,9 +839,9 @@ PATCH v20260314-HUB-MASKCOUGH-V2-RUN-FIX-r1
       const sp = new URL(location.href).searchParams;
 
       [
-        'run','diff','time','seed','studyId','phase','conditionGroup','log','view','pid','api','ai','debug',
+        'run','diff','time','seed','studyId','phase','Phase','conditionGroup','log','view','pid','api','ai','debug',
         'planSeq','planDay','planSlot','planMode','planSlots','planIndex','autoNext',
-        'plannedGame','finalGame','zone','cat','cdnext','grade'
+        'plannedGame','finalGame','zone','cdnext','grade'
       ].forEach(k=>{
         const v = sp.get(k);
         if(v!=null && v!=='') u.searchParams.set(k, v);
@@ -755,11 +875,9 @@ PATCH v20260314-HUB-MASKCOUGH-V2-RUN-FIX-r1
         return { S:0, A:0, B:0, C:0, total:0 };
       }
     }
-
     function saveCardBook(pid, book){
       try{ localStorage.setItem(`HHA_CARD_BOOK:${pid}`, JSON.stringify(book)); }catch(_){}
     }
-
     function cardSpecFromGrade(grade){
       grade = String(grade||'C').toUpperCase();
       if(grade === 'S') return { icon:'🏆', title:'Legendary Nutrition Hero' };
@@ -767,7 +885,6 @@ PATCH v20260314-HUB-MASKCOUGH-V2-RUN-FIX-r1
       if(grade === 'B') return { icon:'🛡️', title:'Balanced Food Defender' };
       return { icon:'🌱', title:'Rookie Health Explorer' };
     }
-
     function loadLastGoodjunkSummary(pid){
       try{
         const raw = localStorage.getItem(`HHA_LAST_SUMMARY:goodjunk:${pid}`) || '';
@@ -782,14 +899,12 @@ PATCH v20260314-HUB-MASKCOUGH-V2-RUN-FIX-r1
         return null;
       }
     }
-
     function loadLastCard(pid){
       try{
         const raw = localStorage.getItem(`HHA_LAST_CARD:${pid}`) || '';
         return raw ? JSON.parse(raw) : null;
       }catch(_){ return null; }
     }
-
     function renderCardBook(){
       const book = loadCardBook(pid);
       const sum = loadLastGoodjunkSummary(pid);
@@ -818,7 +933,8 @@ PATCH v20260314-HUB-MASKCOUGH-V2-RUN-FIX-r1
 
         if(!lastCard) lastDropIcon.textContent = spec.icon;
         if(!lastCard) lastDropTitle.textContent = spec.title;
-        lastDropMeta.textContent = `ผลล่าสุด: reason=${sum.reason || '-'} • miss ${sum.missTotal ?? sum.miss ?? 0} • acc ${sum.accPct ?? 0}%`;
+        lastDropMeta.textContent =
+          `ผลล่าสุด: reason=${sum.reason || '-'} • miss ${sum.missTotal ?? sum.miss ?? 0} • acc ${sum.accPct ?? 0}%`;
         lastDropGrade.textContent = grade;
         lastDropScore.textContent = String(sum.scoreFinal ?? sum.score ?? 0);
       }else{
@@ -836,15 +952,107 @@ PATCH v20260314-HUB-MASKCOUGH-V2-RUN-FIX-r1
       document.getElementById('streakCount').textContent = String(streak?.count || 0);
     }
 
+    function loadHydrationProfile(pid){
+      return loadJson(`HYD_PROFILE:${pid}`, {
+        bestScore:0,
+        totalRuns:0,
+        finalClearCount:0,
+        bestCombo:0,
+        bestStars:0,
+        lastGrade:'—',
+        lastMedal:'—',
+        lastTitle:'—',
+        lastBadge:null
+      });
+    }
+    function loadHydrationReward(pid){
+      return loadJson(`HHA_LAST_REWARD:hydration:${pid}`, null)
+          || loadJson(`HYD_LAST_REWARD:${pid}`, null);
+    }
+    function loadHydrationBadges(pid){
+      return loadJson(`HYD_BADGES:${pid}`, {});
+    }
+    function renderHydrationShelf(){
+      const reward = loadHydrationReward(pid);
+      const profile = loadHydrationProfile(pid);
+      const badges = loadHydrationBadges(pid);
+
+      const icon = document.getElementById('hydLastRewardIcon');
+      const title = document.getElementById('hydLastRewardTitle');
+      const meta = document.getElementById('hydLastRewardMeta');
+      const grade = document.getElementById('hydLastRewardGrade');
+      const score = document.getElementById('hydLastRewardScore');
+
+      const bestScore = document.getElementById('hydBestScore');
+      const totalRuns = document.getElementById('hydTotalRuns');
+      const finalClearCount = document.getElementById('hydFinalClearCount');
+      const bestCombo = document.getElementById('hydBestCombo');
+      const bestStars = document.getElementById('hydBestStars');
+      const badgeShelf = document.getElementById('hydBadgeShelf');
+
+      if(bestScore) bestScore.textContent = String(profile.bestScore || 0);
+      if(totalRuns) totalRuns.textContent = String(profile.totalRuns || 0);
+      if(finalClearCount) finalClearCount.textContent = String(profile.finalClearCount || 0);
+      if(bestCombo) bestCombo.textContent = String(profile.bestCombo || 0);
+      if(bestStars) bestStars.textContent = String(profile.bestStars || 0);
+
+      if(reward){
+        if(icon) icon.textContent = reward.badge?.icon || reward.medal || '💧';
+        if(title) title.textContent = reward.title || 'Hydration Reward';
+        if(meta){
+          meta.textContent =
+            `medal=${reward.medal || '-'} • ${reward.badge ? `${reward.badge.icon} ${reward.badge.label}` : 'no badge'} • ${reward.ts || ''}`;
+        }
+        if(grade) grade.textContent = String(reward.grade || profile.lastGrade || '—');
+        if(score) score.textContent = String(reward.scoreFinal || profile.lastScore || 0);
+      }else{
+        if(icon) icon.textContent = '💧';
+        if(title) title.textContent = 'ยังไม่มีรางวัลล่าสุด';
+        if(meta) meta.textContent = 'เล่น Hydration แล้วกลับมาดูที่นี่';
+        if(grade) grade.textContent = '—';
+        if(score) score.textContent = '0';
+      }
+
+      if(badgeShelf){
+        const entries = Object.values(badges || {});
+        if(!entries.length){
+          badgeShelf.innerHTML = `<span class="pill">ยังไม่มี badge</span>`;
+        }else{
+          badgeShelf.innerHTML = entries.map(b => `
+            <span class="pill"><b>${b.icon || '🏅'}</b> ${b.label || 'Badge'}</span>
+          `).join('');
+        }
+      }
+    }
+
+    function loadShadowBreakerBestBoss(pid){
+      return localStorage.getItem(`SB_BEST_REACHED_BOSS:${pid}`) || '';
+    }
+    function loadShadowBreakerBestBadge(pid){
+      return loadJson(`SB_BEST_BADGE:${pid}`, null);
+    }
+
     function renderTrophyShelf(){
       const book = loadCardBook(pid);
       const bestNormal = loadJson(`HHA_GJ_BEST:${pid}:normal`, null);
       const badges = loadJson(`HHA_GJ_BADGES:${pid}`, {});
+      const hydProfile = loadHydrationProfile(pid);
       const today = hhDayKey();
 
-      const nutritionUnlocked = (book.total || 0) > 0 || ((bestNormal?.scoreFinal ?? bestNormal?.score ?? 0) >= 500);
+      const sbBestBoss = loadShadowBreakerBestBoss(pid);
+      const sbBestBadge = loadShadowBreakerBestBadge(pid);
+
+      const nutritionUnlocked =
+        (book.total || 0) > 0
+        || ((bestNormal?.scoreFinal ?? bestNormal?.score ?? 0) >= 500)
+        || ((hydProfile?.bestScore || 0) >= 500)
+        || ((hydProfile?.finalClearCount || 0) >= 1);
+
       const hygieneUnlocked = localStorage.getItem(`HHA_ZONE_DONE::hygiene::${today}`) === '1';
-      const fitnessUnlocked = localStorage.getItem(`HHA_ZONE_DONE::fitness::${today}`) === '1';
+      const fitnessUnlocked =
+        localStorage.getItem(`HHA_ZONE_DONE::fitness::${today}`) === '1'
+        || !!sbBestBoss
+        || !!sbBestBadge;
 
       const nutriStatus = document.getElementById('nutriStatus');
       const hygieneStatus = document.getElementById('hygieneStatus');
@@ -856,7 +1064,7 @@ PATCH v20260314-HUB-MASKCOUGH-V2-RUN-FIX-r1
 
       nutriStatus.textContent = nutritionUnlocked ? 'UNLOCKED' : 'LOCKED';
       hygieneStatus.textContent = hygieneUnlocked ? 'DONE TODAY' : 'LOCKED';
-      fitnessStatus.textContent = fitnessUnlocked ? 'DONE TODAY' : 'LOCKED';
+      fitnessStatus.textContent = fitnessUnlocked ? 'UNLOCKED' : 'LOCKED';
 
       nutriStatus.className = `statusChip ${nutritionUnlocked ? 'done' : 'locked'}`;
       hygieneStatus.className = `statusChip ${hygieneUnlocked ? 'done' : 'locked'}`;
@@ -874,14 +1082,22 @@ PATCH v20260314-HUB-MASKCOUGH-V2-RUN-FIX-r1
       const badgeCount = Object.values(badges || {}).filter(Boolean).length;
       document.getElementById('nutriHint').textContent =
         nutritionUnlocked
-          ? `ปลดถ้วยแล้ว • badges ${badgeCount} • พร้อมลุยต่อ`
-          : 'เคลียร์ GoodJunk หรือสะสมการ์ดเพื่อปลดถ้วย';
+          ? `ปลดถ้วยแล้ว • GJ cards ${book.total || 0} • HYD best ${hydProfile?.bestScore || 0}`
+          : 'เคลียร์ GoodJunk หรือทำผลงานใน Hydration เพื่อปลดถ้วย';
 
       document.getElementById('hygieneHint').textContent =
-        hygieneUnlocked ? 'ทำโซน Hygiene สำเร็จวันนี้แล้ว' : 'ทำ zone hygiene ให้มี done today เพื่อโชว์ถ้วย';
+        hygieneUnlocked
+          ? 'ทำโซน Hygiene สำเร็จวันนี้แล้ว'
+          : 'ทำ zone hygiene ให้มี done today เพื่อโชว์ถ้วย';
+
+      document.getElementById('fitnessSBBestBoss').textContent = sbBestBoss || '-';
+      document.getElementById('fitnessSBBestBadge').textContent =
+        sbBestBadge ? `${sbBestBadge.icon || '🏅'} ${sbBestBadge.title || 'Badge'}` : '-';
 
       document.getElementById('fitnessHint').textContent =
-        fitnessUnlocked ? 'ทำโซน Fitness สำเร็จวันนี้แล้ว' : 'ทำ zone fitness ให้มี done today เพื่อโชว์ถ้วย';
+        sbBestBoss || sbBestBadge
+          ? `Shadow Breaker best ${sbBestBoss || '-'} • ${sbBestBadge?.title || 'ยังไม่มี badge'}`
+          : 'ทำ zone fitness ให้มี done today หรือเล่น Shadow Breaker เพื่อโชว์ความก้าวหน้า';
     }
 
     function renderLastRun(){
@@ -971,8 +1187,8 @@ PATCH v20260314-HUB-MASKCOUGH-V2-RUN-FIX-r1
             ${kv('ComboMax', sum.comboMax ?? sum.max_combo ?? '-')}
             ${kv('Misses', sum.misses ?? sum.missTotal ?? sum.miss_total ?? '-')}
             ${kv('Stability', (sum.stabilityMinPct ?? sum.stability_min_pct ?? '-') + '%')}
-            ${kv('Boss', sum.bossVariant ?? sum.boss_variant ?? '-')}
-            ${kv('Rule', sum.bossRule ?? sum.boss_rule ?? '-')}
+            ${kv('Boss', sum.bossVariant ?? sum.boss_variant ?? sum.phaseFinal ?? '-')}
+            ${kv('Rule', sum.bossRule ?? sum.boss_rule ?? sum.reachedPhaseText ?? '-')}
           </div>
         `;
       }
@@ -980,11 +1196,18 @@ PATCH v20260314-HUB-MASKCOUGH-V2-RUN-FIX-r1
       if(grid) grid.style.display = 'grid';
     }
 
-    function loadJDProfile(pid){ return loadJson(`JD_PROFILE:${pid}`, {}); }
-    function loadJDCardBook(pid){ return loadJson(`JD_CARD_BOOK:${pid}`, { S:0, A:0, B:0, C:0, total:0 }); }
-    function saveJDCardBook(pid, book){ saveJson(`JD_CARD_BOOK:${pid}`, book); }
-    function loadJDLastCard(pid){ return loadJson(`JD_LAST_CARD:${pid}`, null); }
-
+    function loadJDProfile(pid){
+      return loadJson(`JD_PROFILE:${pid}`, {});
+    }
+    function loadJDCardBook(pid){
+      return loadJson(`JD_CARD_BOOK:${pid}`, { S:0, A:0, B:0, C:0, total:0 });
+    }
+    function saveJDCardBook(pid, book){
+      saveJson(`JD_CARD_BOOK:${pid}`, book);
+    }
+    function loadJDLastCard(pid){
+      return loadJson(`JD_LAST_CARD:${pid}`, null);
+    }
     function renderJDCardBook(){
       const book = loadJDCardBook(pid);
       const lastCard = loadJDLastCard(pid);
@@ -1016,7 +1239,6 @@ PATCH v20260314-HUB-MASKCOUGH-V2-RUN-FIX-r1
 
       if(best) best.textContent = String(jd.bestScore || 0);
     }
-
     function renderFitnessJumpDuckShelf(){
       const jd = loadJDProfile(pid);
       const badgeCount = Object.values(jd.badges || {}).filter(Boolean).length;
@@ -1034,7 +1256,7 @@ PATCH v20260314-HUB-MASKCOUGH-V2-RUN-FIX-r1
     }
 
     const PATHS = {
-      goodjunk:       './goodjunk-vr.html',
+      goodjunk:       './goodjunk-launcher.html',
       groups:         './groups-vr.html',
       hydration:      './hydration-vr.html',
       plate:          './plate-vr.html',
@@ -1043,8 +1265,8 @@ PATCH v20260314-HUB-MASKCOUGH-V2-RUN-FIX-r1
       brush:          './brush-vr.html',
       bath:           './bath-vr.html',
       cleanObject:    './clean-objects.html',
-      maskCough:      './vr-maskcough/maskcough-v2.html',
-      germDetective:  './germ-detective-vr.html',
+      maskCough:      './maskcough-v2.html',
+      germDetective:  './germ-detective.html',
 
       shadowBreaker:  './shadow-breaker-vr.html',
       rhythmBoxer:    './rhythm-boxer-vr.html',
@@ -1056,49 +1278,24 @@ PATCH v20260314-HUB-MASKCOUGH-V2-RUN-FIX-r1
     const btnGJsolo = document.getElementById('btnGJsolo');
     const btnGJpro = document.getElementById('btnGJpro');
     const btnGJbattle = document.getElementById('btnGJbattle');
-    const btnHydrationStart = document.getElementById('btnHydrationStart');
 
-    const linkGoodjunk = document.getElementById('linkGoodjunk');
-    const linkGroups = document.getElementById('linkGroups');
-    const linkHydration = document.getElementById('linkHydration');
-    const linkPlate = document.getElementById('linkPlate');
+    document.getElementById('linkGoodjunk').href  = buildUrl(PATHS.goodjunk,   { mode:'solo' });
+    document.getElementById('linkGroups').href    = buildUrl(PATHS.groups,     { zone:'nutrition' });
+    document.getElementById('linkHydration').href = buildUrl(PATHS.hydration,  { zone:'nutrition' });
+    document.getElementById('linkPlate').href     = buildUrl(PATHS.plate,      { zone:'nutrition' });
 
-    const linkHandwash = document.getElementById('linkHandwash');
-    const linkBrush = document.getElementById('linkBrush');
-    const linkBath = document.getElementById('linkBath');
-    const linkCleanObject = document.getElementById('linkCleanObject');
-    const linkMaskCough = document.getElementById('linkMaskCough');
-    const linkGermDetective = document.getElementById('linkGermDetective');
+    document.getElementById('linkHandwash').href      = buildUrl(PATHS.handwash,      { zone:'hygiene' });
+    document.getElementById('linkBrush').href         = buildUrl(PATHS.brush,         { zone:'hygiene' });
+    document.getElementById('linkBath').href          = buildUrl(PATHS.bath,          { zone:'hygiene' });
+    document.getElementById('linkCleanObject').href   = buildUrl(PATHS.cleanObject,   { zone:'hygiene' });
+    document.getElementById('linkMaskCough').href     = buildUrl(PATHS.maskCough,     { zone:'hygiene' });
+    document.getElementById('linkGermDetective').href = buildUrl(PATHS.germDetective, { zone:'hygiene' });
 
-    const linkShadowBreaker = document.getElementById('linkShadowBreaker');
-    const linkRhythmBoxer = document.getElementById('linkRhythmBoxer');
-    const linkJumpDuck = document.getElementById('linkJumpDuck');
-    const linkBalanceHold = document.getElementById('linkBalanceHold');
-    const linkFitnessPlanner = document.getElementById('linkFitnessPlanner');
-
-    linkGoodjunk.href  = buildUrl(PATHS.goodjunk,   { mode:'solo' });
-    linkGroups.href    = buildUrl(PATHS.groups,     { zone:'nutrition', cat:'nutrition' });
-    linkHydration.href = buildUrl(PATHS.hydration,  {
-      zone:'nutrition',
-      cat:'nutrition',
-      gate:'1',
-      cdur:'20',
-      cooldown:'1'
-    });
-    linkPlate.href     = buildUrl(PATHS.plate,      { zone:'nutrition', cat:'nutrition' });
-
-    if(linkHandwash)      linkHandwash.href      = buildUrl(PATHS.handwash,      { zone:'hygiene', cat:'hygiene' });
-    if(linkBrush)         linkBrush.href         = buildUrl(PATHS.brush,         { zone:'hygiene', cat:'hygiene' });
-    if(linkBath)          linkBath.href          = buildUrl(PATHS.bath,          { zone:'hygiene', cat:'hygiene' });
-    if(linkCleanObject)   linkCleanObject.href   = buildUrl(PATHS.cleanObject,   { zone:'hygiene', cat:'hygiene' });
-    if(linkMaskCough)     linkMaskCough.href     = buildUrl(PATHS.maskCough,     { zone:'hygiene', cat:'hygiene' });
-    if(linkGermDetective) linkGermDetective.href = buildUrl(PATHS.germDetective, { zone:'hygiene', cat:'hygiene' });
-
-    if(linkShadowBreaker)  linkShadowBreaker.href  = buildUrl(PATHS.shadowBreaker,  { zone:'fitness', cat:'fitness' });
-    if(linkRhythmBoxer)    linkRhythmBoxer.href    = buildUrl(PATHS.rhythmBoxer,    { zone:'fitness', cat:'fitness' });
-    if(linkJumpDuck)       linkJumpDuck.href       = buildUrl(PATHS.jumpDuck,       { zone:'fitness', cat:'fitness' });
-    if(linkBalanceHold)    linkBalanceHold.href    = buildUrl(PATHS.balanceHold,    { zone:'fitness', cat:'fitness' });
-    if(linkFitnessPlanner) linkFitnessPlanner.href = buildUrl(PATHS.fitnessPlanner, { zone:'fitness', cat:'fitness' });
+    document.getElementById('linkShadowBreaker').href  = buildUrl(PATHS.shadowBreaker,  { zone:'fitness' });
+    document.getElementById('linkRhythmBoxer').href    = buildUrl(PATHS.rhythmBoxer,    { zone:'fitness' });
+    document.getElementById('linkJumpDuck').href       = buildUrl(PATHS.jumpDuck,       { zone:'fitness' });
+    document.getElementById('linkBalanceHold').href    = buildUrl(PATHS.balanceHold,    { zone:'fitness' });
+    document.getElementById('linkFitnessPlanner').href = buildUrl(PATHS.fitnessPlanner, { zone:'fitness' });
 
     btnGJsolo.onclick = ()=> location.href = buildUrl(PATHS.goodjunk, { mode:'solo' });
     btnGJpro.onclick  = ()=> location.href = buildUrl(PATHS.goodjunk, { mode:'solo', diff:'hard', pro:'1', auto:'0' });
@@ -1107,27 +1304,11 @@ PATCH v20260314-HUB-MASKCOUGH-V2-RUN-FIX-r1
       location.href = buildUrl(PATHS.goodjunk, { mode:'battle', room, auto:'1' });
     };
 
-    if(btnHydrationStart){
-      btnHydrationStart.onclick = ()=> {
-        location.href = buildUrl(PATHS.hydration, {
-          zone:'nutrition',
-          cat:'nutrition',
-          gate:'1',
-          cdur:'20',
-          cooldown:'1'
-        });
-      };
-    }
-
-    const btnHeroShow = document.getElementById('btnHeroShow');
-    const btnHeroReset = document.getElementById('btnHeroReset');
-
-    btnHeroShow.onclick = ()=>{
+    document.getElementById('btnHeroShow').onclick = ()=>{
       const h = loadHero();
       alert(`HERO\nPID: ${h.pid}\nNick: ${h.nick}\nLV: ${h.lvl}\nXP: ${h.xp}\n\n(localStorage: HHA_PROFILE:${pid})`);
     };
-
-    btnHeroReset.onclick = ()=>{
+    document.getElementById('btnHeroReset').onclick = ()=>{
       try{
         if(!confirm('Reset Hero ของ PID นี้? (ลบ XP/LV)')) return;
         const h = { pid, nick: pid, xp:0, lvl:1 };
@@ -1138,16 +1319,10 @@ PATCH v20260314-HUB-MASKCOUGH-V2-RUN-FIX-r1
       }catch(_){}
     };
 
-    const btnOpenGJLauncher = document.getElementById('btnOpenGJLauncher');
-    const btnResetCardBook = document.getElementById('btnResetCardBook');
-    const btnOpenJDLauncher = document.getElementById('btnOpenJDLauncher');
-    const btnOpenJDGallery = document.getElementById('btnOpenJDGallery');
-    const btnResetJDCardBook = document.getElementById('btnResetJDCardBook');
-    const linkJDGallery = document.getElementById('linkJDGallery');
-
-    btnOpenGJLauncher.onclick = ()=> location.href = buildUrl(PATHS.goodjunk, { mode:'solo' });
-
-    btnResetCardBook.onclick = ()=>{
+    document.getElementById('btnOpenGJLauncher').onclick = ()=>{
+      location.href = buildUrl(PATHS.goodjunk, { mode:'solo' });
+    };
+    document.getElementById('btnResetCardBook').onclick = ()=>{
       try{
         if(!confirm('Reset Card Book ของ PID นี้?')) return;
         saveCardBook(pid, { S:0, A:0, B:0, C:0, total:0 });
@@ -1159,29 +1334,45 @@ PATCH v20260314-HUB-MASKCOUGH-V2-RUN-FIX-r1
       }catch(_){}
     };
 
-    if(btnOpenJDLauncher){
-      btnOpenJDLauncher.onclick = ()=> location.href = buildUrl(PATHS.jumpDuck, { zone:'fitness', cat:'fitness' });
-    }
-    if(btnOpenJDGallery){
-      btnOpenJDGallery.onclick = ()=> location.href = buildUrl('./jump-duck-gallery.html', { zone:'fitness', cat:'fitness' });
-    }
-    if(linkJDGallery){
-      linkJDGallery.href = buildUrl('./jump-duck-gallery.html', { zone:'fitness', cat:'fitness' });
-    }
-    if(btnResetJDCardBook){
-      btnResetJDCardBook.onclick = ()=>{
-        try{
-          if(!confirm('Reset JumpDuck Card Book ของ PID นี้?')) return;
-          saveJDCardBook(pid, { S:0, A:0, B:0, C:0, total:0 });
-          localStorage.removeItem(`JD_LAST_CARD:${pid}`);
-          localStorage.removeItem(`JD_PROFILE:${pid}`);
-          localStorage.removeItem(`HHA_JD_BEST:${pid}`);
-          renderJDCardBook();
-          renderFitnessJumpDuckShelf();
-          alert('Reset JumpDuck Card Book เรียบร้อย ✅');
-        }catch(_){}
-      };
-    }
+    document.getElementById('btnOpenHydrationLauncher').onclick = ()=>{
+      location.href = buildUrl(PATHS.hydration, { zone:'nutrition' });
+    };
+    document.getElementById('btnResetHydrationReward').onclick = ()=>{
+      try{
+        if(!confirm('Reset Hydration reward shelf ของ PID นี้?')) return;
+
+        localStorage.removeItem(`HYD_LAST_REWARD:${pid}`);
+        localStorage.removeItem(`HHA_LAST_REWARD:hydration:${pid}`);
+        localStorage.removeItem(`HYD_PROFILE:${pid}`);
+        localStorage.removeItem(`HYD_BADGES:${pid}`);
+        localStorage.removeItem(`HHA_LAST_SUMMARY:hydration:${pid}`);
+
+        renderHydrationShelf();
+        renderLastRun();
+
+        alert('Reset Hydration shelf เรียบร้อย ✅');
+      }catch(_){}
+    };
+
+    document.getElementById('btnOpenJDLauncher').onclick = ()=>{
+      location.href = buildUrl(PATHS.jumpDuck, { zone:'fitness' });
+    };
+    document.getElementById('btnOpenJDGallery').onclick = ()=>{
+      location.href = buildUrl('./jump-duck-gallery.html', { zone:'fitness' });
+    };
+    document.getElementById('linkJDGallery').href = buildUrl('./jump-duck-gallery.html', { zone:'fitness' });
+    document.getElementById('btnResetJDCardBook').onclick = ()=>{
+      try{
+        if(!confirm('Reset JumpDuck Card Book ของ PID นี้?')) return;
+        saveJDCardBook(pid, { S:0, A:0, B:0, C:0, total:0 });
+        localStorage.removeItem(`JD_LAST_CARD:${pid}`);
+        localStorage.removeItem(`JD_PROFILE:${pid}`);
+        localStorage.removeItem(`HHA_JD_BEST:${pid}`);
+        renderJDCardBook();
+        renderFitnessJumpDuckShelf();
+        alert('Reset JumpDuck Card Book เรียบร้อย ✅');
+      }catch(_){}
+    };
 
     function renderAll(){
       renderHero();
@@ -1190,6 +1381,7 @@ PATCH v20260314-HUB-MASKCOUGH-V2-RUN-FIX-r1
       renderLastRun();
       renderJDCardBook();
       renderFitnessJumpDuckShelf();
+      renderHydrationShelf();
     }
 
     renderAll();
@@ -1197,4 +1389,3 @@ PATCH v20260314-HUB-MASKCOUGH-V2-RUN-FIX-r1
   </script>
 </body>
 </html>
-. สังเกตจากภาพ !!!็ดไปหน้าเก่า maskcough.html โดยโดน redirect ไปเก่าเองราะไม่ใช่ราะ hub.html is turning it to the old page! what the heck maybe the old maskcough vr launcher file itself redirects to old page or some js mapping still wrong elsewhere. Need identify based on screenshot warmup gate loading theme from /herohealth/games/... maybe gate mapping sends old path. User wants patch likely gate-games.js. Need answer focused. We have enough clues: URL after clicking from hub maybe goes to warmup-gate with theme=maskcough&game=maskcough then redirects to old maskcough.html because gate mapping getPhaseFile/getGameMeta in gate-games.js points to old file or maskcough-vr.html redirects. Need provide patch for gate-games.js and maybe maskcough-vr.html launcher. Let's craft concise with exact patch blocks. Might mention hub is already fixed. Need "show don't tell" but can explain from screenshot that hub not culprit. Need likely full patch? Let's provide gate-games.js specific section and maskcough-vr.html redirect file. user asked "observe image" and commented. We'll answer: yes screenshot confirms warmup gate is launching old run target after gate; fix mapping. Provide code for gate-games.js and optional maskcough-vr.html safe redirect to v2 or launcher. Let's do full patch blocks.
