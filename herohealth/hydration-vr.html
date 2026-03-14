@@ -493,7 +493,16 @@
 
     function isGateDone(kind, cat, game, pid){
       try{
-        return localStorage.getItem(gateDoneKey(kind, cat, game, pid)) === '1';
+        const day = hhDayKey();
+        const mainKey = `HHA_${String(kind).toUpperCase()}_DONE:${cat}:${game}:${pid}:${day}`;
+        if(localStorage.getItem(mainKey) === '1') return true;
+
+        if(String(kind).toLowerCase() === 'cooldown'){
+          const oldKey = `HHA_COOLDOWN_DONE:${cat}:${pid}:${day}`;
+          if(localStorage.getItem(oldKey) === '1') return true;
+        }
+
+        return false;
       }catch(e){
         return false;
       }
@@ -724,6 +733,16 @@
     document.getElementById('btnBackHub').onclick = ()=>{
       location.href = hubQ || './hub.html';
     };
+
+    window.addEventListener('focus', () => {
+      refreshPreview();
+      refreshGateStatus();
+    });
+
+    window.addEventListener('pageshow', () => {
+      refreshPreview();
+      refreshGateStatus();
+    });
   </script>
 </body>
 </html>
