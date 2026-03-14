@@ -1,6 +1,6 @@
 // === /herohealth/gate/gate-games.js ===
 // HeroHealth Gate Game Registry
-// FULL PATCH v20260314c-GATE-GAMES-GOODJUNK-RUN-FIX
+// FULL PATCH v20260314d-GATE-GAMES-GOODJUNK-HEROHEALTH-RUN
 
 export const GATE_GAMES = {
   // =========================
@@ -104,7 +104,8 @@ export const GATE_GAMES = {
       cooldown: './games/goodjunk/cooldown.js',
       style: './games/goodjunk/style.css'
     },
-    // ✅ canonical run page จริงของ GoodJunk
+    // ✅ จาก /herohealth/gate/ -> ../vr-goodjunk/goodjunk-vr.html
+    // => /herohealth/vr-goodjunk/goodjunk-vr.html
     run: '../vr-goodjunk/goodjunk-vr.html'
   },
 
@@ -147,7 +148,6 @@ export const GATE_GAMES = {
       cooldown: './games/plate/cooldown.js',
       style: './games/plate/style.css'
     },
-    // ✅ canonical run page
     run: '../plate/plate-vr.html'
   },
 
