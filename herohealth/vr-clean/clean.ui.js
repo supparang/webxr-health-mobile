@@ -1,5 +1,5 @@
 // === /herohealth/vr-clean/clean.ui.js ===
-// Clean Objects UI — SAFE/PRODUCTION — v20260301-FULL-EXCITE1234-PATCH-C
+// Clean Objects UI — SAFE/PRODUCTION — v20260301-FULL-EXCITE1234-PATCH-E
 'use strict';
 
 function el(tag, cls, html){
@@ -190,19 +190,19 @@ function addLeaderLine(layer, x1, y1, x2, y2){
   return line;
 }
 
-function popScore(layer, x, y, text){
-  const n = el('div','fx-pop');
+function popScore(layer, x, y, text, cls=''){
+  const n = el('div',`fx-pop ${cls}`);
   n.textContent = text;
   n.style.left = `${x}px`;
   n.style.top  = `${y}px`;
   layer.appendChild(n);
-  setTimeout(()=> n.remove(), 650);
+  setTimeout(()=> n.remove(), 750);
 }
 
 function starText(score){
   score = Number(score||0);
-  if(score >= 320) return '⭐⭐⭐';
-  if(score >= 220) return '⭐⭐';
+  if(score >= 420) return '⭐⭐⭐';
+  if(score >= 280) return '⭐⭐';
   return '⭐';
 }
 
@@ -211,9 +211,9 @@ function summaryAdviceA(bd, comboBest, bossPenalty){
   if(Number(bd?.dq||0) < 60) tips.push('เลือกจุดคุ้มให้มากขึ้น เช่น ลูกบิด ของใช้ร่วม ก๊อกน้ำ');
   if(Number(bd?.coverage||0) < 60) tips.push('ใช้ Sprays ให้ครบและเลือกหลายจุดสำคัญ');
   if(Number(comboBest||0) < 2) tips.push('ถ้าเลือกถูกต่อเนื่องจะได้คอมโบ');
-  if(Number(bossPenalty||0) > 0) tips.push('อย่าลืมทำบอส ไม่งั้นโดนหักหนัก');
+  if(Number(bossPenalty||0) > 0) tips.push('อย่าปล่อยบอสค้าง ต้องรีบเก็บครบ 3/3');
   if(Number(bd?.spreadPenalty||0) > 0) tips.push('อย่าปล่อยจุดวิกฤตค้างไว้นาน เพราะเชื้อจะลาม');
-  if(!tips.length) tips.push('ทำได้ดีมากแล้ว รอบหน้าลองเพิ่มความเร็ว');
+  if(!tips.length) tips.push('ทำได้ดีมากแล้ว รอบหน้าลองเคลียร์บอสให้เร็วขึ้น');
   return tips.slice(0,2);
 }
 
@@ -242,6 +242,7 @@ export function mountCleanUI(root, opts){
       <div class="pill" id="pillBudget">BUDGET: —</div>
       <div class="pill" id="pillGoal">GOAL: —</div>
       <div class="pill dangerMini" id="pillSpread">SPREAD: 0</div>
+      <div class="pill bossMini" id="pillBoss">BOSS: 0/0</div>
     </div>
     <div class="starRow" id="starRow">
       <div class="starTitle">Progress</div>
@@ -305,7 +306,7 @@ export function mountCleanUI(root, opts){
     </div>
     <div class="legendRisk">
       <span><span class="riskDot high"></span>เสี่ยงสูง</span>
-      <span><span class="riskDot mid"></span>เสี่ยงกลาง</span>
+      <span><span class="riskDot mid"></span>เสี่ยงกลาง</span></div>
       <span><span class="riskDot low"></span>เสี่ยงต่ำ</span>
     </div>
     <div style="margin-top:10px">
@@ -401,6 +402,10 @@ export function mountCleanUI(root, opts){
       border-color: rgba(245,158,11,.28);
       background: rgba(245,158,11,.10);
     }
+    .bossMini{
+      border-color: rgba(167,139,250,.28);
+      background: rgba(167,139,250,.10);
+    }
     .btn{
       border:1px solid rgba(148,163,184,.20); background: rgba(2,6,23,.45); color: rgba(229,231,235,.95);
       padding:10px 12px; border-radius:14px; font-weight:1000; cursor:pointer;
@@ -425,6 +430,11 @@ export function mountCleanUI(root, opts){
       border-color: rgba(239,68,68,.34);
       background: rgba(239,68,68,.12);
       box-shadow: 0 0 0 1px rgba(239,68,68,.18), 0 10px 30px rgba(239,68,68,.08);
+    }
+    .alertBar.reward{
+      border-color: rgba(34,197,94,.34);
+      background: rgba(34,197,94,.12);
+      box-shadow: 0 0 0 1px rgba(34,197,94,.18), 0 10px 30px rgba(34,197,94,.08);
     }
     .alertTitle{ font-size:12px; font-weight:1100; }
     .alertText{ font-size:12px; font-weight:900; opacity:.92; }
@@ -515,7 +525,10 @@ export function mountCleanUI(root, opts){
     .mk.risk-low .mk-state{ color:#bbf7d0; }
     .mk.risk-high{ animation: riskPulseHigh .8s ease-in-out infinite alternate; }
     .mk.risk-mid{ animation: riskPulseMid 1.2s ease-in-out infinite alternate; }
-    .mk.boss{ outline: 2px solid rgba(239,68,68,.55); outline-offset: 2px; }
+    .mk.boss{
+      outline: 2px solid rgba(239,68,68,.55);
+      outline-offset: 2px;
+    }
 
     .mk.ai-hot{
       outline: 3px solid rgba(34,211,238,.85);
@@ -525,6 +538,7 @@ export function mountCleanUI(root, opts){
     .mk.boss-hot{
       outline: 3px solid rgba(245,158,11,.9);
       box-shadow: 0 0 0 8px rgba(245,158,11,.14), 0 10px 30px rgba(0,0,0,.18);
+      animation: bossTargetPulse .8s ease-in-out infinite alternate;
     }
     .mk.quickpick{
       outline: 3px solid rgba(34,211,238,.92);
@@ -571,7 +585,11 @@ export function mountCleanUI(root, opts){
       color:#e5e7eb;
       text-shadow: 0 10px 28px rgba(0,0,0,.45);
       pointer-events:none;
-      animation: fxPopUp .55s ease-out forwards;
+      animation: fxPopUp .75s ease-out forwards;
+    }
+    .fx-pop.reward{
+      color:#bbf7d0;
+      font-size:16px;
     }
 
     .legendCard{
@@ -832,6 +850,10 @@ export function mountCleanUI(root, opts){
       from{ filter: brightness(1); }
       to{ filter: brightness(1.22); }
     }
+    @keyframes bossTargetPulse{
+      from{ transform: translate(-50%, -50%) scale(1); }
+      to{ transform: translate(-50%, -50%) scale(1.06); }
+    }
     @keyframes riskPulseHigh{
       from{ transform:translate(-50%,-50%) scale(1); }
       to{ transform:translate(-50%,-50%) scale(1.05); }
@@ -843,7 +865,7 @@ export function mountCleanUI(root, opts){
     @keyframes fxPopUp{
       0%{ opacity:0; transform:translate(-50%, -50%) scale(.92); }
       15%{ opacity:1; transform:translate(-50%, -66%) scale(1.02); }
-      100%{ opacity:0; transform:translate(-50%, -98%) scale(1.00); }
+      100%{ opacity:0; transform:translate(-50%, -108%) scale(1.00); }
     }
     @keyframes spreadPulse{
       from{ transform: scale(1); opacity:.32; }
@@ -872,7 +894,6 @@ export function mountCleanUI(root, opts){
   let lastState = null;
   let lastPlanBreakdown = null;
   let selectedReasonTag = 'risk_high';
-  let dangerOn = false;
   let bossId = String(qs('boss','toilet_flush')||'toilet_flush');
   let aiTopIds = [];
   let bossTopIds = [];
@@ -880,6 +901,7 @@ export function mountCleanUI(root, opts){
   let quickPickId = '';
   let lastStarCount = 0;
   let tutorialStep = 0;
+  let rewardFlashUntil = 0;
   const tutorialDayKey = (()=> {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
@@ -892,6 +914,7 @@ export function mountCleanUI(root, opts){
   const pillBudget = $('pillBudget');
   const pillGoal = $('pillGoal');
   const pillSpread = $('pillSpread');
+  const pillBoss = $('pillBoss');
   const alertBar = $('alertBar');
   const alertTitle = $('alertTitle');
   const alertText = $('alertText');
@@ -1102,13 +1125,19 @@ export function mountCleanUI(root, opts){
 
   function renderMission(S){
     if(S.mode === 'A'){
+      const bossText = S.boss?.active
+        ? `🔥 บอสอยู่ระหว่างเล่น: ${fmt(S.boss.progress)}/${fmt(S.boss.total)}`
+        : `🔥 อย่าลืมบอส: ${escapeHtml(bossId)}`;
+
       missionText.innerHTML = `
         <b>Emergency Clean-up:</b> รีบจัดการจุดเสี่ยงก่อนเชื้อกระจาย<br/>
-        <span style="opacity:.92">เริ่มจาก <b>ลูกบิด • ของใช้ร่วม • ก๊อกน้ำ</b> และอย่าลืม <b>บอส: ${escapeHtml(bossId)}</b></span>
+        <span style="opacity:.92">เริ่มจาก <b>ลูกบิด • ของใช้ร่วม • ก๊อกน้ำ</b> และ ${bossText}</span>
       `;
-      helpBox.innerHTML = `Tip: จุด “วิกฤต” ต้องทำก่อน • ถ้าปล่อยไว้นาน เชื้อจะลาม`;
+      helpBox.innerHTML = `Tip: จุด “วิกฤต” ต้องทำก่อน • ถ้าปล่อยไว้นาน เชื้อจะลาม • เคลียร์บอสได้โบนัส`;
       if(missionLine){
-        missionLine.textContent = '🚨 เก็บจุดวิกฤตก่อน แล้วค่อยเก็บจุดเสี่ยง';
+        missionLine.textContent = S.boss?.active
+          ? `🔥 BOSS TARGETS ${fmt(S.boss.progress)}/${fmt(S.boss.total)} — รีบเก็บให้ครบ`
+          : '🚨 เก็บจุดวิกฤตก่อน แล้วค่อยเก็บจุดเสี่ยง';
       }
     }else{
       missionText.innerHTML = `
@@ -1142,22 +1171,21 @@ export function mountCleanUI(root, opts){
     if(!S) return;
 
     if(S.mode === 'A'){
-      const selected = (S.A?.selected || []);
-      const ids = selected.map(x=>String(x.id));
       let stars = 0;
       let note = 'เริ่มเลือกจุดเสี่ยง';
 
-      if(selected.length >= 1){
+      const selected = (S.A?.selected || []).length;
+      if(selected >= 1){
         stars = 1;
         note = 'ดีมาก เริ่มเลือกจุดแล้ว';
       }
-      if(selected.length >= 2){
+      if(selected >= 2){
         stars = 2;
         note = 'ใกล้ครบแล้ว เลือกให้คุ้มอีกนิด';
       }
-      if(ids.includes(String(bossId))){
+      if(S.boss?.cleared){
         stars = 3;
-        note = 'ยอดเยี่ยม จัดการบอสแล้ว';
+        note = 'ยอดเยี่ยม เคลียร์บอสแล้ว';
       }
 
       setStars(stars, note);
@@ -1195,42 +1223,65 @@ export function mountCleanUI(root, opts){
       return;
     }
 
+    if(S.boss?.cleared){
+      alertBar.style.display = '';
+      alertBar.classList.remove('crisis');
+      alertBar.classList.add('reward');
+      alertTitle.textContent = '🏁 BOSS CLEARED';
+      alertText.textContent = `โบนัส +${fmt(S.boss.reward || 0)} • เป้าบอสครบ ${fmt(S.boss.progress)}/${fmt(S.boss.total)}`;
+      return;
+    }
+
     const spreadPenalty = Number(S.spreadPenalty || 0);
     const crisisOn = !!S.crisisOn;
     const spreadN = Array.isArray(S.spreadTargets) ? S.spreadTargets.length : 0;
 
     if(crisisOn){
       alertBar.style.display = '';
+      alertBar.classList.remove('reward');
       alertBar.classList.add('crisis');
       alertTitle.textContent = '🚨 CRISIS';
       alertText.textContent = `มีจุดวิกฤตหลายจุดพร้อมกัน • Spread penalty ${spreadPenalty}`;
       return;
     }
 
+    if(S.boss?.active){
+      alertBar.style.display = '';
+      alertBar.classList.remove('crisis','reward');
+      const left = Math.max(0, Math.ceil((S.boss.expireAtS || 0) - (S.elapsedSec || 0)));
+      alertTitle.textContent = '🔥 BOSS';
+      alertText.textContent = `เป้าบอส ${fmt(S.boss.progress)}/${fmt(S.boss.total)} • เหลือ ${left} วิ`;
+      return;
+    }
+
     if(spreadN > 0 || spreadPenalty > 0){
       alertBar.style.display = '';
-      alertBar.classList.remove('crisis');
+      alertBar.classList.remove('crisis','reward');
       alertTitle.textContent = '⚠️ SPREAD';
       alertText.textContent = `เชื้อเพิ่งลาม ${spreadN} จุด • Penalty ${spreadPenalty}`;
       return;
     }
 
     alertBar.style.display = 'none';
-    alertBar.classList.remove('crisis');
+    alertBar.classList.remove('crisis','reward');
   }
 
   function renderHud(S){
     pillMode.textContent = `MODE: ${S.mode==='A' ? 'A (Evaluate)' : 'B (Create)'}`;
     pillTime.textContent = `TIME: ${fmt(S.timeLeft)}s`;
+
     if(S.mode === 'A'){
       pillBudget.textContent = `SPRAYS: ${fmt(S.A?.spraysLeft||0)}/${fmt(S.A?.maxSelect||3)}`;
       pillGoal.textContent = `GOAL: Best picks + Boss`;
       pillSpread.textContent = `SPREAD: ${fmt(S.spreadPenalty || 0)}`;
       pillSpread.style.display = '';
+      pillBoss.textContent = `BOSS: ${fmt(S.boss?.progress||0)}/${fmt(S.boss?.total||0)}`;
+      pillBoss.style.display = '';
     }else{
       pillBudget.textContent = `POINTS: ${fmt((S.B?.routeIds||[]).length)}/${fmt(S.B?.maxPoints||5)}`;
       pillGoal.textContent = `GOAL: Best plan + Boss`;
       pillSpread.style.display = 'none';
+      pillBoss.style.display = 'none';
     }
   }
 
@@ -1284,14 +1335,16 @@ export function mountCleanUI(root, opts){
       const reasons = (m.metrics && m.metrics.reasons) ? m.metrics.reasons : [];
       const comboBest = (m.metrics && m.metrics.combo) ? (m.metrics.combo.best||0) : 0;
       const bossPenalty = Number(bd?.bossPenalty || 0);
+      const bossBonus = Number(bd?.bossBonus || m.metrics?.boss?.reward || 0);
       const spreadPenalty = Number(bd?.spreadPenalty || m.metrics?.spread?.penalty || 0);
       const spreadWaves = Number(m.metrics?.spread?.waves || 0);
+      const boss = m.metrics?.boss || {};
       const tips = summaryAdviceA(Object.assign({}, bd, { spreadPenalty }), comboBest, bossPenalty);
 
       const verdict =
-        score >= 320 ? 'ยอดเยี่ยม! เลือกจุดได้คุ้มมาก' :
-        score >= 220 ? 'ดีมาก! เริ่มเลือกจุดได้แม่นขึ้น' :
-        'โอเค! รอบหน้าลองเลือกจุดเสี่ยงสูงก่อน';
+        score >= 420 ? 'ยอดเยี่ยม! เคลียร์บอสและจัดการจุดได้คุ้มมาก' :
+        score >= 280 ? 'ดีมาก! เริ่มเล่นเป็นฮีโร่หยุดการระบาดแล้ว' :
+        'โอเค! รอบหน้าลองเคลียร์บอสและรีบเก็บจุดวิกฤตให้เร็วขึ้น';
 
       body.innerHTML = `
         <div class="sumStars">${starText(score)}</div>
@@ -1316,8 +1369,8 @@ export function mountCleanUI(root, opts){
             <div class="sumBoxVal">${fmt(comboBest)}</div>
           </div>
           <div class="sumBox">
-            <div class="sumBoxTitle">Spread Waves</div>
-            <div class="sumBoxVal">${fmt(spreadWaves)}</div>
+            <div class="sumBoxTitle">Boss Reward</div>
+            <div class="sumBoxVal">+${fmt(bossBonus)}</div>
           </div>
           <div class="sumBox">
             <div class="sumBoxTitle">Spread Penalty</div>
@@ -1326,7 +1379,12 @@ export function mountCleanUI(root, opts){
         </div>
 
         <div class="sumTips">
-          <b>โดนหัก:</b> Boss Penalty <b>-${fmt(bossPenalty)}</b> • Spread <b>-${fmt(spreadPenalty)}</b><br/>
+          <b>Boss:</b> ${boss.cleared ? '✅ Cleared' : (boss.failed ? '❌ Failed' : '—')} • ${fmt(boss.progress)}/${fmt(boss.total)}<br/>
+          <b>Boss Bonus:</b> +${fmt(bossBonus)} • <b>Spread Waves:</b> ${fmt(spreadWaves)} • <b>Spread:</b> -${fmt(spreadPenalty)}
+        </div>
+
+        <div class="sumTips">
+          <b>โดนหัก/ได้เพิ่ม:</b> Boss Penalty <b>-${fmt(bossPenalty)}</b> • Boss Reward <b>+${fmt(bossBonus)}</b><br/>
           <b>เหตุผลที่เลือก:</b><br/>
           ${reasons.length ? reasons.map(r=>`• ${escapeHtml(r.reasonText || r.id)}`).join('<br/>') : '• —'}
         </div>
@@ -1367,7 +1425,7 @@ export function mountCleanUI(root, opts){
           </div>
           <div class="sumBox">
             <div class="sumBoxTitle">Boss Penalty</div>
-            <div class="sumBoxVal">-${fmt(bossPenalty)}</div>
+            <div class="sumBoxVal">-${fmt(bd.bossPenalty)}</div>
           </div>
         </div>
 
@@ -1420,11 +1478,10 @@ export function mountCleanUI(root, opts){
   routePanel.querySelector('#btnSubmit').onclick = ()=> opts.submitB && opts.submitB();
 
   function setDanger(on){
-    dangerOn = !!on;
-    root.classList.toggle('danger', dangerOn);
+    root.classList.toggle('danger', !!on);
     const boardEl = root.querySelector('.board');
     if(boardEl) boardEl.classList.toggle('dangerBoard', !!on);
-    if(dangerOn){
+    if(on){
       try{ if(navigator.vibrate) navigator.vibrate([40,40,40]); }catch(e){}
     }
   }
@@ -1451,8 +1508,8 @@ export function mountCleanUI(root, opts){
     },
     {
       title: 'วิธีเล่น — Step 4',
-      text: '⚠️ ถ้าปล่อยจุดวิกฤตไว้นาน เชื้อจะลามไปจุดข้าง ๆ',
-      hint: 'ช่วงท้ายจะมี Danger / Spread / Boss พร้อมกัน'
+      text: '🔥 เมื่อบอสมา ต้องรีบเก็บเป้าบอสให้ครบ 3/3 เพื่อรับโบนัส',
+      hint: 'ถ้าเคลียร์บอสสำเร็จ จะได้คะแนนเพิ่มและ badge'
     }
   ];
 
@@ -1498,6 +1555,15 @@ export function mountCleanUI(root, opts){
     try{ bossId = String((S.cfg && S.cfg.bossId) ? S.cfg.bossId : bossId); }catch(e){}
 
     spreadIds = Array.isArray(S.spreadTargets) ? S.spreadTargets.slice(0) : [];
+
+    if(S.boss?.cleared){
+      const now = Date.now();
+      if(now > rewardFlashUntil){
+        rewardFlashUntil = now + 1500;
+        const rect = markerLayer.getBoundingClientRect();
+        popScore(markerLayer, rect.width/2, 60, `+${fmt(S.boss.reward || 0)} BOSS BONUS`, 'reward');
+      }
+    }
 
     renderHud(S);
     updateProgressStars(S);
@@ -1547,6 +1613,11 @@ export function mountCleanUI(root, opts){
       popScore(markerLayer, cx, 40, `COMBO x${msg.data?.streak || 2}`);
     }
 
+    if(msg.kind === 'good' && typeof msg.data?.reward !== 'undefined'){
+      const cx = markerLayer.getBoundingClientRect().width * 0.5;
+      popScore(markerLayer, cx, 80, `+${fmt(msg.data.reward)} BONUS`, 'reward');
+    }
+
     let mood = 'tip';
     if(msg.kind === 'contamination' || msg.kind === 'danger' || msg.kind === 'warn') mood = 'warn';
     else if(msg.kind === 'boss' || msg.kind === 'boss_warn' || msg.kind === 'boss_final') mood = 'boss';
@@ -1583,7 +1654,7 @@ export function mountCleanUI(root, opts){
   }
 
   helpBox.innerHTML = `
-    <div>• 🔥 Boss = <b>${escapeHtml(bossId)}</b> (ถ้าไม่ทำโดนหัก)</div>
+    <div>• 🔥 Boss = <b>${escapeHtml(bossId)}</b> (เคลียร์ครบจะได้โบนัส)</div>
     <div>• ⚠️ กลางเกมมีเหตุการณ์ปนเปื้อน และเชื้ออาจลาม</div>
     <div>• ⏱️ 10 วิท้ายจะ “เร่ง”</div>
   `;
