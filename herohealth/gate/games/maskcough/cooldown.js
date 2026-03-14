@@ -9,6 +9,18 @@ export function loadStyle(){
 export async function mount(container, ctx, api){
   const rng = mulberry32(ctx.seed || Date.now());
 
+  function safeToast(msg){
+    try{
+      if(api && typeof api.toast === 'function'){
+        api.toast(msg);
+        return;
+      }
+    }catch(_){}
+    try{
+      console.log('[maskcough cooldown toast]', msg);
+    }catch(_){}
+  }
+
   container.innerHTML = `
     <div class="mask-layer">
       <div class="mask-brief" id="maskCoolBrief" style="position:static;padding:0;">
@@ -67,12 +79,15 @@ export async function mount(container, ctx, api){
     const prog = state.phase === 'bubbles'
       ? `${state.taps}/${state.goal}`
       : (state.answerCorrect ? 'DONE' : 'Q1');
-    api.setStats({
-      time: state.time,
-      score: state.score,
-      miss: state.miss,
-      acc: prog
-    });
+
+    if(api && typeof api.setStats === 'function'){
+      api.setStats({
+        time: state.time,
+        score: state.score,
+        miss: state.miss,
+        acc: prog
+      });
+    }
   }
 
   function openQuiz(){
@@ -91,6 +106,7 @@ export async function mount(container, ctx, api){
       btn.type = 'button';
       btn.className = 'mask-choice';
       btn.textContent = choice.label;
+
       btn.addEventListener('click', ()=>{
         if(state.ended || state.answerCorrect) return;
 
@@ -98,16 +114,17 @@ export async function mount(container, ctx, api){
           btn.classList.add('good');
           state.answerCorrect = true;
           state.score += 10;
-          api.toast('ถูกต้อง!');
+          safeToast('ถูกต้อง!');
           setHud();
           setTimeout(()=> finish(true), 320);
         }else{
           btn.classList.add('bad');
           state.miss++;
-          api.toast('ลองคิดอีกครั้ง');
+          safeToast('ลองคิดอีกครั้ง');
           setHud();
         }
       });
+
       els.quizChoices.appendChild(btn);
     });
 
@@ -120,30 +137,34 @@ export async function mount(container, ctx, api){
     clearInterval(state.timer);
     bubbleRun?.end();
 
-    api.logger.push('maskcough_cooldown_end', {
-      ok,
-      bubbles: state.taps,
-      goal: state.goal,
-      score: state.score,
-      miss: state.miss,
-      answerCorrect: state.answerCorrect
-    });
+    try{
+      api?.logger?.push?.('maskcough_cooldown_end', {
+        ok,
+        bubbles: state.taps,
+        goal: state.goal,
+        score: state.score,
+        miss: state.miss,
+        answerCorrect: state.answerCorrect
+      });
+    }catch(_){}
 
-    api.finish({
-      ok:true,
-      title:'คูลดาวน์เสร็จแล้ว',
-      subtitle:'พร้อมกลับ HUB',
-      lines:[
-        `แตะฟองอากาศสะอาด ${state.taps}/${state.goal} จุด`,
-        `ตอบคำถามสรุป ${state.answerCorrect ? 'ถูกต้อง' : 'ยังไม่ถูก'}`,
-        `คะแนน ${state.score}`
-      ],
-      buffs:{
-        cType:'maskcough_calm_check',
-        cDone:1,
-        cScore:state.score
-      }
-    });
+    if(api && typeof api.finish === 'function'){
+      api.finish({
+        ok:true,
+        title:'คูลดาวน์เสร็จแล้ว',
+        subtitle:'พร้อมกลับ HUB',
+        lines:[
+          `แตะฟองอากาศสะอาด ${state.taps}/${state.goal} จุด`,
+          `ตอบคำถามสรุป ${state.answerCorrect ? 'ถูกต้อง' : 'ยังไม่ถูก'}`,
+          `คะแนน ${state.score}`
+        ],
+        buffs:{
+          cType:'maskcough_calm_check',
+          cDone:1,
+          cScore:state.score
+        }
+      });
+    }
   }
 
   function start(){
@@ -162,7 +183,7 @@ export async function mount(container, ctx, api){
       onPop: ()=>{
         state.taps++;
         state.score += 5;
-        api.toast('อากาศสะอาดขึ้น!');
+        safeToast('อากาศสะอาดขึ้น!');
         setHud();
       },
       onGoal: ()=>{
@@ -172,9 +193,11 @@ export async function mount(container, ctx, api){
 
     setHud();
 
-    api.logger.push('maskcough_cooldown_start', {
-      seed: ctx.seed
-    });
+    try{
+      api?.logger?.push?.('maskcough_cooldown_start', {
+        seed: ctx.seed
+      });
+    }catch(_){}
 
     state.timer = setInterval(()=>{
       state.time--;
