@@ -1,304 +1,241 @@
-/* === /herohealth/gate/games/groups/cooldown.js ===
-   HeroHealth Gate Mini-game
-   GAME: groups
-   MODE: cooldown
-   FULL PATCH v20260314-GATE-GROUPS-COOLDOWN-AUTOSTART-FALLBACK
-   ✅ FIX: auto-start fallback if gate-core cache/old version doesn't call controller.start()
-   ✅ FIX: child-friendly cooldown review
+/* === /herohealth/gate/games/groups/style.css ===
+   FULL PATCH v20260314-GATE-GROUPS-STYLE-BUTTON-FIX-r1
 */
 
-let __styleLoaded = false;
-
-export function loadStyle(){
-  if(__styleLoaded) return;
-  __styleLoaded = true;
-
-  const id = 'gate-style-groups';
-  if(document.getElementById(id)) return;
-
-  const link = document.createElement('link');
-  link.id = id;
-  link.rel = 'stylesheet';
-  link.href = new URL('./style.css', import.meta.url).toString();
-  document.head.appendChild(link);
+:root{
+  --grp-bg1:#081226;
+  --grp-bg2:#0b1730;
+  --grp-panel:rgba(8,15,35,.72);
+  --grp-stroke:rgba(148,163,184,.18);
+  --grp-text:#e5e7eb;
+  --grp-muted:#a5b4fc;
+  --grp-good:#22c55e;
+  --grp-blue:#38bdf8;
+  --grp-violet:#a78bfa;
+  --grp-warn:#f59e0b;
 }
 
-function el(tag, cls='', text=''){
-  const n = document.createElement(tag);
-  if(cls) n.className = cls;
-  if(text) n.textContent = text;
-  return n;
+.grp-wrap{
+  width:min(980px, calc(100% - 24px));
+  margin:0 auto;
+  color:var(--grp-text);
 }
 
-function shuffle(arr, rng=Math.random){
-  const a = arr.slice();
-  for(let i=a.length-1;i>0;i--){
-    const j = Math.floor(rng()*(i+1));
-    [a[i],a[j]] = [a[j],a[i]];
-  }
-  return a;
+.grp-hero{
+  margin-bottom:14px;
+  padding:18px;
+  border-radius:24px;
+  border:1px solid var(--grp-stroke);
+  background:
+    radial-gradient(800px 260px at 50% -10%, rgba(59,130,246,.16), transparent 60%),
+    linear-gradient(180deg, rgba(2,6,23,.88), rgba(2,6,23,.68));
+  box-shadow:0 18px 48px rgba(0,0,0,.28);
 }
 
-function mulberry32(seed){
-  let t = (seed >>> 0) || 1;
-  return function(){
-    t += 0x6D2B79F5;
-    let r = Math.imul(t ^ (t >>> 15), 1 | t);
-    r ^= r + Math.imul(r ^ (r >>> 7), 61 | r);
-    return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
-  };
+.grp-kicker{
+  display:inline-flex;
+  align-items:center;
+  padding:6px 10px;
+  border-radius:999px;
+  font-size:12px;
+  font-weight:1000;
+  color:#dbeafe;
+  background:rgba(59,130,246,.16);
+  border:1px solid rgba(59,130,246,.24);
+  margin-bottom:10px;
 }
 
-function calcRank(acc){
-  if(acc >= 90) return 'S';
-  if(acc >= 75) return 'A';
-  if(acc >= 60) return 'B';
-  if(acc >= 40) return 'C';
-  return 'D';
+.grp-title{
+  font-size:clamp(1.5rem,4vw,2.3rem);
+  line-height:1.08;
+  font-weight:1000;
+  margin-bottom:8px;
 }
 
-export async function mount(root, ctx, api){
-  loadStyle();
+.grp-sub{
+  color:#cbd5e1;
+  font-size:1rem;
+  line-height:1.5;
+}
 
-  const rng = mulberry32(Number(ctx.seed || Date.now()) + 97);
+.grp-stage{
+  display:grid;
+  gap:14px;
+}
 
-  const GROUPS = [
-    { key:'g1', label:'หมู่ 1 โปรตีน', short:'โปรตีน' },
-    { key:'g2', label:'หมู่ 2 คาร์โบไฮเดรต', short:'แป้ง' },
-    { key:'g3', label:'หมู่ 3 ผัก', short:'ผัก' },
-    { key:'g4', label:'หมู่ 4 ผลไม้', short:'ผลไม้' },
-    { key:'g5', label:'หมู่ 5 ไขมัน', short:'ไขมัน' }
-  ];
+.grp-panel{
+  padding:18px;
+  border-radius:24px;
+  border:1px solid var(--grp-stroke);
+  background:linear-gradient(180deg, rgba(15,23,42,.60), rgba(2,6,23,.55));
+  box-shadow:0 14px 36px rgba(0,0,0,.22);
+}
 
-  const ITEMS = [
-    { text:'🥚 ไข่', group:'g1' },
-    { text:'🐟 ปลา', group:'g1' },
-    { text:'🥛 นม', group:'g1' },
-    { text:'🫘 ถั่วแดง', group:'g1' },
+.grp-target{
+  min-height:120px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  text-align:center;
+  border-radius:22px;
+  border:1px solid rgba(148,163,184,.16);
+  background:linear-gradient(180deg, rgba(30,41,59,.55), rgba(15,23,42,.45));
+  font-size:clamp(1.9rem,5vw,3rem);
+  font-weight:1000;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.06);
+}
 
-    { text:'🍚 ข้าว', group:'g2' },
-    { text:'🍞 ขนมปัง', group:'g2' },
-    { text:'🥔 มันฝรั่ง', group:'g2' },
-    { text:'🌽 ข้าวโพด', group:'g2' },
+.grp-prompt{
+  font-size:1.1rem;
+  font-weight:1000;
+  margin-bottom:12px;
+}
 
-    { text:'🥬 คะน้า', group:'g3' },
-    { text:'🥕 แครอท', group:'g3' },
-    { text:'🥒 แตงกวา', group:'g3' },
-    { text:'🥦 บรอกโคลี', group:'g3' },
+.grp-choices{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:12px;
+}
 
-    { text:'🍌 กล้วย', group:'g4' },
-    { text:'🍊 ส้ม', group:'g4' },
-    { text:'🍉 แตงโม', group:'g4' },
-    { text:'🍎 แอปเปิล', group:'g4' },
+.grp-note{
+  margin-top:12px;
+  color:#cbd5e1;
+  font-size:.98rem;
+  line-height:1.5;
+}
 
-    { text:'🧈 เนย', group:'g5' },
-    { text:'🥥 กะทิ', group:'g5' },
-    { text:'🐷 มันหมู', group:'g5' },
-    { text:'🛢️ น้ำมันปรุงอาหาร', group:'g5' }
-  ];
+.grp-btn{
+  appearance:none;
+  border:1px solid rgba(148,163,184,.18);
+  border-radius:18px;
+  min-height:56px;
+  padding:14px 16px;
+  font-size:1rem;
+  font-weight:1000;
+  color:var(--grp-text);
+  background:linear-gradient(180deg, rgba(30,41,59,.72), rgba(15,23,42,.86));
+  box-shadow:
+    0 10px 24px rgba(0,0,0,.18),
+    inset 0 1px 0 rgba(255,255,255,.06);
+  cursor:pointer;
+  transition:transform .08s ease, box-shadow .15s ease, border-color .15s ease, background .15s ease;
+}
 
-  const rounds = shuffle(ITEMS, rng).slice(0, 5);
+.grp-btn:hover{
+  transform:translateY(-1px);
+  border-color:rgba(167,139,250,.34);
+  box-shadow:
+    0 14px 30px rgba(0,0,0,.22),
+    0 0 0 1px rgba(167,139,250,.12),
+    inset 0 1px 0 rgba(255,255,255,.08);
+}
 
-  let idx = 0;
-  let score = 0;
-  let miss = 0;
-  let correct = 0;
-  let ended = false;
-  let started = false;
+.grp-btn:active{
+  transform:translateY(0);
+}
 
-  const plannedTime = Number(ctx.time || 20);
-  let timeLeft = plannedTime;
+.grp-btn.ghost{
+  background:linear-gradient(180deg, rgba(30,41,59,.66), rgba(15,23,42,.82));
+}
 
-  root.innerHTML = '';
+.grp-btn.good{
+  color:#052e16;
+  border-color:rgba(34,197,94,.28);
+  background:linear-gradient(180deg, #86efac, #22c55e);
+  box-shadow:
+    0 14px 28px rgba(34,197,94,.20),
+    inset 0 1px 0 rgba(255,255,255,.20);
+}
 
-  const wrap = el('div', 'grp-wrap');
-  const hero = el('div', 'grp-hero');
-  const stage = el('div', 'grp-stage');
-  const panelTop = el('div', 'grp-panel');
-  const panelBottom = el('div', 'grp-panel');
+.grp-btn.good:hover{
+  border-color:rgba(34,197,94,.42);
+  box-shadow:
+    0 16px 34px rgba(34,197,94,.26),
+    0 0 0 1px rgba(34,197,94,.16),
+    inset 0 1px 0 rgba(255,255,255,.26);
+}
 
-  hero.innerHTML = `
-    <div class="grp-kicker">NUTRITION ZONE • GROUPS • COOLDOWN</div>
-    <div class="grp-title">หมู่นี้ควรเลือกอะไร</div>
-    <div class="grp-sub">ทบทวนความเข้าใจเรื่องอาหาร 5 หมู่ ด้วยการเลือกตัวอย่างอาหารที่ตรงกับหมวด</div>
-  `;
+.grp-result{
+  width:min(860px, calc(100% - 24px));
+  margin:0 auto;
+  padding:22px;
+  border-radius:26px;
+  border:1px solid var(--grp-stroke);
+  background:
+    radial-gradient(800px 260px at 50% -10%, rgba(167,139,250,.16), transparent 60%),
+    linear-gradient(180deg, rgba(2,6,23,.90), rgba(2,6,23,.72));
+  box-shadow:0 22px 60px rgba(0,0,0,.30);
+}
 
-  const target = el('div', 'grp-target', 'เตรียมทบทวน…');
-  const prompt = el('div', 'grp-prompt', 'เลือกตัวอย่างอาหารที่ตรงหมวด');
-  const choices = el('div', 'grp-choices');
-  const note = el('div', 'grp-note', 'Cooldown ใช้เพื่อทบทวนและเชื่อมความเข้าใจก่อนกลับ HUB');
+.grp-badge{
+  display:inline-flex;
+  align-items:center;
+  padding:8px 12px;
+  border-radius:999px;
+  font-size:13px;
+  font-weight:1000;
+  background:rgba(167,139,250,.16);
+  border:1px solid rgba(167,139,250,.26);
+  color:#ede9fe;
+  margin-bottom:12px;
+}
 
-  panelTop.appendChild(target);
-  panelBottom.appendChild(prompt);
-  panelBottom.appendChild(choices);
-  panelBottom.appendChild(note);
-  stage.appendChild(panelTop);
-  stage.appendChild(panelBottom);
-  wrap.appendChild(hero);
-  wrap.appendChild(stage);
-  root.appendChild(wrap);
+.grp-big{
+  font-size:clamp(1.4rem,4vw,2rem);
+  font-weight:1000;
+  line-height:1.1;
+  margin-bottom:14px;
+}
 
-  api.logger?.push?.('mini_start', {
-    game: 'groups',
-    mode: 'cooldown',
-    seed: ctx.seed
-  });
+.grp-list{
+  display:grid;
+  gap:10px;
+  margin-bottom:18px;
+}
 
-  api.setStats({
-    time: timeLeft,
-    score: 0,
-    miss: 0,
-    acc: '0%'
-  });
+.grp-item{
+  padding:12px 14px;
+  border-radius:16px;
+  border:1px solid rgba(148,163,184,.14);
+  background:rgba(15,23,42,.42);
+  color:#e2e8f0;
+  font-size:1rem;
+  font-weight:900;
+}
 
-  function updateHud(){
-    const acc = idx > 0 ? Math.round((correct / idx) * 100) : 0;
-    api.setStats({
-      time: timeLeft,
-      score,
-      miss,
-      acc: `${acc}%`
-    });
+.grp-actions{
+  display:flex;
+  gap:12px;
+  flex-wrap:wrap;
+}
+
+@media (max-width:680px){
+  .grp-wrap,
+  .grp-result{
+    width:min(100%, calc(100% - 12px));
   }
 
-  function buildChoices(item){
-    const correctItem = item;
-    const wrongPool = ITEMS.filter(x => x.group !== item.group);
-    const wrongs = shuffle(wrongPool, rng).slice(0, 3);
-    return shuffle([correctItem, ...wrongs], rng);
+  .grp-hero,
+  .grp-panel,
+  .grp-result{
+    padding:14px;
+    border-radius:20px;
   }
 
-  function renderRound(){
-    if(ended) return;
-    if(idx >= rounds.length){
-      finishNow();
-      return;
-    }
-
-    const item = rounds[idx];
-    const groupMeta = GROUPS.find(g => g.key === item.group) || GROUPS[0];
-
-    target.textContent = groupMeta.label;
-    prompt.textContent = 'เลือกอาหารที่อยู่ในหมู่นี้';
-    choices.innerHTML = '';
-
-    const pickSet = buildChoices(item);
-
-    for(const opt of pickSet){
-      const btn = el('button', 'grp-btn ghost', opt.text);
-      btn.setAttribute('aria-label', opt.text);
-
-      btn.addEventListener('click', ()=>{
-        if(ended) return;
-
-        idx++;
-
-        const isCorrect = opt.text === item.text && opt.group === item.group;
-
-        if(isCorrect){
-          score += 10;
-          correct++;
-        }else{
-          score -= 4;
-          miss++;
-        }
-
-        api.logger?.push?.('mini_answer', {
-          game: 'groups',
-          mode: 'cooldown',
-          round: idx,
-          targetGroup: item.group,
-          targetGroupLabel: groupMeta.label,
-          selected: opt.text,
-          selectedGroup: opt.group,
-          correctItem: item.text,
-          score,
-          miss,
-          correctCount: correct
-        });
-
-        updateHud();
-        renderRound();
-      });
-
-      choices.appendChild(btn);
-    }
+  .grp-target{
+    min-height:100px;
+    border-radius:18px;
+    font-size:clamp(1.6rem,8vw,2.4rem);
   }
 
-  function finishNow(){
-    if(ended) return;
-    ended = true;
-    clearInterval(timer);
-
-    const accuracy = rounds.length > 0 ? Math.round((correct / rounds.length) * 100) : 0;
-    const rank = calcRank(accuracy);
-
-    root.innerHTML = `
-      <div class="grp-result">
-        <div class="grp-badge">🌿 Cooldown Rank ${rank}</div>
-        <div class="grp-big">ทบทวนเสร็จแล้ว!</div>
-        <div class="grp-list">
-          <div class="grp-item">คะแนน: ${score}</div>
-          <div class="grp-item">ความแม่นยำ: ${accuracy}%</div>
-          <div class="grp-item">ตอบถูก: ${correct}/${rounds.length}</div>
-          <div class="grp-item">พลาด: ${miss}</div>
-        </div>
-        <div class="grp-actions">
-          <button class="grp-btn good" id="grpFinishBtn">กลับ HUB</button>
-        </div>
-      </div>
-    `;
-
-    root.querySelector('#grpFinishBtn')?.addEventListener('click', ()=>{
-      api.finish({
-        ok: true,
-        title: 'ทบทวนเสร็จแล้ว!',
-        subtitle: 'กลับหน้าหลักได้เลย',
-        lines: [
-          `คะแนน: ${score}`,
-          `ความแม่นยำ: ${accuracy}%`,
-          `ตอบถูก: ${correct}/${rounds.length}`,
-          `Rank: ${rank}`
-        ],
-        metrics: {
-          score,
-          accuracy,
-          correct,
-          misses: miss,
-          rank
-        },
-        markDailyDone: true
-      });
-    });
+  .grp-choices{
+    grid-template-columns:1fr;
+    gap:10px;
   }
 
-  function startGame(){
-    if(started || ended) return;
-    started = true;
-    renderRound();
+  .grp-btn{
+    min-height:52px;
+    padding:12px 14px;
+    border-radius:16px;
   }
-
-  const timer = setInterval(()=>{
-    if(ended) return;
-    timeLeft--;
-    if(timeLeft < 0) timeLeft = 0;
-    updateHud();
-
-    if(timeLeft <= 0){
-      finishNow();
-    }
-  }, 1000);
-
-  // fallback: เริ่มเกมทันที เผื่อ gate-core cache อยู่และไม่ได้เรียก start()
-  startGame();
-
-  return {
-    start(){
-      startGame();
-    },
-    destroy(){
-      ended = true;
-      clearInterval(timer);
-    }
-  };
 }
