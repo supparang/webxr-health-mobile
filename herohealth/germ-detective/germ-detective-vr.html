@@ -36,9 +36,7 @@
       color:var(--text);
       font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", Arial, sans-serif;
     }
-    body{
-      overflow:hidden;
-    }
+    body{ overflow:hidden; }
     button{ font:inherit; }
     a{ color:inherit; text-decoration:none; }
 
@@ -497,23 +495,14 @@
     }
 
     @media (max-width:720px){
-      .topHUD{
-        gap:8px;
-      }
-      .brandPanel{
-        min-width:unset;
-        width:100%;
-      }
-      .statusPanel{
-        width:100%;
-      }
+      .topHUD{ gap:8px; }
+      .brandPanel{ min-width:unset; width:100%; }
+      .statusPanel{ width:100%; }
       .missionBox{
         width:min(94vw, 520px);
         bottom:calc(176px + var(--sab));
       }
-      .toolBar{
-        width:min(94vw, 520px);
-      }
+      .toolBar{ width:min(94vw, 520px); }
     }
   </style>
 </head>
@@ -667,6 +656,7 @@
 
         <div class="modalActions">
           <button type="button" class="bigBtn cyan" id="btnReplay">🔁 เล่นอีกครั้ง</button>
+          <button type="button" class="bigBtn warn" id="btnCooldown">🌙 ไป Cooldown</button>
           <button type="button" class="bigBtn primary" id="btnHubSummary">🏠 กลับ HUB</button>
         </div>
       </div>
@@ -761,23 +751,47 @@
       }
     }
 
+    function cooldownUrl(){
+      const u = new URL('../warmup-gate.html', location.href);
+      u.searchParams.set('gatePhase', 'cooldown');
+      u.searchParams.set('phase', 'cooldown');
+      u.searchParams.set('cat', 'hygiene');
+      u.searchParams.set('theme', 'germdetective');
+      u.searchParams.set('game', 'germdetective');
+      u.searchParams.set('pid', pid);
+      u.searchParams.set('hub', hubUrl());
+      u.searchParams.set('run', run);
+      u.searchParams.set('diff', diff);
+      u.searchParams.set('time', String(time));
+      u.searchParams.set('view', view);
+      u.searchParams.set('seed', seed);
+      u.searchParams.set('scene', scene);
+      u.searchParams.set('zone', 'hygiene');
+      u.searchParams.set('cat', 'hygiene');
+      u.searchParams.set('wgskip', '1');
+      return u.toString();
+    }
+
     function saveLastSummary(payload){
       try{
         const out = Object.assign({}, payload || {}, {
           pid,
           game:'germ-detective',
+          zone:'hygiene',
           scene,
           diff,
           runMode: run,
           timestampIso: new Date().toISOString(),
           __extraJson: JSON.stringify({
             url: location.href,
-            hub: hubUrl()
+            hub: hubUrl(),
+            cooldown: cooldownUrl()
           })
         });
 
         localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(out));
         localStorage.setItem(`HHA_LAST_SUMMARY:germ-detective:${pid}`, JSON.stringify(out));
+        localStorage.setItem(`HHA_LAST_SUMMARY:germdetective:${pid}`, JSON.stringify(out));
       }catch{}
     }
 
@@ -869,7 +883,14 @@
       replay.searchParams.set('seed', String(Date.now()));
       location.href = replay.toString();
     };
-    document.getElementById('btnHubSummary').onclick = ()=> goHub();
+
+    document.getElementById('btnCooldown').onclick = ()=>{
+      location.href = cooldownUrl();
+    };
+
+    document.getElementById('btnHubSummary').onclick = ()=>{
+      goHub();
+    };
 
     window.addEventListener('gd:toolchange', (ev)=>{
       const tool = ev?.detail?.tool || 'uv';
@@ -933,10 +954,10 @@
       summaryWrap.classList.remove('hidden');
     });
 
-    // แสดง scene label
     const sceneLabel = scene === 'home' ? 'บ้าน'
       : scene === 'canteen' ? 'โรงอาหาร'
       : 'ห้องเรียน';
+
     document.getElementById('subLine').textContent =
       `สืบคดีเชื้อโรคใน${sceneLabel} • PID ${pid} • ${diff}`;
   </script>
