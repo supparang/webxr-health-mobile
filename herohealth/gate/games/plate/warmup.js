@@ -2,7 +2,7 @@
    HeroHealth Gate Mini-game
    GAME: plate
    MODE: warmup
-   PATCH v20260308-GATE-PLATE-WARMUP
+   PATCH v20260314-PLATE-WARMUP-AUTOSTART
 */
 
 let __styleLoaded = false;
@@ -160,7 +160,7 @@ export async function mount(root, ctx, api){
     seed: ctx.seed
   });
 
-  api.setStats({
+  api.setStats?.({
     time: timeLeft,
     score: 0,
     miss: 0,
@@ -169,7 +169,7 @@ export async function mount(root, ctx, api){
 
   function updateHud(){
     const acc = idx > 0 ? Math.round((correct / idx) * 100) : 0;
-    api.setStats({
+    api.setStats?.({
       time: timeLeft,
       score,
       miss,
@@ -199,8 +199,14 @@ export async function mount(root, ctx, api){
     choices.innerHTML = '';
 
     const good = pick(slot.good);
-    const bad1 = pick(wrongPool);
-    const bad2 = pick(wrongPool);
+    let bad1 = pick(wrongPool);
+    let bad2 = pick(wrongPool);
+
+    if(bad2 === bad1){
+      const alt = wrongPool.filter(x => x !== bad1);
+      bad2 = alt.length ? pick(alt) : bad2;
+    }
+
     const opts = shuffle([good, bad1, bad2], rng).slice(0, 3);
 
     for(const opt of opts){
@@ -211,14 +217,13 @@ export async function mount(root, ctx, api){
         if(ended) return;
 
         idx++;
-
         chosen[slot.key] = opt;
 
         if(isCorrect){
           score += 12;
           correct++;
         }else{
-          score -= 4;
+          score = Math.max(0, score - 4);
           miss++;
         }
 
@@ -269,7 +274,7 @@ export async function mount(root, ctx, api){
     `;
 
     root.querySelector('#pltFinishBtn')?.addEventListener('click', ()=>{
-      api.finish({
+      api.finish?.({
         ok: true,
         title: 'พร้อมแล้ว!',
         subtitle: 'เข้าเกม Plate ได้เลย',
@@ -296,10 +301,20 @@ export async function mount(root, ctx, api){
     }
   }, 1000);
 
+  let started = false;
+  function startGame(){
+    if(started || ended) return;
+    started = true;
+    updateBoard();
+    renderRound();
+  }
+
+  // ✅ auto-start ทันทีหลัง mount
+  startGame();
+
   return {
     start(){
-      updateBoard();
-      renderRound();
+      startGame();
     },
     destroy(){
       ended = true;
