@@ -1,10 +1,6 @@
 <!-- === /webxr-health-mobile/herohealth/vr-groups/groups-vr.html ===
 GroupsVR — CHILD-FRIENDLY SOLO RUN PAGE
-FULL PATCH v20260314-GROUPS-SOLO-CHILD-FRIENDLY-DAILY-STATUS-r1
-✅ child-friendly wording
-✅ end flow -> cooldown -> hub
-✅ daily status for warmup/cooldown
-✅ save last summary
+FULL PATCH v20260314-GROUPS-RUN-HUDSAFE-ENDNAV-FIX-r1
 -->
 <!doctype html>
 <html lang="th">
@@ -25,9 +21,6 @@ FULL PATCH v20260314-GROUPS-SOLO-CHILD-FRIENDLY-DAILY-STATUS-r1
       --sab: env(safe-area-inset-bottom, 0px);
       --sar: env(safe-area-inset-right, 0px);
       --sal: env(safe-area-inset-left, 0px);
-      --good:#22c55e;
-      --warn:#f59e0b;
-      --blue:#38bdf8;
     }
 
     *{ box-sizing:border-box; }
@@ -71,7 +64,7 @@ FULL PATCH v20260314-GROUPS-SOLO-CHILD-FRIENDLY-DAILY-STATUS-r1
     .title{
       display:flex;
       flex-direction:column;
-      gap:4px;
+      gap:2px;
       min-width:0;
     }
     .title b{
@@ -87,41 +80,31 @@ FULL PATCH v20260314-GROUPS-SOLO-CHILD-FRIENDLY-DAILY-STATUS-r1
 
     .statusRow{
       display:flex;
-      gap:6px;
+      gap:8px;
       flex-wrap:wrap;
-      align-items:center;
+      margin-top:6px;
     }
-
-    .pill{
+    .statusChip{
       display:inline-flex;
       align-items:center;
       gap:6px;
-      min-height:28px;
-      padding:5px 9px;
+      padding:7px 10px;
       border-radius:999px;
       border:1px solid rgba(148,163,184,.16);
-      background:rgba(2,6,23,.42);
-      color:var(--muted);
+      background:rgba(2,6,23,.34);
+      color:#dbeafe;
       font-size:11px;
       font-weight:1000;
-      white-space:nowrap;
     }
-    .pill b{ color:var(--text); }
-
-    .dot{
-      width:8px;
-      height:8px;
-      border-radius:999px;
-      background:var(--blue);
-      box-shadow:0 0 12px rgba(56,189,248,.45);
+    .statusChip.done{
+      border-color:rgba(34,197,94,.26);
+      background:rgba(34,197,94,.14);
+      color:#dcfce7;
     }
-    .dot.good{
-      background:var(--good);
-      box-shadow:0 0 12px rgba(34,197,94,.45);
-    }
-    .dot.warn{
-      background:var(--warn);
-      box-shadow:0 0 12px rgba(245,158,11,.45);
+    .statusChip.wait{
+      border-color:rgba(245,158,11,.24);
+      background:rgba(245,158,11,.12);
+      color:#fef3c7;
     }
 
     .row{
@@ -176,7 +159,7 @@ FULL PATCH v20260314-GROUPS-SOLO-CHILD-FRIENDLY-DAILY-STATUS-r1
       left:-4%;
       right:-4%;
       bottom:-2%;
-      height:42%;
+      height:38%;
       background:
         linear-gradient(180deg, rgba(30,41,59,.10), rgba(30,41,59,.34)),
         repeating-linear-gradient(
@@ -190,14 +173,15 @@ FULL PATCH v20260314-GROUPS-SOLO-CHILD-FRIENDLY-DAILY-STATUS-r1
     .bgCats{
       position:absolute;
       left:50%;
-      bottom:14%;
+      bottom:10%;
       transform:translateX(-50%);
-      width:min(820px, 92%);
+      width:min(760px, 88%);
       display:grid;
       grid-template-columns:repeat(5, 1fr);
-      gap:16px;
+      gap:14px;
       align-items:end;
       opacity:.92;
+      pointer-events:none;
     }
 
     .bgCat{
@@ -212,7 +196,7 @@ FULL PATCH v20260314-GROUPS-SOLO-CHILD-FRIENDLY-DAILY-STATUS-r1
     .bgCatBox{
       width:100%;
       aspect-ratio:1/1;
-      max-width:98px;
+      max-width:88px;
       border-radius:18px;
       border:1px solid rgba(255,255,255,.16);
       box-shadow:0 14px 26px rgba(0,0,0,.22), inset 0 1px 0 rgba(255,255,255,.12);
@@ -353,11 +337,11 @@ FULL PATCH v20260314-GROUPS-SOLO-CHILD-FRIENDLY-DAILY-STATUS-r1
     .powerWrap{
       position:absolute;
       left:8px;
-      top:98px;
-      width:min(178px, 46vw);
+      top:118px;
+      width:min(160px, 42vw);
       display:flex;
       flex-direction:column;
-      gap:5px;
+      gap:4px;
       padding:6px 8px;
       border-radius:14px;
       border:1px solid rgba(148,163,184,.14);
@@ -555,7 +539,7 @@ FULL PATCH v20260314-GROUPS-SOLO-CHILD-FRIENDLY-DAILY-STATUS-r1
       justify-content:center;
       background: rgba(0,0,0,.62);
       backdrop-filter: blur(10px);
-      z-index:9000;
+      z-index:99999;
       padding:
         calc(12px + var(--sat))
         12px
@@ -565,6 +549,8 @@ FULL PATCH v20260314-GROUPS-SOLO-CHILD-FRIENDLY-DAILY-STATUS-r1
     }
 
     .overlayCard{
+      position:relative;
+      z-index:100000;
       width:min(860px, 100%);
       max-height:min(88vh, 760px);
       border-radius: var(--radius);
@@ -676,10 +662,35 @@ FULL PATCH v20260314-GROUPS-SOLO-CHILD-FRIENDLY-DAILY-STATUS-r1
       word-break:break-word;
     }
 
+    body.end-open .topbar{
+      opacity:.72;
+      transform: scale(.995);
+    }
+    body.end-open .coachToast,
+    body.end-open .powerWrap,
+    body.end-open #stageFlash,
+    body.end-open #fxLayer{
+      opacity:0;
+      pointer-events:none;
+    }
+    body.end-open .vr-ui,
+    body.end-open #vr-ui,
+    body.end-open .hh-vr-ui{
+      opacity:0 !important;
+      pointer-events:none !important;
+    }
+
     @media (max-width:760px){
       .statGrid{ grid-template-columns:repeat(2,minmax(0,1fr)); }
-      .bgCats{ bottom:13%; gap:10px; width:min(96%, 760px); }
-      .bgCatBox{ max-width:72px; border-radius:14px; }
+      .bgCats{
+        bottom:9%;
+        gap:10px;
+        width:min(94%, 720px);
+      }
+      .bgCatBox{
+        max-width:66px;
+        border-radius:14px;
+      }
       .bgCatLabel{ font-size:10px; }
     }
 
@@ -689,9 +700,24 @@ FULL PATCH v20260314-GROUPS-SOLO-CHILD-FRIENDLY-DAILY-STATUS-r1
         padding: calc(6px + var(--sat)) calc(6px + var(--sar)) calc(6px + var(--sab)) calc(6px + var(--sal));
       }
 
-      .topbar{ padding:6px 8px; gap:6px; border-radius:14px; }
+      .topbar{
+        padding:6px 8px;
+        gap:6px;
+        border-radius:14px;
+      }
+
       .title b{ font-size:12px; }
-      .title span{ font-size:9px; line-height:1.1; }
+      .title span{
+        font-size:9px;
+        line-height:1.1;
+      }
+
+      .statusRow{ gap:6px; }
+      .statusChip{
+        padding:6px 8px;
+        font-size:10px;
+      }
+
       .row{ gap:5px; }
 
       button{
@@ -717,12 +743,13 @@ FULL PATCH v20260314-GROUPS-SOLO-CHILD-FRIENDLY-DAILY-STATUS-r1
       }
       .questTitle{ font-size:10px; }
       .questMini{ font-size:8px; }
+
       .bar{ height:7px; }
 
       .powerWrap{
         left:6px;
-        top:82px;
-        width:min(126px, 35vw);
+        top:102px;
+        width:min(116px, 31vw);
         gap:3px;
         padding:4px 5px;
         border-radius:10px;
@@ -732,7 +759,7 @@ FULL PATCH v20260314-GROUPS-SOLO-CHILD-FRIENDLY-DAILY-STATUS-r1
         white-space:nowrap;
         overflow:hidden;
         text-overflow:ellipsis;
-        max-width:70px;
+        max-width:64px;
       }
       .powerHead span{ font-size:8px; }
       #pText{ font-size:10px !important; }
@@ -761,8 +788,6 @@ FULL PATCH v20260314-GROUPS-SOLO-CHILD-FRIENDLY-DAILY-STATUS-r1
         height:118px;
         font-size:52px;
       }
-
-      .bgFloor{ height:36%; }
     }
 
     @media (max-width:560px){
@@ -778,8 +803,14 @@ FULL PATCH v20260314-GROUPS-SOLO-CHILD-FRIENDLY-DAILY-STATUS-r1
         min-height:auto;
         border-radius:16px;
       }
-      .overlayCard header{ padding:10px; gap:8px; }
-      #endCard main{ padding:10px; gap:8px; }
+      .overlayCard header{
+        padding:10px;
+        gap:8px;
+      }
+      #endCard main{
+        padding:10px;
+        gap:8px;
+      }
       .overlayBtns{
         padding:10px;
         gap:8px;
@@ -788,13 +819,9 @@ FULL PATCH v20260314-GROUPS-SOLO-CHILD-FRIENDLY-DAILY-STATUS-r1
         background: linear-gradient(180deg, rgba(2,6,23,.72), rgba(2,6,23,.96));
         backdrop-filter: blur(10px);
       }
-      .overlayBtns button{ flex:1 1 100%; }
-    }
-
-    @media (max-width:520px){
-      .bgCats{ bottom:12%; gap:8px; }
-      .bgCatBox{ max-width:58px; border-radius:12px; }
-      .bgCatLabel{ font-size:9px; }
+      .overlayBtns button{
+        flex:1 1 100%;
+      }
     }
 
     @media (max-width:460px){
@@ -819,11 +846,11 @@ FULL PATCH v20260314-GROUPS-SOLO-CHILD-FRIENDLY-DAILY-STATUS-r1
       .questMini{ font-size:8px; }
 
       .powerWrap{
-        top:80px;
-        width:min(120px, 34vw);
+        top:98px;
+        width:min(108px, 30vw);
         padding:4px 5px;
       }
-      .powerHead b{ font-size:9px; }
+      .powerHead b{ font-size:8.5px; }
 
       body[data-view="mobile"] .tgt{
         width:112px;
@@ -833,68 +860,14 @@ FULL PATCH v20260314-GROUPS-SOLO-CHILD-FRIENDLY-DAILY-STATUS-r1
       }
 
       .bgCats{
-        bottom:8%;
+        bottom:7%;
         gap:6px;
-        opacity:.76;
       }
       .bgCatBox{
-        max-width:42px;
+        max-width:40px;
         border-radius:10px;
       }
       .bgCatLabel{ font-size:7.5px; }
-    }
-
-    body.hud-compact .topbar{ padding:6px 7px; gap:6px; }
-    body.hud-compact .title b{ font-size:12px; }
-    body.hud-compact .title span{ font-size:9px; line-height:1.1; }
-    body.hud-compact .row{ gap:5px; }
-    body.hud-compact .hud{ left:5px; right:5px; }
-    body.hud-compact .hudBox{ padding:4px 5px; gap:4px; border-radius:10px; }
-    body.hud-compact .hudMetric .k{ font-size:8px; }
-    body.hud-compact .hudMetric .v{ font-size:9px; }
-    body.hud-compact .questTop{ padding:4px 5px; gap:3px; border-radius:10px; }
-    body.hud-compact .questTitle{ font-size:9px; }
-    body.hud-compact .questMini{ font-size:7.5px; }
-    body.hud-compact .powerWrap{
-      left:5px;
-      top:78px;
-      width:min(112px, 33vw);
-      padding:4px 5px;
-      gap:3px;
-      border-radius:10px;
-    }
-    body.hud-compact .powerHead b{ font-size:8.5px; }
-    body.hud-compact .powerHead span{ font-size:7.5px; }
-
-    body.power-autohide .powerWrap{
-      opacity:.28;
-      transform: translateY(0) scale(.98);
-    }
-    body.power-autohide .powerWrap.peek{
-      opacity:.96;
-      transform: translateY(0) scale(1);
-    }
-    body.power-autohide .powerWrap.minimized{
-      opacity:.16;
-      transform: translateY(0) scale(.96);
-    }
-    body.power-autohide .powerWrap.minimized .bar,
-    body.power-autohide .powerWrap.minimized #pText{
-      opacity:0;
-      max-height:0;
-      overflow:hidden;
-    }
-
-    body.end-open .topbar{
-      opacity:.72;
-      transform: scale(.995);
-    }
-    body.end-open .coachToast,
-    body.end-open .powerWrap,
-    body.end-open #stageFlash,
-    body.end-open #fxLayer{
-      opacity:0;
-      pointer-events:none;
     }
   </style>
 </head>
@@ -902,11 +875,11 @@ FULL PATCH v20260314-GROUPS-SOLO-CHILD-FRIENDLY-DAILY-STATUS-r1
 <div id="app">
   <div class="topbar">
     <div class="title">
-      <b>🥗 เกมอาหาร 5 หมู่</b>
+      <b>🍽 เกมอาหาร 5 หมู่</b>
       <span id="subline">ยิงให้ถูกหมวด เก็บคะแนน และสะสมคอมโบ</span>
       <div class="statusRow">
-        <span class="pill"><span id="warmupDot" class="dot warn"></span> Warmup วันนี้: <b id="warmupStatus">ยังไม่เข้า</b></span>
-        <span class="pill"><span id="cooldownDot" class="dot warn"></span> Cooldown วันนี้: <b id="cooldownStatus">ยังไม่เข้า</b></span>
+        <span class="statusChip" id="chipWarmup">Warmup วันนี้: —</span>
+        <span class="statusChip" id="chipCooldown">Cooldown วันนี้: —</span>
       </div>
     </div>
     <div class="row">
@@ -919,7 +892,7 @@ FULL PATCH v20260314-GROUPS-SOLO-CHILD-FRIENDLY-DAILY-STATUS-r1
     <div id="bgLayer" aria-hidden="true">
       <div class="bgFloor"></div>
       <div class="bgCats">
-        <div class="bgCat" data-group="1"><div class="bgCatBox" style="--cat:#e11d48;"></div><div class="bgCatLabel">หมู่ 1
+        <div class="bgCat" data-group="1"><div class="bgCatBox" style="--cat:#ef4444;"></div><div class="bgCatLabel">หมู่ 1
 โปรตีน</div></div>
         <div class="bgCat" data-group="2"><div class="bgCatBox" style="--cat:#f97316;"></div><div class="bgCatLabel">หมู่ 2
 คาร์โบไฮเดรต</div></div>
@@ -927,7 +900,7 @@ FULL PATCH v20260314-GROUPS-SOLO-CHILD-FRIENDLY-DAILY-STATUS-r1
 ผัก</div></div>
         <div class="bgCat" data-group="4"><div class="bgCatBox" style="--cat:#38bdf8;"></div><div class="bgCatLabel">หมู่ 4
 ผลไม้</div></div>
-        <div class="bgCat" data-group="5"><div class="bgCatBox" style="--cat:#a855f7;"></div><div class="bgCatLabel">หมู่ 5
+        <div class="bgCat" data-group="5"><div class="bgCatBox" style="--cat:#a78bfa;"></div><div class="bgCatLabel">หมู่ 5
 ไขมัน</div></div>
       </div>
     </div>
@@ -949,7 +922,7 @@ FULL PATCH v20260314-GROUPS-SOLO-CHILD-FRIENDLY-DAILY-STATUS-r1
         <div class="questTop">
           <div class="questLine">
             <div class="questTitle"><span id="qTitle">ภารกิจ</span> <span id="qSub" style="color:var(--muted); font-weight:900;"></span></div>
-            <div class="questMini"><span id="qMini">พลัง · 0/0</span> <span id="qMiniTime"></span></div>
+            <div class="questMini"><span id="qMini">พิเศษ · 0/0</span> <span id="qMiniTime"></span></div>
           </div>
           <div class="bar"><i id="qBar"></i></div>
         </div>
@@ -1005,13 +978,13 @@ FULL PATCH v20260314-GROUPS-SOLO-CHILD-FRIENDLY-DAILY-STATUS-r1
             <div class="panel" style="margin-top:10px; background:rgba(15,23,42,.40);">
               <h4 style="margin:0 0 6px;">ข้อความจากโค้ช</h4>
               <div id="childCoachMsg" style="font-size:14px; font-weight:1000; line-height:1.35;">
-                เยี่ยมเลย! ไปพักผ่อนต่อกัน
+                เยี่ยมเลย! ไปผ่อนคลายต่อกัน
               </div>
             </div>
           </section>
         </main>
         <div class="overlayBtns">
-          <button id="btnEndContinue">พักผ่อนต่อ</button>
+          <button id="btnEndContinue">ไป cooldown</button>
           <button id="btnEndAgain">เล่นอีกครั้ง</button>
           <button id="btnEndGoHub">กลับ HUB</button>
         </div>
@@ -1033,14 +1006,12 @@ FULL PATCH v20260314-GROUPS-SOLO-CHILD-FRIENDLY-DAILY-STATUS-r1
   const q = (k, d='') => (QS.get(k) ?? d);
 
   const RUN  = String(q('run','play')).toLowerCase();
-  const DIFF = String(q('diff','easy')).toLowerCase();
+  const DIFF = String(q('diff','normal')).toLowerCase();
   const VIEW = String(q('view','mobile')).toLowerCase();
   const TIME = Number(q('time','80') || 80);
   const SEED = String(q('seed','') || Date.now());
   const HUB  = String(q('hub', `${ROOT}/hub.html`) || `${ROOT}/hub.html`);
   const PID  = String(q('pid','anon') || 'anon');
-  const ZONE = String(q('zone','nutrition') || 'nutrition');
-  const CAT  = String(q('cat','nutrition') || 'nutrition');
   const CVR_STRICT = (VIEW === 'cvr') && (String(q('cvrStrict','1') || '1') !== '0');
 
   document.body.setAttribute('data-view', VIEW);
@@ -1081,21 +1052,18 @@ FULL PATCH v20260314-GROUPS-SOLO-CHILD-FRIENDLY-DAILY-STATUS-r1
   const sumTime = $('#sumTime');
   const sumGroupLast = $('#sumGroupLast');
   const sumBossHits = $('#sumBossHits');
-  const warmupStatus = $('#warmupStatus');
-  const cooldownStatus = $('#cooldownStatus');
-  const warmupDot = $('#warmupDot');
-  const cooldownDot = $('#cooldownDot');
+  const chipWarmup = $('#chipWarmup');
+  const chipCooldown = $('#chipCooldown');
 
   const GROUP_COLORS = {
-    1: '#e11d48',
+    1: '#ef4444',
     2: '#f97316',
     3: '#22c55e',
     4: '#38bdf8',
-    5: '#a855f7'
+    5: '#a78bfa'
   };
 
   let toastTimer = null;
-  let powerPeekTimer = null;
   let activeGroupNo = null;
   let isStarting = false;
   let isRestarting = false;
@@ -1108,31 +1076,23 @@ FULL PATCH v20260314-GROUPS-SOLO-CHILD-FRIENDLY-DAILY-STATUS-r1
     return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   }
 
-  function dailyKey(type){
-    return `HHA_GROUPS_${String(type).toUpperCase()}_DONE:${PID}:${dayKey()}`;
-  }
+  function updateDailyStatusChips(){
+    const day = dayKey();
+    const warm = localStorage.getItem(`HHA_GROUPS_WARMUP_DONE:${PID}:${day}`) === '1';
+    const cool = localStorage.getItem(`HHA_GROUPS_COOLDOWN_DONE:${PID}:${day}`) === '1';
 
-  function hasDaily(type){
-    try{ return localStorage.getItem(dailyKey(type)) === '1'; }
-    catch(_){ return false; }
-  }
+    chipWarmup.textContent = `Warmup วันนี้: ${warm ? 'เข้าแล้ว' : 'ยังไม่เข้า'}`;
+    chipCooldown.textContent = `Cooldown วันนี้: ${cool ? 'เข้าแล้ว' : 'ยังไม่เข้า'}`;
 
-  function refreshDailyStatus(){
-    const wDone = hasDaily('warmup');
-    const cDone = hasDaily('cooldown');
-
-    warmupStatus.textContent = wDone ? 'เข้าแล้ว' : 'ยังไม่เข้า';
-    cooldownStatus.textContent = cDone ? 'เข้าแล้ว' : 'ยังไม่เข้า';
-
-    warmupDot.className = `dot ${wDone ? 'good' : 'warn'}`;
-    cooldownDot.className = `dot ${cDone ? 'good' : 'warn'}`;
+    chipWarmup.className = `statusChip ${warm ? 'done' : 'wait'}`;
+    chipCooldown.className = `statusChip ${cool ? 'done' : 'wait'}`;
   }
 
   function buildCooldownUrl(){
     try{
       const url = new URL(`${ROOT}/warmup-gate.html`, location.origin);
-      url.searchParams.set('phase', 'cooldown');
-      url.searchParams.set('cat', CAT);
+      url.searchParams.set('Phase', 'cooldown');
+      url.searchParams.set('cat', q('cat', 'nutrition'));
       url.searchParams.set('game', 'groups');
       url.searchParams.set('pid', PID);
       url.searchParams.set('run', RUN);
@@ -1141,46 +1101,35 @@ FULL PATCH v20260314-GROUPS-SOLO-CHILD-FRIENDLY-DAILY-STATUS-r1
       url.searchParams.set('seed', String(SEED));
       url.searchParams.set('view', VIEW);
       url.searchParams.set('hub', HUB);
-      url.searchParams.set('zone', ZONE);
-      url.searchParams.set('next', HUB);
-      url.searchParams.set('v', '20260314r1');
+      url.searchParams.set('zone', q('zone', 'nutrition'));
       return url.toString();
     }catch(_){
-      return `${ROOT}/warmup-gate.html?phase=cooldown&cat=${encodeURIComponent(CAT)}&game=groups&pid=${encodeURIComponent(PID)}&run=${encodeURIComponent(RUN)}&diff=${encodeURIComponent(DIFF)}&time=${encodeURIComponent(String(TIME))}&seed=${encodeURIComponent(String(SEED))}&view=${encodeURIComponent(VIEW)}&hub=${encodeURIComponent(HUB)}&zone=${encodeURIComponent(ZONE)}&next=${encodeURIComponent(HUB)}&v=20260314r1`;
+      return `${ROOT}/warmup-gate.html?Phase=cooldown&cat=nutrition&game=groups`;
     }
   }
 
   function saveLastSummary(summary){
     try{
+      const extra = {
+        url: location.href,
+        game: 'groups'
+      };
       const payload = {
-        ...(summary || {}),
+        ...summary,
         game: 'groups',
         pid: PID,
-        runMode: RUN,
-        diff: DIFF,
-        seed: SEED,
-        zone: ZONE,
-        cat: CAT,
         timestampIso: new Date().toISOString(),
-        __extraJson: JSON.stringify({
-          url: location.href,
-          cooldownUrl: buildCooldownUrl(),
-          hub: HUB
-        })
+        __extraJson: JSON.stringify(extra)
       };
       localStorage.setItem(`HHA_LAST_SUMMARY:groups:${PID}`, JSON.stringify(payload));
       localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(payload));
     }catch(_){}
   }
 
-  function goCooldown(){
-    safeStopEngine();
-    location.href = buildCooldownUrl();
-  }
-
   function getChildHeadline(grade){
     const g = String(grade || '').toUpperCase();
-    if(g === 'A+' || g === 'A' || g === 'S') return 'ยอดเยี่ยม!';
+    if(g === 'S' || g === 'A+') return 'ยอดเยี่ยม!';
+    if(g === 'A') return 'สุดเก่ง!';
     if(g === 'B') return 'เก่งมาก!';
     if(g === 'C') return 'ทำได้ดี!';
     return 'เล่นได้ดีเลย!';
@@ -1189,9 +1138,9 @@ FULL PATCH v20260314-GROUPS-SOLO-CHILD-FRIENDLY-DAILY-STATUS-r1
   function getChildCoachMessage(s){
     const acc = Number(s?.accuracyPct || 0);
     const miss = Number(s?.miss || 0);
-    if(acc >= 90 && miss <= 2) return 'แม่นมาก! ไปพักผ่อนต่อกันได้เลย';
-    if(acc >= 75) return 'ดีมาก! รอบหน้าลองเก็บคอมโบเพิ่มนะ';
-    return 'ทำได้ดีแล้ว! จะเล่นอีกครั้ง หรือไปพักผ่อนต่อก็ได้';
+    if(acc >= 90 && miss <= 2) return 'แม่นมาก! ไปทบทวน cooldown ต่อได้เลย';
+    if(acc >= 75) return 'ดีมาก! รอบหน้าลองเก็บคอมโบให้สูงขึ้นอีกนะ';
+    return 'ทำได้ดีแล้ว! ลองเล่นอีกครั้ง หรือไป cooldown ต่อได้เลย';
   }
 
   function faceFromMood(mood){
@@ -1333,40 +1282,11 @@ FULL PATCH v20260314-GROUPS-SOLO-CHILD-FRIENDLY-DAILY-STATUS-r1
     hideToast();
     clearStageFlash();
     clearFxLayer();
+    lastSummary = null;
   }
 
   function safeStopEngine(){
     try{ window.GroupsVR?.GameEngine?.stop?.(); }catch(_){}
-  }
-
-  function updateHudCompactMode(){
-    const w = window.innerWidth || 0;
-    const h = window.innerHeight || 0;
-    const compact = (w <= 390) || (w <= 430 && h <= 760) || (h <= 680);
-    document.body.classList.toggle('hud-compact', compact);
-  }
-
-  function updatePowerAutohideMode(){
-    const w = window.innerWidth || 0;
-    const h = window.innerHeight || 0;
-    const autoHide = (VIEW === 'mobile') && ((w <= 640) || (h <= 720));
-    const minimized = (w <= 390) || (w <= 430 && h <= 700);
-    document.body.classList.toggle('power-autohide', autoHide);
-    if(powerWrap){
-      powerWrap.classList.toggle('minimized', autoHide && minimized);
-      if(!autoHide) powerWrap.classList.remove('peek');
-    }
-  }
-
-  function peekPowerWrap(ms){
-    if(!powerWrap) return;
-    if(!document.body.classList.contains('power-autohide')) return;
-    powerWrap.classList.add('peek');
-    if(powerPeekTimer) clearTimeout(powerPeekTimer);
-    powerPeekTimer = setTimeout(()=>{
-      powerWrap.classList.remove('peek');
-      powerPeekTimer = null;
-    }, ms || 1400);
   }
 
   function updateSpawnSafe(){
@@ -1375,9 +1295,9 @@ FULL PATCH v20260314-GROUPS-SOLO-CHILD-FRIENDLY-DAILY-STATUS-r1
       const isMobile = VIEW === 'mobile';
       const isCVR = VIEW === 'cvr';
 
-      const pad = isCVR ? 42 : isMobile ? 36 : 24;
-      const topSafe = isCVR ? 188 : isMobile ? 164 : 150;
-      const botSafe = isCVR ? 238 : isMobile ? 228 : 176;
+      const pad = isCVR ? 42 : isMobile ? 34 : 24;
+      const topSafe = isCVR ? 250 : isMobile ? 235 : 180;
+      const botSafe = isCVR ? 260 : isMobile ? 250 : 185;
 
       window.__HHA_SPAWN_SAFE__ = {
         xMin: pad,
@@ -1397,7 +1317,7 @@ FULL PATCH v20260314-GROUPS-SOLO-CHILD-FRIENDLY-DAILY-STATUS-r1
     hudRank.textContent = '—';
     qTitle.textContent = 'ภารกิจ';
     qSub.textContent = '';
-    qMini.textContent = 'พลัง · 0/0';
+    qMini.textContent = 'พิเศษ · 0/0';
     qMiniTime.textContent = '';
     qBar.style.width = '0%';
     pBar.style.width = '0%';
@@ -1412,11 +1332,12 @@ FULL PATCH v20260314-GROUPS-SOLO-CHILD-FRIENDLY-DAILY-STATUS-r1
     sumGroupLast.textContent = '—';
     sumBossHits.textContent = '0';
     childHeadline.textContent = 'เก่งมาก!';
-    childCoachMsg.textContent = 'เยี่ยมเลย! ไปพักผ่อนต่อกัน';
+    childCoachMsg.textContent = 'เยี่ยมเลย! ไปผ่อนคลายต่อกัน';
   }
 
   function buildEndSummary(summary){
     const s = summary || {};
+    lastSummary = s;
     sumGrade.textContent = s.grade || '—';
     sumScore.textContent = String(s.scoreFinal ?? s.score ?? 0);
     sumAcc.textContent = `${s.accuracyPct ?? 0}%`;
@@ -1429,6 +1350,17 @@ FULL PATCH v20260314-GROUPS-SOLO-CHILD-FRIENDLY-DAILY-STATUS-r1
     childCoachMsg.textContent = getChildCoachMessage(s);
   }
 
+  function goHubNow(){
+    try{ safeStopEngine(); }catch(_){}
+    setTimeout(()=>{ window.location.assign(HUB); }, 30);
+  }
+
+  function goCooldownNow(){
+    try{ safeStopEngine(); }catch(_){}
+    const url = buildCooldownUrl();
+    setTimeout(()=>{ window.location.assign(url); }, 30);
+  }
+
   function startGame(){
     if(isStarting) return;
     isStarting = true;
@@ -1436,8 +1368,7 @@ FULL PATCH v20260314-GROUPS-SOLO-CHILD-FRIENDLY-DAILY-STATUS-r1
 
     resetTransientUi();
     syncUiToBootState();
-    updateHudCompactMode();
-    updatePowerAutohideMode();
+    updateDailyStatusChips();
     updateSpawnSafe();
 
     safeStopEngine();
@@ -1451,7 +1382,7 @@ FULL PATCH v20260314-GROUPS-SOLO-CHILD-FRIENDLY-DAILY-STATUS-r1
         view: VIEW,
         classroom: true,
         miniBoss: true,
-        bossSec: 12,
+        bossSec: 8,
         goalTotal: (DIFF==='easy') ? 10 : (DIFF==='hard') ? 14 : 12,
         chargeNeed: (DIFF==='easy') ? 7 : (DIFF==='hard') ? 9 : 8
       });
@@ -1459,8 +1390,7 @@ FULL PATCH v20260314-GROUPS-SOLO-CHILD-FRIENDLY-DAILY-STATUS-r1
       if (myBoot !== bootNonce) return;
 
       setActiveGroup(parseGroupNo(groupName.textContent) || 1);
-      peekPowerWrap(1600);
-      showToast('เริ่มแล้ว! ยิงให้ถูกหมวดนะ', 'neutral');
+      showToast('เริ่มแล้ว! ยิงให้ถูกหมวดแล้วเก็บคอมโบ', 'neutral');
     }catch(e){
       console.error(e);
       showToast('เริ่มเกมไม่สำเร็จ', 'sad');
@@ -1476,17 +1406,15 @@ FULL PATCH v20260314-GROUPS-SOLO-CHILD-FRIENDLY-DAILY-STATUS-r1
     safeStopEngine();
     setTimeout(()=>{
       startGame();
-      setTimeout(()=>{ isRestarting = false; }, 160);
+      setTimeout(()=>{ isRestarting = false; }, 180);
     }, 80);
   }
 
   function bootOnce(){
     if(hasBooted) return;
     hasBooted = true;
-    refreshDailyStatus();
     resetTransientUi();
-    updateHudCompactMode();
-    updatePowerAutohideMode();
+    updateDailyStatusChips();
     updateSpawnSafe();
     startGame();
   }
@@ -1539,29 +1467,11 @@ FULL PATCH v20260314-GROUPS-SOLO-CHILD-FRIENDLY-DAILY-STATUS-r1
     if(d.miniTitle) qMini.textContent = `${d.miniTitle} · ${d.miniNow||0}/${d.miniTotal||0}`;
     qMiniTime.textContent = (d.miniTimeLeftSec != null && d.miniTimeLeftSec > 0) ? `⏳ ${d.miniTimeLeftSec}s` : '';
 
-    let groupChanged = false;
-
     if(d.groupName){
       groupName.textContent = d.groupName;
-      const before = activeGroupNo;
       const gn = parseGroupNo(d.groupName);
-      if(gn){
-        setActiveGroup(gn);
-        groupChanged = before !== activeGroupNo;
-      }
+      if(gn) setActiveGroup(gn);
     }
-
-    if(d.groupNo != null){
-      const before = activeGroupNo;
-      const gn = parseGroupNo(d.groupNo);
-      if(gn){
-        setActiveGroup(gn);
-        groupChanged = groupChanged || (before !== activeGroupNo);
-      }
-    }
-
-    if(groupChanged) peekPowerWrap(1700);
-    else peekPowerWrap(900);
   });
 
   window.addEventListener('groups:power', (ev)=>{
@@ -1571,7 +1481,6 @@ FULL PATCH v20260314-GROUPS-SOLO-CHILD-FRIENDLY-DAILY-STATUS-r1
     const pct = Math.round((c / Math.max(1, t)) * 100);
     pBar.style.width = pct + '%';
     pText.textContent = `${c}/${t}`;
-    peekPowerWrap(1100);
   });
 
   window.addEventListener('groups:hit', (ev)=>{
@@ -1597,8 +1506,6 @@ FULL PATCH v20260314-GROUPS-SOLO-CHILD-FRIENDLY-DAILY-STATUS-r1
 
   window.addEventListener('hha:end', (ev)=>{
     const s = ev?.detail || {};
-    lastSummary = s;
-    saveLastSummary(s);
     endSub.textContent = `ระดับ ${s?.grade || '-'} · แม่น ${s?.accuracyPct ?? '-'}%`;
     buildEndSummary(s);
     showOverlay(endOverlay);
@@ -1608,7 +1515,7 @@ FULL PATCH v20260314-GROUPS-SOLO-CHILD-FRIENDLY-DAILY-STATUS-r1
   window.addEventListener('beforeunload', ()=> safeStopEngine());
   window.addEventListener('pageshow', (ev)=>{
     resetTransientUi();
-    refreshDailyStatus();
+    updateDailyStatusChips();
     if(ev.persisted){
       safeStopEngine();
       setTimeout(()=> restart(), 60);
@@ -1616,43 +1523,57 @@ FULL PATCH v20260314-GROUPS-SOLO-CHILD-FRIENDLY-DAILY-STATUS-r1
   });
   window.addEventListener('resize', updateSpawnSafe, { passive:true });
 
-  $('#btnRestart').addEventListener('click', restart);
-  $('#btnBack').addEventListener('click', ()=>{
-    safeStopEngine();
-    location.href = HUB;
+  $('#btnRestart').addEventListener('click', (ev)=>{
+    ev.preventDefault();
+    ev.stopPropagation();
+    restart();
   });
-  $('#btnEndContinue').addEventListener('click', ()=>{
+
+  $('#btnBack').addEventListener('click', (ev)=>{
+    ev.preventDefault();
+    ev.stopPropagation();
+    goHubNow();
+  });
+
+  $('#btnEndContinue').addEventListener('click', (ev)=>{
+    ev.preventDefault();
+    ev.stopPropagation();
     if (lastSummary) saveLastSummary(lastSummary);
-    goCooldown();
-  });
-  $('#btnEndAgain').addEventListener('click', restart);
-  $('#btnEndGoHub').addEventListener('click', ()=>{
-    safeStopEngine();
-    location.href = HUB;
+    goCooldownNow();
   });
 
-  installLockPxShim();
-  bootOnce();
+  $('#btnEndAgain').addEventListener('click', (ev)=>{
+    ev.preventDefault();
+    ev.stopPropagation();
+    restart();
+  });
 
-  function installLockPxShim(){
-    window.addEventListener('hha:shoot', (ev)=>{
-      try{
-        if(!ev || !ev.detail) return;
-        if(ev.detail.lockPx != null) return;
-        const d = ev.detail;
-        ev.stopImmediatePropagation();
-        window.dispatchEvent(new CustomEvent('hha:shoot', {
-          detail: { ...d, lockPx: lockPxForView(), source: d.source || 'shim' }
-        }));
-      }catch(_){}
-    }, true);
-  }
+  $('#btnEndGoHub').addEventListener('click', (ev)=>{
+    ev.preventDefault();
+    ev.stopPropagation();
+    if (lastSummary) saveLastSummary(lastSummary);
+    goHubNow();
+  });
+
+  window.addEventListener('hha:shoot', (ev)=>{
+    try{
+      if(!ev || !ev.detail) return;
+      if(ev.detail.lockPx != null) return;
+      const d = ev.detail;
+      ev.stopImmediatePropagation();
+      window.dispatchEvent(new CustomEvent('hha:shoot', {
+        detail: { ...d, lockPx: lockPxForView(), source: d.source || 'shim' }
+      }));
+    }catch(_){}
+  }, true);
 
   function lockPxForView(){
     if(VIEW === 'pc') return 20;
     if(VIEW === 'cvr') return 38;
     return 32;
   }
+
+  bootOnce();
 })();
 </script>
 </body>
