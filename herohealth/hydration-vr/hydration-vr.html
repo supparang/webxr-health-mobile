@@ -1,21 +1,20 @@
 <!doctype html>
 <html lang="th">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-  <meta name="color-scheme" content="dark light"/>
-  <meta name="google" content="notranslate"/>
-  <title>HeroHealth • Hydration VR</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth — Hydration VR</title>
+  <meta name="color-scheme" content="dark light" />
+  <link rel="icon" href="../favicon.ico" />
 
-  <link rel="icon" href="../favicon.ico"/>
-  <script type="module" src="../vr/vr-ui.js?v=20260313d"></script>
+  <script type="module" src="../vr/vr-ui.js?v=20260314e"></script>
 
   <style>
     :root{
       --bg1:#020617;
       --bg2:#0b1226;
-      --panel:rgba(2,6,23,.72);
-      --panel2:rgba(15,23,42,.56);
+      --panel:rgba(2,6,23,.74);
+      --panel2:rgba(15,23,42,.46);
       --stroke:rgba(148,163,184,.18);
       --text:#e5e7eb;
       --muted:#94a3b8;
@@ -30,313 +29,343 @@
       --sab: env(safe-area-inset-bottom, 0px);
       --sal: env(safe-area-inset-left, 0px);
       --sar: env(safe-area-inset-right, 0px);
+
+      /* สำรองพื้นที่ให้ vr-ui ด้านล่าง */
+      --vrBottomReserve: 110px;
+      --hudTop: calc(10px + var(--sat));
     }
 
     *{ box-sizing:border-box; }
+
     html,body{
       margin:0;
       min-height:100%;
       background:
-        radial-gradient(1100px 780px at 50% -10%, rgba(34,211,238,.16), transparent 60%),
-        radial-gradient(900px 640px at 0% 0%, rgba(59,130,246,.12), transparent 55%),
+        radial-gradient(1200px 900px at 50% -10%, rgba(34,211,238,.16), transparent 60%),
+        radial-gradient(900px 700px at 10% 10%, rgba(59,130,246,.14), transparent 60%),
         linear-gradient(180deg, var(--bg1), var(--bg2));
       color:var(--text);
-      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", sans-serif;
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", Arial, sans-serif;
+      overflow:hidden;
+    }
+
+    #app{
+      position:relative;
+      width:100vw;
+      height:100vh;
       overflow:hidden;
     }
 
     .stage{
-      position:fixed;
+      position:absolute;
       inset:0;
       overflow:hidden;
       background:
-        radial-gradient(700px 280px at 50% -5%, rgba(34,211,238,.10), transparent 60%),
-        linear-gradient(180deg, rgba(2,6,23,.0), rgba(2,6,23,.08));
+        radial-gradient(1000px 700px at 50% 10%, rgba(34,211,238,.10), transparent 55%),
+        radial-gradient(700px 520px at 50% 100%, rgba(59,130,246,.10), transparent 60%);
     }
 
     .stage.is-storm{
       background:
-        radial-gradient(700px 280px at 50% -5%, rgba(59,130,246,.16), transparent 60%),
-        linear-gradient(180deg, rgba(30,41,59,.10), rgba(2,6,23,.16));
+        radial-gradient(1000px 700px at 50% 0%, rgba(148,163,184,.16), transparent 55%),
+        radial-gradient(900px 700px at 50% 100%, rgba(59,130,246,.10), transparent 60%),
+        linear-gradient(180deg,#08101c,#0c1627);
     }
 
     .stage.is-boss{
       background:
-        radial-gradient(700px 280px at 50% -5%, rgba(139,92,246,.16), transparent 60%),
-        linear-gradient(180deg, rgba(30,27,75,.12), rgba(2,6,23,.18));
+        radial-gradient(900px 700px at 50% 0%, rgba(167,139,250,.14), transparent 55%),
+        radial-gradient(900px 700px at 50% 100%, rgba(59,130,246,.10), transparent 60%),
+        linear-gradient(180deg,#090d1a,#111827);
     }
 
     .stage.is-final{
       background:
-        radial-gradient(780px 320px at 50% -5%, rgba(245,158,11,.18), transparent 60%),
-        linear-gradient(180deg, rgba(120,53,15,.10), rgba(2,6,23,.18));
+        radial-gradient(1000px 700px at 50% 0%, rgba(239,68,68,.12), transparent 55%),
+        radial-gradient(900px 700px at 50% 100%, rgba(245,158,11,.10), transparent 60%),
+        linear-gradient(180deg,#120a13,#1b1020);
     }
 
-    .stage.is-fever{
-      box-shadow: inset 0 0 0 2px rgba(245,158,11,.22);
-    }
-
-    #stormFx{
+    .stage.is-fever::after{
+      content:"";
       position:absolute;
       inset:0;
       pointer-events:none;
-      overflow:hidden;
+      background: radial-gradient(600px 260px at 50% 12%, rgba(245,158,11,.14), transparent 60%);
+      animation: feverPulse 1s ease-in-out infinite;
     }
 
-    #zoneSign{
+    @keyframes feverPulse{
+      0%,100%{ opacity:.55; }
+      50%{ opacity:1; }
+    }
+
+    .stars{
       position:absolute;
-      left:50%;
-      transform:translateX(-50%);
-      top:calc(88px + var(--sat));
-      z-index:10;
-      padding:8px 12px;
-      border-radius:999px;
-      border:1px solid rgba(148,163,184,.18);
-      background:rgba(2,6,23,.62);
-      backdrop-filter:blur(10px);
-      color:#e5e7eb;
-      font-size:13px;
-      font-weight:1100;
-      white-space:nowrap;
-      box-shadow:0 12px 30px rgba(0,0,0,.24);
-      max-width:calc(100vw - 20px);
-      overflow:hidden;
-      text-overflow:ellipsis;
+      inset:0;
+      pointer-events:none;
+      opacity:.45;
+      background-image:
+        radial-gradient(circle at 20% 30%, rgba(255,255,255,.85) 0 1px, transparent 1.5px),
+        radial-gradient(circle at 72% 22%, rgba(255,255,255,.75) 0 1px, transparent 1.5px),
+        radial-gradient(circle at 35% 72%, rgba(255,255,255,.65) 0 1px, transparent 1.5px),
+        radial-gradient(circle at 84% 68%, rgba(255,255,255,.8) 0 1px, transparent 1.5px),
+        radial-gradient(circle at 58% 42%, rgba(255,255,255,.6) 0 1px, transparent 1.5px);
+      background-size: 280px 280px, 320px 320px, 360px 360px, 410px 410px, 470px 470px;
+      animation: driftStars 18s linear infinite;
+    }
+
+    @keyframes driftStars{
+      from{ transform:translateY(0); }
+      to{ transform:translateY(24px); }
     }
 
     .hud{
-      position:fixed;
-      inset:
-        calc(10px + var(--sat))
-        calc(10px + var(--sar))
-        auto
-        calc(10px + var(--sal));
-      display:grid;
-      grid-template-columns:minmax(0, 1fr);
-      gap:10px;
-      align-items:start;
+      position:absolute;
+      top:0;
+      left:0;
+      right:0;
       z-index:20;
+      padding:
+        var(--hudTop)
+        calc(10px + var(--sar))
+        0
+        calc(10px + var(--sal));
       pointer-events:none;
-      max-width:760px;
     }
 
-    .card{
-      pointer-events:auto;
-      border-radius:20px;
+    .hudCard{
       border:1px solid var(--stroke);
       background:var(--panel);
-      backdrop-filter:blur(12px);
-      box-shadow:0 18px 55px rgba(0,0,0,.28);
-      padding:12px;
+      backdrop-filter:blur(10px);
+      border-radius:20px;
+      box-shadow:0 18px 50px rgba(0,0,0,.30);
+      overflow:hidden;
+    }
+
+    .hudTopbar{
+      display:grid;
+      grid-template-columns: repeat(4, minmax(0,1fr));
+      gap:8px;
+      padding:10px;
+      border-bottom:1px solid rgba(148,163,184,.12);
+    }
+
+    .hudStat{
+      min-height:62px;
+      border:1px solid rgba(148,163,184,.14);
+      background:rgba(15,23,42,.38);
+      border-radius:16px;
+      padding:8px 10px;
       display:flex;
       flex-direction:column;
+      justify-content:center;
+    }
+
+    .hudStat .k{
+      color:var(--muted);
+      font-size:11px;
+      font-weight:1000;
+      line-height:1;
+    }
+
+    .hudStat .v{
+      margin-top:6px;
+      font-size:22px;
+      font-weight:1100;
+      line-height:1;
+    }
+
+    .hudRow2{
+      display:grid;
+      grid-template-columns: 1.2fr .8fr;
+      gap:8px;
+      padding:10px;
+    }
+
+    .hudBox{
+      min-height:58px;
+      border:1px solid rgba(148,163,184,.14);
+      background:rgba(15,23,42,.38);
+      border-radius:16px;
+      padding:10px;
+      display:flex;
+      flex-direction:column;
+      justify-content:center;
+    }
+
+    .hudMini{
+      color:var(--muted);
+      font-size:11px;
+      font-weight:1000;
+      margin-bottom:5px;
+    }
+
+    .hudText{
+      font-size:15px;
+      font-weight:1000;
+      line-height:1.35;
+    }
+
+    .riskBar{
+      height:10px;
+      border-radius:999px;
+      background:rgba(148,163,184,.14);
+      overflow:hidden;
+      margin-top:4px;
+    }
+
+    .riskFill{
+      width:0%;
+      height:100%;
+      border-radius:999px;
+      background:linear-gradient(90deg, rgba(34,197,94,.95), rgba(245,158,11,.95), rgba(239,68,68,.95));
+      transition:width .18s ease;
+    }
+
+    .zoneSign{
+      position:absolute;
+      top: calc(170px + var(--sat));
+      left:50%;
+      transform:translateX(-50%);
+      z-index:16;
+      max-width:min(92vw, 760px);
+      min-height:50px;
+      border:1px solid rgba(34,211,238,.24);
+      background:rgba(2,6,23,.76);
+      backdrop-filter:blur(10px);
+      border-radius:999px;
+      padding:12px 18px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      text-align:center;
+      color:#dbeafe;
+      font-size:16px;
+      font-weight:1100;
+      box-shadow:0 16px 40px rgba(0,0,0,.28);
+      pointer-events:none;
+    }
+
+    .zoneBtns{
+      position:absolute;
+      top: calc(232px + var(--sat));
+      left:50%;
+      transform:translateX(-50%);
+      z-index:16;
+      display:none;
       gap:10px;
     }
 
-    .card.small{
-      min-width:180px;
-    }
-
-    .stat{
-      display:flex;
-      flex-wrap:wrap;
-      gap:12px 16px;
-      align-items:center;
-    }
-
-    .stat .k{
-      color:var(--muted);
-      font-size:12px;
-      font-weight:1000;
-      letter-spacing:.02em;
-    }
-
-    .stat .v{
-      color:var(--text);
-      font-size:20px;
-      font-weight:1100;
-      margin-right:6px;
-    }
-
-    .chips{
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-    }
-
-    .chip{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      padding:8px 10px;
-      border-radius:999px;
-      border:1px solid rgba(148,163,184,.16);
-      background:rgba(2,6,23,.32);
-      color:#e5e7eb;
-      font-size:12px;
-      font-weight:1000;
-      white-space:nowrap;
-    }
-
-    .smalltext{
-      color:var(--muted);
-      font-size:12px;
-      font-weight:900;
-      line-height:1.5;
-    }
-
-    .hudActions{
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-    }
-
-    .hudBtn{
-      cursor:pointer;
-      min-height:40px;
+    .zoneBtn{
+      min-width:96px;
+      min-height:44px;
       border-radius:14px;
       border:1px solid rgba(148,163,184,.18);
-      background:rgba(148,163,184,.10);
-      color:var(--text);
-      padding:8px 12px;
+      background:rgba(2,6,23,.70);
+      color:#fff;
       font:inherit;
-      font-size:13px;
-      font-weight:1100;
-    }
-
-    .hudBtn.primary{
-      background:rgba(59,130,246,.16);
-      border-color:rgba(59,130,246,.26);
-    }
-
-    .hudBtn.good{
-      background:rgba(34,197,94,.16);
-      border-color:rgba(34,197,94,.26);
-    }
-
-    .hudBtn.violet{
-      background:rgba(139,92,246,.16);
-      border-color:rgba(139,92,246,.28);
-    }
-
-    .riskWrap{
-      display:grid;
-      gap:8px;
-    }
-
-    #coachExplain{
-      color:#e5e7eb;
-      font-size:13px;
       font-weight:1000;
-      line-height:1.5;
     }
 
-    #debugHudCard.is-hidden{
-      display:none !important;
-    }
-
-    #layer{
+    .layer{
       position:absolute;
       inset:0;
-      z-index:5;
+      z-index:8;
       overflow:hidden;
-      touch-action:manipulation;
+      padding-bottom:calc(var(--vrBottomReserve) + var(--sab));
     }
 
     .bubble{
       position:absolute;
-      transform:translate(-50%, -50%);
-      width:70px;
-      height:70px;
-      border-radius:999px;
+      transform:translate(-50%,-50%);
+      width:62px;
+      height:62px;
+      border-radius:50%;
       display:grid;
       place-items:center;
-      font-size:34px;
-      border:1px solid rgba(255,255,255,.18);
-      background:rgba(255,255,255,.10);
-      box-shadow:0 18px 28px rgba(0,0,0,.25);
+      font-size:32px;
+      border:1px solid rgba(255,255,255,.20);
+      background:radial-gradient(circle at 30% 28%, rgba(255,255,255,.38), rgba(34,211,238,.18) 38%, rgba(15,23,42,.88) 100%);
+      box-shadow:
+        inset 0 0 30px rgba(255,255,255,.10),
+        0 14px 30px rgba(0,0,0,.22);
       user-select:none;
       -webkit-user-select:none;
+      touch-action:manipulation;
       cursor:pointer;
-      transition:transform .08s ease, opacity .08s ease;
+      transition:transform .08s ease, box-shadow .08s ease;
     }
 
     .bubble:active{
-      transform:translate(-50%, -50%) scale(.96);
+      transform:translate(-50%,-50%) scale(.94);
     }
 
-    @media (max-width: 720px){
-      .bubble{
-        width:60px;
-        height:60px;
-        font-size:30px;
-      }
+    .fx-pop{
+      animation: popGood .20s ease forwards;
+    }
+
+    .fx-bad{
+      animation: popBad .22s ease forwards;
+    }
+
+    @keyframes popGood{
+      0%{ transform:translate(-50%,-50%) scale(1); opacity:1; }
+      100%{ transform:translate(-50%,-50%) scale(1.24); opacity:0; }
+    }
+
+    @keyframes popBad{
+      0%{ transform:translate(-50%,-50%) scale(1); opacity:1; }
+      100%{ transform:translate(-50%,-50%) scale(.78); opacity:0; }
     }
 
     .fx-ring{
       position:absolute;
-      width:54px;
-      height:54px;
+      width:18px;
+      height:18px;
       border-radius:999px;
-      border:2px solid rgba(34,211,238,.9);
-      transform:translate(-50%, -50%);
+      border:3px solid rgba(34,211,238,.95);
+      transform:translate(-50%,-50%);
       pointer-events:none;
-      animation:fxRing .5s ease-out forwards;
+      animation:ring .45s ease-out forwards;
       z-index:12;
+    }
+
+    @keyframes ring{
+      from{ opacity:.95; width:18px; height:18px; }
+      to{ opacity:0; width:90px; height:90px; }
     }
 
     .fx-score{
       position:absolute;
-      transform:translate(-50%, -50%);
+      transform:translate(-50%,-50%);
       color:#fff;
-      font-size:18px;
+      font-size:24px;
       font-weight:1100;
-      text-shadow:0 3px 12px rgba(0,0,0,.45);
+      text-shadow:0 3px 10px rgba(0,0,0,.45);
       pointer-events:none;
-      animation:fxScore .9s ease-out forwards;
       z-index:12;
+      animation:scoreFloat .9s ease-out forwards;
       white-space:nowrap;
     }
 
-    .fx-pop{ animation:fxPop .22s ease-out forwards; }
-    .fx-bad{ animation:fxBad .22s ease-out forwards; }
-
-    .fx-shake{ animation:stageShake .18s linear 1; }
-
-    @keyframes fxRing{
-      from{ opacity:1; transform:translate(-50%, -50%) scale(.55); }
-      to{ opacity:0; transform:translate(-50%, -50%) scale(1.55); }
-    }
-    @keyframes fxScore{
-      0%{ opacity:1; transform:translate(-50%, -50%) translateY(0); }
-      100%{ opacity:0; transform:translate(-50%, -50%) translateY(-34px); }
-    }
-    @keyframes fxPop{
-      0%{ opacity:1; transform:translate(-50%, -50%) scale(1); }
-      100%{ opacity:0; transform:translate(-50%, -50%) scale(1.35); }
-    }
-    @keyframes fxBad{
-      0%{ opacity:1; transform:translate(-50%, -50%) scale(1); filter:none; }
-      100%{ opacity:0; transform:translate(-50%, -50%) scale(1.15); filter:grayscale(1); }
-    }
-    @keyframes stageShake{
-      0%{ transform:translateX(0); }
-      25%{ transform:translateX(-4px); }
-      50%{ transform:translateX(4px); }
-      75%{ transform:translateX(-3px); }
-      100%{ transform:translateX(0); }
+    @keyframes scoreFloat{
+      0%{ opacity:0; transform:translate(-50%,-20%); }
+      15%{ opacity:1; transform:translate(-50%,-50%); }
+      100%{ opacity:0; transform:translate(-50%,-145%); }
     }
 
     .storm-flash{
       position:absolute;
       inset:0;
-      background:rgba(255,255,255,.26);
       pointer-events:none;
-      animation:stormFlash .22s ease-out forwards;
-      z-index:8;
+      background:rgba(255,255,255,.20);
+      animation: flash .22s ease-out forwards;
+      z-index:10;
     }
-    @keyframes stormFlash{
-      from{ opacity:1; }
+
+    @keyframes flash{
+      from{ opacity:.85; }
       to{ opacity:0; }
     }
 
@@ -344,582 +373,443 @@
       position:absolute;
       top:0;
       width:8px;
-      height:46vh;
-      background:linear-gradient(180deg, rgba(255,255,255,1), rgba(147,197,253,.85), rgba(255,255,255,0));
-      filter:drop-shadow(0 0 12px rgba(255,255,255,.55));
-      clip-path:polygon(45% 0%, 60% 12%, 48% 12%, 68% 34%, 52% 34%, 76% 62%, 56% 62%, 100% 100%, 40% 70%, 54% 70%, 30% 42%, 46% 42%, 25% 16%, 42% 16%);
+      height:58%;
+      border-radius:999px;
+      background:linear-gradient(180deg, rgba(255,255,255,.98), rgba(147,197,253,.88), rgba(59,130,246,0));
+      filter:drop-shadow(0 0 18px rgba(255,255,255,.8));
       pointer-events:none;
-      z-index:8;
+      z-index:11;
       animation:boltDrop .26s ease-out forwards;
     }
+
     @keyframes boltDrop{
-      from{ opacity:1; }
-      to{ opacity:0; }
+      from{ opacity:0; transform:translateX(-50%) scaleY(.2); }
+      25%{ opacity:1; }
+      to{ opacity:0; transform:translateX(-50%) scaleY(1); }
     }
 
-    #cvrZonePad{
-      position:fixed;
-      left:50%;
-      transform:translateX(-50%);
-      bottom:calc(84px + var(--sab));
-      z-index:22;
-      display:flex;
-      gap:10px;
-      pointer-events:auto;
+    .fx-shake{
+      animation: stageShake .22s linear;
     }
 
-    #cvrZonePad[aria-hidden="true"]{
-      display:none;
-    }
-
-    #cvrZonePad button{
-      cursor:pointer;
-      min-width:110px;
-      min-height:48px;
-      border-radius:16px;
-      border:1px solid rgba(148,163,184,.18);
-      background:rgba(2,6,23,.72);
-      color:#e5e7eb;
-      font:inherit;
-      font-weight:1100;
-      box-shadow:0 18px 30px rgba(0,0,0,.28);
+    @keyframes stageShake{
+      0%,100%{ transform:translate(0,0); }
+      25%{ transform:translate(4px,-2px); }
+      50%{ transform:translate(-4px,2px); }
+      75%{ transform:translate(3px,1px); }
     }
 
     .overlay{
-      position:fixed;
+      position:absolute;
       inset:0;
-      z-index:40;
+      z-index:30;
       display:grid;
       place-items:center;
-      padding:18px;
-      background:rgba(2,6,23,.72);
-      backdrop-filter:blur(8px);
+      padding:
+        calc(18px + var(--sat))
+        calc(16px + var(--sar))
+        calc(18px + var(--vrBottomReserve) + var(--sab))
+        calc(16px + var(--sal));
+      background:rgba(2,6,23,.55);
+      backdrop-filter:blur(6px);
     }
 
     .overlay[aria-hidden="true"]{
       display:none;
     }
 
-    .overlayCard{
-      width:min(760px, 100%);
-      border-radius:24px;
+    .card{
+      width:min(900px, 100%);
       border:1px solid var(--stroke);
       background:var(--panel);
-      box-shadow:0 24px 80px rgba(0,0,0,.35);
-      padding:18px;
-    }
-
-    .overlayTitle{
-      font-size:28px;
-      font-weight:1100;
-      margin:0 0 8px 0;
-    }
-
-    .overlaySub{
-      color:var(--muted);
-      font-size:14px;
-      font-weight:900;
-      line-height:1.6;
-      margin-bottom:14px;
-    }
-
-    .tips{
-      display:grid;
-      gap:10px;
-      margin-top:10px;
-    }
-
-    .tip{
-      border:1px solid rgba(148,163,184,.14);
-      background:rgba(2,6,23,.28);
-      border-radius:16px;
-      padding:12px;
-    }
-
-    .tip b{
-      display:block;
-      margin-bottom:4px;
-      font-size:13px;
-    }
-
-    .tip span{
-      color:var(--muted);
-      font-size:12px;
-      font-weight:900;
-      line-height:1.55;
-    }
-
-    .overlayActions{
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      margin-top:16px;
-    }
-
-    .btn{
-      cursor:pointer;
-      min-height:48px;
-      border-radius:16px;
-      border:1px solid rgba(148,163,184,.18);
-      background:rgba(148,163,184,.10);
-      color:#e5e7eb;
-      padding:12px 14px;
-      font:inherit;
-      font-weight:1100;
-    }
-
-    .btn.primary{
-      background:linear-gradient(180deg, rgba(59,130,246,.28), rgba(59,130,246,.18));
-      border-color:rgba(59,130,246,.34);
-    }
-
-    .btn.good{
-      background:linear-gradient(180deg, rgba(34,197,94,.28), rgba(34,197,94,.18));
-      border-color:rgba(34,197,94,.34);
-    }
-
-    .btn.violet{
-      background:linear-gradient(180deg, rgba(139,92,246,.28), rgba(139,92,246,.18));
-      border-color:rgba(139,92,246,.34);
-    }
-
-    .btn.danger{
-      background:linear-gradient(180deg, rgba(239,68,68,.24), rgba(239,68,68,.16));
-      border-color:rgba(239,68,68,.30);
-    }
-
-    #end{
-      position:fixed;
-      inset:0;
-      z-index:50;
-      display:grid;
-      place-items:center;
-      padding:18px;
-      background:rgba(2,6,23,.78);
-      backdrop-filter:blur(10px);
-    }
-
-    #end[aria-hidden="true"]{
-      display:none;
-    }
-
-    .end-card{
-      width:min(940px,100%);
-      max-height:calc(100vh - 36px);
-      overflow:auto;
+      backdrop-filter:blur(12px);
       border-radius:28px;
-      border:1px solid var(--stroke);
-      background:
-        radial-gradient(900px 320px at 50% 0%, rgba(34,211,238,.10), transparent 60%),
-        radial-gradient(700px 260px at 50% 100%, rgba(59,130,246,.08), transparent 60%),
-        var(--panel);
-      box-shadow:0 28px 90px rgba(0,0,0,.38);
+      box-shadow:0 24px 80px rgba(0,0,0,.35);
       padding:18px;
       display:grid;
       gap:14px;
     }
 
-    .end-title{
-      font-size:clamp(28px, 5vw, 40px);
-      font-weight:1100;
+    .cardTitle{
+      margin:0;
+      font-size:clamp(28px, 5vw, 46px);
       line-height:1.05;
+      font-weight:1100;
     }
 
-    .end-sub{
+    .cardSub{
       color:var(--muted);
       font-size:14px;
       font-weight:900;
-      line-height:1.55;
+      line-height:1.6;
     }
 
-    .grid{
+    .howGrid{
       display:grid;
-      grid-template-columns:repeat(4,minmax(0,1fr));
+      grid-template-columns:1fr;
       gap:12px;
     }
 
-    @media (max-width: 860px){
-      .grid{
-        grid-template-columns:repeat(2,minmax(0,1fr));
-      }
-    }
-
-    @media (max-width: 520px){
-      .grid{
-        grid-template-columns:1fr 1fr;
-        gap:10px;
-      }
-    }
-
-    .item{
+    .howItem{
+      border:1px solid rgba(148,163,184,.16);
+      background:rgba(15,23,42,.38);
       border-radius:20px;
-      border:1px solid rgba(148,163,184,.14);
-      background:rgba(15,23,42,.52);
       padding:14px;
-      box-shadow:0 14px 34px rgba(0,0,0,.18);
     }
 
-    .kk{
-      color:var(--muted);
-      font-size:11px;
-      font-weight:1000;
-      margin-bottom:6px;
-      letter-spacing:.02em;
-    }
-
-    .vv{
-      color:var(--text);
-      font-size:clamp(22px, 4vw, 30px);
+    .howItem .t{
+      font-size:18px;
       font-weight:1100;
-      line-height:1.1;
+      line-height:1.3;
+      margin-bottom:6px;
     }
 
-    .summaryBlocks{
-      display:grid;
-      gap:12px;
-    }
-
-    .summaryBox{
-      border-radius:20px;
-      border:1px solid rgba(148,163,184,.14);
-      background:rgba(15,23,42,.52);
-      padding:14px;
-      box-shadow:0 14px 34px rgba(0,0,0,.18);
-    }
-
-    .summaryBoxTitle{
+    .howItem .s{
       color:var(--muted);
-      font-size:11px;
-      font-weight:1000;
-      margin-bottom:8px;
-      letter-spacing:.02em;
-    }
-
-    .summaryBoxText{
-      color:var(--text);
-      font-size:15px;
-      font-weight:1000;
-      line-height:1.65;
+      font-size:14px;
+      font-weight:900;
+      line-height:1.6;
     }
 
     .actions{
       display:flex;
       gap:10px;
       flex-wrap:wrap;
-      align-items:center;
+      padding-bottom:8px;
     }
 
-    .actions .btn{
-      min-height:50px;
-      border-radius:16px;
-      padding:12px 14px;
-      font-size:14px;
+    .btn{
+      cursor:pointer;
+      min-height:54px;
+      padding:12px 16px;
+      border-radius:18px;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(148,163,184,.10);
+      color:var(--text);
+      font:inherit;
       font-weight:1100;
+      box-shadow:0 12px 28px rgba(0,0,0,.20);
     }
 
-    .actions .btn.primary,
-    .actions .btn.good,
-    .actions .btn.danger{
-      box-shadow:0 12px 26px rgba(0,0,0,.18);
+    .btn.primary{
+      border-color:rgba(59,130,246,.28);
+      background:rgba(59,130,246,.16);
     }
 
-    .actions #btnNextCooldown,
-    .actions #btnReplay,
-    .actions #btnBackHub,
-    .actions #btnEmergencyContinue{
-      order:1;
+    .btn.good{
+      border-color:rgba(34,197,94,.28);
+      background:rgba(34,197,94,.14);
     }
 
-    .actions #btnCopy,
-    .actions #btnCopyEvents,
-    .actions #btnCopyTimeline,
-    .actions #btnCopyFeatures,
-    .actions #btnCopyLabels,
-    .actions #btnCopyFeaturesCsv,
-    .actions #btnCopyLabelsCsv,
-    .actions #btnSendCloud{
-      order:2;
+    .btn.warn{
+      border-color:rgba(245,158,11,.28);
+      background:rgba(245,158,11,.14);
+    }
+
+    .btn.ghost{
+      background:transparent;
+      color:var(--muted);
+    }
+
+    .endGrid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:12px;
+    }
+
+    .endBox{
+      border:1px solid rgba(148,163,184,.16);
+      background:rgba(15,23,42,.38);
+      border-radius:18px;
+      padding:14px;
+    }
+
+    .endBox .k{
+      color:var(--muted);
+      font-size:12px;
+      font-weight:1000;
+      margin-bottom:6px;
+    }
+
+    .endBox .v{
+      font-size:22px;
+      font-weight:1100;
+      line-height:1.25;
+      word-break:break-word;
+    }
+
+    .full{
+      grid-column:1 / -1;
     }
 
     .is-hidden{
       display:none !important;
     }
 
-    @media (max-width: 640px){
+    @media (max-width: 860px){
+      .hudTopbar{
+        grid-template-columns:repeat(2,minmax(0,1fr));
+      }
+      .hudRow2{
+        grid-template-columns:1fr;
+      }
+      .zoneSign{
+        top: calc(242px + var(--sat));
+        font-size:14px;
+        min-height:46px;
+        padding:10px 14px;
+        max-width:min(94vw, 760px);
+      }
+      .zoneBtns{
+        display:flex;
+        top: calc(300px + var(--sat));
+      }
+      .bubble{
+        width:70px;
+        height:70px;
+        font-size:36px;
+      }
+      .endGrid{
+        grid-template-columns:1fr 1fr;
+      }
+    }
+
+    @media (max-width: 560px){
+      :root{
+        --vrBottomReserve: 128px;
+      }
+
       .hud{
-        max-width:none;
+        padding-top:calc(8px + var(--sat));
       }
 
-      .stat .v{
-        font-size:18px;
+      .hudTopbar{
+        gap:6px;
+        padding:8px;
       }
 
-      .chip{
-        font-size:12px;
+      .hudStat{
+        min-height:56px;
+        border-radius:14px;
+        padding:8px 9px;
       }
 
-      .hudActions{
-        gap:8px;
+      .hudStat .v{
+        font-size:19px;
       }
 
-      .hudBtn{
-        min-height:38px;
-        padding:8px 10px;
-        font-size:12px;
+      .hudRow2{
+        gap:6px;
+        padding:8px;
       }
 
-      .end-card{
-        padding:14px;
-        gap:12px;
+      .hudText{
+        font-size:14px;
       }
 
-      .summaryBox{
+      .zoneSign{
+        top: calc(256px + var(--sat));
+        width:min(94vw, 720px);
+        font-size:13px;
+        line-height:1.35;
+      }
+
+      .zoneBtns{
+        top: calc(318px + var(--sat));
+      }
+
+      .card{
+        border-radius:24px;
+        padding:16px;
+      }
+
+      .cardTitle{
+        font-size:clamp(22px, 7vw, 34px);
+      }
+
+      .howItem{
+        border-radius:18px;
         padding:12px;
       }
 
-      .summaryBoxText{
-        font-size:14px;
-        line-height:1.6;
+      .howItem .t{
+        font-size:16px;
       }
 
-      .actions{
-        gap:8px;
-      }
-
-      .actions .btn{
-        flex:1 1 calc(50% - 8px);
-        min-width:0;
-        padding:12px 10px;
+      .howItem .s{
         font-size:13px;
       }
 
-      .actions #btnNextCooldown,
-      .actions #btnReplay,
-      .actions #btnBackHub,
-      .actions #btnEmergencyContinue{
-        flex:1 1 100%;
+      .btn{
+        min-height:52px;
+        border-radius:16px;
+      }
+
+      .endGrid{
+        grid-template-columns:1fr;
+      }
+
+      .endBox .v{
+        font-size:18px;
       }
     }
   </style>
 </head>
-
 <body>
-  <div class="hud">
-    <div class="card">
-      <div class="stat">
-        <span class="k">คะแนน</span> <span id="uiScore" class="v">0</span>
-        <span class="k">เวลา</span> <span id="uiTime" class="v">0</span>
-      </div>
-
-      <div class="chips">
-        <span class="chip">💧 น้ำ <span id="uiWater">0%</span></span>
-        <span class="chip">🛡️ โล่ <span id="uiShield">0</span></span>
-        <span class="chip"><span id="uiPhase">💧 ปกติ</span></span>
-      </div>
-
-      <div class="chips" id="dailyGateRow">
-        <span class="chip">🏃 วอร์มอัปวันนี้ <span id="uiWarmDone">—</span></span>
-        <span class="chip">🌙 คูลดาวน์วันนี้ <span id="uiCoolDone">—</span></span>
-      </div>
-
-      <div class="riskWrap">
-        <div id="coachExplain">เก็บน้ำและหลีกเลี่ยงของไม่ดี</div>
-      </div>
-
-      <div class="hudActions">
-        <button class="hudBtn" id="btnSfx" type="button">🔊 เสียง</button>
-        <button class="hudBtn primary" id="btnPause" type="button">⏸ พักเกม</button>
-        <button class="hudBtn violet" id="btnHelp" type="button">❓ วิธีเล่น</button>
-      </div>
-
-      <span id="uiMiss" class="is-hidden">0</span>
-      <span id="uiExpire" class="is-hidden">0</span>
-      <span id="uiBlock" class="is-hidden">0</span>
-      <span id="uiGrade" class="is-hidden">—</span>
-      <span id="uiCombo" class="is-hidden">0</span>
-      <span id="aiRisk" class="is-hidden">—</span>
-      <span id="aiHint" class="is-hidden">—</span>
-      <div id="riskFill" class="is-hidden"></div>
+  <div id="app">
+    <div id="stage" class="stage">
+      <div class="stars"></div>
+      <div id="layer" class="layer"></div>
     </div>
 
-    <div class="card small is-hidden" id="debugHudCard">
-      <div style="font-weight:1100;font-size:16px;">ภารกิจดื่มน้ำ</div>
-      <div class="smalltext">
-        มุมมอง=<span id="uiView">—</span><br/>
-        โหมด=<span id="uiRun">—</span><br/>
-        ระดับ=<span id="uiDiff">—</span>
+    <div class="hud">
+      <div class="hudCard">
+        <div class="hudTopbar">
+          <div class="hudStat"><div class="k">GRADE</div><div class="v" id="uiGrade">—</div></div>
+          <div class="hudStat"><div class="k">SCORE</div><div class="v" id="uiScore">0</div></div>
+          <div class="hudStat"><div class="k">MISS</div><div class="v" id="uiMiss">0</div></div>
+          <div class="hudStat"><div class="k">WATER</div><div class="v" id="uiWater">0%</div></div>
+        </div>
+
+        <div class="hudRow2">
+          <div class="hudBox">
+            <div class="hudMini">💬 COACH</div>
+            <div class="hudText" id="aiHint">เก็บน้ำและหลีกเลี่ยงของไม่ดี</div>
+          </div>
+
+          <div class="hudBox">
+            <div class="hudMini">🎯 สถานะวันนี้</div>
+            <div class="hudText">
+              วอร์มอัป: <span id="uiWarmDone">—</span> •
+              คูลดาวน์: <span id="uiCoolDone">—</span>
+            </div>
+          </div>
+
+          <div class="hudBox">
+            <div class="hudMini">🗺️ PHASE</div>
+            <div class="hudText" id="uiPhase">💧 ปกติ</div>
+          </div>
+
+          <div class="hudBox">
+            <div class="hudMini">🧠 AI RISK</div>
+            <div class="hudText">
+              <span id="aiRisk">0.00</span>
+              <div class="riskBar"><div class="riskFill" id="riskFill"></div></div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
-  </div>
 
-  <div class="stage" id="stage">
-    <div id="stormFx" aria-hidden="true"></div>
-    <div id="zoneSign" aria-hidden="true"></div>
+    <div id="zoneSign" class="zoneSign"></div>
 
-    <div id="cvrZonePad" aria-hidden="true">
-      <button id="btnZoneL" type="button">LEFT</button>
-      <button id="btnZoneR" type="button">RIGHT</button>
+    <div class="zoneBtns">
+      <button id="btnZoneL" class="zoneBtn" type="button">⬅️ ซ้าย</button>
+      <button id="btnZoneR" class="zoneBtn" type="button">ขวา ➡️</button>
     </div>
 
-    <div id="layer" aria-label="hydration layer"></div>
-  </div>
+    <!-- HELP / START -->
+    <div id="helpOverlay" class="overlay" aria-hidden="false">
+      <div class="card">
+        <h1 class="cardTitle">💧 วิธีเล่น Hydration</h1>
+        <div class="cardSub">
+          เก็บน้ำให้ได้มากที่สุด หลีกเลี่ยงของไม่ดี หาโล่ไว้กันฟ้าผ่า และผ่านพายุไปให้ถึงบอส!
+        </div>
 
-  <div class="overlay" id="helpOverlay" aria-hidden="false">
-    <div class="overlayCard">
-      <h2 class="overlayTitle">💧 วิธีเล่น Hydration</h2>
-      <div class="overlaySub">
-        เก็บน้ำให้ได้มากที่สุด หลีกเลี่ยงของไม่ดี หาโล่ไว้กันฟ้าผ่า และผ่านพายุไปให้ถึงบอส!
-      </div>
+        <div class="howGrid">
+          <div class="howItem">
+            <div class="t">1) แตะน้ำดี</div>
+            <div class="s">แตะ 💧 💦 เพื่อเพิ่มคะแนน เพิ่มน้ำ และทำคอมโบ</div>
+          </div>
 
-      <div class="tips">
-        <div class="tip">
-          <b>1) แตะน้ำดี</b>
-          <span>แตะ 💧 💦 เพื่อเพิ่มคะแนน เพิ่มน้ำ และทำคอมโบ</span>
-        </div>
-        <div class="tip">
-          <b>2) อย่าแตะของไม่ดี</b>
-          <span>แตะ 🥤 🧋 🍟 จะเสียคะแนนและน้ำ</span>
-        </div>
-        <div class="tip">
-          <b>3) เก็บโล่ไว้</b>
-          <span>แตะ 🛡️ เพื่อป้องกันฟ้าผ่าและของไม่ดี</span>
-        </div>
-        <div class="tip">
-          <b>4) ตอนช่วงพายุ / บอส</b>
-          <span>ดูป้ายฝั่งปลอดภัย แล้วอยู่ฝั่งซ้ายหรือขวาตามที่บอก</span>
-        </div>
-        <div class="tip">
-          <b>5) ตอนใช้แว่นหรือกระดาษ VR</b>
-          <span>ใช้ปุ่ม ซ้าย/ขวา หรือยิงจากกลางจอเมื่อมีเป้าเล็ง</span>
-        </div>
-      </div>
+          <div class="howItem">
+            <div class="t">2) อย่าแตะของไม่ดี</div>
+            <div class="s">แตะ 🥤 🧋 🍟 จะเสียคะแนนและน้ำ</div>
+          </div>
 
-      <div class="overlayActions">
-        <button class="btn primary" id="btnHelpStart" type="button">▶ เริ่มเล่น</button>
+          <div class="howItem">
+            <div class="t">3) เก็บโล่ไว้</div>
+            <div class="s">แตะ 🛡️ เพื่อป้องกันฟ้าผ่าและของไม่ดี</div>
+          </div>
+
+          <div class="howItem">
+            <div class="t">4) ตอนช่วงพายุ / บอส</div>
+            <div class="s">ดูป้ายฝั่งปลอดภัย แล้วอยู่ฝั่งซ้ายหรือขวาตามที่บอก</div>
+          </div>
+
+          <div class="howItem">
+            <div class="t">5) ตอนใช้แว่นหรือกระดาษ VR</div>
+            <div class="s">ใช้ปุ่ม ซ้าย/ขวา หรือยิงจากกลางจอเมื่อมีเป้าเล็ง</div>
+          </div>
+        </div>
+
+        <div class="actions">
+          <button id="btnHelpStart" class="btn primary" type="button">▶ เริ่มเล่น</button>
+        </div>
       </div>
     </div>
-  </div>
 
-  <div class="overlay" id="pauseOverlay" aria-hidden="true">
-    <div class="overlayCard">
-      <h2 class="overlayTitle">⏸ พักเกมอยู่</h2>
-      <div class="overlaySub">
-        พร้อมแล้วกดเล่นต่อได้เลย
-      </div>
-
-      <div class="overlayActions">
-        <button class="btn primary" id="btnResume" type="button">▶ เล่นต่อ</button>
+    <!-- PAUSE -->
+    <div id="pauseOverlay" class="overlay" aria-hidden="true">
+      <div class="card" style="max-width:560px;">
+        <h2 class="cardTitle">⏸ หยุดชั่วคราว</h2>
+        <div class="cardSub">พักได้ แล้วค่อยกลับไปเล่นต่อ</div>
+        <div class="actions">
+          <button id="btnResume" class="btn primary" type="button">เล่นต่อ</button>
+        </div>
       </div>
     </div>
-  </div>
 
-  <div id="end" aria-hidden="true">
-    <div class="end-card">
-      <div class="end-title" id="endTitle">เล่นจบรอบแล้ว</div>
-      <div class="end-sub" id="endSub">—</div>
+    <!-- END -->
+    <div id="end" class="overlay" aria-hidden="true">
+      <div class="card">
+        <h2 id="endTitle" class="cardTitle">เล่นจบรอบแล้ว</h2>
+        <div id="endSub" class="cardSub">มุมมอง mobile • ระดับ normal</div>
 
-      <div class="grid">
-        <div class="item">
-          <div class="kk">GRADE</div>
-          <div class="vv" id="endGrade">—</div>
-        </div>
-        <div class="item">
-          <div class="kk">SCORE</div>
-          <div class="vv" id="endScore">0</div>
-        </div>
-        <div class="item">
-          <div class="kk">MISS</div>
-          <div class="vv" id="endMiss">0</div>
-        </div>
-        <div class="item">
-          <div class="kk">WATER</div>
-          <div class="vv" id="endWater">0%</div>
-        </div>
-      </div>
+        <div class="endGrid">
+          <div class="endBox"><div class="k">GRADE</div><div id="endGrade" class="v">—</div></div>
+          <div class="endBox"><div class="k">SCORE</div><div id="endScore" class="v">0</div></div>
+          <div class="endBox"><div class="k">MISS</div><div id="endMiss" class="v">0</div></div>
+          <div class="endBox"><div class="k">WATER</div><div id="endWater" class="v">0%</div></div>
 
-      <div class="summaryBlocks">
-        <div class="summaryBox">
-          <div class="summaryBoxTitle">💬 COACH</div>
-          <div class="summaryBoxText" id="endCoach">—</div>
+          <div class="endBox full"><div class="k">💬 COACH</div><div id="endCoach" class="v">—</div></div>
+          <div class="endBox full"><div class="k">🗺️ PHASE SUMMARY</div><div id="endPhaseSummary" class="v">—</div></div>
+          <div class="endBox full"><div class="k">🎁 REWARD</div><div id="endReward" class="v">—</div></div>
+          <div class="endBox full"><div class="k">🏅 BADGE</div><div id="endBadge" class="v">—</div></div>
         </div>
 
-        <div class="summaryBox">
-          <div class="summaryBoxTitle">🗺 PHASE SUMMARY</div>
-          <div class="summaryBoxText" id="endPhaseSummary">—</div>
+        <div class="actions">
+          <button id="btnNextCooldown" class="btn primary is-hidden" type="button">ไปผ่อนคลายหลังเล่น</button>
+          <button id="btnReplay" class="btn warn" type="button">เล่นอีกครั้ง</button>
+          <button id="btnBackHub" class="btn good" type="button">กลับหน้าหลัก</button>
+
+          <button id="btnCopy" class="btn ghost is-hidden" type="button">Copy Summary</button>
+          <button id="btnCopyEvents" class="btn ghost is-hidden" type="button">Copy Events</button>
+          <button id="btnCopyTimeline" class="btn ghost is-hidden" type="button">Copy Timeline</button>
+          <button id="btnCopyFeatures" class="btn ghost is-hidden" type="button">Copy Features</button>
+          <button id="btnCopyLabels" class="btn ghost is-hidden" type="button">Copy Labels</button>
+          <button id="btnCopyFeaturesCsv" class="btn ghost is-hidden" type="button">Copy Features CSV</button>
+          <button id="btnCopyLabelsCsv" class="btn ghost is-hidden" type="button">Copy Labels CSV</button>
+          <button id="btnSendCloud" class="btn ghost is-hidden" type="button">Send Cloud</button>
         </div>
-
-        <div class="summaryBox">
-          <div class="summaryBoxTitle">🎁 REWARD</div>
-          <div class="summaryBoxText" id="endReward">—</div>
-        </div>
-
-        <div class="summaryBox">
-          <div class="summaryBoxTitle">🏅 BADGE</div>
-          <div class="summaryBoxText" id="endBadge">—</div>
-        </div>
-      </div>
-
-      <div class="actions">
-        <button class="btn primary is-hidden" id="btnNextCooldown" type="button">ไปผ่อนคลายหลังเล่น</button>
-        <button class="btn danger" id="btnReplay" type="button">เล่นอีกครั้ง</button>
-        <button class="btn good" id="btnBackHub" type="button">กลับหน้าหลัก</button>
-
-        <button class="btn is-hidden" id="btnCopy" type="button">Copy Summary</button>
-        <button class="btn is-hidden" id="btnCopyEvents" type="button">Copy Events</button>
-        <button class="btn is-hidden" id="btnCopyTimeline" type="button">Copy Timeline</button>
-        <button class="btn is-hidden" id="btnCopyFeatures" type="button">Copy Features</button>
-        <button class="btn is-hidden" id="btnCopyLabels" type="button">Copy Labels</button>
-        <button class="btn is-hidden" id="btnCopyFeaturesCsv" type="button">Copy Features CSV</button>
-        <button class="btn is-hidden" id="btnCopyLabelsCsv" type="button">Copy Labels CSV</button>
-        <button class="btn violet is-hidden" id="btnSendCloud" type="button">Send Cloud</button>
       </div>
     </div>
+
+    <!-- hidden support -->
+    <div id="uiTime" class="is-hidden">0</div>
+    <div id="uiExpire" class="is-hidden">0</div>
+    <div id="uiBlock" class="is-hidden">0</div>
+    <div id="uiCombo" class="is-hidden">0</div>
+    <div id="uiShield" class="is-hidden">0</div>
+    <div id="btnSfx" class="is-hidden"></div>
+    <div id="btnPause" class="is-hidden"></div>
+    <div id="btnHelp" class="is-hidden"></div>
+    <div id="coachExplain" class="is-hidden"></div>
   </div>
 
   <script type="module">
-    try{
-      const U = new URL(location.href);
-      const runMode = String(U.searchParams.get('run') || 'play').toLowerCase();
-      const diff = String(U.searchParams.get('diff') || 'normal').toLowerCase();
-      const view = String(U.searchParams.get('view') || 'mobile').toLowerCase();
-      const seed = U.searchParams.get('seed') ?? String((Date.now() ^ (Math.random()*1e9))|0);
-
-      const s=(id,v)=>{ const el=document.getElementById(id); if(el) el.textContent=String(v); };
-      s('uiView',view);
-      s('uiRun',runMode);
-      s('uiDiff',diff);
-
-      const debugHudCard = document.getElementById('debugHudCard');
-      const debugOn = ['1','true','yes','on'].includes(String(U.searchParams.get('debug') || '0').toLowerCase());
-      const isResearch = String(U.searchParams.get('run') || 'play').toLowerCase() === 'research';
-      if(debugHudCard && (debugOn || isResearch)){
-        debugHudCard.classList.remove('is-hidden');
-      }
-
-      if(view === 'cvr'){
-        try{ document.getElementById('layer').style.pointerEvents = 'none'; }catch(e){}
-        try{ document.getElementById('cvrZonePad').setAttribute('aria-hidden','false'); }catch(e){}
-      }
-
-      const gameMod = await import('./hydration.safe.js?v=20260313d');
-
-      const bootHydration = gameMod.boot;
-      if(typeof bootHydration !== 'function') throw new Error('hydration.safe.js missing export boot');
-
-      bootHydration({
-        view,
-        run: runMode,
-        diff,
-        seed,
-        pid: U.searchParams.get('pid') || 'anon',
-        hub: U.searchParams.get('hub') || '../hub.html',
-        time: Number(U.searchParams.get('time') || 80),
-        cooldown: (U.searchParams.get('cooldown') === '1') || (U.searchParams.get('cd') === '1')
-      });
-    }catch(e){
-      console.error('[hydration-vr.html] boot error:', e);
-      alert(`BOOT ERROR: ${e?.message || e}`);
-    }
+    import { boot } from './hydration.safe.js?v=20260314e';
+    boot({});
   </script>
 </body>
 </html>
