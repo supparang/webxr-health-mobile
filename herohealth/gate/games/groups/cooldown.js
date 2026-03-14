@@ -1,10 +1,8 @@
-/* === /herohealth/gate/games/groups/cooldown.js ===
+/* === /herohealth/gate/games/groups/warmup.js ===
    HeroHealth Gate Mini-game
    GAME: groups
-   MODE: cooldown
-   FULL PATCH v20260314-GATE-GROUPS-COOLDOWN-AUTOSTART-FALLBACK
-   ✅ FIX: auto-start fallback if gate-core cache/old version doesn't call controller.start()
-   ✅ FIX: child-friendly cooldown review
+   MODE: warmup
+   FULL PATCH v20260314-GATE-GROUPS-WARMUP-CHILD-DAILY-r1
 */
 
 let __styleLoaded = false;
@@ -57,10 +55,38 @@ function calcRank(acc){
   return 'D';
 }
 
+function buildBuffs({ score, accuracy, speed }){
+  const calm = Math.max(0, Math.min(100, Math.round(accuracy * 0.75 + speed * 0.25)));
+  return {
+    wType: 'groups',
+    score,
+    accuracy,
+    speed,
+    calm,
+    rank: calcRank(accuracy),
+    wPct: Math.min(25, Math.round(accuracy / 4)),
+    wCrit: Math.min(20, Math.round(speed / 5)),
+    wDmg: Math.min(16, Math.round((accuracy + speed) / 13)),
+    wHeal: Math.min(18, Math.round(calm / 6)),
+    groupMasteryPct: accuracy
+  };
+}
+
 export async function mount(root, ctx, api){
   loadStyle();
 
-  const rng = mulberry32(Number(ctx.seed || Date.now()) + 97);
+  const rng = mulberry32(Number(ctx.seed || Date.now()) + 41);
+
+  function dayKey(){
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  }
+  function markWarmupDone(){
+    try{
+      const pid = String(ctx?.pid || 'anon');
+      localStorage.setItem(`HHA_GROUPS_WARMUP_DONE:${pid}:${dayKey()}`, '1');
+    }catch(_){}
+  }
 
   const GROUPS = [
     { key:'g1', label:'หมู่ 1 โปรตีน', short:'โปรตีน' },
@@ -97,7 +123,7 @@ export async function mount(root, ctx, api){
     { text:'🛢️ น้ำมันปรุงอาหาร', group:'g5' }
   ];
 
-  const rounds = shuffle(ITEMS, rng).slice(0, 5);
+  const rounds = shuffle(ITEMS, rng).slice(0, 8);
 
   let idx = 0;
   let score = 0;
@@ -110,7 +136,6 @@ export async function mount(root, ctx, api){
   let timeLeft = plannedTime;
 
   root.innerHTML = '';
-
   const wrap = el('div', 'grp-wrap');
   const hero = el('div', 'grp-hero');
   const stage = el('div', 'grp-stage');
@@ -118,15 +143,15 @@ export async function mount(root, ctx, api){
   const panelBottom = el('div', 'grp-panel');
 
   hero.innerHTML = `
-    <div class="grp-kicker">NUTRITION ZONE • GROUPS • COOLDOWN</div>
-    <div class="grp-title">หมู่นี้ควรเลือกอะไร</div>
-    <div class="grp-sub">ทบทวนความเข้าใจเรื่องอาหาร 5 หมู่ ด้วยการเลือกตัวอย่างอาหารที่ตรงกับหมวด</div>
+    <div class="grp-kicker">NUTRITION ZONE • GROUPS • WARMUP</div>
+    <div class="grp-title">อาหารนี้อยู่หมู่ไหน</div>
+    <div class="grp-sub">แยกอาหารให้ถูกตามอาหารหลัก 5 หมู่ของไทย เพื่อวอร์มความพร้อมก่อนเข้าเกมหลัก</div>
   `;
 
-  const target = el('div', 'grp-target', 'เตรียมทบทวน…');
-  const prompt = el('div', 'grp-prompt', 'เลือกตัวอย่างอาหารที่ตรงหมวด');
+  const target = el('div', 'grp-target', 'เตรียมพร้อม…');
+  const prompt = el('div', 'grp-prompt', 'เลือกหมวดให้ถูก');
   const choices = el('div', 'grp-choices');
-  const note = el('div', 'grp-note', 'Cooldown ใช้เพื่อทบทวนและเชื่อมความเข้าใจก่อนกลับ HUB');
+  const note = el('div', 'grp-note', 'ยิ่งตอบแม่น ยิ่งพร้อมเข้าเกม');
 
   panelTop.appendChild(target);
   panelBottom.appendChild(prompt);
@@ -140,7 +165,7 @@ export async function mount(root, ctx, api){
 
   api.logger?.push?.('mini_start', {
     game: 'groups',
-    mode: 'cooldown',
+    mode: 'warmup',
     seed: ctx.seed
   });
 
@@ -161,13 +186,6 @@ export async function mount(root, ctx, api){
     });
   }
 
-  function buildChoices(item){
-    const correctItem = item;
-    const wrongPool = ITEMS.filter(x => x.group !== item.group);
-    const wrongs = shuffle(wrongPool, rng).slice(0, 3);
-    return shuffle([correctItem, ...wrongs], rng);
-  }
-
   function renderRound(){
     if(ended) return;
     if(idx >= rounds.length){
@@ -176,26 +194,20 @@ export async function mount(root, ctx, api){
     }
 
     const item = rounds[idx];
-    const groupMeta = GROUPS.find(g => g.key === item.group) || GROUPS[0];
-
-    target.textContent = groupMeta.label;
-    prompt.textContent = 'เลือกอาหารที่อยู่ในหมู่นี้';
+    target.textContent = item.text;
     choices.innerHTML = '';
 
-    const pickSet = buildChoices(item);
-
-    for(const opt of pickSet){
-      const btn = el('button', 'grp-btn ghost', opt.text);
-      btn.setAttribute('aria-label', opt.text);
+    for(const g of GROUPS){
+      const btn = el('button', 'grp-btn ghost', g.short);
+      btn.title = g.label;
+      btn.setAttribute('aria-label', g.label);
 
       btn.addEventListener('click', ()=>{
         if(ended) return;
 
         idx++;
 
-        const isCorrect = opt.text === item.text && opt.group === item.group;
-
-        if(isCorrect){
+        if(g.key === item.group){
           score += 10;
           correct++;
         }else{
@@ -204,14 +216,13 @@ export async function mount(root, ctx, api){
         }
 
         api.logger?.push?.('mini_answer', {
-          game: 'groups',
-          mode: 'cooldown',
+          game:'groups',
+          mode:'warmup',
           round: idx,
-          targetGroup: item.group,
-          targetGroupLabel: groupMeta.label,
-          selected: opt.text,
-          selectedGroup: opt.group,
-          correctItem: item.text,
+          item: item.text,
+          selected: g.key,
+          selectedLabel: g.label,
+          correct: item.group,
           score,
           miss,
           correctCount: correct
@@ -231,42 +242,38 @@ export async function mount(root, ctx, api){
     clearInterval(timer);
 
     const accuracy = rounds.length > 0 ? Math.round((correct / rounds.length) * 100) : 0;
-    const rank = calcRank(accuracy);
+    const speed = Math.max(0, Math.min(100, Math.round((idx / rounds.length) * 100)));
+    const buffs = buildBuffs({ score, accuracy, speed });
 
     root.innerHTML = `
       <div class="grp-result">
-        <div class="grp-badge">🌿 Cooldown Rank ${rank}</div>
-        <div class="grp-big">ทบทวนเสร็จแล้ว!</div>
+        <div class="grp-badge">✨ Rank ${buffs.rank}</div>
+        <div class="grp-big">พร้อมลุยเกมหลัก!</div>
         <div class="grp-list">
           <div class="grp-item">คะแนน: ${score}</div>
           <div class="grp-item">ความแม่นยำ: ${accuracy}%</div>
-          <div class="grp-item">ตอบถูก: ${correct}/${rounds.length}</div>
-          <div class="grp-item">พลาด: ${miss}</div>
+          <div class="grp-item">ความเข้าใจหมวดอาหาร: ${buffs.groupMasteryPct}%</div>
+          <div class="grp-item">โบนัสก่อนเข้าเกม: +${buffs.wPct}%</div>
         </div>
         <div class="grp-actions">
-          <button class="grp-btn good" id="grpFinishBtn">กลับ HUB</button>
+          <button class="grp-btn good" id="grpFinishBtn">ไปเกมหลัก</button>
         </div>
       </div>
     `;
 
     root.querySelector('#grpFinishBtn')?.addEventListener('click', ()=>{
+      markWarmupDone();
       api.finish({
         ok: true,
-        title: 'ทบทวนเสร็จแล้ว!',
-        subtitle: 'กลับหน้าหลักได้เลย',
+        title: 'พร้อมแล้ว!',
+        subtitle: 'เข้าเกม Groups ได้เลย',
         lines: [
           `คะแนน: ${score}`,
           `ความแม่นยำ: ${accuracy}%`,
-          `ตอบถูก: ${correct}/${rounds.length}`,
-          `Rank: ${rank}`
+          `ความเข้าใจหมวดอาหาร: ${buffs.groupMasteryPct}%`,
+          `Rank: ${buffs.rank}`
         ],
-        metrics: {
-          score,
-          accuracy,
-          correct,
-          misses: miss,
-          rank
-        },
+        buffs,
         markDailyDone: true
       });
     });
@@ -289,7 +296,6 @@ export async function mount(root, ctx, api){
     }
   }, 1000);
 
-  // fallback: เริ่มเกมทันที เผื่อ gate-core cache อยู่และไม่ได้เรียก start()
   startGame();
 
   return {
