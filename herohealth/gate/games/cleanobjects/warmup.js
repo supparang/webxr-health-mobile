@@ -1,6 +1,5 @@
 // === /herohealth/gate/games/cleanobjects/warmup.js ===
-// CleanObjects Gate Warmup
-// CHILD-FRIENDLY PATCH
+// CleanObjects Warmup — robust export for gate-core
 
 let __styleLoaded = false;
 
@@ -18,82 +17,92 @@ export function loadStyle(){
   document.head.appendChild(link);
 }
 
-export default function createWarmup(){
-  function boot(root, ctx = {}){
-    if(!root) return;
+function boot(root, ctx = {}){
+  if(!root) return;
 
-    let score = 0;
-    let done = false;
-    let timer = null;
-    const targetScore = 3;
+  let score = 0;
+  let miss = 0;
+  let done = false;
+  let timer = null;
+  const targetScore = 3;
 
-    root.innerHTML = `
-      <div class="co-gate co-warmup">
-        <div class="co-card">
-          <div class="co-icon">🧽</div>
-          <div class="co-title">วอร์มอัปก่อนเล่น</div>
-          <div class="co-sub">แตะ “จุดเสี่ยง” ให้ครบ ${targetScore} จุด</div>
+  root.innerHTML = `
+    <div class="co-gate co-warmup">
+      <div class="co-card">
+        <div class="co-icon">🧽</div>
+        <div class="co-title">วอร์มอัปก่อนเล่น</div>
+        <div class="co-sub">แตะจุดเสี่ยงให้ครบ ${targetScore} จุด</div>
 
-          <div class="co-status">
-            <div class="co-pill">ได้แล้ว: <b id="coHit">${score}</b> / ${targetScore}</div>
-          </div>
-
-          <div class="co-board" id="coBoard">
-            <button class="co-dot hot" data-good="1" style="left:18%;top:28%">🚪</button>
-            <button class="co-dot hot" data-good="1" style="left:62%;top:22%">💧</button>
-            <button class="co-dot hot" data-good="1" style="left:46%;top:60%">🤝</button>
-
-            <button class="co-dot bad" data-bad="1" style="left:25%;top:70%">🧸</button>
-            <button class="co-dot bad" data-bad="1" style="left:74%;top:58%">🌼</button>
-          </div>
-
-          <div class="co-help">แตะเฉพาะจุดที่เสี่ยง เช่น ลูกบิด ก๊อกน้ำ ของใช้ร่วม</div>
+        <div class="co-status">
+          <div class="co-pill">ได้แล้ว: <b id="coHit">0</b> / ${targetScore}</div>
         </div>
+
+        <div class="co-board" id="coBoard">
+          <button class="co-dot hot" data-good="1" style="left:18%;top:28%">🚪</button>
+          <button class="co-dot hot" data-good="1" style="left:62%;top:22%">💧</button>
+          <button class="co-dot hot" data-good="1" style="left:46%;top:60%">🤝</button>
+
+          <button class="co-dot bad" data-bad="1" style="left:25%;top:70%">🧸</button>
+          <button class="co-dot bad" data-bad="1" style="left:74%;top:58%">🌼</button>
+        </div>
+
+        <div class="co-help">แตะเฉพาะจุดเสี่ยง เช่น ลูกบิด ก๊อกน้ำ ของใช้ร่วม</div>
       </div>
-    `;
+    </div>
+  `;
 
-    const hitEl = root.querySelector('#coHit');
-    const board = root.querySelector('#coBoard');
+  const hitEl = root.querySelector('#coHit');
+  const board = root.querySelector('#coBoard');
 
-    function finish(ok=true){
-      if(done) return;
-      done = true;
-      clearTimeout(timer);
+  function finish(ok = true){
+    if(done) return;
+    done = true;
+    clearTimeout(timer);
 
-      const result = {
-        ok,
-        score,
-        accPct: Math.round((score / targetScore) * 100),
-        miss: 0,
-        progressPct: Math.round((score / targetScore) * 100),
-        summary: ok ? 'พร้อมเข้าเล่น Clean Objects แล้ว' : 'ลองใหม่อีกครั้ง'
-      };
+    const result = {
+      ok,
+      score,
+      miss,
+      accPct: Math.max(0, Math.round((score / Math.max(1, score + miss)) * 100)),
+      progressPct: Math.round((score / targetScore) * 100),
+      summary: ok ? 'พร้อมเข้าเล่น Clean Objects แล้ว' : 'ลองวอร์มอัปอีกครั้ง'
+    };
 
-      if(ctx?.onFinish) ctx.onFinish(result);
-      else if(window?.HeroHealthGate?.finish) window.HeroHealthGate.finish(result);
+    if(typeof ctx?.onFinish === 'function'){
+      ctx.onFinish(result);
+      return;
     }
-
-    board.addEventListener('click', (e)=>{
-      const btn = e.target.closest('.co-dot');
-      if(!btn || done) return;
-
-      if(btn.dataset.good === '1'){
-        btn.disabled = true;
-        btn.classList.add('done');
-        score++;
-        hitEl.textContent = String(score);
-
-        if(score >= targetScore){
-          finish(true);
-        }
-      }else{
-        btn.classList.add('shake');
-        setTimeout(()=>btn.classList.remove('shake'), 250);
-      }
-    });
-
-    timer = setTimeout(()=>finish(score >= targetScore), 15000);
+    if(window?.HeroHealthGate?.finish){
+      window.HeroHealthGate.finish(result);
+    }
   }
 
-  return { boot };
+  board.addEventListener('click', (e)=>{
+    const btn = e.target.closest('.co-dot');
+    if(!btn || done) return;
+
+    if(btn.dataset.good === '1'){
+      if(btn.disabled) return;
+      btn.disabled = true;
+      btn.classList.add('done');
+
+      score++;
+      if(hitEl) hitEl.textContent = String(score);
+
+      if(score >= targetScore){
+        finish(true);
+      }
+    }else{
+      miss++;
+      btn.classList.add('shake');
+      setTimeout(()=>btn.classList.remove('shake'), 250);
+    }
+  });
+
+  timer = setTimeout(()=>{
+    finish(score >= targetScore);
+  }, 15000);
 }
+
+const game = { loadStyle, boot };
+export default game;
