@@ -1,6 +1,6 @@
 // === /herohealth/gate/gate-core.js ===
 // HeroHealth Gate Core
-// FULL PATCH v20260314c-GATE-CORE-DAILY-DONE-STATUS
+// FULL PATCH v20260314i-GATE-CORE-EXPORT-BOOTGATE-FIX
 
 import {
   buildCtx,
@@ -36,11 +36,6 @@ function qs(url, key, fallback = '') {
   } catch {
     return fallback;
   }
-}
-
-function qbool(url, key, fallback = false) {
-  const v = String(qs(url, key, fallback ? '1' : '0')).toLowerCase();
-  return ['1', 'true', 'yes', 'y', 'on'].includes(v);
 }
 
 function safeUrl(raw, fallback = '') {
@@ -443,7 +438,10 @@ async function runGate(app){
   }
 }
 
-const app = document.getElementById('gate-app');
-if(app){
-  runGate(app);
+export async function bootGate(rootEl){
+  const app = rootEl || document.getElementById('gate-app');
+  if(!app) throw new Error('gate-app not found');
+  await runGate(app);
 }
+
+export default bootGate;
