@@ -12,10 +12,15 @@
   <div id="gate-app"></div>
 
   <script type="module">
-    const el = document.getElementById('gate-app');
-    console.log('[warmup-gate] v20260314j gate-app =', el);
+    import * as GateCore from './gate/gate-core.js?v=20260314k';
 
-    import bootGate from './gate/gate-core.js?v=20260314j';
+    const el = document.getElementById('gate-app');
+    const bootGate = GateCore.bootGate || GateCore.default;
+
+    if (!bootGate) {
+      throw new Error('bootGate export not found in gate-core.js');
+    }
+
     bootGate(el);
   </script>
 </body>
