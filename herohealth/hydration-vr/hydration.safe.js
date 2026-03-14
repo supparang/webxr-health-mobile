@@ -1098,7 +1098,7 @@ export function boot(cfg){
     return {
       projectTag:'HydrationVR',
       game: 'hydration',
-      gameVersion:'HydrationVR_SAFE_2026-03-13_CHILD_ONCE_PER_DAY',
+      gameVersion:'HydrationVR_SAFE_2026-03-14_SINGLE_COOLDOWN_BUTTON',
       device:view,
       runMode,
       diff,
@@ -1135,7 +1135,7 @@ export function boot(cfg){
   function buildResearchPacket(reason){
     const summary = buildSummary(reason);
     return {
-      packetVersion: 'HHA_HYD_2026_03_13_CHILD_CSV_CLOUD',
+      packetVersion: 'HHA_HYD_2026_03_14_SINGLE_COOLDOWN_BUTTON',
       game: 'hydration',
       zone: zoneKey,
       pid,
@@ -1157,7 +1157,7 @@ export function boot(cfg){
     const packet = buildResearchPacket(reason);
     return {
       source: 'HeroHealth-HydrationVR',
-      schemaVersion: '2026-03-13',
+      schemaVersion: '2026-03-14',
       session: {
         pid,
         seed: seedStr,
@@ -1236,7 +1236,6 @@ export function boot(cfg){
         'btnNextCooldown',
         'btnReplay',
         'btnBackHub',
-        'btnEmergencyContinue',
         'btnCopy',
         'btnCopyEvents',
         'btnCopyTimeline',
@@ -1346,6 +1345,9 @@ export function boot(cfg){
     setStagePhase('normal');
     stageEl?.classList?.remove('is-fever');
 
+    const dupBtn = DOC.getElementById('btnEmergencyContinue');
+    if(dupBtn) dupBtn.remove();
+
     for(const b of bubbles.values()){
       try{ b.el.remove(); }catch(e){}
     }
@@ -1406,34 +1408,6 @@ export function boot(cfg){
       setEndButtons(summary);
       reorderEndActions();
     }
-
-    try{
-      const oldEmergency = DOC.getElementById('btnEmergencyContinue');
-      if(oldEmergency) oldEmergency.remove();
-
-      const needCooldownNow = cooldownRequired && !isGateDone('cooldown', catKey, gameKey, pid);
-
-      if(needCooldownNow){
-        const emergency = DOC.createElement('button');
-        emergency.id = 'btnEmergencyContinue';
-        emergency.className = 'btn primary';
-        emergency.textContent = 'ไปผ่อนคลายหลังเล่น';
-
-        emergency.onclick = ()=>{
-          setVrUiVisibility(false);
-          location.href = buildCooldownUrl({
-            hub: hubUrl || '../hub.html',
-            nextAfterCooldown: hubUrl || '../hub.html',
-            cat: catKey,
-            gameKey,
-            who: pid
-          });
-        };
-
-        DOC.querySelector('#end .actions')?.appendChild(emergency);
-        reorderEndActions();
-      }
-    }catch(e){}
   }
 
   function checkEnd(){
