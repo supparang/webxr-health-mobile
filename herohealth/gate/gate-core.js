@@ -1,6 +1,6 @@
 // === /herohealth/gate/gate-core.js ===
 // HeroHealth Gate Core
-// FULL PATCH v20260314a-GATE-CORE-DAILY-ONCE-ALLGAMES
+// FULL PATCH v20260314b-GATE-CORE-DAILY-ONCE-PHASE-COMPAT
 
 import {
   buildCtx,
@@ -34,6 +34,18 @@ function qs(url, key, fallback = '') {
   }
 }
 
+function qPhase(url, fallback = '') {
+  return String(
+    qs(url, 'gatePhase',
+      qs(url, 'phase',
+        qs(url, 'Phase',
+          qs(url, 'mode', fallback)
+        )
+      )
+    ) || fallback
+  ).toLowerCase();
+}
+
 function safeUrl(raw, fallback = '') {
   try {
     if (!raw) return fallback;
@@ -44,10 +56,7 @@ function safeUrl(raw, fallback = '') {
 }
 
 function detectPhase(url) {
-  const gatePhase = String(qs(url, 'gatePhase', '')).toLowerCase();
-  const phase = String(qs(url, 'phase', '')).toLowerCase();
-  const mode = String(qs(url, 'mode', '')).toLowerCase();
-  const p = gatePhase || phase || mode || 'warmup';
+  const p = qPhase(url, 'warmup');
   return p === 'cooldown' ? 'cooldown' : 'warmup';
 }
 
@@ -98,7 +107,7 @@ function stripGateParams(urlLike) {
   try {
     const u = new URL(urlLike, window.location.href);
     [
-      'gatePhase', 'phase', 'mode',
+      'gatePhase', 'phase', 'Phase', 'mode',
       'gate', 'gateDone',
       'summary', 'cooldown',
       'warmup', 'cooldownDone',
@@ -342,18 +351,14 @@ export async function bootGate(rootEl) {
     dailyDone: ctx.dailyDone
   });
 
-  // ข้าม warmup/cooldown ถ้าทำแล้ววันนี้
   if (ctx.dailyDone) {
     safeLog('daily-skip', {
       mode: ctx.mode,
       target: ctx.mode === 'cooldown' ? ctx.hub : buildContinueUrl(ctx)
     });
 
-    if (ctx.mode === 'cooldown') {
-      goHub();
-    } else {
-      goNext();
-    }
+    if (ctx.mode === 'cooldown') goHub();
+    else goNext();
     return;
   }
 
