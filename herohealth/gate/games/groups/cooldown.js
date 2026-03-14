@@ -2,7 +2,7 @@
    HeroHealth Gate Mini-game
    GAME: groups
    MODE: cooldown
-   FULL PATCH v20260314-GATE-GROUPS-COOLDOWN-CHILD-DAILY-r1
+   FULL PATCH v20260314-GATE-GROUPS-COOLDOWN-MOUNT-FIX-r2
 */
 
 let __styleLoaded = false;
@@ -55,7 +55,7 @@ function calcRank(acc){
   return 'D';
 }
 
-export async function mount(root, ctx, api){
+export async function mount(root, ctx = {}, api = {}){
   loadStyle();
 
   const rng = mulberry32(Number(ctx.seed || Date.now()) + 97);
@@ -113,7 +113,7 @@ export async function mount(root, ctx, api){
   let miss = 0;
   let correct = 0;
   let ended = false;
-  let started = false;
+  let timer = null;
 
   const plannedTime = Number(ctx.time || 20);
   let timeLeft = plannedTime;
@@ -153,7 +153,7 @@ export async function mount(root, ctx, api){
     seed: ctx.seed
   });
 
-  api.setStats({
+  api.setStats?.({
     time: timeLeft,
     score: 0,
     miss: 0,
@@ -162,7 +162,7 @@ export async function mount(root, ctx, api){
 
   function updateHud(){
     const acc = idx > 0 ? Math.round((correct / idx) * 100) : 0;
-    api.setStats({
+    api.setStats?.({
       time: timeLeft,
       score,
       miss,
@@ -175,6 +175,54 @@ export async function mount(root, ctx, api){
     const wrongPool = ITEMS.filter(x => x.group !== item.group);
     const wrongs = shuffle(wrongPool, rng).slice(0, 3);
     return shuffle([correctItem, ...wrongs], rng);
+  }
+
+  function finishNow(){
+    if(ended) return;
+    ended = true;
+    if(timer) clearInterval(timer);
+
+    const accuracy = rounds.length > 0 ? Math.round((correct / rounds.length) * 100) : 0;
+    const rank = calcRank(accuracy);
+
+    root.innerHTML = `
+      <div class="grp-result">
+        <div class="grp-badge">🌿 Cooldown Rank ${rank}</div>
+        <div class="grp-big">ทบทวนเสร็จแล้ว!</div>
+        <div class="grp-list">
+          <div class="grp-item">คะแนน: ${score}</div>
+          <div class="grp-item">ความแม่นยำ: ${accuracy}%</div>
+          <div class="grp-item">ตอบถูก: ${correct}/${rounds.length}</div>
+          <div class="grp-item">พลาด: ${miss}</div>
+        </div>
+        <div class="grp-actions">
+          <button class="grp-btn good" id="grpFinishBtn">กลับ HUB</button>
+        </div>
+      </div>
+    `;
+
+    root.querySelector('#grpFinishBtn')?.addEventListener('click', ()=>{
+      markCooldownDone();
+      api.finish?.({
+        ok: true,
+        title: 'ทบทวนเสร็จแล้ว!',
+        subtitle: 'กลับหน้าหลักได้เลย',
+        lines: [
+          `คะแนน: ${score}`,
+          `ความแม่นยำ: ${accuracy}%`,
+          `ตอบถูก: ${correct}/${rounds.length}`,
+          `Rank: ${rank}`
+        ],
+        metrics: {
+          score,
+          accuracy,
+          correct,
+          misses: miss,
+          rank
+        },
+        markDailyDone: true
+      });
+    });
   }
 
   function renderRound(){
@@ -233,72 +281,21 @@ export async function mount(root, ctx, api){
     }
   }
 
-  function finishNow(){
-    if(ended) return;
-    ended = true;
-    clearInterval(timer);
-
-    const accuracy = rounds.length > 0 ? Math.round((correct / rounds.length) * 100) : 0;
-    const rank = calcRank(accuracy);
-
-    root.innerHTML = `
-      <div class="grp-result">
-        <div class="grp-badge">🌿 Cooldown Rank ${rank}</div>
-        <div class="grp-big">ทบทวนเสร็จแล้ว!</div>
-        <div class="grp-list">
-          <div class="grp-item">คะแนน: ${score}</div>
-          <div class="grp-item">ความแม่นยำ: ${accuracy}%</div>
-          <div class="grp-item">ตอบถูก: ${correct}/${rounds.length}</div>
-          <div class="grp-item">พลาด: ${miss}</div>
-        </div>
-        <div class="grp-actions">
-          <button class="grp-btn good" id="grpFinishBtn">กลับ HUB</button>
-        </div>
-      </div>
-    `;
-
-    root.querySelector('#grpFinishBtn')?.addEventListener('click', ()=>{
-      markCooldownDone();
-      api.finish({
-        ok: true,
-        title: 'ทบทวนเสร็จแล้ว!',
-        subtitle: 'กลับหน้าหลักได้เลย',
-        lines: [
-          `คะแนน: ${score}`,
-          `ความแม่นยำ: ${accuracy}%`,
-          `ตอบถูก: ${correct}/${rounds.length}`,
-          `Rank: ${rank}`
-        ],
-        metrics: {
-          score,
-          accuracy,
-          correct,
-          misses: miss,
-          rank
-        },
-        markDailyDone: true
-      });
-    });
-  }
-
   function startGame(){
-    if(started || ended) return;
-    started = true;
-    renderRound();
-  }
-
-  const timer = setInterval(()=>{
     if(ended) return;
-    timeLeft--;
-    if(timeLeft < 0) timeLeft = 0;
-    updateHud();
+    renderRound();
+    if(timer) clearInterval(timer);
+    timer = setInterval(()=>{
+      if(ended) return;
+      timeLeft--;
+      if(timeLeft < 0) timeLeft = 0;
+      updateHud();
 
-    if(timeLeft <= 0){
-      finishNow();
-    }
-  }, 1000);
-
-  startGame();
+      if(timeLeft <= 0){
+        finishNow();
+      }
+    }, 1000);
+  }
 
   return {
     start(){
@@ -306,7 +303,7 @@ export async function mount(root, ctx, api){
     },
     destroy(){
       ended = true;
-      clearInterval(timer);
+      if(timer) clearInterval(timer);
     }
   };
 }
