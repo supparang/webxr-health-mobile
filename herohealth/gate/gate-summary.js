@@ -1,7 +1,9 @@
 // === /herohealth/gate/gate-summary.js ===
-// FULL PATCH v20260313c-GATE-SUMMARY-HIDE-BEFORE-CALLBACK
+// FULL PATCH v20260314-GATE-SUMMARY-TOAST-ROOT-HARDENED
 
 export function mountSummaryLayer(root){
+  const host = (root && typeof root.appendChild === 'function') ? root : document.body;
+
   const overlay = document.createElement('div');
   overlay.className = 'gate-overlay';
   overlay.innerHTML = `
@@ -15,7 +17,7 @@ export function mountSummaryLayer(root){
       </div>
     </div>
   `;
-  root.appendChild(overlay);
+  host.appendChild(overlay);
 
   function hide(){
     overlay.classList.remove('show');
@@ -61,9 +63,11 @@ export function mountSummaryLayer(root){
 }
 
 export function mountToast(root=document.body){
+  const host = (root && typeof root.appendChild === 'function') ? root : document.body;
+
   const el = document.createElement('div');
   el.className = 'gate-toast';
-  root.appendChild(el);
+  host.appendChild(el);
 
   let timer = null;
 
