@@ -1,92 +1,99 @@
-import { loadCssOnce } from '../../helpers/css.js';
-import { mulberry32 } from '../../helpers/rng.js';
-import { mountSequenceWarmup } from '../../helpers/sequence-warmup.js';
+// === /herohealth/gate/games/cleanobjects/warmup.js ===
+// CleanObjects Gate Warmup
+// CHILD-FRIENDLY PATCH
+
+let __styleLoaded = false;
 
 export function loadStyle(){
-  loadCssOnce('./gate/games/cleanobjects/style.css?v=20260308a');
+  if(__styleLoaded) return;
+  __styleLoaded = true;
+
+  const id = 'gate-style-cleanobjects';
+  if(document.getElementById(id)) return;
+
+  const link = document.createElement('link');
+  link.id = id;
+  link.rel = 'stylesheet';
+  link.href = new URL('./style.css', import.meta.url).toString();
+  document.head.appendChild(link);
 }
 
-export async function mount(container, ctx, api){
-  const rng = mulberry32(ctx.seed || Date.now());
+export default function createWarmup(){
+  function boot(root, ctx = {}){
+    if(!root) return;
 
-  const STEP_POOL = [
-    { id:'desk_dirty', label:'โต๊ะมีคราบเปื้อน', desc:'โต๊ะที่ใช้งานแล้วมีคราบควรเช็ดทำความสะอาด', emoji:'🪑' },
-    { id:'toy_dirty', label:'ของเล่นตกพื้นสกปรก', desc:'ของเล่นที่เปื้อนควรเช็ดก่อนใช้อีกครั้ง', emoji:'🧸' },
-    { id:'bottle_dirty', label:'ขวดน้ำมีคราบด้านนอก', desc:'ของใช้ที่จับบ่อยควรเช็ดเมื่อสกปรก', emoji:'🍼' },
-    { id:'soap_clean', label:'สบู่สะอาดพร้อมใช้', desc:'อันนี้เป็นของสะอาด ไม่ใช่เป้าหมายให้เช็ดตอนนี้', emoji:'🧼' },
-    { id:'toothbrush_clean', label:'แปรงสีฟันสะอาด', desc:'เก็บถูกที่และสะอาดอยู่แล้ว', emoji:'🪥' },
-    { id:'towel_clean', label:'ผ้าสะอาดพับไว้', desc:'ยังไม่ใช่ของที่ต้องรีบทำความสะอาด', emoji:'🧻' },
-    { id:'bubble_clean', label:'ฟองสะอาด', desc:'แปลว่าสะอาด ไม่ใช่ของสกปรก', emoji:'🫧' }
-  ];
+    let score = 0;
+    let done = false;
+    let timer = null;
+    const targetScore = 3;
 
-  return mountSequenceWarmup({
-    container,
-    api,
-    ctx,
-    config: {
-      rng,
-      rootClass: 'clean',
-      title: 'Warmup — Clean Objects Quick Check',
-      subtitle: 'เลือกวัตถุที่ควรทำความสะอาดให้ถูก 3 อย่าง ภายใน 20 วินาที',
-      startLabel: 'เริ่มตรวจวัตถุ',
-      timeLimit: 20,
-      stepPool: STEP_POOL,
-      targetIds: ['desk_dirty','toy_dirty','bottle_dirty'],
-      renderShell: ({ title, subtitle, startLabel }) => `
-        <div class="clean-layer">
-          <div class="clean-brief" data-role="brief">
-            <div class="clean-brief-card">
-              <h2 class="clean-brief-title">${title}</h2>
-              <p class="clean-brief-sub">${subtitle}</p>
-              <button class="btn btn-primary" data-role="start">${startLabel}</button>
-            </div>
+    root.innerHTML = `
+      <div class="co-gate co-warmup">
+        <div class="co-card">
+          <div class="co-icon">🧽</div>
+          <div class="co-title">วอร์มอัปก่อนเล่น</div>
+          <div class="co-sub">แตะ “จุดเสี่ยง” ให้ครบ ${targetScore} จุด</div>
+
+          <div class="co-status">
+            <div class="co-pill">ได้แล้ว: <b id="coHit">${score}</b> / ${targetScore}</div>
           </div>
 
-          <div class="clean-playfield">
-            <div class="clean-scene" aria-hidden="true">
-              <div class="clean-deco.bucket">🪣</div>
-              <div class="clean-deco.sponge">🧽</div>
-              <div class="clean-deco.room">🏠</div>
-            </div>
+          <div class="co-board" id="coBoard">
+            <button class="co-dot hot" data-good="1" style="left:18%;top:28%">🚪</button>
+            <button class="co-dot hot" data-good="1" style="left:62%;top:22%">💧</button>
+            <button class="co-dot hot" data-good="1" style="left:46%;top:60%">🤝</button>
 
-            <div class="clean-board">
-              <div class="clean-card">
-                <div class="clean-card-title">สิ่งที่ต้องตัดสินใจ</div>
-                <div class="clean-card-sub">แตะตัวเลือกที่ “ควรทำความสะอาด” ให้ครบ 3 อย่าง</div>
-                <div class="clean-progress" data-role="steps"></div>
-              </div>
-
-              <div class="clean-card">
-                <div class="clean-card-title">ตัวเลือก</div>
-                <div class="clean-card-sub">เลือกวัตถุที่สกปรกหรือมีคราบ</div>
-                <div class="clean-choice-list" data-role="choices"></div>
-              </div>
-            </div>
+            <button class="co-dot bad" data-bad="1" style="left:25%;top:70%">🧸</button>
+            <button class="co-dot bad" data-bad="1" style="left:74%;top:58%">🌼</button>
           </div>
+
+          <div class="co-help">แตะเฉพาะจุดที่เสี่ยง เช่น ลูกบิด ก๊อกน้ำ ของใช้ร่วม</div>
         </div>
-      `,
-      getChoiceClass: ()=> 'clean-choice',
-      getDoneRowClass: (done)=> `clean-row ${done ? 'done' : ''}`,
-      onCorrectToast: (n)=> `ถูกต้อง! เลือกครบ ${n}`,
-      onWrongToast: ()=> 'อันนี้ยังไม่ใช่เป้าหมายที่ต้องทำความสะอาด',
-      finishTitleSuccess: 'พร้อมทำความสะอาดแล้ว!',
-      finishTitleTimeout: 'หมดเวลา',
-      finishSubtitle: 'สรุปผล Warmup — Clean Objects Quick Check',
-      finishLines: ({ state, acc, timeBonus })=>[
-        `เลือกถูก ${state.currentIndex}/3 อย่าง`,
-        `คะแนน ${state.score}`,
-        `พลาด ${state.miss}`,
-        `ความแม่นยำ ${acc}%`,
-        `โบนัสเวลา +${timeBonus} วินาที`
-      ],
-      buildBuffs: ({ state, acc, timeBonus, scoreBonus, rank })=>({
-        wType: 'cleanobjects_quick_check',
-        wPct: acc,
-        wSteps: state.currentIndex,
-        wTimeBonus: timeBonus,
-        wScoreBonus: scoreBonus,
-        wRank: rank
-      })
+      </div>
+    `;
+
+    const hitEl = root.querySelector('#coHit');
+    const board = root.querySelector('#coBoard');
+
+    function finish(ok=true){
+      if(done) return;
+      done = true;
+      clearTimeout(timer);
+
+      const result = {
+        ok,
+        score,
+        accPct: Math.round((score / targetScore) * 100),
+        miss: 0,
+        progressPct: Math.round((score / targetScore) * 100),
+        summary: ok ? 'พร้อมเข้าเล่น Clean Objects แล้ว' : 'ลองใหม่อีกครั้ง'
+      };
+
+      if(ctx?.onFinish) ctx.onFinish(result);
+      else if(window?.HeroHealthGate?.finish) window.HeroHealthGate.finish(result);
     }
-  });
+
+    board.addEventListener('click', (e)=>{
+      const btn = e.target.closest('.co-dot');
+      if(!btn || done) return;
+
+      if(btn.dataset.good === '1'){
+        btn.disabled = true;
+        btn.classList.add('done');
+        score++;
+        hitEl.textContent = String(score);
+
+        if(score >= targetScore){
+          finish(true);
+        }
+      }else{
+        btn.classList.add('shake');
+        setTimeout(()=>btn.classList.remove('shake'), 250);
+      }
+    });
+
+    timer = setTimeout(()=>finish(score >= targetScore), 15000);
+  }
+
+  return { boot };
 }
