@@ -1,6 +1,6 @@
 /* === /herohealth/gate/games/jumpduck/warmup.js ===
  * HeroHealth Gate Game: JumpDuck Warmup
- * PATCH v20260312e-JUMPDUCK-WARMUP-TH-CHILD
+ * PATCH v20260313a-JUMPDUCK-WARMUP-FINISH-HARDEN
  */
 
 function clamp(v, a, b){ return Math.max(a, Math.min(b, v)); }
@@ -16,7 +16,7 @@ function getParam(ctx, key, fallback=''){
 
 function ensureStyle(){
   const id = 'hh-gate-style-jumpduck';
-  const href = './gate/games/jumpduck/style.css?v=20260312c';
+  const href = './gate/games/jumpduck/style.css?v=20260312f';
 
   const old = document.getElementById(id);
   if (old) old.remove();
@@ -65,11 +65,12 @@ function makeResult(state){
   };
 }
 
-export function mount(root, ctx = {}){
+export function mount(root, ctx = {}) {
   ensureStyle();
 
   const phase = String(getParam(ctx, 'phase', 'warmup')).toLowerCase();
   const onComplete = typeof ctx?.onComplete === 'function' ? ctx.onComplete : () => {};
+
   if (phase !== 'warmup'){
     root.innerHTML = `
       <div class="jdg-wrap">
@@ -109,8 +110,11 @@ export function mount(root, ctx = {}){
     remainSec: GAME_SEC,
     roundTimer: null,
     gameTimer: null,
-    sequence: []
+    sequence: [],
+    completedOnce: false
   };
+
+  let autoCompleteTimer = null;
 
   for (let i = 0; i < TOTAL_ROUNDS; i++){
     const idx = Math.abs((seed + i * 11) % cues.length);
@@ -156,8 +160,8 @@ export function mount(root, ctx = {}){
         </div>
 
         <div class="jdg-footer">
-          <button class="jdg-btn jdg-btn-primary" id="jdg-start">เริ่มอุ่นเครื่อง</button>
-          <button class="jdg-btn jdg-btn-ghost" id="jdg-finish" disabled>ดูผล</button>
+          <button class="jdg-btn jdg-btn-primary" id="jdg-start" type="button">เริ่มอุ่นเครื่อง</button>
+          <button class="jdg-btn jdg-btn-ghost" id="jdg-finish" type="button" disabled>ดูผล</button>
         </div>
       </section>
     </div>
@@ -179,19 +183,43 @@ export function mount(root, ctx = {}){
   }
 
   function lockActions(locked){
-    actionsEl.querySelectorAll('.jdg-btn-action').forEach(btn => { btn.disabled = locked; });
+    actionsEl.querySelectorAll('.jdg-btn-action').forEach(btn => {
+      btn.disabled = locked;
+      btn.style.pointerEvents = locked ? 'none' : 'auto';
+    });
+  }
+
+  function completeNow(){
+    if (state.completedOnce) return;
+    state.completedOnce = true;
+    clearTimeout(autoCompleteTimer);
+    onComplete(makeResult(state));
   }
 
   function finishGame(){
     if (state.finished) return;
     state.finished = true;
+
     clearTimeout(state.roundTimer);
     clearInterval(state.gameTimer);
+    clearTimeout(autoCompleteTimer);
+
     lockActions(true);
+
     startBtn.disabled = true;
+    startBtn.style.pointerEvents = 'none';
+    startBtn.style.opacity = '.65';
+
     finishBtn.disabled = false;
+    finishBtn.style.pointerEvents = 'auto';
+    finishBtn.style.opacity = '1';
+
     cueEl.textContent = 'เสร็จแล้ว กดดูผล';
     renderStats();
+
+    autoCompleteTimer = setTimeout(() => {
+      completeNow();
+    }, 900);
   }
 
   function nextCue(){
@@ -250,6 +278,9 @@ export function mount(root, ctx = {}){
     if (state.started) return;
     state.started = true;
     startBtn.disabled = true;
+    startBtn.style.pointerEvents = 'none';
+    startBtn.style.opacity = '.65';
+
     lockActions(false);
     cueEl.textContent = 'เริ่ม!';
     renderStats();
@@ -263,7 +294,15 @@ export function mount(root, ctx = {}){
     setTimeout(nextCue, 500);
   });
 
-  finishBtn.addEventListener('click', () => {
-    onComplete(makeResult(state));
-  });
+  finishBtn.addEventListener('click', completeNow);
+  finishBtn.addEventListener('pointerup', completeNow);
+  finishBtn.addEventListener('touchend', completeNow, { passive: true });
+
+  return {
+    destroy(){
+      clearTimeout(state.roundTimer);
+      clearInterval(state.gameTimer);
+      clearTimeout(autoCompleteTimer);
+    }
+  };
 }
