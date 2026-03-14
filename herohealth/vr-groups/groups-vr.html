@@ -1,9 +1,10 @@
 <!-- === /webxr-health-mobile/herohealth/vr-groups/groups-vr.html ===
 GroupsVR — CHILD-FRIENDLY SOLO RUN PAGE
-FULL PATCH v20260314-GROUPS-SOLO-ENDFLOW-TO-COOLDOWN
-✅ FIX: end flow goes to cooldown first, then hub
-✅ FIX: use phase=cooldown lowercase
-✅ FIX: persist last summary before entering cooldown
+FULL PATCH v20260314-GROUPS-SOLO-CHILD-FRIENDLY-DAILY-STATUS-r1
+✅ child-friendly wording
+✅ end flow -> cooldown -> hub
+✅ daily status for warmup/cooldown
+✅ save last summary
 -->
 <!doctype html>
 <html lang="th">
@@ -24,6 +25,9 @@ FULL PATCH v20260314-GROUPS-SOLO-ENDFLOW-TO-COOLDOWN
       --sab: env(safe-area-inset-bottom, 0px);
       --sar: env(safe-area-inset-right, 0px);
       --sal: env(safe-area-inset-left, 0px);
+      --good:#22c55e;
+      --warn:#f59e0b;
+      --blue:#38bdf8;
     }
 
     *{ box-sizing:border-box; }
@@ -67,7 +71,7 @@ FULL PATCH v20260314-GROUPS-SOLO-ENDFLOW-TO-COOLDOWN
     .title{
       display:flex;
       flex-direction:column;
-      gap:2px;
+      gap:4px;
       min-width:0;
     }
     .title b{
@@ -79,6 +83,45 @@ FULL PATCH v20260314-GROUPS-SOLO-ENDFLOW-TO-COOLDOWN
       color:var(--muted);
       font-size:11.5px;
       line-height:1.25;
+    }
+
+    .statusRow{
+      display:flex;
+      gap:6px;
+      flex-wrap:wrap;
+      align-items:center;
+    }
+
+    .pill{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      min-height:28px;
+      padding:5px 9px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.16);
+      background:rgba(2,6,23,.42);
+      color:var(--muted);
+      font-size:11px;
+      font-weight:1000;
+      white-space:nowrap;
+    }
+    .pill b{ color:var(--text); }
+
+    .dot{
+      width:8px;
+      height:8px;
+      border-radius:999px;
+      background:var(--blue);
+      box-shadow:0 0 12px rgba(56,189,248,.45);
+    }
+    .dot.good{
+      background:var(--good);
+      box-shadow:0 0 12px rgba(34,197,94,.45);
+    }
+    .dot.warn{
+      background:var(--warn);
+      box-shadow:0 0 12px rgba(245,158,11,.45);
     }
 
     .row{
@@ -634,18 +677,9 @@ FULL PATCH v20260314-GROUPS-SOLO-ENDFLOW-TO-COOLDOWN
     }
 
     @media (max-width:760px){
-      .statGrid{
-        grid-template-columns:repeat(2,minmax(0,1fr));
-      }
-      .bgCats{
-        bottom:13%;
-        gap:10px;
-        width:min(96%, 760px);
-      }
-      .bgCatBox{
-        max-width:72px;
-        border-radius:14px;
-      }
+      .statGrid{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .bgCats{ bottom:13%; gap:10px; width:min(96%, 760px); }
+      .bgCatBox{ max-width:72px; border-radius:14px; }
       .bgCatLabel{ font-size:10px; }
     }
 
@@ -655,18 +689,9 @@ FULL PATCH v20260314-GROUPS-SOLO-ENDFLOW-TO-COOLDOWN
         padding: calc(6px + var(--sat)) calc(6px + var(--sar)) calc(6px + var(--sab)) calc(6px + var(--sal));
       }
 
-      .topbar{
-        padding:6px 8px;
-        gap:6px;
-        border-radius:14px;
-      }
-
+      .topbar{ padding:6px 8px; gap:6px; border-radius:14px; }
       .title b{ font-size:12px; }
-      .title span{
-        font-size:9px;
-        line-height:1.1;
-      }
-
+      .title span{ font-size:9px; line-height:1.1; }
       .row{ gap:5px; }
 
       button{
@@ -692,7 +717,6 @@ FULL PATCH v20260314-GROUPS-SOLO-ENDFLOW-TO-COOLDOWN
       }
       .questTitle{ font-size:10px; }
       .questMini{ font-size:8px; }
-
       .bar{ height:7px; }
 
       .powerWrap{
@@ -738,9 +762,7 @@ FULL PATCH v20260314-GROUPS-SOLO-ENDFLOW-TO-COOLDOWN
         font-size:52px;
       }
 
-      .bgFloor{
-        height:36%;
-      }
+      .bgFloor{ height:36%; }
     }
 
     @media (max-width:560px){
@@ -756,14 +778,8 @@ FULL PATCH v20260314-GROUPS-SOLO-ENDFLOW-TO-COOLDOWN
         min-height:auto;
         border-radius:16px;
       }
-      .overlayCard header{
-        padding:10px;
-        gap:8px;
-      }
-      #endCard main{
-        padding:10px;
-        gap:8px;
-      }
+      .overlayCard header{ padding:10px; gap:8px; }
+      #endCard main{ padding:10px; gap:8px; }
       .overlayBtns{
         padding:10px;
         gap:8px;
@@ -772,20 +788,12 @@ FULL PATCH v20260314-GROUPS-SOLO-ENDFLOW-TO-COOLDOWN
         background: linear-gradient(180deg, rgba(2,6,23,.72), rgba(2,6,23,.96));
         backdrop-filter: blur(10px);
       }
-      .overlayBtns button{
-        flex:1 1 100%;
-      }
+      .overlayBtns button{ flex:1 1 100%; }
     }
 
     @media (max-width:520px){
-      .bgCats{
-        bottom:12%;
-        gap:8px;
-      }
-      .bgCatBox{
-        max-width:58px;
-        border-radius:12px;
-      }
+      .bgCats{ bottom:12%; gap:8px; }
+      .bgCatBox{ max-width:58px; border-radius:12px; }
       .bgCatLabel{ font-size:9px; }
     }
 
@@ -896,10 +904,14 @@ FULL PATCH v20260314-GROUPS-SOLO-ENDFLOW-TO-COOLDOWN
     <div class="title">
       <b>🥗 เกมอาหาร 5 หมู่</b>
       <span id="subline">ยิงให้ถูกหมวด เก็บคะแนน และสะสมคอมโบ</span>
+      <div class="statusRow">
+        <span class="pill"><span id="warmupDot" class="dot warn"></span> Warmup วันนี้: <b id="warmupStatus">ยังไม่เข้า</b></span>
+        <span class="pill"><span id="cooldownDot" class="dot warn"></span> Cooldown วันนี้: <b id="cooldownStatus">ยังไม่เข้า</b></span>
+      </div>
     </div>
     <div class="row">
-      <button id="btnRestart">เริ่มใหม่</button>
-      <button id="btnBack">กลับหน้าหลัก</button>
+      <button id="btnRestart">เล่นใหม่</button>
+      <button id="btnBack">กลับ HUB</button>
     </div>
   </div>
 
@@ -937,7 +949,7 @@ FULL PATCH v20260314-GROUPS-SOLO-ENDFLOW-TO-COOLDOWN
         <div class="questTop">
           <div class="questLine">
             <div class="questTitle"><span id="qTitle">ภารกิจ</span> <span id="qSub" style="color:var(--muted); font-weight:900;"></span></div>
-            <div class="questMini"><span id="qMini">พลังพิเศษ · 0/0</span> <span id="qMiniTime"></span></div>
+            <div class="questMini"><span id="qMini">พลัง · 0/0</span> <span id="qMiniTime"></span></div>
           </div>
           <div class="bar"><i id="qBar"></i></div>
         </div>
@@ -947,7 +959,7 @@ FULL PATCH v20260314-GROUPS-SOLO-ENDFLOW-TO-COOLDOWN
     <div class="powerWrap">
       <div class="powerHead">
         <b id="groupName">หมู่ 1 โปรตีน</b>
-        <span>POWER</span>
+        <span>พลัง</span>
       </div>
       <div class="bar"><i id="pBar"></i></div>
       <div style="color:var(--muted); font-size:12px; font-weight:900;">
@@ -993,15 +1005,15 @@ FULL PATCH v20260314-GROUPS-SOLO-ENDFLOW-TO-COOLDOWN
             <div class="panel" style="margin-top:10px; background:rgba(15,23,42,.40);">
               <h4 style="margin:0 0 6px;">ข้อความจากโค้ช</h4>
               <div id="childCoachMsg" style="font-size:14px; font-weight:1000; line-height:1.35;">
-                เยี่ยมเลย! ไปผ่อนคลายต่อกัน
+                เยี่ยมเลย! ไปพักผ่อนต่อกัน
               </div>
             </div>
           </section>
         </main>
         <div class="overlayBtns">
-          <button id="btnEndContinue">ไป Cooldown</button>
+          <button id="btnEndContinue">พักผ่อนต่อ</button>
           <button id="btnEndAgain">เล่นอีกครั้ง</button>
-          <button id="btnEndGoHub">กลับหน้าหลัก</button>
+          <button id="btnEndGoHub">กลับ HUB</button>
         </div>
       </div>
     </div>
@@ -1069,6 +1081,10 @@ FULL PATCH v20260314-GROUPS-SOLO-ENDFLOW-TO-COOLDOWN
   const sumTime = $('#sumTime');
   const sumGroupLast = $('#sumGroupLast');
   const sumBossHits = $('#sumBossHits');
+  const warmupStatus = $('#warmupStatus');
+  const cooldownStatus = $('#cooldownStatus');
+  const warmupDot = $('#warmupDot');
+  const cooldownDot = $('#cooldownDot');
 
   const GROUP_COLORS = {
     1: '#e11d48',
@@ -1087,6 +1103,31 @@ FULL PATCH v20260314-GROUPS-SOLO-ENDFLOW-TO-COOLDOWN
   let bootNonce = 0;
   let lastSummary = null;
 
+  function dayKey(){
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  }
+
+  function dailyKey(type){
+    return `HHA_GROUPS_${String(type).toUpperCase()}_DONE:${PID}:${dayKey()}`;
+  }
+
+  function hasDaily(type){
+    try{ return localStorage.getItem(dailyKey(type)) === '1'; }
+    catch(_){ return false; }
+  }
+
+  function refreshDailyStatus(){
+    const wDone = hasDaily('warmup');
+    const cDone = hasDaily('cooldown');
+
+    warmupStatus.textContent = wDone ? 'เข้าแล้ว' : 'ยังไม่เข้า';
+    cooldownStatus.textContent = cDone ? 'เข้าแล้ว' : 'ยังไม่เข้า';
+
+    warmupDot.className = `dot ${wDone ? 'good' : 'warn'}`;
+    cooldownDot.className = `dot ${cDone ? 'good' : 'warn'}`;
+  }
+
   function buildCooldownUrl(){
     try{
       const url = new URL(`${ROOT}/warmup-gate.html`, location.origin);
@@ -1102,10 +1143,10 @@ FULL PATCH v20260314-GROUPS-SOLO-ENDFLOW-TO-COOLDOWN
       url.searchParams.set('hub', HUB);
       url.searchParams.set('zone', ZONE);
       url.searchParams.set('next', HUB);
-      url.searchParams.set('v', '20260314a');
+      url.searchParams.set('v', '20260314r1');
       return url.toString();
     }catch(_){
-      return `${ROOT}/warmup-gate.html?phase=cooldown&cat=${encodeURIComponent(CAT)}&game=groups&pid=${encodeURIComponent(PID)}&run=${encodeURIComponent(RUN)}&diff=${encodeURIComponent(DIFF)}&time=${encodeURIComponent(String(TIME))}&seed=${encodeURIComponent(String(SEED))}&view=${encodeURIComponent(VIEW)}&hub=${encodeURIComponent(HUB)}&zone=${encodeURIComponent(ZONE)}&next=${encodeURIComponent(HUB)}&v=20260314a`;
+      return `${ROOT}/warmup-gate.html?phase=cooldown&cat=${encodeURIComponent(CAT)}&game=groups&pid=${encodeURIComponent(PID)}&run=${encodeURIComponent(RUN)}&diff=${encodeURIComponent(DIFF)}&time=${encodeURIComponent(String(TIME))}&seed=${encodeURIComponent(String(SEED))}&view=${encodeURIComponent(VIEW)}&hub=${encodeURIComponent(HUB)}&zone=${encodeURIComponent(ZONE)}&next=${encodeURIComponent(HUB)}&v=20260314r1`;
     }
   }
 
@@ -1139,7 +1180,7 @@ FULL PATCH v20260314-GROUPS-SOLO-ENDFLOW-TO-COOLDOWN
 
   function getChildHeadline(grade){
     const g = String(grade || '').toUpperCase();
-    if(g === 'A+' || g === 'A') return 'ยอดเยี่ยม!';
+    if(g === 'A+' || g === 'A' || g === 'S') return 'ยอดเยี่ยม!';
     if(g === 'B') return 'เก่งมาก!';
     if(g === 'C') return 'ทำได้ดี!';
     return 'เล่นได้ดีเลย!';
@@ -1148,9 +1189,9 @@ FULL PATCH v20260314-GROUPS-SOLO-ENDFLOW-TO-COOLDOWN
   function getChildCoachMessage(s){
     const acc = Number(s?.accuracyPct || 0);
     const miss = Number(s?.miss || 0);
-    if(acc >= 90 && miss <= 2) return 'แม่นมาก! ไปผ่อนคลายต่อกันได้เลย';
-    if(acc >= 75) return 'ดีมาก! รอบหน้าลองเก็บคอมโบให้สูงขึ้นนะ';
-    return 'ทำได้ดีแล้ว! ลองเล่นอีกครั้ง หรือไปผ่อนคลายต่อได้เลย';
+    if(acc >= 90 && miss <= 2) return 'แม่นมาก! ไปพักผ่อนต่อกันได้เลย';
+    if(acc >= 75) return 'ดีมาก! รอบหน้าลองเก็บคอมโบเพิ่มนะ';
+    return 'ทำได้ดีแล้ว! จะเล่นอีกครั้ง หรือไปพักผ่อนต่อก็ได้';
   }
 
   function faceFromMood(mood){
@@ -1356,7 +1397,7 @@ FULL PATCH v20260314-GROUPS-SOLO-ENDFLOW-TO-COOLDOWN
     hudRank.textContent = '—';
     qTitle.textContent = 'ภารกิจ';
     qSub.textContent = '';
-    qMini.textContent = 'พลังพิเศษ · 0/0';
+    qMini.textContent = 'พลัง · 0/0';
     qMiniTime.textContent = '';
     qBar.style.width = '0%';
     pBar.style.width = '0%';
@@ -1371,7 +1412,7 @@ FULL PATCH v20260314-GROUPS-SOLO-ENDFLOW-TO-COOLDOWN
     sumGroupLast.textContent = '—';
     sumBossHits.textContent = '0';
     childHeadline.textContent = 'เก่งมาก!';
-    childCoachMsg.textContent = 'เยี่ยมเลย! ไปผ่อนคลายต่อกัน';
+    childCoachMsg.textContent = 'เยี่ยมเลย! ไปพักผ่อนต่อกัน';
   }
 
   function buildEndSummary(summary){
@@ -1419,7 +1460,7 @@ FULL PATCH v20260314-GROUPS-SOLO-ENDFLOW-TO-COOLDOWN
 
       setActiveGroup(parseGroupNo(groupName.textContent) || 1);
       peekPowerWrap(1600);
-      showToast('เริ่มแล้ว! ยิงให้ถูกหมวดแล้วเก็บคอมโบ', 'neutral');
+      showToast('เริ่มแล้ว! ยิงให้ถูกหมวดนะ', 'neutral');
     }catch(e){
       console.error(e);
       showToast('เริ่มเกมไม่สำเร็จ', 'sad');
@@ -1442,6 +1483,7 @@ FULL PATCH v20260314-GROUPS-SOLO-ENDFLOW-TO-COOLDOWN
   function bootOnce(){
     if(hasBooted) return;
     hasBooted = true;
+    refreshDailyStatus();
     resetTransientUi();
     updateHudCompactMode();
     updatePowerAutohideMode();
@@ -1566,6 +1608,7 @@ FULL PATCH v20260314-GROUPS-SOLO-ENDFLOW-TO-COOLDOWN
   window.addEventListener('beforeunload', ()=> safeStopEngine());
   window.addEventListener('pageshow', (ev)=>{
     resetTransientUi();
+    refreshDailyStatus();
     if(ev.persisted){
       safeStopEngine();
       setTimeout(()=> restart(), 60);
