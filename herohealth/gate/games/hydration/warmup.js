@@ -1,7 +1,8 @@
 // === /herohealth/gate/games/hydration/warmup.js ===
 // Hydration Gate Warmup
-// CHILD-FRIENDLY PATCH v20260314c
+// CHILD-FRIENDLY PATCH v20260314d
 // ✅ รองรับทั้ง boot() และ mount()
+// ✅ set HHA_WARMUP_DONE เอง
 // ✅ ถ้า callback ไม่พาไปต่อ จะมี fallback redirect เอง
 
 function createHydrationWarmupGame() {
@@ -16,6 +17,46 @@ function createHydrationWarmupGame() {
       timer: null,
       doneTimer: null
     };
+
+    function hhDayKey() {
+      const d = new Date();
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    }
+
+    function safeWho() {
+      try {
+        return String((ctx && ctx.pid) || new URL(location.href).searchParams.get('pid') || 'anon').trim() || 'anon';
+      } catch (e) {
+        return 'anon';
+      }
+    }
+
+    function safeCat() {
+      try {
+        return String((ctx && ctx.cat) || new URL(location.href).searchParams.get('cat') || 'nutrition').trim() || 'nutrition';
+      } catch (e) {
+        return 'nutrition';
+      }
+    }
+
+    function safeGame() {
+      try {
+        return String((ctx && ctx.gameId) || new URL(location.href).searchParams.get('game') || 'hydration').trim() || 'hydration';
+      } catch (e) {
+        return 'hydration';
+      }
+    }
+
+    function markWarmupDone() {
+      const day = hhDayKey();
+      const who = safeWho();
+      const cat = safeCat();
+      const game = safeGame();
+
+      try {
+        localStorage.setItem(`HHA_WARMUP_DONE:${cat}:${game}:${who}:${day}`, '1');
+      } catch (e) {}
+    }
 
     function safeNextUrl() {
       try {
@@ -71,11 +112,11 @@ function createHydrationWarmupGame() {
     const skipBtn = root.querySelector('#hydWarmSkip');
     const continueBtn = root.querySelector('#hydWarmContinue');
 
-    function rand(min, max){
+    function rand(min, max) {
       return min + Math.random() * (max - min);
     }
 
-    function updateProgress(){
+    function updateProgress() {
       if (countEl) countEl.textContent = String(state.hit);
       if (fillEl) fillEl.style.width = `${(state.hit / state.target) * 100}%`;
 
@@ -86,12 +127,12 @@ function createHydrationWarmupGame() {
       else hintEl.textContent = 'พร้อมเล่นแล้ว ไปกันเลย 🎮';
     }
 
-    function revealContinue(){
+    function revealContinue() {
       if (continueBtn) continueBtn.classList.remove('is-hidden');
       if (skipBtn) skipBtn.classList.add('is-hidden');
     }
 
-    function emitDone(){
+    function emitDone() {
       if (state.done) return;
       state.done = true;
 
@@ -100,28 +141,29 @@ function createHydrationWarmupGame() {
       if (hintEl) hintEl.textContent = 'พร้อมเล่นแล้ว ไปกันเลย 🎮';
       revealContinue();
 
+      markWarmupDone();
+
       try {
         if (typeof ctx.onDone === 'function') {
-          ctx.onDone({ ok:true, kind:'warmup', score: state.hit });
+          ctx.onDone({ ok: true, kind: 'warmup', score: state.hit });
         } else if (typeof window.__HHA_GATE_ON_DONE__ === 'function') {
-          window.__HHA_GATE_ON_DONE__({ ok:true, kind:'warmup', score: state.hit });
+          window.__HHA_GATE_ON_DONE__({ ok: true, kind: 'warmup', score: state.hit });
         }
       } catch (e) {}
 
-      // fallback: ถ้า callback ไม่พาไปต่อภายใน 900ms ให้ไปเอง
       state.doneTimer = setTimeout(() => {
         goNextFallback();
       }, 900);
     }
 
-    function popBubble(el){
+    function popBubble(el) {
       el.classList.add('is-pop');
       setTimeout(() => {
         try { el.remove(); } catch (e) {}
       }, 240);
     }
 
-    function spawnBubble(){
+    function spawnBubble() {
       if (state.done || !stage) return;
 
       const el = document.createElement('button');
@@ -144,7 +186,7 @@ function createHydrationWarmupGame() {
         updateProgress();
         popBubble(el);
 
-        if (state.hit >= state.target){
+        if (state.hit >= state.target) {
           emitDone();
         } else {
           setTimeout(spawnBubble, 180);
@@ -155,7 +197,7 @@ function createHydrationWarmupGame() {
       state.bubbles.push(el);
     }
 
-    function clearAll(){
+    function clearAll() {
       state.bubbles.forEach(el => {
         try { el.remove(); } catch (e) {}
       });
@@ -181,7 +223,7 @@ function createHydrationWarmupGame() {
     }, 600);
 
     return {
-      destroy(){
+      destroy() {
         clearAll();
       }
     };
