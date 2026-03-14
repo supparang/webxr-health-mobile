@@ -1,7 +1,8 @@
 // === /herohealth/gate/games/hydration/cooldown.js ===
 // Hydration Gate Cooldown
-// CHILD-FRIENDLY PATCH v20260314c
+// CHILD-FRIENDLY PATCH v20260314d
 // ✅ รองรับทั้ง boot() และ mount()
+// ✅ set HHA_COOLDOWN_DONE เอง
 // ✅ ถ้า callback ไม่พาไปต่อ จะมี fallback redirect เอง
 
 function createHydrationCooldownGame() {
@@ -19,6 +20,47 @@ function createHydrationCooldownGame() {
       last: 0,
       doneTimer: null
     };
+
+    function hhDayKey() {
+      const d = new Date();
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    }
+
+    function safeWho() {
+      try {
+        return String((ctx && ctx.pid) || new URL(location.href).searchParams.get('pid') || 'anon').trim() || 'anon';
+      } catch (e) {
+        return 'anon';
+      }
+    }
+
+    function safeCat() {
+      try {
+        return String((ctx && ctx.cat) || new URL(location.href).searchParams.get('cat') || 'nutrition').trim() || 'nutrition';
+      } catch (e) {
+        return 'nutrition';
+      }
+    }
+
+    function safeGame() {
+      try {
+        return String((ctx && ctx.gameId) || new URL(location.href).searchParams.get('game') || 'hydration').trim() || 'hydration';
+      } catch (e) {
+        return 'hydration';
+      }
+    }
+
+    function markCooldownDone() {
+      const day = hhDayKey();
+      const who = safeWho();
+      const cat = safeCat();
+      const game = safeGame();
+
+      try {
+        localStorage.setItem(`HHA_COOLDOWN_DONE:${cat}:${game}:${who}:${day}`, '1');
+        localStorage.setItem(`HHA_COOLDOWN_DONE:${cat}:${who}:${day}`, '1');
+      } catch (e) {}
+    }
 
     function safeNextUrl() {
       try {
@@ -124,6 +166,8 @@ function createHydrationCooldownGame() {
       revealContinue();
       cancelAnimationFrame(state.raf);
 
+      markCooldownDone();
+
       try {
         if (typeof ctx.onDone === 'function') {
           ctx.onDone({ ok: true, kind: 'cooldown', score: state.roundsDone });
@@ -217,12 +261,10 @@ function createHydrationCooldownGame() {
 
 const api = createHydrationCooldownGame();
 
-// รองรับ gate-core แบบใหม่
 export function boot(root, ctx) {
   return api.boot(root, ctx);
 }
 
-// รองรับ gate-core แบบเก่า
 export function mount(root, ctx) {
   return api.boot(root, ctx);
 }
