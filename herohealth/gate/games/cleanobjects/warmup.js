@@ -1,9 +1,9 @@
 // === /herohealth/gate/games/cleanobjects/warmup.js ===
-// CleanObjects Warmup — robust export for gate-core
+// CleanObjects Warmup — mount() compatible with gate-core v20260314n
 
 let __styleLoaded = false;
 
-export function loadStyle(){
+function loadStyle(){
   if(__styleLoaded) return;
   __styleLoaded = true;
 
@@ -17,14 +17,18 @@ export function loadStyle(){
   document.head.appendChild(link);
 }
 
-function boot(root, ctx = {}){
-  if(!root) return;
+export async function mount(root, ctx = {}, api = {}){
+  loadStyle();
+
+  if(!root) throw new Error('cleanobjects warmup root not found');
 
   let score = 0;
   let miss = 0;
   let done = false;
+  let startedAt = Date.now();
   let timer = null;
   const targetScore = 3;
+  const durationSec = 15;
 
   root.innerHTML = `
     <div class="co-gate co-warmup">
@@ -54,27 +58,42 @@ function boot(root, ctx = {}){
   const hitEl = root.querySelector('#coHit');
   const board = root.querySelector('#coBoard');
 
+  function updateStats(){
+    const playedSec = Math.max(0, Math.floor((Date.now() - startedAt) / 1000));
+    const acc = Math.max(0, Math.round((score / Math.max(1, score + miss)) * 100));
+    if(api?.setStats){
+      api.setStats({
+        time: playedSec,
+        score,
+        miss,
+        acc: `${Math.round((score / targetScore) * 100)}%`
+      });
+    }
+  }
+
   function finish(ok = true){
     if(done) return;
     done = true;
-    clearTimeout(timer);
+    clearInterval(timer);
 
-    const result = {
+    const progressPct = Math.round((score / targetScore) * 100);
+    const accPct = Math.max(0, Math.round((score / Math.max(1, score + miss)) * 100));
+
+    api?.finish?.({
       ok,
-      score,
-      miss,
-      accPct: Math.max(0, Math.round((score / Math.max(1, score + miss)) * 100)),
-      progressPct: Math.round((score / targetScore) * 100),
-      summary: ok ? 'พร้อมเข้าเล่น Clean Objects แล้ว' : 'ลองวอร์มอัปอีกครั้ง'
-    };
-
-    if(typeof ctx?.onFinish === 'function'){
-      ctx.onFinish(result);
-      return;
-    }
-    if(window?.HeroHealthGate?.finish){
-      window.HeroHealthGate.finish(result);
-    }
+      title: ok ? 'พร้อมเข้าเล่นแล้ว!' : 'วอร์มอัปยังไม่ครบ',
+      subtitle: ok ? 'ไปเกมหลักต่อได้เลย' : 'ลองใหม่อีกรอบก็ได้',
+      lines: [
+        `แตะจุดเสี่ยงได้ ${score}/${targetScore}`,
+        `ความแม่นยำ ${accPct}%`
+      ],
+      buffs: {
+        wType: 'warmup',
+        wPct: progressPct,
+        wCrit: score >= targetScore ? 1 : 0
+      },
+      markDailyDone: ok
+    });
   }
 
   board.addEventListener('click', (e)=>{
@@ -88,6 +107,7 @@ function boot(root, ctx = {}){
 
       score++;
       if(hitEl) hitEl.textContent = String(score);
+      updateStats();
 
       if(score >= targetScore){
         finish(true);
@@ -96,13 +116,28 @@ function boot(root, ctx = {}){
       miss++;
       btn.classList.add('shake');
       setTimeout(()=>btn.classList.remove('shake'), 250);
+      updateStats();
     }
   });
 
-  timer = setTimeout(()=>{
-    finish(score >= targetScore);
-  }, 15000);
+  if(api?.setSub) api.setSub('แตะจุดเสี่ยงให้ครบก่อนเข้าเกมหลัก');
+  updateStats();
+
+  timer = setInterval(()=>{
+    updateStats();
+    const playedSec = Math.max(0, Math.floor((Date.now() - startedAt) / 1000));
+    if(playedSec >= durationSec){
+      finish(score >= targetScore);
+    }
+  }, 250);
+
+  return {
+    start(){},
+    destroy(){
+      done = true;
+      clearInterval(timer);
+    }
+  };
 }
 
-const game = { loadStyle, boot };
-export default game;
+export default { mount };
