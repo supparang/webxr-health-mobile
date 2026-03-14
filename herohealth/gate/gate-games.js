@@ -1,6 +1,6 @@
 // === /herohealth/gate/gate-games.js ===
 // HeroHealth Gate Game Registry
-// FULL PATCH v20260314-GATE-GAMES-MASKCOUGHV2-GERM-LAUNCHER
+// FULL PATCH v20260314b-GATE-GAMES-PLATE-RUN-FIX
 
 export const GATE_GAMES = {
   // =========================
@@ -73,7 +73,6 @@ export const GATE_GAMES = {
       cooldown: './games/maskcough/cooldown.js',
       style: './games/maskcough/style.css'
     },
-    // ✅ ใช้ v2 ตรง
     run: '../vr-maskcough/maskcough-v2.html'
   },
 
@@ -88,7 +87,6 @@ export const GATE_GAMES = {
       cooldown: './games/germdetective/cooldown.js',
       style: './games/germdetective/style.css'
     },
-    // ✅ root launcher ก่อน แล้ว launcher จะพาไป run game จริงเอง
     run: '../germ-detective.html'
   },
 
@@ -106,7 +104,6 @@ export const GATE_GAMES = {
       cooldown: './games/goodjunk/cooldown.js',
       style: './games/goodjunk/style.css'
     },
-    // ✅ ตามที่ผู้ใช้ยืนยัน
     run: '../goodjunk-launch.html'
   },
 
@@ -149,7 +146,8 @@ export const GATE_GAMES = {
       cooldown: './games/plate/cooldown.js',
       style: './games/plate/style.css'
     },
-    run: '../plate-vr.html'
+    // ✅ canonical run page
+    run: '../plate/plate-vr.html'
   },
 
   // =========================
@@ -180,7 +178,6 @@ export const GATE_GAMES = {
       cooldown: './games/rhythmboxer/cooldown.js',
       style: './games/rhythmboxer/style.css'
     },
-    // ✅ ตามที่ผู้ใช้ยืนยัน
     run: '../rhythm-boxer-vr.html'
   },
 
