@@ -28,6 +28,15 @@
       --yellow:#facc15;
       --cyan:#22d3ee;
 
+      --nutriA:rgba(34,197,94,.20);
+      --nutriB:rgba(250,204,21,.12);
+
+      --hygA:rgba(34,211,238,.18);
+      --hygB:rgba(59,130,246,.10);
+
+      --fitA:rgba(244,114,182,.16);
+      --fitB:rgba(167,139,250,.14);
+
       --shadow:0 18px 50px rgba(0,0,0,.28);
       --shadow-big:0 24px 70px rgba(0,0,0,.34);
 
@@ -145,10 +154,6 @@
       grid-template-columns: repeat(2, minmax(0,1fr));
       gap:10px;
       align-content:start;
-    }
-
-    @media (max-width: 520px){
-      .heroStats{ grid-template-columns:1fr 1fr; }
     }
 
     .statCard{
@@ -288,14 +293,87 @@
       color: #e2e8f0;
     }
 
-    .sectionTitle{
+    .card,
+    .cardBook,
+    .trophyShelf,
+    .missionCard{
+      border-radius: 26px;
+      border:1px solid rgba(255,255,255,.14);
+      background: rgba(2,6,23,.58);
+      backdrop-filter: blur(12px);
+      box-shadow: var(--shadow-big);
+      padding: 14px;
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+    }
+
+    .missionCard{
+      margin-bottom:14px;
+      background:
+        linear-gradient(135deg, rgba(250,204,21,.16), rgba(56,189,248,.14)),
+        rgba(2,6,23,.58);
+    }
+
+    .missionTop{
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      align-items:center;
+      flex-wrap:wrap;
+    }
+
+    .missionTitle{
+      font-size:19px;
+      font-weight:1100;
       display:flex;
       align-items:center;
       gap:10px;
-      font-size:18px;
-      font-weight:1100;
-      margin:0;
     }
+
+    .missionSub{
+      color:#dbeafe;
+      font-size:13px;
+      font-weight:900;
+      line-height:1.5;
+    }
+
+    .missionGrid{
+      display:grid;
+      grid-template-columns: repeat(3, minmax(0,1fr));
+      gap:12px;
+    }
+
+    @media (max-width:900px){
+      .missionGrid{ grid-template-columns:1fr; }
+    }
+
+    .missionItem{
+      border-radius:20px;
+      border:1px solid rgba(255,255,255,.14);
+      background: rgba(15,23,42,.46);
+      padding:12px;
+      display:flex;
+      gap:12px;
+      align-items:flex-start;
+      box-shadow: var(--shadow);
+    }
+
+    .missionIcon{
+      width:54px;
+      height:54px;
+      border-radius:16px;
+      display:grid;
+      place-items:center;
+      font-size:28px;
+      background: rgba(255,255,255,.08);
+      border:1px solid rgba(255,255,255,.12);
+      flex:0 0 auto;
+    }
+
+    .missionBody{ display:flex; flex-direction:column; gap:5px; }
+    .missionName{ font-size:16px; font-weight:1100; }
+    .missionHint{ color:#dbeafe; font-size:13px; font-weight:900; line-height:1.45; }
 
     .sectionSub{
       color:#dbeafe;
@@ -315,20 +393,6 @@
       .grid{ grid-template-columns:1fr; }
     }
 
-    .card,
-    .cardBook,
-    .trophyShelf{
-      border-radius: 26px;
-      border:1px solid rgba(255,255,255,.14);
-      background: rgba(2,6,23,.58);
-      backdrop-filter: blur(12px);
-      box-shadow: var(--shadow-big);
-      padding: 14px;
-      display:flex;
-      flex-direction:column;
-      gap:12px;
-    }
-
     .card h2{
       margin:0;
       font-size:20px;
@@ -337,6 +401,27 @@
       gap:10px;
       align-items:center;
       line-height:1.2;
+    }
+
+    .card.nutrition{
+      background:
+        linear-gradient(180deg, var(--nutriA), transparent 38%),
+        linear-gradient(135deg, var(--nutriB), transparent 55%),
+        rgba(2,6,23,.58);
+    }
+
+    .card.hygiene{
+      background:
+        linear-gradient(180deg, var(--hygA), transparent 38%),
+        linear-gradient(135deg, var(--hygB), transparent 55%),
+        rgba(2,6,23,.58);
+    }
+
+    .card.fitness{
+      background:
+        linear-gradient(180deg, var(--fitA), transparent 38%),
+        linear-gradient(135deg, var(--fitB), transparent 55%),
+        rgba(2,6,23,.58);
     }
 
     .muted{
@@ -375,7 +460,7 @@
         linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02)),
         rgba(15,23,42,.54);
       box-shadow: 0 16px 38px rgba(0,0,0,.24);
-      min-height: 120px;
+      min-height: 142px;
       transition: transform .12s ease, border-color .12s ease, filter .12s ease;
     }
 
@@ -444,6 +529,32 @@
       gap:8px;
       flex-wrap:wrap;
       align-items:center;
+    }
+
+    .dailyBadge{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      padding:7px 10px;
+      border-radius:999px;
+      font-size:11px;
+      font-weight:1000;
+      border:1px solid rgba(255,255,255,.14);
+      background: rgba(255,255,255,.05);
+      color:#e2e8f0;
+      width:max-content;
+    }
+
+    .dailyBadge.done{
+      border-color: rgba(34,197,94,.28);
+      background: rgba(34,197,94,.16);
+      color:#ecfdf5;
+    }
+
+    .dailyBadge.todo{
+      border-color: rgba(245,158,11,.28);
+      background: rgba(245,158,11,.16);
+      color:#fef3c7;
     }
 
     .sep{
@@ -705,6 +816,53 @@
       </div>
     </section>
 
+    <section class="missionCard">
+      <div class="missionTop">
+        <div>
+          <div class="missionTitle">🎯 ภารกิจของวันนี้</div>
+          <div class="missionSub">ทำให้ครบทีละโซน วันละนิด ก็เก่งขึ้นทุกวัน</div>
+        </div>
+        <div class="inlineRow">
+          <a class="btn primary" id="btnMissionLastRun" href="#" style="display:none;">▶ เล่นต่อจากเกมล่าสุด</a>
+        </div>
+      </div>
+
+      <div class="missionGrid">
+        <div class="missionItem">
+          <div class="missionIcon">🥦</div>
+          <div class="missionBody">
+            <div class="missionName">โซนโภชนาการ</div>
+            <div class="missionHint" id="missionNutriHint">เริ่มที่ GoodJunk หรือ Hydration ก่อน</div>
+            <div class="miniRow">
+              <span class="dailyBadge todo" id="missionNutriBadge">ยังไม่เริ่ม</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="missionItem">
+          <div class="missionIcon">🪥</div>
+          <div class="missionBody">
+            <div class="missionName">โซนสุขอนามัย</div>
+            <div class="missionHint" id="missionHygHint">ลอง Handwash หรือ Brush ก่อน</div>
+            <div class="miniRow">
+              <span class="dailyBadge todo" id="missionHygBadge">ยังไม่เริ่ม</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="missionItem">
+          <div class="missionIcon">🏃</div>
+          <div class="missionBody">
+            <div class="missionName">โซนออกกำลังกาย</div>
+            <div class="missionHint" id="missionFitHint">ลอง JumpDuck หรือ Shadow Breaker ก่อน</div>
+            <div class="miniRow">
+              <span class="dailyBadge todo" id="missionFitBadge">ยังไม่เริ่ม</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <div class="topbar">
       <div class="brand">
         <div class="brandIcon">🧠🎮</div>
@@ -927,7 +1085,7 @@
 
     <div class="grid">
 
-      <section class="card">
+      <section class="card nutrition">
         <h2>🥦 โซนโภชนาการ</h2>
         <div class="sectionSub">เรียนรู้เรื่องอาหาร น้ำ และการกินให้สมดุล ผ่านเกมสนุก ๆ</div>
 
@@ -953,7 +1111,8 @@
               </div>
             </div>
             <div class="playTag">▶ แตะเพื่อเล่น</div>
-            <div class="miniRow" style="margin-top:4px;">
+            <div class="miniRow">
+              <span class="dailyBadge todo" id="goodjunkDaily">ยังไม่เล่นวันนี้</span>
               <span class="pill"><b>วอร์มอัป</b>: <span id="gjWarmToday">—</span></span>
               <span class="pill"><b>คูลดาวน์</b>: <span id="gjCoolToday">—</span></span>
             </div>
@@ -971,6 +1130,9 @@
               </div>
             </div>
             <div class="playTag">▶ แตะเพื่อเล่น</div>
+            <div class="miniRow">
+              <span class="dailyBadge todo" id="groupsDaily">ยังไม่เล่นวันนี้</span>
+            </div>
           </a>
 
           <a class="gameBtn" id="linkHydration" href="#">
@@ -982,7 +1144,8 @@
               </div>
             </div>
             <div class="playTag">▶ แตะเพื่อเล่น</div>
-            <div class="miniRow" style="margin-top:4px;">
+            <div class="miniRow">
+              <span class="dailyBadge todo" id="hydrationDaily">ยังไม่เล่นวันนี้</span>
               <span class="pill"><b>วอร์มอัป</b>: <span id="hydWarmToday">—</span></span>
               <span class="pill"><b>คูลดาวน์</b>: <span id="hydCoolToday">—</span></span>
             </div>
@@ -1000,13 +1163,16 @@
               </div>
             </div>
             <div class="playTag">▶ แตะเพื่อเล่น</div>
+            <div class="miniRow">
+              <span class="dailyBadge todo" id="plateDaily">ยังไม่เล่นวันนี้</span>
+            </div>
           </a>
         </div>
 
         <div class="helperBox">เคล็ดลับ: ถ้าอยากเริ่มแบบง่าย ให้กด GoodJunk หรือ Hydration ก่อนนะ ✨</div>
       </section>
 
-      <section class="card">
+      <section class="card hygiene">
         <h2>🪥 โซนสุขอนามัย</h2>
         <div class="sectionSub">ฝึกนิสัยดูแลตัวเองให้สะอาด ปลอดภัย และแข็งแรงทุกวัน</div>
 
@@ -1022,6 +1188,7 @@
               </div>
             </div>
             <div class="playTag">▶ แตะเพื่อเล่น</div>
+            <div class="miniRow"><span class="dailyBadge todo" id="handwashDaily">ยังไม่เล่นวันนี้</span></div>
           </a>
 
           <a class="gameBtn" id="linkBrush" href="#">
@@ -1033,6 +1200,7 @@
               </div>
             </div>
             <div class="playTag">▶ แตะเพื่อเล่น</div>
+            <div class="miniRow"><span class="dailyBadge todo" id="brushDaily">ยังไม่เล่นวันนี้</span></div>
           </a>
 
           <a class="gameBtn" id="linkBath" href="#">
@@ -1044,6 +1212,7 @@
               </div>
             </div>
             <div class="playTag">▶ แตะเพื่อเล่น</div>
+            <div class="miniRow"><span class="dailyBadge todo" id="bathDaily">ยังไม่เล่นวันนี้</span></div>
           </a>
 
           <a class="gameBtn" id="linkCleanObject" href="#">
@@ -1055,6 +1224,7 @@
               </div>
             </div>
             <div class="playTag">▶ แตะเพื่อเล่น</div>
+            <div class="miniRow"><span class="dailyBadge todo" id="cleanObjectDaily">ยังไม่เล่นวันนี้</span></div>
           </a>
 
           <a class="gameBtn" id="linkMaskCough" href="#">
@@ -1066,6 +1236,7 @@
               </div>
             </div>
             <div class="playTag">▶ แตะเพื่อเล่น</div>
+            <div class="miniRow"><span class="dailyBadge todo" id="maskCoughDaily">ยังไม่เล่นวันนี้</span></div>
           </a>
 
           <a class="gameBtn" id="linkGermDetective" href="#">
@@ -1077,13 +1248,14 @@
               </div>
             </div>
             <div class="playTag">▶ แตะเพื่อเล่น</div>
+            <div class="miniRow"><span class="dailyBadge todo" id="germDetectiveDaily">ยังไม่เล่นวันนี้</span></div>
           </a>
         </div>
 
         <div class="helperBox">เริ่มง่ายสุด: ลอง Handwash หรือ Brush ก่อน แล้วค่อยไปเกมนักสืบเชื้อโรค 🔍</div>
       </section>
 
-      <section class="card">
+      <section class="card fitness">
         <h2>🏃 โซนออกกำลังกาย</h2>
         <div class="sectionSub">ขยับร่างกาย ฝึกการทรงตัว จังหวะ และความคล่องตัวให้แข็งแรง</div>
 
@@ -1099,6 +1271,7 @@
               </div>
             </div>
             <div class="playTag">▶ แตะเพื่อเล่น</div>
+            <div class="miniRow"><span class="dailyBadge todo" id="shadowBreakerDaily">ยังไม่เล่นวันนี้</span></div>
           </a>
 
           <a class="gameBtn" id="linkRhythmBoxer" href="#">
@@ -1110,6 +1283,7 @@
               </div>
             </div>
             <div class="playTag">▶ แตะเพื่อเล่น</div>
+            <div class="miniRow"><span class="dailyBadge todo" id="rhythmBoxerDaily">ยังไม่เล่นวันนี้</span></div>
           </a>
 
           <a class="gameBtn" id="linkJumpDuck" href="#">
@@ -1121,6 +1295,7 @@
               </div>
             </div>
             <div class="playTag">▶ แตะเพื่อเล่น</div>
+            <div class="miniRow"><span class="dailyBadge todo" id="jumpDuckDaily">ยังไม่เล่นวันนี้</span></div>
           </a>
 
           <a class="gameBtn" id="linkBalanceHold" href="#">
@@ -1132,6 +1307,7 @@
               </div>
             </div>
             <div class="playTag">▶ แตะเพื่อเล่น</div>
+            <div class="miniRow"><span class="dailyBadge todo" id="balanceHoldDaily">ยังไม่เล่นวันนี้</span></div>
           </a>
 
           <a class="gameBtn" id="linkFitnessPlanner" href="#">
@@ -1143,6 +1319,7 @@
               </div>
             </div>
             <div class="playTag">▶ แตะเพื่อเล่น</div>
+            <div class="miniRow"><span class="dailyBadge todo" id="fitnessPlannerDaily">ยังไม่เล่นวันนี้</span></div>
           </a>
         </div>
 
@@ -1440,6 +1617,7 @@
       const right = document.getElementById('hhLastRunRight');
       const open  = document.getElementById('hhLastRunOpen');
       const clear = document.getElementById('hhLastRunClear');
+      const missionOpen = document.getElementById('btnMissionLastRun');
 
       const raw = localStorage.getItem('HHA_LAST_SUMMARY') || '';
       const sum = raw ? safeJsonParse(raw) : null;
@@ -1448,6 +1626,7 @@
         if(sub) sub.textContent = 'ยังไม่มีผลล่าสุด — ลองเล่นเกมสักรอบก่อนนะ';
         if(grid) grid.style.display = 'none';
         if(open) open.style.display = 'none';
+        if(missionOpen) missionOpen.style.display = 'none';
         if(clear){
           clear.onclick = ()=>{
             try{ localStorage.removeItem('HHA_LAST_SUMMARY'); }catch(_){}
@@ -1481,6 +1660,15 @@
           open.style.display = 'inline-flex';
         }else{
           open.style.display = 'none';
+        }
+      }
+
+      if(missionOpen){
+        if(lastUrl){
+          missionOpen.href = lastUrl;
+          missionOpen.style.display = 'inline-flex';
+        }else{
+          missionOpen.style.display = 'none';
         }
       }
 
@@ -1709,6 +1897,109 @@
       }
     }
 
+    function gamePlayedToday(game){
+      try{
+        const raw = localStorage.getItem('HHA_LAST_SUMMARY') || '';
+        if(!raw) return false;
+        const j = JSON.parse(raw);
+        if(String(j.pid || '') !== pid) return false;
+        return String(j.game || '') === String(game);
+      }catch(_){
+        return false;
+      }
+    }
+
+    function paintDailyBadge(el, done, doneText='เล่นแล้ววันนี้ ✅', todoText='ยังไม่เล่นวันนี้'){
+      if(!el) return;
+      el.textContent = done ? doneText : todoText;
+      el.className = `dailyBadge ${done ? 'done' : 'todo'}`;
+    }
+
+    function renderDailyBadges(){
+      paintDailyBadge(document.getElementById('goodjunkDaily'),
+        isGateDone('warmup','nutrition','goodjunk',pid) || gamePlayedToday('goodjunk'));
+
+      paintDailyBadge(document.getElementById('groupsDaily'),
+        isGateDone('warmup','nutrition','groups',pid) || gamePlayedToday('groups'));
+
+      paintDailyBadge(document.getElementById('hydrationDaily'),
+        isGateDone('warmup','nutrition','hydration',pid) || gamePlayedToday('hydration'));
+
+      paintDailyBadge(document.getElementById('plateDaily'),
+        isGateDone('warmup','nutrition','plate',pid) || gamePlayedToday('plate'));
+
+      paintDailyBadge(document.getElementById('handwashDaily'),
+        isGateDone('warmup','hygiene','handwash',pid) || gamePlayedToday('handwash'));
+
+      paintDailyBadge(document.getElementById('brushDaily'),
+        isGateDone('warmup','hygiene','brush',pid) || gamePlayedToday('brush'));
+
+      paintDailyBadge(document.getElementById('bathDaily'),
+        isGateDone('warmup','hygiene','bath',pid) || gamePlayedToday('bath'));
+
+      paintDailyBadge(document.getElementById('cleanObjectDaily'),
+        isGateDone('warmup','hygiene','cleanobject',pid) || gamePlayedToday('cleanobject'));
+
+      paintDailyBadge(document.getElementById('maskCoughDaily'),
+        isGateDone('warmup','hygiene','maskcough',pid) || gamePlayedToday('maskcough'));
+
+      paintDailyBadge(document.getElementById('germDetectiveDaily'),
+        isGateDone('warmup','hygiene','germdetective',pid) || gamePlayedToday('germdetective'));
+
+      paintDailyBadge(document.getElementById('shadowBreakerDaily'),
+        isGateDone('warmup','fitness','shadowbreaker',pid) || gamePlayedToday('shadowbreaker'));
+
+      paintDailyBadge(document.getElementById('rhythmBoxerDaily'),
+        isGateDone('warmup','fitness','rhythmboxer',pid) || gamePlayedToday('rhythmboxer'));
+
+      paintDailyBadge(document.getElementById('jumpDuckDaily'),
+        isGateDone('warmup','fitness','jumpduck',pid) || gamePlayedToday('jumpduck'));
+
+      paintDailyBadge(document.getElementById('balanceHoldDaily'),
+        isGateDone('warmup','fitness','balancehold',pid) || gamePlayedToday('balancehold'));
+
+      paintDailyBadge(document.getElementById('fitnessPlannerDaily'),
+        isGateDone('warmup','fitness','fitnessplanner',pid) || gamePlayedToday('fitnessplanner'));
+    }
+
+    function renderMissionToday(){
+      const today = hhDayKey();
+      const nutrBadge = document.getElementById('missionNutriBadge');
+      const hygBadge  = document.getElementById('missionHygBadge');
+      const fitBadge  = document.getElementById('missionFitBadge');
+
+      const nutrHint = document.getElementById('missionNutriHint');
+      const hygHint  = document.getElementById('missionHygHint');
+      const fitHint  = document.getElementById('missionFitHint');
+
+      const nutrDone = (
+        isGateDone('warmup','nutrition','goodjunk',pid) ||
+        isGateDone('warmup','nutrition','groups',pid) ||
+        isGateDone('warmup','nutrition','hydration',pid) ||
+        isGateDone('warmup','nutrition','plate',pid) ||
+        localStorage.getItem(`HHA_ZONE_DONE::nutrition::${today}`) === '1'
+      );
+
+      const hygDone = localStorage.getItem(`HHA_ZONE_DONE::hygiene::${today}`) === '1';
+      const fitDone = localStorage.getItem(`HHA_ZONE_DONE::fitness::${today}`) === '1';
+
+      paintDailyBadge(nutrBadge, nutrDone, 'เริ่มแล้ว ✅', 'ยังไม่เริ่ม');
+      paintDailyBadge(hygBadge, hygDone, 'สำเร็จแล้ว ✅', 'ยังไม่เริ่ม');
+      paintDailyBadge(fitBadge, fitDone, 'สำเร็จแล้ว ✅', 'ยังไม่เริ่ม');
+
+      nutrHint.textContent = nutrDone
+        ? 'วันนี้เริ่มโซนโภชนาการแล้ว เก่งมาก'
+        : 'เริ่มที่ GoodJunk หรือ Hydration ก่อน';
+
+      hygHint.textContent = hygDone
+        ? 'วันนี้ทำโซนสุขอนามัยแล้ว'
+        : 'ลอง Handwash หรือ Brush ก่อน';
+
+      fitHint.textContent = fitDone
+        ? 'วันนี้ทำโซนออกกำลังกายแล้ว'
+        : 'ลอง JumpDuck หรือ Shadow Breaker ก่อน';
+    }
+
     const PATHS = {
       goodjunk:       './goodjunk-launcher.html',
       groups:         './groups-vr.html',
@@ -1880,6 +2171,8 @@
       renderHydrationDailyStatus();
       decorateHydrationCard();
       decorateHydrationFlowChip();
+      renderDailyBadges();
+      renderMissionToday();
     }
 
     renderAll();
