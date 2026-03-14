@@ -1,6 +1,7 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
 // GoodJunkVR SAFE — SOLO STABLE MASTER PATCH
-// FULL PATCH v20260313f-GJ-SAFE-SOLO-BOOTFIX-GATEFLOW
+// FULL PATCH v20260314k-GJ-SAFE-MOBILE-COMBAT-FLOW
+
 'use strict';
 
 import {
@@ -413,6 +414,23 @@ export async function boot(cfg){
   let coachLatchMs = 0;
   let lastWarningSfxAt = 0;
 
+  let missionHideTimer = 0;
+  let aiHideTimer = 0;
+  let missionExpandTimer = 0;
+
+  function isMissionAutoHidden(){
+    return !!missionBox?.classList.contains('auto-hide');
+  }
+
+  function isAiAutoHidden(){
+    return !!aiBox?.classList.contains('auto-hide');
+  }
+
+  function enableMobileCombatMode(){
+    if(view !== 'mobile') return;
+    document.body.classList.add('mobile-combat');
+  }
+
   function tGameMsNow(){
     return Math.max(0, Math.round((plannedSec - tLeft) * 1000));
   }
@@ -468,7 +486,8 @@ export async function boot(cfg){
 
   function sayCoach(msg, bypass=false, explain=''){
     const t = nowMs();
-    if(!bypass && (t - coachLatchMs < 3000)) return;
+    const latchMs = view === 'mobile' ? 4200 : 3000;
+    if(!bypass && (t - coachLatchMs < latchMs)) return;
     coachLatchMs = t;
     if(coachText) coachText.textContent = String(msg || '');
     setCoachInline(msg, explain);
@@ -477,19 +496,30 @@ export async function boot(cfg){
     setTimeout(()=>{
       coach.style.opacity = '0';
       coach.style.transform = 'translateY(6px)';
-    }, 2200);
+    }, view === 'mobile' ? 1700 : 2200);
+
+    if(view === 'mobile') revealAiBox();
   }
 
   function setAIHud(pred){
     try{
       if(!pred) return;
+
       if(hud.aiRisk && typeof pred.hazardRisk === 'number'){
         hud.aiRisk.textContent = String((+pred.hazardRisk).toFixed(2));
       }
+
       if(hud.aiHint){
         hud.aiHint.textContent = pred.explainText || '—';
       }
-      if(pred.coach) setCoachInline(pred.coach, pred.explainText || '');
+
+      if(pred.coach){
+        setCoachInline(pred.coach, pred.explainText || '');
+
+        if(view === 'mobile'){
+          sayCoach(pred.coach, false, pred.explainText || '');
+        }
+      }
     }catch(_){}
   }
 
@@ -579,6 +609,11 @@ export async function boot(cfg){
     }
     stageBanner.classList.add('show');
     setTimeout(()=> stageBanner.classList.remove('show'), 1400);
+
+    if(view === 'mobile'){
+      expandMissionTemporarily(1800);
+      revealAiBox();
+    }
   }
 
   function showMilestone(text){
@@ -759,14 +794,35 @@ export async function boot(cfg){
   function safeSpawnRect(){
     const r = layerRect();
     const W = r.width, H = r.height;
-    const topPad = 120 + ((view === 'cvr' || view === 'vr') ? 20 : 0);
-    const bottomPad = 120 + ((view === 'cvr' || view === 'vr') ? 10 : 0);
-    const leftPad = 18, rightPad = 18;
+
+    const isMobile = view === 'mobile';
+    const isVR = (view === 'cvr' || view === 'vr');
+
+    const missionHidden = isMissionAutoHidden();
+    const aiHidden = isAiAutoHidden() || document.body.classList.contains('mobile-combat');
+
+    let topPad;
+    let bottomPad;
+
+    if(isMobile){
+      topPad = missionHidden ? 108 : 156;
+      bottomPad = aiHidden ? 96 : 166;
+    }else if(isVR){
+      topPad = 170;
+      bottomPad = 135;
+    }else{
+      topPad = 165;
+      bottomPad = 125;
+    }
+
+    const leftPad = isMobile ? 18 : 18;
+    const rightPad = isMobile ? 18 : 18;
 
     const x1 = r.left + leftPad;
     const x2 = r.left + Math.max(leftPad + 10, W - rightPad);
-    const y1 = r.top + Math.min(H - 60, topPad);
-    const y2 = r.top + Math.max(y1 + 60, H - bottomPad);
+    const y1 = r.top + Math.min(H - 100, topPad);
+    const y2 = r.top + Math.max(y1 + 120, H - bottomPad);
+
     return { x1, x2, y1, y2, W, H, left:r.left, top:r.top };
   }
 
@@ -783,18 +839,87 @@ export async function boot(cfg){
     const frac = (laneIndex + 0.5) / total;
     return {
       x: s.x1 + (s.x2 - s.x1) * frac,
-      y: s.y1 + (s.y2 - s.y1) * (0.15 + r01() * 0.7)
+      y: s.y1 + (s.y2 - s.y1) * (0.18 + r01() * 0.64)
     };
   }
 
   function spawnPointCenterBurst(){
     const s = safeSpawnRect();
     const cx = (s.x1 + s.x2) / 2;
-    const cy = (s.y1 + s.y2) / 2;
+    const cy = s.y1 + (s.y2 - s.y1) * 0.38;
+
     return {
-      x: cx + (r01() * 180 - 90),
-      y: cy + (r01() * 120 - 60)
+      x: cx + (r01() * 170 - 85),
+      y: cy + (r01() * 96 - 48)
     };
+  }
+
+  function clampTargetsToSafeArea(){
+    const s = safeSpawnRect();
+    for(const [, t] of targets){
+      const br = t.el.getBoundingClientRect();
+      const w = br.width || 48;
+      const h = br.height || 48;
+
+      let x = br.left + w / 2;
+      let y = br.top + h / 2;
+
+      x = Math.max(s.x1 + w * 0.5, Math.min(s.x2 - w * 0.5, x));
+      y = Math.max(s.y1 + h * 0.5, Math.min(s.y2 - h * 0.5, y));
+
+      t.el.style.left = `${x}px`;
+      t.el.style.top = `${y}px`;
+    }
+  }
+
+  function revealMissionBox(){
+    if(!missionBox) return;
+
+    missionBox.classList.remove('auto-hide');
+
+    if(view === 'mobile'){
+      missionBox.classList.add('compact');
+    }
+
+    clearTimeout(missionHideTimer);
+
+    if(view === 'mobile'){
+      missionHideTimer = setTimeout(()=>{
+        missionBox.classList.add('auto-hide');
+        clampTargetsToSafeArea();
+      }, 1500);
+
+      clampTargetsToSafeArea();
+    }
+  }
+
+  function revealAiBox(){
+    if(!aiBox) return;
+    aiBox.classList.remove('auto-hide');
+    if(view === 'mobile') aiBox.classList.add('compact');
+    clearTimeout(aiHideTimer);
+    if(view === 'mobile'){
+      aiHideTimer = setTimeout(()=>{
+        aiBox.classList.add('auto-hide');
+        clampTargetsToSafeArea();
+      }, 1800);
+      clampTargetsToSafeArea();
+    }
+  }
+
+  function expandMissionTemporarily(ms = 1400){
+    if(!missionBox) return;
+
+    missionBox.classList.remove('auto-hide');
+    missionBox.classList.remove('compact');
+
+    clearTimeout(missionExpandTimer);
+    missionExpandTimer = setTimeout(()=>{
+      if(view === 'mobile'){
+        missionBox.classList.add('compact');
+        revealMissionBox();
+      }
+    }, ms);
   }
 
   function setBossUI(on){
@@ -887,6 +1012,10 @@ export async function boot(cfg){
       if(missionGoal) missionGoal.textContent = 'เก็บของดี';
       if(missionHint) missionHint.textContent = `pattern: ${patternId}`;
     }
+
+    if(view === 'mobile'){
+      expandMissionTemporarily(1600);
+    }
   }
 
   function setHUD(){
@@ -897,7 +1026,12 @@ export async function boot(cfg){
     if(hud.goal) hud.goal.textContent = getPhaseDisplayLabel();
     if(hud.goalCur) hud.goalCur.textContent = String(goodHitCount | 0);
     if(hud.goalTarget) hud.goalTarget.textContent = String(WIN_TARGET.goodTarget | 0);
-    if(hud.goalDesc) hud.goalDesc.textContent = activePatternId || phaseMachine.phase;
+    if(hud.goalDesc){
+      const raw = activePatternId || phaseMachine.phase || '—';
+      hud.goalDesc.textContent = (view === 'mobile')
+        ? String(raw).replaceAll('_',' ').slice(0, 10)
+        : raw;
+    }
     if(hud.mini) hud.mini.textContent = mini.name || '—';
     if(hud.miniTimer) hud.miniTimer.textContent = String(Math.ceil(mini.t || 0));
 
@@ -2055,10 +2189,29 @@ export async function boot(cfg){
   });
 
   if(missionBox){
-    missionBox.addEventListener('click', ()=> missionBox.classList.toggle('compact'));
+    missionBox.addEventListener('click', ()=>{
+      missionBox.classList.remove('auto-hide');
+      missionBox.classList.toggle('compact');
+
+      clearTimeout(missionExpandTimer);
+      clearTimeout(missionHideTimer);
+
+      if(view === 'mobile'){
+        missionHideTimer = setTimeout(()=>{
+          missionBox.classList.add('compact');
+          missionBox.classList.add('auto-hide');
+          clampTargetsToSafeArea();
+        }, 2200);
+      }
+    });
   }
+
   if(aiBox){
-    aiBox.addEventListener('click', ()=> aiBox.classList.toggle('compact'));
+    aiBox.addEventListener('click', ()=>{
+      aiBox.classList.remove('auto-hide');
+      aiBox.classList.toggle('compact');
+      revealAiBox();
+    });
   }
 
   if(btnReplay){
@@ -2078,7 +2231,10 @@ export async function boot(cfg){
   }
 
   function handleBackHub(){
-    const cdDone = getCooldownDone(HH_CAT, HH_GAME, pid);
+    const cdDone =
+      typeof WIN.HHA_GJ_IS_COOLDOWN_DONE_TODAY === 'function'
+        ? !!WIN.HHA_GJ_IS_COOLDOWN_DONE_TODAY()
+        : getCooldownDone(HH_CAT, HH_GAME, pid);
 
     if(cdDone){
       try{
@@ -2095,17 +2251,24 @@ export async function boot(cfg){
       return;
     }
 
-    const sp = new URL(location.href).searchParams;
-    const cdnext = sp.get('cdnext') || '';
-    const nextAfterCooldown = cdnext || hubUrl || '../hub.html';
-    const cdUrl = buildCooldownUrl({
-      currentUrl: location.href,
-      hub: hubUrl,
-      nextAfterCooldown,
-      cat: HH_CAT,
-      gameKey: HH_GAME,
-      pid
-    });
+    const endedNow = !!(endOverlay && endOverlay.style.display === 'flex');
+
+    if(endedNow && typeof WIN.HHA_GJ_OPEN_SKIP_DIALOG === 'function'){
+      WIN.HHA_GJ_OPEN_SKIP_DIALOG();
+      return;
+    }
+
+    const cdTarget =
+      typeof WIN.HHA_GJ_BUILD_COOLDOWN_TARGET === 'function'
+        ? WIN.HHA_GJ_BUILD_COOLDOWN_TARGET()
+        : buildCooldownUrl({
+            currentUrl: location.href,
+            hub: hubUrl,
+            nextAfterCooldown: hubUrl,
+            cat: HH_CAT,
+            gameKey: HH_GAME,
+            pid
+          });
 
     try{
       logTelemetryEvent(telemetryStore, buildFlowRow({
@@ -2115,13 +2278,13 @@ export async function boot(cfg){
         eventName:'cooldown-enter',
         payload:{
           action:'back-hub-via-cooldown',
-          cooldownUrl: cdUrl
+          cooldownUrl: cdTarget
         }
       }));
-      flushGameTelemetry('back-hub-via-cooldown', { cooldownUrl: cdUrl });
+      flushGameTelemetry('back-hub-via-cooldown', { cooldownUrl: cdTarget });
     }catch(_){}
 
-    location.href = cdUrl;
+    location.href = cdTarget;
   }
 
   if(btnBackHub) btnBackHub.onclick = handleBackHub;
@@ -2132,6 +2295,23 @@ export async function boot(cfg){
   setMissionUI();
   setHUD();
   setCoachInline(getCoachLineForPhase(phaseMachine.phase, bossPersona), bossPersona.introLine || 'prediction-ready');
+
+  if (view === 'mobile') {
+    missionBox?.classList.add('compact');
+    aiBox?.classList.add('compact');
+
+    enableMobileCombatMode();
+
+    setTimeout(()=>{
+      missionBox?.classList.add('auto-hide');
+      clampTargetsToSafeArea();
+    }, 1500);
+
+    setTimeout(()=>{
+      aiBox?.classList.add('auto-hide');
+      clampTargetsToSafeArea();
+    }, 1800);
+  }
 
   logGameEvent('run-start', {
     phase: phaseNow(),
