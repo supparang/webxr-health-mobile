@@ -1,6 +1,6 @@
 <!-- === /webxr-health-mobile/herohealth/groups-vr.html ===
 GroupsVR — LAUNCHER PAGE (canonical entry)
-FULL PATCH v20260314a-GROUPS-LAUNCHER-PHASE-LOWERCASE-GATEFLOW
+FULL PATCH v20260314c-GROUPS-LAUNCHER-DAILY-STATUS-GATEKEY
 Flow:
 launcher /webxr-health-mobile/herohealth/groups-vr.html
 -> /webxr-health-mobile/herohealth/warmup-gate.html?phase=warmup
@@ -324,6 +324,7 @@ launcher /webxr-health-mobile/herohealth/groups-vr.html
       text-align:left;
       display:grid;
       gap:4px;
+      cursor:pointer;
     }
 
     .viewBtn b{
@@ -358,6 +359,7 @@ launcher /webxr-health-mobile/herohealth/groups-vr.html
 
     .secondary{
       background:rgba(15,23,42,.56);
+      color:var(--text);
     }
 
     .helpList{
@@ -402,6 +404,35 @@ launcher /webxr-health-mobile/herohealth/groups-vr.html
       font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     }
 
+    .statusGrid{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:10px;
+    }
+
+    .statusCard{
+      border-radius:18px;
+      border:1px solid rgba(148,163,184,.14);
+      background:rgba(15,23,42,.45);
+      padding:12px;
+    }
+
+    .statusCard .k{
+      color:var(--muted);
+      font-size:11px;
+      font-weight:1000;
+      margin-bottom:4px;
+    }
+
+    .statusCard .v{
+      font-size:18px;
+      font-weight:1000;
+      line-height:1.15;
+    }
+
+    .done{ color:#86efac; }
+    .todo{ color:#fcd34d; }
+
     @media (max-width:960px){
       .heroInner,
       .grid{
@@ -423,6 +454,7 @@ launcher /webxr-health-mobile/herohealth/groups-vr.html
 
       .heroInner{ padding:16px; }
       .heroStats{ grid-template-columns:1fr; }
+      .statusGrid{ grid-template-columns:1fr; }
       .formGrid{ grid-template-columns:1fr; }
       .viewBtns{ grid-template-columns:1fr; }
 
@@ -566,6 +598,21 @@ launcher /webxr-health-mobile/herohealth/groups-vr.html
             <button class="secondary" id="btnResetPrefs" type="button">ล้างค่าจำ</button>
             <button class="secondary" id="btnGoHub" type="button">กลับ HUB</button>
           </div>
+
+          <div class="statusGrid" id="dailyStatusRow">
+            <div class="statusCard">
+              <div class="k">วอร์มอัพวันนี้</div>
+              <div class="v" id="dailyWarmupStatus">กำลังตรวจสอบ…</div>
+            </div>
+            <div class="statusCard">
+              <div class="k">คูลดาวน์วันนี้</div>
+              <div class="v" id="dailyCooldownStatus">กำลังตรวจสอบ…</div>
+            </div>
+            <div class="statusCard">
+              <div class="k">ผู้เล่น</div>
+              <div class="v" id="dailyPidStatus">anon</div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -666,6 +713,71 @@ launcher /webxr-health-mobile/herohealth/groups-vr.html
         updatePreview();
       }
 
+      function todayKey(){
+        const d = new Date();
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const dd = String(d.getDate()).padStart(2, '0');
+        return `${y}-${m}-${dd}`;
+      }
+
+      function normalizeGameId(raw=''){
+        const s = String(raw || '').trim().toLowerCase();
+        const map = {
+          'foodgroups':'groups',
+          'group':'groups',
+          'groupsvr':'groups',
+          'food-groups':'groups',
+          'groups':'groups'
+        };
+        return map[s] || s;
+      }
+
+      function makeWarmupKey(cat='nutrition', game='groups', pid='anon'){
+        return `HHA_WARMUP_DONE:${String(cat).toLowerCase()}:${normalizeGameId(game)}:${String(pid).trim() || 'anon'}:${todayKey()}`;
+      }
+
+      function makeCooldownKey(cat='nutrition', game='groups', pid='anon'){
+        return `HHA_COOLDOWN_DONE:${String(cat).toLowerCase()}:${normalizeGameId(game)}:${String(pid).trim() || 'anon'}:${todayKey()}`;
+      }
+
+      function readDailyDoneByKey(key){
+        try{
+          return localStorage.getItem(key) === '1';
+        }catch(_){
+          return false;
+        }
+      }
+
+      function renderDailyStatus(){
+        const pid = (pidEl?.value || 'anon').trim() || 'anon';
+        const cat = 'nutrition';
+        const game = 'groups';
+
+        const warmDone = readDailyDoneByKey(makeWarmupKey(cat, game, pid));
+        const coolDone = readDailyDoneByKey(makeCooldownKey(cat, game, pid));
+
+        const warmEl = document.getElementById('dailyWarmupStatus');
+        const coolEl = document.getElementById('dailyCooldownStatus');
+        const pidStatusEl = document.getElementById('dailyPidStatus');
+
+        if(warmEl){
+          warmEl.textContent = warmDone ? 'ทำแล้ว ✅' : 'ยังไม่ได้ทำ';
+          warmEl.classList.toggle('done', warmDone);
+          warmEl.classList.toggle('todo', !warmDone);
+        }
+
+        if(coolEl){
+          coolEl.textContent = coolDone ? 'ทำแล้ว ✅' : 'ยังไม่ได้ทำ';
+          coolEl.classList.toggle('done', coolDone);
+          coolEl.classList.toggle('todo', !coolDone);
+        }
+
+        if(pidStatusEl){
+          pidStatusEl.textContent = pid;
+        }
+      }
+
       function prefillLauncher(){
         const saved = loadLauncherPrefs();
 
@@ -734,11 +846,11 @@ launcher /webxr-health-mobile/herohealth/groups-vr.html
         const warmUrl = buildWarmupUrl(params);
 
         previewBox.textContent =
-          '[params]\\n' +
+          '[params]\n' +
           JSON.stringify(params, null, 2) +
-          '\\n\\n[warmup]\\n' +
+          '\n\n[warmup]\n' +
           warmUrl +
-          '\\n\\n[next run]\\n' +
+          '\n\n[next run]\n' +
           runUrl;
       }
 
@@ -748,6 +860,11 @@ launcher /webxr-health-mobile/herohealth/groups-vr.html
 
         saveLauncherPrefs(params);
 
+        const warmDone = readDailyDoneByKey(makeWarmupKey('nutrition', 'groups', params.pid));
+        if(warmDone){
+          console.log('[Groups launcher] warmup already done today for pid=', params.pid);
+        }
+
         const warmUrl = buildWarmupUrl(params);
         console.log('[Groups launcher] params =', params);
         console.log('[Groups launcher] warmup =', warmUrl);
@@ -756,8 +873,14 @@ launcher /webxr-health-mobile/herohealth/groups-vr.html
       }
 
       [pidEl, runEl, diffEl, timeEl, viewEl, seedEl, hubEl].forEach(el => {
-        el?.addEventListener('input', updatePreview);
-        el?.addEventListener('change', updatePreview);
+        el?.addEventListener('input', () => {
+          updatePreview();
+          renderDailyStatus();
+        });
+        el?.addEventListener('change', () => {
+          updatePreview();
+          renderDailyStatus();
+        });
       });
 
       btnStart?.addEventListener('click', () => goStart());
@@ -770,6 +893,7 @@ launcher /webxr-health-mobile/herohealth/groups-vr.html
         clearLauncherPrefs();
         prefillLauncher();
         updatePreview();
+        renderDailyStatus();
       });
       btnGoHub?.addEventListener('click', () => {
         location.href = hubEl.value || defaultHub();
@@ -777,6 +901,7 @@ launcher /webxr-health-mobile/herohealth/groups-vr.html
 
       prefillLauncher();
       updatePreview();
+      renderDailyStatus();
     })();
   </script>
 </body>
