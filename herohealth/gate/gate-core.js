@@ -1,6 +1,6 @@
 // === /herohealth/gate/gate-core.js ===
 // HeroHealth Gate Core
-// FULL PATCH v20260314k-GATE-CORE-ROBUST-EXPORT
+// FULL PATCH v20260314m-GATE-CORE-RELATIVE-PATH-FIX
 
 import {
   buildCtx,
@@ -30,10 +30,43 @@ function delay(ms){
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+function qs(url, key, fallback = '') {
+  try {
+    return url.searchParams.get(key) ?? fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function qPhase(url, fallback = 'warmup') {
+  return String(
+    qs(url, 'gatePhase',
+      qs(url, 'phase',
+        qs(url, 'Phase',
+          qs(url, 'mode', fallback)
+        )
+      )
+    ) || fallback
+  ).toLowerCase();
+}
+
+function detectMode(url){
+  return qPhase(url, 'warmup') === 'cooldown' ? 'cooldown' : 'warmup';
+}
+
 function safeUrl(raw, fallback = '') {
   try {
     if (!raw) return fallback;
     return new URL(raw, window.location.href).toString();
+  } catch {
+    return fallback;
+  }
+}
+
+function resolveGateRelativeUrl(raw, fallback = '') {
+  try {
+    if (!raw) return fallback;
+    return new URL(raw, import.meta.url).toString();
   } catch {
     return fallback;
   }
@@ -81,7 +114,8 @@ function nextUrlOf(ctx){
 
 function applyStyleFile(styleFile){
   if(!styleFile) return;
-  const href = safeUrl(styleFile, '');
+
+  const href = resolveGateRelativeUrl(styleFile, '');
   if(!href) return;
 
   const id = `gate-style-${btoa(href).replace(/[^a-zA-Z0-9]/g,'').slice(0,24)}`;
@@ -244,8 +278,10 @@ function makeApi(app, logger){
 async function importPhaseModule(ctx){
   const file = getPhaseFile(ctx.game, ctx.mode);
   if(!file) throw new Error(`No phase file for game=${ctx.game} mode=${ctx.mode}`);
-  const abs = safeUrl(file, '');
+
+  const abs = resolveGateRelativeUrl(file, '');
   if(!abs) throw new Error(`Invalid phase file URL: ${file}`);
+
   return import(abs);
 }
 
@@ -268,8 +304,17 @@ function buildNextWithBuffs(nextUrl, buffs){
 async function runGate(app){
   ensureInlineSkipStyle();
 
-  const ctx = buildCtx(new URL(window.location.href));
-  ctx.game = normalizeGameId(ctx.game || ctx.theme || '');
+  const url = new URL(window.location.href);
+  const ctx = buildCtx(url);
+
+  ctx.mode = detectMode(url);
+  ctx.phase = ctx.mode;
+  ctx.game = normalizeGameId(ctx.game || ctx.theme || qs(url, 'game', ''));
+  ctx.theme = normalizeGameId(ctx.theme || ctx.game || qs(url, 'theme', ''));
+  ctx.cat = String(ctx.cat || qs(url, 'cat', '')).toLowerCase();
+  ctx.hub = safeUrl(ctx.hub || qs(url, 'hub', '../hub.html'), '../hub.html');
+  ctx.next = safeUrl(ctx.next || qs(url, 'next', ''), '');
+  ctx.pid = String(ctx.pid || qs(url, 'pid', 'anon')).trim() || 'anon';
 
   const logger = createGateLogger(ctx);
   const nextUrl = nextUrlOf(ctx);
@@ -357,15 +402,19 @@ async function runGate(app){
 
     const dest = buildNextWithBuffs(nextUrl, summary.buffs || {});
 
-    mountSummaryLayer({
-      title: summary.title,
-      subtitle: summary.subtitle,
-      lines: summary.lines,
-      primaryLabel: ctx.mode === 'cooldown' ? 'กลับหน้าหลัก' : 'ไปต่อ',
-      onPrimary: ()=>{
-        window.location.href = dest;
-      }
-    });
+    if (typeof mountSummaryLayer === 'function') {
+      mountSummaryLayer({
+        title: summary.title,
+        subtitle: summary.subtitle,
+        lines: summary.lines,
+        primaryLabel: ctx.mode === 'cooldown' ? 'กลับหน้าหลัก' : 'ไปต่อ',
+        onPrimary: ()=>{
+          window.location.href = dest;
+        }
+      });
+    } else {
+      window.location.href = dest;
+    }
   };
 
   try{
@@ -378,6 +427,9 @@ async function runGate(app){
       mod?.mount ||
       mod?.default?.mount ||
       mod?.default ||
+      mod?.mountWarmup ||
+      mod?.mountCooldown ||
+      mod?.mountGateGame ||
       null;
 
     if(typeof mount !== 'function'){
@@ -413,7 +465,9 @@ async function runGate(app){
       });
     }catch(_){}
 
-    mountToast?.(`โหลดมินิเกมไม่สำเร็จ: ${err?.message || err}`);
+    if (typeof mountToast === 'function') {
+      mountToast(`โหลดมินิเกมไม่สำเร็จ: ${err?.message || err}`);
+    }
 
     app.querySelector('#gateGameMount')?.replaceChildren();
     if(app.querySelector('#gateLoading')){
