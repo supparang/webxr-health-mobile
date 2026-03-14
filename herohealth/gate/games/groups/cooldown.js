@@ -2,7 +2,9 @@
    HeroHealth Gate Mini-game
    GAME: groups
    MODE: cooldown
-   PATCH v20260308-GATE-GROUPS-COOLDOWN
+   FULL PATCH v20260314-GATE-GROUPS-COOLDOWN-AUTOSTART-FALLBACK
+   ✅ FIX: auto-start fallback if gate-core cache/old version doesn't call controller.start()
+   ✅ FIX: child-friendly cooldown review
 */
 
 let __styleLoaded = false;
@@ -55,45 +57,60 @@ function calcRank(acc){
   return 'D';
 }
 
-function buildBuffs({ score, accuracy }){
-  const speed = 78;
-  const calm = Math.max(0, Math.min(100, Math.round(accuracy * 0.8)));
-  return {
-    wType: 'groups',
-    score,
-    accuracy,
-    speed,
-    calm,
-    rank: calcRank(accuracy),
-    wPct: Math.min(20, Math.round(accuracy / 5)),
-    wCrit: Math.min(16, Math.round(speed / 6)),
-    wDmg: Math.min(14, Math.round((accuracy + speed) / 14)),
-    wHeal: Math.min(16, Math.round(calm / 7)),
-    groupMasteryPct: accuracy
-  };
-}
-
 export async function mount(root, ctx, api){
   loadStyle();
 
-  const rng = mulberry32(Number(ctx.seed || Date.now()) + 42);
+  const rng = mulberry32(Number(ctx.seed || Date.now()) + 97);
 
   const GROUPS = [
-    { key:'g1', label:'หมู่ 1 โปรตีน', items:['🥚 ไข่','🐟 ปลา','🥛 นม'] },
-    { key:'g2', label:'หมู่ 2 คาร์โบไฮเดรต', items:['🍚 ข้าว','🍞 ขนมปัง','🥔 มันฝรั่ง'] },
-    { key:'g3', label:'หมู่ 3 ผัก', items:['🥬 คะน้า','🥕 แครอท','🥦 บรอกโคลี'] },
-    { key:'g4', label:'หมู่ 4 ผลไม้', items:['🍌 กล้วย','🍊 ส้ม','🍎 แอปเปิล'] },
-    { key:'g5', label:'หมู่ 5 ไขมัน', items:['🫒 น้ำมันพืช','🧈 เนย','🥥 กะทิ'] }
+    { key:'g1', label:'หมู่ 1 โปรตีน', short:'โปรตีน' },
+    { key:'g2', label:'หมู่ 2 คาร์โบไฮเดรต', short:'แป้ง' },
+    { key:'g3', label:'หมู่ 3 ผัก', short:'ผัก' },
+    { key:'g4', label:'หมู่ 4 ผลไม้', short:'ผลไม้' },
+    { key:'g5', label:'หมู่ 5 ไขมัน', short:'ไขมัน' }
   ];
 
-  const rounds = shuffle(GROUPS, rng).slice(0, 5);
+  const ITEMS = [
+    { text:'🥚 ไข่', group:'g1' },
+    { text:'🐟 ปลา', group:'g1' },
+    { text:'🥛 นม', group:'g1' },
+    { text:'🫘 ถั่วแดง', group:'g1' },
+
+    { text:'🍚 ข้าว', group:'g2' },
+    { text:'🍞 ขนมปัง', group:'g2' },
+    { text:'🥔 มันฝรั่ง', group:'g2' },
+    { text:'🌽 ข้าวโพด', group:'g2' },
+
+    { text:'🥬 คะน้า', group:'g3' },
+    { text:'🥕 แครอท', group:'g3' },
+    { text:'🥒 แตงกวา', group:'g3' },
+    { text:'🥦 บรอกโคลี', group:'g3' },
+
+    { text:'🍌 กล้วย', group:'g4' },
+    { text:'🍊 ส้ม', group:'g4' },
+    { text:'🍉 แตงโม', group:'g4' },
+    { text:'🍎 แอปเปิล', group:'g4' },
+
+    { text:'🧈 เนย', group:'g5' },
+    { text:'🥥 กะทิ', group:'g5' },
+    { text:'🐷 มันหมู', group:'g5' },
+    { text:'🛢️ น้ำมันปรุงอาหาร', group:'g5' }
+  ];
+
+  const rounds = shuffle(ITEMS, rng).slice(0, 5);
 
   let idx = 0;
   let score = 0;
   let miss = 0;
   let correct = 0;
+  let ended = false;
+  let started = false;
+
+  const plannedTime = Number(ctx.time || 20);
+  let timeLeft = plannedTime;
 
   root.innerHTML = '';
+
   const wrap = el('div', 'grp-wrap');
   const hero = el('div', 'grp-hero');
   const stage = el('div', 'grp-stage');
@@ -128,7 +145,7 @@ export async function mount(root, ctx, api){
   });
 
   api.setStats({
-    time: ctx.time || 0,
+    time: timeLeft,
     score: 0,
     miss: 0,
     acc: '0%'
@@ -137,41 +154,48 @@ export async function mount(root, ctx, api){
   function updateHud(){
     const acc = idx > 0 ? Math.round((correct / idx) * 100) : 0;
     api.setStats({
-      time: 0,
+      time: timeLeft,
       score,
       miss,
       acc: `${acc}%`
     });
   }
 
+  function buildChoices(item){
+    const correctItem = item;
+    const wrongPool = ITEMS.filter(x => x.group !== item.group);
+    const wrongs = shuffle(wrongPool, rng).slice(0, 3);
+    return shuffle([correctItem, ...wrongs], rng);
+  }
+
   function renderRound(){
+    if(ended) return;
     if(idx >= rounds.length){
-      return finishNow();
+      finishNow();
+      return;
     }
 
-    const q = rounds[idx];
-    target.textContent = q.label;
+    const item = rounds[idx];
+    const groupMeta = GROUPS.find(g => g.key === item.group) || GROUPS[0];
+
+    target.textContent = groupMeta.label;
+    prompt.textContent = 'เลือกอาหารที่อยู่ในหมู่นี้';
     choices.innerHTML = '';
 
-    const wrongPool = GROUPS
-      .filter(g => g.key !== q.key)
-      .map(g => g.items[0]);
+    const pickSet = buildChoices(item);
 
-    const options = shuffle([
-      q.items[0],
-      wrongPool[0],
-      wrongPool[1]
-    ], rng);
-
-    for(const opt of options){
-      const isGood = q.items.includes(opt);
-
-      const btn = el('button', `grp-btn ${isGood ? 'good' : 'bad'}`, opt);
+    for(const opt of pickSet){
+      const btn = el('button', 'grp-btn ghost', opt.text);
+      btn.setAttribute('aria-label', opt.text);
 
       btn.addEventListener('click', ()=>{
+        if(ended) return;
+
         idx++;
 
-        if(isGood){
+        const isCorrect = opt.text === item.text && opt.group === item.group;
+
+        if(isCorrect){
           score += 10;
           correct++;
         }else{
@@ -183,9 +207,11 @@ export async function mount(root, ctx, api){
           game: 'groups',
           mode: 'cooldown',
           round: idx,
-          group: q.key,
-          selected: opt,
-          validItems: q.items,
+          targetGroup: item.group,
+          targetGroupLabel: groupMeta.label,
+          selected: opt.text,
+          selectedGroup: opt.group,
+          correctItem: item.text,
           score,
           miss,
           correctCount: correct
@@ -200,47 +226,79 @@ export async function mount(root, ctx, api){
   }
 
   function finishNow(){
+    if(ended) return;
+    ended = true;
+    clearInterval(timer);
+
     const accuracy = rounds.length > 0 ? Math.round((correct / rounds.length) * 100) : 0;
-    const buffs = buildBuffs({ score, accuracy });
+    const rank = calcRank(accuracy);
 
     root.innerHTML = `
       <div class="grp-result">
-        <div class="grp-badge">✨ Rank ${buffs.rank}</div>
-        <div class="grp-big">คูลดาวน์เสร็จแล้ว</div>
+        <div class="grp-badge">🌿 Cooldown Rank ${rank}</div>
+        <div class="grp-big">ทบทวนเสร็จแล้ว!</div>
         <div class="grp-list">
           <div class="grp-item">คะแนน: ${score}</div>
           <div class="grp-item">ความแม่นยำ: ${accuracy}%</div>
-          <div class="grp-item">สรุป: อาหารแต่ละชนิดอยู่คนละหมวด และมีบทบาทต่างกัน</div>
+          <div class="grp-item">ตอบถูก: ${correct}/${rounds.length}</div>
+          <div class="grp-item">พลาด: ${miss}</div>
         </div>
         <div class="grp-actions">
-          <button class="grp-btn good" id="grpCooldownFinishBtn">กลับ HUB / ไปต่อ</button>
+          <button class="grp-btn good" id="grpFinishBtn">กลับ HUB</button>
         </div>
       </div>
     `;
 
-    root.querySelector('#grpCooldownFinishBtn')?.addEventListener('click', ()=>{
+    root.querySelector('#grpFinishBtn')?.addEventListener('click', ()=>{
       api.finish({
         ok: true,
-        title: 'คูลดาวน์เสร็จแล้ว',
-        subtitle: 'สรุปความเข้าใจอาหาร 5 หมู่เรียบร้อย',
+        title: 'ทบทวนเสร็จแล้ว!',
+        subtitle: 'กลับหน้าหลักได้เลย',
         lines: [
           `คะแนน: ${score}`,
           `ความแม่นยำ: ${accuracy}%`,
-          'หมู่ 1 โปรตีน',
-          'หมู่ 2 คาร์โบไฮเดรต',
-          'หมู่ 3 ผัก',
-          'หมู่ 4 ผลไม้',
-          'หมู่ 5 ไขมัน'
+          `ตอบถูก: ${correct}/${rounds.length}`,
+          `Rank: ${rank}`
         ],
-        buffs,
+        metrics: {
+          score,
+          accuracy,
+          correct,
+          misses: miss,
+          rank
+        },
         markDailyDone: true
       });
     });
   }
 
+  function startGame(){
+    if(started || ended) return;
+    started = true;
+    renderRound();
+  }
+
+  const timer = setInterval(()=>{
+    if(ended) return;
+    timeLeft--;
+    if(timeLeft < 0) timeLeft = 0;
+    updateHud();
+
+    if(timeLeft <= 0){
+      finishNow();
+    }
+  }, 1000);
+
+  // fallback: เริ่มเกมทันที เผื่อ gate-core cache อยู่และไม่ได้เรียก start()
+  startGame();
+
   return {
     start(){
-      renderRound();
+      startGame();
+    },
+    destroy(){
+      ended = true;
+      clearInterval(timer);
     }
   };
 }
