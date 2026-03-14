@@ -1,9 +1,9 @@
 // === /herohealth/gate/games/cleanobjects/cooldown.js ===
-// CleanObjects Cooldown — robust export for gate-core
+// CleanObjects Cooldown — mount() compatible with gate-core v20260314n
 
 let __styleLoaded = false;
 
-export function loadStyle(){
+function loadStyle(){
   if(__styleLoaded) return;
   __styleLoaded = true;
 
@@ -17,21 +17,26 @@ export function loadStyle(){
   document.head.appendChild(link);
 }
 
-function boot(root, ctx = {}){
-  if(!root) return;
+export async function mount(root, ctx = {}, api = {}){
+  loadStyle();
+
+  if(!root) throw new Error('cleanobjects cooldown root not found');
 
   let relax = 0;
+  let miss = 0;
   let done = false;
+  let startedAt = Date.now();
+  const target = 3;
 
   root.innerHTML = `
     <div class="co-gate co-cooldown">
       <div class="co-card">
         <div class="co-icon">🌿</div>
         <div class="co-title">คูลดาวน์หลังเล่น</div>
-        <div class="co-sub">แตะปุ่มหายใจช้า ๆ ให้ครบ 3 ครั้ง</div>
+        <div class="co-sub">แตะปุ่มหายใจช้า ๆ ให้ครบ ${target} ครั้ง</div>
 
         <div class="co-status">
-          <div class="co-pill">ผ่อนคลาย: <b id="coRelax">0</b> / 3</div>
+          <div class="co-pill">ผ่อนคลาย: <b id="coRelax">0</b> / ${target}</div>
         </div>
 
         <div class="co-cool-wrap">
@@ -46,26 +51,37 @@ function boot(root, ctx = {}){
   const relaxEl = root.querySelector('#coRelax');
   const breathBtn = root.querySelector('#coBreath');
 
+  function updateStats(){
+    const playedSec = Math.max(0, Math.floor((Date.now() - startedAt) / 1000));
+    const accPct = Math.round((relax / target) * 100);
+    if(api?.setStats){
+      api.setStats({
+        time: playedSec,
+        score: relax,
+        miss,
+        acc: `${accPct}%`
+      });
+    }
+  }
+
   function finish(){
     if(done) return;
     done = true;
 
-    const result = {
+    api?.finish?.({
       ok: true,
-      score: relax,
-      miss: 0,
-      accPct: 100,
-      progressPct: 100,
-      summary: 'คูลดาวน์เสร็จแล้ว'
-    };
-
-    if(typeof ctx?.onFinish === 'function'){
-      ctx.onFinish(result);
-      return;
-    }
-    if(window?.HeroHealthGate?.finish){
-      window.HeroHealthGate.finish(result);
-    }
+      title: 'คูลดาวน์เสร็จแล้ว',
+      subtitle: 'พร้อมกลับ HUB',
+      lines: [
+        `ผ่อนคลายครบ ${relax}/${target} ครั้ง`,
+        `ทำได้ดีมาก ✅`
+      ],
+      buffs: {
+        cd: 1,
+        cPct: 100
+      },
+      markDailyDone: true
+    });
   }
 
   breathBtn?.addEventListener('click', ()=>{
@@ -77,11 +93,22 @@ function boot(root, ctx = {}){
     breathBtn.classList.add('pulse');
     setTimeout(()=>breathBtn.classList.remove('pulse'), 300);
 
-    if(relax >= 3){
+    updateStats();
+
+    if(relax >= target){
       finish();
     }
   });
+
+  if(api?.setSub) api.setSub('แตะหายใจเข้า-ออกช้า ๆ ให้ครบ');
+  updateStats();
+
+  return {
+    start(){},
+    destroy(){
+      done = true;
+    }
+  };
 }
 
-const game = { loadStyle, boot };
-export default game;
+export default { mount };
