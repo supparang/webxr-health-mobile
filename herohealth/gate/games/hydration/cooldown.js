@@ -1,7 +1,8 @@
 // === /herohealth/gate/games/hydration/cooldown.js ===
 // Hydration Gate Cooldown
-// CHILD-FRIENDLY PATCH v20260314b
+// CHILD-FRIENDLY PATCH v20260314c
 // ✅ รองรับทั้ง boot() และ mount()
+// ✅ ถ้า callback ไม่พาไปต่อ จะมี fallback redirect เอง
 
 function createHydrationCooldownGame() {
   function boot(root, ctx = {}) {
@@ -15,8 +16,30 @@ function createHydrationCooldownGame() {
       releaseMs: 0,
       done: false,
       raf: 0,
-      last: 0
+      last: 0,
+      doneTimer: null
     };
+
+    function safeNextUrl() {
+      try {
+        if (ctx && ctx.targetUrl) return String(ctx.targetUrl);
+        if (ctx && ctx.next) return String(ctx.next);
+        const u = new URL(location.href);
+        const next = u.searchParams.get('next');
+        if (next) return next;
+        const hub = u.searchParams.get('hub');
+        if (hub) return hub;
+      } catch (e) {}
+      return '';
+    }
+
+    function goNextFallback() {
+      const next = safeNextUrl();
+      if (!next) return;
+      try {
+        location.href = next;
+      } catch (e) {}
+    }
 
     root.innerHTML = `
       <div class="hyd-gate hyd-theme-cooldown">
@@ -44,6 +67,7 @@ function createHydrationCooldownGame() {
 
           <div class="hyd-actions">
             <button class="hyd-btn hyd-btn-main" id="hydBreathBtn" type="button">เริ่มหายใจเข้า</button>
+            <button class="hyd-btn hyd-btn-main is-hidden" id="hydCoolContinue" type="button">ไปต่อเลย</button>
             <button class="hyd-btn hyd-btn-ghost" id="hydCoolSkip" type="button">ข้าม</button>
           </div>
         </div>
@@ -56,11 +80,18 @@ function createHydrationCooldownGame() {
     const fillEl = root.querySelector('#hydCoolFill');
     const hintEl = root.querySelector('#hydCoolHint');
     const breathBtn = root.querySelector('#hydBreathBtn');
+    const continueBtn = root.querySelector('#hydCoolContinue');
     const skipBtn = root.querySelector('#hydCoolSkip');
 
     function updateProgress() {
       if (countEl) countEl.textContent = String(state.roundsDone);
       if (fillEl) fillEl.style.width = `${(state.roundsDone / state.roundsTarget) * 100}%`;
+    }
+
+    function revealContinue() {
+      if (continueBtn) continueBtn.classList.remove('is-hidden');
+      if (breathBtn) breathBtn.classList.add('is-hidden');
+      if (skipBtn) skipBtn.classList.add('is-hidden');
     }
 
     function finishRound() {
@@ -90,17 +121,20 @@ function createHydrationCooldownGame() {
       circle?.classList.add('is-done');
       if (emoji) emoji.textContent = '🌙';
 
+      revealContinue();
       cancelAnimationFrame(state.raf);
 
-      setTimeout(() => {
-        try {
-          if (typeof ctx.onDone === 'function') {
-            ctx.onDone({ ok: true, kind: 'cooldown', score: state.roundsDone });
-          } else if (typeof window.__HHA_GATE_ON_DONE__ === 'function') {
-            window.__HHA_GATE_ON_DONE__({ ok: true, kind: 'cooldown', score: state.roundsDone });
-          }
-        } catch (e) {}
-      }, 550);
+      try {
+        if (typeof ctx.onDone === 'function') {
+          ctx.onDone({ ok: true, kind: 'cooldown', score: state.roundsDone });
+        } else if (typeof window.__HHA_GATE_ON_DONE__ === 'function') {
+          window.__HHA_GATE_ON_DONE__({ ok: true, kind: 'cooldown', score: state.roundsDone });
+        }
+      } catch (e) {}
+
+      state.doneTimer = setTimeout(() => {
+        goNextFallback();
+      }, 900);
     }
 
     function frame(ts) {
@@ -163,12 +197,17 @@ function createHydrationCooldownGame() {
 
     skipBtn?.addEventListener('click', done);
 
+    continueBtn?.addEventListener('click', () => {
+      goNextFallback();
+    });
+
     updateProgress();
     state.raf = requestAnimationFrame(frame);
 
     return {
       destroy() {
         cancelAnimationFrame(state.raf);
+        if (state.doneTimer) clearTimeout(state.doneTimer);
       }
     };
   }
