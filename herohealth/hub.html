@@ -671,8 +671,20 @@
         </div>
         <div class="sep"></div>
         <div class="games">
-          <a class="gameBtn" id="linkGoodjunk" href="#"><div class="t">🍔🆚🥦 GoodJunk</div><div class="s">Launcher • Solo/PRO/Battle • Hero + Card Book</div></a>
+          <a class="gameBtn" id="linkGoodjunk" href="#">
+            <div class="t">🍔🆚🥦 GoodJunk</div>
+            <div class="s">Launcher • Solo/PRO/Battle • Hero + Card Book</div>
+            <div class="miniRow" style="margin-top:6px;">
+              <span class="pill"><b>วอร์มอัป</b>: <span id="gjWarmToday">—</span></span>
+              <span class="pill"><b>คูลดาวน์</b>: <span id="gjCoolToday">—</span></span>
+            </div>
+            <div class="miniRow" style="margin-top:6px;">
+              <span class="pill"><b>รอบนี้</b>: <span id="gjFlowToday">—</span></span>
+            </div>
+          </a>
+
           <a class="gameBtn" id="linkGroups" href="#"><div class="t">🥚🍚 Food Groups</div><div class="s">Classroom ramp + AI warn</div></a>
+
           <a class="gameBtn" id="linkHydration" href="#">
             <div class="t">💧 Hydration</div>
             <div class="s">Storm boss + shield</div>
@@ -684,6 +696,7 @@
               <span class="pill"><b>รอบนี้</b>: <span id="hydFlowToday">—</span></span>
             </div>
           </a>
+
           <a class="gameBtn" id="linkPlate" href="#"><div class="t">🍽 Balanced Plate</div><div class="s">Bloom missions</div></a>
         </div>
         <div class="small" style="margin-top:4px;">Tip: Solo PRO = diff=hard & pro=1 (ผ่าน Launcher)</div>
@@ -755,11 +768,24 @@
       }
     }
 
+    function isCooldownDone(cat, game, who){
+      try{
+        const day = hhDayKey();
+        return (
+          localStorage.getItem(`HHA_COOLDOWN_DONE:${cat}:${game}:${who}:${day}`) === '1' ||
+          localStorage.getItem(`HHA_COOLDOWN_DONE:${cat}:${who}:${day}`) === '1' ||
+          isGateDone('cooldown', cat, game, who)
+        );
+      }catch(e){
+        return false;
+      }
+    }
+
     function childDoneText(done){
       return done ? 'เสร็จแล้ว ✅' : 'ยังไม่ได้ ✨';
     }
 
-    function hydrationFlowText(warmDone){
+    function flowText(warmDone){
       return warmDone ? 'เข้าเกมได้เลย 🎮' : 'ต้องวอร์มอัปก่อน 🏃';
     }
 
@@ -1157,6 +1183,58 @@
       }
     }
 
+    function renderGoodJunkDailyStatus(){
+      const warmEl = document.getElementById('gjWarmToday');
+      const coolEl = document.getElementById('gjCoolToday');
+      const flowEl = document.getElementById('gjFlowToday');
+      if(!warmEl || !coolEl || !flowEl) return;
+
+      const warmDone = isGateDone('warmup', 'nutrition', 'goodjunk', pid);
+      const coolDone = isCooldownDone('nutrition', 'goodjunk', pid);
+
+      warmEl.textContent = childDoneText(warmDone);
+      coolEl.textContent = childDoneText(coolDone);
+      flowEl.textContent = flowText(warmDone);
+    }
+
+    function decorateGoodJunkCard(){
+      const link = document.getElementById('linkGoodjunk');
+      if(!link) return;
+
+      const warmDone = isGateDone('warmup', 'nutrition', 'goodjunk', pid);
+      const coolDone = isCooldownDone('nutrition', 'goodjunk', pid);
+
+      if(warmDone && coolDone){
+        link.style.borderColor = 'rgba(34,197,94,.34)';
+        link.style.boxShadow = '0 18px 55px rgba(34,197,94,.10)';
+      }else if(warmDone){
+        link.style.borderColor = 'rgba(59,130,246,.30)';
+        link.style.boxShadow = '0 18px 55px rgba(59,130,246,.10)';
+      }else{
+        link.style.borderColor = 'rgba(148,163,184,.18)';
+        link.style.boxShadow = '0 18px 55px rgba(0,0,0,.25)';
+      }
+    }
+
+    function decorateGoodJunkFlowChip(){
+      const flowEl = document.getElementById('gjFlowToday');
+      if(!flowEl) return;
+
+      const warmDone = isGateDone('warmup', 'nutrition', 'goodjunk', pid);
+      const parent = flowEl.closest('.pill');
+      if(!parent) return;
+
+      if(warmDone){
+        parent.style.borderColor = 'rgba(34,197,94,.28)';
+        parent.style.background = 'rgba(34,197,94,.14)';
+        parent.style.color = '#dcfce7';
+      }else{
+        parent.style.borderColor = 'rgba(245,158,11,.28)';
+        parent.style.background = 'rgba(245,158,11,.14)';
+        parent.style.color = '#fde68a';
+      }
+    }
+
     function renderHydrationDailyStatus(){
       const warmEl = document.getElementById('hydWarmToday');
       const coolEl = document.getElementById('hydCoolToday');
@@ -1164,19 +1242,11 @@
       if(!warmEl || !coolEl || !flowEl) return;
 
       const warmDone = isGateDone('warmup', 'nutrition', 'hydration', pid);
-
-      let coolDone = false;
-      try{
-        const day = hhDayKey();
-        coolDone =
-          localStorage.getItem(`HHA_COOLDOWN_DONE:nutrition:hydration:${pid}:${day}`) === '1' ||
-          localStorage.getItem(`HHA_COOLDOWN_DONE:nutrition:${pid}:${day}`) === '1' ||
-          isGateDone('cooldown', 'nutrition', 'hydration', pid);
-      }catch(e){}
+      const coolDone = isCooldownDone('nutrition', 'hydration', pid);
 
       warmEl.textContent = childDoneText(warmDone);
       coolEl.textContent = childDoneText(coolDone);
-      flowEl.textContent = hydrationFlowText(warmDone);
+      flowEl.textContent = flowText(warmDone);
     }
 
     function decorateHydrationCard(){
@@ -1184,15 +1254,7 @@
       if(!link) return;
 
       const warmDone = isGateDone('warmup', 'nutrition', 'hydration', pid);
-
-      let coolDone = false;
-      try{
-        const day = hhDayKey();
-        coolDone =
-          localStorage.getItem(`HHA_COOLDOWN_DONE:nutrition:hydration:${pid}:${day}`) === '1' ||
-          localStorage.getItem(`HHA_COOLDOWN_DONE:nutrition:${pid}:${day}`) === '1' ||
-          isGateDone('cooldown', 'nutrition', 'hydration', pid);
-      }catch(e){}
+      const coolDone = isCooldownDone('nutrition', 'hydration', pid);
 
       if(warmDone && coolDone){
         link.style.borderColor = 'rgba(34,197,94,.34)';
@@ -1390,6 +1452,9 @@
       renderLastRun();
       renderJDCardBook();
       renderFitnessJumpDuckShelf();
+      renderGoodJunkDailyStatus();
+      decorateGoodJunkCard();
+      decorateGoodJunkFlowChip();
       renderHydrationDailyStatus();
       decorateHydrationCard();
       decorateHydrationFlowChip();
