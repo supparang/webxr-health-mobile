@@ -1,6 +1,6 @@
 // === /herohealth/vr-groups/groups.safe.js ===
-// GroupsVR SAFE — FX + FAIR MISS + MOBILE LAYOUT FRIENDLY
-// FULL v20260310-GROUPS-FX-LAYOUT-HOTFIX
+// GroupsVR SAFE — CHILD-FRIENDLY + FX + FAIR MISS + MOBILE LAYOUT FRIENDLY
+// FULL PATCH v20260314-GROUPS-SAFE-CHILD-FRIENDLY-r1
 /* global window, document */
 (function(){
   'use strict';
@@ -75,9 +75,9 @@
   const GROUPS = [
     { id:1, short:'หมู่ 1', name:'หมู่ 1 โปรตีน', items:['🥚','🐟','🥛','🍗','🥜'] },
     { id:2, short:'หมู่ 2', name:'หมู่ 2 คาร์โบไฮเดรต', items:['🍚','🍞','🥔','🍜','🥖'] },
-    { id:3, short:'หมู่ 3', name:'หมู่ 3 ผัก', items:['🥦','🥬','🥕','🥒','🌽'] },
-    { id:4, short:'หมู่ 4', name:'หมู่ 4 ผลไม้', items:['🍌','🍎','🍊','🍉','🍇'] },
-    { id:5, short:'หมู่ 5', name:'หมู่ 5 ไขมัน', items:['🥑','🫒','🧈','🥥','🧀'] },
+    { id:3, short:'หมู่ 3 ผัก', items:['🥦','🥬','🥕','🥒','🌽'] },
+    { id:4, short:'หมู่ 4 ผลไม้', items:['🍌','🍎','🍊','🍉','🍇'] },
+    { id:5, short:'หมู่ 5 ไขมัน', items:['🥑','🫒','🧈','🥥','🧀'] },
   ];
 
   const WARN_GAP_MS = 2200;
@@ -126,19 +126,19 @@
     let mood = 'neutral';
 
     if(stage === 'boss'){
-      msg = 'บอสมา! เน้น “หมู่เดียว” ให้แม่น ⚡';
+      msg = 'เป้าพิเศษมาแล้ว! เล็งให้ถูกหมู่นะ';
       mood = 'fever';
     }else if(hazard != null && hazard >= 0.78 && late){
-      msg = 'เริ่มพลาดถี่—ช้าลงนิด แล้วเล็งให้ตรงหมู่ 🎯';
+      msg = 'ใจเย็น ๆ แล้วเล็งใหม่';
       mood = 'sad';
     }else if(accPct < 55){
-      msg = 'โฟกัส “หมู่ที่ถูก” ก่อน อย่ายิงมั่ว 👀';
+      msg = 'มองหมู่ให้ดีก่อนค่อยยิง';
       mood = 'neutral';
     }else if(combo >= 5){
-      msg = 'คอมโบมา! รักษาจังหวะ 🔥';
+      msg = 'คอมโบมาแล้ว! เก่งมาก';
       mood = 'happy';
     }else if(late){
-      msg = 'ช่วงท้ายเริ่มเดือดขึ้น—ใจเย็นและคุมคอมโบ 🎯';
+      msg = 'ช่วงท้ายแล้ว ค่อย ๆ เล็งให้แม่น';
       mood = 'neutral';
     }else{
       return;
@@ -341,12 +341,12 @@
         goalNow: STATE.goalNow,
         goalTotal: STATE.goalTotal,
         groupName: STATE.curGroup.name,
-        miniTitle: (STATE.stage === 'boss') ? 'BOSS' : 'POWER',
+        miniTitle: (STATE.stage === 'boss') ? 'เป้าพิเศษ' : 'พลัง',
         miniNow: (STATE.stage === 'boss') ? STATE.bossHits : STATE.charge,
         miniTotal: (STATE.stage === 'boss') ? 999 : STATE.chargeNeed
       });
 
-      coach(`สลับภารกิจ! หา “${STATE.curGroup.short}” 🎯`, 'neutral');
+      coach(`ดีมาก! ต่อไปหา “${STATE.curGroup.short}”`, 'neutral');
     }
   }
 
@@ -382,12 +382,12 @@
       if(STATE.stage === 'boss'){
         STATE.bossHits++;
         if(STATE.bossHits === 1){
-          coach('บอสเริ่มแล้ว! คุมคอมโบไว้ ⚡', 'fever');
+          coach('เป้าพิเศษเริ่มแล้ว! เก็บให้ได้เยอะ ๆ', 'fever');
         }
       }else if(STATE.combo === 4){
-        coach('คอมโบมาแล้ว! รักษาจังหวะ 🔥', 'happy');
+        coach('คอมโบมาแล้ว! เก่งมาก', 'happy');
       }else if(STATE.goalNow % 5 === 0){
-        coach(`ดีมาก! ต่อไปเน้น “${STATE.curGroup.short}” 🎯`, 'neutral');
+        coach(`ดีมาก! ต่อไปหา “${STATE.curGroup.short}”`, 'neutral');
       }
 
       try{
@@ -406,6 +406,7 @@
       WIN.HHA_AI?.onHit?.('groups_wrong', { id: obj.id, emoji: obj.emoji });
     }catch(_){}
 
+    coach('ลองใหม่อีกครั้ง', 'sad');
     emitHit('hit_bad', false, obj, -3);
     removeTarget(obj.id, 'hit');
   }
@@ -476,11 +477,11 @@
     emit('hha:rank', { grade: gradeLetter() });
 
     emit('quest:update', {
-      goalTitle: (STATE.stage === 'boss') ? 'BOSS: ยิงให้ถูกหมู่ให้ได้มากสุด' : 'ภารกิจ: ยิงให้ถูก “หมู่”',
+      goalTitle: (STATE.stage === 'boss') ? 'เป้าพิเศษ: ยิงให้ถูกหมู่' : 'ภารกิจ: ยิงให้ถูก “หมู่”',
       goalNow: STATE.goalNow,
       goalTotal: STATE.goalTotal,
       groupName: STATE.curGroup ? STATE.curGroup.name : '—',
-      miniTitle: (STATE.stage === 'boss') ? 'BOSS' : 'POWER',
+      miniTitle: (STATE.stage === 'boss') ? 'เป้าพิเศษ' : 'พลัง',
       miniNow: (STATE.stage === 'boss') ? STATE.bossHits : STATE.charge,
       miniTotal: (STATE.stage === 'boss') ? 999 : STATE.chargeNeed,
       miniTimeLeftSec: (STATE.stage === 'boss') ? Math.ceil(STATE.bossLeft) : 0
@@ -527,6 +528,7 @@
         }catch(_){}
 
         setObjCenterFromEl(obj);
+        coach('ชิ้นนี้หลุดไปแล้ว ลองใหม่', 'sad');
         emitHit('timeout_miss', false, obj, -2);
       }else{
         try{
@@ -554,7 +556,7 @@
       short: STATE.curGroup.short
     });
 
-    coach(`MINI BOSS! ⚡ เน้น “${STATE.curGroup.short}” ให้มากที่สุดใน ${STATE.bossSec}s`, 'fever');
+    coach(`เป้าพิเศษมาแล้ว! หา “${STATE.curGroup.short}” ให้เยอะที่สุด`, 'fever');
     emit('groups:boss_start', {
       groupId: STATE.curGroup.id,
       groupName: STATE.curGroup.name,
@@ -565,7 +567,7 @@
   function buildSummary(reason){
     return {
       projectTag: 'GroupsVR',
-      gameVersion: 'GroupsVR_SAFE_FX_LAYOUT_HOTFIX',
+      gameVersion: 'GroupsVR_SAFE_CHILD_FRIENDLY_r1',
       roomId: String(STATE.ctx?.roomId || ''),
       playerKey: String(STATE.ctx?.playerKey || ''),
       battle: !!STATE.ctx?.battle,
@@ -745,9 +747,9 @@
     }catch(_){}
 
     if(STATE.runMode === 'practice'){
-      coach('PRACTICE 15s — ซ้อมก่อน (ไม่คิด miss หนัก) 🧪', 'neutral');
+      coach('ซ้อมก่อน 15 วินาที', 'neutral');
     }else{
-      coach(`เริ่มแล้ว! หา “${STATE.curGroup.short}” แล้วเก็บคอมโบ 🔥`, 'neutral');
+      coach(`เริ่มแล้ว! หา “${STATE.curGroup.short}”`, 'neutral');
     }
 
     setHUD();
