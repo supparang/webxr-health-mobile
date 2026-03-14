@@ -1,6 +1,7 @@
 // === /herohealth/gate/games/hydration/cooldown.js ===
 // Hydration Gate Cooldown
-// CHILD-FRIENDLY PATCH v20260313a
+// CHILD-FRIENDLY PATCH v20260314b
+// ✅ รองรับทั้ง boot() และ mount()
 
 function createHydrationCooldownGame() {
   function boot(root, ctx = {}) {
@@ -57,69 +58,76 @@ function createHydrationCooldownGame() {
     const breathBtn = root.querySelector('#hydBreathBtn');
     const skipBtn = root.querySelector('#hydCoolSkip');
 
-    function updateProgress(){
+    function updateProgress() {
       if (countEl) countEl.textContent = String(state.roundsDone);
       if (fillEl) fillEl.style.width = `${(state.roundsDone / state.roundsTarget) * 100}%`;
     }
 
-    function finishRound(){
+    function finishRound() {
       state.roundsDone += 1;
       updateProgress();
 
-      if (state.roundsDone >= state.roundsTarget){
+      if (state.roundsDone >= state.roundsTarget) {
         done();
       } else {
-        hintEl.textContent = `ดีมาก! อีก ${state.roundsTarget - state.roundsDone} รอบ 🌈`;
-        breathBtn.textContent = 'เริ่มหายใจเข้า';
-        circle.classList.remove('is-inhale', 'is-exhale');
-        emoji.textContent = '😊';
+        if (hintEl) hintEl.textContent = `ดีมาก! อีก ${state.roundsTarget - state.roundsDone} รอบ 🌈`;
+        if (breathBtn) breathBtn.textContent = 'เริ่มหายใจเข้า';
+        circle?.classList.remove('is-inhale', 'is-exhale');
+        if (emoji) emoji.textContent = '😊';
       }
     }
 
-    function done(){
+    function done() {
       if (state.done) return;
       state.done = true;
-      hintEl.textContent = 'เยี่ยมเลย ผ่อนคลายเสร็จแล้ว 💤';
-      breathBtn.disabled = true;
-      breathBtn.textContent = 'เสร็จแล้ว';
-      circle.classList.remove('is-inhale', 'is-exhale');
-      circle.classList.add('is-done');
-      emoji.textContent = '🌙';
+
+      if (hintEl) hintEl.textContent = 'เยี่ยมเลย ผ่อนคลายเสร็จแล้ว 💤';
+      if (breathBtn) {
+        breathBtn.disabled = true;
+        breathBtn.textContent = 'เสร็จแล้ว';
+      }
+      circle?.classList.remove('is-inhale', 'is-exhale');
+      circle?.classList.add('is-done');
+      if (emoji) emoji.textContent = '🌙';
 
       cancelAnimationFrame(state.raf);
 
       setTimeout(() => {
-        try{
-          if (typeof ctx.onDone === 'function') ctx.onDone({ ok:true, kind:'cooldown', score: state.roundsDone });
-          else if (typeof window.__HHA_GATE_ON_DONE__ === 'function') window.__HHA_GATE_ON_DONE__({ ok:true, kind:'cooldown', score: state.roundsDone });
-        }catch(e){}
+        try {
+          if (typeof ctx.onDone === 'function') {
+            ctx.onDone({ ok: true, kind: 'cooldown', score: state.roundsDone });
+          } else if (typeof window.__HHA_GATE_ON_DONE__ === 'function') {
+            window.__HHA_GATE_ON_DONE__({ ok: true, kind: 'cooldown', score: state.roundsDone });
+          }
+        } catch (e) {}
       }, 550);
     }
 
-    function frame(ts){
+    function frame(ts) {
       if (state.done) return;
+
       if (!state.last) state.last = ts;
       const dt = ts - state.last;
       state.last = ts;
 
-      if (state.holding){
+      if (state.holding) {
         state.holdMs += dt;
-        if (state.holdMs >= 1400){
-          circle.classList.remove('is-exhale');
-          circle.classList.add('is-inhale');
-          hintEl.textContent = 'ดีมาก! ตอนนี้ปล่อยเพื่อหายใจออก 💨';
-          breathBtn.textContent = 'ปล่อยเพื่อหายใจออก';
-          emoji.textContent = '🌬️';
+        if (state.holdMs >= 1400) {
+          circle?.classList.remove('is-exhale');
+          circle?.classList.add('is-inhale');
+          if (hintEl) hintEl.textContent = 'ดีมาก! ตอนนี้ปล่อยเพื่อหายใจออก 💨';
+          if (breathBtn) breathBtn.textContent = 'ปล่อยเพื่อหายใจออก';
+          if (emoji) emoji.textContent = '🌬️';
         }
       } else {
-        if (state.holdMs > 0){
+        if (state.holdMs > 0) {
           state.releaseMs += dt;
-          circle.classList.remove('is-inhale');
-          circle.classList.add('is-exhale');
-          hintEl.textContent = 'หายใจออกช้า ๆ 💨';
-          emoji.textContent = '😌';
+          circle?.classList.remove('is-inhale');
+          circle?.classList.add('is-exhale');
+          if (hintEl) hintEl.textContent = 'หายใจออกช้า ๆ 💨';
+          if (emoji) emoji.textContent = '😌';
 
-          if (state.releaseMs >= 800){
+          if (state.releaseMs >= 800) {
             state.holdMs = 0;
             state.releaseMs = 0;
             finishRound();
@@ -130,17 +138,17 @@ function createHydrationCooldownGame() {
       state.raf = requestAnimationFrame(frame);
     }
 
-    function holdStart(){
+    function holdStart() {
       if (state.done) return;
       state.holding = true;
-      hintEl.textContent = 'กดค้างไว้ หายใจเข้าาา 🌬️';
-      breathBtn.textContent = 'กำลังกดค้าง…';
-      circle.classList.add('is-inhale');
-      circle.classList.remove('is-exhale');
-      emoji.textContent = '🙂';
+      if (hintEl) hintEl.textContent = 'กดค้างไว้ หายใจเข้าาา 🌬️';
+      if (breathBtn) breathBtn.textContent = 'กำลังกดค้าง…';
+      circle?.classList.add('is-inhale');
+      circle?.classList.remove('is-exhale');
+      if (emoji) emoji.textContent = '🙂';
     }
 
-    function holdEnd(){
+    function holdEnd() {
       if (state.done) return;
       state.holding = false;
     }
@@ -150,8 +158,8 @@ function createHydrationCooldownGame() {
     breathBtn?.addEventListener('pointerleave', holdEnd);
     breathBtn?.addEventListener('pointercancel', holdEnd);
 
-    breathBtn?.addEventListener('touchstart', holdStart, { passive:true });
-    breathBtn?.addEventListener('touchend', holdEnd, { passive:true });
+    breathBtn?.addEventListener('touchstart', holdStart, { passive: true });
+    breathBtn?.addEventListener('touchend', holdEnd, { passive: true });
 
     skipBtn?.addEventListener('click', done);
 
@@ -159,7 +167,7 @@ function createHydrationCooldownGame() {
     state.raf = requestAnimationFrame(frame);
 
     return {
-      destroy(){
+      destroy() {
         cancelAnimationFrame(state.raf);
       }
     };
@@ -170,7 +178,13 @@ function createHydrationCooldownGame() {
 
 const api = createHydrationCooldownGame();
 
+// รองรับ gate-core แบบใหม่
 export function boot(root, ctx) {
+  return api.boot(root, ctx);
+}
+
+// รองรับ gate-core แบบเก่า
+export function mount(root, ctx) {
   return api.boot(root, ctx);
 }
 
@@ -178,4 +192,5 @@ if (typeof window !== 'undefined') {
   window.HHA_GATE_GAME = window.HHA_GATE_GAME || {};
   window.HHA_GATE_GAME.hydrationCooldown = api;
   window.HHA_GATE_BOOT = api.boot;
+  window.HHA_GATE_MOUNT = api.boot;
 }
