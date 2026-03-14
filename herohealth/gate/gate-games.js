@@ -1,83 +1,244 @@
 // === /herohealth/gate/gate-games.js ===
-// PATCH: add cleanobjects gate mapping
+// HEROHEALTH GATE REGISTRY
+// SAFE PATCH v20260314e
 
 export const GATE_GAMES = {
-  groups: {
-    label: 'GroupsVR',
-    category: 'nutrition',
-    warmupTitle: 'วอร์มอัปก่อนเล่น GroupsVR',
-    cooldownTitle: 'คูลดาวน์หลังเล่น GroupsVR',
-    phaseFiles: {
-      warmup: './games/groups/warmup.js',
-      cooldown: './games/groups/cooldown.js'
-    },
-    styleFile: './games/groups/style.css'
+  // HYGIENE
+  bath: {
+    cat: 'hygiene',
+    label: 'Bath',
+    theme: 'bath',
+    warmupTitle: 'Bath Warmup',
+    cooldownTitle: 'Bath Cooldown',
+    files: {
+      warmup: './games/bath/warmup.js?v=20260314e',
+      cooldown: './games/bath/cooldown.js?v=20260314e',
+      style: './games/bath/style.css?v=20260314e'
+    }
   },
-
-  hydration: {
-    label: 'HydrationVR',
-    category: 'nutrition',
-    warmupTitle: 'วอร์มอัปก่อนเล่น HydrationVR',
-    cooldownTitle: 'คูลดาวน์หลังเล่น HydrationVR',
-    phaseFiles: {
-      warmup: './games/hydration/warmup.js',
-      cooldown: './games/hydration/cooldown.js'
-    },
-    styleFile: './games/hydration/style.css'
+  handwash: {
+    cat: 'hygiene',
+    label: 'Handwash',
+    theme: 'handwash',
+    warmupTitle: 'Handwash Warmup',
+    cooldownTitle: 'Handwash Cooldown',
+    files: {
+      warmup: './games/handwash/warmup.js?v=20260314e',
+      cooldown: './games/handwash/cooldown.js?v=20260314e',
+      style: './games/handwash/style.css?v=20260314e'
+    }
   },
-
-  plate: {
-    label: 'PlateVR',
-    category: 'nutrition',
-    warmupTitle: 'วอร์มอัปก่อนเล่น PlateVR',
-    cooldownTitle: 'คูลดาวน์หลังเล่น PlateVR',
-    phaseFiles: {
-      warmup: './games/plate/warmup.js',
-      cooldown: './games/plate/cooldown.js'
-    },
-    styleFile: './games/plate/style.css'
+  brush: {
+    cat: 'hygiene',
+    label: 'Brush',
+    theme: 'brush',
+    warmupTitle: 'Brush Warmup',
+    cooldownTitle: 'Brush Cooldown',
+    files: {
+      warmup: './games/brush/warmup.js?v=20260314e',
+      cooldown: './games/brush/cooldown.js?v=20260314e',
+      style: './games/brush/style.css?v=20260314e'
+    }
   },
-
-  goodjunk: {
-    label: 'GoodJunkVR',
-    category: 'nutrition',
-    warmupTitle: 'วอร์มอัปก่อนเล่น GoodJunkVR',
-    cooldownTitle: 'คูลดาวน์หลังเล่น GoodJunkVR',
-    phaseFiles: {
-      warmup: './games/goodjunk/warmup.js',
-      cooldown: './games/goodjunk/cooldown.js'
-    },
-    styleFile: './games/goodjunk/style.css'
+  maskcough: {
+    cat: 'hygiene',
+    label: 'Mask & Cough',
+    theme: 'maskcough',
+    warmupTitle: 'Mask & Cough Warmup',
+    cooldownTitle: 'Mask & Cough Cooldown',
+    files: {
+      warmup: './games/maskcough/warmup.js?v=20260314e',
+      cooldown: './games/maskcough/cooldown.js?v=20260314e',
+      style: './games/maskcough/style.css?v=20260314e'
+    }
   },
-
+  germdetective: {
+    cat: 'hygiene',
+    label: 'Germ Detective',
+    theme: 'germdetective',
+    warmupTitle: 'Germ Detective Warmup',
+    cooldownTitle: 'Germ Detective Cooldown',
+    files: {
+      warmup: './games/germdetective/warmup.js?v=20260314e',
+      cooldown: './games/germdetective/cooldown.js?v=20260314e',
+      style: './games/germdetective/style.css?v=20260314e'
+    }
+  },
   cleanobjects: {
+    cat: 'hygiene',
     label: 'Clean Objects',
-    category: 'hygiene',
-    warmupTitle: 'วอร์มอัปก่อนเล่น Clean Objects',
-    cooldownTitle: 'คูลดาวน์หลังเล่น Clean Objects',
-    phaseFiles: {
-      warmup: './games/cleanobjects/warmup.js',
-      cooldown: './games/cleanobjects/cooldown.js'
-    },
-    styleFile: './games/cleanobjects/style.css'
+    theme: 'cleanobjects',
+    warmupTitle: 'Clean Objects Warmup',
+    cooldownTitle: 'Clean Objects Cooldown',
+    files: {
+      warmup: './games/cleanobjects/warmup.js?v=20260314e',
+      cooldown: './games/cleanobjects/cooldown.js?v=20260314e',
+      style: './games/cleanobjects/style.css?v=20260314e'
+    }
+  },
+
+  // NUTRITION
+  goodjunk: {
+    cat: 'nutrition',
+    label: 'GoodJunk',
+    theme: 'goodjunk',
+    warmupTitle: 'GoodJunk Warmup',
+    cooldownTitle: 'GoodJunk Cooldown',
+    files: {
+      warmup: './games/goodjunk/warmup.js?v=20260314e',
+      cooldown: './games/goodjunk/cooldown.js?v=20260314e',
+      style: './games/goodjunk/style.css?v=20260314e'
+    }
+  },
+  groups: {
+    cat: 'nutrition',
+    label: 'Food Groups',
+    theme: 'groups',
+    warmupTitle: 'Food Groups Warmup',
+    cooldownTitle: 'Food Groups Cooldown',
+    files: {
+      warmup: './games/groups/warmup.js?v=20260314e',
+      cooldown: './games/groups/cooldown.js?v=20260314e',
+      style: './games/groups/style.css?v=20260314e'
+    }
+  },
+  hydration: {
+    cat: 'nutrition',
+    label: 'Hydration',
+    theme: 'hydration',
+    warmupTitle: 'Hydration Warmup',
+    cooldownTitle: 'Hydration Cooldown',
+    files: {
+      warmup: './games/hydration/warmup.js?v=20260314e',
+      cooldown: './games/hydration/cooldown.js?v=20260314e',
+      style: './games/hydration/style.css?v=20260314e'
+    }
+  },
+  plate: {
+    cat: 'nutrition',
+    label: 'Plate',
+    theme: 'plate',
+    warmupTitle: 'Plate Warmup',
+    cooldownTitle: 'Plate Cooldown',
+    files: {
+      warmup: './games/plate/warmup.js?v=20260314e',
+      cooldown: './games/plate/cooldown.js?v=20260314e',
+      style: './games/plate/style.css?v=20260314e'
+    }
+  },
+
+  // EXERCISE
+  jumpduck: {
+    cat: 'exercise',
+    label: 'JumpDuck',
+    theme: 'jumpduck',
+    warmupTitle: 'JumpDuck Warmup',
+    cooldownTitle: 'JumpDuck Cooldown',
+    files: {
+      warmup: './games/jumpduck/warmup.js?v=20260314e',
+      cooldown: './games/jumpduck/cooldown.js?v=20260314e',
+      style: './games/jumpduck/style.css?v=20260314e'
+    }
+  },
+  shadowbreaker: {
+    cat: 'exercise',
+    label: 'Shadow Breaker',
+    theme: 'shadowbreaker',
+    warmupTitle: 'Shadow Breaker Warmup',
+    cooldownTitle: 'Shadow Breaker Cooldown',
+    files: {
+      warmup: './games/shadowbreaker/warmup.js?v=20260314e',
+      cooldown: './games/shadowbreaker/cooldown.js?v=20260314e',
+      style: './games/shadowbreaker/style.css?v=20260314e'
+    }
+  },
+  rhythmboxer: {
+    cat: 'exercise',
+    label: 'Rhythm Boxer',
+    theme: 'rhythmboxer',
+    warmupTitle: 'Rhythm Boxer Warmup',
+    cooldownTitle: 'Rhythm Boxer Cooldown',
+    files: {
+      warmup: './games/rhythmboxer/warmup.js?v=20260314e',
+      cooldown: './games/rhythmboxer/cooldown.js?v=20260314e',
+      style: './games/rhythmboxer/style.css?v=20260314e'
+    }
+  },
+  balancehold: {
+    cat: 'exercise',
+    label: 'Balance Hold',
+    theme: 'balancehold',
+    warmupTitle: 'Balance Hold Warmup',
+    cooldownTitle: 'Balance Hold Cooldown',
+    files: {
+      warmup: './games/balancehold/warmup.js?v=20260314e',
+      cooldown: './games/balancehold/cooldown.js?v=20260314e',
+      style: './games/balancehold/style.css?v=20260314e'
+    }
+  },
+  fitnessplanner: {
+    cat: 'exercise',
+    label: 'Fitness Planner',
+    theme: 'fitnessplanner',
+    warmupTitle: 'Fitness Planner Warmup',
+    cooldownTitle: 'Fitness Planner Cooldown',
+    files: {
+      warmup: './games/fitnessplanner/warmup.js?v=20260314e',
+      cooldown: './games/fitnessplanner/cooldown.js?v=20260314e',
+      style: './games/fitnessplanner/style.css?v=20260314e'
+    }
   }
 };
 
-export function normalizeGameId(v=''){
-  return String(v || '').trim().toLowerCase();
+export const GAME_ALIASES = {
+  'jump-duck':'jumpduck',
+  'jump_duck':'jumpduck',
+  'jump duck':'jumpduck',
+  'shadow-breaker':'shadowbreaker',
+  'shadow_breaker':'shadowbreaker',
+  'shadow breaker':'shadowbreaker',
+  'rhythm-boxer':'rhythmboxer',
+  'rhythm_boxer':'rhythmboxer',
+  'rhythm boxer':'rhythmboxer',
+  'balance-hold':'balancehold',
+  'balance_hold':'balancehold',
+  'balance hold':'balancehold',
+  'fitness-planner':'fitnessplanner',
+  'fitness_planner':'fitnessplanner',
+  'fitness planner':'fitnessplanner',
+  'clean-objects':'cleanobjects',
+  'clean_objects':'cleanobjects',
+  'clean objects':'cleanobjects',
+  'germ-detective':'germdetective',
+  'germ_detective':'germdetective',
+  'germ detective':'germdetective',
+  'mask-cough':'maskcough',
+  'mask_cough':'maskcough',
+  'mask cough':'maskcough',
+  'good-junk':'goodjunk',
+  'good_junk':'goodjunk',
+  'good junk':'goodjunk'
+};
+
+export function normalizeGameId(game){
+  const key = String(game || '').trim().toLowerCase();
+  return GAME_ALIASES[key] || key;
 }
 
 export function getGameMeta(game){
   return GATE_GAMES[normalizeGameId(game)] || null;
 }
 
-export function getPhaseFile(game, mode){
-  const meta = getGameMeta(game);
-  if(!meta || !meta.phaseFiles) return '';
-  return meta.phaseFiles[String(mode || '').toLowerCase()] || '';
+export function getGameFiles(game){
+  return getGameMeta(game)?.files || null;
+}
+
+export function getPhaseFile(game, phase='warmup'){
+  const files = getGameFiles(game);
+  if(!files) return null;
+  return String(phase || '').toLowerCase() === 'cooldown' ? files.cooldown : files.warmup;
 }
 
 export function getGameStyleFile(game){
-  const meta = getGameMeta(game);
-  return meta?.styleFile || '';
+  return getGameFiles(game)?.style || null;
 }
