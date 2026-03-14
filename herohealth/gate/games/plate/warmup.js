@@ -2,7 +2,7 @@
    HeroHealth Gate Mini-game
    GAME: plate
    MODE: warmup
-   PATCH v20260314-PLATE-WARMUP-AUTOSTART
+   PATCH v20260314b-PLATE-WARMUP-AUTOSTART-FINISH-FALLBACK
 */
 
 let __styleLoaded = false;
@@ -105,6 +105,8 @@ export async function mount(root, ctx, api){
   let miss = 0;
   let correct = 0;
   let ended = false;
+  let started = false;
+
   const chosen = { veg:'', carb:'', protein:'' };
 
   const plannedTime = Number(ctx.time || 20);
@@ -154,13 +156,13 @@ export async function mount(root, ctx, api){
   const slotCarbV = panelTop.querySelector('#pltSlotCarb');
   const slotProteinV = panelTop.querySelector('#pltSlotProtein');
 
-  api.logger?.push?.('mini_start', {
+  api?.logger?.push?.('mini_start', {
     game: 'plate',
     mode: 'warmup',
     seed: ctx.seed
   });
 
-  api.setStats?.({
+  api?.setStats?.({
     time: timeLeft,
     score: 0,
     miss: 0,
@@ -169,7 +171,7 @@ export async function mount(root, ctx, api){
 
   function updateHud(){
     const acc = idx > 0 ? Math.round((correct / idx) * 100) : 0;
-    api.setStats?.({
+    api?.setStats?.({
       time: timeLeft,
       score,
       miss,
@@ -212,6 +214,7 @@ export async function mount(root, ctx, api){
     for(const opt of opts){
       const isCorrect = opt === good;
       const btn = el('button', `plt-btn ${isCorrect ? 'good' : 'ghost'}`, opt);
+      btn.type = 'button';
 
       btn.addEventListener('click', ()=>{
         if(ended) return;
@@ -227,7 +230,7 @@ export async function mount(root, ctx, api){
           miss++;
         }
 
-        api.logger?.push?.('mini_answer', {
+        api?.logger?.push?.('mini_answer', {
           game:'plate',
           mode:'warmup',
           round: idx,
@@ -245,6 +248,50 @@ export async function mount(root, ctx, api){
       });
 
       choices.appendChild(btn);
+    }
+  }
+
+  function fallbackNextUrl(buffs){
+    try{
+      const rawNext = String(ctx?.next || '').trim();
+      if(rawNext){
+        const u = new URL(rawNext, window.location.href);
+
+        Object.entries(buffs || {}).forEach(([k, v])=>{
+          if(v !== undefined && v !== null && v !== ''){
+            u.searchParams.set(k, String(v));
+          }
+        });
+
+        return u.toString();
+      }
+    }catch(_){}
+
+    try{
+      const u = new URL('../../plate/plate-vr.html', import.meta.url);
+
+      if(ctx?.pid) u.searchParams.set('pid', String(ctx.pid));
+      if(ctx?.hub) u.searchParams.set('hub', String(ctx.hub));
+      if(ctx?.run) u.searchParams.set('run', String(ctx.run));
+      if(ctx?.diff) u.searchParams.set('diff', String(ctx.diff));
+      if(ctx?.view) u.searchParams.set('view', String(ctx.view));
+      if(ctx?.time) u.searchParams.set('time', String(ctx.time));
+      if(ctx?.seed) u.searchParams.set('seed', String(ctx.seed));
+      if(ctx?.cooldown) u.searchParams.set('cooldown', String(ctx.cooldown));
+      if(ctx?.cd) u.searchParams.set('cd', String(ctx.cd));
+      if(ctx?.zone) u.searchParams.set('zone', String(ctx.zone));
+      if(ctx?.mode) u.searchParams.set('mode', String(ctx.mode));
+      if(ctx?.pro) u.searchParams.set('pro', String(ctx.pro));
+
+      Object.entries(buffs || {}).forEach(([k, v])=>{
+        if(v !== undefined && v !== null && v !== ''){
+          u.searchParams.set(k, String(v));
+        }
+      });
+
+      return u.toString();
+    }catch(_){
+      return '../plate/plate-vr.html';
     }
   }
 
@@ -268,13 +315,13 @@ export async function mount(root, ctx, api){
           <div class="plt-item">จำไว้: ผัก 1/2 + ข้าว/แป้ง 1/4 + โปรตีน 1/4</div>
         </div>
         <div class="plt-actions">
-          <button class="plt-btn good" id="pltFinishBtn">ไปเกมหลัก</button>
+          <button class="plt-btn good" id="pltFinishBtn" type="button">ไปเกมหลัก</button>
         </div>
       </div>
     `;
 
     root.querySelector('#pltFinishBtn')?.addEventListener('click', ()=>{
-      api.finish?.({
+      const payload = {
         ok: true,
         title: 'พร้อมแล้ว!',
         subtitle: 'เข้าเกม Plate ได้เลย',
@@ -286,7 +333,24 @@ export async function mount(root, ctx, api){
         ],
         buffs,
         markDailyDone: true
-      });
+      };
+
+      try{
+        console.log('[plate warmup] finish click', {
+          ctx,
+          buffs,
+          hasFinish: typeof api?.finish === 'function'
+        });
+
+        if(typeof api?.finish === 'function'){
+          api.finish(payload);
+          return;
+        }
+      }catch(err){
+        console.warn('[plate warmup] api.finish failed, fallback to next', err);
+      }
+
+      window.location.href = fallbackNextUrl(buffs);
     });
   }
 
@@ -301,7 +365,6 @@ export async function mount(root, ctx, api){
     }
   }, 1000);
 
-  let started = false;
   function startGame(){
     if(started || ended) return;
     started = true;
@@ -309,7 +372,7 @@ export async function mount(root, ctx, api){
     renderRound();
   }
 
-  // ✅ auto-start ทันทีหลัง mount
+  // auto-start ทันทีหลัง mount
   startGame();
 
   return {
