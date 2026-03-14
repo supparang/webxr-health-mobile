@@ -1,5 +1,5 @@
 // === /herohealth/vr-clean/clean.ui.js ===
-// Clean Objects UI — SAFE/PRODUCTION — v20260301-FULL-EXCITE1234-PATCH-E
+// Clean Objects UI — SAFE/PRODUCTION — v20260301-FULL-EXCITE1234-PATCH-F
 'use strict';
 
 function el(tag, cls, html){
@@ -113,45 +113,32 @@ function riskClass(r){
   if(r >= 65) return 'risk-mid';
   return 'risk-low';
 }
-
 function riskStateLabel(r){
   r = Number(r)||0;
   if(r >= 80) return 'วิกฤต';
   if(r >= 65) return 'เสี่ยง';
   return 'เฝ้าระวัง';
 }
-
 function markerClassForRisk(r){
   r = Number(r)||0;
   if(r >= 75) return 'hot';
   if(r >= 55) return 'warn';
   return '';
 }
-
 function placeWithoutOverlap(items, boxW, boxH){
   const placed = [];
   const out = [];
-
   function intersects(a,b){
-    return !(
-      a.x + a.w <= b.x ||
-      a.x >= b.x + b.w ||
-      a.y + a.h <= b.y ||
-      a.y >= b.y + b.h
-    );
+    return !(a.x + a.w <= b.x || a.x >= b.x + b.w || a.y + a.h <= b.y || a.y >= b.y + b.h);
   }
-
   for(const it of items){
     let x = it.cx - boxW/2;
     let y = it.cy - boxH/2;
-
     const tries = [
       [0,0],[0,-18],[0,18],[-18,0],[18,0],
       [-24,-18],[24,-18],[-24,18],[24,18],
-      [0,-30],[0,30],[-32,0],[32,0],
-      [-40,-24],[40,-24],[-40,24],[40,24]
+      [0,-30],[0,30],[-32,0],[32,0]
     ];
-
     let placedBox = null;
     for(const [dx,dy] of tries){
       const cand = { x:x+dx, y:y+dy, w:boxW, h:boxH };
@@ -159,28 +146,17 @@ function placeWithoutOverlap(items, boxW, boxH){
       if(!hit){ placedBox = cand; break; }
     }
     if(!placedBox) placedBox = { x, y, w:boxW, h:boxH };
-
     placed.push(placedBox);
-    out.push({
-      id: it.id,
-      h: it.h,
-      x: placedBox.x,
-      y: placedBox.y,
-      cx: it.cx,
-      cy: it.cy
-    });
+    out.push({ id: it.id, h: it.h, x: placedBox.x, y: placedBox.y, cx: it.cx, cy: it.cy });
   }
   return out;
 }
-
 function addLeaderLine(layer, x1, y1, x2, y2){
   const dx = x2 - x1;
   const dy = y2 - y1;
   const len = Math.sqrt(dx*dx + dy*dy);
   if(len < 8) return null;
-
   const ang = Math.atan2(dy, dx) * 180 / Math.PI;
-
   const line = el('div','mk-line');
   line.style.left = `${x1}px`;
   line.style.top = `${y1}px`;
@@ -189,7 +165,6 @@ function addLeaderLine(layer, x1, y1, x2, y2){
   layer.appendChild(line);
   return line;
 }
-
 function popScore(layer, x, y, text, cls=''){
   const n = el('div',`fx-pop ${cls}`);
   n.textContent = text;
@@ -198,14 +173,12 @@ function popScore(layer, x, y, text, cls=''){
   layer.appendChild(n);
   setTimeout(()=> n.remove(), 750);
 }
-
 function starText(score){
   score = Number(score||0);
   if(score >= 420) return '⭐⭐⭐';
   if(score >= 280) return '⭐⭐';
   return '⭐';
 }
-
 function summaryAdviceA(bd, comboBest, bossPenalty){
   const tips = [];
   if(Number(bd?.dq||0) < 60) tips.push('เลือกจุดคุ้มให้มากขึ้น เช่น ลูกบิด ของใช้ร่วม ก๊อกน้ำ');
@@ -216,13 +189,12 @@ function summaryAdviceA(bd, comboBest, bossPenalty){
   if(!tips.length) tips.push('ทำได้ดีมากแล้ว รอบหน้าลองเคลียร์บอสให้เร็วขึ้น');
   return tips.slice(0,2);
 }
-
 function summaryAdviceB(bd, bossPenalty){
   const tips = [];
   if(Number(bd?.coverageB||0) < 60) tips.push('เลือกจุดสัมผัสสูงเพิ่ม เพื่อดัน Coverage');
   if(Number(bd?.balanceScore||0) < 55) tips.push('เลือกหลายโซน/หลายพื้นผิวให้สมดุลขึ้น');
   if(Number(bd?.remainScore||0) < 60) tips.push('ยังพลาดจุดคุ้มหลายจุด ลองเพิ่มของใช้ร่วมและจุดเปียก');
-  if(Number(bossPenalty||0) > 0) tips.push('ใส่บอสลงใน route ด้วย จะไม่โดนหัก');
+  if(Number(bd?.bossPenalty||0) > 0 || Number(bossPenalty||0) > 0) tips.push('ใส่บอสลงใน route ด้วย จะไม่โดนหัก');
   if(!tips.length) tips.push('แผนดีมากแล้ว ลองทำ route ให้สั้นลง');
   return tips.slice(0,2);
 }
@@ -273,9 +245,7 @@ export function mountCleanUI(root, opts){
   overlay.innerHTML = `
     <div class="ovHint" id="ovHint">
       <div class="ovT" style="font-weight:1000">Clean Objects</div>
-      <div id="missionLine" class="missionLine">
-        🎯 เลือก “จุดที่เสี่ยงที่สุด” ก่อน เช่น 🚪 ลูกบิด • 🤝 ของใช้ร่วม • 💧 ก๊อกน้ำ
-      </div>
+      <div id="missionLine" class="missionLine">🎯 เลือก “จุดที่เสี่ยงที่สุด” ก่อน</div>
       <div class="ovS" style="font-size:12px;opacity:.85;margin-top:4px">
         แตะ marker บนแผนที่เพื่อเล่น • Cardboard ยิงด้วย crosshair ได้
       </div>
@@ -295,26 +265,6 @@ export function mountCleanUI(root, opts){
   `;
   app.appendChild(info);
 
-  const legend = el('div','legendCard');
-  legend.innerHTML = `
-    <div class="legendTitle">อ่านจุดบนแผนที่</div>
-    <div class="legendGrid">
-      <div class="legendItem"><span class="lgBox">🚪</span><span>ลูกบิด/ทางเข้า</span></div>
-      <div class="legendItem"><span class="lgBox">🤝</span><span>ของใช้ร่วม</span></div>
-      <div class="legendItem"><span class="lgBox">💧</span><span>ก๊อกน้ำ/จุดเปียก</span></div>
-      <div class="legendItem"><span class="lgBox">📱</span><span>อุปกรณ์ที่จับบ่อย</span></div>
-    </div>
-    <div class="legendRisk">
-      <span><span class="riskDot high"></span>เสี่ยงสูง</span>
-      <span><span class="riskDot mid"></span>เสี่ยงกลาง</span></div>
-      <span><span class="riskDot low"></span>เสี่ยงต่ำ</span>
-    </div>
-    <div style="margin-top:10px">
-      <button class="btn" id="btnHowTo" type="button">วิธีเล่น</button>
-    </div>
-  `;
-  app.appendChild(legend);
-
   const routePanel = el('div','routePanel');
   routePanel.innerHTML = `
     <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
@@ -332,32 +282,6 @@ export function mountCleanUI(root, opts){
   `;
   app.appendChild(routePanel);
 
-  const tutorial = el('div','tutorialWrap');
-  tutorial.style.display = 'none';
-  tutorial.innerHTML = `
-    <div class="tutorialCard">
-      <div class="tutorialHead">
-        <div class="tutorialTitle" id="tutorialTitle">วิธีเล่น</div>
-        <button class="btn" id="btnTutorialSkip" type="button">ข้าม</button>
-      </div>
-      <div class="tutorialBody">
-        <div id="tutorialText" class="tutorialText"></div>
-        <div id="tutorialHint" class="tutorialHint"></div>
-      </div>
-      <div class="tutorialFoot">
-        <label class="tutorialChk">
-          <input type="checkbox" id="tutorialNoMore" />
-          ไม่ต้องโชว์อีกวันนี้
-        </label>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <button class="btn" id="btnTutorialPrev" type="button">ย้อนกลับ</button>
-          <button class="btn primary" id="btnTutorialNext" type="button">ถัดไป</button>
-        </div>
-      </div>
-    </div>
-  `;
-  root.appendChild(tutorial);
-
   const coachToast = el('div','coachToast mood-tip');
   coachToast.style.display = '';
   coachToast.innerHTML = `
@@ -372,8 +296,7 @@ export function mountCleanUI(root, opts){
   const summary = el('div','summary');
   summary.style.cssText = `
     position:fixed; inset:0; z-index:200; display:none;
-    padding: 14px;
-    background: rgba(0,0,0,.55);
+    padding:14px; background:rgba(0,0,0,.55);
   `;
   summary.innerHTML = `
     <div style="max-width:860px;margin:0 auto;border:1px solid rgba(148,163,184,.18);background:rgba(2,6,23,.86);border-radius:22px;padding:14px;box-shadow:0 30px 90px rgba(0,0,0,.45)">
@@ -394,499 +317,101 @@ export function mountCleanUI(root, opts){
     .cleanApp{ display:grid; gap:12px; }
     .hud{ display:grid; gap:10px; }
     .hudRow{ display:flex; gap:8px; flex-wrap:wrap; }
-    .pill{
-      border:1px solid rgba(148,163,184,.20); background: rgba(2,6,23,.45); color: rgba(229,231,235,.95);
-      padding:10px 12px; border-radius:14px; font-weight:1000;
-    }
-    .dangerMini{
-      border-color: rgba(245,158,11,.28);
-      background: rgba(245,158,11,.10);
-    }
-    .bossMini{
-      border-color: rgba(167,139,250,.28);
-      background: rgba(167,139,250,.10);
-    }
-    .btn{
-      border:1px solid rgba(148,163,184,.20); background: rgba(2,6,23,.45); color: rgba(229,231,235,.95);
-      padding:10px 12px; border-radius:14px; font-weight:1000; cursor:pointer;
-    }
-    .btn.primary{ background: rgba(59,130,246,.28); border-color: rgba(59,130,246,.38); }
-    .btn:active{ transform: translateY(1px); }
-    .chip{
-      border:1px solid rgba(148,163,184,.18); background: rgba(2,6,23,.38); color: rgba(229,231,235,.92);
-      padding: 8px 10px; border-radius: 999px; font-weight: 900; cursor:pointer; font-size:12px;
-    }
-    .chip.sel{ border-color: rgba(59,130,246,.55); background: rgba(59,130,246,.18); }
+    .pill{ border:1px solid rgba(148,163,184,.20); background:rgba(2,6,23,.45); color:rgba(229,231,235,.95); padding:10px 12px; border-radius:14px; font-weight:1000; }
+    .dangerMini{ border-color:rgba(245,158,11,.28); background:rgba(245,158,11,.10); }
+    .bossMini{ border-color:rgba(167,139,250,.28); background:rgba(167,139,250,.10); }
+    .btn{ border:1px solid rgba(148,163,184,.20); background:rgba(2,6,23,.45); color:rgba(229,231,235,.95); padding:10px 12px; border-radius:14px; font-weight:1000; cursor:pointer; }
+    .btn.primary{ background:rgba(59,130,246,.28); border-color:rgba(59,130,246,.38); }
+    .chip{ border:1px solid rgba(148,163,184,.18); background:rgba(2,6,23,.38); color:rgba(229,231,235,.92); padding:8px 10px; border-radius:999px; font-weight:900; cursor:pointer; font-size:12px; }
+    .chip.sel{ border-color:rgba(59,130,246,.55); background:rgba(59,130,246,.18); }
 
-    .alertBar{
-      display:grid;
-      gap:4px;
-      padding:10px 12px;
-      border-radius:14px;
-      border:1px solid rgba(245,158,11,.28);
-      background: rgba(245,158,11,.10);
-    }
-    .alertBar.crisis{
-      border-color: rgba(239,68,68,.34);
-      background: rgba(239,68,68,.12);
-      box-shadow: 0 0 0 1px rgba(239,68,68,.18), 0 10px 30px rgba(239,68,68,.08);
-    }
-    .alertBar.reward{
-      border-color: rgba(34,197,94,.34);
-      background: rgba(34,197,94,.12);
-      box-shadow: 0 0 0 1px rgba(34,197,94,.18), 0 10px 30px rgba(34,197,94,.08);
-    }
+    .alertBar{ display:grid; gap:4px; padding:10px 12px; border-radius:14px; border:1px solid rgba(245,158,11,.28); background:rgba(245,158,11,.10); }
+    .alertBar.crisis{ border-color:rgba(239,68,68,.34); background:rgba(239,68,68,.12); }
+    .alertBar.reward{ border-color:rgba(34,197,94,.34); background:rgba(34,197,94,.12); }
     .alertTitle{ font-size:12px; font-weight:1100; }
     .alertText{ font-size:12px; font-weight:900; opacity:.92; }
 
-    .board{
-      position:relative;
-      min-height: 640px;
-      border-radius: 22px;
-      border:1px solid rgba(148,163,184,.18);
-      background:
-        radial-gradient(900px 500px at 50% -20%, rgba(59,130,246,.10), transparent 60%),
-        rgba(2,6,23,.55);
-      box-shadow: 0 18px 55px rgba(0,0,0,.28);
-      overflow:hidden;
-    }
-    .grid{ position:relative; min-height: 640px; }
+    .board{ position:relative; min-height:640px; border-radius:22px; border:1px solid rgba(148,163,184,.18); background:radial-gradient(900px 500px at 50% -20%, rgba(59,130,246,.10), transparent 60%), rgba(2,6,23,.55); box-shadow:0 18px 55px rgba(0,0,0,.28); overflow:hidden; }
+    .grid{ position:relative; min-height:640px; }
     .heatLayer{ position:absolute; inset:0; pointer-events:none; }
     .markerLayer{ position:absolute; inset:0; }
     .overlay{ position:absolute; inset:0; pointer-events:none; }
-    .ovHint{
-      margin:10px;
-      max-width: 520px;
-      border-radius: 16px;
-      border:1px solid rgba(148,163,184,.18);
-      background: rgba(2,6,23,.48);
-      padding:10px 12px;
-      box-shadow: 0 14px 44px rgba(0,0,0,.25);
-    }
-    .missionLine{
-      margin-top:6px;
-      font-size:12px;
-      font-weight:950;
-      line-height:1.35;
-      color: rgba(229,231,235,.95);
-      background: rgba(34,211,238,.08);
-      border:1px solid rgba(34,211,238,.16);
-      border-radius:12px;
-      padding:8px 10px;
-    }
+    .ovHint{ margin:10px; max-width:520px; border-radius:16px; border:1px solid rgba(148,163,184,.18); background:rgba(2,6,23,.48); padding:10px 12px; box-shadow:0 14px 44px rgba(0,0,0,.25); }
+    .missionLine{ margin-top:6px; font-size:12px; font-weight:950; line-height:1.35; color:rgba(229,231,235,.95); background:rgba(34,211,238,.08); border:1px solid rgba(34,211,238,.16); border-radius:12px; padding:8px 10px; }
 
-    .heat{
-      position:absolute; border-radius:999px; filter: blur(10px);
-      background: radial-gradient(circle, rgba(255,255,255,.40), transparent 70%);
-    }
-    .heat.cool{ background: radial-gradient(circle, rgba(34,197,94,.26), transparent 70%); }
-    .heat.warm{ background: radial-gradient(circle, rgba(245,158,11,.26), transparent 70%); }
-    .heat.hot{ background: radial-gradient(circle, rgba(239,68,68,.30), transparent 70%); }
-    .heat.spread-hot{
-      background: radial-gradient(circle, rgba(239,68,68,.42), transparent 70%);
-      animation: spreadPulse 0.7s ease-in-out 4 alternate;
-    }
+    .heat{ position:absolute; border-radius:999px; filter:blur(10px); background:radial-gradient(circle, rgba(255,255,255,.40), transparent 70%); }
+    .heat.cool{ background:radial-gradient(circle, rgba(34,197,94,.26), transparent 70%); }
+    .heat.warm{ background:radial-gradient(circle, rgba(245,158,11,.26), transparent 70%); }
+    .heat.hot{ background:radial-gradient(circle, rgba(239,68,68,.30), transparent 70%); }
+    .heat.spread-hot{ background:radial-gradient(circle, rgba(239,68,68,.42), transparent 70%); animation:spreadPulse .7s ease-in-out 4 alternate; }
 
-    .mk{
-      position:absolute;
-      width:92px; min-height:72px;
-      border-radius:14px;
-      border:1px solid rgba(148,163,184,.25);
-      background: rgba(2,6,23,.82);
-      display:flex; flex-direction:column; align-items:center; justify-content:center;
-      gap:2px;
-      padding:6px 8px;
-      text-align:center;
-      cursor:pointer; user-select:none;
-      box-shadow: 0 10px 30px rgba(0,0,0,.18);
-      transform: translate(-50%, -50%);
-    }
+    .mk{ position:absolute; width:92px; min-height:72px; border-radius:14px; border:1px solid rgba(148,163,184,.25); background:rgba(2,6,23,.82); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; padding:6px 8px; text-align:center; cursor:pointer; user-select:none; box-shadow:0 10px 30px rgba(0,0,0,.18); transform:translate(-50%, -50%); }
     .mk .mk-icon{ font-size:18px; line-height:1; }
     .mk .mk-name{ font-size:11px; font-weight:1000; line-height:1.1; }
-    .mk .mk-risk{
-      font-size:11px; font-weight:1000;
-      padding:2px 6px; border-radius:999px;
-      background: rgba(255,255,255,.08);
-    }
+    .mk .mk-risk{ font-size:11px; font-weight:1000; padding:2px 6px; border-radius:999px; background:rgba(255,255,255,.08); }
     .mk .mk-state{ font-size:10px; font-weight:1000; opacity:.82; line-height:1.1; }
 
-    .mk.on{ border-color: rgba(34,197,94,.55); background: rgba(34,197,94,.12); }
-    .mk.warn,.mk.risk-mid{
-      border-color: rgba(251,191,36,.55);
-      box-shadow: 0 0 0 6px rgba(251,191,36,.08), 0 10px 30px rgba(0,0,0,.18);
-    }
-    .mk.hot,.mk.risk-high{
-      border-color: rgba(239,68,68,.55);
-      box-shadow: 0 0 0 6px rgba(239,68,68,.10), 0 10px 30px rgba(0,0,0,.18);
-    }
-    .mk.risk-low{ border-color: rgba(34,197,94,.35); }
-    .mk.risk-high .mk-state{ color:#fecaca; }
-    .mk.risk-mid .mk-state{ color:#fde68a; }
-    .mk.risk-low .mk-state{ color:#bbf7d0; }
-    .mk.risk-high{ animation: riskPulseHigh .8s ease-in-out infinite alternate; }
-    .mk.risk-mid{ animation: riskPulseMid 1.2s ease-in-out infinite alternate; }
-    .mk.boss{
-      outline: 2px solid rgba(239,68,68,.55);
-      outline-offset: 2px;
-    }
+    .mk.on{ border-color:rgba(34,197,94,.55); background:rgba(34,197,94,.12); }
+    .mk.warn,.mk.risk-mid{ border-color:rgba(251,191,36,.55); box-shadow:0 0 0 6px rgba(251,191,36,.08), 0 10px 30px rgba(0,0,0,.18); }
+    .mk.hot,.mk.risk-high{ border-color:rgba(239,68,68,.55); box-shadow:0 0 0 6px rgba(239,68,68,.10), 0 10px 30px rgba(0,0,0,.18); }
+    .mk.risk-low{ border-color:rgba(34,197,94,.35); }
+    .mk.boss{ outline:2px solid rgba(239,68,68,.55); outline-offset:2px; }
+    .mk.ai-hot{ outline:3px solid rgba(34,211,238,.85); box-shadow:0 0 0 8px rgba(34,211,238,.16), 0 10px 30px rgba(0,0,0,.18); }
+    .mk.boss-hot{ outline:3px solid rgba(245,158,11,.9); box-shadow:0 0 0 8px rgba(245,158,11,.14), 0 10px 30px rgba(0,0,0,.18); animation:bossTargetPulse .8s ease-in-out infinite alternate; }
+    .mk.quickpick{ outline:3px solid rgba(34,211,238,.92); box-shadow:0 0 0 10px rgba(34,211,238,.16), 0 10px 30px rgba(0,0,0,.18); }
+    .mk.selected{ transform:translate(-50%, -50%) scale(.94); opacity:.72; }
+    .mk.spread-hit{ animation:spreadHit .55s ease-out 1; }
 
-    .mk.ai-hot{
-      outline: 3px solid rgba(34,211,238,.85);
-      box-shadow: 0 0 0 8px rgba(34,211,238,.16), 0 10px 30px rgba(0,0,0,.18);
-      animation: aihotPulse .9s ease-in-out infinite alternate;
-    }
-    .mk.boss-hot{
-      outline: 3px solid rgba(245,158,11,.9);
-      box-shadow: 0 0 0 8px rgba(245,158,11,.14), 0 10px 30px rgba(0,0,0,.18);
-      animation: bossTargetPulse .8s ease-in-out infinite alternate;
-    }
-    .mk.quickpick{
-      outline: 3px solid rgba(34,211,238,.92);
-      box-shadow: 0 0 0 10px rgba(34,211,238,.16), 0 10px 30px rgba(0,0,0,.18);
-    }
-    .mk.selected{
-      transform: translate(-50%, -50%) scale(.94);
-      opacity: .72;
-      filter: saturate(.85);
-    }
-    .mk.selected .mk-risk{ background: rgba(34,197,94,.18); }
-    .mk.spread-hit{
-      animation: spreadHit 0.55s ease-out 1;
-    }
+    .mk-anchor{ position:absolute; width:6px; height:6px; border-radius:999px; background:rgba(255,255,255,.45); pointer-events:none; }
+    .mk-line{ position:absolute; height:2px; background:rgba(148,163,184,.42); transform-origin:0 50%; pointer-events:none; }
+    .mk-line.line-selected{ background:rgba(34,197,94,.58); }
+    .mk-line.line-boss{ background:rgba(245,158,11,.72); height:3px; }
+    .mk-line.line-ai{ background:rgba(34,211,238,.72); height:3px; }
+    .mk-line.line-spread{ background:rgba(239,68,68,.78); height:3px; }
 
-    .mk-anchor{
-      position:absolute;
-      width:6px; height:6px;
-      border-radius:999px;
-      background: rgba(255,255,255,.45);
-      pointer-events:none;
-    }
-    .mk-line{
-      position:absolute;
-      height:2px;
-      background: rgba(148,163,184,.42);
-      transform-origin: 0 50%;
-      pointer-events:none;
-    }
-    .mk-line.line-selected{ background: rgba(34,197,94,.58); }
-    .mk-line.line-boss{ background: rgba(245,158,11,.72); height: 3px; }
-    .mk-line.line-ai{ background: rgba(34,211,238,.72); height: 3px; }
-    .mk-line.line-spread{
-      background: rgba(239,68,68,.78);
-      height: 3px;
-      animation: lineSpreadPulse .5s ease-in-out 3 alternate;
-    }
-
-    .fx-pop{
-      position:absolute;
-      transform: translate(-50%, -50%);
-      font-size:14px;
-      font-weight:1000;
-      color:#e5e7eb;
-      text-shadow: 0 10px 28px rgba(0,0,0,.45);
-      pointer-events:none;
-      animation: fxPopUp .75s ease-out forwards;
-    }
-    .fx-pop.reward{
-      color:#bbf7d0;
-      font-size:16px;
-    }
-
-    .legendCard{
-      border:1px solid rgba(148,163,184,.18);
-      background: rgba(2,6,23,.52);
-      border-radius:18px;
-      padding:12px;
-      box-shadow: 0 14px 44px rgba(0,0,0,.25);
-    }
-    .legendTitle{ font-weight:1000; margin-bottom:8px; }
-    .legendGrid{
-      display:grid;
-      grid-template-columns: repeat(2, minmax(0,1fr));
-      gap:8px;
-    }
-    .legendItem{
-      display:flex; align-items:center; gap:8px;
-      font-size:12px; font-weight:900; opacity:.95;
-    }
-    .lgBox{
-      min-width:28px; height:28px;
-      display:grid; place-items:center;
-      border-radius:10px;
-      border:1px solid rgba(148,163,184,.18);
-      background: rgba(15,23,42,.55);
-    }
-    .legendRisk{
-      margin-top:10px;
-      font-size:12px;
-      font-weight:900;
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      align-items:center;
-    }
-    .riskDot{
-      display:inline-block;
-      width:10px; height:10px;
-      border-radius:999px;
-      margin-right:4px;
-    }
-    .riskDot.high{ background: rgba(239,68,68,.92); }
-    .riskDot.mid{ background: rgba(245,158,11,.92); }
-    .riskDot.low{ background: rgba(34,197,94,.92); }
-
-    .routePanel,.info{
-      border-radius:18px;
-      border:1px solid rgba(148,163,184,.16);
-      background: rgba(15,23,42,.46);
-      padding:12px;
-      box-shadow: 0 18px 55px rgba(0,0,0,.25);
-    }
-
+    .routePanel,.info{ border-radius:18px; border:1px solid rgba(148,163,184,.16); background:rgba(15,23,42,.46); padding:12px; box-shadow:0 18px 55px rgba(0,0,0,.25); }
     .bars{ margin-bottom:10px; }
-    .barRow{
-      display:grid;
-      grid-template-columns: 72px 1fr 48px;
-      gap:8px;
-      align-items:center;
-      margin:8px 0;
-    }
-    .barLab,.barVal{ font-size:12px; font-weight:900; color: rgba(229,231,235,.92); }
-    .barTrack{
-      height:10px; border-radius:999px;
-      background: rgba(255,255,255,.08);
-      overflow:hidden;
-    }
-    .barFill{
-      height:100%;
-      background: linear-gradient(90deg, rgba(59,130,246,.75), rgba(34,197,94,.75));
-      border-radius:999px;
-    }
+    .barRow{ display:grid; grid-template-columns:72px 1fr 48px; gap:8px; align-items:center; margin:8px 0; }
+    .barLab,.barVal{ font-size:12px; font-weight:900; color:rgba(229,231,235,.92); }
+    .barTrack{ height:10px; border-radius:999px; background:rgba(255,255,255,.08); overflow:hidden; }
+    .barFill{ height:100%; background:linear-gradient(90deg, rgba(59,130,246,.75), rgba(34,197,94,.75)); border-radius:999px; }
 
-    .coachToast{
-      position: fixed;
-      right: 14px;
-      bottom: 18px;
-      z-index: 180;
-      display:flex;
-      align-items:flex-end;
-      gap:10px;
-      max-width: min(420px, 92vw);
-      opacity:.96;
-      transform: translateY(0);
-      transition: transform .18s ease, opacity .18s ease, filter .18s ease;
-    }
-    .coachToast.show{
-      transform: translateY(-2px);
-      filter: brightness(1.04);
-    }
-    .coachAvatar{
-      width:46px;
-      height:46px;
-      border-radius:16px;
-      display:grid;
-      place-items:center;
-      font-size:22px;
-      font-weight:1000;
-      border:1px solid rgba(148,163,184,.20);
-      background: rgba(15,23,42,.88);
-      box-shadow: 0 12px 28px rgba(0,0,0,.28);
-      flex: 0 0 auto;
-    }
-    .coachBubble{
-      border:1px solid rgba(148,163,184,.18);
-      background: rgba(2,6,23,.86);
-      border-radius:18px 18px 6px 18px;
-      padding:10px 12px;
-      box-shadow: 0 16px 44px rgba(0,0,0,.30);
-      min-width: 180px;
-    }
-    .coachName{
-      font-size:11px;
-      font-weight:1000;
-      opacity:.72;
-      margin-bottom:4px;
-      letter-spacing:.2px;
-    }
-    .ctInner{
-      font-size:13px;
-      font-weight:950;
-      line-height:1.4;
-    }
-    .coachToast.mood-tip .coachBubble{
-      border-color: rgba(34,211,238,.22);
-      background: rgba(2,6,23,.88);
-    }
-    .coachToast.mood-warn .coachBubble{
-      border-color: rgba(245,158,11,.30);
-      background: rgba(38,20,4,.88);
-    }
-    .coachToast.mood-boss .coachBubble{
-      border-color: rgba(239,68,68,.32);
-      background: rgba(40,10,10,.90);
-    }
-    .coachToast.mood-good .coachBubble{
-      border-color: rgba(34,197,94,.28);
-      background: rgba(8,30,16,.88);
-    }
+    .coachToast{ position:fixed; right:14px; bottom:18px; z-index:180; display:flex; align-items:flex-end; gap:10px; max-width:min(420px, 92vw); }
+    .coachAvatar{ width:46px; height:46px; border-radius:16px; display:grid; place-items:center; font-size:22px; font-weight:1000; border:1px solid rgba(148,163,184,.20); background:rgba(15,23,42,.88); }
+    .coachBubble{ border:1px solid rgba(148,163,184,.18); background:rgba(2,6,23,.86); border-radius:18px 18px 6px 18px; padding:10px 12px; min-width:180px; }
+    .coachName{ font-size:11px; font-weight:1000; opacity:.72; margin-bottom:4px; }
+    .ctInner{ font-size:13px; font-weight:950; line-height:1.4; }
+    .coachToast.mood-warn .coachBubble{ border-color:rgba(245,158,11,.30); background:rgba(38,20,4,.88); }
+    .coachToast.mood-boss .coachBubble{ border-color:rgba(239,68,68,.32); background:rgba(40,10,10,.90); }
+    .coachToast.mood-good .coachBubble{ border-color:rgba(34,197,94,.28); background:rgba(8,30,16,.88); }
 
-    .tutorialWrap{
-      position:fixed;
-      inset:0;
-      z-index:300;
-      background: rgba(0,0,0,.56);
-      display:flex;
-      align-items:flex-end;
-      justify-content:center;
-      padding:16px;
-    }
-    .tutorialCard{
-      width:min(560px, 94vw);
-      border:1px solid rgba(148,163,184,.20);
-      background: rgba(2,6,23,.94);
-      border-radius:20px;
-      box-shadow: 0 28px 90px rgba(0,0,0,.45);
-      overflow:hidden;
-    }
-    .tutorialHead{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
-      padding:12px;
-      border-bottom:1px solid rgba(148,163,184,.16);
-    }
-    .tutorialTitle{ font-weight:1000; font-size:15px; }
-    .tutorialBody{ padding:12px; }
-    .tutorialText{ font-weight:1000; line-height:1.45; font-size:14px; }
-    .tutorialHint{ margin-top:8px; font-size:12px; line-height:1.45; opacity:.86; }
-    .tutorialFoot{
-      padding:12px;
-      border-top:1px solid rgba(148,163,184,.16);
-      display:flex;
-      gap:10px;
-      justify-content:space-between;
-      align-items:center;
-      flex-wrap:wrap;
-    }
-    .tutorialChk{
-      display:flex;
-      align-items:center;
-      gap:8px;
-      font-size:12px;
-      font-weight:900;
-      opacity:.88;
-    }
+    .starRow{ margin-top:10px; display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding:8px 10px; border:1px solid rgba(148,163,184,.14); border-radius:14px; background:rgba(15,23,42,.38); }
+    .star{ font-size:20px; line-height:1; opacity:.55; }
+    .star.on{ opacity:1; transform:scale(1.08); }
 
-    .starRow{
-      margin-top:10px;
-      display:flex;
-      align-items:center;
-      gap:10px;
-      flex-wrap:wrap;
-      padding:8px 10px;
-      border:1px solid rgba(148,163,184,.14);
-      border-radius:14px;
-      background: rgba(15,23,42,.38);
-    }
-    .starTitle{ font-size:12px; font-weight:1000; opacity:.9; }
-    .stars{ display:flex; gap:6px; align-items:center; }
-    .star{
-      font-size:20px; line-height:1; opacity:.55;
-      transition: transform .12s ease, opacity .12s ease, filter .12s ease;
-    }
-    .star.on{
-      opacity:1;
-      transform: scale(1.08);
-      filter: drop-shadow(0 8px 18px rgba(0,0,0,.28));
-    }
-    .starNote{ font-size:12px; font-weight:900; opacity:.86; }
+    .fx-pop{ position:absolute; transform:translate(-50%, -50%); font-size:14px; font-weight:1000; color:#e5e7eb; pointer-events:none; animation:fxPopUp .75s ease-out forwards; }
+    .fx-pop.reward{ color:#bbf7d0; font-size:16px; }
 
-    .sumStars{
-      font-size: 22px;
-      font-weight: 1000;
-      letter-spacing: 2px;
-      margin-top: 8px;
-    }
-    .sumGrid{
-      display:grid;
-      grid-template-columns: repeat(2, minmax(0,1fr));
-      gap:10px;
-      margin-top:12px;
-    }
-    .sumBox{
-      border:1px solid rgba(148,163,184,.16);
-      background: rgba(15,23,42,.45);
-      border-radius:16px;
-      padding:10px;
-    }
-    .sumBoxTitle{
-      font-size:12px;
-      font-weight:1000;
-      opacity:.88;
-      margin-bottom:6px;
-    }
-    .sumBoxVal{
-      font-size:18px;
-      font-weight:1000;
-    }
-    .sumTips{
-      margin-top:12px;
-      border:1px solid rgba(148,163,184,.16);
-      background: rgba(2,6,23,.38);
-      border-radius:16px;
-      padding:10px;
-      font-size:13px;
-      line-height:1.5;
-    }
+    .sumStars{ font-size:22px; font-weight:1000; letter-spacing:2px; margin-top:8px; }
+    .sumGrid{ display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:10px; margin-top:12px; }
+    .sumBox{ border:1px solid rgba(148,163,184,.16); background:rgba(15,23,42,.45); border-radius:16px; padding:10px; }
+    .sumBoxTitle{ font-size:12px; font-weight:1000; opacity:.88; margin-bottom:6px; }
+    .sumBoxVal{ font-size:18px; font-weight:1000; }
+    .sumTips{ margin-top:12px; border:1px solid rgba(148,163,184,.16); background:rgba(2,6,23,.38); border-radius:16px; padding:10px; font-size:13px; line-height:1.5; }
 
-    .danger .hud{ box-shadow: 0 0 0 1px rgba(239,68,68,.25), 0 20px 60px rgba(239,68,68,.10); }
-    .danger .ovHint{ border-color: rgba(239,68,68,.35); }
-    .dangerBoard{
-      box-shadow: 0 0 0 2px rgba(239,68,68,.18), 0 0 40px rgba(239,68,68,.10) inset;
-    }
-
-    @keyframes aihotPulse{
-      from{ filter: brightness(1); }
-      to{ filter: brightness(1.22); }
-    }
-    @keyframes bossTargetPulse{
-      from{ transform: translate(-50%, -50%) scale(1); }
-      to{ transform: translate(-50%, -50%) scale(1.06); }
-    }
-    @keyframes riskPulseHigh{
-      from{ transform:translate(-50%,-50%) scale(1); }
-      to{ transform:translate(-50%,-50%) scale(1.05); }
-    }
-    @keyframes riskPulseMid{
-      from{ filter:brightness(1); }
-      to{ filter:brightness(1.08); }
-    }
     @keyframes fxPopUp{
       0%{ opacity:0; transform:translate(-50%, -50%) scale(.92); }
       15%{ opacity:1; transform:translate(-50%, -66%) scale(1.02); }
       100%{ opacity:0; transform:translate(-50%, -108%) scale(1.00); }
     }
-    @keyframes spreadPulse{
-      from{ transform: scale(1); opacity:.32; }
-      to{ transform: scale(1.12); opacity:.48; }
-    }
-    @keyframes spreadHit{
-      0%{ box-shadow: 0 0 0 0 rgba(239,68,68,.45); }
-      100%{ box-shadow: 0 0 0 12px rgba(239,68,68,0); }
-    }
-    @keyframes lineSpreadPulse{
-      from{ opacity:.65; }
-      to{ opacity:1; }
-    }
+    @keyframes spreadPulse{ from{ transform:scale(1); opacity:.32; } to{ transform:scale(1.12); opacity:.48; } }
+    @keyframes spreadHit{ 0%{ box-shadow:0 0 0 0 rgba(239,68,68,.45); } 100%{ box-shadow:0 0 0 12px rgba(239,68,68,0); } }
+    @keyframes bossTargetPulse{ from{ transform:translate(-50%, -50%) scale(1); } to{ transform:translate(-50%, -50%) scale(1.06); } }
 
-    @media (max-width: 680px){
-      .legendGrid{ grid-template-columns: 1fr; }
-    }
-    @media (max-width: 640px){
-      .coachToast{ right: 10px; left: 10px; max-width: none; }
+    @media (max-width:640px){
+      .coachToast{ right:10px; left:10px; max-width:none; }
       .coachBubble{ flex:1 1 auto; }
-      .sumGrid{ grid-template-columns: 1fr; }
+      .sumGrid{ grid-template-columns:1fr; }
     }
   `;
   root.appendChild(style);
@@ -900,13 +425,7 @@ export function mountCleanUI(root, opts){
   let spreadIds = [];
   let quickPickId = '';
   let lastStarCount = 0;
-  let tutorialStep = 0;
   let rewardFlashUntil = 0;
-  const tutorialDayKey = (()=> {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-  })();
-  const tutorialHideKey = `HHA_TUT_HIDE::cleanobjects::${tutorialDayKey}`;
 
   const $ = (id)=> root.querySelector('#'+id);
   const pillMode = $('pillMode');
@@ -925,14 +444,6 @@ export function mountCleanUI(root, opts){
   const rpSub = $('rpSub');
   const rpList = $('rpList');
   const missionLine = $('missionLine');
-  const btnHowTo = root.querySelector('#btnHowTo');
-  const btnTutorialSkip = root.querySelector('#btnTutorialSkip');
-  const btnTutorialPrev = root.querySelector('#btnTutorialPrev');
-  const btnTutorialNext = root.querySelector('#btnTutorialNext');
-  const tutorialTitle = root.querySelector('#tutorialTitle');
-  const tutorialText = root.querySelector('#tutorialText');
-  const tutorialHint = root.querySelector('#tutorialHint');
-  const tutorialNoMore = root.querySelector('#tutorialNoMore');
   const star1 = $('star1');
   const star2 = $('star2');
   const star3 = $('star3');
@@ -956,28 +467,21 @@ export function mountCleanUI(root, opts){
     if(kind === 'warn') coachToast.classList.add('mood-warn');
     else if(kind === 'boss') coachToast.classList.add('mood-boss');
     else if(kind === 'good') coachToast.classList.add('mood-good');
-    else coachToast.classList.add('mood-tip');
-
     const av = root.querySelector('#coachAvatar');
     if(!av) return;
     av.textContent =
       kind === 'boss' ? '🔥' :
       kind === 'warn' ? '⚠️' :
-      kind === 'good' ? '😄' :
-      '🤖';
+      kind === 'good' ? '😄' : '🤖';
   }
-
   function showCoach(text, kind='tip'){
     const t = root.querySelector('#coachText');
-    if(t) t.innerHTML = escapeHtml(text);
+    if(t) t.textContent = text;
     setCoachMood(kind);
-
-    coachToast.classList.add('show');
     clearTimeout(toastTimer);
     toastTimer = setTimeout(()=>{
-      coachToast.classList.remove('show');
       setCoachMood('tip');
-      if(t) t.innerHTML = 'พร้อมช่วยอยู่ตรงนี้';
+      if(t) t.textContent = 'พร้อมช่วยอยู่ตรงนี้';
     }, 2600);
   }
 
@@ -987,15 +491,11 @@ export function mountCleanUI(root, opts){
     const w = (S.map && S.map.w) ? S.map.w : 10;
     const hN = (S.map && S.map.h) ? S.map.h : 10;
     const spreadSet = new Set(spreadIds || []);
-
     for(const h of hs){
       const r = clamp(h.risk,0,100);
       const size = 22 + (r/100)*58;
       const alpha = 0.10 + (r/100)*0.30;
-      const hueClass = spreadSet.has(String(h.id))
-        ? 'spread-hot'
-        : ((r>=75) ? 'hot' : (r>=55 ? 'warm' : 'cool'));
-
+      const hueClass = spreadSet.has(String(h.id)) ? 'spread-hot' : ((r>=75) ? 'hot' : (r>=55 ? 'warm' : 'cool'));
       const n = el('div', `heat ${hueClass}`);
       n.style.left = `calc(${(Number(h.x)+0.5)/w*100}% - ${size/2}px)`;
       n.style.top  = `calc(${(Number(h.y)+0.5)/hN*100}% - ${size/2}px)`;
@@ -1012,7 +512,6 @@ export function mountCleanUI(root, opts){
     const w = (S.map && S.map.w) ? S.map.w : 10;
     const hN = (S.map && S.map.h) ? S.map.h : 10;
     const spreadSet = new Set(spreadIds || []);
-
     const chosenA = new Set((S.A?.selected||[]).map(x=>x.id));
     const chosenB = new Set((S.B?.routeIds||[]));
 
@@ -1022,28 +521,19 @@ export function mountCleanUI(root, opts){
     const items = hs.map(h=>{
       const xPct = (Number(h.x)+0.5)/w;
       const yPct = (Number(h.y)+0.5)/hN;
-      return {
-        id: String(h.id),
-        h,
-        cx: xPct * layerRect.width,
-        cy: yPct * layerRect.height
-      };
+      return { id: String(h.id), h, cx: xPct * layerRect.width, cy: yPct * layerRect.height };
     });
 
     items.sort((a,b)=> Number(b.h?.risk||0) - Number(a.h?.risk||0));
     const placed = placeWithoutOverlap(items, 92, 72);
 
     for(const p of placed){
-      const h = p.h || items.find(x=>x.id===p.id)?.h;
-      if(!h) continue;
-
+      const h = p.h;
       const id = String(h.id);
       const picked = (S.mode==='A') ? chosenA.has(id) : chosenB.has(id);
 
       const mk = el('div', `mk ${markerClassForRisk(h.risk)} ${riskClass(h.risk)}`);
       mk.dataset.id = id;
-      mk.setAttribute('data-hotspot-id', id);
-
       mk.style.left = `${p.x + 46}px`;
       mk.style.top  = `${p.y + 36}px`;
 
@@ -1065,27 +555,16 @@ export function mountCleanUI(root, opts){
         <div class="mk-risk">${risk}</div>
         <div class="mk-state">${escapeHtml(stateLabel)}</div>
       `;
-      mk.title = `${label} • ความเสี่ยง ${risk} • ${stateLabel}`;
 
       mk.addEventListener('click', ()=>{
         if(!lastState || lastState.ended) return;
-
-        const scoreText = (lastState.mode === 'A')
-          ? `+${Math.max(8, Math.round(risk * 0.35))}`
-          : '+route';
-
+        const scoreText = (lastState.mode === 'A') ? `+${Math.max(8, Math.round(risk * 0.35))}` : '+route';
         popScore(markerLayer, p.x + 46, p.y + 20, scoreText);
-
-        if(lastState.mode === 'A'){
-          opts.selectA && opts.selectA(id, selectedReasonTag);
-        }else{
-          opts.toggleRouteB && opts.toggleRouteB(id);
-        }
+        if(lastState.mode === 'A') opts.selectA && opts.selectA(id, selectedReasonTag);
+        else opts.toggleRouteB && opts.toggleRouteB(id);
       });
 
-      const mkCenterX = p.x + 46;
-      const mkCenterY = p.y + 36;
-      const line = addLeaderLine(markerLayer, mkCenterX, mkCenterY, p.cx, p.cy);
+      const line = addLeaderLine(markerLayer, p.x + 46, p.y + 36, p.cx, p.cy);
       if(line){
         if(picked) line.classList.add('line-selected');
         if(id === bossId || bossTopIds.includes(id)) line.classList.add('line-boss');
@@ -1097,7 +576,6 @@ export function mountCleanUI(root, opts){
       dot.style.left = `${p.cx - 3}px`;
       dot.style.top  = `${p.cy - 3}px`;
       markerLayer.appendChild(dot);
-
       markerLayer.appendChild(mk);
     }
   }
@@ -1110,7 +588,6 @@ export function mountCleanUI(root, opts){
     routePanel.style.display = '';
     const ids = (S.B && S.B.routeIds) ? S.B.routeIds : [];
     rpSub.textContent = `Route ${fmt(ids.length)} / ${fmt(S.B?.maxPoints||5)}`;
-
     const hs = S.hotspots || [];
     const list = ids.length
       ? ids.map((id, i)=>{
@@ -1119,35 +596,32 @@ export function mountCleanUI(root, opts){
           return `<div style="padding:8px 0;border-top:1px solid rgba(148,163,184,.10)"><b>${i+1}.</b> ${t}</div>`;
         }).join('')
       : `<div style="opacity:.8">ยังไม่มี route — แตะจุดเพื่อเพิ่ม</div>`;
-
     rpList.innerHTML = (barsHTML(lastPlanBreakdown) || '') + list;
   }
 
   function renderMission(S){
     if(S.mode === 'A'){
+      const bossName = S.boss?.typeNameTh || 'บอส';
       const bossText = S.boss?.active
-        ? `🔥 บอสอยู่ระหว่างเล่น: ${fmt(S.boss.progress)}/${fmt(S.boss.total)}`
-        : `🔥 อย่าลืมบอส: ${escapeHtml(bossId)}`;
-
+        ? `🔥 ${bossName}: ${fmt(S.boss.progress)}/${fmt(S.boss.total)}`
+        : `🔥 วันนี้เจอ ${bossName}`;
       missionText.innerHTML = `
         <b>Emergency Clean-up:</b> รีบจัดการจุดเสี่ยงก่อนเชื้อกระจาย<br/>
-        <span style="opacity:.92">เริ่มจาก <b>ลูกบิด • ของใช้ร่วม • ก๊อกน้ำ</b> และ ${bossText}</span>
+        <span style="opacity:.92">${bossText} • ${escapeHtml(S.boss?.hintTh || 'อย่าปล่อยจุดเสี่ยงค้าง')}</span>
       `;
-      helpBox.innerHTML = `Tip: จุด “วิกฤต” ต้องทำก่อน • ถ้าปล่อยไว้นาน เชื้อจะลาม • เคลียร์บอสได้โบนัส`;
+      helpBox.innerHTML = `Tip: จุด “วิกฤต” ต้องทำก่อน • เคลียร์บอสได้โบนัส • แต่ละรอบบอสไม่เหมือนกัน`;
       if(missionLine){
         missionLine.textContent = S.boss?.active
-          ? `🔥 BOSS TARGETS ${fmt(S.boss.progress)}/${fmt(S.boss.total)} — รีบเก็บให้ครบ`
-          : '🚨 เก็บจุดวิกฤตก่อน แล้วค่อยเก็บจุดเสี่ยง';
+          ? `🔥 ${bossName} ${fmt(S.boss.progress)}/${fmt(S.boss.total)} — รีบเก็บให้ครบ`
+          : `🎯 รอบนี้: ${bossName}`;
       }
-    }else{
+    } else {
       missionText.innerHTML = `
         <b>Create:</b> วางแผน route/checklist ภายในเวลา <b>${fmt(S.timeTotal||60)}s</b> เลือกได้ <b>${fmt(S.B?.maxPoints||5)}</b> จุด<br/>
         <span style="opacity:.92">🔥 อย่าลืม “บอส”: <b>${escapeHtml(bossId)}</b> (ถ้าไม่รวมใน route โดนหัก)</span>
       `;
       helpBox.innerHTML = `Tip: แตะจุดเพื่อเพิ่มใน route • ดู bars แล้วปรับแผน`;
-      if(missionLine){
-        missionLine.textContent = '🧠 วาง route ให้คุ้ม: ครอบคลุม • ไม่อ้อม • อย่าลืมบอส';
-      }
+      if(missionLine) missionLine.textContent = '🧠 วาง route ให้คุ้ม: ครอบคลุม • ไม่อ้อม • อย่าลืมบอส';
     }
   }
 
@@ -1160,75 +634,48 @@ export function mountCleanUI(root, opts){
       s.classList.toggle('on', on);
     });
     if(starNote) starNote.textContent = note || 'กำลังทำภารกิจ';
-
-    if(count > lastStarCount){
-      showCoach(`⭐ Progress ${count}/3`, 'good');
-    }
+    if(count > lastStarCount) showCoach(`⭐ Progress ${count}/3`, 'good');
     lastStarCount = count;
   }
 
   function updateProgressStars(S){
     if(!S) return;
-
     if(S.mode === 'A'){
       let stars = 0;
       let note = 'เริ่มเลือกจุดเสี่ยง';
-
       const selected = (S.A?.selected || []).length;
-      if(selected >= 1){
-        stars = 1;
-        note = 'ดีมาก เริ่มเลือกจุดแล้ว';
-      }
-      if(selected >= 2){
-        stars = 2;
-        note = 'ใกล้ครบแล้ว เลือกให้คุ้มอีกนิด';
-      }
-      if(S.boss?.cleared){
-        stars = 3;
-        note = 'ยอดเยี่ยม เคลียร์บอสแล้ว';
-      }
-
+      if(selected >= 1){ stars = 1; note = 'ดีมาก เริ่มเลือกจุดแล้ว'; }
+      if(selected >= 2){ stars = 2; note = 'ใกล้ครบแล้ว เลือกให้คุ้มอีกนิด'; }
+      if(S.boss?.cleared){ stars = 3; note = `ยอดเยี่ยม เคลียร์ ${S.boss.typeNameTh || 'บอส'} แล้ว`; }
       setStars(stars, note);
       return;
     }
-
     const routeIds = (S.B?.routeIds || []).map(String);
     const routeN = routeIds.length;
     const half = Math.max(2, Math.ceil((S.B?.maxPoints || 5) / 2));
-
     let stars = 0;
     let note = 'เริ่มวาง route';
-
-    if(routeN >= 2){
-      stars = 1;
-      note = 'แผนเริ่มเป็นรูปเป็นร่าง';
-    }
-    if(routeN >= half){
-      stars = 2;
-      note = 'แผนคืบหน้าดีแล้ว';
-    }
-    if(routeIds.includes(String(bossId))){
-      stars = 3;
-      note = 'สุดยอด ใส่บอสในแผนแล้ว';
-    }
-
+    if(routeN >= 2){ stars = 1; note = 'แผนเริ่มเป็นรูปเป็นร่าง'; }
+    if(routeN >= half){ stars = 2; note = 'แผนคืบหน้าดีแล้ว'; }
+    if(routeIds.includes(String(bossId))){ stars = 3; note = 'สุดยอด ใส่บอสในแผนแล้ว'; }
     setStars(stars, note);
   }
 
   function updateAlert(S){
     if(!alertBar || !S) return;
-
     if(S.mode !== 'A'){
       alertBar.style.display = 'none';
       return;
     }
+
+    const bossName = S.boss?.typeNameTh || 'บอส';
 
     if(S.boss?.cleared){
       alertBar.style.display = '';
       alertBar.classList.remove('crisis');
       alertBar.classList.add('reward');
       alertTitle.textContent = '🏁 BOSS CLEARED';
-      alertText.textContent = `โบนัส +${fmt(S.boss.reward || 0)} • เป้าบอสครบ ${fmt(S.boss.progress)}/${fmt(S.boss.total)}`;
+      alertText.textContent = `${bossName} ผ่านแล้ว • โบนัส +${fmt(S.boss.reward || 0)}`;
       return;
     }
 
@@ -1241,7 +688,7 @@ export function mountCleanUI(root, opts){
       alertBar.classList.remove('reward');
       alertBar.classList.add('crisis');
       alertTitle.textContent = '🚨 CRISIS';
-      alertText.textContent = `มีจุดวิกฤตหลายจุดพร้อมกัน • Spread penalty ${spreadPenalty}`;
+      alertText.textContent = `${bossName} ทำให้มีจุดวิกฤตหลายจุด • Spread penalty ${spreadPenalty}`;
       return;
     }
 
@@ -1249,7 +696,7 @@ export function mountCleanUI(root, opts){
       alertBar.style.display = '';
       alertBar.classList.remove('crisis','reward');
       const left = Math.max(0, Math.ceil((S.boss.expireAtS || 0) - (S.elapsedSec || 0)));
-      alertTitle.textContent = '🔥 BOSS';
+      alertTitle.textContent = `🔥 ${bossName}`;
       alertText.textContent = `เป้าบอส ${fmt(S.boss.progress)}/${fmt(S.boss.total)} • เหลือ ${left} วิ`;
       return;
     }
@@ -1258,7 +705,7 @@ export function mountCleanUI(root, opts){
       alertBar.style.display = '';
       alertBar.classList.remove('crisis','reward');
       alertTitle.textContent = '⚠️ SPREAD';
-      alertText.textContent = `เชื้อเพิ่งลาม ${spreadN} จุด • Penalty ${spreadPenalty}`;
+      alertText.textContent = `${bossName} ทำให้เชื้อลาม ${spreadN} จุด • Penalty ${spreadPenalty}`;
       return;
     }
 
@@ -1269,15 +716,14 @@ export function mountCleanUI(root, opts){
   function renderHud(S){
     pillMode.textContent = `MODE: ${S.mode==='A' ? 'A (Evaluate)' : 'B (Create)'}`;
     pillTime.textContent = `TIME: ${fmt(S.timeLeft)}s`;
-
     if(S.mode === 'A'){
       pillBudget.textContent = `SPRAYS: ${fmt(S.A?.spraysLeft||0)}/${fmt(S.A?.maxSelect||3)}`;
-      pillGoal.textContent = `GOAL: Best picks + Boss`;
+      pillGoal.textContent = `GOAL: ${S.boss?.typeNameTh || 'Boss'}`;
       pillSpread.textContent = `SPREAD: ${fmt(S.spreadPenalty || 0)}`;
-      pillSpread.style.display = '';
       pillBoss.textContent = `BOSS: ${fmt(S.boss?.progress||0)}/${fmt(S.boss?.total||0)}`;
+      pillSpread.style.display = '';
       pillBoss.style.display = '';
-    }else{
+    } else {
       pillBudget.textContent = `POINTS: ${fmt((S.B?.routeIds||[]).length)}/${fmt(S.B?.maxPoints||5)}`;
       pillGoal.textContent = `GOAL: Best plan + Boss`;
       pillSpread.style.display = 'none';
@@ -1290,35 +736,29 @@ export function mountCleanUI(root, opts){
     if(hub) location.href = hub;
     else location.href = '../hub.html';
   }
-
   function goCooldown(){
     const hub = qs('hub','') || '../hub.html';
     const base = new URL(location.href);
-
     const g = new URL('../warmup-gate.html', base);
     g.searchParams.set('cat','hygiene');
     g.searchParams.set('theme','cleanobjects');
     g.searchParams.set('game','cleanobjects');
     g.searchParams.set('cd','1');
     g.searchParams.set('next', hub);
-
-    const keep = ['run','diff','time','seed','pid','view','ai','debug','api','log','studyId','phase','conditionGroup','grade','boss'];
+    const keep = ['run','diff','time','seed','pid','view','ai','debug','api','log','studyId','phase','conditionGroup','grade','boss','bossType'];
     keep.forEach(k=>{
       const v = base.searchParams.get(k);
       if(v !== null && v !== '') g.searchParams.set(k, v);
     });
     g.searchParams.set('hub', hub);
-
     location.href = g.toString();
   }
-
   function replay(){ location.reload(); }
 
   function showSummary(payload){
     summary.style.display = '';
     const meta = summary.querySelector('#sumMeta');
     const body = summary.querySelector('#sumBody');
-
     const m = payload || {};
     const mode = (m.metrics && m.metrics.mode) ? m.metrics.mode : (lastState ? lastState.mode : '?');
     const score = Number(m.score || 0);
@@ -1339,12 +779,13 @@ export function mountCleanUI(root, opts){
       const spreadPenalty = Number(bd?.spreadPenalty || m.metrics?.spread?.penalty || 0);
       const spreadWaves = Number(m.metrics?.spread?.waves || 0);
       const boss = m.metrics?.boss || {};
+      const bossName = boss.nameTh || boss.name || 'Boss';
       const tips = summaryAdviceA(Object.assign({}, bd, { spreadPenalty }), comboBest, bossPenalty);
 
       const verdict =
-        score >= 420 ? 'ยอดเยี่ยม! เคลียร์บอสและจัดการจุดได้คุ้มมาก' :
-        score >= 280 ? 'ดีมาก! เริ่มเล่นเป็นฮีโร่หยุดการระบาดแล้ว' :
-        'โอเค! รอบหน้าลองเคลียร์บอสและรีบเก็บจุดวิกฤตให้เร็วขึ้น';
+        score >= 420 ? `ยอดเยี่ยม! ผ่าน ${bossName} และจัดการจุดได้คุ้มมาก` :
+        score >= 280 ? `ดีมาก! เริ่มรับมือ ${bossName} ได้ดีแล้ว` :
+        `โอเค! รอบหน้าลองรับมือ ${bossName} ให้เร็วขึ้น`;
 
       body.innerHTML = `
         <div class="sumStars">${starText(score)}</div>
@@ -1352,39 +793,20 @@ export function mountCleanUI(root, opts){
         <div style="margin-top:4px;opacity:.9">คะแนนรวม <b>${fmt(score)}</b></div>
 
         <div class="sumGrid">
-          <div class="sumBox">
-            <div class="sumBoxTitle">ลดความเสี่ยง</div>
-            <div class="sumBoxVal">${fmt(bd.rrTotal)}</div>
-          </div>
-          <div class="sumBox">
-            <div class="sumBoxTitle">ความครอบคลุม</div>
-            <div class="sumBoxVal">${fmt(bd.coverage)}%</div>
-          </div>
-          <div class="sumBox">
-            <div class="sumBoxTitle">ตัดสินใจคุ้ม</div>
-            <div class="sumBoxVal">${fmt(bd.dq)}%</div>
-          </div>
-          <div class="sumBox">
-            <div class="sumBoxTitle">คอมโบสูงสุด</div>
-            <div class="sumBoxVal">${fmt(comboBest)}</div>
-          </div>
-          <div class="sumBox">
-            <div class="sumBoxTitle">Boss Reward</div>
-            <div class="sumBoxVal">+${fmt(bossBonus)}</div>
-          </div>
-          <div class="sumBox">
-            <div class="sumBoxTitle">Spread Penalty</div>
-            <div class="sumBoxVal">-${fmt(spreadPenalty)}</div>
-          </div>
+          <div class="sumBox"><div class="sumBoxTitle">Boss Variant</div><div class="sumBoxVal">${escapeHtml(bossName)}</div></div>
+          <div class="sumBox"><div class="sumBoxTitle">Boss Reward</div><div class="sumBoxVal">+${fmt(bossBonus)}</div></div>
+          <div class="sumBox"><div class="sumBoxTitle">ลดความเสี่ยง</div><div class="sumBoxVal">${fmt(bd.rrTotal)}</div></div>
+          <div class="sumBox"><div class="sumBoxTitle">Decision</div><div class="sumBoxVal">${fmt(bd.dq)}%</div></div>
+          <div class="sumBox"><div class="sumBoxTitle">Combo สูงสุด</div><div class="sumBoxVal">${fmt(comboBest)}</div></div>
+          <div class="sumBox"><div class="sumBoxTitle">Spread Penalty</div><div class="sumBoxVal">-${fmt(spreadPenalty)}</div></div>
         </div>
 
         <div class="sumTips">
           <b>Boss:</b> ${boss.cleared ? '✅ Cleared' : (boss.failed ? '❌ Failed' : '—')} • ${fmt(boss.progress)}/${fmt(boss.total)}<br/>
-          <b>Boss Bonus:</b> +${fmt(bossBonus)} • <b>Spread Waves:</b> ${fmt(spreadWaves)} • <b>Spread:</b> -${fmt(spreadPenalty)}
+          <b>Spread Waves:</b> ${fmt(spreadWaves)} • <b>Boss Bonus:</b> +${fmt(bossBonus)}
         </div>
 
         <div class="sumTips">
-          <b>โดนหัก/ได้เพิ่ม:</b> Boss Penalty <b>-${fmt(bossPenalty)}</b> • Boss Reward <b>+${fmt(bossBonus)}</b><br/>
           <b>เหตุผลที่เลือก:</b><br/>
           ${reasons.length ? reasons.map(r=>`• ${escapeHtml(r.reasonText || r.id)}`).join('<br/>') : '• —'}
         </div>
@@ -1394,50 +816,26 @@ export function mountCleanUI(root, opts){
           ${tips.map(t=>`• ${escapeHtml(t)}`).join('<br/>')}
         </div>
       `;
-    }else{
+    } else {
       const bd = (m.metrics && m.metrics.breakdown) ? m.metrics.breakdown : {};
       const routeIds = (m.metrics && m.metrics.routeIds) ? m.metrics.routeIds : [];
       const bossPenalty = Number(bd?.bossPenalty || 0);
       const tips = summaryAdviceB(bd, bossPenalty);
 
-      const verdict =
-        score >= 260 ? 'ยอดเยี่ยม! วางแผน route ได้คุ้มมาก' :
-        score >= 180 ? 'ดีมาก! แผนเริ่มสมดุลขึ้น' :
-        'โอเค! ลองจัด route ให้ครอบคลุมและไม่อ้อม';
-
       body.innerHTML = `
         <div class="sumStars">${starText(score)}</div>
-        <div style="margin-top:6px;font-weight:1000;font-size:15px">${verdict}</div>
+        <div style="margin-top:6px;font-weight:1000;font-size:15px">สรุปแผน Route</div>
         <div style="margin-top:4px;opacity:.9">คะแนนรวม <b>${fmt(score)}</b></div>
 
         <div class="sumGrid">
-          <div class="sumBox">
-            <div class="sumBoxTitle">Coverage</div>
-            <div class="sumBoxVal">${fmt(bd.coverageB)}%</div>
-          </div>
-          <div class="sumBox">
-            <div class="sumBoxTitle">Balance</div>
-            <div class="sumBoxVal">${fmt(bd.balanceScore)}%</div>
-          </div>
-          <div class="sumBox">
-            <div class="sumBoxTitle">Remain</div>
-            <div class="sumBoxVal">${fmt(bd.remainScore)}%</div>
-          </div>
-          <div class="sumBox">
-            <div class="sumBoxTitle">Boss Penalty</div>
-            <div class="sumBoxVal">-${fmt(bd.bossPenalty)}</div>
-          </div>
+          <div class="sumBox"><div class="sumBoxTitle">Coverage</div><div class="sumBoxVal">${fmt(bd.coverageB)}%</div></div>
+          <div class="sumBox"><div class="sumBoxTitle">Balance</div><div class="sumBoxVal">${fmt(bd.balanceScore)}%</div></div>
+          <div class="sumBox"><div class="sumBoxTitle">Remain</div><div class="sumBoxVal">${fmt(bd.remainScore)}%</div></div>
+          <div class="sumBox"><div class="sumBoxTitle">Boss Penalty</div><div class="sumBoxVal">-${fmt(bd.bossPenalty)}</div></div>
         </div>
 
-        <div class="sumTips">
-          <b>Route ที่ส่ง:</b><br/>
-          ${routeIds.length ? routeIds.map(x=>escapeHtml(String(x))).join(' → ') : '—'}
-        </div>
-
-        <div class="sumTips">
-          <b>รอบหน้าลองแบบนี้:</b><br/>
-          ${tips.map(t=>`• ${escapeHtml(t)}`).join('<br/>')}
-        </div>
+        <div class="sumTips"><b>Route ที่ส่ง:</b><br/>${routeIds.length ? routeIds.map(x=>escapeHtml(String(x))).join(' → ') : '—'}</div>
+        <div class="sumTips"><b>รอบหน้าลองแบบนี้:</b><br/>${tips.map(t=>`• ${escapeHtml(t)}`).join('<br/>')}</div>
       `;
     }
 
@@ -1449,11 +847,9 @@ export function mountCleanUI(root, opts){
   function handleShoot(){
     if(!lastState || lastState.ended) return;
     if(lastState.mode !== 'B') return;
-
     const rect = markerLayer.getBoundingClientRect();
     const cx = rect.left + rect.width/2;
     const cy = rect.top + rect.height/2;
-
     let best = null;
     let bestD = 1e18;
     markerLayer.querySelectorAll('.mk').forEach(mk=>{
@@ -1465,7 +861,6 @@ export function mountCleanUI(root, opts){
       const d2 = dx*dx + dy*dy;
       if(d2 < bestD){ bestD = d2; best = mk; }
     });
-
     if(best && bestD <= (120*120)){
       const id = best.dataset.id;
       if(id) opts.toggleRouteB && opts.toggleRouteB(id);
@@ -1477,83 +872,9 @@ export function mountCleanUI(root, opts){
   routePanel.querySelector('#btnClear').onclick = ()=> opts.clearB && opts.clearB();
   routePanel.querySelector('#btnSubmit').onclick = ()=> opts.submitB && opts.submitB();
 
-  function setDanger(on){
-    root.classList.toggle('danger', !!on);
-    const boardEl = root.querySelector('.board');
-    if(boardEl) boardEl.classList.toggle('dangerBoard', !!on);
-    if(on){
-      try{ if(navigator.vibrate) navigator.vibrate([40,40,40]); }catch(e){}
-    }
-  }
-  window.addEventListener('clean:danger', (ev)=>{
-    const d = ev && ev.detail ? ev.detail : {};
-    if(d && d.danger) setDanger(true);
-  });
-
-  const tutorialSteps = [
-    {
-      title: 'วิธีเล่น — Step 1',
-      text: '🎯 เป้าหมาย: เลือก “จุดที่เสี่ยงที่สุด” ให้คุ้มที่สุดภายใต้งบจำกัด',
-      hint: 'โหมด A มี Sprays จำกัด • โหมด B มีจำนวนจุดใน route จำกัด'
-    },
-    {
-      title: 'วิธีเล่น — Step 2',
-      text: '🗺️ ให้แตะ marker บนแผนที่ เช่น 🚪 ลูกบิด • 🤝 ของใช้ร่วม • 💧 ก๊อกน้ำ',
-      hint: 'ตัวเลขบน marker = ระดับความเสี่ยง ยิ่งมากยิ่งน่าทำก่อน'
-    },
-    {
-      title: 'วิธีเล่น — Step 3',
-      text: '⭐ เลือกเหตุผลก่อนกด เช่น “เสี่ยงสูง” หรือ “สัมผัสบ่อย”',
-      hint: 'เริ่มจากของใช้ร่วม/ลูกบิด/ก๊อกน้ำ มักคุ้มที่สุด'
-    },
-    {
-      title: 'วิธีเล่น — Step 4',
-      text: '🔥 เมื่อบอสมา ต้องรีบเก็บเป้าบอสให้ครบ 3/3 เพื่อรับโบนัส',
-      hint: 'ถ้าเคลียร์บอสสำเร็จ จะได้คะแนนเพิ่มและ badge'
-    }
-  ];
-
-  function renderTutorial(){
-    const st = tutorialSteps[tutorialStep] || tutorialSteps[0];
-    tutorialTitle.textContent = st.title;
-    tutorialText.textContent = st.text;
-    tutorialHint.textContent = st.hint;
-    btnTutorialPrev.disabled = (tutorialStep === 0);
-    btnTutorialNext.textContent = (tutorialStep === tutorialSteps.length - 1) ? 'เริ่มเล่น' : 'ถัดไป';
-  }
-
-  function openTutorial(){
-    tutorial.style.display = '';
-    tutorialStep = 0;
-    renderTutorial();
-  }
-
-  function closeTutorial(){
-    tutorial.style.display = 'none';
-    if(tutorialNoMore && tutorialNoMore.checked){
-      try{ localStorage.setItem(tutorialHideKey, '1'); }catch(e){}
-    }
-  }
-
-  btnHowTo?.addEventListener('click', openTutorial);
-  btnTutorialSkip?.addEventListener('click', closeTutorial);
-  btnTutorialPrev?.addEventListener('click', ()=>{
-    tutorialStep = Math.max(0, tutorialStep - 1);
-    renderTutorial();
-  });
-  btnTutorialNext?.addEventListener('click', ()=>{
-    if(tutorialStep >= tutorialSteps.length - 1){
-      closeTutorial();
-      return;
-    }
-    tutorialStep = Math.min(tutorialSteps.length - 1, tutorialStep + 1);
-    renderTutorial();
-  });
-
   function onState(S){
     lastState = S;
     try{ bossId = String((S.cfg && S.cfg.bossId) ? S.cfg.bossId : bossId); }catch(e){}
-
     spreadIds = Array.isArray(S.spreadTargets) ? S.spreadTargets.slice(0) : [];
 
     if(S.boss?.cleared){
@@ -1561,7 +882,7 @@ export function mountCleanUI(root, opts){
       if(now > rewardFlashUntil){
         rewardFlashUntil = now + 1500;
         const rect = markerLayer.getBoundingClientRect();
-        popScore(markerLayer, rect.width/2, 60, `+${fmt(S.boss.reward || 0)} BOSS BONUS`, 'reward');
+        popScore(markerLayer, rect.width/2, 60, `+${fmt(S.boss.reward || 0)} ${S.boss.typeNameTh}`, 'reward');
       }
     }
 
@@ -1573,21 +894,9 @@ export function mountCleanUI(root, opts){
     renderMarkers(S);
     renderRoutePanel(S);
 
-    const v = normalizeView(qs('view',''));
-    const ov = root.querySelector('#ovHint');
-    if(ov){
-      ov.style.display = S.ended ? 'none' : '';
-      const s = ov.querySelector('.ovS');
-      if(v === 'cvr') s.textContent = 'Cardboard: ยิงเพื่อเลือกจุด • หรือแตะจุดบนแผนที่ • อย่าลืมบอส!';
-      else s.textContent = 'แตะ marker เพื่อเล่น • เลือกเหตุผลก่อน • อย่าปล่อยจุดแดงค้างไว้นาน';
-    }
-
-    if(!S.ended){
-      if(S.mode === 'A'){
-        root.querySelector('#coachText')?.replaceChildren(document.createTextNode('เลือกจุดเสี่ยงสูงก่อน เช่น ลูกบิด ของใช้ร่วม ก๊อกน้ำ'));
-      }else{
-        root.querySelector('#coachText')?.replaceChildren(document.createTextNode('วาง route ให้คุ้ม ครอบคลุม และอย่าลืมบอส'));
-      }
+    const ov = root.querySelector('#ovHint .ovS');
+    if(ov && S.mode === 'A'){
+      ov.textContent = `รอบนี้เจอบอส: ${S.boss?.typeNameTh || 'บอส'} • ${S.boss?.hintTh || 'เล่นให้คุ้มที่สุด'}`;
     }
 
     const showReason = (S.mode === 'A');
@@ -1602,17 +911,14 @@ export function mountCleanUI(root, opts){
 
   function onCoach(msg){
     if(!msg) return;
-
     if(msg.kind === 'plan_live' && msg.data && msg.data.breakdown){
       lastPlanBreakdown = msg.data.breakdown;
       if(lastState) renderRoutePanel(lastState);
     }
-
     if(msg.kind === 'combo'){
       const cx = markerLayer.getBoundingClientRect().width * 0.5;
       popScore(markerLayer, cx, 40, `COMBO x${msg.data?.streak || 2}`);
     }
-
     if(msg.kind === 'good' && typeof msg.data?.reward !== 'undefined'){
       const cx = markerLayer.getBoundingClientRect().width * 0.5;
       popScore(markerLayer, cx, 80, `+${fmt(msg.data.reward)} BONUS`, 'reward');
@@ -1622,26 +928,12 @@ export function mountCleanUI(root, opts){
     if(msg.kind === 'contamination' || msg.kind === 'danger' || msg.kind === 'warn') mood = 'warn';
     else if(msg.kind === 'boss' || msg.kind === 'boss_warn' || msg.kind === 'boss_final') mood = 'boss';
     else if(msg.kind === 'combo' || msg.kind === 'good' || msg.kind === 'daily_clear') mood = 'good';
-
-    if(msg.text){
-      showCoach(msg.text, mood);
-    }
+    if(msg.text) showCoach(msg.text, mood);
   }
 
-  function onSummary(payload){
-    showSummary(payload);
-  }
-
-  function highlight(ids){
-    aiTopIds = Array.isArray(ids) ? ids.slice(0) : [];
-    if(lastState) renderMarkers(lastState);
-  }
-
-  function highlightBoss(ids){
-    bossTopIds = Array.isArray(ids) ? ids.slice(0) : [];
-    if(lastState) renderMarkers(lastState);
-  }
-
+  function onSummary(payload){ showSummary(payload); }
+  function highlight(ids){ aiTopIds = Array.isArray(ids) ? ids.slice(0) : []; if(lastState) renderMarkers(lastState); }
+  function highlightBoss(ids){ bossTopIds = Array.isArray(ids) ? ids.slice(0) : []; if(lastState) renderMarkers(lastState); }
   function markQuickPick(id){
     quickPickId = String(id || '');
     if(lastState) renderMarkers(lastState);
@@ -1654,17 +946,10 @@ export function mountCleanUI(root, opts){
   }
 
   helpBox.innerHTML = `
-    <div>• 🔥 Boss = <b>${escapeHtml(bossId)}</b> (เคลียร์ครบจะได้โบนัส)</div>
+    <div>• 🔥 บอสแต่ละรอบไม่เหมือนกัน</div>
     <div>• ⚠️ กลางเกมมีเหตุการณ์ปนเปื้อน และเชื้ออาจลาม</div>
-    <div>• ⏱️ 10 วิท้ายจะ “เร่ง”</div>
+    <div>• 🏁 เคลียร์บอสได้โบนัส</div>
   `;
-
-  try{
-    const hiddenToday = localStorage.getItem(tutorialHideKey) === '1';
-    if(!hiddenToday && String(qs('run','play')) !== 'research'){
-      setTimeout(()=> openTutorial(), 900);
-    }
-  }catch(e){}
 
   return { onState, onTick, onCoach, onSummary, highlight, highlightBoss, markQuickPick };
 }
