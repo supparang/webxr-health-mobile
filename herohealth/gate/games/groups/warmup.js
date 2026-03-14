@@ -2,7 +2,7 @@
    HeroHealth Gate Mini-game
    GAME: groups
    MODE: warmup
-   FULL PATCH v20260314-GATE-GROUPS-WARMUP-CHILD-DAILY-r1
+   FULL PATCH v20260314-GATE-GROUPS-WARMUP-MOUNT-FIX-r2
 */
 
 let __styleLoaded = false;
@@ -72,7 +72,7 @@ function buildBuffs({ score, accuracy, speed }){
   };
 }
 
-export async function mount(root, ctx, api){
+export async function mount(root, ctx = {}, api = {}){
   loadStyle();
 
   const rng = mulberry32(Number(ctx.seed || Date.now()) + 41);
@@ -81,6 +81,7 @@ export async function mount(root, ctx, api){
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   }
+
   function markWarmupDone(){
     try{
       const pid = String(ctx?.pid || 'anon');
@@ -130,7 +131,7 @@ export async function mount(root, ctx, api){
   let miss = 0;
   let correct = 0;
   let ended = false;
-  let started = false;
+  let timer = null;
 
   const plannedTime = Number(ctx.time || 20);
   let timeLeft = plannedTime;
@@ -169,7 +170,7 @@ export async function mount(root, ctx, api){
     seed: ctx.seed
   });
 
-  api.setStats({
+  api.setStats?.({
     time: timeLeft,
     score: 0,
     miss: 0,
@@ -178,11 +179,54 @@ export async function mount(root, ctx, api){
 
   function updateHud(){
     const acc = idx > 0 ? Math.round((correct / idx) * 100) : 0;
-    api.setStats({
+    api.setStats?.({
       time: timeLeft,
       score,
       miss,
       acc: `${acc}%`
+    });
+  }
+
+  function finishNow(){
+    if(ended) return;
+    ended = true;
+    if(timer) clearInterval(timer);
+
+    const accuracy = rounds.length > 0 ? Math.round((correct / rounds.length) * 100) : 0;
+    const speed = Math.max(0, Math.min(100, Math.round((idx / rounds.length) * 100)));
+    const buffs = buildBuffs({ score, accuracy, speed });
+
+    root.innerHTML = `
+      <div class="grp-result">
+        <div class="grp-badge">✨ Rank ${buffs.rank}</div>
+        <div class="grp-big">พร้อมลุยเกมหลัก!</div>
+        <div class="grp-list">
+          <div class="grp-item">คะแนน: ${score}</div>
+          <div class="grp-item">ความแม่นยำ: ${accuracy}%</div>
+          <div class="grp-item">ความเข้าใจหมวดอาหาร: ${buffs.groupMasteryPct}%</div>
+          <div class="grp-item">โบนัสก่อนเข้าเกม: +${buffs.wPct}%</div>
+        </div>
+        <div class="grp-actions">
+          <button class="grp-btn good" id="grpFinishBtn">ไปเกมหลัก</button>
+        </div>
+      </div>
+    `;
+
+    root.querySelector('#grpFinishBtn')?.addEventListener('click', ()=>{
+      markWarmupDone();
+      api.finish?.({
+        ok: true,
+        title: 'พร้อมแล้ว!',
+        subtitle: 'เข้าเกม Groups ได้เลย',
+        lines: [
+          `คะแนน: ${score}`,
+          `ความแม่นยำ: ${accuracy}%`,
+          `ความเข้าใจหมวดอาหาร: ${buffs.groupMasteryPct}%`,
+          `Rank: ${buffs.rank}`
+        ],
+        buffs,
+        markDailyDone: true
+      });
     });
   }
 
@@ -236,67 +280,21 @@ export async function mount(root, ctx, api){
     }
   }
 
-  function finishNow(){
-    if(ended) return;
-    ended = true;
-    clearInterval(timer);
-
-    const accuracy = rounds.length > 0 ? Math.round((correct / rounds.length) * 100) : 0;
-    const speed = Math.max(0, Math.min(100, Math.round((idx / rounds.length) * 100)));
-    const buffs = buildBuffs({ score, accuracy, speed });
-
-    root.innerHTML = `
-      <div class="grp-result">
-        <div class="grp-badge">✨ Rank ${buffs.rank}</div>
-        <div class="grp-big">พร้อมลุยเกมหลัก!</div>
-        <div class="grp-list">
-          <div class="grp-item">คะแนน: ${score}</div>
-          <div class="grp-item">ความแม่นยำ: ${accuracy}%</div>
-          <div class="grp-item">ความเข้าใจหมวดอาหาร: ${buffs.groupMasteryPct}%</div>
-          <div class="grp-item">โบนัสก่อนเข้าเกม: +${buffs.wPct}%</div>
-        </div>
-        <div class="grp-actions">
-          <button class="grp-btn good" id="grpFinishBtn">ไปเกมหลัก</button>
-        </div>
-      </div>
-    `;
-
-    root.querySelector('#grpFinishBtn')?.addEventListener('click', ()=>{
-      markWarmupDone();
-      api.finish({
-        ok: true,
-        title: 'พร้อมแล้ว!',
-        subtitle: 'เข้าเกม Groups ได้เลย',
-        lines: [
-          `คะแนน: ${score}`,
-          `ความแม่นยำ: ${accuracy}%`,
-          `ความเข้าใจหมวดอาหาร: ${buffs.groupMasteryPct}%`,
-          `Rank: ${buffs.rank}`
-        ],
-        buffs,
-        markDailyDone: true
-      });
-    });
-  }
-
   function startGame(){
-    if(started || ended) return;
-    started = true;
-    renderRound();
-  }
-
-  const timer = setInterval(()=>{
     if(ended) return;
-    timeLeft--;
-    if(timeLeft < 0) timeLeft = 0;
-    updateHud();
+    renderRound();
+    if(timer) clearInterval(timer);
+    timer = setInterval(()=>{
+      if(ended) return;
+      timeLeft--;
+      if(timeLeft < 0) timeLeft = 0;
+      updateHud();
 
-    if(timeLeft <= 0){
-      finishNow();
-    }
-  }, 1000);
-
-  startGame();
+      if(timeLeft <= 0){
+        finishNow();
+      }
+    }, 1000);
+  }
 
   return {
     start(){
@@ -304,7 +302,7 @@ export async function mount(root, ctx, api){
     },
     destroy(){
       ended = true;
-      clearInterval(timer);
+      if(timer) clearInterval(timer);
     }
   };
 }
