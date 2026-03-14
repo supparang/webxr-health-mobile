@@ -1,7 +1,8 @@
 // === /herohealth/gate/games/hydration/warmup.js ===
 // Hydration Gate Warmup
-// CHILD-FRIENDLY PATCH v20260314b
+// CHILD-FRIENDLY PATCH v20260314c
 // ✅ รองรับทั้ง boot() และ mount()
+// ✅ ถ้า callback ไม่พาไปต่อ จะมี fallback redirect เอง
 
 function createHydrationWarmupGame() {
   function boot(root, ctx = {}) {
@@ -12,8 +13,28 @@ function createHydrationWarmupGame() {
       hit: 0,
       done: false,
       bubbles: [],
-      timer: null
+      timer: null,
+      doneTimer: null
     };
+
+    function safeNextUrl() {
+      try {
+        if (ctx && ctx.targetUrl) return String(ctx.targetUrl);
+        if (ctx && ctx.next) return String(ctx.next);
+        const u = new URL(location.href);
+        const next = u.searchParams.get('next');
+        if (next) return next;
+      } catch (e) {}
+      return '';
+    }
+
+    function goNextFallback() {
+      const next = safeNextUrl();
+      if (!next) return;
+      try {
+        location.href = next;
+      } catch (e) {}
+    }
 
     root.innerHTML = `
       <div class="hyd-gate hyd-theme-warmup">
@@ -36,6 +57,7 @@ function createHydrationWarmupGame() {
           <div class="hyd-helper" id="hydWarmHint">แตะหยดน้ำที่ลอยอยู่ ✨</div>
 
           <div class="hyd-actions">
+            <button class="hyd-btn hyd-btn-main is-hidden" id="hydWarmContinue" type="button">ไปต่อเลย</button>
             <button class="hyd-btn hyd-btn-ghost" id="hydWarmSkip" type="button">ข้าม</button>
           </div>
         </div>
@@ -47,6 +69,7 @@ function createHydrationWarmupGame() {
     const fillEl = root.querySelector('#hydWarmFill');
     const hintEl = root.querySelector('#hydWarmHint');
     const skipBtn = root.querySelector('#hydWarmSkip');
+    const continueBtn = root.querySelector('#hydWarmContinue');
 
     function rand(min, max){
       return min + Math.random() * (max - min);
@@ -63,28 +86,38 @@ function createHydrationWarmupGame() {
       else hintEl.textContent = 'พร้อมเล่นแล้ว ไปกันเลย 🎮';
     }
 
+    function revealContinue(){
+      if (continueBtn) continueBtn.classList.remove('is-hidden');
+      if (skipBtn) skipBtn.classList.add('is-hidden');
+    }
+
     function emitDone(){
       if (state.done) return;
       state.done = true;
+
       updateProgress();
       stage?.classList.add('is-done');
       if (hintEl) hintEl.textContent = 'พร้อมเล่นแล้ว ไปกันเลย 🎮';
+      revealContinue();
 
-      setTimeout(() => {
-        try{
-          if (typeof ctx.onDone === 'function') {
-            ctx.onDone({ ok:true, kind:'warmup', score: state.hit });
-          } else if (typeof window.__HHA_GATE_ON_DONE__ === 'function') {
-            window.__HHA_GATE_ON_DONE__({ ok:true, kind:'warmup', score: state.hit });
-          }
-        }catch(e){}
-      }, 500);
+      try {
+        if (typeof ctx.onDone === 'function') {
+          ctx.onDone({ ok:true, kind:'warmup', score: state.hit });
+        } else if (typeof window.__HHA_GATE_ON_DONE__ === 'function') {
+          window.__HHA_GATE_ON_DONE__({ ok:true, kind:'warmup', score: state.hit });
+        }
+      } catch (e) {}
+
+      // fallback: ถ้า callback ไม่พาไปต่อภายใน 900ms ให้ไปเอง
+      state.doneTimer = setTimeout(() => {
+        goNextFallback();
+      }, 900);
     }
 
     function popBubble(el){
       el.classList.add('is-pop');
       setTimeout(() => {
-        try{ el.remove(); }catch(e){}
+        try { el.remove(); } catch (e) {}
       }, 240);
     }
 
@@ -124,15 +157,20 @@ function createHydrationWarmupGame() {
 
     function clearAll(){
       state.bubbles.forEach(el => {
-        try{ el.remove(); }catch(e){}
+        try { el.remove(); } catch (e) {}
       });
       state.bubbles = [];
       if (state.timer) clearTimeout(state.timer);
+      if (state.doneTimer) clearTimeout(state.doneTimer);
     }
 
     skipBtn?.addEventListener('click', () => {
       clearAll();
       emitDone();
+    });
+
+    continueBtn?.addEventListener('click', () => {
+      goNextFallback();
     });
 
     updateProgress();
@@ -154,12 +192,10 @@ function createHydrationWarmupGame() {
 
 const api = createHydrationWarmupGame();
 
-// รองรับ gate-core แบบใหม่
 export function boot(root, ctx) {
   return api.boot(root, ctx);
 }
 
-// รองรับ gate-core แบบเก่า
 export function mount(root, ctx) {
   return api.boot(root, ctx);
 }
