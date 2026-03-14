@@ -1,6 +1,6 @@
 // === /herohealth/gate/gate-core.js ===
 // HeroHealth Gate Core
-// FULL PATCH v20260314b-GATE-CORE-DAILY-ONCE-PHASE-COMPAT
+// FULL PATCH v20260314f-GATE-CORE-GOODJUNK-RUN-CACHEFIX
 
 import {
   buildCtx,
@@ -16,7 +16,7 @@ import {
   getPhaseFile,
   getGameStyleFile,
   normalizeGameId
-} from './gate-games.js?v=20260313c';
+} from './gate-games.js?v=20260314e';
 
 function esc(s) {
   return String(s ?? '')
