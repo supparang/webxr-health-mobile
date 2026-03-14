@@ -1,6 +1,6 @@
 // === /herohealth/gate/gate-core.js ===
 // HeroHealth Gate Core
-// FULL PATCH v20260314i-GATE-CORE-EXPORT-BOOTGATE-FIX
+// FULL PATCH v20260314d-GATE-CORE-EXPORT-BOOTGATE-DAILY-DONE-STATUS
 
 import {
   buildCtx,
@@ -28,14 +28,6 @@ function esc(s) {
 
 function delay(ms){
   return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-function qs(url, key, fallback = '') {
-  try {
-    return url.searchParams.get(key) ?? fallback;
-  } catch {
-    return fallback;
-  }
 }
 
 function safeUrl(raw, fallback = '') {
@@ -102,6 +94,79 @@ function applyStyleFile(styleFile){
   document.head.appendChild(link);
 }
 
+function ensureInlineSkipStyle(){
+  const id = 'gate-inline-skip-style';
+  if(document.getElementById(id)) return;
+
+  const style = document.createElement('style');
+  style.id = id;
+  style.textContent = `
+    .gate-skip-card{
+      max-width: 720px;
+      margin: 6vh auto 0;
+      border: 1px solid rgba(148,163,184,.18);
+      border-radius: 22px;
+      background: rgba(2,6,23,.72);
+      box-shadow: 0 22px 80px rgba(0,0,0,.35);
+      padding: 20px 18px;
+      text-align: center;
+    }
+    .gate-skip-badge{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-height:32px;
+      padding:6px 12px;
+      border-radius:999px;
+      border:1px solid rgba(34,197,94,.26);
+      background:rgba(34,197,94,.12);
+      color:#dcfce7;
+      font-size:12px;
+      font-weight:1000;
+    }
+    .gate-skip-title{
+      margin:12px 0 8px;
+      font-size:clamp(24px,4vw,36px);
+      line-height:1.12;
+      font-weight:1000;
+    }
+    .gate-skip-sub{
+      color:rgba(148,163,184,.95);
+      font-size:14px;
+      font-weight:900;
+      line-height:1.5;
+    }
+    .gate-skip-emoji{
+      margin:14px auto 0;
+      width:72px;
+      height:72px;
+      border-radius:20px;
+      display:grid;
+      place-items:center;
+      border:1px solid rgba(34,197,94,.24);
+      background:rgba(34,197,94,.10);
+      box-shadow:0 12px 28px rgba(0,0,0,.22);
+      font-size:34px;
+    }
+    .gate-skip-hint{
+      margin-top:14px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+      min-height:34px;
+      padding:7px 12px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(15,23,42,.34);
+      color:rgba(148,163,184,.95);
+      font-size:12px;
+      font-weight:1000;
+    }
+  `;
+  document.head.appendChild(style);
+}
+
 function renderShell(app, ctx){
   const meta = getGameMeta(ctx.game) || {
     label: ctx.game,
@@ -161,6 +226,10 @@ function renderShell(app, ctx){
 function renderAlreadyDoneCard(app, ctx){
   const title = statusTitle(ctx);
   const sub = statusSubtitle(ctx);
+  const emoji = ctx.mode === 'cooldown' ? '😌' : '✅';
+  const hint = ctx.mode === 'cooldown'
+    ? 'พักผ่อนครบแล้วสำหรับวันนี้'
+    : 'เตรียมพร้อมครบแล้วสำหรับวันนี้';
 
   app.innerHTML = `
     <div class="gate-wrap">
@@ -168,55 +237,11 @@ function renderAlreadyDoneCard(app, ctx){
         <div class="gate-skip-badge">DAILY DONE</div>
         <h2 class="gate-skip-title">${esc(title)}</h2>
         <div class="gate-skip-sub">${esc(sub)}</div>
+        <div class="gate-skip-emoji">${emoji}</div>
+        <div class="gate-skip-hint">${esc(hint)}</div>
       </section>
     </div>
   `;
-}
-
-function ensureInlineSkipStyle(){
-  const id = 'gate-inline-skip-style';
-  if(document.getElementById(id)) return;
-
-  const style = document.createElement('style');
-  style.id = id;
-  style.textContent = `
-    .gate-skip-card{
-      max-width: 720px;
-      margin: 6vh auto 0;
-      border: 1px solid rgba(148,163,184,.18);
-      border-radius: 22px;
-      background: rgba(2,6,23,.72);
-      box-shadow: 0 22px 80px rgba(0,0,0,.35);
-      padding: 20px 18px;
-      text-align: center;
-    }
-    .gate-skip-badge{
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      min-height:32px;
-      padding:6px 12px;
-      border-radius:999px;
-      border:1px solid rgba(34,197,94,.26);
-      background:rgba(34,197,94,.12);
-      color:#dcfce7;
-      font-size:12px;
-      font-weight:1000;
-    }
-    .gate-skip-title{
-      margin:12px 0 8px;
-      font-size:clamp(24px,4vw,36px);
-      line-height:1.12;
-      font-weight:1000;
-    }
-    .gate-skip-sub{
-      color:rgba(148,163,184,.95);
-      font-size:14px;
-      font-weight:900;
-      line-height:1.5;
-    }
-  `;
-  document.head.appendChild(style);
 }
 
 function makeApi(app, logger){
@@ -273,7 +298,7 @@ function buildNextWithBuffs(nextUrl, buffs){
   }
 }
 
-async function runGate(app){
+export async function bootGate(app){
   ensureInlineSkipStyle();
 
   const ctx = buildCtx(new URL(window.location.href));
@@ -438,10 +463,8 @@ async function runGate(app){
   }
 }
 
-export async function bootGate(rootEl){
-  const app = rootEl || document.getElementById('gate-app');
-  if(!app) throw new Error('gate-app not found');
-  await runGate(app);
+// รองรับทั้งกรณี import แล้วเรียก bootGate(app) และกรณีเปิดไฟล์ตรง
+const app = document.getElementById('gate-app');
+if(app){
+  bootGate(app);
 }
-
-export default bootGate;
