@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth — Bath Hero: Ready to Go!</title>
   <meta name="color-scheme" content="dark light" />
-  <link rel="stylesheet" href="./bath.css?v=20260311-bath-hero-r2" />
+  <link rel="stylesheet" href="./bath.css?v=20260314-bath-pack12-ui" />
 </head>
 <body>
   <div id="app">
@@ -25,12 +25,12 @@
         <div class="pill bad" id="riskPill">เสี่ยงอับชื้น: 10%</div>
         <div class="pill" id="meterPill">เหงื่อ: 0%</div>
         <div class="pill" id="viewPill">VIEW: FRONT</div>
-        <div class="pill" id="comboPill">COMBO: 0</div>
+        <div class="pill combo" id="comboPill">COMBO: 0</div>
         <div class="pill boss" id="bossPill">BOSS: —</div>
       </div>
 
       <div class="hud-row">
-        <div class="pill mini" id="coachPill">COACH: ช่วยให้ตัวละครสะอาดและพร้อมออกไป</div>
+        <div class="pill mini coach" id="coachPill">COACH: ช่วยให้ตัวละครสะอาดและพร้อมออกไป</div>
         <div class="pill mini" id="fatiguePill">FATIGUE: 0%</div>
         <div class="pill mini" id="steadyPill">STEADY: 100%</div>
         <div class="pill mini" id="pressurePill">PRESSURE: 0%</div>
@@ -46,7 +46,7 @@
         <div class="meterLabel">Ready Meter</div>
         <div class="meterBar ready"><div id="readyBar"></div></div>
       </div>
-      <div class="meterCard">
+      <div class="meterCard feverCard">
         <div class="meterLabel">Bubble Fever</div>
         <div class="meterBar fever"><div id="feverBar"></div></div>
       </div>
@@ -90,6 +90,11 @@
 
         <div id="phaseBanner" class="phaseBanner hidden"></div>
 
+        <div id="patternHint" class="patternHint hidden" aria-live="polite">
+          <div class="patternTitle">Pattern</div>
+          <div class="patternText" id="patternText">ถูซ้าย-ขวา</div>
+        </div>
+
         <div id="panelReady" class="panel">
           <div class="panel-card heroCard">
             <h1>🛁 Bath Hero: Ready to Go!</h1>
@@ -132,7 +137,7 @@
             <ol class="helpList">
               <li><b>WET</b> ลากน้ำให้เปียกทั่ว</li>
               <li><b>SOAP</b> เก็บฟองจริง ระวังฟองหลอก</li>
-              <li><b>SCRUB</b> ถูจุดอับสำคัญให้ครบ</li>
+              <li><b>SCRUB</b> ถูจุดอับสำคัญให้ครบ และบางจุดต้องถูตาม <b>Pattern</b></li>
               <li><b>RINSE</b> ล้างฟองออกให้หมด</li>
               <li><b>DRY</b> เช็ดตัวให้แห้ง โดยเฉพาะจุดอับ</li>
               <li><b>DRESS</b> ใส่เสื้อได้เมื่อพร้อมจริง</li>
@@ -145,6 +150,14 @@
 
         <div id="panelEnd" class="panel hidden">
           <div class="panel-card panel-end-card">
+            <div class="rankHero" id="rankHero">
+              <div class="rankBadgeBig" id="rankBadgeBig">A</div>
+              <div class="rankText">
+                <div class="rankTop">ผลลัพธ์รอบนี้</div>
+                <div class="rankName" id="rankName">Clean Hero</div>
+              </div>
+            </div>
+
             <h2>สรุปผล</h2>
             <p id="endSummary" class="summary"></p>
 
@@ -220,10 +233,10 @@
     </main>
 
     <footer id="footer">
-      <span class="muted">HeroHealth — Bath Hero • Ready to Go! • v20260311-bath-hero-r2</span>
+      <span class="muted">HeroHealth — Bath Hero • Ready to Go! • Pack 1+2 UI</span>
     </footer>
   </div>
 
-  <script src="./bath.js?v=20260311-bath-hero-r2"></script>
+  <script src="./bath.js?v=20260314-bath-pack12-ui"></script>
 </body>
 </html>
