@@ -777,6 +777,135 @@
     }
 
     .footerSpace{ height:8px; }
+
+    .progressWrap{
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+      margin-top:4px;
+    }
+
+    .progressHead{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    .progressLabel{
+      font-size:12px;
+      font-weight:1000;
+      color:#e0f2fe;
+    }
+
+    .progressTrack{
+      width:100%;
+      height:12px;
+      border-radius:999px;
+      overflow:hidden;
+      background: rgba(255,255,255,.08);
+      border:1px solid rgba(255,255,255,.10);
+      box-shadow: inset 0 2px 8px rgba(0,0,0,.18);
+    }
+
+    .progressFill{
+      height:100%;
+      width:0%;
+      border-radius:999px;
+      transition: width .25s ease;
+    }
+
+    .progressFill.nutri{
+      background: linear-gradient(90deg, #22c55e, #facc15);
+    }
+
+    .progressFill.hyg{
+      background: linear-gradient(90deg, #22d3ee, #60a5fa);
+    }
+
+    .progressFill.fit{
+      background: linear-gradient(90deg, #f472b6, #a78bfa);
+    }
+
+    .smartStartRow{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+    }
+
+    .smartCard{
+      border-radius:22px;
+      border:1px solid rgba(255,255,255,.14);
+      background:
+        linear-gradient(135deg, rgba(56,189,248,.14), rgba(250,204,21,.12)),
+        rgba(15,23,42,.56);
+      padding:14px;
+      display:grid;
+      grid-template-columns: 74px 1fr auto;
+      gap:12px;
+      align-items:center;
+      box-shadow: var(--shadow);
+    }
+
+    @media (max-width:720px){
+      .smartCard{
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .smartIcon{
+      width:74px;
+      height:74px;
+      border-radius:20px;
+      display:grid;
+      place-items:center;
+      font-size:38px;
+      border:1px solid rgba(255,255,255,.14);
+      background: rgba(255,255,255,.08);
+    }
+
+    .smartTitle{
+      font-size:18px;
+      font-weight:1100;
+      line-height:1.2;
+    }
+
+    .smartMeta{
+      margin-top:4px;
+      color:#dbeafe;
+      font-size:13px;
+      font-weight:900;
+      line-height:1.5;
+    }
+
+    .zoneTools{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      align-items:center;
+    }
+
+    .miniGuide{
+      border-radius:18px;
+      border:1px dashed rgba(255,255,255,.16);
+      background: rgba(255,255,255,.04);
+      padding:10px 12px;
+      color:#e0f2fe;
+      font-size:12px;
+      font-weight:900;
+      line-height:1.45;
+    }
+
+    .zoneFooterRow{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+      justify-content:space-between;
+      margin-top:2px;
+    }
   </style>
 </head>
 <body>
@@ -859,6 +988,32 @@
               <span class="dailyBadge todo" id="missionFitBadge">ยังไม่เริ่ม</span>
             </div>
           </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="cardBook">
+      <div class="cardBookTop">
+        <div>
+          <div class="cardBookTitle">🚀 เริ่มเล่นแบบแนะนำ</div>
+          <div class="cardBookSub">ถ้ายังไม่รู้จะเล่นอะไร ให้กดปุ่มนี้ได้เลย ระบบจะเลือกเกมที่เหมาะให้</div>
+        </div>
+        <div class="inlineRow">
+          <button class="btn primary" id="btnStartRecommended" type="button">▶ เริ่มเกมแนะนำ</button>
+          <button class="btn violet" id="btnStartNextGame" type="button">⏭ เกมถัดไป</button>
+        </div>
+      </div>
+
+      <div class="smartCard">
+        <div class="smartIcon" id="smartGameIcon">🎮</div>
+
+        <div>
+          <div class="smartTitle" id="smartGameTitle">กำลังเลือกเกมแนะนำ...</div>
+          <div class="smartMeta" id="smartGameMeta">ระบบจะดูจากสิ่งที่เล่นวันนี้และเลือกเกมที่เหมาะให้</div>
+        </div>
+
+        <div class="zoneTools">
+          <a class="btn good" id="smartGameLink" href="#">ไปเกมนี้</a>
         </div>
       </div>
     </section>
@@ -1099,6 +1254,16 @@
           </div>
         </div>
 
+        <div class="progressWrap">
+          <div class="progressHead">
+            <div class="progressLabel">ความคืบหน้าโซนโภชนาการ</div>
+            <div class="progressLabel" id="nutriProgressText">0 / 4 เกม</div>
+          </div>
+          <div class="progressTrack">
+            <div class="progressFill nutri" id="nutriProgressBar"></div>
+          </div>
+        </div>
+
         <div class="sep"></div>
 
         <div class="games">
@@ -1170,11 +1335,26 @@
         </div>
 
         <div class="helperBox">เคล็ดลับ: ถ้าอยากเริ่มแบบง่าย ให้กด GoodJunk หรือ Hydration ก่อนนะ ✨</div>
+
+        <div class="zoneFooterRow">
+          <div class="miniGuide">ถ้าเด็กยังเลือกไม่ถูก ให้เริ่มจาก GoodJunk หรือ Hydration ก่อน</div>
+          <button class="btn primary" id="btnNutriRecommended" type="button">🥦 เล่นเกมแนะนำของโซนนี้</button>
+        </div>
       </section>
 
       <section class="card hygiene">
         <h2>🪥 โซนสุขอนามัย</h2>
         <div class="sectionSub">ฝึกนิสัยดูแลตัวเองให้สะอาด ปลอดภัย และแข็งแรงทุกวัน</div>
+
+        <div class="progressWrap">
+          <div class="progressHead">
+            <div class="progressLabel">ความคืบหน้าโซนสุขอนามัย</div>
+            <div class="progressLabel" id="hygProgressText">0 / 6 เกม</div>
+          </div>
+          <div class="progressTrack">
+            <div class="progressFill hyg" id="hygProgressBar"></div>
+          </div>
+        </div>
 
         <div class="sep"></div>
 
@@ -1253,11 +1433,26 @@
         </div>
 
         <div class="helperBox">เริ่มง่ายสุด: ลอง Handwash หรือ Brush ก่อน แล้วค่อยไปเกมนักสืบเชื้อโรค 🔍</div>
+
+        <div class="zoneFooterRow">
+          <div class="miniGuide">เริ่มง่ายสุด: Handwash → Brush → Bath</div>
+          <button class="btn primary" id="btnHygRecommended" type="button">🪥 เล่นเกมแนะนำของโซนนี้</button>
+        </div>
       </section>
 
       <section class="card fitness">
         <h2>🏃 โซนออกกำลังกาย</h2>
         <div class="sectionSub">ขยับร่างกาย ฝึกการทรงตัว จังหวะ และความคล่องตัวให้แข็งแรง</div>
+
+        <div class="progressWrap">
+          <div class="progressHead">
+            <div class="progressLabel">ความคืบหน้าโซนออกกำลังกาย</div>
+            <div class="progressLabel" id="fitProgressText">0 / 5 เกม</div>
+          </div>
+          <div class="progressTrack">
+            <div class="progressFill fit" id="fitProgressBar"></div>
+          </div>
+        </div>
 
         <div class="sep"></div>
 
@@ -1324,6 +1519,11 @@
         </div>
 
         <div class="helperBox">อยากได้เกมเคลื่อนไหวชัด ๆ ให้ลอง JumpDuck หรือ Shadow Breaker ก่อน 💥</div>
+
+        <div class="zoneFooterRow">
+          <div class="miniGuide">เริ่มง่ายสุด: JumpDuck หรือ Shadow Breaker</div>
+          <button class="btn primary" id="btnFitRecommended" type="button">🏃 เล่นเกมแนะนำของโซนนี้</button>
+        </div>
       </section>
 
     </div>
@@ -2000,6 +2200,46 @@
         : 'ลอง JumpDuck หรือ Shadow Breaker ก่อน';
     }
 
+    function playedTodayByGate(cat, game){
+      return isGateDone('warmup', cat, game, pid) || isCooldownDone(cat, game, pid);
+    }
+
+    function computeZoneProgress(){
+      const nutritionGames = ['goodjunk','groups','hydration','plate'];
+      const hygieneGames   = ['handwash','brush','bath','cleanobject','maskcough','germdetective'];
+      const fitnessGames   = ['shadowbreaker','rhythmboxer','jumpduck','balancehold','fitnessplanner'];
+
+      const nutrDone = nutritionGames.filter(g => playedTodayByGate('nutrition', g) || gamePlayedToday(g)).length;
+      const hygDone  = hygieneGames.filter(g => playedTodayByGate('hygiene', g) || gamePlayedToday(g)).length;
+      const fitDone  = fitnessGames.filter(g => playedTodayByGate('fitness', g) || gamePlayedToday(g)).length;
+
+      return {
+        nutrition:{ done:nutrDone, total:nutritionGames.length },
+        hygiene:{ done:hygDone, total:hygieneGames.length },
+        fitness:{ done:fitDone, total:fitnessGames.length }
+      };
+    }
+
+    function renderZoneProgress(){
+      const p = computeZoneProgress();
+
+      const nutriText = document.getElementById('nutriProgressText');
+      const hygText   = document.getElementById('hygProgressText');
+      const fitText   = document.getElementById('fitProgressText');
+
+      const nutriBar = document.getElementById('nutriProgressBar');
+      const hygBar   = document.getElementById('hygProgressBar');
+      const fitBar   = document.getElementById('fitProgressBar');
+
+      if(nutriText) nutriText.textContent = `${p.nutrition.done} / ${p.nutrition.total} เกม`;
+      if(hygText)   hygText.textContent   = `${p.hygiene.done} / ${p.hygiene.total} เกม`;
+      if(fitText)   fitText.textContent   = `${p.fitness.done} / ${p.fitness.total} เกม`;
+
+      if(nutriBar) nutriBar.style.width = `${(p.nutrition.done / p.nutrition.total) * 100}%`;
+      if(hygBar)   hygBar.style.width   = `${(p.hygiene.done / p.hygiene.total) * 100}%`;
+      if(fitBar)   fitBar.style.width   = `${(p.fitness.done / p.fitness.total) * 100}%`;
+    }
+
     const PATHS = {
       goodjunk:       './goodjunk-launcher.html',
       groups:         './groups-vr.html',
@@ -2019,6 +2259,78 @@
       balanceHold:    './balance-hold-vr.html',
       fitnessPlanner: './fitness-planner.html'
     };
+
+    function getRecommendedGame(){
+      const nutritionOrder = [
+        { id:'goodjunk', icon:'🍔', title:'GoodJunk', meta:'เริ่มง่าย สนุก และได้การ์ดสะสม', path:'goodjunk', extra:{ mode:'solo' } },
+        { id:'hydration', icon:'💧', title:'Hydration', meta:'ฝึกเรื่องการดื่มน้ำและเล่นง่ายสำหรับเริ่มต้น', path:'hydration', extra:{ zone:'nutrition' } },
+        { id:'groups', icon:'🥚', title:'Food Groups', meta:'ต่อยอดการแยกหมวดอาหาร', path:'groups', extra:{ zone:'nutrition' } },
+        { id:'plate', icon:'🍽', title:'Balanced Plate', meta:'จัดจานอาหารให้ครบและสมดุล', path:'plate', extra:{ zone:'nutrition' } }
+      ];
+
+      const hygieneOrder = [
+        { id:'handwash', icon:'🧼', title:'Handwash', meta:'เริ่มง่ายสุดในโซนสุขอนามัย', path:'handwash', extra:{ zone:'hygiene' } },
+        { id:'brush', icon:'🪥', title:'Brush', meta:'ต่อยอดนิสัยดูแลตัวเองทุกวัน', path:'brush', extra:{ zone:'hygiene' } },
+        { id:'bath', icon:'🛁', title:'Bath', meta:'ค้นหาจุดสกปรกและอาบน้ำให้สะอาด', path:'bath', extra:{ zone:'hygiene' } },
+        { id:'germdetective', icon:'🦠', title:'Germ Detective', meta:'ไปภารกิจนักสืบเชื้อโรคกัน', path:'germDetective', extra:{ zone:'hygiene' } }
+      ];
+
+      const fitnessOrder = [
+        { id:'jumpduck', icon:'⬆️', title:'JumpDuck', meta:'เริ่มง่ายและเคลื่อนไหวชัด', path:'jumpDuck', extra:{ zone:'fitness' } },
+        { id:'shadowbreaker', icon:'🥊', title:'Shadow Breaker', meta:'ต่อยเป้าและเก็บคอมโบ', path:'shadowBreaker', extra:{ zone:'fitness' } },
+        { id:'balancehold', icon:'⚖️', title:'Balance Hold', meta:'ฝึกทรงตัวแบบสนุก', path:'balanceHold', extra:{ zone:'fitness' } },
+        { id:'rhythmboxer', icon:'🎵', title:'Rhythm Boxer', meta:'ขยับตามจังหวะ', path:'rhythmBoxer', extra:{ zone:'fitness' } }
+      ];
+
+      const allPriority = [...nutritionOrder, ...hygieneOrder, ...fitnessOrder];
+      const firstNotDone = allPriority.find(g => !gamePlayedToday(g.id) && !localStorage.getItem(gateDoneKey('warmup',
+        (['goodjunk','groups','hydration','plate'].includes(g.id) ? 'nutrition' :
+         ['handwash','brush','bath','cleanobject','maskcough','germdetective'].includes(g.id) ? 'hygiene' : 'fitness'),
+        g.id, pid)));
+
+      return firstNotDone || allPriority[0];
+    }
+
+    function getNextGameAfterLastRun(){
+      try{
+        const raw = localStorage.getItem('HHA_LAST_SUMMARY') || '';
+        if(!raw) return getRecommendedGame();
+        const j = JSON.parse(raw);
+        const lastGame = String(j.game || '').toLowerCase();
+
+        const sequence = [
+          { id:'goodjunk', icon:'🍔', title:'GoodJunk', meta:'เล่นต่อที่ GoodJunk', path:'goodjunk', extra:{ mode:'solo' } },
+          { id:'hydration', icon:'💧', title:'Hydration', meta:'เล่นต่อที่ Hydration', path:'hydration', extra:{ zone:'nutrition' } },
+          { id:'groups', icon:'🥚', title:'Food Groups', meta:'เล่นต่อที่ Food Groups', path:'groups', extra:{ zone:'nutrition' } },
+          { id:'plate', icon:'🍽', title:'Balanced Plate', meta:'เล่นต่อที่ Balanced Plate', path:'plate', extra:{ zone:'nutrition' } },
+          { id:'handwash', icon:'🧼', title:'Handwash', meta:'เล่นต่อที่ Handwash', path:'handwash', extra:{ zone:'hygiene' } },
+          { id:'brush', icon:'🪥', title:'Brush', meta:'เล่นต่อที่ Brush', path:'brush', extra:{ zone:'hygiene' } },
+          { id:'bath', icon:'🛁', title:'Bath', meta:'เล่นต่อที่ Bath', path:'bath', extra:{ zone:'hygiene' } },
+          { id:'shadowbreaker', icon:'🥊', title:'Shadow Breaker', meta:'เล่นต่อที่ Shadow Breaker', path:'shadowBreaker', extra:{ zone:'fitness' } },
+          { id:'jumpduck', icon:'⬆️', title:'JumpDuck', meta:'เล่นต่อที่ JumpDuck', path:'jumpDuck', extra:{ zone:'fitness' } },
+          { id:'balancehold', icon:'⚖️', title:'Balance Hold', meta:'เล่นต่อที่ Balance Hold', path:'balanceHold', extra:{ zone:'fitness' } }
+        ];
+
+        const idx = sequence.findIndex(x => x.id === lastGame);
+        if(idx >= 0 && idx < sequence.length - 1) return sequence[idx + 1];
+        return getRecommendedGame();
+      }catch(_){
+        return getRecommendedGame();
+      }
+    }
+
+    function renderSmartStart(){
+      const card = getRecommendedGame();
+      const iconEl = document.getElementById('smartGameIcon');
+      const titleEl = document.getElementById('smartGameTitle');
+      const metaEl = document.getElementById('smartGameMeta');
+      const linkEl = document.getElementById('smartGameLink');
+
+      if(iconEl) iconEl.textContent = card.icon;
+      if(titleEl) titleEl.textContent = `เกมแนะนำตอนนี้: ${card.title}`;
+      if(metaEl) metaEl.textContent = card.meta;
+      if(linkEl) linkEl.href = buildUrl(PATHS[card.path], card.extra || {});
+    }
 
     const btnGJsolo = document.getElementById('btnGJsolo');
     const btnGJpro = document.getElementById('btnGJpro');
@@ -2158,6 +2470,65 @@
       };
     }
 
+    const btnStartRecommended = document.getElementById('btnStartRecommended');
+    const btnStartNextGame = document.getElementById('btnStartNextGame');
+    const btnNutriRecommended = document.getElementById('btnNutriRecommended');
+    const btnHygRecommended = document.getElementById('btnHygRecommended');
+    const btnFitRecommended = document.getElementById('btnFitRecommended');
+
+    if(btnStartRecommended){
+      btnStartRecommended.onclick = ()=>{
+        const g = getRecommendedGame();
+        location.href = buildUrl(PATHS[g.path], g.extra || {});
+      };
+    }
+
+    if(btnStartNextGame){
+      btnStartNextGame.onclick = ()=>{
+        const g = getNextGameAfterLastRun();
+        location.href = buildUrl(PATHS[g.path], g.extra || {});
+      };
+    }
+
+    if(btnNutriRecommended){
+      btnNutriRecommended.onclick = ()=>{
+        const options = [
+          { id:'goodjunk', path:'goodjunk', extra:{ mode:'solo' } },
+          { id:'hydration', path:'hydration', extra:{ zone:'nutrition' } },
+          { id:'groups', path:'groups', extra:{ zone:'nutrition' } },
+          { id:'plate', path:'plate', extra:{ zone:'nutrition' } }
+        ];
+        const pick = options.find(x => !gamePlayedToday(x.id)) || options[0];
+        location.href = buildUrl(PATHS[pick.path], pick.extra || {});
+      };
+    }
+
+    if(btnHygRecommended){
+      btnHygRecommended.onclick = ()=>{
+        const options = [
+          { id:'handwash', path:'handwash', extra:{ zone:'hygiene' } },
+          { id:'brush', path:'brush', extra:{ zone:'hygiene' } },
+          { id:'bath', path:'bath', extra:{ zone:'hygiene' } },
+          { id:'germdetective', path:'germDetective', extra:{ zone:'hygiene' } }
+        ];
+        const pick = options.find(x => !gamePlayedToday(x.id)) || options[0];
+        location.href = buildUrl(PATHS[pick.path], pick.extra || {});
+      };
+    }
+
+    if(btnFitRecommended){
+      btnFitRecommended.onclick = ()=>{
+        const options = [
+          { id:'jumpduck', path:'jumpDuck', extra:{ zone:'fitness' } },
+          { id:'shadowbreaker', path:'shadowBreaker', extra:{ zone:'fitness' } },
+          { id:'balancehold', path:'balanceHold', extra:{ zone:'fitness' } },
+          { id:'rhythmboxer', path:'rhythmBoxer', extra:{ zone:'fitness' } }
+        ];
+        const pick = options.find(x => !gamePlayedToday(x.id)) || options[0];
+        location.href = buildUrl(PATHS[pick.path], pick.extra || {});
+      };
+    }
+
     function renderAll(){
       renderHero();
       renderCardBook();
@@ -2173,6 +2544,8 @@
       decorateHydrationFlowChip();
       renderDailyBadges();
       renderMissionToday();
+      renderZoneProgress();
+      renderSmartStart();
     }
 
     renderAll();
