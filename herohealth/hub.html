@@ -8,133 +8,342 @@
   <link rel="icon" href="./favicon.ico" />
   <style>
     :root{
-      --bg1:#020617; --bg2:#0b1226;
-      --stroke:rgba(148,163,184,.18);
-      --text:rgba(229,231,235,.96);
-      --muted:rgba(148,163,184,.92);
-      --good:#22c55e; --warn:#f59e0b; --bad:#ef4444; --blue:#3b82f6; --violet:#a78bfa;
+      --bg1:#0f172a;
+      --bg2:#172554;
+      --bg3:#1e3a8a;
+
+      --panel:rgba(15,23,42,.74);
+      --panel2:rgba(30,41,59,.72);
+      --stroke:rgba(255,255,255,.14);
+
+      --text:#f8fafc;
+      --muted:#dbeafe;
+
+      --good:#22c55e;
+      --warn:#f59e0b;
+      --bad:#ef4444;
+      --blue:#38bdf8;
+      --violet:#a78bfa;
+      --pink:#f472b6;
+      --yellow:#facc15;
+      --cyan:#22d3ee;
+
+      --shadow:0 18px 50px rgba(0,0,0,.28);
+      --shadow-big:0 24px 70px rgba(0,0,0,.34);
+
       --sat: env(safe-area-inset-top, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
       --sal: env(safe-area-inset-left, 0px);
       --sar: env(safe-area-inset-right, 0px);
     }
+
+    *{ box-sizing:border-box; }
+
     html,body{
       height:100%;
       margin:0;
-      background:
-        radial-gradient(1200px 800px at 50% -10%, rgba(59,130,246,.20), transparent 60%),
-        radial-gradient(900px 700px at 10% 10%, rgba(167,139,250,.16), transparent 60%),
-        linear-gradient(180deg, var(--bg1), var(--bg2));
       color:var(--text);
+      background:
+        radial-gradient(900px 600px at 8% 6%, rgba(56,189,248,.22), transparent 60%),
+        radial-gradient(1000px 700px at 95% 0%, rgba(244,114,182,.18), transparent 55%),
+        radial-gradient(900px 700px at 50% 100%, rgba(250,204,21,.12), transparent 60%),
+        linear-gradient(180deg, var(--bg1), var(--bg2) 48%, var(--bg3));
     }
+
     body{
-      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", "Noto Sans", Arial;
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", "Noto Sans", Arial, sans-serif;
       overflow-x:hidden;
+      line-height:1.35;
     }
+
     a{ color:inherit; text-decoration:none; }
+    button{ font:inherit; }
 
     .wrap{
-      max-width: 1080px;
+      max-width: 1180px;
       margin: 0 auto;
-      padding: calc(14px + var(--sat)) calc(14px + var(--sar)) calc(18px + var(--sab)) calc(14px + var(--sal));
+      padding:
+        calc(14px + var(--sat))
+        calc(14px + var(--sar))
+        calc(28px + var(--sab))
+        calc(14px + var(--sal));
+    }
+
+    .heroBanner{
+      border-radius: 28px;
+      padding: 18px;
+      margin-bottom: 14px;
+      border:1px solid rgba(255,255,255,.16);
+      background:
+        linear-gradient(135deg, rgba(56,189,248,.18), rgba(167,139,250,.18)),
+        rgba(2,6,23,.42);
+      backdrop-filter: blur(12px);
+      box-shadow: var(--shadow-big);
+      display:grid;
+      grid-template-columns: 1.15fr .85fr;
+      gap:14px;
+      align-items:stretch;
+    }
+
+    @media (max-width: 920px){
+      .heroBanner{ grid-template-columns:1fr; }
+    }
+
+    .heroMain{
+      display:flex;
+      gap:14px;
+      align-items:flex-start;
+    }
+
+    .heroMascot{
+      width:72px;
+      height:72px;
+      border-radius:20px;
+      display:grid;
+      place-items:center;
+      font-size:36px;
+      flex:0 0 auto;
+      background:
+        radial-gradient(circle at 30% 30%, rgba(255,255,255,.24), transparent 40%),
+        linear-gradient(135deg, rgba(56,189,248,.26), rgba(167,139,250,.24));
+      border:1px solid rgba(255,255,255,.18);
+      box-shadow: 0 10px 28px rgba(0,0,0,.24);
+    }
+
+    .heroTitle{
+      margin:0;
+      font-size: clamp(24px, 4vw, 34px);
+      font-weight: 1000;
+      line-height:1.05;
+      letter-spacing:.2px;
+    }
+
+    .heroSub{
+      margin-top:8px;
+      color:var(--muted);
+      font-size:14px;
+      font-weight:900;
+      line-height:1.5;
+    }
+
+    .ctxLine{
+      margin-top:8px;
+      display:inline-flex;
+      flex-wrap:wrap;
+      gap:8px;
+      font-size:12px;
+      font-weight:1000;
+      color:#e0f2fe;
+      background: rgba(2,6,23,.28);
+      border:1px solid rgba(255,255,255,.12);
+      border-radius:999px;
+      padding:8px 12px;
+    }
+
+    .heroStats{
+      display:grid;
+      grid-template-columns: repeat(2, minmax(0,1fr));
+      gap:10px;
+      align-content:start;
+    }
+
+    @media (max-width: 520px){
+      .heroStats{ grid-template-columns:1fr 1fr; }
+    }
+
+    .statCard{
+      border-radius:20px;
+      border:1px solid rgba(255,255,255,.14);
+      background: rgba(2,6,23,.38);
+      backdrop-filter: blur(8px);
+      padding:12px;
+      min-height:86px;
+      box-shadow: var(--shadow);
+      display:flex;
+      flex-direction:column;
+      justify-content:center;
+      gap:4px;
+    }
+
+    .statLabel{
+      font-size:12px;
+      font-weight:1000;
+      color:#dbeafe;
+      opacity:.95;
+    }
+
+    .statValue{
+      font-size:22px;
+      font-weight:1100;
+      line-height:1;
     }
 
     .topbar{
       display:flex;
-      gap:10px;
-      align-items:center;
+      gap:12px;
+      align-items:stretch;
       justify-content:space-between;
       flex-wrap:wrap;
-      margin-bottom: 12px;
+      margin-bottom: 14px;
     }
 
     .brand{
       display:flex;
       align-items:center;
-      gap:10px;
-      padding: 10px 12px;
-      border-radius: 18px;
-      border:1px solid var(--stroke);
-      background: rgba(2,6,23,.48);
+      gap:12px;
+      padding: 12px 14px;
+      border-radius: 22px;
+      border:1px solid rgba(255,255,255,.14);
+      background: rgba(2,6,23,.44);
       backdrop-filter: blur(10px);
-      box-shadow: 0 18px 55px rgba(0,0,0,.35);
+      box-shadow: var(--shadow);
+      min-height:64px;
     }
-    .brand b{ font-weight:1100; }
 
-    .pill{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      padding: 8px 10px;
-      border-radius: 999px;
-      border:1px solid var(--stroke);
-      background: rgba(2,6,23,.50);
-      backdrop-filter: blur(10px);
-      color: var(--muted);
-      font-size: 12px;
-      font-weight: 950;
-      white-space:nowrap;
+    .brandIcon{
+      width:44px;
+      height:44px;
+      border-radius:14px;
+      display:grid;
+      place-items:center;
+      font-size:24px;
+      background: linear-gradient(135deg, rgba(56,189,248,.22), rgba(167,139,250,.22));
+      border:1px solid rgba(255,255,255,.14);
     }
-    .pill b{ color:var(--text); }
+
+    .brand b{
+      font-weight:1100;
+      font-size:18px;
+      letter-spacing:.2px;
+    }
+
+    .brand .muted{
+      font-size:12px;
+    }
 
     .hero{
       display:flex;
-      gap:8px;
+      gap:10px;
       flex-wrap:wrap;
       align-items:center;
       justify-content:flex-end;
     }
 
+    .pill{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      min-height: 40px;
+      padding: 10px 12px;
+      border-radius: 999px;
+      border:1px solid rgba(255,255,255,.14);
+      background: rgba(2,6,23,.46);
+      backdrop-filter: blur(10px);
+      color: #e0f2fe;
+      font-size: 12px;
+      font-weight: 1000;
+      white-space:nowrap;
+      box-shadow: 0 8px 22px rgba(0,0,0,.18);
+    }
+
+    .pill b{
+      color:#ffffff;
+      font-weight:1100;
+    }
+
     .btn{
       cursor:pointer;
-      border-radius: 16px;
-      border:1px solid rgba(148,163,184,.22);
-      background: rgba(148,163,184,.10);
+      border-radius: 18px;
+      border:1px solid rgba(255,255,255,.16);
+      background: rgba(148,163,184,.12);
       color: var(--text);
-      padding: 10px 12px;
+      padding: 12px 16px;
       font-weight:1100;
-      min-height: 44px;
+      min-height: 48px;
+      box-shadow: 0 10px 26px rgba(0,0,0,.18);
+      transition: transform .12s ease, filter .12s ease, border-color .12s ease;
     }
-    .btn.primary{ border-color: rgba(59,130,246,.30); background: rgba(59,130,246,.16); }
-    .btn.violet{ border-color: rgba(167,139,250,.28); background: rgba(167,139,250,.14); }
-    .btn.good{ border-color: rgba(34,197,94,.28); background: rgba(34,197,94,.14); }
-    .btn.ghost{ background: transparent; color: var(--muted); }
+
+    .btn:hover{ transform: translateY(-1px); filter:brightness(1.05); }
+    .btn:active{ transform: translateY(0); }
+
+    .btn.primary{
+      border-color: rgba(56,189,248,.32);
+      background: linear-gradient(180deg, rgba(56,189,248,.22), rgba(56,189,248,.16));
+    }
+    .btn.violet{
+      border-color: rgba(167,139,250,.30);
+      background: linear-gradient(180deg, rgba(167,139,250,.22), rgba(167,139,250,.14));
+    }
+    .btn.good{
+      border-color: rgba(34,197,94,.30);
+      background: linear-gradient(180deg, rgba(34,197,94,.22), rgba(34,197,94,.14));
+    }
+    .btn.warn{
+      border-color: rgba(245,158,11,.30);
+      background: linear-gradient(180deg, rgba(245,158,11,.24), rgba(245,158,11,.14));
+    }
+    .btn.ghost{
+      background: rgba(255,255,255,.04);
+      color: #e2e8f0;
+    }
+
+    .sectionTitle{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      font-size:18px;
+      font-weight:1100;
+      margin:0;
+    }
+
+    .sectionSub{
+      color:#dbeafe;
+      font-size:13px;
+      font-weight:900;
+      line-height:1.5;
+    }
 
     .grid{
       display:grid;
       grid-template-columns: repeat(3, minmax(0,1fr));
-      gap: 12px;
-      margin-top: 10px;
+      gap: 14px;
+      margin-top: 14px;
     }
-    @media (max-width:900px){
+
+    @media (max-width:980px){
       .grid{ grid-template-columns:1fr; }
     }
 
-    .card{
-      border-radius: 22px;
-      border:1px solid rgba(148,163,184,.18);
+    .card,
+    .cardBook,
+    .trophyShelf{
+      border-radius: 26px;
+      border:1px solid rgba(255,255,255,.14);
       background: rgba(2,6,23,.58);
-      backdrop-filter: blur(10px);
-      box-shadow: 0 22px 80px rgba(0,0,0,.35);
-      padding: 12px 12px;
+      backdrop-filter: blur(12px);
+      box-shadow: var(--shadow-big);
+      padding: 14px;
       display:flex;
       flex-direction:column;
-      gap:10px;
+      gap:12px;
     }
 
     .card h2{
       margin:0;
-      font-size:16px;
+      font-size:20px;
       font-weight:1100;
       display:flex;
       gap:10px;
       align-items:center;
+      line-height:1.2;
     }
 
     .muted{
-      color:var(--muted);
+      color:#dbeafe;
       font-weight:900;
-      font-size:12px;
+      font-size:13px;
+      line-height:1.45;
     }
 
     .zoneRow{
@@ -148,26 +357,80 @@
     .games{
       display:grid;
       grid-template-columns: repeat(2, minmax(0,1fr));
-      gap: 10px;
+      gap: 12px;
     }
-    @media (max-width:520px){
+
+    @media (max-width:620px){
       .games{ grid-template-columns:1fr; }
     }
 
     .gameBtn{
       display:flex;
       flex-direction:column;
-      gap:6px;
-      padding: 12px 12px;
-      border-radius: 18px;
-      border:1px solid rgba(148,163,184,.18);
-      background: rgba(15,23,42,.46);
-      box-shadow: 0 18px 55px rgba(0,0,0,.25);
-      min-height: 68px;
+      gap:8px;
+      padding: 14px;
+      border-radius: 22px;
+      border:1px solid rgba(255,255,255,.14);
+      background:
+        linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02)),
+        rgba(15,23,42,.54);
+      box-shadow: 0 16px 38px rgba(0,0,0,.24);
+      min-height: 120px;
+      transition: transform .12s ease, border-color .12s ease, filter .12s ease;
     }
-    .gameBtn .t{ font-weight:1100; }
-    .gameBtn .s{ font-size:12px; font-weight:900; color:var(--muted); }
-    .gameBtn:hover{ border-color: rgba(59,130,246,.28); }
+
+    .gameBtn:hover{
+      transform: translateY(-2px);
+      border-color: rgba(56,189,248,.30);
+      filter:brightness(1.05);
+    }
+
+    .gameHead{
+      display:flex;
+      gap:10px;
+      align-items:flex-start;
+    }
+
+    .gameIcon{
+      width:50px;
+      height:50px;
+      border-radius:16px;
+      display:grid;
+      place-items:center;
+      font-size:26px;
+      flex:0 0 auto;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(255,255,255,.06);
+      box-shadow: 0 10px 20px rgba(0,0,0,.16);
+    }
+
+    .gameBtn .t{
+      font-size:17px;
+      font-weight:1100;
+      line-height:1.2;
+    }
+
+    .gameBtn .s{
+      font-size:13px;
+      font-weight:900;
+      color:#dbeafe;
+      line-height:1.45;
+    }
+
+    .playTag{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      width:max-content;
+      padding:8px 10px;
+      border-radius:999px;
+      font-size:12px;
+      font-weight:1000;
+      color:#082f49;
+      background: linear-gradient(180deg, #fde68a, #fcd34d);
+      border:1px solid rgba(255,255,255,.16);
+      margin-top:2px;
+    }
 
     .inlineRow{
       display:flex;
@@ -176,32 +439,28 @@
       align-items:center;
     }
 
+    .miniRow{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      align-items:center;
+    }
+
     .sep{
       height:1px;
-      background: rgba(148,163,184,.14);
-      margin: 6px 0;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,.12), transparent);
+      margin: 2px 0;
     }
 
     .small{
       font-size:12px;
       font-weight:900;
-      color: var(--muted);
+      color:#dbeafe;
+      line-height:1.45;
     }
 
-    .cardBook{
-      border-radius:22px;
-      border:1px solid rgba(148,163,184,.18);
-      background: rgba(2,6,23,.58);
-      backdrop-filter: blur(10px);
-      box-shadow: 0 22px 80px rgba(0,0,0,.35);
-      padding: 12px 12px;
-      display:flex;
-      flex-direction:column;
-      gap:10px;
-      margin-top:12px;
-    }
-
-    .cardBookTop{
+    .cardBookTop,
+    .shelfTop{
       display:flex;
       align-items:center;
       justify-content:space-between;
@@ -213,135 +472,136 @@
       display:flex;
       align-items:center;
       gap:10px;
-      font-size:16px;
+      font-size:19px;
       font-weight:1100;
+      line-height:1.2;
     }
 
     .cardBookSub{
-      color:var(--muted);
-      font-size:12px;
+      color:#dbeafe;
+      font-size:13px;
       font-weight:900;
+      line-height:1.5;
+      margin-top:4px;
     }
 
     .cardBookGrid{
       display:grid;
-      grid-template-columns: 1.2fr .8fr;
+      grid-template-columns: 1.15fr .85fr;
       gap:12px;
     }
+
     @media (max-width: 900px){
       .cardBookGrid{ grid-template-columns:1fr; }
     }
 
-    .bookPanel{
-      border-radius:18px;
-      border:1px solid rgba(148,163,184,.16);
-      background: rgba(15,23,42,.46);
-      padding:12px;
-      box-shadow: 0 18px 55px rgba(0,0,0,.25);
-    }
-
-    .bookBig{
-      font-size:30px;
-      font-weight:1100;
-      line-height:1;
-      margin-top:4px;
+    .bookPanel,
+    .shelfCard{
+      border-radius:22px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(15,23,42,.52);
+      padding:14px;
+      box-shadow: var(--shadow);
     }
 
     .bookMini{
-      color:var(--muted);
-      font-size:12px;
-      font-weight:900;
-      line-height:1.4;
+      color:#dbeafe;
+      font-size:13px;
+      font-weight:1000;
+      line-height:1.45;
+    }
+
+    .bookBig{
+      font-size:36px;
+      font-weight:1100;
+      line-height:1;
+      margin-top:6px;
     }
 
     .rarityRow{
       display:grid;
       grid-template-columns: repeat(4, minmax(0,1fr));
-      gap:8px;
-      margin-top:10px;
+      gap:10px;
+      margin-top:12px;
     }
+
     @media (max-width: 520px){
       .rarityRow{ grid-template-columns: repeat(2, minmax(0,1fr)); }
     }
 
     .rarityCard{
-      border-radius:16px;
-      border:1px solid rgba(148,163,184,.16);
+      border-radius:18px;
+      border:1px solid rgba(255,255,255,.12);
       background: rgba(2,6,23,.34);
-      padding:10px 8px;
+      padding:12px 10px;
       text-align:center;
     }
+
     .rarityCard .rk{
-      color:var(--muted);
-      font-size:11px;
+      color:#dbeafe;
+      font-size:12px;
       font-weight:1000;
+      line-height:1.2;
     }
+
     .rarityCard .rv{
-      margin-top:4px;
-      font-size:20px;
+      margin-top:6px;
+      font-size:22px;
       font-weight:1100;
+      line-height:1.1;
     }
-    .rarity-s .rv{ color:#facc15; }
-    .rarity-a .rv{ color:#60a5fa; }
-    .rarity-b .rv{ color:#4ade80; }
-    .rarity-c .rv{ color:#cbd5e1; }
+
+    .rarity-s .rv{ color:#fde047; }
+    .rarity-a .rv{ color:#7dd3fc; }
+    .rarity-b .rv{ color:#86efac; }
+    .rarity-c .rv{ color:#e2e8f0; }
 
     .lastDrop{
       display:grid;
-      grid-template-columns: 72px 1fr;
+      grid-template-columns: 76px 1fr;
       gap:12px;
       align-items:center;
     }
 
-    .lastDropIcon{
-      width:72px;
-      height:72px;
-      border-radius:18px;
+    .lastDropIcon,
+    .trophyIcon{
+      width:76px;
+      height:76px;
+      border-radius:20px;
       display:grid;
       place-items:center;
-      font-size:38px;
-      border:1px solid rgba(148,163,184,.16);
-      background: rgba(2,6,23,.36);
-      box-shadow: 0 12px 30px rgba(0,0,0,.24);
+      font-size:40px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(2,6,23,.34);
+      box-shadow: 0 12px 28px rgba(0,0,0,.20);
     }
 
     .lastDropBody{
       display:flex;
       flex-direction:column;
-      gap:4px;
+      gap:5px;
     }
 
-    .lastDropTitle{
-      font-size:16px;
+    .lastDropTitle,
+    .trophyTitle{
+      font-size:17px;
       font-weight:1100;
-      line-height:1.2;
+      line-height:1.25;
     }
 
-    .lastDropMeta{
-      color:var(--muted);
-      font-size:12px;
+    .lastDropMeta,
+    .shelfMeta{
+      color:#dbeafe;
+      font-size:13px;
       font-weight:900;
-      line-height:1.4;
+      line-height:1.5;
     }
 
     .bookActions{
       display:flex;
       gap:8px;
       flex-wrap:wrap;
-      margin-top:8px;
-    }
-
-    .trophyShelf{
-      border-radius:22px;
-      border:1px solid rgba(148,163,184,.18);
-      background: rgba(2,6,23,.58);
-      backdrop-filter: blur(10px);
-      box-shadow: 0 22px 80px rgba(0,0,0,.35);
-      padding: 12px 12px;
-      display:flex;
-      flex-direction:column;
-      gap:10px;
-      margin-top:12px;
+      margin-top:10px;
     }
 
     .shelfGrid{
@@ -349,162 +609,171 @@
       grid-template-columns: repeat(3, minmax(0,1fr));
       gap:12px;
     }
+
     @media (max-width:900px){
       .shelfGrid{ grid-template-columns:1fr; }
-    }
-
-    .shelfCard{
-      border-radius:18px;
-      border:1px solid rgba(148,163,184,.16);
-      background: rgba(15,23,42,.46);
-      padding:12px;
-      box-shadow: 0 18px 55px rgba(0,0,0,.25);
-      display:flex;
-      flex-direction:column;
-      gap:8px;
-    }
-
-    .shelfTop{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
-      flex-wrap:wrap;
-    }
-
-    .trophyIcon{
-      width:54px;
-      height:54px;
-      border-radius:16px;
-      display:grid;
-      place-items:center;
-      font-size:28px;
-      border:1px solid rgba(148,163,184,.16);
-      background: rgba(2,6,23,.36);
-      box-shadow: 0 12px 30px rgba(0,0,0,.24);
-    }
-
-    .trophyTitle{
-      font-size:15px;
-      font-weight:1100;
-      line-height:1.2;
     }
 
     .statusChip{
       display:inline-flex;
       align-items:center;
       gap:6px;
-      padding:6px 10px;
+      padding:8px 12px;
       border-radius:999px;
-      border:1px solid rgba(148,163,184,.16);
+      border:1px solid rgba(255,255,255,.14);
       background: rgba(2,6,23,.28);
-      font-size:11px;
-      font-weight:1000;
-      color:var(--muted);
-    }
-    .statusChip.done{
-      color:#dcfce7;
-      border-color: rgba(34,197,94,.28);
-      background: rgba(34,197,94,.14);
-    }
-    .statusChip.locked{
-      color:#fecaca;
-      border-color: rgba(239,68,68,.26);
-      background: rgba(239,68,68,.10);
-    }
-
-    .shelfMeta{
-      color:var(--muted);
       font-size:12px;
-      font-weight:900;
-      line-height:1.45;
+      font-weight:1000;
+      color:#e2e8f0;
+      white-space:nowrap;
     }
 
-    .miniRow{
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-      align-items:center;
+    .statusChip.done{
+      color:#ecfdf5;
+      border-color: rgba(34,197,94,.28);
+      background: rgba(34,197,94,.18);
     }
+
+    .statusChip.locked{
+      color:#fef2f2;
+      border-color: rgba(239,68,68,.24);
+      background: rgba(239,68,68,.14);
+    }
+
+    .zoneBadge{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 12px;
+      border-radius:999px;
+      background: rgba(255,255,255,.08);
+      border:1px solid rgba(255,255,255,.12);
+      font-size:12px;
+      font-weight:1000;
+      color:#fff;
+      width:max-content;
+    }
+
+    .helperBox{
+      border-radius:20px;
+      border:1px dashed rgba(255,255,255,.18);
+      background: rgba(255,255,255,.04);
+      padding:12px;
+      color:#e0f2fe;
+      font-size:13px;
+      font-weight:900;
+      line-height:1.5;
+    }
+
+    .footerSpace{ height:8px; }
   </style>
 </head>
 <body>
   <div class="wrap">
 
+    <section class="heroBanner">
+      <div>
+        <div class="heroMain">
+          <div class="heroMascot">🦸‍♀️</div>
+          <div>
+            <h1 class="heroTitle">ยินดีต้อนรับสู่ HeroHealth!</h1>
+            <div class="heroSub">
+              เลือกโซนที่อยากเล่น แล้วพาฮีโร่ของเราไปเก็บแต้ม เก็บการ์ด และปลดถ้วยรางวัลกันเลย ✨
+            </div>
+            <div class="ctxLine" id="ctxLine">—</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="heroStats">
+        <div class="statCard">
+          <div class="statLabel">🧑‍🚀 รหัสผู้เล่น</div>
+          <div class="statValue" id="uiPid">anon</div>
+        </div>
+        <div class="statCard">
+          <div class="statLabel">💛 ชื่อฮีโร่</div>
+          <div class="statValue" id="uiNick">anon</div>
+        </div>
+        <div class="statCard">
+          <div class="statLabel">⭐ เลเวล</div>
+          <div class="statValue" id="uiLvl">1</div>
+        </div>
+        <div class="statCard">
+          <div class="statLabel">⚡ XP</div>
+          <div class="statValue" id="uiXp">0</div>
+        </div>
+      </div>
+    </section>
+
     <div class="topbar">
       <div class="brand">
-        <span style="font-size:18px">🧠🎮</span>
+        <div class="brandIcon">🧠🎮</div>
         <div>
           <div style="display:flex; gap:10px; align-items:baseline; flex-wrap:wrap;">
-            <b>HeroHealth</b>
-            <span class="muted">Hub • 3 Zones</span>
+            <b>HeroHealth Hub</b>
+            <span class="muted">บ้านของฮีโร่ทั้ง 3 โซน</span>
           </div>
-          <div class="muted" id="ctxLine">—</div>
+          <div class="muted">เลือกเล่นเกม ดูของสะสม และเช็กความก้าวหน้าได้ที่นี่</div>
         </div>
       </div>
 
       <div class="hero">
-        <span class="pill"><b>PID</b>: <span id="uiPid">anon</span></span>
-        <span class="pill"><b>Hero</b>: <span id="uiNick">anon</span></span>
-        <span class="pill"><b>LV</b>: <span id="uiLvl">1</span></span>
-        <span class="pill"><b>XP</b>: <span id="uiXp">0</span></span>
-
-        <button class="btn violet" id="btnHeroShow" type="button">🧾 ดู Hero</button>
-        <button class="btn ghost" id="btnHeroReset" type="button">♻ Reset Hero</button>
+        <button class="btn violet" id="btnHeroShow" type="button">🧾 ดูข้อมูลฮีโร่</button>
+        <button class="btn ghost" id="btnHeroReset" type="button">♻ รีเซ็ตฮีโร่</button>
       </div>
     </div>
 
     <section class="cardBook">
       <div class="cardBookTop">
         <div>
-          <div class="cardBookTitle">🃏 Card Book — GoodJunk</div>
-          <div class="cardBookSub">สะสมการ์ดจากผลการเล่น S / A / B / C</div>
+          <div class="cardBookTitle">🃏 สมุดการ์ด GoodJunk</div>
+          <div class="cardBookSub">เล่นดี ได้การ์ดเพิ่ม! สะสมตามเกรด S / A / B / C</div>
         </div>
         <div class="inlineRow">
-          <button class="btn primary" id="btnOpenGJLauncher" type="button">🚀 เปิด GoodJunk Launcher</button>
-          <button class="btn ghost" id="btnResetCardBook" type="button">♻ Reset Card Book</button>
+          <button class="btn primary" id="btnOpenGJLauncher" type="button">🚀 ไปเล่น GoodJunk</button>
+          <button class="btn ghost" id="btnResetCardBook" type="button">♻ ล้างสมุดการ์ด</button>
         </div>
       </div>
 
       <div class="cardBookGrid">
         <div class="bookPanel">
-          <div class="bookMini">จำนวนการ์ดสะสมทั้งหมด</div>
+          <div class="bookMini">จำนวนการ์ดทั้งหมดที่สะสมได้</div>
           <div class="bookBig" id="bookTotal">0</div>
 
           <div class="rarityRow">
             <div class="rarityCard rarity-s">
-              <div class="rk">S</div>
+              <div class="rk">เกรด S</div>
               <div class="rv" id="bookS">0</div>
             </div>
             <div class="rarityCard rarity-a">
-              <div class="rk">A</div>
+              <div class="rk">เกรด A</div>
               <div class="rv" id="bookA">0</div>
             </div>
             <div class="rarityCard rarity-b">
-              <div class="rk">B</div>
+              <div class="rk">เกรด B</div>
               <div class="rv" id="bookB">0</div>
             </div>
             <div class="rarityCard rarity-c">
-              <div class="rk">C</div>
+              <div class="rk">เกรด C</div>
               <div class="rv" id="bookC">0</div>
             </div>
           </div>
         </div>
 
         <div class="bookPanel">
-          <div class="bookMini">การ์ดล่าสุด</div>
+          <div class="bookMini">การ์ดล่าสุดที่ได้</div>
           <div class="lastDrop" style="margin-top:10px;">
             <div class="lastDropIcon" id="lastDropIcon">🃏</div>
             <div class="lastDropBody">
               <div class="lastDropTitle" id="lastDropTitle">ยังไม่มีการ์ดล่าสุด</div>
-              <div class="lastDropMeta" id="lastDropMeta">เล่น GoodJunk แล้วกลับมาดูที่นี่</div>
+              <div class="lastDropMeta" id="lastDropMeta">ลองเล่น GoodJunk แล้วกลับมาดูตรงนี้อีกครั้งนะ</div>
             </div>
           </div>
           <div class="bookActions">
-            <span class="pill"><b>grade</b>: <span id="lastDropGrade">—</span></span>
-            <span class="pill"><b>score</b>: <span id="lastDropScore">0</span></span>
-            <span class="pill"><b>best</b>: <span id="bestNormalScore">0</span></span>
-            <span class="pill"><b>streak</b>: <span id="streakCount">0</span></span>
+            <span class="pill"><b>เกรด</b>: <span id="lastDropGrade">—</span></span>
+            <span class="pill"><b>คะแนน</b>: <span id="lastDropScore">0</span></span>
+            <span class="pill"><b>สถิติสูงสุด</b>: <span id="bestNormalScore">0</span></span>
+            <span class="pill"><b>เล่นต่อเนื่อง</b>: <span id="streakCount">0</span></span>
           </div>
         </div>
       </div>
@@ -513,8 +782,8 @@
     <section class="trophyShelf">
       <div class="cardBookTop">
         <div>
-          <div class="cardBookTitle">🏆 Hub Shelf / Trophy Shelf</div>
-          <div class="cardBookSub">สรุปความก้าวหน้าของ Hero และแต่ละ Zone</div>
+          <div class="cardBookTitle">🏆 ชั้นถ้วยรางวัลของฮีโร่</div>
+          <div class="cardBookSub">ดูว่าแต่ละโซนปลดถ้วยแล้วหรือยัง</div>
         </div>
       </div>
 
@@ -524,17 +793,17 @@
             <div class="inlineRow">
               <div class="trophyIcon" id="nutriTrophyIcon">🥦</div>
               <div>
-                <div class="trophyTitle">Nutrition Trophy</div>
+                <div class="trophyTitle">ถ้วยโภชนาการ</div>
                 <div class="shelfMeta">GoodJunk / Groups / Hydration / Plate</div>
               </div>
             </div>
-            <span class="statusChip locked" id="nutriStatus">LOCKED</span>
+            <span class="statusChip locked" id="nutriStatus">ยังไม่ปลดล็อก</span>
           </div>
           <div class="miniRow">
-            <span class="pill"><b>best</b>: <span id="nutriBestScore">0</span></span>
-            <span class="pill"><b>cards</b>: <span id="nutriCardTotal">0</span></span>
+            <span class="pill"><b>คะแนนดีที่สุด</b>: <span id="nutriBestScore">0</span></span>
+            <span class="pill"><b>การ์ดสะสม</b>: <span id="nutriCardTotal">0</span></span>
           </div>
-          <div class="shelfMeta" id="nutriHint">เคลียร์ GoodJunk หรือสะสมการ์ดเพื่อปลดถ้วย</div>
+          <div class="shelfMeta" id="nutriHint">เล่น GoodJunk หรือสะสมการ์ดเพื่อปลดถ้วยนี้</div>
         </div>
 
         <div class="shelfCard">
@@ -542,16 +811,16 @@
             <div class="inlineRow">
               <div class="trophyIcon" id="hygieneTrophyIcon">🪥</div>
               <div>
-                <div class="trophyTitle">Hygiene Trophy</div>
+                <div class="trophyTitle">ถ้วยสุขอนามัย</div>
                 <div class="shelfMeta">Handwash / Brush / Bath / Clean / Mask / Germ</div>
               </div>
             </div>
-            <span class="statusChip locked" id="hygieneStatus">LOCKED</span>
+            <span class="statusChip locked" id="hygieneStatus">ยังไม่ปลดล็อก</span>
           </div>
           <div class="miniRow">
-            <span class="pill"><b>zone</b>: <span id="hygieneZoneDone">0</span></span>
+            <span class="pill"><b>ทำวันนี้</b>: <span id="hygieneZoneDone">0</span></span>
           </div>
-          <div class="shelfMeta" id="hygieneHint">ทำ zone hygiene ให้มี done today เพื่อโชว์ถ้วย</div>
+          <div class="shelfMeta" id="hygieneHint">เล่นเกมในโซนสุขอนามัยให้สำเร็จวันนี้เพื่อโชว์ถ้วย</div>
         </div>
 
         <div class="shelfCard">
@@ -559,14 +828,14 @@
             <div class="inlineRow">
               <div class="trophyIcon" id="fitnessTrophyIcon">🏃</div>
               <div>
-                <div class="trophyTitle">Fitness Trophy</div>
+                <div class="trophyTitle">ถ้วยออกกำลังกาย</div>
                 <div class="shelfMeta">Shadow / Rhythm / JumpDuck / Balance / Planner</div>
               </div>
             </div>
-            <span class="statusChip locked" id="fitnessStatus">LOCKED</span>
+            <span class="statusChip locked" id="fitnessStatus">ยังไม่ปลดล็อก</span>
           </div>
           <div class="miniRow">
-            <span class="pill"><b>zone</b>: <span id="fitnessZoneDone">0</span></span>
+            <span class="pill"><b>ทำวันนี้</b>: <span id="fitnessZoneDone">0</span></span>
             <span class="pill"><b>JD best</b>: <span id="fitnessJDBest">0</span></span>
             <span class="pill"><b>JD streak</b>: <span id="fitnessJDStreak">0</span></span>
           </div>
@@ -576,9 +845,9 @@
             <span class="pill"><b>Boss badge</b>: <span id="fitnessJDBossBadge">-</span></span>
           </div>
           <div class="miniRow">
-            <a class="btn violet" id="linkJDGallery" href="#">🖼 JumpDuck Gallery</a>
+            <a class="btn violet" id="linkJDGallery" href="#">🖼 ดู JumpDuck Gallery</a>
           </div>
-          <div class="shelfMeta" id="fitnessHint">ทำ zone fitness ให้มี done today เพื่อโชว์ถ้วย</div>
+          <div class="shelfMeta" id="fitnessHint">เล่นเกมในโซนออกกำลังกายให้สำเร็จวันนี้เพื่อโชว์ถ้วย</div>
         </div>
       </div>
     </section>
@@ -586,11 +855,11 @@
     <section class="cardBook" id="hhLastRun">
       <div class="cardBookTop">
         <div>
-          <div class="cardBookTitle">🧾 Last Run — ผลล่าสุด</div>
-          <div class="cardBookSub" id="hhLastRunSub">ยังไม่มีผลล่าสุด — เล่นเกมสักรอบก่อนนะ</div>
+          <div class="cardBookTitle">🧾 ผลล่าสุดที่เล่น</div>
+          <div class="cardBookSub" id="hhLastRunSub">ยังไม่มีผลล่าสุด — ลองเล่นเกมสักรอบก่อนนะ</div>
         </div>
         <div class="inlineRow">
-          <a class="btn primary" id="hhLastRunOpen" href="#" style="display:none;">▶ เปิดเกมรอบล่าสุด</a>
+          <a class="btn primary" id="hhLastRunOpen" href="#" style="display:none;">▶ เล่นต่อจากเกมล่าสุด</a>
           <button class="btn ghost" id="hhLastRunClear" type="button">♻ ล้างผลล่าสุด</button>
         </div>
       </div>
@@ -604,53 +873,53 @@
     <section class="cardBook">
       <div class="cardBookTop">
         <div>
-          <div class="cardBookTitle">🏃 Card Book — JumpDuck</div>
+          <div class="cardBookTitle">🏃 สมุดการ์ด JumpDuck</div>
           <div class="cardBookSub">สะสมการ์ดนักวิ่งจาก rank / no-miss / boss / combo</div>
         </div>
         <div class="inlineRow">
-          <button class="btn primary" id="btnOpenJDLauncher" type="button">🚀 เปิด JumpDuck</button>
+          <button class="btn primary" id="btnOpenJDLauncher" type="button">🚀 ไปเล่น JumpDuck</button>
           <button class="btn violet" id="btnOpenJDGallery" type="button">🖼 เปิด Gallery</button>
-          <button class="btn ghost" id="btnResetJDCardBook" type="button">♻ Reset JD Cards</button>
+          <button class="btn ghost" id="btnResetJDCardBook" type="button">♻ ล้างการ์ด JumpDuck</button>
         </div>
       </div>
 
       <div class="cardBookGrid">
         <div class="bookPanel">
-          <div class="bookMini">จำนวนการ์ดสะสมทั้งหมด</div>
+          <div class="bookMini">จำนวนการ์ดทั้งหมดที่สะสมได้</div>
           <div class="bookBig" id="jdBookTotal">0</div>
 
           <div class="rarityRow">
             <div class="rarityCard rarity-s">
-              <div class="rk">S</div>
+              <div class="rk">เกรด S</div>
               <div class="rv" id="jdBookS">0</div>
             </div>
             <div class="rarityCard rarity-a">
-              <div class="rk">A</div>
+              <div class="rk">เกรด A</div>
               <div class="rv" id="jdBookA">0</div>
             </div>
             <div class="rarityCard rarity-b">
-              <div class="rk">B</div>
+              <div class="rk">เกรด B</div>
               <div class="rv" id="jdBookB">0</div>
             </div>
             <div class="rarityCard rarity-c">
-              <div class="rk">C/D</div>
+              <div class="rk">เกรด C/D</div>
               <div class="rv" id="jdBookC">0</div>
             </div>
           </div>
         </div>
 
         <div class="bookPanel">
-          <div class="bookMini">การ์ดล่าสุด</div>
+          <div class="bookMini">การ์ดล่าสุดที่ได้</div>
           <div class="lastDrop" style="margin-top:10px;">
             <div class="lastDropIcon" id="jdLastCardIcon">🏃</div>
             <div class="lastDropBody">
               <div class="lastDropTitle" id="jdLastCardTitle">ยังไม่มีการ์ดล่าสุด</div>
-              <div class="lastDropMeta" id="jdLastCardMeta">เล่น JumpDuck แล้วกลับมาดูที่นี่</div>
+              <div class="lastDropMeta" id="jdLastCardMeta">ลองเล่น JumpDuck แล้วกลับมาดูตรงนี้อีกครั้ง</div>
             </div>
           </div>
           <div class="bookActions">
-            <span class="pill"><b>rank</b>: <span id="jdLastCardRank">—</span></span>
-            <span class="pill"><b>best</b>: <span id="jdLastCardBest">0</span></span>
+            <span class="pill"><b>แรงก์</b>: <span id="jdLastCardRank">—</span></span>
+            <span class="pill"><b>คะแนนดีที่สุด</b>: <span id="jdLastCardBest">0</span></span>
           </div>
         </div>
       </div>
@@ -659,77 +928,230 @@
     <div class="grid">
 
       <section class="card">
-        <h2>🥦 Nutrition Zone</h2>
+        <h2>🥦 โซนโภชนาการ</h2>
+        <div class="sectionSub">เรียนรู้เรื่องอาหาร น้ำ และการกินให้สมดุล ผ่านเกมสนุก ๆ</div>
+
         <div class="zoneRow">
-          <div class="muted">GoodJunk • Groups • Hydration • Plate</div>
+          <div class="zoneBadge">🎯 เล่นแนะนำ: GoodJunk หรือ Hydration</div>
           <div class="inlineRow">
-            <button class="btn primary" id="btnGJsolo" type="button">🎯 GoodJunk (Solo)</button>
-            <button class="btn violet" id="btnGJpro" type="button">🔥 Solo PRO</button>
-            <button class="btn good" id="btnGJbattle" type="button">⚔ Battle</button>
-            <button class="btn primary" id="btnHydrationStart" type="button">💧 Hydration Start</button>
+            <button class="btn primary" id="btnGJsolo" type="button">🎯 เล่น GoodJunk</button>
+            <button class="btn violet" id="btnGJpro" type="button">🔥 โหมดท้าทาย</button>
+            <button class="btn good" id="btnGJbattle" type="button">⚔ โหมด Battle</button>
+            <button class="btn warn" id="btnHydrationStart" type="button">💧 เริ่ม Hydration</button>
           </div>
         </div>
+
         <div class="sep"></div>
+
         <div class="games">
           <a class="gameBtn" id="linkGoodjunk" href="#">
-            <div class="t">🍔🆚🥦 GoodJunk</div>
-            <div class="s">Launcher • Solo/PRO/Battle • Hero + Card Book</div>
-            <div class="miniRow" style="margin-top:6px;">
+            <div class="gameHead">
+              <div class="gameIcon">🍔</div>
+              <div>
+                <div class="t">GoodJunk</div>
+                <div class="s">ยิงเลือกอาหารดี หลีกเลี่ยงอาหารไม่ดี สนุกและได้การ์ดสะสม</div>
+              </div>
+            </div>
+            <div class="playTag">▶ แตะเพื่อเล่น</div>
+            <div class="miniRow" style="margin-top:4px;">
               <span class="pill"><b>วอร์มอัป</b>: <span id="gjWarmToday">—</span></span>
               <span class="pill"><b>คูลดาวน์</b>: <span id="gjCoolToday">—</span></span>
             </div>
-            <div class="miniRow" style="margin-top:6px;">
-              <span class="pill"><b>รอบนี้</b>: <span id="gjFlowToday">—</span></span>
+            <div class="miniRow">
+              <span class="pill"><b>สถานะวันนี้</b>: <span id="gjFlowToday">—</span></span>
             </div>
           </a>
 
-          <a class="gameBtn" id="linkGroups" href="#"><div class="t">🥚🍚 Food Groups</div><div class="s">Classroom ramp + AI warn</div></a>
+          <a class="gameBtn" id="linkGroups" href="#">
+            <div class="gameHead">
+              <div class="gameIcon">🥚</div>
+              <div>
+                <div class="t">Food Groups</div>
+                <div class="s">จับคู่หมวดอาหารให้ถูก ต้องไวและแม่นยำ</div>
+              </div>
+            </div>
+            <div class="playTag">▶ แตะเพื่อเล่น</div>
+          </a>
 
           <a class="gameBtn" id="linkHydration" href="#">
-            <div class="t">💧 Hydration</div>
-            <div class="s">Storm boss + shield</div>
-            <div class="miniRow" style="margin-top:6px;">
+            <div class="gameHead">
+              <div class="gameIcon">💧</div>
+              <div>
+                <div class="t">Hydration</div>
+                <div class="s">เก็บน้ำดี หลบตัวรบกวน และสู้บอสพายุน้ำ</div>
+              </div>
+            </div>
+            <div class="playTag">▶ แตะเพื่อเล่น</div>
+            <div class="miniRow" style="margin-top:4px;">
               <span class="pill"><b>วอร์มอัป</b>: <span id="hydWarmToday">—</span></span>
               <span class="pill"><b>คูลดาวน์</b>: <span id="hydCoolToday">—</span></span>
             </div>
-            <div class="miniRow" style="margin-top:6px;">
-              <span class="pill"><b>รอบนี้</b>: <span id="hydFlowToday">—</span></span>
+            <div class="miniRow">
+              <span class="pill"><b>สถานะวันนี้</b>: <span id="hydFlowToday">—</span></span>
             </div>
           </a>
 
-          <a class="gameBtn" id="linkPlate" href="#"><div class="t">🍽 Balanced Plate</div><div class="s">Bloom missions</div></a>
+          <a class="gameBtn" id="linkPlate" href="#">
+            <div class="gameHead">
+              <div class="gameIcon">🍽</div>
+              <div>
+                <div class="t">Balanced Plate</div>
+                <div class="s">จัดจานอาหารให้สมดุล ครบหมู่ และพอดี</div>
+              </div>
+            </div>
+            <div class="playTag">▶ แตะเพื่อเล่น</div>
+          </a>
         </div>
-        <div class="small" style="margin-top:4px;">Tip: Solo PRO = diff=hard & pro=1 (ผ่าน Launcher)</div>
+
+        <div class="helperBox">เคล็ดลับ: ถ้าอยากเริ่มแบบง่าย ให้กด GoodJunk หรือ Hydration ก่อนนะ ✨</div>
       </section>
 
       <section class="card">
-        <h2>🪥 Hygiene Zone</h2>
-        <div class="muted">Handwash • Brush • Bath • Clean Object • MaskCough • Germ Detective</div>
+        <h2>🪥 โซนสุขอนามัย</h2>
+        <div class="sectionSub">ฝึกนิสัยดูแลตัวเองให้สะอาด ปลอดภัย และแข็งแรงทุกวัน</div>
+
         <div class="sep"></div>
+
         <div class="games">
-          <a class="gameBtn" id="linkHandwash" href="#"><div class="t">🧼 Handwash</div><div class="s">สะอาดครบขั้น</div></a>
-          <a class="gameBtn" id="linkBrush" href="#"><div class="t">🪥 Brush</div><div class="s">แปรงฟันอย่างถูกวิธี</div></a>
-          <a class="gameBtn" id="linkBath" href="#"><div class="t">🛁 Bath</div><div class="s">Hidden Dirt Quest</div></a>
-          <a class="gameBtn" id="linkCleanObject" href="#"><div class="t">🧴 Clean Object</div><div class="s">Evaluate / Create</div></a>
-          <a class="gameBtn" id="linkMaskCough" href="#"><div class="t">😷 Mask & Cough</div><div class="s">มารยาทสุขอนามัย</div></a>
-          <a class="gameBtn" id="linkGermDetective" href="#"><div class="t">🦠 Germ Detective</div><div class="s">UV / Swab / Camera</div></a>
+          <a class="gameBtn" id="linkHandwash" href="#">
+            <div class="gameHead">
+              <div class="gameIcon">🧼</div>
+              <div>
+                <div class="t">Handwash</div>
+                <div class="s">ล้างมือให้ครบทุกขั้นตอนแบบฮีโร่สะอาด</div>
+              </div>
+            </div>
+            <div class="playTag">▶ แตะเพื่อเล่น</div>
+          </a>
+
+          <a class="gameBtn" id="linkBrush" href="#">
+            <div class="gameHead">
+              <div class="gameIcon">🪥</div>
+              <div>
+                <div class="t">Brush</div>
+                <div class="s">แปรงฟันให้ถูกตำแหน่งและครบทุกส่วน</div>
+              </div>
+            </div>
+            <div class="playTag">▶ แตะเพื่อเล่น</div>
+          </a>
+
+          <a class="gameBtn" id="linkBath" href="#">
+            <div class="gameHead">
+              <div class="gameIcon">🛁</div>
+              <div>
+                <div class="t">Bath</div>
+                <div class="s">ค้นหาจุดสกปรกและอาบน้ำให้สะอาดทั่วตัว</div>
+              </div>
+            </div>
+            <div class="playTag">▶ แตะเพื่อเล่น</div>
+          </a>
+
+          <a class="gameBtn" id="linkCleanObject" href="#">
+            <div class="gameHead">
+              <div class="gameIcon">🧴</div>
+              <div>
+                <div class="t">Clean Object</div>
+                <div class="s">แยกของสะอาด-ไม่สะอาด และเลือกวิธีดูแลให้เหมาะ</div>
+              </div>
+            </div>
+            <div class="playTag">▶ แตะเพื่อเล่น</div>
+          </a>
+
+          <a class="gameBtn" id="linkMaskCough" href="#">
+            <div class="gameHead">
+              <div class="gameIcon">😷</div>
+              <div>
+                <div class="t">Mask &amp; Cough</div>
+                <div class="s">ฝึกใส่หน้ากากและไอมารยาทอย่างถูกต้อง</div>
+              </div>
+            </div>
+            <div class="playTag">▶ แตะเพื่อเล่น</div>
+          </a>
+
+          <a class="gameBtn" id="linkGermDetective" href="#">
+            <div class="gameHead">
+              <div class="gameIcon">🦠</div>
+              <div>
+                <div class="t">Germ Detective</div>
+                <div class="s">ตามหาจุลินทรีย์ตัวร้ายด้วยภารกิจนักสืบ</div>
+              </div>
+            </div>
+            <div class="playTag">▶ แตะเพื่อเล่น</div>
+          </a>
         </div>
+
+        <div class="helperBox">เริ่มง่ายสุด: ลอง Handwash หรือ Brush ก่อน แล้วค่อยไปเกมนักสืบเชื้อโรค 🔍</div>
       </section>
 
       <section class="card">
-        <h2>🏃 Exercise Zone</h2>
-        <div class="muted">Shadow Breaker • Rhythm Boxer • JumpDuck • Balance Hold • Fitness Planner</div>
+        <h2>🏃 โซนออกกำลังกาย</h2>
+        <div class="sectionSub">ขยับร่างกาย ฝึกการทรงตัว จังหวะ และความคล่องตัวให้แข็งแรง</div>
+
         <div class="sep"></div>
+
         <div class="games">
-          <a class="gameBtn" id="linkShadowBreaker" href="#"><div class="t">🥊 Shadow Breaker</div><div class="s">คอมโบ & รีแอคชั่น</div></a>
-          <a class="gameBtn" id="linkRhythmBoxer" href="#"><div class="t">🎵 Rhythm Boxer</div><div class="s">จังหวะ + พลัง</div></a>
-          <a class="gameBtn" id="linkJumpDuck" href="#"><div class="t">⬆️⬇️ JumpDuck</div><div class="s">หลบ-กระโดด</div></a>
-          <a class="gameBtn" id="linkBalanceHold" href="#"><div class="t">⚖️ Balance Hold</div><div class="s">ทรงตัวแบบท้าทาย</div></a>
-          <a class="gameBtn" id="linkFitnessPlanner" href="#"><div class="t">📅 Fitness Planner</div><div class="s">วางแผนออกกำลัง</div></a>
+          <a class="gameBtn" id="linkShadowBreaker" href="#">
+            <div class="gameHead">
+              <div class="gameIcon">🥊</div>
+              <div>
+                <div class="t">Shadow Breaker</div>
+                <div class="s">ต่อยเป้า เก็บคอมโบ และฝึกรีแอคชันให้ไว</div>
+              </div>
+            </div>
+            <div class="playTag">▶ แตะเพื่อเล่น</div>
+          </a>
+
+          <a class="gameBtn" id="linkRhythmBoxer" href="#">
+            <div class="gameHead">
+              <div class="gameIcon">🎵</div>
+              <div>
+                <div class="t">Rhythm Boxer</div>
+                <div class="s">ขยับตามจังหวะเพลงให้ถูกและสนุกสุดพลัง</div>
+              </div>
+            </div>
+            <div class="playTag">▶ แตะเพื่อเล่น</div>
+          </a>
+
+          <a class="gameBtn" id="linkJumpDuck" href="#">
+            <div class="gameHead">
+              <div class="gameIcon">⬆️</div>
+              <div>
+                <div class="t">JumpDuck</div>
+                <div class="s">กระโดด หลบ และวิ่งให้ผ่านอุปสรรค</div>
+              </div>
+            </div>
+            <div class="playTag">▶ แตะเพื่อเล่น</div>
+          </a>
+
+          <a class="gameBtn" id="linkBalanceHold" href="#">
+            <div class="gameHead">
+              <div class="gameIcon">⚖️</div>
+              <div>
+                <div class="t">Balance Hold</div>
+                <div class="s">ทรงตัวให้นิ่ง ฝ่าด่าน และเอาชนะความท้าทาย</div>
+              </div>
+            </div>
+            <div class="playTag">▶ แตะเพื่อเล่น</div>
+          </a>
+
+          <a class="gameBtn" id="linkFitnessPlanner" href="#">
+            <div class="gameHead">
+              <div class="gameIcon">📅</div>
+              <div>
+                <div class="t">Fitness Planner</div>
+                <div class="s">วางแผนออกกำลังกายประจำวันแบบฮีโร่ตัวจริง</div>
+              </div>
+            </div>
+            <div class="playTag">▶ แตะเพื่อเล่น</div>
+          </a>
         </div>
+
+        <div class="helperBox">อยากได้เกมเคลื่อนไหวชัด ๆ ให้ลอง JumpDuck หรือ Shadow Breaker ก่อน 💥</div>
       </section>
 
     </div>
+
+    <div class="footerSpace"></div>
   </div>
 
   <script>
@@ -749,7 +1171,7 @@
     const uiXp = document.getElementById('uiXp');
 
     uiPid.textContent = pid;
-    ctxLine.textContent = `run=${run} • diff=${diff} • time=${time}s • view=${view}`;
+    ctxLine.textContent = `โหมด ${run} • ระดับ ${diff} • เวลา ${time} วินาที • มุมมอง ${view}`;
 
     function hhDayKey(){
       const d=new Date();
@@ -786,7 +1208,7 @@
     }
 
     function flowText(warmDone){
-      return warmDone ? 'เข้าเกมได้เลย 🎮' : 'ต้องวอร์มอัปก่อน 🏃';
+      return warmDone ? 'เล่นต่อได้เลย 🎮' : 'วอร์มอัปก่อนนะ 🏃';
     }
 
     function loadJson(k, fallback){
@@ -977,9 +1399,9 @@
       const hygieneTrophyIcon = document.getElementById('hygieneTrophyIcon');
       const fitnessTrophyIcon = document.getElementById('fitnessTrophyIcon');
 
-      nutriStatus.textContent = nutritionUnlocked ? 'UNLOCKED' : 'LOCKED';
-      hygieneStatus.textContent = hygieneUnlocked ? 'DONE TODAY' : 'LOCKED';
-      fitnessStatus.textContent = fitnessUnlocked ? 'DONE TODAY' : 'LOCKED';
+      nutriStatus.textContent = nutritionUnlocked ? 'ปลดล็อกแล้ว 🎉' : 'ยังไม่ปลดล็อก';
+      hygieneStatus.textContent = hygieneUnlocked ? 'สำเร็จวันนี้ ✅' : 'ยังไม่ปลดล็อก';
+      fitnessStatus.textContent = fitnessUnlocked ? 'สำเร็จวันนี้ ✅' : 'ยังไม่ปลดล็อก';
 
       nutriStatus.className = `statusChip ${nutritionUnlocked ? 'done' : 'locked'}`;
       hygieneStatus.className = `statusChip ${hygieneUnlocked ? 'done' : 'locked'}`;
@@ -997,18 +1419,18 @@
       const badgeCount = Object.values(badges || {}).filter(Boolean).length;
       document.getElementById('nutriHint').textContent =
         nutritionUnlocked
-          ? `ปลดถ้วยแล้ว • badges ${badgeCount} • พร้อมลุยต่อ`
-          : 'เคลียร์ GoodJunk หรือสะสมการ์ดเพื่อปลดถ้วย';
+          ? `ปลดถ้วยแล้ว • badges ${badgeCount} • เก่งมาก!`
+          : 'เล่น GoodJunk หรือสะสมการ์ดเพื่อปลดถ้วยนี้';
 
       document.getElementById('hygieneHint').textContent =
         hygieneUnlocked
-          ? 'ทำโซน Hygiene สำเร็จวันนี้แล้ว'
-          : 'ทำ zone hygiene ให้มี done today เพื่อโชว์ถ้วย';
+          ? 'วันนี้ทำโซนสุขอนามัยสำเร็จแล้ว'
+          : 'เล่นโซนสุขอนามัยให้สำเร็จวันนี้เพื่อโชว์ถ้วย';
 
       document.getElementById('fitnessHint').textContent =
         fitnessUnlocked
-          ? 'ทำโซน Fitness สำเร็จวันนี้แล้ว'
-          : 'ทำ zone fitness ให้มี done today เพื่อโชว์ถ้วย';
+          ? 'วันนี้ทำโซนออกกำลังกายสำเร็จแล้ว'
+          : 'เล่นโซนออกกำลังกายให้สำเร็จวันนี้เพื่อโชว์ถ้วย';
     }
 
     function renderLastRun(){
@@ -1023,7 +1445,7 @@
       const sum = raw ? safeJsonParse(raw) : null;
 
       if(!sum){
-        if(sub) sub.textContent = 'ยังไม่มีผลล่าสุด — เล่นเกมสักรอบก่อนนะ';
+        if(sub) sub.textContent = 'ยังไม่มีผลล่าสุด — ลองเล่นเกมสักรอบก่อนนะ';
         if(grid) grid.style.display = 'none';
         if(open) open.style.display = 'none';
         if(clear){
@@ -1205,14 +1627,14 @@
       const coolDone = isCooldownDone('nutrition', 'goodjunk', pid);
 
       if(warmDone && coolDone){
-        link.style.borderColor = 'rgba(34,197,94,.34)';
-        link.style.boxShadow = '0 18px 55px rgba(34,197,94,.10)';
+        link.style.borderColor = 'rgba(34,197,94,.36)';
+        link.style.boxShadow = '0 16px 38px rgba(34,197,94,.12)';
       }else if(warmDone){
-        link.style.borderColor = 'rgba(59,130,246,.30)';
-        link.style.boxShadow = '0 18px 55px rgba(59,130,246,.10)';
+        link.style.borderColor = 'rgba(56,189,248,.34)';
+        link.style.boxShadow = '0 16px 38px rgba(56,189,248,.12)';
       }else{
-        link.style.borderColor = 'rgba(148,163,184,.18)';
-        link.style.boxShadow = '0 18px 55px rgba(0,0,0,.25)';
+        link.style.borderColor = 'rgba(255,255,255,.14)';
+        link.style.boxShadow = '0 16px 38px rgba(0,0,0,.24)';
       }
     }
 
@@ -1226,12 +1648,12 @@
 
       if(warmDone){
         parent.style.borderColor = 'rgba(34,197,94,.28)';
-        parent.style.background = 'rgba(34,197,94,.14)';
-        parent.style.color = '#dcfce7';
+        parent.style.background = 'rgba(34,197,94,.18)';
+        parent.style.color = '#ecfdf5';
       }else{
         parent.style.borderColor = 'rgba(245,158,11,.28)';
-        parent.style.background = 'rgba(245,158,11,.14)';
-        parent.style.color = '#fde68a';
+        parent.style.background = 'rgba(245,158,11,.18)';
+        parent.style.color = '#fef3c7';
       }
     }
 
@@ -1257,14 +1679,14 @@
       const coolDone = isCooldownDone('nutrition', 'hydration', pid);
 
       if(warmDone && coolDone){
-        link.style.borderColor = 'rgba(34,197,94,.34)';
-        link.style.boxShadow = '0 18px 55px rgba(34,197,94,.10)';
+        link.style.borderColor = 'rgba(34,197,94,.36)';
+        link.style.boxShadow = '0 16px 38px rgba(34,197,94,.12)';
       }else if(warmDone){
-        link.style.borderColor = 'rgba(59,130,246,.30)';
-        link.style.boxShadow = '0 18px 55px rgba(59,130,246,.10)';
+        link.style.borderColor = 'rgba(56,189,248,.34)';
+        link.style.boxShadow = '0 16px 38px rgba(56,189,248,.12)';
       }else{
-        link.style.borderColor = 'rgba(148,163,184,.18)';
-        link.style.boxShadow = '0 18px 55px rgba(0,0,0,.25)';
+        link.style.borderColor = 'rgba(255,255,255,.14)';
+        link.style.boxShadow = '0 16px 38px rgba(0,0,0,.24)';
       }
     }
 
@@ -1278,12 +1700,12 @@
 
       if(warmDone){
         parent.style.borderColor = 'rgba(34,197,94,.28)';
-        parent.style.background = 'rgba(34,197,94,.14)';
-        parent.style.color = '#dcfce7';
+        parent.style.background = 'rgba(34,197,94,.18)';
+        parent.style.color = '#ecfdf5';
       }else{
         parent.style.borderColor = 'rgba(245,158,11,.28)';
-        parent.style.background = 'rgba(245,158,11,.14)';
-        parent.style.color = '#fde68a';
+        parent.style.background = 'rgba(245,158,11,.18)';
+        parent.style.color = '#fef3c7';
       }
     }
 
@@ -1382,12 +1804,12 @@
 
     btnHeroReset.onclick = ()=>{
       try{
-        if(!confirm('Reset Hero ของ PID นี้? (ลบ XP/LV)')) return;
+        if(!confirm('รีเซ็ต Hero ของ PID นี้หรือไม่? (จะลบ XP/LV)')) return;
         const h = { pid, nick: pid, xp:0, lvl:1 };
         saveHero(h);
         try{ localStorage.setItem(`HHA_HERO_XP:${pid}`, '0'); }catch(_){}
         renderHero();
-        alert('Reset Hero เรียบร้อย ✅');
+        alert('รีเซ็ตฮีโร่เรียบร้อย ✅');
       }catch(_){}
     };
 
@@ -1404,13 +1826,13 @@
 
     btnResetCardBook.onclick = ()=>{
       try{
-        if(!confirm('Reset Card Book ของ PID นี้?')) return;
+        if(!confirm('ล้าง Card Book ของ PID นี้หรือไม่?')) return;
         saveCardBook(pid, { S:0, A:0, B:0, C:0, total:0 });
         localStorage.removeItem(`HHA_LAST_CARD:${pid}`);
         renderCardBook();
         renderTrophyShelf();
         renderLastRun();
-        alert('Reset Card Book เรียบร้อย ✅');
+        alert('ล้างสมุดการ์ดเรียบร้อย ✅');
       }catch(_){}
     };
 
@@ -1433,14 +1855,14 @@
     if(btnResetJDCardBook){
       btnResetJDCardBook.onclick = ()=>{
         try{
-          if(!confirm('Reset JumpDuck Card Book ของ PID นี้?')) return;
+          if(!confirm('ล้าง JumpDuck Card Book ของ PID นี้หรือไม่?')) return;
           saveJDCardBook(pid, { S:0, A:0, B:0, C:0, total:0 });
           localStorage.removeItem(`JD_LAST_CARD:${pid}`);
           localStorage.removeItem(`JD_PROFILE:${pid}`);
           localStorage.removeItem(`HHA_JD_BEST:${pid}`);
           renderJDCardBook();
           renderFitnessJumpDuckShelf();
-          alert('Reset JumpDuck Card Book เรียบร้อย ✅');
+          alert('ล้างการ์ด JumpDuck เรียบร้อย ✅');
         }catch(_){}
       };
     }
