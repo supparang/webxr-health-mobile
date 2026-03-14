@@ -1098,7 +1098,7 @@ export function boot(cfg){
     return {
       projectTag:'HydrationVR',
       game: 'hydration',
-      gameVersion:'HydrationVR_SAFE_2026-03-14_SINGLE_COOLDOWN_BUTTON',
+      gameVersion:'HydrationVR_SAFE_2026-03-14_MOBILE_COOLDOWN_NAV_FIX',
       device:view,
       runMode,
       diff,
@@ -1135,7 +1135,7 @@ export function boot(cfg){
   function buildResearchPacket(reason){
     const summary = buildSummary(reason);
     return {
-      packetVersion: 'HHA_HYD_2026_03_14_SINGLE_COOLDOWN_BUTTON',
+      packetVersion: 'HHA_HYD_2026_03_14_MOBILE_COOLDOWN_NAV_FIX',
       game: 'hydration',
       zone: zoneKey,
       pid,
@@ -1260,6 +1260,7 @@ export function boot(cfg){
     if(ui.btnNextCooldown){
       ui.btnNextCooldown.classList.toggle('is-hidden', !needCooldown);
       ui.btnNextCooldown.onclick = null;
+      ui.btnNextCooldown.disabled = false;
 
       if(needCooldown){
         const safeCooldownUrl = buildCooldownUrl({
@@ -1270,9 +1271,50 @@ export function boot(cfg){
           who: pid
         });
 
-        ui.btnNextCooldown.onclick = ()=>{
-          setVrUiVisibility(false);
-          location.href = safeCooldownUrl;
+        ui.btnNextCooldown.onclick = (ev)=>{
+          try{
+            ev?.preventDefault?.();
+            ev?.stopPropagation?.();
+          }catch(e){}
+
+          try{
+            ui.btnNextCooldown.disabled = true;
+            ui.btnNextCooldown.textContent = 'กำลังไปผ่อนคลาย...';
+          }catch(e){}
+
+          try{
+            console.log('[hydration] go cooldown ->', safeCooldownUrl);
+          }catch(e){}
+
+          try{
+            setVrUiVisibility(false);
+          }catch(e){}
+
+          setTimeout(()=>{
+            try{
+              window.location.assign(safeCooldownUrl);
+            }catch(err1){
+              try{
+                window.location.href = safeCooldownUrl;
+              }catch(err2){
+                try{
+                  const a = DOC.createElement('a');
+                  a.href = safeCooldownUrl;
+                  a.rel = 'noopener';
+                  a.style.display = 'none';
+                  DOC.body.appendChild(a);
+                  a.click();
+                  setTimeout(()=>{ try{ a.remove(); }catch(_){} }, 0);
+                }catch(err3){
+                  console.error('[hydration] cooldown navigation failed', err3);
+                  try{
+                    ui.btnNextCooldown.disabled = false;
+                    ui.btnNextCooldown.textContent = 'ไปผ่อนคลายหลังเล่น';
+                  }catch(_){}
+                }
+              }
+            }
+          }, 40);
         };
       }
     }
