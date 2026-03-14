@@ -1,6 +1,6 @@
 // === /herohealth/gate/gate-core.js ===
 // HeroHealth Gate Core
-// FULL PATCH v20260314n-GATE-CORE-COOLDOWN-BUTTON-FIX
+// FULL PATCH v20260314p-GATE-CORE-RESULT-BRIDGE-MOUNTCTX-FIX
 
 import {
   buildCtx,
@@ -255,18 +255,31 @@ function makeApi(app, logger){
 
   const api = {
     logger,
+    result: null,
+
     setStats(v = {}){
       if('time' in v) setText(statTime, `${v.time ?? 0}s`);
       if('score' in v) setText(statScore, `${v.score ?? 0}`);
       if('miss' in v) setText(statMiss, `${v.miss ?? 0}`);
       if('acc' in v) setText(statAcc, `${v.acc ?? '0%'}`);
     },
+
     setSub(text=''){
       setText(gateSub, text);
     },
+
     setDailyState(text=''){
       setText(dailyState, text);
     },
+
+    setResult(payload = {}){
+      api.result = payload || {};
+    },
+
+    onDone(payload = {}){
+      api.__finish?.(payload);
+    },
+
     finish(payload = {}){
       api.__finish?.(payload);
     }
@@ -407,20 +420,26 @@ async function runGate(app){
     if(finished) return;
     finished = true;
 
+    const mergedPayload = {
+      ...(api.result || {}),
+      ...(payload || {})
+    };
+
     try{
       instance?.destroy?.();
     }catch(_){}
 
     const summary = {
-      ok: !!payload.ok,
+      ok: !!mergedPayload.ok,
       game: ctx.game,
       mode: ctx.mode,
-      title: payload.title || (ctx.mode === 'cooldown' ? 'เสร็จแล้ว!' : 'พร้อมแล้ว!'),
-      subtitle: payload.subtitle || '',
-      lines: Array.isArray(payload.lines) ? payload.lines : [],
-      buffs: payload.buffs || {},
-      markDailyDone: payload.markDailyDone !== false,
-      ctx
+      title: mergedPayload.title || (ctx.mode === 'cooldown' ? 'เสร็จแล้ว!' : 'พร้อมแล้ว!'),
+      subtitle: mergedPayload.subtitle || '',
+      lines: Array.isArray(mergedPayload.lines) ? mergedPayload.lines : [],
+      buffs: mergedPayload.buffs || {},
+      markDailyDone: mergedPayload.markDailyDone !== false,
+      ctx,
+      result: api.result || null
     };
 
     if(summary.markDailyDone){
@@ -436,7 +455,8 @@ async function runGate(app){
         game: ctx.game,
         mode: ctx.mode,
         ok: summary.ok ? 1 : 0,
-        buffs: summary.buffs || {}
+        buffs: summary.buffs || {},
+        result: api.result || null
       });
     }catch(_){}
 
@@ -466,6 +486,7 @@ async function runGate(app){
     const mod = await importPhaseModule(ctx);
 
     if(loadingEl) loadingEl.remove();
+    mountEl?.replaceChildren();
 
     const mount =
       mod?.mount ||
@@ -481,7 +502,17 @@ async function runGate(app){
     }
 
     api.setSub('พร้อมแล้ว');
-    instance = await mount(mountEl, ctx, api);
+
+    const mountCtx = {
+      ...ctx,
+      api,
+      logger,
+      setResult: api.setResult,
+      onDone: api.onDone,
+      finish: api.finish
+    };
+
+    instance = await mount(mountEl, mountCtx, api);
 
     try{
       logger?.push?.('gate_mount_ok', {
