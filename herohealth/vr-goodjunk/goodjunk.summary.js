@@ -1,6 +1,6 @@
 // === /herohealth/vr-goodjunk/goodjunk.summary.js ===
 // GoodJunk Solo Master Pack
-// FULL PATCH v20260313d-GJ-SUMMARY-COOLDOWN-HUB-FIX
+// FULL PATCH v20260314k-GJ-SUMMARY-FLOW-STATUS
 
 'use strict';
 
@@ -50,6 +50,41 @@ export function getCooldownDone(cat, gameKey, pid) {
   return (lsGet(kNew) === '1') || (lsGet(kOld) === '1');
 }
 
+export function getWarmupDone(cat, gameKey, pid) {
+  const day = dayKey();
+  const p = String(pid || 'anon').trim() || 'anon';
+  const c = String(cat || 'nutrition').toLowerCase();
+  const g = String(gameKey || 'unknown').toLowerCase();
+  const k = `HHA_WARMUP_DONE:${c}:${g}:${p}:${day}`;
+  return lsGet(k) === '1';
+}
+
+export function getFlowDone(cat, gameKey, pid) {
+  return getWarmupDone(cat, gameKey, pid) && getCooldownDone(cat, gameKey, pid);
+}
+
+export function getCooldownUiState(cat, gameKey, pid) {
+  const done = getCooldownDone(cat, gameKey, pid);
+  return {
+    done,
+    backHubLabel: done ? 'กลับ HUB ได้เลย' : 'กลับ HUB (ข้าม Cooldown)',
+    cooldownLabel: done ? 'Cooldown วันนี้เสร็จแล้ว ✅' : '🧘 ไป Cooldown'
+  };
+}
+
+export function getFlowUiState(cat, gameKey, pid) {
+  const warmDone = getWarmupDone(cat, gameKey, pid);
+  const cooldownDone = getCooldownDone(cat, gameKey, pid);
+  const flowDone = warmDone && cooldownDone;
+
+  return {
+    warmDone,
+    cooldownDone,
+    flowDone,
+    flowLabel: flowDone ? 'ครบ flow วันนี้แล้ว ✅' : 'ยังไม่ครบ flow วันนี้ ✨'
+  };
+}
+
 export function buildCooldownUrl({
   currentUrl,
   hub,
@@ -90,10 +125,7 @@ export function buildCooldownUrl({
   gate.searchParams.set('pid', String(pid || 'anon'));
   gate.searchParams.set('run', run);
 
-  // สำคัญ: hub ต้องเป็น hub จริงเสมอ
   gate.searchParams.set('hub', resolvedHub);
-
-  // สำคัญ: next ของ cooldown คือปลายทางหลัง cooldown
   gate.searchParams.set('next', resolvedNext);
 
   [
@@ -215,9 +247,24 @@ export function buildEndSummary(detail = {}, ai = null) {
     bestCombo: Number(detail.comboBest || 0)
   });
 
+  const cat = String(detail.cat || 'nutrition');
+  const gameKey = String(detail.gameKey || detail.game || 'goodjunk');
+  const pid = String(detail.pid || 'anon');
+  const flowUi = getFlowUiState(cat, gameKey, pid);
+
+  let title = summarizeOutcomeTitle(detail);
+  if (flowUi.flowDone) {
+    title = 'ครบ flow วันนี้แล้ว ✅';
+  }
+
+  let subtitle = summarizeOutcomeSubtitle(detail, ai);
+  if (!flowUi.flowDone && getWarmupDone(cat, gameKey, pid) && !getCooldownDone(cat, gameKey, pid)) {
+    subtitle += ' • ยังเหลือ Cooldown วันนี้';
+  }
+
   return {
-    title: summarizeOutcomeTitle(detail),
-    subtitle: summarizeOutcomeSubtitle(detail, ai),
+    title,
+    subtitle,
     outcome: detail.win ? 'win' : 'lose',
     grade,
     stars,
@@ -235,8 +282,9 @@ export function buildEndSummary(detail = {}, ai = null) {
     reason: String(detail.reason || ''),
     flow: {
       canReplay: true,
-      canCooldown: true,
-      canBackHub: true
+      canCooldown: !flowUi.cooldownDone,
+      canBackHub: true,
+      doneToday: flowUi.flowDone
     }
   };
 }
@@ -323,6 +371,73 @@ export function applySummaryToOverlay({
     stars.textContent = `ดาว ${'⭐'.repeat(Number(summary.stars || 1))}`;
     endTopEl.appendChild(stars);
   }
+
+  const pid = String(detail?.pid || 'anon');
+  const cat = String(detail?.cat || 'nutrition');
+  const gameKey = String(detail?.gameKey || detail?.game || 'goodjunk');
+  const cooldownDone = getCooldownDone(cat, gameKey, pid);
+
+  if (panelEl && !panelEl.querySelector('[data-gj-cooldown-status="1"]')) {
+    const badge = document.createElement('div');
+    badge.dataset.gjCooldownStatus = '1';
+    badge.style.marginTop = '12px';
+    badge.style.display = 'inline-flex';
+    badge.style.alignItems = 'center';
+    badge.style.gap = '8px';
+    badge.style.padding = '8px 12px';
+    badge.style.borderRadius = '999px';
+    badge.style.fontWeight = '1000';
+    badge.style.fontSize = '13px';
+
+    if (cooldownDone) {
+      badge.style.border = '1px solid rgba(34,197,94,.28)';
+      badge.style.background = 'rgba(34,197,94,.14)';
+      badge.style.color = '#dcfce7';
+      badge.textContent = 'Cooldown วันนี้เสร็จแล้ว ✅';
+    } else {
+      badge.style.border = '1px solid rgba(245,158,11,.28)';
+      badge.style.background = 'rgba(245,158,11,.14)';
+      badge.style.color = '#fde68a';
+      badge.textContent = 'ยังไม่ได้ทำ Cooldown วันนี้ 🧘';
+    }
+
+    panelEl.appendChild(badge);
+  }
+
+  const flowUi = getFlowUiState(cat, gameKey, pid);
+
+  if (panelEl && !panelEl.querySelector('[data-gj-flow-status="1"]')) {
+    const flowBadge = document.createElement('div');
+    flowBadge.dataset.gjFlowStatus = '1';
+    flowBadge.style.marginTop = '10px';
+    flowBadge.style.display = 'inline-flex';
+    flowBadge.style.alignItems = 'center';
+    flowBadge.style.gap = '8px';
+    flowBadge.style.padding = '8px 12px';
+    flowBadge.style.borderRadius = '999px';
+    flowBadge.style.fontWeight = '1000';
+    flowBadge.style.fontSize = '13px';
+
+    if (flowUi.flowDone) {
+      flowBadge.style.border = '1px solid rgba(34,197,94,.28)';
+      flowBadge.style.background = 'rgba(34,197,94,.14)';
+      flowBadge.style.color = '#dcfce7';
+      flowBadge.textContent = 'ครบ flow วันนี้แล้ว ✅';
+    } else {
+      flowBadge.style.border = '1px solid rgba(59,130,246,.26)';
+      flowBadge.style.background = 'rgba(59,130,246,.12)';
+      flowBadge.style.color = '#bfdbfe';
+      flowBadge.textContent = 'ยังไม่ครบ flow วันนี้ ✨';
+    }
+
+    panelEl.appendChild(flowBadge);
+  }
+
+  const ui = getCooldownUiState(cat, gameKey, pid);
+  const backHubBtn = panelEl?.querySelector?.('#btnEndBackHub') || document.getElementById('btnEndBackHub');
+  if (backHubBtn) {
+    backHubBtn.textContent = ui.backHubLabel;
+  }
 }
 
 export function injectCooldownButton({
@@ -336,7 +451,57 @@ export function injectCooldownButton({
   currentUrl = location.href
 }) {
   if (!endOverlayEl) return null;
-  if (getCooldownDone(cat, gameKey, pid)) return null;
+
+  const row =
+    endActionsEl ||
+    endOverlayEl.querySelector('.end-actions') ||
+    endOverlayEl.querySelector('.panel') ||
+    endOverlayEl;
+
+  if (!row) return null;
+
+  const backHubBtn = row.querySelector('#btnEndBackHub');
+  const ui = getCooldownUiState(cat, gameKey, pid);
+
+  if (backHubBtn) {
+    backHubBtn.textContent = ui.backHubLabel;
+  }
+
+  const existingBtn = row.querySelector('[data-gj-cd="1"]');
+  const existingDone = row.querySelector('[data-gj-cd-done="1"]');
+  if (existingBtn || existingDone) return existingBtn || existingDone;
+
+  const cooldownDone = ui.done;
+
+  if (cooldownDone) {
+    const badge = documentRef.createElement('div');
+    badge.dataset.gjCdDone = '1';
+    badge.textContent = 'Cooldown วันนี้เสร็จแล้ว ✅';
+    badge.style.display = 'inline-flex';
+    badge.style.alignItems = 'center';
+    badge.style.justifyContent = 'center';
+    badge.style.minHeight = '42px';
+    badge.style.padding = '10px 14px';
+    badge.style.borderRadius = '14px';
+    badge.style.border = '1px solid rgba(34,197,94,.28)';
+    badge.style.background = 'rgba(34,197,94,.14)';
+    badge.style.color = '#dcfce7';
+    badge.style.fontWeight = '1000';
+
+    if (backHubBtn && backHubBtn.parentNode === row) {
+      row.insertBefore(badge, backHubBtn);
+    } else {
+      row.appendChild(badge);
+    }
+
+    try {
+      window.dispatchEvent(new CustomEvent('hha:toast', {
+        detail: { message: 'วันนี้ทำ Cooldown แล้ว กลับ HUB ได้เลย' }
+      }));
+    } catch {}
+
+    return badge;
+  }
 
   const here = new URL(currentUrl, location.href);
   const cdnext = here.searchParams.get('cdnext') || '';
@@ -352,16 +517,6 @@ export function injectCooldownButton({
     pid
   });
 
-  const row =
-    endActionsEl ||
-    endOverlayEl.querySelector('.end-actions') ||
-    endOverlayEl.querySelector('.panel') ||
-    endOverlayEl;
-
-  if (!row) return null;
-  const existing = row.querySelector('[data-gj-cd="1"]');
-  if (existing) return existing;
-
   const btn = documentRef.createElement('button');
   btn.type = 'button';
   btn.dataset.gjCd = '1';
@@ -371,12 +526,17 @@ export function injectCooldownButton({
     location.href = url;
   });
 
-  const backHubBtn = row.querySelector('#btnEndBackHub');
   if (backHubBtn && backHubBtn.parentNode === row) {
     row.insertBefore(btn, backHubBtn);
   } else {
     row.appendChild(btn);
   }
+
+  try {
+    window.dispatchEvent(new CustomEvent('hha:toast', {
+      detail: { message: 'ยังไม่ได้ทำ Cooldown วันนี้' }
+    }));
+  } catch {}
 
   return btn;
 }
