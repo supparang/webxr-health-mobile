@@ -206,6 +206,52 @@ const HINTS = {
   heelR:'ส้นเท้าควรล้างและเช็ดให้สะอาด'
 };
 
+const SCRUB_PATTERNS = {
+  armpitL: 'leftRight',
+  armpitR: 'leftRight',
+  earL: 'circle',
+  earR: 'circle',
+  toeL: 'upDown',
+  toeR: 'upDown',
+  waist: 'circleWide',
+  behindKneeL: 'upDown',
+  behindKneeR: 'upDown',
+  neck: 'leftRight',
+  backL: 'circle',
+  backR: 'circle'
+};
+
+const BOSS_TYPES = {
+  foamGhost: {
+    label: 'Foam Ghost',
+    pattern: 'circle',
+    hpBonus: 0,
+    failPenalty: { residue: 8, sweat: 2 },
+    coach: 'ล้างและถูให้ทัน'
+  },
+  sweatBurst: {
+    label: 'Sweat Burst',
+    pattern: 'leftRight',
+    hpBonus: 1,
+    failPenalty: { sweat: 6, pressure: 1 },
+    coach: 'ถูต่อเนื่อง อย่าหลุดจังหวะ'
+  },
+  dampMonster: {
+    label: 'Damp Monster',
+    pattern: 'upDown',
+    hpBonus: 1,
+    failPenalty: { fungusRisk: 8 },
+    coach: 'จุดนี้ต้องเช็ดให้แห้งตอนท้าย'
+  },
+  greaseBoss: {
+    label: 'Grease Boss',
+    pattern: 'circleWide',
+    hpBonus: 2,
+    failPenalty: { residue: 10 },
+    coach: 'ถูวนให้ครบ จะชนะได้'
+  }
+};
+
 const S = {
   sessionId: `bath_${PID}_${Date.now()}`,
   started:false,
@@ -268,7 +314,36 @@ const S = {
   improvePick:'',
 
   beforeStats:{ residue:15, risk:10, sweat:0, clean:0 },
-  plan:[]
+  plan:[],
+
+  rank:'',
+  badges:[],
+
+  feverState:{
+    active:false,
+    value:0,
+    endsAt:0
+  },
+
+  comboTier:0,
+
+  patternState:{
+    active:false,
+    spotId:'',
+    pattern:'',
+    progress:0,
+    lastPoint:null
+  },
+
+  bossProfile:{
+    id:'',
+    type:'',
+    hp:0,
+    hpMax:0,
+    weakSpotId:'',
+    pattern:'',
+    failPenalty:null
+  }
 };
 
 function currentSpots(){
@@ -337,6 +412,155 @@ function showPhaseBanner(text){
   showPhaseBanner._tm = setTimeout(()=>{
     UI.phaseBanner.classList.add('hidden');
   }, 1300);
+}
+
+function comboTier(){
+  if(S.combo >= 12) return 3;
+  if(S.combo >= 8) return 2;
+  if(S.combo >= 5) return 1;
+  return 0;
+}
+
+function refreshComboTier(){
+  S.comboTier = comboTier();
+}
+
+function activateFever(){
+  S.feverState.active = true;
+  S.feverState.endsAt = now() + 5000;
+  setCoach('Bubble Fever! ตอนนี้แรงขึ้น');
+  showPhaseBanner('BUBBLE FEVER!');
+}
+
+function updateFeverState(){
+  if(S.feverState.active && now() > S.feverState.endsAt){
+    S.feverState.active = false;
+  }
+}
+
+function getFeverMultiplier(){
+  return S.feverState.active ? 1.35 : 1;
+}
+
+function feverMultiplier(){
+  return getFeverMultiplier();
+}
+
+function computeRank(){
+  const m = computeMastery();
+  const clean = Math.round(S.cleanScore);
+
+  if(m.pass && clean >= 90 && S.bossFails === 0) return 'S';
+  if(m.pass && clean >= 80) return 'A';
+  if(clean >= 65) return 'B';
+  if(clean >= 50) return 'C';
+  return 'D';
+}
+
+function refreshEndRewards(){
+  S.rank = computeRank();
+  S.badges = computeBadges();
+}
+
+function pickBossTypeForSpot(spotId){
+  if(['earL','earR'].includes(spotId)) return 'foamGhost';
+  if(['armpitL','armpitR'].includes(spotId)) return 'sweatBurst';
+  if(['toeL','toeR'].includes(spotId)) return 'dampMonster';
+  if(['waist','behindKneeL','behindKneeR'].includes(spotId)) return 'greaseBoss';
+  return 'foamGhost';
+}
+
+function buildBossProfile(spot){
+  const type = pickBossTypeForSpot(spot.id);
+  const meta = BOSS_TYPES[type];
+  const hpMax = spot.hard + (meta.hpBonus || 0) + (PRO ? 2 : 0) + (DIFF === 'hard' ? 1 : 0);
+
+  return {
+    id: `${type}:${spot.id}`,
+    type,
+    hp: hpMax,
+    hpMax,
+    weakSpotId: spot.id,
+    pattern: meta.pattern || 'leftRight',
+    failPenalty: meta.failPenalty || {},
+    coach: meta.coach || 'โฟกัสจุดนี้ให้ครบ'
+  };
+}
+
+function getPatternForSpot(spotId){
+  return SCRUB_PATTERNS[spotId] || 'leftRight';
+}
+
+function beginPatternForSpot(spotId){
+  S.patternState.active = true;
+  S.patternState.spotId = spotId;
+  S.patternState.pattern = getPatternForSpot(spotId);
+  S.patternState.progress = 0;
+  S.patternState.lastPoint = null;
+
+  const p = S.patternState.pattern;
+  if(p === 'leftRight') setCoach('ถูซ้าย-ขวา');
+  else if(p === 'upDown') setCoach('ถูขึ้น-ลง');
+  else if(p === 'circle') setCoach('ถูเป็นวงกลม');
+  else if(p === 'circleWide') setCoach('ถูวนกว้าง ๆ');
+}
+
+function resetPatternState(){
+  S.patternState.active = false;
+  S.patternState.spotId = '';
+  S.patternState.pattern = '';
+  S.patternState.progress = 0;
+  S.patternState.lastPoint = null;
+}
+
+function isPatternComplete(){
+  const p = S.patternState.pattern;
+  if(p === 'circleWide') return S.patternState.progress >= 6;
+  if(p === 'circle') return S.patternState.progress >= 5;
+  if(p === 'upDown') return S.patternState.progress >= 4;
+  if(p === 'leftRight') return S.patternState.progress >= 4;
+  return S.patternState.progress >= 4;
+}
+
+function percentPointFromClient(clientX, clientY){
+  const box = UI.bodyWrap.getBoundingClientRect();
+  const x = ((clientX - box.left) / box.width) * 100;
+  const y = ((clientY - box.top) / box.height) * 100;
+  if(x < 0 || x > 100 || y < 0 || y > 100) return null;
+  return {x,y};
+}
+
+function updatePatternProgress(clientX, clientY){
+  if(!S.patternState.active) return false;
+
+  const pt = percentPointFromClient(clientX, clientY);
+  if(!pt) return false;
+
+  if(!S.patternState.lastPoint){
+    S.patternState.lastPoint = pt;
+    return false;
+  }
+
+  const dx = pt.x - S.patternState.lastPoint.x;
+  const dy = pt.y - S.patternState.lastPoint.y;
+
+  const absX = Math.abs(dx);
+  const absY = Math.abs(dy);
+
+  if(absX < 1.2 && absY < 1.2) return false;
+
+  const pattern = S.patternState.pattern;
+
+  if(pattern === 'leftRight'){
+    if(absX > absY && absX > 2.2) S.patternState.progress += 1;
+  }else if(pattern === 'upDown'){
+    if(absY > absX && absY > 2.2) S.patternState.progress += 1;
+  }else if(pattern === 'circle' || pattern === 'circleWide'){
+    if(absX > 1.5 && absY > 1.5) S.patternState.progress += 1;
+  }
+
+  S.patternState.lastPoint = pt;
+  return isPatternComplete();
 }
 
 function updatePhysicalProxy(){
@@ -416,7 +640,6 @@ function updateHUD(){
   if(UI.questPill) UI.questPill.textContent = `ภารกิจ: ${phaseQuest()}`;
   if(UI.timePill) UI.timePill.textContent = `TIME: ${Math.max(0, Math.ceil(S.timeLeft))}`;
   if(UI.cleanPill) UI.cleanPill.textContent = `สะอาดแล้ว: ${Math.round(S.cleanScore)}%`;
-  if(UI.rubricPill) UI.rubricPill.textContent = `RUBRIC: ${computeRubric().pass ? 'PASS' : 'TRY AGAIN'}`;
   if(UI.toolPill) UI.toolPill.textContent = `อุปกรณ์: ${currentToolLabel()}`;
   if(UI.foamPill) UI.foamPill.textContent = `SOAP POWER: ${Math.round(S.foamPower)}`;
   if(UI.residuePill) UI.residuePill.textContent = `ฟองค้าง: ${Math.round(S.residue)}%`;
@@ -424,7 +647,13 @@ function updateHUD(){
   if(UI.meterPill) UI.meterPill.textContent = `เหงื่อ: ${Math.round(S.sweat)}%`;
   if(UI.viewPill) UI.viewPill.textContent = `VIEW: ${S.view.toUpperCase()}`;
   if(UI.comboPill) UI.comboPill.textContent = `COMBO: ${S.combo}`;
-  if(UI.bossPill) UI.bossPill.textContent = S.bossActive ? `BOSS: ${S.bossHp}/${S.bossMax}` : 'BOSS: —';
+
+  const bossLeft = S.bossActive ? Math.max(0, Math.ceil((S.bossDeadline - now()) / 1000)) : 0;
+  if(UI.bossPill){
+    UI.bossPill.textContent = S.bossActive
+      ? `BOSS: ${S.bossHp}/${S.bossMax} • ${bossLeft}s`
+      : 'BOSS: —';
+  }
 
   if(UI.fatiguePill) UI.fatiguePill.textContent = `FATIGUE: ${Math.round(S.fatiguePct)}%`;
   if(UI.steadyPill) UI.steadyPill.textContent = `STEADY: ${Math.round(S.steadyPct)}%`;
@@ -434,24 +663,29 @@ function updateHUD(){
   if(UI.progressBar) UI.progressBar.style.width = `${mastery.coveragePct}%`;
   if(UI.readyBar) UI.readyBar.style.width = `${Math.round(S.readyPct)}%`;
   if(UI.feverBar) UI.feverBar.style.width = `${Math.round(S.fever)}%`;
+
+  const rankPreview = computeRank();
+  if(UI.rubricPill){
+    UI.rubricPill.textContent = `RUBRIC: ${computeRubric().pass ? 'PASS' : 'TRY AGAIN'} • RANK ${rankPreview}`;
+  }
 }
 
 function comboPlus(v=1){
   S.combo += v;
   S.comboMax = Math.max(S.comboMax, S.combo);
   S.fever = clamp(S.fever + 4 + v, 0, 100);
-  S.feverOn = S.fever >= 70;
+  refreshComboTier();
+
+  if(!S.feverState.active && S.fever >= 70){
+    activateFever();
+  }
 }
 
 function comboBreak(){
   if(S.combo >= 4) S.pressureBurst += 1;
   S.combo = 0;
   S.fever = clamp(S.fever - 10, 0, 100);
-  S.feverOn = S.fever >= 70;
-}
-
-function feverMultiplier(){
-  return S.feverOn ? 1.35 : 1;
+  refreshComboTier();
 }
 
 function partNode(part){
@@ -643,9 +877,13 @@ function scrubStage(){
 function spawnBoss(spot){
   S.bossActive = true;
   S.bossSpotId = spot.id;
-  S.bossMax = spot.hard + (PRO ? 3 : 2) + (DIFF === 'hard' ? 2 : 0);
-  S.bossHp = S.bossMax;
+
+  const profile = buildBossProfile(spot);
+  S.bossProfile = profile;
+  S.bossMax = profile.hpMax;
+  S.bossHp = profile.hp;
   S.bossDeadline = now() + (S.mode === 'learn' ? 6800 : (PRO ? 4600 : 5800));
+
   makeTarget({
     kind:'boss',
     label:'😷',
@@ -656,13 +894,15 @@ function spawnBoss(spot){
     hitsNeed:S.bossHp,
     boss:true
   });
-  setCoach(`บอสมาแล้ว! โฟกัส ${spot.label}`);
+
+  setCoach(`${BOSS_TYPES[profile.type].label}! ${profile.coach}`);
   showPhaseBanner(`BOSS: ${spot.label}`);
 }
 
 function spawnScrubTarget(){
   const spot = pickScrubSpot();
   if(!spot) return;
+
   const stage = scrubStage();
 
   if(stage === 'trick' && rng() < (S.mode === 'learn' ? .18 : .38)){
@@ -688,7 +928,7 @@ function spawnScrubTarget(){
     y:spot.y + (rng()*6-3),
     spotId:spot.id,
     ttlMs:S.mode === 'learn' ? 2000 : (PRO ? 1450 : 1750),
-    hitsNeed:Math.max(1, spot.hard - (S.feverOn ? 1 : 0))
+    hitsNeed:Math.max(1, spot.hard - (S.feverState.active ? 1 : 0))
   });
 }
 
@@ -700,14 +940,6 @@ function spawnDressTarget(){
     y:56,
     ttlMs:1800
   });
-}
-
-function percentPointFromClient(clientX, clientY){
-  const box = UI.bodyWrap.getBoundingClientRect();
-  const x = ((clientX - box.left) / box.width) * 100;
-  const y = ((clientY - box.top) / box.height) * 100;
-  if(x < 0 || x > 100 || y < 0 || y > 100) return null;
-  return {x,y};
 }
 
 function nearestSpot(pt){
@@ -812,7 +1044,33 @@ function applyDragToSpot(spot, kind){
 
 function onBodyPointer(clientX, clientY){
   showCursor(clientX, clientY);
+
+  if(PHASES[S.phase] === 'SCRUB' && S.patternState.active){
+    const done = updatePatternProgress(clientX, clientY);
+    if(done){
+      const spotId = S.patternState.spotId;
+      if(spotId && S.spotState[spotId]){
+        S.spotState[spotId].hits += 1;
+        comboPlus(1);
+
+        const need = Math.max(1, S.spotState[spotId].need - (S.feverState.active ? 1 : 0));
+        if(S.spotState[spotId].hits >= need){
+          S.spotState[spotId].cleared = true;
+          S.residue = clamp(S.residue - (2.6 * feverMultiplier()), 0, 100);
+          setCoach(HINTS[spotId] || 'เคลียร์จุดอับแล้ว');
+        }else{
+          setCoach(`ดีมาก ถูต่ออีกนิด (${S.spotState[spotId].hits}/${need})`);
+        }
+      }
+      resetPatternState();
+      updateHUD();
+      renderStateLayer();
+    }
+    return;
+  }
+
   if(!S.dragging || !S.dragKind) return;
+
   const pt = percentPointFromClient(clientX, clientY);
   if(!pt) return;
   const spot = nearestSpot(pt);
@@ -834,9 +1092,14 @@ function handleTargetHit(id){
 
   if(p === 'SOAP'){
     if(t.kind === 'good'){
-      S.foamPower = clamp(S.foamPower + (12 * feverMultiplier()), 0, 100);
+      let gain = 12 * feverMultiplier();
+      if(S.comboTier >= 2) gain *= 1.15;
+
+      S.foamPower = clamp(S.foamPower + gain, 0, 100);
+
       const spot = nearestSpot({x:t.x,y:t.y});
       if(spot) S.foamMap[spot.id] = clamp((S.foamMap[spot.id] || 0) + 0.32, 0, 1);
+
       comboPlus(1);
       setCoach('ดีมาก ได้ฟองจริง');
       removeTarget(id);
@@ -867,34 +1130,37 @@ function handleTargetHit(id){
     }
 
     if(t.boss){
+      beginPatternForSpot(t.spotId);
+
+      let dmg = 1;
+      if(S.comboTier >= 3) dmg += 1;
+      if(S.feverState.active) dmg += 1;
+
       t.hits += 1;
       S.bossHits += 1;
       comboPlus(2);
-      S.bossHp = Math.max(0, S.bossHp - 1);
-      setCoach(`ถูต่อ! ${currentSpots().find(s=>s.id===t.spotId)?.label || 'จุดอับ'} ยังไม่หมด`);
+
+      S.bossHp = Math.max(0, S.bossHp - dmg);
+      setCoach(`สู้ต่อ! ${currentSpots().find(s=>s.id===t.spotId)?.label || 'จุดอับ'} ยังไม่หมด`);
+
       if(S.bossHp <= 0){
         S.spotState[t.spotId].cleared = true;
         S.residue = clamp(S.residue - 8, 0, 100);
         S.bossActive = false;
         S.bossSpotId = '';
+        resetPatternState();
         setCoach('ชนะบอส! จุดอับนี้สะอาดแล้ว');
         removeTarget(id);
       }
+
       updateHUD();
       renderStateLayer();
       return;
     }
 
     if(t.kind === 'warn'){
-      t.hits += 1;
-      comboPlus(1);
-      S.spotState[t.spotId].hits += 1;
-      if(t.hits >= t.hitsNeed){
-        S.spotState[t.spotId].cleared = true;
-        S.residue = clamp(S.residue - (2.6 * feverMultiplier()), 0, 100);
-        setCoach(HINTS[t.spotId] || 'เคลียร์จุดอับแล้ว');
-        removeTarget(id);
-      }
+      beginPatternForSpot(t.spotId);
+      setCoach(HINTS[t.spotId] || 'ถูจุดนี้ให้ถูกวิธี');
       updateHUD();
       renderStateLayer();
       return;
@@ -966,6 +1232,14 @@ function nextPhase(){
   if(next !== S.phase) enterPhase(next);
 }
 
+function applyBossFailPenalty(){
+  const p = S.bossProfile?.failPenalty || {};
+  if(Number.isFinite(p.residue)) S.residue = clamp(S.residue + p.residue, 0, 100);
+  if(Number.isFinite(p.sweat)) S.sweat = clamp(S.sweat + p.sweat, 0, 100);
+  if(Number.isFinite(p.fungusRisk)) S.fungusRisk = clamp(S.fungusRisk + p.fungusRisk, 0, 100);
+  if(Number.isFinite(p.pressure)) S.pressureBurst += p.pressure;
+}
+
 function spawnLoop(){
   const p = PHASES[S.phase];
 
@@ -976,10 +1250,10 @@ function spawnLoop(){
   if(p === 'SCRUB'){
     if(S.bossActive && now() > S.bossDeadline){
       S.bossFails += 1;
-      S.residue = clamp(S.residue + 7, 0, 100);
-      S.sweat = clamp(S.sweat + 3, 0, 100);
+      applyBossFailPenalty();
       S.bossActive = false;
       S.bossSpotId = '';
+      resetPatternState();
       comboBreak();
       setCoach('บอสหนี! คราบกระจาย ต้องรีบแก้');
       clearTargets();
@@ -1008,7 +1282,7 @@ function tick(){
 
   S.sweat = clamp(S.sweat + (S.mode === 'learn' ? 0.012 : 0.018), 0, 100);
   if(S.fever > 0) S.fever = clamp(S.fever - 0.12, 0, 100);
-  S.feverOn = S.fever >= 70;
+  updateFeverState();
 
   for(const [id,tg] of S.targets.entries()){
     if(now() >= tg.ttlAt){
@@ -1139,6 +1413,34 @@ function resetGameState(){
   S.improvePick = '';
 
   S.beforeStats = { residue:15, risk:10, sweat:0, clean:0 };
+
+  S.rank = '';
+  S.badges = [];
+  S.comboTier = 0;
+
+  S.feverState = {
+    active:false,
+    value:0,
+    endsAt:0
+  };
+
+  S.patternState = {
+    active:false,
+    spotId:'',
+    pattern:'',
+    progress:0,
+    lastPoint:null
+  };
+
+  S.bossProfile = {
+    id:'',
+    type:'',
+    hp:0,
+    hpMax:0,
+    weakSpotId:'',
+    pattern:'',
+    failPenalty:null
+  };
 
   resetSpotState();
   clearTargets();
@@ -1417,7 +1719,8 @@ function saveBathLastSummary(reason){
     weakSpots: weakSpotList(),
     badges: computeBadges(),
     hub: HUB,
-    seed: SEED
+    seed: SEED,
+    rank: computeRank()
   };
   try{ localStorage.setItem(`HHA_LAST_SUMMARY:bath:${PID}`, JSON.stringify(payload)); }catch(e){}
 }
@@ -1433,7 +1736,8 @@ function saveTeacherSummary(){
       fungusRisk: Math.round(S.fungusRisk),
       dragQuality: dragQuality(),
       weakSpots: weakSpotList(),
-      badges: computeBadges()
+      badges: computeBadges(),
+      rank: computeRank()
     }));
   }catch(e){}
 }
@@ -1453,7 +1757,8 @@ function saveGlobalLastSummary(reason){
       fungusRisk: Math.round(S.fungusRisk),
       sweat: Math.round(S.sweat),
       seed: SEED,
-      hub: HUB
+      hub: HUB,
+      rank: computeRank()
     }));
   }catch(e){}
 }
@@ -1488,7 +1793,8 @@ function reportData(){
     badges: computeBadges(),
     selfReason:S.selfReason,
     selfRating:S.selfRating,
-    improvePick:S.improvePick
+    improvePick:S.improvePick,
+    rank: computeRank()
   };
 }
 
@@ -1499,7 +1805,7 @@ function reportText(){
     `เวลา: ${r.ts}`,
     `PID: ${r.pid}`,
     `mode=${r.mode} run=${r.run} diff=${r.diff} pro=${r.pro ? 'ON' : 'OFF'}`,
-    `score=${r.scoreFinal}% residue=${r.residue}% risk=${r.fungusRisk}% sweat=${r.sweat}%`,
+    `rank=${r.rank} score=${r.scoreFinal}% residue=${r.residue}% risk=${r.fungusRisk}% sweat=${r.sweat}%`,
     `wet=${r.dragQuality.wet}% rinse=${r.dragQuality.rinse}% dry=${r.dragQuality.dry}%`,
     `bossFails=${r.bossFails} comboMax=${r.comboMax}`,
     `weak=${(r.weakSpots||[]).map(x=>x.label).join(', ') || '-'}`,
@@ -1529,25 +1835,13 @@ function exportReport(){
   }, 120);
 }
 
-function learningLines(){
-  const out = [];
-  const m = computeMastery();
-  const dq = dragQuality();
-
-  out.push(dq.wet >= 55 ? 'หนูทำให้ตัวเปียกได้ค่อนข้างทั่ว' : 'หนูยังทำให้ตัวเปียกไม่ทั่วพอ');
-  out.push(m.rinsePass ? 'หนูล้างฟองออกได้ดี' : 'หนูยังล้างฟองออกไม่หมด');
-  out.push(m.dryPass ? 'หนูเช็ดตัวได้แห้งดี' : 'หนูยังเช็ดจุดอับไม่แห้งพอ');
-  out.push(m.bossPass ? 'หนูจัดการจุดอับสำคัญได้ดี' : 'จุดอับสำคัญยังต้องฝึกเพิ่ม');
-
-  return out;
-}
-
 function endGame(reason='complete'){
   if(S.ended) return;
   S.ended = true;
   S.started = false;
   clearTargets();
   updateHUD();
+  refreshEndRewards();
 
   renderHeatmap();
   renderChips(UI.reasonChips, REASONS, ()=>S.selfReason, v=>S.selfReason=v);
@@ -1564,7 +1858,7 @@ function endGame(reason='complete'){
   const lines = learningLines();
 
   UI.endSummary.innerHTML =
-    `Mode <b>${S.mode}</b> • View <b>${S.view.toUpperCase()}</b> • PRO <b>${PRO ? 'ON' : 'OFF'}</b><br/>`+
+    `RANK <b>${S.rank}</b> • Mode <b>${S.mode}</b> • View <b>${S.view.toUpperCase()}</b> • PRO <b>${PRO ? 'ON' : 'OFF'}</b><br/>`+
     `สะอาดแล้ว <b>${Math.round(S.cleanScore)}%</b> • ฟองค้าง <b>${Math.round(S.residue)}%</b> • เสี่ยงอับชื้น <b>${Math.round(S.fungusRisk)}%</b><br/>`+
     `Mission <b>${m.missionDone ? 'PASS' : 'NOT YET'}</b> • Boss <b>${m.bossPass ? 'PASS' : 'FAIL'}</b> • Rinse <b>${m.rinsePass ? 'PASS' : 'FAIL'}</b> • Dry <b>${m.dryPass ? 'PASS' : 'FAIL'}</b><br/><br/>`+
     `<b>สิ่งที่ได้เรียนรู้</b><br/>`+
@@ -1620,16 +1914,37 @@ function bootReady(){
   updateHUD();
 }
 
-UI.btnHelp?.addEventListener('click', ()=> UI.panelHelp.classList.remove('hidden'));
-UI.btnCloseHelp?.addEventListener('click', ()=> UI.panelHelp.classList.add('hidden'));
+UI.btnHelp?.addEventListener('click', ()=>{
+  UI.panelHelp.classList.remove('hidden');
+});
 
-UI.btnStart?.addEventListener('click', ()=> showQuiz('standard'));
-UI.btnLearn?.addEventListener('click', ()=> showQuiz('learn'));
-UI.btnReadyStart?.addEventListener('click', ()=> showQuiz('standard'));
-UI.btnReadyLearn?.addEventListener('click', ()=> showQuiz('learn'));
-UI.btnQuizNext?.addEventListener('click', ()=> nextQuiz());
+UI.btnCloseHelp?.addEventListener('click', ()=>{
+  UI.panelHelp.classList.add('hidden');
+});
 
-UI.btnFlip?.addEventListener('click', ()=> flipView());
+UI.btnStart?.addEventListener('click', ()=>{
+  showQuiz('standard');
+});
+
+UI.btnLearn?.addEventListener('click', ()=>{
+  showQuiz('learn');
+});
+
+UI.btnReadyStart?.addEventListener('click', ()=>{
+  showQuiz('standard');
+});
+
+UI.btnReadyLearn?.addEventListener('click', ()=>{
+  showQuiz('learn');
+});
+
+UI.btnQuizNext?.addEventListener('click', ()=>{
+  nextQuiz();
+});
+
+UI.btnFlip?.addEventListener('click', ()=>{
+  flipView();
+});
 
 UI.btnReplay?.addEventListener('click', ()=>{
   UI.panelEnd.classList.add('hidden');
@@ -1647,8 +1962,13 @@ UI.btnCooldown?.addEventListener('click', ()=>{
   location.href = next;
 });
 
-UI.btnBack?.addEventListener('click', ()=>{ location.href = HUB; });
-UI.btnExport?.addEventListener('click', ()=> exportReport());
+UI.btnBack?.addEventListener('click', ()=>{
+  location.href = HUB;
+});
+
+UI.btnExport?.addEventListener('click', ()=>{
+  exportReport();
+});
 
 bindBodyInput();
 bootReady();
