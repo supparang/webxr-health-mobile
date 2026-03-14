@@ -1,6 +1,7 @@
 // === /herohealth/gate/games/hydration/warmup.js ===
 // Hydration Gate Warmup
-// CHILD-FRIENDLY PATCH v20260313a
+// CHILD-FRIENDLY PATCH v20260314b
+// ✅ รองรับทั้ง boot() และ mount()
 
 function createHydrationWarmupGame() {
   function boot(root, ctx = {}) {
@@ -66,20 +67,25 @@ function createHydrationWarmupGame() {
       if (state.done) return;
       state.done = true;
       updateProgress();
-      stage.classList.add('is-done');
-      hintEl.textContent = 'พร้อมเล่นแล้ว ไปกันเลย 🎮';
+      stage?.classList.add('is-done');
+      if (hintEl) hintEl.textContent = 'พร้อมเล่นแล้ว ไปกันเลย 🎮';
 
       setTimeout(() => {
         try{
-          if (typeof ctx.onDone === 'function') ctx.onDone({ ok:true, kind:'warmup', score: state.hit });
-          else if (typeof window.__HHA_GATE_ON_DONE__ === 'function') window.__HHA_GATE_ON_DONE__({ ok:true, kind:'warmup', score: state.hit });
+          if (typeof ctx.onDone === 'function') {
+            ctx.onDone({ ok:true, kind:'warmup', score: state.hit });
+          } else if (typeof window.__HHA_GATE_ON_DONE__ === 'function') {
+            window.__HHA_GATE_ON_DONE__({ ok:true, kind:'warmup', score: state.hit });
+          }
         }catch(e){}
       }, 500);
     }
 
     function popBubble(el){
       el.classList.add('is-pop');
-      setTimeout(() => el.remove(), 240);
+      setTimeout(() => {
+        try{ el.remove(); }catch(e){}
+      }, 240);
     }
 
     function spawnBubble(){
@@ -131,6 +137,7 @@ function createHydrationWarmupGame() {
 
     updateProgress();
     spawnBubble();
+
     state.timer = setTimeout(() => {
       if (!state.done) spawnBubble();
     }, 600);
@@ -147,7 +154,13 @@ function createHydrationWarmupGame() {
 
 const api = createHydrationWarmupGame();
 
+// รองรับ gate-core แบบใหม่
 export function boot(root, ctx) {
+  return api.boot(root, ctx);
+}
+
+// รองรับ gate-core แบบเก่า
+export function mount(root, ctx) {
   return api.boot(root, ctx);
 }
 
@@ -155,4 +168,5 @@ if (typeof window !== 'undefined') {
   window.HHA_GATE_GAME = window.HHA_GATE_GAME || {};
   window.HHA_GATE_GAME.hydrationWarmup = api;
   window.HHA_GATE_BOOT = api.boot;
+  window.HHA_GATE_MOUNT = api.boot;
 }
