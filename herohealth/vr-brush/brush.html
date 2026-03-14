@@ -31,6 +31,7 @@
 
     *{ box-sizing:border-box; }
     html,body{ height:100%; }
+
     body{
       margin:0;
       color:var(--text);
@@ -780,9 +781,6 @@
       grid-template-columns:repeat(4, minmax(0,1fr));
       gap:10px;
     }
-    @media (max-width: 760px){
-      .summaryGrid{ grid-template-columns:repeat(2, minmax(0,1fr)); }
-    }
 
     .summaryBox{
       border:1px solid var(--stroke);
@@ -902,74 +900,235 @@
       100%{ opacity:0; transform:translate(-50%,-58%) scale(1.02); }
     }
 
-    @media (max-width: 1024px){
-      .arena{ padding:12px; }
-      .mouthWrap{ width:min(820px, 100%); }
-      .zoneLabel{ font-size:10px; left:8px; top:6px; }
-    }
-
+    /* ===== MOBILE LAYOUT FIX ===== */
     @media (max-width: 760px){
       body{
+        overflow:auto;
         padding:
-          calc(10px + var(--sat))
-          calc(10px + var(--sar))
-          calc(10px + var(--sab))
-          calc(10px + var(--sal));
+          calc(8px + var(--sat))
+          calc(8px + var(--sar))
+          calc(84px + var(--sab))
+          calc(8px + var(--sal));
       }
 
-      .app{ grid-template-rows:auto 1fr; gap:10px; }
-      .hud{ gap:10px; }
-      .hudbox{ min-height:auto; padding:10px 12px; }
+      .app{
+        height:auto;
+        min-height:100%;
+        grid-template-rows:auto auto;
+        gap:8px;
+      }
+
+      .hud{
+        grid-template-columns:1fr;
+        gap:8px;
+      }
+
+      .hudbox{
+        padding:8px 10px;
+        min-height:auto;
+        gap:6px;
+      }
+
+      .title{ font-size:16px; }
+      .topline{ gap:6px; }
+
+      .pill{
+        font-size:11px;
+        padding:5px 8px;
+      }
+
       .stats{ gap:6px; }
-      .stat{ flex:1 1 30%; min-width:92px; padding:9px 10px; }
-      .stat .v{ font-size:15px; }
-      .main{ gap:10px; }
-      .arena{ grid-template-rows:auto 1fr auto; gap:10px; padding:10px; }
+
+      .stat{
+        padding:8px 10px;
+        border-radius:14px;
+      }
+
+      .stat .k{ font-size:10px; }
+      .stat .v{ font-size:14px; }
+
+      .main{
+        grid-template-columns:1fr;
+        gap:8px;
+      }
+
+      .arena{
+        padding:10px;
+        gap:8px;
+      }
+
       .arenaHead{ gap:8px; }
-      .instruction{ font-size:13px; }
-      .instruction .sub{ font-size:11px; }
-      .arenaCore{ border-radius:18px; min-height:360px; }
-      .mouthWrap{ width:min(96vw, 100%); aspect-ratio: 1.35 / 1; }
-      .zone{ border-width:2px; border-radius:18px; }
-      .zone.tapBoost::before{ inset:-14px; border-radius:26px; }
+
+      .instruction{
+        font-size:13px;
+        line-height:1.35;
+      }
+
+      .instruction .sub{
+        font-size:11px;
+        margin-top:3px;
+      }
+
+      .hintBadge{
+        font-size:11px;
+        padding:5px 8px;
+      }
+
+      .cleanBar{
+        width:100%;
+        max-width:none;
+        height:12px;
+      }
+
+      .bossHpWrap{
+        width:100%;
+        max-width:none;
+      }
+
+      .arenaCore{
+        min-height:420px;
+        border-radius:18px;
+        padding:6px;
+      }
+
+      .mouthWrap{
+        width:100%;
+        max-width:none;
+        aspect-ratio:1.08 / 1;
+      }
+
+      .mouth{
+        inset:2% 1%;
+      }
+
+      .gumsTop,.gumsBottom{
+        left:5%;
+        width:90%;
+        height:24%;
+      }
+
+      .teethTop,.teethBottom{
+        left:8%;
+        width:84%;
+        height:23%;
+        gap:4px;
+      }
+
+      .teethTop{ top:18%; }
+      .teethBottom{ bottom:18%; }
+
+      .tooth{
+        border-radius:10px 10px 14px 14px;
+      }
+
+      .zone{
+        border-width:2px;
+        border-radius:18px;
+      }
+
+      .zone.tapBoost::before{
+        inset:-20px;
+        border-radius:24px;
+      }
+
       .zoneLabel{
         font-size:10px;
+        left:8px;
+        top:6px;
         max-width:72%;
         overflow:hidden;
-        text-overflow:ellipsis;
         white-space:nowrap;
+        text-overflow:ellipsis;
       }
+
       .brushCursor{
-        width:56px;
-        height:56px;
-        margin-left:-28px;
-        margin-top:-28px;
-        font-size:34px;
+        width:52px;
+        height:52px;
+        margin-left:-26px;
+        margin-top:-26px;
+        font-size:30px;
       }
-      .side{ grid-template-rows:auto auto auto auto; padding:10px; }
-      .summaryCard{ padding:14px; gap:12px; }
-      .summaryTitle{ font-size:17px; }
-      .summaryGrid{ gap:8px; }
-      .summaryBox{ padding:10px; }
-      .backHubDock{
-        right:10px;
-        bottom:10px;
-        left:10px;
-        justify-content:flex-end;
+
+      .arenaFoot{
+        flex-direction:column;
+        align-items:stretch;
+        gap:8px;
       }
-      .dockBtn{
-        padding:10px 11px;
+
+      .tips{
+        font-size:11px;
+        line-height:1.4;
+      }
+
+      .skillRow{
+        display:grid;
+        grid-template-columns:1fr 1fr 1fr;
+        gap:8px;
+      }
+
+      .btn{
+        padding:10px 8px;
         font-size:12px;
+        text-align:center;
+      }
+
+      .side{
+        padding:10px;
+        gap:8px;
+      }
+
+      .zoneList{
+        max-height:140px;
+        overflow:auto;
+        padding-right:2px;
+      }
+
+      .backHubDock{
+        left:8px;
+        right:8px;
+        bottom:calc(8px + var(--sab));
+        justify-content:center;
+        gap:6px;
+      }
+
+      .dockBtn{
+        flex:1 1 0;
+        min-width:0;
+        padding:10px 8px;
+        font-size:12px;
+        border-radius:16px;
+      }
+
+      .summaryCard{
+        width:min(96vw, 96vw);
+        padding:14px;
+      }
+
+      .summaryGrid{
+        grid-template-columns:1fr 1fr;
+        gap:8px;
+      }
+
+      .arena,
+      .side{
+        scroll-margin-bottom:90px;
       }
     }
 
     @media (max-width: 520px){
-      .mouthWrap{ aspect-ratio: 1.18 / 1; }
-      .teethTop, .teethBottom{ gap:4px; }
-      .instruction{ font-size:12px; }
-      .tips{ font-size:11px; }
-      .summaryGrid{ grid-template-columns:1fr 1fr; }
-      .zone.tapBoost::before{ inset:-18px; }
+      .desktopMetaBox{ display:none; }
+
+      .arenaCore{ min-height:390px; }
+
+      .mouthWrap{ aspect-ratio:1 / 1; }
+
+      .zone.tapBoost::before{ inset:-24px; }
+
+      .skillRow{ grid-template-columns:1fr 1fr; }
+
+      #btnRestart{ grid-column:1 / -1; }
+
+      .zoneList{ max-height:110px; }
     }
 
     html.view-cvr .arena,
@@ -1010,7 +1169,7 @@
         </div>
       </div>
 
-      <div class="panel hudbox">
+      <div class="panel hudbox desktopMetaBox">
         <div class="topline">
           <div class="pill">run: <b id="pillRun">play</b></div>
           <div class="pill">diff: <b id="pillDiff">normal</b></div>
@@ -1027,15 +1186,15 @@
     <section class="main">
       <section class="panel arena">
         <div class="arenaHead">
-          <div style="display:grid; gap:8px; min-width:0;">
+          <div style="display:grid; gap:8px; min-width:0; flex:1 1 380px;">
             <div class="instruction" id="instruction">
               แปรง <b>ฟันบนด้านนอก</b> ให้สะอาด
-              <span class="sub" id="instructionSub">เป้าหมายของโซนนี้ ≥ 85% • แตะซ้ำที่โซนเดิมเพื่อเก็บคราบให้หมด</span>
+              <span class="sub" id="instructionSub">แตะพื้นที่ปากใหญ่ตรงกลางจอในตำแหน่งของโซนนี้ • เป้าหมาย ≥ 85%</span>
             </div>
-            <div class="hintBadge" id="hintBadge">💡 แตะโซนที่เรืองแสง</div>
+            <div class="hintBadge" id="hintBadge">💡 แตะในรูปปากตรงกลาง: ฟันบนด้านนอก</div>
           </div>
 
-          <div style="display:grid; gap:10px; justify-items:end; min-width:min(280px,100%);">
+          <div style="display:grid; gap:10px; justify-items:end; min-width:min(280px,100%); flex:1 1 220px;">
             <div class="cleanBar" aria-label="Clean progress">
               <div class="cleanFill" id="cleanFill"></div>
             </div>
@@ -1090,8 +1249,10 @@
       </section>
 
       <aside class="panel side">
-        <h3>🦷 แผนที่ฟัน 6 โซน</h3>
-        <div class="zoneList" id="zoneList"></div>
+        <details open class="panel" style="padding:12px; border-radius:18px; background:rgba(2,6,23,.26); box-shadow:none;">
+          <summary style="cursor:pointer; font-weight:950; font-size:15px;">🦷 แผนที่ฟัน 6 โซน</summary>
+          <div class="zoneList" id="zoneList" style="margin-top:10px;"></div>
+        </details>
 
         <div class="panel" style="padding:12px; border-radius:18px; background:rgba(2,6,23,.26); box-shadow:none;">
           <h3>ภารกิจตอนนี้</h3>
@@ -1175,7 +1336,6 @@
     (function(){
       'use strict';
 
-      const $ = (s)=>document.querySelector(s);
       const byId = (id)=>document.getElementById(id);
 
       const zoneLayer = byId('zoneLayer');
@@ -1352,9 +1512,7 @@
         for(let i=0;i<count;i++){
           const blob = document.createElement('div');
           let klass = meta.dirtType;
-          if(S.bossStarted && idx === S.activeZoneIdx && !S.bossCompleted){
-            klass = 'boss';
-          }
+          if(S.bossStarted && idx === S.activeZoneIdx && !S.bossCompleted) klass = 'boss';
           blob.className = `dirtBlob ${klass}`;
           const size = 14 + Math.random()*24;
           blob.style.width = size + 'px';
@@ -1377,7 +1535,11 @@
           const el = document.createElement('button');
           el.type = 'button';
           el.className = 'zone';
-          if (CFG.view === 'mobile' || CFG.view === 'cvr') el.classList.add('tapBoost');
+
+          if (CFG.view === 'mobile' || CFG.view === 'cvr' || window.innerWidth <= 760) {
+            el.classList.add('tapBoost');
+          }
+
           el.style.left = meta.x + '%';
           el.style.top = meta.y + '%';
           el.style.width = meta.w + '%';
@@ -1395,6 +1557,7 @@
 
           zs.el = el;
           zs.dirtEl = dirt;
+
           renderDirtForZone(idx);
 
           el.addEventListener('pointerdown', (ev)=>{
@@ -1903,7 +2066,7 @@
           setHtml(
             'instruction',
             `แปรง <b>${active ? active.label : '—'}</b> ให้สะอาด
-             <span class="sub" id="instructionSub">เป้าหมายของโซนนี้ ≥ ${CFG.cleanTarget}% • แตะซ้ำที่โซนเดิมเพื่อเก็บคราบให้หมด</span>`
+             <span class="sub" id="instructionSub">แตะพื้นที่ปากใหญ่ตรงกลางจอในตำแหน่งของโซนนี้ • เป้าหมาย ≥ ${CFG.cleanTarget}%</span>`
           );
           setText(
             'questText',
@@ -1948,7 +2111,7 @@
         const hintBadge = byId('hintBadge');
         if(hintBadge){
           if(!S.bossStarted){
-            hintBadge.textContent = `💡 โซนตอนนี้: ${active ? active.label : '—'}`;
+            hintBadge.textContent = `💡 แตะในรูปปากตรงกลาง: ${active ? active.label : '—'}`;
           } else if (!S.bossCompleted){
             if(S.bossMode === 'laserWarn') hintBadge.textContent = '🚫 เตรียมหยุดแปรง';
             else if(S.bossMode === 'laserLive') hintBadge.textContent = '🚫 ห้ามแตะตอนเลเซอร์ทำงาน';
