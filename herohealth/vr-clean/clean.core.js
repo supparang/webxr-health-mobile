@@ -1,5 +1,5 @@
 // === /herohealth/vr-clean/clean.core.js ===
-// Clean Objects CORE — SAFE/PRODUCTION — v20260301-FULL-EXCITE1234-PATCH-E
+// Clean Objects CORE — SAFE/PRODUCTION — v20260301-FULL-EXCITE1234-PATCH-F
 'use strict';
 
 import { HOTSPOTS, MAP } from './clean.data.js';
@@ -159,10 +159,81 @@ function gridDist(a,b){
   return Math.sqrt(dx*dx + dy*dy);
 }
 
-function bossReward(progress, total, timeLeftBoss){
+const BOSS_VARIANTS = {
+  wet: {
+    key: 'wet',
+    name: 'Bathroom Outbreak',
+    nameTh: 'การระบาดโซนเปียก',
+    hintTh: 'รีบเก็บจุดเปียกและใกล้ห้องน้ำก่อนเชื้อกระจาย',
+    rewardBase: 130,
+    rewardMul: 1.15,
+    contamBoost: 1.15,
+    prefer: (h)=>{
+      const id = String(h.id||'').toLowerCase();
+      const zone = String(h.zone||'').toLowerCase();
+      return (
+        zone.includes('wet') ||
+        id.includes('toilet') ||
+        id.includes('faucet') ||
+        id.includes('sink') ||
+        id.includes('flush')
+      );
+    }
+  },
+  shared: {
+    key: 'shared',
+    name: 'Shared Device Meltdown',
+    nameTh: 'วิกฤตของใช้ร่วม',
+    hintTh: 'รีบเก็บอุปกรณ์ที่หลายคนจับร่วมกัน',
+    rewardBase: 140,
+    rewardMul: 1.20,
+    contamBoost: 1.10,
+    prefer: (h)=>{
+      const id = String(h.id||'').toLowerCase();
+      const zone = String(h.zone||'').toLowerCase();
+      return (
+        zone.includes('shared') ||
+        id.includes('tablet') ||
+        id.includes('remote') ||
+        id.includes('mouse') ||
+        id.includes('switch')
+      );
+    }
+  },
+  entry: {
+    key: 'entry',
+    name: 'Entry Contamination Rush',
+    nameTh: 'เชื้อบุกจุดทางเข้า',
+    hintTh: 'ปิดการแพร่จากจุดสัมผัสแรกให้เร็วที่สุด',
+    rewardBase: 120,
+    rewardMul: 1.10,
+    contamBoost: 1.18,
+    prefer: (h)=>{
+      const id = String(h.id||'').toLowerCase();
+      const zone = String(h.zone||'').toLowerCase();
+      return (
+        zone.includes('entry') ||
+        id.includes('door') ||
+        id.includes('knob') ||
+        id.includes('handle')
+      );
+    }
+  }
+};
+
+function pickBossVariant(rng, forced=''){
+  if(forced && BOSS_VARIANTS[forced]) return BOSS_VARIANTS[forced];
+  const keys = Object.keys(BOSS_VARIANTS);
+  const idx = Math.floor(rng() * keys.length);
+  return BOSS_VARIANTS[keys[idx]];
+}
+
+function bossReward(variant, progress, total, timeLeftBoss){
   if(total <= 0 || progress < total) return 0;
+  const base = Number(variant?.rewardBase || 120);
+  const mul  = Number(variant?.rewardMul  || 1.0);
   const quickBonus = clamp(Math.round(timeLeftBoss * 4), 0, 60);
-  return 120 + quickBonus;
+  return Math.round((base + quickBonus) * mul);
 }
 
 function scoreA(state){
@@ -272,11 +343,15 @@ export function createCleanCore(cfg={}, hooks={}){
   const bossAtSec = clamp(qs('bossAt', cfg.bossAtSec ?? (mode==='A' ? 34 : 0)), 0, 200);
   const bossWarnSec = clamp(qs('bossWarn', cfg.bossWarnSec ?? 8), 3, 20);
   const bossWindowSec = clamp(qs('bossWindow', cfg.bossWindowSec ?? 10), 5, 20);
+  const bossTypeForced = String(qs('bossType', cfg.bossType || '')).trim().toLowerCase();
 
   const spreadTickSec = clamp(qs('spreadTick', cfg.spreadTickSec ?? 2.4), 1.2, 6);
   const spreadBoost = clamp(qs('spreadBoost', cfg.spreadBoost ?? 8), 3, 18);
   const spreadThreshold = clamp(qs('spreadThreshold', cfg.spreadThreshold ?? 82), 60, 95);
   const crisisThreshold = clamp(qs('crisisThreshold', cfg.crisisThreshold ?? 3), 2, 6);
+
+  const rng = makeRng(seedStr + '::cleanobjects');
+  const bossVariant = pickBossVariant(rng, bossTypeForced);
 
   cfg = Object.assign({}, cfg, {
     run: runMode,
@@ -294,12 +369,11 @@ export function createCleanCore(cfg={}, hooks={}){
     spreadTickSec,
     spreadBoost,
     spreadThreshold,
-    crisisThreshold
+    crisisThreshold,
+    bossType: bossVariant.key
   });
 
-  const rng = makeRng(seedStr + '::cleanobjects');
   const coachOK = makeRateLimit(3500);
-
   const hotspots = (HOTSPOTS || []).map(h=>Object.assign({}, h));
 
   const state = {
@@ -340,7 +414,10 @@ export function createCleanCore(cfg={}, hooks={}){
     },
 
     boss: {
-      type: 'outbreak',
+      type: bossVariant.key,
+      typeName: bossVariant.name,
+      typeNameTh: bossVariant.nameTh,
+      hintTh: bossVariant.hintTh,
       nextAtS: bossAtSec,
       warnSec: bossWarnSec,
       windowSec: bossWindowSec,
@@ -352,7 +429,9 @@ export function createCleanCore(cfg={}, hooks={}){
       progress: 0,
       total: 0,
       reward: 0,
-      timeLeftAtClear: 0
+      timeLeftAtClear: 0,
+      rewardBase: bossVariant.rewardBase,
+      rewardMul: bossVariant.rewardMul
     },
 
     spread: {
@@ -379,12 +458,20 @@ export function createCleanCore(cfg={}, hooks={}){
           rrPreview: Math.round(rr),
           spreadPenalty: Math.round(state.spread.totalPenalty||0),
           bossProgress: `${state.boss.progress||0}/${state.boss.total||0}`,
-          bossReward: Math.round(state.boss.reward||0)
+          bossReward: Math.round(state.boss.reward||0),
+          bossType: state.boss.type
         };
-      }else{
+      } else {
         preview = { routeN: (state.B.routeIds||[]).length, maxPoints: state.B.maxPoints };
       }
-      emitEvt('hha:score', { game:'cleanobjects', mode: state.mode, phase: phase||'tick', timeLeft: Math.round(state.timeLeft||0), preview, ts: Date.now() });
+      emitEvt('hha:score', {
+        game:'cleanobjects',
+        mode: state.mode,
+        phase: phase || 'tick',
+        timeLeft: Math.round(state.timeLeft || 0),
+        preview,
+        ts: Date.now()
+      });
     }catch(e){}
   }
 
@@ -437,24 +524,24 @@ export function createCleanCore(cfg={}, hooks={}){
   }
 
   function makeBossTargets(){
-    const bossMain = state.hotspots.find(h=>String(h.id) === String(state.cfg.bossId));
+    const prefer = BOSS_VARIANTS[state.boss.type]?.prefer || (()=>false);
     const ranked = rankHotspotsByValue(state.hotspots).filter(h=>!isCleanedA(h.id));
+
+    const preferred = ranked.filter(prefer);
+    const fallback  = ranked.filter(h=>!preferred.includes(h));
+
     const ids = [];
-    if(bossMain) ids.push(String(bossMain.id));
-
-    const near = (bossMain
-      ? ranked.filter(h=>h.id !== bossMain.id).sort((a,b)=>gridDist(a,bossMain)-gridDist(b,bossMain))
-      : ranked
-    ).slice(0, 6);
-
-    for(const h of near){
-      if(ids.length >= 3) break;
-      if(!ids.includes(String(h.id))) ids.push(String(h.id));
+    if(state.cfg.bossId && !ids.includes(String(state.cfg.bossId))){
+      const main = ranked.find(h=>String(h.id)===String(state.cfg.bossId));
+      if(main) ids.push(String(main.id));
     }
 
-    while(ids.length < 3 && ranked.length){
-      const h = ranked.shift();
-      if(h && !ids.includes(String(h.id))) ids.push(String(h.id));
+    for(const pool of [preferred, fallback]){
+      for(const h of pool){
+        if(ids.length >= 3) break;
+        const id = String(h.id);
+        if(!ids.includes(id)) ids.push(id);
+      }
     }
 
     return ids.slice(0,3);
@@ -467,10 +554,12 @@ export function createCleanCore(cfg={}, hooks={}){
       const raw = localStorage.getItem(key);
       const data = raw ? JSON.parse(raw) : {};
       data.clean_boss_clear = true;
+      data.clean_boss_type = state.boss.type;
       data.clean_boss_last = {
         ts: nowIso(),
         reward: Number(state.boss.reward||0),
-        seed: seedStr
+        seed: seedStr,
+        type: state.boss.type
       };
       localStorage.setItem(key, JSON.stringify(data));
     }catch(e){}
@@ -488,23 +577,26 @@ export function createCleanCore(cfg={}, hooks={}){
     state.boss.expireAtS = state.elapsed + state.cfg.bossWindowSec;
     state.boss.timeLeftAtClear = 0;
 
+    const boostMul = Number(BOSS_VARIANTS[state.boss.type]?.contamBoost || 1.0);
     for(const id of state.boss.targets){
       const h = state.hotspots.find(x=>String(x.id)===String(id));
-      if(h) h.risk = clamp(Number(h.risk||0) + 18, 0, 100);
+      if(h) h.risk = clamp(Number(h.risk||0) + Math.round(18 * boostMul), 0, 100);
     }
 
     emitHHAEvent('boss_start', {
       sessionId: state.cfg.sessionId,
       mode: state.mode,
       bossType: state.boss.type,
+      bossName: state.boss.typeName,
       atSec: state.elapsed,
       targets: state.boss.targets.slice(0),
       total: state.boss.total
     });
 
-    emitCoach('boss', `🔥 BOSS MODE! เก็บเป้าบอส ${state.boss.total} จุดภายใน ${state.cfg.bossWindowSec} วิ`, {
+    emitCoach('boss', `🔥 ${state.boss.typeNameTh}! เก็บเป้าบอส ${state.boss.total} จุด`, {
       targets: state.boss.targets.slice(0),
-      total: state.boss.total
+      total: state.boss.total,
+      bossType: state.boss.type
     });
 
     emitState();
@@ -522,14 +614,20 @@ export function createCleanCore(cfg={}, hooks={}){
         mode: state.mode,
         progress: state.boss.progress,
         total: state.boss.total,
-        targetId: String(id)
+        targetId: String(id),
+        bossType: state.boss.type
       });
 
       if(state.boss.progress >= state.boss.total){
         state.boss.cleared = true;
         state.boss.active = false;
         state.boss.timeLeftAtClear = Math.max(0, state.boss.expireAtS - state.elapsed);
-        state.boss.reward = bossReward(state.boss.progress, state.boss.total, state.boss.timeLeftAtClear);
+        state.boss.reward = bossReward(
+          BOSS_VARIANTS[state.boss.type],
+          state.boss.progress,
+          state.boss.total,
+          state.boss.timeLeftAtClear
+        );
 
         saveBossBadge();
 
@@ -538,18 +636,22 @@ export function createCleanCore(cfg={}, hooks={}){
           mode: state.mode,
           progress: state.boss.progress,
           total: state.boss.total,
-          reward: state.boss.reward
+          reward: state.boss.reward,
+          bossType: state.boss.type,
+          bossName: state.boss.typeName
         });
 
-        emitCoach('good', `🏁 Boss Cleared! +${state.boss.reward} โบนัส`, {
+        emitCoach('good', `🏁 ${state.boss.typeNameTh} ผ่านแล้ว! +${state.boss.reward} โบนัส`, {
           progress: state.boss.progress,
           total: state.boss.total,
-          reward: state.boss.reward
+          reward: state.boss.reward,
+          bossType: state.boss.type
         });
       } else {
-        emitCoach('good', `🎯 Boss ${state.boss.progress}/${state.boss.total}`, {
+        emitCoach('good', `🎯 ${state.boss.typeNameTh} ${state.boss.progress}/${state.boss.total}`, {
           progress: state.boss.progress,
-          total: state.boss.total
+          total: state.boss.total,
+          bossType: state.boss.type
         });
       }
     }
@@ -566,12 +668,15 @@ export function createCleanCore(cfg={}, hooks={}){
         sessionId: state.cfg.sessionId,
         mode: state.mode,
         progress: state.boss.progress,
-        total: state.boss.total
+        total: state.boss.total,
+        bossType: state.boss.type,
+        bossName: state.boss.typeName
       });
 
-      emitCoach('boss', `💥 Boss Failed! ทำได้ ${state.boss.progress}/${state.boss.total}`, {
+      emitCoach('boss', `💥 ${state.boss.typeNameTh} ไม่ทัน! ทำได้ ${state.boss.progress}/${state.boss.total}`, {
         progress: state.boss.progress,
-        total: state.boss.total
+        total: state.boss.total,
+        bossType: state.boss.type
       });
     }
   }
@@ -587,7 +692,6 @@ export function createCleanCore(cfg={}, hooks={}){
       const base = 0.6*traffic + 0.4*touch;
       const jitter = (rng()-0.5) * 0.08;
       const inc = (0.9*base + jitter) * dt * 1.8;
-
       const mult = isCleanedA(h.id) ? 0.25 : 1.0;
       h.risk = clamp(Number(h.risk||0) + inc*mult, 0, 100);
     }
@@ -597,16 +701,28 @@ export function createCleanCore(cfg={}, hooks={}){
     if(state.events.contamFired || state.ended) return;
     state.events.contamFired = true;
 
-    const baseIds = ['door_knob','light_switch'];
-    const extraPool = state.hotspots.map(h=>h.id).filter(id=>!baseIds.includes(id));
-    const pickExtra = (rng() < 0.55 && extraPool.length) ? extraPool[Math.floor(rng()*extraPool.length)] : null;
+    const prefer = BOSS_VARIANTS[state.boss.type]?.prefer || (()=>false);
+    const preferred = state.hotspots.filter(prefer).map(h=>h.id);
+    const generic = ['door_knob','light_switch'];
 
-    const ids = baseIds.slice(0);
-    if(pickExtra) ids.push(pickExtra);
+    const ids = [];
+    for(const id of preferred){
+      if(ids.length >= 2) break;
+      if(!ids.includes(id)) ids.push(id);
+    }
+    for(const id of generic){
+      if(ids.length >= 3) break;
+      if(!ids.includes(id)) ids.push(id);
+    }
+    if(!ids.length){
+      const any = state.hotspots.slice(0,3).map(h=>h.id);
+      ids.push(...any);
+    }
 
+    const boostMul = Number(BOSS_VARIANTS[state.boss.type]?.contamBoost || 1.0);
     for(const id of ids){
       const h = state.hotspots.find(x=>String(x.id)===String(id));
-      if(h) h.risk = clamp(Number(h.risk||0) + state.cfg.contamBoost, 0, 100);
+      if(h) h.risk = clamp(Number(h.risk||0) + Math.round(state.cfg.contamBoost * boostMul), 0, 100);
     }
     state.events.contamTargets = ids.slice(0);
     state.spread.recentTargets = ids.slice(0);
@@ -616,10 +732,14 @@ export function createCleanCore(cfg={}, hooks={}){
       mode: state.mode,
       atSec: state.events.contamAt,
       targets: ids.slice(0),
-      boost: state.cfg.contamBoost
+      boost: Math.round(state.cfg.contamBoost * boostMul),
+      bossType: state.boss.type
     });
 
-    emitCoach('contamination', `⚠️ เหตุการณ์ปนเปื้อน! ความเสี่ยงเพิ่มที่ ${ids.join(', ')}`, { targets: ids.slice(0) });
+    emitCoach('contamination', `⚠️ ${state.boss.typeNameTh} ทำให้ความเสี่ยงพุ่งที่ ${ids.join(', ')}`, {
+      targets: ids.slice(0),
+      bossType: state.boss.type
+    });
     emitState();
   }
 
@@ -659,11 +779,13 @@ export function createCleanCore(cfg={}, hooks={}){
       mode: state.mode,
       wave: state.spread.waveCount,
       targets: state.spread.recentTargets.slice(0),
-      penaltyAdd: targets.length * 6
+      penaltyAdd: targets.length * 6,
+      bossType: state.boss.type
     });
 
-    emitCoach('warn', `🦠 เชื้อแพร่ไป ${targets.length} จุด! รีบเก็บจุดวิกฤต`, {
-      targets: state.spread.recentTargets.slice(0)
+    emitCoach('warn', `🦠 ${state.boss.typeNameTh} ทำให้เชื้อลาม ${targets.length} จุด`, {
+      targets: state.spread.recentTargets.slice(0),
+      bossType: state.boss.type
     });
   }
 
@@ -677,15 +799,17 @@ export function createCleanCore(cfg={}, hooks={}){
       emitHHAEvent('crisis_start', {
         sessionId: state.cfg.sessionId,
         mode: state.mode,
-        redCount
+        redCount,
+        bossType: state.boss.type
       });
-      emitCoach('boss', `🚨 CRISIS! มีจุดวิกฤต ${redCount} จุดพร้อมกัน`, { redCount });
+      emitCoach('boss', `🚨 ${state.boss.typeNameTh}! มีจุดวิกฤต ${redCount} จุด`, { redCount, bossType: state.boss.type });
     } else if(!crisisNow && state.events.crisisOn){
       state.events.crisisOn = false;
       emitHHAEvent('crisis_end', {
         sessionId: state.cfg.sessionId,
         mode: state.mode,
-        redCount
+        redCount,
+        bossType: state.boss.type
       });
     }
   }
@@ -729,6 +853,9 @@ export function createCleanCore(cfg={}, hooks={}){
         combo: { best: state.combo.best || 0 },
         bossId: state.cfg.bossId,
         boss: {
+          type: state.boss.type,
+          name: state.boss.typeName,
+          nameTh: state.boss.typeNameTh,
           cleared: !!state.boss.cleared,
           failed: !!state.boss.failed,
           progress: state.boss.progress,
@@ -742,7 +869,7 @@ export function createCleanCore(cfg={}, hooks={}){
         },
         reasons: state.A.selected.map(s=>({ id:s.id, rr:s.rr, reasonTag:s.reasonTag||'', reasonText:s.reasonText||'' }))
       };
-    }else{
+    } else {
       const r = scoreB(state);
       score = r.score;
       metrics = {
@@ -794,9 +921,12 @@ export function createCleanCore(cfg={}, hooks={}){
       day: localYMD_BKK(),
       mode: state.mode,
       timeTotal: state.timeTotal,
-      bossId: state.cfg.bossId
+      bossId: state.cfg.bossId,
+      bossType: state.boss.type,
+      bossName: state.boss.typeName
     });
 
+    emitCoach('tip', `วันนี้เจอบอส: ${state.boss.typeNameTh}`, { bossType: state.boss.type });
     emitState();
   }
 
@@ -838,7 +968,7 @@ export function createCleanCore(cfg={}, hooks={}){
         window: state.cfg.dangerWindowSec
       });
       if(Math.round(state.timeLeft) % 2 === 0){
-        emitCoach('danger', `⏱️ เหลือ ${Math.round(state.timeLeft)} วิ! รีบเก็บจุดวิกฤต`, {});
+        emitCoach('danger', `⏱️ เหลือ ${Math.round(state.timeLeft)} วิ! ${state.boss.hintTh}`, {});
       }
     }
 
@@ -902,7 +1032,7 @@ export function createCleanCore(cfg={}, hooks={}){
       if(coachOK()){
         emitCoach('combo', `🔥 คอมโบ! เลือกคุ้ม ${state.combo.streak} ครั้งติด`, { streak: state.combo.streak, best: state.combo.best });
       }
-    }else{
+    } else {
       state.combo.streak = 0;
     }
 
@@ -935,7 +1065,7 @@ export function createCleanCore(cfg={}, hooks={}){
     const idx = state.B.routeIds.indexOf(id);
     if(idx >= 0){
       state.B.routeIds.splice(idx,1);
-    }else{
+    } else {
       if(state.B.routeIds.length >= state.B.maxPoints) return { ok:false, reason:'full' };
       state.B.routeIds.push(id);
     }
