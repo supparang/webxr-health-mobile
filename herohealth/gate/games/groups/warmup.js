@@ -2,7 +2,8 @@
    HeroHealth Gate Mini-game
    GAME: groups
    MODE: warmup
-   PATCH v20260312-GATE-GROUPS-WARMUP-THAI-G5-SHORTBTN
+   FULL PATCH v20260314-GATE-GROUPS-WARMUP-AUTOSTART-FALLBACK
+   ✅ FIX: auto-start fallback if gate-core cache/old version doesn't call controller.start()
 */
 
 let __styleLoaded = false;
@@ -119,6 +120,7 @@ export async function mount(root, ctx, api){
   let miss = 0;
   let correct = 0;
   let ended = false;
+  let started = false;
 
   const plannedTime = Number(ctx.time || 20);
   let timeLeft = plannedTime;
@@ -266,6 +268,12 @@ export async function mount(root, ctx, api){
     });
   }
 
+  function startGame(){
+    if(started || ended) return;
+    started = true;
+    renderRound();
+  }
+
   const timer = setInterval(()=>{
     if(ended) return;
     timeLeft--;
@@ -277,9 +285,12 @@ export async function mount(root, ctx, api){
     }
   }, 1000);
 
+  // fallback: เริ่มเกมทันที เผื่อ gate-core เวอร์ชันที่หน้าเว็บ cache อยู่ไม่ได้เรียก start()
+  startGame();
+
   return {
     start(){
-      renderRound();
+      startGame();
     },
     destroy(){
       ended = true;
