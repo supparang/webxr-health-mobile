@@ -6,22 +6,49 @@
   <title>HeroHealth — Warmup/Cooldown Gate</title>
   <meta name="color-scheme" content="dark light" />
   <link rel="icon" href="./favicon.ico" />
-  <link rel="stylesheet" href="./gate/gate-common.css?v=20260312d" />
+  <link rel="stylesheet" href="./gate/gate-common.css?v=20260314d" />
 </head>
 <body>
   <div id="gate-app"></div>
 
   <script type="module">
-    import * as GateCore from './gate/gate-core.js?v=20260314k';
-
-    const el = document.getElementById('gate-app');
-    const bootGate = GateCore.bootGate || GateCore.default;
-
-    if (!bootGate) {
-      throw new Error('bootGate export not found in gate-core.js');
-    }
-
-    bootGate(el);
+    import { bootGate } from './gate/gate-core.js?v=20260314d';
+    const root = document.getElementById('gate-app');
+    bootGate(root).catch(err => {
+      console.error('[warmup-gate] boot failed', err);
+      root.innerHTML = `
+        <div style="
+          min-height:100vh;
+          display:grid;
+          place-items:center;
+          padding:24px;
+          background:linear-gradient(180deg,#020617,#0b1226);
+          color:#e5e7eb;
+          font-family:system-ui,-apple-system,Segoe UI,Roboto,Noto Sans Thai,sans-serif;
+        ">
+          <div style="
+            width:min(720px,100%);
+            border:1px solid rgba(148,163,184,.18);
+            background:rgba(2,6,23,.72);
+            border-radius:20px;
+            padding:18px;
+            box-shadow:0 20px 60px rgba(0,0,0,.35);
+          ">
+            <div style="font-size:22px;font-weight:1100;margin-bottom:8px;">โหลด Gate ไม่สำเร็จ</div>
+            <div style="opacity:.9;line-height:1.6;word-break:break-word;">${String(err?.message || err)}</div>
+            <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap;">
+              <button id="gateRetryBtn" style="min-height:44px;padding:10px 14px;border-radius:14px;border:1px solid rgba(59,130,246,.28);background:rgba(59,130,246,.16);color:#fff;font:inherit;font-weight:1000;cursor:pointer;">ลองใหม่</button>
+              <button id="gateHubBtn" style="min-height:44px;padding:10px 14px;border-radius:14px;border:1px solid rgba(34,197,94,.28);background:rgba(34,197,94,.14);color:#fff;font:inherit;font-weight:1000;cursor:pointer;">กลับหน้าหลัก</button>
+            </div>
+          </div>
+        </div>
+      `;
+      document.getElementById('gateRetryBtn')?.addEventListener('click', () => location.reload());
+      document.getElementById('gateHubBtn')?.addEventListener('click', () => {
+        const u = new URL(location.href);
+        location.href = u.searchParams.get('hub') || './hub.html';
+      });
+    });
   </script>
 </body>
 </html>
