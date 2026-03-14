@@ -1,13 +1,13 @@
 <!-- === /herohealth/balance-hold-vr.html ===
 Balance Hold — LAUNCHER (HeroHealth Root)
-PATCH v20260313-BALANCEHOLD-LAUNCHER-FINAL-FLOWLOCK
+FULL PATCH v20260314-BALANCEHOLD-LAUNCHER-FLOW-LOCKED
 ✅ Choose diff/time/view BEFORE entering run
-✅ Start Flow = launcher → warmup-gate → game → result → cooldown-gate → hub
+✅ Start Flow = launcher -> warmup-gate -> game -> result -> cooldown-gate -> hub
 ✅ Open RUN only = direct run page (no warmup)
 ✅ Pass-through hub/run/diff/time/seed/pid/view/log/api/ai/studyId/phase/conditionGroup/grade
 ✅ Uses /herohealth/warmup-gate.html with per-game daily gate
-✅ Game key = balance / category = exercise / theme = balance
-✅ Matches /fitness/balance-hold.html latest
+✅ Game key = balance / category = exercise
+✅ Matches /fitness/balance-hold.html latest flow
 -->
 <!doctype html>
 <html lang="th">
@@ -238,11 +238,11 @@ PATCH v20260313-BALANCEHOLD-LAUNCHER-FINAL-FLOWLOCK
         <div class="subcard">
           <h2>Start Flow</h2>
           <ul class="list">
-            <li>เข้า <code>/herohealth/warmup-gate.html</code> ด้วย <code>gatePhase=warmup</code></li>
+            <li>เข้า <code>/herohealth/warmup-gate.html</code></li>
             <li>ถ้าวันนี้ยังไม่ทำ warmup ของเกมนี้ จะเล่น warmup ก่อน</li>
-            <li>จากนั้นเข้า <code>/fitness/balance-hold.html?autostart=1</code></li>
+            <li>จากนั้นเข้า <code>/fitness/balance-hold.html</code></li>
             <li>เมื่อจบเกม จะค้างหน้า Result ก่อน</li>
-            <li>กด <b>Go Cooldown</b> แล้วจึงไป cooldown gate</li>
+            <li>กด Go Cooldown แล้วจึงไป cooldown gate</li>
             <li>สุดท้ายกลับ HUB</li>
           </ul>
         </div>
@@ -259,7 +259,7 @@ PATCH v20260313-BALANCEHOLD-LAUNCHER-FINAL-FLOWLOCK
 
       <div class="small">
         RUN page: <code>/fitness/balance-hold.html</code><br/>
-        Warmup gate: <code>/herohealth/warmup-gate.html?gatePhase=warmup&amp;cat=exercise&amp;game=balance&amp;theme=balance</code>
+        Warmup gate: <code>/herohealth/warmup-gate.html?cat=exercise&game=balance</code>
       </div>
     </div>
   </div>
