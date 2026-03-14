@@ -1,89 +1,91 @@
 // === /fitness/js/balance-hold.js ===
 // Balance Hold — DOM-based Balance Platform + Obstacle Avoidance
-// FULL PATCH v20260313-BALANCEHOLD-JS-FLOW-LOCK
-// ✅ match /fitness/balance-hold.html latest run shell
-// ✅ result first, no auto jump to hub/cooldown
-// ✅ popup fx back (Perfect / Avoid / Hit)
-// ✅ prevent idle scoring: must have recent real input near impact
+// FULL PATCH v20260314-BALANCEHOLD-FLOW-LOCK-RESULT-COOLDOWN
+// ✅ launcher -> warmup-gate -> game -> result -> cooldown-gate -> hub
+// ✅ no auto redirect to hub
+// ✅ result screen always shown first
+// ✅ autostart from launcher
 // ✅ warmup buff passthrough
-// ✅ practice + countdown
-// ✅ exports + result + hub summary
+// ✅ score popup / perfect / hit fx restored
+// ✅ idle no free score (score only from obstacle events)
+// ✅ research / play / pause / resume / result summary
+
 'use strict';
 
 /* ------------------------------------------------------------
  * DOM helpers
  * ------------------------------------------------------------ */
-const $  = (s)=>document.querySelector(s);
-const $$ = (s)=>document.querySelectorAll(s);
+const $ = (s) => document.querySelector(s);
+const $$ = (s) => document.querySelectorAll(s);
 
-function setText(selOrEl, v){
+function setText(selOrEl, v) {
   const el = (typeof selOrEl === 'string') ? $(selOrEl) : selOrEl;
   if (el) el.textContent = String(v ?? '');
 }
-function clamp(v, a, b){
+function clamp(v, a, b) {
   v = Number(v);
-  if(!Number.isFinite(v)) v = a;
+  if (!Number.isFinite(v)) v = a;
   return Math.max(a, Math.min(b, v));
 }
-function fmtPercent(v){
+function fmtPercent(v) {
   v = Number(v);
-  if(!Number.isFinite(v)) return '-';
+  if (!Number.isFinite(v)) return '-';
   return (v * 100).toFixed(1) + '%';
 }
-function fmtFloat(v, d=3){
+function fmtFloat(v, d = 3) {
   v = Number(v);
-  if(!Number.isFinite(v)) return '-';
+  if (!Number.isFinite(v)) return '-';
   return v.toFixed(d);
 }
 
 /* ------------------------------------------------------------
  * URL helpers
  * ------------------------------------------------------------ */
-function qv(k, def=''){
-  try{
+function qv(k, def = '') {
+  try {
     const u = new URL(window.location.href);
     const v = u.searchParams.get(k);
     return (v == null || v === '') ? def : v;
-  }catch(e){
+  } catch (e) {
     return def;
   }
 }
-function qn(k, def=0){
-  const v = Number(qv(k, ''));
-  return Number.isFinite(v) ? v : def;
-}
-function clampNum(v, min, max, def){
+function clampNum(v, min, max, def) {
   v = Number(v);
-  if(!Number.isFinite(v)) v = def;
+  if (!Number.isFinite(v)) v = def;
   return Math.max(min, Math.min(max, v));
 }
-function parseBoolLike(v, fallback=false){
+function parseBoolLike(v, fallback = false) {
   if (v == null) return fallback;
   const s = String(v).trim().toLowerCase();
-  if (['1','true','yes','y','on'].includes(s)) return true;
-  if (['0','false','no','n','off'].includes(s)) return false;
+  if (['1', 'true', 'yes', 'y', 'on'].includes(s)) return true;
+  if (['0', 'false', 'no', 'n', 'off'].includes(s)) return false;
   return fallback;
+}
+function setParam(u, k, v) {
+  if (v === '' || v == null) u.searchParams.delete(k);
+  else u.searchParams.set(k, String(v));
 }
 
 /* ------------------------------------------------------------
- * Seeded RNG (deterministic)
+ * Seeded RNG
  * ------------------------------------------------------------ */
-function xmur3(str){
+function xmur3(str) {
   str = String(str ?? '');
   let h = 1779033703 ^ str.length;
-  for (let i=0; i<str.length; i++){
+  for (let i = 0; i < str.length; i++) {
     h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
     h = (h << 13) | (h >>> 19);
   }
-  return function(){
+  return function () {
     h = Math.imul(h ^ (h >>> 16), 2246822507);
     h = Math.imul(h ^ (h >>> 13), 3266489909);
     h ^= h >>> 16;
     return h >>> 0;
   };
 }
-function sfc32(a,b,c,d){
-  return function(){
+function sfc32(a, b, c, d) {
+  return function () {
     a >>>= 0; b >>>= 0; c >>>= 0; d >>>= 0;
     let t = (a + b) | 0;
     a = b ^ (b >>> 9);
@@ -95,26 +97,26 @@ function sfc32(a,b,c,d){
     return (t >>> 0) / 4294967296;
   };
 }
-function buildSeedString(meta){
-  const qSeed = String(qv('seed','')).trim();
+function buildSeedString(meta) {
+  const qSeed = String(qv('seed', '')).trim();
   if (qSeed) return qSeed;
 
   const day = new Date();
   const yyyy = day.getFullYear();
-  const mm = String(day.getMonth()+1).padStart(2,'0');
-  const dd = String(day.getDate()).padStart(2,'0');
+  const mm = String(day.getMonth() + 1).padStart(2, '0');
+  const dd = String(day.getDate()).padStart(2, '0');
   const ymd = `${yyyy}${mm}${dd}`;
 
   return [
     'balance-hold',
     meta?.mode || 'play',
-    meta?.playerId || qv('pid','anon'),
-    meta?.difficulty || qv('diff','normal'),
-    meta?.durationSec || qv('time','60'),
+    meta?.playerId || qv('pid', 'anon'),
+    meta?.difficulty || qv('diff', 'normal'),
+    meta?.durationSec || qv('time', '60'),
     ymd
   ].join('|');
 }
-function makeRng(seedStr){
+function makeRng(seedStr) {
   const seed = xmur3(seedStr);
   return sfc32(seed(), seed(), seed(), seed());
 }
@@ -122,23 +124,23 @@ function makeRng(seedStr){
 /* ------------------------------------------------------------
  * View handling
  * ------------------------------------------------------------ */
-const viewMenu     = $('#view-menu');
+const viewMenu = $('#view-menu');
 const viewResearch = $('#view-research');
-const viewPlay     = $('#view-play');
-const viewResult   = $('#view-result');
+const viewPlay = $('#view-play');
+const viewResult = $('#view-result');
 
-function showView(name){
-  [viewMenu, viewResearch, viewPlay, viewResult].forEach(v=> v && v.classList.add('hidden'));
-  if (name === 'menu')     viewMenu && viewMenu.classList.remove('hidden');
+function showView(name) {
+  [viewMenu, viewResearch, viewPlay, viewResult].forEach(v => v && v.classList.add('hidden'));
+  if (name === 'menu') viewMenu && viewMenu.classList.remove('hidden');
   if (name === 'research') viewResearch && viewResearch.classList.remove('hidden');
-  if (name === 'play')     viewPlay && viewPlay.classList.remove('hidden');
-  if (name === 'result')   viewResult && viewResult.classList.remove('hidden');
+  if (name === 'play') viewPlay && viewPlay.classList.remove('hidden');
+  if (name === 'result') viewResult && viewResult.classList.remove('hidden');
 }
-function applyViewModeClass(mode){
-  document.body.classList.remove('view-pc','view-mobile','view-cvr');
+
+function applyViewModeClass(mode) {
+  document.body.classList.remove('view-pc', 'view-mobile', 'view-cvr');
   const m = (mode === 'mobile' || mode === 'cvr') ? mode : 'pc';
   document.body.classList.add('view-' + m);
-
   const cvr = $('#cvrOverlay');
   if (cvr) cvr.classList.toggle('hidden', m !== 'cvr');
 }
@@ -147,64 +149,64 @@ function applyViewModeClass(mode){
  * DOM refs
  * ------------------------------------------------------------ */
 const elDiffSel = $('#difficulty');
-const elDurSel  = $('#sessionDuration');
+const elDurSel = $('#sessionDuration');
 const elViewSel = $('#viewMode');
 
-const hudMode   = $('#hud-mode');
-const hudDiff   = $('#hud-diff');
-const hudDur    = $('#hud-dur');
-const hudTime   = $('#hud-time');
-const hudStab   = $('#hud-stability');
-const hudObsA   = $('#hud-obstacles');
-const hudObsB   = $('#hud-obs');
+const hudMode = $('#hud-mode');
+const hudDiff = $('#hud-diff');
+const hudDur = $('#hud-dur');
+const hudTime = $('#hud-time');
+const hudStab = $('#hud-stability');
+const hudObsA = $('#hud-obstacles');
+const hudObsB = $('#hud-obs');
 const hudStatus = $('#hud-status');
-const hudPhase  = $('#hud-phase');
-const hudScore  = $('#hud-score');
-const hudCombo  = $('#hud-combo');
+const hudPhase = $('#hud-phase');
+const hudScore = $('#hud-score');
+const hudCombo = $('#hud-combo');
 
 const stabilityFill = $('#stabilityFill');
-const centerPulse   = $('#centerPulse');
+const centerPulse = $('#centerPulse');
 
-const playArea      = $('#playArea');
-const platformWrap  = $('#platform-wrap');
-const platformEl    = $('#platform');
-const indicatorEl   = $('#indicator');
+const playArea = $('#playArea');
+const platformWrap = $('#platform-wrap');
+const platformEl = $('#platform');
+const indicatorEl = $('#indicator');
 const obstacleLayer = $('#obstacle-layer');
 
-const coachLabel  = $('#coachLabel');
+const coachLabel = $('#coachLabel');
 const coachBubble = $('#coachBubble');
 
-const rankBadgeEl     = $('#rankBadge');
-const resultHeroSub   = $('#resultHeroSub');
-const heroInsightEl   = $('#heroInsight');
-const heroBadgesEl    = $('#heroBadges');
-const heroMissionEl   = $('#heroMissionChips');
+const rankBadgeEl = $('#rankBadge');
+const resultHeroSub = $('#resultHeroSub');
+const heroInsightEl = $('#heroInsight');
+const heroBadgesEl = $('#heroBadges');
+const heroMissionEl = $('#heroMissionChips');
 
-const resMode      = $('#res-mode');
-const resDiff      = $('#res-diff');
-const resDur       = $('#res-dur');
-const resEnd       = $('#res-end');
+const resMode = $('#res-mode');
+const resDiff = $('#res-diff');
+const resDur = $('#res-dur');
+const resEnd = $('#res-end');
 const resStability = $('#res-stability');
-const resMeanTilt  = $('#res-meanTilt');
-const resRmsTilt   = $('#res-rmsTilt');
-const resAvoid     = $('#res-avoid');
-const resHit       = $('#res-hit');
+const resMeanTilt = $('#res-meanTilt');
+const resRmsTilt = $('#res-rmsTilt');
+const resAvoid = $('#res-avoid');
+const resHit = $('#res-hit');
 const resAvoidRate = $('#res-avoidRate');
-const resFatigue   = $('#res-fatigue');
-const resSamples   = $('#res-samples');
+const resFatigue = $('#res-fatigue');
+const resSamples = $('#res-samples');
 
-const resScoreEl   = $('#res-score');
-const resRankEl    = $('#res-rank');
+const resScoreEl = $('#res-score');
+const resRankEl = $('#res-rank');
 const resPerfectEl = $('#res-perfect');
-const resComboEl   = $('#res-maxCombo');
-const resAiTipEl   = $('#res-aiTip');
-const resDailyEl   = $('#res-daily');
+const resComboEl = $('#res-maxCombo');
+const resAiTipEl = $('#res-aiTip');
+const resDailyEl = $('#res-daily');
 
 const tutorialOverlay = $('#tutorialOverlay');
 const tutorialDontShowAgain = $('#tutorialDontShowAgain');
 const endModal = $('#endModal');
 const endModalRank = $('#endModalRank');
-const endModalScore= $('#endModalScore');
+const endModalScore = $('#endModalScore');
 const endModalInsight = $('#endModalInsight');
 
 const cvrStrictLabel = $('#cvrStrictLabel');
@@ -213,30 +215,31 @@ const cvrStrictLabel = $('#cvrStrictLabel');
  * Config
  * ------------------------------------------------------------ */
 const GAME_DIFF = {
-  easy:   { safeHalf:0.35, disturbMinMs:1400, disturbMaxMs:2600, disturbStrength:0.18, passiveDrift:0.010 },
-  normal: { safeHalf:0.25, disturbMinMs:1200, disturbMaxMs:2200, disturbStrength:0.23, passiveDrift:0.020 },
-  hard:   { safeHalf:0.18, disturbMinMs: 900, disturbMaxMs:1800, disturbStrength:0.30, passiveDrift:0.030 }
+  easy: { safeHalf: 0.35, disturbMinMs: 1500, disturbMaxMs: 2700, disturbStrength: 0.16, passiveDrift: 0.010 },
+  normal: { safeHalf: 0.25, disturbMinMs: 1200, disturbMaxMs: 2200, disturbStrength: 0.23, passiveDrift: 0.020 },
+  hard: { safeHalf: 0.18, disturbMinMs: 900, disturbMaxMs: 1700, disturbStrength: 0.31, passiveDrift: 0.030 }
 };
-function pickDiff(k){ return GAME_DIFF[k] || GAME_DIFF.normal; }
-
-function mapEndReason(code){
-  switch(code){
+function pickDiff(k) {
+  return GAME_DIFF[k] || GAME_DIFF.normal;
+}
+function mapEndReason(code) {
+  switch (code) {
     case 'timeout': return 'ครบเวลาที่กำหนด / Timeout';
-    case 'manual':  return 'หยุดเอง / Stopped by player';
-    default:        return code || '-';
+    case 'manual': return 'หยุดเอง / Stopped by player';
+    default: return code || '-';
   }
 }
 
 /* ------------------------------------------------------------
- * Warmup passthrough buffs
+ * Warmup buffs
  * ------------------------------------------------------------ */
-function readWarmupBuff(){
-  const wType = qv('wType','');
-  const wPct  = clampNum(qv('wPct','0'), 0, 100, 0);
-  const wCrit = clampNum(qv('wCrit','0'), 0, 10, 0);
-  const wDmg  = clampNum(qv('wDmg','0'), 0, 10, 0);
-  const wHeal = clampNum(qv('wHeal','0'), 0, 10, 0);
-  const rank  = qv('rank','');
+function readWarmupBuff() {
+  const wType = qv('wType', '');
+  const wPct = clampNum(qv('wPct', '0'), 0, 100, 0);
+  const wCrit = clampNum(qv('wCrit', '0'), 0, 10, 0);
+  const wDmg = clampNum(qv('wDmg', '0'), 0, 10, 0);
+  const wHeal = clampNum(qv('wHeal', '0'), 0, 10, 0);
+  const rank = qv('rank', '');
 
   return {
     wType, wPct, wCrit, wDmg, wHeal, rank,
@@ -248,45 +251,45 @@ function readWarmupBuff(){
 }
 
 /* ------------------------------------------------------------
- * Tutorial / modal helpers
+ * Overlays
  * ------------------------------------------------------------ */
-function openTutorial(){
+function openTutorial() {
   if (!tutorialOverlay) return;
   tutorialOverlay.classList.remove('hidden');
-  tutorialOverlay.setAttribute('aria-hidden','false');
+  tutorialOverlay.setAttribute('aria-hidden', 'false');
 }
-function closeTutorial(){
+function closeTutorial() {
   if (!tutorialOverlay) return;
   tutorialOverlay.classList.add('hidden');
-  tutorialOverlay.setAttribute('aria-hidden','true');
+  tutorialOverlay.setAttribute('aria-hidden', 'true');
 }
-function openEndModal(){
+function openEndModal() {
   if (!endModal) return;
   endModal.classList.remove('hidden');
-  endModal.setAttribute('aria-hidden','false');
+  endModal.setAttribute('aria-hidden', 'false');
 }
-function closeEndModal(){
+function closeEndModal() {
   if (!endModal) return;
   endModal.classList.add('hidden');
-  endModal.setAttribute('aria-hidden','true');
+  endModal.setAttribute('aria-hidden', 'true');
 }
 
 /* ------------------------------------------------------------
- * Prefill UI from URL
+ * Query -> UI
  * ------------------------------------------------------------ */
-function applyQueryToUI(){
-  const qDiff = String(qv('diff','')).toLowerCase();
-  const qTime = qv('time','');
-  const qRun  = String(qv('run','')).toLowerCase();
-  const qView = String(qv('view','')).toLowerCase();
+function applyQueryToUI() {
+  const qDiff = String(qv('diff', '')).toLowerCase();
+  const qTime = qv('time', '');
+  const qRun = String(qv('run', '')).toLowerCase();
+  const qView = String(qv('view', '')).toLowerCase();
 
-  if (elDiffSel && ['easy','normal','hard'].includes(qDiff)) elDiffSel.value = qDiff;
+  if (elDiffSel && ['easy', 'normal', 'hard'].includes(qDiff)) elDiffSel.value = qDiff;
 
-  if (elDurSel && qTime){
+  if (elDurSel && qTime) {
     const t = clampNum(qTime, 10, 600, 60);
     const tStr = String(t);
     const has = [...elDurSel.options].some(o => o.value === tStr);
-    if (!has){
+    if (!has) {
       const opt = document.createElement('option');
       opt.value = tStr;
       opt.textContent = tStr;
@@ -295,35 +298,38 @@ function applyQueryToUI(){
     elDurSel.value = tStr;
   }
 
-  const pid = qv('pid','');
-  const grp = qv('group','');
-  const phs = qv('phase','');
+  const pid = qv('pid', '');
+  const grp = qv('group', '');
+  const phs = qv('phase', '');
   if ($('#researchId') && pid) $('#researchId').value = pid;
   if ($('#researchGroup') && grp) $('#researchGroup').value = grp;
   if ($('#researchPhase') && phs) $('#researchPhase').value = phs;
 
-  if (elViewSel && ['pc','mobile','cvr'].includes(qView)) elViewSel.value = qView;
+  if (elViewSel && ['pc', 'mobile', 'cvr'].includes(qView)) elViewSel.value = qView;
   applyViewModeClass(qView || (elViewSel ? elViewSel.value : 'pc'));
 
   if (qRun === 'research') showView('research');
 }
 
 /* ------------------------------------------------------------
- * FX helpers
+ * FX
  * ------------------------------------------------------------ */
-function fxEnabled(){ return String(qv('fx','1')) !== '0'; }
-
-function spawnFloatFx(text, kind, pxX, pxY){
+function fxEnabled() {
+  return String(qv('fx', '1')) !== '0';
+}
+function spawnFloatFx(text, kind, pxX, pxY) {
   if (!fxEnabled() || !playArea) return;
   const el = document.createElement('div');
-  el.className = `fx-float ${kind||''}`;
+  el.className = `fx-float ${kind || ''}`;
   el.textContent = text;
   el.style.left = `${pxX}px`;
-  el.style.top  = `${pxY}px`;
+  el.style.top = `${pxY}px`;
   playArea.appendChild(el);
-  setTimeout(()=>{ try{ el.remove(); }catch(e){} }, 820);
+  setTimeout(() => {
+    try { el.remove(); } catch (e) {}
+  }, 820);
 }
-function pulseEl(el){
+function pulseEl(el) {
   if (!el || !fxEnabled()) return;
   el.classList.remove('count-pop');
   void el.offsetWidth;
@@ -333,17 +339,11 @@ function pulseEl(el){
 /* ------------------------------------------------------------
  * Input
  * ------------------------------------------------------------ */
-function attachInput(){
+function attachInput() {
   if (!playArea) return;
   let active = false;
 
-  function markInput(now){
-    if (!state) return;
-    state.recentInputAt = now;
-    state.inputCount = (state.inputCount || 0) + 1;
-  }
-
-  function updateTargetFromEvent(ev){
+  function updateTargetFromEvent(ev) {
     if (!state) return;
     const rect = playArea.getBoundingClientRect();
     const x = ev.clientX ?? (ev.touches && ev.touches[0]?.clientX);
@@ -352,57 +352,50 @@ function attachInput(){
     const relX = (x - rect.left) / rect.width;
     let norm = (relX - 0.5) * 2;
 
-    const view = (elViewSel?.value || qv('view','pc')).toLowerCase();
-    const p = (view === 'mobile') ? { deadzone:0.04, smoothing:0.22, maxTarget:0.95 }
-            : (view === 'cvr')    ? { deadzone:0.06, smoothing:0.18, maxTarget:0.85 }
-            :                      { deadzone:0.02, smoothing:0.35, maxTarget:1.00 };
+    const view = (elViewSel?.value || qv('view', 'pc')).toLowerCase();
+    const p = (view === 'mobile') ? { deadzone: 0.04, smoothing: 0.22, maxTarget: 0.95 }
+      : (view === 'cvr') ? { deadzone: 0.06, smoothing: 0.18, maxTarget: 0.85 }
+        : { deadzone: 0.02, smoothing: 0.35, maxTarget: 1.00 };
 
     if (Math.abs(norm) < p.deadzone) norm = 0;
     norm = clamp(norm, -p.maxTarget, p.maxTarget);
 
     const isCvr = view === 'cvr';
-    if (isCvr && cvrStrictLabel && String(cvrStrictLabel.textContent||'OFF').toUpperCase() === 'ON'){
+    if (isCvr && cvrStrictLabel && String(cvrStrictLabel.textContent || 'OFF').toUpperCase() === 'ON') {
       norm *= 0.78;
     }
 
     const curr = Number(state.targetAngle || 0);
-    const next = curr + (norm - curr) * p.smoothing;
-    const changed = Math.abs(next - curr) > 0.006;
-
-    state.targetAngle = next;
-    if (changed) markInput(performance.now());
+    state.targetAngle = curr + (norm - curr) * p.smoothing;
   }
 
-  playArea.addEventListener('pointerdown', ev=>{
+  playArea.addEventListener('pointerdown', ev => {
     active = true;
-    try{ playArea.setPointerCapture(ev.pointerId); }catch(e){}
+    try { playArea.setPointerCapture(ev.pointerId); } catch (e) {}
     updateTargetFromEvent(ev);
-    if (state) state.dragActive = true;
     ev.preventDefault();
-  }, {passive:false});
+  }, { passive: false });
 
-  playArea.addEventListener('pointermove', ev=>{
+  playArea.addEventListener('pointermove', ev => {
     if (!active) return;
     updateTargetFromEvent(ev);
     ev.preventDefault();
-  }, {passive:false});
+  }, { passive: false });
 
-  playArea.addEventListener('pointerup', ev=>{
+  playArea.addEventListener('pointerup', ev => {
     active = false;
-    if (state) state.dragActive = false;
-    try{ playArea.releasePointerCapture(ev.pointerId); }catch(e){}
+    try { playArea.releasePointerCapture(ev.pointerId); } catch (e) {}
     ev.preventDefault();
-  }, {passive:false});
+  }, { passive: false });
 
-  playArea.addEventListener('pointercancel', ev=>{
+  playArea.addEventListener('pointercancel', ev => {
     active = false;
-    if (state) state.dragActive = false;
     ev.preventDefault();
-  }, {passive:false});
+  }, { passive: false });
 }
 
 /* ------------------------------------------------------------
- * Game State
+ * Game state
  * ------------------------------------------------------------ */
 let gameMode = 'play';
 let state = null;
@@ -410,53 +403,127 @@ let rafId = null;
 let isPaused = false;
 let pausedAt = 0;
 let tutorialAccepted = false;
+let lastResultSummary = null;
 
 const SESS_KEY = 'vrfit_sessions_balance-hold';
 
-function recordSessionToLocal(summary){
-  try{
+function recordSessionToLocal(summary) {
+  try {
     const arr = JSON.parse(localStorage.getItem(SESS_KEY) || '[]');
     arr.push({ ...summary, ts: Date.now() });
     localStorage.setItem(SESS_KEY, JSON.stringify(arr));
-  }catch(e){}
+  } catch (e) {}
 }
 
 /* ------------------------------------------------------------
  * RNG helpers
  * ------------------------------------------------------------ */
-function rand01(){
+function rand01() {
   return (state && typeof state.rand === 'function') ? state.rand() : Math.random();
 }
-function randomBetween(a,b){
+function randomBetween(a, b) {
   const r = rand01();
-  return a + r * (b-a);
+  return a + r * (b - a);
 }
 
 /* ------------------------------------------------------------
- * Practice / Countdown phases
+ * Flow helpers
  * ------------------------------------------------------------ */
-function resetMotionForNewPhase(){
+function buildHubUrl() {
+  const hub = String(qv('hub', '')).trim();
+  if (hub) return hub;
+
+  const u = new URL('../herohealth/hub.html', location.href);
+  ['run', 'diff', 'time', 'seed', 'pid', 'view', 'log', 'api', 'ai', 'studyId', 'phase', 'conditionGroup', 'grade']
+    .forEach(k => {
+      const v = qv(k, '');
+      if (v !== '') setParam(u, k, v);
+    });
+  return u.toString();
+}
+
+function buildLauncherUrl() {
+  const u = new URL('../herohealth/balance-hold-vr.html', location.href);
+  setParam(u, 'hub', buildHubUrl());
+  ['run', 'diff', 'time', 'seed', 'pid', 'view', 'log', 'api', 'ai', 'studyId', 'phase', 'conditionGroup', 'grade']
+    .forEach(k => {
+      const v = qv(k, '');
+      if (v !== '') setParam(u, k, v);
+    });
+  return u.toString();
+}
+
+function buildCooldownUrl() {
+  const hub = buildHubUrl();
+  const u = new URL('../herohealth/warmup-gate.html', location.href);
+
+  setParam(u, 'gatePhase', 'cooldown');
+  setParam(u, 'phase', 'cooldown');
+  setParam(u, 'cat', 'exercise');
+  setParam(u, 'game', 'balance');
+  setParam(u, 'theme', 'balance');
+  setParam(u, 'hub', hub);
+  setParam(u, 'next', hub);
+
+  ['run', 'diff', 'time', 'seed', 'pid', 'view', 'log', 'api', 'ai', 'studyId', 'conditionGroup', 'grade']
+    .forEach(k => {
+      const v = qv(k, '');
+      if (v !== '') setParam(u, k, v);
+    });
+
+  setParam(u, 'cdur', '15');
+  return u.toString();
+}
+
+function goCooldown() {
+  location.href = buildCooldownUrl();
+}
+
+function goHubOrMenu() {
+  const hub = String(qv('hub', ''));
+  if (!hub) {
+    showView('menu');
+    return;
+  }
+  try {
+    const u = new URL(hub, location.href);
+    const raw = localStorage.getItem('HHA_LAST_SUMMARY_balance-hold') || localStorage.getItem('HHA_LAST_SUMMARY');
+    if (raw) {
+      const s = JSON.parse(raw);
+      if (s && s.gameId === 'balance-hold') {
+        u.searchParams.set('lastGame', 'balance-hold');
+        u.searchParams.set('lastScore', String(s.score || 0));
+        u.searchParams.set('lastRank', String(s.rank || 'D'));
+        u.searchParams.set('lastStab', String(Math.round((s.stabilityRatio || 0) * 100)));
+      }
+    }
+    location.href = u.toString();
+  } catch (e) {
+    location.href = hub;
+  }
+}
+
+/* ------------------------------------------------------------
+ * Practice / Countdown
+ * ------------------------------------------------------------ */
+function resetMotionForNewPhase() {
   if (!state) return;
   state.angle = 0;
   state.targetAngle = 0;
   state.lastFrame = performance.now();
-  state.recentInputAt = 0;
-  state.inputCount = 0;
   if (obstacleLayer) obstacleLayer.innerHTML = '';
 }
-
-function beginPracticePhase(now){
+function beginPracticePhase(now) {
   if (!state) return;
   state.phase = 'practice';
   state.phaseLabel = 'Practice';
   state.practiceStartedAt = now;
   state.nextObstacleAt = now + randomBetween(state.cfg.disturbMinMs, state.cfg.disturbMaxMs);
   setText(hudStatus, 'Practice');
-  setText(hudPhase, `Practice ${Math.round(state.practiceDurationMs/1000)}s • seed:${String(state.seedStr||'').slice(0,10)}`);
+  setText(hudPhase, `Practice ${Math.round(state.practiceDurationMs / 1000)}s • seed:${String(state.seedStr || '').slice(0, 10)}`);
   resetMotionForNewPhase();
 }
-
-function beginMainPhase(now){
+function beginMainPhase(now) {
   if (!state) return;
   state.phase = 'main';
   state.phaseLabel = 'Main';
@@ -470,7 +537,7 @@ function beginMainPhase(now){
   state.totalSamples = 0;
   state.stableSamples = 0;
   state.sumTiltAbs = 0;
-  state.sumTiltSq  = 0;
+  state.sumTiltSq = 0;
   state.samples = [];
 
   state.obstaclesTotal = 0;
@@ -482,17 +549,11 @@ function beginMainPhase(now){
   state.maxCombo = 0;
   state.perfects = 0;
 
-  state.recentInputAt = 0;
-  state.inputCount = 0;
-
   const wu = state.warmup || {};
-  if (wu && (wu.wType || wu.wPct)){
-    setText(hudStatus, `Playing • ${wu.wType || 'buff'} +${wu.wPct||0}%`);
-  }else{
-    setText(hudStatus, 'Playing');
-  }
+  if (wu && (wu.wType || wu.wPct)) setText(hudStatus, `Playing • ${wu.wType || 'buff'} +${wu.wPct || 0}%`);
+  else setText(hudStatus, 'Playing');
 
-  setText(hudPhase, `Main • seed:${String(state.seedStr||'').slice(0,10)}`);
+  setText(hudPhase, `Main • seed:${String(state.seedStr || '').slice(0, 10)}`);
   setText(hudScore, '0');
   setText(hudCombo, '0');
   setText(hudStab, '0%');
@@ -503,8 +564,7 @@ function beginMainPhase(now){
 
   resetMotionForNewPhase();
 }
-
-function runCountdownPhase(now){
+function runCountdownPhase(now) {
   if (!state) return false;
   const elapsed = now - state.countdownStartedAt;
   const remain = Math.max(0, state.countdownMs - elapsed);
@@ -512,9 +572,9 @@ function runCountdownPhase(now){
 
   setText(hudTime, sec.toFixed(1));
   setText(hudStatus, 'Get Ready');
-  setText(hudPhase, `Countdown • seed:${String(state.seedStr||'').slice(0,10)}`);
+  setText(hudPhase, `Countdown • seed:${String(state.seedStr || '').slice(0, 10)}`);
 
-  if (coachBubble){
+  if (coachBubble) {
     const n = Math.ceil(sec);
     coachBubble.textContent = (n > 0) ? `เริ่มใน ${n}... / Starting in ${n}...` : 'ไปเลย! / Go!';
     coachBubble.classList.remove('hidden');
@@ -522,32 +582,31 @@ function runCountdownPhase(now){
 
   updateVisuals();
 
-  if (remain <= 0){
+  if (remain <= 0) {
     if (coachBubble) coachBubble.classList.add('hidden');
     if (state.practiceEnabled && !state.practiceEnded) beginPracticePhase(now);
     else beginMainPhase(now);
   }
   return true;
 }
-
-function runPracticePhase(now){
+function runPracticePhase(now) {
   if (!state) return false;
   const pe = now - state.practiceStartedAt;
   const remain = Math.max(0, state.practiceDurationMs - pe);
-  setText(hudTime, (remain/1000).toFixed(1));
+  setText(hudTime, (remain / 1000).toFixed(1));
 
-  if (remain <= 0){
+  if (remain <= 0) {
     state.practiceEnded = true;
     state.phase = 'countdown';
     state.phaseLabel = 'Countdown';
     state.countdownMs = 2000;
     state.countdownStartedAt = now;
     setText(hudStatus, 'Practice Complete');
-    setText(hudPhase, `Countdown to Main • seed:${String(state.seedStr||'').slice(0,10)}`);
-    if (coachBubble){
+    setText(hudPhase, `Countdown to Main • seed:${String(state.seedStr || '').slice(0, 10)}`);
+    if (coachBubble) {
       coachBubble.textContent = 'ซ้อมเสร็จแล้ว! เตรียมเข้าสู่รอบจริง / Practice complete! Main round starts...';
       coachBubble.classList.remove('hidden');
-      setTimeout(()=> coachBubble && coachBubble.classList.add('hidden'), 1200);
+      setTimeout(() => coachBubble && coachBubble.classList.add('hidden'), 1200);
     }
     resetMotionForNewPhase();
     return true;
@@ -558,24 +617,24 @@ function runPracticePhase(now){
 /* ------------------------------------------------------------
  * Start / Pause / Resume / Stop
  * ------------------------------------------------------------ */
-function buildSessionMeta(diffKey, durSec){
-  let playerId='anon', group='', phase='';
-  if (gameMode === 'research'){
-    playerId = ($('#researchId')?.value.trim()) || qv('pid','anon') || 'anon';
-    group    = ($('#researchGroup')?.value.trim()) || qv('group','') || '';
-    phase    = ($('#researchPhase')?.value.trim()) || qv('phase','') || '';
-  }else{
-    playerId = qv('pid','anon') || 'anon';
-    group    = qv('group','') || '';
-    phase    = qv('phase','') || '';
+function buildSessionMeta(diffKey, durSec) {
+  let playerId = 'anon', group = '', phase = '';
+  if (gameMode === 'research') {
+    playerId = ($('#researchId')?.value.trim()) || qv('pid', 'anon') || 'anon';
+    group = ($('#researchGroup')?.value.trim()) || qv('group', '') || '';
+    phase = ($('#researchPhase')?.value.trim()) || qv('phase', '') || '';
+  } else {
+    playerId = qv('pid', 'anon') || 'anon';
+    group = qv('group', '') || '';
+    phase = qv('phase', '') || '';
   }
   return { mode: gameMode, difficulty: diffKey, durationSec: durSec, playerId, group, phase };
 }
 
-function maybeShowTutorialBeforeStart(kind){
-  const tutorialFlag = String(qv('tutorial','0'));
+function maybeShowTutorialBeforeStart(kind) {
+  const tutorialFlag = String(qv('tutorial', '0'));
   const dontShow = localStorage.getItem('bh_tutorial_skip') === '1';
-  if (tutorialFlag === '1' && !dontShow && !tutorialAccepted){
+  if (tutorialFlag === '1' && !dontShow && !tutorialAccepted) {
     openTutorial();
     document.body.dataset.pendingStartKind = (kind === 'research' ? 'research' : 'play');
     return true;
@@ -583,12 +642,12 @@ function maybeShowTutorialBeforeStart(kind){
   return false;
 }
 
-function startGame(kind){
+function startGame(kind) {
   gameMode = (kind === 'research' ? 'research' : 'play');
 
-  const diffKey = (elDiffSel?.value || qv('diff','normal') || 'normal').toLowerCase();
-  const durSec  = parseInt(elDurSel?.value || qv('time','60') || '60', 10) || 60;
-  const cfg     = pickDiff(diffKey);
+  const diffKey = (elDiffSel?.value || qv('diff', 'normal') || 'normal').toLowerCase();
+  const durSec = parseInt(elDurSel?.value || qv('time', '60') || '60', 10) || 60;
+  const cfg = pickDiff(diffKey);
 
   const warmup = readWarmupBuff();
   const meta = buildSessionMeta(diffKey, durSec);
@@ -635,7 +694,6 @@ function startGame(kind){
     combo: 0,
     maxCombo: 0,
     perfects: 0,
-
     fatigueIndex: 0,
 
     seedStr,
@@ -645,13 +703,10 @@ function startGame(kind){
     phase: 'main',
     phaseLabel: 'Main',
     countdownMs: 0,
-    countdownStartedAt: 0,
-
-    recentInputAt: 0,
-    inputCount: 0,
-    dragActive: false,
-    recentInputScoreWindowMs: 850
+    countdownStartedAt: 0
   };
+
+  lastResultSummary = null;
 
   setText(hudMode, gameMode === 'research' ? 'Research' : 'Play');
   setText(hudDiff, diffKey);
@@ -663,10 +718,10 @@ function startGame(kind){
   setText(hudScore, '0');
   setText(hudCombo, '0');
 
-  applyViewModeClass(elViewSel?.value || qv('view','pc'));
+  applyViewModeClass(elViewSel?.value || qv('view', 'pc'));
 
   const safeInner = $('.safe-zone-inner');
-  if (safeInner){
+  if (safeInner) {
     const pct = Math.max(14, Math.min(75, cfg.safeHalf * 100));
     safeInner.style.width = `${pct}%`;
   }
@@ -678,15 +733,15 @@ function startGame(kind){
   if (centerPulse) centerPulse.classList.remove('good');
   if (obstacleLayer) obstacleLayer.innerHTML = '';
 
-  if (coachLabel){
+  if (coachLabel) {
     coachLabel.textContent = 'จับ/แตะแล้วเลื่อนไปซ้าย–ขวาเพื่อรักษาสมดุล / Drag left–right to balance';
   }
   if (coachBubble) coachBubble.classList.add('hidden');
 
-  const practiceOn = parseBoolLike(qv('practiceOn', qv('practice','0') !== '0' ? '1' : '0'), true);
-  const practiceSec = clampNum(qv('practice','15'), 0, 60, 15);
+  const practiceOn = parseBoolLike(qv('practiceOn', qv('practice', '0') !== '0' ? '1' : '0'), true);
+  const practiceSec = clampNum(qv('practice', '15'), 0, 60, 15);
 
-  if (practiceOn && practiceSec > 0){
+  if (practiceOn && practiceSec > 0) {
     state.practiceEnabled = true;
     state.practiceDurationMs = practiceSec * 1000;
     state.phase = 'countdown';
@@ -694,12 +749,12 @@ function startGame(kind){
     state.countdownMs = 3000;
     state.countdownStartedAt = now;
     setText(hudStatus, 'Get Ready');
-    setText(hudPhase, `Countdown • seed:${String(seedStr).slice(0,10)}`);
-  }else{
+    setText(hudPhase, `Countdown • seed:${String(seedStr).slice(0, 10)}`);
+  } else {
     state.phase = 'main';
     state.phaseLabel = 'Main';
-    setText(hudStatus, warmup && (warmup.wType || warmup.wPct) ? `Playing • ${warmup.wType || 'buff'} +${warmup.wPct||0}%` : 'Playing');
-    setText(hudPhase, `Main • seed:${String(seedStr).slice(0,10)}`);
+    setText(hudStatus, warmup && (warmup.wType || warmup.wPct) ? `Playing • ${warmup.wType || 'buff'} +${warmup.wPct || 0}%` : 'Playing');
+    setText(hudPhase, `Main • seed:${String(seedStr).slice(0, 10)}`);
     beginMainPhase(now);
   }
 
@@ -714,17 +769,17 @@ function startGame(kind){
   showView('play');
 }
 
-function pauseGame(){
+function pauseGame() {
   if (!state || isPaused) return;
   isPaused = true;
   pausedAt = performance.now();
-  if (rafId != null){ cancelAnimationFrame(rafId); rafId = null; }
+  if (rafId != null) { cancelAnimationFrame(rafId); rafId = null; }
   setText(hudStatus, 'Paused');
   $('[data-action="pause"]')?.classList.add('hidden');
   $('[data-action="resume"]')?.classList.remove('hidden');
 }
 
-function resumeGame(){
+function resumeGame() {
   if (!state || !isPaused) return;
   const now = performance.now();
   const pausedMs = Math.max(0, now - pausedAt);
@@ -736,7 +791,6 @@ function resumeGame(){
   state.nextObstacleAt += pausedMs;
   state.countdownStartedAt += pausedMs;
   state.practiceStartedAt += pausedMs;
-  if (state.recentInputAt) state.recentInputAt += pausedMs;
 
   setText(hudStatus, state.phase === 'practice' ? 'Practice' : 'Playing');
   $('[data-action="pause"]')?.classList.remove('hidden');
@@ -747,30 +801,30 @@ function resumeGame(){
 }
 
 /* ------------------------------------------------------------
- * Physics + visuals
+ * Visuals
  * ------------------------------------------------------------ */
-function updateVisuals(){
+function updateVisuals() {
   if (!state) return;
 
-  if (platformEl){
+  if (platformEl) {
     const maxDeg = 16;
     const angleDeg = state.angle * maxDeg;
     platformEl.style.transform = `rotate(${angleDeg}deg)`;
   }
 
-  if (indicatorEl && platformWrap){
+  if (indicatorEl && platformWrap) {
     const wrapRect = platformWrap.getBoundingClientRect();
     const halfW = wrapRect.width * 0.34;
     const x = state.angle * halfW;
     indicatorEl.style.transform = `translateX(${x}px) translateY(-18px)`;
   }
 
-  if (state.phase === 'practice'){
+  if (state.phase === 'practice') {
     const a = state.practiceObstaclesAvoided || 0;
     const t = state.practiceObstaclesTotal || 0;
     if (hudObsA) setText(hudObsA, `${a} / ${t}`);
     if (hudObsB) setText(hudObsB, `${a} / ${t}`);
-  }else{
+  } else {
     if (hudObsA) setText(hudObsA, `${state.obstaclesAvoided} / ${state.obstaclesTotal}`);
     if (hudObsB) setText(hudObsB, `${state.obstaclesAvoided} / ${state.obstaclesTotal}`);
   }
@@ -779,7 +833,7 @@ function updateVisuals(){
 /* ------------------------------------------------------------
  * Obstacles
  * ------------------------------------------------------------ */
-function spawnObstacle(now){
+function spawnObstacle(now) {
   if (!state || !obstacleLayer || !playArea) return;
   const cfg = state.cfg;
   const isPractice = state.phase === 'practice';
@@ -801,34 +855,31 @@ function spawnObstacle(now){
   span.style.left = pxX + 'px';
   obstacleLayer.appendChild(span);
 
-  setTimeout(()=>{ try{ span.remove(); }catch(e){} }, 1400);
+  setTimeout(() => {
+    try { span.remove(); } catch (e) {}
+  }, 1400);
 
   const impactAt = now + 950;
-  setTimeout(()=>{
+  setTimeout(() => {
     if (!state) return;
 
     const safeHalf = cfg.safeHalf;
     const absTilt = Math.abs(state.angle);
     const inSafe = absTilt <= safeHalf;
     const nearPerfect = absTilt <= Math.max(0.06, safeHalf * 0.28);
-    const hasRecentInput = !!state.recentInputAt && (performance.now() - state.recentInputAt <= state.recentInputScoreWindowMs);
 
-    if (isPractice){
-      if (inSafe){
+    if (isPractice) {
+      if (inSafe) {
         state.practiceObstaclesAvoided++;
-        if (hasRecentInput){
-          state.practiceScore = (state.practiceScore || 0) + (nearPerfect ? 20 : 10);
-          spawnFloatFx(nearPerfect ? 'Practice Perfect' : 'Practice Avoid', nearPerfect ? 'gold' : 'good', pxX, (playArea.clientHeight || 300) * 0.55);
-        }else{
-          spawnFloatFx('Hold', 'good', pxX, (playArea.clientHeight || 300) * 0.55);
-        }
+        state.practiceScore = (state.practiceScore || 0) + (nearPerfect ? 20 : 10);
+        spawnFloatFx(nearPerfect ? 'Practice Perfect' : 'Practice Avoid', nearPerfect ? 'gold' : 'good', pxX, (playArea.clientHeight || 300) * 0.55);
         span.classList.add('avoid');
-      }else{
+      } else {
         state.practiceObstaclesHit++;
         spawnFloatFx('Practice Hit', 'bad', pxX, (playArea.clientHeight || 300) * 0.55);
         span.classList.add('hit');
         playArea.classList.add('shake-hit');
-        setTimeout(()=> playArea.classList.remove('shake-hit'), 240);
+        setTimeout(() => playArea.classList.remove('shake-hit'), 240);
       }
       setText(hudScore, `P:${state.practiceScore || 0}`);
       setText(hudCombo, 'P');
@@ -839,38 +890,29 @@ function spawnObstacle(now){
 
     const wu = state.warmup || {};
 
-    if (inSafe){
+    if (inSafe) {
       span.classList.add('avoid');
       state.obstaclesAvoided++;
+      state.combo = (state.combo || 0) + 1;
+      state.maxCombo = Math.max(state.maxCombo || 0, state.combo);
 
-      if (hasRecentInput){
-        state.combo = (state.combo || 0) + 1;
-        state.maxCombo = Math.max(state.maxCombo || 0, state.combo);
+      let add = 10 + Math.min(20, (state.combo - 1) * 2);
+      let perfectNow = nearPerfect;
 
-        let add = 10 + Math.min(20, (state.combo - 1) * 2);
-
-        let perfectNow = nearPerfect;
-        if (!perfectNow && (wu.critBonusChance || 0) > 0 && rand01() < wu.critBonusChance){
-          perfectNow = true;
-        }
-
-        if (perfectNow){
-          add += 10;
-          state.perfects = (state.perfects || 0) + 1;
-        }
-
-        add = Math.round(add * (wu.scoreBoostMul || 1)) + (wu.healOnAvoid || 0);
-        state.score = (state.score || 0) + add;
-
-        spawnFloatFx(perfectNow ? `Perfect +${add}` : `Avoid +${add}`, perfectNow ? 'gold' : 'good', pxX, (playArea.clientHeight || 300) * 0.55);
-        pulseEl(hudScore);
-        pulseEl(hudCombo);
-      }else{
-        // idle hold: survive counted in analytics, but NO score / NO combo
-        state.combo = 0;
-        spawnFloatFx('Hold', 'good', pxX, (playArea.clientHeight || 300) * 0.55);
+      if (!perfectNow && (wu.critBonusChance || 0) > 0 && rand01() < wu.critBonusChance) {
+        perfectNow = true;
       }
-    }else{
+
+      if (perfectNow) {
+        add += 10;
+        state.perfects = (state.perfects || 0) + 1;
+      }
+
+      add = Math.round(add * (wu.scoreBoostMul || 1)) + (wu.healOnAvoid || 0);
+      state.score = (state.score || 0) + add;
+
+      spawnFloatFx(perfectNow ? `Perfect +${add}` : `Avoid +${add}`, perfectNow ? 'gold' : 'good', pxX, (playArea.clientHeight || 300) * 0.55);
+    } else {
       span.classList.add('hit');
       state.obstaclesHit++;
       state.combo = 0;
@@ -885,14 +927,13 @@ function spawnObstacle(now){
 
       spawnFloatFx(`Hit -${penalty}`, 'bad', pxX, (playArea.clientHeight || 300) * 0.55);
       playArea.classList.add('shake-hit');
-      setTimeout(()=> playArea.classList.remove('shake-hit'), 240);
-
-      pulseEl(hudScore);
-      pulseEl(hudCombo);
+      setTimeout(() => playArea.classList.remove('shake-hit'), 240);
     }
 
     setText(hudScore, String(state.score || 0));
     setText(hudCombo, String(state.combo || 0));
+    pulseEl(hudScore);
+    pulseEl(hudCombo);
     updateVisuals();
 
   }, Math.max(0, impactAt - performance.now()));
@@ -903,36 +944,36 @@ function spawnObstacle(now){
 /* ------------------------------------------------------------
  * Analytics
  * ------------------------------------------------------------ */
-function computeAnalytics(){
-  if (!state) return { stabilityRatio:0, meanTilt:0, rmsTilt:0, fatigueIndex:0, samples:0 };
+function computeAnalytics() {
+  if (!state) return { stabilityRatio: 0, meanTilt: 0, rmsTilt: 0, fatigueIndex: 0, samples: 0 };
 
   const n = state.totalSamples || 0;
-  if (!n) return { stabilityRatio:0, meanTilt:0, rmsTilt:0, fatigueIndex:0, samples:0 };
+  if (!n) return { stabilityRatio: 0, meanTilt: 0, rmsTilt: 0, fatigueIndex: 0, samples: 0 };
 
   const stabRatio = state.stableSamples / n;
-  const meanTilt  = state.sumTiltAbs / n;
-  const rmsTilt   = Math.sqrt(state.sumTiltSq / n);
+  const meanTilt = state.sumTiltAbs / n;
+  const rmsTilt = Math.sqrt(state.sumTiltSq / n);
 
   let fatigue = 0;
-  if (state.samples && state.samples.length >= 8){
+  if (state.samples && state.samples.length >= 8) {
     const arr = state.samples;
     const seg = Math.max(2, Math.floor(arr.length * 0.25));
     const early = arr.slice(0, seg);
-    const late  = arr.slice(-seg);
-    const mE = early.reduce((a,b)=>a+b.tilt,0) / early.length;
-    const mL = late.reduce((a,b)=>a+b.tilt,0) / late.length;
+    const late = arr.slice(-seg);
+    const mE = early.reduce((a, b) => a + b.tilt, 0) / early.length;
+    const mL = late.reduce((a, b) => a + b.tilt, 0) / late.length;
     if (mE > 0) fatigue = (mL - mE) / mE;
   }
 
-  return { stabilityRatio:stabRatio, meanTilt, rmsTilt, fatigueIndex:fatigue, samples:n };
+  return { stabilityRatio: stabRatio, meanTilt, rmsTilt, fatigueIndex: fatigue, samples: n };
 }
 
 /* ------------------------------------------------------------
- * Ranking / insight / badges
+ * Rank / insight / badges
  * ------------------------------------------------------------ */
-function calcRank(summary){
+function calcRank(summary) {
   const stab = Number(summary.stabilityRatio || 0);
-  const avoidTotal = (summary.obstaclesAvoided||0) + (summary.obstaclesHit||0);
+  const avoidTotal = (summary.obstaclesAvoided || 0) + (summary.obstaclesHit || 0);
   const avoidRate = avoidTotal ? (summary.obstaclesAvoided / avoidTotal) : 0;
   const fat = Number(summary.fatigueIndex || 0);
   const perfects = Number(summary.perfects || 0);
@@ -952,68 +993,66 @@ function calcRank(summary){
   if (pts >= 40) return 'C';
   return 'D';
 }
-
-function buildInsight(summary){
+function buildInsight(summary) {
   const stab = Number(summary.stabilityRatio || 0);
-  const avoidTotal = (summary.obstaclesAvoided||0) + (summary.obstaclesHit||0);
+  const avoidTotal = (summary.obstaclesAvoided || 0) + (summary.obstaclesHit || 0);
   const avoidRate = avoidTotal ? (summary.obstaclesAvoided / avoidTotal) : 0;
   const fat = Number(summary.fatigueIndex || 0);
 
-  if (stab >= 0.72 && avoidRate >= 0.8){
+  if (stab >= 0.72 && avoidRate >= 0.8) {
     return 'ยอดเยี่ยมมาก! คุณคุมสมดุลนิ่งและหลบแรงรบกวนได้สม่ำเสมอ ลองเพิ่มความยากเพื่อท้าทายต่อได้เลย';
   }
-  if (stab < 0.45){
+  if (stab < 0.45) {
     return 'โฟกัสการคุมใกล้กึ่งกลางให้มากขึ้นก่อน แล้วค่อยเร่งการตอบสนองตอน obstacle เข้ามา จะช่วยให้คะแนนขึ้นเร็วมาก';
   }
-  if (avoidRate < 0.5){
+  if (avoidRate < 0.5) {
     return 'จังหวะหลบยังพลาดบ่อย ลองเตรียมดึงกลับเข้ากลางทันทีเมื่อเห็นไอคอน obstacle จะช่วยเพิ่ม avoid rate ได้ชัดเจน';
   }
-  if (fat > 0.35){
-    return 'ช่วงท้ายเริ่มล้า ลองคุมแรงนิ้วให้เบาและสม่ำเสมอ จะช่วยไม่ให้แกว่งเกินในช่วงท้ายเกม';
+  if (fat > 0.35) {
+    return 'ช่วงท้ายเริ่มล้า ลองคุมแรงนิ้วให้เบาลงและสม่ำเสมอ จะช่วยไม่ให้แกว่งเกินในช่วงท้ายเกม';
   }
   return 'ทำได้ดีมาก! รักษาจังหวะคุมแท่นให้สม่ำเสมอ และลุ้น Perfect ตอน impact เพื่อเพิ่มคะแนนและคอมโบ';
 }
-
-function renderBadgesAndMissions(summary){
+function renderBadgesAndMissions(summary) {
   if (heroBadgesEl) heroBadgesEl.innerHTML = '';
   if (heroMissionEl) heroMissionEl.innerHTML = '';
 
   const badges = [];
-  if ((summary.perfects||0) >= 5) badges.push({t:'✨ Perfect Keeper', c:'good'});
-  if ((summary.comboMax||0) >= 8) badges.push({t:'🔥 Combo Flow', c:'good'});
-  if ((summary.obstaclesHit||0) === 0 && ((summary.obstaclesAvoided||0) > 0)) badges.push({t:'🛡️ No Hit Run', c:'good'});
-  if ((summary.fatigueIndex||0) > 0.35) badges.push({t:'😮‍💨 Fatigue Alert', c:'warn'});
+  if ((summary.perfects || 0) >= 5) badges.push({ t: '✨ Perfect Keeper', c: 'good' });
+  if ((summary.comboMax || 0) >= 8) badges.push({ t: '🔥 Combo Flow', c: 'good' });
+  if ((summary.obstaclesHit || 0) === 0 && ((summary.obstaclesAvoided || 0) > 0)) badges.push({ t: '🛡️ No Hit Run', c: 'good' });
+  if ((summary.fatigueIndex || 0) > 0.35) badges.push({ t: '😮‍💨 Fatigue Alert', c: 'warn' });
 
   const missions = [];
-  if ((summary.perfects||0) < 5) missions.push('ทำ Perfect ≥ 5 ครั้ง');
-  if ((summary.comboMax||0) < 10) missions.push('ทำ Max Combo ≥ 10');
-  if ((summary.stabilityRatio||0) < 0.70) missions.push('ดัน Stability ≥ 70%');
-  if ((summary.obstaclesHit||0) > 0) missions.push('ลองรอบไร้ Hit');
+  if ((summary.perfects || 0) < 5) missions.push('ทำ Perfect ≥ 5 ครั้ง');
+  if ((summary.comboMax || 0) < 10) missions.push('ทำ Max Combo ≥ 10');
+  if ((summary.stabilityRatio || 0) < 0.70) missions.push('ดัน Stability ≥ 70%');
+  if ((summary.obstaclesHit || 0) > 0) missions.push('ลองรอบไร้ Hit');
 
-  if (heroBadgesEl){
-    if (!badges.length){
+  if (heroBadgesEl) {
+    if (!badges.length) {
       const el = document.createElement('div');
       el.className = 'mini-badge';
       el.textContent = 'เริ่มสะสม badges ได้จาก Perfect / Combo / No-hit run';
       heroBadgesEl.appendChild(el);
-    }else{
-      badges.forEach(b=>{
+    } else {
+      badges.forEach(b => {
         const el = document.createElement('div');
-        el.className = `mini-badge ${b.c||''}`;
+        el.className = `mini-badge ${b.c || ''}`;
         el.textContent = b.t;
         heroBadgesEl.appendChild(el);
       });
     }
   }
 
-  if (heroMissionEl){
-    if (!missions.length){
+  if (heroMissionEl) {
+    if (!missions.length) {
       const el = document.createElement('div');
       el.className = 'mini-badge good';
       el.textContent = 'พร้อมขยับไปโหมด Hard ได้เลย';
       heroMissionEl.appendChild(el);
-    }else{
-      missions.slice(0,3).forEach(t=>{
+    } else {
+      missions.slice(0, 3).forEach(t => {
         const el = document.createElement('div');
         el.className = 'mini-badge';
         el.textContent = '🎯 ' + t;
@@ -1024,10 +1063,10 @@ function renderBadgesAndMissions(summary){
 }
 
 /* ------------------------------------------------------------
- * Save last summary for HUB
+ * Save summary
  * ------------------------------------------------------------ */
-function saveLastSummaryForHub(summary, endedBy){
-  try{
+function saveLastSummaryForHub(summary, endedBy) {
+  try {
     const payload = {
       gameId: 'balance-hold',
       endedBy: endedBy || '',
@@ -1045,41 +1084,17 @@ function saveLastSummaryForHub(summary, endedBy){
       obstaclesHit: summary.obstaclesHit || 0,
       comboMax: summary.comboMax || 0,
       perfects: summary.perfects || 0,
-      seed: summary.seed || qv('seed','')
+      seed: summary.seed || qv('seed', '')
     };
     localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(payload));
     localStorage.setItem('HHA_LAST_SUMMARY_balance-hold', JSON.stringify(payload));
-  }catch(e){}
-}
-
-function goHubOrMenu(){
-  const hub = String(qv('hub',''));
-  if (!hub){
-    showView('menu');
-    return;
-  }
-  try{
-    const u = new URL(hub, location.href);
-    const raw = localStorage.getItem('HHA_LAST_SUMMARY_balance-hold') || localStorage.getItem('HHA_LAST_SUMMARY');
-    if (raw){
-      const s = JSON.parse(raw);
-      if (s && s.gameId === 'balance-hold'){
-        u.searchParams.set('lastGame', 'balance-hold');
-        u.searchParams.set('lastScore', String(s.score || 0));
-        u.searchParams.set('lastRank', String(s.rank || 'D'));
-        u.searchParams.set('lastStab', String(Math.round((s.stabilityRatio || 0) * 100)));
-      }
-    }
-    location.href = u.toString();
-  }catch(e){
-    location.href = hub;
-  }
+  } catch (e) {}
 }
 
 /* ------------------------------------------------------------
  * Result views
  * ------------------------------------------------------------ */
-function fillResultView(endedBy, summary){
+function fillResultView(endedBy, summary) {
   const modeLabel = summary.mode === 'research' ? 'Research' : 'Play';
 
   if (resMode) setText(resMode, modeLabel);
@@ -1093,7 +1108,7 @@ function fillResultView(endedBy, summary){
   if (resAvoid) setText(resAvoid, String(summary.obstaclesAvoided || 0));
   if (resHit) setText(resHit, String(summary.obstaclesHit || 0));
 
-  const totalObs = (summary.obstaclesAvoided||0) + (summary.obstaclesHit||0);
+  const totalObs = (summary.obstaclesAvoided || 0) + (summary.obstaclesHit || 0);
   const avoidRate = totalObs ? (summary.obstaclesAvoided / totalObs) : 0;
   if (resAvoidRate) setText(resAvoidRate, fmtPercent(avoidRate));
   if (resFatigue) setText(resFatigue, fmtFloat(summary.fatigueIndex || 0, 3));
@@ -1105,22 +1120,22 @@ function fillResultView(endedBy, summary){
   if (resComboEl) setText(resComboEl, summary.comboMax || 0);
 
   if (resAiTipEl) setText(resAiTipEl, summary.insight || '-');
-  if (resDailyEl){
-    try{ setText(resDailyEl, new Date().toLocaleDateString('th-TH')); }
-    catch(e){ setText(resDailyEl, '-'); }
+  if (resDailyEl) {
+    try { setText(resDailyEl, new Date().toLocaleDateString('th-TH')); }
+    catch (e) { setText(resDailyEl, '-'); }
   }
 
-  if (rankBadgeEl){
+  if (rankBadgeEl) {
     rankBadgeEl.textContent = summary.rank || 'D';
-    rankBadgeEl.classList.remove('rank-S','rank-A','rank-B','rank-C','rank-D');
+    rankBadgeEl.classList.remove('rank-S', 'rank-A', 'rank-B', 'rank-C', 'rank-D');
     rankBadgeEl.classList.add('rank-' + (summary.rank || 'D'));
     rankBadgeEl.classList.remove('rank-pop');
     void rankBadgeEl.offsetWidth;
     rankBadgeEl.classList.add('rank-pop');
   }
 
-  if (resultHeroSub){
-    const sub = `${mapEndReason(endedBy)} • Stability ${fmtPercent(summary.stabilityRatio)} • Avoid ${summary.obstaclesAvoided||0}/${totalObs||0}`;
+  if (resultHeroSub) {
+    const sub = `${mapEndReason(endedBy)} • Stability ${fmtPercent(summary.stabilityRatio)} • Avoid ${summary.obstaclesAvoided || 0}/${totalObs || 0}`;
     setText(resultHeroSub, sub);
   }
   if (heroInsightEl) setText(heroInsightEl, summary.insight || '-');
@@ -1128,11 +1143,11 @@ function fillResultView(endedBy, summary){
   renderBadgesAndMissions(summary);
 }
 
-function fillEndModal(summary){
+function fillEndModal(summary) {
   if (!endModal) return;
-  if (endModalRank){
+  if (endModalRank) {
     endModalRank.textContent = summary.rank || 'D';
-    endModalRank.classList.remove('rank-S','rank-A','rank-B','rank-C','rank-D');
+    endModalRank.classList.remove('rank-S', 'rank-A', 'rank-B', 'rank-C', 'rank-D');
     endModalRank.classList.add('rank-' + (summary.rank || 'D'));
   }
   if (endModalScore) setText(endModalScore, summary.score || 0);
@@ -1142,9 +1157,9 @@ function fillEndModal(summary){
 /* ------------------------------------------------------------
  * Stop & summary
  * ------------------------------------------------------------ */
-function stopGame(endedBy){
+function stopGame(endedBy) {
   if (!state) return;
-  if (rafId != null){ cancelAnimationFrame(rafId); rafId = null; }
+  if (rafId != null) { cancelAnimationFrame(rafId); rafId = null; }
 
   const finalState = state;
   const a = computeAnalytics();
@@ -1167,13 +1182,13 @@ function stopGame(endedBy){
     comboMax: finalState.maxCombo || 0,
     perfects: finalState.perfects || 0,
 
-    seed: finalState.seedStr || qv('seed','')
+    seed: finalState.seedStr || qv('seed', '')
   };
 
   summary.rank = calcRank(summary);
   summary.insight = buildInsight(summary);
 
-  if (finalState.practiceEnabled){
+  if (finalState.practiceEnabled) {
     const ps = finalState.practiceSamples || 0;
     const pr = ps ? (finalState.practiceStableSamples / ps) : 0;
     summary.practiceEnabled = true;
@@ -1189,46 +1204,48 @@ function stopGame(endedBy){
   fillResultView(endedBy, summary);
   fillEndModal(summary);
 
+  lastResultSummary = summary;
+
   state = null;
   isPaused = false;
   pausedAt = 0;
 
   showView('result');
 
-  if (endedBy !== 'manual'){
-    setTimeout(()=> openEndModal(), 120);
+  if (endedBy !== 'manual') {
+    setTimeout(() => openEndModal(), 120);
   }
 }
 
 /* ------------------------------------------------------------
  * Main loop
  * ------------------------------------------------------------ */
-function loop(now){
+function loop(now) {
   if (!state) return;
   if (isPaused) return;
 
   const dt = now - state.lastFrame;
   state.lastFrame = now;
 
-  if (state.phase === 'countdown'){
+  if (state.phase === 'countdown') {
     runCountdownPhase(now);
     rafId = requestAnimationFrame(loop);
     return;
   }
 
-  if (state.phase === 'practice'){
-    if (runPracticePhase(now)){
+  if (state.phase === 'practice') {
+    if (runPracticePhase(now)) {
       rafId = requestAnimationFrame(loop);
       return;
     }
   }
 
-  if (state.phase === 'main'){
+  if (state.phase === 'main') {
     state.elapsed = now - state.startTime;
     const remainMs = Math.max(0, state.durationMs - state.elapsed);
     setText(hudTime, (remainMs / 1000).toFixed(1));
 
-    if (state.elapsed >= state.durationMs){
+    if (state.elapsed >= state.durationMs) {
       stopGame('timeout');
       return;
     }
@@ -1245,42 +1262,37 @@ function loop(now){
 
   updateVisuals();
 
-  if (now >= state.nextSampleAt){
+  if (now >= state.nextSampleAt) {
     const safeHalf = cfg.safeHalf;
     const inSafe = Math.abs(state.angle) <= safeHalf;
     const absTilt = Math.abs(state.angle);
 
     const isPractice = state.phase === 'practice';
-    if (isPractice){
+    if (isPractice) {
       state.practiceSamples++;
       if (inSafe) state.practiceStableSamples++;
-    }else{
+    } else {
       state.totalSamples++;
       if (inSafe) state.stableSamples++;
       state.sumTiltAbs += absTilt;
-      state.sumTiltSq  += absTilt * absTilt;
+      state.sumTiltSq += absTilt * absTilt;
       const tNorm = state.durationMs ? (state.elapsed / state.durationMs) : 0;
       state.samples.push({ tNorm, tilt: absTilt });
       if (state.samples.length > 4000) state.samples.splice(0, state.samples.length - 4000);
     }
 
     let stabRatio = 0;
-    if (isPractice){
-      stabRatio = state.practiceSamples ? (state.practiceStableSamples / state.practiceSamples) : 0;
-    }else{
-      stabRatio = state.totalSamples ? (state.stableSamples / state.totalSamples) : 0;
-    }
+    if (isPractice) stabRatio = state.practiceSamples ? (state.practiceStableSamples / state.practiceSamples) : 0;
+    else stabRatio = state.totalSamples ? (state.stableSamples / state.totalSamples) : 0;
 
     setText(hudStab, fmtPercent(stabRatio));
     if (stabilityFill) stabilityFill.style.width = `${clamp(stabRatio * 100, 0, 100)}%`;
-    if (centerPulse){
-      centerPulse.classList.toggle('good', Math.abs(state.angle) <= (state.cfg.safeHalf * 0.55));
-    }
+    if (centerPulse) centerPulse.classList.toggle('good', Math.abs(state.angle) <= (state.cfg.safeHalf * 0.55));
 
     state.nextSampleAt = now + state.sampleEveryMs;
   }
 
-  if ((state.phase === 'practice' || state.phase === 'main') && now >= state.nextObstacleAt){
+  if ((state.phase === 'practice' || state.phase === 'main') && now >= state.nextObstacleAt) {
     spawnObstacle(now);
   }
 
@@ -1290,42 +1302,39 @@ function loop(now){
 /* ------------------------------------------------------------
  * Exports
  * ------------------------------------------------------------ */
-function downloadTextFile(filename, text, type='text/plain'){
-  try{
-    const blob = new Blob([text], {type});
+function downloadTextFile(filename, text, type = 'text/plain') {
+  try {
+    const blob = new Blob([text], { type });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
     a.download = filename;
     document.body.appendChild(a);
     a.click();
-    setTimeout(()=>{
+    setTimeout(() => {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     }, 120);
-  }catch(e){}
+  } catch (e) {}
 }
-
-function arrToCSV(rows){
-  return rows.map(r => r.map(v=>{
+function arrToCSV(rows) {
+  return rows.map(r => r.map(v => {
     const s = String(v ?? '');
-    if (/[",\n\r]/.test(s)) return '"' + s.replace(/"/g,'""') + '"';
+    if (/[",\n\r]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
     return s;
   }).join(',')).join('\r\n');
 }
-
-function exportSessionsCSV(){
+function exportSessionsCSV() {
   let arr = [];
-  try{ arr = JSON.parse(localStorage.getItem(SESS_KEY) || '[]'); }
-  catch(e){ arr = []; }
+  try { arr = JSON.parse(localStorage.getItem(SESS_KEY) || '[]'); }
+  catch (e) { arr = []; }
 
   const rows = [[
-    'ts','mode','difficulty','durationSec',
-    'stabilityRatio','meanTilt','rmsTilt','fatigueIndex',
-    'obstaclesAvoided','obstaclesHit','score','rank','comboMax','perfects','seed'
+    'ts', 'mode', 'difficulty', 'durationSec',
+    'stabilityRatio', 'meanTilt', 'rmsTilt', 'fatigueIndex',
+    'obstaclesAvoided', 'obstaclesHit', 'score', 'rank', 'comboMax', 'perfects', 'seed'
   ]];
-
-  arr.forEach(x=>{
+  arr.forEach(x => {
     rows.push([
       x.ts || '',
       x.mode || '',
@@ -1344,11 +1353,9 @@ function exportSessionsCSV(){
       x.seed ?? ''
     ]);
   });
-
   downloadTextFile(`balance-hold-sessions-${Date.now()}.csv`, arrToCSV(rows), 'text/csv');
 }
-
-function exportReleaseDebug(){
+function exportReleaseDebug() {
   const debug = {
     href: location.href,
     ua: navigator.userAgent,
@@ -1358,7 +1365,10 @@ function exportReleaseDebug(){
       time: elDurSel?.value || null,
       view: elViewSel?.value || null
     },
-    lastSummary: (()=>{ try{ return JSON.parse(localStorage.getItem('HHA_LAST_SUMMARY_balance-hold') || 'null'); }catch(e){ return null; } })(),
+    lastSummary: (() => {
+      try { return JSON.parse(localStorage.getItem('HHA_LAST_SUMMARY_balance-hold') || 'null'); }
+      catch (e) { return null; }
+    })(),
     now: new Date().toISOString()
   };
   downloadTextFile(`balance-hold-debug-${Date.now()}.json`, JSON.stringify(debug, null, 2), 'application/json');
@@ -1367,43 +1377,57 @@ function exportReleaseDebug(){
 /* ------------------------------------------------------------
  * Init / bindings
  * ------------------------------------------------------------ */
-function init(){
-  $('[data-action="start-normal"]')?.addEventListener('click', ()=>{
+function init() {
+  $('[data-action="start-normal"]')?.addEventListener('click', () => {
     if (maybeShowTutorialBeforeStart('play')) return;
     startGame('play');
   });
 
-  $('[data-action="goto-research"]')?.addEventListener('click', ()=> showView('research'));
-  $$('[data-action="back-menu"]').forEach(btn=> btn.addEventListener('click', ()=> showView('menu')));
+  $('[data-action="goto-research"]')?.addEventListener('click', () => showView('research'));
+  $$('[data-action="back-menu"]').forEach(btn => btn.addEventListener('click', () => showView('menu')));
 
-  $('[data-action="start-research"]')?.addEventListener('click', ()=>{
+  $('[data-action="start-research"]')?.addEventListener('click', () => {
     if (maybeShowTutorialBeforeStart('research')) return;
     startGame('research');
   });
 
-  $('[data-action="stop"]')?.addEventListener('click', ()=> state && stopGame('manual'));
+  $('[data-action="stop"]')?.addEventListener('click', () => state && stopGame('manual'));
   $('[data-action="pause"]')?.addEventListener('click', pauseGame);
   $('[data-action="resume"]')?.addEventListener('click', resumeGame);
 
-  $('[data-action="result-play-again"]')?.addEventListener('click', ()=>{
+  $('[data-action="result-play-again"]')?.addEventListener('click', () => {
     closeEndModal();
     showView('menu');
   });
-  $('[data-action="result-back-hub"]')?.addEventListener('click', ()=> goHubOrMenu());
 
-  $('[data-action="close-end-modal"]')?.addEventListener('click', closeEndModal);
-  $('[data-action="end-retry"]')?.addEventListener('click', ()=>{
-    closeEndModal();
-    showView('menu');
-  });
-  $('[data-action="end-back-hub"]')?.addEventListener('click', ()=>{
+  $('[data-action="result-back-hub"]')?.addEventListener('click', () => {
     closeEndModal();
     goHubOrMenu();
   });
 
-  $('[data-action="tutorial-skip"]')?.addEventListener('click', ()=>{
-    if (tutorialDontShowAgain?.checked){
-      try{ localStorage.setItem('bh_tutorial_skip','1'); }catch(e){}
+  $('[data-action="close-end-modal"]')?.addEventListener('click', closeEndModal);
+  $('[data-action="end-retry"]')?.addEventListener('click', () => {
+    closeEndModal();
+    showView('menu');
+  });
+
+  $('[data-action="end-back-hub"]')?.addEventListener('click', () => {
+    closeEndModal();
+    goHubOrMenu();
+  });
+
+  $('#btn-result-cooldown')?.addEventListener('click', () => {
+    closeEndModal();
+    goCooldown();
+  });
+  $('#btn-end-cooldown')?.addEventListener('click', () => {
+    closeEndModal();
+    goCooldown();
+  });
+
+  $('[data-action="tutorial-skip"]')?.addEventListener('click', () => {
+    if (tutorialDontShowAgain?.checked) {
+      try { localStorage.setItem('bh_tutorial_skip', '1'); } catch (e) {}
     }
     tutorialAccepted = true;
     closeTutorial();
@@ -1411,9 +1435,9 @@ function init(){
     startGame(kind);
   });
 
-  $('[data-action="tutorial-start"]')?.addEventListener('click', ()=>{
-    if (tutorialDontShowAgain?.checked){
-      try{ localStorage.setItem('bh_tutorial_skip','1'); }catch(e){}
+  $('[data-action="tutorial-start"]')?.addEventListener('click', () => {
+    if (tutorialDontShowAgain?.checked) {
+      try { localStorage.setItem('bh_tutorial_skip', '1'); } catch (e) {}
     }
     tutorialAccepted = true;
     closeTutorial();
@@ -1421,40 +1445,33 @@ function init(){
     startGame(kind);
   });
 
-  $$('[data-action="export-sessions-csv"]').forEach(btn=> btn.addEventListener('click', exportSessionsCSV));
-  $$('[data-action="export-release-debug"]').forEach(btn=> btn.addEventListener('click', exportReleaseDebug));
+  $$('[data-action="export-sessions-csv"]').forEach(btn => btn.addEventListener('click', exportSessionsCSV));
+  $$('[data-action="export-release-debug"]').forEach(btn => btn.addEventListener('click', exportReleaseDebug));
 
-  elViewSel?.addEventListener('change', (e)=>{
+  elViewSel?.addEventListener('change', (e) => {
     applyViewModeClass(String(e.target.value || 'pc'));
   });
 
-  $('[data-action="cvr-recenter"]')?.addEventListener('click', ()=>{
+  $('[data-action="cvr-recenter"]')?.addEventListener('click', () => {
     if (!state) return;
     state.targetAngle = 0;
     state.angle *= 0.5;
-    state.recentInputAt = performance.now();
   });
-
-  $('[data-action="cvr-calibrate-left"]')?.addEventListener('click', ()=>{
+  $('[data-action="cvr-calibrate-left"]')?.addEventListener('click', () => {
     if (!state) return;
     state.targetAngle = Math.max(-1, (state.targetAngle || 0) - 0.08);
-    state.recentInputAt = performance.now();
   });
-
-  $('[data-action="cvr-calibrate-right"]')?.addEventListener('click', ()=>{
+  $('[data-action="cvr-calibrate-right"]')?.addEventListener('click', () => {
     if (!state) return;
     state.targetAngle = Math.min(1, (state.targetAngle || 0) + 0.08);
-    state.recentInputAt = performance.now();
   });
-
-  $('[data-action="cvr-toggle-strict"]')?.addEventListener('click', ()=>{
+  $('[data-action="cvr-toggle-strict"]')?.addEventListener('click', () => {
     if (!cvrStrictLabel) return;
-    cvrStrictLabel.textContent =
-      (String(cvrStrictLabel.textContent || 'OFF').toUpperCase() === 'ON') ? 'OFF' : 'ON';
+    cvrStrictLabel.textContent = (String(cvrStrictLabel.textContent || 'OFF').toUpperCase() === 'ON') ? 'OFF' : 'ON';
   });
 
-  document.addEventListener('visibilitychange', ()=>{
-    if (document.visibilityState === 'hidden'){
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') {
       if (state && !isPaused) pauseGame();
     }
   });
@@ -1462,6 +1479,13 @@ function init(){
   attachInput();
   showView('menu');
   applyQueryToUI();
+
+  const auto = String(qv('autostart', '')).toLowerCase();
+  if (['1', 'true', 'yes', 'on'].includes(auto)) {
+    setTimeout(() => {
+      startGame(qv('run', 'play') === 'research' ? 'research' : 'play');
+    }, 120);
+  }
 }
 
 window.addEventListener('DOMContentLoaded', init);
