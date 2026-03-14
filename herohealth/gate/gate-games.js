@@ -1,6 +1,6 @@
 // === /herohealth/gate/gate-games.js ===
 // HeroHealth Gate Game Registry
-// FULL PATCH v20260314e-GATE-GAMES-GOODJUNK-RUN-CONFIRMED
+// FULL PATCH v20260314f-GATE-GAMES-GOODJUNK-WARMUP-RUN-FIX
 
 export const GATE_GAMES = {
   // =========================
@@ -17,7 +17,7 @@ export const GATE_GAMES = {
       cooldown: './games/bath/cooldown.js',
       style: './games/bath/style.css'
     },
-    run: '../bath-vr.html'
+    run: './bath-vr.html'
   },
 
   handwash: {
@@ -31,7 +31,7 @@ export const GATE_GAMES = {
       cooldown: './games/handwash/cooldown.js',
       style: './games/handwash/style.css'
     },
-    run: '../hygiene-vr.html'
+    run: './hygiene-vr.html'
   },
 
   brush: {
@@ -45,7 +45,7 @@ export const GATE_GAMES = {
       cooldown: './games/brush/cooldown.js',
       style: './games/brush/style.css'
     },
-    run: '../brush-vr.html'
+    run: './brush-vr.html'
   },
 
   cleanobject: {
@@ -59,7 +59,7 @@ export const GATE_GAMES = {
       cooldown: './games/cleanobject/cooldown.js',
       style: './games/cleanobject/style.css'
     },
-    run: '../clean-objects.html'
+    run: './clean-objects.html'
   },
 
   maskcough: {
@@ -73,7 +73,7 @@ export const GATE_GAMES = {
       cooldown: './games/maskcough/cooldown.js',
       style: './games/maskcough/style.css'
     },
-    run: '../vr-maskcough/maskcough-v2.html'
+    run: './vr-maskcough/maskcough-v2.html'
   },
 
   germdetective: {
@@ -87,7 +87,7 @@ export const GATE_GAMES = {
       cooldown: './games/germdetective/cooldown.js',
       style: './games/germdetective/style.css'
     },
-    run: '../germ-detective.html'
+    run: './germ-detective.html'
   },
 
   // =========================
@@ -104,9 +104,10 @@ export const GATE_GAMES = {
       cooldown: './games/goodjunk/cooldown.js',
       style: './games/goodjunk/style.css'
     },
-    // ✅ confirmed canonical run game:
+    // ✅ สำคัญ: gate-core resolve จาก /herohealth/warmup-gate.html
+    // ดังนั้นต้องเป็น ./vr-goodjunk/... เพื่อไปที่
     // /webxr-health-mobile/herohealth/vr-goodjunk/goodjunk-vr.html
-    run: '../vr-goodjunk/goodjunk-vr.html'
+    run: './vr-goodjunk/goodjunk-vr.html'
   },
 
   groups: {
@@ -120,7 +121,7 @@ export const GATE_GAMES = {
       cooldown: './games/groups/cooldown.js',
       style: './games/groups/style.css'
     },
-    run: '../groups-vr.html'
+    run: './groups-vr.html'
   },
 
   hydration: {
@@ -134,7 +135,7 @@ export const GATE_GAMES = {
       cooldown: './games/hydration/cooldown.js',
       style: './games/hydration/style.css'
     },
-    run: '../hydration-vr.html'
+    run: './hydration-vr.html'
   },
 
   plate: {
@@ -148,7 +149,7 @@ export const GATE_GAMES = {
       cooldown: './games/plate/cooldown.js',
       style: './games/plate/style.css'
     },
-    run: '../plate/plate-vr.html'
+    run: './plate/plate-vr.html'
   },
 
   // =========================
@@ -165,7 +166,7 @@ export const GATE_GAMES = {
       cooldown: './games/shadowbreaker/cooldown.js',
       style: './games/shadowbreaker/style.css'
     },
-    run: '../shadow-breaker-vr.html'
+    run: './shadow-breaker-vr.html'
   },
 
   rhythmboxer: {
@@ -179,7 +180,7 @@ export const GATE_GAMES = {
       cooldown: './games/rhythmboxer/cooldown.js',
       style: './games/rhythmboxer/style.css'
     },
-    run: '../rhythm-boxer-vr.html'
+    run: './rhythm-boxer-vr.html'
   },
 
   jumpduck: {
@@ -193,7 +194,7 @@ export const GATE_GAMES = {
       cooldown: './games/jumpduck/cooldown.js',
       style: './games/jumpduck/style.css'
     },
-    run: '../jump-duck-vr.html'
+    run: './jump-duck-vr.html'
   },
 
   balancehold: {
@@ -207,7 +208,7 @@ export const GATE_GAMES = {
       cooldown: './games/balancehold/cooldown.js',
       style: './games/balancehold/style.css'
     },
-    run: '../balance-hold-vr.html'
+    run: './balance-hold-vr.html'
   },
 
   fitnessplanner: {
@@ -221,7 +222,7 @@ export const GATE_GAMES = {
       cooldown: './games/fitnessplanner/cooldown.js',
       style: './games/fitnessplanner/style.css'
     },
-    run: '../fitness-planner.html'
+    run: './fitness-planner.html'
   }
 };
 
