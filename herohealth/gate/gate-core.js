@@ -1,6 +1,6 @@
 // === /herohealth/gate/gate-core.js ===
 // HeroHealth Gate Core
-// FULL PATCH v20260314m-GATE-CORE-RELATIVE-PATH-FIX
+// FULL PATCH v20260314n-GATE-CORE-DAILY-STATUS-CARD
 
 import {
   buildCtx,
@@ -154,6 +154,13 @@ function renderShell(app, ctx){
         </div>
       </section>
 
+      <section class="gate-status-banner" id="gateStatusBanner" style="display:none;">
+        <div class="gate-status-card">
+          <div class="gate-status-title" id="gateStatusTitle">สถานะวันนี้</div>
+          <div class="gate-status-sub" id="gateStatusSub">กำลังตรวจสอบ...</div>
+        </div>
+      </section>
+
       <section class="gate-stats">
         <div class="gate-stat">
           <div class="gate-stat-k">TIME</div>
@@ -241,6 +248,27 @@ function ensureInlineSkipStyle(){
       font-weight:900;
       line-height:1.5;
     }
+    .gate-status-banner{
+      margin-top:10px;
+    }
+    .gate-status-card{
+      border:1px solid rgba(148,163,184,.14);
+      border-radius:18px;
+      background:rgba(15,23,42,.42);
+      padding:12px 14px;
+    }
+    .gate-status-title{
+      font-weight:1000;
+      font-size:14px;
+      line-height:1.25;
+      margin-bottom:4px;
+    }
+    .gate-status-sub{
+      color:rgba(148,163,184,.95);
+      font-size:12px;
+      font-weight:900;
+      line-height:1.45;
+    }
   `;
   document.head.appendChild(style);
 }
@@ -252,6 +280,9 @@ function makeApi(app, logger){
   const statAcc = app.querySelector('#statAcc');
   const gateSub = app.querySelector('#gateSub');
   const dailyState = app.querySelector('#gateDailyState');
+  const statusBanner = app.querySelector('#gateStatusBanner');
+  const statusTitleEl = app.querySelector('#gateStatusTitle');
+  const statusSubEl = app.querySelector('#gateStatusSub');
 
   const api = {
     logger,
@@ -266,6 +297,14 @@ function makeApi(app, logger){
     },
     setDailyState(text=''){
       setText(dailyState, text);
+    },
+    showStatus(title='', sub=''){
+      if(statusBanner) statusBanner.style.display = '';
+      setText(statusTitleEl, title);
+      setText(statusSubEl, sub);
+    },
+    hideStatus(){
+      if(statusBanner) statusBanner.style.display = 'none';
     },
     finish(payload = {}){
       api.__finish?.(payload);
@@ -359,6 +398,13 @@ async function runGate(app){
     window.location.href = nextUrl;
     return;
   }
+
+  api.showStatus(
+    ctx.mode === 'cooldown' ? 'คูลดาวน์วันนี้: ยังไม่ได้ทำ' : 'วอร์มอัพวันนี้: ยังไม่ได้ทำ',
+    ctx.mode === 'cooldown'
+      ? 'เมื่อจบแล้วจะกลับหน้าหลัก'
+      : 'เมื่อจบแล้วจะเข้าเกมหลักต่อ'
+  );
 
   let instance = null;
   let finished = false;
