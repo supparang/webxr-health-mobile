@@ -1,5 +1,5 @@
 // === /herohealth/vr-clean/clean.core.js ===
-// Clean Objects CORE — SAFE/PRODUCTION — v20260301-FULL-EXCITE1234-PATCH-D
+// Clean Objects CORE — SAFE/PRODUCTION — v20260301-FULL-EXCITE1234-PATCH-E
 'use strict';
 
 import { HOTSPOTS, MAP } from './clean.data.js';
@@ -159,6 +159,12 @@ function gridDist(a,b){
   return Math.sqrt(dx*dx + dy*dy);
 }
 
+function bossReward(progress, total, timeLeftBoss){
+  if(total <= 0 || progress < total) return 0;
+  const quickBonus = clamp(Math.round(timeLeftBoss * 4), 0, 60);
+  return 120 + quickBonus;
+}
+
 function scoreA(state){
   const sel = state.A.selected || [];
   const top = rankHotspotsByValue(state.hotspots).slice(0,3).map(h=>h.id);
@@ -176,8 +182,9 @@ function scoreA(state){
 
   const bossPenalty = state.boss.cleared ? 0 : 120;
   const spreadPenalty = Math.round(state.spread.totalPenalty || 0);
+  const bossBonus = Number(state.boss.reward || 0);
 
-  const score = Math.max(0, baseScore - bossPenalty - spreadPenalty);
+  const score = Math.max(0, baseScore - bossPenalty - spreadPenalty + bossBonus);
 
   return {
     score,
@@ -186,7 +193,8 @@ function scoreA(state){
       coverage: Math.round(coverage),
       dq: Math.round(dq),
       bossPenalty,
-      spreadPenalty
+      spreadPenalty,
+      bossBonus
     },
     top3: top
   };
@@ -342,7 +350,9 @@ export function createCleanCore(cfg={}, hooks={}){
       expireAtS: 0,
       targets: [],
       progress: 0,
-      total: 0
+      total: 0,
+      reward: 0,
+      timeLeftAtClear: 0
     },
 
     spread: {
@@ -368,7 +378,8 @@ export function createCleanCore(cfg={}, hooks={}){
           chosen: (state.A.selected||[]).length,
           rrPreview: Math.round(rr),
           spreadPenalty: Math.round(state.spread.totalPenalty||0),
-          bossProgress: `${state.boss.progress||0}/${state.boss.total||0}`
+          bossProgress: `${state.boss.progress||0}/${state.boss.total||0}`,
+          bossReward: Math.round(state.boss.reward||0)
         };
       }else{
         preview = { routeN: (state.B.routeIds||[]).length, maxPoints: state.B.maxPoints };
@@ -449,15 +460,33 @@ export function createCleanCore(cfg={}, hooks={}){
     return ids.slice(0,3);
   }
 
+  function saveBossBadge(){
+    try{
+      const pid = String(qs('pid','anon')||'anon');
+      const key = `HHA_BADGES:${pid}`;
+      const raw = localStorage.getItem(key);
+      const data = raw ? JSON.parse(raw) : {};
+      data.clean_boss_clear = true;
+      data.clean_boss_last = {
+        ts: nowIso(),
+        reward: Number(state.boss.reward||0),
+        seed: seedStr
+      };
+      localStorage.setItem(key, JSON.stringify(data));
+    }catch(e){}
+  }
+
   function startBossPhase(){
     if(state.mode !== 'A' || state.boss.active || state.boss.cleared) return;
 
     state.boss.active = true;
     state.boss.failed = false;
+    state.boss.reward = 0;
     state.boss.targets = makeBossTargets();
     state.boss.total = state.boss.targets.length;
     state.boss.progress = 0;
     state.boss.expireAtS = state.elapsed + state.cfg.bossWindowSec;
+    state.boss.timeLeftAtClear = 0;
 
     for(const id of state.boss.targets){
       const h = state.hotspots.find(x=>String(x.id)===String(id));
@@ -499,17 +528,23 @@ export function createCleanCore(cfg={}, hooks={}){
       if(state.boss.progress >= state.boss.total){
         state.boss.cleared = true;
         state.boss.active = false;
+        state.boss.timeLeftAtClear = Math.max(0, state.boss.expireAtS - state.elapsed);
+        state.boss.reward = bossReward(state.boss.progress, state.boss.total, state.boss.timeLeftAtClear);
+
+        saveBossBadge();
 
         emitHHAEvent('boss_cleared', {
           sessionId: state.cfg.sessionId,
           mode: state.mode,
           progress: state.boss.progress,
-          total: state.boss.total
+          total: state.boss.total,
+          reward: state.boss.reward
         });
 
-        emitCoach('good', `🏁 Boss Cleared! จัดการครบ ${state.boss.total}/${state.boss.total}`, {
+        emitCoach('good', `🏁 Boss Cleared! +${state.boss.reward} โบนัส`, {
           progress: state.boss.progress,
-          total: state.boss.total
+          total: state.boss.total,
+          reward: state.boss.reward
         });
       } else {
         emitCoach('good', `🎯 Boss ${state.boss.progress}/${state.boss.total}`, {
@@ -525,6 +560,7 @@ export function createCleanCore(cfg={}, hooks={}){
     if(state.elapsed >= state.boss.expireAtS){
       state.boss.failed = true;
       state.boss.active = false;
+      state.boss.reward = 0;
 
       emitHHAEvent('boss_failed', {
         sessionId: state.cfg.sessionId,
@@ -697,7 +733,8 @@ export function createCleanCore(cfg={}, hooks={}){
           failed: !!state.boss.failed,
           progress: state.boss.progress,
           total: state.boss.total,
-          targets: state.boss.targets.slice(0)
+          targets: state.boss.targets.slice(0),
+          reward: Number(state.boss.reward || 0)
         },
         spread: {
           waves: state.spread.waveCount,
