@@ -183,6 +183,386 @@
       line-height:1;
     }
 
+    .rewardBar{
+      margin-bottom:14px;
+      border-radius:26px;
+      border:1px solid rgba(255,255,255,.14);
+      background:
+        linear-gradient(135deg, rgba(250,204,21,.14), rgba(167,139,250,.12)),
+        rgba(2,6,23,.58);
+      backdrop-filter: blur(12px);
+      box-shadow: var(--shadow-big);
+      padding:14px;
+      display:grid;
+      grid-template-columns: 1.15fr .85fr;
+      gap:12px;
+    }
+
+    @media (max-width:900px){
+      .rewardBar{ grid-template-columns:1fr; }
+    }
+
+    .rewardGrid{
+      display:grid;
+      grid-template-columns: repeat(3, minmax(0,1fr));
+      gap:10px;
+    }
+
+    @media (max-width:560px){
+      .rewardGrid{ grid-template-columns:1fr; }
+    }
+
+    .rewardCard{
+      border-radius:20px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(15,23,42,.52);
+      padding:12px;
+      box-shadow: var(--shadow);
+      display:flex;
+      gap:12px;
+      align-items:center;
+    }
+
+    .rewardIcon{
+      width:56px;
+      height:56px;
+      border-radius:16px;
+      display:grid;
+      place-items:center;
+      font-size:28px;
+      background: rgba(255,255,255,.08);
+      border:1px solid rgba(255,255,255,.12);
+      flex:0 0 auto;
+    }
+
+    .rewardLabel{
+      font-size:12px;
+      font-weight:1000;
+      color:#dbeafe;
+      line-height:1.3;
+    }
+
+    .rewardValue{
+      font-size:24px;
+      font-weight:1100;
+      line-height:1.05;
+      margin-top:3px;
+    }
+
+    .todayRewardBox{
+      border-radius:22px;
+      border:1px solid rgba(255,255,255,.12);
+      background:
+        linear-gradient(135deg, rgba(34,197,94,.14), rgba(56,189,248,.12)),
+        rgba(15,23,42,.52);
+      padding:14px;
+      box-shadow: var(--shadow);
+      display:flex;
+      gap:14px;
+      align-items:center;
+      min-height:100%;
+    }
+
+    .todayRewardIcon{
+      width:78px;
+      height:78px;
+      border-radius:22px;
+      display:grid;
+      place-items:center;
+      font-size:40px;
+      border:1px solid rgba(255,255,255,.14);
+      background: rgba(255,255,255,.08);
+      box-shadow: 0 10px 26px rgba(0,0,0,.18);
+      flex:0 0 auto;
+    }
+
+    .todayRewardTitle{
+      font-size:18px;
+      font-weight:1100;
+      line-height:1.2;
+    }
+
+    .todayRewardMeta{
+      margin-top:5px;
+      color:#dbeafe;
+      font-size:13px;
+      font-weight:900;
+      line-height:1.5;
+    }
+
+    .missionCard,
+    .quickLaunch,
+    .card,
+    .cardBook,
+    .trophyShelf,
+    .missionBoard{
+      border-radius: 26px;
+      border:1px solid rgba(255,255,255,.14);
+      background: rgba(2,6,23,.58);
+      backdrop-filter: blur(12px);
+      box-shadow: var(--shadow-big);
+      padding: 14px;
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+    }
+
+    .missionCard{
+      margin-bottom:14px;
+      background:
+        linear-gradient(135deg, rgba(250,204,21,.16), rgba(56,189,248,.14)),
+        rgba(2,6,23,.58);
+    }
+
+    .missionTop{
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      align-items:center;
+      flex-wrap:wrap;
+    }
+
+    .missionTitle{
+      font-size:19px;
+      font-weight:1100;
+      display:flex;
+      align-items:center;
+      gap:10px;
+    }
+
+    .missionSub{
+      color:#dbeafe;
+      font-size:13px;
+      font-weight:900;
+      line-height:1.5;
+    }
+
+    .missionGrid{
+      display:grid;
+      grid-template-columns: repeat(3, minmax(0,1fr));
+      gap:12px;
+    }
+
+    @media (max-width:900px){
+      .missionGrid{ grid-template-columns:1fr; }
+    }
+
+    .missionItem{
+      border-radius:20px;
+      border:1px solid rgba(255,255,255,.14);
+      background: rgba(15,23,42,.46);
+      padding:12px;
+      display:flex;
+      gap:12px;
+      align-items:flex-start;
+      box-shadow: var(--shadow);
+    }
+
+    .missionIcon{
+      width:54px;
+      height:54px;
+      border-radius:16px;
+      display:grid;
+      place-items:center;
+      font-size:28px;
+      background: rgba(255,255,255,.08);
+      border:1px solid rgba(255,255,255,.12);
+      flex:0 0 auto;
+    }
+
+    .missionBody{ display:flex; flex-direction:column; gap:5px; }
+    .missionName{ font-size:16px; font-weight:1100; }
+    .missionHint{ color:#dbeafe; font-size:13px; font-weight:900; line-height:1.45; }
+
+    .quickLaunch{
+      margin-bottom:14px;
+    }
+
+    .quickLaunchGrid{
+      display:grid;
+      grid-template-columns: repeat(3, minmax(0,1fr));
+      gap:12px;
+    }
+
+    @media (max-width:900px){
+      .quickLaunchGrid{ grid-template-columns:1fr; }
+    }
+
+    .quickBtn{
+      border-radius:24px;
+      border:1px solid rgba(255,255,255,.14);
+      padding:18px 16px;
+      min-height:112px;
+      display:flex;
+      gap:14px;
+      align-items:center;
+      cursor:pointer;
+      color:var(--text);
+      text-align:left;
+      box-shadow: var(--shadow);
+      transition: transform .12s ease, filter .12s ease, border-color .12s ease;
+    }
+
+    .quickBtn:hover{
+      transform: translateY(-2px);
+      filter:brightness(1.04);
+    }
+
+    .quickBtn.easy{
+      background: linear-gradient(135deg, rgba(34,197,94,.22), rgba(250,204,21,.14));
+    }
+
+    .quickBtn.resume{
+      background: linear-gradient(135deg, rgba(56,189,248,.22), rgba(167,139,250,.14));
+    }
+
+    .quickBtn.random{
+      background: linear-gradient(135deg, rgba(244,114,182,.18), rgba(56,189,248,.14));
+    }
+
+    .quickIcon{
+      width:62px;
+      height:62px;
+      border-radius:18px;
+      display:grid;
+      place-items:center;
+      font-size:32px;
+      background: rgba(255,255,255,.10);
+      border:1px solid rgba(255,255,255,.14);
+      flex:0 0 auto;
+    }
+
+    .quickTitle{
+      font-size:18px;
+      font-weight:1100;
+      line-height:1.15;
+    }
+
+    .quickMeta{
+      margin-top:5px;
+      color:#dbeafe;
+      font-size:13px;
+      font-weight:900;
+      line-height:1.45;
+    }
+
+    .smartCard{
+      border-radius:22px;
+      border:1px solid rgba(255,255,255,.14);
+      background:
+        linear-gradient(135deg, rgba(56,189,248,.14), rgba(250,204,21,.12)),
+        rgba(15,23,42,.56);
+      padding:14px;
+      display:grid;
+      grid-template-columns: 74px 1fr auto;
+      gap:12px;
+      align-items:center;
+      box-shadow: var(--shadow);
+    }
+
+    @media (max-width:720px){
+      .smartCard{
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .smartIcon{
+      width:74px;
+      height:74px;
+      border-radius:20px;
+      display:grid;
+      place-items:center;
+      font-size:38px;
+      border:1px solid rgba(255,255,255,.14);
+      background: rgba(255,255,255,.08);
+    }
+
+    .smartTitle{
+      font-size:18px;
+      font-weight:1100;
+      line-height:1.2;
+    }
+
+    .smartMeta{
+      margin-top:4px;
+      color:#dbeafe;
+      font-size:13px;
+      font-weight:900;
+      line-height:1.5;
+    }
+
+    .zoneTools{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      align-items:center;
+    }
+
+    .missionBoard{
+      margin-bottom:14px;
+      background:
+        linear-gradient(135deg, rgba(56,189,248,.12), rgba(244,114,182,.10)),
+        rgba(2,6,23,.58);
+    }
+
+    .missionBoardGrid{
+      display:grid;
+      grid-template-columns: repeat(3, minmax(0,1fr));
+      gap:12px;
+    }
+
+    @media (max-width:900px){
+      .missionBoardGrid{ grid-template-columns:1fr; }
+    }
+
+    .boardCard{
+      border-radius:22px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(15,23,42,.52);
+      padding:14px;
+      box-shadow: var(--shadow);
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+    }
+
+    .boardTop{
+      display:flex;
+      gap:10px;
+      align-items:center;
+    }
+
+    .boardIcon{
+      width:52px;
+      height:52px;
+      border-radius:16px;
+      display:grid;
+      place-items:center;
+      font-size:28px;
+      background: rgba(255,255,255,.08);
+      border:1px solid rgba(255,255,255,.12);
+    }
+
+    .boardTitle{
+      font-size:16px;
+      font-weight:1100;
+      line-height:1.2;
+    }
+
+    .boardMeta{
+      color:#dbeafe;
+      font-size:13px;
+      font-weight:900;
+      line-height:1.5;
+    }
+
+    .boardAction{
+      margin-top:auto;
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+
     .topbar{
       display:flex;
       gap:12px;
@@ -293,106 +673,6 @@
       color: #e2e8f0;
     }
 
-    .card,
-    .cardBook,
-    .trophyShelf,
-    .missionCard{
-      border-radius: 26px;
-      border:1px solid rgba(255,255,255,.14);
-      background: rgba(2,6,23,.58);
-      backdrop-filter: blur(12px);
-      box-shadow: var(--shadow-big);
-      padding: 14px;
-      display:flex;
-      flex-direction:column;
-      gap:12px;
-    }
-
-    .missionCard{
-      margin-bottom:14px;
-      background:
-        linear-gradient(135deg, rgba(250,204,21,.16), rgba(56,189,248,.14)),
-        rgba(2,6,23,.58);
-    }
-
-    .missionTop{
-      display:flex;
-      justify-content:space-between;
-      gap:10px;
-      align-items:center;
-      flex-wrap:wrap;
-    }
-
-    .missionTitle{
-      font-size:19px;
-      font-weight:1100;
-      display:flex;
-      align-items:center;
-      gap:10px;
-    }
-
-    .missionSub{
-      color:#dbeafe;
-      font-size:13px;
-      font-weight:900;
-      line-height:1.5;
-    }
-
-    .missionGrid{
-      display:grid;
-      grid-template-columns: repeat(3, minmax(0,1fr));
-      gap:12px;
-    }
-
-    @media (max-width:900px){
-      .missionGrid{ grid-template-columns:1fr; }
-    }
-
-    .missionItem{
-      border-radius:20px;
-      border:1px solid rgba(255,255,255,.14);
-      background: rgba(15,23,42,.46);
-      padding:12px;
-      display:flex;
-      gap:12px;
-      align-items:flex-start;
-      box-shadow: var(--shadow);
-    }
-
-    .missionIcon{
-      width:54px;
-      height:54px;
-      border-radius:16px;
-      display:grid;
-      place-items:center;
-      font-size:28px;
-      background: rgba(255,255,255,.08);
-      border:1px solid rgba(255,255,255,.12);
-      flex:0 0 auto;
-    }
-
-    .missionBody{ display:flex; flex-direction:column; gap:5px; }
-    .missionName{ font-size:16px; font-weight:1100; }
-    .missionHint{ color:#dbeafe; font-size:13px; font-weight:900; line-height:1.45; }
-
-    .sectionSub{
-      color:#dbeafe;
-      font-size:13px;
-      font-weight:900;
-      line-height:1.5;
-    }
-
-    .grid{
-      display:grid;
-      grid-template-columns: repeat(3, minmax(0,1fr));
-      gap: 14px;
-      margin-top: 14px;
-    }
-
-    @media (max-width:980px){
-      .grid{ grid-template-columns:1fr; }
-    }
-
     .card h2{
       margin:0;
       font-size:20px;
@@ -424,11 +704,29 @@
         rgba(2,6,23,.58);
     }
 
+    .sectionSub{
+      color:#dbeafe;
+      font-size:13px;
+      font-weight:900;
+      line-height:1.5;
+    }
+
     .muted{
       color:#dbeafe;
       font-weight:900;
       font-size:13px;
       line-height:1.45;
+    }
+
+    .grid{
+      display:grid;
+      grid-template-columns: repeat(3, minmax(0,1fr));
+      gap:14px;
+      margin-top:14px;
+    }
+
+    @media (max-width:980px){
+      .grid{ grid-template-columns:1fr; }
     }
 
     .zoneRow{
@@ -439,10 +737,74 @@
       justify-content:space-between;
     }
 
+    .zoneBadge{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 12px;
+      border-radius:999px;
+      background: rgba(255,255,255,.08);
+      border:1px solid rgba(255,255,255,.12);
+      font-size:12px;
+      font-weight:1000;
+      color:#fff;
+      width:max-content;
+    }
+
+    .progressWrap{
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+      margin-top:4px;
+    }
+
+    .progressHead{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    .progressLabel{
+      font-size:12px;
+      font-weight:1000;
+      color:#e0f2fe;
+    }
+
+    .progressTrack{
+      width:100%;
+      height:12px;
+      border-radius:999px;
+      overflow:hidden;
+      background: rgba(255,255,255,.08);
+      border:1px solid rgba(255,255,255,.10);
+      box-shadow: inset 0 2px 8px rgba(0,0,0,.18);
+    }
+
+    .progressFill{
+      height:100%;
+      width:0%;
+      border-radius:999px;
+      transition: width .25s ease;
+    }
+
+    .progressFill.nutri{
+      background: linear-gradient(90deg, #22c55e, #facc15);
+    }
+
+    .progressFill.hyg{
+      background: linear-gradient(90deg, #22d3ee, #60a5fa);
+    }
+
+    .progressFill.fit{
+      background: linear-gradient(90deg, #f472b6, #a78bfa);
+    }
+
     .games{
       display:grid;
       grid-template-columns: repeat(2, minmax(0,1fr));
-      gap: 12px;
+      gap:12px;
     }
 
     @media (max-width:620px){
@@ -453,14 +815,14 @@
       display:flex;
       flex-direction:column;
       gap:8px;
-      padding: 14px;
-      border-radius: 22px;
+      padding:14px;
+      border-radius:22px;
       border:1px solid rgba(255,255,255,.14);
       background:
         linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02)),
         rgba(15,23,42,.54);
       box-shadow: 0 16px 38px rgba(0,0,0,.24);
-      min-height: 142px;
+      min-height:142px;
       transition: transform .12s ease, border-color .12s ease, filter .12s ease;
     }
 
@@ -517,20 +879,6 @@
       margin-top:2px;
     }
 
-    .inlineRow{
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      align-items:center;
-    }
-
-    .miniRow{
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-      align-items:center;
-    }
-
     .dailyBadge{
       display:inline-flex;
       align-items:center;
@@ -557,17 +905,49 @@
       color:#fef3c7;
     }
 
+    .inlineRow,
+    .miniRow{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      align-items:center;
+    }
+
     .sep{
       height:1px;
       background: linear-gradient(90deg, transparent, rgba(255,255,255,.12), transparent);
-      margin: 2px 0;
+      margin:2px 0;
     }
 
-    .small{
+    .helperBox{
+      border-radius:20px;
+      border:1px dashed rgba(255,255,255,.18);
+      background: rgba(255,255,255,.04);
+      padding:12px;
+      color:#e0f2fe;
+      font-size:13px;
+      font-weight:900;
+      line-height:1.5;
+    }
+
+    .miniGuide{
+      border-radius:18px;
+      border:1px dashed rgba(255,255,255,.16);
+      background: rgba(255,255,255,.04);
+      padding:10px 12px;
+      color:#e0f2fe;
       font-size:12px;
       font-weight:900;
-      color:#dbeafe;
       line-height:1.45;
+    }
+
+    .zoneFooterRow{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+      justify-content:space-between;
+      margin-top:2px;
     }
 
     .cardBookTop,
@@ -602,7 +982,7 @@
       gap:12px;
     }
 
-    @media (max-width: 900px){
+    @media (max-width:900px){
       .cardBookGrid{ grid-template-columns:1fr; }
     }
 
@@ -636,7 +1016,7 @@
       margin-top:12px;
     }
 
-    @media (max-width: 520px){
+    @media (max-width:520px){
       .rarityRow{ grid-template-columns: repeat(2, minmax(0,1fr)); }
     }
 
@@ -751,161 +1131,7 @@
       background: rgba(239,68,68,.14);
     }
 
-    .zoneBadge{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      padding:8px 12px;
-      border-radius:999px;
-      background: rgba(255,255,255,.08);
-      border:1px solid rgba(255,255,255,.12);
-      font-size:12px;
-      font-weight:1000;
-      color:#fff;
-      width:max-content;
-    }
-
-    .helperBox{
-      border-radius:20px;
-      border:1px dashed rgba(255,255,255,.18);
-      background: rgba(255,255,255,.04);
-      padding:12px;
-      color:#e0f2fe;
-      font-size:13px;
-      font-weight:900;
-      line-height:1.5;
-    }
-
     .footerSpace{ height:8px; }
-
-    .progressWrap{
-      display:flex;
-      flex-direction:column;
-      gap:8px;
-      margin-top:4px;
-    }
-
-    .progressHead{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
-      flex-wrap:wrap;
-    }
-
-    .progressLabel{
-      font-size:12px;
-      font-weight:1000;
-      color:#e0f2fe;
-    }
-
-    .progressTrack{
-      width:100%;
-      height:12px;
-      border-radius:999px;
-      overflow:hidden;
-      background: rgba(255,255,255,.08);
-      border:1px solid rgba(255,255,255,.10);
-      box-shadow: inset 0 2px 8px rgba(0,0,0,.18);
-    }
-
-    .progressFill{
-      height:100%;
-      width:0%;
-      border-radius:999px;
-      transition: width .25s ease;
-    }
-
-    .progressFill.nutri{
-      background: linear-gradient(90deg, #22c55e, #facc15);
-    }
-
-    .progressFill.hyg{
-      background: linear-gradient(90deg, #22d3ee, #60a5fa);
-    }
-
-    .progressFill.fit{
-      background: linear-gradient(90deg, #f472b6, #a78bfa);
-    }
-
-    .smartStartRow{
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      align-items:center;
-    }
-
-    .smartCard{
-      border-radius:22px;
-      border:1px solid rgba(255,255,255,.14);
-      background:
-        linear-gradient(135deg, rgba(56,189,248,.14), rgba(250,204,21,.12)),
-        rgba(15,23,42,.56);
-      padding:14px;
-      display:grid;
-      grid-template-columns: 74px 1fr auto;
-      gap:12px;
-      align-items:center;
-      box-shadow: var(--shadow);
-    }
-
-    @media (max-width:720px){
-      .smartCard{
-        grid-template-columns: 1fr;
-      }
-    }
-
-    .smartIcon{
-      width:74px;
-      height:74px;
-      border-radius:20px;
-      display:grid;
-      place-items:center;
-      font-size:38px;
-      border:1px solid rgba(255,255,255,.14);
-      background: rgba(255,255,255,.08);
-    }
-
-    .smartTitle{
-      font-size:18px;
-      font-weight:1100;
-      line-height:1.2;
-    }
-
-    .smartMeta{
-      margin-top:4px;
-      color:#dbeafe;
-      font-size:13px;
-      font-weight:900;
-      line-height:1.5;
-    }
-
-    .zoneTools{
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-      align-items:center;
-    }
-
-    .miniGuide{
-      border-radius:18px;
-      border:1px dashed rgba(255,255,255,.16);
-      background: rgba(255,255,255,.04);
-      padding:10px 12px;
-      color:#e0f2fe;
-      font-size:12px;
-      font-weight:900;
-      line-height:1.45;
-    }
-
-    .zoneFooterRow{
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      align-items:center;
-      justify-content:space-between;
-      margin-top:2px;
-    }
   </style>
 </head>
 <body>
@@ -941,6 +1167,47 @@
         <div class="statCard">
           <div class="statLabel">⚡ XP</div>
           <div class="statValue" id="uiXp">0</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="rewardBar">
+      <div>
+        <div class="cardBookTitle">🌟 รางวัลของฮีโร่</div>
+        <div class="cardBookSub">ยิ่งเล่น ยิ่งสะสม ยิ่งเก่งขึ้น</div>
+
+        <div class="rewardGrid" style="margin-top:12px;">
+          <div class="rewardCard">
+            <div class="rewardIcon">⭐</div>
+            <div>
+              <div class="rewardLabel">ดาวรวม</div>
+              <div class="rewardValue" id="hubStars">0</div>
+            </div>
+          </div>
+
+          <div class="rewardCard">
+            <div class="rewardIcon">🪙</div>
+            <div>
+              <div class="rewardLabel">เหรียญรวม</div>
+              <div class="rewardValue" id="hubCoins">0</div>
+            </div>
+          </div>
+
+          <div class="rewardCard">
+            <div class="rewardIcon">🔥</div>
+            <div>
+              <div class="rewardLabel">เล่นต่อเนื่อง</div>
+              <div class="rewardValue" id="hubDailyStreak">0</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="todayRewardBox">
+        <div class="todayRewardIcon" id="todayRewardIcon">🎁</div>
+        <div>
+          <div class="todayRewardTitle" id="todayRewardTitle">ของรางวัลวันนี้</div>
+          <div class="todayRewardMeta" id="todayRewardMeta">เล่นให้ครบ 1 โซนเพื่อรับรางวัลพิเศษวันนี้</div>
         </div>
       </div>
     </section>
@@ -992,6 +1259,39 @@
       </div>
     </section>
 
+    <section class="quickLaunch">
+      <div>
+        <div class="cardBookTitle">⚡ เริ่มเล่นเร็ว</div>
+        <div class="cardBookSub">กดครั้งเดียว แล้วไปเล่นต่อได้เลย</div>
+      </div>
+
+      <div class="quickLaunchGrid">
+        <button class="quickBtn easy" id="btnQuickEasy" type="button">
+          <div class="quickIcon">🟢</div>
+          <div>
+            <div class="quickTitle">เริ่มแบบง่าย</div>
+            <div class="quickMeta">พาไปเกมเริ่มต้นที่เหมาะกับเด็กทันที</div>
+          </div>
+        </button>
+
+        <button class="quickBtn resume" id="btnQuickResume" type="button">
+          <div class="quickIcon">▶</div>
+          <div>
+            <div class="quickTitle">เล่นต่อ</div>
+            <div class="quickMeta">กลับไปเกมล่าสุดหรือเกมถัดไปแบบเร็ว</div>
+          </div>
+        </button>
+
+        <button class="quickBtn random" id="btnQuickRandom" type="button">
+          <div class="quickIcon">🎲</div>
+          <div>
+            <div class="quickTitle">สุ่มเกม</div>
+            <div class="quickMeta">กดแล้วสุ่มเกมสนุกหนึ่งเกมให้เลย</div>
+          </div>
+        </button>
+      </div>
+    </section>
+
     <section class="cardBook">
       <div class="cardBookTop">
         <div>
@@ -1006,14 +1306,60 @@
 
       <div class="smartCard">
         <div class="smartIcon" id="smartGameIcon">🎮</div>
-
         <div>
           <div class="smartTitle" id="smartGameTitle">กำลังเลือกเกมแนะนำ...</div>
           <div class="smartMeta" id="smartGameMeta">ระบบจะดูจากสิ่งที่เล่นวันนี้และเลือกเกมที่เหมาะให้</div>
         </div>
-
         <div class="zoneTools">
           <a class="btn good" id="smartGameLink" href="#">ไปเกมนี้</a>
+        </div>
+      </div>
+    </section>
+
+    <section class="missionBoard">
+      <div>
+        <div class="cardBookTitle">🗺 ภารกิจแนะนำ</div>
+        <div class="cardBookSub">เลือกเส้นทางเล่นตามเป้าหมายของวันนี้ได้เลย</div>
+      </div>
+
+      <div class="missionBoardGrid">
+        <div class="boardCard">
+          <div class="boardTop">
+            <div class="boardIcon">🥦</div>
+            <div>
+              <div class="boardTitle">ภารกิจสายโภชนาการ</div>
+              <div class="boardMeta" id="boardNutriMeta">เริ่ม GoodJunk → Hydration → Plate</div>
+            </div>
+          </div>
+          <div class="boardAction">
+            <button class="btn primary" id="btnBoardNutri" type="button">เริ่มภารกิจนี้</button>
+          </div>
+        </div>
+
+        <div class="boardCard">
+          <div class="boardTop">
+            <div class="boardIcon">🪥</div>
+            <div>
+              <div class="boardTitle">ภารกิจสายสะอาด</div>
+              <div class="boardMeta" id="boardHygMeta">เริ่ม Handwash → Brush → Bath</div>
+            </div>
+          </div>
+          <div class="boardAction">
+            <button class="btn primary" id="btnBoardHyg" type="button">เริ่มภารกิจนี้</button>
+          </div>
+        </div>
+
+        <div class="boardCard">
+          <div class="boardTop">
+            <div class="boardIcon">🏃</div>
+            <div>
+              <div class="boardTitle">ภารกิจสายแข็งแรง</div>
+              <div class="boardMeta" id="boardFitMeta">เริ่ม JumpDuck → Shadow Breaker → Balance Hold</div>
+            </div>
+          </div>
+          <div class="boardAction">
+            <button class="btn primary" id="btnBoardFit" type="button">เริ่มภารกิจนี้</button>
+          </div>
         </div>
       </div>
     </section>
@@ -1052,24 +1398,11 @@
         <div class="bookPanel">
           <div class="bookMini">จำนวนการ์ดทั้งหมดที่สะสมได้</div>
           <div class="bookBig" id="bookTotal">0</div>
-
           <div class="rarityRow">
-            <div class="rarityCard rarity-s">
-              <div class="rk">เกรด S</div>
-              <div class="rv" id="bookS">0</div>
-            </div>
-            <div class="rarityCard rarity-a">
-              <div class="rk">เกรด A</div>
-              <div class="rv" id="bookA">0</div>
-            </div>
-            <div class="rarityCard rarity-b">
-              <div class="rk">เกรด B</div>
-              <div class="rv" id="bookB">0</div>
-            </div>
-            <div class="rarityCard rarity-c">
-              <div class="rk">เกรด C</div>
-              <div class="rv" id="bookC">0</div>
-            </div>
+            <div class="rarityCard rarity-s"><div class="rk">เกรด S</div><div class="rv" id="bookS">0</div></div>
+            <div class="rarityCard rarity-a"><div class="rk">เกรด A</div><div class="rv" id="bookA">0</div></div>
+            <div class="rarityCard rarity-b"><div class="rk">เกรด B</div><div class="rv" id="bookB">0</div></div>
+            <div class="rarityCard rarity-c"><div class="rk">เกรด C</div><div class="rv" id="bookC">0</div></div>
           </div>
         </div>
 
@@ -1200,24 +1533,11 @@
         <div class="bookPanel">
           <div class="bookMini">จำนวนการ์ดทั้งหมดที่สะสมได้</div>
           <div class="bookBig" id="jdBookTotal">0</div>
-
           <div class="rarityRow">
-            <div class="rarityCard rarity-s">
-              <div class="rk">เกรด S</div>
-              <div class="rv" id="jdBookS">0</div>
-            </div>
-            <div class="rarityCard rarity-a">
-              <div class="rk">เกรด A</div>
-              <div class="rv" id="jdBookA">0</div>
-            </div>
-            <div class="rarityCard rarity-b">
-              <div class="rk">เกรด B</div>
-              <div class="rv" id="jdBookB">0</div>
-            </div>
-            <div class="rarityCard rarity-c">
-              <div class="rk">เกรด C/D</div>
-              <div class="rv" id="jdBookC">0</div>
-            </div>
+            <div class="rarityCard rarity-s"><div class="rk">เกรด S</div><div class="rv" id="jdBookS">0</div></div>
+            <div class="rarityCard rarity-a"><div class="rk">เกรด A</div><div class="rv" id="jdBookA">0</div></div>
+            <div class="rarityCard rarity-b"><div class="rk">เกรด B</div><div class="rv" id="jdBookB">0</div></div>
+            <div class="rarityCard rarity-c"><div class="rk">เกรด C/D</div><div class="rv" id="jdBookC">0</div></div>
           </div>
         </div>
 
@@ -1295,9 +1615,7 @@
               </div>
             </div>
             <div class="playTag">▶ แตะเพื่อเล่น</div>
-            <div class="miniRow">
-              <span class="dailyBadge todo" id="groupsDaily">ยังไม่เล่นวันนี้</span>
-            </div>
+            <div class="miniRow"><span class="dailyBadge todo" id="groupsDaily">ยังไม่เล่นวันนี้</span></div>
           </a>
 
           <a class="gameBtn" id="linkHydration" href="#">
@@ -1328,9 +1646,7 @@
               </div>
             </div>
             <div class="playTag">▶ แตะเพื่อเล่น</div>
-            <div class="miniRow">
-              <span class="dailyBadge todo" id="plateDaily">ยังไม่เล่นวันนี้</span>
-            </div>
+            <div class="miniRow"><span class="dailyBadge todo" id="plateDaily">ยังไม่เล่นวันนี้</span></div>
           </a>
         </div>
 
@@ -2103,7 +2419,7 @@
         if(!raw) return false;
         const j = JSON.parse(raw);
         if(String(j.pid || '') !== pid) return false;
-        return String(j.game || '') === String(game);
+        return String(j.game || '').toLowerCase() === String(game).toLowerCase();
       }catch(_){
         return false;
       }
@@ -2187,17 +2503,9 @@
       paintDailyBadge(hygBadge, hygDone, 'สำเร็จแล้ว ✅', 'ยังไม่เริ่ม');
       paintDailyBadge(fitBadge, fitDone, 'สำเร็จแล้ว ✅', 'ยังไม่เริ่ม');
 
-      nutrHint.textContent = nutrDone
-        ? 'วันนี้เริ่มโซนโภชนาการแล้ว เก่งมาก'
-        : 'เริ่มที่ GoodJunk หรือ Hydration ก่อน';
-
-      hygHint.textContent = hygDone
-        ? 'วันนี้ทำโซนสุขอนามัยแล้ว'
-        : 'ลอง Handwash หรือ Brush ก่อน';
-
-      fitHint.textContent = fitDone
-        ? 'วันนี้ทำโซนออกกำลังกายแล้ว'
-        : 'ลอง JumpDuck หรือ Shadow Breaker ก่อน';
+      nutrHint.textContent = nutrDone ? 'วันนี้เริ่มโซนโภชนาการแล้ว เก่งมาก' : 'เริ่มที่ GoodJunk หรือ Hydration ก่อน';
+      hygHint.textContent  = hygDone ? 'วันนี้ทำโซนสุขอนามัยแล้ว' : 'ลอง Handwash หรือ Brush ก่อน';
+      fitHint.textContent  = fitDone ? 'วันนี้ทำโซนออกกำลังกายแล้ว' : 'ลอง JumpDuck หรือ Shadow Breaker ก่อน';
     }
 
     function playedTodayByGate(cat, game){
@@ -2283,10 +2591,7 @@
       ];
 
       const allPriority = [...nutritionOrder, ...hygieneOrder, ...fitnessOrder];
-      const firstNotDone = allPriority.find(g => !gamePlayedToday(g.id) && !localStorage.getItem(gateDoneKey('warmup',
-        (['goodjunk','groups','hydration','plate'].includes(g.id) ? 'nutrition' :
-         ['handwash','brush','bath','cleanobject','maskcough','germdetective'].includes(g.id) ? 'hygiene' : 'fitness'),
-        g.id, pid)));
+      const firstNotDone = allPriority.find(g => !gamePlayedToday(g.id));
 
       return firstNotDone || allPriority[0];
     }
@@ -2330,6 +2635,112 @@
       if(titleEl) titleEl.textContent = `เกมแนะนำตอนนี้: ${card.title}`;
       if(metaEl) metaEl.textContent = card.meta;
       if(linkEl) linkEl.href = buildUrl(PATHS[card.path], card.extra || {});
+    }
+
+    function loadHubRewards(){
+      const hero = loadHero();
+      const gjBook = loadCardBook(pid);
+      const jdBook = loadJDCardBook(pid);
+      const streak = loadJson(`HHA_GJ_STREAK:${pid}`, { count:0 });
+      const zone = computeZoneProgress();
+
+      const stars =
+        (gjBook.S || 0) * 5 +
+        (gjBook.A || 0) * 4 +
+        (gjBook.B || 0) * 3 +
+        (gjBook.C || 0) * 2 +
+        (jdBook.S || 0) * 5 +
+        (jdBook.A || 0) * 4 +
+        (jdBook.B || 0) * 3 +
+        (jdBook.C || 0) * 2;
+
+      const coins =
+        Math.max(0, Number(hero.xp || 0)) +
+        ((zone.nutrition.done + zone.hygiene.done + zone.fitness.done) * 10);
+
+      return {
+        stars,
+        coins,
+        streak: Math.max(0, Number(streak.count || 0))
+      };
+    }
+
+    function renderRewardBar(){
+      const reward = loadHubRewards();
+      const starsEl = document.getElementById('hubStars');
+      const coinsEl = document.getElementById('hubCoins');
+      const streakEl = document.getElementById('hubDailyStreak');
+
+      if(starsEl) starsEl.textContent = String(reward.stars || 0);
+      if(coinsEl) coinsEl.textContent = String(reward.coins || 0);
+      if(streakEl) streakEl.textContent = String(reward.streak || 0);
+    }
+
+    function renderTodayReward(){
+      const zone = computeZoneProgress();
+      const iconEl = document.getElementById('todayRewardIcon');
+      const titleEl = document.getElementById('todayRewardTitle');
+      const metaEl = document.getElementById('todayRewardMeta');
+
+      const completedZones =
+        Number(zone.nutrition.done === zone.nutrition.total) +
+        Number(zone.hygiene.done === zone.hygiene.total) +
+        Number(zone.fitness.done === zone.fitness.total);
+
+      if(completedZones >= 3){
+        if(iconEl) iconEl.textContent = '👑';
+        if(titleEl) titleEl.textContent = 'รางวัลวันนี้: Super Hero Crown';
+        if(metaEl) metaEl.textContent = 'วันนี้ทำครบทุกโซนแล้ว เก่งสุดยอดเลย!';
+        return;
+      }
+
+      if(completedZones >= 2){
+        if(iconEl) iconEl.textContent = '🏆';
+        if(titleEl) titleEl.textContent = 'รางวัลวันนี้: Mega Trophy';
+        if(metaEl) metaEl.textContent = 'ทำครบอีก 1 โซน จะได้รางวัลใหญ่กว่าเดิม';
+        return;
+      }
+
+      if(completedZones >= 1){
+        if(iconEl) iconEl.textContent = '🎁';
+        if(titleEl) titleEl.textContent = 'รางวัลวันนี้: Mystery Gift';
+        if(metaEl) metaEl.textContent = 'ทำอีก 1 โซนเพื่ออัปเกรดของรางวัลวันนี้';
+        return;
+      }
+
+      if(iconEl) iconEl.textContent = '✨';
+      if(titleEl) titleEl.textContent = 'ของรางวัลวันนี้';
+      if(metaEl) metaEl.textContent = 'เล่นให้ครบ 1 โซนเพื่อรับรางวัลพิเศษวันนี้';
+    }
+
+    function pickRandomGame(){
+      const games = [
+        { path:'goodjunk', extra:{ mode:'solo' } },
+        { path:'hydration', extra:{ zone:'nutrition' } },
+        { path:'groups', extra:{ zone:'nutrition' } },
+        { path:'plate', extra:{ zone:'nutrition' } },
+        { path:'handwash', extra:{ zone:'hygiene' } },
+        { path:'brush', extra:{ zone:'hygiene' } },
+        { path:'bath', extra:{ zone:'hygiene' } },
+        { path:'germDetective', extra:{ zone:'hygiene' } },
+        { path:'jumpDuck', extra:{ zone:'fitness' } },
+        { path:'shadowBreaker', extra:{ zone:'fitness' } },
+        { path:'balanceHold', extra:{ zone:'fitness' } },
+        { path:'rhythmBoxer', extra:{ zone:'fitness' } }
+      ];
+      return games[Math.floor(Math.random() * games.length)];
+    }
+
+    function renderMissionBoard(){
+      const zone = computeZoneProgress();
+
+      const nutrMeta = document.getElementById('boardNutriMeta');
+      const hygMeta  = document.getElementById('boardHygMeta');
+      const fitMeta  = document.getElementById('boardFitMeta');
+
+      if(nutrMeta) nutrMeta.textContent = `เล่นแล้ว ${zone.nutrition.done}/${zone.nutrition.total} เกม • เริ่ม GoodJunk → Hydration → Plate`;
+      if(hygMeta)  hygMeta.textContent  = `เล่นแล้ว ${zone.hygiene.done}/${zone.hygiene.total} เกม • เริ่ม Handwash → Brush → Bath`;
+      if(fitMeta)  fitMeta.textContent  = `เล่นแล้ว ${zone.fitness.done}/${zone.fitness.total} เกม • เริ่ม JumpDuck → Shadow Breaker → Balance Hold`;
     }
 
     const btnGJsolo = document.getElementById('btnGJsolo');
@@ -2435,6 +2846,7 @@
         renderCardBook();
         renderTrophyShelf();
         renderLastRun();
+        renderRewardBar();
         alert('ล้างสมุดการ์ดเรียบร้อย ✅');
       }catch(_){}
     };
@@ -2465,6 +2877,7 @@
           localStorage.removeItem(`HHA_JD_BEST:${pid}`);
           renderJDCardBook();
           renderFitnessJumpDuckShelf();
+          renderRewardBar();
           alert('ล้างการ์ด JumpDuck เรียบร้อย ✅');
         }catch(_){}
       };
@@ -2529,8 +2942,74 @@
       };
     }
 
+    const btnQuickEasy = document.getElementById('btnQuickEasy');
+    const btnQuickResume = document.getElementById('btnQuickResume');
+    const btnQuickRandom = document.getElementById('btnQuickRandom');
+
+    const btnBoardNutri = document.getElementById('btnBoardNutri');
+    const btnBoardHyg = document.getElementById('btnBoardHyg');
+    const btnBoardFit = document.getElementById('btnBoardFit');
+
+    if(btnQuickEasy){
+      btnQuickEasy.onclick = ()=>{
+        location.href = buildUrl(PATHS.goodjunk, { mode:'solo' });
+      };
+    }
+
+    if(btnQuickResume){
+      btnQuickResume.onclick = ()=>{
+        const g = getNextGameAfterLastRun();
+        location.href = buildUrl(PATHS[g.path], g.extra || {});
+      };
+    }
+
+    if(btnQuickRandom){
+      btnQuickRandom.onclick = ()=>{
+        const g = pickRandomGame();
+        location.href = buildUrl(PATHS[g.path], g.extra || {});
+      };
+    }
+
+    if(btnBoardNutri){
+      btnBoardNutri.onclick = ()=>{
+        const options = [
+          { id:'goodjunk', path:'goodjunk', extra:{ mode:'solo' } },
+          { id:'hydration', path:'hydration', extra:{ zone:'nutrition' } },
+          { id:'plate', path:'plate', extra:{ zone:'nutrition' } }
+        ];
+        const pick = options.find(x => !gamePlayedToday(x.id)) || options[0];
+        location.href = buildUrl(PATHS[pick.path], pick.extra || {});
+      };
+    }
+
+    if(btnBoardHyg){
+      btnBoardHyg.onclick = ()=>{
+        const options = [
+          { id:'handwash', path:'handwash', extra:{ zone:'hygiene' } },
+          { id:'brush', path:'brush', extra:{ zone:'hygiene' } },
+          { id:'bath', path:'bath', extra:{ zone:'hygiene' } }
+        ];
+        const pick = options.find(x => !gamePlayedToday(x.id)) || options[0];
+        location.href = buildUrl(PATHS[pick.path], pick.extra || {});
+      };
+    }
+
+    if(btnBoardFit){
+      btnBoardFit.onclick = ()=>{
+        const options = [
+          { id:'jumpduck', path:'jumpDuck', extra:{ zone:'fitness' } },
+          { id:'shadowbreaker', path:'shadowBreaker', extra:{ zone:'fitness' } },
+          { id:'balancehold', path:'balanceHold', extra:{ zone:'fitness' } }
+        ];
+        const pick = options.find(x => !gamePlayedToday(x.id)) || options[0];
+        location.href = buildUrl(PATHS[pick.path], pick.extra || {});
+      };
+    }
+
     function renderAll(){
       renderHero();
+      renderRewardBar();
+      renderTodayReward();
       renderCardBook();
       renderTrophyShelf();
       renderLastRun();
@@ -2546,6 +3025,7 @@
       renderMissionToday();
       renderZoneProgress();
       renderSmartStart();
+      renderMissionBoard();
     }
 
     renderAll();
