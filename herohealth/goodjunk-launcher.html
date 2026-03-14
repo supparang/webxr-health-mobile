@@ -1,8 +1,10 @@
 <!-- === /herohealth/goodjunk-launcher.html ===
 HeroHealth • GoodJunk Launcher
-PATCH v20260306-GJ-LAUNCHER-BATTLE-FLOW
-✅ Solo / Battle / Debug Battle / Teacher / Board
-✅ Pass-through hub/pid/nick/view/diff/time/room
+PATCH v20260314-GJ-LAUNCHER-SOLO-WARMUP
+✅ Solo -> warmup-gate -> run
+✅ Battle / Debug Battle direct to run page
+✅ Pass-through hub/pid/nick/view/diff/time/room/seed
+✅ Send cat=nutrition game=goodjunk Phase=warmup for gate flow
 -->
 <!doctype html>
 <html lang="th">
@@ -111,7 +113,7 @@ PATCH v20260306-GJ-LAUNCHER-BATTLE-FLOW
     <section class="hero">
       <div class="eyebrow">🥦 GoodJunk Launcher</div>
       <h1>HeroHealth • GoodJunk</h1>
-      <div class="sub">เข้าเล่นแบบ Solo / Battle / Debug Battle และเปิด Teacher Dashboard / Live Board ได้จากหน้าเดียว</div>
+      <div class="sub">Solo จะเข้า Warmup ก่อน แล้วค่อยไปเกมหลัก • Battle / Debug Battle ยังเข้าเกมตรงได้</div>
     </section>
 
     <section class="grid">
@@ -169,7 +171,8 @@ PATCH v20260306-GJ-LAUNCHER-BATTLE-FLOW
           <button id="btnBackHub" class="secondary">🏠 กลับ HUB</button>
         </div>
 
-        <div class="hint">Battle จริงใช้ 2 เครื่องหรือ 2 แท็บ room เดียวกัน • Battle Debug Solo ใช้ `debugStart=1`</div>
+        <div class="hint">Solo ใช้ flow: launcher → warmup-gate → run → summary → cooldown-gate → hub</div>
+        <div class="hint">Battle จริงใช้ 2 เครื่องหรือ 2 แท็บ room เดียวกัน • Battle Debug Solo ใช้ <code>debugStart=1</code></div>
       </div>
 
       <div class="card">
@@ -193,33 +196,65 @@ PATCH v20260306-GJ-LAUNCHER-BATTLE-FLOW
       if(v) $(id).value = v;
     });
 
-    function buildBase(){
+    function clean(v, fallback=''){
+      const s = String(v ?? '').trim();
+      return s || fallback;
+    }
+
+    function nowSeed(){
+      return String(Date.now());
+    }
+
+    function buildRunBase(){
       const u = new URL('./vr-goodjunk/goodjunk-vr.html', location.href);
-      u.searchParams.set('pid', $('pid').value.trim() || 'anon');
-      u.searchParams.set('nick', $('nick').value.trim() || $('pid').value.trim() || 'anon');
-      u.searchParams.set('room', $('room').value.trim() || 'P5A');
-      u.searchParams.set('view', $('view').value);
-      u.searchParams.set('diff', $('diff').value);
-      u.searchParams.set('time', $('time').value);
-      u.searchParams.set('hub', $('hub').value.trim() || './hub.html');
-      u.searchParams.set('seed', String(Date.now()));
+      u.searchParams.set('pid', clean($('pid').value, 'anon'));
+      u.searchParams.set('nick', clean($('nick').value, clean($('pid').value, 'anon')));
+      u.searchParams.set('room', clean($('room').value, 'P5A'));
+      u.searchParams.set('view', clean($('view').value, 'mobile'));
+      u.searchParams.set('diff', clean($('diff').value, 'easy'));
+      u.searchParams.set('time', clean($('time').value, '80'));
+      u.searchParams.set('hub', clean($('hub').value, './hub.html'));
+      u.searchParams.set('seed', nowSeed());
+      u.searchParams.set('cat', 'nutrition');
+      u.searchParams.set('game', 'goodjunk');
+      return u;
+    }
+
+    function buildWarmupBase(){
+      const u = new URL('./warmup-gate.html', location.href);
+      u.searchParams.set('Phase', 'warmup');
+      u.searchParams.set('cat', 'nutrition');
+      u.searchParams.set('game', 'goodjunk');
+
+      u.searchParams.set('pid', clean($('pid').value, 'anon'));
+      u.searchParams.set('nick', clean($('nick').value, clean($('pid').value, 'anon')));
+      u.searchParams.set('room', clean($('room').value, 'P5A'));
+
+      u.searchParams.set('run', 'play');
+      u.searchParams.set('mode', 'solo');
+
+      u.searchParams.set('view', clean($('view').value, 'mobile'));
+      u.searchParams.set('diff', clean($('diff').value, 'easy'));
+      u.searchParams.set('time', clean($('time').value, '80'));
+      u.searchParams.set('seed', nowSeed());
+      u.searchParams.set('hub', clean($('hub').value, './hub.html'));
+
       return u;
     }
 
     $('btnSolo').onclick = ()=>{
-      const u = buildBase();
-      u.searchParams.set('mode','solo');
+      const u = buildWarmupBase();
       location.href = u.toString();
     };
 
     $('btnBattle').onclick = ()=>{
-      const u = buildBase();
+      const u = buildRunBase();
       u.searchParams.set('mode','battle');
       location.href = u.toString();
     };
 
     $('btnBattleDebug').onclick = ()=>{
-      const u = buildBase();
+      const u = buildRunBase();
       u.searchParams.set('mode','battle');
       u.searchParams.set('debugStart','1');
       location.href = u.toString();
@@ -227,27 +262,27 @@ PATCH v20260306-GJ-LAUNCHER-BATTLE-FLOW
 
     $('btnTeacher').onclick = ()=>{
       const u = new URL('./goodjunk-teacher.html', location.href);
-      u.searchParams.set('room', $('room').value.trim() || 'P5A');
+      u.searchParams.set('room', clean($('room').value, 'P5A'));
       u.searchParams.set('mode', 'battle');
       location.href = u.toString();
     };
 
     $('btnBoard').onclick = ()=>{
       const u = new URL('./goodjunk-board.html', location.href);
-      u.searchParams.set('room', $('room').value.trim() || 'P5A');
+      u.searchParams.set('room', clean($('room').value, 'P5A'));
       u.searchParams.set('mode', 'battle');
       location.href = u.toString();
     };
 
     $('btnBoardNew').onclick = ()=>{
       const u = new URL('./goodjunk-board.html', location.href);
-      u.searchParams.set('room', $('room').value.trim() || 'P5A');
+      u.searchParams.set('room', clean($('room').value, 'P5A'));
       u.searchParams.set('mode', 'battle');
       window.open(u.toString(), '_blank', 'noopener');
     };
 
     $('btnBackHub').onclick = ()=>{
-      location.href = $('hub').value.trim() || './hub.html';
+      location.href = clean($('hub').value, './hub.html');
     };
   </script>
 </body>
