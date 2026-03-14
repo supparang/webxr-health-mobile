@@ -1,802 +1,1616 @@
-// === /herohealth/vr-groups/groups.safe.js ===
-// GroupsVR SAFE — FX + FAIR MISS + MOBILE LAYOUT FRIENDLY
-// FULL v20260310-GROUPS-FX-LAYOUT-HOTFIX
-/* global window, document */
-(function(){
+<!-- === /webxr-health-mobile/herohealth/vr-groups/groups-vr.html ===
+GroupsVR — CHILD-FRIENDLY SOLO RUN PAGE
+FULL PATCH v20260314-GROUPS-SOLO-ENDFLOW-TO-COOLDOWN
+✅ FIX: end flow goes to cooldown first, then hub
+✅ FIX: use phase=cooldown lowercase
+✅ FIX: persist last summary before entering cooldown
+-->
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <title>HeroHealth — GroupsVR</title>
+  <meta name="color-scheme" content="dark light"/>
+  <link rel="icon" href="../favicon.ico"/>
+  <style>
+    :root{
+      --bg:#040610;
+      --stroke: rgba(148,163,184,.18);
+      --text:#e5e7eb;
+      --muted:#94a3b8;
+      --radius:18px;
+      --sat: env(safe-area-inset-top, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sar: env(safe-area-inset-right, 0px);
+      --sal: env(safe-area-inset-left, 0px);
+    }
+
+    *{ box-sizing:border-box; }
+    html,body{
+      height:100%;
+      margin:0;
+      overflow:hidden;
+      color:var(--text);
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif;
+      background:
+        radial-gradient(1200px 800px at 20% 10%, rgba(34,211,238,.14) 0%, transparent 55%),
+        radial-gradient(1100px 700px at 80% 30%, rgba(167,139,250,.16) 0%, transparent 55%),
+        radial-gradient(900px 700px at 50% 95%, rgba(255,79,216,.08) 0%, transparent 60%),
+        linear-gradient(180deg, #0b1026, var(--bg));
+    }
+
+    #app{
+      position:relative;
+      width:100%;
+      height:100%;
+      padding: calc(8px + var(--sat)) calc(8px + var(--sar)) calc(8px + var(--sab)) calc(8px + var(--sal));
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+    }
+
+    .topbar{
+      border-radius: var(--radius);
+      border:1px solid var(--stroke);
+      background: linear-gradient(180deg, rgba(2,6,23,.80), rgba(2,6,23,.58));
+      box-shadow: 0 18px 60px rgba(0,0,0,.38);
+      padding: 8px 10px;
+      display:grid;
+      grid-template-columns: 1fr auto;
+      gap:10px;
+      align-items:center;
+      z-index:50;
+      flex:0 0 auto;
+    }
+
+    .title{
+      display:flex;
+      flex-direction:column;
+      gap:2px;
+      min-width:0;
+    }
+    .title b{
+      font-size:14px;
+      font-weight:1000;
+      letter-spacing:.2px;
+    }
+    .title span{
+      color:var(--muted);
+      font-size:11.5px;
+      line-height:1.25;
+    }
+
+    .row{
+      display:flex;
+      gap:8px;
+      align-items:center;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+    }
+
+    button{
+      cursor:pointer;
+      border-radius:14px;
+      border:1px solid rgba(148,163,184,.18);
+      background: rgba(2,6,23,.55);
+      color:var(--text);
+      padding:8px 12px;
+      transition: transform .08s ease, background .15s ease, border-color .15s ease;
+      user-select:none;
+      font-weight:900;
+    }
+    button:hover{
+      transform:translateY(-1px);
+      background: rgba(2,6,23,.72);
+      border-color: rgba(148,163,184,.32);
+    }
+
+    .stage{
+      position:relative;
+      flex:1 1 auto;
+      min-height:0;
+      border-radius: var(--radius);
+      border:1px solid rgba(148,163,184,.14);
+      background: rgba(2,6,23,.22);
+      overflow:hidden;
+      box-shadow: 0 20px 80px rgba(0,0,0,.35);
+    }
+
+    #bgLayer{
+      position:absolute;
+      inset:0;
+      overflow:hidden;
+      pointer-events:none;
+      z-index:0;
+      background:
+        radial-gradient(900px 420px at 50% 115%, rgba(56,189,248,.06), transparent 60%),
+        linear-gradient(180deg, rgba(15,23,42,.22), rgba(2,6,23,.04));
+    }
+
+    .bgFloor{
+      position:absolute;
+      left:-4%;
+      right:-4%;
+      bottom:-2%;
+      height:42%;
+      background:
+        linear-gradient(180deg, rgba(30,41,59,.10), rgba(30,41,59,.34)),
+        repeating-linear-gradient(
+          90deg,
+          rgba(255,255,255,.018) 0 32px,
+          rgba(255,255,255,.00) 32px 64px
+        );
+      border-top:1px solid rgba(148,163,184,.10);
+    }
+
+    .bgCats{
+      position:absolute;
+      left:50%;
+      bottom:14%;
+      transform:translateX(-50%);
+      width:min(820px, 92%);
+      display:grid;
+      grid-template-columns:repeat(5, 1fr);
+      gap:16px;
+      align-items:end;
+      opacity:.92;
+    }
+
+    .bgCat{
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      gap:8px;
+      transition: transform .18s ease, opacity .18s ease, filter .18s ease;
+      opacity:.72;
+    }
+
+    .bgCatBox{
+      width:100%;
+      aspect-ratio:1/1;
+      max-width:98px;
+      border-radius:18px;
+      border:1px solid rgba(255,255,255,.16);
+      box-shadow:0 14px 26px rgba(0,0,0,.22), inset 0 1px 0 rgba(255,255,255,.12);
+      background: var(--cat);
+      opacity:.86;
+      transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease, opacity .18s ease;
+    }
+
+    .bgCatLabel{
+      text-align:center;
+      color:#fff;
+      font-size:12px;
+      font-weight:1000;
+      line-height:1.2;
+      text-shadow:0 2px 8px rgba(0,0,0,.28);
+      white-space:pre-line;
+    }
+
+    .bgCat.active{
+      opacity:1;
+      transform: translateY(-3px) scale(1.03);
+    }
+
+    .bgCat.active .bgCatBox{
+      border-color: rgba(255,255,255,.42);
+      box-shadow:
+        0 0 0 3px color-mix(in srgb, var(--cat) 78%, white 22%),
+        0 0 22px color-mix(in srgb, var(--cat) 64%, transparent 36%),
+        0 14px 26px rgba(0,0,0,.24),
+        inset 0 1px 0 rgba(255,255,255,.18);
+      transform: translateY(-2px) scale(1.04);
+      opacity:1;
+    }
+
+    #playLayer{
+      position:absolute;
+      inset:0;
+      overflow:hidden;
+      pointer-events:auto;
+      z-index:1;
+    }
+
+    .hud{
+      position:absolute;
+      left:8px;
+      right:8px;
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:8px;
+      pointer-events:none;
+      z-index:30;
+    }
+    .hudTop{ top: calc(8px + var(--sat)); }
+
+    .hudLeftCol{
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+      width:100%;
+    }
+
+    .hudBox{
+      display:grid;
+      grid-template-columns:repeat(5, auto);
+      gap:8px;
+      align-items:center;
+      padding:5px 8px;
+      border-radius:14px;
+      border:1px solid rgba(148,163,184,.16);
+      background: rgba(2,6,23,.54);
+      backdrop-filter: blur(8px);
+    }
+
+    .hudMetric{
+      display:flex;
+      gap:5px;
+      align-items:center;
+      min-width:0;
+    }
+    .hudMetric .k{
+      color:var(--muted);
+      font-size:10px;
+      font-weight:900;
+    }
+    .hudMetric .v{
+      color:var(--text);
+      font-size:12px;
+      font-weight:1000;
+    }
+
+    .questTop{
+      display:flex;
+      flex-direction:column;
+      gap:5px;
+      padding:6px 8px;
+      border-radius:14px;
+      border:1px solid rgba(148,163,184,.14);
+      background: rgba(2,6,23,.44);
+      backdrop-filter: blur(8px);
+    }
+
+    .questLine{
+      display:flex;
+      justify-content:space-between;
+      gap:8px;
+      align-items:flex-start;
+      flex-wrap:wrap;
+    }
+
+    .questTitle{
+      font-size:12px;
+      font-weight:1000;
+      line-height:1.22;
+    }
+    .questMini{
+      color:var(--muted);
+      font-size:10px;
+      font-weight:900;
+      line-height:1.2;
+    }
+
+    .bar{
+      height:9px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.18);
+      background: rgba(2,6,23,.55);
+      overflow:hidden;
+    }
+    .bar > i{
+      display:block;
+      height:100%;
+      width:0%;
+      background: linear-gradient(90deg, rgba(34,211,238,.95), rgba(167,139,250,.92), rgba(255,79,216,.86));
+      transition: width .10s linear;
+    }
+
+    .powerWrap{
+      position:absolute;
+      left:8px;
+      top:98px;
+      width:min(178px, 46vw);
+      display:flex;
+      flex-direction:column;
+      gap:5px;
+      padding:6px 8px;
+      border-radius:14px;
+      border:1px solid rgba(148,163,184,.14);
+      background: rgba(2,6,23,.44);
+      backdrop-filter: blur(8px);
+      box-shadow: 0 10px 24px rgba(0,0,0,.16);
+      z-index:31;
+      pointer-events:none;
+      --group-accent: rgba(148,163,184,.20);
+    }
+    .powerWrap.activeGroup{
+      border-color: color-mix(in srgb, var(--group-accent) 58%, rgba(148,163,184,.18));
+      box-shadow:
+        0 0 0 1px color-mix(in srgb, var(--group-accent) 26%, transparent),
+        0 10px 24px rgba(0,0,0,.16),
+        0 0 22px color-mix(in srgb, var(--group-accent) 18%, transparent);
+    }
+
+    .powerHead{
+      display:flex;
+      justify-content:space-between;
+      gap:8px;
+      align-items:center;
+    }
+    .powerHead b{ font-size:12px; line-height:1.15; }
+    .powerHead span{
+      color:var(--muted);
+      font-size:10px;
+      font-weight:1000;
+    }
+
+    .coachToast{
+      position:absolute;
+      left:10px;
+      right:10px;
+      bottom: calc(10px + var(--sab) + 92px);
+      display:none;
+      z-index:40;
+      pointer-events:none;
+      transform: translateY(10px);
+      opacity:0;
+      transition: opacity .18s ease, transform .18s ease;
+    }
+    .coachToast.show{
+      display:block;
+      opacity:1;
+      transform:translateY(0);
+    }
+    .coachWrap{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      padding:7px 10px;
+      border-radius:16px;
+      border:1px solid rgba(148,163,184,.16);
+      background: rgba(2,6,23,.60);
+      backdrop-filter: blur(10px);
+      box-shadow: 0 14px 32px rgba(0,0,0,.22);
+      max-width:min(560px,100%);
+    }
+    .coachWrap .face{
+      width:34px;
+      height:34px;
+      border-radius:12px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      background: rgba(148,163,184,.10);
+      border:1px solid rgba(148,163,184,.14);
+      font-size:18px;
+      flex:0 0 auto;
+    }
+    .coachWrap .txt{
+      font-weight:1000;
+      font-size:13px;
+      line-height:1.25;
+    }
+    .coachWrap .sub{
+      color:var(--muted);
+      font-size:11px;
+      font-weight:900;
+      margin-top:2px;
+    }
+
+    #stageFlash{
+      position:absolute;
+      inset:0;
+      pointer-events:none;
+      opacity:0;
+      z-index:35;
+      background:radial-gradient(circle at 50% 50%, rgba(255,255,255,.14), rgba(255,255,255,0));
+      transition:opacity .14s ease;
+    }
+    #stageFlash.good{ background:radial-gradient(circle at 50% 50%, rgba(34,197,94,.16), rgba(34,197,94,0)); }
+    #stageFlash.bad{ background:radial-gradient(circle at 50% 50%, rgba(239,68,68,.14), rgba(239,68,68,0)); }
+    #stageFlash.boss{ background:radial-gradient(circle at 50% 50%, rgba(245,158,11,.18), rgba(245,158,11,0)); }
+
+    #fxLayer{
+      position:absolute;
+      inset:0;
+      pointer-events:none;
+      overflow:hidden;
+      z-index:38;
+    }
+
+    .scorePop{
+      position:absolute;
+      font-weight:1100;
+      font-size:22px;
+      line-height:1;
+      text-shadow: 0 2px 12px rgba(0,0,0,.28);
+      animation: scorePopUp .55s ease-out forwards;
+      will-change: transform, opacity;
+    }
+    .scorePop.good{ color:#86efac; }
+    .scorePop.bad{ color:#fca5a5; }
+
+    @keyframes scorePopUp{
+      0%{ transform: translate(-50%,-50%) scale(.72); opacity:0; }
+      15%{ transform: translate(-50%,-58%) scale(1.04); opacity:1; }
+      100%{ transform: translate(-50%,-110%) scale(.98); opacity:0; }
+    }
+
+    .hudPulse{ animation:hudPulse .28s ease-out; }
+    @keyframes hudPulse{
+      0%{ transform:scale(1); }
+      40%{ transform:scale(1.05); }
+      100%{ transform:scale(1); }
+    }
+    .comboHot{
+      color:#fff;
+      text-shadow:0 0 10px rgba(255,79,216,.45), 0 0 20px rgba(167,139,250,.28);
+    }
+    .rankFlash{ animation:rankFlash .42s ease-out; }
+    @keyframes rankFlash{
+      0%{ transform:scale(1); opacity:1; }
+      35%{ transform:scale(1.18); opacity:1; }
+      100%{ transform:scale(1); opacity:1; }
+    }
+
+    .tgt{
+      width:92px;
+      height:92px;
+      border-radius:22px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size:42px;
+      font-weight:1000;
+      background: rgba(15,23,42,.72);
+      border:1px solid rgba(148,163,184,.22);
+      box-shadow: 0 12px 30px rgba(0,0,0,.22);
+      pointer-events:auto;
+      user-select:none;
+      -webkit-tap-highlight-color: transparent;
+      position:absolute;
+    }
+    .tgt::before{
+      content:"";
+      position:absolute;
+      inset:-18px;
+      border-radius:32px;
+    }
+
+    body[data-view="pc"] .tgt{
+      width:88px;
+      height:88px;
+      font-size:40px;
+      border-radius:21px;
+    }
+
+    body[data-view="mobile"] .tgt{
+      width:118px;
+      height:118px;
+      font-size:52px;
+      border-radius:26px;
+    }
+
+    body[data-view="cvr"] .tgt{
+      width:120px;
+      height:120px;
+      font-size:52px;
+      border-radius:28px;
+    }
+
+    body[data-view="cvr"][data-cvr-strict="1"] .tgt{
+      pointer-events:none !important;
+    }
+
+    .overlay{
+      position:absolute;
+      inset:0;
+      display:none;
+      align-items:flex-start;
+      justify-content:center;
+      background: rgba(0,0,0,.62);
+      backdrop-filter: blur(10px);
+      z-index:9000;
+      padding:
+        calc(12px + var(--sat))
+        12px
+        calc(12px + var(--sab))
+        12px;
+      overflow:auto;
+    }
+
+    .overlayCard{
+      width:min(860px, 100%);
+      max-height:min(88vh, 760px);
+      border-radius: var(--radius);
+      border:1px solid rgba(148,163,184,.18);
+      background: linear-gradient(180deg, rgba(2,6,23,.94), rgba(2,6,23,.78));
+      box-shadow: 0 30px 120px rgba(0,0,0,.55);
+      overflow:hidden;
+      display:flex;
+      flex-direction:column;
+      margin:auto 0;
+    }
+
+    .overlayCard header{
+      padding:12px;
+      border-bottom:1px solid rgba(148,163,184,.14);
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    .overlayBtns{
+      padding:12px;
+      border-top:1px solid rgba(148,163,184,.14);
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      justify-content:center;
+    }
+
+    #endCard main{
+      padding:12px;
+      display:grid;
+      grid-template-columns:1fr;
+      gap:10px;
+      overflow:auto;
+      min-height:0;
+    }
+
+    .panel{
+      border-radius:18px;
+      border:1px solid rgba(148,163,184,.14);
+      background: rgba(2,6,23,.50);
+      padding:10px;
+    }
+
+    .panel h3, .panel h4{
+      margin:0 0 8px;
+      font-size:14px;
+      line-height:1.2;
+    }
+
+    .statGrid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:8px;
+    }
+
+    .statCard{
+      border-radius:14px;
+      border:1px solid rgba(148,163,184,.12);
+      background: rgba(15,23,42,.52);
+      padding:10px;
+      min-width:0;
+    }
+
+    .statCard .k{
+      color:var(--muted);
+      font-size:10px;
+      font-weight:1000;
+      margin-bottom:4px;
+      letter-spacing:.2px;
+    }
+    .statCard .v{
+      color:var(--text);
+      font-size:18px;
+      font-weight:1000;
+      line-height:1.1;
+      word-break:break-word;
+    }
+
+    .miniList{
+      display:grid;
+      gap:8px;
+    }
+
+    .miniRow{
+      display:flex;
+      justify-content:space-between;
+      gap:8px;
+      align-items:flex-start;
+      padding:8px 10px;
+      border-radius:12px;
+      border:1px solid rgba(148,163,184,.10);
+      background: rgba(15,23,42,.38);
+    }
+
+    .miniRow .k{
+      color:var(--muted);
+      font-size:11px;
+      font-weight:900;
+    }
+    .miniRow .v{
+      color:var(--text);
+      font-size:12px;
+      font-weight:1000;
+      text-align:right;
+      word-break:break-word;
+    }
+
+    @media (max-width:760px){
+      .statGrid{
+        grid-template-columns:repeat(2,minmax(0,1fr));
+      }
+      .bgCats{
+        bottom:13%;
+        gap:10px;
+        width:min(96%, 760px);
+      }
+      .bgCatBox{
+        max-width:72px;
+        border-radius:14px;
+      }
+      .bgCatLabel{ font-size:10px; }
+    }
+
+    @media (max-width:640px){
+      #app{
+        gap:6px;
+        padding: calc(6px + var(--sat)) calc(6px + var(--sar)) calc(6px + var(--sab)) calc(6px + var(--sal));
+      }
+
+      .topbar{
+        padding:6px 8px;
+        gap:6px;
+        border-radius:14px;
+      }
+
+      .title b{ font-size:12px; }
+      .title span{
+        font-size:9px;
+        line-height:1.1;
+      }
+
+      .row{ gap:5px; }
+
+      button{
+        padding:6px 9px;
+        font-size:11px;
+        border-radius:10px;
+      }
+
+      .hud{ left:6px; right:6px; }
+
+      .hudBox{
+        gap:4px;
+        padding:4px 6px;
+        border-radius:10px;
+      }
+      .hudMetric .k{ font-size:8px; }
+      .hudMetric .v{ font-size:10px; }
+
+      .questTop{
+        gap:3px;
+        padding:4px 6px;
+        border-radius:10px;
+      }
+      .questTitle{ font-size:10px; }
+      .questMini{ font-size:8px; }
+
+      .bar{ height:7px; }
+
+      .powerWrap{
+        left:6px;
+        top:82px;
+        width:min(126px, 35vw);
+        gap:3px;
+        padding:4px 5px;
+        border-radius:10px;
+      }
+      .powerHead b{
+        font-size:9px;
+        white-space:nowrap;
+        overflow:hidden;
+        text-overflow:ellipsis;
+        max-width:70px;
+      }
+      .powerHead span{ font-size:8px; }
+      #pText{ font-size:10px !important; }
+
+      .coachToast{
+        left:8px;
+        right:8px;
+        bottom: calc(8px + var(--sab) + 78px);
+      }
+      .coachWrap{
+        gap:8px;
+        padding:6px 8px;
+        border-radius:14px;
+      }
+      .coachWrap .face{
+        width:30px;
+        height:30px;
+        border-radius:10px;
+        font-size:16px;
+      }
+      .coachWrap .txt{ font-size:12px; }
+      .coachWrap .sub{ font-size:10px; }
+
+      body[data-view="mobile"] .tgt{
+        width:118px;
+        height:118px;
+        font-size:52px;
+      }
+
+      .bgFloor{
+        height:36%;
+      }
+    }
+
+    @media (max-width:560px){
+      .overlay{
+        padding:
+          calc(8px + var(--sat))
+          8px
+          calc(8px + var(--sab) + 84px)
+          8px;
+      }
+      .overlayCard{
+        max-height:none;
+        min-height:auto;
+        border-radius:16px;
+      }
+      .overlayCard header{
+        padding:10px;
+        gap:8px;
+      }
+      #endCard main{
+        padding:10px;
+        gap:8px;
+      }
+      .overlayBtns{
+        padding:10px;
+        gap:8px;
+        position:sticky;
+        bottom:0;
+        background: linear-gradient(180deg, rgba(2,6,23,.72), rgba(2,6,23,.96));
+        backdrop-filter: blur(10px);
+      }
+      .overlayBtns button{
+        flex:1 1 100%;
+      }
+    }
+
+    @media (max-width:520px){
+      .bgCats{
+        bottom:12%;
+        gap:8px;
+      }
+      .bgCatBox{
+        max-width:58px;
+        border-radius:12px;
+      }
+      .bgCatLabel{ font-size:9px; }
+    }
+
+    @media (max-width:460px){
+      .topbar{ padding:6px 7px; }
+      .title b{ font-size:12px; }
+      .title span{ font-size:9px; }
+
+      .hudBox{
+        grid-template-columns:repeat(5,minmax(0,1fr));
+        gap:4px;
+        padding:4px 5px;
+      }
+      .hudMetric{
+        justify-content:center;
+        gap:4px;
+      }
+      .hudMetric .k{ font-size:8px; }
+      .hudMetric .v{ font-size:9.5px; }
+
+      .questTop{ padding:4px 5px; }
+      .questTitle{ font-size:9.5px; }
+      .questMini{ font-size:8px; }
+
+      .powerWrap{
+        top:80px;
+        width:min(120px, 34vw);
+        padding:4px 5px;
+      }
+      .powerHead b{ font-size:9px; }
+
+      body[data-view="mobile"] .tgt{
+        width:112px;
+        height:112px;
+        font-size:48px;
+        border-radius:24px;
+      }
+
+      .bgCats{
+        bottom:8%;
+        gap:6px;
+        opacity:.76;
+      }
+      .bgCatBox{
+        max-width:42px;
+        border-radius:10px;
+      }
+      .bgCatLabel{ font-size:7.5px; }
+    }
+
+    body.hud-compact .topbar{ padding:6px 7px; gap:6px; }
+    body.hud-compact .title b{ font-size:12px; }
+    body.hud-compact .title span{ font-size:9px; line-height:1.1; }
+    body.hud-compact .row{ gap:5px; }
+    body.hud-compact .hud{ left:5px; right:5px; }
+    body.hud-compact .hudBox{ padding:4px 5px; gap:4px; border-radius:10px; }
+    body.hud-compact .hudMetric .k{ font-size:8px; }
+    body.hud-compact .hudMetric .v{ font-size:9px; }
+    body.hud-compact .questTop{ padding:4px 5px; gap:3px; border-radius:10px; }
+    body.hud-compact .questTitle{ font-size:9px; }
+    body.hud-compact .questMini{ font-size:7.5px; }
+    body.hud-compact .powerWrap{
+      left:5px;
+      top:78px;
+      width:min(112px, 33vw);
+      padding:4px 5px;
+      gap:3px;
+      border-radius:10px;
+    }
+    body.hud-compact .powerHead b{ font-size:8.5px; }
+    body.hud-compact .powerHead span{ font-size:7.5px; }
+
+    body.power-autohide .powerWrap{
+      opacity:.28;
+      transform: translateY(0) scale(.98);
+    }
+    body.power-autohide .powerWrap.peek{
+      opacity:.96;
+      transform: translateY(0) scale(1);
+    }
+    body.power-autohide .powerWrap.minimized{
+      opacity:.16;
+      transform: translateY(0) scale(.96);
+    }
+    body.power-autohide .powerWrap.minimized .bar,
+    body.power-autohide .powerWrap.minimized #pText{
+      opacity:0;
+      max-height:0;
+      overflow:hidden;
+    }
+
+    body.end-open .topbar{
+      opacity:.72;
+      transform: scale(.995);
+    }
+    body.end-open .coachToast,
+    body.end-open .powerWrap,
+    body.end-open #stageFlash,
+    body.end-open #fxLayer{
+      opacity:0;
+      pointer-events:none;
+    }
+  </style>
+</head>
+<body>
+<div id="app">
+  <div class="topbar">
+    <div class="title">
+      <b>🥗 เกมอาหาร 5 หมู่</b>
+      <span id="subline">ยิงให้ถูกหมวด เก็บคะแนน และสะสมคอมโบ</span>
+    </div>
+    <div class="row">
+      <button id="btnRestart">เริ่มใหม่</button>
+      <button id="btnBack">กลับหน้าหลัก</button>
+    </div>
+  </div>
+
+  <div class="stage" id="stage">
+    <div id="bgLayer" aria-hidden="true">
+      <div class="bgFloor"></div>
+      <div class="bgCats">
+        <div class="bgCat" data-group="1"><div class="bgCatBox" style="--cat:#e11d48;"></div><div class="bgCatLabel">หมู่ 1
+โปรตีน</div></div>
+        <div class="bgCat" data-group="2"><div class="bgCatBox" style="--cat:#f97316;"></div><div class="bgCatLabel">หมู่ 2
+คาร์โบไฮเดรต</div></div>
+        <div class="bgCat" data-group="3"><div class="bgCatBox" style="--cat:#22c55e;"></div><div class="bgCatLabel">หมู่ 3
+ผัก</div></div>
+        <div class="bgCat" data-group="4"><div class="bgCatBox" style="--cat:#38bdf8;"></div><div class="bgCatLabel">หมู่ 4
+ผลไม้</div></div>
+        <div class="bgCat" data-group="5"><div class="bgCatBox" style="--cat:#a855f7;"></div><div class="bgCatLabel">หมู่ 5
+ไขมัน</div></div>
+      </div>
+    </div>
+
+    <div id="playLayer"></div>
+    <div id="stageFlash"></div>
+    <div id="fxLayer"></div>
+
+    <div class="hud hudTop">
+      <div class="hudLeftCol">
+        <div class="hudBox">
+          <div class="hudMetric"><span class="k">เวลา</span><span class="v" id="hudTime">—</span></div>
+          <div class="hudMetric"><span class="k">คะแนน</span><span class="v" id="hudScore">0</span></div>
+          <div class="hudMetric"><span class="k">คอมโบ</span><span class="v" id="hudCombo">x0</span></div>
+          <div class="hudMetric"><span class="k">พลาด</span><span class="v" id="hudMiss">0</span></div>
+          <div class="hudMetric"><span class="k">ระดับ</span><span class="v" id="hudRank">—</span></div>
+        </div>
+
+        <div class="questTop">
+          <div class="questLine">
+            <div class="questTitle"><span id="qTitle">ภารกิจ</span> <span id="qSub" style="color:var(--muted); font-weight:900;"></span></div>
+            <div class="questMini"><span id="qMini">พลังพิเศษ · 0/0</span> <span id="qMiniTime"></span></div>
+          </div>
+          <div class="bar"><i id="qBar"></i></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="powerWrap">
+      <div class="powerHead">
+        <b id="groupName">หมู่ 1 โปรตีน</b>
+        <span>POWER</span>
+      </div>
+      <div class="bar"><i id="pBar"></i></div>
+      <div style="color:var(--muted); font-size:12px; font-weight:900;">
+        <span id="pText">0 / 8</span>
+      </div>
+    </div>
+
+    <div class="coachToast" id="coachToast" aria-live="polite">
+      <div class="coachWrap">
+        <div class="face" id="toastFace">🙂</div>
+        <div>
+          <div class="txt" id="toastTxt">เริ่มได้เลย!</div>
+          <div class="sub" id="toastSub">แตะหรือยิงเป้าให้ถูกหมวด</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="overlay" id="endOverlay" aria-hidden="true">
+      <div class="overlayCard" id="endCard">
+        <header>
+          <div>
+            <b id="endTitle">สรุปผลเกม</b>
+            <span style="color:var(--muted); font-weight:900;" id="endSub"></span>
+          </div>
+        </header>
+        <main>
+          <section class="panel">
+            <h3 id="childHeadline">เก่งมาก!</h3>
+            <div class="statGrid">
+              <div class="statCard"><div class="k">คะแนน</div><div class="v" id="sumScore">0</div></div>
+              <div class="statCard"><div class="k">ระดับ</div><div class="v" id="sumGrade">—</div></div>
+              <div class="statCard"><div class="k">ความแม่นยำ</div><div class="v" id="sumAcc">0%</div></div>
+              <div class="statCard"><div class="k">พลาด</div><div class="v" id="sumMiss">0</div></div>
+              <div class="statCard"><div class="k">คอมโบสูงสุด</div><div class="v" id="sumCombo">0</div></div>
+              <div class="statCard"><div class="k">เวลาเล่น</div><div class="v" id="sumTime">0s</div></div>
+            </div>
+
+            <div class="miniList" style="margin-top:10px;">
+              <div class="miniRow"><div class="k">หมู่ล่าสุด</div><div class="v" id="sumGroupLast">—</div></div>
+              <div class="miniRow"><div class="k">เป้าพิเศษที่ทำได้</div><div class="v" id="sumBossHits">0</div></div>
+            </div>
+
+            <div class="panel" style="margin-top:10px; background:rgba(15,23,42,.40);">
+              <h4 style="margin:0 0 6px;">ข้อความจากโค้ช</h4>
+              <div id="childCoachMsg" style="font-size:14px; font-weight:1000; line-height:1.35;">
+                เยี่ยมเลย! ไปผ่อนคลายต่อกัน
+              </div>
+            </div>
+          </section>
+        </main>
+        <div class="overlayBtns">
+          <button id="btnEndContinue">ไป Cooldown</button>
+          <button id="btnEndAgain">เล่นอีกครั้ง</button>
+          <button id="btnEndGoHub">กลับหน้าหลัก</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="../vr/vr-ui.js"></script>
+<script src="./ai-hooks.js"></script>
+<script src="./groups.safe.js"></script>
+
+<script>
+(() => {
   'use strict';
 
-  const WIN = window;
-  const DOC = document;
+  const ROOT = '/webxr-health-mobile/herohealth';
+  const QS = (()=>{ try{ return new URL(location.href).searchParams; }catch(_){ return new URLSearchParams(); } })();
+  const q = (k, d='') => (QS.get(k) ?? d);
 
-  const clamp = (v,a,b)=>{ v=Number(v); if(!Number.isFinite(v)) v=a; return Math.max(a, Math.min(b,v)); };
-  const nowMs = ()=> (performance && performance.now) ? performance.now() : Date.now();
+  const RUN  = String(q('run','play')).toLowerCase();
+  const DIFF = String(q('diff','easy')).toLowerCase();
+  const VIEW = String(q('view','mobile')).toLowerCase();
+  const TIME = Number(q('time','80') || 80);
+  const SEED = String(q('seed','') || Date.now());
+  const HUB  = String(q('hub', `${ROOT}/hub.html`) || `${ROOT}/hub.html`);
+  const PID  = String(q('pid','anon') || 'anon');
+  const ZONE = String(q('zone','nutrition') || 'nutrition');
+  const CAT  = String(q('cat','nutrition') || 'nutrition');
+  const CVR_STRICT = (VIEW === 'cvr') && (String(q('cvrStrict','1') || '1') !== '0');
 
-  function xmur3(str){
-    str = String(str || '');
-    let h = 1779033703 ^ str.length;
-    for(let i=0;i<str.length;i++){
-      h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
-      h = (h << 13) | (h >>> 19);
-    }
-    return function(){
-      h = Math.imul(h ^ (h >>> 16), 2246822507);
-      h = Math.imul(h ^ (h >>> 13), 3266489909);
-      return (h ^= (h >>> 16)) >>> 0;
-    };
-  }
-  function sfc32(a,b,c,d){
-    return function(){
-      a >>>= 0; b >>>= 0; c >>>= 0; d >>>= 0;
-      let t = (a + b) | 0;
-      a = b ^ (b >>> 9);
-      b = (c + (c << 3)) | 0;
-      c = (c << 21) | (c >>> 11);
-      d = (d + 1) | 0;
-      t = (t + d) | 0;
-      c = (c + t) | 0;
-      return (t >>> 0) / 4294967296;
-    };
-  }
-  function makeRng(seedStr){
-    const s = xmur3(seedStr);
-    return sfc32(s(), s(), s(), s());
-  }
-  const pick = (rng, arr)=> arr[(rng() * arr.length) | 0];
+  document.body.setAttribute('data-view', VIEW);
+  document.body.setAttribute('data-cvr-strict', CVR_STRICT ? '1' : '0');
 
-  function emit(name, detail){
-    try{ WIN.dispatchEvent(new CustomEvent(name, { detail: detail || {} })); }catch(_){}
-  }
-  function coach(text, mood){
-    emit('hha:coach', { text: String(text || ''), mood: String(mood || 'neutral') });
-  }
+  const $ = (s)=>document.querySelector(s);
+  const hudTime = $('#hudTime');
+  const hudScore = $('#hudScore');
+  const hudCombo = $('#hudCombo');
+  const hudMiss = $('#hudMiss');
+  const hudRank = $('#hudRank');
+  const qTitle = $('#qTitle');
+  const qSub = $('#qSub');
+  const qBar = $('#qBar');
+  const qMini = $('#qMini');
+  const qMiniTime = $('#qMiniTime');
+  const groupName = $('#groupName');
+  const pBar = $('#pBar');
+  const pText = $('#pText');
+  const powerWrap = document.querySelector('.powerWrap');
+  const bgCats = Array.from(document.querySelectorAll('.bgCat'));
+  const coachToast = $('#coachToast');
+  const toastFace = $('#toastFace');
+  const toastTxt = $('#toastTxt');
+  const toastSub = $('#toastSub');
+  const stageFlash = $('#stageFlash');
+  const fxLayer = $('#fxLayer');
+  const playLayer = $('#playLayer');
+  const endOverlay = $('#endOverlay');
+  const endSub = $('#endSub');
+  const childHeadline = $('#childHeadline');
+  const childCoachMsg = $('#childCoachMsg');
+  const sumGrade = $('#sumGrade');
+  const sumScore = $('#sumScore');
+  const sumAcc = $('#sumAcc');
+  const sumMiss = $('#sumMiss');
+  const sumCombo = $('#sumCombo');
+  const sumTime = $('#sumTime');
+  const sumGroupLast = $('#sumGroupLast');
+  const sumBossHits = $('#sumBossHits');
 
-  function getSafeRect(layerEl){
-    const s = WIN.__HHA_SPAWN_SAFE__;
-    if(s && Number.isFinite(s.xMin)) return s;
-
-    const r = layerEl.getBoundingClientRect();
-    const PAD = 16;
-    return {
-      xMin: PAD,
-      xMax: Math.max(PAD + 1, r.width - PAD),
-      yMin: 154,
-      yMax: Math.max(230, r.height - 168)
-    };
-  }
-
-  function setObjCenterFromEl(obj){
-    try{
-      const b = obj.el.getBoundingClientRect();
-      obj.lastX = b.left + b.width / 2;
-      obj.lastY = b.top + b.height / 2;
-    }catch(_){}
-  }
-
-  const GROUPS = [
-    { id:1, short:'หมู่ 1', name:'หมู่ 1 โปรตีน', items:['🥚','🐟','🥛','🍗','🥜'] },
-    { id:2, short:'หมู่ 2', name:'หมู่ 2 คาร์โบไฮเดรต', items:['🍚','🍞','🥔','🍜','🥖'] },
-    { id:3, short:'หมู่ 3', name:'หมู่ 3 ผัก', items:['🥦','🥬','🥕','🥒','🌽'] },
-    { id:4, short:'หมู่ 4', name:'หมู่ 4 ผลไม้', items:['🍌','🍎','🍊','🍉','🍇'] },
-    { id:5, short:'หมู่ 5', name:'หมู่ 5 ไขมัน', items:['🥑','🫒','🧈','🥥','🧀'] },
-  ];
-
-  const WARN_GAP_MS = 2200;
-  let __lastWarnMs = 0;
-
-  function smooth01(x){
-    x = Math.max(0, Math.min(1, x));
-    return x*x*(3 - 2*x);
-  }
-
-  function rampMul(elapsedSec, plannedSec, runMode, diff){
-    if(runMode === 'practice') return 1;
-    const RAMP_MAX = (diff === 'easy') ? 0.15 : (diff === 'hard') ? 0.28 : 0.21;
-    return 1 + RAMP_MAX * smooth01(elapsedSec / Math.max(1, plannedSec));
-  }
-
-  function ttlShrinkMul(elapsedSec, plannedSec, runMode, diff){
-    if(runMode === 'practice') return 1;
-    const SHR = (diff === 'easy') ? 0.14 : (diff === 'hard') ? 0.26 : 0.20;
-    return 1 - SHR * smooth01(elapsedSec / Math.max(1, plannedSec));
-  }
-
-  function streakBonus(combo){
-    combo = Number(combo) || 0;
-    if(combo >= 15) return 12;
-    if(combo >= 10) return 9;
-    if(combo >= 7) return 6;
-    if(combo >= 5) return 4;
-    if(combo >= 3) return 2;
-    return 0;
-  }
-
-  function aiWarnMaybe(elapsedSec, plannedSec, accPct, miss, combo, stage){
-    const t = nowMs();
-    if(t - __lastWarnMs < WARN_GAP_MS) return;
-
-    let hazard = null;
-    try{
-      const pred = WIN.HHA_AI?.getPrediction?.() || null;
-      if(pred && pred.hazardRisk != null) hazard = Number(pred.hazardRisk);
-    }catch(_){}
-
-    const late = elapsedSec > plannedSec * 0.55;
-
-    let msg = '';
-    let mood = 'neutral';
-
-    if(stage === 'boss'){
-      msg = 'บอสมา! เน้น “หมู่เดียว” ให้แม่น ⚡';
-      mood = 'fever';
-    }else if(hazard != null && hazard >= 0.78 && late){
-      msg = 'เริ่มพลาดถี่—ช้าลงนิด แล้วเล็งให้ตรงหมู่ 🎯';
-      mood = 'sad';
-    }else if(accPct < 55){
-      msg = 'โฟกัส “หมู่ที่ถูก” ก่อน อย่ายิงมั่ว 👀';
-      mood = 'neutral';
-    }else if(combo >= 5){
-      msg = 'คอมโบมา! รักษาจังหวะ 🔥';
-      mood = 'happy';
-    }else if(late){
-      msg = 'ช่วงท้ายเริ่มเดือดขึ้น—ใจเย็นและคุมคอมโบ 🎯';
-      mood = 'neutral';
-    }else{
-      return;
-    }
-
-    __lastWarnMs = t;
-    coach(msg, mood);
-  }
-
-  const STATE = {
-    layerEl: null,
-    running: false,
-    paused: false,
-    raf: 0,
-
-    diff: 'normal',
-    ctx: null,
-    runMode: 'play',
-    plannedSec: 90,
-    seedStr: '',
-    view: 'mobile',
-
-    rng: null,
-
-    startMs: 0,
-    lastTick: 0,
-    tLeft: 0,
-    elapsed: 0,
-
-    score: 0,
-    combo: 0,
-    bestCombo: 0,
-    miss: 0,
-    shots: 0,
-    hits: 0,
-
-    curGroup: null,
-    goalTotal: 10,
-    goalNow: 0,
-
-    charge: 0,
-    chargeNeed: 8,
-
-    stage: 'main',
-    bossLeft: 0,
-    bossSec: 12,
-    bossHits: 0,
-
-    spawnAcc: 0,
-    baseSpawnPerSec: 1.18,
-    baseTtl: 2.95,
-
-    map: new Map(),
-    idSeq: 1
+  const GROUP_COLORS = {
+    1: '#e11d48',
+    2: '#f97316',
+    3: '#22c55e',
+    4: '#38bdf8',
+    5: '#a855f7'
   };
 
-  function accPct(){
-    return STATE.shots > 0 ? Math.round((STATE.hits / STATE.shots) * 100) : 0;
-  }
+  let toastTimer = null;
+  let powerPeekTimer = null;
+  let activeGroupNo = null;
+  let isStarting = false;
+  let isRestarting = false;
+  let hasBooted = false;
+  let bootNonce = 0;
+  let lastSummary = null;
 
-  function gradeLetter(){
-    const a = accPct();
-    const x = (a * 0.68) + (STATE.bestCombo * 1.05) - Math.min(20, STATE.miss) * 0.8;
-    if(x >= 92) return 'S';
-    if(x >= 80) return 'A';
-    if(x >= 66) return 'B';
-    if(x >= 50) return 'C';
-    return 'D';
-  }
-
-  function setLayerEl(el){
-    STATE.layerEl = el || null;
-  }
-
-  function clearTargets(){
-    for(const t of STATE.map.values()){
-      try{ t.el.remove(); }catch(_){}
-    }
-    STATE.map.clear();
-  }
-
-  function posInSafe(){
-    const r = getSafeRect(STATE.layerEl);
-    const x = r.xMin + STATE.rng() * Math.max(1, (r.xMax - r.xMin));
-    const y = r.yMin + STATE.rng() * Math.max(1, (r.yMax - r.yMin));
-    return { x, y };
-  }
-
-  function makeTargetClass(mission){
-    return mission ? 'tgt tgt-mission' : 'tgt tgt-other';
-  }
-
-  function createTarget(){
-    const id = String(STATE.idSeq++);
-    const el = DOC.createElement('div');
-    el.dataset.id = id;
-
-    const missionGroup = STATE.curGroup;
-    let emoji = '';
-    let groupId = missionGroup.id;
-    let mission = true;
-
-    const correctP =
-      (STATE.stage === 'boss') ? 0.86 :
-      (STATE.tLeft <= 12 ? 0.76 : 0.72);
-
-    if(STATE.rng() < correctP){
-      emoji = pick(STATE.rng, missionGroup.items);
-      mission = true;
-      groupId = missionGroup.id;
-    }else{
-      const others = GROUPS.filter(g => g.id !== missionGroup.id);
-      const og = pick(STATE.rng, others);
-      emoji = pick(STATE.rng, og.items);
-      mission = false;
-      groupId = og.id;
-    }
-
-    el.className = makeTargetClass(mission);
-    el.textContent = emoji;
-
-    const p = posInSafe();
-    el.style.position = 'absolute';
-    el.style.left = `${p.x}px`;
-    el.style.top = `${p.y}px`;
-    el.style.transform = 'translate(-50%,-50%) scale(.84)';
-    el.style.opacity = '0';
-
-    STATE.layerEl.appendChild(el);
-
-    requestAnimationFrame(()=>{
-      try{
-        el.style.transition = 'transform .14s ease, opacity .12s ease';
-        el.style.transform = 'translate(-50%,-50%) scale(1)';
-        el.style.opacity = '1';
-      }catch(_){}
-    });
-
-    const ttlMul = ttlShrinkMul(STATE.elapsed, STATE.plannedSec, STATE.runMode, STATE.diff);
-    const finalTtlMul = (STATE.runMode !== 'practice' && STATE.tLeft <= 12) ? 0.93 : 1.0;
-    const bossTtlMul = (STATE.stage === 'boss') ? 0.95 : 1.0;
-    const ttl = Math.max(1.10, STATE.baseTtl * ttlMul * finalTtlMul * bossTtlMul);
-    const ttlMs = ttl * 1000;
-
-    const obj = {
-      id,
-      el,
-      emoji,
-      born: nowMs(),
-      ttlMs,
-      mission,
-      groupId,
-      lastX: 0,
-      lastY: 0
-    };
-
-    STATE.map.set(id, obj);
-
+  function buildCooldownUrl(){
     try{
-      WIN.HHA_AI?.onSpawn?.(mission ? 'groups_target' : 'groups_other', {
-        id, emoji, ttlSec: ttl
-      });
-    }catch(_){}
-
-    return obj;
+      const url = new URL(`${ROOT}/warmup-gate.html`, location.origin);
+      url.searchParams.set('phase', 'cooldown');
+      url.searchParams.set('cat', CAT);
+      url.searchParams.set('game', 'groups');
+      url.searchParams.set('pid', PID);
+      url.searchParams.set('run', RUN);
+      url.searchParams.set('diff', DIFF);
+      url.searchParams.set('time', String(TIME));
+      url.searchParams.set('seed', String(SEED));
+      url.searchParams.set('view', VIEW);
+      url.searchParams.set('hub', HUB);
+      url.searchParams.set('zone', ZONE);
+      url.searchParams.set('next', HUB);
+      url.searchParams.set('v', '20260314a');
+      return url.toString();
+    }catch(_){
+      return `${ROOT}/warmup-gate.html?phase=cooldown&cat=${encodeURIComponent(CAT)}&game=groups&pid=${encodeURIComponent(PID)}&run=${encodeURIComponent(RUN)}&diff=${encodeURIComponent(DIFF)}&time=${encodeURIComponent(String(TIME))}&seed=${encodeURIComponent(String(SEED))}&view=${encodeURIComponent(VIEW)}&hub=${encodeURIComponent(HUB)}&zone=${encodeURIComponent(ZONE)}&next=${encodeURIComponent(HUB)}&v=20260314a`;
+    }
   }
 
-  function removeTarget(id, cls){
-    const t = STATE.map.get(String(id));
-    if(!t) return;
-    STATE.map.delete(String(id));
-
+  function saveLastSummary(summary){
     try{
-      if(cls) t.el.classList.add(cls);
-      t.el.style.transition = 'transform .12s ease, opacity .12s ease, filter .12s ease';
-      t.el.style.opacity = '0';
-      t.el.style.transform = 'translate(-50%,-50%) scale(.68)';
-      t.el.style.filter = cls === 'hit' ? 'brightness(1.35)' : 'brightness(.8)';
-      setTimeout(()=>{ try{ t.el.remove(); }catch(_){ } }, 140);
+      const payload = {
+        ...(summary || {}),
+        game: 'groups',
+        pid: PID,
+        runMode: RUN,
+        diff: DIFF,
+        seed: SEED,
+        zone: ZONE,
+        cat: CAT,
+        timestampIso: new Date().toISOString(),
+        __extraJson: JSON.stringify({
+          url: location.href,
+          cooldownUrl: buildCooldownUrl(),
+          hub: HUB
+        })
+      };
+      localStorage.setItem(`HHA_LAST_SUMMARY:groups:${PID}`, JSON.stringify(payload));
+      localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(payload));
     }catch(_){}
   }
 
-  function powerAdd(n){
-    STATE.charge = Math.max(0, (STATE.charge|0) + (n|0));
-    emit('groups:power', { charge: STATE.charge, threshold: STATE.chargeNeed });
-
-    if(STATE.charge >= STATE.chargeNeed){
-      STATE.charge = 0;
-      STATE.chargeNeed = clamp(STATE.chargeNeed + 1, 8, 12);
-      STATE.curGroup = pick(STATE.rng, GROUPS);
-
-      emit('groups:group', {
-        id: STATE.curGroup.id,
-        name: STATE.curGroup.name,
-        short: STATE.curGroup.short
-      });
-
-      emit('quest:update', {
-        goalTitle: 'ยิงให้ถูก “หมู่”',
-        goalNow: STATE.goalNow,
-        goalTotal: STATE.goalTotal,
-        groupName: STATE.curGroup.name,
-        miniTitle: (STATE.stage === 'boss') ? 'BOSS' : 'POWER',
-        miniNow: (STATE.stage === 'boss') ? STATE.bossHits : STATE.charge,
-        miniTotal: (STATE.stage === 'boss') ? 999 : STATE.chargeNeed
-      });
-
-      coach(`สลับภารกิจ! หา “${STATE.curGroup.short}” 🎯`, 'neutral');
-    }
+  function goCooldown(){
+    safeStopEngine();
+    location.href = buildCooldownUrl();
   }
 
-  function emitHit(kind, good, obj, delta){
-    emit('groups:hit', {
-      kind: String(kind || ''),
-      good: !!good,
-      x: Number(obj?.lastX || 0),
-      y: Number(obj?.lastY || 0),
-      score: STATE.score|0,
-      combo: STATE.combo|0,
-      delta: Number(delta || 0)
-    });
+  function getChildHeadline(grade){
+    const g = String(grade || '').toUpperCase();
+    if(g === 'A+' || g === 'A') return 'ยอดเยี่ยม!';
+    if(g === 'B') return 'เก่งมาก!';
+    if(g === 'C') return 'ทำได้ดี!';
+    return 'เล่นได้ดีเลย!';
   }
 
-  function onHit(obj){
-    STATE.shots++;
-
-    const isCorrect = (obj.mission === true) && (obj.groupId === STATE.curGroup.id);
-
-    if(isCorrect){
-      STATE.hits++;
-      STATE.goalNow++;
-      STATE.combo++;
-      STATE.bestCombo = Math.max(STATE.bestCombo, STATE.combo);
-
-      const baseAdd = (STATE.stage === 'boss') ? 14 : 10;
-      const add = baseAdd + streakBonus(STATE.combo);
-      STATE.score += add;
-
-      powerAdd(1);
-
-      if(STATE.stage === 'boss'){
-        STATE.bossHits++;
-        if(STATE.bossHits === 1){
-          coach('บอสเริ่มแล้ว! คุมคอมโบไว้ ⚡', 'fever');
-        }
-      }else if(STATE.combo === 4){
-        coach('คอมโบมาแล้ว! รักษาจังหวะ 🔥', 'happy');
-      }else if(STATE.goalNow % 5 === 0){
-        coach(`ดีมาก! ต่อไปเน้น “${STATE.curGroup.short}” 🎯`, 'neutral');
-      }
-
-      try{
-        WIN.HHA_AI?.onHit?.('groups_ok', { id: obj.id, emoji: obj.emoji, add });
-      }catch(_){}
-
-      emitHit(STATE.stage === 'boss' ? 'boss_hit' : 'hit_good', true, obj, add);
-      removeTarget(obj.id, 'hit');
-      return;
-    }
-
-    STATE.combo = 0;
-    STATE.score = Math.max(0, STATE.score - 3);
-
-    try{
-      WIN.HHA_AI?.onHit?.('groups_wrong', { id: obj.id, emoji: obj.emoji });
-    }catch(_){}
-
-    emitHit('hit_bad', false, obj, -3);
-    removeTarget(obj.id, 'hit');
+  function getChildCoachMessage(s){
+    const acc = Number(s?.accuracyPct || 0);
+    const miss = Number(s?.miss || 0);
+    if(acc >= 90 && miss <= 2) return 'แม่นมาก! ไปผ่อนคลายต่อกันได้เลย';
+    if(acc >= 75) return 'ดีมาก! รอบหน้าลองเก็บคอมโบให้สูงขึ้นนะ';
+    return 'ทำได้ดีแล้ว! ลองเล่นอีกครั้ง หรือไปผ่อนคลายต่อได้เลย';
   }
 
-  function pointerHandler(ev){
-    if(!STATE.running || STATE.paused) return;
-    const el = ev.target && ev.target.closest ? ev.target.closest('.tgt') : null;
-    if(!el) return;
-
-    const obj = STATE.map.get(String(el.dataset.id));
-    if(!obj) return;
-
-    obj.lastX = Number(ev.clientX || 0);
-    obj.lastY = Number(ev.clientY || 0);
-    onHit(obj);
+  function faceFromMood(mood){
+    return mood === 'happy' ? '😄'
+      : mood === 'fever' ? '🔥'
+      : mood === 'sad' ? '😵'
+      : '🙂';
   }
 
-  function pickClosestToCenter(lockPx){
-    lockPx = clamp(lockPx ?? 22, 16, 140);
-    let best = null;
-    let bestD = 1e9;
-
-    const r = STATE.layerEl.getBoundingClientRect();
-    const cx = r.left + r.width / 2;
-    const cy = r.top + r.height / 2;
-
-    for(const obj of STATE.map.values()){
-      const b = obj.el.getBoundingClientRect();
-      const x = b.left + b.width / 2;
-      const y = b.top + b.height / 2;
-      const d = Math.hypot(x - cx, y - cy);
-      if(d < bestD){
-        bestD = d;
-        best = obj;
-      }
-    }
-
-    if(best && bestD <= lockPx) return best;
+  function parseGroupNo(input){
+    const s = String(input || '').trim();
+    if (!s) return null;
+    const m1 = s.match(/หมู่\s*([1-5])/);
+    if (m1) return Number(m1[1]);
+    const m2 = s.match(/\b([1-5])\b/);
+    if (m2) return Number(m2[1]);
+    if (/โปรตีน/.test(s)) return 1;
+    if (/คาร์โบ|แป้ง|ข้าว|เผือก|มัน/.test(s)) return 2;
+    if (/ผัก/.test(s)) return 3;
+    if (/ผลไม้/.test(s)) return 4;
+    if (/ไขมัน/.test(s)) return 5;
     return null;
   }
 
-  function shootHandler(ev){
-    if(!STATE.running || STATE.paused) return;
-
-    const lockPx = ev && ev.detail && ev.detail.lockPx != null ? ev.detail.lockPx : 22;
-    const obj = pickClosestToCenter(lockPx);
-    if(!obj) return;
-
-    const r = STATE.layerEl.getBoundingClientRect();
-    obj.lastX = r.left + r.width / 2;
-    obj.lastY = r.top + r.height / 2;
-
-    onHit(obj);
+  function fxOnce(el, cls, ms){
+    if(!el) return;
+    el.classList.remove(cls);
+    void el.offsetWidth;
+    el.classList.add(cls);
+    setTimeout(()=> el.classList.remove(cls), ms || 420);
   }
 
-  function setHUD(){
-    emit('hha:time', { left: Math.ceil(STATE.tLeft) });
-    emit('hha:score', {
-      score: STATE.score|0,
-      combo: STATE.combo|0,
-      misses: STATE.miss|0,
-      miss: STATE.miss|0,
-      accPct: accPct(),
-      accuracyPct: accPct(),
-      comboMax: STATE.bestCombo|0,
-      timeLeft: Math.ceil(STATE.tLeft)
-    });
-    emit('hha:rank', { grade: gradeLetter() });
-
-    emit('quest:update', {
-      goalTitle: (STATE.stage === 'boss') ? 'BOSS: ยิงให้ถูกหมู่ให้ได้มากสุด' : 'ภารกิจ: ยิงให้ถูก “หมู่”',
-      goalNow: STATE.goalNow,
-      goalTotal: STATE.goalTotal,
-      groupName: STATE.curGroup ? STATE.curGroup.name : '—',
-      miniTitle: (STATE.stage === 'boss') ? 'BOSS' : 'POWER',
-      miniNow: (STATE.stage === 'boss') ? STATE.bossHits : STATE.charge,
-      miniTotal: (STATE.stage === 'boss') ? 999 : STATE.chargeNeed,
-      miniTimeLeftSec: (STATE.stage === 'boss') ? Math.ceil(STATE.bossLeft) : 0
-    });
-
-    emit('groups:power', { charge: STATE.charge, threshold: STATE.chargeNeed });
+  function getBgCatEl(groupNo){
+    const n = Number(groupNo);
+    return bgCats.find(el => Number(el.dataset.group) === n) || null;
   }
 
-  function spawnTick(dt){
-    const mul = rampMul(STATE.elapsed, STATE.plannedSec, STATE.runMode, STATE.diff);
-    const finalRush = (STATE.runMode !== 'practice' && STATE.tLeft <= 12) ? 1.10 : 1.0;
-    const bossRush = (STATE.stage === 'boss') ? 1.08 : 1.0;
+  function triggerGroupSwitchFx(groupNo){
+    const el = getBgCatEl(groupNo);
+    fxOnce(el, 'switchFx', 470);
+    fxOnce(powerWrap, 'switchFx', 450);
+  }
 
-    const sp = STATE.baseSpawnPerSec * mul * finalRush * bossRush;
+  function triggerGroupHitFx(groupNo){
+    const el = getBgCatEl(groupNo);
+    fxOnce(el, 'hitFx', 350);
+    fxOnce(powerWrap, 'hitFx', 300);
+  }
 
-    STATE.spawnAcc += sp * dt;
-    while(STATE.spawnAcc >= 1){
-      STATE.spawnAcc -= 1;
-      createTarget();
+  function setActiveGroup(groupNo){
+    const n = Number(groupNo);
+    if (!(n >= 1 && n <= 5)) return;
+    const changed = activeGroupNo !== n;
+    activeGroupNo = n;
+    bgCats.forEach(el => el.classList.toggle('active', Number(el.dataset.group) === n));
+
+    const c = GROUP_COLORS[n] || 'rgba(148,163,184,.20)';
+    if (powerWrap){
+      powerWrap.classList.add('activeGroup');
+      powerWrap.style.setProperty('--group-accent', c);
+    }
+    if(changed) triggerGroupSwitchFx(n);
+  }
+
+  function showToast(text, mood){
+    if(toastTimer) clearTimeout(toastTimer);
+    toastTxt.textContent = text || '';
+    toastSub.textContent = mood || 'coach';
+    toastFace.textContent = faceFromMood(mood);
+    coachToast.classList.add('show');
+    toastTimer = setTimeout(()=> coachToast.classList.remove('show'), 2600);
+  }
+
+  function hideToast(){
+    if(toastTimer) clearTimeout(toastTimer);
+    toastTimer = null;
+    coachToast.classList.remove('show');
+  }
+
+  function pulseEl(el, cls='hudPulse', ms=320){
+    if(!el) return;
+    el.classList.remove(cls);
+    el.offsetHeight;
+    el.classList.add(cls);
+    setTimeout(()=> el.classList.remove(cls), ms);
+  }
+
+  function flashStage(kind){
+    if(!stageFlash) return;
+    stageFlash.className = '';
+    stageFlash.offsetHeight;
+    stageFlash.classList.add(kind || 'good');
+    stageFlash.style.opacity = '1';
+    setTimeout(()=>{ stageFlash.style.opacity = '0'; }, 120);
+  }
+
+  function clearStageFlash(){
+    stageFlash.className = '';
+    stageFlash.style.opacity = '0';
+  }
+
+  function popScore(x, y, text, good){
+    if(!fxLayer) return;
+    const el = document.createElement('div');
+    el.className = 'scorePop ' + (good ? 'good' : 'bad');
+    el.textContent = text;
+    el.style.left = Math.round(x) + 'px';
+    el.style.top = Math.round(y) + 'px';
+    fxLayer.appendChild(el);
+    setTimeout(()=>{ try{ el.remove(); }catch(_){ } }, 700);
+  }
+
+  function clearFxLayer(){
+    try{ fxLayer.replaceChildren(); }catch(_){ fxLayer.innerHTML = ''; }
+  }
+
+  function showOverlay(el){
+    el.style.display = 'flex';
+    el.setAttribute('aria-hidden', 'false');
+    if(el === endOverlay){
+      document.body.classList.add('end-open');
+      try{ window.HHA_VR_UI?.hide?.(); }catch(_){}
+      try{ window.HHA_VRUI?.hide?.(); }catch(_){}
     }
   }
 
-  function expireTick(){
-    const t = nowMs();
-
-    for(const obj of Array.from(STATE.map.values())){
-      if(t - obj.born < obj.ttlMs) continue;
-
-      const shouldCountMiss =
-        (STATE.runMode !== 'practice') &&
-        obj.mission === true &&
-        obj.groupId === STATE.curGroup.id;
-
-      if(shouldCountMiss){
-        STATE.miss++;
-        STATE.combo = 0;
-        STATE.score = Math.max(0, STATE.score - 2);
-
-        try{
-          WIN.HHA_AI?.onExpire?.('groups_target', {
-            id: obj.id,
-            emoji: obj.emoji
-          });
-        }catch(_){}
-
-        setObjCenterFromEl(obj);
-        emitHit('timeout_miss', false, obj, -2);
-      }else{
-        try{
-          WIN.HHA_AI?.onExpire?.('groups_other', {
-            id: obj.id,
-            emoji: obj.emoji
-          });
-        }catch(_){}
-      }
-
-      removeTarget(obj.id, 'expire');
+  function hideOverlay(el){
+    el.style.display = 'none';
+    el.setAttribute('aria-hidden', 'true');
+    if(el === endOverlay){
+      document.body.classList.remove('end-open');
+      try{ window.HHA_VR_UI?.show?.(); }catch(_){}
+      try{ window.HHA_VRUI?.show?.(); }catch(_){}
     }
   }
 
-  function startBoss(){
-    STATE.stage = 'boss';
-    STATE.bossSec = clamp(STATE.ctx?.bossSec ?? 12, 10, 16);
-    STATE.bossLeft = STATE.bossSec;
-    STATE.bossHits = 0;
-    STATE.curGroup = pick(STATE.rng, GROUPS);
-
-    emit('groups:group', {
-      id: STATE.curGroup.id,
-      name: STATE.curGroup.name,
-      short: STATE.curGroup.short
-    });
-
-    coach(`MINI BOSS! ⚡ เน้น “${STATE.curGroup.short}” ให้มากที่สุดใน ${STATE.bossSec}s`, 'fever');
-    emit('groups:boss_start', {
-      groupId: STATE.curGroup.id,
-      groupName: STATE.curGroup.name,
-      bossSec: STATE.bossSec
-    });
+  function resetTransientUi(){
+    hideOverlay(endOverlay);
+    hideToast();
+    clearStageFlash();
+    clearFxLayer();
   }
 
-  function buildSummary(reason){
-    return {
-      projectTag: 'GroupsVR',
-      gameVersion: 'GroupsVR_SAFE_FX_LAYOUT_HOTFIX',
-      roomId: String(STATE.ctx?.roomId || ''),
-      playerKey: String(STATE.ctx?.playerKey || ''),
-      battle: !!STATE.ctx?.battle,
-
-      device: STATE.view,
-      runMode: STATE.runMode,
-      diff: STATE.diff,
-      seed: STATE.seedStr,
-      reason: String(reason || ''),
-
-      durationPlannedSec: STATE.plannedSec,
-      durationPlayedSec: Math.round(STATE.plannedSec - STATE.tLeft),
-
-      scoreFinal: STATE.score|0,
-      miss: STATE.miss|0,
-      shots: STATE.shots|0,
-      hits: STATE.hits|0,
-      accuracyPct: accPct(),
-      comboMax: STATE.bestCombo|0,
-      grade: gradeLetter(),
-
-      stageEnded: STATE.stage,
-      bossSec: (STATE.stage === 'boss') ? STATE.bossSec : 0,
-      bossHits: (STATE.stage === 'boss') ? STATE.bossHits : 0,
-
-      groupLast: STATE.curGroup ? STATE.curGroup.name : '—',
-      aiPredictionLast: (function(){
-        try{ return WIN.HHA_AI?.getPrediction?.() || null; }
-        catch(_){ return null; }
-      })()
-    };
+  function safeStopEngine(){
+    try{ window.GroupsVR?.GameEngine?.stop?.(); }catch(_){}
   }
 
-  function endGame(reason){
-    if(!STATE.running) return;
-
-    STATE.running = false;
-    STATE.paused = false;
-    cancelAnimationFrame(STATE.raf);
-    clearTargets();
-
-    const summary = buildSummary(reason);
-    try{ WIN.HHA_AI?.onEnd?.(summary); }catch(_){}
-    emit('hha:end', summary);
+  function updateHudCompactMode(){
+    const w = window.innerWidth || 0;
+    const h = window.innerHeight || 0;
+    const compact = (w <= 390) || (w <= 430 && h <= 760) || (h <= 680);
+    document.body.classList.toggle('hud-compact', compact);
   }
 
-  function tick(){
-    if(!STATE.running) return;
-
-    if(STATE.paused){
-      STATE.lastTick = nowMs();
-      STATE.raf = requestAnimationFrame(tick);
-      return;
+  function updatePowerAutohideMode(){
+    const w = window.innerWidth || 0;
+    const h = window.innerHeight || 0;
+    const autoHide = (VIEW === 'mobile') && ((w <= 640) || (h <= 720));
+    const minimized = (w <= 390) || (w <= 430 && h <= 700);
+    document.body.classList.toggle('power-autohide', autoHide);
+    if(powerWrap){
+      powerWrap.classList.toggle('minimized', autoHide && minimized);
+      if(!autoHide) powerWrap.classList.remove('peek');
     }
+  }
 
-    const t = nowMs();
-    const dt = Math.min(0.05, Math.max(0.001, (t - STATE.lastTick) / 1000));
-    STATE.lastTick = t;
+  function peekPowerWrap(ms){
+    if(!powerWrap) return;
+    if(!document.body.classList.contains('power-autohide')) return;
+    powerWrap.classList.add('peek');
+    if(powerPeekTimer) clearTimeout(powerPeekTimer);
+    powerPeekTimer = setTimeout(()=>{
+      powerWrap.classList.remove('peek');
+      powerPeekTimer = null;
+    }, ms || 1400);
+  }
 
-    STATE.elapsed += dt;
-    STATE.tLeft = Math.max(0, STATE.tLeft - dt);
+  function updateSpawnSafe(){
+    try{
+      const r = playLayer.getBoundingClientRect();
+      const isMobile = VIEW === 'mobile';
+      const isCVR = VIEW === 'cvr';
 
-    if(STATE.stage === 'boss'){
-      STATE.bossLeft = Math.max(0, STATE.bossLeft - dt);
-      if(STATE.bossLeft <= 0){
-        endGame('boss-done');
-        return;
-      }
-    }
+      const pad = isCVR ? 42 : isMobile ? 36 : 24;
+      const topSafe = isCVR ? 188 : isMobile ? 164 : 150;
+      const botSafe = isCVR ? 238 : isMobile ? 228 : 176;
 
-    spawnTick(dt);
-    expireTick();
+      window.__HHA_SPAWN_SAFE__ = {
+        xMin: pad,
+        xMax: Math.max(pad + 1, r.width - pad),
+        yMin: topSafe,
+        yMax: Math.max(topSafe + 1, r.height - botSafe)
+      };
+    }catch(_){}
+  }
+
+  function syncUiToBootState(){
+    hudTime.textContent = TIME + 's';
+    hudScore.textContent = '0';
+    hudCombo.textContent = 'x0';
+    hudCombo.classList.remove('comboHot');
+    hudMiss.textContent = '0';
+    hudRank.textContent = '—';
+    qTitle.textContent = 'ภารกิจ';
+    qSub.textContent = '';
+    qMini.textContent = 'พลังพิเศษ · 0/0';
+    qMiniTime.textContent = '';
+    qBar.style.width = '0%';
+    pBar.style.width = '0%';
+    pText.textContent = '0 / 8';
+
+    sumGrade.textContent = '—';
+    sumScore.textContent = '0';
+    sumAcc.textContent = '0%';
+    sumMiss.textContent = '0';
+    sumCombo.textContent = '0';
+    sumTime.textContent = '0s';
+    sumGroupLast.textContent = '—';
+    sumBossHits.textContent = '0';
+    childHeadline.textContent = 'เก่งมาก!';
+    childCoachMsg.textContent = 'เยี่ยมเลย! ไปผ่อนคลายต่อกัน';
+  }
+
+  function buildEndSummary(summary){
+    const s = summary || {};
+    sumGrade.textContent = s.grade || '—';
+    sumScore.textContent = String(s.scoreFinal ?? s.score ?? 0);
+    sumAcc.textContent = `${s.accuracyPct ?? 0}%`;
+    sumMiss.textContent = String(s.miss ?? 0);
+    sumCombo.textContent = String(s.comboMax ?? 0);
+    sumTime.textContent = `${s.durationPlayedSec ?? 0}s`;
+    sumGroupLast.textContent = s.groupLast || '—';
+    sumBossHits.textContent = String(s.bossHits ?? 0);
+    childHeadline.textContent = getChildHeadline(s.grade);
+    childCoachMsg.textContent = getChildCoachMessage(s);
+  }
+
+  function startGame(){
+    if(isStarting) return;
+    isStarting = true;
+    const myBoot = ++bootNonce;
+
+    resetTransientUi();
+    syncUiToBootState();
+    updateHudCompactMode();
+    updatePowerAutohideMode();
+    updateSpawnSafe();
+
+    safeStopEngine();
+    try{ window.GroupsVR?.GameEngine?.setLayerEl?.(playLayer); }catch(_){}
 
     try{
-      WIN.HHA_AI?.onTick?.(dt, {
-        miss: STATE.miss,
-        combo: STATE.combo,
-        acc: accPct(),
-        stage: STATE.stage
+      window.GroupsVR.GameEngine.start(DIFF, {
+        runMode: RUN,
+        time: TIME,
+        seed: SEED,
+        view: VIEW,
+        classroom: true,
+        miniBoss: true,
+        bossSec: 12,
+        goalTotal: (DIFF==='easy') ? 10 : (DIFF==='hard') ? 14 : 12,
+        chargeNeed: (DIFF==='easy') ? 7 : (DIFF==='hard') ? 9 : 8
       });
-    }catch(_){}
 
-    setHUD();
-    aiWarnMaybe(STATE.elapsed, STATE.plannedSec, accPct(), STATE.miss, STATE.combo, STATE.stage);
+      if (myBoot !== bootNonce) return;
 
-    if(STATE.tLeft <= 0){
-      const classroom = !!STATE.ctx?.classroom;
-      const bossOn = !!STATE.ctx?.miniBoss;
+      setActiveGroup(parseGroupNo(groupName.textContent) || 1);
+      peekPowerWrap(1600);
+      showToast('เริ่มแล้ว! ยิงให้ถูกหมวดแล้วเก็บคอมโบ', 'neutral');
+    }catch(e){
+      console.error(e);
+      showToast('เริ่มเกมไม่สำเร็จ', 'sad');
+    }finally{
+      isStarting = false;
+    }
+  }
 
-      if(classroom && bossOn && STATE.stage === 'main' && STATE.runMode !== 'practice'){
-        startBoss();
-        STATE.tLeft = 6;
-        STATE.raf = requestAnimationFrame(tick);
-        return;
+  function restart(){
+    if(isRestarting) return;
+    isRestarting = true;
+    resetTransientUi();
+    safeStopEngine();
+    setTimeout(()=>{
+      startGame();
+      setTimeout(()=>{ isRestarting = false; }, 160);
+    }, 80);
+  }
+
+  function bootOnce(){
+    if(hasBooted) return;
+    hasBooted = true;
+    resetTransientUi();
+    updateHudCompactMode();
+    updatePowerAutohideMode();
+    updateSpawnSafe();
+    startGame();
+  }
+
+  window.addEventListener('hha:coach', (ev)=>{
+    const d = ev?.detail || {};
+    if(d.text) showToast(d.text, d.mood || 'neutral');
+  });
+
+  window.addEventListener('hha:time', (ev)=>{
+    const left = ev?.detail?.left;
+    if(typeof left === 'number') hudTime.textContent = left + 's';
+  });
+
+  window.addEventListener('hha:score', (ev)=>{
+    const d = ev?.detail || {};
+    if(d.score != null) hudScore.textContent = String(d.score|0);
+
+    if(d.combo != null){
+      const comboVal = Number(d.combo) || 0;
+      hudCombo.textContent = 'x' + String(comboVal|0);
+      if(comboVal >= 4) hudCombo.classList.add('comboHot');
+      else hudCombo.classList.remove('comboHot');
+    }
+
+    const m = (d.misses != null) ? d.misses : d.miss;
+    if(m != null) hudMiss.textContent = String(m|0);
+    pulseEl(hudScore);
+  });
+
+  window.addEventListener('hha:rank', (ev)=>{
+    const d = ev?.detail || {};
+    if(d.grade){
+      const old = hudRank.textContent;
+      const next = String(d.grade);
+      hudRank.textContent = next;
+      if(old && old !== next) pulseEl(hudRank, 'rankFlash', 460);
+    }
+  });
+
+  window.addEventListener('quest:update', (ev)=>{
+    const d = ev?.detail || {};
+    if(d.goalTitle) qTitle.textContent = d.goalTitle;
+
+    const gNow = (d.goalNow!=null) ? d.goalNow : 0;
+    const gTot = (d.goalTotal!=null) ? d.goalTotal : 1;
+    qSub.textContent = `${gNow}/${gTot}`;
+    qBar.style.width = Math.round((gNow / Math.max(1, gTot)) * 100) + '%';
+
+    if(d.miniTitle) qMini.textContent = `${d.miniTitle} · ${d.miniNow||0}/${d.miniTotal||0}`;
+    qMiniTime.textContent = (d.miniTimeLeftSec != null && d.miniTimeLeftSec > 0) ? `⏳ ${d.miniTimeLeftSec}s` : '';
+
+    let groupChanged = false;
+
+    if(d.groupName){
+      groupName.textContent = d.groupName;
+      const before = activeGroupNo;
+      const gn = parseGroupNo(d.groupName);
+      if(gn){
+        setActiveGroup(gn);
+        groupChanged = before !== activeGroupNo;
       }
-
-      endGame('time');
-      return;
     }
 
-    STATE.raf = requestAnimationFrame(tick);
-  }
-
-  function start(diff, ctx){
-    ctx = ctx || {};
-    if(!STATE.layerEl){
-      throw new Error('[GroupsVR] layerEl not set. Call setLayerEl() first');
+    if(d.groupNo != null){
+      const before = activeGroupNo;
+      const gn = parseGroupNo(d.groupNo);
+      if(gn){
+        setActiveGroup(gn);
+        groupChanged = groupChanged || (before !== activeGroupNo);
+      }
     }
 
-    stop();
+    if(groupChanged) peekPowerWrap(1700);
+    else peekPowerWrap(900);
+  });
 
-    STATE.diff = String(diff || 'normal').toLowerCase();
-    STATE.ctx = ctx;
-    STATE.runMode = String(ctx.runMode || 'play').toLowerCase();
-    STATE.view = String(ctx.view || DOC.body.getAttribute('data-view') || 'mobile').toLowerCase();
+  window.addEventListener('groups:power', (ev)=>{
+    const d = ev?.detail || {};
+    const c = (d.charge!=null) ? d.charge : 0;
+    const t = (d.threshold!=null) ? d.threshold : 1;
+    const pct = Math.round((c / Math.max(1, t)) * 100);
+    pBar.style.width = pct + '%';
+    pText.textContent = `${c}/${t}`;
+    peekPowerWrap(1100);
+  });
 
-    const timeSec = clamp(ctx.time ?? 90, 15, 300);
-    STATE.plannedSec = timeSec;
-    STATE.seedStr = String(ctx.seed ?? Date.now());
-    STATE.rng = makeRng(STATE.seedStr);
+  window.addEventListener('groups:hit', (ev)=>{
+    const d = ev?.detail || {};
+    const good = !!d.good;
+    const kind = String(d.kind || '');
+    const x = Number(d.x || (window.innerWidth * 0.5));
+    const y = Number(d.y || (window.innerHeight * 0.5));
+    const delta = Number(d.delta || (good ? 10 : -3));
 
-    if(STATE.diff === 'easy'){
-      STATE.baseSpawnPerSec = 1.00;
-      STATE.baseTtl = 3.25;
-    }else if(STATE.diff === 'hard'){
-      STATE.baseSpawnPerSec = 1.34;
-      STATE.baseTtl = 2.65;
+    pulseEl(hudScore);
+
+    if(good){
+      pulseEl(hudCombo);
+      flashStage(kind === 'boss_hit' ? 'boss' : 'good');
+      popScore(x, y, (delta > 0 ? '+' : '') + delta, true);
+      triggerGroupHitFx(activeGroupNo);
     }else{
-      STATE.baseSpawnPerSec = 1.18;
-      STATE.baseTtl = 2.95;
+      flashStage('bad');
+      popScore(x, y, (delta > 0 ? '+' : '') + delta, false);
     }
+  });
 
-    if(STATE.runMode === 'practice'){
-      STATE.baseSpawnPerSec *= 0.90;
-      STATE.baseTtl += 0.30;
+  window.addEventListener('hha:end', (ev)=>{
+    const s = ev?.detail || {};
+    lastSummary = s;
+    saveLastSummary(s);
+    endSub.textContent = `ระดับ ${s?.grade || '-'} · แม่น ${s?.accuracyPct ?? '-'}%`;
+    buildEndSummary(s);
+    showOverlay(endOverlay);
+  });
+
+  window.addEventListener('pagehide', ()=> safeStopEngine());
+  window.addEventListener('beforeunload', ()=> safeStopEngine());
+  window.addEventListener('pageshow', (ev)=>{
+    resetTransientUi();
+    if(ev.persisted){
+      safeStopEngine();
+      setTimeout(()=> restart(), 60);
     }
+  });
+  window.addEventListener('resize', updateSpawnSafe, { passive:true });
 
-    STATE.running = true;
-    STATE.paused = false;
-    STATE.startMs = nowMs();
-    STATE.lastTick = nowMs();
-    STATE.tLeft = timeSec;
-    STATE.elapsed = 0;
+  $('#btnRestart').addEventListener('click', restart);
+  $('#btnBack').addEventListener('click', ()=>{
+    safeStopEngine();
+    location.href = HUB;
+  });
+  $('#btnEndContinue').addEventListener('click', ()=>{
+    if (lastSummary) saveLastSummary(lastSummary);
+    goCooldown();
+  });
+  $('#btnEndAgain').addEventListener('click', restart);
+  $('#btnEndGoHub').addEventListener('click', ()=>{
+    safeStopEngine();
+    location.href = HUB;
+  });
 
-    STATE.score = 0;
-    STATE.combo = 0;
-    STATE.bestCombo = 0;
-    STATE.miss = 0;
-    STATE.shots = 0;
-    STATE.hits = 0;
+  installLockPxShim();
+  bootOnce();
 
-    STATE.goalTotal = clamp(ctx.goalTotal ?? 12, 8, 18);
-    STATE.goalNow = 0;
-
-    STATE.charge = 0;
-    STATE.chargeNeed = clamp(ctx.chargeNeed ?? 8, 6, 12);
-
-    STATE.stage = 'main';
-    STATE.spawnAcc = 0;
-    STATE.idSeq = 1;
-
-    clearTargets();
-
-    STATE.curGroup = pick(STATE.rng, GROUPS);
-    emit('groups:group', {
-      id: STATE.curGroup.id,
-      name: STATE.curGroup.name,
-      short: STATE.curGroup.short
-    });
-
-    try{
-      STATE.layerEl.addEventListener('pointerdown', pointerHandler, { passive:true });
-    }catch(_){}
-
-    try{
-      WIN.addEventListener('hha:shoot', shootHandler);
-    }catch(_){}
-
-    if(STATE.runMode === 'practice'){
-      coach('PRACTICE 15s — ซ้อมก่อน (ไม่คิด miss หนัก) 🧪', 'neutral');
-    }else{
-      coach(`เริ่มแล้ว! หา “${STATE.curGroup.short}” แล้วเก็บคอมโบ 🔥`, 'neutral');
-    }
-
-    setHUD();
-    STATE.raf = requestAnimationFrame(tick);
+  function installLockPxShim(){
+    window.addEventListener('hha:shoot', (ev)=>{
+      try{
+        if(!ev || !ev.detail) return;
+        if(ev.detail.lockPx != null) return;
+        const d = ev.detail;
+        ev.stopImmediatePropagation();
+        window.dispatchEvent(new CustomEvent('hha:shoot', {
+          detail: { ...d, lockPx: lockPxForView(), source: d.source || 'shim' }
+        }));
+      }catch(_){}
+    }, true);
   }
 
-  function stop(){
-    try{ if(STATE.layerEl) STATE.layerEl.removeEventListener('pointerdown', pointerHandler); }catch(_){}
-    try{ WIN.removeEventListener('hha:shoot', shootHandler); }catch(_){}
-
-    STATE.running = false;
-    STATE.paused = false;
-    cancelAnimationFrame(STATE.raf);
-    clearTargets();
+  function lockPxForView(){
+    if(VIEW === 'pc') return 20;
+    if(VIEW === 'cvr') return 38;
+    return 32;
   }
-
-  function setPaused(on){
-    STATE.paused = !!on;
-    STATE.lastTick = nowMs();
-  }
-
-  const Telemetry = {
-    flush: function(summary){
-      try{}catch(_){}
-    }
-  };
-
-  function bindFlushOnLeave(getSummary){
-    const safeGet = ()=>{ try{ return (typeof getSummary === 'function') ? getSummary() : null; }catch(_){ return null; } };
-    const doFlush = ()=>{ try{ Telemetry.flush(safeGet()); }catch(_){ } };
-
-    WIN.addEventListener('pagehide', doFlush, { passive:true });
-    WIN.addEventListener('beforeunload', doFlush, { passive:true });
-    DOC.addEventListener('visibilitychange', ()=>{
-      if(DOC.visibilityState === 'hidden') doFlush();
-    }, { passive:true });
-  }
-
-  WIN.GroupsVR = WIN.GroupsVR || {};
-  WIN.GroupsVR.Telemetry = Telemetry;
-  WIN.GroupsVR.bindFlushOnLeave = bindFlushOnLeave;
-  WIN.GroupsVR.GameEngine = {
-    setLayerEl,
-    start,
-    stop,
-    setPaused
-  };
-
-  WIN.addEventListener('hha:pause', ()=> setPaused(true), { passive:true });
-  WIN.addEventListener('hha:resume', ()=> setPaused(false), { passive:true });
-
 })();
+</script>
+</body>
+</html>
