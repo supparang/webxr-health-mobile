@@ -1,12 +1,12 @@
 <!-- === /webxr-health-mobile/herohealth/groups-vr.html ===
 GroupsVR — LAUNCHER PAGE (canonical entry)
-FULL v20260311-GROUPS-LAUNCHER-CANONICAL-WARMUP-WEBXRROOT
+FULL PATCH v20260314a-GROUPS-LAUNCHER-PHASE-LOWERCASE-GATEFLOW
 Flow:
 launcher /webxr-health-mobile/herohealth/groups-vr.html
--> /webxr-health-mobile/herohealth/warmup-gate.html?Phase=warmup
+-> /webxr-health-mobile/herohealth/warmup-gate.html?phase=warmup
 -> /webxr-health-mobile/herohealth/vr-groups/groups-vr.html
 -> summary
--> /webxr-health-mobile/herohealth/warmup-gate.html?Phase=cooldown
+-> /webxr-health-mobile/herohealth/warmup-gate.html?phase=cooldown
 -> /webxr-health-mobile/herohealth/hub.html
 -->
 <!doctype html>
@@ -487,7 +487,7 @@ launcher /webxr-health-mobile/herohealth/groups-vr.html
           <div class="chips">
             <div class="chip">game=groups</div>
             <div class="chip">cat=nutrition</div>
-            <div class="chip">Phase=warmup</div>
+            <div class="chip">phase=warmup</div>
           </div>
         </div>
 
@@ -581,7 +581,7 @@ launcher /webxr-health-mobile/herohealth/groups-vr.html
           <div class="helpList">
             <div class="helpItem">
               <b>Warmup Gate</b>
-              <span>ไฟล์เดียวกันใช้ทั้ง warmup และ cooldown โดยแยกด้วย <code>Phase=warmup</code> และ <code>Phase=cooldown</code></span>
+              <span>ไฟล์เดียวกันใช้ทั้ง warmup และ cooldown โดยแยกด้วย <code>phase=warmup</code> และ <code>phase=cooldown</code></span>
             </div>
             <div class="helpItem">
               <b>Run Page จริง</b>
@@ -589,7 +589,7 @@ launcher /webxr-health-mobile/herohealth/groups-vr.html
             </div>
             <div class="helpItem">
               <b>Cooldown</b>
-              <span>หลัง summary ปุ่มหลัก “ไปต่อ” จะส่งกลับไป <code>/webxr-health-mobile/herohealth/warmup-gate.html?Phase=cooldown</code></span>
+              <span>หลัง summary ปุ่มหลัก “ไปต่อ” จะส่งกลับไป <code>/webxr-health-mobile/herohealth/warmup-gate.html?phase=cooldown</code></span>
             </div>
           </div>
 
@@ -712,7 +712,7 @@ launcher /webxr-health-mobile/herohealth/groups-vr.html
       function buildWarmupUrl(params){
         const warm = new URL(`${ROOT}/warmup-gate.html`, location.origin);
 
-        warm.searchParams.set('Phase', 'warmup');
+        warm.searchParams.set('phase', 'warmup');
         warm.searchParams.set('cat', 'nutrition');
         warm.searchParams.set('game', 'groups');
         warm.searchParams.set('pid', params.pid);
