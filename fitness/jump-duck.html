@@ -82,6 +82,10 @@
       padding:10px 12px;
       min-height:44px;
       font-weight:1100;
+      text-decoration:none;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
     }
 
     .btn.primary{
@@ -747,6 +751,29 @@
       }
     }
 
+    #view-result .actions{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:10px;
+    }
+
+    #view-result .actions .btn{
+      width:100%;
+      min-width:0;
+      flex:none;
+    }
+
+    #view-result .actions .btn[data-action="go-cooldown"]{
+      grid-column:span 3;
+      min-height:52px;
+      font-size:18px;
+    }
+
+    #view-result .actions .btn[data-action="play-again"],
+    #view-result .actions .btn[data-action="back-menu"]{
+      grid-column:span 3;
+    }
+
     @media (max-width: 768px){
       .card{
         padding:12px;
@@ -963,6 +990,20 @@
       .resultGrid{
         grid-template-columns:1fr;
         gap:8px;
+      }
+
+      #view-result .actions{
+        grid-template-columns:1fr;
+        gap:8px;
+      }
+
+      #view-result .actions .btn,
+      #view-result .actions .btn[data-action="go-cooldown"],
+      #view-result .actions .btn[data-action="play-again"],
+      #view-result .actions .btn[data-action="back-menu"]{
+        grid-column:auto;
+        min-height:50px;
+        font-size:16px;
       }
     }
 
@@ -1198,7 +1239,7 @@
           <div class="sub">สรุปรอบล่าสุดของ JumpDuck</div>
         </div>
         <div class="row">
-          <a class="btn ghost" id="jd-back-hub-result" href="#">⬅ Hub</a>
+          <a class="btn ghost" id="jd-back-hub-result" href="#">🧘 คูลดาวน์</a>
         </div>
       </div>
 
@@ -1276,11 +1317,12 @@
       </div>
 
       <div class="actions">
+        <button class="btn good" data-action="go-cooldown" type="button">🧘 ไปคูลดาวน์</button>
         <button class="btn primary" data-action="play-again" type="button">🔁 เล่นอีกครั้ง</button>
+        <button class="btn ghost" data-action="back-menu" type="button">🏠 กลับเมนู</button>
         <button class="btn" id="jd-btn-dl-events" type="button">⬇ events.csv</button>
         <button class="btn" id="jd-btn-dl-sessions" type="button">⬇ sessions.csv</button>
         <button class="btn good" id="jd-btn-send-log" type="button">☁ ส่งขึ้น Cloud Logger</button>
-        <button class="btn ghost" data-action="back-menu" type="button">🏠 กลับเมนู</button>
       </div>
 
       <div class="statusLine" id="jd-log-status"></div>
