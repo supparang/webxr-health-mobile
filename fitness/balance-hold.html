@@ -1,12 +1,12 @@
 <!-- === /fitness/balance-hold.html ===
-Balance Hold — RUN PAGE (latest production run shell)
-PATCH v20260313-BALANCEHOLD-RUN-FINAL-FLOWLOCK
-✅ Menu / Research / Play / Result views
-✅ Match /fitness/js/balance-hold.js latest
-✅ launcher → warmup-gate → game → result → cooldown-gate → hub
-✅ Result first, then player chooses cooldown or back hub
-✅ Works with /herohealth/balance-hold-vr.html
-✅ Works with /herohealth/warmup-gate.html per-game daily gate
+Balance Hold — RUN PAGE
+FULL PATCH v20260314-BALANCEHOLD-RUN-FLOW-LOCKED
+✅ launcher -> warmup-gate -> game -> result -> cooldown-gate -> hub
+✅ result stays on screen first
+✅ no auto jump to hub
+✅ Go Cooldown button in Result / End Modal
+✅ autostart compatible from launcher
+✅ matches ./js/balance-hold.js exactly
 -->
 <!doctype html>
 <html lang="th">
@@ -548,7 +548,7 @@ PATCH v20260313-BALANCEHOLD-RUN-FINAL-FLOWLOCK
           </div>
 
           <p class="sub" style="margin-top:10px;">
-            Tip: หน้า Launcher จะเป็นตัวเลือก flow แบบ warmup → game → result → cooldown → hub ส่วนหน้านี้คือ run page จริง
+            Tip: หน้า Launcher เป็นตัวเริ่ม flow แบบ warmup → game → result → cooldown → hub ส่วนหน้านี้คือ run page จริง
           </p>
         </div>
 
@@ -809,14 +809,11 @@ PATCH v20260313-BALANCEHOLD-RUN-FINAL-FLOWLOCK
         const hub = buildHubUrl();
         const u = new URL('../herohealth/warmup-gate.html', location.href);
 
-        // สำคัญ: gate-core รองรับทั้ง gatePhase และ phase
         setParam(u, 'gatePhase', 'cooldown');
         setParam(u, 'phase', 'cooldown');
-
         setParam(u, 'cat', 'exercise');
         setParam(u, 'game', 'balance');
         setParam(u, 'theme', 'balance');
-
         setParam(u, 'hub', hub);
         setParam(u, 'next', hub);
 
@@ -825,9 +822,7 @@ PATCH v20260313-BALANCEHOLD-RUN-FINAL-FLOWLOCK
           if(v !== '') setParam(u, k, v);
         });
 
-        // cooldown ใช้เวลาสั้น
         setParam(u, 'cdur', '15');
-
         return u.toString();
       }
 
@@ -846,14 +841,6 @@ PATCH v20260313-BALANCEHOLD-RUN-FINAL-FLOWLOCK
       if(btnEndCooldown){
         btnEndCooldown.addEventListener('click', ()=>{
           location.href = buildCooldownUrl();
-        });
-      }
-
-      const auto = String(qs('autostart','')).toLowerCase();
-      if(['1','true','yes','on'].includes(auto)){
-        window.addEventListener('DOMContentLoaded', ()=>{
-          const btn = document.querySelector('[data-action="start-normal"]');
-          if(btn) setTimeout(()=> btn.click(), 120);
         });
       }
     })();
