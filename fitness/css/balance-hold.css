@@ -562,6 +562,144 @@ input{
   }
 }
 
+/* HP flash */
+.hp-flash{
+  animation: hpFlash .42s ease;
+}
+@keyframes hpFlash{
+  0%{
+    background: rgba(239,68,68,.16);
+    border-color: rgba(239,68,68,.34);
+    box-shadow: 0 0 0 rgba(239,68,68,0);
+  }
+  35%{
+    background: rgba(239,68,68,.28);
+    border-color: rgba(239,68,68,.60);
+    box-shadow: 0 0 18px rgba(239,68,68,.24);
+  }
+  100%{
+    background: rgba(2,6,23,.40);
+    border-color: rgba(148,163,184,.18);
+    box-shadow: 0 0 0 rgba(239,68,68,0);
+  }
+}
+
+/* Combo glow */
+.combo-glow{
+  animation: comboGlow .52s ease;
+}
+@keyframes comboGlow{
+  0%{
+    transform: translateY(0) scale(1);
+    box-shadow: 0 0 0 rgba(34,197,94,0);
+  }
+  35%{
+    transform: translateY(-1px) scale(1.05);
+    box-shadow: 0 0 20px rgba(34,197,94,.26);
+    border-color: rgba(34,197,94,.45);
+    background: rgba(34,197,94,.14);
+  }
+  100%{
+    transform: translateY(0) scale(1);
+    box-shadow: 0 0 0 rgba(34,197,94,0);
+  }
+}
+
+/* Telegraph */
+.telegraph{
+  position:absolute;
+  width:54px;
+  height:54px;
+  transform: translate(-50%, -50%);
+  border-radius:999px;
+  pointer-events:none;
+  z-index:7;
+  animation: telegraphPulse .72s ease-out forwards;
+  opacity:.9;
+}
+.telegraph-gust{
+  border:2px solid rgba(34,211,238,.62);
+  box-shadow: 0 0 22px rgba(34,211,238,.18), inset 0 0 18px rgba(34,211,238,.08);
+}
+.telegraph-bomb{
+  border:2px solid rgba(239,68,68,.62);
+  box-shadow: 0 0 22px rgba(239,68,68,.18), inset 0 0 18px rgba(239,68,68,.08);
+}
+.telegraph-shock{
+  border:2px solid rgba(245,158,11,.72);
+  box-shadow: 0 0 22px rgba(245,158,11,.22), inset 0 0 18px rgba(245,158,11,.10);
+}
+.telegraph.boss{
+  width:62px;
+  height:62px;
+}
+
+@keyframes telegraphPulse{
+  0%{
+    opacity:0;
+    transform: translate(-50%, -50%) scale(.45);
+  }
+  20%{
+    opacity:1;
+  }
+  100%{
+    opacity:0;
+    transform: translate(-50%, -50%) scale(1.55);
+  }
+}
+
+/* Perfect celebration */
+.perfect-celebration{
+  position:absolute;
+  left:50%;
+  top:24%;
+  transform:translateX(-50%);
+  z-index:30;
+  min-width:min(82vw, 540px);
+  padding:16px 18px;
+  border-radius:20px;
+  border:1px solid rgba(245,158,11,.36);
+  background:
+    radial-gradient(320px 120px at 50% 20%, rgba(245,158,11,.14), transparent 70%),
+    rgba(2,6,23,.84);
+  box-shadow:
+    0 18px 60px rgba(0,0,0,.42),
+    0 0 28px rgba(245,158,11,.18);
+  text-align:center;
+  animation: perfectInOut 2.2s ease forwards;
+}
+.perfect-title{
+  font-size:30px;
+  font-weight:1000;
+  letter-spacing:.4px;
+  color:#fff7d6;
+}
+.perfect-sub{
+  margin-top:8px;
+  font-size:14px;
+  font-weight:900;
+  color:rgba(229,231,235,.88);
+}
+
+@keyframes perfectInOut{
+  0%{
+    opacity:0;
+    transform:translateX(-50%) translateY(10px) scale(.94);
+  }
+  10%{
+    opacity:1;
+    transform:translateX(-50%) translateY(0) scale(1);
+  }
+  85%{
+    opacity:1;
+    transform:translateX(-50%) translateY(0) scale(1);
+  }
+  100%{
+    opacity:0;
+    transform:translateX(-50%) translateY(-8px) scale(1.03);
+  }
+}
+
 /* MOBILE */
 @media (max-width:760px){
   .debugGrid{
@@ -721,5 +859,30 @@ input{
   #missionHud span{
     font-size:10.5px !important;
     padding:5px 8px !important;
+  }
+
+  .telegraph{
+    width:46px;
+    height:46px;
+  }
+
+  .telegraph.boss{
+    width:54px;
+    height:54px;
+  }
+
+  .perfect-celebration{
+    top:22%;
+    min-width:min(90vw, 460px);
+    padding:12px 14px;
+    border-radius:16px;
+  }
+
+  .perfect-title{
+    font-size:22px;
+  }
+
+  .perfect-sub{
+    font-size:12px;
   }
 }
