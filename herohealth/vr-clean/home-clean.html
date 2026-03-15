@@ -103,14 +103,6 @@
       min-height: calc(100vh - 120px);
     }
 
-    .toolrow{
-      margin-top:10px;
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-      align-items:center;
-    }
-
     .bossBanner{
       margin-top:10px;
       padding:10px 12px;
@@ -195,7 +187,6 @@
   </div>
 
   <script type="module">
-    // โหลดแบบ safe: ถ้าไม่มี vr-ui.js ก็ไม่พัง
     import('../vr/vr-ui.js').catch(()=>{});
   </script>
 
@@ -232,7 +223,7 @@
       return v.trim();
     }
 
-    let toastT=0;
+    let toastT = 0;
     function toast(msg){
       const el = $('toast');
       if(!el) return;
@@ -280,19 +271,16 @@
       return new URL('../hub.html', location.href).toString();
     }
 
-    function goHub(){
-      location.href = hubFallback();
-    }
-
-    function goCooldown(){
+    function buildCooldownUrl(extra = {}){
       const hub = hubFallback();
-      const base = new URL(location.href);
-      const g = new URL('../warmup-gate.html', base);
+      const g = new URL('../warmup-gate.html', location.href);
 
-      g.searchParams.set('cat','hygiene');
-      g.searchParams.set('theme','cleanobjects');
-      g.searchParams.set('game','cleanobjects');
-      g.searchParams.set('cd','1');
+      g.searchParams.set('gatePhase', 'cooldown');
+      g.searchParams.set('phase', 'cooldown');
+      g.searchParams.set('cat', 'hygiene');
+      g.searchParams.set('theme', 'cleanobjects');
+      g.searchParams.set('game', 'cleanobjects');
+      g.searchParams.set('cd', '1');
       g.searchParams.set('next', hub);
       g.searchParams.set('hub', hub);
 
@@ -301,11 +289,26 @@
         'studyId','phase','conditionGroup','boss','bossType','pro'
       ];
       keep.forEach(k=>{
-        const v = base.searchParams.get(k);
+        const v = new URL(location.href).searchParams.get(k);
         if(v !== null && v !== '') g.searchParams.set(k, v);
       });
 
-      location.href = g.toString();
+      Object.keys(extra || {}).forEach(k=>{
+        const v = extra[k];
+        if(v !== undefined && v !== null && v !== ''){
+          g.searchParams.set(k, String(v));
+        }
+      });
+
+      return g.toString();
+    }
+
+    function goHub(){
+      location.href = hubFallback();
+    }
+
+    function goCooldown(){
+      location.href = buildCooldownUrl();
     }
 
     if ($('btnBackHub')) $('btnBackHub').addEventListener('click', goHub);
@@ -368,6 +371,7 @@
 
     let core = null;
     let lastSnap = null;
+    let cooldownQueued = false;
 
     const ui = mountCleanUI(document.getElementById('root'), {
       selectA: (id, reasonTag)=> core && core.selectA(id, reasonTag),
@@ -427,11 +431,25 @@
       onCoach: (m)=> ui.onCoach(m),
       onSummary: async (summary)=>{
         saveSummary(summary);
+
         const r = await postToApi({ type:'summary', data: summary });
         if(P.debug==='1' && r && !r.skipped && !r.ok){
           console.warn('[clean] summary log failed', r);
         }
+
         ui.onSummary(summary);
+
+        // ถ้ายังไม่กดเอง ให้เข้าคูลดาวน์อัตโนมัติ
+        if(!cooldownQueued){
+          cooldownQueued = true;
+          setTimeout(()=>{
+            location.href = buildCooldownUrl({
+              finalScore: summary?.score ?? '',
+              finalMode: summary?.metrics?.mode ?? '',
+              bossClear: summary?.metrics?.boss?.cleared ? '1' : '0'
+            });
+          }, 1800);
+        }
       }
     });
 
