@@ -1,6 +1,6 @@
 // === /herohealth/vr-goodjunk/goodjunk-race.js ===
-// GoodJunkVR RACE Controller — teacher countdown + shareable startAt + race result submit
-// FULL PATCH v20260315a-RACE-STARTAT-RESULTS-LEADERBOARD
+// GoodJunkVR RACE Controller — teacher countdown + shareable startAt + race result submit + restart/reset aware
+// FULL PATCH v20260315b-RACE-STARTAT-RESULTS-RESTART
 'use strict';
 
 (function(){
@@ -27,14 +27,14 @@
   const CONTROL_PATH = `${RACE_ROOT}/control`;
 
   let db = null;
-  let firebase = null;
   let submitted = false;
   let started = false;
   let presenceTimer = null;
+  let lastResetAt = 0;
+  let lastRestartAt = 0;
 
   function getDb(){
     db = WIN.HHA_FIREBASE_DB || null;
-    firebase = WIN.HHA_FIREBASE || null;
     return db;
   }
 
@@ -96,17 +96,13 @@
     const missTotal = Number(WIN.__GJ_GET_MISS__?.() ?? 0);
     const finishMs = Number(WIN.__GJ_GET_FINISH_MS__?.() ?? 0);
     const accPct = shots > 0 ? Math.round((hits / shots) * 100) : 0;
-
     return { score, shots, hits, missTotal, accPct, finishMs };
   }
 
   function publishPresence(state='waiting'){
     const r = dbRef(`${PRESENCE_PATH}/${pid}`);
     if(!r) return;
-    const row = {
-      pid, nick, room, state,
-      at: Date.now()
-    };
+    const row = { pid, nick, room, state, at: Date.now() };
     r.set(row);
     try{ r.onDisconnect().remove(); }catch(_){}
   }
@@ -137,19 +133,6 @@
     publishPresence('finished');
   }
 
-  function watchStartAtFromFirebase(){
-    const r = dbRef(CONTROL_PATH);
-    if(!r) return;
-    r.on('value', (snap)=>{
-      const j = snap.val() || {};
-      const nextStartAt = Number(j.startAt || 0);
-      if(nextStartAt > 0) {
-        startAt = nextStartAt;
-        refreshLink();
-      }
-    });
-  }
-
   function writeStartAtToFirebase(ms){
     const r = dbRef(CONTROL_PATH);
     if(!r) return;
@@ -162,7 +145,48 @@
     });
   }
 
-  // pause game until race starts
+  function hardReloadForNewRound(){
+    const u = new URL(location.href);
+    u.searchParams.delete('startAt');
+    location.href = u.toString();
+  }
+
+  function watchControlFromFirebase(){
+    const r = dbRef(CONTROL_PATH);
+    if(!r) return;
+
+    r.on('value', (snap)=>{
+      const j = snap.val() || {};
+
+      const nextStartAt = Number(j.startAt || 0);
+      const resetAt = Number(j.resetAt || 0);
+      const restartAt = Number(j.restartAt || 0);
+
+      if(resetAt > 0 && resetAt !== lastResetAt){
+        lastResetAt = resetAt;
+        submitted = false;
+        started = false;
+        setPaused(true);
+        hardReloadForNewRound();
+        return;
+      }
+
+      if(restartAt > 0 && restartAt !== lastRestartAt){
+        lastRestartAt = restartAt;
+        submitted = false;
+        started = false;
+        setPaused(true);
+        hardReloadForNewRound();
+        return;
+      }
+
+      if(nextStartAt > 0) {
+        startAt = nextStartAt;
+        refreshLink();
+      }
+    });
+  }
+
   setPaused(true);
 
   const overlay = DOC.createElement('div');
@@ -295,7 +319,7 @@
 
   if(getDb()){
     publishPresence('waiting');
-    watchStartAtFromFirebase();
+    watchControlFromFirebase();
 
     clearInterval(presenceTimer);
     presenceTimer = setInterval(()=>{
@@ -330,7 +354,6 @@
   }
   requestAnimationFrame(tick);
 
-  // listen end from game
   WIN.addEventListener('hha:end', ()=>{
     submitRaceResult('finish');
   });
