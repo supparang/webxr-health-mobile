@@ -1,6 +1,6 @@
 // === /herohealth/gate/gate-core.js ===
 // HeroHealth Gate Core
-// FULL PATCH v20260314p-GATE-CORE-RESULT-BRIDGE-MOUNTCTX-FIX
+// PATCH v20260315-GATE-CORE-FORCE-WARMUP-SKIP-COPY
 
 import {
   buildCtx,
@@ -36,6 +36,11 @@ function qs(url, key, fallback = '') {
   } catch {
     return fallback;
   }
+}
+
+function qbool(url, key, fallback = false) {
+  const v = String(qs(url, key, fallback ? '1' : '0')).toLowerCase();
+  return ['1','true','yes','y','on'].includes(v);
 }
 
 function qPhase(url, fallback = 'warmup') {
@@ -77,15 +82,15 @@ function setText(el, text=''){
 }
 
 function statusTitle(ctx){
-  return ctx.mode === 'cooldown'
-    ? 'วันนี้ทำ Cooldown แล้ว ✅'
-    : 'วันนี้ทำ Warmup แล้ว ✅';
+  if (ctx.mode === 'cooldown') return 'วันนี้ทำ Cooldown แล้ว ✅';
+  return 'วันนี้ทำ Warmup แล้ว ✅';
 }
 
 function statusSubtitle(ctx){
-  return ctx.mode === 'cooldown'
-    ? 'กำลังกลับหน้าหลัก...'
-    : 'กำลังเข้าเกมหลัก...';
+  if (ctx.mode === 'cooldown') {
+    return 'กำลังข้าม Cooldown และกลับหน้าหลัก...';
+  }
+  return 'กำลังข้าม Warmup และเข้าเกมหลัก...';
 }
 
 function titleOf(ctx){
@@ -184,7 +189,7 @@ function renderShell(app, ctx){
   `;
 }
 
-function renderAlreadyDoneCard(app, ctx){
+function renderAlreadyDoneCard(app, ctx, nextUrl){
   const title = statusTitle(ctx);
   const sub = statusSubtitle(ctx);
 
@@ -194,6 +199,22 @@ function renderAlreadyDoneCard(app, ctx){
         <div class="gate-skip-badge">DAILY DONE</div>
         <h2 class="gate-skip-title">${esc(title)}</h2>
         <div class="gate-skip-sub">${esc(sub)}</div>
+
+        <div style="margin-top:14px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;">
+          <div style="border:1px solid rgba(148,163,184,.18);border-radius:16px;padding:12px;text-align:left;background:rgba(2,6,23,.40);">
+            <div style="font-size:12px;color:#94a3b8;font-weight:900;">โหมด</div>
+            <div style="font-size:18px;font-weight:1000;margin-top:4px;">${esc(ctx.mode)}</div>
+          </div>
+          <div style="border:1px solid rgba(148,163,184,.18);border-radius:16px;padding:12px;text-align:left;background:rgba(2,6,23,.40);">
+            <div style="font-size:12px;color:#94a3b8;font-weight:900;">เกม</div>
+            <div style="font-size:18px;font-weight:1000;margin-top:4px;">${esc(ctx.game)}</div>
+          </div>
+        </div>
+
+        <div style="margin-top:12px;border:1px solid rgba(148,163,184,.18);border-radius:16px;padding:12px;text-align:left;background:rgba(2,6,23,.40);">
+          <div style="font-size:12px;color:#94a3b8;font-weight:900;">ปลายทาง</div>
+          <div style="font-size:14px;font-weight:900;margin-top:4px;word-break:break-word;">${esc(nextUrl)}</div>
+        </div>
       </section>
     </div>
   `;
@@ -207,7 +228,7 @@ function ensureInlineSkipStyle(){
   style.id = id;
   style.textContent = `
     .gate-skip-card{
-      max-width: 720px;
+      max-width: 820px;
       margin: 6vh auto 0;
       border: 1px solid rgba(148,163,184,.18);
       border-radius: 22px;
@@ -255,31 +276,18 @@ function makeApi(app, logger){
 
   const api = {
     logger,
-    result: null,
-
     setStats(v = {}){
       if('time' in v) setText(statTime, `${v.time ?? 0}s`);
       if('score' in v) setText(statScore, `${v.score ?? 0}`);
       if('miss' in v) setText(statMiss, `${v.miss ?? 0}`);
       if('acc' in v) setText(statAcc, `${v.acc ?? '0%'}`);
     },
-
     setSub(text=''){
       setText(gateSub, text);
     },
-
     setDailyState(text=''){
       setText(dailyState, text);
     },
-
-    setResult(payload = {}){
-      api.result = payload || {};
-    },
-
-    onDone(payload = {}){
-      api.__finish?.(payload);
-    },
-
     finish(payload = {}){
       api.__finish?.(payload);
     }
@@ -314,46 +322,6 @@ function buildNextWithBuffs(nextUrl, buffs){
   }
 }
 
-function forceWireSummaryButtons(dest, ctx){
-  const isCooldown = String(ctx?.mode || '').toLowerCase() === 'cooldown';
-
-  setTimeout(()=>{
-    const root =
-      document.querySelector('.gate-summary-layer') ||
-      document.querySelector('.summary-layer') ||
-      document.querySelector('.gate-summary') ||
-      document.body;
-
-    const buttons = Array.from(root.querySelectorAll('button, a'));
-
-    buttons.forEach(el=>{
-      const txt = String(el.textContent || '').trim();
-
-      if(
-        txt.includes('ไปต่อ') ||
-        txt.includes('Continue') ||
-        txt.includes('กลับหน้าหลัก') ||
-        txt.includes('เสร็จสิ้น')
-      ){
-        el.textContent = isCooldown ? 'กลับ HUB' : txt;
-        el.onclick = (ev)=>{
-          ev.preventDefault();
-          window.location.href = dest;
-        };
-        if(el.tagName === 'A') el.setAttribute('href', dest);
-      }
-
-      if(txt.includes('กลับ HUB')){
-        el.onclick = (ev)=>{
-          ev.preventDefault();
-          window.location.href = ctx?.hub || dest;
-        };
-        if(el.tagName === 'A') el.setAttribute('href', ctx?.hub || dest);
-      }
-    });
-  }, 0);
-}
-
 async function runGate(app){
   ensureInlineSkipStyle();
 
@@ -368,6 +336,12 @@ async function runGate(app){
   ctx.hub = safeUrl(ctx.hub || qs(url, 'hub', '../hub.html'), '../hub.html');
   ctx.next = safeUrl(ctx.next || qs(url, 'next', ''), '');
   ctx.pid = String(ctx.pid || qs(url, 'pid', 'anon')).trim() || 'anon';
+
+  const forceWarmup = qbool(url, 'forceWarmup', false);
+  const forceCooldown = qbool(url, 'forceCooldown', false);
+  const bypassDailyDone =
+    (ctx.mode === 'warmup' && forceWarmup) ||
+    (ctx.mode === 'cooldown' && forceCooldown);
 
   const logger = createGateLogger(ctx);
   const nextUrl = nextUrlOf(ctx);
@@ -384,21 +358,23 @@ async function runGate(app){
       game: ctx.game,
       mode: ctx.mode,
       pid: ctx.pid || 'anon',
-      next: nextUrl
+      next: nextUrl,
+      bypassDailyDone
     });
   }catch(_){}
 
   const styleFile = getGameStyleFile(ctx.game);
   applyStyleFile(styleFile);
 
-  const alreadyDone = !!getDailyDone(ctx);
+  const alreadyDone = bypassDailyDone ? false : !!getDailyDone(ctx);
 
   if(dailyKeyStateEl){
-    setText(dailyKeyStateEl, alreadyDone ? 'DONE' : 'NEW');
+    if (bypassDailyDone) setText(dailyKeyStateEl, 'FORCED');
+    else setText(dailyKeyStateEl, alreadyDone ? 'DONE' : 'NEW');
   }
 
   if(alreadyDone){
-    renderAlreadyDoneCard(app, ctx);
+    renderAlreadyDoneCard(app, ctx, nextUrl);
 
     try{
       logger?.push?.('gate_already_done', {
@@ -420,26 +396,20 @@ async function runGate(app){
     if(finished) return;
     finished = true;
 
-    const mergedPayload = {
-      ...(api.result || {}),
-      ...(payload || {})
-    };
-
     try{
       instance?.destroy?.();
     }catch(_){}
 
     const summary = {
-      ok: !!mergedPayload.ok,
+      ok: !!payload.ok,
       game: ctx.game,
       mode: ctx.mode,
-      title: mergedPayload.title || (ctx.mode === 'cooldown' ? 'เสร็จแล้ว!' : 'พร้อมแล้ว!'),
-      subtitle: mergedPayload.subtitle || '',
-      lines: Array.isArray(mergedPayload.lines) ? mergedPayload.lines : [],
-      buffs: mergedPayload.buffs || {},
-      markDailyDone: mergedPayload.markDailyDone !== false,
-      ctx,
-      result: api.result || null
+      title: payload.title || (ctx.mode === 'cooldown' ? 'เสร็จแล้ว!' : 'พร้อมแล้ว!'),
+      subtitle: payload.subtitle || '',
+      lines: Array.isArray(payload.lines) ? payload.lines : [],
+      buffs: payload.buffs || {},
+      markDailyDone: payload.markDailyDone !== false,
+      ctx
     };
 
     if(summary.markDailyDone){
@@ -455,27 +425,22 @@ async function runGate(app){
         game: ctx.game,
         mode: ctx.mode,
         ok: summary.ok ? 1 : 0,
-        buffs: summary.buffs || {},
-        result: api.result || null
+        buffs: summary.buffs || {}
       });
     }catch(_){}
 
-    const dest = ctx.mode === 'cooldown'
-      ? safeUrl(ctx.hub || '../hub.html', '../hub.html')
-      : buildNextWithBuffs(nextUrl, summary.buffs || {});
+    const dest = buildNextWithBuffs(nextUrl, summary.buffs || {});
 
     if (typeof mountSummaryLayer === 'function') {
       mountSummaryLayer({
         title: summary.title,
         subtitle: summary.subtitle,
         lines: summary.lines,
-        primaryLabel: ctx.mode === 'cooldown' ? 'กลับ HUB' : 'ไปต่อ',
+        primaryLabel: ctx.mode === 'cooldown' ? 'กลับหน้าหลัก' : 'ไปต่อ',
         onPrimary: ()=>{
           window.location.href = dest;
         }
       });
-
-      forceWireSummaryButtons(dest, ctx);
     } else {
       window.location.href = dest;
     }
@@ -486,7 +451,6 @@ async function runGate(app){
     const mod = await importPhaseModule(ctx);
 
     if(loadingEl) loadingEl.remove();
-    mountEl?.replaceChildren();
 
     const mount =
       mod?.mount ||
@@ -502,17 +466,7 @@ async function runGate(app){
     }
 
     api.setSub('พร้อมแล้ว');
-
-    const mountCtx = {
-      ...ctx,
-      api,
-      logger,
-      setResult: api.setResult,
-      onDone: api.onDone,
-      finish: api.finish
-    };
-
-    instance = await mount(mountEl, mountCtx, api);
+    instance = await mount(mountEl, ctx, api);
 
     try{
       logger?.push?.('gate_mount_ok', {
