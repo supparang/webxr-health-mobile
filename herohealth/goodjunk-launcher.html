@@ -1,8 +1,9 @@
 <!-- === /herohealth/goodjunk-launcher.html ===
 HeroHealth • GoodJunk Launcher
-PATCH v20260314-GJ-LAUNCHER-SOLO-WARMUP-NEXTFIX
+FULL PATCH v20260315-GJ-LAUNCHER-FORCE-WARMUP
 ✅ Solo -> warmup-gate -> run
-✅ FIX: pass next=/herohealth/vr-goodjunk/goodjunk-vr.html
+✅ Solo (force warmup) -> warmup-gate?forceWarmup=1 -> run
+✅ next points to /herohealth/vr-goodjunk/goodjunk-vr.html
 ✅ Battle / Debug Battle direct to run page
 -->
 <!doctype html>
@@ -19,7 +20,7 @@ PATCH v20260314-GJ-LAUNCHER-SOLO-WARMUP-NEXTFIX
       --panel:rgba(2,6,23,.74);
       --stroke:rgba(148,163,184,.18);
       --text:#e5e7eb; --muted:#94a3b8;
-      --blue:#3b82f6; --cyan:#22d3ee;
+      --blue:#3b82f6; --cyan:#22d3ee; --violet:#8b5cf6;
       --shadow:0 18px 60px rgba(0,0,0,.35);
       --sat: env(safe-area-inset-top, 0px);
       --sar: env(safe-area-inset-right, 0px);
@@ -91,6 +92,10 @@ PATCH v20260314-GJ-LAUNCHER-SOLO-WARMUP-NEXTFIX
       border:1px solid var(--stroke);
       box-shadow:none;
     }
+    button.violet{
+      background:linear-gradient(135deg,#7c3aed,#06b6d4);
+      box-shadow:0 10px 28px rgba(124,58,237,.28);
+    }
     .actions{
       display:grid;
       grid-template-columns:repeat(2,minmax(0,1fr));
@@ -102,6 +107,10 @@ PATCH v20260314-GJ-LAUNCHER-SOLO-WARMUP-NEXTFIX
       gap:10px; margin-top:12px;
     }
     .hint{ color:var(--muted); font-size:12px; margin-top:10px; }
+    code{
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 12px;
+    }
     @media (max-width:860px){
       .grid,.form,.actions,.mini-actions{ grid-template-columns:1fr; }
     }
@@ -112,12 +121,13 @@ PATCH v20260314-GJ-LAUNCHER-SOLO-WARMUP-NEXTFIX
     <section class="hero">
       <div class="eyebrow">🥦 GoodJunk Launcher</div>
       <h1>HeroHealth • GoodJunk</h1>
-      <div class="sub">Solo จะเข้า Warmup ก่อน แล้วค่อยไปเกมหลัก • Battle / Debug Battle ยังเข้าเกมตรงได้</div>
+      <div class="sub">Solo จะเข้า Warmup ก่อน แล้วค่อยไปเกมหลัก • Solo (force warmup) ใช้ทดสอบ warmup mini-game จริง • Battle / Debug Battle ยังเข้าเกมตรงได้</div>
     </section>
 
     <section class="grid">
       <div class="card">
         <div class="title">🎮 เข้าเล่นเกม</div>
+
         <div class="form">
           <div>
             <label>PID</label>
@@ -163,14 +173,22 @@ PATCH v20260314-GJ-LAUNCHER-SOLO-WARMUP-NEXTFIX
 
         <div class="actions">
           <button id="btnSolo">▶️ Solo</button>
-          <button id="btnBattle">⚔️ Battle</button>
+          <button id="btnSoloForce" class="violet">🧪 Solo (force warmup)</button>
         </div>
+
         <div class="actions">
+          <button id="btnBattle">⚔️ Battle</button>
           <button id="btnBattleDebug">🧪 Battle Debug Solo</button>
+        </div>
+
+        <div class="actions">
           <button id="btnBackHub" class="secondary">🏠 กลับ HUB</button>
+          <button id="btnCopyRun" class="secondary">📋 คัดลอก Run URL</button>
         </div>
 
         <div class="hint">Solo ใช้ flow: launcher → warmup-gate → run → summary → cooldown-gate → hub</div>
+        <div class="hint">Solo (force warmup) จะใส่ <code>forceWarmup=1</code> เพื่อบังคับเล่น warmup จริง แม้จะทำไปแล้ววันนี้</div>
+        <div class="hint">Run page จริงคือ <code>/herohealth/vr-goodjunk/goodjunk-vr.html</code></div>
       </div>
 
       <div class="card">
@@ -180,6 +198,7 @@ PATCH v20260314-GJ-LAUNCHER-SOLO-WARMUP-NEXTFIX
           <button id="btnBoard">Board</button>
           <button id="btnBoardNew" class="secondary">Board Tab ใหม่</button>
         </div>
+        <div class="hint">Teacher Dashboard ใช้ดูผู้เล่น คะแนน ความเสี่ยง และเปิด Board ต่อได้</div>
       </div>
     </section>
   </div>
@@ -217,44 +236,64 @@ PATCH v20260314-GJ-LAUNCHER-SOLO-WARMUP-NEXTFIX
       return u;
     }
 
-    function buildWarmupBase(){
-      const u = new URL('./warmup-gate.html', location.href);
+    function buildWarmupBase(forceWarmup = false){
+      const gateUrl = new URL('./warmup-gate.html', location.href);
       const runUrl = new URL('./vr-goodjunk/goodjunk-vr.html', location.href);
 
-      runUrl.searchParams.set('pid', clean($('pid').value, 'anon'));
-      runUrl.searchParams.set('nick', clean($('nick').value, clean($('pid').value, 'anon')));
-      runUrl.searchParams.set('room', clean($('room').value, 'P5A'));
-      runUrl.searchParams.set('view', clean($('view').value, 'mobile'));
-      runUrl.searchParams.set('diff', clean($('diff').value, 'easy'));
-      runUrl.searchParams.set('time', clean($('time').value, '80'));
-      runUrl.searchParams.set('hub', clean($('hub').value, './hub.html'));
-      runUrl.searchParams.set('seed', nowSeed());
+      const pid  = clean($('pid').value, 'anon');
+      const nick = clean($('nick').value, pid);
+      const room = clean($('room').value, 'P5A');
+      const view = clean($('view').value, 'mobile');
+      const diff = clean($('diff').value, 'easy');
+      const time = clean($('time').value, '80');
+      const hub  = clean($('hub').value, './hub.html');
+      const seed = nowSeed();
+
+      runUrl.searchParams.set('pid', pid);
+      runUrl.searchParams.set('nick', nick);
+      runUrl.searchParams.set('room', room);
+      runUrl.searchParams.set('view', view);
+      runUrl.searchParams.set('diff', diff);
+      runUrl.searchParams.set('time', time);
+      runUrl.searchParams.set('hub', hub);
+      runUrl.searchParams.set('seed', seed);
       runUrl.searchParams.set('cat', 'nutrition');
       runUrl.searchParams.set('game', 'goodjunk');
       runUrl.searchParams.set('mode', 'solo');
 
-      u.searchParams.set('Phase', 'warmup');
-      u.searchParams.set('cat', 'nutrition');
-      u.searchParams.set('game', 'goodjunk');
-      u.searchParams.set('pid', clean($('pid').value, 'anon'));
-      u.searchParams.set('nick', clean($('nick').value, clean($('pid').value, 'anon')));
-      u.searchParams.set('room', clean($('room').value, 'P5A'));
-      u.searchParams.set('run', 'play');
-      u.searchParams.set('mode', 'solo');
-      u.searchParams.set('view', clean($('view').value, 'mobile'));
-      u.searchParams.set('diff', clean($('diff').value, 'easy'));
-      u.searchParams.set('time', clean($('time').value, '80'));
-      u.searchParams.set('seed', nowSeed());
-      u.searchParams.set('hub', clean($('hub').value, './hub.html'));
+      gateUrl.searchParams.set('Phase', 'warmup');
+      gateUrl.searchParams.set('gatePhase', 'warmup');
+      gateUrl.searchParams.set('cat', 'nutrition');
+      gateUrl.searchParams.set('game', 'goodjunk');
 
-      // สำคัญมาก: บอกปลายทางหลัง warmup ให้ชัด
-      u.searchParams.set('next', runUrl.toString());
+      gateUrl.searchParams.set('pid', pid);
+      gateUrl.searchParams.set('nick', nick);
+      gateUrl.searchParams.set('room', room);
 
-      return u;
+      gateUrl.searchParams.set('run', 'play');
+      gateUrl.searchParams.set('mode', 'solo');
+      gateUrl.searchParams.set('view', view);
+      gateUrl.searchParams.set('diff', diff);
+      gateUrl.searchParams.set('time', time);
+      gateUrl.searchParams.set('seed', seed);
+      gateUrl.searchParams.set('hub', hub);
+
+      // สำคัญ: หลัง warmup ไป run page จริง
+      gateUrl.searchParams.set('next', runUrl.toString());
+
+      if(forceWarmup){
+        gateUrl.searchParams.set('forceWarmup', '1');
+      }
+
+      return gateUrl;
     }
 
     $('btnSolo').onclick = ()=>{
-      location.href = buildWarmupBase().toString();
+      location.href = buildWarmupBase(false).toString();
+    };
+
+    $('btnSoloForce').onclick = ()=>{
+      location.href = buildWarmupBase(true).toString();
     };
 
     $('btnBattle').onclick = ()=>{
@@ -293,6 +332,17 @@ PATCH v20260314-GJ-LAUNCHER-SOLO-WARMUP-NEXTFIX
 
     $('btnBackHub').onclick = ()=>{
       location.href = clean($('hub').value, './hub.html');
+    };
+
+    $('btnCopyRun').onclick = async ()=>{
+      try{
+        const runUrl = buildRunBase();
+        runUrl.searchParams.set('mode','solo');
+        await navigator.clipboard.writeText(runUrl.toString());
+        alert('คัดลอก Run URL แล้ว ✅');
+      }catch(_){
+        alert('คัดลอกไม่สำเร็จ');
+      }
     };
   </script>
 </body>
