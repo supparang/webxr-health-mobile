@@ -278,7 +278,6 @@ FULL PATCH v20260315-GJ-LAUNCHER-FORCE-WARMUP
       gateUrl.searchParams.set('seed', seed);
       gateUrl.searchParams.set('hub', hub);
 
-      // สำคัญ: หลัง warmup ไป run page จริง
       gateUrl.searchParams.set('next', runUrl.toString());
 
       if(forceWarmup){
