@@ -1,6 +1,11 @@
 // === /fitness/js/rhythm-boxer.js ===
-// Rhythm Boxer — PRODUCTION SAFE (MVP) — Planner/Research ready
-// FULL v20260302-RB-SAFE-MVP
+// Rhythm Boxer — FULL FINAL
+// PATCH v20260315-RB-FULL-FINAL-HHA-r1
+// ✅ child-friendly
+// ✅ AI coach / reward / stars / medal / badge
+// ✅ HHA Hub + cooldown aware
+// ✅ save RB_PROFILE / HHA_RB_BEST / HHA_LAST_SUMMARY
+// ✅ export ML-ready CSV
 'use strict';
 
 (function(){
@@ -18,7 +23,6 @@
   const nowMs = ()=> (performance && performance.now) ? performance.now() : Date.now();
   const nowIso = ()=> new Date().toISOString();
   const rand = (seed)=>{
-    // xorshift32
     let x = (seed|0) || 123456789;
     return ()=>{
       x ^= x << 13; x |= 0;
@@ -45,19 +49,36 @@
     for(const x of arr){ const d=x-m; s += d*d; }
     return Math.sqrt(s/(arr.length-1));
   };
-
   function $(id){ return D.getElementById(id); }
 
+  function loadJson(k, fallback=null){
+    try{
+      const raw = localStorage.getItem(k);
+      return raw ? JSON.parse(raw) : fallback;
+    }catch(_){ return fallback; }
+  }
+  function saveJson(k, v){
+    try{ localStorage.setItem(k, JSON.stringify(v)); }catch(_){}
+  }
+  function hhDayKey(){
+    const d=new Date();
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  }
+
   // --------------------------- params ---------------------------
-  const RUN = String(qs('run','play')).toLowerCase(); // play|research (planner may pass)
+  const RUN = String(qs('run','play')).toLowerCase();
   const DIFF = String(qs('diff','normal')).toLowerCase();
   const TIME_SEC = clamp(qs('time','80'), 20, 300);
   const SEED = Number(qs('seed', String(Date.now()))) || Date.now();
   const PID = String(qs('pid','')).trim() || 'anon';
 
-  const HUB = String(qs('hub','')).trim(); // optional planner/hub
+  const HUB = String(qs('hub','')).trim();
   const PLAN_DAY = String(qs('planDay','')).trim();
   const PLAN_SLOT = String(qs('planSlot','')).trim();
+
+  const GAME_ID = String(qs('game','rhythm')).trim().toLowerCase() || 'rhythm';
+  const ZONE = String(qs('zone','fitness')).trim().toLowerCase() || 'fitness';
+  const CAT  = String(qs('cat','fitness')).trim().toLowerCase() || 'fitness';
 
   // --------------------------- DOM refs ---------------------------
   const VIEW_MENU = $('rb-view-menu');
@@ -119,20 +140,18 @@
   const RES_PART = $('rb-res-participant');
   const RES_QUALITY_NOTE = $('rb-res-quality-note');
 
-  // safety
   if(!VIEW_MENU || !VIEW_PLAY || !VIEW_RESULT || !BTN_START || !LANES_WRAP){
     console.warn('[RB] Missing essential DOM nodes. Check HTML ids.');
   }
 
-  // --------------------------- HUD top planner pill (optional) ---------------------------
+  // --------------------------- planner hud patch ---------------------------
   (function patchPlanHud(){
-    const elDay = D.getElementById('hhDay');
-    const elSlot = D.getElementById('hhSlot');
+    const elDay = $('hhDay');
+    const elSlot = $('hhSlot');
     if(elDay) elDay.textContent = PLAN_DAY ? PLAN_DAY : '—';
     if(elSlot) elSlot.textContent = PLAN_SLOT ? PLAN_SLOT : '—';
 
-    // back button (if present)
-    const btnBack = D.getElementById('hhBack');
+    const btnBack = $('hhBack');
     if(btnBack){
       btnBack.addEventListener('click', ()=>{
         if(HUB){
@@ -144,8 +163,7 @@
       });
     }
 
-    // menu back link (if present)
-    const backLink = D.getElementById('rb-back-link');
+    const backLink = $('rb-back-link');
     if(backLink){
       if(HUB){
         try{ backLink.href = new URL(HUB, location.href).toString(); }catch{ backLink.href = HUB; }
@@ -161,7 +179,6 @@
   })();
 
   // --------------------------- tracks ---------------------------
-  // lanes: 0..4 => L2 L1 C R1 R2
   const TRACKS = {
     n1: { key:'n1', name:'Warm-up Groove', bpm:100, density:0.72, jitter:0.10, feverRate:1.00, missDmg:4, blankPenalty:1 },
     n2: { key:'n2', name:'Focus Combo',   bpm:120, density:0.90, jitter:0.12, feverRate:1.05, missDmg:5, blankPenalty:1 },
@@ -196,7 +213,6 @@
     seed: SEED,
     rng: rand(SEED|0),
 
-    // gameplay
     score:0,
     combo:0,
     maxCombo:0,
@@ -207,54 +223,58 @@
     good:0,
     miss:0,
     hp:100,
-    shield:0,     // blocks one miss
-    fever:0,      // 0..100
+    shield:0,
+    fever:0,
     feverOn:false,
     lastJudge:'READY',
 
-    // timing
-    offsets: [], // ms (signed)
-    tapTimes: [], // ms timestamps
+    offsets: [],
+    tapTimes: [],
     blankTaps:0,
 
-    // engine
-    notes: [], // active notes {id, lane, tHit, spawned, hit, miss, el}
+    notes: [],
     nextId:1,
 
-    // logging
     events: [],
     sessions: [],
 
-    // AI
     ai: { fatigue:0, skill:0.5, suggest:'normal', tip:'' },
     aiLastTipAt:0,
 
-    // end reason
     endReason:'timeup',
+
+    phase:'warmup',
+    phaseShown:{},
+    lastBeatPulseAt:0,
+
+    reward:{
+      stars:0,
+      medal:'none',
+      badge:'-',
+      label:''
+    }
   };
 
-  // --------------------------- UI: mode toggle visibility ---------------------------
+  // --------------------------- UI helpers ---------------------------
   function refreshModeUI(){
     const mode = getSelectedMode();
     S.mode = mode;
 
     if(mode==='research'){
       if(RESEARCH_FIELDS) RESEARCH_FIELDS.classList.remove('hidden');
-      if(MODE_DESC) MODE_DESC.textContent = 'Research: เก็บข้อมูล Event/Session เพื่อวิเคราะห์ (แนะนำกรอก Participant ID)';
+      if(MODE_DESC) MODE_DESC.textContent = 'Research: เก็บข้อมูล Event / Session / ML-ready CSV';
     }else{
       if(RESEARCH_FIELDS) RESEARCH_FIELDS.classList.add('hidden');
-      if(MODE_DESC) MODE_DESC.textContent = 'Normal: เล่นสนุก / ใช้สอนทั่วไป (ไม่จำเป็นต้องกรอกข้อมูลผู้เข้าร่วม)';
+      if(MODE_DESC) MODE_DESC.textContent = 'Normal: เล่นสนุก เก็บดาว เก็บเหรียญ และฝึกจังหวะ';
     }
 
-    // show only matching track options (simple)
     const lab = $('rb-track-mode-label');
     if(lab){
       lab.textContent = (mode==='research')
-        ? 'โหมด Research — เพลงมาตรฐาน 1 ชุด (ควบคุมเงื่อนไข)'
-        : 'โหมด Normal — เพลง 3 ระดับ: ง่าย / ปกติ / ยาก';
+        ? 'โหมด Research — ใช้เพลงมาตรฐานเพื่อเก็บข้อมูล'
+        : 'โหมด Normal — เลือกระดับง่าย ปกติ หรือเร็ว';
     }
 
-    // disable/enable track radios by data-mode (optional)
     const opts = D.querySelectorAll('#rb-track-options .rb-mode-btn');
     opts.forEach(o=>{
       const m = String(o.getAttribute('data-mode')||'normal');
@@ -266,11 +286,9 @@
       o.style.pointerEvents = allow ? 'auto' : 'none';
     });
 
-    // if current selection is disabled, auto-pick
     const chosen = getSelectedTrack();
     const chosenMeta = TRACKS[chosen];
     if(mode==='research' && !chosenMeta.research){
-      // select r1
       const r = D.querySelector('input[name="rb-track"][value="r1"]');
       if(r) r.checked = true;
     }
@@ -280,7 +298,6 @@
     }
   }
 
-  // --------------------------- view switching ---------------------------
   function showView(name){
     const set = (el, on)=>{ if(!el) return; el.classList.toggle('hidden', !on); };
     set(VIEW_MENU, name==='menu');
@@ -288,41 +305,50 @@
     set(VIEW_RESULT, name==='result');
   }
 
-  // --------------------------- feedback / flash ---------------------------
-  function setFeedback(msg){
+  function setFeedback(msg, cls=''){
     if(!FEEDBACK) return;
     FEEDBACK.textContent = msg || '';
+    FEEDBACK.className = 'rb-feedback';
+    if(cls) FEEDBACK.classList.add(cls);
+    FEEDBACK.classList.add('show');
+    setTimeout(()=>{ FEEDBACK && FEEDBACK.classList.remove('show'); }, 180);
   }
+
   function flash(){
     const f = $('rb-flash');
     if(!f) return;
-    f.style.opacity = '0.85';
-    setTimeout(()=>{ f.style.opacity = '0'; }, 70);
+    f.classList.add('active');
+    setTimeout(()=>{ f.classList.remove('active'); }, 80);
   }
 
-  // --------------------------- note rendering ---------------------------
   function laneEls(){
     return Array.from(D.querySelectorAll('.rb-lane'));
   }
-  function makeNoteEl(laneIndex){
+
+  function makeNoteEl(laneIndex, noteData){
     const lane = laneEls()[laneIndex];
     if(!lane) return null;
     const el = D.createElement('div');
     el.className = 'rb-note';
-    // fallback style if css missing
-    el.style.position = 'absolute';
-    el.style.left = '10%';
-    el.style.right = '10%';
-    el.style.top = '-14px';
-    el.style.height = '14px';
-    el.style.borderRadius = '10px';
-    el.style.background = 'rgba(255,255,255,.85)';
-    el.style.boxShadow = '0 8px 20px rgba(0,0,0,.25)';
-    el.style.pointerEvents = 'none';
-    lane.style.position = lane.style.position || 'relative';
+
+    const punchType = noteData?.punchType || 'jab';
+    if(punchType === 'jab') el.classList.add('punch-jab');
+    else if(punchType === 'hook') el.classList.add('punch-hook');
+    else el.classList.add('punch-uppercut');
+
+    if(laneIndex <= 1) el.classList.add('side-left');
+    else if(laneIndex >= 3) el.classList.add('side-right');
+    else el.classList.add('side-center');
+
+    const ico = D.createElement('div');
+    ico.className = 'rb-note-ico';
+    ico.textContent = punchType === 'jab' ? '👊' : (punchType === 'hook' ? '🥊' : '💥');
+    el.appendChild(ico);
+
     lane.appendChild(el);
     return el;
   }
+
   function removeNoteEl(note){
     if(note && note.el && note.el.parentNode){
       note.el.parentNode.removeChild(note.el);
@@ -330,9 +356,94 @@
     note.el = null;
   }
 
-  // --------------------------- judge windows (ms) ---------------------------
+  function coachCallout(msg, cls='cue'){
+    const field = $('rb-field');
+    if(!field || !msg) return;
+    const el = D.createElement('div');
+    el.className = `rb-coach-callout ${cls} show`;
+    el.textContent = msg;
+    field.appendChild(el);
+    setTimeout(()=>{ el.remove(); }, 900);
+  }
+
+  function roundBanner(title, sub='', cls='warmup'){
+    const field = $('rb-field');
+    if(!field) return;
+    const el = D.createElement('div');
+    el.className = `rb-round-banner ${cls} show`;
+    el.innerHTML = `
+      <div class="rb-round-banner-title">${title}</div>
+      <div class="rb-round-banner-sub">${sub}</div>
+    `;
+    field.appendChild(el);
+    setTimeout(()=>{ el.remove(); }, 1500);
+  }
+
+  function scoreFx(judge){
+    const field = $('rb-field');
+    if(!field) return;
+
+    const a = D.createElement('div');
+    a.className = `rb-hit-fx ${judge.toLowerCase()}`;
+    field.appendChild(a);
+    setTimeout(()=>a.remove(), 340);
+
+    const b = D.createElement('div');
+    b.className = `rb-score-popup ${judge.toLowerCase()}`;
+    b.textContent = judge === 'Perfect' ? '+120' : judge === 'Great' ? '+85' : judge === 'Good' ? '+50' : 'MISS';
+    field.appendChild(b);
+    setTimeout(()=>b.remove(), 520);
+  }
+
+  function comboBurst(txt){
+    const field = $('rb-field');
+    if(!field) return;
+    const el = D.createElement('div');
+    el.className = 'rb-combo-burst';
+    el.textContent = txt;
+    field.appendChild(el);
+    setTimeout(()=>el.remove(), 640);
+  }
+
+  function phaseOf(now){
+    const dur = Math.max(1, S.tEnd - S.t0);
+    const p = clamp((now - S.t0) / dur, 0, 1);
+    if(p < 0.20) return 'warmup';
+    if(p < 0.55) return 'groove';
+    if(p < 0.82) return 'rush';
+    return 'final';
+  }
+
+  function maybePhaseChange(now){
+    const phase = phaseOf(now);
+    if(S.phase === phase) return;
+    S.phase = phase;
+
+    const field = $('rb-field');
+    if(field) field.setAttribute('data-phase', phase);
+
+    if(phase==='warmup') roundBanner('วอร์มอัปก่อนนะ', 'ค่อย ๆ จับจังหวะ', 'warmup');
+    else if(phase==='groove') roundBanner('เริ่มเข้าจังหวะแล้ว!', 'รักษาคอมโบไว้', 'groove');
+    else if(phase==='rush') roundBanner('เร็วขึ้นอีกนิด!', 'มองเส้นแล้วกดให้พอดี', 'rush');
+    else if(phase==='final') roundBanner('ช่วงสุดท้าย!', 'ลุยเก็บดาวกันเลย', 'final');
+  }
+
+  function beatPulse(now){
+    const field = $('rb-field');
+    const lanes = $('rb-lanes');
+    if(!field || !lanes) return;
+    if(now - S.lastBeatPulseAt < 380) return;
+    S.lastBeatPulseAt = now;
+    field.classList.add('rb-beat-pulse');
+    lanes.classList.add('rb-lanes-pulse');
+    setTimeout(()=>{
+      field.classList.remove('rb-beat-pulse');
+      lanes.classList.remove('rb-lanes-pulse');
+    }, 220);
+  }
+
+  // --------------------------- judge windows ---------------------------
   function judgeWindows(){
-    // tighter on hard
     const base = (DIFF==='hard') ? 70 : (DIFF==='easy' ? 95 : 82);
     return {
       perfect: base,
@@ -342,7 +453,6 @@
   }
 
   function addScore(judge){
-    // fever boosts
     const feverMult = S.feverOn ? 1.25 : 1.0;
     let add = 0;
     if(judge==='Perfect') add = 120;
@@ -350,7 +460,6 @@
     else if(judge==='Good') add = 50;
     else add = 0;
 
-    // combo bonus
     const comboBonus = Math.min(60, Math.floor(S.combo/10)*10);
     S.score += Math.round((add + comboBonus) * feverMult);
   }
@@ -366,22 +475,27 @@
     if(S.fever >= 100){
       S.feverOn = true;
       S.fever = 100;
+      const field = $('rb-field');
+      if(field) field.classList.add('is-fever');
+      coachCallout('FEVER ON! เก่งมาก!', 'perfect');
     }
   }
+
   function drainFever(dt){
     if(!S.feverOn) return;
-    // drain while active
-    S.fever = clamp(S.fever - dt*0.022, 0, 100); // ~45s full drain
+    S.fever = clamp(S.fever - dt*0.022, 0, 100);
     if(S.fever <= 0){
       S.feverOn = false;
       S.fever = 0;
+      const field = $('rb-field');
+      if(field) field.classList.remove('is-fever');
     }
   }
 
   function applyMissDamage(track){
     if(S.shield > 0){
       S.shield -= 1;
-      // still counts as miss? (we count miss but no HP loss) — keep fair
+      coachCallout('โล่ช่วยไว้!', 'good');
       return;
     }
     const dmg = (track.missDmg || 5) * diffScale();
@@ -389,67 +503,80 @@
   }
 
   function maybeGainShield(){
-    // reward long streak
     if(S.combo>0 && S.combo % 30 === 0){
       S.shield = clamp(S.shield + 1, 0, 3);
+      coachCallout('ได้โล่เพิ่ม 1 อัน!', 'great');
     }
   }
 
-  // --------------------------- AI predictor (safe) ---------------------------
+  // --------------------------- AI predictor ---------------------------
   function updateAI(now){
-    // fatigue: based on tap rate + miss streak + HP drop
-    const horizonMs = 12000;
-    const recent = S.tapTimes.filter(t => (now - t) <= horizonMs);
-    const tapsPerSec = recent.length / (horizonMs/1000);
+    if(W.RB_AI && typeof W.RB_AI.predict === 'function'){
+      const accPct = (S.shots>0) ? (S.hits/S.shots*100) : 0;
+      const offAbs = S.offsets.slice(-16).map(x=>Math.abs(x));
+      const offMean = mean(offAbs) || 0;
 
-    const missRate = (S.shots>0) ? (S.miss / S.shots) : 0;
-    const acc = (S.shots>0) ? (S.hits / S.shots) : 0;
+      const st = W.RB_AI.predict({
+        accPct,
+        combo: S.combo,
+        offsetAbsMean: offMean / 1000,
+        hitMiss: S.miss,
+        hp: S.hp,
+        songTime: Math.max(0,(now - S.t0)/1000)
+      });
 
-    // skill: accuracy + timing stability
-    const offAbs = S.offsets.slice(-20).map(x=>Math.abs(x));
-    const offMed = median(offAbs);
-    let timingScore = 0.5;
-    if(offMed!=null){
-      timingScore = clamp(1 - (offMed/160), 0, 1);
+      S.ai.fatigue = st.fatigueRisk ?? 0;
+      S.ai.skill = st.skillScore ?? 0.5;
+      S.ai.suggest = st.suggestedDifficulty || 'normal';
+
+      if(st.tip){
+        S.ai.tip = st.tip;
+      }
+    }else{
+      const horizonMs = 12000;
+      const recent = S.tapTimes.filter(t => (now - t) <= horizonMs);
+      const tapsPerSec = recent.length / (horizonMs/1000);
+      const missRate = (S.shots>0) ? (S.miss / S.shots) : 0;
+      const acc = (S.shots>0) ? (S.hits / S.shots) : 0;
+      const offAbs = S.offsets.slice(-20).map(x=>Math.abs(x));
+      const offMed = median(offAbs);
+      let timingScore = 0.5;
+      if(offMed!=null){
+        timingScore = clamp(1 - (offMed/160), 0, 1);
+      }
+      const skill = clamp(0.25*acc + 0.75*timingScore, 0, 1);
+      const hpLoss = (100 - S.hp) / 100;
+      const fatigue = clamp(0.25*hpLoss + 0.35*missRate + 0.25*(tapsPerSec/6) + 0.15*(S.blankTaps/Math.max(1,S.shots)), 0, 1);
+      let suggest = 'normal';
+      if(fatigue > 0.72) suggest = 'easy';
+      else if(skill > 0.78 && fatigue < 0.45) suggest = 'hard';
+
+      if(now - S.aiLastTipAt > 6000){
+        let tip = '';
+        if(S.blankTaps >= 6 && (S.blankTaps/Math.max(1,S.shots)) > 0.22){
+          tip = 'ลองรอให้หัวโน้ตแตะเส้นสีเหลืองก่อนนะ';
+        }else if(offMed!=null && offMed > 95){
+          tip = 'ค่อย ๆ จับจังหวะ อย่ากดเร็วเกินไป';
+        }else if(S.combo>0 && S.combo % 20 === 0){
+          tip = 'สุดยอด! รักษาจังหวะนี้ไว้';
+        }else if(fatigue>0.7){
+          tip = 'ถ้าล้า พักมือสั้น ๆ แล้วกลับมาใหม่';
+        }
+        if(tip){
+          S.aiLastTipAt = now;
+          S.ai.tip = tip;
+        }
+      }
+
+      S.ai.fatigue = fatigue;
+      S.ai.skill = skill;
+      S.ai.suggest = suggest;
     }
 
-    const skill = clamp(0.25*acc + 0.75*timingScore, 0, 1);
+    if(HUD_AI_FAT) HUD_AI_FAT.textContent = `${Math.round(S.ai.fatigue*100)}%`;
+    if(HUD_AI_SKILL) HUD_AI_SKILL.textContent = `${Math.round(S.ai.skill*100)}%`;
+    if(HUD_AI_SUGG) HUD_AI_SUGG.textContent = S.ai.suggest || 'normal';
 
-    // fatigue proxy
-    const hpLoss = (100 - S.hp) / 100;
-    const fatigue = clamp(0.25*hpLoss + 0.35*missRate + 0.25*(tapsPerSec/6) + 0.15*(S.blankTaps/Math.max(1,S.shots)), 0, 1);
-
-    // suggest diff
-    let suggest = 'normal';
-    if(fatigue > 0.72) suggest = 'easy';
-    else if(skill > 0.78 && fatigue < 0.45) suggest = 'hard';
-
-    // coach tip (rate-limited)
-    let tip = '';
-    const tSince = now - S.aiLastTipAt;
-    if(tSince > 6000){
-      if(S.blankTaps >= 6 && (S.blankTaps/Math.max(1,S.shots)) > 0.22){
-        tip = 'ลอง “รอหัวโน้ตถึงเส้นเหลือง” ก่อนค่อยกด จะได้ไม่กดล่วงหน้า';
-      }else if(offMed!=null && offMed > 95){
-        tip = 'จังหวะยังแกว่งนิดนึง — ลอง “หายใจเข้า-ออก” แล้วกดตามเสียง/ภาพให้ช้าลงเล็กน้อย';
-      }else if(S.combo>0 && S.combo % 20 === 0){
-        tip = 'ดีมาก! คอมโบสูงแล้ว — รักษาจังหวะเดิมไว้';
-      }else if(fatigue>0.7){
-        tip = 'ถ้าเริ่มล้า ให้พักมือ 5 วินาที แล้วกลับมาลุยต่อ';
-      }
-      if(tip){
-        S.aiLastTipAt = now;
-        S.ai.tip = tip;
-      }
-    }
-
-    S.ai.fatigue = fatigue;
-    S.ai.skill = skill;
-    S.ai.suggest = suggest;
-
-    if(HUD_AI_FAT) HUD_AI_FAT.textContent = `${Math.round(fatigue*100)}%`;
-    if(HUD_AI_SKILL) HUD_AI_SKILL.textContent = `${Math.round(skill*100)}%`;
-    if(HUD_AI_SUGG) HUD_AI_SUGG.textContent = suggest;
     if(HUD_AI_TIP){
       if(S.ai.tip){
         HUD_AI_TIP.classList.remove('hidden');
@@ -462,11 +589,6 @@
   }
 
   // --------------------------- logging ---------------------------
-  function logEvent(ev){
-    // minimize in normal
-    if(S.mode!=='research') return;
-    S.events.push(ev);
-  }
   function sessionMeta(){
     return {
       tsIso: nowIso(),
@@ -481,8 +603,17 @@
       seed: String(S.seed),
       track: S.trackKey,
       mode: S.mode,
+      game: 'rhythm',
+      zone: ZONE,
+      cat: CAT
     };
   }
+
+  function logEvent(ev){
+    if(S.mode!=='research') return;
+    S.events.push(ev);
+  }
+
   function downloadText(filename, text){
     const blob = new Blob([text], {type:'text/csv;charset=utf-8'});
     const a = D.createElement('a');
@@ -492,6 +623,7 @@
     a.click();
     setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 1200);
   }
+
   function toCSV(rows, cols){
     const esc = (v)=>{
       v = (v===undefined || v===null) ? '' : String(v);
@@ -503,41 +635,41 @@
     return head + '\n' + body + '\n';
   }
 
-  // --------------------------- engine: generate chart ---------------------------
+  // --------------------------- engine schedule ---------------------------
   function buildSchedule(track, durSec){
-    // Deterministic schedule: 5 lanes, beat-based
     const t = TRACKS[track];
     const bpm = t.bpm;
     const beatMs = 60000 / bpm;
-    const baseStep = beatMs / 2; // 8th notes
+    const baseStep = beatMs / 2;
     const density = (t.density || 0.9) * diffScale();
     const jitter = (t.jitter || 0.1);
 
     const r = S.rng;
     const notes = [];
-    let tt = 1400; // start after 1.4s
+    let tt = 1400;
     let lastLane = 2;
 
     while(tt < durSec*1000 - 900){
-      // maybe spawn this step
       const p = clamp(density, 0.35, 1.35);
       const spawn = (r() < Math.min(0.92, p));
       if(spawn){
-        // choose lane with slight anti-repeat
         let lane = Math.floor(r()*5);
         if(lane===lastLane && r()<0.6) lane = (lane + 1 + Math.floor(r()*3)) % 5;
         lastLane = lane;
 
-        // add jitter ms (for normal; for research keep tighter)
         let j = (r()*2-1) * jitter * baseStep;
         if(t.research) j *= 0.4;
 
-        notes.push({ lane, tHit: tt + j });
+        const punchType =
+          lane === 2 ? 'uppercut' :
+          (lane <= 1 ? (r() < 0.7 ? 'jab' : 'hook') : (r() < 0.5 ? 'hook' : 'jab'));
+
+        notes.push({ lane, tHit: tt + j, punchType });
       }
-      // occasionally add double notes (challenge)
+
       if(!t.research && r() < 0.10 * density){
         const lane2 = (lastLane + (r()<0.5?2:3))%5;
-        notes.push({ lane: lane2, tHit: tt + 60 });
+        notes.push({ lane: lane2, tHit: tt + 60, punchType: lane2===2 ? 'uppercut' : (lane2<2 ? 'jab' : 'hook') });
       }
 
       tt += baseStep;
@@ -545,46 +677,47 @@
     return notes;
   }
 
-  // --------------------------- play lifecycle ---------------------------
+  // --------------------------- lifecycle ---------------------------
   function resetStateForRun(){
     S.running = false;
     S.t0 = 0;
     S.tEnd = 0;
     S.tLast = 0;
-
     S.score = 0;
     S.combo = 0;
     S.maxCombo = 0;
     S.shots = 0;
     S.hits = 0;
-
     S.perfect = 0;
     S.great = 0;
     S.good = 0;
     S.miss = 0;
-
     S.hp = 100;
     S.shield = 0;
     S.fever = 0;
     S.feverOn = false;
     S.lastJudge = 'READY';
-
     S.offsets = [];
     S.tapTimes = [];
     S.blankTaps = 0;
-
     S.notes = [];
     S.nextId = 1;
-
     S.endReason = 'timeup';
+    S.phase = 'warmup';
+    S.phaseShown = {};
+    S.lastBeatPulseAt = 0;
+    S.reward = { stars:0, medal:'none', badge:'-', label:'' };
 
-    // clear lane DOM notes
     laneEls().forEach(l=>{
-      // remove any rb-note children
-      Array.from(l.querySelectorAll('.rb-note')).forEach(n=>n.remove());
+      Array.from(l.querySelectorAll('.rb-note,.rb-hit-fx,.rb-score-popup,.rb-combo-burst,.rb-coach-callout,.rb-round-banner')).forEach(n=>n.remove());
     });
 
-    // clear AI tip
+    const field = $('rb-field');
+    if(field){
+      field.classList.remove('is-fever','rb-fever-pulse','rb-beat-pulse');
+      field.setAttribute('data-phase','warmup');
+    }
+
     S.ai = { fatigue:0, skill:0.5, suggest:'normal', tip:'' };
     S.aiLastTipAt = 0;
   }
@@ -594,11 +727,9 @@
 
     if(HUD_MODE) HUD_MODE.textContent = (S.mode==='research' ? 'Research' : 'Normal');
     if(HUD_TRACK) HUD_TRACK.textContent = TRACKS[S.trackKey].name;
-
     if(HUD_SCORE) HUD_SCORE.textContent = String(Math.round(S.score));
     if(HUD_COMBO) HUD_COMBO.textContent = String(S.combo);
     if(HUD_ACC) HUD_ACC.textContent = `${acc.toFixed(1)}%`;
-
     if(HUD_HP) HUD_HP.textContent = String(Math.round(S.hp));
     if(HUD_SHIELD) HUD_SHIELD.textContent = String(S.shield);
 
@@ -610,28 +741,25 @@
     if(HUD_GOOD) HUD_GOOD.textContent = String(S.good);
     if(HUD_MISS) HUD_MISS.textContent = String(S.miss);
 
-    // fever bar
     if(FEVER_FILL){
       FEVER_FILL.style.width = `${clamp(S.fever,0,100)}%`;
       FEVER_FILL.style.opacity = S.feverOn ? '1' : '0.85';
-      FEVER_FILL.style.filter = S.feverOn ? 'brightness(1.15)' : 'none';
     }
     if(FEVER_STATUS){
       FEVER_STATUS.textContent = S.feverOn ? 'ON' : (S.fever>=100 ? 'READY' : 'BUILD');
     }
 
-    // progress
     const prog = clamp((now - S.t0) / (S.tEnd - S.t0), 0, 1);
     if(PROG_FILL) PROG_FILL.style.width = `${Math.round(prog*100)}%`;
     if(PROG_TEXT) PROG_TEXT.textContent = `${Math.round(prog*100)}%`;
   }
 
   function spawnNotes(schedule){
-    // map schedule -> active notes with DOM elements created on demand
     S.notes = schedule.map(n => ({
       id: S.nextId++,
       lane: n.lane,
       tHit: n.tHit,
+      punchType: n.punchType || 'jab',
       spawned: false,
       hit: false,
       miss: false,
@@ -640,8 +768,6 @@
   }
 
   function noteTravelMs(){
-    // how long a note takes to fall to hit line
-    // faster on hard
     if(DIFF==='hard') return 1050;
     if(DIFF==='easy') return 1250;
     return 1150;
@@ -652,40 +778,35 @@
     const lanes = laneEls();
     if(!lanes.length) return;
 
-    // compute lane rect once
     const laneRect = lanes[0].getBoundingClientRect();
     const laneH = laneRect.height || 240;
-    const hitY = laneH * 0.82; // hit line near bottom
+    const hitY = laneH * 0.82;
 
     for(const note of S.notes){
       if(note.hit || note.miss) continue;
 
-      const tRel = (now - S.t0);         // ms since start
-      const dtToHit = note.tHit - tRel;  // ms until hit line
+      const tRel = (now - S.t0);
+      const dtToHit = note.tHit - tRel;
       const y = hitY - (dtToHit / travel) * hitY;
 
-      // spawn when near top
       if(!note.spawned && dtToHit < travel){
         note.spawned = true;
-        note.el = makeNoteEl(note.lane);
+        note.el = makeNoteEl(note.lane, note);
       }
 
       if(note.el){
-        // clamp y
         const yy = clamp(y, -24, hitY + 80);
-        note.el.style.transform = `translateY(${yy}px)`;
+        note.el.style.transform = `translate(-50%, ${yy}px)`;
 
-        // miss if passes window
         const win = judgeWindows().good;
         if(dtToHit < -win){
           note.miss = true;
           removeNoteEl(note);
 
-          // stats
           S.shots += 1;
           S.miss += 1;
           S.combo = 0;
-          setFeedback('MISS');
+          setFeedback('MISS', 'miss');
           applyMissDamage(TRACKS[S.trackKey]);
 
           logEvent({
@@ -705,13 +826,13 @@
           });
 
           flash();
+          scoreFx('Miss');
         }
       }
     }
   }
 
   function findNearestNote(lane, now){
-    // choose the note in lane with smallest |dt|
     const tRel = (now - S.t0);
     let best = null;
     let bestAbs = 1e9;
@@ -729,13 +850,19 @@
     return best;
   }
 
+  function judgeCoachText(judge){
+    if(judge==='Perfect') return 'สุดยอด!';
+    if(judge==='Great') return 'ดีมาก!';
+    if(judge==='Good') return 'ดีนะ!';
+    return 'ลองใหม่!';
+  }
+
   function handleTap(lane, source){
     if(!S.running) return;
     const now = nowMs();
     const tRel = now - S.t0;
 
     S.tapTimes.push(now);
-    // keep recent
     if(S.tapTimes.length > 300) S.tapTimes.splice(0, S.tapTimes.length-300);
 
     const found = findNearestNote(lane, now);
@@ -754,7 +881,6 @@
       else judge = 'Miss';
 
       if(judge !== 'Miss'){
-        // register hit
         found.note.hit = true;
         removeNoteEl(found.note);
 
@@ -772,15 +898,19 @@
         addFever(judge, TRACKS[S.trackKey]);
         maybeGainShield();
 
-        setFeedback(judge.toUpperCase());
+        setFeedback(judge.toUpperCase(), judge.toLowerCase());
         flash();
+        scoreFx(judge);
+        coachCallout(judgeCoachText(judge), judge.toLowerCase());
 
         S.offsets.push(dt);
         if(S.offsets.length > 400) S.offsets.splice(0, S.offsets.length-400);
 
+        if(S.combo > 0 && S.combo % 10 === 0){
+          comboBurst(`${S.combo} COMBO!`);
+        }
+
       }else{
-        // miss (late/early too far) — treat as miss and consume note if passed?
-        // we DO NOT consume the note (so player can still hit next), but count a "blank" to discourage spam
         blank = true;
       }
     }else{
@@ -789,20 +919,20 @@
 
     if(blank){
       S.blankTaps += 1;
-      S.shots += 1; // count as shot to affect acc and anti-spam
+      S.shots += 1;
       S.combo = 0;
 
       const t = TRACKS[S.trackKey];
       const pen = (t.blankPenalty || 1) * diffScale();
       S.score = Math.max(0, S.score - pen*8);
 
-      // tiny HP penalty only if spammy
       if(S.blankTaps >= 6 && (S.blankTaps/S.shots) > 0.25){
         S.hp = clamp(S.hp - 1.2, 0, 100);
       }
 
-      setFeedback('MISS');
+      setFeedback('MISS', 'miss');
       flash();
+      scoreFx('Miss');
       judge = 'Miss';
       dt = 9999;
     }
@@ -825,9 +955,8 @@
     });
   }
 
-  // --------------------------- input wiring ---------------------------
+  // --------------------------- input ---------------------------
   function bindInputs(){
-    // lane clicks/taps
     LANES_WRAP.addEventListener('pointerdown', (e)=>{
       const laneEl = e.target.closest('.rb-lane');
       if(!laneEl) return;
@@ -836,7 +965,6 @@
       handleTap(lane, 'pointer');
     });
 
-    // keyboard A S D J K => 0..4
     const keyMap = { 'a':0, 's':1, 'd':2, 'j':3, 'k':4 };
     W.addEventListener('keydown', (e)=>{
       const k = String(e.key||'').toLowerCase();
@@ -846,26 +974,166 @@
     }, {passive:false});
   }
 
+  // --------------------------- rewards / persistence ---------------------------
+  function computeReward(){
+    const acc = (S.shots>0) ? (S.hits/S.shots) : 0;
+    const rank = computeRank();
+
+    let stars = 1;
+    if(rank==='S') stars = 3;
+    else if(rank==='A') stars = 3;
+    else if(rank==='B') stars = 2;
+    else stars = 1;
+
+    let medal = 'none';
+    if(rank==='S') medal = 'gold';
+    else if(rank==='A') medal = 'silver';
+    else if(rank==='B') medal = 'bronze';
+
+    let badge = '-';
+    if(S.miss === 0 && S.hits > 10) badge = 'No-Miss';
+    else if(S.maxCombo >= 40) badge = 'Combo Hero';
+    else if(acc >= 0.9) badge = 'Timing Star';
+    else if(S.feverOn || S.fever >= 90) badge = 'Fever Kid';
+
+    let label = '';
+    if(rank==='S') label = 'จังหวะเทพมาก!';
+    else if(rank==='A') label = 'เยี่ยมเลย!';
+    else if(rank==='B') label = 'เก่งขึ้นเรื่อย ๆ';
+    else label = 'เริ่มต้นได้ดี';
+
+    return { stars, medal, badge, label, rank };
+  }
+
+  function saveRBProfile(resultPayload){
+    const old = loadJson(`RB_PROFILE:${PID}`, {});
+    const bestScore = Math.max(Number(old.bestScore||0), Number(resultPayload.scoreFinal||0));
+    const bestStars = Math.max(Number(old.bestStars||0), Number(resultPayload.stars||0));
+
+    const badges = Object.assign({}, old.badges || {});
+    if(resultPayload.badge && resultPayload.badge !== '-') badges[resultPayload.badge] = true;
+
+    const profile = {
+      pid: PID,
+      bestScore,
+      bestStars,
+      lastReward: {
+        stars: resultPayload.stars,
+        medal: resultPayload.medal,
+        badge: resultPayload.badge,
+        label: resultPayload.rewardLabel
+      },
+      badges,
+      updatedAt: nowIso()
+    };
+    saveJson(`RB_PROFILE:${PID}`, profile);
+  }
+
+  function saveRBBest(resultPayload){
+    const key = `HHA_RB_BEST:${PID}:${DIFF || 'normal'}`;
+    const old = loadJson(key, null);
+    if(!old || Number(resultPayload.scoreFinal||0) >= Number(old.scoreFinal||old.score||0)){
+      saveJson(key, resultPayload);
+    }
+  }
+
+  function saveHHLastSummary(resultPayload){
+    const extra = {
+      url: location.href,
+      hub: HUB || '',
+      game: 'rhythm'
+    };
+
+    const summary = {
+      pid: PID,
+      game: 'rhythm',
+      zone: ZONE,
+      cat: CAT,
+      runMode: S.mode,
+      mode: S.mode,
+      diff: DIFF,
+      scoreFinal: resultPayload.scoreFinal,
+      score: resultPayload.scoreFinal,
+      accPct: resultPayload.accPct,
+      reason: S.endReason,
+      end_reason: S.endReason,
+      comboMax: resultPayload.maxCombo,
+      max_combo: resultPayload.maxCombo,
+      misses: resultPayload.miss,
+      missTotal: resultPayload.miss,
+      stars: resultPayload.stars,
+      medal: resultPayload.medal,
+      badge: resultPayload.badge,
+      rewardStars: resultPayload.stars,
+      rewardMedal: resultPayload.medal,
+      rewardBadge: resultPayload.badge,
+      timestampIso: nowIso(),
+      sessionId: `${PID}-${Date.now()}`,
+      __extraJson: JSON.stringify(extra)
+    };
+
+    saveJson('HHA_LAST_SUMMARY', summary);
+    saveJson(`HHA_LAST_SUMMARY:rhythm:${PID}`, summary);
+  }
+
+  function saveGateDailyMarkers(){
+    try{
+      const day = hhDayKey();
+      localStorage.setItem(`HHA_WARMUP_DONE:${CAT}:rhythm:${PID}:${day}`, '1');
+      localStorage.setItem(`HHA_WARMUP_DONE:${CAT}:rhythmboxer:${PID}:${day}`, '1');
+    }catch(_){}
+  }
+
+  function appendRewardUI(resultPayload){
+    const resultView = VIEW_RESULT;
+    if(!resultView) return;
+
+    let host = resultView.querySelector('.rb-reward-pack');
+    if(host) host.remove();
+
+    host = D.createElement('section');
+    host.className = 'rb-research-box rb-section rb-reward-pack';
+
+    const starsTxt = '⭐'.repeat(Math.max(1, Number(resultPayload.stars||1)));
+    const medalTxt =
+      resultPayload.medal === 'gold' ? '🥇 Gold Medal' :
+      resultPayload.medal === 'silver' ? '🥈 Silver Medal' :
+      resultPayload.medal === 'bronze' ? '🥉 Bronze Medal' : '🎈 Keep Going';
+
+    const medalCls =
+      resultPayload.medal === 'gold' ? 'gold' :
+      resultPayload.medal === 'silver' ? 'silver' :
+      resultPayload.medal === 'bronze' ? 'bronze' : '';
+
+    host.innerHTML = `
+      <h2 class="rb-section-title-sm">ของรางวัลรอบนี้</h2>
+      <div class="rb-reward-stars">${starsTxt}</div>
+      <div class="rb-reward-medal ${medalCls}">${medalTxt}</div>
+      <div class="rb-reward-badge">Badge: <b>${resultPayload.badge || '-'}</b></div>
+      <div class="rb-reward-praise">${resultPayload.rewardLabel || 'เก่งมาก!'}</div>
+    `;
+
+    const beforeSection = resultView.querySelector('.rb-section.rb-btn-row');
+    if(beforeSection) resultView.insertBefore(host, beforeSection);
+    else resultView.appendChild(host);
+  }
+
   // --------------------------- start/stop/end ---------------------------
   function startGame(){
     refreshModeUI();
-
     resetStateForRun();
 
     S.mode = getSelectedMode();
     S.trackKey = getSelectedTrack();
 
-    // deterministic seed per run (respect provided seed)
     S.seed = SEED;
     S.rng = rand((SEED|0) ^ (S.trackKey.charCodeAt(0)<<16) ^ (S.trackKey.charCodeAt(1)<<8));
 
-    // schedule
     const schedule = buildSchedule(S.trackKey, TIME_SEC);
     spawnNotes(schedule);
 
-    // hud
     showView('play');
-    setFeedback('พร้อม!');
+    setFeedback('พร้อม!', 'good');
     if(HUD_AI_TIP){ HUD_AI_TIP.classList.add('hidden'); HUD_AI_TIP.textContent=''; }
 
     S.running = true;
@@ -873,11 +1141,11 @@
     S.tLast = S.t0;
     S.tEnd = S.t0 + TIME_SEC*1000;
 
-    // initial hud
     updateHUD(S.t0);
     updateAI(S.t0);
+    saveGateDailyMarkers();
+    roundBanner('เริ่มเลย!', 'ดูเส้นสีเหลืองแล้วกด', 'warmup');
 
-    // log session start marker
     logEvent({
       ...sessionMeta(),
       kind:'marker',
@@ -899,12 +1167,11 @@
 
   function computeRank(){
     const acc = (S.shots>0) ? (S.hits/S.shots) : 0;
-    // include survival
     const survive = S.hp/100;
     const combo = S.maxCombo;
 
     let score = 0.65*acc + 0.20*survive + 0.15*clamp(combo/80, 0, 1);
-    if(S.mode==='research') score *= 0.98; // strict
+    if(S.mode==='research') score *= 0.98;
 
     if(score >= 0.88) return 'S';
     if(score >= 0.78) return 'A';
@@ -913,15 +1180,42 @@
     return 'D';
   }
 
+  function makeResultPayload(dur, accPct, offAvg, offStd, rank){
+    const reward = computeReward();
+    return {
+      pid: PID,
+      game: 'rhythm',
+      zone: ZONE,
+      cat: CAT,
+      scoreFinal: Math.round(S.score),
+      maxCombo: S.maxCombo,
+      miss: S.miss,
+      accPct: Number(accPct.toFixed(2)),
+      durationSec: Number(dur.toFixed(2)),
+      rank,
+      stars: reward.stars,
+      medal: reward.medal,
+      badge: reward.badge,
+      rewardLabel: reward.label,
+      perfect: S.perfect,
+      great: S.great,
+      good: S.good,
+      hpEnd: Math.round(S.hp),
+      shieldEnd: S.shield,
+      feverEnd: Math.round(S.fever),
+      offsetAbsMeanMs: (offAvg==null ? '' : Number(offAvg.toFixed(2))),
+      offsetAbsStdMs: (offStd==null ? '' : Number(offStd.toFixed(2))),
+      timestampIso: nowIso()
+    };
+  }
+
   function endGame(){
     S.running = false;
 
-    // clear remaining notes DOM
     for(const n of S.notes){
       if(n && n.el) removeNoteEl(n);
     }
 
-    // summary
     const endAt = nowMs();
     const dur = Math.max(0, (endAt - S.t0)/1000);
     const accPct = (S.shots>0) ? (S.hits/S.shots*100) : 0;
@@ -932,7 +1226,14 @@
     const offAvg = mean(offAbs);
     const offStd = std(offAbs);
 
-    // populate result UI
+    const payload = makeResultPayload(dur, accPct, offAvg, offStd, rank);
+    S.reward = {
+      stars: payload.stars,
+      medal: payload.medal,
+      badge: payload.badge,
+      label: payload.rewardLabel
+    };
+
     showView('result');
     if(RES_MODE) RES_MODE.textContent = (S.mode==='research' ? 'Research' : 'Normal');
     if(RES_TRACK) RES_TRACK.textContent = TRACKS[S.trackKey].name;
@@ -943,18 +1244,15 @@
     if(RES_ACC) RES_ACC.textContent = `${accPct.toFixed(1)} %`;
     if(RES_DUR) RES_DUR.textContent = `${dur.toFixed(1)} s`;
     if(RES_RANK) RES_RANK.textContent = rank;
-
     if(RES_OFF_AVG) RES_OFF_AVG.textContent = (offAvg==null ? '-' : `${offAvg.toFixed(1)} ms`);
     if(RES_OFF_STD) RES_OFF_STD.textContent = (offStd==null ? '-' : `${offStd.toFixed(1)} ms`);
-
     if(RES_PART) RES_PART.textContent = (IN_PART && IN_PART.value) ? String(IN_PART.value).trim() : '-';
 
-    // quality note (research)
     if(RES_QUALITY_NOTE){
       const note = [];
-      if(S.blankTaps > 8) note.push('กดล่วงหน้า/กดรัวค่อนข้างเยอะ (blank tap สูง)');
-      if(S.hp < 45) note.push('ความล้า/พลาดสูง (HP ต่ำ)');
-      if(offAvg!=null && offAvg > 110) note.push('จังหวะยังไม่คงที่ (offset สูง)');
+      if(S.blankTaps > 8) note.push('กดล่วงหน้าค่อนข้างเยอะ');
+      if(S.hp < 45) note.push('พลาดเยอะหรือเริ่มล้า');
+      if(offAvg!=null && offAvg > 110) note.push('จังหวะยังไม่นิ่ง');
       if(S.mode==='research' && note.length){
         RES_QUALITY_NOTE.classList.remove('hidden');
         RES_QUALITY_NOTE.textContent = 'ข้อสังเกตคุณภาพข้อมูล: ' + note.join(' · ');
@@ -964,13 +1262,16 @@
       }
     }
 
-    // save session row (for download)
+    appendRewardUI(payload);
+    roundBanner('จบรอบแล้ว!', payload.rewardLabel, rank==='S' ? 'success' : 'final');
+
     const sess = {
       ...sessionMeta(),
       kind:'session',
       endReason: S.endReason,
       durationSec: dur.toFixed(2),
       score: Math.round(S.score),
+      scoreFinal: Math.round(S.score),
       maxCombo: S.maxCombo,
       shots: S.shots,
       hits: S.hits,
@@ -985,11 +1286,14 @@
       offsetAbsMeanMs: (offAvg==null? '' : offAvg.toFixed(2)),
       offsetAbsStdMs: (offStd==null? '' : offStd.toFixed(2)),
       rank,
+      stars: payload.stars,
+      medal: payload.medal,
+      badge: payload.badge,
+      rewardLabel: payload.rewardLabel,
       tsIsoEnd: nowIso(),
     };
     S.sessions.push(sess);
 
-    // marker end
     logEvent({
       ...sessionMeta(),
       kind:'marker',
@@ -999,19 +1303,30 @@
       score: Math.round(S.score),
       accPct: accPct.toFixed(2),
       miss: S.miss,
+      stars: payload.stars,
+      medal: payload.medal,
+      badge: payload.badge,
       tsIso: nowIso(),
     });
 
-    // ✅ If planner/hub expects end callback: call HH_END_GAME if defined and seq flow indicates autoNext
-    // We'll only auto-return when explicit autoNext/seq=1 is present to avoid interrupting CSV download.
+    saveRBProfile(payload);
+    saveRBBest(payload);
+    saveHHLastSummary(payload);
+
     const autoNext = (qs('autoNext','0')==='1');
     const hubHasSeq = HUB && String(HUB).includes('seq=1');
 
     if((autoNext || hubHasSeq) && typeof W.HH_END_GAME === 'function'){
-      // short delay so user sees result briefly
       setTimeout(()=>{
         try{
-          W.HH_END_GAME('result', { score: sess.score, acc: sess.accPct, miss: sess.miss });
+          W.HH_END_GAME('result', {
+            score: payload.scoreFinal,
+            acc: payload.accPct,
+            miss: payload.miss,
+            stars: payload.stars,
+            medal: payload.medal,
+            badge: payload.badge
+          });
         }catch(_){}
       }, 900);
     }
@@ -1024,7 +1339,6 @@
     const dt = now - S.tLast;
     S.tLast = now;
 
-    // time end or HP end
     if(now >= S.tEnd){
       S.endReason = 'timeup';
       endGame();
@@ -1036,37 +1350,23 @@
       return;
     }
 
-    // fever drain
+    maybePhaseChange(now);
+    beatPulse(now);
     drainFever(dt);
-
-    // render notes
     renderNotes(now);
-
-    // HUD + AI
     updateHUD(now);
     updateAI(now);
 
     requestAnimationFrame(tick);
   }
 
-  // --------------------------- result buttons ---------------------------
-  function playAgainSame(){
-    // return to play with same selection (keep current radios)
-    showView('menu');
-    // start again quickly
-    startGame();
-  }
-
-  function backToMenu(){
-    showView('menu');
-  }
-
+  // --------------------------- exports ---------------------------
   function downloadEventsCSV(){
     const rows = S.events.slice();
     const cols = [
-      'tsIso','pid','participant','group','note','planDay','planSlot','diff','run','seed','track','mode',
+      'tsIso','pid','participant','group','note','planDay','planSlot','diff','run','seed','track','mode','game','zone','cat',
       'kind','marker','tMs','lane','action','source','judge','offsetMs','score','combo','hp','fever','shield',
-      'bpm','density','durSec','endReason'
+      'bpm','density','durSec','endReason','stars','medal','badge'
     ];
     const csv = toCSV(rows, cols);
     const fn = `rhythm_events_${PID}_${S.trackKey}_${Date.now()}.csv`;
@@ -1076,10 +1376,10 @@
   function downloadSessionsCSV(){
     const rows = S.sessions.slice();
     const cols = [
-      'tsIso','tsIsoEnd','pid','participant','group','note','planDay','planSlot','diff','run','seed','track','mode',
-      'endReason','durationSec','score','maxCombo','shots','hits','accPct',
+      'tsIso','tsIsoEnd','pid','participant','group','note','planDay','planSlot','diff','run','seed','track','mode','game','zone','cat',
+      'endReason','durationSec','score','scoreFinal','maxCombo','shots','hits','accPct',
       'perfect','great','good','miss','hpEnd','shieldEnd','feverEnd',
-      'offsetAbsMeanMs','offsetAbsStdMs','rank'
+      'offsetAbsMeanMs','offsetAbsStdMs','rank','stars','medal','badge','rewardLabel'
     ];
     const csv = toCSV(rows, cols);
     const fn = `rhythm_sessions_${PID}_${S.trackKey}_${Date.now()}.csv`;
@@ -1088,19 +1388,16 @@
 
   // --------------------------- boot ---------------------------
   function boot(){
-    // bind mode change
     const modeRadios = D.querySelectorAll('input[name="rb-mode"]');
-    modeRadios.forEach(r=>{
-      r.addEventListener('change', refreshModeUI);
-    });
+    modeRadios.forEach(r=> r.addEventListener('change', refreshModeUI));
 
-    // bind start
-    BTN_START.addEventListener('click', ()=>{
-      refreshModeUI();
-      startGame();
-    });
+    if(BTN_START){
+      BTN_START.addEventListener('click', ()=>{
+        refreshModeUI();
+        startGame();
+      });
+    }
 
-    // stop
     if(BTN_STOP){
       BTN_STOP.addEventListener('click', ()=>{
         stopGame('stop');
@@ -1109,26 +1406,22 @@
 
     if(BTN_AGAIN){
       BTN_AGAIN.addEventListener('click', ()=>{
-        // play same track again (keeping current selection)
         startGame();
       });
     }
 
     if(BTN_BACK_MENU){
-      BTN_BACK_MENU.addEventListener('click', backToMenu);
+      BTN_BACK_MENU.addEventListener('click', ()=>{
+        showView('menu');
+      });
     }
 
-    if(BTN_DL_EVENTS){
-      BTN_DL_EVENTS.addEventListener('click', downloadEventsCSV);
-    }
-    if(BTN_DL_SESS){
-      BTN_DL_SESS.addEventListener('click', downloadSessionsCSV);
-    }
+    if(BTN_DL_EVENTS) BTN_DL_EVENTS.addEventListener('click', downloadEventsCSV);
+    if(BTN_DL_SESS) BTN_DL_SESS.addEventListener('click', downloadSessionsCSV);
 
     bindInputs();
     refreshModeUI();
 
-    // If planner wants to force run=research or mode, you can auto-check:
     if(RUN==='research'){
       const r = D.querySelector('input[name="rb-mode"][value="research"]');
       if(r) r.checked = true;
@@ -1137,10 +1430,8 @@
       if(t) t.checked = true;
     }
 
-    // Expose end hook (for planner bridge)
     if(typeof W.HH_END_GAME !== 'function'){
-      W.HH_END_GAME = function(reason){
-        // fallback: go hub if provided
+      W.HH_END_GAME = function(){
         if(HUB){
           try{ location.href = new URL(HUB, location.href).toString(); }
           catch{ location.href = HUB; }
@@ -1148,8 +1439,9 @@
       };
     }
 
-    // Small banner in console
-    console.log('[RB] boot OK', {RUN, DIFF, TIME_SEC, PID, track: getSelectedTrack()});
+    console.log('[RB] boot OK', {
+      RUN, DIFF, TIME_SEC, PID, GAME_ID, ZONE, CAT, track: getSelectedTrack()
+    });
   }
 
   boot();
