@@ -1,6 +1,6 @@
 // === /herohealth/vr-goodjunk/goodjunk-race.js ===
-// GoodJunkVR RACE Controller — teacher countdown + shareable startAt
-// FULL v20260304f-RACE-STARTAT-OVERLAY
+// GoodJunkVR RACE Controller — teacher countdown + shareable startAt + race result submit
+// FULL PATCH v20260315a-RACE-STARTAT-RESULTS-LEADERBOARD
 'use strict';
 
 (function(){
@@ -9,19 +9,161 @@
 
   const qs = (k, d='')=>{ try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(e){ return d; } };
   const clamp = (v,a,b)=>{ v=Number(v); if(!Number.isFinite(v)) v=a; return Math.max(a, Math.min(b, v)); };
-  const nowMs = ()=> (performance && performance.now) ? performance.now() : Date.now();
 
   const mode = String(qs('mode','')).toLowerCase();
   if(mode !== 'race') return;
 
-  // Safety: ensure wait=1 was applied by run page
-  try{
-    if(typeof WIN.__GJ_SET_PAUSED__ === 'function') WIN.__GJ_SET_PAUSED__(true);
-  }catch(e){}
-
+  const room = String(qs('room','NO_ROOM')).trim() || 'NO_ROOM';
+  const pid  = String(qs('pid','anon')).trim() || 'anon';
+  const nick = String(qs('nick', pid)).trim() || pid;
   const host = (String(qs('host','0')) === '1');
-  const startIn = clamp(qs('startIn', host ? '8' : '0'), 0, 60); // seconds
-  let startAt = Number(qs('startAt','')) || 0; // epoch ms
+
+  const startIn = clamp(qs('startIn', host ? '8' : '0'), 0, 60);
+  let startAt = Number(qs('startAt','')) || 0;
+
+  const RACE_ROOT = `herohealth/goodjunk/race/${room}`;
+  const RESULT_PATH = `${RACE_ROOT}/results`;
+  const PRESENCE_PATH = `${RACE_ROOT}/presence`;
+  const CONTROL_PATH = `${RACE_ROOT}/control`;
+
+  let db = null;
+  let firebase = null;
+  let submitted = false;
+  let started = false;
+  let presenceTimer = null;
+
+  function getDb(){
+    db = WIN.HHA_FIREBASE_DB || null;
+    firebase = WIN.HHA_FIREBASE || null;
+    return db;
+  }
+
+  function dbRef(path){
+    const _db = getDb();
+    if(!_db) return null;
+    return _db.ref(path);
+  }
+
+  function setPaused(v){
+    try{
+      if(typeof WIN.__GJ_SET_PAUSED__ === 'function') WIN.__GJ_SET_PAUSED__(!!v);
+    }catch(_){}
+  }
+
+  function startGameNow(){
+    try{ WIN.__GJ_START_NOW__?.(); }catch(_){}
+    setPaused(false);
+    overlay.remove();
+  }
+
+  function buildLink(startAtMs){
+    const u = new URL(location.href);
+    u.searchParams.set('mode','race');
+    u.searchParams.set('wait','1');
+    u.searchParams.set('startAt', String(Math.round(startAtMs)));
+    u.searchParams.delete('host');
+    u.searchParams.delete('startIn');
+    return u.toString();
+  }
+
+  function refreshLink(){
+    if(startAt > 0) linkEl.value = buildLink(startAt);
+    else linkEl.value = '(ยังไม่มี startAt) กด “สร้าง startAt ใหม่”';
+  }
+
+  function setStatus(s, n){
+    if(statusEl) statusEl.textContent = s;
+    if(countEl) countEl.textContent = (n==null) ? '—' : String(n);
+  }
+
+  async function copyText(txt){
+    try{
+      await navigator.clipboard.writeText(txt);
+      setStatus('คัดลอกแล้ว ✅', null);
+    }catch(e){
+      try{
+        linkEl.focus(); linkEl.select();
+        document.execCommand('copy');
+        setStatus('คัดลอกแล้ว ✅', null);
+      }catch(_){}
+    }
+  }
+
+  function readGameMetrics(){
+    const score = Number(WIN.__GJ_GET_SCORE__?.() ?? 0);
+    const shots = Number(WIN.__GJ_GET_SHOTS__?.() ?? 0);
+    const hits = Number(WIN.__GJ_GET_HITS__?.() ?? 0);
+    const missTotal = Number(WIN.__GJ_GET_MISS__?.() ?? 0);
+    const finishMs = Number(WIN.__GJ_GET_FINISH_MS__?.() ?? 0);
+    const accPct = shots > 0 ? Math.round((hits / shots) * 100) : 0;
+
+    return { score, shots, hits, missTotal, accPct, finishMs };
+  }
+
+  function publishPresence(state='waiting'){
+    const r = dbRef(`${PRESENCE_PATH}/${pid}`);
+    if(!r) return;
+    const row = {
+      pid, nick, room, state,
+      at: Date.now()
+    };
+    r.set(row);
+    try{ r.onDisconnect().remove(); }catch(_){}
+  }
+
+  function submitRaceResult(reason='finish'){
+    if(submitted) return;
+    submitted = true;
+
+    const m = readGameMetrics();
+    const r = dbRef(`${RESULT_PATH}/${pid}`);
+    if(!r) return;
+
+    r.set({
+      pid,
+      nick,
+      room,
+      reason,
+      score: Number(m.score || 0),
+      shots: Number(m.shots || 0),
+      hits: Number(m.hits || 0),
+      missTotal: Number(m.missTotal || 0),
+      accPct: Number(m.accPct || 0),
+      finishMs: Number(m.finishMs || 0),
+      at: Date.now(),
+      final: true
+    });
+
+    publishPresence('finished');
+  }
+
+  function watchStartAtFromFirebase(){
+    const r = dbRef(CONTROL_PATH);
+    if(!r) return;
+    r.on('value', (snap)=>{
+      const j = snap.val() || {};
+      const nextStartAt = Number(j.startAt || 0);
+      if(nextStartAt > 0) {
+        startAt = nextStartAt;
+        refreshLink();
+      }
+    });
+  }
+
+  function writeStartAtToFirebase(ms){
+    const r = dbRef(CONTROL_PATH);
+    if(!r) return;
+    r.update({
+      room,
+      hostPid: pid,
+      hostNick: nick,
+      startAt: Number(ms || 0),
+      updatedAt: Date.now()
+    });
+  }
+
+  // pause game until race starts
+  setPaused(true);
 
   const overlay = DOC.createElement('div');
   overlay.style.position='fixed';
@@ -121,48 +263,11 @@
   const btnCopy  = $('btnCopy');
   const btnStartNow = $('btnStartNow');
 
-  function buildLink(startAtMs){
-    const u = new URL(location.href);
-    u.searchParams.set('mode','race');
-    u.searchParams.set('wait','1');
-    u.searchParams.set('startAt', String(Math.round(startAtMs)));
-    u.searchParams.delete('host');
-    u.searchParams.delete('startIn');
-    return u.toString();
-  }
-
-  function refreshLink(){
-    if(startAt>0) linkEl.value = buildLink(startAt);
-    else linkEl.value = '(ยังไม่มี startAt) กด “สร้าง startAt ใหม่”';
-  }
-
-  function setStatus(s, n){
-    if(statusEl) statusEl.textContent = s;
-    if(countEl) countEl.textContent = (n==null) ? '—' : String(n);
-  }
-
-  async function copyText(txt){
-    try{
-      await navigator.clipboard.writeText(txt);
-      setStatus('คัดลอกแล้ว ✅', null);
-    }catch(e){
-      // fallback: select
-      try{
-        linkEl.focus(); linkEl.select();
-        document.execCommand('copy');
-        setStatus('คัดลอกแล้ว ✅', null);
-      }catch(_){}
-    }
-  }
-
-  function startGameNow(){
-    try{ WIN.__GJ_START_NOW__?.(); }catch(e){}
-    try{ WIN.__GJ_SET_PAUSED__?.(false); }catch(e){}
-    overlay.remove();
-  }
-
   btnStartNow.addEventListener('click', ()=>{
     startAt = 0;
+    writeStartAtToFirebase(0);
+    started = true;
+    publishPresence('playing');
     startGameNow();
   });
 
@@ -172,27 +277,35 @@
   });
 
   btnMake.addEventListener('click', ()=>{
-    // Make a startAt in the near future (client epoch-based)
     const lead = clamp(qs('lead', String(startIn || 8)), 3, 20);
     startAt = Date.now() + lead*1000;
     refreshLink();
+    writeStartAtToFirebase(startAt);
     if(host){
-      // auto-copy for host if possible
       copyText(buildLink(startAt));
     }
   });
 
-  // Auto create startAt if host & missing
   if(host && startAt<=0){
     const lead = clamp(String(startIn || 8), 3, 20);
     startAt = Date.now() + lead*1000;
   }
+
   refreshLink();
 
-  // Countdown loop
-  let started = false;
+  if(getDb()){
+    publishPresence('waiting');
+    watchStartAtFromFirebase();
+
+    clearInterval(presenceTimer);
+    presenceTimer = setInterval(()=>{
+      publishPresence(started ? 'playing' : 'waiting');
+    }, 1500);
+  }
+
   function tick(){
     if(started) return;
+
     if(startAt<=0){
       setStatus(host ? 'ครู: พร้อมสร้าง startAt' : 'รอลิงก์ที่มี startAt', null);
       requestAnimationFrame(tick);
@@ -212,7 +325,25 @@
     started = true;
     setStatus('GO! 🚀', 0);
     if(subEl) subEl.textContent = '';
+    publishPresence('playing');
     setTimeout(startGameNow, 60);
   }
   requestAnimationFrame(tick);
+
+  // listen end from game
+  WIN.addEventListener('hha:end', ()=>{
+    submitRaceResult('finish');
+  });
+
+  WIN.addEventListener('pagehide', ()=>{
+    if(!submitted){
+      try{
+        const m = readGameMetrics();
+        if(Number(m.score || 0) > 0 || Number(m.shots || 0) > 0){
+          submitRaceResult('pagehide');
+        }
+      }catch(_){}
+    }
+    try{ clearInterval(presenceTimer); }catch(_){}
+  });
 })();
