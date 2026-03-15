@@ -1,28 +1,37 @@
 // === /fitness/js/rhythm-boxer.js ===
 // Rhythm Boxer — FULL FINAL
-// PATCH v20260315-RB-FULL-FINAL-HHA-r1
+// PATCH v20260315-RB-FINAL-HHA-r2
 // ✅ child-friendly
-// ✅ AI coach / reward / stars / medal / badge
-// ✅ HHA Hub + cooldown aware
-// ✅ save RB_PROFILE / HHA_RB_BEST / HHA_LAST_SUMMARY
-// ✅ export ML-ready CSV
+// ✅ mission 3 stars
+// ✅ boss round
+// ✅ reward pack
+// ✅ AI coach / fatigue / skill
+// ✅ research CSV
+// ✅ hub / planner bridge compatible
+
 'use strict';
 
 (function(){
   const W = window, D = document;
 
-  // --------------------------- helpers ---------------------------
+  // ---------------- helpers ----------------
   const qs = (k, d='')=>{
-    try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(e){ return d; }
+    try{ return (new URL(location.href)).searchParams.get(k) ?? d; }
+    catch(e){ return d; }
   };
   const qbool = (k, d=false)=>{
     const v = String(qs(k, d?'1':'0')).toLowerCase();
     return ['1','true','yes','y','on'].includes(v);
   };
-  const clamp = (v,a,b)=>{ v=Number(v); if(!Number.isFinite(v)) v=a; return Math.max(a, Math.min(b,v)); };
+  const clamp = (v,a,b)=>{
+    v = Number(v);
+    if(!Number.isFinite(v)) v = a;
+    return Math.max(a, Math.min(b, v));
+  };
   const nowMs = ()=> (performance && performance.now) ? performance.now() : Date.now();
   const nowIso = ()=> new Date().toISOString();
-  const rand = (seed)=>{
+
+  function rand(seed){
     let x = (seed|0) || 123456789;
     return ()=>{
       x ^= x << 13; x |= 0;
@@ -30,42 +39,31 @@
       x ^= x << 5; x |= 0;
       return ((x>>>0) / 4294967296);
     };
-  };
-  const median = (arr)=>{
+  }
+  function mean(arr){
+    if(!arr || !arr.length) return null;
+    let s=0; for(const x of arr) s += x;
+    return s/arr.length;
+  }
+  function std(arr){
+    if(!arr || arr.length<2) return null;
+    const m = mean(arr);
+    let s = 0;
+    for(const x of arr){
+      const d = x - m;
+      s += d*d;
+    }
+    return Math.sqrt(s/(arr.length-1));
+  }
+  function median(arr){
     if(!arr || !arr.length) return null;
     const a = arr.slice().sort((x,y)=>x-y);
     const m = Math.floor(a.length/2);
-    return (a.length%2) ? a[m] : (a[m-1]+a[m])/2;
-  };
-  const mean = (arr)=>{
-    if(!arr || !arr.length) return null;
-    let s=0; for(const x of arr) s+=x;
-    return s/arr.length;
-  };
-  const std = (arr)=>{
-    if(!arr || arr.length<2) return null;
-    const m = mean(arr);
-    let s=0;
-    for(const x of arr){ const d=x-m; s += d*d; }
-    return Math.sqrt(s/(arr.length-1));
-  };
+    return (a.length % 2) ? a[m] : (a[m-1] + a[m]) / 2;
+  }
   function $(id){ return D.getElementById(id); }
 
-  function loadJson(k, fallback=null){
-    try{
-      const raw = localStorage.getItem(k);
-      return raw ? JSON.parse(raw) : fallback;
-    }catch(_){ return fallback; }
-  }
-  function saveJson(k, v){
-    try{ localStorage.setItem(k, JSON.stringify(v)); }catch(_){}
-  }
-  function hhDayKey(){
-    const d=new Date();
-    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-  }
-
-  // --------------------------- params ---------------------------
+  // ---------------- params ----------------
   const RUN = String(qs('run','play')).toLowerCase();
   const DIFF = String(qs('diff','normal')).toLowerCase();
   const TIME_SEC = clamp(qs('time','80'), 20, 300);
@@ -75,12 +73,12 @@
   const HUB = String(qs('hub','')).trim();
   const PLAN_DAY = String(qs('planDay','')).trim();
   const PLAN_SLOT = String(qs('planSlot','')).trim();
+  const ZONE = String(qs('zone','fitness')).trim() || 'fitness';
+  const CAT = String(qs('cat','fitness')).trim() || 'fitness';
+  const GAME_ID = String(qs('game','rhythm')).trim() || 'rhythm';
+  const AUTO_NEXT = qbool('autoNext', false);
 
-  const GAME_ID = String(qs('game','rhythm')).trim().toLowerCase() || 'rhythm';
-  const ZONE = String(qs('zone','fitness')).trim().toLowerCase() || 'fitness';
-  const CAT  = String(qs('cat','fitness')).trim().toLowerCase() || 'fitness';
-
-  // --------------------------- DOM refs ---------------------------
+  // ---------------- DOM refs ----------------
   const VIEW_MENU = $('rb-view-menu');
   const VIEW_PLAY = $('rb-view-play');
   const VIEW_RESULT = $('rb-view-result');
@@ -106,6 +104,7 @@
 
   const HUD_AI_FAT = $('rb-hud-ai-fatigue');
   const HUD_AI_SKILL = $('rb-hud-ai-skill');
+  const HUD_AI_SKILL = $('rb-hud-ai-skill');
   const HUD_AI_SUGG = $('rb-hud-ai-suggest');
   const HUD_AI_TIP = $('rb-hud-ai-tip');
 
@@ -125,6 +124,7 @@
 
   const FEEDBACK = $('rb-feedback');
   const LANES_WRAP = $('rb-lanes');
+  const FIELD = $('rb-field');
 
   const RES_MODE = $('rb-res-mode');
   const RES_TRACK = $('rb-res-track');
@@ -140,16 +140,31 @@
   const RES_PART = $('rb-res-participant');
   const RES_QUALITY_NOTE = $('rb-res-quality-note');
 
-  if(!VIEW_MENU || !VIEW_PLAY || !VIEW_RESULT || !BTN_START || !LANES_WRAP){
-    console.warn('[RB] Missing essential DOM nodes. Check HTML ids.');
-  }
+  const RES_STARS = $('rb-res-stars');
+  const RES_MEDAL = $('rb-res-medal');
+  const RES_BADGE = $('rb-res-badge');
+  const RES_PRAISE = $('rb-res-praise');
+  const RES_MISSION_SCORE = $('rb-res-mission-score');
+  const RES_MISSION_COMBO = $('rb-res-mission-combo');
+  const RES_MISSION_ACC = $('rb-res-mission-acc');
+  const RES_NOMISS = $('rb-res-nomiss');
+  const RES_BOSSCLEAR = $('rb-res-bossclear');
 
-  // --------------------------- planner hud patch ---------------------------
+  const BOSS_HUD = $('rb-boss-hud');
+  const BOSS_FILL = $('rb-boss-fill');
+  const BOSS_TEXT = $('rb-boss-text');
+
+  const MISSION_HUD = $('rb-mission-hud');
+  const MISSION_SCORE = $('rb-mission-score');
+  const MISSION_COMBO = $('rb-mission-combo');
+  const MISSION_ACC = $('rb-mission-acc');
+
+  // ---------------- planner HUD patch ----------------
   (function patchPlanHud(){
     const elDay = $('hhDay');
     const elSlot = $('hhSlot');
-    if(elDay) elDay.textContent = PLAN_DAY ? PLAN_DAY : '—';
-    if(elSlot) elSlot.textContent = PLAN_SLOT ? PLAN_SLOT : '—';
+    if(elDay) elDay.textContent = PLAN_DAY || '—';
+    if(elSlot) elSlot.textContent = PLAN_SLOT || '—';
 
     const btnBack = $('hhBack');
     if(btnBack){
@@ -166,7 +181,8 @@
     const backLink = $('rb-back-link');
     if(backLink){
       if(HUB){
-        try{ backLink.href = new URL(HUB, location.href).toString(); }catch{ backLink.href = HUB; }
+        try{ backLink.href = new URL(HUB, location.href).toString(); }
+        catch{ backLink.href = HUB; }
       }
       backLink.addEventListener('click', (e)=>{
         if(HUB){
@@ -178,12 +194,12 @@
     }
   })();
 
-  // --------------------------- tracks ---------------------------
+  // ---------------- tracks ----------------
   const TRACKS = {
     n1: { key:'n1', name:'Warm-up Groove', bpm:100, density:0.72, jitter:0.10, feverRate:1.00, missDmg:4, blankPenalty:1 },
     n2: { key:'n2', name:'Focus Combo',   bpm:120, density:0.90, jitter:0.12, feverRate:1.05, missDmg:5, blankPenalty:1 },
     n3: { key:'n3', name:'Speed Rush',    bpm:140, density:1.10, jitter:0.14, feverRate:1.10, missDmg:6, blankPenalty:2 },
-    r1: { key:'r1', name:'Research 120',  bpm:120, density:0.88, jitter:0.08, feverRate:1.00, missDmg:5, blankPenalty:1, research:true },
+    r1: { key:'r1', name:'Research 120',  bpm:120, density:0.88, jitter:0.08, feverRate:1.00, missDmg:5, blankPenalty:1, research:true }
   };
 
   function diffScale(){
@@ -194,15 +210,15 @@
 
   function getSelectedMode(){
     const el = D.querySelector('input[name="rb-mode"]:checked');
-    return el ? String(el.value||'normal') : 'normal';
+    return el ? String(el.value || 'normal') : 'normal';
   }
   function getSelectedTrack(){
     const el = D.querySelector('input[name="rb-track"]:checked');
-    const key = el ? String(el.value||'n1') : 'n1';
+    const key = el ? String(el.value || 'n1') : 'n1';
     return TRACKS[key] ? key : 'n1';
   }
 
-  // --------------------------- state ---------------------------
+  // ---------------- state ----------------
   const S = {
     running:false,
     mode:'normal',
@@ -210,8 +226,8 @@
     t0:0,
     tEnd:0,
     tLast:0,
-    seed: SEED,
-    rng: rand(SEED|0),
+    seed:SEED,
+    rng:rand(SEED|0),
 
     score:0,
     combo:0,
@@ -226,61 +242,74 @@
     shield:0,
     fever:0,
     feverOn:false,
-    lastJudge:'READY',
 
-    offsets: [],
-    tapTimes: [],
+    offsets:[],
+    tapTimes:[],
     blankTaps:0,
 
-    notes: [],
+    notes:[],
     nextId:1,
 
-    events: [],
-    sessions: [],
+    events:[],
+    sessions:[],
 
-    ai: { fatigue:0, skill:0.5, suggest:'normal', tip:'' },
+    ai:{ fatigue:0, skill:0.5, suggest:'normal', tip:'' },
     aiLastTipAt:0,
 
     endReason:'timeup',
-
     phase:'warmup',
-    phaseShown:{},
-    lastBeatPulseAt:0,
 
-    reward:{
+    mission:{
       stars:0,
-      medal:'none',
-      badge:'-',
-      label:''
+      score1:false,
+      combo1:false,
+      acc1:false,
+      noMiss:false,
+      bossClear:false
+    },
+
+    boss:{
+      active:false,
+      hp:0,
+      hpMax:24,
+      windowOn:false,
+      lastSpawnAt:0,
+      introShown:false,
+      clear:false
+    },
+
+    ui:{
+      missionMounted:false,
+      bossMounted:false
     }
   };
 
-  // --------------------------- UI helpers ---------------------------
+  // ---------------- UI / feedback helpers ----------------
   function refreshModeUI(){
     const mode = getSelectedMode();
     S.mode = mode;
 
-    if(mode==='research'){
+    if(mode === 'research'){
       if(RESEARCH_FIELDS) RESEARCH_FIELDS.classList.remove('hidden');
-      if(MODE_DESC) MODE_DESC.textContent = 'Research: เก็บข้อมูล Event / Session / ML-ready CSV';
+      if(MODE_DESC) MODE_DESC.textContent = 'Research: เก็บข้อมูล Event/Session เพื่อใช้วิเคราะห์';
     }else{
       if(RESEARCH_FIELDS) RESEARCH_FIELDS.classList.add('hidden');
-      if(MODE_DESC) MODE_DESC.textContent = 'Normal: เล่นสนุก เก็บดาว เก็บเหรียญ และฝึกจังหวะ';
+      if(MODE_DESC) MODE_DESC.textContent = 'Normal: เล่นสนุก ฝึกจังหวะ เก็บดาว และลุยบอส';
     }
 
     const lab = $('rb-track-mode-label');
     if(lab){
-      lab.textContent = (mode==='research')
-        ? 'โหมด Research — ใช้เพลงมาตรฐานเพื่อเก็บข้อมูล'
-        : 'โหมด Normal — เลือกระดับง่าย ปกติ หรือเร็ว';
+      lab.textContent = (mode === 'research')
+        ? 'โหมด Research — เพลงมาตรฐาน 1 ชุด'
+        : 'โหมด Normal — เพลง 3 ระดับ: ง่าย / ปกติ / ยาก';
     }
 
     const opts = D.querySelectorAll('#rb-track-options .rb-mode-btn');
     opts.forEach(o=>{
-      const m = String(o.getAttribute('data-mode')||'normal');
+      const m = String(o.getAttribute('data-mode') || 'normal');
       const input = o.querySelector('input[type="radio"]');
       if(!input) return;
-      const allow = (m===mode);
+      const allow = (m === mode);
       input.disabled = !allow;
       o.style.opacity = allow ? '1' : '0.45';
       o.style.pointerEvents = allow ? 'auto' : 'none';
@@ -288,11 +317,11 @@
 
     const chosen = getSelectedTrack();
     const chosenMeta = TRACKS[chosen];
-    if(mode==='research' && !chosenMeta.research){
+    if(mode === 'research' && !chosenMeta.research){
       const r = D.querySelector('input[name="rb-track"][value="r1"]');
       if(r) r.checked = true;
     }
-    if(mode==='normal' && chosenMeta.research){
+    if(mode === 'normal' && chosenMeta.research){
       const n = D.querySelector('input[name="rb-track"][value="n1"]');
       if(n) n.checked = true;
     }
@@ -305,290 +334,190 @@
     set(VIEW_RESULT, name==='result');
   }
 
-  function setFeedback(msg, cls=''){
+  function setFeedback(msg, type=''){
     if(!FEEDBACK) return;
     FEEDBACK.textContent = msg || '';
-    FEEDBACK.className = 'rb-feedback';
-    if(cls) FEEDBACK.classList.add(cls);
-    FEEDBACK.classList.add('show');
-    setTimeout(()=>{ FEEDBACK && FEEDBACK.classList.remove('show'); }, 180);
+    FEEDBACK.className = 'rb-feedback show';
+    if(type) FEEDBACK.classList.add(type);
+    setTimeout(()=>{
+      FEEDBACK.className = 'rb-feedback';
+    }, 220);
   }
 
   function flash(){
     const f = $('rb-flash');
     if(!f) return;
     f.classList.add('active');
-    setTimeout(()=>{ f.classList.remove('active'); }, 80);
+    setTimeout(()=> f.classList.remove('active'), 90);
   }
 
-  function laneEls(){
-    return Array.from(D.querySelectorAll('.rb-lane'));
+  function beatPulse(){
+    if(FIELD) FIELD.classList.add('rb-beat-pulse');
+    if(LANES_WRAP) LANES_WRAP.classList.add('rb-lanes-pulse');
+    setTimeout(()=>{
+      if(FIELD) FIELD.classList.remove('rb-beat-pulse');
+      if(LANES_WRAP) LANES_WRAP.classList.remove('rb-lanes-pulse');
+    }, 110);
   }
 
-  function makeNoteEl(laneIndex, noteData){
-    const lane = laneEls()[laneIndex];
-    if(!lane) return null;
+  function coachCallout(text, type='cue'){
+    if(!FIELD || !text) return;
     const el = D.createElement('div');
-    el.className = 'rb-note';
-
-    const punchType = noteData?.punchType || 'jab';
-    if(punchType === 'jab') el.classList.add('punch-jab');
-    else if(punchType === 'hook') el.classList.add('punch-hook');
-    else el.classList.add('punch-uppercut');
-
-    if(laneIndex <= 1) el.classList.add('side-left');
-    else if(laneIndex >= 3) el.classList.add('side-right');
-    else el.classList.add('side-center');
-
-    const ico = D.createElement('div');
-    ico.className = 'rb-note-ico';
-    ico.textContent = punchType === 'jab' ? '👊' : (punchType === 'hook' ? '🥊' : '💥');
-    el.appendChild(ico);
-
-    lane.appendChild(el);
-    return el;
+    el.className = `rb-coach-callout ${type}`;
+    el.textContent = text;
+    FIELD.appendChild(el);
+    setTimeout(()=> el.remove(), 920);
   }
 
-  function removeNoteEl(note){
-    if(note && note.el && note.el.parentNode){
-      note.el.parentNode.removeChild(note.el);
-    }
-    note.el = null;
-  }
-
-  function coachCallout(msg, cls='cue'){
-    const field = $('rb-field');
-    if(!field || !msg) return;
+  function roundBanner(title, sub='', type='warmup'){
+    if(!FIELD) return;
     const el = D.createElement('div');
-    el.className = `rb-coach-callout ${cls} show`;
-    el.textContent = msg;
-    field.appendChild(el);
-    setTimeout(()=>{ el.remove(); }, 900);
-  }
-
-  function roundBanner(title, sub='', cls='warmup'){
-    const field = $('rb-field');
-    if(!field) return;
-    const el = D.createElement('div');
-    el.className = `rb-round-banner ${cls} show`;
+    el.className = `rb-round-banner ${type}`;
     el.innerHTML = `
       <div class="rb-round-banner-title">${title}</div>
       <div class="rb-round-banner-sub">${sub}</div>
     `;
-    field.appendChild(el);
-    setTimeout(()=>{ el.remove(); }, 1500);
-  }
-
-  function scoreFx(judge){
-    const field = $('rb-field');
-    if(!field) return;
-
-    const a = D.createElement('div');
-    a.className = `rb-hit-fx ${judge.toLowerCase()}`;
-    field.appendChild(a);
-    setTimeout(()=>a.remove(), 340);
-
-    const b = D.createElement('div');
-    b.className = `rb-score-popup ${judge.toLowerCase()}`;
-    b.textContent = judge === 'Perfect' ? '+120' : judge === 'Great' ? '+85' : judge === 'Good' ? '+50' : 'MISS';
-    field.appendChild(b);
-    setTimeout(()=>b.remove(), 520);
+    FIELD.appendChild(el);
+    setTimeout(()=> el.remove(), 980);
   }
 
   function comboBurst(txt){
-    const field = $('rb-field');
-    if(!field) return;
+    if(!FIELD) return;
     const el = D.createElement('div');
     el.className = 'rb-combo-burst';
     el.textContent = txt;
-    field.appendChild(el);
-    setTimeout(()=>el.remove(), 640);
+    FIELD.appendChild(el);
+    setTimeout(()=> el.remove(), 680);
   }
 
-  function phaseOf(now){
-    const dur = Math.max(1, S.tEnd - S.t0);
-    const p = clamp((now - S.t0) / dur, 0, 1);
-    if(p < 0.20) return 'warmup';
-    if(p < 0.55) return 'groove';
-    if(p < 0.82) return 'rush';
-    return 'final';
+  function hitFx(type='great'){
+    if(!FIELD) return;
+    const el = D.createElement('div');
+    el.className = `rb-hit-fx ${String(type).toLowerCase()}`;
+    FIELD.appendChild(el);
+    setTimeout(()=> el.remove(), 320);
   }
 
-  function maybePhaseChange(now){
-    const phase = phaseOf(now);
-    if(S.phase === phase) return;
-    S.phase = phase;
-
-    const field = $('rb-field');
-    if(field) field.setAttribute('data-phase', phase);
-
-    if(phase==='warmup') roundBanner('วอร์มอัปก่อนนะ', 'ค่อย ๆ จับจังหวะ', 'warmup');
-    else if(phase==='groove') roundBanner('เริ่มเข้าจังหวะแล้ว!', 'รักษาคอมโบไว้', 'groove');
-    else if(phase==='rush') roundBanner('เร็วขึ้นอีกนิด!', 'มองเส้นแล้วกดให้พอดี', 'rush');
-    else if(phase==='final') roundBanner('ช่วงสุดท้าย!', 'ลุยเก็บดาวกันเลย', 'final');
+  function scorePopup(txt, type='great'){
+    if(!FIELD) return;
+    const el = D.createElement('div');
+    el.className = `rb-score-popup ${String(type).toLowerCase()}`;
+    el.textContent = txt;
+    FIELD.appendChild(el);
+    setTimeout(()=> el.remove(), 560);
   }
 
-  function beatPulse(now){
-    const field = $('rb-field');
-    const lanes = $('rb-lanes');
-    if(!field || !lanes) return;
-    if(now - S.lastBeatPulseAt < 380) return;
-    S.lastBeatPulseAt = now;
-    field.classList.add('rb-beat-pulse');
-    lanes.classList.add('rb-lanes-pulse');
-    setTimeout(()=>{
-      field.classList.remove('rb-beat-pulse');
-      lanes.classList.remove('rb-lanes-pulse');
-    }, 220);
-  }
-
-  // --------------------------- judge windows ---------------------------
-  function judgeWindows(){
-    const base = (DIFF==='hard') ? 70 : (DIFF==='easy' ? 95 : 82);
-    return {
-      perfect: base,
-      great: base * 1.55,
-      good: base * 2.40,
-    };
-  }
-
-  function addScore(judge){
-    const feverMult = S.feverOn ? 1.25 : 1.0;
-    let add = 0;
-    if(judge==='Perfect') add = 120;
-    else if(judge==='Great') add = 85;
-    else if(judge==='Good') add = 50;
-    else add = 0;
-
-    const comboBonus = Math.min(60, Math.floor(S.combo/10)*10);
-    S.score += Math.round((add + comboBonus) * feverMult);
-  }
-
-  function addFever(judge, track){
-    const rate = (track.feverRate || 1.0) * diffScale();
-    let inc = 0;
-    if(judge==='Perfect') inc = 9;
-    else if(judge==='Great') inc = 6;
-    else if(judge==='Good') inc = 3;
-    else inc = 0;
-    S.fever = clamp(S.fever + inc*rate, 0, 100);
-    if(S.fever >= 100){
-      S.feverOn = true;
-      S.fever = 100;
-      const field = $('rb-field');
-      if(field) field.classList.add('is-fever');
-      coachCallout('FEVER ON! เก่งมาก!', 'perfect');
+  // ---------------- mission / boss ----------------
+  function mountMissionHud(){
+    if(MISSION_HUD){
+      MISSION_HUD.classList.remove('hidden');
+      S.ui.missionMounted = true;
     }
   }
 
-  function drainFever(dt){
-    if(!S.feverOn) return;
-    S.fever = clamp(S.fever - dt*0.022, 0, 100);
-    if(S.fever <= 0){
-      S.feverOn = false;
-      S.fever = 0;
-      const field = $('rb-field');
-      if(field) field.classList.remove('is-fever');
+  function mountBossHud(){
+    if(BOSS_HUD){
+      S.ui.bossMounted = true;
+      BOSS_HUD.classList.add('hidden');
     }
   }
 
-  function applyMissDamage(track){
-    if(S.shield > 0){
-      S.shield -= 1;
-      coachCallout('โล่ช่วยไว้!', 'good');
-      return;
+  function updateMissionHud(){
+    if(!S.ui.missionMounted) return;
+
+    const acc = (S.shots>0) ? (S.hits/S.shots*100) : 0;
+    S.mission.score1 = S.score >= 2500;
+    S.mission.combo1 = S.maxCombo >= 20;
+    S.mission.acc1   = acc >= 85;
+
+    if(MISSION_SCORE){
+      MISSION_SCORE.className = `rb-mission-item ${S.mission.score1 ? 'done' : ''}`;
+      MISSION_SCORE.textContent = `${S.mission.score1 ? '✅' : '⭐'} ทำคะแนน 2500`;
     }
-    const dmg = (track.missDmg || 5) * diffScale();
-    S.hp = clamp(S.hp - dmg, 0, 100);
+    if(MISSION_COMBO){
+      MISSION_COMBO.className = `rb-mission-item ${S.mission.combo1 ? 'done' : ''}`;
+      MISSION_COMBO.textContent = `${S.mission.combo1 ? '✅' : '⭐'} คอมโบถึง 20`;
+    }
+    if(MISSION_ACC){
+      MISSION_ACC.className = `rb-mission-item ${S.mission.acc1 ? 'done' : ''}`;
+      MISSION_ACC.textContent = `${S.mission.acc1 ? '✅' : '⭐'} Accuracy ถึง 85%`;
+    }
+
+    if(BOSS_HUD){
+      BOSS_HUD.classList.toggle('hidden', !S.boss.active);
+    }
+    if(BOSS_FILL){
+      const pct = S.boss.hpMax > 0 ? clamp((S.boss.hp / S.boss.hpMax) * 100, 0, 100) : 0;
+      BOSS_FILL.style.width = `${pct}%`;
+    }
+    if(BOSS_TEXT){
+      BOSS_TEXT.textContent = S.boss.active ? `BOSS HP ${Math.max(0, S.boss.hp)}/${S.boss.hpMax}` : '';
+    }
   }
 
-  function maybeGainShield(){
-    if(S.combo>0 && S.combo % 30 === 0){
-      S.shield = clamp(S.shield + 1, 0, 3);
-      coachCallout('ได้โล่เพิ่ม 1 อัน!', 'great');
+  function bossStart(){
+    if(S.boss.active) return;
+    S.boss.active = true;
+    S.boss.hp = S.boss.hpMax;
+    S.boss.windowOn = false;
+    S.boss.lastSpawnAt = 0;
+    if(!S.boss.introShown){
+      roundBanner('BOSS ROUND!', 'ตีแม่น ๆ เพื่อลดพลังบอส', 'final');
+      S.boss.introShown = true;
     }
+    coachCallout('เข้าช่วงบอสแล้ว! อย่ากดมั่วนะ', 'perfect');
+    updateMissionHud();
   }
 
-  // --------------------------- AI predictor ---------------------------
-  function updateAI(now){
-    if(W.RB_AI && typeof W.RB_AI.predict === 'function'){
-      const accPct = (S.shots>0) ? (S.hits/S.shots*100) : 0;
-      const offAbs = S.offsets.slice(-16).map(x=>Math.abs(x));
-      const offMean = mean(offAbs) || 0;
+  function bossEnd(clear){
+    S.boss.active = false;
+    S.boss.windowOn = false;
+    S.boss.clear = !!clear;
+    S.mission.bossClear = !!clear;
 
-      const st = W.RB_AI.predict({
-        accPct,
-        combo: S.combo,
-        offsetAbsMean: offMean / 1000,
-        hitMiss: S.miss,
-        hp: S.hp,
-        songTime: Math.max(0,(now - S.t0)/1000)
-      });
-
-      S.ai.fatigue = st.fatigueRisk ?? 0;
-      S.ai.skill = st.skillScore ?? 0.5;
-      S.ai.suggest = st.suggestedDifficulty || 'normal';
-
-      if(st.tip){
-        S.ai.tip = st.tip;
-      }
+    if(clear){
+      roundBanner('ชนะบอส!', 'เก่งมาก! ด่านสุดท้ายผ่านแล้ว', 'success');
+      comboBurst('BOSS CLEAR!');
     }else{
-      const horizonMs = 12000;
-      const recent = S.tapTimes.filter(t => (now - t) <= horizonMs);
-      const tapsPerSec = recent.length / (horizonMs/1000);
-      const missRate = (S.shots>0) ? (S.miss / S.shots) : 0;
-      const acc = (S.shots>0) ? (S.hits / S.shots) : 0;
-      const offAbs = S.offsets.slice(-20).map(x=>Math.abs(x));
-      const offMed = median(offAbs);
-      let timingScore = 0.5;
-      if(offMed!=null){
-        timingScore = clamp(1 - (offMed/160), 0, 1);
-      }
-      const skill = clamp(0.25*acc + 0.75*timingScore, 0, 1);
-      const hpLoss = (100 - S.hp) / 100;
-      const fatigue = clamp(0.25*hpLoss + 0.35*missRate + 0.25*(tapsPerSec/6) + 0.15*(S.blankTaps/Math.max(1,S.shots)), 0, 1);
-      let suggest = 'normal';
-      if(fatigue > 0.72) suggest = 'easy';
-      else if(skill > 0.78 && fatigue < 0.45) suggest = 'hard';
+      coachCallout('ช่วงบอสจบแล้ว', 'cue');
+    }
+    updateMissionHud();
+  }
 
-      if(now - S.aiLastTipAt > 6000){
-        let tip = '';
-        if(S.blankTaps >= 6 && (S.blankTaps/Math.max(1,S.shots)) > 0.22){
-          tip = 'ลองรอให้หัวโน้ตแตะเส้นสีเหลืองก่อนนะ';
-        }else if(offMed!=null && offMed > 95){
-          tip = 'ค่อย ๆ จับจังหวะ อย่ากดเร็วเกินไป';
-        }else if(S.combo>0 && S.combo % 20 === 0){
-          tip = 'สุดยอด! รักษาจังหวะนี้ไว้';
-        }else if(fatigue>0.7){
-          tip = 'ถ้าล้า พักมือสั้น ๆ แล้วกลับมาใหม่';
-        }
-        if(tip){
-          S.aiLastTipAt = now;
-          S.ai.tip = tip;
-        }
-      }
+  function bossTick(now){
+    if(!S.boss.active) return;
 
-      S.ai.fatigue = fatigue;
-      S.ai.skill = skill;
-      S.ai.suggest = suggest;
+    if((now - S.boss.lastSpawnAt) > 1100){
+      S.boss.lastSpawnAt = now;
+      S.boss.windowOn = true;
+      coachCallout('ตีจังหวะนี้เพื่อลดพลังบอส!', 'great');
+      setTimeout(()=>{ S.boss.windowOn = false; }, 360);
     }
 
-    if(HUD_AI_FAT) HUD_AI_FAT.textContent = `${Math.round(S.ai.fatigue*100)}%`;
-    if(HUD_AI_SKILL) HUD_AI_SKILL.textContent = `${Math.round(S.ai.skill*100)}%`;
-    if(HUD_AI_SUGG) HUD_AI_SUGG.textContent = S.ai.suggest || 'normal';
-
-    if(HUD_AI_TIP){
-      if(S.ai.tip){
-        HUD_AI_TIP.classList.remove('hidden');
-        HUD_AI_TIP.textContent = S.ai.tip;
-      }else{
-        HUD_AI_TIP.classList.add('hidden');
-        HUD_AI_TIP.textContent = '';
-      }
+    if(S.boss.hp <= 0){
+      bossEnd(true);
     }
   }
 
-  // --------------------------- logging ---------------------------
+  function hitBossByJudge(judge){
+    if(!S.boss.active || !S.boss.windowOn) return;
+    let dmg = 0;
+    if(judge === 'Perfect') dmg = 4;
+    else if(judge === 'Great') dmg = 3;
+    else if(judge === 'Good') dmg = 2;
+    if(dmg <= 0) return;
+
+    S.boss.hp = Math.max(0, S.boss.hp - dmg);
+    S.boss.windowOn = false;
+    updateMissionHud();
+  }
+
+  // ---------------- logging ----------------
+  function logEvent(ev){
+    if(S.mode !== 'research') return;
+    S.events.push(ev);
+  }
+
   function sessionMeta(){
     return {
       tsIso: nowIso(),
@@ -603,15 +532,10 @@
       seed: String(S.seed),
       track: S.trackKey,
       mode: S.mode,
-      game: 'rhythm',
       zone: ZONE,
-      cat: CAT
+      cat: CAT,
+      game: GAME_ID
     };
-  }
-
-  function logEvent(ev){
-    if(S.mode!=='research') return;
-    S.events.push(ev);
   }
 
   function downloadText(filename, text){
@@ -635,9 +559,77 @@
     return head + '\n' + body + '\n';
   }
 
-  // --------------------------- engine schedule ---------------------------
-  function buildSchedule(track, durSec){
-    const t = TRACKS[track];
+  // ---------------- AI predictor ----------------
+  function updateAI(now){
+    const horizonMs = 12000;
+    const recent = S.tapTimes.filter(t => (now - t) <= horizonMs);
+    const tapsPerSec = recent.length / (horizonMs/1000);
+
+    const missRate = (S.shots>0) ? (S.miss / S.shots) : 0;
+    const acc = (S.shots>0) ? (S.hits / S.shots) : 0;
+
+    const offAbs = S.offsets.slice(-20).map(x=>Math.abs(x));
+    const offMed = median(offAbs);
+    let timingScore = 0.5;
+    if(offMed != null){
+      timingScore = clamp(1 - (offMed/160), 0, 1);
+    }
+
+    const skill = clamp(0.25*acc + 0.75*timingScore, 0, 1);
+    const hpLoss = (100 - S.hp) / 100;
+    const fatigue = clamp(
+      0.25*hpLoss +
+      0.35*missRate +
+      0.25*(tapsPerSec/6) +
+      0.15*(S.blankTaps/Math.max(1,S.shots)),
+      0, 1
+    );
+
+    let suggest = 'normal';
+    if(fatigue > 0.72) suggest = 'easy';
+    else if(skill > 0.78 && fatigue < 0.45) suggest = 'hard';
+
+    let tip = '';
+    const tSince = now - S.aiLastTipAt;
+    if(tSince > 6000){
+      if(S.blankTaps >= 6 && (S.blankTaps/Math.max(1,S.shots)) > 0.22){
+        tip = 'รอหัวโน้ตถึงเส้นก่อนค่อยกด จะช่วยให้แม่นขึ้น';
+      }else if(offMed != null && offMed > 95){
+        tip = 'จังหวะยังแกว่งนิดหน่อย ลองหายใจลึก ๆ แล้วกดตามเส้น';
+      }else if(S.combo > 0 && S.combo % 20 === 0){
+        tip = 'ดีมาก! คอมโบกำลังสวย รักษาจังหวะนี้ไว้';
+      }else if(fatigue > 0.7){
+        tip = 'ถ้าเริ่มล้า ให้ผ่อนมือแป๊บหนึ่งแล้วค่อยกลับมา';
+      }else if(S.boss.active){
+        tip = 'ช่วงบอส ให้กดเฉพาะจังหวะที่ชัวร์';
+      }
+      if(tip){
+        S.aiLastTipAt = now;
+        S.ai.tip = tip;
+      }
+    }
+
+    S.ai.fatigue = fatigue;
+    S.ai.skill = skill;
+    S.ai.suggest = suggest;
+
+    if(HUD_AI_FAT) HUD_AI_FAT.textContent = `${Math.round(fatigue*100)}%`;
+    if(HUD_AI_SKILL) HUD_AI_SKILL.textContent = `${Math.round(skill*100)}%`;
+    if(HUD_AI_SUGG) HUD_AI_SUGG.textContent = suggest;
+    if(HUD_AI_TIP){
+      if(S.ai.tip){
+        HUD_AI_TIP.classList.remove('hidden');
+        HUD_AI_TIP.textContent = S.ai.tip;
+      }else{
+        HUD_AI_TIP.classList.add('hidden');
+        HUD_AI_TIP.textContent = '';
+      }
+    }
+  }
+
+  // ---------------- notes / chart generation ----------------
+  function buildSchedule(trackKey, durSec){
+    const t = TRACKS[trackKey];
     const bpm = t.bpm;
     const beatMs = 60000 / bpm;
     const baseStep = beatMs / 2;
@@ -652,24 +644,35 @@
     while(tt < durSec*1000 - 900){
       const p = clamp(density, 0.35, 1.35);
       const spawn = (r() < Math.min(0.92, p));
+
       if(spawn){
         let lane = Math.floor(r()*5);
-        if(lane===lastLane && r()<0.6) lane = (lane + 1 + Math.floor(r()*3)) % 5;
+        if(lane === lastLane && r() < 0.6){
+          lane = (lane + 1 + Math.floor(r()*3)) % 5;
+        }
         lastLane = lane;
 
         let j = (r()*2-1) * jitter * baseStep;
         if(t.research) j *= 0.4;
 
-        const punchType =
-          lane === 2 ? 'uppercut' :
-          (lane <= 1 ? (r() < 0.7 ? 'jab' : 'hook') : (r() < 0.5 ? 'hook' : 'jab'));
+        let punch = 'jab';
+        const roll = r();
+        if(roll > 0.76) punch = 'hook';
+        if(roll > 0.92) punch = 'uppercut';
 
-        notes.push({ lane, tHit: tt + j, punchType });
+        let side = 'center';
+        if(lane <= 1) side = 'left';
+        else if(lane >= 3) side = 'right';
+
+        notes.push({ lane, tHit: tt + j, punch, side });
       }
 
       if(!t.research && r() < 0.10 * density){
-        const lane2 = (lastLane + (r()<0.5?2:3))%5;
-        notes.push({ lane: lane2, tHit: tt + 60, punchType: lane2===2 ? 'uppercut' : (lane2<2 ? 'jab' : 'hook') });
+        const lane2 = (lastLane + (r()<0.5?2:3)) % 5;
+        let side2 = 'center';
+        if(lane2 <= 1) side2 = 'left';
+        else if(lane2 >= 3) side2 = 'right';
+        notes.push({ lane:lane2, tHit:tt + 60, punch:'hook', side:side2 });
       }
 
       tt += baseStep;
@@ -677,81 +680,93 @@
     return notes;
   }
 
-  // --------------------------- lifecycle ---------------------------
-  function resetStateForRun(){
-    S.running = false;
-    S.t0 = 0;
-    S.tEnd = 0;
-    S.tLast = 0;
-    S.score = 0;
-    S.combo = 0;
-    S.maxCombo = 0;
-    S.shots = 0;
-    S.hits = 0;
-    S.perfect = 0;
-    S.great = 0;
-    S.good = 0;
-    S.miss = 0;
-    S.hp = 100;
-    S.shield = 0;
-    S.fever = 0;
-    S.feverOn = false;
-    S.lastJudge = 'READY';
-    S.offsets = [];
-    S.tapTimes = [];
-    S.blankTaps = 0;
-    S.notes = [];
-    S.nextId = 1;
-    S.endReason = 'timeup';
-    S.phase = 'warmup';
-    S.phaseShown = {};
-    S.lastBeatPulseAt = 0;
-    S.reward = { stars:0, medal:'none', badge:'-', label:'' };
-
-    laneEls().forEach(l=>{
-      Array.from(l.querySelectorAll('.rb-note,.rb-hit-fx,.rb-score-popup,.rb-combo-burst,.rb-coach-callout,.rb-round-banner')).forEach(n=>n.remove());
-    });
-
-    const field = $('rb-field');
-    if(field){
-      field.classList.remove('is-fever','rb-fever-pulse','rb-beat-pulse');
-      field.setAttribute('data-phase','warmup');
-    }
-
-    S.ai = { fatigue:0, skill:0.5, suggest:'normal', tip:'' };
-    S.aiLastTipAt = 0;
+  function laneEls(){
+    return Array.from(D.querySelectorAll('.rb-lane'));
   }
 
-  function updateHUD(now){
-    const acc = (S.shots>0) ? (S.hits/S.shots*100) : 0;
+  function makeNoteEl(note){
+    const lane = laneEls()[note.lane];
+    if(!lane) return null;
 
-    if(HUD_MODE) HUD_MODE.textContent = (S.mode==='research' ? 'Research' : 'Normal');
-    if(HUD_TRACK) HUD_TRACK.textContent = TRACKS[S.trackKey].name;
-    if(HUD_SCORE) HUD_SCORE.textContent = String(Math.round(S.score));
-    if(HUD_COMBO) HUD_COMBO.textContent = String(S.combo);
-    if(HUD_ACC) HUD_ACC.textContent = `${acc.toFixed(1)}%`;
-    if(HUD_HP) HUD_HP.textContent = String(Math.round(S.hp));
-    if(HUD_SHIELD) HUD_SHIELD.textContent = String(S.shield);
+    const el = D.createElement('div');
+    el.className = `rb-note punch-${note.punch || 'jab'} side-${note.side || 'center'}`;
+    el.innerHTML = `<div class="rb-note-ico">${note.punch === 'uppercut' ? '⬆️' : (note.punch === 'hook' ? '↩️' : '👊')}</div>`;
+    lane.appendChild(el);
+    return el;
+  }
 
-    const t = (now - S.t0)/1000;
-    if(HUD_TIME) HUD_TIME.textContent = t.toFixed(1);
-
-    if(HUD_PERF) HUD_PERF.textContent = String(S.perfect);
-    if(HUD_GREAT) HUD_GREAT.textContent = String(S.great);
-    if(HUD_GOOD) HUD_GOOD.textContent = String(S.good);
-    if(HUD_MISS) HUD_MISS.textContent = String(S.miss);
-
-    if(FEVER_FILL){
-      FEVER_FILL.style.width = `${clamp(S.fever,0,100)}%`;
-      FEVER_FILL.style.opacity = S.feverOn ? '1' : '0.85';
+  function removeNoteEl(note){
+    if(note && note.el && note.el.parentNode){
+      note.el.parentNode.removeChild(note.el);
     }
-    if(FEVER_STATUS){
-      FEVER_STATUS.textContent = S.feverOn ? 'ON' : (S.fever>=100 ? 'READY' : 'BUILD');
-    }
+    note.el = null;
+  }
 
-    const prog = clamp((now - S.t0) / (S.tEnd - S.t0), 0, 1);
-    if(PROG_FILL) PROG_FILL.style.width = `${Math.round(prog*100)}%`;
-    if(PROG_TEXT) PROG_TEXT.textContent = `${Math.round(prog*100)}%`;
+  function judgeWindows(){
+    const base = (DIFF==='hard') ? 70 : (DIFF==='easy' ? 95 : 82);
+    return {
+      perfect: base,
+      great: base * 1.55,
+      good: base * 2.40
+    };
+  }
+
+  function addScore(judge){
+    const feverMult = S.feverOn ? 1.25 : 1.0;
+    let add = 0;
+    if(judge === 'Perfect') add = 120;
+    else if(judge === 'Great') add = 85;
+    else if(judge === 'Good') add = 50;
+
+    const comboBonus = Math.min(60, Math.floor(S.combo/10)*10);
+    S.score += Math.round((add + comboBonus) * feverMult);
+  }
+
+  function addFever(judge, track){
+    const rate = (track.feverRate || 1.0) * diffScale();
+    let inc = 0;
+    if(judge === 'Perfect') inc = 9;
+    else if(judge === 'Great') inc = 6;
+    else if(judge === 'Good') inc = 3;
+
+    S.fever = clamp(S.fever + inc*rate, 0, 100);
+    if(S.fever >= 100){
+      S.feverOn = true;
+      S.fever = 100;
+      if(FIELD) FIELD.classList.add('is-fever');
+    }
+  }
+
+  function drainFever(dt){
+    if(!S.feverOn) return;
+    S.fever = clamp(S.fever - dt*0.022, 0, 100);
+    if(S.fever <= 0){
+      S.feverOn = false;
+      S.fever = 0;
+      if(FIELD) FIELD.classList.remove('is-fever');
+    }
+  }
+
+  function applyMissDamage(track){
+    if(S.shield > 0){
+      S.shield -= 1;
+      return;
+    }
+    const dmg = (track.missDmg || 5) * diffScale();
+    S.hp = clamp(S.hp - dmg, 0, 100);
+  }
+
+  function maybeGainShield(){
+    if(S.combo > 0 && S.combo % 30 === 0){
+      S.shield = clamp(S.shield + 1, 0, 3);
+      coachCallout('ได้โล่เพิ่ม 1 อัน!', 'good');
+    }
+  }
+
+  function noteTravelMs(){
+    if(DIFF === 'hard') return 1050;
+    if(DIFF === 'easy') return 1250;
+    return 1150;
   }
 
   function spawnNotes(schedule){
@@ -759,18 +774,13 @@
       id: S.nextId++,
       lane: n.lane,
       tHit: n.tHit,
-      punchType: n.punchType || 'jab',
-      spawned: false,
-      hit: false,
-      miss: false,
-      el: null
+      punch: n.punch || 'jab',
+      side: n.side || 'center',
+      spawned:false,
+      hit:false,
+      miss:false,
+      el:null
     }));
-  }
-
-  function noteTravelMs(){
-    if(DIFF==='hard') return 1050;
-    if(DIFF==='easy') return 1250;
-    return 1150;
   }
 
   function renderNotes(now){
@@ -791,7 +801,7 @@
 
       if(!note.spawned && dtToHit < travel){
         note.spawned = true;
-        note.el = makeNoteEl(note.lane, note);
+        note.el = makeNoteEl(note);
       }
 
       if(note.el){
@@ -806,7 +816,10 @@
           S.shots += 1;
           S.miss += 1;
           S.combo = 0;
+
           setFeedback('MISS', 'miss');
+          hitFx('miss');
+          flash();
           applyMissDamage(TRACKS[S.trackKey]);
 
           logEvent({
@@ -822,11 +835,8 @@
             hp: Math.round(S.hp),
             fever: Math.round(S.fever),
             shield: S.shield,
-            tsIso: nowIso(),
+            tsIso: nowIso()
           });
-
-          flash();
-          scoreFx('Miss');
         }
       }
     }
@@ -848,13 +858,6 @@
       }
     }
     return best;
-  }
-
-  function judgeCoachText(judge){
-    if(judge==='Perfect') return 'สุดยอด!';
-    if(judge==='Great') return 'ดีมาก!';
-    if(judge==='Good') return 'ดีนะ!';
-    return 'ลองใหม่!';
   }
 
   function handleTap(lane, source){
@@ -887,8 +890,8 @@
         S.shots += 1;
         S.hits += 1;
 
-        if(judge==='Perfect') S.perfect += 1;
-        else if(judge==='Great') S.great += 1;
+        if(judge === 'Perfect') S.perfect += 1;
+        else if(judge === 'Great') S.great += 1;
         else S.good += 1;
 
         S.combo += 1;
@@ -897,14 +900,19 @@
         addScore(judge);
         addFever(judge, TRACKS[S.trackKey]);
         maybeGainShield();
-
-        setFeedback(judge.toUpperCase(), judge.toLowerCase());
-        flash();
-        scoreFx(judge);
-        coachCallout(judgeCoachText(judge), judge.toLowerCase());
+        hitBossByJudge(judge);
 
         S.offsets.push(dt);
         if(S.offsets.length > 400) S.offsets.splice(0, S.offsets.length-400);
+
+        setFeedback(judge.toUpperCase(), judge.toLowerCase());
+        hitFx(judge);
+        scorePopup(
+          judge === 'Perfect' ? '+120' :
+          judge === 'Great' ? '+85' : '+50',
+          judge
+        );
+        flash();
 
         if(S.combo > 0 && S.combo % 10 === 0){
           comboBurst(`${S.combo} COMBO!`);
@@ -926,36 +934,38 @@
       const pen = (t.blankPenalty || 1) * diffScale();
       S.score = Math.max(0, S.score - pen*8);
 
-      if(S.blankTaps >= 6 && (S.blankTaps/S.shots) > 0.25){
+      if(S.blankTaps >= 6 && (S.blankTaps / S.shots) > 0.25){
         S.hp = clamp(S.hp - 1.2, 0, 100);
       }
 
       setFeedback('MISS', 'miss');
+      hitFx('miss');
       flash();
-      scoreFx('Miss');
       judge = 'Miss';
       dt = 9999;
     }
+
+    updateMissionHud();
 
     logEvent({
       ...sessionMeta(),
       kind:'event',
       tMs: Math.round(tRel),
       lane,
-      action: (blank ? 'blank_tap' : 'tap'),
+      action:(blank ? 'blank_tap' : 'tap'),
       source: source || '',
       judge,
-      offsetMs: (dt===9999? '' : Math.round(dt)),
+      offsetMs:(dt===9999 ? '' : Math.round(dt)),
       score: Math.round(S.score),
       combo: S.combo,
       hp: Math.round(S.hp),
       fever: Math.round(S.fever),
       shield: S.shield,
-      tsIso: nowIso(),
+      tsIso: nowIso()
     });
   }
 
-  // --------------------------- input ---------------------------
+  // ---------------- inputs ----------------
   function bindInputs(){
     LANES_WRAP.addEventListener('pointerdown', (e)=>{
       const laneEl = e.target.closest('.rb-lane');
@@ -967,165 +977,147 @@
 
     const keyMap = { 'a':0, 's':1, 'd':2, 'j':3, 'k':4 };
     W.addEventListener('keydown', (e)=>{
-      const k = String(e.key||'').toLowerCase();
+      const k = String(e.key || '').toLowerCase();
       if(!(k in keyMap)) return;
       e.preventDefault();
       handleTap(keyMap[k], 'key');
     }, {passive:false});
   }
 
-  // --------------------------- rewards / persistence ---------------------------
-  function computeReward(){
-    const acc = (S.shots>0) ? (S.hits/S.shots) : 0;
-    const rank = computeRank();
-
-    let stars = 1;
-    if(rank==='S') stars = 3;
-    else if(rank==='A') stars = 3;
-    else if(rank==='B') stars = 2;
-    else stars = 1;
-
-    let medal = 'none';
-    if(rank==='S') medal = 'gold';
-    else if(rank==='A') medal = 'silver';
-    else if(rank==='B') medal = 'bronze';
-
-    let badge = '-';
-    if(S.miss === 0 && S.hits > 10) badge = 'No-Miss';
-    else if(S.maxCombo >= 40) badge = 'Combo Hero';
-    else if(acc >= 0.9) badge = 'Timing Star';
-    else if(S.feverOn || S.fever >= 90) badge = 'Fever Kid';
-
-    let label = '';
-    if(rank==='S') label = 'จังหวะเทพมาก!';
-    else if(rank==='A') label = 'เยี่ยมเลย!';
-    else if(rank==='B') label = 'เก่งขึ้นเรื่อย ๆ';
-    else label = 'เริ่มต้นได้ดี';
-
-    return { stars, medal, badge, label, rank };
+  // ---------------- phase ----------------
+  function phaseOf(now){
+    const dur = Math.max(1, S.tEnd - S.t0);
+    const p = clamp((now - S.t0) / dur, 0, 1);
+    if(p < 0.18) return 'warmup';
+    if(p < 0.48) return 'groove';
+    if(p < 0.78) return 'rush';
+    return 'boss';
   }
 
-  function saveRBProfile(resultPayload){
-    const old = loadJson(`RB_PROFILE:${PID}`, {});
-    const bestScore = Math.max(Number(old.bestScore||0), Number(resultPayload.scoreFinal||0));
-    const bestStars = Math.max(Number(old.bestStars||0), Number(resultPayload.stars||0));
+  function maybePhaseChange(now){
+    const phase = phaseOf(now);
+    if(S.phase === phase) return;
+    S.phase = phase;
 
-    const badges = Object.assign({}, old.badges || {});
-    if(resultPayload.badge && resultPayload.badge !== '-') badges[resultPayload.badge] = true;
+    if(FIELD) FIELD.setAttribute('data-phase', phase);
 
-    const profile = {
-      pid: PID,
-      bestScore,
-      bestStars,
-      lastReward: {
-        stars: resultPayload.stars,
-        medal: resultPayload.medal,
-        badge: resultPayload.badge,
-        label: resultPayload.rewardLabel
-      },
-      badges,
-      updatedAt: nowIso()
-    };
-    saveJson(`RB_PROFILE:${PID}`, profile);
-  }
-
-  function saveRBBest(resultPayload){
-    const key = `HHA_RB_BEST:${PID}:${DIFF || 'normal'}`;
-    const old = loadJson(key, null);
-    if(!old || Number(resultPayload.scoreFinal||0) >= Number(old.scoreFinal||old.score||0)){
-      saveJson(key, resultPayload);
+    if(phase === 'warmup'){
+      roundBanner('วอร์มอัปก่อนนะ', 'ค่อย ๆ จับจังหวะ', 'warmup');
+    }else if(phase === 'groove'){
+      roundBanner('เริ่มเข้าจังหวะแล้ว!', 'รักษาคอมโบไว้', 'groove');
+    }else if(phase === 'rush'){
+      roundBanner('เร็วขึ้นอีกนิด!', 'มองเส้นแล้วกดให้พอดี', 'rush');
+    }else if(phase === 'boss'){
+      roundBanner('BOSS ROUND!', 'ตีให้แม่นเพื่อลดพลังบอส', 'final');
+      bossStart();
     }
   }
 
-  function saveHHLastSummary(resultPayload){
-    const extra = {
-      url: location.href,
-      hub: HUB || '',
-      game: 'rhythm'
+  // ---------------- lifecycle ----------------
+  function resetStateForRun(){
+    S.running = false;
+    S.t0 = 0;
+    S.tEnd = 0;
+    S.tLast = 0;
+
+    S.score = 0;
+    S.combo = 0;
+    S.maxCombo = 0;
+    S.shots = 0;
+    S.hits = 0;
+    S.perfect = 0;
+    S.great = 0;
+    S.good = 0;
+    S.miss = 0;
+    S.hp = 100;
+    S.shield = 0;
+    S.fever = 0;
+    S.feverOn = false;
+
+    S.offsets = [];
+    S.tapTimes = [];
+    S.blankTaps = 0;
+
+    S.notes = [];
+    S.nextId = 1;
+    S.endReason = 'timeup';
+    S.phase = 'warmup';
+
+    S.ai = { fatigue:0, skill:0.5, suggest:'normal', tip:'' };
+    S.aiLastTipAt = 0;
+
+    S.mission = {
+      stars:0,
+      score1:false,
+      combo1:false,
+      acc1:false,
+      noMiss:false,
+      bossClear:false
     };
 
-    const summary = {
-      pid: PID,
-      game: 'rhythm',
-      zone: ZONE,
-      cat: CAT,
-      runMode: S.mode,
-      mode: S.mode,
-      diff: DIFF,
-      scoreFinal: resultPayload.scoreFinal,
-      score: resultPayload.scoreFinal,
-      accPct: resultPayload.accPct,
-      reason: S.endReason,
-      end_reason: S.endReason,
-      comboMax: resultPayload.maxCombo,
-      max_combo: resultPayload.maxCombo,
-      misses: resultPayload.miss,
-      missTotal: resultPayload.miss,
-      stars: resultPayload.stars,
-      medal: resultPayload.medal,
-      badge: resultPayload.badge,
-      rewardStars: resultPayload.stars,
-      rewardMedal: resultPayload.medal,
-      rewardBadge: resultPayload.badge,
-      timestampIso: nowIso(),
-      sessionId: `${PID}-${Date.now()}`,
-      __extraJson: JSON.stringify(extra)
+    S.boss = {
+      active:false,
+      hp:0,
+      hpMax:24,
+      windowOn:false,
+      lastSpawnAt:0,
+      introShown:false,
+      clear:false
     };
 
-    saveJson('HHA_LAST_SUMMARY', summary);
-    saveJson(`HHA_LAST_SUMMARY:rhythm:${PID}`, summary);
+    laneEls().forEach(l => {
+      Array.from(l.querySelectorAll('.rb-note')).forEach(n => n.remove());
+    });
+
+    if(FIELD){
+      FIELD.classList.remove('is-fever');
+      FIELD.setAttribute('data-phase','warmup');
+    }
+
+    if(MISSION_HUD) MISSION_HUD.classList.remove('hidden');
+    if(BOSS_HUD) BOSS_HUD.classList.add('hidden');
+
+    updateMissionHud();
   }
 
-  function saveGateDailyMarkers(){
-    try{
-      const day = hhDayKey();
-      localStorage.setItem(`HHA_WARMUP_DONE:${CAT}:rhythm:${PID}:${day}`, '1');
-      localStorage.setItem(`HHA_WARMUP_DONE:${CAT}:rhythmboxer:${PID}:${day}`, '1');
-    }catch(_){}
+  function updateHUD(now){
+    const acc = (S.shots>0) ? (S.hits/S.shots*100) : 0;
+
+    if(HUD_MODE) HUD_MODE.textContent = (S.mode === 'research' ? 'Research' : 'Normal');
+    if(HUD_TRACK) HUD_TRACK.textContent = TRACKS[S.trackKey].name;
+    if(HUD_SCORE) HUD_SCORE.textContent = String(Math.round(S.score));
+    if(HUD_COMBO) HUD_COMBO.textContent = String(S.combo);
+    if(HUD_ACC) HUD_ACC.textContent = `${acc.toFixed(1)}%`;
+    if(HUD_HP) HUD_HP.textContent = String(Math.round(S.hp));
+    if(HUD_SHIELD) HUD_SHIELD.textContent = String(S.shield);
+
+    const t = (now - S.t0)/1000;
+    if(HUD_TIME) HUD_TIME.textContent = t.toFixed(1);
+
+    if(HUD_PERF) HUD_PERF.textContent = String(S.perfect);
+    if(HUD_GREAT) HUD_GREAT.textContent = String(S.great);
+    if(HUD_GOOD) HUD_GOOD.textContent = String(S.good);
+    if(HUD_MISS) HUD_MISS.textContent = String(S.miss);
+
+    if(FEVER_FILL){
+      FEVER_FILL.style.width = `${clamp(S.fever,0,100)}%`;
+      FEVER_FILL.style.opacity = S.feverOn ? '1' : '0.85';
+    }
+    if(FEVER_STATUS){
+      FEVER_STATUS.textContent = S.feverOn ? 'ON' : (S.fever>=100 ? 'READY' : 'BUILD');
+    }
+
+    const prog = clamp((now - S.t0) / (S.tEnd - S.t0), 0, 1);
+    if(PROG_FILL) PROG_FILL.style.width = `${Math.round(prog*100)}%`;
+    if(PROG_TEXT) PROG_TEXT.textContent = `${Math.round(prog*100)}%`;
   }
 
-  function appendRewardUI(resultPayload){
-    const resultView = VIEW_RESULT;
-    if(!resultView) return;
-
-    let host = resultView.querySelector('.rb-reward-pack');
-    if(host) host.remove();
-
-    host = D.createElement('section');
-    host.className = 'rb-research-box rb-section rb-reward-pack';
-
-    const starsTxt = '⭐'.repeat(Math.max(1, Number(resultPayload.stars||1)));
-    const medalTxt =
-      resultPayload.medal === 'gold' ? '🥇 Gold Medal' :
-      resultPayload.medal === 'silver' ? '🥈 Silver Medal' :
-      resultPayload.medal === 'bronze' ? '🥉 Bronze Medal' : '🎈 Keep Going';
-
-    const medalCls =
-      resultPayload.medal === 'gold' ? 'gold' :
-      resultPayload.medal === 'silver' ? 'silver' :
-      resultPayload.medal === 'bronze' ? 'bronze' : '';
-
-    host.innerHTML = `
-      <h2 class="rb-section-title-sm">ของรางวัลรอบนี้</h2>
-      <div class="rb-reward-stars">${starsTxt}</div>
-      <div class="rb-reward-medal ${medalCls}">${medalTxt}</div>
-      <div class="rb-reward-badge">Badge: <b>${resultPayload.badge || '-'}</b></div>
-      <div class="rb-reward-praise">${resultPayload.rewardLabel || 'เก่งมาก!'}</div>
-    `;
-
-    const beforeSection = resultView.querySelector('.rb-section.rb-btn-row');
-    if(beforeSection) resultView.insertBefore(host, beforeSection);
-    else resultView.appendChild(host);
-  }
-
-  // --------------------------- start/stop/end ---------------------------
   function startGame(){
     refreshModeUI();
     resetStateForRun();
 
     S.mode = getSelectedMode();
     S.trackKey = getSelectedTrack();
-
     S.seed = SEED;
     S.rng = rand((SEED|0) ^ (S.trackKey.charCodeAt(0)<<16) ^ (S.trackKey.charCodeAt(1)<<8));
 
@@ -1133,8 +1125,11 @@
     spawnNotes(schedule);
 
     showView('play');
-    setFeedback('พร้อม!', 'good');
-    if(HUD_AI_TIP){ HUD_AI_TIP.classList.add('hidden'); HUD_AI_TIP.textContent=''; }
+    setFeedback('พร้อม!', 'great');
+
+    mountMissionHud();
+    mountBossHud();
+    updateMissionHud();
 
     S.running = true;
     S.t0 = nowMs();
@@ -1143,8 +1138,8 @@
 
     updateHUD(S.t0);
     updateAI(S.t0);
-    saveGateDailyMarkers();
-    roundBanner('เริ่มเลย!', 'ดูเส้นสีเหลืองแล้วกด', 'warmup');
+
+    roundBanner('เริ่มเลย!', 'มองเส้นแล้วกดตามจังหวะ', 'warmup');
 
     logEvent({
       ...sessionMeta(),
@@ -1153,7 +1148,7 @@
       tsIso: nowIso(),
       durSec: TIME_SEC,
       bpm: TRACKS[S.trackKey].bpm,
-      density: TRACKS[S.trackKey].density,
+      density: TRACKS[S.trackKey].density
     });
 
     requestAnimationFrame(tick);
@@ -1171,7 +1166,7 @@
     const combo = S.maxCombo;
 
     let score = 0.65*acc + 0.20*survive + 0.15*clamp(combo/80, 0, 1);
-    if(S.mode==='research') score *= 0.98;
+    if(S.mode === 'research') score *= 0.98;
 
     if(score >= 0.88) return 'S';
     if(score >= 0.78) return 'A';
@@ -1180,37 +1175,82 @@
     return 'D';
   }
 
-  function makeResultPayload(dur, accPct, offAvg, offStd, rank){
-    const reward = computeReward();
+  function computeReward(){
+    const rank = computeRank();
+    const acc = (S.shots>0) ? (S.hits/S.shots) : 0;
+
+    S.mission.noMiss = (S.miss === 0 && S.shots > 0);
+
+    let stars = 0;
+    if(S.mission.score1) stars += 1;
+    if(S.mission.combo1) stars += 1;
+    if(S.mission.acc1) stars += 1;
+
+    if(stars <= 0){
+      if(rank === 'S' || rank === 'A') stars = 2;
+      else stars = 1;
+    }
+
+    let medal = 'bronze';
+    if(stars >= 3) medal = 'gold';
+    else if(stars === 2) medal = 'silver';
+
+    let badge = '-';
+    if(S.mission.bossClear && S.mission.noMiss) badge = 'Boss No-Miss';
+    else if(S.mission.bossClear) badge = 'Boss Clear';
+    else if(S.mission.noMiss) badge = 'No-Miss';
+    else if(S.maxCombo >= 40) badge = 'Combo Hero';
+    else if(acc >= 0.9) badge = 'Timing Star';
+    else if(S.feverOn || S.fever >= 90) badge = 'Fever Kid';
+
+    let label = '';
+    if(stars >= 3) label = 'ได้ 3 ดาว! เยี่ยมมาก!';
+    else if(stars === 2) label = 'ได้ 2 ดาว! เก่งมาก!';
+    else label = 'ได้ 1 ดาว! เริ่มดีมาก!';
+
+    return { stars, medal, badge, label, rank };
+  }
+
+  function makeResultPayload(reward, dur, accPct, offAvg, offStd){
     return {
-      pid: PID,
-      game: 'rhythm',
-      zone: ZONE,
-      cat: CAT,
-      scoreFinal: Math.round(S.score),
-      maxCombo: S.maxCombo,
-      miss: S.miss,
-      accPct: Number(accPct.toFixed(2)),
-      durationSec: Number(dur.toFixed(2)),
-      rank,
-      stars: reward.stars,
-      medal: reward.medal,
-      badge: reward.badge,
-      rewardLabel: reward.label,
-      perfect: S.perfect,
-      great: S.great,
-      good: S.good,
-      hpEnd: Math.round(S.hp),
-      shieldEnd: S.shield,
-      feverEnd: Math.round(S.fever),
-      offsetAbsMeanMs: (offAvg==null ? '' : Number(offAvg.toFixed(2))),
-      offsetAbsStdMs: (offStd==null ? '' : Number(offStd.toFixed(2))),
-      timestampIso: nowIso()
+      ...sessionMeta(),
+      kind:'session',
+      endReason:S.endReason,
+      durationSec:dur.toFixed(2),
+      score:Math.round(S.score),
+      maxCombo:S.maxCombo,
+      shots:S.shots,
+      hits:S.hits,
+      accPct:accPct.toFixed(2),
+      perfect:S.perfect,
+      great:S.great,
+      good:S.good,
+      miss:S.miss,
+      hpEnd:Math.round(S.hp),
+      shieldEnd:S.shield,
+      feverEnd:Math.round(S.fever),
+      offsetAbsMeanMs:(offAvg==null? '' : offAvg.toFixed(2)),
+      offsetAbsStdMs:(offStd==null? '' : offStd.toFixed(2)),
+      rank:reward.rank,
+      stars:reward.stars,
+      medal:reward.medal,
+      badge:reward.badge,
+      missionScore:S.mission.score1 ? 1 : 0,
+      missionCombo:S.mission.combo1 ? 1 : 0,
+      missionAcc:S.mission.acc1 ? 1 : 0,
+      missionNoMiss:S.mission.noMiss ? 1 : 0,
+      bossClear:S.mission.bossClear ? 1 : 0,
+      bossHpLeft:S.boss.hp,
+      tsIsoEnd:nowIso()
     };
   }
 
   function endGame(){
     S.running = false;
+
+    if(S.boss.active){
+      bossEnd(S.boss.hp <= 0);
+    }
 
     for(const n of S.notes){
       if(n && n.el) removeNoteEl(n);
@@ -1219,22 +1259,16 @@
     const endAt = nowMs();
     const dur = Math.max(0, (endAt - S.t0)/1000);
     const accPct = (S.shots>0) ? (S.hits/S.shots*100) : 0;
-    const rank = computeRank();
 
     const off = S.offsets.filter(x=>Number.isFinite(x));
     const offAbs = off.map(x=>Math.abs(x));
     const offAvg = mean(offAbs);
     const offStd = std(offAbs);
 
-    const payload = makeResultPayload(dur, accPct, offAvg, offStd, rank);
-    S.reward = {
-      stars: payload.stars,
-      medal: payload.medal,
-      badge: payload.badge,
-      label: payload.rewardLabel
-    };
+    const reward = computeReward();
 
     showView('result');
+
     if(RES_MODE) RES_MODE.textContent = (S.mode==='research' ? 'Research' : 'Normal');
     if(RES_TRACK) RES_TRACK.textContent = TRACKS[S.trackKey].name;
     if(RES_END) RES_END.textContent = S.endReason || 'timeup';
@@ -1243,16 +1277,33 @@
     if(RES_DETAIL_HIT) RES_DETAIL_HIT.textContent = `${S.perfect} / ${S.great} / ${S.good} / ${S.miss}`;
     if(RES_ACC) RES_ACC.textContent = `${accPct.toFixed(1)} %`;
     if(RES_DUR) RES_DUR.textContent = `${dur.toFixed(1)} s`;
-    if(RES_RANK) RES_RANK.textContent = rank;
+    if(RES_RANK) RES_RANK.textContent = reward.rank;
+
     if(RES_OFF_AVG) RES_OFF_AVG.textContent = (offAvg==null ? '-' : `${offAvg.toFixed(1)} ms`);
     if(RES_OFF_STD) RES_OFF_STD.textContent = (offStd==null ? '-' : `${offStd.toFixed(1)} ms`);
     if(RES_PART) RES_PART.textContent = (IN_PART && IN_PART.value) ? String(IN_PART.value).trim() : '-';
 
+    if(RES_STARS) RES_STARS.textContent = '⭐'.repeat(Math.max(1, reward.stars || 1));
+    if(RES_MEDAL){
+      RES_MEDAL.textContent =
+        reward.medal === 'gold' ? 'Gold' :
+        reward.medal === 'silver' ? 'Silver' : 'Bronze';
+      RES_MEDAL.className = `rb-reward-medal ${reward.medal || 'bronze'}`;
+    }
+    if(RES_BADGE) RES_BADGE.textContent = reward.badge || '-';
+    if(RES_PRAISE) RES_PRAISE.textContent = reward.label || '';
+
+    if(RES_MISSION_SCORE) RES_MISSION_SCORE.textContent = S.mission.score1 ? '✅' : '—';
+    if(RES_MISSION_COMBO) RES_MISSION_COMBO.textContent = S.mission.combo1 ? '✅' : '—';
+    if(RES_MISSION_ACC) RES_MISSION_ACC.textContent = S.mission.acc1 ? '✅' : '—';
+    if(RES_NOMISS) RES_NOMISS.textContent = S.mission.noMiss ? '✅' : '—';
+    if(RES_BOSSCLEAR) RES_BOSSCLEAR.textContent = S.mission.bossClear ? '✅' : '—';
+
     if(RES_QUALITY_NOTE){
       const note = [];
-      if(S.blankTaps > 8) note.push('กดล่วงหน้าค่อนข้างเยอะ');
-      if(S.hp < 45) note.push('พลาดเยอะหรือเริ่มล้า');
-      if(offAvg!=null && offAvg > 110) note.push('จังหวะยังไม่นิ่ง');
+      if(S.blankTaps > 8) note.push('กดล่วงหน้า/กดรัวค่อนข้างเยอะ');
+      if(S.hp < 45) note.push('ความล้าหรือพลาดค่อนข้างสูง');
+      if(offAvg != null && offAvg > 110) note.push('จังหวะยังไม่คงที่');
       if(S.mode==='research' && note.length){
         RES_QUALITY_NOTE.classList.remove('hidden');
         RES_QUALITY_NOTE.textContent = 'ข้อสังเกตคุณภาพข้อมูล: ' + note.join(' · ');
@@ -1262,70 +1313,66 @@
       }
     }
 
-    appendRewardUI(payload);
-    roundBanner('จบรอบแล้ว!', payload.rewardLabel, rank==='S' ? 'success' : 'final');
+    const payload = makeResultPayload(reward, dur, accPct, offAvg, offStd);
+    S.sessions.push(payload);
 
-    const sess = {
-      ...sessionMeta(),
-      kind:'session',
-      endReason: S.endReason,
-      durationSec: dur.toFixed(2),
-      score: Math.round(S.score),
-      scoreFinal: Math.round(S.score),
-      maxCombo: S.maxCombo,
-      shots: S.shots,
-      hits: S.hits,
-      accPct: accPct.toFixed(2),
-      perfect: S.perfect,
-      great: S.great,
-      good: S.good,
-      miss: S.miss,
-      hpEnd: Math.round(S.hp),
-      shieldEnd: S.shield,
-      feverEnd: Math.round(S.fever),
-      offsetAbsMeanMs: (offAvg==null? '' : offAvg.toFixed(2)),
-      offsetAbsStdMs: (offStd==null? '' : offStd.toFixed(2)),
-      rank,
-      stars: payload.stars,
-      medal: payload.medal,
-      badge: payload.badge,
-      rewardLabel: payload.rewardLabel,
-      tsIsoEnd: nowIso(),
-    };
-    S.sessions.push(sess);
+    try{
+      const extra = {
+        url: location.href,
+        zone: ZONE,
+        cat: CAT,
+        game: GAME_ID
+      };
+
+      const hubSummary = {
+        pid: PID,
+        game: 'rhythmboxer',
+        runMode: S.mode,
+        diff: DIFF,
+        scoreFinal: payload.score,
+        accPct: Number(payload.accPct),
+        comboMax: payload.maxCombo,
+        misses: payload.miss,
+        end_reason: payload.endReason,
+        rank: payload.rank,
+        stars: payload.stars,
+        badge: payload.badge,
+        missionScore: payload.missionScore,
+        missionCombo: payload.missionCombo,
+        missionAcc: payload.missionAcc,
+        missionNoMiss: payload.missionNoMiss,
+        bossClear: payload.bossClear,
+        timestampIso: nowIso(),
+        __extraJson: JSON.stringify(extra)
+      };
+      localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(hubSummary));
+      localStorage.setItem(`HHA_LAST_SUMMARY:rhythmboxer:${PID}`, JSON.stringify(hubSummary));
+    }catch(_){}
 
     logEvent({
       ...sessionMeta(),
       kind:'marker',
       marker:'end',
-      endReason: S.endReason,
-      durationSec: dur.toFixed(2),
-      score: Math.round(S.score),
-      accPct: accPct.toFixed(2),
-      miss: S.miss,
-      stars: payload.stars,
-      medal: payload.medal,
-      badge: payload.badge,
-      tsIso: nowIso(),
+      endReason:S.endReason,
+      durationSec:dur.toFixed(2),
+      score:Math.round(S.score),
+      accPct:accPct.toFixed(2),
+      miss:S.miss,
+      stars:reward.stars,
+      rank:reward.rank,
+      tsIso:nowIso()
     });
 
-    saveRBProfile(payload);
-    saveRBBest(payload);
-    saveHHLastSummary(payload);
-
-    const autoNext = (qs('autoNext','0')==='1');
-    const hubHasSeq = HUB && String(HUB).includes('seq=1');
-
-    if((autoNext || hubHasSeq) && typeof W.HH_END_GAME === 'function'){
+    const shouldAutoReturn = AUTO_NEXT || (HUB && String(HUB).includes('seq=1'));
+    if(shouldAutoReturn && typeof W.HH_END_GAME === 'function'){
       setTimeout(()=>{
         try{
           W.HH_END_GAME('result', {
-            score: payload.scoreFinal,
-            acc: payload.accPct,
-            miss: payload.miss,
-            stars: payload.stars,
-            medal: payload.medal,
-            badge: payload.badge
+            score:payload.score,
+            acc:payload.accPct,
+            miss:payload.miss,
+            rank:payload.rank,
+            stars:payload.stars
           });
         }catch(_){}
       }, 900);
@@ -1351,45 +1398,45 @@
     }
 
     maybePhaseChange(now);
-    beatPulse(now);
+    beatPulse();
+
+    bossTick(now);
     drainFever(dt);
     renderNotes(now);
     updateHUD(now);
     updateAI(now);
+    updateMissionHud();
 
     requestAnimationFrame(tick);
   }
 
-  // --------------------------- exports ---------------------------
+  // ---------------- download ----------------
   function downloadEventsCSV(){
     const rows = S.events.slice();
     const cols = [
-      'tsIso','pid','participant','group','note','planDay','planSlot','diff','run','seed','track','mode','game','zone','cat',
+      'tsIso','pid','participant','group','note','planDay','planSlot','diff','run','seed','track','mode','zone','cat','game',
       'kind','marker','tMs','lane','action','source','judge','offsetMs','score','combo','hp','fever','shield',
-      'bpm','density','durSec','endReason','stars','medal','badge'
+      'bpm','density','durSec','endReason','stars','rank'
     ];
-    const csv = toCSV(rows, cols);
-    const fn = `rhythm_events_${PID}_${S.trackKey}_${Date.now()}.csv`;
-    downloadText(fn, csv);
+    downloadText(`rhythm_events_${PID}_${S.trackKey}_${Date.now()}.csv`, toCSV(rows, cols));
   }
 
   function downloadSessionsCSV(){
     const rows = S.sessions.slice();
     const cols = [
-      'tsIso','tsIsoEnd','pid','participant','group','note','planDay','planSlot','diff','run','seed','track','mode','game','zone','cat',
-      'endReason','durationSec','score','scoreFinal','maxCombo','shots','hits','accPct',
+      'tsIso','tsIsoEnd','pid','participant','group','note','planDay','planSlot','diff','run','seed','track','mode','zone','cat','game',
+      'endReason','durationSec','score','maxCombo','shots','hits','accPct',
       'perfect','great','good','miss','hpEnd','shieldEnd','feverEnd',
-      'offsetAbsMeanMs','offsetAbsStdMs','rank','stars','medal','badge','rewardLabel'
+      'offsetAbsMeanMs','offsetAbsStdMs','rank','stars','medal','badge',
+      'missionScore','missionCombo','missionAcc','missionNoMiss','bossClear','bossHpLeft'
     ];
-    const csv = toCSV(rows, cols);
-    const fn = `rhythm_sessions_${PID}_${S.trackKey}_${Date.now()}.csv`;
-    downloadText(fn, csv);
+    downloadText(`rhythm_sessions_${PID}_${S.trackKey}_${Date.now()}.csv`, toCSV(rows, cols));
   }
 
-  // --------------------------- boot ---------------------------
+  // ---------------- boot ----------------
   function boot(){
     const modeRadios = D.querySelectorAll('input[name="rb-mode"]');
-    modeRadios.forEach(r=> r.addEventListener('change', refreshModeUI));
+    modeRadios.forEach(r => r.addEventListener('change', refreshModeUI));
 
     if(BTN_START){
       BTN_START.addEventListener('click', ()=>{
@@ -1399,30 +1446,28 @@
     }
 
     if(BTN_STOP){
-      BTN_STOP.addEventListener('click', ()=>{
-        stopGame('stop');
-      });
+      BTN_STOP.addEventListener('click', ()=> stopGame('stop'));
     }
 
     if(BTN_AGAIN){
-      BTN_AGAIN.addEventListener('click', ()=>{
-        startGame();
-      });
+      BTN_AGAIN.addEventListener('click', ()=> startGame());
     }
 
     if(BTN_BACK_MENU){
-      BTN_BACK_MENU.addEventListener('click', ()=>{
-        showView('menu');
-      });
+      BTN_BACK_MENU.addEventListener('click', ()=> showView('menu'));
     }
 
-    if(BTN_DL_EVENTS) BTN_DL_EVENTS.addEventListener('click', downloadEventsCSV);
-    if(BTN_DL_SESS) BTN_DL_SESS.addEventListener('click', downloadSessionsCSV);
+    if(BTN_DL_EVENTS){
+      BTN_DL_EVENTS.addEventListener('click', downloadEventsCSV);
+    }
+    if(BTN_DL_SESS){
+      BTN_DL_SESS.addEventListener('click', downloadSessionsCSV);
+    }
 
     bindInputs();
     refreshModeUI();
 
-    if(RUN==='research'){
+    if(RUN === 'research'){
       const r = D.querySelector('input[name="rb-mode"][value="research"]');
       if(r) r.checked = true;
       refreshModeUI();
@@ -1439,9 +1484,7 @@
       };
     }
 
-    console.log('[RB] boot OK', {
-      RUN, DIFF, TIME_SEC, PID, GAME_ID, ZONE, CAT, track: getSelectedTrack()
-    });
+    console.log('[RB] boot OK', {RUN, DIFF, TIME_SEC, PID, HUB, zone:ZONE, cat:CAT, game:GAME_ID});
   }
 
   boot();
