@@ -1,497 +1,215 @@
-<!-- === /herohealth/goodjunk-board.html ===
-HeroHealth • GoodJunk Board
-PATCH v20260308-GJ-BOARD-HISTORY
--->
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>GoodJunk Board</title>
-  <link rel="icon" href="./favicon.ico" />
+  <title>GoodJunk Battle Board</title>
   <meta name="color-scheme" content="dark light" />
-  <script src="./firebase-config.js"></script>
   <style>
     :root{
       --bg1:#020617; --bg2:#0b1226;
       --panel:rgba(2,6,23,.74);
       --stroke:rgba(148,163,184,.18);
       --text:#e5e7eb; --muted:#94a3b8;
-      --shadow:0 18px 60px rgba(0,0,0,.35);
+      --blue:#3b82f6; --cyan:#22d3ee; --good:#22c55e; --warn:#f59e0b;
     }
-    *{ box-sizing:border-box; }
+    *{box-sizing:border-box}
     html,body{
       margin:0; min-height:100%;
       background:
-        radial-gradient(1400px 900px at 50% -20%, rgba(34,211,238,.10), transparent 55%),
-        linear-gradient(180deg, var(--bg1), var(--bg2));
+        radial-gradient(1200px 800px at 50% -10%, rgba(59,130,246,.16), transparent 60%),
+        linear-gradient(180deg,var(--bg1),var(--bg2));
       color:var(--text);
-      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", sans-serif;
-      overflow:hidden;
+      font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Thai",sans-serif;
     }
-    .wrap{
-      width:min(1480px, calc(100vw - 24px));
-      margin:0 auto;
-      padding:14px 12px 20px;
-    }
-    .panel{
-      background:linear-gradient(180deg, rgba(15,23,42,.82), rgba(2,6,23,.76));
+    .wrap{max-width:1200px;margin:0 auto;padding:18px}
+    .hero,.panel{
       border:1px solid var(--stroke);
+      background:var(--panel);
       border-radius:24px;
-      box-shadow:var(--shadow);
+      box-shadow:0 18px 60px rgba(0,0,0,.30);
     }
-    .top{
-      padding:16px 18px;
-      margin-bottom:14px;
+    .hero{padding:18px;margin-bottom:14px;text-align:center}
+    .kicker{
+      display:inline-flex;align-items:center;justify-content:center;
+      min-height:34px;padding:8px 14px;border-radius:999px;
+      border:1px solid rgba(34,211,238,.20);background:rgba(34,211,238,.10);
+      color:#a5f3fc;font-size:12px;font-weight:1000;
     }
-    .badge{
-      display:inline-block;
-      padding:8px 12px;
-      border-radius:999px;
-      background:rgba(34,211,238,.10);
-      color:#a5f3fc;
-      font-size:12px;
-      font-weight:900;
-      border:1px solid rgba(34,211,238,.18);
-      margin-bottom:8px;
-    }
-    .title{
-      font-size:40px;
-      line-height:1.03;
-      font-weight:1000;
-      margin:0;
-    }
-    .sub{
-      margin-top:8px;
-      color:var(--muted);
-      font-size:14px;
-    }
-    .pill-row{
-      display:flex;
-      flex-wrap:wrap;
-      gap:10px;
-      margin-top:14px;
+    h1{margin:10px 0 0;font-size:clamp(30px,4vw,48px);line-height:1.05}
+    .sub{margin-top:8px;color:var(--muted);font-size:14px;font-weight:900}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+    .panel{padding:16px}
+    .roomline{
+      display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;
+      margin-bottom:10px;
     }
     .pill{
-      padding:10px 14px;
-      border-radius:999px;
-      background:rgba(2,6,23,.66);
-      border:1px solid var(--stroke);
-      font-weight:900;
-      font-size:14px;
+      display:inline-flex;align-items:center;justify-content:center;
+      min-height:40px;padding:8px 12px;border-radius:999px;
+      border:1px solid var(--stroke);background:rgba(15,23,42,.62);
+      font-size:13px;font-weight:1000;color:var(--text);
     }
-
-    .layout{
-      display:grid;
-      grid-template-columns:1.3fr .7fr;
-      gap:16px;
+    .bigstate{
+      text-align:center;
+      font-size:40px;font-weight:1000;line-height:1.05;
+      margin:10px 0 4px;
     }
-
-    .match{
-      display:grid;
-      grid-template-columns:1fr 1fr 1fr;
-      gap:14px;
-      margin-bottom:14px;
-    }
-    .match-card{
+    .players{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px}
+    .player{
+      border:1px solid var(--stroke);border-radius:20px;background:rgba(15,23,42,.50);
       padding:16px;
-      text-align:center;
     }
-    .match-k{
-      color:var(--muted);
-      font-size:13px;
-      margin-bottom:8px;
+    .player .name{font-size:24px;font-weight:1000}
+    .statgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:12px}
+    .stat{
+      border:1px solid var(--stroke);border-radius:16px;background:rgba(2,6,23,.40);
+      padding:12px;text-align:center;
     }
-    .match-v{
-      font-size:34px;
-      font-weight:1000;
-      line-height:1.04;
+    .stat .k{font-size:12px;color:var(--muted);font-weight:1000}
+    .stat .v{margin-top:6px;font-size:28px;font-weight:1000}
+    .series{
+      margin-top:14px;border:1px solid var(--stroke);border-radius:18px;background:rgba(2,6,23,.40);
+      padding:14px;text-align:center;
     }
-
-    .winner{
-      display:none;
-      padding:22px;
-      margin-bottom:14px;
-      text-align:center;
-    }
-    .winner-badge{
-      font-size:18px;
-      font-weight:1000;
-      color:#fde68a;
-      margin-bottom:8px;
-    }
-    .winner-name{
-      font-size:72px;
-      line-height:1.0;
-      font-weight:1000;
-    }
-    .winner-sub{
-      margin-top:10px;
-      font-size:24px;
-      color:#cbd5e1;
-    }
-
-    .scoreboard{
-      display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:16px;
-    }
-    .player-card{
-      padding:22px;
-      text-align:center;
-      position:relative;
-      overflow:hidden;
-    }
-    .medal{
-      font-size:52px;
-      margin-bottom:8px;
-    }
-    .player-name{
-      font-size:46px;
-      line-height:1.05;
-      font-weight:1000;
-      margin-bottom:10px;
-      word-break:break-word;
-    }
-    .player-score{
-      font-size:90px;
-      line-height:1;
-      font-weight:1000;
-      margin-bottom:12px;
-    }
-    .player-sub{
-      color:#cbd5e1;
-      font-size:22px;
-      font-weight:800;
-      word-break:break-word;
-    }
-    .wins-line{
-      margin-top:10px;
-      font-size:18px;
-      font-weight:1000;
-      color:#fde68a;
-    }
-    .winner-glow{
-      border-color:rgba(251,191,36,.40);
-      box-shadow:
-        0 0 0 1px rgba(251,191,36,.16) inset,
-        0 0 34px rgba(251,191,36,.18);
-    }
-
-    .history-panel{
-      padding:16px;
-      min-height:100%;
-    }
-    .history-head{
-      display:flex;
-      justify-content:space-between;
-      gap:10px;
-      align-items:center;
-      margin-bottom:10px;
-      flex-wrap:wrap;
-    }
-    .history-title{
-      font-size:24px;
-      font-weight:1000;
-    }
-    .history-sub{
-      color:var(--muted);
-      font-size:13px;
-    }
-    .history-list{
-      display:grid;
-      gap:10px;
-      max-height:680px;
-      overflow:auto;
-      padding-right:4px;
-    }
-    .history-item{
-      border:1px solid rgba(148,163,184,.14);
-      background:rgba(2,6,23,.44);
-      border-radius:16px;
-      padding:12px;
-    }
-    .history-item-title{
-      font-size:14px;
-      font-weight:1000;
-      margin-bottom:6px;
-    }
-    .history-item-line{
-      font-size:12px;
-      line-height:1.6;
-      color:#cbd5e1;
-      word-break:break-word;
-    }
-
-    @media (max-width:1200px){
-      .layout{ grid-template-columns:1fr; }
-      .match,
-      .scoreboard{
-        grid-template-columns:1fr;
-      }
-      .winner-name{ font-size:54px; }
-      .player-name{ font-size:34px; }
-      .player-score{ font-size:68px; }
-      .player-sub{ font-size:18px; }
+    .series-title{font-size:15px;font-weight:1000}
+    .series-score{margin-top:8px;font-size:34px;font-weight:1000}
+    .footer-note{margin-top:14px;text-align:center;color:var(--muted);font-size:12px;font-weight:900}
+    @media (max-width:900px){
+      .grid,.players{grid-template-columns:1fr}
+      .bigstate{font-size:30px}
     }
   </style>
 </head>
 <body>
-<div class="wrap">
-  <section class="top panel">
-    <div class="badge">🏁 GoodJunk Battle Board</div>
-    <div class="title">Classroom Battle Board</div>
-    <div class="sub">Room <span id="roomTxt">P5A</span> • Phase <span id="phaseTxt">—</span> • Round <span id="roundTxt">—</span></div>
+  <div class="wrap">
+    <section class="hero">
+      <div class="kicker">⚔ GoodJunk Battle Board</div>
+      <h1 id="boardTitle">ROOM: -</h1>
+      <div class="sub" id="boardSub">กำลังรอสถานะห้อง...</div>
+    </section>
 
-    <div class="pill-row">
-      <div class="pill">Winner: <span id="winnerTxt">—</span></div>
-      <div class="pill">Rule: <span id="ruleTxt">—</span></div>
-      <div class="pill">Champion: <span id="championTxt">—</span></div>
-      <div class="pill">History: <span id="historyCountTxt">0</span></div>
-    </div>
-  </section>
+    <div class="grid">
+      <section class="panel">
+        <div class="roomline">
+          <span class="pill" id="roomPill">ROOM -</span>
+          <span class="pill" id="statePill">STATE waiting</span>
+          <span class="pill" id="joinedPill">PLAYERS 0/2</span>
+        </div>
 
-  <div class="layout">
-    <div>
-      <section class="match">
-        <div class="panel match-card">
-          <div class="match-k">Best Of</div>
-          <div id="bestOfTxt" class="match-v">3</div>
-        </div>
-        <div class="panel match-card">
-          <div class="match-k">Wins To Champion</div>
-          <div id="winsToChampionTxt" class="match-v">2</div>
-        </div>
-        <div class="panel match-card">
-          <div class="match-k">Match Status</div>
-          <div id="matchStatusTxt" class="match-v">LIVE</div>
+        <div class="bigstate" id="bigState">WAITING</div>
+        <div class="sub" style="text-align:center" id="bigStateSub">รอผู้เล่นให้ครบก่อนเริ่ม</div>
+
+        <div class="series">
+          <div class="series-title">Series</div>
+          <div class="series-score" id="seriesScore">0 - 0</div>
+          <div class="sub" id="seriesSub">bestOf 3 • winsToChampion 2</div>
         </div>
       </section>
 
-      <section id="winnerBox" class="winner panel">
-        <div class="winner-badge">🏆 CHAMPION</div>
-        <div id="winnerName" class="winner-name">—</div>
-        <div id="winnerSub" class="winner-sub">ผู้ชนะรวมของแมตช์</div>
-      </section>
+      <section class="panel">
+        <div class="players">
+          <div class="player">
+            <div class="name" id="p1Name">PLAYER 1</div>
+            <div class="statgrid">
+              <div class="stat"><div class="k">Score</div><div class="v" id="p1Score">0</div></div>
+              <div class="stat"><div class="k">Acc</div><div class="v" id="p1Acc">0%</div></div>
+              <div class="stat"><div class="k">Miss</div><div class="v" id="p1Miss">0</div></div>
+              <div class="stat"><div class="k">Time</div><div class="v" id="p1Time">0</div></div>
+            </div>
+          </div>
 
-      <section class="scoreboard">
-        <div id="p1Card" class="panel player-card">
-          <div class="medal">🥇</div>
-          <div id="p1Name" class="player-name">—</div>
-          <div id="p1Score" class="player-score">0</div>
-          <div id="p1Sub" class="player-sub">acc 0% • miss 0 • rt —</div>
-          <div id="p1Wins" class="wins-line">wins 0</div>
+          <div class="player">
+            <div class="name" id="p2Name">PLAYER 2</div>
+            <div class="statgrid">
+              <div class="stat"><div class="k">Score</div><div class="v" id="p2Score">0</div></div>
+              <div class="stat"><div class="k">Acc</div><div class="v" id="p2Acc">0%</div></div>
+              <div class="stat"><div class="k">Miss</div><div class="v" id="p2Miss">0</div></div>
+              <div class="stat"><div class="k">Time</div><div class="v" id="p2Time">0</div></div>
+            </div>
+          </div>
         </div>
 
-        <div id="p2Card" class="panel player-card">
-          <div class="medal">🥈</div>
-          <div id="p2Name" class="player-name">—</div>
-          <div id="p2Score" class="player-score">0</div>
-          <div id="p2Sub" class="player-sub">acc 0% • miss 0 • rt —</div>
-          <div id="p2Wins" class="wins-line">wins 0</div>
-        </div>
+        <div class="footer-note" id="championLine">ยังไม่มีแชมป์</div>
       </section>
     </div>
-
-    <aside class="panel history-panel">
-      <div class="history-head">
-        <div>
-          <div class="history-title">Round Archive</div>
-          <div class="history-sub">แสดงรอบล่าสุดแบบย่อ</div>
-        </div>
-      </div>
-      <div id="historyList" class="history-list"></div>
-    </aside>
   </div>
-</div>
 
-<script>
-  const $ = id => document.getElementById(id);
-  const qs = (k,d='')=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
+  <script>
+    const qs=(k,d='')=>{ try{return new URL(location.href).searchParams.get(k)??d;}catch(_){return d;} };
+    const room = String(qs('room','')).trim();
+    const key = `HHA_GJ_BATTLE_BOARD:${room || 'NO_ROOM'}`;
+    const $ = (id)=>document.getElementById(id);
 
-  let offFns = [];
-  let boardPlayersRaw = {};
-  let lastStateRaw = {};
-  let matchRaw = {};
-  let roundHistoryRaw = {};
-
-  function getDbCompat(){
-    if(window.firebase?.database) return window.firebase.database();
-    return null;
-  }
-
-  function currentRoom(){
-    return String(qs('room', 'P5A')).trim().toUpperCase();
-  }
-
-  function fmtMs(v){
-    const n = Number(v || 0) || 0;
-    return n > 0 ? `${n} ms` : '—';
-  }
-
-  function sortPlayers(rows){
-    return rows.sort((a,b)=>
-      (Number(b.score||0)-Number(a.score||0)) ||
-      (Number(b.acc||0)-Number(a.acc||0)) ||
-      (Number(a.miss||0)-Number(b.miss||0)) ||
-      ((Number(a.medianRT||0) || Number.MAX_SAFE_INTEGER) - (Number(b.medianRT||0) || Number.MAX_SAFE_INTEGER)) ||
-      ((Number(a.finishMs||0) || Number.MAX_SAFE_INTEGER) - (Number(b.finishMs||0) || Number.MAX_SAFE_INTEGER))
-    );
-  }
-
-  function sortHistoryRows(rows){
-    return rows.sort((a,b)=>(Number(b.createdAtMs||0)-Number(a.createdAtMs||0)));
-  }
-
-  function winnerNameFromKey(key, players){
-    const rows = players || Object.entries(boardPlayersRaw || {}).map(([k,v])=>({ key:k, ...(v||{}) }));
-    const row = rows.find(r => String(r.key || '') === String(key || ''));
-    return row?.nick || key || 'WINNER';
-  }
-
-  function renderHistory(){
-    const rows = sortHistoryRows(
-      Object.entries(roundHistoryRaw || {}).map(([key,v])=>({ key, ...(v||{}) }))
-    );
-    $('historyCountTxt').textContent = String(rows.length);
-
-    const box = $('historyList');
-    box.innerHTML = '';
-
-    if(!rows.length){
-      box.innerHTML = `
-        <div class="history-item">
-          <div class="history-item-title">ยังไม่มีประวัติรอบ</div>
-          <div class="history-item-line">เมื่อจบรอบ battle แล้วจะมาแสดงที่นี่</div>
-        </div>`;
-      return;
+    function readBoardRows(){
+      try{
+        const raw = localStorage.getItem(key) || '[]';
+        const arr = JSON.parse(raw);
+        return Array.isArray(arr) ? arr : [];
+      }catch(_){ return []; }
     }
 
-    rows.slice(0,10).forEach((r, i)=>{
-      const players = Array.isArray(r.players) ? r.players : [];
-      const winner = winnerNameFromKey(r.winner, players);
-      const champion = winnerNameFromKey(r.matchChampion, players);
+    function latestRows(){
+      const now = Date.now();
+      return readBoardRows()
+        .filter(x => x && x.pid && (now - Number(x.at || 0) <= 5000))
+        .sort((a,b)=> String(a.nick||a.pid).localeCompare(String(b.nick||b.pid)));
+    }
 
-      const div = document.createElement('div');
-      div.className = 'history-item';
-      div.innerHTML = `
-        <div class="history-item-title">#${rows.length - i} • winner ${winner}</div>
-        <div class="history-item-line">round ${r.roundId || '-'} • reason ${r.reason || '-'}</div>
-        <div class="history-item-line">champion ${champion} • complete ${!!r.matchComplete}</div>
-      `;
-      box.appendChild(div);
+    function render(){
+      const rows = latestRows();
+      const p1 = rows[0] || null;
+      const p2 = rows[1] || null;
+      const top = p1 || p2 || {};
+      const series = top.series || null;
+
+      $('boardTitle').textContent = `ROOM: ${room || '-'}`;
+      $('boardSub').textContent = rows.length ? 'แสดงสถานะสดของห้องนี้' : 'ยังไม่มีผู้เล่นในห้อง';
+      $('roomPill').textContent = `ROOM ${room || '-'}`;
+      $('statePill').textContent = `STATE ${String(top.state || 'waiting').toUpperCase()}`;
+      $('joinedPill').textContent = `PLAYERS ${rows.length}/2`;
+
+      const stateText =
+        top.state === 'countdown' ? 'COUNTDOWN' :
+        top.state === 'playing' ? 'PLAYING' :
+        top.state === 'result' ? 'RESULT' :
+        'WAITING';
+
+      $('bigState').textContent = stateText;
+      $('bigStateSub').textContent =
+        top.state === 'countdown' ? 'ผู้เล่นครบแล้ว กำลังจะเริ่ม' :
+        top.state === 'playing' ? 'กำลังแข่งอยู่' :
+        top.state === 'result' ? 'จบรอบนี้แล้ว' :
+        'รอผู้เล่นให้ครบก่อนเริ่ม';
+
+      $('p1Name').textContent = p1 ? (p1.nick || p1.pid) : 'PLAYER 1';
+      $('p2Name').textContent = p2 ? (p2.nick || p2.pid) : 'PLAYER 2';
+
+      $('p1Score').textContent = p1 ? (p1.score ?? 0) : 0;
+      $('p1Acc').textContent = p1 ? `${p1.accPct ?? 0}%` : '0%';
+      $('p1Miss').textContent = p1 ? (p1.missTotal ?? 0) : 0;
+      $('p1Time').textContent = p1 ? (p1.tLeft ?? 0) : 0;
+
+      $('p2Score').textContent = p2 ? (p2.score ?? 0) : 0;
+      $('p2Acc').textContent = p2 ? `${p2.accPct ?? 0}%` : '0%';
+      $('p2Miss').textContent = p2 ? (p2.missTotal ?? 0) : 0;
+      $('p2Time').textContent = p2 ? (p2.tLeft ?? 0) : 0;
+
+      $('seriesScore').textContent = series ? `${series.youWins ?? 0} - ${series.oppWins ?? 0}` : '0 - 0';
+      $('seriesSub').textContent = series
+        ? `bestOf ${series.bestOf ?? 3} • winsToChampion ${series.winsToChampion ?? 2}`
+        : 'bestOf 3 • winsToChampion 2';
+
+      $('championLine').textContent = series?.finished
+        ? `Champion: ${series.championNick || series.championPid || '-'} 👑`
+        : 'ยังไม่มีแชมป์';
+    }
+
+    render();
+    setInterval(render, 700);
+    window.addEventListener('storage', (ev)=>{
+      if(ev.key === key) render();
     });
-  }
-
-  function renderMatch(){
-    const m = matchRaw || {};
-    $('bestOfTxt').textContent = String(Number(m.bestOf || 3));
-    $('winsToChampionTxt').textContent = String(Number(m.winsToChampion || 2));
-    $('championTxt').textContent = m.champion ? winnerNameFromKey(m.champion) : '—';
-    $('matchStatusTxt').textContent = m.matchComplete ? 'COMPLETE' : 'LIVE';
-
-    const rows = sortPlayers(
-      Object.entries(boardPlayersRaw || {}).map(([k,v])=>({ key:k, ...(v||{}) }))
-    );
-    const p1 = rows[0] || null;
-    const p2 = rows[1] || null;
-
-    $('p1Wins').textContent = `wins ${Number((m.wins || {})[p1?.key] || 0)}`;
-    $('p2Wins').textContent = `wins ${Number((m.wins || {})[p2?.key] || 0)}`;
-
-    const box = $('winnerBox');
-    if(m.matchComplete && m.champion){
-      $('winnerName').textContent = winnerNameFromKey(m.champion);
-      $('winnerSub').textContent = `ชนะรวม ${Number((m.wins || {})[m.champion] || 0)} รอบ`;
-      box.style.display = 'block';
-    }else{
-      box.style.display = 'none';
-    }
-  }
-
-  function renderState(st){
-    lastStateRaw = st || {};
-    $('roomTxt').textContent = currentRoom();
-    $('phaseTxt').textContent = st?.phase || '—';
-    $('roundTxt').textContent = st?.roundId || '—';
-    $('winnerTxt').textContent = st?.winner ? winnerNameFromKey(st.winner) : '—';
-    $('ruleTxt').textContent = st?.reason || '—';
-    renderPlayers();
-    renderMatch();
-  }
-
-  function renderPlayers(){
-    const rows = sortPlayers(
-      Object.entries(boardPlayersRaw || {}).map(([k,v])=>({ key:k, ...(v||{}) }))
-    );
-
-    const p1 = rows[0] || null;
-    const p2 = rows[1] || null;
-
-    $('p1Name').textContent = p1?.nick || '—';
-    $('p1Score').textContent = String(Number(p1?.score || 0));
-    $('p1Sub').textContent = `acc ${Number(p1?.acc || 0)}% • miss ${Number(p1?.miss || 0)} • rt ${fmtMs(p1?.medianRT)}`;
-
-    $('p2Name').textContent = p2?.nick || '—';
-    $('p2Score').textContent = String(Number(p2?.score || 0));
-    $('p2Sub').textContent = `acc ${Number(p2?.acc || 0)}% • miss ${Number(p2?.miss || 0)} • rt ${fmtMs(p2?.medianRT)}`;
-
-    $('p1Card').classList.remove('winner-glow');
-    $('p2Card').classList.remove('winner-glow');
-
-    const winnerKey = String(lastStateRaw?.winner || '');
-    if(winnerKey){
-      if(p1 && p1.key === winnerKey) $('p1Card').classList.add('winner-glow');
-      if(p2 && p2.key === winnerKey) $('p2Card').classList.add('winner-glow');
-    }
-
-    renderMatch();
-  }
-
-  function connect(){
-    offFns.forEach(fn=>{ try{ fn(); }catch(_){} });
-    offFns = [];
-
-    const db = getDbCompat();
-    if(!db){
-      alert('Firebase compat ยังไม่พร้อมใน firebase-config.js');
-      return;
-    }
-
-    const room = currentRoom();
-    const base = `hha-battle/goodjunk/rooms/${room}`;
-
-    const stateRef = db.ref(`${base}/state`);
-    const playersRef = db.ref(`${base}/players`);
-    const matchRef = db.ref(`${base}/match`);
-    const historyRef = db.ref(`${base}/roundHistory`);
-
-    const stateCb = snap => renderState(snap.val() || {});
-    const playersCb = snap => {
-      boardPlayersRaw = snap.val() || {};
-      renderPlayers();
-    };
-    const matchCb = snap => {
-      matchRaw = snap.val() || {};
-      renderMatch();
-    };
-    const historyCb = snap => {
-      roundHistoryRaw = snap.val() || {};
-      renderHistory();
-    };
-
-    stateRef.on('value', stateCb);
-    playersRef.on('value', playersCb);
-    matchRef.on('value', matchCb);
-    historyRef.on('value', historyCb);
-
-    offFns.push(()=>stateRef.off('value', stateCb));
-    offFns.push(()=>playersRef.off('value', playersCb));
-    offFns.push(()=>matchRef.off('value', matchCb));
-    offFns.push(()=>historyRef.off('value', historyCb));
-  }
-
-  connect();
-</script>
+  </script>
 </body>
 </html>
