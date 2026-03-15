@@ -1,12 +1,3 @@
-<!-- === /fitness/rhythm-boxer.html ===
-Rhythm Boxer — RUN PAGE — PRODUCTION
-PATCH v20260314-RB-RUNPAGE-CANONICAL-CHILD-AI-r1
-✅ Menu / Play / Result
-✅ Child-friendly HUD / Coach / Mission / Reward
-✅ AI script order fixed
-✅ Planner / Hub bridge
-✅ Cooldown-aware HH_END_GAME
--->
 <!doctype html>
 <html lang="th">
 <head>
@@ -33,10 +24,10 @@ PATCH v20260314-RB-RUNPAGE-CANONICAL-CHILD-AI-r1
       border-radius:999px;
       font-weight:900;
       backdrop-filter: blur(6px);
-      max-width: 70vw;
+      max-width:70vw;
       overflow:hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
+      text-overflow:ellipsis;
+      white-space:nowrap;
     }
     .hhBtn{
       pointer-events:auto;
@@ -50,6 +41,94 @@ PATCH v20260314-RB-RUNPAGE-CANONICAL-CHILD-AI-r1
     }
     .hhBtn:active{ transform: translateY(1px); }
     .hhTiny{ opacity:.85; font-weight:800; }
+
+    /* native mission + boss */
+    .rb-mission-hud{
+      position:absolute;
+      right:12px;
+      top:12px;
+      z-index:58;
+      min-width:210px;
+      max-width:min(42vw,260px);
+      padding:10px 12px;
+      border-radius:16px;
+      border:1px solid rgba(255,255,255,.14);
+      background:rgba(2,6,23,.82);
+      backdrop-filter:blur(8px);
+      box-shadow:0 12px 28px rgba(0,0,0,.18);
+    }
+    .rb-mission-title{
+      font-size:.82rem;
+      font-weight:1000;
+      color:#fff;
+      margin-bottom:6px;
+    }
+    .rb-mission-list{
+      display:grid;
+      gap:6px;
+    }
+    .rb-mission-item{
+      font-size:.76rem;
+      font-weight:900;
+      color:#dbeafe;
+      padding:6px 8px;
+      border-radius:12px;
+      border:1px solid rgba(255,255,255,.10);
+      background:rgba(255,255,255,.05);
+    }
+    .rb-mission-item.done{
+      color:#ecfccb;
+      border-color:rgba(34,197,94,.24);
+      background:rgba(34,197,94,.14);
+    }
+
+    .rb-boss-head{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+    .rb-boss-title{
+      font-weight:1000;
+      color:#fff;
+    }
+    .rb-boss-sub{
+      font-size:.78rem;
+      color:#dbeafe;
+      margin-top:4px;
+    }
+    .rb-boss-bar{
+      margin-top:10px;
+      height:12px;
+      border-radius:999px;
+      overflow:hidden;
+      border:1px solid rgba(255,255,255,.10);
+      background:rgba(255,255,255,.06);
+    }
+    .rb-boss-fill{
+      width:100%;
+      height:100%;
+      border-radius:999px;
+      background:linear-gradient(90deg, #fb7185, #f59e0b, #facc15);
+      transition:width .18s ease;
+    }
+    .rb-boss-text{
+      margin-top:6px;
+      font-size:.78rem;
+      font-weight:900;
+      color:#fee2e2;
+    }
+
+    @media (max-width:640px){
+      .rb-mission-hud{
+        right:8px;
+        left:8px;
+        top:10px;
+        max-width:none;
+        min-width:0;
+      }
+    }
   </style>
 </head>
 
@@ -65,17 +144,19 @@ PATCH v20260314-RB-RUNPAGE-CANONICAL-CHILD-AI-r1
 <div id="rb-wrap" data-diff="normal">
   <div id="rb-flash"></div>
 
-  <!-- ===== VIEW: MENU ===== -->
+  <!-- ===== MENU ===== -->
   <main id="rb-view-menu" class="rb-view">
     <header class="rb-header">
       <div class="rb-head-main">
         <span class="rb-pill">VR Fitness · Rhythm</span>
         <h1 class="rb-title">Rhythm Boxer</h1>
-        <p class="rb-sub">ชกตามจังหวะให้ตรงเส้น · ฝึกสมาธิ การตอบสนอง และความมั่นใจ</p>
-        <span class="rb-sub-small">Tip: เริ่ม Easy 1–2 รอบก่อน แล้วค่อยเล่น Research</span>
+        <p class="rb-sub">
+          ชกตามจังหวะให้ตรงเส้นสีเหลือง เก็บดาว เคลียร์ภารกิจ และลุยรอบบอสให้สำเร็จ
+        </p>
+        <span class="rb-sub-small">เริ่มจาก Easy ก่อนก็ได้ แล้วค่อยไปโหมด Research</span>
       </div>
 
-      <a href="../herohealth/hub.html" class="rb-back" id="rb-back-link">← กลับ</a>
+      <a href="hub.html" class="rb-back" id="rb-back-link">← กลับ</a>
     </header>
 
     <section class="rb-section rb-grid-2">
@@ -93,7 +174,9 @@ PATCH v20260314-RB-RUNPAGE-CANONICAL-CHILD-AI-r1
           </label>
         </div>
 
-        <p id="rb-mode-desc" class="rb-mode-desc">Normal: เล่นสนุก / ใช้สอนทั่วไป</p>
+        <p id="rb-mode-desc" class="rb-mode-desc">
+          Normal: เล่นสนุก ฝึกจังหวะ และเก็บดาว
+        </p>
 
         <div id="rb-research-fields" class="rb-section hidden">
           <h3 class="rb-section-subtitle">ข้อมูลสำหรับงานวิจัย</h3>
@@ -112,14 +195,16 @@ PATCH v20260314-RB-RUNPAGE-CANONICAL-CHILD-AI-r1
           </div>
 
           <p class="rb-hint-inline">
-            Research จะบันทึก Event / Session / ML-ready Dataset เพื่อวิเคราะห์ภายหลัง
+            Research จะเก็บ Event CSV และ Session CSV สำหรับวิเคราะห์ต่อ
           </p>
         </div>
       </div>
 
       <div class="rb-research-box">
         <h2 class="rb-section-title">เพลง / ระดับ</h2>
-        <p id="rb-track-mode-label" class="rb-section-subtitle">โหมด Normal — เพลง 3 ระดับ</p>
+        <p id="rb-track-mode-label" class="rb-section-subtitle">
+          โหมด Normal — เพลง 3 ระดับ: ง่าย / ปกติ / ยาก
+        </p>
 
         <div id="rb-track-options" class="rb-section">
           <label class="rb-mode-btn" data-mode="normal">
@@ -134,19 +219,19 @@ PATCH v20260314-RB-RUNPAGE-CANONICAL-CHILD-AI-r1
             <input type="radio" name="rb-track" value="n3"/>
             <span>Speed Rush · ยาก · 140 BPM</span>
           </label>
-
           <label class="rb-mode-btn" data-mode="research">
             <input type="radio" name="rb-track" value="r1"/>
-            <span>Research Track 120 · 120 BPM</span>
+            <span>Research Track 120 · ทดลอง · 120 BPM</span>
           </label>
         </div>
 
         <div class="rb-hint-block">
-          <p class="rb-hint-title">วิธีเล่น</p>
+          <p class="rb-hint-title">วิธีเล่นแบบสั้น ๆ</p>
           <ul class="rb-hint-list">
-            <li>แตะเลนซ้าย/กลาง/ขวา ให้หัวโน้ตถึงเส้นสีเหลือง</li>
-            <li>Perfect / Great / Good เพิ่มคะแนนและ FEVER</li>
-            <li>Miss ทำให้ HP ลดลง</li>
+            <li>รอให้หัวโน้ตลงมาถึงเส้นสีเหลืองแล้วค่อยกด</li>
+            <li>Perfect / Great / Good จะได้คะแนน คอมโบ และ FEVER</li>
+            <li>ถ้ากดมั่วจะโดน MISS และเสียคะแนนเล็กน้อย</li>
+            <li>มีภารกิจ 3 ดาว และมี Boss Round ช่วงท้าย</li>
             <li>คีย์บอร์ด (PC): A S D J K</li>
           </ul>
         </div>
@@ -158,12 +243,12 @@ PATCH v20260314-RB-RUNPAGE-CANONICAL-CHILD-AI-r1
     </section>
   </main>
 
-  <!-- ===== VIEW: PLAY ===== -->
+  <!-- ===== PLAY ===== -->
   <main id="rb-view-play" class="rb-view hidden">
     <header class="rb-play-header">
       <div>
         <h1 class="rb-title-sm">Rhythm Boxer · Play</h1>
-        <p class="rb-sub-sm">รอให้หัวโน้ตถึงเส้นสีเหลืองแล้วค่อยแตะ</p>
+        <p class="rb-sub-sm">เก็บคอมโบ ทำภารกิจ 3 ดาว แล้วชนะบอสให้ได้</p>
       </div>
       <button id="rb-btn-stop" class="rb-btn rb-btn-ghost">⏹ หยุดก่อนเวลา</button>
     </header>
@@ -210,7 +295,7 @@ PATCH v20260314-RB-RUNPAGE-CANONICAL-CHILD-AI-r1
         <div class="rb-bar-block">
           <span class="rb-bar-label">FEVER</span>
           <div class="rb-bar"><div id="rb-fever-fill" class="rb-bar-fill rb-bar-fever"></div></div>
-          <span id="rb-fever-status" class="rb-bar-status">READY</span>
+          <span id="rb-fever-status" class="rb-bar-status">BUILD</span>
         </div>
         <div class="rb-bar-block">
           <span class="rb-bar-label">PROG</span>
@@ -220,9 +305,31 @@ PATCH v20260314-RB-RUNPAGE-CANONICAL-CHILD-AI-r1
       </div>
     </section>
 
+    <section id="rb-boss-hud" class="rb-research-box rb-section hidden">
+      <div class="rb-boss-head">
+        <div>
+          <div class="rb-boss-title">🥊 Boss Round</div>
+          <div class="rb-boss-sub">ตีให้แม่นเพื่อลดพลังบอส</div>
+        </div>
+      </div>
+      <div class="rb-boss-bar">
+        <div class="rb-boss-fill" id="rb-boss-fill"></div>
+      </div>
+      <div class="rb-boss-text" id="rb-boss-text"></div>
+    </section>
+
     <section class="rb-field-wrap">
-      <div id="rb-field">
+      <div id="rb-field" data-phase="warmup">
         <div id="rb-feedback" class="rb-feedback">พร้อม!</div>
+
+        <div id="rb-mission-hud" class="rb-mission-hud hidden">
+          <div class="rb-mission-title">ภารกิจรอบนี้</div>
+          <div class="rb-mission-list">
+            <div class="rb-mission-item" id="rb-mission-score">⭐ ทำคะแนน 2500</div>
+            <div class="rb-mission-item" id="rb-mission-combo">⭐ คอมโบถึง 20</div>
+            <div class="rb-mission-item" id="rb-mission-acc">⭐ Accuracy ถึง 85%</div>
+          </div>
+        </div>
 
         <div class="rb-lanes" id="rb-lanes">
           <div class="rb-lane" data-lane="0"><div class="rb-lane-label">L2</div></div>
@@ -234,24 +341,32 @@ PATCH v20260314-RB-RUNPAGE-CANONICAL-CHILD-AI-r1
       </div>
 
       <p class="rb-howto-inline">
-        รอให้หัวโน้ตแตะเส้นสีเหลือง แล้วค่อยแตะเลน
+        รอให้ “หัวโน้ต” ลงมาถึงเส้นสีเหลืองด้านล่างแล้วค่อยกด · เล่นให้แม่นเพื่อผ่านภารกิจและลุยบอส
       </p>
     </section>
 
     <audio id="rb-audio" preload="auto"></audio>
   </main>
 
-  <!-- ===== VIEW: RESULT ===== -->
+  <!-- ===== RESULT ===== -->
   <main id="rb-view-result" class="rb-view hidden">
     <header class="rb-header">
       <div class="rb-head-main">
         <span class="rb-pill">Result</span>
         <h1 class="rb-title">สรุปผล · Rhythm Boxer</h1>
-        <p class="rb-sub">ดูผลรอบนี้ แล้วลองเก็บดาวเพิ่มได้เลย</p>
+        <p class="rb-sub">ดูดาว รางวัล และผลการเล่นรอบนี้ได้ที่นี่</p>
       </div>
     </header>
 
     <section class="rb-result-grid">
+      <div class="rb-result-card rb-reward-pack">
+        <h2 class="rb-result-title">Reward Pack</h2>
+        <div class="rb-reward-stars" id="rb-res-stars">⭐</div>
+        <div class="rb-reward-medal bronze" id="rb-res-medal">Bronze</div>
+        <div class="rb-reward-badge">Badge: <b id="rb-res-badge">-</b></div>
+        <div class="rb-reward-praise" id="rb-res-praise">เริ่มได้ดีมาก!</div>
+      </div>
+
       <div class="rb-result-card">
         <h2 class="rb-result-title">Overview</h2>
         <div class="rb-result-row"><span>Mode</span><b id="rb-res-mode">-</b></div>
@@ -270,20 +385,25 @@ PATCH v20260314-RB-RUNPAGE-CANONICAL-CHILD-AI-r1
         <div class="rb-result-row"><span>Offset mean</span><b id="rb-res-offset-avg">-</b></div>
         <div class="rb-result-row"><span>Offset std</span><b id="rb-res-offset-std">-</b></div>
         <div class="rb-result-row"><span>Participant</span><b id="rb-res-participant">-</b></div>
+        <div class="rb-result-row"><span>Mission Score</span><b id="rb-res-mission-score">-</b></div>
+        <div class="rb-result-row"><span>Mission Combo</span><b id="rb-res-mission-combo">-</b></div>
+        <div class="rb-result-row"><span>Mission Acc</span><b id="rb-res-mission-acc">-</b></div>
+        <div class="rb-result-row"><span>No Miss</span><b id="rb-res-nomiss">-</b></div>
+        <div class="rb-result-row"><span>Boss Clear</span><b id="rb-res-bossclear">-</b></div>
       </div>
     </section>
 
     <p id="rb-res-quality-note" class="rb-quality-note hidden"></p>
 
     <section class="rb-section rb-btn-row">
-      <button id="rb-btn-again" class="rb-btn rb-btn-primary">🔁 ลองใหม่เพื่อเก็บดาวเพิ่ม</button>
+      <button id="rb-btn-again" class="rb-btn rb-btn-primary">🔁 เล่นเพลงเดิมอีกครั้ง</button>
       <button id="rb-btn-back-menu" class="rb-btn">⬅ กลับหน้าเลือกโหมด</button>
       <button id="rb-btn-return-plan" class="rb-btn rb-btn-ghost">✅ กลับตามแผน</button>
     </section>
 
     <section class="rb-research-box rb-section">
-      <h2 class="rb-section-title-sm">ดาวน์โหลดข้อมูล</h2>
-      <p class="rb-hint-inline">Event / Session / ML-ready Dataset</p>
+      <h2 class="rb-section-title-sm">ดาวน์โหลด CSV สำหรับงานวิจัย</h2>
+      <p class="rb-hint-inline">Event CSV: การกดแต่ละครั้ง · Session CSV: สรุป 1 แถวต่อการเล่น 1 รอบ</p>
       <div class="rb-btn-row">
         <button id="rb-btn-dl-events" class="rb-btn rb-btn-sm">⬇ Event CSV</button>
         <button id="rb-btn-dl-sessions" class="rb-btn rb-btn-sm">⬇ Session CSV</button>
@@ -292,9 +412,7 @@ PATCH v20260314-RB-RUNPAGE-CANONICAL-CHILD-AI-r1
   </main>
 </div>
 
-<!-- Load order สำคัญ -->
 <script src="js/rhythm-ai.js"></script>
-<script src="js/dom-renderer-rhythm.js"></script>
 <script src="js/rhythm-engine.js"></script>
 <script src="js/rhythm-boxer.js"></script>
 
@@ -308,7 +426,7 @@ PATCH v20260314-RB-RUNPAGE-CANONICAL-CHILD-AI-r1
 
   var backLink = document.getElementById('rb-back-link');
   if(backLink){
-    backLink.href = backUrl || '../herohealth/hub.html';
+    backLink.href = backUrl || 'hub.html';
     backLink.addEventListener('click', function(e){
       if(backUrl){
         e.preventDefault();
@@ -336,57 +454,31 @@ PATCH v20260314-RB-RUNPAGE-CANONICAL-CHILD-AI-r1
     reason = String(reason||'end');
     payload = payload || {};
 
-    var cooldownOn = (qs('cooldown','0') === '1');
-    if(cooldownOn){
+    if(backUrl){
       try{
-        var u = new URL('../herohealth/warmup-gate.html', location.href);
-        u.searchParams.set('Phase', 'cooldown');
-        u.searchParams.set('game', qs('game','rhythm'));
-        u.searchParams.set('zone', qs('zone','fitness'));
-        u.searchParams.set('cat', qs('cat','fitness'));
-        u.searchParams.set('cdur', qs('cdur','20'));
-        u.searchParams.set('hub', backUrl || qs('hub','../herohealth/hub.html'));
-        u.searchParams.set('next', backUrl || qs('hub','../herohealth/hub.html'));
-
-        ['pid','run','diff','time','seed','view','planDay','planSlot','autoNext'].forEach(function(k){
-          var v = qs(k,'');
-          if(v) u.searchParams.set(k,v);
-        });
-
+        var u = new URL(backUrl);
+        u.searchParams.set('reason', reason);
         if(payload.score!=null) u.searchParams.set('score', String(payload.score));
         if(payload.acc!=null) u.searchParams.set('acc', String(payload.acc));
         if(payload.miss!=null) u.searchParams.set('miss', String(payload.miss));
+        if(payload.rank!=null) u.searchParams.set('rank', String(payload.rank));
         if(payload.stars!=null) u.searchParams.set('stars', String(payload.stars));
-        if(payload.medal) u.searchParams.set('medal', String(payload.medal));
-
         location.href = u.toString();
         return;
       }catch(_){}
     }
-
-    if(backUrl){
-      try{
-        var h = new URL(backUrl);
-        h.searchParams.set('reason', reason);
-        if(payload.score!=null) h.searchParams.set('score', String(payload.score));
-        if(payload.acc!=null) h.searchParams.set('acc', String(payload.acc));
-        if(payload.miss!=null) h.searchParams.set('miss', String(payload.miss));
-        location.href = h.toString();
-        return;
-      }catch(_){}
-    }
-
     alert('จบเกมแล้ว!');
   };
 
   var btnReturn = document.getElementById('rb-btn-return-plan');
   if(btnReturn){
     btnReturn.addEventListener('click', function(){
-      var score = document.getElementById('rb-res-score') ? document.getElementById('rb-res-score').textContent : '';
-      var acc   = document.getElementById('rb-res-acc') ? document.getElementById('rb-res-acc').textContent : '';
-      var miss  = document.getElementById('rb-hud-miss') ? document.getElementById('rb-hud-miss').textContent : '';
-      var stars = document.querySelector('.rb-reward-stars') ? document.querySelector('.rb-reward-stars').textContent : '';
-      window.HH_END_GAME('result', { score: score, acc: acc, miss: miss, stars: stars });
+      var score = document.getElementById('rb-res-score')?.textContent || '';
+      var acc   = document.getElementById('rb-res-acc')?.textContent || '';
+      var rank  = document.getElementById('rb-res-rank')?.textContent || '';
+      var stars = document.getElementById('rb-res-stars')?.textContent || '';
+      var miss  = document.getElementById('rb-hud-miss')?.textContent || '';
+      window.HH_END_GAME('result', { score:score, acc:acc, miss:miss, rank:rank, stars:stars });
     });
   }
 
@@ -397,6 +489,38 @@ PATCH v20260314-RB-RUNPAGE-CANONICAL-CHILD-AI-r1
         window.HH_END_GAME('stop');
       }, 120);
     });
+  }
+
+  var autoReturn = false;
+  if(backUrl){
+    autoReturn = (backUrl.indexOf('seq=1')>=0) || (backUrl.indexOf('fitness-planner')>=0) || (qs('autoNext','0')==='1');
+  }
+
+  function isHidden(el){
+    if(!el) return true;
+    return el.classList.contains('hidden') || el.hasAttribute('hidden');
+  }
+
+  var resView = document.getElementById('rb-view-result');
+  if(resView && autoReturn){
+    var fired = false;
+    var obs = new MutationObserver(function(){
+      if(fired) return;
+      if(!isHidden(resView)){
+        fired = true;
+        setTimeout(function(){
+          var strictSeq = (backUrl.indexOf('seq=1')>=0);
+          if(!strictSeq) return;
+          var score = document.getElementById('rb-res-score')?.textContent || '';
+          var acc   = document.getElementById('rb-res-acc')?.textContent || '';
+          var rank  = document.getElementById('rb-res-rank')?.textContent || '';
+          var stars = document.getElementById('rb-res-stars')?.textContent || '';
+          var miss  = document.getElementById('rb-hud-miss')?.textContent || '';
+          window.HH_END_GAME('auto', { score:score, acc:acc, miss:miss, rank:rank, stars:stars });
+        }, 900);
+      }
+    });
+    obs.observe(resView, { attributes:true, attributeFilter:['class','hidden'] });
   }
 })();
 </script>
