@@ -15,25 +15,41 @@ export function createBrushInput({
   calcZoneStars,
   audio,
   emitProgress,
-  emitHha,
-  eventPayload,
-  stopDemoTutorial
+  stopDemoTutorial,
+  DIFF,
+  humanZoneInstruction
 }){
-  function bindInput(){
-    if(!arenaCore) return;
+  function movementDirection(dx, dy){
+    const ax = Math.abs(dx);
+    const ay = Math.abs(dy);
+    if(ax < 2 && ay < 2) return 'none';
+    if(ax > ay * 1.15) return 'horizontal';
+    if(ay > ax * 1.15) return 'vertical';
+    return 'diagonal';
+  }
 
-    arenaCore.addEventListener('pointermove', onPointerMove);
-    arenaCore.addEventListener('pointerdown', onPointerDown);
-    arenaCore.addEventListener('pointerup', endBrush);
-    arenaCore.addEventListener('pointercancel', endBrush);
-    arenaCore.addEventListener('pointerleave', endBrush);
+  function directionScore(idx, dx, dy){
+    const want = (idx === 2 || idx === 5) ? 'horizontal' : 'vertical';
+    const got = movementDirection(dx, dy);
+
+    if(got === 'none') return 1;
+    if(got === want) return 1.3;
+    if(got === 'diagonal') return 0.95;
+    return 0.72;
+  }
+
+  function endBrush(){
+    S.isBrushing = false;
+    scoring?.resetBrushCombo?.();
+    ui?.hideBrushCursor?.();
+    ui?.resetDirBadge?.(S.activeZoneIdx);
   }
 
   function onPointerDown(ev){
     stopDemoTutorial?.();
     ui?.updateBrushCursor?.(ev);
     audio?.ensureAudio?.();
-    if(S.finished) return;
+    if(S.finished || !arenaCore) return;
 
     const r = arenaCore.getBoundingClientRect();
     S.isBrushing = true;
@@ -46,7 +62,7 @@ export function createBrushInput({
 
   function onPointerMove(ev){
     ui?.updateBrushCursor?.(ev);
-    if(!S.isBrushing || S.finished) return;
+    if(!S.isBrushing || S.finished || !arenaCore) return;
 
     const r = arenaCore.getBoundingClientRect();
     const x = ev.clientX - r.left;
@@ -103,7 +119,11 @@ export function createBrushInput({
 
         const tip = zoneRealLifeTip(activeIdx);
         ui?.setCoachText?.(`${coach.text} • ${tip}`, coach.tone);
-        audio?.playCue?.(star >= 3 ? 'zone-perfect' : 'zone-clear');
+        if(star >= 3){
+          audio?.playCue?.('zone-perfect');
+        } else {
+          audio?.playCue?.('zone-clear');
+        }
 
         S.coachHistory.push({
           ts: new Date().toISOString(),
@@ -125,10 +145,16 @@ export function createBrushInput({
       } else if(S.bossMode !== 'shockWait' && S.bossMode !== 'decoy'){
         const dirBoost = directionScore(activeIdx, dx, dy);
         const dmg = dist * 0.08 * dirBoost;
+
         S.bossHP = Math.max(0, S.bossHP - dmg);
         S.score += Math.max(0, Math.round(dist * 0.16 * dirBoost));
-        if(Math.random() < 0.22) fx?.spawnFoam?.(x, y);
+
+        if(Math.random() < 0.22){
+          fx?.spawnFoam?.(x, y);
+        }
+
         zones?.renderDirtForZone?.(activeIdx);
+
         if(S.bossHP <= 0){
           boss?.maybeAdvanceBossPhase?.(x, y);
         }
@@ -146,34 +172,7 @@ export function createBrushInput({
     ui?.refreshZoneUI?.();
   }
 
-  function endBrush(){
-    S.isBrushing = false;
-    scoring?.resetBrushCombo?.();
-    ui?.hideBrushCursor?.();
-    ui?.resetDirBadge?.(S.activeZoneIdx);
-  }
-
-  function directionScore(idx, dx, dy){
-    const want = (S.zoneState[idx] && S.zoneState[idx].id && (
-      idx === 2 || idx === 5
-    )) ? 'horizontal' : ((idx === 2 || idx === 5) ? 'horizontal' : 'vertical');
-
-    const ax = Math.abs(dx);
-    const ay = Math.abs(dy);
-    let got = 'none';
-    if(ax >= 2 || ay >= 2){
-      if(ax > ay * 1.15) got = 'horizontal';
-      else if(ay > ax * 1.15) got = 'vertical';
-      else got = 'diagonal';
-    }
-
-    if(got === 'none') return 1;
-    if(got === want) return 1.3;
-    if(got === 'diagonal') return 0.95;
-    return 0.72;
-  }
-
-  function onZonePointerDown(idx, ev, helpers){
+  function onZonePointerDown(idx, ev){
     if(S.finished || !arenaCore) return;
     stopDemoTutorial?.();
 
@@ -196,7 +195,9 @@ export function createBrushInput({
         if(isActive && goodWindow){
           boss?.rewardShockPerfect?.(x, y);
           zones?.renderDirtForZone?.(idx);
-          if(S.bossHP <= 0) boss?.maybeAdvanceBossPhase?.(x, y);
+          if(S.bossHP <= 0){
+            boss?.maybeAdvanceBossPhase?.(x, y);
+          }
           ui?.refreshZoneUI?.();
           emitProgress?.();
           return;
@@ -221,9 +222,13 @@ export function createBrushInput({
     if(!isActive){
       scoring?.addMiss?.(x, y, 'ผิดโซน');
       zones?.pulseZone?.(idx, false);
+
       const activeMastery = S.zoneMastery[S.activeZoneIdx];
       if(activeMastery) activeMastery.localMiss++;
-      ui?.setNowDoText?.(`ยังไม่ใช่โซนนี้ • ให้ถู ${helpers?.humanZoneInstruction?.(S.zoneState[S.activeZoneIdx]?.label || 'โซนที่กำหนด')}`);
+
+      ui?.setNowDoText?.(
+        `ยังไม่ใช่โซนนี้ • ให้ถู ${humanZoneInstruction?.(S.zoneState[S.activeZoneIdx]?.label || 'โซนที่กำหนด')}`
+      );
       ui?.setCoachText?.('ยังไม่ใช่โซนนี้นะ ลองดูกรอบสีฟ้า', 'warn');
       audio?.playCue?.('wrong-zone');
       ui?.refreshZoneUI?.();
@@ -232,7 +237,8 @@ export function createBrushInput({
 
     if(S.phase !== 'boss'){
       const boost = performance.now() < S.uvUntil ? 1.15 : 1;
-      const delta = (helpers?.DIFF?.stroke || 8) * 0.45 * boost;
+      const delta = (DIFF?.stroke || 8) * 0.45 * boost;
+
       zs.clean = Math.max(0, Math.min(100, zs.clean + delta));
       zs.dirt = Math.max(0, Math.min(100, zs.dirt - delta * 0.85));
 
@@ -259,7 +265,12 @@ export function createBrushInput({
 
         const tip = zoneRealLifeTip(idx);
         ui?.setCoachText?.(`${coach.text} • ${tip}`, coach.tone);
-        audio?.playCue?.(star >= 3 ? 'zone-perfect' : 'zone-clear');
+
+        if(star >= 3){
+          audio?.playCue?.('zone-perfect');
+        } else {
+          audio?.playCue?.('zone-clear');
+        }
 
         S.coachHistory.push({
           ts: new Date().toISOString(),
@@ -281,7 +292,8 @@ export function createBrushInput({
 
     if(S.phase === 'boss' && !S.bossCompleted){
       const boost = performance.now() < S.uvUntil ? 1.1 : 1;
-      const dmg = (helpers?.DIFF?.bossStroke || 11) * 0.5 * boost;
+      const dmg = (DIFF?.bossStroke || 11) * 0.5 * boost;
+
       S.bossHP = Math.max(0, S.bossHP - dmg);
       zs.clean = Math.max(0, Math.min(100, zs.clean + 1.4 * boost));
       zs.dirt = Math.max(0, Math.min(100, zs.dirt - 2.4 * boost));
@@ -292,15 +304,32 @@ export function createBrushInput({
       fx?.flashScreen?.('boss');
 
       zones?.renderDirtForZone?.(idx);
-      if(S.bossHP <= 0) boss?.maybeAdvanceBossPhase?.(x, y);
+      if(S.bossHP <= 0){
+        boss?.maybeAdvanceBossPhase?.(x, y);
+      }
 
       ui?.refreshZoneUI?.();
       emitProgress?.();
     }
   }
 
+  function bindInput(){
+    if(!arenaCore) return;
+
+    arenaCore.addEventListener('pointerdown', onPointerDown);
+    arenaCore.addEventListener('pointermove', onPointerMove);
+    arenaCore.addEventListener('pointerup', endBrush);
+    arenaCore.addEventListener('pointercancel', endBrush);
+    arenaCore.addEventListener('pointerleave', endBrush);
+  }
+
   return {
     bindInput,
-    onZonePointerDown
+    endBrush,
+    onPointerDown,
+    onPointerMove,
+    onZonePointerDown,
+    directionScore,
+    movementDirection
   };
 }
