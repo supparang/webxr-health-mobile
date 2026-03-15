@@ -106,7 +106,7 @@
 <div class="wrap">
   <div class="card">
     <div class="title">😷 MaskCough Arcade v2 — Launcher</div>
-    <div class="sub">เข้าเกมเวอร์ชันใหม่ที่ใช้ไฟล์ <code>maskcough-v2.html</code> โดยตรง</div>
+    <div class="sub">เข้าเกมผ่าน <code>warmup-gate.html</code> ก่อน แล้วค่อยไป <code>maskcough-v2.html</code></div>
 
     <div class="grid">
       <div class="box">
@@ -137,13 +137,13 @@
         <h3>OPTIONS</h3>
         <div class="hint">
           ส่งต่อ <code>hub</code>, <code>pid</code>, <code>studyId</code>, <code>phase</code>, <code>conditionGroup</code> ได้<br>
-          ไฟล์ปลายทางคือ <code>./vr-maskcough/maskcough-v2.html</code>
+          flow: <code>warmup-gate → ./vr-maskcough/maskcough-v2.html</code>
         </div>
       </div>
     </div>
 
     <div class="actions">
-      <button class="btn primary" id="btnGo" type="button">▶ เข้าเกม v2</button>
+      <button class="btn primary" id="btnGo" type="button">▶ เข้า Warmup ก่อนเล่น</button>
       <a class="btn cyan" id="btnHub" href="./hub.html">🏰 กลับ HUB</a>
     </div>
 
@@ -157,6 +157,7 @@
 
   const LS_KEY = 'HHA_LAUNCH_MASKCOUGH_V2';
   const HUB_FALLBACK = location.origin + '/webxr-health-mobile/herohealth/hub.html';
+  const GATE_URL = './warmup-gate.html';
   const RUN_URL = './vr-maskcough/maskcough-v2.html';
 
   const qs = (k, d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
@@ -236,19 +237,38 @@
   }
 
   function buildUrl(){
-    const u = new URL(RUN_URL, location.href);
+    const gate = new URL(GATE_URL, location.href);
+    const run  = new URL(RUN_URL, location.href);
 
-    pass.searchParams.forEach((v,k)=> u.searchParams.set(k,v));
+    pass.searchParams.forEach((v,k)=>{
+      gate.searchParams.set(k,v);
+      run.searchParams.set(k,v);
+    });
 
-    u.searchParams.set('view', state.view);
-    u.searchParams.set('diff', state.diff);
-    u.searchParams.set('time', String(Math.max(40, Number(state.time) || 75)));
-    u.searchParams.set('seed', String(Number(state.seed) || Date.now()));
+    run.searchParams.set('view', state.view);
+    run.searchParams.set('diff', state.diff);
+    run.searchParams.set('time', String(Math.max(40, Number(state.time) || 75)));
+    run.searchParams.set('seed', String(Number(state.seed) || Date.now()));
+    run.searchParams.set('zone', 'hygiene');
+    run.searchParams.set('cat', 'hygiene');
+    run.searchParams.set('game', 'maskcough');
+    run.searchParams.set('theme', 'maskcough');
 
-    if(!u.searchParams.get('run')) u.searchParams.set('run', 'play');
-    if(!u.searchParams.get('hub')) u.searchParams.set('hub', HUB_FALLBACK);
+    if(!run.searchParams.get('run')) run.searchParams.set('run', 'play');
+    if(!run.searchParams.get('hub')) run.searchParams.set('hub', HUB_FALLBACK);
 
-    return u.toString();
+    gate.searchParams.set('gatePhase', 'warmup');
+    gate.searchParams.set('phase', 'warmup');
+    gate.searchParams.set('mode', 'warmup');
+    gate.searchParams.set('zone', 'hygiene');
+    gate.searchParams.set('cat', 'hygiene');
+    gate.searchParams.set('game', 'maskcough');
+    gate.searchParams.set('theme', 'maskcough');
+    gate.searchParams.set('next', run.toString());
+
+    if(!gate.searchParams.get('hub')) gate.searchParams.set('hub', HUB_FALLBACK);
+
+    return gate.toString();
   }
 
   function render(){
