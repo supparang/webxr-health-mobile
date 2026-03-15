@@ -7,7 +7,7 @@
   <meta name="color-scheme" content="dark light" />
   <link rel="icon" href="../favicon.ico" />
 
-  <script type="module" src="../vr/vr-ui.js?v=20260314e"></script>
+  <script type="module" src="../vr/vr-ui.js?v=20260315"></script>
 
   <style>
     :root{
@@ -30,7 +30,6 @@
       --sal: env(safe-area-inset-left, 0px);
       --sar: env(safe-area-inset-right, 0px);
 
-      /* สำรองพื้นที่ให้ vr-ui ด้านล่าง */
       --vrBottomReserve: 110px;
       --hudTop: calc(10px + var(--sat));
     }
@@ -86,6 +85,34 @@
         linear-gradient(180deg,#120a13,#1b1020);
     }
 
+    .stage.boss-1{
+      background:
+        radial-gradient(900px 700px at 50% 0%, rgba(59,130,246,.16), transparent 55%),
+        radial-gradient(900px 700px at 50% 100%, rgba(34,211,238,.10), transparent 60%),
+        linear-gradient(180deg,#08101f,#0f172a);
+    }
+
+    .stage.boss-2{
+      background:
+        radial-gradient(900px 700px at 50% 0%, rgba(245,158,11,.16), transparent 55%),
+        radial-gradient(900px 700px at 50% 100%, rgba(251,191,36,.10), transparent 60%),
+        linear-gradient(180deg,#1a1208,#1f2937);
+    }
+
+    .stage.boss-3{
+      background:
+        radial-gradient(900px 700px at 50% 0%, rgba(239,68,68,.16), transparent 55%),
+        radial-gradient(900px 700px at 50% 100%, rgba(248,113,113,.10), transparent 60%),
+        linear-gradient(180deg,#1b0c10,#1f172a);
+    }
+
+    .stage.final-win{
+      background:
+        radial-gradient(1000px 720px at 50% 0%, rgba(250,204,21,.16), transparent 55%),
+        radial-gradient(900px 700px at 50% 100%, rgba(167,139,250,.10), transparent 60%),
+        linear-gradient(180deg,#1a1426,#111827);
+    }
+
     .stage.is-fever::after{
       content:"";
       position:absolute;
@@ -132,6 +159,7 @@
         0
         calc(10px + var(--sal));
       pointer-events:none;
+      max-width:100%;
     }
 
     .hudCard{
@@ -245,27 +273,145 @@
       font-weight:1100;
       box-shadow:0 16px 40px rgba(0,0,0,.28);
       pointer-events:none;
+      padding-left:max(0px, var(--sal));
+      padding-right:max(0px, var(--sar));
     }
 
-    .zoneBtns{
+    .missionBar{
       position:absolute;
-      top: calc(232px + var(--sat));
+      top: calc(226px + var(--sat));
       left:50%;
       transform:translateX(-50%);
-      z-index:16;
-      display:none;
-      gap:10px;
+      z-index:17;
+      width:min(94vw, 860px);
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      justify-content:center;
+      pointer-events:none;
+      padding-left:max(0px, var(--sal));
+      padding-right:max(0px, var(--sar));
     }
 
-    .zoneBtn{
-      min-width:96px;
-      min-height:44px;
-      border-radius:14px;
-      border:1px solid rgba(148,163,184,.18);
-      background:rgba(2,6,23,.70);
-      color:#fff;
-      font:inherit;
+    .missionChip{
+      min-height:40px;
+      padding:9px 12px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.16);
+      background:rgba(2,6,23,.76);
+      backdrop-filter:blur(8px);
+      color:#e5e7eb;
+      font-size:13px;
       font-weight:1000;
+      box-shadow:0 12px 28px rgba(0,0,0,.22);
+    }
+
+    .missionChip.done{
+      color:#dcfce7;
+      border-color:rgba(34,197,94,.30);
+      background:rgba(34,197,94,.14);
+    }
+
+    .missionChip.hot{
+      color:#fde68a;
+      border-color:rgba(245,158,11,.32);
+      background:rgba(245,158,11,.14);
+    }
+
+    .calloutLayer{
+      position:absolute;
+      left:50%;
+      top: calc(418px + var(--sat));
+      transform:translateX(-50%);
+      z-index:18;
+      width:min(92vw, 760px);
+      pointer-events:none;
+      display:grid;
+      place-items:center;
+      padding-left:max(0px, var(--sal));
+      padding-right:max(0px, var(--sar));
+    }
+
+    .callout{
+      max-width:min(88vw, 560px);
+      padding:12px 16px;
+      border-radius:18px;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(2,6,23,.82);
+      backdrop-filter:blur(10px);
+      color:#fff;
+      text-align:center;
+      font-size:16px;
+      font-weight:1100;
+      line-height:1.4;
+      box-shadow:0 18px 40px rgba(0,0,0,.28);
+      opacity:0;
+      transform:translateY(10px) scale(.96);
+      animation:calloutInOut 1.35s ease forwards;
+      will-change:transform, opacity;
+    }
+
+    .callout.good{
+      border-color:rgba(34,197,94,.30);
+      background:rgba(20,83,45,.28);
+    }
+
+    .callout.warn{
+      border-color:rgba(245,158,11,.30);
+      background:rgba(120,53,15,.28);
+    }
+
+    .callout.boss{
+      border-color:rgba(239,68,68,.30);
+      background:rgba(127,29,29,.28);
+    }
+
+    @keyframes calloutInOut{
+      0%{ opacity:0; transform:translateY(10px) scale(.96); }
+      12%{ opacity:1; transform:translateY(0) scale(1); }
+      82%{ opacity:1; transform:translateY(0) scale(1); }
+      100%{ opacity:0; transform:translateY(-8px) scale(.98); }
+    }
+
+    .bossFace{
+      position:absolute;
+      right:calc(14px + var(--sar));
+      top:calc(252px + var(--sat));
+      z-index:17;
+      width:78px;
+      height:78px;
+      border-radius:22px;
+      display:grid;
+      place-items:center;
+      font-size:42px;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(2,6,23,.76);
+      backdrop-filter:blur(10px);
+      box-shadow:0 18px 40px rgba(0,0,0,.28);
+      opacity:0;
+      transform:scale(.9);
+      transition:opacity .18s ease, transform .18s ease;
+      pointer-events:none;
+      will-change:transform, opacity;
+    }
+
+    .bossFace.show{
+      opacity:1;
+      transform:scale(1);
+    }
+
+    .bossFace.b1{
+      border-color:rgba(59,130,246,.30);
+      box-shadow:0 18px 40px rgba(59,130,246,.18);
+    }
+    .bossFace.b2{
+      border-color:rgba(245,158,11,.30);
+      box-shadow:0 18px 40px rgba(245,158,11,.18);
+    }
+    .bossFace.b3,
+    .bossFace.final{
+      border-color:rgba(239,68,68,.30);
+      box-shadow:0 18px 40px rgba(239,68,68,.18);
     }
 
     .layer{
@@ -274,6 +420,8 @@
       z-index:8;
       overflow:hidden;
       padding-bottom:calc(var(--vrBottomReserve) + var(--sab));
+      touch-action:manipulation;
+      -webkit-tap-highlight-color:transparent;
     }
 
     .bubble{
@@ -295,10 +443,21 @@
       touch-action:manipulation;
       cursor:pointer;
       transition:transform .08s ease, box-shadow .08s ease;
+      will-change:transform, opacity;
     }
 
     .bubble:active{
       transform:translate(-50%,-50%) scale(.94);
+    }
+
+    .bubble-bonus{
+      background:
+        radial-gradient(circle at 30% 28%, rgba(255,255,255,.42), rgba(250,204,21,.18) 36%, rgba(15,23,42,.90) 100%);
+      border-color: rgba(250,204,21,.34);
+      box-shadow:
+        inset 0 0 30px rgba(255,255,255,.12),
+        0 16px 34px rgba(0,0,0,.24),
+        0 0 22px rgba(250,204,21,.22);
     }
 
     .fx-pop{
@@ -412,6 +571,9 @@
         calc(16px + var(--sal));
       background:rgba(2,6,23,.55);
       backdrop-filter:blur(6px);
+      overflow-y:auto;
+      align-items:start;
+      -webkit-tap-highlight-color:transparent;
     }
 
     .overlay[aria-hidden="true"]{
@@ -428,6 +590,8 @@
       padding:18px;
       display:grid;
       gap:14px;
+      margin-top:max(8px, var(--sat));
+      margin-bottom:max(8px, var(--sab));
     }
 
     .cardTitle{
@@ -476,6 +640,7 @@
       gap:10px;
       flex-wrap:wrap;
       padding-bottom:8px;
+      align-items:stretch;
     }
 
     .btn{
@@ -489,6 +654,8 @@
       font:inherit;
       font-weight:1100;
       box-shadow:0 12px 28px rgba(0,0,0,.20);
+      justify-content:center;
+      text-align:center;
     }
 
     .btn.primary{
@@ -515,6 +682,7 @@
       display:grid;
       grid-template-columns:repeat(2,minmax(0,1fr));
       gap:12px;
+      align-items:stretch;
     }
 
     .endBox{
@@ -522,6 +690,7 @@
       background:rgba(15,23,42,.38);
       border-radius:18px;
       padding:14px;
+      min-width:0;
     }
 
     .endBox .k{
@@ -536,23 +705,151 @@
       font-weight:1100;
       line-height:1.25;
       word-break:break-word;
+      overflow-wrap:anywhere;
     }
 
     .full{
       grid-column:1 / -1;
     }
 
+    .rewardCard{
+      border:1px solid rgba(250,204,21,.30);
+      background:
+        radial-gradient(500px 240px at 50% 0%, rgba(250,204,21,.10), transparent 60%),
+        rgba(15,23,42,.42);
+      box-shadow:0 0 28px rgba(250,204,21,.10);
+    }
+
+    .rewardBig{
+      font-size:28px;
+      font-weight:1100;
+      line-height:1.15;
+      overflow-wrap:anywhere;
+      word-break:break-word;
+    }
+
+    .rewardMini{
+      color:var(--muted);
+      font-size:12px;
+      font-weight:1000;
+      line-height:1.5;
+      margin-top:6px;
+      overflow-wrap:anywhere;
+      word-break:break-word;
+    }
+
+    .stickerRow{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      margin-top:10px;
+      align-items:stretch;
+    }
+
+    .stickerChip{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      min-height:36px;
+      padding:8px 10px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.16);
+      background:rgba(2,6,23,.40);
+      color:#fff;
+      font-size:12px;
+      font-weight:1000;
+      max-width:100%;
+      overflow-wrap:anywhere;
+      word-break:break-word;
+    }
+
+    .stickerChip.locked{
+      color:#94a3b8;
+      opacity:.75;
+    }
+
+    .endBox.full .v{
+      line-height:1.45;
+    }
+
+    .endBox.full.collectionGlow{
+      border-color:rgba(250,204,21,.30);
+      box-shadow:0 0 24px rgba(250,204,21,.10);
+    }
+
+    .stickerBurst{
+      position:absolute;
+      inset:0;
+      z-index:32;
+      pointer-events:none;
+      overflow:hidden;
+    }
+
+    .sticker{
+      position:absolute;
+      padding:10px 14px;
+      border-radius:18px;
+      border:1px solid rgba(255,255,255,.18);
+      background:rgba(2,6,23,.84);
+      color:#fff;
+      font-size:18px;
+      font-weight:1100;
+      box-shadow:0 16px 36px rgba(0,0,0,.26);
+      animation:stickerFly 1.1s ease-out forwards;
+    }
+
+    @keyframes stickerFly{
+      0%{ opacity:0; transform:translateY(14px) scale(.86) rotate(-4deg); }
+      18%{ opacity:1; transform:translateY(0) scale(1) rotate(0deg); }
+      100%{ opacity:0; transform:translateY(-90px) scale(1.04) rotate(2deg); }
+    }
+
+    .debugMini{
+      position:absolute;
+      left:calc(10px + var(--sal));
+      bottom:calc(10px + var(--sab));
+      z-index:19;
+      width:min(92vw, 260px);
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(2,6,23,.82);
+      backdrop-filter:blur(10px);
+      border-radius:16px;
+      padding:10px 12px;
+      color:#cbd5e1;
+      font:12px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      box-shadow:0 16px 36px rgba(0,0,0,.28);
+      pointer-events:none;
+    }
+
+    .debugMini b{
+      color:#fff;
+      font-weight:700;
+    }
+
     .is-hidden{
       display:none !important;
+    }
+
+    html, body, #app{
+      overscroll-behavior:none;
+      -webkit-overflow-scrolling:touch;
+    }
+
+    .stage,
+    .layer,
+    .overlay{
+      -webkit-tap-highlight-color:transparent;
     }
 
     @media (max-width: 860px){
       .hudTopbar{
         grid-template-columns:repeat(2,minmax(0,1fr));
       }
+
       .hudRow2{
         grid-template-columns:1fr;
       }
+
       .zoneSign{
         top: calc(242px + var(--sat));
         font-size:14px;
@@ -560,97 +857,269 @@
         padding:10px 14px;
         max-width:min(94vw, 760px);
       }
-      .zoneBtns{
-        display:flex;
-        top: calc(300px + var(--sat));
+
+      .missionBar{
+        top: calc(356px + var(--sat));
+        width:min(94vw, 720px);
       }
+
+      .calloutLayer{
+        top: calc(432px + var(--sat));
+      }
+
+      .bossFace{
+        top:calc(316px + var(--sat));
+        width:68px;
+        height:68px;
+        font-size:36px;
+      }
+
       .bubble{
         width:70px;
         height:70px;
         font-size:36px;
       }
+
       .endGrid{
         grid-template-columns:1fr 1fr;
+      }
+
+      .overlay{
+        padding-bottom: calc(26px + var(--vrBottomReserve) + var(--sab));
+      }
+
+      .card{
+        width:min(96vw, 900px);
       }
     }
 
     @media (max-width: 560px){
       :root{
-        --vrBottomReserve: 128px;
+        --vrBottomReserve: 120px;
       }
 
       .hud{
-        padding-top:calc(8px + var(--sat));
+        padding-top:calc(6px + var(--sat));
+        padding-left:calc(6px + var(--sal));
+        padding-right:calc(6px + var(--sar));
       }
 
-      .hudTopbar{
-        gap:6px;
-        padding:8px;
-      }
-
-      .hudStat{
-        min-height:56px;
-        border-radius:14px;
-        padding:8px 9px;
-      }
-
-      .hudStat .v{
-        font-size:19px;
-      }
-
-      .hudRow2{
-        gap:6px;
-        padding:8px;
-      }
-
-      .hudText{
-        font-size:14px;
-      }
-
-      .zoneSign{
-        top: calc(256px + var(--sat));
-        width:min(94vw, 720px);
-        font-size:13px;
-        line-height:1.35;
-      }
-
-      .zoneBtns{
-        top: calc(318px + var(--sat));
-      }
-
-      .card{
-        border-radius:24px;
-        padding:16px;
-      }
-
-      .cardTitle{
-        font-size:clamp(22px, 7vw, 34px);
-      }
-
-      .howItem{
-        border-radius:18px;
-        padding:12px;
-      }
-
-      .howItem .t{
-        font-size:16px;
-      }
-
-      .howItem .s{
-        font-size:13px;
-      }
-
-      .btn{
-        min-height:52px;
+      .hudCard{
         border-radius:16px;
       }
 
-      .endGrid{
+      .hudTopbar{
+        grid-template-columns: repeat(4, minmax(0,1fr));
+        gap:4px;
+        padding:6px;
+      }
+
+      .hudStat{
+        min-height:44px;
+        padding:6px 7px;
+        border-radius:12px;
+      }
+
+      .hudStat .k{
+        font-size:9px;
+      }
+
+      .hudStat .v{
+        margin-top:4px;
+        font-size:15px;
+      }
+
+      .hudRow2{
         grid-template-columns:1fr;
+        gap:4px;
+        padding:6px;
+      }
+
+      .hudBox{
+        min-height:42px;
+        padding:8px 9px;
+        border-radius:12px;
+      }
+
+      .hudMini{
+        font-size:9px;
+        margin-bottom:3px;
+      }
+
+      .hudText{
+        font-size:12px;
+        line-height:1.3;
+      }
+
+      .riskBar{
+        height:8px;
+        margin-top:3px;
+      }
+
+      .hud-mobile-hide{
+        display:none !important;
+      }
+
+      .zoneSign{
+        top: calc(154px + var(--sat));
+        min-height:40px;
+        padding:8px 12px;
+        font-size:12px;
+        border-radius:999px;
+      }
+
+      .missionBar{
+        top: calc(200px + var(--sat));
+        gap:5px;
+      }
+
+      .missionChip{
+        min-height:32px;
+        padding:6px 9px;
+        font-size:11px;
+        width:100%;
+        text-align:center;
+      }
+
+      .calloutLayer{
+        top: calc(246px + var(--sat));
+        width:min(94vw, 680px);
+      }
+
+      .callout{
+        font-size:13px;
+        padding:9px 11px;
+        border-radius:14px;
+      }
+
+      .bossFace{
+        top: calc(192px + var(--sat));
+        right:calc(10px + var(--sar));
+        width:52px;
+        height:52px;
+        font-size:26px;
+        border-radius:16px;
+      }
+
+      .layer{
+        padding-bottom:calc(var(--vrBottomReserve) + var(--sab));
+      }
+
+      .bubble{
+        width:64px;
+        height:64px;
+        font-size:32px;
+      }
+
+      .overlay{
+        padding:
+          calc(8px + var(--sat))
+          calc(10px + var(--sar))
+          calc(12px + var(--sab))
+          calc(10px + var(--sal));
+        align-items:stretch;
+      }
+
+      .card{
+        width:100%;
+        min-height:calc(100vh - var(--sat) - var(--sab) - 16px);
+        margin:0;
+        padding:12px;
+        border-radius:18px;
+        gap:10px;
+      }
+
+      .cardTitle{
+        font-size:18px;
+      }
+
+      .cardSub{
+        font-size:12px;
+        line-height:1.45;
+      }
+
+      .howGrid{
+        gap:8px;
+      }
+
+      .howItem{
+        padding:10px;
+        border-radius:14px;
+      }
+
+      .howItem .t{
+        font-size:14px;
+        margin-bottom:4px;
+      }
+
+      .howItem .s{
+        font-size:12px;
+        line-height:1.45;
+      }
+
+      .endGrid{
+        grid-template-columns:repeat(2,minmax(0,1fr));
+        gap:8px;
+      }
+
+      .endBox{
+        padding:10px;
+        border-radius:14px;
+      }
+
+      .endBox .k{
+        font-size:10px;
+        margin-bottom:4px;
       }
 
       .endBox .v{
+        font-size:15px;
+        line-height:1.35;
+      }
+
+      .rewardBig{
         font-size:18px;
+      }
+
+      .rewardMini{
+        font-size:11px;
+        line-height:1.4;
+      }
+
+      .stickerRow{
+        gap:6px;
+        margin-top:8px;
+      }
+
+      .stickerChip{
+        min-height:30px;
+        padding:6px 8px;
+        font-size:10px;
+        width:100%;
+        justify-content:center;
+      }
+
+      .actions{
+        position:sticky;
+        bottom:0;
+        z-index:5;
+        display:grid;
+        grid-template-columns:1fr;
+        gap:8px;
+        margin-top:auto;
+        padding-top:10px;
+        padding-bottom:calc(6px + var(--sab) + 68px);
+        background:
+          linear-gradient(180deg, rgba(2,6,23,0), rgba(2,6,23,.92) 20%, rgba(2,6,23,.98));
+      }
+
+      .actions .btn{
+        width:100%;
+        min-height:46px;
+        padding:10px 12px;
+        border-radius:14px;
+        font-size:14px;
+        flex:1 1 100%;
       }
     }
   </style>
@@ -677,7 +1146,7 @@
             <div class="hudText" id="aiHint">เก็บน้ำและหลีกเลี่ยงของไม่ดี</div>
           </div>
 
-          <div class="hudBox">
+          <div class="hudBox hud-mobile-hide">
             <div class="hudMini">🎯 สถานะวันนี้</div>
             <div class="hudText">
               วอร์มอัป: <span id="uiWarmDone">—</span> •
@@ -690,7 +1159,7 @@
             <div class="hudText" id="uiPhase">💧 ปกติ</div>
           </div>
 
-          <div class="hudBox">
+          <div class="hudBox hud-mobile-hide">
             <div class="hudMini">🧠 AI RISK</div>
             <div class="hudText">
               <span id="aiRisk">0.00</span>
@@ -703,10 +1172,13 @@
 
     <div id="zoneSign" class="zoneSign"></div>
 
-    <div class="zoneBtns">
-      <button id="btnZoneL" class="zoneBtn" type="button">⬅️ ซ้าย</button>
-      <button id="btnZoneR" class="zoneBtn" type="button">ขวา ➡️</button>
+    <div id="missionBar" class="missionBar">
+      <div id="missionChipHit" class="missionChip">💧 เก็บน้ำ <span id="missionHitNow">0</span>/<span id="missionHitGoal">12</span></div>
+      <div id="missionChipBlock" class="missionChip">🛡️ บล็อก <span id="missionBlockNow">0</span>/<span id="missionBlockGoal">3</span></div>
+      <div id="missionChipCombo" class="missionChip">✨ คอมโบ <span id="missionComboNow">0</span>/<span id="missionComboGoal">8</span></div>
     </div>
+
+    <div id="calloutLayer" class="calloutLayer"></div>
 
     <!-- HELP / START -->
     <div id="helpOverlay" class="overlay" aria-hidden="false">
@@ -776,9 +1248,21 @@
           <div class="endBox full"><div class="k">🗺️ PHASE SUMMARY</div><div id="endPhaseSummary" class="v">—</div></div>
           <div class="endBox full"><div class="k">🎁 REWARD</div><div id="endReward" class="v">—</div></div>
           <div class="endBox full"><div class="k">🏅 BADGE</div><div id="endBadge" class="v">—</div></div>
+
+          <div class="endBox full">
+            <div class="k">🃏 COLLECTION</div>
+            <div id="endCollection" class="v">—</div>
+          </div>
+
+          <div class="endBox full rewardCard">
+            <div class="k">🎁 REWARD CARD</div>
+            <div id="endRewardCard" class="rewardBig">—</div>
+            <div id="endRewardMini" class="rewardMini">—</div>
+            <div id="endStickerRow" class="stickerRow"></div>
+          </div>
         </div>
 
-        <div class="actions">
+        <div class="actions" style="padding-bottom: max(10px, calc(var(--vrBottomReserve) * .12));">
           <button id="btnNextCooldown" class="btn primary is-hidden" type="button">ไปผ่อนคลายหลังเล่น</button>
           <button id="btnReplay" class="btn warn" type="button">เล่นอีกครั้ง</button>
           <button id="btnBackHub" class="btn good" type="button">กลับหน้าหลัก</button>
@@ -795,6 +1279,18 @@
       </div>
     </div>
 
+    <div id="bossFace" class="bossFace">⚡</div>
+    <div id="stickerBurst" class="stickerBurst"></div>
+
+    <div id="debugMini" class="debugMini is-hidden">
+      <div><b>phase</b>: <span id="dbgPhase">—</span></div>
+      <div><b>combo</b>: <span id="dbgCombo">0</span></div>
+      <div><b>water</b>: <span id="dbgWater">0</span></div>
+      <div><b>shield</b>: <span id="dbgShield">0</span></div>
+      <div><b>bubbles</b>: <span id="dbgBubbles">0</span></div>
+      <div><b>fps-ish</b>: <span id="dbgFps">—</span></div>
+    </div>
+
     <!-- hidden support -->
     <div id="uiTime" class="is-hidden">0</div>
     <div id="uiExpire" class="is-hidden">0</div>
@@ -808,7 +1304,7 @@
   </div>
 
   <script type="module">
-    import { boot } from './hydration.safe.js?v=20260314e';
+    import { boot } from './hydration.safe.js?v=20260315';
     boot({});
   </script>
 </body>
