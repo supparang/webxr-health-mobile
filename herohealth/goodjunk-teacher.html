@@ -8,6 +8,7 @@
     :root{
       --bg1:#020617; --bg2:#0b1226; --panel:rgba(2,6,23,.74);
       --stroke:rgba(148,163,184,.18); --text:#e5e7eb; --muted:#94a3b8;
+      --ok:#22c55e; --warn:#f59e0b; --bad:#ef4444;
     }
     *{box-sizing:border-box}
     html,body{
@@ -43,15 +44,36 @@
     }
     .name{font-size:16px;font-weight:1000}
     .meta{margin-top:4px;color:var(--muted);font-size:12px;font-weight:900}
+    .actions{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+      margin-top:12px;
+    }
+    .btn{
+      min-height:44px;
+      border-radius:14px;
+      border:1px solid var(--stroke);
+      background:rgba(15,23,42,.80);
+      color:var(--text);
+      font:inherit;
+      font-weight:1000;
+      cursor:pointer;
+      padding:10px 12px;
+    }
+    .btn.ok{ border-color:rgba(34,197,94,.28); background:rgba(34,197,94,.14); }
+    .btn.warn{ border-color:rgba(245,158,11,.28); background:rgba(245,158,11,.14); }
+    .btn.bad{ border-color:rgba(239,68,68,.28); background:rgba(239,68,68,.14); }
+    .hint{margin-top:10px;color:var(--muted);font-size:12px;font-weight:900}
     @media (max-width:1000px){ .grid{grid-template-columns:1fr 1fr;} }
-    @media (max-width:700px){ .grid{grid-template-columns:1fr;} }
+    @media (max-width:700px){ .grid{grid-template-columns:1fr;} .actions{grid-template-columns:1fr;} }
   </style>
 </head>
 <body>
   <div class="wrap">
     <section class="hero">
       <h1>GoodJunk Teacher Dashboard</h1>
-      <div class="sub">ดูสถานะห้อง Race</div>
+      <div class="sub">ดูสถานะห้อง Race และรีสตาร์ตรอบได้</div>
     </section>
 
     <div class="grid" id="roomGrid"></div>
@@ -72,7 +94,39 @@
       return Number(a.finishMs || 999999999) - Number(b.finishMs || 999999999);
     }
 
-    function renderRooms(data){
+    function makeStartAt(leadSec = 8){
+      return Date.now() + Math.max(3, Number(leadSec || 8)) * 1000;
+    }
+
+    function resetRoom(db, room){
+      const root = `herohealth/goodjunk/race/${room}`;
+      db.ref(`${root}/results`).remove();
+      db.ref(`${root}/presence`).remove();
+      db.ref(`${root}/control`).update({
+        startAt: 0,
+        resetAt: Date.now(),
+        status: 'reset'
+      });
+    }
+
+    function restartRound(db, room, leadSec = 8){
+      const root = `herohealth/goodjunk/race/${room}`;
+      db.ref(`${root}/results`).remove();
+      db.ref(`${root}/control`).update({
+        startAt: makeStartAt(leadSec),
+        restartAt: Date.now(),
+        status: 'restart'
+      });
+    }
+
+    function openBoard(room){
+      const u = new URL('./goodjunk-board.html', location.href);
+      u.searchParams.set('room', room);
+      u.searchParams.set('mode', 'race');
+      location.href = u.toString();
+    }
+
+    function renderRooms(db, data){
       grid.innerHTML = '';
 
       const rooms = Object.entries(data || {});
@@ -114,7 +168,22 @@
               </div>
             `).join('')}
           </div>
+
+          <div class="actions">
+            <button class="btn ok" data-room="${room}" data-act="restart">เริ่มรอบใหม่</button>
+            <button class="btn warn" data-room="${room}" data-act="board">เปิด Board</button>
+            <button class="btn bad" data-room="${room}" data-act="reset">ล้างห้อง</button>
+          </div>
+
+          <div class="hint">
+            restart = ล้างผลและสร้าง startAt ใหม่ • reset = ล้างผล + ล้างผู้เล่น + ปิด startAt
+          </div>
         `;
+
+        card.querySelector('[data-act="restart"]').onclick = ()=> restartRound(db, room, 8);
+        card.querySelector('[data-act="board"]').onclick = ()=> openBoard(room);
+        card.querySelector('[data-act="reset"]').onclick = ()=> resetRoom(db, room);
+
         grid.appendChild(card);
       });
     }
@@ -124,7 +193,7 @@
       if(!db) return setTimeout(boot, 300);
 
       db.ref('herohealth/goodjunk/race').on('value', (snap)=>{
-        renderRooms(snap.val() || {});
+        renderRooms(db, snap.val() || {});
       });
     }
 
