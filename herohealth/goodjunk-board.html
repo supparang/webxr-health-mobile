@@ -1,1 +1,170 @@
-content="width=device-width,initial-scale=1,viewport-fit=cover
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>GoodJunk Race / Battle Board</title>
+  <meta name="color-scheme" content="dark light" />
+  <style>
+    :root{
+      --bg1:#020617; --bg2:#0b1226;
+      --panel:rgba(2,6,23,.74);
+      --stroke:rgba(148,163,184,.18);
+      --text:#e5e7eb; --muted:#94a3b8;
+    }
+    *{box-sizing:border-box}
+    html,body{
+      margin:0; min-height:100%;
+      background:
+        radial-gradient(1200px 800px at 50% -10%, rgba(59,130,246,.16), transparent 60%),
+        linear-gradient(180deg,var(--bg1),var(--bg2));
+      color:var(--text);
+      font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Thai",sans-serif;
+    }
+    .wrap{max-width:1200px;margin:0 auto;padding:18px}
+    .hero,.panel{
+      border:1px solid var(--stroke);
+      background:var(--panel);
+      border-radius:24px;
+      box-shadow:0 18px 60px rgba(0,0,0,.30);
+    }
+    .hero{padding:18px;margin-bottom:14px;text-align:center}
+    .kicker{
+      display:inline-flex;align-items:center;justify-content:center;
+      min-height:34px;padding:8px 14px;border-radius:999px;
+      border:1px solid rgba(34,211,238,.20);background:rgba(34,211,238,.10);
+      color:#a5f3fc;font-size:12px;font-weight:1000;
+    }
+    h1{margin:10px 0 0;font-size:clamp(30px,4vw,48px);line-height:1.05}
+    .sub{margin-top:8px;color:var(--muted);font-size:14px;font-weight:900}
+    .panel{padding:16px}
+    .toprow{display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between}
+    .pill{
+      display:inline-flex;align-items:center;justify-content:center;
+      min-height:40px;padding:8px 12px;border-radius:999px;
+      border:1px solid var(--stroke);background:rgba(15,23,42,.62);
+      font-size:13px;font-weight:1000;color:var(--text);
+    }
+    table{
+      width:100%;
+      border-collapse:collapse;
+      margin-top:14px;
+      overflow:hidden;
+      border-radius:16px;
+    }
+    th,td{
+      padding:12px 10px;
+      border-bottom:1px solid rgba(148,163,184,.12);
+      text-align:left;
+      font-size:14px;
+    }
+    th{color:var(--muted);font-weight:1000}
+    td{font-weight:900}
+    .rank{font-size:20px;font-weight:1000}
+    .empty{padding:18px 0;color:var(--muted);font-weight:900;text-align:center}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="hero">
+      <div class="kicker">🏁 GoodJunk Board</div>
+      <h1 id="boardTitle">ROOM: -</h1>
+      <div class="sub" id="boardSub">กำลังรอสถานะห้อง...</div>
+    </section>
+
+    <section class="panel">
+      <div class="toprow">
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <span class="pill" id="modePill">MODE race</span>
+          <span class="pill" id="statePill">STATE waiting</span>
+          <span class="pill" id="joinedPill">PLAYERS 0</span>
+        </div>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Player</th>
+            <th>Score</th>
+            <th>Acc</th>
+            <th>Miss</th>
+            <th>Finish</th>
+          </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+      <div id="empty" class="empty">ยังไม่มีผลลัพธ์</div>
+    </section>
+  </div>
+
+  <script src="./firebase-config.js"></script>
+  <script>
+    const qs=(k,d='')=>{ try{return new URL(location.href).searchParams.get(k)??d}catch(_){return d} };
+    const room = String(qs('room','NO_ROOM')).trim() || 'NO_ROOM';
+    const mode = String(qs('mode','race')).toLowerCase();
+    const $ = (id)=>document.getElementById(id);
+
+    function compareRows(a,b){
+      const as = Number(a.score || 0), bs = Number(b.score || 0);
+      if(as !== bs) return bs - as;
+
+      const aa = Number(a.accPct || 0), ba = Number(b.accPct || 0);
+      if(aa !== ba) return ba - aa;
+
+      const am = Number(a.missTotal || 9999), bm = Number(b.missTotal || 9999);
+      if(am !== bm) return am - bm;
+
+      const af = Number(a.finishMs || Number.MAX_SAFE_INTEGER), bf = Number(b.finishMs || Number.MAX_SAFE_INTEGER);
+      return af - bf;
+    }
+
+    function renderRace(data){
+      const presence = Object.values(data.presence || {}).filter(Boolean);
+      const results = Object.values(data.results || {}).filter(Boolean).sort(compareRows);
+
+      $('boardTitle').textContent = `ROOM: ${room}`;
+      $('boardSub').textContent = 'แสดงอันดับการแข่งขันโหมด Race';
+      $('modePill').textContent = 'MODE race';
+      $('statePill').textContent = `STATE ${presence.some(x=>x.state==='playing') ? 'playing' : 'waiting'}`;
+      $('joinedPill').textContent = `PLAYERS ${presence.length}`;
+
+      const tbody = $('rows');
+      const empty = $('empty');
+      tbody.innerHTML = '';
+
+      if(!results.length){
+        empty.style.display = '';
+        return;
+      }
+
+      empty.style.display = 'none';
+
+      results.forEach((r, i)=>{
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class="rank">${i+1}</td>
+          <td>${r.nick || r.pid}</td>
+          <td>${r.score ?? 0}</td>
+          <td>${r.accPct ?? 0}%</td>
+          <td>${r.missTotal ?? 0}</td>
+          <td>${r.finishMs ?? 0}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function boot(){
+      const db = window.HHA_FIREBASE_DB;
+      if(!db) return setTimeout(boot, 300);
+
+      const root = `herohealth/goodjunk/race/${room}`;
+      db.ref(root).on('value', (snap)=>{
+        const j = snap.val() || {};
+        renderRace(j);
+      });
+    }
+    boot();
+  </script>
+</body>
+</html>
