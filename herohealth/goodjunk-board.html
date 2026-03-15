@@ -39,11 +39,24 @@
     .sub{margin-top:8px;color:var(--muted);font-size:14px;font-weight:900}
     .panel{padding:16px}
     .toprow{display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between}
+    .leftPills{display:flex;gap:10px;flex-wrap:wrap}
+    .rightActions{display:flex;gap:10px;flex-wrap:wrap}
     .pill{
       display:inline-flex;align-items:center;justify-content:center;
       min-height:40px;padding:8px 12px;border-radius:999px;
       border:1px solid var(--stroke);background:rgba(15,23,42,.62);
       font-size:13px;font-weight:1000;color:var(--text);
+    }
+    .btn{
+      min-height:42px;
+      border-radius:14px;
+      border:1px solid var(--stroke);
+      background:rgba(15,23,42,.80);
+      color:var(--text);
+      font:inherit;
+      font-weight:1000;
+      cursor:pointer;
+      padding:10px 12px;
     }
     table{
       width:100%;
@@ -74,10 +87,14 @@
 
     <section class="panel">
       <div class="toprow">
-        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        <div class="leftPills">
           <span class="pill" id="modePill">MODE race</span>
           <span class="pill" id="statePill">STATE waiting</span>
           <span class="pill" id="joinedPill">PLAYERS 0</span>
+        </div>
+        <div class="rightActions">
+          <button class="btn" id="btnRestart">เริ่มรอบใหม่</button>
+          <button class="btn" id="btnReset">ล้างห้อง</button>
         </div>
       </div>
 
@@ -115,8 +132,34 @@
       const am = Number(a.missTotal || 9999), bm = Number(b.missTotal || 9999);
       if(am !== bm) return am - bm;
 
-      const af = Number(a.finishMs || Number.MAX_SAFE_INTEGER), bf = Number(b.finishMs || Number.MAX_SAFE_INTEGER);
+      const af = Number(a.finishMs || Number.MAX_SAFE_INTEGER);
+      const bf = Number(b.finishMs || Number.MAX_SAFE_INTEGER);
       return af - bf;
+    }
+
+    function makeStartAt(leadSec = 8){
+      return Date.now() + Math.max(3, Number(leadSec || 8)) * 1000;
+    }
+
+    function resetRoom(db){
+      const root = `herohealth/goodjunk/race/${room}`;
+      db.ref(`${root}/results`).remove();
+      db.ref(`${root}/presence`).remove();
+      db.ref(`${root}/control`).update({
+        startAt: 0,
+        resetAt: Date.now(),
+        status: 'reset'
+      });
+    }
+
+    function restartRound(db, leadSec = 8){
+      const root = `herohealth/goodjunk/race/${room}`;
+      db.ref(`${root}/results`).remove();
+      db.ref(`${root}/control`).update({
+        startAt: makeStartAt(leadSec),
+        restartAt: Date.now(),
+        status: 'restart'
+      });
     }
 
     function renderRace(data){
@@ -157,6 +200,9 @@
     function boot(){
       const db = window.HHA_FIREBASE_DB;
       if(!db) return setTimeout(boot, 300);
+
+      $('btnRestart').onclick = ()=> restartRound(db, 8);
+      $('btnReset').onclick = ()=> resetRoom(db);
 
       const root = `herohealth/goodjunk/race/${room}`;
       db.ref(root).on('value', (snap)=>{
