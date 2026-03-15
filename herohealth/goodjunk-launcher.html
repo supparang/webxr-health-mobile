@@ -1,10 +1,12 @@
 <!-- === /herohealth/goodjunk-launcher.html ===
 HeroHealth • GoodJunk Launcher
-FULL PATCH v20260315-GJ-LAUNCHER-FORCE-WARMUP
+FULL PATCH v20260315b-GJ-LAUNCHER-CHILD-FRIENDLY
+✅ Child-friendly launcher
+✅ Solo เด่นสุด
+✅ Battle ยังเข้าได้
+✅ Dev/Test controls ถูกพับซ่อน
 ✅ Solo -> warmup-gate -> run
-✅ Solo (force warmup) -> warmup-gate?forceWarmup=1 -> run
-✅ next points to /herohealth/vr-goodjunk/goodjunk-vr.html
-✅ Battle / Debug Battle direct to run page
+✅ Solo force warmup -> warmup-gate?forceWarmup=1 -> run
 -->
 <!doctype html>
 <html lang="th">
@@ -16,26 +18,36 @@ FULL PATCH v20260315-GJ-LAUNCHER-FORCE-WARMUP
   <link rel="icon" href="./favicon.ico" />
   <style>
     :root{
-      --bg1:#020617; --bg2:#0b1226;
+      --bg1:#020617;
+      --bg2:#0b1226;
       --panel:rgba(2,6,23,.74);
+      --panel2:rgba(15,23,42,.56);
       --stroke:rgba(148,163,184,.18);
-      --text:#e5e7eb; --muted:#94a3b8;
-      --blue:#3b82f6; --cyan:#22d3ee; --violet:#8b5cf6;
+      --text:#e5e7eb;
+      --muted:#94a3b8;
+      --blue:#3b82f6;
+      --cyan:#22d3ee;
+      --violet:#8b5cf6;
+      --good:#22c55e;
       --shadow:0 18px 60px rgba(0,0,0,.35);
       --sat: env(safe-area-inset-top, 0px);
       --sar: env(safe-area-inset-right, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
       --sal: env(safe-area-inset-left, 0px);
     }
+
     *{ box-sizing:border-box; }
+
     html,body{
-      margin:0; min-height:100%;
+      margin:0;
+      min-height:100%;
       background:
         radial-gradient(1200px 800px at 50% -20%, rgba(34,211,238,.10), transparent 55%),
         linear-gradient(180deg, var(--bg1), var(--bg2));
       color:var(--text);
       font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", sans-serif;
     }
+
     .wrap{
       width:min(1100px, calc(100vw - 24px));
       margin:0 auto;
@@ -45,74 +57,280 @@ FULL PATCH v20260315-GJ-LAUNCHER-FORCE-WARMUP
         calc(18px + var(--sab))
         calc(12px + var(--sal));
     }
+
     .hero,.card{
       background:linear-gradient(180deg, rgba(15,23,42,.82), rgba(2,6,23,.76));
       border:1px solid var(--stroke);
       border-radius:24px;
       box-shadow:var(--shadow);
     }
-    .hero{ padding:20px; margin-bottom:14px; }
-    .eyebrow{
-      display:inline-flex; align-items:center; gap:8px;
-      padding:8px 12px; border-radius:999px;
-      background:rgba(34,211,238,.10); color:#a5f3fc;
-      border:1px solid rgba(34,211,238,.18);
-      font-size:12px; font-weight:800;
+
+    .hero{
+      padding:20px;
+      margin-bottom:14px;
+      text-align:center;
     }
-    h1{ margin:12px 0 0; font-size:clamp(28px,5vw,42px); line-height:1.05; }
-    .sub{ margin-top:8px; color:var(--muted); font-size:14px; }
+
+    .eyebrow{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 12px;
+      border-radius:999px;
+      background:rgba(34,211,238,.10);
+      color:#a5f3fc;
+      border:1px solid rgba(34,211,238,.18);
+      font-size:12px;
+      font-weight:800;
+    }
+
+    h1{
+      margin:12px 0 0;
+      font-size:clamp(30px,5vw,44px);
+      line-height:1.05;
+    }
+
+    .sub{
+      margin:10px auto 0;
+      color:var(--muted);
+      font-size:14px;
+      line-height:1.6;
+      max-width:760px;
+      font-weight:900;
+    }
+
     .grid{
       display:grid;
-      grid-template-columns:1fr 1fr;
+      grid-template-columns:1.1fr .9fr;
       gap:14px;
     }
-    .card{ padding:16px; }
-    .title{ font-size:18px; font-weight:900; margin-bottom:12px; }
+
+    .card{
+      padding:16px;
+    }
+
+    .title{
+      font-size:18px;
+      font-weight:1000;
+      margin-bottom:12px;
+    }
+
+    .play-grid{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:12px;
+    }
+
+    .play-btn{
+      appearance:none;
+      width:100%;
+      min-height:120px;
+      border-radius:22px;
+      border:1px solid var(--stroke);
+      background:var(--panel2);
+      color:var(--text);
+      cursor:pointer;
+      padding:16px;
+      text-align:left;
+      box-shadow:0 14px 32px rgba(0,0,0,.24);
+      transition:transform .15s ease, border-color .15s ease, box-shadow .15s ease;
+    }
+
+    .play-btn:hover{
+      transform:translateY(-1px);
+      border-color:rgba(96,165,250,.28);
+    }
+
+    .play-btn.big{
+      min-height:150px;
+      background:
+        radial-gradient(700px 220px at 50% -20%, rgba(56,189,248,.10), transparent 60%),
+        linear-gradient(135deg, rgba(37,99,235,.88), rgba(6,182,212,.84));
+      color:white;
+      border-color:rgba(96,165,250,.26);
+    }
+
+    .play-emoji{
+      font-size:34px;
+      line-height:1;
+    }
+
+    .play-title{
+      margin-top:10px;
+      font-size:24px;
+      line-height:1.1;
+      font-weight:1000;
+    }
+
+    .play-sub{
+      margin-top:8px;
+      font-size:13px;
+      line-height:1.5;
+      font-weight:900;
+      opacity:.95;
+    }
+
+    .status-row{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:10px;
+      margin-top:14px;
+    }
+
+    .pill{
+      min-height:46px;
+      border-radius:18px;
+      border:1px solid var(--stroke);
+      background:rgba(15,23,42,.62);
+      box-shadow:0 10px 24px rgba(0,0,0,.18);
+      padding:10px 12px;
+      display:flex;
+      flex-direction:column;
+      justify-content:center;
+      gap:4px;
+    }
+
+    .pill-k{
+      font-size:11px;
+      color:var(--muted);
+      font-weight:1000;
+      line-height:1;
+    }
+
+    .pill-v{
+      font-size:14px;
+      color:var(--text);
+      font-weight:1000;
+      line-height:1.2;
+    }
+
     .form{
       display:grid;
       grid-template-columns:repeat(2,minmax(0,1fr));
       gap:10px;
     }
+
     .full{ grid-column:1 / -1; }
-    label{ display:block; font-size:12px; color:var(--muted); margin-bottom:6px; }
-    input,select,button{
-      width:100%; min-height:44px;
-      border-radius:14px; border:1px solid var(--stroke);
-      background:rgba(2,6,23,.80); color:var(--text);
-      padding:10px 12px; font:inherit;
+
+    label{
+      display:block;
+      font-size:12px;
+      color:var(--muted);
+      margin-bottom:6px;
+      font-weight:900;
     }
-    button{
-      cursor:pointer; border:0; font-weight:900; color:white;
-      background:linear-gradient(135deg,#2563eb,#06b6d4);
-      box-shadow:0 10px 28px rgba(37,99,235,.28);
+
+    input,select,button.secondary,button.ghost{
+      width:100%;
+      min-height:44px;
+      border-radius:14px;
+      border:1px solid var(--stroke);
+      background:rgba(2,6,23,.80);
+      color:var(--text);
+      padding:10px 12px;
+      font:inherit;
     }
-    button.secondary{
+
+    .minor-actions{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+      margin-top:12px;
+    }
+
+    .secondary{
+      cursor:pointer;
       color:var(--text);
       background:rgba(15,23,42,.90);
-      border:1px solid var(--stroke);
       box-shadow:none;
     }
-    button.violet{
-      background:linear-gradient(135deg,#7c3aed,#06b6d4);
-      box-shadow:0 10px 28px rgba(124,58,237,.28);
+
+    .ghost{
+      cursor:pointer;
+      color:var(--muted);
+      background:transparent;
+      box-shadow:none;
     }
-    .actions{
-      display:grid;
-      grid-template-columns:repeat(2,minmax(0,1fr));
-      gap:10px; margin-top:12px;
+
+    details.dev{
+      margin-top:14px;
+      border-radius:18px;
+      border:1px solid var(--stroke);
+      background:rgba(15,23,42,.40);
+      overflow:hidden;
     }
-    .mini-actions{
+
+    details.dev summary{
+      cursor:pointer;
+      list-style:none;
+      padding:14px 16px;
+      font-weight:1000;
+      color:#cbd5e1;
+    }
+
+    details.dev summary::-webkit-details-marker{
+      display:none;
+    }
+
+    .dev-body{
+      padding:0 16px 16px;
+    }
+
+    .hint{
+      color:var(--muted);
+      font-size:12px;
+      margin-top:10px;
+      line-height:1.6;
+      font-weight:900;
+    }
+
+    .quick-row{
       display:grid;
       grid-template-columns:repeat(3,minmax(0,1fr));
-      gap:10px; margin-top:12px;
+      gap:10px;
+      margin-top:12px;
     }
-    .hint{ color:var(--muted); font-size:12px; margin-top:10px; }
+
+    .mini-btn{
+      min-height:48px;
+      border-radius:16px;
+      border:1px solid var(--stroke);
+      background:rgba(15,23,42,.80);
+      color:var(--text);
+      font-weight:1000;
+      cursor:pointer;
+      box-shadow:0 10px 24px rgba(0,0,0,.18);
+    }
+
     code{
-      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-      font-size: 12px;
+      font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size:12px;
     }
-    @media (max-width:860px){
-      .grid,.form,.actions,.mini-actions{ grid-template-columns:1fr; }
+
+    @media (max-width:900px){
+      .grid{ grid-template-columns:1fr; }
+      .status-row{ grid-template-columns:1fr; }
+    }
+
+    @media (max-width:640px){
+      .play-grid,
+      .form,
+      .minor-actions,
+      .quick-row{
+        grid-template-columns:1fr;
+      }
+
+      .play-btn.big{
+        min-height:132px;
+      }
+
+      .play-btn{
+        min-height:108px;
+      }
+
+      .play-title{
+        font-size:22px;
+      }
     }
   </style>
 </head>
@@ -120,85 +338,137 @@ FULL PATCH v20260315-GJ-LAUNCHER-FORCE-WARMUP
   <div class="wrap">
     <section class="hero">
       <div class="eyebrow">🥦 GoodJunk Launcher</div>
-      <h1>HeroHealth • GoodJunk</h1>
-      <div class="sub">Solo จะเข้า Warmup ก่อน แล้วค่อยไปเกมหลัก • Solo (force warmup) ใช้ทดสอบ warmup mini-game จริง • Battle / Debug Battle ยังเข้าเกมตรงได้</div>
+      <h1>เลือกวิธีเล่น</h1>
+      <div class="sub">
+        แตะปุ่มใหญ่เพื่อเริ่มเล่นได้เลย • ถ้ายังไม่ได้วอร์มอัป ระบบจะพาไปก่อนอัตโนมัติ
+      </div>
     </section>
 
     <section class="grid">
       <div class="card">
         <div class="title">🎮 เข้าเล่นเกม</div>
 
-        <div class="form">
-          <div>
-            <label>PID</label>
-            <input id="pid" value="anon" />
+        <div class="play-grid">
+          <button id="btnSolo" class="play-btn big" type="button">
+            <div class="play-emoji">▶️</div>
+            <div class="play-title">เล่นคนเดียว</div>
+            <div class="play-sub">เริ่มง่ายที่สุด • วอร์มอัปก่อนแล้วค่อยเข้าเกม</div>
+          </button>
+
+          <button id="btnBattle" class="play-btn" type="button">
+            <div class="play-emoji">⚔️</div>
+            <div class="play-title">แข่งกัน</div>
+            <div class="play-sub">เข้าเกมแบบ battle • ใช้ room เดียวกัน</div>
+          </button>
+        </div>
+
+        <div class="status-row">
+          <div class="pill">
+            <div class="pill-k">วอร์มอัปวันนี้</div>
+            <div class="pill-v" id="warmStatus">—</div>
           </div>
-          <div>
-            <label>Nick</label>
-            <input id="nick" value="Player" />
+          <div class="pill">
+            <div class="pill-k">คูลดาวน์วันนี้</div>
+            <div class="pill-v" id="coolStatus">—</div>
           </div>
-          <div>
-            <label>Room</label>
-            <input id="room" value="P5A" />
-          </div>
-          <div>
-            <label>View</label>
-            <select id="view">
-              <option value="mobile">mobile</option>
-              <option value="pc">pc</option>
-              <option value="cvr">cvr</option>
-            </select>
-          </div>
-          <div>
-            <label>Difficulty</label>
-            <select id="diff">
-              <option value="easy">easy</option>
-              <option value="normal">normal</option>
-              <option value="hard">hard</option>
-            </select>
-          </div>
-          <div>
-            <label>Time</label>
-            <select id="time">
-              <option value="60">60</option>
-              <option value="80" selected>80</option>
-              <option value="100">100</option>
-            </select>
-          </div>
-          <div class="full">
-            <label>Hub</label>
-            <input id="hub" value="./hub.html" />
+          <div class="pill">
+            <div class="pill-k">สถานะตอนนี้</div>
+            <div class="pill-v" id="flowStatus">—</div>
           </div>
         </div>
 
-        <div class="actions">
-          <button id="btnSolo">▶️ Solo</button>
-          <button id="btnSoloForce" class="violet">🧪 Solo (force warmup)</button>
+        <div class="minor-actions">
+          <button id="btnBackHub" class="secondary" type="button">🏠 กลับ HUB</button>
+          <button id="btnTeacher" class="secondary" type="button">👩‍🏫 โหมดครู</button>
         </div>
 
-        <div class="actions">
-          <button id="btnBattle">⚔️ Battle</button>
-          <button id="btnBattleDebug">🧪 Battle Debug Solo</button>
-        </div>
+        <details class="dev">
+          <summary>โหมดครู / ทดสอบ</summary>
+          <div class="dev-body">
+            <div class="form">
+              <div>
+                <label>PID</label>
+                <input id="pid" value="anon" />
+              </div>
+              <div>
+                <label>Nick</label>
+                <input id="nick" value="Player" />
+              </div>
+              <div>
+                <label>Room</label>
+                <input id="room" value="P5A" />
+              </div>
+              <div>
+                <label>View</label>
+                <select id="view">
+                  <option value="mobile">mobile</option>
+                  <option value="pc">pc</option>
+                  <option value="cvr">cvr</option>
+                </select>
+              </div>
+              <div>
+                <label>Difficulty</label>
+                <select id="diff">
+                  <option value="easy">easy</option>
+                  <option value="normal">normal</option>
+                  <option value="hard">hard</option>
+                </select>
+              </div>
+              <div>
+                <label>Time</label>
+                <select id="time">
+                  <option value="60">60</option>
+                  <option value="80" selected>80</option>
+                  <option value="100">100</option>
+                </select>
+              </div>
+              <div class="full">
+                <label>Hub</label>
+                <input id="hub" value="./hub.html" />
+              </div>
+            </div>
 
-        <div class="actions">
-          <button id="btnBackHub" class="secondary">🏠 กลับ HUB</button>
-          <button id="btnCopyRun" class="secondary">📋 คัดลอก Run URL</button>
-        </div>
+            <div class="quick-row">
+              <button id="btnSoloForce" class="mini-btn" type="button">🧪 บังคับ Warmup</button>
+              <button id="btnBattleDebug" class="mini-btn" type="button">🧪 Battle Debug</button>
+              <button id="btnCopyRun" class="mini-btn" type="button">📋 คัดลอก Run URL</button>
+            </div>
 
-        <div class="hint">Solo ใช้ flow: launcher → warmup-gate → run → summary → cooldown-gate → hub</div>
-        <div class="hint">Solo (force warmup) จะใส่ <code>forceWarmup=1</code> เพื่อบังคับเล่น warmup จริง แม้จะทำไปแล้ววันนี้</div>
-        <div class="hint">Run page จริงคือ <code>/herohealth/vr-goodjunk/goodjunk-vr.html</code></div>
+            <div class="quick-row">
+              <button id="btnBoard" class="mini-btn" type="button">Board</button>
+              <button id="btnBoardNew" class="mini-btn" type="button">Board Tab ใหม่</button>
+              <button id="btnTeacher2" class="mini-btn" type="button">Teacher Dashboard</button>
+            </div>
+
+            <div class="hint">
+              Run page จริงคือ <code>/herohealth/vr-goodjunk/goodjunk-vr.html</code><br>
+              ปุ่ม “บังคับ Warmup” จะใส่ <code>forceWarmup=1</code> เพื่อเทส warmup จริง
+            </div>
+          </div>
+        </details>
       </div>
 
       <div class="card">
-        <div class="title">👩‍🏫 ครู / จอแสดงผล</div>
-        <div class="mini-actions">
-          <button id="btnTeacher">Teacher</button>
-          <button id="btnBoard">Board</button>
-          <button id="btnBoardNew" class="secondary">Board Tab ใหม่</button>
+        <div class="title">💡 วิธีเล่นสั้น ๆ</div>
+
+        <div class="pill" style="min-height:78px;">
+          <div class="pill-k">1) มองของดี</div>
+          <div class="pill-v">🥦 🍎 💧 เก็บแต้ม</div>
         </div>
-        <div class="hint">Teacher Dashboard ใช้ดูผู้เล่น คะแนน ความเสี่ยง และเปิด Board ต่อได้</div>
+
+        <div class="pill" style="min-height:78px; margin-top:10px;">
+          <div class="pill-k">2) อย่าแตะของไม่ดี</div>
+          <div class="pill-v">🍩 🍬 🍔 จะเสียแต้ม</div>
+        </div>
+
+        <div class="pill" style="min-height:78px; margin-top:10px;">
+          <div class="pill-k">3) จบแล้วไปต่อ</div>
+          <div class="pill-v">สรุปผล → คูลดาวน์ → กลับ HUB</div>
+        </div>
+
+        <div class="hint">
+          ถ้ายังไม่ได้วอร์มอัป ระบบจะพาไปก่อนอัตโนมัติ • ถ้าทำแล้ววันนี้จะข้ามให้เอง
+        </div>
       </div>
     </section>
   </div>
@@ -208,8 +478,10 @@ FULL PATCH v20260315-GJ-LAUNCHER-FORCE-WARMUP
     const qs = (k,d='')=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
 
     ['pid','nick','room','view','diff','time','hub'].forEach(id=>{
+      const el = $(id);
+      if(!el) return;
       const v = qs(id, '');
-      if(v) $(id).value = v;
+      if(v) el.value = v;
     });
 
     function clean(v, fallback=''){
@@ -221,15 +493,68 @@ FULL PATCH v20260315-GJ-LAUNCHER-FORCE-WARMUP
       return String(Date.now());
     }
 
+    function dayKey(){
+      const d = new Date();
+      return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    }
+
+    function getPid(){
+      return clean($('pid')?.value, clean(qs('pid','anon'), 'anon'));
+    }
+
+    function getHub(){
+      return clean($('hub')?.value, clean(qs('hub','./hub.html'), './hub.html'));
+    }
+
+    function warmDoneToday(){
+      const pid = getPid();
+      const day = dayKey();
+      try{
+        return localStorage.getItem(`HHA_WARMUP_DONE:nutrition:goodjunk:${pid}:${day}`) === '1';
+      }catch(_){
+        return false;
+      }
+    }
+
+    function coolDoneToday(){
+      const pid = getPid();
+      const day = dayKey();
+      try{
+        return (
+          localStorage.getItem(`HHA_COOLDOWN_DONE:nutrition:goodjunk:${pid}:${day}`) === '1' ||
+          localStorage.getItem(`HHA_COOLDOWN_DONE:nutrition:${pid}:${day}`) === '1'
+        );
+      }catch(_){
+        return false;
+      }
+    }
+
+    function renderStatus(){
+      const warm = warmDoneToday();
+      const cool = coolDoneToday();
+
+      $('warmStatus').textContent = warm ? 'เสร็จแล้ว ✅' : 'ยังไม่ได้ ✨';
+      $('coolStatus').textContent = cool ? 'เสร็จแล้ว ✅' : 'ยังไม่ได้ ✨';
+      $('flowStatus').textContent = warm ? 'เข้าเกมได้เลย 🎮' : 'ต้องวอร์มอัปก่อน 🏃';
+    }
+
     function buildRunBase(){
       const u = new URL('./vr-goodjunk/goodjunk-vr.html', location.href);
-      u.searchParams.set('pid', clean($('pid').value, 'anon'));
-      u.searchParams.set('nick', clean($('nick').value, clean($('pid').value, 'anon')));
-      u.searchParams.set('room', clean($('room').value, 'P5A'));
-      u.searchParams.set('view', clean($('view').value, 'mobile'));
-      u.searchParams.set('diff', clean($('diff').value, 'easy'));
-      u.searchParams.set('time', clean($('time').value, '80'));
-      u.searchParams.set('hub', clean($('hub').value, './hub.html'));
+      const pid = getPid();
+      const nick = clean($('nick')?.value, pid);
+      const room = clean($('room')?.value, 'P5A');
+      const view = clean($('view')?.value, clean(qs('view','mobile'), 'mobile'));
+      const diff = clean($('diff')?.value, clean(qs('diff','easy'), 'easy'));
+      const time = clean($('time')?.value, clean(qs('time','80'), '80'));
+      const hub = getHub();
+
+      u.searchParams.set('pid', pid);
+      u.searchParams.set('nick', nick);
+      u.searchParams.set('room', room);
+      u.searchParams.set('view', view);
+      u.searchParams.set('diff', diff);
+      u.searchParams.set('time', time);
+      u.searchParams.set('hub', hub);
       u.searchParams.set('seed', nowSeed());
       u.searchParams.set('cat', 'nutrition');
       u.searchParams.set('game', 'goodjunk');
@@ -238,27 +563,18 @@ FULL PATCH v20260315-GJ-LAUNCHER-FORCE-WARMUP
 
     function buildWarmupBase(forceWarmup = false){
       const gateUrl = new URL('./warmup-gate.html', location.href);
-      const runUrl = new URL('./vr-goodjunk/goodjunk-vr.html', location.href);
+      const runUrl = buildRunBase();
 
-      const pid  = clean($('pid').value, 'anon');
-      const nick = clean($('nick').value, pid);
-      const room = clean($('room').value, 'P5A');
-      const view = clean($('view').value, 'mobile');
-      const diff = clean($('diff').value, 'easy');
-      const time = clean($('time').value, '80');
-      const hub  = clean($('hub').value, './hub.html');
+      const pid  = getPid();
+      const nick = clean($('nick')?.value, pid);
+      const room = clean($('room')?.value, 'P5A');
+      const view = clean($('view')?.value, clean(qs('view','mobile'), 'mobile'));
+      const diff = clean($('diff')?.value, clean(qs('diff','easy'), 'easy'));
+      const time = clean($('time')?.value, clean(qs('time','80'), '80'));
+      const hub  = getHub();
       const seed = nowSeed();
 
-      runUrl.searchParams.set('pid', pid);
-      runUrl.searchParams.set('nick', nick);
-      runUrl.searchParams.set('room', room);
-      runUrl.searchParams.set('view', view);
-      runUrl.searchParams.set('diff', diff);
-      runUrl.searchParams.set('time', time);
-      runUrl.searchParams.set('hub', hub);
       runUrl.searchParams.set('seed', seed);
-      runUrl.searchParams.set('cat', 'nutrition');
-      runUrl.searchParams.set('game', 'goodjunk');
       runUrl.searchParams.set('mode', 'solo');
 
       gateUrl.searchParams.set('Phase', 'warmup');
@@ -277,7 +593,6 @@ FULL PATCH v20260315-GJ-LAUNCHER-FORCE-WARMUP
       gateUrl.searchParams.set('time', time);
       gateUrl.searchParams.set('seed', seed);
       gateUrl.searchParams.set('hub', hub);
-
       gateUrl.searchParams.set('next', runUrl.toString());
 
       if(forceWarmup){
@@ -291,14 +606,23 @@ FULL PATCH v20260315-GJ-LAUNCHER-FORCE-WARMUP
       location.href = buildWarmupBase(false).toString();
     };
 
-    $('btnSoloForce').onclick = ()=>{
-      location.href = buildWarmupBase(true).toString();
-    };
-
     $('btnBattle').onclick = ()=>{
       const u = buildRunBase();
-      u.searchParams.set('mode','battle');
+      u.searchParams.set('mode', 'battle');
       location.href = u.toString();
+    };
+
+    $('btnBackHub').onclick = ()=>{
+      location.href = getHub();
+    };
+
+    $('btnTeacher').onclick = ()=>{
+      document.querySelector('details.dev')?.setAttribute('open','open');
+      document.querySelector('details.dev')?.scrollIntoView({ behavior:'smooth', block:'start' });
+    };
+
+    $('btnSoloForce').onclick = ()=>{
+      location.href = buildWarmupBase(true).toString();
     };
 
     $('btnBattleDebug').onclick = ()=>{
@@ -308,41 +632,42 @@ FULL PATCH v20260315-GJ-LAUNCHER-FORCE-WARMUP
       location.href = u.toString();
     };
 
-    $('btnTeacher').onclick = ()=>{
-      const u = new URL('./goodjunk-teacher.html', location.href);
-      u.searchParams.set('room', clean($('room').value, 'P5A'));
-      u.searchParams.set('mode', 'battle');
-      location.href = u.toString();
+    $('btnCopyRun').onclick = async ()=>{
+      try{
+        const u = buildRunBase();
+        u.searchParams.set('mode','solo');
+        await navigator.clipboard.writeText(u.toString());
+        alert('คัดลอก Run URL แล้ว ✅');
+      }catch(_){
+        alert('คัดลอกไม่สำเร็จ');
+      }
     };
 
     $('btnBoard').onclick = ()=>{
       const u = new URL('./goodjunk-board.html', location.href);
-      u.searchParams.set('room', clean($('room').value, 'P5A'));
+      u.searchParams.set('room', clean($('room')?.value, 'P5A'));
       u.searchParams.set('mode', 'battle');
       location.href = u.toString();
     };
 
     $('btnBoardNew').onclick = ()=>{
       const u = new URL('./goodjunk-board.html', location.href);
-      u.searchParams.set('room', clean($('room').value, 'P5A'));
+      u.searchParams.set('room', clean($('room')?.value, 'P5A'));
       u.searchParams.set('mode', 'battle');
       window.open(u.toString(), '_blank', 'noopener');
     };
 
-    $('btnBackHub').onclick = ()=>{
-      location.href = clean($('hub').value, './hub.html');
+    const goTeacherDash = ()=>{
+      const u = new URL('./goodjunk-teacher.html', location.href);
+      u.searchParams.set('room', clean($('room')?.value, 'P5A'));
+      u.searchParams.set('mode', 'battle');
+      location.href = u.toString();
     };
 
-    $('btnCopyRun').onclick = async ()=>{
-      try{
-        const runUrl = buildRunBase();
-        runUrl.searchParams.set('mode','solo');
-        await navigator.clipboard.writeText(runUrl.toString());
-        alert('คัดลอก Run URL แล้ว ✅');
-      }catch(_){
-        alert('คัดลอกไม่สำเร็จ');
-      }
-    };
+    $('btnTeacher2').onclick = goTeacherDash;
+
+    renderStatus();
+    window.addEventListener('focus', renderStatus);
   </script>
 </body>
 </html>
