@@ -1,6 +1,6 @@
 // === /herohealth/gate/gate-core.js ===
 // HeroHealth Gate Core
-// PATCH v20260315-GATE-CORE-FORCE-WARMUP-SKIP-COPY
+// FULL PATCH v20260315-GATE-CORE-FORCE-WARMUP-SKIP-COPY
 
 import {
   buildCtx,
