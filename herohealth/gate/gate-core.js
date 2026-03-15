@@ -1,6 +1,5 @@
 // === /herohealth/gate/gate-core.js ===
-// HeroHealth Gate Core
-// FULL PATCH v20260315-GATE-CORE-FORCE-WARMUP-SKIP-COPY
+// FULL PATCH v20260315b-GATE-CORE-FORCE-WARMUP-SUMMARY-FIX
 
 import {
   buildCtx,
@@ -9,7 +8,7 @@ import {
   saveLastSummary
 } from './gate-common.js?v=20260314a';
 
-import { mountSummaryLayer, mountToast } from './gate-summary.js?v=20260313c';
+import { mountSummaryLayer, mountToast } from './gate-summary.js?v=20260314-GATE-SUMMARY-TOAST-ROOT-HARDENED';
 import { createGateLogger } from './gate-logger.js?v=20260313b-GATE-LOGGER-PUSH-FIX';
 import {
   getGameMeta,
@@ -348,6 +347,9 @@ async function runGate(app){
 
   renderShell(app, ctx);
 
+  const summaryUi = typeof mountSummaryLayer === 'function' ? mountSummaryLayer(app) : null;
+  const toastUi = typeof mountToast === 'function' ? mountToast(app) : null;
+
   const api = makeApi(app, logger);
   const dailyKeyStateEl = app.querySelector('#gateDailyState');
   const loadingEl = app.querySelector('#gateLoading');
@@ -431,14 +433,16 @@ async function runGate(app){
 
     const dest = buildNextWithBuffs(nextUrl, summary.buffs || {});
 
-    if (typeof mountSummaryLayer === 'function') {
-      mountSummaryLayer({
+    if (summaryUi && typeof summaryUi.show === 'function') {
+      summaryUi.show({
         title: summary.title,
         subtitle: summary.subtitle,
         lines: summary.lines,
-        primaryLabel: ctx.mode === 'cooldown' ? 'กลับหน้าหลัก' : 'ไปต่อ',
-        onPrimary: ()=>{
+        onContinue: ()=>{
           window.location.href = dest;
+        },
+        onBack: ()=>{
+          window.location.href = ctx.hub || '../hub.html';
         }
       });
     } else {
@@ -494,8 +498,8 @@ async function runGate(app){
       });
     }catch(_){}
 
-    if (typeof mountToast === 'function') {
-      mountToast(`โหลดมินิเกมไม่สำเร็จ: ${err?.message || err}`);
+    if (toastUi && typeof toastUi.show === 'function') {
+      toastUi.show(`โหลดมินิเกมไม่สำเร็จ: ${err?.message || err}`);
     }
 
     app.querySelector('#gateGameMount')?.replaceChildren();
