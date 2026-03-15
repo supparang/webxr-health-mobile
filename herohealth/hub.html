@@ -68,7 +68,6 @@
     .compactCard,
     .favoriteGameCard,
     .celebrateBanner,
-    .worldZone,
     .questStarsCard,
     .stickerStrip,
     .missionBoard,
@@ -432,6 +431,10 @@
       gap:18px;
       min-height:360px;
       isolation:isolate;
+      border-radius:26px;
+      border:1px solid rgba(255,255,255,.14);
+      backdrop-filter:blur(12px);
+      box-shadow:var(--shadow-big);
     }
 
     .worldZone::before,
@@ -1252,7 +1255,6 @@
 <body>
   <div class="wrap">
 
-    <!-- HERO -->
     <section class="heroBanner">
       <div>
         <div class="heroMain">
@@ -1290,7 +1292,6 @@
       </div>
     </section>
 
-    <!-- TOP ACTIONS -->
     <section class="topStackCompact">
       <div class="dualTopGrid">
         <section class="compactCard">
@@ -1365,7 +1366,6 @@
       </div>
     </section>
 
-    <!-- CELEBRATE -->
     <section class="celebrateBanner" id="celebrateBanner">
       <div class="celebrateIcon" id="celebrateIcon">🎉</div>
       <div>
@@ -1374,7 +1374,6 @@
       </div>
     </section>
 
-    <!-- FAVORITE -->
     <section class="favoriteGameCard">
       <div class="cardBookTitle">💖 เกมที่น่าลองตอนนี้</div>
       <div class="cardBookSub">ระบบเลือกเกมที่เหมาะให้ตอนนี้</div>
@@ -1391,10 +1390,8 @@
       </div>
     </section>
 
-    <!-- WORLD MAP -->
     <div class="worldMap">
 
-      <!-- NUTRITION -->
       <section class="worldZone nutrition">
         <div class="worldHero">
           <div>
@@ -1514,7 +1511,6 @@
         </div>
       </section>
 
-      <!-- HYGIENE -->
       <section class="worldZone hygiene">
         <div class="worldHero">
           <div>
@@ -1629,7 +1625,6 @@
         </div>
       </section>
 
-      <!-- FITNESS -->
       <section class="worldZone fitness">
         <div class="worldHero">
           <div>
@@ -1735,7 +1730,6 @@
       </section>
     </div>
 
-    <!-- QUEST -->
     <section class="questStarsCard">
       <div class="cardBookTitle">⭐ ดาวภารกิจวันนี้</div>
       <div class="cardBookSub">เล่นแต่ละโลกเพื่อเก็บดาวประจำวัน</div>
@@ -1770,7 +1764,6 @@
       </div>
     </section>
 
-    <!-- STICKER -->
     <section class="stickerStrip">
       <div class="cardBookTitle">🎟 สติกเกอร์วันนี้</div>
       <div class="cardBookSub">เล่นมากขึ้น ก็ได้สติกเกอร์เพิ่ม</div>
@@ -1779,7 +1772,6 @@
       </div>
     </section>
 
-    <!-- MISSION -->
     <section class="missionBoard">
       <div class="cardBookTitle">🗺 เส้นทางแนะนำ</div>
       <div class="cardBookSub">เลือกเส้นทางที่อยากเล่นได้เลย</div>
@@ -1820,7 +1812,6 @@
       </div>
     </section>
 
-    <!-- FOLD -->
     <section class="foldSection">
       <div class="foldHeader">
         <div>
@@ -2087,8 +2078,8 @@
     const uiLvl = document.getElementById('uiLvl');
     const uiXp = document.getElementById('uiXp');
 
-    uiPid.textContent = pid;
-    ctxLine.textContent = `โหมด ${run} • ระดับ ${diff} • เวลา ${time} วินาที • มุมมอง ${view}`;
+    if (uiPid) uiPid.textContent = pid;
+    if (ctxLine) ctxLine.textContent = `โหมด ${run} • ระดับ ${diff} • เวลา ${time} วินาที • มุมมอง ${view}`;
 
     function hhDayKey(){
       const d = new Date();
@@ -2134,6 +2125,52 @@
       try{ return JSON.parse(s); }catch(_){ return null; }
     }
 
+    async function canOpenUrl(url){
+      try{
+        const res = await fetch(url, { method:'HEAD', cache:'no-store' });
+        if(res.ok) return true;
+      }catch(_){}
+      try{
+        const res2 = await fetch(url, { method:'GET', cache:'no-store' });
+        return !!res2.ok;
+      }catch(_){}
+      return false;
+    }
+
+    function toastLike(message){
+      try{ alert(message); }catch(_){}
+    }
+
+    async function openGameSafe(path, extra, fallbackLabel='เกมนี้'){
+      const url = buildUrl(path, extra || {});
+      const ok = await canOpenUrl(url);
+      if(ok){
+        location.href = url;
+        return;
+      }
+      toastLike(`ยังเปิด ${fallbackLabel} ไม่ได้ตอนนี้\nตรวจ path หรือชื่อไฟล์อีกครั้งนะ`);
+    }
+
+    function getLastSummary(){
+      const raw = localStorage.getItem('HHA_LAST_SUMMARY') || '';
+      return raw ? safeJsonParse(raw) : null;
+    }
+
+    function getLastSummaryUrl(){
+      const sum = getLastSummary();
+      if(!sum) return '';
+      const ex = sum.__extraJson ? safeJsonParse(sum.__extraJson) : null;
+      return ex && ex.url ? String(ex.url) : '';
+    }
+
+    function getZoneDoneToday(zone){
+      try{
+        return localStorage.getItem(`HHA_ZONE_DONE::${zone}::${hhDayKey()}`) === '1';
+      }catch(_){
+        return false;
+      }
+    }
+
     function loadHero(){
       try{
         const raw = localStorage.getItem(`HHA_PROFILE:${pid}`) || '';
@@ -2159,9 +2196,9 @@
 
     function renderHero(){
       const h = loadHero();
-      uiNick.textContent = h.nick || pid;
-      uiXp.textContent = String(h.xp|0);
-      uiLvl.textContent = String(h.lvl|0);
+      if (uiNick) uiNick.textContent = h.nick || pid;
+      if (uiXp) uiXp.textContent = String(h.xp|0);
+      if (uiLvl) uiLvl.textContent = String(h.lvl|0);
     }
 
     function buildUrl(path, extra){
@@ -2171,7 +2208,7 @@
       [
         'run','diff','time','seed','studyId','phase','conditionGroup','log','view','pid','api','ai','debug',
         'planSeq','planDay','planSlot','planMode','planSlots','planIndex','autoNext',
-        'plannedGame','finalGame','zone','cdnext','grade'
+        'plannedGame','finalGame','zone','cdnext','grade','mode','room','pro','auto'
       ].forEach(k=>{
         const v = sp.get(k);
         if(v != null && v !== '') u.searchParams.set(k, v);
@@ -2210,6 +2247,13 @@
       try{ localStorage.setItem(`HHA_CARD_BOOK:${pid}`, JSON.stringify(book)); }catch(_){}
     }
 
+    function loadLastCard(pid){
+      try{
+        const raw = localStorage.getItem(`HHA_LAST_CARD:${pid}`) || '';
+        return raw ? JSON.parse(raw) : null;
+      }catch(_){ return null; }
+    }
+
     function cardSpecFromGrade(grade){
       grade = String(grade || 'C').toUpperCase();
       if(grade === 'S') return { icon:'🏆', title:'Legendary Nutrition Hero' };
@@ -2228,13 +2272,6 @@
         const j = JSON.parse(raw2);
         if(j && String(j.pid||'') === pid && String(j.game||'').toLowerCase() === 'goodjunk') return j;
         return null;
-      }catch(_){ return null; }
-    }
-
-    function loadLastCard(pid){
-      try{
-        const raw = localStorage.getItem(`HHA_LAST_CARD:${pid}`) || '';
-        return raw ? JSON.parse(raw) : null;
       }catch(_){ return null; }
     }
 
@@ -2270,6 +2307,14 @@
       return isGateDone('warmup', cat, game, pid) || isCooldownDone(cat, game, pid);
     }
 
+    function wasGameTouchedToday(cat, game){
+      return (
+        gamePlayedToday(game) ||
+        isGateDone('warmup', cat, game, pid) ||
+        isCooldownDone(cat, game, pid)
+      );
+    }
+
     function computeZoneProgress(){
       const nutritionGames = ['goodjunk','groups','hydration','plate'];
       const hygieneGames   = ['handwash','brush','bath','cleanobject','maskcough','germdetective'];
@@ -2286,49 +2331,57 @@
       };
     }
 
+    function setText(id, value){
+      const el = document.getElementById(id);
+      if (el) el.textContent = String(value);
+    }
+
+    function setHref(id, href){
+      const el = document.getElementById(id);
+      if (el) el.href = href;
+    }
+
     function renderCardBook(){
       const book = loadCardBook(pid);
       const sum = loadLastGoodjunkSummary(pid);
       const lastCard = loadLastCard(pid);
 
-      document.getElementById('bookTotal').textContent = String(book.total || 0);
-      document.getElementById('bookS').textContent = String(book.S || 0);
-      document.getElementById('bookA').textContent = String(book.A || 0);
-      document.getElementById('bookB').textContent = String(book.B || 0);
-      document.getElementById('bookC').textContent = String(book.C || 0);
+      setText('bookTotal', book.total || 0);
+      setText('bookS', book.S || 0);
+      setText('bookA', book.A || 0);
+      setText('bookB', book.B || 0);
+      setText('bookC', book.C || 0);
 
       const lastDropIcon = document.getElementById('lastDropIcon');
       const lastDropTitle = document.getElementById('lastDropTitle');
       const lastDropMeta = document.getElementById('lastDropMeta');
-      const lastDropGrade = document.getElementById('lastDropGrade');
-      const lastDropScore = document.getElementById('lastDropScore');
 
       if(lastCard){
-        lastDropIcon.textContent = lastCard.icon || '🃏';
-        lastDropTitle.textContent = lastCard.title || 'Latest Card';
+        if (lastDropIcon) lastDropIcon.textContent = lastCard.icon || '🃏';
+        if (lastDropTitle) lastDropTitle.textContent = lastCard.title || 'Latest Card';
       }
 
       if(sum){
         const grade = String(sum.grade || 'C').toUpperCase();
         const spec = cardSpecFromGrade(grade);
-        if(!lastCard) lastDropIcon.textContent = spec.icon;
-        if(!lastCard) lastDropTitle.textContent = spec.title;
-        lastDropMeta.textContent = `ผลล่าสุด: miss ${sum.missTotal ?? sum.miss ?? 0} • acc ${sum.accPct ?? 0}%`;
-        lastDropGrade.textContent = grade;
-        lastDropScore.textContent = String(sum.scoreFinal ?? sum.score ?? 0);
+        if(!lastCard && lastDropIcon) lastDropIcon.textContent = spec.icon;
+        if(!lastCard && lastDropTitle) lastDropTitle.textContent = spec.title;
+        if(lastDropMeta) lastDropMeta.textContent = `ผลล่าสุด: miss ${sum.missTotal ?? sum.miss ?? 0} • acc ${sum.accPct ?? 0}%`;
+        setText('lastDropGrade', grade);
+        setText('lastDropScore', sum.scoreFinal ?? sum.score ?? 0);
       }else{
-        lastDropIcon.textContent = '🃏';
-        lastDropTitle.textContent = 'ยังไม่มีการ์ดล่าสุด';
-        lastDropMeta.textContent = 'ลองเล่น GoodJunk แล้วกลับมาดูอีกครั้ง';
-        lastDropGrade.textContent = '—';
-        lastDropScore.textContent = '0';
+        if (lastDropIcon) lastDropIcon.textContent = '🃏';
+        if (lastDropTitle) lastDropTitle.textContent = 'ยังไม่มีการ์ดล่าสุด';
+        if (lastDropMeta) lastDropMeta.textContent = 'ลองเล่น GoodJunk แล้วกลับมาดูอีกครั้ง';
+        setText('lastDropGrade', '—');
+        setText('lastDropScore', '0');
       }
 
       const bestNormal = loadJson(`HHA_GJ_BEST:${pid}:normal`, null);
-      document.getElementById('bestNormalScore').textContent = String(bestNormal?.scoreFinal ?? bestNormal?.score ?? 0);
+      setText('bestNormalScore', bestNormal?.scoreFinal ?? bestNormal?.score ?? 0);
 
       const streak = loadJson(`HHA_GJ_STREAK:${pid}`, { count:0 });
-      document.getElementById('streakCount').textContent = String(streak?.count || 0);
+      setText('streakCount', streak?.count || 0);
     }
 
     function renderJDCardBook(){
@@ -2336,45 +2389,43 @@
       const lastCard = loadJDLastCard(pid);
       const jd = loadJDProfile(pid);
 
-      document.getElementById('jdBookTotal').textContent = String(book.total || 0);
-      document.getElementById('jdBookS').textContent = String(book.S || 0);
-      document.getElementById('jdBookA').textContent = String(book.A || 0);
-      document.getElementById('jdBookB').textContent = String(book.B || 0);
-      document.getElementById('jdBookC').textContent = String(book.C || 0);
+      setText('jdBookTotal', book.total || 0);
+      setText('jdBookS', book.S || 0);
+      setText('jdBookA', book.A || 0);
+      setText('jdBookB', book.B || 0);
+      setText('jdBookC', book.C || 0);
 
       const icon = document.getElementById('jdLastCardIcon');
       const title = document.getElementById('jdLastCardTitle');
       const meta = document.getElementById('jdLastCardMeta');
-      const rank = document.getElementById('jdLastCardRank');
-      const best = document.getElementById('jdLastCardBest');
 
       if(lastCard){
-        icon.textContent = lastCard.icon || '🏃';
-        title.textContent = lastCard.title || 'Latest JumpDuck Card';
-        meta.textContent = `reward=${lastCard.rewardLabel || '-'} • score ${lastCard.scoreFinal ?? 0}`;
-        rank.textContent = String(lastCard.rank || '—');
+        if (icon) icon.textContent = lastCard.icon || '🏃';
+        if (title) title.textContent = lastCard.title || 'Latest JumpDuck Card';
+        if (meta) meta.textContent = `reward=${lastCard.rewardLabel || '-'} • score ${lastCard.scoreFinal ?? 0}`;
+        setText('jdLastCardRank', lastCard.rank || '—');
       }else{
-        icon.textContent = '🏃';
-        title.textContent = 'ยังไม่มีการ์ดล่าสุด';
-        meta.textContent = 'ลองเล่น JumpDuck แล้วกลับมาดูอีกครั้ง';
-        rank.textContent = '—';
+        if (icon) icon.textContent = '🏃';
+        if (title) title.textContent = 'ยังไม่มีการ์ดล่าสุด';
+        if (meta) meta.textContent = 'ลองเล่น JumpDuck แล้วกลับมาดูอีกครั้ง';
+        setText('jdLastCardRank', '—');
       }
 
-      best.textContent = String(jd.bestScore || 0);
+      setText('jdLastCardBest', jd.bestScore || 0);
     }
 
     function renderFitnessJumpDuckShelf(){
       const jd = loadJDProfile(pid);
       const badgeCount = Object.values(jd.badges || {}).filter(Boolean).length;
 
-      document.getElementById('fitnessJDBest').textContent = String(jd.bestScore || 0);
-      document.getElementById('fitnessJDStreak').textContent = String(jd.streak || 0);
-      document.getElementById('fitnessJDBadgeCount').textContent = String(badgeCount);
-      document.getElementById('fitnessJDReward').textContent = String(jd.lastReward?.medal ? `${jd.lastReward.medal} ${jd.lastReward.label}` : '-');
-      document.getElementById('fitnessJDBossBadge').textContent = String(jd.lastBossBadge?.icon ? `${jd.lastBossBadge.icon} ${jd.lastBossBadge.label}` : '-');
+      setText('fitnessJDBest', jd.bestScore || 0);
+      setText('fitnessJDStreak', jd.streak || 0);
+      setText('fitnessJDBadgeCount', badgeCount);
+      setText('fitnessJDReward', jd.lastReward?.medal ? `${jd.lastReward.medal} ${jd.lastReward.label}` : '-');
+      setText('fitnessJDBossBadge', jd.lastBossBadge?.icon ? `${jd.lastBossBadge.icon} ${jd.lastBossBadge.label}` : '-');
 
       const fitnessHint = document.getElementById('fitnessHint');
-      if((jd.bestScore || 0) > 0){
+      if(fitnessHint && (jd.bestScore || 0) > 0){
         fitnessHint.textContent = `JumpDuck best ${jd.bestScore || 0} • streak ${jd.streak || 0} • badges ${badgeCount}`;
       }
     }
@@ -2393,32 +2444,32 @@
       const hygieneStatus = document.getElementById('hygieneStatus');
       const fitnessStatus = document.getElementById('fitnessStatus');
 
-      nutriStatus.textContent = nutritionUnlocked ? 'ปลดล็อกแล้ว 🎉' : 'ยังไม่ปลดล็อก';
-      hygieneStatus.textContent = hygieneUnlocked ? 'สำเร็จวันนี้ ✅' : 'ยังไม่ปลดล็อก';
-      fitnessStatus.textContent = fitnessUnlocked ? 'สำเร็จวันนี้ ✅' : 'ยังไม่ปลดล็อก';
+      if (nutriStatus){
+        nutriStatus.textContent = nutritionUnlocked ? 'ปลดล็อกแล้ว 🎉' : 'ยังไม่ปลดล็อก';
+        nutriStatus.className = `statusChip ${nutritionUnlocked ? 'done' : 'locked'}`;
+      }
+      if (hygieneStatus){
+        hygieneStatus.textContent = hygieneUnlocked ? 'สำเร็จวันนี้ ✅' : 'ยังไม่ปลดล็อก';
+        hygieneStatus.className = `statusChip ${hygieneUnlocked ? 'done' : 'locked'}`;
+      }
+      if (fitnessStatus){
+        fitnessStatus.textContent = fitnessUnlocked ? 'สำเร็จวันนี้ ✅' : 'ยังไม่ปลดล็อก';
+        fitnessStatus.className = `statusChip ${fitnessUnlocked ? 'done' : 'locked'}`;
+      }
 
-      nutriStatus.className = `statusChip ${nutritionUnlocked ? 'done' : 'locked'}`;
-      hygieneStatus.className = `statusChip ${hygieneUnlocked ? 'done' : 'locked'}`;
-      fitnessStatus.className = `statusChip ${fitnessUnlocked ? 'done' : 'locked'}`;
+      setText('nutriTrophyIcon', nutritionUnlocked ? '🏆' : '🥦');
+      setText('hygieneTrophyIcon', hygieneUnlocked ? '🏅' : '🪥');
+      setText('fitnessTrophyIcon', fitnessUnlocked ? '🎖️' : '🏃');
 
-      document.getElementById('nutriTrophyIcon').textContent = nutritionUnlocked ? '🏆' : '🥦';
-      document.getElementById('hygieneTrophyIcon').textContent = hygieneUnlocked ? '🏅' : '🪥';
-      document.getElementById('fitnessTrophyIcon').textContent = fitnessUnlocked ? '🎖️' : '🏃';
-
-      document.getElementById('nutriBestScore').textContent = String(bestNormal?.scoreFinal ?? bestNormal?.score ?? 0);
-      document.getElementById('nutriCardTotal').textContent = String(book.total || 0);
-      document.getElementById('hygieneZoneDone').textContent = hygieneUnlocked ? '1' : '0';
-      document.getElementById('fitnessZoneDone').textContent = fitnessUnlocked ? '1' : '0';
+      setText('nutriBestScore', bestNormal?.scoreFinal ?? bestNormal?.score ?? 0);
+      setText('nutriCardTotal', book.total || 0);
+      setText('hygieneZoneDone', hygieneUnlocked ? '1' : '0');
+      setText('fitnessZoneDone', fitnessUnlocked ? '1' : '0');
 
       const badgeCount = Object.values(badges || {}).filter(Boolean).length;
-      document.getElementById('nutriHint').textContent =
-        nutritionUnlocked ? `ปลดถ้วยแล้ว • badges ${badgeCount} • เก่งมาก!` : 'เล่น GoodJunk หรือสะสมการ์ดเพื่อปลดถ้วยนี้';
-
-      document.getElementById('hygieneHint').textContent =
-        hygieneUnlocked ? 'วันนี้เล่นโลกสะอาดสำเร็จแล้ว' : 'เล่นโลกสะอาดให้สำเร็จวันนี้เพื่อโชว์ถ้วย';
-
-      document.getElementById('fitnessHint').textContent =
-        fitnessUnlocked ? 'วันนี้เล่นโลกแข็งแรงสำเร็จแล้ว' : 'เล่นโลกแข็งแรงให้สำเร็จวันนี้เพื่อโชว์ถ้วย';
+      setText('nutriHint', nutritionUnlocked ? `ปลดถ้วยแล้ว • badges ${badgeCount} • เก่งมาก!` : 'เล่น GoodJunk หรือสะสมการ์ดเพื่อปลดถ้วยนี้');
+      setText('hygieneHint', hygieneUnlocked ? 'วันนี้เล่นโลกสะอาดสำเร็จแล้ว' : 'เล่นโลกสะอาดให้สำเร็จวันนี้เพื่อโชว์ถ้วย');
+      setText('fitnessHint', fitnessUnlocked ? 'วันนี้เล่นโลกแข็งแรงสำเร็จแล้ว' : 'เล่นโลกแข็งแรงให้สำเร็จวันนี้เพื่อโชว์ถ้วย');
     }
 
     function renderLastRun(){
@@ -2433,13 +2484,15 @@
       const sum = raw ? safeJsonParse(raw) : null;
 
       if(!sum){
-        sub.textContent = 'ยังไม่มีเกมล่าสุด — ลองเล่นสักเกมก่อนนะ';
-        grid.style.display = 'none';
-        open.style.display = 'none';
-        clear.onclick = ()=>{
-          try{ localStorage.removeItem('HHA_LAST_SUMMARY'); }catch(_){}
-          renderLastRun();
-        };
+        if (sub) sub.textContent = 'ยังไม่มีเกมล่าสุด — ลองเล่นสักเกมก่อนนะ';
+        if (grid) grid.style.display = 'none';
+        if (open) open.style.display = 'none';
+        if (clear){
+          clear.onclick = ()=>{
+            try{ localStorage.removeItem('HHA_LAST_SUMMARY'); }catch(_){}
+            renderLastRun();
+          };
+        }
         return;
       }
 
@@ -2451,85 +2504,96 @@
                   : (sum.acc_pct != null) ? (Number(sum.acc_pct).toFixed(1) + '%')
                   : '-';
 
-      sub.textContent = `${String(game).toUpperCase()} • โหมด ${mode} • ระดับ ${diffx}`;
+      if (sub) sub.textContent = `${String(game).toUpperCase()} • โหมด ${mode} • ระดับ ${diffx}`;
 
       let lastUrl = '';
       const ex = sum.__extraJson ? safeJsonParse(sum.__extraJson) : null;
       if(ex && ex.url) lastUrl = String(ex.url);
 
-      if(lastUrl){
-        open.href = lastUrl;
-        open.style.display = 'inline-flex';
-      }else{
-        open.style.display = 'none';
+      if(open){
+        if(lastUrl){
+          open.href = lastUrl;
+          open.style.display = 'inline-flex';
+        }else{
+          open.style.display = 'none';
+        }
       }
 
-      clear.onclick = ()=>{
-        try{ localStorage.removeItem('HHA_LAST_SUMMARY'); }catch(_){}
-        renderLastRun();
-      };
+      if(clear){
+        clear.onclick = ()=>{
+          try{ localStorage.removeItem('HHA_LAST_SUMMARY'); }catch(_){}
+          renderLastRun();
+        };
+      }
 
-      left.innerHTML = `
-        <div class="bookMini">เกมที่เพิ่งเล่น</div>
-        <div style="margin-top:10px;">
-          <div class="trophyTitle">${String(game).toUpperCase()}</div>
-          <div class="lastDropMeta">โหมด ${mode} • ระดับ ${diffx}</div>
-          <div class="lastDropMeta">คะแนน ${score} • ความแม่น ${acc}</div>
-        </div>
-      `;
+      if (left){
+        left.innerHTML = `
+          <div class="bookMini">เกมที่เพิ่งเล่น</div>
+          <div style="margin-top:10px;">
+            <div class="trophyTitle">${String(game).toUpperCase()}</div>
+            <div class="lastDropMeta">โหมด ${mode} • ระดับ ${diffx}</div>
+            <div class="lastDropMeta">คะแนน ${score} • ความแม่น ${acc}</div>
+          </div>
+        `;
+      }
 
-      right.innerHTML = `
-        <div class="bookMini">รายละเอียดเพิ่ม</div>
-        <div class="compactPills" style="margin-top:10px;">
-          <span class="compactPill">🧩 Session ${sum.sessionId || sum.session_id || '-'}</span>
-          <span class="compactPill">⚡ Combo ${sum.comboMax ?? sum.max_combo ?? '-'}</span>
-          <span class="compactPill">❌ Miss ${sum.misses ?? sum.missTotal ?? sum.miss_total ?? '-'}</span>
-          <span class="compactPill">👾 Boss ${sum.bossVariant ?? sum.boss_variant ?? '-'}</span>
-        </div>
-      `;
+      if (right){
+        right.innerHTML = `
+          <div class="bookMini">รายละเอียดเพิ่ม</div>
+          <div class="compactPills" style="margin-top:10px;">
+            <span class="compactPill">🧩 Session ${sum.sessionId || sum.session_id || '-'}</span>
+            <span class="compactPill">⚡ Combo ${sum.comboMax ?? sum.max_combo ?? '-'}</span>
+            <span class="compactPill">❌ Miss ${sum.misses ?? sum.missTotal ?? sum.miss_total ?? '-'}</span>
+            <span class="compactPill">👾 Boss ${sum.bossVariant ?? sum.boss_variant ?? '-'}</span>
+          </div>
+        `;
+      }
 
-      grid.style.display = 'grid';
+      if (grid) grid.style.display = 'grid';
     }
 
     function renderGoodJunkDailyStatus(){
-      document.getElementById('gjWarmToday').textContent = childDoneText(isGateDone('warmup', 'nutrition', 'goodjunk', pid));
-      document.getElementById('gjCoolToday').textContent = childDoneText(isCooldownDone('nutrition', 'goodjunk', pid));
+      setText('gjWarmToday', childDoneText(isGateDone('warmup', 'nutrition', 'goodjunk', pid)));
+      setText('gjCoolToday', childDoneText(isCooldownDone('nutrition', 'goodjunk', pid)));
     }
 
     function renderHydrationDailyStatus(){
-      document.getElementById('hydWarmToday').textContent = childDoneText(isGateDone('warmup', 'nutrition', 'hydration', pid));
-      document.getElementById('hydCoolToday').textContent = childDoneText(isCooldownDone('nutrition', 'hydration', pid));
+      setText('hydWarmToday', childDoneText(isGateDone('warmup', 'nutrition', 'hydration', pid)));
+      setText('hydCoolToday', childDoneText(isCooldownDone('nutrition', 'hydration', pid)));
     }
 
     function renderZoneProgress(){
       const p = computeZoneProgress();
 
-      document.getElementById('nutriProgressText').textContent = `${p.nutrition.done} / ${p.nutrition.total} เกม`;
-      document.getElementById('hygProgressText').textContent   = `${p.hygiene.done} / ${p.hygiene.total} เกม`;
-      document.getElementById('fitProgressText').textContent   = `${p.fitness.done} / ${p.fitness.total} เกม`;
+      setText('nutriProgressText', `${p.nutrition.done} / ${p.nutrition.total} เกม`);
+      setText('hygProgressText', `${p.hygiene.done} / ${p.hygiene.total} เกม`);
+      setText('fitProgressText', `${p.fitness.done} / ${p.fitness.total} เกม`);
 
-      document.getElementById('nutriProgressBar').style.width = `${(p.nutrition.done / p.nutrition.total) * 100}%`;
-      document.getElementById('hygProgressBar').style.width   = `${(p.hygiene.done / p.hygiene.total) * 100}%`;
-      document.getElementById('fitProgressBar').style.width   = `${(p.fitness.done / p.fitness.total) * 100}%`;
+      const nb = document.getElementById('nutriProgressBar');
+      const hb = document.getElementById('hygProgressBar');
+      const fb = document.getElementById('fitProgressBar');
+
+      if (nb) nb.style.width = `${(p.nutrition.done / p.nutrition.total) * 100}%`;
+      if (hb) hb.style.width = `${(p.hygiene.done / p.hygiene.total) * 100}%`;
+      if (fb) fb.style.width = `${(p.fitness.done / p.fitness.total) * 100}%`;
     }
 
     function renderTopMiniSummary(){
-      const today = hhDayKey();
+      const nutrDone =
+        getZoneDoneToday('nutrition') ||
+        ['goodjunk','groups','hydration','plate'].some(g => wasGameTouchedToday('nutrition', g));
 
-      const nutrDone = (
-        isGateDone('warmup','nutrition','goodjunk',pid) ||
-        isGateDone('warmup','nutrition','groups',pid) ||
-        isGateDone('warmup','nutrition','hydration',pid) ||
-        isGateDone('warmup','nutrition','plate',pid) ||
-        localStorage.getItem(`HHA_ZONE_DONE::nutrition::${today}`) === '1'
-      );
+      const hygDone =
+        getZoneDoneToday('hygiene') ||
+        ['handwash','brush','bath','cleanobject','maskcough','germdetective'].some(g => wasGameTouchedToday('hygiene', g));
 
-      const hygDone = localStorage.getItem(`HHA_ZONE_DONE::hygiene::${today}`) === '1';
-      const fitDone = localStorage.getItem(`HHA_ZONE_DONE::fitness::${today}`) === '1';
+      const fitDone =
+        getZoneDoneToday('fitness') ||
+        ['shadowbreaker','rhythmboxer','jumpduck','balancehold','fitnessplanner'].some(g => wasGameTouchedToday('fitness', g));
 
-      document.getElementById('topMiniNutri').textContent = nutrDone ? 'เริ่มแล้ว ✅' : 'ยังไม่เริ่ม';
-      document.getElementById('topMiniHyg').textContent = hygDone ? 'สำเร็จแล้ว ✅' : 'ยังไม่เริ่ม';
-      document.getElementById('topMiniFit').textContent = fitDone ? 'สำเร็จแล้ว ✅' : 'ยังไม่เริ่ม';
+      setText('topMiniNutri', nutrDone ? 'เริ่มแล้ว ✅' : 'ยังไม่เริ่ม');
+      setText('topMiniHyg', hygDone ? 'เริ่มแล้ว ✅' : 'ยังไม่เริ่ม');
+      setText('topMiniFit', fitDone ? 'เริ่มแล้ว ✅' : 'ยังไม่เริ่ม');
     }
 
     function setQuestBadge(elBadge, elMeta, done, doneText, todoText){
@@ -2540,17 +2604,17 @@
     }
 
     function renderQuestStars(){
-      const today = hhDayKey();
+      const nutrDone =
+        getZoneDoneToday('nutrition') ||
+        ['goodjunk','groups','hydration','plate'].some(g => wasGameTouchedToday('nutrition', g));
 
-      const nutrDone = (
-        isGateDone('warmup','nutrition','goodjunk',pid) ||
-        isGateDone('warmup','nutrition','groups',pid) ||
-        isGateDone('warmup','nutrition','hydration',pid) ||
-        isGateDone('warmup','nutrition','plate',pid) ||
-        localStorage.getItem(`HHA_ZONE_DONE::nutrition::${today}`) === '1'
-      );
-      const hygDone = localStorage.getItem(`HHA_ZONE_DONE::hygiene::${today}`) === '1';
-      const fitDone = localStorage.getItem(`HHA_ZONE_DONE::fitness::${today}`) === '1';
+      const hygDone =
+        getZoneDoneToday('hygiene') ||
+        ['handwash','brush','bath','cleanobject','maskcough','germdetective'].some(g => wasGameTouchedToday('hygiene', g));
+
+      const fitDone =
+        getZoneDoneToday('fitness') ||
+        ['shadowbreaker','rhythmboxer','jumpduck','balancehold','fitnessplanner'].some(g => wasGameTouchedToday('fitness', g));
 
       setQuestBadge(
         document.getElementById('questNutriBadge'),
@@ -2604,30 +2668,10 @@
 
     function renderMissionBoard(){
       const zone = computeZoneProgress();
-      document.getElementById('boardNutriMeta').textContent = `เล่นแล้ว ${zone.nutrition.done}/${zone.nutrition.total} เกม • เริ่ม GoodJunk → Hydration → Plate`;
-      document.getElementById('boardHygMeta').textContent  = `เล่นแล้ว ${zone.hygiene.done}/${zone.hygiene.total} เกม • เริ่ม Handwash → Brush → Bath`;
-      document.getElementById('boardFitMeta').textContent  = `เล่นแล้ว ${zone.fitness.done}/${zone.fitness.total} เกม • เริ่ม JumpDuck → Shadow Breaker → Balance Hold`;
+      setText('boardNutriMeta', `เล่นแล้ว ${zone.nutrition.done}/${zone.nutrition.total} เกม • เริ่ม GoodJunk → Hydration → Plate`);
+      setText('boardHygMeta', `เล่นแล้ว ${zone.hygiene.done}/${zone.hygiene.total} เกม • เริ่ม Handwash → Brush → Bath`);
+      setText('boardFitMeta', `เล่นแล้ว ${zone.fitness.done}/${zone.fitness.total} เกม • เริ่ม JumpDuck → Shadow Breaker → Balance Hold`);
     }
-
-    const PATHS = {
-      goodjunk:       './goodjunk-launcher.html',
-      groups:         './groups-vr.html',
-      hydration:      './hydration-vr.html',
-      plate:          './plate-vr.html',
-
-      handwash:       './hygiene-vr.html',
-      brush:          './brush-vr.html',
-      bath:           './bath-vr.html',
-      cleanObject:    './clean-objects.html',
-      maskCough:      './maskcough-v2.html',
-      germDetective:  './germ-detective.html',
-
-      shadowBreaker:  './shadow-breaker-vr.html',
-      rhythmBoxer:    './rhythm-boxer-vr.html',
-      jumpDuck:       './jump-duck-vr.html',
-      balanceHold:    './balance-hold-vr.html',
-      fitnessPlanner: './fitness-planner.html'
-    };
 
     function getRecommendedGame(){
       const priority = [
@@ -2694,10 +2738,10 @@
 
     function renderFavoriteGame(){
       const fav = getFavoriteGameNow();
-      document.getElementById('favoriteGameIcon').textContent = fav.icon;
-      document.getElementById('favoriteGameTitle').textContent = `แนะนำ: ${fav.title}`;
-      document.getElementById('favoriteGameMeta').textContent = fav.meta;
-      document.getElementById('favoriteGameLink').href = buildUrl(PATHS[fav.path], fav.extra || {});
+      setText('favoriteGameIcon', fav.icon);
+      setText('favoriteGameTitle', `แนะนำ: ${fav.title}`);
+      setText('favoriteGameMeta', fav.meta);
+      setHref('favoriteGameLink', buildUrl(PATHS[fav.path], fav.extra || {}));
     }
 
     function renderCelebrateBanner(){
@@ -2707,11 +2751,14 @@
       const meta = document.getElementById('celebrateMeta');
       const zone = computeZoneProgress();
 
-      const totalDone = zone.nutrition.done + zone.hygiene.done + zone.fitness.done;
+      if(!banner || !icon || !title || !meta) return;
+
       const fullZones =
-        Number(zone.nutrition.done === zone.nutrition.total) +
-        Number(zone.hygiene.done === zone.hygiene.total) +
-        Number(zone.fitness.done === zone.fitness.total);
+        Number(getZoneDoneToday('nutrition') || zone.nutrition.done === zone.nutrition.total) +
+        Number(getZoneDoneToday('hygiene') || zone.hygiene.done === zone.hygiene.total) +
+        Number(getZoneDoneToday('fitness') || zone.fitness.done === zone.fitness.total);
+
+      const totalDone = zone.nutrition.done + zone.hygiene.done + zone.fitness.done;
 
       if(fullZones >= 3){
         banner.classList.add('show');
@@ -2845,44 +2892,269 @@
       );
     }
 
+    const PATHS = {
+      goodjunk:       './goodjunk-launcher.html',
+      groups:         './groups-vr.html',
+      hydration:      './hydration-vr.html',
+      plate:          './plate-vr.html',
+
+      handwash:       './hygiene-vr.html',
+      brush:          './brush-vr.html',
+      bath:           './bath-vr.html',
+      cleanObject:    './clean-objects.html',
+      maskCough:      './maskcough-v2.html',
+      germDetective:  './germ-detective.html',
+
+      shadowBreaker:  './shadow-breaker-vr.html',
+      rhythmBoxer:    './rhythm-boxer-vr.html',
+      jumpDuck:       './jump-duck-vr.html',
+      balanceHold:    './balance-hold-vr.html',
+      fitnessPlanner: './fitness-planner.html'
+    };
+
+    function bindPaths(){
+      setHref('linkGoodjunk',      buildUrl(PATHS.goodjunk, { mode:'solo' }));
+      setHref('linkGroups',        buildUrl(PATHS.groups, { zone:'nutrition' }));
+      setHref('linkHydration',     buildUrl(PATHS.hydration, { zone:'nutrition' }));
+      setHref('linkPlate',         buildUrl(PATHS.plate, { zone:'nutrition' }));
+
+      setHref('linkHandwash',      buildUrl(PATHS.handwash, { zone:'hygiene' }));
+      setHref('linkBrush',         buildUrl(PATHS.brush, { zone:'hygiene' }));
+      setHref('linkBath',          buildUrl(PATHS.bath, { zone:'hygiene' }));
+      setHref('linkCleanObject',   buildUrl(PATHS.cleanObject, { zone:'hygiene' }));
+      setHref('linkMaskCough',     buildUrl(PATHS.maskCough, { zone:'hygiene' }));
+      setHref('linkGermDetective', buildUrl(PATHS.germDetective, { zone:'hygiene' }));
+
+      setHref('linkShadowBreaker', buildUrl(PATHS.shadowBreaker, { zone:'fitness' }));
+      setHref('linkRhythmBoxer',   buildUrl(PATHS.rhythmBoxer, { zone:'fitness' }));
+      setHref('linkJumpDuck',      buildUrl(PATHS.jumpDuck, { zone:'fitness' }));
+      setHref('linkBalanceHold',   buildUrl(PATHS.balanceHold, { zone:'fitness' }));
+      setHref('linkFitnessPlanner',buildUrl(PATHS.fitnessPlanner, { zone:'fitness' }));
+
+      setHref('linkJDGallery', buildUrl('./jump-duck-gallery.html', { zone:'fitness' }));
+    }
+
     function bindTopQuickActions(){
-      document.getElementById('btnTopStartEasy').onclick = ()=>{
-        location.href = buildUrl(PATHS.goodjunk, { mode:'solo' });
-      };
+      const easy = document.getElementById('btnTopStartEasy');
+      const recommend = document.getElementById('btnTopRecommended');
+      const resume = document.getElementById('btnTopResume');
+      const random = document.getElementById('btnTopRandom');
 
-      document.getElementById('btnTopRecommended').onclick = ()=>{
-        const g = getRecommendedGame();
-        location.href = buildUrl(PATHS[g.path], g.extra || {});
-      };
+      if (easy){
+        easy.onclick = ()=> openGameSafe(PATHS.goodjunk, { mode:'solo' }, 'GoodJunk');
+      }
 
-      document.getElementById('btnTopResume').onclick = ()=>{
-        const g = getNextGameAfterLastRun();
-        location.href = buildUrl(PATHS[g.path], g.extra || {});
-      };
+      if (recommend){
+        recommend.onclick = ()=>{
+          const g = getRecommendedGame();
+          openGameSafe(PATHS[g.path], g.extra || {}, g.title || 'เกมแนะนำ');
+        };
+      }
 
-      document.getElementById('btnTopRandom').onclick = ()=>{
-        const games = [
-          { path:'goodjunk', extra:{ mode:'solo' } },
-          { path:'hydration', extra:{ zone:'nutrition' } },
-          { path:'groups', extra:{ zone:'nutrition' } },
-          { path:'plate', extra:{ zone:'nutrition' } },
-          { path:'handwash', extra:{ zone:'hygiene' } },
-          { path:'brush', extra:{ zone:'hygiene' } },
-          { path:'bath', extra:{ zone:'hygiene' } },
-          { path:'germDetective', extra:{ zone:'hygiene' } },
-          { path:'jumpDuck', extra:{ zone:'fitness' } },
-          { path:'shadowBreaker', extra:{ zone:'fitness' } },
-          { path:'balanceHold', extra:{ zone:'fitness' } },
-          { path:'rhythmBoxer', extra:{ zone:'fitness' } }
-        ];
-        const g = games[Math.floor(Math.random() * games.length)];
-        location.href = buildUrl(PATHS[g.path], g.extra || {});
-      };
+      if (resume){
+        resume.onclick = async ()=>{
+          const lastUrl = getLastSummaryUrl();
+          if(lastUrl){
+            const ok = await canOpenUrl(lastUrl);
+            if(ok){
+              location.href = lastUrl;
+              return;
+            }
+          }
+          const g = getNextGameAfterLastRun();
+          openGameSafe(PATHS[g.path], g.extra || {}, g.title || 'เกมถัดไป');
+        };
+      }
+
+      if (random){
+        random.onclick = ()=>{
+          const games = [
+            { path:'goodjunk', title:'GoodJunk', extra:{ mode:'solo' } },
+            { path:'hydration', title:'Hydration', extra:{ zone:'nutrition' } },
+            { path:'groups', title:'Food Groups', extra:{ zone:'nutrition' } },
+            { path:'plate', title:'Balanced Plate', extra:{ zone:'nutrition' } },
+            { path:'handwash', title:'Handwash', extra:{ zone:'hygiene' } },
+            { path:'brush', title:'Brush', extra:{ zone:'hygiene' } },
+            { path:'bath', title:'Bath', extra:{ zone:'hygiene' } },
+            { path:'germDetective', title:'Germ Detective', extra:{ zone:'hygiene' } },
+            { path:'jumpDuck', title:'JumpDuck', extra:{ zone:'fitness' } },
+            { path:'shadowBreaker', title:'Shadow Breaker', extra:{ zone:'fitness' } },
+            { path:'balanceHold', title:'Balance Hold', extra:{ zone:'fitness' } },
+            { path:'rhythmBoxer', title:'Rhythm Boxer', extra:{ zone:'fitness' } }
+          ];
+          const g = games[Math.floor(Math.random() * games.length)];
+          openGameSafe(PATHS[g.path], g.extra || {}, g.title || 'เกมสุ่ม');
+        };
+      }
+    }
+
+    function bindWorldButtons(){
+      const btnGJsolo = document.getElementById('btnGJsolo');
+      const btnHydrationStart = document.getElementById('btnHydrationStart');
+
+      if (btnGJsolo){
+        btnGJsolo.onclick = ()=> openGameSafe(PATHS.goodjunk, { mode:'solo' }, 'GoodJunk');
+      }
+
+      if (btnHydrationStart){
+        btnHydrationStart.onclick = ()=> openGameSafe(PATHS.hydration, { zone:'nutrition' }, 'Hydration');
+      }
+
+      const btnNutriRecommended = document.getElementById('btnNutriRecommended');
+      if (btnNutriRecommended){
+        btnNutriRecommended.onclick = ()=>{
+          const options = [
+            { id:'goodjunk', path:'goodjunk', title:'GoodJunk', extra:{ mode:'solo' } },
+            { id:'hydration', path:'hydration', title:'Hydration', extra:{ zone:'nutrition' } },
+            { id:'groups', path:'groups', title:'Food Groups', extra:{ zone:'nutrition' } },
+            { id:'plate', path:'plate', title:'Balanced Plate', extra:{ zone:'nutrition' } }
+          ];
+          const pick = options.find(x => !gamePlayedToday(x.id)) || options[0];
+          openGameSafe(PATHS[pick.path], pick.extra || {}, pick.title);
+        };
+      }
+
+      const btnHygRecommended = document.getElementById('btnHygRecommended');
+      if (btnHygRecommended){
+        btnHygRecommended.onclick = ()=>{
+          const options = [
+            { id:'handwash', path:'handwash', title:'Handwash', extra:{ zone:'hygiene' } },
+            { id:'brush', path:'brush', title:'Brush', extra:{ zone:'hygiene' } },
+            { id:'bath', path:'bath', title:'Bath', extra:{ zone:'hygiene' } },
+            { id:'germdetective', path:'germDetective', title:'Germ Detective', extra:{ zone:'hygiene' } }
+          ];
+          const pick = options.find(x => !gamePlayedToday(x.id)) || options[0];
+          openGameSafe(PATHS[pick.path], pick.extra || {}, pick.title);
+        };
+      }
+
+      const btnFitRecommended = document.getElementById('btnFitRecommended');
+      if (btnFitRecommended){
+        btnFitRecommended.onclick = ()=>{
+          const options = [
+            { id:'jumpduck', path:'jumpDuck', title:'JumpDuck', extra:{ zone:'fitness' } },
+            { id:'shadowbreaker', path:'shadowBreaker', title:'Shadow Breaker', extra:{ zone:'fitness' } },
+            { id:'balancehold', path:'balanceHold', title:'Balance Hold', extra:{ zone:'fitness' } },
+            { id:'rhythmboxer', path:'rhythmBoxer', title:'Rhythm Boxer', extra:{ zone:'fitness' } }
+          ];
+          const pick = options.find(x => !gamePlayedToday(x.id)) || options[0];
+          openGameSafe(PATHS[pick.path], pick.extra || {}, pick.title);
+        };
+      }
+    }
+
+    function bindMissionButtons(){
+      const btnBoardNutri = document.getElementById('btnBoardNutri');
+      const btnBoardHyg = document.getElementById('btnBoardHyg');
+      const btnBoardFit = document.getElementById('btnBoardFit');
+
+      if (btnBoardNutri){
+        btnBoardNutri.onclick = ()=>{
+          const options = [
+            { id:'goodjunk', path:'goodjunk', title:'GoodJunk', extra:{ mode:'solo' } },
+            { id:'hydration', path:'hydration', title:'Hydration', extra:{ zone:'nutrition' } },
+            { id:'plate', path:'plate', title:'Balanced Plate', extra:{ zone:'nutrition' } }
+          ];
+          const pick = options.find(x => !gamePlayedToday(x.id)) || options[0];
+          openGameSafe(PATHS[pick.path], pick.extra || {}, pick.title);
+        };
+      }
+
+      if (btnBoardHyg){
+        btnBoardHyg.onclick = ()=>{
+          const options = [
+            { id:'handwash', path:'handwash', title:'Handwash', extra:{ zone:'hygiene' } },
+            { id:'brush', path:'brush', title:'Brush', extra:{ zone:'hygiene' } },
+            { id:'bath', path:'bath', title:'Bath', extra:{ zone:'hygiene' } }
+          ];
+          const pick = options.find(x => !gamePlayedToday(x.id)) || options[0];
+          openGameSafe(PATHS[pick.path], pick.extra || {}, pick.title);
+        };
+      }
+
+      if (btnBoardFit){
+        btnBoardFit.onclick = ()=>{
+          const options = [
+            { id:'jumpduck', path:'jumpDuck', title:'JumpDuck', extra:{ zone:'fitness' } },
+            { id:'shadowbreaker', path:'shadowBreaker', title:'Shadow Breaker', extra:{ zone:'fitness' } },
+            { id:'balancehold', path:'balanceHold', title:'Balance Hold', extra:{ zone:'fitness' } }
+          ];
+          const pick = options.find(x => !gamePlayedToday(x.id)) || options[0];
+          openGameSafe(PATHS[pick.path], pick.extra || {}, pick.title);
+        };
+      }
+    }
+
+    function bindCollectionButtons(){
+      const btnOpenGJLauncher = document.getElementById('btnOpenGJLauncher');
+      if (btnOpenGJLauncher){
+        btnOpenGJLauncher.onclick = ()=>{
+          openGameSafe(PATHS.goodjunk, { mode:'solo' }, 'GoodJunk');
+        };
+      }
+
+      const btnResetCardBook = document.getElementById('btnResetCardBook');
+      if (btnResetCardBook){
+        btnResetCardBook.onclick = ()=>{
+          if(!confirm('ล้าง Card Book ของผู้เล่นนี้หรือไม่?')) return;
+          saveCardBook(pid, { S:0, A:0, B:0, C:0, total:0 });
+          localStorage.removeItem(`HHA_LAST_CARD:${pid}`);
+          renderAll();
+        };
+      }
+
+      const btnOpenJDLauncher = document.getElementById('btnOpenJDLauncher');
+      if (btnOpenJDLauncher){
+        btnOpenJDLauncher.onclick = ()=>{
+          openGameSafe(PATHS.jumpDuck, { zone:'fitness' }, 'JumpDuck');
+        };
+      }
+
+      const btnOpenJDGallery = document.getElementById('btnOpenJDGallery');
+      if (btnOpenJDGallery){
+        btnOpenJDGallery.onclick = ()=>{
+          location.href = buildUrl('./jump-duck-gallery.html', { zone:'fitness' });
+        };
+      }
+
+      const btnResetJDCardBook = document.getElementById('btnResetJDCardBook');
+      if (btnResetJDCardBook){
+        btnResetJDCardBook.onclick = ()=>{
+          if(!confirm('ล้าง JumpDuck Card Book ของผู้เล่นนี้หรือไม่?')) return;
+          saveJDCardBook(pid, { S:0, A:0, B:0, C:0, total:0 });
+          localStorage.removeItem(`JD_LAST_CARD:${pid}`);
+          localStorage.removeItem(`JD_PROFILE:${pid}`);
+          localStorage.removeItem(`HHA_JD_BEST:${pid}`);
+          renderAll();
+        };
+      }
+    }
+
+    function bindHeroButtons(){
+      const btnHeroShow = document.getElementById('btnHeroShow');
+      if (btnHeroShow){
+        btnHeroShow.onclick = ()=>{
+          const h = loadHero();
+          alert(`HERO\nPID: ${h.pid}\nNick: ${h.nick}\nLV: ${h.lvl}\nXP: ${h.xp}`);
+        };
+      }
+
+      const btnHeroReset = document.getElementById('btnHeroReset');
+      if (btnHeroReset){
+        btnHeroReset.onclick = ()=>{
+          if(!confirm('เริ่มฮีโร่ใหม่หรือไม่?')) return;
+          const h = { pid, nick: pid, xp:0, lvl:1 };
+          saveHero(h);
+          try{ localStorage.setItem(`HHA_HERO_XP:${pid}`, '0'); }catch(_){}
+          renderAll();
+        };
+      }
     }
 
     function bindFoldSections(){
       const btn = document.getElementById('btnToggleCollectionFold');
       const body = document.getElementById('collectionFoldBody');
+      if (!btn || !body) return;
 
       btn.onclick = ()=>{
         const hidden = body.hasAttribute('hidden');
@@ -2899,29 +3171,33 @@
     function bindSummaryToggles(){
       const gjBtn = document.getElementById('btnToggleGJMore');
       const gjBlock = document.getElementById('gjMoreBlock');
-      gjBtn.onclick = ()=>{
-        const hidden = gjBlock.hasAttribute('hidden');
-        if(hidden){
-          gjBlock.removeAttribute('hidden');
-          gjBtn.textContent = 'ซ่อน';
-        }else{
-          gjBlock.setAttribute('hidden', '');
-          gjBtn.textContent = 'ดูเพิ่ม';
-        }
-      };
+      if (gjBtn && gjBlock){
+        gjBtn.onclick = ()=>{
+          const hidden = gjBlock.hasAttribute('hidden');
+          if(hidden){
+            gjBlock.removeAttribute('hidden');
+            gjBtn.textContent = 'ซ่อน';
+          }else{
+            gjBlock.setAttribute('hidden', '');
+            gjBtn.textContent = 'ดูเพิ่ม';
+          }
+        };
+      }
 
       const fitBtn = document.getElementById('btnToggleFitMore');
       const fitBlock = document.getElementById('fitMoreBlock');
-      fitBtn.onclick = ()=>{
-        const hidden = fitBlock.hasAttribute('hidden');
-        if(hidden){
-          fitBlock.removeAttribute('hidden');
-          fitBtn.textContent = 'ซ่อน';
-        }else{
-          fitBlock.setAttribute('hidden', '');
-          fitBtn.textContent = 'ดูเพิ่ม';
-        }
-      };
+      if (fitBtn && fitBlock){
+        fitBtn.onclick = ()=>{
+          const hidden = fitBlock.hasAttribute('hidden');
+          if(hidden){
+            fitBlock.removeAttribute('hidden');
+            fitBtn.textContent = 'ซ่อน';
+          }else{
+            fitBlock.setAttribute('hidden', '');
+            fitBtn.textContent = 'ดูเพิ่ม';
+          }
+        };
+      }
     }
 
     function bindFavoriteGameCard(){
@@ -2929,10 +3205,37 @@
       const link = document.getElementById('favoriteGameLink');
       if(!card || !link) return;
 
-      card.onclick = (e)=>{
+      card.onclick = async (e)=>{
         const tag = String(e.target.tagName || '').toLowerCase();
         if(tag === 'a' || tag === 'button') return;
-        location.href = link.href;
+
+        const href = link.href;
+        const ok = await canOpenUrl(href);
+        if(ok){
+          location.href = href;
+        }else{
+          toastLike('ยังเปิดเกมแนะนำไม่ได้ตอนนี้\nตรวจ path ของเกมนี้อีกครั้งนะ');
+        }
+      };
+    }
+
+    function bindLastRunOpen(){
+      const btn = document.getElementById('hhLastRunOpen');
+      if(!btn) return;
+
+      btn.onclick = async (e)=>{
+        const href = btn.href || '';
+        if(!href || href === '#'){
+          e.preventDefault();
+          toastLike('ยังไม่มีลิงก์เกมล่าสุด');
+          return;
+        }
+
+        const ok = await canOpenUrl(href);
+        if(!ok){
+          e.preventDefault();
+          toastLike('ยังเปิดเกมล่าสุดไม่ได้\nอาจเป็นเพราะ path เปลี่ยนหรือไฟล์ยังไม่มี');
+        }
       };
     }
 
@@ -2955,138 +3258,16 @@
       renderPathLocks();
     }
 
-    // path hookup
-    document.getElementById('linkGoodjunk').href      = buildUrl(PATHS.goodjunk, { mode:'solo' });
-    document.getElementById('linkGroups').href        = buildUrl(PATHS.groups, { zone:'nutrition' });
-    document.getElementById('linkHydration').href     = buildUrl(PATHS.hydration, { zone:'nutrition' });
-    document.getElementById('linkPlate').href         = buildUrl(PATHS.plate, { zone:'nutrition' });
-
-    document.getElementById('linkHandwash').href      = buildUrl(PATHS.handwash, { zone:'hygiene' });
-    document.getElementById('linkBrush').href         = buildUrl(PATHS.brush, { zone:'hygiene' });
-    document.getElementById('linkBath').href          = buildUrl(PATHS.bath, { zone:'hygiene' });
-    document.getElementById('linkCleanObject').href   = buildUrl(PATHS.cleanObject, { zone:'hygiene' });
-    document.getElementById('linkMaskCough').href     = buildUrl(PATHS.maskCough, { zone:'hygiene' });
-    document.getElementById('linkGermDetective').href = buildUrl(PATHS.germDetective, { zone:'hygiene' });
-
-    document.getElementById('linkShadowBreaker').href = buildUrl(PATHS.shadowBreaker, { zone:'fitness' });
-    document.getElementById('linkRhythmBoxer').href   = buildUrl(PATHS.rhythmBoxer, { zone:'fitness' });
-    document.getElementById('linkJumpDuck').href      = buildUrl(PATHS.jumpDuck, { zone:'fitness' });
-    document.getElementById('linkBalanceHold').href   = buildUrl(PATHS.balanceHold, { zone:'fitness' });
-    document.getElementById('linkFitnessPlanner').href= buildUrl(PATHS.fitnessPlanner, { zone:'fitness' });
-
-    document.getElementById('btnGJsolo').onclick = ()=> location.href = buildUrl(PATHS.goodjunk, { mode:'solo' });
-    document.getElementById('btnHydrationStart').onclick = ()=> location.href = buildUrl(PATHS.hydration, { zone:'nutrition' });
-
-    document.getElementById('btnNutriRecommended').onclick = ()=>{
-      const options = [
-        { id:'goodjunk', path:'goodjunk', extra:{ mode:'solo' } },
-        { id:'hydration', path:'hydration', extra:{ zone:'nutrition' } },
-        { id:'groups', path:'groups', extra:{ zone:'nutrition' } },
-        { id:'plate', path:'plate', extra:{ zone:'nutrition' } }
-      ];
-      const pick = options.find(x => !gamePlayedToday(x.id)) || options[0];
-      location.href = buildUrl(PATHS[pick.path], pick.extra || {});
-    };
-
-    document.getElementById('btnHygRecommended').onclick = ()=>{
-      const options = [
-        { id:'handwash', path:'handwash', extra:{ zone:'hygiene' } },
-        { id:'brush', path:'brush', extra:{ zone:'hygiene' } },
-        { id:'bath', path:'bath', extra:{ zone:'hygiene' } },
-        { id:'germdetective', path:'germDetective', extra:{ zone:'hygiene' } }
-      ];
-      const pick = options.find(x => !gamePlayedToday(x.id)) || options[0];
-      location.href = buildUrl(PATHS[pick.path], pick.extra || {});
-    };
-
-    document.getElementById('btnFitRecommended').onclick = ()=>{
-      const options = [
-        { id:'jumpduck', path:'jumpDuck', extra:{ zone:'fitness' } },
-        { id:'shadowbreaker', path:'shadowBreaker', extra:{ zone:'fitness' } },
-        { id:'balancehold', path:'balanceHold', extra:{ zone:'fitness' } },
-        { id:'rhythmboxer', path:'rhythmBoxer', extra:{ zone:'fitness' } }
-      ];
-      const pick = options.find(x => !gamePlayedToday(x.id)) || options[0];
-      location.href = buildUrl(PATHS[pick.path], pick.extra || {});
-    };
-
-    document.getElementById('btnBoardNutri').onclick = ()=>{
-      const options = [
-        { id:'goodjunk', path:'goodjunk', extra:{ mode:'solo' } },
-        { id:'hydration', path:'hydration', extra:{ zone:'nutrition' } },
-        { id:'plate', path:'plate', extra:{ zone:'nutrition' } }
-      ];
-      const pick = options.find(x => !gamePlayedToday(x.id)) || options[0];
-      location.href = buildUrl(PATHS[pick.path], pick.extra || {});
-    };
-
-    document.getElementById('btnBoardHyg').onclick = ()=>{
-      const options = [
-        { id:'handwash', path:'handwash', extra:{ zone:'hygiene' } },
-        { id:'brush', path:'brush', extra:{ zone:'hygiene' } },
-        { id:'bath', path:'bath', extra:{ zone:'hygiene' } }
-      ];
-      const pick = options.find(x => !gamePlayedToday(x.id)) || options[0];
-      location.href = buildUrl(PATHS[pick.path], pick.extra || {});
-    };
-
-    document.getElementById('btnBoardFit').onclick = ()=>{
-      const options = [
-        { id:'jumpduck', path:'jumpDuck', extra:{ zone:'fitness' } },
-        { id:'shadowbreaker', path:'shadowBreaker', extra:{ zone:'fitness' } },
-        { id:'balancehold', path:'balanceHold', extra:{ zone:'fitness' } }
-      ];
-      const pick = options.find(x => !gamePlayedToday(x.id)) || options[0];
-      location.href = buildUrl(PATHS[pick.path], pick.extra || {});
-    };
-
-    document.getElementById('btnHeroShow').onclick = ()=>{
-      const h = loadHero();
-      alert(`HERO\nPID: ${h.pid}\nNick: ${h.nick}\nLV: ${h.lvl}\nXP: ${h.xp}`);
-    };
-
-    document.getElementById('btnHeroReset').onclick = ()=>{
-      if(!confirm('เริ่มฮีโร่ใหม่หรือไม่?')) return;
-      const h = { pid, nick: pid, xp:0, lvl:1 };
-      saveHero(h);
-      try{ localStorage.setItem(`HHA_HERO_XP:${pid}`, '0'); }catch(_){}
-      renderAll();
-    };
-
-    document.getElementById('btnOpenGJLauncher').onclick = ()=>{
-      location.href = buildUrl(PATHS.goodjunk, { mode:'solo' });
-    };
-
-    document.getElementById('btnResetCardBook').onclick = ()=>{
-      if(!confirm('ล้าง Card Book ของผู้เล่นนี้หรือไม่?')) return;
-      saveCardBook(pid, { S:0, A:0, B:0, C:0, total:0 });
-      localStorage.removeItem(`HHA_LAST_CARD:${pid}`);
-      renderAll();
-    };
-
-    document.getElementById('btnOpenJDLauncher').onclick = ()=>{
-      location.href = buildUrl(PATHS.jumpDuck, { zone:'fitness' });
-    };
-
-    document.getElementById('btnOpenJDGallery').onclick = ()=>{
-      location.href = buildUrl('./jump-duck-gallery.html', { zone:'fitness' });
-    };
-
-    document.getElementById('linkJDGallery').href = buildUrl('./jump-duck-gallery.html', { zone:'fitness' });
-
-    document.getElementById('btnResetJDCardBook').onclick = ()=>{
-      if(!confirm('ล้าง JumpDuck Card Book ของผู้เล่นนี้หรือไม่?')) return;
-      saveJDCardBook(pid, { S:0, A:0, B:0, C:0, total:0 });
-      localStorage.removeItem(`JD_LAST_CARD:${pid}`);
-      localStorage.removeItem(`JD_PROFILE:${pid}`);
-      localStorage.removeItem(`HHA_JD_BEST:${pid}`);
-      renderAll();
-    };
-
+    bindPaths();
     bindTopQuickActions();
+    bindWorldButtons();
+    bindMissionButtons();
+    bindCollectionButtons();
+    bindHeroButtons();
     bindFoldSections();
     bindSummaryToggles();
     bindFavoriteGameCard();
+    bindLastRunOpen();
 
     renderAll();
     window.addEventListener('focus', renderAll);
