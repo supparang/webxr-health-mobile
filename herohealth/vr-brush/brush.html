@@ -1,3 +1,4 @@
+<!-- /herohealth/vr-brush/brush.html -->
 <!doctype html>
 <html lang="th">
 <head>
@@ -50,7 +51,7 @@
     }
 
     .app{
-      width:min(1200px, 100%);
+      width:min(1240px, 100%);
       height:100%;
       margin:0 auto;
       display:grid;
@@ -155,7 +156,7 @@
       min-height:0;
       padding:14px;
       display:grid;
-      grid-template-rows:auto 1fr auto;
+      grid-template-rows:auto auto 1fr auto;
       gap:12px;
     }
 
@@ -168,8 +169,8 @@
     }
 
     .instruction{
-      font-size:14px;
-      font-weight:900;
+      font-size:15px;
+      font-weight:950;
       color:var(--text);
       line-height:1.45;
     }
@@ -180,6 +181,32 @@
       color:var(--muted);
       font-size:12px;
       font-weight:800;
+    }
+
+    .hintBadge{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      padding:6px 10px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(2,6,23,.34);
+      color:var(--muted);
+      font-size:12px;
+      font-weight:900;
+      white-space:nowrap;
+    }
+
+    .dirGood{
+      border-color: rgba(34,197,94,.28) !important;
+      background: rgba(34,197,94,.14) !important;
+      color: rgba(229,231,235,.96) !important;
+    }
+
+    .dirWarn{
+      border-color: rgba(245,158,11,.28) !important;
+      background: rgba(245,158,11,.14) !important;
+      color: rgba(229,231,235,.96) !important;
     }
 
     .cleanBar{
@@ -226,23 +253,29 @@
       transition:width .18s ease;
     }
 
+    #howToPlayBox{
+      margin-bottom:0;
+    }
+
     .arenaCore{
       position:relative;
-      min-height:0;
+      min-height:520px;
       display:grid;
       place-items:center;
       overflow:hidden;
       border:1px solid rgba(148,163,184,.14);
       border-radius:20px;
       background:
-        radial-gradient(800px 340px at 50% 0%, rgba(255,255,255,.04), transparent 55%),
-        linear-gradient(180deg, rgba(255,255,255,.02), rgba(255,255,255,.01));
+        radial-gradient(800px 340px at 50% 0%, rgba(255,255,255,.05), transparent 55%),
+        linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.015));
     }
 
     .mouthWrap{
       position:relative;
       width:min(760px, 96%);
-      aspect-ratio: 1.6 / 1;
+      height:min(420px, 78%);
+      min-height:320px;
+      aspect-ratio:1.6 / 1;
       display:grid;
       place-items:center;
     }
@@ -251,12 +284,14 @@
       position:absolute;
       inset:0;
       border-radius:999px;
-      border:2px solid rgba(148,163,184,.16);
+      border:2px solid rgba(244,114,182,.26);
       background:
-        radial-gradient(70% 120% at 50% 0%, rgba(251,113,133,.18), rgba(127,29,29,.06) 65%, transparent 66%),
-        radial-gradient(80% 120% at 50% 100%, rgba(251,113,133,.18), rgba(127,29,29,.06) 65%, transparent 66%);
+        radial-gradient(70% 120% at 50% 0%, rgba(251,113,133,.30), rgba(127,29,29,.10) 65%, transparent 66%),
+        radial-gradient(80% 120% at 50% 100%, rgba(251,113,133,.30), rgba(127,29,29,.10) 65%, transparent 66%);
       overflow:hidden;
-      box-shadow: inset 0 0 80px rgba(0,0,0,.22);
+      box-shadow:
+        inset 0 0 80px rgba(0,0,0,.18),
+        0 0 0 1px rgba(255,255,255,.03);
     }
 
     .gumsTop, .gumsBottom{
@@ -265,8 +300,8 @@
       width:88%;
       height:26%;
       border-radius:999px;
-      background:linear-gradient(180deg, rgba(251,113,133,.40), rgba(190,24,93,.18));
-      filter:saturate(1.08);
+      background:linear-gradient(180deg, rgba(251,113,133,.58), rgba(190,24,93,.26));
+      filter:saturate(1.12);
     }
     .gumsTop{ top:10%; }
     .gumsBottom{ bottom:10%; }
@@ -287,7 +322,7 @@
     .tooth{
       border-radius:12px 12px 18px 18px;
       background:
-        linear-gradient(180deg, rgba(255,255,255,.98), rgba(241,245,249,.92));
+        linear-gradient(180deg, rgba(255,255,255,.99), rgba(241,245,249,.94));
       border:1px solid rgba(148,163,184,.22);
       box-shadow:
         inset 0 -10px 18px rgba(226,232,240,.55),
@@ -310,9 +345,9 @@
         border-color .16s ease,
         background .16s ease,
         opacity .16s ease;
-      opacity:.92;
+      opacity:.96;
       pointer-events:auto;
-      touch-action:manipulation;
+      touch-action:none;
       overflow:hidden;
       background:transparent;
     }
@@ -409,6 +444,22 @@
       pointer-events:none;
     }
 
+    .zoneDir{
+      position:absolute;
+      left:50%;
+      top:50%;
+      transform:translate(-50%,-50%);
+      font-size:18px;
+      font-weight:950;
+      color:rgba(34,211,238,.95);
+      text-shadow:0 2px 8px rgba(0,0,0,.28);
+      opacity:0;
+      pointer-events:none;
+    }
+    .zone.active .zoneDir{
+      opacity:.95;
+    }
+
     .dirt{
       position:absolute;
       inset:0;
@@ -451,6 +502,49 @@
       pointer-events:none;
       overflow:hidden;
       z-index:9;
+    }
+
+    .trailLayer{
+      position:absolute;
+      inset:0;
+      pointer-events:none;
+      overflow:hidden;
+      z-index:14;
+    }
+
+    .brushTrail{
+      position:absolute;
+      width:52px;
+      height:16px;
+      margin-left:-26px;
+      margin-top:-8px;
+      border-radius:999px;
+      background:
+        linear-gradient(90deg,
+          rgba(255,255,255,0),
+          rgba(255,255,255,.34),
+          rgba(34,211,238,.75),
+          rgba(255,255,255,0));
+      opacity:.9;
+      pointer-events:none;
+      z-index:14;
+      animation: brushTrailFade .32s ease forwards;
+    }
+
+    .foam{
+      position:absolute;
+      width:12px;
+      height:12px;
+      margin-left:-6px;
+      margin-top:-6px;
+      border-radius:999px;
+      background:rgba(255,255,255,.95);
+      box-shadow:
+        0 0 12px rgba(255,255,255,.18),
+        inset 0 -2px 6px rgba(226,232,240,.55);
+      pointer-events:none;
+      z-index:14;
+      animation: foamFade .45s ease forwards;
     }
 
     .pop{
@@ -581,6 +675,41 @@
     }
     .bossBanner.on{ opacity:1; }
 
+    .demoHand{
+      position:absolute;
+      z-index:16;
+      width:54px;
+      height:54px;
+      margin-left:-27px;
+      margin-top:-27px;
+      border-radius:999px;
+      display:grid;
+      place-items:center;
+      font-size:34px;
+      pointer-events:none;
+      opacity:0;
+      filter: drop-shadow(0 10px 24px rgba(0,0,0,.35));
+    }
+    .demoHand.on{ opacity:1; }
+
+    .demoHint{
+      position:absolute;
+      z-index:16;
+      left:50%;
+      top:16px;
+      transform:translateX(-50%);
+      padding:8px 12px;
+      border-radius:999px;
+      background:rgba(34,211,238,.92);
+      color:#062033;
+      font-size:12px;
+      font-weight:950;
+      box-shadow:0 12px 28px rgba(0,0,0,.28);
+      pointer-events:none;
+      opacity:0;
+    }
+    .demoHint.on{ opacity:1; }
+
     .arenaFoot{
       display:flex;
       align-items:center;
@@ -596,24 +725,10 @@
       line-height:1.45;
     }
 
-    .hintBadge{
-      display:inline-flex;
-      align-items:center;
-      gap:6px;
-      padding:6px 10px;
-      border-radius:999px;
-      border:1px solid rgba(148,163,184,.18);
-      background:rgba(2,6,23,.34);
-      color:var(--muted);
-      font-size:12px;
-      font-weight:900;
-      white-space:nowrap;
-    }
-
     .side{
       min-height:0;
       display:grid;
-      grid-template-rows:auto auto auto 1fr auto;
+      grid-template-rows:auto auto auto auto 1fr auto;
       gap:12px;
       padding:14px;
     }
@@ -681,6 +796,11 @@
       transition:width .22s ease;
     }
 
+    .starGood{ color:#fbbf24 !important; }
+    .noteGood{ color:#22c55e !important; }
+    .noteMid{ color:#22d3ee !important; }
+    .noteWarn{ color:#f59e0b !important; }
+
     .skillBox{
       display:grid;
       gap:8px;
@@ -701,7 +821,7 @@
       cursor:pointer;
       user-select:none;
       font-weight:950;
-      transition:transform .1s ease, opacity .1s ease;
+      transition:transform .1s ease, opacity .1s ease, background .12s ease, border-color .12s ease;
     }
     .btn:active{ transform:translateY(1px); }
     .btn.primary{
@@ -723,6 +843,26 @@
       opacity:.45;
       cursor:not-allowed;
     }
+    .modeActive{
+      border-color: rgba(34,211,238,.30) !important;
+      background: rgba(34,211,238,.14) !important;
+      color: rgba(229,231,235,.96) !important;
+    }
+
+    #nowDoBox.active{
+      transform: translateY(-1px);
+      box-shadow: 0 10px 26px rgba(34,211,238,.10);
+      transition: transform .16s ease, box-shadow .16s ease;
+    }
+
+    #coachBox.active{
+      transform: translateY(-1px);
+      box-shadow: 0 10px 28px rgba(34,197,94,.10);
+      transition: transform .16s ease, box-shadow .16s ease;
+    }
+    #coachText.good{ color:#dcfce7; }
+    #coachText.mid{ color:#e0f2fe; }
+    #coachText.warn{ color:#fef3c7; }
 
     .summaryOverlay{
       position:fixed;
@@ -742,6 +882,8 @@
 
     .summaryCard{
       width:min(760px, 96vw);
+      max-height:92vh;
+      overflow:auto;
       border:1px solid var(--stroke);
       border-radius:24px;
       background:linear-gradient(180deg, rgba(2,6,23,.95), rgba(15,23,42,.90));
@@ -894,51 +1036,6 @@
       transition:opacity .08s linear;
     }
 
-    #howToPlayBox{
-      margin-bottom:8px;
-    }
-
-    #nowDoBox.active{
-      transform: translateY(-1px);
-      box-shadow: 0 10px 26px rgba(34,211,238,.10);
-      transition: transform .16s ease, box-shadow .16s ease;
-    }
-
-    .demoHand{
-      position:absolute;
-      z-index:16;
-      width:54px;
-      height:54px;
-      margin-left:-27px;
-      margin-top:-27px;
-      border-radius:999px;
-      display:grid;
-      place-items:center;
-      font-size:34px;
-      pointer-events:none;
-      opacity:0;
-      filter: drop-shadow(0 10px 24px rgba(0,0,0,.35));
-    }
-    .demoHand.on{ opacity:1; }
-
-    .demoHint{
-      position:absolute;
-      z-index:16;
-      left:50%;
-      top:16px;
-      transform:translateX(-50%);
-      padding:8px 12px;
-      border-radius:999px;
-      background:rgba(34,211,238,.92);
-      color:#062033;
-      font-size:12px;
-      font-weight:950;
-      box-shadow:0 12px 28px rgba(0,0,0,.28);
-      pointer-events:none;
-      opacity:0;
-    }
-    .demoHint.on{ opacity:1; }
-
     @keyframes floatUp{
       0%{ opacity:0; transform:translate(-50%,-42%) scale(.92); }
       15%{ opacity:1; }
@@ -972,8 +1069,16 @@
       82%{ opacity:1; transform:translate(-50%,-50%) scale(1); }
       100%{ opacity:0; transform:translate(-50%,-58%) scale(1.02); }
     }
+    @keyframes brushTrailFade{
+      0%{ opacity:.95; transform:rotate(var(--rot,0deg)) scale(.9); }
+      100%{ opacity:0; transform:rotate(var(--rot,0deg)) scale(1.12); }
+    }
+    @keyframes foamFade{
+      0%{ opacity:0; transform:scale(.4) translateY(4px); }
+      25%{ opacity:1; transform:scale(1) translateY(0); }
+      100%{ opacity:0; transform:scale(1.2) translateY(-8px); }
+    }
 
-    /* ===== MOBILE LAYOUT FIX ===== */
     @media (max-width: 760px){
       body{
         overflow:auto;
@@ -1059,7 +1164,7 @@
       }
 
       .arenaCore{
-        min-height:420px;
+        min-height:430px;
         border-radius:18px;
         padding:6px;
       }
@@ -1067,6 +1172,8 @@
       .mouthWrap{
         width:100%;
         max-width:none;
+        min-height:300px;
+        height:360px;
         aspect-ratio:1.08 / 1;
       }
 
@@ -1114,12 +1221,21 @@
         text-overflow:ellipsis;
       }
 
+      .zoneDir{ font-size:16px; }
+
       .brushCursor{
         width:52px;
         height:52px;
         margin-left:-26px;
         margin-top:-26px;
         font-size:30px;
+      }
+
+      .brushTrail{
+        width:58px;
+        height:18px;
+        margin-left:-29px;
+        margin-top:-9px;
       }
 
       .arenaFoot{
@@ -1135,7 +1251,7 @@
 
       .skillRow{
         display:grid;
-        grid-template-columns:1fr 1fr 1fr;
+        grid-template-columns:1fr 1fr;
         gap:8px;
       }
 
@@ -1151,7 +1267,7 @@
       }
 
       .zoneList{
-        max-height:140px;
+        max-height:160px;
         overflow:auto;
         padding-right:2px;
       }
@@ -1189,6 +1305,7 @@
 
       #howToPlayBox{ padding:9px 10px !important; }
       #nowDoText{ font-size:14px !important; }
+      #coachText{ font-size:13px !important; }
 
       .demoHand{
         width:50px;
@@ -1214,18 +1331,11 @@
 
     @media (max-width: 520px){
       .desktopMetaBox{ display:none; }
-
       .arenaCore{ min-height:390px; }
-
-      .mouthWrap{ aspect-ratio:1 / 1; }
-
+      .mouthWrap{ aspect-ratio:1 / 1; height:340px; }
       .zone.tapBoost::before{ inset:-24px; }
-
       .skillRow{ grid-template-columns:1fr 1fr; }
-
-      #btnRestart{ grid-column:1 / -1; }
-
-      .zoneList{ max-height:110px; }
+      .zoneList{ max-height:120px; }
     }
 
     html.view-cvr .arena,
@@ -1245,7 +1355,10 @@
       <div class="panel hudbox">
         <div class="topline">
           <div class="title">🪥 Brush VR</div>
-          <div class="pill">gameId: <b id="pillGameId">brush</b></div>
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <div class="pill">gameId: <b id="pillGameId">brush</b></div>
+            <div class="pill">เสียง: <b id="pillAudio">on</b></div>
+          </div>
         </div>
         <div class="stats">
           <div class="stat"><div class="k">Score</div><div class="v" id="statScore">0</div></div>
@@ -1257,7 +1370,10 @@
       <div class="panel hudbox">
         <div class="topline">
           <div class="pill">โซนปัจจุบัน: <b id="pillZone">—</b></div>
-          <div class="pill">Phase: <b id="pillPhase">เรียนรู้</b></div>
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <div class="pill">Phase: <b id="pillPhase">เรียนรู้</b></div>
+            <div class="pill">Mode: <b id="pillMode">Learn</b></div>
+          </div>
         </div>
         <div class="stats">
           <div class="stat"><div class="k">Clean</div><div class="v" id="statClean">0%</div></div>
@@ -1288,7 +1404,15 @@
               ตอนนี้ให้ถู <b>ฟันบนด้านนอก</b>
               <span class="sub" id="instructionSub">ถูในกรอบสีฟ้าบนรูปฟันตรงกลาง</span>
             </div>
-            <div class="hintBadge" id="hintBadge">👆 ถูในกรอบสีฟ้า</div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+              <div class="hintBadge" id="hintBadge">👆 ถูในกรอบสีฟ้า</div>
+              <div class="hintBadge" id="dirBadge">↕ ถูขึ้น-ลง</div>
+            </div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+              <button class="btn secondary" id="btnModeLearn">Learn</button>
+              <button class="btn secondary" id="btnModePractice">Practice</button>
+              <button class="btn secondary" id="btnModeChallenge">Challenge</button>
+            </div>
           </div>
 
           <div style="display:grid; gap:10px; justify-items:end; min-width:min(280px,100%); flex:1 1 220px;">
@@ -1317,7 +1441,7 @@
         </div>
 
         <div class="arenaCore" id="arenaCore">
-          <div class="mouthWrap">
+          <div class="mouthWrap" id="mouthWrap">
             <div class="mouth"></div>
             <div class="gumsTop"></div>
             <div class="gumsBottom"></div>
@@ -1333,9 +1457,11 @@
 
             <div id="demoHand" class="demoHand">👆</div>
             <div id="demoHint" class="demoHint">ลองถูตามนิ้ว</div>
+            <div id="coachToast" class="demoHint" style="top:auto; bottom:18px; background:rgba(34,197,94,.92); display:none;">เก่งมาก!</div>
 
             <div class="zoneLayer" id="zoneLayer"></div>
             <div class="fxLayer" id="fxLayer"></div>
+            <div class="trailLayer" id="trailLayer"></div>
             <div class="laserLine" id="laserLine"></div>
             <div class="shockRing" id="shockRing"></div>
             <div class="phaseToast" id="phaseToast">PHASE 1</div>
@@ -1377,15 +1503,24 @@
           </div>
         </div>
 
+        <div class="panel" id="coachBox" style="padding:12px; border-radius:18px; background:rgba(34,197,94,.10); border:1px solid rgba(34,197,94,.22); box-shadow:none;">
+          <div style="font-size:12px; color:var(--muted); font-weight:900;">Coach</div>
+          <div id="coachText" style="margin-top:6px; font-size:14px; font-weight:950; color:var(--text); line-height:1.45;">
+            เริ่มจากถูในกรอบสีฟ้าก่อนนะ
+          </div>
+        </div>
+
         <div class="panel" style="padding:12px; border-radius:18px; background:rgba(2,6,23,.26); box-shadow:none;">
           <h3>ปุ่มลัด</h3>
           <div class="skillBox" style="margin-top:8px;">
             <div class="skillRow">
+              <button class="btn cyan" id="btnShowLearnHelp">👆 ดูตัวอย่าง</button>
+              <button class="btn secondary" id="btnToggleAudio">🔊 เสียง</button>
               <button class="btn primary" id="btnStartBoss">🦠 Start Boss Now</button>
               <button class="btn secondary" id="btnFinish">🏁 Finish</button>
             </div>
             <div style="color:var(--muted); font-size:12px; font-weight:900; line-height:1.45;">
-              Start Boss ใช้เทสเฟสบอสเร็ว ๆ ได้ • Finish ใช้จบเกมแล้วดู summary
+              Learn ใช้ฝึกก่อน • Practice เล่นเต็มระบบ • Challenge ยากขึ้นและไม่มีตัวช่วย
             </div>
           </div>
         </div>
@@ -1397,6 +1532,42 @@
     </section>
 
     <div></div>
+  </div>
+
+  <div id="learnOverlay" class="summaryOverlay" style="display:none; z-index:99990;">
+    <div class="summaryCard" style="max-width:680px;">
+      <div class="summaryHead">
+        <div>
+          <div class="summaryTitle">🪥 มาฝึกแปรงฟันกัน</div>
+          <div class="summarySub">โหมด Learn • ฝึกแบบไม่ต้องรีบ</div>
+        </div>
+        <div class="pill">mode: <b>Learn</b></div>
+      </div>
+
+      <div style="border:1px solid rgba(148,163,184,.16); background:rgba(2,6,23,.24); border-radius:18px; padding:14px;">
+        <div style="font-size:14px; font-weight:950; margin-bottom:8px;">วิธีเล่น</div>
+        <div style="display:grid; gap:6px; color:var(--muted); font-size:13px; line-height:1.55;">
+          <div>1) ดูกรอบสีฟ้าบนรูปฟัน</div>
+          <div>2) ลากถูในกรอบนั้นช้า ๆ</div>
+          <div>3) ทำทีละโซนให้สะอาด</div>
+        </div>
+      </div>
+
+      <div style="border:1px solid rgba(34,211,238,.16); background:rgba(34,211,238,.08); border-radius:18px; padding:14px;">
+        <div style="font-size:14px; font-weight:950; margin-bottom:8px;">ตอนนี้จะได้ฝึก</div>
+        <div id="learnOverlayNow" style="color:var(--text); font-size:14px; font-weight:900; line-height:1.55;">
+          ถูฟันบนด้านนอกในกรอบสีฟ้า
+        </div>
+      </div>
+
+      <div class="summaryActions" style="justify-content:space-between;">
+        <button class="btn secondary" id="btnLearnWatch">👆 ดูตัวอย่าง</button>
+        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+          <button class="btn secondary" id="btnLearnSkip">ข้าม</button>
+          <button class="btn primary" id="btnLearnStart">เริ่มฝึก</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <div class="summaryOverlay" id="summaryOverlay">
@@ -1431,6 +1602,10 @@
         <div class="summaryQuestBadge" id="sumQLaser">Laser ⬜</div>
         <div class="summaryQuestBadge" id="sumQDecoy">Decoy ⬜</div>
       </div>
+
+      <div id="summaryCoachWrap" style="display:grid; gap:8px;"></div>
+      <div id="summaryZoneWrap" style="display:grid; gap:8px;"></div>
+      <div id="summaryTipWrap" style="display:grid; gap:8px;"></div>
 
       <div class="summaryActions">
         <button class="btn secondary" id="btnCloseSummary">Close</button>
@@ -1472,6 +1647,10 @@
       const screenFlash = byId('screenFlash');
       const demoHand = byId('demoHand');
       const demoHint = byId('demoHint');
+      const trailLayer = byId('trailLayer');
+      const coachToast = byId('coachToast');
+      const learnOverlay = byId('learnOverlay');
+      const mouthWrap = byId('mouthWrap');
 
       const qs = (k, d='')=>{
         try{ return new URL(location.href).searchParams.get(k) ?? d; }
@@ -1518,6 +1697,35 @@
         }
       }
 
+      function setCoachText(text, tone='mid'){
+        const el = byId('coachText');
+        const box = byId('coachBox');
+        if(el){
+          el.textContent = text;
+          el.classList.remove('good','mid','warn');
+          el.classList.add(tone);
+        }
+        if(box){
+          box.classList.remove('active');
+          void box.offsetWidth;
+          box.classList.add('active');
+        }
+        S.coachMsg = text;
+        S.coachUntil = performance.now() + 2400;
+      }
+
+      function showCoachToast(text){
+        if(!coachToast) return;
+        coachToast.textContent = text;
+        coachToast.style.display = 'block';
+        coachToast.classList.remove('on');
+        void coachToast.offsetWidth;
+        coachToast.classList.add('on');
+        setTimeout(()=>{
+          if(coachToast) coachToast.style.display = 'none';
+        }, 900);
+      }
+
       function zoneRectRelative(el){
         if(!el || !arenaCore) return null;
         const r = el.getBoundingClientRect();
@@ -1548,6 +1756,7 @@
 
         demoHand.classList.add('on');
         demoHint.classList.add('on');
+        playCue('demo-start');
 
         const t0 = performance.now();
 
@@ -1612,17 +1821,80 @@
         stroke: 8, bossStroke: 11, missPenalty: 2, comboWindow: 1000, dirtTick: .15
       };
 
+      const MODES = {
+        learn: {
+          label: 'Learn',
+          time: 9999,
+          boss: false,
+          uv: true,
+          polish: true,
+          missPenalty: 0,
+          cleanTarget: 75
+        },
+        practice: {
+          label: 'Practice',
+          time: CFG.time,
+          boss: true,
+          uv: true,
+          polish: true,
+          missPenalty: DIFF.missPenalty,
+          cleanTarget: CFG.cleanTarget
+        },
+        challenge: {
+          label: 'Challenge',
+          time: Math.max(45, Math.min(CFG.time, 75)),
+          boss: true,
+          uv: false,
+          polish: false,
+          missPenalty: DIFF.missPenalty + 1,
+          cleanTarget: 90
+        }
+      };
+
+      const AUDIO_CFG = {
+        enabledByDefault: qs('audio','1') !== '0',
+        voiceEnabledByDefault: qs('voice','1') !== '0',
+        speakRate: 1.02,
+        speakPitch: 1.08,
+        speakVolume: 0.9
+      };
+
+      const VOICE_CUES = {
+        'demo-start':    { text:'ลองถูตามนิ้ว', type:'ok' },
+        'audio-on':      { text:'เปิดเสียงแล้ว', type:'good' },
+        'learn-open':    { text:'มาฝึกแปรงฟันกัน', type:'ok' },
+        'learn-watch':   { text:'ดูตัวอย่างก่อนนะ', type:'ok' },
+        'learn-start':   { text:'เริ่มฝึกได้เลย', type:'good' },
+        'wrong-zone':    { text:'ยังไม่ใช่โซนนี้', type:'warn' },
+        'dir-good':      { text:'ดีมาก', type:'good' },
+        'dir-warn':      { text:'ลองอีกนิด', type:'warn' },
+        'zone-clear':    { text:'ผ่านโซนแล้ว', type:'good' },
+        'zone-perfect':  { text:'เก่งมาก สามดาว', type:'perfect' },
+        'boss-laser':    { text:'หยุดก่อน เลเซอร์มา', type:'bad' },
+        'boss-shock':    { text:'แตะตามวงแหวน', type:'ok' },
+        'boss-decoy':    { text:'อย่าแตะโซนหลอก', type:'warn' },
+        'shock-perfect': { text:'เยี่ยมมาก', type:'perfect' },
+        'laser-hit':     { text:'โดนเลเซอร์', type:'bad' },
+        'decoy-hit':     { text:'โดนโซนหลอก', type:'bad' },
+        'boss-phase':    { text:'ผ่านอีกเฟสแล้ว', type:'boss' },
+        'boss-win':      { text:'ชนะบอสแล้ว', type:'perfect' },
+        'summary-learn': { text:'ฝึกเสร็จแล้ว เก่งมาก', type:'good' },
+        'summary-win':   { text:'จบเกมแล้ว เก่งมาก', type:'perfect' },
+        'summary-open':  { text:'สรุปผลรอบนี้', type:'ok' }
+      };
+
       const ZONES = [
-        { id:'upper_outer', label:'ฟันบนด้านนอก', x:18, y:20, w:64, h:14, dirtType:'normal' },
-        { id:'upper_inner', label:'ฟันบนด้านใน', x:24, y:36, w:52, h:11, dirtType:'germ' },
-        { id:'upper_chew',  label:'ฟันบนด้านบดเคี้ยว', x:30, y:49, w:40, h:8, dirtType:'heavy' },
-        { id:'lower_outer', label:'ฟันล่างด้านนอก', x:18, y:66, w:64, h:14, dirtType:'normal' },
-        { id:'lower_inner', label:'ฟันล่างด้านใน', x:24, y:54, w:52, h:11, dirtType:'germ' },
-        { id:'lower_chew',  label:'ฟันล่างด้านบดเคี้ยว', x:30, y:44, w:40, h:8, dirtType:'heavy' }
+        { id:'upper_outer', label:'ฟันบนด้านนอก', x:18, y:20, w:64, h:14, dirtType:'normal', dir:'vertical' },
+        { id:'upper_inner', label:'ฟันบนด้านใน', x:24, y:36, w:52, h:11, dirtType:'germ', dir:'vertical' },
+        { id:'upper_chew',  label:'ฟันบนด้านบดเคี้ยว', x:30, y:49, w:40, h:8,  dirtType:'heavy',  dir:'horizontal' },
+        { id:'lower_outer', label:'ฟันล่างด้านนอก', x:18, y:66, w:64, h:14, dirtType:'normal', dir:'vertical' },
+        { id:'lower_inner', label:'ฟันล่างด้านใน', x:24, y:54, w:52, h:11, dirtType:'germ', dir:'vertical' },
+        { id:'lower_chew',  label:'ฟันล่างด้านบดเคี้ยว', x:30, y:44, w:40, h:8,  dirtType:'heavy',  dir:'horizontal' }
       ];
 
       const S = {
         startedAt: performance.now(),
+        mode: (qs('mode','learn') || 'learn').toLowerCase(),
         score: 0,
         combo: 0,
         maxCombo: 0,
@@ -1651,6 +1923,35 @@
         laserY: 50,
         shockGoodAt: 0,
         decoyZoneIdx: -1,
+        isBrushing: false,
+        brushLastX: 0,
+        brushLastY: 0,
+        brushLastT: 0,
+        brushPathCombo: 0,
+        lastBrushDx: 0,
+        lastBrushDy: 0,
+        audioEnabled: AUDIO_CFG.enabledByDefault,
+        voiceEnabled: AUDIO_CFG.voiceEnabledByDefault,
+        audioReady: false,
+        lastVoiceAt: 0,
+        lastVoiceKey: '',
+        audioCtx: null,
+        audioMap: {},
+        learnOverlayShown: false,
+        zoneMastery: ZONES.map(z => ({
+          id: z.id,
+          label: z.label,
+          cleanStar: 0,
+          dirStar: 0,
+          controlStar: 0,
+          totalStar: 0,
+          correctDirHits: 0,
+          wrongDirHits: 0,
+          localMiss: 0
+        })),
+        coachMsg: '',
+        coachUntil: 0,
+        coachHistory: [],
         quest: {
           perfectShock: 0,
           decoyAvoid: 0,
@@ -1676,6 +1977,137 @@
       };
 
       const LS_BRUSH_DRAFT = 'HHA_BRUSH_DRAFT';
+
+      function currentModeCfg(){
+        return MODES[S.mode] || MODES.learn;
+      }
+
+      function setMode(mode){
+        S.mode = MODES[mode] ? mode : 'learn';
+        const u = new URL(location.href);
+        u.searchParams.set('mode', S.mode);
+        if(S.mode === 'learn') u.searchParams.set('showLearn', '1');
+        else u.searchParams.delete('showLearn');
+        location.href = u.toString();
+      }
+
+      function refreshModeButtons(){
+        const learn = byId('btnModeLearn');
+        const practice = byId('btnModePractice');
+        const challenge = byId('btnModeChallenge');
+
+        [learn, practice, challenge].forEach(el => el && el.classList.remove('modeActive'));
+        if(S.mode === 'learn' && learn) learn.classList.add('modeActive');
+        if(S.mode === 'practice' && practice) practice.classList.add('modeActive');
+        if(S.mode === 'challenge' && challenge) challenge.classList.add('modeActive');
+
+        setText('pillMode', currentModeCfg().label);
+      }
+
+      function getCueDef(key){
+        return VOICE_CUES[key] || { text:key, type:'ok' };
+      }
+
+      function ensureAudio(){
+        if(S.audioReady) return true;
+        try{
+          const Ctx = window.AudioContext || window.webkitAudioContext;
+          if(!Ctx) return false;
+          S.audioCtx = S.audioCtx || new Ctx();
+          if(S.audioCtx.state === 'suspended'){
+            S.audioCtx.resume?.();
+          }
+          S.audioReady = true;
+          return true;
+        }catch(e){
+          return false;
+        }
+      }
+
+      function setAudioPill(){
+        setText('pillAudio', S.audioEnabled ? 'on' : 'off');
+      }
+
+      function beep(type='ok'){
+        if(!S.audioEnabled) return;
+        if(!ensureAudio() || !S.audioCtx) return;
+
+        const ctx = S.audioCtx;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+
+        let freq = 620;
+        let dur = 0.10;
+
+        if(type === 'good') freq = 740;
+        else if(type === 'warn'){ freq = 460; dur = 0.12; }
+        else if(type === 'bad'){ freq = 280; dur = 0.16; }
+        else if(type === 'boss'){ freq = 180; dur = 0.20; }
+        else if(type === 'perfect'){ freq = 880; dur = 0.14; }
+
+        osc.type = 'triangle';
+        osc.frequency.value = freq;
+        gain.gain.value = 0.0001;
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        const t = ctx.currentTime;
+        gain.gain.setValueAtTime(0.0001, t);
+        gain.gain.exponentialRampToValueAtTime(0.05, t + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+
+        osc.start(t);
+        osc.stop(t + dur + 0.02);
+      }
+
+      function speakShort(text, key=''){
+        if(!S.audioEnabled || !S.voiceEnabled) return;
+        if(!('speechSynthesis' in window)) return;
+
+        const now = performance.now();
+        const dedupeKey = key || text;
+        if(S.lastVoiceKey === dedupeKey && now - S.lastVoiceAt < 1400) return;
+        if(now - S.lastVoiceAt < 700) return;
+
+        try{
+          window.speechSynthesis.cancel();
+          const u = new SpeechSynthesisUtterance(text);
+          u.lang = 'th-TH';
+          u.rate = AUDIO_CFG.speakRate;
+          u.pitch = AUDIO_CFG.speakPitch;
+          u.volume = AUDIO_CFG.speakVolume;
+          window.speechSynthesis.speak(u);
+          S.lastVoiceAt = now;
+          S.lastVoiceKey = dedupeKey;
+        }catch(e){}
+      }
+
+      function playCue(key, overrideText=''){
+        const def = getCueDef(key);
+        const finalText = overrideText || def.text || '';
+        const finalType = def.type || 'ok';
+        beep(finalType);
+        if(finalText) speakShort(finalText, key);
+      }
+
+      function toggleAudio(){
+        S.audioEnabled = !S.audioEnabled;
+        setAudioPill();
+
+        const u = new URL(location.href);
+        u.searchParams.set('audio', S.audioEnabled ? '1' : '0');
+        history.replaceState({}, '', u.toString());
+
+        if(!S.audioEnabled){
+          try{ window.speechSynthesis?.cancel?.(); }catch(e){}
+          setCoachText('ปิดเสียงแล้ว', 'mid');
+        } else {
+          ensureAudio();
+          playCue('audio-on');
+          setCoachText('เปิดเสียงแล้ว', 'good');
+        }
+      }
 
       function emitHha(type, detail){
         try{
@@ -1708,90 +2140,241 @@
         setText('statStudy', CFG.studyId || '—');
       }
 
-      function renderDirtForZone(idx){
+      function zoneDirectionText(idx){
+        return ZONES[idx]?.dir === 'horizontal' ? 'ถูซ้าย-ขวา' : 'ถูขึ้น-ลง';
+      }
+
+      function movementDirection(dx, dy){
+        const ax = Math.abs(dx);
+        const ay = Math.abs(dy);
+        if(ax < 2 && ay < 2) return 'none';
+        if(ax > ay * 1.15) return 'horizontal';
+        if(ay > ax * 1.15) return 'vertical';
+        return 'diagonal';
+      }
+
+      function directionScore(idx, dx, dy){
+        const want = ZONES[idx]?.dir || 'vertical';
+        const got = movementDirection(dx, dy);
+        if(got === 'none') return 1;
+        if(got === want) return 1.3;
+        if(got === 'diagonal') return 0.95;
+        return 0.72;
+      }
+
+      function pointInZone(idx, x, y){
         const zs = S.zoneState[idx];
-        const meta = ZONES[idx];
-        if(!zs.dirtEl) return;
+        if(!zs?.el || !arenaCore) return false;
 
-        zs.dirtEl.innerHTML = '';
-        const count = clamp(Math.ceil(zs.dirt / 12), 0, 8);
+        const zr = zs.el.getBoundingClientRect();
+        const ar = arenaCore.getBoundingClientRect();
+        const px = ar.left + x;
+        const py = ar.top + y;
 
-        for(let i=0;i<count;i++){
-          const blob = document.createElement('div');
-          let klass = meta.dirtType;
-          if(S.bossStarted && idx === S.activeZoneIdx && !S.bossCompleted) klass = 'boss';
-          blob.className = `dirtBlob ${klass}`;
-          const size = 14 + Math.random()*24;
-          blob.style.width = size + 'px';
-          blob.style.height = size + 'px';
-          blob.style.left = (8 + Math.random()*78) + '%';
-          blob.style.top = (14 + Math.random()*58) + '%';
-          blob.style.animationDelay = (Math.random()*0.6).toFixed(2) + 's';
-          zs.dirtEl.appendChild(blob);
+        return px >= zr.left && px <= zr.right && py >= zr.top && py <= zr.bottom;
+      }
+
+      function spawnTrail(x, y, rot){
+        if(!trailLayer) return;
+        const el = document.createElement('div');
+        el.className = 'brushTrail';
+        el.style.left = x + 'px';
+        el.style.top = y + 'px';
+        el.style.setProperty('--rot', `${rot || 0}deg`);
+        trailLayer.appendChild(el);
+        setTimeout(()=> el.remove(), 340);
+      }
+
+      function spawnFoam(x, y){
+        if(!trailLayer) return;
+        const el = document.createElement('div');
+        el.className = 'foam';
+        el.style.left = x + 'px';
+        el.style.top = y + 'px';
+        trailLayer.appendChild(el);
+        setTimeout(()=> el.remove(), 460);
+      }
+
+      function updateDirBadge(idx, dx, dy){
+        const el = byId('dirBadge');
+        if(!el) return;
+        el.classList.remove('dirGood','dirWarn');
+
+        const txt = zoneDirectionText(idx);
+        const icon = ZONES[idx]?.dir === 'horizontal' ? '↔' : '↕';
+        const sc = directionScore(idx, dx, dy);
+
+        if(sc >= 1.25){
+          el.classList.add('dirGood');
+          el.textContent = `${icon} ${txt} ✓`;
+        } else if(sc < 0.9){
+          el.classList.add('dirWarn');
+          el.textContent = `${icon} ${txt} !`;
+        } else {
+          el.textContent = `${icon} ${txt}`;
         }
       }
 
-      function buildZones(){
-        if(!zoneLayer || !zoneList) return;
-        zoneLayer.innerHTML = '';
-        zoneList.innerHTML = '';
+      function resetBrushCombo(){
+        S.brushPathCombo = 0;
+      }
 
-        S.zoneState.forEach((zs, idx)=>{
-          const meta = ZONES[idx];
+      function zoneMasteryOf(idx){
+        return S.zoneMastery[idx];
+      }
 
-          const el = document.createElement('button');
-          el.type = 'button';
-          el.className = 'zone';
-
-          if (CFG.view === 'mobile' || CFG.view === 'cvr' || window.innerWidth <= 760) {
-            el.classList.add('tapBoost');
-          }
-
-          el.style.left = meta.x + '%';
-          el.style.top = meta.y + '%';
-          el.style.width = meta.w + '%';
-          el.style.height = meta.h + '%';
-          el.dataset.zoneId = zs.id;
-
-          const label = document.createElement('div');
-          label.className = 'zoneLabel';
-          label.textContent = zs.label;
-          el.appendChild(label);
-
-          const dirt = document.createElement('div');
-          dirt.className = 'dirt';
-          el.appendChild(dirt);
-
-          zs.el = el;
-          zs.dirtEl = dirt;
-
-          renderDirtForZone(idx);
-
-          el.addEventListener('pointerdown', (ev)=>{
-            ev.preventDefault();
-            onBrushZone(idx, ev);
-          });
-
-          zoneLayer.appendChild(el);
-
-          const item = document.createElement('div');
-          item.className = 'zoneItem';
-          item.id = 'zoneItem_' + zs.id;
-          item.innerHTML = `
-            <div class="zoneRow">
-              <div class="zoneName">${zs.label}</div>
-              <div class="zonePct" id="zonePct_${zs.id}">0%</div>
-            </div>
-            <div class="miniBar"><div class="miniFill" id="zoneFill_${zs.id}"></div></div>
-          `;
-          zoneList.appendChild(item);
-        });
-
-        refreshZoneUI();
+      function starsText(n){
+        return '★'.repeat(Math.max(0, n)) + '☆'.repeat(Math.max(0, 3 - n));
       }
 
       function zoneCleanPct(zs){
         return clamp(Math.round(zs.clean), 0, 100);
+      }
+
+      function calcZoneStars(idx){
+        const zs = S.zoneState[idx];
+        const ms = zoneMasteryOf(idx);
+        if(!zs || !ms) return 0;
+
+        const cleanPct = zoneCleanPct(zs);
+        ms.cleanStar = cleanPct >= currentModeCfg().cleanTarget ? 1 : 0;
+
+        const totalDir = ms.correctDirHits + ms.wrongDirHits;
+        const dirRate = totalDir > 0 ? ms.correctDirHits / totalDir : 0;
+        ms.dirStar = totalDir >= 6 && dirRate >= 0.72 ? 1 : 0;
+
+        ms.controlStar = ms.localMiss <= 2 ? 1 : 0;
+        ms.totalStar = ms.cleanStar + ms.dirStar + ms.controlStar;
+
+        return ms.totalStar;
+      }
+
+      function zoneCoachFeedback(idx){
+        const ms = zoneMasteryOf(idx);
+        const z = S.zoneState[idx];
+        if(!ms || !z) return { text:'ลองอีกครั้งนะ', tone:'mid' };
+
+        calcZoneStars(idx);
+
+        if(S.mode === 'learn'){
+          if(ms.cleanStar === 0) return { text:`ดีแล้ว ลองถู ${ms.label} ต่ออีกนิด`, tone:'mid' };
+          if(ms.dirStar === 0) return { text:'ลองถูตามทิศที่บอก จะง่ายขึ้น', tone:'mid' };
+          return { text:'เยี่ยมมาก กำลังทำได้ดีเลย', tone:'good' };
+        }
+
+        if(ms.totalStar >= 3){
+          return { text:`เยี่ยมมาก! ${ms.label} ทำได้ดีมาก`, tone:'good' };
+        }
+        if(ms.cleanStar === 0){
+          return { text:`${ms.label} ยังไม่สะอาดพอ ลองถูต่ออีกนิด`, tone:'warn' };
+        }
+        if(ms.dirStar === 0){
+          return { text:`${ms.label} สะอาดแล้ว ลองถูตามทิศให้ชัดขึ้น`, tone:'mid' };
+        }
+        if(ms.controlStar === 0){
+          return { text:`${ms.label} ดีแล้ว ระวังอย่ากดพลาดอีกนิด`, tone:'mid' };
+        }
+        return { text:`${ms.label} ผ่านแล้ว ไปต่อกัน`, tone:'good' };
+      }
+
+      function zoneSummaryChecks(idx){
+        const ms = zoneMasteryOf(idx);
+        const zs = S.zoneState[idx];
+        if(!ms || !zs) return null;
+
+        calcZoneStars(idx);
+
+        return {
+          clean: !!ms.cleanStar,
+          direction: !!ms.dirStar,
+          control: !!ms.controlStar,
+          stars: ms.totalStar,
+          cleanPct: zoneCleanPct(zs),
+          localMiss: ms.localMiss,
+          dirRate: (ms.correctDirHits + ms.wrongDirHits) > 0
+            ? Math.round((ms.correctDirHits / (ms.correctDirHits + ms.wrongDirHits)) * 100)
+            : 0
+        };
+      }
+
+      function zoneSummaryLine(idx){
+        const c = zoneSummaryChecks(idx);
+        const label = S.zoneState[idx]?.label || `โซน ${idx+1}`;
+        if(!c) return `${label}`;
+
+        if(c.stars >= 3) return `${label} • เก่งมาก`;
+        if(c.clean && !c.direction) return `${label} • สะอาดแล้ว แต่ยังควรถูตามทิศให้ชัดขึ้น`;
+        if(c.clean && !c.control) return `${label} • ทำได้แล้ว แต่ยังพลาดบ้าง`;
+        if(!c.clean) return `${label} • ยังถูไม่ทั่วพอ`;
+        return `${label} • ผ่านแล้ว`;
+      }
+
+      function zoneRealLifeTip(idx){
+        const z = ZONES[idx];
+        if(!z) return 'ลองแปรงช้า ๆ ให้ทั่วทุกซี่';
+
+        if(z.id === 'upper_outer' || z.id === 'lower_outer'){
+          return 'ตอนแปรงจริง ฟันด้านนอกให้ปัดขึ้น-ลงเบา ๆ';
+        }
+        if(z.id === 'upper_inner' || z.id === 'lower_inner'){
+          return 'ตอนแปรงจริง ฟันด้านในให้ค่อย ๆ ปัดขึ้น-ลงให้ทั่ว';
+        }
+        if(z.id === 'upper_chew' || z.id === 'lower_chew'){
+          return 'ตอนแปรงจริง ฟันบดเคี้ยวให้ถูซ้าย-ขวาสั้น ๆ';
+        }
+        return 'ลองแปรงช้า ๆ ให้ทั่วทุกซี่';
+      }
+
+      function overallRealLifeTip(){
+        const weak = S.zoneMastery
+          .map((m, i)=> ({ i, stars: calcZoneStars(i), m }))
+          .sort((a,b)=> a.stars - b.stars)[0];
+
+        if(!weak) return 'ลองแปรงช้า ๆ ให้ทั่วทุกซี่';
+        return zoneRealLifeTip(weak.i);
+      }
+
+      function addBrushDragProgress(idx, dist, x, y){
+        const zs = S.zoneState[idx];
+        if(!zs) return;
+
+        const safeDist = Math.max(0, dist);
+        if(safeDist < 4) return;
+
+        const continuous = performance.now() - S.brushLastT <= 120;
+        if(continuous) S.brushPathCombo = Math.min(140, S.brushPathCombo + safeDist);
+        else S.brushPathCombo = safeDist;
+
+        const pathBoost =
+          S.brushPathCombo >= 120 ? 1.55 :
+          S.brushPathCombo >= 80  ? 1.35 :
+          S.brushPathCombo >= 40  ? 1.18 : 1;
+
+        const dirBoost = directionScore(idx, S.lastBrushDx, S.lastBrushDy);
+        const cleanGain = safeDist * 0.055 * pathBoost * dirBoost;
+
+        zs.clean = clamp(zs.clean + cleanGain, 0, 100);
+        zs.dirt  = clamp(zs.dirt  - cleanGain * (dirBoost >= 1.25 ? 1.2 : dirBoost < 0.9 ? 0.72 : 0.95), 0, 100);
+
+        const microScore = Math.max(0, Math.round(safeDist * 0.12 * pathBoost * dirBoost));
+        S.score += microScore;
+
+        const ms = zoneMasteryOf(idx);
+        if(dirBoost >= 1.25){
+          if(ms) ms.correctDirHits++;
+          if(Math.random() < 0.04){
+            setCoachText(`ดีมาก กำลัง${zoneDirectionText(idx)}ได้ถูกต้อง`, 'good');
+            playCue('dir-good');
+          }
+        } else if(dirBoost < 0.9){
+          if(ms) ms.wrongDirHits++;
+          if(Math.random() < 0.03){
+            setCoachText(`ลอง${zoneDirectionText(idx)}เบา ๆ นะ จะสะอาดเร็วขึ้น`, 'warn');
+            playCue('dir-warn');
+          }
+        }
+
+        if(Math.random() < 0.18) spawnFoam(x, y);
       }
 
       function totalCleanPct(){
@@ -1888,7 +2471,7 @@
         S.miss++;
         S.totalActions++;
         S.combo = 0;
-        S.score = Math.max(0, S.score - DIFF.missPenalty);
+        S.score = Math.max(0, S.score - currentModeCfg().missPenalty);
         spawnPop(x, y, reason || 'MISS');
         flashScreen('bad');
       }
@@ -1901,17 +2484,6 @@
         brushCursor.style.left = x + 'px';
         brushCursor.style.top = y + 'px';
         brushCursor.style.opacity = '1';
-      }
-
-      if(arenaCore){
-        arenaCore.addEventListener('pointermove', updateBrushCursor);
-        arenaCore.addEventListener('pointerdown', (ev)=>{
-          stopDemoTutorial();
-          updateBrushCursor(ev);
-        });
-        arenaCore.addEventListener('pointerleave', ()=>{
-          if(brushCursor) brushCursor.style.opacity = '0';
-        });
       }
 
       function bossPhaseCfg(phase){
@@ -1956,6 +2528,9 @@
           S.bossPhase++;
           setBossPhase(S.bossPhase);
           spawnPop(x, y, `PHASE ${S.bossPhase}`);
+          setCoachText(`ยอดเยี่ยม! ผ่านบอสเฟส ${S.bossPhase - 1} แล้ว`, 'good');
+          showCoachToast(`ผ่านเฟส ${S.bossPhase - 1}`);
+          playCue('boss-phase', `ผ่านเฟส ${S.bossPhase}`);
           scheduleNextBossPattern(900);
           return true;
         }
@@ -1966,6 +2541,9 @@
         if(laserLine) laserLine.classList.remove('on');
         if(shockRing) shockRing.classList.remove('on');
         spawnPop(x, y, 'ชนะบอส!');
+        setCoachText('สุดยอด! กำจัดบอสหินปูนได้แล้ว', 'good');
+        showCoachToast('ชนะบอสแล้ว!');
+        playCue('boss-win');
         emitHha('hha:event', eventPayload('boss_complete', { bossPhase: S.bossPhase }));
         return true;
       }
@@ -1991,6 +2569,8 @@
           laserLine.classList.add('on');
         }
         setBossBanner('🚫 LASER! หยุดแปรงชั่วคราว');
+        setCoachText('เลเซอร์กำลังมา หยุดก่อนนะ', 'warn');
+        playCue('boss-laser');
         emitHha('hha:event', eventPayload('boss_laser_warn', { y:S.laserY }));
       }
 
@@ -2022,6 +2602,8 @@
           shockRing.classList.add('on');
         }
         setBossBanner('⚡ SHOCK! แตะให้ตรงจังหวะวงแหวน');
+        setCoachText('รอจังหวะแล้วแตะตามวงแหวน', 'mid');
+        playCue('boss-shock');
         emitHha('hha:event', eventPayload('boss_shock_start', {}));
       }
 
@@ -2049,6 +2631,8 @@
         }
 
         setBossBanner('🪞 DECOY! แตะเฉพาะโซนจริงที่เรืองแสง');
+        setCoachText('มีโซนหลอกแล้ว แตะเฉพาะโซนจริงนะ', 'warn');
+        playCue('boss-decoy');
         emitHha('hha:event', eventPayload('boss_decoy_start', { decoyZoneIdx:S.decoyZoneIdx }));
       }
 
@@ -2089,6 +2673,7 @@
         pulseZone(S.activeZoneIdx, false);
         flashScreen('bad');
         spawnPop(x, y, 'LASER!');
+        playCue('laser-hit');
         emitHha('hha:event', eventPayload('boss_laser_punish', {}));
       }
 
@@ -2103,6 +2688,7 @@
         if(S.quest.perfectShock >= 3) S.quest.donePerfectShock = true;
         spawnPop(x, y, 'SHOCK PERFECT');
         spawnSparkle(x, y);
+        playCue('shock-perfect');
         bossExitShock();
         refreshZoneUI();
       }
@@ -2117,6 +2703,7 @@
         pulseZone(S.activeZoneIdx, false);
         flashScreen('bad');
         spawnPop(x, y, 'DECOY');
+        playCue('decoy-hit');
         const dz = S.zoneState[S.decoyZoneIdx];
         dz?.el?.classList.add('fakeTap');
         setTimeout(()=> dz?.el?.classList.remove('fakeTap'), 260);
@@ -2131,8 +2718,9 @@
       }
 
       function maybeStartBoss(){
+        if(!currentModeCfg().boss) return;
         if(S.bossStarted) return;
-        const allReady = S.zoneState.every(z => zoneCleanPct(z) >= CFG.cleanTarget);
+        const allReady = S.zoneState.every(z => zoneCleanPct(z) >= currentModeCfg().cleanTarget);
         if(!allReady) return;
 
         S.bossStarted = true;
@@ -2142,7 +2730,7 @@
         setBossPhase(1);
 
         S.zoneState.forEach((z, i)=>{
-          z.completed = zoneCleanPct(z) >= CFG.cleanTarget;
+          z.completed = zoneCleanPct(z) >= currentModeCfg().cleanTarget;
           if(i === S.activeZoneIdx){
             z.dirt = 100;
             renderDirtForZone(i);
@@ -2156,7 +2744,7 @@
 
       function startBossNow(){
         S.zoneState.forEach(z=>{
-          z.clean = Math.max(z.clean, CFG.cleanTarget);
+          z.clean = Math.max(z.clean, currentModeCfg().cleanTarget);
           z.completed = true;
         });
         maybeStartBoss();
@@ -2165,6 +2753,7 @@
       }
 
       function useUV(){
+        if(!currentModeCfg().uv) return;
         const now = performance.now();
         if(now < S.uvCdUntil || S.finished) return;
         S.uvUntil = now + 3200;
@@ -2174,6 +2763,7 @@
       }
 
       function usePolish(){
+        if(!currentModeCfg().polish) return;
         const now = performance.now();
         if(now < S.polishCdUntil || S.finished) return;
         S.polishCdUntil = now + CFG.polishCdMs;
@@ -2181,7 +2771,7 @@
         S.zoneState.forEach((z, idx)=>{
           z.clean = clamp(z.clean + 6, 0, 100);
           z.dirt = clamp(z.dirt - 7, 0, 100);
-          if(zoneCleanPct(z) >= CFG.cleanTarget) z.completed = true;
+          if(zoneCleanPct(z) >= currentModeCfg().cleanTarget) z.completed = true;
           renderDirtForZone(idx);
         });
 
@@ -2217,6 +2807,128 @@
         }));
       }
 
+      function renderDirtForZone(idx){
+        const zs = S.zoneState[idx];
+        const meta = ZONES[idx];
+        if(!zs.dirtEl) return;
+
+        zs.dirtEl.innerHTML = '';
+        const count = clamp(Math.ceil(zs.dirt / 12), 0, 8);
+
+        for(let i=0;i<count;i++){
+          const blob = document.createElement('div');
+          let klass = meta.dirtType;
+          if(S.bossStarted && idx === S.activeZoneIdx && !S.bossCompleted) klass = 'boss';
+          blob.className = `dirtBlob ${klass}`;
+
+          const horizontal = ZONES[idx]?.dir === 'horizontal';
+          if(klass === 'boss'){
+            const size = 16 + Math.random()*28;
+            blob.style.width = size + 'px';
+            blob.style.height = size + 'px';
+          } else if(horizontal){
+            blob.style.width = (18 + Math.random()*34) + 'px';
+            blob.style.height = (6 + Math.random()*6) + 'px';
+          } else {
+            blob.style.width = (6 + Math.random()*6) + 'px';
+            blob.style.height = (18 + Math.random()*34) + 'px';
+          }
+
+          blob.style.left = (10 + Math.random()*72) + '%';
+          blob.style.top = (16 + Math.random()*56) + '%';
+          blob.style.animationDelay = (Math.random()*0.6).toFixed(2) + 's';
+          zs.dirtEl.appendChild(blob);
+        }
+      }
+
+      function buildZones(){
+        if(!zoneLayer || !zoneList) return;
+        zoneLayer.innerHTML = '';
+        zoneList.innerHTML = '';
+
+        S.zoneState.forEach((zs, idx)=>{
+          const meta = ZONES[idx];
+
+          const el = document.createElement('button');
+          el.type = 'button';
+          el.className = 'zone';
+
+          if (CFG.view === 'mobile' || CFG.view === 'cvr' || window.innerWidth <= 760) {
+            el.classList.add('tapBoost');
+          }
+
+          el.style.left = meta.x + '%';
+          el.style.top = meta.y + '%';
+          el.style.width = meta.w + '%';
+          el.style.height = meta.h + '%';
+          el.dataset.zoneId = zs.id;
+
+          const label = document.createElement('div');
+          label.className = 'zoneLabel';
+          label.textContent = zs.label;
+          el.appendChild(label);
+
+          const dir = document.createElement('div');
+          dir.className = 'zoneDir';
+          dir.textContent = meta.dir === 'horizontal' ? '↔' : '↕';
+          el.appendChild(dir);
+
+          const dirt = document.createElement('div');
+          dirt.className = 'dirt';
+          el.appendChild(dirt);
+
+          zs.el = el;
+          zs.dirtEl = dirt;
+
+          renderDirtForZone(idx);
+
+          el.addEventListener('pointerdown', (ev)=>{
+            ev.preventDefault();
+            onBrushZone(idx, ev);
+          });
+
+          zoneLayer.appendChild(el);
+
+          const item = document.createElement('div');
+          item.className = 'zoneItem';
+          item.id = 'zoneItem_' + zs.id;
+          item.innerHTML = `
+            <div class="zoneRow">
+              <div class="zoneName">${zs.label}</div>
+              <div class="zonePct" id="zonePct_${zs.id}">0%</div>
+            </div>
+            <div class="miniBar"><div class="miniFill" id="zoneFill_${zs.id}"></div></div>
+            <div class="zoneRow" style="margin-top:4px;">
+              <div class="zonePct" id="zoneStars_${zs.id}">☆☆☆</div>
+              <div class="zonePct" id="zoneNote_${zs.id}">ยังไม่จบ</div>
+            </div>
+          `;
+          zoneList.appendChild(item);
+        });
+
+        refreshZoneUI();
+      }
+
+      function updateLearnOverlayText(){
+        const el = byId('learnOverlayNow');
+        const active = S.zoneState[S.activeZoneIdx];
+        if(!el || !active) return;
+        el.textContent = `${humanZoneInstruction(active.label)} ในกรอบสีฟ้า`;
+      }
+
+      function openLearnOverlay(){
+        if(!learnOverlay) return;
+        updateLearnOverlayText();
+        learnOverlay.style.display = 'grid';
+        S.learnOverlayShown = true;
+        playCue('learn-open');
+      }
+
+      function closeLearnOverlay(){
+        if(!learnOverlay) return;
+        learnOverlay.style.display = 'none';
+      }
+
       function refreshZoneUI(){
         S.clean = totalCleanPct();
 
@@ -2225,7 +2937,7 @@
         setText('statScore', String(Math.round(S.score)));
         setText('statCombo', String(S.combo));
         setText('statMiss', String(S.miss));
-        setText('statTime', String(Math.ceil(S.timeLeft)));
+        setText('statTime', S.mode === 'learn' ? '∞' : String(Math.ceil(S.timeLeft)));
         setText(
           'statBoss',
           S.bossStarted && !S.bossCompleted
@@ -2272,21 +2984,64 @@
           const pctEl = byId('zonePct_' + zs.id);
           if(fill) fill.style.width = pct + '%';
           if(pctEl) pctEl.textContent = pct + '%';
+
+          const starsEl = byId('zoneStars_' + zs.id);
+          const noteEl = byId('zoneNote_' + zs.id);
+          const ms = zoneMasteryOf(idx);
+
+          if(ms && starsEl){
+            calcZoneStars(idx);
+            starsEl.textContent = starsText(ms.totalStar);
+            starsEl.classList.toggle('starGood', ms.totalStar >= 2);
+          }
+
+          if(ms && noteEl){
+            noteEl.classList.remove('noteGood','noteMid','noteWarn');
+            if(zs.completed){
+              noteEl.textContent =
+                ms.totalStar >= 3 ? 'ยอดเยี่ยม' :
+                ms.totalStar === 2 ? 'ดีมาก' :
+                ms.totalStar === 1 ? 'ผ่านแล้ว' : 'ลองอีกนิด';
+
+              if(ms.totalStar >= 3) noteEl.classList.add('noteGood');
+              else if(ms.totalStar === 2) noteEl.classList.add('noteMid');
+              else noteEl.classList.add('noteWarn');
+            } else {
+              noteEl.textContent = (idx === S.activeZoneIdx) ? 'กำลังเล่น' : 'ยังไม่จบ';
+            }
+          }
         });
 
         if(!S.bossStarted){
           const zLabel = active ? active.label : '—';
-          setHtml(
-            'instruction',
-            `ตอนนี้ให้ถู <b>${zLabel}</b>
-             <span class="sub" id="instructionSub">ถูในกรอบสีฟ้าบนรูปฟันตรงกลาง</span>`
-          );
-          setText(
-            'questText',
-            `ทำความสะอาดทีละโซนให้เกิน ${CFG.cleanTarget}% แล้วจะเจอบอสหินปูน`
-          );
+          const target = currentModeCfg().cleanTarget;
+
+          if(S.mode === 'learn'){
+            setHtml(
+              'instruction',
+              `ลองถู <b>${zLabel}</b>
+               <span class="sub" id="instructionSub">ถูในกรอบสีฟ้าไปเรื่อย ๆ แบบไม่ต้องรีบ</span>`
+            );
+            setText('questText', `ฝึกทีละโซนให้คุ้นมือ • เป้าหมายโซนละ ${target}%`);
+          }
+          else if(S.mode === 'practice'){
+            setHtml(
+              'instruction',
+              `ตอนนี้ให้ถู <b>${zLabel}</b>
+               <span class="sub" id="instructionSub">ถูในกรอบสีฟ้าบนรูปฟันตรงกลาง</span>`
+            );
+            setText('questText', `ทำความสะอาดทีละโซนให้เกิน ${target}% แล้วจะเจอบอสหินปูน`);
+          }
+          else{
+            setHtml(
+              'instruction',
+              `รีบถู <b>${zLabel}</b>
+               <span class="sub" id="instructionSub">ถูให้เร็ว แม่น และถูกทิศ</span>`
+            );
+            setText('questText', `โหมดท้าทาย: แต่ละโซนต้องเกิน ${target}% แล้วไปสู้บอส`);
+          }
         } else if (!S.bossCompleted){
-          let sub = 'แตะเร็วอย่างแม่นยำเพื่อลด HP บอส • ใช้ UV เพื่อ boost และ Polish เพื่อเก็บโบนัส';
+          let sub = 'แตะเร็วอย่างแม่นยำเพื่อลด HP บอส';
           if(S.bossMode === 'laserWarn') sub = 'เตือนเลเซอร์: เตรียมหยุดแปรง';
           else if(S.bossMode === 'laserLive') sub = 'เลเซอร์ทำงาน: ห้ามแตะ';
           else if(S.bossMode === 'shockWait') sub = 'Shockwave: แตะให้ตรงจังหวะวงแหวน';
@@ -2321,11 +3076,26 @@
           );
         }
 
+        const dirBadge = byId('dirBadge');
+        if(dirBadge){
+          const icon = ZONES[S.activeZoneIdx]?.dir === 'horizontal' ? '↔' : '↕';
+          dirBadge.classList.remove('dirGood','dirWarn');
+          dirBadge.textContent = `${icon} ${zoneDirectionText(S.activeZoneIdx)}`;
+        }
+
         const hintBadge = byId('hintBadge');
         if(hintBadge){
           if(!S.bossStarted){
-            hintBadge.textContent = '👆 ถูในกรอบสีฟ้า';
-            setNowDoText(`${humanZoneInstruction(active ? active.label : 'โซนนี้')} ในกรอบสีฟ้า`);
+            if(S.mode === 'learn'){
+              hintBadge.textContent = `👆 ลอง${zoneDirectionText(S.activeZoneIdx)}ช้า ๆ`;
+              setNowDoText(`${humanZoneInstruction(active ? active.label : 'โซนนี้')} แบบไม่ต้องรีบ`);
+            } else if(S.mode === 'practice'){
+              hintBadge.textContent = `👆 ${zoneDirectionText(S.activeZoneIdx)}ในกรอบสีฟ้า`;
+              setNowDoText(`${humanZoneInstruction(active ? active.label : 'โซนนี้')} โดย${zoneDirectionText(S.activeZoneIdx)}`);
+            } else {
+              hintBadge.textContent = `⚡ ${zoneDirectionText(S.activeZoneIdx)}ให้เร็วและแม่น`;
+              setNowDoText(`${humanZoneInstruction(active ? active.label : 'โซนนี้')} ให้เร็วและถูกทิศ`);
+            }
           }
           else if (!S.bossCompleted){
             if(S.bossMode === 'laserWarn'){
@@ -2358,8 +3128,17 @@
         const polishReady = performance.now() >= S.polishCdUntil;
         const btnUV = byId('btnUV');
         const btnPolish = byId('btnPolish');
-        if(btnUV) btnUV.classList.toggle('disabled', !uvReady);
-        if(btnPolish) btnPolish.classList.toggle('disabled', !polishReady);
+        if(btnUV){
+          btnUV.classList.toggle('disabled', !uvReady || !currentModeCfg().uv);
+        }
+        if(btnPolish){
+          btnPolish.classList.toggle('disabled', !polishReady || !currentModeCfg().polish);
+        }
+
+        const btnStartBoss = byId('btnStartBoss');
+        if(btnStartBoss){
+          btnStartBoss.classList.toggle('disabled', !currentModeCfg().boss);
+        }
       }
 
       function onBrushZone(idx, ev){
@@ -2393,6 +3172,9 @@
             } else {
               addMiss(x, y, goodWindow ? 'ผิดโซน' : 'พลาดจังหวะ');
               pulseZone(idx, false);
+              const mShock = zoneMasteryOf(idx);
+              if(mShock) mShock.localMiss++;
+              setCoachText('ลองแตะตามจังหวะอีกครั้ง', 'warn');
               refreshZoneUI();
               return;
             }
@@ -2408,23 +3190,42 @@
         if(!isActive){
           addMiss(x, y, 'ผิดโซน');
           pulseZone(idx, false);
+          const activeMastery = zoneMasteryOf(S.activeZoneIdx);
+          if(activeMastery) activeMastery.localMiss++;
           setNowDoText(`ยังไม่ใช่โซนนี้ • ให้ถู ${humanZoneInstruction(S.zoneState[S.activeZoneIdx]?.label || 'โซนที่กำหนด')}`);
+          setCoachText('ยังไม่ใช่โซนนี้นะ ลองดูกรอบสีฟ้า', 'warn');
+          playCue('wrong-zone');
           refreshZoneUI();
           return;
         }
 
         if(S.phase !== 'boss'){
-          const boost = performance.now() < S.uvUntil ? 1.35 : 1;
-          const delta = DIFF.stroke * boost;
+          const boost = performance.now() < S.uvUntil ? 1.15 : 1;
+          const delta = (DIFF.stroke * 0.45) * boost;
           zs.clean = clamp(zs.clean + delta, 0, 100);
-          zs.dirt = clamp(zs.dirt - delta * 0.95, 0, 100);
+          zs.dirt = clamp(zs.dirt - delta * 0.85, 0, 100);
 
-          addScore(8 * boost, x, y, boost > 1 ? 'CLEAN+' : 'CLEAN');
+          addScore(4 * boost, x, y, boost > 1 ? 'CLEAN+' : 'CLEAN');
           pulseZone(idx, true);
 
-          if(zoneCleanPct(zs) >= CFG.cleanTarget && !zs.completed){
+          if(zoneCleanPct(zs) >= currentModeCfg().cleanTarget && !zs.completed){
             zs.completed = true;
-            spawnPop(x, y, 'ครบโซน!');
+            const star = calcZoneStars(idx);
+            spawnPop(x, y, `ครบโซน! ${starsText(star)}`);
+
+            const coach = zoneCoachFeedback(idx);
+            const tip = zoneRealLifeTip(idx);
+            setCoachText(`${coach.text} • ${tip}`, coach.tone);
+            showCoachToast(star >= 3 ? 'เก่งมาก! 3 ดาว' : `ได้ ${star} ดาว`);
+            playCue(star >= 3 ? 'zone-perfect' : 'zone-clear');
+            S.coachHistory.push({
+              ts: nowISO(),
+              zoneId: zs.id,
+              zoneLabel: zs.label,
+              star,
+              text: `${coach.text} • ${tip}`,
+              tone: coach.tone
+            });
           }
 
           renderDirtForZone(idx);
@@ -2436,14 +3237,14 @@
         }
 
         if(S.phase === 'boss' && !S.bossCompleted){
-          const boost = performance.now() < S.uvUntil ? 1.25 : 1;
-          const dmg = DIFF.bossStroke * boost;
+          const boost = performance.now() < S.uvUntil ? 1.1 : 1;
+          const dmg = (DIFF.bossStroke * 0.5) * boost;
           S.bossHP = clamp(S.bossHP - dmg, 0, CFG.bossHP);
-          zs.clean = clamp(zs.clean + 2.5 * boost, 0, 100);
-          zs.dirt = clamp(zs.dirt - 5 * boost, 0, 100);
+          zs.clean = clamp(zs.clean + 1.4 * boost, 0, 100);
+          zs.dirt = clamp(zs.dirt - 2.4 * boost, 0, 100);
 
           S.bossHits++;
-          addScore(14 * boost, x, y, boost > 1 ? 'BOSS!' : 'HIT');
+          addScore(7 * boost, x, y, boost > 1 ? 'BOSS!' : 'HIT');
           pulseZone(idx, true);
           flashScreen('boss');
 
@@ -2453,6 +3254,114 @@
           refreshZoneUI();
           emitProgress();
         }
+      }
+
+      if(arenaCore){
+        arenaCore.addEventListener('pointermove', (ev)=>{
+          updateBrushCursor(ev);
+          if(!S.isBrushing || S.finished) return;
+
+          const r = arenaCore.getBoundingClientRect();
+          const x = ev.clientX - r.left;
+          const y = ev.clientY - r.top;
+          const dx = x - S.brushLastX;
+          const dy = y - S.brushLastY;
+          const dist = Math.hypot(dx, dy);
+
+          S.lastBrushDx = dx;
+          S.lastBrushDy = dy;
+
+          if(dist >= 8){
+            const rot = Math.atan2(dy || 0.001, dx || 0.001) * 180 / Math.PI;
+            spawnTrail(x, y, rot);
+
+            const activeIdx = S.activeZoneIdx;
+            const insideActive = pointInZone(activeIdx, x, y);
+
+            if(insideActive && !S.bossStarted){
+              addBrushDragProgress(activeIdx, dist, x, y);
+              renderDirtForZone(activeIdx);
+
+              const zs = S.zoneState[activeIdx];
+              if(zoneCleanPct(zs) >= currentModeCfg().cleanTarget && !zs.completed){
+                zs.completed = true;
+                const star = calcZoneStars(activeIdx);
+                spawnPop(x, y, `ครบโซน! ${starsText(star)}`);
+
+                const coach = zoneCoachFeedback(activeIdx);
+                const tip = zoneRealLifeTip(activeIdx);
+                setCoachText(`${coach.text} • ${tip}`, coach.tone);
+                showCoachToast(star >= 3 ? 'เก่งมาก! 3 ดาว' : `ได้ ${star} ดาว`);
+                playCue(star >= 3 ? 'zone-perfect' : 'zone-clear');
+                S.coachHistory.push({
+                  ts: nowISO(),
+                  zoneId: zs.id,
+                  zoneLabel: zs.label,
+                  star,
+                  text: `${coach.text} • ${tip}`,
+                  tone: coach.tone
+                });
+              }
+
+              maybeAdvanceZone();
+              maybeStartBoss();
+            } else if(insideActive && S.phase === 'boss' && !S.bossCompleted){
+              if(S.bossMode === 'laserLive'){
+                punishLaser(x, y);
+                resetBrushCombo();
+              } else if(S.bossMode !== 'shockWait' && S.bossMode !== 'decoy'){
+                const dirBoost = directionScore(activeIdx, dx, dy);
+                const dmg = dist * 0.08 * dirBoost;
+                S.bossHP = clamp(S.bossHP - dmg, 0, CFG.bossHP);
+                S.score += Math.max(0, Math.round(dist * 0.16 * dirBoost));
+                if(Math.random() < 0.22) spawnFoam(x, y);
+                renderDirtForZone(activeIdx);
+                if(S.bossHP <= 0) maybeAdvanceBossPhase(x, y);
+              }
+            } else {
+              resetBrushCombo();
+            }
+
+            updateDirBadge(S.activeZoneIdx, dx, dy);
+
+            S.brushLastX = x;
+            S.brushLastY = y;
+            S.brushLastT = performance.now();
+            refreshZoneUI();
+          }
+        });
+
+        arenaCore.addEventListener('pointerdown', (ev)=>{
+          stopDemoTutorial();
+          updateBrushCursor(ev);
+          ensureAudio();
+          if(S.finished) return;
+
+          const r = arenaCore.getBoundingClientRect();
+          S.isBrushing = true;
+          resetBrushCombo();
+          S.brushLastX = ev.clientX - r.left;
+          S.brushLastY = ev.clientY - r.top;
+          S.brushLastT = performance.now();
+          spawnTrail(S.brushLastX, S.brushLastY, 0);
+        });
+
+        const endBrush = ()=>{
+          S.isBrushing = false;
+          resetBrushCombo();
+          if(brushCursor) brushCursor.style.opacity = '0';
+          const dirBadge = byId('dirBadge');
+          if(dirBadge){
+            dirBadge.classList.remove('dirGood','dirWarn');
+            const activeIdx = S.activeZoneIdx;
+            const icon = ZONES[activeIdx]?.dir === 'horizontal' ? '↔' : '↕';
+            dirBadge.textContent = `${icon} ${zoneDirectionText(activeIdx)}`;
+          }
+        };
+
+        arenaCore.addEventListener('pointerup', endBrush);
+        arenaCore.addEventListener('pointercancel', endBrush);
+        arenaCore.addEventListener('pointerleave', endBrush);
       }
 
       function saveDraft(){
@@ -2481,9 +3390,11 @@
           bossPhase: S.bossPhase,
           bossHP: S.bossHP,
           bossMaxHP: S.bossMaxHP,
+          mode: S.mode,
           zoneState: S.zoneState.map(z => ({
             id:z.id, label:z.label, dirt:z.dirt, clean:z.clean, completed:z.completed
           })),
+          zoneMastery: JSON.parse(JSON.stringify(S.zoneMastery)),
           quest: JSON.parse(JSON.stringify(S.quest)),
           metrics: JSON.parse(JSON.stringify(S.metrics)),
           savedAt: nowISO(),
@@ -2531,12 +3442,19 @@
         S.bossPhase = num(draft.bossPhase, S.bossPhase);
         S.bossHP = num(draft.bossHP, S.bossHP);
         S.bossMaxHP = num(draft.bossMaxHP, S.bossMaxHP);
+        S.mode = draft.mode || S.mode;
 
         if(Array.isArray(draft.zoneState) && draft.zoneState.length === S.zoneState.length){
           draft.zoneState.forEach((z, i)=>{
             S.zoneState[i].dirt = num(z.dirt, S.zoneState[i].dirt);
             S.zoneState[i].clean = num(z.clean, S.zoneState[i].clean);
             S.zoneState[i].completed = !!z.completed;
+          });
+        }
+
+        if(Array.isArray(draft.zoneMastery) && draft.zoneMastery.length === S.zoneMastery.length){
+          draft.zoneMastery.forEach((m, i)=>{
+            Object.assign(S.zoneMastery[i], m);
           });
         }
 
@@ -2600,6 +3518,8 @@
           time: String(CFG.time),
           seed: CFG.seed || '',
           studyId: CFG.studyId || '',
+          mode: S.mode,
+          overallTip: overallRealLifeTip(),
           endReason: endReason || (S.bossCompleted ? 'complete' : 'timeup'),
           scoreFinal: Math.round(S.score),
           accuracyPct: Math.round(acc * 10) / 10,
@@ -2619,6 +3539,23 @@
           laserPunish: S.metrics.laserPunish,
           shockPerfectCount: S.metrics.shockPerfect,
           decoyPunish: S.metrics.decoyPunish,
+          zoneSummary: S.zoneMastery.map((m, i)=>{
+            const checks = zoneSummaryChecks(i);
+            return {
+              id: m.id,
+              label: m.label,
+              stars: checks?.stars || 0,
+              clean: !!checks?.clean,
+              direction: !!checks?.direction,
+              control: !!checks?.control,
+              cleanPct: checks?.cleanPct || 0,
+              dirRate: checks?.dirRate || 0,
+              localMiss: checks?.localMiss || 0,
+              line: zoneSummaryLine(i),
+              tip: zoneRealLifeTip(i)
+            };
+          }),
+          coachHistory: S.coachHistory.slice(-12),
           savedAt: nowISO(),
           href: location.href
         };
@@ -2652,13 +3589,20 @@
         setText('sumScore', String(summary.scoreFinal));
         setText('sumAcc', summary.accuracyPct + '%');
         setText('sumClean', summary.cleanPct + '%');
-        setText('sumBoss', summary.bossCompleted ? 'ชนะแล้ว' : 'ยังไม่ชนะ');
+        setText('sumBoss', S.mode === 'learn' ? 'ไม่มีบอส' : (summary.bossCompleted ? 'ชนะแล้ว' : 'ยังไม่ชนะ'));
         setText('sumCombo', String(summary.maxCombo || 0));
-        setText('sumQuest', `${qDone}/3`);
-        setText('summarySub', `${summary.gameTitle} • end=${summary.endReason} • pid=${summary.pid || '—'}`);
+        setText('sumQuest', `${qDone}/3 ผ่าน`);
+        setText('summarySub', `${summary.gameTitle} • mode=${summary.mode} • end=${summary.endReason}`);
+
+        const totalStars = summary.zoneSummary.reduce((a,z)=> a + z.stars, 0);
+        setText(
+          'resultHeroTitle',
+          S.mode === 'learn'
+            ? 'ฝึกแปรงฟันเสร็จแล้ว!'
+            : (S.bossCompleted ? 'คุณกำจัดบอสหินปูนได้แล้ว!' : 'สรุปการแปรงฟันรอบนี้')
+        );
+        setText('resultHeroSub', `ฟันสะอาด ${summary.cleanPct}% • ความแม่น ${summary.accuracyPct}% • ดาวรวม ${totalStars}/18`);
         setText('resultHeroRank', rank);
-        setText('resultHeroTitle', S.bossCompleted ? 'คุณกำจัดบอสหินปูนได้แล้ว!' : 'สรุปการแปรงฟันรอบนี้');
-        setText('resultHeroSub', `Clean ${summary.cleanPct}% • Accuracy ${summary.accuracyPct}% • Quest ${qDone}/3`);
 
         const rankEl = byId('resultHeroRank');
         if(rankEl){
@@ -2685,6 +3629,76 @@
         if(qDecoy){
           qDecoy.textContent = `Decoy ${summary.questDoneDecoyAvoid ? '✅' : '⬜'}`;
           qDecoy.classList.toggle('ok', !!summary.questDoneDecoyAvoid);
+        }
+
+        const summaryCoachWrap = byId('summaryCoachWrap');
+        if(summaryCoachWrap){
+          const lastCoach = S.coachHistory.slice(-3);
+          summaryCoachWrap.innerHTML = lastCoach.length
+            ? `
+              <div style="font-size:13px; font-weight:950;">Coach Notes</div>
+              ${lastCoach.map(c => `
+                <div style="border:1px solid rgba(148,163,184,.16); background:rgba(2,6,23,.24); border-radius:14px; padding:10px 12px; color:var(--muted); font-size:12px; line-height:1.5;">
+                  ${c.text}
+                </div>
+              `).join('')}
+            `
+            : '';
+        }
+
+        const summaryZoneWrap = byId('summaryZoneWrap');
+        if(summaryZoneWrap){
+          summaryZoneWrap.innerHTML = `
+            <div style="font-size:13px; font-weight:950;">สรุปรายโซน</div>
+            ${summary.zoneSummary.map(z => `
+              <div style="border:1px solid rgba(148,163,184,.16); background:rgba(2,6,23,.24); border-radius:14px; padding:10px 12px;">
+                <div style="display:flex; justify-content:space-between; gap:8px; align-items:center; flex-wrap:wrap;">
+                  <div style="font-size:13px; font-weight:950;">${z.label}</div>
+                  <div style="font-size:13px; font-weight:950; color:${z.stars >= 2 ? '#fbbf24' : '#94a3b8'};">
+                    ${starsText(z.stars)}
+                  </div>
+                </div>
+
+                <div style="margin-top:6px; color:var(--muted); font-size:12px; line-height:1.5;">
+                  ${z.line}
+                </div>
+                <div style="margin-top:6px; color:rgba(229,231,235,.92); font-size:12px; line-height:1.5; font-weight:900;">
+                  💡 ${z.tip}
+                </div>
+
+                <div style="margin-top:8px; display:flex; gap:8px; flex-wrap:wrap;">
+                  <span class="summaryQuestBadge ${z.clean ? 'ok' : ''}">สะอาด ${z.clean ? '✅' : '⬜'} (${z.cleanPct}%)</span>
+                  <span class="summaryQuestBadge ${z.direction ? 'ok' : ''}">ทิศทาง ${z.direction ? '✅' : '⬜'} (${z.dirRate}%)</span>
+                  <span class="summaryQuestBadge ${z.control ? 'ok' : ''}">คุมดี ${z.control ? '✅' : '⬜'} (พลาด ${z.localMiss})</span>
+                </div>
+              </div>
+            `).join('')}
+
+            <div style="border:1px dashed rgba(148,163,184,.18); background:rgba(2,6,23,.18); border-radius:14px; padding:10px 12px; color:var(--muted); font-size:12px; line-height:1.55;">
+              ข้อสังเกต: โซนที่ได้ดาวน้อยมักต้องฝึกเรื่องความทั่วถึงของการถู ทิศทางการถู หรือการลดการกดพลาด
+            </div>
+          `;
+        }
+
+        const summaryTipWrap = byId('summaryTipWrap');
+        if(summaryTipWrap){
+          summaryTipWrap.innerHTML = `
+            <div style="font-size:13px; font-weight:950;">นำไปใช้ตอนแปรงจริง</div>
+            <div style="border:1px solid rgba(34,197,94,.18); background:rgba(34,197,94,.10); border-radius:14px; padding:10px 12px; color:var(--text); font-size:13px; line-height:1.55; font-weight:900;">
+              ${summary.overallTip}
+            </div>
+            <div style="color:var(--muted); font-size:12px; line-height:1.5;">
+              ลองทำช้า ๆ เบา ๆ และให้ทั่วทุกซี่ตอนแปรงฟันจริง
+            </div>
+          `;
+        }
+
+        if(S.mode === 'learn'){
+          playCue('summary-learn');
+        } else if(S.bossCompleted){
+          playCue('summary-win');
+        } else {
+          playCue('summary-open');
         }
 
         if(summaryOverlay) summaryOverlay.style.display = 'grid';
@@ -2714,7 +3728,12 @@
         });
 
         byId('btnRestart')?.addEventListener('click', restartGame);
-        byId('btnStartBoss')?.addEventListener('click', startBossNow);
+
+        byId('btnStartBoss')?.addEventListener('click', ()=>{
+          if(!currentModeCfg().boss) return;
+          startBossNow();
+        });
+
         byId('btnFinish')?.addEventListener('click', ()=> finishGame(S.bossCompleted ? 'complete' : 'quit'));
         byId('btnCloseSummary')?.addEventListener('click', ()=> { if(summaryOverlay) summaryOverlay.style.display = 'none'; });
         byId('btnSummaryRestart')?.addEventListener('click', restartGame);
@@ -2736,10 +3755,50 @@
             if(hub) location.href = hub;
           }
         });
+
+        byId('btnModeLearn')?.addEventListener('click', ()=> setMode('learn'));
+        byId('btnModePractice')?.addEventListener('click', ()=> setMode('practice'));
+        byId('btnModeChallenge')?.addEventListener('click', ()=> setMode('challenge'));
+
+        byId('btnLearnWatch')?.addEventListener('click', ()=>{
+          closeLearnOverlay();
+          setCoachText('ดูนิ้วตัวอย่างก่อน แล้วค่อยลองถูตามนะ', 'mid');
+          playCue('learn-watch');
+          stopDemoTutorial();
+          setTimeout(()=> startDemoTutorial(), 120);
+        });
+
+        byId('btnLearnSkip')?.addEventListener('click', ()=>{
+          closeLearnOverlay();
+        });
+
+        byId('btnLearnStart')?.addEventListener('click', ()=>{
+          closeLearnOverlay();
+          setNowDoText('เริ่มจากถูโซนที่มีกรอบสีฟ้า');
+          playCue('learn-start');
+        });
+
+        byId('btnShowLearnHelp')?.addEventListener('click', ()=>{
+          if(S.mode === 'learn'){
+            openLearnOverlay();
+          } else {
+            setCoachText('ดูกรอบสีฟ้าและลองถูตามทิศที่บอกนะ', 'mid');
+            stopDemoTutorial();
+            setTimeout(()=> startDemoTutorial(), 120);
+          }
+        });
+
+        byId('btnToggleAudio')?.addEventListener('click', toggleAudio);
       }
 
       function tick(){
         if(S.finished) return;
+
+        if(S.mode === 'learn' && learnOverlay && learnOverlay.style.display === 'grid'){
+          refreshZoneUI();
+          return;
+        }
+
         S.timeLeft = Math.max(0, S.timeLeft - 0.1);
 
         if(!S.bossStarted){
@@ -2762,7 +3821,7 @@
         if(Math.round(S.timeLeft) % 5 === 0) emitProgress();
         if(Math.floor(S.timeLeft * 10) % 20 === 0) saveDraft();
 
-        if(S.timeLeft <= 0){
+        if(S.mode !== 'learn' && S.timeLeft <= 0){
           finishGame(S.bossCompleted ? 'complete' : 'timeup');
         }
       }
@@ -2771,14 +3830,36 @@
         document.documentElement.classList.toggle('view-cvr', CFG.view === 'cvr');
         document.body.classList.toggle('view-cvr', CFG.view === 'cvr');
 
+        const modeCfg = currentModeCfg();
+        if(S.mode === 'learn'){
+          S.timeLeft = modeCfg.time;
+        } else if(!Number.isFinite(S.timeLeft) || S.timeLeft <= 0){
+          S.timeLeft = modeCfg.time;
+        }
+
         setTopPills();
+        setAudioPill();
+        ensureAudio();
+        refreshModeButtons();
+
         buildZones();
         tryRestoreDraft();
         bindButtons();
         refreshZoneUI();
         emitStart();
-        setNowDoText('เริ่มจากถูโซนที่มีกรอบสีฟ้า');
-        setTimeout(()=> startDemoTutorial(), 700);
+
+        if(S.mode === 'learn'){
+          setNowDoText('เริ่มจากดูกรอบสีฟ้าก่อน');
+          const shouldShowLearn = qs('showLearn','1') !== '0';
+          if(shouldShowLearn){
+            openLearnOverlay();
+          } else {
+            setTimeout(()=> startDemoTutorial(), 700);
+          }
+        } else {
+          setNowDoText('เริ่มจากถูโซนที่มีกรอบสีฟ้า');
+          setTimeout(()=> startDemoTutorial(), 700);
+        }
 
         setInterval(tick, 100);
 
@@ -2797,10 +3878,11 @@
                 seed: CFG.seed || '',
                 studyId: CFG.studyId || '',
                 endReason: 'quit',
+                mode: S.mode,
                 scoreFinal: Math.round(S.score),
                 accuracyPct: S.totalActions > 0 ? Math.round((S.hits / S.totalActions) * 1000) / 10 : 0,
                 miss: S.miss,
-                timePlayedSec: Math.round(CFG.time - S.timeLeft),
+                timePlayedSec: Math.round((S.mode === 'learn' ? 0 : CFG.time - S.timeLeft)),
                 cleanPct: totalCleanPct(),
                 bossCompleted: S.bossCompleted,
                 bossPhase: S.bossPhase,
@@ -2811,6 +3893,8 @@
             }catch(e){}
           }
         });
+
+        console.log('mouthWrap=', mouthWrap?.getBoundingClientRect());
       }
 
       boot();
