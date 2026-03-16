@@ -4,9 +4,6 @@
 
 'use strict';
 
-/**
- * Feature schema version สำหรับ log / research / model governance
- */
 export const GJ_FEATURE_SCHEMA_VERSION = 'gj-feat-v1';
 
 function clamp(v, a, b){
@@ -58,19 +55,6 @@ function stddev(arr, d=0){
   return Math.sqrt(variance);
 }
 
-/**
- * rolling object ที่คาดหวังโดยประมาณ:
- * {
- *   hitRate5s,
- *   missRate5s,
- *   expireRate5s,
- *   junkHitRate5s,
- *   goodHitRate5s,
- *   comboBreakRate10s,
- *   scoreDelta5s,
- *   rtGoodMs: []
- * }
- */
 export function buildFeatureVector({
   state = {},
   rolling = {},
@@ -125,14 +109,11 @@ export function buildFeatureVector({
 
   return {
     schemaVersion: GJ_FEATURE_SCHEMA_VERSION,
-
-    // progress
     progressPct: clamp(progressPct, 0, 100),
     timeLeftPct: clamp((tLeft / plannedSec) * 100, 0, 100),
     goalPct: clamp(goalPct, 0, 100),
     bossHpPct: clamp(bossHpPct, 0, 100),
 
-    // raw performance
     score,
     accPct: clamp(accPct, 0, 100),
     shots,
@@ -146,7 +127,6 @@ export function buildFeatureVector({
     fever,
     shield,
 
-    // rolling
     hitRate5s,
     missRate5s,
     expireRate5s,
@@ -155,14 +135,12 @@ export function buildFeatureVector({
     comboBreakRate10s,
     scoreDelta5s,
 
-    // behavior proxies
     junkConfusionRatio: clamp(ratio(missJunkHit, Math.max(1, hits), 0), 0, 1),
     expirePressureRatio: clamp(ratio(missGoodExpired, Math.max(1, missTotal), 0), 0, 1),
     rtMedian,
     rtMean,
     rtStd,
 
-    // context
     stage,
     isBoss,
     isMobile,
@@ -170,7 +148,6 @@ export function buildFeatureVector({
     diffEasy,
     diffHard,
 
-    // prior / profile
     frustrationBaseline,
     fatigueBaseline,
     confusionBaseline
