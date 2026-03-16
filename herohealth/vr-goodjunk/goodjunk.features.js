@@ -5,13 +5,10 @@
 'use strict';
 
 /**
- * สร้าง feature schema version สำหรับ log / model governance
+ * Feature schema version สำหรับ log / research / model governance
  */
 export const GJ_FEATURE_SCHEMA_VERSION = 'gj-feat-v1';
 
-/**
- * ช่วย normalize ตัวเลขให้อยู่ในช่วงที่ model ใช้งานง่าย
- */
 function clamp(v, a, b){
   v = Number(v);
   if(!Number.isFinite(v)) v = a;
@@ -31,28 +28,38 @@ function ratio(a, b, d=0){
 }
 
 function mean(arr, d=0){
-  const xs = (Array.isArray(arr) ? arr : []).map(x=>Number(x)).filter(Number.isFinite);
+  const xs = (Array.isArray(arr) ? arr : [])
+    .map(x => Number(x))
+    .filter(Number.isFinite);
   if(!xs.length) return d;
-  return xs.reduce((s,x)=>s+x,0) / xs.length;
+  return xs.reduce((s, x) => s + x, 0) / xs.length;
 }
 
 function median(arr, d=0){
-  const xs = (Array.isArray(arr) ? arr : []).map(x=>Number(x)).filter(Number.isFinite).sort((a,b)=>a-b);
+  const xs = (Array.isArray(arr) ? arr : [])
+    .map(x => Number(x))
+    .filter(Number.isFinite)
+    .sort((a,b)=>a-b);
+
   if(!xs.length) return d;
   const m = Math.floor(xs.length / 2);
-  return xs.length % 2 ? xs[m] : (xs[m-1] + xs[m]) / 2;
+  return xs.length % 2 ? xs[m] : (xs[m - 1] + xs[m]) / 2;
 }
 
 function stddev(arr, d=0){
-  const xs = (Array.isArray(arr) ? arr : []).map(x=>Number(x)).filter(Number.isFinite);
+  const xs = (Array.isArray(arr) ? arr : [])
+    .map(x => Number(x))
+    .filter(Number.isFinite);
+
   if(xs.length < 2) return d;
+
   const mu = mean(xs, 0);
   const variance = mean(xs.map(x => (x - mu) ** 2), 0);
   return Math.sqrt(variance);
 }
 
 /**
- * rolling object ที่รับเข้ามา ควรมี field พื้นฐานประมาณนี้:
+ * rolling object ที่คาดหวังโดยประมาณ:
  * {
  *   hitRate5s,
  *   missRate5s,
@@ -61,11 +68,8 @@ function stddev(arr, d=0){
  *   goodHitRate5s,
  *   comboBreakRate10s,
  *   scoreDelta5s,
- *   rtGoodMs: [],
- *   recentEvents: [...]
+ *   rtGoodMs: []
  * }
- *
- * ถ้ายังไม่มีทุก field ก็ fallback ได้
  */
 export function buildFeatureVector({
   state = {},
@@ -119,16 +123,16 @@ export function buildFeatureVector({
   const diffEasy = context.diff === 'easy' ? 1 : 0;
   const diffHard = context.diff === 'hard' ? 1 : 0;
 
-  const features = {
+  return {
     schemaVersion: GJ_FEATURE_SCHEMA_VERSION,
 
-    // global progress
+    // progress
     progressPct: clamp(progressPct, 0, 100),
     timeLeftPct: clamp((tLeft / plannedSec) * 100, 0, 100),
     goalPct: clamp(goalPct, 0, 100),
     bossHpPct: clamp(bossHpPct, 0, 100),
 
-    // player performance
+    // raw performance
     score,
     accPct: clamp(accPct, 0, 100),
     shots,
@@ -142,7 +146,7 @@ export function buildFeatureVector({
     fever,
     shield,
 
-    // rolling features
+    // rolling
     hitRate5s,
     missRate5s,
     expireRate5s,
@@ -151,7 +155,7 @@ export function buildFeatureVector({
     comboBreakRate10s,
     scoreDelta5s,
 
-    // confusion / fatigue proxies
+    // behavior proxies
     junkConfusionRatio: clamp(ratio(missJunkHit, Math.max(1, hits), 0), 0, 1),
     expirePressureRatio: clamp(ratio(missGoodExpired, Math.max(1, missTotal), 0), 0, 1),
     rtMedian,
@@ -166,18 +170,16 @@ export function buildFeatureVector({
     diffEasy,
     diffHard,
 
-    // profile priors
+    // prior / profile
     frustrationBaseline,
     fatigueBaseline,
     confusionBaseline
   };
-
-  return features;
 }
 
 /**
- * ทำ vector array สำหรับ model จริงในอนาคต
- * ลำดับต้องคงที่
+ * แปลงเป็น vector array สำหรับ model จริงในอนาคต
+ * ลำดับต้องคงที่เสมอ
  */
 export function featureVectorToArray(f){
   return [
@@ -227,7 +229,7 @@ export function featureVectorToArray(f){
 }
 
 /**
- * อธิบาย top factors แบบง่าย
+ * สรุป top factors แบบ explainable ง่าย ๆ
  */
 export function explainTopFactors(features = {}){
   const notes = [];
