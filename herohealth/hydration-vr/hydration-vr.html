@@ -7,7 +7,8 @@
   <meta name="color-scheme" content="dark light" />
   <link rel="icon" href="../favicon.ico" />
 
-  <script type="module" src="../vr/vr-ui.js?v=20260315c"></script>
+  <!-- ใช้ crosshair / hha:shoot / hha:recenter จาก vr-ui แต่ซ่อนปุ่มเดิม -->
+  <script type="module" src="../vr/vr-ui.js?v=20260316h"></script>
 
   <style>
     :root{
@@ -30,7 +31,7 @@
       --sal: env(safe-area-inset-left, 0px);
       --sar: env(safe-area-inset-right, 0px);
 
-      --vrBottomReserve: 110px;
+      --vrBottomReserve: 112px;
       --hudTop: calc(10px + var(--sat));
     }
 
@@ -242,9 +243,7 @@
       flex-wrap:wrap;
     }
 
-    .hudDot{
-      opacity:.55;
-    }
+    .hudDot{ opacity:.55; }
 
     .riskBar{
       height:10px;
@@ -406,11 +405,7 @@
       will-change:transform, opacity;
     }
 
-    .bossFace.show{
-      opacity:1;
-      transform:scale(1);
-    }
-
+    .bossFace.show{ opacity:1; transform:scale(1); }
     .bossFace.b1{
       border-color:rgba(59,130,246,.30);
       box-shadow:0 18px 40px rgba(59,130,246,.18);
@@ -457,9 +452,7 @@
       will-change:transform, opacity;
     }
 
-    .bubble:active{
-      transform:translate(-50%,-50%) scale(.94);
-    }
+    .bubble:active{ transform:translate(-50%,-50%) scale(.94); }
 
     .bubble-bonus{
       background:
@@ -471,13 +464,8 @@
         0 0 22px rgba(250,204,21,.22);
     }
 
-    .fx-pop{
-      animation: popGood .20s ease forwards;
-    }
-
-    .fx-bad{
-      animation: popBad .22s ease forwards;
-    }
+    .fx-pop{ animation: popGood .20s ease forwards; }
+    .fx-bad{ animation: popBad .22s ease forwards; }
 
     @keyframes popGood{
       0%{ transform:translate(-50%,-50%) scale(1); opacity:1; }
@@ -558,9 +546,7 @@
       to{ opacity:0; transform:translateX(-50%) scaleY(1); }
     }
 
-    .fx-shake{
-      animation: stageShake .22s linear;
-    }
+    .fx-shake{ animation: stageShake .22s linear; }
 
     @keyframes stageShake{
       0%,100%{ transform:translate(0,0); }
@@ -585,10 +571,14 @@
       overflow-y:auto;
       align-items:start;
       -webkit-tap-highlight-color:transparent;
+      pointer-events:none;
     }
 
-    .overlay[aria-hidden="true"]{
-      display:none;
+    .overlay[aria-hidden="true"]{ display:none; }
+
+    .overlay .card,
+    .overlay .card *{
+      pointer-events:auto;
     }
 
     .card{
@@ -719,9 +709,7 @@
       overflow-wrap:anywhere;
     }
 
-    .full{
-      grid-column:1 / -1;
-    }
+    .full{ grid-column:1 / -1; }
 
     .rewardCard{
       border:1px solid rgba(250,204,21,.30);
@@ -779,9 +767,7 @@
       opacity:.75;
     }
 
-    .endBox.full .v{
-      line-height:1.45;
-    }
+    .endBox.full .v{ line-height:1.45; }
 
     .endBox.full.collectionGlow{
       border-color:rgba(250,204,21,.30);
@@ -832,18 +818,11 @@
       pointer-events:none;
     }
 
-    .debugMini b{
-      color:#fff;
-      font-weight:700;
-    }
+    .debugMini b{ color:#fff; font-weight:700; }
 
     .end-mobile-optional{ }
-
     .hud-mobile-hide{ }
-
-    .is-hidden{
-      display:none !important;
-    }
+    .is-hidden{ display:none !important; }
 
     html, body, #app{
       overscroll-behavior:none;
@@ -870,9 +849,7 @@
         width:min(94vw, 720px);
       }
 
-      .calloutLayer{
-        top: calc(292px + var(--sat));
-      }
+      .calloutLayer{ top: calc(292px + var(--sat)); }
 
       .bossFace{
         top:calc(240px + var(--sat));
@@ -887,23 +864,17 @@
         font-size:36px;
       }
 
-      .endGrid{
-        grid-template-columns:1fr 1fr;
-      }
+      .endGrid{ grid-template-columns:1fr 1fr; }
 
       .overlay{
         padding-bottom: calc(26px + var(--vrBottomReserve) + var(--sab));
       }
 
-      .card{
-        width:min(96vw, 900px);
-      }
+      .card{ width:min(96vw, 900px); }
     }
 
     @media (max-width: 560px){
-      :root{
-        --vrBottomReserve: 104px;
-      }
+      :root{ --vrBottomReserve: 104px; }
 
       .hud{
         padding-top:calc(4px + var(--sat));
@@ -911,9 +882,7 @@
         padding-right:calc(5px + var(--sar));
       }
 
-      .hudCard{
-        border-radius:14px;
-      }
+      .hudCard{ border-radius:14px; }
 
       .hudTopbar{
         grid-template-columns: repeat(4, minmax(0,1fr));
@@ -927,10 +896,7 @@
         border-radius:10px;
       }
 
-      .hudStat .k{
-        font-size:8px;
-      }
-
+      .hudStat .k{ font-size:8px; }
       .hudStat .v{
         margin-top:3px;
         font-size:14px;
@@ -964,18 +930,14 @@
         line-height:1.25;
       }
 
-      .hudDot{
-        display:none;
-      }
+      .hudDot{ display:none; }
 
       .riskBar{
         height:7px;
         margin-top:2px;
       }
 
-      .hud-mobile-hide{
-        display:none !important;
-      }
+      .hud-mobile-hide{ display:none !important; }
 
       .zoneSign{
         top: calc(118px + var(--sat));
@@ -1032,7 +994,7 @@
         padding:
           calc(6px + var(--sat))
           calc(8px + var(--sar))
-          calc(8px + var(--sab))
+          calc(12px + var(--vrBottomReserve) + var(--sab))
           calc(8px + var(--sal));
         align-items:stretch;
       }
@@ -1046,18 +1008,14 @@
         gap:8px;
       }
 
-      .cardTitle{
-        font-size:16px;
-      }
+      .cardTitle{ font-size:16px; }
 
       .cardSub{
         font-size:11px;
         line-height:1.35;
       }
 
-      .howGrid{
-        gap:8px;
-      }
+      .howGrid{ gap:8px; }
 
       .howItem{
         padding:10px;
@@ -1094,9 +1052,7 @@
         line-height:1.28;
       }
 
-      .rewardBig{
-        font-size:16px;
-      }
+      .rewardBig{ font-size:16px; }
 
       .rewardMini{
         font-size:10px;
@@ -1109,9 +1065,7 @@
         font-size:9px;
       }
 
-      .end-mobile-optional{
-        display:none !important;
-      }
+      .end-mobile-optional{ display:none !important; }
 
       .actions{
         position:sticky;
@@ -1141,6 +1095,236 @@
         padding:8px 10px;
         font-size:11px;
       }
+    }
+
+    /* ซ่อนปุ่มเดิมของ vr-ui.js */
+    #hha-vrui{
+      display:none !important;
+      pointer-events:none !important;
+    }
+
+    #hha-crosshair{
+      z-index:2147483645 !important;
+      pointer-events:none !important;
+    }
+
+    #hha-vrui-hint{
+      z-index:2147483646 !important;
+      pointer-events:none !important;
+    }
+
+    /* Local Cardboard controls */
+    #hydrLocalVrBar{
+      position:fixed;
+      left:max(10px, env(safe-area-inset-left, 0px));
+      right:max(10px, env(safe-area-inset-right, 0px));
+      bottom:max(10px, env(safe-area-inset-bottom, 0px));
+      z-index:2147483647;
+      display:flex;
+      gap:8px;
+      justify-content:flex-end;
+      pointer-events:none;
+    }
+
+    #hydrLocalVrBar .hydr-vr-btn{
+      pointer-events:auto;
+      appearance:none;
+      -webkit-appearance:none;
+      border:none;
+      border-radius:999px;
+      min-height:46px;
+      padding:10px 14px;
+      background:rgba(2,6,23,.82);
+      border:1px solid rgba(148,163,184,.22);
+      color:#e5e7eb;
+      font:1000 13px/1 system-ui,-apple-system,"Noto Sans Thai","Segoe UI",Roboto,sans-serif;
+      box-shadow:0 16px 40px rgba(0,0,0,.32);
+      backdrop-filter:blur(10px);
+      cursor:pointer;
+      touch-action:manipulation;
+      -webkit-tap-highlight-color:transparent;
+    }
+
+    #hydrBtnExitVR{ display:none; }
+
+    html.hydr-cvr,
+    body.hydr-cvr{
+      overflow:hidden !important;
+      overscroll-behavior:none !important;
+    }
+
+    html.hydr-cvr #hydrBtnEnterVR,
+    body.hydr-cvr #hydrBtnEnterVR{
+      display:none !important;
+    }
+
+    html.hydr-cvr #hydrBtnExitVR,
+    body.hydr-cvr #hydrBtnExitVR{
+      display:inline-flex !important;
+    }
+
+    html.hydr-cvr #hha-crosshair,
+    body.hydr-cvr #hha-crosshair{
+      display:grid !important;
+      opacity:.98 !important;
+    }
+
+    /* Stereo fallback */
+    #cvrStereo{
+      position:fixed;
+      inset:0;
+      z-index:2147483000;
+      display:none;
+      grid-template-columns:1fr 1fr;
+      gap:0;
+      background:#000;
+      pointer-events:none;
+      overflow:hidden;
+    }
+
+    #cvrStereo .cvr-eye{
+      position:relative;
+      overflow:hidden;
+      background:#000;
+    }
+
+    #cvrStereo .cvr-eye + .cvr-eye{
+      border-left:1px solid rgba(255,255,255,.08);
+    }
+
+    #cvrStereo .cvr-eye-inner{
+      position:absolute;
+      inset:0;
+      overflow:hidden;
+    }
+
+    /* Cardboard-only layout แยกเฉพาะโหมด 2 ตา */
+    #cvrStereo .cvr-scene{
+      position:absolute;
+      left:50%;
+      top:-8vh;
+      width:100vw;
+      height:112vh;
+      transform:translate(-50%,0) scaleX(.5) scaleY(1.08);
+      transform-origin:top center;
+      overflow:hidden;
+    }
+
+    #cvrStereo .cvr-scene .overlay{
+      display:none !important;
+    }
+
+    #cvrStereo .cvr-scene .hud{
+      top:max(4px, env(safe-area-inset-top, 0px)) !important;
+      padding-left:12px !important;
+      padding-right:12px !important;
+      transform:scale(.94);
+      transform-origin:top center;
+      width:100%;
+    }
+
+    #cvrStereo .cvr-scene .hudCard{
+      border-radius:16px !important;
+    }
+
+    #cvrStereo .cvr-scene .hudTopbar{
+      gap:4px !important;
+      padding:6px !important;
+      grid-template-columns:repeat(4, minmax(0,1fr)) !important;
+    }
+
+    #cvrStereo .cvr-scene .hudStat{
+      min-height:44px !important;
+      padding:6px 7px !important;
+      border-radius:12px !important;
+    }
+
+    #cvrStereo .cvr-scene .hudStat .k{
+      font-size:9px !important;
+    }
+
+    #cvrStereo .cvr-scene .hudStat .v{
+      font-size:15px !important;
+      margin-top:3px !important;
+    }
+
+    #cvrStereo .cvr-scene .hudRow2{
+      gap:4px !important;
+      padding:6px !important;
+    }
+
+    #cvrStereo .cvr-scene .hudBox{
+      min-height:40px !important;
+      padding:7px 8px !important;
+      border-radius:12px !important;
+    }
+
+    #cvrStereo .cvr-scene .hudMini{
+      font-size:9px !important;
+      margin-bottom:2px !important;
+    }
+
+    #cvrStereo .cvr-scene .hudText{
+      font-size:12px !important;
+      line-height:1.25 !important;
+    }
+
+    #cvrStereo .cvr-scene .riskBar{
+      height:7px !important;
+      margin-top:2px !important;
+    }
+
+    #cvrStereo .cvr-scene .zoneSign{
+      top:132px !important;
+      min-height:36px !important;
+      font-size:11px !important;
+      padding:6px 10px !important;
+      max-width:92vw !important;
+    }
+
+    #cvrStereo .cvr-scene .missionBar{
+      top:182px !important;
+      width:92vw !important;
+      gap:4px !important;
+    }
+
+    #cvrStereo .cvr-scene .missionChip{
+      min-height:28px !important;
+      padding:5px 8px !important;
+      font-size:10px !important;
+      width:100% !important;
+      text-align:center !important;
+    }
+
+    #cvrStereo .cvr-scene .calloutLayer{
+      top:228px !important;
+      width:92vw !important;
+    }
+
+    #cvrStereo .cvr-scene .callout{
+      font-size:12px !important;
+      padding:8px 10px !important;
+      border-radius:12px !important;
+      max-width:70vw !important;
+    }
+
+    #cvrStereo .cvr-scene .bossFace{
+      top:176px !important;
+      right:12px !important;
+      width:48px !important;
+      height:48px !important;
+      font-size:24px !important;
+      border-radius:14px !important;
+    }
+
+    html.hydr-cvr #cvrStereo,
+    body.hydr-cvr #cvrStereo{
+      display:grid !important;
+    }
+
+    html.hydr-cvr .overlay:not([aria-hidden="true"]),
+    body.hydr-cvr .overlay:not([aria-hidden="true"]){
+      z-index:2147483100 !important;
     }
   </style>
 </head>
@@ -1198,7 +1382,6 @@
 
     <div id="calloutLayer" class="calloutLayer"></div>
 
-    <!-- HELP / START -->
     <div id="helpOverlay" class="overlay" aria-hidden="false">
       <div class="card">
         <h1 class="cardTitle">💧 วิธีเล่น Hydration</h1>
@@ -1229,7 +1412,6 @@
       </div>
     </div>
 
-    <!-- PAUSE -->
     <div id="pauseOverlay" class="overlay" aria-hidden="true">
       <div class="card" style="max-width:560px;">
         <h2 class="cardTitle">⏸ หยุดชั่วคราว</h2>
@@ -1240,7 +1422,6 @@
       </div>
     </div>
 
-    <!-- END -->
     <div id="end" class="overlay" aria-hidden="true">
       <div class="card">
         <h2 id="endTitle" class="cardTitle">เล่นจบรอบแล้ว</h2>
@@ -1299,7 +1480,6 @@
       <div><b>fps-ish</b>: <span id="dbgFps">—</span></div>
     </div>
 
-    <!-- hidden support -->
     <div id="uiTime" class="is-hidden">0</div>
     <div id="uiExpire" class="is-hidden">0</div>
     <div id="uiBlock" class="is-hidden">0</div>
@@ -1311,8 +1491,228 @@
     <div id="coachExplain" class="is-hidden"></div>
   </div>
 
+  <div id="hydrLocalVrBar" aria-label="Hydration Cardboard Controls">
+    <button id="hydrBtnEnterVR" class="hydr-vr-btn" type="button">🕶 ENTER VR</button>
+    <button id="hydrBtnExitVR" class="hydr-vr-btn" type="button">🚪 EXIT VR</button>
+    <button id="hydrBtnRecenter" class="hydr-vr-btn" type="button">🎯 RECENTER</button>
+  </div>
+
+  <script>
+    window.addEventListener('DOMContentLoaded', ()=>{
+      let stereoRoot = null;
+      let stereoLeft = null;
+      let stereoRight = null;
+      let stereoObserver = null;
+      let stereoQueued = false;
+
+      function sanitizeCloneHtml(html){
+        return String(html || '')
+          .replace(/\sid="([^"]+)"/g, ' data-clone-id="$1"')
+          .replace(/\sfor="([^"]+)"/g, ' data-clone-for="$1"');
+      }
+
+      function ensureStereoRoot(){
+        if(stereoRoot) return stereoRoot;
+
+        stereoRoot = document.getElementById('cvrStereo');
+        if(!stereoRoot){
+          stereoRoot = document.createElement('div');
+          stereoRoot.id = 'cvrStereo';
+          stereoRoot.innerHTML = `
+            <div class="cvr-eye"><div class="cvr-eye-inner" id="cvrEyeLeft"></div></div>
+            <div class="cvr-eye"><div class="cvr-eye-inner" id="cvrEyeRight"></div></div>
+          `;
+          document.body.appendChild(stereoRoot);
+        }
+
+        stereoLeft = stereoRoot.querySelector('#cvrEyeLeft');
+        stereoRight = stereoRoot.querySelector('#cvrEyeRight');
+        return stereoRoot;
+      }
+
+      function getStereoVisualHtml(){
+        const parts = [];
+        const stage = document.getElementById('stage');
+        const hud = document.querySelector('.hud');
+        const zoneSign = document.getElementById('zoneSign');
+        const missionBar = document.getElementById('missionBar');
+        const calloutLayer = document.getElementById('calloutLayer');
+        const bossFace = document.getElementById('bossFace');
+
+        if(stage) parts.push(sanitizeCloneHtml(stage.outerHTML));
+        if(hud) parts.push(sanitizeCloneHtml(hud.outerHTML));
+        if(zoneSign) parts.push(sanitizeCloneHtml(zoneSign.outerHTML));
+        if(missionBar) parts.push(sanitizeCloneHtml(missionBar.outerHTML));
+        if(calloutLayer) parts.push(sanitizeCloneHtml(calloutLayer.outerHTML));
+        if(bossFace) parts.push(sanitizeCloneHtml(bossFace.outerHTML));
+
+        return `<div class="cvr-scene">${parts.join('')}</div>`;
+      }
+
+      function syncStereoNow(){
+        ensureStereoRoot();
+        if(!stereoLeft || !stereoRight) return;
+        const html = getStereoVisualHtml();
+        stereoLeft.innerHTML = html;
+        stereoRight.innerHTML = html;
+      }
+
+      function queueStereoSync(){
+        if(stereoQueued) return;
+        stereoQueued = true;
+        requestAnimationFrame(()=>{
+          stereoQueued = false;
+          if(document.documentElement.classList.contains('hydr-cvr')){
+            syncStereoNow();
+          }
+        });
+      }
+
+      function observeStereoSources(){
+        if(stereoObserver) return;
+
+        stereoObserver = new MutationObserver(queueStereoSync);
+
+        [
+          document.getElementById('stage'),
+          document.querySelector('.hud'),
+          document.getElementById('zoneSign'),
+          document.getElementById('missionBar'),
+          document.getElementById('calloutLayer'),
+          document.getElementById('bossFace')
+        ].filter(Boolean).forEach((el)=>{
+          stereoObserver.observe(el, {
+            subtree:true,
+            childList:true,
+            attributes:true,
+            characterData:true
+          });
+        });
+      }
+
+      async function enterFullscreenSafe(){
+        try{
+          if(!document.fullscreenElement && document.documentElement.requestFullscreen){
+            await document.documentElement.requestFullscreen({ navigationUI:'hide' });
+          }
+        }catch{}
+        try{
+          if(screen.orientation && screen.orientation.lock){
+            await screen.orientation.lock('landscape');
+          }
+        }catch{}
+      }
+
+      async function exitFullscreenSafe(){
+        try{
+          if(document.fullscreenElement && document.exitFullscreen){
+            await document.exitFullscreen();
+          }
+        }catch{}
+      }
+
+      function syncEndViewLabel(){
+        const endSub = document.getElementById('endSub');
+        if(!endSub) return;
+        const isCvr = document.documentElement.classList.contains('hydr-cvr');
+        endSub.textContent = isCvr
+          ? 'มุมมอง cvr • ระดับ normal'
+          : 'มุมมอง mobile • ระดับ normal';
+      }
+
+      function enterHydrationCvr(){
+        document.documentElement.classList.add('hydr-cvr');
+        document.body.classList.add('hydr-cvr');
+        document.documentElement.dataset.view = 'cvr';
+        document.body.dataset.view = 'cvr';
+
+        const enter = document.getElementById('hydrBtnEnterVR');
+        const exit  = document.getElementById('hydrBtnExitVR');
+        const cross = document.getElementById('hha-crosshair');
+
+        if(enter) enter.style.display = 'none';
+        if(exit)  exit.style.display = 'inline-flex';
+        if(cross) cross.style.display = 'grid';
+
+        ensureStereoRoot();
+        observeStereoSources();
+        stereoRoot.style.display = 'grid';
+        queueStereoSync();
+        syncEndViewLabel();
+        enterFullscreenSafe();
+
+        try{
+          window.dispatchEvent(new CustomEvent('hha:vrmodechange', {
+            detail:{ inVr:true, native:false, reason:'hydration-local-cvr', view:'cvr' }
+          }));
+        }catch{}
+      }
+
+      function exitHydrationCvr(){
+        document.documentElement.classList.remove('hydr-cvr');
+        document.body.classList.remove('hydr-cvr');
+        document.documentElement.dataset.view = 'mobile';
+        document.body.dataset.view = 'mobile';
+
+        const enter = document.getElementById('hydrBtnEnterVR');
+        const exit  = document.getElementById('hydrBtnExitVR');
+
+        if(enter) enter.style.display = 'inline-flex';
+        if(exit)  exit.style.display = 'none';
+
+        if(stereoRoot) stereoRoot.style.display = 'none';
+        syncEndViewLabel();
+        exitFullscreenSafe();
+
+        try{
+          window.dispatchEvent(new CustomEvent('hha:vrmodechange', {
+            detail:{ inVr:false, native:false, reason:'hydration-local-exit', view:'mobile' }
+          }));
+        }catch{}
+      }
+
+      function recenterHydrationCvr(){
+        try{
+          window.dispatchEvent(new CustomEvent('hha:recenter', {
+            detail:{ source:'hydration-local-vr' }
+          }));
+        }catch{}
+      }
+
+      document.getElementById('hydrBtnEnterVR')?.addEventListener('click', (ev)=>{
+        ev.preventDefault();
+        ev.stopPropagation();
+        enterHydrationCvr();
+      }, { passive:false });
+
+      document.getElementById('hydrBtnExitVR')?.addEventListener('click', (ev)=>{
+        ev.preventDefault();
+        ev.stopPropagation();
+        exitHydrationCvr();
+      }, { passive:false });
+
+      document.getElementById('hydrBtnRecenter')?.addEventListener('click', (ev)=>{
+        ev.preventDefault();
+        ev.stopPropagation();
+        recenterHydrationCvr();
+      }, { passive:false });
+
+      const end = document.getElementById('end');
+      if(end){
+        const mo = new MutationObserver(syncEndViewLabel);
+        mo.observe(end, { attributes:true, attributeFilter:['aria-hidden','class'] });
+      }
+
+      window.addEventListener('hha:vrmodechange', syncEndViewLabel);
+      syncEndViewLabel();
+
+      window.__HYD_CVR_ENTER = enterHydrationCvr;
+      window.__HYD_CVR_EXIT = exitHydrationCvr;
+    });
+  </script>
+
   <script type="module">
-    import { boot } from './hydration.safe.js?v=20260315c';
+    import { boot } from './hydration.safe.js?v=20260316h';
     boot({});
   </script>
 </body>
