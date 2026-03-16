@@ -1,54 +1,115 @@
-// === /herohealth/vr-brush/brush.fx.js ===
-// FULL v20260306-BRUSH-FX
-'use strict';
+// /herohealth/vr-brush/brush.fx.js
+// HOTFIX v20260316d-BRUSH-FX-EXPORT-FIX
 
-export function bootFx(){
-  const D = document;
-  let layer = D.getElementById('fxLayer');
-  if(!layer){
-    layer = D.createElement('div');
-    layer.id = 'fxLayer';
-    layer.style.cssText = `position:fixed; inset:0; pointer-events:none; z-index:55;`;
-    D.body.appendChild(layer);
+export function createBrushFx({
+  fxLayer,
+  trailLayer,
+  screenFlash,
+  comboBadge,
+  phaseToast
+} = {}){
+  function safeRemove(el, delay = 0){
+    if(!el) return;
+    if(delay > 0){
+      setTimeout(()=> {
+        try{ el.remove(); }catch{}
+      }, delay);
+      return;
+    }
+    try{ el.remove(); }catch{}
   }
 
-  function toast(text, kind='info', ms=900){
-    const el = D.createElement('div');
-    el.textContent = String(text||'');
-    el.style.cssText = `
-      position:fixed; left:50%; top:14%;
-      transform:translate(-50%,-6px);
-      padding:8px 12px; border-radius:999px;
-      font-weight:900; font-size:14px;
-      background: rgba(15,23,42,.92);
-      border: 1px solid rgba(148,163,184,.24);
-      box-shadow: 0 14px 34px rgba(0,0,0,.30);
-      color: rgba(229,231,235,.95);
-      opacity:0; transition: all .16s ease;
-    `;
-    if (kind === 'good') el.style.borderColor = 'rgba(34,197,94,.35)';
-    if (kind === 'bad')  el.style.borderColor = 'rgba(239,68,68,.35)';
-    if (kind === 'warn') el.style.borderColor = 'rgba(245,158,11,.35)';
-    layer.appendChild(el);
+  function flashScreen(kind = 'good'){
+    if(!screenFlash) return;
 
-    requestAnimationFrame(()=>{ el.style.opacity='1'; el.style.transform='translate(-50%,0)'; });
+    if(kind === 'good'){
+      screenFlash.style.background = 'rgba(34,197,94,.12)';
+    }else if(kind === 'bad'){
+      screenFlash.style.background = 'rgba(239,68,68,.13)';
+    }else if(kind === 'boss'){
+      screenFlash.style.background = 'rgba(245,158,11,.12)';
+    }else{
+      screenFlash.style.background = 'rgba(255,255,255,.08)';
+    }
+
+    screenFlash.style.opacity = '1';
     setTimeout(()=>{
-      el.style.opacity='0';
-      el.style.transform='translate(-50%,-6px)';
-      setTimeout(()=> el.remove(), 220);
-    }, ms);
+      if(screenFlash) screenFlash.style.opacity = '0';
+    }, 90);
   }
 
-  function pulse(kind='good', ms=180){
-    const el = D.createElement('div');
-    el.style.cssText = `position:fixed; inset:0; opacity:0; transition: opacity .10s ease;`;
-    el.style.background = 'rgba(34,197,94,.10)';
-    if (kind === 'bad') el.style.background = 'rgba(239,68,68,.10)';
-    if (kind === 'warn') el.style.background = 'rgba(245,158,11,.10)';
-    layer.appendChild(el);
-    requestAnimationFrame(()=>{ el.style.opacity='1'; });
-    setTimeout(()=>{ el.style.opacity='0'; setTimeout(()=>el.remove(), 160); }, ms);
+  function showComboBadge(text = 'COMBO'){
+    if(!comboBadge) return;
+    comboBadge.textContent = text;
+    comboBadge.classList.add('on');
+    clearTimeout(showComboBadge._t);
+    showComboBadge._t = setTimeout(()=>{
+      comboBadge?.classList.remove('on');
+    }, 520);
   }
 
-  return { toast, pulse };
+  function showPhaseToast(text = 'PHASE'){
+    if(!phaseToast) return;
+    phaseToast.textContent = text;
+    phaseToast.classList.remove('on');
+    void phaseToast.offsetWidth;
+    phaseToast.classList.add('on');
+  }
+
+  function spawnPop(x, y, text = '+1'){
+    if(!fxLayer) return;
+    const el = document.createElement('div');
+    el.className = 'pop';
+    el.textContent = text;
+    el.style.left = `${x}px`;
+    el.style.top = `${y}px`;
+    fxLayer.appendChild(el);
+    safeRemove(el, 720);
+  }
+
+  function spawnSparkle(x, y){
+    if(!fxLayer) return;
+
+    for(let i=0;i<5;i++){
+      const s = document.createElement('div');
+      s.className = 'spark';
+      s.style.left = `${x}px`;
+      s.style.top = `${y}px`;
+      s.style.setProperty('--dx', `${((Math.random()*80)-40).toFixed(0)}px`);
+      s.style.setProperty('--dy', `${((Math.random()*-70)-8).toFixed(0)}px`);
+      fxLayer.appendChild(s);
+      safeRemove(s, 760);
+    }
+  }
+
+  function spawnTrail(x, y, rot = 0){
+    if(!trailLayer) return;
+    const el = document.createElement('div');
+    el.className = 'brushTrail';
+    el.style.left = `${x}px`;
+    el.style.top = `${y}px`;
+    el.style.setProperty('--rot', `${rot}deg`);
+    trailLayer.appendChild(el);
+    safeRemove(el, 340);
+  }
+
+  function spawnFoam(x, y){
+    if(!trailLayer) return;
+    const el = document.createElement('div');
+    el.className = 'foam';
+    el.style.left = `${x}px`;
+    el.style.top = `${y}px`;
+    trailLayer.appendChild(el);
+    safeRemove(el, 460);
+  }
+
+  return {
+    flashScreen,
+    showComboBadge,
+    showPhaseToast,
+    spawnPop,
+    spawnSparkle,
+    spawnTrail,
+    spawnFoam
+  };
 }
