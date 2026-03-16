@@ -1,6 +1,6 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
 GoodJunkVR — RUN PAGE
-FULL PATCH v20260316n-GJ-RUNPAGE-ENTER-VR-CROSSHAIR-ONLY-MATCH-SAFE
+FULL PATCH v20260316p-GJ-RUNPAGE-CARDBOARD-DUAL-CROSSHAIR
 -->
 <!doctype html>
 <html lang="th">
@@ -12,7 +12,7 @@ FULL PATCH v20260316n-GJ-RUNPAGE-ENTER-VR-CROSSHAIR-ONLY-MATCH-SAFE
   <link rel="icon" href="../favicon.ico" />
 
   <script src="../firebase-config.js"></script>
-  <script type="module" src="../vr/vr-ui.js?v=20260316n-gj-enter-vr"></script>
+  <script type="module" src="../vr/vr-ui.js?v=20260316p-gj-enter-vr"></script>
 
   <style>
     :root{
@@ -706,10 +706,11 @@ FULL PATCH v20260316n-GJ-RUNPAGE-ENTER-VR-CROSSHAIR-ONLY-MATCH-SAFE
     body.gj-cvr #gjBtnExitVR{
       display:inline-flex !important;
     }
+
+    /* ซ่อน crosshair เดิมที่มาซ้อนกลางรอยผ่า */
     html.gj-cvr #hha-crosshair,
     body.gj-cvr #hha-crosshair{
-      display:grid !important;
-      opacity:.98 !important;
+      display:none !important;
     }
 
     html.gj-cvr .gj-target,
@@ -745,6 +746,38 @@ FULL PATCH v20260316n-GJ-RUNPAGE-ENTER-VR-CROSSHAIR-ONLY-MATCH-SAFE
       position:absolute;
       inset:0;
       overflow:hidden;
+    }
+
+    /* crosshair แยกต่อ eye */
+    #gjStereo .gj-eye-crosshair{
+      position:absolute;
+      left:50%;
+      top:50%;
+      width:22px;
+      height:22px;
+      transform:translate(-50%,-50%);
+      z-index:2147483005;
+      pointer-events:none;
+      display:grid;
+      place-items:center;
+      opacity:.98;
+    }
+    #gjStereo .gj-eye-crosshair::before{
+      content:'';
+      width:18px;
+      height:18px;
+      border-radius:999px;
+      border:2px solid rgba(229,231,235,.78);
+      box-shadow:0 0 0 2px rgba(2,6,23,.62);
+    }
+    #gjStereo .gj-eye-crosshair::after{
+      content:'';
+      position:absolute;
+      width:3px;
+      height:3px;
+      border-radius:999px;
+      background:rgba(229,231,235,.98);
+      box-shadow:0 0 0 2px rgba(2,6,23,.62);
     }
 
     #gjStereo .gj-scene{
@@ -1114,7 +1147,7 @@ FULL PATCH v20260316n-GJ-RUNPAGE-ENTER-VR-CROSSHAIR-ONLY-MATCH-SAFE
     let stereoQueued = false;
     let lastCenterShootAt = 0;
 
-    const CENTER_LOCK_PX = 34;
+    const CENTER_LOCK_PX = 84;
     const CENTER_COOLDOWN_MS = 110;
 
     function nowMs(){
@@ -1135,8 +1168,14 @@ FULL PATCH v20260316n-GJ-RUNPAGE-ENTER-VR-CROSSHAIR-ONLY-MATCH-SAFE
         stereoRoot = document.createElement('div');
         stereoRoot.id = 'gjStereo';
         stereoRoot.innerHTML = `
-          <div class="gj-eye"><div class="gj-eye-inner" id="gjEyeLeft"></div></div>
-          <div class="gj-eye"><div class="gj-eye-inner" id="gjEyeRight"></div></div>
+          <div class="gj-eye">
+            <div class="gj-eye-inner" id="gjEyeLeft"></div>
+            <div class="gj-eye-crosshair" aria-hidden="true"></div>
+          </div>
+          <div class="gj-eye">
+            <div class="gj-eye-inner" id="gjEyeRight"></div>
+            <div class="gj-eye-crosshair" aria-hidden="true"></div>
+          </div>
         `;
         document.body.appendChild(stereoRoot);
       }
@@ -1295,11 +1334,9 @@ FULL PATCH v20260316n-GJ-RUNPAGE-ENTER-VR-CROSSHAIR-ONLY-MATCH-SAFE
 
       const enter = document.getElementById('gjBtnEnterVR');
       const exit  = document.getElementById('gjBtnExitVR');
-      const cross = document.getElementById('hha-crosshair');
 
       if(enter) enter.style.display = 'none';
       if(exit)  exit.style.display = 'inline-flex';
-      if(cross) cross.style.display = 'grid';
 
       setViewLabel('cvr');
 
@@ -1415,7 +1452,7 @@ FULL PATCH v20260316n-GJ-RUNPAGE-ENTER-VR-CROSSHAIR-ONLY-MATCH-SAFE
 <script type="module">
   import { createDefaultAIHooksFromQuery } from './ai-hooks.js';
   import { createDefaultSoundHooksFromQuery } from './sound-hooks.js';
-  import { boot } from './goodjunk.safe.js?v=20260316n';
+  import { boot } from './goodjunk.safe.js?v=20260316p';
 
   const qs = (k, d='')=>{ try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(_){ return d; } };
   const safeUrl = (raw, fallback='')=>{
