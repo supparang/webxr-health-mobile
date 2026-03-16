@@ -1,8 +1,16 @@
 // === /herohealth/gate/gate-games.js ===
 // HeroHealth Gate Game Registry
-// FULL PATCH v20260315-GATE-GAMES-GOODJUNK-RUN-FIX
+// FULL PATCH v20260315-GATE-GAMES-CANONICAL-ALL-ZONES
+// ✅ canonical game ids match gate/launcher flow
+// ✅ exercise cat unified to "exercise"
+// ✅ aliases normalized across all zones
+// ✅ run paths point to root launcher/entry pages used by hub
+// ✅ fixes balance/shadow/rhythm/planner/clean id mismatches
 
 export const GATE_GAMES = {
+  // =========================
+  // HYGIENE
+  // =========================
   bath: {
     cat: 'hygiene',
     label: 'Bath',
@@ -45,10 +53,10 @@ export const GATE_GAMES = {
     run: '../brush-vr.html'
   },
 
-  cleanobject: {
+  clean: {
     cat: 'hygiene',
     label: 'Clean Object',
-    theme: 'cleanobject',
+    theme: 'clean',
     warmupTitle: 'Clean Object Quick Sort',
     cooldownTitle: 'Clean Object Calm Review',
     files: {
@@ -70,7 +78,7 @@ export const GATE_GAMES = {
       cooldown: './games/maskcough/cooldown.js',
       style: './games/maskcough/style.css'
     },
-    run: '../vr-maskcough/maskcough-v2.html'
+    run: '../maskcough-vr.html'
   },
 
   germdetective: {
@@ -87,6 +95,9 @@ export const GATE_GAMES = {
     run: '../germ-detective.html'
   },
 
+  // =========================
+  // NUTRITION
+  // =========================
   goodjunk: {
     cat: 'nutrition',
     label: 'GoodJunk',
@@ -98,7 +109,7 @@ export const GATE_GAMES = {
       cooldown: './games/goodjunk/cooldown.js',
       style: './games/goodjunk/style.css'
     },
-    run: '../vr-goodjunk/goodjunk-vr.html'
+    run: '../goodjunk-launcher.html'
   },
 
   groups: {
@@ -140,13 +151,16 @@ export const GATE_GAMES = {
       cooldown: './games/plate/cooldown.js',
       style: './games/plate/style.css'
     },
-    run: '../plate/plate-vr.html'
+    run: '../plate-vr.html'
   },
 
-  shadowbreaker: {
-    cat: 'fitness',
+  // =========================
+  // EXERCISE
+  // =========================
+  shadow: {
+    cat: 'exercise',
     label: 'Shadow Breaker',
-    theme: 'shadowbreaker',
+    theme: 'shadow',
     warmupTitle: 'Shadow Breaker Warmup',
     cooldownTitle: 'Shadow Breaker Cooldown',
     files: {
@@ -157,10 +171,10 @@ export const GATE_GAMES = {
     run: '../shadow-breaker-vr.html'
   },
 
-  rhythmboxer: {
-    cat: 'fitness',
+  rhythm: {
+    cat: 'exercise',
     label: 'Rhythm Boxer',
-    theme: 'rhythmboxer',
+    theme: 'rhythm',
     warmupTitle: 'Rhythm Boxer Warmup',
     cooldownTitle: 'Rhythm Boxer Cooldown',
     files: {
@@ -172,7 +186,7 @@ export const GATE_GAMES = {
   },
 
   jumpduck: {
-    cat: 'fitness',
+    cat: 'exercise',
     label: 'JumpDuck',
     theme: 'jumpduck',
     warmupTitle: 'JumpDuck Warmup',
@@ -185,10 +199,10 @@ export const GATE_GAMES = {
     run: '../jump-duck-vr.html'
   },
 
-  balancehold: {
-    cat: 'fitness',
+  balance: {
+    cat: 'exercise',
     label: 'Balance Hold',
-    theme: 'balancehold',
+    theme: 'balance',
     warmupTitle: 'Balance Hold Warmup',
     cooldownTitle: 'Balance Hold Cooldown',
     files: {
@@ -199,10 +213,10 @@ export const GATE_GAMES = {
     run: '../balance-hold-vr.html'
   },
 
-  fitnessplanner: {
-    cat: 'fitness',
+  planner: {
+    cat: 'exercise',
     label: 'Fitness Planner',
-    theme: 'fitnessplanner',
+    theme: 'planner',
     warmupTitle: 'Fitness Planner Warmup',
     cooldownTitle: 'Fitness Planner Cooldown',
     files: {
@@ -210,28 +224,31 @@ export const GATE_GAMES = {
       cooldown: './games/fitnessplanner/cooldown.js',
       style: './games/fitnessplanner/style.css'
     },
-    run: '../fitness-planner.html'
+    run: '../fitness-planner/planner.html'
   }
 };
 
 export function normalizeGameId(id=''){
   const s = String(id || '').trim().toLowerCase();
 
+  // hygiene
   if (s === 'hand-wash' || s === 'hand_wash') return 'handwash';
   if (s === 'toothbrush' || s === 'brushing') return 'brush';
-  if (s === 'clean-object' || s === 'clean_object' || s === 'clean') return 'cleanobject';
+  if (s === 'clean-object' || s === 'clean_object' || s === 'cleanobject') return 'clean';
   if (s === 'mask-cough' || s === 'mask_cough' || s === 'maskcoughv2') return 'maskcough';
   if (s === 'germ-detective' || s === 'germ_detective' || s === 'germ') return 'germdetective';
 
+  // nutrition
   if (s === 'good-junk' || s === 'good_junk') return 'goodjunk';
   if (s === 'foodgroups' || s === 'food-groups' || s === 'food_groups') return 'groups';
   if (s === 'balancedplate' || s === 'balanced-plate' || s === 'balanced_plate') return 'plate';
 
-  if (s === 'shadow-breaker' || s === 'shadow_breaker') return 'shadowbreaker';
-  if (s === 'rhythm-boxer' || s === 'rhythm_boxer') return 'rhythmboxer';
+  // exercise
+  if (s === 'shadow-breaker' || s === 'shadow_breaker' || s === 'shadowbreaker') return 'shadow';
+  if (s === 'rhythm-boxer' || s === 'rhythm_boxer' || s === 'rhythmboxer') return 'rhythm';
   if (s === 'jump-duck' || s === 'jump_duck') return 'jumpduck';
-  if (s === 'balance-hold' || s === 'balance_hold') return 'balancehold';
-  if (s === 'fitness-planner' || s === 'fitness_planner') return 'fitnessplanner';
+  if (s === 'balance-hold' || s === 'balance_hold' || s === 'balancehold') return 'balance';
+  if (s === 'fitness-planner' || s === 'fitness_planner' || s === 'fitnessplanner') return 'planner';
 
   return s;
 }
