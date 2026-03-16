@@ -7,7 +7,7 @@
   <meta name="color-scheme" content="dark light" />
   <link rel="icon" href="../favicon.ico" />
 
-  <script type="module" src="../vr/vr-ui.js?v=20260316b"></script>
+  <script type="module" src="../vr/vr-ui.js?v=20260316d"></script>
 
   <style>
     :root{
@@ -30,7 +30,7 @@
       --sal: env(safe-area-inset-left, 0px);
       --sar: env(safe-area-inset-right, 0px);
 
-      --vrBottomReserve: 120px;
+      --vrBottomReserve: 110px;
       --hudTop: calc(10px + var(--sat));
     }
 
@@ -169,7 +169,6 @@
       border-radius:20px;
       box-shadow:0 18px 50px rgba(0,0,0,.30);
       overflow:hidden;
-      pointer-events:none;
     }
 
     .hudTopbar{
@@ -207,7 +206,7 @@
 
     .hudRow2{
       display:grid;
-      grid-template-columns: 1.2fr .8fr;
+      grid-template-columns:1fr;
       gap:8px;
       padding:10px;
     }
@@ -234,6 +233,17 @@
       font-size:15px;
       font-weight:1000;
       line-height:1.35;
+    }
+
+    .hud-playline .hudText{
+      display:flex;
+      gap:8px;
+      align-items:center;
+      flex-wrap:wrap;
+    }
+
+    .hudDot{
+      opacity:.55;
     }
 
     .riskBar{
@@ -423,7 +433,6 @@
       padding-bottom:calc(var(--vrBottomReserve) + var(--sab));
       touch-action:manipulation;
       -webkit-tap-highlight-color:transparent;
-      pointer-events:auto;
     }
 
     .bubble{
@@ -446,7 +455,6 @@
       cursor:pointer;
       transition:transform .08s ease, box-shadow .08s ease;
       will-change:transform, opacity;
-      pointer-events:auto;
     }
 
     .bubble:active{
@@ -650,11 +658,6 @@
       flex-wrap:wrap;
       padding-bottom:8px;
       align-items:stretch;
-      pointer-events:auto;
-    }
-
-    .actions *{
-      pointer-events:auto;
     }
 
     .btn{
@@ -840,6 +843,10 @@
       font-weight:700;
     }
 
+    .end-mobile-optional{ }
+
+    .hud-mobile-hide{ }
+
     .is-hidden{
       display:none !important;
     }
@@ -856,16 +863,8 @@
     }
 
     @media (max-width: 860px){
-      .hudTopbar{
-        grid-template-columns:repeat(2,minmax(0,1fr));
-      }
-
-      .hudRow2{
-        grid-template-columns:1fr;
-      }
-
       .zoneSign{
-        top: calc(242px + var(--sat));
+        top: calc(180px + var(--sat));
         font-size:14px;
         min-height:46px;
         padding:10px 14px;
@@ -873,16 +872,16 @@
       }
 
       .missionBar{
-        top: calc(356px + var(--sat));
+        top: calc(236px + var(--sat));
         width:min(94vw, 720px);
       }
 
       .calloutLayer{
-        top: calc(432px + var(--sat));
+        top: calc(292px + var(--sat));
       }
 
       .bossFace{
-        top:calc(316px + var(--sat));
+        top:calc(240px + var(--sat));
         width:68px;
         height:68px;
         font-size:36px;
@@ -909,65 +908,75 @@
 
     @media (max-width: 560px){
       :root{
-        --vrBottomReserve: 120px;
+        --vrBottomReserve: 104px;
       }
 
       .hud{
-        padding-top:calc(6px + var(--sat));
-        padding-left:calc(6px + var(--sal));
-        padding-right:calc(6px + var(--sar));
+        padding-top:calc(4px + var(--sat));
+        padding-left:calc(5px + var(--sal));
+        padding-right:calc(5px + var(--sar));
       }
 
       .hudCard{
-        border-radius:16px;
+        border-radius:14px;
       }
 
       .hudTopbar{
         grid-template-columns: repeat(4, minmax(0,1fr));
-        gap:4px;
-        padding:6px;
+        gap:3px;
+        padding:5px;
       }
 
       .hudStat{
-        min-height:44px;
-        padding:6px 7px;
-        border-radius:12px;
+        min-height:40px;
+        padding:5px 6px;
+        border-radius:10px;
       }
 
       .hudStat .k{
-        font-size:9px;
+        font-size:8px;
       }
 
       .hudStat .v{
-        margin-top:4px;
-        font-size:15px;
+        margin-top:3px;
+        font-size:14px;
       }
 
       .hudRow2{
         grid-template-columns:1fr;
-        gap:4px;
-        padding:6px;
+        gap:0;
+        padding:4px 5px 5px;
       }
 
       .hudBox{
-        min-height:42px;
-        padding:8px 9px;
-        border-radius:12px;
+        min-height:32px;
+        padding:6px 8px;
+        border-radius:10px;
       }
 
       .hudMini{
-        font-size:9px;
-        margin-bottom:3px;
+        font-size:8px;
+        margin-bottom:2px;
       }
 
       .hudText{
-        font-size:12px;
-        line-height:1.3;
+        font-size:11px;
+        line-height:1.25;
+      }
+
+      .hud-playline .hudText{
+        display:block;
+        font-size:11px;
+        line-height:1.25;
+      }
+
+      .hudDot{
+        display:none;
       }
 
       .riskBar{
-        height:8px;
-        margin-top:3px;
+        height:7px;
+        margin-top:2px;
       }
 
       .hud-mobile-hide{
@@ -975,44 +984,44 @@
       }
 
       .zoneSign{
-        top: calc(154px + var(--sat));
-        min-height:40px;
-        padding:8px 12px;
-        font-size:12px;
+        top: calc(118px + var(--sat));
+        min-height:34px;
+        padding:6px 10px;
+        font-size:11px;
         border-radius:999px;
       }
 
       .missionBar{
-        top: calc(200px + var(--sat));
-        gap:5px;
+        top: calc(152px + var(--sat));
+        gap:4px;
       }
 
       .missionChip{
-        min-height:32px;
-        padding:6px 9px;
-        font-size:11px;
+        min-height:28px;
+        padding:5px 8px;
+        font-size:10px;
         width:100%;
         text-align:center;
       }
 
       .calloutLayer{
-        top: calc(246px + var(--sat));
+        top: calc(188px + var(--sat));
         width:min(94vw, 680px);
       }
 
       .callout{
-        font-size:13px;
-        padding:9px 11px;
-        border-radius:14px;
+        font-size:12px;
+        padding:8px 10px;
+        border-radius:12px;
       }
 
       .bossFace{
-        top: calc(192px + var(--sat));
+        top: calc(146px + var(--sat));
         right:calc(10px + var(--sar));
-        width:52px;
-        height:52px;
-        font-size:26px;
-        border-radius:16px;
+        width:46px;
+        height:46px;
+        font-size:22px;
+        border-radius:14px;
       }
 
       .layer{
@@ -1020,36 +1029,36 @@
       }
 
       .bubble{
-        width:64px;
-        height:64px;
-        font-size:32px;
+        width:60px;
+        height:60px;
+        font-size:30px;
       }
 
       .overlay{
         padding:
-          calc(8px + var(--sat))
-          calc(10px + var(--sar))
+          calc(6px + var(--sat))
+          calc(8px + var(--sar))
           calc(12px + var(--vrBottomReserve) + var(--sab))
-          calc(10px + var(--sal));
+          calc(8px + var(--sal));
         align-items:stretch;
       }
 
       .card{
         width:100%;
-        min-height:calc(100vh - var(--sat) - var(--sab) - 16px);
+        min-height:calc(100vh - var(--sat) - var(--sab) - 12px);
         margin:0;
-        padding:12px;
-        border-radius:18px;
-        gap:10px;
+        padding:10px;
+        border-radius:16px;
+        gap:8px;
       }
 
       .cardTitle{
-        font-size:18px;
+        font-size:16px;
       }
 
       .cardSub{
-        font-size:12px;
-        line-height:1.45;
+        font-size:11px;
+        line-height:1.35;
       }
 
       .howGrid{
@@ -1073,78 +1082,75 @@
 
       .endGrid{
         grid-template-columns:repeat(2,minmax(0,1fr));
-        gap:8px;
+        gap:6px;
       }
 
       .endBox{
-        padding:10px;
-        border-radius:14px;
+        padding:8px;
+        border-radius:12px;
       }
 
       .endBox .k{
-        font-size:10px;
-        margin-bottom:4px;
+        font-size:9px;
+        margin-bottom:3px;
       }
 
       .endBox .v{
-        font-size:15px;
-        line-height:1.35;
+        font-size:14px;
+        line-height:1.28;
       }
 
       .rewardBig{
-        font-size:18px;
+        font-size:16px;
       }
 
       .rewardMini{
-        font-size:11px;
-        line-height:1.4;
-      }
-
-      .stickerRow{
-        gap:6px;
-        margin-top:8px;
+        font-size:10px;
+        line-height:1.35;
       }
 
       .stickerChip{
-        min-height:30px;
-        padding:6px 8px;
-        font-size:10px;
-        width:100%;
-        justify-content:center;
+        min-height:28px;
+        padding:5px 7px;
+        font-size:9px;
+      }
+
+      .end-mobile-optional{
+        display:none !important;
       }
 
       .actions{
         position:sticky;
         bottom:0;
-        z-index:6;
+        z-index:12;
         display:grid;
         grid-template-columns:1fr;
-        gap:8px;
+        gap:6px;
         margin-top:auto;
-        padding-top:10px;
-        padding-bottom:calc(6px + var(--sab) + 68px);
+        padding-top:8px;
+        padding-bottom:calc(10px + var(--sab) + 82px);
         background:
-          linear-gradient(180deg, rgba(2,6,23,0), rgba(2,6,23,.92) 20%, rgba(2,6,23,.98));
+          linear-gradient(180deg, rgba(2,6,23,0), rgba(2,6,23,.94) 22%, rgba(2,6,23,.99));
       }
 
       .actions .btn{
         width:100%;
-        min-height:46px;
-        padding:10px 12px;
-        border-radius:14px;
-        font-size:14px;
+        min-height:44px;
+        padding:9px 10px;
+        border-radius:12px;
+        font-size:13px;
         flex:1 1 100%;
+      }
+
+      .debugMini{
+        width:min(82vw, 220px);
+        padding:8px 10px;
+        font-size:11px;
       }
     }
 
-    /* ===== VR UI อยู่บนสุดและกดได้ ===== */
-    #hha-vrui,
-    #vr-ui,
-    #vr-ui-root,
-    .vr-ui,
-    .vr-ui-root,
-    [data-vr-ui],
-    [data-vr-ui-root]{
+    /* ===== VR UI ===== */
+    #hha-vrui{
       position:fixed !important;
       left:max(10px, env(safe-area-inset-left, 0px)) !important;
       right:max(10px, env(safe-area-inset-right, 0px)) !important;
@@ -1153,61 +1159,12 @@
       pointer-events:none !important;
     }
 
-    #hha-vrui button,
-    #vr-ui button,
-    #vr-ui-root button,
-    .vr-ui button,
-    .vr-ui-root button,
-    [data-vr-ui] button,
-    [data-vr-ui-root] button,
-    #hha-vrui [role="button"],
-    #vr-ui [role="button"],
-    #vr-ui-root [role="button"],
-    .vr-ui [role="button"],
-    .vr-ui-root [role="button"],
-    [data-vr-ui] [role="button"],
-    [data-vr-ui-root] [role="button"]{
+    #hha-vrui button{
       pointer-events:auto !important;
       position:relative;
       z-index:2147483647 !important;
       touch-action:manipulation;
       -webkit-tap-highlight-color:transparent;
-      min-height:46px;
-    }
-
-    #hha-vrui .vr-bar,
-    #hha-vrui .vr-controls,
-    #vr-ui .vr-bar,
-    #vr-ui-root .vr-bar,
-    .vr-ui .vr-bar,
-    .vr-ui-root .vr-bar,
-    [data-vr-ui] .vr-bar,
-    [data-vr-ui-root] .vr-bar,
-    #vr-ui .vr-controls,
-    #vr-ui-root .vr-controls,
-    .vr-ui .vr-controls,
-    .vr-ui-root .vr-controls,
-    [data-vr-ui] .vr-controls,
-    [data-vr-ui-root] .vr-controls{
-      pointer-events:none !important;
-      z-index:2147483647 !important;
-    }
-
-    #hha-vrui .vr-bar button,
-    #hha-vrui .vr-controls button,
-    #vr-ui .vr-bar button,
-    #vr-ui-root .vr-bar button,
-    .vr-ui .vr-bar button,
-    .vr-ui-root .vr-bar button,
-    [data-vr-ui] .vr-bar button,
-    [data-vr-ui-root] .vr-bar button,
-    #vr-ui .vr-controls button,
-    #vr-ui-root .vr-controls button,
-    .vr-ui .vr-controls button,
-    .vr-ui-root .vr-controls button,
-    [data-vr-ui] .vr-controls button,
-    [data-vr-ui-root] .vr-controls button{
-      pointer-events:auto !important;
     }
 
     #hha-crosshair{
@@ -1220,38 +1177,11 @@
       pointer-events:none !important;
     }
 
-    #helpOverlay,
-    #pauseOverlay,
-    #end{
-      z-index:30 !important;
-      pointer-events:none !important;
-    }
-
-    #helpOverlay .card,
-    #helpOverlay .card *,
-    #pauseOverlay .card,
-    #pauseOverlay .card *,
-    #end .card,
-    #end .card *{
-      pointer-events:auto !important;
-    }
-
-    /* ===== fallback state ให้เห็นผลทันทีเมื่อเข้า VR ===== */
+    /* ===== fallback state ===== */
     html.hha-vr-fallback,
     body.hha-vr-fallback{
       overflow:hidden !important;
       overscroll-behavior:none !important;
-    }
-
-    html.hha-vr-fallback #hha-crosshair,
-    body.hha-vr-fallback #hha-crosshair{
-      display:grid !important;
-      opacity:.98 !important;
-    }
-
-    html.hha-vr-fallback #hha-vrui,
-    body.hha-vr-fallback #hha-vrui{
-      z-index:2147483646 !important;
     }
 
     html.hha-vr-fallback #hhaBtnEnterVR,
@@ -1262,6 +1192,66 @@
     html.hha-vr-fallback #hhaBtnExitVR,
     body.hha-vr-fallback #hhaBtnExitVR{
       display:inline-flex !important;
+    }
+
+    html.hha-vr-fallback #hha-crosshair,
+    body.hha-vr-fallback #hha-crosshair{
+      display:grid !important;
+      opacity:.98 !important;
+    }
+
+    /* ===== stereo fallback ===== */
+    #cvrStereo{
+      position:fixed;
+      inset:0;
+      z-index:2147483000;
+      display:none;
+      grid-template-columns:1fr 1fr;
+      gap:0;
+      background:#000;
+      pointer-events:none;
+      overflow:hidden;
+    }
+
+    #cvrStereo .cvr-eye{
+      position:relative;
+      overflow:hidden;
+      background:#000;
+    }
+
+    #cvrStereo .cvr-eye + .cvr-eye{
+      border-left:1px solid rgba(255,255,255,.08);
+    }
+
+    #cvrStereo .cvr-eye-inner{
+      position:absolute;
+      inset:0;
+      overflow:hidden;
+    }
+
+    #cvrStereo .cvr-scene{
+      position:absolute;
+      left:50%;
+      top:50%;
+      width:100vw;
+      height:100vh;
+      transform:translate(-50%,-50%) scale(.5);
+      transform-origin:center center;
+      overflow:hidden;
+    }
+
+    #cvrStereo .cvr-scene .overlay{
+      display:none !important;
+    }
+
+    html.hha-vr-fallback #cvrStereo,
+    body.hha-vr-fallback #cvrStereo{
+      display:grid !important;
+    }
+
+    html.hha-vr-fallback .overlay:not([aria-hidden="true"]),
+    body.hha-vr-fallback .overlay:not([aria-hidden="true"]){
+      z-index:2147483100 !important;
     }
   </style>
 </head>
@@ -1282,9 +1272,12 @@
         </div>
 
         <div class="hudRow2">
-          <div class="hudBox">
-            <div class="hudMini">💬 COACH</div>
-            <div class="hudText" id="aiHint">เก็บน้ำและหลีกเลี่ยงของไม่ดี</div>
+          <div class="hudBox hud-playline">
+            <div class="hudText">
+              <span id="uiPhase">💧 ปกติ</span>
+              <span class="hudDot">•</span>
+              <span id="aiHint">เก็บน้ำและหลีกเลี่ยงของไม่ดี</span>
+            </div>
           </div>
 
           <div class="hudBox hud-mobile-hide">
@@ -1293,11 +1286,6 @@
               วอร์มอัป: <span id="uiWarmDone">—</span> •
               คูลดาวน์: <span id="uiCoolDone">—</span>
             </div>
-          </div>
-
-          <div class="hudBox">
-            <div class="hudMini">🗺️ PHASE</div>
-            <div class="hudText" id="uiPhase">💧 ปกติ</div>
           </div>
 
           <div class="hudBox hud-mobile-hide">
@@ -1321,7 +1309,6 @@
 
     <div id="calloutLayer" class="calloutLayer"></div>
 
-    <!-- HELP / START -->
     <div id="helpOverlay" class="overlay" aria-hidden="false">
       <div class="card">
         <h1 class="cardTitle">💧 วิธีเล่น Hydration</h1>
@@ -1332,7 +1319,7 @@
         <div class="howGrid">
           <div class="howItem">
             <div class="t">1) แตะน้ำดี</div>
-            <div class="s">แตะ 💧 💦 เพื่อเพิ่มคะแนน เพิ่มน้ำ และทำคอมโบ</div>
+            <div class="s">แตะ 💧 💦 เพื่อเพิ่มคะแนนและเพิ่มน้ำ</div>
           </div>
 
           <div class="howItem">
@@ -1342,17 +1329,7 @@
 
           <div class="howItem">
             <div class="t">3) เก็บโล่ไว้</div>
-            <div class="s">แตะ 🛡️ เพื่อป้องกันฟ้าผ่าและของไม่ดี</div>
-          </div>
-
-          <div class="howItem">
-            <div class="t">4) ตอนช่วงพายุ / บอส</div>
-            <div class="s">ดูป้ายฝั่งปลอดภัย แล้วอยู่ฝั่งซ้ายหรือขวาตามที่บอก</div>
-          </div>
-
-          <div class="howItem">
-            <div class="t">5) ตอนใช้แว่นหรือกระดาษ VR</div>
-            <div class="s">ใช้ปุ่ม ซ้าย/ขวา หรือยิงจากกลางจอเมื่อมีเป้าเล็ง</div>
+            <div class="s">แตะ 🛡️ กันฟ้าผ่า แล้วดูป้ายว่าต้องไปฝั่งไหน</div>
           </div>
         </div>
 
@@ -1362,7 +1339,6 @@
       </div>
     </div>
 
-    <!-- PAUSE -->
     <div id="pauseOverlay" class="overlay" aria-hidden="true">
       <div class="card" style="max-width:560px;">
         <h2 class="cardTitle">⏸ หยุดชั่วคราว</h2>
@@ -1373,7 +1349,6 @@
       </div>
     </div>
 
-    <!-- END -->
     <div id="end" class="overlay" aria-hidden="true">
       <div class="card">
         <h2 id="endTitle" class="cardTitle">เล่นจบรอบแล้ว</h2>
@@ -1390,12 +1365,12 @@
           <div class="endBox full"><div class="k">🎁 REWARD</div><div id="endReward" class="v">—</div></div>
           <div class="endBox full"><div class="k">🏅 BADGE</div><div id="endBadge" class="v">—</div></div>
 
-          <div class="endBox full">
+          <div class="endBox full end-mobile-optional">
             <div class="k">🃏 COLLECTION</div>
             <div id="endCollection" class="v">—</div>
           </div>
 
-          <div class="endBox full rewardCard">
+          <div class="endBox full rewardCard end-mobile-optional">
             <div class="k">🎁 REWARD CARD</div>
             <div id="endRewardCard" class="rewardBig">—</div>
             <div id="endRewardMini" class="rewardMini">—</div>
@@ -1403,7 +1378,7 @@
           </div>
         </div>
 
-        <div class="actions" style="padding-bottom: max(10px, calc(var(--vrBottomReserve) * .12));">
+        <div class="actions">
           <button id="btnNextCooldown" class="btn primary is-hidden" type="button">ไปผ่อนคลายหลังเล่น</button>
           <button id="btnReplay" class="btn warn" type="button">เล่นอีกครั้ง</button>
           <button id="btnBackHub" class="btn good" type="button">กลับหน้าหลัก</button>
@@ -1432,7 +1407,6 @@
       <div><b>fps-ish</b>: <span id="dbgFps">—</span></div>
     </div>
 
-    <!-- hidden support -->
     <div id="uiTime" class="is-hidden">0</div>
     <div id="uiExpire" class="is-hidden">0</div>
     <div id="uiBlock" class="is-hidden">0</div>
@@ -1446,50 +1420,151 @@
 
   <script>
     window.addEventListener('DOMContentLoaded', ()=>{
-      function forceFallbackUi(){
-        try{
-          document.documentElement.dataset.view = 'cvr';
-          document.body.dataset.view = 'cvr';
-          document.documentElement.classList.add('hha-vr-fallback');
-          document.body.classList.add('hha-vr-fallback');
+      let stereoRoot = null;
+      let stereoLeft = null;
+      let stereoRight = null;
+      let stereoObserver = null;
+      let stereoQueued = false;
 
-          const enter = document.getElementById('hhaBtnEnterVR');
-          const exit  = document.getElementById('hhaBtnExitVR');
-          const cross = document.getElementById('hha-crosshair');
+      function sanitizeCloneHtml(html){
+        return String(html || '')
+          .replace(/\sid="([^"]+)"/g, ' data-clone-id="$1"')
+          .replace(/\sfor="([^"]+)"/g, ' data-clone-for="$1"');
+      }
 
-          if(enter) enter.style.display = 'none';
-          if(exit)  exit.style.display  = 'inline-flex';
-          if(cross) cross.style.display = 'grid';
+      function ensureStereoRoot(){
+        if(stereoRoot) return stereoRoot;
 
-          try{
-            window.dispatchEvent(new CustomEvent('hha:vrmodechange', {
-              detail:{ inVr:true, native:false, reason:'hydration-bridge-fallback', view:'cvr' }
-            }));
-          }catch{}
-        }catch(err){
-          console.error('forceFallbackUi failed:', err);
+        stereoRoot = document.getElementById('cvrStereo');
+        if(!stereoRoot){
+          stereoRoot = document.createElement('div');
+          stereoRoot.id = 'cvrStereo';
+          stereoRoot.innerHTML = `
+            <div class="cvr-eye"><div class="cvr-eye-inner" id="cvrEyeLeft"></div></div>
+            <div class="cvr-eye"><div class="cvr-eye-inner" id="cvrEyeRight"></div></div>
+          `;
+          document.body.appendChild(stereoRoot);
         }
+
+        stereoLeft = stereoRoot.querySelector('#cvrEyeLeft');
+        stereoRight = stereoRoot.querySelector('#cvrEyeRight');
+        return stereoRoot;
+      }
+
+      function getStereoVisualHtml(){
+        const parts = [];
+
+        const stage = document.getElementById('stage');
+        const hud = document.querySelector('.hud');
+        const zoneSign = document.getElementById('zoneSign');
+        const missionBar = document.getElementById('missionBar');
+        const calloutLayer = document.getElementById('calloutLayer');
+        const bossFace = document.getElementById('bossFace');
+
+        if(stage) parts.push(sanitizeCloneHtml(stage.outerHTML));
+        if(hud) parts.push(sanitizeCloneHtml(hud.outerHTML));
+        if(zoneSign) parts.push(sanitizeCloneHtml(zoneSign.outerHTML));
+        if(missionBar) parts.push(sanitizeCloneHtml(missionBar.outerHTML));
+        if(calloutLayer) parts.push(sanitizeCloneHtml(calloutLayer.outerHTML));
+        if(bossFace) parts.push(sanitizeCloneHtml(bossFace.outerHTML));
+
+        return `<div class="cvr-scene">${parts.join('')}</div>`;
+      }
+
+      function syncStereoNow(){
+        ensureStereoRoot();
+        if(!stereoLeft || !stereoRight) return;
+        const html = getStereoVisualHtml();
+        stereoLeft.innerHTML = html;
+        stereoRight.innerHTML = html;
+      }
+
+      function queueStereoSync(){
+        if(stereoQueued) return;
+        stereoQueued = true;
+        requestAnimationFrame(()=>{
+          stereoQueued = false;
+          if(document.documentElement.classList.contains('hha-vr-fallback')){
+            syncStereoNow();
+          }
+        });
+      }
+
+      function observeStereoSources(){
+        if(stereoObserver) return;
+
+        stereoObserver = new MutationObserver(queueStereoSync);
+
+        [
+          document.getElementById('stage'),
+          document.querySelector('.hud'),
+          document.getElementById('zoneSign'),
+          document.getElementById('missionBar'),
+          document.getElementById('calloutLayer'),
+          document.getElementById('bossFace')
+        ].filter(Boolean).forEach((el)=>{
+          stereoObserver.observe(el, {
+            subtree:true,
+            childList:true,
+            attributes:true,
+            characterData:true
+          });
+        });
+      }
+
+      function startStereoFallback(){
+        ensureStereoRoot();
+        observeStereoSources();
+        stereoRoot.style.display = 'grid';
+        queueStereoSync();
+      }
+
+      function stopStereoFallback(){
+        if(stereoRoot) stereoRoot.style.display = 'none';
+      }
+
+      function forceFallbackUi(){
+        document.documentElement.dataset.view = 'cvr';
+        document.body.dataset.view = 'cvr';
+        document.documentElement.classList.add('hha-vr-fallback');
+        document.body.classList.add('hha-vr-fallback');
+
+        const enter = document.getElementById('hhaBtnEnterVR');
+        const exit  = document.getElementById('hhaBtnExitVR');
+        const cross = document.getElementById('hha-crosshair');
+
+        if(enter) enter.style.display = 'none';
+        if(exit)  exit.style.display = 'inline-flex';
+        if(cross) cross.style.display = 'grid';
+
+        startStereoFallback();
+
+        try{
+          window.dispatchEvent(new CustomEvent('hha:vrmodechange', {
+            detail:{ inVr:true, native:false, reason:'hydration-stereo-fallback', view:'cvr' }
+          }));
+        }catch{}
       }
 
       function forceExitFallbackUi(){
+        document.documentElement.classList.remove('hha-vr-fallback');
+        document.body.classList.remove('hha-vr-fallback');
+        document.documentElement.dataset.view = 'mobile';
+        document.body.dataset.view = 'mobile';
+
+        const enter = document.getElementById('hhaBtnEnterVR');
+        const exit  = document.getElementById('hhaBtnExitVR');
+
+        if(enter) enter.style.display = 'inline-flex';
+        if(exit)  exit.style.display = 'none';
+
+        stopStereoFallback();
+
         try{
-          document.documentElement.classList.remove('hha-vr-fallback');
-          document.body.classList.remove('hha-vr-fallback');
-
-          const enter = document.getElementById('hhaBtnEnterVR');
-          const exit  = document.getElementById('hhaBtnExitVR');
-
-          if(enter) enter.style.display = 'inline-flex';
-          if(exit)  exit.style.display  = 'none';
-
-          try{
-            window.dispatchEvent(new CustomEvent('hha:vrmodechange', {
-              detail:{ inVr:false, native:false, reason:'hydration-bridge-exit', view:(document.body?.dataset?.view || 'mobile') }
-            }));
-          }catch{}
-        }catch(err){
-          console.error('forceExitFallbackUi failed:', err);
-        }
+          window.dispatchEvent(new CustomEvent('hha:vrmodechange', {
+            detail:{ inVr:false, native:false, reason:'hydration-stereo-exit', view:'mobile' }
+          }));
+        }catch{}
       }
 
       function bridgeBtn(btn, mode){
@@ -1503,24 +1578,10 @@
             ev.stopImmediatePropagation?.();
           }catch{}
 
-          try{
-            if(mode === 'enter'){
-              if(window.HHA_VRUI && typeof window.HHA_VRUI.enterVR === 'function'){
-                window.HHA_VRUI.enterVR();
-              }else{
-                forceFallbackUi();
-              }
-            }else if(mode === 'exit'){
-              if(window.HHA_VRUI && typeof window.HHA_VRUI.exitVR === 'function'){
-                window.HHA_VRUI.exitVR();
-              }else{
-                forceExitFallbackUi();
-              }
-            }
-          }catch(err){
-            console.error('VR bridge failed:', err);
-            if(mode === 'enter') forceFallbackUi();
-            else forceExitFallbackUi();
+          if(mode === 'enter'){
+            forceFallbackUi();
+          }else{
+            forceExitFallbackUi();
           }
         };
 
@@ -1542,7 +1603,7 @@
   </script>
 
   <script type="module">
-    import { boot } from './hydration.safe.js?v=20260316b';
+    import { boot } from './hydration.safe.js?v=20260316d';
     boot({});
   </script>
 </body>
