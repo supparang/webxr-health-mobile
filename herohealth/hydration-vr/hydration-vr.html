@@ -574,10 +574,16 @@
       overflow-y:auto;
       align-items:start;
       -webkit-tap-highlight-color:transparent;
+      pointer-events:none;
     }
 
     .overlay[aria-hidden="true"]{
       display:none;
+    }
+
+    .overlay .card,
+    .overlay .card *{
+      pointer-events:auto;
     }
 
     .card{
@@ -641,6 +647,11 @@
       flex-wrap:wrap;
       padding-bottom:8px;
       align-items:stretch;
+      pointer-events:auto;
+    }
+
+    .actions *{
+      pointer-events:auto;
     }
 
     .btn{
@@ -1015,7 +1026,7 @@
         padding:
           calc(8px + var(--sat))
           calc(10px + var(--sar))
-          calc(12px + var(--sab))
+          calc(12px + var(--vrBottomReserve) + var(--sab))
           calc(10px + var(--sal));
         align-items:stretch;
       }
@@ -1102,7 +1113,7 @@
       .actions{
         position:sticky;
         bottom:0;
-        z-index:5;
+        z-index:6;
         display:grid;
         grid-template-columns:1fr;
         gap:8px;
@@ -1121,6 +1132,104 @@
         font-size:14px;
         flex:1 1 100%;
       }
+    }
+
+    /* ===== PATCH: VR UI อยู่บนสุดและกดได้ ===== */
+    #vr-ui,
+    #vr-ui-root,
+    .vr-ui,
+    .vr-ui-root,
+    [data-vr-ui],
+    [data-vr-ui-root]{
+      position:fixed !important;
+      left:0;
+      right:0;
+      bottom:0;
+      z-index:99999 !important;
+      pointer-events:none !important;
+    }
+
+    #vr-ui button,
+    #vr-ui-root button,
+    .vr-ui button,
+    .vr-ui-root button,
+    [data-vr-ui] button,
+    [data-vr-ui-root] button,
+    #vr-ui [role="button"],
+    #vr-ui-root [role="button"],
+    .vr-ui [role="button"],
+    .vr-ui-root [role="button"],
+    [data-vr-ui] [role="button"],
+    [data-vr-ui-root] [role="button"]{
+      pointer-events:auto !important;
+      position:relative;
+      z-index:100000 !important;
+      touch-action:manipulation;
+      -webkit-tap-highlight-color:transparent;
+      min-height:46px;
+    }
+
+    #vr-ui .vr-bar,
+    #vr-ui-root .vr-bar,
+    .vr-ui .vr-bar,
+    .vr-ui-root .vr-bar,
+    [data-vr-ui] .vr-bar,
+    [data-vr-ui-root] .vr-bar,
+    #vr-ui .vr-controls,
+    #vr-ui-root .vr-controls,
+    .vr-ui .vr-controls,
+    .vr-ui-root .vr-controls,
+    [data-vr-ui] .vr-controls,
+    [data-vr-ui-root] .vr-controls{
+      pointer-events:none !important;
+      z-index:100000 !important;
+    }
+
+    #vr-ui .vr-bar button,
+    #vr-ui-root .vr-bar button,
+    .vr-ui .vr-bar button,
+    .vr-ui-root .vr-bar button,
+    [data-vr-ui] .vr-bar button,
+    [data-vr-ui-root] .vr-bar button,
+    #vr-ui .vr-controls button,
+    #vr-ui-root .vr-controls button,
+    .vr-ui .vr-controls button,
+    .vr-ui-root .vr-controls button,
+    [data-vr-ui] .vr-controls button,
+    [data-vr-ui-root] .vr-controls button{
+      pointer-events:auto !important;
+    }
+
+    .hud,
+    .hudCard,
+    .zoneSign,
+    .missionBar,
+    .calloutLayer,
+    .bossFace,
+    .debugMini{
+      pointer-events:none !important;
+    }
+
+    .layer,
+    .layer *,
+    .bubble{
+      pointer-events:auto;
+    }
+
+    #helpOverlay,
+    #pauseOverlay,
+    #end{
+      z-index:30 !important;
+      pointer-events:none !important;
+    }
+
+    #helpOverlay .card,
+    #helpOverlay .card *,
+    #pauseOverlay .card,
+    #pauseOverlay .card *,
+    #end .card,
+    #end .card *{
+      pointer-events:auto !important;
     }
   </style>
 </head>
