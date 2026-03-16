@@ -22,7 +22,7 @@ function sigmoid(x){
   return 1 / (1 + Math.exp(-x));
 }
 
-function safeNum(v, d=0){
+function safeNum(v, d = 0){
   v = Number(v);
   return Number.isFinite(v) ? v : d;
 }
