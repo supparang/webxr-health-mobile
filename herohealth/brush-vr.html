@@ -3,20 +3,877 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — BrushVR</title>
+  <title>HeroHealth — Brush VR Launcher</title>
   <meta name="color-scheme" content="dark light" />
   <link rel="icon" href="./favicon.ico" />
+  <script defer src="./launch/backhub.js"></script>
+  <style>
+    :root{
+      --bg1:#020617;
+      --bg2:#0b1226;
+      --panel:rgba(2,6,23,.72);
+      --panel2:rgba(15,23,42,.78);
+      --stroke:rgba(148,163,184,.18);
+      --text:#e5e7eb;
+      --muted:#94a3b8;
+      --good:#22c55e;
+      --warn:#f59e0b;
+      --bad:#ef4444;
+      --cyan:#22d3ee;
+      --violet:#a78bfa;
+      --shadow:0 24px 70px rgba(0,0,0,.45);
+      --radius:24px;
+      --sat: env(safe-area-inset-top, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
+      --sar: env(safe-area-inset-right, 0px);
+    }
+
+    *{ box-sizing:border-box; }
+    html,body{ min-height:100%; }
+
+    body{
+      margin:0;
+      color:var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", Arial, sans-serif;
+      background:
+        radial-gradient(1100px 760px at 10% 10%, rgba(34,197,94,.10), transparent 55%),
+        radial-gradient(900px 680px at 88% 16%, rgba(34,211,238,.10), transparent 55%),
+        radial-gradient(1000px 700px at 50% 100%, rgba(167,139,250,.10), transparent 55%),
+        linear-gradient(180deg, var(--bg1), var(--bg2));
+      padding:
+        calc(12px + var(--sat))
+        calc(12px + var(--sar))
+        calc(18px + var(--sab))
+        calc(12px + var(--sal));
+    }
+
+    .app{
+      width:min(1180px, 100%);
+      margin:0 auto;
+      display:grid;
+      gap:14px;
+    }
+
+    .panel{
+      background:linear-gradient(180deg, var(--panel), var(--panel2));
+      border:1px solid var(--stroke);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+      backdrop-filter:blur(10px);
+      -webkit-backdrop-filter:blur(10px);
+    }
+
+    .hero{
+      overflow:hidden;
+      position:relative;
+      padding:22px;
+      display:grid;
+      grid-template-columns:1.15fr .85fr;
+      gap:18px;
+      align-items:center;
+    }
+
+    .hero::before{
+      content:'';
+      position:absolute;
+      inset:0;
+      pointer-events:none;
+      background:
+        radial-gradient(520px 240px at 18% 12%, rgba(34,211,238,.09), transparent 60%),
+        radial-gradient(400px 220px at 85% 18%, rgba(34,197,94,.08), transparent 60%);
+    }
+
+    .heroLeft,.heroRight{ position:relative; z-index:1; }
+
+    .kicker{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 12px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(2,6,23,.34);
+      color:var(--muted);
+      font-size:12px;
+      font-weight:900;
+      margin-bottom:12px;
+    }
+
+    .title{
+      font-size:34px;
+      font-weight:1000;
+      line-height:1.06;
+      letter-spacing:.2px;
+      margin:0 0 10px;
+    }
+
+    .sub{
+      color:var(--muted);
+      font-size:15px;
+      line-height:1.6;
+      font-weight:700;
+      max-width:62ch;
+    }
+
+    .heroBullets{
+      margin-top:16px;
+      display:grid;
+      gap:8px;
+    }
+
+    .bullet{
+      display:flex;
+      align-items:flex-start;
+      gap:10px;
+      color:var(--text);
+      font-size:14px;
+      font-weight:800;
+      line-height:1.45;
+    }
+
+    .bullet span{
+      width:26px;
+      height:26px;
+      border-radius:999px;
+      display:grid;
+      place-items:center;
+      background:rgba(34,211,238,.14);
+      border:1px solid rgba(34,211,238,.22);
+      flex:0 0 auto;
+    }
+
+    .preview{
+      min-height:290px;
+      border-radius:24px;
+      border:1px solid rgba(148,163,184,.14);
+      background:
+        radial-gradient(360px 180px at 50% 12%, rgba(255,255,255,.05), transparent 60%),
+        linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.015));
+      display:grid;
+      place-items:center;
+      padding:18px;
+      overflow:hidden;
+    }
+
+    .mouth{
+      width:min(100%, 420px);
+      aspect-ratio:1.32 / 1;
+      position:relative;
+      border-radius:999px;
+      border:2px solid rgba(244,114,182,.24);
+      background:
+        radial-gradient(70% 120% at 50% 0%, rgba(251,113,133,.28), rgba(127,29,29,.08) 65%, transparent 66%),
+        radial-gradient(80% 120% at 50% 100%, rgba(251,113,133,.28), rgba(127,29,29,.08) 65%, transparent 66%);
+      box-shadow: inset 0 0 70px rgba(0,0,0,.18);
+    }
+
+    .gumTop,.gumBottom{
+      position:absolute;
+      left:7%;
+      width:86%;
+      height:25%;
+      border-radius:999px;
+      background:linear-gradient(180deg, rgba(251,113,133,.58), rgba(190,24,93,.24));
+    }
+    .gumTop{ top:10%; }
+    .gumBottom{ bottom:10%; }
+
+    .teethRow{
+      position:absolute;
+      left:12%;
+      width:76%;
+      height:22%;
+      display:grid;
+      grid-template-columns:repeat(8, 1fr);
+      gap:6px;
+    }
+    .teethTop{ top:20%; }
+    .teethBottom{ bottom:20%; }
+
+    .tooth{
+      border-radius:12px 12px 16px 16px;
+      background:linear-gradient(180deg, rgba(255,255,255,.98), rgba(241,245,249,.93));
+      border:1px solid rgba(148,163,184,.22);
+      box-shadow: inset 0 -10px 18px rgba(226,232,240,.55);
+    }
+
+    .targetZone{
+      position:absolute;
+      left:18%;
+      top:19%;
+      width:64%;
+      height:14%;
+      border-radius:20px;
+      border:3px dashed rgba(34,211,238,.92);
+      box-shadow:
+        0 0 0 3px rgba(34,211,238,.14),
+        0 0 34px rgba(34,211,238,.24),
+        inset 0 0 34px rgba(34,211,238,.10);
+      background:rgba(34,211,238,.06);
+      animation: pulse 1.2s ease-in-out infinite;
+    }
+
+    .targetZone::after{
+      content:'ถูตรงนี้';
+      position:absolute;
+      right:10px;
+      bottom:8px;
+      padding:5px 8px;
+      border-radius:999px;
+      background:rgba(34,211,238,.94);
+      color:#08263b;
+      font-size:11px;
+      font-weight:1000;
+    }
+
+    .brush{
+      position:absolute;
+      left:24%;
+      top:22%;
+      font-size:34px;
+      filter:drop-shadow(0 10px 22px rgba(0,0,0,.32));
+      animation: brushMove 2.2s ease-in-out infinite;
+    }
+
+    .cards{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:14px;
+    }
+
+    .card{
+      padding:16px;
+      display:grid;
+      gap:12px;
+    }
+
+    .cardTitle{
+      font-size:16px;
+      font-weight:950;
+      display:flex;
+      align-items:center;
+      gap:8px;
+    }
+
+    .cardText{
+      color:var(--muted);
+      font-size:13px;
+      line-height:1.55;
+      font-weight:800;
+    }
+
+    .modes{
+      display:grid;
+      grid-template-columns:repeat(3,1fr);
+      gap:10px;
+    }
+
+    .mode{
+      border:1px solid var(--stroke);
+      border-radius:18px;
+      background:rgba(2,6,23,.26);
+      padding:12px;
+      display:grid;
+      gap:6px;
+    }
+
+    .mode h4{
+      margin:0;
+      font-size:14px;
+      font-weight:950;
+    }
+
+    .mode p{
+      margin:0;
+      color:var(--muted);
+      font-size:12px;
+      line-height:1.45;
+      font-weight:800;
+    }
+
+    .statusRow{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+    }
+
+    .pill{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      padding:7px 11px;
+      border-radius:999px;
+      border:1px solid var(--stroke);
+      background:rgba(2,6,23,.34);
+      color:var(--muted);
+      font-size:12px;
+      font-weight:900;
+      white-space:nowrap;
+    }
+    .pill b{ color:var(--text); }
+
+    .launcher{
+      padding:18px;
+      display:grid;
+      gap:16px;
+    }
+
+    .launcherHead{
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      align-items:flex-start;
+      flex-wrap:wrap;
+    }
+
+    .launcherTitle{
+      font-size:20px;
+      font-weight:1000;
+      margin:0;
+    }
+
+    .launcherSub{
+      color:var(--muted);
+      font-size:13px;
+      line-height:1.5;
+      font-weight:800;
+      margin-top:6px;
+    }
+
+    .formGrid{
+      display:grid;
+      grid-template-columns:repeat(12, 1fr);
+      gap:12px;
+    }
+
+    .field{
+      grid-column:span 4;
+      display:grid;
+      gap:7px;
+    }
+
+    .field.span6{ grid-column:span 6; }
+    .field.span12{ grid-column:span 12; }
+
+    .label{
+      font-size:12px;
+      font-weight:950;
+      color:var(--muted);
+    }
+
+    .input,.select{
+      width:100%;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(2,6,23,.42);
+      color:var(--text);
+      border-radius:14px;
+      padding:12px 12px;
+      outline:none;
+      font:inherit;
+      font-size:14px;
+      font-weight:800;
+    }
+
+    .input::placeholder{ color:#8090a7; }
+
+    .checks{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+    }
+
+    .check{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(2,6,23,.28);
+      padding:10px 12px;
+      border-radius:14px;
+      color:var(--text);
+      font-size:13px;
+      font-weight:900;
+    }
+
+    .actions{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      align-items:center;
+      justify-content:space-between;
+    }
+
+    .leftActions,.rightActions{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      align-items:center;
+    }
+
+    .btn{
+      border:1px solid var(--stroke);
+      background:rgba(2,6,23,.40);
+      color:var(--text);
+      border-radius:14px;
+      padding:12px 14px;
+      cursor:pointer;
+      user-select:none;
+      font-weight:950;
+      font-size:14px;
+      transition:transform .1s ease, opacity .1s ease, background .12s ease, border-color .12s ease;
+    }
+    .btn:active{ transform:translateY(1px); }
+
+    .btn.primary{
+      border-color:rgba(34,197,94,.28);
+      background:rgba(34,197,94,.16);
+    }
+
+    .btn.cyan{
+      border-color:rgba(34,211,238,.28);
+      background:rgba(34,211,238,.14);
+    }
+
+    .btn.secondary{
+      color:var(--muted);
+    }
+
+    .btn.warn{
+      border-color:rgba(245,158,11,.28);
+      background:rgba(245,158,11,.14);
+    }
+
+    .miniNote{
+      color:var(--muted);
+      font-size:12px;
+      line-height:1.55;
+      font-weight:800;
+    }
+
+    .footerNote{
+      padding:14px 16px;
+      color:var(--muted);
+      font-size:12px;
+      line-height:1.6;
+      font-weight:800;
+    }
+
+    @keyframes pulse{
+      0%,100%{ transform:scale(1); }
+      50%{ transform:scale(1.015); }
+    }
+
+    @keyframes brushMove{
+      0%{ transform:translate(0,0) rotate(-10deg); }
+      25%{ transform:translate(90px,2px) rotate(8deg); }
+      50%{ transform:translate(180px,-1px) rotate(-10deg); }
+      75%{ transform:translate(90px,2px) rotate(8deg); }
+      100%{ transform:translate(0,0) rotate(-10deg); }
+    }
+
+    @media (max-width: 980px){
+      .hero{ grid-template-columns:1fr; }
+      .cards{ grid-template-columns:1fr; }
+      .field{ grid-column:span 6; }
+      .field.span6{ grid-column:span 6; }
+    }
+
+    @media (max-width: 720px){
+      body{
+        padding:
+          calc(8px + var(--sat))
+          calc(8px + var(--sar))
+          calc(18px + var(--sab))
+          calc(8px + var(--sal));
+      }
+
+      .app{ gap:10px; }
+      .hero{ padding:14px; gap:14px; }
+      .title{ font-size:26px; }
+      .sub{ font-size:14px; }
+      .cards{ gap:10px; }
+      .card{ padding:12px; }
+      .launcher{ padding:14px; }
+      .formGrid{ grid-template-columns:1fr; gap:10px; }
+      .field,.field.span6,.field.span12{ grid-column:span 1; }
+      .modes{ grid-template-columns:1fr; }
+      .actions{
+        flex-direction:column;
+        align-items:stretch;
+      }
+      .leftActions,.rightActions{
+        width:100%;
+      }
+      .leftActions .btn,
+      .rightActions .btn{
+        flex:1 1 0;
+      }
+      .preview{ min-height:240px; }
+      .targetZone::after{ font-size:10px; }
+    }
+  </style>
 </head>
 <body>
-  <script type="module">
-    import { hhGo } from './launch/launcher-core.js';
+  <div class="app">
+    <section class="panel hero">
+      <div class="heroLeft">
+        <div class="kicker">🪥 Hygiene Zone • Brush VR • Child-Friendly Launcher</div>
+        <h1 class="title">Brush VR<br />ฝึกแปรงฟันแบบเห็นชัดว่าต้องถูตรงไหน</h1>
+        <div class="sub">
+          เด็กจะเห็น “กรอบสีฟ้า” บนรูปฟันตรงกลางชัดเจนว่าตอนนี้ต้องถูส่วนไหน
+          แล้วค่อยเพิ่มความสนุกด้วยคะแนน คอมโบ และบอสหินปูนตามโหมดที่เลือก
+        </div>
 
-    hhGo('./vr-brush/brush.html', {
-      injectParams: {
-        gameId: 'brush'
-      },
-      defaults: {}
-    });
+        <div class="heroBullets">
+          <div class="bullet"><span>1</span><div>เริ่มด้วย <b>warmup gate</b> ก่อนเข้าเกมจริง</div></div>
+          <div class="bullet"><span>2</span><div>เข้าเล่นที่ <b>/herohealth/vr-brush/brush.html</b></div></div>
+          <div class="bullet"><span>3</span><div>จบรอบแล้วไป <b>cooldown gate</b> ก่อนกลับ HUB</div></div>
+        </div>
+      </div>
+
+      <div class="heroRight">
+        <div class="preview">
+          <div class="mouth" aria-hidden="true">
+            <div class="gumTop"></div>
+            <div class="gumBottom"></div>
+
+            <div class="teethRow teethTop">
+              <div class="tooth"></div><div class="tooth"></div><div class="tooth"></div><div class="tooth"></div>
+              <div class="tooth"></div><div class="tooth"></div><div class="tooth"></div><div class="tooth"></div>
+            </div>
+
+            <div class="teethRow teethBottom">
+              <div class="tooth"></div><div class="tooth"></div><div class="tooth"></div><div class="tooth"></div>
+              <div class="tooth"></div><div class="tooth"></div><div class="tooth"></div><div class="tooth"></div>
+            </div>
+
+            <div class="targetZone"></div>
+            <div class="brush">🪥</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="cards">
+      <div class="panel card">
+        <div class="cardTitle">🎯 จุดเด่นของเกม</div>
+        <div class="cardText">
+          ใช้ฟันเป็นพระเอกกลางจอ เด็กดูแล้วเข้าใจทันทีว่าต้องถูโซนไหน ลดความงงเรื่องตำแหน่งแปรงฟัน
+        </div>
+        <div class="statusRow">
+          <div class="pill">run page: <b>/herohealth/vr-brush/brush.html</b></div>
+          <div class="pill">launcher: <b>/herohealth/brush-vr.html</b></div>
+        </div>
+      </div>
+
+      <div class="panel card">
+        <div class="cardTitle">🧩 โหมดเล่น</div>
+        <div class="modes">
+          <div class="mode">
+            <h4>Learn</h4>
+            <p>ฝึกช้า ๆ มีตัวอย่างและตัวช่วยเยอะ เหมาะกับเริ่มต้น</p>
+          </div>
+          <div class="mode">
+            <h4>Practice</h4>
+            <p>เล่นเต็มระบบ มีบอสหินปูน คะแนน และคอมโบ</p>
+          </div>
+          <div class="mode">
+            <h4>Challenge</h4>
+            <p>ยากขึ้น เร็วขึ้น และตัวช่วยน้อยลง</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel launcher">
+      <div class="launcherHead">
+        <div>
+          <h2 class="launcherTitle">เริ่มเล่น Brush VR</h2>
+          <div class="launcherSub">
+            ตั้งค่าก่อนเข้าเกม แล้วกดเริ่ม ระบบจะพาไป warmup gate อัตโนมัติ
+          </div>
+        </div>
+        <div class="statusRow">
+          <div class="pill">canonical flow: <b>warmup → run → cooldown</b></div>
+        </div>
+      </div>
+
+      <div class="formGrid">
+        <div class="field">
+          <label class="label" for="pid">PID</label>
+          <input class="input" id="pid" placeholder="เช่น P001" />
+        </div>
+
+        <div class="field">
+          <label class="label" for="studyId">Study ID</label>
+          <input class="input" id="studyId" placeholder="เช่น HH-Brush-01" />
+        </div>
+
+        <div class="field">
+          <label class="label" for="seed">Seed</label>
+          <input class="input" id="seed" placeholder="auto" />
+        </div>
+
+        <div class="field">
+          <label class="label" for="mode">Mode</label>
+          <select class="select" id="mode">
+            <option value="learn">Learn</option>
+            <option value="practice">Practice</option>
+            <option value="challenge">Challenge</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label class="label" for="diff">Difficulty</label>
+          <select class="select" id="diff">
+            <option value="easy">easy</option>
+            <option value="normal" selected>normal</option>
+            <option value="hard">hard</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label class="label" for="time">Time (sec)</label>
+          <input class="input" id="time" type="number" min="45" max="180" step="5" value="90" />
+        </div>
+
+        <div class="field span6">
+          <label class="label" for="hub">Hub URL</label>
+          <input class="input" id="hub" value="./hub.html" />
+        </div>
+
+        <div class="field">
+          <label class="label" for="view">View</label>
+          <select class="select" id="view">
+            <option value="pc" selected>pc</option>
+            <option value="mobile">mobile</option>
+            <option value="cvr">cvr</option>
+          </select>
+        </div>
+
+        <div class="field span12">
+          <label class="label">Options</label>
+          <div class="checks">
+            <label class="check"><input id="audio" type="checkbox" checked /> เปิดเสียง</label>
+            <label class="check"><input id="voice" type="checkbox" checked /> เปิดเสียงพูด</label>
+            <label class="check"><input id="showLearn" type="checkbox" checked /> เปิด Learn overlay</label>
+            <label class="check"><input id="autostart" type="checkbox" checked /> เข้า warmup ทันที</label>
+          </div>
+        </div>
+      </div>
+
+      <div class="actions">
+        <div class="leftActions">
+          <button class="btn secondary" id="btnFillDemo" type="button">เติมค่าตัวอย่าง</button>
+          <button class="btn cyan" id="btnPreviewRun" type="button">ดู URL run</button>
+        </div>
+
+        <div class="rightActions">
+          <button class="btn secondary" id="btnBackHub" type="button">← กลับ HUB</button>
+          <button class="btn warn" id="btnDirectRun" type="button">เข้า run ตรง</button>
+          <button class="btn primary" id="btnStart" type="button">เริ่มผ่าน Warmup Gate</button>
+        </div>
+      </div>
+
+      <div class="miniNote" id="previewText">
+        ยังไม่ได้สร้างลิงก์ • เมื่อกด “ดู URL run” หรือ “เริ่มผ่าน Warmup Gate” ระบบจะประกอบ query ให้ครบ
+      </div>
+    </section>
+
+    <section class="panel footerNote">
+      Brush launcher นี้ออกแบบให้ตรงกับแนวมาตรฐาน HeroHealth:
+      ใช้ launcher เป็นทางเข้าเดียว, ส่งพารามิเตอร์ไป warmup-gate ก่อน, แล้วค่อยเข้า run game จริง
+      เพื่อให้ flow งานวิจัยและการเก็บ log สม่ำเสมอ
+    </section>
+  </div>
+
+  <script>
+    (function(){
+      'use strict';
+
+      const byId = (id)=>document.getElementById(id);
+
+      const pid = byId('pid');
+      const studyId = byId('studyId');
+      const seed = byId('seed');
+      const mode = byId('mode');
+      const diff = byId('diff');
+      const time = byId('time');
+      const hub = byId('hub');
+      const view = byId('view');
+      const audio = byId('audio');
+      const voice = byId('voice');
+      const showLearn = byId('showLearn');
+      const autostart = byId('autostart');
+      const previewText = byId('previewText');
+
+      function qs(k, d=''){
+        try{
+          return new URL(location.href).searchParams.get(k) ?? d;
+        }catch{
+          return d;
+        }
+      }
+
+      function setDefaults(){
+        pid.value = qs('pid', pid.value || '');
+        studyId.value = qs('studyId', studyId.value || '');
+        seed.value = qs('seed', '');
+        mode.value = qs('mode', 'learn');
+        diff.value = qs('diff', 'normal');
+        time.value = qs('time', '90');
+        hub.value = qs('hub', './hub.html');
+        view.value = qs('view', 'pc');
+
+        audio.checked = qs('audio', '1') !== '0';
+        voice.checked = qs('voice', '1') !== '0';
+        showLearn.checked = qs('showLearn', '1') !== '0';
+        autostart.checked = qs('autostart', '1') !== '0';
+
+        try{
+          const last = JSON.parse(localStorage.getItem('HHA_BRUSH_LAUNCHER_LAST') || 'null');
+          if(last){
+            if(!pid.value) pid.value = last.pid || '';
+            if(!studyId.value) studyId.value = last.studyId || '';
+            if(!seed.value) seed.value = last.seed || '';
+            if(!qs('mode')) mode.value = last.mode || mode.value;
+            if(!qs('diff')) diff.value = last.diff || diff.value;
+            if(!qs('time')) time.value = last.time || time.value;
+            if(!qs('hub')) hub.value = last.hub || hub.value;
+            if(!qs('view')) view.value = last.view || view.value;
+          }
+        }catch{}
+      }
+
+      function saveLastLauncherState(){
+        try{
+          localStorage.setItem('HHA_BRUSH_LAUNCHER_LAST', JSON.stringify({
+            pid: pid.value.trim(),
+            studyId: studyId.value.trim(),
+            seed: seed.value.trim(),
+            mode: mode.value,
+            diff: diff.value,
+            time: time.value,
+            hub: hub.value.trim(),
+            view: view.value
+          }));
+        }catch{}
+      }
+
+      function cleanSeed(){
+        return seed.value.trim() || String(Date.now());
+      }
+
+      function buildRunUrl(){
+        const u = new URL('./vr-brush/brush.html', location.href);
+
+        u.searchParams.set('gameId', 'brush');
+        u.searchParams.set('run', 'play');
+        u.searchParams.set('pid', pid.value.trim());
+        u.searchParams.set('studyId', studyId.value.trim());
+        u.searchParams.set('seed', cleanSeed());
+        u.searchParams.set('mode', mode.value);
+        u.searchParams.set('diff', diff.value);
+        u.searchParams.set('time', String(Math.max(45, Math.min(180, Number(time.value || 90)))));
+        u.searchParams.set('hub', hub.value.trim() || './hub.html');
+        u.searchParams.set('view', view.value);
+        u.searchParams.set('audio', audio.checked ? '1' : '0');
+        u.searchParams.set('voice', voice.checked ? '1' : '0');
+        if(mode.value === 'learn'){
+          u.searchParams.set('showLearn', showLearn.checked ? '1' : '0');
+        }
+
+        return u;
+      }
+
+      function buildWarmupUrl(){
+        const runUrl = buildRunUrl();
+
+        const g = new URL('./warmup-gate.html', location.href);
+        g.searchParams.set('game', 'brush');
+        g.searchParams.set('phase', 'warmup');
+        g.searchParams.set('zone', 'hygiene');
+        g.searchParams.set('cat', 'hygiene');
+        g.searchParams.set('run', 'play');
+        g.searchParams.set('pid', pid.value.trim());
+        g.searchParams.set('studyId', studyId.value.trim());
+        g.searchParams.set('seed', runUrl.searchParams.get('seed'));
+        g.searchParams.set('diff', diff.value);
+        g.searchParams.set('time', runUrl.searchParams.get('time'));
+        g.searchParams.set('hub', hub.value.trim() || './hub.html');
+        g.searchParams.set('next', runUrl.toString());
+        return g;
+      }
+
+      function renderPreview(label, url){
+        previewText.textContent = `${label}: ${url}`;
+      }
+
+      function goStart(){
+        saveLastLauncherState();
+        const url = buildWarmupUrl();
+        renderPreview('warmup', url.toString());
+        location.href = url.toString();
+      }
+
+      function goDirectRun(){
+        saveLastLauncherState();
+        const url = buildRunUrl();
+        renderPreview('run', url.toString());
+        location.href = url.toString();
+      }
+
+      byId('btnFillDemo')?.addEventListener('click', ()=>{
+        pid.value = pid.value.trim() || 'P001';
+        studyId.value = studyId.value.trim() || 'HH-BRUSH-DEMO';
+        if(!seed.value.trim()) seed.value = String(Date.now());
+        mode.value = 'learn';
+        diff.value = 'normal';
+        time.value = '90';
+        view.value = 'pc';
+        audio.checked = true;
+        voice.checked = true;
+        showLearn.checked = true;
+        autostart.checked = true;
+      });
+
+      byId('btnPreviewRun')?.addEventListener('click', ()=>{
+        const url = buildRunUrl();
+        renderPreview('run', url.toString());
+      });
+
+      byId('btnDirectRun')?.addEventListener('click', ()=>{
+        goDirectRun();
+      });
+
+      byId('btnStart')?.addEventListener('click', ()=>{
+        goStart();
+      });
+
+      byId('btnBackHub')?.addEventListener('click', ()=>{
+        try{
+          window.HHA_BACKHUB?.goHub?.();
+          return;
+        }catch{}
+        location.href = hub.value.trim() || './hub.html';
+      });
+
+      [pid, studyId, seed, mode, diff, time, hub, view].forEach(el=>{
+        el?.addEventListener('change', saveLastLauncherState);
+        el?.addEventListener('input', saveLastLauncherState);
+      });
+
+      [audio, voice, showLearn, autostart].forEach(el=>{
+        el?.addEventListener('change', saveLastLauncherState);
+      });
+
+      setDefaults();
+
+      if(autostart.checked && qs('autostart','0') === '1'){
+        goStart();
+      }
+    })();
   </script>
 </body>
 </html>
