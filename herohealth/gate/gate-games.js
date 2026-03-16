@@ -1,11 +1,12 @@
 // === /herohealth/gate/gate-games.js ===
 // HeroHealth Gate Game Registry
-// FULL PATCH v20260315-GATE-GAMES-CANONICAL-ALL-ZONES
+// FULL PATCH v20260316-GATE-GAMES-CANONICAL-ALL-ZONES-BATH-FLOW
 // ✅ canonical game ids match gate/launcher flow
 // ✅ exercise cat unified to "exercise"
 // ✅ aliases normalized across all zones
 // ✅ run paths point to root launcher/entry pages used by hub
 // ✅ fixes balance/shadow/rhythm/planner/clean id mismatches
+// ✅ keeps Bath canonical run = ../bath-vr.html
 
 export const GATE_GAMES = {
   // =========================
