@@ -257,6 +257,7 @@ body{
   background:
     radial-gradient(800px 340px at 50% 0%, rgba(255,255,255,.05), transparent 55%),
     linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.015));
+  touch-action:none;
 }
 
 .mouthWrap{
@@ -267,6 +268,7 @@ body{
   aspect-ratio:1.6 / 1;
   display:grid;
   place-items:center;
+  touch-action:none;
 }
 
 .mouth{
@@ -322,6 +324,7 @@ body{
   position:absolute;
   inset:0;
   pointer-events:none;
+  z-index:15;
 }
 
 .zone{
@@ -339,6 +342,7 @@ body{
   touch-action:none;
   overflow:hidden;
   background:transparent;
+  z-index:16;
 }
 
 .zone.tapBoost::before{
@@ -1191,8 +1195,16 @@ body{
   }
 
   .zone{
-    border-width:2px;
+    border-width:3px;
     border-radius:18px;
+  }
+
+  .zone.active{
+    border-color: rgba(34,211,238,.98);
+    box-shadow:
+      0 0 0 3px rgba(34,211,238,.18),
+      0 0 36px rgba(34,211,238,.34),
+      inset 0 0 42px rgba(34,211,238,.12);
   }
 
   .zone.tapBoost::before{
