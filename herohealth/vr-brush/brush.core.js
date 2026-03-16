@@ -1,8 +1,8 @@
 // /herohealth/vr-brush/brush.core.js
-// FULL PATCH v20260315a-BRUSH-MODULAR-PRODUCTION
+// HOTFIX v20260316c-BRUSH-MOBILE-UNFREEZE
 
-import { createBrushConfig } from './brush.config.js?v=20260315a';
-import { createBrushAudio } from './brush.audio.js?v=20260315a';
+import { createBrushConfig } from './brush.config.js?v=20260316c';
+import { createBrushAudio } from './brush.audio.js?v=20260316c';
 import {
   createZoneMastery,
   zoneDirectionText,
@@ -13,21 +13,22 @@ import {
   zoneSummaryLine,
   zoneRealLifeTip,
   overallRealLifeTip
-} from './brush.coach.js?v=20260315a';
-import { createBrushFx } from './brush.fx.js?v=20260315a';
-import { createBrushUI } from './brush.ui.js?v=20260315a';
-import { createBrushBossController } from './brush.boss.js?v=20260315a';
+} from './brush.coach.js?v=20260316c';
+import { createBrushFx } from './brush.fx.js?v=20260316c';
+import { createBrushUI } from './brush.ui.js?v=20260316c';
+import { createBrushBossController } from './brush.boss.js?v=20260316c';
 import {
   LS_BRUSH_DRAFT,
   saveBrushDraft,
   loadBrushDraft,
   clearBrushDraft,
   isFreshDraft
-} from './brush.storage.js?v=20260315a';
-import { buildBrushSummary } from './brush.summary.js?v=20260315a';
-import { createBrushZones } from './brush.zones.js?v=20260315a';
-import { createBrushScoring } from './brush.scoring.js?v=20260315a';
-import { createBrushInput } from './brush.input.js?v=20260315a';
+} from './brush.storage.js?v=20260316c';
+import { buildBrushSummary } from './brush.summary.js?v=20260316c';
+import { createBrushZones } from './brush.zones.js?v=20260316c';
+import { createBrushScoring } from './brush.scoring.js?v=20260316c';
+import { createBrushInput } from './brush.input.js?v=20260316c';
+import { createBrushTutorial } from './brush.tutorial.js?v=20260316c';
 
 (function(){
   'use strict';
@@ -55,7 +56,6 @@ import { createBrushInput } from './brush.input.js?v=20260315a';
   const fxLayer = byId('fxLayer');
   const coachToast = byId('coachToast');
   const learnOverlay = byId('learnOverlay');
-  const mouthWrap = byId('mouthWrap');
 
   const qs = (k, d='')=>{
     try{ return new URL(location.href).searchParams.get(k) ?? d; }
@@ -67,42 +67,15 @@ import { createBrushInput } from './brush.input.js?v=20260315a';
     return Number.isFinite(n) ? n : d;
   };
 
+  const clamp = (v,a,b)=> Math.max(a, Math.min(b, v));
   const nowISO = ()=> new Date().toISOString();
 
   const { CFG, DIFF, MODES, ZONES } = createBrushConfig(qs);
 
-  function currentModeCfg(){
-    return MODES[S.mode] || MODES.learn;
+  // force mobile if open on phone and not explicitly cvr
+  if ((/Android|iPhone|iPad|Mobile/i.test(navigator.userAgent)) && qs('view','pc') === 'pc') {
+    CFG.view = 'mobile';
   }
-
-  function emitHha(type, detail){
-    try{
-      window.dispatchEvent(new CustomEvent(type, { detail }));
-    }catch{}
-  }
-
-  function eventPayload(type, extra){
-    return Object.assign({
-      type,
-      ts: nowISO(),
-      gameId: CFG.gameId,
-      pid: CFG.pid,
-      run: CFG.run,
-      diff: CFG.diff,
-      time: CFG.time,
-      seed: CFG.seed,
-      studyId: CFG.studyId,
-      href: location.href
-    }, extra || {});
-  }
-
-  const audio = createBrushAudio({
-    audioEnabled: qs('audio','1') !== '0',
-    voiceEnabled: qs('voice','1') !== '0',
-    speakRate: 1.02,
-    speakPitch: 1.08,
-    speakVolume: 0.9
-  });
 
   const S = {
     startedAt: performance.now(),
@@ -171,6 +144,39 @@ import { createBrushInput } from './brush.input.js?v=20260315a';
     }))
   };
 
+  function currentModeCfg(){
+    return MODES[S.mode] || MODES.learn;
+  }
+
+  function emitHha(type, detail){
+    try{
+      window.dispatchEvent(new CustomEvent(type, { detail }));
+    }catch{}
+  }
+
+  function eventPayload(type, extra){
+    return Object.assign({
+      type,
+      ts: nowISO(),
+      gameId: CFG.gameId,
+      pid: CFG.pid,
+      run: CFG.run,
+      diff: CFG.diff,
+      time: CFG.time,
+      seed: CFG.seed,
+      studyId: CFG.studyId,
+      href: location.href
+    }, extra || {});
+  }
+
+  const audio = createBrushAudio({
+    audioEnabled: qs('audio','1') !== '0',
+    voiceEnabled: qs('voice','1') !== '0',
+    speakRate: 1.02,
+    speakPitch: 1.08,
+    speakVolume: 0.9
+  });
+
   const fx = createBrushFx({
     fxLayer,
     trailLayer,
@@ -178,6 +184,8 @@ import { createBrushInput } from './brush.input.js?v=20260315a';
     comboBadge,
     phaseToast
   });
+
+  let zones;
 
   const ui = createBrushUI({
     byId,
@@ -195,8 +203,8 @@ import { createBrushInput } from './brush.input.js?v=20260315a';
     ZONES,
     S,
     currentModeCfg,
-    totalCleanPct: ()=> zones.totalCleanPct(),
-    zoneCleanPct: (zs)=> zones.zoneCleanPct(zs),
+    totalCleanPct: ()=> zones ? zones.totalCleanPct() : 0,
+    zoneCleanPct: (zs)=> zones ? zones.zoneCleanPct(zs) : 0,
     calcZoneStars,
     zoneDirectionText,
     humanZoneInstruction
@@ -214,7 +222,7 @@ import { createBrushInput } from './brush.input.js?v=20260315a';
     }, 900);
   }
 
-  const zones = createBrushZones({
+  zones = createBrushZones({
     zoneLayer,
     zoneList,
     arenaCore,
@@ -222,13 +230,6 @@ import { createBrushInput } from './brush.input.js?v=20260315a';
     ZONES,
     S,
     ui
-  });
-
-  const scoring = createBrushScoring({
-    S,
-    DIFF,
-    currentModeCfg,
-    fx
   });
 
   const boss = createBrushBossController({
@@ -245,13 +246,32 @@ import { createBrushInput } from './brush.input.js?v=20260315a';
     spawnSparkle: fx.spawnSparkle,
     setCoachText: ui.setCoachText,
     showCoachToast,
-    refreshZoneUI: ui.refreshZoneUI,
-    renderDirtForZone: zones.renderDirtForZone,
+    refreshZoneUI: ()=> ui.refreshZoneUI(),
+    renderDirtForZone: (idx)=> zones.renderDirtForZone(idx),
     emitHha,
     eventPayload,
     audio,
     laserLine,
     shockRing
+  });
+
+  const scoring = createBrushScoring({
+    S,
+    DIFF,
+    currentModeCfg,
+    fx
+  });
+
+  const tutorial = createBrushTutorial({
+    S,
+    demoHand,
+    demoHint,
+    learnOverlay,
+    arenaCore,
+    audio,
+    zones,
+    humanZoneInstruction,
+    getActiveZone: ()=> S.zoneState[S.activeZoneIdx]
   });
 
   function emitStart(){
@@ -297,7 +317,7 @@ import { createBrushInput } from './brush.input.js?v=20260315a';
     calcZoneStars,
     audio,
     emitProgress,
-    stopDemoTutorial,
+    stopDemoTutorial: ()=> tutorial.stopDemoTutorial(),
     DIFF,
     humanZoneInstruction
   });
@@ -306,7 +326,7 @@ import { createBrushInput } from './brush.input.js?v=20260315a';
     ui.setText('pillGameId', CFG.gameId);
     ui.setText('pillRun', CFG.run || 'play');
     ui.setText('pillDiff', CFG.diff || 'normal');
-    ui.setText('pillView', CFG.view || 'pc');
+    ui.setText('pillView', CFG.view || 'mobile');
     ui.setText('statPid', CFG.pid || '—');
     ui.setText('statSeed', CFG.seed || '—');
     ui.setText('statStudy', CFG.studyId || '—');
@@ -333,89 +353,16 @@ import { createBrushInput } from './brush.input.js?v=20260315a';
     S.mode = MODES[mode] ? mode : 'learn';
     const u = new URL(location.href);
     u.searchParams.set('mode', S.mode);
+    if (CFG.view === 'mobile') u.searchParams.set('view', 'mobile');
     if(S.mode === 'learn') u.searchParams.set('showLearn', '1');
     else u.searchParams.delete('showLearn');
+    u.searchParams.set('seed', String(Date.now()));
     location.href = u.toString();
-  }
-
-  function stopDemoTutorial(){
-    if(demoHand) demoHand.classList.remove('on');
-    if(demoHint) demoHint.classList.remove('on');
-    if(startDemoTutorial._raf){
-      cancelAnimationFrame(startDemoTutorial._raf);
-      startDemoTutorial._raf = 0;
-    }
-  }
-
-  function startDemoTutorial(){
-    const active = S.zoneState[S.activeZoneIdx];
-    if(!active?.el || !demoHand || !demoHint || S.bossStarted || S.finished) return;
-
-    const rr = zones.zoneRectRelative(active.el);
-    if(!rr) return;
-
-    demoHand.classList.add('on');
-    demoHint.classList.add('on');
-    audio.playCue('demo-start');
-
-    const t0 = performance.now();
-
-    const loop = (ts)=>{
-      if(S.finished || S.bossStarted){
-        stopDemoTutorial();
-        return;
-      }
-
-      const z = zones.zoneRectRelative(active.el);
-      if(!z){
-        stopDemoTutorial();
-        return;
-      }
-
-      const t = (ts - t0) / 1000;
-      const swing = (Math.sin(t * Math.PI * 1.6) + 1) / 2;
-      const bob = Math.sin(t * Math.PI * 3.2) * 4;
-
-      const x = z.left + z.width * (0.18 + swing * 0.64);
-      const y = z.top + z.height * 0.55 + bob;
-
-      demoHand.style.left = x + 'px';
-      demoHand.style.top = y + 'px';
-
-      if(t >= 2.6){
-        stopDemoTutorial();
-        return;
-      }
-
-      startDemoTutorial._raf = requestAnimationFrame(loop);
-    };
-
-    startDemoTutorial._raf = requestAnimationFrame(loop);
-  }
-
-  function updateLearnOverlayText(){
-    const el = byId('learnOverlayNow');
-    const active = S.zoneState[S.activeZoneIdx];
-    if(!el || !active) return;
-    el.textContent = `${humanZoneInstruction(active.label)} ในกรอบสีฟ้า`;
-  }
-
-  function openLearnOverlay(){
-    if(!learnOverlay) return;
-    updateLearnOverlayText();
-    learnOverlay.style.display = 'grid';
-    S.learnOverlayShown = true;
-    audio.playCue('learn-open');
-  }
-
-  function closeLearnOverlay(){
-    if(!learnOverlay) return;
-    learnOverlay.style.display = 'none';
   }
 
   function saveDraft(){
     if(S.finished) return;
-    const draft = {
+    saveBrushDraft(LS_BRUSH_DRAFT, {
       gameId: CFG.gameId,
       pid: CFG.pid,
       run: CFG.run,
@@ -448,8 +395,7 @@ import { createBrushInput } from './brush.input.js?v=20260315a';
       metrics: JSON.parse(JSON.stringify(S.metrics)),
       savedAt: nowISO(),
       href: location.href
-    };
-    saveBrushDraft(LS_BRUSH_DRAFT, draft);
+    });
   }
 
   function clearDraft(){
@@ -508,12 +454,6 @@ import { createBrushInput } from './brush.input.js?v=20260315a';
     zones.refreshAllDirt();
     if(arenaCore) fx.spawnPop(arenaCore.clientWidth * 0.5, 64, 'RESTORED');
     fx.showPhaseToast('CONTINUE');
-
-    emitHha('hha:event', eventPayload('brush_restore', {
-      timeLeft: S.timeLeft,
-      bossPhase: S.bossPhase,
-      score: Math.round(S.score)
-    }));
   }
 
   function summaryQuestDone(kind){
@@ -545,13 +485,13 @@ import { createBrushInput } from './brush.input.js?v=20260315a';
     laserLine?.classList.remove('on');
     shockRing?.classList.remove('on');
     bossBanner?.classList.remove('on');
-    stopDemoTutorial();
+    tutorial.stopDemoTutorial();
 
     const built = buildBrushSummary({
       S,
       CFG,
       currentModeCfg,
-      totalCleanPct: zones.totalCleanPct,
+      totalCleanPct: ()=> zones.totalCleanPct(),
       overallRealLifeTip,
       zoneSummaryChecks,
       zoneSummaryLine,
@@ -562,28 +502,10 @@ import { createBrushInput } from './brush.input.js?v=20260315a';
       href: location.href
     });
 
-    const { summary, rank, qDone, totalStars } = built;
+    const { summary, rank, qDone } = built;
     summary.endReason = endReason || (S.bossCompleted ? 'complete' : 'timeup');
 
     try{ window.HHA_BACKHUB?.setSummary?.(summary); }catch{}
-
-    emitHha('hha:end', eventPayload('end', summary));
-    emitHha('hha:event', eventPayload('brush_summary', {
-      scoreFinal: summary.scoreFinal,
-      accuracyPct: summary.accuracyPct,
-      cleanPct: summary.cleanPct,
-      bossCompleted: summary.bossCompleted,
-      bossPhase: summary.bossPhase,
-      maxCombo: summary.maxCombo,
-      miss: summary.miss,
-      laserPunish: summary.laserPunish,
-      shockPerfectCount: summary.shockPerfectCount,
-      decoyPunish: summary.decoyPunish,
-      questDonePerfectShock: summary.questDonePerfectShock,
-      questDoneLaserSurvive: summary.questDoneLaserSurvive,
-      questDoneDecoyAvoid: summary.questDoneDecoyAvoid,
-      totalStars
-    }));
 
     ui.setText('summaryRank', rank);
     ui.setText('sumScore', String(summary.scoreFinal));
@@ -591,126 +513,14 @@ import { createBrushInput } from './brush.input.js?v=20260315a';
     ui.setText('sumClean', summary.cleanPct + '%');
     ui.setText('sumBoss', S.mode === 'learn' ? 'ไม่มีบอส' : (summary.bossCompleted ? 'ชนะแล้ว' : 'ยังไม่ชนะ'));
     ui.setText('sumCombo', String(summary.maxCombo || 0));
-    ui.setText('sumQuest', `${qDone}/3 ผ่าน`);
-    ui.setText('summarySub', `${summary.gameTitle} • mode=${summary.mode} • end=${summary.endReason}`);
-
-    ui.setText(
-      'resultHeroTitle',
-      S.mode === 'learn'
-        ? 'ฝึกแปรงฟันเสร็จแล้ว!'
-        : (S.bossCompleted ? 'คุณกำจัดบอสหินปูนได้แล้ว!' : 'สรุปการแปรงฟันรอบนี้')
-    );
-    ui.setText('resultHeroSub', `ฟันสะอาด ${summary.cleanPct}% • ความแม่น ${summary.accuracyPct}% • ดาวรวม ${totalStars}/18`);
-    ui.setText('resultHeroRank', rank);
-
-    const rankEl = byId('resultHeroRank');
-    if(rankEl){
-      rankEl.style.color =
-        rank === 'S' ? '#22c55e' :
-        rank === 'A' ? '#22d3ee' :
-        rank === 'B' ? '#f59e0b' :
-        rank === 'C' ? '#fb7185' : '#94a3b8';
-    }
-
-    const qShock = byId('sumQShock');
-    const qLaser = byId('sumQLaser');
-    const qDecoy = byId('sumQDecoy');
-
-    [qShock, qLaser, qDecoy].forEach(el => el && el.classList.remove('ok'));
-
-    if(qShock){
-      qShock.textContent = `Shock ${summary.questDonePerfectShock ? '✅' : '⬜'}`;
-      qShock.classList.toggle('ok', !!summary.questDonePerfectShock);
-    }
-    if(qLaser){
-      qLaser.textContent = `Laser ${summary.questDoneLaserSurvive ? '✅' : '⬜'}`;
-      qLaser.classList.toggle('ok', !!summary.questDoneLaserSurvive);
-    }
-    if(qDecoy){
-      qDecoy.textContent = `Decoy ${summary.questDoneDecoyAvoid ? '✅' : '⬜'}`;
-      qDecoy.classList.toggle('ok', !!summary.questDoneDecoyAvoid);
-    }
-
-    const summaryCoachWrap = byId('summaryCoachWrap');
-    if(summaryCoachWrap){
-      const lastCoach = S.coachHistory.slice(-3);
-      summaryCoachWrap.innerHTML = lastCoach.length
-        ? `
-          <div style="font-size:13px; font-weight:950;">Coach Notes</div>
-          ${lastCoach.map(c => `
-            <div style="border:1px solid rgba(148,163,184,.16); background:rgba(2,6,23,.24); border-radius:14px; padding:10px 12px; color:var(--muted); font-size:12px; line-height:1.5;">
-              ${c.text}
-            </div>
-          `).join('')}
-        `
-        : '';
-    }
-
-    const summaryZoneWrap = byId('summaryZoneWrap');
-    if(summaryZoneWrap){
-      summaryZoneWrap.innerHTML = `
-        <div style="font-size:13px; font-weight:950;">สรุปรายโซน</div>
-        ${summary.zoneSummary.map(z => `
-          <div style="border:1px solid rgba(148,163,184,.16); background:rgba(2,6,23,.24); border-radius:14px; padding:10px 12px;">
-            <div style="display:flex; justify-content:space-between; gap:8px; align-items:center; flex-wrap:wrap;">
-              <div style="font-size:13px; font-weight:950;">${z.label}</div>
-              <div style="font-size:13px; font-weight:950; color:${z.stars >= 2 ? '#fbbf24' : '#94a3b8'};">
-                ${'★'.repeat(z.stars)}${'☆'.repeat(3-z.stars)}
-              </div>
-            </div>
-
-            <div style="margin-top:6px; color:var(--muted); font-size:12px; line-height:1.5;">
-              ${z.line}
-            </div>
-            <div style="margin-top:6px; color:rgba(229,231,235,.92); font-size:12px; line-height:1.5; font-weight:900;">
-              💡 ${z.tip}
-            </div>
-
-            <div style="margin-top:8px; display:flex; gap:8px; flex-wrap:wrap;">
-              <span class="summaryQuestBadge ${z.clean ? 'ok' : ''}">สะอาด ${z.clean ? '✅' : '⬜'} (${z.cleanPct}%)</span>
-              <span class="summaryQuestBadge ${z.direction ? 'ok' : ''}">ทิศทาง ${z.direction ? '✅' : '⬜'} (${z.dirRate}%)</span>
-              <span class="summaryQuestBadge ${z.control ? 'ok' : ''}">คุมดี ${z.control ? '✅' : '⬜'} (พลาด ${z.localMiss})</span>
-            </div>
-          </div>
-        `).join('')}
-
-        <div style="border:1px dashed rgba(148,163,184,.18); background:rgba(2,6,23,.18); border-radius:14px; padding:10px 12px; color:var(--muted); font-size:12px; line-height:1.55;">
-          ข้อสังเกต: โซนที่ได้ดาวน้อยมักต้องฝึกเรื่องความทั่วถึงของการถู ทิศทางการถู หรือการลดการกดพลาด
-        </div>
-      `;
-    }
-
-    const summaryTipWrap = byId('summaryTipWrap');
-    if(summaryTipWrap){
-      summaryTipWrap.innerHTML = `
-        <div style="font-size:13px; font-weight:950;">นำไปใช้ตอนแปรงจริง</div>
-        <div style="border:1px solid rgba(34,197,94,.18); background:rgba(34,197,94,.10); border-radius:14px; padding:10px 12px; color:var(--text); font-size:13px; line-height:1.55; font-weight:900;">
-          ${summary.overallTip}
-        </div>
-        <div style="color:var(--muted); font-size:12px; line-height:1.5;">
-          ลองทำช้า ๆ เบา ๆ และให้ทั่วทุกซี่ตอนแปรงฟันจริง
-        </div>
-      `;
-    }
-
-    if(S.mode === 'learn'){
-      audio.playCue('summary-learn');
-    } else if(S.bossCompleted){
-      audio.playCue('summary-win');
-    } else {
-      audio.playCue('summary-open');
-    }
+    ui.setText('sumQuest', `${qDone}/3`);
 
     if(summaryOverlay) summaryOverlay.style.display = 'grid';
   }
 
   function restartGame(){
-    emitHha('hha:event', eventPayload('brush_restart', {
-      score: Math.round(S.score),
-      timeLeft: Math.ceil(S.timeLeft)
-    }));
     clearDraft();
-    stopDemoTutorial();
+    tutorial.stopDemoTutorial();
     const u = new URL(location.href);
     u.searchParams.set('seed', String(Date.now()));
     location.href = u.toString();
@@ -733,8 +543,8 @@ import { createBrushInput } from './brush.input.js?v=20260315a';
     S.polishCdUntil = now + CFG.polishCdMs;
 
     S.zoneState.forEach((z, idx)=>{
-      z.clean = Math.max(0, Math.min(100, z.clean + 6));
-      z.dirt = Math.max(0, Math.min(100, z.dirt - 7));
+      z.clean = clamp(z.clean + 6, 0, 100);
+      z.dirt = clamp(z.dirt - 7, 0, 100);
       if(zones.zoneCleanPct(z) >= currentModeCfg().cleanTarget) z.completed = true;
       zones.renderDirtForZone(idx);
     });
@@ -746,23 +556,13 @@ import { createBrushInput } from './brush.input.js?v=20260315a';
   }
 
   function bindButtons(){
-    byId('btnUV')?.addEventListener('click', ()=>{
-      if(byId('btnUV')?.classList.contains('disabled')) return;
-      useUV();
-    });
-
-    byId('btnPolish')?.addEventListener('click', ()=>{
-      if(byId('btnPolish')?.classList.contains('disabled')) return;
-      usePolish();
-    });
-
+    byId('btnUV')?.addEventListener('click', ()=> useUV());
+    byId('btnPolish')?.addEventListener('click', ()=> usePolish());
     byId('btnRestart')?.addEventListener('click', restartGame);
-
-    byId('btnStartBoss')?.addEventListener('click', ()=>{
+    byId('btnStartBoss')?.addEventListener('click', ()=> {
       if(!currentModeCfg().boss) return;
       boss.startBossNow(currentModeCfg().cleanTarget);
     });
-
     byId('btnFinish')?.addEventListener('click', ()=> finishGame(S.bossCompleted ? 'complete' : 'quit'));
     byId('btnCloseSummary')?.addEventListener('click', ()=> { if(summaryOverlay) summaryOverlay.style.display = 'none'; });
     byId('btnSummaryRestart')?.addEventListener('click', restartGame);
@@ -790,30 +590,28 @@ import { createBrushInput } from './brush.input.js?v=20260315a';
     byId('btnModeChallenge')?.addEventListener('click', ()=> setMode('challenge'));
 
     byId('btnLearnWatch')?.addEventListener('click', ()=>{
-      closeLearnOverlay();
+      tutorial.closeLearnOverlay();
       ui.setCoachText('ดูนิ้วตัวอย่างก่อน แล้วค่อยลองถูตามนะ', 'mid');
       audio.playCue('learn-watch');
-      stopDemoTutorial();
-      setTimeout(()=> startDemoTutorial(), 120);
+      tutorial.stopDemoTutorial();
+      setTimeout(()=> tutorial.startDemoTutorial(), 120);
     });
 
-    byId('btnLearnSkip')?.addEventListener('click', ()=>{
-      closeLearnOverlay();
-    });
+    byId('btnLearnSkip')?.addEventListener('click', ()=> tutorial.closeLearnOverlay());
 
     byId('btnLearnStart')?.addEventListener('click', ()=>{
-      closeLearnOverlay();
+      tutorial.closeLearnOverlay();
       ui.setNowDoText('เริ่มจากถูโซนที่มีกรอบสีฟ้า');
       audio.playCue('learn-start');
     });
 
     byId('btnShowLearnHelp')?.addEventListener('click', ()=>{
       if(S.mode === 'learn'){
-        openLearnOverlay();
+        tutorial.openLearnOverlay();
       } else {
         ui.setCoachText('ดูกรอบสีฟ้าและลองถูตามทิศที่บอกนะ', 'mid');
-        stopDemoTutorial();
-        setTimeout(()=> startDemoTutorial(), 120);
+        tutorial.stopDemoTutorial();
+        setTimeout(()=> tutorial.startDemoTutorial(), 120);
       }
     });
 
@@ -824,37 +622,31 @@ import { createBrushInput } from './brush.input.js?v=20260315a';
       const u = new URL(location.href);
       u.searchParams.set('audio', on ? '1' : '0');
       history.replaceState({}, '', u.toString());
-
-      if(!on){
-        ui.setCoachText('ปิดเสียงแล้ว', 'mid');
-      } else {
-        audio.ensureAudio();
-        audio.playCue('audio-on');
-        ui.setCoachText('เปิดเสียงแล้ว', 'good');
-      }
     });
   }
 
   function tick(){
     if(S.finished) return;
 
-    if(S.mode === 'learn' && learnOverlay && learnOverlay.style.display === 'grid'){
+    if(S.mode === 'learn' && tutorial.isLearnOverlayOpen()){
       ui.refreshZoneUI();
       return;
     }
 
-    S.timeLeft = Math.max(0, S.timeLeft - 0.1);
+    if(S.mode !== 'learn'){
+      S.timeLeft = Math.max(0, S.timeLeft - 0.1);
+    }
 
     if(!S.bossStarted){
       S.zoneState.forEach((z, idx)=>{
         if(idx !== S.activeZoneIdx){
-          z.dirt = Math.max(0, Math.min(100, z.dirt + DIFF.dirtTick * 0.2));
+          z.dirt = clamp(z.dirt + DIFF.dirtTick * 0.2, 0, 100);
         }
       });
     } else if (!S.bossCompleted){
       const active = S.zoneState[S.activeZoneIdx];
       if(active){
-        active.dirt = Math.max(0, Math.min(100, active.dirt + .45));
+        active.dirt = clamp(active.dirt + .45, 0, 100);
         zones.renderDirtForZone(S.activeZoneIdx);
       }
     }
@@ -862,8 +654,8 @@ import { createBrushInput } from './brush.input.js?v=20260315a';
     boss.runBossPatternController();
     ui.refreshZoneUI();
 
-    if(Math.round(S.timeLeft) % 5 === 0) emitProgress();
-    if(Math.floor(S.timeLeft * 10) % 20 === 0) saveDraft();
+    if(S.mode !== 'learn' && Math.round(S.timeLeft) % 5 === 0) emitProgress();
+    if(S.mode !== 'learn' && Math.floor(S.timeLeft * 10) % 20 === 0) saveDraft();
 
     if(S.mode !== 'learn' && S.timeLeft <= 0){
       finishGame(S.bossCompleted ? 'complete' : 'timeup');
@@ -874,19 +666,15 @@ import { createBrushInput } from './brush.input.js?v=20260315a';
     document.documentElement.classList.toggle('view-cvr', CFG.view === 'cvr');
     document.body.classList.toggle('view-cvr', CFG.view === 'cvr');
 
-    const modeCfg = currentModeCfg();
     if(S.mode === 'learn'){
-      S.timeLeft = modeCfg.time;
-    } else if(!Number.isFinite(S.timeLeft) || S.timeLeft <= 0){
-      S.timeLeft = modeCfg.time;
+      S.timeLeft = 9999;
     }
 
     setTopPills();
     setAudioPill();
-    audio.ensureAudio();
     refreshModeButtons();
 
-    zones.buildZones((idx, ev)=>{
+    zones.buildZones((idx, ev)=> {
       input.onZonePointerDown(idx, ev);
     });
 
@@ -900,50 +688,22 @@ import { createBrushInput } from './brush.input.js?v=20260315a';
       ui.setNowDoText('เริ่มจากดูกรอบสีฟ้าก่อน');
       const shouldShowLearn = qs('showLearn','1') !== '0';
       if(shouldShowLearn){
-        openLearnOverlay();
+        tutorial.openLearnOverlay();
       } else {
-        setTimeout(()=> startDemoTutorial(), 700);
+        setTimeout(()=> tutorial.startDemoTutorial(), 500);
       }
     } else {
       ui.setNowDoText('เริ่มจากถูโซนที่มีกรอบสีฟ้า');
-      setTimeout(()=> startDemoTutorial(), 700);
+      setTimeout(()=> tutorial.startDemoTutorial(), 500);
     }
 
     setInterval(tick, 100);
-
-    window.addEventListener('hha:before-exit', ()=>{
-      if(!S.finished){
-        try{
-          window.HHA_BACKHUB?.setSummary?.({
-            gameId: CFG.gameId,
-            gameTitle: 'Brush VR',
-            gameIcon: '🦷',
-            zoneId: 'hygiene',
-            pid: CFG.pid || '',
-            run: CFG.run || '',
-            diff: CFG.diff || '',
-            time: String(CFG.time),
-            seed: CFG.seed || '',
-            studyId: CFG.studyId || '',
-            endReason: 'quit',
-            mode: S.mode,
-            scoreFinal: Math.round(S.score),
-            accuracyPct: S.totalActions > 0 ? Math.round((S.hits / S.totalActions) * 1000) / 10 : 0,
-            miss: S.miss,
-            timePlayedSec: Math.round((S.mode === 'learn' ? 0 : CFG.time - S.timeLeft)),
-            cleanPct: zones.totalCleanPct(),
-            bossCompleted: S.bossCompleted,
-            bossPhase: S.bossPhase,
-            maxCombo: S.maxCombo,
-            savedAt: nowISO(),
-            href: location.href
-          });
-        }catch{}
-      }
-    });
-
-    console.log('mouthWrap=', mouthWrap?.getBoundingClientRect());
   }
 
-  boot();
+  try{
+    boot();
+  }catch(err){
+    console.error('Brush boot failed:', err);
+    alert('Brush VR โหลดไม่สมบูรณ์: ' + (err?.message || err));
+  }
 })();
