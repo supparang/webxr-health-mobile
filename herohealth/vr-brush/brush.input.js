@@ -19,6 +19,8 @@ export function createBrushInput({
   DIFF,
   humanZoneInstruction
 }){
+  let activePointerId = null;
+
   function movementDirection(dx, dy){
     const ax = Math.abs(dx);
     const ay = Math.abs(dy);
@@ -38,7 +40,35 @@ export function createBrushInput({
     return 0.72;
   }
 
-  function endBrush(){
+  function beginBrush(ev){
+    if(!arenaCore) return;
+    activePointerId = ev.pointerId ?? null;
+
+    try{
+      arenaCore.setPointerCapture?.(ev.pointerId);
+    }catch{}
+
+    S.isBrushing = true;
+    scoring?.resetBrushCombo?.();
+
+    const r = arenaCore.getBoundingClientRect();
+    S.brushLastX = ev.clientX - r.left;
+    S.brushLastY = ev.clientY - r.top;
+    S.brushLastT = performance.now();
+
+    fx?.spawnTrail?.(S.brushLastX, S.brushLastY, 0);
+  }
+
+  function endBrush(ev){
+    if(activePointerId !== null && ev?.pointerId != null && ev.pointerId !== activePointerId){
+      return;
+    }
+
+    try{
+      arenaCore?.releasePointerCapture?.(activePointerId);
+    }catch{}
+
+    activePointerId = null;
     S.isBrushing = false;
     scoring?.resetBrushCombo?.();
     ui?.hideBrushCursor?.();
@@ -46,23 +76,25 @@ export function createBrushInput({
   }
 
   function onPointerDown(ev){
+    if(S.finished || !arenaCore) return;
+
+    ev.preventDefault();
     stopDemoTutorial?.();
     ui?.updateBrushCursor?.(ev);
     audio?.ensureAudio?.();
-    if(S.finished || !arenaCore) return;
 
-    const r = arenaCore.getBoundingClientRect();
-    S.isBrushing = true;
-    scoring?.resetBrushCombo?.();
-    S.brushLastX = ev.clientX - r.left;
-    S.brushLastY = ev.clientY - r.top;
-    S.brushLastT = performance.now();
-    fx?.spawnTrail?.(S.brushLastX, S.brushLastY, 0);
+    beginBrush(ev);
   }
 
   function onPointerMove(ev){
-    ui?.updateBrushCursor?.(ev);
+    if(activePointerId !== null && ev.pointerId != null && ev.pointerId !== activePointerId){
+      return;
+    }
+
     if(!S.isBrushing || S.finished || !arenaCore) return;
+
+    ev.preventDefault();
+    ui?.updateBrushCursor?.(ev);
 
     const r = arenaCore.getBoundingClientRect();
     const x = ev.clientX - r.left;
@@ -74,7 +106,7 @@ export function createBrushInput({
     S.lastBrushDx = dx;
     S.lastBrushDy = dy;
 
-    if(dist < 8) return;
+    if(dist < 6) return;
 
     const rot = Math.atan2(dy || 0.001, dx || 0.001) * 180 / Math.PI;
     fx?.spawnTrail?.(x, y, rot);
@@ -119,11 +151,9 @@ export function createBrushInput({
 
         const tip = zoneRealLifeTip(activeIdx);
         ui?.setCoachText?.(`${coach.text} • ${tip}`, coach.tone);
-        if(star >= 3){
-          audio?.playCue?.('zone-perfect');
-        } else {
-          audio?.playCue?.('zone-clear');
-        }
+
+        if(star >= 3) audio?.playCue?.('zone-perfect');
+        else audio?.playCue?.('zone-clear');
 
         S.coachHistory.push({
           ts: new Date().toISOString(),
@@ -174,7 +204,12 @@ export function createBrushInput({
 
   function onZonePointerDown(idx, ev){
     if(S.finished || !arenaCore) return;
+
+    ev.preventDefault();
     stopDemoTutorial?.();
+    ui?.updateBrushCursor?.(ev);
+    audio?.ensureAudio?.();
+    beginBrush(ev);
 
     const rect = arenaCore.getBoundingClientRect();
     const x = ev.clientX - rect.left;
@@ -266,20 +301,8 @@ export function createBrushInput({
         const tip = zoneRealLifeTip(idx);
         ui?.setCoachText?.(`${coach.text} • ${tip}`, coach.tone);
 
-        if(star >= 3){
-          audio?.playCue?.('zone-perfect');
-        } else {
-          audio?.playCue?.('zone-clear');
-        }
-
-        S.coachHistory.push({
-          ts: new Date().toISOString(),
-          zoneId: zs.id,
-          zoneLabel: zs.label,
-          star,
-          text: `${coach.text} • ${tip}`,
-          tone: coach.tone
-        });
+        if(star >= 3) audio?.playCue?.('zone-perfect');
+        else audio?.playCue?.('zone-clear');
       }
 
       zones?.renderDirtForZone?.(idx);
@@ -316,11 +339,11 @@ export function createBrushInput({
   function bindInput(){
     if(!arenaCore) return;
 
-    arenaCore.addEventListener('pointerdown', onPointerDown);
-    arenaCore.addEventListener('pointermove', onPointerMove);
-    arenaCore.addEventListener('pointerup', endBrush);
-    arenaCore.addEventListener('pointercancel', endBrush);
-    arenaCore.addEventListener('pointerleave', endBrush);
+    arenaCore.addEventListener('pointerdown', onPointerDown, { passive:false });
+    arenaCore.addEventListener('pointermove', onPointerMove, { passive:false });
+    arenaCore.addEventListener('pointerup', endBrush, { passive:false });
+    arenaCore.addEventListener('pointercancel', endBrush, { passive:false });
+    arenaCore.addEventListener('pointerleave', endBrush, { passive:false });
   }
 
   return {
