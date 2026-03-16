@@ -1,0 +1,1716 @@
+<!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
+GoodJunkVR — RUN PAGE
+FULL PATCH v20260316p-GJ-RUNPAGE-CARDBOARD-DUAL-CROSSHAIR
+-->
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth — GoodJunkVR</title>
+  <meta name="color-scheme" content="dark light" />
+  <link rel="icon" href="../favicon.ico" />
+
+  <script src="../firebase-config.js"></script>
+  <script type="module" src="../vr/vr-ui.js?v=20260316p-gj-enter-vr"></script>
+
+  <style>
+    :root{
+      --bg1:#020617; --bg2:#0b1226;
+      --panel:rgba(2,6,23,.70);
+      --stroke:rgba(148,163,184,.18);
+      --text:#e5e7eb; --muted:#94a3b8;
+      --blue:#3b82f6; --cyan:#22d3ee; --good:#22c55e; --warn:#f59e0b; --danger:#ef4444;
+      --sat: env(safe-area-inset-top, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+    }
+    *{ box-sizing:border-box; -webkit-tap-highlight-color: transparent; }
+    html,body{
+      margin:0; min-height:100%; overflow:hidden;
+      background:
+        radial-gradient(1000px 700px at 50% -10%, rgba(34,211,238,.10), transparent 60%),
+        linear-gradient(180deg,var(--bg1),var(--bg2));
+      color:var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", sans-serif;
+    }
+    #app{ position:fixed; inset:0; overflow:hidden; }
+
+    #gj-layer{
+      position:fixed;
+      left:0; right:0;
+      top:0; bottom:0;
+      overflow:hidden;
+      touch-action:manipulation;
+      user-select:none;
+      z-index:1;
+    }
+
+    .hud-top{
+      position:fixed;
+      top:calc(var(--sat) + 8px);
+      left:8px; right:8px;
+      z-index:100;
+      display:grid;
+      grid-template-columns: repeat(5, minmax(0,1fr));
+      gap:8px;
+      pointer-events:none;
+    }
+    .hud-card{
+      border:1px solid var(--stroke);
+      background:var(--panel);
+      border-radius:16px;
+      padding:8px 10px;
+      box-shadow:0 14px 40px rgba(0,0,0,.28);
+      backdrop-filter: blur(10px);
+      min-height:76px;
+    }
+    .hud-k{ font-size:11px; color:var(--muted); margin-bottom:4px; font-weight:800; }
+    .hud-v{ font-size:22px; line-height:1; font-weight:1000; }
+    .hud-sub{ font-size:11px; margin-top:5px; color:#cbd5e1; }
+
+    .mid-mission{
+      position:fixed;
+      top:calc(var(--sat) + 98px);
+      left:50%;
+      transform:translateX(-50%);
+      z-index:100;
+      width:min(760px, calc(100vw - 16px));
+      pointer-events:auto;
+    }
+    .mission-box{
+      border:1px solid var(--stroke);
+      background:rgba(2,6,23,.58);
+      border-radius:18px;
+      padding:10px 12px;
+      backdrop-filter: blur(10px);
+      box-shadow:0 18px 50px rgba(0,0,0,.28);
+      transition:
+        opacity .18s ease,
+        transform .18s ease,
+        max-height .18s ease,
+        padding .18s ease;
+    }
+    .mission-box.compact{
+      padding:8px 10px;
+    }
+    .mission-box.compact .mission-hint,
+    .mission-box.compact .match-chip-wrap{
+      display:none;
+    }
+    .mission-box.auto-hide{
+      opacity:.18;
+      transform:translateY(-8px);
+    }
+    .mission-box.auto-hide .mission-goal,
+    .mission-box.auto-hide .mission-hint,
+    .mission-box.auto-hide .match-chip-wrap,
+    .mission-box.auto-hide .mission-bar{
+      display:none;
+    }
+
+    .mission-head{
+      display:flex; justify-content:space-between; gap:10px; align-items:center;
+      font-weight:1000; font-size:14px;
+      flex-wrap:wrap;
+    }
+    .mission-goal{ margin-top:4px; font-size:13px; color:#e5e7eb; font-weight:900; }
+    .mission-hint{ margin-top:3px; font-size:12px; color:#cbd5e1; }
+    .mission-bar{
+      height:10px; border-radius:999px; background:rgba(148,163,184,.14);
+      overflow:hidden; margin-top:10px;
+    }
+    .mission-bar > i{
+      display:block; height:100%; width:var(--p,0%);
+      background:linear-gradient(90deg,var(--blue),var(--cyan));
+      border-radius:999px;
+      transition:width .18s ease;
+    }
+
+    .boss-bar{
+      display:none;
+      position:fixed;
+      top:calc(var(--sat) + 182px);
+      left:50%;
+      transform:translateX(-50%);
+      z-index:101;
+      width:min(620px, calc(100vw - 24px));
+      border:1px solid rgba(239,68,68,.22);
+      background:rgba(2,6,23,.72);
+      border-radius:18px;
+      padding:10px 12px;
+      box-shadow:0 18px 52px rgba(0,0,0,.30);
+      backdrop-filter: blur(10px);
+      pointer-events:none;
+    }
+    .boss-head{
+      display:flex; justify-content:space-between; gap:10px; font-weight:1000; font-size:13px;
+      color:#fecaca;
+      flex-wrap:wrap;
+    }
+    .boss-track{
+      height:12px; border-radius:999px; background:rgba(127,29,29,.30);
+      overflow:hidden; margin-top:8px;
+    }
+    .boss-track > i{
+      display:block; height:100%; width:var(--hp,100%);
+      background:linear-gradient(90deg,#ef4444,#f59e0b);
+      transition:width .16s ease;
+      border-radius:999px;
+    }
+    .boss-hint{ margin-top:6px; font-size:12px; color:#fee2e2; }
+
+    .side-ai{
+      position:fixed;
+      right:8px;
+      bottom:calc(var(--sab) + 72px);
+      z-index:101;
+      width:min(320px, calc(100vw - 16px));
+      pointer-events:auto;
+    }
+    .ai-box{
+      border:1px solid var(--stroke);
+      background:rgba(2,6,23,.72);
+      border-radius:18px;
+      padding:12px;
+      box-shadow:0 18px 50px rgba(0,0,0,.30);
+      backdrop-filter: blur(10px);
+      transition:
+        opacity .18s ease,
+        transform .18s ease,
+        max-height .18s ease,
+        padding .18s ease;
+    }
+    .ai-box.compact{
+      padding:9px 10px;
+    }
+    .ai-box.compact .ai-small,
+    .ai-box.compact .ai-pill{
+      display:none;
+    }
+    .ai-box.auto-hide{
+      opacity:.16;
+      transform:translateY(8px);
+    }
+    .ai-box.auto-hide .ai-line,
+    .ai-box.auto-hide .ai-small,
+    .ai-box.auto-hide .ai-pill{
+      display:none;
+    }
+
+    .ai-title{ font-size:13px; font-weight:1000; color:#a5f3fc; }
+    .ai-line{ margin-top:6px; font-size:13px; color:#e5e7eb; }
+    .ai-small{ margin-top:4px; font-size:12px; color:#cbd5e1; }
+    .ai-pill{
+      display:inline-flex; align-items:center; gap:6px;
+      margin-top:8px;
+      padding:8px 10px;
+      border-radius:999px;
+      font-size:12px; font-weight:900;
+      background:rgba(15,23,42,.84);
+      border:1px solid var(--stroke);
+      color:#e5e7eb;
+      margin-right:6px;
+      margin-bottom:6px;
+    }
+
+    .match-chip-wrap{
+      margin-top:10px;
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+    .match-chip{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      padding:8px 10px;
+      border-radius:999px;
+      font-size:12px;
+      font-weight:1000;
+      border:1px solid var(--stroke);
+      background:rgba(15,23,42,.84);
+      color:#e5e7eb;
+    }
+
+    .bottom-bar{
+      position:fixed;
+      left:8px; right:8px;
+      bottom:calc(var(--sab) + 8px);
+      z-index:102;
+      display:flex; gap:8px; align-items:center; justify-content:space-between;
+      pointer-events:none;
+    }
+    .bottom-left,.bottom-right{
+      display:flex; gap:8px; align-items:center;
+      pointer-events:auto;
+      flex-wrap:wrap;
+    }
+    .mini-chip{
+      border:1px solid var(--stroke);
+      background:rgba(2,6,23,.74);
+      border-radius:999px;
+      padding:10px 12px;
+      font-size:12px; font-weight:900;
+      box-shadow:0 12px 28px rgba(0,0,0,.26);
+      backdrop-filter: blur(10px);
+    }
+    .btn{
+      min-height:42px;
+      border:0; border-radius:14px;
+      padding:10px 14px;
+      font:inherit; font-weight:1000;
+      cursor:pointer;
+      color:white;
+      background:linear-gradient(135deg,#2563eb,#06b6d4);
+      box-shadow:0 10px 24px rgba(37,99,235,.24);
+    }
+    .btn.secondary{
+      color:var(--text);
+      background:rgba(15,23,42,.92);
+      border:1px solid var(--stroke);
+      box-shadow:none;
+    }
+    .btn.warn{ background:linear-gradient(135deg,#d97706,#f59e0b); }
+    .btn.danger{ background:linear-gradient(135deg,#dc2626,#ef4444); }
+    .btn.good{ background:linear-gradient(135deg,#16a34a,#22c55e); }
+
+    #stageBanner,#milestoneBanner{
+      position:fixed;
+      left:50%;
+      transform:translateX(-50%) scale(.96);
+      z-index:160;
+      pointer-events:none;
+      opacity:0;
+      transition:opacity .16s ease, transform .16s ease;
+      text-align:center;
+      border:1px solid var(--stroke);
+      background:rgba(2,6,23,.80);
+      box-shadow:0 24px 70px rgba(0,0,0,.42);
+      backdrop-filter: blur(12px);
+    }
+    #stageBanner{
+      top:42%;
+      min-width:min(560px, calc(100vw - 32px));
+      border-radius:24px;
+      padding:18px 20px;
+    }
+    #stageBanner .big{ font-size:40px; font-weight:1000; letter-spacing:.5px; }
+    #stageBanner .small{ margin-top:6px; font-size:14px; color:#cbd5e1; }
+    #milestoneBanner{
+      top:28%;
+      border-radius:999px;
+      padding:12px 18px;
+      font-size:26px;
+      font-weight:1000;
+    }
+    #stageBanner.show,#milestoneBanner.show{
+      opacity:1;
+      transform:translateX(-50%) scale(1);
+    }
+
+    #dangerOverlay{
+      position:fixed;
+      inset:0;
+      z-index:120;
+      pointer-events:none;
+      opacity:0;
+      background:
+        radial-gradient(circle at center, rgba(239,68,68,.00) 0%, rgba(239,68,68,.00) 44%, rgba(239,68,68,.10) 76%, rgba(239,68,68,.18) 100%);
+      transition:opacity .14s ease;
+    }
+
+    #battleDebug{
+      position:fixed;
+      left:8px;
+      bottom:calc(env(safe-area-inset-bottom,0px) + 64px);
+      z-index:140;
+      min-width:220px;
+      max-width:min(420px, calc(100vw - 16px));
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(2,6,23,.78);
+      color:#e5e7eb;
+      border-radius:16px;
+      padding:10px 12px;
+      box-shadow:0 16px 40px rgba(0,0,0,.32);
+      backdrop-filter:blur(10px);
+      font:800 12px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+    }
+
+    #waitOverlay{
+      display:none;
+      position:fixed;
+      inset:0;
+      z-index:190;
+      background:rgba(2,6,23,.70);
+      backdrop-filter:blur(8px);
+      align-items:center;
+      justify-content:center;
+      padding:16px;
+    }
+
+    #endOverlay{
+      display:none;
+      position:fixed;
+      inset:0;
+      z-index:200;
+      background:rgba(2,6,23,.76);
+      backdrop-filter: blur(10px);
+      align-items:center;
+      justify-content:center;
+      padding:16px;
+    }
+    #endOverlay .panel{
+      width:min(980px, 100%);
+      border-radius:24px;
+      border:1px solid var(--stroke);
+      background:linear-gradient(180deg, rgba(15,23,42,.92), rgba(2,6,23,.90));
+      box-shadow:0 26px 80px rgba(0,0,0,.48);
+      padding:18px;
+    }
+    #endTop{
+      text-align:center;
+      margin-bottom:14px;
+    }
+    #endTitle{ font-size:32px; font-weight:1000; }
+    #endSub{ margin-top:6px; color:#cbd5e1; font-size:14px; }
+
+    .end-match-box{
+      margin-top:12px;
+      border-radius:18px;
+      border:1px solid rgba(148,163,184,.14);
+      background:rgba(2,6,23,.54);
+      padding:12px 14px;
+    }
+    .end-match-title{
+      font-size:14px;
+      font-weight:1000;
+      margin-bottom:8px;
+      color:#a5f3fc;
+    }
+    .end-match-line{
+      font-size:14px;
+      line-height:1.7;
+      color:#e5e7eb;
+      word-break:break-word;
+    }
+
+    .end-stats{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:10px;
+      margin-top:12px;
+    }
+    .end-stat{
+      border-radius:18px;
+      border:1px solid rgba(148,163,184,.14);
+      background:rgba(2,6,23,.54);
+      padding:12px;
+      text-align:center;
+    }
+    .end-stat .k{ font-size:12px; color:var(--muted); margin-bottom:6px; }
+    .end-stat .v{ font-size:26px; font-weight:1000; }
+
+    .decision-box{
+      margin-top:14px;
+      border-radius:18px;
+      border:1px solid rgba(148,163,184,.14);
+      background:rgba(2,6,23,.54);
+      padding:12px 14px;
+      font-size:14px;
+      font-weight:900;
+    }
+
+    .compare-box{
+      margin-top:14px;
+      border-radius:18px;
+      border:1px solid rgba(148,163,184,.14);
+      background:rgba(2,6,23,.54);
+      padding:12px;
+      overflow:auto;
+    }
+    .compare-title{ font-size:14px; font-weight:1000; margin-bottom:8px; }
+    table.cmp{
+      width:100%;
+      border-collapse:collapse;
+    }
+    .cmp th,.cmp td{
+      padding:10px 8px;
+      border-bottom:1px solid rgba(148,163,184,.12);
+      text-align:center;
+      font-size:13px;
+    }
+    .cmp th:first-child,.cmp td:first-child{ text-align:left; }
+    .cmp-win{
+      color:#86efac;
+      font-weight:1000;
+    }
+
+    .end-actions{
+      display:flex; gap:10px; flex-wrap:wrap; justify-content:center;
+      margin-top:16px;
+    }
+
+    .gj-target{
+      animation: targetBob .85s ease-in-out infinite alternate;
+    }
+    @keyframes targetBob{
+      from{ transform:translate(-50%,-50%) scale(1); }
+      to{ transform:translate(-50%,-52%) scale(1.04); }
+    }
+
+    .mobile-combat .side-ai{
+      display:none !important;
+    }
+
+    .mobile-combat .bottom-bar{
+      bottom:calc(var(--sab) + 6px);
+    }
+
+    .mobile-combat .mid-mission{
+      top:calc(var(--sat) + 118px);
+    }
+
+    .mobile-combat .mission-box.compact{
+      padding:6px 10px;
+      border-radius:12px;
+    }
+
+    .mobile-combat .mission-box.compact .mission-head{
+      font-size:11px;
+      line-height:1.2;
+    }
+
+    .mobile-combat .mission-box.compact .mission-goal{
+      display:none;
+    }
+
+    .mobile-combat .mission-box.compact .mission-hint{
+      display:none;
+    }
+
+    .mobile-combat .mission-box.compact .match-chip-wrap{
+      display:none;
+    }
+
+    .mobile-combat .mission-box.compact .mission-bar{
+      height:6px;
+      margin-top:6px;
+    }
+
+    .mobile-combat .mission-box.compact.auto-hide{
+      opacity:.14;
+      transform:translateY(-10px);
+      padding:5px 9px;
+    }
+
+    .mobile-combat .mission-box.compact.auto-hide .mission-bar{
+      opacity:.75;
+    }
+
+    .mobile-combat .hud-card .hud-sub{
+      opacity:.92;
+    }
+
+    .mobile-combat .hud-card:nth-child(3) .hud-sub{
+      letter-spacing:-.1px;
+    }
+
+    .mobile-combat .hud-card:nth-child(5) .hud-sub{
+      display:none;
+    }
+
+    @media (max-width:900px){
+      .hud-top{
+        top:calc(var(--sat) + 6px);
+        left:6px;
+        right:6px;
+        z-index:100;
+        display:grid;
+        grid-template-columns:repeat(5,minmax(0,1fr));
+        gap:4px;
+        pointer-events:none;
+      }
+
+      .hud-card{
+        min-height:46px;
+        padding:5px 6px;
+        border-radius:10px;
+        box-shadow:0 10px 26px rgba(0,0,0,.22);
+      }
+
+      .hud-k{
+        font-size:9px;
+        margin-bottom:1px;
+        font-weight:900;
+        line-height:1;
+      }
+
+      .hud-v{
+        font-size:13px;
+        line-height:1.05;
+        font-weight:1000;
+      }
+
+      .hud-sub{
+        font-size:8px;
+        margin-top:2px;
+        line-height:1.05;
+        white-space:nowrap;
+        overflow:hidden;
+        text-overflow:ellipsis;
+      }
+
+      .mid-mission{
+        top:calc(var(--sat) + 64px);
+        width:calc(100vw - 12px);
+      }
+
+      .mission-box{
+        padding:7px 9px;
+        border-radius:14px;
+      }
+
+      .boss-bar{
+        top:calc(var(--sat) + 104px);
+        width:calc(100vw - 12px);
+        padding:7px 9px;
+        border-radius:14px;
+      }
+
+      .side-ai{
+        left:8px;
+        right:8px;
+        width:auto;
+        bottom:calc(var(--sab) + 56px);
+      }
+
+      .ai-box{
+        padding:8px 9px;
+        border-radius:14px;
+      }
+
+      .bottom-bar{
+        left:6px;
+        right:6px;
+        bottom:calc(var(--sab) + 6px);
+      }
+
+      .mini-chip{
+        padding:7px 9px;
+        font-size:10px;
+      }
+
+      .btn{
+        min-height:38px;
+        padding:8px 11px;
+        border-radius:12px;
+      }
+
+      #battleDebug{
+        display:none;
+      }
+
+      #gj-layer{
+        top:0;
+        bottom:0;
+      }
+
+      .mission-box.auto-hide{
+        padding:6px 10px;
+      }
+
+      .ai-box.auto-hide{
+        padding:6px 10px;
+      }
+
+      .mobile-combat .mid-mission{
+        top:calc(var(--sat) + 118px);
+      }
+
+      .mobile-combat .boss-bar{
+        top:calc(var(--sat) + 166px);
+      }
+    }
+
+    @media (max-width:420px){
+      .mid-mission{
+        top:calc(var(--sat) + 60px);
+      }
+      .boss-bar{
+        top:calc(var(--sat) + 98px);
+      }
+      .side-ai{
+        bottom:calc(var(--sab) + 58px);
+      }
+      .hud-card{
+        border-radius:10px;
+      }
+    }
+
+    /* ===== GOODJUNK LOCAL VR UI ===== */
+    #hha-vrui{
+      display:none !important;
+      pointer-events:none !important;
+    }
+    #hha-crosshair{
+      z-index:2147483645 !important;
+      pointer-events:none !important;
+    }
+    #hha-vrui-hint{
+      z-index:2147483646 !important;
+      pointer-events:none !important;
+    }
+
+    #gjLocalVrBar{
+      position:fixed;
+      left:max(10px, env(safe-area-inset-left, 0px));
+      right:max(10px, env(safe-area-inset-right, 0px));
+      bottom:max(10px, env(safe-area-inset-bottom, 0px));
+      z-index:2147483647;
+      display:flex;
+      gap:8px;
+      justify-content:flex-end;
+      pointer-events:none;
+    }
+    #gjLocalVrBar .gj-vr-btn{
+      pointer-events:auto;
+      appearance:none;
+      -webkit-appearance:none;
+      border:none;
+      border-radius:999px;
+      min-height:46px;
+      padding:10px 14px;
+      background:rgba(2,6,23,.82);
+      border:1px solid rgba(148,163,184,.22);
+      color:#e5e7eb;
+      font:1000 13px/1 system-ui,-apple-system,"Noto Sans Thai","Segoe UI",Roboto,sans-serif;
+      box-shadow:0 16px 40px rgba(0,0,0,.32);
+      backdrop-filter:blur(10px);
+      cursor:pointer;
+      touch-action:manipulation;
+      -webkit-tap-highlight-color:transparent;
+    }
+    #gjBtnExitVR{ display:none; }
+
+    html.gj-cvr,
+    body.gj-cvr{
+      overflow:hidden !important;
+      overscroll-behavior:none !important;
+    }
+
+    html.gj-cvr #gjBtnEnterVR,
+    body.gj-cvr #gjBtnEnterVR{
+      display:none !important;
+    }
+    html.gj-cvr #gjBtnExitVR,
+    body.gj-cvr #gjBtnExitVR{
+      display:inline-flex !important;
+    }
+
+    /* ซ่อน crosshair เดิมที่มาซ้อนกลางรอยผ่า */
+    html.gj-cvr #hha-crosshair,
+    body.gj-cvr #hha-crosshair{
+      display:none !important;
+    }
+
+    html.gj-cvr .gj-target,
+    body.gj-cvr .gj-target{
+      pointer-events:none !important;
+    }
+    html.gj-cvr #gj-layer,
+    body.gj-cvr #gj-layer{
+      touch-action:manipulation;
+    }
+
+    /* ===== GOODJUNK STEREO FALLBACK ===== */
+    #gjStereo{
+      position:fixed;
+      inset:0;
+      z-index:2147483000;
+      display:none;
+      grid-template-columns:1fr 1fr;
+      gap:0;
+      background:#000;
+      pointer-events:none;
+      overflow:hidden;
+    }
+    #gjStereo .gj-eye{
+      position:relative;
+      overflow:hidden;
+      background:#000;
+    }
+    #gjStereo .gj-eye + .gj-eye{
+      border-left:1px solid rgba(255,255,255,.08);
+    }
+    #gjStereo .gj-eye-inner{
+      position:absolute;
+      inset:0;
+      overflow:hidden;
+    }
+
+    /* crosshair แยกต่อ eye */
+    #gjStereo .gj-eye-crosshair{
+      position:absolute;
+      left:50%;
+      top:50%;
+      width:22px;
+      height:22px;
+      transform:translate(-50%,-50%);
+      z-index:2147483005;
+      pointer-events:none;
+      display:grid;
+      place-items:center;
+      opacity:.98;
+    }
+    #gjStereo .gj-eye-crosshair::before{
+      content:'';
+      width:18px;
+      height:18px;
+      border-radius:999px;
+      border:2px solid rgba(229,231,235,.78);
+      box-shadow:0 0 0 2px rgba(2,6,23,.62);
+    }
+    #gjStereo .gj-eye-crosshair::after{
+      content:'';
+      position:absolute;
+      width:3px;
+      height:3px;
+      border-radius:999px;
+      background:rgba(229,231,235,.98);
+      box-shadow:0 0 0 2px rgba(2,6,23,.62);
+    }
+
+    #gjStereo .gj-scene{
+      position:absolute;
+      left:50%;
+      top:-8vh;
+      width:100vw;
+      height:112vh;
+      transform:translate(-50%,0) scaleX(.5) scaleY(1.06);
+      transform-origin:top center;
+      overflow:hidden;
+    }
+
+    #gjStereo .gj-scene .hud-top{
+      top:max(4px, env(safe-area-inset-top, 0px)) !important;
+      left:8px !important;
+      right:8px !important;
+      gap:4px !important;
+      transform:scale(.94);
+      transform-origin:top center;
+    }
+    #gjStereo .gj-scene .hud-card{
+      min-height:46px !important;
+      padding:5px 6px !important;
+      border-radius:10px !important;
+    }
+    #gjStereo .gj-scene .hud-k{
+      font-size:9px !important;
+      margin-bottom:1px !important;
+    }
+    #gjStereo .gj-scene .hud-v{
+      font-size:13px !important;
+    }
+    #gjStereo .gj-scene .hud-sub{
+      font-size:8px !important;
+      margin-top:2px !important;
+    }
+
+    #gjStereo .gj-scene .mid-mission{
+      top:118px !important;
+      width:calc(100vw - 16px) !important;
+    }
+    #gjStereo .gj-scene .mission-box{
+      padding:6px 10px !important;
+      border-radius:12px !important;
+    }
+    #gjStereo .gj-scene .mission-head{
+      font-size:11px !important;
+    }
+    #gjStereo .gj-scene .mission-goal,
+    #gjStereo .gj-scene .mission-hint,
+    #gjStereo .gj-scene .match-chip-wrap{
+      display:none !important;
+    }
+    #gjStereo .gj-scene .mission-bar{
+      height:6px !important;
+      margin-top:6px !important;
+    }
+
+    #gjStereo .gj-scene .boss-bar{
+      top:164px !important;
+      width:calc(100vw - 16px) !important;
+      padding:7px 9px !important;
+      border-radius:14px !important;
+    }
+    #gjStereo .gj-scene .boss-head{
+      font-size:11px !important;
+    }
+    #gjStereo .gj-scene .boss-hint{
+      font-size:10px !important;
+    }
+
+    #gjStereo .gj-scene .side-ai{
+      left:8px !important;
+      right:8px !important;
+      width:auto !important;
+      bottom:58px !important;
+    }
+    #gjStereo .gj-scene .ai-box{
+      padding:8px 9px !important;
+      border-radius:14px !important;
+    }
+    #gjStereo .gj-scene .ai-title{
+      font-size:12px !important;
+    }
+    #gjStereo .gj-scene .ai-line{
+      font-size:11px !important;
+    }
+    #gjStereo .gj-scene .ai-small,
+    #gjStereo .gj-scene .ai-pill{
+      display:none !important;
+    }
+
+    #gjStereo .gj-scene .bottom-bar{
+      display:none !important;
+    }
+    #gjStereo .gj-scene #battleDebug{
+      display:none !important;
+    }
+    #gjStereo .gj-scene #waitOverlay,
+    #gjStereo .gj-scene #endOverlay,
+    #gjStereo .gj-scene #gjToast,
+    #gjStereo .gj-scene #skipCooldownDialog,
+    #gjStereo .gj-scene #gjLocalVrBar{
+      display:none !important;
+    }
+
+    html.gj-cvr #gjStereo,
+    body.gj-cvr #gjStereo{
+      display:grid !important;
+    }
+
+    html.gj-cvr #waitOverlay,
+    html.gj-cvr #endOverlay,
+    html.gj-cvr #skipCooldownDialog,
+    body.gj-cvr #waitOverlay,
+    body.gj-cvr #endOverlay,
+    body.gj-cvr #skipCooldownDialog{
+      z-index:2147483100 !important;
+    }
+  </style>
+</head>
+<body>
+<div id="app">
+  <div id="gj-layer"></div>
+
+  <div class="hud-top">
+    <div class="hud-card"><div class="hud-k">SCORE</div><div id="hud-score" class="hud-v">0</div><div class="hud-sub">grade <span id="hud-grade">D</span></div></div>
+    <div class="hud-card"><div class="hud-k">TIME</div><div id="hud-time" class="hud-v">80</div><div class="hud-sub">miss <span id="hud-miss">0</span></div></div>
+    <div class="hud-card"><div class="hud-k">GOAL</div><div class="hud-v"><span id="hud-goal">WARM</span></div><div class="hud-sub"><span id="hud-goal-cur">0</span>/<span id="hud-goal-target">0</span> • <span id="goalDesc">—</span></div></div>
+    <div class="hud-card"><div class="hud-k">BONUS</div><div id="hud-mini" class="hud-v">—</div><div class="hud-sub">timer <span id="miniTimer">0</span></div></div>
+    <div class="hud-card"><div class="hud-k">AI RISK</div><div id="aiRisk" class="hud-v">0.00</div><div class="hud-sub"><span id="aiHint">—</span></div></div>
+  </div>
+
+  <div class="mid-mission">
+    <div id="missionBox" class="mission-box compact" title="แตะเพื่อขยาย/ย่อ">
+      <div class="mission-head">
+        <div id="missionTitle">WARM</div>
+        <div>mode <span id="uiRun">play</span> • <span id="uiView">mobile</span> • <span id="uiDiff">easy</span></div>
+      </div>
+      <div id="missionGoal" class="mission-goal">เก็บของดี</div>
+      <div id="missionHint" class="mission-hint">—</div>
+
+      <div class="match-chip-wrap">
+        <div class="match-chip">Best Of <span id="battleBestOf">3</span></div>
+        <div class="match-chip">Wins To Champion <span id="battleWinsToChampion">2</span></div>
+        <div class="match-chip">Status <span id="battleStatus">LIVE</span></div>
+        <div class="match-chip">Champion <span id="battleChampion">—</span></div>
+      </div>
+
+      <div class="mission-bar"><i id="missionFill" style="--p:0%"></i></div>
+    </div>
+  </div>
+
+  <div id="bossBar" class="boss-bar">
+    <div class="boss-head">
+      <div>BOSS HP</div>
+      <div id="bossHint">—</div>
+    </div>
+    <div class="boss-track"><i id="bossFill" style="--hp:100%"></i></div>
+  </div>
+
+  <div class="side-ai">
+    <div id="aiBox" class="ai-box compact" title="แตะเพื่อขยาย/ย่อ">
+      <div class="ai-title">🧠 AI Coach</div>
+      <div id="coachInline" class="ai-line">พร้อมแล้ว! ยิงของดี 🥦</div>
+      <div id="coachExplain" class="ai-small">prediction-ready</div>
+      <div class="ai-pill">hazard <span id="hazardInline">0.00</span></div>
+      <div class="ai-pill">win <span id="winInline">0.00</span></div>
+      <div class="ai-pill">frustration <span id="frustrationInline">0.00</span></div>
+      <div class="ai-pill">you wins <span id="battleMyWins">0</span></div>
+      <div class="ai-pill">opp wins <span id="battleOppWins">0</span></div>
+    </div>
+  </div>
+
+  <div class="bottom-bar">
+    <div class="bottom-left">
+      <div class="mini-chip">mode <span id="modeChip">solo</span></div>
+      <div class="mini-chip">room <span id="roomChip">—</span></div>
+    </div>
+    <div class="bottom-right">
+      <button id="btnBackHub" class="btn secondary" type="button">กลับ HUB</button>
+    </div>
+  </div>
+
+  <div id="stageBanner">
+    <div id="stageBannerBig" class="big">TRICK MODE</div>
+    <div id="stageBannerSmall" class="small">คอมโบให้เดือดขึ้น!</div>
+  </div>
+
+  <div id="milestoneBanner">NICE COMBO!</div>
+  <div id="dangerOverlay"></div>
+
+  <div id="battleDebug">
+    <div>role: <span id="dbgRole">-</span></div>
+    <div>phase: <span id="dbgPhase">-</span></div>
+    <div>room: <span id="dbgRoom">-</span></div>
+    <div>players: <span id="dbgPlayers">0/2</span></div>
+    <div>you ready: <span id="dbgReady">no</span></div>
+    <div>opp ready: <span id="dbgOppReady">no</span></div>
+  </div>
+
+  <div id="waitOverlay">
+    <div style="
+      width:min(560px,100%);
+      border-radius:24px;
+      border:1px solid rgba(148,163,184,.18);
+      background:linear-gradient(180deg, rgba(15,23,42,.92), rgba(2,6,23,.90));
+      box-shadow:0 26px 80px rgba(0,0,0,.48);
+      padding:20px;
+      text-align:center;
+      color:#e5e7eb;
+    ">
+      <div style="font-size:28px;font-weight:1000;">กำลังรอคู่แข่ง…</div>
+      <div id="waitOverlaySub" style="margin-top:8px;color:#cbd5e1;font-size:14px;">
+        ถ้ายังไม่มีผู้เล่นอีกคน คุณสามารถเล่นเดี่ยวแทนได้
+      </div>
+      <div id="waitOverlayTimer" style="margin-top:14px;font-size:42px;font-weight:1000;">30</div>
+
+      <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:18px;">
+        <button id="btnWaitSolo" class="btn warn" type="button">เล่นเดี่ยวแทน</button>
+        <button id="btnWaitMore" class="btn secondary" type="button">รอต่ออีก 30 วิ</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="endOverlay">
+    <div class="panel">
+      <div id="endTop">
+        <div id="endTitle">จบเกม</div>
+        <div id="endSub">—</div>
+      </div>
+
+      <div class="end-match-box">
+        <div class="end-match-title">Match Summary</div>
+        <div id="endMatchLine1" class="end-match-line">bestOf 3 • winsToChampion 2</div>
+        <div id="endMatchLine2" class="end-match-line">you 0 • opponent 0 • champion —</div>
+      </div>
+
+      <div class="end-stats">
+        <div class="end-stat"><div class="k">GRADE</div><div id="endGrade" class="v">D</div></div>
+        <div class="end-stat"><div class="k">SCORE</div><div id="endScore" class="v">0</div></div>
+        <div class="end-stat"><div class="k">MISS</div><div id="endMiss" class="v">0</div></div>
+        <div class="end-stat"><div class="k">TIME</div><div id="endTime" class="v">0</div></div>
+      </div>
+
+      <div id="endDecision" class="decision-box">—</div>
+
+      <div class="compare-box">
+        <div class="compare-title">Battle Compare</div>
+        <table class="cmp">
+          <thead>
+            <tr>
+              <th>Metric</th>
+              <th>YOU</th>
+              <th>OPP</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>Score</td><td id="cmpYouScore">—</td><td id="cmpOppScore">—</td></tr>
+            <tr><td>Accuracy</td><td id="cmpYouAcc">—</td><td id="cmpOppAcc">—</td></tr>
+            <tr><td>Miss</td><td id="cmpYouMiss">—</td><td id="cmpOppMiss">—</td></tr>
+            <tr><td>Median RT</td><td id="cmpYouRt">—</td><td id="cmpOppRt">—</td></tr>
+            <tr><td>Finish</td><td id="cmpYouFinish">—</td><td id="cmpOppFinish">—</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div id="endRematchStatus" class="decision-box">ยังไม่มีคำขอ rematch</div>
+
+      <div class="end-actions">
+        <button id="btnReplay" class="btn" type="button">เล่นอีกครั้ง</button>
+        <button id="btnRequestRematch" class="btn warn" type="button">Request Rematch</button>
+        <button id="btnAcceptRematch" class="btn good" type="button" style="display:none;">Accept Rematch</button>
+        <button id="btnDeclineRematch" class="btn danger" type="button" style="display:none;">Decline Rematch</button>
+        <button id="btnEndBackHub" class="btn secondary" type="button">กลับ HUB</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="gjToast" style="
+    position:fixed;
+    left:50%;
+    bottom:calc(env(safe-area-inset-bottom,0px) + 74px);
+    transform:translateX(-50%) translateY(8px);
+    z-index:260;
+    opacity:0;
+    pointer-events:none;
+    transition:opacity .18s ease, transform .18s ease;
+    max-width:min(92vw, 560px);
+  ">
+    <div style="
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(2,6,23,.82);
+      color:#e5e7eb;
+      border-radius:14px;
+      padding:10px 12px;
+      box-shadow:0 16px 40px rgba(0,0,0,.32);
+      backdrop-filter:blur(10px);
+      font:900 13px/1.35 system-ui,-apple-system,Segoe UI,Roboto,Arial;
+      text-align:center;
+    ">
+      <span id="gjToastText">ข้อความ</span>
+    </div>
+  </div>
+
+  <div id="skipCooldownDialog" style="
+    display:none;
+    position:fixed;
+    inset:0;
+    z-index:280;
+    background:rgba(2,6,23,.72);
+    backdrop-filter:blur(8px);
+    align-items:center;
+    justify-content:center;
+    padding:16px;
+  ">
+    <div style="
+      width:min(520px,100%);
+      border-radius:22px;
+      border:1px solid rgba(148,163,184,.18);
+      background:linear-gradient(180deg, rgba(15,23,42,.94), rgba(2,6,23,.92));
+      box-shadow:0 26px 80px rgba(0,0,0,.48);
+      padding:18px;
+      color:#e5e7eb;
+      text-align:center;
+    ">
+      <div style="font-size:26px;font-weight:1000;">ยังไม่ได้ทำ Cooldown วันนี้</div>
+      <div style="margin-top:10px;color:#cbd5e1;font-size:14px;line-height:1.6;">
+        ถ้ากลับ HUB ตอนนี้ จะถือว่าข้ามช่วงผ่อนคลายหลังเล่นเกม
+      </div>
+
+      <div style="
+        margin-top:14px;
+        padding:12px;
+        border-radius:16px;
+        border:1px solid rgba(245,158,11,.22);
+        background:rgba(245,158,11,.10);
+        color:#fde68a;
+        font-weight:900;
+        font-size:13px;
+      ">
+        แนะนำให้ทำ Cooldown ก่อน เพื่อให้ครบ flow ของวันนี้ 🧘
+      </div>
+
+      <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:18px;">
+        <button id="btnDialogGoCooldown" class="btn good" type="button">🧘 ไป Cooldown</button>
+        <button id="btnDialogSkipHub" class="btn warn" type="button">ข้ามแล้วกลับ HUB</button>
+        <button id="btnDialogCancel" class="btn secondary" type="button">ยกเลิก</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="gjLocalVrBar" aria-label="GoodJunk Cardboard Controls">
+  <button id="gjBtnEnterVR" class="gj-vr-btn" type="button">🕶 ENTER VR</button>
+  <button id="gjBtnExitVR" class="gj-vr-btn" type="button">🚪 EXIT VR</button>
+  <button id="gjBtnRecenter" class="gj-vr-btn" type="button">🎯 RECENTER</button>
+</div>
+
+<script>
+  window.addEventListener('DOMContentLoaded', ()=>{
+    let stereoRoot = null;
+    let stereoLeft = null;
+    let stereoRight = null;
+    let stereoObserver = null;
+    let stereoQueued = false;
+    let lastCenterShootAt = 0;
+
+    const CENTER_LOCK_PX = 84;
+    const CENTER_COOLDOWN_MS = 110;
+
+    function nowMs(){
+      return (performance && performance.now) ? performance.now() : Date.now();
+    }
+
+    function sanitizeCloneHtml(html){
+      return String(html || '')
+        .replace(/\sid="([^"]+)"/g, ' data-clone-id="$1"')
+        .replace(/\sfor="([^"]+)"/g, ' data-clone-for="$1"');
+    }
+
+    function ensureStereoRoot(){
+      if(stereoRoot) return stereoRoot;
+
+      stereoRoot = document.getElementById('gjStereo');
+      if(!stereoRoot){
+        stereoRoot = document.createElement('div');
+        stereoRoot.id = 'gjStereo';
+        stereoRoot.innerHTML = `
+          <div class="gj-eye">
+            <div class="gj-eye-inner" id="gjEyeLeft"></div>
+            <div class="gj-eye-crosshair" aria-hidden="true"></div>
+          </div>
+          <div class="gj-eye">
+            <div class="gj-eye-inner" id="gjEyeRight"></div>
+            <div class="gj-eye-crosshair" aria-hidden="true"></div>
+          </div>
+        `;
+        document.body.appendChild(stereoRoot);
+      }
+
+      stereoLeft = stereoRoot.querySelector('#gjEyeLeft');
+      stereoRight = stereoRoot.querySelector('#gjEyeRight');
+      return stereoRoot;
+    }
+
+    function getStereoVisualHtml(){
+      const parts = [];
+      const ids = [
+        'gj-layer',
+        'bossBar',
+        'stageBanner',
+        'milestoneBanner',
+        'dangerOverlay',
+        'battleDebug'
+      ];
+      const classes = [
+        '.hud-top',
+        '.mid-mission',
+        '.side-ai',
+        '.bottom-bar'
+      ];
+
+      ids.forEach((id)=>{
+        const el = document.getElementById(id);
+        if(el) parts.push(sanitizeCloneHtml(el.outerHTML));
+      });
+
+      classes.forEach((sel)=>{
+        const el = document.querySelector(sel);
+        if(el) parts.push(sanitizeCloneHtml(el.outerHTML));
+      });
+
+      return `<div class="gj-scene">${parts.join('')}</div>`;
+    }
+
+    function syncStereoNow(){
+      ensureStereoRoot();
+      if(!stereoLeft || !stereoRight) return;
+      const html = getStereoVisualHtml();
+      stereoLeft.innerHTML = html;
+      stereoRight.innerHTML = html;
+    }
+
+    function queueStereoSync(){
+      if(stereoQueued) return;
+      stereoQueued = true;
+      requestAnimationFrame(()=>{
+        stereoQueued = false;
+        if(document.documentElement.classList.contains('gj-cvr')){
+          syncStereoNow();
+        }
+      });
+    }
+
+    function observeStereoSources(){
+      if(stereoObserver) return;
+
+      stereoObserver = new MutationObserver(queueStereoSync);
+
+      [
+        document.getElementById('gj-layer'),
+        document.querySelector('.hud-top'),
+        document.querySelector('.mid-mission'),
+        document.getElementById('bossBar'),
+        document.querySelector('.side-ai'),
+        document.querySelector('.bottom-bar'),
+        document.getElementById('stageBanner'),
+        document.getElementById('milestoneBanner'),
+        document.getElementById('dangerOverlay')
+      ].filter(Boolean).forEach((el)=>{
+        stereoObserver.observe(el, {
+          subtree:true,
+          childList:true,
+          attributes:true,
+          characterData:true
+        });
+      });
+    }
+
+    async function enterFullscreenSafe(){
+      try{
+        if(!document.fullscreenElement && document.documentElement.requestFullscreen){
+          await document.documentElement.requestFullscreen({ navigationUI:'hide' });
+        }
+      }catch{}
+      try{
+        if(screen.orientation && screen.orientation.lock){
+          await screen.orientation.lock('landscape');
+        }
+      }catch{}
+    }
+
+    async function exitFullscreenSafe(){
+      try{
+        if(document.fullscreenElement && document.exitFullscreen){
+          await document.exitFullscreen();
+        }
+      }catch{}
+    }
+
+    function setViewLabel(v){
+      const uiView = document.getElementById('uiView');
+      if(uiView) uiView.textContent = v;
+    }
+
+    function emitCenterShoot(source='gj-cvr'){
+      const t = nowMs();
+      if(t - lastCenterShootAt < CENTER_COOLDOWN_MS) return false;
+      lastCenterShootAt = t;
+
+      try{
+        window.dispatchEvent(new CustomEvent('hha:shoot', {
+          detail:{
+            x: window.innerWidth / 2,
+            y: window.innerHeight / 2,
+            lockPx: CENTER_LOCK_PX,
+            cooldownMs: CENTER_COOLDOWN_MS,
+            source,
+            view: 'cvr'
+          }
+        }));
+      }catch{}
+      return true;
+    }
+
+    function hitNearestGoodjunkTarget(source='gj-cvr-hit'){
+      return emitCenterShoot(source);
+    }
+
+    function isLocalVrUiTarget(el){
+      if(!el) return false;
+      return !!(
+        el.closest('#gjLocalVrBar') ||
+        el.closest('#waitOverlay') ||
+        el.closest('#endOverlay') ||
+        el.closest('#skipCooldownDialog') ||
+        el.closest('.bottom-bar') ||
+        el.closest('button') ||
+        el.closest('a') ||
+        el.closest('input') ||
+        el.closest('select') ||
+        el.closest('textarea') ||
+        el.closest('label')
+      );
+    }
+
+    function enterGoodjunkCvr(){
+      document.documentElement.classList.add('gj-cvr');
+      document.body.classList.add('gj-cvr');
+      document.documentElement.dataset.view = 'cvr';
+      document.body.dataset.view = 'cvr';
+
+      const enter = document.getElementById('gjBtnEnterVR');
+      const exit  = document.getElementById('gjBtnExitVR');
+
+      if(enter) enter.style.display = 'none';
+      if(exit)  exit.style.display = 'inline-flex';
+
+      setViewLabel('cvr');
+
+      ensureStereoRoot();
+      observeStereoSources();
+      stereoRoot.style.display = 'grid';
+      queueStereoSync();
+      enterFullscreenSafe();
+
+      try{
+        window.dispatchEvent(new CustomEvent('hha:vrmodechange', {
+          detail:{ inVr:true, native:false, reason:'goodjunk-local-cvr', view:'cvr' }
+        }));
+      }catch{}
+    }
+
+    function exitGoodjunkCvr(){
+      document.documentElement.classList.remove('gj-cvr');
+      document.body.classList.remove('gj-cvr');
+      document.documentElement.dataset.view = 'mobile';
+      document.body.dataset.view = 'mobile';
+
+      const enter = document.getElementById('gjBtnEnterVR');
+      const exit  = document.getElementById('gjBtnExitVR');
+
+      if(enter) enter.style.display = 'inline-flex';
+      if(exit)  exit.style.display = 'none';
+
+      setViewLabel('mobile');
+
+      if(stereoRoot) stereoRoot.style.display = 'none';
+      exitFullscreenSafe();
+
+      try{
+        window.dispatchEvent(new CustomEvent('hha:vrmodechange', {
+          detail:{ inVr:false, native:false, reason:'goodjunk-local-exit', view:'mobile' }
+        }));
+      }catch{}
+    }
+
+    function recenterGoodjunkCvr(){
+      try{
+        window.dispatchEvent(new CustomEvent('hha:recenter', {
+          detail:{ source:'goodjunk-local-vr' }
+        }));
+      }catch{}
+    }
+
+    document.getElementById('gjBtnEnterVR')?.addEventListener('click', (ev)=>{
+      ev.preventDefault();
+      ev.stopPropagation();
+      enterGoodjunkCvr();
+    }, { passive:false });
+
+    document.getElementById('gjBtnExitVR')?.addEventListener('click', (ev)=>{
+      ev.preventDefault();
+      ev.stopPropagation();
+      exitGoodjunkCvr();
+    }, { passive:false });
+
+    document.getElementById('gjBtnRecenter')?.addEventListener('click', (ev)=>{
+      ev.preventDefault();
+      ev.stopPropagation();
+      recenterGoodjunkCvr();
+    }, { passive:false });
+
+    document.addEventListener('pointerdown', (ev)=>{
+      if(!document.documentElement.classList.contains('gj-cvr')) return;
+      if(isLocalVrUiTarget(ev.target)) return;
+
+      try{
+        ev.preventDefault();
+        ev.stopPropagation();
+        ev.stopImmediatePropagation?.();
+      }catch{}
+
+      hitNearestGoodjunkTarget('gj-cvr-tap');
+    }, { capture:true, passive:false });
+
+    if(!window.PointerEvent){
+      document.addEventListener('touchstart', (ev)=>{
+        if(!document.documentElement.classList.contains('gj-cvr')) return;
+        if(isLocalVrUiTarget(ev.target)) return;
+
+        try{
+          ev.preventDefault();
+          ev.stopPropagation();
+          ev.stopImmediatePropagation?.();
+        }catch{}
+
+        hitNearestGoodjunkTarget('gj-cvr-touch');
+      }, { capture:true, passive:false });
+    }
+
+    document.addEventListener('keydown', (ev)=>{
+      if(!document.documentElement.classList.contains('gj-cvr')) return;
+      if(ev.code !== 'Space' && ev.code !== 'Enter') return;
+
+      try{
+        ev.preventDefault();
+        ev.stopPropagation();
+        ev.stopImmediatePropagation?.();
+      }catch{}
+
+      hitNearestGoodjunkTarget('gj-cvr-key');
+    }, { capture:true });
+
+    window.__GJ_CVR_ENTER = enterGoodjunkCvr;
+    window.__GJ_CVR_EXIT = exitGoodjunkCvr;
+  });
+</script>
+
+<script type="module">
+  import { createDefaultAIHooksFromQuery } from './ai-hooks.js';
+  import { createDefaultSoundHooksFromQuery } from './sound-hooks.js';
+  import { boot } from './goodjunk.safe.js?v=20260316p';
+
+  const qs = (k, d='')=>{ try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(_){ return d; } };
+  const safeUrl = (raw, fallback='')=>{
+    try{
+      if(!raw) return fallback;
+      return new URL(raw, location.href).toString();
+    }catch(_){
+      return fallback;
+    }
+  };
+
+  const mode = String(qs('mode','solo')).toLowerCase();
+  const room = String(qs('room','-')).toUpperCase() || '-';
+  document.getElementById('modeChip').textContent = mode;
+  document.getElementById('roomChip').textContent = room;
+
+  const hub = safeUrl(qs('hub','../hub.html'), '/webxr-health-mobile/herohealth/hub.html');
+  const backHub = ()=> location.href = hub;
+
+  document.getElementById('btnBackHub').onclick = backHub;
+  document.getElementById('btnEndBackHub').onclick = backHub;
+
+  const ai = createDefaultAIHooksFromQuery();
+  const sound = createDefaultSoundHooksFromQuery();
+
+  const unlockAudio = ()=>{
+    try{ sound.unlock?.(); }catch(_){}
+    window.removeEventListener('pointerdown', unlockAudio);
+    window.removeEventListener('touchstart', unlockAudio);
+    window.removeEventListener('keydown', unlockAudio);
+  };
+  window.addEventListener('pointerdown', unlockAudio, { passive:true });
+  window.addEventListener('touchstart', unlockAudio, { passive:true });
+  window.addEventListener('keydown', unlockAudio);
+
+  window.addEventListener('goodjunk:ai-event', (ev)=>{
+    try{
+      const row = ev.detail || {};
+      if(row.eventName !== 'recommend' && row.eventName !== 'predict') return;
+      const p = row.payload || {};
+      if(typeof p.hazardRisk === 'number') document.getElementById('hazardInline').textContent = Number(p.hazardRisk).toFixed(2);
+      if(typeof p.winChance === 'number') document.getElementById('winInline').textContent = Number(p.winChance).toFixed(2);
+      if(typeof p.frustrationRisk === 'number') document.getElementById('frustrationInline').textContent = Number(p.frustrationRisk).toFixed(2);
+      if(p.coach) document.getElementById('coachInline').textContent = p.coach;
+      if(p.explainText) document.getElementById('coachExplain').textContent = p.explainText;
+    }catch(_){}
+  });
+
+  window.addEventListener('hha:solo-fx', (ev)=>{
+    try{
+      const d = ev.detail || {};
+      const stage = document.getElementById('stageBanner');
+      const ms = document.getElementById('milestoneBanner');
+
+      if(d.stageOn){
+        document.getElementById('stageBannerBig').textContent = d.stageText || 'MODE';
+        document.getElementById('stageBannerSmall').textContent =
+          d.stageText === 'BOSS BATTLE' ? 'บอสมาแล้ว! เก็บสติแล้วบุก!' :
+          d.stageText === 'TRICK MODE' ? 'เร่งคอมโบและโบนัสให้เดือด!' :
+          'ลุยต่อ!';
+        stage.classList.add('show');
+      }else{
+        stage.classList.remove('show');
+      }
+
+      if(d.milestoneOn){
+        ms.textContent = d.milestoneText || 'NICE!';
+        ms.classList.add('show');
+      }else{
+        ms.classList.remove('show');
+      }
+    }catch(_){}
+  });
+
+  window.addEventListener('hha:danger', (ev)=>{
+    try{
+      const danger = document.getElementById('dangerOverlay');
+      const on = !!(ev.detail && ev.detail.on);
+      danger.style.opacity = on ? '1' : '0';
+    }catch(_){}
+  });
+
+  const dbg = {
+    role: document.getElementById('dbgRole'),
+    phase: document.getElementById('dbgPhase'),
+    room: document.getElementById('dbgRoom'),
+    players: document.getElementById('dbgPlayers'),
+    ready: document.getElementById('dbgReady'),
+    oppReady: document.getElementById('dbgOppReady')
+  };
+
+  dbg.room.textContent = room;
+
+  let dbgRole = 'unknown';
+  let dbgPhase = 'unknown';
+  let dbgPlayers = [];
+  let dbgMeKey = '';
+
+  function refreshBattleDebug(){
+    dbg.role.textContent = dbgRole;
+    dbg.phase.textContent = dbgPhase;
+
+    const me = dbgPlayers.find(p => p.key === dbgMeKey) || null;
+    const opp = dbgPlayers.find(p => p.key !== dbgMeKey) || null;
+
+    dbg.players.textContent = `${dbgPlayers.length}/2`;
+    dbg.ready.textContent = me?.ready ? 'yes' : 'no';
+    dbg.oppReady.textContent = opp?.ready ? 'yes' : 'no';
+  }
+
+  window.addEventListener('hha:battle-room', (ev)=>{
+    try{
+      const d = ev.detail || {};
+      dbgRole = String(d.role || 'unknown');
+      dbgMeKey = String(d.meKey || '');
+      if(d.room) dbg.room.textContent = String(d.room);
+      refreshBattleDebug();
+    }catch(_){}
+  });
+
+  window.addEventListener('hha:battle-state', (ev)=>{
+    try{
+      const d = ev.detail || {};
+      dbgPhase = String(d.phase || 'unknown');
+      refreshBattleDebug();
+    }catch(_){}
+  });
+
+  window.addEventListener('hha:battle-players', (ev)=>{
+    try{
+      dbgPlayers = Array.isArray(ev.detail?.players) ? ev.detail.players : [];
+      refreshBattleDebug();
+    }catch(_){}
+  });
+
+  const toastEl = document.getElementById('gjToast');
+  const toastTextEl = document.getElementById('gjToastText');
+  let toastTimer = 0;
+
+  function showToast(msg){
+    if(!toastEl || !toastTextEl) return;
+    toastTextEl.textContent = String(msg || '');
+    toastEl.style.opacity = '1';
+    toastEl.style.transform = 'translateX(-50%) translateY(0)';
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(()=>{
+      toastEl.style.opacity = '0';
+      toastEl.style.transform = 'translateX(-50%) translateY(8px)';
+    }, 1800);
+  }
+
+  window.addEventListener('hha:toast', (ev)=>{
+    try{
+      showToast(ev.detail?.message || '');
+    }catch(_){}
+  });
+
+  const skipDialog = document.getElementById('skipCooldownDialog');
+  const btnDialogGoCooldown = document.getElementById('btnDialogGoCooldown');
+  const btnDialogSkipHub = document.getElementById('btnDialogSkipHub');
+  const btnDialogCancel = document.getElementById('btnDialogCancel');
+
+  function todayKey(){
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  }
+
+  function isCooldownDoneToday(){
+    try{
+      const pidQ = String(qs('pid','anon')).trim() || 'anon';
+      const day = todayKey();
+      return (
+        localStorage.getItem(`HHA_COOLDOWN_DONE:nutrition:goodjunk:${pidQ}:${day}`) === '1' ||
+        localStorage.getItem(`HHA_COOLDOWN_DONE:nutrition:${pidQ}:${day}`) === '1'
+      );
+    }catch(_){
+      return false;
+    }
+  }
+
+  function buildCooldownTarget(){
+    try{
+      const here = new URL(location.href);
+      const pidQ = String(qs('pid','anon')).trim() || 'anon';
+      const hubQ = safeUrl(qs('hub','../hub.html'), '../hub.html');
+      const cdnext = here.searchParams.get('cdnext') || hubQ;
+
+      const gate = new URL('../warmup-gate.html', here);
+      gate.searchParams.set('phase', 'cooldown');
+      gate.searchParams.set('gatePhase', 'cooldown');
+      gate.searchParams.set('mode', 'cooldown');
+      gate.searchParams.set('cat', 'nutrition');
+      gate.searchParams.set('zone', 'nutrition');
+      gate.searchParams.set('game', 'goodjunk');
+      gate.searchParams.set('pid', pidQ);
+      gate.searchParams.set('hub', hubQ);
+      gate.searchParams.set('next', cdnext);
+
+      [
+        'diff','time','seed','studyId','conditionGroup','view','run',
+        'planSeq','planDay','planSlot','planMode','planSlots','planIndex',
+        'log','ai','pro'
+      ].forEach(k=>{
+        const v = here.searchParams.get(k);
+        if(v != null && v !== '') gate.searchParams.set(k, v);
+      });
+
+      return gate.toString();
+    }catch(_){
+      return hub;
+    }
+  }
+
+  function openSkipCooldownDialog(){
+    if(!skipDialog) return;
+    skipDialog.style.display = 'flex';
+  }
+
+  function closeSkipCooldownDialog(){
+    if(!skipDialog) return;
+    skipDialog.style.display = 'none';
+  }
+
+  btnDialogCancel?.addEventListener('click', closeSkipCooldownDialog);
+
+  btnDialogGoCooldown?.addEventListener('click', ()=>{
+    location.href = buildCooldownTarget();
+  });
+
+  btnDialogSkipHub?.addEventListener('click', ()=>{
+    location.href = hub;
+  });
+
+  skipDialog?.addEventListener('click', (ev)=>{
+    if(ev.target === skipDialog) closeSkipCooldownDialog();
+  });
+
+  window.HHA_GJ_OPEN_SKIP_DIALOG = openSkipCooldownDialog;
+  window.HHA_GJ_BUILD_COOLDOWN_TARGET = buildCooldownTarget;
+  window.HHA_GJ_IS_COOLDOWN_DONE_TODAY = isCooldownDoneToday;
+  window.HHA_GJ_SHOW_TOAST = showToast;
+
+  try{
+    const day = todayKey();
+    const pidQ = String(qs('pid','anon')).trim() || 'anon';
+    const cdDone =
+      localStorage.getItem(`HHA_COOLDOWN_DONE:nutrition:goodjunk:${pidQ}:${day}`) === '1' ||
+      localStorage.getItem(`HHA_COOLDOWN_DONE:nutrition:${pidQ}:${day}`) === '1';
+
+    const label = cdDone ? 'กลับ HUB ได้เลย' : 'กลับ HUB (ข้าม Cooldown)';
+    const bottomBtn = document.getElementById('btnBackHub');
+    const endBtn = document.getElementById('btnEndBackHub');
+
+    if (bottomBtn) bottomBtn.textContent = label;
+    if (endBtn) endBtn.textContent = label;
+  }catch(_){}
+
+  await boot({ ai, sound, hub });
+</script>
+</body>
+</html>
