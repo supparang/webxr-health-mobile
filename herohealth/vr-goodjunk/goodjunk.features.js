@@ -12,19 +12,19 @@ function clamp(v, a, b){
   return Math.max(a, Math.min(b, v));
 }
 
-function safeNum(v, d=0){
+function safeNum(v, d = 0){
   v = Number(v);
   return Number.isFinite(v) ? v : d;
 }
 
-function ratio(a, b, d=0){
+function ratio(a, b, d = 0){
   a = safeNum(a, 0);
   b = safeNum(b, 0);
   if(b <= 0) return d;
   return a / b;
 }
 
-function mean(arr, d=0){
+function mean(arr, d = 0){
   const xs = (Array.isArray(arr) ? arr : [])
     .map(x => Number(x))
     .filter(Number.isFinite);
@@ -32,18 +32,18 @@ function mean(arr, d=0){
   return xs.reduce((s, x) => s + x, 0) / xs.length;
 }
 
-function median(arr, d=0){
+function median(arr, d = 0){
   const xs = (Array.isArray(arr) ? arr : [])
     .map(x => Number(x))
     .filter(Number.isFinite)
-    .sort((a,b)=>a-b);
+    .sort((a, b) => a - b);
 
   if(!xs.length) return d;
   const m = Math.floor(xs.length / 2);
   return xs.length % 2 ? xs[m] : (xs[m - 1] + xs[m]) / 2;
 }
 
-function stddev(arr, d=0){
+function stddev(arr, d = 0){
   const xs = (Array.isArray(arr) ? arr : [])
     .map(x => Number(x))
     .filter(Number.isFinite);
@@ -55,6 +55,19 @@ function stddev(arr, d=0){
   return Math.sqrt(variance);
 }
 
+/**
+ * rolling object ที่คาดหวังโดยประมาณ:
+ * {
+ *   hitRate5s,
+ *   missRate5s,
+ *   expireRate5s,
+ *   junkHitRate5s,
+ *   goodHitRate5s,
+ *   comboBreakRate10s,
+ *   scoreDelta5s,
+ *   rtGoodMs: []
+ * }
+ */
 export function buildFeatureVector({
   state = {},
   rolling = {},
@@ -109,6 +122,7 @@ export function buildFeatureVector({
 
   return {
     schemaVersion: GJ_FEATURE_SCHEMA_VERSION,
+
     progressPct: clamp(progressPct, 0, 100),
     timeLeftPct: clamp((tLeft / plannedSec) * 100, 0, 100),
     goalPct: clamp(goalPct, 0, 100),
@@ -230,6 +244,6 @@ export function explainTopFactors(features = {}){
   }
 
   return notes
-    .sort((a,b)=> safeNum(b.impact) - safeNum(a.impact))
+    .sort((a, b) => safeNum(b.impact) - safeNum(a.impact))
     .slice(0, 3);
 }
