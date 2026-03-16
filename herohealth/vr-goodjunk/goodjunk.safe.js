@@ -835,39 +835,46 @@ export async function boot(cfg){
   function layerRect(){ return layer.getBoundingClientRect(); }
 
   function safeSpawnRect(){
-    const r = layerRect();
-    const W = r.width, H = r.height;
+  const r = layerRect();
+  const W = r.width, H = r.height;
 
-    const isMobile = view === 'mobile';
-    const isVR = (view === 'cvr' || view === 'vr');
+  const isMobile = view === 'mobile';
+  const isVR = (view === 'cvr' || view === 'vr');
 
-    const missionHidden = isMissionAutoHidden();
-    const aiHidden = isAiAutoHidden() || document.body.classList.contains('mobile-combat');
+  const missionHidden = isMissionAutoHidden();
+  const aiHidden = isAiAutoHidden() || document.body.classList.contains('mobile-combat');
 
-    let topPad;
-    let bottomPad;
+  let topPad;
+  let bottomPad;
 
-    if(isMobile){
-      topPad = missionHidden ? 108 : 156;
-      bottomPad = aiHidden ? 96 : 166;
-    }else if(isVR){
-      topPad = 170;
-      bottomPad = 135;
-    }else{
-      topPad = 165;
-      bottomPad = 125;
-    }
-
-    const leftPad = isMobile ? 18 : 18;
-    const rightPad = isMobile ? 18 : 18;
-
-    const x1 = r.left + leftPad;
-    const x2 = r.left + Math.max(leftPad + 10, W - rightPad);
-    const y1 = r.top + Math.min(H - 100, topPad);
-    const y2 = r.top + Math.max(y1 + 120, H - bottomPad);
-
-    return { x1, x2, y1, y2, W, H, left:r.left, top:r.top };
+  if(isMobile){
+    topPad = missionHidden ? 108 : 156;
+    bottomPad = aiHidden ? 96 : 166;
+  }else if(isVR){
+    topPad = 170;
+    bottomPad = 135;
+  }else{
+    topPad = 165;
+    bottomPad = 125;
   }
+
+  let leftPad = 18;
+  let rightPad = 18;
+
+  if(isVR){
+    const laneW = Math.min(420, W * 0.42);
+    const sidePad = Math.max(18, (W - laneW) / 2);
+    leftPad = sidePad;
+    rightPad = sidePad;
+  }
+
+  const x1 = r.left + leftPad;
+  const x2 = r.left + Math.max(leftPad + 10, W - rightPad);
+  const y1 = r.top + Math.min(H - 100, topPad);
+  const y2 = r.top + Math.max(y1 + 120, H - bottomPad);
+
+  return { x1, x2, y1, y2, W, H, left:r.left, top:r.top };
+}
 
   function spawnPoint(){
     const s = safeSpawnRect();
@@ -1936,7 +1943,7 @@ export async function boot(cfg){
 
     const x = Number(d.x);
     const y = Number(d.y);
-    const lockPx = clamp(d.lockPx ?? ((d.view === 'cvr') ? 34 : 64), 6, 160);
+    const lockPx = clamp(d.lockPx ?? ((d.view === 'cvr') ? 84 : 64), 6, 160);
     const source = String(d.source || 'hha:shoot');
 
     if(Number.isFinite(x) && Number.isFinite(y)){
