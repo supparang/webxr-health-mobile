@@ -47,7 +47,6 @@ export function createModelRuntime(opts = {}){
       };
     }
 
-    // heuristic fallback load is always ready
     state.loaded = true;
     return {
       ok: true,
@@ -145,7 +144,6 @@ export function createModelRuntime(opts = {}){
       await load();
     }
 
-    // external model predictor
     if(state.mode === 'external' && state.externalPredictor){
       try{
         const vector = featureVectorToArray(features);
@@ -179,7 +177,6 @@ export function createModelRuntime(opts = {}){
       }
     }
 
-    // heuristic fallback
     const base = predictHeuristic(features);
     const exp = explainPrediction(base, features);
 
