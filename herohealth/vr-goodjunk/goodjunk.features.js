@@ -177,10 +177,6 @@ export function buildFeatureVector({
   };
 }
 
-/**
- * แปลงเป็น vector array สำหรับ model จริงในอนาคต
- * ลำดับต้องคงที่เสมอ
- */
 export function featureVectorToArray(f){
   return [
     safeNum(f.progressPct),
@@ -228,9 +224,6 @@ export function featureVectorToArray(f){
   ];
 }
 
-/**
- * สรุป top factors แบบ explainable ง่าย ๆ
- */
 export function explainTopFactors(features = {}){
   const notes = [];
 
