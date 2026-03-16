@@ -7,8 +7,8 @@
   <meta name="color-scheme" content="dark light" />
   <link rel="icon" href="../favicon.ico" />
 
-  <!-- โหลดไว้เพื่อใช้ crosshair / hha:shoot / hha:recenter แต่ซ่อนปุ่มเดิม -->
-  <script type="module" src="../vr/vr-ui.js?v=20260316f"></script>
+  <!-- ใช้ crosshair / hha:shoot / hha:recenter จาก vr-ui แต่ซ่อนปุ่มเดิม -->
+  <script type="module" src="../vr/vr-ui.js?v=20260316g"></script>
 
   <style>
     :root{
@@ -1097,7 +1097,7 @@
       }
     }
 
-    /* ซ่อนปุ่มเดิมจาก vr-ui.js */
+    /* ซ่อนปุ่มเดิมของ vr-ui.js */
     #hha-vrui{
       display:none !important;
       pointer-events:none !important;
@@ -1200,14 +1200,15 @@
       overflow:hidden;
     }
 
+    /* ปรับให้ไม่ตกลงต่ำเกิน */
     #cvrStereo .cvr-scene{
       position:absolute;
       left:50%;
-      top:50%;
+      top:0;
       width:100vw;
       height:100vh;
-      transform:translate(-50%,-50%) scale(.5);
-      transform-origin:center center;
+      transform:translate(-50%,0) scaleX(.5) scaleY(1);
+      transform-origin:top center;
       overflow:hidden;
     }
 
@@ -1389,7 +1390,7 @@
     <div id="coachExplain" class="is-hidden"></div>
   </div>
 
-  <!-- local cardboard buttons -->
+  <!-- Local Cardboard controls -->
   <div id="hydrLocalVrBar" aria-label="Hydration Cardboard Controls">
     <button id="hydrBtnEnterVR" class="hydr-vr-btn" type="button">🕶 ENTER VR</button>
     <button id="hydrBtnExitVR" class="hydr-vr-btn" type="button">🚪 EXIT VR</button>
@@ -1510,6 +1511,15 @@
         }catch{}
       }
 
+      function syncEndViewLabel(){
+        const endSub = document.getElementById('endSub');
+        if(!endSub) return;
+        const isCvr = document.documentElement.classList.contains('hydr-cvr');
+        endSub.textContent = isCvr
+          ? 'มุมมอง cvr • ระดับ normal'
+          : 'มุมมอง mobile • ระดับ normal';
+      }
+
       function enterHydrationCvr(){
         document.documentElement.classList.add('hydr-cvr');
         document.body.classList.add('hydr-cvr');
@@ -1528,6 +1538,7 @@
         observeStereoSources();
         stereoRoot.style.display = 'grid';
         queueStereoSync();
+        syncEndViewLabel();
         enterFullscreenSafe();
 
         try{
@@ -1550,6 +1561,7 @@
         if(exit)  exit.style.display = 'none';
 
         if(stereoRoot) stereoRoot.style.display = 'none';
+        syncEndViewLabel();
         exitFullscreenSafe();
 
         try{
@@ -1585,13 +1597,22 @@
         recenterHydrationCvr();
       }, { passive:false });
 
+      const end = document.getElementById('end');
+      if(end){
+        const mo = new MutationObserver(syncEndViewLabel);
+        mo.observe(end, { attributes:true, attributeFilter:['aria-hidden','class'] });
+      }
+
+      window.addEventListener('hha:vrmodechange', syncEndViewLabel);
+      syncEndViewLabel();
+
       window.__HYD_CVR_ENTER = enterHydrationCvr;
       window.__HYD_CVR_EXIT = exitHydrationCvr;
     });
   </script>
 
   <script type="module">
-    import { boot } from './hydration.safe.js?v=20260316f';
+    import { boot } from './hydration.safe.js?v=20260316g';
     boot({});
   </script>
 </body>
