@@ -1,6 +1,6 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
 // GoodJunkVR SAFE — SOLO STABLE MASTER PATCH
-// FULL PATCH v20260316d-GJ-SAFE-SOLO-ML-READY-FULL
+// FULL PATCH v20260316n-GJ-SAFE-SOLO-ML-READY-HHA-SHOOT-VR
 
 'use strict';
 
@@ -391,6 +391,7 @@ export async function boot(cfg){
   let spawnSeq = 0;
   let spawnAcc = 0;
   let lanePulse = 0;
+  let __GJ_LAST_HHA_SHOT_AT = 0;
 
   const fxLayer = DOC.createElement('div');
   fxLayer.style.position = 'fixed';
@@ -1835,55 +1836,122 @@ export async function boot(cfg){
     return dx*dx + dy*dy;
   }
 
-  function shootAtCenter(){
-    if(!playing || paused) return;
-    const r = layerRect();
-    const cx = r.left + r.width / 2;
-    const cy = r.top + r.height / 2;
+  function recordMissShot(reason='no-target', x=null, y=null){
+    shots++;
+    streakMiss++;
+    combo = 0;
 
+    pushRollingEvent(rollingTracker, {
+      atMs: nowMs(),
+      type:'miss-shot',
+      good:false,
+      junk:false,
+      miss:true,
+      expire:false,
+      rt:0,
+      comboBreak:true,
+      scoreDelta:0
+    });
+
+    logGameEvent('miss-shot', {
+      reason,
+      x: Number.isFinite(x) ? Math.round(x) : null,
+      y: Number.isFinite(y) ? Math.round(y) : null
+    });
+
+    emitPatternEvent('miss-shot', {
+      reason,
+      x: Number.isFinite(x) ? Math.round(x) : null,
+      y: Number.isFinite(y) ? Math.round(y) : null
+    });
+
+    setHUD();
+  }
+
+  function findNearestShootTargetAt(x, y, lockPx = Infinity){
     let best = null;
     let bestD = Infinity;
+
+    const useLimit = Number.isFinite(lockPx);
+    const limitSq = useLimit ? Math.max(6, Number(lockPx || 28)) ** 2 : Infinity;
+
     for(const [id, t] of targets){
+      if(!t || !t.el || !t.el.isConnected) continue;
+
+      const st = getComputedStyle(t.el);
+      if(st.display === 'none' || st.visibility === 'hidden' || Number(st.opacity) <= 0) continue;
+
       const br = t.el.getBoundingClientRect();
-      const tx = br.left + br.width/2;
-      const ty = br.top + br.height/2;
-      const d = dist2(cx, cy, tx, ty);
-      if(d < bestD){
+      if(!br.width || !br.height) continue;
+
+      const tx = br.left + br.width / 2;
+      const ty = br.top + br.height / 2;
+      const d = dist2(x, y, tx, ty);
+
+      if(d <= limitSq && d < bestD){
         bestD = d;
         best = id;
       }
     }
 
-    if(best){
-      hitTarget(best);
-    }else{
-      shots++;
-      streakMiss++;
-      combo = 0;
-
-      pushRollingEvent(rollingTracker, {
-        atMs: nowMs(),
-        type:'miss-shot',
-        good:false,
-        junk:false,
-        miss:true,
-        expire:false,
-        rt:0,
-        comboBreak:true,
-        scoreDelta:0
-      });
-
-      logGameEvent('miss-shot', { reason:'no-target' });
-      emitPatternEvent('miss-shot', { reason:'no-target' });
-      setHUD();
-    }
+    return best;
   }
 
-  WIN.addEventListener('hha:shoot', ()=>{
-    try{
-      SOUND?.unlock?.();
-      shootAtCenter();
-    }catch(_){}
+  function shootAtPoint(x, y, opts = {}){
+    if(!playing || paused) return false;
+
+    const lockPx = Number.isFinite(Number(opts.lockPx)) ? Number(opts.lockPx) : Infinity;
+    const countMiss = opts.countMiss !== false;
+    const reason = String(opts.reason || 'no-target');
+
+    const best = findNearestShootTargetAt(x, y, lockPx);
+
+    if(best){
+      hitTarget(best);
+      return true;
+    }
+
+    if(countMiss){
+      recordMissShot(reason, x, y);
+    }
+    return false;
+  }
+
+  function shootAtCenter(opts = {}){
+    const r = layerRect();
+    const cx = r.left + r.width / 2;
+    const cy = r.top + r.height / 2;
+    return shootAtPoint(cx, cy, opts);
+  }
+
+  WIN.addEventListener('hha:shoot', (ev)=>{
+    try{ SOUND?.unlock?.(); }catch(_){}
+
+    const d = ev?.detail || {};
+    const cooldownMs = clamp(d.cooldownMs ?? 90, 20, 400);
+    const t = nowMs();
+
+    if(t - __GJ_LAST_HHA_SHOT_AT < cooldownMs) return;
+    __GJ_LAST_HHA_SHOT_AT = t;
+
+    const x = Number(d.x);
+    const y = Number(d.y);
+    const lockPx = clamp(d.lockPx ?? ((d.view === 'cvr') ? 34 : 64), 6, 160);
+    const source = String(d.source || 'hha:shoot');
+
+    if(Number.isFinite(x) && Number.isFinite(y)){
+      shootAtPoint(x, y, {
+        lockPx,
+        countMiss: true,
+        reason: source
+      });
+    }else{
+      shootAtCenter({
+        lockPx,
+        countMiss: true,
+        reason: `${source}-center`
+      });
+    }
   });
 
   function buildEndDetail(reason){
