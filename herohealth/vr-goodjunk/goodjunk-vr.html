@@ -1,6 +1,6 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
 GoodJunkVR — RUN PAGE
-FULL PATCH v20260314k-GJ-RUNPAGE-MOBILE-COMBAT-FLOW-DIALOG
+FULL PATCH v20260316m-GJ-RUNPAGE-ENTER-VR-CROSSHAIR-ONLY
 -->
 <!doctype html>
 <html lang="th">
@@ -12,6 +12,7 @@ FULL PATCH v20260314k-GJ-RUNPAGE-MOBILE-COMBAT-FLOW-DIALOG
   <link rel="icon" href="../favicon.ico" />
 
   <script src="../firebase-config.js"></script>
+  <script type="module" src="../vr/vr-ui.js?v=20260316m-gj-enter-vr"></script>
 
   <style>
     :root{
@@ -645,6 +646,226 @@ FULL PATCH v20260314k-GJ-RUNPAGE-MOBILE-COMBAT-FLOW-DIALOG
         border-radius:10px;
       }
     }
+
+    /* ===== GOODJUNK LOCAL VR UI ===== */
+    #hha-vrui{
+      display:none !important;
+      pointer-events:none !important;
+    }
+    #hha-crosshair{
+      z-index:2147483645 !important;
+      pointer-events:none !important;
+    }
+    #hha-vrui-hint{
+      z-index:2147483646 !important;
+      pointer-events:none !important;
+    }
+
+    #gjLocalVrBar{
+      position:fixed;
+      left:max(10px, env(safe-area-inset-left, 0px));
+      right:max(10px, env(safe-area-inset-right, 0px));
+      bottom:max(10px, env(safe-area-inset-bottom, 0px));
+      z-index:2147483647;
+      display:flex;
+      gap:8px;
+      justify-content:flex-end;
+      pointer-events:none;
+    }
+    #gjLocalVrBar .gj-vr-btn{
+      pointer-events:auto;
+      appearance:none;
+      -webkit-appearance:none;
+      border:none;
+      border-radius:999px;
+      min-height:46px;
+      padding:10px 14px;
+      background:rgba(2,6,23,.82);
+      border:1px solid rgba(148,163,184,.22);
+      color:#e5e7eb;
+      font:1000 13px/1 system-ui,-apple-system,"Noto Sans Thai","Segoe UI",Roboto,sans-serif;
+      box-shadow:0 16px 40px rgba(0,0,0,.32);
+      backdrop-filter:blur(10px);
+      cursor:pointer;
+      touch-action:manipulation;
+      -webkit-tap-highlight-color:transparent;
+    }
+    #gjBtnExitVR{ display:none; }
+
+    html.gj-cvr,
+    body.gj-cvr{
+      overflow:hidden !important;
+      overscroll-behavior:none !important;
+    }
+
+    html.gj-cvr #gjBtnEnterVR,
+    body.gj-cvr #gjBtnEnterVR{
+      display:none !important;
+    }
+    html.gj-cvr #gjBtnExitVR,
+    body.gj-cvr #gjBtnExitVR{
+      display:inline-flex !important;
+    }
+    html.gj-cvr #hha-crosshair,
+    body.gj-cvr #hha-crosshair{
+      display:grid !important;
+      opacity:.98 !important;
+    }
+
+    /* crosshair-only */
+    html.gj-cvr .gj-target,
+    body.gj-cvr .gj-target{
+      pointer-events:none !important;
+    }
+    html.gj-cvr #gj-layer,
+    body.gj-cvr #gj-layer{
+      touch-action:manipulation;
+    }
+
+    /* ===== GOODJUNK STEREO FALLBACK ===== */
+    #gjStereo{
+      position:fixed;
+      inset:0;
+      z-index:2147483000;
+      display:none;
+      grid-template-columns:1fr 1fr;
+      gap:0;
+      background:#000;
+      pointer-events:none;
+      overflow:hidden;
+    }
+    #gjStereo .gj-eye{
+      position:relative;
+      overflow:hidden;
+      background:#000;
+    }
+    #gjStereo .gj-eye + .gj-eye{
+      border-left:1px solid rgba(255,255,255,.08);
+    }
+    #gjStereo .gj-eye-inner{
+      position:absolute;
+      inset:0;
+      overflow:hidden;
+    }
+
+    #gjStereo .gj-scene{
+      position:absolute;
+      left:50%;
+      top:-8vh;
+      width:100vw;
+      height:112vh;
+      transform:translate(-50%,0) scaleX(.5) scaleY(1.06);
+      transform-origin:top center;
+      overflow:hidden;
+    }
+
+    #gjStereo .gj-scene .hud-top{
+      top:max(4px, env(safe-area-inset-top, 0px)) !important;
+      left:8px !important;
+      right:8px !important;
+      gap:4px !important;
+      transform:scale(.94);
+      transform-origin:top center;
+    }
+    #gjStereo .gj-scene .hud-card{
+      min-height:46px !important;
+      padding:5px 6px !important;
+      border-radius:10px !important;
+    }
+    #gjStereo .gj-scene .hud-k{
+      font-size:9px !important;
+      margin-bottom:1px !important;
+    }
+    #gjStereo .gj-scene .hud-v{
+      font-size:13px !important;
+    }
+    #gjStereo .gj-scene .hud-sub{
+      font-size:8px !important;
+      margin-top:2px !important;
+    }
+
+    #gjStereo .gj-scene .mid-mission{
+      top:118px !important;
+      width:calc(100vw - 16px) !important;
+    }
+    #gjStereo .gj-scene .mission-box{
+      padding:6px 10px !important;
+      border-radius:12px !important;
+    }
+    #gjStereo .gj-scene .mission-head{
+      font-size:11px !important;
+    }
+    #gjStereo .gj-scene .mission-goal,
+    #gjStereo .gj-scene .mission-hint,
+    #gjStereo .gj-scene .match-chip-wrap{
+      display:none !important;
+    }
+    #gjStereo .gj-scene .mission-bar{
+      height:6px !important;
+      margin-top:6px !important;
+    }
+
+    #gjStereo .gj-scene .boss-bar{
+      top:164px !important;
+      width:calc(100vw - 16px) !important;
+      padding:7px 9px !important;
+      border-radius:14px !important;
+    }
+    #gjStereo .gj-scene .boss-head{
+      font-size:11px !important;
+    }
+    #gjStereo .gj-scene .boss-hint{
+      font-size:10px !important;
+    }
+
+    #gjStereo .gj-scene .side-ai{
+      left:8px !important;
+      right:8px !important;
+      width:auto !important;
+      bottom:58px !important;
+    }
+    #gjStereo .gj-scene .ai-box{
+      padding:8px 9px !important;
+      border-radius:14px !important;
+    }
+    #gjStereo .gj-scene .ai-title{
+      font-size:12px !important;
+    }
+    #gjStereo .gj-scene .ai-line{
+      font-size:11px !important;
+    }
+    #gjStereo .gj-scene .ai-small,
+    #gjStereo .gj-scene .ai-pill{
+      display:none !important;
+    }
+
+    #gjStereo .gj-scene .bottom-bar{
+      display:none !important;
+    }
+    #gjStereo .gj-scene #battleDebug{
+      display:none !important;
+    }
+    #gjStereo .gj-scene #waitOverlay,
+    #gjStereo .gj-scene #endOverlay,
+    #gjStereo .gj-scene #gjToast,
+    #gjStereo .gj-scene #skipCooldownDialog,
+    #gjStereo .gj-scene #gjLocalVrBar{
+      display:none !important;
+    }
+
+    html.gj-cvr #gjStereo,
+    body.gj-cvr #gjStereo{
+      display:grid !important;
+    }
+
+    html.gj-cvr #waitOverlay,
+    html.gj-cvr #endOverlay,
+    html.gj-cvr #skipCooldownDialog,
+    body.gj-cvr #waitOverlay,
+    body.gj-cvr #endOverlay,
+    body.gj-cvr #skipCooldownDialog{
+      z-index:2147483100 !important;
+    }
   </style>
 </head>
 <body>
@@ -878,6 +1099,400 @@ FULL PATCH v20260314k-GJ-RUNPAGE-MOBILE-COMBAT-FLOW-DIALOG
     </div>
   </div>
 </div>
+
+<div id="gjLocalVrBar" aria-label="GoodJunk Cardboard Controls">
+  <button id="gjBtnEnterVR" class="gj-vr-btn" type="button">🕶 ENTER VR</button>
+  <button id="gjBtnExitVR" class="gj-vr-btn" type="button">🚪 EXIT VR</button>
+  <button id="gjBtnRecenter" class="gj-vr-btn" type="button">🎯 RECENTER</button>
+</div>
+
+<script>
+  window.addEventListener('DOMContentLoaded', ()=>{
+    let stereoRoot = null;
+    let stereoLeft = null;
+    let stereoRight = null;
+    let stereoObserver = null;
+    let stereoQueued = false;
+    let lastCenterShootAt = 0;
+
+    const CENTER_LOCK_PX = 34;
+    const CENTER_COOLDOWN_MS = 110;
+
+    function nowMs(){
+      return (performance && performance.now) ? performance.now() : Date.now();
+    }
+
+    function sanitizeCloneHtml(html){
+      return String(html || '')
+        .replace(/\sid="([^"]+)"/g, ' data-clone-id="$1"')
+        .replace(/\sfor="([^"]+)"/g, ' data-clone-for="$1"');
+    }
+
+    function ensureStereoRoot(){
+      if(stereoRoot) return stereoRoot;
+
+      stereoRoot = document.getElementById('gjStereo');
+      if(!stereoRoot){
+        stereoRoot = document.createElement('div');
+        stereoRoot.id = 'gjStereo';
+        stereoRoot.innerHTML = `
+          <div class="gj-eye"><div class="gj-eye-inner" id="gjEyeLeft"></div></div>
+          <div class="gj-eye"><div class="gj-eye-inner" id="gjEyeRight"></div></div>
+        `;
+        document.body.appendChild(stereoRoot);
+      }
+
+      stereoLeft = stereoRoot.querySelector('#gjEyeLeft');
+      stereoRight = stereoRoot.querySelector('#gjEyeRight');
+      return stereoRoot;
+    }
+
+    function getStereoVisualHtml(){
+      const parts = [];
+      const ids = [
+        'gj-layer',
+        'bossBar',
+        'stageBanner',
+        'milestoneBanner',
+        'dangerOverlay',
+        'battleDebug'
+      ];
+      const classes = [
+        '.hud-top',
+        '.mid-mission',
+        '.side-ai',
+        '.bottom-bar'
+      ];
+
+      ids.forEach((id)=>{
+        const el = document.getElementById(id);
+        if(el) parts.push(sanitizeCloneHtml(el.outerHTML));
+      });
+
+      classes.forEach((sel)=>{
+        const el = document.querySelector(sel);
+        if(el) parts.push(sanitizeCloneHtml(el.outerHTML));
+      });
+
+      return `<div class="gj-scene">${parts.join('')}</div>`;
+    }
+
+    function syncStereoNow(){
+      ensureStereoRoot();
+      if(!stereoLeft || !stereoRight) return;
+      const html = getStereoVisualHtml();
+      stereoLeft.innerHTML = html;
+      stereoRight.innerHTML = html;
+    }
+
+    function queueStereoSync(){
+      if(stereoQueued) return;
+      stereoQueued = true;
+      requestAnimationFrame(()=>{
+        stereoQueued = false;
+        if(document.documentElement.classList.contains('gj-cvr')){
+          syncStereoNow();
+        }
+      });
+    }
+
+    function observeStereoSources(){
+      if(stereoObserver) return;
+
+      stereoObserver = new MutationObserver(queueStereoSync);
+
+      [
+        document.getElementById('gj-layer'),
+        document.querySelector('.hud-top'),
+        document.querySelector('.mid-mission'),
+        document.getElementById('bossBar'),
+        document.querySelector('.side-ai'),
+        document.querySelector('.bottom-bar'),
+        document.getElementById('stageBanner'),
+        document.getElementById('milestoneBanner'),
+        document.getElementById('dangerOverlay')
+      ].filter(Boolean).forEach((el)=>{
+        stereoObserver.observe(el, {
+          subtree:true,
+          childList:true,
+          attributes:true,
+          characterData:true
+        });
+      });
+    }
+
+    async function enterFullscreenSafe(){
+      try{
+        if(!document.fullscreenElement && document.documentElement.requestFullscreen){
+          await document.documentElement.requestFullscreen({ navigationUI:'hide' });
+        }
+      }catch{}
+      try{
+        if(screen.orientation && screen.orientation.lock){
+          await screen.orientation.lock('landscape');
+        }
+      }catch{}
+    }
+
+    async function exitFullscreenSafe(){
+      try{
+        if(document.fullscreenElement && document.exitFullscreen){
+          await document.exitFullscreen();
+        }
+      }catch{}
+    }
+
+    function setViewLabel(v){
+      const uiView = document.getElementById('uiView');
+      if(uiView) uiView.textContent = v;
+    }
+
+    function emitCenterShoot(source='gj-cvr'){
+      const t = nowMs();
+      if(t - lastCenterShootAt < CENTER_COOLDOWN_MS) return false;
+      lastCenterShootAt = t;
+
+      try{
+        window.dispatchEvent(new CustomEvent('hha:shoot', {
+          detail:{
+            x: window.innerWidth / 2,
+            y: window.innerHeight / 2,
+            lockPx: CENTER_LOCK_PX,
+            cooldownMs: CENTER_COOLDOWN_MS,
+            source,
+            view: 'cvr'
+          }
+        }));
+      }catch{}
+      return true;
+    }
+
+    function getCenter(){
+      return {
+        x: window.innerWidth / 2,
+        y: window.innerHeight / 2
+      };
+    }
+
+    function distSq(ax, ay, bx, by){
+      const dx = ax - bx;
+      const dy = ay - by;
+      return dx*dx + dy*dy;
+    }
+
+    function getLiveTargets(){
+      return Array.from(document.querySelectorAll('#gj-layer .gj-target'));
+    }
+
+    function hitNearestGoodjunkTarget(source='gj-cvr-hit'){
+      const { x, y } = getCenter();
+      const lockSq = CENTER_LOCK_PX * CENTER_LOCK_PX;
+
+      let best = null;
+      let bestD = Infinity;
+
+      for(const el of getLiveTargets()){
+        if(!el || !el.isConnected) continue;
+
+        const st = getComputedStyle(el);
+        if(st.display === 'none' || st.visibility === 'hidden' || Number(st.opacity) <= 0) continue;
+
+        const r = el.getBoundingClientRect();
+        if(!r.width || !r.height) continue;
+
+        const cx = r.left + (r.width / 2);
+        const cy = r.top + (r.height / 2);
+        const d = distSq(cx, cy, x, y);
+
+        if(d <= lockSq && d < bestD){
+          best = el;
+          bestD = d;
+        }
+      }
+
+      if(!best) return false;
+
+      try{
+        best.dispatchEvent(new PointerEvent('pointerdown', {
+          bubbles:true, cancelable:true,
+          clientX:x, clientY:y,
+          pointerType:'mouse', isPrimary:true
+        }));
+      }catch{}
+
+      try{
+        best.dispatchEvent(new MouseEvent('mousedown', {
+          bubbles:true, cancelable:true,
+          clientX:x, clientY:y
+        }));
+      }catch{}
+
+      try{
+        best.dispatchEvent(new MouseEvent('click', {
+          bubbles:true, cancelable:true,
+          clientX:x, clientY:y
+        }));
+      }catch{}
+
+      try{
+        window.dispatchEvent(new CustomEvent('hha:shoot', {
+          detail:{
+            x, y,
+            lockPx:CENTER_LOCK_PX,
+            cooldownMs:CENTER_COOLDOWN_MS,
+            source,
+            view:'cvr'
+          }
+        }));
+      }catch{}
+
+      return true;
+    }
+
+    function isLocalVrUiTarget(el){
+      if(!el) return false;
+      return !!(
+        el.closest('#gjLocalVrBar') ||
+        el.closest('#waitOverlay') ||
+        el.closest('#endOverlay') ||
+        el.closest('#skipCooldownDialog') ||
+        el.closest('.bottom-bar') ||
+        el.closest('button') ||
+        el.closest('a') ||
+        el.closest('input') ||
+        el.closest('select') ||
+        el.closest('textarea') ||
+        el.closest('label')
+      );
+    }
+
+    function enterGoodjunkCvr(){
+      document.documentElement.classList.add('gj-cvr');
+      document.body.classList.add('gj-cvr');
+      document.documentElement.dataset.view = 'cvr';
+      document.body.dataset.view = 'cvr';
+
+      const enter = document.getElementById('gjBtnEnterVR');
+      const exit  = document.getElementById('gjBtnExitVR');
+      const cross = document.getElementById('hha-crosshair');
+
+      if(enter) enter.style.display = 'none';
+      if(exit)  exit.style.display = 'inline-flex';
+      if(cross) cross.style.display = 'grid';
+
+      setViewLabel('cvr');
+
+      ensureStereoRoot();
+      observeStereoSources();
+      stereoRoot.style.display = 'grid';
+      queueStereoSync();
+      enterFullscreenSafe();
+
+      try{
+        window.dispatchEvent(new CustomEvent('hha:vrmodechange', {
+          detail:{ inVr:true, native:false, reason:'goodjunk-local-cvr', view:'cvr' }
+        }));
+      }catch{}
+    }
+
+    function exitGoodjunkCvr(){
+      document.documentElement.classList.remove('gj-cvr');
+      document.body.classList.remove('gj-cvr');
+      document.documentElement.dataset.view = 'mobile';
+      document.body.dataset.view = 'mobile';
+
+      const enter = document.getElementById('gjBtnEnterVR');
+      const exit  = document.getElementById('gjBtnExitVR');
+
+      if(enter) enter.style.display = 'inline-flex';
+      if(exit)  exit.style.display = 'none';
+
+      setViewLabel('mobile');
+
+      if(stereoRoot) stereoRoot.style.display = 'none';
+      exitFullscreenSafe();
+
+      try{
+        window.dispatchEvent(new CustomEvent('hha:vrmodechange', {
+          detail:{ inVr:false, native:false, reason:'goodjunk-local-exit', view:'mobile' }
+        }));
+      }catch{}
+    }
+
+    function recenterGoodjunkCvr(){
+      try{
+        window.dispatchEvent(new CustomEvent('hha:recenter', {
+          detail:{ source:'goodjunk-local-vr' }
+        }));
+      }catch{}
+    }
+
+    document.getElementById('gjBtnEnterVR')?.addEventListener('click', (ev)=>{
+      ev.preventDefault();
+      ev.stopPropagation();
+      enterGoodjunkCvr();
+    }, { passive:false });
+
+    document.getElementById('gjBtnExitVR')?.addEventListener('click', (ev)=>{
+      ev.preventDefault();
+      ev.stopPropagation();
+      exitGoodjunkCvr();
+    }, { passive:false });
+
+    document.getElementById('gjBtnRecenter')?.addEventListener('click', (ev)=>{
+      ev.preventDefault();
+      ev.stopPropagation();
+      recenterGoodjunkCvr();
+    }, { passive:false });
+
+    document.addEventListener('pointerdown', (ev)=>{
+      if(!document.documentElement.classList.contains('gj-cvr')) return;
+      if(isLocalVrUiTarget(ev.target)) return;
+
+      try{
+        ev.preventDefault();
+        ev.stopPropagation();
+        ev.stopImmediatePropagation?.();
+      }catch{}
+
+      const hit = hitNearestGoodjunkTarget('gj-cvr-tap');
+      if(!hit) emitCenterShoot('gj-cvr-center');
+    }, { capture:true, passive:false });
+
+    if(!window.PointerEvent){
+      document.addEventListener('touchstart', (ev)=>{
+        if(!document.documentElement.classList.contains('gj-cvr')) return;
+        if(isLocalVrUiTarget(ev.target)) return;
+
+        try{
+          ev.preventDefault();
+          ev.stopPropagation();
+          ev.stopImmediatePropagation?.();
+        }catch{}
+
+        const hit = hitNearestGoodjunkTarget('gj-cvr-touch');
+        if(!hit) emitCenterShoot('gj-cvr-center-touch');
+      }, { capture:true, passive:false });
+    }
+
+    document.addEventListener('keydown', (ev)=>{
+      if(!document.documentElement.classList.contains('gj-cvr')) return;
+      if(ev.code !== 'Space' && ev.code !== 'Enter') return;
+
+      try{
+        ev.preventDefault();
+        ev.stopPropagation();
+        ev.stopImmediatePropagation?.();
+      }catch{}
+
+      const hit = hitNearestGoodjunkTarget('gj-cvr-key');
+      if(!hit) emitCenterShoot('gj-cvr-center-key');
+    }, { capture:true });
+
+    window.__GJ_CVR_ENTER = enterGoodjunkCvr;
+    window.__GJ_CVR_EXIT = exitGoodjunkCvr;
+  });
+</script>
 
 <script type="module">
   import { createDefaultAIHooksFromQuery } from './ai-hooks.js';
