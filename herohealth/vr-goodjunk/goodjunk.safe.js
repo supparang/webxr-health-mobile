@@ -1,6 +1,6 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
 // GoodJunkVR SAFE — SOLO STABLE MASTER PATCH
-// FULL PATCH v20260314k-GJ-SAFE-MOBILE-COMBAT-FLOW
+// FULL PATCH v20260316d-GJ-SAFE-SOLO-ML-READY-FULL
 
 'use strict';
 
@@ -25,9 +25,16 @@ import {
   pushRollingEvent,
   trimRolling,
   extractRollingFeatures,
-  buildPredictionSnapshot,
   buildDirectorAdjustment
 } from './goodjunk.ai.js';
+
+import {
+  buildFeatureVector
+} from './goodjunk.features.js';
+
+import {
+  createModelRuntime
+} from './goodjunk.model.js';
 
 import {
   buildEndSummary,
@@ -146,6 +153,11 @@ export async function boot(cfg){
 
   const RESEARCH_MODE = String(qs('research','0')) === '1';
   const AI_PLAY_ADAPT = !RESEARCH_MODE && String(qs('ai','1')) !== '0';
+
+  const modelRuntime = createModelRuntime({
+    mode: 'heuristic',
+    modelVersion: 'gj-model-v2-ready-base'
+  });
 
   const layer = $('gj-layer');
   if(!layer){
@@ -326,7 +338,10 @@ export async function boot(cfg){
       attentionDropRisk: 0,
       coach: 'พร้อมแล้ว! ยิงของดี 🥦',
       explainText: 'prediction-ready',
-      topFactors: []
+      topFactors: [],
+      modelVersion: 'gj-model-v2-ready-base',
+      featureSchemaVersion: 'gj-feat-v1',
+      inferenceMode: 'heuristic'
     }
   };
   let aiDirectorState = {
@@ -547,7 +562,8 @@ export async function boot(cfg){
       bossHpMax,
       bossShieldHp,
       ended,
-      paused
+      paused,
+      stage: legacyStageFromPhase()
     };
   }
 
@@ -737,17 +753,40 @@ export async function boot(cfg){
     }catch(_){}
   }
 
-  function updateAiDirector(now){
+  async function updateAiWithModel(rolling){
+    const features = buildFeatureVector({
+      state: getMasterState(),
+      rolling,
+      profile: {
+        frustrationBaseline: 0.5,
+        fatigueBaseline: 0.5,
+        confusionBaseline: 0.5
+      },
+      context: {
+        diff,
+        view,
+        isBoss: isBossPhase()
+      }
+    });
+
+    const pred = await modelRuntime.predict(features);
+
+    aiSnapshot = {
+      input: features,
+      pred
+    };
+
+    return aiSnapshot;
+  }
+
+  async function updateAiDirector(now){
     if((now - lastAiTickAt) < AI_TICK_MS) return;
     lastAiTickAt = now;
 
     trimRolling(rollingTracker, now);
     const rolling = extractRollingFeatures(rollingTracker, now);
 
-    aiSnapshot = buildPredictionSnapshot({
-      state: getMasterState(),
-      rolling
-    });
+    await updateAiWithModel(rolling);
 
     aiDirectorState = buildDirectorAdjustment(
       aiSnapshot.input,
@@ -775,7 +814,10 @@ export async function boot(cfg){
       junkConfusionRisk: aiSnapshot.pred.junkConfusionRisk,
       attentionDropRisk: aiSnapshot.pred.attentionDropRisk,
       assistMode: aiDirectorState.assistMode,
-      topFactors: aiSnapshot.pred.topFactors
+      topFactors: aiSnapshot.pred.topFactors,
+      modelVersion: aiSnapshot.pred.modelVersion,
+      featureSchemaVersion: aiSnapshot.pred.featureSchemaVersion,
+      inferenceMode: aiSnapshot.pred.inferenceMode
     });
 
     if(aiSnapshot.pred.coach){
@@ -2069,7 +2111,9 @@ export async function boot(cfg){
       adaptive = aiDirector(getPlayerProfile());
     }
 
-    updateAiDirector(t);
+    updateAiDirector(t).catch(err=>{
+      console.warn('[GoodJunk] updateAiDirector failed', err);
+    });
 
     let spawnMulFinal =
       (adaptive.spawnMul || 1) *
@@ -2321,6 +2365,10 @@ export async function boot(cfg){
     mode,
     view,
     plannedSec
+  });
+
+  logGameEvent('model-runtime-ready', {
+    ...modelRuntime.getMeta()
   });
 
   sayCoach('พร้อมแล้ว! ยิงของดี 🥦', true);
