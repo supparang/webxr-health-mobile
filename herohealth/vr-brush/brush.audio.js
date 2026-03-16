@@ -1,153 +1,280 @@
-export function createBrushAudio(opts = {}) {
-  const state = {
-    audioEnabled: opts.audioEnabled ?? true,
-    voiceEnabled: opts.voiceEnabled ?? true,
-    speakRate: opts.speakRate ?? 1.02,
-    speakPitch: opts.speakPitch ?? 1.08,
-    speakVolume: opts.speakVolume ?? 0.9,
-    audioReady: false,
-    audioCtx: null,
-    lastVoiceAt: 0,
-    lastVoiceKey: ''
-  };
+// /herohealth/vr-brush/brush.audio.js
+// HOTFIX v20260316c-BRUSH-AUDIO-SAFE-MOBILE
 
-  const CUES = {
-    'demo-start':    { text:'ลองถูตามนิ้ว', type:'ok' },
-    'audio-on':      { text:'เปิดเสียงแล้ว', type:'good' },
-    'learn-open':    { text:'มาฝึกแปรงฟันกัน', type:'ok' },
-    'learn-watch':   { text:'ดูตัวอย่างก่อนนะ', type:'ok' },
-    'learn-start':   { text:'เริ่มฝึกได้เลย', type:'good' },
-    'wrong-zone':    { text:'ยังไม่ใช่โซนนี้', type:'warn' },
-    'dir-good':      { text:'ดีมาก', type:'good' },
-    'dir-warn':      { text:'ลองอีกนิด', type:'warn' },
-    'zone-clear':    { text:'ผ่านโซนแล้ว', type:'good' },
-    'zone-perfect':  { text:'เก่งมาก สามดาว', type:'perfect' },
-    'boss-laser':    { text:'หยุดก่อน เลเซอร์มา', type:'bad' },
-    'boss-shock':    { text:'แตะตามวงแหวน', type:'ok' },
-    'boss-decoy':    { text:'อย่าแตะโซนหลอก', type:'warn' },
-    'shock-perfect': { text:'เยี่ยมมาก', type:'perfect' },
-    'laser-hit':     { text:'โดนเลเซอร์', type:'bad' },
-    'decoy-hit':     { text:'โดนโซนหลอก', type:'bad' },
-    'boss-phase':    { text:'ผ่านอีกเฟสแล้ว', type:'boss' },
-    'boss-win':      { text:'ชนะบอสแล้ว', type:'perfect' },
-    'summary-learn': { text:'ฝึกเสร็จแล้ว เก่งมาก', type:'good' },
-    'summary-win':   { text:'จบเกมแล้ว เก่งมาก', type:'perfect' },
-    'summary-open':  { text:'สรุปผลรอบนี้', type:'ok' }
-  };
+export function createBrushAudio({
+  audioEnabled = true,
+  voiceEnabled = true,
+  speakRate = 1.0,
+  speakPitch = 1.0,
+  speakVolume = 0.9
+} = {}){
+  let unlocked = false;
+  let audioCtx = null;
+  let masterGain = null;
+  let speechBroken = false;
 
-  function getCueDef(key){
-    return CUES[key] || { text:key, type:'ok' };
+  function safeAudioContextCtor(){
+    return window.AudioContext || window.webkitAudioContext || null;
   }
 
   function ensureAudio(){
-    if (state.audioReady) return true;
+    if(!audioEnabled) return false;
+
     try{
-      const Ctx = window.AudioContext || window.webkitAudioContext;
-      if (!Ctx) return false;
-      state.audioCtx = state.audioCtx || new Ctx();
-      if (state.audioCtx.state === 'suspended') {
-        state.audioCtx.resume?.();
+      if(!audioCtx){
+        const Ctor = safeAudioContextCtor();
+        if(!Ctor) return false;
+
+        audioCtx = new Ctor();
+        masterGain = audioCtx.createGain();
+        masterGain.gain.value = 0.04;
+        masterGain.connect(audioCtx.destination);
       }
-      state.audioReady = true;
+
+      if(audioCtx?.state === 'suspended'){
+        audioCtx.resume?.().catch(()=>{});
+      }
+
+      unlocked = true;
+      return true;
+    }catch{
+      audioCtx = null;
+      masterGain = null;
+      return false;
+    }
+  }
+
+  function beep({
+    freq = 440,
+    duration = 0.08,
+    type = 'sine',
+    gain = 0.06,
+    attack = 0.005,
+    release = 0.05
+  } = {}){
+    if(!audioEnabled) return false;
+    if(!ensureAudio() || !audioCtx || !masterGain) return false;
+
+    try{
+      const now = audioCtx.currentTime;
+      const osc = audioCtx.createOscillator();
+      const g = audioCtx.createGain();
+
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, now);
+
+      g.gain.setValueAtTime(0.0001, now);
+      g.gain.linearRampToValueAtTime(gain, now + attack);
+      g.gain.exponentialRampToValueAtTime(0.0001, now + Math.max(attack + 0.01, duration + release));
+
+      osc.connect(g);
+      g.connect(masterGain);
+
+      osc.start(now);
+      osc.stop(now + Math.max(0.03, duration + release + 0.02));
       return true;
     }catch{
       return false;
     }
   }
 
-  function beep(type='ok'){
-    if (!state.audioEnabled) return;
-    if (!ensureAudio() || !state.audioCtx) return;
-
-    const ctx = state.audioCtx;
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-
-    let freq = 620;
-    let dur = 0.10;
-
-    if (type === 'good') freq = 740;
-    else if (type === 'warn'){ freq = 460; dur = 0.12; }
-    else if (type === 'bad'){ freq = 280; dur = 0.16; }
-    else if (type === 'boss'){ freq = 180; dur = 0.20; }
-    else if (type === 'perfect'){ freq = 880; dur = 0.14; }
-
-    osc.type = 'triangle';
-    osc.frequency.value = freq;
-    gain.gain.value = 0.0001;
-
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-
-    const t = ctx.currentTime;
-    gain.gain.setValueAtTime(0.0001, t);
-    gain.gain.exponentialRampToValueAtTime(0.05, t + 0.01);
-    gain.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-
-    osc.start(t);
-    osc.stop(t + dur + 0.02);
+  function twoTone(a, b, gap = 0.06){
+    if(!audioEnabled) return false;
+    const ok1 = beep(a);
+    setTimeout(()=> beep(b), Math.max(0, gap * 1000));
+    return ok1;
   }
 
-  function speakShort(text, key=''){
-    if (!state.audioEnabled || !state.voiceEnabled) return;
-    if (!('speechSynthesis' in window)) return;
-
-    const now = performance.now();
-    const dedupeKey = key || text;
-
-    if (state.lastVoiceKey === dedupeKey && now - state.lastVoiceAt < 1400) return;
-    if (now - state.lastVoiceAt < 700) return;
+  function speak(text){
+    if(!voiceEnabled || speechBroken) return false;
+    if(!text || !('speechSynthesis' in window) || !window.SpeechSynthesisUtterance) return false;
 
     try{
+      const u = new SpeechSynthesisUtterance(String(text));
+      u.lang = 'th-TH';
+      u.rate = speakRate;
+      u.pitch = speakPitch;
+      u.volume = speakVolume;
       window.speechSynthesis.cancel();
-      const utter = new SpeechSynthesisUtterance(text);
-      utter.lang = 'th-TH';
-      utter.rate = state.speakRate;
-      utter.pitch = state.speakPitch;
-      utter.volume = state.speakVolume;
-      window.speechSynthesis.speak(utter);
+      window.speechSynthesis.speak(u);
+      return true;
+    }catch{
+      speechBroken = true;
+      return false;
+    }
+  }
 
-      state.lastVoiceAt = now;
-      state.lastVoiceKey = dedupeKey;
+  function stopSpeech(){
+    try{
+      if('speechSynthesis' in window){
+        window.speechSynthesis.cancel();
+      }
     }catch{}
   }
 
-  function playCue(key, overrideText=''){
-    const def = getCueDef(key);
-    const finalText = overrideText || def.text || '';
-    const finalType = def.type || 'ok';
-    beep(finalType);
-    if (finalText) speakShort(finalText, key);
-  }
-
-  function setAudioEnabled(v){
-    state.audioEnabled = !!v;
-  }
-
-  function setVoiceEnabled(v){
-    state.voiceEnabled = !!v;
-  }
-
-  function toggleAudio(){
-    state.audioEnabled = !state.audioEnabled;
-    if (!state.audioEnabled) {
-      try { window.speechSynthesis?.cancel?.(); } catch {}
+  function toggleAudio(force){
+    if(typeof force === 'boolean'){
+      audioEnabled = force;
+      if(!audioEnabled) stopSpeech();
+      return audioEnabled;
     }
-    return state.audioEnabled;
+    audioEnabled = !audioEnabled;
+    if(!audioEnabled) stopSpeech();
+    return audioEnabled;
+  }
+
+  function toggleVoice(force){
+    if(typeof force === 'boolean'){
+      voiceEnabled = force;
+      if(!voiceEnabled) stopSpeech();
+      return voiceEnabled;
+    }
+    voiceEnabled = !voiceEnabled;
+    if(!voiceEnabled) stopSpeech();
+    return voiceEnabled;
   }
 
   function getState(){
-    return { ...state };
+    return {
+      audioEnabled,
+      voiceEnabled,
+      unlocked,
+      hasAudioContext: !!audioCtx,
+      speechBroken
+    };
+  }
+
+  function playCue(name, speechText = ''){
+    try{
+      switch(String(name || '')){
+        case 'audio-on':
+          twoTone(
+            { freq: 660, duration: 0.05, type:'sine', gain:0.05 },
+            { freq: 880, duration: 0.08, type:'sine', gain:0.06 }
+          );
+          break;
+
+        case 'demo-start':
+          twoTone(
+            { freq: 520, duration: 0.06, type:'triangle', gain:0.04 },
+            { freq: 620, duration: 0.08, type:'triangle', gain:0.05 }
+          );
+          break;
+
+        case 'learn-open':
+        case 'learn-watch':
+        case 'learn-start':
+          beep({ freq: 540, duration: 0.07, type:'triangle', gain:0.04 });
+          break;
+
+        case 'dir-good':
+          beep({ freq: 760, duration: 0.05, type:'sine', gain:0.04 });
+          break;
+
+        case 'dir-warn':
+          beep({ freq: 280, duration: 0.08, type:'square', gain:0.035 });
+          break;
+
+        case 'wrong-zone':
+          twoTone(
+            { freq: 260, duration: 0.05, type:'square', gain:0.03 },
+            { freq: 220, duration: 0.08, type:'square', gain:0.03 }
+          );
+          break;
+
+        case 'zone-clear':
+          twoTone(
+            { freq: 620, duration: 0.05, type:'triangle', gain:0.04 },
+            { freq: 760, duration: 0.08, type:'triangle', gain:0.05 }
+          );
+          break;
+
+        case 'zone-perfect':
+          twoTone(
+            { freq: 740, duration: 0.05, type:'triangle', gain:0.045 },
+            { freq: 980, duration: 0.10, type:'triangle', gain:0.055 }
+          );
+          break;
+
+        case 'boss-laser':
+          beep({ freq: 180, duration: 0.12, type:'sawtooth', gain:0.035 });
+          break;
+
+        case 'laser-hit':
+          twoTone(
+            { freq: 180, duration: 0.05, type:'square', gain:0.035 },
+            { freq: 140, duration: 0.10, type:'square', gain:0.035 }
+          );
+          break;
+
+        case 'boss-shock':
+          beep({ freq: 860, duration: 0.08, type:'triangle', gain:0.045 });
+          break;
+
+        case 'shock-perfect':
+          twoTone(
+            { freq: 820, duration: 0.04, type:'triangle', gain:0.04 },
+            { freq: 1120, duration: 0.10, type:'triangle', gain:0.055 }
+          );
+          break;
+
+        case 'boss-decoy':
+          beep({ freq: 430, duration: 0.10, type:'sine', gain:0.035 });
+          break;
+
+        case 'decoy-hit':
+          twoTone(
+            { freq: 320, duration: 0.04, type:'square', gain:0.03 },
+            { freq: 260, duration: 0.09, type:'square', gain:0.03 }
+          );
+          break;
+
+        case 'boss-phase':
+          twoTone(
+            { freq: 600, duration: 0.06, type:'sawtooth', gain:0.04 },
+            { freq: 760, duration: 0.10, type:'sawtooth', gain:0.045 }
+          );
+          break;
+
+        case 'boss-win':
+          twoTone(
+            { freq: 880, duration: 0.08, type:'triangle', gain:0.05 },
+            { freq: 1180, duration: 0.14, type:'triangle', gain:0.06 }
+          );
+          break;
+
+        case 'summary-open':
+        case 'summary-learn':
+        case 'summary-win':
+          twoTone(
+            { freq: 700, duration: 0.06, type:'triangle', gain:0.045 },
+            { freq: 920, duration: 0.12, type:'triangle', gain:0.055 }
+          );
+          break;
+
+        default:
+          beep({ freq: 520, duration: 0.06, type:'sine', gain:0.035 });
+          break;
+      }
+
+      if(speechText){
+        speak(speechText);
+      }
+
+      return true;
+    }catch{
+      return false;
+    }
   }
 
   return {
     ensureAudio,
     beep,
-    speakShort,
-    playCue,
-    setAudioEnabled,
-    setVoiceEnabled,
+    speak,
+    stopSpeech,
     toggleAudio,
-    getState
+    toggleVoice,
+    getState,
+    playCue
   };
 }
