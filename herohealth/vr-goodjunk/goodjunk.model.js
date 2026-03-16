@@ -1,6 +1,6 @@
 // === /herohealth/vr-goodjunk/goodjunk.model.js ===
 // GoodJunk Model Runtime
-// FULL PATCH v20260315a-GJ-MODEL-ML-READY
+// FULL PATCH v20260316b-GJ-MODEL-READY-BASE
 
 'use strict';
 
@@ -27,11 +27,11 @@ function safeNum(v, d=0){
   return Number.isFinite(v) ? v : d;
 }
 
-export const GJ_MODEL_VERSION = 'gj-model-v1-heuristic-fallback';
+export const GJ_MODEL_VERSION = 'gj-model-v2-ready-base';
 
 export function createModelRuntime(opts = {}){
   const state = {
-    mode: String(opts.mode || 'heuristic'),
+    mode: String(opts.mode || 'heuristic'), // heuristic | external
     modelVersion: String(opts.modelVersion || GJ_MODEL_VERSION),
     externalPredictor: typeof opts.externalPredictor === 'function' ? opts.externalPredictor : null,
     loaded: false,
@@ -39,18 +39,11 @@ export function createModelRuntime(opts = {}){
   };
 
   async function load(){
-    if(state.mode === 'external' && state.externalPredictor){
-      state.loaded = true;
-      return {
-        ok: true,
-        modelVersion: state.modelVersion
-      };
-    }
-
     state.loaded = true;
     return {
       ok: true,
-      modelVersion: state.modelVersion
+      modelVersion: state.modelVersion,
+      mode: state.mode
     };
   }
 
@@ -127,7 +120,7 @@ export function createModelRuntime(opts = {}){
     } else if(pred.winChance >= 0.82){
       coach = 'เก่งมาก! รักษาจังหวะนี้ไว้';
       explainText = 'ตอนนี้มีโอกาสชนะสูง';
-    } else if(pred.fatigueRisk >= 0.7){
+    } else if(pred.fatigueRisk >= 0.70){
       coach = 'พักใจนิดหนึ่ง แล้วค่อยยิงต่อ';
       explainText = 'เริ่มล้าและตอบสนองช้าลง';
     }
@@ -140,9 +133,7 @@ export function createModelRuntime(opts = {}){
   }
 
   async function predict(features = {}){
-    if(!state.loaded){
-      await load();
-    }
+    if(!state.loaded) await load();
 
     if(state.mode === 'external' && state.externalPredictor){
       try{
