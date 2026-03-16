@@ -1,0 +1,476 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth • GoodJunk Teacher Panel</title>
+  <meta name="color-scheme" content="dark light" />
+  <style>
+    :root{
+      --bg:#08101f;
+      --bg2:#0f172a;
+      --panel:rgba(15,23,42,.88);
+      --card:rgba(15,23,42,.72);
+      --line:rgba(148,163,184,.18);
+      --text:#e5e7eb;
+      --muted:#94a3b8;
+      --good:#22c55e;
+      --warn:#f59e0b;
+      --blue:#38bdf8;
+      --violet:#a78bfa;
+      --shadow:0 24px 70px rgba(0,0,0,.35);
+      --radius:20px;
+    }
+    *{ box-sizing:border-box; }
+    html,body{
+      margin:0;
+      min-height:100%;
+      background:
+        radial-gradient(circle at top, #172554 0%, #08101f 48%, #020617 100%);
+      color:var(--text);
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+    }
+    .wrap{
+      width:min(980px, calc(100% - 24px));
+      margin:20px auto 32px;
+    }
+    .hero{
+      background:var(--panel);
+      border:1px solid var(--line);
+      border-radius:28px;
+      box-shadow:var(--shadow);
+      padding:22px;
+      backdrop-filter:blur(12px);
+    }
+    .kicker{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      min-height:34px;
+      padding:6px 12px;
+      border-radius:999px;
+      border:1px solid rgba(56,189,248,.22);
+      background:rgba(56,189,248,.10);
+      color:#dbeafe;
+      font-size:12px;
+      font-weight:1000;
+      letter-spacing:.3px;
+    }
+    h1{
+      margin:12px 0 8px;
+      font-size:clamp(28px, 5vw, 42px);
+      line-height:1.05;
+    }
+    .sub{
+      color:var(--muted);
+      font-size:14px;
+      line-height:1.6;
+      max-width:760px;
+    }
+    .grid{
+      display:grid;
+      grid-template-columns:1.1fr .9fr;
+      gap:16px;
+      margin-top:16px;
+    }
+    @media (max-width:860px){
+      .grid{ grid-template-columns:1fr; }
+    }
+    .card{
+      background:var(--card);
+      border:1px solid var(--line);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+      padding:18px;
+      backdrop-filter:blur(10px);
+    }
+    .card h2{
+      margin:0 0 12px;
+      font-size:18px;
+    }
+    .muted{
+      color:var(--muted);
+      font-size:13px;
+      line-height:1.5;
+    }
+    .form{
+      display:grid;
+      gap:14px;
+    }
+    .row{
+      display:grid;
+      gap:12px;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+    }
+    @media (max-width:680px){
+      .row{ grid-template-columns:1fr; }
+    }
+    label{
+      display:grid;
+      gap:6px;
+      font-size:13px;
+      color:#cbd5e1;
+      font-weight:900;
+    }
+    input[type="text"], select, textarea{
+      width:100%;
+      min-height:46px;
+      border-radius:14px;
+      border:1px solid var(--line);
+      background:rgba(2,6,23,.64);
+      color:var(--text);
+      padding:12px 14px;
+      font:inherit;
+      outline:none;
+    }
+    textarea{
+      min-height:94px;
+      resize:vertical;
+      font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size:12px;
+    }
+    .toggle-list{
+      display:grid;
+      gap:10px;
+    }
+    .toggle{
+      display:flex;
+      align-items:flex-start;
+      gap:12px;
+      padding:12px 14px;
+      border:1px solid var(--line);
+      border-radius:16px;
+      background:rgba(2,6,23,.44);
+    }
+    .toggle input{
+      margin-top:2px;
+      width:18px;
+      height:18px;
+      accent-color:#22c55e;
+    }
+    .toggle b{
+      display:block;
+      font-size:14px;
+      margin-bottom:2px;
+    }
+    .toggle span{
+      display:block;
+      color:var(--muted);
+      font-size:12px;
+      line-height:1.45;
+    }
+    .actions{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      margin-top:16px;
+    }
+    button{
+      appearance:none;
+      border:none;
+      cursor:pointer;
+      min-height:46px;
+      border-radius:14px;
+      padding:0 16px;
+      font:900 14px/1 system-ui,-apple-system,Segoe UI,Roboto,Arial;
+      color:white;
+      transition:transform .08s ease, opacity .18s ease;
+    }
+    button:active{ transform:translateY(1px) scale(.995); }
+    .btn-primary{ background:linear-gradient(135deg,#2563eb,#38bdf8); }
+    .btn-good{ background:linear-gradient(135deg,#16a34a,#22c55e); }
+    .btn-ghost{
+      background:rgba(148,163,184,.12);
+      border:1px solid var(--line);
+      color:var(--text);
+    }
+    .chips{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      margin-top:8px;
+    }
+    .chip{
+      display:inline-flex;
+      align-items:center;
+      min-height:30px;
+      padding:4px 10px;
+      border-radius:999px;
+      border:1px solid var(--line);
+      background:rgba(2,6,23,.46);
+      color:#dbeafe;
+      font-size:12px;
+      font-weight:900;
+    }
+    .preview{
+      display:grid;
+      gap:12px;
+    }
+    .preview-box{
+      border:1px solid var(--line);
+      border-radius:16px;
+      background:rgba(2,6,23,.5);
+      padding:12px;
+    }
+    .link{
+      word-break:break-all;
+      color:#bfdbfe;
+      font-size:12px;
+      line-height:1.55;
+      font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+    .foot{
+      margin-top:14px;
+      color:var(--muted);
+      font-size:12px;
+      line-height:1.5;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="hero">
+      <div class="kicker">🎓 Teacher Panel • GoodJunk Solo</div>
+      <h1>ตั้งค่าโหมดเล่นสำหรับครู / วิจัย</h1>
+      <div class="sub">
+        ใช้หน้านี้เพื่อเปิดโหมดเด็ก, โหมดอ่านง่าย, และโหมด debug ได้ทันที
+        แล้วคัดลอกลิงก์ไปใช้ทดสอบหรือส่งให้นักเรียนต่อได้
+      </div>
+
+      <div class="grid">
+        <section class="card">
+          <h2>ตั้งค่าเกม</h2>
+          <div class="form">
+            <div class="row">
+              <label>
+                ชื่อผู้เล่น
+                <input id="nick" type="text" value="Teacher" placeholder="เช่น Teacher / Student01" />
+              </label>
+              <label>
+                PID
+                <input id="pid" type="text" value="teacher" placeholder="เช่น teacher01" />
+              </label>
+            </div>
+
+            <div class="row">
+              <label>
+                ระดับความยาก
+                <select id="diff">
+                  <option value="easy" selected>easy</option>
+                  <option value="normal">normal</option>
+                  <option value="hard">hard</option>
+                </select>
+              </label>
+              <label>
+                เวลาเล่น
+                <select id="time">
+                  <option value="60">60 วินาที</option>
+                  <option value="80" selected>80 วินาที</option>
+                  <option value="100">100 วินาที</option>
+                </select>
+              </label>
+            </div>
+
+            <div class="row">
+              <label>
+                มุมมอง
+                <select id="view">
+                  <option value="mobile" selected>mobile</option>
+                  <option value="cvr">cardboard / cvr</option>
+                  <option value="vr">vr</option>
+                </select>
+              </label>
+              <label>
+                โหมดรัน
+                <select id="run">
+                  <option value="play" selected>play</option>
+                  <option value="research">research</option>
+                </select>
+              </label>
+            </div>
+
+            <div class="toggle-list">
+              <label class="toggle">
+                <input id="kid" type="checkbox" checked />
+                <div>
+                  <b>Kid mode</b>
+                  <span>ลดความยากบนมือถือ ทำให้เป้าอ่านง่ายขึ้น เหมาะกับเด็ก</span>
+                </div>
+              </label>
+
+              <label class="toggle">
+                <input id="readable" type="checkbox" checked />
+                <div>
+                  <b>Readable mode</b>
+                  <span>จัดสนามให้อยู่กลางจอมากขึ้น และลดความรกของการเกิดเป้า</span>
+                </div>
+              </label>
+
+              <label class="toggle">
+                <input id="spawnDebug" type="checkbox" />
+                <div>
+                  <b>Spawn debug</b>
+                  <span>แสดงกรอบพื้นที่ spawn และ lane สำหรับตรวจตำแหน่งจริง</span>
+                </div>
+              </label>
+            </div>
+
+            <div class="actions">
+              <button class="btn-primary" id="btnOpen">เข้าเล่น Solo</button>
+              <button class="btn-good" id="btnCopy">คัดลอกลิงก์</button>
+              <button class="btn-ghost" id="btnReset">รีเซ็ตค่า</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="card">
+          <h2>พรีวิวลิงก์</h2>
+          <div class="preview">
+            <div class="preview-box">
+              <div class="muted">สถานะโหมด</div>
+              <div class="chips" id="chips"></div>
+            </div>
+
+            <div class="preview-box">
+              <div class="muted">ลิงก์ที่ได้</div>
+              <div class="link" id="linkPreview">-</div>
+            </div>
+
+            <div class="preview-box">
+              <div class="muted">ตัวอย่างการใช้</div>
+              <div class="muted">
+                ครูสามารถเปิดลิงก์นี้เองเพื่อทดสอบ หรือคัดลอกไปส่งต่อได้ทันที
+              </div>
+            </div>
+          </div>
+
+          <div class="foot">
+            หมายเหตุ: หน้า panel นี้ไม่ได้แทนตัวเกม แต่เป็นตัวช่วยสร้าง query ให้ถูกต้องและทดสอบได้เร็วขึ้น
+          </div>
+        </section>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const $ = (id)=>document.getElementById(id);
+    const q = (k,d='')=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
+
+    const baseRun = './goodjunk-vr.html';
+
+    function bool01(v){ return v ? '1' : '0'; }
+
+    function buildUrl(){
+      const u = new URL(baseRun, location.href);
+
+      const nick = $('nick').value.trim() || 'Teacher';
+      const pid = $('pid').value.trim() || 'teacher';
+      const diff = $('diff').value;
+      const time = $('time').value;
+      const view = $('view').value;
+      const run = $('run').value;
+
+      u.searchParams.set('nick', nick);
+      u.searchParams.set('pid', pid);
+      u.searchParams.set('diff', diff);
+      u.searchParams.set('time', time);
+      u.searchParams.set('view', view);
+      u.searchParams.set('run', run);
+
+      u.searchParams.set('kid', bool01($('kid').checked));
+      u.searchParams.set('readable', bool01($('readable').checked));
+      u.searchParams.set('spawnDebug', bool01($('spawnDebug').checked));
+
+      const passthru = [
+        'seed','hub','studyId','phase','conditionGroup',
+        'planDay','planSlot','planMode','zone'
+      ];
+      passthru.forEach(k=>{
+        const v = q(k,'');
+        if(v) u.searchParams.set(k, v);
+      });
+
+      if(run === 'research'){
+        u.searchParams.set('research', '1');
+      }
+
+      return u.toString();
+    }
+
+    function renderChips(){
+      const chips = [];
+      chips.push(`diff:${$('diff').value}`);
+      chips.push(`time:${$('time').value}s`);
+      chips.push(`view:${$('view').value}`);
+      chips.push(`run:${$('run').value}`);
+      if($('kid').checked) chips.push('kid');
+      if($('readable').checked) chips.push('readable');
+      if($('spawnDebug').checked) chips.push('debug');
+
+      $('chips').innerHTML = chips.map(t => `<span class="chip">${t}</span>`).join('');
+    }
+
+    function renderPreview(){
+      $('linkPreview').textContent = buildUrl();
+      renderChips();
+    }
+
+    async function copyLink(){
+      const url = buildUrl();
+      try{
+        await navigator.clipboard.writeText(url);
+      }catch(_){
+        const ta = document.createElement('textarea');
+        ta.value = url;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        ta.remove();
+      }
+    }
+
+    function resetDefaults(){
+      $('nick').value = 'Teacher';
+      $('pid').value = 'teacher';
+      $('diff').value = 'easy';
+      $('time').value = '80';
+      $('view').value = 'mobile';
+      $('run').value = 'play';
+      $('kid').checked = true;
+      $('readable').checked = true;
+      $('spawnDebug').checked = false;
+      renderPreview();
+    }
+
+    ['nick','pid','diff','time','view','run','kid','readable','spawnDebug'].forEach(id=>{
+      $(id).addEventListener('input', renderPreview);
+      $(id).addEventListener('change', renderPreview);
+    });
+
+    $('btnOpen').addEventListener('click', ()=>{
+      location.href = buildUrl();
+    });
+
+    $('btnCopy').addEventListener('click', async ()=>{
+      await copyLink();
+      $('btnCopy').textContent = 'คัดลอกแล้ว';
+      setTimeout(()=> $('btnCopy').textContent = 'คัดลอกลิงก์', 1200);
+    });
+
+    $('btnReset').addEventListener('click', resetDefaults);
+
+    // init from query if any
+    if(q('nick')) $('nick').value = q('nick');
+    if(q('pid')) $('pid').value = q('pid');
+    if(q('diff')) $('diff').value = q('diff');
+    if(q('time')) $('time').value = q('time');
+    if(q('view')) $('view').value = q('view');
+    if(q('run')) $('run').value = q('run');
+    if(q('kid')) $('kid').checked = q('kid') === '1';
+    if(q('readable')) $('readable').checked = q('readable') === '1';
+    if(q('spawnDebug')) $('spawnDebug').checked = q('spawnDebug') === '1';
+
+    renderPreview();
+  </script>
+</body>
+</html>
