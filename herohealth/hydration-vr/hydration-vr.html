@@ -8,7 +8,7 @@
   <link rel="icon" href="../favicon.ico" />
 
   <!-- ใช้ crosshair / hha:shoot / hha:recenter จาก vr-ui แต่ซ่อนปุ่มเดิม -->
-  <script type="module" src="../vr/vr-ui.js?v=20260316h"></script>
+  <script type="module" src="../vr/vr-ui.js?v=20260316i"></script>
 
   <style>
     :root{
@@ -1169,6 +1169,22 @@
       opacity:.98 !important;
     }
 
+    /* crosshair-only in enter vr */
+    html.hydr-cvr .bubble,
+    body.hydr-cvr .bubble{
+      pointer-events:none !important;
+    }
+
+    html.hydr-cvr .layer,
+    body.hydr-cvr .layer{
+      touch-action:manipulation;
+    }
+
+    html.hydr-cvr .stage,
+    body.hydr-cvr .stage{
+      cursor:none;
+    }
+
     /* Stereo fallback */
     #cvrStereo{
       position:fixed;
@@ -1504,6 +1520,7 @@
       let stereoRight = null;
       let stereoObserver = null;
       let stereoQueued = false;
+      let lastCenterShootAt = 0;
 
       function sanitizeCloneHtml(html){
         return String(html || '')
@@ -1620,6 +1637,39 @@
           : 'มุมมอง mobile • ระดับ normal';
       }
 
+      function emitCenterShoot(source='hydr-cvr'){
+        const now = (performance && performance.now) ? performance.now() : Date.now();
+        if(now - lastCenterShootAt < 110) return;
+        lastCenterShootAt = now;
+
+        try{
+          window.dispatchEvent(new CustomEvent('hha:shoot', {
+            detail:{
+              x: window.innerWidth / 2,
+              y: window.innerHeight / 2,
+              lockPx: 28,
+              cooldownMs: 90,
+              source,
+              view: 'cvr'
+            }
+          }));
+        }catch{}
+      }
+
+      function isLocalVrUiTarget(el){
+        if(!el) return false;
+        return !!(
+          el.closest('#hydrLocalVrBar') ||
+          el.closest('.overlay .card') ||
+          el.closest('button') ||
+          el.closest('a') ||
+          el.closest('input') ||
+          el.closest('select') ||
+          el.closest('textarea') ||
+          el.closest('label')
+        );
+      }
+
       function enterHydrationCvr(){
         document.documentElement.classList.add('hydr-cvr');
         document.body.classList.add('hydr-cvr');
@@ -1697,6 +1747,47 @@
         recenterHydrationCvr();
       }, { passive:false });
 
+      document.addEventListener('pointerdown', (ev)=>{
+        if(!document.documentElement.classList.contains('hydr-cvr')) return;
+        if(isLocalVrUiTarget(ev.target)) return;
+
+        try{
+          ev.preventDefault();
+          ev.stopPropagation();
+          ev.stopImmediatePropagation?.();
+        }catch{}
+
+        emitCenterShoot('hydr-cvr-tap');
+      }, { capture:true, passive:false });
+
+      if(!window.PointerEvent){
+        document.addEventListener('touchstart', (ev)=>{
+          if(!document.documentElement.classList.contains('hydr-cvr')) return;
+          if(isLocalVrUiTarget(ev.target)) return;
+
+          try{
+            ev.preventDefault();
+            ev.stopPropagation();
+            ev.stopImmediatePropagation?.();
+          }catch{}
+
+          emitCenterShoot('hydr-cvr-touch');
+        }, { capture:true, passive:false });
+      }
+
+      document.addEventListener('keydown', (ev)=>{
+        if(!document.documentElement.classList.contains('hydr-cvr')) return;
+        if(ev.code !== 'Space' && ev.code !== 'Enter') return;
+
+        try{
+          ev.preventDefault();
+          ev.stopPropagation();
+          ev.stopImmediatePropagation?.();
+        }catch{}
+
+        emitCenterShoot('hydr-cvr-key');
+      }, { capture:true });
+
       const end = document.getElementById('end');
       if(end){
         const mo = new MutationObserver(syncEndViewLabel);
@@ -1712,7 +1803,7 @@
   </script>
 
   <script type="module">
-    import { boot } from './hydration.safe.js?v=20260316h';
+    import { boot } from './hydration.safe.js?v=20260316i';
     boot({});
   </script>
 </body>
