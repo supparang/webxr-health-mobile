@@ -7,7 +7,7 @@
   <meta name="color-scheme" content="dark light" />
   <link rel="icon" href="../favicon.ico" />
 
-  <script type="module" src="../vr/vr-ui.js?v=20260316d"></script>
+  <script type="module" src="../vr/vr-ui.js?v=20260316e"></script>
 
   <style>
     :root{
@@ -30,7 +30,7 @@
       --sal: env(safe-area-inset-left, 0px);
       --sar: env(safe-area-inset-right, 0px);
 
-      --vrBottomReserve: 110px;
+      --vrBottomReserve: 112px;
       --hudTop: calc(10px + var(--sat));
     }
 
@@ -242,9 +242,7 @@
       flex-wrap:wrap;
     }
 
-    .hudDot{
-      opacity:.55;
-    }
+    .hudDot{ opacity:.55; }
 
     .riskBar{
       height:10px;
@@ -406,11 +404,7 @@
       will-change:transform, opacity;
     }
 
-    .bossFace.show{
-      opacity:1;
-      transform:scale(1);
-    }
-
+    .bossFace.show{ opacity:1; transform:scale(1); }
     .bossFace.b1{
       border-color:rgba(59,130,246,.30);
       box-shadow:0 18px 40px rgba(59,130,246,.18);
@@ -457,9 +451,7 @@
       will-change:transform, opacity;
     }
 
-    .bubble:active{
-      transform:translate(-50%,-50%) scale(.94);
-    }
+    .bubble:active{ transform:translate(-50%,-50%) scale(.94); }
 
     .bubble-bonus{
       background:
@@ -471,13 +463,8 @@
         0 0 22px rgba(250,204,21,.22);
     }
 
-    .fx-pop{
-      animation: popGood .20s ease forwards;
-    }
-
-    .fx-bad{
-      animation: popBad .22s ease forwards;
-    }
+    .fx-pop{ animation: popGood .20s ease forwards; }
+    .fx-bad{ animation: popBad .22s ease forwards; }
 
     @keyframes popGood{
       0%{ transform:translate(-50%,-50%) scale(1); opacity:1; }
@@ -558,9 +545,7 @@
       to{ opacity:0; transform:translateX(-50%) scaleY(1); }
     }
 
-    .fx-shake{
-      animation: stageShake .22s linear;
-    }
+    .fx-shake{ animation: stageShake .22s linear; }
 
     @keyframes stageShake{
       0%,100%{ transform:translate(0,0); }
@@ -588,9 +573,7 @@
       pointer-events:none;
     }
 
-    .overlay[aria-hidden="true"]{
-      display:none;
-    }
+    .overlay[aria-hidden="true"]{ display:none; }
 
     .overlay .card,
     .overlay .card *{
@@ -725,9 +708,7 @@
       overflow-wrap:anywhere;
     }
 
-    .full{
-      grid-column:1 / -1;
-    }
+    .full{ grid-column:1 / -1; }
 
     .rewardCard{
       border:1px solid rgba(250,204,21,.30);
@@ -785,9 +766,7 @@
       opacity:.75;
     }
 
-    .endBox.full .v{
-      line-height:1.45;
-    }
+    .endBox.full .v{ line-height:1.45; }
 
     .endBox.full.collectionGlow{
       border-color:rgba(250,204,21,.30);
@@ -838,18 +817,11 @@
       pointer-events:none;
     }
 
-    .debugMini b{
-      color:#fff;
-      font-weight:700;
-    }
+    .debugMini b{ color:#fff; font-weight:700; }
 
     .end-mobile-optional{ }
-
     .hud-mobile-hide{ }
-
-    .is-hidden{
-      display:none !important;
-    }
+    .is-hidden{ display:none !important; }
 
     html, body, #app{
       overscroll-behavior:none;
@@ -876,9 +848,7 @@
         width:min(94vw, 720px);
       }
 
-      .calloutLayer{
-        top: calc(292px + var(--sat));
-      }
+      .calloutLayer{ top: calc(292px + var(--sat)); }
 
       .bossFace{
         top:calc(240px + var(--sat));
@@ -893,23 +863,17 @@
         font-size:36px;
       }
 
-      .endGrid{
-        grid-template-columns:1fr 1fr;
-      }
+      .endGrid{ grid-template-columns:1fr 1fr; }
 
       .overlay{
         padding-bottom: calc(26px + var(--vrBottomReserve) + var(--sab));
       }
 
-      .card{
-        width:min(96vw, 900px);
-      }
+      .card{ width:min(96vw, 900px); }
     }
 
     @media (max-width: 560px){
-      :root{
-        --vrBottomReserve: 104px;
-      }
+      :root{ --vrBottomReserve: 104px; }
 
       .hud{
         padding-top:calc(4px + var(--sat));
@@ -917,9 +881,7 @@
         padding-right:calc(5px + var(--sar));
       }
 
-      .hudCard{
-        border-radius:14px;
-      }
+      .hudCard{ border-radius:14px; }
 
       .hudTopbar{
         grid-template-columns: repeat(4, minmax(0,1fr));
@@ -933,10 +895,7 @@
         border-radius:10px;
       }
 
-      .hudStat .k{
-        font-size:8px;
-      }
-
+      .hudStat .k{ font-size:8px; }
       .hudStat .v{
         margin-top:3px;
         font-size:14px;
@@ -970,18 +929,14 @@
         line-height:1.25;
       }
 
-      .hudDot{
-        display:none;
-      }
+      .hudDot{ display:none; }
 
       .riskBar{
         height:7px;
         margin-top:2px;
       }
 
-      .hud-mobile-hide{
-        display:none !important;
-      }
+      .hud-mobile-hide{ display:none !important; }
 
       .zoneSign{
         top: calc(118px + var(--sat));
@@ -1052,18 +1007,14 @@
         gap:8px;
       }
 
-      .cardTitle{
-        font-size:16px;
-      }
+      .cardTitle{ font-size:16px; }
 
       .cardSub{
         font-size:11px;
         line-height:1.35;
       }
 
-      .howGrid{
-        gap:8px;
-      }
+      .howGrid{ gap:8px; }
 
       .howItem{
         padding:10px;
@@ -1100,9 +1051,7 @@
         line-height:1.28;
       }
 
-      .rewardBig{
-        font-size:16px;
-      }
+      .rewardBig{ font-size:16px; }
 
       .rewardMini{
         font-size:10px;
@@ -1115,9 +1064,7 @@
         font-size:9px;
       }
 
-      .end-mobile-optional{
-        display:none !important;
-      }
+      .end-mobile-optional{ display:none !important; }
 
       .actions{
         position:sticky;
@@ -1149,7 +1096,7 @@
       }
     }
 
-    /* ===== VR UI ===== */
+    /* VR UI */
     #hha-vrui{
       position:fixed !important;
       left:max(10px, env(safe-area-inset-left, 0px)) !important;
@@ -1177,7 +1124,7 @@
       pointer-events:none !important;
     }
 
-    /* ===== fallback state ===== */
+    /* fallback state */
     html.hha-vr-fallback,
     body.hha-vr-fallback{
       overflow:hidden !important;
@@ -1200,7 +1147,7 @@
       opacity:.98 !important;
     }
 
-    /* ===== stereo fallback ===== */
+    /* stereo fallback */
     #cvrStereo{
       position:fixed;
       inset:0;
@@ -1453,7 +1400,6 @@
 
       function getStereoVisualHtml(){
         const parts = [];
-
         const stage = document.getElementById('stage');
         const hud = document.querySelector('.hud');
         const zoneSign = document.getElementById('zoneSign');
@@ -1603,7 +1549,7 @@
   </script>
 
   <script type="module">
-    import { boot } from './hydration.safe.js?v=20260316d';
+    import { boot } from './hydration.safe.js?v=20260316e';
     boot({});
   </script>
 </body>
