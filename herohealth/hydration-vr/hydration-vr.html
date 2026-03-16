@@ -7,7 +7,8 @@
   <meta name="color-scheme" content="dark light" />
   <link rel="icon" href="../favicon.ico" />
 
-  <script type="module" src="../vr/vr-ui.js?v=20260316e"></script>
+  <!-- โหลดไว้เพื่อใช้ crosshair / hha:shoot / hha:recenter แต่ซ่อนปุ่มเดิม -->
+  <script type="module" src="../vr/vr-ui.js?v=20260316f"></script>
 
   <style>
     :root{
@@ -1096,22 +1097,10 @@
       }
     }
 
-    /* VR UI */
+    /* ซ่อนปุ่มเดิมจาก vr-ui.js */
     #hha-vrui{
-      position:fixed !important;
-      left:max(10px, env(safe-area-inset-left, 0px)) !important;
-      right:max(10px, env(safe-area-inset-right, 0px)) !important;
-      bottom:max(10px, env(safe-area-inset-bottom, 0px)) !important;
-      z-index:2147483646 !important;
+      display:none !important;
       pointer-events:none !important;
-    }
-
-    #hha-vrui button{
-      pointer-events:auto !important;
-      position:relative;
-      z-index:2147483647 !important;
-      touch-action:manipulation;
-      -webkit-tap-highlight-color:transparent;
     }
 
     #hha-crosshair{
@@ -1124,25 +1113,60 @@
       pointer-events:none !important;
     }
 
-    /* fallback state */
-    html.hha-vr-fallback,
-    body.hha-vr-fallback{
+    /* local VR bar */
+    #hydrLocalVrBar{
+      position:fixed;
+      left:max(10px, env(safe-area-inset-left, 0px));
+      right:max(10px, env(safe-area-inset-right, 0px));
+      bottom:max(10px, env(safe-area-inset-bottom, 0px));
+      z-index:2147483647;
+      display:flex;
+      gap:8px;
+      justify-content:flex-end;
+      pointer-events:none;
+    }
+
+    #hydrLocalVrBar .hydr-vr-btn{
+      pointer-events:auto;
+      appearance:none;
+      -webkit-appearance:none;
+      border:none;
+      border-radius:999px;
+      min-height:46px;
+      padding:10px 14px;
+      background:rgba(2,6,23,.82);
+      border:1px solid rgba(148,163,184,.22);
+      color:#e5e7eb;
+      font:1000 13px/1 system-ui,-apple-system,"Noto Sans Thai","Segoe UI",Roboto,sans-serif;
+      box-shadow:0 16px 40px rgba(0,0,0,.32);
+      backdrop-filter:blur(10px);
+      cursor:pointer;
+      touch-action:manipulation;
+      -webkit-tap-highlight-color:transparent;
+    }
+
+    #hydrBtnExitVR{
+      display:none;
+    }
+
+    html.hydr-cvr,
+    body.hydr-cvr{
       overflow:hidden !important;
       overscroll-behavior:none !important;
     }
 
-    html.hha-vr-fallback #hhaBtnEnterVR,
-    body.hha-vr-fallback #hhaBtnEnterVR{
+    html.hydr-cvr #hydrBtnEnterVR,
+    body.hydr-cvr #hydrBtnEnterVR{
       display:none !important;
     }
 
-    html.hha-vr-fallback #hhaBtnExitVR,
-    body.hha-vr-fallback #hhaBtnExitVR{
+    html.hydr-cvr #hydrBtnExitVR,
+    body.hydr-cvr #hydrBtnExitVR{
       display:inline-flex !important;
     }
 
-    html.hha-vr-fallback #hha-crosshair,
-    body.hha-vr-fallback #hha-crosshair{
+    html.hydr-cvr #hha-crosshair,
+    body.hydr-cvr #hha-crosshair{
       display:grid !important;
       opacity:.98 !important;
     }
@@ -1191,13 +1215,13 @@
       display:none !important;
     }
 
-    html.hha-vr-fallback #cvrStereo,
-    body.hha-vr-fallback #cvrStereo{
+    html.hydr-cvr #cvrStereo,
+    body.hydr-cvr #cvrStereo{
       display:grid !important;
     }
 
-    html.hha-vr-fallback .overlay:not([aria-hidden="true"]),
-    body.hha-vr-fallback .overlay:not([aria-hidden="true"]){
+    html.hydr-cvr .overlay:not([aria-hidden="true"]),
+    body.hydr-cvr .overlay:not([aria-hidden="true"]){
       z-index:2147483100 !important;
     }
   </style>
@@ -1365,6 +1389,13 @@
     <div id="coachExplain" class="is-hidden"></div>
   </div>
 
+  <!-- local cardboard buttons -->
+  <div id="hydrLocalVrBar" aria-label="Hydration Cardboard Controls">
+    <button id="hydrBtnEnterVR" class="hydr-vr-btn" type="button">🕶 ENTER VR</button>
+    <button id="hydrBtnExitVR" class="hydr-vr-btn" type="button">🚪 EXIT VR</button>
+    <button id="hydrBtnRecenter" class="hydr-vr-btn" type="button">🎯 RECENTER</button>
+  </div>
+
   <script>
     window.addEventListener('DOMContentLoaded', ()=>{
       let stereoRoot = null;
@@ -1430,7 +1461,7 @@
         stereoQueued = true;
         requestAnimationFrame(()=>{
           stereoQueued = false;
-          if(document.documentElement.classList.contains('hha-vr-fallback')){
+          if(document.documentElement.classList.contains('hydr-cvr')){
             syncStereoNow();
           }
         });
@@ -1458,98 +1489,109 @@
         });
       }
 
-      function startStereoFallback(){
-        ensureStereoRoot();
-        observeStereoSources();
-        stereoRoot.style.display = 'grid';
-        queueStereoSync();
+      async function enterFullscreenSafe(){
+        try{
+          if(!document.fullscreenElement && document.documentElement.requestFullscreen){
+            await document.documentElement.requestFullscreen({ navigationUI:'hide' });
+          }
+        }catch{}
+        try{
+          if(screen.orientation && screen.orientation.lock){
+            await screen.orientation.lock('landscape');
+          }
+        }catch{}
       }
 
-      function stopStereoFallback(){
-        if(stereoRoot) stereoRoot.style.display = 'none';
+      async function exitFullscreenSafe(){
+        try{
+          if(document.fullscreenElement && document.exitFullscreen){
+            await document.exitFullscreen();
+          }
+        }catch{}
       }
 
-      function forceFallbackUi(){
+      function enterHydrationCvr(){
+        document.documentElement.classList.add('hydr-cvr');
+        document.body.classList.add('hydr-cvr');
         document.documentElement.dataset.view = 'cvr';
         document.body.dataset.view = 'cvr';
-        document.documentElement.classList.add('hha-vr-fallback');
-        document.body.classList.add('hha-vr-fallback');
 
-        const enter = document.getElementById('hhaBtnEnterVR');
-        const exit  = document.getElementById('hhaBtnExitVR');
+        const enter = document.getElementById('hydrBtnEnterVR');
+        const exit  = document.getElementById('hydrBtnExitVR');
         const cross = document.getElementById('hha-crosshair');
 
         if(enter) enter.style.display = 'none';
         if(exit)  exit.style.display = 'inline-flex';
         if(cross) cross.style.display = 'grid';
 
-        startStereoFallback();
+        ensureStereoRoot();
+        observeStereoSources();
+        stereoRoot.style.display = 'grid';
+        queueStereoSync();
+        enterFullscreenSafe();
 
         try{
           window.dispatchEvent(new CustomEvent('hha:vrmodechange', {
-            detail:{ inVr:true, native:false, reason:'hydration-stereo-fallback', view:'cvr' }
+            detail:{ inVr:true, native:false, reason:'hydration-local-cvr', view:'cvr' }
           }));
         }catch{}
       }
 
-      function forceExitFallbackUi(){
-        document.documentElement.classList.remove('hha-vr-fallback');
-        document.body.classList.remove('hha-vr-fallback');
+      function exitHydrationCvr(){
+        document.documentElement.classList.remove('hydr-cvr');
+        document.body.classList.remove('hydr-cvr');
         document.documentElement.dataset.view = 'mobile';
         document.body.dataset.view = 'mobile';
 
-        const enter = document.getElementById('hhaBtnEnterVR');
-        const exit  = document.getElementById('hhaBtnExitVR');
+        const enter = document.getElementById('hydrBtnEnterVR');
+        const exit  = document.getElementById('hydrBtnExitVR');
 
         if(enter) enter.style.display = 'inline-flex';
         if(exit)  exit.style.display = 'none';
 
-        stopStereoFallback();
+        if(stereoRoot) stereoRoot.style.display = 'none';
+        exitFullscreenSafe();
 
         try{
           window.dispatchEvent(new CustomEvent('hha:vrmodechange', {
-            detail:{ inVr:false, native:false, reason:'hydration-stereo-exit', view:'mobile' }
+            detail:{ inVr:false, native:false, reason:'hydration-local-exit', view:'mobile' }
           }));
         }catch{}
       }
 
-      function bridgeBtn(btn, mode){
-        if(!btn || btn.__hydrationVrBridge) return;
-        btn.__hydrationVrBridge = true;
-
-        const fire = (ev)=>{
-          try{
-            ev.preventDefault();
-            ev.stopPropagation();
-            ev.stopImmediatePropagation?.();
-          }catch{}
-
-          if(mode === 'enter'){
-            forceFallbackUi();
-          }else{
-            forceExitFallbackUi();
-          }
-        };
-
-        btn.addEventListener('click', fire, { passive:false, capture:true });
-        btn.addEventListener('pointerup', fire, { passive:false, capture:true });
-        btn.addEventListener('touchend', fire, { passive:false, capture:true });
+      function recenterHydrationCvr(){
+        try{
+          window.dispatchEvent(new CustomEvent('hha:recenter', {
+            detail:{ source:'hydration-local-vr' }
+          }));
+        }catch{}
       }
 
-      function wireVrBridge(){
-        bridgeBtn(document.getElementById('hhaBtnEnterVR'), 'enter');
-        bridgeBtn(document.getElementById('hhaBtnExitVR'), 'exit');
-      }
+      document.getElementById('hydrBtnEnterVR')?.addEventListener('click', (ev)=>{
+        ev.preventDefault();
+        ev.stopPropagation();
+        enterHydrationCvr();
+      }, { passive:false });
 
-      wireVrBridge();
-      setTimeout(wireVrBridge, 300);
-      setTimeout(wireVrBridge, 900);
-      setTimeout(wireVrBridge, 1500);
+      document.getElementById('hydrBtnExitVR')?.addEventListener('click', (ev)=>{
+        ev.preventDefault();
+        ev.stopPropagation();
+        exitHydrationCvr();
+      }, { passive:false });
+
+      document.getElementById('hydrBtnRecenter')?.addEventListener('click', (ev)=>{
+        ev.preventDefault();
+        ev.stopPropagation();
+        recenterHydrationCvr();
+      }, { passive:false });
+
+      window.__HYD_CVR_ENTER = enterHydrationCvr;
+      window.__HYD_CVR_EXIT = exitHydrationCvr;
     });
   </script>
 
   <script type="module">
-    import { boot } from './hydration.safe.js?v=20260316e';
+    import { boot } from './hydration.safe.js?v=20260316f';
     boot({});
   </script>
 </body>
