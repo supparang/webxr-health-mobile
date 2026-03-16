@@ -1,5 +1,5 @@
 // === /herohealth/gate/gate-core.js ===
-// FULL PATCH v20260315b-GATE-CORE-FORCE-WARMUP-SUMMARY-FIX
+// FULL PATCH v20260316-GATE-CORE-CANONICAL-FLOW-SUMMARY-FIX
 
 import {
   buildCtx,
@@ -14,8 +14,9 @@ import {
   getGameMeta,
   getPhaseFile,
   getGameStyleFile,
+  getRunFile,
   normalizeGameId
-} from './gate-games.js?v=20260314k';
+} from './gate-games.js?v=20260316-GATE-GAMES-CANONICAL-ALL-ZONES-BATH-FLOW';
 
 function esc(s) {
   return String(s ?? '')
@@ -81,15 +82,15 @@ function setText(el, text=''){
 }
 
 function statusTitle(ctx){
-  if (ctx.mode === 'cooldown') return 'วันนี้ทำ Cooldown แล้ว ✅';
-  return 'วันนี้ทำ Warmup แล้ว ✅';
+  return ctx.mode === 'cooldown'
+    ? 'วันนี้ทำ Cooldown แล้ว ✅'
+    : 'วันนี้ทำ Warmup แล้ว ✅';
 }
 
 function statusSubtitle(ctx){
-  if (ctx.mode === 'cooldown') {
-    return 'กำลังข้าม Cooldown และกลับหน้าหลัก...';
-  }
-  return 'กำลังข้าม Warmup และเข้าเกมหลัก...';
+  return ctx.mode === 'cooldown'
+    ? 'กำลังข้าม Cooldown และกลับหน้าหลัก...'
+    : 'กำลังข้าม Warmup และเข้าเกมหลัก...';
 }
 
 function titleOf(ctx){
@@ -105,8 +106,7 @@ function titleOf(ctx){
 }
 
 function fallbackRunOf(ctx){
-  const meta = getGameMeta(ctx.game);
-  return safeUrl(meta?.run || '../hub.html', '../hub.html');
+  return safeUrl(getRunFile(ctx.game) || '../hub.html', '../hub.html');
 }
 
 function nextUrlOf(ctx){
@@ -329,9 +329,28 @@ async function runGate(app){
 
   ctx.mode = detectMode(url);
   ctx.phase = ctx.mode;
-  ctx.game = normalizeGameId(ctx.game || ctx.theme || qs(url, 'game', ''));
-  ctx.theme = normalizeGameId(ctx.theme || ctx.game || qs(url, 'theme', ''));
-  ctx.cat = String(ctx.cat || qs(url, 'cat', '')).toLowerCase();
+
+  const rawGame =
+    qs(url, 'game', '') ||
+    qs(url, 'theme', '') ||
+    ctx.game ||
+    ctx.theme ||
+    '';
+
+  const normalizedGame = normalizeGameId(rawGame);
+
+  ctx.game = normalizedGame;
+  ctx.theme = normalizedGame;
+
+  const meta = getGameMeta(ctx.game);
+
+  ctx.cat = String(
+    ctx.cat ||
+    qs(url, 'cat', '') ||
+    meta?.cat ||
+    ''
+  ).toLowerCase();
+
   ctx.hub = safeUrl(ctx.hub || qs(url, 'hub', '../hub.html'), '../hub.html');
   ctx.next = safeUrl(ctx.next || qs(url, 'next', ''), '');
   ctx.pid = String(ctx.pid || qs(url, 'pid', 'anon')).trim() || 'anon';
