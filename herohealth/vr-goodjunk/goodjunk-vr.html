@@ -1,6 +1,6 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
 GoodJunkVR — RUN PAGE
-FULL PATCH v20260316m-GJ-RUNPAGE-ENTER-VR-CROSSHAIR-ONLY
+FULL PATCH v20260316n-GJ-RUNPAGE-ENTER-VR-CROSSHAIR-ONLY-MATCH-SAFE
 -->
 <!doctype html>
 <html lang="th">
@@ -12,7 +12,7 @@ FULL PATCH v20260316m-GJ-RUNPAGE-ENTER-VR-CROSSHAIR-ONLY
   <link rel="icon" href="../favicon.ico" />
 
   <script src="../firebase-config.js"></script>
-  <script type="module" src="../vr/vr-ui.js?v=20260316m-gj-enter-vr"></script>
+  <script type="module" src="../vr/vr-ui.js?v=20260316n-gj-enter-vr"></script>
 
   <style>
     :root{
@@ -712,7 +712,6 @@ FULL PATCH v20260316m-GJ-RUNPAGE-ENTER-VR-CROSSHAIR-ONLY
       opacity:.98 !important;
     }
 
-    /* crosshair-only */
     html.gj-cvr .gj-target,
     body.gj-cvr .gj-target{
       pointer-events:none !important;
@@ -1267,86 +1266,8 @@ FULL PATCH v20260316m-GJ-RUNPAGE-ENTER-VR-CROSSHAIR-ONLY
       return true;
     }
 
-    function getCenter(){
-      return {
-        x: window.innerWidth / 2,
-        y: window.innerHeight / 2
-      };
-    }
-
-    function distSq(ax, ay, bx, by){
-      const dx = ax - bx;
-      const dy = ay - by;
-      return dx*dx + dy*dy;
-    }
-
-    function getLiveTargets(){
-      return Array.from(document.querySelectorAll('#gj-layer .gj-target'));
-    }
-
     function hitNearestGoodjunkTarget(source='gj-cvr-hit'){
-      const { x, y } = getCenter();
-      const lockSq = CENTER_LOCK_PX * CENTER_LOCK_PX;
-
-      let best = null;
-      let bestD = Infinity;
-
-      for(const el of getLiveTargets()){
-        if(!el || !el.isConnected) continue;
-
-        const st = getComputedStyle(el);
-        if(st.display === 'none' || st.visibility === 'hidden' || Number(st.opacity) <= 0) continue;
-
-        const r = el.getBoundingClientRect();
-        if(!r.width || !r.height) continue;
-
-        const cx = r.left + (r.width / 2);
-        const cy = r.top + (r.height / 2);
-        const d = distSq(cx, cy, x, y);
-
-        if(d <= lockSq && d < bestD){
-          best = el;
-          bestD = d;
-        }
-      }
-
-      if(!best) return false;
-
-      try{
-        best.dispatchEvent(new PointerEvent('pointerdown', {
-          bubbles:true, cancelable:true,
-          clientX:x, clientY:y,
-          pointerType:'mouse', isPrimary:true
-        }));
-      }catch{}
-
-      try{
-        best.dispatchEvent(new MouseEvent('mousedown', {
-          bubbles:true, cancelable:true,
-          clientX:x, clientY:y
-        }));
-      }catch{}
-
-      try{
-        best.dispatchEvent(new MouseEvent('click', {
-          bubbles:true, cancelable:true,
-          clientX:x, clientY:y
-        }));
-      }catch{}
-
-      try{
-        window.dispatchEvent(new CustomEvent('hha:shoot', {
-          detail:{
-            x, y,
-            lockPx:CENTER_LOCK_PX,
-            cooldownMs:CENTER_COOLDOWN_MS,
-            source,
-            view:'cvr'
-          }
-        }));
-      }catch{}
-
-      return true;
+      return emitCenterShoot(source);
     }
 
     function isLocalVrUiTarget(el){
@@ -1455,8 +1376,7 @@ FULL PATCH v20260316m-GJ-RUNPAGE-ENTER-VR-CROSSHAIR-ONLY
         ev.stopImmediatePropagation?.();
       }catch{}
 
-      const hit = hitNearestGoodjunkTarget('gj-cvr-tap');
-      if(!hit) emitCenterShoot('gj-cvr-center');
+      hitNearestGoodjunkTarget('gj-cvr-tap');
     }, { capture:true, passive:false });
 
     if(!window.PointerEvent){
@@ -1470,8 +1390,7 @@ FULL PATCH v20260316m-GJ-RUNPAGE-ENTER-VR-CROSSHAIR-ONLY
           ev.stopImmediatePropagation?.();
         }catch{}
 
-        const hit = hitNearestGoodjunkTarget('gj-cvr-touch');
-        if(!hit) emitCenterShoot('gj-cvr-center-touch');
+        hitNearestGoodjunkTarget('gj-cvr-touch');
       }, { capture:true, passive:false });
     }
 
@@ -1485,8 +1404,7 @@ FULL PATCH v20260316m-GJ-RUNPAGE-ENTER-VR-CROSSHAIR-ONLY
         ev.stopImmediatePropagation?.();
       }catch{}
 
-      const hit = hitNearestGoodjunkTarget('gj-cvr-key');
-      if(!hit) emitCenterShoot('gj-cvr-center-key');
+      hitNearestGoodjunkTarget('gj-cvr-key');
     }, { capture:true });
 
     window.__GJ_CVR_ENTER = enterGoodjunkCvr;
@@ -1497,7 +1415,7 @@ FULL PATCH v20260316m-GJ-RUNPAGE-ENTER-VR-CROSSHAIR-ONLY
 <script type="module">
   import { createDefaultAIHooksFromQuery } from './ai-hooks.js';
   import { createDefaultSoundHooksFromQuery } from './sound-hooks.js';
-  import { boot } from './goodjunk.safe.js';
+  import { boot } from './goodjunk.safe.js?v=20260316n';
 
   const qs = (k, d='')=>{ try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(_){ return d; } };
   const safeUrl = (raw, fallback='')=>{
