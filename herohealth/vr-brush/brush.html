@@ -65,14 +65,16 @@
               ตอนนี้ให้ถู <b>ฟันบนด้านนอก</b>
               <span class="sub" id="instructionSub">ถูในกรอบสีฟ้าบนรูปฟันตรงกลาง</span>
             </div>
+
             <div style="display:flex; gap:8px; flex-wrap:wrap;">
               <div class="hintBadge" id="hintBadge">👆 ถูในกรอบสีฟ้า</div>
               <div class="hintBadge" id="dirBadge">↕ ถูขึ้น-ลง</div>
             </div>
+
             <div style="display:flex; gap:8px; flex-wrap:wrap;">
-              <button class="btn secondary" id="btnModeLearn">Learn</button>
-              <button class="btn secondary" id="btnModePractice">Practice</button>
-              <button class="btn secondary" id="btnModeChallenge">Challenge</button>
+              <button class="btn secondary" id="btnModeLearn" type="button">Learn</button>
+              <button class="btn secondary" id="btnModePractice" type="button">Practice</button>
+              <button class="btn secondary" id="btnModeChallenge" type="button">Challenge</button>
             </div>
           </div>
 
@@ -80,6 +82,7 @@
             <div class="cleanBar" aria-label="Clean progress">
               <div class="cleanFill" id="cleanFill"></div>
             </div>
+
             <div class="bossHpWrap" id="bossHpWrap" style="display:none;">
               <div class="bossHpLabel">
                 <span>Boss HP</span>
@@ -111,6 +114,7 @@
               <div class="tooth"></div><div class="tooth"></div><div class="tooth"></div><div class="tooth"></div>
               <div class="tooth"></div><div class="tooth"></div><div class="tooth"></div><div class="tooth"></div>
             </div>
+
             <div class="teethBottom">
               <div class="tooth"></div><div class="tooth"></div><div class="tooth"></div><div class="tooth"></div>
               <div class="tooth"></div><div class="tooth"></div><div class="tooth"></div><div class="tooth"></div>
@@ -123,6 +127,7 @@
             <div class="zoneLayer" id="zoneLayer"></div>
             <div class="fxLayer" id="fxLayer"></div>
             <div class="trailLayer" id="trailLayer"></div>
+
             <div class="laserLine" id="laserLine"></div>
             <div class="shockRing" id="shockRing"></div>
             <div class="phaseToast" id="phaseToast">PHASE 1</div>
@@ -136,10 +141,11 @@
           <div class="tips">
             ถูในกรอบสีฟ้า • โซนไหนสะอาดครบจะเปลี่ยนเป็นสีเขียว • ช่วงบอสให้ทำตามข้อความบนจอ
           </div>
+
           <div class="skillRow">
-            <button class="btn cyan" id="btnUV">🔦 UV Reveal</button>
-            <button class="btn warn" id="btnPolish">✨ Polish</button>
-            <button class="btn secondary" id="btnRestart">↻ Restart</button>
+            <button class="btn cyan" id="btnUV" type="button">🔦 UV Reveal</button>
+            <button class="btn warn" id="btnPolish" type="button">✨ Polish</button>
+            <button class="btn secondary" id="btnRestart" type="button">↻ Restart</button>
           </div>
         </div>
       </section>
@@ -175,10 +181,10 @@
           <h3>ปุ่มลัด</h3>
           <div class="skillBox" style="margin-top:8px;">
             <div class="skillRow">
-              <button class="btn cyan" id="btnShowLearnHelp">👆 ดูตัวอย่าง</button>
-              <button class="btn secondary" id="btnToggleAudio">🔊 เสียง</button>
-              <button class="btn primary" id="btnStartBoss">🦠 Start Boss Now</button>
-              <button class="btn secondary" id="btnFinish">🏁 Finish</button>
+              <button class="btn cyan" id="btnShowLearnHelp" type="button">👆 ดูตัวอย่าง</button>
+              <button class="btn secondary" id="btnToggleAudio" type="button">🔊 เสียง</button>
+              <button class="btn primary" id="btnStartBoss" type="button">🦠 Start Boss Now</button>
+              <button class="btn secondary" id="btnFinish" type="button">🏁 Finish</button>
             </div>
             <div style="color:var(--muted); font-size:12px; font-weight:900; line-height:1.45;">
               Learn ใช้ฝึกก่อน • Practice เล่นเต็มระบบ • Challenge ยากขึ้นและไม่มีตัวช่วย
@@ -209,7 +215,7 @@
         <div style="font-size:14px; font-weight:950; margin-bottom:8px;">วิธีเล่น</div>
         <div style="display:grid; gap:6px; color:var(--muted); font-size:13px; line-height:1.55;">
           <div>1) ดูกรอบสีฟ้าบนรูปฟัน</div>
-          <div>2) ลากถูในกรอบนั้นช้า ๆ</div>
+          <div>2) ลากถูในกรอบนั้น</div>
           <div>3) ทำทีละโซนให้สะอาด</div>
         </div>
       </div>
@@ -222,10 +228,10 @@
       </div>
 
       <div class="summaryActions" style="justify-content:space-between;">
-        <button class="btn secondary" id="btnLearnWatch">👆 ดูตัวอย่าง</button>
+        <button class="btn secondary" id="btnLearnWatch" type="button">👆 ดูตัวอย่าง</button>
         <div style="display:flex; gap:10px; flex-wrap:wrap;">
-          <button class="btn secondary" id="btnLearnSkip">ข้าม</button>
-          <button class="btn primary" id="btnLearnStart">เริ่มฝึก</button>
+          <button class="btn secondary" id="btnLearnSkip" type="button">ข้าม</button>
+          <button class="btn primary" id="btnLearnStart" type="button">เริ่มฝึก</button>
         </div>
       </div>
     </div>
@@ -269,17 +275,17 @@
       <div id="summaryTipWrap" style="display:grid; gap:8px;"></div>
 
       <div class="summaryActions">
-        <button class="btn secondary" id="btnCloseSummary">Close</button>
-        <button class="btn" id="btnSummaryRestart">↻ Restart</button>
-        <button class="btn primary" id="btnBackHub">← Back Hub</button>
+        <button class="btn secondary" id="btnCloseSummary" type="button">Close</button>
+        <button class="btn" id="btnSummaryRestart" type="button">↻ Restart</button>
+        <button class="btn primary" id="btnBackHub" type="button">← Back Hub</button>
       </div>
     </div>
   </div>
 
   <div class="backHubDock" id="backHubDock">
-    <button class="dockBtn secondary" id="btnDockRestart">↻ Restart</button>
-    <button class="dockBtn" id="btnDockSummary">🏁 Finish</button>
-    <button class="dockBtn" id="btnDockHub">← Hub</button>
+    <button class="dockBtn secondary" id="btnDockRestart" type="button">↻ Restart</button>
+    <button class="dockBtn" id="btnDockSummary" type="button">🏁 Finish</button>
+    <button class="dockBtn" id="btnDockHub" type="button">← Hub</button>
   </div>
 
   <div class="screenFlash" id="screenFlash"></div>
