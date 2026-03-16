@@ -1,4 +1,5 @@
 // /herohealth/vr-brush/brush.zones.js
+// HOTFIX v20260316c-BRUSH-ZONES-MOBILE
 
 export function createBrushZones({
   zoneLayer,
@@ -20,18 +21,6 @@ export function createBrushZones({
     return Math.round(sum / Math.max(1, S.zoneState.length));
   }
 
-  function pointInZone(idx, x, y){
-    const zs = S.zoneState[idx];
-    if(!zs?.el || !arenaCore) return false;
-
-    const zr = zs.el.getBoundingClientRect();
-    const ar = arenaCore.getBoundingClientRect();
-    const px = ar.left + x;
-    const py = ar.top + y;
-
-    return px >= zr.left && px <= zr.right && py >= zr.top && py <= zr.bottom;
-  }
-
   function pulseZone(idx, good){
     const zs = S.zoneState[idx];
     if(!zs?.el) return;
@@ -49,8 +38,25 @@ export function createBrushZones({
       left: r.left - base.left,
       top: r.top - base.top,
       width: r.width,
-      height: r.height
+      height: r.height,
+      right: r.right - base.left,
+      bottom: r.bottom - base.top
     };
+  }
+
+  function pointInZone(idx, x, y){
+    const zs = S.zoneState[idx];
+    if(!zs?.el || !arenaCore) return false;
+
+    const rr = zoneRectRelative(zs.el);
+    if(!rr) return false;
+
+    return x >= rr.left && x <= rr.right && y >= rr.top && y <= rr.bottom;
+  }
+
+  function clearZoneDirt(idx){
+    const zs = S.zoneState[idx];
+    if(zs?.dirtEl) zs.dirtEl.innerHTML = '';
   }
 
   function renderDirtForZone(idx){
@@ -59,7 +65,9 @@ export function createBrushZones({
     if(!zs?.dirtEl || !meta) return;
 
     zs.dirtEl.innerHTML = '';
-    const count = clamp(Math.ceil((zs.dirt || 0) / 12), 0, 8);
+
+    const count = clamp(Math.ceil((zs.dirt || 0) / 12), 0, 10);
+    const horizontal = meta.dir === 'horizontal';
 
     for(let i=0;i<count;i++){
       const blob = document.createElement('div');
@@ -71,22 +79,22 @@ export function createBrushZones({
 
       blob.className = `dirtBlob ${klass}`;
 
-      const horizontal = meta.dir === 'horizontal';
       if(klass === 'boss'){
-        const size = 16 + Math.random()*28;
+        const size = 16 + Math.random()*26;
         blob.style.width = size + 'px';
         blob.style.height = size + 'px';
       } else if(horizontal){
         blob.style.width = (18 + Math.random()*34) + 'px';
-        blob.style.height = (6 + Math.random()*6) + 'px';
+        blob.style.height = (6 + Math.random()*7) + 'px';
       } else {
-        blob.style.width = (6 + Math.random()*6) + 'px';
+        blob.style.width = (6 + Math.random()*7) + 'px';
         blob.style.height = (18 + Math.random()*34) + 'px';
       }
 
-      blob.style.left = (10 + Math.random()*72) + '%';
-      blob.style.top = (16 + Math.random()*56) + '%';
+      blob.style.left = (8 + Math.random()*76) + '%';
+      blob.style.top = (14 + Math.random()*60) + '%';
       blob.style.animationDelay = (Math.random()*0.6).toFixed(2) + 's';
+
       zs.dirtEl.appendChild(blob);
     }
   }
@@ -109,8 +117,23 @@ export function createBrushZones({
   function maybeAdvanceZone(){
     const active = S.zoneState[S.activeZoneIdx];
     if(!active || !active.completed) return;
+
     const nextIdx = S.zoneState.findIndex(z => !z.completed);
     if(nextIdx >= 0) S.activeZoneIdx = nextIdx;
+  }
+
+  function buildZoneItemHtml(zs){
+    return `
+      <div class="zoneRow">
+        <div class="zoneName">${zs.label}</div>
+        <div class="zonePct" id="zonePct_${zs.id}">0%</div>
+      </div>
+      <div class="miniBar"><div class="miniFill" id="zoneFill_${zs.id}"></div></div>
+      <div class="zoneRow" style="margin-top:4px;">
+        <div class="zonePct" id="zoneStars_${zs.id}">☆☆☆</div>
+        <div class="zonePct" id="zoneNote_${zs.id}">ยังไม่จบ</div>
+      </div>
+    `;
   }
 
   function buildZones(onZonePointerDown){
@@ -125,6 +148,8 @@ export function createBrushZones({
       const el = document.createElement('button');
       el.type = 'button';
       el.className = 'zone';
+      el.dataset.zoneId = zs.id;
+      el.setAttribute('aria-label', zs.label);
 
       if (CFG.view === 'mobile' || CFG.view === 'cvr' || window.innerWidth <= 760) {
         el.classList.add('tapBoost');
@@ -134,7 +159,6 @@ export function createBrushZones({
       el.style.top = meta.y + '%';
       el.style.width = meta.w + '%';
       el.style.height = meta.h + '%';
-      el.dataset.zoneId = zs.id;
 
       const label = document.createElement('div');
       label.className = 'zoneLabel';
@@ -157,25 +181,16 @@ export function createBrushZones({
 
       el.addEventListener('pointerdown', (ev)=>{
         ev.preventDefault();
+        ev.stopPropagation();
         onZonePointerDown?.(idx, ev);
-      });
+      }, { passive:false });
 
       zoneLayer.appendChild(el);
 
       const item = document.createElement('div');
       item.className = 'zoneItem';
       item.id = 'zoneItem_' + zs.id;
-      item.innerHTML = `
-        <div class="zoneRow">
-          <div class="zoneName">${zs.label}</div>
-          <div class="zonePct" id="zonePct_${zs.id}">0%</div>
-        </div>
-        <div class="miniBar"><div class="miniFill" id="zoneFill_${zs.id}"></div></div>
-        <div class="zoneRow" style="margin-top:4px;">
-          <div class="zonePct" id="zoneStars_${zs.id}">☆☆☆</div>
-          <div class="zonePct" id="zoneNote_${zs.id}">ยังไม่จบ</div>
-        </div>
-      `;
+      item.innerHTML = buildZoneItemHtml(zs);
       zoneList.appendChild(item);
     });
 
@@ -188,6 +203,7 @@ export function createBrushZones({
     pointInZone,
     pulseZone,
     zoneRectRelative,
+    clearZoneDirt,
     renderDirtForZone,
     refreshAllDirt,
     markZoneCompleted,
