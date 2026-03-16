@@ -31,7 +31,7 @@ export const GJ_MODEL_VERSION = 'gj-model-v1-heuristic-fallback';
 
 export function createModelRuntime(opts = {}){
   const state = {
-    mode: String(opts.mode || 'heuristic'), // heuristic | external
+    mode: String(opts.mode || 'heuristic'),
     modelVersion: String(opts.modelVersion || GJ_MODEL_VERSION),
     externalPredictor: typeof opts.externalPredictor === 'function' ? opts.externalPredictor : null,
     loaded: false,
