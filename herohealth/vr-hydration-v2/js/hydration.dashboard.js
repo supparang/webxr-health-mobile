@@ -1,11 +1,12 @@
 // === /herohealth/vr-hydration-v2/js/hydration.dashboard.js ===
 // Hydration V2 Dashboard
-// PATCH v20260317e-HYDRATION-V2-DASHBOARD-FILTER-EXPORT
+// PATCH v20260317f-HYDRATION-V2-DASHBOARD-AGGREGATE-ANALYTICS
 
 const refs = {
   countHistory: document.getElementById('countHistory'),
   countFiltered: document.getElementById('countFiltered'),
   avgTotalScore: document.getElementById('avgTotalScore'),
+  avgPlanningScore: document.getElementById('avgPlanningScore'),
   countPassed: document.getElementById('countPassed'),
   lastSessionWeek: document.getElementById('lastSessionWeek'),
 
@@ -15,8 +16,21 @@ const refs = {
   summaryGrid: document.getElementById('summaryGrid'),
   summaryEmpty: document.getElementById('summaryEmpty'),
 
+  teacherGrid: document.getElementById('teacherGrid'),
+  teacherEmpty: document.getElementById('teacherEmpty'),
+
+  sessionChart: document.getElementById('sessionChart'),
+  sessionChartEmpty: document.getElementById('sessionChartEmpty'),
+  breakdownChart: document.getElementById('breakdownChart'),
+  breakdownChartEmpty: document.getElementById('breakdownChartEmpty'),
+
   playerGrid: document.getElementById('playerGrid'),
   playerEmpty: document.getElementById('playerEmpty'),
+
+  pidAggregateGrid: document.getElementById('pidAggregateGrid'),
+  pidAggregateEmpty: document.getElementById('pidAggregateEmpty'),
+  studyAggregateGrid: document.getElementById('studyAggregateGrid'),
+  studyAggregateEmpty: document.getElementById('studyAggregateEmpty'),
 
   historyList: document.getElementById('historyList'),
   historyEmpty: document.getElementById('historyEmpty'),
@@ -79,7 +93,6 @@ function bindUI() {
 
     try {
       keys.forEach(key => localStorage.removeItem(key));
-
       for (let i = localStorage.length - 1; i >= 0; i -= 1) {
         const key = localStorage.key(i);
         if (key && key.startsWith('HHA_HYDRATION_V2_PROGRESS:')) {
@@ -121,14 +134,20 @@ function renderAll() {
   renderStats(dashboardState.latest, dashboardState.history, dashboardState.filtered);
   renderLatest(dashboardState.latest);
   renderSummary(dashboardState.summary);
+  renderTeacherCards(dashboardState.filtered);
+  renderCharts(dashboardState.filtered);
   renderPlayerCards(dashboardState.filtered);
+  renderAggregates(dashboardState.filtered);
   renderHistory(dashboardState.filtered);
 }
 
 function applyFiltersAndRender() {
   dashboardState.filtered = applyFilters(dashboardState.history);
   renderStats(dashboardState.latest, dashboardState.history, dashboardState.filtered);
+  renderTeacherCards(dashboardState.filtered);
+  renderCharts(dashboardState.filtered);
   renderPlayerCards(dashboardState.filtered);
+  renderAggregates(dashboardState.filtered);
   renderHistory(dashboardState.filtered);
 }
 
@@ -156,10 +175,8 @@ function applyFilters(history) {
     if (mode && String(item.mode || '') !== mode) return false;
     if (type && String(item.type || '') !== type) return false;
     if (run && String(item.run || '') !== run) return false;
-
     if (mission === 'passed' && !item.teamMissionDone) return false;
     if (mission === 'failed' && item.teamMissionDone) return false;
-
     return true;
   });
 }
@@ -168,13 +185,18 @@ function renderStats(latest, history, filtered) {
   refs.countHistory.textContent = String(Array.isArray(history) ? history.length : 0);
   refs.countFiltered.textContent = String(Array.isArray(filtered) ? filtered.length : 0);
 
-  const avg = filtered.length
+  const avgTotal = filtered.length
     ? filtered.reduce((sum, item) => sum + Number(item.totalScore || 0), 0) / filtered.length
+    : 0;
+
+  const avgPlanning = filtered.length
+    ? filtered.reduce((sum, item) => sum + Number(item.planningScore || 0), 0) / filtered.length
     : 0;
 
   const passed = filtered.filter(item => !!item.teamMissionDone).length;
 
-  refs.avgTotalScore.textContent = formatNumber(avg);
+  refs.avgTotalScore.textContent = formatNumber(avgTotal);
+  refs.avgPlanningScore.textContent = formatNumber(avgPlanning);
   refs.countPassed.textContent = String(passed);
   refs.lastSessionWeek.textContent = latest
     ? `W${latest.weekNo ?? '-'} S${latest.sessionNo ?? '-'}`
@@ -246,6 +268,131 @@ function renderSummary(summary) {
   });
 }
 
+function renderTeacherCards(filtered) {
+  refs.teacherGrid.innerHTML = '';
+
+  if (!filtered.length) {
+    refs.teacherEmpty.style.display = '';
+    return;
+  }
+
+  refs.teacherEmpty.style.display = 'none';
+
+  const bestTotal = [...filtered].sort((a,b) => Number(b.totalScore||0) - Number(a.totalScore||0))[0];
+  const bestPlanning = [...filtered].sort((a,b) => Number(b.planningScore||0) - Number(a.planningScore||0))[0];
+  const bestSocial = [...filtered].sort((a,b) => Number(b.socialScore||0) - Number(a.socialScore||0))[0];
+  const latest = [...filtered].sort((a,b) => new Date(b.savedAt||0).getTime() - new Date(a.savedAt||0).getTime())[0];
+
+  const cards = [
+    {
+      title: 'Best Total Score',
+      meta: bestTotal
+        ? `${bestTotal.pid || 'anon'} • total=${bestTotal.totalScore || 0} • W${bestTotal.weekNo || '-'} S${bestTotal.sessionNo || '-'}`
+        : '-'
+    },
+    {
+      title: 'Best Planning',
+      meta: bestPlanning
+        ? `${bestPlanning.pid || 'anon'} • planning=${bestPlanning.planningScore || 0} • create=${bestPlanning.createdPlanScore || 0}`
+        : '-'
+    },
+    {
+      title: 'Strongest Social',
+      meta: bestSocial
+        ? `${bestSocial.pid || 'anon'} • social=${bestSocial.socialScore || 0} • mission=${bestSocial.teamMissionDone ? 'ผ่าน' : 'ยังไม่ผ่าน'}`
+        : '-'
+    },
+    {
+      title: 'Latest Session',
+      meta: latest
+        ? `${latest.pid || 'anon'} • ${formatDate(latest.savedAt)} • W${latest.weekNo || '-'} S${latest.sessionNo || '-'}`
+        : '-'
+    }
+  ];
+
+  cards.forEach(card => {
+    const el = document.createElement('article');
+    el.className = 'teacher-card';
+    el.innerHTML = `
+      <div class="teacher-title">${escapeHtml(card.title)}</div>
+      <div class="teacher-meta" style="margin-top:10px;">${escapeHtml(card.meta)}</div>
+    `;
+    refs.teacherGrid.appendChild(el);
+  });
+}
+
+function renderCharts(filtered) {
+  renderSessionChart(filtered);
+  renderBreakdownChart(filtered);
+}
+
+function renderSessionChart(filtered) {
+  refs.sessionChart.innerHTML = '';
+
+  const grouped = new Map();
+  filtered.forEach(item => {
+    const key = `S${item.sessionNo || '-'}`;
+    if (!grouped.has(key)) grouped.set(key, []);
+    grouped.get(key).push(Number(item.totalScore || 0));
+  });
+
+  const rows = [...grouped.entries()]
+    .map(([label, values]) => ({
+      label,
+      value: values.reduce((a,b)=>a+b,0) / values.length
+    }))
+    .sort((a,b) => Number(a.label.replace('S','')) - Number(b.label.replace('S','')));
+
+  if (!rows.length) {
+    refs.sessionChartEmpty.style.display = '';
+    return;
+  }
+
+  refs.sessionChartEmpty.style.display = 'none';
+
+  const maxValue = Math.max(...rows.map(r => r.value), 1);
+
+  rows.forEach(row => {
+    refs.sessionChart.appendChild(makeBarRow(row.label, row.value, maxValue));
+  });
+}
+
+function renderBreakdownChart(filtered) {
+  refs.breakdownChart.innerHTML = '';
+
+  if (!filtered.length) {
+    refs.breakdownChartEmpty.style.display = '';
+    return;
+  }
+
+  refs.breakdownChartEmpty.style.display = 'none';
+
+  const values = [
+    {
+      label: 'Action',
+      value: avg(filtered.map(x => Number(x.actionScore || 0)))
+    },
+    {
+      label: 'Knowledge',
+      value: avg(filtered.map(x => Number(x.knowledgeScore || 0)))
+    },
+    {
+      label: 'Planning',
+      value: avg(filtered.map(x => Number(x.planningScore || 0)))
+    },
+    {
+      label: 'Social',
+      value: avg(filtered.map(x => Number(x.socialScore || 0)))
+    }
+  ];
+
+  const maxValue = Math.max(...values.map(v => v.value), 1);
+
+  values.forEach(row => {
+    refs.breakdownChart.appendChild(makeBarRow(row.label, row.value, maxValue));
+  });
+}
+
 function renderPlayerCards(filtered) {
   refs.playerGrid.innerHTML = '';
 
@@ -295,6 +442,103 @@ function renderPlayerCards(filtered) {
       </div>
     `;
     refs.playerGrid.appendChild(el);
+  });
+}
+
+function renderAggregates(filtered) {
+  renderPidAggregate(filtered);
+  renderStudyAggregate(filtered);
+}
+
+function renderPidAggregate(filtered) {
+  refs.pidAggregateGrid.innerHTML = '';
+
+  const grouped = new Map();
+  filtered.forEach(item => {
+    const key = String(item.pid || 'anon');
+    if (!grouped.has(key)) grouped.set(key, []);
+    grouped.get(key).push(item);
+  });
+
+  const rows = [...grouped.entries()]
+    .map(([pid, items]) => ({
+      pid,
+      runs: items.length,
+      avgTotal: avg(items.map(x => Number(x.totalScore || 0))),
+      avgPlanning: avg(items.map(x => Number(x.planningScore || 0))),
+      passed: items.filter(x => !!x.teamMissionDone).length
+    }))
+    .sort((a,b) => b.avgTotal - a.avgTotal)
+    .slice(0, 12);
+
+  if (!rows.length) {
+    refs.pidAggregateEmpty.style.display = '';
+    return;
+  }
+
+  refs.pidAggregateEmpty.style.display = 'none';
+
+  rows.forEach(row => {
+    const el = document.createElement('article');
+    el.className = 'aggregate-card';
+    el.innerHTML = `
+      <div class="aggregate-top">
+        <div class="aggregate-name">PID ${escapeHtml(row.pid)}</div>
+        <div class="aggregate-badge">${escapeHtml(row.runs)} runs</div>
+      </div>
+      <div class="aggregate-meta">
+        avg total = ${formatNumber(row.avgTotal)}<br/>
+        avg planning = ${formatNumber(row.avgPlanning)}<br/>
+        team mission passed = ${escapeHtml(row.passed)}
+      </div>
+    `;
+    refs.pidAggregateGrid.appendChild(el);
+  });
+}
+
+function renderStudyAggregate(filtered) {
+  refs.studyAggregateGrid.innerHTML = '';
+
+  const grouped = new Map();
+  filtered.forEach(item => {
+    const key = String(item.studyId || '(empty)');
+    if (!grouped.has(key)) grouped.set(key, []);
+    grouped.get(key).push(item);
+  });
+
+  const rows = [...grouped.entries()]
+    .map(([studyId, items]) => ({
+      studyId,
+      runs: items.length,
+      participants: new Set(items.map(x => String(x.pid || 'anon'))).size,
+      avgTotal: avg(items.map(x => Number(x.totalScore || 0))),
+      missionRate: items.length ? (items.filter(x => !!x.teamMissionDone).length / items.length) * 100 : 0
+    }))
+    .sort((a,b) => b.avgTotal - a.avgTotal)
+    .slice(0, 12);
+
+  if (!rows.length) {
+    refs.studyAggregateEmpty.style.display = '';
+    return;
+  }
+
+  refs.studyAggregateEmpty.style.display = 'none';
+
+  rows.forEach(row => {
+    const el = document.createElement('article');
+    el.className = 'aggregate-card';
+    el.innerHTML = `
+      <div class="aggregate-top">
+        <div class="aggregate-name">Study ${escapeHtml(row.studyId)}</div>
+        <div class="aggregate-badge">${escapeHtml(row.runs)} runs</div>
+      </div>
+      <div class="aggregate-meta">
+        participants = ${escapeHtml(row.participants)}<br/>
+        avg total = ${formatNumber(row.avgTotal)}<br/>
+        mission pass rate = ${formatNumber(row.missionRate)}%
+      </div>
+    `;
+    refs.studyAggregateGrid.appendChild(el);
   });
 }
 
@@ -415,6 +659,23 @@ function makeInfoBox(label, value) {
   return el;
 }
 
+function makeBarRow(label, value, maxValue) {
+  const percent = maxValue > 0 ? (value / maxValue) * 100 : 0;
+
+  const el = document.createElement('div');
+  el.className = 'bar-row';
+  el.innerHTML = `
+    <div class="bar-top">
+      <span>${escapeHtml(label)}</span>
+      <span>${escapeHtml(formatNumber(value))}</span>
+    </div>
+    <div class="bar-track">
+      <div class="bar-fill" style="width:${percent}%;"></div>
+    </div>
+  `;
+  return el;
+}
+
 function readJson(key, fallback) {
   try {
     const raw = localStorage.getItem(key);
@@ -423,6 +684,11 @@ function readJson(key, fallback) {
   } catch (_) {
     return fallback;
   }
+}
+
+function avg(values) {
+  if (!values.length) return 0;
+  return values.reduce((a,b) => a + Number(b || 0), 0) / values.length;
 }
 
 function formatDate(value) {
