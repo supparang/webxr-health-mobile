@@ -1,0 +1,450 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth — Hydration V2 Launcher</title>
+  <meta name="color-scheme" content="dark light" />
+  <link rel="icon" href="./favicon.ico" />
+  <style>
+    :root{
+      --bg1:#031525;
+      --bg2:#0a2740;
+      --bg3:#123a5f;
+      --panel:rgba(3,21,37,.78);
+      --panel2:rgba(255,255,255,.08);
+      --stroke:rgba(148,163,184,.18);
+      --text:#eaf6ff;
+      --muted:#b7d4ea;
+      --blue:#38bdf8;
+      --cyan:#22d3ee;
+      --good:#22c55e;
+      --warn:#f59e0b;
+      --shadow:0 20px 48px rgba(0,0,0,.28);
+      --radius:24px;
+      --sat: env(safe-area-inset-top, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
+      --sar: env(safe-area-inset-right, 0px);
+    }
+    *{ box-sizing:border-box; }
+    html,body{
+      margin:0;
+      min-height:100%;
+      font-family: ui-rounded, "Noto Sans Thai", system-ui, -apple-system, sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(34,211,238,.14), transparent 32%),
+        radial-gradient(circle at top right, rgba(56,189,248,.10), transparent 28%),
+        linear-gradient(180deg, var(--bg2), var(--bg1) 54%, #02111d);
+    }
+    body{
+      padding:
+        calc(18px + var(--sat))
+        calc(16px + var(--sar))
+        calc(18px + var(--sab))
+        calc(16px + var(--sal));
+    }
+    .wrap{
+      max-width:1100px;
+      margin:0 auto;
+    }
+    .hero{
+      display:grid;
+      grid-template-columns:1.15fr .85fr;
+      gap:18px;
+      align-items:stretch;
+    }
+    .hero-card,
+    .panel{
+      background:var(--panel);
+      border:1px solid var(--stroke);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+      backdrop-filter: blur(12px);
+    }
+    .hero-card{
+      padding:24px;
+      min-height:280px;
+      position:relative;
+      overflow:hidden;
+    }
+    .hero-card::after{
+      content:"💧";
+      position:absolute;
+      right:18px;
+      bottom:10px;
+      font-size:100px;
+      opacity:.10;
+      pointer-events:none;
+    }
+    .eyebrow{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 12px;
+      border-radius:999px;
+      background:rgba(56,189,248,.14);
+      border:1px solid rgba(56,189,248,.22);
+      color:#c9f3ff;
+      font-size:13px;
+      font-weight:800;
+      letter-spacing:.02em;
+    }
+    h1{
+      margin:14px 0 10px;
+      font-size:clamp(30px, 4vw, 48px);
+      line-height:1.02;
+    }
+    .lead{
+      margin:0;
+      color:var(--muted);
+      font-size:16px;
+      line-height:1.7;
+      max-width:58ch;
+    }
+    .bullet-row{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      margin-top:18px;
+    }
+    .pill{
+      padding:10px 14px;
+      border-radius:999px;
+      background:rgba(255,255,255,.06);
+      border:1px solid var(--stroke);
+      font-size:14px;
+      color:#dff4ff;
+      font-weight:700;
+    }
+    .panel{
+      padding:18px;
+      display:flex;
+      flex-direction:column;
+      justify-content:space-between;
+    }
+    .panel h2{
+      margin:0 0 10px;
+      font-size:20px;
+    }
+    .panel p{
+      margin:0;
+      color:var(--muted);
+      line-height:1.65;
+    }
+    .grid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:16px;
+      margin-top:18px;
+    }
+    .mode-card{
+      position:relative;
+      text-align:left;
+      border:none;
+      outline:none;
+      cursor:pointer;
+      width:100%;
+      padding:18px;
+      border-radius:22px;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.05));
+      color:var(--text);
+      border:1px solid var(--stroke);
+      box-shadow:0 14px 28px rgba(0,0,0,.18);
+      transition:transform .16s ease, border-color .16s ease, background .16s ease;
+    }
+    .mode-card:hover,
+    .mode-card:focus-visible{
+      transform:translateY(-2px);
+      border-color:rgba(56,189,248,.35);
+      background:
+        linear-gradient(180deg, rgba(56,189,248,.16), rgba(255,255,255,.06));
+    }
+    .mode-top{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      margin-bottom:8px;
+    }
+    .mode-title{
+      font-size:20px;
+      font-weight:900;
+      line-height:1.15;
+    }
+    .tag{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-width:68px;
+      padding:8px 10px;
+      border-radius:999px;
+      font-size:12px;
+      font-weight:900;
+      letter-spacing:.02em;
+    }
+    .tag.play{ background:rgba(34,197,94,.18); color:#dbffe7; }
+    .tag.research{ background:rgba(56,189,248,.18); color:#dff8ff; }
+    .mode-sub{
+      font-size:14px;
+      color:var(--muted);
+      line-height:1.6;
+      margin-bottom:14px;
+    }
+    .meta{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+    }
+    .meta span{
+      font-size:12px;
+      font-weight:800;
+      color:#dcefff;
+      padding:7px 10px;
+      border-radius:999px;
+      background:rgba(255,255,255,.06);
+      border:1px solid rgba(255,255,255,.08);
+    }
+    .footer-actions{
+      display:flex;
+      flex-wrap:wrap;
+      align-items:center;
+      gap:12px;
+      margin-top:18px;
+    }
+    .btn{
+      appearance:none;
+      border:none;
+      outline:none;
+      cursor:pointer;
+      min-height:46px;
+      padding:12px 18px;
+      border-radius:14px;
+      font-size:15px;
+      font-weight:900;
+      transition:transform .16s ease, opacity .16s ease, background .16s ease;
+    }
+    .btn:hover,
+    .btn:focus-visible{ transform:translateY(-1px); }
+    .btn.primary{
+      background:linear-gradient(180deg, #4cc9ff, #1ca6df);
+      color:#031525;
+    }
+    .btn.ghost{
+      background:rgba(255,255,255,.07);
+      color:var(--text);
+      border:1px solid var(--stroke);
+    }
+    .small-note{
+      margin-top:14px;
+      color:var(--muted);
+      font-size:13px;
+      line-height:1.6;
+    }
+    .pass{
+      margin-top:16px;
+      padding:14px 16px;
+      border-radius:18px;
+      background:rgba(255,255,255,.05);
+      border:1px dashed rgba(255,255,255,.12);
+      color:#d8effc;
+      font-size:14px;
+      line-height:1.6;
+    }
+    .status{
+      margin-top:18px;
+      padding:14px 16px;
+      border-radius:16px;
+      background:rgba(34,197,94,.10);
+      color:#ddffe8;
+      border:1px solid rgba(34,197,94,.20);
+      display:none;
+      font-weight:800;
+    }
+    .status.show{ display:block; }
+
+    @media (max-width: 900px){
+      .hero{ grid-template-columns:1fr; }
+    }
+    @media (max-width: 720px){
+      .grid{ grid-template-columns:1fr; }
+      .hero-card{ padding:20px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="hero">
+      <article class="hero-card">
+        <div class="eyebrow">💧 Hydration V2 • Abstract-aligned starter</div>
+        <h1>Hydration VR รุ่นใหม่<br/>แยกโฟลเดอร์ใหม่</h1>
+        <p class="lead">
+          เวอร์ชันนี้แยกจากของเดิม เพื่อให้เพิ่มองค์ประกอบตาม abstract ได้สะอาดกว่าเดิม
+          เช่น Evaluate, Program Mode, และ flow การเรียนรู้หลังเล่น โดยยังไม่ทับไฟล์เก่า
+        </p>
+        <div class="bullet-row">
+          <span class="pill">Quick / Program</span>
+          <span class="pill">Solo / Team</span>
+          <span class="pill">Summary + Evaluate</span>
+          <span class="pill">ต่อ Create/Scenarios ได้</span>
+        </div>
+        <div class="small-note" id="passNote">
+          ระบบจะส่ง query สำคัญต่อไปให้เอง เช่น <strong>pid</strong>, <strong>studyId</strong>, <strong>seed</strong>, <strong>hub</strong>
+        </div>
+      </article>
+
+      <aside class="panel">
+        <div>
+          <h2>ชุดนี้ทำอะไรได้แล้ว</h2>
+          <p>
+            เข้า launcher → run page → เล่นรอบหลัก → summary → evaluate ได้จริง
+            เหมาะสำหรับใช้เป็นฐานของ Hydration V2 ก่อนค่อยเติม Create / Rewards / Scenarios / Social / Research รอบถัดไป
+          </p>
+          <div class="pass" id="queryPreview">
+            กำลังอ่าน query ปัจจุบัน...
+          </div>
+        </div>
+
+        <div class="footer-actions">
+          <button class="btn ghost" id="backHubBtn" type="button">← กลับ HUB</button>
+          <button class="btn primary" id="startDefaultBtn" type="button">เริ่มแบบ Quick Solo</button>
+        </div>
+
+        <div class="status" id="statusBox"></div>
+      </aside>
+    </section>
+
+    <section class="grid" aria-label="เลือกโหมดเล่น">
+      <button class="mode-card" type="button" data-mode="quick" data-type="solo" data-run="play">
+        <div class="mode-top">
+          <div class="mode-title">Quick Solo</div>
+          <span class="tag play">PLAY</span>
+        </div>
+        <div class="mode-sub">เล่นสั้น เน้นเก็บน้ำและจบด้วย Evaluate 1 ชุด</div>
+        <div class="meta">
+          <span>เดี่ยว</span>
+          <span>รอบสั้น</span>
+          <span>พร้อมทดสอบ</span>
+        </div>
+      </button>
+
+      <button class="mode-card" type="button" data-mode="quick" data-type="team" data-run="play">
+        <div class="mode-top">
+          <div class="mode-title">Quick Team</div>
+          <span class="tag play">PLAY</span>
+        </div>
+        <div class="mode-sub">เล่นสั้นแบบทีม พร้อมคำนวณ contribution เบื้องต้น</div>
+        <div class="meta">
+          <span>ทีม</span>
+          <span>team badge</span>
+          <span>starter social</span>
+        </div>
+      </button>
+
+      <button class="mode-card" type="button" data-mode="program" data-type="solo" data-run="research">
+        <div class="mode-top">
+          <div class="mode-title">Program Solo</div>
+          <span class="tag research">RESEARCH</span>
+        </div>
+        <div class="mode-sub">ฐานสำหรับ intervention mode แบบเดี่ยว พร้อม seed และ summary log</div>
+        <div class="meta">
+          <span>เดี่ยว</span>
+          <span>program scaffold</span>
+          <span>seeded</span>
+        </div>
+      </button>
+
+      <button class="mode-card" type="button" data-mode="program" data-type="team" data-run="research">
+        <div class="mode-top">
+          <div class="mode-title">Program Team</div>
+          <span class="tag research">RESEARCH</span>
+        </div>
+        <div class="mode-sub">ฐานสำหรับ session แบบทีม เตรียมต่อ social และ research module</div>
+        <div class="meta">
+          <span>ทีม</span>
+          <span>program scaffold</span>
+          <span>session-ready</span>
+        </div>
+      </button>
+    </section>
+  </div>
+
+  <script>
+    (function(){
+      const qs = new URLSearchParams(window.location.search);
+      const statusBox = document.getElementById('statusBox');
+      const backHubBtn = document.getElementById('backHubBtn');
+      const startDefaultBtn = document.getElementById('startDefaultBtn');
+      const preview = document.getElementById('queryPreview');
+      const passNote = document.getElementById('passNote');
+
+      const passthrough = {
+        pid: qs.get('pid') || '',
+        studyId: qs.get('studyId') || '',
+        phase: qs.get('phase') || '',
+        diff: qs.get('diff') || 'normal',
+        seed: qs.get('seed') || String(Date.now()),
+        hub: qs.get('hub') || './hub.html'
+      };
+
+      preview.innerHTML = `
+        <strong>passthrough</strong><br/>
+        pid=${escapeHtml(passthrough.pid || '(empty)')} •
+        studyId=${escapeHtml(passthrough.studyId || '(empty)')} •
+        diff=${escapeHtml(passthrough.diff)} •
+        seed=${escapeHtml(passthrough.seed)} •
+        hub=${escapeHtml(passthrough.hub)}
+      `;
+
+      passNote.innerHTML =
+        `ระบบจะส่ง query ต่อไปให้เอง เช่น <strong>pid</strong>, <strong>studyId</strong>, <strong>seed</strong>, <strong>hub</strong>`;
+
+      function escapeHtml(value){
+        return String(value ?? '')
+          .replaceAll('&', '&amp;')
+          .replaceAll('<', '&lt;')
+          .replaceAll('>', '&gt;')
+          .replaceAll('"', '&quot;');
+      }
+
+      function buildRunUrl(mode, type, run){
+        const target = new URL('./vr-hydration-v2/hydration-vr.html', window.location.href);
+        target.searchParams.set('gameId', 'hydration');
+        target.searchParams.set('mode', mode);
+        target.searchParams.set('type', type);
+        target.searchParams.set('run', run);
+        target.searchParams.set('pid', passthrough.pid);
+        target.searchParams.set('studyId', passthrough.studyId);
+        target.searchParams.set('phase', passthrough.phase);
+        target.searchParams.set('diff', passthrough.diff);
+        target.searchParams.set('seed', passthrough.seed);
+        target.searchParams.set('hub', passthrough.hub);
+        return target.toString();
+      }
+
+      function go(mode, type, run){
+        const url = buildRunUrl(mode, type, run);
+        statusBox.textContent = `กำลังเข้า ${mode} / ${type} / ${run}`;
+        statusBox.classList.add('show');
+        window.location.href = url;
+      }
+
+      document.querySelectorAll('.mode-card').forEach(btn => {
+        btn.addEventListener('click', () => {
+          go(btn.dataset.mode, btn.dataset.type, btn.dataset.run);
+        });
+      });
+
+      startDefaultBtn.addEventListener('click', () => {
+        go('quick', 'solo', 'play');
+      });
+
+      backHubBtn.addEventListener('click', () => {
+        window.location.href = passthrough.hub;
+      });
+    })();
+  </script>
+</body>
+</html>
