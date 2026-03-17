@@ -76,6 +76,7 @@ let presenceTimer = 0;
 let subscribed = false;
 let repairBusy = false;
 let exitMode = 'stay'; // stay | leave | to-run
+let hasEnteredRun = false;
 
 function normalizeRoomCode(raw) {
   return String(raw || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
@@ -282,7 +283,9 @@ function sanitizeRoom(r) {
 
   safe.minPlayers = Math.max(2, Number(safe.minPlayers || 2));
   safe.maxPlayers = Math.max(safe.minPlayers, Number(safe.maxPlayers || 4));
-  safe.status = ['waiting', 'countdown', 'running', 'finished'].includes(safe.status) ? safe.status : 'waiting';
+  safe.status = ['waiting', 'countdown', 'running', 'finished'].includes(safe.status)
+    ? safe.status
+    : 'waiting';
   safe.startAt = safe.startAt ? Number(safe.startAt) : null;
   safe.updatedAt = now();
 
@@ -363,7 +366,9 @@ function renderPlayers(r = room) {
     return `
       <div class="player">
         <div><strong>${escapeHtml(playerLabel(p))}</strong>${escapeHtml(meTag)}${escapeHtml(hostTag)}</div>
-        <div class="${getPhaseClass(p)}">${escapeHtml(getPhaseLabel(p))}</div>
+        <div class="${getPhaseClass(p)}">
+          ${escapeHtml(getPhaseLabel(p))}
+        </div>
       </div>
     `;
   }).join('');
@@ -404,11 +409,15 @@ function renderStatus(r = room) {
   const active = activePlayers(r);
 
   if (r.status === 'waiting') {
-    if (active.length < (r.minPlayers || 2)) setHint(`ต้องมีอย่างน้อย ${r.minPlayers} คน`);
-    else if (!active.every((p) => p.ready)) setHint('รอให้ทุกคนกดพร้อม');
-    else if (isHost(r)) setHint('ทุกคนพร้อมแล้ว กดเริ่มแข่งได้');
-    else setHint('ทุกคนพร้อมแล้ว รอ host กดเริ่ม');
-
+    if (active.length < (r.minPlayers || 2)) {
+      setHint(`ต้องมีอย่างน้อย ${r.minPlayers} คน`);
+    } else if (!active.every((p) => p.ready)) {
+      setHint('รอให้ทุกคนกดพร้อม');
+    } else if (isHost(r)) {
+      setHint('ทุกคนพร้อมแล้ว กดเริ่มแข่งได้');
+    } else {
+      setHint('ทุกคนพร้อมแล้ว รอ host กดเริ่ม');
+    }
     setCopyState('ส่ง room code หรือลิงก์นี้ให้ผู้เล่นคนอื่นเข้าร่วมได้');
     if (els.countdown) els.countdown.textContent = '';
   }
@@ -419,7 +428,7 @@ function renderStatus(r = room) {
   }
 
   if (r.status === 'running') {
-    setHint('การแข่งขันเริ่มแล้ว กำลังเข้าสู่เกม');
+    setHint('การแข่งขันกำลังดำเนินอยู่');
     setCopyState('การแข่งขันกำลังดำเนินอยู่', false);
   }
 
@@ -475,6 +484,20 @@ function runCountdown(startAt) {
   };
 
   tick();
+}
+
+async function maybeEnterRunFromRoom(r = room) {
+  if (!r) return;
+  if (hasEnteredRun) return;
+  if (r.status !== 'running') return;
+
+  const me = r.players?.find((p) => p.id === ctx.pid);
+  if (!me) return;
+  if (me.phase === 'done') return;
+
+  const effectiveStartAt = Number(r.startAt || now() || Date.now());
+  hasEnteredRun = true;
+  await enterRun(effectiveStartAt);
 }
 
 function waitForFirebaseReady(timeoutMs = 12000) {
@@ -590,8 +613,15 @@ function subscribeRoom() {
     room = sanitizeRoom(snapshotToRoom(raw));
     render();
 
-    if (room.status === 'countdown' && room.startAt) runCountdown(room.startAt);
-    else cancelCountdown();
+    if (room.status === 'countdown' && room.startAt) {
+      runCountdown(room.startAt);
+    } else {
+      cancelCountdown();
+    }
+
+    if (room.status === 'running') {
+      await maybeEnterRunFromRoom(room);
+    }
 
     await maybeRepairRoomIfNeeded(room);
   });
@@ -702,6 +732,9 @@ async function beginCountdown() {
 }
 
 async function enterRun(startAt) {
+  if (hasEnteredRun) return;
+  hasEnteredRun = true;
+
   exitMode = 'to-run';
 
   try {
@@ -728,10 +761,10 @@ async function enterRun(startAt) {
     gameId: ctx.gameId,
     mode: 'race',
     roomId: ctx.roomId,
-    startAt: String(startAt)
+    startAt: String(startAt || now())
   });
 
-  location.href = `./vr-goodjunk/goodjunk-vr.html?${q.toString()}`;
+  location.href = `./vr-goodjunk/goodjunk-vr.html?v=20260318b-race-run-shim-fix&${q.toString()}`;
 }
 
 async function leaveRoom() {
@@ -776,7 +809,6 @@ async function onReadyClick() {
     setHint('ยังเข้าห้องไม่สำเร็จ');
     return;
   }
-
   if (room?.status !== 'waiting') {
     setHint('ตอนนี้เปลี่ยนสถานะพร้อมไม่ได้แล้ว');
     return;
@@ -855,6 +887,10 @@ async function boot() {
 
     if (room?.status === 'countdown' && room.startAt) {
       runCountdown(room.startAt);
+    }
+
+    if (room?.status === 'running') {
+      await maybeEnterRunFromRoom(room);
     }
   } catch (err) {
     console.error('[goodjunk-race-lobby] boot failed:', err);
