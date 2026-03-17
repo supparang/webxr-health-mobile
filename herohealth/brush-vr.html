@@ -198,40 +198,10 @@
       font-size:34px;
       filter:drop-shadow(0 10px 22px rgba(0,0,0,.32));
     }
-    .cards{
-      display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:14px;
-    }
-    .card{
-      padding:16px;
-      display:grid;
-      gap:12px;
-    }
-    .cardTitle{
-      font-size:16px;
-      font-weight:950;
-      display:flex;
-      align-items:center;
-      gap:8px;
-    }
-    .cardText{
-      color:var(--muted);
-      font-size:13px;
-      line-height:1.55;
-      font-weight:800;
-    }
     .launcher{
       padding:18px;
       display:grid;
       gap:16px;
-    }
-    .launcherHead{
-      display:flex;
-      justify-content:space-between;
-      gap:10px;
-      align-items:flex-start;
-      flex-wrap:wrap;
     }
     .launcherTitle{
       font-size:20px;
@@ -339,7 +309,6 @@
     }
     @media (max-width: 980px){
       .hero{ grid-template-columns:1fr; }
-      .cards{ grid-template-columns:1fr; }
       .field{ grid-column:span 6; }
       .field.span6{ grid-column:span 6; }
     }
@@ -351,12 +320,9 @@
           calc(18px + var(--sab))
           calc(8px + var(--sal));
       }
-      .app{ gap:10px; }
       .hero{ padding:14px; gap:14px; }
       .title{ font-size:26px; }
       .sub{ font-size:14px; }
-      .cards{ gap:10px; }
-      .card{ padding:12px; }
       .launcher{ padding:14px; }
       .formGrid{ grid-template-columns:1fr; gap:10px; }
       .field,.field.span6,.field.span12{ grid-column:span 1; }
@@ -371,17 +337,17 @@
   <div class="app">
     <section class="panel hero">
       <div class="heroLeft">
-        <div class="kicker">🪥 Hygiene Zone • Brush VR • Gate Flow</div>
-        <h1 class="title">Brush VR<br />เข้า warmup และ cooldown ด้วย gate เดิม</h1>
+        <div class="kicker">🪥 Hygiene Zone • Brush VR • Warmup Gate</div>
+        <h1 class="title">Brush VR<br>Launcher</h1>
         <div class="sub">
-          ใช้ <b>warmup-gate.html</b> ไฟล์เดียว โดยเปลี่ยนค่า <b>phase</b> เป็น
-          <b>warmup</b> ตอนเข้าเกม และ <b>cooldown</b> ตอนออกเกม
+          เริ่มจากหน้านี้ แล้วระบบจะพาเข้า <b>warmup-gate.html?phase=warmup</b>
+          ก่อนเข้าเกมจริงเสมอ
         </div>
 
         <div class="heroBullets">
-          <div class="bullet"><span>1</span><div>เริ่มที่ launcher นี้</div></div>
-          <div class="bullet"><span>2</span><div>ส่งเข้า <b>warmup-gate.html?phase=warmup</b></div></div>
-          <div class="bullet"><span>3</span><div>จบเกมแล้วส่งไป <b>warmup-gate.html?phase=cooldown</b></div></div>
+          <div class="bullet"><span>1</span><div>Launcher นี้จะสร้าง URL ไป run page จริง</div></div>
+          <div class="bullet"><span>2</span><div>ส่ง URL นั้นเข้า warmup gate ผ่านพารามิเตอร์ <b>next</b></div></div>
+          <div class="bullet"><span>3</span><div>หลังจบเกม run page จะพาไป <b>phase=cooldown</b></div></div>
         </div>
       </div>
 
@@ -408,28 +374,10 @@
       </div>
     </section>
 
-    <section class="cards">
-      <div class="panel card">
-        <div class="cardTitle">🎯 Flow มาตรฐาน</div>
-        <div class="cardText">
-          Brush จะไม่เข้า run page ตรงอีกต่อไป แต่จะเข้าผ่าน gate เสมอ เพื่อให้สอดคล้องกับ HeroHealth flow
-        </div>
-      </div>
-
-      <div class="panel card">
-        <div class="cardTitle">🧩 ใช้ gate เดิม</div>
-        <div class="cardText">
-          ไม่ต้องสร้าง cooldown-gate ใหม่ ใช้ <b>warmup-gate.html</b> ไฟล์เดิมแล้วเปลี่ยนค่า <b>phase</b>
-        </div>
-      </div>
-    </section>
-
     <section class="panel launcher">
-      <div class="launcherHead">
-        <div>
-          <h2 class="launcherTitle">เริ่มเล่น Brush VR</h2>
-          <div class="launcherSub">กดเริ่มแล้วจะเข้า warmup gate ก่อนเสมอ</div>
-        </div>
+      <div>
+        <h2 class="launcherTitle">เริ่มเล่น Brush VR</h2>
+        <div class="launcherSub">กดเริ่มแล้วจะเข้า warmup gate ก่อนเสมอ</div>
       </div>
 
       <div class="formGrid">
@@ -509,7 +457,7 @@
       </div>
 
       <div class="miniNote" id="previewText">
-        ระบบจะใช้ warmup-gate.html ไฟล์เดิม และเปลี่ยน phase เป็น warmup/cooldown ตามช่วงของ flow
+        ระบบจะส่งเข้า warmup-gate.html โดยตั้ง phase=warmup และ next=../vr-brush/brush.html...
       </div>
     </section>
   </div>
