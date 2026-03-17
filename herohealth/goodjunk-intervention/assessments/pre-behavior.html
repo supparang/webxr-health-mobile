@@ -1,1 +1,380 @@
-q
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>GoodJunk Intervention — Pre-Behavior</title>
+  <meta name="color-scheme" content="dark light" />
+  <style>
+    :root{
+      --bg:#08101f;
+      --panel:rgba(15,23,42,.86);
+      --card:rgba(15,23,42,.72);
+      --line:rgba(148,163,184,.18);
+      --text:#e5e7eb;
+      --muted:#94a3b8;
+      --blue:#38bdf8;
+      --green:#22c55e;
+      --violet:#a78bfa;
+      --shadow:0 20px 60px rgba(0,0,0,.32);
+    }
+
+    *{ box-sizing:border-box; }
+
+    html,body{
+      margin:0;
+      min-height:100%;
+      background:
+        radial-gradient(circle at top, #172554 0%, #08101f 48%, #020617 100%);
+      color:var(--text);
+      font-family:system-ui,-apple-system,"Noto Sans Thai","Segoe UI",Roboto,Arial,sans-serif;
+    }
+
+    .wrap{
+      width:min(980px, calc(100% - 24px));
+      margin:20px auto 36px;
+    }
+
+    .hero,.card{
+      background:var(--panel);
+      border:1px solid var(--line);
+      border-radius:24px;
+      box-shadow:var(--shadow);
+      padding:18px;
+      backdrop-filter:blur(12px);
+    }
+
+    .hero h1{
+      margin:8px 0 8px;
+      font-size:clamp(28px,5vw,40px);
+      line-height:1.05;
+    }
+
+    .kicker{
+      display:inline-flex;
+      align-items:center;
+      min-height:34px;
+      padding:6px 12px;
+      border-radius:999px;
+      border:1px solid rgba(124,58,237,.22);
+      background:rgba(124,58,237,.10);
+      color:#ede9fe;
+      font-size:12px;
+      font-weight:1000;
+    }
+
+    .sub{
+      color:var(--muted);
+      font-size:14px;
+      line-height:1.6;
+      margin-top:8px;
+    }
+
+    .grid{
+      display:grid;
+      gap:14px;
+      margin-top:16px;
+    }
+
+    .context{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      margin-top:12px;
+    }
+
+    .chip{
+      display:inline-flex;
+      align-items:center;
+      min-height:30px;
+      padding:4px 10px;
+      border-radius:999px;
+      border:1px solid var(--line);
+      background:rgba(2,6,23,.46);
+      color:#dbeafe;
+      font-size:12px;
+      font-weight:900;
+    }
+
+    .card h2{
+      margin:0 0 10px;
+      font-size:18px;
+    }
+
+    .q{
+      border:1px solid var(--line);
+      border-radius:18px;
+      background:var(--card);
+      padding:14px;
+      margin-top:12px;
+    }
+
+    .q-title{
+      font-size:16px;
+      font-weight:1000;
+      line-height:1.45;
+    }
+
+    .options{
+      display:grid;
+      gap:10px;
+      margin-top:12px;
+    }
+
+    label.option{
+      display:flex;
+      gap:12px;
+      align-items:flex-start;
+      padding:12px 14px;
+      border:1px solid var(--line);
+      border-radius:14px;
+      background:rgba(2,6,23,.44);
+      cursor:pointer;
+    }
+
+    label.option input{
+      margin-top:2px;
+      accent-color:#22c55e;
+      width:18px;
+      height:18px;
+      flex:0 0 auto;
+    }
+
+    label.option span{
+      line-height:1.55;
+      font-size:14px;
+      color:#e2e8f0;
+    }
+
+    .actions{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      margin-top:18px;
+    }
+
+    button{
+      appearance:none;
+      border:none;
+      cursor:pointer;
+      min-height:46px;
+      border-radius:14px;
+      padding:0 16px;
+      font:900 14px/1 system-ui,-apple-system,"Noto Sans Thai","Segoe UI",Roboto,Arial;
+      color:#fff;
+    }
+
+    .btn-blue{ background:linear-gradient(135deg,#2563eb,#38bdf8); }
+    .btn-green{ background:linear-gradient(135deg,#16a34a,#22c55e); }
+    .btn-violet{ background:linear-gradient(135deg,#7c3aed,#a78bfa); }
+    .btn-ghost{
+      background:rgba(148,163,184,.12);
+      border:1px solid var(--line);
+      color:var(--text);
+    }
+
+    .muted{ color:var(--muted); font-size:13px; line-height:1.55; }
+    .summary{
+      margin-top:10px;
+      color:#cbd5e1;
+      font-size:14px;
+      line-height:1.6;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="hero">
+      <div class="kicker">🍽️ Pre-Behavior • GoodJunk Intervention</div>
+      <h1>แบบวัดพฤติกรรมก่อนเล่น</h1>
+      <div class="sub">
+        ตอบตามความเป็นจริงในตอนนี้ เพื่อใช้เปรียบเทียบกับผลหลังเล่นเกม
+      </div>
+
+      <div class="context" id="ctxChips"></div>
+    </section>
+
+    <section class="grid">
+      <section class="card">
+        <h2>คำถามทั้งหมด 5 ข้อ</h2>
+        <div class="muted">เลือกคำตอบที่ตรงกับตัวเองมากที่สุด</div>
+
+        <form id="quizForm">
+          <div class="q">
+            <div class="q-title">1) ถ้าหิวหลังเลิกเรียน หนูมักเลือกของว่างที่ดีต่อสุขภาพบ่อยแค่ไหน</div>
+            <div class="options">
+              <label class="option"><input type="radio" name="q1" value="1"><span>ไม่ค่อยเลือก</span></label>
+              <label class="option"><input type="radio" name="q1" value="2"><span>เลือกบ้างบางครั้ง</span></label>
+              <label class="option"><input type="radio" name="q1" value="3"><span>เลือกค่อนข้างบ่อย</span></label>
+            </div>
+          </div>
+
+          <div class="q">
+            <div class="q-title">2) หนูมักเลือกผลไม้หรืออาหารที่มีประโยชน์แทนขนมหรือเครื่องดื่มหวานบ่อยแค่ไหน</div>
+            <div class="options">
+              <label class="option"><input type="radio" name="q2" value="1"><span>ไม่ค่อยเลือกแทน</span></label>
+              <label class="option"><input type="radio" name="q2" value="2"><span>เลือกแทนบ้าง</span></label>
+              <label class="option"><input type="radio" name="q2" value="3"><span>เลือกแทนบ่อย</span></label>
+            </div>
+          </div>
+
+          <div class="q">
+            <div class="q-title">3) หนูกินขนมหวาน น้ำหวาน หรือ junk food บ่อยแค่ไหน</div>
+            <div class="options">
+              <label class="option"><input type="radio" name="q3" value="1"><span>บ่อยมาก</span></label>
+              <label class="option"><input type="radio" name="q3" value="2"><span>บางครั้ง</span></label>
+              <label class="option"><input type="radio" name="q3" value="3"><span>ไม่ค่อยบ่อย</span></label>
+            </div>
+          </div>
+
+          <div class="q">
+            <div class="q-title">4) หนูคุยกับผู้ปกครองหรือคนที่บ้านเรื่องอาหารดีหรือของว่างที่ดีบ่อยแค่ไหน</div>
+            <div class="options">
+              <label class="option"><input type="radio" name="q4" value="1"><span>แทบไม่ค่อยคุย</span></label>
+              <label class="option"><input type="radio" name="q4" value="2"><span>คุยบ้างบางครั้ง</span></label>
+              <label class="option"><input type="radio" name="q4" value="3"><span>คุยค่อนข้างบ่อย</span></label>
+            </div>
+          </div>
+
+          <div class="q">
+            <div class="q-title">5) หนูรู้สึกพร้อมแค่ไหนที่จะลองเลือกของว่างดีต่อสุขภาพในชีวิตจริง</div>
+            <div class="options">
+              <label class="option"><input type="radio" name="q5" value="1"><span>ยังไม่ค่อยพร้อม</span></label>
+              <label class="option"><input type="radio" name="q5" value="2"><span>พอพร้อมบ้าง</span></label>
+              <label class="option"><input type="radio" name="q5" value="3"><span>พร้อมจะลองทำ</span></label>
+            </div>
+          </div>
+        </form>
+
+        <div class="summary" id="statusText">
+          ตอบให้ครบทุกข้อแล้วกด “บันทึกและไปเกม”
+        </div>
+
+        <div class="actions">
+          <button class="btn-ghost" id="btnBack" type="button">← กลับ Pre-Knowledge</button>
+          <button class="btn-green" id="btnSaveNext" type="button">บันทึกและไปเกม</button>
+          <button class="btn-blue" id="btnSkip" type="button">ข้ามไปเกม</button>
+        </div>
+      </section>
+    </section>
+  </div>
+
+  <script>
+    const $ = (id)=>document.getElementById(id);
+    const STORAGE_KEY = 'GOODJUNK_INT_PRE_BEHAVIOR_V1';
+
+    function q(k,d=''){
+      try{ return new URL(location.href).searchParams.get(k) ?? d; }
+      catch(_){ return d; }
+    }
+
+    function withContext(base){
+      const u = new URL(base, location.href);
+      const src = new URL(location.href);
+      [
+        'projectTag','studyId','phase','conditionGroup','sessionOrder','blockLabel','sessionId',
+        'studentKey','schoolCode','schoolName','classRoom','studentNo','nickName',
+        'gradeLevel','gender','age','run','diff','view','time','seed','kid','readable','hub'
+      ].forEach(k=>{
+        const v = src.searchParams.get(k);
+        if(v != null && v !== '') u.searchParams.set(k, v);
+      });
+      return u.toString();
+    }
+
+    function renderChips(){
+      const chips = [
+        `study:${q('studyId','-')}`,
+        `phase:${q('phase','-')}`,
+        `group:${q('conditionGroup','-')}`,
+        `student:${q('studentKey','-')}`,
+        `nick:${q('nickName','-')}`
+      ];
+      $('ctxChips').innerHTML = chips.map(t=>`<span class="chip">${t}</span>`).join('');
+    }
+
+    function collectAnswers(){
+      const fd = new FormData($('quizForm'));
+      return {
+        q1: fd.get('q1') || '',
+        q2: fd.get('q2') || '',
+        q3: fd.get('q3') || '',
+        q4: fd.get('q4') || '',
+        q5: fd.get('q5') || ''
+      };
+    }
+
+    function allAnswered(ans){
+      return Object.values(ans).every(v => !!v);
+    }
+
+    function sumAnswers(ans){
+      return Object.values(ans).reduce((s,v)=>s + (Number(v) || 0), 0);
+    }
+
+    function buildRow(ans){
+      return {
+        timestampIso: new Date().toISOString(),
+        instrument: 'pre_behavior_goodjunk',
+        projectTag: q('projectTag',''),
+        studyId: q('studyId',''),
+        phase: q('phase',''),
+        conditionGroup: q('conditionGroup',''),
+        sessionId: q('sessionId',''),
+        studentKey: q('studentKey',''),
+        nickName: q('nickName',''),
+        classRoom: q('classRoom',''),
+        gradeLevel: q('gradeLevel',''),
+        score: sumAnswers(ans),
+        total: 15,
+        q1: ans.q1,
+        q2: ans.q2,
+        q3: ans.q3,
+        q4: ans.q4,
+        q5: ans.q5
+      };
+    }
+
+    function saveLocal(row){
+      try{
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(row));
+      }catch(_){}
+    }
+
+    function updateStatus(){
+      const ans = collectAnswers();
+      const answered = Object.values(ans).filter(Boolean).length;
+      $('statusText').textContent = `ตอบแล้ว ${answered}/5 ข้อ`;
+    }
+
+    document.querySelectorAll('input[type="radio"]').forEach(el=>{
+      el.addEventListener('change', updateStatus);
+    });
+
+    $('btnBack').addEventListener('click', ()=>{
+      location.href = withContext('./pre-knowledge.html');
+    });
+
+    $('btnSaveNext').addEventListener('click', ()=>{
+      const ans = collectAnswers();
+      if(!allAnswered(ans)){
+        alert('กรุณาตอบให้ครบทุกข้อก่อน');
+        return;
+      }
+
+      const row = buildRow(ans);
+      saveLocal(row);
+      console.log('[GoodJunk] pre-behavior row', row);
+
+      location.href = withContext('../game/goodjunk-vr.html');
+    });
+
+    $('btnSkip').addEventListener('click', ()=>{
+      location.href = withContext('../game/goodjunk-vr.html');
+    });
+
+    renderChips();
+    updateStatus();
+  </script>
+</body>
+</html>
