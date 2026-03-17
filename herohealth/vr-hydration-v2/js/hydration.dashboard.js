@@ -1,729 +1,655 @@
-// === /herohealth/vr-hydration-v2/js/hydration.dashboard.js ===
-// Hydration V2 Dashboard
-// PATCH v20260317f-HYDRATION-V2-DASHBOARD-AGGREGATE-ANALYTICS
-
-const refs = {
-  countHistory: document.getElementById('countHistory'),
-  countFiltered: document.getElementById('countFiltered'),
-  avgTotalScore: document.getElementById('avgTotalScore'),
-  avgPlanningScore: document.getElementById('avgPlanningScore'),
-  countPassed: document.getElementById('countPassed'),
-  lastSessionWeek: document.getElementById('lastSessionWeek'),
-
-  latestGrid: document.getElementById('latestGrid'),
-  latestEmpty: document.getElementById('latestEmpty'),
-
-  summaryGrid: document.getElementById('summaryGrid'),
-  summaryEmpty: document.getElementById('summaryEmpty'),
-
-  teacherGrid: document.getElementById('teacherGrid'),
-  teacherEmpty: document.getElementById('teacherEmpty'),
-
-  sessionChart: document.getElementById('sessionChart'),
-  sessionChartEmpty: document.getElementById('sessionChartEmpty'),
-  breakdownChart: document.getElementById('breakdownChart'),
-  breakdownChartEmpty: document.getElementById('breakdownChartEmpty'),
-
-  playerGrid: document.getElementById('playerGrid'),
-  playerEmpty: document.getElementById('playerEmpty'),
-
-  pidAggregateGrid: document.getElementById('pidAggregateGrid'),
-  pidAggregateEmpty: document.getElementById('pidAggregateEmpty'),
-  studyAggregateGrid: document.getElementById('studyAggregateGrid'),
-  studyAggregateEmpty: document.getElementById('studyAggregateEmpty'),
-
-  historyList: document.getElementById('historyList'),
-  historyEmpty: document.getElementById('historyEmpty'),
-
-  pidFilter: document.getElementById('pidFilter'),
-  studyIdFilter: document.getElementById('studyIdFilter'),
-  modeFilter: document.getElementById('modeFilter'),
-  typeFilter: document.getElementById('typeFilter'),
-  runFilter: document.getElementById('runFilter'),
-  missionFilter: document.getElementById('missionFilter'),
-
-  applyFilterBtn: document.getElementById('applyFilterBtn'),
-  resetFilterBtn: document.getElementById('resetFilterBtn'),
-
-  backLauncherBtn: document.getElementById('backLauncherBtn'),
-  refreshBtn: document.getElementById('refreshBtn'),
-  exportJsonBtn: document.getElementById('exportJsonBtn'),
-  exportCsvBtn: document.getElementById('exportCsvBtn'),
-  clearBtn: document.getElementById('clearBtn')
-};
-
-let dashboardState = {
-  latest: null,
-  summary: null,
-  history: [],
-  filtered: []
-};
-
-boot();
-
-function boot() {
-  bindUI();
-  renderAll();
-}
-
-function bindUI() {
-  refs.backLauncherBtn.addEventListener('click', () => {
-    const qs = new URLSearchParams(window.location.search);
-    const target = qs.get('launcher') || './hydration-v2.html';
-    window.location.href = target;
-  });
-
-  refs.refreshBtn.addEventListener('click', renderAll);
-  refs.applyFilterBtn.addEventListener('click', applyFiltersAndRender);
-  refs.resetFilterBtn.addEventListener('click', resetFilters);
-
-  refs.exportJsonBtn.addEventListener('click', exportJson);
-  refs.exportCsvBtn.addEventListener('click', exportCsv);
-
-  refs.clearBtn.addEventListener('click', () => {
-    const ok = window.confirm('ต้องการล้าง localStorage ที่เกี่ยวกับ Hydration V2 ใช่หรือไม่');
-    if (!ok) return;
-
-    const keys = [
-      'HHA_LAST_SUMMARY',
-      'HHA_SUMMARY_HISTORY',
-      'HHA_HYDRATION_V2_RESEARCH_LAST',
-      'HHA_HYDRATION_V2_RESEARCH_HISTORY'
-    ];
-
-    try {
-      keys.forEach(key => localStorage.removeItem(key));
-      for (let i = localStorage.length - 1; i >= 0; i -= 1) {
-        const key = localStorage.key(i);
-        if (key && key.startsWith('HHA_HYDRATION_V2_PROGRESS:')) {
-          localStorage.removeItem(key);
-        }
-      }
-    } catch (err) {
-      console.warn('[HydrationV2Dashboard] clear failed', err);
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth — Hydration V2 Dashboard</title>
+  <meta name="color-scheme" content="dark light" />
+  <link rel="icon" href="./favicon.ico" />
+  <style>
+    :root{
+      --bg1:#031525;
+      --bg2:#0a2740;
+      --panel:rgba(3,21,37,.78);
+      --stroke:rgba(148,163,184,.18);
+      --text:#eaf6ff;
+      --muted:#b7d4ea;
+      --blue:#38bdf8;
+      --good:#22c55e;
+      --warn:#f59e0b;
+      --bad:#ef4444;
+      --shadow:0 18px 42px rgba(0,0,0,.28);
+      --radius:24px;
+      --sat: env(safe-area-inset-top, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
+      --sar: env(safe-area-inset-right, 0px);
+    }
+    *{ box-sizing:border-box; }
+    html,body{
+      margin:0;
+      min-height:100%;
+      font-family: ui-rounded, "Noto Sans Thai", system-ui, -apple-system, sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(34,211,238,.12), transparent 32%),
+        linear-gradient(180deg, var(--bg2), var(--bg1) 58%, #02111d);
+    }
+    body{
+      padding:
+        calc(18px + var(--sat))
+        calc(16px + var(--sar))
+        calc(18px + var(--sab))
+        calc(16px + var(--sal));
+    }
+    .wrap{
+      max-width:1340px;
+      margin:0 auto;
+      display:grid;
+      gap:18px;
+    }
+    .card{
+      background:var(--panel);
+      border:1px solid var(--stroke);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+      backdrop-filter:blur(12px);
+    }
+    .hero{
+      padding:22px;
+      display:flex;
+      justify-content:space-between;
+      gap:16px;
+      align-items:flex-start;
+      flex-wrap:wrap;
+    }
+    .eyebrow{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 12px;
+      border-radius:999px;
+      background:rgba(56,189,248,.14);
+      border:1px solid rgba(56,189,248,.22);
+      color:#c9f3ff;
+      font-size:13px;
+      font-weight:800;
+      letter-spacing:.02em;
+    }
+    h1{
+      margin:14px 0 10px;
+      font-size:clamp(28px, 4vw, 42px);
+      line-height:1.06;
+    }
+    .lead{
+      margin:0;
+      color:var(--muted);
+      line-height:1.7;
+      max-width:66ch;
+    }
+    .actions{
+      display:flex;
+      gap:12px;
+      flex-wrap:wrap;
+    }
+    .btn{
+      appearance:none;
+      border:none;
+      outline:none;
+      cursor:pointer;
+      min-height:46px;
+      padding:12px 18px;
+      border-radius:16px;
+      font-size:15px;
+      font-weight:900;
+      transition:transform .16s ease, opacity .16s ease, background .16s ease, border-color .16s ease;
+    }
+    .btn:hover,
+    .btn:focus-visible{ transform:translateY(-1px); }
+    .btn.primary{
+      background:linear-gradient(180deg, #4cc9ff, #1ca6df);
+      color:#031525;
+    }
+    .btn.ghost{
+      background:rgba(255,255,255,.07);
+      color:var(--text);
+      border:1px solid var(--stroke);
+    }
+    .btn.warn{
+      background:linear-gradient(180deg, #ffd36d, #f5b531);
+      color:#3c2800;
+    }
+    .btn.good{
+      background:linear-gradient(180deg, #58dd8d, #22c55e);
+      color:#082314;
+    }
+    .btn.small{
+      min-height:38px;
+      padding:8px 12px;
+      font-size:13px;
+      border-radius:12px;
     }
 
-    renderAll();
-  });
-
-  [
-    refs.pidFilter,
-    refs.studyIdFilter,
-    refs.modeFilter,
-    refs.typeFilter,
-    refs.runFilter,
-    refs.missionFilter
-  ].forEach(el => {
-    el.addEventListener('keydown', ev => {
-      if (ev.key === 'Enter') applyFiltersAndRender();
-    });
-  });
-}
-
-function renderAll() {
-  dashboardState.latest = readJson('HHA_HYDRATION_V2_RESEARCH_LAST', null);
-  dashboardState.summary = readJson('HHA_LAST_SUMMARY', null);
-  dashboardState.history = readJson('HHA_HYDRATION_V2_RESEARCH_HISTORY', []);
-
-  if (!Array.isArray(dashboardState.history)) {
-    dashboardState.history = [];
-  }
-
-  dashboardState.filtered = applyFilters(dashboardState.history);
-
-  renderStats(dashboardState.latest, dashboardState.history, dashboardState.filtered);
-  renderLatest(dashboardState.latest);
-  renderSummary(dashboardState.summary);
-  renderTeacherCards(dashboardState.filtered);
-  renderCharts(dashboardState.filtered);
-  renderPlayerCards(dashboardState.filtered);
-  renderAggregates(dashboardState.filtered);
-  renderHistory(dashboardState.filtered);
-}
-
-function applyFiltersAndRender() {
-  dashboardState.filtered = applyFilters(dashboardState.history);
-  renderStats(dashboardState.latest, dashboardState.history, dashboardState.filtered);
-  renderTeacherCards(dashboardState.filtered);
-  renderCharts(dashboardState.filtered);
-  renderPlayerCards(dashboardState.filtered);
-  renderAggregates(dashboardState.filtered);
-  renderHistory(dashboardState.filtered);
-}
-
-function resetFilters() {
-  refs.pidFilter.value = '';
-  refs.studyIdFilter.value = '';
-  refs.modeFilter.value = '';
-  refs.typeFilter.value = '';
-  refs.runFilter.value = '';
-  refs.missionFilter.value = '';
-  applyFiltersAndRender();
-}
-
-function applyFilters(history) {
-  const pid = refs.pidFilter.value.trim().toLowerCase();
-  const studyId = refs.studyIdFilter.value.trim().toLowerCase();
-  const mode = refs.modeFilter.value.trim();
-  const type = refs.typeFilter.value.trim();
-  const run = refs.runFilter.value.trim();
-  const mission = refs.missionFilter.value.trim();
-
-  return history.filter(item => {
-    if (pid && !String(item.pid || '').toLowerCase().includes(pid)) return false;
-    if (studyId && !String(item.studyId || '').toLowerCase().includes(studyId)) return false;
-    if (mode && String(item.mode || '') !== mode) return false;
-    if (type && String(item.type || '') !== type) return false;
-    if (run && String(item.run || '') !== run) return false;
-    if (mission === 'passed' && !item.teamMissionDone) return false;
-    if (mission === 'failed' && item.teamMissionDone) return false;
-    return true;
-  });
-}
-
-function renderStats(latest, history, filtered) {
-  refs.countHistory.textContent = String(Array.isArray(history) ? history.length : 0);
-  refs.countFiltered.textContent = String(Array.isArray(filtered) ? filtered.length : 0);
-
-  const avgTotal = filtered.length
-    ? filtered.reduce((sum, item) => sum + Number(item.totalScore || 0), 0) / filtered.length
-    : 0;
-
-  const avgPlanning = filtered.length
-    ? filtered.reduce((sum, item) => sum + Number(item.planningScore || 0), 0) / filtered.length
-    : 0;
-
-  const passed = filtered.filter(item => !!item.teamMissionDone).length;
-
-  refs.avgTotalScore.textContent = formatNumber(avgTotal);
-  refs.avgPlanningScore.textContent = formatNumber(avgPlanning);
-  refs.countPassed.textContent = String(passed);
-  refs.lastSessionWeek.textContent = latest
-    ? `W${latest.weekNo ?? '-'} S${latest.sessionNo ?? '-'}`
-    : '-';
-}
-
-function renderLatest(latest) {
-  refs.latestGrid.innerHTML = '';
-
-  if (!latest) {
-    refs.latestEmpty.style.display = '';
-    return;
-  }
-
-  refs.latestEmpty.style.display = 'none';
-
-  const items = [
-    ['Saved At', formatDate(latest.savedAt)],
-    ['PID', latest.pid || '(empty)'],
-    ['Study ID', latest.studyId || '(empty)'],
-    ['Mode / Type / Run', `${latest.mode} / ${latest.type} / ${latest.run}`],
-    ['Session / Week', `W${latest.weekNo ?? '-'} • S${latest.sessionNo ?? '-'}`],
-    ['Seed', latest.seed ?? '-'],
-    ['Action Score', latest.actionScore ?? 0],
-    ['Knowledge Score', latest.knowledgeScore ?? 0],
-    ['Planning Score', latest.planningScore ?? 0],
-    ['Social Score', latest.socialScore ?? 0],
-    ['Total Score', latest.totalScore ?? 0],
-    ['Good / Bad / Missed', `${latest.goodCatch ?? 0} / ${latest.badCatch ?? 0} / ${latest.missedGood ?? 0}`],
-    ['Scenario Summary', latest.scenarioSummary || '-'],
-    ['Evaluate', `${latest.evaluateChoice || '-'} • ${latest.evaluateCorrect ? 'correct' : 'not-correct'}`],
-    ['Created Plan Score', latest.createdPlanScore ?? 0],
-    ['Team', `${latest.classTankContribution ?? 0}% • ${latest.teamMissionDone ? 'ผ่าน' : 'ยังไม่ผ่าน'}`],
-    ['Social Summary', latest.socialSummary || '-'],
-    ['Rewards', Array.isArray(latest.rewardHistory) ? latest.rewardHistory.join(', ') || '-' : '-']
-  ];
-
-  items.forEach(([label, value]) => {
-    refs.latestGrid.appendChild(makeInfoBox(label, value));
-  });
-}
-
-function renderSummary(summary) {
-  refs.summaryGrid.innerHTML = '';
-
-  if (!summary) {
-    refs.summaryEmpty.style.display = '';
-    return;
-  }
-
-  refs.summaryEmpty.style.display = 'none';
-
-  const items = [
-    ['Saved At', formatDate(summary.savedAt)],
-    ['Reason', summary.reason || '-'],
-    ['Mode / Type / Run', `${summary.mode} / ${summary.type} / ${summary.run}`],
-    ['Session / Week', `W${summary.weekNo ?? '-'} • S${summary.sessionNo ?? '-'}`],
-    ['Total Score', summary.totalScore ?? 0],
-    ['Action / Knowledge / Planning / Social', `${summary.actionScore ?? 0} / ${summary.knowledgeScore ?? 0} / ${summary.planningScore ?? 0} / ${summary.socialScore ?? 0}`],
-    ['Evaluate', `${summary.evaluateChoice || '-'} • ${summary.evaluateCorrect ? 'correct' : 'not-correct'}`],
-    ['Created Plan Score', summary.createdPlanScore ?? 0],
-    ['Team Stars', summary.teamStars ?? 0],
-    ['Social Mission', summary.socialMissionLabel || '-'],
-    ['Next Session / Week', `W${summary.nextWeekNo ?? '-'} • S${summary.nextSessionNo ?? '-'}`]
-  ];
-
-  items.forEach(([label, value]) => {
-    refs.summaryGrid.appendChild(makeInfoBox(label, value));
-  });
-}
-
-function renderTeacherCards(filtered) {
-  refs.teacherGrid.innerHTML = '';
-
-  if (!filtered.length) {
-    refs.teacherEmpty.style.display = '';
-    return;
-  }
-
-  refs.teacherEmpty.style.display = 'none';
-
-  const bestTotal = [...filtered].sort((a,b) => Number(b.totalScore||0) - Number(a.totalScore||0))[0];
-  const bestPlanning = [...filtered].sort((a,b) => Number(b.planningScore||0) - Number(a.planningScore||0))[0];
-  const bestSocial = [...filtered].sort((a,b) => Number(b.socialScore||0) - Number(a.socialScore||0))[0];
-  const latest = [...filtered].sort((a,b) => new Date(b.savedAt||0).getTime() - new Date(a.savedAt||0).getTime())[0];
-
-  const cards = [
-    {
-      title: 'Best Total Score',
-      meta: bestTotal
-        ? `${bestTotal.pid || 'anon'} • total=${bestTotal.totalScore || 0} • W${bestTotal.weekNo || '-'} S${bestTotal.sessionNo || '-'}`
-        : '-'
-    },
-    {
-      title: 'Best Planning',
-      meta: bestPlanning
-        ? `${bestPlanning.pid || 'anon'} • planning=${bestPlanning.planningScore || 0} • create=${bestPlanning.createdPlanScore || 0}`
-        : '-'
-    },
-    {
-      title: 'Strongest Social',
-      meta: bestSocial
-        ? `${bestSocial.pid || 'anon'} • social=${bestSocial.socialScore || 0} • mission=${bestSocial.teamMissionDone ? 'ผ่าน' : 'ยังไม่ผ่าน'}`
-        : '-'
-    },
-    {
-      title: 'Latest Session',
-      meta: latest
-        ? `${latest.pid || 'anon'} • ${formatDate(latest.savedAt)} • W${latest.weekNo || '-'} S${latest.sessionNo || '-'}`
-        : '-'
+    .stats{
+      display:grid;
+      grid-template-columns:repeat(6,minmax(0,1fr));
+      gap:14px;
     }
-  ];
-
-  cards.forEach(card => {
-    const el = document.createElement('article');
-    el.className = 'teacher-card';
-    el.innerHTML = `
-      <div class="teacher-title">${escapeHtml(card.title)}</div>
-      <div class="teacher-meta" style="margin-top:10px;">${escapeHtml(card.meta)}</div>
-    `;
-    refs.teacherGrid.appendChild(el);
-  });
-}
-
-function renderCharts(filtered) {
-  renderSessionChart(filtered);
-  renderBreakdownChart(filtered);
-}
-
-function renderSessionChart(filtered) {
-  refs.sessionChart.innerHTML = '';
-
-  const grouped = new Map();
-  filtered.forEach(item => {
-    const key = `S${item.sessionNo || '-'}`;
-    if (!grouped.has(key)) grouped.set(key, []);
-    grouped.get(key).push(Number(item.totalScore || 0));
-  });
-
-  const rows = [...grouped.entries()]
-    .map(([label, values]) => ({
-      label,
-      value: values.reduce((a,b)=>a+b,0) / values.length
-    }))
-    .sort((a,b) => Number(a.label.replace('S','')) - Number(b.label.replace('S','')));
-
-  if (!rows.length) {
-    refs.sessionChartEmpty.style.display = '';
-    return;
-  }
-
-  refs.sessionChartEmpty.style.display = 'none';
-
-  const maxValue = Math.max(...rows.map(r => r.value), 1);
-
-  rows.forEach(row => {
-    refs.sessionChart.appendChild(makeBarRow(row.label, row.value, maxValue));
-  });
-}
-
-function renderBreakdownChart(filtered) {
-  refs.breakdownChart.innerHTML = '';
-
-  if (!filtered.length) {
-    refs.breakdownChartEmpty.style.display = '';
-    return;
-  }
-
-  refs.breakdownChartEmpty.style.display = 'none';
-
-  const values = [
-    {
-      label: 'Action',
-      value: avg(filtered.map(x => Number(x.actionScore || 0)))
-    },
-    {
-      label: 'Knowledge',
-      value: avg(filtered.map(x => Number(x.knowledgeScore || 0)))
-    },
-    {
-      label: 'Planning',
-      value: avg(filtered.map(x => Number(x.planningScore || 0)))
-    },
-    {
-      label: 'Social',
-      value: avg(filtered.map(x => Number(x.socialScore || 0)))
+    .stat{
+      padding:16px;
     }
-  ];
-
-  const maxValue = Math.max(...values.map(v => v.value), 1);
-
-  values.forEach(row => {
-    refs.breakdownChart.appendChild(makeBarRow(row.label, row.value, maxValue));
-  });
-}
-
-function renderPlayerCards(filtered) {
-  refs.playerGrid.innerHTML = '';
-
-  const latestByPid = new Map();
-
-  filtered.forEach(item => {
-    const pid = String(item.pid || 'anon');
-    if (!latestByPid.has(pid)) {
-      latestByPid.set(pid, item);
-      return;
+    .stat-label{
+      color:var(--muted);
+      font-size:13px;
+      font-weight:800;
+      margin-bottom:8px;
+    }
+    .stat-value{
+      font-size:30px;
+      font-weight:900;
+      line-height:1;
+    }
+    .stat-sub{
+      margin-top:8px;
+      color:#dff4ff;
+      font-size:13px;
+      line-height:1.6;
     }
 
-    const current = latestByPid.get(pid);
-    const currentDate = new Date(current.savedAt || 0).getTime();
-    const itemDate = new Date(item.savedAt || 0).getTime();
-
-    if (itemDate > currentDate) {
-      latestByPid.set(pid, item);
+    .section{
+      padding:18px;
     }
-  });
+    .section h2{
+      margin:0 0 12px;
+      font-size:24px;
+    }
+    .section p{
+      margin:0;
+      color:var(--muted);
+      line-height:1.65;
+    }
 
-  const cards = [...latestByPid.values()]
-    .sort((a, b) => new Date(b.savedAt || 0).getTime() - new Date(a.savedAt || 0).getTime())
-    .slice(0, 12);
+    .filters{
+      display:grid;
+      grid-template-columns:repeat(6,minmax(0,1fr));
+      gap:12px;
+      margin-top:16px;
+    }
+    .field{
+      display:grid;
+      gap:8px;
+    }
+    .field label{
+      font-size:12px;
+      color:#dff2ff;
+      font-weight:900;
+    }
+    input, select{
+      width:100%;
+      min-height:46px;
+      padding:12px 14px;
+      border-radius:14px;
+      border:1px solid rgba(255,255,255,.10);
+      background:rgba(255,255,255,.06);
+      color:var(--text);
+      font:inherit;
+      outline:none;
+    }
+    input::placeholder{ color:#a9c7db; }
 
-  if (!cards.length) {
-    refs.playerEmpty.style.display = '';
-    return;
-  }
+    .filter-actions{
+      display:flex;
+      flex-wrap:wrap;
+      gap:12px;
+      margin-top:16px;
+    }
 
-  refs.playerEmpty.style.display = 'none';
+    .main-grid,
+    .detail-grid{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:18px;
+    }
 
-  cards.forEach(item => {
-    const el = document.createElement('article');
-    el.className = 'player-card';
-    el.innerHTML = `
-      <div class="player-top">
-        <div class="player-name">${escapeHtml(item.pid || 'anon')}</div>
-        <div class="player-badge">W${escapeHtml(item.weekNo ?? '-')} • S${escapeHtml(item.sessionNo ?? '-')}</div>
+    .info-grid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:12px;
+      margin-top:16px;
+    }
+    .info-box{
+      padding:14px;
+      border-radius:18px;
+      background:rgba(255,255,255,.05);
+      border:1px solid rgba(255,255,255,.08);
+    }
+    .info-label{
+      color:var(--muted);
+      font-size:12px;
+      font-weight:800;
+      margin-bottom:6px;
+    }
+    .info-value{
+      font-size:16px;
+      font-weight:900;
+      line-height:1.5;
+      word-break:break-word;
+    }
+
+    .player-grid,
+    .aggregate-grid,
+    .teacher-grid,
+    .chart-grid{
+      display:grid;
+      gap:12px;
+      margin-top:16px;
+    }
+    .player-grid{ grid-template-columns:repeat(3,minmax(0,1fr)); }
+    .aggregate-grid{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+    .teacher-grid{ grid-template-columns:repeat(4,minmax(0,1fr)); }
+    .chart-grid{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+
+    .player-card,
+    .aggregate-card,
+    .teacher-card,
+    .chart-card,
+    .detail-card{
+      padding:16px;
+      border-radius:20px;
+      background:rgba(255,255,255,.05);
+      border:1px solid rgba(255,255,255,.08);
+    }
+
+    .selectable{
+      cursor:pointer;
+      transition:transform .16s ease, border-color .16s ease, background .16s ease;
+    }
+    .selectable:hover,
+    .selectable:focus-visible{
+      transform:translateY(-1px);
+      border-color:rgba(56,189,248,.30);
+      background:rgba(56,189,248,.08);
+    }
+    .selected{
+      border-color:rgba(34,197,94,.34) !important;
+      background:rgba(34,197,94,.10) !important;
+    }
+
+    .player-top,
+    .aggregate-top,
+    .detail-top{
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      align-items:center;
+      margin-bottom:10px;
+    }
+    .player-name,
+    .aggregate-name,
+    .teacher-title,
+    .chart-title,
+    .detail-title{
+      font-size:17px;
+      font-weight:900;
+    }
+    .player-badge,
+    .aggregate-badge,
+    .detail-badge{
+      min-height:34px;
+      padding:8px 10px;
+      border-radius:999px;
+      background:rgba(56,189,248,.12);
+      border:1px solid rgba(56,189,248,.20);
+      color:#def8ff;
+      font-size:12px;
+      font-weight:900;
+    }
+    .player-meta,
+    .aggregate-meta,
+    .teacher-meta,
+    .detail-meta{
+      color:#def3ff;
+      font-size:14px;
+      line-height:1.7;
+    }
+
+    .card-actions{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-top:12px;
+    }
+
+    .history-list{
+      display:grid;
+      gap:12px;
+      margin-top:16px;
+    }
+    .history-item{
+      padding:14px;
+      border-radius:18px;
+      background:rgba(255,255,255,.05);
+      border:1px solid rgba(255,255,255,.08);
+    }
+    .history-top{
+      display:flex;
+      justify-content:space-between;
+      gap:12px;
+      flex-wrap:wrap;
+      align-items:center;
+      margin-bottom:8px;
+    }
+    .history-title{
+      font-size:16px;
+      font-weight:900;
+    }
+    .history-meta{
+      color:var(--muted);
+      font-size:12px;
+      font-weight:800;
+    }
+    .history-body{
+      color:#def3ff;
+      font-size:14px;
+      line-height:1.7;
+    }
+
+    .bar-list,
+    .timeline-list{
+      display:grid;
+      gap:10px;
+      margin-top:12px;
+    }
+    .bar-row,
+    .timeline-row{
+      display:grid;
+      gap:6px;
+    }
+    .bar-top,
+    .timeline-top{
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      align-items:center;
+      font-size:13px;
+      color:#dff4ff;
+      font-weight:800;
+    }
+    .bar-track,
+    .timeline-track{
+      height:12px;
+      border-radius:999px;
+      background:rgba(255,255,255,.08);
+      overflow:hidden;
+    }
+    .bar-fill,
+    .timeline-fill{
+      height:100%;
+      border-radius:999px;
+      background:linear-gradient(90deg, #22d3ee, #38bdf8);
+      width:0%;
+    }
+
+    .empty{
+      margin-top:16px;
+      padding:16px;
+      border-radius:18px;
+      background:rgba(255,255,255,.05);
+      border:1px dashed rgba(255,255,255,.12);
+      color:#d8effc;
+      line-height:1.7;
+    }
+    .mono{
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size:13px;
+    }
+
+    @media (max-width: 1180px){
+      .stats{ grid-template-columns:repeat(3,minmax(0,1fr)); }
+      .filters{ grid-template-columns:repeat(3,minmax(0,1fr)); }
+      .teacher-grid{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .player-grid,
+      .aggregate-grid,
+      .chart-grid,
+      .detail-grid{ grid-template-columns:1fr; }
+      .main-grid{ grid-template-columns:1fr; }
+    }
+    @media (max-width: 720px){
+      .stats,
+      .filters,
+      .info-grid,
+      .teacher-grid{ grid-template-columns:1fr; }
+      .hero{ padding:18px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="card hero">
+      <div>
+        <div class="eyebrow">📊 Hydration V2 • Teacher / Research Dashboard</div>
+        <h1>PID Detail + Study Timeline + Next Session</h1>
+        <p class="lead">
+          หน้านี้สรุปผล Hydration V2 จาก localStorage เป็นมุมมองสำหรับครูและงานวิจัย
+          ทั้งระดับรอบเล่น, รายคน, ราย study และสามารถกดไปต่อ session ถัดไปได้จาก dashboard
+        </p>
       </div>
-      <div class="player-meta">
-        Study: <strong>${escapeHtml(item.studyId || '(empty)')}</strong><br/>
-        ${escapeHtml(item.mode || '-')} / ${escapeHtml(item.type || '-')} / ${escapeHtml(item.run || '-')}<br/>
-        total=${escapeHtml(item.totalScore ?? 0)} • social=${escapeHtml(item.socialScore ?? 0)}<br/>
-        team=${item.teamMissionDone ? 'ผ่าน' : 'ยังไม่ผ่าน'} • stars=${escapeHtml(item.teamStars ?? 0)}<br/>
-        ${escapeHtml(item.socialSummary || '-')}
+
+      <div class="actions">
+        <button class="btn ghost" id="backLauncherBtn" type="button">กลับ Launcher</button>
+        <button class="btn primary" id="refreshBtn" type="button">รีเฟรชข้อมูล</button>
+        <button class="btn good" id="exportJsonBtn" type="button">Export JSON</button>
+        <button class="btn good" id="exportCsvBtn" type="button">Export CSV</button>
+        <button class="btn warn" id="clearBtn" type="button">ล้าง LocalStorage</button>
       </div>
-    `;
-    refs.playerGrid.appendChild(el);
-  });
-}
+    </section>
 
-function renderAggregates(filtered) {
-  renderPidAggregate(filtered);
-  renderStudyAggregate(filtered);
-}
+    <section class="card section">
+      <h2>ตัวกรอง</h2>
+      <p>ใช้กรอง history ตามผู้เล่นหรือรูปแบบการเล่น ก่อนดู aggregate และ export</p>
 
-function renderPidAggregate(filtered) {
-  refs.pidAggregateGrid.innerHTML = '';
-
-  const grouped = new Map();
-  filtered.forEach(item => {
-    const key = String(item.pid || 'anon');
-    if (!grouped.has(key)) grouped.set(key, []);
-    grouped.get(key).push(item);
-  });
-
-  const rows = [...grouped.entries()]
-    .map(([pid, items]) => ({
-      pid,
-      runs: items.length,
-      avgTotal: avg(items.map(x => Number(x.totalScore || 0))),
-      avgPlanning: avg(items.map(x => Number(x.planningScore || 0))),
-      passed: items.filter(x => !!x.teamMissionDone).length
-    }))
-    .sort((a,b) => b.avgTotal - a.avgTotal)
-    .slice(0, 12);
-
-  if (!rows.length) {
-    refs.pidAggregateEmpty.style.display = '';
-    return;
-  }
-
-  refs.pidAggregateEmpty.style.display = 'none';
-
-  rows.forEach(row => {
-    const el = document.createElement('article');
-    el.className = 'aggregate-card';
-    el.innerHTML = `
-      <div class="aggregate-top">
-        <div class="aggregate-name">PID ${escapeHtml(row.pid)}</div>
-        <div class="aggregate-badge">${escapeHtml(row.runs)} runs</div>
-      </div>
-      <div class="aggregate-meta">
-        avg total = ${formatNumber(row.avgTotal)}<br/>
-        avg planning = ${formatNumber(row.avgPlanning)}<br/>
-        team mission passed = ${escapeHtml(row.passed)}
-      </div>
-    `;
-    refs.pidAggregateGrid.appendChild(el);
-  });
-}
-
-function renderStudyAggregate(filtered) {
-  refs.studyAggregateGrid.innerHTML = '';
-
-  const grouped = new Map();
-  filtered.forEach(item => {
-    const key = String(item.studyId || '(empty)');
-    if (!grouped.has(key)) grouped.set(key, []);
-    grouped.get(key).push(item);
-  });
-
-  const rows = [...grouped.entries()]
-    .map(([studyId, items]) => ({
-      studyId,
-      runs: items.length,
-      participants: new Set(items.map(x => String(x.pid || 'anon'))).size,
-      avgTotal: avg(items.map(x => Number(x.totalScore || 0))),
-      missionRate: items.length ? (items.filter(x => !!x.teamMissionDone).length / items.length) * 100 : 0
-    }))
-    .sort((a,b) => b.avgTotal - a.avgTotal)
-    .slice(0, 12);
-
-  if (!rows.length) {
-    refs.studyAggregateEmpty.style.display = '';
-    return;
-  }
-
-  refs.studyAggregateEmpty.style.display = 'none';
-
-  rows.forEach(row => {
-    const el = document.createElement('article');
-    el.className = 'aggregate-card';
-    el.innerHTML = `
-      <div class="aggregate-top">
-        <div class="aggregate-name">Study ${escapeHtml(row.studyId)}</div>
-        <div class="aggregate-badge">${escapeHtml(row.runs)} runs</div>
-      </div>
-      <div class="aggregate-meta">
-        participants = ${escapeHtml(row.participants)}<br/>
-        avg total = ${formatNumber(row.avgTotal)}<br/>
-        mission pass rate = ${formatNumber(row.missionRate)}%
-      </div>
-    `;
-    refs.studyAggregateGrid.appendChild(el);
-  });
-}
-
-function renderHistory(filtered) {
-  refs.historyList.innerHTML = '';
-
-  if (!Array.isArray(filtered) || filtered.length === 0) {
-    refs.historyEmpty.style.display = '';
-    return;
-  }
-
-  refs.historyEmpty.style.display = 'none';
-
-  filtered
-    .slice(0, 30)
-    .forEach((item, index) => {
-      const el = document.createElement('article');
-      el.className = 'history-item';
-      el.innerHTML = `
-        <div class="history-top">
-          <div class="history-title">#${index + 1} • ${escapeHtml(item.pid || 'anon')} • W${escapeHtml(item.weekNo ?? '-')} S${escapeHtml(item.sessionNo ?? '-')}</div>
-          <div class="history-meta">${escapeHtml(formatDate(item.savedAt))}</div>
+      <div class="filters">
+        <div class="field">
+          <label for="pidFilter">PID</label>
+          <input id="pidFilter" type="text" placeholder="เช่น S001" />
         </div>
-        <div class="history-body">
-          <strong>${escapeHtml(item.mode || '-')}</strong> /
-          <strong>${escapeHtml(item.type || '-')}</strong> /
-          <strong>${escapeHtml(item.run || '-')}</strong><br/>
-          total=${escapeHtml(item.totalScore ?? 0)} •
-          action=${escapeHtml(item.actionScore ?? 0)} •
-          knowledge=${escapeHtml(item.knowledgeScore ?? 0)} •
-          planning=${escapeHtml(item.planningScore ?? 0)} •
-          social=${escapeHtml(item.socialScore ?? 0)}<br/>
-          good=${escapeHtml(item.goodCatch ?? 0)} • bad=${escapeHtml(item.badCatch ?? 0)} • missed=${escapeHtml(item.missedGood ?? 0)}<br/>
-          team=${item.teamMissionDone ? 'ผ่าน' : 'ยังไม่ผ่าน'} • contribution=${escapeHtml(item.classTankContribution ?? 0)}%<br/>
-          ${escapeHtml(item.socialSummary || '-')}
+
+        <div class="field">
+          <label for="studyIdFilter">Study ID</label>
+          <input id="studyIdFilter" type="text" placeholder="เช่น HYD-2026-A" />
         </div>
-      `;
-      refs.historyList.appendChild(el);
-    });
-}
 
-function exportJson() {
-  const data = dashboardState.filtered || [];
-  const filename = `hydration-v2-filtered-${timestampForFile()}.json`;
-  downloadTextFile(JSON.stringify(data, null, 2), filename, 'application/json');
-}
+        <div class="field">
+          <label for="modeFilter">Mode</label>
+          <select id="modeFilter">
+            <option value="">ทั้งหมด</option>
+            <option value="quick">quick</option>
+            <option value="program">program</option>
+          </select>
+        </div>
 
-function exportCsv() {
-  const data = dashboardState.filtered || [];
-  const columns = [
-    'savedAt',
-    'pid',
-    'studyId',
-    'mode',
-    'type',
-    'run',
-    'weekNo',
-    'sessionNo',
-    'seed',
-    'actionScore',
-    'knowledgeScore',
-    'planningScore',
-    'socialScore',
-    'totalScore',
-    'goodCatch',
-    'badCatch',
-    'missedGood',
-    'bestCombo',
-    'rewardCount',
-    'correctChoices',
-    'wrongChoices',
-    'evaluateChoice',
-    'evaluateCorrect',
-    'createdPlanScore',
-    'classTankContribution',
-    'teamMissionDone',
-    'teamStars',
-    'socialSummary'
-  ];
+        <div class="field">
+          <label for="typeFilter">Type</label>
+          <select id="typeFilter">
+            <option value="">ทั้งหมด</option>
+            <option value="solo">solo</option>
+            <option value="team">team</option>
+          </select>
+        </div>
 
-  const rows = [
-    columns.join(','),
-    ...data.map(item =>
-      columns.map(col => csvCell(item[col])).join(',')
-    )
-  ];
+        <div class="field">
+          <label for="runFilter">Run</label>
+          <select id="runFilter">
+            <option value="">ทั้งหมด</option>
+            <option value="play">play</option>
+            <option value="research">research</option>
+          </select>
+        </div>
 
-  const filename = `hydration-v2-filtered-${timestampForFile()}.csv`;
-  downloadTextFile(rows.join('\n'), filename, 'text/csv;charset=utf-8;');
-}
+        <div class="field">
+          <label for="missionFilter">Team Mission</label>
+          <select id="missionFilter">
+            <option value="">ทั้งหมด</option>
+            <option value="passed">ผ่าน</option>
+            <option value="failed">ยังไม่ผ่าน</option>
+          </select>
+        </div>
+      </div>
 
-function downloadTextFile(text, filename, mimeType) {
-  const blob = new Blob([text], { type: mimeType });
-  const url = URL.createObjectURL(blob);
+      <div class="filter-actions">
+        <button class="btn primary" id="applyFilterBtn" type="button">ใช้ตัวกรอง</button>
+        <button class="btn ghost" id="resetFilterBtn" type="button">ล้างตัวกรอง</button>
+      </div>
+    </section>
 
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
+    <section class="stats">
+      <article class="card stat">
+        <div class="stat-label">History ทั้งหมด</div>
+        <div class="stat-value" id="countHistory">0</div>
+        <div class="stat-sub">จำนวน record ใน research history</div>
+      </article>
 
-  setTimeout(() => URL.revokeObjectURL(url), 500);
-}
+      <article class="card stat">
+        <div class="stat-label">หลังกรอง</div>
+        <div class="stat-value" id="countFiltered">0</div>
+        <div class="stat-sub">จำนวน record ที่ตรงกับตัวกรอง</div>
+      </article>
 
-function csvCell(value) {
-  const text = String(value ?? '');
-  return `"${text.replaceAll('"', '""')}"`;
-}
+      <article class="card stat">
+        <div class="stat-label">คะแนนเฉลี่ย</div>
+        <div class="stat-value" id="avgTotalScore">0</div>
+        <div class="stat-sub">average total score หลังกรอง</div>
+      </article>
 
-function makeInfoBox(label, value) {
-  const el = document.createElement('div');
-  el.className = 'info-box';
-  el.innerHTML = `
-    <div class="info-label">${escapeHtml(label)}</div>
-    <div class="info-value">${escapeHtml(String(value ?? '-'))}</div>
-  `;
-  return el;
-}
+      <article class="card stat">
+        <div class="stat-label">Planning เฉลี่ย</div>
+        <div class="stat-value" id="avgPlanningScore">0</div>
+        <div class="stat-sub">average planning score หลังกรอง</div>
+      </article>
 
-function makeBarRow(label, value, maxValue) {
-  const percent = maxValue > 0 ? (value / maxValue) * 100 : 0;
+      <article class="card stat">
+        <div class="stat-label">ผ่าน Team Mission</div>
+        <div class="stat-value" id="countPassed">0</div>
+        <div class="stat-sub">จำนวนรอบที่ team mission ผ่าน</div>
+      </article>
 
-  const el = document.createElement('div');
-  el.className = 'bar-row';
-  el.innerHTML = `
-    <div class="bar-top">
-      <span>${escapeHtml(label)}</span>
-      <span>${escapeHtml(formatNumber(value))}</span>
-    </div>
-    <div class="bar-track">
-      <div class="bar-fill" style="width:${percent}%;"></div>
-    </div>
-  `;
-  return el;
-}
+      <article class="card stat">
+        <div class="stat-label">Session / Week ล่าสุด</div>
+        <div class="stat-value" id="lastSessionWeek">-</div>
+        <div class="stat-sub">ดู progress รอบล่าสุด</div>
+      </article>
+    </section>
 
-function readJson(key, fallback) {
-  try {
-    const raw = localStorage.getItem(key);
-    if (!raw) return fallback;
-    return JSON.parse(raw);
-  } catch (_) {
-    return fallback;
-  }
-}
+    <section class="card section">
+      <h2>Teacher Summary Cards</h2>
+      <p>การ์ดสรุปสำหรับดูรายการเด่นจากข้อมูลที่ผ่านตัวกรองแล้ว</p>
+      <div class="teacher-grid" id="teacherGrid"></div>
+      <div class="empty" id="teacherEmpty" style="display:none;">
+        ยังไม่มีข้อมูลพอสำหรับ teacher summary
+      </div>
+    </section>
 
-function avg(values) {
-  if (!values.length) return 0;
-  return values.reduce((a,b) => a + Number(b || 0), 0) / values.length;
-}
+    <section class="main-grid">
+      <article class="card section">
+        <h2>ผลล่าสุด</h2>
+        <p>สรุป payload ล่าสุดที่เกมบันทึกไว้</p>
+        <div class="info-grid" id="latestGrid"></div>
+        <div class="empty" id="latestEmpty" style="display:none;">
+          ยังไม่พบ payload ล่าสุด ลองเข้าเล่น Hydration V2 ก่อน 1 รอบ
+        </div>
+      </article>
 
-function formatDate(value) {
-  if (!value) return '-';
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return String(value);
-  return d.toLocaleString('th-TH', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  });
-}
+      <article class="card section">
+        <h2>Summary ล่าสุด</h2>
+        <p>ข้อมูลจาก HHA_LAST_SUMMARY สำหรับเช็กว่า summary flow ทำงานครบหรือไม่</p>
+        <div class="info-grid" id="summaryGrid"></div>
+        <div class="empty" id="summaryEmpty" style="display:none;">
+          ยังไม่พบ HHA_LAST_SUMMARY
+        </div>
+      </article>
+    </section>
 
-function formatNumber(value) {
-  const n = Number(value || 0);
-  return Number.isFinite(n) ? n.toFixed(1) : '0.0';
-}
+    <section class="card section">
+      <h2>Mini Analytics</h2>
+      <p>ดูแนวโน้มแบบเร็วโดยไม่ต้องใช้ chart library</p>
+      <div class="chart-grid">
+        <div class="chart-card">
+          <div class="chart-title">Average Total Score by Session</div>
+          <div class="bar-list" id="sessionChart"></div>
+          <div class="empty" id="sessionChartEmpty" style="display:none;">
+            ยังไม่มีข้อมูลพอสำหรับ session chart
+          </div>
+        </div>
 
-function timestampForFile() {
-  const d = new Date();
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  const dd = String(d.getDate()).padStart(2, '0');
-  const hh = String(d.getHours()).padStart(2, '0');
-  const mi = String(d.getMinutes()).padStart(2, '0');
-  const ss = String(d.getSeconds()).padStart(2, '0');
-  return `${yyyy}${mm}${dd}-${hh}${mi}${ss}`;
-}
+        <div class="chart-card">
+          <div class="chart-title">Average Score Breakdown</div>
+          <div class="bar-list" id="breakdownChart"></div>
+          <div class="empty" id="breakdownChartEmpty" style="display:none;">
+            ยังไม่มีข้อมูลพอสำหรับ score breakdown
+          </div>
+        </div>
+      </div>
+    </section>
 
-function escapeHtml(value) {
-  return String(value ?? '')
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;');
-}
+    <section class="card section">
+      <h2>Recent Player Cards</h2>
+      <p>คลิกการ์ดเพื่อเปิด PID detail หรือกดปุ่มไปต่อ session ถัดไปได้ทันที</p>
+      <div class="player-grid" id="playerGrid"></div>
+      <div class="empty" id="playerEmpty" style="display:none;">
+        ยังไม่มี player cards สำหรับตัวกรองนี้
+      </div>
+    </section>
+
+    <section class="card section">
+      <h2>Aggregate by PID / Study ID</h2>
+      <p>คลิก aggregate card เพื่อเปิด detail view ด้านล่าง</p>
+      <div class="aggregate-grid">
+        <div>
+          <div class="aggregate-grid" id="pidAggregateGrid"></div>
+          <div class="empty" id="pidAggregateEmpty" style="display:none;">
+            ยังไม่มี aggregate ตาม PID
+          </div>
+        </div>
+
+        <div>
+          <div class="aggregate-grid" id="studyAggregateGrid"></div>
+          <div class="empty" id="studyAggregateEmpty" style="display:none;">
+            ยังไม่มี aggregate ตาม Study ID
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="detail-grid">
+      <article class="card section">
+        <h2>PID Detail View</h2>
+        <p>ดู session history ของผู้เล่นที่เลือก พร้อมปุ่มไป session ถัดไป</p>
+        <div id="pidDetailRoot"></div>
+        <div class="empty" id="pidDetailEmpty" style="display:none;">
+          ยังไม่มี PID ที่เลือก
+        </div>
+      </article>
+
+      <article class="card section">
+        <h2>Study Timeline View</h2>
+        <p>ดูภาพรวม session ต่อ session ของ study ที่เลือก</p>
+        <div id="studyTimelineRoot"></div>
+        <div class="empty" id="studyTimelineEmpty" style="display:none;">
+          ยังไม่มี Study ID ที่เลือก
+        </div>
+      </article>
+    </section>
+
+    <section class="card section">
+      <h2>Filtered Research History</h2>
+      <p>ประวัติย้อนหลังแบบย่อจากรายการที่ผ่านตัวกรอง</p>
+      <div class="history-list" id="historyList"></div>
+      <div class="empty" id="historyEmpty" style="display:none;">
+        ยังไม่มี research history ที่ตรงกับตัวกรอง
+      </div>
+    </section>
+  </div>
+
+  <script type="module" src="./vr-hydration-v2/js/hydration.dashboard.js?v=20260317g"></script>
+</body>
+</html>
