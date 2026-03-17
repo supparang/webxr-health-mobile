@@ -1,8 +1,29 @@
 const params = new URLSearchParams(location.search);
 
+function makeDevicePid() {
+  try {
+    const KEY = 'GJ_DEVICE_PID';
+    let pid = localStorage.getItem(KEY);
+    if (!pid) {
+      pid = `p-${Math.random().toString(36).slice(2, 10)}`;
+      localStorage.setItem(KEY, pid);
+    }
+    return pid;
+  } catch {
+    return `p-${Math.random().toString(36).slice(2, 10)}`;
+  }
+}
+
+function normalizePid(rawPid) {
+  const v = String(rawPid || '').trim();
+  if (!v) return makeDevicePid();
+  if (v.toLowerCase() === 'anon') return makeDevicePid();
+  return v;
+}
+
 const ctx = {
   mode: params.get('mode') || 'race',
-  pid: params.get('pid') || `p-${Math.random().toString(36).slice(2, 8)}`,
+  pid: normalizePid(params.get('pid')),
   name: params.get('name') || '',
   studyId: params.get('studyId') || '',
   diff: params.get('diff') || 'normal',
@@ -126,7 +147,6 @@ function getPhaseClass(player) {
 
 function buildInviteUrl() {
   const q = new URLSearchParams({
-    pid: 'anon',
     name: '',
     studyId: ctx.studyId,
     diff: ctx.diff,
