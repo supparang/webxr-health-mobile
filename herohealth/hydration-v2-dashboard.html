@@ -43,7 +43,7 @@
         calc(16px + var(--sal));
     }
     .wrap{
-      max-width:1340px;
+      max-width:1360px;
       margin:0 auto;
       display:grid;
       gap:18px;
@@ -85,7 +85,7 @@
       margin:0;
       color:var(--muted);
       line-height:1.7;
-      max-width:66ch;
+      max-width:68ch;
     }
     .actions{
       display:flex;
@@ -205,7 +205,8 @@
     }
 
     .main-grid,
-    .detail-grid{
+    .detail-grid,
+    .overview-grid{
       display:grid;
       grid-template-columns:1fr 1fr;
       gap:18px;
@@ -239,7 +240,9 @@
     .player-grid,
     .aggregate-grid,
     .teacher-grid,
-    .chart-grid{
+    .chart-grid,
+    .cohort-grid,
+    .study-summary-grid{
       display:grid;
       gap:12px;
       margin-top:16px;
@@ -248,12 +251,17 @@
     .aggregate-grid{ grid-template-columns:repeat(2,minmax(0,1fr)); }
     .teacher-grid{ grid-template-columns:repeat(4,minmax(0,1fr)); }
     .chart-grid{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+    .cohort-grid{ grid-template-columns:repeat(3,minmax(0,1fr)); }
+    .study-summary-grid{ grid-template-columns:repeat(3,minmax(0,1fr)); }
 
     .player-card,
     .aggregate-card,
     .teacher-card,
     .chart-card,
-    .detail-card{
+    .detail-card,
+    .cohort-card,
+    .study-summary-card,
+    .alert-card{
       padding:16px;
       border-radius:20px;
       background:rgba(255,255,255,.05);
@@ -277,7 +285,9 @@
 
     .player-top,
     .aggregate-top,
-    .detail-top{
+    .detail-top,
+    .cohort-top,
+    .study-summary-top{
       display:flex;
       justify-content:space-between;
       gap:10px;
@@ -288,13 +298,17 @@
     .aggregate-name,
     .teacher-title,
     .chart-title,
-    .detail-title{
+    .detail-title,
+    .cohort-title,
+    .study-summary-title{
       font-size:17px;
       font-weight:900;
     }
     .player-badge,
     .aggregate-badge,
-    .detail-badge{
+    .detail-badge,
+    .cohort-badge,
+    .study-summary-badge{
       min-height:34px;
       padding:8px 10px;
       border-radius:999px;
@@ -307,7 +321,9 @@
     .player-meta,
     .aggregate-meta,
     .teacher-meta,
-    .detail-meta{
+    .detail-meta,
+    .cohort-meta,
+    .study-summary-meta{
       color:#def3ff;
       font-size:14px;
       line-height:1.7;
@@ -320,7 +336,8 @@
       margin-top:12px;
     }
 
-    .history-list{
+    .history-list,
+    .alert-list{
       display:grid;
       gap:12px;
       margin-top:16px;
@@ -350,6 +367,22 @@
     }
     .history-body{
       color:#def3ff;
+      font-size:14px;
+      line-height:1.7;
+    }
+
+    .alert-card{
+      border-color:rgba(245,181,49,.22);
+      background:rgba(245,181,49,.08);
+    }
+    .alert-title{
+      font-size:16px;
+      font-weight:900;
+      margin-bottom:8px;
+      color:#fff0c2;
+    }
+    .alert-meta{
+      color:#fff6dc;
       font-size:14px;
       line-height:1.7;
     }
@@ -411,7 +444,10 @@
       .player-grid,
       .aggregate-grid,
       .chart-grid,
-      .detail-grid{ grid-template-columns:1fr; }
+      .detail-grid,
+      .cohort-grid,
+      .study-summary-grid,
+      .overview-grid{ grid-template-columns:1fr; }
       .main-grid{ grid-template-columns:1fr; }
     }
     @media (max-width: 720px){
@@ -428,10 +464,10 @@
     <section class="card hero">
       <div>
         <div class="eyebrow">📊 Hydration V2 • Teacher / Research Dashboard</div>
-        <h1>PID Detail + Study Timeline + Next Session</h1>
+        <h1>Research Reporting + Cohort Comparison</h1>
         <p class="lead">
           หน้านี้สรุปผล Hydration V2 จาก localStorage เป็นมุมมองสำหรับครูและงานวิจัย
-          ทั้งระดับรอบเล่น, รายคน, ราย study และสามารถกดไปต่อ session ถัดไปได้จาก dashboard
+          ทั้งระดับรอบเล่น, รายคน, ราย study, ราย cohort และมี alert สำหรับ progress ที่ควรติดตาม
         </p>
       </div>
 
@@ -439,7 +475,9 @@
         <button class="btn ghost" id="backLauncherBtn" type="button">กลับ Launcher</button>
         <button class="btn primary" id="refreshBtn" type="button">รีเฟรชข้อมูล</button>
         <button class="btn good" id="exportJsonBtn" type="button">Export JSON</button>
-        <button class="btn good" id="exportCsvBtn" type="button">Export CSV</button>
+        <button class="btn good" id="exportSessionsCsvBtn" type="button">Export Sessions CSV</button>
+        <button class="btn good" id="exportParticipantsCsvBtn" type="button">Export Participants CSV</button>
+        <button class="btn good" id="exportStudiesCsvBtn" type="button">Export Studies CSV</button>
         <button class="btn warn" id="clearBtn" type="button">ล้าง LocalStorage</button>
       </div>
     </section>
@@ -538,6 +576,33 @@
         <div class="stat-value" id="lastSessionWeek">-</div>
         <div class="stat-sub">ดู progress รอบล่าสุด</div>
       </article>
+    </section>
+
+    <section class="card section">
+      <h2>Study Dashboard Summary</h2>
+      <p>สรุประดับโครงการวิจัยแบบอ่านเร็ว</p>
+      <div class="study-summary-grid" id="studySummaryGrid"></div>
+      <div class="empty" id="studySummaryEmpty" style="display:none;">
+        ยังไม่มีข้อมูลพอสำหรับ study summary
+      </div>
+    </section>
+
+    <section class="card section">
+      <h2>Cohort Comparison</h2>
+      <p>เปรียบเทียบผลลัพธ์แบบกลุ่ม เช่น quick vs program, solo vs team, play vs research</p>
+      <div class="cohort-grid" id="cohortGrid"></div>
+      <div class="empty" id="cohortEmpty" style="display:none;">
+        ยังไม่มีข้อมูลพอสำหรับ cohort comparison
+      </div>
+    </section>
+
+    <section class="card section">
+      <h2>Progress Alerts</h2>
+      <p>สัญญาณที่ควรติดตาม เช่น PID ที่ค้าง session เดิมหลายครั้ง หรือยังไม่ผ่าน mission ต่อเนื่อง</p>
+      <div class="alert-list" id="alertList"></div>
+      <div class="empty" id="alertEmpty" style="display:none;">
+        ยังไม่พบ alert จากข้อมูลที่กรองแล้ว
+      </div>
     </section>
 
     <section class="card section">
@@ -650,6 +715,6 @@
     </section>
   </div>
 
-  <script type="module" src="./vr-hydration-v2/js/hydration.dashboard.js?v=20260317g"></script>
+  <script type="module" src="./vr-hydration-v2/js/hydration.dashboard.js?v=20260317h"></script>
 </body>
 </html>
