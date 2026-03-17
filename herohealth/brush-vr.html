@@ -347,7 +347,7 @@
         <div class="heroBullets">
           <div class="bullet"><span>1</span><div>Launcher นี้จะสร้าง URL ไป run page จริง</div></div>
           <div class="bullet"><span>2</span><div>ส่ง URL นั้นเข้า warmup gate ผ่านพารามิเตอร์ <b>next</b></div></div>
-          <div class="bullet"><span>3</span><div>หลังจบเกม run page จะพาไป <b>phase=cooldown</b></div></div>
+          <div class="bullet"><span>3</span><div>หลังจบเกม run page ควรพาไป <b>phase=cooldown</b></div></div>
         </div>
       </div>
 
@@ -399,9 +399,9 @@
         <div class="field">
           <label class="label" for="mode">Mode</label>
           <select class="select" id="mode">
-            <option value="learn">Learn</option>
-            <option value="practice">Practice</option>
-            <option value="challenge">Challenge</option>
+            <option value="learn">learn</option>
+            <option value="practice">practice</option>
+            <option value="challenge">challenge</option>
           </select>
         </div>
 
@@ -457,7 +457,7 @@
       </div>
 
       <div class="miniNote" id="previewText">
-        ระบบจะส่งเข้า warmup-gate.html โดยตั้ง phase=warmup และ next=../vr-brush/brush.html...
+        ระบบจะส่งเข้า warmup-gate.html โดยตั้ง phase=warmup และ next=./vr-brush/brush.html...
       </div>
     </section>
   </div>
@@ -466,7 +466,7 @@
     (() => {
       'use strict';
 
-      const byId = (id)=>document.getElementById(id);
+      const byId = (id) => document.getElementById(id);
 
       const pid = byId('pid');
       const studyId = byId('studyId');
@@ -507,28 +507,50 @@
         return seed.value.trim() || String(Date.now());
       }
 
+      function normalizedHub(){
+        return hub.value.trim() || './hub.html';
+      }
+
+      function safeTime(){
+        return String(Math.max(45, Math.min(180, Number(time.value || 90))));
+      }
+
       function buildRunUrl(){
         const u = new URL('./vr-brush/brush.html', location.href);
+
+        u.searchParams.set('game', 'brush');
         u.searchParams.set('gameId', 'brush');
+        u.searchParams.set('theme', 'brush');
+        u.searchParams.set('cat', 'hygiene');
+        u.searchParams.set('zone', 'hygiene');
+
         u.searchParams.set('run', 'play');
         u.searchParams.set('pid', pid.value.trim());
         u.searchParams.set('studyId', studyId.value.trim());
         u.searchParams.set('seed', cleanSeed());
         u.searchParams.set('mode', mode.value);
         u.searchParams.set('diff', diff.value);
-        u.searchParams.set('time', String(Math.max(45, Math.min(180, Number(time.value || 90)))));
-        u.searchParams.set('hub', hub.value.trim() || './hub.html');
+        u.searchParams.set('time', safeTime());
+        u.searchParams.set('hub', normalizedHub());
         u.searchParams.set('view', view.value);
         u.searchParams.set('audio', audio.checked ? '1' : '0');
         u.searchParams.set('voice', voice.checked ? '1' : '0');
         u.searchParams.set('showLearn', showLearn.checked ? '1' : '0');
+
+        // สำหรับ run page ใช้ต่อไป cooldown gate ภายหลัง
         u.searchParams.set('gate', '1');
+        u.searchParams.set('cooldown', '1');
+        u.searchParams.set('gatePage', '../warmup-gate.html');
+
         return u.toString();
       }
 
       function buildWarmupUrl(){
         const gate = new URL('./warmup-gate.html', location.href);
+
         gate.searchParams.set('game', 'brush');
+        gate.searchParams.set('gameId', 'brush');
+        gate.searchParams.set('theme', 'brush');
         gate.searchParams.set('phase', 'warmup');
         gate.searchParams.set('zone', 'hygiene');
         gate.searchParams.set('cat', 'hygiene');
@@ -536,9 +558,11 @@
         gate.searchParams.set('studyId', studyId.value.trim());
         gate.searchParams.set('seed', cleanSeed());
         gate.searchParams.set('diff', diff.value);
-        gate.searchParams.set('time', String(Math.max(45, Math.min(180, Number(time.value || 90)))));
-        gate.searchParams.set('hub', hub.value.trim() || './hub.html');
+        gate.searchParams.set('time', safeTime());
+        gate.searchParams.set('hub', normalizedHub());
+        gate.searchParams.set('view', view.value);
         gate.searchParams.set('next', buildRunUrl());
+
         return gate.toString();
       }
 
@@ -546,10 +570,10 @@
         previewText.textContent = `${label}: ${url}`;
       }
 
-      byId('btnFillDemo')?.addEventListener('click', ()=>{
+      byId('btnFillDemo')?.addEventListener('click', () => {
         pid.value = pid.value.trim() || 'P001';
         studyId.value = studyId.value.trim() || 'HH-BRUSH-DEMO';
-        if(!seed.value.trim()) seed.value = String(Date.now());
+        if (!seed.value.trim()) seed.value = String(Date.now());
         mode.value = 'learn';
         diff.value = 'easy';
         time.value = '90';
@@ -559,24 +583,24 @@
         showLearn.checked = true;
       });
 
-      byId('btnPreviewWarmup')?.addEventListener('click', ()=>{
+      byId('btnPreviewWarmup')?.addEventListener('click', () => {
         renderPreview('warmup', buildWarmupUrl());
       });
 
-      byId('btnDirectRun')?.addEventListener('click', ()=>{
+      byId('btnDirectRun')?.addEventListener('click', () => {
         location.href = buildRunUrl();
       });
 
-      byId('btnStart')?.addEventListener('click', ()=>{
+      byId('btnStart')?.addEventListener('click', () => {
         location.href = buildWarmupUrl();
       });
 
-      byId('btnBackHub')?.addEventListener('click', ()=>{
-        try{
+      byId('btnBackHub')?.addEventListener('click', () => {
+        try {
           window.HHA_BACKHUB?.goHub?.();
           return;
-        }catch{}
-        location.href = hub.value.trim() || './hub.html';
+        } catch {}
+        location.href = normalizedHub();
       });
 
       setDefaults();
