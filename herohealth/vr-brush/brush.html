@@ -6,9 +6,544 @@
   <title>HeroHealth — Brush VR</title>
   <meta name="color-scheme" content="dark light" />
   <link rel="icon" href="../favicon.ico" />
-  <link rel="stylesheet" href="./brush.css?v=20260316b" />
   <script defer src="../launch/backhub.js"></script>
-  <script type="module" src="./brush.core.js?v=20260316b"></script>
+  <style>
+    :root{
+      --bg1:#020617;
+      --bg2:#0b1226;
+      --panel:rgba(2,6,23,.72);
+      --panel2:rgba(15,23,42,.78);
+      --stroke:rgba(148,163,184,.18);
+      --text:#e5e7eb;
+      --muted:#94a3b8;
+      --good:#22c55e;
+      --warn:#f59e0b;
+      --bad:#ef4444;
+      --cyan:#22d3ee;
+      --shadow:0 20px 64px rgba(0,0,0,.45);
+      --radius:22px;
+      --sat: env(safe-area-inset-top, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
+      --sar: env(safe-area-inset-right, 0px);
+    }
+    *{ box-sizing:border-box; }
+    html,body{ min-height:100%; }
+    body{
+      margin:0;
+      color:var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", Arial;
+      background:
+        radial-gradient(1000px 700px at 15% 10%, rgba(34,197,94,.12), transparent 55%),
+        radial-gradient(900px 600px at 85% 18%, rgba(34,211,238,.10), transparent 55%),
+        radial-gradient(900px 520px at 55% 100%, rgba(167,139,250,.10), transparent 55%),
+        linear-gradient(180deg, var(--bg1), var(--bg2));
+      overflow:auto;
+      padding:
+        calc(10px + var(--sat))
+        calc(10px + var(--sar))
+        calc(110px + var(--sab))
+        calc(10px + var(--sal));
+    }
+    .app{
+      width:min(1200px,100%);
+      margin:0 auto;
+      display:grid;
+      gap:10px;
+      height:auto;
+      min-height:100%;
+    }
+    .panel{
+      background:linear-gradient(180deg,var(--panel),var(--panel2));
+      border:1px solid var(--stroke);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+      backdrop-filter:blur(10px);
+      -webkit-backdrop-filter:blur(10px);
+    }
+    .hud{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+    }
+    .hudbox{
+      padding:10px 12px;
+      display:grid;
+      gap:8px;
+    }
+    .topline{
+      display:flex;
+      justify-content:space-between;
+      gap:8px;
+      flex-wrap:wrap;
+      align-items:center;
+    }
+    .title{
+      font-size:18px;
+      font-weight:950;
+    }
+    .pill{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      padding:6px 10px;
+      border-radius:999px;
+      border:1px solid var(--stroke);
+      background:rgba(2,6,23,.35);
+      color:var(--muted);
+      font-size:12px;
+      font-weight:900;
+    }
+    .pill b{ color:var(--text); }
+    .stats{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+    .stat{
+      flex:1 1 110px;
+      border:1px solid var(--stroke);
+      background:rgba(2,6,23,.28);
+      border-radius:16px;
+      padding:10px 12px;
+      display:grid;
+      gap:4px;
+    }
+    .k{ color:var(--muted); font-size:11px; font-weight:900; }
+    .v{ font-size:16px; font-weight:950; }
+    .main{
+      display:grid;
+      grid-template-columns:minmax(0,1.25fr) minmax(300px,.75fr);
+      gap:10px;
+      align-items:start;
+    }
+    .arena{
+      padding:12px;
+      display:grid;
+      grid-template-rows:auto auto auto 1fr auto;
+      gap:10px;
+      min-height:0;
+    }
+    .instruction{
+      font-size:15px;
+      font-weight:950;
+      line-height:1.45;
+    }
+    .instruction .sub{
+      display:block;
+      margin-top:4px;
+      color:var(--muted);
+      font-size:12px;
+      font-weight:800;
+    }
+    .hintRow{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+    .hintBadge{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      padding:6px 10px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(2,6,23,.34);
+      color:var(--muted);
+      font-size:12px;
+      font-weight:900;
+    }
+    .modeRow{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+    .btn{
+      border:1px solid var(--stroke);
+      background:rgba(2,6,23,.40);
+      color:var(--text);
+      border-radius:14px;
+      padding:10px 12px;
+      cursor:pointer;
+      font-weight:950;
+    }
+    .btn.primary{ border-color:rgba(34,197,94,.28); background:rgba(34,197,94,.16); }
+    .btn.cyan{ border-color:rgba(34,211,238,.28); background:rgba(34,211,238,.14); }
+    .btn.warn{ border-color:rgba(245,158,11,.28); background:rgba(245,158,11,.14); }
+    .modeActive{ border-color:rgba(34,211,238,.30)!important; background:rgba(34,211,238,.14)!important; }
+    .cleanBar{
+      width:100%;
+      height:14px;
+      border:1px solid var(--stroke);
+      border-radius:999px;
+      overflow:hidden;
+      background:rgba(2,6,23,.34);
+      position:relative;
+    }
+    .cleanFill{
+      position:absolute;
+      inset:0 auto 0 0;
+      width:0%;
+      background:linear-gradient(90deg,var(--warn),var(--good));
+      transition:width .2s ease;
+    }
+    .arenaCore{
+      position:relative;
+      min-height:430px;
+      display:grid;
+      place-items:center;
+      overflow:hidden;
+      border:1px solid rgba(148,163,184,.14);
+      border-radius:20px;
+      background:
+        radial-gradient(800px 340px at 50% 0%, rgba(255,255,255,.05), transparent 55%),
+        linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.015));
+      touch-action:none;
+    }
+    .mouthWrap{
+      position:relative;
+      width:min(760px,96%);
+      height:360px;
+      max-width:100%;
+      display:grid;
+      place-items:center;
+      touch-action:none;
+    }
+    .mouth{
+      position:absolute;
+      inset:0;
+      border-radius:999px;
+      border:2px solid rgba(244,114,182,.26);
+      background:
+        radial-gradient(70% 120% at 50% 0%, rgba(251,113,133,.30), rgba(127,29,29,.10) 65%, transparent 66%),
+        radial-gradient(80% 120% at 50% 100%, rgba(251,113,133,.30), rgba(127,29,29,.10) 65%, transparent 66%);
+      box-shadow: inset 0 0 80px rgba(0,0,0,.18);
+    }
+    .gumsTop,.gumsBottom{
+      position:absolute;
+      left:6%;
+      width:88%;
+      height:26%;
+      border-radius:999px;
+      background:linear-gradient(180deg, rgba(251,113,133,.58), rgba(190,24,93,.26));
+    }
+    .gumsTop{ top:10%; }
+    .gumsBottom{ bottom:10%; }
+    .teethTop,.teethBottom{
+      position:absolute;
+      left:10%;
+      width:80%;
+      height:24%;
+      display:grid;
+      grid-template-columns:repeat(8,1fr);
+      gap:6px;
+      pointer-events:none;
+    }
+    .teethTop{ top:19%; }
+    .teethBottom{ bottom:19%; }
+    .tooth{
+      border-radius:12px 12px 18px 18px;
+      background:linear-gradient(180deg, rgba(255,255,255,.99), rgba(241,245,249,.94));
+      border:1px solid rgba(148,163,184,.22);
+      box-shadow: inset 0 -10px 18px rgba(226,232,240,.55);
+    }
+    .zoneLayer{
+      position:absolute;
+      inset:0;
+      z-index:10;
+      pointer-events:none;
+    }
+    .zone{
+      position:absolute;
+      border:3px dashed rgba(255,255,255,.10);
+      border-radius:18px;
+      background:transparent;
+      pointer-events:auto;
+      touch-action:none;
+      z-index:12;
+      overflow:hidden;
+    }
+    .zone.active{
+      border-color:rgba(34,211,238,.98);
+      box-shadow:
+        0 0 0 3px rgba(34,211,238,.18),
+        0 0 36px rgba(34,211,238,.34),
+        inset 0 0 42px rgba(34,211,238,.12);
+      background:linear-gradient(180deg, rgba(34,211,238,.10), rgba(34,211,238,.05));
+    }
+    .zone.active::after{
+      content:'ถูตรงนี้';
+      position:absolute;
+      right:8px;
+      bottom:6px;
+      padding:4px 7px;
+      border-radius:999px;
+      background:rgba(34,211,238,.92);
+      color:#062033;
+      font-size:10px;
+      font-weight:950;
+    }
+    .zone.completed{
+      border-color:rgba(34,197,94,.42);
+      background:rgba(34,197,94,.05);
+    }
+    .zone.completed::after{
+      content:'สะอาดแล้ว';
+      position:absolute;
+      right:8px;
+      bottom:6px;
+      padding:4px 7px;
+      border-radius:999px;
+      background:rgba(34,197,94,.90);
+      color:#062912;
+      font-size:10px;
+      font-weight:950;
+    }
+    .zoneLabel{
+      position:absolute;
+      left:8px;
+      top:6px;
+      font-size:10px;
+      font-weight:950;
+      color:rgba(229,231,235,.95);
+      text-shadow:0 1px 0 rgba(0,0,0,.25);
+      pointer-events:none;
+      max-width:70%;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    .zoneDir{
+      position:absolute;
+      left:50%;
+      top:50%;
+      transform:translate(-50%,-50%);
+      font-size:16px;
+      font-weight:950;
+      color:rgba(34,211,238,.95);
+      opacity:0;
+      pointer-events:none;
+    }
+    .zone.active .zoneDir{ opacity:.95; }
+    .dirt{
+      position:absolute;
+      inset:0;
+      pointer-events:none;
+    }
+    .dirtBlob{
+      position:absolute;
+      border-radius:999px;
+      opacity:.92;
+      filter:blur(1px);
+    }
+    .dirtBlob.normal{ background:rgba(245,158,11,.72); }
+    .dirtBlob.heavy{ background:rgba(234,179,8,.82); }
+    .dirtBlob.germ{ background:rgba(168,85,247,.78); }
+    .brushCursor{
+      position:absolute;
+      width:52px;
+      height:52px;
+      margin-left:-26px;
+      margin-top:-26px;
+      display:grid;
+      place-items:center;
+      font-size:30px;
+      pointer-events:none;
+      opacity:0;
+      z-index:20;
+      filter:drop-shadow(0 8px 18px rgba(0,0,0,.35));
+    }
+    .trailLayer,.fxLayer{
+      position:absolute;
+      inset:0;
+      pointer-events:none;
+    }
+    .brushTrail{
+      position:absolute;
+      width:58px;
+      height:18px;
+      margin-left:-29px;
+      margin-top:-9px;
+      border-radius:999px;
+      background:
+        linear-gradient(90deg,
+          rgba(255,255,255,0),
+          rgba(255,255,255,.34),
+          rgba(34,211,238,.75),
+          rgba(255,255,255,0));
+      animation: trailFade .32s ease forwards;
+    }
+    .pop{
+      position:absolute;
+      padding:6px 10px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.22);
+      background:rgba(2,6,23,.78);
+      color:var(--text);
+      font-size:12px;
+      font-weight:950;
+      transform:translate(-50%,-50%);
+      animation: floatUp .7s ease forwards;
+    }
+    .arenaFoot{
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+    }
+    .tips{
+      color:var(--muted);
+      font-size:11px;
+      font-weight:800;
+      line-height:1.4;
+    }
+    .skillRow{
+      display:grid;
+      grid-template-columns:1fr 1fr 1fr;
+      gap:8px;
+    }
+    .side{
+      padding:10px;
+      display:grid;
+      gap:8px;
+      align-content:start;
+    }
+    .zoneList{
+      display:grid;
+      gap:8px;
+      max-height:260px;
+      overflow:auto;
+    }
+    .zoneItem{
+      border:1px solid var(--stroke);
+      border-radius:16px;
+      background:rgba(2,6,23,.28);
+      padding:10px 12px;
+      display:grid;
+      gap:6px;
+    }
+    .zoneItem.active{
+      border-color:rgba(34,211,238,.28);
+      box-shadow:inset 0 0 22px rgba(34,211,238,.06);
+    }
+    .zoneItem.completed{
+      border-color:rgba(34,197,94,.28);
+      box-shadow:inset 0 0 22px rgba(34,197,94,.06);
+    }
+    .zoneRow{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:8px;
+    }
+    .zoneName{ font-size:12px; font-weight:950; }
+    .zonePct{ font-size:12px; font-weight:950; color:var(--muted); }
+    .miniBar{
+      width:100%;
+      height:10px;
+      border-radius:999px;
+      overflow:hidden;
+      background:rgba(2,6,23,.38);
+      border:1px solid rgba(148,163,184,.12);
+    }
+    .miniFill{
+      height:100%;
+      width:0%;
+      background:linear-gradient(90deg,var(--warn),var(--good));
+      transition:width .22s ease;
+    }
+    .summaryOverlay{
+      position:fixed;
+      inset:0;
+      z-index:99998;
+      display:none;
+      place-items:center;
+      background:rgba(0,0,0,.55);
+      padding:14px;
+    }
+    .summaryCard{
+      width:min(760px,96vw);
+      border:1px solid var(--stroke);
+      border-radius:24px;
+      background:linear-gradient(180deg, rgba(2,6,23,.95), rgba(15,23,42,.90));
+      box-shadow:var(--shadow);
+      padding:16px;
+      display:grid;
+      gap:14px;
+    }
+    .summaryGrid{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:8px;
+    }
+    .summaryBox{
+      border:1px solid var(--stroke);
+      background:rgba(2,6,23,.30);
+      border-radius:16px;
+      padding:12px;
+      display:grid;
+      gap:6px;
+    }
+    .sumBig{ font-size:28px; font-weight:950; }
+    .summaryActions{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+    }
+    .backHubDock{
+      position:fixed;
+      left:8px;
+      right:8px;
+      bottom:calc(8px + var(--sab));
+      z-index:99997;
+      display:flex;
+      gap:6px;
+    }
+    .dockBtn{
+      flex:1 1 0;
+      min-width:0;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(2,6,23,.72);
+      color:var(--text);
+      border-radius:16px;
+      padding:10px 8px;
+      font-size:12px;
+      font-weight:950;
+      cursor:pointer;
+    }
+    @keyframes floatUp{
+      0%{ opacity:0; transform:translate(-50%,-42%) scale(.92); }
+      15%{ opacity:1; }
+      100%{ opacity:0; transform:translate(-50%,-130%) scale(1.03); }
+    }
+    @keyframes trailFade{
+      0%{ opacity:.95; transform:scale(.9); }
+      100%{ opacity:0; transform:scale(1.12); }
+    }
+    @media (max-width: 1200px){
+      .main{ grid-template-columns:1fr; }
+    }
+    @media (max-width: 900px){
+      body{
+        padding:
+          calc(8px + var(--sat))
+          calc(8px + var(--sar))
+          calc(108px + var(--sab))
+          calc(8px + var(--sal));
+      }
+      .hud{ grid-template-columns:1fr; }
+      .arenaCore{ min-height:360px; }
+      .mouthWrap{ height:300px; }
+      .side{ order:2; }
+      .skillRow{ grid-template-columns:1fr 1fr; }
+    }
+    @media (max-width: 680px){
+      .arena{ padding:10px; }
+      .arenaCore{ min-height:320px; }
+      .mouthWrap{ height:260px; }
+      .summaryGrid{ grid-template-columns:1fr; }
+    }
+  </style>
 </head>
 <body>
   <div class="app">
@@ -16,25 +551,19 @@
       <div class="panel hudbox">
         <div class="topline">
           <div class="title">🪥 Brush VR</div>
-          <div style="display:flex; gap:8px; flex-wrap:wrap;">
-            <div class="pill">gameId: <b id="pillGameId">brush</b></div>
-            <div class="pill">เสียง: <b id="pillAudio">on</b></div>
-          </div>
+          <div class="pill">gameId: <b id="pillGameId">brush</b></div>
         </div>
         <div class="stats">
           <div class="stat"><div class="k">Score</div><div class="v" id="statScore">0</div></div>
           <div class="stat"><div class="k">Combo</div><div class="v" id="statCombo">0</div></div>
-          <div class="stat"><div class="k">Time</div><div class="v" id="statTime">90</div></div>
+          <div class="stat"><div class="k">Time</div><div class="v" id="statTime">∞</div></div>
         </div>
       </div>
 
       <div class="panel hudbox">
         <div class="topline">
           <div class="pill">โซนปัจจุบัน: <b id="pillZone">—</b></div>
-          <div style="display:flex; gap:8px; flex-wrap:wrap;">
-            <div class="pill">Phase: <b id="pillPhase">เรียนรู้</b></div>
-            <div class="pill">Mode: <b id="pillMode">Learn</b></div>
-          </div>
+          <div class="pill">Mode: <b id="pillMode">Learn</b></div>
         </div>
         <div class="stats">
           <div class="stat"><div class="k">Clean</div><div class="v" id="statClean">0%</div></div>
@@ -42,70 +571,30 @@
           <div class="stat"><div class="k">Boss HP</div><div class="v" id="statBoss">—</div></div>
         </div>
       </div>
-
-      <div class="panel hudbox desktopMetaBox">
-        <div class="topline">
-          <div class="pill">run: <b id="pillRun">play</b></div>
-          <div class="pill">diff: <b id="pillDiff">normal</b></div>
-          <div class="pill">view: <b id="pillView">pc</b></div>
-        </div>
-        <div class="stats">
-          <div class="stat"><div class="k">pid</div><div class="v" id="statPid">—</div></div>
-          <div class="stat"><div class="k">seed</div><div class="v" id="statSeed">—</div></div>
-          <div class="stat"><div class="k">Study</div><div class="v" id="statStudy">—</div></div>
-        </div>
-      </div>
     </section>
 
     <section class="main">
       <section class="panel arena">
-        <div class="arenaHead">
-          <div style="display:grid; gap:8px; min-width:0; flex:1 1 380px;">
-            <div class="instruction" id="instruction">
-              ตอนนี้ให้ถู <b>ฟันบนด้านนอก</b>
-              <span class="sub" id="instructionSub">ถูในกรอบสีฟ้าบนรูปฟันตรงกลาง</span>
-            </div>
-
-            <div style="display:flex; gap:8px; flex-wrap:wrap;">
-              <div class="hintBadge" id="hintBadge">👆 ถูในกรอบสีฟ้า</div>
-              <div class="hintBadge" id="dirBadge">↕ ถูขึ้น-ลง</div>
-            </div>
-
-            <div style="display:flex; gap:8px; flex-wrap:wrap;">
-              <button class="btn secondary" id="btnModeLearn" type="button">Learn</button>
-              <button class="btn secondary" id="btnModePractice" type="button">Practice</button>
-              <button class="btn secondary" id="btnModeChallenge" type="button">Challenge</button>
-            </div>
-          </div>
-
-          <div style="display:grid; gap:10px; justify-items:end; min-width:min(280px,100%); flex:1 1 220px;">
-            <div class="cleanBar" aria-label="Clean progress">
-              <div class="cleanFill" id="cleanFill"></div>
-            </div>
-
-            <div class="bossHpWrap" id="bossHpWrap" style="display:none;">
-              <div class="bossHpLabel">
-                <span>Boss HP</span>
-                <span id="bossHpText">0/0</span>
-              </div>
-              <div class="bossHpBar">
-                <div class="bossHpFill" id="bossHpFill"></div>
-              </div>
-            </div>
-          </div>
+        <div class="instruction" id="instruction">
+          ตอนนี้ให้ถู <b>ฟันบนด้านนอก</b>
+          <span class="sub" id="instructionSub">ถูในกรอบสีฟ้าบนรูปฟันตรงกลาง</span>
         </div>
 
-        <div class="panel" id="howToPlayBox" style="padding:10px 12px; border-radius:16px; background:rgba(2,6,23,.24); box-shadow:none;">
-          <div style="font-weight:950; font-size:13px; margin-bottom:6px;">วิธีเล่น</div>
-          <div style="display:grid; gap:4px; color:var(--muted); font-size:12px; line-height:1.45;">
-            <div><b style="color:var(--text)">1)</b> ดูชื่อโซนด้านบน</div>
-            <div><b style="color:var(--text)">2)</b> หา <span style="color:#22d3ee;font-weight:900;">กรอบสีฟ้า</span> บนรูปฟัน</div>
-            <div><b style="color:var(--text)">3)</b> ลากถูในกรอบนั้นจนค่า Clean เพิ่ม</div>
-          </div>
+        <div class="hintRow">
+          <div class="hintBadge" id="hintBadge">👆 ถูในกรอบสีฟ้า</div>
+          <div class="hintBadge" id="dirBadge">↕ ถูขึ้น-ลง</div>
         </div>
+
+        <div class="modeRow">
+          <button class="btn modeActive" id="btnModeLearn" type="button">Learn</button>
+          <button class="btn" id="btnModePractice" type="button">Practice</button>
+          <button class="btn" id="btnModeChallenge" type="button">Challenge</button>
+        </div>
+
+        <div class="cleanBar"><div class="cleanFill" id="cleanFill"></div></div>
 
         <div class="arenaCore" id="arenaCore">
-          <div class="mouthWrap" id="mouthWrap">
+          <div class="mouthWrap">
             <div class="mouth"></div>
             <div class="gumsTop"></div>
             <div class="gumsBottom"></div>
@@ -120,174 +609,541 @@
               <div class="tooth"></div><div class="tooth"></div><div class="tooth"></div><div class="tooth"></div>
             </div>
 
-            <div id="demoHand" class="demoHand">👆</div>
-            <div id="demoHint" class="demoHint">ลองถูตามนิ้ว</div>
-            <div id="coachToast" class="demoHint" style="top:auto; bottom:18px; background:rgba(34,197,94,.92); display:none;">เก่งมาก!</div>
-
             <div class="zoneLayer" id="zoneLayer"></div>
-            <div class="fxLayer" id="fxLayer"></div>
             <div class="trailLayer" id="trailLayer"></div>
-
-            <div class="laserLine" id="laserLine"></div>
-            <div class="shockRing" id="shockRing"></div>
-            <div class="phaseToast" id="phaseToast">PHASE 1</div>
-            <div class="comboBadge" id="comboBadge">COMBO x1</div>
+            <div class="fxLayer" id="fxLayer"></div>
             <div class="brushCursor" id="brushCursor">🪥</div>
-            <div class="bossBanner" id="bossBanner">🦠 บอสหินปูนปรากฏแล้ว!</div>
           </div>
         </div>
 
         <div class="arenaFoot">
-          <div class="tips">
-            ถูในกรอบสีฟ้า • โซนไหนสะอาดครบจะเปลี่ยนเป็นสีเขียว • ช่วงบอสให้ทำตามข้อความบนจอ
-          </div>
-
+          <div class="tips">ลากในกรอบสีฟ้า • โซนไหนสะอาดครบจะเปลี่ยนเป็นสีเขียว</div>
           <div class="skillRow">
             <button class="btn cyan" id="btnUV" type="button">🔦 UV Reveal</button>
             <button class="btn warn" id="btnPolish" type="button">✨ Polish</button>
-            <button class="btn secondary" id="btnRestart" type="button">↻ Restart</button>
+            <button class="btn" id="btnRestart" type="button">↻ Restart</button>
           </div>
         </div>
       </section>
 
       <aside class="panel side">
-        <details open class="panel" style="padding:12px; border-radius:18px; background:rgba(2,6,23,.26); box-shadow:none;">
-          <summary style="cursor:pointer; font-weight:950; font-size:15px;">🦷 แผนที่ฟัน 6 โซน</summary>
+        <div class="panel" style="padding:12px; border-radius:18px; background:rgba(2,6,23,.26); box-shadow:none;">
+          <div style="font-size:15px; font-weight:950;">🦷 แผนที่ฟัน 6 โซน</div>
           <div class="zoneList" id="zoneList" style="margin-top:10px;"></div>
-        </details>
-
-        <div class="panel" style="padding:12px; border-radius:18px; background:rgba(2,6,23,.26); box-shadow:none;">
-          <h3>ภารกิจตอนนี้</h3>
-          <div style="margin-top:8px; color:var(--muted); font-size:12px; font-weight:900; line-height:1.5;" id="questText">
-            ทำความสะอาดทีละโซนให้เกิน 85% แล้วจะเจอบอสหินปูน
-          </div>
         </div>
 
-        <div class="panel" id="nowDoBox" style="padding:12px; border-radius:18px; background:rgba(34,211,238,.10); border:1px solid rgba(34,211,238,.24); box-shadow:none;">
+        <div class="panel" style="padding:12px; border-radius:18px; background:rgba(2,6,23,.26); box-shadow:none;">
           <div style="font-size:12px; color:var(--muted); font-weight:900;">ตอนนี้ต้องทำ</div>
-          <div id="nowDoText" style="margin-top:6px; font-size:15px; font-weight:950; color:var(--text);">
-            ถูฟันบนด้านนอกในกรอบสีฟ้า
-          </div>
+          <div id="nowDoText" style="margin-top:6px; font-size:15px; font-weight:950;">ถูฟันบนด้านนอกในกรอบสีฟ้า</div>
         </div>
 
-        <div class="panel" id="coachBox" style="padding:12px; border-radius:18px; background:rgba(34,197,94,.10); border:1px solid rgba(34,197,94,.22); box-shadow:none;">
+        <div class="panel" style="padding:12px; border-radius:18px; background:rgba(34,197,94,.10); border:1px solid rgba(34,197,94,.22); box-shadow:none;">
           <div style="font-size:12px; color:var(--muted); font-weight:900;">Coach</div>
-          <div id="coachText" style="margin-top:6px; font-size:14px; font-weight:950; color:var(--text); line-height:1.45;">
-            เริ่มจากถูในกรอบสีฟ้าก่อนนะ
-          </div>
+          <div id="coachText" style="margin-top:6px; font-size:14px; font-weight:950; line-height:1.45;">เริ่มจากลากถูในกรอบสีฟ้าก่อนนะ</div>
         </div>
 
         <div class="panel" style="padding:12px; border-radius:18px; background:rgba(2,6,23,.26); box-shadow:none;">
-          <h3>ปุ่มลัด</h3>
-          <div class="skillBox" style="margin-top:8px;">
-            <div class="skillRow">
-              <button class="btn cyan" id="btnShowLearnHelp" type="button">👆 ดูตัวอย่าง</button>
-              <button class="btn secondary" id="btnToggleAudio" type="button">🔊 เสียง</button>
-              <button class="btn primary" id="btnStartBoss" type="button">🦠 Start Boss Now</button>
-              <button class="btn secondary" id="btnFinish" type="button">🏁 Finish</button>
-            </div>
-            <div style="color:var(--muted); font-size:12px; font-weight:900; line-height:1.45;">
-              Learn ใช้ฝึกก่อน • Practice เล่นเต็มระบบ • Challenge ยากขึ้นและไม่มีตัวช่วย
-            </div>
-          </div>
-        </div>
-
-        <div style="color:var(--muted); font-size:12px; font-weight:900; line-height:1.55;">
-          เกมนี้ออกแบบให้เด็กเห็นชัดว่าตอนนี้ต้องถูส่วนไหน โดยใช้ฟันจริงเป็นจุดเล่นหลักกลางจอ
+          <div style="font-size:15px; font-weight:950;">ภารกิจตอนนี้</div>
+          <div id="questText" style="margin-top:8px; color:var(--muted); font-size:12px; font-weight:900; line-height:1.5;">ทำความสะอาดทีละโซนให้เกิน 85%</div>
         </div>
       </aside>
     </section>
-
-    <div></div>
-  </div>
-
-  <div id="learnOverlay" class="summaryOverlay" style="display:none; z-index:99990;">
-    <div class="summaryCard" style="max-width:680px;">
-      <div class="summaryHead">
-        <div>
-          <div class="summaryTitle">🪥 มาฝึกแปรงฟันกัน</div>
-          <div class="summarySub">โหมด Learn • ฝึกแบบไม่ต้องรีบ</div>
-        </div>
-        <div class="pill">mode: <b>Learn</b></div>
-      </div>
-
-      <div style="border:1px solid rgba(148,163,184,.16); background:rgba(2,6,23,.24); border-radius:18px; padding:14px;">
-        <div style="font-size:14px; font-weight:950; margin-bottom:8px;">วิธีเล่น</div>
-        <div style="display:grid; gap:6px; color:var(--muted); font-size:13px; line-height:1.55;">
-          <div>1) ดูกรอบสีฟ้าบนรูปฟัน</div>
-          <div>2) ลากถูในกรอบนั้น</div>
-          <div>3) ทำทีละโซนให้สะอาด</div>
-        </div>
-      </div>
-
-      <div style="border:1px solid rgba(34,211,238,.16); background:rgba(34,211,238,.08); border-radius:18px; padding:14px;">
-        <div style="font-size:14px; font-weight:950; margin-bottom:8px;">ตอนนี้จะได้ฝึก</div>
-        <div id="learnOverlayNow" style="color:var(--text); font-size:14px; font-weight:900; line-height:1.55;">
-          ถูฟันบนด้านนอกในกรอบสีฟ้า
-        </div>
-      </div>
-
-      <div class="summaryActions" style="justify-content:space-between;">
-        <button class="btn secondary" id="btnLearnWatch" type="button">👆 ดูตัวอย่าง</button>
-        <div style="display:flex; gap:10px; flex-wrap:wrap;">
-          <button class="btn secondary" id="btnLearnSkip" type="button">ข้าม</button>
-          <button class="btn primary" id="btnLearnStart" type="button">เริ่มฝึก</button>
-        </div>
-      </div>
-    </div>
   </div>
 
   <div class="summaryOverlay" id="summaryOverlay">
     <div class="summaryCard">
-      <div class="summaryHead">
-        <div>
-          <div class="summaryTitle">🏁 Brush VR Summary</div>
-          <div class="summarySub" id="summarySub">สรุปผลการแปรงฟันรอบล่าสุด</div>
-        </div>
-        <div class="pill">rank: <b id="summaryRank">B</b></div>
-      </div>
-
-      <div class="resultHero">
-        <div class="left">
-          <div class="title" id="resultHeroTitle">แปรงฟันเสร็จแล้ว!</div>
-          <div class="sub" id="resultHeroSub">สรุปผลการเล่นรอบล่าสุด</div>
-        </div>
-        <div class="rank" id="resultHeroRank">B</div>
-      </div>
-
+      <div style="font-size:18px; font-weight:950;">🏁 Brush VR Summary</div>
       <div class="summaryGrid">
-        <div class="summaryBox"><div class="k">Score</div><div class="v sumBig" id="sumScore">0</div></div>
+        <div class="summaryBox"><div class="k">Score</div><div class="sumBig" id="sumScore">0</div></div>
         <div class="summaryBox"><div class="k">Accuracy</div><div class="v" id="sumAcc">0%</div></div>
         <div class="summaryBox"><div class="k">Clean</div><div class="v" id="sumClean">0%</div></div>
-        <div class="summaryBox"><div class="k">Boss</div><div class="v" id="sumBoss">—</div></div>
-        <div class="summaryBox"><div class="k">Max Combo</div><div class="v" id="sumCombo">0</div></div>
-        <div class="summaryBox"><div class="k">Quest</div><div class="v" id="sumQuest">—</div></div>
+        <div class="summaryBox"><div class="k">Rank</div><div class="v" id="summaryRank">C</div></div>
       </div>
-
-      <div class="summaryQuestRow" id="summaryQuestRow">
-        <div class="summaryQuestBadge" id="sumQShock">Shock ⬜</div>
-        <div class="summaryQuestBadge" id="sumQLaser">Laser ⬜</div>
-        <div class="summaryQuestBadge" id="sumQDecoy">Decoy ⬜</div>
-      </div>
-
-      <div id="summaryCoachWrap" style="display:grid; gap:8px;"></div>
-      <div id="summaryZoneWrap" style="display:grid; gap:8px;"></div>
-      <div id="summaryTipWrap" style="display:grid; gap:8px;"></div>
-
       <div class="summaryActions">
-        <button class="btn secondary" id="btnCloseSummary" type="button">Close</button>
+        <button class="btn" id="btnCloseSummary" type="button">ไป Cooldown</button>
         <button class="btn" id="btnSummaryRestart" type="button">↻ Restart</button>
         <button class="btn primary" id="btnBackHub" type="button">← Back Hub</button>
       </div>
     </div>
   </div>
 
-  <div class="backHubDock" id="backHubDock">
-    <button class="dockBtn secondary" id="btnDockRestart" type="button">↻ Restart</button>
+  <div class="backHubDock">
+    <button class="dockBtn" id="btnDockRestart" type="button">↻ Restart</button>
     <button class="dockBtn" id="btnDockSummary" type="button">🏁 Finish</button>
     <button class="dockBtn" id="btnDockHub" type="button">← Hub</button>
   </div>
 
-  <div class="screenFlash" id="screenFlash"></div>
+  <script>
+    (() => {
+      'use strict';
+
+      const qs = (k,d='') => {
+        try { return new URL(location.href).searchParams.get(k) ?? d; }
+        catch { return d; }
+      };
+      const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
+      const byId = (id)=>document.getElementById(id);
+
+      const CFG = {
+        view: qs('view','mobile'),
+        hub: qs('hub','../hub.html'),
+        mode: qs('mode','learn'),
+        diff: qs('diff','easy'),
+        gate: qs('gate','0') === '1'
+      };
+
+      const ZONES = [
+        { id:'upper_outer', label:'ฟันบนด้านนอก', x:18, y:20, w:64, h:14, dir:'vertical', dirtType:'normal' },
+        { id:'upper_inner', label:'ฟันบนด้านใน', x:24, y:36, w:52, h:11, dir:'vertical', dirtType:'germ' },
+        { id:'upper_chew',  label:'ฟันบนด้านบดเคี้ยว', x:30, y:49, w:40, h:8, dir:'horizontal', dirtType:'heavy' },
+        { id:'lower_outer', label:'ฟันล่างด้านนอก', x:18, y:66, w:64, h:14, dir:'vertical', dirtType:'normal' },
+        { id:'lower_inner', label:'ฟันล่างด้านใน', x:24, y:54, w:52, h:11, dir:'vertical', dirtType:'germ' },
+        { id:'lower_chew',  label:'ฟันล่างด้านบดเคี้ยว', x:30, y:44, w:40, h:8, dir:'horizontal', dirtType:'heavy' }
+      ];
+
+      const S = {
+        score: 0,
+        combo: 0,
+        maxCombo: 0,
+        miss: 0,
+        hits: 0,
+        totalActions: 0,
+        clean: 0,
+        activeZoneIdx: 0,
+        finished: false,
+        isBrushing: false,
+        brushLastX: 0,
+        brushLastY: 0,
+        zoneState: ZONES.map(z => ({
+          id: z.id,
+          label: z.label,
+          dirt: 36,
+          clean: 0,
+          completed: false,
+          el: null,
+          dirtEl: null
+        }))
+      };
+
+      const arenaCore = byId('arenaCore');
+      const zoneLayer = byId('zoneLayer');
+      const zoneList = byId('zoneList');
+      const brushCursor = byId('brushCursor');
+      const cleanFill = byId('cleanFill');
+      const fxLayer = byId('fxLayer');
+      const trailLayer = byId('trailLayer');
+      let activePointerId = null;
+
+      function setText(id, v){ const el = byId(id); if(el) el.textContent = v; }
+
+      function totalCleanPct(){
+        const sum = S.zoneState.reduce((a,z)=> a + Math.round(z.clean), 0);
+        return Math.round(sum / S.zoneState.length);
+      }
+
+      function zoneDirectionText(idx){
+        return ZONES[idx]?.dir === 'horizontal' ? 'ซ้าย-ขวา' : 'ขึ้น-ลง';
+      }
+
+      function humanZoneInstruction(label){
+        return `ถู${label || 'โซนนี้'}`;
+      }
+
+      function zoneRectRelative(el){
+        const r = el.getBoundingClientRect();
+        const base = arenaCore.getBoundingClientRect();
+        return {
+          left: r.left - base.left,
+          top: r.top - base.top,
+          right: r.right - base.left,
+          bottom: r.bottom - base.top
+        };
+      }
+
+      function pointInZone(idx, x, y){
+        const zs = S.zoneState[idx];
+        if(!zs?.el) return false;
+        const rr = zoneRectRelative(zs.el);
+        return x >= rr.left && x <= rr.right && y >= rr.top && y <= rr.bottom;
+      }
+
+      function spawnPop(x,y,text){
+        const el = document.createElement('div');
+        el.className = 'pop';
+        el.textContent = text;
+        el.style.left = x + 'px';
+        el.style.top = y + 'px';
+        fxLayer.appendChild(el);
+        setTimeout(()=> el.remove(), 720);
+      }
+
+      function spawnTrail(x,y){
+        const el = document.createElement('div');
+        el.className = 'brushTrail';
+        el.style.left = x + 'px';
+        el.style.top = y + 'px';
+        trailLayer.appendChild(el);
+        setTimeout(()=> el.remove(), 340);
+      }
+
+      function renderDirtForZone(idx){
+        const zs = S.zoneState[idx];
+        const meta = ZONES[idx];
+        if(!zs?.dirtEl) return;
+        zs.dirtEl.innerHTML = '';
+        const count = clamp(Math.ceil(zs.dirt / 12), 0, 8);
+
+        for(let i=0;i<count;i++){
+          const blob = document.createElement('div');
+          blob.className = `dirtBlob ${meta.dirtType}`;
+          if(meta.dir === 'horizontal'){
+            blob.style.width = (18 + Math.random()*34) + 'px';
+            blob.style.height = (6 + Math.random()*7) + 'px';
+          }else{
+            blob.style.width = (6 + Math.random()*7) + 'px';
+            blob.style.height = (18 + Math.random()*34) + 'px';
+          }
+          blob.style.left = (8 + Math.random()*76) + '%';
+          blob.style.top = (14 + Math.random()*60) + '%';
+          zs.dirtEl.appendChild(blob);
+        }
+      }
+
+      function refreshUI(){
+        S.clean = totalCleanPct();
+        cleanFill.style.width = S.clean + '%';
+
+        setText('pillGameId','brush');
+        setText('pillMode', CFG.mode === 'challenge' ? 'Challenge' : CFG.mode === 'practice' ? 'Practice' : 'Learn');
+        setText('pillZone', S.zoneState[S.activeZoneIdx]?.label || '—');
+        setText('statScore', String(Math.round(S.score)));
+        setText('statCombo', String(S.combo));
+        setText('statMiss', String(S.miss));
+        setText('statClean', `${S.clean}%`);
+        setText('statBoss', '—');
+
+        const active = S.zoneState[S.activeZoneIdx];
+        byId('instruction').innerHTML =
+          `ตอนนี้ให้ถู <b>${active?.label || '—'}</b>
+           <span class="sub">ถูในกรอบสีฟ้าบนรูปฟันตรงกลาง</span>`;
+        setText('hintBadge', '👆 ถูในกรอบสีฟ้า');
+        setText('dirBadge', `${ZONES[S.activeZoneIdx]?.dir === 'horizontal' ? '↔' : '↕'} ถู${zoneDirectionText(S.activeZoneIdx)}`);
+        setText('nowDoText', `${humanZoneInstruction(active?.label)} ในกรอบสีฟ้า`);
+        setText('coachText', 'เริ่มจากลากถูในกรอบสีฟ้าก่อนนะ');
+        setText('questText', 'ทำความสะอาดทีละโซนให้เกิน 85%');
+
+        S.zoneState.forEach((zs, idx)=>{
+          const activeNow = idx === S.activeZoneIdx;
+          zs.el.classList.toggle('active', activeNow && !S.finished);
+          zs.el.classList.toggle('completed', zs.completed);
+          zs.el.style.zIndex = activeNow ? '20' : '12';
+
+          const item = byId('zoneItem_' + zs.id);
+          if(item){
+            item.classList.toggle('active', activeNow && !S.finished);
+            item.classList.toggle('completed', zs.completed);
+          }
+          const pct = Math.round(zs.clean);
+          const fill = byId('zoneFill_' + zs.id);
+          const pctEl = byId('zonePct_' + zs.id);
+          if(fill) fill.style.width = pct + '%';
+          if(pctEl) pctEl.textContent = pct + '%';
+        });
+      }
+
+      function maybeAdvanceZone(){
+        const active = S.zoneState[S.activeZoneIdx];
+        if(!active || !active.completed) return;
+        const nextIdx = S.zoneState.findIndex(z => !z.completed);
+        if(nextIdx >= 0) S.activeZoneIdx = nextIdx;
+      }
+
+      function buildZones(){
+        zoneLayer.innerHTML = '';
+        zoneList.innerHTML = '';
+
+        S.zoneState.forEach((zs, idx)=>{
+          const meta = ZONES[idx];
+
+          const el = document.createElement('button');
+          el.type = 'button';
+          el.className = 'zone';
+          el.style.left = meta.x + '%';
+          el.style.top = meta.y + '%';
+          el.style.width = meta.w + '%';
+          el.style.height = meta.h + '%';
+
+          const label = document.createElement('div');
+          label.className = 'zoneLabel';
+          label.textContent = zs.label;
+          el.appendChild(label);
+
+          const dir = document.createElement('div');
+          dir.className = 'zoneDir';
+          dir.textContent = meta.dir === 'horizontal' ? '↔' : '↕';
+          el.appendChild(dir);
+
+          const dirt = document.createElement('div');
+          dirt.className = 'dirt';
+          el.appendChild(dirt);
+
+          zs.el = el;
+          zs.dirtEl = dirt;
+          renderDirtForZone(idx);
+
+          el.addEventListener('pointerdown', (ev)=>{
+            ev.preventDefault();
+            onZonePointerDown(idx, ev);
+          }, { passive:false });
+
+          zoneLayer.appendChild(el);
+
+          const item = document.createElement('div');
+          item.className = 'zoneItem';
+          item.id = 'zoneItem_' + zs.id;
+          item.innerHTML = `
+            <div class="zoneRow">
+              <div class="zoneName">${zs.label}</div>
+              <div class="zonePct" id="zonePct_${zs.id}">0%</div>
+            </div>
+            <div class="miniBar"><div class="miniFill" id="zoneFill_${zs.id}"></div></div>
+          `;
+          zoneList.appendChild(item);
+        });
+      }
+
+      function beginBrush(ev){
+        activePointerId = ev.pointerId ?? null;
+        try{ arenaCore.setPointerCapture?.(ev.pointerId); }catch{}
+        S.isBrushing = true;
+        const r = arenaCore.getBoundingClientRect();
+        S.brushLastX = ev.clientX - r.left;
+        S.brushLastY = ev.clientY - r.top;
+        brushCursor.style.left = S.brushLastX + 'px';
+        brushCursor.style.top = S.brushLastY + 'px';
+        brushCursor.style.opacity = '1';
+        spawnTrail(S.brushLastX, S.brushLastY);
+      }
+
+      function endBrush(ev){
+        if(activePointerId !== null && ev?.pointerId != null && ev.pointerId !== activePointerId) return;
+        try{ arenaCore.releasePointerCapture?.(activePointerId); }catch{}
+        activePointerId = null;
+        S.isBrushing = false;
+        brushCursor.style.opacity = '0';
+      }
+
+      function onZonePointerDown(idx, ev){
+        if(S.finished) return;
+        beginBrush(ev);
+        handleBrushPoint(idx, ev.clientX, ev.clientY, true);
+      }
+
+      function handleBrushPoint(idx, clientX, clientY, clicked){
+        const r = arenaCore.getBoundingClientRect();
+        const x = clientX - r.left;
+        const y = clientY - r.top;
+        const activeIdx = S.activeZoneIdx;
+        const isActive = idx === activeIdx;
+        const zs = S.zoneState[idx];
+
+        if(!isActive){
+          S.miss++;
+          S.combo = 0;
+          spawnPop(x, y, 'ผิดโซน');
+          refreshUI();
+          return;
+        }
+
+        const dx = x - S.brushLastX;
+        const dy = y - S.brushLastY;
+        const dist = Math.max(6, Math.hypot(dx, dy));
+        const wantHorizontal = (idx === 2 || idx === 5);
+        const dirBoost =
+          wantHorizontal
+            ? (Math.abs(dx) > Math.abs(dy) * 1.15 ? 1.25 : 0.9)
+            : (Math.abs(dy) > Math.abs(dx) * 1.15 ? 1.25 : 0.9);
+
+        const gain = clicked ? 4.2 : dist * 0.06 * dirBoost;
+        zs.clean = clamp(zs.clean + gain, 0, 100);
+        zs.dirt = clamp(zs.dirt - gain * 0.9, 0, 100);
+
+        S.hits++;
+        S.totalActions++;
+        S.combo = S.combo + 1;
+        S.maxCombo = Math.max(S.maxCombo, S.combo);
+        S.score += Math.round(gain * 2.2);
+
+        if(Math.round(zs.clean) >= 85 && !zs.completed){
+          zs.completed = true;
+          spawnPop(x, y, 'ครบโซน!');
+        } else {
+          spawnPop(x, y, 'CLEAN');
+        }
+
+        renderDirtForZone(idx);
+        maybeAdvanceZone();
+        refreshUI();
+      }
+
+      function onPointerDown(ev){
+        if(S.finished) return;
+        ev.preventDefault();
+        beginBrush(ev);
+      }
+
+      function onPointerMove(ev){
+        if(activePointerId !== null && ev.pointerId != null && ev.pointerId !== activePointerId) return;
+        if(!S.isBrushing || S.finished) return;
+
+        ev.preventDefault();
+
+        const r = arenaCore.getBoundingClientRect();
+        const x = ev.clientX - r.left;
+        const y = ev.clientY - r.top;
+        brushCursor.style.left = x + 'px';
+        brushCursor.style.top = y + 'px';
+        spawnTrail(x, y);
+
+        const activeIdx = S.activeZoneIdx;
+        if(pointInZone(activeIdx, x, y)){
+          handleBrushPoint(activeIdx, ev.clientX, ev.clientY, false);
+        } else {
+          S.combo = 0;
+        }
+
+        S.brushLastX = x;
+        S.brushLastY = y;
+      }
+
+      function buildSummary(){
+        const acc = S.totalActions > 0 ? Math.round((S.hits / S.totalActions) * 100) : 0;
+        const rank = S.clean >= 85 ? 'A' : (S.clean >= 70 ? 'B' : 'C');
+        return {
+          score: Math.round(S.score),
+          accuracy: acc,
+          clean: S.clean,
+          rank
+        };
+      }
+
+      function goCooldown(){
+        const gate = new URL('../warmup-gate.html', location.href);
+        gate.searchParams.set('game', 'brush');
+        gate.searchParams.set('phase', 'cooldown');
+        gate.searchParams.set('zone', 'hygiene');
+        gate.searchParams.set('cat', 'hygiene');
+        gate.searchParams.set('next', CFG.hub);
+
+        try{
+          const s = buildSummary();
+          window.HHA_BACKHUB?.setSummary?.({
+            gameId:'brush',
+            gameTitle:'Brush VR',
+            gameIcon:'🪥',
+            zoneId:'hygiene',
+            endReason:'complete',
+            scoreFinal:s.score,
+            accuracyPct:s.accuracy,
+            cleanPct:s.clean,
+            rank:s.rank,
+            savedAt:new Date().toISOString(),
+            href:location.href
+          });
+        }catch(e){}
+
+        location.href = gate.toString();
+      }
+
+      function finishGame(showOverlay = true){
+        if(S.finished) return;
+        S.finished = true;
+
+        const s = buildSummary();
+        setText('sumScore', String(s.score));
+        setText('sumAcc', s.accuracy + '%');
+        setText('sumClean', s.clean + '%');
+        setText('summaryRank', s.rank);
+
+        if(showOverlay){
+          byId('summaryOverlay').style.display = 'grid';
+        }else{
+          goCooldown();
+        }
+      }
+
+      function restartGame(){
+        const u = new URL(location.href);
+        u.searchParams.set('seed', String(Date.now()));
+        location.href = u.toString();
+      }
+
+      function useUV(){
+        const active = S.zoneState[S.activeZoneIdx];
+        if(!active) return;
+        active.clean = clamp(active.clean + 8, 0, 100);
+        active.dirt = clamp(active.dirt - 10, 0, 100);
+        renderDirtForZone(S.activeZoneIdx);
+        refreshUI();
+      }
+
+      function usePolish(){
+        S.zoneState.forEach((z, idx)=>{
+          z.clean = clamp(z.clean + 4, 0, 100);
+          z.dirt = clamp(z.dirt - 5, 0, 100);
+          if(Math.round(z.clean) >= 85) z.completed = true;
+          renderDirtForZone(idx);
+        });
+        S.score += 20;
+        refreshUI();
+      }
+
+      function bind(){
+        arenaCore.addEventListener('pointerdown', onPointerDown, { passive:false });
+        arenaCore.addEventListener('pointermove', onPointerMove, { passive:false });
+        arenaCore.addEventListener('pointerup', endBrush, { passive:false });
+        arenaCore.addEventListener('pointercancel', endBrush, { passive:false });
+        arenaCore.addEventListener('pointerleave', endBrush, { passive:false });
+
+        byId('btnUV').addEventListener('click', useUV);
+        byId('btnPolish').addEventListener('click', usePolish);
+        byId('btnRestart').addEventListener('click', restartGame);
+        byId('btnFinish').addEventListener('click', ()=> finishGame(true));
+
+        byId('btnCloseSummary').addEventListener('click', goCooldown);
+        byId('btnSummaryRestart').addEventListener('click', restartGame);
+        byId('btnBackHub').addEventListener('click', goCooldown);
+
+        byId('btnDockRestart').addEventListener('click', restartGame);
+        byId('btnDockSummary').addEventListener('click', ()=> finishGame(true));
+        byId('btnDockHub').addEventListener('click', goCooldown);
+
+        byId('btnModeLearn').addEventListener('click', ()=> setMode('learn'));
+        byId('btnModePractice').addEventListener('click', ()=> setMode('practice'));
+        byId('btnModeChallenge').addEventListener('click', ()=> setMode('challenge'));
+      }
+
+      function setMode(mode){
+        const u = new URL(location.href);
+        u.searchParams.set('mode', mode);
+        u.searchParams.set('view', CFG.view || 'mobile');
+        u.searchParams.set('seed', String(Date.now()));
+        location.href = u.toString();
+      }
+
+      function boot(){
+        buildZones();
+        bind();
+        refreshUI();
+      }
+
+      try{
+        boot();
+      }catch(err){
+        console.error(err);
+        alert('Brush run boot failed: ' + (err?.message || err));
+      }
+    })();
+  </script>
 </body>
 </html>
