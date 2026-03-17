@@ -15,6 +15,7 @@
       --text:#f8fafc;
       --muted:#dbeafe;
       --panel:rgba(2,6,23,.62);
+      --panel2:rgba(15,23,42,.52);
       --stroke:rgba(255,255,255,.14);
 
       --solo:#22c55e;
@@ -50,9 +51,7 @@
       line-height:1.35;
     }
 
-    button,input,select{
-      font:inherit;
-    }
+    button,input,select{ font:inherit; }
 
     .wrap{
       max-width:1200px;
@@ -65,6 +64,7 @@
     }
 
     .hero,
+    .quickBar,
     .easyStart,
     .mapWrap,
     .teacherBox{
@@ -81,9 +81,39 @@
       background:
         linear-gradient(135deg, rgba(56,189,248,.18), rgba(167,139,250,.16)),
         var(--panel);
+      position:relative;
+      overflow:hidden;
+    }
+
+    .hero::before,
+    .hero::after{
+      content:"";
+      position:absolute;
+      border-radius:999px;
+      pointer-events:none;
+      opacity:.25;
+      filter:blur(8px);
+    }
+
+    .hero::before{
+      width:180px;
+      height:180px;
+      top:-40px;
+      left:-30px;
+      background:rgba(34,197,94,.40);
+    }
+
+    .hero::after{
+      width:180px;
+      height:180px;
+      right:-40px;
+      bottom:-40px;
+      background:rgba(250,204,21,.30);
     }
 
     .heroTop{
+      position:relative;
+      z-index:1;
       display:flex;
       flex-direction:column;
       align-items:center;
@@ -91,17 +121,18 @@
     }
 
     .heroMascot{
-      width:108px;
-      height:108px;
+      width:110px;
+      height:110px;
       border-radius:30px;
       display:grid;
       place-items:center;
-      font-size:52px;
+      font-size:54px;
       border:1px solid rgba(255,255,255,.16);
       background:
         radial-gradient(circle at 30% 30%, rgba(255,255,255,.28), transparent 40%),
         linear-gradient(135deg, rgba(34,197,94,.22), rgba(56,189,248,.20));
       box-shadow:0 16px 34px rgba(0,0,0,.20);
+      animation: mascotFloat 3.6s ease-in-out infinite;
     }
 
     .heroBadge{
@@ -120,10 +151,12 @@
 
     h1{
       margin:0;
-      font-size:clamp(34px,4.8vw,56px);
+      font-size:clamp(34px,4.8vw,58px);
       line-height:1.02;
       font-weight:1000;
       letter-spacing:-.02em;
+      position:relative;
+      z-index:1;
     }
 
     .heroSub{
@@ -132,9 +165,42 @@
       font-size:17px;
       line-height:1.6;
       font-weight:900;
+      position:relative;
+      z-index:1;
+    }
+
+    .speech{
+      position:relative;
+      z-index:1;
+      margin:14px auto 0;
+      max-width:720px;
+      border-radius:22px;
+      border:1px solid rgba(255,255,255,.14);
+      background:rgba(255,255,255,.08);
+      padding:14px 16px;
+      color:#eff6ff;
+      font-size:15px;
+      line-height:1.6;
+      font-weight:1000;
+      box-shadow:0 12px 24px rgba(0,0,0,.14);
+    }
+
+    .speech::after{
+      content:"";
+      position:absolute;
+      top:-8px;
+      left:50%;
+      transform:translateX(-50%) rotate(45deg);
+      width:16px;
+      height:16px;
+      background:rgba(255,255,255,.08);
+      border-left:1px solid rgba(255,255,255,.14);
+      border-top:1px solid rgba(255,255,255,.14);
     }
 
     .heroTips{
+      position:relative;
+      z-index:1;
       margin-top:14px;
       display:flex;
       gap:10px;
@@ -154,6 +220,66 @@
       color:#eff6ff;
       font-size:12px;
       font-weight:1000;
+    }
+
+    .quickBar{
+      margin-top:14px;
+      padding:14px;
+      display:flex;
+      gap:12px;
+      flex-wrap:wrap;
+      align-items:center;
+      justify-content:space-between;
+      background:
+        linear-gradient(135deg, rgba(250,204,21,.12), rgba(56,189,248,.10)),
+        var(--panel);
+    }
+
+    .quickBarText{
+      min-width:220px;
+    }
+
+    .quickBarTitle{
+      font-size:18px;
+      font-weight:1000;
+      color:#fff;
+    }
+
+    .quickBarSub{
+      margin-top:6px;
+      color:var(--muted);
+      font-size:13px;
+      line-height:1.55;
+      font-weight:900;
+    }
+
+    .quickBarActions{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+    }
+
+    .topBtn{
+      min-height:50px;
+      border-radius:18px;
+      border:1px solid rgba(255,255,255,.16);
+      color:#fff;
+      font-size:16px;
+      font-weight:1000;
+      cursor:pointer;
+      padding:12px 16px;
+      box-shadow:0 10px 24px rgba(0,0,0,.16);
+      transition:transform .12s ease, filter .12s ease;
+    }
+
+    .topBtn:hover{ transform:translateY(-1px); filter:brightness(1.05); }
+    .topBtn.primary{
+      background:linear-gradient(180deg, rgba(34,197,94,.26), rgba(34,197,94,.16));
+      border-color:rgba(34,197,94,.34);
+    }
+    .topBtn.secondary{
+      background:rgba(255,255,255,.06);
     }
 
     .easyStart{
@@ -176,6 +302,21 @@
       font-size:14px;
       line-height:1.55;
       font-weight:900;
+    }
+
+    .recommendedChip{
+      margin-top:10px;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      min-height:38px;
+      padding:8px 12px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.16);
+      background:rgba(255,255,255,.08);
+      color:#fff;
+      font-size:12px;
+      font-weight:1000;
     }
 
     .startBigBtn{
@@ -257,14 +398,20 @@
       z-index:1;
       border-radius:24px;
       border:1px solid rgba(255,255,255,.14);
-      background:rgba(15,23,42,.48);
+      background:var(--panel2);
       padding:16px;
       box-shadow:var(--shadow);
       display:flex;
       flex-direction:column;
       gap:12px;
-      min-height:220px;
+      min-height:228px;
       overflow:hidden;
+      transition:transform .14s ease, border-color .14s ease, box-shadow .14s ease, filter .14s ease;
+    }
+
+    .modeNode:hover{
+      transform:translateY(-2px);
+      filter:brightness(1.03);
     }
 
     .modeNode::before{
@@ -284,6 +431,33 @@
     .modeNode.race::before{ background:var(--race); }
     .modeNode.battle::before{ background:var(--battle); }
     .modeNode.coop::before{ background:var(--coop); }
+
+    .modeNode.recommended{
+      border-color:rgba(250,204,21,.34);
+      box-shadow:0 0 0 2px rgba(250,204,21,.16), var(--shadow);
+    }
+
+    .modeNode.recommended .nodeRibbon{
+      display:inline-flex;
+    }
+
+    .nodeRibbon{
+      display:none;
+      position:absolute;
+      top:12px;
+      right:12px;
+      min-height:32px;
+      align-items:center;
+      gap:6px;
+      padding:7px 10px;
+      border-radius:999px;
+      border:1px solid rgba(250,204,21,.28);
+      background:rgba(250,204,21,.16);
+      color:#fef3c7;
+      font-size:11px;
+      font-weight:1000;
+      box-shadow:0 8px 18px rgba(0,0,0,.14);
+    }
 
     .nodeTop{
       display:flex;
@@ -472,7 +646,8 @@
     .field select:focus,
     .nodeBtn:focus-visible,
     .ghostBtn:focus-visible,
-    .startBigBtn:focus-visible{
+    .startBigBtn:focus-visible,
+    .topBtn:focus-visible{
       outline:3px solid rgba(250,204,21,.44);
       outline-offset:2px;
     }
@@ -492,6 +667,11 @@
       font-weight:900;
     }
 
+    @keyframes mascotFloat{
+      0%,100%{ transform:translateY(0); }
+      50%{ transform:translateY(-6px); }
+    }
+
     @media (max-width:960px){
       .teacherForm{
         grid-template-columns:repeat(2,minmax(0,1fr));
@@ -502,10 +682,7 @@
       .mapStage{
         grid-template-columns:1fr;
       }
-
-      .pathSvg{
-        display:none;
-      }
+      .pathSvg{ display:none; }
     }
 
     @media (max-width:640px){
@@ -518,6 +695,7 @@
       }
 
       .hero,
+      .quickBar,
       .easyStart,
       .mapWrap,
       .teacherBox{
@@ -560,10 +738,12 @@
       *::before,
       *::after{
         transition:none !important;
+        animation:none !important;
       }
       .nodeBtn:hover,
       .ghostBtn:hover,
-      .startBigBtn:hover{
+      .startBigBtn:hover,
+      .topBtn:hover{
         transform:none !important;
       }
     }
@@ -584,15 +764,31 @@
         กดปุ่มใหญ่ แล้วเริ่มสนุกกัน
       </div>
 
+      <div class="speech" id="speechText">
+        สวัสดีฮีโร่! ถ้ายังไม่แน่ใจว่าจะเล่นอะไร เริ่มที่ <b>ด่านฝึกเดี่ยว</b> ก่อนนะ ✨
+      </div>
+
       <div class="heroTips">
         <div class="heroTip">👦 เด็ก: กดปุ่มใหญ่แล้วเล่นได้เลย</div>
         <div class="heroTip">👩‍🏫 ครู: ตั้งค่าเพิ่มด้านล่างได้</div>
       </div>
     </section>
 
+    <section class="quickBar">
+      <div class="quickBarText">
+        <div class="quickBarTitle">เริ่มเร็ว</div>
+        <div class="quickBarSub">ปุ่มลัดสำหรับเริ่มเล่นทันที หรือกลับไปหน้า Hub</div>
+      </div>
+      <div class="quickBarActions">
+        <button class="topBtn primary" id="btnStartNow" type="button">▶ เริ่มเลย</button>
+        <button class="topBtn secondary" id="btnBackHub" type="button">↩ กลับ Hub</button>
+      </div>
+    </section>
+
     <section class="easyStart">
       <div class="easyStartTitle">เริ่มง่ายที่สุด</div>
       <div class="easyStartSub">ถ้ายังไม่แน่ใจ ให้เริ่มที่ด่านฝึกเดี่ยวก่อน</div>
+      <div class="recommendedChip" id="recommendedChip">⭐ โหมดแนะนำ: Solo</div>
       <button class="startBigBtn" id="btnStartEasy" type="button">🥦 เริ่มด่านฝึกเดี่ยว</button>
     </section>
 
@@ -608,7 +804,8 @@
           <path class="pathLine" d="M82,24 C68,38 66,54 82,68"></path>
         </svg>
 
-        <article class="modeNode solo">
+        <article class="modeNode solo" id="nodeSolo">
+          <div class="nodeRibbon">⭐ แนะนำ</div>
           <div class="nodeTop">
             <div class="nodeIcon">🥦</div>
             <div>
@@ -624,7 +821,8 @@
           <button class="nodeBtn solo" id="btnSolo" type="button">เล่น Solo</button>
         </article>
 
-        <article class="modeNode race">
+        <article class="modeNode race" id="nodeRace">
+          <div class="nodeRibbon">⭐ แนะนำ</div>
           <div class="nodeTop">
             <div class="nodeIcon">🏁</div>
             <div>
@@ -640,7 +838,8 @@
           <button class="nodeBtn race" id="btnRace" type="button">เล่น Race</button>
         </article>
 
-        <article class="modeNode battle">
+        <article class="modeNode battle" id="nodeBattle">
+          <div class="nodeRibbon">⭐ แนะนำ</div>
           <div class="nodeTop">
             <div class="nodeIcon">⚔️</div>
             <div>
@@ -656,7 +855,8 @@
           <button class="nodeBtn battle" id="btnBattle" type="button">เล่น Battle</button>
         </article>
 
-        <article class="modeNode coop">
+        <article class="modeNode coop" id="nodeCoop">
+          <div class="nodeRibbon">⭐ แนะนำ</div>
           <div class="nodeTop">
             <div class="nodeIcon">🤝</div>
             <div>
@@ -896,6 +1096,34 @@
       location.href = buildWarmupUrl(nextRun, p);
     }
 
+    function getRecommendedMode(){
+      const room = clean($('room').value || qs('room',''));
+      if(room && room !== 'GJ-ROOM1') return 'race';
+      return 'solo';
+    }
+
+    function renderRecommendation(){
+      const rec = getRecommendedMode();
+      const speech = $('speechText');
+      const chip = $('recommendedChip');
+
+      ['nodeSolo','nodeRace','nodeBattle','nodeCoop'].forEach(id=>{
+        $(id).classList.remove('recommended');
+      });
+
+      if(rec === 'race'){
+        $('nodeRace').classList.add('recommended');
+        chip.textContent = '⭐ โหมดแนะนำ: Race';
+        speech.innerHTML = 'วันนี้มีห้องให้เล่นแล้วนะ! เริ่มที่ <b>ด่านแข่งเร็ว</b> ได้เลย 🏁';
+        $('btnStartNow').textContent = '▶ เริ่ม Race';
+      }else{
+        $('nodeSolo').classList.add('recommended');
+        chip.textContent = '⭐ โหมดแนะนำ: Solo';
+        speech.innerHTML = 'สวัสดีฮีโร่! ถ้ายังไม่แน่ใจว่าจะเล่นอะไร เริ่มที่ <b>ด่านฝึกเดี่ยว</b> ก่อนนะ ✨';
+        $('btnStartNow').textContent = '▶ เริ่ม Solo';
+      }
+    }
+
     $('btnToggleTeacher').onclick = ()=>{
       $('teacherForm').classList.toggle('show');
     };
@@ -905,6 +1133,16 @@
     $('btnRace').onclick = ()=> goWithDailyWarmup('race');
     $('btnBattle').onclick = ()=> goWithDailyWarmup('battle');
     $('btnCoop').onclick = ()=> goWithDailyWarmup('coop');
+
+    $('btnStartNow').onclick = ()=>{
+      const rec = getRecommendedMode();
+      goWithDailyWarmup(rec);
+    };
+
+    $('btnBackHub').onclick = ()=>{
+      const hub = clean($('hub').value, './hub.html');
+      location.href = buildUrl(hub, {});
+    };
 
     $('btnBoard').onclick = ()=>{
       const p = commonParams();
@@ -938,6 +1176,13 @@
     if(qs('diff','')) $('diff').value = qs('diff','normal');
     if(qs('time','')) $('time').value = qs('time','80');
     if(qs('view','')) $('view').value = qs('view','mobile');
+
+    ['room','diff','time','view'].forEach(id=>{
+      $(id).addEventListener('change', renderRecommendation);
+      $(id).addEventListener('input', renderRecommendation);
+    });
+
+    renderRecommendation();
   </script>
 </body>
 </html>
