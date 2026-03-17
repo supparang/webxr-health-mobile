@@ -1,12 +1,9 @@
 // === /herohealth/gate/gate-games.js ===
 // HeroHealth Gate Game Registry
-// FULL PATCH v20260317c-GATE-GAMES-ALIAS-ROBUST-RUN-CANDIDATES-HEROHEALTH-PATHFIX
-// ✅ canonical game ids preserved
-// ✅ exercise cat unified to "exercise"
-// ✅ expanded aliases across hygiene / nutrition / exercise
-// ✅ run paths fixed for warmup-gate.html under /herohealth/
-// ✅ added runCandidates for risky path games
-// ✅ exports getRunCandidates() for gate-core debugRun flow
+// FULL PATCH v20260318-GATE-GAMES-PATHFIX
+// ✅ corrected run paths for Brush / Groups / Plate
+// ✅ supports direct run pages under /herohealth/
+// ✅ keeps aliases and runCandidates for fallback/debug
 
 export const GATE_GAMES = {
   // =========================
@@ -53,8 +50,8 @@ export const GATE_GAMES = {
       cooldown: './games/brush/cooldown.js',
       style: './games/brush/style.css'
     },
-    run: './brush-vr.html',
-    runCandidates: ['./brush-vr.html']
+    run: './vr-brush/brush.html',
+    runCandidates: ['./vr-brush/brush.html']
   },
 
   clean: {
@@ -117,7 +114,7 @@ export const GATE_GAMES = {
       style: './games/goodjunk/style.css'
     },
     run: './goodjunk-launcher.html',
-    runCandidates: ['./goodjunk-launcher.html', './goodjunk-vr.html']
+    runCandidates: ['./goodjunk-launcher.html', './vr-goodjunk/goodjunk-vr.html']
   },
 
   groups: {
@@ -131,8 +128,8 @@ export const GATE_GAMES = {
       cooldown: './games/groups/cooldown.js',
       style: './games/groups/style.css'
     },
-    run: './groups-vr.html',
-    runCandidates: ['./groups-vr.html', './vr-groups/groups-vr.html']
+    run: './vr-groups/groups-vr.html',
+    runCandidates: ['./vr-groups/groups-vr.html']
   },
 
   hydration: {
@@ -161,8 +158,8 @@ export const GATE_GAMES = {
       cooldown: './games/plate/cooldown.js',
       style: './games/plate/style.css'
     },
-    run: './plate-vr.html',
-    runCandidates: ['./plate-vr.html']
+    run: './plate/plate-vr.html',
+    runCandidates: ['./plate/plate-vr.html']
   },
 
   // =========================
@@ -257,15 +254,8 @@ export function normalizeGameId(id=''){
 
   if (!s) return '';
 
-  // -------------------------
   // HYGIENE
-  // -------------------------
-  if (
-    s === 'bath' ||
-    s === 'bathvr' ||
-    s === 'bath-vr' ||
-    s === 'bath_vr'
-  ) return 'bath';
+  if (s === 'bath' || s === 'bathvr' || s === 'bath-vr' || s === 'bath_vr') return 'bath';
 
   if (
     s === 'handwash' ||
@@ -316,9 +306,7 @@ export function normalizeGameId(id=''){
     s === 'germdetect'
   ) return 'germdetective';
 
-  // -------------------------
   // NUTRITION
-  // -------------------------
   if (
     s === 'goodjunk' ||
     s === 'good-junk' ||
@@ -357,9 +345,7 @@ export function normalizeGameId(id=''){
     s === 'balanced_plate'
   ) return 'plate';
 
-  // -------------------------
   // EXERCISE
-  // -------------------------
   if (
     s === 'shadow' ||
     s === 'shadowvr' ||
