@@ -1,16 +1,17 @@
 // === /herohealth/gate/gate-core.js ===
-// FULL PATCH v20260318-GATE-NEXT-SUPPORT-BRUSH-GROUPS-PLATE
+// FULL PATCH v20260318-GATE-NEXT-SUPPORT-COOLDOWN-TO-HUB
 // ✅ single warmup-gate.html page with ?phase=warmup|cooldown
-// ✅ supports next=... from launcher pages (Brush / GoodJunk launcher flows)
+// ✅ supports next=... from launcher pages
 // ✅ safe gate-games import even if some helpers are missing
 // ✅ supports api.finish / api.complete / api.done / api.summary / api.next
 // ✅ supports api.setStats / api.setSub / api.setTitle
 // ✅ fallback to runCandidates when next is missing
 // ✅ warmup once/day, cooldown once/day
+// ✅ cooldown complete -> HUB only
 
 import * as GateGames from './gate-games.js?v=20260318-GATE-GAMES-PATHFIX';
 
-const PATCH = 'v20260318-GATE-NEXT-SUPPORT-BRUSH-GROUPS-PLATE';
+const PATCH = 'v20260318-GATE-NEXT-SUPPORT-COOLDOWN-TO-HUB';
 const STORAGE_NS = 'HHA_GATE_DONE_V1';
 const LAST_SUMMARY_KEY = 'HHA_LAST_SUMMARY';
 const SUMMARY_HISTORY_KEY = 'HHA_SUMMARY_HISTORY';
@@ -570,7 +571,6 @@ function resolveAbsoluteUrl(maybeUrl) {
 }
 
 async function resolveRunHref(ctx) {
-  // 1) launcher-provided next has top priority
   if (ctx.next) {
     const nextHref = resolveAbsoluteUrl(ctx.next);
     if (nextHref) {
@@ -578,7 +578,6 @@ async function resolveRunHref(ctx) {
     }
   }
 
-  // 2) fallback to registry paths
   const candidates = getRunCandidatesSafe(ctx.game);
   if (!candidates.length) return '';
 
@@ -772,13 +771,16 @@ function showAlreadyDone(stage, footer, ctx) {
     renderInfo(
       stage,
       'ทำ cooldown วันนี้แล้ว',
-      'เกมนี้ทำ cooldown ไปแล้วในวันนี้ สามารถกลับ HUB หรือเล่นเกมหลักอีกครั้งได้'
+      'เกมนี้ทำ cooldown ไปแล้วในวันนี้ ระบบจะพากลับ HUB'
     );
 
     setActions(footer, [
-      { label: 'กลับ HUB', primary: true, onClick: () => goHub(ctx) },
-      { label: 'เข้าเกมหลัก', onClick: () => goRun(ctx) }
+      { label: 'กลับ HUB', primary: true, onClick: () => goHub(ctx) }
     ]);
+
+    setTimeout(() => {
+      goHub(ctx);
+    }, 450);
     return;
   }
 
@@ -824,7 +826,7 @@ export async function bootGate(root = document.getElementById('gate-app')) {
   const { stage, footer } = refs;
 
   applyStats(refs, {
-    time: ctx.time || '-',
+    time: ctx.phase === 'cooldown' ? 0 : (ctx.time || '-'),
     score: 0,
     miss: 0,
     acc: '0%'
@@ -876,7 +878,7 @@ export async function bootGate(root = document.getElementById('gate-app')) {
 
       const subtitle = payload.subtitle ||
         (ctx.phase === 'cooldown'
-          ? 'บันทึกผลล่าสุดเรียบร้อย สามารถกลับ HUB หรือเล่นต่อได้เลย'
+          ? 'บันทึกผลล่าสุดเรียบร้อย ระบบกำลังพากลับ HUB'
           : 'warmup เสร็จแล้ว ระบบกำลังพาเข้าเกมหลัก');
 
       const extra = linesHtml(payload.lines || []);
@@ -911,9 +913,12 @@ export async function bootGate(root = document.getElementById('gate-app')) {
       renderInfo(stage, title, subtitle, extra);
 
       setActions(footer, [
-        { label: 'กลับ HUB', primary: true, onClick: () => goHub(ctx) },
-        { label: 'เข้าเกมหลักอีกครั้ง', onClick: () => goRun(ctx) }
+        { label: 'กลับ HUB', primary: true, onClick: () => goHub(ctx) }
       ]);
+
+      await delay(250);
+      goHub(ctx);
+      return;
     },
 
     async finish(payload = {}) { return api.complete(payload); },
