@@ -1,5 +1,10 @@
 // === /herohealth/gate/gate-core.js ===
-// FULL PATCH v20260317-GATE-CORE-CANONICAL-FLOW-SUMMARY-BODY-DEDUPE-FIX
+// FULL PATCH v20260317-GATE-CORE-RUN-DEBUG-CANONICAL-FLOW
+// includes:
+// - summary/toast mounted on document.body
+// - alreadyDone fallback buttons
+// - mountEl cleanup after finish
+// - debugRun panel for runCandidates / nextUrl inspection
 
 import {
   buildCtx,
@@ -15,8 +20,9 @@ import {
   getPhaseFile,
   getGameStyleFile,
   getRunFile,
+  getRunCandidates,
   normalizeGameId
-} from './gate-games.js?v=20260316-GATE-GAMES-CANONICAL-ALL-ZONES-BATH-FLOW';
+} from './gate-games.js?v=20260317-GATE-GAMES-ALIAS-ROBUST-CANONICAL';
 
 function esc(s) {
   return String(s ?? '')
@@ -41,6 +47,10 @@ function qs(url, key, fallback = '') {
 function qbool(url, key, fallback = false) {
   const v = String(qs(url, key, fallback ? '1' : '0')).toLowerCase();
   return ['1','true','yes','y','on'].includes(v);
+}
+
+function qdebug(url){
+  return qbool(url, 'debugRun', false) || qbool(url, 'debug', false);
 }
 
 function qPhase(url, fallback = 'warmup') {
@@ -106,7 +116,9 @@ function titleOf(ctx){
 }
 
 function fallbackRunOf(ctx){
-  return safeUrl(getRunFile(ctx.game) || '../hub.html', '../hub.html');
+  const candidates = getRunCandidates(ctx.game);
+  const first = Array.isArray(candidates) && candidates.length ? candidates[0] : getRunFile(ctx.game);
+  return safeUrl(first || '../hub.html', '../hub.html');
 }
 
 function nextUrlOf(ctx){
@@ -222,6 +234,58 @@ function renderAlreadyDoneCard(app, ctx, nextUrl){
       </section>
     </div>
   `;
+}
+
+function renderRunDebug(app, ctx, nextUrl, runCandidates = []){
+  const wrap = document.createElement('div');
+  wrap.className = 'gate-loading';
+  wrap.style.marginTop = '12px';
+  wrap.style.textAlign = 'left';
+  wrap.innerHTML = `
+    <div style="font-weight:1000; margin-bottom:8px;">Run Debug</div>
+    <div><b>game:</b> ${esc(ctx.game)}</div>
+    <div><b>mode:</b> ${esc(ctx.mode)}</div>
+    <div style="margin-top:8px;"><b>nextUrl:</b><br><code>${esc(nextUrl)}</code></div>
+    <div style="margin-top:8px;"><b>runCandidates:</b></div>
+    <div id="gateRunCandidates"></div>
+  `;
+
+  const box = wrap.querySelector('#gateRunCandidates');
+  const list = Array.isArray(runCandidates) ? runCandidates : [];
+
+  if(!list.length){
+    const div = document.createElement('div');
+    div.innerHTML = `<code>(none)</code>`;
+    box.appendChild(div);
+  }else{
+    list.forEach((raw, i)=>{
+      const abs = safeUrl(raw, '');
+      const row = document.createElement('div');
+      row.style.marginTop = '8px';
+      row.style.padding = '8px';
+      row.style.border = '1px solid rgba(148,163,184,.18)';
+      row.style.borderRadius = '12px';
+      row.style.background = 'rgba(2,6,23,.28)';
+
+      const btn = document.createElement('button');
+      btn.className = 'btn btn-primary';
+      btn.type = 'button';
+      btn.textContent = `Open candidate #${i+1}`;
+      btn.style.marginTop = '8px';
+      btn.onclick = ()=> {
+        if(abs) window.location.href = abs;
+      };
+
+      row.innerHTML = `
+        <div><b>#${i+1}</b> <code>${esc(raw)}</code></div>
+        <div style="margin-top:4px;"><code>${esc(abs || '(invalid)')}</code></div>
+      `;
+      row.appendChild(btn);
+      box.appendChild(row);
+    });
+  }
+
+  app.querySelector('.gate-wrap')?.appendChild(wrap);
 }
 
 function ensureInlineSkipStyle(){
@@ -368,8 +432,14 @@ async function runGate(app){
 
   const logger = createGateLogger(ctx);
   const nextUrl = nextUrlOf(ctx);
+  const runCandidates = getRunCandidates(ctx.game);
+  const debugRun = qdebug(url);
 
   renderShell(app, ctx);
+
+  if(debugRun){
+    renderRunDebug(app, ctx, nextUrl, runCandidates);
+  }
 
   const summaryUi = typeof mountSummaryLayer === 'function' ? mountSummaryLayer(document.body) : null;
   const toastUi = typeof mountToast === 'function' ? mountToast(document.body) : null;
@@ -385,7 +455,8 @@ async function runGate(app){
       mode: ctx.mode,
       pid: ctx.pid || 'anon',
       next: nextUrl,
-      bypassDailyDone
+      bypassDailyDone,
+      runCandidates
     });
   }catch(_){}
 
