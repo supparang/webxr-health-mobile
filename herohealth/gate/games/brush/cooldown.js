@@ -1,199 +1,197 @@
-import { loadCssOnce } from '../../helpers/css.js';
-import { mulberry32 } from '../../helpers/rng.js';
-import { runBubblePhase } from '../../helpers/bubbles.js';
+// === /herohealth/gate/games/brush/cooldown.js ===
+// FULL PATCH v20260316-BRUSH-COOLDOWN-GATE
 
-export function loadStyle(){
-  loadCssOnce('./gate/games/brush/style.css?v=20260308a');
+let __brushCooldownStyleLoaded = false;
+
+function loadStyle(){
+  if(__brushCooldownStyleLoaded) return;
+  __brushCooldownStyleLoaded = true;
+
+  const id = 'gate-style-brush';
+  if(document.getElementById(id)) return;
+
+  const link = document.createElement('link');
+  link.id = id;
+  link.rel = 'stylesheet';
+  link.href = new URL('./style.css', import.meta.url).toString();
+  document.head.appendChild(link);
 }
 
-export async function mount(container, ctx, api){
-  const rng = mulberry32(ctx.seed || Date.now());
+function nowISO(){
+  return new Date().toISOString();
+}
 
-  container.innerHTML = `
-    <div class="brush-layer">
-      <div class="brush-brief" id="brushCoolBrief" style="position:static;padding:0;">
-        <div class="brush-brief-card" style="margin:18px auto;">
-          <h2 class="brush-brief-title">Cooldown — Brush Calm Check</h2>
-          <p class="brush-brief-sub">
-            แตะฟองสะอาดให้ครบ 5 จุด แล้วตอบคำถามสั้น ๆ ก่อนกลับ HUB
-          </p>
-          <button class="btn btn-primary" id="brushCoolStartBtn">เริ่มคูลดาวน์</button>
+export async function mount(root, ctx = {}, api = {}){
+  loadStyle();
+
+  const mountEl = document.createElement('div');
+  mountEl.className = 'brush-gate-game brush-gate-cooldown';
+  mountEl.innerHTML = `
+    <div class="brush-gate-card">
+      <div class="brush-gate-head">
+        <div class="brush-gate-badge cooldown">COOLDOWN</div>
+        <h2 class="brush-gate-title">Brush Cooldown</h2>
+        <p class="brush-gate-sub">
+          ผ่อนแรงหลังเล่น • ทบทวนสิ่งที่ทำ • แล้วกลับหน้า HUB
+        </p>
+      </div>
+
+      <div class="brush-gate-cool-grid">
+        <button type="button" class="brush-cool-tile" data-kind="slow">
+          <span class="emoji">😮‍💨</span>
+          <span class="label">หายใจช้า ๆ</span>
+        </button>
+
+        <button type="button" class="brush-cool-tile" data-kind="smile">
+          <span class="emoji">😁</span>
+          <span class="label">ยิ้มให้ตัวเอง</span>
+        </button>
+
+        <button type="button" class="brush-cool-tile" data-kind="rinse">
+          <span class="emoji">💧</span>
+          <span class="label">บ้วนปากในใจ</span>
+        </button>
+
+        <button type="button" class="brush-cool-tile" data-kind="check">
+          <span class="emoji">✅</span>
+          <span class="label">พร้อมกลับ HUB</span>
+        </button>
+      </div>
+
+      <div class="brush-gate-mission">
+        <div class="brush-gate-mission-title">ภารกิจ Cooldown</div>
+        <div id="bcMissionText" class="brush-gate-mission-text">
+          แตะกิจกรรมให้ครบ 3 อย่าง
         </div>
       </div>
 
-      <div class="brush-playfield hidden" id="brushCoolField">
-        <div class="brush-scene" aria-hidden="true">
-          <div class="brush-deco tooth">🫧🦷</div>
+      <div class="brush-gate-progress-wrap">
+        <div class="brush-gate-progress-label">
+          <span>Cooldown Progress</span>
+          <span id="bcPct">0%</span>
+        </div>
+        <div class="brush-gate-progress">
+          <div id="bcFill" class="brush-gate-progress-fill cooldown"></div>
+        </div>
+      </div>
+
+      <div class="brush-gate-footer">
+        <div class="brush-gate-hint" id="bcHint">
+          🌿 แตะกิจกรรมผ่อนแรงให้ครบก่อน
         </div>
 
-        <div class="brush-bubbles" id="brushBubbles"></div>
-
-        <div id="brushQuizWrap" class="brush-quiz-wrap hidden">
-          <div class="brush-brief-card" style="text-align:left;padding:14px;">
-            <div style="font-weight:900;font-size:18px;margin-bottom:6px;">คำถามสรุป</div>
-            <div style="color:#94a3b8;margin-bottom:10px;">ข้อใดช่วยให้ฟันสะอาดและลดกลิ่นปาก</div>
-            <div style="display:grid;gap:8px;" id="brushQuizChoices"></div>
-          </div>
+        <div class="brush-gate-actions">
+          <button type="button" class="brush-gate-btn brush-gate-btn-ghost" id="bcRestartBtn">เริ่มใหม่</button>
+          <button type="button" class="brush-gate-btn brush-gate-btn-primary" id="bcFinishBtn" disabled>กลับ HUB</button>
         </div>
       </div>
     </div>
   `;
 
-  const state = {
-    started:false,
-    ended:false,
-    phase:'bubbles',
-    time:15,
-    taps:0,
-    goal:5,
-    score:0,
-    miss:0,
-    answerCorrect:false,
-    timer:null
+  root.replaceChildren(mountEl);
+
+  const tiles = [...mountEl.querySelectorAll('.brush-cool-tile')];
+  const pctEl = mountEl.querySelector('#bcPct');
+  const fillEl = mountEl.querySelector('#bcFill');
+  const missionTextEl = mountEl.querySelector('#bcMissionText');
+  const hintEl = mountEl.querySelector('#bcHint');
+  const restartBtn = mountEl.querySelector('#bcRestartBtn');
+  const finishBtn = mountEl.querySelector('#bcFinishBtn');
+
+  const S = {
+    done: new Set(),
+    need: 3,
+    miss: 0,
+    startedAt: performance.now()
   };
 
-  const els = {
-    brief: container.querySelector('#brushCoolBrief'),
-    start: container.querySelector('#brushCoolStartBtn'),
-    field: container.querySelector('#brushCoolField'),
-    bubbles: container.querySelector('#brushBubbles'),
-    quizWrap: container.querySelector('#brushQuizWrap'),
-    quizChoices: container.querySelector('#brushQuizChoices')
-  };
+  function updateUi(){
+    const count = S.done.size;
+    const pct = Math.round((count / S.need) * 100);
 
-  let bubbleRun = null;
+    pctEl.textContent = `${pct}%`;
+    fillEl.style.width = `${pct}%`;
 
-  function setHud(){
-    const prog = state.phase === 'bubbles'
-      ? `${state.taps}/${state.goal}`
-      : (state.answerCorrect ? 'DONE' : 'Q1');
-
-    api.setStats({
-      time: state.time,
-      score: state.score,
-      miss: state.miss,
-      acc: prog
+    api.setStats?.({
+      time: Math.max(0, Math.round((performance.now() - S.startedAt) / 1000)),
+      score: count,
+      miss: S.miss,
+      acc: `${pct}%`
     });
+
+    missionTextEl.textContent =
+      count >= S.need
+        ? 'Cooldown เสร็จแล้ว กด “กลับ HUB” ได้เลย'
+        : `แตะกิจกรรมผ่อนแรงให้ครบ ${S.need} อย่าง (${count}/${S.need})`;
+
+    hintEl.textContent =
+      count >= S.need
+        ? '✅ พร้อมกลับหน้า HUB'
+        : '🌿 แตะกิจกรรมผ่อนแรงต่ออีกนิด';
+
+    finishBtn.disabled = count < S.need;
   }
 
-  function openQuiz(){
-    state.phase = 'quiz';
-    els.quizWrap.classList.remove('hidden');
-    els.quizChoices.innerHTML = '';
+  function restart(){
+    S.done.clear();
+    S.miss = 0;
+    S.startedAt = performance.now();
 
-    const choices = [
-      { label:'แปรงฟันให้ทั่วอย่างสม่ำเสมอ', good:true },
-      { label:'กินขนมก่อนนอนแล้วไม่ต้องแปรง', good:false },
-      { label:'ใช้แปรงฟันเล่นแทนของเล่น', good:false }
-    ];
-
-    choices.sort(()=> rng() - 0.5).forEach(choice=>{
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'brush-choice';
-      btn.textContent = choice.label;
-      btn.addEventListener('click', ()=>{
-        if(state.ended || state.answerCorrect) return;
-
-        if(choice.good){
-          btn.classList.add('good');
-          state.answerCorrect = true;
-          state.score += 10;
-          api.toast('ถูกต้อง!');
-          setHud();
-          setTimeout(()=> finish(true), 320);
-        }else{
-          btn.classList.add('bad');
-          state.miss++;
-          api.toast('ลองคิดอีกครั้ง');
-          setHud();
-        }
-      });
-      els.quizChoices.appendChild(btn);
+    tiles.forEach(tile=>{
+      tile.classList.remove('done');
     });
 
-    setHud();
+    api.setSub?.('แตะกิจกรรมผ่อนแรงให้ครบก่อนกลับ HUB');
+    api.setDailyState?.('PLAYING');
+    updateUi();
   }
 
-  function finish(ok){
-    if(state.ended) return;
-    state.ended = true;
-    clearInterval(state.timer);
-    bubbleRun?.end();
+  tiles.forEach(tile=>{
+    tile.addEventListener('click', ()=>{
+      const kind = tile.dataset.kind || '';
 
-    api.logger.push('brush_cooldown_end', {
-      ok,
-      bubbles: state.taps,
-      goal: state.goal,
-      score: state.score,
-      miss: state.miss,
-      answerCorrect: state.answerCorrect
+      if(S.done.has(kind)){
+        S.miss++;
+        tile.classList.add('shake');
+        setTimeout(()=> tile.classList.remove('shake'), 220);
+        updateUi();
+        return;
+      }
+
+      if(S.done.size >= S.need) return;
+
+      S.done.add(kind);
+      tile.classList.add('done');
+      updateUi();
     });
+  });
 
-    api.finish({
-      ok:true,
-      title:'คูลดาวน์เสร็จแล้ว',
-      subtitle:'พร้อมกลับ HUB',
-      lines:[
-        `แตะฟองสะอาด ${state.taps}/${state.goal} จุด`,
-        `ตอบคำถามสรุป ${state.answerCorrect ? 'ถูกต้อง' : 'ยังไม่ถูก'}`,
-        `คะแนน ${state.score}`
+  restartBtn.addEventListener('click', restart);
+
+  finishBtn.addEventListener('click', ()=>{
+    api.finish?.({
+      ok: true,
+      title: 'Cooldown เสร็จแล้ว!',
+      subtitle: 'พร้อมกลับหน้า HUB',
+      lines: [
+        `ทำกิจกรรมครบ ${S.done.size}/${S.need}`,
+        `เวลา: ${Math.max(0, Math.round((performance.now() - S.startedAt) / 1000))} วินาที`
       ],
-      buffs:{
-        cType:'brush_calm_check',
-        cDone:1,
-        cScore:state.score
-      }
-    });
-  }
-
-  function start(){
-    if(state.started) return;
-    state.started = true;
-    els.brief.classList.add('hidden');
-    els.field.classList.remove('hidden');
-
-    bubbleRun = runBubblePhase({
-      host: els.bubbles,
-      rng,
-      className: 'brush-bubble',
-      emoji: '🫧',
-      countStart: 3,
-      goal: state.goal,
-      onPop: ()=>{
-        state.taps++;
-        state.score += 5;
-        api.toast('ฟองสะอาดแตกแล้ว!');
-        setHud();
+      buffs: {
+        cooldownDone: '1'
       },
-      onGoal: ()=>{
-        openQuiz();
-      }
+      markDailyDone: true,
+      savedAt: nowISO()
     });
+  });
 
-    setHud();
-
-    api.logger.push('brush_cooldown_start', {
-      seed: ctx.seed
-    });
-
-    state.timer = setInterval(()=>{
-      state.time--;
-      setHud();
-      if(state.time <= 0){
-        finish(false);
-      }
-    }, 1000);
-  }
-
-  els.start?.addEventListener('click', start);
-  setHud();
+  restart();
 
   return {
-    start(){},
     destroy(){
-      clearInterval(state.timer);
-      bubbleRun?.end();
+      root.replaceChildren();
     }
   };
 }
+
+export default { mount };
