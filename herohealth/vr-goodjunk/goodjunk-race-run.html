@@ -256,9 +256,7 @@
       display:none;
     }
 
-    #raceRunMessage.show{
-      display:block;
-    }
+    #raceRunMessage.show{ display:block; }
 
     @media (max-width:640px){
       .overlay-card{
@@ -346,11 +344,14 @@
     (function(){
       const q = new URLSearchParams(location.search);
 
+      const roomId = q.get('roomId') || q.get('room') || '';
+      const name = q.get('name') || q.get('nick') || '';
+
       const runCtx = {
         pid: q.get('pid') || 'anon',
-        name: q.get('name') || '',
+        name,
         studyId: q.get('studyId') || '',
-        roomId: q.get('roomId') || '',
+        roomId,
         mode: 'race',
         diff: q.get('diff') || 'normal',
         time: q.get('time') || '120',
@@ -407,6 +408,6 @@
   </script>
 
   <script src="../firebase-config.js"></script>
-  <script type="module" src="./goodjunk.safe.race.js?v=20260317-goodjunk-race-split"></script>
+  <script type="module" src="./goodjunk.safe.race.js?v=20260318-goodjunk-race-o-ready"></script>
 </body>
 </html>
