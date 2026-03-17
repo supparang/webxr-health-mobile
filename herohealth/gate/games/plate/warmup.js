@@ -2,7 +2,7 @@
    HeroHealth Gate Mini-game
    GAME: plate
    MODE: warmup
-   PATCH v20260314b-PLATE-WARMUP-AUTOSTART-FINISH-FALLBACK
+   FULL PATCH v20260318-PLATE-WARMUP-HARDENED
 */
 
 let __styleLoaded = false;
@@ -72,7 +72,7 @@ function buildBuffs({ score, accuracy, speed }){
   };
 }
 
-export async function mount(root, ctx, api){
+export async function mount(root, ctx={}, api={}){
   loadStyle();
 
   const rng = mulberry32(Number(ctx.seed || Date.now()) + 61);
@@ -156,13 +156,16 @@ export async function mount(root, ctx, api){
   const slotCarbV = panelTop.querySelector('#pltSlotCarb');
   const slotProteinV = panelTop.querySelector('#pltSlotProtein');
 
-  api?.logger?.push?.('mini_start', {
+  api.logger?.push?.('mini_start', {
     game: 'plate',
     mode: 'warmup',
     seed: ctx.seed
   });
 
-  api?.setStats?.({
+  api.setTitle?.('Plate Quick Prep');
+  api.setSub?.('จัดจานให้สมดุลก่อนเข้าเกมหลัก');
+
+  api.setStats?.({
     time: timeLeft,
     score: 0,
     miss: 0,
@@ -171,7 +174,7 @@ export async function mount(root, ctx, api){
 
   function updateHud(){
     const acc = idx > 0 ? Math.round((correct / idx) * 100) : 0;
-    api?.setStats?.({
+    api.setStats?.({
       time: timeLeft,
       score,
       miss,
@@ -191,6 +194,7 @@ export async function mount(root, ctx, api){
 
   function renderRound(){
     if(ended) return;
+
     if(idx >= SLOTS.length){
       finishNow();
       return;
@@ -198,6 +202,7 @@ export async function mount(root, ctx, api){
 
     const slot = SLOTS[idx];
     target.textContent = `เลือกให้ถูกสำหรับ: ${slot.label}`;
+    prompt.textContent = 'เลือกอาหารที่ตรงกับส่วนของจาน';
     choices.innerHTML = '';
 
     const good = pick(slot.good);
@@ -225,12 +230,14 @@ export async function mount(root, ctx, api){
         if(isCorrect){
           score += 12;
           correct++;
+          note.textContent = 'ดีมาก เลือกช่องนี้ได้ถูกต้อง';
         }else{
           score = Math.max(0, score - 4);
           miss++;
+          note.textContent = `ยังไม่ใช่สำหรับ ${slot.label}`;
         }
 
-        api?.logger?.push?.('mini_answer', {
+        api.logger?.push?.('mini_answer', {
           game:'plate',
           mode:'warmup',
           round: idx,
@@ -244,7 +251,10 @@ export async function mount(root, ctx, api){
 
         updateBoard();
         updateHud();
-        renderRound();
+
+        setTimeout(()=>{
+          if(!ended) renderRound();
+        }, 240);
       });
 
       choices.appendChild(btn);
@@ -336,12 +346,6 @@ export async function mount(root, ctx, api){
       };
 
       try{
-        console.log('[plate warmup] finish click', {
-          ctx,
-          buffs,
-          hasFinish: typeof api?.finish === 'function'
-        });
-
         if(typeof api?.finish === 'function'){
           api.finish(payload);
           return;
@@ -369,6 +373,7 @@ export async function mount(root, ctx, api){
     if(started || ended) return;
     started = true;
     updateBoard();
+    updateHud();
     renderRound();
   }
 
@@ -385,3 +390,5 @@ export async function mount(root, ctx, api){
     }
   };
 }
+
+export default { mount, loadStyle };
