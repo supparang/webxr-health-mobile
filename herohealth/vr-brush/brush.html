@@ -27,8 +27,10 @@
       --sal: env(safe-area-inset-left, 0px);
       --sar: env(safe-area-inset-right, 0px);
     }
+
     *{ box-sizing:border-box; }
     html,body{ min-height:100%; }
+
     body{
       margin:0;
       color:var(--text);
@@ -45,14 +47,15 @@
         calc(110px + var(--sab))
         calc(10px + var(--sal));
     }
+
     .app{
       width:min(1200px,100%);
       margin:0 auto;
       display:grid;
       gap:10px;
-      height:auto;
       min-height:100%;
     }
+
     .panel{
       background:linear-gradient(180deg,var(--panel),var(--panel2));
       border:1px solid var(--stroke);
@@ -61,16 +64,19 @@
       backdrop-filter:blur(10px);
       -webkit-backdrop-filter:blur(10px);
     }
+
     .hud{
       display:grid;
       grid-template-columns:1fr 1fr;
       gap:10px;
     }
+
     .hudbox{
       padding:10px 12px;
       display:grid;
       gap:8px;
     }
+
     .topline{
       display:flex;
       justify-content:space-between;
@@ -78,10 +84,12 @@
       flex-wrap:wrap;
       align-items:center;
     }
+
     .title{
       font-size:18px;
       font-weight:950;
     }
+
     .pill{
       display:inline-flex;
       align-items:center;
@@ -94,12 +102,15 @@
       font-size:12px;
       font-weight:900;
     }
+
     .pill b{ color:var(--text); }
+
     .stats{
       display:flex;
       gap:8px;
       flex-wrap:wrap;
     }
+
     .stat{
       flex:1 1 110px;
       border:1px solid var(--stroke);
@@ -109,26 +120,31 @@
       display:grid;
       gap:4px;
     }
+
     .k{ color:var(--muted); font-size:11px; font-weight:900; }
     .v{ font-size:16px; font-weight:950; }
+
     .main{
       display:grid;
       grid-template-columns:minmax(0,1.25fr) minmax(300px,.75fr);
       gap:10px;
       align-items:start;
     }
+
     .arena{
       padding:12px;
       display:grid;
-      grid-template-rows:auto auto auto 1fr auto;
+      grid-template-rows:auto auto auto auto 1fr auto;
       gap:10px;
       min-height:0;
     }
+
     .instruction{
       font-size:15px;
       font-weight:950;
       line-height:1.45;
     }
+
     .instruction .sub{
       display:block;
       margin-top:4px;
@@ -136,11 +152,13 @@
       font-size:12px;
       font-weight:800;
     }
+
     .hintRow{
       display:flex;
       gap:8px;
       flex-wrap:wrap;
     }
+
     .hintBadge{
       display:inline-flex;
       align-items:center;
@@ -153,11 +171,13 @@
       font-size:12px;
       font-weight:900;
     }
+
     .modeRow{
       display:flex;
       gap:8px;
       flex-wrap:wrap;
     }
+
     .btn{
       border:1px solid var(--stroke);
       background:rgba(2,6,23,.40);
@@ -167,10 +187,12 @@
       cursor:pointer;
       font-weight:950;
     }
+
     .btn.primary{ border-color:rgba(34,197,94,.28); background:rgba(34,197,94,.16); }
     .btn.cyan{ border-color:rgba(34,211,238,.28); background:rgba(34,211,238,.14); }
     .btn.warn{ border-color:rgba(245,158,11,.28); background:rgba(245,158,11,.14); }
     .modeActive{ border-color:rgba(34,211,238,.30)!important; background:rgba(34,211,238,.14)!important; }
+
     .cleanBar{
       width:100%;
       height:14px;
@@ -180,6 +202,7 @@
       background:rgba(2,6,23,.34);
       position:relative;
     }
+
     .cleanFill{
       position:absolute;
       inset:0 auto 0 0;
@@ -187,6 +210,7 @@
       background:linear-gradient(90deg,var(--warn),var(--good));
       transition:width .2s ease;
     }
+
     .arenaCore{
       position:relative;
       min-height:430px;
@@ -200,6 +224,7 @@
         linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.015));
       touch-action:none;
     }
+
     .mouthWrap{
       position:relative;
       width:min(760px,96%);
@@ -209,6 +234,7 @@
       place-items:center;
       touch-action:none;
     }
+
     .mouth{
       position:absolute;
       inset:0;
@@ -219,6 +245,7 @@
         radial-gradient(80% 120% at 50% 100%, rgba(251,113,133,.30), rgba(127,29,29,.10) 65%, transparent 66%);
       box-shadow: inset 0 0 80px rgba(0,0,0,.18);
     }
+
     .gumsTop,.gumsBottom{
       position:absolute;
       left:6%;
@@ -229,6 +256,7 @@
     }
     .gumsTop{ top:10%; }
     .gumsBottom{ bottom:10%; }
+
     .teethTop,.teethBottom{
       position:absolute;
       left:10%;
@@ -241,18 +269,21 @@
     }
     .teethTop{ top:19%; }
     .teethBottom{ bottom:19%; }
+
     .tooth{
       border-radius:12px 12px 18px 18px;
       background:linear-gradient(180deg, rgba(255,255,255,.99), rgba(241,245,249,.94));
       border:1px solid rgba(148,163,184,.22);
       box-shadow: inset 0 -10px 18px rgba(226,232,240,.55);
     }
+
     .zoneLayer{
       position:absolute;
       inset:0;
       z-index:10;
       pointer-events:none;
     }
+
     .zone{
       position:absolute;
       border:3px dashed rgba(255,255,255,.10);
@@ -263,6 +294,7 @@
       z-index:12;
       overflow:hidden;
     }
+
     .zone.active{
       border-color:rgba(34,211,238,.98);
       box-shadow:
@@ -271,6 +303,7 @@
         inset 0 0 42px rgba(34,211,238,.12);
       background:linear-gradient(180deg, rgba(34,211,238,.10), rgba(34,211,238,.05));
     }
+
     .zone.active::after{
       content:'ถูตรงนี้';
       position:absolute;
@@ -283,10 +316,12 @@
       font-size:10px;
       font-weight:950;
     }
+
     .zone.completed{
       border-color:rgba(34,197,94,.42);
       background:rgba(34,197,94,.05);
     }
+
     .zone.completed::after{
       content:'สะอาดแล้ว';
       position:absolute;
@@ -299,6 +334,7 @@
       font-size:10px;
       font-weight:950;
     }
+
     .zoneLabel{
       position:absolute;
       left:8px;
@@ -313,6 +349,7 @@
       overflow:hidden;
       text-overflow:ellipsis;
     }
+
     .zoneDir{
       position:absolute;
       left:50%;
@@ -324,12 +361,15 @@
       opacity:0;
       pointer-events:none;
     }
+
     .zone.active .zoneDir{ opacity:.95; }
+
     .dirt{
       position:absolute;
       inset:0;
       pointer-events:none;
     }
+
     .dirtBlob{
       position:absolute;
       border-radius:999px;
@@ -339,6 +379,7 @@
     .dirtBlob.normal{ background:rgba(245,158,11,.72); }
     .dirtBlob.heavy{ background:rgba(234,179,8,.82); }
     .dirtBlob.germ{ background:rgba(168,85,247,.78); }
+
     .brushCursor{
       position:absolute;
       width:52px;
@@ -353,11 +394,13 @@
       z-index:20;
       filter:drop-shadow(0 8px 18px rgba(0,0,0,.35));
     }
+
     .trailLayer,.fxLayer{
       position:absolute;
       inset:0;
       pointer-events:none;
     }
+
     .brushTrail{
       position:absolute;
       width:58px;
@@ -373,6 +416,7 @@
           rgba(255,255,255,0));
       animation: trailFade .32s ease forwards;
     }
+
     .pop{
       position:absolute;
       padding:6px 10px;
@@ -385,34 +429,40 @@
       transform:translate(-50%,-50%);
       animation: floatUp .7s ease forwards;
     }
+
     .arenaFoot{
       display:flex;
       flex-direction:column;
       gap:8px;
     }
+
     .tips{
       color:var(--muted);
       font-size:11px;
       font-weight:800;
       line-height:1.4;
     }
+
     .skillRow{
       display:grid;
       grid-template-columns:1fr 1fr 1fr;
       gap:8px;
     }
+
     .side{
       padding:10px;
       display:grid;
       gap:8px;
       align-content:start;
     }
+
     .zoneList{
       display:grid;
       gap:8px;
       max-height:260px;
       overflow:auto;
     }
+
     .zoneItem{
       border:1px solid var(--stroke);
       border-radius:16px;
@@ -421,22 +471,27 @@
       display:grid;
       gap:6px;
     }
+
     .zoneItem.active{
       border-color:rgba(34,211,238,.28);
       box-shadow:inset 0 0 22px rgba(34,211,238,.06);
     }
+
     .zoneItem.completed{
       border-color:rgba(34,197,94,.28);
       box-shadow:inset 0 0 22px rgba(34,197,94,.06);
     }
+
     .zoneRow{
       display:flex;
       justify-content:space-between;
       align-items:center;
       gap:8px;
     }
+
     .zoneName{ font-size:12px; font-weight:950; }
     .zonePct{ font-size:12px; font-weight:950; color:var(--muted); }
+
     .miniBar{
       width:100%;
       height:10px;
@@ -445,12 +500,14 @@
       background:rgba(2,6,23,.38);
       border:1px solid rgba(148,163,184,.12);
     }
+
     .miniFill{
       height:100%;
       width:0%;
       background:linear-gradient(90deg,var(--warn),var(--good));
       transition:width .22s ease;
     }
+
     .summaryOverlay{
       position:fixed;
       inset:0;
@@ -460,6 +517,7 @@
       background:rgba(0,0,0,.55);
       padding:14px;
     }
+
     .summaryCard{
       width:min(760px,96vw);
       border:1px solid var(--stroke);
@@ -470,11 +528,13 @@
       display:grid;
       gap:14px;
     }
+
     .summaryGrid{
       display:grid;
       grid-template-columns:1fr 1fr;
       gap:8px;
     }
+
     .summaryBox{
       border:1px solid var(--stroke);
       background:rgba(2,6,23,.30);
@@ -483,13 +543,16 @@
       display:grid;
       gap:6px;
     }
+
     .sumBig{ font-size:28px; font-weight:950; }
+
     .summaryActions{
       display:flex;
       gap:10px;
       flex-wrap:wrap;
       justify-content:flex-end;
     }
+
     .backHubDock{
       position:fixed;
       left:8px;
@@ -499,6 +562,7 @@
       display:flex;
       gap:6px;
     }
+
     .dockBtn{
       flex:1 1 0;
       min-width:0;
@@ -511,18 +575,22 @@
       font-weight:950;
       cursor:pointer;
     }
+
     @keyframes floatUp{
       0%{ opacity:0; transform:translate(-50%,-42%) scale(.92); }
       15%{ opacity:1; }
       100%{ opacity:0; transform:translate(-50%,-130%) scale(1.03); }
     }
+
     @keyframes trailFade{
       0%{ opacity:.95; transform:scale(.9); }
       100%{ opacity:0; transform:scale(1.12); }
     }
+
     @media (max-width: 1200px){
       .main{ grid-template-columns:1fr; }
     }
+
     @media (max-width: 900px){
       body{
         padding:
@@ -537,6 +605,7 @@
       .side{ order:2; }
       .skillRow{ grid-template-columns:1fr 1fr; }
     }
+
     @media (max-width: 680px){
       .arena{ padding:10px; }
       .arenaCore{ min-height:320px; }
@@ -685,11 +754,16 @@
       const byId = (id)=>document.getElementById(id);
 
       const CFG = {
-        view: qs('view','mobile'),
+        gameId: qs('gameId','brush'),
         hub: qs('hub','../hub.html'),
         mode: qs('mode','learn'),
         diff: qs('diff','easy'),
-        gate: qs('gate','0') === '1'
+        view: qs('view','mobile'),
+        time: Math.max(45, Math.min(180, Number(qs('time','90') || 90))),
+        gate: qs('gate','0') === '1',
+        pid: qs('pid',''),
+        studyId: qs('studyId',''),
+        seed: qs('seed', String(Date.now()))
       };
 
       const ZONES = [
@@ -709,11 +783,13 @@
         hits: 0,
         totalActions: 0,
         clean: 0,
+        timeLeft: CFG.mode === 'learn' ? 9999 : CFG.time,
         activeZoneIdx: 0,
         finished: false,
         isBrushing: false,
         brushLastX: 0,
         brushLastY: 0,
+        startedAt: performance.now(),
         zoneState: ZONES.map(z => ({
           id: z.id,
           label: z.label,
@@ -734,7 +810,10 @@
       const trailLayer = byId('trailLayer');
       let activePointerId = null;
 
-      function setText(id, v){ const el = byId(id); if(el) el.textContent = v; }
+      function setText(id, v){
+        const el = byId(id);
+        if(el) el.textContent = v;
+      }
 
       function totalCleanPct(){
         const sum = S.zoneState.reduce((a,z)=> a + Math.round(z.clean), 0);
@@ -790,12 +869,14 @@
         const zs = S.zoneState[idx];
         const meta = ZONES[idx];
         if(!zs?.dirtEl) return;
+
         zs.dirtEl.innerHTML = '';
         const count = clamp(Math.ceil(zs.dirt / 12), 0, 8);
 
         for(let i=0;i<count;i++){
           const blob = document.createElement('div');
           blob.className = `dirtBlob ${meta.dirtType}`;
+
           if(meta.dir === 'horizontal'){
             blob.style.width = (18 + Math.random()*34) + 'px';
             blob.style.height = (6 + Math.random()*7) + 'px';
@@ -803,6 +884,7 @@
             blob.style.width = (6 + Math.random()*7) + 'px';
             blob.style.height = (18 + Math.random()*34) + 'px';
           }
+
           blob.style.left = (8 + Math.random()*76) + '%';
           blob.style.top = (14 + Math.random()*60) + '%';
           zs.dirtEl.appendChild(blob);
@@ -813,7 +895,7 @@
         S.clean = totalCleanPct();
         cleanFill.style.width = S.clean + '%';
 
-        setText('pillGameId','brush');
+        setText('pillGameId', CFG.gameId);
         setText('pillMode', CFG.mode === 'challenge' ? 'Challenge' : CFG.mode === 'practice' ? 'Practice' : 'Learn');
         setText('pillZone', S.zoneState[S.activeZoneIdx]?.label || '—');
         setText('statScore', String(Math.round(S.score)));
@@ -821,11 +903,13 @@
         setText('statMiss', String(S.miss));
         setText('statClean', `${S.clean}%`);
         setText('statBoss', '—');
+        setText('statTime', CFG.mode === 'learn' ? '∞' : `${Math.max(0, Math.ceil(S.timeLeft))}`);
 
         const active = S.zoneState[S.activeZoneIdx];
         byId('instruction').innerHTML =
           `ตอนนี้ให้ถู <b>${active?.label || '—'}</b>
            <span class="sub">ถูในกรอบสีฟ้าบนรูปฟันตรงกลาง</span>`;
+
         setText('hintBadge', '👆 ถูในกรอบสีฟ้า');
         setText('dirBadge', `${ZONES[S.activeZoneIdx]?.dir === 'horizontal' ? '↔' : '↕'} ถู${zoneDirectionText(S.activeZoneIdx)}`);
         setText('nowDoText', `${humanZoneInstruction(active?.label)} ในกรอบสีฟ้า`);
@@ -843,6 +927,7 @@
             item.classList.toggle('active', activeNow && !S.finished);
             item.classList.toggle('completed', zs.completed);
           }
+
           const pct = Math.round(zs.clean);
           const fill = byId('zoneFill_' + zs.id);
           const pctEl = byId('zonePct_' + zs.id);
@@ -959,12 +1044,13 @@
         const dy = y - S.brushLastY;
         const dist = Math.max(6, Math.hypot(dx, dy));
         const wantHorizontal = (idx === 2 || idx === 5);
-        const dirBoost =
-          wantHorizontal
-            ? (Math.abs(dx) > Math.abs(dy) * 1.15 ? 1.25 : 0.9)
-            : (Math.abs(dy) > Math.abs(dx) * 1.15 ? 1.25 : 0.9);
+
+        const dirBoost = wantHorizontal
+          ? (Math.abs(dx) > Math.abs(dy) * 1.15 ? 1.25 : 0.9)
+          : (Math.abs(dy) > Math.abs(dx) * 1.15 ? 1.25 : 0.9);
 
         const gain = clicked ? 4.2 : dist * 0.06 * dirBoost;
+
         zs.clean = clamp(zs.clean + gain, 0, 100);
         zs.dirt = clamp(zs.dirt - gain * 0.9, 0, 100);
 
@@ -1034,6 +1120,9 @@
         gate.searchParams.set('zone', 'hygiene');
         gate.searchParams.set('cat', 'hygiene');
         gate.searchParams.set('next', CFG.hub);
+        gate.searchParams.set('pid', CFG.pid || '');
+        gate.searchParams.set('studyId', CFG.studyId || '');
+        gate.searchParams.set('seed', CFG.seed || '');
 
         try{
           const s = buildSummary();
@@ -1067,7 +1156,7 @@
 
         if(showOverlay){
           byId('summaryOverlay').style.display = 'grid';
-        }else{
+        } else {
           goCooldown();
         }
       }
@@ -1108,8 +1197,6 @@
         byId('btnUV').addEventListener('click', useUV);
         byId('btnPolish').addEventListener('click', usePolish);
         byId('btnRestart').addEventListener('click', restartGame);
-        byId('btnFinish').addEventListener('click', ()=> finishGame(true));
-
         byId('btnCloseSummary').addEventListener('click', goCooldown);
         byId('btnSummaryRestart').addEventListener('click', restartGame);
         byId('btnBackHub').addEventListener('click', goCooldown);
@@ -1131,10 +1218,23 @@
         location.href = u.toString();
       }
 
+      function tick(){
+        if(S.finished) return;
+        if(CFG.mode !== 'learn'){
+          S.timeLeft = Math.max(0, S.timeLeft - 0.1);
+          if(S.timeLeft <= 0){
+            finishGame(true);
+          } else {
+            setText('statTime', `${Math.max(0, Math.ceil(S.timeLeft))}`);
+          }
+        }
+      }
+
       function boot(){
         buildZones();
         bind();
         refreshUI();
+        setInterval(tick, 100);
       }
 
       try{
