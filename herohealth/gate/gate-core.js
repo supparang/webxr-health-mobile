@@ -1,11 +1,11 @@
 // === /herohealth/gate/gate-core.js ===
-// FULL PATCH v20260317e-GATE-COMPAT-FINISH-SETSTATS
+// FULL PATCH v20260317f-GATE-COMPAT-SETSUB-TITLE
 // ✅ export default bootGate
 // ✅ single warmup-gate.html page with ?phase=warmup|cooldown
-// ✅ backward-compatible api.finish / api.complete / api.done / api.summary
-// ✅ backward-compatible api.setStats
+// ✅ supports api.finish / api.complete / api.done / api.summary / api.next
+// ✅ supports api.setStats / api.setSub / api.setTitle
 // ✅ compatibility logger api.logger.push(...)
-// ✅ supports existing gate mini-games like goodjunk/warmup.js
+// ✅ supports existing gate mini-games like goodjunk warmup/cooldown
 // ✅ warmup once/day -> auto continue to run page
 // ✅ cooldown once/day -> summary + back hub
 
@@ -17,7 +17,7 @@ import {
   normalizeGameId
 } from './gate-games.js?v=20260317b-GATE-GAMES-ALIAS-ROBUST-RUN-CANDIDATES';
 
-const PATCH = 'v20260317e-GATE-COMPAT-FINISH-SETSTATS';
+const PATCH = 'v20260317f-GATE-COMPAT-SETSUB-TITLE';
 const STORAGE_NS = 'HHA_GATE_DONE_V1';
 const LAST_SUMMARY_KEY = 'HHA_LAST_SUMMARY';
 const SUMMARY_HISTORY_KEY = 'HHA_SUMMARY_HISTORY';
@@ -339,8 +339,8 @@ function renderShell(root, ctx) {
       <div class="gate-card">
         <div class="gate-hero">
           <div class="gate-kicker">HeroHealth Gate • ${esc(ctx.phase)}</div>
-          <h1 class="gate-title">${esc(phaseTitle(ctx))}</h1>
-          <p class="gate-sub">หน้าเดียวสำหรับ warmup และ cooldown โดยแยกด้วย <code>?phase=warmup</code> หรือ <code>?phase=cooldown</code></p>
+          <h1 class="gate-title" id="gateHeroTitle">${esc(phaseTitle(ctx))}</h1>
+          <p class="gate-sub" id="gateHeroSub">หน้าเดียวสำหรับ warmup และ cooldown โดยแยกด้วย <code>?phase=warmup</code> หรือ <code>?phase=cooldown</code></p>
 
           <div class="gate-meta">
             <div class="gate-chip">game: ${esc(ctx.game || '-')}</div>
@@ -389,7 +389,9 @@ function renderShell(root, ctx) {
     statTime: root.querySelector('#gateStatTime'),
     statScore: root.querySelector('#gateStatScore'),
     statMiss: root.querySelector('#gateStatMiss'),
-    statAcc: root.querySelector('#gateStatAcc')
+    statAcc: root.querySelector('#gateStatAcc'),
+    heroTitle: root.querySelector('#gateHeroTitle'),
+    heroSub: root.querySelector('#gateHeroSub')
   };
 }
 
@@ -408,6 +410,16 @@ function applyStats(refs, stats = {}) {
   if ('acc' in stats && refs.statAcc) {
     refs.statAcc.textContent = String(stats.acc ?? '0%');
   }
+}
+
+function setHeroTitle(refs, text = '') {
+  if (!refs?.heroTitle) return;
+  refs.heroTitle.textContent = String(text || '');
+}
+
+function setHeroSub(refs, text = '') {
+  if (!refs?.heroSub) return;
+  refs.heroSub.textContent = String(text || '');
 }
 
 function linesHtml(lines = []) {
@@ -787,6 +799,14 @@ export async function bootGate(root = document.getElementById('gate-app')) {
 
     setStats(stats = {}) {
       applyStats(refs, stats);
+    },
+
+    setSub(text = '') {
+      setHeroSub(refs, text);
+    },
+
+    setTitle(text = '') {
+      setHeroTitle(refs, text);
     },
 
     async complete(payload = {}) {
