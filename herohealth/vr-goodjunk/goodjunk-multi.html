@@ -453,7 +453,7 @@
       <div style="height:12px"></div>
       <div class="mut">
         Race ใช้ Firebase path:
-        <span class="mono">raceRooms/goodjunk/&lt;roomId&gt;</span>
+        <span class="mono">hha-battle/goodjunk/rooms/&lt;roomId&gt;</span>
       </div>
     </div>
   </div>
@@ -652,9 +652,21 @@
 
   function snapshotToRoom(val) {
     if (!val) return null;
+
+    const meta = val.meta || {};
+    const stateNode = val.state || {};
     const playersMap = val.players || {};
+
     return {
-      ...val,
+      roomId: String(meta.roomId || val.roomId || ''),
+      hostId: String(meta.hostId || val.hostId || ''),
+      mode: String(meta.mode || val.mode || currentMode),
+      minPlayers: Math.max(2, Number(meta.minPlayers || val.minPlayers || 2)),
+      maxPlayers: Math.max(2, Number(meta.maxPlayers || val.maxPlayers || 10)),
+      status: String(stateNode.status || meta.status || val.status || 'waiting'),
+      startAt: Number(stateNode.startAt || meta.startAt || val.startAt || 0) || null,
+      createdAt: Number(meta.createdAt || val.createdAt || Date.now()),
+      updatedAt: Number(stateNode.updatedAt || meta.updatedAt || val.updatedAt || Date.now()),
       players: Object.keys(playersMap).map((pid) => ({
         id: pid,
         ...playersMap[pid]
@@ -794,7 +806,7 @@
     elBackendWarn.hidden = true;
 
     db = window.HHA_FIREBASE_DB;
-    roomRef = db.ref(`raceRooms/goodjunk/${roomId}`);
+    roomRef = db.ref(`hha-battle/goodjunk/rooms/${roomId}`);
     playersRef = roomRef.child('players');
     myPlayerRef = playersRef.child(getPid());
 
@@ -818,17 +830,25 @@
     if (!room) return false;
 
     const players = normalizePlayers(room.players || []);
+    const now = Date.now();
+
     const payload = {
-      roomId: room.roomId,
-      hostId: room.hostId || '',
-      mode: room.mode || currentMode,
-      minPlayers: Number(room.minPlayers || 2),
-      maxPlayers: Number(room.maxPlayers || 10),
-      status: room.status || 'waiting',
-      startAt: room.startAt || null,
-      createdAt: Number(room.createdAt || Date.now()),
-      updatedAt: Date.now(),
-      players: {}
+      meta: {
+        roomId: room.roomId,
+        hostId: room.hostId || '',
+        mode: room.mode || currentMode,
+        minPlayers: Number(room.minPlayers || 2),
+        maxPlayers: Number(room.maxPlayers || 10),
+        createdAt: Number(room.createdAt || now),
+        updatedAt: now,
+        _source: source
+      },
+      players: {},
+      state: {
+        status: room.status || 'waiting',
+        startAt: room.startAt || null,
+        updatedAt: now
+      }
     };
 
     players.forEach((p) => {
@@ -849,11 +869,13 @@
       };
     });
 
-    payload._source = source;
-
     try {
       await roomRef.set(payload);
-      console.log('[GJ-LOBBY] saveRoom', { source, roomId: payload.roomId, status: payload.status });
+      console.log('[GJ-LOBBY] saveRoom', {
+        source,
+        roomId: room.roomId,
+        status: room.status
+      });
       return true;
     } catch (err) {
       console.error('[GJ-LOBBY] saveRoom failed:', err);
