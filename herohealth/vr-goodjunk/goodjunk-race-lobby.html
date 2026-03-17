@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth • GoodJunk Race Lobby</title>
+  <style>
+    :root{
+      --bg1:#020617;
+      --bg2:#0b1226;
+      --panel:rgba(2,6,23,.76);
+      --stroke:rgba(148,163,184,.18);
+      --text:#e5e7eb;
+      --muted:#94a3b8;
+      --good:#22c55e;
+      --blue:#38bdf8;
+      --warn:#f59e0b;
+    }
+    *{ box-sizing:border-box; }
+    html,body{
+      margin:0; min-height:100%;
+      font-family:system-ui,sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(circle at top, #172554 0%, transparent 35%),
+        linear-gradient(180deg,var(--bg2),var(--bg1));
+    }
+    .wrap{
+      max-width:920px;
+      margin:0 auto;
+      padding:24px 16px 48px;
+    }
+    .card{
+      background:var(--panel);
+      border:1px solid var(--stroke);
+      border-radius:20px;
+      padding:18px;
+      backdrop-filter: blur(10px);
+      margin-bottom:16px;
+    }
+    h1{ margin:0 0 10px; font-size:28px; }
+    .muted{ color:var(--muted); }
+    .row{ display:flex; gap:12px; flex-wrap:wrap; align-items:center; }
+    .pill{
+      display:inline-flex; align-items:center;
+      border:1px solid var(--stroke);
+      border-radius:999px;
+      padding:8px 12px;
+      background:rgba(15,23,42,.45);
+    }
+    .players{
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+      gap:12px;
+      margin-top:12px;
+    }
+    .player{
+      border:1px solid var(--stroke);
+      border-radius:16px;
+      padding:12px;
+      background:rgba(15,23,42,.45);
+    }
+    .ready{ color:var(--good); font-weight:700; }
+    .waiting{ color:var(--warn); font-weight:700; }
+    .btn{
+      appearance:none; border:0; cursor:pointer;
+      border-radius:14px; padding:12px 16px;
+      font-weight:800;
+    }
+    .btn-primary{ background:var(--blue); color:#06203a; }
+    .btn-good{ background:var(--good); color:#052e16; }
+    .btn-ghost{
+      background:rgba(255,255,255,.06);
+      color:var(--text);
+      border:1px solid var(--stroke);
+    }
+    #countdown{
+      font-size:48px; font-weight:900; text-align:center; min-height:60px;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>GoodJunk Race Lobby</h1>
+      <div class="muted">รอผู้เล่นให้ครบก่อน แล้วค่อยเริ่มพร้อมกัน</div>
+    </div>
+
+    <div class="card">
+      <div class="row">
+        <div class="pill">Room: <strong id="roomCode" style="margin-left:8px;">-</strong></div>
+        <div class="pill">Players: <strong id="playerCount" style="margin-left:8px;">0/2</strong></div>
+        <div class="pill">Status: <strong id="roomStatus" style="margin-left:8px;">waiting</strong></div>
+      </div>
+      <div id="countdown"></div>
+    </div>
+
+    <div class="card">
+      <div><strong>ผู้เล่นในห้อง</strong></div>
+      <div class="players" id="playersBox"></div>
+    </div>
+
+    <div class="card">
+      <div class="row">
+        <button class="btn btn-good" id="btnReady">พร้อมแล้ว</button>
+        <button class="btn btn-primary" id="btnStart">เริ่มแข่ง</button>
+        <button class="btn btn-ghost" id="btnBack">กลับ</button>
+      </div>
+      <p class="muted" id="hint">ต้องมีอย่างน้อย 2 คน และทุกคนต้อง ready</p>
+    </div>
+  </div>
+
+  <script type="module" src="./goodjunk-race-lobby.js"></script>
+</body>
+</html>
