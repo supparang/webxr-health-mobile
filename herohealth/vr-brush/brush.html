@@ -20,6 +20,7 @@
       --warn:#f59e0b;
       --bad:#ef4444;
       --cyan:#22d3ee;
+      --violet:#a78bfa;
       --shadow:0 20px 64px rgba(0,0,0,.45);
       --radius:22px;
       --sat: env(safe-area-inset-top, 0px);
@@ -65,6 +66,89 @@
       -webkit-backdrop-filter:blur(10px);
     }
 
+    .hero{
+      overflow:hidden;
+      position:relative;
+      padding:16px 18px;
+      display:grid;
+      gap:10px;
+    }
+
+    .hero::before{
+      content:"";
+      position:absolute;
+      inset:0;
+      pointer-events:none;
+      background:
+        radial-gradient(620px 240px at 10% 0%, rgba(34,197,94,.10), transparent 60%),
+        radial-gradient(520px 220px at 88% 0%, rgba(34,211,238,.10), transparent 60%);
+    }
+
+    .heroTop{
+      position:relative;
+      z-index:1;
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:flex-start;
+    }
+
+    .heroKicker{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 12px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(2,6,23,.34);
+      color:var(--muted);
+      font-size:12px;
+      font-weight:950;
+    }
+
+    .heroTitle{
+      position:relative;
+      z-index:1;
+      font-size:clamp(28px, 5vw, 42px);
+      font-weight:1000;
+      line-height:1.05;
+      margin:0;
+    }
+
+    .heroSub{
+      position:relative;
+      z-index:1;
+      color:var(--muted);
+      font-size:14px;
+      line-height:1.65;
+      font-weight:800;
+      max-width:72ch;
+    }
+
+    .heroPills{
+      position:relative;
+      z-index:1;
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+
+    .pill{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      padding:8px 10px;
+      border-radius:999px;
+      border:1px solid var(--stroke);
+      background:rgba(2,6,23,.35);
+      color:var(--muted);
+      font-size:12px;
+      font-weight:900;
+    }
+
+    .pill b{ color:var(--text); }
+
     .hud{
       display:grid;
       grid-template-columns:1fr 1fr;
@@ -89,21 +173,6 @@
       font-size:18px;
       font-weight:950;
     }
-
-    .pill{
-      display:inline-flex;
-      align-items:center;
-      gap:6px;
-      padding:6px 10px;
-      border-radius:999px;
-      border:1px solid var(--stroke);
-      background:rgba(2,6,23,.35);
-      color:var(--muted);
-      font-size:12px;
-      font-weight:900;
-    }
-
-    .pill b{ color:var(--text); }
 
     .stats{
       display:flex;
@@ -186,11 +255,14 @@
       padding:10px 12px;
       cursor:pointer;
       font-weight:950;
+      font-size:14px;
     }
 
     .btn.primary{ border-color:rgba(34,197,94,.28); background:rgba(34,197,94,.16); }
     .btn.cyan{ border-color:rgba(34,211,238,.28); background:rgba(34,211,238,.14); }
     .btn.warn{ border-color:rgba(245,158,11,.28); background:rgba(245,158,11,.14); }
+    .btn.violet{ border-color:rgba(167,139,250,.28); background:rgba(167,139,250,.14); }
+    .btn.secondary{ color:var(--muted); }
     .modeActive{ border-color:rgba(34,211,238,.30)!important; background:rgba(34,211,238,.14)!important; }
 
     .cleanBar{
@@ -445,7 +517,7 @@
 
     .skillRow{
       display:grid;
-      grid-template-columns:1fr 1fr 1fr;
+      grid-template-columns:1fr 1fr 1fr 1fr;
       gap:8px;
     }
 
@@ -456,11 +528,25 @@
       align-content:start;
     }
 
+    .sideCard{
+      padding:12px;
+      border-radius:18px;
+      background:rgba(2,6,23,.26);
+      box-shadow:none;
+      border:1px solid rgba(148,163,184,.12);
+    }
+
+    .sideCard.goodish{
+      background:rgba(34,197,94,.10);
+      border:1px solid rgba(34,197,94,.22);
+    }
+
     .zoneList{
       display:grid;
       gap:8px;
       max-height:260px;
       overflow:auto;
+      margin-top:10px;
     }
 
     .zoneItem{
@@ -519,7 +605,7 @@
     }
 
     .summaryCard{
-      width:min(760px,96vw);
+      width:min(820px,96vw);
       border:1px solid var(--stroke);
       border-radius:24px;
       background:linear-gradient(180deg, rgba(2,6,23,.95), rgba(15,23,42,.90));
@@ -527,6 +613,20 @@
       padding:16px;
       display:grid;
       gap:14px;
+    }
+
+    .summaryTitle{
+      font-size:20px;
+      font-weight:1000;
+      margin:0;
+    }
+
+    .summarySub{
+      color:var(--muted);
+      font-size:13px;
+      font-weight:800;
+      line-height:1.55;
+      margin:0;
     }
 
     .summaryGrid{
@@ -576,6 +676,71 @@
       cursor:pointer;
     }
 
+    .bootShell{
+      position:fixed;
+      inset:0;
+      z-index:99996;
+      display:grid;
+      place-items:center;
+      padding:18px;
+      background:rgba(2,6,23,.42);
+      backdrop-filter:blur(10px);
+      transition:opacity .28s ease;
+    }
+
+    .bootShell.hide{
+      opacity:0;
+      pointer-events:none;
+    }
+
+    .bootCard{
+      width:min(94vw,560px);
+      border:1px solid var(--stroke);
+      border-radius:24px;
+      background:linear-gradient(180deg, rgba(2,6,23,.92), rgba(15,23,42,.88));
+      box-shadow:var(--shadow);
+      padding:18px;
+      display:grid;
+      gap:12px;
+      text-align:center;
+    }
+
+    .bootKicker{
+      display:inline-flex;
+      justify-self:center;
+      align-items:center;
+      gap:8px;
+      padding:8px 12px;
+      border-radius:999px;
+      border:1px solid rgba(34,211,238,.22);
+      background:rgba(34,211,238,.12);
+      color:#a5f3fc;
+      font-size:12px;
+      font-weight:950;
+    }
+
+    .bootTitle{
+      font-size:clamp(28px, 5vw, 40px);
+      font-weight:1000;
+      line-height:1.05;
+      margin:0;
+    }
+
+    .bootSub{
+      color:var(--muted);
+      font-size:14px;
+      line-height:1.6;
+      font-weight:800;
+      margin:0;
+    }
+
+    .bootMeta{
+      display:flex;
+      justify-content:center;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+
     @keyframes floatUp{
       0%{ opacity:0; transform:translate(-50%,-42%) scale(.92); }
       15%{ opacity:1; }
@@ -607,6 +772,7 @@
     }
 
     @media (max-width: 680px){
+      .hero{ padding:14px; }
       .arena{ padding:10px; }
       .arenaCore{ min-height:320px; }
       .mouthWrap{ height:260px; }
@@ -615,12 +781,38 @@
   </style>
 </head>
 <body>
+  <div class="bootShell" id="bootShell">
+    <div class="bootCard">
+      <div class="bootKicker">🪥 HYGIENE ZONE • BRUSH VR</div>
+      <h1 class="bootTitle">Brush VR</h1>
+      <p class="bootSub">ถูฟันทีละโซนให้สะอาดตามลำดับ แล้วสรุปผลก่อนเข้าสู่ cooldown เหมือนเกมอื่น ๆ</p>
+      <div class="bootMeta">
+        <div class="pill">MODE <b id="bootMode">learn</b></div>
+        <div class="pill">DIFF <b id="bootDiff">easy</b></div>
+        <div class="pill">TIME <b id="bootTime">90</b></div>
+      </div>
+    </div>
+  </div>
+
   <div class="app">
+    <section class="panel hero">
+      <div class="heroTop">
+        <div class="heroKicker">🪥 HeroHealth • Hygiene Zone • Run Page</div>
+        <div class="heroPills">
+          <div class="pill">gameId: <b id="pillGameId">brush</b></div>
+          <div class="pill">zone: <b id="pillZoneTop">hygiene</b></div>
+          <div class="pill">view: <b id="pillView">mobile</b></div>
+        </div>
+      </div>
+      <h1 class="heroTitle">Brush VR</h1>
+      <div class="heroSub">ทำความสะอาดฟัน 6 โซนทีละส่วนให้ครบ โซนที่กำลังทำจะมีกรอบสีฟ้า และเมื่อสะอาดครบจะเปลี่ยนเป็นสีเขียว</div>
+    </section>
+
     <section class="hud">
       <div class="panel hudbox">
         <div class="topline">
           <div class="title">🪥 Brush VR</div>
-          <div class="pill">gameId: <b id="pillGameId">brush</b></div>
+          <div class="pill">gameId: <b id="pillGameId2">brush</b></div>
         </div>
         <div class="stats">
           <div class="stat"><div class="k">Score</div><div class="v" id="statScore">0</div></div>
@@ -637,7 +829,7 @@
         <div class="stats">
           <div class="stat"><div class="k">Clean</div><div class="v" id="statClean">0%</div></div>
           <div class="stat"><div class="k">Miss</div><div class="v" id="statMiss">0</div></div>
-          <div class="stat"><div class="k">Boss HP</div><div class="v" id="statBoss">—</div></div>
+          <div class="stat"><div class="k">Progress</div><div class="v" id="statBoss">6 zones</div></div>
         </div>
       </div>
     </section>
@@ -686,32 +878,33 @@
         </div>
 
         <div class="arenaFoot">
-          <div class="tips">ลากในกรอบสีฟ้า • โซนไหนสะอาดครบจะเปลี่ยนเป็นสีเขียว</div>
+          <div class="tips">ลากในกรอบสีฟ้า • โซนไหนสะอาดครบจะเปลี่ยนเป็นสีเขียว • ปิดงานแล้วไป cooldown ต่อ</div>
           <div class="skillRow">
             <button class="btn cyan" id="btnUV" type="button">🔦 UV Reveal</button>
             <button class="btn warn" id="btnPolish" type="button">✨ Polish</button>
+            <button class="btn violet" id="btnExport" type="button">⬇ Export</button>
             <button class="btn" id="btnRestart" type="button">↻ Restart</button>
           </div>
         </div>
       </section>
 
       <aside class="panel side">
-        <div class="panel" style="padding:12px; border-radius:18px; background:rgba(2,6,23,.26); box-shadow:none;">
+        <div class="sideCard">
           <div style="font-size:15px; font-weight:950;">🦷 แผนที่ฟัน 6 โซน</div>
-          <div class="zoneList" id="zoneList" style="margin-top:10px;"></div>
+          <div class="zoneList" id="zoneList"></div>
         </div>
 
-        <div class="panel" style="padding:12px; border-radius:18px; background:rgba(2,6,23,.26); box-shadow:none;">
+        <div class="sideCard">
           <div style="font-size:12px; color:var(--muted); font-weight:900;">ตอนนี้ต้องทำ</div>
           <div id="nowDoText" style="margin-top:6px; font-size:15px; font-weight:950;">ถูฟันบนด้านนอกในกรอบสีฟ้า</div>
         </div>
 
-        <div class="panel" style="padding:12px; border-radius:18px; background:rgba(34,197,94,.10); border:1px solid rgba(34,197,94,.22); box-shadow:none;">
+        <div class="sideCard goodish">
           <div style="font-size:12px; color:var(--muted); font-weight:900;">Coach</div>
           <div id="coachText" style="margin-top:6px; font-size:14px; font-weight:950; line-height:1.45;">เริ่มจากลากถูในกรอบสีฟ้าก่อนนะ</div>
         </div>
 
-        <div class="panel" style="padding:12px; border-radius:18px; background:rgba(2,6,23,.26); box-shadow:none;">
+        <div class="sideCard">
           <div style="font-size:15px; font-weight:950;">ภารกิจตอนนี้</div>
           <div id="questText" style="margin-top:8px; color:var(--muted); font-size:12px; font-weight:900; line-height:1.5;">ทำความสะอาดทีละโซนให้เกิน 85%</div>
         </div>
@@ -721,7 +914,10 @@
 
   <div class="summaryOverlay" id="summaryOverlay">
     <div class="summaryCard">
-      <div style="font-size:18px; font-weight:950;">🏁 Brush VR Summary</div>
+      <div>
+        <h2 class="summaryTitle">🏁 Brush VR Summary</h2>
+        <p class="summarySub" id="summarySub">จบรอบนี้แล้ว พร้อมไปต่อที่ cooldown</p>
+      </div>
       <div class="summaryGrid">
         <div class="summaryBox"><div class="k">Score</div><div class="sumBig" id="sumScore">0</div></div>
         <div class="summaryBox"><div class="k">Accuracy</div><div class="v" id="sumAcc">0%</div></div>
@@ -729,8 +925,9 @@
         <div class="summaryBox"><div class="k">Rank</div><div class="v" id="summaryRank">C</div></div>
       </div>
       <div class="summaryActions">
-        <button class="btn" id="btnCloseSummary" type="button">ไป Cooldown</button>
+        <button class="btn cyan" id="btnExportSummary" type="button">⬇ Export JSON</button>
         <button class="btn" id="btnSummaryRestart" type="button">↻ Restart</button>
+        <button class="btn warn" id="btnCloseSummary" type="button">ไป Cooldown</button>
         <button class="btn primary" id="btnBackHub" type="button">← Back Hub</button>
       </div>
     </div>
@@ -754,17 +951,29 @@
       const byId = (id)=>document.getElementById(id);
 
       const CFG = {
+        game: qs('game', 'brush'),
         gameId: qs('gameId','brush'),
+        theme: qs('theme','brush'),
+        cat: qs('cat','hygiene'),
+        zone: qs('zone','hygiene'),
         hub: qs('hub','../hub.html'),
+        view: qs('view','mobile'),
+        run: qs('run','play'),
         mode: qs('mode','learn'),
         diff: qs('diff','easy'),
-        view: qs('view','mobile'),
         time: Math.max(45, Math.min(180, Number(qs('time','90') || 90))),
+        cooldown: qs('cooldown','1') === '1',
         gate: qs('gate','0') === '1',
+        gatePage: qs('gatePage','../warmup-gate.html'),
         pid: qs('pid',''),
         studyId: qs('studyId',''),
         seed: qs('seed', String(Date.now()))
       };
+
+      window.__BRUSH_RUN_CTX__ = { ...CFG };
+
+      const BRUSH_LAST_SUMMARY_KEY = `BRUSH_LAST_SUMMARY_${CFG.pid || 'anon'}`;
+      const BRUSH_SUMMARY_HISTORY_KEY = `BRUSH_SUMMARY_HISTORY_${CFG.pid || 'anon'}`;
 
       const ZONES = [
         { id:'upper_outer', label:'ฟันบนด้านนอก', x:18, y:20, w:64, h:14, dir:'vertical', dirtType:'normal' },
@@ -808,11 +1017,27 @@
       const cleanFill = byId('cleanFill');
       const fxLayer = byId('fxLayer');
       const trailLayer = byId('trailLayer');
+      const bootShell = byId('bootShell');
+
       let activePointerId = null;
+      let lastSummary = null;
 
       function setText(id, v){
         const el = byId(id);
         if(el) el.textContent = v;
+      }
+
+      function hideBoot(){
+        setText('bootMode', CFG.mode);
+        setText('bootDiff', CFG.diff);
+        setText('bootTime', String(CFG.mode === 'learn' ? '∞' : CFG.time));
+
+        setTimeout(() => {
+          bootShell?.classList.add('hide');
+          setTimeout(() => {
+            if (bootShell) bootShell.style.display = 'none';
+          }, 320);
+        }, 480);
       }
 
       function totalCleanPct(){
@@ -896,13 +1121,16 @@
         cleanFill.style.width = S.clean + '%';
 
         setText('pillGameId', CFG.gameId);
+        setText('pillGameId2', CFG.gameId);
+        setText('pillZoneTop', CFG.zone);
+        setText('pillView', CFG.view);
         setText('pillMode', CFG.mode === 'challenge' ? 'Challenge' : CFG.mode === 'practice' ? 'Practice' : 'Learn');
         setText('pillZone', S.zoneState[S.activeZoneIdx]?.label || '—');
         setText('statScore', String(Math.round(S.score)));
         setText('statCombo', String(S.combo));
         setText('statMiss', String(S.miss));
         setText('statClean', `${S.clean}%`);
-        setText('statBoss', '—');
+        setText('statBoss', `${S.zoneState.filter(z=>z.completed).length}/${S.zoneState.length}`);
         setText('statTime', CFG.mode === 'learn' ? '∞' : `${Math.max(0, Math.ceil(S.timeLeft))}`);
 
         const active = S.zoneState[S.activeZoneIdx];
@@ -913,8 +1141,8 @@
         setText('hintBadge', '👆 ถูในกรอบสีฟ้า');
         setText('dirBadge', `${ZONES[S.activeZoneIdx]?.dir === 'horizontal' ? '↔' : '↕'} ถู${zoneDirectionText(S.activeZoneIdx)}`);
         setText('nowDoText', `${humanZoneInstruction(active?.label)} ในกรอบสีฟ้า`);
-        setText('coachText', 'เริ่มจากลากถูในกรอบสีฟ้าก่อนนะ');
-        setText('questText', 'ทำความสะอาดทีละโซนให้เกิน 85%');
+        setText('coachText', active?.completed ? 'เยี่ยมมาก โซนนี้สะอาดแล้ว ไปโซนถัดไปกัน' : 'เริ่มจากลากถูในกรอบสีฟ้าก่อนนะ');
+        setText('questText', `ทำความสะอาดทีละโซนให้เกิน 85% • ตอนนี้เสร็จแล้ว ${S.zoneState.filter(z=>z.completed).length}/${S.zoneState.length} โซน`);
 
         S.zoneState.forEach((zs, idx)=>{
           const activeNow = idx === S.activeZoneIdx;
@@ -934,6 +1162,10 @@
           if(fill) fill.style.width = pct + '%';
           if(pctEl) pctEl.textContent = pct + '%';
         });
+
+        byId('btnModeLearn')?.classList.toggle('modeActive', CFG.mode === 'learn');
+        byId('btnModePractice')?.classList.toggle('modeActive', CFG.mode === 'practice');
+        byId('btnModeChallenge')?.classList.toggle('modeActive', CFG.mode === 'challenge');
       }
 
       function maybeAdvanceZone(){
@@ -1070,6 +1302,10 @@
         renderDirtForZone(idx);
         maybeAdvanceZone();
         refreshUI();
+
+        if (S.zoneState.every(z => z.completed) && !S.finished) {
+          finishGame(true);
+        }
       }
 
       function onPointerDown(ev){
@@ -1104,18 +1340,102 @@
 
       function buildSummary(){
         const acc = S.totalActions > 0 ? Math.round((S.hits / S.totalActions) * 100) : 0;
-        const rank = S.clean >= 85 ? 'A' : (S.clean >= 70 ? 'B' : 'C');
+        const rank = S.clean >= 92 ? 'S' : (S.clean >= 85 ? 'A' : (S.clean >= 70 ? 'B' : 'C'));
         return {
+          gameId: CFG.gameId,
+          title: 'Brush VR',
+          mode: CFG.mode,
+          pid: CFG.pid || 'anon',
+          studyId: CFG.studyId || '',
+          diff: CFG.diff,
+          view: CFG.view,
+          run: CFG.run,
+          seed: CFG.seed,
           score: Math.round(S.score),
           accuracy: acc,
           clean: S.clean,
-          rank
+          rank,
+          miss: S.miss,
+          comboMax: S.maxCombo,
+          finishedZones: S.zoneState.filter(z => z.completed).length,
+          totalZones: S.zoneState.length,
+          updatedAt: Date.now()
         };
       }
 
-      function goCooldown(){
-        const gate = new URL('../warmup-gate.html', location.href);
+      function persistSummary(summary){
+        lastSummary = summary;
+
+        try{
+          localStorage.setItem(BRUSH_LAST_SUMMARY_KEY, JSON.stringify(summary));
+        }catch{}
+
+        try{
+          const raw = localStorage.getItem(BRUSH_SUMMARY_HISTORY_KEY);
+          const list = raw ? JSON.parse(raw) : [];
+          const arr = Array.isArray(list) ? list : [];
+          arr.unshift(summary);
+          localStorage.setItem(BRUSH_SUMMARY_HISTORY_KEY, JSON.stringify(arr.slice(0, 30)));
+        }catch{}
+
+        try{
+          localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify({
+            source: 'brush-run',
+            gameId: summary.gameId,
+            title: summary.title,
+            mode: summary.mode,
+            pid: summary.pid,
+            studyId: summary.studyId,
+            score: summary.score,
+            accuracyPct: summary.accuracy,
+            cleanPct: summary.clean,
+            rank: summary.rank,
+            miss: summary.miss,
+            updatedAt: summary.updatedAt
+          }));
+        }catch{}
+
+        try{
+          window.HHA_BACKHUB?.setSummary?.({
+            gameId:'brush',
+            gameTitle:'Brush VR',
+            gameIcon:'🪥',
+            zoneId:'hygiene',
+            endReason:'complete',
+            scoreFinal:summary.score,
+            accuracyPct:summary.accuracy,
+            cleanPct:summary.clean,
+            rank:summary.rank,
+            savedAt:new Date(summary.updatedAt).toISOString(),
+            href:location.href
+          });
+        }catch{}
+      }
+
+      function downloadJson(payload, filename='brush-summary.json'){
+        if(!payload) return;
+        const blob = new Blob([JSON.stringify(payload, null, 2)], { type:'application/json;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      }
+
+      function buildReplayUrl(){
+        const u = new URL(location.href);
+        u.searchParams.set('seed', String(Date.now()));
+        return u.toString();
+      }
+
+      function buildCooldownUrl(){
+        const gate = new URL(CFG.gatePage || '../warmup-gate.html', location.href);
         gate.searchParams.set('game', 'brush');
+        gate.searchParams.set('gameId', 'brush');
+        gate.searchParams.set('theme', 'brush');
         gate.searchParams.set('phase', 'cooldown');
         gate.searchParams.set('zone', 'hygiene');
         gate.searchParams.set('cat', 'hygiene');
@@ -1123,25 +1443,23 @@
         gate.searchParams.set('pid', CFG.pid || '');
         gate.searchParams.set('studyId', CFG.studyId || '');
         gate.searchParams.set('seed', CFG.seed || '');
+        gate.searchParams.set('diff', CFG.diff || 'easy');
+        gate.searchParams.set('time', String(CFG.time || 90));
+        gate.searchParams.set('view', CFG.view || 'mobile');
+        gate.searchParams.set('hub', CFG.hub || '../hub.html');
+        return gate.toString();
+      }
 
-        try{
-          const s = buildSummary();
-          window.HHA_BACKHUB?.setSummary?.({
-            gameId:'brush',
-            gameTitle:'Brush VR',
-            gameIcon:'🪥',
-            zoneId:'hygiene',
-            endReason:'complete',
-            scoreFinal:s.score,
-            accuracyPct:s.accuracy,
-            cleanPct:s.clean,
-            rank:s.rank,
-            savedAt:new Date().toISOString(),
-            href:location.href
-          });
-        }catch(e){}
+      function goCooldownOrHub(){
+        const summary = buildSummary();
+        persistSummary(summary);
 
-        location.href = gate.toString();
+        if(CFG.cooldown){
+          location.href = buildCooldownUrl();
+          return;
+        }
+
+        location.href = CFG.hub;
       }
 
       function finishGame(showOverlay = true){
@@ -1149,27 +1467,30 @@
         S.finished = true;
 
         const s = buildSummary();
+        persistSummary(s);
+
         setText('sumScore', String(s.score));
         setText('sumAcc', s.accuracy + '%');
         setText('sumClean', s.clean + '%');
         setText('summaryRank', s.rank);
+        setText('summarySub', s.clean >= 85
+          ? 'ยอดเยี่ยมมาก พร้อมไปต่อที่ cooldown'
+          : 'จบรอบนี้แล้ว สามารถไปต่อที่ cooldown หรือเริ่มใหม่ได้');
 
         if(showOverlay){
           byId('summaryOverlay').style.display = 'grid';
         } else {
-          goCooldown();
+          goCooldownOrHub();
         }
       }
 
       function restartGame(){
-        const u = new URL(location.href);
-        u.searchParams.set('seed', String(Date.now()));
-        location.href = u.toString();
+        location.href = buildReplayUrl();
       }
 
       function useUV(){
         const active = S.zoneState[S.activeZoneIdx];
-        if(!active) return;
+        if(!active || S.finished) return;
         active.clean = clamp(active.clean + 8, 0, 100);
         active.dirt = clamp(active.dirt - 10, 0, 100);
         renderDirtForZone(S.activeZoneIdx);
@@ -1177,6 +1498,7 @@
       }
 
       function usePolish(){
+        if(S.finished) return;
         S.zoneState.forEach((z, idx)=>{
           z.clean = clamp(z.clean + 4, 0, 100);
           z.dirt = clamp(z.dirt - 5, 0, 100);
@@ -1184,7 +1506,12 @@
           renderDirtForZone(idx);
         });
         S.score += 20;
+        maybeAdvanceZone();
         refreshUI();
+
+        if (S.zoneState.every(z => z.completed) && !S.finished) {
+          finishGame(true);
+        }
       }
 
       function bind(){
@@ -1197,13 +1524,24 @@
         byId('btnUV').addEventListener('click', useUV);
         byId('btnPolish').addEventListener('click', usePolish);
         byId('btnRestart').addEventListener('click', restartGame);
-        byId('btnCloseSummary').addEventListener('click', goCooldown);
+        byId('btnExport').addEventListener('click', () => {
+          const s = buildSummary();
+          persistSummary(s);
+          downloadJson(s, `brush-summary-${(CFG.pid || 'anon').replace(/[^a-z0-9_-]/gi,'-')}-${Date.now()}.json`);
+        });
+
+        byId('btnCloseSummary').addEventListener('click', goCooldownOrHub);
         byId('btnSummaryRestart').addEventListener('click', restartGame);
-        byId('btnBackHub').addEventListener('click', goCooldown);
+        byId('btnBackHub').addEventListener('click', goCooldownOrHub);
+        byId('btnExportSummary').addEventListener('click', () => {
+          const s = lastSummary || buildSummary();
+          persistSummary(s);
+          downloadJson(s, `brush-summary-${(CFG.pid || 'anon').replace(/[^a-z0-9_-]/gi,'-')}-${Date.now()}.json`);
+        });
 
         byId('btnDockRestart').addEventListener('click', restartGame);
         byId('btnDockSummary').addEventListener('click', ()=> finishGame(true));
-        byId('btnDockHub').addEventListener('click', goCooldown);
+        byId('btnDockHub').addEventListener('click', goCooldownOrHub);
 
         byId('btnModeLearn').addEventListener('click', ()=> setMode('learn'));
         byId('btnModePractice').addEventListener('click', ()=> setMode('practice'));
@@ -1234,6 +1572,7 @@
         buildZones();
         bind();
         refreshUI();
+        hideBoot();
         setInterval(tick, 100);
       }
 
