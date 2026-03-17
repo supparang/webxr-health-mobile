@@ -1,18 +1,16 @@
 // === /herohealth/gate/gate-core.js ===
-// FULL PATCH v20260317g-GATE-COMPAT-RUNCANDIDATES-SAFE-PHASE-ALIAS
-// ✅ export default bootGate
-// ✅ single warmup-gate.html page with ?phase=warmup|cooldown or ?gatePhase=...
-// ✅ safe import from gate-games.js even if getRunCandidates is missing
+// FULL PATCH v20260318-GATE-NEXT-SUPPORT-BRUSH-GROUPS-PLATE
+// ✅ single warmup-gate.html page with ?phase=warmup|cooldown
+// ✅ supports next=... from launcher pages (Brush / GoodJunk launcher flows)
+// ✅ safe gate-games import even if some helpers are missing
 // ✅ supports api.finish / api.complete / api.done / api.summary / api.next
 // ✅ supports api.setStats / api.setSub / api.setTitle
-// ✅ compatibility logger api.logger.push(...)
-// ✅ supports existing gate mini-games like goodjunk warmup/cooldown
-// ✅ warmup once/day -> auto continue to run page
-// ✅ cooldown once/day -> summary + back hub
+// ✅ fallback to runCandidates when next is missing
+// ✅ warmup once/day, cooldown once/day
 
-import * as GateGames from './gate-games.js?v=20260317b-GATE-GAMES-ALIAS-ROBUST-RUN-CANDIDATES';
+import * as GateGames from './gate-games.js?v=20260318-GATE-GAMES-PATHFIX';
 
-const PATCH = 'v20260317g-GATE-COMPAT-RUNCANDIDATES-SAFE-PHASE-ALIAS';
+const PATCH = 'v20260318-GATE-NEXT-SUPPORT-BRUSH-GROUPS-PLATE';
 const STORAGE_NS = 'HHA_GATE_DONE_V1';
 const LAST_SUMMARY_KEY = 'HHA_LAST_SUMMARY';
 const SUMMARY_HISTORY_KEY = 'HHA_SUMMARY_HISTORY';
@@ -154,7 +152,8 @@ function readCtx() {
     zone: params.get('zone') || params.get('cat') || meta?.cat || '',
     scene: params.get('scene') || '',
     wgskip: params.get('wgskip') || '',
-    autostart: params.get('autostart') || ''
+    autostart: params.get('autostart') || '',
+    next: params.get('next') || ''
   };
 }
 
@@ -445,28 +444,18 @@ function renderShell(root, ctx) {
 function applyStats(refs, stats = {}) {
   if (!refs) return;
 
-  if ('time' in stats && refs.statTime) {
-    refs.statTime.textContent = String(stats.time ?? '-');
-  }
-  if ('score' in stats && refs.statScore) {
-    refs.statScore.textContent = String(stats.score ?? 0);
-  }
-  if ('miss' in stats && refs.statMiss) {
-    refs.statMiss.textContent = String(stats.miss ?? 0);
-  }
-  if ('acc' in stats && refs.statAcc) {
-    refs.statAcc.textContent = String(stats.acc ?? '0%');
-  }
+  if ('time' in stats && refs.statTime) refs.statTime.textContent = String(stats.time ?? '-');
+  if ('score' in stats && refs.statScore) refs.statScore.textContent = String(stats.score ?? 0);
+  if ('miss' in stats && refs.statMiss) refs.statMiss.textContent = String(stats.miss ?? 0);
+  if ('acc' in stats && refs.statAcc) refs.statAcc.textContent = String(stats.acc ?? '0%');
 }
 
 function setHeroTitle(refs, text = '') {
-  if (!refs?.heroTitle) return;
-  refs.heroTitle.textContent = String(text || '');
+  if (refs?.heroTitle) refs.heroTitle.textContent = String(text || '');
 }
 
 function setHeroSub(refs, text = '') {
-  if (!refs?.heroSub) return;
-  refs.heroSub.textContent = String(text || '');
+  if (refs?.heroSub) refs.heroSub.textContent = String(text || '');
 }
 
 function linesHtml(lines = []) {
@@ -526,9 +515,7 @@ function toast(message = '') {
   el.textContent = message;
   document.body.appendChild(el);
 
-  setTimeout(() => {
-    el.remove();
-  }, 2200);
+  setTimeout(() => el.remove(), 2200);
 }
 
 function buildRunParams(ctx) {
@@ -536,6 +523,7 @@ function buildRunParams(ctx) {
 
   p.delete('phase');
   p.delete('gatePhase');
+  p.delete('next');
 
   p.set('game', ctx.game);
   p.set('gameId', ctx.game);
@@ -572,7 +560,25 @@ async function quickExists(url) {
   }
 }
 
+function resolveAbsoluteUrl(maybeUrl) {
+  if (!maybeUrl) return '';
+  try {
+    return new URL(maybeUrl, location.href).href;
+  } catch {
+    return '';
+  }
+}
+
 async function resolveRunHref(ctx) {
+  // 1) launcher-provided next has top priority
+  if (ctx.next) {
+    const nextHref = resolveAbsoluteUrl(ctx.next);
+    if (nextHref) {
+      return nextHref;
+    }
+  }
+
+  // 2) fallback to registry paths
   const candidates = getRunCandidatesSafe(ctx.game);
   if (!candidates.length) return '';
 
@@ -633,9 +639,7 @@ function mountFallbackPhase(stage, ctx, api) {
   if (ctx.phase === 'cooldown') {
     api.complete({ source: 'fallback-cooldown' });
   } else {
-    setTimeout(() => {
-      api.complete({ source: 'fallback-warmup' });
-    }, 600);
+    setTimeout(() => api.complete({ source: 'fallback-warmup' }), 600);
   }
 }
 
@@ -730,7 +734,6 @@ async function bootPhase(stage, ctx, api) {
 
   try {
     const cleanupEvents = attachCompletionEvents(stage, api);
-
     const result = await runner(stage, ctx, api);
 
     if (typeof result === 'function') {
@@ -832,8 +835,6 @@ export async function bootGate(root = document.getElementById('gate-app')) {
     return;
   }
 
-  const compatLogger = createCompatLogger(ctx);
-
   const api = {
     ctx,
     root: stage,
@@ -843,7 +844,7 @@ export async function bootGate(root = document.getElementById('gate-app')) {
     _done: false,
     _destroy: null,
 
-    logger: compatLogger,
+    logger: createCompatLogger(ctx),
     toast,
 
     setStats(stats = {}) {
@@ -915,25 +916,11 @@ export async function bootGate(root = document.getElementById('gate-app')) {
       ]);
     },
 
-    async finish(payload = {}) {
-      return api.complete(payload);
-    },
-
-    async done(payload = {}) {
-      return api.complete(payload);
-    },
-
-    async summary(payload = {}) {
-      return api.complete(payload);
-    },
-
-    async next(payload = {}) {
-      return api.complete(payload);
-    },
-
-    async skip(payload = {}) {
-      return api.complete({ skipped: true, ...payload });
-    },
+    async finish(payload = {}) { return api.complete(payload); },
+    async done(payload = {}) { return api.complete(payload); },
+    async summary(payload = {}) { return api.complete(payload); },
+    async next(payload = {}) { return api.complete(payload); },
+    async skip(payload = {}) { return api.complete({ skipped: true, ...payload }); },
 
     fail(err) {
       console.error('[gate-core] fail:', err);
