@@ -1,5 +1,5 @@
 // === /herohealth/gate/gate-core.js ===
-// FULL PATCH v20260318-GATE-NEXT-SUPPORT-COOLDOWN-TO-HUB
+// FULL PATCH v20260318-GATE-AUTOSTART-START-AND-COOLDOWN-TO-HUB
 // ✅ single warmup-gate.html page with ?phase=warmup|cooldown
 // ✅ supports next=... from launcher pages
 // ✅ safe gate-games import even if some helpers are missing
@@ -8,10 +8,11 @@
 // ✅ fallback to runCandidates when next is missing
 // ✅ warmup once/day, cooldown once/day
 // ✅ cooldown complete -> HUB only
+// ✅ auto-call result.start() after mount when provided
 
 import * as GateGames from './gate-games.js?v=20260318-GATE-GAMES-PATHFIX';
 
-const PATCH = 'v20260318-GATE-NEXT-SUPPORT-COOLDOWN-TO-HUB';
+const PATCH = 'v20260318-GATE-AUTOSTART-START-AND-COOLDOWN-TO-HUB';
 const STORAGE_NS = 'HHA_GATE_DONE_V1';
 const LAST_SUMMARY_KEY = 'HHA_LAST_SUMMARY';
 const SUMMARY_HISTORY_KEY = 'HHA_SUMMARY_HISTORY';
@@ -734,6 +735,24 @@ async function bootPhase(stage, ctx, api) {
   try {
     const cleanupEvents = attachCompletionEvents(stage, api);
     const result = await runner(stage, ctx, api);
+
+    if (result && typeof result.start === 'function') {
+      try {
+        queueMicrotask(() => {
+          try {
+            result.start();
+          } catch (err) {
+            console.warn('[gate-core] phase start() failed:', err);
+          }
+        });
+      } catch {
+        try {
+          result.start();
+        } catch (err) {
+          console.warn('[gate-core] phase start() failed:', err);
+        }
+      }
+    }
 
     if (typeof result === 'function') {
       api._destroy = () => {
