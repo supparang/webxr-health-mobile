@@ -3,113 +3,301 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • GoodJunk Race Lobby</title>
+  <title>HeroHealth • GoodJunk Race Room</title>
+  <meta name="color-scheme" content="dark light" />
   <style>
     :root{
       --bg1:#020617;
       --bg2:#0b1226;
-      --panel:rgba(2,6,23,.76);
+      --panel:rgba(2,6,23,.78);
+      --panel2:rgba(15,23,42,.48);
       --stroke:rgba(148,163,184,.18);
       --text:#e5e7eb;
       --muted:#94a3b8;
-      --good:#22c55e;
       --blue:#38bdf8;
+      --good:#22c55e;
       --warn:#f59e0b;
+      --pink:#f472b6;
     }
     *{ box-sizing:border-box; }
     html,body{
-      margin:0; min-height:100%;
-      font-family:system-ui,sans-serif;
+      margin:0;
+      min-height:100%;
+      font-family:system-ui,-apple-system,sans-serif;
       color:var(--text);
       background:
-        radial-gradient(circle at top, #172554 0%, transparent 35%),
+        radial-gradient(circle at top, #172554 0%, transparent 34%),
         linear-gradient(180deg,var(--bg2),var(--bg1));
     }
     .wrap{
-      max-width:920px;
+      max-width:960px;
       margin:0 auto;
       padding:24px 16px 48px;
     }
-    .card{
+    .hero{
+      margin-bottom:18px;
+      padding:22px 20px;
+      border:1px solid var(--stroke);
+      border-radius:24px;
       background:var(--panel);
-      border:1px solid var(--stroke);
-      border-radius:20px;
-      padding:18px;
-      backdrop-filter: blur(10px);
-      margin-bottom:16px;
+      backdrop-filter:blur(10px);
     }
-    h1{ margin:0 0 10px; font-size:28px; }
-    .muted{ color:var(--muted); }
-    .row{ display:flex; gap:12px; flex-wrap:wrap; align-items:center; }
-    .pill{
-      display:inline-flex; align-items:center;
-      border:1px solid var(--stroke);
+    .kicker{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:6px 12px;
       border-radius:999px;
-      padding:8px 12px;
-      background:rgba(15,23,42,.45);
+      border:1px solid rgba(56,189,248,.25);
+      background:rgba(56,189,248,.12);
+      color:#7dd3fc;
+      font-weight:800;
+      font-size:13px;
+      margin-bottom:12px;
     }
-    .players{
+    h1{
+      margin:0 0 10px;
+      font-size:30px;
+      line-height:1.1;
+    }
+    .sub{
+      color:var(--muted);
+      font-size:15px;
+      line-height:1.6;
+    }
+    .grid{
       display:grid;
-      grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
-      gap:12px;
-      margin-top:12px;
+      grid-template-columns:repeat(auto-fit,minmax(280px,1fr));
+      gap:16px;
     }
-    .player{
+    .card{
+      padding:18px;
+      border:1px solid var(--stroke);
+      border-radius:22px;
+      background:var(--panel);
+      backdrop-filter:blur(10px);
+    }
+    .card h2{
+      margin:0 0 8px;
+      font-size:22px;
+    }
+    .muted{
+      color:var(--muted);
+      font-size:14px;
+      line-height:1.6;
+    }
+    .stack{
+      display:grid;
+      gap:12px;
+      margin-top:14px;
+    }
+    .input{
+      width:100%;
+      appearance:none;
       border:1px solid var(--stroke);
       border-radius:16px;
-      padding:12px;
-      background:rgba(15,23,42,.45);
+      padding:14px 14px;
+      background:var(--panel2);
+      color:var(--text);
+      font-size:16px;
+      font-weight:700;
+      outline:none;
     }
-    .ready{ color:var(--good); font-weight:700; }
-    .waiting{ color:var(--warn); font-weight:700; }
+    .input:focus{
+      border-color:rgba(56,189,248,.45);
+      box-shadow:0 0 0 3px rgba(56,189,248,.12);
+    }
+    .row{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+    }
     .btn{
-      appearance:none; border:0; cursor:pointer;
-      border-radius:14px; padding:12px 16px;
-      font-weight:800;
+      appearance:none;
+      border:0;
+      cursor:pointer;
+      border-radius:16px;
+      padding:13px 16px;
+      font-weight:900;
+      font-size:15px;
+      transition:transform .12s ease, opacity .12s ease;
     }
-    .btn-primary{ background:var(--blue); color:#06203a; }
+    .btn:hover{ transform:translateY(-1px); }
+    .btn:active{ transform:translateY(0); }
+    .btn-blue{ background:var(--blue); color:#082f49; }
     .btn-good{ background:var(--good); color:#052e16; }
     .btn-ghost{
       background:rgba(255,255,255,.06);
       color:var(--text);
       border:1px solid var(--stroke);
     }
-    #countdown{
-      font-size:48px; font-weight:900; text-align:center; min-height:60px;
+    .room-chip{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:10px 12px;
+      border-radius:999px;
+      background:rgba(244,114,182,.12);
+      border:1px solid rgba(244,114,182,.25);
+      color:#f9a8d4;
+      font-weight:900;
+      letter-spacing:.04em;
+    }
+    .tips{
+      margin-top:16px;
+      padding:14px 16px;
+      border:1px dashed rgba(148,163,184,.22);
+      border-radius:16px;
+      color:var(--muted);
+      font-size:13px;
+      line-height:1.7;
+    }
+    .error{
+      min-height:22px;
+      color:#fbbf24;
+      font-size:13px;
+      font-weight:700;
     }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <div class="card">
-      <h1>GoodJunk Race Lobby</h1>
-      <div class="muted">รอผู้เล่นให้ครบก่อน แล้วค่อยเริ่มพร้อมกัน</div>
-    </div>
-
-    <div class="card">
-      <div class="row">
-        <div class="pill">Room: <strong id="roomCode" style="margin-left:8px;">-</strong></div>
-        <div class="pill">Players: <strong id="playerCount" style="margin-left:8px;">0/2</strong></div>
-        <div class="pill">Status: <strong id="roomStatus" style="margin-left:8px;">waiting</strong></div>
+    <section class="hero">
+      <div class="kicker">RACE MODE</div>
+      <h1>GoodJunk • สร้างห้อง หรือ เข้าร่วมห้อง</h1>
+      <div class="sub">
+        เลือกได้ 2 แบบ: สร้างห้องใหม่เพื่อส่งโค้ดให้เพื่อน หรือใส่โค้ดห้องเพื่อเข้าร่วมการแข่งขัน
       </div>
-      <div id="countdown"></div>
-    </div>
+    </section>
 
-    <div class="card">
-      <div><strong>ผู้เล่นในห้อง</strong></div>
-      <div class="players" id="playersBox"></div>
-    </div>
+    <section class="grid">
+      <div class="card">
+        <h2>สร้างห้องใหม่</h2>
+        <div class="muted">ระบบจะสร้าง room code ใหม่ แล้วพาเข้า lobby ทันที</div>
 
-    <div class="card">
-      <div class="row">
-        <button class="btn btn-good" id="btnReady">พร้อมแล้ว</button>
-        <button class="btn btn-primary" id="btnStart">เริ่มแข่ง</button>
-        <button class="btn btn-ghost" id="btnBack">กลับ</button>
+        <div class="stack">
+          <div class="room-chip">CODE: <span id="previewCode">GJ----</span></div>
+          <button class="btn btn-blue" id="btnCreateRoom">สร้างห้องและไปที่ Lobby</button>
+        </div>
+
+        <div class="tips">
+          หลังเข้า lobby แล้ว ค่อยส่ง room code นี้ให้ผู้เล่นคนอื่นเข้าตามมา
+        </div>
       </div>
-      <p class="muted" id="hint">ต้องมีอย่างน้อย 2 คน และทุกคนต้อง ready</p>
-    </div>
+
+      <div class="card">
+        <h2>เข้าร่วมห้อง</h2>
+        <div class="muted">ใส่ room code ที่ได้รับ แล้วเข้าไปที่ lobby ของห้องนั้น</div>
+
+        <div class="stack">
+          <input id="joinRoomInput" class="input" type="text" placeholder="เช่น GJ7A2B" maxlength="10" autocomplete="off" />
+          <div class="row">
+            <button class="btn btn-good" id="btnJoinRoom">เข้าร่วมห้อง</button>
+            <button class="btn btn-ghost" id="btnBackHub">กลับ HUB</button>
+          </div>
+          <div class="error" id="roomError"></div>
+        </div>
+
+        <div class="tips">
+          room code จะถูกปรับเป็นตัวพิมพ์ใหญ่ให้อัตโนมัติ และตัดอักขระที่ไม่จำเป็นออก
+        </div>
+      </div>
+    </section>
   </div>
 
-  <script type="module" src="./goodjunk-race-lobby.js"></script>
+  <script>
+    const params = new URLSearchParams(location.search);
+
+    const ctx = {
+      pid: params.get('pid') || 'anon',
+      name: params.get('name') || '',
+      studyId: params.get('studyId') || '',
+      diff: params.get('diff') || 'normal',
+      time: params.get('time') || '120',
+      seed: params.get('seed') || String(Date.now()),
+      hub: params.get('hub') || '../hub.html',
+      view: params.get('view') || 'mobile',
+      run: params.get('run') || 'play',
+      gameId: params.get('gameId') || 'goodjunk',
+      mode: 'race'
+    };
+
+    const els = {
+      previewCode: document.getElementById('previewCode'),
+      joinRoomInput: document.getElementById('joinRoomInput'),
+      btnCreateRoom: document.getElementById('btnCreateRoom'),
+      btnJoinRoom: document.getElementById('btnJoinRoom'),
+      btnBackHub: document.getElementById('btnBackHub'),
+      roomError: document.getElementById('roomError')
+    };
+
+    function normalizeRoomCode(raw){
+      return String(raw || '')
+        .toUpperCase()
+        .replace(/[^A-Z0-9]/g, '')
+        .slice(0, 8);
+    }
+
+    function generateRoomCode(){
+      const seed = Math.random().toString(36).toUpperCase().replace(/[^A-Z0-9]/g, '');
+      return ('GJ' + seed.slice(2, 8)).slice(0, 8);
+    }
+
+    function toQuery(obj){
+      const q = new URLSearchParams();
+      Object.entries(obj).forEach(([k,v]) => {
+        if (v !== undefined && v !== null) q.set(k, String(v));
+      });
+      return q.toString();
+    }
+
+    function goLobby(roomId){
+      const next = `./goodjunk-race-lobby.html?${toQuery({
+        ...ctx,
+        roomId,
+        seed: String(Date.now())
+      })}`;
+      location.href = next;
+    }
+
+    function setError(msg=''){
+      els.roomError.textContent = msg;
+    }
+
+    const previewCode = generateRoomCode();
+    els.previewCode.textContent = previewCode;
+
+    els.btnCreateRoom.addEventListener('click', () => {
+      goLobby(previewCode);
+    });
+
+    els.btnJoinRoom.addEventListener('click', () => {
+      const roomId = normalizeRoomCode(els.joinRoomInput.value);
+      if (!roomId || roomId.length < 4) {
+        setError('กรุณาใส่ room code ให้ถูกต้อง');
+        els.joinRoomInput.focus();
+        return;
+      }
+      setError('');
+      goLobby(roomId);
+    });
+
+    els.joinRoomInput.addEventListener('input', () => {
+      els.joinRoomInput.value = normalizeRoomCode(els.joinRoomInput.value);
+      setError('');
+    });
+
+    els.joinRoomInput.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Enter') {
+        ev.preventDefault();
+        els.btnJoinRoom.click();
+      }
+    });
+
+    els.btnBackHub.addEventListener('click', () => {
+      location.href = ctx.hub;
+    });
+  </script>
 </body>
 </html>
