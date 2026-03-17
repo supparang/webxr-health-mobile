@@ -973,7 +973,7 @@ async function setupRunOnDisconnect() {
   try {
     await __gjRaceMyPlayerRef.onDisconnect().update({
       connected: false,
-      lastSeenAt: Date.now(),
+      phase: 'run',
       dnfReason: 'disconnect'
     });
   } catch (err) {
