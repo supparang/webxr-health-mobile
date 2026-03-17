@@ -37,7 +37,7 @@ const GJ_RACE_SUMMARY_HISTORY_KEY = `GJ_RACE_SUMMARY_HISTORY_${GJ_PID}`;
 const GJ_RACE_HEARTBEAT_MS = 2500;
 const GJ_RACE_STALE_MS = 12000;
 const GJ_RACE_WATCHDOG_MS = 3000;
-const GJ_FIREBASE_ROOM_PATH = GJ_ROOM_ID ? `raceRooms/goodjunk/${GJ_ROOM_ID}` : '';
+const GJ_FIREBASE_ROOM_PATH = GJ_ROOM_ID ? `hha-battle/goodjunk/rooms/${GJ_ROOM_ID}` : '';
 
 let __gjRaceBooted = false;
 let __gjRaceRAF = 0;
@@ -690,10 +690,7 @@ function buildSoloSummaryPayload(summary) {
 }
 
 function persistSoloSummary(summary) {
-  try {
-    localStorage.setItem(GJ_SOLO_LAST_SUMMARY_KEY, JSON.stringify(summary));
-  } catch {}
-
+  try { localStorage.setItem(GJ_SOLO_LAST_SUMMARY_KEY, JSON.stringify(summary)); } catch {}
   try {
     const raw = localStorage.getItem(GJ_SOLO_SUMMARY_HISTORY_KEY);
     const list = raw ? JSON.parse(raw) : [];
@@ -701,7 +698,6 @@ function persistSoloSummary(summary) {
     next.unshift(summary);
     localStorage.setItem(GJ_SOLO_SUMMARY_HISTORY_KEY, JSON.stringify(next.slice(0, 30)));
   } catch {}
-
   try {
     localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify({
       source: summary.source,
@@ -1135,16 +1131,12 @@ function storeRaceSummaryFromRows(rows, opts = {}) {
     __gjRaceLastSummarySig = sig;
     persistRaceSummary(summary);
   }
-
   return summary;
 }
 
 function downloadRaceSummaryJson(summary = __gjRaceLastSummary) {
   if (!summary) return;
-  downloadJson(
-    summary,
-    `goodjunk-race-${safeFilePart(summary.roomId || 'room')}-${safeFilePart(summary.pid || 'player')}-${safeFilePart(summary.raceStatusFinal || 'pending')}.json`
-  );
+  downloadJson(summary, `goodjunk-race-${safeFilePart(summary.roomId || 'room')}-${safeFilePart(summary.pid || 'player')}-${safeFilePart(summary.raceStatusFinal || 'pending')}.json`);
 }
 
 function downloadJson(payload, filename = `goodjunk-${Date.now()}.json`) {
@@ -1468,9 +1460,7 @@ async function maybeFinalizeRaceRoom(force = false) {
     const ranked = rankRacePlayers(players);
     const me = getMyRaceRanked(ranked);
 
-    if (me) {
-      showRaceResultOverlay(ranked, { pending: false });
-    }
+    if (me) showRaceResultOverlay(ranked, { pending: false });
 
     stopRaceHeartbeat();
     stopRaceWatchdog();
