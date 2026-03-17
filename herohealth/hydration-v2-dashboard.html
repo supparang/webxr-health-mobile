@@ -43,7 +43,7 @@
         calc(16px + var(--sal));
     }
     .wrap{
-      max-width:1320px;
+      max-width:1340px;
       margin:0 auto;
       display:grid;
       gap:18px;
@@ -102,7 +102,7 @@
       border-radius:16px;
       font-size:15px;
       font-weight:900;
-      transition:transform .16s ease, opacity .16s ease;
+      transition:transform .16s ease, opacity .16s ease, background .16s ease, border-color .16s ease;
     }
     .btn:hover,
     .btn:focus-visible{ transform:translateY(-1px); }
@@ -122,6 +122,12 @@
     .btn.good{
       background:linear-gradient(180deg, #58dd8d, #22c55e);
       color:#082314;
+    }
+    .btn.small{
+      min-height:38px;
+      padding:8px 12px;
+      font-size:13px;
+      border-radius:12px;
     }
 
     .stats{
@@ -198,7 +204,8 @@
       margin-top:16px;
     }
 
-    .main-grid{
+    .main-grid,
+    .detail-grid{
       display:grid;
       grid-template-columns:1fr 1fr;
       gap:18px;
@@ -245,14 +252,32 @@
     .player-card,
     .aggregate-card,
     .teacher-card,
-    .chart-card{
+    .chart-card,
+    .detail-card{
       padding:16px;
       border-radius:20px;
       background:rgba(255,255,255,.05);
       border:1px solid rgba(255,255,255,.08);
     }
+
+    .selectable{
+      cursor:pointer;
+      transition:transform .16s ease, border-color .16s ease, background .16s ease;
+    }
+    .selectable:hover,
+    .selectable:focus-visible{
+      transform:translateY(-1px);
+      border-color:rgba(56,189,248,.30);
+      background:rgba(56,189,248,.08);
+    }
+    .selected{
+      border-color:rgba(34,197,94,.34) !important;
+      background:rgba(34,197,94,.10) !important;
+    }
+
     .player-top,
-    .aggregate-top{
+    .aggregate-top,
+    .detail-top{
       display:flex;
       justify-content:space-between;
       gap:10px;
@@ -262,12 +287,14 @@
     .player-name,
     .aggregate-name,
     .teacher-title,
-    .chart-title{
+    .chart-title,
+    .detail-title{
       font-size:17px;
       font-weight:900;
     }
     .player-badge,
-    .aggregate-badge{
+    .aggregate-badge,
+    .detail-badge{
       min-height:34px;
       padding:8px 10px;
       border-radius:999px;
@@ -279,10 +306,18 @@
     }
     .player-meta,
     .aggregate-meta,
-    .teacher-meta{
+    .teacher-meta,
+    .detail-meta{
       color:#def3ff;
       font-size:14px;
       line-height:1.7;
+    }
+
+    .card-actions{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-top:12px;
     }
 
     .history-list{
@@ -319,16 +354,19 @@
       line-height:1.7;
     }
 
-    .bar-list{
+    .bar-list,
+    .timeline-list{
       display:grid;
       gap:10px;
       margin-top:12px;
     }
-    .bar-row{
+    .bar-row,
+    .timeline-row{
       display:grid;
       gap:6px;
     }
-    .bar-top{
+    .bar-top,
+    .timeline-top{
       display:flex;
       justify-content:space-between;
       gap:10px;
@@ -337,13 +375,15 @@
       color:#dff4ff;
       font-weight:800;
     }
-    .bar-track{
+    .bar-track,
+    .timeline-track{
       height:12px;
       border-radius:999px;
       background:rgba(255,255,255,.08);
       overflow:hidden;
     }
-    .bar-fill{
+    .bar-fill,
+    .timeline-fill{
       height:100%;
       border-radius:999px;
       background:linear-gradient(90deg, #22d3ee, #38bdf8);
@@ -370,7 +410,8 @@
       .teacher-grid{ grid-template-columns:repeat(2,minmax(0,1fr)); }
       .player-grid,
       .aggregate-grid,
-      .chart-grid{ grid-template-columns:1fr; }
+      .chart-grid,
+      .detail-grid{ grid-template-columns:1fr; }
       .main-grid{ grid-template-columns:1fr; }
     }
     @media (max-width: 720px){
@@ -387,10 +428,10 @@
     <section class="card hero">
       <div>
         <div class="eyebrow">📊 Hydration V2 • Teacher / Research Dashboard</div>
-        <h1>Aggregate + Analytics + Export</h1>
+        <h1>PID Detail + Study Timeline + Next Session</h1>
         <p class="lead">
           หน้านี้สรุปผล Hydration V2 จาก localStorage เป็นมุมมองสำหรับครูและงานวิจัย
-          ทั้งระดับรอบเล่น, ระดับผู้เล่น, ระดับ study และมี mini analytics แบบง่าย
+          ทั้งระดับรอบเล่น, รายคน, ราย study และสามารถกดไปต่อ session ถัดไปได้จาก dashboard
         </p>
       </div>
 
@@ -552,7 +593,7 @@
 
     <section class="card section">
       <h2>Recent Player Cards</h2>
-      <p>สรุปรอบล่าสุดของแต่ละ PID จากรายการที่ผ่านตัวกรองแล้ว</p>
+      <p>คลิกการ์ดเพื่อเปิด PID detail หรือกดปุ่มไปต่อ session ถัดไปได้ทันที</p>
       <div class="player-grid" id="playerGrid"></div>
       <div class="empty" id="playerEmpty" style="display:none;">
         ยังไม่มี player cards สำหรับตัวกรองนี้
@@ -561,7 +602,7 @@
 
     <section class="card section">
       <h2>Aggregate by PID / Study ID</h2>
-      <p>ช่วยดูภาพรวมระดับผู้เล่นและระดับโครงการวิจัย</p>
+      <p>คลิก aggregate card เพื่อเปิด detail view ด้านล่าง</p>
       <div class="aggregate-grid">
         <div>
           <div class="aggregate-grid" id="pidAggregateGrid"></div>
@@ -579,6 +620,26 @@
       </div>
     </section>
 
+    <section class="detail-grid">
+      <article class="card section">
+        <h2>PID Detail View</h2>
+        <p>ดู session history ของผู้เล่นที่เลือก พร้อมปุ่มไป session ถัดไป</p>
+        <div id="pidDetailRoot"></div>
+        <div class="empty" id="pidDetailEmpty" style="display:none;">
+          ยังไม่มี PID ที่เลือก
+        </div>
+      </article>
+
+      <article class="card section">
+        <h2>Study Timeline View</h2>
+        <p>ดูภาพรวม session ต่อ session ของ study ที่เลือก</p>
+        <div id="studyTimelineRoot"></div>
+        <div class="empty" id="studyTimelineEmpty" style="display:none;">
+          ยังไม่มี Study ID ที่เลือก
+        </div>
+      </article>
+    </section>
+
     <section class="card section">
       <h2>Filtered Research History</h2>
       <p>ประวัติย้อนหลังแบบย่อจากรายการที่ผ่านตัวกรอง</p>
@@ -589,6 +650,6 @@
     </section>
   </div>
 
-  <script type="module" src="./vr-hydration-v2/js/hydration.dashboard.js?v=20260317f"></script>
+  <script type="module" src="./vr-hydration-v2/js/hydration.dashboard.js?v=20260317g"></script>
 </body>
 </html>
