@@ -1,14 +1,27 @@
 // === /herohealth/vr-hydration-v2/js/hydration.safe.js ===
 // Hydration V2 Main Orchestrator
-// PATCH v20260317b-HYDRATION-V2-PATCH-B
+// PATCH v20260317c-HYDRATION-V2-PATCH-C
 //
 // Flow:
 // Intro -> Main Run -> Summary -> Scenarios -> Evaluate -> Create -> Final Summary
+//
+// Patch C adds:
+// - social / team mission computation
+// - session/week research progress
+// - research payload save
 
 import { openEvaluate } from './hydration.evaluate.js';
 import { openScenarios } from './hydration.scenarios.js';
 import { maybeCreateReward, showRewardPopup } from './hydration.rewards.js';
 import { openCreate } from './hydration.create.js';
+import { computeSocialProgress, buildSocialSummary } from './hydration.social.js';
+import {
+  initResearchContext,
+  describeResearchBadge,
+  buildResearchPayload,
+  persistResearchPayload,
+  markResearchSessionComplete
+} from './hydration.research.js';
 
 const PHASES = {
   INTRO: 'intro',
@@ -67,6 +80,7 @@ const refs = {
 };
 
 const ctx = buildCtx();
+const researchCtx = initResearchContext(ctx);
 const rng = mulberry32(ctx.seed);
 
 const state = {
@@ -78,6 +92,11 @@ const state = {
   pid: ctx.pid,
   studyId: ctx.studyId,
   hub: ctx.hub,
+
+  sessionNo: researchCtx.sessionNo,
+  weekNo: researchCtx.weekNo,
+  nextSessionNo: researchCtx.sessionNo,
+  nextWeekNo: researchCtx.weekNo,
 
   durationMs: ctx.mode === 'program' ? 75000 : 45000,
   remainingMs: ctx.mode === 'program' ? 75000 : 45000,
@@ -102,6 +121,10 @@ const state = {
 
   classTankContribution: 0,
   teamMissionDone: false,
+  socialMissionLabel: 'Solo Mode',
+  socialMissionNote: 'โหมดนี้ยังไม่คิดภารกิจทีม',
+  teamStars: 0,
+  socialSummary: '',
 
   combo: 0,
   bestCombo: 0,
@@ -114,6 +137,7 @@ const state = {
   scenarioSummary: '',
   createFeedbackTitle: '',
   createFeedbackText: '',
+  researchSavedAt: '',
 
   items: [],
   nextItemId: 1,
@@ -129,14 +153,15 @@ let toastTimer = 0;
 boot();
 
 function boot() {
-  window.__HYDRATION_V2__ = { ctx, state };
+  window.__HYDRATION_V2__ = { ctx, state, researchCtx };
 
   setupIntro();
   bindUI();
+  recomputeSocial();
   renderHUD();
   renderTeamBox();
   renderStatusRibbon();
-  logEvent('boot', { ctx });
+  logEvent('boot', { ctx, researchCtx });
 }
 
 function buildCtx() {
@@ -157,8 +182,7 @@ function buildCtx() {
 function setupIntro() {
   refs.modeBadge.textContent = ctx.mode === 'program' ? 'PROGRAM MODE' : 'QUICK MODE';
   refs.teamMini.textContent = ctx.type === 'team' ? 'TEAM' : 'SOLO';
-  refs.sessionBadge.textContent =
-    ctx.run === 'research' ? 'Research Scaffold' : 'Play Scaffold';
+  refs.sessionBadge.textContent = describeResearchBadge(researchCtx, ctx);
 
   refs.introTitle.textContent =
     ctx.mode === 'program'
@@ -167,31 +191,32 @@ function setupIntro() {
 
   refs.introText.textContent =
     ctx.mode === 'program'
-      ? 'รอบนี้เป็น program scaffold ที่มี Summary → Scenarios → Evaluate → Create เพื่อให้ตรง abstract มากขึ้น'
-      : 'รอบนี้เป็น quick scaffold ที่มี Summary → Scenarios → Evaluate → Create เพื่อให้เกมไม่จบแค่ action';
+      ? 'รอบนี้เป็น program scaffold ที่มี Summary → Scenarios → Evaluate → Create และมี session/week สำหรับงานวิจัย'
+      : 'รอบนี้เป็น quick scaffold ที่มี Summary → Scenarios → Evaluate → Create และเก็บ progress แบบ starter';
 
   refs.introModeChip.textContent =
     `${ctx.mode === 'program' ? 'Program' : 'Quick'} / ${ctx.type === 'team' ? 'Team' : 'Solo'}`;
 
   refs.introRunChip.textContent =
-    ctx.run === 'research' ? 'Research flow' : 'Play flow';
+    `${ctx.run === 'research' ? 'Research flow' : 'Play flow'} • W${researchCtx.weekNo} S${researchCtx.sessionNo}`;
 
   refs.introSeedChip.textContent = `seed=${ctx.seed}`;
 
   refs.stageSub.textContent =
     ctx.mode === 'program'
-      ? 'Program starter: รัน action ก่อน แล้วต่อ learning flow หลังเล่น'
+      ? 'Program starter: รัน action ก่อน แล้วต่อ learning flow + research progress'
       : 'Quick starter: เล่น action สั้น ๆ แล้วต่อ learning flow หลังเล่น';
 
   refs.coachLine.textContent =
     ctx.type === 'team'
-      ? 'ช่วยกันเก็บน้ำให้ดี เพื่อเพิ่ม team contribution หลังจบรอบ'
+      ? 'ช่วยกันเก็บน้ำ ตอบสถานการณ์ และวางแผน เพื่อดันภารกิจทีม'
       : 'เก็บน้ำให้ทัน และอย่าแตะเครื่องดื่มหวาน';
 
   refs.missionList.innerHTML = `
     <li>เก็บ 💧 หรือ 🚰 ให้ได้มากที่สุด</li>
     <li>ปล่อย 🥤 และ 🧃 ให้ผ่านไป</li>
     <li>จบรอบแล้วทำ Scenarios + Evaluate + Create</li>
+    <li>${ctx.type === 'team' ? 'ช่วยทีมผ่าน Team Hydration Goal' : 'รอบนี้เล่นแบบเดี่ยว'}</li>
   `;
 
   showOverlay(refs.introOverlay);
@@ -253,11 +278,16 @@ function startRound() {
 
   state.classTankContribution = 0;
   state.teamMissionDone = false;
+  state.socialMissionLabel = 'Solo Mode';
+  state.socialMissionNote = 'โหมดนี้ยังไม่คิดภารกิจทีม';
+  state.teamStars = 0;
+  state.socialSummary = '';
 
   state.rewardCount = 0;
   state.rewardHistory = [];
   state.shieldCount = 0;
   state.pointBoostUntil = 0;
+  state.researchSavedAt = '';
 
   state.items.forEach(removeItemNode);
   state.items = [];
@@ -273,6 +303,7 @@ function startRound() {
   hideOverlay(refs.evaluateOverlay);
   hideOverlay(refs.createOverlay);
 
+  recomputeSocial();
   renderHUD();
   renderTeamBox();
   renderStatusRibbon();
@@ -430,6 +461,7 @@ function handleLaneTap(lane, button) {
     }
   }
 
+  recomputeSocial();
   renderHUD();
   renderTeamBox();
   renderStatusRibbon();
@@ -470,6 +502,7 @@ function applyReward(reward) {
   }
 
   refs.coachLine.textContent = reward.title;
+  recomputeSocial();
   renderStatusRibbon();
   renderHUD();
 }
@@ -481,16 +514,7 @@ function finishRound() {
   state.items.forEach(removeItemNode);
   state.items = [];
 
-  if (ctx.type === 'team') {
-    state.classTankContribution = Math.min(100, Math.round(state.goodCatch * 4));
-    state.socialScore = Math.min(20, Math.floor(state.classTankContribution / 5));
-    state.teamMissionDone = state.classTankContribution >= 40;
-  } else {
-    state.classTankContribution = 0;
-    state.socialScore = 0;
-    state.teamMissionDone = false;
-  }
-
+  recomputeSocial();
   state.totalScore = computeTotalScore();
 
   renderHUD();
@@ -508,6 +532,26 @@ function computeTotalScore() {
     state.planningScore +
     state.socialScore
   );
+}
+
+function recomputeSocial() {
+  const social = computeSocialProgress({
+    type: ctx.type,
+    goodCatch: state.goodCatch,
+    correctChoices: state.correctChoices,
+    createdPlanScore: state.createdPlanScore,
+    rewardCount: state.rewardCount
+  });
+
+  state.classTankContribution = social.contributionPercent;
+  state.socialScore = social.socialScore;
+  state.teamMissionDone = social.missionDone;
+  state.socialMissionLabel = social.missionLabel;
+  state.socialMissionNote = social.missionNote;
+  state.teamStars = social.teamStars;
+  state.socialSummary = buildSocialSummary(social);
+
+  return social;
 }
 
 function showMainSummaryOverlay() {
@@ -547,9 +591,9 @@ function showMainSummaryOverlay() {
       </div>
 
       <div class="result-box">
-        ${ctx.type === 'team'
-          ? `Contribution ทีมเบื้องต้นของรอบนี้ = <strong>${state.classTankContribution}%</strong>`
-          : `โหมดเดี่ยวรอบนี้จะต่อด้วย learning flow หลังเล่น`}
+        <strong>${escapeHtml(state.socialMissionLabel)}</strong><br/>
+        ${escapeHtml(state.socialMissionNote)}<br/><br/>
+        ${escapeHtml(state.socialSummary)}
       </div>
 
       <div class="overlay-actions">
@@ -587,6 +631,7 @@ async function runPostGameLearningFlow() {
   state.wrongChoices = scenarioResult.wrongCount || 0;
   state.knowledgeScore += scenarioResult.knowledgeDelta || 0;
   state.scenarioSummary = scenarioResult.summary || '';
+  recomputeSocial();
   state.totalScore = computeTotalScore();
 
   logEvent('scenarios_done', scenarioResult);
@@ -601,6 +646,7 @@ async function runPostGameLearningFlow() {
   state.evaluateCorrect = evalResult.correct;
   state.knowledgeScore += evalResult.knowledgeDelta || 0;
   state.planningScore += evalResult.planningDelta || 0;
+  recomputeSocial();
   state.totalScore = computeTotalScore();
 
   logEvent('evaluate_done', {
@@ -618,6 +664,7 @@ async function runPostGameLearningFlow() {
   state.planningScore += createResult.planScore || 0;
   state.createFeedbackTitle = createResult.feedbackTitle || '';
   state.createFeedbackText = createResult.feedbackText || '';
+  recomputeSocial();
   state.totalScore = computeTotalScore();
 
   logEvent('create_done', createResult);
@@ -628,19 +675,34 @@ async function runPostGameLearningFlow() {
       ? 'เยี่ยมเลย เลือกแผนได้ดีและต่อยอดถึงการสร้างแผนของตัวเองแล้ว'
       : 'ทำได้ดีมาก รอบนี้ได้ลองคิดทั้งสถานการณ์จริงและแผนดื่มน้ำแล้ว';
 
+  const researchPayload = buildResearchPayload({
+    ctx,
+    state,
+    researchCtx,
+    socialSummary: state.socialSummary
+  });
+
+  persistResearchPayload(researchPayload, researchCtx);
+  state.researchSavedAt = researchPayload.savedAt;
+
+  const nextProgress = markResearchSessionComplete(researchCtx);
+  state.nextSessionNo = nextProgress.nextSessionNo;
+  state.nextWeekNo = nextProgress.nextWeekNo;
+
   saveSummary('post_learning');
-  showFinalOverlay(evalResult, createResult);
+  showFinalOverlay(evalResult, createResult, researchPayload);
   renderHUD();
+  renderTeamBox();
   renderStatusRibbon();
 }
 
-function showFinalOverlay(evalResult, createResult) {
+function showFinalOverlay(evalResult, createResult, researchPayload) {
   refs.summaryOverlay.innerHTML = `
     <div class="overlay-card">
-      <div class="overlay-kicker">Summary • Action + Learning</div>
-      <h2>สรุปหลังจบ Patch B flow</h2>
+      <div class="overlay-kicker">Summary • Action + Learning + Research</div>
+      <h2>สรุปหลังจบ Patch C flow</h2>
       <p>
-        ตอนนี้คะแนนรวมจะรวมทั้งรอบหลัก, Scenarios, Evaluate และ Create แล้ว
+        ตอนนี้คะแนนรวมจะรวมทั้งรอบหลัก, Scenarios, Evaluate, Create และ social/research progress แล้ว
       </p>
 
       <div class="summary-grid">
@@ -663,18 +725,21 @@ function showFinalOverlay(evalResult, createResult) {
         </div>
 
         <div class="summary-card">
-          <div class="summary-label">คะแนนรวม</div>
-          <div class="summary-main">${state.totalScore}</div>
-          <div class="summary-sub">starter scaffold: action + learning + social starter</div>
+          <div class="summary-label">Social Score</div>
+          <div class="summary-main">${state.socialScore}</div>
+          <div class="summary-sub">${escapeHtml(state.socialMissionLabel)} • ${state.teamStars} ดาว</div>
         </div>
       </div>
 
       <div class="result-box">
+        <strong>คะแนนรวม:</strong> ${state.totalScore}<br/>
         <strong>Scenarios:</strong> ${escapeHtml(state.scenarioSummary || 'ยังไม่มีผล')}<br/>
         <strong>Evaluate:</strong> ${escapeHtml(evalResult.feedbackTitle || '-')}<br/>
         ${escapeHtml(evalResult.feedbackText || '')}<br/><br/>
         <strong>Create:</strong> ${escapeHtml(createResult.feedbackTitle || '-')}<br/>
-        ${escapeHtml(createResult.feedbackText || '')}
+        ${escapeHtml(createResult.feedbackText || '')}<br/><br/>
+        <strong>Social:</strong> ${escapeHtml(state.socialSummary)}<br/>
+        <strong>Research:</strong> บันทึก W${researchCtx.weekNo} S${researchCtx.sessionNo} แล้ว • ครั้งถัดไป W${state.nextWeekNo} S${state.nextSessionNo}
       </div>
 
       <div class="overlay-actions">
@@ -714,13 +779,10 @@ function renderTeamBox() {
   refs.teamFill.style.width = `${percent}%`;
 
   if (ctx.type === 'team') {
-    refs.teamNote.textContent =
-      state.teamMissionDone
-        ? 'ภารกิจทีมขั้นต่ำผ่านแล้วใน starter นี้'
-        : 'เก็บน้ำเพิ่มเพื่อดัน contribution ให้สูงขึ้น';
+    refs.teamNote.textContent = state.socialMissionNote;
   } else {
     refs.teamNote.textContent =
-      'ตอนนี้เล่นแบบเดี่ยวอยู่ ระบบ social เต็มรูปแบบจะต่อใน patch ถัดไป';
+      'ตอนนี้เล่นแบบเดี่ยวอยู่ ระบบ social เต็มรูปแบบจะเด่นมากขึ้นเมื่อเล่นแบบทีม';
   }
 }
 
@@ -806,6 +868,9 @@ function saveSummary(reason) {
     seed: ctx.seed,
     savedAt: new Date().toISOString(),
 
+    sessionNo: state.sessionNo,
+    weekNo: state.weekNo,
+
     actionScore: state.actionScore,
     knowledgeScore: state.knowledgeScore,
     planningScore: state.planningScore,
@@ -832,7 +897,15 @@ function saveSummary(reason) {
     createdPlanScore: state.createdPlanScore,
 
     classTankContribution: state.classTankContribution,
-    teamMissionDone: state.teamMissionDone
+    teamMissionDone: state.teamMissionDone,
+    socialMissionLabel: state.socialMissionLabel,
+    socialMissionNote: state.socialMissionNote,
+    teamStars: state.teamStars,
+    socialSummary: state.socialSummary,
+
+    researchSavedAt: state.researchSavedAt,
+    nextSessionNo: state.nextSessionNo,
+    nextWeekNo: state.nextWeekNo
   };
 
   try {
@@ -853,6 +926,8 @@ function snapshotRoundState() {
     mode: state.mode,
     type: state.type,
     run: state.run,
+    sessionNo: state.sessionNo,
+    weekNo: state.weekNo,
     actionScore: state.actionScore,
     knowledgeScore: state.knowledgeScore,
     planningScore: state.planningScore,
@@ -870,7 +945,9 @@ function snapshotRoundState() {
     evaluateCorrect: state.evaluateCorrect,
     createdPlanScore: state.createdPlanScore,
     classTankContribution: state.classTankContribution,
-    teamMissionDone: state.teamMissionDone
+    teamMissionDone: state.teamMissionDone,
+    socialMissionLabel: state.socialMissionLabel,
+    teamStars: state.teamStars
   };
 }
 
@@ -881,7 +958,7 @@ function logEvent(name, payload = {}) {
     payload
   };
   state.lastEventLog.push(event);
-  if (state.lastEventLog.length > 50) state.lastEventLog.shift();
+  if (state.lastEventLog.length > 60) state.lastEventLog.shift();
   console.debug('[HydrationV2]', name, payload);
 }
 
