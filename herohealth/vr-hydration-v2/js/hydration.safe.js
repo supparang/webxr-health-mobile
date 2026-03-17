@@ -1,28 +1,22 @@
 // === /herohealth/vr-hydration-v2/js/hydration.safe.js ===
 // Hydration V2 Main Orchestrator
-// PATCH v20260317a-HYDRATION-V2-STARTER-SCAFFOLD
+// PATCH v20260317b-HYDRATION-V2-PATCH-B
 //
-// Starter scope in this patch:
-// - launcher passthrough
-// - run page with 3-lane hydration catch round
-// - summary overlay
-// - evaluate overlay
-// - local summary save
-//
-// Next patches planned:
-// - hydration.create.js
-// - hydration.scenarios.js
-// - hydration.rewards.js
-// - hydration.social.js
-// - hydration.research.js
+// Flow:
+// Intro -> Main Run -> Summary -> Scenarios -> Evaluate -> Create -> Final Summary
 
 import { openEvaluate } from './hydration.evaluate.js';
+import { openScenarios } from './hydration.scenarios.js';
+import { maybeCreateReward, showRewardPopup } from './hydration.rewards.js';
+import { openCreate } from './hydration.create.js';
 
 const PHASES = {
   INTRO: 'intro',
   RUN: 'run',
   SUMMARY: 'summary',
+  SCENARIOS: 'scenarios',
   EVALUATE: 'evaluate',
+  CREATE: 'create',
   DONE: 'done'
 };
 
@@ -52,10 +46,16 @@ const refs = {
   teamContributionValue: document.getElementById('teamContributionValue'),
   teamFill: document.getElementById('teamFill'),
   teamNote: document.getElementById('teamNote'),
+  boostStatus: document.getElementById('boostStatus'),
+  shieldStatus: document.getElementById('shieldStatus'),
+  rewardCountStatus: document.getElementById('rewardCountStatus'),
   toast: document.getElementById('toast'),
+  rewardPopup: document.getElementById('rewardPopup'),
   introOverlay: document.getElementById('introOverlay'),
   summaryOverlay: document.getElementById('summaryOverlay'),
+  scenarioOverlay: document.getElementById('scenarioOverlay'),
   evaluateOverlay: document.getElementById('evaluateOverlay'),
+  createOverlay: document.getElementById('createOverlay'),
   introTitle: document.getElementById('introTitle'),
   introText: document.getElementById('introText'),
   introModeChip: document.getElementById('introModeChip'),
@@ -81,6 +81,7 @@ const state = {
 
   durationMs: ctx.mode === 'program' ? 75000 : 45000,
   remainingMs: ctx.mode === 'program' ? 75000 : 45000,
+  clockMs: 0,
 
   actionScore: 0,
   knowledgeScore: 0,
@@ -91,9 +92,13 @@ const state = {
   goodCatch: 0,
   badCatch: 0,
   missedGood: 0,
+  correctChoices: 0,
+  wrongChoices: 0,
 
   evaluateChoice: null,
   evaluateCorrect: false,
+  createdPlan: {},
+  createdPlanScore: 0,
 
   classTankContribution: 0,
   teamMissionDone: false,
@@ -101,10 +106,18 @@ const state = {
   combo: 0,
   bestCombo: 0,
 
+  rewardCount: 0,
+  rewardHistory: [],
+  shieldCount: 0,
+  pointBoostUntil: 0,
+
+  scenarioSummary: '',
+  createFeedbackTitle: '',
+  createFeedbackText: '',
+
   items: [],
   nextItemId: 1,
 
-  lastFeedback: '',
   lastEventLog: []
 };
 
@@ -122,6 +135,7 @@ function boot() {
   bindUI();
   renderHUD();
   renderTeamBox();
+  renderStatusRibbon();
   logEvent('boot', { ctx });
 }
 
@@ -144,9 +158,7 @@ function setupIntro() {
   refs.modeBadge.textContent = ctx.mode === 'program' ? 'PROGRAM MODE' : 'QUICK MODE';
   refs.teamMini.textContent = ctx.type === 'team' ? 'TEAM' : 'SOLO';
   refs.sessionBadge.textContent =
-    ctx.run === 'research'
-      ? 'Research Scaffold'
-      : 'Play Scaffold';
+    ctx.run === 'research' ? 'Research Scaffold' : 'Play Scaffold';
 
   refs.introTitle.textContent =
     ctx.mode === 'program'
@@ -155,8 +167,8 @@ function setupIntro() {
 
   refs.introText.textContent =
     ctx.mode === 'program'
-      ? 'รอบนี้เป็น program starter scaffold สำหรับ Hydration V2 เริ่มจากรอบหลักก่อน แล้วต่อ Evaluate หลังจบ'
-      : 'รอบนี้เป็น quick starter scaffold สำหรับ Hydration V2 เล่นรอบหลักสั้น ๆ แล้วต่อ Evaluate หลังจบ';
+      ? 'รอบนี้เป็น program scaffold ที่มี Summary → Scenarios → Evaluate → Create เพื่อให้ตรง abstract มากขึ้น'
+      : 'รอบนี้เป็น quick scaffold ที่มี Summary → Scenarios → Evaluate → Create เพื่อให้เกมไม่จบแค่ action';
 
   refs.introModeChip.textContent =
     `${ctx.mode === 'program' ? 'Program' : 'Quick'} / ${ctx.type === 'team' ? 'Team' : 'Solo'}`;
@@ -168,8 +180,8 @@ function setupIntro() {
 
   refs.stageSub.textContent =
     ctx.mode === 'program'
-      ? 'Program starter: เล่นรอบหลักก่อน แล้วใช้ Evaluate เป็น post-game learning'
-      : 'Quick starter: เก็บน้ำให้ไว แล้วไปทำ Evaluate ต่อ';
+      ? 'Program starter: รัน action ก่อน แล้วต่อ learning flow หลังเล่น'
+      : 'Quick starter: เล่น action สั้น ๆ แล้วต่อ learning flow หลังเล่น';
 
   refs.coachLine.textContent =
     ctx.type === 'team'
@@ -179,7 +191,7 @@ function setupIntro() {
   refs.missionList.innerHTML = `
     <li>เก็บ 💧 หรือ 🚰 ให้ได้มากที่สุด</li>
     <li>ปล่อย 🥤 และ 🧃 ให้ผ่านไป</li>
-    <li>จบรอบแล้วทำ Evaluate ต่อ</li>
+    <li>จบรอบแล้วทำ Scenarios + Evaluate + Create</li>
   `;
 
   showOverlay(refs.introOverlay);
@@ -214,6 +226,7 @@ function startRound() {
   cancelAnimationFrame(rafId);
 
   state.phase = PHASES.RUN;
+  state.clockMs = 0;
   state.actionScore = 0;
   state.knowledgeScore = 0;
   state.planningScore = 0;
@@ -223,13 +236,28 @@ function startRound() {
   state.goodCatch = 0;
   state.badCatch = 0;
   state.missedGood = 0;
+  state.correctChoices = 0;
+  state.wrongChoices = 0;
+
   state.combo = 0;
   state.bestCombo = 0;
 
   state.evaluateChoice = null;
   state.evaluateCorrect = false;
+
+  state.createdPlan = {};
+  state.createdPlanScore = 0;
+  state.createFeedbackTitle = '';
+  state.createFeedbackText = '';
+  state.scenarioSummary = '';
+
   state.classTankContribution = 0;
   state.teamMissionDone = false;
+
+  state.rewardCount = 0;
+  state.rewardHistory = [];
+  state.shieldCount = 0;
+  state.pointBoostUntil = 0;
 
   state.items.forEach(removeItemNode);
   state.items = [];
@@ -241,10 +269,13 @@ function startRound() {
 
   hideOverlay(refs.introOverlay);
   hideOverlay(refs.summaryOverlay);
+  hideOverlay(refs.scenarioOverlay);
   hideOverlay(refs.evaluateOverlay);
+  hideOverlay(refs.createOverlay);
 
   renderHUD();
   renderTeamBox();
+  renderStatusRibbon();
   showToast('เริ่มเลย! เก็บน้ำให้ทันนะ');
   logEvent('round_start', snapshotRoundState());
 
@@ -258,6 +289,7 @@ function loop(ts) {
   const dt = ts - loopPrevTs;
   loopPrevTs = ts;
 
+  state.clockMs += dt;
   state.remainingMs = Math.max(0, state.remainingMs - dt);
 
   if (ts >= nextSpawnAt) {
@@ -268,6 +300,7 @@ function loop(ts) {
   updateItems(dt);
   renderHUD();
   renderTeamBox();
+  renderStatusRibbon();
 
   if (state.remainingMs <= 0) {
     finishRound();
@@ -373,22 +406,72 @@ function handleLaneTap(lane, button) {
 
     let gained = 10;
     if (state.combo > 0 && state.combo % 4 === 0) gained += 4;
+    if (state.clockMs < state.pointBoostUntil) gained *= 2;
 
     state.actionScore += gained;
     refs.coachLine.textContent = 'ดีมาก เก็บน้ำถูกแล้ว';
     showToast(`เก็บน้ำสำเร็จ +${gained}`);
     logEvent('good_catch', { lane, gained, combo: state.combo });
+
+    maybeTriggerReward();
   } else {
-    state.badCatch += 1;
-    state.combo = 0;
-    state.actionScore = Math.max(0, state.actionScore - 6);
-    refs.coachLine.textContent = 'ระวังนะ อย่าแตะเครื่องดื่มหวาน';
-    showToast('แตะหวานผิด -6');
-    logEvent('bad_catch', { lane, penalty: 6 });
+    if (state.shieldCount > 0) {
+      state.shieldCount -= 1;
+      refs.coachLine.textContent = 'Shield ป้องกันการแตะหวานผิดให้แล้ว';
+      showToast('Shield ช่วยไว้แล้ว');
+      logEvent('bad_catch_blocked', { lane, shieldLeft: state.shieldCount });
+    } else {
+      state.badCatch += 1;
+      state.combo = 0;
+      state.actionScore = Math.max(0, state.actionScore - 6);
+      refs.coachLine.textContent = 'ระวังนะ อย่าแตะเครื่องดื่มหวาน';
+      showToast('แตะหวานผิด -6');
+      logEvent('bad_catch', { lane, penalty: 6 });
+    }
   }
 
   renderHUD();
   renderTeamBox();
+  renderStatusRibbon();
+}
+
+function maybeTriggerReward() {
+  let trigger = null;
+  if (state.combo > 0 && state.combo % 4 === 0) trigger = 'combo';
+  else if (state.goodCatch > 0 && state.goodCatch % 5 === 0) trigger = 'streak';
+
+  if (!trigger) return;
+
+  const reward = maybeCreateReward({
+    state,
+    trigger,
+    randomFn: rng
+  });
+
+  if (!reward) return;
+
+  applyReward(reward);
+  showRewardPopup(refs.rewardPopup, reward);
+  logEvent('reward', reward);
+}
+
+function applyReward(reward) {
+  state.rewardCount += 1;
+  state.rewardHistory.push(reward.id);
+
+  if (reward.type === 'time_bonus') {
+    state.remainingMs += reward.ms || 0;
+  } else if (reward.type === 'point_boost') {
+    state.pointBoostUntil = Math.max(state.pointBoostUntil, state.clockMs + (reward.ms || 0));
+  } else if (reward.type === 'shield') {
+    state.shieldCount += reward.count || 1;
+  } else if (reward.type === 'smart_bonus') {
+    state.actionScore += reward.points || 0;
+  }
+
+  refs.coachLine.textContent = reward.title;
+  renderStatusRibbon();
+  renderHUD();
 }
 
 function finishRound() {
@@ -412,7 +495,8 @@ function finishRound() {
 
   renderHUD();
   renderTeamBox();
-  showSummaryOverlay();
+  renderStatusRibbon();
+  showMainSummaryOverlay();
   saveSummary('round_end');
   logEvent('round_end', snapshotRoundState());
 }
@@ -426,21 +510,21 @@ function computeTotalScore() {
   );
 }
 
-function showSummaryOverlay() {
+function showMainSummaryOverlay() {
   refs.summaryOverlay.innerHTML = `
     <div class="overlay-card">
       <div class="overlay-kicker">Summary • Main Run</div>
       <h2>จบรอบหลักแล้ว</h2>
       <p>
-        ตอนนี้เป็นผลของรอบเล่นหลักก่อนเข้าสู่ Evaluate
-        เพื่อวัดการเลือกแผนดื่มน้ำหลังเล่น
+        ตอนนี้เป็นผลของรอบเล่นหลักก่อนเข้าสู่ post-game learning
+        ได้แก่ Scenarios → Evaluate → Create
       </p>
 
       <div class="summary-grid">
         <div class="summary-card">
           <div class="summary-label">คะแนนรอบหลัก</div>
           <div class="summary-main">${state.actionScore}</div>
-          <div class="summary-sub">คิดจากการเก็บน้ำถูกและเลี่ยงการแตะหวานผิด</div>
+          <div class="summary-sub">คิดจากการเก็บน้ำถูก เลี่ยงหวาน และ reward ที่ได้รับ</div>
         </div>
 
         <div class="summary-card">
@@ -452,26 +536,26 @@ function showSummaryOverlay() {
         <div class="summary-card">
           <div class="summary-label">แตะหวานผิด</div>
           <div class="summary-main">${state.badCatch}</div>
-          <div class="summary-sub">ควรปล่อยให้ผ่านไป ไม่ควรแตะ</div>
+          <div class="summary-sub">ถ้ามี Shield จะไม่โดนลบนับผิด</div>
         </div>
 
         <div class="summary-card">
-          <div class="summary-label">พลาดน้ำ</div>
-          <div class="summary-main">${state.missedGood}</div>
-          <div class="summary-sub">เป็นตัวชี้ว่าควรจับจังหวะให้แม่นขึ้น</div>
+          <div class="summary-label">Rewards ที่ได้</div>
+          <div class="summary-main">${state.rewardCount}</div>
+          <div class="summary-sub">${escapeHtml(state.rewardHistory.join(', ') || 'ยังไม่ได้ reward')}</div>
         </div>
       </div>
 
       <div class="result-box">
         ${ctx.type === 'team'
           ? `Contribution ทีมเบื้องต้นของรอบนี้ = <strong>${state.classTankContribution}%</strong>`
-          : `โหมดเดี่ยวรอบนี้เน้น action + post-game evaluate ก่อน`}
+          : `โหมดเดี่ยวรอบนี้จะต่อด้วย learning flow หลังเล่น`}
       </div>
 
       <div class="overlay-actions">
         <button class="btn ghost" id="summaryReplayBtn" type="button">เล่นรอบนี้ใหม่</button>
         <button class="btn ghost" id="summaryHubBtn" type="button">กลับ HUB</button>
-        <button class="btn primary" id="summaryEvaluateBtn" type="button">ไปต่อ Evaluate</button>
+        <button class="btn primary" id="summaryNextBtn" type="button">ไปต่อ Scenarios</button>
       </div>
     </div>
   `;
@@ -486,82 +570,111 @@ function showSummaryOverlay() {
       window.location.href = ctx.hub;
     });
 
-  refs.summaryOverlay.querySelector('#summaryEvaluateBtn')
-    .addEventListener('click', runEvaluateFlow);
+  refs.summaryOverlay.querySelector('#summaryNextBtn')
+    .addEventListener('click', runPostGameLearningFlow);
 }
 
-async function runEvaluateFlow() {
+async function runPostGameLearningFlow() {
   hideOverlay(refs.summaryOverlay);
-  state.phase = PHASES.EVALUATE;
 
-  const result = await openEvaluate(refs.evaluateOverlay, state, {
+  state.phase = PHASES.SCENARIOS;
+  const scenarioResult = await openScenarios(refs.scenarioOverlay, state, {
+    count: 2,
+    randomFn: rng
+  });
+
+  state.correctChoices = scenarioResult.correctCount || 0;
+  state.wrongChoices = scenarioResult.wrongCount || 0;
+  state.knowledgeScore += scenarioResult.knowledgeDelta || 0;
+  state.scenarioSummary = scenarioResult.summary || '';
+  state.totalScore = computeTotalScore();
+
+  logEvent('scenarios_done', scenarioResult);
+
+  state.phase = PHASES.EVALUATE;
+  const evalResult = await openEvaluate(refs.evaluateOverlay, state, {
     title: 'เลือกแผนดื่มน้ำที่ดีที่สุด',
     subtitle: 'หลังเล่นแล้ว ลองเลือกแผนที่ช่วยสร้างนิสัยการดื่มน้ำที่ดี'
   });
 
-  state.evaluateChoice = result.choice;
-  state.evaluateCorrect = result.correct;
-  state.knowledgeScore += result.knowledgeDelta || 0;
-  state.planningScore += result.planningDelta || 0;
+  state.evaluateChoice = evalResult.choice;
+  state.evaluateCorrect = evalResult.correct;
+  state.knowledgeScore += evalResult.knowledgeDelta || 0;
+  state.planningScore += evalResult.planningDelta || 0;
   state.totalScore = computeTotalScore();
-  state.phase = PHASES.DONE;
 
-  refs.coachLine.textContent =
-    result.correct
-      ? 'เยี่ยมเลย เลือกแผนดื่มน้ำได้ดี'
-      : 'ไม่เป็นไร ลองอ่าน feedback แล้วค่อยทำรอบถัดไป';
-
-  saveSummary('post_evaluate');
   logEvent('evaluate_done', {
-    choice: result.choice,
-    correct: result.correct,
-    knowledgeDelta: result.knowledgeDelta,
-    planningDelta: result.planningDelta
+    choice: evalResult.choice,
+    correct: evalResult.correct,
+    knowledgeDelta: evalResult.knowledgeDelta,
+    planningDelta: evalResult.planningDelta
   });
 
-  showFinalOverlay(result);
+  state.phase = PHASES.CREATE;
+  const createResult = await openCreate(refs.createOverlay, state);
+
+  state.createdPlan = createResult.plan || {};
+  state.createdPlanScore = createResult.planScore || 0;
+  state.planningScore += createResult.planScore || 0;
+  state.createFeedbackTitle = createResult.feedbackTitle || '';
+  state.createFeedbackText = createResult.feedbackText || '';
+  state.totalScore = computeTotalScore();
+
+  logEvent('create_done', createResult);
+
+  state.phase = PHASES.DONE;
+  refs.coachLine.textContent =
+    state.evaluateCorrect
+      ? 'เยี่ยมเลย เลือกแผนได้ดีและต่อยอดถึงการสร้างแผนของตัวเองแล้ว'
+      : 'ทำได้ดีมาก รอบนี้ได้ลองคิดทั้งสถานการณ์จริงและแผนดื่มน้ำแล้ว';
+
+  saveSummary('post_learning');
+  showFinalOverlay(evalResult, createResult);
   renderHUD();
+  renderStatusRibbon();
 }
 
-function showFinalOverlay(result) {
+function showFinalOverlay(evalResult, createResult) {
   refs.summaryOverlay.innerHTML = `
     <div class="overlay-card">
-      <div class="overlay-kicker">Summary • With Evaluate</div>
-      <h2>สรุปหลัง Evaluate</h2>
+      <div class="overlay-kicker">Summary • Action + Learning</div>
+      <h2>สรุปหลังจบ Patch B flow</h2>
       <p>
-        ตอนนี้คะแนนรวมจะรวมทั้งรอบหลัก และผลการเลือกแผนดื่มน้ำแล้ว
+        ตอนนี้คะแนนรวมจะรวมทั้งรอบหลัก, Scenarios, Evaluate และ Create แล้ว
       </p>
 
       <div class="summary-grid">
         <div class="summary-card">
           <div class="summary-label">Action Score</div>
           <div class="summary-main">${state.actionScore}</div>
-          <div class="summary-sub">เก็บน้ำให้ถูก และไม่แตะหวาน</div>
+          <div class="summary-sub">เก็บน้ำ, เลี่ยงหวาน, reward ระหว่างเล่น</div>
         </div>
 
         <div class="summary-card">
           <div class="summary-label">Knowledge Score</div>
           <div class="summary-main">${state.knowledgeScore}</div>
-          <div class="summary-sub">ได้จาก Evaluate หลังจบรอบ</div>
+          <div class="summary-sub">ได้จาก Scenarios + Evaluate</div>
         </div>
 
         <div class="summary-card">
           <div class="summary-label">Planning Score</div>
           <div class="summary-main">${state.planningScore}</div>
-          <div class="summary-sub">เริ่มวัดพฤติกรรมการวางแผนดื่มน้ำ</div>
+          <div class="summary-sub">ได้จาก Evaluate + Create</div>
         </div>
 
         <div class="summary-card">
           <div class="summary-label">คะแนนรวม</div>
           <div class="summary-main">${state.totalScore}</div>
-          <div class="summary-sub">starter scaffold: action + evaluate + team bonus</div>
+          <div class="summary-sub">starter scaffold: action + learning + social starter</div>
         </div>
       </div>
 
       <div class="result-box">
-        <strong>${escapeHtml(result.feedbackTitle)}</strong><br/>
-        ${escapeHtml(result.feedbackText)}<br/><br/>
-        คำตอบที่เลือก: <strong>${escapeHtml(result.choice || 'ไม่ได้เลือก')}</strong>
+        <strong>Scenarios:</strong> ${escapeHtml(state.scenarioSummary || 'ยังไม่มีผล')}<br/>
+        <strong>Evaluate:</strong> ${escapeHtml(evalResult.feedbackTitle || '-')}<br/>
+        ${escapeHtml(evalResult.feedbackText || '')}<br/><br/>
+        <strong>Create:</strong> ${escapeHtml(createResult.feedbackTitle || '-')}<br/>
+        ${escapeHtml(createResult.feedbackText || '')}
       </div>
 
       <div class="overlay-actions">
@@ -609,6 +722,16 @@ function renderTeamBox() {
     refs.teamNote.textContent =
       'ตอนนี้เล่นแบบเดี่ยวอยู่ ระบบ social เต็มรูปแบบจะต่อใน patch ถัดไป';
   }
+}
+
+function renderStatusRibbon() {
+  refs.boostStatus.textContent =
+    state.clockMs < state.pointBoostUntil
+      ? `Boost: x2 active`
+      : `Boost: ปกติ`;
+
+  refs.shieldStatus.textContent = `Shield: ${state.shieldCount}`;
+  refs.rewardCountStatus.textContent = `Rewards: ${state.rewardCount}`;
 }
 
 function laneToX(lane) {
@@ -694,8 +817,20 @@ function saveSummary(reason) {
     missedGood: state.missedGood,
     bestCombo: state.bestCombo,
 
+    rewardCount: state.rewardCount,
+    rewardHistory: state.rewardHistory,
+    shieldCount: state.shieldCount,
+
+    correctChoices: state.correctChoices,
+    wrongChoices: state.wrongChoices,
+    scenarioSummary: state.scenarioSummary,
+
     evaluateChoice: state.evaluateChoice,
     evaluateCorrect: state.evaluateCorrect,
+
+    createdPlan: state.createdPlan,
+    createdPlanScore: state.createdPlanScore,
+
     classTankContribution: state.classTankContribution,
     teamMissionDone: state.teamMissionDone
   };
@@ -727,8 +862,13 @@ function snapshotRoundState() {
     badCatch: state.badCatch,
     missedGood: state.missedGood,
     bestCombo: state.bestCombo,
+    rewardCount: state.rewardCount,
+    rewardHistory: [...state.rewardHistory],
+    correctChoices: state.correctChoices,
+    wrongChoices: state.wrongChoices,
     evaluateChoice: state.evaluateChoice,
     evaluateCorrect: state.evaluateCorrect,
+    createdPlanScore: state.createdPlanScore,
     classTankContribution: state.classTankContribution,
     teamMissionDone: state.teamMissionDone
   };
@@ -741,7 +881,7 @@ function logEvent(name, payload = {}) {
     payload
   };
   state.lastEventLog.push(event);
-  if (state.lastEventLog.length > 40) state.lastEventLog.shift();
+  if (state.lastEventLog.length > 50) state.lastEventLog.shift();
   console.debug('[HydrationV2]', name, payload);
 }
 
