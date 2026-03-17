@@ -1,7 +1,8 @@
 // === /herohealth/gate/gate-core.js ===
-// FULL PATCH v20260317f-GATE-COMPAT-SETSUB-TITLE
+// FULL PATCH v20260317g-GATE-COMPAT-RUNCANDIDATES-SAFE-PHASE-ALIAS
 // ✅ export default bootGate
-// ✅ single warmup-gate.html page with ?phase=warmup|cooldown
+// ✅ single warmup-gate.html page with ?phase=warmup|cooldown or ?gatePhase=...
+// ✅ safe import from gate-games.js even if getRunCandidates is missing
 // ✅ supports api.finish / api.complete / api.done / api.summary / api.next
 // ✅ supports api.setStats / api.setSub / api.setTitle
 // ✅ compatibility logger api.logger.push(...)
@@ -9,19 +10,55 @@
 // ✅ warmup once/day -> auto continue to run page
 // ✅ cooldown once/day -> summary + back hub
 
-import {
-  getGameMeta,
-  getPhaseFile,
-  getGameStyleFile,
-  getRunCandidates,
-  normalizeGameId
-} from './gate-games.js?v=20260317b-GATE-GAMES-ALIAS-ROBUST-RUN-CANDIDATES';
+import * as GateGames from './gate-games.js?v=20260317b-GATE-GAMES-ALIAS-ROBUST-RUN-CANDIDATES';
 
-const PATCH = 'v20260317f-GATE-COMPAT-SETSUB-TITLE';
+const PATCH = 'v20260317g-GATE-COMPAT-RUNCANDIDATES-SAFE-PHASE-ALIAS';
 const STORAGE_NS = 'HHA_GATE_DONE_V1';
 const LAST_SUMMARY_KEY = 'HHA_LAST_SUMMARY';
 const SUMMARY_HISTORY_KEY = 'HHA_SUMMARY_HISTORY';
 const MAX_HISTORY = 40;
+
+const normalizeGameId =
+  typeof GateGames.normalizeGameId === 'function'
+    ? GateGames.normalizeGameId
+    : (id = '') => String(id || '').trim().toLowerCase();
+
+const getGameMeta =
+  typeof GateGames.getGameMeta === 'function'
+    ? GateGames.getGameMeta
+    : (() => null);
+
+const getPhaseFile =
+  typeof GateGames.getPhaseFile === 'function'
+    ? GateGames.getPhaseFile
+    : (() => '');
+
+const getGameStyleFile =
+  typeof GateGames.getGameStyleFile === 'function'
+    ? GateGames.getGameStyleFile
+    : (() => '');
+
+function getRunCandidatesSafe(gameId = '') {
+  if (typeof GateGames.getRunCandidates === 'function') {
+    const list = GateGames.getRunCandidates(gameId);
+    if (Array.isArray(list) && list.length) return list.filter(Boolean);
+  }
+
+  const meta = getGameMeta(gameId);
+
+  if (Array.isArray(meta?.runCandidates) && meta.runCandidates.length) {
+    return meta.runCandidates.filter(Boolean);
+  }
+
+  if (typeof GateGames.getRunFile === 'function') {
+    const one = GateGames.getRunFile(gameId);
+    if (one) return [one];
+  }
+
+  if (meta?.run) return [meta.run];
+
+  return [];
+}
 
 function esc(s = '') {
   return String(s)
@@ -76,11 +113,21 @@ function saveLastSummary(payload = {}) {
 function readCtx() {
   const params = new URLSearchParams(location.search);
 
-  const gameRaw = params.get('game') || params.get('gameId') || '';
+  const gameRaw =
+    params.get('game') ||
+    params.get('gameId') ||
+    params.get('theme') ||
+    '';
+
   const game = normalizeGameId(gameRaw);
   const meta = getGameMeta(game);
 
-  const phaseRaw = String(params.get('phase') || 'warmup').toLowerCase();
+  const phaseRaw = String(
+    params.get('phase') ||
+    params.get('gatePhase') ||
+    'warmup'
+  ).toLowerCase();
+
   const phase = phaseRaw === 'cooldown' ? 'cooldown' : 'warmup';
 
   return {
@@ -340,7 +387,7 @@ function renderShell(root, ctx) {
         <div class="gate-hero">
           <div class="gate-kicker">HeroHealth Gate • ${esc(ctx.phase)}</div>
           <h1 class="gate-title" id="gateHeroTitle">${esc(phaseTitle(ctx))}</h1>
-          <p class="gate-sub" id="gateHeroSub">หน้าเดียวสำหรับ warmup และ cooldown โดยแยกด้วย <code>?phase=warmup</code> หรือ <code>?phase=cooldown</code></p>
+          <p class="gate-sub" id="gateHeroSub">หน้าเดียวสำหรับ warmup และ cooldown โดยแยกด้วย <code>?phase=warmup</code> หรือ <code>?gatePhase=warmup</code></p>
 
           <div class="gate-meta">
             <div class="gate-chip">game: ${esc(ctx.game || '-')}</div>
@@ -488,6 +535,8 @@ function buildRunParams(ctx) {
   const p = new URLSearchParams(ctx.params);
 
   p.delete('phase');
+  p.delete('gatePhase');
+
   p.set('game', ctx.game);
   p.set('gameId', ctx.game);
 
@@ -524,7 +573,7 @@ async function quickExists(url) {
 }
 
 async function resolveRunHref(ctx) {
-  const candidates = getRunCandidates(ctx.game);
+  const candidates = getRunCandidatesSafe(ctx.game);
   if (!candidates.length) return '';
 
   const params = buildRunParams(ctx);
