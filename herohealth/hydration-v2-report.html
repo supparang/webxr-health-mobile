@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Hydration V2 Mini Report</title>
+  <meta name="color-scheme" content="light dark" />
+  <link rel="icon" href="./favicon.ico" />
+  <style>
+    :root{
+      --bg:#f8fafc;
+      --panel:#ffffff;
+      --text:#0f172a;
+      --muted:#475569;
+      --stroke:#dbe4ee;
+      --blue:#0284c7;
+      --good:#16a34a;
+      --warn:#d97706;
+    }
+    *{ box-sizing:border-box; }
+    html,body{
+      margin:0;
+      background:var(--bg);
+      color:var(--text);
+      font-family:"Noto Sans Thai", system-ui, -apple-system, sans-serif;
+    }
+    body{ padding:24px; }
+    .wrap{
+      max-width:1100px;
+      margin:0 auto;
+      display:grid;
+      gap:18px;
+    }
+    .toolbar{
+      display:flex;
+      justify-content:space-between;
+      gap:12px;
+      align-items:flex-start;
+      flex-wrap:wrap;
+      padding:18px;
+      background:var(--panel);
+      border:1px solid var(--stroke);
+      border-radius:18px;
+    }
+    .eyebrow{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:6px 10px;
+      border-radius:999px;
+      background:#e0f2fe;
+      color:#0369a1;
+      font-size:12px;
+      font-weight:800;
+    }
+    h1{
+      margin:12px 0 8px;
+      font-size:32px;
+      line-height:1.1;
+    }
+    .lead{
+      margin:0;
+      color:var(--muted);
+      line-height:1.7;
+      max-width:64ch;
+    }
+    .actions{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+    .btn{
+      appearance:none;
+      border:none;
+      cursor:pointer;
+      min-height:42px;
+      padding:10px 14px;
+      border-radius:12px;
+      font-size:14px;
+      font-weight:900;
+    }
+    .btn.primary{ background:#0ea5e9; color:#fff; }
+    .btn.ghost{ background:#eef2f7; color:#0f172a; border:1px solid var(--stroke); }
+
+    .grid{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:12px;
+    }
+    .card{
+      background:var(--panel);
+      border:1px solid var(--stroke);
+      border-radius:18px;
+      padding:16px;
+    }
+    .label{
+      color:var(--muted);
+      font-size:12px;
+      font-weight:800;
+      margin-bottom:8px;
+    }
+    .value{
+      font-size:28px;
+      font-weight:900;
+      line-height:1;
+    }
+    .sub{
+      margin-top:8px;
+      color:var(--muted);
+      font-size:13px;
+      line-height:1.6;
+    }
+
+    .section{
+      background:var(--panel);
+      border:1px solid var(--stroke);
+      border-radius:18px;
+      padding:18px;
+    }
+    .section h2{
+      margin:0 0 10px;
+      font-size:24px;
+    }
+    .section p{
+      margin:0;
+      color:var(--muted);
+      line-height:1.7;
+    }
+
+    .info-grid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:12px;
+      margin-top:16px;
+    }
+    .info{
+      padding:14px;
+      border-radius:14px;
+      background:#f8fafc;
+      border:1px solid var(--stroke);
+    }
+    .info-title{
+      font-size:12px;
+      color:var(--muted);
+      font-weight:800;
+      margin-bottom:6px;
+    }
+    .info-body{
+      font-size:15px;
+      font-weight:800;
+      line-height:1.6;
+      word-break:break-word;
+    }
+
+    table{
+      width:100%;
+      border-collapse:collapse;
+      margin-top:14px;
+      font-size:14px;
+    }
+    th, td{
+      border:1px solid var(--stroke);
+      padding:10px;
+      text-align:left;
+      vertical-align:top;
+    }
+    th{
+      background:#f1f5f9;
+      font-size:12px;
+      text-transform:uppercase;
+      letter-spacing:.04em;
+    }
+
+    .empty{
+      padding:16px;
+      border:1px dashed var(--stroke);
+      border-radius:14px;
+      color:var(--muted);
+      margin-top:12px;
+    }
+
+    @media print{
+      .toolbar .actions{ display:none; }
+      body{ padding:0; background:#fff; }
+      .wrap{ max-width:none; }
+      .section, .card, .toolbar{
+        box-shadow:none !important;
+        border-color:#d1d5db !important;
+      }
+    }
+
+    @media (max-width: 900px){
+      .grid{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .info-grid{ grid-template-columns:1fr; }
+    }
+    @media (max-width: 640px){
+      .grid{ grid-template-columns:1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="toolbar">
+      <div>
+        <div class="eyebrow">🧾 Hydration V2 Mini Report</div>
+        <h1 id="reportTitle">กำลังโหลดรายงาน...</h1>
+        <p class="lead" id="reportLead">กำลังอ่านข้อมูลจาก localStorage</p>
+      </div>
+      <div class="actions">
+        <button class="btn ghost" id="backBtn" type="button">กลับ Dashboard</button>
+        <button class="btn primary" id="printBtn" type="button">พิมพ์ / Save PDF</button>
+      </div>
+    </section>
+
+    <section class="grid" id="statsGrid"></section>
+
+    <section class="section">
+      <h2>สรุปภาพรวม</h2>
+      <p>ข้อมูลระดับบนของขอบเขตรายงานนี้</p>
+      <div class="info-grid" id="summaryGrid"></div>
+    </section>
+
+    <section class="section">
+      <h2>Highlights</h2>
+      <p>จุดเด่นที่อ่านเร็วสำหรับครูหรือผู้วิจัย</p>
+      <div class="info-grid" id="highlightGrid"></div>
+    </section>
+
+    <section class="section">
+      <h2>Session Table</h2>
+      <p>รายการรอบเล่นในขอบเขตรายงานนี้</p>
+      <div id="tableWrap"></div>
+      <div class="empty" id="tableEmpty" style="display:none;">ยังไม่มีข้อมูลสำหรับแสดงตาราง</div>
+    </section>
+  </div>
+
+  <script type="module" src="./vr-hydration-v2/js/hydration.report.js?v=20260317i"></script>
+</body>
+</html>
