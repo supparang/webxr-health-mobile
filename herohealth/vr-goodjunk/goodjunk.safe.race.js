@@ -1,6 +1,7 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.race.js ===
-// FULL PATCH v20260318-GOODJUNK-RACE-O-READY
+// FULL PATCH v20260318-GOODJUNK-RACE-O-READY-HHABATTLE
 // Race-only build, split from solo boss
+// Uses Firebase path: hha-battle/goodjunk/rooms/<roomId>
 // Supports roomId/name primary + legacy room/nick
 // Firebase room sync + countdown + result + rematch + watchdog
 
@@ -41,7 +42,7 @@ const GJ_RACE_SUMMARY_HISTORY_KEY = `GJ_RACE_SUMMARY_HISTORY_${GJ_PID}`;
 const GJ_RACE_HEARTBEAT_MS = 2500;
 const GJ_RACE_STALE_MS = 12000;
 const GJ_RACE_WATCHDOG_MS = 3000;
-const GJ_FIREBASE_ROOM_PATH = GJ_ROOM_ID ? `raceRooms/goodjunk/${GJ_ROOM_ID}` : '';
+const GJ_FIREBASE_ROOM_PATH = GJ_ROOM_ID ? `hha-battle/goodjunk/rooms/${GJ_ROOM_ID}` : '';
 
 let __gjRaceBooted = false;
 let __gjRaceRAF = 0;
@@ -716,9 +717,23 @@ async function ensureRaceFirebase() {
 
 function snapshotToRaceRoom(val) {
   if (!val) return null;
+
+  const meta = val.meta || {};
+  const stateNode = val.state || {};
   const playersMap = val.players || {};
+
   return {
-    ...val,
+    roomId: String(meta.roomId || val.roomId || GJ_ROOM_ID || ''),
+    hostId: String(meta.hostId || val.hostId || ''),
+    mode: String(meta.mode || val.mode || 'race'),
+    minPlayers: Math.max(2, Number(meta.minPlayers || val.minPlayers || 2)),
+    maxPlayers: Math.max(2, Number(meta.maxPlayers || val.maxPlayers || 10)),
+    status: ['waiting', 'countdown', 'running', 'finished'].includes(stateNode.status || meta.status || val.status)
+      ? (stateNode.status || meta.status || val.status)
+      : 'waiting',
+    startAt: Number(stateNode.startAt || meta.startAt || val.startAt || 0) || null,
+    createdAt: Number(meta.createdAt || val.createdAt || Date.now()),
+    updatedAt: Number(stateNode.updatedAt || meta.updatedAt || val.updatedAt || Date.now()),
     players: Object.keys(playersMap).map((pid) => ({
       id: pid,
       ...playersMap[pid]
@@ -768,18 +783,26 @@ function sanitizeRaceRoom(room) {
   return safe;
 }
 
-function raceRoomToFirebase(room) {
+function raceRoomToFirebase(room, source = 'race-run') {
+  const now = Date.now();
+
   const out = {
-    roomId: room.roomId,
-    hostId: room.hostId,
-    mode: room.mode,
-    minPlayers: room.minPlayers,
-    maxPlayers: room.maxPlayers,
-    status: room.status,
-    startAt: room.startAt || null,
-    createdAt: room.createdAt || Date.now(),
-    updatedAt: Date.now(),
-    players: {}
+    meta: {
+      roomId: room.roomId,
+      hostId: room.hostId,
+      mode: room.mode,
+      minPlayers: room.minPlayers,
+      maxPlayers: room.maxPlayers,
+      createdAt: room.createdAt || now,
+      updatedAt: now,
+      _source: source
+    },
+    players: {},
+    state: {
+      status: room.status,
+      startAt: room.startAt || null,
+      updatedAt: now
+    }
   };
 
   normalizeRacePlayers(room.players).forEach((p) => {
@@ -819,8 +842,7 @@ async function saveRaceRoom(room, source = 'run') {
   if (!room) return false;
 
   try {
-    const payload = raceRoomToFirebase(room);
-    payload._source = source;
+    const payload = raceRoomToFirebase(room, source);
     await __gjRaceRoomRef.set(payload);
     console.log('[GJ-RACE] saveRaceRoom', { source, roomId: room.roomId, status: room.status });
     return true;
@@ -1203,7 +1225,8 @@ async function markRacePresenceDuringRun(patch = {}) {
       lastSeenAt: Date.now()
     });
 
-    await __gjRaceRoomRef.child('updatedAt').set(Date.now());
+    await __gjRaceRoomRef.child('meta/updatedAt').set(Date.now());
+    await __gjRaceRoomRef.child('state/updatedAt').set(Date.now());
   } catch (err) {
     console.error('[GJ-RACE] markRacePresenceDuringRun failed:', err);
   }
@@ -1266,7 +1289,8 @@ async function markMyRaceDisconnected(reason = 'disconnect') {
       lastSeenAt: Date.now()
     });
 
-    await __gjRaceRoomRef.child('updatedAt').set(Date.now());
+    await __gjRaceRoomRef.child('meta/updatedAt').set(Date.now());
+    await __gjRaceRoomRef.child('state/updatedAt').set(Date.now());
   } catch (err) {
     console.error('[GJ-RACE] markMyRaceDisconnected failed:', err);
   }
