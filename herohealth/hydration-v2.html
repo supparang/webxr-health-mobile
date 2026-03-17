@@ -12,12 +12,10 @@
       --bg2:#0a2740;
       --bg3:#123a5f;
       --panel:rgba(3,21,37,.78);
-      --panel2:rgba(255,255,255,.08);
       --stroke:rgba(148,163,184,.18);
       --text:#eaf6ff;
       --muted:#b7d4ea;
       --blue:#38bdf8;
-      --cyan:#22d3ee;
       --good:#22c55e;
       --warn:#f59e0b;
       --shadow:0 20px 48px rgba(0,0,0,.28);
@@ -46,14 +44,9 @@
         calc(16px + var(--sal));
     }
     .wrap{
-      max-width:1200px;
+      max-width:1240px;
       margin:0 auto;
       display:grid;
-      gap:18px;
-    }
-    .hero{
-      display:grid;
-      grid-template-columns:1.1fr .9fr;
       gap:18px;
     }
     .card{
@@ -62,6 +55,11 @@
       border-radius:var(--radius);
       box-shadow:var(--shadow);
       backdrop-filter: blur(12px);
+    }
+    .hero{
+      display:grid;
+      grid-template-columns:1.08fr .92fr;
+      gap:18px;
     }
     .hero-card{
       padding:24px;
@@ -259,6 +257,10 @@
       background:linear-gradient(180deg, #ffd36d, #f5b531);
       color:#3c2800;
     }
+    .btn.good{
+      background:linear-gradient(180deg, #58dd8d, #22c55e);
+      color:#082314;
+    }
     .preview{
       margin-top:16px;
       padding:14px 16px;
@@ -282,12 +284,43 @@
     }
     .status.show{ display:block; }
 
+    .assist-grid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:14px;
+      margin-top:18px;
+    }
+    .assist-card{
+      padding:16px;
+      border-radius:20px;
+      background:rgba(255,255,255,.05);
+      border:1px solid rgba(255,255,255,.08);
+    }
+    .assist-title{
+      font-size:16px;
+      font-weight:900;
+      margin-bottom:8px;
+    }
+    .assist-text{
+      color:var(--muted);
+      font-size:14px;
+      line-height:1.65;
+    }
+    .assist-meta{
+      margin-top:10px;
+      color:#def4ff;
+      font-size:13px;
+      line-height:1.7;
+      font-weight:800;
+    }
+
     @media (max-width: 980px){
       .hero{ grid-template-columns:1fr; }
     }
     @media (max-width: 760px){
       .grid,
-      .quick-grid{ grid-template-columns:1fr; }
+      .quick-grid,
+      .assist-grid{ grid-template-columns:1fr; }
       .form-head{ flex-direction:column; }
     }
   </style>
@@ -297,10 +330,10 @@
     <section class="hero">
       <article class="card hero-card">
         <div class="eyebrow">💧 Hydration V2 • Program / Research Launcher</div>
-        <h1>Hydration VR รุ่นใหม่<br/>พร้อม Session / Week</h1>
+        <h1>Hydration VR รุ่นใหม่<br/>พร้อม Session ถัดไปอัตโนมัติ</h1>
         <p class="lead">
-          ใช้หน้านี้สำหรับเข้าเล่นแบบ Quick หรือ Program โดยกำหนด
-          mode, team, run, session, week และข้อมูลวิจัยได้ตรง ๆ ก่อนส่งต่อเข้า
+          หน้านี้ใช้เข้าเล่นแบบ Quick หรือ Program และช่วยเติมค่าจาก
+          progress ล่าสุดได้ เช่น PID, Study ID, Session, Week และ seed ก่อนส่งต่อเข้า
           <strong>vr-hydration-v2</strong>
         </p>
         <div class="pill-row">
@@ -308,14 +341,14 @@
           <span class="pill">Solo / Team</span>
           <span class="pill">Play / Research</span>
           <span class="pill">Session / Week</span>
-          <span class="pill">Teacher Dashboard</span>
+          <span class="pill">Next-session assist</span>
         </div>
       </article>
 
       <aside class="card side">
         <div>
           <h2>ทางเข้าแบบเร็ว</h2>
-          <p>เหมาะสำหรับกดทดสอบ flow ที่คุยกันไว้โดยไม่ต้องกรอกทุกช่อง</p>
+          <p>เหมาะสำหรับกดทดสอบ flow และสลับระหว่าง quick / program ได้ทันที</p>
           <div class="quick-grid">
             <button class="quick-btn" type="button" data-preset="quick-solo">
               Quick Solo
@@ -422,10 +455,26 @@
         </div>
       </div>
 
+      <div class="assist-grid">
+        <div class="assist-card">
+          <div class="assist-title">รอบล่าสุด</div>
+          <div class="assist-text">อ่านจาก research payload ล่าสุดที่เกมบันทึกไว้</div>
+          <div class="assist-meta" id="lastPayloadMeta">ยังไม่พบข้อมูลล่าสุด</div>
+        </div>
+
+        <div class="assist-card">
+          <div class="assist-title">รอบที่แนะนำถัดไป</div>
+          <div class="assist-text">ใช้ข้อมูลล่าสุดช่วยเดา session / week ถัดไป</div>
+          <div class="assist-meta" id="nextPayloadMeta">ยังไม่มีคำแนะนำ</div>
+        </div>
+      </div>
+
       <div class="actions">
         <button class="btn primary" id="startBtn" type="button">เข้าเล่น Hydration V2</button>
         <button class="btn ghost" id="copyUrlBtn" type="button">คัดลอก URL</button>
         <button class="btn warn" id="randomSeedBtn" type="button">สุ่ม Seed ใหม่</button>
+        <button class="btn good" id="loadLastBtn" type="button">เติมค่าจากรอบล่าสุด</button>
+        <button class="btn good" id="loadNextBtn" type="button">เติมค่ารอบถัดไป</button>
       </div>
 
       <div class="preview" id="urlPreview">กำลังสร้าง URL...</div>
@@ -452,14 +501,19 @@
       const flowBadge = document.getElementById('flowBadge');
       const urlPreview = document.getElementById('urlPreview');
       const statusBox = document.getElementById('statusBox');
+      const lastPayloadMeta = document.getElementById('lastPayloadMeta');
+      const nextPayloadMeta = document.getElementById('nextPayloadMeta');
 
       const startBtn = document.getElementById('startBtn');
       const copyUrlBtn = document.getElementById('copyUrlBtn');
       const randomSeedBtn = document.getElementById('randomSeedBtn');
       const goDashboardBtn = document.getElementById('goDashboardBtn');
       const backHubBtn = document.getElementById('backHubBtn');
+      const loadLastBtn = document.getElementById('loadLastBtn');
+      const loadNextBtn = document.getElementById('loadNextBtn');
 
       const initialHub = qs.get('hub') || './hub.html';
+      const lastResearch = readJson('HHA_HYDRATION_V2_RESEARCH_LAST', null);
 
       modeInput.value = qs.get('mode') || 'quick';
       typeInput.value = qs.get('type') || 'solo';
@@ -471,6 +525,8 @@
       studyIdInput.value = qs.get('studyId') || '';
       seedInput.value = qs.get('seed') || String(Date.now());
       hubInput.value = initialHub;
+
+      updateAssistBoxes();
 
       function sanitizePositiveInt(value, fallback){
         const n = Number(value);
@@ -519,6 +575,16 @@
           .replaceAll('"', '&quot;');
       }
 
+      function readJson(key, fallback){
+        try{
+          const raw = localStorage.getItem(key);
+          if(!raw) return fallback;
+          return JSON.parse(raw);
+        }catch(_){
+          return fallback;
+        }
+      }
+
       function applyPreset(name){
         if (name === 'quick-solo'){
           modeInput.value = 'quick';
@@ -546,6 +612,60 @@
           weekInput.value = '1';
         }
         updatePreview();
+      }
+
+      function loadFromLastPayload(useNext){
+        if (!lastResearch) {
+          showStatus('ยังไม่พบ research payload ล่าสุด');
+          return;
+        }
+
+        modeInput.value = lastResearch.mode || 'program';
+        typeInput.value = lastResearch.type || 'solo';
+        runInput.value = lastResearch.run || 'research';
+        diffInput.value = lastResearch.diff || diffInput.value;
+
+        pidInput.value = lastResearch.pid || '';
+        studyIdInput.value = lastResearch.studyId || '';
+        hubInput.value = initialHub;
+
+        if (useNext) {
+          const nextSession = Number(lastResearch.sessionNo || 1) + 1;
+          const nextWeek = Math.max(1, Math.floor((nextSession - 1) / 2) + 1);
+          sessionInput.value = String(nextSession);
+          weekInput.value = String(nextWeek);
+        } else {
+          sessionInput.value = String(lastResearch.sessionNo || 1);
+          weekInput.value = String(lastResearch.weekNo || 1);
+        }
+
+        seedInput.value = String(Date.now());
+        updatePreview();
+        showStatus(useNext ? 'เติมค่ารอบถัดไปจาก payload ล่าสุดแล้ว' : 'เติมค่าจาก payload ล่าสุดแล้ว');
+      }
+
+      function updateAssistBoxes(){
+        if (!lastResearch) {
+          lastPayloadMeta.textContent = 'ยังไม่พบ research payload ล่าสุด';
+          nextPayloadMeta.textContent = 'ยังไม่มีคำแนะนำ เพราะยังไม่มี payload ล่าสุด';
+          return;
+        }
+
+        const currentSession = Number(lastResearch.sessionNo || 1);
+        const currentWeek = Number(lastResearch.weekNo || 1);
+        const nextSession = currentSession + 1;
+        const nextWeek = Math.max(1, Math.floor((nextSession - 1) / 2) + 1);
+
+        lastPayloadMeta.innerHTML =
+          `PID=${escapeHtml(lastResearch.pid || 'anon')} • ` +
+          `Study=${escapeHtml(lastResearch.studyId || '(empty)')} • ` +
+          `W${currentWeek} S${currentSession} • ` +
+          `total=${escapeHtml(lastResearch.totalScore ?? 0)}`;
+
+        nextPayloadMeta.innerHTML =
+          `แนะนำ W${nextWeek} S${nextSession} • ` +
+          `PID=${escapeHtml(lastResearch.pid || 'anon')} • ` +
+          `${escapeHtml(lastResearch.mode || 'program')} / ${escapeHtml(lastResearch.type || 'solo')} / ${escapeHtml(lastResearch.run || 'research')}`;
       }
 
       [
@@ -582,9 +702,13 @@
         updatePreview();
       });
 
+      loadLastBtn.addEventListener('click', () => loadFromLastPayload(false));
+      loadNextBtn.addEventListener('click', () => loadFromLastPayload(true));
+
       goDashboardBtn.addEventListener('click', () => {
         const target = new URL('./hydration-v2-dashboard.html', window.location.href);
         target.searchParams.set('hub', hubInput.value.trim() || './hub.html');
+        target.searchParams.set('launcher', './hydration-v2.html');
         window.location.href = target.toString();
       });
 
