@@ -296,6 +296,23 @@
       return u.toString();
     }
 
+    function todayKey(){
+      const d = new Date();
+      return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    }
+
+    function isWarmupDoneToday(pid){
+      try{
+        const day = todayKey();
+        return (
+          localStorage.getItem(`HHA_WARMUP_DONE:nutrition:goodjunk:${pid}:${day}`) === '1' ||
+          localStorage.getItem(`HHA_WARMUP_DONE:nutrition:${pid}:${day}`) === '1'
+        );
+      }catch(_){
+        return false;
+      }
+    }
+
     function commonParams(){
       return {
         pid: clean($('pid').value, 'anon'),
@@ -306,70 +323,112 @@
         hub: clean($('hub').value, './hub.html'),
         sbUrl: clean($('sbUrl').value, qs('sbUrl','')),
         sbAnon: clean($('sbAnon').value, qs('sbAnon','')),
-        room: clean($('room').value, 'GJ-ROOM1')
+        room: clean($('room').value, 'GJ-ROOM1'),
+
+        studyId: clean(qs('studyId','')),
+        conditionGroup: clean(qs('conditionGroup','')),
+        phase: clean(qs('phase','')),
+        log: clean(qs('log','')),
+        ai: clean(qs('ai','')),
+        pro: clean(qs('pro','')),
+        research: clean(qs('research','')),
+        seed: clean(qs('seed','')),
+        run: clean(qs('run','play')),
+        planSeq: clean(qs('planSeq','')),
+        planDay: clean(qs('planDay','')),
+        planSlot: clean(qs('planSlot','')),
+        planMode: clean(qs('planMode','')),
+        planSlots: clean(qs('planSlots','')),
+        planIndex: clean(qs('planIndex','')),
+        cdnext: clean(qs('cdnext',''))
       };
+    }
+
+    function buildRunUrl(modeValue, p){
+      return buildUrl('./vr-goodjunk/goodjunk-vr.html', {
+        mode: modeValue,
+        room: modeValue === 'solo' ? undefined : p.room,
+        pid: p.pid,
+        nick: p.nick,
+        diff: p.diff,
+        time: p.time,
+        view: p.view,
+        hub: p.hub,
+        sbUrl: p.sbUrl,
+        sbAnon: p.sbAnon,
+
+        studyId: p.studyId,
+        conditionGroup: p.conditionGroup,
+        phase: p.phase,
+        log: p.log,
+        ai: p.ai,
+        pro: p.pro,
+        research: p.research,
+        seed: p.seed,
+        run: p.run,
+        planSeq: p.planSeq,
+        planDay: p.planDay,
+        planSlot: p.planSlot,
+        planMode: p.planMode,
+        planSlots: p.planSlots,
+        planIndex: p.planIndex,
+        cdnext: p.cdnext
+      });
+    }
+
+    function buildWarmupUrl(nextRun, p){
+      return buildUrl('./warmup-gate.html', {
+        phase: 'warmup',
+        gatePhase: 'warmup',
+        mode: 'warmup',
+        cat: 'nutrition',
+        zone: 'nutrition',
+        game: 'goodjunk',
+        pid: p.pid,
+        diff: p.diff,
+        time: p.time,
+        view: p.view,
+        hub: p.hub,
+        next: nextRun,
+
+        studyId: p.studyId,
+        conditionGroup: p.conditionGroup,
+        log: p.log,
+        ai: p.ai,
+        pro: p.pro,
+        research: p.research,
+        seed: p.seed,
+        run: p.run,
+        planSeq: p.planSeq,
+        planDay: p.planDay,
+        planSlot: p.planSlot,
+        planMode: p.planMode,
+        planSlots: p.planSlots,
+        planIndex: p.planIndex,
+        cdnext: p.cdnext
+      });
+    }
+
+    function goWithDailyWarmup(modeValue){
+      const p = commonParams();
+      const nextRun = buildRunUrl(modeValue, p);
+
+      if(isWarmupDoneToday(p.pid)){
+        location.href = nextRun;
+        return;
+      }
+
+      location.href = buildWarmupUrl(nextRun, p);
     }
 
     $('btnToggleTeacher').onclick = ()=>{
       $('teacherForm').classList.toggle('show');
     };
 
-    $('btnSolo').onclick = ()=>{
-      const p = commonParams();
-      location.href = buildUrl('./vr-goodjunk/goodjunk-vr.html', {
-        mode:'solo',
-        pid:p.pid,
-        nick:p.nick,
-        diff:p.diff,
-        time:p.time,
-        view:p.view,
-        hub:p.hub
-      });
-    };
-
-    $('btnRace').onclick = ()=>{
-      const p = commonParams();
-      location.href = buildUrl('./vr-goodjunk/goodjunk-vr.html', {
-        mode:'race',
-        room:p.room,
-        pid:p.pid,
-        nick:p.nick,
-        diff:p.diff,
-        time:p.time,
-        view:p.view,
-        hub:p.hub
-      });
-    };
-
-    $('btnBattle').onclick = ()=>{
-      const p = commonParams();
-      location.href = buildUrl('./vr-goodjunk/goodjunk-vr.html', {
-        mode:'battle',
-        room:p.room,
-        pid:p.pid,
-        nick:p.nick,
-        diff:p.diff,
-        time:p.time,
-        view:p.view,
-        hub:p.hub,
-        sbUrl:p.sbUrl,
-        sbAnon:p.sbAnon
-      });
-    };
-
-    $('btnCoop').onclick = ()=>{
-      const p = commonParams();
-      location.href = buildUrl('./vr-goodjunk/goodjunk-vr.html', {
-        mode:'coop',
-        room:p.room,
-        pid:p.pid,
-        nick:p.nick,
-        diff:p.diff,
-        time:p.time,
-        view:p.view,
-        hub:p.hub
-      });
-    };
+    $('btnSolo').onclick = ()=> goWithDailyWarmup('solo');
+    $('btnRace').onclick = ()=> goWithDailyWarmup('race');
+    $('btnBattle').onclick = ()=> goWithDailyWarmup('battle');
+    $('btnCoop').onclick = ()=> goWithDailyWarmup('coop');
 
     $('btnBoard').onclick = ()=>{
       const p = commonParams();
@@ -399,6 +458,10 @@
     $('hub').value    = qs('hub','./hub.html');
     $('sbUrl').value  = qs('sbUrl','');
     $('sbAnon').value = qs('sbAnon','');
+
+    if(qs('diff','')) $('diff').value = qs('diff','normal');
+    if(qs('time','')) $('time').value = qs('time','80');
+    if(qs('view','')) $('view').value = qs('view','mobile');
   </script>
 </body>
 </html>
