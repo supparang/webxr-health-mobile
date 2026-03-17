@@ -3,76 +3,146 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • GoodJunk Run</title>
+  <title>HeroHealth • GoodJunk Phase Boss</title>
   <meta name="color-scheme" content="dark light" />
   <link rel="icon" href="../favicon.ico" />
 
   <style>
     :root{
-      --bg1:#020617; --bg2:#0b1226; --panel2:rgba(15,23,42,.94); --stroke:rgba(148,163,184,.18);
-      --text:#e5e7eb; --muted:#94a3b8; --shadow:0 24px 64px rgba(0,0,0,.32);
-      --sat: env(safe-area-inset-top, 0px); --sar: env(safe-area-inset-right, 0px);
-      --sab: env(safe-area-inset-bottom, 0px); --sal: env(safe-area-inset-left, 0px);
+      --bg1:#020617;
+      --bg2:#0b1226;
+      --text:#e5e7eb;
+      --muted:#94a3b8;
+      --stroke:rgba(148,163,184,.18);
+      --panel:rgba(2,6,23,.62);
+      --shadow:0 24px 64px rgba(0,0,0,.32);
+
+      --sat: env(safe-area-inset-top, 0px);
+      --sar: env(safe-area-inset-right, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
     }
-    *{box-sizing:border-box}
+
+    *{ box-sizing:border-box; }
+
     html,body{
-      margin:0; min-height:100%; background:radial-gradient(circle at top, #172554 0%, transparent 34%), linear-gradient(180deg,var(--bg2),var(--bg1));
-      color:var(--text); font-family:system-ui,-apple-system,"Segoe UI",sans-serif; overflow:hidden
+      margin:0;
+      min-height:100%;
+      background:
+        radial-gradient(circle at top, #172554 0%, transparent 34%),
+        linear-gradient(180deg,var(--bg2),var(--bg1));
+      color:var(--text);
+      font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
+      overflow:hidden;
     }
-    #app{position:relative;width:100vw;height:100vh;overflow:hidden}
-    #gameMount{position:absolute;inset:0;z-index:1;overflow:hidden}
-    #raceRunMeta{
-      position:fixed;top:calc(10px + var(--sat));left:calc(10px + var(--sal));z-index:50;display:flex;gap:8px;flex-wrap:wrap;pointer-events:none
+
+    body{
+      min-height:100dvh;
     }
-    .meta-pill{
-      display:inline-flex;align-items:center;gap:6px;padding:8px 10px;border-radius:999px;border:1px solid var(--stroke);
-      background:rgba(2,6,23,.62);backdrop-filter:blur(8px);color:#cbd5e1;font-size:12px;font-weight:800;box-shadow:0 10px 24px rgba(0,0,0,.18)
+
+    #app{
+      position:relative;
+      width:100vw;
+      height:100dvh;
+      overflow:hidden;
+      isolation:isolate;
     }
-    .meta-pill strong{color:#e5e7eb;font-weight:900}
-    .overlay{
-      position:fixed;inset:0;z-index:9999;display:grid;place-items:center;
-      padding:calc(16px + var(--sat)) calc(16px + var(--sar)) calc(16px + var(--sab)) calc(16px + var(--sal));
-      background:rgba(2,6,23,.76);backdrop-filter:blur(8px)
+
+    #gameMount{
+      position:absolute;
+      inset:0;
+      z-index:1;
+      overflow:hidden;
     }
-    .overlay[hidden]{display:none!important}
-    .overlay-card{
-      width:min(94vw,760px);max-height:88vh;overflow:auto;background:var(--panel2);border:1px solid var(--stroke);
-      border-radius:22px;padding:20px 18px 18px;color:var(--text);box-shadow:var(--shadow)
+
+    .boot-shell{
+      position:absolute;
+      inset:0;
+      display:grid;
+      place-items:center;
+      padding:
+        calc(20px + var(--sat))
+        calc(16px + var(--sar))
+        calc(20px + var(--sab))
+        calc(16px + var(--sal));
+      z-index:0;
+      pointer-events:none;
     }
-    .overlay-kicker{
-      display:inline-flex;align-items:center;gap:8px;padding:6px 12px;border-radius:999px;background:rgba(56,189,248,.12);
-      border:1px solid rgba(56,189,248,.25);color:#7dd3fc;font-weight:900;font-size:13px;margin-bottom:12px
+
+    .boot-card{
+      width:min(92vw,520px);
+      border:1px solid var(--stroke);
+      border-radius:24px;
+      background:rgba(15,23,42,.84);
+      backdrop-filter:blur(10px);
+      box-shadow:var(--shadow);
+      padding:20px 18px;
+      text-align:center;
     }
-    .overlay-title{margin:0 0 8px;font-size:30px;line-height:1.1}
-    .overlay-sub{margin:0;color:var(--muted);font-size:14px;line-height:1.6}
-    .count-box{font-size:54px;line-height:1;font-weight:900;letter-spacing:.02em;min-height:56px;margin:12px 0 6px;text-align:center}
-    .count-note{color:var(--muted);font-size:13px;text-align:center}
-    .result-top{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}
-    .result-badge{
-      min-width:110px;text-align:center;font-weight:900;font-size:18px;padding:12px 14px;border-radius:18px;
-      background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.25);color:#86efac
+
+    .boot-kicker{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:6px 12px;
+      border-radius:999px;
+      background:rgba(56,189,248,.12);
+      border:1px solid rgba(56,189,248,.24);
+      color:#7dd3fc;
+      font-size:13px;
+      font-weight:900;
+      margin-bottom:12px;
     }
-    .result-table{margin-top:16px;border:1px solid var(--stroke);border-radius:18px;overflow:hidden;background:rgba(2,6,23,.45)}
-    .result-head,.result-row{display:grid;grid-template-columns:72px 1.3fr .9fr .8fr .8fr;gap:10px;padding:12px 14px;align-items:center}
-    .result-head{font-weight:900;color:#cbd5e1;background:rgba(255,255,255,.04)}
-    .result-row{border-top:1px solid rgba(148,163,184,.08)}
-    .result-row.is-me{background:rgba(56,189,248,.10);border-top-color:rgba(56,189,248,.25)}
-    .result-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}
-    .btn{appearance:none;border:0;cursor:pointer;border-radius:14px;padding:12px 16px;font-weight:900;font-size:14px;transition:.12s ease}
-    .btn:hover{transform:translateY(-1px);filter:brightness(1.04)} .btn:active{transform:translateY(0)} .btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
-    .btn-blue{background:#38bdf8;color:#082f49}.btn-good{background:#22c55e;color:#052e16}.btn-warn{background:#f59e0b;color:#3b1d00}
-    .btn-ghost{background:rgba(255,255,255,.06);color:#e5e7eb;border:1px solid var(--stroke)}
-    #raceRunMessage{
-      position:fixed;right:calc(10px + var(--sar));bottom:calc(10px + var(--sab));z-index:60;min-width:220px;max-width:min(92vw,420px);
-      padding:12px 14px;border-radius:16px;background:rgba(2,6,23,.78);border:1px solid var(--stroke);backdrop-filter:blur(8px);
-      color:#cbd5e1;font-size:13px;line-height:1.55;box-shadow:0 10px 24px rgba(0,0,0,.18);display:none
+
+    .boot-title{
+      margin:0 0 8px;
+      font-size:clamp(26px, 5vw, 38px);
+      line-height:1.08;
+      font-weight:900;
     }
-    #raceRunMessage.show{display:block}
+
+    .boot-sub{
+      margin:0;
+      color:var(--muted);
+      font-size:14px;
+      line-height:1.65;
+    }
+
+    .boot-meta{
+      display:flex;
+      justify-content:center;
+      gap:8px;
+      flex-wrap:wrap;
+      margin-top:14px;
+    }
+
+    .boot-pill{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      padding:8px 10px;
+      border-radius:999px;
+      border:1px solid var(--stroke);
+      background:var(--panel);
+      color:#cbd5e1;
+      font-size:12px;
+      font-weight:800;
+    }
+
+    .boot-pill strong{
+      color:#e5e7eb;
+      font-weight:900;
+    }
+
     @media (max-width:640px){
-      .overlay-card{width:min(96vw,760px);padding:18px 14px 16px;border-radius:18px}
-      .overlay-title{font-size:26px}.count-box{font-size:46px}
-      .result-head,.result-row{grid-template-columns:62px 1.25fr .85fr .75fr .75fr;gap:8px;padding:10px 12px;font-size:13px}
-      .result-actions .btn{flex:1 1 calc(50% - 10px)}
+      .boot-card{
+        width:min(94vw,520px);
+        padding:18px 14px;
+        border-radius:20px;
+      }
+      .boot-sub{
+        font-size:13px;
+      }
     }
   </style>
 </head>
@@ -80,55 +150,21 @@
   <div id="app">
     <div id="gameMount"></div>
 
-    <div id="raceRunMeta" aria-hidden="true">
-      <div class="meta-pill">MODE <strong id="metaMode">-</strong></div>
-      <div class="meta-pill">ROOM <strong id="metaRoom">-</strong></div>
-      <div class="meta-pill">DIFF <strong id="metaDiff">-</strong></div>
-      <div class="meta-pill">TIME <strong id="metaTime">-</strong></div>
-    </div>
-
-    <div id="raceGate" class="overlay" hidden>
-      <div class="overlay-card" style="width:min(92vw,460px);max-height:none;">
-        <div class="overlay-kicker">RACE MODE</div>
-        <h2 class="overlay-title">กำลังรอเริ่มการแข่งขัน</h2>
-        <p id="raceGateText" class="overlay-sub">รอสัญญาณเริ่มจากห้องแข่ง...</p>
-        <div id="raceGateCount" class="count-box">-</div>
-        <div id="raceGateSub" class="count-note">เกมจะเริ่มพร้อมกันเมื่อถึงเวลา startAt</div>
-      </div>
-    </div>
-
-    <div id="raceResult" class="overlay" hidden>
-      <div class="overlay-card">
-        <div class="result-top">
-          <div>
-            <div class="overlay-kicker">RACE RESULT</div>
-            <h2 class="overlay-title">สรุปผลการแข่งขัน</h2>
-            <p id="raceResultSub" class="overlay-sub">เปรียบเทียบคะแนนของผู้เล่นทั้งหมด</p>
-          </div>
-          <div id="raceResultBadge" class="result-badge">-</div>
-        </div>
-
-        <div class="result-table">
-          <div class="result-head">
-            <div>อันดับ</div><div>ผู้เล่น</div><div>คะแนน</div><div>Miss</div><div>Streak</div>
-          </div>
-          <div id="raceResultRows"></div>
-        </div>
-
-        <div id="raceResultHint" style="margin-top:12px;color:var(--muted);font-size:13px;">
-          เรียงอันดับตามคะแนนมากที่สุด > miss น้อยกว่า > streak สูงกว่า > DNF อยู่ท้ายสุด
-        </div>
-
-        <div class="result-actions">
-          <button id="btnRaceRematch" class="btn btn-blue" type="button">เล่นใหม่</button>
-          <button id="btnRaceBackLobby" class="btn btn-good" type="button">กลับ Lobby</button>
-          <button id="btnRaceExport" class="btn btn-warn" type="button">Export JSON</button>
-          <button id="btnRaceBackHub" class="btn btn-ghost" type="button">กลับ HUB</button>
+    <div class="boot-shell" aria-hidden="true">
+      <div class="boot-card">
+        <div class="boot-kicker">SOLO BOSS MODE</div>
+        <h1 class="boot-title">GoodJunk Phase Boss</h1>
+        <p class="boot-sub">
+          เก็บอาหารดี • หลีกเลี่ยง junk • ผ่าน Phase 1 และ Phase 2
+          เพื่อไปสู้กับ <strong>Junk King</strong>
+        </p>
+        <div class="boot-meta">
+          <div class="boot-pill">MODE <strong id="bootMode">solo</strong></div>
+          <div class="boot-pill">DIFF <strong id="bootDiff">normal</strong></div>
+          <div class="boot-pill">TIME <strong id="bootTime">150</strong></div>
         </div>
       </div>
     </div>
-
-    <div id="raceRunMessage" role="status" aria-live="polite"></div>
   </div>
 
   <script>
@@ -139,12 +175,12 @@
         pid: q.get('pid') || 'anon',
         name: q.get('name') || '',
         studyId: q.get('studyId') || '',
-        roomId: q.get('roomId') || '',
-        mode: (q.get('mode') || 'solo').toLowerCase(),
+        roomId: '',
+        mode: 'solo',
         diff: q.get('diff') || 'normal',
-        time: q.get('time') || '120',
+        time: q.get('time') || '150',
         seed: q.get('seed') || '',
-        startAt: Number(q.get('startAt') || 0) || 0,
+        startAt: 0,
         hub: q.get('hub') || '../hub.html',
         view: q.get('view') || 'mobile',
         run: q.get('run') || 'play',
@@ -153,49 +189,18 @@
 
       window.__GJ_RUN_CTX__ = runCtx;
 
-      document.getElementById('metaMode').textContent = runCtx.mode || '-';
-      document.getElementById('metaRoom').textContent = runCtx.roomId || '-';
-      document.getElementById('metaDiff').textContent = runCtx.diff || '-';
-      document.getElementById('metaTime').textContent = runCtx.time || '-';
+      const modeEl = document.getElementById('bootMode');
+      const diffEl = document.getElementById('bootDiff');
+      const timeEl = document.getElementById('bootTime');
 
-      const msgEl = document.getElementById('raceRunMessage');
+      if (modeEl) modeEl.textContent = runCtx.mode || 'solo';
+      if (diffEl) diffEl.textContent = runCtx.diff || 'normal';
+      if (timeEl) timeEl.textContent = runCtx.time || '150';
 
-      window.__gjShowRunMessage = function(message){
-        if (!msgEl) return;
-        msgEl.textContent = String(message || '');
-        msgEl.classList.toggle('show', !!message);
-      };
-
-      window.__gjHideRunMessage = function(){
-        if (!msgEl) return;
-        msgEl.textContent = '';
-        msgEl.classList.remove('show');
-      };
-
-      window.__gjRaceUi = {
-        getCtx() {
-          return runCtx;
-        },
-        showGate(msg = 'กำลังรอเริ่ม', count = '-', sub = '') {
-          const wrap = document.getElementById('raceGate');
-          const text = document.getElementById('raceGateText');
-          const num  = document.getElementById('raceGateCount');
-          const subEl = document.getElementById('raceGateSub');
-
-          if (wrap) wrap.hidden = false;
-          if (text) text.textContent = msg;
-          if (num) num.textContent = count;
-          if (subEl) subEl.textContent = sub || 'เกมจะเริ่มพร้อมกันเมื่อถึงเวลา startAt';
-        },
-        hideGate() {
-          const wrap = document.getElementById('raceGate');
-          if (wrap) wrap.hidden = true;
-        }
-      };
+      console.log('[GJ-SOLO-ENTRY] goodjunk-vr.html loaded', runCtx);
     })();
   </script>
 
-  <script src="../firebase-config.js"></script>
-  <script type="module" src="./goodjunk.safe.js?v=20260318a-auto-enter-run-fix"></script>
+  <script type="module" src="./goodjunk.safe.phaseboss.js?v=20260318-goodjunk-phaseboss-debug-ready-bossreturn1"></script>
 </body>
 </html>
