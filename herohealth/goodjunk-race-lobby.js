@@ -17,7 +17,7 @@ const ctx = {
   )
 };
 
-const ROOM_PATH = `raceRooms/goodjunk/${ctx.roomId}`;
+const ROOM_PATH = `hha-battle/goodjunk/rooms/${ctx.roomId}`;
 const PRESENCE_HEARTBEAT_MS = 4000;
 const DISCONNECT_PRUNE_MS = 15000;
 
