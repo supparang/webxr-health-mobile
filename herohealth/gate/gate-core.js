@@ -1,5 +1,5 @@
 // === /herohealth/gate/gate-core.js ===
-// FULL PATCH v20260316-GATE-CORE-CANONICAL-FLOW-SUMMARY-FIX
+// FULL PATCH v20260317-GATE-CORE-CANONICAL-FLOW-SUMMARY-BODY-DEDUPE-FIX
 
 import {
   buildCtx,
@@ -8,7 +8,7 @@ import {
   saveLastSummary
 } from './gate-common.js?v=20260314a';
 
-import { mountSummaryLayer, mountToast } from './gate-summary.js?v=20260314-GATE-SUMMARY-TOAST-ROOT-HARDENED';
+import { mountSummaryLayer, mountToast } from './gate-summary.js?v=20260317-GATE-SUMMARY-TOAST-DEDUPE-HARDENED';
 import { createGateLogger } from './gate-logger.js?v=20260313b-GATE-LOGGER-PUSH-FIX';
 import {
   getGameMeta,
@@ -214,6 +214,11 @@ function renderAlreadyDoneCard(app, ctx, nextUrl){
           <div style="font-size:12px;color:#94a3b8;font-weight:900;">ปลายทาง</div>
           <div style="font-size:14px;font-weight:900;margin-top:4px;word-break:break-word;">${esc(nextUrl)}</div>
         </div>
+
+        <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap;justify-content:center;">
+          <button class="btn btn-ghost" id="gateSkipBackBtn" type="button">กลับ HUB</button>
+          <button class="btn btn-primary" id="gateSkipContinueBtn" type="button">ไปต่อ</button>
+        </div>
       </section>
     </div>
   `;
@@ -366,8 +371,8 @@ async function runGate(app){
 
   renderShell(app, ctx);
 
-  const summaryUi = typeof mountSummaryLayer === 'function' ? mountSummaryLayer(app) : null;
-  const toastUi = typeof mountToast === 'function' ? mountToast(app) : null;
+  const summaryUi = typeof mountSummaryLayer === 'function' ? mountSummaryLayer(document.body) : null;
+  const toastUi = typeof mountToast === 'function' ? mountToast(document.body) : null;
 
   const api = makeApi(app, logger);
   const dailyKeyStateEl = app.querySelector('#gateDailyState');
@@ -397,6 +402,17 @@ async function runGate(app){
   if(alreadyDone){
     renderAlreadyDoneCard(app, ctx, nextUrl);
 
+    const skipBackBtn = app.querySelector('#gateSkipBackBtn');
+    const skipContinueBtn = app.querySelector('#gateSkipContinueBtn');
+
+    skipBackBtn?.addEventListener('click', ()=>{
+      window.location.href = ctx.hub || '../hub.html';
+    });
+
+    skipContinueBtn?.addEventListener('click', ()=>{
+      window.location.href = nextUrl;
+    });
+
     try{
       logger?.push?.('gate_already_done', {
         game: ctx.game,
@@ -419,6 +435,10 @@ async function runGate(app){
 
     try{
       instance?.destroy?.();
+    }catch(_){}
+
+    try{
+      mountEl?.replaceChildren();
     }catch(_){}
 
     const summary = {
