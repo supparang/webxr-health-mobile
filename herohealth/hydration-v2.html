@@ -46,17 +46,17 @@
         calc(16px + var(--sal));
     }
     .wrap{
-      max-width:1100px;
+      max-width:1200px;
       margin:0 auto;
+      display:grid;
+      gap:18px;
     }
     .hero{
       display:grid;
-      grid-template-columns:1.15fr .85fr;
+      grid-template-columns:1.1fr .9fr;
       gap:18px;
-      align-items:stretch;
     }
-    .hero-card,
-    .panel{
+    .card{
       background:var(--panel);
       border:1px solid var(--stroke);
       border-radius:var(--radius);
@@ -65,7 +65,6 @@
     }
     .hero-card{
       padding:24px;
-      min-height:280px;
       position:relative;
       overflow:hidden;
     }
@@ -73,7 +72,7 @@
       content:"💧";
       position:absolute;
       right:18px;
-      bottom:10px;
+      bottom:8px;
       font-size:100px;
       opacity:.10;
       pointer-events:none;
@@ -93,8 +92,8 @@
     }
     h1{
       margin:14px 0 10px;
-      font-size:clamp(30px, 4vw, 48px);
-      line-height:1.02;
+      font-size:clamp(30px, 4vw, 46px);
+      line-height:1.04;
     }
     .lead{
       margin:0;
@@ -103,7 +102,7 @@
       line-height:1.7;
       max-width:58ch;
     }
-    .bullet-row{
+    .pill-row{
       display:flex;
       flex-wrap:wrap;
       gap:10px;
@@ -118,99 +117,118 @@
       color:#dff4ff;
       font-weight:700;
     }
-    .panel{
+    .side{
       padding:18px;
       display:flex;
       flex-direction:column;
+      gap:14px;
       justify-content:space-between;
     }
-    .panel h2{
-      margin:0 0 10px;
-      font-size:20px;
+    .side h2{
+      margin:0 0 8px;
+      font-size:22px;
     }
-    .panel p{
+    .side p{
       margin:0;
       color:var(--muted);
       line-height:1.65;
     }
+    .quick-grid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:10px;
+      margin-top:14px;
+    }
+    .quick-btn{
+      appearance:none;
+      border:none;
+      cursor:pointer;
+      min-height:56px;
+      padding:12px 14px;
+      border-radius:18px;
+      background:linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.05));
+      color:var(--text);
+      border:1px solid var(--stroke);
+      text-align:left;
+      font-size:15px;
+      font-weight:900;
+      transition:transform .16s ease, border-color .16s ease, background .16s ease;
+    }
+    .quick-btn:hover,
+    .quick-btn:focus-visible{
+      transform:translateY(-2px);
+      border-color:rgba(56,189,248,.35);
+      background:linear-gradient(180deg, rgba(56,189,248,.16), rgba(255,255,255,.06));
+    }
+    .quick-sub{
+      display:block;
+      color:var(--muted);
+      font-size:12px;
+      font-weight:700;
+      margin-top:4px;
+    }
+    .form-card{
+      padding:20px;
+    }
+    .form-head{
+      display:flex;
+      justify-content:space-between;
+      gap:12px;
+      align-items:flex-start;
+      margin-bottom:14px;
+    }
+    .form-head h2{
+      margin:0;
+      font-size:24px;
+    }
+    .form-head p{
+      margin:6px 0 0;
+      color:var(--muted);
+      line-height:1.6;
+    }
+    .badge{
+      min-height:38px;
+      padding:9px 12px;
+      border-radius:999px;
+      background:rgba(255,255,255,.06);
+      border:1px solid rgba(255,255,255,.10);
+      color:#def4ff;
+      font-size:13px;
+      font-weight:900;
+      white-space:nowrap;
+    }
     .grid{
       display:grid;
       grid-template-columns:repeat(2,minmax(0,1fr));
-      gap:16px;
-      margin-top:18px;
+      gap:14px;
     }
-    .mode-card{
-      position:relative;
-      text-align:left;
-      border:none;
-      outline:none;
-      cursor:pointer;
-      width:100%;
-      padding:18px;
-      border-radius:22px;
-      background:
-        linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.05));
-      color:var(--text);
-      border:1px solid var(--stroke);
-      box-shadow:0 14px 28px rgba(0,0,0,.18);
-      transition:transform .16s ease, border-color .16s ease, background .16s ease;
-    }
-    .mode-card:hover,
-    .mode-card:focus-visible{
-      transform:translateY(-2px);
-      border-color:rgba(56,189,248,.35);
-      background:
-        linear-gradient(180deg, rgba(56,189,248,.16), rgba(255,255,255,.06));
-    }
-    .mode-top{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:12px;
-      margin-bottom:8px;
-    }
-    .mode-title{
-      font-size:20px;
-      font-weight:900;
-      line-height:1.15;
-    }
-    .tag{
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      min-width:68px;
-      padding:8px 10px;
-      border-radius:999px;
-      font-size:12px;
-      font-weight:900;
-      letter-spacing:.02em;
-    }
-    .tag.play{ background:rgba(34,197,94,.18); color:#dbffe7; }
-    .tag.research{ background:rgba(56,189,248,.18); color:#dff8ff; }
-    .mode-sub{
-      font-size:14px;
-      color:var(--muted);
-      line-height:1.6;
-      margin-bottom:14px;
-    }
-    .meta{
-      display:flex;
-      flex-wrap:wrap;
+    .field{
+      display:grid;
       gap:8px;
     }
-    .meta span{
-      font-size:12px;
-      font-weight:800;
-      color:#dcefff;
-      padding:7px 10px;
-      border-radius:999px;
-      background:rgba(255,255,255,.06);
-      border:1px solid rgba(255,255,255,.08);
+    .field.full{
+      grid-column:1 / -1;
     }
-    .footer-actions{
+    label{
+      font-size:13px;
+      color:#dff2ff;
+      font-weight:900;
+    }
+    input, select{
+      width:100%;
+      min-height:48px;
+      padding:12px 14px;
+      border-radius:14px;
+      border:1px solid rgba(255,255,255,.10);
+      background:rgba(255,255,255,.06);
+      color:var(--text);
+      font:inherit;
+      outline:none;
+    }
+    input::placeholder{ color:#a9c7db; }
+    .actions{
       display:flex;
       flex-wrap:wrap;
-      align-items:center;
       gap:12px;
       margin-top:18px;
     }
@@ -219,12 +237,12 @@
       border:none;
       outline:none;
       cursor:pointer;
-      min-height:46px;
+      min-height:48px;
       padding:12px 18px;
-      border-radius:14px;
+      border-radius:16px;
       font-size:15px;
       font-weight:900;
-      transition:transform .16s ease, opacity .16s ease, background .16s ease;
+      transition:transform .16s ease, opacity .16s ease;
     }
     .btn:hover,
     .btn:focus-visible{ transform:translateY(-1px); }
@@ -237,13 +255,11 @@
       color:var(--text);
       border:1px solid var(--stroke);
     }
-    .small-note{
-      margin-top:14px;
-      color:var(--muted);
-      font-size:13px;
-      line-height:1.6;
+    .btn.warn{
+      background:linear-gradient(180deg, #ffd36d, #f5b531);
+      color:#3c2800;
     }
-    .pass{
+    .preview{
       margin-top:16px;
       padding:14px 16px;
       border-radius:18px;
@@ -251,10 +267,11 @@
       border:1px dashed rgba(255,255,255,.12);
       color:#d8effc;
       font-size:14px;
-      line-height:1.6;
+      line-height:1.7;
+      word-break:break-word;
     }
     .status{
-      margin-top:18px;
+      margin-top:16px;
       padding:14px 16px;
       border-radius:16px;
       background:rgba(34,197,94,.10);
@@ -265,141 +282,234 @@
     }
     .status.show{ display:block; }
 
-    @media (max-width: 900px){
+    @media (max-width: 980px){
       .hero{ grid-template-columns:1fr; }
     }
-    @media (max-width: 720px){
-      .grid{ grid-template-columns:1fr; }
-      .hero-card{ padding:20px; }
+    @media (max-width: 760px){
+      .grid,
+      .quick-grid{ grid-template-columns:1fr; }
+      .form-head{ flex-direction:column; }
     }
   </style>
 </head>
 <body>
   <div class="wrap">
     <section class="hero">
-      <article class="hero-card">
-        <div class="eyebrow">💧 Hydration V2 • Abstract-aligned starter</div>
-        <h1>Hydration VR รุ่นใหม่<br/>แยกโฟลเดอร์ใหม่</h1>
+      <article class="card hero-card">
+        <div class="eyebrow">💧 Hydration V2 • Program / Research Launcher</div>
+        <h1>Hydration VR รุ่นใหม่<br/>พร้อม Session / Week</h1>
         <p class="lead">
-          เวอร์ชันนี้แยกจากของเดิม เพื่อให้เพิ่มองค์ประกอบตาม abstract ได้สะอาดกว่าเดิม
-          เช่น Evaluate, Program Mode, และ flow การเรียนรู้หลังเล่น โดยยังไม่ทับไฟล์เก่า
+          ใช้หน้านี้สำหรับเข้าเล่นแบบ Quick หรือ Program โดยกำหนด
+          mode, team, run, session, week และข้อมูลวิจัยได้ตรง ๆ ก่อนส่งต่อเข้า
+          <strong>vr-hydration-v2</strong>
         </p>
-        <div class="bullet-row">
+        <div class="pill-row">
           <span class="pill">Quick / Program</span>
           <span class="pill">Solo / Team</span>
-          <span class="pill">Summary + Evaluate</span>
-          <span class="pill">ต่อ Create/Scenarios ได้</span>
-        </div>
-        <div class="small-note" id="passNote">
-          ระบบจะส่ง query สำคัญต่อไปให้เอง เช่น <strong>pid</strong>, <strong>studyId</strong>, <strong>seed</strong>, <strong>hub</strong>
+          <span class="pill">Play / Research</span>
+          <span class="pill">Session / Week</span>
+          <span class="pill">Teacher Dashboard</span>
         </div>
       </article>
 
-      <aside class="panel">
+      <aside class="card side">
         <div>
-          <h2>ชุดนี้ทำอะไรได้แล้ว</h2>
-          <p>
-            เข้า launcher → run page → เล่นรอบหลัก → summary → evaluate ได้จริง
-            เหมาะสำหรับใช้เป็นฐานของ Hydration V2 ก่อนค่อยเติม Create / Rewards / Scenarios / Social / Research รอบถัดไป
-          </p>
-          <div class="pass" id="queryPreview">
-            กำลังอ่าน query ปัจจุบัน...
+          <h2>ทางเข้าแบบเร็ว</h2>
+          <p>เหมาะสำหรับกดทดสอบ flow ที่คุยกันไว้โดยไม่ต้องกรอกทุกช่อง</p>
+          <div class="quick-grid">
+            <button class="quick-btn" type="button" data-preset="quick-solo">
+              Quick Solo
+              <span class="quick-sub">play • quick • solo</span>
+            </button>
+            <button class="quick-btn" type="button" data-preset="quick-team">
+              Quick Team
+              <span class="quick-sub">play • quick • team</span>
+            </button>
+            <button class="quick-btn" type="button" data-preset="program-solo">
+              Program Solo
+              <span class="quick-sub">research • program • solo</span>
+            </button>
+            <button class="quick-btn" type="button" data-preset="program-team">
+              Program Team
+              <span class="quick-sub">research • program • team</span>
+            </button>
           </div>
         </div>
 
-        <div class="footer-actions">
-          <button class="btn ghost" id="backHubBtn" type="button">← กลับ HUB</button>
-          <button class="btn primary" id="startDefaultBtn" type="button">เริ่มแบบ Quick Solo</button>
+        <div class="actions">
+          <button class="btn ghost" id="goDashboardBtn" type="button">เปิด Dashboard</button>
+          <button class="btn ghost" id="backHubBtn" type="button">กลับ HUB</button>
         </div>
-
-        <div class="status" id="statusBox"></div>
       </aside>
     </section>
 
-    <section class="grid" aria-label="เลือกโหมดเล่น">
-      <button class="mode-card" type="button" data-mode="quick" data-type="solo" data-run="play">
-        <div class="mode-top">
-          <div class="mode-title">Quick Solo</div>
-          <span class="tag play">PLAY</span>
+    <section class="card form-card">
+      <div class="form-head">
+        <div>
+          <h2>กำหนดค่าก่อนเข้าเกม</h2>
+          <p>ค่าพวกนี้จะถูกส่งต่อเป็น query string ไปที่ run page</p>
         </div>
-        <div class="mode-sub">เล่นสั้น เน้นเก็บน้ำและจบด้วย Evaluate 1 ชุด</div>
-        <div class="meta">
-          <span>เดี่ยว</span>
-          <span>รอบสั้น</span>
-          <span>พร้อมทดสอบ</span>
-        </div>
-      </button>
+        <div class="badge" id="flowBadge">Starter Flow</div>
+      </div>
 
-      <button class="mode-card" type="button" data-mode="quick" data-type="team" data-run="play">
-        <div class="mode-top">
-          <div class="mode-title">Quick Team</div>
-          <span class="tag play">PLAY</span>
+      <div class="grid">
+        <div class="field">
+          <label for="modeInput">Mode</label>
+          <select id="modeInput">
+            <option value="quick">quick</option>
+            <option value="program">program</option>
+          </select>
         </div>
-        <div class="mode-sub">เล่นสั้นแบบทีม พร้อมคำนวณ contribution เบื้องต้น</div>
-        <div class="meta">
-          <span>ทีม</span>
-          <span>team badge</span>
-          <span>starter social</span>
-        </div>
-      </button>
 
-      <button class="mode-card" type="button" data-mode="program" data-type="solo" data-run="research">
-        <div class="mode-top">
-          <div class="mode-title">Program Solo</div>
-          <span class="tag research">RESEARCH</span>
+        <div class="field">
+          <label for="typeInput">Type</label>
+          <select id="typeInput">
+            <option value="solo">solo</option>
+            <option value="team">team</option>
+          </select>
         </div>
-        <div class="mode-sub">ฐานสำหรับ intervention mode แบบเดี่ยว พร้อม seed และ summary log</div>
-        <div class="meta">
-          <span>เดี่ยว</span>
-          <span>program scaffold</span>
-          <span>seeded</span>
-        </div>
-      </button>
 
-      <button class="mode-card" type="button" data-mode="program" data-type="team" data-run="research">
-        <div class="mode-top">
-          <div class="mode-title">Program Team</div>
-          <span class="tag research">RESEARCH</span>
+        <div class="field">
+          <label for="runInput">Run</label>
+          <select id="runInput">
+            <option value="play">play</option>
+            <option value="research">research</option>
+          </select>
         </div>
-        <div class="mode-sub">ฐานสำหรับ session แบบทีม เตรียมต่อ social และ research module</div>
-        <div class="meta">
-          <span>ทีม</span>
-          <span>program scaffold</span>
-          <span>session-ready</span>
+
+        <div class="field">
+          <label for="diffInput">Difficulty</label>
+          <select id="diffInput">
+            <option value="normal">normal</option>
+            <option value="easy">easy</option>
+            <option value="hard">hard</option>
+          </select>
         </div>
-      </button>
+
+        <div class="field">
+          <label for="sessionInput">Session</label>
+          <input id="sessionInput" type="number" min="1" step="1" value="1" />
+        </div>
+
+        <div class="field">
+          <label for="weekInput">Week</label>
+          <input id="weekInput" type="number" min="1" step="1" value="1" />
+        </div>
+
+        <div class="field">
+          <label for="pidInput">PID</label>
+          <input id="pidInput" type="text" placeholder="เช่น S001" />
+        </div>
+
+        <div class="field">
+          <label for="studyIdInput">Study ID</label>
+          <input id="studyIdInput" type="text" placeholder="เช่น HYD-2026-A" />
+        </div>
+
+        <div class="field">
+          <label for="seedInput">Seed</label>
+          <input id="seedInput" type="number" step="1" />
+        </div>
+
+        <div class="field">
+          <label for="hubInput">Hub URL</label>
+          <input id="hubInput" type="text" placeholder="./hub.html" />
+        </div>
+
+        <div class="field full">
+          <label for="notesInput">หมายเหตุ</label>
+          <input id="notesInput" type="text" placeholder="ช่องนี้เอาไว้จดเอง ไม่ถูกส่งเข้าเกม" />
+        </div>
+      </div>
+
+      <div class="actions">
+        <button class="btn primary" id="startBtn" type="button">เข้าเล่น Hydration V2</button>
+        <button class="btn ghost" id="copyUrlBtn" type="button">คัดลอก URL</button>
+        <button class="btn warn" id="randomSeedBtn" type="button">สุ่ม Seed ใหม่</button>
+      </div>
+
+      <div class="preview" id="urlPreview">กำลังสร้าง URL...</div>
+      <div class="status" id="statusBox"></div>
     </section>
   </div>
 
   <script>
     (function(){
       const qs = new URLSearchParams(window.location.search);
+
+      const modeInput = document.getElementById('modeInput');
+      const typeInput = document.getElementById('typeInput');
+      const runInput = document.getElementById('runInput');
+      const diffInput = document.getElementById('diffInput');
+      const sessionInput = document.getElementById('sessionInput');
+      const weekInput = document.getElementById('weekInput');
+      const pidInput = document.getElementById('pidInput');
+      const studyIdInput = document.getElementById('studyIdInput');
+      const seedInput = document.getElementById('seedInput');
+      const hubInput = document.getElementById('hubInput');
+      const notesInput = document.getElementById('notesInput');
+
+      const flowBadge = document.getElementById('flowBadge');
+      const urlPreview = document.getElementById('urlPreview');
       const statusBox = document.getElementById('statusBox');
+
+      const startBtn = document.getElementById('startBtn');
+      const copyUrlBtn = document.getElementById('copyUrlBtn');
+      const randomSeedBtn = document.getElementById('randomSeedBtn');
+      const goDashboardBtn = document.getElementById('goDashboardBtn');
       const backHubBtn = document.getElementById('backHubBtn');
-      const startDefaultBtn = document.getElementById('startDefaultBtn');
-      const preview = document.getElementById('queryPreview');
-      const passNote = document.getElementById('passNote');
 
-      const passthrough = {
-        pid: qs.get('pid') || '',
-        studyId: qs.get('studyId') || '',
-        phase: qs.get('phase') || '',
-        diff: qs.get('diff') || 'normal',
-        seed: qs.get('seed') || String(Date.now()),
-        hub: qs.get('hub') || './hub.html'
-      };
+      const initialHub = qs.get('hub') || './hub.html';
 
-      preview.innerHTML = `
-        <strong>passthrough</strong><br/>
-        pid=${escapeHtml(passthrough.pid || '(empty)')} •
-        studyId=${escapeHtml(passthrough.studyId || '(empty)')} •
-        diff=${escapeHtml(passthrough.diff)} •
-        seed=${escapeHtml(passthrough.seed)} •
-        hub=${escapeHtml(passthrough.hub)}
-      `;
+      modeInput.value = qs.get('mode') || 'quick';
+      typeInput.value = qs.get('type') || 'solo';
+      runInput.value = qs.get('run') || 'play';
+      diffInput.value = qs.get('diff') || 'normal';
+      sessionInput.value = qs.get('session') || '1';
+      weekInput.value = qs.get('week') || '1';
+      pidInput.value = qs.get('pid') || '';
+      studyIdInput.value = qs.get('studyId') || '';
+      seedInput.value = qs.get('seed') || String(Date.now());
+      hubInput.value = initialHub;
 
-      passNote.innerHTML =
-        `ระบบจะส่ง query ต่อไปให้เอง เช่น <strong>pid</strong>, <strong>studyId</strong>, <strong>seed</strong>, <strong>hub</strong>`;
+      function sanitizePositiveInt(value, fallback){
+        const n = Number(value);
+        return Number.isFinite(n) && n > 0 ? String(Math.floor(n)) : String(fallback);
+      }
+
+      function buildRunUrl(){
+        const target = new URL('./vr-hydration-v2/hydration-vr.html', window.location.href);
+        target.searchParams.set('gameId', 'hydration');
+        target.searchParams.set('mode', modeInput.value);
+        target.searchParams.set('type', typeInput.value);
+        target.searchParams.set('run', runInput.value);
+        target.searchParams.set('diff', diffInput.value);
+        target.searchParams.set('session', sanitizePositiveInt(sessionInput.value, 1));
+        target.searchParams.set('week', sanitizePositiveInt(weekInput.value, 1));
+        target.searchParams.set('pid', pidInput.value.trim());
+        target.searchParams.set('studyId', studyIdInput.value.trim());
+        target.searchParams.set('seed', sanitizePositiveInt(seedInput.value, Date.now()));
+        target.searchParams.set('hub', hubInput.value.trim() || './hub.html');
+        return target.toString();
+      }
+
+      function updateFlowBadge(){
+        flowBadge.textContent =
+          `${modeInput.value} • ${typeInput.value} • ${runInput.value} • W${sanitizePositiveInt(weekInput.value,1)} S${sanitizePositiveInt(sessionInput.value,1)}`;
+      }
+
+      function updatePreview(){
+        updateFlowBadge();
+        urlPreview.innerHTML = `
+          <strong>Run URL</strong><br/>
+          ${escapeHtml(buildRunUrl())}
+        `;
+      }
+
+      function showStatus(message){
+        statusBox.textContent = message;
+        statusBox.classList.add('show');
+      }
 
       function escapeHtml(value){
         return String(value ?? '')
@@ -409,41 +519,80 @@
           .replaceAll('"', '&quot;');
       }
 
-      function buildRunUrl(mode, type, run){
-        const target = new URL('./vr-hydration-v2/hydration-vr.html', window.location.href);
-        target.searchParams.set('gameId', 'hydration');
-        target.searchParams.set('mode', mode);
-        target.searchParams.set('type', type);
-        target.searchParams.set('run', run);
-        target.searchParams.set('pid', passthrough.pid);
-        target.searchParams.set('studyId', passthrough.studyId);
-        target.searchParams.set('phase', passthrough.phase);
-        target.searchParams.set('diff', passthrough.diff);
-        target.searchParams.set('seed', passthrough.seed);
-        target.searchParams.set('hub', passthrough.hub);
-        return target.toString();
+      function applyPreset(name){
+        if (name === 'quick-solo'){
+          modeInput.value = 'quick';
+          typeInput.value = 'solo';
+          runInput.value = 'play';
+          sessionInput.value = '1';
+          weekInput.value = '1';
+        } else if (name === 'quick-team'){
+          modeInput.value = 'quick';
+          typeInput.value = 'team';
+          runInput.value = 'play';
+          sessionInput.value = '1';
+          weekInput.value = '1';
+        } else if (name === 'program-solo'){
+          modeInput.value = 'program';
+          typeInput.value = 'solo';
+          runInput.value = 'research';
+          sessionInput.value = '1';
+          weekInput.value = '1';
+        } else if (name === 'program-team'){
+          modeInput.value = 'program';
+          typeInput.value = 'team';
+          runInput.value = 'research';
+          sessionInput.value = '1';
+          weekInput.value = '1';
+        }
+        updatePreview();
       }
 
-      function go(mode, type, run){
-        const url = buildRunUrl(mode, type, run);
-        statusBox.textContent = `กำลังเข้า ${mode} / ${type} / ${run}`;
-        statusBox.classList.add('show');
-        window.location.href = url;
-      }
-
-      document.querySelectorAll('.mode-card').forEach(btn => {
-        btn.addEventListener('click', () => {
-          go(btn.dataset.mode, btn.dataset.type, btn.dataset.run);
-        });
+      [
+        modeInput, typeInput, runInput, diffInput,
+        sessionInput, weekInput, pidInput, studyIdInput,
+        seedInput, hubInput, notesInput
+      ].forEach(el => {
+        el.addEventListener('input', updatePreview);
+        el.addEventListener('change', updatePreview);
       });
 
-      startDefaultBtn.addEventListener('click', () => {
-        go('quick', 'solo', 'play');
+      document.querySelectorAll('[data-preset]').forEach(btn => {
+        btn.addEventListener('click', () => applyPreset(btn.dataset.preset));
+      });
+
+      startBtn.addEventListener('click', () => {
+        const url = buildRunUrl();
+        showStatus(`กำลังเข้า ${modeInput.value} / ${typeInput.value} / ${runInput.value}`);
+        window.location.href = url;
+      });
+
+      copyUrlBtn.addEventListener('click', async () => {
+        const url = buildRunUrl();
+        try{
+          await navigator.clipboard.writeText(url);
+          showStatus('คัดลอก URL เรียบร้อยแล้ว');
+        }catch(_){
+          showStatus('คัดลอก URL ไม่สำเร็จ ลองคัดลอกจากช่อง preview แทน');
+        }
+      });
+
+      randomSeedBtn.addEventListener('click', () => {
+        seedInput.value = String(Date.now());
+        updatePreview();
+      });
+
+      goDashboardBtn.addEventListener('click', () => {
+        const target = new URL('./hydration-v2-dashboard.html', window.location.href);
+        target.searchParams.set('hub', hubInput.value.trim() || './hub.html');
+        window.location.href = target.toString();
       });
 
       backHubBtn.addEventListener('click', () => {
-        window.location.href = passthrough.hub;
+        window.location.href = hubInput.value.trim() || './hub.html';
       });
+
+      updatePreview();
     })();
   </script>
 </body>
