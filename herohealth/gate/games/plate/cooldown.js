@@ -2,7 +2,7 @@
    HeroHealth Gate Mini-game
    GAME: plate
    MODE: cooldown
-   PATCH v20260308-GATE-PLATE-COOLDOWN
+   FULL PATCH v20260318-PLATE-COOLDOWN-AUTOSTART-FIX
 */
 
 let __styleLoaded = false;
@@ -73,7 +73,7 @@ function buildBuffs({ score, accuracy }){
   };
 }
 
-export async function mount(root, ctx, api){
+export async function mount(root, ctx={}, api={}){
   loadStyle();
 
   const rng = mulberry32(Number(ctx.seed || Date.now()) + 62);
@@ -91,6 +91,8 @@ export async function mount(root, ctx, api){
   let score = 0;
   let miss = 0;
   let correct = 0;
+  let ended = false;
+  let started = false;
 
   root.innerHTML = '';
   const wrap = el('div', 'plt-wrap');
@@ -126,8 +128,11 @@ export async function mount(root, ctx, api){
     seed: ctx.seed
   });
 
-  api.setStats({
-    time: ctx.time || 0,
+  api.setTitle?.('Plate Calm Review');
+  api.setSub?.('ทบทวนการจัดจานให้สมดุลก่อนกลับ HUB');
+
+  api.setStats?.({
+    time: 0,
     score: 0,
     miss: 0,
     acc: '0%'
@@ -135,7 +140,7 @@ export async function mount(root, ctx, api){
 
   function updateHud(){
     const acc = idx > 0 ? Math.round((correct / idx) * 100) : 0;
-    api.setStats({
+    api.setStats?.({
       time: 0,
       score,
       miss,
@@ -144,12 +149,17 @@ export async function mount(root, ctx, api){
   }
 
   function renderRound(){
+    if(ended) return;
+
     if(idx >= rounds.length){
-      return finishNow();
+      finishNow();
+      return;
     }
 
     const r = rounds[idx];
     target.textContent = r.q;
+    prompt.textContent = 'เลือกตัวเลือกที่ช่วยให้จานสมดุลขึ้น';
+    note.textContent = 'เลือกแนวทางที่เหมาะสมกว่า แล้วค่อยไปข้อถัดไป';
     choices.innerHTML = '';
 
     const options = shuffle([r.good, r.bad], rng);
@@ -157,16 +167,21 @@ export async function mount(root, ctx, api){
     for(const opt of options){
       const isGood = opt === r.good;
       const btn = el('button', `plt-btn ${isGood ? 'good' : 'bad'}`, opt);
+      btn.type = 'button';
 
       btn.addEventListener('click', ()=>{
+        if(ended) return;
+
         idx++;
 
         if(isGood){
           score += 10;
           correct++;
+          note.textContent = 'ถูกต้อง เลือกแบบนี้จะช่วยให้จานสมดุลขึ้น';
         }else{
-          score -= 4;
+          score = Math.max(0, score - 4);
           miss++;
+          note.textContent = 'ยังไม่เหมาะ ลองคิดว่าควรเพิ่มผัก น้ำ หรือโปรตีนให้สมดุลกว่าเดิม';
         }
 
         api.logger?.push?.('mini_answer', {
@@ -182,7 +197,10 @@ export async function mount(root, ctx, api){
         });
 
         updateHud();
-        renderRound();
+
+        setTimeout(()=>{
+          if(!ended) renderRound();
+        }, 260);
       });
 
       choices.appendChild(btn);
@@ -190,6 +208,9 @@ export async function mount(root, ctx, api){
   }
 
   function finishNow(){
+    if(ended) return;
+    ended = true;
+
     const accuracy = rounds.length > 0 ? Math.round((correct / rounds.length) * 100) : 0;
     const buffs = buildBuffs({ score, accuracy });
 
@@ -203,13 +224,13 @@ export async function mount(root, ctx, api){
           <div class="plt-item">สรุป: จานที่ดีควรสมดุล ไม่หนักไปด้านเดียว</div>
         </div>
         <div class="plt-actions">
-          <button class="plt-btn good" id="pltCooldownFinishBtn">กลับ HUB / ไปต่อ</button>
+          <button class="plt-btn good" id="pltCooldownFinishBtn" type="button">กลับ HUB / ไปต่อ</button>
         </div>
       </div>
     `;
 
     root.querySelector('#pltCooldownFinishBtn')?.addEventListener('click', ()=>{
-      api.finish({
+      api.finish?.({
         ok: true,
         title: 'คูลดาวน์เสร็จแล้ว',
         subtitle: 'สรุปการจัดจานอาหารเรียบร้อย',
@@ -226,9 +247,24 @@ export async function mount(root, ctx, api){
     });
   }
 
+  function startGame(){
+    if(started || ended) return;
+    started = true;
+    updateHud();
+    renderRound();
+  }
+
+  // สำคัญ: auto-start ทันที
+  startGame();
+
   return {
     start(){
-      renderRound();
+      startGame();
+    },
+    destroy(){
+      ended = true;
     }
   };
 }
+
+export default { mount, loadStyle };
