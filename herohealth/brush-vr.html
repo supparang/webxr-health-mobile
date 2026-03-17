@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — Brush VR Launcher</title>
+  <title>HeroHealth • Brush VR Launcher</title>
   <meta name="color-scheme" content="dark light" />
   <link rel="icon" href="./favicon.ico" />
   <script defer src="./launch/backhub.js"></script>
@@ -11,14 +11,15 @@
     :root{
       --bg1:#020617;
       --bg2:#0b1226;
-      --panel:rgba(2,6,23,.72);
-      --panel2:rgba(15,23,42,.78);
+      --panel:rgba(2,6,23,.74);
+      --panel2:rgba(15,23,42,.82);
       --stroke:rgba(148,163,184,.18);
       --text:#e5e7eb;
       --muted:#94a3b8;
       --good:#22c55e;
       --cyan:#22d3ee;
       --warn:#f59e0b;
+      --violet:#a78bfa;
       --shadow:0 24px 70px rgba(0,0,0,.45);
       --radius:24px;
       --sat: env(safe-area-inset-top, 0px);
@@ -26,8 +27,10 @@
       --sal: env(safe-area-inset-left, 0px);
       --sar: env(safe-area-inset-right, 0px);
     }
+
     *{ box-sizing:border-box; }
     html,body{ min-height:100%; }
+
     body{
       margin:0;
       color:var(--text);
@@ -43,12 +46,14 @@
         calc(18px + var(--sab))
         calc(12px + var(--sal));
     }
-    .app{
+
+    .page{
       width:min(1180px,100%);
       margin:0 auto;
       display:grid;
       gap:14px;
     }
+
     .panel{
       background:linear-gradient(180deg, var(--panel), var(--panel2));
       border:1px solid var(--stroke);
@@ -57,15 +62,17 @@
       backdrop-filter:blur(10px);
       -webkit-backdrop-filter:blur(10px);
     }
+
     .hero{
-      overflow:hidden;
       position:relative;
+      overflow:hidden;
       padding:22px;
       display:grid;
-      grid-template-columns:1.15fr .85fr;
+      grid-template-columns:1.1fr .9fr;
       gap:18px;
       align-items:center;
     }
+
     .hero::before{
       content:'';
       position:absolute;
@@ -75,7 +82,12 @@
         radial-gradient(520px 240px at 18% 12%, rgba(34,211,238,.09), transparent 60%),
         radial-gradient(400px 220px at 85% 18%, rgba(34,197,94,.08), transparent 60%);
     }
-    .heroLeft,.heroRight{ position:relative; z-index:1; }
+
+    .heroLeft,.heroRight{
+      position:relative;
+      z-index:1;
+    }
+
     .kicker{
       display:inline-flex;
       align-items:center;
@@ -86,49 +98,50 @@
       background:rgba(2,6,23,.34);
       color:var(--muted);
       font-size:12px;
-      font-weight:900;
+      font-weight:950;
       margin-bottom:12px;
     }
+
     .title{
-      font-size:34px;
-      font-weight:1000;
-      line-height:1.06;
-      letter-spacing:.2px;
       margin:0 0 10px;
+      font-size:clamp(30px, 5vw, 48px);
+      line-height:1.04;
+      font-weight:1000;
+      letter-spacing:.2px;
     }
+
     .sub{
       color:var(--muted);
       font-size:15px;
-      line-height:1.6;
+      line-height:1.68;
       font-weight:700;
-      max-width:62ch;
+      max-width:68ch;
     }
-    .heroBullets{
+
+    .metaPills{
       margin-top:16px;
-      display:grid;
+      display:flex;
+      flex-wrap:wrap;
       gap:8px;
     }
-    .bullet{
-      display:flex;
-      align-items:flex-start;
-      gap:10px;
-      color:var(--text);
-      font-size:14px;
-      font-weight:800;
-      line-height:1.45;
-    }
-    .bullet span{
-      width:26px;
-      height:26px;
+
+    .pill{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      padding:8px 11px;
       border-radius:999px;
-      display:grid;
-      place-items:center;
-      background:rgba(34,211,238,.14);
-      border:1px solid rgba(34,211,238,.22);
-      flex:0 0 auto;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(2,6,23,.30);
+      color:var(--muted);
+      font-size:12px;
+      font-weight:900;
     }
+
+    .pill b{ color:var(--text); }
+
     .preview{
-      min-height:290px;
+      min-height:300px;
       border-radius:24px;
       border:1px solid rgba(148,163,184,.14);
       background:
@@ -139,6 +152,7 @@
       padding:18px;
       overflow:hidden;
     }
+
     .mouth{
       width:min(100%, 420px);
       aspect-ratio:1.32 / 1;
@@ -150,6 +164,7 @@
         radial-gradient(80% 120% at 50% 100%, rgba(251,113,133,.28), rgba(127,29,29,.08) 65%, transparent 66%);
       box-shadow: inset 0 0 70px rgba(0,0,0,.18);
     }
+
     .gumTop,.gumBottom{
       position:absolute;
       left:7%;
@@ -158,8 +173,10 @@
       border-radius:999px;
       background:linear-gradient(180deg, rgba(251,113,133,.58), rgba(190,24,93,.24));
     }
+
     .gumTop{ top:10%; }
     .gumBottom{ bottom:10%; }
+
     .teethRow{
       position:absolute;
       left:12%;
@@ -169,14 +186,17 @@
       grid-template-columns:repeat(8, 1fr);
       gap:6px;
     }
+
     .teethTop{ top:20%; }
     .teethBottom{ bottom:20%; }
+
     .tooth{
       border-radius:12px 12px 16px 16px;
       background:linear-gradient(180deg, rgba(255,255,255,.98), rgba(241,245,249,.93));
       border:1px solid rgba(148,163,184,.22);
       box-shadow: inset 0 -10px 18px rgba(226,232,240,.55);
     }
+
     .targetZone{
       position:absolute;
       left:18%;
@@ -191,6 +211,7 @@
         inset 0 0 34px rgba(34,211,238,.10);
       background:rgba(34,211,238,.06);
     }
+
     .brush{
       position:absolute;
       left:24%;
@@ -198,40 +219,121 @@
       font-size:34px;
       filter:drop-shadow(0 10px 22px rgba(0,0,0,.32));
     }
-    .launcher{
+
+    .section{
       padding:18px;
       display:grid;
-      gap:16px;
+      gap:14px;
     }
-    .launcherTitle{
+
+    .sectionHead{
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      align-items:flex-start;
+      flex-wrap:wrap;
+    }
+
+    .sectionTitle{
+      margin:0;
       font-size:20px;
       font-weight:1000;
-      margin:0;
     }
-    .launcherSub{
+
+    .sectionSub{
+      margin-top:6px;
       color:var(--muted);
       font-size:13px;
-      line-height:1.5;
+      line-height:1.55;
       font-weight:800;
-      margin-top:6px;
     }
+
+    .modeGrid{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:12px;
+    }
+
+    .modeCard{
+      position:relative;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(2,6,23,.28);
+      border-radius:20px;
+      padding:16px;
+      display:grid;
+      gap:10px;
+      cursor:pointer;
+      transition:transform .14s ease, border-color .14s ease, box-shadow .14s ease, background .14s ease;
+    }
+
+    .modeCard:hover{
+      transform:translateY(-1px);
+      border-color:rgba(148,163,184,.28);
+    }
+
+    .modeCard.active{
+      border-color:rgba(34,211,238,.34);
+      background:rgba(34,211,238,.10);
+      box-shadow:inset 0 0 30px rgba(34,211,238,.06);
+    }
+
+    .modeTag{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      width:max-content;
+      padding:6px 10px;
+      border-radius:999px;
+      font-size:11px;
+      font-weight:950;
+      border:1px solid rgba(148,163,184,.18);
+      color:var(--muted);
+      background:rgba(2,6,23,.28);
+    }
+
+    .modeName{
+      font-size:20px;
+      font-weight:1000;
+      line-height:1.1;
+    }
+
+    .modeDesc{
+      color:var(--muted);
+      font-size:13px;
+      line-height:1.55;
+      font-weight:800;
+    }
+
+    .modePoints{
+      display:grid;
+      gap:6px;
+      color:#cbd5e1;
+      font-size:12px;
+      font-weight:850;
+      line-height:1.45;
+    }
+
     .formGrid{
       display:grid;
       grid-template-columns:repeat(12,1fr);
       gap:12px;
     }
+
     .field{
       grid-column:span 4;
       display:grid;
       gap:7px;
     }
+
     .field.span6{ grid-column:span 6; }
     .field.span12{ grid-column:span 12; }
+
     .label{
       font-size:12px;
       font-weight:950;
       color:var(--muted);
     }
+
     .input,.select{
       width:100%;
       border:1px solid rgba(148,163,184,.18);
@@ -244,11 +346,13 @@
       font-size:14px;
       font-weight:800;
     }
+
     .checks{
       display:flex;
       flex-wrap:wrap;
       gap:10px;
     }
+
     .check{
       display:inline-flex;
       align-items:center;
@@ -261,19 +365,22 @@
       font-size:13px;
       font-weight:900;
     }
-    .actions{
+
+    .actionBar{
       display:flex;
-      flex-wrap:wrap;
-      gap:10px;
-      align-items:center;
       justify-content:space-between;
+      align-items:center;
+      gap:10px;
+      flex-wrap:wrap;
     }
+
     .leftActions,.rightActions{
       display:flex;
-      flex-wrap:wrap;
       gap:10px;
+      flex-wrap:wrap;
       align-items:center;
     }
+
     .btn{
       border:1px solid var(--stroke);
       background:rgba(2,6,23,.40);
@@ -285,33 +392,56 @@
       font-weight:950;
       font-size:14px;
     }
+
     .btn.primary{
       border-color:rgba(34,197,94,.28);
       background:rgba(34,197,94,.16);
     }
+
     .btn.cyan{
       border-color:rgba(34,211,238,.28);
       background:rgba(34,211,238,.14);
     }
+
     .btn.secondary{
       color:var(--muted);
     }
+
     .btn.warn{
       border-color:rgba(245,158,11,.28);
       background:rgba(245,158,11,.14);
     }
-    .miniNote{
+
+    .urlBox{
+      border:1px solid rgba(148,163,184,.16);
+      background:rgba(2,6,23,.26);
+      border-radius:18px;
+      padding:12px 14px;
+      display:grid;
+      gap:6px;
+    }
+
+    .urlLabel{
       color:var(--muted);
       font-size:12px;
-      line-height:1.55;
+      font-weight:950;
+    }
+
+    .urlPreview{
+      color:#cbd5e1;
+      font-size:12px;
+      line-height:1.6;
       font-weight:800;
       word-break:break-word;
     }
+
     @media (max-width: 980px){
       .hero{ grid-template-columns:1fr; }
+      .modeGrid{ grid-template-columns:1fr; }
       .field{ grid-column:span 6; }
       .field.span6{ grid-column:span 6; }
     }
+
     @media (max-width: 720px){
       body{
         padding:
@@ -320,13 +450,14 @@
           calc(18px + var(--sab))
           calc(8px + var(--sal));
       }
+
       .hero{ padding:14px; gap:14px; }
       .title{ font-size:26px; }
       .sub{ font-size:14px; }
-      .launcher{ padding:14px; }
+      .section{ padding:14px; }
       .formGrid{ grid-template-columns:1fr; gap:10px; }
       .field,.field.span6,.field.span12{ grid-column:span 1; }
-      .actions{ flex-direction:column; align-items:stretch; }
+      .actionBar{ flex-direction:column; align-items:stretch; }
       .leftActions,.rightActions{ width:100%; }
       .leftActions .btn,.rightActions .btn{ flex:1 1 0; }
       .preview{ min-height:240px; }
@@ -334,20 +465,20 @@
   </style>
 </head>
 <body>
-  <div class="app">
+  <div class="page">
     <section class="panel hero">
       <div class="heroLeft">
-        <div class="kicker">🪥 Hygiene Zone • Brush VR • Warmup Gate</div>
+        <div class="kicker">🪥 HYGIENE ZONE • BRUSH VR • LAUNCHER</div>
         <h1 class="title">Brush VR<br>Launcher</h1>
         <div class="sub">
-          เริ่มจากหน้านี้ แล้วระบบจะพาเข้า <b>warmup-gate.html?phase=warmup</b>
-          ก่อนเข้าเกมจริงเสมอ
+          เลือกโหมด ตั้งค่ารอบเล่น แล้วเริ่มผ่าน <b>warmup gate</b> ก่อนเข้าเกมจริง
+          เพื่อให้ flow ของ Brush VR ไปในทิศทางเดียวกับเกมอื่น ๆ ของ HeroHealth
         </div>
 
-        <div class="heroBullets">
-          <div class="bullet"><span>1</span><div>Launcher นี้จะสร้าง URL ไป run page จริง</div></div>
-          <div class="bullet"><span>2</span><div>ส่ง URL นั้นเข้า warmup gate ผ่านพารามิเตอร์ <b>next</b></div></div>
-          <div class="bullet"><span>3</span><div>หลังจบเกม run page ควรพาไป <b>phase=cooldown</b></div></div>
+        <div class="metaPills">
+          <div class="pill">gameId <b>brush</b></div>
+          <div class="pill">zone <b>hygiene</b></div>
+          <div class="pill">flow <b>warmup → run → cooldown</b></div>
         </div>
       </div>
 
@@ -374,10 +505,56 @@
       </div>
     </section>
 
-    <section class="panel launcher">
-      <div>
-        <h2 class="launcherTitle">เริ่มเล่น Brush VR</h2>
-        <div class="launcherSub">กดเริ่มแล้วจะเข้า warmup gate ก่อนเสมอ</div>
+    <section class="panel section">
+      <div class="sectionHead">
+        <div>
+          <h2 class="sectionTitle">เลือกโหมดการเล่น</h2>
+          <div class="sectionSub">กดที่การ์ดเพื่อเลือก Learn, Practice หรือ Challenge</div>
+        </div>
+      </div>
+
+      <div class="modeGrid">
+        <button class="modeCard active" type="button" data-mode-card="learn">
+          <div class="modeTag">🟢 LEARN</div>
+          <div class="modeName">Learn</div>
+          <div class="modeDesc">เหมาะกับการเริ่มต้น เรียนรู้ตำแหน่งโซนและจังหวะการแปรง</div>
+          <div class="modePoints">
+            <div>• เห็นกรอบเป้าชัด</div>
+            <div>• ใช้เวลาได้สบายกว่า</div>
+            <div>• เหมาะกับรอบสอน</div>
+          </div>
+        </button>
+
+        <button class="modeCard" type="button" data-mode-card="practice">
+          <div class="modeTag">🔵 PRACTICE</div>
+          <div class="modeName">Practice</div>
+          <div class="modeDesc">ฝึกทำความสะอาดทีละโซนด้วยแรงกดดันด้านเวลาระดับกลาง</div>
+          <div class="modePoints">
+            <div>• มีเวลาจำกัด</div>
+            <div>• ต้องคุม miss</div>
+            <div>• เหมาะกับฝึกซ้ำ</div>
+          </div>
+        </button>
+
+        <button class="modeCard" type="button" data-mode-card="challenge">
+          <div class="modeTag">🟠 CHALLENGE</div>
+          <div class="modeName">Challenge</div>
+          <div class="modeDesc">เล่นแบบเข้มขึ้น เก็บคะแนนและพยายามเคลียร์ทุกโซนให้เร็วที่สุด</div>
+          <div class="modePoints">
+            <div>• จับเวลาเข้มกว่า</div>
+            <div>• เน้น score และ clean</div>
+            <div>• เหมาะกับรอบทดสอบ</div>
+          </div>
+        </button>
+      </div>
+    </section>
+
+    <section class="panel section">
+      <div class="sectionHead">
+        <div>
+          <h2 class="sectionTitle">ตั้งค่ารอบเล่น</h2>
+          <div class="sectionSub">กำหนดข้อมูลผู้เล่นและค่าการทดลองก่อนเข้าวอร์มอัป</div>
+        </div>
       </div>
 
       <div class="formGrid">
@@ -443,7 +620,7 @@
         </div>
       </div>
 
-      <div class="actions">
+      <div class="actionBar">
         <div class="leftActions">
           <button class="btn secondary" id="btnFillDemo" type="button">เติมค่าตัวอย่าง</button>
           <button class="btn cyan" id="btnPreviewWarmup" type="button">ดู URL warmup</button>
@@ -456,8 +633,11 @@
         </div>
       </div>
 
-      <div class="miniNote" id="previewText">
-        ระบบจะส่งเข้า warmup-gate.html โดยตั้ง phase=warmup และ next=./vr-brush/brush.html...
+      <div class="urlBox">
+        <div class="urlLabel">Preview</div>
+        <div class="urlPreview" id="previewText">
+          ระบบจะส่งเข้า warmup-gate.html โดยตั้ง phase=warmup และ next=./vr-brush/brush.html...
+        </div>
       </div>
     </section>
   </div>
@@ -481,6 +661,8 @@
       const showLearn = byId('showLearn');
       const previewText = byId('previewText');
 
+      const modeCards = Array.from(document.querySelectorAll('[data-mode-card]'));
+
       function qs(k, d=''){
         try{
           return new URL(location.href).searchParams.get(k) ?? d;
@@ -501,6 +683,8 @@
         audio.checked = qs('audio', '1') !== '0';
         voice.checked = qs('voice', '1') !== '0';
         showLearn.checked = qs('showLearn', '1') !== '0';
+        syncModeCards();
+        renderPreview('warmup', buildWarmupUrl());
       }
 
       function cleanSeed(){
@@ -513,6 +697,12 @@
 
       function safeTime(){
         return String(Math.max(45, Math.min(180, Number(time.value || 90))));
+      }
+
+      function syncModeCards(){
+        modeCards.forEach((card) => {
+          card.classList.toggle('active', card.dataset.modeCard === mode.value);
+        });
       }
 
       function buildRunUrl(){
@@ -536,8 +726,6 @@
         u.searchParams.set('audio', audio.checked ? '1' : '0');
         u.searchParams.set('voice', voice.checked ? '1' : '0');
         u.searchParams.set('showLearn', showLearn.checked ? '1' : '0');
-
-        // สำหรับ run page ใช้ต่อไป cooldown gate ภายหลัง
         u.searchParams.set('gate', '1');
         u.searchParams.set('cooldown', '1');
         u.searchParams.set('gatePage', '../warmup-gate.html');
@@ -570,6 +758,25 @@
         previewText.textContent = `${label}: ${url}`;
       }
 
+      modeCards.forEach((card) => {
+        card.addEventListener('click', () => {
+          mode.value = card.dataset.modeCard || 'learn';
+          syncModeCards();
+          renderPreview('warmup', buildWarmupUrl());
+        });
+      });
+
+      [pid, studyId, seed, mode, diff, time, hub, view, audio, voice, showLearn].forEach((el) => {
+        el?.addEventListener('input', () => {
+          syncModeCards();
+          renderPreview('warmup', buildWarmupUrl());
+        });
+        el?.addEventListener('change', () => {
+          syncModeCards();
+          renderPreview('warmup', buildWarmupUrl());
+        });
+      });
+
       byId('btnFillDemo')?.addEventListener('click', () => {
         pid.value = pid.value.trim() || 'P001';
         studyId.value = studyId.value.trim() || 'HH-BRUSH-DEMO';
@@ -581,6 +788,8 @@
         audio.checked = true;
         voice.checked = true;
         showLearn.checked = true;
+        syncModeCards();
+        renderPreview('warmup', buildWarmupUrl());
       });
 
       byId('btnPreviewWarmup')?.addEventListener('click', () => {
