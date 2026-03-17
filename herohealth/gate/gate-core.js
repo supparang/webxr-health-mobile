@@ -1,13 +1,13 @@
 // === /herohealth/gate/gate-core.js ===
-// FULL PATCH v20260317d-GATE-ONEPAGE-IMPORT-FIX
-// ✅ exports named + default
-// ✅ supports single warmup-gate.html page with ?phase=warmup|cooldown
-// ✅ uses gate-games.js normalize/getPhaseFile/getRunCandidates
-// ✅ daily once logic per game + phase
-// ✅ warmup done today -> auto continue to run page
-// ✅ cooldown done today -> show back hub
-// ✅ robust dynamic import for phase mini-game modules
-// ✅ safe fallback UI if phase module missing or export mismatch
+// FULL PATCH v20260317e-GATE-COMPAT-FINISH-SETSTATS
+// ✅ export default bootGate
+// ✅ single warmup-gate.html page with ?phase=warmup|cooldown
+// ✅ backward-compatible api.finish / api.complete / api.done / api.summary
+// ✅ backward-compatible api.setStats
+// ✅ compatibility logger api.logger.push(...)
+// ✅ supports existing gate mini-games like goodjunk/warmup.js
+// ✅ warmup once/day -> auto continue to run page
+// ✅ cooldown once/day -> summary + back hub
 
 import {
   getGameMeta,
@@ -17,7 +17,7 @@ import {
   normalizeGameId
 } from './gate-games.js?v=20260317b-GATE-GAMES-ALIAS-ROBUST-RUN-CANDIDATES';
 
-const PATCH = 'v20260317d-GATE-ONEPAGE-IMPORT-FIX';
+const PATCH = 'v20260317e-GATE-COMPAT-FINISH-SETSTATS';
 const STORAGE_NS = 'HHA_GATE_DONE_V1';
 const LAST_SUMMARY_KEY = 'HHA_LAST_SUMMARY';
 const SUMMARY_HISTORY_KEY = 'HHA_SUMMARY_HISTORY';
@@ -63,16 +63,13 @@ function setDailyDone(game, phase, value = true) {
 
 function saveLastSummary(payload = {}) {
   try {
-    const data = {
-      ts: Date.now(),
-      ...payload
-    };
-    localStorage.setItem(LAST_SUMMARY_KEY, JSON.stringify(data));
+    const item = { ts: Date.now(), ...payload };
+    localStorage.setItem(LAST_SUMMARY_KEY, JSON.stringify(item));
 
     const prev = JSON.parse(localStorage.getItem(SUMMARY_HISTORY_KEY) || '[]');
-    const next = Array.isArray(prev) ? prev : [];
-    next.unshift(data);
-    localStorage.setItem(SUMMARY_HISTORY_KEY, JSON.stringify(next.slice(0, MAX_HISTORY)));
+    const arr = Array.isArray(prev) ? prev : [];
+    arr.unshift(item);
+    localStorage.setItem(SUMMARY_HISTORY_KEY, JSON.stringify(arr.slice(0, MAX_HISTORY)));
   } catch {}
 }
 
@@ -89,25 +86,28 @@ function readCtx() {
   return {
     patch: PATCH,
     params,
-    phase,
-    game,
     gameRaw,
+    game,
     meta,
+    phase,
+
     pid: params.get('pid') || 'anon',
+    name: params.get('name') || '',
+    studyId: params.get('studyId') || '',
+    roomId: params.get('roomId') || '',
+
     run: params.get('run') || 'play',
     diff: params.get('diff') || 'normal',
     time: params.get('time') || '120',
     seed: params.get('seed') || String(Date.now()),
     view: params.get('view') || 'mobile',
+
     hub: params.get('hub') || '../hub.html',
     cat: params.get('cat') || meta?.cat || '',
     zone: params.get('zone') || params.get('cat') || meta?.cat || '',
     scene: params.get('scene') || '',
     wgskip: params.get('wgskip') || '',
-    autostart: params.get('autostart') || '',
-    roomId: params.get('roomId') || '',
-    studyId: params.get('studyId') || '',
-    name: params.get('name') || ''
+    autostart: params.get('autostart') || ''
   };
 }
 
@@ -129,7 +129,7 @@ function ensureCoreStyle() {
       font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
     }
     .gate-card{
-      width:min(980px,100%);
+      width:min(1020px,100%);
       border-radius:26px;
       border:1px solid rgba(148,163,184,.16);
       background:rgba(2,6,23,.76);
@@ -138,7 +138,7 @@ function ensureCoreStyle() {
       backdrop-filter: blur(10px);
     }
     .gate-hero{
-      padding:22px 22px 10px;
+      padding:22px 22px 14px;
       border-bottom:1px solid rgba(148,163,184,.10);
     }
     .gate-kicker{
@@ -159,6 +159,7 @@ function ensureCoreStyle() {
       margin:0;
       color:#cbd5e1;
       font-size:14px;
+      line-height:1.55;
     }
     .gate-meta{
       display:flex;
@@ -174,6 +175,28 @@ function ensureCoreStyle() {
       color:#e2e8f0;
       font-size:12px;
       font-weight:800;
+    }
+    .gate-topstats{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:10px;
+      margin-top:14px;
+    }
+    .gate-topstat{
+      border:1px solid rgba(148,163,184,.14);
+      border-radius:16px;
+      padding:12px;
+      background:linear-gradient(180deg, rgba(15,23,42,.72), rgba(15,23,42,.52));
+    }
+    .gate-topstat-label{
+      font-size:12px;
+      font-weight:800;
+      color:#cbd5e1;
+    }
+    .gate-topstat-value{
+      margin-top:6px;
+      font-size:20px;
+      font-weight:1000;
     }
     .gate-stage{
       min-height:360px;
@@ -201,8 +224,22 @@ function ensureCoreStyle() {
     .gate-info p{
       margin:0 auto;
       color:#cbd5e1;
-      max-width:680px;
+      max-width:720px;
       line-height:1.65;
+    }
+    .gate-lines{
+      margin:16px auto 0;
+      max-width:720px;
+      text-align:left;
+      display:grid;
+      gap:8px;
+    }
+    .gate-line{
+      border:1px solid rgba(148,163,184,.14);
+      border-radius:14px;
+      background:rgba(15,23,42,.62);
+      padding:10px 12px;
+      color:#e5e7eb;
     }
     .gate-actions{
       display:flex;
@@ -272,7 +309,8 @@ function ensureCoreStyle() {
     @media (max-width: 720px){
       .gate-shell{ padding:12px; }
       .gate-card{ border-radius:20px; }
-      .gate-hero{ padding:18px 16px 10px; }
+      .gate-hero{ padding:18px 16px 12px; }
+      .gate-topstats{ grid-template-columns:repeat(2,minmax(0,1fr)); }
       .gate-stage{ padding:12px; }
       .gate-stage-inner{ padding:14px; min-height:300px; }
       .gate-btn{ width:100%; min-width:0; }
@@ -302,13 +340,33 @@ function renderShell(root, ctx) {
         <div class="gate-hero">
           <div class="gate-kicker">HeroHealth Gate • ${esc(ctx.phase)}</div>
           <h1 class="gate-title">${esc(phaseTitle(ctx))}</h1>
-          <p class="gate-sub">หน้าเดียวสำหรับ warmup และ cooldown • แยกด้วย query <code>?phase=warmup</code> หรือ <code>?phase=cooldown</code></p>
+          <p class="gate-sub">หน้าเดียวสำหรับ warmup และ cooldown โดยแยกด้วย <code>?phase=warmup</code> หรือ <code>?phase=cooldown</code></p>
+
           <div class="gate-meta">
             <div class="gate-chip">game: ${esc(ctx.game || '-')}</div>
             <div class="gate-chip">cat: ${esc(ctx.cat || '-')}</div>
             <div class="gate-chip">pid: ${esc(ctx.pid || '-')}</div>
             <div class="gate-chip">view: ${esc(ctx.view || '-')}</div>
             <div class="gate-chip">${esc(PATCH)}</div>
+          </div>
+
+          <div class="gate-topstats">
+            <div class="gate-topstat">
+              <div class="gate-topstat-label">เวลา</div>
+              <div class="gate-topstat-value" id="gateStatTime">-</div>
+            </div>
+            <div class="gate-topstat">
+              <div class="gate-topstat-label">คะแนน</div>
+              <div class="gate-topstat-value" id="gateStatScore">0</div>
+            </div>
+            <div class="gate-topstat">
+              <div class="gate-topstat-label">พลาด</div>
+              <div class="gate-topstat-value" id="gateStatMiss">0</div>
+            </div>
+            <div class="gate-topstat">
+              <div class="gate-topstat-label">แม่นยำ</div>
+              <div class="gate-topstat-value" id="gateStatAcc">0%</div>
+            </div>
           </div>
         </div>
 
@@ -327,8 +385,38 @@ function renderShell(root, ctx) {
 
   return {
     stage: root.querySelector('#gateStage'),
-    footer: root.querySelector('#gateFooter')
+    footer: root.querySelector('#gateFooter'),
+    statTime: root.querySelector('#gateStatTime'),
+    statScore: root.querySelector('#gateStatScore'),
+    statMiss: root.querySelector('#gateStatMiss'),
+    statAcc: root.querySelector('#gateStatAcc')
   };
+}
+
+function applyStats(refs, stats = {}) {
+  if (!refs) return;
+
+  if ('time' in stats && refs.statTime) {
+    refs.statTime.textContent = String(stats.time ?? '-');
+  }
+  if ('score' in stats && refs.statScore) {
+    refs.statScore.textContent = String(stats.score ?? 0);
+  }
+  if ('miss' in stats && refs.statMiss) {
+    refs.statMiss.textContent = String(stats.miss ?? 0);
+  }
+  if ('acc' in stats && refs.statAcc) {
+    refs.statAcc.textContent = String(stats.acc ?? '0%');
+  }
+}
+
+function linesHtml(lines = []) {
+  if (!Array.isArray(lines) || !lines.length) return '';
+  return `
+    <div class="gate-lines">
+      ${lines.map(line => `<div class="gate-line">${esc(line)}</div>`).join('')}
+    </div>
+  `;
 }
 
 function renderInfo(stage, title, body, extraHtml = '') {
@@ -390,14 +478,17 @@ function buildRunParams(ctx) {
   p.delete('phase');
   p.set('game', ctx.game);
   p.set('gameId', ctx.game);
+
   if (ctx.cat) p.set('cat', ctx.cat);
   if (ctx.zone) p.set('zone', ctx.zone);
+
   p.set('pid', ctx.pid);
   p.set('run', ctx.run);
   p.set('diff', ctx.diff);
   p.set('time', ctx.time);
   p.set('seed', ctx.seed);
   p.set('view', ctx.view);
+
   if (ctx.hub) p.set('hub', ctx.hub);
   if (ctx.scene) p.set('scene', ctx.scene);
   if (ctx.roomId) p.set('roomId', ctx.roomId);
@@ -468,8 +559,8 @@ function mountFallbackPhase(stage, ctx, api) {
     : 'พร้อมเข้าเกมหลัก';
 
   const desc = ctx.phase === 'cooldown'
-    ? 'ไม่พบ module ของ cooldown เกมนี้ จึงใช้ปุ่มดำเนินการต่อแบบ fallback ให้ก่อน'
-    : 'ไม่พบ module ของ warmup เกมนี้ จึงใช้ปุ่มดำเนินการต่อแบบ fallback ให้ก่อน';
+    ? 'ไม่พบ module ของ cooldown เกมนี้ จึงใช้ fallback ให้ก่อน'
+    : 'ไม่พบ module ของ warmup เกมนี้ จึงใช้ fallback ให้ก่อน';
 
   renderInfo(
     stage,
@@ -528,6 +619,20 @@ function attachCompletionEvents(root, api) {
   };
 }
 
+function createCompatLogger(ctx) {
+  return {
+    push(event, payload = {}) {
+      try {
+        console.debug('[gate-mini]', event, {
+          game: ctx.game,
+          phase: ctx.phase,
+          ...payload
+        });
+      } catch {}
+    }
+  };
+}
+
 async function bootPhase(stage, ctx, api) {
   ensureGameStyle(ctx);
 
@@ -563,24 +668,37 @@ async function bootPhase(stage, ctx, api) {
   }
 
   try {
-    const cleanup = attachCompletionEvents(stage, api);
+    const cleanupEvents = attachCompletionEvents(stage, api);
 
     const result = await runner(stage, ctx, api);
 
+    if (typeof result === 'function') {
+      api._destroy = () => {
+        cleanupEvents();
+        try { result(); } catch {}
+      };
+      return;
+    }
+
     if (result && typeof result.destroy === 'function') {
       api._destroy = () => {
-        cleanup();
+        cleanupEvents();
         try { result.destroy(); } catch {}
       };
-    } else {
-      api._destroy = cleanup;
+      return;
     }
+
+    api._destroy = cleanupEvents;
   } catch (err) {
     console.error('[gate-core] phase runner failed:', err);
     renderError(stage, 'Phase runner failed', err);
     setActions(api.footer, [
       { label: 'กลับ HUB', onClick: () => goHub(ctx) },
-      { label: ctx.phase === 'cooldown' ? 'ข้าม cooldown' : 'เข้าเกมหลัก', primary: true, onClick: () => api.complete({ source: 'error-skip' }) }
+      {
+        label: ctx.phase === 'cooldown' ? 'ข้าม cooldown' : 'เข้าเกมหลัก',
+        primary: true,
+        onClick: () => api.complete({ source: 'error-skip' })
+      }
     ]);
   }
 }
@@ -638,34 +756,40 @@ export async function bootGate(root = document.getElementById('gate-app')) {
   const ctx = readCtx();
   setDocTitle(ctx);
 
-  const { stage, footer } = renderShell(root, ctx);
+  const refs = renderShell(root, ctx);
+  const { stage, footer } = refs;
+
+  applyStats(refs, {
+    time: ctx.time || '-',
+    score: 0,
+    miss: 0,
+    acc: '0%'
+  });
 
   if (!ctx.game || !ctx.meta) {
     showInvalidGame(stage, footer, ctx);
     return;
   }
 
-  const alreadyDone = getDailyDone(ctx.game, ctx.phase);
-  if (alreadyDone) {
-    showAlreadyDone(stage, footer, ctx);
-    return;
-  }
-
-  renderInfo(
-    stage,
-    ctx.phase === 'cooldown' ? 'กำลังโหลด cooldown...' : 'กำลังโหลด warmup...',
-    'โปรดรอสักครู่ ระบบกำลังเตรียมมินิเกมของ gate'
-  );
+  const compatLogger = createCompatLogger(ctx);
 
   const api = {
     ctx,
+    root: stage,
+    mountRoot: stage,
     footer,
+
     _done: false,
     _destroy: null,
 
+    logger: compatLogger,
     toast,
 
-    complete: async (payload = {}) => {
+    setStats(stats = {}) {
+      applyStats(refs, stats);
+    },
+
+    async complete(payload = {}) {
       if (api._done) return;
       api._done = true;
 
@@ -673,21 +797,29 @@ export async function bootGate(root = document.getElementById('gate-app')) {
         try { api._destroy(); } catch {}
       }
 
-      setDailyDone(ctx.game, ctx.phase, true);
+      if (payload.markDailyDone !== false) {
+        setDailyDone(ctx.game, ctx.phase, true);
+      }
+
+      const title = payload.title ||
+        (ctx.phase === 'cooldown' ? 'Cooldown เสร็จแล้ว' : 'พร้อมแล้ว ไปต่อกัน');
+
+      const subtitle = payload.subtitle ||
+        (ctx.phase === 'cooldown'
+          ? 'บันทึกผลล่าสุดเรียบร้อย สามารถกลับ HUB หรือเล่นต่อได้เลย'
+          : 'warmup เสร็จแล้ว ระบบกำลังพาเข้าเกมหลัก');
+
+      const extra = linesHtml(payload.lines || []);
 
       if (ctx.phase === 'warmup') {
-        renderInfo(
-          stage,
-          'พร้อมแล้ว ไปต่อกัน',
-          'warmup เสร็จแล้ว ระบบกำลังพาเข้าเกมหลัก'
-        );
+        renderInfo(stage, title, subtitle, extra);
 
         setActions(footer, [
           { label: 'เข้าเกมหลัก', primary: true, onClick: () => goRun(ctx) },
           { label: 'กลับ HUB', onClick: () => goHub(ctx) }
         ]);
 
-        await delay(450);
+        await delay(350);
         await goRun(ctx);
         return;
       }
@@ -706,11 +838,7 @@ export async function bootGate(root = document.getElementById('gate-app')) {
         payload
       });
 
-      renderInfo(
-        stage,
-        'Cooldown เสร็จแล้ว',
-        'บันทึกผลล่าสุดเรียบร้อย สามารถกลับ HUB หรือเล่นต่อได้เลย'
-      );
+      renderInfo(stage, title, subtitle, extra);
 
       setActions(footer, [
         { label: 'กลับ HUB', primary: true, onClick: () => goHub(ctx) },
@@ -718,11 +846,27 @@ export async function bootGate(root = document.getElementById('gate-app')) {
       ]);
     },
 
-    skip: async (payload = {}) => {
-      await api.complete({ skipped: true, ...payload });
+    async finish(payload = {}) {
+      return api.complete(payload);
     },
 
-    fail: err => {
+    async done(payload = {}) {
+      return api.complete(payload);
+    },
+
+    async summary(payload = {}) {
+      return api.complete(payload);
+    },
+
+    async next(payload = {}) {
+      return api.complete(payload);
+    },
+
+    async skip(payload = {}) {
+      return api.complete({ skipped: true, ...payload });
+    },
+
+    fail(err) {
       console.error('[gate-core] fail:', err);
       renderError(stage, 'Gate fail', err);
       setActions(footer, [
@@ -733,8 +877,28 @@ export async function bootGate(root = document.getElementById('gate-app')) {
           onClick: () => api.complete({ source: 'fail-skip' })
         }
       ]);
+    },
+
+    goRun() {
+      return goRun(ctx);
+    },
+
+    goHub() {
+      return goHub(ctx);
     }
   };
+
+  const alreadyDone = getDailyDone(ctx.game, ctx.phase);
+  if (alreadyDone) {
+    showAlreadyDone(stage, footer, ctx);
+    return;
+  }
+
+  renderInfo(
+    stage,
+    ctx.phase === 'cooldown' ? 'กำลังโหลด cooldown...' : 'กำลังโหลด warmup...',
+    'โปรดรอสักครู่ ระบบกำลังเตรียมมินิเกมของ gate'
+  );
 
   await bootPhase(stage, ctx, api);
 }
