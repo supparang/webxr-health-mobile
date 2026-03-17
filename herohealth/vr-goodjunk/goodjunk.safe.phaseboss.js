@@ -1,7 +1,8 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.phaseboss.js ===
-// FULL PATCH v20260317-GOODJUNK-PHASEBOSS-SPLIT
+// FULL PATCH v20260317-GOODJUNK-PHASEBOSS-SAFE-FULL
 // Solo-only phase build: Phase 1 -> Phase 2 -> Boss
-// Fun / challenging / exciting boss fight version
+// Fixed boss UI recursion / stack overflow
+// Includes boot-shell auto hide
 
 const __qs = new URLSearchParams(location.search);
 const RUN_CTX = window.__GJ_RUN_CTX__ || {
@@ -208,6 +209,8 @@ const ui = {
   soloBtnHub: null
 };
 
+let __gjSoloSummary = null;
+
 const rng = createSeededRng(RUN_CTX.seed || Date.now());
 
 boot();
@@ -216,12 +219,26 @@ function boot() {
   injectGameplayStyle();
   buildGameplayShell();
   bindGameplayShell();
+  hideBootShell();
   startGame();
 
   window.addEventListener('resize', refreshStageRect);
   window.addEventListener('beforeunload', () => {
     cancelAnimationFrame(state.frameRaf);
   });
+}
+
+function hideBootShell() {
+  const boot = document.querySelector('.boot-shell');
+  if (!boot) return;
+
+  boot.style.transition = 'opacity .28s ease';
+  boot.style.opacity = '0';
+  boot.style.pointerEvents = 'none';
+
+  setTimeout(() => {
+    if (boot && boot.parentNode) boot.style.display = 'none';
+  }, 320);
 }
 
 function injectGameplayStyle() {
@@ -628,7 +645,7 @@ function refreshStageRect() {
   state.rect.height = Math.max(360, rect.height);
 
   if (state.bossActive) {
-    const limitX = Math.max(0, state.rect.width - state.boss.w - 8);
+    const limitX = Math.max(8, state.rect.width - state.boss.w - 8);
     state.boss.x = clamp(state.boss.x, 8, limitX);
     renderBoss();
   }
@@ -714,8 +731,8 @@ function startGame() {
   state.boss.powerCd = 0;
   state.boss.enrage = false;
 
-  ui.layer.innerHTML = '';
-  ui.soloOverlay.hidden = true;
+  if (ui.layer) ui.layer.innerHTML = '';
+  if (ui.soloOverlay) ui.soloOverlay.hidden = true;
 
   setPhaseVisualClass();
   hideBossPhaseUi();
@@ -748,7 +765,7 @@ function loop(ts) {
     return;
   }
 
-  updatePhaseProgress(dt, ts);
+  updatePhaseProgress(dt);
   updateSpawner(dt);
   updateTargets(dt);
 
@@ -760,7 +777,7 @@ function loop(ts) {
   state.frameRaf = requestAnimationFrame(loop);
 }
 
-function updatePhaseProgress(dt, ts) {
+function updatePhaseProgress(dt) {
   const preset = getPreset();
   const elapsedRatio = 1 - (state.timeLeftMs / state.totalMs);
 
@@ -824,12 +841,14 @@ function startBossPhase() {
   state.boss.enrage = false;
 
   clearHalfTargetsForBossEntry();
+
   showBossPhaseUi();
   setPhaseVisualClass();
-  showCenterTip('BOSS INCOMING! เก็บของดีเพื่อลด HP บอส • แตะ weak spot ตอนเปิด • ระวัง junk storm');
-  updateHint('Boss Phase: good = damage, power = heavy damage, weak spot = stun + big damage');
   renderHud();
   renderBoss();
+
+  showCenterTip('BOSS INCOMING! เก็บของดีเพื่อลด HP บอส • แตะ weak spot ตอนเปิด • ระวัง junk storm');
+  updateHint('Boss Phase: good = damage, power = heavy damage, weak spot = stun + big damage');
 }
 
 function clearHalfTargetsForBossEntry() {
@@ -1135,7 +1154,12 @@ function registerMissGood(target) {
   state.miss += 1;
   state.streak = 0;
 
-  createFx(target.x + target.size / 2, Math.max(28, target.y), target.kind === 'power' ? 'พลาด POWER' : 'พลาดของดี', '#fbbf24');
+  createFx(
+    target.x + target.size / 2,
+    Math.max(28, target.y),
+    target.kind === 'power' ? 'พลาด POWER' : 'พลาดของดี',
+    '#fbbf24'
+  );
 
   if (state.bossActive) {
     const heal = target.kind === 'power' ? 4 : 2;
@@ -1225,7 +1249,7 @@ function openBossWeakSpot() {
   const preset = getPreset();
   state.boss.weakSpotReady = true;
   state.boss.weakSpotOpenMs = preset.weakSpotOpenMs;
-  ui.bossWeakSpot.hidden = false;
+  if (ui.bossWeakSpot) ui.bossWeakSpot.hidden = false;
   createFx(state.boss.x + state.boss.w * 0.78, state.boss.y + state.boss.h * 0.72, 'WEAK SPOT!', '#fde68a');
 }
 
@@ -1234,7 +1258,7 @@ function closeBossWeakSpot() {
   state.boss.weakSpotReady = false;
   state.boss.weakSpotOpenMs = 0;
   state.boss.weakSpotCd = state.boss.enrage ? preset.weakSpotEveryMs * 0.75 : preset.weakSpotEveryMs;
-  ui.bossWeakSpot.hidden = true;
+  if (ui.bossWeakSpot) ui.bossWeakSpot.hidden = true;
 }
 
 function hitBossWeakSpot() {
@@ -1282,13 +1306,13 @@ function healBoss(amount = 0, label = '') {
 }
 
 function showBossPhaseUi() {
+  if (!ui.bossWrap) return;
   ui.bossWrap.hidden = false;
-  renderBoss();
 }
 
 function hideBossPhaseUi() {
-  ui.bossWrap.hidden = true;
-  ui.bossWeakSpot.hidden = true;
+  if (ui.bossWrap) ui.bossWrap.hidden = true;
+  if (ui.bossWeakSpot) ui.bossWeakSpot.hidden = true;
 }
 
 function renderBoss() {
@@ -1303,13 +1327,28 @@ function renderBoss() {
 
   ui.boss.style.transform = `translate3d(${state.boss.x}px, ${state.boss.y}px, 0)`;
   ui.boss.classList.toggle('enrage', !!state.boss.enrage);
-  ui.bossFace.textContent = state.boss.enrage ? '😈' : '🍔';
-  ui.bossName.textContent = state.boss.enrage ? 'Junk King • ENRAGE' : 'Junk King';
+
+  if (ui.bossFace) {
+    ui.bossFace.textContent = state.boss.enrage ? '😈' : '🍔';
+  }
+
+  if (ui.bossName) {
+    ui.bossName.textContent = state.boss.enrage ? 'Junk King • ENRAGE' : 'Junk King';
+  }
 
   const hpRatio = state.boss.hpMax > 0 ? state.boss.hp / state.boss.hpMax : 0;
-  ui.bossHpFill.style.transform = `scaleX(${Math.max(0, Math.min(1, hpRatio))})`;
-  ui.bossHpText.textContent = `${Math.ceil(state.boss.hp)} / ${Math.ceil(state.boss.hpMax)}`;
-  ui.bossWeakSpot.hidden = !state.boss.weakSpotReady;
+
+  if (ui.bossHpFill) {
+    ui.bossHpFill.style.transform = `scaleX(${Math.max(0, Math.min(1, hpRatio))})`;
+  }
+
+  if (ui.bossHpText) {
+    ui.bossHpText.textContent = `${Math.ceil(state.boss.hp)} / ${Math.ceil(state.boss.hpMax)}`;
+  }
+
+  if (ui.bossWeakSpot) {
+    ui.bossWeakSpot.hidden = !state.boss.weakSpotReady;
+  }
 }
 
 function setPhaseVisualClass() {
@@ -1366,6 +1405,7 @@ function renderHud() {
 
   if (ui.phaseSub) {
     const preset = getPreset();
+
     if (state.bossActive) {
       ui.phaseSub.textContent = state.boss.enrage
         ? 'ตี weak spot • ใช้ power food • boss enrage'
@@ -1400,8 +1440,6 @@ function formatSeconds(ms) {
   const r = s % 60;
   return `${m}:${String(r).padStart(2, '0')}`;
 }
-
-let __gjSoloSummary = null;
 
 function endGame(reason = 'finished') {
   if (state.ended) return;
