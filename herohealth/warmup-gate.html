@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — Warmup/Cooldown Gate</title>
+  <title>HeroHealth — Warmup / Cooldown Gate</title>
   <meta name="color-scheme" content="dark light" />
   <link rel="icon" href="./favicon.ico" />
   <link rel="stylesheet" href="./gate/gate-common.css?v=20260312d" />
@@ -12,7 +12,7 @@
   <div id="gate-app"></div>
 
   <script type="module">
-    import * as GateCore from './gate/gate-core.js?v=20260317c-gate-import-fix';
+    import * as GateCore from './gate/gate-core.js?v=20260317d-GATE-ONEPAGE-IMPORT-FIX';
 
     const app = document.getElementById('gate-app');
 
@@ -26,11 +26,11 @@
     if (!boot) {
       console.error('gate-core exports:', Object.keys(GateCore));
       app.innerHTML = `
-        <div style="min-height:100vh;display:grid;place-items:center;background:#020617;color:#e5e7eb;padding:24px;font-family:system-ui,sans-serif">
-          <div style="max-width:860px;width:100%;background:rgba(15,23,42,.9);border:1px solid rgba(148,163,184,.18);border-radius:20px;padding:20px;box-shadow:0 18px 50px rgba(0,0,0,.3)">
-            <h2 style="margin:0 0 12px;font-size:24px">Gate load error</h2>
+        <div style="min-height:100vh;display:grid;place-items:center;padding:24px;background:#020617;color:#e5e7eb;font-family:system-ui,sans-serif">
+          <div style="width:min(860px,100%);background:rgba(15,23,42,.92);border:1px solid rgba(148,163,184,.18);border-radius:22px;padding:20px;box-shadow:0 18px 50px rgba(0,0,0,.30)">
+            <h2 style="margin:0 0 10px;font-size:24px">Gate load error</h2>
             <p style="margin:0 0 12px;color:#cbd5e1">ไม่พบฟังก์ชันเริ่มต้นใน <code>gate-core.js</code></p>
-            <pre style="white-space:pre-wrap;overflow:auto;background:#0f172a;padding:12px;border-radius:12px;border:1px solid rgba(148,163,184,.12)">exports: ${Object.keys(GateCore).join(', ') || '(no exports found)'}</pre>
+            <pre style="margin:0;white-space:pre-wrap;overflow:auto;background:#0f172a;padding:12px;border-radius:12px;border:1px solid rgba(148,163,184,.12)">exports: ${Object.keys(GateCore).join(', ') || '(no exports found)'}</pre>
           </div>
         </div>
       `;
@@ -40,10 +40,10 @@
     Promise.resolve(boot(app)).catch(err => {
       console.error('Gate boot failed:', err);
       app.innerHTML = `
-        <div style="min-height:100vh;display:grid;place-items:center;background:#020617;color:#e5e7eb;padding:24px;font-family:system-ui,sans-serif">
-          <div style="max-width:860px;width:100%;background:rgba(15,23,42,.9);border:1px solid rgba(148,163,184,.18);border-radius:20px;padding:20px;box-shadow:0 18px 50px rgba(0,0,0,.3)">
-            <h2 style="margin:0 0 12px;font-size:24px">Gate boot failed</h2>
-            <pre style="white-space:pre-wrap;overflow:auto;background:#0f172a;padding:12px;border-radius:12px;border:1px solid rgba(148,163,184,.12)">${String(err?.stack || err)}</pre>
+        <div style="min-height:100vh;display:grid;place-items:center;padding:24px;background:#020617;color:#e5e7eb;font-family:system-ui,sans-serif">
+          <div style="width:min(860px,100%);background:rgba(15,23,42,.92);border:1px solid rgba(148,163,184,.18);border-radius:22px;padding:20px;box-shadow:0 18px 50px rgba(0,0,0,.30)">
+            <h2 style="margin:0 0 10px;font-size:24px">Gate boot failed</h2>
+            <pre style="margin:0;white-space:pre-wrap;overflow:auto;background:#0f172a;padding:12px;border-radius:12px;border:1px solid rgba(148,163,184,.12)">${String(err?.stack || err)}</pre>
           </div>
         </div>
       `;
