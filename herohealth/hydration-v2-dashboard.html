@@ -43,7 +43,7 @@
         calc(16px + var(--sal));
     }
     .wrap{
-      max-width:1240px;
+      max-width:1280px;
       margin:0 auto;
       display:grid;
       gap:18px;
@@ -85,7 +85,7 @@
       margin:0;
       color:var(--muted);
       line-height:1.7;
-      max-width:64ch;
+      max-width:66ch;
     }
     .actions{
       display:flex;
@@ -119,9 +119,14 @@
       background:linear-gradient(180deg, #ffd36d, #f5b531);
       color:#3c2800;
     }
+    .btn.good{
+      background:linear-gradient(180deg, #58dd8d, #22c55e);
+      color:#082314;
+    }
+
     .stats{
       display:grid;
-      grid-template-columns:repeat(4,minmax(0,1fr));
+      grid-template-columns:repeat(5,minmax(0,1fr));
       gap:14px;
     }
     .stat{
@@ -144,11 +149,7 @@
       font-size:13px;
       line-height:1.6;
     }
-    .main-grid{
-      display:grid;
-      grid-template-columns:1.05fr .95fr;
-      gap:18px;
-    }
+
     .section{
       padding:18px;
     }
@@ -161,6 +162,48 @@
       color:var(--muted);
       line-height:1.65;
     }
+
+    .filters{
+      display:grid;
+      grid-template-columns:repeat(6,minmax(0,1fr));
+      gap:12px;
+      margin-top:16px;
+    }
+    .field{
+      display:grid;
+      gap:8px;
+    }
+    .field label{
+      font-size:12px;
+      color:#dff2ff;
+      font-weight:900;
+    }
+    input, select{
+      width:100%;
+      min-height:46px;
+      padding:12px 14px;
+      border-radius:14px;
+      border:1px solid rgba(255,255,255,.10);
+      background:rgba(255,255,255,.06);
+      color:var(--text);
+      font:inherit;
+      outline:none;
+    }
+    input::placeholder{ color:#a9c7db; }
+
+    .filter-actions{
+      display:flex;
+      flex-wrap:wrap;
+      gap:12px;
+      margin-top:16px;
+    }
+
+    .main-grid{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:18px;
+    }
+
     .info-grid{
       display:grid;
       grid-template-columns:repeat(2,minmax(0,1fr));
@@ -185,6 +228,46 @@
       line-height:1.5;
       word-break:break-word;
     }
+
+    .player-grid{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:12px;
+      margin-top:16px;
+    }
+    .player-card{
+      padding:16px;
+      border-radius:20px;
+      background:rgba(255,255,255,.05);
+      border:1px solid rgba(255,255,255,.08);
+    }
+    .player-top{
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      align-items:center;
+      margin-bottom:10px;
+    }
+    .player-name{
+      font-size:17px;
+      font-weight:900;
+    }
+    .player-badge{
+      min-height:34px;
+      padding:8px 10px;
+      border-radius:999px;
+      background:rgba(56,189,248,.12);
+      border:1px solid rgba(56,189,248,.20);
+      color:#def8ff;
+      font-size:12px;
+      font-weight:900;
+    }
+    .player-meta{
+      color:#def3ff;
+      font-size:14px;
+      line-height:1.7;
+    }
+
     .history-list{
       display:grid;
       gap:12px;
@@ -218,6 +301,7 @@
       font-size:14px;
       line-height:1.7;
     }
+
     .empty{
       margin-top:16px;
       padding:16px;
@@ -231,14 +315,18 @@
       font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
       font-size:13px;
     }
-    @media (max-width: 980px){
-      .stats,
-      .main-grid{ grid-template-columns:1fr 1fr; }
+
+    @media (max-width: 1100px){
+      .stats{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .filters{ grid-template-columns:repeat(3,minmax(0,1fr)); }
+      .player-grid{ grid-template-columns:repeat(2,minmax(0,1fr)); }
       .main-grid{ grid-template-columns:1fr; }
     }
     @media (max-width: 720px){
       .stats,
-      .info-grid{ grid-template-columns:1fr; }
+      .filters,
+      .info-grid,
+      .player-grid{ grid-template-columns:1fr; }
       .hero{ padding:18px; }
     }
   </style>
@@ -248,46 +336,112 @@
     <section class="card hero">
       <div>
         <div class="eyebrow">📊 Hydration V2 • Teacher / Research Dashboard</div>
-        <h1>ดูผลล่าสุดและประวัติจาก LocalStorage</h1>
+        <h1>ดูผลล่าสุด, กรองข้อมูล, และ Export ได้</h1>
         <p class="lead">
           หน้านี้อ่านข้อมูลจาก
           <span class="mono">HHA_LAST_SUMMARY</span>,
           <span class="mono">HHA_HYDRATION_V2_RESEARCH_LAST</span> และ
           <span class="mono">HHA_HYDRATION_V2_RESEARCH_HISTORY</span>
-          เพื่อใช้ตรวจ flow, summary และ progress ของ session/week
+          แล้วสรุปเป็นมุมมองสำหรับตรวจงานวิจัยและเช็ก flow ของเกม
         </p>
       </div>
 
       <div class="actions">
         <button class="btn ghost" id="backLauncherBtn" type="button">กลับ Launcher</button>
         <button class="btn primary" id="refreshBtn" type="button">รีเฟรชข้อมูล</button>
+        <button class="btn good" id="exportJsonBtn" type="button">Export JSON</button>
+        <button class="btn good" id="exportCsvBtn" type="button">Export CSV</button>
         <button class="btn warn" id="clearBtn" type="button">ล้าง LocalStorage</button>
+      </div>
+    </section>
+
+    <section class="card section">
+      <h2>ตัวกรอง</h2>
+      <p>ใช้กรอง history ตามผู้เล่นหรือรูปแบบการเล่น ก่อนดู aggregate และ export</p>
+
+      <div class="filters">
+        <div class="field">
+          <label for="pidFilter">PID</label>
+          <input id="pidFilter" type="text" placeholder="เช่น S001" />
+        </div>
+
+        <div class="field">
+          <label for="studyIdFilter">Study ID</label>
+          <input id="studyIdFilter" type="text" placeholder="เช่น HYD-2026-A" />
+        </div>
+
+        <div class="field">
+          <label for="modeFilter">Mode</label>
+          <select id="modeFilter">
+            <option value="">ทั้งหมด</option>
+            <option value="quick">quick</option>
+            <option value="program">program</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="typeFilter">Type</label>
+          <select id="typeFilter">
+            <option value="">ทั้งหมด</option>
+            <option value="solo">solo</option>
+            <option value="team">team</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="runFilter">Run</label>
+          <select id="runFilter">
+            <option value="">ทั้งหมด</option>
+            <option value="play">play</option>
+            <option value="research">research</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="missionFilter">Team Mission</label>
+          <select id="missionFilter">
+            <option value="">ทั้งหมด</option>
+            <option value="passed">ผ่าน</option>
+            <option value="failed">ยังไม่ผ่าน</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="filter-actions">
+        <button class="btn primary" id="applyFilterBtn" type="button">ใช้ตัวกรอง</button>
+        <button class="btn ghost" id="resetFilterBtn" type="button">ล้างตัวกรอง</button>
       </div>
     </section>
 
     <section class="stats">
       <article class="card stat">
-        <div class="stat-label">Research History</div>
+        <div class="stat-label">History ทั้งหมด</div>
         <div class="stat-value" id="countHistory">0</div>
-        <div class="stat-sub">จำนวน record ที่เก็บไว้</div>
+        <div class="stat-sub">จำนวน record ใน research history</div>
       </article>
 
       <article class="card stat">
-        <div class="stat-label">Total Score ล่าสุด</div>
-        <div class="stat-value" id="lastTotalScore">-</div>
-        <div class="stat-sub">อ่านจาก research payload ล่าสุด</div>
+        <div class="stat-label">หลังกรอง</div>
+        <div class="stat-value" id="countFiltered">0</div>
+        <div class="stat-sub">จำนวน record ที่ตรงกับตัวกรอง</div>
+      </article>
+
+      <article class="card stat">
+        <div class="stat-label">คะแนนเฉลี่ย</div>
+        <div class="stat-value" id="avgTotalScore">0</div>
+        <div class="stat-sub">เฉลี่ย total score ของรายการที่กรองแล้ว</div>
+      </article>
+
+      <article class="card stat">
+        <div class="stat-label">ผ่าน Team Mission</div>
+        <div class="stat-value" id="countPassed">0</div>
+        <div class="stat-sub">จำนวนรอบที่ team mission ผ่าน</div>
       </article>
 
       <article class="card stat">
         <div class="stat-label">Session / Week ล่าสุด</div>
         <div class="stat-value" id="lastSessionWeek">-</div>
-        <div class="stat-sub">ใช้ตรวจ progress ของ program mode</div>
-      </article>
-
-      <article class="card stat">
-        <div class="stat-label">Team Mission ล่าสุด</div>
-        <div class="stat-value" id="lastTeamStatus">-</div>
-        <div class="stat-sub">ผ่านหรือยังในรอบล่าสุด</div>
+        <div class="stat-sub">ดู progress รอบล่าสุด</div>
       </article>
     </section>
 
@@ -312,15 +466,24 @@
     </section>
 
     <section class="card section">
-      <h2>Research History</h2>
-      <p>ดูประวัติย้อนหลังแบบย่อจาก localStorage</p>
+      <h2>Recent Player Cards</h2>
+      <p>สรุปรอบล่าสุดของแต่ละ PID จากรายการที่ผ่านตัวกรองแล้ว</p>
+      <div class="player-grid" id="playerGrid"></div>
+      <div class="empty" id="playerEmpty" style="display:none;">
+        ยังไม่มี player cards สำหรับตัวกรองนี้
+      </div>
+    </section>
+
+    <section class="card section">
+      <h2>Filtered Research History</h2>
+      <p>ประวัติย้อนหลังแบบย่อจากรายการที่ผ่านตัวกรอง</p>
       <div class="history-list" id="historyList"></div>
       <div class="empty" id="historyEmpty" style="display:none;">
-        ยังไม่มี research history
+        ยังไม่มี research history ที่ตรงกับตัวกรอง
       </div>
     </section>
   </div>
 
-  <script type="module" src="./vr-hydration-v2/js/hydration.dashboard.js?v=20260317d"></script>
+  <script type="module" src="./vr-hydration-v2/js/hydration.dashboard.js?v=20260317e"></script>
 </body>
 </html>
