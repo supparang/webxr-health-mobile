@@ -1,7 +1,3 @@
-<!-- === /herohealth/vr-goodjunk/goodjunk-multi.html ===
-GoodJunk Multiplayer LOBBY — unified Race / Battle / Coop
-FULL PATCH v20260317-GJ-MULTI-LOBBY-MODES-SPLIT-RACEPATH-FIX
--->
 <!doctype html>
 <html lang="th">
 <head>
@@ -21,6 +17,8 @@ FULL PATCH v20260317-GJ-MULTI-LOBBY-MODES-SPLIT-RACEPATH-FIX
       --battle:#f59e0b;
       --coop:#a78bfa;
       --ok:#27d17f;
+      --warn:#f59e0b;
+      --bad:#ef4444;
 
       --btn:#16224a;
       --btn2:rgba(39,209,127,.15);
@@ -39,7 +37,7 @@ FULL PATCH v20260317-GJ-MULTI-LOBBY-MODES-SPLIT-RACEPATH-FIX
     }
 
     .wrap{
-      max-width:1100px;
+      max-width:1160px;
       margin:0 auto;
       padding:20px;
     }
@@ -113,10 +111,10 @@ FULL PATCH v20260317-GJ-MULTI-LOBBY-MODES-SPLIT-RACEPATH-FIX
     .grid{
       display:grid;
       gap:14px;
-      grid-template-columns:1.25fr .75fr;
+      grid-template-columns:1.1fr .9fr;
       margin-top:14px;
     }
-    @media (max-width:900px){
+    @media (max-width:980px){
       .grid{ grid-template-columns:1fr; }
     }
 
@@ -133,11 +131,6 @@ FULL PATCH v20260317-GJ-MULTI-LOBBY-MODES-SPLIT-RACEPATH-FIX
       gap:10px;
       flex-wrap:wrap;
       align-items:center;
-    }
-
-    .stack{
-      display:grid;
-      gap:10px;
     }
 
     input,select,button{
@@ -167,6 +160,15 @@ FULL PATCH v20260317-GJ-MULTI-LOBBY-MODES-SPLIT-RACEPATH-FIX
       background:var(--btn2);
       border-color:rgba(39,209,127,.5);
       color:#b9ffd9;
+    }
+    .btnWarn{
+      background:rgba(245,158,11,.15);
+      border-color:rgba(245,158,11,.45);
+      color:#fde68a;
+    }
+    .btnGhost{
+      background:rgba(255,255,255,.06);
+      color:#e5e7eb;
     }
 
     .mono{
@@ -263,6 +265,71 @@ FULL PATCH v20260317-GJ-MULTI-LOBBY-MODES-SPLIT-RACEPATH-FIX
       font-size:13px;
       line-height:1.65;
     }
+
+    .player-list{
+      display:grid;
+      gap:8px;
+      margin-top:10px;
+    }
+
+    .player-row{
+      display:grid;
+      grid-template-columns:1.6fr .7fr .7fr .7fr;
+      gap:8px;
+      align-items:center;
+      padding:10px 12px;
+      border:1px solid rgba(148,163,184,.14);
+      background:#0b1430;
+      border-radius:14px;
+      font-size:13px;
+    }
+
+    .player-row.head{
+      font-weight:900;
+      color:#cbd5e1;
+      background:rgba(255,255,255,.04);
+    }
+
+    .status-pill{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-width:72px;
+      padding:6px 8px;
+      border-radius:999px;
+      font-size:12px;
+      font-weight:900;
+      border:1px solid rgba(148,163,184,.18);
+      background:#0d1730;
+    }
+
+    .status-ready{ color:#86efac; border-color:rgba(34,197,94,.28); background:rgba(34,197,94,.12); }
+    .status-off{ color:#fda4af; border-color:rgba(239,68,68,.28); background:rgba(239,68,68,.10); }
+    .status-host{ color:#7dd3fc; border-color:rgba(56,189,248,.28); background:rgba(56,189,248,.10); }
+
+    .countdown-box{
+      margin-top:12px;
+      padding:14px;
+      border-radius:16px;
+      border:1px solid rgba(56,189,248,.28);
+      background:rgba(56,189,248,.08);
+      text-align:center;
+    }
+
+    .countdown-num{
+      font-size:34px;
+      font-weight:900;
+      line-height:1;
+      margin:6px 0 4px;
+      color:#7dd3fc;
+    }
+
+    .toolbar-bottom{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-top:12px;
+    }
   </style>
 </head>
 <body>
@@ -271,7 +338,7 @@ FULL PATCH v20260317-GJ-MULTI-LOBBY-MODES-SPLIT-RACEPATH-FIX
     <div class="hero-kicker">GOODJUNK • MULTIPLAYER LOBBY</div>
     <h1 id="pageTitle">GoodJunk Multiplayer — Race / Battle / Coop</h1>
     <div class="mut" id="pageSub">
-      ครูสร้างห้อง → แชร์ QR/ลิงก์ → ผู้เล่นเข้าห้อง → ระบบส่งไปหน้าที่ถูกต้องตามโหมดที่เลือก
+      สร้างห้อง → แชร์ลิงก์/QR → ผู้เล่นเข้า → Host กดเริ่ม → ทุกคนเข้าหน้า run พร้อมกัน
     </div>
 
     <div class="mode-tabs">
@@ -306,10 +373,10 @@ FULL PATCH v20260317-GJ-MULTI-LOBBY-MODES-SPLIT-RACEPATH-FIX
           <option value="hard">hard</option>
         </select>
         <select id="time">
-          <option value="60">60s</option>
-          <option value="80" selected>80s</option>
-          <option value="100">100s</option>
-          <option value="120">120s</option>
+          <option value="90">90s</option>
+          <option value="120" selected>120s</option>
+          <option value="150">150s</option>
+          <option value="180">180s</option>
         </select>
       </div>
 
@@ -323,10 +390,17 @@ FULL PATCH v20260317-GJ-MULTI-LOBBY-MODES-SPLIT-RACEPATH-FIX
         <span class="mut">ถ้าชื่อเป็น <span class="mono">TEACHER</span> จะถูกติ๊กให้อัตโนมัติ</span>
       </div>
 
-      <div style="height:12px"></div>
+      <div class="toolbar-bottom">
+        <button id="btnJoin" class="btnOk" type="button">เข้า Lobby</button>
+        <button id="btnReady" class="btn" type="button">พร้อมเล่น</button>
+        <button id="btnStartRace" class="btnWarn" type="button">Start Race</button>
+        <button id="btnLeave" class="btnGhost" type="button">ออกจากห้อง</button>
+      </div>
 
-      <div class="row">
-        <button id="btnJoin" class="btnOk" type="button">เข้าเล่น</button>
+      <div id="countdownWrap" class="countdown-box" hidden>
+        <div class="mut">กำลังจะเริ่มเกม</div>
+        <div id="countdownNum" class="countdown-num">-</div>
+        <div class="mut" id="countdownSub">ระบบจะพาเข้า run page อัตโนมัติ</div>
       </div>
 
       <div style="height:14px"></div>
@@ -340,15 +414,12 @@ FULL PATCH v20260317-GJ-MULTI-LOBBY-MODES-SPLIT-RACEPATH-FIX
       <div id="joinLink" class="link mono">-</div>
 
       <div class="okbox">
-        หน้า lobby นี้รองรับ <strong>Race / Battle / Coop</strong> แล้ว
-        โดยโหมด <strong>Race</strong> จะส่งต่อไปหน้า race lobby ปัจจุบันของ HeroHealth
+        ตอนนี้โหมดที่ปิด flow จริงแล้วคือ <strong>Race</strong>:
+        create room → join → host start → countdown → run
       </div>
 
-      <div class="warn" id="modeWarn">
-        หมายเหตุ: โหมด Battle และ Coop ต้องมีไฟล์
-        <span class="mono">goodjunk-battle-run.html</span> และ
-        <span class="mono">goodjunk-coop-run.html</span>
-        รองรับจริงที่ฝั่ง run page ด้วย
+      <div id="backendWarn" class="warn" hidden>
+        ⚠️ Firebase ยังไม่พร้อม — lobby จะสร้างห้อง/เริ่มแข่งไม่ได้
       </div>
     </div>
 
@@ -357,103 +428,111 @@ FULL PATCH v20260317-GJ-MULTI-LOBBY-MODES-SPLIT-RACEPATH-FIX
       <div class="qr" id="qrBox"><span class="mut">กด “สร้างห้องใหม่”</span></div>
 
       <div style="height:10px"></div>
+      <div class="mut">แชร์ QR นี้ให้ผู้เล่นเปิดเข้ามาที่ lobby พร้อม room/mode ที่ตั้งไว้</div>
 
-      <div class="mut">
-        แชร์ QR นี้ให้ผู้เล่นเปิดเข้ามาที่หน้าที่ถูกต้องพร้อม room/mode ที่ตั้งไว้
+      <div style="height:14px"></div>
+
+      <div class="mut">สถานะห้อง</div>
+      <div style="margin-top:8px;">
+        <span class="pill mono">roomId: <span id="roomState">-</span></span>
+        <span class="pill mono">status: <span id="statusState">-</span></span>
       </div>
 
       <div style="height:12px"></div>
 
-      <div class="mut">
-        ใส่ Supabase ผ่าน query เช่น:<br/>
-        <span class="mono">goodjunk-multi.html?sbUrl=...&amp;sbAnon=...</span>
+      <div class="mut">รายชื่อผู้เล่น</div>
+      <div class="player-list" id="playerList">
+        <div class="player-row head">
+          <div>ผู้เล่น</div>
+          <div>Ready</div>
+          <div>Host</div>
+          <div>Online</div>
+        </div>
       </div>
 
-      <div style="height:10px"></div>
-
+      <div style="height:12px"></div>
       <div class="mut">
-        รองรับ passthrough query เดิม เช่น
-        <span class="mono">run</span>,
-        <span class="mono">log</span>,
-        <span class="mono">api</span>,
-        <span class="mono">pid</span>,
-        <span class="mono">hub</span>,
-        <span class="mono">studyId</span>,
-        <span class="mono">phase</span>,
-        <span class="mono">conditionGroup</span>,
-        <span class="mono">debug</span>,
-        <span class="mono">seed</span>,
-        <span class="mono">view</span>
+        Race ใช้ Firebase path:
+        <span class="mono">raceRooms/goodjunk/&lt;roomId&gt;</span>
       </div>
     </div>
   </div>
 </div>
 
+<script src="../firebase-config.js"></script>
 <script>
   const qs = (k, d='') => {
-    try {
-      return (new URL(location.href)).searchParams.get(k) ?? d;
-    } catch (e) {
-      return d;
-    }
+    try { return (new URL(location.href)).searchParams.get(k) ?? d; }
+    catch (e) { return d; }
   };
-
   const $ = (id) => document.getElementById(id);
-
-  const sbUrl  = qs('sbUrl', '');
-  const sbAnon = qs('sbAnon', '');
 
   const MODE_META = {
     race: {
       label: 'Race',
       theme: 'race',
-      sharePath: '../goodjunk-race-lobby.html',
-      joinPath: '../goodjunk-race-lobby.html',
+      defaultTime: '120',
+      runPath: './goodjunk-race-run.html',
       desc: [
         'แข่งคะแนน ใคร score สูงสุดชนะ',
         'เริ่มพร้อมกันและมีผลลัพธ์แบบ leaderboard',
-        'ใช้ race lobby / race run เวอร์ชันปัจจุบันของ HeroHealth'
+        'โหมดนี้ปิด flow จริงก่อน'
       ]
     },
     battle: {
       label: 'Battle',
       theme: 'battle',
-      sharePath: './goodjunk-multi.html',
-      joinPath: './goodjunk-battle-run.html',
+      defaultTime: '150',
+      runPath: './goodjunk-battle-run.html',
       desc: [
         'โหมดปะทะโดยตรง winner / loser',
-        'ควรแยก logic การโจมตี / กดดัน / shield จาก race',
-        'ใช้ run page คนละไฟล์กับ race'
+        'ตอนนี้ยังไม่ปิด flow เต็ม',
+        'ใช้ไว้เป็น placeholder ก่อน'
       ]
     },
     coop: {
       label: 'Coop',
       theme: 'coop',
-      sharePath: './goodjunk-multi.html',
-      joinPath: './goodjunk-coop-run.html',
+      defaultTime: '180',
+      runPath: './goodjunk-coop-run.html',
       desc: [
         'เล่นร่วมมือกันเพื่อเป้าหมายเดียว',
-        'เหมาะกับ team score / shared goal / team summary',
-        'ไม่ควรใช้ ranking แบบ race'
+        'ตอนนี้ยังไม่ปิด flow เต็ม',
+        'ใช้ไว้เป็น placeholder ก่อน'
       ]
     }
   };
 
   const SHARE_PASSTHRU_KEYS = [
     'run','log','api','hub','studyId','phase','conditionGroup',
-    'debug','seed','view','battle','autostart','forfeit'
+    'debug','seed','view','autostart','forfeit'
   ];
 
   const elRoomId = $('roomId');
-  const elName   = $('playerName');
-  const elDiff   = $('diff');
-  const elTime   = $('time');
-  const elHost   = $('isHost');
-  const elShare  = $('shareLink');
-  const elJoin   = $('joinLink');
-  const elQrBox  = $('qrBox');
+  const elName = $('playerName');
+  const elDiff = $('diff');
+  const elTime = $('time');
+  const elHost = $('isHost');
+  const elShare = $('shareLink');
+  const elJoin = $('joinLink');
+  const elQrBox = $('qrBox');
+  const elPlayerList = $('playerList');
+  const elRoomState = $('roomState');
+  const elStatusState = $('statusState');
+  const elCountdownWrap = $('countdownWrap');
+  const elCountdownNum = $('countdownNum');
+  const elCountdownSub = $('countdownSub');
+  const elBackendWarn = $('backendWarn');
 
   let currentMode = normalizeMode(qs('mode', 'race'));
+  let db = null;
+  let roomRef = null;
+  let playersRef = null;
+  let myPlayerRef = null;
+  let roomListenerBound = false;
+  let countdownRaf = 0;
+  let redirectGuard = false;
+  let firebaseReady = false;
 
   function normalizeMode(mode){
     const m = String(mode || '').trim().toLowerCase();
@@ -463,7 +542,7 @@ FULL PATCH v20260317-GJ-MULTI-LOBBY-MODES-SPLIT-RACEPATH-FIX
   function randRoom(){
     const pool = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
     let s = 'GJ-';
-    for(let i=0;i<5;i++) s += pool[Math.floor(Math.random()*pool.length)];
+    for(let i=0;i<5;i++) s += pool[Math.floor(Math.random() * pool.length)];
     return s;
   }
 
@@ -479,6 +558,17 @@ FULL PATCH v20260317-GJ-MULTI-LOBBY-MODES-SPLIT-RACEPATH-FIX
     return `${base}-${Math.random().toString(36).slice(2,7)}`;
   }
 
+  function getPid(){
+    const qpid = qs('pid', '');
+    if (qpid) return qpid;
+    const key = 'GJ_MULTI_PID';
+    const existed = localStorage.getItem(key);
+    if (existed) return existed;
+    const created = makePid(elName.value || 'player');
+    localStorage.setItem(key, created);
+    return created;
+  }
+
   function getRoomIdValue(){
     return (elRoomId.value || qs('roomId', qs('room', '')) || '').trim();
   }
@@ -488,32 +578,21 @@ FULL PATCH v20260317-GJ-MULTI-LOBBY-MODES-SPLIT-RACEPATH-FIX
     return elHost.checked || typed.toLowerCase() === 'teacher';
   }
 
-  function buildShareBaseUrl(){
+  function syncTimeWithMode(force = false){
     const meta = MODE_META[currentMode];
-    return new URL(meta.sharePath, location.href);
-  }
-
-  function buildJoinBaseUrl(){
-    const meta = MODE_META[currentMode];
-    return new URL(meta.joinPath, location.href);
+    const current = String(elTime.value || '').trim();
+    const allowed = ['90','120','150','180'];
+    if (!allowed.includes(current) || force) {
+      elTime.value = meta.defaultTime;
+    }
   }
 
   function buildLobbyShareLink(roomId){
-    const u = buildShareBaseUrl();
-
+    const u = new URL(location.pathname, location.href);
     u.searchParams.set('mode', currentMode);
     u.searchParams.set('roomId', roomId);
     u.searchParams.set('diff', elDiff.value);
-    u.searchParams.set('time', elTime.value);
-    u.searchParams.set('gameId', 'goodjunk');
-
-    if (currentMode === 'race') {
-      u.searchParams.set('pid', 'anon');
-      u.searchParams.set('name', '');
-    }
-
-    if (sbUrl)  u.searchParams.set('sbUrl', sbUrl);
-    if (sbAnon) u.searchParams.set('sbAnon', sbAnon);
+    u.searchParams.set('time', elTime.value || MODE_META[currentMode].defaultTime);
 
     SHARE_PASSTHRU_KEYS.forEach((k) => {
       const v = qs(k, '');
@@ -523,37 +602,31 @@ FULL PATCH v20260317-GJ-MULTI-LOBBY-MODES-SPLIT-RACEPATH-FIX
     return u.toString();
   }
 
-  function buildJoinRunLink(roomId, name='', host='0'){
+  function buildRunLink(roomId, name, startAt){
+    const meta = MODE_META[currentMode];
+    const u = new URL(meta.runPath, location.href);
+
     const cleanName = sanitizeName(name || 'Player');
-    const queryPid = qs('pid', '');
-    const pid = queryPid || makePid(cleanName);
-    const u = buildJoinBaseUrl();
+    const pid = getPid();
 
     u.searchParams.set('roomId', roomId);
     u.searchParams.set('room', roomId);
     u.searchParams.set('name', cleanName);
     u.searchParams.set('nick', cleanName);
     u.searchParams.set('pid', pid);
-    u.searchParams.set('host', host);
     u.searchParams.set('mode', currentMode);
     u.searchParams.set('diff', elDiff.value);
-    u.searchParams.set('time', elTime.value);
+    u.searchParams.set('time', elTime.value || meta.defaultTime);
+    u.searchParams.set('startAt', String(startAt || 0));
     u.searchParams.set('gameId', 'goodjunk');
-
-    if (currentMode === 'race') {
-      u.searchParams.set('run', qs('run', 'play'));
-      u.searchParams.set('hub', qs('hub', ''));
-      u.searchParams.set('studyId', qs('studyId', ''));
-      u.searchParams.set('view', qs('view', 'mobile'));
-      u.searchParams.set('seed', qs('seed', String(Date.now())));
-    }
-
-    if (sbUrl)  u.searchParams.set('sbUrl', sbUrl);
-    if (sbAnon) u.searchParams.set('sbAnon', sbAnon);
+    u.searchParams.set('hub', qs('hub', '../hub.html'));
+    u.searchParams.set('view', qs('view', 'mobile'));
+    u.searchParams.set('run', qs('run', 'play'));
+    u.searchParams.set('studyId', qs('studyId', ''));
 
     SHARE_PASSTHRU_KEYS.forEach((k) => {
       const v = qs(k, '');
-      if (v) u.searchParams.set(k, v);
+      if (v && !u.searchParams.has(k)) u.searchParams.set(k, v);
     });
 
     return u.toString();
@@ -569,7 +642,97 @@ FULL PATCH v20260317-GJ-MULTI-LOBBY-MODES-SPLIT-RACEPATH-FIX
     elQrBox.appendChild(img);
   }
 
-  function renderMode(){
+  function escapeHtml(s) {
+    return String(s ?? '')
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;');
+  }
+
+  function snapshotToRoom(val) {
+    if (!val) return null;
+    const playersMap = val.players || {};
+    return {
+      ...val,
+      players: Object.keys(playersMap).map((pid) => ({
+        id: pid,
+        ...playersMap[pid]
+      }))
+    };
+  }
+
+  function normalizePlayers(players) {
+    return Array.isArray(players) ? players.filter(Boolean).map((p) => ({
+      id: String(p.id || '').trim(),
+      name: String(p.name || '').trim(),
+      ready: !!p.ready,
+      connected: p.connected !== false,
+      phase: String(p.phase || 'lobby').trim(),
+      finished: !!p.finished,
+      dnf: !!p.dnf,
+      dnfReason: String(p.dnfReason || '').trim(),
+      finalScore: Number(p.finalScore || 0),
+      miss: Number(p.miss || 0),
+      streak: Number(p.streak || 0),
+      joinedAt: Number(p.joinedAt || 0),
+      lastSeenAt: Number(p.lastSeenAt || 0),
+      finishedAt: Number(p.finishedAt || 0)
+    })) : [];
+  }
+
+  function renderPlayers(room) {
+    const players = normalizePlayers(room?.players || []);
+    const hostId = String(room?.hostId || '');
+    const rows = [
+      `
+      <div class="player-row head">
+        <div>ผู้เล่น</div>
+        <div>Ready</div>
+        <div>Host</div>
+        <div>Online</div>
+      </div>
+      `
+    ];
+
+    players.forEach((p) => {
+      rows.push(`
+        <div class="player-row">
+          <div>
+            <strong>${escapeHtml(p.name || p.id || 'player')}</strong>
+            ${p.id === getPid() ? '<span style="color:#7dd3fc;"> • คุณ</span>' : ''}
+          </div>
+          <div><span class="status-pill ${p.ready ? 'status-ready' : 'status-off'}">${p.ready ? 'READY' : 'WAIT'}</span></div>
+          <div><span class="status-pill ${p.id === hostId ? 'status-host' : ''}">${p.id === hostId ? 'HOST' : '-'}</span></div>
+          <div><span class="status-pill ${p.connected ? 'status-ready' : 'status-off'}">${p.connected ? 'ON' : 'OFF'}</span></div>
+        </div>
+      `);
+    });
+
+    elPlayerList.innerHTML = rows.join('');
+  }
+
+  function updateLinks() {
+    const roomId = getRoomIdValue();
+
+    if (!roomId) {
+      elShare.textContent = '-';
+      elJoin.textContent = '-';
+      elQrBox.innerHTML = '<span class="mut">กด “สร้างห้องใหม่”</span>';
+      elRoomState.textContent = '-';
+      return;
+    }
+
+    const share = buildLobbyShareLink(roomId);
+    const join = buildRunLink(roomId, sanitizeName(elName.value || 'Player'), 0);
+
+    elShare.textContent = share;
+    elJoin.textContent = join;
+    elRoomState.textContent = roomId;
+    setQR(share);
+  }
+
+  function renderMode() {
     const meta = MODE_META[currentMode];
 
     document.querySelectorAll('[data-mode-tab]').forEach((btn) => {
@@ -580,42 +743,417 @@ FULL PATCH v20260317-GJ-MULTI-LOBBY-MODES-SPLIT-RACEPATH-FIX
     });
 
     $('pageTitle').textContent = `GoodJunk Multiplayer — ${meta.label}`;
-    $('pageSub').textContent = currentMode === 'race'
-      ? 'สร้าง/ใช้ห้องสำหรับ Race แล้วส่งต่อไปหน้า race lobby ปัจจุบัน'
-      : `สร้าง/ใช้ห้องสำหรับโหมด ${meta.label} และ route ไปยัง run page ของโหมดนี้โดยเฉพาะ`;
+    $('pageSub').textContent = `สร้าง/ใช้ห้องสำหรับโหมด ${meta.label} และ route ไปยัง run page ของโหมดนี้โดยเฉพาะ`;
 
     const modeTitle = $('modeTitle');
     modeTitle.textContent = meta.label;
     modeTitle.className = `mode-title ${meta.theme}`;
 
     $('modeDesc').innerHTML = meta.desc.map(line => `<div>• ${escapeHtml(line)}</div>`).join('');
+
+    syncTimeWithMode(true);
     updateLinks();
   }
 
-  function updateLinks(){
-    const roomId = getRoomIdValue();
+  async function ensureFirebaseReady(timeoutMs = 12000) {
+    if (firebaseReady && window.HHA_FIREBASE_DB) return true;
+    return new Promise((resolve) => {
+      if (window.HHA_FIREBASE_READY && window.HHA_FIREBASE_DB) {
+        firebaseReady = true;
+        resolve(true);
+        return;
+      }
 
-    if (!roomId) {
-      elShare.textContent = '-';
-      elJoin.textContent = '-';
-      elQrBox.innerHTML = '<span class="mut">กด “สร้างห้องใหม่”</span>';
+      let done = false;
+      const finish = (ok) => {
+        if (done) return;
+        done = true;
+        firebaseReady = !!ok;
+        resolve(!!ok);
+      };
+
+      const timer = setTimeout(() => finish(false), timeoutMs);
+
+      window.addEventListener('hha:firebase_ready', (ev) => {
+        clearTimeout(timer);
+        finish(!!ev?.detail?.ok && !!window.HHA_FIREBASE_DB);
+      }, { once: true });
+    });
+  }
+
+  async function bindRoomRefs() {
+    const roomId = getRoomIdValue();
+    if (!roomId) return false;
+
+    const ok = await ensureFirebaseReady();
+    if (!ok || !window.HHA_FIREBASE_DB) {
+      elBackendWarn.hidden = false;
+      return false;
+    }
+
+    elBackendWarn.hidden = true;
+
+    db = window.HHA_FIREBASE_DB;
+    roomRef = db.ref(`raceRooms/goodjunk/${roomId}`);
+    playersRef = roomRef.child('players');
+    myPlayerRef = playersRef.child(getPid());
+
+    return true;
+  }
+
+  async function loadRoom() {
+    if (!await bindRoomRefs()) return null;
+    try {
+      const snap = await roomRef.once('value');
+      const room = snapshotToRoom(snap.val());
+      return room || null;
+    } catch (err) {
+      console.error('[GJ-LOBBY] loadRoom failed:', err);
+      return null;
+    }
+  }
+
+  async function saveRoom(room, source = 'lobby') {
+    if (!await bindRoomRefs()) return false;
+    if (!room) return false;
+
+    const players = normalizePlayers(room.players || []);
+    const payload = {
+      roomId: room.roomId,
+      hostId: room.hostId || '',
+      mode: room.mode || currentMode,
+      minPlayers: Number(room.minPlayers || 2),
+      maxPlayers: Number(room.maxPlayers || 10),
+      status: room.status || 'waiting',
+      startAt: room.startAt || null,
+      createdAt: Number(room.createdAt || Date.now()),
+      updatedAt: Date.now(),
+      players: {}
+    };
+
+    players.forEach((p) => {
+      payload.players[p.id] = {
+        name: p.name || '',
+        ready: !!p.ready,
+        connected: p.connected !== false,
+        phase: p.phase || 'lobby',
+        finished: !!p.finished,
+        dnf: !!p.dnf,
+        dnfReason: p.dnfReason || '',
+        finalScore: Number(p.finalScore || 0),
+        miss: Number(p.miss || 0),
+        streak: Number(p.streak || 0),
+        joinedAt: Number(p.joinedAt || 0),
+        lastSeenAt: Number(p.lastSeenAt || 0),
+        finishedAt: Number(p.finishedAt || 0)
+      };
+    });
+
+    payload._source = source;
+
+    try {
+      await roomRef.set(payload);
+      console.log('[GJ-LOBBY] saveRoom', { source, roomId: payload.roomId, status: payload.status });
+      return true;
+    } catch (err) {
+      console.error('[GJ-LOBBY] saveRoom failed:', err);
+      return false;
+    }
+  }
+
+  async function createOrUseRoom(forceNew = false) {
+    const roomId = getRoomIdValue();
+    if (!roomId) return null;
+    if (!await bindRoomRefs()) return null;
+
+    const now = Date.now();
+    const existing = await loadRoom();
+
+    if (!existing || forceNew) {
+      const hostPid = getPid();
+      const room = {
+        roomId,
+        hostId: hostPid,
+        mode: currentMode,
+        minPlayers: 2,
+        maxPlayers: 10,
+        status: 'waiting',
+        startAt: null,
+        createdAt: now,
+        updatedAt: now,
+        players: [{
+          id: hostPid,
+          name: sanitizeName(elName.value || 'Teacher'),
+          ready: true,
+          connected: true,
+          phase: 'lobby',
+          finished: false,
+          dnf: false,
+          dnfReason: '',
+          finalScore: 0,
+          miss: 0,
+          streak: 0,
+          joinedAt: now,
+          lastSeenAt: now,
+          finishedAt: 0
+        }]
+      };
+      await saveRoom(room, forceNew ? 'create-new' : 'create');
+      return room;
+    }
+
+    return existing;
+  }
+
+  async function joinLobby() {
+    if (currentMode !== 'race') {
+      alert('ตอนนี้ปิด flow จริงก่อนเฉพาะ Race');
       return;
     }
 
-    const share = buildLobbyShareLink(roomId);
-    const join  = buildJoinRunLink(roomId, sanitizeName(elName.value || 'Player'), getIsHost() ? '1' : '0');
+    const roomId = getRoomIdValue();
+    if (!roomId) return;
 
-    elShare.textContent = share;
-    elJoin.textContent = join;
-    setQR(share);
+    const room = await createOrUseRoom(false);
+    if (!room) return;
+
+    const pid = getPid();
+    const name = sanitizeName(elName.value || 'Player');
+    const now = Date.now();
+    const isHost = getIsHost();
+
+    const players = normalizePlayers(room.players || []);
+    let hostId = room.hostId || '';
+
+    const found = players.find((p) => p.id === pid);
+    if (found) {
+      found.name = name || found.name || pid;
+      found.ready = true;
+      found.connected = true;
+      found.phase = 'lobby';
+      found.lastSeenAt = now;
+      found.dnf = false;
+      found.dnfReason = '';
+      found.finished = false;
+      found.finalScore = 0;
+      found.miss = 0;
+      found.streak = 0;
+      found.finishedAt = 0;
+    } else {
+      players.push({
+        id: pid,
+        name,
+        ready: true,
+        connected: true,
+        phase: 'lobby',
+        finished: false,
+        dnf: false,
+        dnfReason: '',
+        finalScore: 0,
+        miss: 0,
+        streak: 0,
+        joinedAt: now,
+        lastSeenAt: now,
+        finishedAt: 0
+      });
+    }
+
+    if (isHost || !hostId) hostId = pid;
+
+    room.players = players;
+    room.hostId = hostId;
+    room.status = room.status === 'finished' ? 'waiting' : (room.status || 'waiting');
+    room.startAt = null;
+    room.mode = 'race';
+    room.updatedAt = now;
+
+    await saveRoom(room, 'join-lobby');
+
+    if (myPlayerRef) {
+      try {
+        await myPlayerRef.onDisconnect().update({
+          connected: false,
+          lastSeenAt: Date.now()
+        });
+      } catch {}
+    }
+
+    bindRoomListener();
   }
 
-  function escapeHtml(s) {
-    return String(s ?? '')
-      .replaceAll('&', '&amp;')
-      .replaceAll('<', '&lt;')
-      .replaceAll('>', '&gt;')
-      .replaceAll('"', '&quot;');
+  async function setReadyState(ready) {
+    if (!await bindRoomRefs()) return;
+    const room = await loadRoom();
+    if (!room) return;
+
+    const players = normalizePlayers(room.players || []);
+    const me = players.find((p) => p.id === getPid());
+    if (!me) return;
+
+    me.ready = !!ready;
+    me.connected = true;
+    me.phase = 'lobby';
+    me.lastSeenAt = Date.now();
+
+    room.players = players;
+    room.updatedAt = Date.now();
+
+    await saveRoom(room, ready ? 'ready-on' : 'ready-off');
+  }
+
+  async function leaveLobby() {
+    if (!await bindRoomRefs()) return;
+    const room = await loadRoom();
+    if (!room) return;
+
+    let players = normalizePlayers(room.players || []);
+    const pid = getPid();
+    players = players.filter((p) => p.id !== pid);
+
+    room.players = players;
+    if (room.hostId === pid) {
+      room.hostId = players[0]?.id || '';
+    }
+    room.updatedAt = Date.now();
+
+    if (!players.length) {
+      try {
+        await roomRef.remove();
+      } catch (err) {
+        console.error('[GJ-LOBBY] remove empty room failed:', err);
+      }
+    } else {
+      await saveRoom(room, 'leave-lobby');
+    }
+
+    cancelCountdown();
+    location.href = qs('hub', '../hub.html');
+  }
+
+  async function startRaceFromHost() {
+    if (currentMode !== 'race') {
+      alert('ตอนนี้ปิด flow จริงก่อนเฉพาะ Race');
+      return;
+    }
+
+    if (!await bindRoomRefs()) return;
+    const room = await loadRoom();
+    if (!room) return;
+
+    const pid = getPid();
+    const isHost = room.hostId === pid || getIsHost();
+    if (!isHost) {
+      alert('เฉพาะ Host เท่านั้นที่เริ่มเกมได้');
+      return;
+    }
+
+    const players = normalizePlayers(room.players || []).filter((p) => p.connected !== false);
+    if (players.length < 2) {
+      alert('ต้องมีอย่างน้อย 2 คน');
+      return;
+    }
+
+    const notReady = players.filter((p) => !p.ready);
+    if (notReady.length) {
+      alert('ยังมีผู้เล่นที่ยังไม่พร้อม');
+      return;
+    }
+
+    const startAt = Date.now() + 6000;
+
+    room.mode = 'race';
+    room.status = 'countdown';
+    room.startAt = startAt;
+    room.updatedAt = Date.now();
+    room.players = players.map((p) => ({
+      ...p,
+      phase: 'lobby',
+      finished: false,
+      dnf: false,
+      dnfReason: '',
+      finalScore: 0,
+      miss: 0,
+      streak: 0,
+      finishedAt: 0,
+      lastSeenAt: Date.now()
+    }));
+
+    await saveRoom(room, 'host-start-race');
+  }
+
+  function cancelCountdown() {
+    if (countdownRaf) cancelAnimationFrame(countdownRaf);
+    countdownRaf = 0;
+    elCountdownWrap.hidden = true;
+    redirectGuard = false;
+  }
+
+  function runCountdown(startAt) {
+    if (!startAt) {
+      cancelCountdown();
+      return;
+    }
+
+    if (countdownRaf) cancelAnimationFrame(countdownRaf);
+
+    const tick = () => {
+      const left = startAt - Date.now();
+
+      if (left <= 0) {
+        elCountdownWrap.hidden = false;
+        elCountdownNum.textContent = 'GO!';
+        elCountdownSub.textContent = 'กำลังเข้าสู่หน้าเกม...';
+
+        if (!redirectGuard) {
+          redirectGuard = true;
+          const url = buildRunLink(getRoomIdValue(), sanitizeName(elName.value || 'Player'), startAt);
+          setTimeout(() => { location.href = url; }, 180);
+        }
+        return;
+      }
+
+      elCountdownWrap.hidden = false;
+      elCountdownNum.textContent = String(Math.ceil(left / 1000));
+      elCountdownSub.textContent = 'ระบบจะพาเข้า run page อัตโนมัติ';
+
+      countdownRaf = requestAnimationFrame(tick);
+    };
+
+    tick();
+  }
+
+  function bindRoomListener() {
+    if (roomListenerBound || !roomRef) return;
+    roomListenerBound = true;
+
+    roomRef.on('value', (snap) => {
+      const raw = snap.val();
+      const room = snapshotToRoom(raw);
+
+      if (!room) {
+        elStatusState.textContent = '-';
+        renderPlayers({ players: [] });
+        cancelCountdown();
+        return;
+      }
+
+      elRoomState.textContent = room.roomId || '-';
+      elStatusState.textContent = room.status || '-';
+
+      renderPlayers(room);
+
+      if (room.status === 'countdown' && room.startAt) {
+        runCountdown(Number(room.startAt));
+      } else {
+        cancelCountdown();
+      }
+
+      if (room.status === 'running' && room.startAt && !redirectGuard) {
+        redirectGuard = true;
+        const url = buildRunLink(room.roomId || getRoomIdValue(), sanitizeName(elName.value || 'Player'), Number(room.startAt));
+        location.href = url;
+      }
+    });
   }
 
   document.querySelectorAll('[data-mode-tab]').forEach((btn) => {
@@ -625,23 +1163,33 @@ FULL PATCH v20260317-GJ-MULTI-LOBBY-MODES-SPLIT-RACEPATH-FIX
     });
   });
 
-  $('btnNew').addEventListener('click', () => {
+  $('btnNew').addEventListener('click', async () => {
     elRoomId.value = randRoom();
     updateLinks();
+    await createOrUseRoom(true);
+    bindRoomListener();
   });
 
-  $('btnUse').addEventListener('click', () => {
+  $('btnUse').addEventListener('click', async () => {
     updateLinks();
+    await bindRoomRefs();
+    bindRoomListener();
   });
 
-  $('btnJoin').addEventListener('click', () => {
-    const roomId = getRoomIdValue();
-    if (!roomId) return;
+  $('btnJoin').addEventListener('click', async () => {
+    await joinLobby();
+  });
 
-    const name = sanitizeName(elName.value || 'Player');
-    const isHost = getIsHost() ? '1' : '0';
-    const url = buildJoinRunLink(roomId, name, isHost);
-    location.href = url;
+  $('btnReady').addEventListener('click', async () => {
+    await setReadyState(true);
+  });
+
+  $('btnStartRace').addEventListener('click', async () => {
+    await startRaceFromHost();
+  });
+
+  $('btnLeave').addEventListener('click', async () => {
+    await leaveLobby();
   });
 
   elRoomId.addEventListener('input', updateLinks);
@@ -655,7 +1203,7 @@ FULL PATCH v20260317-GJ-MULTI-LOBBY-MODES-SPLIT-RACEPATH-FIX
   elTime.addEventListener('change', updateLinks);
   elHost.addEventListener('change', updateLinks);
 
-  (function init(){
+  (async function init(){
     const qRoomId = qs('roomId', qs('room', ''));
     const qName = qs('name', qs('nick', ''));
     const qHost = qs('host', '0');
@@ -663,17 +1211,21 @@ FULL PATCH v20260317-GJ-MULTI-LOBBY-MODES-SPLIT-RACEPATH-FIX
     if (qRoomId) elRoomId.value = qRoomId;
     if (qName) elName.value = qName;
     if (qs('diff', '')) elDiff.value = qs('diff', 'normal');
-    if (qs('time', '')) elTime.value = qs('time', '80');
+    if (qs('time', '')) elTime.value = qs('time', MODE_META[currentMode].defaultTime);
 
     elHost.checked = qHost === '1' || sanitizeName(elName.value).toLowerCase() === 'teacher';
 
     renderMode();
 
-    if (!sbUrl || !sbAnon) {
-      const hint = document.createElement('div');
-      hint.className = 'warn';
-      hint.innerHTML = '⚠️ ยังไม่ได้ใส่ <span class="mono">sbUrl</span>/<span class="mono">sbAnon</span> — multiplayer ที่พึ่ง backend จริงอาจต่อห้องไม่ได้';
-      document.querySelector('.wrap').appendChild(hint);
+    const ok = await ensureFirebaseReady();
+    if (!ok) {
+      elBackendWarn.hidden = false;
+      return;
+    }
+
+    if (qRoomId) {
+      await bindRoomRefs();
+      bindRoomListener();
     }
   })();
 </script>
