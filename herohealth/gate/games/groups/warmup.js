@@ -2,7 +2,7 @@
    HeroHealth Gate Mini-game
    GAME: groups
    MODE: warmup
-   FULL PATCH v20260314-GATE-GROUPS-WARMUP-MOUNT-FIX-r2
+   FULL PATCH v20260317-GATE-GROUPS-WARMUP-AUTOSTART-FIX
 */
 
 let __styleLoaded = false;
@@ -131,12 +131,14 @@ export async function mount(root, ctx = {}, api = {}){
   let miss = 0;
   let correct = 0;
   let ended = false;
+  let started = false;
   let timer = null;
 
   const plannedTime = Number(ctx.time || 20);
   let timeLeft = plannedTime;
 
   root.innerHTML = '';
+
   const wrap = el('div', 'grp-wrap');
   const hero = el('div', 'grp-hero');
   const stage = el('div', 'grp-stage');
@@ -170,6 +172,9 @@ export async function mount(root, ctx = {}, api = {}){
     seed: ctx.seed
   });
 
+  api.setTitle?.('Food Groups Quick Prep');
+  api.setSub?.('เลือกหมวดอาหารให้ถูก เพื่อวอร์มความพร้อมก่อนเข้าเกมหลัก');
+
   api.setStats?.({
     time: timeLeft,
     score: 0,
@@ -190,10 +195,11 @@ export async function mount(root, ctx = {}, api = {}){
   function finishNow(){
     if(ended) return;
     ended = true;
+    started = false;
     if(timer) clearInterval(timer);
 
     const accuracy = rounds.length > 0 ? Math.round((correct / rounds.length) * 100) : 0;
-    const speed = Math.max(0, Math.min(100, Math.round((idx / rounds.length) * 100)));
+    const speed = Math.max(0, Math.min(100, Math.round((idx / Math.max(1, rounds.length)) * 100)));
     const buffs = buildBuffs({ score, accuracy, speed });
 
     root.innerHTML = `
@@ -232,6 +238,7 @@ export async function mount(root, ctx = {}, api = {}){
 
   function renderRound(){
     if(ended) return;
+
     if(idx >= rounds.length){
       finishNow();
       return;
@@ -239,6 +246,8 @@ export async function mount(root, ctx = {}, api = {}){
 
     const item = rounds[idx];
     target.textContent = item.text;
+    prompt.textContent = 'เลือกหมวดให้ถูก';
+    note.textContent = 'แตะคำตอบที่ตรงกับอาหารชิ้นนี้';
     choices.innerHTML = '';
 
     for(const g of GROUPS){
@@ -254,9 +263,12 @@ export async function mount(root, ctx = {}, api = {}){
         if(g.key === item.group){
           score += 10;
           correct++;
+          note.textContent = `ถูกต้อง! ${item.text} อยู่ใน ${g.label}`;
         }else{
-          score -= 4;
+          score = Math.max(0, score - 4);
           miss++;
+          const correctGroup = GROUPS.find(x => x.key === item.group);
+          note.textContent = `ยังไม่ใช่ ${item.text} อยู่ใน ${correctGroup?.label || 'หมวดที่ถูกต้อง'}`;
         }
 
         api.logger?.push?.('mini_answer', {
@@ -273,7 +285,10 @@ export async function mount(root, ctx = {}, api = {}){
         });
 
         updateHud();
-        renderRound();
+
+        setTimeout(()=>{
+          if(!ended) renderRound();
+        }, 280);
       });
 
       choices.appendChild(btn);
@@ -281,11 +296,16 @@ export async function mount(root, ctx = {}, api = {}){
   }
 
   function startGame(){
-    if(ended) return;
+    if(ended || started) return;
+    started = true;
+
+    updateHud();
     renderRound();
+
     if(timer) clearInterval(timer);
     timer = setInterval(()=>{
       if(ended) return;
+
       timeLeft--;
       if(timeLeft < 0) timeLeft = 0;
       updateHud();
@@ -296,13 +316,19 @@ export async function mount(root, ctx = {}, api = {}){
     }, 1000);
   }
 
+  // ✅ สำคัญ: auto start ทันที ไม่รอ gate-core มาเรียก result.start()
+  startGame();
+
   return {
     start(){
       startGame();
     },
     destroy(){
       ended = true;
+      started = false;
       if(timer) clearInterval(timer);
     }
   };
 }
+
+export default { mount, loadStyle };
