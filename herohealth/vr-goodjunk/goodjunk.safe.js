@@ -1,6 +1,6 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
 // GoodJunkVR SAFE — SOLO STABLE MASTER PATCH
-// FULL PATCH v20260316n-GJ-SAFE-SOLO-ML-READY-HHA-SHOOT-VR
+// FULL PATCH v20260316r-GJ-SAFE-CVR-COMFORT-FULL
 
 'use strict';
 
@@ -143,6 +143,24 @@ export async function boot(cfg){
   const diff = String(cfg.diff || qs('diff','normal')).toLowerCase();
   const plannedSec = clamp(cfg.time ?? qs('time','80'), 20, 300);
 
+  function runtimeView(){
+    return String(
+      DOC.body?.dataset?.view ||
+      DOC.documentElement?.dataset?.view ||
+      view ||
+      'mobile'
+    ).toLowerCase();
+  }
+
+  function isRuntimeVR(){
+    const v = runtimeView();
+    return v === 'cvr' || v === 'vr' || v === 'cardboard';
+  }
+
+  function isRuntimeMobile(){
+    return runtimeView() === 'mobile' && !isRuntimeVR();
+  }
+
   const pid = String(cfg.pid || qs('pid','anon')).trim() || 'anon';
   const nick = String(cfg.nick || qs('nick', pid)).trim() || pid;
   const hubUrl = safeUrl(cfg.hub || qs('hub','../hub.html'), '../hub.html');
@@ -233,7 +251,7 @@ export async function boot(cfg){
   if (btnAcceptRematch) btnAcceptRematch.style.display = 'none';
   if (btnDeclineRematch) btnDeclineRematch.style.display = 'none';
 
-  if(uiView) uiView.textContent = view;
+  if(uiView) uiView.textContent = runtimeView();
   if(uiRun) uiRun.textContent = runMode;
   if(uiDiff) uiDiff.textContent = diff;
 
@@ -391,7 +409,6 @@ export async function boot(cfg){
   let spawnSeq = 0;
   let spawnAcc = 0;
   let lanePulse = 0;
-  let __GJ_LAST_HHA_SHOT_AT = 0;
 
   const fxLayer = DOC.createElement('div');
   fxLayer.style.position = 'fixed';
@@ -502,7 +519,7 @@ export async function boot(cfg){
 
   function sayCoach(msg, bypass=false, explain=''){
     const t = nowMs();
-    const latchMs = view === 'mobile' ? 4200 : 3000;
+    const latchMs = isRuntimeMobile() ? 4200 : 3000;
     if(!bypass && (t - coachLatchMs < latchMs)) return;
     coachLatchMs = t;
     if(coachText) coachText.textContent = String(msg || '');
@@ -512,9 +529,9 @@ export async function boot(cfg){
     setTimeout(()=>{
       coach.style.opacity = '0';
       coach.style.transform = 'translateY(6px)';
-    }, view === 'mobile' ? 1700 : 2200);
+    }, isRuntimeMobile() ? 1700 : 2200);
 
-    if(view === 'mobile') revealAiBox();
+    if(isRuntimeMobile()) revealAiBox();
   }
 
   function setAIHud(pred){
@@ -532,7 +549,7 @@ export async function boot(cfg){
       if(pred.coach){
         setCoachInline(pred.coach, pred.explainText || '');
 
-        if(view === 'mobile'){
+        if(isRuntimeMobile()){
           sayCoach(pred.coach, false, pred.explainText || '');
         }
       }
@@ -627,7 +644,7 @@ export async function boot(cfg){
     stageBanner.classList.add('show');
     setTimeout(()=> stageBanner.classList.remove('show'), 1400);
 
-    if(view === 'mobile'){
+    if(isRuntimeMobile()){
       expandMissionTemporarily(1800);
       revealAiBox();
     }
@@ -745,7 +762,7 @@ export async function boot(cfg){
           room: '',
           mode,
           diff,
-          view,
+          view: runtimeView(),
           eventName,
           tGameMs: tGameMsNow(),
           payload
@@ -765,7 +782,7 @@ export async function boot(cfg){
       },
       context: {
         diff,
-        view,
+        view: runtimeView(),
         isBoss: isBossPhase()
       }
     });
@@ -835,49 +852,70 @@ export async function boot(cfg){
   function layerRect(){ return layer.getBoundingClientRect(); }
 
   function safeSpawnRect(){
-  const r = layerRect();
-  const W = r.width, H = r.height;
+    const r = layerRect();
+    const W = r.width, H = r.height;
 
-  const isMobile = view === 'mobile';
-  const isVR = (view === 'cvr' || view === 'vr');
+    const isMobile = isRuntimeMobile();
+    const isVR = isRuntimeVR();
 
-  const missionHidden = isMissionAutoHidden();
-  const aiHidden = isAiAutoHidden() || document.body.classList.contains('mobile-combat');
+    const missionHidden = isMissionAutoHidden();
+    const aiHidden = isAiAutoHidden() || document.body.classList.contains('mobile-combat');
 
-  let topPad;
-  let bottomPad;
+    let topPad;
+    let bottomPad;
 
-  if(isMobile){
-    topPad = missionHidden ? 108 : 156;
-    bottomPad = aiHidden ? 96 : 166;
-  }else if(isVR){
-    topPad = 170;
-    bottomPad = 135;
-  }else{
-    topPad = 165;
-    bottomPad = 125;
+    if(isMobile){
+      topPad = missionHidden ? 108 : 156;
+      bottomPad = aiHidden ? 96 : 166;
+    }else if(isVR){
+      topPad = 188;
+      bottomPad = 148;
+    }else{
+      topPad = 165;
+      bottomPad = 125;
+    }
+
+    let leftPad = 18;
+    let rightPad = 18;
+
+    if(isVR){
+      const laneW = Math.min(360, W * 0.34);
+      const sidePad = Math.max(24, (W - laneW) / 2);
+      leftPad = sidePad;
+      rightPad = sidePad;
+    }
+
+    const x1 = r.left + leftPad;
+    const x2 = r.left + Math.max(leftPad + 10, W - rightPad);
+
+    let y1 = r.top + Math.min(H - 120, topPad);
+    let y2 = r.top + Math.max(y1 + 140, H - bottomPad);
+
+    if(isVR){
+      const bandTop = r.top + Math.max(170, H * 0.20);
+      const bandBottom = r.top + Math.min(H - 150, H * 0.74);
+      y1 = Math.max(y1, bandTop);
+      y2 = Math.min(y2, bandBottom);
+      if(y2 < y1 + 120) y2 = y1 + 120;
+    }
+
+    return { x1, x2, y1, y2, W, H, left:r.left, top:r.top };
   }
-
-  let leftPad = 18;
-  let rightPad = 18;
-
-  if(isVR){
-    const laneW = Math.min(420, W * 0.42);
-    const sidePad = Math.max(18, (W - laneW) / 2);
-    leftPad = sidePad;
-    rightPad = sidePad;
-  }
-
-  const x1 = r.left + leftPad;
-  const x2 = r.left + Math.max(leftPad + 10, W - rightPad);
-  const y1 = r.top + Math.min(H - 100, topPad);
-  const y2 = r.top + Math.max(y1 + 120, H - bottomPad);
-
-  return { x1, x2, y1, y2, W, H, left:r.left, top:r.top };
-}
 
   function spawnPoint(){
     const s = safeSpawnRect();
+
+    if(isRuntimeVR()){
+      const cx = (s.x1 + s.x2) / 2;
+      const cy1 = s.y1;
+      const cy2 = s.y2;
+
+      return {
+        x: cx + (r01() * 120 - 60),
+        y: cy1 + (cy2 - cy1) * (0.12 + r01() * 0.72)
+      };
+    }
+
     return {
       x: s.x1 + (s.x2 - s.x1) * r01(),
       y: s.y1 + (s.y2 - s.y1) * r01()
@@ -886,6 +924,20 @@ export async function boot(cfg){
 
   function spawnPointLane(laneIndex=1, total=3){
     const s = safeSpawnRect();
+
+    if(isRuntimeVR()){
+      const laneFractions = total === 3
+        ? [0.34, 0.50, 0.66]
+        : Array.from({ length: total }, (_, i)=> (i + 0.5) / total);
+
+      const frac = laneFractions[Math.max(0, Math.min(total - 1, laneIndex))] ?? 0.5;
+
+      return {
+        x: s.x1 + (s.x2 - s.x1) * frac,
+        y: s.y1 + (s.y2 - s.y1) * (0.18 + r01() * 0.58)
+      };
+    }
+
     const frac = (laneIndex + 0.5) / total;
     return {
       x: s.x1 + (s.x2 - s.x1) * frac,
@@ -896,7 +948,14 @@ export async function boot(cfg){
   function spawnPointCenterBurst(){
     const s = safeSpawnRect();
     const cx = (s.x1 + s.x2) / 2;
-    const cy = s.y1 + (s.y2 - s.y1) * 0.38;
+    const cy = s.y1 + (s.y2 - s.y1) * 0.40;
+
+    if(isRuntimeVR()){
+      return {
+        x: cx + (r01() * 90 - 45),
+        y: cy + (r01() * 56 - 28)
+      };
+    }
 
     return {
       x: cx + (r01() * 170 - 85),
@@ -927,13 +986,13 @@ export async function boot(cfg){
 
     missionBox.classList.remove('auto-hide');
 
-    if(view === 'mobile'){
+    if(isRuntimeMobile()){
       missionBox.classList.add('compact');
     }
 
     clearTimeout(missionHideTimer);
 
-    if(view === 'mobile'){
+    if(isRuntimeMobile()){
       missionHideTimer = setTimeout(()=>{
         missionBox.classList.add('auto-hide');
         clampTargetsToSafeArea();
@@ -946,9 +1005,9 @@ export async function boot(cfg){
   function revealAiBox(){
     if(!aiBox) return;
     aiBox.classList.remove('auto-hide');
-    if(view === 'mobile') aiBox.classList.add('compact');
+    if(isRuntimeMobile()) aiBox.classList.add('compact');
     clearTimeout(aiHideTimer);
-    if(view === 'mobile'){
+    if(isRuntimeMobile()){
       aiHideTimer = setTimeout(()=>{
         aiBox.classList.add('auto-hide');
         clampTargetsToSafeArea();
@@ -965,7 +1024,7 @@ export async function boot(cfg){
 
     clearTimeout(missionExpandTimer);
     missionExpandTimer = setTimeout(()=>{
-      if(view === 'mobile'){
+      if(isRuntimeMobile()){
         missionBox.classList.add('compact');
         revealMissionBox();
       }
@@ -1063,7 +1122,7 @@ export async function boot(cfg){
       if(missionHint) missionHint.textContent = `pattern: ${patternId}`;
     }
 
-    if(view === 'mobile'){
+    if(isRuntimeMobile()){
       expandMissionTemporarily(1600);
     }
   }
@@ -1078,12 +1137,14 @@ export async function boot(cfg){
     if(hud.goalTarget) hud.goalTarget.textContent = String(WIN_TARGET.goodTarget | 0);
     if(hud.goalDesc){
       const raw = activePatternId || phaseMachine.phase || '—';
-      hud.goalDesc.textContent = (view === 'mobile')
+      hud.goalDesc.textContent = (isRuntimeMobile())
         ? String(raw).replaceAll('_',' ').slice(0, 10)
         : raw;
     }
     if(hud.mini) hud.mini.textContent = mini.name || '—';
     if(hud.miniTimer) hud.miniTimer.textContent = String(Math.ceil(mini.t || 0));
+
+    if(uiView) uiView.textContent = runtimeView();
 
     if(missionFill){
       const p = isBossPhase()
@@ -1330,7 +1391,9 @@ export async function boot(cfg){
     const trueWeak = makeTarget('bossweak', WEAK, 1.45 * ttlMul);
     decoyWeakId = trueWeak.id;
 
-    if(r01() < 0.8){
+    const decoyProb = isRuntimeVR() ? 0.58 : 0.80;
+
+    if(r01() < decoyProb){
       const d1 = makeTarget('bossdecoy', WEAK, 1.3 * ttlMul);
       if(r01() < 0.6) makeTarget('bossdecoy', WEAK, 1.2 * ttlMul);
       emitPatternEvent('boss-pattern', {
@@ -1352,8 +1415,17 @@ export async function boot(cfg){
 
     const s = safeSpawnRect();
     const centerY = s.y1 + (s.y2 - s.y1) * (0.25 + r01() * 0.5);
-    const leftX = s.x1 + (s.x2 - s.x1) * 0.32;
-    const rightX = s.x1 + (s.x2 - s.x1) * 0.68;
+
+    let leftFrac = 0.32;
+    let rightFrac = 0.68;
+
+    if(isRuntimeVR()){
+      leftFrac = 0.40;
+      rightFrac = 0.60;
+    }
+
+    const leftX = s.x1 + (s.x2 - s.x1) * leftFrac;
+    const rightX = s.x1 + (s.x2 - s.x1) * rightFrac;
 
     const trueSideLeft = r01() < 0.5;
     const trueWeak = makeTarget('bossweak', WEAK, 1.45 * ttlMul, {
@@ -1794,19 +1866,14 @@ export async function boot(cfg){
       return;
     }
 
-    if(plan.useLaneRush && r01() < 0.55){
-      spawnLaneRush({ ttlMul });
-      return;
-    }
-
-    if(plan.useCenterBurst && r01() < 0.50){
-      spawnCenterBurst({ ttlMul });
-      return;
-    }
-
     let pShield = (diff === 'hard') ? 0.10 : 0.12;
     let pBonus = 0.12 + (fever > 0 ? 0.04 : 0) + (plan.bonusWindow || 0) + (aiDirectorState.bonusBias || 0);
     let pJunk = (diff === 'easy') ? 0.28 : (diff === 'hard' ? 0.38 : 0.33);
+
+    if(isRuntimeVR()){
+      pBonus += 0.03;
+      pJunk -= 0.05;
+    }
 
     pJunk = clamp(
       pJunk +
@@ -1843,122 +1910,55 @@ export async function boot(cfg){
     return dx*dx + dy*dy;
   }
 
-  function recordMissShot(reason='no-target', x=null, y=null){
-    shots++;
-    streakMiss++;
-    combo = 0;
+  function shootAtCenter(){
+    if(!playing || paused) return;
+    const r = layerRect();
+    const cx = r.left + r.width / 2;
+    const cy = r.top + r.height / 2;
 
-    pushRollingEvent(rollingTracker, {
-      atMs: nowMs(),
-      type:'miss-shot',
-      good:false,
-      junk:false,
-      miss:true,
-      expire:false,
-      rt:0,
-      comboBreak:true,
-      scoreDelta:0
-    });
-
-    logGameEvent('miss-shot', {
-      reason,
-      x: Number.isFinite(x) ? Math.round(x) : null,
-      y: Number.isFinite(y) ? Math.round(y) : null
-    });
-
-    emitPatternEvent('miss-shot', {
-      reason,
-      x: Number.isFinite(x) ? Math.round(x) : null,
-      y: Number.isFinite(y) ? Math.round(y) : null
-    });
-
-    setHUD();
-  }
-
-  function findNearestShootTargetAt(x, y, lockPx = Infinity){
     let best = null;
     let bestD = Infinity;
-
-    const useLimit = Number.isFinite(lockPx);
-    const limitSq = useLimit ? Math.max(6, Number(lockPx || 28)) ** 2 : Infinity;
-
     for(const [id, t] of targets){
-      if(!t || !t.el || !t.el.isConnected) continue;
-
-      const st = getComputedStyle(t.el);
-      if(st.display === 'none' || st.visibility === 'hidden' || Number(st.opacity) <= 0) continue;
-
       const br = t.el.getBoundingClientRect();
-      if(!br.width || !br.height) continue;
-
-      const tx = br.left + br.width / 2;
-      const ty = br.top + br.height / 2;
-      const d = dist2(x, y, tx, ty);
-
-      if(d <= limitSq && d < bestD){
+      const tx = br.left + br.width/2;
+      const ty = br.top + br.height/2;
+      const d = dist2(cx, cy, tx, ty);
+      if(d < bestD){
         bestD = d;
         best = id;
       }
     }
 
-    return best;
-  }
-
-  function shootAtPoint(x, y, opts = {}){
-    if(!playing || paused) return false;
-
-    const lockPx = Number.isFinite(Number(opts.lockPx)) ? Number(opts.lockPx) : Infinity;
-    const countMiss = opts.countMiss !== false;
-    const reason = String(opts.reason || 'no-target');
-
-    const best = findNearestShootTargetAt(x, y, lockPx);
-
     if(best){
       hitTarget(best);
-      return true;
-    }
-
-    if(countMiss){
-      recordMissShot(reason, x, y);
-    }
-    return false;
-  }
-
-  function shootAtCenter(opts = {}){
-    const r = layerRect();
-    const cx = r.left + r.width / 2;
-    const cy = r.top + r.height / 2;
-    return shootAtPoint(cx, cy, opts);
-  }
-
-  WIN.addEventListener('hha:shoot', (ev)=>{
-    try{ SOUND?.unlock?.(); }catch(_){}
-
-    const d = ev?.detail || {};
-    const cooldownMs = clamp(d.cooldownMs ?? 90, 20, 400);
-    const t = nowMs();
-
-    if(t - __GJ_LAST_HHA_SHOT_AT < cooldownMs) return;
-    __GJ_LAST_HHA_SHOT_AT = t;
-
-    const x = Number(d.x);
-    const y = Number(d.y);
-    const lockPx = clamp(d.lockPx ?? ((d.view === 'cvr') ? 84 : 64), 6, 160);
-    const source = String(d.source || 'hha:shoot');
-
-    if(Number.isFinite(x) && Number.isFinite(y)){
-      shootAtPoint(x, y, {
-        lockPx,
-        countMiss: true,
-        reason: source
-      });
     }else{
-      shootAtCenter({
-        lockPx,
-        countMiss: true,
-        reason: `${source}-center`
+      shots++;
+      streakMiss++;
+      combo = 0;
+
+      pushRollingEvent(rollingTracker, {
+        atMs: nowMs(),
+        type:'miss-shot',
+        good:false,
+        junk:false,
+        miss:true,
+        expire:false,
+        rt:0,
+        comboBreak:true,
+        scoreDelta:0
       });
+
+      logGameEvent('miss-shot', { reason:'no-target' });
+      emitPatternEvent('miss-shot', { reason:'no-target' });
+      setHUD();
     }
+  }
+
+  WIN.addEventListener('hha:shoot', ()=>{
+    try{
+      SOUND?.unlock?.();
+      shootAtCenter();
+    }catch(_){}
   });
 
   function buildEndDetail(reason){
@@ -1976,7 +1976,7 @@ export async function boot(cfg){
       mode,
       run: runMode,
       diff,
-      view,
+      view: runtimeView(),
       pro: PRO ? 1 : 0,
       score,
       scoreFinal: score,
@@ -2307,6 +2307,15 @@ export async function boot(cfg){
     }catch(_){}
   });
 
+  WIN.addEventListener('hha:vrmodechange', ()=>{
+    try{
+      if(uiView) uiView.textContent = runtimeView();
+      setMissionUI();
+      setHUD();
+      clampTargetsToSafeArea();
+    }catch(_){}
+  });
+
   if(missionBox){
     missionBox.addEventListener('click', ()=>{
       missionBox.classList.remove('auto-hide');
@@ -2315,7 +2324,7 @@ export async function boot(cfg){
       clearTimeout(missionExpandTimer);
       clearTimeout(missionHideTimer);
 
-      if(view === 'mobile'){
+      if(isRuntimeMobile()){
         missionHideTimer = setTimeout(()=>{
           missionBox.classList.add('compact');
           missionBox.classList.add('auto-hide');
@@ -2438,7 +2447,7 @@ export async function boot(cfg){
     bossPersona: bossPersona.id,
     diff,
     mode,
-    view,
+    view: runtimeView(),
     plannedSec
   });
 
