@@ -1,6 +1,6 @@
 // === /herohealth/vr-hydration-v2/js/hydration.dashboard.js ===
 // Hydration V2 Dashboard
-// PATCH v20260317g-HYDRATION-V2-DASHBOARD-PID-STUDY-NEXT
+// PATCH v20260317h-HYDRATION-V2-DASHBOARD-REPORTING
 
 const refs = {
   countHistory: document.getElementById('countHistory'),
@@ -15,6 +15,15 @@ const refs = {
 
   summaryGrid: document.getElementById('summaryGrid'),
   summaryEmpty: document.getElementById('summaryEmpty'),
+
+  studySummaryGrid: document.getElementById('studySummaryGrid'),
+  studySummaryEmpty: document.getElementById('studySummaryEmpty'),
+
+  cohortGrid: document.getElementById('cohortGrid'),
+  cohortEmpty: document.getElementById('cohortEmpty'),
+
+  alertList: document.getElementById('alertList'),
+  alertEmpty: document.getElementById('alertEmpty'),
 
   teacherGrid: document.getElementById('teacherGrid'),
   teacherEmpty: document.getElementById('teacherEmpty'),
@@ -53,7 +62,9 @@ const refs = {
   backLauncherBtn: document.getElementById('backLauncherBtn'),
   refreshBtn: document.getElementById('refreshBtn'),
   exportJsonBtn: document.getElementById('exportJsonBtn'),
-  exportCsvBtn: document.getElementById('exportCsvBtn'),
+  exportSessionsCsvBtn: document.getElementById('exportSessionsCsvBtn'),
+  exportParticipantsCsvBtn: document.getElementById('exportParticipantsCsvBtn'),
+  exportStudiesCsvBtn: document.getElementById('exportStudiesCsvBtn'),
   clearBtn: document.getElementById('clearBtn')
 };
 
@@ -85,7 +96,9 @@ function bindUI() {
   refs.resetFilterBtn.addEventListener('click', resetFilters);
 
   refs.exportJsonBtn.addEventListener('click', exportJson);
-  refs.exportCsvBtn.addEventListener('click', exportCsv);
+  refs.exportSessionsCsvBtn.addEventListener('click', exportSessionsCsv);
+  refs.exportParticipantsCsvBtn.addEventListener('click', exportParticipantsCsv);
+  refs.exportStudiesCsvBtn.addEventListener('click', exportStudiesCsv);
 
   refs.clearBtn.addEventListener('click', () => {
     const ok = window.confirm('ต้องการล้าง localStorage ที่เกี่ยวกับ Hydration V2 ใช่หรือไม่');
@@ -143,12 +156,14 @@ function renderAll() {
   }
 
   dashboardState.filtered = applyFilters(dashboardState.history);
-
   hydrateSelections();
 
   renderStats(dashboardState.latest, dashboardState.history, dashboardState.filtered);
   renderLatest(dashboardState.latest);
   renderSummary(dashboardState.summary);
+  renderStudySummary(dashboardState.filtered);
+  renderCohortComparison(dashboardState.filtered);
+  renderAlerts(dashboardState.filtered);
   renderTeacherCards(dashboardState.filtered);
   renderCharts(dashboardState.filtered);
   renderPlayerCards(dashboardState.filtered);
@@ -163,6 +178,9 @@ function applyFiltersAndRender() {
   hydrateSelections();
 
   renderStats(dashboardState.latest, dashboardState.history, dashboardState.filtered);
+  renderStudySummary(dashboardState.filtered);
+  renderCohortComparison(dashboardState.filtered);
+  renderAlerts(dashboardState.filtered);
   renderTeacherCards(dashboardState.filtered);
   renderCharts(dashboardState.filtered);
   renderPlayerCards(dashboardState.filtered);
@@ -301,6 +319,174 @@ function renderSummary(summary) {
   });
 }
 
+function renderStudySummary(filtered) {
+  refs.studySummaryGrid.innerHTML = '';
+
+  const grouped = groupBy(filtered, item => String(item.studyId || '(empty)'));
+  const studies = [...grouped.entries()]
+    .map(([studyId, items]) => ({
+      studyId,
+      runs: items.length,
+      participants: new Set(items.map(x => String(x.pid || 'anon'))).size,
+      avgTotal: avg(items.map(x => Number(x.totalScore || 0))),
+      avgPlanning: avg(items.map(x => Number(x.planningScore || 0))),
+      passRate: items.length ? (items.filter(x => !!x.teamMissionDone).length / items.length) * 100 : 0
+    }))
+    .sort((a,b) => b.avgTotal - a.avgTotal)
+    .slice(0, 6);
+
+  if (!studies.length) {
+    refs.studySummaryEmpty.style.display = '';
+    return;
+  }
+
+  refs.studySummaryEmpty.style.display = 'none';
+
+  studies.forEach(row => {
+    const el = document.createElement('article');
+    el.className = 'study-summary-card';
+    el.innerHTML = `
+      <div class="study-summary-top">
+        <div class="study-summary-title">Study ${escapeHtml(row.studyId)}</div>
+        <div class="study-summary-badge">${escapeHtml(row.runs)} runs</div>
+      </div>
+      <div class="study-summary-meta">
+        participants = ${escapeHtml(row.participants)}<br/>
+        avg total = ${formatNumber(row.avgTotal)}<br/>
+        avg planning = ${formatNumber(row.avgPlanning)}<br/>
+        mission pass = ${formatNumber(row.passRate)}%
+      </div>
+    `;
+    refs.studySummaryGrid.appendChild(el);
+  });
+}
+
+function renderCohortComparison(filtered) {
+  refs.cohortGrid.innerHTML = '';
+
+  const cohorts = [
+    makeCohortCard(filtered, 'quick', item => item.mode === 'quick', 'Mode: quick'),
+    makeCohortCard(filtered, 'program', item => item.mode === 'program', 'Mode: program'),
+    makeCohortCard(filtered, 'solo', item => item.type === 'solo', 'Type: solo'),
+    makeCohortCard(filtered, 'team', item => item.type === 'team', 'Type: team'),
+    makeCohortCard(filtered, 'play', item => item.run === 'play', 'Run: play'),
+    makeCohortCard(filtered, 'research', item => item.run === 'research', 'Run: research')
+  ].filter(Boolean);
+
+  if (!cohorts.length) {
+    refs.cohortEmpty.style.display = '';
+    return;
+  }
+
+  refs.cohortEmpty.style.display = 'none';
+
+  cohorts.forEach(row => {
+    const el = document.createElement('article');
+    el.className = 'cohort-card';
+    el.innerHTML = `
+      <div class="cohort-top">
+        <div class="cohort-title">${escapeHtml(row.title)}</div>
+        <div class="cohort-badge">${escapeHtml(row.count)} runs</div>
+      </div>
+      <div class="cohort-meta">
+        avg total = ${formatNumber(row.avgTotal)}<br/>
+        avg planning = ${formatNumber(row.avgPlanning)}<br/>
+        avg social = ${formatNumber(row.avgSocial)}<br/>
+        mission pass = ${formatNumber(row.passRate)}%
+      </div>
+    `;
+    refs.cohortGrid.appendChild(el);
+  });
+}
+
+function makeCohortCard(filtered, key, predicate, title) {
+  const items = filtered.filter(predicate);
+  if (!items.length) return null;
+  return {
+    key,
+    title,
+    count: items.length,
+    avgTotal: avg(items.map(x => Number(x.totalScore || 0))),
+    avgPlanning: avg(items.map(x => Number(x.planningScore || 0))),
+    avgSocial: avg(items.map(x => Number(x.socialScore || 0))),
+    passRate: items.length ? (items.filter(x => !!x.teamMissionDone).length / items.length) * 100 : 0
+  };
+}
+
+function renderAlerts(filtered) {
+  refs.alertList.innerHTML = '';
+
+  const alerts = buildAlerts(filtered);
+
+  if (!alerts.length) {
+    refs.alertEmpty.style.display = '';
+    return;
+  }
+
+  refs.alertEmpty.style.display = 'none';
+
+  alerts.slice(0, 12).forEach(alert => {
+    const el = document.createElement('article');
+    el.className = 'alert-card';
+    el.innerHTML = `
+      <div class="alert-title">${escapeHtml(alert.title)}</div>
+      <div class="alert-meta">${escapeHtml(alert.meta)}</div>
+    `;
+    refs.alertList.appendChild(el);
+  });
+}
+
+function buildAlerts(filtered) {
+  const alerts = [];
+
+  const byPid = groupBy(filtered, x => String(x.pid || 'anon'));
+
+  byPid.forEach((items, pid) => {
+    const sorted = [...items].sort((a,b) => new Date(a.savedAt || 0) - new Date(b.savedAt || 0));
+    const latest = sorted[sorted.length - 1];
+    const sameSessionCount = sorted.filter(x => Number(x.sessionNo || 0) === Number(latest.sessionNo || 0)).length;
+
+    if (sameSessionCount >= 3) {
+      alerts.push({
+        title: `PID ${pid} อยู่ session เดิมหลายรอบ`,
+        meta: `ล่าสุด W${latest.weekNo || '-'} S${latest.sessionNo || '-'} และมีอย่างน้อย ${sameSessionCount} records ที่ session นี้`
+      });
+    }
+
+    const recentThree = sorted.slice(-3);
+    if (recentThree.length === 3 && recentThree.every(x => !x.teamMissionDone)) {
+      alerts.push({
+        title: `PID ${pid} ยังไม่ผ่าน team mission ต่อเนื่อง`,
+        meta: `3 records ล่าสุดยังไม่ผ่าน team mission`
+      });
+    }
+
+    if (recentThree.length >= 2) {
+      const totalValues = recentThree.map(x => Number(x.totalScore || 0));
+      const declining = totalValues[0] > totalValues[1] && totalValues[1] > totalValues[2];
+      if (declining) {
+        alerts.push({
+          title: `PID ${pid} คะแนนรวมลดลงต่อเนื่อง`,
+          meta: `3 records ล่าสุดมี total score ลดลงต่อเนื่อง`
+        });
+      }
+    }
+  });
+
+  const byStudy = groupBy(filtered, x => String(x.studyId || '(empty)'));
+  byStudy.forEach((items, studyId) => {
+    const passRate = items.length ? (items.filter(x => !!x.teamMissionDone).length / items.length) * 100 : 0;
+    if (items.length >= 4 && passRate < 25) {
+      alerts.push({
+        title: `Study ${studyId} มี pass rate ต่ำ`,
+        meta: `mission pass rate = ${formatNumber(passRate)}% จาก ${items.length} runs`
+      });
+    }
+  });
+
+  return alerts;
+}
+
 function renderTeacherCards(filtered) {
   refs.teacherGrid.innerHTML = '';
 
@@ -384,10 +570,7 @@ function renderSessionChart(filtered) {
   refs.sessionChartEmpty.style.display = 'none';
 
   const maxValue = Math.max(...rows.map(r => r.value), 1);
-
-  rows.forEach(row => {
-    refs.sessionChart.appendChild(makeBarRow(row.label, row.value, maxValue));
-  });
+  rows.forEach(row => refs.sessionChart.appendChild(makeBarRow(row.label, row.value, maxValue)));
 }
 
 function renderBreakdownChart(filtered) {
@@ -408,17 +591,13 @@ function renderBreakdownChart(filtered) {
   ];
 
   const maxValue = Math.max(...values.map(v => v.value), 1);
-
-  values.forEach(row => {
-    refs.breakdownChart.appendChild(makeBarRow(row.label, row.value, maxValue));
-  });
+  values.forEach(row => refs.breakdownChart.appendChild(makeBarRow(row.label, row.value, maxValue)));
 }
 
 function renderPlayerCards(filtered) {
   refs.playerGrid.innerHTML = '';
 
   const latestByPid = new Map();
-
   filtered.forEach(item => {
     const pid = String(item.pid || 'anon');
     const current = latestByPid.get(pid);
@@ -472,12 +651,7 @@ function renderAggregates(filtered) {
 function renderPidAggregate(filtered) {
   refs.pidAggregateGrid.innerHTML = '';
 
-  const grouped = new Map();
-  filtered.forEach(item => {
-    const key = String(item.pid || 'anon');
-    if (!grouped.has(key)) grouped.set(key, []);
-    grouped.get(key).push(item);
-  });
+  const grouped = groupBy(filtered, item => String(item.pid || 'anon'));
 
   const rows = [...grouped.entries()]
     .map(([pid, items]) => ({
@@ -521,12 +695,7 @@ function renderPidAggregate(filtered) {
 function renderStudyAggregate(filtered) {
   refs.studyAggregateGrid.innerHTML = '';
 
-  const grouped = new Map();
-  filtered.forEach(item => {
-    const key = String(item.studyId || '(empty)');
-    if (!grouped.has(key)) grouped.set(key, []);
-    grouped.get(key).push(item);
-  });
+  const grouped = groupBy(filtered, item => String(item.studyId || '(empty)'));
 
   const rows = [...grouped.entries()]
     .map(([studyId, items]) => ({
@@ -621,18 +790,7 @@ function renderPidDetail(filtered, selectedPid) {
 
   const timelineRoot = container.querySelector('#pidTimelineList');
   sessionRows.forEach(row => {
-    const el = document.createElement('div');
-    el.className = 'timeline-row';
-    el.innerHTML = `
-      <div class="timeline-top">
-        <span>${escapeHtml(row.label)}</span>
-        <span>${escapeHtml(formatNumber(row.value))}</span>
-      </div>
-      <div class="timeline-track">
-        <div class="timeline-fill" style="width:${(row.value / maxValue) * 100}%;"></div>
-      </div>
-    `;
-    timelineRoot.appendChild(el);
+    timelineRoot.appendChild(makeTimelineRow(row.label, row.value, maxValue));
   });
 }
 
@@ -697,18 +855,11 @@ function renderStudyTimeline(filtered, selectedStudyId) {
 
   const timelineRoot = container.querySelector('#studyTimelineList');
   rows.forEach(row => {
-    const el = document.createElement('div');
-    el.className = 'timeline-row';
-    el.innerHTML = `
-      <div class="timeline-top">
-        <span>${escapeHtml(row.label)} • ${escapeHtml(row.participants)} participants</span>
-        <span>${escapeHtml(formatNumber(row.avgTotal))}</span>
-      </div>
-      <div class="timeline-track">
-        <div class="timeline-fill" style="width:${(row.avgTotal / maxValue) * 100}%;"></div>
-      </div>
-    `;
-    timelineRoot.appendChild(el);
+    timelineRoot.appendChild(makeTimelineRow(
+      `${row.label} • ${row.participants} participants`,
+      row.avgTotal,
+      maxValue
+    ));
   });
 }
 
@@ -754,9 +905,7 @@ function onPlayerGridClick(ev) {
   const viewBtn = ev.target.closest('[data-view-pid]');
   if (viewBtn) {
     dashboardState.selectedPid = String(viewBtn.getAttribute('data-view-pid') || '');
-    renderPlayerCards(dashboardState.filtered);
-    renderAggregates(dashboardState.filtered);
-    renderPidDetail(dashboardState.filtered, dashboardState.selectedPid);
+    rerenderSelectedViews();
     return;
   }
 
@@ -770,9 +919,7 @@ function onPlayerGridClick(ev) {
   const card = ev.target.closest('[data-pid]');
   if (card) {
     dashboardState.selectedPid = String(card.getAttribute('data-pid') || '');
-    renderPlayerCards(dashboardState.filtered);
-    renderAggregates(dashboardState.filtered);
-    renderPidDetail(dashboardState.filtered, dashboardState.selectedPid);
+    rerenderSelectedViews();
   }
 }
 
@@ -780,17 +927,14 @@ function onPidAggregateClick(ev) {
   const card = ev.target.closest('[data-aggregate-pid]');
   if (!card) return;
   dashboardState.selectedPid = String(card.getAttribute('data-aggregate-pid') || '');
-  renderPlayerCards(dashboardState.filtered);
-  renderAggregates(dashboardState.filtered);
-  renderPidDetail(dashboardState.filtered, dashboardState.selectedPid);
+  rerenderSelectedViews();
 }
 
 function onStudyAggregateClick(ev) {
   const card = ev.target.closest('[data-aggregate-study]');
   if (!card) return;
   dashboardState.selectedStudyId = String(card.getAttribute('data-aggregate-study') || '');
-  renderAggregates(dashboardState.filtered);
-  renderStudyTimeline(dashboardState.filtered, dashboardState.selectedStudyId);
+  rerenderSelectedViews();
 }
 
 function onPidDetailClick(ev) {
@@ -804,8 +948,7 @@ function onPidDetailClick(ev) {
   const focusStudyBtn = ev.target.closest('[data-focus-study]');
   if (focusStudyBtn) {
     dashboardState.selectedStudyId = String(focusStudyBtn.getAttribute('data-focus-study') || '');
-    renderAggregates(dashboardState.filtered);
-    renderStudyTimeline(dashboardState.filtered, dashboardState.selectedStudyId);
+    rerenderSelectedViews();
   }
 }
 
@@ -820,10 +963,15 @@ function onStudyTimelineClick(ev) {
   const focusPidBtn = ev.target.closest('[data-focus-pid]');
   if (focusPidBtn) {
     dashboardState.selectedPid = String(focusPidBtn.getAttribute('data-focus-pid') || '');
-    renderPlayerCards(dashboardState.filtered);
-    renderAggregates(dashboardState.filtered);
-    renderPidDetail(dashboardState.filtered, dashboardState.selectedPid);
+    rerenderSelectedViews();
   }
+}
+
+function rerenderSelectedViews() {
+  renderPlayerCards(dashboardState.filtered);
+  renderAggregates(dashboardState.filtered);
+  renderPidDetail(dashboardState.filtered, dashboardState.selectedPid);
+  renderStudyTimeline(dashboardState.filtered, dashboardState.selectedStudyId);
 }
 
 function openNextSession(record) {
@@ -858,48 +1006,92 @@ function exportJson() {
   downloadTextFile(JSON.stringify(data, null, 2), filename, 'application/json');
 }
 
-function exportCsv() {
+function exportSessionsCsv() {
   const data = dashboardState.filtered || [];
   const columns = [
-    'savedAt',
-    'pid',
-    'studyId',
-    'mode',
-    'type',
-    'run',
-    'weekNo',
-    'sessionNo',
-    'seed',
-    'actionScore',
-    'knowledgeScore',
-    'planningScore',
-    'socialScore',
-    'totalScore',
-    'goodCatch',
-    'badCatch',
-    'missedGood',
-    'bestCombo',
-    'rewardCount',
-    'correctChoices',
-    'wrongChoices',
-    'evaluateChoice',
-    'evaluateCorrect',
-    'createdPlanScore',
-    'classTankContribution',
-    'teamMissionDone',
-    'teamStars',
-    'socialSummary'
+    'savedAt','pid','studyId','mode','type','run','weekNo','sessionNo','seed',
+    'actionScore','knowledgeScore','planningScore','socialScore','totalScore',
+    'goodCatch','badCatch','missedGood','bestCombo','rewardCount',
+    'correctChoices','wrongChoices','evaluateChoice','evaluateCorrect',
+    'createdPlanScore','classTankContribution','teamMissionDone','teamStars','socialSummary'
   ];
 
   const rows = [
     columns.join(','),
-    ...data.map(item =>
-      columns.map(col => csvCell(item[col])).join(',')
-    )
+    ...data.map(item => columns.map(col => csvCell(item[col])).join(','))
   ];
 
-  const filename = `hydration-v2-filtered-${timestampForFile()}.csv`;
-  downloadTextFile(rows.join('\n'), filename, 'text/csv;charset=utf-8;');
+  downloadTextFile(
+    rows.join('\n'),
+    `hydration-v2-sessions-${timestampForFile()}.csv`,
+    'text/csv;charset=utf-8;'
+  );
+}
+
+function exportParticipantsCsv() {
+  const rows = buildParticipantRows(dashboardState.filtered);
+  const columns = ['pid','studyId','runs','latestWeek','latestSession','avgTotal','avgPlanning','avgSocial','teamMissionPassedCount'];
+
+  const lines = [
+    columns.join(','),
+    ...rows.map(row => columns.map(col => csvCell(row[col])).join(','))
+  ];
+
+  downloadTextFile(
+    lines.join('\n'),
+    `hydration-v2-participants-${timestampForFile()}.csv`,
+    'text/csv;charset=utf-8;'
+  );
+}
+
+function exportStudiesCsv() {
+  const rows = buildStudyRows(dashboardState.filtered);
+  const columns = ['studyId','runs','participants','avgTotal','avgPlanning','avgSocial','missionPassRate'];
+
+  const lines = [
+    columns.join(','),
+    ...rows.map(row => columns.map(col => csvCell(row[col])).join(','))
+  ];
+
+  downloadTextFile(
+    lines.join('\n'),
+    `hydration-v2-studies-${timestampForFile()}.csv`,
+    'text/csv;charset=utf-8;'
+  );
+}
+
+function buildParticipantRows(filtered) {
+  const grouped = groupBy(filtered, item => `${String(item.pid || 'anon')}||${String(item.studyId || '(empty)')}`);
+
+  return [...grouped.entries()].map(([key, items]) => {
+    const [pid, studyId] = key.split('||');
+    const latest = latestItem(items);
+    return {
+      pid,
+      studyId,
+      runs: items.length,
+      latestWeek: latest.weekNo || '',
+      latestSession: latest.sessionNo || '',
+      avgTotal: formatNumber(avg(items.map(x => Number(x.totalScore || 0)))),
+      avgPlanning: formatNumber(avg(items.map(x => Number(x.planningScore || 0)))),
+      avgSocial: formatNumber(avg(items.map(x => Number(x.socialScore || 0)))),
+      teamMissionPassedCount: items.filter(x => !!x.teamMissionDone).length
+    };
+  });
+}
+
+function buildStudyRows(filtered) {
+  const grouped = groupBy(filtered, item => String(item.studyId || '(empty)'));
+
+  return [...grouped.entries()].map(([studyId, items]) => ({
+    studyId,
+    runs: items.length,
+    participants: new Set(items.map(x => String(x.pid || 'anon'))).size,
+    avgTotal: formatNumber(avg(items.map(x => Number(x.totalScore || 0)))),
+    avgPlanning: formatNumber(avg(items.map(x => Number(x.planningScore || 0)))),
+    avgSocial: formatNumber(avg(items.map(x => Number(x.socialScore || 0)))),
+    missionPassRate: formatNumber(items.length ? (items.filter(x => !!x.teamMissionDone).length / items.length) * 100 : 0)
+  }));
 }
 
 function downloadTextFile(text, filename, mimeType) {
@@ -948,6 +1140,22 @@ function makeBarRow(label, value, maxValue) {
   return el;
 }
 
+function makeTimelineRow(label, value, maxValue) {
+  const percent = maxValue > 0 ? (value / maxValue) * 100 : 0;
+  const el = document.createElement('div');
+  el.className = 'timeline-row';
+  el.innerHTML = `
+    <div class="timeline-top">
+      <span>${escapeHtml(label)}</span>
+      <span>${escapeHtml(formatNumber(value))}</span>
+    </div>
+    <div class="timeline-track">
+      <div class="timeline-fill" style="width:${percent}%;"></div>
+    </div>
+  `;
+  return el;
+}
+
 function latestItem(items) {
   return [...items].sort((a,b) => new Date(b.savedAt || 0).getTime() - new Date(a.savedAt || 0).getTime())[0];
 }
@@ -973,6 +1181,16 @@ function decodeRecord(text) {
   } catch (_) {
     return null;
   }
+}
+
+function groupBy(items, keyFn) {
+  const map = new Map();
+  items.forEach(item => {
+    const key = keyFn(item);
+    if (!map.has(key)) map.set(key, []);
+    map.get(key).push(item);
+  });
+  return map;
 }
 
 function readJson(key, fallback) {
