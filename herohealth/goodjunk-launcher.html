@@ -10,7 +10,7 @@
     :root{
       --bg1:#0f172a;
       --bg2:#172554;
-      --bg3:#1d4ed8;
+      --bg3:#2563eb;
 
       --text:#f8fafc;
       --muted:#dbeafe;
@@ -50,9 +50,7 @@
       line-height:1.35;
     }
 
-    button,input,select{
-      font:inherit;
-    }
+    button,input,select{ font:inherit; }
 
     .wrap{
       max-width:1180px;
@@ -65,7 +63,8 @@
     }
 
     .hero,
-    .quickHelp,
+    .kidGuide,
+    .recommendedStart,
     .modeCard,
     .teacherBox{
       border:1px solid var(--stroke);
@@ -91,12 +90,12 @@
     }
 
     .heroMascot{
-      width:96px;
-      height:96px;
-      border-radius:28px;
+      width:104px;
+      height:104px;
+      border-radius:30px;
       display:grid;
       place-items:center;
-      font-size:48px;
+      font-size:50px;
       border:1px solid rgba(255,255,255,.16);
       background:
         radial-gradient(circle at 30% 30%, rgba(255,255,255,.28), transparent 40%),
@@ -156,21 +155,70 @@
       font-weight:1000;
     }
 
-    .quickHelp{
+    .kidGuide{
       margin-top:14px;
       padding:14px;
       background:
-        linear-gradient(135deg, rgba(250,204,21,.14), rgba(56,189,248,.10)),
+        linear-gradient(135deg, rgba(250,204,21,.16), rgba(56,189,248,.10)),
         var(--panel);
     }
 
-    .quickHelpTitle{
-      font-size:18px;
+    .kidGuideRow{
+      display:grid;
+      grid-template-columns:92px 1fr;
+      gap:14px;
+      align-items:center;
+    }
+
+    .kidGuideMascot{
+      width:92px;
+      height:92px;
+      border-radius:26px;
+      display:grid;
+      place-items:center;
+      font-size:44px;
+      border:1px solid rgba(255,255,255,.14);
+      background:rgba(255,255,255,.08);
+      box-shadow:0 10px 24px rgba(0,0,0,.16);
+    }
+
+    .kidGuideTitle{
+      font-size:20px;
       font-weight:1000;
       color:#fff;
     }
 
-    .quickHelpSub{
+    .kidGuideSub{
+      margin-top:6px;
+      color:var(--muted);
+      font-size:15px;
+      line-height:1.6;
+      font-weight:900;
+    }
+
+    .recommendedStart{
+      margin-top:14px;
+      padding:14px;
+      background:
+        linear-gradient(135deg, rgba(34,197,94,.18), rgba(250,204,21,.12)),
+        var(--panel);
+    }
+
+    .recommendedTop{
+      display:flex;
+      justify-content:space-between;
+      gap:12px;
+      align-items:center;
+      flex-wrap:wrap;
+    }
+
+    .recommendedTitle{
+      font-size:20px;
+      font-weight:1000;
+      color:#fff;
+    }
+
+    .recommendedSub{
       margin-top:6px;
       color:var(--muted);
       font-size:14px;
@@ -178,32 +226,25 @@
       font-weight:900;
     }
 
-    .quickHelpRow{
-      margin-top:12px;
-      display:grid;
-      grid-template-columns:repeat(4,minmax(0,1fr));
-      gap:10px;
-    }
-
-    .quickPill{
-      border-radius:18px;
-      border:1px solid rgba(255,255,255,.12);
-      background:rgba(255,255,255,.06);
-      padding:12px 10px;
-      text-align:center;
-    }
-
-    .quickPillIcon{
-      font-size:24px;
-      line-height:1;
-    }
-
-    .quickPillText{
-      margin-top:8px;
-      font-size:12px;
-      line-height:1.45;
-      color:#e0f2fe;
+    .startBigBtn{
+      width:100%;
+      margin-top:14px;
+      min-height:72px;
+      border:none;
+      border-radius:22px;
+      background:linear-gradient(180deg, rgba(34,197,94,.28), rgba(34,197,94,.18));
+      border:1px solid rgba(34,197,94,.34);
+      color:#fff;
+      font-size:22px;
       font-weight:1000;
+      cursor:pointer;
+      box-shadow:0 12px 28px rgba(0,0,0,.18);
+      transition:transform .12s ease, filter .12s ease;
+    }
+
+    .startBigBtn:hover{
+      transform:translateY(-1px);
+      filter:brightness(1.04);
     }
 
     .mode-grid{
@@ -248,12 +289,12 @@
     }
 
     .mode-icon{
-      width:72px;
-      height:72px;
+      width:74px;
+      height:74px;
       border-radius:22px;
       display:grid;
       place-items:center;
-      font-size:34px;
+      font-size:35px;
       flex:0 0 auto;
       border:1px solid rgba(255,255,255,.14);
       background:rgba(255,255,255,.08);
@@ -298,7 +339,7 @@
     }
 
     .btn{
-      min-height:66px;
+      min-height:68px;
       border-radius:20px;
       border:1px solid var(--stroke);
       color:var(--text);
@@ -416,7 +457,8 @@
     .field input:focus,
     .field select:focus,
     .btn:focus-visible,
-    .ghostBtn:focus-visible{
+    .ghostBtn:focus-visible,
+    .startBigBtn:focus-visible{
       outline:3px solid rgba(250,204,21,.44);
       outline-offset:2px;
     }
@@ -437,7 +479,6 @@
     }
 
     @media (max-width:960px){
-      .quickHelpRow,
       .teacherForm{
         grid-template-columns:repeat(2,minmax(0,1fr));
       }
@@ -459,16 +500,27 @@
       }
 
       .hero,
-      .quickHelp,
+      .kidGuide,
+      .recommendedStart,
       .modeCard,
       .teacherBox{
         border-radius:22px;
       }
 
       .heroMascot{
-        width:84px;
-        height:84px;
+        width:88px;
+        height:88px;
         font-size:42px;
+      }
+
+      .kidGuideRow{
+        grid-template-columns:1fr;
+      }
+
+      .kidGuideMascot{
+        width:82px;
+        height:82px;
+        font-size:40px;
       }
 
       .mode-icon{
@@ -482,11 +534,15 @@
       }
 
       .btn{
-        min-height:62px;
+        min-height:64px;
         font-size:18px;
       }
 
-      .quickHelpRow,
+      .startBigBtn{
+        min-height:66px;
+        font-size:20px;
+      }
+
       .teacherForm{
         grid-template-columns:1fr;
       }
@@ -499,7 +555,8 @@
         transition:none !important;
       }
       .btn:hover,
-      .ghostBtn:hover{
+      .ghostBtn:hover,
+      .startBigBtn:hover{
         transform:none !important;
       }
     }
@@ -526,30 +583,28 @@
       </div>
     </section>
 
-    <section class="quickHelp">
-      <div class="quickHelpTitle">เริ่มเล่นยังไง?</div>
-      <div class="quickHelpSub">
-        ถ้าเล่นคนเดียว ให้กด <b>Solo</b> • ถ้าเล่นแข่งกัน ให้กด <b>Race</b> หรือ <b>Battle</b> • ถ้าอยากช่วยกันเล่น ให้กด <b>Co-op</b>
+    <section class="kidGuide">
+      <div class="kidGuideRow">
+        <div class="kidGuideMascot">🦸‍♂️</div>
+        <div>
+          <div class="kidGuideTitle">ฮีโร่แนะนำ</div>
+          <div class="kidGuideSub">
+            ถ้ายังไม่แน่ใจว่าจะเล่นอะไร ให้เริ่มที่ <b>Solo</b> ก่อนนะ<br>
+            เพราะเล่นง่ายที่สุด และเริ่มได้ทันที
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="recommendedStart">
+      <div class="recommendedTop">
+        <div>
+          <div class="recommendedTitle">เริ่มแบบง่ายที่สุด</div>
+          <div class="recommendedSub">เหมาะสำหรับเด็กที่เพิ่งเริ่มเล่น GoodJunk</div>
+        </div>
       </div>
 
-      <div class="quickHelpRow">
-        <div class="quickPill">
-          <div class="quickPillIcon">🥦</div>
-          <div class="quickPillText">เริ่มง่ายสุด<br>Solo</div>
-        </div>
-        <div class="quickPill">
-          <div class="quickPillIcon">🏁</div>
-          <div class="quickPillText">เริ่มพร้อมกัน<br>Race</div>
-        </div>
-        <div class="quickPill">
-          <div class="quickPillIcon">⚔️</div>
-          <div class="quickPillText">ดวลกัน<br>Battle</div>
-        </div>
-        <div class="quickPill">
-          <div class="quickPillIcon">🤝</div>
-          <div class="quickPillText">ช่วยกันเล่น<br>Co-op</div>
-        </div>
-      </div>
+      <button class="startBigBtn" id="btnStartEasy" type="button">🥦 เริ่มเล่นแบบง่าย (Solo)</button>
     </section>
 
     <section class="mode-grid">
@@ -561,7 +616,7 @@
             <div class="mode-desc">เล่นคนเดียว ฝึกเลือกอาหารดี และทำคะแนนของตัวเอง</div>
           </div>
         </div>
-        <div class="modeTip">เหมาะสำหรับเริ่มเล่นง่าย ๆ และฝึกด้วยตัวเอง</div>
+        <div class="modeTip">เริ่มง่ายที่สุด • เหมาะสำหรับฝึกคนเดียว</div>
         <div class="mode-actions">
           <button class="btn solo" id="btnSolo" type="button">เล่นคนเดียว</button>
         </div>
@@ -572,10 +627,10 @@
           <div class="mode-icon">🏁</div>
           <div>
             <div class="mode-title">Race</div>
-            <div class="mode-desc">เริ่มพร้อมกัน แล้วแข่งกันว่าใครได้คะแนนสูงกว่า</div>
+            <div class="mode-desc">เริ่มพร้อมกัน แล้วดูว่าใครได้คะแนนสูงกว่า</div>
           </div>
         </div>
-        <div class="modeTip">เหมาะสำหรับทั้งห้องเรียน หรือเริ่มพร้อมกันหลายคน</div>
+        <div class="modeTip">เหมาะสำหรับเริ่มพร้อมกันหลายคน</div>
         <div class="mode-actions">
           <button class="btn race" id="btnRace" type="button">แข่งพร้อมกัน</button>
         </div>
@@ -589,7 +644,7 @@
             <div class="mode-desc">ดวลกันแบบตัวต่อตัว ดูว่าใครชนะในรอบนี้</div>
           </div>
         </div>
-        <div class="modeTip">เหมาะสำหรับแข่งแบบสนุก ๆ และเล่น rematch ได้</div>
+        <div class="modeTip">เหมาะสำหรับแข่งแบบ 1 ต่อ 1</div>
         <div class="mode-actions">
           <button class="btn battle" id="btnBattle" type="button">ดวลกัน</button>
         </div>
@@ -603,7 +658,7 @@
             <div class="mode-desc">ช่วยกันเก็บอาหารดี ทำคะแนนทีมให้ถึงเป้าหมาย</div>
           </div>
         </div>
-        <div class="modeTip">เหมาะสำหรับเล่นเป็นทีม และช่วยกันผ่านภารกิจ</div>
+        <div class="modeTip">เหมาะสำหรับเล่นเป็นทีมและช่วยกันผ่านภารกิจ</div>
         <div class="mode-actions">
           <button class="btn coop" id="btnCoop" type="button">ช่วยกันเล่น</button>
         </div>
@@ -836,6 +891,7 @@
       $('teacherForm').classList.toggle('show');
     };
 
+    $('btnStartEasy').onclick = ()=> goWithDailyWarmup('solo');
     $('btnSolo').onclick = ()=> goWithDailyWarmup('solo');
     $('btnRace').onclick = ()=> goWithDailyWarmup('race');
     $('btnBattle').onclick = ()=> goWithDailyWarmup('battle');
