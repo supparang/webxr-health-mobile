@@ -1,8 +1,9 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.phaseboss.js ===
-// FULL PATCH v20260317-GOODJUNK-PHASEBOSS-SAFE-FULL
+// FULL PATCH v20260317-GOODJUNK-PHASEBOSS-SAFE-FULL-BOSSFIX2
 // Solo-only phase build: Phase 1 -> Phase 2 -> Boss
 // Fixed boss UI recursion / stack overflow
-// Includes boot-shell auto hide
+// Fixed boss not entering by adding phase2 fallback trigger
+// Includes boot-shell auto hide + debug logs
 
 const __qs = new URLSearchParams(location.search);
 const RUN_CTX = window.__GJ_RUN_CTX__ || {
@@ -147,6 +148,8 @@ const state = {
   phaseLabel: 'Phase 1',
   phaseChangedAt: 0,
   phase2BurstCd: 0,
+  phase2EnteredAt: 0,
+  bossTriggered: false,
 
   bossActive: false,
   bossIntroShown: false,
@@ -713,6 +716,8 @@ function startGame() {
   state.phaseLabel = 'Phase 1';
   state.phaseChangedAt = state.startTs;
   state.phase2BurstCd = 2400;
+  state.phase2EnteredAt = 0;
+  state.bossTriggered = false;
 
   state.bossActive = false;
   state.bossIntroShown = false;
@@ -781,26 +786,48 @@ function updatePhaseProgress(dt) {
   const preset = getPreset();
   const elapsedRatio = 1 - (state.timeLeftMs / state.totalMs);
 
-  if (!state.bossActive) {
-    if (state.phase === 1) {
-      const reachedScore = state.score >= preset.phase1TargetScore;
-      const reachedTime = elapsedRatio >= 0.34;
-      if (reachedScore || reachedTime) {
-        startPhase2();
-      }
-    } else if (state.phase === 2) {
-      state.phase2BurstCd -= dt;
+  if (state.bossActive) return;
 
-      if (state.phase2BurstCd <= 0) {
-        state.phase2BurstCd = randRange(2600, 3600);
-        spawnPhase2Burst();
-      }
+  if (state.phase === 1) {
+    const reachedScore = state.score >= preset.phase1TargetScore;
+    const reachedTime = elapsedRatio >= 0.34;
 
-      const reachedScore = state.score >= preset.phase2TargetScore;
-      const reachedTime = elapsedRatio >= 0.70;
-      if (reachedScore || reachedTime) {
-        startBossPhase();
-      }
+    if (reachedScore || reachedTime) {
+      console.log('[GJ] enter phase 2', {
+        score: state.score,
+        phase1TargetScore: preset.phase1TargetScore,
+        elapsedRatio
+      });
+      startPhase2();
+    }
+    return;
+  }
+
+  if (state.phase === 2) {
+    state.phase2BurstCd -= dt;
+
+    if (state.phase2BurstCd <= 0) {
+      state.phase2BurstCd = randRange(2600, 3600);
+      spawnPhase2Burst();
+    }
+
+    const phase2Elapsed = state.phase2EnteredAt ? (performance.now() - state.phase2EnteredAt) : 0;
+
+    const reachedScore = state.score >= preset.phase2TargetScore;
+    const reachedTime = elapsedRatio >= 0.70;
+    const reachedPhase2Timeout = phase2Elapsed >= 12000;
+
+    if (reachedScore || reachedTime || reachedPhase2Timeout) {
+      console.log('[GJ] boss trigger conditions met', {
+        score: state.score,
+        phase2TargetScore: preset.phase2TargetScore,
+        elapsedRatio,
+        phase2Elapsed,
+        reachedScore,
+        reachedTime,
+        reachedPhase2Timeout
+      });
+      startBossPhase();
     }
   }
 }
@@ -810,6 +837,7 @@ function startPhase2() {
   state.phase = 2;
   state.phaseLabel = 'Phase 2';
   state.phaseChangedAt = performance.now();
+  state.phase2EnteredAt = performance.now();
   setPhaseVisualClass();
   showCenterTip('Phase 2! เกมเร็วขึ้น junk มากขึ้น และจะมี rush burst');
   updateHint('Phase 2: อ่านเป้าให้ไวขึ้น อย่าหลุดของดี');
@@ -817,7 +845,14 @@ function startPhase2() {
 }
 
 function startBossPhase() {
-  if (state.bossActive) return;
+  if (state.bossActive || state.bossTriggered) return;
+
+  state.bossTriggered = true;
+  console.log('[GJ] startBossPhase() fired', {
+    score: state.score,
+    phase: state.phase,
+    timeLeftMs: state.timeLeftMs
+  });
 
   const preset = getPreset();
 
