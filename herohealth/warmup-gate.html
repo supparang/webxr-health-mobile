@@ -12,8 +12,42 @@
   <div id="gate-app"></div>
 
   <script type="module">
-    import bootGate from './gate/gate-core.js?v=20260315-GATE-CORE-FORCE-WARMUP-SKIP-COPY';
-    bootGate(document.getElementById('gate-app'));
+    import * as GateCore from './gate/gate-core.js?v=20260317c-gate-import-fix';
+
+    const app = document.getElementById('gate-app');
+
+    const boot =
+      (typeof GateCore.bootGate === 'function' && GateCore.bootGate) ||
+      (typeof GateCore.initGate === 'function' && GateCore.initGate) ||
+      (typeof GateCore.startGate === 'function' && GateCore.startGate) ||
+      (typeof GateCore.mountGate === 'function' && GateCore.mountGate) ||
+      (typeof GateCore.default === 'function' && GateCore.default);
+
+    if (!boot) {
+      console.error('gate-core exports:', Object.keys(GateCore));
+      app.innerHTML = `
+        <div style="min-height:100vh;display:grid;place-items:center;background:#020617;color:#e5e7eb;padding:24px;font-family:system-ui,sans-serif">
+          <div style="max-width:860px;width:100%;background:rgba(15,23,42,.9);border:1px solid rgba(148,163,184,.18);border-radius:20px;padding:20px;box-shadow:0 18px 50px rgba(0,0,0,.3)">
+            <h2 style="margin:0 0 12px;font-size:24px">Gate load error</h2>
+            <p style="margin:0 0 12px;color:#cbd5e1">ไม่พบฟังก์ชันเริ่มต้นใน <code>gate-core.js</code></p>
+            <pre style="white-space:pre-wrap;overflow:auto;background:#0f172a;padding:12px;border-radius:12px;border:1px solid rgba(148,163,184,.12)">exports: ${Object.keys(GateCore).join(', ') || '(no exports found)'}</pre>
+          </div>
+        </div>
+      `;
+      throw new Error('gate-core.js ไม่มี export ฟังก์ชันที่ใช้ boot ได้');
+    }
+
+    Promise.resolve(boot(app)).catch(err => {
+      console.error('Gate boot failed:', err);
+      app.innerHTML = `
+        <div style="min-height:100vh;display:grid;place-items:center;background:#020617;color:#e5e7eb;padding:24px;font-family:system-ui,sans-serif">
+          <div style="max-width:860px;width:100%;background:rgba(15,23,42,.9);border:1px solid rgba(148,163,184,.18);border-radius:20px;padding:20px;box-shadow:0 18px 50px rgba(0,0,0,.3)">
+            <h2 style="margin:0 0 12px;font-size:24px">Gate boot failed</h2>
+            <pre style="white-space:pre-wrap;overflow:auto;background:#0f172a;padding:12px;border-radius:12px;border:1px solid rgba(148,163,184,.12)">${String(err?.stack || err)}</pre>
+          </div>
+        </div>
+      `;
+    });
   </script>
 </body>
 </html>
