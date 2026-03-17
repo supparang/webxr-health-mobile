@@ -5,159 +5,63 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth • GoodJunk Race Room</title>
   <meta name="color-scheme" content="dark light" />
+  <link rel="icon" href="./favicon.ico" />
   <style>
     :root{
-      --bg1:#020617;
-      --bg2:#0b1226;
-      --panel:rgba(2,6,23,.78);
-      --panel2:rgba(15,23,42,.48);
-      --stroke:rgba(148,163,184,.18);
-      --text:#e5e7eb;
-      --muted:#94a3b8;
-      --blue:#38bdf8;
-      --good:#22c55e;
-      --warn:#f59e0b;
-      --pink:#f472b6;
+      --bg1:#020617; --bg2:#0b1226; --panel:rgba(2,6,23,.78); --panel2:rgba(15,23,42,.48);
+      --stroke:rgba(148,163,184,.18); --text:#e5e7eb; --muted:#94a3b8; --blue:#38bdf8;
+      --good:#22c55e; --shadow:0 24px 64px rgba(0,0,0,.28);
     }
-    *{ box-sizing:border-box; }
+    *{box-sizing:border-box}
     html,body{
-      margin:0;
-      min-height:100%;
-      font-family:system-ui,-apple-system,sans-serif;
-      color:var(--text);
-      background:
-        radial-gradient(circle at top, #172554 0%, transparent 34%),
-        linear-gradient(180deg,var(--bg2),var(--bg1));
+      margin:0; min-height:100%; font-family:system-ui,-apple-system,"Segoe UI",sans-serif; color:var(--text);
+      background:radial-gradient(circle at top, #172554 0%, transparent 34%), linear-gradient(180deg,var(--bg2),var(--bg1));
     }
-    .wrap{
-      max-width:960px;
-      margin:0 auto;
-      padding:24px 16px 48px;
-    }
-    .hero{
-      margin-bottom:18px;
-      padding:22px 20px;
-      border:1px solid var(--stroke);
-      border-radius:24px;
-      background:var(--panel);
-      backdrop-filter:blur(10px);
-    }
+    .wrap{max-width:960px;margin:0 auto;padding:24px 16px 48px}
+    .hero,.card{border:1px solid var(--stroke);border-radius:24px;background:var(--panel);backdrop-filter:blur(10px);box-shadow:var(--shadow)}
+    .hero{padding:22px 20px;margin-bottom:18px}.card{padding:18px}
     .kicker{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      padding:6px 12px;
-      border-radius:999px;
-      border:1px solid rgba(56,189,248,.25);
-      background:rgba(56,189,248,.12);
-      color:#7dd3fc;
-      font-weight:800;
-      font-size:13px;
-      margin-bottom:12px;
+      display:inline-flex;align-items:center;gap:8px;padding:6px 12px;border-radius:999px;
+      border:1px solid rgba(56,189,248,.25);background:rgba(56,189,248,.12);color:#7dd3fc;font-weight:900;font-size:13px;margin-bottom:12px
     }
-    h1{
-      margin:0 0 10px;
-      font-size:30px;
-      line-height:1.1;
-    }
-    .sub{
-      color:var(--muted);
-      font-size:15px;
-      line-height:1.6;
-    }
-    .grid{
-      display:grid;
-      grid-template-columns:repeat(auto-fit,minmax(280px,1fr));
-      gap:16px;
-    }
-    .card{
-      padding:18px;
-      border:1px solid var(--stroke);
-      border-radius:22px;
-      background:var(--panel);
-      backdrop-filter:blur(10px);
-    }
-    .card h2{
-      margin:0 0 8px;
-      font-size:22px;
-    }
-    .muted{
-      color:var(--muted);
-      font-size:14px;
-      line-height:1.6;
-    }
-    .stack{
-      display:grid;
-      gap:12px;
-      margin-top:14px;
-    }
+    h1{margin:0 0 10px;font-size:30px;line-height:1.1}
+    .sub,.muted{color:var(--muted);line-height:1.6}.sub{font-size:15px}.muted{font-size:14px}
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
+    .stack{display:grid;gap:12px;margin-top:14px}
     .input{
-      width:100%;
-      appearance:none;
-      border:1px solid var(--stroke);
-      border-radius:16px;
-      padding:14px 14px;
-      background:var(--panel2);
-      color:var(--text);
-      font-size:16px;
-      font-weight:700;
-      outline:none;
+      width:100%;appearance:none;border:1px solid var(--stroke);border-radius:16px;padding:14px 14px;
+      background:var(--panel2);color:var(--text);font-size:16px;font-weight:700;outline:none
     }
-    .input:focus{
-      border-color:rgba(56,189,248,.45);
-      box-shadow:0 0 0 3px rgba(56,189,248,.12);
-    }
-    .row{
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      align-items:center;
-    }
+    .input:focus{border-color:rgba(56,189,248,.45);box-shadow:0 0 0 3px rgba(56,189,248,.12)}
+    .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
     .btn{
-      appearance:none;
-      border:0;
-      cursor:pointer;
-      border-radius:16px;
-      padding:13px 16px;
-      font-weight:900;
-      font-size:15px;
-      transition:transform .12s ease, opacity .12s ease;
+      appearance:none;border:0;cursor:pointer;border-radius:16px;padding:13px 16px;font-weight:900;font-size:15px;transition:.12s ease;box-shadow:0 10px 24px rgba(0,0,0,.12)
     }
-    .btn:hover{ transform:translateY(-1px); }
-    .btn:active{ transform:translateY(0); }
-    .btn-blue{ background:var(--blue); color:#082f49; }
-    .btn-good{ background:var(--good); color:#052e16; }
-    .btn-ghost{
-      background:rgba(255,255,255,.06);
-      color:var(--text);
-      border:1px solid var(--stroke);
-    }
+    .btn:hover{transform:translateY(-1px);filter:brightness(1.03)} .btn:active{transform:translateY(0)}
+    .btn-blue{background:var(--blue);color:#082f49}.btn-good{background:var(--good);color:#052e16}
+    .btn-ghost{background:rgba(255,255,255,.06);color:var(--text);border:1px solid var(--stroke);box-shadow:none}
     .room-chip{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      padding:10px 12px;
-      border-radius:999px;
-      background:rgba(244,114,182,.12);
-      border:1px solid rgba(244,114,182,.25);
-      color:#f9a8d4;
-      font-weight:900;
-      letter-spacing:.04em;
+      display:inline-flex;align-items:center;gap:8px;padding:10px 12px;border-radius:999px;
+      background:rgba(244,114,182,.12);border:1px solid rgba(244,114,182,.25);color:#f9a8d4;font-weight:900;letter-spacing:.04em
     }
     .tips{
-      margin-top:16px;
-      padding:14px 16px;
-      border:1px dashed rgba(148,163,184,.22);
-      border-radius:16px;
-      color:var(--muted);
-      font-size:13px;
-      line-height:1.7;
+      margin-top:16px;padding:14px 16px;border:1px dashed rgba(148,163,184,.22);border-radius:16px;
+      color:var(--muted);font-size:13px;line-height:1.7;background:rgba(255,255,255,.02)
     }
-    .error{
-      min-height:22px;
-      color:#fbbf24;
-      font-size:13px;
-      font-weight:700;
+    .error{min-height:22px;color:#fbbf24;font-size:13px;font-weight:700}
+    .invite-banner{
+      display:none;margin-bottom:16px;border:1px solid rgba(34,197,94,.24);
+      background:linear-gradient(180deg, rgba(34,197,94,.10), rgba(34,197,94,.04)), var(--panel)
+    }
+    .invite-banner .room-chip{background:rgba(34,197,94,.12);border-color:rgba(34,197,94,.24);color:#86efac}
+    .preview-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-top:14px}
+    .mini{border:1px solid var(--stroke);border-radius:16px;padding:12px;background:rgba(255,255,255,.03)}
+    .mini-label{color:var(--muted);font-size:12px;margin-bottom:6px;font-weight:700}
+    .mini-value{font-size:14px;font-weight:900;color:#e2e8f0;word-break:break-word}
+    @media (max-width:640px){
+      .wrap{padding:18px 12px 36px}
+      h1{font-size:26px}
+      .btn{width:100%}.row .btn{flex:1 1 100%}
     }
   </style>
 </head>
@@ -166,8 +70,25 @@
     <section class="hero">
       <div class="kicker">RACE MODE</div>
       <h1>GoodJunk • สร้างห้อง หรือ เข้าร่วมห้อง</h1>
-      <div class="sub">
-        เลือกได้ 2 แบบ: สร้างห้องใหม่เพื่อส่งโค้ดให้เพื่อน หรือใส่โค้ดห้องเพื่อเข้าร่วมการแข่งขัน
+      <div class="sub">ใช้สำหรับเริ่มการแข่งขันแบบ Race ก่อนเข้า lobby จริงของเกม GoodJunk</div>
+
+      <div class="preview-grid">
+        <div class="mini"><div class="mini-label">โหมด</div><div class="mini-value" id="previewMode">race</div></div>
+        <div class="mini"><div class="mini-label">ระดับความยาก</div><div class="mini-value" id="previewDiff">normal</div></div>
+        <div class="mini"><div class="mini-label">เวลา</div><div class="mini-value" id="previewTime">120</div></div>
+        <div class="mini"><div class="mini-label">มุมมอง</div><div class="mini-value" id="previewView">mobile</div></div>
+      </div>
+    </section>
+
+    <section id="inviteBanner" class="card invite-banner">
+      <h2 style="margin:0 0 8px;font-size:24px;">คุณได้รับคำเชิญเข้าห้องแข่ง</h2>
+      <div class="muted" style="margin-bottom:12px;">ระบบพบ room code จากลิงก์เชิญแล้ว คุณสามารถเข้าห้องนี้ได้ทันที</div>
+      <div class="row" style="margin-bottom:12px;">
+        <div class="room-chip">ROOM: <span id="inviteRoomCode">-</span></div>
+      </div>
+      <div class="row">
+        <button class="btn btn-good" id="btnJoinInvitedRoom" type="button">เข้าห้องนี้เลย</button>
+        <button class="btn btn-ghost" id="btnUseOtherRoom" type="button">ใช้โค้ดอื่น</button>
       </div>
     </section>
 
@@ -175,33 +96,27 @@
       <div class="card">
         <h2>สร้างห้องใหม่</h2>
         <div class="muted">ระบบจะสร้าง room code ใหม่ แล้วพาเข้า lobby ทันที</div>
-
         <div class="stack">
           <div class="room-chip">CODE: <span id="previewCode">GJ----</span></div>
-          <button class="btn btn-blue" id="btnCreateRoom">สร้างห้องและไปที่ Lobby</button>
+          <button class="btn btn-blue" id="btnCreateRoom" type="button">สร้างห้องและไปที่ Lobby</button>
         </div>
-
-        <div class="tips">
-          หลังเข้า lobby แล้ว ค่อยส่ง room code นี้ให้ผู้เล่นคนอื่นเข้าตามมา
-        </div>
+        <div class="tips">หลังเข้า lobby แล้ว ให้คัดลอก room code หรือ invite link ส่งให้ผู้เล่นคนอื่นตามเข้ามา</div>
       </div>
 
       <div class="card">
         <h2>เข้าร่วมห้อง</h2>
-        <div class="muted">ใส่ room code ที่ได้รับ แล้วเข้าไปที่ lobby ของห้องนั้น</div>
+        <div class="muted">วาง room code ที่ได้รับ หรือใช้ลิงก์เชิญเพื่อเข้าห้องนั้นได้ทันที</div>
 
         <div class="stack">
-          <input id="joinRoomInput" class="input" type="text" placeholder="เช่น GJ7A2B" maxlength="10" autocomplete="off" />
+          <input id="joinRoomInput" class="input" type="text" placeholder="เช่น GJ7A2B" maxlength="10" autocomplete="off" spellcheck="false" />
           <div class="row">
-            <button class="btn btn-good" id="btnJoinRoom">เข้าร่วมห้อง</button>
-            <button class="btn btn-ghost" id="btnBackHub">กลับ HUB</button>
+            <button class="btn btn-good" id="btnJoinRoom" type="button">เข้าร่วมห้อง</button>
+            <button class="btn btn-ghost" id="btnBackHub" type="button">กลับ HUB</button>
           </div>
           <div class="error" id="roomError"></div>
         </div>
 
-        <div class="tips">
-          room code จะถูกปรับเป็นตัวพิมพ์ใหญ่ให้อัตโนมัติ และตัดอักขระที่ไม่จำเป็นออก
-        </div>
+        <div class="tips">room code จะถูกปรับเป็นตัวพิมพ์ใหญ่ให้อัตโนมัติ และตัดอักขระที่ไม่จำเป็นออก</div>
       </div>
     </section>
   </div>
@@ -209,14 +124,35 @@
   <script>
     const params = new URLSearchParams(location.search);
 
+    function makeDevicePid() {
+      try {
+        const KEY = 'GJ_DEVICE_PID';
+        let pid = localStorage.getItem(KEY);
+        if (!pid) {
+          pid = `p-${Math.random().toString(36).slice(2, 10)}`;
+          localStorage.setItem(KEY, pid);
+        }
+        return pid;
+      } catch {
+        return `p-${Math.random().toString(36).slice(2, 10)}`;
+      }
+    }
+
+    function normalizePid(rawPid) {
+      const v = String(rawPid || '').trim();
+      if (!v) return makeDevicePid();
+      if (v.toLowerCase() === 'anon') return makeDevicePid();
+      return v;
+    }
+
     const ctx = {
-      pid: params.get('pid') || 'anon',
+      pid: normalizePid(params.get('pid')),
       name: params.get('name') || '',
       studyId: params.get('studyId') || '',
       diff: params.get('diff') || 'normal',
       time: params.get('time') || '120',
       seed: params.get('seed') || String(Date.now()),
-      hub: params.get('hub') || '../hub.html',
+      hub: params.get('hub') || './hub.html',
       view: params.get('view') || 'mobile',
       run: params.get('run') || 'play',
       gameId: params.get('gameId') || 'goodjunk',
@@ -229,75 +165,131 @@
       btnCreateRoom: document.getElementById('btnCreateRoom'),
       btnJoinRoom: document.getElementById('btnJoinRoom'),
       btnBackHub: document.getElementById('btnBackHub'),
-      roomError: document.getElementById('roomError')
+      roomError: document.getElementById('roomError'),
+      inviteBanner: document.getElementById('inviteBanner'),
+      inviteRoomCode: document.getElementById('inviteRoomCode'),
+      btnJoinInvitedRoom: document.getElementById('btnJoinInvitedRoom'),
+      btnUseOtherRoom: document.getElementById('btnUseOtherRoom'),
+      previewMode: document.getElementById('previewMode'),
+      previewDiff: document.getElementById('previewDiff'),
+      previewTime: document.getElementById('previewTime'),
+      previewView: document.getElementById('previewView')
     };
 
     function normalizeRoomCode(raw){
-      return String(raw || '')
-        .toUpperCase()
-        .replace(/[^A-Z0-9]/g, '')
-        .slice(0, 8);
+      return String(raw || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
     }
 
     function generateRoomCode(){
       const seed = Math.random().toString(36).toUpperCase().replace(/[^A-Z0-9]/g, '');
-      return ('GJ' + seed.slice(2, 8)).slice(0, 8);
+      return normalizeRoomCode('GJ' + seed.slice(2, 8));
     }
 
     function toQuery(obj){
       const q = new URLSearchParams();
       Object.entries(obj).forEach(([k,v]) => {
-        if (v !== undefined && v !== null) q.set(k, String(v));
+        if (v !== undefined && v !== null && String(v) !== '') q.set(k, String(v));
       });
       return q.toString();
     }
 
+    function getInvitedRoomCode(){
+      return normalizeRoomCode(params.get('roomId') || '');
+    }
+
+    function setError(msg=''){ if (els.roomError) els.roomError.textContent = msg; }
+    function showInviteBanner(roomId){
+      if (!els.inviteBanner) return;
+      els.inviteBanner.style.display = 'block';
+      if (els.inviteRoomCode) els.inviteRoomCode.textContent = roomId || '-';
+    }
+    function hideInviteBanner(){ if (els.inviteBanner) els.inviteBanner.style.display = 'none'; }
+
     function goLobby(roomId){
+      const normalizedRoomId = normalizeRoomCode(roomId);
+      if (!normalizedRoomId || normalizedRoomId.length < 4) {
+        setError('กรุณาใส่ room code ให้ถูกต้อง');
+        return;
+      }
+
       const next = `./goodjunk-race-lobby.html?${toQuery({
         ...ctx,
-        roomId,
+        roomId: normalizedRoomId,
         seed: String(Date.now())
       })}`;
       location.href = next;
     }
 
-    function setError(msg=''){
-      els.roomError.textContent = msg;
+    function hydratePreview(){
+      els.previewMode.textContent = ctx.mode;
+      els.previewDiff.textContent = ctx.diff;
+      els.previewTime.textContent = ctx.time;
+      els.previewView.textContent = ctx.view;
     }
 
+    const invitedRoomCode = getInvitedRoomCode();
     const previewCode = generateRoomCode();
-    els.previewCode.textContent = previewCode;
 
-    els.btnCreateRoom.addEventListener('click', () => {
+    hydratePreview();
+    if (els.previewCode) els.previewCode.textContent = previewCode;
+
+    if (invitedRoomCode) {
+      showInviteBanner(invitedRoomCode);
+      if (els.joinRoomInput) els.joinRoomInput.value = invitedRoomCode;
+    } else {
+      hideInviteBanner();
+    }
+
+    els.btnCreateRoom?.addEventListener('click', () => {
+      setError('');
       goLobby(previewCode);
     });
 
-    els.btnJoinRoom.addEventListener('click', () => {
-      const roomId = normalizeRoomCode(els.joinRoomInput.value);
+    els.btnJoinInvitedRoom?.addEventListener('click', () => {
+      if (!invitedRoomCode) {
+        setError('ไม่พบ room code จากลิงก์เชิญ');
+        return;
+      }
+      setError('');
+      goLobby(invitedRoomCode);
+    });
+
+    els.btnUseOtherRoom?.addEventListener('click', () => {
+      hideInviteBanner();
+      els.joinRoomInput?.focus();
+      els.joinRoomInput?.select();
+    });
+
+    els.btnJoinRoom?.addEventListener('click', () => {
+      const roomId = normalizeRoomCode((els.joinRoomInput?.value || invitedRoomCode || '').trim());
       if (!roomId || roomId.length < 4) {
         setError('กรุณาใส่ room code ให้ถูกต้อง');
-        els.joinRoomInput.focus();
+        els.joinRoomInput?.focus();
         return;
       }
       setError('');
       goLobby(roomId);
     });
 
-    els.joinRoomInput.addEventListener('input', () => {
+    els.joinRoomInput?.addEventListener('input', () => {
       els.joinRoomInput.value = normalizeRoomCode(els.joinRoomInput.value);
       setError('');
     });
 
-    els.joinRoomInput.addEventListener('keydown', (ev) => {
+    els.joinRoomInput?.addEventListener('keydown', (ev) => {
       if (ev.key === 'Enter') {
         ev.preventDefault();
-        els.btnJoinRoom.click();
+        els.btnJoinRoom?.click();
       }
     });
 
-    els.btnBackHub.addEventListener('click', () => {
-      location.href = ctx.hub;
+    els.btnBackHub?.addEventListener('click', () => {
+      location.href = ctx.hub || './hub.html';
     });
+
+    if (invitedRoomCode && els.btnJoinInvitedRoom) {
+      els.btnJoinInvitedRoom.focus();
+    }
   </script>
 </body>
 </html>
