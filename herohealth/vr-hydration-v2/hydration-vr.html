@@ -6,7 +6,7 @@
   <title>HeroHealth — Hydration V2</title>
   <meta name="color-scheme" content="dark light" />
   <link rel="icon" href="../favicon.ico" />
-  <link rel="stylesheet" href="./css/hydration.css?v=20260317a" />
+  <link rel="stylesheet" href="./css/hydration.css?v=20260317b" />
 </head>
 <body>
   <div class="hh-app" id="gameRoot">
@@ -57,6 +57,12 @@
           <div class="stage-head-right" id="sessionBadge">Session Starter</div>
         </div>
 
+        <div class="status-ribbon">
+          <span id="boostStatus">Boost: ปกติ</span>
+          <span id="shieldStatus">Shield: 0</span>
+          <span id="rewardCountStatus">Rewards: 0</span>
+        </div>
+
         <div class="stage" id="stage" aria-label="Hydration playfield">
           <div class="water-glow"></div>
 
@@ -86,7 +92,7 @@
           <ul class="mission-list" id="missionList">
             <li>เก็บ 💧 ให้ได้มากที่สุด</li>
             <li>อย่าแตะ 🥤 หรือ 🧃</li>
-            <li>จบรอบแล้วทำ Evaluate ต่อ</li>
+            <li>จบรอบแล้วทำ Scenarios + Evaluate + Create</li>
           </ul>
         </div>
 
@@ -118,6 +124,7 @@
     </main>
 
     <div class="toast" id="toast" aria-live="polite"></div>
+    <div class="reward-popup" id="rewardPopup" aria-live="polite"></div>
 
     <section class="overlay show" id="introOverlay" aria-modal="true" role="dialog">
       <div class="overlay-card">
@@ -125,7 +132,7 @@
         <h2 id="introTitle">เตรียมเริ่ม Hydration Run</h2>
         <p id="introText">
           รอบนี้เป็น starter scaffold สำหรับ Hydration V2 ที่แยกโฟลเดอร์ใหม่แล้ว
-          เล่นรอบหลักให้จบก่อน แล้วระบบจะพาไป Evaluate ตาม abstract
+          เล่นรอบหลักให้จบก่อน แล้วระบบจะพาไป Summary → Scenarios → Evaluate → Create
         </p>
 
         <div class="intro-grid">
@@ -146,9 +153,11 @@
     </section>
 
     <section class="overlay" id="summaryOverlay" aria-modal="true" role="dialog"></section>
+    <section class="overlay" id="scenarioOverlay" aria-modal="true" role="dialog"></section>
     <section class="overlay" id="evaluateOverlay" aria-modal="true" role="dialog"></section>
+    <section class="overlay" id="createOverlay" aria-modal="true" role="dialog"></section>
   </div>
 
-  <script type="module" src="./js/hydration.safe.js?v=20260317a"></script>
+  <script type="module" src="./js/hydration.safe.js?v=20260317b"></script>
 </body>
 </html>
