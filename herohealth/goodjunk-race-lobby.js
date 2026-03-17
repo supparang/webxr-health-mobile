@@ -54,7 +54,7 @@ let countdownStartAt = 0;
 let presenceTimer = 0;
 let subscribed = false;
 let repairBusy = false;
-let exitMode = 'stay'; // stay | leave | to-run
+let exitMode = 'stay';
 
 function normalizeRoomCode(raw) {
   return String(raw || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
@@ -306,7 +306,8 @@ function roomToFirebase(r) {
       miss: Number(p.miss || 0),
       streak: Number(p.streak || 0),
       phase: String(p.phase || 'lobby'),
-      connected: p.connected !== false
+      connected: p.connected !== false,
+      dnfReason: String(p.dnfReason || '')
     };
   });
 
@@ -582,7 +583,8 @@ async function setupOnDisconnect() {
   try {
     await myPlayerRef.onDisconnect().update({
       connected: false,
-      lastSeenAt: now()
+      phase: 'lobby',
+      dnfReason: 'disconnect'
     });
   } catch {}
 }
@@ -609,7 +611,8 @@ async function ensureJoined() {
     miss: Number(existing?.miss || 0),
     streak: Number(existing?.streak || 0),
     phase: String(existing?.phase || 'lobby'),
-    connected: true
+    connected: true,
+    dnfReason: String(existing?.dnfReason || '')
   };
 
   await myPlayerRef.set(playerPayload);
@@ -683,10 +686,16 @@ async function beginCountdown() {
 async function enterRun(startAt) {
   exitMode = 'to-run';
 
+  try {
+    await myPlayerRef?.onDisconnect().cancel();
+  } catch {}
+
   await updateMe({
     ready: true,
     phase: 'run',
-    connected: true
+    connected: true,
+    dnfReason: '',
+    lastSeenAt: now()
   });
 
   const q = new URLSearchParams({
@@ -737,7 +746,8 @@ async function leaveRoom() {
     next.players = next.players.map((p) => ({
       ...p,
       ready: false,
-      phase: 'lobby'
+      phase: 'lobby',
+      dnfReason: ''
     }));
   }
 
@@ -759,7 +769,8 @@ async function onReadyClick() {
   await updateMe({
     ready: !me.ready,
     phase: 'lobby',
-    connected: true
+    connected: true,
+    dnfReason: ''
   });
 }
 
@@ -781,62 +792,4 @@ async function onCopyRoomClick() {
 async function onCopyInviteClick() {
   const link = buildInviteUrl();
   const ok = await copyText(link);
-  setCopyState(ok ? 'คัดลอก Invite Link แล้ว' : 'คัดลอก Invite Link ไม่สำเร็จ', ok);
-}
-
-function bindEvents() {
-  els.btnReady?.addEventListener('click', onReadyClick);
-  els.btnStart?.addEventListener('click', onStartClick);
-  els.btnBack?.addEventListener('click', onBackClick);
-  els.btnCopyRoom?.addEventListener('click', onCopyRoomClick);
-  els.btnCopyInvite?.addEventListener('click', onCopyInviteClick);
-
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') touchPresence();
-  });
-
-  window.addEventListener('focus', () => {
-    touchPresence();
-  });
-
-  window.addEventListener('beforeunload', () => {
-    stopPresenceHeartbeat();
-    if (exitMode === 'to-run') return;
-    // onDisconnect handles tab close / refresh
-  });
-}
-
-async function boot() {
-  try {
-    setHint('กำลังเชื่อม Firebase...');
-    await ensureFirebase();
-
-    setHint('กำลังสร้าง/เชื่อมห้อง...');
-    await ensureRoomExists();
-    subscribeRoom();
-
-    const joined = await ensureJoined();
-    render();
-    bindEvents();
-
-    if (!joined) {
-      if (els.btnReady) els.btnReady.disabled = true;
-      if (els.btnStart) els.btnStart.disabled = true;
-      return;
-    }
-
-    await touchPresence();
-    startPresenceHeartbeat();
-
-    if (room?.status === 'countdown' && room.startAt) {
-      runCountdown(room.startAt);
-    }
-  } catch (err) {
-    console.error('[goodjunk-race-lobby] boot failed:', err);
-    setHint(`เชื่อม Firebase ไม่สำเร็จ: ${String(err?.message || err)}`);
-    if (els.btnReady) els.btnReady.disabled = true;
-    if (els.btnStart) els.btnStart.disabled = true;
-  }
-}
-
-boot();
+ 
