@@ -1,9 +1,9 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.phaseboss.js ===
-// FULL PATCH v20260317-GOODJUNK-PHASEBOSS-SAFE-FULL-BOSSFIX2
+// FULL PATCH v20260318-GOODJUNK-PHASEBOSS-DEBUG-READY
 // Solo-only phase build: Phase 1 -> Phase 2 -> Boss
 // Fixed boss UI recursion / stack overflow
 // Fixed boss not entering by adding phase2 fallback trigger
-// Includes boot-shell auto hide + debug logs
+// Added debug mini panel + debug logs + quick boss mode
 
 const __qs = new URLSearchParams(location.search);
 const RUN_CTX = window.__GJ_RUN_CTX__ || {
@@ -13,7 +13,7 @@ const RUN_CTX = window.__GJ_RUN_CTX__ || {
   roomId: '',
   mode: 'solo',
   diff: (__qs.get('diff') || 'normal').toLowerCase(),
-  time: __qs.get('time') || '120',
+  time: __qs.get('time') || '150',
   seed: __qs.get('seed') || String(Date.now()),
   startAt: 0,
   hub: __qs.get('hub') || '../hub.html',
@@ -26,14 +26,18 @@ const GJ_PID = RUN_CTX.pid || 'anon';
 const GJ_NAME = String(RUN_CTX.name || GJ_PID).trim();
 const GJ_HUB = RUN_CTX.hub || '../hub.html';
 const GJ_GAME_ID = RUN_CTX.gameId || 'goodjunk';
-
 const GAME_MOUNT = document.getElementById('gameMount') || document.body;
 
-const GOODJUNK_STYLE_ID = 'goodjunk-safe-style-phaseboss-20260317';
+const GOODJUNK_STYLE_ID = 'goodjunk-safe-style-phaseboss-20260318';
 const GOODJUNK_ROOT_ID = 'gjRoot';
 
 const GJ_SOLO_LAST_SUMMARY_KEY = `GJ_SOLO_LAST_SUMMARY_${GJ_PID}`;
 const GJ_SOLO_SUMMARY_HISTORY_KEY = `GJ_SOLO_SUMMARY_HISTORY_${GJ_PID}`;
+
+const DEBUG_QUICK_BOSS =
+  __qs.get('bossdebug') === '1' ||
+  __qs.get('debug') === '1' ||
+  __qs.get('quickboss') === '1';
 
 const GOOD_ITEMS = [
   { emoji: '🍎', label: 'apple' },
@@ -191,6 +195,7 @@ const ui = {
   progress: null,
   stats: null,
   centerTip: null,
+  debugMini: null,
 
   phaseBadge: null,
   phaseSub: null,
@@ -324,6 +329,15 @@ function injectGameplayStyle() {
       box-shadow:0 16px 36px rgba(0,0,0,.18)
     }
     .gj-center-tip.hide{opacity:0;transform:translate(-50%,-50%) scale(.96)}
+
+    .gj-debug-mini{
+      position:absolute;left:10px;bottom:10px;z-index:8;
+      padding:8px 10px;border-radius:12px;
+      background:rgba(2,6,23,.72);border:1px solid rgba(148,163,184,.18);
+      color:#cbd5e1;font:12px/1.45 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+      backdrop-filter:blur(8px);box-shadow:0 10px 24px rgba(0,0,0,.16);
+      pointer-events:none;max-width:min(88vw,340px)
+    }
 
     .gj-target{
       position:absolute;display:grid;place-items:center;border-radius:22px;border:1px solid rgba(255,255,255,.16);
@@ -501,6 +515,7 @@ function injectGameplayStyle() {
       .gj-boss-face{font-size:48px}
       .gj-boss-hud{width:min(92vw,420px)}
       .gj-boss-wrap{height:158px}
+      .gj-debug-mini{max-width:min(90vw,300px);font-size:11px}
     }
   `;
   document.head.appendChild(style);
@@ -546,6 +561,7 @@ function buildGameplayShell() {
               </div>
             </div>
 
+            <div class="gj-debug-mini" id="gjDebugMini">debug</div>
             <div class="gj-target-layer" id="gjTargetLayer"></div>
           </div>
         </div>
@@ -600,6 +616,7 @@ function buildGameplayShell() {
   ui.progress = document.getElementById('gjProgressBar');
   ui.stats = document.getElementById('gjStatsText');
   ui.centerTip = document.getElementById('gjCenterTip');
+  ui.debugMini = document.getElementById('gjDebugMini');
 
   ui.bossWrap = document.getElementById('gjBossWrap');
   ui.boss = document.getElementById('gjBoss');
@@ -676,13 +693,25 @@ function clampInt(value, min, max){ return Math.max(min, Math.min(max, Math.floo
 function pick(arr){ return arr[Math.floor(rand() * arr.length)] || arr[0]; }
 
 function getPreset() {
-  return DIFF_PRESET[state.diff] || DIFF_PRESET.normal;
+  const base = DIFF_PRESET[state.diff] || DIFF_PRESET.normal;
+
+  if (!DEBUG_QUICK_BOSS) return base;
+
+  return {
+    ...base,
+    bossHp: state.diff === 'hard' ? 110 : 90,
+    phase1TargetScore: state.diff === 'hard' ? 35 : 25,
+    phase2TargetScore: state.diff === 'hard' ? 75 : 55,
+    stormEveryMs: 2600,
+    weakSpotEveryMs: 3000
+  };
 }
 
 function startGame() {
   if (state.running || state.ended) return;
 
-  const baseTime = clampInt(Number(RUN_CTX.time || 120) * 1000, 60000, 600000);
+  const fallbackTime = DEBUG_QUICK_BOSS ? 120 : 150;
+  const baseTime = clampInt(Number(RUN_CTX.time || fallbackTime) * 1000, 60000, 600000);
 
   state.totalMs = baseTime;
   state.timeLeftMs = baseTime;
@@ -739,11 +768,17 @@ function startGame() {
   if (ui.layer) ui.layer.innerHTML = '';
   if (ui.soloOverlay) ui.soloOverlay.hidden = true;
 
+  console.log('[GJ] startGame', {
+    diff: state.diff,
+    totalMs: state.totalMs,
+    debugQuickBoss: DEBUG_QUICK_BOSS
+  });
+
   setPhaseVisualClass();
   hideBossPhaseUi();
 
   showCenterTip('แตะอาหารดีเพื่อได้คะแนน • สะสมคอมโบ • ผ่าน Phase 1 และ 2 เพื่อไปสู้ Junk King');
-  updateHint('เริ่มรอบแล้ว! เก็บของดีให้ต่อเนื่อง');
+  updateHint(DEBUG_QUICK_BOSS ? 'DEBUG QUICK BOSS เปิดอยู่' : 'เริ่มรอบแล้ว! เก็บของดีให้ต่อเนื่อง');
 
   renderHud();
   renderBoss();
@@ -838,6 +873,12 @@ function startPhase2() {
   state.phaseLabel = 'Phase 2';
   state.phaseChangedAt = performance.now();
   state.phase2EnteredAt = performance.now();
+
+  console.log('[GJ] startPhase2()', {
+    score: state.score,
+    timeLeftMs: state.timeLeftMs
+  });
+
   setPhaseVisualClass();
   showCenterTip('Phase 2! เกมเร็วขึ้น junk มากขึ้น และจะมี rush burst');
   updateHint('Phase 2: อ่านเป้าให้ไวขึ้น อย่าหลุดของดี');
@@ -1315,6 +1356,12 @@ function damageBoss(amount = 0, label = '') {
 
   state.boss.hp = Math.max(0, state.boss.hp - amount);
 
+  console.log('[GJ] damageBoss', {
+    amount,
+    hp: state.boss.hp,
+    hpMax: state.boss.hpMax
+  });
+
   if (label) {
     createFx(state.boss.x + state.boss.w / 2, state.boss.y + 14, label, '#fecaca');
   }
@@ -1428,6 +1475,20 @@ function updateHint(message) {
   ui.hint.innerHTML = `<div>${escapeHtml(message)}</div>`;
 }
 
+function renderDebugMini() {
+  if (!ui.debugMini) return;
+
+  const phase2Elapsed = state.phase2EnteredAt ? Math.round((performance.now() - state.phase2EnteredAt) / 1000) : 0;
+
+  ui.debugMini.innerHTML = [
+    `phase=${state.phase} bossActive=${state.bossActive ? 1 : 0}`,
+    `score=${state.score} miss=${state.miss} streak=${state.streak}`,
+    `phase2Elapsed=${phase2Elapsed}s bossTriggered=${state.bossTriggered ? 1 : 0}`,
+    `bossHP=${Math.ceil(state.boss.hp || 0)}/${Math.ceil(state.boss.hpMax || 0)}`,
+    `debugQuickBoss=${DEBUG_QUICK_BOSS ? 1 : 0}`
+  ].join('<br>');
+}
+
 function renderHud() {
   if (ui.score) ui.score.textContent = String(state.score);
   if (ui.timer) ui.timer.textContent = formatSeconds(state.timeLeftMs);
@@ -1467,6 +1528,7 @@ function renderHud() {
   }
 
   setPhaseVisualClass();
+  renderDebugMini();
 }
 
 function formatSeconds(ms) {
@@ -1492,6 +1554,13 @@ function endGame(reason = 'finished') {
     state.bossDefeated = true;
     updateHint('คุณชนะ Junk King แล้ว!');
   }
+
+  console.log('[GJ] endGame()', {
+    reason,
+    score: state.score,
+    phaseReached: state.bossActive ? 'boss' : `phase-${state.phase}`,
+    bossHpLeft: state.boss.hp || 0
+  });
 
   const summary = {
     gameId: GJ_GAME_ID,
@@ -1565,7 +1634,7 @@ function showSoloSummary(summary) {
 
 function buildSoloSummaryPayload(summary) {
   return {
-    version: '20260317-goodjunk-phaseboss-summary',
+    version: '20260318-goodjunk-phaseboss-summary',
     source: 'goodjunk-phaseboss',
     gameId: GJ_GAME_ID,
     title: 'GoodJunk Phase Boss',
@@ -1683,6 +1752,8 @@ function buildReplayUrl() {
     gameId: GJ_GAME_ID,
     mode: 'solo'
   });
+
+  if (DEBUG_QUICK_BOSS) q.set('bossdebug', '1');
 
   return `./goodjunk-vr.html?${q.toString()}`;
 }
