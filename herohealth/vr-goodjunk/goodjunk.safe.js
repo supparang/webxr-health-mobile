@@ -1,7 +1,3 @@
-// === /herohealth/goodjunk.safe.js ===
-// FULL PATCH v20260317-GOODJUNK-SAFE-RACE-CONSOLIDATED
-// Self-contained DOM gameplay + race flow + summary/log/export
-
 const __qs = new URLSearchParams(location.search);
 const RUN_CTX = window.__GJ_RUN_CTX__ || {
   pid: __qs.get('pid') || 'anon',
@@ -30,16 +26,18 @@ const GJ_GAME_ID = RUN_CTX.gameId || 'goodjunk';
 const GAME_MOUNT = document.getElementById('gameMount') || document.body;
 const RACE_UI = window.__gjRaceUi || null;
 
-const GOODJUNK_STYLE_ID = 'goodjunk-safe-style-20260317';
+const GOODJUNK_STYLE_ID = 'goodjunk-safe-style-20260317-fb';
 const GOODJUNK_ROOT_ID = 'gjRoot';
+
 const GJ_SOLO_LAST_SUMMARY_KEY = `GJ_SOLO_LAST_SUMMARY_${GJ_PID}`;
 const GJ_SOLO_SUMMARY_HISTORY_KEY = `GJ_SOLO_SUMMARY_HISTORY_${GJ_PID}`;
 const GJ_RACE_LAST_SUMMARY_KEY = `GJ_RACE_LAST_SUMMARY_${GJ_PID}`;
 const GJ_RACE_SUMMARY_HISTORY_KEY = `GJ_RACE_SUMMARY_HISTORY_${GJ_PID}`;
 
-const GJ_RACE_STORAGE_KEY = GJ_ROOM_ID ? `GJ_RACE_ROOM_${GJ_ROOM_ID}` : '';
-const GJ_RACE_CHANNEL_NAME = GJ_ROOM_ID ? `gj-race-${GJ_ROOM_ID}` : '';
-const GJ_RACE_CHANNEL = safeRaceBroadcastChannel(GJ_RACE_CHANNEL_NAME);
+const GJ_RACE_HEARTBEAT_MS = 2500;
+const GJ_RACE_STALE_MS = 12000;
+const GJ_RACE_WATCHDOG_MS = 3000;
+const GJ_FIREBASE_ROOM_PATH = GJ_ROOM_ID ? `raceRooms/goodjunk/${GJ_ROOM_ID}` : '';
 
 let __gjRaceBooted = false;
 let __gjRaceRAF = 0;
@@ -51,6 +49,13 @@ let __gjRaceLastSummary = null;
 let __gjRaceLastSummarySig = '';
 let __gjSoloSummary = null;
 let __gjSoloSummaryBound = false;
+let __gjRaceRoomListenerBound = false;
+
+let __gjFbReady = false;
+let __gjRaceDb = null;
+let __gjRaceRoomRef = null;
+let __gjRacePlayersRef = null;
+let __gjRaceMyPlayerRef = null;
 
 const GOOD_ITEMS = [
   { emoji: '🍎', label: 'apple' },
@@ -78,14 +83,10 @@ const DIFF_PRESET = {
   hard:   { spawnMs: 610, goodRatio: 0.58, speedMin: 130, speedMax: 240, targetSizeMin: 56, targetSizeMax: 80 }
 };
 
-const GJ_RACE_HEARTBEAT_MS = 2500;
-const GJ_RACE_STALE_MS = 12000;
-const GJ_RACE_WATCHDOG_MS = 3000;
-
 const state = {
   mode: GJ_MODE === 'race' ? 'race' : 'solo',
   diff: DIFF_PRESET[RUN_CTX.diff] ? RUN_CTX.diff : 'normal',
-  totalMs: clampInt(Number(RUN_CTX.time || 120) * 1000, 30000, 600000),
+  totalMs: 0,
   timeLeftMs: 0,
   score: 0,
   miss: 0,
@@ -102,7 +103,6 @@ const state = {
   lastFrameTs: 0,
   lastSpawnAccum: 0,
   frameRaf: 0,
-  fxSeq: 0,
   targetSeq: 0,
   targets: new Map(),
   rect: { width: 0, height: 0 },
@@ -120,6 +120,7 @@ const ui = {
   hint: null,
   progress: null,
   stats: null,
+  centerTip: null,
   soloOverlay: null,
   soloBody: null,
   soloTitle: null,
@@ -129,11 +130,10 @@ const ui = {
   soloBtnHub: null
 };
 
+const rng = createSeededRng(RUN_CTX.seed || Date.now());
+
 boot();
 
-/* ---------------------------------------
- * boot
- * ------------------------------------- */
 function boot() {
   injectGameplayStyle();
   buildGameplayShell();
@@ -144,13 +144,17 @@ function boot() {
     openRaceResultFromRoom();
   }
 
-  bootWithRaceGate(() => {
-    markRacePresenceDuringRun({
+  bootWithRaceGate(async () => {
+    await ensureRaceFirebase();
+    await setupRunOnDisconnect();
+
+    await markRacePresenceDuringRun({
       phase: 'run',
       ready: true,
       connected: true,
       finished: false,
-      dnf: false
+      dnf: false,
+      dnfReason: ''
     });
 
     startRaceHeartbeat();
@@ -169,377 +173,58 @@ function boot() {
     } catch {}
   });
 
-  window.addEventListener('resize', () => {
-    refreshStageRect();
-  });
+  window.addEventListener('resize', refreshStageRect);
 }
 
-/* ---------------------------------------
- * gameplay shell
- * ------------------------------------- */
 function injectGameplayStyle() {
   if (document.getElementById(GOODJUNK_STYLE_ID)) return;
 
   const style = document.createElement('style');
   style.id = GOODJUNK_STYLE_ID;
   style.textContent = `
-    #${GOODJUNK_ROOT_ID}{
-      position:absolute;
-      inset:0;
-      z-index:2;
-      overflow:hidden;
-      user-select:none;
-      -webkit-user-select:none;
-      touch-action:manipulation;
-    }
-
-    .gj-shell{
-      position:absolute;
-      inset:0;
-      display:grid;
-      grid-template-rows:auto 1fr auto;
-      overflow:hidden;
-    }
-
-    .gj-topbar{
-      display:flex;
-      justify-content:space-between;
-      gap:12px;
-      align-items:flex-start;
-      flex-wrap:wrap;
-      padding:60px 14px 12px;
-      padding-top:calc(60px + env(safe-area-inset-top, 0px));
-      pointer-events:none;
-    }
-
-    .gj-chip-row{
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-      align-items:center;
-      pointer-events:none;
-    }
-
-    .gj-chip{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      padding:8px 10px;
-      border-radius:999px;
-      border:1px solid rgba(148,163,184,.18);
-      background:rgba(2,6,23,.66);
-      color:#e5e7eb;
-      font-weight:900;
-      font-size:13px;
-      backdrop-filter:blur(8px);
-      box-shadow:0 10px 24px rgba(0,0,0,.18);
-    }
-
-    .gj-chip span{
-      color:#94a3b8;
-      font-weight:800;
-    }
-
-    .gj-stage-wrap{
-      position:relative;
-      min-height:0;
-      padding:8px 10px 10px;
-    }
-
-    .gj-stage{
-      position:relative;
-      width:100%;
-      height:100%;
-      min-height:320px;
-      overflow:hidden;
-      border:1px solid rgba(148,163,184,.18);
-      border-radius:26px;
-      background:
-        radial-gradient(circle at 50% 0%, rgba(56,189,248,.08), transparent 30%),
-        linear-gradient(180deg, rgba(15,23,42,.72), rgba(2,6,23,.78));
-      box-shadow:0 24px 64px rgba(0,0,0,.22);
-    }
-
-    .gj-stage::before{
-      content:"";
-      position:absolute;
-      inset:0;
-      background:
-        linear-gradient(180deg, rgba(255,255,255,.04), transparent 30%),
-        linear-gradient(0deg, rgba(255,255,255,.03), transparent 30%);
-      pointer-events:none;
-    }
-
-    .gj-target-layer{
-      position:absolute;
-      inset:0;
-      overflow:hidden;
-    }
-
-    .gj-center-tip{
-      position:absolute;
-      left:50%;
-      top:50%;
-      transform:translate(-50%,-50%);
-      width:min(86vw,420px);
-      padding:16px 18px;
-      border-radius:18px;
-      background:rgba(2,6,23,.50);
-      border:1px solid rgba(148,163,184,.18);
-      color:#e5e7eb;
-      text-align:center;
-      font-weight:900;
-      backdrop-filter:blur(6px);
-      pointer-events:none;
-      opacity:.96;
-      transition:opacity .35s ease, transform .35s ease;
-      box-shadow:0 16px 36px rgba(0,0,0,.18);
-    }
-
-    .gj-center-tip.hide{
-      opacity:0;
-      transform:translate(-50%,-50%) scale(.96);
-    }
-
-    .gj-target{
-      position:absolute;
-      display:grid;
-      place-items:center;
-      border-radius:20px;
-      border:1px solid rgba(255,255,255,.16);
-      box-shadow:0 14px 28px rgba(0,0,0,.18);
-      transform:translate3d(0,0,0);
-      cursor:pointer;
-      outline:none;
-      padding:0;
-      overflow:hidden;
-      background:rgba(15,23,42,.78);
-    }
-
-    .gj-target.good{
-      background:
-        radial-gradient(circle at 30% 25%, rgba(255,255,255,.22), transparent 26%),
-        linear-gradient(180deg, rgba(34,197,94,.30), rgba(34,197,94,.18)),
-        rgba(15,23,42,.84);
-      border-color:rgba(34,197,94,.30);
-    }
-
-    .gj-target.junk{
-      background:
-        radial-gradient(circle at 30% 25%, rgba(255,255,255,.20), transparent 26%),
-        linear-gradient(180deg, rgba(244,63,94,.26), rgba(244,63,94,.14)),
-        rgba(15,23,42,.84);
-      border-color:rgba(244,63,94,.28);
-    }
-
-    .gj-emoji{
-      font-size:32px;
-      line-height:1;
-      transform:translateY(-2px);
-      filter:drop-shadow(0 6px 10px rgba(0,0,0,.18));
-    }
-
-    .gj-type{
-      position:absolute;
-      left:8px;
-      right:8px;
-      bottom:6px;
-      font-size:10px;
-      font-weight:900;
-      letter-spacing:.08em;
-      text-transform:uppercase;
-      color:#e2e8f0;
-      opacity:.92;
-      text-align:center;
-      white-space:nowrap;
-    }
-
-    .gj-fx{
-      position:absolute;
-      font-size:16px;
-      font-weight:900;
-      pointer-events:none;
-      transform:translate(-50%,-50%);
-      animation:gj-fx-up .75s ease forwards;
-      text-shadow:0 8px 18px rgba(0,0,0,.22);
-    }
-
-    @keyframes gj-fx-up{
-      from{ opacity:1; transform:translate(-50%,-20%); }
-      to  { opacity:0; transform:translate(-50%,-140%); }
-    }
-
-    .gj-bottom{
-      padding:0 12px calc(12px + env(safe-area-inset-bottom, 0px));
-    }
-
-    .gj-bottom-card{
-      border:1px solid rgba(148,163,184,.18);
-      border-radius:18px;
-      padding:12px;
-      background:rgba(2,6,23,.62);
-      backdrop-filter:blur(8px);
-      box-shadow:0 10px 24px rgba(0,0,0,.18);
-    }
-
-    .gj-bottom-top{
-      display:flex;
-      justify-content:space-between;
-      gap:12px;
-      align-items:center;
-      flex-wrap:wrap;
-      margin-bottom:10px;
-    }
-
-    .gj-progress{
-      position:relative;
-      width:100%;
-      height:12px;
-      border-radius:999px;
-      overflow:hidden;
-      border:1px solid rgba(148,163,184,.18);
-      background:rgba(255,255,255,.06);
-    }
-
-    .gj-progress-bar{
-      width:100%;
-      height:100%;
-      background:linear-gradient(90deg, rgba(56,189,248,.85), rgba(34,197,94,.85));
-      transform-origin:left center;
-      transition:transform .12s linear;
-    }
-
-    .gj-legend{
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      font-size:13px;
-      color:#cbd5e1;
-      line-height:1.5;
-    }
-
-    .gj-legend strong{
-      color:#e5e7eb;
-    }
-
-    .gj-solo-overlay{
-      position:fixed;
-      inset:0;
-      z-index:10010;
-      display:grid;
-      place-items:center;
-      padding:
-        calc(16px + env(safe-area-inset-top, 0px))
-        calc(16px + env(safe-area-inset-right, 0px))
-        calc(16px + env(safe-area-inset-bottom, 0px))
-        calc(16px + env(safe-area-inset-left, 0px));
-      background:rgba(2,6,23,.82);
-      backdrop-filter:blur(10px);
-    }
-
-    .gj-solo-overlay[hidden]{
-      display:none !important;
-    }
-
-    .gj-solo-card{
-      width:min(94vw,520px);
-      max-height:88vh;
-      overflow:auto;
-      background:rgba(15,23,42,.96);
-      border:1px solid rgba(148,163,184,.18);
-      border-radius:22px;
-      padding:20px 18px 18px;
-      color:#e5e7eb;
-      box-shadow:0 28px 64px rgba(0,0,0,.35);
-    }
-
-    .gj-solo-kicker{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      padding:6px 12px;
-      border-radius:999px;
-      background:rgba(56,189,248,.12);
-      border:1px solid rgba(56,189,248,.25);
-      color:#7dd3fc;
-      font-weight:900;
-      font-size:13px;
-      margin-bottom:12px;
-    }
-
-    .gj-solo-title{
-      margin:0 0 8px;
-      font-size:30px;
-      line-height:1.1;
-    }
-
-    .gj-solo-sub{
-      margin:0;
-      color:#94a3b8;
-      font-size:14px;
-      line-height:1.6;
-    }
-
-    .gj-solo-list{
-      display:grid;
-      grid-template-columns:repeat(2,minmax(0,1fr));
-      gap:10px;
-      margin-top:16px;
-    }
-
-    .gj-solo-item{
-      border:1px solid rgba(148,163,184,.18);
-      border-radius:16px;
-      padding:12px;
-      background:rgba(2,6,23,.45);
-    }
-
-    .gj-solo-item .label{
-      color:#94a3b8;
-      font-size:12px;
-      font-weight:800;
-      margin-bottom:6px;
-    }
-
-    .gj-solo-item .value{
-      color:#e5e7eb;
-      font-size:20px;
-      font-weight:900;
-    }
-
-    .gj-solo-actions{
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      margin-top:18px;
-    }
-
+    #${GOODJUNK_ROOT_ID}{position:absolute;inset:0;z-index:2;overflow:hidden;user-select:none;-webkit-user-select:none;touch-action:manipulation}
+    .gj-shell{position:absolute;inset:0;display:grid;grid-template-rows:auto 1fr auto;overflow:hidden}
+    .gj-topbar{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap;padding:60px 14px 12px;padding-top:calc(60px + env(safe-area-inset-top,0px));pointer-events:none}
+    .gj-chip-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;pointer-events:none}
+    .gj-chip{display:inline-flex;align-items:center;gap:8px;padding:8px 10px;border-radius:999px;border:1px solid rgba(148,163,184,.18);background:rgba(2,6,23,.66);color:#e5e7eb;font-weight:900;font-size:13px;backdrop-filter:blur(8px);box-shadow:0 10px 24px rgba(0,0,0,.18)}
+    .gj-chip span{color:#94a3b8;font-weight:800}
+    .gj-stage-wrap{position:relative;min-height:0;padding:8px 10px 10px}
+    .gj-stage{position:relative;width:100%;height:100%;min-height:320px;overflow:hidden;border:1px solid rgba(148,163,184,.18);border-radius:26px;background:radial-gradient(circle at 50% 0%, rgba(56,189,248,.08), transparent 30%),linear-gradient(180deg, rgba(15,23,42,.72), rgba(2,6,23,.78));box-shadow:0 24px 64px rgba(0,0,0,.22)}
+    .gj-stage::before{content:"";position:absolute;inset:0;background:linear-gradient(180deg, rgba(255,255,255,.04), transparent 30%),linear-gradient(0deg, rgba(255,255,255,.03), transparent 30%);pointer-events:none}
+    .gj-target-layer{position:absolute;inset:0;overflow:hidden}
+    .gj-center-tip{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(86vw,420px);padding:16px 18px;border-radius:18px;background:rgba(2,6,23,.50);border:1px solid rgba(148,163,184,.18);color:#e5e7eb;text-align:center;font-weight:900;backdrop-filter:blur(6px);pointer-events:none;opacity:.96;transition:opacity .35s ease, transform .35s ease;box-shadow:0 16px 36px rgba(0,0,0,.18)}
+    .gj-center-tip.hide{opacity:0;transform:translate(-50%,-50%) scale(.96)}
+    .gj-target{position:absolute;display:grid;place-items:center;border-radius:20px;border:1px solid rgba(255,255,255,.16);box-shadow:0 14px 28px rgba(0,0,0,.18);transform:translate3d(0,0,0);cursor:pointer;outline:none;padding:0;overflow:hidden;background:rgba(15,23,42,.78)}
+    .gj-target.good{background:radial-gradient(circle at 30% 25%, rgba(255,255,255,.22), transparent 26%),linear-gradient(180deg, rgba(34,197,94,.30), rgba(34,197,94,.18)),rgba(15,23,42,.84);border-color:rgba(34,197,94,.30)}
+    .gj-target.junk{background:radial-gradient(circle at 30% 25%, rgba(255,255,255,.20), transparent 26%),linear-gradient(180deg, rgba(244,63,94,.26), rgba(244,63,94,.14)),rgba(15,23,42,.84);border-color:rgba(244,63,94,.28)}
+    .gj-emoji{font-size:32px;line-height:1;transform:translateY(-2px);filter:drop-shadow(0 6px 10px rgba(0,0,0,.18))}
+    .gj-type{position:absolute;left:8px;right:8px;bottom:6px;font-size:10px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;color:#e2e8f0;opacity:.92;text-align:center;white-space:nowrap}
+    .gj-fx{position:absolute;font-size:16px;font-weight:900;pointer-events:none;transform:translate(-50%,-50%);animation:gj-fx-up .75s ease forwards;text-shadow:0 8px 18px rgba(0,0,0,.22)}
+    @keyframes gj-fx-up{from{opacity:1;transform:translate(-50%,-20%)}to{opacity:0;transform:translate(-50%,-140%)}}
+    .gj-bottom{padding:0 12px calc(12px + env(safe-area-inset-bottom,0px))}
+    .gj-bottom-card{border:1px solid rgba(148,163,184,.18);border-radius:18px;padding:12px;background:rgba(2,6,23,.62);backdrop-filter:blur(8px);box-shadow:0 10px 24px rgba(0,0,0,.18)}
+    .gj-bottom-top{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+    .gj-progress{position:relative;width:100%;height:12px;border-radius:999px;overflow:hidden;border:1px solid rgba(148,163,184,.18);background:rgba(255,255,255,.06)}
+    .gj-progress-bar{width:100%;height:100%;background:linear-gradient(90deg, rgba(56,189,248,.85), rgba(34,197,94,.85));transform-origin:left center;transition:transform .12s linear}
+    .gj-legend{display:flex;gap:10px;flex-wrap:wrap;font-size:13px;color:#cbd5e1;line-height:1.5}
+    .gj-legend strong{color:#e5e7eb}
+    .gj-solo-overlay{position:fixed;inset:0;z-index:10010;display:grid;place-items:center;padding:calc(16px + env(safe-area-inset-top,0px)) calc(16px + env(safe-area-inset-right,0px)) calc(16px + env(safe-area-inset-bottom,0px)) calc(16px + env(safe-area-inset-left,0px));background:rgba(2,6,23,.82);backdrop-filter:blur(10px)}
+    .gj-solo-overlay[hidden]{display:none!important}
+    .gj-solo-card{width:min(94vw,520px);max-height:88vh;overflow:auto;background:rgba(15,23,42,.96);border:1px solid rgba(148,163,184,.18);border-radius:22px;padding:20px 18px 18px;color:#e5e7eb;box-shadow:0 28px 64px rgba(0,0,0,.35)}
+    .gj-solo-kicker{display:inline-flex;align-items:center;gap:8px;padding:6px 12px;border-radius:999px;background:rgba(56,189,248,.12);border:1px solid rgba(56,189,248,.25);color:#7dd3fc;font-weight:900;font-size:13px;margin-bottom:12px}
+    .gj-solo-title{margin:0 0 8px;font-size:30px;line-height:1.1}
+    .gj-solo-sub{margin:0;color:#94a3b8;font-size:14px;line-height:1.6}
+    .gj-solo-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:16px}
+    .gj-solo-item{border:1px solid rgba(148,163,184,.18);border-radius:16px;padding:12px;background:rgba(2,6,23,.45)}
+    .gj-solo-item .label{color:#94a3b8;font-size:12px;font-weight:800;margin-bottom:6px}
+    .gj-solo-item .value{color:#e5e7eb;font-size:20px;font-weight:900}
+    .gj-solo-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}
     @media (max-width:640px){
-      .gj-topbar{
-        padding-left:10px;
-        padding-right:10px;
-      }
-
-      .gj-chip{
-        font-size:12px;
-        padding:7px 9px;
-      }
-
-      .gj-emoji{
-        font-size:28px;
-      }
-
-      .gj-solo-list{
-        grid-template-columns:1fr 1fr;
-      }
-
-      .gj-solo-title{
-        font-size:26px;
-      }
-
-      .gj-solo-actions .btn{
-        flex:1 1 calc(50% - 10px);
-      }
+      .gj-topbar{padding-left:10px;padding-right:10px}
+      .gj-chip{font-size:12px;padding:7px 9px}
+      .gj-emoji{font-size:28px}
+      .gj-solo-title{font-size:26px}
+      .gj-solo-actions .btn{flex:1 1 calc(50% - 10px)}
     }
   `;
   document.head.appendChild(style);
@@ -556,7 +241,6 @@ function buildGameplayShell() {
             <div class="gj-chip"><span>Miss</span><strong id="gjMiss">0</strong></div>
             <div class="gj-chip"><span>Streak</span><strong id="gjStreak">0</strong></div>
           </div>
-
           <div class="gj-chip-row">
             <div class="gj-chip"><span>Goal</span><strong>เก็บของดี • อย่าแตะ junk</strong></div>
           </div>
@@ -564,9 +248,7 @@ function buildGameplayShell() {
 
         <div class="gj-stage-wrap">
           <div class="gj-stage" id="gjStage">
-            <div class="gj-center-tip" id="gjCenterTip">
-              แตะอาหารดีเพื่อได้คะแนน • หลีกเลี่ยง junk ไม่ให้เสีย Miss
-            </div>
+            <div class="gj-center-tip" id="gjCenterTip">แตะอาหารดีเพื่อได้คะแนน • หลีกเลี่ยง junk ไม่ให้เสีย Miss</div>
             <div class="gj-target-layer" id="gjTargetLayer"></div>
           </div>
         </div>
@@ -583,10 +265,7 @@ function buildGameplayShell() {
                 <div>Tip: เก็บผลไม้/ผัก • หลีกเลี่ยงของหวาน/น้ำอัดลม</div>
               </div>
             </div>
-
-            <div class="gj-progress">
-              <div class="gj-progress-bar" id="gjProgressBar"></div>
-            </div>
+            <div class="gj-progress"><div class="gj-progress-bar" id="gjProgressBar"></div></div>
           </div>
         </div>
       </div>
@@ -596,9 +275,7 @@ function buildGameplayShell() {
           <div class="gj-solo-kicker">SOLO SUMMARY</div>
           <h2 class="gj-solo-title" id="gjSoloTitle">สรุปผลการเล่น</h2>
           <p class="gj-solo-sub" id="gjSoloSub">เกมจบแล้ว มาดูผลของรอบนี้กัน</p>
-
           <div class="gj-solo-list" id="gjSoloBody"></div>
-
           <div class="gj-solo-actions">
             <button class="btn btn-blue" id="gjSoloAgain" type="button">เล่นใหม่</button>
             <button class="btn btn-warn" id="gjSoloExport" type="button">Export JSON</button>
@@ -620,7 +297,6 @@ function buildGameplayShell() {
   ui.progress = document.getElementById('gjProgressBar');
   ui.stats = document.getElementById('gjStatsText');
   ui.centerTip = document.getElementById('gjCenterTip');
-
   ui.soloOverlay = document.getElementById('gjSoloSummary');
   ui.soloBody = document.getElementById('gjSoloBody');
   ui.soloTitle = document.getElementById('gjSoloTitle');
@@ -657,9 +333,6 @@ function refreshStageRect() {
   state.rect.height = Math.max(320, rect.height);
 }
 
-/* ---------------------------------------
- * gameplay
- * ------------------------------------- */
 function createSeededRng(seedInput) {
   const seedText = String(seedInput || Date.now());
   let h = 1779033703 ^ seedText.length;
@@ -675,23 +348,10 @@ function createSeededRng(seedInput) {
   };
 }
 
-const rng = createSeededRng(RUN_CTX.seed);
-
-function rand() {
-  return rng();
-}
-
-function randRange(min, max) {
-  return min + (max - min) * rand();
-}
-
-function clampInt(value, min, max) {
-  return Math.max(min, Math.min(max, Math.floor(value)));
-}
-
-function pick(arr) {
-  return arr[Math.floor(rand() * arr.length)];
-}
+function rand(){ return rng(); }
+function randRange(min, max){ return min + (max - min) * rand(); }
+function clampInt(value, min, max){ return Math.max(min, Math.min(max, Math.floor(value))); }
+function pick(arr){ return arr[Math.floor(rand() * arr.length)]; }
 
 function startGame() {
   if (state.running || state.ended) return;
@@ -713,6 +373,7 @@ function startGame() {
   state.startTs = performance.now();
   state.lastFrameTs = state.startTs;
   state.lastSpawnAccum = 0;
+  state.targetSeq = 0;
   state.targets.clear();
 
   if (ui.layer) ui.layer.innerHTML = '';
@@ -784,20 +445,7 @@ function spawnTarget() {
     <div class="gj-type">${isGood ? 'good' : 'junk'}</div>
   `;
 
-  const target = {
-    id,
-    el,
-    type: isGood ? 'good' : 'junk',
-    emoji: item.emoji,
-    label: item.label,
-    x,
-    y,
-    size,
-    speed,
-    drift,
-    lifeMs: 0,
-    dead: false
-  };
+  const target = { id, el, type: isGood ? 'good' : 'junk', x, y, size, speed, drift, dead: false };
 
   el.addEventListener('pointerdown', (ev) => {
     ev.preventDefault();
@@ -828,7 +476,6 @@ function updateTargets(dt) {
       return;
     }
 
-    target.lifeMs += dt;
     target.y += (target.speed * dt) / 1000;
     target.x += (target.drift * dt) / 1000;
 
@@ -844,11 +491,8 @@ function updateTargets(dt) {
     drawTarget(target);
 
     if (target.y > stageH + target.size * 0.6) {
-      if (target.type === 'good') {
-        registerMissGood(target);
-      } else {
-        removeTarget(target.id);
-      }
+      if (target.type === 'good') registerMissGood(target);
+      else removeTarget(target.id);
     }
   });
 
@@ -864,11 +508,9 @@ function hitTarget(id) {
     state.hitsGood += 1;
     state.streak += 1;
     state.bestStreak = Math.max(state.bestStreak, state.streak);
-
     const comboBonus = Math.min(12, Math.floor(state.streak / 3) * 2);
     const gain = 10 + comboBonus;
     state.score += gain;
-
     createFx(target.x + target.size / 2, target.y + target.size / 2, `+${gain}`, '#86efac');
     updateHint('เยี่ยมมาก! เก็บของดีต่อไป');
   } else {
@@ -876,7 +518,6 @@ function hitTarget(id) {
     state.miss += 1;
     state.streak = 0;
     state.score = Math.max(0, state.score - 8);
-
     createFx(target.x + target.size / 2, target.y + target.size / 2, 'MISS', '#fda4af');
     updateHint('ระวัง junk! แตะของดีแทน');
   }
@@ -947,9 +588,6 @@ function formatSeconds(ms) {
   return `${m}:${String(r).padStart(2, '0')}`;
 }
 
-/* ---------------------------------------
- * end game / summary
- * ------------------------------------- */
 function endGame(reason = 'finished') {
   if (state.ended) return;
 
@@ -1010,30 +648,12 @@ function showSoloSummary(summary) {
   ui.soloSub.textContent = 'เก็บของดีให้มากขึ้น และอย่าแตะ junk ในรอบถัดไป';
 
   ui.soloBody.innerHTML = `
-    <div class="gj-solo-item">
-      <div class="label">คะแนน</div>
-      <div class="value">${__gjSoloSummary.score}</div>
-    </div>
-    <div class="gj-solo-item">
-      <div class="label">Miss</div>
-      <div class="value">${__gjSoloSummary.miss}</div>
-    </div>
-    <div class="gj-solo-item">
-      <div class="label">Best Streak</div>
-      <div class="value">${__gjSoloSummary.bestStreak}</div>
-    </div>
-    <div class="gj-solo-item">
-      <div class="label">Good hit</div>
-      <div class="value">${__gjSoloSummary.hitsGood}</div>
-    </div>
-    <div class="gj-solo-item">
-      <div class="label">Junk hit</div>
-      <div class="value">${__gjSoloSummary.hitsBad}</div>
-    </div>
-    <div class="gj-solo-item">
-      <div class="label">Good missed</div>
-      <div class="value">${__gjSoloSummary.missedGood}</div>
-    </div>
+    <div class="gj-solo-item"><div class="label">คะแนน</div><div class="value">${__gjSoloSummary.score}</div></div>
+    <div class="gj-solo-item"><div class="label">Miss</div><div class="value">${__gjSoloSummary.miss}</div></div>
+    <div class="gj-solo-item"><div class="label">Best Streak</div><div class="value">${__gjSoloSummary.bestStreak}</div></div>
+    <div class="gj-solo-item"><div class="label">Good hit</div><div class="value">${__gjSoloSummary.hitsGood}</div></div>
+    <div class="gj-solo-item"><div class="label">Junk hit</div><div class="value">${__gjSoloSummary.hitsBad}</div></div>
+    <div class="gj-solo-item"><div class="label">Good missed</div><div class="value">${__gjSoloSummary.missedGood}</div></div>
   `;
 
   ui.soloOverlay.hidden = false;
@@ -1110,9 +730,6 @@ function persistSoloSummary(summary) {
   } catch {}
 }
 
-/* ---------------------------------------
- * race gate
- * ------------------------------------- */
 function isRaceMode() {
   return GJ_MODE === 'race';
 }
@@ -1126,10 +743,12 @@ function showRaceGate(msg = 'กำลังรอสัญญาณเริ่
     RACE_UI.showGate(msg, count, sub);
     return;
   }
+
   const wrap = document.getElementById('raceGate');
   const text = document.getElementById('raceGateText');
-  const num = document.getElementById('raceGateCount');
+  const num  = document.getElementById('raceGateCount');
   const subEl = document.getElementById('raceGateSub');
+
   if (wrap) wrap.hidden = false;
   if (text) text.textContent = msg;
   if (num) num.textContent = count;
@@ -1184,62 +803,68 @@ async function bootWithRaceGate(startFn) {
   }
 
   if (!hasValidRaceStart()) {
-    showRaceGate(
-      'ยังไม่มีสัญญาณเริ่มจากห้องแข่ง',
-      '...',
-      'กลับไปหน้า lobby แล้วเริ่มใหม่'
-    );
+    showRaceGate('ยังไม่มีสัญญาณเริ่มจากห้องแข่ง', '...', 'กลับไปหน้า lobby แล้วเริ่มใหม่');
     return;
   }
 
-  showRaceGate(
-    'กำลังรอสัญญาณเริ่มจากห้องแข่ง',
-    '-',
-    `Room: ${GJ_ROOM_ID}`
-  );
-
+  showRaceGate('กำลังรอสัญญาณเริ่มจากห้องแข่ง', '-', `Room: ${GJ_ROOM_ID}`);
   await waitUntilRaceStart(GJ_START_AT);
   cancelRaceGateLoop();
   hideRaceGate();
   startFn();
 }
 
-/* ---------------------------------------
- * race room helpers
- * ------------------------------------- */
-function safeRaceBroadcastChannel(name) {
-  try {
-    return (name && 'BroadcastChannel' in window) ? new BroadcastChannel(name) : null;
-  } catch {
-    return null;
-  }
+function waitForFirebaseReady(timeoutMs = 12000) {
+  return new Promise((resolve) => {
+    if (window.HHA_FIREBASE_READY && window.HHA_FIREBASE_DB) {
+      resolve(true);
+      return;
+    }
+
+    let done = false;
+    const finish = (ok) => {
+      if (done) return;
+      done = true;
+      resolve(!!ok);
+    };
+
+    const timer = setTimeout(() => finish(false), timeoutMs);
+
+    window.addEventListener('hha:firebase_ready', (ev) => {
+      clearTimeout(timer);
+      finish(!!ev?.detail?.ok && !!window.HHA_FIREBASE_DB);
+    }, { once: true });
+  });
 }
 
-function loadRaceRoom() {
-  if (!GJ_RACE_STORAGE_KEY) return null;
-  try {
-    const raw = localStorage.getItem(GJ_RACE_STORAGE_KEY);
-    if (!raw) return null;
-    return JSON.parse(raw);
-  } catch {
-    return null;
+async function ensureRaceFirebase() {
+  if (!isRaceMode()) return false;
+  if (__gjFbReady && __gjRaceDb && __gjRaceRoomRef) return true;
+
+  const ok = await waitForFirebaseReady();
+  if (!ok || !window.HHA_FIREBASE_DB) {
+    console.warn('[goodjunk.safe] Firebase not ready for race room');
+    return false;
   }
+
+  __gjRaceDb = window.HHA_FIREBASE_DB;
+  __gjRaceRoomRef = __gjRaceDb.ref(GJ_FIREBASE_ROOM_PATH);
+  __gjRacePlayersRef = __gjRaceRoomRef.child('players');
+  __gjRaceMyPlayerRef = __gjRacePlayersRef.child(GJ_PID);
+  __gjFbReady = true;
+  return true;
 }
 
-function saveRaceRoom(room, source = 'run') {
-  if (!GJ_RACE_STORAGE_KEY || !room) return;
-  localStorage.setItem(GJ_RACE_STORAGE_KEY, JSON.stringify(room));
-  if (GJ_RACE_CHANNEL) {
-    try {
-      GJ_RACE_CHANNEL.postMessage({
-        type: 'room:update',
-        room,
-        source,
-        sender: `run-${GJ_PID}`,
-        ts: Date.now()
-      });
-    } catch {}
-  }
+function snapshotToRaceRoom(val) {
+  if (!val) return null;
+  const playersMap = val.players || {};
+  return {
+    ...val,
+    players: Object.keys(playersMap).map((pid) => ({
+      id: pid,
+      ...playersMap[pid]
+    }))
+  };
 }
 
 function normalizeRacePlayers(players) {
@@ -1259,6 +884,105 @@ function normalizeRacePlayers(players) {
     lastSeenAt: Number(p.lastSeenAt || 0),
     finishedAt: Number(p.finishedAt || 0)
   })) : [];
+}
+
+function sanitizeRaceRoom(room) {
+  if (!room) return null;
+
+  const safe = {
+    roomId: String(room.roomId || GJ_ROOM_ID || ''),
+    hostId: String(room.hostId || ''),
+    mode: String(room.mode || 'race'),
+    minPlayers: Math.max(2, Number(room.minPlayers || 2)),
+    maxPlayers: Math.max(2, Number(room.maxPlayers || 4)),
+    status: ['waiting', 'countdown', 'running', 'finished'].includes(room.status) ? room.status : 'waiting',
+    startAt: room.startAt ? Number(room.startAt) : null,
+    createdAt: Number(room.createdAt || Date.now()),
+    updatedAt: Number(room.updatedAt || Date.now()),
+    players: normalizeRacePlayers(room.players || [])
+  };
+
+  if (!safe.players.some((p) => p.id === safe.hostId)) {
+    safe.hostId = safe.players[0]?.id || '';
+  }
+
+  return safe;
+}
+
+function raceRoomToFirebase(room) {
+  const out = {
+    roomId: room.roomId,
+    hostId: room.hostId,
+    mode: room.mode,
+    minPlayers: room.minPlayers,
+    maxPlayers: room.maxPlayers,
+    status: room.status,
+    startAt: room.startAt || null,
+    createdAt: room.createdAt || Date.now(),
+    updatedAt: Date.now(),
+    players: {}
+  };
+
+  normalizeRacePlayers(room.players).forEach((p) => {
+    out.players[p.id] = {
+      name: p.name || '',
+      ready: !!p.ready,
+      connected: p.connected !== false,
+      phase: p.phase || 'run',
+      finished: !!p.finished,
+      dnf: !!p.dnf,
+      dnfReason: p.dnfReason || '',
+      finalScore: Number(p.finalScore || 0),
+      miss: Number(p.miss || 0),
+      streak: Number(p.streak || 0),
+      joinedAt: Number(p.joinedAt || 0),
+      lastSeenAt: Number(p.lastSeenAt || 0),
+      finishedAt: Number(p.finishedAt || 0)
+    };
+  });
+
+  return out;
+}
+
+async function loadRaceRoom() {
+  if (!await ensureRaceFirebase()) return null;
+  try {
+    const snap = await __gjRaceRoomRef.once('value');
+    return sanitizeRaceRoom(snapshotToRaceRoom(snap.val()));
+  } catch (err) {
+    console.error('[goodjunk.safe] loadRaceRoom failed:', err);
+    return null;
+  }
+}
+
+async function saveRaceRoom(room, source = 'run') {
+  if (!await ensureRaceFirebase()) return false;
+  if (!room) return false;
+
+  try {
+    const payload = raceRoomToFirebase(room);
+    payload._source = source;
+    await __gjRaceRoomRef.set(payload);
+    return true;
+  } catch (err) {
+    console.error('[goodjunk.safe] saveRaceRoom failed:', err);
+    return false;
+  }
+}
+
+async function setupRunOnDisconnect() {
+  if (!await ensureRaceFirebase()) return;
+  if (!__gjRaceMyPlayerRef) return;
+
+  try {
+    await __gjRaceMyPlayerRef.onDisconnect().update({
+      connected: false,
+      lastSeenAt: Date.now(),
+      dnfReason: 'disconnect'
+    });
+  } catch (err) {
+    console.warn('[goodjunk.safe] setupRunOnDisconnect failed:', err);
+  }
 }
 
 function rankRacePlayers(players) {
@@ -1286,9 +1010,6 @@ function getDnfReasonLabel(reason) {
   return 'ไม่ทราบสาเหตุ';
 }
 
-/* ---------------------------------------
- * race summary / export
- * ------------------------------------- */
 function getRaceCounts(rows) {
   const total = rows.length;
   const finishedNormal = rows.filter((p) => p.finished && !p.dnf).length;
@@ -1298,7 +1019,6 @@ function getRaceCounts(rows) {
 }
 
 function buildRaceSummaryPayload(rows, opts = {}) {
-  const room = loadRaceRoom() || {};
   const mine = getMyRaceRanked(rows) || {};
   const counts = getRaceCounts(rows);
   const allFinished = !!opts.allFinished || rows.every((p) => p.finished);
@@ -1309,37 +1029,28 @@ function buildRaceSummaryPayload(rows, opts = {}) {
     source: 'goodjunk-race',
     gameId: GJ_GAME_ID,
     mode: 'race',
-
     pid: GJ_PID,
     name: GJ_NAME,
     studyId: RUN_CTX.studyId || '',
-
     roomId: GJ_ROOM_ID,
     playerCount: counts.total,
     finishedCount: counts.finishedNormal,
     dnfCount: counts.dnfCount,
     waitingCount: counts.waitingCount,
-
     allFinished,
     raceStatusFinal,
-    roomStatus: room.status || (allFinished ? 'finished' : 'running'),
-
     finishType: mine.dnf ? 'dnf' : 'normal',
     dnfReason: mine.dnf ? (mine.dnfReason || '') : '',
     rank: Number(mine.rank || 0) || null,
-
     score: Number(mine.finalScore || 0),
     miss: Number(mine.miss || 0),
     streak: Number(mine.streak || 0),
-
     diff: RUN_CTX.diff || 'normal',
     view: RUN_CTX.view || 'mobile',
     run: RUN_CTX.run || 'play',
     seed: RUN_CTX.seed || '',
     raceStartAt: Number(GJ_START_AT || 0) || 0,
-
     updatedAt: Date.now(),
-
     leaderboard: rows.map((p) => ({
       pid: p.id,
       name: p.name || p.id,
@@ -1399,10 +1110,7 @@ function buildCompatLastSummary(summary) {
 function persistRaceSummary(summary) {
   __gjRaceLastSummary = summary;
 
-  try {
-    localStorage.setItem(GJ_RACE_LAST_SUMMARY_KEY, JSON.stringify(summary));
-  } catch {}
-
+  try { localStorage.setItem(GJ_RACE_LAST_SUMMARY_KEY, JSON.stringify(summary)); } catch {}
   try {
     const raw = localStorage.getItem(GJ_RACE_SUMMARY_HISTORY_KEY);
     const hist = raw ? JSON.parse(raw) : [];
@@ -1410,10 +1118,7 @@ function persistRaceSummary(summary) {
     next.unshift(summary);
     localStorage.setItem(GJ_RACE_SUMMARY_HISTORY_KEY, JSON.stringify(next.slice(0, 30)));
   } catch {}
-
-  try {
-    localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(buildCompatLastSummary(summary)));
-  } catch {}
+  try { localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(buildCompatLastSummary(summary))); } catch {}
 
   try {
     window.dispatchEvent(new CustomEvent('gj:race-summary', { detail: summary }));
@@ -1426,7 +1131,6 @@ function storeRaceSummaryFromRows(rows, opts = {}) {
   const sig = getRaceSummarySignature(summary);
 
   __gjRaceLastSummary = summary;
-
   if (sig !== __gjRaceLastSummarySig) {
     __gjRaceLastSummarySig = sig;
     persistRaceSummary(summary);
@@ -1445,9 +1149,7 @@ function downloadRaceSummaryJson(summary = __gjRaceLastSummary) {
 
 function downloadJson(payload, filename = `goodjunk-${Date.now()}.json`) {
   if (!payload) return;
-  const blob = new Blob([JSON.stringify(payload, null, 2)], {
-    type: 'application/json;charset=utf-8'
-  });
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -1462,9 +1164,6 @@ function safeFilePart(value) {
   return String(value || 'file').replace(/[^a-z0-9_-]/gi, '-');
 }
 
-/* ---------------------------------------
- * race result overlay
- * ------------------------------------- */
 function showRaceResultOverlay(rows, opts = {}) {
   const wrap = document.getElementById('raceResult');
   const rowsBox = document.getElementById('raceResultRows');
@@ -1486,29 +1185,16 @@ function showRaceResultOverlay(rows, opts = {}) {
 
     let stateLine = '';
     if (p.dnf) {
-      stateLine = `
-        <div style="margin-top:4px;font-size:12px;color:#fda4af;font-weight:800;">
-          DNF • ${escapeHtml(getDnfReasonLabel(p.dnfReason))}
-        </div>
-      `;
+      stateLine = `<div style="margin-top:4px;font-size:12px;color:#fda4af;font-weight:800;">DNF • ${escapeHtml(getDnfReasonLabel(p.dnfReason))}</div>`;
     } else if (!p.finished) {
-      stateLine = `
-        <div style="margin-top:4px;font-size:12px;color:#fbbf24;font-weight:800;">
-          ยังไม่จบ
-        </div>
-      `;
+      stateLine = `<div style="margin-top:4px;font-size:12px;color:#fbbf24;font-weight:800;">ยังไม่จบ</div>`;
     } else {
-      stateLine = `
-        <div style="margin-top:4px;font-size:12px;color:#86efac;font-weight:800;">
-          แข่งจบแล้ว
-        </div>
-      `;
+      stateLine = `<div style="margin-top:4px;font-size:12px;color:#86efac;font-weight:800;">แข่งจบแล้ว</div>`;
     }
 
     return `
       <div class="result-row ${isMe ? 'is-me' : ''}">
         <div style="font-weight:900;">#${p.rank}</div>
-
         <div>
           <div style="font-weight:800;">
             ${escapeHtml(p.name || p.id || 'player')}
@@ -1516,7 +1202,6 @@ function showRaceResultOverlay(rows, opts = {}) {
           </div>
           ${stateLine}
         </div>
-
         <div>${p.dnf ? '—' : p.finalScore}</div>
         <div>${p.dnf ? '—' : p.miss}</div>
         <div>${p.dnf ? '—' : p.streak}</div>
@@ -1526,17 +1211,10 @@ function showRaceResultOverlay(rows, opts = {}) {
 
   if (badge) {
     if (mine) {
-      badge.textContent = mine.dnf
-        ? `DNF • ${getDnfReasonLabel(mine.dnfReason)}`
-        : `อันดับ #${mine.rank}`;
-
+      badge.textContent = mine.dnf ? `DNF • ${getDnfReasonLabel(mine.dnfReason)}` : `อันดับ #${mine.rank}`;
       badge.style.color = mine.rank === 1 && !mine.dnf ? '#fde68a' : '#86efac';
-      badge.style.borderColor = mine.rank === 1 && !mine.dnf
-        ? 'rgba(250,204,21,.28)'
-        : 'rgba(34,197,94,.25)';
-      badge.style.background = mine.rank === 1 && !mine.dnf
-        ? 'rgba(250,204,21,.10)'
-        : 'rgba(34,197,94,.12)';
+      badge.style.borderColor = mine.rank === 1 && !mine.dnf ? 'rgba(250,204,21,.28)' : 'rgba(34,197,94,.25)';
+      badge.style.background = mine.rank === 1 && !mine.dnf ? 'rgba(250,204,21,.10)' : 'rgba(34,197,94,.12)';
     } else {
       badge.textContent = '-';
     }
@@ -1559,13 +1237,6 @@ function showRaceResultOverlay(rows, opts = {}) {
   bindRaceResultButtons();
 }
 
-function hideRaceResultOverlay() {
-  const wrap = document.getElementById('raceResult');
-  if (!wrap) return;
-  wrap.hidden = true;
-  state.pendingResultVisible = false;
-}
-
 function buildRaceLobbyUrl() {
   const q = new URLSearchParams({
     pid: GJ_PID,
@@ -1581,11 +1252,11 @@ function buildRaceLobbyUrl() {
     mode: 'race',
     roomId: GJ_ROOM_ID
   });
-  return `./goodjunk-race-lobby.html?${q.toString()}`;
+  return `../goodjunk-race-lobby.html?${q.toString()}`;
 }
 
-function resetRaceRoomForRematch() {
-  const room = loadRaceRoom();
+async function resetRaceRoomForRematch() {
+  const room = await loadRaceRoom();
   if (!room) return;
 
   room.status = 'waiting';
@@ -1608,11 +1279,9 @@ function resetRaceRoomForRematch() {
   }));
 
   const hasCurrentHost = room.players.some((p) => p.id === room.hostId);
-  if (!hasCurrentHost) {
-    room.hostId = room.players[0]?.id || '';
-  }
+  if (!hasCurrentHost) room.hostId = room.players[0]?.id || '';
 
-  saveRaceRoom(room, 'rematch-reset');
+  await saveRaceRoom(room, 'rematch-reset');
 }
 
 function bindRaceResultButtons() {
@@ -1624,20 +1293,19 @@ function bindRaceResultButtons() {
   const btnExport = document.getElementById('btnRaceExport');
   const btnHub = document.getElementById('btnRaceBackHub');
 
-  btnRematch?.addEventListener('click', () => {
-    const room = loadRaceRoom();
+  btnRematch?.addEventListener('click', async () => {
+    const room = await loadRaceRoom();
     if (!room || !Array.isArray(room.players) || !room.players.length) {
       location.href = GJ_HUB;
       return;
     }
-
-    forceFinalizeRaceRoom();
-    resetRaceRoomForRematch();
+    await forceFinalizeRaceRoom();
+    await resetRaceRoomForRematch();
     location.href = buildRaceLobbyUrl();
   });
 
-  btnLobby?.addEventListener('click', () => {
-    forceFinalizeRaceRoom();
+  btnLobby?.addEventListener('click', async () => {
+    await forceFinalizeRaceRoom();
     location.href = buildRaceLobbyUrl();
   });
 
@@ -1645,39 +1313,40 @@ function bindRaceResultButtons() {
     downloadRaceSummaryJson(__gjRaceLastSummary);
   });
 
-  btnHub?.addEventListener('click', () => {
-    forceFinalizeRaceRoom();
+  btnHub?.addEventListener('click', async () => {
+    await forceFinalizeRaceRoom();
     location.href = GJ_HUB;
   });
 }
 
-/* ---------------------------------------
- * race presence / disconnect / watchdog
- * ------------------------------------- */
-function markRacePresenceDuringRun(patch = {}) {
+async function markRacePresenceDuringRun(patch = {}) {
   if (!isRaceMode()) return;
+  if (!await ensureRaceFirebase()) return;
 
-  const room = loadRaceRoom();
-  if (!room || !Array.isArray(room.players)) return;
+  try {
+    const snap = await __gjRaceMyPlayerRef.once('value');
+    const cur = snap.exists() ? snap.val() : {};
 
-  room.updatedAt = Date.now();
-  room.players = normalizeRacePlayers(room.players).map((p) => {
-    if (p.id !== GJ_PID) return p;
-
-    return {
-      ...p,
-      name: GJ_NAME || p.name || p.id,
+    await __gjRaceMyPlayerRef.update({
+      name: GJ_NAME || cur.name || GJ_PID,
+      ready: patch.ready ?? cur.ready ?? true,
       connected: patch.connected ?? true,
-      phase: patch.phase || p.phase || 'run',
-      ready: patch.ready ?? p.ready ?? true,
-      finished: patch.finished ?? p.finished ?? false,
-      dnf: patch.dnf ?? p.dnf ?? false,
-      dnfReason: patch.dnfReason ?? p.dnfReason ?? '',
+      phase: patch.phase || cur.phase || 'run',
+      finished: patch.finished ?? cur.finished ?? false,
+      dnf: patch.dnf ?? cur.dnf ?? false,
+      dnfReason: patch.dnfReason ?? cur.dnfReason ?? '',
+      finalScore: patch.finalScore ?? cur.finalScore ?? 0,
+      miss: patch.miss ?? cur.miss ?? 0,
+      streak: patch.streak ?? cur.streak ?? 0,
+      joinedAt: cur.joinedAt || Date.now(),
+      finishedAt: patch.finishedAt ?? cur.finishedAt ?? 0,
       lastSeenAt: Date.now()
-    };
-  });
+    });
 
-  saveRaceRoom(room, 'run-presence');
+    await __gjRaceRoomRef.child('updatedAt').set(Date.now());
+  } catch (err) {
+    console.error('[goodjunk.safe] markRacePresenceDuringRun failed:', err);
+  }
 }
 
 function stopRaceHeartbeat() {
@@ -1702,7 +1371,8 @@ function startRaceHeartbeat() {
     ready: true,
     connected: true,
     finished: false,
-    dnf: false
+    dnf: false,
+    dnfReason: ''
   });
 
   __gjRaceHeartbeatTimer = setInterval(() => {
@@ -1711,39 +1381,40 @@ function startRaceHeartbeat() {
       ready: true,
       connected: true,
       finished: false,
-      dnf: false
+      dnf: false,
+      dnfReason: ''
     });
   }, GJ_RACE_HEARTBEAT_MS);
 }
 
-function markMyRaceDisconnected(reason = 'disconnect') {
+async function markMyRaceDisconnected(reason = 'disconnect') {
   if (!isRaceMode()) return;
+  if (!await ensureRaceFirebase()) return;
 
-  const room = loadRaceRoom();
-  if (!room || !Array.isArray(room.players)) return;
+  try {
+    const snap = await __gjRaceMyPlayerRef.once('value');
+    if (!snap.exists()) return;
 
-  room.updatedAt = Date.now();
-  room.players = normalizeRacePlayers(room.players).map((p) => {
-    if (p.id !== GJ_PID) return p;
-    if (p.finished) return p;
+    const cur = snap.val();
+    if (cur.finished) return;
 
-    return {
-      ...p,
+    await __gjRaceMyPlayerRef.update({
       connected: false,
       phase: 'run',
       dnf: false,
       dnfReason: reason,
       lastSeenAt: Date.now()
-    };
-  });
+    });
 
-  saveRaceRoom(room, 'disconnect-mark');
+    await __gjRaceRoomRef.child('updatedAt').set(Date.now());
+  } catch (err) {
+    console.error('[goodjunk.safe] markMyRaceDisconnected failed:', err);
+  }
 }
 
-function maybeFinalizeRaceRoom(force = false) {
+async function maybeFinalizeRaceRoom(force = false) {
   if (!isRaceMode()) return;
-
-  const room = loadRaceRoom();
+  const room = await loadRaceRoom();
   if (!room || !Array.isArray(room.players) || !room.players.length) return;
 
   let changed = false;
@@ -1759,13 +1430,9 @@ function maybeFinalizeRaceRoom(force = false) {
 
     let reason = p.dnfReason || '';
     if (!reason) {
-      if (force) {
-        reason = 'timeout';
-      } else if (p.connected === false) {
-        reason = 'disconnect';
-      } else {
-        reason = 'timeout';
-      }
+      if (force) reason = 'timeout';
+      else if (p.connected === false) reason = 'disconnect';
+      else reason = 'timeout';
     }
 
     return {
@@ -1794,7 +1461,7 @@ function maybeFinalizeRaceRoom(force = false) {
     room.players = players;
     room.status = nextStatus;
     room.updatedAt = ts;
-    saveRaceRoom(room, 'watchdog');
+    await saveRaceRoom(room, 'watchdog');
   }
 
   if (allFinished) {
@@ -1810,8 +1477,8 @@ function maybeFinalizeRaceRoom(force = false) {
   }
 }
 
-function forceFinalizeRaceRoom() {
-  maybeFinalizeRaceRoom(true);
+async function forceFinalizeRaceRoom() {
+  await maybeFinalizeRaceRoom(true);
 }
 
 function startRaceWatchdog() {
@@ -1824,52 +1491,56 @@ function startRaceWatchdog() {
   }, GJ_RACE_WATCHDOG_MS);
 }
 
-function publishRaceFinish(result = {}) {
+async function publishRaceFinish(result = {}) {
   if (!isRaceMode()) return;
-  if (!GJ_RACE_STORAGE_KEY) return;
   if (__gjRaceFinished) return;
+  if (!await ensureRaceFirebase()) return;
 
   __gjRaceFinished = true;
   stopRaceHeartbeat();
 
-  const room = loadRaceRoom();
-  if (!room || !Array.isArray(room.players)) return;
+  try {
+    const room = await loadRaceRoom();
+    if (!room || !Array.isArray(room.players)) return;
 
-  room.updatedAt = Date.now();
-  room.players = normalizeRacePlayers(room.players).map((p) => {
-    if (p.id !== GJ_PID) return p;
+    room.updatedAt = Date.now();
+    room.players = normalizeRacePlayers(room.players).map((p) => {
+      if (p.id !== GJ_PID) return p;
 
-    return {
-      ...p,
-      name: GJ_NAME || p.name || p.id,
-      ready: true,
-      connected: true,
-      phase: 'done',
-      finished: true,
-      dnf: false,
-      dnfReason: '',
-      finalScore: Number(result.score || 0),
-      miss: Number(result.miss || 0),
-      streak: Number(result.streak || result.bestStreak || 0),
-      finishedAt: Date.now(),
-      lastSeenAt: Date.now()
-    };
-  });
+      return {
+        ...p,
+        name: GJ_NAME || p.name || p.id,
+        ready: true,
+        connected: true,
+        phase: 'done',
+        finished: true,
+        dnf: false,
+        dnfReason: '',
+        finalScore: Number(result.score || 0),
+        miss: Number(result.miss || 0),
+        streak: Number(result.streak || result.bestStreak || 0),
+        finishedAt: Date.now(),
+        lastSeenAt: Date.now()
+      };
+    });
 
-  const allFinished = room.players.length > 0 && room.players.every((p) => p.finished);
-  room.status = allFinished ? 'finished' : 'running';
+    const allFinished = room.players.length > 0 && room.players.every((p) => p.finished);
+    room.status = allFinished ? 'finished' : 'running';
 
-  saveRaceRoom(room, 'finish');
+    await saveRaceRoom(room, 'finish');
 
-  const ranked = rankRacePlayers(room.players);
-  showRaceResultOverlay(ranked, { pending: !allFinished });
+    const ranked = rankRacePlayers(room.players);
+    showRaceResultOverlay(ranked, { pending: !allFinished });
 
-  maybeFinalizeRaceRoom(false);
+    await maybeFinalizeRaceRoom(false);
+  } catch (err) {
+    console.error('[goodjunk.safe] publishRaceFinish failed:', err);
+  }
 }
 
-function openRaceResultFromRoom() {
+async function openRaceResultFromRoom() {
   if (!isRaceMode()) return;
-  const room = loadRaceRoom();
+  const room = await loadRaceRoom();
   if (!room || !Array.isArray(room.players)) return;
 
   const ranked = rankRacePlayers(room.players);
@@ -1882,30 +1553,32 @@ function openRaceResultFromRoom() {
 }
 
 function attachRaceRoomListener() {
-  if (!GJ_RACE_CHANNEL) return;
+  if (!isRaceMode() || __gjRaceRoomListenerBound) return;
+  __gjRaceRoomListenerBound = true;
 
-  GJ_RACE_CHANNEL.onmessage = (ev) => {
-    const data = ev?.data;
-    if (!data || data.type !== 'room:update' || !data.room) return;
+  ensureRaceFirebase().then((ok) => {
+    if (!ok || !__gjRaceRoomRef) return;
 
-    const ranked = rankRacePlayers(data.room.players || []);
-    const me = getMyRaceRanked(ranked);
-    if (!me) return;
+    __gjRaceRoomRef.on('value', async (snap) => {
+      const room = sanitizeRaceRoom(snapshotToRaceRoom(snap.val()));
+      if (!room || !Array.isArray(room.players)) return;
 
-    const allFinished = ranked.length > 0 && ranked.every((p) => p.finished);
-    if (me.finished || me.dnf) {
-      showRaceResultOverlay(ranked, { pending: !allFinished });
-    }
+      const ranked = rankRacePlayers(room.players);
+      const me = getMyRaceRanked(ranked);
+      if (!me) return;
 
-    if (!allFinished) {
-      maybeFinalizeRaceRoom(false);
-    }
-  };
+      const allFinished = ranked.length > 0 && ranked.every((p) => p.finished);
+      if (me.finished || me.dnf) {
+        showRaceResultOverlay(ranked, { pending: !allFinished });
+      }
+
+      if (!allFinished) {
+        await maybeFinalizeRaceRoom(false);
+      }
+    });
+  });
 }
 
-/* ---------------------------------------
- * misc helpers
- * ------------------------------------- */
 function escapeHtml(s) {
   return String(s ?? '')
     .replaceAll('&', '&amp;')
