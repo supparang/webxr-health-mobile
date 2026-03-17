@@ -1,12 +1,11 @@
 // === /herohealth/gate/gate-games.js ===
 // HeroHealth Gate Game Registry
-// FULL PATCH v20260316-GATE-GAMES-CANONICAL-ALL-ZONES-BATH-FLOW
-// ✅ canonical game ids match gate/launcher flow
+// FULL PATCH v20260317-GATE-GAMES-ALIAS-ROBUST-CANONICAL
+// ✅ canonical game ids preserved
 // ✅ exercise cat unified to "exercise"
-// ✅ aliases normalized across all zones
-// ✅ run paths point to root launcher/entry pages used by hub
-// ✅ fixes balance/shadow/rhythm/planner/clean id mismatches
-// ✅ keeps Bath canonical run = ../bath-vr.html
+// ✅ expanded aliases across hygiene / nutrition / exercise
+// ✅ run paths kept as current canonical entry pages
+// ✅ robust normalizeGameId() for launcher/query variations
 
 export const GATE_GAMES = {
   // =========================
@@ -229,27 +228,170 @@ export const GATE_GAMES = {
   }
 };
 
+function squashId(id=''){
+  return String(id || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '')
+    .replace(/[^a-z0-9_-]/g, '');
+}
+
 export function normalizeGameId(id=''){
-  const s = String(id || '').trim().toLowerCase();
+  const s = squashId(id);
 
-  // hygiene
-  if (s === 'hand-wash' || s === 'hand_wash') return 'handwash';
-  if (s === 'toothbrush' || s === 'brushing') return 'brush';
-  if (s === 'clean-object' || s === 'clean_object' || s === 'cleanobject') return 'clean';
-  if (s === 'mask-cough' || s === 'mask_cough' || s === 'maskcoughv2') return 'maskcough';
-  if (s === 'germ-detective' || s === 'germ_detective' || s === 'germ') return 'germdetective';
+  if (!s) return '';
 
-  // nutrition
-  if (s === 'good-junk' || s === 'good_junk') return 'goodjunk';
-  if (s === 'foodgroups' || s === 'food-groups' || s === 'food_groups') return 'groups';
-  if (s === 'balancedplate' || s === 'balanced-plate' || s === 'balanced_plate') return 'plate';
+  // -------------------------
+  // HYGIENE
+  // -------------------------
+  if (
+    s === 'bath' ||
+    s === 'bathvr' ||
+    s === 'bath-vr' ||
+    s === 'bath_vr'
+  ) return 'bath';
 
-  // exercise
-  if (s === 'shadow-breaker' || s === 'shadow_breaker' || s === 'shadowbreaker') return 'shadow';
-  if (s === 'rhythm-boxer' || s === 'rhythm_boxer' || s === 'rhythmboxer') return 'rhythm';
-  if (s === 'jump-duck' || s === 'jump_duck') return 'jumpduck';
-  if (s === 'balance-hold' || s === 'balance_hold' || s === 'balancehold') return 'balance';
-  if (s === 'fitness-planner' || s === 'fitness_planner' || s === 'fitnessplanner') return 'planner';
+  if (
+    s === 'handwash' ||
+    s === 'hand-wash' ||
+    s === 'hand_wash' ||
+    s === 'handwashvr' ||
+    s === 'handwash-vr' ||
+    s === 'handwash_vr'
+  ) return 'handwash';
+
+  if (
+    s === 'brush' ||
+    s === 'brushvr' ||
+    s === 'brush-vr' ||
+    s === 'brush_vr' ||
+    s === 'toothbrush' ||
+    s === 'brushing'
+  ) return 'brush';
+
+  if (
+    s === 'clean' ||
+    s === 'cleanobject' ||
+    s === 'clean-object' ||
+    s === 'clean_object' ||
+    s === 'cleanobjects' ||
+    s === 'clean-objects' ||
+    s === 'clean_objects'
+  ) return 'clean';
+
+  if (
+    s === 'maskcough' ||
+    s === 'mask-cough' ||
+    s === 'mask_cough' ||
+    s === 'maskcoughvr' ||
+    s === 'maskcough-vr' ||
+    s === 'maskcough_vr' ||
+    s === 'maskcoughv2'
+  ) return 'maskcough';
+
+  if (
+    s === 'germdetective' ||
+    s === 'germ-detective' ||
+    s === 'germ_detective' ||
+    s === 'germdetectivevr' ||
+    s === 'germdetective-vr' ||
+    s === 'germdetective_vr' ||
+    s === 'germ' ||
+    s === 'germdetect'
+  ) return 'germdetective';
+
+  // -------------------------
+  // NUTRITION
+  // -------------------------
+  if (
+    s === 'goodjunk' ||
+    s === 'good-junk' ||
+    s === 'good_junk' ||
+    s === 'goodjunkvr' ||
+    s === 'goodjunk-vr' ||
+    s === 'goodjunk_vr'
+  ) return 'goodjunk';
+
+  if (
+    s === 'groups' ||
+    s === 'groupsvr' ||
+    s === 'groups-vr' ||
+    s === 'groups_vr' ||
+    s === 'foodgroups' ||
+    s === 'food-groups' ||
+    s === 'food_groups' ||
+    s === 'foodgroup'
+  ) return 'groups';
+
+  if (
+    s === 'hydration' ||
+    s === 'hydrationvr' ||
+    s === 'hydration-vr' ||
+    s === 'hydration_vr' ||
+    s === 'watergame'
+  ) return 'hydration';
+
+  if (
+    s === 'plate' ||
+    s === 'platevr' ||
+    s === 'plate-vr' ||
+    s === 'plate_vr' ||
+    s === 'balancedplate' ||
+    s === 'balanced-plate' ||
+    s === 'balanced_plate'
+  ) return 'plate';
+
+  // -------------------------
+  // EXERCISE
+  // -------------------------
+  if (
+    s === 'shadow' ||
+    s === 'shadowvr' ||
+    s === 'shadow-vr' ||
+    s === 'shadow_vr' ||
+    s === 'shadowbreaker' ||
+    s === 'shadow-breaker' ||
+    s === 'shadow_breaker'
+  ) return 'shadow';
+
+  if (
+    s === 'rhythm' ||
+    s === 'rhythmvr' ||
+    s === 'rhythm-vr' ||
+    s === 'rhythm_vr' ||
+    s === 'rhythmboxer' ||
+    s === 'rhythm-boxer' ||
+    s === 'rhythm_boxer'
+  ) return 'rhythm';
+
+  if (
+    s === 'jumpduck' ||
+    s === 'jump-duck' ||
+    s === 'jump_duck' ||
+    s === 'jumpduckvr' ||
+    s === 'jumpduck-vr' ||
+    s === 'jumpduck_vr'
+  ) return 'jumpduck';
+
+  if (
+    s === 'balance' ||
+    s === 'balancevr' ||
+    s === 'balance-vr' ||
+    s === 'balance_vr' ||
+    s === 'balancehold' ||
+    s === 'balance-hold' ||
+    s === 'balance_hold'
+  ) return 'balance';
+
+  if (
+    s === 'planner' ||
+    s === 'fitnessplanner' ||
+    s === 'fitness-planner' ||
+    s === 'fitness_planner' ||
+    s === 'plannervr' ||
+    s === 'planner-vr' ||
+    s === 'planner_vr'
+  ) return 'planner';
 
   return s;
 }
