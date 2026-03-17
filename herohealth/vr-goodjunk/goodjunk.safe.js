@@ -1,2460 +1,1938 @@
-// === /herohealth/vr-goodjunk/goodjunk.safe.js ===
-// GoodJunkVR SAFE — SOLO STABLE MASTER PATCH
-// FULL PATCH v20260316r-GJ-SAFE-CVR-COMFORT-FULL
+// === /herohealth/goodjunk.safe.js ===
+// FULL PATCH v20260317-GOODJUNK-SAFE-RACE-CONSOLIDATED
+// Self-contained DOM gameplay + race flow + summary/log/export
 
-'use strict';
+const __qs = new URLSearchParams(location.search);
+const RUN_CTX = window.__GJ_RUN_CTX__ || {
+  pid: __qs.get('pid') || 'anon',
+  name: __qs.get('name') || '',
+  studyId: __qs.get('studyId') || '',
+  roomId: __qs.get('roomId') || '',
+  mode: (__qs.get('mode') || 'solo').toLowerCase(),
+  diff: __qs.get('diff') || 'normal',
+  time: __qs.get('time') || '120',
+  seed: __qs.get('seed') || String(Date.now()),
+  startAt: Number(__qs.get('startAt') || 0) || 0,
+  hub: __qs.get('hub') || '../hub.html',
+  view: __qs.get('view') || 'mobile',
+  run: __qs.get('run') || 'play',
+  gameId: __qs.get('gameId') || 'goodjunk'
+};
 
-import {
-  PHASES,
-  createPhaseMachine,
-  tickPhaseMachine,
-  resetPhaseElapsed,
-  chooseBossPersona,
-  createPacingState,
-  evaluatePhaseTransition,
-  applyPhaseEntry,
-  getPhaseBannerText,
-  getCoachLineForPhase,
-  choosePatternId,
-  buildPatternPlan,
-  getBossConfig
-} from './goodjunk.patterns.js';
+const GJ_PID = RUN_CTX.pid || 'anon';
+const GJ_NAME = String(RUN_CTX.name || GJ_PID).trim();
+const GJ_MODE = (RUN_CTX.mode || 'solo').toLowerCase();
+const GJ_ROOM_ID = RUN_CTX.roomId || '';
+const GJ_START_AT = Number(RUN_CTX.startAt || 0) || 0;
+const GJ_HUB = RUN_CTX.hub || '../hub.html';
+const GJ_GAME_ID = RUN_CTX.gameId || 'goodjunk';
 
-import {
-  createRollingTracker,
-  pushRollingEvent,
-  trimRolling,
-  extractRollingFeatures,
-  buildDirectorAdjustment
-} from './goodjunk.ai.js';
+const GAME_MOUNT = document.getElementById('gameMount') || document.body;
+const RACE_UI = window.__gjRaceUi || null;
 
-import {
-  buildFeatureVector
-} from './goodjunk.features.js';
+const GOODJUNK_STYLE_ID = 'goodjunk-safe-style-20260317';
+const GOODJUNK_ROOT_ID = 'gjRoot';
+const GJ_SOLO_LAST_SUMMARY_KEY = `GJ_SOLO_LAST_SUMMARY_${GJ_PID}`;
+const GJ_SOLO_SUMMARY_HISTORY_KEY = `GJ_SOLO_SUMMARY_HISTORY_${GJ_PID}`;
+const GJ_RACE_LAST_SUMMARY_KEY = `GJ_RACE_LAST_SUMMARY_${GJ_PID}`;
+const GJ_RACE_SUMMARY_HISTORY_KEY = `GJ_RACE_SUMMARY_HISTORY_${GJ_PID}`;
 
-import {
-  createModelRuntime
-} from './goodjunk.model.js';
+const GJ_RACE_STORAGE_KEY = GJ_ROOM_ID ? `GJ_RACE_ROOM_${GJ_ROOM_ID}` : '';
+const GJ_RACE_CHANNEL_NAME = GJ_ROOM_ID ? `gj-race-${GJ_ROOM_ID}` : '';
+const GJ_RACE_CHANNEL = safeRaceBroadcastChannel(GJ_RACE_CHANNEL_NAME);
 
-import {
-  buildEndSummary,
-  saveLastSummary,
-  applySummaryToOverlay,
-  injectCooldownButton,
-  buildCooldownUrl,
-  getCooldownDone,
-  gradeFromPerformance
-} from './goodjunk.summary.js';
+let __gjRaceBooted = false;
+let __gjRaceRAF = 0;
+let __gjRaceFinished = false;
+let __gjRaceResultBound = false;
+let __gjRaceHeartbeatTimer = 0;
+let __gjRaceWatchdogTimer = 0;
+let __gjRaceLastSummary = null;
+let __gjRaceLastSummarySig = '';
+let __gjSoloSummary = null;
+let __gjSoloSummaryBound = false;
 
-import {
-  createTelemetryStore,
-  buildEventRow,
-  logTelemetryEvent,
-  logPredictionSnapshot,
-  buildPredictionRow,
-  buildSummaryRow,
-  buildFlowRow,
-  flushTelemetry
-} from './goodjunk.telemetry.js';
+const GOOD_ITEMS = [
+  { emoji: '🍎', label: 'apple' },
+  { emoji: '🥕', label: 'carrot' },
+  { emoji: '🥦', label: 'broccoli' },
+  { emoji: '🍌', label: 'banana' },
+  { emoji: '🥛', label: 'milk' },
+  { emoji: '🥗', label: 'salad' },
+  { emoji: '🍉', label: 'watermelon' }
+];
 
-export async function boot(cfg){
-  cfg = cfg || {};
+const JUNK_ITEMS = [
+  { emoji: '🍟', label: 'fries' },
+  { emoji: '🍩', label: 'donut' },
+  { emoji: '🍭', label: 'candy' },
+  { emoji: '🍔', label: 'burger' },
+  { emoji: '🥤', label: 'soda' },
+  { emoji: '🍕', label: 'pizza' },
+  { emoji: '🧁', label: 'cupcake' }
+];
 
-  const WIN = window;
-  const DOC = document;
-  const AI = cfg.ai || null;
-  const SOUND = cfg.sound || null;
+const DIFF_PRESET = {
+  easy:   { spawnMs: 930, goodRatio: 0.68, speedMin: 90,  speedMax: 150, targetSizeMin: 60, targetSizeMax: 84 },
+  normal: { spawnMs: 760, goodRatio: 0.63, speedMin: 110, speedMax: 190, targetSizeMin: 58, targetSizeMax: 82 },
+  hard:   { spawnMs: 610, goodRatio: 0.58, speedMin: 130, speedMax: 240, targetSizeMin: 56, targetSizeMax: 80 }
+};
 
-  const qs = (k, d='')=>{
-    try{ return (new URL(location.href)).searchParams.get(k) ?? d; }
-    catch(_){ return d; }
-  };
-  const clamp = (v,a,b)=>{
-    v = Number(v);
-    if(!Number.isFinite(v)) v = a;
-    return Math.max(a, Math.min(b, v));
-  };
-  const nowMs = ()=> (performance && performance.now) ? performance.now() : Date.now();
-  const nowIso = ()=> new Date().toISOString();
-  const $ = (id)=> DOC.getElementById(id);
+const GJ_RACE_HEARTBEAT_MS = 2500;
+const GJ_RACE_STALE_MS = 12000;
+const GJ_RACE_WATCHDOG_MS = 3000;
 
-  function safeUrl(raw, fallback=''){
-    try{
-      if(!raw) return fallback;
-      return new URL(raw, location.href).toString();
-    }catch(_){
-      return fallback;
-    }
+const state = {
+  mode: GJ_MODE === 'race' ? 'race' : 'solo',
+  diff: DIFF_PRESET[RUN_CTX.diff] ? RUN_CTX.diff : 'normal',
+  totalMs: clampInt(Number(RUN_CTX.time || 120) * 1000, 30000, 600000),
+  timeLeftMs: 0,
+  score: 0,
+  miss: 0,
+  streak: 0,
+  bestStreak: 0,
+  hitsGood: 0,
+  hitsBad: 0,
+  missedGood: 0,
+  spawnedGood: 0,
+  spawnedJunk: 0,
+  running: false,
+  ended: false,
+  startTs: 0,
+  lastFrameTs: 0,
+  lastSpawnAccum: 0,
+  frameRaf: 0,
+  fxSeq: 0,
+  targetSeq: 0,
+  targets: new Map(),
+  rect: { width: 0, height: 0 },
+  pendingResultVisible: false
+};
+
+const ui = {
+  root: null,
+  stage: null,
+  layer: null,
+  score: null,
+  timer: null,
+  miss: null,
+  streak: null,
+  hint: null,
+  progress: null,
+  stats: null,
+  soloOverlay: null,
+  soloBody: null,
+  soloTitle: null,
+  soloSub: null,
+  soloBtnAgain: null,
+  soloBtnExport: null,
+  soloBtnHub: null
+};
+
+boot();
+
+/* ---------------------------------------
+ * boot
+ * ------------------------------------- */
+function boot() {
+  injectGameplayStyle();
+  buildGameplayShell();
+  bindGameplayShell();
+  attachRaceRoomListener();
+
+  if (isRaceMode()) {
+    openRaceResultFromRoom();
   }
 
-  function median(arr){
-    const a = Array.isArray(arr) ? arr.filter(Number.isFinite) : [];
-    if(!a.length) return 0;
-    a.sort((x,y)=>x-y);
-    const m = Math.floor(a.length/2);
-    return a.length % 2 ? a[m] : Math.round((a[m-1] + a[m]) / 2);
-  }
+  bootWithRaceGate(() => {
+    markRacePresenceDuringRun({
+      phase: 'run',
+      ready: true,
+      connected: true,
+      finished: false,
+      dnf: false
+    });
 
-  function xmur3(str){
-    str = String(str || '');
-    let h = 1779033703 ^ str.length;
-    for(let i=0;i<str.length;i++){
-      h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
-      h = (h << 13) | (h >>> 19);
-    }
-    return function(){
-      h = Math.imul(h ^ (h >>> 16), 2246822507);
-      h = Math.imul(h ^ (h >>> 13), 3266489909);
-      return (h ^= (h >>> 16)) >>> 0;
-    };
-  }
-
-  function sfc32(a,b,c,d){
-    return function(){
-      a >>>= 0; b >>>= 0; c >>>= 0; d >>>= 0;
-      let t = (a + b) | 0;
-      a = b ^ (b >>> 9);
-      b = (c + (c << 3)) | 0;
-      c = (c << 21) | (c >>> 11);
-      d = (d + 1) | 0;
-      t = (t + d) | 0;
-      c = (c + t) | 0;
-      return (t >>> 0) / 4294967296;
-    };
-  }
-
-  function makeRng(seedStr){
-    const seed = xmur3(seedStr);
-    return sfc32(seed(), seed(), seed(), seed());
-  }
-
-  function sfx(name, meta){
-    try{ SOUND?.play?.(name, meta || {}); }catch(_){}
-  }
-
-  const seedStr = String(cfg.seed || qs('seed', String(Date.now())));
-  const rng = makeRng(seedStr);
-  const r01 = ()=> rng();
-  const rPick = (arr)=> arr[(r01() * arr.length) | 0];
-
-  const mode = 'solo';
-  const view = String(cfg.view || qs('view','mobile')).toLowerCase();
-  const runMode = String(cfg.run || qs('run','play')).toLowerCase();
-  const diff = String(cfg.diff || qs('diff','normal')).toLowerCase();
-  const plannedSec = clamp(cfg.time ?? qs('time','80'), 20, 300);
-
-  function runtimeView(){
-    return String(
-      DOC.body?.dataset?.view ||
-      DOC.documentElement?.dataset?.view ||
-      view ||
-      'mobile'
-    ).toLowerCase();
-  }
-
-  function isRuntimeVR(){
-    const v = runtimeView();
-    return v === 'cvr' || v === 'vr' || v === 'cardboard';
-  }
-
-  function isRuntimeMobile(){
-    return runtimeView() === 'mobile' && !isRuntimeVR();
-  }
-
-  const pid = String(cfg.pid || qs('pid','anon')).trim() || 'anon';
-  const nick = String(cfg.nick || qs('nick', pid)).trim() || pid;
-  const hubUrl = safeUrl(cfg.hub || qs('hub','../hub.html'), '../hub.html');
-
-  const HH_CAT = 'nutrition';
-  const HH_ZONE = 'nutrition';
-  const HH_GAME = 'goodjunk';
-
-  const RESEARCH_MODE = String(qs('research','0')) === '1';
-  const AI_PLAY_ADAPT = !RESEARCH_MODE && String(qs('ai','1')) !== '0';
-
-  const modelRuntime = createModelRuntime({
-    mode: 'heuristic',
-    modelVersion: 'gj-model-v2-ready-base'
+    startRaceHeartbeat();
+    startRaceWatchdog();
+    startGame();
   });
 
-  const layer = $('gj-layer');
-  if(!layer){
-    console.warn('[GoodJunk] Missing #gj-layer');
+  window.addEventListener('beforeunload', () => {
+    try {
+      stopRaceHeartbeat();
+      stopRaceWatchdog();
+
+      if (isRaceMode() && !__gjRaceFinished) {
+        markMyRaceDisconnected('left-run');
+      }
+    } catch {}
+  });
+
+  window.addEventListener('resize', () => {
+    refreshStageRect();
+  });
+}
+
+/* ---------------------------------------
+ * gameplay shell
+ * ------------------------------------- */
+function injectGameplayStyle() {
+  if (document.getElementById(GOODJUNK_STYLE_ID)) return;
+
+  const style = document.createElement('style');
+  style.id = GOODJUNK_STYLE_ID;
+  style.textContent = `
+    #${GOODJUNK_ROOT_ID}{
+      position:absolute;
+      inset:0;
+      z-index:2;
+      overflow:hidden;
+      user-select:none;
+      -webkit-user-select:none;
+      touch-action:manipulation;
+    }
+
+    .gj-shell{
+      position:absolute;
+      inset:0;
+      display:grid;
+      grid-template-rows:auto 1fr auto;
+      overflow:hidden;
+    }
+
+    .gj-topbar{
+      display:flex;
+      justify-content:space-between;
+      gap:12px;
+      align-items:flex-start;
+      flex-wrap:wrap;
+      padding:60px 14px 12px;
+      padding-top:calc(60px + env(safe-area-inset-top, 0px));
+      pointer-events:none;
+    }
+
+    .gj-chip-row{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      align-items:center;
+      pointer-events:none;
+    }
+
+    .gj-chip{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 10px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(2,6,23,.66);
+      color:#e5e7eb;
+      font-weight:900;
+      font-size:13px;
+      backdrop-filter:blur(8px);
+      box-shadow:0 10px 24px rgba(0,0,0,.18);
+    }
+
+    .gj-chip span{
+      color:#94a3b8;
+      font-weight:800;
+    }
+
+    .gj-stage-wrap{
+      position:relative;
+      min-height:0;
+      padding:8px 10px 10px;
+    }
+
+    .gj-stage{
+      position:relative;
+      width:100%;
+      height:100%;
+      min-height:320px;
+      overflow:hidden;
+      border:1px solid rgba(148,163,184,.18);
+      border-radius:26px;
+      background:
+        radial-gradient(circle at 50% 0%, rgba(56,189,248,.08), transparent 30%),
+        linear-gradient(180deg, rgba(15,23,42,.72), rgba(2,6,23,.78));
+      box-shadow:0 24px 64px rgba(0,0,0,.22);
+    }
+
+    .gj-stage::before{
+      content:"";
+      position:absolute;
+      inset:0;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,.04), transparent 30%),
+        linear-gradient(0deg, rgba(255,255,255,.03), transparent 30%);
+      pointer-events:none;
+    }
+
+    .gj-target-layer{
+      position:absolute;
+      inset:0;
+      overflow:hidden;
+    }
+
+    .gj-center-tip{
+      position:absolute;
+      left:50%;
+      top:50%;
+      transform:translate(-50%,-50%);
+      width:min(86vw,420px);
+      padding:16px 18px;
+      border-radius:18px;
+      background:rgba(2,6,23,.50);
+      border:1px solid rgba(148,163,184,.18);
+      color:#e5e7eb;
+      text-align:center;
+      font-weight:900;
+      backdrop-filter:blur(6px);
+      pointer-events:none;
+      opacity:.96;
+      transition:opacity .35s ease, transform .35s ease;
+      box-shadow:0 16px 36px rgba(0,0,0,.18);
+    }
+
+    .gj-center-tip.hide{
+      opacity:0;
+      transform:translate(-50%,-50%) scale(.96);
+    }
+
+    .gj-target{
+      position:absolute;
+      display:grid;
+      place-items:center;
+      border-radius:20px;
+      border:1px solid rgba(255,255,255,.16);
+      box-shadow:0 14px 28px rgba(0,0,0,.18);
+      transform:translate3d(0,0,0);
+      cursor:pointer;
+      outline:none;
+      padding:0;
+      overflow:hidden;
+      background:rgba(15,23,42,.78);
+    }
+
+    .gj-target.good{
+      background:
+        radial-gradient(circle at 30% 25%, rgba(255,255,255,.22), transparent 26%),
+        linear-gradient(180deg, rgba(34,197,94,.30), rgba(34,197,94,.18)),
+        rgba(15,23,42,.84);
+      border-color:rgba(34,197,94,.30);
+    }
+
+    .gj-target.junk{
+      background:
+        radial-gradient(circle at 30% 25%, rgba(255,255,255,.20), transparent 26%),
+        linear-gradient(180deg, rgba(244,63,94,.26), rgba(244,63,94,.14)),
+        rgba(15,23,42,.84);
+      border-color:rgba(244,63,94,.28);
+    }
+
+    .gj-emoji{
+      font-size:32px;
+      line-height:1;
+      transform:translateY(-2px);
+      filter:drop-shadow(0 6px 10px rgba(0,0,0,.18));
+    }
+
+    .gj-type{
+      position:absolute;
+      left:8px;
+      right:8px;
+      bottom:6px;
+      font-size:10px;
+      font-weight:900;
+      letter-spacing:.08em;
+      text-transform:uppercase;
+      color:#e2e8f0;
+      opacity:.92;
+      text-align:center;
+      white-space:nowrap;
+    }
+
+    .gj-fx{
+      position:absolute;
+      font-size:16px;
+      font-weight:900;
+      pointer-events:none;
+      transform:translate(-50%,-50%);
+      animation:gj-fx-up .75s ease forwards;
+      text-shadow:0 8px 18px rgba(0,0,0,.22);
+    }
+
+    @keyframes gj-fx-up{
+      from{ opacity:1; transform:translate(-50%,-20%); }
+      to  { opacity:0; transform:translate(-50%,-140%); }
+    }
+
+    .gj-bottom{
+      padding:0 12px calc(12px + env(safe-area-inset-bottom, 0px));
+    }
+
+    .gj-bottom-card{
+      border:1px solid rgba(148,163,184,.18);
+      border-radius:18px;
+      padding:12px;
+      background:rgba(2,6,23,.62);
+      backdrop-filter:blur(8px);
+      box-shadow:0 10px 24px rgba(0,0,0,.18);
+    }
+
+    .gj-bottom-top{
+      display:flex;
+      justify-content:space-between;
+      gap:12px;
+      align-items:center;
+      flex-wrap:wrap;
+      margin-bottom:10px;
+    }
+
+    .gj-progress{
+      position:relative;
+      width:100%;
+      height:12px;
+      border-radius:999px;
+      overflow:hidden;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(255,255,255,.06);
+    }
+
+    .gj-progress-bar{
+      width:100%;
+      height:100%;
+      background:linear-gradient(90deg, rgba(56,189,248,.85), rgba(34,197,94,.85));
+      transform-origin:left center;
+      transition:transform .12s linear;
+    }
+
+    .gj-legend{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      font-size:13px;
+      color:#cbd5e1;
+      line-height:1.5;
+    }
+
+    .gj-legend strong{
+      color:#e5e7eb;
+    }
+
+    .gj-solo-overlay{
+      position:fixed;
+      inset:0;
+      z-index:10010;
+      display:grid;
+      place-items:center;
+      padding:
+        calc(16px + env(safe-area-inset-top, 0px))
+        calc(16px + env(safe-area-inset-right, 0px))
+        calc(16px + env(safe-area-inset-bottom, 0px))
+        calc(16px + env(safe-area-inset-left, 0px));
+      background:rgba(2,6,23,.82);
+      backdrop-filter:blur(10px);
+    }
+
+    .gj-solo-overlay[hidden]{
+      display:none !important;
+    }
+
+    .gj-solo-card{
+      width:min(94vw,520px);
+      max-height:88vh;
+      overflow:auto;
+      background:rgba(15,23,42,.96);
+      border:1px solid rgba(148,163,184,.18);
+      border-radius:22px;
+      padding:20px 18px 18px;
+      color:#e5e7eb;
+      box-shadow:0 28px 64px rgba(0,0,0,.35);
+    }
+
+    .gj-solo-kicker{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:6px 12px;
+      border-radius:999px;
+      background:rgba(56,189,248,.12);
+      border:1px solid rgba(56,189,248,.25);
+      color:#7dd3fc;
+      font-weight:900;
+      font-size:13px;
+      margin-bottom:12px;
+    }
+
+    .gj-solo-title{
+      margin:0 0 8px;
+      font-size:30px;
+      line-height:1.1;
+    }
+
+    .gj-solo-sub{
+      margin:0;
+      color:#94a3b8;
+      font-size:14px;
+      line-height:1.6;
+    }
+
+    .gj-solo-list{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:10px;
+      margin-top:16px;
+    }
+
+    .gj-solo-item{
+      border:1px solid rgba(148,163,184,.18);
+      border-radius:16px;
+      padding:12px;
+      background:rgba(2,6,23,.45);
+    }
+
+    .gj-solo-item .label{
+      color:#94a3b8;
+      font-size:12px;
+      font-weight:800;
+      margin-bottom:6px;
+    }
+
+    .gj-solo-item .value{
+      color:#e5e7eb;
+      font-size:20px;
+      font-weight:900;
+    }
+
+    .gj-solo-actions{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-top:18px;
+    }
+
+    @media (max-width:640px){
+      .gj-topbar{
+        padding-left:10px;
+        padding-right:10px;
+      }
+
+      .gj-chip{
+        font-size:12px;
+        padding:7px 9px;
+      }
+
+      .gj-emoji{
+        font-size:28px;
+      }
+
+      .gj-solo-list{
+        grid-template-columns:1fr 1fr;
+      }
+
+      .gj-solo-title{
+        font-size:26px;
+      }
+
+      .gj-solo-actions .btn{
+        flex:1 1 calc(50% - 10px);
+      }
+    }
+  `;
+  document.head.appendChild(style);
+}
+
+function buildGameplayShell() {
+  GAME_MOUNT.innerHTML = `
+    <div id="${GOODJUNK_ROOT_ID}">
+      <div class="gj-shell">
+        <header class="gj-topbar">
+          <div class="gj-chip-row">
+            <div class="gj-chip"><span>Score</span><strong id="gjScore">0</strong></div>
+            <div class="gj-chip"><span>Time</span><strong id="gjTimer">0</strong></div>
+            <div class="gj-chip"><span>Miss</span><strong id="gjMiss">0</strong></div>
+            <div class="gj-chip"><span>Streak</span><strong id="gjStreak">0</strong></div>
+          </div>
+
+          <div class="gj-chip-row">
+            <div class="gj-chip"><span>Goal</span><strong>เก็บของดี • อย่าแตะ junk</strong></div>
+          </div>
+        </header>
+
+        <div class="gj-stage-wrap">
+          <div class="gj-stage" id="gjStage">
+            <div class="gj-center-tip" id="gjCenterTip">
+              แตะอาหารดีเพื่อได้คะแนน • หลีกเลี่ยง junk ไม่ให้เสีย Miss
+            </div>
+            <div class="gj-target-layer" id="gjTargetLayer"></div>
+          </div>
+        </div>
+
+        <div class="gj-bottom">
+          <div class="gj-bottom-card">
+            <div class="gj-bottom-top">
+              <div class="gj-legend" id="gjStatsText">
+                <div><strong>Good hit:</strong> 0</div>
+                <div><strong>Junk hit:</strong> 0</div>
+                <div><strong>Good missed:</strong> 0</div>
+              </div>
+              <div class="gj-legend" id="gjHintText">
+                <div>Tip: เก็บผลไม้/ผัก • หลีกเลี่ยงของหวาน/น้ำอัดลม</div>
+              </div>
+            </div>
+
+            <div class="gj-progress">
+              <div class="gj-progress-bar" id="gjProgressBar"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="gj-solo-overlay" id="gjSoloSummary" hidden>
+        <div class="gj-solo-card">
+          <div class="gj-solo-kicker">SOLO SUMMARY</div>
+          <h2 class="gj-solo-title" id="gjSoloTitle">สรุปผลการเล่น</h2>
+          <p class="gj-solo-sub" id="gjSoloSub">เกมจบแล้ว มาดูผลของรอบนี้กัน</p>
+
+          <div class="gj-solo-list" id="gjSoloBody"></div>
+
+          <div class="gj-solo-actions">
+            <button class="btn btn-blue" id="gjSoloAgain" type="button">เล่นใหม่</button>
+            <button class="btn btn-warn" id="gjSoloExport" type="button">Export JSON</button>
+            <button class="btn btn-ghost" id="gjSoloHub" type="button">กลับ HUB</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  ui.root = document.getElementById(GOODJUNK_ROOT_ID);
+  ui.stage = document.getElementById('gjStage');
+  ui.layer = document.getElementById('gjTargetLayer');
+  ui.score = document.getElementById('gjScore');
+  ui.timer = document.getElementById('gjTimer');
+  ui.miss = document.getElementById('gjMiss');
+  ui.streak = document.getElementById('gjStreak');
+  ui.hint = document.getElementById('gjHintText');
+  ui.progress = document.getElementById('gjProgressBar');
+  ui.stats = document.getElementById('gjStatsText');
+  ui.centerTip = document.getElementById('gjCenterTip');
+
+  ui.soloOverlay = document.getElementById('gjSoloSummary');
+  ui.soloBody = document.getElementById('gjSoloBody');
+  ui.soloTitle = document.getElementById('gjSoloTitle');
+  ui.soloSub = document.getElementById('gjSoloSub');
+  ui.soloBtnAgain = document.getElementById('gjSoloAgain');
+  ui.soloBtnExport = document.getElementById('gjSoloExport');
+  ui.soloBtnHub = document.getElementById('gjSoloHub');
+
+  refreshStageRect();
+  renderHud();
+}
+
+function bindGameplayShell() {
+  if (__gjSoloSummaryBound) return;
+  __gjSoloSummaryBound = true;
+
+  ui.soloBtnAgain?.addEventListener('click', () => {
+    location.href = buildReplayUrl();
+  });
+
+  ui.soloBtnExport?.addEventListener('click', () => {
+    downloadJson(__gjSoloSummary, `goodjunk-solo-${safeFilePart(GJ_PID)}-${Date.now()}.json`);
+  });
+
+  ui.soloBtnHub?.addEventListener('click', () => {
+    location.href = GJ_HUB;
+  });
+}
+
+function refreshStageRect() {
+  const rect = ui.stage?.getBoundingClientRect();
+  if (!rect) return;
+  state.rect.width = Math.max(300, rect.width);
+  state.rect.height = Math.max(320, rect.height);
+}
+
+/* ---------------------------------------
+ * gameplay
+ * ------------------------------------- */
+function createSeededRng(seedInput) {
+  const seedText = String(seedInput || Date.now());
+  let h = 1779033703 ^ seedText.length;
+  for (let i = 0; i < seedText.length; i++) {
+    h = Math.imul(h ^ seedText.charCodeAt(i), 3432918353);
+    h = (h << 13) | (h >>> 19);
+  }
+  return function() {
+    h = Math.imul(h ^ (h >>> 16), 2246822507);
+    h = Math.imul(h ^ (h >>> 13), 3266489909);
+    h ^= h >>> 16;
+    return (h >>> 0) / 4294967296;
+  };
+}
+
+const rng = createSeededRng(RUN_CTX.seed);
+
+function rand() {
+  return rng();
+}
+
+function randRange(min, max) {
+  return min + (max - min) * rand();
+}
+
+function clampInt(value, min, max) {
+  return Math.max(min, Math.min(max, Math.floor(value)));
+}
+
+function pick(arr) {
+  return arr[Math.floor(rand() * arr.length)];
+}
+
+function startGame() {
+  if (state.running || state.ended) return;
+
+  state.totalMs = clampInt(Number(RUN_CTX.time || 120) * 1000, 30000, 600000);
+  state.timeLeftMs = state.totalMs;
+  state.score = 0;
+  state.miss = 0;
+  state.streak = 0;
+  state.bestStreak = 0;
+  state.hitsGood = 0;
+  state.hitsBad = 0;
+  state.missedGood = 0;
+  state.spawnedGood = 0;
+  state.spawnedJunk = 0;
+  state.running = true;
+  state.ended = false;
+  state.pendingResultVisible = false;
+  state.startTs = performance.now();
+  state.lastFrameTs = state.startTs;
+  state.lastSpawnAccum = 0;
+  state.targets.clear();
+
+  if (ui.layer) ui.layer.innerHTML = '';
+  if (ui.centerTip) {
+    ui.centerTip.classList.remove('hide');
+    ui.centerTip.textContent = state.mode === 'race'
+      ? 'เริ่มพร้อมกันแล้ว • เก็บอาหารดีให้ได้คะแนนสูงสุด'
+      : 'เก็บอาหารดีให้ได้คะแนนสูงสุด • อย่าแตะ junk';
+    setTimeout(() => ui.centerTip?.classList.add('hide'), 1800);
+  }
+
+  renderHud();
+  refreshStageRect();
+  loop(performance.now());
+}
+
+function loop(ts) {
+  if (!state.running || state.ended) return;
+
+  const dt = Math.min(48, ts - state.lastFrameTs || 16);
+  state.lastFrameTs = ts;
+
+  state.timeLeftMs -= dt;
+  if (state.timeLeftMs <= 0) {
+    state.timeLeftMs = 0;
+    renderHud();
+    endGame('time-up');
     return;
   }
 
-  const hud = {
-    score: $('hud-score'),
-    time: $('hud-time'),
-    miss: $('hud-miss'),
-    grade: $('hud-grade'),
-    goal: $('hud-goal'),
-    goalCur: $('hud-goal-cur'),
-    goalTarget: $('hud-goal-target'),
-    goalDesc: $('goalDesc'),
-    mini: $('hud-mini'),
-    miniTimer: $('miniTimer'),
-    aiRisk: $('aiRisk'),
-    aiHint: $('aiHint'),
+  updateSpawner(dt);
+  updateTargets(dt);
+  renderHud();
+
+  state.frameRaf = requestAnimationFrame(loop);
+}
+
+function updateSpawner(dt) {
+  const preset = DIFF_PRESET[state.diff] || DIFF_PRESET.normal;
+  state.lastSpawnAccum += dt;
+
+  while (state.lastSpawnAccum >= preset.spawnMs) {
+    state.lastSpawnAccum -= preset.spawnMs;
+    spawnTarget();
+  }
+}
+
+function spawnTarget() {
+  refreshStageRect();
+
+  const preset = DIFF_PRESET[state.diff] || DIFF_PRESET.normal;
+  const isGood = rand() < preset.goodRatio;
+  const item = pick(isGood ? GOOD_ITEMS : JUNK_ITEMS);
+
+  const size = randRange(preset.targetSizeMin, preset.targetSizeMax);
+  const x = randRange(10, Math.max(12, state.rect.width - size - 10));
+  const y = -size - randRange(0, 50);
+  const speed = randRange(preset.speedMin, preset.speedMax);
+  const drift = randRange(-36, 36);
+  const id = `t-${++state.targetSeq}`;
+
+  const el = document.createElement('button');
+  el.type = 'button';
+  el.className = `gj-target ${isGood ? 'good' : 'junk'}`;
+  el.style.width = `${size}px`;
+  el.style.height = `${size}px`;
+  el.innerHTML = `
+    <div class="gj-emoji">${item.emoji}</div>
+    <div class="gj-type">${isGood ? 'good' : 'junk'}</div>
+  `;
+
+  const target = {
+    id,
+    el,
+    type: isGood ? 'good' : 'junk',
+    emoji: item.emoji,
+    label: item.label,
+    x,
+    y,
+    size,
+    speed,
+    drift,
+    lifeMs: 0,
+    dead: false
   };
 
-  const coachInline = $('coachInline');
-  const coachExplain = $('coachExplain');
-  const bossBar = $('bossBar');
-  const bossFill = $('bossFill');
-  const bossHint = $('bossHint');
+  el.addEventListener('pointerdown', (ev) => {
+    ev.preventDefault();
+    hitTarget(id);
+  }, { passive: false });
 
-  const missionTitle = $('missionTitle');
-  const missionGoal = $('missionGoal');
-  const missionHint = $('missionHint');
-  const missionFill = $('missionFill');
+  ui.layer?.appendChild(el);
+  state.targets.set(id, target);
 
-  const endOverlay = $('endOverlay');
-  const endTitle = $('endTitle');
-  const endSub = $('endSub');
-  const endGrade = $('endGrade');
-  const endScore = $('endScore');
-  const endMiss = $('endMiss');
-  const endTime = $('endTime');
-  const endDecision = $('endDecision');
+  if (isGood) state.spawnedGood += 1;
+  else state.spawnedJunk += 1;
 
-  const uiView = $('uiView');
-  const uiRun = $('uiRun');
-  const uiDiff = $('uiDiff');
+  drawTarget(target);
+}
 
-  const btnReplay = $('btnReplay');
-  const btnBackHub = $('btnEndBackHub');
-  const btnBackHubBottom = $('btnBackHub');
+function drawTarget(target) {
+  target.el.style.transform = `translate3d(${target.x}px, ${target.y}px, 0)`;
+}
 
-  const missionBox = $('missionBox');
-  const aiBox = $('aiBox');
+function updateTargets(dt) {
+  const stageW = state.rect.width;
+  const stageH = state.rect.height;
+  const toRemove = [];
 
-  const stageBanner = $('stageBanner');
-  const stageBannerBig = $('stageBannerBig');
-  const stageBannerSmall = $('stageBannerSmall');
-  const milestoneBanner = $('milestoneBanner');
-  const dangerOverlay = $('dangerOverlay');
+  state.targets.forEach((target) => {
+    if (target.dead) {
+      toRemove.push(target.id);
+      return;
+    }
 
-  const battleDebug = $('battleDebug');
-  const endMatchBox = endOverlay?.querySelector('.end-match-box');
-  const compareBox = endOverlay?.querySelector('.compare-box');
-  const endRematchStatus = $('endRematchStatus');
-  const btnRequestRematch = $('btnRequestRematch');
-  const btnAcceptRematch = $('btnAcceptRematch');
-  const btnDeclineRematch = $('btnDeclineRematch');
+    target.lifeMs += dt;
+    target.y += (target.speed * dt) / 1000;
+    target.x += (target.drift * dt) / 1000;
 
-  if (battleDebug) battleDebug.style.display = 'none';
-  if (endMatchBox) endMatchBox.style.display = 'none';
-  if (compareBox) compareBox.style.display = 'none';
-  if (endRematchStatus) endRematchStatus.style.display = 'none';
-  if (btnRequestRematch) btnRequestRematch.style.display = 'none';
-  if (btnAcceptRematch) btnAcceptRematch.style.display = 'none';
-  if (btnDeclineRematch) btnDeclineRematch.style.display = 'none';
+    if (target.x < 6) {
+      target.x = 6;
+      target.drift *= -1;
+    }
+    if (target.x + target.size > stageW - 6) {
+      target.x = stageW - target.size - 6;
+      target.drift *= -1;
+    }
 
-  if(uiView) uiView.textContent = runtimeView();
-  if(uiRun) uiRun.textContent = runMode;
-  if(uiDiff) uiDiff.textContent = diff;
+    drawTarget(target);
 
-  const GOOD = ['🍎','🍌','🥦','🥬','🥚','🐟','🥛','🍚','🍞','🥑','🍉','🍊','🥕','🥒'];
-  const JUNK = ['🍟','🍔','🍕','🍩','🍬','🧋','🥤','🍭','🍫'];
-  const BONUS = ['⭐','💎','⚡'];
-  const SHIELDS = ['🛡️','🛡️','🛡️'];
-  const GREEN_FOCUS = ['🥦','🥬','🥒'];
-  const WEAK = '🎯';
+    if (target.y > stageH + target.size * 0.6) {
+      if (target.type === 'good') {
+        registerMissGood(target);
+      } else {
+        removeTarget(target.id);
+      }
+    }
+  });
 
-  const WIN_TARGET = (function(){
-    let scoreTarget = 650;
-    let goodTarget = 40;
-    if(diff === 'easy'){ scoreTarget = 520; goodTarget = 32; }
-    else if(diff === 'hard'){ scoreTarget = 780; goodTarget = 46; }
-    if(view === 'cvr' || view === 'vr'){ scoreTarget = Math.round(scoreTarget * 0.96); }
-    return { scoreTarget, goodTarget };
-  })();
+  toRemove.forEach(removeTarget);
+}
 
-  const PRO = (diff === 'hard' && String(qs('pro','0')) === '1');
+function hitTarget(id) {
+  if (!state.running || state.ended) return;
+  const target = state.targets.get(id);
+  if (!target || target.dead) return;
 
-  function bossShieldBase(){
-    if(diff === 'easy') return 4;
-    if(diff === 'hard') return PRO ? 7 : 6;
-    return 5;
+  if (target.type === 'good') {
+    state.hitsGood += 1;
+    state.streak += 1;
+    state.bestStreak = Math.max(state.bestStreak, state.streak);
+
+    const comboBonus = Math.min(12, Math.floor(state.streak / 3) * 2);
+    const gain = 10 + comboBonus;
+    state.score += gain;
+
+    createFx(target.x + target.size / 2, target.y + target.size / 2, `+${gain}`, '#86efac');
+    updateHint('เยี่ยมมาก! เก็บของดีต่อไป');
+  } else {
+    state.hitsBad += 1;
+    state.miss += 1;
+    state.streak = 0;
+    state.score = Math.max(0, state.score - 8);
+
+    createFx(target.x + target.size / 2, target.y + target.size / 2, 'MISS', '#fda4af');
+    updateHint('ระวัง junk! แตะของดีแทน');
   }
 
-  const TUNE = (function(){
-    let spawnBase = 0.78;
-    let lifeMissLimit = 10;
-    let ttlGood = 2.6;
-    let ttlJunk = 2.9;
-    let ttlBonus = 2.4;
-    let bossHp = 18;
+  removeTarget(id);
+  renderHud();
+}
 
-    if(diff === 'easy'){
-      spawnBase = 0.68;
-      lifeMissLimit = 14;
-      ttlGood = 3.0;
-      ttlJunk = 3.2;
-      bossHp = 16;
-    }else if(diff === 'hard'){
-      spawnBase = 0.95;
-      lifeMissLimit = 8;
-      ttlGood = 2.2;
-      ttlJunk = 2.4;
-      bossHp = 22;
-    }
+function registerMissGood(target) {
+  state.missedGood += 1;
+  state.miss += 1;
+  state.streak = 0;
 
-    if(view === 'cvr' || view === 'vr'){
-      ttlGood += 0.15;
-      ttlJunk += 0.15;
-    }
+  createFx(target.x + target.size / 2, Math.max(28, target.y), 'พลาดของดี', '#fbbf24');
+  updateHint('มีของดีหลุดไปแล้ว รีบเก็บชิ้นต่อไป');
+  removeTarget(target.id);
+  renderHud();
+}
 
-    if(PRO){
-      spawnBase *= 1.10;
-      ttlGood -= 0.12;
-      ttlJunk -= 0.10;
-      bossHp += 4;
-      lifeMissLimit = Math.max(6, lifeMissLimit - 1);
-    }
+function removeTarget(id) {
+  const target = state.targets.get(id);
+  if (!target) return;
+  target.dead = true;
+  target.el.remove();
+  state.targets.delete(id);
+}
 
-    return { spawnBase, lifeMissLimit, ttlGood, ttlJunk, ttlBonus, bossHp };
-  })();
+function createFx(x, y, text, color) {
+  const fx = document.createElement('div');
+  fx.className = 'gj-fx';
+  fx.style.left = `${x}px`;
+  fx.style.top = `${y}px`;
+  fx.style.color = color || '#e5e7eb';
+  fx.textContent = text;
+  ui.layer?.appendChild(fx);
+  setTimeout(() => fx.remove(), 760);
+}
 
-  const rollingTracker = createRollingTracker();
+function updateHint(message) {
+  if (!ui.hint) return;
+  ui.hint.innerHTML = `<div>${escapeHtml(message)}</div>`;
+}
 
-  const telemetryStore = createTelemetryStore({
-    game: HH_GAME,
-    pid,
-    seed: seedStr,
-    mode,
-    diff,
-    view
-  });
+function renderHud() {
+  if (ui.score) ui.score.textContent = String(state.score);
+  if (ui.timer) ui.timer.textContent = formatSeconds(state.timeLeftMs);
+  if (ui.miss) ui.miss.textContent = String(state.miss);
+  if (ui.streak) ui.streak.textContent = String(state.streak);
 
-  const bossPersona = chooseBossPersona({
-    diff,
-    rng: ()=> r01()
-  });
+  if (ui.progress) {
+    const ratio = state.totalMs > 0 ? state.timeLeftMs / state.totalMs : 0;
+    ui.progress.style.transform = `scaleX(${Math.max(0, Math.min(1, ratio))})`;
+  }
 
-  const phaseMachine = createPhaseMachine({
-    plannedSec,
-    goodTarget: WIN_TARGET.goodTarget
-  });
+  if (ui.stats) {
+    ui.stats.innerHTML = `
+      <div><strong>Good hit:</strong> ${state.hitsGood}</div>
+      <div><strong>Junk hit:</strong> ${state.hitsBad}</div>
+      <div><strong>Good missed:</strong> ${state.missedGood}</div>
+    `;
+  }
+}
 
-  const pacingState = createPacingState({
-    diff,
-    bossPersona
-  });
+function formatSeconds(ms) {
+  const s = Math.max(0, Math.ceil(ms / 1000));
+  const m = Math.floor(s / 60);
+  const r = s % 60;
+  return `${m}:${String(r).padStart(2, '0')}`;
+}
 
-  let activePatternId = '';
-  let activePatternPlan = null;
-  let aiSnapshot = {
-    input: null,
-    pred: {
-      hazardRisk: 0,
-      frustrationRisk: 0,
-      winChance: 0.5,
-      fatigueRisk: 0,
-      junkConfusionRisk: 0,
-      attentionDropRisk: 0,
-      coach: 'พร้อมแล้ว! ยิงของดี 🥦',
-      explainText: 'prediction-ready',
-      topFactors: [],
-      modelVersion: 'gj-model-v2-ready-base',
-      featureSchemaVersion: 'gj-feat-v1',
-      inferenceMode: 'heuristic'
-    }
+/* ---------------------------------------
+ * end game / summary
+ * ------------------------------------- */
+function endGame(reason = 'finished') {
+  if (state.ended) return;
+
+  state.ended = true;
+  state.running = false;
+  cancelAnimationFrame(state.frameRaf);
+  state.frameRaf = 0;
+
+  stopRaceHeartbeat();
+
+  const finalStats = {
+    gameId: GJ_GAME_ID,
+    mode: state.mode,
+    pid: GJ_PID,
+    name: GJ_NAME,
+    studyId: RUN_CTX.studyId || '',
+    diff: state.diff,
+    view: RUN_CTX.view || 'mobile',
+    run: RUN_CTX.run || 'play',
+    seed: RUN_CTX.seed || '',
+    roomId: GJ_ROOM_ID,
+    raceStartAt: GJ_START_AT,
+    reason,
+    score: state.score,
+    miss: state.miss,
+    streak: state.bestStreak,
+    bestStreak: state.bestStreak,
+    hitsGood: state.hitsGood,
+    hitsBad: state.hitsBad,
+    missedGood: state.missedGood,
+    spawnedGood: state.spawnedGood,
+    spawnedJunk: state.spawnedJunk,
+    updatedAt: Date.now()
   };
-  let aiDirectorState = {
-    spawnMul: 1,
-    ttlMul: 1,
-    junkBias: 0,
-    bonusBias: 0,
-    assistMode: 'none'
+
+  state.targets.forEach((t) => t.el.remove());
+  state.targets.clear();
+
+  if (isRaceMode()) {
+    publishRaceFinish({
+      score: finalStats.score,
+      miss: finalStats.miss,
+      streak: finalStats.bestStreak
+    });
+    return;
+  }
+
+  showSoloSummary(finalStats);
+}
+
+function showSoloSummary(summary) {
+  __gjSoloSummary = buildSoloSummaryPayload(summary);
+  persistSoloSummary(__gjSoloSummary);
+
+  if (!ui.soloOverlay || !ui.soloBody) return;
+
+  ui.soloTitle.textContent = __gjSoloSummary.score >= 100 ? 'ยอดเยี่ยมมาก!' : 'สรุปผลการเล่น';
+  ui.soloSub.textContent = 'เก็บของดีให้มากขึ้น และอย่าแตะ junk ในรอบถัดไป';
+
+  ui.soloBody.innerHTML = `
+    <div class="gj-solo-item">
+      <div class="label">คะแนน</div>
+      <div class="value">${__gjSoloSummary.score}</div>
+    </div>
+    <div class="gj-solo-item">
+      <div class="label">Miss</div>
+      <div class="value">${__gjSoloSummary.miss}</div>
+    </div>
+    <div class="gj-solo-item">
+      <div class="label">Best Streak</div>
+      <div class="value">${__gjSoloSummary.bestStreak}</div>
+    </div>
+    <div class="gj-solo-item">
+      <div class="label">Good hit</div>
+      <div class="value">${__gjSoloSummary.hitsGood}</div>
+    </div>
+    <div class="gj-solo-item">
+      <div class="label">Junk hit</div>
+      <div class="value">${__gjSoloSummary.hitsBad}</div>
+    </div>
+    <div class="gj-solo-item">
+      <div class="label">Good missed</div>
+      <div class="value">${__gjSoloSummary.missedGood}</div>
+    </div>
+  `;
+
+  ui.soloOverlay.hidden = false;
+}
+
+function buildSoloSummaryPayload(summary) {
+  return {
+    version: '20260317-goodjunk-solo-summary',
+    source: 'goodjunk-solo',
+    gameId: GJ_GAME_ID,
+    mode: 'solo',
+    pid: GJ_PID,
+    name: GJ_NAME,
+    studyId: RUN_CTX.studyId || '',
+    diff: state.diff,
+    view: RUN_CTX.view || 'mobile',
+    run: RUN_CTX.run || 'play',
+    seed: RUN_CTX.seed || '',
+    finishType: 'normal',
+    dnfReason: '',
+    rank: null,
+    roomId: '',
+    playerCount: 1,
+    allFinished: true,
+    raceStatusFinal: 'solo',
+    score: Number(summary.score || 0),
+    miss: Number(summary.miss || 0),
+    bestStreak: Number(summary.bestStreak || 0),
+    hitsGood: Number(summary.hitsGood || 0),
+    hitsBad: Number(summary.hitsBad || 0),
+    missedGood: Number(summary.missedGood || 0),
+    updatedAt: Date.now()
   };
-  let lastAiTickAt = 0;
-  const AI_TICK_MS = 2000;
+}
 
-  let playing = true;
-  let ended = false;
-  let paused = false;
-  let tLeft = plannedSec;
-  let lastTick = nowMs();
-  const startTimeIso = nowIso();
+function persistSoloSummary(summary) {
+  try {
+    localStorage.setItem(GJ_SOLO_LAST_SUMMARY_KEY, JSON.stringify(summary));
+  } catch {}
 
-  let score = 0;
-  let missTotal = 0;
-  let missGoodExpired = 0;
-  let missJunkHit = 0;
-  let combo = 0;
-  let bestCombo = 0;
-  let shield = 0;
-  let goodHitCount = 0;
-  let shots = 0;
-  let hits = 0;
-  let streakMiss = 0;
-  let fever = 0;
-  let comebackReady = false;
-  const rtList = [];
-  const mini = { name:'—', t:0 };
+  try {
+    const raw = localStorage.getItem(GJ_SOLO_SUMMARY_HISTORY_KEY);
+    const list = raw ? JSON.parse(raw) : [];
+    const next = Array.isArray(list) ? list : [];
+    next.unshift(summary);
+    localStorage.setItem(GJ_SOLO_SUMMARY_HISTORY_KEY, JSON.stringify(next.slice(0, 30)));
+  } catch {}
 
-  let bossActive = false;
-  let bossHpMax = TUNE.bossHp;
-  let bossHp = bossHpMax;
-  let bossShieldHp = bossShieldBase();
-  let bossStormTimer = 0;
-  let bossRage = false;
-  let decoyWeakId = '';
-  let mirrorWeakIds = [];
-  let precisionWindow = 0;
+  try {
+    localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify({
+      source: summary.source,
+      gameId: summary.gameId,
+      title: 'GoodJunk Solo',
+      mode: summary.mode,
+      pid: summary.pid,
+      studyId: summary.studyId,
+      roomId: summary.roomId,
+      score: summary.score,
+      miss: summary.miss,
+      streak: summary.bestStreak,
+      rank: summary.rank,
+      finishType: summary.finishType,
+      dnfReason: summary.dnfReason,
+      playerCount: summary.playerCount,
+      allFinished: summary.allFinished,
+      raceStatusFinal: summary.raceStatusFinal,
+      updatedAt: summary.updatedAt
+    }));
+  } catch {}
 
-  const targets = new Map();
-  let spawnSeq = 0;
-  let spawnAcc = 0;
-  let lanePulse = 0;
+  try {
+    window.dispatchEvent(new CustomEvent('gj:solo-summary', { detail: summary }));
+    window.dispatchEvent(new CustomEvent('hha:solo-summary', { detail: summary }));
+  } catch {}
+}
 
-  const fxLayer = DOC.createElement('div');
-  fxLayer.style.position = 'fixed';
-  fxLayer.style.inset = '0';
-  fxLayer.style.pointerEvents = 'none';
-  fxLayer.style.zIndex = '260';
-  DOC.body.appendChild(fxLayer);
+/* ---------------------------------------
+ * race gate
+ * ------------------------------------- */
+function isRaceMode() {
+  return GJ_MODE === 'race';
+}
 
-  const coach = DOC.createElement('div');
-  coach.style.position = 'fixed';
-  coach.style.left = '10px';
-  coach.style.right = '10px';
-  coach.style.bottom = `calc(env(safe-area-inset-bottom, 0px) + 10px)`;
-  coach.style.zIndex = '210';
-  coach.style.pointerEvents = 'none';
-  coach.style.display = 'flex';
-  coach.style.justifyContent = 'center';
-  coach.style.opacity = '0';
-  coach.style.transform = 'translateY(6px)';
-  coach.style.transition = 'opacity .18s ease, transform .18s ease';
-  coach.innerHTML = `
-    <div style="
-      max-width:760px;width:100%;
-      border:1px solid rgba(148,163,184,.16);
-      background:rgba(2,6,23,.62);
-      color:rgba(229,231,235,.96);
-      border-radius:16px;
-      padding:10px 12px;
-      box-shadow:0 18px 55px rgba(0,0,0,.40);
-      backdrop-filter:blur(10px);
-      font:900 13px/1.35 system-ui,-apple-system,Segoe UI,Roboto,Arial;">
-      <span style="opacity:.9">🧑‍⚕️ Coach:</span> <span id="coachText">—</span>
-    </div>`;
-  DOC.body.appendChild(coach);
-  const coachText = coach.querySelector('#coachText');
-  let coachLatchMs = 0;
-  let lastWarningSfxAt = 0;
+function hasValidRaceStart() {
+  return !!GJ_ROOM_ID && Number.isFinite(GJ_START_AT) && GJ_START_AT > 0;
+}
 
-  let missionHideTimer = 0;
-  let aiHideTimer = 0;
-  let missionExpandTimer = 0;
-
-  function isMissionAutoHidden(){
-    return !!missionBox?.classList.contains('auto-hide');
+function showRaceGate(msg = 'กำลังรอสัญญาณเริ่ม', count = '-', sub = '') {
+  if (RACE_UI?.showGate) {
+    RACE_UI.showGate(msg, count, sub);
+    return;
   }
+  const wrap = document.getElementById('raceGate');
+  const text = document.getElementById('raceGateText');
+  const num = document.getElementById('raceGateCount');
+  const subEl = document.getElementById('raceGateSub');
+  if (wrap) wrap.hidden = false;
+  if (text) text.textContent = msg;
+  if (num) num.textContent = count;
+  if (subEl) subEl.textContent = sub || 'เกมจะเริ่มพร้อมกันเมื่อถึงเวลา startAt';
+}
 
-  function isAiAutoHidden(){
-    return !!aiBox?.classList.contains('auto-hide');
+function hideRaceGate() {
+  if (RACE_UI?.hideGate) {
+    RACE_UI.hideGate();
+    return;
   }
-
-  function enableMobileCombatMode(){
-    if(view !== 'mobile') return;
-    document.body.classList.add('mobile-combat');
-  }
-
-  function tGameMsNow(){
-    return Math.max(0, Math.round((plannedSec - tLeft) * 1000));
-  }
-
-  function phaseNow(){
-    return phaseMachine.phase;
-  }
-
-  function logGameEvent(eventName, payload = {}){
-    const row = buildEventRow({
-      store: telemetryStore,
-      eventName,
-      tGameMs: tGameMsNow(),
-      phase: phaseNow(),
-      payload
-    });
-    logTelemetryEvent(telemetryStore, row);
-  }
-
-  function flushGameTelemetry(reason = 'manual', extra = {}){
-    return flushTelemetry({
-      store: telemetryStore,
-      key: `HHA_GJ_TELEMETRY_LAST:${pid}`,
-      extra: {
-        reason,
-        pid,
-        game: HH_GAME,
-        ...extra
-      }
-    });
-  }
-
-  function emitPatternEvent(eventName, payload = {}){
-    try{
-      WIN.dispatchEvent(new CustomEvent('goodjunk:pattern-event', {
-        detail: {
-          game: HH_GAME,
-          pid,
-          seed: seedStr,
-          seq: ++spawnSeq,
-          eventName,
-          tGameMs: tGameMsNow(),
-          payload
-        }
-      }));
-    }catch(_){}
-  }
-
-  function setCoachInline(msg, explain=''){
-    if(coachInline) coachInline.textContent = String(msg || '—');
-    if(coachExplain) coachExplain.textContent = String(explain || '');
-  }
-
-  function sayCoach(msg, bypass=false, explain=''){
-    const t = nowMs();
-    const latchMs = isRuntimeMobile() ? 4200 : 3000;
-    if(!bypass && (t - coachLatchMs < latchMs)) return;
-    coachLatchMs = t;
-    if(coachText) coachText.textContent = String(msg || '');
-    setCoachInline(msg, explain);
-    coach.style.opacity = '1';
-    coach.style.transform = 'translateY(0)';
-    setTimeout(()=>{
-      coach.style.opacity = '0';
-      coach.style.transform = 'translateY(6px)';
-    }, isRuntimeMobile() ? 1700 : 2200);
-
-    if(isRuntimeMobile()) revealAiBox();
-  }
-
-  function setAIHud(pred){
-    try{
-      if(!pred) return;
-
-      if(hud.aiRisk && typeof pred.hazardRisk === 'number'){
-        hud.aiRisk.textContent = String((+pred.hazardRisk).toFixed(2));
-      }
-
-      if(hud.aiHint){
-        hud.aiHint.textContent = pred.explainText || '—';
-      }
-
-      if(pred.coach){
-        setCoachInline(pred.coach, pred.explainText || '');
-
-        if(isRuntimeMobile()){
-          sayCoach(pred.coach, false, pred.explainText || '');
-        }
-      }
-    }catch(_){}
-  }
-
-  function getMasterState(){
-    return {
-      phase: phaseMachine.phase,
-      phaseElapsed: phaseMachine.phaseElapsed,
-      phaseIndex: phaseMachine.phaseIndex,
-      score,
-      shots,
-      hits,
-      missTotal,
-      missGoodExpired,
-      missJunkHit,
-      combo,
-      bestCombo,
-      fever,
-      shield,
-      tLeft,
-      plannedSec,
-      goodHitCount,
-      goodTarget: WIN_TARGET.goodTarget,
-      bossActive,
-      bossHp,
-      bossHpMax,
-      bossShieldHp,
-      ended,
-      paused,
-      stage: legacyStageFromPhase()
-    };
-  }
-
-  function isBossPhase(phase = phaseMachine.phase){
-    return (
-      phase === PHASES.BOSS_INTRO ||
-      phase === PHASES.BOSS_PHASE_1 ||
-      phase === PHASES.BOSS_PHASE_2 ||
-      phase === PHASES.LAST_STAND
-    );
-  }
-
-  function legacyStageFromPhase(phase = phaseMachine.phase){
-    if (phase === PHASES.WARM_OPEN || phase === PHASES.WARM_PRESSURE) return 0;
-    if (phase === PHASES.TRICK_BURST || phase === PHASES.RELIEF || phase === PHASES.FINAL_RUSH) return 1;
-    return 2;
-  }
-
-  function stageFinalLabelFromPhase(phase = phaseMachine.phase){
-    if (phase === PHASES.WARM_OPEN || phase === PHASES.WARM_PRESSURE) return 'WARM';
-    if (phase === PHASES.TRICK_BURST || phase === PHASES.RELIEF || phase === PHASES.FINAL_RUSH) return 'TRICK';
-    if (isBossPhase(phase)) return 'BOSS';
-    return 'WARM';
-  }
-
-  function getPhaseDisplayLabel(){
-    const p = phaseMachine.phase;
-    if (p === PHASES.WARM_OPEN || p === PHASES.WARM_PRESSURE) return 'WARM';
-    if (p === PHASES.TRICK_BURST || p === PHASES.RELIEF || p === PHASES.FINAL_RUSH) return 'TRICK';
-    if (isBossPhase(p)) return 'BOSS';
-    return 'WARM';
-  }
-
-  function refreshPatternPlan(){
-    activePatternId = choosePatternId({
-      phase: phaseMachine.phase,
-      persona: bossPersona,
-      rng: ()=> r01(),
-      lastPatternId: activePatternId
-    });
-    activePatternPlan = buildPatternPlan({
-      phase: phaseMachine.phase,
-      patternId: activePatternId,
-      persona: bossPersona,
-      pacing: pacingState,
-      tLeft
-    });
-  }
-
-  function showStageBanner(text){
-    if(!stageBanner || !stageBannerBig) return;
-    stageBannerBig.textContent = text || 'MODE';
-    if(stageBannerSmall){
-      stageBannerSmall.textContent =
-        text === 'BOSS INCOMING' ? 'บอสมาแล้ว! เตรียมสติให้พร้อม' :
-        text === 'FINAL RUSH' ? 'ช่วงท้ายเดือดขึ้นแล้ว!' :
-        text === 'TRICK BURST' ? 'เร่งคอมโบและอ่านเป้าให้ไว!' :
-        'ลุยต่อ!';
-    }
-    stageBanner.classList.add('show');
-    setTimeout(()=> stageBanner.classList.remove('show'), 1400);
-
-    if(isRuntimeMobile()){
-      expandMissionTemporarily(1800);
-      revealAiBox();
-    }
-  }
-
-  function showMilestone(text){
-    if(!milestoneBanner) return;
-    milestoneBanner.textContent = text || 'NICE!';
-    milestoneBanner.classList.add('show');
-    setTimeout(()=> milestoneBanner.classList.remove('show'), 1000);
-  }
-
-  function setDanger(on){
-    if(dangerOverlay) dangerOverlay.style.opacity = on ? '1' : '0';
-    if(on){
-      const t = nowMs();
-      if(t - lastWarningSfxAt > 1600){
-        lastWarningSfxAt = t;
-        sfx('warning');
-      }
-    }
-  }
-
-  function enterPhase(nextPhase){
-    phaseMachine.phase = nextPhase;
-    resetPhaseElapsed(phaseMachine);
-    applyPhaseEntry(phaseMachine, pacingState);
-    refreshPatternPlan();
-
-    const bannerText = getPhaseBannerText(nextPhase);
-    showStageBanner(bannerText);
-    sayCoach(getCoachLineForPhase(nextPhase, bossPersona), true);
-
-    emitPatternEvent('phase-change', {
-      phase: nextPhase,
-      phaseIndex: phaseMachine.phaseIndex,
-      bannerText,
-      patternId: activePatternId,
-      bossPersona: bossPersona.id
-    });
-
-    logGameEvent('phase-change', {
-      phase: nextPhase,
-      phaseIndex: phaseMachine.phaseIndex,
-      bannerText,
-      patternId: activePatternId,
-      bossPersona: bossPersona.id
-    });
-
-    if(nextPhase === PHASES.BOSS_INTRO){
-      bossActive = true;
-
-      const cfgBoss = getBossConfig({
-        diff,
-        baseBossHp: TUNE.bossHp,
-        baseShield: bossShieldBase(),
-        persona: bossPersona
-      });
-
-      bossHpMax = cfgBoss.bossHpMax;
-      bossHp = bossHpMax;
-      bossShieldHp = cfgBoss.bossShieldHp;
-      bossRage = false;
-      precisionWindow = 0;
-      decoyWeakId = '';
-      mirrorWeakIds = [];
-      bossStormTimer = 0;
-
-      setBossUI(true);
-      setBossHpUI();
-
-      emitPatternEvent('boss-start', {
-        bossPersona: bossPersona.id,
-        bossLabel: bossPersona.label,
-        hpMax: bossHpMax,
-        shieldHp: bossShieldHp
-      });
-
-      logGameEvent('boss-start', {
-        bossPersona: bossPersona.id,
-        bossLabel: bossPersona.label,
-        hpMax: bossHpMax,
-        shieldHp: bossShieldHp
-      });
-    }
-
-    setMissionUI();
-    setHUD();
-  }
-
-  function maybeTransitionPhase(){
-    const next = evaluatePhaseTransition({
-      ...getMasterState(),
-      phase: phaseMachine.phase,
-      phaseElapsed: phaseMachine.phaseElapsed
-    });
-
-    if(!next || next === phaseMachine.phase) return;
-
-    if(next === PHASES.LAST_STAND){
-      bossRage = true;
-    }
-
-    enterPhase(next);
-  }
-
-  function pushAiEvent(eventName, payload = {}){
-    try{
-      WIN.dispatchEvent(new CustomEvent('goodjunk:ai-event', {
-        detail: {
-          game: HH_GAME,
-          pid,
-          nick,
-          seed: seedStr,
-          room: '',
-          mode,
-          diff,
-          view: runtimeView(),
-          eventName,
-          tGameMs: tGameMsNow(),
-          payload
-        }
-      }));
-    }catch(_){}
-  }
-
-  async function updateAiWithModel(rolling){
-    const features = buildFeatureVector({
-      state: getMasterState(),
-      rolling,
-      profile: {
-        frustrationBaseline: 0.5,
-        fatigueBaseline: 0.5,
-        confusionBaseline: 0.5
-      },
-      context: {
-        diff,
-        view: runtimeView(),
-        isBoss: isBossPhase()
-      }
-    });
-
-    const pred = await modelRuntime.predict(features);
-
-    aiSnapshot = {
-      input: features,
-      pred
-    };
-
-    return aiSnapshot;
-  }
-
-  async function updateAiDirector(now){
-    if((now - lastAiTickAt) < AI_TICK_MS) return;
-    lastAiTickAt = now;
-
-    trimRolling(rollingTracker, now);
-    const rolling = extractRollingFeatures(rollingTracker, now);
-
-    await updateAiWithModel(rolling);
-
-    aiDirectorState = buildDirectorAdjustment(
-      aiSnapshot.input,
-      aiSnapshot.pred,
-      { researchMode: RESEARCH_MODE }
-    );
-
-    setAIHud(aiSnapshot.pred);
-    pushAiEvent('predict', aiSnapshot.pred);
-
-    const predRow = buildPredictionRow({
-      store: telemetryStore,
-      tGameMs: tGameMsNow(),
-      phase: phaseNow(),
-      prediction: aiSnapshot.pred,
-      assistMode: aiDirectorState.assistMode
-    });
-    logPredictionSnapshot(telemetryStore, predRow);
-
-    emitPatternEvent('prediction-snapshot', {
-      hazardRisk: aiSnapshot.pred.hazardRisk,
-      frustrationRisk: aiSnapshot.pred.frustrationRisk,
-      winChance: aiSnapshot.pred.winChance,
-      fatigueRisk: aiSnapshot.pred.fatigueRisk,
-      junkConfusionRisk: aiSnapshot.pred.junkConfusionRisk,
-      attentionDropRisk: aiSnapshot.pred.attentionDropRisk,
-      assistMode: aiDirectorState.assistMode,
-      topFactors: aiSnapshot.pred.topFactors,
-      modelVersion: aiSnapshot.pred.modelVersion,
-      featureSchemaVersion: aiSnapshot.pred.featureSchemaVersion,
-      inferenceMode: aiSnapshot.pred.inferenceMode
-    });
-
-    if(aiSnapshot.pred.coach){
-      const urgent =
-        aiSnapshot.pred.hazardRisk >= 0.68 ||
-        aiSnapshot.pred.frustrationRisk >= 0.62 ||
-        aiSnapshot.pred.winChance >= 0.84;
-      if(urgent){
-        sayCoach(aiSnapshot.pred.coach, false, aiSnapshot.pred.explainText || '');
-      }
-    }
-  }
-
-  function layerRect(){ return layer.getBoundingClientRect(); }
-
-  function safeSpawnRect(){
-    const r = layerRect();
-    const W = r.width, H = r.height;
-
-    const isMobile = isRuntimeMobile();
-    const isVR = isRuntimeVR();
-
-    const missionHidden = isMissionAutoHidden();
-    const aiHidden = isAiAutoHidden() || document.body.classList.contains('mobile-combat');
-
-    let topPad;
-    let bottomPad;
-
-    if(isMobile){
-      topPad = missionHidden ? 108 : 156;
-      bottomPad = aiHidden ? 96 : 166;
-    }else if(isVR){
-      topPad = 188;
-      bottomPad = 148;
-    }else{
-      topPad = 165;
-      bottomPad = 125;
-    }
-
-    let leftPad = 18;
-    let rightPad = 18;
-
-    if(isVR){
-      const laneW = Math.min(360, W * 0.34);
-      const sidePad = Math.max(24, (W - laneW) / 2);
-      leftPad = sidePad;
-      rightPad = sidePad;
-    }
-
-    const x1 = r.left + leftPad;
-    const x2 = r.left + Math.max(leftPad + 10, W - rightPad);
-
-    let y1 = r.top + Math.min(H - 120, topPad);
-    let y2 = r.top + Math.max(y1 + 140, H - bottomPad);
-
-    if(isVR){
-      const bandTop = r.top + Math.max(170, H * 0.20);
-      const bandBottom = r.top + Math.min(H - 150, H * 0.74);
-      y1 = Math.max(y1, bandTop);
-      y2 = Math.min(y2, bandBottom);
-      if(y2 < y1 + 120) y2 = y1 + 120;
-    }
-
-    return { x1, x2, y1, y2, W, H, left:r.left, top:r.top };
-  }
-
-  function spawnPoint(){
-    const s = safeSpawnRect();
-
-    if(isRuntimeVR()){
-      const cx = (s.x1 + s.x2) / 2;
-      const cy1 = s.y1;
-      const cy2 = s.y2;
-
-      return {
-        x: cx + (r01() * 120 - 60),
-        y: cy1 + (cy2 - cy1) * (0.12 + r01() * 0.72)
-      };
-    }
-
-    return {
-      x: s.x1 + (s.x2 - s.x1) * r01(),
-      y: s.y1 + (s.y2 - s.y1) * r01()
-    };
-  }
-
-  function spawnPointLane(laneIndex=1, total=3){
-    const s = safeSpawnRect();
-
-    if(isRuntimeVR()){
-      const laneFractions = total === 3
-        ? [0.34, 0.50, 0.66]
-        : Array.from({ length: total }, (_, i)=> (i + 0.5) / total);
-
-      const frac = laneFractions[Math.max(0, Math.min(total - 1, laneIndex))] ?? 0.5;
-
-      return {
-        x: s.x1 + (s.x2 - s.x1) * frac,
-        y: s.y1 + (s.y2 - s.y1) * (0.18 + r01() * 0.58)
-      };
-    }
-
-    const frac = (laneIndex + 0.5) / total;
-    return {
-      x: s.x1 + (s.x2 - s.x1) * frac,
-      y: s.y1 + (s.y2 - s.y1) * (0.18 + r01() * 0.64)
-    };
-  }
-
-  function spawnPointCenterBurst(){
-    const s = safeSpawnRect();
-    const cx = (s.x1 + s.x2) / 2;
-    const cy = s.y1 + (s.y2 - s.y1) * 0.40;
-
-    if(isRuntimeVR()){
-      return {
-        x: cx + (r01() * 90 - 45),
-        y: cy + (r01() * 56 - 28)
-      };
-    }
-
-    return {
-      x: cx + (r01() * 170 - 85),
-      y: cy + (r01() * 96 - 48)
-    };
-  }
-
-  function clampTargetsToSafeArea(){
-    const s = safeSpawnRect();
-    for(const [, t] of targets){
-      const br = t.el.getBoundingClientRect();
-      const w = br.width || 48;
-      const h = br.height || 48;
-
-      let x = br.left + w / 2;
-      let y = br.top + h / 2;
-
-      x = Math.max(s.x1 + w * 0.5, Math.min(s.x2 - w * 0.5, x));
-      y = Math.max(s.y1 + h * 0.5, Math.min(s.y2 - h * 0.5, y));
-
-      t.el.style.left = `${x}px`;
-      t.el.style.top = `${y}px`;
-    }
-  }
-
-  function revealMissionBox(){
-    if(!missionBox) return;
-
-    missionBox.classList.remove('auto-hide');
-
-    if(isRuntimeMobile()){
-      missionBox.classList.add('compact');
-    }
-
-    clearTimeout(missionHideTimer);
-
-    if(isRuntimeMobile()){
-      missionHideTimer = setTimeout(()=>{
-        missionBox.classList.add('auto-hide');
-        clampTargetsToSafeArea();
-      }, 1500);
-
-      clampTargetsToSafeArea();
-    }
-  }
-
-  function revealAiBox(){
-    if(!aiBox) return;
-    aiBox.classList.remove('auto-hide');
-    if(isRuntimeMobile()) aiBox.classList.add('compact');
-    clearTimeout(aiHideTimer);
-    if(isRuntimeMobile()){
-      aiHideTimer = setTimeout(()=>{
-        aiBox.classList.add('auto-hide');
-        clampTargetsToSafeArea();
-      }, 1800);
-      clampTargetsToSafeArea();
-    }
-  }
-
-  function expandMissionTemporarily(ms = 1400){
-    if(!missionBox) return;
-
-    missionBox.classList.remove('auto-hide');
-    missionBox.classList.remove('compact');
-
-    clearTimeout(missionExpandTimer);
-    missionExpandTimer = setTimeout(()=>{
-      if(isRuntimeMobile()){
-        missionBox.classList.add('compact');
-        revealMissionBox();
-      }
-    }, ms);
-  }
-
-  function setBossUI(on){
-    if(bossBar) bossBar.style.display = on ? 'block' : 'none';
-  }
-
-  function setBossHpUI(){
-    if(!bossFill) return;
-    const p = bossHpMax ? clamp((bossHp / bossHpMax) * 100, 0, 100) : 0;
-    bossFill.style.setProperty('--hp', p.toFixed(1) + '%');
-
-    if(!bossHint) return;
-    const bossName = bossPersona?.label || 'Boss';
-
-    if(bossShieldHp > 0){
-      bossHint.textContent = `${bossName} • 🛡️ โล่เหลือ ${bossShieldHp}`;
-      return;
-    }
-    if (bossPersona?.id === 'decoy_trickster') {
-      bossHint.textContent = `${bossName} • 🎯 เลือก weak point ให้ถูก! HP ${bossHp}/${bossHpMax}`;
-      return;
-    }
-    if (bossPersona?.id === 'mirror_reader') {
-      bossHint.textContent = `${bossName} • 🪞 เป้าคู่กระจก HP ${bossHp}/${bossHpMax}`;
-      return;
-    }
-    if (bossPersona?.id === 'precision_sniper') {
-      bossHint.textContent = precisionWindow > 0
-        ? `${bossName} • 🎯 PRECISION OPEN! HP ${bossHp}/${bossHpMax}`
-        : `${bossName} • ⏳ รอ precision window... HP ${bossHp}/${bossHpMax}`;
-      return;
-    }
-    if (bossPersona?.id === 'rage_beast') {
-      bossHint.textContent = bossRage
-        ? `${bossName} • 😡 RAGE MODE! HP ${bossHp}/${bossHpMax}`
-        : `${bossName} • 🎯 โจมตีบอส HP ${bossHp}/${bossHpMax}`;
-      return;
-    }
-    if (bossPersona?.id === 'storm_chaos') {
-      bossHint.textContent = `${bossName} • 🌪️ ระวัง junk storm HP ${bossHp}/${bossHpMax}`;
-      return;
-    }
-    bossHint.textContent = `${bossName} • 🎯 โจมตีบอส HP ${bossHp}/${bossHpMax}`;
-  }
-
-  function gradeFromScore(){
-    const acc = shots ? (hits / shots) * 100 : 0;
-    return gradeFromPerformance({
-      score,
-      scoreTarget: WIN_TARGET.scoreTarget,
-      accPct: acc,
-      missTotal
-    });
-  }
-
-  function setMissionUI(){
-    const phase = phaseMachine.phase;
-    const patternId = activePatternId || 'warm_open_good_arc';
-
-    if(missionTitle) missionTitle.textContent = getPhaseDisplayLabel();
-
-    if (phase === PHASES.WARM_OPEN) {
-      if(missionGoal) missionGoal.textContent = 'เปิดเกมให้แม่น เก็บของดี';
-      if(missionHint) missionHint.textContent = 'เริ่มเบา ๆ ก่อน อ่านเป้าให้ชัด';
-    } else if (phase === PHASES.WARM_PRESSURE) {
-      if(missionGoal) missionGoal.textContent = 'แยกของดี/ขยะให้เร็วขึ้น';
-      if(missionHint) missionHint.textContent = 'เริ่มมีเป้าหลอกมากขึ้น';
-    } else if (phase === PHASES.TRICK_BURST) {
-      if(missionGoal) missionGoal.textContent = 'ช่วงเดือด ทำคอมโบให้ติด';
-      if(missionHint) missionHint.textContent = 'โบนัสและหลอกตาจะมาเยอะขึ้น';
-    } else if (phase === PHASES.RELIEF) {
-      if(missionGoal) missionGoal.textContent = 'พักจังหวะ เก็บแต้มให้เนียน';
-      if(missionHint) missionHint.textContent = 'ช่วงนี้เป็นหน้าต่างฟื้นตัว';
-    } else if (phase === PHASES.FINAL_RUSH) {
-      if(missionGoal) missionGoal.textContent = 'เร่งแต้มก่อนเข้าบอส';
-      if(missionHint) missionHint.textContent = 'ช่วงท้ายก่อนบอส เกมจะถาโถมขึ้น';
-    } else if (phase === PHASES.BOSS_INTRO) {
-      if(missionGoal) missionGoal.textContent = bossPersona.label;
-      if(missionHint) missionHint.textContent = bossPersona.introLine;
-    } else if (phase === PHASES.BOSS_PHASE_1) {
-      if(missionGoal) missionGoal.textContent = `${bossPersona.label} • Phase 1`;
-      if(missionHint) missionHint.textContent = `pattern: ${patternId}`;
-    } else if (phase === PHASES.BOSS_PHASE_2) {
-      if(missionGoal) missionGoal.textContent = `${bossPersona.label} • Phase 2`;
-      if(missionHint) missionHint.textContent = `pattern: ${patternId}`;
-    } else if (phase === PHASES.LAST_STAND) {
-      if(missionGoal) missionGoal.textContent = 'หมดหน้าตักแล้ว ลุยเต็มที่';
-      if(missionHint) missionHint.textContent = 'last stand • ห้ามหลุดสมาธิ';
-    } else {
-      if(missionGoal) missionGoal.textContent = 'เก็บของดี';
-      if(missionHint) missionHint.textContent = `pattern: ${patternId}`;
-    }
-
-    if(isRuntimeMobile()){
-      expandMissionTemporarily(1600);
-    }
-  }
-
-  function setHUD(){
-    if(hud.score) hud.score.textContent = String(score | 0);
-    if(hud.time) hud.time.textContent = String(Math.ceil(tLeft));
-    if(hud.miss) hud.miss.textContent = String(missTotal | 0);
-    if(hud.grade) hud.grade.textContent = gradeFromScore();
-    if(hud.goal) hud.goal.textContent = getPhaseDisplayLabel();
-    if(hud.goalCur) hud.goalCur.textContent = String(goodHitCount | 0);
-    if(hud.goalTarget) hud.goalTarget.textContent = String(WIN_TARGET.goodTarget | 0);
-    if(hud.goalDesc){
-      const raw = activePatternId || phaseMachine.phase || '—';
-      hud.goalDesc.textContent = (isRuntimeMobile())
-        ? String(raw).replaceAll('_',' ').slice(0, 10)
-        : raw;
-    }
-    if(hud.mini) hud.mini.textContent = mini.name || '—';
-    if(hud.miniTimer) hud.miniTimer.textContent = String(Math.ceil(mini.t || 0));
-
-    if(uiView) uiView.textContent = runtimeView();
-
-    if(missionFill){
-      const p = isBossPhase()
-        ? (bossHpMax ? (1 - (bossHp / bossHpMax)) * 100 : 0)
-        : clamp((goodHitCount / WIN_TARGET.goodTarget) * 100, 0, 100);
-      missionFill.style.setProperty('--p', p.toFixed(1) + '%');
-    }
-  }
-
-  function getPlayerProfile(){
-    const accPct = shots ? Math.round((hits / shots) * 100) : 0;
-    return {
-      score,
-      missTotal,
-      missGoodExpired,
-      missJunkHit,
-      shots,
-      hits,
-      accPct,
-      combo,
-      comboBest: bestCombo,
-      stage: legacyStageFromPhase(),
-      phase: phaseMachine.phase,
-      tLeft,
-      plannedSec,
-      bossHp,
-      bossHpMax,
-      scoreTarget: WIN_TARGET.scoreTarget,
-      goodHitCount,
-      goodTarget: WIN_TARGET.goodTarget,
-      medianRtGoodMs: median(rtList),
-      fever,
-      shield,
-      streakMiss
-    };
-  }
-
-  function aiDirector(profile){
-    let spawnMul = 1;
-    let junkBias = 0;
-    let ttlMul = 1;
-    let coachTextHint = null;
-
-    if(profile.accPct < 55 || profile.missTotal >= 7){
-      spawnMul = 0.92;
-      junkBias = -0.06;
-      ttlMul = 1.08;
-      coachTextHint = 'ค่อย ๆ เล็งของดีทีละชิ้น';
-    }else if(profile.accPct > 85 && profile.missTotal <= 2){
-      spawnMul = 1.08;
-      junkBias = 0.05;
-      ttlMul = 0.96;
-      coachTextHint = 'เก่งมาก ลองเร่งคอมโบต่อ!';
-    }
-
-    if(profile.tLeft <= 10){
-      spawnMul *= 1.12;
-      coachTextHint = coachTextHint || 'ช่วงท้ายแล้ว เร่งเก็บแต้ม!';
-    }
-
-    return { spawnMul, junkBias, ttlMul, coach: coachTextHint };
-  }
-
-  function currentMedianRtGoodMs(){
-    return median(rtList);
-  }
-
-  function currentFinishMs(){
-    return Math.max(0, Math.round((plannedSec - tLeft) * 1000));
-  }
-
-  function maybeComebackBoost(){
-    if(tLeft <= 20 && score < (WIN_TARGET.scoreTarget * 0.55) && missTotal >= 3){
-      comebackReady = true;
-      if(fever <= 0) enterFever(4);
-      sayCoach('ยังกลับมาได้! ช่วง COMEBACK 🔥', true);
-    }else{
-      comebackReady = false;
-    }
-  }
-
-  function enterFever(sec=6){
-    fever = Math.max(fever, sec);
-    mini.name = 'FEVER 🔥';
-    mini.t = Math.max(mini.t, sec);
-    sfx('fever');
-    sayCoach('FEVER! แต้มคูณช่วงสั้น ๆ 🔥', true);
-  }
-
-  function fxFloatText(x,y,text,isBad){
-    const n = DOC.createElement('div');
-    n.textContent = text;
-    n.style.position = 'absolute';
-    n.style.left = `${x}px`;
-    n.style.top = `${y}px`;
-    n.style.transform = 'translate(-50%,-50%)';
-    n.style.font = '900 18px/1.1 system-ui,-apple-system,Segoe UI,Roboto,Arial';
-    n.style.color = isBad ? 'rgba(255,110,110,.96)' : 'rgba(229,231,235,.98)';
-    n.style.textShadow = '0 10px 30px rgba(0,0,0,.55)';
-    fxLayer.appendChild(n);
-
-    const t0 = nowMs();
-    const dur = 520;
-    const rise = 34 + (r01() * 14);
-
-    function tickFloat(){
-      const p = Math.min(1, (nowMs() - t0) / dur);
-      n.style.top = `${y - rise * p}px`;
-      n.style.opacity = String(1 - p);
-      n.style.transform = `translate(-50%,-50%) scale(${1 + 0.08 * Math.sin(p * 3.14)})`;
-      if(p < 1) requestAnimationFrame(tickFloat);
-      else n.remove();
-    }
-    requestAnimationFrame(tickFloat);
-  }
-
-  function fxBurst(x,y){
-    const count = 10 + ((r01() * 6) | 0);
-    for(let i=0;i<count;i++){
-      const dot = DOC.createElement('div');
-      dot.style.position = 'absolute';
-      dot.style.left = `${x}px`;
-      dot.style.top = `${y}px`;
-      dot.style.width = '6px';
-      dot.style.height = '6px';
-      dot.style.borderRadius = '999px';
-      dot.style.background = 'rgba(229,231,235,.92)';
-      dot.style.opacity = '1';
-      dot.style.transform = 'translate(-50%,-50%)';
-      fxLayer.appendChild(dot);
-
-      const ang = r01() * Math.PI * 2;
-      const sp = 40 + r01() * 80;
-      const vx = Math.cos(ang) * sp;
-      const vy = Math.sin(ang) * sp;
-      const t0 = nowMs();
-      const dur = 420 + r01() * 220;
-
-      function tickBurst(){
-        const p = Math.min(1, (nowMs() - t0) / dur);
-        dot.style.left = `${x + vx * p}px`;
-        dot.style.top = `${y + vy * p - 30 * p * p}px`;
-        dot.style.opacity = String(1 - p);
-        dot.style.transform = `translate(-50%,-50%) scale(${1 - 0.4 * p})`;
-        if(p < 1) requestAnimationFrame(tickBurst);
-        else dot.remove();
-      }
-      requestAnimationFrame(tickBurst);
-    }
-  }
-
-  function makeTarget(type, emoji, ttl, point=null){
-    const { x, y } = point || spawnPoint();
-    const n = DOC.createElement('div');
-    n.className = 'gj-target';
-    n.dataset.type = type;
-    n.textContent = emoji;
-
-    n.style.position = 'absolute';
-    n.style.left = `${x}px`;
-    n.style.top = `${y}px`;
-    n.style.transform = 'translate(-50%,-50%)';
-    n.style.fontSize = (type === 'bossweak') ? '54px' : (type === 'bossdecoy' ? '48px' : '46px');
-    n.style.lineHeight = '1';
-    n.style.userSelect = 'none';
-    n.style.cursor = 'pointer';
-    n.style.filter = 'drop-shadow(0 18px 40px rgba(0,0,0,.45))';
-    n.style.textShadow = '0 14px 40px rgba(0,0,0,.55)';
-    n.style.pointerEvents = 'auto';
-    n.style.transition = 'transform .08s ease';
-
-    layer.appendChild(n);
-
-    const id = `${Date.now()}_${String(Math.random()).slice(2)}`;
-    const born = nowMs();
-    const t = { id, type, emoji, ttl, born, el:n };
-    targets.set(id, t);
-
-    emitPatternEvent('spawn', {
-      type,
-      emoji,
-      ttl,
-      x: Math.round(x),
-      y: Math.round(y),
-      phase: phaseNow(),
-      patternId: activePatternId
-    });
-
-    logGameEvent('spawn', {
-      type,
-      emoji,
-      ttl,
-      x: Math.round(x),
-      y: Math.round(y),
-      phase: phaseNow(),
-      patternId: activePatternId
-    });
-
-    n.addEventListener('pointerdown', (ev)=>{
-      ev.preventDefault();
-      ev.stopPropagation();
-      hitTarget(id);
-    }, { passive:false });
-
-    return t;
-  }
-
-  function removeTarget(id){
-    const t = targets.get(id);
-    if(!t) return;
-    targets.delete(id);
-    try{ t.el.remove(); }catch(_){}
-  }
-
-  function spawnLaneRush(adaptive){
-    const ttlMul = adaptive.ttlMul || 1;
-    lanePulse = (lanePulse + 1) % 3;
-    const goodLane = lanePulse;
-
-    for(let i=0;i<3;i++){
-      const pt = spawnPointLane(i, 3);
-      if(i === goodLane){
-        makeTarget('good', rPick(GOOD), (TUNE.ttlGood - 0.1) * ttlMul, pt);
-      }else{
-        makeTarget('junk', rPick(JUNK), (TUNE.ttlJunk - 0.1) * ttlMul, pt);
-      }
-    }
-    emitPatternEvent('pattern', { pattern:'lane_rush', goodLane });
-  }
-
-  function spawnCenterBurst(adaptive){
-    const ttlMul = adaptive.ttlMul || 1;
-    for(let i=0;i<3;i++){
-      makeTarget('good', rPick(GOOD), (TUNE.ttlGood - 0.15) * ttlMul, spawnPointCenterBurst());
-    }
-    if(r01() < 0.55){
-      makeTarget('junk', rPick(JUNK), (TUNE.ttlJunk - 0.05) * ttlMul, spawnPointCenterBurst());
-    }
-    emitPatternEvent('pattern', { pattern:'center_burst' });
-  }
-
-  function spawnBossDecoyPattern(adaptive){
-    const ttlMul = adaptive.ttlMul || 1;
-    const trueWeak = makeTarget('bossweak', WEAK, 1.45 * ttlMul);
-    decoyWeakId = trueWeak.id;
-
-    const decoyProb = isRuntimeVR() ? 0.58 : 0.80;
-
-    if(r01() < decoyProb){
-      const d1 = makeTarget('bossdecoy', WEAK, 1.3 * ttlMul);
-      if(r01() < 0.6) makeTarget('bossdecoy', WEAK, 1.2 * ttlMul);
-      emitPatternEvent('boss-pattern', {
-        pattern:'decoy_boss',
-        trueWeakId:trueWeak.id,
-        firstDecoyId:d1.id
-      });
-    }else{
-      emitPatternEvent('boss-pattern', {
-        pattern:'decoy_boss',
-        trueWeakId:trueWeak.id
-      });
-    }
-  }
-
-  function spawnBossMirrorPattern(adaptive){
-    const ttlMul = adaptive.ttlMul || 1;
-    mirrorWeakIds = [];
-
-    const s = safeSpawnRect();
-    const centerY = s.y1 + (s.y2 - s.y1) * (0.25 + r01() * 0.5);
-
-    let leftFrac = 0.32;
-    let rightFrac = 0.68;
-
-    if(isRuntimeVR()){
-      leftFrac = 0.40;
-      rightFrac = 0.60;
-    }
-
-    const leftX = s.x1 + (s.x2 - s.x1) * leftFrac;
-    const rightX = s.x1 + (s.x2 - s.x1) * rightFrac;
-
-    const trueSideLeft = r01() < 0.5;
-    const trueWeak = makeTarget('bossweak', WEAK, 1.45 * ttlMul, {
-      x: trueSideLeft ? leftX : rightX,
-      y: centerY
-    });
-    mirrorWeakIds.push(trueWeak.id);
-
-    const mirror = makeTarget('bossdecoy', WEAK, 1.45 * ttlMul, {
-      x: trueSideLeft ? rightX : leftX,
-      y: centerY
-    });
-    mirrorWeakIds.push(mirror.id);
-
-    emitPatternEvent('boss-pattern', {
-      pattern:'mirror_boss',
-      trueWeakId:trueWeak.id,
-      mirrorId:mirror.id
-    });
-  }
-
-  function openPrecisionWindow(sec=1.4){
-    precisionWindow = Math.max(precisionWindow, sec);
-    sayCoach('PRECISION WINDOW เปิดแล้ว! ยิงตอนนี้!', true);
-    emitPatternEvent('boss-pattern', {
-      pattern:'precision_window_open',
-      sec
-    });
-  }
-
-  function hitTarget(id){
-    const t = targets.get(id);
-    if(!t || !playing || paused) return;
-
-    const eventNow = nowMs();
-    const br = t.el.getBoundingClientRect();
-    const x = br.left + br.width/2;
-    const y = br.top + br.height/2;
-
-    shots++;
-    fxBurst(x, y);
-    streakMiss = 0;
-
-    if(t.type === 'good'){
-      hits++;
-      goodHitCount++;
-      combo++;
-      bestCombo = Math.max(bestCombo, combo);
-
-      let plus = 12 + Math.min(8, combo);
-      if(activePatternId === 'warm_open_green_focus' && GREEN_FOCUS.includes(t.emoji)) plus += 6;
-      if(fever > 0) plus = Math.round(plus * 1.35);
-
-      score += plus;
-
-      const rt = Math.max(80, Math.round(nowMs() - t.born));
-      rtList.push(rt);
-
-      pushRollingEvent(rollingTracker, {
-        atMs: eventNow,
-        type:'hit',
-        good:true,
-        junk:false,
-        miss:false,
-        expire:false,
-        rt,
-        comboBreak:false,
-        scoreDelta:plus
-      });
-
-      logGameEvent('hit', {
-        targetType:'good',
-        good:true,
-        junk:false,
-        scoreDelta:plus,
-        combo,
-        rt
-      });
-
-      if(combo === 5 || combo === 10 || combo === 15 || combo === 20){
-        showMilestone(combo >= 20 ? 'ULTRA COMBO!' : combo >= 15 ? 'MEGA COMBO!' : combo >= 10 ? 'AWESOME!' : 'NICE COMBO!');
-      }
-
-      sfx('hit-good');
-      emitPatternEvent('hit', { targetType:'good', scorePlus:plus, combo, rt });
-      fxFloatText(x, y, `+${plus}`, false);
-
-      if(combo === 8 || combo === 14) enterFever(5);
-
-    }else if(t.type === 'junk'){
-      hits++;
-      missTotal++;
-      missJunkHit++;
-      combo = 0;
-
-      let minus = 8;
-      if(tLeft <= 10) minus += 2;
-      score = Math.max(0, score - minus);
-
-      pushRollingEvent(rollingTracker, {
-        atMs: eventNow,
-        type:'hit',
-        good:false,
-        junk:true,
-        miss:true,
-        expire:false,
-        rt:0,
-        comboBreak:true,
-        scoreDelta:-minus
-      });
-
-      logGameEvent('hit', {
-        targetType:'junk',
-        good:false,
-        junk:true,
-        scoreDelta:-minus,
-        combo
-      });
-
-      sfx('hit-junk');
-      emitPatternEvent('hit', { targetType:'junk', scoreMinus:minus });
-      fxFloatText(x, y, `-${minus}`, true);
-
-    }else if(t.type === 'bonus'){
-      hits++;
-      const bonusScore = fever > 0 ? 34 : 25;
-      score += bonusScore;
-
-      pushRollingEvent(rollingTracker, {
-        atMs: eventNow,
-        type:'hit',
-        good:false,
-        junk:false,
-        miss:false,
-        expire:false,
-        rt:0,
-        comboBreak:false,
-        scoreDelta:bonusScore
-      });
-
-      logGameEvent('hit', {
-        targetType:'bonus',
-        good:false,
-        junk:false,
-        scoreDelta:bonusScore,
-        combo
-      });
-
-      sfx('bonus');
-      emitPatternEvent('hit', { targetType:'bonus', scorePlus:bonusScore });
-      fxFloatText(x, y, `+${bonusScore}`, false);
-      mini.name = 'BONUS ⚡';
-      mini.t = 6;
-      if(r01() < 0.35) enterFever(4);
-
-    }else if(t.type === 'shield'){
-      hits++;
-      shield = Math.min(9, shield + 1);
-      score += 6;
-
-      pushRollingEvent(rollingTracker, {
-        atMs: eventNow,
-        type:'hit',
-        good:false,
-        junk:false,
-        miss:false,
-        expire:false,
-        rt:0,
-        comboBreak:false,
-        scoreDelta:6
-      });
-
-      logGameEvent('hit', {
-        targetType:'shield',
-        good:false,
-        junk:false,
-        scoreDelta:6,
-        shield
-      });
-
-      sfx('shield');
-      emitPatternEvent('hit', { targetType:'shield', shield });
-      fxFloatText(x, y, '+shield', false);
-
-    }else if(t.type === 'bossdecoy'){
-      hits++;
-      missTotal++;
-      missJunkHit++;
-      combo = 0;
-      score = Math.max(0, score - 10);
-
-      pushRollingEvent(rollingTracker, {
-        atMs: eventNow,
-        type:'hit',
-        good:false,
-        junk:true,
-        miss:true,
-        expire:false,
-        rt:0,
-        comboBreak:true,
-        scoreDelta:-10
-      });
-
-      logGameEvent('boss-hit', {
-        targetType:'bossdecoy',
-        good:false,
-        junk:true,
-        result:'decoy',
-        scoreDelta:-10
-      });
-
-      sfx('hit-junk');
-      emitPatternEvent('boss-hit', { result:'decoy-object', targetId:id });
-      fxFloatText(x, y, 'DECOY!', true);
-
-    }else if(t.type === 'bossweak'){
-      hits++;
-
-      const isWrongDecoy =
-        (bossPersona.id === 'decoy_trickster' && decoyWeakId && id !== decoyWeakId) ||
-        (bossPersona.id === 'mirror_reader' && mirrorWeakIds.length && mirrorWeakIds[0] && id !== mirrorWeakIds[0]);
-
-      if(isWrongDecoy){
-        missTotal++;
-        missJunkHit++;
-        combo = 0;
-        score = Math.max(0, score - 10);
-
-        pushRollingEvent(rollingTracker, {
-          atMs: eventNow,
-          type:'hit',
-          good:false,
-          junk:true,
-          miss:true,
-          expire:false,
-          rt:0,
-          comboBreak:true,
-          scoreDelta:-10
-        });
-
-        logGameEvent('boss-hit', {
-          targetType:'bossweak',
-          good:false,
-          junk:true,
-          result:'wrong-target',
-          scoreDelta:-10
-        });
-
-        sfx('hit-junk');
-        emitPatternEvent('boss-hit', { result:'wrong-target', targetId:id });
-        fxFloatText(x, y, 'DECOY!', true);
-
-      }else if(bossPersona.id === 'precision_sniper' && precisionWindow <= 0){
-        missTotal++;
-        missJunkHit++;
-        combo = 0;
-        score = Math.max(0, score - 8);
-
-        pushRollingEvent(rollingTracker, {
-          atMs: eventNow,
-          type:'hit',
-          good:false,
-          junk:true,
-          miss:true,
-          expire:false,
-          rt:0,
-          comboBreak:true,
-          scoreDelta:-8
-        });
-
-        logGameEvent('boss-hit', {
-          targetType:'bossweak',
-          good:false,
-          junk:true,
-          result:'outside-window',
-          scoreDelta:-8
-        });
-
-        sfx('hit-junk');
-        emitPatternEvent('boss-hit', { result:'outside-window', targetId:id });
-        fxFloatText(x, y, 'EARLY!', true);
-
-      }else if(bossShieldHp > 0){
-        bossShieldHp--;
-        score += 8;
-
-        logGameEvent('boss-hit', {
-          targetType:'bossweak',
-          good:true,
-          junk:false,
-          result:'shield-hit',
-          scoreDelta:8,
-          shieldLeft:bossShieldHp
-        });
-
-        sfx('boss-hit');
-        emitPatternEvent('boss-hit', { result:'shield-hit', shieldLeft:bossShieldHp });
-        fxFloatText(x, y, '🛡️', false);
-
-      }else{
-        let dmg = fever > 0 ? 2 : 1;
-        if(bossPersona.id === 'precision_sniper' && precisionWindow > 0) dmg += 1;
-        if(bossPersona.id === 'rage_beast' && bossRage) dmg += 1;
-
-        bossHp = Math.max(0, bossHp - dmg);
-        score += fever > 0 ? 16 : 10;
-
-        pushRollingEvent(rollingTracker, {
-          atMs: eventNow,
-          type:'hit',
-          good:true,
-          junk:false,
-          miss:false,
-          expire:false,
-          rt:0,
-          comboBreak:false,
-          scoreDelta:fever > 0 ? 16 : 10
-        });
-
-        logGameEvent('boss-hit', {
-          targetType:'bossweak',
-          good:true,
-          junk:false,
-          result:'hp-hit',
-          scoreDelta:fever > 0 ? 16 : 10,
-          hpLeft:bossHp
-        });
-
-        sfx('boss-hit');
-        emitPatternEvent('boss-hit', { result:'hp-hit', damage:dmg, hpLeft:bossHp });
-        fxFloatText(x, y, fever > 0 ? '💥' : '🎯', false);
-      }
-
-      setBossHpUI();
-      if(bossHp <= 0){
-        removeTarget(id);
-        endGame('win');
+  const wrap = document.getElementById('raceGate');
+  if (wrap) wrap.hidden = true;
+}
+
+function cancelRaceGateLoop() {
+  if (__gjRaceRAF) cancelAnimationFrame(__gjRaceRAF);
+  __gjRaceRAF = 0;
+}
+
+function waitUntilRaceStart(startAt) {
+  return new Promise((resolve) => {
+    const tick = () => {
+      const left = startAt - Date.now();
+
+      if (left <= 0) {
+        showRaceGate('เริ่มการแข่งขัน', 'GO!', 'กำลังเข้าสู่เกม...');
+        window.setTimeout(resolve, 220);
         return;
       }
+
+      showRaceGate(
+        'กำลังนับถอยหลังก่อนเริ่มพร้อมกัน',
+        String(Math.ceil(left / 1000)),
+        `Room: ${GJ_ROOM_ID || '-'}`
+      );
+
+      __gjRaceRAF = requestAnimationFrame(tick);
+    };
+
+    tick();
+  });
+}
+
+async function bootWithRaceGate(startFn) {
+  if (__gjRaceBooted) return;
+  __gjRaceBooted = true;
+
+  if (!isRaceMode()) {
+    startFn();
+    return;
+  }
+
+  if (!hasValidRaceStart()) {
+    showRaceGate(
+      'ยังไม่มีสัญญาณเริ่มจากห้องแข่ง',
+      '...',
+      'กลับไปหน้า lobby แล้วเริ่มใหม่'
+    );
+    return;
+  }
+
+  showRaceGate(
+    'กำลังรอสัญญาณเริ่มจากห้องแข่ง',
+    '-',
+    `Room: ${GJ_ROOM_ID}`
+  );
+
+  await waitUntilRaceStart(GJ_START_AT);
+  cancelRaceGateLoop();
+  hideRaceGate();
+  startFn();
+}
+
+/* ---------------------------------------
+ * race room helpers
+ * ------------------------------------- */
+function safeRaceBroadcastChannel(name) {
+  try {
+    return (name && 'BroadcastChannel' in window) ? new BroadcastChannel(name) : null;
+  } catch {
+    return null;
+  }
+}
+
+function loadRaceRoom() {
+  if (!GJ_RACE_STORAGE_KEY) return null;
+  try {
+    const raw = localStorage.getItem(GJ_RACE_STORAGE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+function saveRaceRoom(room, source = 'run') {
+  if (!GJ_RACE_STORAGE_KEY || !room) return;
+  localStorage.setItem(GJ_RACE_STORAGE_KEY, JSON.stringify(room));
+  if (GJ_RACE_CHANNEL) {
+    try {
+      GJ_RACE_CHANNEL.postMessage({
+        type: 'room:update',
+        room,
+        source,
+        sender: `run-${GJ_PID}`,
+        ts: Date.now()
+      });
+    } catch {}
+  }
+}
+
+function normalizeRacePlayers(players) {
+  return Array.isArray(players) ? players.filter(Boolean).map((p) => ({
+    id: String(p.id || '').trim(),
+    name: String(p.name || '').trim(),
+    ready: !!p.ready,
+    connected: p.connected !== false,
+    phase: String(p.phase || (p.finished ? 'done' : 'run')).trim(),
+    finished: !!p.finished,
+    dnf: !!p.dnf,
+    dnfReason: String(p.dnfReason || '').trim(),
+    finalScore: Number(p.finalScore || 0),
+    miss: Number(p.miss || 0),
+    streak: Number(p.streak || 0),
+    joinedAt: Number(p.joinedAt || 0),
+    lastSeenAt: Number(p.lastSeenAt || 0),
+    finishedAt: Number(p.finishedAt || 0)
+  })) : [];
+}
+
+function rankRacePlayers(players) {
+  return normalizeRacePlayers(players)
+    .sort((a, b) => {
+      if (!!a.dnf !== !!b.dnf) return a.dnf ? 1 : -1;
+      if (b.finalScore !== a.finalScore) return b.finalScore - a.finalScore;
+      if (a.miss !== b.miss) return a.miss - b.miss;
+      if (b.streak !== a.streak) return b.streak - a.streak;
+      return a.finishedAt - b.finishedAt;
+    })
+    .map((p, idx) => ({ ...p, rank: idx + 1 }));
+}
+
+function getMyRaceRanked(rows) {
+  return rows.find((p) => p.id === GJ_PID) || null;
+}
+
+function getDnfReasonLabel(reason) {
+  const key = String(reason || '').trim().toLowerCase();
+  if (key === 'left-run') return 'ออกจากหน้าเกม';
+  if (key === 'disconnect') return 'การเชื่อมต่อหลุด';
+  if (key === 'timeout') return 'หมดเวลา / ไม่ตอบสนอง';
+  if (key) return key;
+  return 'ไม่ทราบสาเหตุ';
+}
+
+/* ---------------------------------------
+ * race summary / export
+ * ------------------------------------- */
+function getRaceCounts(rows) {
+  const total = rows.length;
+  const finishedNormal = rows.filter((p) => p.finished && !p.dnf).length;
+  const dnfCount = rows.filter((p) => p.dnf).length;
+  const waitingCount = rows.filter((p) => !p.finished).length;
+  return { total, finishedNormal, dnfCount, waitingCount };
+}
+
+function buildRaceSummaryPayload(rows, opts = {}) {
+  const room = loadRaceRoom() || {};
+  const mine = getMyRaceRanked(rows) || {};
+  const counts = getRaceCounts(rows);
+  const allFinished = !!opts.allFinished || rows.every((p) => p.finished);
+  const raceStatusFinal = allFinished ? 'finished' : 'pending';
+
+  return {
+    version: '20260317-goodjunk-race-summary',
+    source: 'goodjunk-race',
+    gameId: GJ_GAME_ID,
+    mode: 'race',
+
+    pid: GJ_PID,
+    name: GJ_NAME,
+    studyId: RUN_CTX.studyId || '',
+
+    roomId: GJ_ROOM_ID,
+    playerCount: counts.total,
+    finishedCount: counts.finishedNormal,
+    dnfCount: counts.dnfCount,
+    waitingCount: counts.waitingCount,
+
+    allFinished,
+    raceStatusFinal,
+    roomStatus: room.status || (allFinished ? 'finished' : 'running'),
+
+    finishType: mine.dnf ? 'dnf' : 'normal',
+    dnfReason: mine.dnf ? (mine.dnfReason || '') : '',
+    rank: Number(mine.rank || 0) || null,
+
+    score: Number(mine.finalScore || 0),
+    miss: Number(mine.miss || 0),
+    streak: Number(mine.streak || 0),
+
+    diff: RUN_CTX.diff || 'normal',
+    view: RUN_CTX.view || 'mobile',
+    run: RUN_CTX.run || 'play',
+    seed: RUN_CTX.seed || '',
+    raceStartAt: Number(GJ_START_AT || 0) || 0,
+
+    updatedAt: Date.now(),
+
+    leaderboard: rows.map((p) => ({
+      pid: p.id,
+      name: p.name || p.id,
+      rank: Number(p.rank || 0) || null,
+      finishType: p.dnf ? 'dnf' : (p.finished ? 'normal' : 'pending'),
+      dnfReason: p.dnf ? (p.dnfReason || '') : '',
+      finished: !!p.finished,
+      connected: p.connected !== false,
+      score: p.dnf ? null : Number(p.finalScore || 0),
+      miss: p.dnf ? null : Number(p.miss || 0),
+      streak: p.dnf ? null : Number(p.streak || 0)
+    }))
+  };
+}
+
+function getRaceSummarySignature(summary) {
+  return JSON.stringify({
+    roomId: summary.roomId,
+    pid: summary.pid,
+    rank: summary.rank,
+    finishType: summary.finishType,
+    dnfReason: summary.dnfReason,
+    score: summary.score,
+    miss: summary.miss,
+    streak: summary.streak,
+    playerCount: summary.playerCount,
+    finishedCount: summary.finishedCount,
+    dnfCount: summary.dnfCount,
+    waitingCount: summary.waitingCount,
+    allFinished: summary.allFinished,
+    raceStatusFinal: summary.raceStatusFinal
+  });
+}
+
+function buildCompatLastSummary(summary) {
+  return {
+    source: 'goodjunk-race',
+    gameId: GJ_GAME_ID,
+    title: 'GoodJunk Race',
+    mode: 'race',
+    pid: summary.pid,
+    studyId: summary.studyId,
+    roomId: summary.roomId,
+    score: summary.score,
+    miss: summary.miss,
+    streak: summary.streak,
+    rank: summary.rank,
+    finishType: summary.finishType,
+    dnfReason: summary.dnfReason,
+    playerCount: summary.playerCount,
+    allFinished: summary.allFinished,
+    raceStatusFinal: summary.raceStatusFinal,
+    updatedAt: summary.updatedAt
+  };
+}
+
+function persistRaceSummary(summary) {
+  __gjRaceLastSummary = summary;
+
+  try {
+    localStorage.setItem(GJ_RACE_LAST_SUMMARY_KEY, JSON.stringify(summary));
+  } catch {}
+
+  try {
+    const raw = localStorage.getItem(GJ_RACE_SUMMARY_HISTORY_KEY);
+    const hist = raw ? JSON.parse(raw) : [];
+    const next = Array.isArray(hist) ? hist : [];
+    next.unshift(summary);
+    localStorage.setItem(GJ_RACE_SUMMARY_HISTORY_KEY, JSON.stringify(next.slice(0, 30)));
+  } catch {}
+
+  try {
+    localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(buildCompatLastSummary(summary)));
+  } catch {}
+
+  try {
+    window.dispatchEvent(new CustomEvent('gj:race-summary', { detail: summary }));
+    window.dispatchEvent(new CustomEvent('hha:race-summary', { detail: summary }));
+  } catch {}
+}
+
+function storeRaceSummaryFromRows(rows, opts = {}) {
+  const summary = buildRaceSummaryPayload(rows, opts);
+  const sig = getRaceSummarySignature(summary);
+
+  __gjRaceLastSummary = summary;
+
+  if (sig !== __gjRaceLastSummarySig) {
+    __gjRaceLastSummarySig = sig;
+    persistRaceSummary(summary);
+  }
+
+  return summary;
+}
+
+function downloadRaceSummaryJson(summary = __gjRaceLastSummary) {
+  if (!summary) return;
+  downloadJson(
+    summary,
+    `goodjunk-race-${safeFilePart(summary.roomId || 'room')}-${safeFilePart(summary.pid || 'player')}-${safeFilePart(summary.raceStatusFinal || 'pending')}.json`
+  );
+}
+
+function downloadJson(payload, filename = `goodjunk-${Date.now()}.json`) {
+  if (!payload) return;
+  const blob = new Blob([JSON.stringify(payload, null, 2)], {
+    type: 'application/json;charset=utf-8'
+  });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+function safeFilePart(value) {
+  return String(value || 'file').replace(/[^a-z0-9_-]/gi, '-');
+}
+
+/* ---------------------------------------
+ * race result overlay
+ * ------------------------------------- */
+function showRaceResultOverlay(rows, opts = {}) {
+  const wrap = document.getElementById('raceResult');
+  const rowsBox = document.getElementById('raceResultRows');
+  const badge = document.getElementById('raceResultBadge');
+  const sub = document.getElementById('raceResultSub');
+  const hint = document.getElementById('raceResultHint');
+
+  if (!wrap || !rowsBox) return;
+
+  const pending = !!opts.pending;
+  const summary = storeRaceSummaryFromRows(rows, { allFinished: !pending });
+  const mine = getMyRaceRanked(rows);
+  const doneCount = summary.finishedCount;
+  const dnfCount = summary.dnfCount;
+  const waitingCount = summary.waitingCount;
+
+  rowsBox.innerHTML = rows.map((p) => {
+    const isMe = p.id === GJ_PID;
+
+    let stateLine = '';
+    if (p.dnf) {
+      stateLine = `
+        <div style="margin-top:4px;font-size:12px;color:#fda4af;font-weight:800;">
+          DNF • ${escapeHtml(getDnfReasonLabel(p.dnfReason))}
+        </div>
+      `;
+    } else if (!p.finished) {
+      stateLine = `
+        <div style="margin-top:4px;font-size:12px;color:#fbbf24;font-weight:800;">
+          ยังไม่จบ
+        </div>
+      `;
+    } else {
+      stateLine = `
+        <div style="margin-top:4px;font-size:12px;color:#86efac;font-weight:800;">
+          แข่งจบแล้ว
+        </div>
+      `;
     }
 
-    removeTarget(id);
-    setHUD();
+    return `
+      <div class="result-row ${isMe ? 'is-me' : ''}">
+        <div style="font-weight:900;">#${p.rank}</div>
 
-    if(missTotal >= TUNE.lifeMissLimit){
-      endGame('miss-limit');
+        <div>
+          <div style="font-weight:800;">
+            ${escapeHtml(p.name || p.id || 'player')}
+            ${isMe ? '<span style="color:#7dd3fc;"> • คุณ</span>' : ''}
+          </div>
+          ${stateLine}
+        </div>
+
+        <div>${p.dnf ? '—' : p.finalScore}</div>
+        <div>${p.dnf ? '—' : p.miss}</div>
+        <div>${p.dnf ? '—' : p.streak}</div>
+      </div>
+    `;
+  }).join('');
+
+  if (badge) {
+    if (mine) {
+      badge.textContent = mine.dnf
+        ? `DNF • ${getDnfReasonLabel(mine.dnfReason)}`
+        : `อันดับ #${mine.rank}`;
+
+      badge.style.color = mine.rank === 1 && !mine.dnf ? '#fde68a' : '#86efac';
+      badge.style.borderColor = mine.rank === 1 && !mine.dnf
+        ? 'rgba(250,204,21,.28)'
+        : 'rgba(34,197,94,.25)';
+      badge.style.background = mine.rank === 1 && !mine.dnf
+        ? 'rgba(250,204,21,.10)'
+        : 'rgba(34,197,94,.12)';
+    } else {
+      badge.textContent = '-';
     }
   }
 
-  function expireTargets(){
-    const t = nowMs();
-    for(const [id, obj] of targets){
-      const age = (t - obj.born) / 1000;
-      if(age >= obj.ttl){
-        if(obj.type === 'good'){
-          missTotal++;
-          missGoodExpired++;
-          streakMiss++;
-          combo = 0;
-
-          pushRollingEvent(rollingTracker, {
-            atMs: t,
-            type:'expire',
-            good:false,
-            junk:false,
-            miss:false,
-            expire:true,
-            rt:0,
-            comboBreak:true,
-            scoreDelta:0
-          });
-
-          logGameEvent('expire', {
-            targetType:'good',
-            good:false,
-            junk:false,
-            scoreDelta:0
-          });
-
-          const r = obj.el.getBoundingClientRect();
-          emitPatternEvent('expire', { targetType:'good', targetId:id });
-          fxFloatText(r.left + r.width/2, r.top + r.height/2, 'ช้า!', true);
-        }
-        removeTarget(id);
-      }
-    }
+  if (sub) {
+    sub.textContent = pending
+      ? `ผลชั่วคราว • จบแล้ว ${doneCount} • DNF ${dnfCount} • รออีก ${waitingCount}`
+      : `ผลสุดท้าย • จบแล้ว ${doneCount} • DNF ${dnfCount} • ผู้เล่นทั้งหมด ${summary.playerCount} คน`;
   }
 
-  function spawnOne(adaptive){
-    if(!playing || paused) return;
+  if (hint) {
+    hint.textContent = pending
+      ? 'ระบบบันทึก race summary แบบ pending ไว้แล้ว และจะอัปเดตเป็น final เมื่อทุกคนจบหรือถูกตัดสิทธิ์'
+      : 'Race summary final ถูกบันทึกแยกจาก solo แล้ว พร้อม export JSON';
+  }
 
-    const plan = activePatternPlan || {};
-    const ttlMul = (adaptive?.ttlMul || 1) * (aiDirectorState.ttlMul || 1);
+  wrap.hidden = false;
+  state.pendingResultVisible = pending;
+  bindRaceResultButtons();
+}
 
-    if(isBossPhase()){
-      if(!bossActive) return;
+function hideRaceResultOverlay() {
+  const wrap = document.getElementById('raceResult');
+  if (!wrap) return;
+  wrap.hidden = true;
+  state.pendingResultVisible = false;
+}
 
-      let hasWeak = false;
-      for(const [,t] of targets){
-        if(t.type === 'bossweak' || t.type === 'bossdecoy'){
-          hasWeak = true;
-          break;
-        }
-      }
+function buildRaceLobbyUrl() {
+  const q = new URLSearchParams({
+    pid: GJ_PID,
+    name: GJ_NAME,
+    studyId: RUN_CTX.studyId || '',
+    diff: RUN_CTX.diff || 'normal',
+    time: RUN_CTX.time || '120',
+    seed: String(Date.now()),
+    hub: GJ_HUB,
+    view: RUN_CTX.view || 'mobile',
+    run: RUN_CTX.run || 'play',
+    gameId: GJ_GAME_ID,
+    mode: 'race',
+    roomId: GJ_ROOM_ID
+  });
+  return `./goodjunk-race-lobby.html?${q.toString()}`;
+}
 
-      if(!hasWeak){
-        if(plan.useBossDecoyPattern){
-          spawnBossDecoyPattern({ ttlMul });
-        }else if(plan.useBossMirrorPattern){
-          spawnBossMirrorPattern({ ttlMul });
-        }else{
-          const weakTtl =
-            plan.useBossRagePattern ? 1.05 :
-            plan.useBossPrecisionPattern ? 1.20 :
-            1.50;
+function resetRaceRoomForRematch() {
+  const room = loadRaceRoom();
+  if (!room) return;
 
-          const weak = makeTarget('bossweak', WEAK, weakTtl * ttlMul);
-          emitPatternEvent('boss-pattern', {
-            pattern: activePatternId,
-            targetId: weak.id,
-            ttl: weakTtl * ttlMul
-          });
-        }
-      }else{
-        const extraJunkProb =
-          plan.useBossStormPattern ? 0.84 :
-          plan.useBossRagePattern ? 0.78 :
-          0.56;
+  room.status = 'waiting';
+  room.startAt = null;
+  room.updatedAt = Date.now();
 
-        if(r01() < extraJunkProb){
-          const junk = makeTarget('junk', rPick(JUNK), TUNE.ttlJunk * ttlMul);
-          emitPatternEvent('boss-pattern', {
-            pattern: `${activePatternId}-junk`,
-            targetId: junk.id
-          });
-        }
-      }
+  room.players = normalizeRacePlayers(room.players).map((p) => ({
+    ...p,
+    ready: false,
+    connected: true,
+    phase: 'lobby',
+    finished: false,
+    dnf: false,
+    dnfReason: '',
+    finalScore: 0,
+    miss: 0,
+    streak: 0,
+    finishedAt: 0,
+    lastSeenAt: Date.now()
+  }));
+
+  const hasCurrentHost = room.players.some((p) => p.id === room.hostId);
+  if (!hasCurrentHost) {
+    room.hostId = room.players[0]?.id || '';
+  }
+
+  saveRaceRoom(room, 'rematch-reset');
+}
+
+function bindRaceResultButtons() {
+  if (__gjRaceResultBound) return;
+  __gjRaceResultBound = true;
+
+  const btnRematch = document.getElementById('btnRaceRematch');
+  const btnLobby = document.getElementById('btnRaceBackLobby');
+  const btnExport = document.getElementById('btnRaceExport');
+  const btnHub = document.getElementById('btnRaceBackHub');
+
+  btnRematch?.addEventListener('click', () => {
+    const room = loadRaceRoom();
+    if (!room || !Array.isArray(room.players) || !room.players.length) {
+      location.href = GJ_HUB;
       return;
     }
 
-    let pShield = (diff === 'hard') ? 0.10 : 0.12;
-    let pBonus = 0.12 + (fever > 0 ? 0.04 : 0) + (plan.bonusWindow || 0) + (aiDirectorState.bonusBias || 0);
-    let pJunk = (diff === 'easy') ? 0.28 : (diff === 'hard' ? 0.38 : 0.33);
-
-    if(isRuntimeVR()){
-      pBonus += 0.03;
-      pJunk -= 0.05;
-    }
-
-    pJunk = clamp(
-      pJunk +
-      (adaptive?.junkBias || 0) +
-      (aiDirectorState.junkBias || 0) +
-      (plan.dangerBoost ? 0.04 : 0) -
-      (plan.useReliefAssist ? 0.08 : 0),
-      0.12,
-      0.62
-    );
-
-    if(plan.useBonusCorridor) pBonus += 0.08;
-    if(plan.useReliefAssist) pBonus += 0.06;
-
-    const r = r01();
-    if(r < pShield){
-      makeTarget('shield', rPick(SHIELDS), 2.4 * ttlMul);
-    }else if(r < pShield + pBonus){
-      makeTarget('bonus', rPick(BONUS), TUNE.ttlBonus * ttlMul);
-    }else if(r < pShield + pBonus + pJunk){
-      makeTarget('junk', rPick(JUNK), TUNE.ttlJunk * ttlMul);
-    }else{
-      let emoji = rPick(GOOD);
-      if(activePatternId === 'warm_open_green_focus' && r01() < 0.40){
-        emoji = rPick(GREEN_FOCUS);
-      }
-      makeTarget('good', emoji, TUNE.ttlGood * ttlMul);
-    }
-  }
-
-  function dist2(ax,ay,bx,by){
-    const dx = ax - bx;
-    const dy = ay - by;
-    return dx*dx + dy*dy;
-  }
-
-  function shootAtCenter(){
-    if(!playing || paused) return;
-    const r = layerRect();
-    const cx = r.left + r.width / 2;
-    const cy = r.top + r.height / 2;
-
-    let best = null;
-    let bestD = Infinity;
-    for(const [id, t] of targets){
-      const br = t.el.getBoundingClientRect();
-      const tx = br.left + br.width/2;
-      const ty = br.top + br.height/2;
-      const d = dist2(cx, cy, tx, ty);
-      if(d < bestD){
-        bestD = d;
-        best = id;
-      }
-    }
-
-    if(best){
-      hitTarget(best);
-    }else{
-      shots++;
-      streakMiss++;
-      combo = 0;
-
-      pushRollingEvent(rollingTracker, {
-        atMs: nowMs(),
-        type:'miss-shot',
-        good:false,
-        junk:false,
-        miss:true,
-        expire:false,
-        rt:0,
-        comboBreak:true,
-        scoreDelta:0
-      });
-
-      logGameEvent('miss-shot', { reason:'no-target' });
-      emitPatternEvent('miss-shot', { reason:'no-target' });
-      setHUD();
-    }
-  }
-
-  WIN.addEventListener('hha:shoot', ()=>{
-    try{
-      SOUND?.unlock?.();
-      shootAtCenter();
-    }catch(_){}
+    forceFinalizeRaceRoom();
+    resetRaceRoomForRematch();
+    location.href = buildRaceLobbyUrl();
   });
 
-  function buildEndDetail(reason){
-    const accPct = shots ? Math.round((hits / shots) * 100) : 0;
-    const grade = gradeFromScore();
-    const timePlayedSec = Math.round(plannedSec - tLeft);
+  btnLobby?.addEventListener('click', () => {
+    forceFinalizeRaceRoom();
+    location.href = buildRaceLobbyUrl();
+  });
+
+  btnExport?.addEventListener('click', () => {
+    downloadRaceSummaryJson(__gjRaceLastSummary);
+  });
+
+  btnHub?.addEventListener('click', () => {
+    forceFinalizeRaceRoom();
+    location.href = GJ_HUB;
+  });
+}
+
+/* ---------------------------------------
+ * race presence / disconnect / watchdog
+ * ------------------------------------- */
+function markRacePresenceDuringRun(patch = {}) {
+  if (!isRaceMode()) return;
+
+  const room = loadRaceRoom();
+  if (!room || !Array.isArray(room.players)) return;
+
+  room.updatedAt = Date.now();
+  room.players = normalizeRacePlayers(room.players).map((p) => {
+    if (p.id !== GJ_PID) return p;
 
     return {
-      game: HH_GAME,
-      gameKey: HH_GAME,
-      cat: HH_CAT,
-      pid,
-      nick,
-      seed: seedStr,
-      mode,
-      run: runMode,
-      diff,
-      view: runtimeView(),
-      pro: PRO ? 1 : 0,
-      score,
-      scoreFinal: score,
-      scoreTarget: WIN_TARGET.scoreTarget,
-      goodTarget: WIN_TARGET.goodTarget,
-      shots,
-      hits,
-      accPct,
-      missTotal,
-      missGoodExpired,
-      missJunkHit,
-      comboBest: bestCombo,
-      goodHitCount,
-      stageFinal: stageFinalLabelFromPhase(),
-      phaseFinal: phaseMachine.phase,
-      bossCleared: bossHp <= 0,
-      bossHpLeft: bossHp,
-      bossHpMax,
-      bossPersona: bossPersona.id,
-      bossPersonaLabel: bossPersona.label,
-      fever,
-      shield,
-      grade,
-      reason,
-      win: reason === 'win',
-      timePlayedSec,
-      timePlannedSec: plannedSec,
-      timeLeftSec: Math.max(0, Math.ceil(tLeft)),
-      finishMs: currentFinishMs(),
-      medianRtGoodMs: currentMedianRtGoodMs(),
-      hub: hubUrl,
-      battle: 0,
-      room: '',
-      studyId: String(qs('studyId','') || ''),
-      phase: String(qs('phase','') || ''),
-      conditionGroup: String(qs('conditionGroup','') || ''),
-      planDay: String(qs('planDay','') || ''),
-      planSlot: String(qs('planSlot','') || ''),
-      planMode: String(qs('planMode','') || ''),
-      zone: String(qs('zone', HH_ZONE) || HH_ZONE),
-      startTimeIso,
-      endTimeIso: nowIso()
+      ...p,
+      name: GJ_NAME || p.name || p.id,
+      connected: patch.connected ?? true,
+      phase: patch.phase || p.phase || 'run',
+      ready: patch.ready ?? p.ready ?? true,
+      finished: patch.finished ?? p.finished ?? false,
+      dnf: patch.dnf ?? p.dnf ?? false,
+      dnfReason: patch.dnfReason ?? p.dnfReason ?? '',
+      lastSeenAt: Date.now()
     };
+  });
+
+  saveRaceRoom(room, 'run-presence');
+}
+
+function stopRaceHeartbeat() {
+  if (__gjRaceHeartbeatTimer) {
+    clearInterval(__gjRaceHeartbeatTimer);
+    __gjRaceHeartbeatTimer = 0;
   }
+}
 
-  function renderDecision(detail){
-    if(!endDecision) return;
-    endDecision.textContent =
-      detail.win
-        ? `โหมดเดี่ยว • ผ่านเป้าหมายแล้ว • phase สุดท้าย ${detail.phaseFinal || detail.stageFinal || '-'}`
-        : `โหมดเดี่ยว • เป้าหมายคือ score ${detail.scoreTarget} หรือชนะบอส • phase สุดท้าย ${detail.phaseFinal || detail.stageFinal || '-'}`;
+function stopRaceWatchdog() {
+  if (__gjRaceWatchdogTimer) {
+    clearInterval(__gjRaceWatchdogTimer);
+    __gjRaceWatchdogTimer = 0;
   }
+}
 
-  function renderEndOverlay(detail){
-    if(!endOverlay) return;
-    endOverlay.style.display = 'flex';
+function startRaceHeartbeat() {
+  if (!isRaceMode() || __gjRaceHeartbeatTimer) return;
 
-    const summary = detail.summary || buildEndSummary(detail, aiSnapshot);
+  markRacePresenceDuringRun({
+    phase: 'run',
+    ready: true,
+    connected: true,
+    finished: false,
+    dnf: false
+  });
 
-    applySummaryToOverlay({
-      summary,
-      detail,
-      endTitleEl: endTitle,
-      endSubEl: endSub,
-      endGradeEl: endGrade,
-      endScoreEl: endScore,
-      endMissEl: endMiss,
-      endTimeEl: endTime,
-      endDecisionEl: endDecision,
-      endTopEl: $('endTop'),
-      panelEl: endOverlay?.querySelector('.panel')
+  __gjRaceHeartbeatTimer = setInterval(() => {
+    markRacePresenceDuringRun({
+      phase: 'run',
+      ready: true,
+      connected: true,
+      finished: false,
+      dnf: false
     });
+  }, GJ_RACE_HEARTBEAT_MS);
+}
 
-    const panel = endOverlay?.querySelector('.panel');
-    if(panel && detail.bossPersonaLabel && !panel.querySelector('[data-gj-bosspersona="1"]')){
-      const chip = DOC.createElement('div');
-      chip.dataset.gjBosspersona = '1';
-      chip.style.marginTop = '10px';
-      chip.style.display = 'inline-flex';
-      chip.style.padding = '8px 12px';
-      chip.style.borderRadius = '999px';
-      chip.style.border = '1px solid rgba(148,163,184,.18)';
-      chip.style.background = 'rgba(15,23,42,.84)';
-      chip.style.fontWeight = '1000';
-      chip.textContent = `Boss Persona: ${detail.bossPersonaLabel}`;
-      const endStats = panel.querySelector('.end-stats');
-      if(endStats) panel.insertBefore(chip, endStats);
-      else panel.appendChild(chip);
-    }
+function markMyRaceDisconnected(reason = 'disconnect') {
+  if (!isRaceMode()) return;
 
-    renderDecision(detail);
+  const room = loadRaceRoom();
+  if (!room || !Array.isArray(room.players)) return;
 
-    injectCooldownButton({
-      documentRef: DOC,
-      endOverlayEl: endOverlay,
-      endActionsEl: endOverlay?.querySelector('.end-actions'),
-      hub: hubUrl,
-      cat: HH_CAT,
-      gameKey: HH_GAME,
-      pid,
-      currentUrl: location.href
-    });
-  }
+  room.updatedAt = Date.now();
+  room.players = normalizeRacePlayers(room.players).map((p) => {
+    if (p.id !== GJ_PID) return p;
+    if (p.finished) return p;
 
-  function endGame(reason){
-    if(!playing || ended) return;
-    ended = true;
-    playing = false;
-    paused = true;
-    setDanger(false);
-
-    for(const [, t] of targets){
-      try{ t.el.remove(); }catch(_){}
-    }
-    targets.clear();
-
-    const detail = buildEndDetail(reason);
-    const summary = buildEndSummary(detail, aiSnapshot);
-    detail.summary = summary;
-
-    try{
-      saveLastSummary({
-        gameKey: HH_GAME,
-        pid,
-        detail,
-        summary
-      });
-    }catch(e){
-      console.warn('[GoodJunk] saveLastSummary failed', e);
-    }
-
-    try{
-      const summaryRow = buildSummaryRow({
-        store: telemetryStore,
-        tGameMs: tGameMsNow(),
-        phase: phaseNow(),
-        detail,
-        summary
-      });
-      logTelemetryEvent(telemetryStore, summaryRow);
-    }catch(e){
-      console.warn('[GoodJunk] summary row failed', e);
-    }
-
-    try{
-      WIN.dispatchEvent(new CustomEvent('hha:end', { detail }));
-    }catch(_){}
-
-    try{
-      flushGameTelemetry('end-game', {
-        outcome: detail.win ? 'win' : 'lose',
-        reason: detail.reason || reason,
-        scoreFinal: detail.scoreFinal
-      });
-    }catch(e){
-      console.warn('[GoodJunk] flush end-game failed', e);
-    }
-
-    sfx(detail.win ? 'win' : 'lose');
-    renderEndOverlay(detail);
-  }
-
-  function tick(){
-    const t = nowMs();
-    let dt = (t - lastTick) / 1000;
-    lastTick = t;
-    dt = clamp(dt, 0, 0.05);
-
-    if(!playing) return;
-
-    if(paused){
-      setHUD();
-      requestAnimationFrame(tick);
-      return;
-    }
-
-    tickPhaseMachine(phaseMachine, dt);
-
-    tLeft = Math.max(0, tLeft - dt);
-    fever = Math.max(0, fever - dt);
-    precisionWindow = Math.max(0, precisionWindow - dt);
-
-    if(tLeft <= 0){
-      const win = (score >= WIN_TARGET.scoreTarget) || (isBossPhase() && bossHp <= 0);
-      endGame(win ? 'win' : 'time');
-      return;
-    }
-
-    if(mini.t > 0){
-      mini.t = Math.max(0, mini.t - dt);
-      if(mini.t <= 0) mini.name = fever > 0 ? 'FEVER 🔥' : '—';
-    }else if(fever > 0){
-      mini.name = 'FEVER 🔥';
-      mini.t = Math.max(1, fever);
-    }
-
-    const dangerNow =
-      tLeft <= 10 ||
-      (isBossPhase() && bossHpMax > 0 && bossHp / bossHpMax >= 0.55 && tLeft <= 18);
-
-    setDanger(dangerNow);
-    maybeComebackBoost();
-    maybeTransitionPhase();
-
-    let adaptive = { spawnMul:1, junkBias:0, ttlMul:1, coach:null };
-    if(AI_PLAY_ADAPT){
-      adaptive = aiDirector(getPlayerProfile());
-    }
-
-    updateAiDirector(t).catch(err=>{
-      console.warn('[GoodJunk] updateAiDirector failed', err);
-    });
-
-    let spawnMulFinal =
-      (adaptive.spawnMul || 1) *
-      (pacingState.spawnMul || 1) *
-      (aiDirectorState.spawnMul || 1);
-
-    let ttlMulFinal =
-      (adaptive.ttlMul || 1) *
-      (pacingState.ttlMul || 1) *
-      (aiDirectorState.ttlMul || 1);
-
-    if(fever > 0){
-      spawnMulFinal *= 1.06;
-      ttlMulFinal *= 0.98;
-    }
-
-    if(comebackReady){
-      spawnMulFinal *= 1.05;
-      ttlMulFinal *= 1.02;
-    }
-
-    adaptive = {
-      ...adaptive,
-      junkBias: (adaptive.junkBias || 0) + (pacingState.junkBias || 0),
-      ttlMul: ttlMulFinal,
-      spawnMul: spawnMulFinal
+    return {
+      ...p,
+      connected: false,
+      phase: 'run',
+      dnf: false,
+      dnfReason: reason,
+      lastSeenAt: Date.now()
     };
+  });
 
-    spawnAcc += dt * (1 / (TUNE.spawnBase / spawnMulFinal));
-    while(spawnAcc >= 1){
-      spawnAcc -= 1;
-      spawnOne(adaptive);
-    }
+  saveRaceRoom(room, 'disconnect-mark');
+}
 
-    if(isBossPhase() && bossPersona.id === 'storm_chaos'){
-      bossStormTimer += dt;
-      if(bossStormTimer >= 4){
-        bossStormTimer = 0;
-        for(let i=0;i<2;i++){
-          const junk = makeTarget('junk', rPick(JUNK), TUNE.ttlJunk * (adaptive.ttlMul || 1));
-          emitPatternEvent('boss-pattern', {
-            pattern:'storm_chaos-extra-junk',
-            targetId:junk.id
-          });
-          logGameEvent('boss-pattern', {
-            pattern:'storm_chaos-extra-junk',
-            targetId:junk.id
-          });
-        }
+function maybeFinalizeRaceRoom(force = false) {
+  if (!isRaceMode()) return;
+
+  const room = loadRaceRoom();
+  if (!room || !Array.isArray(room.players) || !room.players.length) return;
+
+  let changed = false;
+  const ts = Date.now();
+
+  const players = normalizeRacePlayers(room.players).map((p) => {
+    if (p.finished) return p;
+
+    const stale = !p.lastSeenAt || (ts - p.lastSeenAt > GJ_RACE_STALE_MS);
+    if (!force && !stale) return p;
+
+    changed = true;
+
+    let reason = p.dnfReason || '';
+    if (!reason) {
+      if (force) {
+        reason = 'timeout';
+      } else if (p.connected === false) {
+        reason = 'disconnect';
+      } else {
+        reason = 'timeout';
       }
     }
 
-    if(isBossPhase() && bossPersona.id === 'precision_sniper'){
-      bossStormTimer += dt;
-      if(bossStormTimer >= 3.2){
-        bossStormTimer = 0;
-        openPrecisionWindow(1.25);
-        logGameEvent('boss-pattern', {
-          pattern:'precision_window_open',
-          sec:1.25
-        });
-      }
-    }
-
-    if(isBossPhase() && bossPersona.id === 'rage_beast' && !bossRage){
-      if(tLeft <= 12 || (bossHpMax > 0 && bossHp / bossHpMax <= 0.45)){
-        bossRage = true;
-        sayCoach('RAGE MODE! ระวังให้ดี!', true);
-        emitPatternEvent('boss-phase', {
-          boss:'rage_beast',
-          phase:'rage'
-        });
-        logGameEvent('boss-phase', {
-          boss:'rage_beast',
-          phase:'rage'
-        });
-      }
-    }
-
-    expireTargets();
-    setHUD();
-
-    if(isBossPhase()){
-      setBossUI(true);
-      setBossHpUI();
-    }else{
-      setBossUI(false);
-    }
-
-    requestAnimationFrame(tick);
-  }
-
-  WIN.addEventListener('hha:flow-next', (ev)=>{
-    try{
-      const d = ev.detail || {};
-      logTelemetryEvent(telemetryStore, buildFlowRow({
-        store: telemetryStore,
-        tGameMs: tGameMsNow(),
-        phase: phaseNow(),
-        eventName: String(d.action || 'flow-next'),
-        payload: d
-      }));
-      flushGameTelemetry(String(d.action || 'flow-next'), d);
-    }catch(_){}
-  });
-
-  WIN.addEventListener('pagehide', ()=>{
-    try{
-      flushGameTelemetry('pagehide', { phase: phaseNow(), score, tLeft });
-    }catch(_){}
-  });
-
-  WIN.addEventListener('beforeunload', ()=>{
-    try{
-      flushGameTelemetry('beforeunload', { phase: phaseNow(), score, tLeft });
-    }catch(_){}
-  });
-
-  WIN.addEventListener('hha:vrmodechange', ()=>{
-    try{
-      if(uiView) uiView.textContent = runtimeView();
-      setMissionUI();
-      setHUD();
-      clampTargetsToSafeArea();
-    }catch(_){}
-  });
-
-  if(missionBox){
-    missionBox.addEventListener('click', ()=>{
-      missionBox.classList.remove('auto-hide');
-      missionBox.classList.toggle('compact');
-
-      clearTimeout(missionExpandTimer);
-      clearTimeout(missionHideTimer);
-
-      if(isRuntimeMobile()){
-        missionHideTimer = setTimeout(()=>{
-          missionBox.classList.add('compact');
-          missionBox.classList.add('auto-hide');
-          clampTargetsToSafeArea();
-        }, 2200);
-      }
-    });
-  }
-
-  if(aiBox){
-    aiBox.addEventListener('click', ()=>{
-      aiBox.classList.remove('auto-hide');
-      aiBox.classList.toggle('compact');
-      revealAiBox();
-    });
-  }
-
-  if(btnReplay){
-    btnReplay.onclick = ()=>{
-      try{
-        logTelemetryEvent(telemetryStore, buildFlowRow({
-          store: telemetryStore,
-          tGameMs: tGameMsNow(),
-          phase: phaseNow(),
-          eventName:'flow-next',
-          payload:{ action:'replay' }
-        }));
-        flushGameTelemetry('replay', { action:'replay' });
-      }catch(_){}
-      location.href = new URL(location.href).toString();
+    return {
+      ...p,
+      connected: false,
+      phase: 'done',
+      finished: true,
+      dnf: true,
+      dnfReason: reason,
+      finalScore: 0,
+      miss: 9999,
+      streak: 0,
+      finishedAt: ts,
+      lastSeenAt: ts
     };
-  }
-
-  function handleBackHub(){
-    const cdDone =
-      typeof WIN.HHA_GJ_IS_COOLDOWN_DONE_TODAY === 'function'
-        ? !!WIN.HHA_GJ_IS_COOLDOWN_DONE_TODAY()
-        : getCooldownDone(HH_CAT, HH_GAME, pid);
-
-    if(cdDone){
-      try{
-        logTelemetryEvent(telemetryStore, buildFlowRow({
-          store: telemetryStore,
-          tGameMs: tGameMsNow(),
-          phase: phaseNow(),
-          eventName:'flow-next',
-          payload:{ action:'back-hub-direct' }
-        }));
-        flushGameTelemetry('back-hub-direct', { action:'back-hub-direct' });
-      }catch(_){}
-      location.href = hubUrl;
-      return;
-    }
-
-    const endedNow = !!(endOverlay && endOverlay.style.display === 'flex');
-
-    if(endedNow && typeof WIN.HHA_GJ_OPEN_SKIP_DIALOG === 'function'){
-      WIN.HHA_GJ_OPEN_SKIP_DIALOG();
-      return;
-    }
-
-    const cdTarget =
-      typeof WIN.HHA_GJ_BUILD_COOLDOWN_TARGET === 'function'
-        ? WIN.HHA_GJ_BUILD_COOLDOWN_TARGET()
-        : buildCooldownUrl({
-            currentUrl: location.href,
-            hub: hubUrl,
-            nextAfterCooldown: hubUrl,
-            cat: HH_CAT,
-            gameKey: HH_GAME,
-            pid
-          });
-
-    try{
-      logTelemetryEvent(telemetryStore, buildFlowRow({
-        store: telemetryStore,
-        tGameMs: tGameMsNow(),
-        phase: phaseNow(),
-        eventName:'cooldown-enter',
-        payload:{
-          action:'back-hub-via-cooldown',
-          cooldownUrl: cdTarget
-        }
-      }));
-      flushGameTelemetry('back-hub-via-cooldown', { cooldownUrl: cdTarget });
-    }catch(_){}
-
-    location.href = cdTarget;
-  }
-
-  if(btnBackHub) btnBackHub.onclick = handleBackHub;
-  if(btnBackHubBottom) btnBackHubBottom.onclick = handleBackHub;
-
-  applyPhaseEntry(phaseMachine, pacingState);
-  refreshPatternPlan();
-  setMissionUI();
-  setHUD();
-  setCoachInline(getCoachLineForPhase(phaseMachine.phase, bossPersona), bossPersona.introLine || 'prediction-ready');
-
-  if (view === 'mobile') {
-    missionBox?.classList.add('compact');
-    aiBox?.classList.add('compact');
-
-    enableMobileCombatMode();
-
-    setTimeout(()=>{
-      missionBox?.classList.add('auto-hide');
-      clampTargetsToSafeArea();
-    }, 1500);
-
-    setTimeout(()=>{
-      aiBox?.classList.add('auto-hide');
-      clampTargetsToSafeArea();
-    }, 1800);
-  }
-
-  logGameEvent('run-start', {
-    phase: phaseNow(),
-    patternId: activePatternId,
-    bossPersona: bossPersona.id,
-    diff,
-    mode,
-    view: runtimeView(),
-    plannedSec
   });
 
-  logGameEvent('model-runtime-ready', {
-    ...modelRuntime.getMeta()
+  const allFinished = players.every((p) => p.finished);
+  const nextStatus = allFinished ? 'finished' : (room.status === 'waiting' ? 'waiting' : 'running');
+
+  if (
+    changed ||
+    room.status !== nextStatus ||
+    JSON.stringify(room.players) !== JSON.stringify(players)
+  ) {
+    room.players = players;
+    room.status = nextStatus;
+    room.updatedAt = ts;
+    saveRaceRoom(room, 'watchdog');
+  }
+
+  if (allFinished) {
+    const ranked = rankRacePlayers(players);
+    const me = getMyRaceRanked(ranked);
+
+    if (me) {
+      showRaceResultOverlay(ranked, { pending: false });
+    }
+
+    stopRaceHeartbeat();
+    stopRaceWatchdog();
+  }
+}
+
+function forceFinalizeRaceRoom() {
+  maybeFinalizeRaceRoom(true);
+}
+
+function startRaceWatchdog() {
+  if (!isRaceMode() || __gjRaceWatchdogTimer) return;
+
+  maybeFinalizeRaceRoom(false);
+
+  __gjRaceWatchdogTimer = setInterval(() => {
+    maybeFinalizeRaceRoom(false);
+  }, GJ_RACE_WATCHDOG_MS);
+}
+
+function publishRaceFinish(result = {}) {
+  if (!isRaceMode()) return;
+  if (!GJ_RACE_STORAGE_KEY) return;
+  if (__gjRaceFinished) return;
+
+  __gjRaceFinished = true;
+  stopRaceHeartbeat();
+
+  const room = loadRaceRoom();
+  if (!room || !Array.isArray(room.players)) return;
+
+  room.updatedAt = Date.now();
+  room.players = normalizeRacePlayers(room.players).map((p) => {
+    if (p.id !== GJ_PID) return p;
+
+    return {
+      ...p,
+      name: GJ_NAME || p.name || p.id,
+      ready: true,
+      connected: true,
+      phase: 'done',
+      finished: true,
+      dnf: false,
+      dnfReason: '',
+      finalScore: Number(result.score || 0),
+      miss: Number(result.miss || 0),
+      streak: Number(result.streak || result.bestStreak || 0),
+      finishedAt: Date.now(),
+      lastSeenAt: Date.now()
+    };
   });
 
-  sayCoach('พร้อมแล้ว! ยิงของดี 🥦', true);
-  requestAnimationFrame(tick);
+  const allFinished = room.players.length > 0 && room.players.every((p) => p.finished);
+  room.status = allFinished ? 'finished' : 'running';
+
+  saveRaceRoom(room, 'finish');
+
+  const ranked = rankRacePlayers(room.players);
+  showRaceResultOverlay(ranked, { pending: !allFinished });
+
+  maybeFinalizeRaceRoom(false);
+}
+
+function openRaceResultFromRoom() {
+  if (!isRaceMode()) return;
+  const room = loadRaceRoom();
+  if (!room || !Array.isArray(room.players)) return;
+
+  const ranked = rankRacePlayers(room.players);
+  const allFinished = ranked.length > 0 && ranked.every((p) => p.finished);
+  const me = getMyRaceRanked(ranked);
+
+  if (me?.finished || me?.dnf) {
+    showRaceResultOverlay(ranked, { pending: !allFinished });
+  }
+}
+
+function attachRaceRoomListener() {
+  if (!GJ_RACE_CHANNEL) return;
+
+  GJ_RACE_CHANNEL.onmessage = (ev) => {
+    const data = ev?.data;
+    if (!data || data.type !== 'room:update' || !data.room) return;
+
+    const ranked = rankRacePlayers(data.room.players || []);
+    const me = getMyRaceRanked(ranked);
+    if (!me) return;
+
+    const allFinished = ranked.length > 0 && ranked.every((p) => p.finished);
+    if (me.finished || me.dnf) {
+      showRaceResultOverlay(ranked, { pending: !allFinished });
+    }
+
+    if (!allFinished) {
+      maybeFinalizeRaceRoom(false);
+    }
+  };
+}
+
+/* ---------------------------------------
+ * misc helpers
+ * ------------------------------------- */
+function escapeHtml(s) {
+  return String(s ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;');
+}
+
+function buildReplayUrl() {
+  const q = new URLSearchParams({
+    pid: GJ_PID,
+    name: GJ_NAME,
+    studyId: RUN_CTX.studyId || '',
+    diff: RUN_CTX.diff || 'normal',
+    time: RUN_CTX.time || '120',
+    seed: String(Date.now()),
+    hub: GJ_HUB,
+    view: RUN_CTX.view || 'mobile',
+    run: RUN_CTX.run || 'play',
+    gameId: GJ_GAME_ID,
+    mode: state.mode
+  });
+
+  if (isRaceMode()) {
+    q.set('roomId', GJ_ROOM_ID);
+    q.set('startAt', String(GJ_START_AT));
+  }
+
+  return `./goodjunk-vr.html?${q.toString()}`;
 }
