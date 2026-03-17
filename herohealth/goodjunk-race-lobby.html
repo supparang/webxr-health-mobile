@@ -1,0 +1,332 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth • GoodJunk Race Lobby</title>
+  <meta name="color-scheme" content="dark light" />
+  <link rel="icon" href="./favicon.ico" />
+  <style>
+    :root{
+      --bg1:#020617;
+      --bg2:#0b1226;
+      --panel:rgba(2,6,23,.76);
+      --panel2:rgba(15,23,42,.46);
+      --stroke:rgba(148,163,184,.18);
+      --text:#e5e7eb;
+      --muted:#94a3b8;
+      --good:#22c55e;
+      --blue:#38bdf8;
+      --warn:#f59e0b;
+      --pink:#f472b6;
+      --shadow:0 24px 64px rgba(0,0,0,.28);
+      --sat: env(safe-area-inset-top, 0px);
+      --sar: env(safe-area-inset-right, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
+    }
+
+    *{ box-sizing:border-box; }
+
+    html,body{
+      margin:0;
+      min-height:100%;
+      font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(circle at top, #172554 0%, transparent 35%),
+        linear-gradient(180deg,var(--bg2),var(--bg1));
+    }
+
+    .wrap{
+      max-width:980px;
+      margin:0 auto;
+      padding:
+        calc(24px + var(--sat))
+        calc(16px + var(--sar))
+        calc(40px + var(--sab))
+        calc(16px + var(--sal));
+    }
+
+    .hero{
+      margin-bottom:18px;
+      padding:22px 20px;
+      border:1px solid var(--stroke);
+      border-radius:24px;
+      background:var(--panel);
+      backdrop-filter:blur(10px);
+      box-shadow:var(--shadow);
+    }
+
+    .kicker{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:6px 12px;
+      border-radius:999px;
+      border:1px solid rgba(56,189,248,.25);
+      background:rgba(56,189,248,.12);
+      color:#7dd3fc;
+      font-weight:900;
+      font-size:13px;
+      margin-bottom:12px;
+    }
+
+    h1{
+      margin:0 0 10px;
+      font-size:30px;
+      line-height:1.1;
+    }
+
+    .muted{
+      color:var(--muted);
+      font-size:14px;
+      line-height:1.65;
+    }
+
+    .card{
+      background:var(--panel);
+      border:1px solid var(--stroke);
+      border-radius:22px;
+      padding:18px;
+      backdrop-filter:blur(10px);
+      box-shadow:var(--shadow);
+      margin-bottom:16px;
+    }
+
+    .row{
+      display:flex;
+      gap:12px;
+      flex-wrap:wrap;
+      align-items:center;
+    }
+
+    .pill{
+      display:inline-flex;
+      align-items:center;
+      border:1px solid var(--stroke);
+      border-radius:999px;
+      padding:8px 12px;
+      background:rgba(15,23,42,.45);
+      color:var(--text);
+      font-weight:800;
+      font-size:13px;
+    }
+
+    .room-pill{
+      font-size:18px;
+      font-weight:900;
+      letter-spacing:.06em;
+      background:rgba(244,114,182,.12);
+      border-color:rgba(244,114,182,.25);
+      color:#f9a8d4;
+    }
+
+    .players{
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+      gap:12px;
+      margin-top:12px;
+    }
+
+    .player{
+      border:1px solid var(--stroke);
+      border-radius:18px;
+      padding:12px;
+      background:rgba(15,23,42,.45);
+      min-height:96px;
+    }
+
+    .ready{ color:var(--good); font-weight:800; }
+    .waiting{ color:var(--warn); font-weight:800; }
+
+    .btn{
+      appearance:none;
+      border:0;
+      cursor:pointer;
+      border-radius:14px;
+      padding:12px 16px;
+      font-weight:900;
+      font-size:14px;
+      transition:transform .12s ease, filter .12s ease, opacity .12s ease;
+    }
+
+    .btn:hover{ transform:translateY(-1px); filter:brightness(1.03); }
+    .btn:active{ transform:translateY(0); }
+    .btn:disabled{ opacity:.55; cursor:not-allowed; transform:none; }
+
+    .btn-primary{ background:var(--blue); color:#06203a; }
+    .btn-good{ background:var(--good); color:#052e16; }
+    .btn-ghost{
+      background:rgba(255,255,255,.06);
+      color:var(--text);
+      border:1px solid var(--stroke);
+    }
+
+    #countdown{
+      margin-top:14px;
+      font-size:56px;
+      font-weight:900;
+      text-align:center;
+      line-height:1;
+      min-height:64px;
+      color:#e5e7eb;
+      letter-spacing:.02em;
+    }
+
+    #copyState{
+      margin-top:10px;
+      min-height:20px;
+      font-size:13px;
+      line-height:1.5;
+    }
+
+    #joinGuard{
+      display:none;
+      margin-top:10px;
+      padding:12px 14px;
+      border-radius:14px;
+      background:rgba(245,158,11,.12);
+      border:1px solid rgba(245,158,11,.24);
+      color:#fbbf24;
+      font-weight:800;
+      font-size:14px;
+      line-height:1.55;
+    }
+
+    #inviteWrap{
+      margin-top:10px;
+    }
+
+    #inviteLink{
+      width:100%;
+      appearance:none;
+      border:1px solid var(--stroke);
+      border-radius:14px;
+      padding:12px 14px;
+      background:rgba(15,23,42,.45);
+      color:var(--text);
+      font-size:14px;
+      font-weight:700;
+      outline:none;
+    }
+
+    .section-title{
+      font-size:16px;
+      font-weight:900;
+      color:#e2e8f0;
+      margin-bottom:6px;
+    }
+
+    .hint{
+      margin-top:10px;
+      color:var(--muted);
+      font-size:13px;
+      line-height:1.6;
+      min-height:20px;
+    }
+
+    .tips{
+      margin-top:12px;
+      padding:14px 16px;
+      border-radius:16px;
+      border:1px dashed rgba(148,163,184,.22);
+      color:var(--muted);
+      background:rgba(255,255,255,.03);
+      font-size:13px;
+      line-height:1.7;
+    }
+
+    @media (max-width:640px){
+      .wrap{
+        padding:
+          calc(18px + var(--sat))
+          calc(12px + var(--sar))
+          calc(30px + var(--sab))
+          calc(12px + var(--sal));
+      }
+
+      h1{ font-size:26px; }
+      .card{ padding:16px; border-radius:18px; }
+      .players{ grid-template-columns:1fr; }
+      #countdown{ font-size:46px; min-height:54px; }
+      .row .btn{ flex:1 1 100%; }
+      .room-pill{ font-size:16px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="hero">
+      <div class="kicker">RACE LOBBY</div>
+      <h1>GoodJunk Race Lobby</h1>
+      <div class="muted">
+        รอผู้เล่นให้ครบก่อน แล้วค่อยเริ่มพร้อมกัน
+        ถ้าเป็น host เมื่อทุกคน ready แล้วจึงกดเริ่มแข่งได้
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="row">
+        <div class="pill room-pill">ROOM: <strong id="roomCode" style="margin-left:8px;">-</strong></div>
+        <div class="pill">Players: <strong id="playerCount" style="margin-left:8px;">0/2</strong></div>
+        <div class="pill">Status: <strong id="roomStatus" style="margin-left:8px;">waiting</strong></div>
+        <div class="pill">Host: <strong id="hostName" style="margin-left:8px;">-</strong></div>
+      </div>
+
+      <div class="row" style="margin-top:12px;">
+        <button class="btn btn-ghost" id="btnCopyRoom" type="button">คัดลอก Room Code</button>
+        <button class="btn btn-ghost" id="btnCopyInvite" type="button">คัดลอก Invite Link</button>
+      </div>
+
+      <div id="copyState" class="muted">
+        ส่ง room code หรือลิงก์นี้ให้ผู้เล่นคนอื่นเข้าร่วมได้
+      </div>
+
+      <div id="joinGuard">
+        ห้องนี้ไม่พร้อมให้เข้าร่วมตอนนี้
+      </div>
+
+      <div id="inviteWrap">
+        <input
+          id="inviteLink"
+          type="text"
+          readonly
+          value=""
+          aria-label="Invite Link"
+        />
+      </div>
+
+      <div id="countdown"></div>
+    </section>
+
+    <section class="card">
+      <div class="section-title">ผู้เล่นในห้อง</div>
+      <div class="muted">ระบบจะแสดงสถานะของแต่ละคนว่าอยู่ใน lobby, กำลังเข้าเกม, หรือแข่งจบแล้ว</div>
+      <div class="players" id="playersBox"></div>
+    </section>
+
+    <section class="card">
+      <div class="section-title">ควบคุมห้อง</div>
+      <div class="row" style="margin-top:10px;">
+        <button class="btn btn-good" id="btnReady" type="button">พร้อมแล้ว</button>
+        <button class="btn btn-primary" id="btnStart" type="button">เริ่มแข่ง</button>
+        <button class="btn btn-ghost" id="btnBack" type="button">กลับ</button>
+      </div>
+
+      <div class="hint" id="hint">
+        ต้องมีอย่างน้อย 2 คน และทุกคนต้อง ready
+      </div>
+
+      <div class="tips">
+        หมายเหตุ:
+        host เท่านั้นที่กดเริ่มแข่งได้ •
+        ถ้า host ออกจากห้อง ระบบจะย้าย host ให้คนถัดไปอัตโนมัติ •
+        ถ้าห้องเริ่ม countdown หรือกำลัง running ผู้เล่นใหม่จะไม่สามารถเข้ากลางเกมได้
+      </div>
+    </section>
+  </div>
+
+  <script type="module" src="./goodjunk-race-lobby.js?v=20260317-goodjunk-race-lobby"></script>
+</body>
+</html>
