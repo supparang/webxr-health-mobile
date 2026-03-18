@@ -1,6 +1,6 @@
 // === /herohealth/shared/nutrition-common.js ===
 // Shared helpers for nutrition games
-// PATCH v20260318-GROUPS-VSLICE-A
+// PATCH v20260318-NUTRITION-SHARED-HARDENING-A
 
 export function esc(value) {
   return String(value ?? '')
@@ -18,14 +18,26 @@ export function parseQuery(search = window.location.search) {
   return out;
 }
 
+export function normalizeGameKey(gameId = '') {
+  return String(gameId || 'nutrition')
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '') || 'NUTRITION';
+}
+
 export function createCtx(gameId) {
   const qs = parseQuery();
   const seed = Number(qs.seed || Date.now());
 
   return {
     gameId,
+    gameKey: normalizeGameKey(gameId),
+
     cat: qs.cat || 'nutrition',
     theme: qs.theme || gameId,
+    game: qs.game || gameId,
+
     pid: qs.pid || 'anon',
     studyId: qs.studyId || '',
     phase: qs.phase || 'play',
@@ -33,9 +45,15 @@ export function createCtx(gameId) {
     diff: qs.diff || 'normal',
     time: Number(qs.time || 90),
     seed,
+
     hub: qs.hub || '../hub.html',
+    launcher: qs.launcher || '',
+    next: qs.next || '',
+    returnTo: qs.returnTo || '',
+    gatePhase: qs.gatePhase || '',
     view: qs.view || 'mobile',
-    engine: qs.engine || 'v1',
+    engine: qs.engine || 'v2',
+
     query: qs
   };
 }
@@ -72,20 +90,43 @@ export function formatPercent(correct, total) {
 
 export function buildUrl(base, params = {}) {
   const url = new URL(base, window.location.href);
+
   Object.entries(params).forEach(([key, value]) => {
     if (value === undefined || value === null || value === '') return;
     url.searchParams.set(key, String(value));
   });
+
   return url.toString();
+}
+
+function safeParseArray(raw) {
+  try {
+    const parsed = JSON.parse(raw || '[]');
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
 }
 
 export function saveLastSummary(payload) {
   try {
-    localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(payload));
+    const gameKey = normalizeGameKey(payload?.gameId || payload?.ctx?.gameId || 'nutrition');
+    const ts = Date.now();
+    const summary = {
+      ...payload,
+      ts: payload?.ts || ts
+    };
 
-    const prev = JSON.parse(localStorage.getItem('HHA_SUMMARY_HISTORY') || '[]');
-    prev.unshift(payload);
-    localStorage.setItem('HHA_SUMMARY_HISTORY', JSON.stringify(prev.slice(0, 30)));
+    localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(summary));
+    localStorage.setItem(`HHA_LAST_SUMMARY_${gameKey}`, JSON.stringify(summary));
+
+    const history = safeParseArray(localStorage.getItem('HHA_SUMMARY_HISTORY'));
+    history.unshift(summary);
+    localStorage.setItem('HHA_SUMMARY_HISTORY', JSON.stringify(history.slice(0, 30)));
+
+    const historyByGame = safeParseArray(localStorage.getItem(`HHA_SUMMARY_HISTORY_${gameKey}`));
+    historyByGame.unshift(summary);
+    localStorage.setItem(`HHA_SUMMARY_HISTORY_${gameKey}`, JSON.stringify(historyByGame.slice(0, 30)));
   } catch (err) {
     console.warn('[nutrition-common] saveLastSummary failed:', err);
   }
