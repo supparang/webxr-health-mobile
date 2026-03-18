@@ -221,6 +221,26 @@ function canStart(r = room) {
   return players.every((p) => !!p.ready);
 }
 
+function getMatchParticipantIds(r = room) {
+  const ids = Array.isArray(r?.match?.participantIds) ? r.match.participantIds : [];
+  return ids.map((id) => normalizePid(id)).filter(Boolean);
+}
+
+function amIMatchParticipant(r = room) {
+  const ids = getMatchParticipantIds(r);
+  if (!ids.length) return true;
+  return ids.includes(ctx.pid);
+}
+
+function clearMatchState(next) {
+  next.match = {
+    participantIds: [],
+    lockedAt: null,
+    status: 'idle'
+  };
+  return next;
+}
+
 function getPlayersText(r = room) {
   const total = activePlayers(r).length;
   const min = r?.minPlayers || 2;
@@ -248,7 +268,12 @@ function makeDefaultRoom() {
     startAt: null,
     createdAt: now(),
     updatedAt: now(),
-    players: []
+    players: [],
+    match: {
+      participantIds: [],
+      lockedAt: null,
+      status: 'idle'
+    }
   };
 }
 
@@ -289,6 +314,17 @@ function sanitizeRoom(r) {
   safe.startAt = safe.startAt ? Number(safe.startAt) : null;
   safe.updatedAt = now();
 
+  const rawMatch = safe.match && typeof safe.match === 'object' ? safe.match : {};
+  safe.match = {
+    participantIds: Array.isArray(rawMatch.participantIds)
+      ? rawMatch.participantIds.map((id) => normalizePid(id)).filter(Boolean)
+      : [],
+    lockedAt: rawMatch.lockedAt ? Number(rawMatch.lockedAt) : null,
+    status: ['idle', 'countdown', 'running', 'finished'].includes(rawMatch.status)
+      ? rawMatch.status
+      : 'idle'
+  };
+
   return safe;
 }
 
@@ -315,7 +351,12 @@ function roomToFirebase(r) {
     startAt: r.startAt || null,
     createdAt: r.createdAt || now(),
     updatedAt: now(),
-    players: {}
+    players: {},
+    match: {
+      participantIds: Array.isArray(r.match?.participantIds) ? r.match.participantIds : [],
+      lockedAt: r.match?.lockedAt || null,
+      status: r.match?.status || 'idle'
+    }
   };
 
   (r.players || []).forEach((p) => {
@@ -407,22 +448,35 @@ function renderStatus(r = room) {
   const active = activePlayers(r);
 
   if (r.status === 'waiting') {
-    if (active.length < (r.minPlayers || 2)) setHint(`ต้องมีอย่างน้อย ${r.minPlayers} คน`);
-    else if (!active.every((p) => p.ready)) setHint('รอให้ทุกคนกดพร้อม');
-    else if (isHost(r)) setHint('ทุกคนพร้อมแล้ว กดเริ่มแข่งได้');
-    else setHint('ทุกคนพร้อมแล้ว รอ host กดเริ่ม');
+    if (active.length < (r.minPlayers || 2)) {
+      setHint(`ต้องมีอย่างน้อย ${r.minPlayers} คน`);
+    } else if (!active.every((p) => p.ready)) {
+      setHint('รอให้ทุกคนกดพร้อม');
+    } else if (isHost(r)) {
+      setHint('ทุกคนพร้อมแล้ว กดเริ่มแข่งได้');
+    } else {
+      setHint('ทุกคนพร้อมแล้ว รอ host กดเริ่ม');
+    }
 
     setCopyState('ส่ง room code หรือลิงก์นี้ให้ผู้เล่นคนอื่นเข้าร่วมได้');
     if (els.countdown) els.countdown.textContent = '';
   }
 
   if (r.status === 'countdown') {
-    setHint('กำลังนับถอยหลังก่อนเริ่มพร้อมกัน');
+    if (amIMatchParticipant(r)) {
+      setHint('กำลังนับถอยหลังก่อนเริ่มพร้อมกัน');
+    } else {
+      setHint('กำลังนับถอยหลังเริ่มรอบนี้ คุณไม่ได้อยู่ใน participant ของรอบนี้');
+    }
     setCopyState('ห้องถูกล็อกแล้ว กำลังจะเริ่มการแข่งขัน', false);
   }
 
   if (r.status === 'running') {
-    setHint('การแข่งขันกำลังดำเนินอยู่');
+    if (amIMatchParticipant(r)) {
+      setHint('การแข่งขันกำลังดำเนินอยู่');
+    } else {
+      setHint('การแข่งขันกำลังดำเนินอยู่ และคุณไม่ได้อยู่ในรอบนี้');
+    }
     setCopyState('การแข่งขันกำลังดำเนินอยู่', false);
   }
 
@@ -463,7 +517,11 @@ function runCountdown(startAt) {
       countdownStartAt = 0;
 
       if (roomRef) {
-        roomRef.update({ status: 'running', updatedAt: now() }).catch(() => {});
+        roomRef.update({
+          status: 'running',
+          updatedAt: now(),
+          'match/status': 'running'
+        }).catch(() => {});
       }
 
       window.setTimeout(() => {
@@ -488,6 +546,11 @@ async function maybeEnterRunFromRoom(r = room) {
   const me = r.players?.find((p) => p.id === ctx.pid);
   if (!me) return;
   if (me.phase === 'done') return;
+
+  if (!amIMatchParticipant(r)) {
+    setHint('การแข่งขันเริ่มแล้ว แต่คุณไม่ได้อยู่ในรอบนี้');
+    return;
+  }
 
   const effectiveStartAt = Number(r.startAt || now());
   await enterRun(effectiveStartAt);
@@ -532,10 +595,14 @@ async function ensureFirebase() {
 async function ensureRoomExists() {
   const snap = await roomRef.once('value');
   const cur = snap.exists() ? sanitizeRoom(snapshotToRoom(snap.val())) : null;
-  if (cur) return;
 
-  const base = makeDefaultRoom();
-  await roomRef.set(roomToFirebase(base));
+  if (!cur) {
+    const base = makeDefaultRoom();
+    await roomRef.set(roomToFirebase(base));
+    return;
+  }
+
+  await roomRef.set(roomToFirebase(cur));
 }
 
 async function maybeRepairRoomIfNeeded(cur) {
@@ -569,18 +636,38 @@ async function maybeRepairRoomIfNeeded(cur) {
   const repaired = maybeResetCountdownIfHostMissing(next);
   if (repaired.status !== next.status || repaired.startAt !== next.startAt) changed = true;
 
+  if (repaired.status === 'waiting' && repaired.match?.status !== 'idle') {
+    clearMatchState(repaired);
+    changed = true;
+  }
+
+  if (repaired.status === 'finished' && repaired.match?.status !== 'finished') {
+    repaired.match = {
+      participantIds: Array.isArray(repaired.match?.participantIds) ? repaired.match.participantIds : [],
+      lockedAt: repaired.match?.lockedAt || null,
+      status: 'finished'
+    };
+    changed = true;
+  }
+
   if (!repaired.players.length) {
     repairBusy = true;
-    try { await roomRef.remove(); }
-    finally { repairBusy = false; }
+    try {
+      await roomRef.remove();
+    } finally {
+      repairBusy = false;
+    }
     return;
   }
 
   if (!changed) return;
 
   repairBusy = true;
-  try { await roomRef.set(roomToFirebase(repaired)); }
-  finally { repairBusy = false; }
+  try {
+    await roomRef.set(roomToFirebase(repaired));
+  } finally {
+    repairBusy = false;
+  }
 }
 
 function subscribeRoom() {
@@ -600,8 +687,11 @@ function subscribeRoom() {
     room = sanitizeRoom(snapshotToRoom(raw));
     render();
 
-    if (room.status === 'countdown' && room.startAt) runCountdown(room.startAt);
-    else cancelCountdown();
+    if (room.status === 'countdown' && room.startAt) {
+      runCountdown(room.startAt);
+    } else {
+      cancelCountdown();
+    }
 
     if (room.status === 'running') {
       await maybeEnterRunFromRoom(room);
@@ -699,16 +789,31 @@ async function beginCountdown() {
     setHint('เฉพาะ host เท่านั้นที่เริ่มแข่งได้');
     return;
   }
+
   if (!canStart(cur)) {
     setHint('ยังเริ่มไม่ได้ ต้องมีอย่างน้อย 2 คน และทุกคนต้อง ready');
     return;
   }
 
+  const players = activePlayers(cur).filter((p) => !!p.ready);
+  const participantIds = players.map((p) => p.id).filter(Boolean);
+
+  if (participantIds.length < (cur.minPlayers || 2)) {
+    setHint('จำนวนผู้เล่นที่พร้อมยังไม่พอสำหรับเริ่มแข่ง');
+    return;
+  }
+
   const startAt = now() + 4000;
+
   await roomRef.update({
     status: 'countdown',
     startAt,
-    updatedAt: now()
+    updatedAt: now(),
+    match: {
+      participantIds,
+      lockedAt: now(),
+      status: 'countdown'
+    }
   });
 }
 
@@ -768,14 +873,29 @@ async function leaveRoom() {
     next.hostId = pickNextHostId(next, '');
   }
 
+  const ids = new Set(getMatchParticipantIds(next));
+  const wasParticipant = ids.has(ctx.pid);
+
+  if (wasParticipant) {
+    ids.delete(ctx.pid);
+    next.match = {
+      participantIds: Array.from(ids),
+      lockedAt: next.match?.lockedAt || null,
+      status: next.match?.status || 'idle'
+    };
+  }
+
   if (next.status !== 'waiting') {
     next.status = 'waiting';
     next.startAt = null;
+    clearMatchState(next);
     next.players = next.players.map((p) => ({
       ...p,
       ready: false,
       phase: 'lobby'
     }));
+  } else {
+    clearMatchState(next);
   }
 
   await roomRef.set(roomToFirebase(next));
@@ -787,16 +907,21 @@ async function onReadyClick() {
     setHint('ยังเข้าห้องไม่สำเร็จ');
     return;
   }
+
   if (room?.status !== 'waiting') {
     setHint('ตอนนี้เปลี่ยนสถานะพร้อมไม่ได้แล้ว');
     return;
   }
 
+  const nextReady = !me.ready;
+
   await updateMe({
-    ready: !me.ready,
+    ready: nextReady,
     phase: 'lobby',
     connected: true
   });
+
+  setHint(nextReady ? 'ตั้งสถานะพร้อมแล้ว' : 'ยกเลิกสถานะพร้อมแล้ว');
 }
 
 async function onStartClick() {
@@ -865,6 +990,7 @@ async function boot() {
     if (room?.status === 'countdown' && room.startAt) {
       runCountdown(room.startAt);
     }
+
     if (room?.status === 'running') {
       await maybeEnterRunFromRoom(room);
     }
