@@ -12,8 +12,8 @@
   <main class="run-shell" id="appRoot">
     <header class="hud">
       <div class="hud-left">
-        <div class="hud-chip" id="hudPhase">หมวด: Pre Quiz</div>
-        <div class="hud-chip" id="hudProgress">0 / 0</div>
+        <div class="hud-chip phase-chip" id="hudPhase">หมวด: Pre Quiz</div>
+        <div class="hud-chip progress-chip" id="hudProgress">0 / 0</div>
       </div>
       <div class="hud-right">
         <div class="hud-chip score-chip">คะแนน <strong id="hudScore">0</strong></div>
@@ -24,6 +24,14 @@
     <section class="play-card">
       <div class="mini-tip" id="miniTip">กำลังโหลด…</div>
       <div class="coach-box" id="coachBox" aria-live="polite"></div>
+
+      <div class="phase-banner" id="phaseBanner">
+        <div class="phase-banner-icon" id="phaseBannerIcon">🎯</div>
+        <div class="phase-banner-text">
+          <div class="phase-banner-title" id="phaseBannerTitle">เริ่มเล่น</div>
+          <div class="phase-banner-sub" id="phaseBannerSub">เลือกคำตอบที่ถูกต้อง</div>
+        </div>
+      </div>
 
       <h1 class="question-title" id="questionPrompt">กำลังโหลด...</h1>
 
