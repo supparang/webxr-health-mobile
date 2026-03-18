@@ -1,9 +1,7 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.phaseboss.js ===
-// FULL PATCH v20260318-GOODJUNK-PHASEBOSS-DEBUG-READY
+// FULL PATCH v20260318-GOODJUNK-PHASEBOSS-GATEFIX1
 // Solo-only phase build: Phase 1 -> Phase 2 -> Boss
-// Fixed boss UI recursion / stack overflow
-// Fixed boss not entering by adding phase2 fallback trigger
-// Added debug mini panel + debug logs + quick boss mode
+// Warmup/Cooldown integration restored via launcher + summary buttons
 
 const __qs = new URLSearchParams(location.search);
 const RUN_CTX = window.__GJ_RUN_CTX__ || {
@@ -28,7 +26,7 @@ const GJ_HUB = RUN_CTX.hub || '../hub.html';
 const GJ_GAME_ID = RUN_CTX.gameId || 'goodjunk';
 const GAME_MOUNT = document.getElementById('gameMount') || document.body;
 
-const GOODJUNK_STYLE_ID = 'goodjunk-safe-style-phaseboss-20260318';
+const GOODJUNK_STYLE_ID = 'goodjunk-safe-style-phaseboss-20260318-gatefix1';
 const GOODJUNK_ROOT_ID = 'gjRoot';
 
 const GJ_SOLO_LAST_SUMMARY_KEY = `GJ_SOLO_LAST_SUMMARY_${GJ_PID}`;
@@ -218,7 +216,6 @@ const ui = {
 };
 
 let __gjSoloSummary = null;
-
 const rng = createSeededRng(RUN_CTX.seed || Date.now());
 
 boot();
@@ -641,7 +638,7 @@ function buildGameplayShell() {
 
 function bindGameplayShell() {
   ui.soloBtnAgain?.addEventListener('click', () => {
-    location.href = buildReplayUrl();
+    location.href = buildWarmupGateUrl(String(Date.now()));
   });
 
   ui.soloBtnExport?.addEventListener('click', () => {
@@ -649,7 +646,7 @@ function bindGameplayShell() {
   });
 
   ui.soloBtnHub?.addEventListener('click', () => {
-    location.href = GJ_HUB;
+    location.href = buildCooldownGateUrl();
   });
 
   ui.bossWeakSpot?.addEventListener('pointerdown', (ev) => {
@@ -930,9 +927,7 @@ function startBossPhase() {
 function clearHalfTargetsForBossEntry() {
   const ids = Array.from(state.targets.keys());
   ids.forEach((id, idx) => {
-    if (idx % 2 === 0) {
-      removeTarget(id);
-    }
+    if (idx % 2 === 0) removeTarget(id);
   });
 }
 
@@ -1634,7 +1629,7 @@ function showSoloSummary(summary) {
 
 function buildSoloSummaryPayload(summary) {
   return {
-    version: '20260318-goodjunk-phaseboss-summary',
+    version: '20260318-goodjunk-phaseboss-summary-gatefix1',
     source: 'goodjunk-phaseboss',
     gameId: GJ_GAME_ID,
     title: 'GoodJunk Phase Boss',
@@ -1738,14 +1733,14 @@ function escapeHtml(s) {
     .replaceAll('"', '&quot;');
 }
 
-function buildReplayUrl() {
+function buildRunUrl(seedOverride = '') {
   const q = new URLSearchParams({
     pid: GJ_PID,
     name: GJ_NAME,
     studyId: RUN_CTX.studyId || '',
     diff: state.diff,
     time: String(Math.max(60, Math.round(state.totalMs / 1000))),
-    seed: String(Date.now()),
+    seed: seedOverride || String(Date.now()),
     hub: GJ_HUB,
     view: RUN_CTX.view || 'mobile',
     run: RUN_CTX.run || 'play',
@@ -1753,7 +1748,33 @@ function buildReplayUrl() {
     mode: 'solo'
   });
 
-  if (DEBUG_QUICK_BOSS) q.set('bossdebug', '1');
+  if (__qs.get('bossdebug') === '1') q.set('bossdebug', '1');
+  if (__qs.get('debug') === '1') q.set('debug', '1');
 
   return `./goodjunk-vr.html?${q.toString()}`;
+}
+
+function buildWarmupGateUrl(seedOverride = '') {
+  const q = new URLSearchParams({
+    game: 'goodjunk',
+    gameId: GJ_GAME_ID,
+    next: buildRunUrl(seedOverride || String(Date.now())),
+    hub: GJ_HUB
+  });
+
+  return `../warmup-gate.html?${q.toString()}`;
+}
+
+function buildCooldownGateUrl() {
+  const q = new URLSearchParams({
+    game: 'goodjunk',
+    gameId: GJ_GAME_ID,
+    hub: GJ_HUB
+  });
+
+  return `../cooldown-gate.html?${q.toString()}`;
+}
+
+function buildReplayUrl() {
+  return buildRunUrl(String(Date.now()));
 }
