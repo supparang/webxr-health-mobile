@@ -1,9 +1,10 @@
 // === /herohealth/nutrition-groups/js/groups.boot.js ===
 // Boot file for Nutrition Groups
-// PATCH v20260318-GROUPS-VSLICE-C
+// PATCH v20260318-NUTRITION-SHARED-HARDENING-A
 
 import { createCtx, saveLastSummary } from '../../shared/nutrition-common.js';
 import { createLogger } from '../../shared/nutrition-logging.js';
+import { restartCurrentPage } from '../../shared/nutrition-router.js';
 import { GroupsEngine } from './groups.engine.js';
 import { createGroupsUI } from './groups.ui.js';
 import { createGroupsCoach } from './groups.coach.js';
@@ -43,7 +44,7 @@ const ui = createGroupsUI(ctx, {
 
   onReplay: () => {
     logger.flush('groups-replay-before-reset');
-    window.location.reload();
+    restartCurrentPage({ seed: Date.now() });
   }
 });
 
