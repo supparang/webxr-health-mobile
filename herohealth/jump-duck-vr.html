@@ -1,65 +1,396 @@
 <!doctype html>
 <html lang="th">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-  <title>HeroHealth — JumpDuck Launcher</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth • JumpDuck Launcher</title>
+  <meta name="color-scheme" content="dark light" />
+  <link rel="icon" href="./favicon.ico" />
+  <script defer src="./launch/backhub.js"></script>
+  <style>
+    :root{
+      --bg1:#020617;
+      --bg2:#0b1226;
+      --panel:rgba(2,6,23,.74);
+      --panel2:rgba(15,23,42,.82);
+      --stroke:rgba(148,163,184,.18);
+      --text:#e5e7eb;
+      --muted:#94a3b8;
+      --good:#22c55e;
+      --cyan:#22d3ee;
+      --warn:#f59e0b;
+      --shadow:0 24px 70px rgba(0,0,0,.45);
+      --radius:24px;
+      --sat: env(safe-area-inset-top, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
+      --sar: env(safe-area-inset-right, 0px);
+    }
+    *{ box-sizing:border-box; }
+    html,body{ min-height:100%; }
+    body{
+      margin:0;
+      color:var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", Arial, sans-serif;
+      background:
+        radial-gradient(1100px 760px at 10% 10%, rgba(34,197,94,.10), transparent 55%),
+        radial-gradient(900px 680px at 88% 16%, rgba(56,189,248,.10), transparent 55%),
+        linear-gradient(180deg, var(--bg1), var(--bg2));
+      padding:
+        calc(12px + var(--sat))
+        calc(12px + var(--sar))
+        calc(18px + var(--sab))
+        calc(12px + var(--sal));
+    }
+    .page{ width:min(1100px,100%); margin:0 auto; display:grid; gap:14px; }
+    .panel{
+      background:linear-gradient(180deg, var(--panel), var(--panel2));
+      border:1px solid var(--stroke);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+      backdrop-filter:blur(10px);
+    }
+    .hero{
+      padding:22px;
+      display:grid;
+      gap:12px;
+    }
+    .kicker{
+      display:inline-flex;
+      width:max-content;
+      align-items:center;
+      gap:8px;
+      padding:8px 12px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(2,6,23,.34);
+      color:var(--muted);
+      font-size:12px;
+      font-weight:950;
+    }
+    .title{
+      margin:0;
+      font-size:clamp(30px, 5vw, 46px);
+      line-height:1.04;
+      font-weight:1000;
+    }
+    .sub{
+      color:var(--muted);
+      font-size:15px;
+      line-height:1.65;
+      font-weight:700;
+      max-width:70ch;
+    }
+    .meta{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+    }
+    .chip{
+      padding:8px 12px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(2,6,23,.30);
+      color:#cbd5e1;
+      font-size:12px;
+      font-weight:900;
+    }
+    .section{ padding:18px; display:grid; gap:14px; }
+    .grid{
+      display:grid;
+      grid-template-columns:repeat(12,1fr);
+      gap:12px;
+    }
+    .field{ grid-column:span 4; display:grid; gap:7px; }
+    .field.span6{ grid-column:span 6; }
+    .label{
+      font-size:12px;
+      font-weight:950;
+      color:var(--muted);
+    }
+    .input,.select{
+      width:100%;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(2,6,23,.42);
+      color:var(--text);
+      border-radius:14px;
+      padding:12px;
+      outline:none;
+      font:inherit;
+      font-size:14px;
+      font-weight:800;
+    }
+    .actions{
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+    }
+    .leftActions,.rightActions{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+    }
+    .btn{
+      border:1px solid var(--stroke);
+      background:rgba(2,6,23,.40);
+      color:var(--text);
+      border-radius:14px;
+      padding:12px 14px;
+      cursor:pointer;
+      font-weight:950;
+      font-size:14px;
+    }
+    .btn.primary{ border-color:rgba(34,197,94,.28); background:rgba(34,197,94,.16); }
+    .btn.cyan{ border-color:rgba(34,211,238,.28); background:rgba(34,211,238,.14); }
+    .btn.warn{ border-color:rgba(245,158,11,.28); background:rgba(245,158,11,.14); }
+    .btn.secondary{ color:var(--muted); }
+    .preview{
+      border:1px solid rgba(148,163,184,.16);
+      background:rgba(2,6,23,.26);
+      border-radius:18px;
+      padding:12px 14px;
+      color:#cbd5e1;
+      font-size:12px;
+      line-height:1.6;
+      font-weight:800;
+      word-break:break-word;
+    }
+    @media (max-width: 880px){
+      .field{ grid-column:span 6; }
+      .field.span6{ grid-column:span 6; }
+    }
+    @media (max-width: 720px){
+      body{
+        padding:
+          calc(8px + var(--sat))
+          calc(8px + var(--sar))
+          calc(18px + var(--sab))
+          calc(8px + var(--sal));
+      }
+      .hero,.section{ padding:14px; }
+      .grid{ grid-template-columns:1fr; }
+      .field,.field.span6{ grid-column:span 1; }
+      .actions{ flex-direction:column; align-items:stretch; }
+      .leftActions,.rightActions{ width:100%; }
+      .leftActions .btn,.rightActions .btn{ flex:1 1 0; }
+    }
+  </style>
 </head>
 <body>
-<script>
-  (function () {
-    'use strict';
+  <div class="page">
+    <section class="panel hero">
+      <div class="kicker">🦘 FITNESS ZONE • JUMPDUCK • LAUNCHER</div>
+      <h1 class="title">JumpDuck Launcher</h1>
+      <div class="sub">
+        เริ่มผ่าน warmup gate ก่อนเสมอ แล้วค่อยเข้า run page ที่ถูกต้องของเกมนี้ที่
+        <b>/fitness/jump-duck.html</b>
+      </div>
+      <div class="meta">
+        <div class="chip">gameId: jumpduck</div>
+        <div class="chip">zone: fitness</div>
+        <div class="chip">flow: warmup → run → cooldown</div>
+      </div>
+    </section>
 
-    const ROOT = 'https://supparang.github.io/webxr-health-mobile/herohealth/';
-    const HUB_URL = ROOT + 'hub.html';
+    <section class="panel section">
+      <div class="grid">
+        <div class="field">
+          <label class="label" for="pid">PID</label>
+          <input class="input" id="pid" placeholder="เช่น P001" />
+        </div>
 
-    const sp = new URL(location.href).searchParams;
+        <div class="field">
+          <label class="label" for="diff">Difficulty</label>
+          <select class="select" id="diff">
+            <option value="easy">easy</option>
+            <option value="normal" selected>normal</option>
+            <option value="hard">hard</option>
+          </select>
+        </div>
 
-    // run game จริง
-    const runUrl = new URL('../fitness/jump-duck.html', location.href);
+        <div class="field">
+          <label class="label" for="time">Time (sec)</label>
+          <input class="input" id="time" type="number" min="45" max="180" step="5" value="80" />
+        </div>
 
-    [
-      'run','diff','time','seed','studyId','phase','conditionGroup','log','view','pid','api','ai','debug',
-      'planSeq','planDay','planSlot','planMode','planSlots','planIndex','autoNext',
-      'plannedGame','finalGame','zone','cdnext','grade','hub'
-    ].forEach(k => {
-      const v = sp.get(k);
-      if (v != null && v !== '') runUrl.searchParams.set(k, v);
-    });
+        <div class="field">
+          <label class="label" for="view">View</label>
+          <select class="select" id="view">
+            <option value="pc" selected>pc</option>
+            <option value="mobile">mobile</option>
+            <option value="cvr">cvr</option>
+          </select>
+        </div>
 
-    // duration ให้ run page
-    if (!runUrl.searchParams.get('duration')) {
-      const t = sp.get('time') || '60';
-      runUrl.searchParams.set('duration', t);
-    }
+        <div class="field">
+          <label class="label" for="seed">Seed</label>
+          <input class="input" id="seed" placeholder="auto" />
+        </div>
 
-    // mode มาตรฐาน
-    if (!runUrl.searchParams.get('mode')) {
-      runUrl.searchParams.set('mode', 'training');
-    }
+        <div class="field span6">
+          <label class="label" for="hub">Hub URL</label>
+          <input class="input" id="hub" value="./hub.html" />
+        </div>
+      </div>
 
-    // hub path
-    runUrl.searchParams.set('hub', sp.get('hub') || HUB_URL);
+      <div class="actions">
+        <div class="leftActions">
+          <button class="btn secondary" id="btnFillDemo" type="button">เติมค่าตัวอย่าง</button>
+          <button class="btn cyan" id="btnPreviewWarmup" type="button">ดู URL warmup</button>
+        </div>
+        <div class="rightActions">
+          <button class="btn secondary" id="btnBackHub" type="button">← กลับ HUB</button>
+          <button class="btn warn" id="btnDirectRun" type="button">เข้า run ตรง</button>
+          <button class="btn primary" id="btnStart" type="button">เริ่มผ่าน Warmup Gate</button>
+        </div>
+      </div>
 
-    // ส่งเข้า warmup gate ก่อน
-    const gateUrl = new URL(ROOT + 'warmup-gate.html');
-    gateUrl.searchParams.set('zone', 'exercise');
-    gateUrl.searchParams.set('game', 'jumpduck');
-    gateUrl.searchParams.set('phase', 'warmup');
-    gateUrl.searchParams.set('next', runUrl.toString());
-    gateUrl.searchParams.set('hub', sp.get('hub') || HUB_URL);
+      <div class="preview" id="previewText">
+        ระบบจะส่งเข้า warmup-gate.html โดยตั้ง phase=warmup และ next=/fitness/jump-duck.html ...
+      </div>
+    </section>
+  </div>
 
-    [
-      'run','diff','time','seed','studyId','conditionGroup','log','view','pid','api','ai','debug',
-      'planSeq','planDay','planSlot','planMode','planSlots','planIndex','autoNext',
-      'plannedGame','finalGame','grade'
-    ].forEach(k => {
-      const v = sp.get(k);
-      if (v != null && v !== '') gateUrl.searchParams.set(k, v);
-    });
+  <script>
+    (() => {
+      'use strict';
 
-    location.replace(gateUrl.toString());
-  })();
-</script>
+      const byId = (id) => document.getElementById(id);
+      const q = new URLSearchParams(location.search);
+
+      const pid = byId('pid');
+      const diff = byId('diff');
+      const time = byId('time');
+      const view = byId('view');
+      const seed = byId('seed');
+      const hub = byId('hub');
+      const previewText = byId('previewText');
+
+      function qs(k, d=''){
+        try{ return new URL(location.href).searchParams.get(k) ?? d; }
+        catch{ return d; }
+      }
+
+      function safeSeed(){
+        return seed.value.trim() || String(Date.now());
+      }
+
+      function safeTime(){
+        return String(Math.max(45, Math.min(180, Number(time.value || 80))));
+      }
+
+      function normalizedHub(){
+        const raw = (hub.value || './hub.html').trim() || './hub.html';
+        try{
+          const u = new URL(raw, location.href);
+          u.pathname = u.pathname.replace(/\/{2,}/g, '/');
+          return u.toString();
+        }catch{
+          return './hub.html';
+        }
+      }
+
+      function buildRunUrl(){
+        const u = new URL('../fitness/jump-duck.html', location.href);
+
+        u.searchParams.set('zone', 'fitness');
+        u.searchParams.set('cat', 'fitness');
+        u.searchParams.set('game', 'jumpduck');
+        u.searchParams.set('gameId', 'jumpduck');
+        u.searchParams.set('theme', 'jumpduck');
+
+        u.searchParams.set('pid', pid.value.trim() || 'anon');
+        u.searchParams.set('view', view.value || 'pc');
+        u.searchParams.set('run', qs('run', 'play'));
+        u.searchParams.set('diff', diff.value || 'normal');
+        u.searchParams.set('time', safeTime());
+        u.searchParams.set('seed', safeSeed());
+        u.searchParams.set('hub', normalizedHub());
+
+        u.searchParams.set('gate', '1');
+        u.searchParams.set('cooldown', '1');
+        u.searchParams.set('cdur', q.get('cdur') || '20');
+
+        return u.toString();
+      }
+
+      function buildWarmupUrl(){
+        const gate = new URL('./warmup-gate.html', location.href);
+
+        gate.searchParams.set('phase', 'warmup');
+        gate.searchParams.set('gatePhase', 'warmup');
+
+        gate.searchParams.set('zone', 'fitness');
+        gate.searchParams.set('cat', 'fitness');
+        gate.searchParams.set('game', 'jumpduck');
+        gate.searchParams.set('gameId', 'jumpduck');
+        gate.searchParams.set('theme', 'jumpduck');
+
+        gate.searchParams.set('pid', pid.value.trim() || 'anon');
+        gate.searchParams.set('run', qs('run', 'play'));
+        gate.searchParams.set('diff', diff.value || 'normal');
+        gate.searchParams.set('time', safeTime());
+        gate.searchParams.set('view', view.value || 'pc');
+        gate.searchParams.set('seed', safeSeed());
+        gate.searchParams.set('hub', normalizedHub());
+
+        gate.searchParams.set('next', buildRunUrl());
+        return gate.toString();
+      }
+
+      function renderPreview(label, url){
+        previewText.textContent = `${label}: ${url}`;
+      }
+
+      function setDefaults(){
+        pid.value = qs('pid', 'anon');
+        diff.value = qs('diff', 'normal');
+        time.value = qs('time', '80');
+        view.value = qs('view', 'pc');
+        seed.value = qs('seed', '');
+        hub.value = qs('hub', './hub.html');
+        renderPreview('warmup', buildWarmupUrl());
+      }
+
+      [pid, diff, time, view, seed, hub].forEach((el) => {
+        el?.addEventListener('input', () => renderPreview('warmup', buildWarmupUrl()));
+        el?.addEventListener('change', () => renderPreview('warmup', buildWarmupUrl()));
+      });
+
+      byId('btnFillDemo')?.addEventListener('click', () => {
+        pid.value = pid.value.trim() || 'anon';
+        diff.value = 'normal';
+        time.value = '80';
+        view.value = 'pc';
+        if(!seed.value.trim()) seed.value = String(Date.now());
+        renderPreview('warmup', buildWarmupUrl());
+      });
+
+      byId('btnPreviewWarmup')?.addEventListener('click', () => {
+        renderPreview('warmup', buildWarmupUrl());
+      });
+
+      byId('btnDirectRun')?.addEventListener('click', () => {
+        location.href = buildRunUrl();
+      });
+
+      byId('btnStart')?.addEventListener('click', () => {
+        location.href = buildWarmupUrl();
+      });
+
+      byId('btnBackHub')?.addEventListener('click', () => {
+        try{
+          window.HHA_BACKHUB?.goHub?.();
+          return;
+        }catch{}
+        location.href = normalizedHub();
+      });
+
+      setDefaults();
+    })();
+  </script>
 </body>
 </html>
