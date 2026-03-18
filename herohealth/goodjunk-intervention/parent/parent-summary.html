@@ -3,422 +3,172 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>GoodJunk Intervention — Parent Summary</title>
-  <meta name="color-scheme" content="dark light" />
-  <style>
-    :root{
-      --bg:#08101f;
-      --panel:rgba(15,23,42,.86);
-      --card:rgba(15,23,42,.72);
-      --line:rgba(148,163,184,.18);
-      --text:#e5e7eb;
-      --muted:#94a3b8;
-      --blue:#38bdf8;
-      --green:#22c55e;
-      --violet:#a78bfa;
-      --amber:#f59e0b;
-      --shadow:0 20px 60px rgba(0,0,0,.32);
-    }
-
-    *{ box-sizing:border-box; }
-
-    html,body{
-      margin:0;
-      min-height:100%;
-      background:
-        radial-gradient(circle at top, #172554 0%, #08101f 48%, #020617 100%);
-      color:var(--text);
-      font-family:system-ui,-apple-system,"Noto Sans Thai","Segoe UI",Roboto,Arial,sans-serif;
-    }
-
-    .wrap{
-      width:min(1060px, calc(100% - 24px));
-      margin:20px auto 36px;
-    }
-
-    .hero,.card{
-      background:var(--panel);
-      border:1px solid var(--line);
-      border-radius:24px;
-      box-shadow:var(--shadow);
-      padding:18px;
-      backdrop-filter:blur(12px);
-    }
-
-    .hero h1{
-      margin:8px 0;
-      font-size:clamp(28px,5vw,40px);
-      line-height:1.05;
-    }
-
-    .kicker{
-      display:inline-flex;
-      align-items:center;
-      min-height:34px;
-      padding:6px 12px;
-      border-radius:999px;
-      border:1px solid rgba(34,197,94,.22);
-      background:rgba(34,197,94,.10);
-      color:#dcfce7;
-      font-size:12px;
-      font-weight:1000;
-    }
-
-    .sub{
-      color:var(--muted);
-      font-size:14px;
-      line-height:1.6;
-      margin-top:8px;
-      max-width:880px;
-    }
-
-    .context{
-      display:flex;
-      flex-wrap:wrap;
-      gap:8px;
-      margin-top:12px;
-    }
-
-    .chip{
-      display:inline-flex;
-      align-items:center;
-      min-height:30px;
-      padding:4px 10px;
-      border-radius:999px;
-      border:1px solid var(--line);
-      background:rgba(2,6,23,.46);
-      color:#dbeafe;
-      font-size:12px;
-      font-weight:900;
-    }
-
-    .grid{
-      display:grid;
-      gap:14px;
-      margin-top:16px;
-      grid-template-columns:1.15fr .85fr;
-    }
-
-    @media (max-width:960px){
-      .grid{ grid-template-columns:1fr; }
-    }
-
-    .card h2{
-      margin:0 0 12px;
-      font-size:18px;
-    }
-
-    .stat-grid{
-      display:grid;
-      gap:12px;
-      grid-template-columns:repeat(3,minmax(0,1fr));
-      margin-top:12px;
-    }
-
-    @media (max-width:760px){
-      .stat-grid{ grid-template-columns:1fr; }
-    }
-
-    .stat{
-      border:1px solid var(--line);
-      border-radius:18px;
-      background:var(--card);
-      padding:14px;
-    }
-
-    .stat .label{
-      color:var(--muted);
-      font-size:12px;
-      font-weight:1000;
-      text-transform:uppercase;
-    }
-
-    .stat .value{
-      margin-top:6px;
-      font-size:28px;
-      font-weight:1000;
-      line-height:1;
-    }
-
-    .stat .subv{
-      margin-top:6px;
-      color:#cbd5e1;
-      font-size:13px;
-      line-height:1.55;
-    }
-
-    .block{
-      border:1px solid var(--line);
-      border-radius:18px;
-      background:var(--card);
-      padding:14px;
-      margin-top:12px;
-    }
-
-    .block-title{
-      margin:0 0 8px;
-      font-size:15px;
-      font-weight:1000;
-      color:#dbeafe;
-    }
-
-    .body-text{
-      color:#e2e8f0;
-      font-size:14px;
-      line-height:1.7;
-    }
-
-    ul.clean{
-      margin:10px 0 0;
-      padding-left:18px;
-      color:#e2e8f0;
-      font-size:14px;
-      line-height:1.7;
-    }
-
-    .tip{
-      display:flex;
-      gap:12px;
-      align-items:flex-start;
-      border:1px solid rgba(245,158,11,.22);
-      background:rgba(245,158,11,.08);
-      border-radius:18px;
-      padding:14px;
-      margin-top:12px;
-    }
-
-    .tip strong{
-      display:block;
-      margin-bottom:4px;
-    }
-
-    .actions{
-      display:flex;
-      flex-wrap:wrap;
-      gap:10px;
-      margin-top:18px;
-    }
-
-    button{
-      appearance:none;
-      border:none;
-      cursor:pointer;
-      min-height:46px;
-      border-radius:14px;
-      padding:0 16px;
-      font:900 14px/1 system-ui,-apple-system,"Noto Sans Thai","Segoe UI",Roboto,Arial;
-      color:#fff;
-    }
-
-    .btn-blue{ background:linear-gradient(135deg,#2563eb,#38bdf8); }
-    .btn-green{ background:linear-gradient(135deg,#16a34a,#22c55e); }
-    .btn-violet{ background:linear-gradient(135deg,#7c3aed,#a78bfa); }
-    .btn-ghost{
-      background:rgba(148,163,184,.12);
-      border:1px solid var(--line);
-      color:var(--text);
-    }
-  </style>
+  <title>GoodJunk Intervention • Parent Summary</title>
+  <link rel="stylesheet" href="../assessments/assessment.css" />
 </head>
 <body>
-  <div class="wrap">
-    <section class="hero">
-      <div class="kicker">👨‍👩‍👧 Parent Summary • GoodJunk Intervention</div>
-      <h1>สรุปสำหรับผู้ปกครอง</h1>
-      <div class="sub">
-        หน้านี้สรุปภาพรวมการเรียนรู้ของเด็กจากเกม GoodJunk Intervention
-        และเสนอแนวทางง่าย ๆ ที่ผู้ปกครองสามารถช่วยต่อยอดพฤติกรรมสุขภาพที่บ้านได้
+  <main class="page">
+    <section class="card">
+      <div class="badge">ผู้ปกครอง • Parent Summary</div>
+      <h1>สรุปผลสำหรับผู้ปกครอง</h1>
+      <p class="sub">สรุปจากผลเกมและแบบสอบถามผู้ปกครอง</p>
+      <div class="ctx" id="ctxBox">กำลังโหลด...</div>
+
+      <section class="block">
+        <h2>ข้อมูลภาพรวม</h2>
+        <p id="summaryIntro">กำลังโหลดข้อมูล...</p>
+      </section>
+
+      <section class="block">
+        <h2>สรุปผลจากเกม</h2>
+        <div class="choice-grid">
+          <div class="choice">คะแนนรวม: <b id="gameScore" style="margin-left:8px;">-</b></div>
+          <div class="choice">เลือกของดี: <b id="gameGood" style="margin-left:8px;">-</b></div>
+          <div class="choice">แตะ junk: <b id="gameJunk" style="margin-left:8px;">-</b></div>
+          <div class="choice">พลาด: <b id="gameMiss" style="margin-left:8px;">-</b></div>
+          <div class="choice">เกรดการเล่น: <b id="gameGrade" style="margin-left:8px;">-</b></div>
+        </div>
+      </section>
+
+      <section class="block">
+        <h2>สรุปคำตอบผู้ปกครอง</h2>
+        <div id="parentSummaryBody" class="note">กำลังโหลดคำตอบ...</div>
+      </section>
+
+      <section class="block">
+        <h2>ข้อเสนอแนะการต่อยอดที่บ้าน</h2>
+        <ul id="homeTips" class="note" style="margin:0; padding-left:18px;"></ul>
+      </section>
+
+      <div class="footer">
+        <button class="btn btn-primary" id="backTeacherBtn" type="button">กลับ Teacher Panel</button>
+        <button class="btn btn-ghost" id="backLauncherBtn" type="button">กลับ Student Launcher</button>
+        <button class="btn btn-ghost" id="gotoParentFormBtn" type="button">แก้แบบสอบถามผู้ปกครอง</button>
       </div>
-      <div class="context" id="ctxChips"></div>
     </section>
+  </main>
 
-    <section class="grid">
-      <section class="card">
-        <h2>ภาพรวมผลลัพธ์</h2>
+  <script type="module">
+    import { buildUrl, pickCtxFromQuery, withDefaultCtx } from '../research/config.js';
+    import { KEYS, loadCtx, loadJSON, mergeCtx, saveCtx } from '../research/localstore.js';
 
-        <div class="stat-grid">
-          <div class="stat">
-            <div class="label">Knowledge</div>
-            <div class="value" id="knowledgeValue">-</div>
-            <div class="subv" id="knowledgeSub">ยังไม่มีข้อมูลเปรียบเทียบ</div>
-          </div>
+    function $(id){ return document.getElementById(id); }
 
-          <div class="stat">
-            <div class="label">Behavior Intention</div>
-            <div class="value" id="behaviorValue">-</div>
-            <div class="subv" id="behaviorSub">ยังไม่มีข้อมูลหลังเล่น</div>
-          </div>
-
-          <div class="stat">
-            <div class="label">Game Summary</div>
-            <div class="value" id="gameValue">-</div>
-            <div class="subv" id="gameSub">สรุปจากการเล่นล่าสุด</div>
-          </div>
-        </div>
-
-        <div class="block">
-          <div class="block-title">เด็กได้ฝึกอะไรจากเกมนี้</div>
-          <div class="body-text" id="learnedText">
-            เกมนี้ช่วยฝึกการแยกแยะอาหารที่ดีต่อสุขภาพกับอาหารที่ควรลด และกระตุ้นให้เด็กคิดถึงทางเลือกของว่างที่ดีกว่าในชีวิตจริง
-          </div>
-        </div>
-
-        <div class="block">
-          <div class="block-title">สิ่งที่ผู้ปกครองช่วยต่อยอดได้</div>
-          <ul class="clean" id="parentActionList">
-            <li>ชวนเด็กคุยว่าอาหารหรือของว่างแบบไหนดีกับสุขภาพมากกว่า</li>
-            <li>เตรียมทางเลือกของว่างง่าย ๆ เช่น ผลไม้ นมจืด หรืออาหารว่างที่มีประโยชน์</li>
-            <li>ช่วยเด็กฝึกเลือก “ของว่างดี 1 อย่าง” ในแต่ละวัน</li>
-          </ul>
-        </div>
-
-        <div class="tip">
-          <div>💡</div>
-          <div class="body-text">
-            <strong>คำแนะนำสั้น ๆ</strong>
-            เกมช่วยเรื่องการเรียนรู้และความตั้งใจได้ดี แต่การเปลี่ยนพฤติกรรมจริงจะดีขึ้นมากเมื่อเด็กได้รับการช่วยเตือน
-            และมีทางเลือกอาหารที่ดีอยู่ใกล้ตัวที่บ้าน
-          </div>
-        </div>
-      </section>
-
-      <section class="card">
-        <h2>ภารกิจที่บ้าน</h2>
-
-        <div class="block">
-          <div class="block-title">ภารกิจวันนี้</div>
-          <div class="body-text" id="homeMissionText">
-            ลองให้เด็กเลือกของว่างดี 1 อย่างในวันนี้ แล้วให้เด็กอธิบายเหตุผลว่าทำไมจึงเลือกสิ่งนั้น
-          </div>
-        </div>
-
-        <div class="block">
-          <div class="block-title">คำถามชวนคุยกับเด็ก</div>
-          <ul class="clean" id="talkPromptList">
-            <li>วันนี้หนูจำอาหารดีอะไรได้บ้าง</li>
-            <li>อาหารแบบไหนควรกินนาน ๆ ครั้ง</li>
-            <li>ถ้าหิวหลังเลิกเรียน หนูอยากเลือกอะไรแทนขนมหรือเครื่องดื่มหวาน</li>
-          </ul>
-        </div>
-
-        <div class="block">
-          <div class="block-title">สิ่งที่สังเกตได้ในสัปดาห์นี้</div>
-          <ul class="clean">
-            <li>เด็กพูดเรื่องอาหารดีบ่อยขึ้นไหม</li>
-            <li>เด็กสนใจผลไม้หรืออาหารว่างที่มีประโยชน์มากขึ้นไหม</li>
-            <li>เด็กเริ่มลดการขอขนมหรือน้ำหวานบางช่วงได้ไหม</li>
-          </ul>
-        </div>
-
-        <div class="actions">
-          <button class="btn-violet" id="btnQuestionnaire" type="button">ไป Parent Questionnaire</button>
-          <button class="btn-blue" id="btnFollowup" type="button">ไป Weekly Follow-up</button>
-          <button class="btn-ghost" id="btnHub" type="button">กลับ HUB</button>
-        </div>
-      </section>
-    </section>
-  </div>
-
-  <script>
-    const $ = (id)=>document.getElementById(id);
-
-    const PRE_K = 'GOODJUNK_INT_PRE_KNOWLEDGE_V1';
-    const POST_K = 'GOODJUNK_INT_POST_KNOWLEDGE_V1';
-    const PRE_B = 'GOODJUNK_INT_PRE_BEHAVIOR_V1';
-    const POST_B = 'GOODJUNK_INT_POST_BEHAVIOR_V1';
-
-    function q(k,d=''){
-      try{ return new URL(location.href).searchParams.get(k) ?? d; }
-      catch(_){ return d; }
+    function textOf(value, map = {}) {
+      return map[value] || value || '—';
     }
 
-    function readJson(key){
-      try{
-        const raw = localStorage.getItem(key);
-        return raw ? JSON.parse(raw) : null;
-      }catch(_){
-        return null;
+    function buildParentBullets(parent) {
+      const answers = parent?.answers || parent || {};
+      const bullets = [];
+
+      const talkMap = {
+        yes: 'เด็กสนใจคุยเรื่องของว่างสุขภาพมากขึ้น',
+        maybe: 'เด็กเริ่มคุยเรื่องของว่างสุขภาพบ้าง',
+        notMuch: 'ยังเห็นการพูดคุยเรื่องของว่างสุขภาพไม่มาก',
+        no: 'ยังไม่เห็นการเปลี่ยนแปลงด้านการพูดคุย'
+      };
+
+      const healthyMap = {
+        yes: 'ผู้ปกครองสังเกตว่าเด็กอยากเลือกของว่างสุขภาพมากขึ้น',
+        maybe: 'ผู้ปกครองสังเกตว่ามีแนวโน้มดีขึ้นเล็กน้อย',
+        notMuch: 'การเปลี่ยนแปลงยังไม่ชัดเจนมาก',
+        no: 'ยังไม่เห็นการเปลี่ยนแปลงด้านการเลือกของว่าง'
+      };
+
+      const junkMap = {
+        yes: 'เด็กมีแนวโน้มลดการขอขนมหรือเครื่องดื่มหวาน',
+        maybe: 'เด็กเริ่มลดลงบ้าง',
+        notMuch: 'ยังไม่ชัดเจนว่าลดลง',
+        no: 'ยังไม่เห็นว่าลดลง'
+      };
+
+      bullets.push(talkMap[answers.p1_talkNutrition] || 'ยังไม่มีข้อมูลเรื่องการพูดคุย');
+      bullets.push(healthyMap[answers.p2_moreHealthyChoice] || 'ยังไม่มีข้อมูลเรื่องการเลือกของว่างสุขภาพ');
+      bullets.push(junkMap[answers.p3_reduceJunk] || 'ยังไม่มีข้อมูลเรื่องการลด junk');
+
+      if (answers.p4_explainReason === 'yes') {
+        bullets.push('เด็กสามารถอธิบายเหตุผลเรื่องการเลือกอาหารที่ดีกว่าได้');
+      } else if (answers.p4_explainReason === 'somewhat') {
+        bullets.push('เด็กอธิบายเหตุผลได้บางส่วน');
       }
+
+      if (answers.p7_supportPlan) {
+        bullets.push(`แผนสนับสนุนจากผู้ปกครอง: ${answers.p7_supportPlan}`);
+      }
+
+      if (answers.p8_comment) {
+        bullets.push(`ข้อเสนอแนะเพิ่มเติม: ${answers.p8_comment}`);
+      }
+
+      return bullets;
     }
 
-    function withContext(base){
-      const u = new URL(base, location.href);
-      const src = new URL(location.href);
-      [
-        'projectTag','studyId','phase','conditionGroup','sessionOrder','blockLabel','sessionId',
-        'studentKey','schoolCode','schoolName','classRoom','studentNo','nickName',
-        'gradeLevel','gender','age','run','diff','view','time','seed','kid','readable','hub'
-      ].forEach(k=>{
-        const v = src.searchParams.get(k);
-        if(v != null && v !== '') u.searchParams.set(k, v);
-      });
-      return u.toString();
+    function buildHomeTips(game, parent) {
+      const tips = [];
+      const answers = parent?.answers || parent || {};
+
+      tips.push('ชวนเด็กเลือกผลไม้เป็นของว่างอย่างน้อย 1 ครั้งในแต่ละวัน');
+      tips.push('เตรียมน้ำเปล่าหรือนมจืดไว้เป็นตัวเลือกที่หยิบง่าย');
+      tips.push('คุยกับเด็กสั้น ๆ ว่าวันนี้เลือกของว่างอะไร และเพราะอะไร');
+
+      if ((game?.junkHit || 0) >= (game?.goodHit || 0)) {
+        tips.push('ช่วยเด็กสังเกตความต่างระหว่างของว่างสุขภาพกับ junk ก่อนซื้อจริง');
+      }
+
+      if (answers.p3_reduceJunk === 'notMuch' || answers.p3_reduceJunk === 'no') {
+        tips.push('ลองเริ่มจากลดความถี่ของขนมหรือเครื่องดื่มหวานทีละน้อย');
+      }
+
+      if (answers.p2_moreHealthyChoice === 'yes' || answers.p2_moreHealthyChoice === 'maybe') {
+        tips.push('ใช้โอกาสนี้เสริมแรงเชิงบวกเมื่อเด็กเลือกของว่างที่ดีต่อสุขภาพ');
+      }
+
+      return tips;
     }
 
-    function renderChips(){
-      const chips = [
-        `study:${q('studyId','-')}`,
-        `phase:${q('phase','-')}`,
-        `student:${q('studentKey','-')}`,
-        `nick:${q('nickName','-')}`,
-        `class:${q('classRoom','-')}`
-      ];
-      $('ctxChips').innerHTML = chips.map(t=>`<span class="chip">${t}</span>`).join('');
-    }
+    mergeCtx(pickCtxFromQuery());
+    const ctx = withDefaultCtx(loadCtx());
+    saveCtx(ctx);
 
-    function renderSummary(){
-      const preK = readJson(PRE_K);
-      const postK = readJson(POST_K);
-      const preB = readJson(PRE_B);
-      const postB = readJson(POST_B);
+    const game = loadJSON(KEYS.GAME_SUMMARY, {}) || {};
+    const parent = loadJSON(KEYS.PARENT_RESPONSE, {}) || {};
 
-      if(preK && postK){
-        const delta = (postK.score || 0) - (preK.score || 0);
-        $('knowledgeValue').textContent = `${postK.score}/${postK.total || 5}`;
-        $('knowledgeSub').textContent = `ก่อนเล่น ${preK.score || 0}/${preK.total || 5} • เปลี่ยนแปลง ${delta >= 0 ? '+' : ''}${delta}`;
-      } else if(postK){
-        $('knowledgeValue').textContent = `${postK.score}/${postK.total || 5}`;
-        $('knowledgeSub').textContent = 'มีข้อมูลหลังเล่น แต่ยังไม่มีข้อมูลก่อนเล่นในเครื่องนี้';
-      }
+    $('ctxBox').textContent = [
+      `PID: ${ctx.pid || '-'}`,
+      `Study: ${ctx.studyId || '-'}`,
+      `Session: ${ctx.session || '-'}`,
+      `Condition: ${ctx.condition || '-'}`
+    ].join(' • ');
 
-      if(preB && postB){
-        const delta = (postB.score || 0) - (preB.score || 0);
-        $('behaviorValue').textContent = `${postB.score}/${postB.total || 15}`;
-        $('behaviorSub').textContent = `ก่อนเล่น ${preB.score || 0}/${preB.total || 15} • เปลี่ยนแปลง ${delta >= 0 ? '+' : ''}${delta}`;
-      } else if(postB){
-        $('behaviorValue').textContent = `${postB.score}/${postB.total || 15}`;
-        $('behaviorSub').textContent = 'มีข้อมูลหลังเล่น แต่ยังไม่มีข้อมูลก่อนเล่นในเครื่องนี้';
-      }
+    $('summaryIntro').textContent =
+      `${ctx.nickName || ctx.pid || 'ผู้เรียน'} ได้เข้าร่วมกิจกรรม GoodJunk Intervention แล้ว ระบบสรุปทั้งผลเกมและมุมมองของผู้ปกครองไว้ด้านล่าง`;
 
-      const nick = q('nickName','นักเรียน');
-      $('gameValue').textContent = nick;
-      $('gameSub').textContent = 'ได้รับการฝึกเรื่อง healthy choice และการลด junk choice';
+    $('gameScore').textContent = String(game.score ?? '-');
+    $('gameGood').textContent = String(game.goodHit ?? '-');
+    $('gameJunk').textContent = String(game.junkHit ?? '-');
+    $('gameMiss').textContent = String(game.miss ?? '-');
+    $('gameGrade').textContent = String(game.grade ?? '-');
 
-      if(postK && postK.score >= 4){
-        $('learnedText').textContent =
-          'จากข้อมูลหลังเล่น เด็กมีความเข้าใจเรื่องการเลือกอาหารที่ดีมากขึ้น และเริ่มแยกอาหารที่ควรลดได้ชัดเจนขึ้น';
-      }
+    const parentBullets = buildParentBullets(parent);
+    $('parentSummaryBody').innerHTML = parentBullets.length
+      ? `<ul style="margin:0; padding-left:18px;">${parentBullets.map(v => `<li>${v}</li>`).join('')}</ul>`
+      : 'ยังไม่มีข้อมูลแบบสอบถามผู้ปกครอง';
 
-      if(postB && postB.score >= 12){
-        $('homeMissionText').textContent =
-          'ภารกิจวันนี้: ให้เด็กเลือกของว่างดี 1 อย่างด้วยตนเอง และอธิบายให้ผู้ปกครองฟังว่าทำไมจึงเป็นตัวเลือกที่ดีกว่า';
-      }
-    }
+    const tips = buildHomeTips(game, parent);
+    $('homeTips').innerHTML = tips.map(v => `<li>${v}</li>`).join('');
 
-    $('btnQuestionnaire').addEventListener('click', ()=>{
-      location.href = withContext('./parent-questionnaire.html');
+    $('backTeacherBtn').addEventListener('click', () => {
+      location.href = buildUrl('../launcher/teacher-panel.html', ctx, false);
     });
 
-    $('btnFollowup').addEventListener('click', ()=>{
-      location.href = withContext('../followup/weekly-check.html');
+    $('backLauncherBtn').addEventListener('click', () => {
+      location.href = buildUrl('STUDENT_LAUNCHER', ctx, false);
     });
 
-    $('btnHub').addEventListener('click', ()=>{
-      location.href = q('hub','../../hub.html');
+    $('gotoParentFormBtn').addEventListener('click', () => {
+      location.href = buildUrl('PARENT_FORM', ctx, false);
     });
-
-    renderChips();
-    renderSummary();
   </script>
 </body>
 </html>
