@@ -1,53 +1,41 @@
-<!-- === /herohealth/vr-groups/groups.html ===
-GroupsVR Redirect Wrapper (SINGLE RUN)
-✅ Canonical run: ./groups-vr.html
-✅ Pass-through: all query params + hash
-✅ No override of view/run/diff/time/seed/hub/etc.
--->
+<!-- === /herohealth/vr-groups/groups.html === -->
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>Redirecting… | HeroHealth — GroupsVR</title>
-  <meta name="color-scheme" content="light dark" />
-  <link rel="icon" href="../favicon.ico" type="image/x-icon" />
-  <meta http-equiv="refresh" content="1; url=./groups-vr.html" />
+  <title>HeroHealth • Groups Run Redirect</title>
   <style>
-    :root{ color-scheme: light dark; }
-    body{ margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
-    .wrap{ min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px; }
-    .card{ max-width:520px; width:100%; border:1px solid rgba(148,163,184,.25); border-radius:18px; padding:18px 16px; background:rgba(2,6,23,.55); }
-    h1{ font-size:18px; margin:0 0 8px; }
-    p{ margin:0 0 10px; opacity:.9; line-height:1.4; }
-    a{ display:inline-block; margin-top:8px; padding:10px 12px; border-radius:12px; text-decoration:none; border:1px solid rgba(148,163,184,.25); }
-    code{ opacity:.85; }
+    html,body{
+      margin:0; min-height:100%;
+      display:grid; place-items:center;
+      background:#020617; color:#e5e7eb;
+      font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    }
+    .card{
+      width:min(560px, calc(100% - 24px));
+      padding:20px;
+      border-radius:20px;
+      background:rgba(15,23,42,.9);
+      border:1px solid rgba(148,163,184,.16);
+      text-align:center;
+    }
+    a{ color:#38bdf8; }
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <div class="card">
-      <h1>กำลังพาไปหน้าเกม GroupsVR…</h1>
-      <p>เวอร์ชันมาตรฐานอยู่ที่ <code>groups-vr.html</code> (ตัวเดียวเท่านั้น)</p>
-      <p>ถ้าไม่เด้งอัตโนมัติ กดปุ่มด้านล่างได้เลย</p>
-      <a id="go" href="./groups-vr.html">ไปที่ GroupsVR</a>
-    </div>
+  <div class="card">
+    <h1>กำลังเปิด Groups Run เวอร์ชันใหม่…</h1>
+    <p>ถ้าไม่ไปอัตโนมัติ ให้กดลิงก์ด้านล่าง</p>
+    <p><a id="goLink" href="../nutrition-groups/groups-run.html">เปิด Groups Run</a></p>
   </div>
 
   <script>
-  (function(){
-    'use strict';
-    try{
-      var target = './groups-vr.html' + (location.search || '') + (location.hash || '');
-      var a = document.getElementById('go');
-      if (a) a.href = target;
-
-      // avoid extra history entry
-      location.replace(target);
-    }catch(_){
-      // fallback: meta refresh + link
-    }
-  })();
+    const target = new URL('../nutrition-groups/groups-run.html', window.location.href);
+    const current = new URL(window.location.href);
+    current.searchParams.forEach((value, key) => target.searchParams.set(key, value));
+    document.getElementById('goLink').href = target.toString();
+    window.location.replace(target.toString());
   </script>
 </body>
 </html>
