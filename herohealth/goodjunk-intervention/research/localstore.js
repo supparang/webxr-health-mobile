@@ -1,256 +1,122 @@
-// /herohealth/goodjunk-intervention/research/localstore.js
-// Shared localStorage helper for GoodJunk intervention
+// === /goodjunk-intervention/research/localstore.js ===
+// STORAGE HELPERS
+// PATCH v20260318a-GJI-LOCALSTORE
 
-(function () {
-  'use strict';
+export const KEYS = {
+  CTX: 'GJI_CTX',
+  COMPLETED: 'GJI_COMPLETED',
 
-  const WIN = window;
-  const CFG = WIN.GJ_INT_CONFIG;
+  PRE_KNOWLEDGE: 'GJI_PRE_KNOWLEDGE',
+  PRE_BEHAVIOR: 'GJI_PRE_BEHAVIOR',
 
-  if (!CFG) {
-    console.warn('[GJ localstore] Missing GJ_INT_CONFIG');
-    return;
+  GAME_SUMMARY: 'GJI_GAME_SUMMARY',
+  GAME_EVENTS: 'GJI_GAME_EVENTS',
+
+  POST_KNOWLEDGE: 'GJI_POST_KNOWLEDGE',
+  POST_BEHAVIOR: 'GJI_POST_BEHAVIOR',
+  POST_CHOICE: 'GJI_POST_CHOICE',
+
+  SHORT_FOLLOWUP: 'GJI_SHORT_FOLLOWUP',
+  WEEKLY_CHECK: 'GJI_WEEKLY_CHECK',
+
+  PARENT_RESPONSE: 'GJI_PARENT_RESPONSE',
+};
+
+export const PAGE_TO_KEY = {
+  'pre-knowledge.html': KEYS.PRE_KNOWLEDGE,
+  'pre-behavior.html': KEYS.PRE_BEHAVIOR,
+  'post-knowledge.html': KEYS.POST_KNOWLEDGE,
+  'post-behavior.html': KEYS.POST_BEHAVIOR,
+  'post-choice.html': KEYS.POST_CHOICE,
+  'short-followup.html': KEYS.SHORT_FOLLOWUP,
+  'weekly-check.html': KEYS.WEEKLY_CHECK,
+  'parent-questionnaire.html': KEYS.PARENT_RESPONSE,
+};
+
+function hasStorage() {
+  try {
+    return typeof localStorage !== 'undefined';
+  } catch {
+    return false;
   }
+}
 
-  if (WIN.GJ_INT_LOCALSTORE) return;
+export function saveRaw(key, value) {
+  if (!hasStorage()) return;
+  localStorage.setItem(key, value);
+}
 
-  const LIMITS = {
-    sessions: 300,
-    events: 3000,
-    ml: 1200,
-    mlGameend: 300,
-    genericRows: 500
+export function loadRaw(key, fallback = null) {
+  if (!hasStorage()) return fallback;
+  const value = localStorage.getItem(key);
+  return value === null ? fallback : value;
+}
+
+export function saveJSON(key, value) {
+  saveRaw(key, JSON.stringify(value));
+}
+
+export function loadJSON(key, fallback = null) {
+  const raw = loadRaw(key, null);
+  if (raw === null) return fallback;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return fallback;
+  }
+}
+
+export function removeKey(key) {
+  if (!hasStorage()) return;
+  localStorage.removeItem(key);
+}
+
+export function pageStorageKey(filename) {
+  return PAGE_TO_KEY[filename] ?? `GJI_PAGE_${String(filename).replace(/\W+/g, '_').toUpperCase()}`;
+}
+
+export function saveCtx(ctx = {}) {
+  const oldCtx = loadCtx();
+  const merged = { ...oldCtx, ...ctx };
+  saveJSON(KEYS.CTX, merged);
+  return merged;
+}
+
+export function loadCtx() {
+  return loadJSON(KEYS.CTX, {}) || {};
+}
+
+export function mergeCtx(partial = {}) {
+  return saveCtx(partial);
+}
+
+export function saveAssessment(filename, payload = {}) {
+  const key = pageStorageKey(filename);
+  saveJSON(key, payload);
+  return key;
+}
+
+export function loadAssessment(filename, fallback = {}) {
+  return loadJSON(pageStorageKey(filename), fallback) || fallback;
+}
+
+export function markCompleted(extra = {}) {
+  const payload = {
+    done: true,
+    at: new Date().toISOString(),
+    ...extra
   };
+  saveJSON(KEYS.COMPLETED, payload);
+  return payload;
+}
 
-  function readJson(key, fallback = null) {
-    return CFG.utils.readJson(key, fallback);
-  }
+export function loadCompleted() {
+  return loadJSON(KEYS.COMPLETED, null);
+}
 
-  function writeJson(key, value) {
-    return CFG.utils.writeJson(key, value);
-  }
-
-  function remove(key) {
-    try {
-      localStorage.removeItem(key);
-      return true;
-    } catch (_) {
-      return false;
-    }
-  }
-
-  function appendRow(key, row, limit = LIMITS.genericRows) {
-    const rows = Array.isArray(readJson(key, [])) ? readJson(key, []) : [];
-    rows.push(row);
-
-    if (Number.isFinite(limit) && limit > 0 && rows.length > limit) {
-      rows.splice(0, rows.length - limit);
-    }
-
-    writeJson(key, rows);
-    return rows;
-  }
-
-  function replaceRows(key, rows) {
-    const safeRows = Array.isArray(rows) ? rows : [];
-    writeJson(key, safeRows);
-    return safeRows;
-  }
-
-  function loadRows(key) {
-    const rows = readJson(key, []);
-    return Array.isArray(rows) ? rows : [];
-  }
-
-  function clearRows(key) {
-    return remove(key);
-  }
-
-  function upsertLatest(key, row) {
-    writeJson(key, row);
-    return row;
-  }
-
-  function exportJsonString(key, pretty = true) {
-    const data = readJson(key, null);
-    return JSON.stringify(data, null, pretty ? 2 : 0);
-  }
-
-  function csvEscape(v) {
-    if (v == null) return '';
-    const s = String(v);
-    if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
-    return s;
-  }
-
-  function rowsToCsv(rows, preferredColumns) {
-    const xs = Array.isArray(rows) ? rows : [];
-    if (!xs.length) return '';
-
-    const cols = Array.isArray(preferredColumns) && preferredColumns.length
-      ? preferredColumns
-      : Array.from(xs.reduce((set, row) => {
-          Object.keys(row || {}).forEach(k => set.add(k));
-          return set;
-        }, new Set()));
-
-    const lines = [
-      cols.map(csvEscape).join(',')
-    ];
-
-    xs.forEach((row) => {
-      lines.push(cols.map(c => csvEscape(row?.[c] ?? '')).join(','));
-    });
-
-    return lines.join('\n');
-  }
-
-  function downloadText(filename, text, mime = 'text/plain;charset=utf-8') {
-    const blob = new Blob([text], { type: mime });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-  }
-
-  function exportRowsAsJsonFile(key, filename = 'export.json') {
-    const text = exportJsonString(key, true);
-    downloadText(filename, text, 'application/json;charset=utf-8');
-  }
-
-  function exportRowsAsCsvFile(key, filename = 'export.csv', preferredColumns) {
-    const rows = loadRows(key);
-    const csv = rowsToCsv(rows, preferredColumns);
-    downloadText(filename, csv, 'text/csv;charset=utf-8');
-  }
-
-  /* ----------- keyed helpers by schema type ----------- */
-
-  function saveLatestGameSummary(row) {
-    return upsertLatest(CFG.storageKeys.latestGameSummary, row);
-  }
-
-  function loadLatestGameSummary() {
-    return readJson(CFG.storageKeys.latestGameSummary, null);
-  }
-
-  function appendSessionRow(row) {
-    return appendRow(CFG.storageKeys.sessionsHistory, row, LIMITS.sessions);
-  }
-
-  function loadSessionRows() {
-    return loadRows(CFG.storageKeys.sessionsHistory);
-  }
-
-  function clearSessionRows() {
-    return clearRows(CFG.storageKeys.sessionsHistory);
-  }
-
-  function appendEventRow(row) {
-    return appendRow(CFG.storageKeys.eventsHistory, row, LIMITS.events);
-  }
-
-  function loadEventRows() {
-    return loadRows(CFG.storageKeys.eventsHistory);
-  }
-
-  function clearEventRows() {
-    return clearRows(CFG.storageKeys.eventsHistory);
-  }
-
-  function appendMlRow(row) {
-    return appendRow(CFG.storageKeys.mlHistory, row, LIMITS.ml);
-  }
-
-  function loadMlRows() {
-    return loadRows(CFG.storageKeys.mlHistory);
-  }
-
-  function clearMlRows() {
-    return clearRows(CFG.storageKeys.mlHistory);
-  }
-
-  function appendMlGameendRow(row) {
-    return appendRow(CFG.storageKeys.mlGameendHistory, row, LIMITS.mlGameend);
-  }
-
-  function loadMlGameendRows() {
-    return loadRows(CFG.storageKeys.mlGameendHistory);
-  }
-
-  function clearMlGameendRows() {
-    return clearRows(CFG.storageKeys.mlGameendHistory);
-  }
-
-  /* ----------- simple debug snapshot ----------- */
-
-  function dumpAllKnown() {
-    return {
-      teacherPanel: readJson(CFG.storageKeys.teacherPanel, null),
-
-      preKnowledge: readJson(CFG.storageKeys.preKnowledge, null),
-      postKnowledge: readJson(CFG.storageKeys.postKnowledge, null),
-
-      preBehavior: readJson(CFG.storageKeys.preBehavior, null),
-      postBehavior: readJson(CFG.storageKeys.postBehavior, null),
-
-      parentQuestionnaire: readJson(CFG.storageKeys.parentQuestionnaire, null),
-      weeklyCheck: readJson(CFG.storageKeys.weeklyCheck, null),
-      shortFollowup: readJson(CFG.storageKeys.shortFollowup, null),
-
-      latestGameSummary: readJson(CFG.storageKeys.latestGameSummary, null),
-      sessionsHistory: loadRows(CFG.storageKeys.sessionsHistory),
-      eventsHistory: loadRows(CFG.storageKeys.eventsHistory),
-      mlHistory: loadRows(CFG.storageKeys.mlHistory),
-      mlGameendHistory: loadRows(CFG.storageKeys.mlGameendHistory)
-    };
-  }
-
-  WIN.GJ_INT_LOCALSTORE = {
-    LIMITS,
-
-    readJson,
-    writeJson,
-    remove,
-
-    appendRow,
-    replaceRows,
-    loadRows,
-    clearRows,
-
-    upsertLatest,
-
-    csvEscape,
-    rowsToCsv,
-
-    downloadText,
-    exportJsonString,
-    exportRowsAsJsonFile,
-    exportRowsAsCsvFile,
-
-    saveLatestGameSummary,
-    loadLatestGameSummary,
-
-    appendSessionRow,
-    loadSessionRows,
-    clearSessionRows,
-
-    appendEventRow,
-    loadEventRows,
-    clearEventRows,
-
-    appendMlRow,
-    loadMlRows,
-    clearMlRows,
-
-    appendMlGameendRow,
-    loadMlGameendRows,
-    clearMlGameendRows,
-
-    dumpAllKnown
-  };
-})();
+export function clearSessionData() {
+  const keepCtx = loadCtx();
+  const keys = Object.values(KEYS);
+  for (const key of keys) removeKey(key);
+  saveCtx(keepCtx);
+}
