@@ -1,6 +1,6 @@
 // === /herohealth/nutrition-groups/js/groups.ui.js ===
 // UI renderer for Nutrition Groups
-// PATCH v20260318-GROUPS-VSLICE-A
+// PATCH v20260318-GROUPS-VSLICE-B
 
 import { esc, goHub } from '../../shared/nutrition-common.js';
 import { mountSummaryShell } from '../../shared/nutrition-summary-shell.js';
@@ -8,11 +8,11 @@ import { mountSummaryShell } from '../../shared/nutrition-summary-shell.js';
 const TIPS = {
   sort: 'มองก่อนว่าอาหารนี้อยู่หมู่ไหน',
   compare: 'ดูว่าอะไรดีกว่าต่อสุขภาพ',
-  reason: 'เลือกเหตุผลที่เหมาะสมที่สุด'
+  reason: 'เลือกเหตุผลที่เหมาะสมที่สุด',
+  retry: 'รอบทบทวน ลองแก้ข้อที่เคยพลาดอีกครั้ง'
 };
 
 export function createGroupsUI(ctx, { onAnswer, onReplay }) {
-  const appRoot = document.getElementById('appRoot');
   const phaseEl = document.getElementById('hudPhase');
   const progressEl = document.getElementById('hudProgress');
   const scoreEl = document.getElementById('hudScore');
@@ -42,18 +42,18 @@ export function createGroupsUI(ctx, { onAnswer, onReplay }) {
   }
 
   function renderVisual(question) {
-    if (question.type === 'sort') {
+    if (question.type === 'sort' || question.isRetry && question.retryFrom === 'sort') {
       visualEl.innerHTML = `
         <div class="food-card">
           <div class="food-emoji">${esc(question.food.emoji)}</div>
           <div class="food-name">${esc(question.food.label)}</div>
-          <div class="food-sub">เลือกหมู่อาหารที่ถูกต้อง</div>
+          <div class="food-sub">${question.isRetry ? 'รอบทบทวนโจทย์เดิม' : 'เลือกหมู่อาหารที่ถูกต้อง'}</div>
         </div>
       `;
       return;
     }
 
-    if (question.type === 'compare') {
+    if (question.type === 'compare' || question.isRetry && question.retryFrom === 'compare') {
       visualEl.innerHTML = `
         <div class="compare-grid">
           <div class="compare-option">
@@ -72,12 +72,12 @@ export function createGroupsUI(ctx, { onAnswer, onReplay }) {
       return;
     }
 
-    if (question.type === 'reason') {
+    if (question.type === 'reason' || question.isRetry && question.retryFrom === 'reason') {
       visualEl.innerHTML = `
         <div class="food-card">
           <div class="food-emoji">${esc(question.food?.emoji || '⭐')}</div>
           <div class="food-name">${esc(question.food?.label || '')}</div>
-          <div class="food-sub">เลือกเหตุผลที่เหมาะสมที่สุด</div>
+          <div class="food-sub">${question.isRetry ? 'ทบทวนเหตุผลอีกครั้ง' : 'เลือกเหตุผลที่เหมาะสมที่สุด'}</div>
         </div>
       `;
     }
