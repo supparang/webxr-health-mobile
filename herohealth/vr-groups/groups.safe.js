@@ -1,6 +1,6 @@
 // === /herohealth/vr-groups/groups.safe.js ===
-// GroupsVR SAFE — CHILD-FRIENDLY + HUD-SAFE + END-SAFE
-// FULL PATCH v20260314-GROUPS-SAFE-HUDSAFE-ENDSAFE-r1
+// GroupsVR SAFE — FINAL SOLO VERSION
+// FULL PATCH v20260318-GROUPS-SOLO-FINAL
 /* global window, document */
 (function(){
   'use strict';
@@ -8,12 +8,13 @@
   const WIN = window;
   const DOC = document;
 
-  const clamp = (v,a,b)=>{
+  const clamp = (v, a, b) => {
     v = Number(v);
-    if(!Number.isFinite(v)) v = a;
-    return Math.max(a, Math.min(b,v));
+    if (!Number.isFinite(v)) v = a;
+    return Math.max(a, Math.min(b, v));
   };
-  const nowMs = ()=> (performance && performance.now) ? performance.now() : Date.now();
+
+  const nowMs = () => (performance && performance.now) ? performance.now() : Date.now();
 
   function xmur3(str){
     str = String(str || '');
@@ -48,7 +49,7 @@
     return sfc32(s(), s(), s(), s());
   }
 
-  const pick = (rng, arr)=> arr[(rng() * arr.length) | 0];
+  const pick = (rng, arr) => arr[(rng() * arr.length) | 0];
 
   function emit(name, detail){
     try{
@@ -88,9 +89,9 @@
   const GROUPS = [
     { id:1, short:'หมู่ 1', name:'หมู่ 1 โปรตีน', items:['🥚','🐟','🥛','🍗','🥜'] },
     { id:2, short:'หมู่ 2', name:'หมู่ 2 คาร์โบไฮเดรต', items:['🍚','🍞','🥔','🍜','🥖'] },
-    { id:3, short:'หมู่ 3 ผัก', name:'หมู่ 3 ผัก', items:['🥦','🥬','🥕','🥒','🌽'] },
-    { id:4, short:'หมู่ 4 ผลไม้', name:'หมู่ 4 ผลไม้', items:['🍌','🍎','🍊','🍉','🍇'] },
-    { id:5, short:'หมู่ 5 ไขมัน', name:'หมู่ 5 ไขมัน', items:['🥑','🫒','🧈','🥥','🧀'] }
+    { id:3, short:'หมู่ 3', name:'หมู่ 3 ผัก', items:['🥦','🥬','🥕','🥒','🌽'] },
+    { id:4, short:'หมู่ 4', name:'หมู่ 4 ผลไม้', items:['🍌','🍎','🍊','🍉','🍇'] },
+    { id:5, short:'หมู่ 5', name:'หมู่ 5 ไขมัน', items:['🥑','🫒','🧈','🥥','🧀'] }
   ];
 
   const STATE = {
@@ -105,7 +106,6 @@
     plannedSec: 80,
     seedStr: '',
     view: 'mobile',
-
     rng: null,
 
     startMs: 0,
@@ -133,8 +133,8 @@
     bossHits: 0,
 
     spawnAcc: 0,
-    baseSpawnPerSec: 1.18,
-    baseTtl: 2.95,
+    baseSpawnPerSec: 1.0,
+    baseTtl: 3.0,
 
     map: new Map(),
     idSeq: 1,
@@ -153,7 +153,11 @@
     const combo = Number(STATE.bestCombo || 0);
     const miss = Number(STATE.miss || 0);
 
-    const weighted = (a * 0.62) + Math.min(18, combo * 1.8) + Math.min(20, score / 30) - Math.min(18, miss * 0.8);
+    const weighted =
+      (a * 0.62) +
+      Math.min(18, combo * 1.8) +
+      Math.min(20, score / 30) -
+      Math.min(18, miss * 0.8);
 
     if(weighted >= 92) return 'S';
     if(weighted >= 80) return 'A';
@@ -169,13 +173,13 @@
 
   function rampMul(elapsedSec, plannedSec, runMode, diff){
     if(runMode === 'practice') return 1;
-    const rampMax = (diff === 'easy') ? 0.12 : (diff === 'hard') ? 0.24 : 0.18;
+    const rampMax = (diff === 'easy') ? 0.10 : (diff === 'hard') ? 0.22 : 0.16;
     return 1 + rampMax * smooth01(elapsedSec / Math.max(1, plannedSec));
   }
 
   function ttlShrinkMul(elapsedSec, plannedSec, runMode, diff){
     if(runMode === 'practice') return 1;
-    const shrink = (diff === 'easy') ? 0.10 : (diff === 'hard') ? 0.22 : 0.16;
+    const shrink = (diff === 'easy') ? 0.08 : (diff === 'hard') ? 0.20 : 0.14;
     return 1 - shrink * smooth01(elapsedSec / Math.max(1, plannedSec));
   }
 
@@ -210,7 +214,6 @@
       const localY = y;
 
       const forbidden = [];
-
       const hud = DOC.querySelector('.hud');
       const power = DOC.querySelector('.powerWrap');
       const toast = DOC.querySelector('.coachToast.show');
@@ -246,11 +249,13 @@
       y = r.yMin + STATE.rng() * Math.max(1, (r.yMax - r.yMin));
       tries++;
     }while(
-      tries < 28 &&
+      tries < 32 &&
       (
         intersectsForbidden(x, y) ||
-        y < (r.yMin + 10) ||
-        y > (r.yMax - 8)
+        y < (r.yMin + 16) ||
+        y > (r.yMax - 16) ||
+        x < (r.xMin + 10) ||
+        x > (r.xMax - 10)
       )
     );
 
@@ -422,9 +427,9 @@
     }
 
     STATE.combo = 0;
-    STATE.score = Math.max(0, STATE.score - 3);
+    STATE.score = Math.max(0, STATE.score - 2);
 
-    emitHit('hit_bad', false, obj, -3);
+    emitHit('hit_bad', false, obj, -2);
     removeTarget(obj.id, 'hit');
     emitScorePack();
     emitQuestUpdate();
@@ -501,12 +506,12 @@
     emit('quest:update', {
       goalTitle: (STATE.stage === 'boss')
         ? 'ภารกิจพิเศษ: ยิงให้ถูกหมู่'
-        : 'เป้าพิเศษ: ยิงให้ถูกหมู่',
+        : 'เป้าหมาย: ยิงให้ถูกหมู่',
       goalNow: STATE.goalNow,
       goalTotal: STATE.goalTotal,
       groupName: STATE.curGroup ? STATE.curGroup.name : '—',
       groupNo: STATE.curGroup ? STATE.curGroup.id : null,
-      miniTitle: (STATE.stage === 'boss') ? 'พิเศษ' : 'พลังพิเศษ',
+      miniTitle: (STATE.stage === 'boss') ? 'ช่วงพิเศษ' : 'พลัง',
       miniNow: (STATE.stage === 'boss') ? STATE.bossHits : STATE.charge,
       miniTotal: (STATE.stage === 'boss') ? 999 : STATE.chargeNeed,
       miniTimeLeftSec: (STATE.stage === 'boss') ? Math.ceil(STATE.bossLeft) : 0
@@ -526,23 +531,26 @@
 
   function aiWarnMaybe(){
     const t = nowMs();
-    if(t - STATE.warnLastMs < 2200) return;
+    if(t - STATE.warnLastMs < 2400) return;
 
     const acc = accPct();
     let msg = '';
     let mood = 'neutral';
 
     if(STATE.stage === 'boss'){
-      msg = `บอสมาแล้ว! เน้น “${STATE.curGroup.short}” ⚡`;
+      msg = `ช่วงพิเศษ! ยิง “${STATE.curGroup.short}” ให้ถูกนะ ⚡`;
       mood = 'fever';
     }else if(acc < 45 && STATE.shots >= 4){
-      msg = 'ค่อย ๆ เล็งให้ตรงหมู่ก่อน อย่ายิงมั่ว 👀';
+      msg = 'ค่อย ๆ เล็งก่อน แล้วค่อยยิง 👀';
       mood = 'sad';
     }else if(STATE.combo >= 5){
-      msg = 'เยี่ยม! คอมโบกำลังมา 🔥';
+      msg = 'เยี่ยมมาก! คอมโบมาแล้ว 🔥';
+      mood = 'happy';
+    }else if(STATE.goalNow > 0 && STATE.goalNow % 4 === 0){
+      msg = `ดีมาก! ตอนนี้เน้น “${STATE.curGroup.short}” ต่อเลย 🎯`;
       mood = 'happy';
     }else if(STATE.tLeft <= 12){
-      msg = 'ช่วงท้ายแล้ว ใจเย็นและยิงให้แม่น 🎯';
+      msg = 'ใกล้หมดเวลาแล้ว ยิงให้แม่นนะ ⏳';
       mood = 'neutral';
     }else{
       return;
@@ -580,9 +588,9 @@
       if(shouldCountMiss){
         STATE.miss++;
         STATE.combo = 0;
-        STATE.score = Math.max(0, STATE.score - 2);
+        STATE.score = Math.max(0, STATE.score - 1);
         setObjCenterFromEl(obj);
-        emitHit('timeout_miss', false, obj, -2);
+        emitHit('timeout_miss', false, obj, -1);
       }
 
       removeTarget(obj.id, 'expire');
@@ -603,13 +611,18 @@
     });
 
     emitQuestUpdate();
-    coach(`ช่วงพิเศษ! ยิง “${STATE.curGroup.short}” ให้มากที่สุดใน ${STATE.bossSec}s`, 'fever');
+    coach(`ช่วงพิเศษ! ยิง “${STATE.curGroup.short}” ให้ได้มากที่สุด ⚡`, 'fever');
+    emit('groups:boss_start', {
+      bossSec: STATE.bossSec,
+      groupId: STATE.curGroup.id,
+      groupName: STATE.curGroup.name
+    });
   }
 
   function buildSummary(reason){
     return {
       projectTag: 'GroupsVR',
-      gameVersion: 'v20260314-GROUPS-SAFE-HUDSAFE-ENDSAFE-r1',
+      gameVersion: 'v20260318-GROUPS-SOLO-FINAL',
       device: STATE.view,
       runMode: STATE.runMode,
       diff: STATE.diff,
@@ -685,7 +698,7 @@
 
       if(classroom && bossOn && STATE.stage === 'main' && STATE.runMode !== 'practice'){
         startBoss();
-        STATE.tLeft = 6;
+        STATE.tLeft = Math.max(6, Math.min(8, STATE.bossSec));
         STATE.raf = requestAnimationFrame(tick);
         return;
       }
@@ -716,14 +729,20 @@
     STATE.rng = makeRng(STATE.seedStr);
 
     if(STATE.diff === 'easy'){
-      STATE.baseSpawnPerSec = 0.96;
-      STATE.baseTtl = 3.20;
+      STATE.baseSpawnPerSec = 0.84;
+      STATE.baseTtl = 3.45;
+      STATE.goalTotal = clamp(ctx.goalTotal ?? 10, 8, 14);
+      STATE.chargeNeed = clamp(ctx.chargeNeed ?? 7, 6, 10);
     }else if(STATE.diff === 'hard'){
-      STATE.baseSpawnPerSec = 1.26;
+      STATE.baseSpawnPerSec = 1.24;
       STATE.baseTtl = 2.55;
+      STATE.goalTotal = clamp(ctx.goalTotal ?? 14, 10, 18);
+      STATE.chargeNeed = clamp(ctx.chargeNeed ?? 9, 8, 12);
     }else{
-      STATE.baseSpawnPerSec = 1.10;
-      STATE.baseTtl = 2.85;
+      STATE.baseSpawnPerSec = 1.00;
+      STATE.baseTtl = 3.00;
+      STATE.goalTotal = clamp(ctx.goalTotal ?? 12, 9, 16);
+      STATE.chargeNeed = clamp(ctx.chargeNeed ?? 8, 7, 11);
     }
 
     if(STATE.runMode === 'practice'){
@@ -745,17 +764,12 @@
     STATE.shots = 0;
     STATE.hits = 0;
 
-    STATE.goalTotal = clamp(ctx.goalTotal ?? 12, 8, 18);
-    STATE.goalNow = 0;
-
-    STATE.charge = 0;
-    STATE.chargeNeed = clamp(ctx.chargeNeed ?? 8, 6, 12);
-
     STATE.stage = 'main';
     STATE.bossLeft = 0;
     STATE.bossSec = clamp(ctx.bossSec ?? 8, 6, 14);
     STATE.bossHits = 0;
 
+    STATE.charge = 0;
     STATE.spawnAcc = 0;
     STATE.idSeq = 1;
     STATE.warnLastMs = 0;
@@ -779,7 +793,7 @@
       WIN.addEventListener('hha:shoot', shootHandler);
     }catch(_){}
 
-    coach(`เริ่มเลย! หา “${STATE.curGroup.short}” แล้วเก็บคอมโบ 🎯`, 'neutral');
+    coach(`เริ่มเลย! ตอนนี้ยิง “${STATE.curGroup.short}” ให้ถูกนะ 🎯`, 'neutral');
     emitTimePack();
     emitScorePack();
     emitQuestUpdate();
