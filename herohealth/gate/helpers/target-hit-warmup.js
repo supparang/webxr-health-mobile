@@ -1,5 +1,11 @@
 // === /herohealth/gate/helpers/target-hit-warmup.js ===
 // Shared helper for target-hit / quick-scan warmup modules
+// FULL PATCH v20260318-TARGET-HIT-WARMUP-MANUAL-START-FIX
+// ✅ manual-start helper ชัดเจน
+// ✅ return start ตัวจริง
+// ✅ autostart:false เพื่อไม่ให้ gate-core ข้าม brief screen
+// ✅ finish ส่ง ok ตามจริง
+// ✅ ถ้าไม่มีปุ่ม start จะ auto-start ให้เอง
 
 import { rand } from './rng.js';
 
@@ -67,17 +73,17 @@ export function mountTargetHitWarmup({
   } = config;
 
   const state = {
-    started:false,
-    ended:false,
-    time:timeLimit,
-    score:0,
-    miss:0,
-    taps:0,
-    hits:0,
-    progress:0,
+    started: false,
+    ended: false,
+    time: timeLimit,
+    score: 0,
+    miss: 0,
+    taps: 0,
+    hits: 0,
+    progress: 0,
     goal,
-    timer:null,
-    items:[]
+    timer: null,
+    items: []
   };
 
   container.innerHTML = renderShell({
@@ -93,38 +99,42 @@ export function mountTargetHitWarmup({
     progressText: container.querySelector('[data-role="progress-text"]')
   };
 
-  function acc(){
+  function accuracy(){
     return state.taps > 0 ? Math.round((state.hits / state.taps) * 100) : 0;
   }
 
   function setHud(){
-    api.setStats({
+    api?.setStats?.({
       time: state.time,
       score: state.score,
       miss: state.miss,
-      acc: `${acc()}% • ${progressText({ state })}`
+      acc: `${accuracy()}% • ${progressText({ state })}`
     });
+
     if(els.progressText){
       els.progressText.textContent = progressText({ state });
     }
   }
 
   function popAt(x, y, text){
+    if(!els.targets) return;
+
     const el = document.createElement('div');
     el.className = `${rootClass}-pop`;
     el.style.left = x + '%';
     el.style.top = y + '%';
     el.textContent = text;
     els.targets.appendChild(el);
-    setTimeout(()=> el.remove(), 560);
+
+    setTimeout(() => el.remove(), 560);
   }
 
   function makeItem(kind, data){
     return {
       id: `${kind}-${Math.random().toString(36).slice(2,8)}`,
       kind,
-      emoji: data.emoji,
-      label: data.label,
+      emoji: data?.emoji || '•',
+      label: data?.label || kind,
       x: rand(rng, xRange[0], xRange[1]),
       y: rand(rng, yRange[0], yRange[1]),
       alive: true,
@@ -134,23 +144,28 @@ export function mountTargetHitWarmup({
 
   function spawnSet(){
     const out = [];
-    for(let i=0;i<initialGood;i++){
+
+    for(let i = 0; i < initialGood; i++){
       out.push(makeItem('good', makeGoodData(goodPool, i)));
     }
-    for(let i=0;i<initialBad;i++){
+
+    for(let i = 0; i < initialBad; i++){
       out.push(makeItem('bad', makeBadData(badPool, i)));
     }
+
     return out;
   }
 
   function maybeRespawnGood(){
-    const aliveGood = state.items.filter(o=>o.kind === 'good' && o.alive).length;
+    const aliveGood = state.items.filter(o => o.kind === 'good' && o.alive).length;
     if(aliveGood >= minAliveGood) return;
 
-    for(let i=0;i<respawnGoodCount;i++){
-      const data = makeGoodData(goodPool, Math.floor(rng() * goodPool.length));
+    for(let i = 0; i < respawnGoodCount; i++){
+      const pickIndex = Math.floor(rng() * Math.max(1, goodPool.length));
+      const data = makeGoodData(goodPool, pickIndex);
       state.items.push(makeItem('good', data));
     }
+
     render();
   }
 
@@ -178,41 +193,46 @@ export function mountTargetHitWarmup({
   function finish(ok){
     if(state.ended) return;
     state.ended = true;
-    clearInterval(state.timer);
 
-    const accuracy = acc();
+    clearInterval(state.timer);
+    state.timer = null;
+
+    const acc = accuracy();
     const { timeBonus, scoreBonus, rank } = computeRewards();
 
-    api.logger.push(`${ctx.game}_warmup_end`, {
+    api?.logger?.push?.(`${ctx.game}_warmup_end`, {
       ok,
       progress: state.progress,
       goal: state.goal,
       score: state.score,
       miss: state.miss,
-      acc: accuracy,
+      acc,
       rank
     });
 
-    api.finish({
-      ok:true,
+    api?.finish?.({
+      ok: !!ok,
       title: ok ? finishTitleSuccess : finishTitleTimeout,
       subtitle: finishSubtitle,
-      lines: finishLines({ state, acc: accuracy, timeBonus, scoreBonus, rank }),
-      buffs: buildBuffs({ state, acc: accuracy, timeBonus, scoreBonus, rank })
+      lines: finishLines({ state, acc, timeBonus, scoreBonus, rank }),
+      buffs: buildBuffs({ state, acc, timeBonus, scoreBonus, rank }),
+      markDailyDone: true
     });
   }
 
   function onGood(item){
-    if(state.ended || !item.alive) return;
+    if(state.ended || !item?.alive) return;
+
     item.alive = false;
-    state.progress++;
-    state.hits++;
-    state.taps++;
+    state.progress += 1;
+    state.hits += 1;
+    state.taps += 1;
     state.score += 10;
     item.el?.remove();
 
     popAt(item.x, item.y, '+10');
-    api.toast(onGoodToast(item, state));
+    api?.toast?.(onGoodToast(item, state));
+
     maybeRespawnGood();
     setHud();
 
@@ -222,72 +242,96 @@ export function mountTargetHitWarmup({
   }
 
   function onBad(item){
-    if(state.ended || !item.alive) return;
-    state.miss++;
-    state.taps++;
+    if(state.ended || !item?.alive) return;
+
+    state.miss += 1;
+    state.taps += 1;
     state.score = Math.max(0, state.score - 2);
 
-    item.el?.animate([
+    item.el?.animate?.([
       { transform:'translate(-50%,-50%) rotate(0deg)' },
       { transform:'translate(-50%,-50%) rotate(-8deg)' },
       { transform:'translate(-50%,-50%) rotate(8deg)' },
       { transform:'translate(-50%,-50%) rotate(0deg)' }
     ], { duration: 240, easing:'ease-out' });
 
-    api.toast(onBadToast(item, state));
+    api?.toast?.(onBadToast(item, state));
     setHud();
   }
 
   function render(){
+    if(!els.targets) return;
+
     els.targets.innerHTML = '';
-    state.items.filter(o=>o.alive).forEach(item=>{
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = `${rootClass}-item ${item.kind === 'good' ? goodItemClass : badItemClass}`;
-      btn.style.left = item.x + '%';
-      btn.style.top = item.y + '%';
-      btn.textContent = item.emoji;
-      btn.title = item.label;
 
-      btn.addEventListener('click', ()=>{
-        if(item.kind === 'good') onGood(item);
-        else onBad(item);
+    state.items
+      .filter(o => o.alive)
+      .forEach(item => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = `${rootClass}-item ${item.kind === 'good' ? goodItemClass : badItemClass}`;
+        btn.style.left = item.x + '%';
+        btn.style.top = item.y + '%';
+        btn.textContent = item.emoji;
+        btn.title = item.label;
+
+        btn.addEventListener('click', () => {
+          if(item.kind === 'good') onGood(item);
+          else onBad(item);
+        });
+
+        item.el = btn;
+        els.targets.appendChild(btn);
       });
-
-      item.el = btn;
-      els.targets.appendChild(btn);
-    });
   }
 
-  function start(){
-    if(state.started) return;
+  function startInternal(){
+    if(state.started || state.ended) return;
+
     state.started = true;
     els.brief?.classList.add('hidden');
+
     state.items = spawnSet();
     render();
     setHud();
 
-    api.logger.push(`${ctx.game}_warmup_start`, {
+    api?.logger?.push?.(`${ctx.game}_warmup_start`, {
       seed: ctx.seed,
       diff: ctx.diff
     });
 
-    state.timer = setInterval(()=>{
-      state.time--;
+    state.timer = setInterval(() => {
+      if(state.ended) return;
+
+      state.time -= 1;
+      if(state.time < 0) state.time = 0;
+
       setHud();
+
       if(state.time <= 0){
         finish(false);
       }
     }, 1000);
   }
 
-  els.start?.addEventListener('click', start);
+  els.start?.addEventListener('click', startInternal);
+
+  // ถ้า shell ไม่มีปุ่ม start / brief ให้เริ่มเอง
+  if(!els.start || !els.brief){
+    queueMicrotask(() => {
+      startInternal();
+    });
+  }
+
   setHud();
 
   return {
-    start(){},
+    autostart: false,
+    start: startInternal,
     destroy(){
       clearInterval(state.timer);
+      state.timer = null;
+      state.ended = true;
     }
   };
 }
