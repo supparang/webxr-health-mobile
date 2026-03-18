@@ -1,18 +1,19 @@
 // === /herohealth/shared/nutrition-entry.js ===
 // Entry helpers for nutrition zone / hub cards
-// PATCH v20260318-NUTRITION-HUB-ENTRY-B
+// PATCH v20260318-NUTRITION-PRODUCTION-WIRING-A
 
 import { buildUrl } from './nutrition-common.js';
+import { NUTRITION_PATHS } from './nutrition-production.js';
 
 export function buildNutritionZoneUrl(ctx, extra = {}) {
-  return buildUrl('./nutrition-zone.html', {
+  return buildUrl(NUTRITION_PATHS.zone, {
     ...ctx.query,
     cat: 'nutrition',
     theme: extra.theme ?? 'nutrition',
     zone: 'nutrition',
     hub: extra.hub ?? ctx.hub,
     returnTo: extra.returnTo ?? ctx.returnTo,
-    launcher: './nutrition-zone.html',
+    launcher: NUTRITION_PATHS.zone,
     view: extra.view ?? ctx.view,
     run: extra.run ?? ctx.run,
     phase: extra.phase ?? ctx.phase,
@@ -23,14 +24,14 @@ export function buildNutritionZoneUrl(ctx, extra = {}) {
 }
 
 export function buildGroupsLauncherUrl(ctx, extra = {}) {
-  return buildUrl('./nutrition-groups/groups-launcher.html', {
+  return buildUrl(NUTRITION_PATHS.groups.launcher, {
     ...ctx.query,
     cat: 'nutrition',
     theme: 'groups',
     game: 'groups',
     hub: extra.hub ?? ctx.hub,
     returnTo: extra.returnTo ?? ctx.returnTo,
-    launcher: './nutrition-groups/groups-launcher.html',
+    launcher: NUTRITION_PATHS.groups.launcher,
     view: extra.view ?? ctx.view,
     run: extra.run ?? ctx.run,
     phase: extra.phase ?? ctx.phase,
@@ -41,14 +42,14 @@ export function buildGroupsLauncherUrl(ctx, extra = {}) {
 }
 
 export function buildPlateLauncherUrl(ctx, extra = {}) {
-  return buildUrl('./nutrition-plate/plate-launcher.html', {
+  return buildUrl(NUTRITION_PATHS.plate.launcher, {
     ...ctx.query,
     cat: 'nutrition',
     theme: 'plate',
     game: 'plate',
     hub: extra.hub ?? ctx.hub,
     returnTo: extra.returnTo ?? ctx.returnTo,
-    launcher: './nutrition-plate/plate-launcher.html',
+    launcher: NUTRITION_PATHS.plate.launcher,
     view: extra.view ?? ctx.view,
     run: extra.run ?? ctx.run,
     phase: extra.phase ?? ctx.phase,
@@ -69,7 +70,7 @@ export function bindNutritionHubCard({
     if (mode === 'groups') {
       window.location.href = buildGroupsLauncherUrl(ctx, {
         hub: ctx.hub,
-        returnTo: './nutrition-zone.html'
+        returnTo: NUTRITION_PATHS.zone
       });
       return;
     }
@@ -77,7 +78,7 @@ export function bindNutritionHubCard({
     if (mode === 'plate') {
       window.location.href = buildPlateLauncherUrl(ctx, {
         hub: ctx.hub,
-        returnTo: './nutrition-zone.html'
+        returnTo: NUTRITION_PATHS.zone
       });
       return;
     }
