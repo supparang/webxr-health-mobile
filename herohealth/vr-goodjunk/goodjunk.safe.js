@@ -1,6 +1,6 @@
-const params = new URLSearchParams(location.search);
+const __qs = new URLSearchParams(location.search);
 
-function makeDevicePid() {
+function __makeDevicePid() {
   try {
     const KEY = 'GJ_DEVICE_PID';
     let pid = localStorage.getItem(KEY);
@@ -14,546 +14,901 @@ function makeDevicePid() {
   }
 }
 
-function normalizePid(rawPid) {
+function __normalizePid(rawPid) {
   const v = String(rawPid || '').trim().replace(/[.#$[\]/]/g, '-');
-  if (!v) return makeDevicePid();
-  if (v.toLowerCase() === 'anon') return makeDevicePid();
+  if (!v) return __makeDevicePid();
+  if (v.toLowerCase() === 'anon') return __makeDevicePid();
   return v;
 }
 
-function normalizeRoomCode(raw) {
-  return String(raw || '').toUpperCase().replace(/[^A-Z0-9-]/g, '').slice(0, 16);
+function __normalizeRoomId(rawRoomId) {
+  return String(rawRoomId || '').toUpperCase().replace(/[^A-Z0-9-]/g, '').slice(0, 16);
 }
 
-const ctx = {
-  mode: params.get('mode') || 'race',
-  pid: normalizePid(params.get('pid')),
-  name: params.get('name') || '',
-  studyId: params.get('studyId') || '',
-  diff: params.get('diff') || 'normal',
-  time: params.get('time') || '120',
-  seed: params.get('seed') || String(Date.now()),
-  hub: params.get('hub') || './hub.html',
-  view: params.get('view') || 'mobile',
-  run: params.get('run') || 'play',
-  gameId: params.get('gameId') || 'goodjunk',
-  roomId: normalizeRoomCode(
-    params.get('roomId') || `GJ${Math.random().toString(36).slice(2, 8).toUpperCase()}`
-  )
+const RUN_CTX = window.__GJ_RUN_CTX__ || {
+  pid: __normalizePid(__qs.get('pid') || ''),
+  name: __qs.get('name') || '',
+  studyId: __qs.get('studyId') || '',
+  roomId: __normalizeRoomId(__qs.get('roomId') || __qs.get('room') || ''),
+  mode: (__qs.get('mode') || 'solo').toLowerCase(),
+  diff: __qs.get('diff') || 'normal',
+  time: __qs.get('time') || '120',
+  seed: __qs.get('seed') || String(Date.now()),
+  startAt: Number(__qs.get('startAt') || 0) || 0,
+  hub: __qs.get('hub') || '../hub.html',
+  view: __qs.get('view') || 'mobile',
+  run: __qs.get('run') || 'play',
+  gameId: __qs.get('gameId') || 'goodjunk'
 };
 
-const ROOM_PATH = `hha-battle/goodjunk/rooms/${ctx.roomId}`;
-const PRESENCE_HEARTBEAT_MS = 4000;
-const DISCONNECT_PRUNE_MS = 15000;
+const GJ_PID = __normalizePid(RUN_CTX.pid || '');
+const GJ_NAME = String(RUN_CTX.name || GJ_PID).trim();
+const GJ_MODE = (RUN_CTX.mode || 'solo').toLowerCase();
+const GJ_ROOM_ID = __normalizeRoomId(RUN_CTX.roomId || '');
+const GJ_START_AT = Number(RUN_CTX.startAt || 0) || 0;
+const GJ_HUB = RUN_CTX.hub || '../hub.html';
+const GJ_GAME_ID = RUN_CTX.gameId || 'goodjunk';
 
-const $ = (id) => document.getElementById(id);
+const GAME_MOUNT = document.getElementById('gameMount') || document.body;
+const RACE_UI = window.__gjRaceUi || null;
 
-const els = {
-  roomCode: $('roomCode'),
-  playerCount: $('playerCount'),
-  roomStatus: $('roomStatus'),
-  hostName: $('hostName'),
-  inviteLink: $('inviteLink'),
-  copyState: $('copyState'),
-  joinGuard: $('joinGuard'),
-  btnCopyRoom: $('btnCopyRoom'),
-  btnCopyInvite: $('btnCopyInvite'),
-  playersBox: $('playersBox'),
-  countdown: $('countdown'),
-  btnReady: $('btnReady'),
-  btnStart: $('btnStart'),
-  btnBack: $('btnBack'),
-  hint: $('hint')
+const GOODJUNK_STYLE_ID = 'goodjunk-safe-style-20260318d';
+const GOODJUNK_ROOT_ID = 'gjRoot';
+
+const GJ_SOLO_LAST_SUMMARY_KEY = `GJ_SOLO_LAST_SUMMARY_${GJ_PID}`;
+const GJ_SOLO_SUMMARY_HISTORY_KEY = `GJ_SOLO_SUMMARY_HISTORY_${GJ_PID}`;
+const GJ_RACE_LAST_SUMMARY_KEY = `GJ_RACE_LAST_SUMMARY_${GJ_PID}`;
+const GJ_RACE_SUMMARY_HISTORY_KEY = `GJ_RACE_SUMMARY_HISTORY_${GJ_PID}`;
+
+const GJ_RACE_HEARTBEAT_MS = 2500;
+const GJ_RACE_STALE_MS = 45000;
+const GJ_RACE_DNF_GRACE_MS = 180000;
+const GJ_RACE_WATCHDOG_MS = 3000;
+const GJ_FIREBASE_ROOM_PATH = GJ_ROOM_ID ? `hha-battle/goodjunk/rooms/${GJ_ROOM_ID}` : '';
+
+let __gjRaceBooted = false;
+let __gjRaceRAF = 0;
+let __gjRaceFinished = false;
+let __gjRaceResultBound = false;
+let __gjRaceHeartbeatTimer = 0;
+let __gjRaceWatchdogTimer = 0;
+let __gjRaceLastSummary = null;
+let __gjRaceLastSummarySig = '';
+let __gjSoloSummary = null;
+let __gjSoloSummaryBound = false;
+let __gjRaceRoomListenerBound = false;
+
+let __gjFbReady = false;
+let __gjRaceDb = null;
+let __gjRaceRoomRef = null;
+let __gjRacePlayersRef = null;
+let __gjRaceMyPlayerRef = null;
+let __gjRecoveredStartAt = 0;
+let __gjLocalRunActive = false;
+
+const GOOD_ITEMS = [
+  { emoji: '🍎', label: 'apple' },
+  { emoji: '🥕', label: 'carrot' },
+  { emoji: '🥦', label: 'broccoli' },
+  { emoji: '🍌', label: 'banana' },
+  { emoji: '🥛', label: 'milk' },
+  { emoji: '🥗', label: 'salad' },
+  { emoji: '🍉', label: 'watermelon' }
+];
+
+const JUNK_ITEMS = [
+  { emoji: '🍟', label: 'fries' },
+  { emoji: '🍩', label: 'donut' },
+  { emoji: '🍭', label: 'candy' },
+  { emoji: '🍔', label: 'burger' },
+  { emoji: '🥤', label: 'soda' },
+  { emoji: '🍕', label: 'pizza' },
+  { emoji: '🧁', label: 'cupcake' }
+];
+
+const DIFF_PRESET = {
+  easy:   { spawnMs: 930, goodRatio: 0.68, speedMin: 90,  speedMax: 150, targetSizeMin: 60, targetSizeMax: 84 },
+  normal: { spawnMs: 760, goodRatio: 0.63, speedMin: 110, speedMax: 190, targetSizeMin: 58, targetSizeMax: 82 },
+  hard:   { spawnMs: 610, goodRatio: 0.58, speedMin: 130, speedMax: 240, targetSizeMin: 56, targetSizeMax: 80 }
 };
 
-let firebase = null;
-let db = null;
-let roomRef = null;
-let playersRef = null;
-let myPlayerRef = null;
+const state = {
+  mode: GJ_MODE === 'race' ? 'race' : 'solo',
+  diff: DIFF_PRESET[RUN_CTX.diff] ? RUN_CTX.diff : 'normal',
+  totalMs: 0,
+  timeLeftMs: 0,
+  score: 0,
+  miss: 0,
+  streak: 0,
+  bestStreak: 0,
+  hitsGood: 0,
+  hitsBad: 0,
+  missedGood: 0,
+  spawnedGood: 0,
+  spawnedJunk: 0,
+  running: false,
+  ended: false,
+  startTs: 0,
+  lastFrameTs: 0,
+  lastSpawnAccum: 0,
+  frameRaf: 0,
+  targetSeq: 0,
+  targets: new Map(),
+  rect: { width: 0, height: 0 },
+  pendingResultVisible: false
+};
 
-let room = null;
-let countdownRAF = 0;
-let countdownRunning = false;
-let countdownStartAt = 0;
-let presenceTimer = 0;
-let subscribed = false;
-let repairBusy = false;
-let exitMode = 'stay';
-let hasEnteredRun = false;
+const ui = {
+  root: null,
+  stage: null,
+  layer: null,
+  score: null,
+  timer: null,
+  miss: null,
+  streak: null,
+  hint: null,
+  progress: null,
+  stats: null,
+  centerTip: null,
+  soloOverlay: null,
+  soloBody: null,
+  soloTitle: null,
+  soloSub: null,
+  soloBtnAgain: null,
+  soloBtnExport: null,
+  soloBtnHub: null
+};
 
-function now() {
-  return Date.now();
-}
+const rng = createSeededRng(RUN_CTX.seed || Date.now());
 
-function clone(obj) {
-  try { return structuredClone(obj); }
-  catch { return JSON.parse(JSON.stringify(obj)); }
-}
+boot();
 
-function escapeHtml(s) {
-  return String(s ?? '')
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;');
-}
+function boot() {
+  injectGameplayStyle();
+  buildGameplayShell();
+  bindGameplayShell();
+  attachRaceRoomListener();
 
-function playerLabel(p) {
-  if (p?.name && String(p.name).trim()) return String(p.name).trim();
-  if (p?.id) return String(p.id);
-  return 'player';
-}
-
-function getMeName() {
-  const trimmed = String(ctx.name || '').trim();
-  return trimmed || ctx.pid;
-}
-
-function setHint(text) {
-  if (els.hint) els.hint.textContent = text || '';
-}
-
-function setCopyState(text, ok = true) {
-  if (!els.copyState) return;
-  els.copyState.textContent = text || '';
-  els.copyState.style.color = ok ? 'var(--muted)' : '#fbbf24';
-}
-
-function showJoinGuard(msg = '') {
-  if (!els.joinGuard) return;
-  if (!msg) {
-    els.joinGuard.style.display = 'none';
-    els.joinGuard.textContent = '';
-    return;
-  }
-  els.joinGuard.style.display = 'block';
-  els.joinGuard.textContent = msg;
-}
-
-function getPhaseLabel(player) {
-  if (!player) return 'ไม่ทราบสถานะ';
-  if (player.connected === false) return 'หลุดการเชื่อมต่อ';
-  if (player.phase === 'done') return 'แข่งจบแล้ว';
-  if (player.phase === 'run') return 'กำลังเข้าเกม';
-  return player.ready ? 'พร้อมแล้ว' : 'ยังไม่พร้อม';
-}
-
-function getPhaseClass(player) {
-  if (!player) return 'waiting';
-  if (player.connected === false) return 'waiting';
-  if (player.phase === 'done' || player.phase === 'run') return 'ready';
-  return player.ready ? 'ready' : 'waiting';
-}
-
-function buildInviteUrl() {
-  const q = new URLSearchParams({
-    name: '',
-    studyId: ctx.studyId,
-    diff: ctx.diff,
-    time: ctx.time,
-    seed: String(Date.now()),
-    hub: ctx.hub,
-    view: ctx.view,
-    run: ctx.run,
-    gameId: ctx.gameId,
-    mode: 'race',
-    roomId: ctx.roomId
-  });
-  return `${location.origin}${location.pathname.replace('goodjunk-race-lobby.html', 'goodjunk-race-room.html')}?${q.toString()}`;
-}
-
-async function copyText(text) {
-  const value = String(text || '').trim();
-  if (!value) return false;
-
-  try {
-    await navigator.clipboard.writeText(value);
-    return true;
-  } catch {
-    try {
-      const ta = document.createElement('textarea');
-      ta.value = value;
-      ta.setAttribute('readonly', '');
-      ta.style.position = 'fixed';
-      ta.style.opacity = '0';
-      document.body.appendChild(ta);
-      ta.focus();
-      ta.select();
-      const ok = document.execCommand('copy');
-      ta.remove();
-      return !!ok;
-    } catch {
-      return false;
-    }
-  }
-}
-
-function isHost(r = room) {
-  return !!r && r.hostId === ctx.pid;
-}
-
-function activePlayers(r = room) {
-  return (r?.players || []).filter((p) => p.connected !== false);
-}
-
-function isExistingMember(r, pid = ctx.pid) {
-  return !!r?.players?.some((p) => p.id === pid);
-}
-
-function getJoinBlockReason(r, pid = ctx.pid) {
-  if (!r) return '';
-  const existing = isExistingMember(r, pid);
-  if (existing) return '';
-
-  if ((activePlayers(r).length || 0) >= (r.maxPlayers || 4)) return 'ห้องนี้เต็มแล้ว';
-  if (r.status === 'countdown') return 'ห้องนี้กำลังนับถอยหลังเริ่มแข่ง ไม่สามารถเข้าร่วมเพิ่มได้';
-  if (r.status === 'running') return 'ห้องนี้กำลังแข่งขันอยู่ ผู้เล่นใหม่ไม่สามารถเข้าร่วมกลางเกมได้';
-  if (r.status === 'finished') return 'ห้องนี้แข่งจบแล้ว กรุณารอ rematch หรือสร้างห้องใหม่';
-  return '';
-}
-
-function canStart(r = room) {
-  if (!r) return false;
-  if (r.status !== 'waiting') return false;
-  const players = activePlayers(r);
-  if (players.length < (r.minPlayers || 2)) return false;
-  return players.every((p) => !!p.ready);
-}
-
-function getMatchParticipantIds(r = room) {
-  const ids = Array.isArray(r?.match?.participantIds) ? r.match.participantIds : [];
-  return ids.map((id) => normalizePid(id)).filter(Boolean);
-}
-
-function amIMatchParticipant(r = room) {
-  const ids = getMatchParticipantIds(r);
-  if (!ids.length) return true;
-  return ids.includes(ctx.pid);
-}
-
-function clearMatchState(next) {
-  next.match = {
-    participantIds: [],
-    lockedAt: null,
-    status: 'idle'
-  };
-  return next;
-}
-
-function getPlayersText(r = room) {
-  const total = activePlayers(r).length;
-  const min = r?.minPlayers || 2;
-  return `${total}/${min}`;
-}
-
-function getStatusText(r = room) {
-  if (!r) return 'waiting';
-  switch (r.status) {
-    case 'countdown': return 'countdown';
-    case 'running': return 'running';
-    case 'finished': return 'finished';
-    default: return 'waiting';
-  }
-}
-
-function makeDefaultRoom() {
-  return {
-    roomId: ctx.roomId,
-    hostId: ctx.pid,
-    mode: 'race',
-    minPlayers: 2,
-    maxPlayers: 4,
-    status: 'waiting',
-    startAt: null,
-    createdAt: now(),
-    updatedAt: now(),
-    players: [],
-    match: {
-      participantIds: [],
-      lockedAt: null,
-      status: 'idle'
-    }
-  };
-}
-
-function sanitizeRoom(r) {
-  const base = makeDefaultRoom();
-  const safe = { ...base, ...(r || {}) };
-
-  if (!Array.isArray(safe.players)) safe.players = [];
-  safe.players = safe.players
-    .filter(Boolean)
-    .map((p) => ({
-      id: normalizePid(p.id || ''),
-      name: String(p.name || '').trim(),
-      ready: !!p.ready,
-      joinedAt: Number(p.joinedAt || now()),
-      lastSeenAt: Number(p.lastSeenAt || now()),
-      finished: !!p.finished,
-      finalScore: Number(p.finalScore || 0),
-      miss: Number(p.miss || 0),
-      streak: Number(p.streak || 0),
-      phase: String(p.phase || 'lobby').trim(),
-      connected: p.connected !== false
-    }))
-    .filter((p) => p.id);
-
-  if (!safe.players.length) {
-    safe.hostId = ctx.pid;
-  } else if (!safe.players.some((p) => p.id === safe.hostId)) {
-    const connected = safe.players.find((p) => p.connected !== false);
-    safe.hostId = connected?.id || safe.players[0].id;
+  if (isRaceMode()) {
+    openRaceResultFromRoom();
   }
 
-  safe.minPlayers = Math.max(2, Number(safe.minPlayers || 2));
-  safe.maxPlayers = Math.max(safe.minPlayers, Number(safe.maxPlayers || 4));
-  safe.status = ['waiting', 'countdown', 'running', 'finished'].includes(safe.status)
-    ? safe.status
-    : 'waiting';
-  safe.startAt = safe.startAt ? Number(safe.startAt) : null;
-  safe.updatedAt = now();
-
-  const rawMatch = safe.match && typeof safe.match === 'object' ? safe.match : {};
-  safe.match = {
-    participantIds: Array.isArray(rawMatch.participantIds)
-      ? rawMatch.participantIds.map((id) => normalizePid(id)).filter(Boolean)
-      : [],
-    lockedAt: rawMatch.lockedAt ? Number(rawMatch.lockedAt) : null,
-    status: ['idle', 'countdown', 'running', 'finished'].includes(rawMatch.status)
-      ? rawMatch.status
-      : 'idle'
-  };
-
-  return safe;
-}
-
-function snapshotToRoom(val) {
-  if (!val) return null;
-  const playersMap = val.players || {};
-  return {
-    ...val,
-    players: Object.keys(playersMap).map((pid) => ({
-      id: pid,
-      ...playersMap[pid]
-    }))
-  };
-}
-
-function roomToFirebase(r) {
-  const out = {
-    roomId: r.roomId,
-    hostId: r.hostId,
-    mode: r.mode,
-    minPlayers: r.minPlayers,
-    maxPlayers: r.maxPlayers,
-    status: r.status,
-    startAt: r.startAt || null,
-    createdAt: r.createdAt || now(),
-    updatedAt: now(),
-    players: {},
-    match: {
-      participantIds: Array.isArray(r.match?.participantIds) ? r.match.participantIds : [],
-      lockedAt: r.match?.lockedAt || null,
-      status: r.match?.status || 'idle'
-    }
-  };
-
-  (r.players || []).forEach((p) => {
-    out.players[p.id] = {
-      name: p.name || '',
-      ready: !!p.ready,
-      joinedAt: Number(p.joinedAt || now()),
-      lastSeenAt: Number(p.lastSeenAt || now()),
-      finished: !!p.finished,
-      finalScore: Number(p.finalScore || 0),
-      miss: Number(p.miss || 0),
-      streak: Number(p.streak || 0),
-      phase: String(p.phase || 'lobby'),
-      connected: p.connected !== false
-    };
-  });
-
-  return out;
-}
-
-function pickNextHostId(r, excludePid = '') {
-  const candidates = (r?.players || [])
-    .filter((p) => p.id !== excludePid)
-    .sort((a, b) => Number(a.joinedAt || 0) - Number(b.joinedAt || 0));
-
-  const connected = candidates.find((p) => p.connected !== false);
-  return connected?.id || candidates[0]?.id || '';
-}
-
-function maybeResetCountdownIfHostMissing(cur) {
-  if (!cur) return cur;
-  const host = cur.players.find((p) => p.id === cur.hostId);
-  if (cur.status === 'countdown' && (!host || host.connected === false)) {
-    cur.status = 'waiting';
-    cur.startAt = null;
-  }
-  return cur;
-}
-
-function renderPlayers(r = room) {
-  const players = r?.players || [];
-  if (!els.playersBox) return;
-
-  els.playersBox.innerHTML = players.map((p) => {
-    const meTag = p.id === ctx.pid ? ' • คุณ' : '';
-    const hostTag = p.id === r.hostId ? ' 👑 host' : '';
-
-    return `
-      <div class="player">
-        <div><strong>${escapeHtml(playerLabel(p))}</strong>${escapeHtml(meTag)}${escapeHtml(hostTag)}</div>
-        <div class="${getPhaseClass(p)}">${escapeHtml(getPhaseLabel(p))}</div>
-      </div>
-    `;
-  }).join('');
-}
-
-function renderButtons(r = room) {
-  const me = r?.players?.find((p) => p.id === ctx.pid);
-
-  if (els.btnReady) {
-    els.btnReady.disabled = !me || me.connected === false || r?.status !== 'waiting';
-    els.btnReady.textContent = me?.ready ? 'ยกเลิกพร้อม' : 'พร้อมแล้ว';
-  }
-
-  if (els.btnStart) {
-    els.btnStart.disabled = !isHost(r) || !canStart(r);
-    els.btnStart.textContent = isHost(r) ? 'เริ่มแข่ง' : 'รอ host เริ่ม';
-  }
-}
-
-function renderStatus(r = room) {
-  if (els.roomCode) els.roomCode.textContent = r?.roomId || '-';
-  if (els.playerCount) els.playerCount.textContent = getPlayersText(r);
-  if (els.roomStatus) els.roomStatus.textContent = getStatusText(r);
-
-  const host = r?.players?.find((p) => p.id === r?.hostId);
-  if (els.hostName) els.hostName.textContent = host ? playerLabel(host) : '-';
-  if (els.inviteLink) els.inviteLink.value = buildInviteUrl();
-
-  if (!r) {
-    setHint('กำลังสร้างห้อง...');
-    if (els.countdown) els.countdown.textContent = '';
-    return;
-  }
-
-  const blockReason = getJoinBlockReason(r, ctx.pid);
-  showJoinGuard(blockReason);
-
-  const active = activePlayers(r);
-
-  if (r.status === 'waiting') {
-    if (active.length < (r.minPlayers || 2)) {
-      setHint(`ต้องมีอย่างน้อย ${r.minPlayers} คน`);
-    } else if (!active.every((p) => p.ready)) {
-      setHint('รอให้ทุกคนกดพร้อม');
-    } else if (isHost(r)) {
-      setHint('ทุกคนพร้อมแล้ว กดเริ่มแข่งได้');
-    } else {
-      setHint('ทุกคนพร้อมแล้ว รอ host กดเริ่ม');
-    }
-
-    setCopyState('ส่ง room code หรือลิงก์นี้ให้ผู้เล่นคนอื่นเข้าร่วมได้');
-    if (els.countdown) els.countdown.textContent = '';
-  }
-
-  if (r.status === 'countdown') {
-    if (amIMatchParticipant(r)) {
-      setHint('กำลังนับถอยหลังก่อนเริ่มพร้อมกัน');
-    } else {
-      setHint('กำลังนับถอยหลังเริ่มรอบนี้ คุณไม่ได้อยู่ใน participant ของรอบนี้');
-    }
-    setCopyState('ห้องถูกล็อกแล้ว กำลังจะเริ่มการแข่งขัน', false);
-  }
-
-  if (r.status === 'running') {
-    if (amIMatchParticipant(r)) {
-      setHint('การแข่งขันกำลังดำเนินอยู่');
-    } else {
-      setHint('การแข่งขันกำลังดำเนินอยู่ และคุณไม่ได้อยู่ในรอบนี้');
-    }
-    setCopyState('การแข่งขันกำลังดำเนินอยู่', false);
-  }
-
-  if (r.status === 'finished') {
-    setHint('การแข่งขันจบแล้ว');
-    setCopyState('สามารถกลับ lobby เพื่อ rematch ได้', false);
-  }
-}
-
-function render() {
-  room = room ? sanitizeRoom(room) : null;
-  renderStatus(room);
-  renderPlayers(room);
-  renderButtons(room);
-}
-
-function cancelCountdown() {
-  if (countdownRAF) cancelAnimationFrame(countdownRAF);
-  countdownRAF = 0;
-  countdownRunning = false;
-  countdownStartAt = 0;
-}
-
-function runCountdown(startAt) {
-  if (!startAt) return;
-  if (countdownRunning && countdownStartAt === startAt) return;
-
-  cancelCountdown();
-  countdownRunning = true;
-  countdownStartAt = startAt;
-
-  const tick = () => {
-    const ms = startAt - now();
-
-    if (ms <= 0) {
-      if (els.countdown) els.countdown.textContent = 'GO!';
-      countdownRunning = false;
-      countdownStartAt = 0;
-
-      if (roomRef) {
-        roomRef.update({
-          status: 'running',
-          updatedAt: now(),
-          'match/status': 'running'
-        }).catch(() => {});
+  bootWithRaceGate(async () => {
+    if (isRaceMode()) {
+      const ok = await ensureRaceFirebase();
+      if (!ok) {
+        showRaceGate('เปิดห้องแข่งไม่สำเร็จ', '...', 'ตรวจสอบ room / invite link แล้วลองใหม่');
+        return;
       }
 
-      window.setTimeout(() => {
-        enterRun(startAt);
-      }, 250);
-      return;
+      await setupRunOnDisconnect();
+      await markRacePresenceDuringRun({
+        phase: 'run',
+        ready: true,
+        connected: true,
+        finished: false,
+        dnf: false,
+        dnfReason: ''
+      });
+
+      startRaceHeartbeat();
+      startRaceWatchdog();
     }
 
-    const sec = Math.ceil(ms / 1000);
-    if (els.countdown) els.countdown.textContent = String(sec);
-    countdownRAF = requestAnimationFrame(tick);
-  };
+    startGame();
+  });
 
-  tick();
+  document.addEventListener('visibilitychange', () => {
+    if (!isRaceMode() || state.ended) return;
+    if (document.visibilityState === 'visible') {
+      markRacePresenceDuringRun({
+        phase: 'run',
+        ready: true,
+        connected: true,
+        finished: false,
+        dnf: false,
+        dnfReason: '',
+        disconnectedAt: 0
+      });
+    }
+  });
+
+  window.addEventListener('focus', () => {
+    if (!isRaceMode() || state.ended) return;
+    markRacePresenceDuringRun({
+      phase: 'run',
+      ready: true,
+      connected: true,
+      finished: false,
+      dnf: false,
+      dnfReason: '',
+      disconnectedAt: 0
+    });
+  });
+
+  window.addEventListener('beforeunload', () => {
+    try {
+      stopRaceHeartbeat();
+      stopRaceWatchdog();
+      if (isRaceMode() && !__gjRaceFinished) {
+        markMyRaceDisconnected('left-run');
+      }
+    } catch {}
+  });
+
+  window.addEventListener('resize', refreshStageRect);
 }
 
-async function maybeEnterRunFromRoom(r = room) {
-  if (!r) return;
-  if (hasEnteredRun) return;
-  if (r.status !== 'running') return;
+function injectGameplayStyle() {
+  if (document.getElementById(GOODJUNK_STYLE_ID)) return;
 
-  const me = r.players?.find((p) => p.id === ctx.pid);
-  if (!me) return;
-  if (me.phase === 'done') return;
+  const style = document.createElement('style');
+  style.id = GOODJUNK_STYLE_ID;
+  style.textContent = `
+    #${GOODJUNK_ROOT_ID}{position:absolute;inset:0;z-index:2;overflow:hidden;user-select:none;-webkit-user-select:none;touch-action:manipulation}
+    .gj-shell{position:absolute;inset:0;display:grid;grid-template-rows:auto 1fr auto;overflow:hidden}
+    .gj-topbar{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap;padding:60px 14px 12px;padding-top:calc(60px + env(safe-area-inset-top,0px));pointer-events:none}
+    .gj-chip-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;pointer-events:none}
+    .gj-chip{display:inline-flex;align-items:center;gap:8px;padding:8px 10px;border-radius:999px;border:1px solid rgba(148,163,184,.18);background:rgba(2,6,23,.66);color:#e5e7eb;font-weight:900;font-size:13px;backdrop-filter:blur(8px);box-shadow:0 10px 24px rgba(0,0,0,.18)}
+    .gj-chip span{color:#94a3b8;font-weight:800}
+    .gj-stage-wrap{position:relative;min-height:0;padding:8px 10px 10px}
+    .gj-stage{position:relative;width:100%;height:100%;min-height:320px;overflow:hidden;border:1px solid rgba(148,163,184,.18);border-radius:26px;background:radial-gradient(circle at 50% 0%, rgba(56,189,248,.08), transparent 30%),linear-gradient(180deg, rgba(15,23,42,.72), rgba(2,6,23,.78));box-shadow:0 24px 64px rgba(0,0,0,.22)}
+    .gj-stage::before{content:"";position:absolute;inset:0;background:linear-gradient(180deg, rgba(255,255,255,.04), transparent 30%),linear-gradient(0deg, rgba(255,255,255,.03), transparent 30%);pointer-events:none}
+    .gj-target-layer{position:absolute;inset:0;overflow:hidden}
+    .gj-center-tip{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(86vw,420px);padding:16px 18px;border-radius:18px;background:rgba(2,6,23,.50);border:1px solid rgba(148,163,184,.18);color:#e5e7eb;text-align:center;font-weight:900;backdrop-filter:blur(6px);pointer-events:none;opacity:.96;transition:opacity .35s ease, transform .35s ease;box-shadow:0 16px 36px rgba(0,0,0,.18)}
+    .gj-center-tip.hide{opacity:0;transform:translate(-50%,-50%) scale(.96)}
+    .gj-target{position:absolute;display:grid;place-items:center;border-radius:20px;border:1px solid rgba(255,255,255,.16);box-shadow:0 14px 28px rgba(0,0,0,.18);transform:translate3d(0,0,0);cursor:pointer;outline:none;padding:0;overflow:hidden;background:rgba(15,23,42,.78)}
+    .gj-target.good{background:radial-gradient(circle at 30% 25%, rgba(255,255,255,.22), transparent 26%),linear-gradient(180deg, rgba(34,197,94,.30), rgba(34,197,94,.18)),rgba(15,23,42,.84);border-color:rgba(34,197,94,.30)}
+    .gj-target.junk{background:radial-gradient(circle at 30% 25%, rgba(255,255,255,.20), transparent 26%),linear-gradient(180deg, rgba(244,63,94,.26), rgba(244,63,94,.14)),rgba(15,23,42,.84);border-color:rgba(244,63,94,.28)}
+    .gj-emoji{font-size:32px;line-height:1;transform:translateY(-2px);filter:drop-shadow(0 6px 10px rgba(0,0,0,.18))}
+    .gj-type{position:absolute;left:8px;right:8px;bottom:6px;font-size:10px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;color:#e2e8f0;opacity:.92;text-align:center;white-space:nowrap}
+    .gj-fx{position:absolute;font-size:16px;font-weight:900;pointer-events:none;transform:translate(-50%,-50%);animation:gj-fx-up .75s ease forwards;text-shadow:0 8px 18px rgba(0,0,0,.22)}
+    @keyframes gj-fx-up{from{opacity:1;transform:translate(-50%,-20%)}to{opacity:0;transform:translate(-50%,-140%)}}
+    .gj-bottom{padding:0 12px calc(12px + env(safe-area-inset-bottom,0px))}
+    .gj-bottom-card{border:1px solid rgba(148,163,184,.18);border-radius:18px;padding:12px;background:rgba(2,6,23,.62);backdrop-filter:blur(8px);box-shadow:0 10px 24px rgba(0,0,0,.18)}
+    .gj-bottom-top{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+    .gj-progress{position:relative;width:100%;height:12px;border-radius:999px;overflow:hidden;border:1px solid rgba(148,163,184,.18);background:rgba(255,255,255,.06)}
+    .gj-progress-bar{width:100%;height:100%;background:linear-gradient(90deg, rgba(56,189,248,.85), rgba(34,197,94,.85));transform-origin:left center;transition:transform .12s linear}
+    .gj-legend{display:flex;gap:10px;flex-wrap:wrap;font-size:13px;color:#cbd5e1;line-height:1.5}
+    .gj-legend strong{color:#e5e7eb}
+    .gj-solo-overlay{position:fixed;inset:0;z-index:10010;display:grid;place-items:center;padding:calc(16px + env(safe-area-inset-top,0px)) calc(16px + env(safe-area-inset-right,0px)) calc(16px + env(safe-area-inset-bottom,0px)) calc(16px + env(safe-area-inset-left,0px));background:rgba(2,6,23,.82);backdrop-filter:blur(10px)}
+    .gj-solo-overlay[hidden]{display:none!important}
+    .gj-solo-card{width:min(94vw,520px);max-height:88vh;overflow:auto;background:rgba(15,23,42,.96);border:1px solid rgba(148,163,184,.18);border-radius:22px;padding:20px 18px 18px;color:#e5e7eb;box-shadow:0 28px 64px rgba(0,0,0,.35)}
+    .gj-solo-kicker{display:inline-flex;align-items:center;gap:8px;padding:6px 12px;border-radius:999px;background:rgba(56,189,248,.12);border:1px solid rgba(56,189,248,.25);color:#7dd3fc;font-weight:900;font-size:13px;margin-bottom:12px}
+    .gj-solo-title{margin:0 0 8px;font-size:30px;line-height:1.1}
+    .gj-solo-sub{margin:0;color:#94a3b8;font-size:14px;line-height:1.6}
+    .gj-solo-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:16px}
+    .gj-solo-item{border:1px solid rgba(148,163,184,.18);border-radius:16px;padding:12px;background:rgba(2,6,23,.45)}
+    .gj-solo-item .label{color:#94a3b8;font-size:12px;font-weight:800;margin-bottom:6px}
+    .gj-solo-item .value{color:#e5e7eb;font-size:20px;font-weight:900}
+    .gj-solo-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}
+    @media (max-width:640px){
+      .gj-topbar{padding-left:10px;padding-right:10px}
+      .gj-chip{font-size:12px;padding:7px 9px}
+      .gj-emoji{font-size:28px}
+      .gj-solo-title{font-size:26px}
+      .gj-solo-actions .btn{flex:1 1 calc(50% - 10px)}
+    }
+  `;
+  document.head.appendChild(style);
+}
 
-  if (!amIMatchParticipant(r)) {
-    setHint('การแข่งขันเริ่มแล้ว แต่คุณไม่ได้อยู่ในรอบนี้');
+function buildGameplayShell() {
+  GAME_MOUNT.innerHTML = `
+    <div id="${GOODJUNK_ROOT_ID}">
+      <div class="gj-shell">
+        <header class="gj-topbar">
+          <div class="gj-chip-row">
+            <div class="gj-chip"><span>Score</span><strong id="gjScore">0</strong></div>
+            <div class="gj-chip"><span>Time</span><strong id="gjTimer">0</strong></div>
+            <div class="gj-chip"><span>Miss</span><strong id="gjMiss">0</strong></div>
+            <div class="gj-chip"><span>Streak</span><strong id="gjStreak">0</strong></div>
+          </div>
+          <div class="gj-chip-row">
+            <div class="gj-chip"><span>Goal</span><strong>เก็บของดี • อย่าแตะ junk</strong></div>
+          </div>
+        </header>
+
+        <div class="gj-stage-wrap">
+          <div class="gj-stage" id="gjStage">
+            <div class="gj-center-tip" id="gjCenterTip">แตะอาหารดีเพื่อได้คะแนน • หลีกเลี่ยง junk ไม่ให้เสีย Miss</div>
+            <div class="gj-target-layer" id="gjTargetLayer"></div>
+          </div>
+        </div>
+
+        <div class="gj-bottom">
+          <div class="gj-bottom-card">
+            <div class="gj-bottom-top">
+              <div class="gj-legend" id="gjStatsText">
+                <div><strong>Good hit:</strong> 0</div>
+                <div><strong>Junk hit:</strong> 0</div>
+                <div><strong>Good missed:</strong> 0</div>
+              </div>
+              <div class="gj-legend" id="gjHintText">
+                <div>Tip: เก็บผลไม้/ผัก • หลีกเลี่ยงของหวาน/น้ำอัดลม</div>
+              </div>
+            </div>
+            <div class="gj-progress"><div class="gj-progress-bar" id="gjProgressBar"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="gj-solo-overlay" id="gjSoloSummary" hidden>
+        <div class="gj-solo-card">
+          <div class="gj-solo-kicker">SOLO SUMMARY</div>
+          <h2 class="gj-solo-title" id="gjSoloTitle">สรุปผลการเล่น</h2>
+          <p class="gj-solo-sub" id="gjSoloSub">เกมจบแล้ว มาดูผลของรอบนี้กัน</p>
+          <div class="gj-solo-list" id="gjSoloBody"></div>
+          <div class="gj-solo-actions">
+            <button class="btn btn-blue" id="gjSoloAgain" type="button">เล่นใหม่</button>
+            <button class="btn btn-warn" id="gjSoloExport" type="button">Export JSON</button>
+            <button class="btn btn-ghost" id="gjSoloHub" type="button">กลับ HUB</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  ui.root = document.getElementById(GOODJUNK_ROOT_ID);
+  ui.stage = document.getElementById('gjStage');
+  ui.layer = document.getElementById('gjTargetLayer');
+  ui.score = document.getElementById('gjScore');
+  ui.timer = document.getElementById('gjTimer');
+  ui.miss = document.getElementById('gjMiss');
+  ui.streak = document.getElementById('gjStreak');
+  ui.hint = document.getElementById('gjHintText');
+  ui.progress = document.getElementById('gjProgressBar');
+  ui.stats = document.getElementById('gjStatsText');
+  ui.centerTip = document.getElementById('gjCenterTip');
+  ui.soloOverlay = document.getElementById('gjSoloSummary');
+  ui.soloBody = document.getElementById('gjSoloBody');
+  ui.soloTitle = document.getElementById('gjSoloTitle');
+  ui.soloSub = document.getElementById('gjSoloSub');
+  ui.soloBtnAgain = document.getElementById('gjSoloAgain');
+  ui.soloBtnExport = document.getElementById('gjSoloExport');
+  ui.soloBtnHub = document.getElementById('gjSoloHub');
+
+  refreshStageRect();
+  renderHud();
+}
+
+function bindGameplayShell() {
+  if (__gjSoloSummaryBound) return;
+  __gjSoloSummaryBound = true;
+
+  ui.soloBtnAgain?.addEventListener('click', () => {
+    location.href = buildReplayUrl();
+  });
+
+  ui.soloBtnExport?.addEventListener('click', () => {
+    downloadJson(__gjSoloSummary, `goodjunk-solo-${safeFilePart(GJ_PID)}-${Date.now()}.json`);
+  });
+
+  ui.soloBtnHub?.addEventListener('click', () => {
+    location.href = GJ_HUB;
+  });
+}
+
+function refreshStageRect() {
+  const rect = ui.stage?.getBoundingClientRect();
+  if (!rect) return;
+  state.rect.width = Math.max(300, rect.width);
+  state.rect.height = Math.max(320, rect.height);
+}
+
+function createSeededRng(seedInput) {
+  const seedText = String(seedInput || Date.now());
+  let h = 1779033703 ^ seedText.length;
+  for (let i = 0; i < seedText.length; i++) {
+    h = Math.imul(h ^ seedText.charCodeAt(i), 3432918353);
+    h = (h << 13) | (h >>> 19);
+  }
+  return function() {
+    h = Math.imul(h ^ (h >>> 16), 2246822507);
+    h = Math.imul(h ^ (h >>> 13), 3266489909);
+    h ^= h >>> 16;
+    return (h >>> 0) / 4294967296;
+  };
+}
+
+function rand(){ return rng(); }
+function randRange(min, max){ return min + (max - min) * rand(); }
+function clampInt(value, min, max){ return Math.max(min, Math.min(max, Math.floor(value))); }
+function pick(arr){ return arr[Math.floor(rand() * arr.length)]; }
+
+function startGame() {
+  if (state.running || state.ended) return;
+
+  state.totalMs = clampInt(Number(RUN_CTX.time || 120) * 1000, 30000, 600000);
+  state.timeLeftMs = state.totalMs;
+  state.score = 0;
+  state.miss = 0;
+  state.streak = 0;
+  state.bestStreak = 0;
+  state.hitsGood = 0;
+  state.hitsBad = 0;
+  state.missedGood = 0;
+  state.spawnedGood = 0;
+  state.spawnedJunk = 0;
+  state.running = true;
+  state.ended = false;
+  __gjLocalRunActive = true;
+  state.pendingResultVisible = false;
+  state.startTs = performance.now();
+  state.lastFrameTs = state.startTs;
+  state.lastSpawnAccum = 0;
+  state.targetSeq = 0;
+  state.targets.clear();
+
+  if (ui.layer) ui.layer.innerHTML = '';
+  if (ui.centerTip) {
+    ui.centerTip.classList.remove('hide');
+    ui.centerTip.textContent = state.mode === 'race'
+      ? 'เริ่มพร้อมกันแล้ว • เก็บอาหารดีให้ได้คะแนนสูงสุด'
+      : 'เก็บอาหารดีให้ได้คะแนนสูงสุด • อย่าแตะ junk';
+    setTimeout(() => ui.centerTip?.classList.add('hide'), 1800);
+  }
+
+  hideRaceResultOverlay();
+  renderHud();
+  refreshStageRect();
+  loop(performance.now());
+}
+
+function loop(ts) {
+  if (!state.running || state.ended) return;
+
+  const dt = Math.min(48, ts - state.lastFrameTs || 16);
+  state.lastFrameTs = ts;
+
+  state.timeLeftMs -= dt;
+  if (state.timeLeftMs <= 0) {
+    state.timeLeftMs = 0;
+    renderHud();
+    endGame('time-up');
     return;
   }
 
-  const effectiveStartAt = Number(r.startAt || now());
-  await enterRun(effectiveStartAt);
+  updateSpawner(dt);
+  updateTargets(dt);
+  renderHud();
+
+  state.frameRaf = requestAnimationFrame(loop);
+}
+
+function updateSpawner(dt) {
+  const preset = DIFF_PRESET[state.diff] || DIFF_PRESET.normal;
+  state.lastSpawnAccum += dt;
+
+  while (state.lastSpawnAccum >= preset.spawnMs) {
+    state.lastSpawnAccum -= preset.spawnMs;
+    spawnTarget();
+  }
+}
+
+function spawnTarget() {
+  refreshStageRect();
+
+  const preset = DIFF_PRESET[state.diff] || DIFF_PRESET.normal;
+  const isGood = rand() < preset.goodRatio;
+  const item = pick(isGood ? GOOD_ITEMS : JUNK_ITEMS);
+
+  const size = randRange(preset.targetSizeMin, preset.targetSizeMax);
+  const x = randRange(10, Math.max(12, state.rect.width - size - 10));
+  const y = -size - randRange(0, 50);
+  const speed = randRange(preset.speedMin, preset.speedMax);
+  const drift = randRange(-36, 36);
+  const id = `t-${++state.targetSeq}`;
+
+  const el = document.createElement('button');
+  el.type = 'button';
+  el.className = `gj-target ${isGood ? 'good' : 'junk'}`;
+  el.style.width = `${size}px`;
+  el.style.height = `${size}px`;
+  el.innerHTML = `
+    <div class="gj-emoji">${item.emoji}</div>
+    <div class="gj-type">${isGood ? 'good' : 'junk'}</div>
+  `;
+
+  const target = { id, el, type: isGood ? 'good' : 'junk', x, y, size, speed, drift, dead: false };
+
+  el.addEventListener('pointerdown', (ev) => {
+    ev.preventDefault();
+    hitTarget(id);
+  }, { passive: false });
+
+  ui.layer?.appendChild(el);
+  state.targets.set(id, target);
+
+  if (isGood) state.spawnedGood += 1;
+  else state.spawnedJunk += 1;
+
+  drawTarget(target);
+}
+
+function drawTarget(target) {
+  target.el.style.transform = `translate3d(${target.x}px, ${target.y}px, 0)`;
+}
+
+function updateTargets(dt) {
+  const stageW = state.rect.width;
+  const stageH = state.rect.height;
+
+  state.targets.forEach((target) => {
+    if (target.dead) return;
+
+    target.y += (target.speed * dt) / 1000;
+    target.x += (target.drift * dt) / 1000;
+
+    if (target.x < 6) {
+      target.x = 6;
+      target.drift *= -1;
+    }
+    if (target.x + target.size > stageW - 6) {
+      target.x = stageW - target.size - 6;
+      target.drift *= -1;
+    }
+
+    drawTarget(target);
+
+    if (target.y > stageH + target.size * 0.6) {
+      if (target.type === 'good') registerMissGood(target);
+      else removeTarget(target.id);
+    }
+  });
+}
+
+function hitTarget(id) {
+  if (!state.running || state.ended) return;
+  const target = state.targets.get(id);
+  if (!target || target.dead) return;
+
+  if (target.type === 'good') {
+    state.hitsGood += 1;
+    state.streak += 1;
+    state.bestStreak = Math.max(state.bestStreak, state.streak);
+    const comboBonus = Math.min(12, Math.floor(state.streak / 3) * 2);
+    const gain = 10 + comboBonus;
+    state.score += gain;
+    createFx(target.x + target.size / 2, target.y + target.size / 2, `+${gain}`, '#86efac');
+    updateHint('เยี่ยมมาก! เก็บของดีต่อไป');
+  } else {
+    state.hitsBad += 1;
+    state.miss += 1;
+    state.streak = 0;
+    state.score = Math.max(0, state.score - 8);
+    createFx(target.x + target.size / 2, target.y + target.size / 2, 'MISS', '#fda4af');
+    updateHint('ระวัง junk! แตะของดีแทน');
+  }
+
+  removeTarget(id);
+  renderHud();
+
+  if (isRaceMode() && !state.ended) {
+    markRacePresenceDuringRun({
+      phase: 'run',
+      ready: true,
+      connected: true,
+      finished: false,
+      dnf: false,
+      dnfReason: '',
+      disconnectedAt: 0,
+      finalScore: state.score,
+      miss: state.miss,
+      streak: state.bestStreak
+    });
+  }
+}
+
+function registerMissGood(target) {
+  state.missedGood += 1;
+  state.miss += 1;
+  state.streak = 0;
+  createFx(target.x + target.size / 2, Math.max(28, target.y), 'พลาดของดี', '#fbbf24');
+  updateHint('มีของดีหลุดไปแล้ว รีบเก็บชิ้นต่อไป');
+  removeTarget(target.id);
+  renderHud();
+
+  if (isRaceMode() && !state.ended) {
+    markRacePresenceDuringRun({
+      phase: 'run',
+      ready: true,
+      connected: true,
+      finished: false,
+      dnf: false,
+      dnfReason: '',
+      disconnectedAt: 0,
+      finalScore: state.score,
+      miss: state.miss,
+      streak: state.bestStreak
+    });
+  }
+}
+
+function removeTarget(id) {
+  const target = state.targets.get(id);
+  if (!target) return;
+  target.dead = true;
+  target.el.remove();
+  state.targets.delete(id);
+}
+
+function createFx(x, y, text, color) {
+  const fx = document.createElement('div');
+  fx.className = 'gj-fx';
+  fx.style.left = `${x}px`;
+  fx.style.top = `${y}px`;
+  fx.style.color = color || '#e5e7eb';
+  fx.textContent = text;
+  ui.layer?.appendChild(fx);
+  setTimeout(() => fx.remove(), 760);
+}
+
+function updateHint(message) {
+  if (!ui.hint) return;
+  ui.hint.innerHTML = `<div>${escapeHtml(message)}</div>`;
+}
+
+function renderHud() {
+  if (ui.score) ui.score.textContent = String(state.score);
+  if (ui.timer) ui.timer.textContent = formatSeconds(state.timeLeftMs);
+  if (ui.miss) ui.miss.textContent = String(state.miss);
+  if (ui.streak) ui.streak.textContent = String(state.streak);
+
+  if (ui.progress) {
+    const ratio = state.totalMs > 0 ? state.timeLeftMs / state.totalMs : 0;
+    ui.progress.style.transform = `scaleX(${Math.max(0, Math.min(1, ratio))})`;
+  }
+
+  if (ui.stats) {
+    ui.stats.innerHTML = `
+      <div><strong>Good hit:</strong> ${state.hitsGood}</div>
+      <div><strong>Junk hit:</strong> ${state.hitsBad}</div>
+      <div><strong>Good missed:</strong> ${state.missedGood}</div>
+    `;
+  }
+}
+
+function formatSeconds(ms) {
+  const s = Math.max(0, Math.ceil(ms / 1000));
+  const m = Math.floor(s / 60);
+  const r = s % 60;
+  return `${m}:${String(r).padStart(2, '0')}`;
+}
+
+function endGame(reason = 'finished') {
+  if (state.ended) return;
+
+  state.ended = true;
+  state.running = false;
+  __gjLocalRunActive = false;
+  cancelAnimationFrame(state.frameRaf);
+  state.frameRaf = 0;
+  stopRaceHeartbeat();
+
+  const finalStats = {
+    gameId: GJ_GAME_ID,
+    mode: state.mode,
+    pid: GJ_PID,
+    name: GJ_NAME,
+    studyId: RUN_CTX.studyId || '',
+    diff: state.diff,
+    view: RUN_CTX.view || 'mobile',
+    run: RUN_CTX.run || 'play',
+    seed: RUN_CTX.seed || '',
+    roomId: GJ_ROOM_ID,
+    raceStartAt: getEffectiveRaceStartAt(),
+    reason,
+    score: state.score,
+    miss: state.miss,
+    streak: state.bestStreak,
+    bestStreak: state.bestStreak,
+    hitsGood: state.hitsGood,
+    hitsBad: state.hitsBad,
+    missedGood: state.missedGood,
+    spawnedGood: state.spawnedGood,
+    spawnedJunk: state.spawnedJunk,
+    updatedAt: Date.now()
+  };
+
+  state.targets.forEach((t) => t.el.remove());
+  state.targets.clear();
+
+  if (isRaceMode()) {
+    publishRaceFinish({
+      score: finalStats.score,
+      miss: finalStats.miss,
+      streak: finalStats.bestStreak
+    });
+    return;
+  }
+
+  showSoloSummary(finalStats);
+}
+
+function showSoloSummary(summary) {
+  __gjSoloSummary = buildSoloSummaryPayload(summary);
+  persistSoloSummary(__gjSoloSummary);
+
+  if (!ui.soloOverlay || !ui.soloBody) return;
+
+  ui.soloTitle.textContent = __gjSoloSummary.score >= 100 ? 'ยอดเยี่ยมมาก!' : 'สรุปผลการเล่น';
+  ui.soloSub.textContent = 'เก็บของดีให้มากขึ้น และอย่าแตะ junk ในรอบถัดไป';
+
+  ui.soloBody.innerHTML = `
+    <div class="gj-solo-item"><div class="label">คะแนน</div><div class="value">${__gjSoloSummary.score}</div></div>
+    <div class="gj-solo-item"><div class="label">Miss</div><div class="value">${__gjSoloSummary.miss}</div></div>
+    <div class="gj-solo-item"><div class="label">Best Streak</div><div class="value">${__gjSoloSummary.bestStreak}</div></div>
+    <div class="gj-solo-item"><div class="label">Good hit</div><div class="value">${__gjSoloSummary.hitsGood}</div></div>
+    <div class="gj-solo-item"><div class="label">Junk hit</div><div class="value">${__gjSoloSummary.hitsBad}</div></div>
+    <div class="gj-solo-item"><div class="label">Good missed</div><div class="value">${__gjSoloSummary.missedGood}</div></div>
+  `;
+
+  ui.soloOverlay.hidden = false;
+}
+
+function buildSoloSummaryPayload(summary) {
+  return {
+    version: '20260318d-goodjunk-solo-summary',
+    source: 'goodjunk-solo',
+    gameId: GJ_GAME_ID,
+    mode: 'solo',
+    pid: GJ_PID,
+    name: GJ_NAME,
+    studyId: RUN_CTX.studyId || '',
+    diff: state.diff,
+    view: RUN_CTX.view || 'mobile',
+    run: RUN_CTX.run || 'play',
+    seed: RUN_CTX.seed || '',
+    finishType: 'normal',
+    dnfReason: '',
+    rank: null,
+    roomId: '',
+    playerCount: 1,
+    allFinished: true,
+    raceStatusFinal: 'solo',
+    score: Number(summary.score || 0),
+    miss: Number(summary.miss || 0),
+    bestStreak: Number(summary.bestStreak || 0),
+    hitsGood: Number(summary.hitsGood || 0),
+    hitsBad: Number(summary.hitsBad || 0),
+    missedGood: Number(summary.missedGood || 0),
+    updatedAt: Date.now()
+  };
+}
+
+function persistSoloSummary(summary) {
+  try { localStorage.setItem(GJ_SOLO_LAST_SUMMARY_KEY, JSON.stringify(summary)); } catch {}
+  try {
+    const raw = localStorage.getItem(GJ_SOLO_SUMMARY_HISTORY_KEY);
+    const list = raw ? JSON.parse(raw) : [];
+    const next = Array.isArray(list) ? list : [];
+    next.unshift(summary);
+    localStorage.setItem(GJ_SOLO_SUMMARY_HISTORY_KEY, JSON.stringify(next.slice(0, 30)));
+  } catch {}
+  try {
+    localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify({
+      source: summary.source,
+      gameId: summary.gameId,
+      title: 'GoodJunk Solo',
+      mode: summary.mode,
+      pid: summary.pid,
+      studyId: summary.studyId,
+      roomId: summary.roomId,
+      score: summary.score,
+      miss: summary.miss,
+      streak: summary.bestStreak,
+      rank: summary.rank,
+      finishType: summary.finishType,
+      dnfReason: summary.dnfReason,
+      playerCount: summary.playerCount,
+      allFinished: summary.allFinished,
+      raceStatusFinal: summary.raceStatusFinal,
+      updatedAt: summary.updatedAt
+    }));
+  } catch {}
+}
+
+function isRaceMode() {
+  return GJ_MODE === 'race';
+}
+
+function getServerTimestampValue() {
+  try {
+    return window.HHA_FIREBASE?.database?.ServerValue?.TIMESTAMP ?? Date.now();
+  } catch {
+    return Date.now();
+  }
+}
+
+function getEffectiveRaceStartAt() {
+  return Number(GJ_START_AT || __gjRecoveredStartAt || 0) || 0;
+}
+
+function hasValidRaceStart() {
+  return !!GJ_ROOM_ID && getEffectiveRaceStartAt() > 0;
+}
+
+async function hydrateRaceStartFromRoom() {
+  if (!isRaceMode()) return 0;
+  if (!GJ_ROOM_ID) return 0;
+  if (!await ensureRaceFirebase()) return 0;
+
+  try {
+    const snap = await __gjRaceRoomRef.once('value');
+    const room = sanitizeRaceRoom(snapshotToRaceRoom(snap.val()));
+    if (!room) return 0;
+
+    if (room.startAt) {
+      __gjRecoveredStartAt = Number(room.startAt || 0) || 0;
+      return __gjRecoveredStartAt;
+    }
+
+    if (room.status === 'running') {
+      __gjRecoveredStartAt = Date.now();
+      return __gjRecoveredStartAt;
+    }
+
+    return 0;
+  } catch (err) {
+    console.warn('[goodjunk.safe] hydrateRaceStartFromRoom failed:', err);
+    return 0;
+  }
+}
+
+function showRaceGate(msg = 'กำลังรอสัญญาณเริ่ม', count = '-', sub = '') {
+  if (RACE_UI?.showGate) {
+    RACE_UI.showGate(msg, count, sub);
+    return;
+  }
+
+  const wrap = document.getElementById('raceGate');
+  const text = document.getElementById('raceGateText');
+  const num  = document.getElementById('raceGateCount');
+  const subEl = document.getElementById('raceGateSub');
+
+  if (wrap) wrap.hidden = false;
+  if (text) text.textContent = msg;
+  if (num) num.textContent = count;
+  if (subEl) subEl.textContent = sub || 'เกมจะเริ่มพร้อมกันเมื่อถึงเวลา startAt';
+}
+
+function hideRaceGate() {
+  if (RACE_UI?.hideGate) {
+    RACE_UI.hideGate();
+    return;
+  }
+  const wrap = document.getElementById('raceGate');
+  if (wrap) wrap.hidden = true;
+}
+
+function cancelRaceGateLoop() {
+  if (__gjRaceRAF) cancelAnimationFrame(__gjRaceRAF);
+  __gjRaceRAF = 0;
+}
+
+function waitUntilRaceStart(startAt) {
+  return new Promise((resolve) => {
+    const tick = () => {
+      const left = startAt - Date.now();
+
+      if (left <= 0) {
+        showRaceGate('เริ่มการแข่งขัน', 'GO!', 'กำลังเข้าสู่เกม...');
+        window.setTimeout(resolve, 220);
+        return;
+      }
+
+      showRaceGate(
+        'กำลังนับถอยหลังก่อนเริ่มพร้อมกัน',
+        String(Math.ceil(left / 1000)),
+        `Room: ${GJ_ROOM_ID || '-'}`
+      );
+
+      __gjRaceRAF = requestAnimationFrame(tick);
+    };
+
+    tick();
+  });
 }
 
 function waitForFirebaseReady(timeoutMs = 12000) {
@@ -579,427 +934,996 @@ function waitForFirebaseReady(timeoutMs = 12000) {
   });
 }
 
-async function ensureFirebase() {
-  const ok = await waitForFirebaseReady();
-  if (!ok || !window.HHA_FIREBASE_DB || !window.HHA_FIREBASE) {
-    throw new Error('Firebase not ready');
-  }
+async function ensureRaceFirebase() {
+  if (!isRaceMode()) return false;
 
-  firebase = window.HHA_FIREBASE;
-  db = window.HHA_FIREBASE_DB;
-  roomRef = db.ref(ROOM_PATH);
-  playersRef = roomRef.child('players');
-  myPlayerRef = playersRef.child(ctx.pid);
-}
-
-async function ensureRoomExists() {
-  const snap = await roomRef.once('value');
-  const cur = snap.exists() ? sanitizeRoom(snapshotToRoom(snap.val())) : null;
-
-  if (!cur) {
-    const base = makeDefaultRoom();
-    await roomRef.set(roomToFirebase(base));
-    return;
-  }
-
-  await roomRef.set(roomToFirebase(cur));
-}
-
-async function maybeRepairRoomIfNeeded(cur) {
-  if (!cur || repairBusy) return;
-
-  const me = cur.players.find((p) => p.id === ctx.pid);
-  if (!me || me.connected === false) return;
-
-  const next = clone(cur);
-  let changed = false;
-  const ts = now();
-
-  if (next.status === 'waiting' || next.status === 'finished') {
-    const before = next.players.length;
-    next.players = next.players.filter((p) => {
-      if (p.connected !== false) return true;
-      return (ts - Number(p.lastSeenAt || 0)) < DISCONNECT_PRUNE_MS;
-    });
-    if (next.players.length !== before) changed = true;
-  }
-
-  const host = next.players.find((p) => p.id === next.hostId);
-  if (!host || host.connected === false) {
-    const nextHostId = pickNextHostId(next, '');
-    if (next.hostId !== nextHostId) {
-      next.hostId = nextHostId || '';
-      changed = true;
-    }
-  }
-
-  const repaired = maybeResetCountdownIfHostMissing(next);
-  if (repaired.status !== next.status || repaired.startAt !== next.startAt) changed = true;
-
-  if (repaired.status === 'waiting' && repaired.match?.status !== 'idle') {
-    clearMatchState(repaired);
-    changed = true;
-  }
-
-  if (repaired.status === 'finished' && repaired.match?.status !== 'finished') {
-    repaired.match = {
-      participantIds: Array.isArray(repaired.match?.participantIds) ? repaired.match.participantIds : [],
-      lockedAt: repaired.match?.lockedAt || null,
-      status: 'finished'
-    };
-    changed = true;
-  }
-
-  if (!repaired.players.length) {
-    repairBusy = true;
-    try {
-      await roomRef.remove();
-    } finally {
-      repairBusy = false;
-    }
-    return;
-  }
-
-  if (!changed) return;
-
-  repairBusy = true;
-  try {
-    await roomRef.set(roomToFirebase(repaired));
-  } finally {
-    repairBusy = false;
-  }
-}
-
-function subscribeRoom() {
-  if (subscribed) return;
-  subscribed = true;
-
-  roomRef.on('value', async (snap) => {
-    const raw = snap.val();
-    if (!raw) {
-      room = null;
-      render();
-      setHint('ห้องถูกปิดแล้ว');
-      cancelCountdown();
-      return;
-    }
-
-    room = sanitizeRoom(snapshotToRoom(raw));
-    render();
-
-    if (room.status === 'countdown' && room.startAt) {
-      runCountdown(room.startAt);
-    } else {
-      cancelCountdown();
-    }
-
-    if (room.status === 'running') {
-      await maybeEnterRunFromRoom(room);
-    }
-
-    await maybeRepairRoomIfNeeded(room);
-  });
-}
-
-async function setupOnDisconnect() {
-  if (!myPlayerRef) return;
-  try {
-    await myPlayerRef.onDisconnect().update({
-      connected: false,
-      phase: 'lobby',
-      dnfReason: 'disconnect'
-    });
-  } catch {}
-}
-
-async function ensureJoined() {
-  const snap = await roomRef.once('value');
-  const cur = sanitizeRoom(snapshotToRoom(snap.val()) || makeDefaultRoom());
-
-  const existing = cur.players.find((p) => p.id === ctx.pid);
-  const blockReason = getJoinBlockReason(cur, ctx.pid);
-  if (!existing && blockReason) {
-    setHint(blockReason);
-    showJoinGuard(blockReason);
+  if (!GJ_ROOM_ID) {
+    console.warn('[goodjunk.safe] missing roomId for race mode');
     return false;
   }
 
-  const playerPayload = {
-    name: getMeName(),
-    ready: existing?.ready || false,
-    joinedAt: Number(existing?.joinedAt || now()),
-    lastSeenAt: now(),
-    finished: !!existing?.finished,
-    finalScore: Number(existing?.finalScore || 0),
-    miss: Number(existing?.miss || 0),
-    streak: Number(existing?.streak || 0),
-    phase: String(existing?.phase || 'lobby'),
-    connected: true
-  };
-
-  await myPlayerRef.set(playerPayload);
-
-  if (!cur.hostId || !cur.players.some((p) => p.id === cur.hostId && p.connected !== false)) {
-    await roomRef.child('hostId').set(existing?.id || ctx.pid);
+  if (!GJ_PID) {
+    console.warn('[goodjunk.safe] missing pid for race mode');
+    return false;
   }
 
-  await roomRef.child('updatedAt').set(now());
-  await setupOnDisconnect();
-  return true;
+  if (__gjFbReady && __gjRaceDb && __gjRaceRoomRef && __gjRacePlayersRef && __gjRaceMyPlayerRef) {
+    return true;
+  }
+
+  const ok = await waitForFirebaseReady();
+  if (!ok || !window.HHA_FIREBASE_DB) {
+    console.warn('[goodjunk.safe] Firebase not ready for race room');
+    return false;
+  }
+
+  try {
+    __gjRaceDb = window.HHA_FIREBASE_DB;
+    __gjRaceRoomRef = __gjRaceDb.ref(GJ_FIREBASE_ROOM_PATH);
+    __gjRacePlayersRef = __gjRaceRoomRef.child('players');
+    __gjRaceMyPlayerRef = __gjRacePlayersRef.child(GJ_PID);
+    __gjFbReady = true;
+    return true;
+  } catch (err) {
+    console.error('[goodjunk.safe] ensureRaceFirebase failed:', err);
+    __gjFbReady = false;
+    __gjRaceDb = null;
+    __gjRaceRoomRef = null;
+    __gjRacePlayersRef = null;
+    __gjRaceMyPlayerRef = null;
+    return false;
+  }
 }
 
-async function touchPresence() {
-  if (!myPlayerRef) return;
+function snapshotToRaceRoom(val) {
+  if (!val) return null;
+  const playersMap = val.players || {};
+  return {
+    ...val,
+    players: Object.keys(playersMap).map((pid) => ({
+      id: pid,
+      ...playersMap[pid]
+    }))
+  };
+}
+
+function normalizeRacePlayers(players) {
+  return Array.isArray(players) ? players.filter(Boolean).map((p) => ({
+    id: __normalizePid(p.id || ''),
+    name: String(p.name || '').trim(),
+    ready: !!p.ready,
+    connected: p.connected !== false,
+    phase: String(p.phase || (p.finished ? 'done' : 'run')).trim(),
+    finished: !!p.finished,
+    dnf: !!p.dnf,
+    dnfReason: String(p.dnfReason || '').trim(),
+    finalScore: Number(p.finalScore || 0),
+    miss: Number(p.miss || 0),
+    streak: Number(p.streak || 0),
+    joinedAt: Number(p.joinedAt || 0),
+    lastSeenAt: Number(p.lastSeenAt || 0),
+    finishedAt: Number(p.finishedAt || 0),
+    disconnectedAt: Number(p.disconnectedAt || 0)
+  })) : [];
+}
+
+function sanitizeRaceRoom(room) {
+  if (!room) return null;
+
+  const rawMatch = room.match && typeof room.match === 'object' ? room.match : {};
+
+  const safe = {
+    roomId: __normalizeRoomId(room.roomId || GJ_ROOM_ID || ''),
+    hostId: __normalizePid(room.hostId || ''),
+    mode: String(room.mode || 'race'),
+    minPlayers: Math.max(2, Number(room.minPlayers || 2)),
+    maxPlayers: Math.max(2, Number(room.maxPlayers || 4)),
+    status: ['waiting', 'countdown', 'running', 'finished'].includes(room.status) ? room.status : 'waiting',
+    startAt: room.startAt ? Number(room.startAt) : null,
+    createdAt: Number(room.createdAt || Date.now()),
+    updatedAt: Number(room.updatedAt || Date.now()),
+    players: normalizeRacePlayers(room.players || []),
+    match: {
+      participantIds: Array.isArray(rawMatch.participantIds)
+        ? rawMatch.participantIds.map((id) => __normalizePid(id)).filter(Boolean)
+        : [],
+      lockedAt: rawMatch.lockedAt ? Number(rawMatch.lockedAt) : null,
+      status: ['idle', 'countdown', 'running', 'finished'].includes(rawMatch.status)
+        ? rawMatch.status
+        : 'idle'
+    }
+  };
+
+  if (!safe.players.some((p) => p.id === safe.hostId)) {
+    safe.hostId = safe.players[0]?.id || '';
+  }
+
+  return safe;
+}
+
+function raceRoomToFirebase(room) {
+  const out = {
+    roomId: room.roomId,
+    hostId: room.hostId,
+    mode: room.mode,
+    minPlayers: room.minPlayers,
+    maxPlayers: room.maxPlayers,
+    status: room.status,
+    startAt: room.startAt || null,
+    createdAt: room.createdAt || Date.now(),
+    updatedAt: Date.now(),
+    players: {},
+    match: {
+      participantIds: Array.isArray(room.match?.participantIds) ? room.match.participantIds : [],
+      lockedAt: room.match?.lockedAt || null,
+      status: room.match?.status || 'idle'
+    }
+  };
+
+  normalizeRacePlayers(room.players).forEach((p) => {
+    out.players[p.id] = {
+      name: p.name || '',
+      ready: !!p.ready,
+      connected: p.connected !== false,
+      phase: p.phase || 'run',
+      finished: !!p.finished,
+      dnf: !!p.dnf,
+      dnfReason: p.dnfReason || '',
+      finalScore: Number(p.finalScore || 0),
+      miss: Number(p.miss || 0),
+      streak: Number(p.streak || 0),
+      joinedAt: Number(p.joinedAt || 0),
+      lastSeenAt: Number(p.lastSeenAt || 0),
+      finishedAt: Number(p.finishedAt || 0),
+      disconnectedAt: Number(p.disconnectedAt || 0)
+    };
+  });
+
+  return out;
+}
+
+async function loadRaceRoom() {
+  if (!await ensureRaceFirebase()) return null;
   try {
-    await myPlayerRef.update({
-      name: getMeName(),
-      connected: true,
-      lastSeenAt: now()
+    const snap = await __gjRaceRoomRef.once('value');
+    return sanitizeRaceRoom(snapshotToRaceRoom(snap.val()));
+  } catch (err) {
+    console.error('[goodjunk.safe] loadRaceRoom failed:', err);
+    return null;
+  }
+}
+
+async function saveRaceRoom(room) {
+  if (!await ensureRaceFirebase()) return false;
+  if (!room) return false;
+
+  try {
+    await __gjRaceRoomRef.set(raceRoomToFirebase(room));
+    return true;
+  } catch (err) {
+    console.error('[goodjunk.safe] saveRaceRoom failed:', err);
+    return false;
+  }
+}
+
+function getRoomParticipantIds(room) {
+  const ids = Array.isArray(room?.match?.participantIds) ? room.match.participantIds : [];
+  return ids.map((id) => __normalizePid(id)).filter(Boolean);
+}
+
+function getRacePlayersForRoom(room) {
+  const allPlayers = normalizeRacePlayers(room?.players || []);
+  const participantIds = getRoomParticipantIds(room);
+
+  if (!participantIds.length) return allPlayers;
+
+  const map = new Map(allPlayers.map((p) => [p.id, p]));
+  return participantIds.map((id) => map.get(id)).filter(Boolean);
+}
+
+function amIRaceParticipant(room) {
+  const ids = getRoomParticipantIds(room);
+  if (!ids.length) return true;
+  return ids.includes(GJ_PID);
+}
+
+function buildParticipantSet(room) {
+  return new Set(getRoomParticipantIds(room));
+}
+
+async function setupRunOnDisconnect() {
+  if (!await ensureRaceFirebase()) return;
+  if (!__gjRaceMyPlayerRef) return;
+
+  try {
+    await __gjRaceMyPlayerRef.onDisconnect().update({
+      connected: false,
+      phase: 'run',
+      dnf: false,
+      dnfReason: '',
+      disconnectedAt: getServerTimestampValue()
     });
-    await roomRef.child('updatedAt').set(now());
+  } catch (err) {
+    console.warn('[goodjunk.safe] setupRunOnDisconnect failed:', err);
+  }
+}
+
+function rankRacePlayers(players) {
+  return normalizeRacePlayers(players)
+    .sort((a, b) => {
+      if (!!a.dnf !== !!b.dnf) return a.dnf ? 1 : -1;
+      if (b.finalScore !== a.finalScore) return b.finalScore - a.finalScore;
+      if (a.miss !== b.miss) return a.miss - b.miss;
+      if (b.streak !== a.streak) return b.streak - a.streak;
+      return a.finishedAt - b.finishedAt;
+    })
+    .map((p, idx) => ({ ...p, rank: idx + 1 }));
+}
+
+function getMyRaceRanked(rows) {
+  return rows.find((p) => p.id === GJ_PID) || null;
+}
+
+function getDnfReasonLabel(reason) {
+  const key = String(reason || '').trim().toLowerCase();
+  if (key === 'left-run') return 'ออกจากหน้าเกม';
+  if (key === 'disconnect') return 'การเชื่อมต่อหลุด';
+  if (key === 'timeout') return 'หมดเวลา / ไม่ตอบสนอง';
+  if (key) return key;
+  return 'ไม่ทราบสาเหตุ';
+}
+
+function getRaceCounts(rows) {
+  const total = rows.length;
+  const finishedNormal = rows.filter((p) => p.finished && !p.dnf).length;
+  const dnfCount = rows.filter((p) => p.dnf).length;
+  const waitingCount = rows.filter((p) => !p.finished).length;
+  return { total, finishedNormal, dnfCount, waitingCount };
+}
+
+function buildRaceSummaryPayload(rows, opts = {}) {
+  const mine = getMyRaceRanked(rows) || {};
+  const counts = getRaceCounts(rows);
+  const allFinished = !!opts.allFinished || rows.every((p) => p.finished);
+  const raceStatusFinal = allFinished ? 'finished' : 'pending';
+
+  return {
+    version: '20260318d-goodjunk-race-summary',
+    source: 'goodjunk-race',
+    gameId: GJ_GAME_ID,
+    mode: 'race',
+    pid: GJ_PID,
+    name: GJ_NAME,
+    studyId: RUN_CTX.studyId || '',
+    roomId: GJ_ROOM_ID,
+    playerCount: counts.total,
+    finishedCount: counts.finishedNormal,
+    dnfCount: counts.dnfCount,
+    waitingCount: counts.waitingCount,
+    allFinished,
+    raceStatusFinal,
+    finishType: mine.dnf ? 'dnf' : 'normal',
+    dnfReason: mine.dnf ? (mine.dnfReason || '') : '',
+    rank: Number(mine.rank || 0) || null,
+    score: Number(mine.finalScore || 0),
+    miss: Number(mine.miss || 0),
+    streak: Number(mine.streak || 0),
+    diff: RUN_CTX.diff || 'normal',
+    view: RUN_CTX.view || 'mobile',
+    run: RUN_CTX.run || 'play',
+    seed: RUN_CTX.seed || '',
+    raceStartAt: getEffectiveRaceStartAt(),
+    updatedAt: Date.now(),
+    leaderboard: rows.map((p) => ({
+      pid: p.id,
+      name: p.name || p.id,
+      rank: Number(p.rank || 0) || null,
+      finishType: p.dnf ? 'dnf' : (p.finished ? 'normal' : 'pending'),
+      dnfReason: p.dnf ? (p.dnfReason || '') : '',
+      finished: !!p.finished,
+      connected: p.connected !== false,
+      score: p.dnf ? null : Number(p.finalScore || 0),
+      miss: p.dnf ? null : Number(p.miss || 0),
+      streak: p.dnf ? null : Number(p.streak || 0)
+    }))
+  };
+}
+
+function getRaceSummarySignature(summary) {
+  return JSON.stringify({
+    roomId: summary.roomId,
+    pid: summary.pid,
+    rank: summary.rank,
+    finishType: summary.finishType,
+    dnfReason: summary.dnfReason,
+    score: summary.score,
+    miss: summary.miss,
+    streak: summary.streak,
+    playerCount: summary.playerCount,
+    finishedCount: summary.finishedCount,
+    dnfCount: summary.dnfCount,
+    waitingCount: summary.waitingCount,
+    allFinished: summary.allFinished,
+    raceStatusFinal: summary.raceStatusFinal
+  });
+}
+
+function persistRaceSummary(summary) {
+  __gjRaceLastSummary = summary;
+
+  try { localStorage.setItem(GJ_RACE_LAST_SUMMARY_KEY, JSON.stringify(summary)); } catch {}
+  try {
+    const raw = localStorage.getItem(GJ_RACE_SUMMARY_HISTORY_KEY);
+    const hist = raw ? JSON.parse(raw) : [];
+    const next = Array.isArray(hist) ? hist : [];
+    next.unshift(summary);
+    localStorage.setItem(GJ_RACE_SUMMARY_HISTORY_KEY, JSON.stringify(next.slice(0, 30)));
+  } catch {}
+
+  try {
+    localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify({
+      source: 'goodjunk-race',
+      gameId: GJ_GAME_ID,
+      title: 'GoodJunk Race',
+      mode: 'race',
+      pid: summary.pid,
+      studyId: summary.studyId,
+      roomId: summary.roomId,
+      score: summary.score,
+      miss: summary.miss,
+      streak: summary.streak,
+      rank: summary.rank,
+      finishType: summary.finishType,
+      dnfReason: summary.dnfReason,
+      playerCount: summary.playerCount,
+      allFinished: summary.allFinished,
+      raceStatusFinal: summary.raceStatusFinal,
+      updatedAt: summary.updatedAt
+    }));
   } catch {}
 }
 
-async function updateMe(patch = {}) {
-  if (!myPlayerRef) return;
-  const payload = { ...patch, lastSeenAt: now() };
-  await myPlayerRef.update(payload);
-  await roomRef.child('updatedAt').set(now());
-}
+function storeRaceSummaryFromRows(rows, opts = {}) {
+  const summary = buildRaceSummaryPayload(rows, opts);
+  const sig = getRaceSummarySignature(summary);
 
-function startPresenceHeartbeat() {
-  stopPresenceHeartbeat();
-  presenceTimer = setInterval(() => {
-    touchPresence();
-  }, PRESENCE_HEARTBEAT_MS);
-}
-
-function stopPresenceHeartbeat() {
-  if (presenceTimer) {
-    clearInterval(presenceTimer);
-    presenceTimer = 0;
+  __gjRaceLastSummary = summary;
+  if (sig !== __gjRaceLastSummarySig) {
+    __gjRaceLastSummarySig = sig;
+    persistRaceSummary(summary);
   }
+  return summary;
 }
 
-async function beginCountdown() {
-  const snap = await roomRef.once('value');
-  const cur = sanitizeRoom(snapshotToRoom(snap.val()) || makeDefaultRoom());
+function downloadRaceSummaryJson(summary = __gjRaceLastSummary) {
+  if (!summary) return;
+  downloadJson(summary, `goodjunk-race-${safeFilePart(summary.roomId || 'room')}-${safeFilePart(summary.pid || 'player')}-${safeFilePart(summary.raceStatusFinal || 'pending')}.json`);
+}
 
-  if (!isHost(cur)) {
-    setHint('เฉพาะ host เท่านั้นที่เริ่มแข่งได้');
+function downloadJson(payload, filename = `goodjunk-${Date.now()}.json`) {
+  if (!payload) return;
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+function safeFilePart(value) {
+  return String(value || 'file').replace(/[^a-z0-9_-]/gi, '-');
+}
+
+function hideRaceResultOverlay() {
+  const wrap = document.getElementById('raceResult');
+  if (wrap) wrap.hidden = true;
+  state.pendingResultVisible = false;
+}
+
+function shouldShowRaceOverlayForMe(me, allFinished) {
+  if (!me) return false;
+  if (me.dnf || me.finished) return true;
+  if (__gjLocalRunActive && state.running && !state.ended) return false;
+  if (!allFinished) return false;
+  return false;
+}
+
+function showRaceResultOverlay(rows, opts = {}) {
+  const wrap = document.getElementById('raceResult');
+  const rowsBox = document.getElementById('raceResultRows');
+  const badge = document.getElementById('raceResultBadge');
+  const sub = document.getElementById('raceResultSub');
+  const hint = document.getElementById('raceResultHint');
+
+  const me = getMyRaceRanked(rows);
+  const allFinished = rows.length > 0 && rows.every((p) => p.finished);
+
+  if (!shouldShowRaceOverlayForMe(me, allFinished)) {
     return;
   }
 
-  if (!canStart(cur)) {
-    setHint('ยังเริ่มไม่ได้ ต้องมีอย่างน้อย 2 คน และทุกคนต้อง ready');
-    return;
-  }
+  if (!wrap || !rowsBox) return;
 
-  const players = activePlayers(cur).filter((p) => !!p.ready);
-  const participantIds = players.map((p) => p.id).filter(Boolean);
+  const pending = !!opts.pending;
+  const summary = storeRaceSummaryFromRows(rows, { allFinished: !pending });
+  const mine = getMyRaceRanked(rows);
+  const doneCount = summary.finishedCount;
+  const dnfCount = summary.dnfCount;
+  const waitingCount = summary.waitingCount;
 
-  if (participantIds.length < (cur.minPlayers || 2)) {
-    setHint('จำนวนผู้เล่นที่พร้อมยังไม่พอสำหรับเริ่มแข่ง');
-    return;
-  }
+  rowsBox.innerHTML = rows.map((p) => {
+    const isMe = p.id === GJ_PID;
+    let stateLine = '';
 
-  const startAt = now() + 4000;
-
-  await roomRef.update({
-    status: 'countdown',
-    startAt,
-    updatedAt: now(),
-    match: {
-      participantIds,
-      lockedAt: now(),
-      status: 'countdown'
+    if (p.dnf) {
+      stateLine = `<div style="margin-top:4px;font-size:12px;color:#fda4af;font-weight:800;">DNF • ${escapeHtml(getDnfReasonLabel(p.dnfReason))}</div>`;
+    } else if (!p.finished && p.connected === false) {
+      stateLine = `<div style="margin-top:4px;font-size:12px;color:#fbbf24;font-weight:800;">การเชื่อมต่อขาดช่วง • รอ reconnect</div>`;
+    } else if (!p.finished) {
+      stateLine = `<div style="margin-top:4px;font-size:12px;color:#fbbf24;font-weight:800;">ยังไม่จบ</div>`;
+    } else {
+      stateLine = `<div style="margin-top:4px;font-size:12px;color:#86efac;font-weight:800;">แข่งจบแล้ว</div>`;
     }
-  });
+
+    return `
+      <div class="result-row ${isMe ? 'is-me' : ''}">
+        <div style="font-weight:900;">#${p.rank}</div>
+        <div>
+          <div style="font-weight:800;">
+            ${escapeHtml(p.name || p.id || 'player')}
+            ${isMe ? '<span style="color:#7dd3fc;"> • คุณ</span>' : ''}
+          </div>
+          ${stateLine}
+        </div>
+        <div>${p.dnf ? '—' : p.finalScore}</div>
+        <div>${p.dnf ? '—' : p.miss}</div>
+        <div>${p.dnf ? '—' : p.streak}</div>
+      </div>
+    `;
+  }).join('');
+
+  if (badge) {
+    if (mine) {
+      if (mine.dnf) {
+        badge.textContent = `DNF • ${getDnfReasonLabel(mine.dnfReason)}`;
+        badge.style.color = '#86efac';
+        badge.style.borderColor = 'rgba(34,197,94,.25)';
+        badge.style.background = 'rgba(34,197,94,.12)';
+      } else if (!mine.finished && mine.connected === false) {
+        badge.textContent = 'รอ reconnect';
+        badge.style.color = '#fcd34d';
+        badge.style.borderColor = 'rgba(245,158,11,.28)';
+        badge.style.background = 'rgba(245,158,11,.10)';
+      } else if (!mine.finished) {
+        badge.textContent = 'กำลังแข่ง';
+        badge.style.color = '#7dd3fc';
+        badge.style.borderColor = 'rgba(56,189,248,.28)';
+        badge.style.background = 'rgba(56,189,248,.10)';
+      } else {
+        badge.textContent = `อันดับ #${mine.rank}`;
+        badge.style.color = mine.rank === 1 ? '#fde68a' : '#86efac';
+        badge.style.borderColor = mine.rank === 1 ? 'rgba(250,204,21,.28)' : 'rgba(34,197,94,.25)';
+        badge.style.background = mine.rank === 1 ? 'rgba(250,204,21,.10)' : 'rgba(34,197,94,.12)';
+      }
+    } else {
+      badge.textContent = '-';
+    }
+  }
+
+  if (sub) {
+    const reconnectCount = rows.filter((p) => !p.finished && p.connected === false && !p.dnf).length;
+    sub.textContent = pending
+      ? `ผลชั่วคราว • จบแล้ว ${doneCount} • DNF ${dnfCount} • รออีก ${waitingCount} • reconnect ${reconnectCount}`
+      : `ผลสุดท้าย • จบแล้ว ${doneCount} • DNF ${dnfCount} • ผู้เล่นทั้งหมด ${summary.playerCount} คน`;
+  }
+
+  if (hint) {
+    hint.textContent = pending
+      ? 'ระบบบันทึก race summary แบบ pending ไว้แล้ว ผู้เล่นที่หลุดชั่วคราวยัง reconnect กลับมาแข่งต่อได้ และจะอัปเดตเป็น final เมื่อทุกคนจบหรือถูกตัดสิทธิ์'
+      : 'Race summary final ถูกบันทึกแยกจาก solo แล้ว พร้อม export JSON';
+  }
+
+  wrap.hidden = false;
+  state.pendingResultVisible = pending;
+  bindRaceResultButtons();
 }
 
-async function enterRun(startAt) {
-  if (hasEnteredRun) return;
-  hasEnteredRun = true;
-  exitMode = 'to-run';
-
-  try { await myPlayerRef?.onDisconnect().cancel(); } catch {}
-
-  await updateMe({
-    ready: true,
-    phase: 'run',
-    connected: true,
-    lastSeenAt: now()
-  });
-
+function buildRaceLobbyUrl() {
   const q = new URLSearchParams({
-    pid: ctx.pid,
-    name: getMeName(),
-    studyId: ctx.studyId,
-    diff: ctx.diff,
-    time: ctx.time,
-    seed: ctx.seed,
-    hub: ctx.hub,
-    view: ctx.view,
-    run: ctx.run,
-    gameId: ctx.gameId,
+    pid: GJ_PID,
+    name: GJ_NAME,
+    studyId: RUN_CTX.studyId || '',
+    diff: RUN_CTX.diff || 'normal',
+    time: RUN_CTX.time || '120',
+    seed: String(Date.now()),
+    hub: GJ_HUB,
+    view: RUN_CTX.view || 'mobile',
+    run: RUN_CTX.run || 'play',
+    gameId: GJ_GAME_ID,
     mode: 'race',
-    roomId: ctx.roomId,
-    startAt: String(startAt || now())
+    roomId: GJ_ROOM_ID
   });
-
-  location.href = `./vr-goodjunk/goodjunk-vr.html?v=20260318c-race-run-shim-safe&${q.toString()}`;
+  return `../goodjunk-race-lobby.html?${q.toString()}`;
 }
 
-async function leaveRoom() {
-  if (!roomRef || !myPlayerRef) return;
+async function resetRaceRoomForRematch() {
+  const room = await loadRaceRoom();
+  if (!room) return;
 
-  try { await myPlayerRef.onDisconnect().cancel(); } catch {}
+  room.status = 'waiting';
+  room.startAt = null;
+  room.updatedAt = Date.now();
+  room.match = {
+    participantIds: [],
+    lockedAt: null,
+    status: 'idle'
+  };
 
-  const snap = await roomRef.once('value');
-  const cur = sanitizeRoom(snapshotToRoom(snap.val()) || makeDefaultRoom());
-
-  const remaining = cur.players.filter((p) => p.id !== ctx.pid);
-
-  if (!remaining.length) {
-    await roomRef.remove();
-    return;
-  }
-
-  const next = clone(cur);
-  next.players = remaining;
-  next.updatedAt = now();
-
-  if (!remaining.some((p) => p.id === next.hostId)) {
-    next.hostId = pickNextHostId(next, '');
-  }
-
-  const ids = new Set(getMatchParticipantIds(next));
-  const wasParticipant = ids.has(ctx.pid);
-
-  if (wasParticipant) {
-    ids.delete(ctx.pid);
-    next.match = {
-      participantIds: Array.from(ids),
-      lockedAt: next.match?.lockedAt || null,
-      status: next.match?.status || 'idle'
-    };
-  }
-
-  if (next.status !== 'waiting') {
-    next.status = 'waiting';
-    next.startAt = null;
-    clearMatchState(next);
-    next.players = next.players.map((p) => ({
-      ...p,
-      ready: false,
-      phase: 'lobby'
-    }));
-  } else {
-    clearMatchState(next);
-  }
-
-  await roomRef.set(roomToFirebase(next));
-}
-
-async function onReadyClick() {
-  const me = room?.players?.find((p) => p.id === ctx.pid);
-  if (!me) {
-    setHint('ยังเข้าห้องไม่สำเร็จ');
-    return;
-  }
-
-  if (room?.status !== 'waiting') {
-    setHint('ตอนนี้เปลี่ยนสถานะพร้อมไม่ได้แล้ว');
-    return;
-  }
-
-  const nextReady = !me.ready;
-
-  await updateMe({
-    ready: nextReady,
+  room.players = normalizeRacePlayers(room.players).map((p) => ({
+    ...p,
+    ready: false,
+    connected: true,
     phase: 'lobby',
-    connected: true
-  });
+    finished: false,
+    dnf: false,
+    dnfReason: '',
+    finalScore: 0,
+    miss: 0,
+    streak: 0,
+    finishedAt: 0,
+    lastSeenAt: Date.now(),
+    disconnectedAt: 0
+  }));
 
-  setHint(nextReady ? 'ตั้งสถานะพร้อมแล้ว' : 'ยกเลิกสถานะพร้อมแล้ว');
+  const hasCurrentHost = room.players.some((p) => p.id === room.hostId);
+  if (!hasCurrentHost) room.hostId = room.players[0]?.id || '';
+
+  await saveRaceRoom(room);
 }
 
-async function onStartClick() {
-  await beginCountdown();
-}
+function bindRaceResultButtons() {
+  if (__gjRaceResultBound) return;
+  __gjRaceResultBound = true;
 
-async function onBackClick() {
-  exitMode = 'leave';
-  try { await leaveRoom(); } catch {}
-  location.href = ctx.hub || './hub.html';
-}
+  const btnRematch = document.getElementById('btnRaceRematch');
+  const btnLobby = document.getElementById('btnRaceBackLobby');
+  const btnExport = document.getElementById('btnRaceExport');
+  const btnHub = document.getElementById('btnRaceBackHub');
 
-async function onCopyRoomClick() {
-  const ok = await copyText(ctx.roomId);
-  setCopyState(ok ? `คัดลอก Room Code แล้ว: ${ctx.roomId}` : 'คัดลอก Room Code ไม่สำเร็จ', ok);
-}
-
-async function onCopyInviteClick() {
-  const link = buildInviteUrl();
-  const ok = await copyText(link);
-  setCopyState(ok ? 'คัดลอก Invite Link แล้ว' : 'คัดลอก Invite Link ไม่สำเร็จ', ok);
-}
-
-function bindEvents() {
-  els.btnReady?.addEventListener('click', onReadyClick);
-  els.btnStart?.addEventListener('click', onStartClick);
-  els.btnBack?.addEventListener('click', onBackClick);
-  els.btnCopyRoom?.addEventListener('click', onCopyRoomClick);
-  els.btnCopyInvite?.addEventListener('click', onCopyInviteClick);
-
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') touchPresence();
-  });
-
-  window.addEventListener('focus', () => {
-    touchPresence();
-  });
-
-  window.addEventListener('beforeunload', () => {
-    stopPresenceHeartbeat();
-  });
-}
-
-async function boot() {
-  try {
-    setHint('กำลังเชื่อม Firebase...');
-    await ensureFirebase();
-
-    setHint('กำลังสร้าง/เชื่อมห้อง...');
-    await ensureRoomExists();
-    subscribeRoom();
-    const joined = await ensureJoined();
-
-    render();
-    bindEvents();
-
-    if (!joined) {
-      if (els.btnReady) els.btnReady.disabled = true;
-      if (els.btnStart) els.btnStart.disabled = true;
+  btnRematch?.addEventListener('click', async () => {
+    const room = await loadRaceRoom();
+    if (!room || !Array.isArray(room.players) || !room.players.length) {
+      location.href = GJ_HUB;
       return;
     }
+    await forceFinalizeRaceRoom();
+    await resetRaceRoomForRematch();
+    location.href = buildRaceLobbyUrl();
+  });
 
-    await touchPresence();
-    startPresenceHeartbeat();
+  btnLobby?.addEventListener('click', async () => {
+    await forceFinalizeRaceRoom();
+    location.href = buildRaceLobbyUrl();
+  });
 
-    if (room?.status === 'countdown' && room.startAt) {
-      runCountdown(room.startAt);
-    }
+  btnExport?.addEventListener('click', () => {
+    downloadRaceSummaryJson(__gjRaceLastSummary);
+  });
 
-    if (room?.status === 'running') {
-      await maybeEnterRunFromRoom(room);
-    }
+  btnHub?.addEventListener('click', async () => {
+    await forceFinalizeRaceRoom();
+    location.href = GJ_HUB;
+  });
+}
+
+async function markRacePresenceDuringRun(patch = {}) {
+  if (!isRaceMode()) return;
+  if (!await ensureRaceFirebase()) return;
+
+  try {
+    const snap = await __gjRaceMyPlayerRef.once('value');
+    const cur = snap.exists() ? snap.val() : {};
+
+    await __gjRaceMyPlayerRef.update({
+      name: GJ_NAME || cur.name || GJ_PID,
+      ready: patch.ready ?? cur.ready ?? true,
+      connected: patch.connected ?? true,
+      phase: patch.phase || cur.phase || 'run',
+      finished: patch.finished ?? cur.finished ?? false,
+      dnf: patch.dnf ?? cur.dnf ?? false,
+      dnfReason: patch.dnfReason ?? cur.dnfReason ?? '',
+      finalScore: patch.finalScore ?? cur.finalScore ?? 0,
+      miss: patch.miss ?? cur.miss ?? 0,
+      streak: patch.streak ?? cur.streak ?? 0,
+      joinedAt: cur.joinedAt || Date.now(),
+      finishedAt: patch.finishedAt ?? cur.finishedAt ?? 0,
+      lastSeenAt: Date.now(),
+      disconnectedAt: patch.connected === false
+        ? (patch.disconnectedAt ?? cur.disconnectedAt ?? Date.now())
+        : 0
+    });
+
+    await __gjRaceRoomRef.child('updatedAt').set(Date.now());
   } catch (err) {
-    console.error('[goodjunk-race-lobby] boot failed:', err);
-    setHint(`เชื่อม Firebase ไม่สำเร็จ: ${String(err?.message || err)}`);
-    if (els.btnReady) els.btnReady.disabled = true;
-    if (els.btnStart) els.btnStart.disabled = true;
+    console.error('[goodjunk.safe] markRacePresenceDuringRun failed:', err);
   }
 }
 
-boot();
+function stopRaceHeartbeat() {
+  if (__gjRaceHeartbeatTimer) {
+    clearInterval(__gjRaceHeartbeatTimer);
+    __gjRaceHeartbeatTimer = 0;
+  }
+}
+
+function stopRaceWatchdog() {
+  if (__gjRaceWatchdogTimer) {
+    clearInterval(__gjRaceWatchdogTimer);
+    __gjRaceWatchdogTimer = 0;
+  }
+}
+
+function startRaceHeartbeat() {
+  if (!isRaceMode() || __gjRaceHeartbeatTimer) return;
+
+  markRacePresenceDuringRun({
+    phase: 'run',
+    ready: true,
+    connected: true,
+    finished: false,
+    dnf: false,
+    dnfReason: '',
+    disconnectedAt: 0
+  });
+
+  __gjRaceHeartbeatTimer = setInterval(() => {
+    markRacePresenceDuringRun({
+      phase: 'run',
+      ready: true,
+      connected: true,
+      finished: false,
+      dnf: false,
+      dnfReason: '',
+      disconnectedAt: 0
+    });
+  }, GJ_RACE_HEARTBEAT_MS);
+}
+
+async function markMyRaceDisconnected(reason = 'disconnect') {
+  if (!isRaceMode()) return;
+  if (!await ensureRaceFirebase()) return;
+
+  try {
+    const snap = await __gjRaceMyPlayerRef.once('value');
+    if (!snap.exists()) return;
+
+    const cur = snap.val();
+    if (cur.finished) return;
+
+    await __gjRaceMyPlayerRef.update({
+      connected: false,
+      phase: 'run',
+      dnf: false,
+      dnfReason: '',
+      disconnectedAt: Date.now(),
+      lastSeenAt: Date.now()
+    });
+
+    await __gjRaceRoomRef.child('updatedAt').set(Date.now());
+  } catch (err) {
+    console.error('[goodjunk.safe] markMyRaceDisconnected failed:', err);
+  }
+}
+
+async function maybeFinalizeRaceRoom(force = false) {
+  if (!isRaceMode()) return;
+
+  const room = await loadRaceRoom();
+  if (!room || !Array.isArray(room.players) || !room.players.length) return;
+
+  let changed = false;
+  const ts = Date.now();
+
+  const participantIds = getRoomParticipantIds(room);
+  const participantSet = new Set(participantIds);
+
+  const players = normalizeRacePlayers(room.players).map((p) => {
+    const inMatch = participantSet.size ? participantSet.has(p.id) : true;
+    if (!inMatch) return p;
+    if (p.finished) return p;
+
+    const stale = !p.lastSeenAt || (ts - p.lastSeenAt > GJ_RACE_STALE_MS);
+    const disconnectBase = Number(p.disconnectedAt || p.lastSeenAt || ts);
+    const disconnectAge = ts - disconnectBase;
+    const shouldForceDnf = force || (stale && disconnectAge > GJ_RACE_DNF_GRACE_MS);
+
+    if (shouldForceDnf) {
+      changed = true;
+
+      let reason = p.dnfReason || '';
+      if (!reason) {
+        if (force) reason = 'timeout';
+        else if (p.connected === false) reason = 'disconnect';
+        else reason = 'timeout';
+      }
+
+      return {
+        ...p,
+        connected: false,
+        phase: 'done',
+        finished: true,
+        dnf: true,
+        dnfReason: reason,
+        finalScore: 0,
+        miss: 9999,
+        streak: 0,
+        finishedAt: ts,
+        lastSeenAt: ts,
+        disconnectedAt: p.disconnectedAt || ts
+      };
+    }
+
+    if (stale && !p.finished) {
+      const nextDisconnectedAt = p.disconnectedAt || ts;
+      if (p.connected !== false || !p.disconnectedAt) {
+        changed = true;
+        return {
+          ...p,
+          connected: false,
+          phase: 'run',
+          finished: false,
+          dnf: false,
+          dnfReason: '',
+          disconnectedAt: nextDisconnectedAt
+        };
+      }
+    }
+
+    return p;
+  });
+
+  const racePlayers = participantSet.size
+    ? players.filter((p) => participantSet.has(p.id))
+    : players;
+
+  if (!racePlayers.length) return;
+
+  const allFinished = racePlayers.every((p) => p.finished);
+  const nextStatus = allFinished ? 'finished' : (room.status === 'waiting' ? 'waiting' : 'running');
+
+  if (
+    changed ||
+    room.status !== nextStatus ||
+    JSON.stringify(room.players) !== JSON.stringify(players)
+  ) {
+    room.players = players;
+    room.status = nextStatus;
+    room.match = {
+      ...(room.match || {}),
+      status: allFinished ? 'finished' : (room.status === 'countdown' ? 'running' : (room.match?.status || 'running'))
+    };
+    room.updatedAt = ts;
+    await saveRaceRoom(room);
+  }
+
+  if (allFinished) {
+    const ranked = rankRacePlayers(racePlayers);
+    const me = getMyRaceRanked(ranked);
+
+    if (me) {
+      showRaceResultOverlay(ranked, { pending: false });
+    }
+
+    stopRaceHeartbeat();
+    stopRaceWatchdog();
+  }
+}
+
+async function forceFinalizeRaceRoom() {
+  await maybeFinalizeRaceRoom(true);
+}
+
+function startRaceWatchdog() {
+  if (!isRaceMode() || __gjRaceWatchdogTimer) return;
+  maybeFinalizeRaceRoom(false);
+  __gjRaceWatchdogTimer = setInterval(() => {
+    maybeFinalizeRaceRoom(false);
+  }, GJ_RACE_WATCHDOG_MS);
+}
+
+async function publishRaceFinish(result = {}) {
+  if (!isRaceMode()) return;
+  if (__gjRaceFinished) return;
+  if (!await ensureRaceFirebase()) return;
+
+  __gjRaceFinished = true;
+  stopRaceHeartbeat();
+
+  try {
+    const room = await loadRaceRoom();
+    if (!room || !Array.isArray(room.players)) return;
+    if (!amIRaceParticipant(room)) return;
+
+    const participantIds = getRoomParticipantIds(room);
+    const participantSet = new Set(participantIds);
+
+    room.updatedAt = Date.now();
+    room.players = normalizeRacePlayers(room.players).map((p) => {
+      if (p.id !== GJ_PID) return p;
+
+      return {
+        ...p,
+        name: GJ_NAME || p.name || p.id,
+        ready: true,
+        connected: true,
+        phase: 'done',
+        finished: true,
+        dnf: false,
+        dnfReason: '',
+        finalScore: Number(result.score || 0),
+        miss: Number(result.miss || 0),
+        streak: Number(result.streak || result.bestStreak || 0),
+        finishedAt: Date.now(),
+        lastSeenAt: Date.now(),
+        disconnectedAt: 0
+      };
+    });
+
+    const racePlayers = participantSet.size
+      ? room.players.filter((p) => participantSet.has(p.id))
+      : room.players;
+
+    const allFinished = racePlayers.length > 0 && racePlayers.every((p) => p.finished);
+
+    room.status = allFinished ? 'finished' : 'running';
+    room.match = {
+      ...(room.match || {}),
+      status: allFinished ? 'finished' : 'running'
+    };
+
+    await saveRaceRoom(room);
+
+    const ranked = rankRacePlayers(racePlayers);
+    showRaceResultOverlay(ranked, { pending: !allFinished });
+    await maybeFinalizeRaceRoom(false);
+  } catch (err) {
+    console.error('[goodjunk.safe] publishRaceFinish failed:', err);
+  }
+}
+
+async function openRaceResultFromRoom() {
+  if (!isRaceMode()) return;
+
+  const room = await loadRaceRoom();
+  if (!room || !Array.isArray(room.players)) return;
+  if (!amIRaceParticipant(room)) {
+    hideRaceResultOverlay();
+    return;
+  }
+
+  const racePlayers = getRacePlayersForRoom(room);
+  const ranked = rankRacePlayers(racePlayers);
+  const allFinished = ranked.length > 0 && ranked.every((p) => p.finished);
+  const me = getMyRaceRanked(ranked);
+
+  if (me?.finished || me?.dnf) {
+    showRaceResultOverlay(ranked, { pending: !allFinished });
+  }
+}
+
+function attachRaceRoomListener() {
+  if (!isRaceMode() || __gjRaceRoomListenerBound) return;
+  if (!GJ_ROOM_ID) return;
+
+  __gjRaceRoomListenerBound = true;
+
+  ensureRaceFirebase().then((ok) => {
+    if (!ok || !__gjRaceRoomRef) return;
+
+    __gjRaceRoomRef.on('value', async (snap) => {
+      const room = sanitizeRaceRoom(snapshotToRaceRoom(snap.val()));
+      if (!room || !Array.isArray(room.players)) return;
+
+      if (!__gjRecoveredStartAt && room.startAt) {
+        __gjRecoveredStartAt = Number(room.startAt || 0) || 0;
+      }
+
+      if (!amIRaceParticipant(room)) {
+        hideRaceResultOverlay();
+        return;
+      }
+
+      const racePlayers = getRacePlayersForRoom(room);
+      const ranked = rankRacePlayers(racePlayers);
+      const me = getMyRaceRanked(ranked);
+      if (!me) return;
+
+      const allFinished = ranked.length > 0 && ranked.every((p) => p.finished);
+
+      if (!me.finished && !me.dnf && me.connected !== false) {
+        hideRaceResultOverlay();
+      }
+
+      if (shouldShowRaceOverlayForMe(me, allFinished)) {
+        showRaceResultOverlay(ranked, { pending: !allFinished });
+      }
+
+      if (!allFinished) {
+        await maybeFinalizeRaceRoom(false);
+      }
+    });
+  });
+}
+
+function escapeHtml(s) {
+  return String(s ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;');
+}
+
+async function bootWithRaceGate(startFn) {
+  if (__gjRaceBooted) return;
+  __gjRaceBooted = true;
+
+  if (!isRaceMode()) {
+    startFn();
+    return;
+  }
+
+  if (!GJ_ROOM_ID) {
+    showRaceGate('ยังไม่มี room จากลิงก์นี้', '...', 'กลับไปหน้า lobby แล้วเริ่มใหม่');
+    return;
+  }
+
+  const room = await loadRaceRoom();
+  if (room && !amIRaceParticipant(room)) {
+    showRaceGate('คุณไม่ได้อยู่ใน participant ของรอบนี้', '...', 'กลับไปหน้า lobby เพื่อรอรอบถัดไป');
+    return;
+  }
+
+  if (!hasValidRaceStart()) {
+    await hydrateRaceStartFromRoom();
+  }
+
+  if (!hasValidRaceStart()) {
+    showRaceGate('กำลังรอเริ่มการแข่งขัน', '...', 'ยังไม่มีสัญญาณเริ่มจากห้องแข่ง');
+    return;
+  }
+
+  const effectiveStartAt = getEffectiveRaceStartAt();
+  showRaceGate('กำลังรอสัญญาณเริ่มจากห้องแข่ง', '-', `Room: ${GJ_ROOM_ID}`);
+  await waitUntilRaceStart(effectiveStartAt);
+  cancelRaceGateLoop();
+  hideRaceGate();
+  startFn();
+}
+
+function buildReplayUrl() {
+  const q = new URLSearchParams({
+    pid: GJ_PID,
+    name: GJ_NAME,
+    studyId: RUN_CTX.studyId || '',
+    diff: RUN_CTX.diff || 'normal',
+    time: RUN_CTX.time || '120',
+    seed: String(Date.now()),
+    hub: GJ_HUB,
+    view: RUN_CTX.view || 'mobile',
+    run: RUN_CTX.run || 'play',
+    gameId: GJ_GAME_ID,
+    mode: state.mode
+  });
+
+  if (isRaceMode()) {
+    q.set('roomId', GJ_ROOM_ID);
+    if (getEffectiveRaceStartAt()) {
+      q.set('startAt', String(getEffectiveRaceStartAt()));
+    }
+  }
+
+  return `./goodjunk-vr.html?v=20260318d-race-participant-lock&${q.toString()}`;
+}
