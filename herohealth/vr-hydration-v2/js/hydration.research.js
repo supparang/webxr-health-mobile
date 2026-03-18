@@ -1,6 +1,6 @@
 // === /herohealth/vr-hydration-v2/js/hydration.research.js ===
 // Hydration V2 Research / Program Progress
-// PATCH v20260317c-HYDRATION-V2-RESEARCH
+// PATCH v20260318a-HYDRATION-V2-RESEARCH-NEXT-FIX
 
 export function initResearchContext(ctx = {}) {
   const qs = new URLSearchParams(window.location.search);
@@ -34,6 +34,16 @@ export function describeResearchBadge(researchCtx = {}, ctx = {}) {
   return `${prefix} • W${researchCtx.weekNo} • S${researchCtx.sessionNo}`;
 }
 
+export function buildResearchProgressText(researchCtx = {}, nextProgress = {}) {
+  const currentSessionNo = positiveInt(researchCtx.sessionNo) || 1;
+  const currentWeekNo = positiveInt(researchCtx.weekNo) || deriveWeekNo(currentSessionNo);
+
+  const nextSessionNo = positiveInt(nextProgress.nextSessionNo) || (currentSessionNo + 1);
+  const nextWeekNo = positiveInt(nextProgress.nextWeekNo) || deriveWeekNo(nextSessionNo);
+
+  return `บันทึก W${currentWeekNo} S${currentSessionNo} แล้ว • ครั้งถัดไป W${nextWeekNo} S${nextSessionNo}`;
+}
+
 export function buildResearchPayload({
   ctx = {},
   state = {},
@@ -41,7 +51,7 @@ export function buildResearchPayload({
   socialSummary = ''
 } = {}) {
   return {
-    payloadVersion: '20260317c',
+    payloadVersion: '20260318a',
     savedAt: new Date().toISOString(),
 
     gameId: ctx.gameId || 'hydration',
@@ -106,14 +116,6 @@ export function persistResearchPayload(payload = {}, researchCtx = {}) {
 
 export function markResearchSessionComplete(researchCtx = {}) {
   const currentSession = positiveInt(researchCtx.sessionNo) || 1;
-
-  if (!researchCtx.isResearchTrack) {
-    return {
-      nextSessionNo: currentSession,
-      nextWeekNo: positiveInt(researchCtx.weekNo) || deriveWeekNo(currentSession)
-    };
-  }
-
   const nextSessionNo = currentSession + 1;
   const nextWeekNo = deriveWeekNo(nextSessionNo);
 
