@@ -1,516 +1,396 @@
-<!-- === /herohealth/rhythm-boxer-vr.html ===
-HeroHealth — Rhythm Boxer Launcher
-PATCH v20260315-RB-LAUNCHER-FINAL-r1
-✅ child-friendly launcher
-✅ canonical game=rhythm
-✅ force zone/cat/gate/cooldown defaults
-✅ pass-through hub/planner params
-✅ safe redirect to ../fitness/rhythm-boxer.html
--->
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — Rhythm Boxer</title>
+  <title>HeroHealth • Rhythm Boxer Launcher</title>
   <meta name="color-scheme" content="dark light" />
   <link rel="icon" href="./favicon.ico" />
+  <script defer src="./launch/backhub.js"></script>
   <style>
     :root{
-      --bg1:#0f172a;
-      --bg2:#1e1b4b;
-      --bg3:#312e81;
-      --card:rgba(2,6,23,.72);
-      --line:rgba(255,255,255,.14);
-      --text:#f8fafc;
-      --muted:#dbeafe;
-      --blue:#38bdf8;
-      --violet:#a78bfa;
-      --pink:#f472b6;
-      --yellow:#facc15;
+      --bg1:#020617;
+      --bg2:#0b1226;
+      --panel:rgba(2,6,23,.74);
+      --panel2:rgba(15,23,42,.82);
+      --stroke:rgba(148,163,184,.18);
+      --text:#e5e7eb;
+      --muted:#94a3b8;
       --good:#22c55e;
-      --shadow:0 24px 70px rgba(0,0,0,.34);
+      --cyan:#22d3ee;
+      --warn:#f59e0b;
+      --shadow:0 24px 70px rgba(0,0,0,.45);
+      --radius:24px;
       --sat: env(safe-area-inset-top, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
       --sal: env(safe-area-inset-left, 0px);
       --sar: env(safe-area-inset-right, 0px);
     }
-
     *{ box-sizing:border-box; }
-    html,body{
-      height:100%;
+    html,body{ min-height:100%; }
+    body{
       margin:0;
       color:var(--text);
-      background:
-        radial-gradient(900px 500px at 15% 10%, rgba(56,189,248,.20), transparent 60%),
-        radial-gradient(800px 500px at 90% 0%, rgba(244,114,182,.16), transparent 56%),
-        radial-gradient(700px 500px at 50% 100%, rgba(250,204,21,.10), transparent 60%),
-        linear-gradient(180deg, var(--bg1), var(--bg2) 48%, var(--bg3));
       font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", Arial, sans-serif;
-    }
-
-    body{
-      display:grid;
-      place-items:center;
+      background:
+        radial-gradient(1100px 760px at 10% 10%, rgba(34,211,238,.10), transparent 55%),
+        radial-gradient(900px 680px at 88% 16%, rgba(245,158,11,.10), transparent 55%),
+        linear-gradient(180deg, var(--bg1), var(--bg2));
       padding:
-        calc(18px + var(--sat))
-        calc(16px + var(--sar))
+        calc(12px + var(--sat))
+        calc(12px + var(--sar))
         calc(18px + var(--sab))
-        calc(16px + var(--sal));
-      overflow:hidden;
+        calc(12px + var(--sal));
     }
-
-    .wrap{
-      width:min(760px, 100%);
-      display:grid;
-      gap:14px;
+    .page{ width:min(1100px,100%); margin:0 auto; display:grid; gap:14px; }
+    .panel{
+      background:linear-gradient(180deg, var(--panel), var(--panel2));
+      border:1px solid var(--stroke);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+      backdrop-filter:blur(10px);
     }
-
-    .card{
-      position:relative;
-      overflow:hidden;
-      border-radius:30px;
-      border:1px solid var(--line);
-      background:
-        radial-gradient(500px 220px at 15% 15%, rgba(56,189,248,.14), transparent 60%),
-        radial-gradient(420px 220px at 85% 85%, rgba(244,114,182,.10), transparent 60%),
-        linear-gradient(180deg, rgba(2,6,23,.80), rgba(2,6,23,.68));
-      backdrop-filter: blur(12px);
-      box-shadow: var(--shadow);
-      padding:18px;
-    }
-
     .hero{
+      padding:22px;
       display:grid;
-      grid-template-columns: 108px 1fr;
-      gap:16px;
-      align-items:center;
+      gap:12px;
     }
-
-    @media (max-width:640px){
-      .hero{ grid-template-columns:1fr; text-align:center; }
-    }
-
-    .icon{
-      width:108px;
-      height:108px;
-      border-radius:30px;
-      display:grid;
-      place-items:center;
-      font-size:54px;
-      background:
-        radial-gradient(circle at 30% 30%, rgba(255,255,255,.26), transparent 40%),
-        linear-gradient(135deg, rgba(56,189,248,.24), rgba(167,139,250,.22));
-      border:1px solid rgba(255,255,255,.14);
-      box-shadow: 0 18px 40px rgba(0,0,0,.24);
-      margin-inline:auto;
-    }
-
-    .pill{
+    .kicker{
       display:inline-flex;
+      width:max-content;
       align-items:center;
       gap:8px;
       padding:8px 12px;
       border-radius:999px;
-      border:1px solid rgba(255,255,255,.14);
-      background:rgba(255,255,255,.06);
-      color:#e0f2fe;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(2,6,23,.34);
+      color:var(--muted);
       font-size:12px;
-      font-weight:1000;
-      white-space:nowrap;
+      font-weight:950;
     }
-
     .title{
-      margin:10px 0 0;
-      font-size:clamp(28px, 5vw, 40px);
-      line-height:1.02;
-      font-weight:1000;
-    }
-
-    .sub{
-      margin-top:10px;
-      color:var(--muted);
-      font-size:15px;
-      font-weight:900;
-      line-height:1.6;
-      max-width:52ch;
-    }
-
-    @media (max-width:640px){
-      .sub{ max-width:none; }
-    }
-
-    .meta{
-      margin-top:12px;
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-    }
-
-    .meta .pill b{ color:#fff; }
-
-    .tipBox{
-      margin-top:14px;
-      border-radius:22px;
-      border:1px solid rgba(255,255,255,.12);
-      background:rgba(255,255,255,.05);
-      padding:14px;
-    }
-
-    .tipTitle{
-      font-size:15px;
-      font-weight:1000;
-      margin-bottom:8px;
-    }
-
-    .tipList{
       margin:0;
-      padding-left:18px;
+      font-size:clamp(30px, 5vw, 46px);
+      line-height:1.04;
+      font-weight:1000;
+    }
+    .sub{
       color:var(--muted);
-      font-size:14px;
-      font-weight:900;
-      line-height:1.55;
+      font-size:15px;
+      line-height:1.65;
+      font-weight:700;
+      max-width:70ch;
     }
-
-    .statusCard{
-      display:grid;
-      grid-template-columns: repeat(3, minmax(0,1fr));
-      gap:10px;
-      margin-top:14px;
+    .meta{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
     }
-
-    @media (max-width:640px){
-      .statusCard{ grid-template-columns:1fr; }
-    }
-
-    .mini{
-      border-radius:20px;
-      border:1px solid rgba(255,255,255,.12);
-      background:rgba(15,23,42,.48);
-      padding:12px;
-      box-shadow: 0 12px 28px rgba(0,0,0,.18);
-    }
-
-    .miniLabel{
+    .chip{
+      padding:8px 12px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(2,6,23,.30);
+      color:#cbd5e1;
       font-size:12px;
-      font-weight:1000;
-      color:#dbeafe;
+      font-weight:900;
     }
-
-    .miniValue{
-      margin-top:6px;
-      font-size:22px;
-      font-weight:1000;
-      line-height:1;
+    .section{ padding:18px; display:grid; gap:14px; }
+    .grid{
+      display:grid;
+      grid-template-columns:repeat(12,1fr);
+      gap:12px;
     }
-
-    .btnRow{
+    .field{ grid-column:span 4; display:grid; gap:7px; }
+    .field.span6{ grid-column:span 6; }
+    .label{
+      font-size:12px;
+      font-weight:950;
+      color:var(--muted);
+    }
+    .input,.select{
+      width:100%;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(2,6,23,.42);
+      color:var(--text);
+      border-radius:14px;
+      padding:12px;
+      outline:none;
+      font:inherit;
+      font-size:14px;
+      font-weight:800;
+    }
+    .actions{
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+    }
+    .leftActions,.rightActions{
       display:flex;
       gap:10px;
       flex-wrap:wrap;
-      margin-top:16px;
-    }
-
-    .btn{
-      appearance:none;
-      border:none;
-      cursor:pointer;
-      border-radius:18px;
-      padding:14px 18px;
-      min-height:52px;
-      font-weight:1000;
-      font-size:15px;
-      color:var(--text);
-      border:1px solid rgba(255,255,255,.16);
-      box-shadow: 0 12px 28px rgba(0,0,0,.18);
-      transition: transform .12s ease, filter .12s ease;
-    }
-
-    .btn:hover{ transform:translateY(-1px); filter:brightness(1.05); }
-    .btn:active{ transform:translateY(1px); }
-
-    .btn.primary{
-      color:#08111f;
-      border-color:transparent;
-      background:linear-gradient(135deg, rgba(56,189,248,.96), rgba(167,139,250,.96));
-    }
-    .btn.secondary{
-      background:linear-gradient(135deg, rgba(250,204,21,.18), rgba(244,114,182,.16));
-    }
-    .btn.ghost{
-      background:rgba(255,255,255,.05);
-    }
-
-    .loaderRow{
-      margin-top:12px;
-      display:flex;
       align-items:center;
-      gap:10px;
-      color:#e0f2fe;
+    }
+    .btn{
+      border:1px solid var(--stroke);
+      background:rgba(2,6,23,.40);
+      color:var(--text);
+      border-radius:14px;
+      padding:12px 14px;
+      cursor:pointer;
+      font-weight:950;
       font-size:14px;
-      font-weight:1000;
     }
-
-    .spin{
-      width:16px;
-      height:16px;
-      border-radius:999px;
-      border:2px solid rgba(255,255,255,.24);
-      border-top-color: rgba(56,189,248,.96);
-      animation: sp 1s linear infinite;
-      flex:0 0 auto;
-    }
-
-    .bar{
-      margin-top:12px;
-      width:100%;
-      height:12px;
-      border-radius:999px;
-      overflow:hidden;
-      border:1px solid rgba(255,255,255,.12);
-      background:rgba(255,255,255,.06);
-      box-shadow: inset 0 2px 8px rgba(0,0,0,.18);
-    }
-
-    .barFill{
-      width:0%;
-      height:100%;
-      border-radius:999px;
-      background:linear-gradient(90deg, #38bdf8, #a78bfa, #facc15);
-      animation: loadbar 1.2s ease-in-out infinite alternate;
-    }
-
-    .footer{
-      text-align:center;
-      color:#dbeafe;
+    .btn.primary{ border-color:rgba(34,197,94,.28); background:rgba(34,197,94,.16); }
+    .btn.cyan{ border-color:rgba(34,211,238,.28); background:rgba(34,211,238,.14); }
+    .btn.warn{ border-color:rgba(245,158,11,.28); background:rgba(245,158,11,.14); }
+    .btn.secondary{ color:var(--muted); }
+    .preview{
+      border:1px solid rgba(148,163,184,.16);
+      background:rgba(2,6,23,.26);
+      border-radius:18px;
+      padding:12px 14px;
+      color:#cbd5e1;
       font-size:12px;
-      font-weight:900;
-      opacity:.92;
+      line-height:1.6;
+      font-weight:800;
+      word-break:break-word;
     }
-
-    @keyframes sp{
-      to{ transform:rotate(360deg); }
+    @media (max-width: 880px){
+      .field{ grid-column:span 6; }
+      .field.span6{ grid-column:span 6; }
     }
-    @keyframes loadbar{
-      from{ width:24%; }
-      to{ width:82%; }
+    @media (max-width: 720px){
+      body{
+        padding:
+          calc(8px + var(--sat))
+          calc(8px + var(--sar))
+          calc(18px + var(--sab))
+          calc(8px + var(--sal));
+      }
+      .hero,.section{ padding:14px; }
+      .grid{ grid-template-columns:1fr; }
+      .field,.field.span6{ grid-column:span 1; }
+      .actions{ flex-direction:column; align-items:stretch; }
+      .leftActions,.rightActions{ width:100%; }
+      .leftActions .btn,.rightActions .btn{ flex:1 1 0; }
     }
   </style>
 </head>
 <body>
-  <div class="wrap">
-
-    <section class="card">
-      <div class="hero">
-        <div class="icon">🎵</div>
-
-        <div>
-          <span class="pill">🏃 Fitness World · Rhythm Boxer</span>
-          <h1 class="title">พร้อมชกตามจังหวะแล้ว!</h1>
-          <div class="sub">
-            เกมนี้จะพาเข้าไปฝึกจังหวะ การตอบสนอง และการโฟกัสแบบสนุก ๆ
-            มีดาว มีเหรียญ มีคำชมจาก AI Coach และเก็บผลกลับไปที่ HeroHealth ได้ด้วย
-          </div>
-
-          <div class="meta">
-            <span class="pill"><b>ผู้เล่น</b>: <span id="uiPid">anon</span></span>
-            <span class="pill"><b>โหมด</b>: <span id="uiRun">play</span></span>
-            <span class="pill"><b>ระดับ</b>: <span id="uiDiff">normal</span></span>
-            <span class="pill"><b>เวลา</b>: <span id="uiTime">80</span> วินาที</span>
-          </div>
-        </div>
+  <div class="page">
+    <section class="panel hero">
+      <div class="kicker">🥊 FITNESS ZONE • RHYTHM BOXER • LAUNCHER</div>
+      <h1 class="title">Rhythm Boxer Launcher</h1>
+      <div class="sub">
+        เริ่มผ่าน warmup gate ก่อนเสมอ แล้วค่อยเข้า run page ที่ถูกต้องของเกมนี้ที่
+        <b>/fitness/rhythm-boxer.html</b>
       </div>
-
-      <div class="tipBox">
-        <div class="tipTitle">เล่นยังไง</div>
-        <ul class="tipList">
-          <li>รอดูหัวโน้ตให้ลงมาถึงเส้นสีเหลืองก่อน แล้วค่อยกด</li>
-          <li>กดแม่นจะได้ Perfect / Great / Good และสะสม FEVER</li>
-          <li>กดมั่วเร็วเกินไปจะโดน MISS และเสียคะแนนเล็กน้อย</li>
-          <li>เล่นจบแล้ว ระบบจะบันทึกดาว เหรียญ และผลล่าสุดกลับไปที่ Hub</li>
-        </ul>
-      </div>
-
-      <div class="statusCard">
-        <div class="mini">
-          <div class="miniLabel">เกม</div>
-          <div class="miniValue">Rhythm</div>
-        </div>
-        <div class="mini">
-          <div class="miniLabel">เส้นทาง</div>
-          <div class="miniValue" id="uiFlow">gate → run</div>
-        </div>
-        <div class="mini">
-          <div class="miniLabel">เป้าหมาย</div>
-          <div class="miniValue">เก็บดาว ⭐</div>
-        </div>
-      </div>
-
-      <div class="loaderRow">
-        <span class="spin" aria-hidden="true"></span>
-        <span id="uiLoaderText">กำลังเตรียมหน้าเล่น…</span>
-      </div>
-
-      <div class="bar" aria-hidden="true">
-        <div class="barFill"></div>
-      </div>
-
-      <div class="btnRow">
-        <button class="btn primary" id="btnGo" type="button">▶ เข้าเล่นทันที</button>
-        <button class="btn secondary" id="btnGoEasy" type="button">🟢 เข้าแบบง่าย</button>
-        <button class="btn ghost" id="btnBack" type="button">⬅ กลับ Hub</button>
+      <div class="meta">
+        <div class="chip">gameId: rhythm</div>
+        <div class="chip">zone: fitness</div>
+        <div class="chip">flow: warmup → run → cooldown</div>
       </div>
     </section>
 
-    <div class="footer">
-      HeroHealth จะพาคุณเข้าเกมอัตโนมัติในไม่กี่อึดใจ
-    </div>
+    <section class="panel section">
+      <div class="grid">
+        <div class="field">
+          <label class="label" for="pid">PID</label>
+          <input class="input" id="pid" placeholder="เช่น P001" />
+        </div>
+
+        <div class="field">
+          <label class="label" for="diff">Difficulty</label>
+          <select class="select" id="diff">
+            <option value="easy">easy</option>
+            <option value="normal" selected>normal</option>
+            <option value="hard">hard</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label class="label" for="time">Time (sec)</label>
+          <input class="input" id="time" type="number" min="45" max="180" step="5" value="80" />
+        </div>
+
+        <div class="field">
+          <label class="label" for="view">View</label>
+          <select class="select" id="view">
+            <option value="pc" selected>pc</option>
+            <option value="mobile">mobile</option>
+            <option value="cvr">cvr</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label class="label" for="seed">Seed</label>
+          <input class="input" id="seed" placeholder="auto" />
+        </div>
+
+        <div class="field span6">
+          <label class="label" for="hub">Hub URL</label>
+          <input class="input" id="hub" value="./hub.html" />
+        </div>
+      </div>
+
+      <div class="actions">
+        <div class="leftActions">
+          <button class="btn secondary" id="btnFillDemo" type="button">เติมค่าตัวอย่าง</button>
+          <button class="btn cyan" id="btnPreviewWarmup" type="button">ดู URL warmup</button>
+        </div>
+        <div class="rightActions">
+          <button class="btn secondary" id="btnBackHub" type="button">← กลับ HUB</button>
+          <button class="btn warn" id="btnDirectRun" type="button">เข้า run ตรง</button>
+          <button class="btn primary" id="btnStart" type="button">เริ่มผ่าน Warmup Gate</button>
+        </div>
+      </div>
+
+      <div class="preview" id="previewText">
+        ระบบจะส่งเข้า warmup-gate.html โดยตั้ง phase=warmup และ next=/fitness/rhythm-boxer.html ...
+      </div>
+    </section>
   </div>
 
-<script>
-(function(){
-  'use strict';
+  <script>
+    (() => {
+      'use strict';
 
-  const RUN_PATH = '../fitness/rhythm-boxer.html';
+      const byId = (id) => document.getElementById(id);
+      const q = new URLSearchParams(location.search);
 
-  const $ = (id)=>document.getElementById(id);
+      const pid = byId('pid');
+      const diff = byId('diff');
+      const time = byId('time');
+      const view = byId('view');
+      const seed = byId('seed');
+      const hub = byId('hub');
+      const previewText = byId('previewText');
 
-  function qs(k,d=''){
-    try{ return (new URL(location.href)).searchParams.get(k) ?? d; }
-    catch(_){ return d; }
-  }
+      function qs(k, d=''){
+        try{ return new URL(location.href).searchParams.get(k) ?? d; }
+        catch{ return d; }
+      }
 
-  function currentUrlNoHash(){
-    return location.href.split('#')[0];
-  }
+      function safeSeed(){
+        return seed.value.trim() || String(Date.now());
+      }
 
-  function currentParams(){
-    try{ return new URL(currentUrlNoHash()).searchParams; }
-    catch(_){ return new URLSearchParams(); }
-  }
+      function safeTime(){
+        return String(Math.max(45, Math.min(180, Number(time.value || 80))));
+      }
 
-  function abs(u){
-    try{ return new URL(u, location.href).toString(); }
-    catch(_){ return String(u || ''); }
-  }
+      function normalizedHub(){
+        const raw = (hub.value || './hub.html').trim() || './hub.html';
+        try{
+          const u = new URL(raw, location.href);
+          u.pathname = u.pathname.replace(/\/{2,}/g, '/');
+          return u.toString();
+        }catch{
+          return './hub.html';
+        }
+      }
 
-  function detectView(qs){
-    const v = String(qs.get('view') || '').toLowerCase();
-    if(v) return v;
-    const ua = navigator.userAgent || '';
-    const isMobile = /Android|iPhone|iPad|iPod/i.test(ua) ||
-      (window.matchMedia && window.matchMedia('(pointer:coarse)').matches);
-    return isMobile ? 'mobile' : 'pc';
-  }
+      function buildRunUrl(){
+        const u = new URL('../fitness/rhythm-boxer.html', location.href);
 
-  function buildTarget(extra){
-    const sp = currentParams();
-    const u = new URL(RUN_PATH, location.href);
+        u.searchParams.set('zone', 'fitness');
+        u.searchParams.set('cat', 'fitness');
+        u.searchParams.set('game', 'rhythm');
+        u.searchParams.set('gameId', 'rhythm');
+        u.searchParams.set('theme', 'rhythm');
 
-    for(const [k,v] of sp.entries()){
-      if(k === 'hub') continue;
-      u.searchParams.set(k, v);
-    }
+        u.searchParams.set('pid', pid.value.trim() || 'anon');
+        u.searchParams.set('view', view.value || 'pc');
+        u.searchParams.set('run', qs('run', 'play'));
+        u.searchParams.set('diff', diff.value || 'normal');
+        u.searchParams.set('time', safeTime());
+        u.searchParams.set('seed', safeSeed());
+        u.searchParams.set('hub', normalizedHub());
 
-    if(extra && typeof extra === 'object'){
-      Object.keys(extra).forEach(k=>{
-        const v = extra[k];
-        if(v == null || v === '') u.searchParams.delete(k);
-        else u.searchParams.set(k, String(v));
+        u.searchParams.set('gate', '1');
+        u.searchParams.set('cooldown', '1');
+        u.searchParams.set('cdur', q.get('cdur') || '20');
+
+        return u.toString();
+      }
+
+      function buildWarmupUrl(){
+        const gate = new URL('./warmup-gate.html', location.href);
+
+        gate.searchParams.set('phase', 'warmup');
+        gate.searchParams.set('gatePhase', 'warmup');
+
+        gate.searchParams.set('zone', 'fitness');
+        gate.searchParams.set('cat', 'fitness');
+        gate.searchParams.set('game', 'rhythm');
+        gate.searchParams.set('gameId', 'rhythm');
+        gate.searchParams.set('theme', 'rhythm');
+
+        gate.searchParams.set('pid', pid.value.trim() || 'anon');
+        gate.searchParams.set('run', qs('run', 'play'));
+        gate.searchParams.set('diff', diff.value || 'normal');
+        gate.searchParams.set('time', safeTime());
+        gate.searchParams.set('view', view.value || 'pc');
+        gate.searchParams.set('seed', safeSeed());
+        gate.searchParams.set('hub', normalizedHub());
+
+        gate.searchParams.set('next', buildRunUrl());
+        return gate.toString();
+      }
+
+      function renderPreview(label, url){
+        previewText.textContent = `${label}: ${url}`;
+      }
+
+      function setDefaults(){
+        pid.value = qs('pid', 'anon');
+        diff.value = qs('diff', 'normal');
+        time.value = qs('time', '80');
+        view.value = qs('view', 'pc');
+        seed.value = qs('seed', '');
+        hub.value = qs('hub', './hub.html');
+        renderPreview('warmup', buildWarmupUrl());
+      }
+
+      [pid, diff, time, view, seed, hub].forEach((el) => {
+        el?.addEventListener('input', () => renderPreview('warmup', buildWarmupUrl()));
+        el?.addEventListener('change', () => renderPreview('warmup', buildWarmupUrl()));
       });
-    }
 
-    if(!u.searchParams.get('view')){
-      u.searchParams.set('view', detectView(sp));
-    }
+      byId('btnFillDemo')?.addEventListener('click', () => {
+        pid.value = pid.value.trim() || 'anon';
+        diff.value = 'normal';
+        time.value = '80';
+        view.value = 'pc';
+        if(!seed.value.trim()) seed.value = String(Date.now());
+        renderPreview('warmup', buildWarmupUrl());
+      });
 
-    if(!u.searchParams.get('run')){
-      u.searchParams.set('run', 'play');
-    }
+      byId('btnPreviewWarmup')?.addEventListener('click', () => {
+        renderPreview('warmup', buildWarmupUrl());
+      });
 
-    if(!u.searchParams.get('diff')){
-      u.searchParams.set('diff', 'normal');
-    }
+      byId('btnDirectRun')?.addEventListener('click', () => {
+        location.href = buildRunUrl();
+      });
 
-    if(!u.searchParams.get('time')){
-      u.searchParams.set('time', '80');
-    }
+      byId('btnStart')?.addEventListener('click', () => {
+        location.href = buildWarmupUrl();
+      });
 
-    /* canonical HeroHealth params */
-    if(!u.searchParams.get('zone')){
-      u.searchParams.set('zone', 'fitness');
-    }
-    if(!u.searchParams.get('cat')){
-      u.searchParams.set('cat', 'fitness');
-    }
-    u.searchParams.set('game', 'rhythm');
+      byId('btnBackHub')?.addEventListener('click', () => {
+        try{
+          window.HHA_BACKHUB?.goHub?.();
+          return;
+        }catch{}
+        location.href = normalizedHub();
+      });
 
-    if(!u.searchParams.get('gate')){
-      u.searchParams.set('gate', '1');
-    }
-    if(!u.searchParams.get('cooldown')){
-      u.searchParams.set('cooldown', '1');
-    }
-    if(!u.searchParams.get('cdur')){
-      u.searchParams.set('cdur', '20');
-    }
-
-    const hub = sp.get('hub') || currentUrlNoHash();
-    u.searchParams.set('hub', hub);
-
-    return u.toString();
-  }
-
-  function backTarget(){
-    const sp = currentParams();
-    return abs(sp.get('hub') || './hub.html');
-  }
-
-  function setUi(){
-    $('uiPid').textContent = String(qs('pid','anon') || 'anon');
-    $('uiRun').textContent = String(qs('run','play') || 'play');
-    $('uiDiff').textContent = String(qs('diff','normal') || 'normal');
-    $('uiTime').textContent = String(qs('time','80') || '80');
-
-    const hasGate = String(qs('gate','1')) === '1';
-    const hasCooldown = String(qs('cooldown','1')) === '1';
-    $('uiFlow').textContent = hasGate
-      ? (hasCooldown ? 'gate → run → cooldown' : 'gate → run')
-      : (hasCooldown ? 'run → cooldown' : 'run');
-  }
-
-  function go(extra){
-    location.replace(buildTarget(extra));
-  }
-
-  $('btnGo').addEventListener('click', (e)=>{
-    e.preventDefault();
-    go();
-  }, { passive:false });
-
-  $('btnGoEasy').addEventListener('click', (e)=>{
-    e.preventDefault();
-    go({ diff:'easy', time:'70' });
-  }, { passive:false });
-
-  $('btnBack').addEventListener('click', (e)=>{
-    e.preventDefault();
-    location.href = backTarget();
-  }, { passive:false });
-
-  setUi();
-
-  const strictPlanner =
-    backTarget().includes('seq=1') ||
-    String(qs('autoNext','0')) === '1' ||
-    backTarget().includes('fitness-planner');
-
-  $('uiLoaderText').textContent = strictPlanner
-    ? 'กำลังเตรียมเข้าเกมตามแผนการเล่น…'
-    : 'กำลังเตรียมหน้าเล่น…';
-
-  setTimeout(()=>go(), 180);
-})();
-</script>
+      setDefaults();
+    })();
+  </script>
 </body>
 </html>
