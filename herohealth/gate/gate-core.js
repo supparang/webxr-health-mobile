@@ -10,7 +10,7 @@
 // ✅ cooldown complete -> HUB only
 // ✅ auto-call result.start() after mount when provided
 
-import * as GateGames from './gate-games.js?v=20260318-GATE-GAMES-PATHFIX';
+import * as GateGames from './gate-games.js?v=20260318d-GATE-GAMES-RHYTHM-JUMPDUCK-PATHFIX';
 
 const PATCH = 'v20260318-GATE-AUTOSTART-START-AND-COOLDOWN-TO-HUB';
 const STORAGE_NS = 'HHA_GATE_DONE_V1';
@@ -736,6 +736,7 @@ async function bootPhase(stage, ctx, api) {
     const cleanupEvents = attachCompletionEvents(stage, api);
     const result = await runner(stage, ctx, api);
 
+    // ✅ auto-start module if it exposes start()
     if (result && typeof result.start === 'function') {
       try {
         queueMicrotask(() => {
