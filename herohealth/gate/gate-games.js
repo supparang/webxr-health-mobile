@@ -1,10 +1,15 @@
 // === /herohealth/gate/gate-games.js ===
-// HeroHealth Gate Game Registry
-// FULL PATCH v20260318d-GATE-GAMES-RHYTHM-JUMPDUCK-PATHFIX
+// FULL PATCH v20260318e-GATE-GAMES-BRUSH-RUN-FIX-ROBUST
 // ✅ canonical game ids preserved
+// ✅ exercise cat unified to "exercise"
 // ✅ expanded aliases across hygiene / nutrition / exercise
-// ✅ runCandidates added for robust gate-core resolution
-// ✅ fitness run pages fixed to /fitness/... where needed
+// ✅ run paths fixed for herohealth-root vs external fitness paths
+// ✅ brush fixed to run real page first: ./vr-brush/brush.html
+// ✅ groups fixed to ./vr-groups/groups-vr.html
+// ✅ plate fixed to ./plate/plate-vr.html
+// ✅ hydration prefers ./hydration-vr/hydration-vr.html
+// ✅ rhythm / jumpduck prefer ../fitness/*
+// ✅ exports getRunCandidates() for gate-core debugRun flow
 
 export const GATE_GAMES = {
   // =========================
@@ -21,8 +26,11 @@ export const GATE_GAMES = {
       cooldown: './games/bath/cooldown.js',
       style: './games/bath/style.css'
     },
-    run: '../bath-vr.html',
-    runCandidates: ['../bath-vr.html']
+    run: './bath-vr.html',
+    runCandidates: [
+      './bath-vr.html',
+      '../bath-vr.html'
+    ]
   },
 
   handwash: {
@@ -36,8 +44,13 @@ export const GATE_GAMES = {
       cooldown: './games/handwash/cooldown.js',
       style: './games/handwash/style.css'
     },
-    run: '../hygiene-vr.html',
-    runCandidates: ['../hygiene-vr.html', '../handwash-vr.html']
+    run: './hygiene-vr.html',
+    runCandidates: [
+      './hygiene-vr.html',
+      './hygiene-vr/hygiene-vr.html',
+      './handwash-vr.html',
+      '../hygiene-vr.html'
+    ]
   },
 
   brush: {
@@ -51,8 +64,12 @@ export const GATE_GAMES = {
       cooldown: './games/brush/cooldown.js',
       style: './games/brush/style.css'
     },
-    run: '../brush-vr.html',
-    runCandidates: ['../brush-vr.html']
+    run: './vr-brush/brush.html',
+    runCandidates: [
+      './vr-brush/brush.html',
+      './brush-vr.html',
+      '../brush-vr.html'
+    ]
   },
 
   clean: {
@@ -66,8 +83,12 @@ export const GATE_GAMES = {
       cooldown: './games/cleanobject/cooldown.js',
       style: './games/cleanobject/style.css'
     },
-    run: '../clean-objects.html',
-    runCandidates: ['../clean-objects.html', '../clean-object.html']
+    run: './clean-objects.html',
+    runCandidates: [
+      './clean-objects.html',
+      './clean-object.html',
+      '../clean-objects.html'
+    ]
   },
 
   maskcough: {
@@ -81,8 +102,11 @@ export const GATE_GAMES = {
       cooldown: './games/maskcough/cooldown.js',
       style: './games/maskcough/style.css'
     },
-    run: '../maskcough-vr.html',
-    runCandidates: ['../maskcough-vr.html']
+    run: './maskcough-vr.html',
+    runCandidates: [
+      './maskcough-vr.html',
+      '../maskcough-vr.html'
+    ]
   },
 
   germdetective: {
@@ -96,8 +120,13 @@ export const GATE_GAMES = {
       cooldown: './games/germdetective/cooldown.js',
       style: './games/germdetective/style.css'
     },
-    run: '../germ-detective.html',
-    runCandidates: ['../germ-detective.html', '../germ-detective-vr.html']
+    run: './germ-detective/germ-detective-vr.html',
+    runCandidates: [
+      './germ-detective/germ-detective-vr.html',
+      './germ-detective-vr.html',
+      './germ-detective.html',
+      '../germ-detective.html'
+    ]
   },
 
   // =========================
@@ -114,8 +143,12 @@ export const GATE_GAMES = {
       cooldown: './games/goodjunk/cooldown.js',
       style: './games/goodjunk/style.css'
     },
-    run: '../goodjunk-launcher.html',
-    runCandidates: ['../goodjunk-launcher.html', '../goodjunk-vr.html']
+    run: './goodjunk-launcher.html',
+    runCandidates: [
+      './goodjunk-launcher.html',
+      './vr-goodjunk/goodjunk-vr.html',
+      './goodjunk-vr.html'
+    ]
   },
 
   groups: {
@@ -129,8 +162,12 @@ export const GATE_GAMES = {
       cooldown: './games/groups/cooldown.js',
       style: './games/groups/style.css'
     },
-    run: '../groups-vr.html',
-    runCandidates: ['../groups-vr.html']
+    run: './vr-groups/groups-vr.html',
+    runCandidates: [
+      './vr-groups/groups-vr.html',
+      './groups-vr.html',
+      '../groups-vr.html'
+    ]
   },
 
   hydration: {
@@ -144,8 +181,13 @@ export const GATE_GAMES = {
       cooldown: './games/hydration/cooldown.js',
       style: './games/hydration/style.css'
     },
-    run: '../hydration-vr.html',
-    runCandidates: ['../hydration-vr.html', '../hydration-vr/hydration-vr.html']
+    run: './hydration-vr/hydration-vr.html',
+    runCandidates: [
+      './hydration-vr/hydration-vr.html',
+      './hydration-vr.html',
+      '../hydration-vr.html',
+      '../hydration-vr/hydration-vr.html'
+    ]
   },
 
   plate: {
@@ -159,8 +201,12 @@ export const GATE_GAMES = {
       cooldown: './games/plate/cooldown.js',
       style: './games/plate/style.css'
     },
-    run: '../plate-vr.html',
-    runCandidates: ['../plate-vr.html']
+    run: './plate/plate-vr.html',
+    runCandidates: [
+      './plate/plate-vr.html',
+      './plate-vr.html',
+      '../plate-vr.html'
+    ]
   },
 
   // =========================
@@ -178,7 +224,11 @@ export const GATE_GAMES = {
       style: './games/shadowbreaker/style.css'
     },
     run: '../fitness/shadow-breaker.html',
-    runCandidates: ['../fitness/shadow-breaker.html', '../shadow-breaker-vr.html']
+    runCandidates: [
+      '../fitness/shadow-breaker.html',
+      './fitness/shadow-breaker.html',
+      './shadow-breaker-vr.html'
+    ]
   },
 
   rhythm: {
@@ -192,9 +242,12 @@ export const GATE_GAMES = {
       cooldown: './games/rhythmboxer/cooldown.js',
       style: './games/rhythmboxer/style.css'
     },
-    // ✅ ถูก: /fitness/rhythm-boxer.html
     run: '../fitness/rhythm-boxer.html',
-    runCandidates: ['../fitness/rhythm-boxer.html', '../rhythm-boxer-vr.html']
+    runCandidates: [
+      '../fitness/rhythm-boxer.html',
+      './fitness/rhythm-boxer.html',
+      './rhythm-boxer-vr.html'
+    ]
   },
 
   jumpduck: {
@@ -208,9 +261,12 @@ export const GATE_GAMES = {
       cooldown: './games/jumpduck/cooldown.js',
       style: './games/jumpduck/style.css'
     },
-    // ✅ ถูก: /fitness/jump-duck.html
     run: '../fitness/jump-duck.html',
-    runCandidates: ['../fitness/jump-duck.html', '../jump-duck-vr.html']
+    runCandidates: [
+      '../fitness/jump-duck.html',
+      './fitness/jump-duck.html',
+      './jump-duck-vr.html'
+    ]
   },
 
   balance: {
@@ -225,7 +281,11 @@ export const GATE_GAMES = {
       style: './games/balancehold/style.css'
     },
     run: '../fitness/balance-hold.html',
-    runCandidates: ['../fitness/balance-hold.html', '../balance-hold-vr.html']
+    runCandidates: [
+      '../fitness/balance-hold.html',
+      './fitness/balance-hold.html',
+      './balance-hold-vr.html'
+    ]
   },
 
   planner: {
@@ -240,7 +300,12 @@ export const GATE_GAMES = {
       style: './games/fitnessplanner/style.css'
     },
     run: './fitness-planner/planner.html',
-    runCandidates: ['./fitness-planner/planner.html', './fitness-planner.html']
+    runCandidates: [
+      './fitness-planner/planner.html',
+      './fitness-planner.html',
+      '../fitness-planner/planner.html',
+      '../fitness-planner.html'
+    ]
   }
 };
 
