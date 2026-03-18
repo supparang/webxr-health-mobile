@@ -1,9 +1,10 @@
 // === /herohealth/nutrition-plate/js/plate.boot.js ===
 // Boot file for Nutrition Plate
-// PATCH v20260318-PLATE-VSLICE-B
+// PATCH v20260318-NUTRITION-SHARED-HARDENING-A
 
 import { createCtx, saveLastSummary } from '../../shared/nutrition-common.js';
 import { createLogger } from '../../shared/nutrition-logging.js';
+import { restartCurrentPage } from '../../shared/nutrition-router.js';
 import { PlateEngine } from './plate.engine.js';
 import { createPlateUI } from './plate.ui.js';
 import { createPlateCoach } from './plate.coach.js';
@@ -43,7 +44,7 @@ const ui = createPlateUI(ctx, {
 
   onReplay: () => {
     logger.flush('plate-replay-before-reset');
-    window.location.reload();
+    restartCurrentPage({ seed: Date.now() });
   }
 });
 
