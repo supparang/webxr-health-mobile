@@ -1,0 +1,120 @@
+<!-- === /herohealth/plate-v1.html ===
+PlateVR V1 — LEGACY LAUNCHER
+BASELINE launcher for old Plate version
+RUN -> /herohealth/plate/plate-v1.html
+-->
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth — PlateVR V1 (Launcher)</title>
+  <meta name="color-scheme" content="dark light" />
+  <link rel="icon" href="./favicon.ico" />
+  <style>
+    body{
+      margin:0;
+      min-height:100vh;
+      display:grid;
+      place-items:center;
+      background:#020617;
+      color:#e5e7eb;
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif;
+      padding:16px;
+    }
+    .card{
+      width:min(720px,92vw);
+      border:1px solid rgba(148,163,184,.18);
+      border-radius:18px;
+      background:rgba(2,6,23,.72);
+      padding:14px;
+      box-shadow:0 18px 60px rgba(0,0,0,.35);
+    }
+    .row{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-top:10px;
+    }
+    .btn{
+      cursor:pointer;
+      border-radius:14px;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(148,163,184,.10);
+      color:#e5e7eb;
+      padding:10px 12px;
+      font-weight:1000;
+      min-height:44px;
+    }
+    .btn.primary{
+      border-color:rgba(34,197,94,.30);
+      background:rgba(34,197,94,.14);
+    }
+    .mut{
+      color:#94a3b8;
+      font-weight:900;
+      font-size:12.5px;
+      line-height:1.35;
+    }
+    code{
+      background:rgba(148,163,184,.10);
+      padding:2px 6px;
+      border-radius:8px;
+      word-break:break-all;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div style="font-weight:1000;font-size:16px;">🍽️ PlateVR V1</div>
+    <div class="mut" id="info">กำลังพาไปหน้าเล่น…</div>
+    <div class="row">
+      <button class="btn primary" id="go">▶ เข้าเล่น</button>
+      <button class="btn" id="back">🏠 กลับ HUB</button>
+    </div>
+  </div>
+
+<script>
+(function(){
+  const U = new URL(location.href);
+  const sp = U.searchParams;
+
+  const hub = sp.get('hub') || new URL('./hub.html', location.href).toString();
+
+  // legacy run path
+  const run = new URL('./plate/plate-v1.html', location.href);
+
+  [
+    'hub','run','diff','time','seed','pid','view','log','api','ai','debug',
+    'studyId','phase','conditionGroup',
+    'cooldown','cd','cdnext',
+    'planSeq','planDay','planSlot','planMode','planSlots','planIndex','autoNext',
+    'wType','wPct','rank','wCrit','wDmg','wHeal','calm',
+    'mode','pro','zone'
+  ].forEach(k=>{
+    const v = sp.get(k);
+    if(v != null && v !== '') run.searchParams.set(k, v);
+  });
+
+  if(!run.searchParams.get('view')) run.searchParams.set('view', 'mobile');
+  if(!run.searchParams.get('run'))  run.searchParams.set('run', 'play');
+  if(!run.searchParams.get('diff')) run.searchParams.set('diff', 'normal');
+  if(!run.searchParams.get('time')) run.searchParams.set('time', '90');
+  if(!run.searchParams.get('seed')) run.searchParams.set('seed', String((Date.now() ^ (Math.random()*1e9))|0));
+  if(!run.searchParams.get('hub'))  run.searchParams.set('hub', hub);
+  if(!run.searchParams.get('mode')) run.searchParams.set('mode', 'solo');
+
+  const info = document.getElementById('info');
+  if(info){
+    info.innerHTML = `RUN: <code>${run.pathname}</code><br>hub: <code>${hub}</code>`;
+  }
+
+  document.getElementById('go').onclick = ()=> location.href = run.toString();
+  document.getElementById('back').onclick = ()=> location.href = hub;
+
+  // legacy fast redirect
+  setTimeout(()=> location.href = run.toString(), 60);
+})();
+</script>
+</body>
+</html>
