@@ -362,6 +362,7 @@ function renderPlayers(r = room) {
   els.playersBox.innerHTML = players.map((p) => {
     const meTag = p.id === ctx.pid ? ' • คุณ' : '';
     const hostTag = p.id === r.hostId ? ' 👑 host' : '';
+
     return `
       <div class="player">
         <div><strong>${escapeHtml(playerLabel(p))}</strong>${escapeHtml(meTag)}${escapeHtml(hostTag)}</div>
