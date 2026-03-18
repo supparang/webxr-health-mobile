@@ -1,6 +1,6 @@
 // === /herohealth/nutrition-groups/js/groups.scoring.js ===
 // Scoring and stat aggregation for Nutrition Groups
-// PATCH v20260318-GROUPS-VSLICE-B
+// PATCH v20260318-GROUPS-VSLICE-C
 
 import { FOOD_GROUPS } from './groups.content.js';
 
@@ -40,6 +40,11 @@ export function createEmptyStats() {
         compare: 0,
         reason: 0
       }
+    },
+
+    quiz: {
+      pre: { total: 0, correct: 0 },
+      post: { total: 0, correct: 0 }
     }
   };
 }
@@ -51,6 +56,31 @@ function updateStreak(stats, isCorrect) {
   } else {
     stats.streak = 0;
   }
+}
+
+export function scoreQuiz(stats, question, answerId) {
+  const bucket = stats.quiz[question.quizPhase] || stats.quiz.pre;
+  const correct = question.correctId === answerId;
+
+  bucket.total += 1;
+  if (correct) bucket.correct += 1;
+
+  let feedback = '';
+  if (question.type === 'sort') {
+    feedback = correct
+      ? `ถูกต้อง! ${question.food.label} อยู่${FOOD_GROUPS[question.correctId].label}`
+      : `ยังไม่ใช่ — ${question.food.label} อยู่${FOOD_GROUPS[question.correctId].label}`;
+  } else if (question.type === 'compare') {
+    feedback = correct
+      ? `ดีมาก! "${question.meta.betterText}" เป็นตัวเลือกที่ดีกว่า`
+      : `คำตอบที่ดีกว่าคือ "${question.meta.betterText}"`;
+  }
+
+  return {
+    correct,
+    delta: 0,
+    feedback
+  };
 }
 
 export function scoreSort(stats, question, answerId) {
