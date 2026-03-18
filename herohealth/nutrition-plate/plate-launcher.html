@@ -1,0 +1,79 @@
+<!-- === /herohealth/nutrition-plate/plate-launcher.html === -->
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth • Nutrition Plate Launcher</title>
+  <link rel="icon" href="../favicon.ico" />
+  <link rel="stylesheet" href="./css/plate.css" />
+</head>
+<body class="plate-page launcher-page">
+  <main class="launcher-shell">
+    <section class="launcher-card">
+      <div class="hero-pill">Nutrition Plate</div>
+      <h1 class="launcher-title">จัดจานให้สมดุล</h1>
+      <p class="launcher-sub">
+        เกมนี้จะให้หนูเลือกอาหารมาจัดเป็น 1 มื้อ ดูว่าจานสมดุลไหม แล้วฝึกซ่อมและสลับตัวเลือกให้ดีขึ้น
+      </p>
+
+      <div class="launcher-grid">
+        <label class="field">
+          <span>ระดับ</span>
+          <select id="diffSelect">
+            <option value="easy">ง่าย</option>
+            <option value="normal" selected>ปกติ</option>
+            <option value="hard">ยาก</option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span>เวลา</span>
+          <select id="timeSelect">
+            <option value="60">60 วินาที</option>
+            <option value="90" selected>90 วินาที</option>
+            <option value="120">120 วินาที</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="launcher-actions">
+        <button class="btn btn-start" id="startBtn">เริ่มเกม</button>
+        <button class="btn btn-ghost" id="backBtn">กลับ HUB</button>
+      </div>
+
+      <div class="launcher-note">
+        โครงใหม่นี้แยกจาก Plate เดิม และใช้ shared router/helper กลางร่วมกับ Groups
+      </div>
+    </section>
+  </main>
+
+  <script type="module">
+    import { createCtx, goHub } from '../shared/nutrition-common.js';
+    import { goToGameStart } from '../shared/nutrition-router.js';
+
+    const ctx = createCtx('nutrition-plate');
+    const diffSelect = document.getElementById('diffSelect');
+    const timeSelect = document.getElementById('timeSelect');
+    const startBtn = document.getElementById('startBtn');
+    const backBtn = document.getElementById('backBtn');
+
+    diffSelect.value = ctx.diff || 'normal';
+    timeSelect.value = String(ctx.time || 90);
+
+    startBtn.addEventListener('click', () => {
+      goToGameStart(ctx, './plate-run.html', {
+        cat: 'nutrition',
+        theme: 'plate',
+        game: 'plate',
+        diff: diffSelect.value,
+        time: Number(timeSelect.value),
+        engine: 'v2',
+        seed: Date.now()
+      });
+    });
+
+    backBtn.addEventListener('click', () => goHub(ctx));
+  </script>
+</body>
+</html>
