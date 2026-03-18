@@ -1,15 +1,17 @@
 // === /herohealth/nutrition-groups/js/groups.ui.js ===
 // UI renderer for Nutrition Groups
-// PATCH v20260318-GROUPS-VSLICE-B
+// PATCH v20260318-GROUPS-VSLICE-C
 
 import { esc, goHub } from '../../shared/nutrition-common.js';
 import { mountSummaryShell } from '../../shared/nutrition-summary-shell.js';
 
 const TIPS = {
+  pre: 'แบบสั้นก่อนเริ่ม เพื่อดูพื้นฐานก่อนเล่น',
   sort: 'มองก่อนว่าอาหารนี้อยู่หมู่ไหน',
   compare: 'ดูว่าอะไรดีกว่าต่อสุขภาพ',
   reason: 'เลือกเหตุผลที่เหมาะสมที่สุด',
-  retry: 'รอบทบทวน ลองแก้ข้อที่เคยพลาดอีกครั้ง'
+  retry: 'รอบทบทวน ลองแก้ข้อที่เคยพลาดอีกครั้ง',
+  post: 'ตอบอีกครั้งหลังเล่น เพื่อดูว่าดีขึ้นไหม'
 };
 
 export function createGroupsUI(ctx, { onAnswer, onReplay }) {
@@ -22,6 +24,7 @@ export function createGroupsUI(ctx, { onAnswer, onReplay }) {
   const gridEl = document.getElementById('answerGrid');
   const feedbackEl = document.getElementById('feedbackBox');
   const tipEl = document.getElementById('miniTip');
+  const coachEl = document.getElementById('coachBox');
   const backBtn = document.getElementById('backBtn');
 
   let answerLocked = false;
@@ -42,7 +45,7 @@ export function createGroupsUI(ctx, { onAnswer, onReplay }) {
   }
 
   function renderVisual(question) {
-    if (question.type === 'sort' || question.isRetry && question.retryFrom === 'sort') {
+    if (question.type === 'sort' || (question.isRetry && question.retryFrom === 'sort')) {
       visualEl.innerHTML = `
         <div class="food-card">
           <div class="food-emoji">${esc(question.food.emoji)}</div>
@@ -53,7 +56,7 @@ export function createGroupsUI(ctx, { onAnswer, onReplay }) {
       return;
     }
 
-    if (question.type === 'compare' || question.isRetry && question.retryFrom === 'compare') {
+    if (question.type === 'compare' || (question.isRetry && question.retryFrom === 'compare')) {
       visualEl.innerHTML = `
         <div class="compare-grid">
           <div class="compare-option">
@@ -72,7 +75,7 @@ export function createGroupsUI(ctx, { onAnswer, onReplay }) {
       return;
     }
 
-    if (question.type === 'reason' || question.isRetry && question.retryFrom === 'reason') {
+    if (question.type === 'reason' || (question.isRetry && question.retryFrom === 'reason')) {
       visualEl.innerHTML = `
         <div class="food-card">
           <div class="food-emoji">${esc(question.food?.emoji || '⭐')}</div>
@@ -119,6 +122,13 @@ export function createGroupsUI(ctx, { onAnswer, onReplay }) {
     scoreEl.textContent = String(Number(scoreEl.textContent || 0) + evaluation.delta);
   }
 
+  function showCoach(message) {
+    if (!coachEl) return;
+    if (!message) return;
+    coachEl.textContent = `🤖 ${message}`;
+    coachEl.classList.add('show');
+  }
+
   function showSummary(summary) {
     summaryShell.show(summary);
   }
@@ -126,6 +136,7 @@ export function createGroupsUI(ctx, { onAnswer, onReplay }) {
   return {
     renderQuestion,
     showFeedback,
+    showCoach,
     showSummary
   };
 }
