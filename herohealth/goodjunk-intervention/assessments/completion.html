@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>GoodJunk Intervention • Completion</title>
+  <link rel="stylesheet" href="./assessment.css" />
+</head>
+<body>
+  <main class="page">
+    <section class="card">
+      <div class="badge">เสร็จสิ้นกิจกรรม</div>
+      <h1>ขอบคุณมาก 🎉</h1>
+      <p class="sub">หนูทำครบทั้งแบบประเมิน เกม และคำถามหลังเล่นแล้ว</p>
+      <div class="ctx" id="ctxBox">กำลังโหลด...</div>
+
+      <section class="block">
+        <h2>Completion Code</h2>
+        <p>ใช้แสดงให้ครูหรือผู้วิจัยตรวจว่าทำครบแล้ว</p>
+        <div style="font-size:32px;font-weight:900;letter-spacing:1px" id="completionCode">GJI-...</div>
+      </section>
+
+      <section class="block">
+        <h2>ขั้นถัดไป</h2>
+        <p>ถ้ามีรอบติดตามผล สามารถกลับมาเข้าแบบติดตามผลภายหลังได้</p>
+      </section>
+
+      <div class="footer">
+        <button class="btn btn-primary" id="backLauncherBtn">กลับหน้าเริ่ม</button>
+        <button class="btn btn-ghost" id="followupBtn">ไปหน้า Follow-up สั้น</button>
+        <button class="btn btn-ghost" id="teacherBtn">Teacher Panel</button>
+      </div>
+    </section>
+  </main>
+
+  <script type="module">
+    import { buildUrl, pickCtxFromQuery } from '../research/config.js';
+    import { loadCtx, mergeCtx, markCompleted } from '../research/localstore.js';
+
+    function makeCode(ctx){
+      const pid = String(ctx.pid || 'NA').toUpperCase().replace(/\s+/g,'');
+      const session = String(ctx.session || 'S1').toUpperCase();
+      const stamp = new Date().toISOString().replace(/\D/g, '').slice(-6);
+      return `GJI-${pid}-${session}-${stamp}`;
+    }
+
+    mergeCtx(pickCtxFromQuery());
+    const ctx = loadCtx();
+    const code = makeCode(ctx);
+
+    markCompleted({ code });
+
+    document.getElementById('ctxBox').textContent = [
+      `PID: ${ctx.pid || '-'}`,
+      `Study: ${ctx.studyId || '-'}`,
+      `Session: ${ctx.session || '-'}`,
+      `Condition: ${ctx.condition || '-'}`
+    ].join(' • ');
+
+    document.getElementById('completionCode').textContent = code;
+
+    document.getElementById('backLauncherBtn').addEventListener('click', () => {
+      window.location.href = buildUrl('STUDENT_LAUNCHER', ctx, false);
+    });
+
+    document.getElementById('followupBtn').addEventListener('click', () => {
+      window.location.href = buildUrl('SHORT_FOLLOWUP', ctx, false);
+    });
+
+    document.getElementById('teacherBtn').addEventListener('click', () => {
+      window.location.href = buildUrl('TEACHER_PANEL', ctx, false);
+    });
+  </script>
+</body>
+</html>
