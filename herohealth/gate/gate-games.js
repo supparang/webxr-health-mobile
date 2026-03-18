@@ -1,9 +1,10 @@
 // === /herohealth/gate/gate-games.js ===
 // HeroHealth Gate Game Registry
-// FULL PATCH v20260318-GATE-GAMES-PATHFIX
-// ✅ corrected run paths for Brush / Groups / Plate
-// ✅ supports direct run pages under /herohealth/
-// ✅ keeps aliases and runCandidates for fallback/debug
+// FULL PATCH v20260318d-GATE-GAMES-RHYTHM-JUMPDUCK-PATHFIX
+// ✅ canonical game ids preserved
+// ✅ expanded aliases across hygiene / nutrition / exercise
+// ✅ runCandidates added for robust gate-core resolution
+// ✅ fitness run pages fixed to /fitness/... where needed
 
 export const GATE_GAMES = {
   // =========================
@@ -20,8 +21,8 @@ export const GATE_GAMES = {
       cooldown: './games/bath/cooldown.js',
       style: './games/bath/style.css'
     },
-    run: './bath-vr.html',
-    runCandidates: ['./bath-vr.html']
+    run: '../bath-vr.html',
+    runCandidates: ['../bath-vr.html']
   },
 
   handwash: {
@@ -35,8 +36,8 @@ export const GATE_GAMES = {
       cooldown: './games/handwash/cooldown.js',
       style: './games/handwash/style.css'
     },
-    run: './hygiene-vr.html',
-    runCandidates: ['./hygiene-vr.html', './handwash-vr.html']
+    run: '../hygiene-vr.html',
+    runCandidates: ['../hygiene-vr.html', '../handwash-vr.html']
   },
 
   brush: {
@@ -50,8 +51,8 @@ export const GATE_GAMES = {
       cooldown: './games/brush/cooldown.js',
       style: './games/brush/style.css'
     },
-    run: './vr-brush/brush.html',
-    runCandidates: ['./vr-brush/brush.html']
+    run: '../brush-vr.html',
+    runCandidates: ['../brush-vr.html']
   },
 
   clean: {
@@ -65,8 +66,8 @@ export const GATE_GAMES = {
       cooldown: './games/cleanobject/cooldown.js',
       style: './games/cleanobject/style.css'
     },
-    run: './clean-objects.html',
-    runCandidates: ['./clean-objects.html', './clean-object.html']
+    run: '../clean-objects.html',
+    runCandidates: ['../clean-objects.html', '../clean-object.html']
   },
 
   maskcough: {
@@ -80,8 +81,8 @@ export const GATE_GAMES = {
       cooldown: './games/maskcough/cooldown.js',
       style: './games/maskcough/style.css'
     },
-    run: './maskcough-vr.html',
-    runCandidates: ['./maskcough-vr.html']
+    run: '../maskcough-vr.html',
+    runCandidates: ['../maskcough-vr.html']
   },
 
   germdetective: {
@@ -95,8 +96,8 @@ export const GATE_GAMES = {
       cooldown: './games/germdetective/cooldown.js',
       style: './games/germdetective/style.css'
     },
-    run: './germ-detective.html',
-    runCandidates: ['./germ-detective.html', './germ-detective-vr.html']
+    run: '../germ-detective.html',
+    runCandidates: ['../germ-detective.html', '../germ-detective-vr.html']
   },
 
   // =========================
@@ -113,8 +114,8 @@ export const GATE_GAMES = {
       cooldown: './games/goodjunk/cooldown.js',
       style: './games/goodjunk/style.css'
     },
-    run: './goodjunk-launcher.html',
-    runCandidates: ['./goodjunk-launcher.html', './vr-goodjunk/goodjunk-vr.html']
+    run: '../goodjunk-launcher.html',
+    runCandidates: ['../goodjunk-launcher.html', '../goodjunk-vr.html']
   },
 
   groups: {
@@ -128,8 +129,8 @@ export const GATE_GAMES = {
       cooldown: './games/groups/cooldown.js',
       style: './games/groups/style.css'
     },
-    run: './vr-groups/groups-vr.html',
-    runCandidates: ['./vr-groups/groups-vr.html']
+    run: '../groups-vr.html',
+    runCandidates: ['../groups-vr.html']
   },
 
   hydration: {
@@ -143,8 +144,8 @@ export const GATE_GAMES = {
       cooldown: './games/hydration/cooldown.js',
       style: './games/hydration/style.css'
     },
-    run: './hydration-vr.html',
-    runCandidates: ['./hydration-vr.html', './hydration-vr/hydration-vr.html']
+    run: '../hydration-vr.html',
+    runCandidates: ['../hydration-vr.html', '../hydration-vr/hydration-vr.html']
   },
 
   plate: {
@@ -158,8 +159,8 @@ export const GATE_GAMES = {
       cooldown: './games/plate/cooldown.js',
       style: './games/plate/style.css'
     },
-    run: './plate/plate-vr.html',
-    runCandidates: ['./plate/plate-vr.html']
+    run: '../plate-vr.html',
+    runCandidates: ['../plate-vr.html']
   },
 
   // =========================
@@ -176,8 +177,8 @@ export const GATE_GAMES = {
       cooldown: './games/shadowbreaker/cooldown.js',
       style: './games/shadowbreaker/style.css'
     },
-    run: './shadow-breaker-vr.html',
-    runCandidates: ['./shadow-breaker-vr.html']
+    run: '../fitness/shadow-breaker.html',
+    runCandidates: ['../fitness/shadow-breaker.html', '../shadow-breaker-vr.html']
   },
 
   rhythm: {
@@ -191,8 +192,9 @@ export const GATE_GAMES = {
       cooldown: './games/rhythmboxer/cooldown.js',
       style: './games/rhythmboxer/style.css'
     },
-    run: './rhythm-boxer-vr.html',
-    runCandidates: ['./rhythm-boxer-vr.html']
+    // ✅ ถูก: /fitness/rhythm-boxer.html
+    run: '../fitness/rhythm-boxer.html',
+    runCandidates: ['../fitness/rhythm-boxer.html', '../rhythm-boxer-vr.html']
   },
 
   jumpduck: {
@@ -206,8 +208,9 @@ export const GATE_GAMES = {
       cooldown: './games/jumpduck/cooldown.js',
       style: './games/jumpduck/style.css'
     },
-    run: './jump-duck-vr.html',
-    runCandidates: ['./jump-duck-vr.html']
+    // ✅ ถูก: /fitness/jump-duck.html
+    run: '../fitness/jump-duck.html',
+    runCandidates: ['../fitness/jump-duck.html', '../jump-duck-vr.html']
   },
 
   balance: {
@@ -221,8 +224,8 @@ export const GATE_GAMES = {
       cooldown: './games/balancehold/cooldown.js',
       style: './games/balancehold/style.css'
     },
-    run: './balance-hold-vr.html',
-    runCandidates: ['./balance-hold-vr.html']
+    run: '../fitness/balance-hold.html',
+    runCandidates: ['../fitness/balance-hold.html', '../balance-hold-vr.html']
   },
 
   planner: {
@@ -254,8 +257,15 @@ export function normalizeGameId(id=''){
 
   if (!s) return '';
 
+  // -------------------------
   // HYGIENE
-  if (s === 'bath' || s === 'bathvr' || s === 'bath-vr' || s === 'bath_vr') return 'bath';
+  // -------------------------
+  if (
+    s === 'bath' ||
+    s === 'bathvr' ||
+    s === 'bath-vr' ||
+    s === 'bath_vr'
+  ) return 'bath';
 
   if (
     s === 'handwash' ||
@@ -306,7 +316,9 @@ export function normalizeGameId(id=''){
     s === 'germdetect'
   ) return 'germdetective';
 
+  // -------------------------
   // NUTRITION
+  // -------------------------
   if (
     s === 'goodjunk' ||
     s === 'good-junk' ||
@@ -345,7 +357,9 @@ export function normalizeGameId(id=''){
     s === 'balanced_plate'
   ) return 'plate';
 
+  // -------------------------
   // EXERCISE
+  // -------------------------
   if (
     s === 'shadow' ||
     s === 'shadowvr' ||
