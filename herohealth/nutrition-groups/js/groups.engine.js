@@ -1,17 +1,20 @@
 // === /herohealth/nutrition-groups/js/groups.engine.js ===
 // Main engine for Nutrition Groups
-// PATCH v20260318-GROUPS-VSLICE-B
+// PATCH v20260318-GROUPS-VSLICE-C
 
 import { createRng } from '../../shared/nutrition-common.js';
 import { buildSortQuestions, buildCompareQuestions, buildReasonQuestions } from './groups.rounds.js';
-import { createEmptyStats, scoreSort, scoreCompare, scoreReason, scoreRetry } from './groups.scoring.js';
+import { buildMiniQuizQuestions } from './groups.quiz.js';
+import { createEmptyStats, scoreQuiz, scoreSort, scoreCompare, scoreReason, scoreRetry } from './groups.scoring.js';
 import { buildGroupsSummary } from './groups.summary.js';
 
 const PHASE_LABELS = {
+  pre: 'Pre Quiz',
   sort: 'Sort',
   compare: 'Compare',
   reason: 'Reason',
-  retry: 'Retry'
+  retry: 'Retry',
+  post: 'Post Quiz'
 };
 
 function cloneRetryQuestion(question) {
@@ -33,21 +36,26 @@ export class GroupsEngine {
 
   reset() {
     this.stats = createEmptyStats();
-    this.phaseOrder = ['sort', 'compare', 'reason'];
+    this.phaseOrder = ['pre', 'sort', 'compare', 'reason'];
     this.phaseIndex = 0;
     this.questionIndex = 0;
     this.retryQueue = [];
     this.retrySeen = new Set();
+    this.tailPhasesAdded = false;
 
+    const preQuestions = buildMiniQuizQuestions(this.rng, 'pre');
     const sortQuestions = buildSortQuestions(this.rng, 5);
     const compareQuestions = buildCompareQuestions(this.rng, 3);
     const reasonQuestions = buildReasonQuestions(compareQuestions, this.rng);
+    const postQuestions = buildMiniQuizQuestions(this.rng, 'post');
 
     this.plan = {
+      pre: preQuestions,
       sort: sortQuestions,
       compare: compareQuestions,
       reason: reasonQuestions,
-      retry: []
+      retry: [],
+      post: postQuestions
     };
 
     this.logger.log('groups_session_start', {
@@ -94,16 +102,20 @@ export class GroupsEngine {
     this.plan.retry = this.retryQueue;
   }
 
-  maybeActivateRetryPhase() {
-    if (this.retryQueue.length > 0 && !this.phaseOrder.includes('retry')) {
-      this.phaseOrder.push('retry');
-      this.logger.log('groups_retry_phase_added', {
-        retryCount: this.retryQueue.length
-      });
-    }
+  ensureTailPhases() {
+    if (this.tailPhasesAdded) return;
+    if (this.retryQueue.length > 0) this.phaseOrder.push('retry');
+    this.phaseOrder.push('post');
+    this.tailPhasesAdded = true;
+
+    this.logger.log('groups_tail_phases_added', {
+      retryCount: this.retryQueue.length,
+      hasPostQuiz: true
+    });
   }
 
   evaluateQuestion(phaseKey, question, answerId) {
+    if (phaseKey === 'pre' || phaseKey === 'post') return scoreQuiz(this.stats, question, answerId);
     if (phaseKey === 'sort') return scoreSort(this.stats, question, answerId);
     if (phaseKey === 'compare') return scoreCompare(this.stats, question, answerId);
     if (phaseKey === 'reason') return scoreReason(this.stats, question, answerId);
@@ -125,7 +137,7 @@ export class GroupsEngine {
 
     const evalResult = this.evaluateQuestion(phaseKey, question, answerId);
 
-    if (!evalResult.correct && phaseKey !== 'retry') {
+    if (!evalResult.correct && ['sort', 'compare', 'reason'].includes(phaseKey)) {
       this.enqueueRetry(question);
     }
 
@@ -136,7 +148,8 @@ export class GroupsEngine {
       correctId: question.correctId,
       correct: evalResult.correct,
       delta: evalResult.delta,
-      retryFrom: question.retryFrom || null
+      retryFrom: question.retryFrom || null,
+      quizPhase: question.quizPhase || null
     });
 
     this.questionIndex += 1;
@@ -144,7 +157,7 @@ export class GroupsEngine {
     const phaseDone = this.questionIndex >= this.getPhaseQuestions().length;
     if (phaseDone) {
       if (phaseKey === 'reason') {
-        this.maybeActivateRetryPhase();
+        this.ensureTailPhases();
       }
       this.phaseIndex += 1;
       this.questionIndex = 0;
