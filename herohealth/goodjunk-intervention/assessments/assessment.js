@@ -1,142 +1,126 @@
-// /herohealth/goodjunk-intervention/assessments/assessment.js
-// Shared helper for GoodJunk intervention assessments
+// === /goodjunk-intervention/assessments/assessment.js ===
+// SHARED FORM SAVE + FLOW ROUTER
+// PATCH v20260318a-GJI-ASSESSMENT-JS
 
-(function () {
-  'use strict';
+import { buildUrl, pickCtxFromQuery } from '../research/config.js';
+import { loadCtx, mergeCtx, saveAssessment, loadAssessment, pageStorageKey } from '../research/localstore.js';
 
-  const WIN = window;
-  const CFG = WIN.GJ_INT_CONFIG;
+const NEXT_MAP = {
+  'pre-knowledge.html': 'PRE_BEHAVIOR',
+  'pre-behavior.html': 'GAME',
+  'post-knowledge.html': 'POST_BEHAVIOR',
+  'post-behavior.html': 'POST_CHOICE',
+  'post-choice.html': 'COMPLETION',
+};
 
-  if (!CFG) {
-    console.warn('[GJ assessment] Missing GJ_INT_CONFIG');
+function getFilename() {
+  return window.location.pathname.split('/').pop() || '';
+}
+
+function serializeForm(form) {
+  const data = {};
+  const fd = new FormData(form);
+
+  for (const [key, value] of fd.entries()) {
+    if (Object.prototype.hasOwnProperty.call(data, key)) {
+      if (!Array.isArray(data[key])) data[key] = [data[key]];
+      data[key].push(value);
+    } else {
+      data[key] = value;
+    }
+  }
+
+  const checkboxNames = [...form.querySelectorAll('input[type="checkbox"][name]')]
+    .map(el => el.name)
+    .filter((v, i, arr) => arr.indexOf(v) === i);
+
+  for (const name of checkboxNames) {
+    if (!Object.prototype.hasOwnProperty.call(data, name)) {
+      data[name] = [];
+    } else if (!Array.isArray(data[name])) {
+      data[name] = [data[name]];
+    }
+  }
+
+  return data;
+}
+
+function restoreForm(form, data = {}) {
+  const fields = form.querySelectorAll('input[name], textarea[name], select[name]');
+  for (const field of fields) {
+    const { name, type } = field;
+    if (!(name in data)) continue;
+
+    const value = data[name];
+
+    if (type === 'radio') {
+      field.checked = String(field.value) === String(value);
+      continue;
+    }
+
+    if (type === 'checkbox') {
+      const list = Array.isArray(value) ? value.map(String) : [String(value)];
+      field.checked = list.includes(String(field.value));
+      continue;
+    }
+
+    field.value = value ?? '';
+  }
+}
+
+function renderCtx() {
+  const ctx = loadCtx();
+  const el = document.getElementById('ctxBox');
+  if (!el) return;
+
+  el.textContent = [
+    `PID: ${ctx.pid || '-'}`,
+    `Study: ${ctx.studyId || '-'}`,
+    `Session: ${ctx.session || '-'}`,
+    `Condition: ${ctx.condition || '-'}`,
+  ].join(' • ');
+}
+
+function init() {
+  mergeCtx(pickCtxFromQuery());
+
+  const form = document.querySelector('form');
+  const filename = getFilename();
+  if (!form) {
+    renderCtx();
     return;
   }
 
-  if (WIN.GJ_INT_ASSESSMENT) return;
+  const oldData = loadAssessment(filename, {});
+  restoreForm(form, oldData);
+  renderCtx();
 
-  function q(k, d = '') {
-    return CFG.utils.q(k, d);
-  }
+  form.addEventListener('submit', (ev) => {
+    ev.preventDefault();
 
-  function withContext(base, sourceUrl) {
-    return CFG.urls.withContext(base, sourceUrl || location.href);
-  }
+    if (!form.reportValidity()) return;
 
-  function renderContextChips(targetId, chipList) {
-    const el = document.getElementById(targetId);
-    if (!el) return;
-
-    const items = Array.isArray(chipList) && chipList.length
-      ? chipList
-      : [
-          `study:${q('studyId', '-')}`,
-          `phase:${q('phase', '-')}`,
-          `student:${q('studentKey', '-')}`,
-          `nick:${q('nickName', '-')}`
-        ];
-
-    el.innerHTML = items.map(t => `<span class="chip">${t}</span>`).join('');
-  }
-
-  function collectRadioAnswers(formId, names) {
-    const form = document.getElementById(formId);
-    const fd = new FormData(form);
-    const out = {};
-    (names || []).forEach((name) => {
-      out[name] = fd.get(name) || '';
+    const answers = serializeForm(form);
+    saveAssessment(filename, {
+      page: filename,
+      savedAt: new Date().toISOString(),
+      storageKey: pageStorageKey(filename),
+      answers,
     });
-    return out;
-  }
 
-  function collectTextareaValue(id) {
-    const el = document.getElementById(id);
-    return el ? String(el.value || '').trim() : '';
-  }
+    const ctx = loadCtx();
+    const nextKey = form.dataset.nextKey || NEXT_MAP[filename];
+    if (nextKey) {
+      window.location.href = buildUrl(nextKey, ctx, false);
+    }
+  });
 
-  function updateAnsweredStatus(statusId, answers, keys) {
-    const el = document.getElementById(statusId);
-    if (!el) return;
-
-    const ks = keys || Object.keys(answers || {});
-    const answered = ks.filter(k => !!answers[k]).length;
-    el.textContent = `ตอบแล้ว ${answered}/${ks.length} ข้อ`;
-  }
-
-  function wireRadioStatus(formSelector, onChange) {
-    document.querySelectorAll(`${formSelector} input[type="radio"]`).forEach((el) => {
-      el.addEventListener('change', onChange);
+  const backBtn = document.querySelector('[data-action="back"]');
+  if (backBtn) {
+    backBtn.addEventListener('click', () => {
+      window.history.back();
     });
   }
+}
 
-  function scoreKnowledge(answers) {
-    const key = CFG.answerKeys.knowledge || {};
-    let score = 0;
-    Object.keys(key).forEach((k) => {
-      if (answers[k] === key[k]) score += 1;
-    });
-    return score;
-  }
-
-  function scoreLikert(answers, keys) {
-    return CFG.utils.sumLikert(answers, keys);
-  }
-
-  function buildCommonRow(instrument, extra = {}) {
-    return {
-      timestampIso: CFG.utils.nowIso(),
-      instrument,
-      projectTag: q('projectTag', ''),
-      studyId: q('studyId', ''),
-      phase: q('phase', ''),
-      conditionGroup: q('conditionGroup', ''),
-      sessionId: q('sessionId', ''),
-      studentKey: q('studentKey', ''),
-      nickName: q('nickName', ''),
-      classRoom: q('classRoom', ''),
-      gradeLevel: q('gradeLevel', ''),
-      ...extra
-    };
-  }
-
-  function saveRow(storageKey, row) {
-    return CFG.utils.writeJson(storageKey, row);
-  }
-
-  function loadRow(storageKey, fallback = null) {
-    return CFG.utils.readJson(storageKey, fallback);
-  }
-
-  function compareScoreText(preRow, postRow) {
-    if (!preRow && !postRow) return 'ยังไม่มีข้อมูลก่อนหรือหลังในเครื่องนี้';
-    if (!preRow && postRow) return `มีข้อมูลหลังเล่น ${postRow.score}/${postRow.total}`;
-    if (preRow && !postRow) return `ก่อนเล่น ${preRow.score}/${preRow.total}`;
-    const delta = (postRow.score || 0) - (preRow.score || 0);
-    return `ก่อนเล่น ${preRow.score}/${preRow.total} • หลังเล่น ${postRow.score}/${postRow.total} • เปลี่ยนแปลง ${delta >= 0 ? '+' : ''}${delta}`;
-  }
-
-  function go(url) {
-    location.href = url;
-  }
-
-  function backTo(path) {
-    go(withContext(path));
-  }
-
-  WIN.GJ_INT_ASSESSMENT = {
-    q,
-    withContext,
-    renderContextChips,
-    collectRadioAnswers,
-    collectTextareaValue,
-    updateAnsweredStatus,
-    wireRadioStatus,
-    scoreKnowledge,
-    scoreLikert,
-    buildCommonRow,
-    saveRow,
-    loadRow,
-    compareScoreText,
-    go,
-    backTo
-  };
-})();
+document.addEventListener('DOMContentLoaded', init);
