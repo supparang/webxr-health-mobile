@@ -1,6 +1,6 @@
 // === /herohealth/shared/nutrition-common.js ===
 // Shared helpers for nutrition games
-// PATCH v20260318-NUTRITION-SHARED-HARDENING-A
+// PATCH v20260318-NUTRITION-CLOUD-WIRING-A
 
 export function esc(value) {
   return String(value ?? '')
@@ -39,12 +39,21 @@ export function createCtx(gameId) {
     game: qs.game || gameId,
 
     pid: qs.pid || 'anon',
+    studentId: qs.studentId || qs.pid || 'anon',
     studyId: qs.studyId || '',
+    classId: qs.classId || '',
+    sectionId: qs.sectionId || '',
+    sessionLabel: qs.sessionLabel || '',
     phase: qs.phase || 'play',
     run: qs.run || 'play',
+    mode: qs.mode || qs.run || 'play',
     diff: qs.diff || 'normal',
     time: Number(qs.time || 90),
     seed,
+
+    conditionGroup: qs.conditionGroup || '',
+    group: qs.group || '',
+    cohort: qs.cohort || '',
 
     hub: qs.hub || '../hub.html',
     launcher: qs.launcher || '',
@@ -53,6 +62,9 @@ export function createCtx(gameId) {
     gatePhase: qs.gatePhase || '',
     view: qs.view || 'mobile',
     engine: qs.engine || 'v2',
+
+    logEndpoint: qs.logEndpoint || qs.log || '',
+    cloudMode: qs.cloudMode || qs.logMode || 'auto',
 
     query: qs
   };
