@@ -1,16 +1,16 @@
 // === /herohealth/gate/gate-core.js ===
-// FULL PATCH v20260318e-GATE-SUMMARY-WARMUP-VISIBLE
+// FULL PATCH v20260318f-GATE-SUMMARY-WARMUP-VISIBLE-AUTOSTART-RESPECT
 // ✅ warmup/cooldown ใช้ summary overlay ได้จริง
 // ✅ warmup จบแล้ว "ไม่วิ่งเข้า run ทันที"
 // ✅ กด "ไปต่อ" ค่อยเข้า run
 // ✅ กด "กลับ HUB" ได้
 // ✅ cooldown จบแล้วกดกลับ HUB ได้
-// ✅ auto-start phase module if result.start() exists
+// ✅ auto-start phase module only when result.autostart !== false
 
 import * as GateGames from './gate-games.js?v=20260318d-GATE-GAMES-RHYTHM-JUMPDUCK-PATHFIX';
 import { mountSummaryLayer, mountToast } from './gate-summary.js?v=20260317-GATE-SUMMARY-TOAST-DEDUPE-HARDENED';
 
-const PATCH = 'v20260318e-GATE-SUMMARY-WARMUP-VISIBLE';
+const PATCH = 'v20260318f-GATE-SUMMARY-WARMUP-VISIBLE-AUTOSTART-RESPECT';
 const STORAGE_NS = 'HHA_GATE_DONE_V1';
 const LAST_SUMMARY_KEY = 'HHA_LAST_SUMMARY';
 const SUMMARY_HISTORY_KEY = 'HHA_SUMMARY_HISTORY';
@@ -280,7 +280,6 @@ function ensureCoreStyle() {
       overflow:auto;
     }
 
-    /* summary / toast support */
     .gate-overlay{
       position:fixed;
       inset:0;
@@ -684,7 +683,11 @@ async function bootPhase(stage, ctx, api) {
     const cleanupEvents = attachCompletionEvents(stage, api);
     const result = await runner(stage, ctx, api);
 
-    if (result && typeof result.start === 'function') {
+    if (
+      result &&
+      typeof result.start === 'function' &&
+      result.autostart !== false
+    ) {
       try {
         queueMicrotask(() => {
           try { result.start(); } catch (err) {
