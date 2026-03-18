@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>GoodJunk Intervention • Summary</title>
+  <style>
+    :root{
+      --bg1:#07111f;
+      --bg2:#0f1d36;
+      --card:rgba(10,18,34,.88);
+      --stroke:rgba(148,163,184,.2);
+      --text:#f8fafc;
+      --muted:#cbd5e1;
+      --good:#22c55e;
+      --warn:#f59e0b;
+      --bad:#ef4444;
+      --blue:#38bdf8;
+      --shadow:0 18px 50px rgba(0,0,0,.32);
+    }
+    *{box-sizing:border-box}
+    html,body{
+      margin:0;min-height:100%;
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(34,197,94,.14), transparent 26%),
+        radial-gradient(circle at top right, rgba(56,189,248,.14), transparent 28%),
+        linear-gradient(180deg,var(--bg1),var(--bg2));
+    }
+    .page{min-height:100vh;display:grid;place-items:center;padding:20px}
+    .card{
+      width:min(860px,100%);
+      background:var(--card);
+      border:1px solid var(--stroke);
+      border-radius:28px;
+      box-shadow:var(--shadow);
+      padding:22px;
+    }
+    .badge{
+      display:inline-flex;align-items:center;gap:8px;
+      padding:8px 12px;border-radius:999px;
+      background:rgba(34,197,94,.16);
+      border:1px solid rgba(34,197,94,.28);
+      color:#dcfce7;font-weight:800;font-size:14px;
+    }
+    h1{margin:14px 0 8px;font-size:clamp(28px,4vw,40px);line-height:1.1}
+    .sub,.ctx,.coach{color:var(--muted)}
+    .ctx{
+      margin:0 0 16px;
+      padding:12px 14px;
+      border-radius:16px;
+      background:rgba(148,163,184,.08);
+      font-size:14px;
+    }
+    .grid{
+      display:grid;
+      grid-template-columns:repeat(4,1fr);
+      gap:12px;
+      margin:18px 0;
+    }
+    .stat{
+      padding:16px;
+      border-radius:20px;
+      background:rgba(15,23,42,.72);
+      border:1px solid rgba(148,163,184,.12);
+    }
+    .stat .label{font-size:14px;color:var(--muted)}
+    .stat .value{font-size:32px;font-weight:900;margin-top:6px}
+    .coach{
+      margin:0;
+      padding:14px 16px;
+      border-radius:16px;
+      background:rgba(56,189,248,.08);
+      border:1px solid rgba(56,189,248,.18);
+    }
+    .actions{
+      display:flex;flex-wrap:wrap;gap:10px;margin-top:18px;
+    }
+    .btn{
+      min-height:48px;border:none;border-radius:16px;
+      padding:12px 16px;font-weight:900;cursor:pointer;
+    }
+    .btn-primary{background:linear-gradient(180deg,#22c55e,#16a34a);color:white}
+    .btn-ghost{background:rgba(148,163,184,.12);color:var(--text);border:1px solid rgba(148,163,184,.2)}
+    @media (max-width:700px){
+      .grid{grid-template-columns:1fr 1fr}
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <section class="card">
+      <div class="badge">สรุปผลหลังเล่นเกม</div>
+      <h1>เยี่ยมมาก 🎉</h1>
+      <p class="sub">มาดูว่าหนูเลือกของว่างสุขภาพได้ดีแค่ไหน แล้วไปต่อที่แบบประเมินหลังเล่นกัน</p>
+      <div class="ctx" id="ctxBox">กำลังโหลด...</div>
+
+      <div class="grid">
+        <div class="stat">
+          <div class="label">คะแนนรวม</div>
+          <div class="value" id="scoreValue">0</div>
+        </div>
+        <div class="stat">
+          <div class="label">อาหารดีที่เลือกได้</div>
+          <div class="value" id="goodValue">0</div>
+        </div>
+        <div class="stat">
+          <div class="label">Junk ที่โดน</div>
+          <div class="value" id="junkValue">0</div>
+        </div>
+        <div class="stat">
+          <div class="label">พลาด</div>
+          <div class="value" id="missValue">0</div>
+        </div>
+      </div>
+
+      <p class="coach" id="coachLine">กำลังวิเคราะห์ผล...</p>
+
+      <div class="actions">
+        <button class="btn btn-primary" id="continueBtn">ไปแบบประเมินหลังเล่น</button>
+        <button class="btn btn-ghost" id="replayBtn">เล่นอีกครั้ง</button>
+        <button class="btn btn-ghost" id="backBtn">กลับหน้าเริ่ม</button>
+      </div>
+    </section>
+  </main>
+
+  <script type="module">
+    import { buildUrl, pickCtxFromQuery } from '../research/config.js';
+    import { KEYS, loadCtx, mergeCtx, loadJSON } from '../research/localstore.js';
+
+    function n(...values){
+      for (const v of values) {
+        const num = Number(v);
+        if (!Number.isNaN(num) && Number.isFinite(num)) return num;
+      }
+      return 0;
+    }
+
+    function coach(summary){
+      const good = n(summary.goodHit, summary.goodHits, summary.healthyHits, summary.good);
+      const junk = n(summary.junkHit, summary.junkHits, summary.badHit, summary.junk);
+      if (good >= 10 && junk <= 2) return 'สุดยอดเลย หนูเลือกของว่างดีต่อร่างกายได้หลายครั้งมาก';
+      if (good >= 6) return 'เก่งมาก ลองเลือกผลไม้หรือน้ำเปล่าให้บ่อยขึ้นอีกนิดนะ';
+      if (junk > good) return 'ครั้งหน้าลองสังเกตของหวานและของทอดให้มากขึ้น แล้วเลือกของดีแทน';
+      return 'หนูทำได้ดีแล้ว มาตอบคำถามสั้น ๆ ต่อเพื่อดูว่าเราจำอะไรได้บ้าง';
+    }
+
+    mergeCtx(pickCtxFromQuery());
+
+    const ctx = loadCtx();
+    const summary = loadJSON(KEYS.GAME_SUMMARY, {}) || {};
+
+    document.getElementById('ctxBox').textContent = [
+      `PID: ${ctx.pid || '-'}`,
+      `Study: ${ctx.studyId || '-'}`,
+      `Session: ${ctx.session || '-'}`,
+      `Condition: ${ctx.condition || '-'}`
+    ].join(' • ');
+
+    document.getElementById('scoreValue').textContent = String(n(summary.score, summary.totalScore));
+    document.getElementById('goodValue').textContent = String(n(summary.goodHit, summary.goodHits, summary.healthyHits, summary.good));
+    document.getElementById('junkValue').textContent = String(n(summary.junkHit, summary.junkHits, summary.badHit, summary.junk));
+    document.getElementById('missValue').textContent = String(n(summary.miss, summary.misses));
+    document.getElementById('coachLine').textContent = coach(summary);
+
+    document.getElementById('continueBtn').addEventListener('click', () => {
+      window.location.href = buildUrl('POST_KNOWLEDGE', ctx, false);
+    });
+
+    document.getElementById('replayBtn').addEventListener('click', () => {
+      window.location.href = buildUrl('GAME', ctx, false);
+    });
+
+    document.getElementById('backBtn').addEventListener('click', () => {
+      window.location.href = buildUrl('STUDENT_LAUNCHER', ctx, false);
+    });
+  </script>
+</body>
+</html>
