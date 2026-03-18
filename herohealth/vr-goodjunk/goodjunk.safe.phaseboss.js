@@ -1,3 +1,10 @@
+// === /herohealth/vr-goodjunk/goodjunk.safe.phaseboss.js ===
+// FULL PATCH v20260318-PHASEBOSS-RETURN-LOCK2
+// solo only: phase1 -> phase2 -> boss
+// fixed: pick() missing
+// fixed: boss phase restore
+// fixed: unified warmup-gate.html flow
+
 const __qs = new URLSearchParams(location.search);
 const RUN_CTX = window.__GJ_RUN_CTX__ || {
   pid: __qs.get('pid') || 'anon',
@@ -26,43 +33,101 @@ const JUNK_ITEMS = ['🍟','🍩','🍭','🍔','🥤','🍕','🧁'];
 const POWER_ITEMS = ['⭐','⚡','💚'];
 
 const PRESET = {
-  easy:   { spawnMs: 900, goodRatio: .70, speedMin: 90,  speedMax: 150, phase1: 55, phase2: 135, bossHp: 120 },
-  normal: { spawnMs: 760, goodRatio: .63, speedMin: 110, speedMax: 190, phase1: 65, phase2: 165, bossHp: 150 },
-  hard:   { spawnMs: 610, goodRatio: .58, speedMin: 130, speedMax: 240, phase1: 75, phase2: 185, bossHp: 185 }
+  easy: {
+    spawnMs: 900,
+    goodRatio: 0.70,
+    speedMin: 90,
+    speedMax: 150,
+    targetSizeMin: 60,
+    targetSizeMax: 84,
+    phase1: 55,
+    phase2: 135,
+    bossHp: 120,
+    goodBossDamage: 8,
+    powerBossDamage: 18,
+    weakSpotDamage: 22
+  },
+  normal: {
+    spawnMs: 760,
+    goodRatio: 0.63,
+    speedMin: 110,
+    speedMax: 190,
+    targetSizeMin: 58,
+    targetSizeMax: 82,
+    phase1: 65,
+    phase2: 165,
+    bossHp: 150,
+    goodBossDamage: 7,
+    powerBossDamage: 16,
+    weakSpotDamage: 20
+  },
+  hard: {
+    spawnMs: 610,
+    goodRatio: 0.58,
+    speedMin: 130,
+    speedMax: 240,
+    targetSizeMin: 56,
+    targetSizeMax: 80,
+    phase1: 75,
+    phase2: 185,
+    bossHp: 185,
+    goodBossDamage: 6,
+    powerBossDamage: 14,
+    weakSpotDamage: 18
+  }
 };
 
 const state = {
   diff: PRESET[RUN_CTX.diff] ? RUN_CTX.diff : 'normal',
+
   totalMs: 0,
   timeLeftMs: 0,
+
   score: 0,
   miss: 0,
   streak: 0,
   bestStreak: 0,
+
   hitsGood: 0,
   hitsBad: 0,
   hitsPower: 0,
   missedGood: 0,
+
   running: false,
   ended: false,
+
   phase: 1,
   bossActive: false,
   bossTriggered: false,
   bossDefeated: false,
+
   lastFrameTs: 0,
   lastSpawnAccum: 0,
   frameRaf: 0,
   targetSeq: 0,
   targets: new Map(),
   rect: { width: 0, height: 0 },
+
   boss: {
-    hp: 0, hpMax: 0, x: 0, y: 28, w: 168, h: 118,
-    vx: 130, weakSpotReady: false, weakSpotCd: 0, weakSpotOpenMs: 0,
-    stunMs: 0, stormCd: 0, powerCd: 0, enrage: false
+    hp: 0,
+    hpMax: 0,
+    x: 0,
+    y: 28,
+    w: 168,
+    h: 118,
+    vx: 130,
+    weakSpotReady: false,
+    weakSpotCd: 0,
+    weakSpotOpenMs: 0,
+    stunMs: 0,
+    stormCd: 0,
+    powerCd: 0,
+    enrage: false
   }
 };
 
 const ui = {};
+let __gjSoloSummary = null;
 const rng = createSeededRng(RUN_CTX.seed || Date.now());
 
 boot();
@@ -74,6 +139,9 @@ function boot(){
   hideBootShell();
   startGame();
   window.addEventListener('resize', refreshStageRect);
+  window.addEventListener('beforeunload', () => {
+    cancelAnimationFrame(state.frameRaf);
+  });
 }
 
 function createSeededRng(seedInput) {
@@ -90,68 +158,177 @@ function createSeededRng(seedInput) {
     return (h >>> 0) / 4294967296;
   };
 }
+
 function rand(){ return rng(); }
-function randRange(min,max){ return min + (max-min)*rand(); }
-function clamp(v,min,max){ return Math.max(min, Math.min(max,v)); }
+function randRange(min,max){ return min + (max - min) * rand(); }
+function clamp(v,min,max){ return Math.max(min, Math.min(max, v)); }
+function pick(arr){ return arr[Math.floor(rand() * arr.length)] || arr[0]; }
 
 function injectStyle(){
-  if (document.getElementById('gj-phaseboss-style-lock1')) return;
+  if (document.getElementById('gj-phaseboss-style-lock2')) return;
+
   const style = document.createElement('style');
-  style.id = 'gj-phaseboss-style-lock1';
+  style.id = 'gj-phaseboss-style-lock2';
   style.textContent = `
-    #gjRoot{position:absolute;inset:0;z-index:2;overflow:hidden;user-select:none;-webkit-user-select:none;touch-action:manipulation}
-    .gj-shell{position:absolute;inset:0;display:grid;grid-template-rows:auto 1fr auto;overflow:hidden}
-    .gj-topbar{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap;padding:60px 14px 12px;padding-top:calc(60px + env(safe-area-inset-top,0px));pointer-events:none}
-    .gj-chip-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-    .gj-chip{display:inline-flex;align-items:center;gap:8px;padding:8px 10px;border-radius:999px;border:1px solid rgba(148,163,184,.18);background:rgba(2,6,23,.66);color:#e5e7eb;font-weight:900;font-size:13px;backdrop-filter:blur(8px)}
+    #gjRoot{
+      position:absolute; inset:0; z-index:2; overflow:hidden;
+      user-select:none; -webkit-user-select:none; touch-action:manipulation;
+      background:
+        radial-gradient(circle at 18% 10%, rgba(34,197,94,.12), transparent 25%),
+        radial-gradient(circle at 82% 4%, rgba(56,189,248,.10), transparent 24%);
+    }
+    #gjRoot.phase-2{
+      background:
+        radial-gradient(circle at 14% 10%, rgba(251,191,36,.16), transparent 26%),
+        radial-gradient(circle at 84% 8%, rgba(244,63,94,.12), transparent 26%);
+    }
+    #gjRoot.phase-boss{
+      background:
+        radial-gradient(circle at 50% 0%, rgba(244,63,94,.20), transparent 34%),
+        radial-gradient(circle at 15% 8%, rgba(250,204,21,.12), transparent 20%),
+        radial-gradient(circle at 85% 8%, rgba(56,189,248,.10), transparent 20%);
+    }
+
+    .gj-shell{position:absolute; inset:0; display:grid; grid-template-rows:auto 1fr auto; overflow:hidden}
+    .gj-topbar{
+      display:flex; justify-content:space-between; gap:12px; align-items:flex-start; flex-wrap:wrap;
+      padding:60px 14px 12px; padding-top:calc(60px + env(safe-area-inset-top,0px)); pointer-events:none
+    }
+    .gj-chip-row{display:flex; gap:8px; flex-wrap:wrap; align-items:center}
+    .gj-chip{
+      display:inline-flex; align-items:center; gap:8px; padding:8px 10px; border-radius:999px;
+      border:1px solid rgba(148,163,184,.18); background:rgba(2,6,23,.66); color:#e5e7eb;
+      font-weight:900; font-size:13px; backdrop-filter:blur(8px)
+    }
     .gj-chip span{color:#94a3b8}
-    .gj-stage-wrap{position:relative;min-height:0;padding:8px 10px 10px}
-    .gj-stage{position:relative;width:100%;height:100%;min-height:360px;overflow:hidden;border:1px solid rgba(148,163,184,.18);border-radius:26px;background:radial-gradient(circle at 50% 0%, rgba(56,189,248,.09), transparent 30%),linear-gradient(180deg, rgba(15,23,42,.74), rgba(2,6,23,.82))}
-    .gj-target-layer{position:absolute;inset:0;overflow:hidden}
-    .gj-center-tip{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(86vw,460px);padding:16px 18px;border-radius:18px;background:rgba(2,6,23,.56);border:1px solid rgba(148,163,184,.18);color:#e5e7eb;text-align:center;font-weight:900;backdrop-filter:blur(6px);pointer-events:none;transition:opacity .35s ease}
+    .gj-stage-wrap{position:relative; min-height:0; padding:8px 10px 10px}
+    .gj-stage{
+      position:relative; width:100%; height:100%; min-height:360px; overflow:hidden;
+      border:1px solid rgba(148,163,184,.18); border-radius:26px;
+      background:
+        radial-gradient(circle at 50% 0%, rgba(56,189,248,.09), transparent 30%),
+        linear-gradient(180deg, rgba(15,23,42,.74), rgba(2,6,23,.82))
+    }
+    .gj-target-layer{position:absolute; inset:0; overflow:hidden}
+    .gj-center-tip{
+      position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
+      width:min(86vw,460px); padding:16px 18px; border-radius:18px;
+      background:rgba(2,6,23,.56); border:1px solid rgba(148,163,184,.18);
+      color:#e5e7eb; text-align:center; font-weight:900; backdrop-filter:blur(6px);
+      pointer-events:none; transition:opacity .35s ease
+    }
     .gj-center-tip.hide{opacity:0}
-    .gj-target{position:absolute;display:grid;place-items:center;border-radius:22px;border:1px solid rgba(255,255,255,.16);box-shadow:0 14px 28px rgba(0,0,0,.18);cursor:pointer;outline:none;padding:0;overflow:hidden;background:rgba(15,23,42,.78)}
-    .gj-target.good{background:linear-gradient(180deg, rgba(34,197,94,.30), rgba(34,197,94,.18)),rgba(15,23,42,.84)}
-    .gj-target.power{background:linear-gradient(180deg, rgba(250,204,21,.36), rgba(234,179,8,.18)),rgba(15,23,42,.88)}
-    .gj-target.junk{background:linear-gradient(180deg, rgba(244,63,94,.26), rgba(244,63,94,.14)),rgba(15,23,42,.84)}
-    .gj-emoji{font-size:32px;line-height:1}
-    .gj-type{position:absolute;left:8px;right:8px;bottom:6px;font-size:10px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;color:#e2e8f0;opacity:.92;text-align:center}
-    .gj-fx{position:absolute;font-size:16px;font-weight:900;pointer-events:none;transform:translate(-50%,-50%);animation:gj-fx-up .75s ease forwards}
-    @keyframes gj-fx-up{from{opacity:1;transform:translate(-50%,-20%)}to{opacity:0;transform:translate(-50%,-140%)}}
+    .gj-target{
+      position:absolute; display:grid; place-items:center; border-radius:22px;
+      border:1px solid rgba(255,255,255,.16); box-shadow:0 14px 28px rgba(0,0,0,.18);
+      cursor:pointer; outline:none; padding:0; overflow:hidden; background:rgba(15,23,42,.78)
+    }
+    .gj-target.good{
+      background:linear-gradient(180deg, rgba(34,197,94,.30), rgba(34,197,94,.18)), rgba(15,23,42,.84)
+    }
+    .gj-target.power{
+      background:linear-gradient(180deg, rgba(250,204,21,.36), rgba(234,179,8,.18)), rgba(15,23,42,.88)
+    }
+    .gj-target.junk{
+      background:linear-gradient(180deg, rgba(244,63,94,.26), rgba(244,63,94,.14)), rgba(15,23,42,.84)
+    }
+    .gj-emoji{font-size:32px; line-height:1}
+    .gj-type{
+      position:absolute; left:8px; right:8px; bottom:6px; font-size:10px; font-weight:900;
+      letter-spacing:.08em; text-transform:uppercase; color:#e2e8f0; opacity:.92; text-align:center
+    }
+    .gj-fx{
+      position:absolute; font-size:16px; font-weight:900; pointer-events:none;
+      transform:translate(-50%,-50%); animation:gj-fx-up .75s ease forwards
+    }
+    @keyframes gj-fx-up{
+      from{opacity:1; transform:translate(-50%,-20%)}
+      to{opacity:0; transform:translate(-50%,-140%)}
+    }
     .gj-bottom{padding:0 12px calc(12px + env(safe-area-inset-bottom,0px))}
-    .gj-bottom-card{border:1px solid rgba(148,163,184,.18);border-radius:18px;padding:12px;background:rgba(2,6,23,.62);backdrop-filter:blur(8px)}
-    .gj-bottom-top{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
-    .gj-progress{position:relative;width:100%;height:12px;border-radius:999px;overflow:hidden;border:1px solid rgba(148,163,184,.18);background:rgba(255,255,255,.06)}
-    .gj-progress-bar{width:100%;height:100%;background:linear-gradient(90deg, rgba(56,189,248,.85), rgba(34,197,94,.85));transform-origin:left center;transition:transform .12s linear}
-    .gj-legend{display:flex;gap:10px;flex-wrap:wrap;font-size:13px;color:#cbd5e1;line-height:1.5}
+    .gj-bottom-card{
+      border:1px solid rgba(148,163,184,.18); border-radius:18px; padding:12px;
+      background:rgba(2,6,23,.62); backdrop-filter:blur(8px)
+    }
+    .gj-bottom-top{display:flex; justify-content:space-between; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:10px}
+    .gj-progress{
+      position:relative; width:100%; height:12px; border-radius:999px; overflow:hidden;
+      border:1px solid rgba(148,163,184,.18); background:rgba(255,255,255,.06)
+    }
+    .gj-progress-bar{
+      width:100%; height:100%;
+      background:linear-gradient(90deg, rgba(56,189,248,.85), rgba(34,197,94,.85));
+      transform-origin:left center; transition:transform .12s linear
+    }
+    .gj-legend{display:flex; gap:10px; flex-wrap:wrap; font-size:13px; color:#cbd5e1; line-height:1.5}
     .gj-legend strong{color:#e5e7eb}
-    .gj-boss-wrap{position:absolute;left:0;top:0;right:0;height:170px;pointer-events:none;z-index:4}
+
+    .gj-boss-wrap{position:absolute; left:0; top:0; right:0; height:170px; pointer-events:none; z-index:4}
     .gj-boss-wrap[hidden]{display:none!important}
-    .gj-boss{position:absolute;top:0;left:0;width:168px;height:118px;border-radius:28px;background:linear-gradient(180deg, rgba(127,29,29,.88), rgba(69,10,10,.94));border:1px solid rgba(248,113,113,.32);display:flex;align-items:center;justify-content:center;pointer-events:auto}
-    .gj-boss-face{font-size:54px;line-height:1}
-    .gj-boss-label{position:absolute;left:50%;top:-12px;transform:translateX(-50%);display:inline-flex;align-items:center;gap:8px;padding:6px 12px;border-radius:999px;background:rgba(127,29,29,.95);color:#fecaca;font-weight:900;font-size:12px;white-space:nowrap}
-    .gj-weakspot{position:absolute;right:12px;bottom:10px;width:52px;height:52px;border-radius:999px;border:1px solid rgba(250,204,21,.45);background:rgba(250,204,21,.92);color:#422006;font-size:24px;font-weight:900;display:grid;place-items:center;cursor:pointer;pointer-events:auto}
+    .gj-boss{
+      position:absolute; top:0; left:0; width:168px; height:118px; border-radius:28px;
+      background:linear-gradient(180deg, rgba(127,29,29,.88), rgba(69,10,10,.94));
+      border:1px solid rgba(248,113,113,.32); display:flex; align-items:center; justify-content:center; pointer-events:auto
+    }
+    .gj-boss-face{font-size:54px; line-height:1}
+    .gj-boss-label{
+      position:absolute; left:50%; top:-12px; transform:translateX(-50%);
+      display:inline-flex; align-items:center; gap:8px; padding:6px 12px; border-radius:999px;
+      background:rgba(127,29,29,.95); color:#fecaca; font-weight:900; font-size:12px; white-space:nowrap
+    }
+    .gj-weakspot{
+      position:absolute; right:12px; bottom:10px; width:52px; height:52px; border-radius:999px;
+      border:1px solid rgba(250,204,21,.45); background:rgba(250,204,21,.92); color:#422006;
+      font-size:24px; font-weight:900; display:grid; place-items:center; cursor:pointer; pointer-events:auto
+    }
     .gj-weakspot[hidden]{display:none!important}
-    .gj-boss-hud{position:absolute;left:50%;top:8px;transform:translateX(-50%);width:min(86vw,420px);padding:10px 12px;border-radius:16px;border:1px solid rgba(248,113,113,.22);background:rgba(2,6,23,.62);backdrop-filter:blur(8px)}
-    .gj-boss-hud-top{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:8px}
-    .gj-boss-kicker{display:inline-flex;align-items:center;gap:8px;padding:4px 10px;border-radius:999px;background:rgba(239,68,68,.12);color:#fecaca;font-weight:900;font-size:12px}
-    .gj-boss-name{font-size:13px;font-weight:900;color:#fde68a}
-    .gj-boss-hp-track{width:100%;height:14px;border-radius:999px;overflow:hidden;border:1px solid rgba(248,113,113,.22);background:rgba(255,255,255,.06)}
-    .gj-boss-hp-fill{width:100%;height:100%;transform-origin:left center;background:linear-gradient(90deg, rgba(250,204,21,.92), rgba(239,68,68,.92));transition:transform .12s linear}
-    .gj-boss-hp-text{margin-top:6px;text-align:right;color:#cbd5e1;font-size:12px;font-weight:800}
-    .gj-solo-overlay{position:fixed;inset:0;z-index:10010;display:grid;place-items:center;padding:16px;background:rgba(2,6,23,.82);backdrop-filter:blur(10px)}
+    .gj-boss-hud{
+      position:absolute; left:50%; top:8px; transform:translateX(-50%); width:min(86vw,420px);
+      padding:10px 12px; border-radius:16px; border:1px solid rgba(248,113,113,.22);
+      background:rgba(2,6,23,.62); backdrop-filter:blur(8px)
+    }
+    .gj-boss-hud-top{display:flex; justify-content:space-between; gap:10px; align-items:center; margin-bottom:8px}
+    .gj-boss-kicker{
+      display:inline-flex; align-items:center; gap:8px; padding:4px 10px; border-radius:999px;
+      background:rgba(239,68,68,.12); color:#fecaca; font-weight:900; font-size:12px
+    }
+    .gj-boss-name{font-size:13px; font-weight:900; color:#fde68a}
+    .gj-boss-hp-track{
+      width:100%; height:14px; border-radius:999px; overflow:hidden;
+      border:1px solid rgba(248,113,113,.22); background:rgba(255,255,255,.06)
+    }
+    .gj-boss-hp-fill{
+      width:100%; height:100%; transform-origin:left center;
+      background:linear-gradient(90deg, rgba(250,204,21,.92), rgba(239,68,68,.92));
+      transition:transform .12s linear
+    }
+    .gj-boss-hp-text{margin-top:6px; text-align:right; color:#cbd5e1; font-size:12px; font-weight:800}
+
+    .gj-solo-overlay{
+      position:fixed; inset:0; z-index:10010; display:grid; place-items:center;
+      padding:16px; background:rgba(2,6,23,.82); backdrop-filter:blur(10px)
+    }
     .gj-solo-overlay[hidden]{display:none!important}
-    .gj-solo-card{width:min(94vw,560px);max-height:88vh;overflow:auto;background:rgba(15,23,42,.96);border:1px solid rgba(148,163,184,.18);border-radius:22px;padding:20px 18px 18px;color:#e5e7eb}
-    .gj-solo-kicker{display:inline-flex;align-items:center;gap:8px;padding:6px 12px;border-radius:999px;background:rgba(56,189,248,.12);border:1px solid rgba(56,189,248,.25);color:#7dd3fc;font-weight:900;font-size:13px;margin-bottom:12px}
-    .gj-solo-title{margin:0 0 8px;font-size:30px;line-height:1.1}
-    .gj-solo-sub{margin:0;color:#94a3b8;font-size:14px;line-height:1.6}
-    .gj-solo-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:16px}
-    .gj-solo-item{border:1px solid rgba(148,163,184,.18);border-radius:16px;padding:12px;background:rgba(2,6,23,.45)}
-    .gj-solo-item .label{color:#94a3b8;font-size:12px;font-weight:800;margin-bottom:6px}
-    .gj-solo-item .value{color:#e5e7eb;font-size:20px;font-weight:900}
-    .gj-solo-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}
-    .btn{appearance:none;border:0;cursor:pointer;border-radius:14px;padding:12px 16px;font-weight:900;font-size:14px}
-    .btn-blue{background:#38bdf8;color:#082f49}.btn-warn{background:#f59e0b;color:#3b1d00}.btn-ghost{background:rgba(255,255,255,.06);color:#e5e7eb;border:1px solid rgba(148,163,184,.18)}
+    .gj-solo-card{
+      width:min(94vw,560px); max-height:88vh; overflow:auto; background:rgba(15,23,42,.96);
+      border:1px solid rgba(148,163,184,.18); border-radius:22px; padding:20px 18px 18px; color:#e5e7eb
+    }
+    .gj-solo-kicker{
+      display:inline-flex; align-items:center; gap:8px; padding:6px 12px; border-radius:999px;
+      background:rgba(56,189,248,.12); border:1px solid rgba(56,189,248,.25); color:#7dd3fc;
+      font-weight:900; font-size:13px; margin-bottom:12px
+    }
+    .gj-solo-title{margin:0 0 8px; font-size:30px; line-height:1.1}
+    .gj-solo-sub{margin:0; color:#94a3b8; font-size:14px; line-height:1.6}
+    .gj-solo-list{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin-top:16px}
+    .gj-solo-item{border:1px solid rgba(148,163,184,.18); border-radius:16px; padding:12px; background:rgba(2,6,23,.45)}
+    .gj-solo-item .label{color:#94a3b8; font-size:12px; font-weight:800; margin-bottom:6px}
+    .gj-solo-item .value{color:#e5e7eb; font-size:20px; font-weight:900}
+    .gj-solo-actions{display:flex; gap:10px; flex-wrap:wrap; margin-top:18px}
+    .btn{appearance:none; border:0; cursor:pointer; border-radius:14px; padding:12px 16px; font-weight:900; font-size:14px}
+    .btn-blue{background:#38bdf8; color:#082f49}
+    .btn-warn{background:#f59e0b; color:#3b1d00}
+    .btn-ghost{background:rgba(255,255,255,.06); color:#e5e7eb; border:1px solid rgba(148,163,184,.18)}
   `;
   document.head.appendChild(style);
 }
@@ -244,6 +421,7 @@ function buildShell(){
   ui.progress = document.getElementById('gjProgressBar');
   ui.stats = document.getElementById('gjStatsText');
   ui.centerTip = document.getElementById('gjCenterTip');
+
   ui.bossWrap = document.getElementById('gjBossWrap');
   ui.boss = document.getElementById('gjBoss');
   ui.bossFace = document.getElementById('gjBossFace');
@@ -251,6 +429,7 @@ function buildShell(){
   ui.bossHpFill = document.getElementById('gjBossHpFill');
   ui.bossHpText = document.getElementById('gjBossHpText');
   ui.bossWeakSpot = document.getElementById('gjBossWeakSpot');
+
   ui.soloOverlay = document.getElementById('gjSoloSummary');
   ui.soloBody = document.getElementById('gjSoloBody');
   ui.soloTitle = document.getElementById('gjSoloTitle');
@@ -293,16 +472,30 @@ function refreshStageRect(){
   if (!rect) return;
   state.rect.width = Math.max(320, rect.width);
   state.rect.height = Math.max(360, rect.height);
+
+  if (state.bossActive) {
+    const limitX = Math.max(8, state.rect.width - state.boss.w - 8);
+    state.boss.x = clamp(state.boss.x, 8, limitX);
+  }
 }
 
 function getCfg(){
   return PRESET[state.diff] || PRESET.normal;
 }
 
+function setPhaseClass(){
+  ui.root.classList.remove('phase-1','phase-2','phase-boss');
+  if (state.bossActive) ui.root.classList.add('phase-boss');
+  else if (state.phase === 2) ui.root.classList.add('phase-2');
+  else ui.root.classList.add('phase-1');
+}
+
 function startGame(){
   const cfg = getCfg();
+
   state.totalMs = Math.max(60000, Number(RUN_CTX.time || 150) * 1000);
   state.timeLeftMs = state.totalMs;
+
   state.score = 0;
   state.miss = 0;
   state.streak = 0;
@@ -311,6 +504,7 @@ function startGame(){
   state.hitsBad = 0;
   state.hitsPower = 0;
   state.missedGood = 0;
+
   state.running = true;
   state.ended = false;
   state.phase = 1;
@@ -320,6 +514,7 @@ function startGame(){
   state.lastFrameTs = performance.now();
   state.lastSpawnAccum = 0;
   state.targets.clear();
+
   state.boss.hp = 0;
   state.boss.hpMax = cfg.bossHp;
   state.boss.x = Math.max(8, (state.rect.width - state.boss.w) / 2);
@@ -327,16 +522,20 @@ function startGame(){
   state.boss.weakSpotReady = false;
   state.boss.weakSpotCd = 1500;
   state.boss.weakSpotOpenMs = 0;
+  state.boss.stunMs = 0;
   state.boss.stormCd = 1800;
   state.boss.powerCd = 1700;
-  state.boss.stunMs = 0;
   state.boss.enrage = false;
 
   ui.layer.innerHTML = '';
   ui.soloOverlay.hidden = true;
+
+  setPhaseClass();
   showCenterTip('เริ่มรอบแล้ว! ผ่าน Phase 1 และ 2 เพื่อไปสู้บอส');
+  updateHint('เก็บของดีให้ต่อเนื่อง อย่าโดน junk');
   renderHud();
   renderBoss();
+
   console.log('[GJ] startGame', { diff: state.diff, totalMs: state.totalMs });
   loop(performance.now());
 }
@@ -354,7 +553,7 @@ function loop(ts){
     return;
   }
 
-  updatePhase(dt);
+  updatePhase();
   updateSpawner(dt);
   updateTargets(dt);
   if (state.bossActive) updateBoss(dt);
@@ -363,14 +562,16 @@ function loop(ts){
   state.frameRaf = requestAnimationFrame(loop);
 }
 
-function updatePhase(dt){
+function updatePhase(){
   const cfg = getCfg();
   const elapsedRatio = 1 - (state.timeLeftMs / state.totalMs);
 
   if (!state.bossActive && state.phase === 1) {
     if (state.score >= cfg.phase1 || elapsedRatio >= 0.34) {
       state.phase = 2;
+      setPhaseClass();
       showCenterTip('Phase 2! เกมเร็วขึ้น junk มากขึ้น');
+      updateHint('Phase 2 แล้ว เร่งคะแนนสู่บอส');
       console.log('[GJ] enter phase 2');
     }
   }
@@ -384,8 +585,8 @@ function updatePhase(dt){
 
 function startBossPhase(){
   if (state.bossActive || state.bossTriggered) return;
-  const cfg = getCfg();
 
+  const cfg = getCfg();
   state.phase = 3;
   state.bossTriggered = true;
   state.bossActive = true;
@@ -396,12 +597,16 @@ function startBossPhase(){
   state.boss.stormCd = 1800;
   state.boss.powerCd = 1600;
 
-  Array.from(state.targets.keys()).forEach((id, i) => { if (i % 2 === 0) removeTarget(id); });
+  Array.from(state.targets.keys()).forEach((id, i) => {
+    if (i % 2 === 0) removeTarget(id);
+  });
 
+  setPhaseClass();
   showCenterTip('BOSS INCOMING! good = damage • power = heavy damage • weak spot = critical');
   updateHint('Boss Phase เริ่มแล้ว');
   renderBoss();
   renderHud();
+
   console.log('[GJ] startBossPhase() fired');
 }
 
@@ -438,8 +643,8 @@ function getSpawnCfg(){
     powerRatio: 0,
     speedMin: cfg.speedMin * 0.92,
     speedMax: cfg.speedMax * 0.95,
-    sizeMin: cfg.targetSizeMin || 58,
-    sizeMax: cfg.targetSizeMax || 82
+    sizeMin: cfg.targetSizeMin,
+    sizeMax: cfg.targetSizeMax
   };
 }
 
@@ -455,6 +660,7 @@ function updateSpawner(dt){
 
 function spawnRandomTarget(cfg){
   refreshStageRect();
+
   const roll = rand();
   let kind = 'junk';
 
@@ -477,13 +683,26 @@ function spawnTarget(kind, cfg, overrides = {}){
   const drift = overrides.drift ?? randRange(-42, 42);
   const id = `t-${++state.targetSeq}`;
 
-  let emoji = '🍎', scoreGain = 10, bossDamage = 0, klass = 'good';
+  let emoji = '🍎';
+  let scoreGain = 10;
+  let bossDamage = 0;
+  let klass = 'good';
+
   if (kind === 'power') {
-    emoji = pick(POWER_ITEMS); scoreGain = 18; bossDamage = state.diff === 'hard' ? 14 : 16; klass = 'power';
+    emoji = pick(POWER_ITEMS);
+    scoreGain = 18;
+    bossDamage = getCfg().powerBossDamage;
+    klass = 'power';
   } else if (kind === 'junk') {
-    emoji = pick(JUNK_ITEMS); scoreGain = -8; bossDamage = 0; klass = 'junk';
+    emoji = pick(JUNK_ITEMS);
+    scoreGain = -8;
+    bossDamage = 0;
+    klass = 'junk';
   } else {
-    emoji = pick(GOOD_ITEMS); scoreGain = 10; bossDamage = state.bossActive ? (state.diff === 'hard' ? 6 : 7) : 0; klass = 'good';
+    emoji = pick(GOOD_ITEMS);
+    scoreGain = 10;
+    bossDamage = state.bossActive ? getCfg().goodBossDamage : 0;
+    klass = 'good';
   }
 
   const el = document.createElement('button');
@@ -518,7 +737,11 @@ function updateTargets(dt){
     target.y += (target.speed * dt) / 1000;
     target.x += (target.drift * dt) / 1000;
 
-    if (target.x < 6) { target.x = 6; target.drift *= -1; }
+    if (target.x < 6) {
+      target.x = 6;
+      target.drift *= -1;
+    }
+
     if (target.x + target.size > stageW - 6) {
       target.x = stageW - target.size - 6;
       target.drift *= -1;
@@ -535,8 +758,8 @@ function updateTargets(dt){
   toRemove.forEach(removeTarget);
 }
 
-function drawTarget(t){
-  t.el.style.transform = `translate3d(${t.x}px, ${t.y}px, 0)`;
+function drawTarget(target){
+  target.el.style.transform = `translate3d(${target.x}px, ${target.y}px, 0)`;
 }
 
 function hitTarget(id){
@@ -600,8 +823,14 @@ function updateBoss(dt){
     boss.stunMs -= dt;
   } else {
     boss.x += (boss.vx * dt) / 1000;
-    if (boss.x <= 8) { boss.x = 8; boss.vx = Math.abs(boss.vx); }
-    if (boss.x >= limitX) { boss.x = limitX; boss.vx = -Math.abs(boss.vx); }
+    if (boss.x <= 8) {
+      boss.x = 8;
+      boss.vx = Math.abs(boss.vx);
+    }
+    if (boss.x >= limitX) {
+      boss.x = limitX;
+      boss.vx = -Math.abs(boss.vx);
+    }
   }
 
   if (boss.hp <= boss.hpMax * 0.38 && !boss.enrage) {
@@ -676,7 +905,8 @@ function spawnBossPowerAid(){
 
 function hitBossWeakSpot(){
   if (!state.running || state.ended || !state.bossActive || !state.boss.weakSpotReady) return;
-  const damage = state.diff === 'hard' ? 18 : 20;
+
+  const damage = getCfg().weakSpotDamage;
   state.boss.weakSpotReady = false;
   state.boss.weakSpotCd = state.boss.enrage ? 2700 : 3700;
   state.boss.stunMs = Math.max(state.boss.stunMs, 1100);
@@ -691,6 +921,7 @@ function damageBoss(amount = 0){
   if (!state.bossActive || amount <= 0) return;
   state.boss.hp = Math.max(0, state.boss.hp - amount);
   renderBoss();
+
   if (state.boss.hp <= 0) {
     state.boss.hp = 0;
     state.bossDefeated = true;
@@ -749,7 +980,7 @@ function formatSeconds(ms){
   const s = Math.max(0, Math.ceil(ms / 1000));
   const m = Math.floor(s / 60);
   const r = s % 60;
-  return `${m}:${String(r).padStart(2, '0')}`;
+  return \`\${m}:\${String(r).padStart(2, '0')}\`;
 }
 
 function showCenterTip(message){
@@ -761,14 +992,14 @@ function showCenterTip(message){
 }
 
 function updateHint(message){
-  ui.hint.innerHTML = `<div>${escapeHtml(message)}</div>`;
+  ui.hint.innerHTML = \`<div>\${escapeHtml(message)}</div>\`;
 }
 
 function createFx(x, y, text, color){
   const fx = document.createElement('div');
   fx.className = 'gj-fx';
-  fx.style.left = `${x}px`;
-  fx.style.top = `${y}px`;
+  fx.style.left = \`\${x}px\`;
+  fx.style.top = \`\${y}px\`;
   fx.style.color = color || '#e5e7eb';
   fx.textContent = text;
   ui.layer?.appendChild(fx);
@@ -777,6 +1008,7 @@ function createFx(x, y, text, color){
 
 function endGame(reason = 'finished'){
   if (state.ended) return;
+
   state.ended = true;
   state.running = false;
   cancelAnimationFrame(state.frameRaf);
@@ -804,7 +1036,7 @@ function endGame(reason = 'finished'){
     hitsBad: state.hitsBad,
     hitsPower: state.hitsPower,
     missedGood: state.missedGood,
-    phaseReached: state.bossActive ? 'boss' : `phase-${state.phase}`,
+    phaseReached: state.bossActive ? 'boss' : \`phase-\${state.phase}\`,
     bossDefeated: !!state.bossDefeated,
     bossHpLeft: Number(state.boss.hp || 0),
     bossHpMax: Number(state.boss.hpMax || 0),
@@ -817,7 +1049,7 @@ function endGame(reason = 'finished'){
 
 function showSoloSummary(summary){
   __gjSoloSummary = {
-    version: '20260318-phaseboss-return-lock1',
+    version: '20260318-phaseboss-return-lock2',
     source: 'goodjunk-phaseboss',
     gameId: GJ_GAME_ID,
     title: 'GoodJunk Phase Boss',
@@ -872,7 +1104,10 @@ function showSoloSummary(summary){
 }
 
 function persistSoloSummary(summary){
-  try { localStorage.setItem(`GJ_SOLO_LAST_SUMMARY_${GJ_PID}`, JSON.stringify(summary)); } catch {}
+  try {
+    localStorage.setItem(\`GJ_SOLO_LAST_SUMMARY_\${GJ_PID}\`, JSON.stringify(summary));
+  } catch {}
+
   try {
     localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify({
       source: summary.source,
@@ -897,7 +1132,7 @@ function downloadJson(payload, filename){
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = filename || `goodjunk-${Date.now()}.json`;
+  a.download = filename || \`goodjunk-\${Date.now()}.json\`;
   document.body.appendChild(a);
   a.click();
   a.remove();
@@ -919,9 +1154,11 @@ function escapeHtml(s){
 function getHeroHealthRootUrl() {
   return new URL('../', location.href);
 }
+
 function getUnifiedGateUrl() {
   return new URL('warmup-gate.html', getHeroHealthRootUrl()).toString();
 }
+
 function getHubUrl() {
   try {
     return new URL(GJ_HUB, getHeroHealthRootUrl()).toString();
@@ -929,6 +1166,7 @@ function getHubUrl() {
     return new URL('hub.html', getHeroHealthRootUrl()).toString();
   }
 }
+
 function buildRunUrl(seedOverride = '') {
   const q = new URLSearchParams({
     pid: GJ_PID,
@@ -943,10 +1181,13 @@ function buildRunUrl(seedOverride = '') {
     gameId: GJ_GAME_ID,
     mode: 'solo'
   });
+
   if (__qs.get('bossdebug') === '1') q.set('bossdebug', '1');
   if (__qs.get('debug') === '1') q.set('debug', '1');
-  return `./goodjunk-vr.html?${q.toString()}`;
+
+  return \`./goodjunk-vr.html?\${q.toString()}\`;
 }
+
 function buildWarmupGateUrl(seedOverride = '') {
   const q = new URLSearchParams({
     phase: 'warmup',
@@ -955,10 +1196,13 @@ function buildWarmupGateUrl(seedOverride = '') {
     next: buildRunUrl(seedOverride || String(Date.now())),
     hub: getHubUrl()
   });
+
   if (__qs.get('forcegate') === '1') q.set('forcegate', '1');
   if (__qs.get('resetGate') === '1') q.set('resetGate', '1');
-  return `${getUnifiedGateUrl()}?${q.toString()}`;
+
+  return \`\${getUnifiedGateUrl()}?\${q.toString()}\`;
 }
+
 function buildCooldownGateUrl() {
   const q = new URLSearchParams({
     phase: 'cooldown',
@@ -966,7 +1210,9 @@ function buildCooldownGateUrl() {
     gameId: GJ_GAME_ID,
     hub: getHubUrl()
   });
+
   if (__qs.get('forcegate') === '1') q.set('forcegate', '1');
   if (__qs.get('resetGate') === '1') q.set('resetGate', '1');
-  return `${getUnifiedGateUrl()}?${q.toString()}`;
+
+  return \`\${getUnifiedGateUrl()}?\${q.toString()}\`;
 }
