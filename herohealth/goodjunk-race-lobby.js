@@ -15,10 +15,14 @@ function makeDevicePid() {
 }
 
 function normalizePid(rawPid) {
-  const v = String(rawPid || '').trim();
+  const v = String(rawPid || '').trim().replace(/[.#$[\]/]/g, '-');
   if (!v) return makeDevicePid();
   if (v.toLowerCase() === 'anon') return makeDevicePid();
   return v;
+}
+
+function normalizeRoomCode(raw) {
+  return String(raw || '').toUpperCase().replace(/[^A-Z0-9-]/g, '').slice(0, 16);
 }
 
 const ctx = {
@@ -75,12 +79,8 @@ let countdownStartAt = 0;
 let presenceTimer = 0;
 let subscribed = false;
 let repairBusy = false;
-let exitMode = 'stay'; // stay | leave | to-run
+let exitMode = 'stay';
 let hasEnteredRun = false;
-
-function normalizeRoomCode(raw) {
-  return String(raw || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
-}
 
 function now() {
   return Date.now();
@@ -260,7 +260,7 @@ function sanitizeRoom(r) {
   safe.players = safe.players
     .filter(Boolean)
     .map((p) => ({
-      id: String(p.id || '').trim(),
+      id: normalizePid(p.id || ''),
       name: String(p.name || '').trim(),
       ready: !!p.ready,
       joinedAt: Number(p.joinedAt || now()),
@@ -362,13 +362,10 @@ function renderPlayers(r = room) {
   els.playersBox.innerHTML = players.map((p) => {
     const meTag = p.id === ctx.pid ? ' • คุณ' : '';
     const hostTag = p.id === r.hostId ? ' 👑 host' : '';
-
     return `
       <div class="player">
         <div><strong>${escapeHtml(playerLabel(p))}</strong>${escapeHtml(meTag)}${escapeHtml(hostTag)}</div>
-        <div class="${getPhaseClass(p)}">
-          ${escapeHtml(getPhaseLabel(p))}
-        </div>
+        <div class="${getPhaseClass(p)}">${escapeHtml(getPhaseLabel(p))}</div>
       </div>
     `;
   }).join('');
@@ -409,15 +406,11 @@ function renderStatus(r = room) {
   const active = activePlayers(r);
 
   if (r.status === 'waiting') {
-    if (active.length < (r.minPlayers || 2)) {
-      setHint(`ต้องมีอย่างน้อย ${r.minPlayers} คน`);
-    } else if (!active.every((p) => p.ready)) {
-      setHint('รอให้ทุกคนกดพร้อม');
-    } else if (isHost(r)) {
-      setHint('ทุกคนพร้อมแล้ว กดเริ่มแข่งได้');
-    } else {
-      setHint('ทุกคนพร้อมแล้ว รอ host กดเริ่ม');
-    }
+    if (active.length < (r.minPlayers || 2)) setHint(`ต้องมีอย่างน้อย ${r.minPlayers} คน`);
+    else if (!active.every((p) => p.ready)) setHint('รอให้ทุกคนกดพร้อม');
+    else if (isHost(r)) setHint('ทุกคนพร้อมแล้ว กดเริ่มแข่งได้');
+    else setHint('ทุกคนพร้อมแล้ว รอ host กดเริ่ม');
+
     setCopyState('ส่ง room code หรือลิงก์นี้ให้ผู้เล่นคนอื่นเข้าร่วมได้');
     if (els.countdown) els.countdown.textContent = '';
   }
@@ -495,8 +488,7 @@ async function maybeEnterRunFromRoom(r = room) {
   if (!me) return;
   if (me.phase === 'done') return;
 
-  const effectiveStartAt = Number(r.startAt || now() || Date.now());
-  hasEnteredRun = true;
+  const effectiveStartAt = Number(r.startAt || now());
   await enterRun(effectiveStartAt);
 }
 
@@ -578,22 +570,16 @@ async function maybeRepairRoomIfNeeded(cur) {
 
   if (!repaired.players.length) {
     repairBusy = true;
-    try {
-      await roomRef.remove();
-    } finally {
-      repairBusy = false;
-    }
+    try { await roomRef.remove(); }
+    finally { repairBusy = false; }
     return;
   }
 
   if (!changed) return;
 
   repairBusy = true;
-  try {
-    await roomRef.set(roomToFirebase(repaired));
-  } finally {
-    repairBusy = false;
-  }
+  try { await roomRef.set(roomToFirebase(repaired)); }
+  finally { repairBusy = false; }
 }
 
 function subscribeRoom() {
@@ -613,11 +599,8 @@ function subscribeRoom() {
     room = sanitizeRoom(snapshotToRoom(raw));
     render();
 
-    if (room.status === 'countdown' && room.startAt) {
-      runCountdown(room.startAt);
-    } else {
-      cancelCountdown();
-    }
+    if (room.status === 'countdown' && room.startAt) runCountdown(room.startAt);
+    else cancelCountdown();
 
     if (room.status === 'running') {
       await maybeEnterRunFromRoom(room);
@@ -671,7 +654,6 @@ async function ensureJoined() {
 
   await roomRef.child('updatedAt').set(now());
   await setupOnDisconnect();
-
   return true;
 }
 
@@ -689,7 +671,6 @@ async function touchPresence() {
 
 async function updateMe(patch = {}) {
   if (!myPlayerRef) return;
-
   const payload = { ...patch, lastSeenAt: now() };
   await myPlayerRef.update(payload);
   await roomRef.child('updatedAt').set(now());
@@ -717,7 +698,6 @@ async function beginCountdown() {
     setHint('เฉพาะ host เท่านั้นที่เริ่มแข่งได้');
     return;
   }
-
   if (!canStart(cur)) {
     setHint('ยังเริ่มไม่ได้ ต้องมีอย่างน้อย 2 คน และทุกคนต้อง ready');
     return;
@@ -734,12 +714,9 @@ async function beginCountdown() {
 async function enterRun(startAt) {
   if (hasEnteredRun) return;
   hasEnteredRun = true;
-
   exitMode = 'to-run';
 
-  try {
-    await myPlayerRef?.onDisconnect().cancel();
-  } catch {}
+  try { await myPlayerRef?.onDisconnect().cancel(); } catch {}
 
   await updateMe({
     ready: true,
@@ -764,7 +741,7 @@ async function enterRun(startAt) {
     startAt: String(startAt || now())
   });
 
-  location.href = `./vr-goodjunk/goodjunk-vr.html?${q.toString()}`;
+  location.href = `./vr-goodjunk/goodjunk-vr.html?v=20260318c-race-run-shim-safe&${q.toString()}`;
 }
 
 async function leaveRoom() {
@@ -859,7 +836,6 @@ function bindEvents() {
 
   window.addEventListener('beforeunload', () => {
     stopPresenceHeartbeat();
-    if (exitMode === 'to-run') return;
   });
 }
 
@@ -871,8 +847,8 @@ async function boot() {
     setHint('กำลังสร้าง/เชื่อมห้อง...');
     await ensureRoomExists();
     subscribeRoom();
-
     const joined = await ensureJoined();
+
     render();
     bindEvents();
 
@@ -888,7 +864,6 @@ async function boot() {
     if (room?.status === 'countdown' && room.startAt) {
       runCountdown(room.startAt);
     }
-
     if (room?.status === 'running') {
       await maybeEnterRunFromRoom(room);
     }
