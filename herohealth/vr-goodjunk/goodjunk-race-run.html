@@ -111,10 +111,40 @@
         return String(Date.now());
       }
 
+      function makeDevicePid() {
+        try {
+          const KEY = 'GJ_DEVICE_PID';
+          let pid = localStorage.getItem(KEY);
+          if (!pid) {
+            pid = `p-${Math.random().toString(36).slice(2, 10)}`;
+            localStorage.setItem(KEY, pid);
+          }
+          return pid;
+        } catch {
+          return `p-${Math.random().toString(36).slice(2, 10)}`;
+        }
+      }
+
+      function normalizePid(rawPid) {
+        const v = String(rawPid || '')
+          .trim()
+          .replace(/[.#$[\]/]/g, '-');
+        if (!v) return makeDevicePid();
+        if (v.toLowerCase() === 'anon') return makeDevicePid();
+        return v;
+      }
+
+      function normalizeRoomId(rawRoomId) {
+        return String(rawRoomId || '')
+          .toUpperCase()
+          .replace(/[^A-Z0-9-]/g, '')
+          .slice(0, 16);
+      }
+
       const nextQ = new URLSearchParams();
 
-      const roomId = get('roomId', get('room', ''));
-      const pid = get('pid', '');
+      const roomId = normalizeRoomId(get('roomId', get('room', '')));
+      const pid = normalizePid(get('pid', ''));
       const name = get('name', get('nick', ''));
       const studyId = get('studyId', '');
       const diff = get('diff', 'normal');
@@ -127,7 +157,7 @@
       const startAt = get('startAt', '');
       const host = get('host', '');
 
-      if (pid) nextQ.set('pid', pid);
+      nextQ.set('pid', pid);
       if (name) nextQ.set('name', name);
       if (studyId) nextQ.set('studyId', studyId);
       if (roomId) nextQ.set('roomId', roomId);
@@ -152,7 +182,7 @@
         if (v) nextQ.set(k, v);
       });
 
-      const nextUrl = `./goodjunk-vr.html?v=20260318b-race-run-shim-fix&${nextQ.toString()}`;
+      const nextUrl = `./goodjunk-vr.html?v=20260318c-race-run-shim-safe&${nextQ.toString()}`;
 
       const urlBox = document.getElementById('nextUrl');
       const goNow = document.getElementById('goNow');
