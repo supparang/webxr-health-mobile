@@ -1,6 +1,6 @@
 // === /herohealth/nutrition-plate/js/plate.metrics.js ===
 // Metric builder for Nutrition Plate
-// PATCH v20260318-PLATE-VSLICE-B
+// PATCH v20260318-NUTRITION-CLOUD-WIRING-A
 
 export function buildPlateMetrics(ctx, stats, sessionMeta) {
   const preCorrect = stats.quiz.pre.correct;
@@ -12,10 +12,14 @@ export function buildPlateMetrics(ctx, stats, sessionMeta) {
     gameId: ctx.gameId,
     pid: ctx.pid,
     studyId: ctx.studyId,
+    classId: ctx.classId,
+    sectionId: ctx.sectionId,
     phase: ctx.phase,
     run: ctx.run,
     diff: ctx.diff,
     seed: ctx.seed,
+    mode: ctx.mode,
+    conditionGroup: ctx.conditionGroup,
 
     totalScore: stats.score,
     streakBest: stats.bestStreak,
@@ -32,9 +36,11 @@ export function buildPlateMetrics(ctx, stats, sessionMeta) {
 
     fixTotal: stats.fix.total,
     fixCorrect: stats.fix.correct,
+    fixAccuracy: stats.fix.total ? Number((stats.fix.correct / stats.fix.total).toFixed(4)) : 0,
 
     swapTotal: stats.swap.total,
     swapCorrect: stats.swap.correct,
+    swapAccuracy: stats.swap.total ? Number((stats.swap.correct / stats.swap.total).toFixed(4)) : 0,
 
     vegChosen: stats.build.vegChosen,
     fruitChosen: stats.build.fruitChosen,
