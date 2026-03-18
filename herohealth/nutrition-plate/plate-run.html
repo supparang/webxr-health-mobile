@@ -1,0 +1,45 @@
+<!-- === /herohealth/nutrition-plate/plate-run.html === -->
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth • Nutrition Plate Run</title>
+  <link rel="icon" href="../favicon.ico" />
+  <link rel="stylesheet" href="./css/plate.css" />
+</head>
+<body class="plate-page run-page">
+  <main class="run-shell" id="appRoot">
+    <header class="hud">
+      <div class="hud-left">
+        <div class="hud-chip" id="hudPhase">Phase: Pre Quiz</div>
+        <div class="hud-chip" id="hudProgress">0 / 0</div>
+      </div>
+      <div class="hud-right">
+        <div class="hud-chip score-chip">คะแนน <strong id="hudScore">0</strong></div>
+        <div class="hud-chip streak-chip">ต่อเนื่อง <strong id="hudStreak">0</strong></div>
+      </div>
+    </header>
+
+    <section class="play-card">
+      <div class="mini-tip" id="miniTip">กำลังโหลด…</div>
+      <div class="coach-box" id="coachBox" aria-live="polite"></div>
+
+      <h1 class="question-title" id="questionPrompt">กำลังโหลด...</h1>
+
+      <div class="plate-board" id="plateBoard"></div>
+      <div class="scenario-box" id="scenarioBox"></div>
+
+      <div class="answer-grid" id="answerGrid"></div>
+
+      <div class="feedback-box" id="feedbackBox" aria-live="polite"></div>
+    </section>
+
+    <footer class="run-footer">
+      <button class="btn btn-ghost" id="backBtn">กลับ HUB</button>
+    </footer>
+  </main>
+
+  <script type="module" src="./js/plate.boot.js"></script>
+</body>
+</html>
