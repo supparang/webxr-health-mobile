@@ -1,6 +1,6 @@
 // === /herohealth/nutrition-plate/js/plate.ui.js ===
 // UI renderer for Nutrition Plate
-// PATCH v20260318-PLATE-VSLICE-B
+// PATCH v20260318-PLATE-CHILD-UI-A
 
 import { esc, goHub } from '../../shared/nutrition-common.js';
 import { mountSummaryShell } from '../../shared/nutrition-summary-shell.js';
@@ -11,6 +11,14 @@ const TIPS = {
   fix: 'ดูว่าจานตัวอย่างนี้ควรแก้ตรงไหนก่อน',
   swap: 'ลองสลับของเดิมเป็นตัวเลือกที่ดีกว่า',
   post: 'ตอบอีกครั้งหลังเล่น เพื่อดูว่าดีขึ้นไหม'
+};
+
+const PHASE_BANNER = {
+  pre: { icon: '📝', title: 'แบบสั้นก่อนเล่น', sub: 'ลองดูว่าจานนี้ควรปรับตรงไหน' },
+  build: { icon: '🍽️', title: 'จัดจานอาหาร', sub: 'เลือกอาหารให้ครบและสมดุล' },
+  fix: { icon: '🛠️', title: 'ซ่อมจานตัวอย่าง', sub: 'ดูว่าควรแก้ตรงไหนก่อน' },
+  swap: { icon: '🔄', title: 'สลับให้ดีขึ้น', sub: 'เปลี่ยนเป็นตัวเลือกที่เหมาะกว่า' },
+  post: { icon: '🌟', title: 'แบบสั้นหลังเล่น', sub: 'ลองตอบอีกครั้งดูว่าเก่งขึ้นไหม' }
 };
 
 const SLOT_ORDER = ['base', 'protein', 'veg', 'fruit', 'drink'];
@@ -26,7 +34,7 @@ function renderPlateBoard(plate) {
   return SLOT_ORDER.map(slot => {
     const item = plate?.[slot];
     return `
-      <div class="plate-slot">
+      <div class="plate-slot child-slot">
         <div class="plate-slot-label">${esc(SLOT_LABEL[slot])}</div>
         <div class="plate-slot-value">${item ? `${esc(item.emoji)} ${esc(item.label)}` : '—'}</div>
         <div class="plate-slot-sub">${item ? 'เลือกแล้ว' : 'ยังไม่ได้เลือก'}</div>
@@ -49,6 +57,13 @@ export function createPlateUI(ctx, { onAnswer, onReplay }) {
   const coachEl = document.getElementById('coachBox');
   const backBtn = document.getElementById('backBtn');
 
+  const phaseBanner = {
+    root: document.getElementById('phaseBanner'),
+    icon: document.getElementById('phaseBannerIcon'),
+    title: document.getElementById('phaseBannerTitle'),
+    sub: document.getElementById('phaseBannerSub')
+  };
+
   let answerLocked = false;
 
   const summaryShell = mountSummaryShell(document.body, {
@@ -58,6 +73,14 @@ export function createPlateUI(ctx, { onAnswer, onReplay }) {
 
   backBtn.addEventListener('click', () => goHub(ctx));
 
+  function setPhaseBanner(phaseKey) {
+    const meta = PHASE_BANNER[phaseKey] || PHASE_BANNER.build;
+    phaseBanner.root.setAttribute('data-phase', phaseKey);
+    phaseBanner.icon.textContent = meta.icon;
+    phaseBanner.title.textContent = meta.title;
+    phaseBanner.sub.textContent = meta.sub;
+  }
+
   function setHud(viewState) {
     phaseEl.textContent = `Phase: ${viewState.phaseLabel}`;
     progressEl.textContent = `${viewState.phaseCurrent} / ${viewState.phaseTotal}`;
@@ -65,17 +88,18 @@ export function createPlateUI(ctx, { onAnswer, onReplay }) {
     streakEl.textContent = String(viewState.streak);
     tipEl.textContent = TIPS[viewState.phaseKey] || '';
     plateBoardEl.innerHTML = renderPlateBoard(viewState.plate);
+    setPhaseBanner(viewState.phaseKey);
   }
 
   function renderScenario(question) {
     if (question.type === 'fix' || question.type === 'quiz-missing') {
       scenarioBoxEl.innerHTML = `
-        <div class="scenario-card">
+        <div class="scenario-card child-card">
           <div class="scenario-title">${esc(question.scenarioTitle)}</div>
           <div class="scenario-grid">
             ${question.scenarioFoods.map(item => `
               <div class="scenario-item">
-                <div>${esc(item.emoji)}</div>
+                <div class="scenario-emoji">${esc(item.emoji)}</div>
                 <div>${esc(item.label)}</div>
               </div>
             `).join('')}
@@ -87,11 +111,11 @@ export function createPlateUI(ctx, { onAnswer, onReplay }) {
 
     if (question.type === 'swap' || question.type === 'quiz-better') {
       scenarioBoxEl.innerHTML = `
-        <div class="scenario-card">
+        <div class="scenario-card child-card">
           <div class="scenario-title">สิ่งที่กำลังพิจารณา</div>
           <div class="scenario-grid">
             <div class="scenario-item">
-              <div>${esc(question.currentFood.emoji)}</div>
+              <div class="scenario-emoji">${esc(question.currentFood.emoji)}</div>
               <div>${esc(question.currentFood.label)}</div>
             </div>
           </div>
@@ -109,12 +133,13 @@ export function createPlateUI(ctx, { onAnswer, onReplay }) {
 
     question.options.forEach(option => {
       const btn = document.createElement('button');
-      btn.className = 'answer-btn';
+      btn.className = 'answer-btn child-answer-btn';
       btn.type = 'button';
       btn.innerHTML = `
-        <div>${esc(option.emoji)} ${esc(option.label)}</div>
+        <div class="answer-main">${esc(option.emoji)} ${esc(option.label)}</div>
         <small>${esc(option.slot || '')}</small>
       `;
+
       btn.addEventListener('click', async () => {
         if (answerLocked) return;
         answerLocked = true;
@@ -126,6 +151,7 @@ export function createPlateUI(ctx, { onAnswer, onReplay }) {
 
         await onAnswer(option.id);
       });
+
       gridEl.appendChild(btn);
     });
   }
@@ -153,8 +179,7 @@ export function createPlateUI(ctx, { onAnswer, onReplay }) {
   }
 
   function showCoach(message) {
-    if (!coachEl) return;
-    if (!message) return;
+    if (!coachEl || !message) return;
     coachEl.textContent = `🤖 ${message}`;
     coachEl.classList.add('show');
   }
