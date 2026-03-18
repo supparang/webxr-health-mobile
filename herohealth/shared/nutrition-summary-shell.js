@@ -1,6 +1,6 @@
 // === /herohealth/shared/nutrition-summary-shell.js ===
 // Shared summary modal shell
-// PATCH v20260318-NUTRITION-SUMMARY-CHILD-UI-A
+// PATCH v20260318-NUTRITION-GATE-INTEGRATION-A
 
 import { esc } from './nutrition-common.js';
 
@@ -112,7 +112,7 @@ function ensureStyle() {
   document.head.appendChild(style);
 }
 
-export function mountSummaryShell(root, { onReplay, onBack } = {}) {
+export function mountSummaryShell(root, { onReplay, onBack, backLabel = 'กลับ HUB' } = {}) {
   ensureStyle();
 
   const backdrop = document.createElement('div');
@@ -136,7 +136,7 @@ export function mountSummaryShell(root, { onReplay, onBack } = {}) {
 
       <div class="nutri-summary-actions">
         <button class="nutri-summary-replay" id="nutriSummaryReplayBtn">เล่นอีกครั้ง</button>
-        <button class="nutri-summary-back" id="nutriSummaryBackBtn">กลับ HUB</button>
+        <button class="nutri-summary-back" id="nutriSummaryBackBtn">${esc(backLabel)}</button>
       </div>
     </div>
   `;
