@@ -1,17 +1,26 @@
 // === /herohealth/nutrition-groups/js/groups.ui.js ===
 // UI renderer for Nutrition Groups
-// PATCH v20260318-GROUPS-VSLICE-C
+// PATCH v20260318-GROUPS-CHILD-UI-A
 
 import { esc, goHub } from '../../shared/nutrition-common.js';
 import { mountSummaryShell } from '../../shared/nutrition-summary-shell.js';
 
 const TIPS = {
   pre: 'แบบสั้นก่อนเริ่ม เพื่อดูพื้นฐานก่อนเล่น',
-  sort: 'มองก่อนว่าอาหารนี้อยู่หมู่ไหน',
-  compare: 'ดูว่าอะไรดีกว่าต่อสุขภาพ',
-  reason: 'เลือกเหตุผลที่เหมาะสมที่สุด',
-  retry: 'รอบทบทวน ลองแก้ข้อที่เคยพลาดอีกครั้ง',
-  post: 'ตอบอีกครั้งหลังเล่น เพื่อดูว่าดีขึ้นไหม'
+  sort: 'ดูรูปอาหาร แล้วเลือกหมู่ที่ถูก',
+  compare: 'ดูว่าอะไรดีกว่าสำหรับร่างกาย',
+  reason: 'เลือกเหตุผลที่เหมาะที่สุด',
+  retry: 'ลองแก้ข้อที่เคยพลาดอีกครั้ง',
+  post: 'ตอบอีกครั้งหลังเล่น เพื่อดูว่าเก่งขึ้นไหม'
+};
+
+const PHASE_BANNER = {
+  pre: { icon: '📝', title: 'แบบสั้นก่อนเล่น', sub: 'ลองตอบก่อนเริ่มเกม' },
+  sort: { icon: '🧺', title: 'แยกหมวดอาหาร', sub: 'อาหารนี้อยู่หมู่ไหน' },
+  compare: { icon: '⚖️', title: 'เลือกสิ่งที่ดีกว่า', sub: 'สองอย่างนี้อะไรดีกว่า' },
+  reason: { icon: '💡', title: 'บอกเหตุผลง่าย ๆ', sub: 'ทำไมคำตอบนี้ดีกว่า' },
+  retry: { icon: '🔁', title: 'รอบทบทวน', sub: 'กลับมาแก้ข้อที่เคยพลาด' },
+  post: { icon: '🌟', title: 'แบบสั้นหลังเล่น', sub: 'มาดูว่าหนูเก่งขึ้นไหม' }
 };
 
 export function createGroupsUI(ctx, { onAnswer, onReplay }) {
@@ -27,6 +36,13 @@ export function createGroupsUI(ctx, { onAnswer, onReplay }) {
   const coachEl = document.getElementById('coachBox');
   const backBtn = document.getElementById('backBtn');
 
+  const phaseBanner = {
+    root: document.getElementById('phaseBanner'),
+    icon: document.getElementById('phaseBannerIcon'),
+    title: document.getElementById('phaseBannerTitle'),
+    sub: document.getElementById('phaseBannerSub')
+  };
+
   let answerLocked = false;
 
   const summaryShell = mountSummaryShell(document.body, {
@@ -36,21 +52,30 @@ export function createGroupsUI(ctx, { onAnswer, onReplay }) {
 
   backBtn.addEventListener('click', () => goHub(ctx));
 
+  function setPhaseBanner(phaseKey) {
+    const meta = PHASE_BANNER[phaseKey] || PHASE_BANNER.sort;
+    phaseBanner.root.setAttribute('data-phase', phaseKey);
+    phaseBanner.icon.textContent = meta.icon;
+    phaseBanner.title.textContent = meta.title;
+    phaseBanner.sub.textContent = meta.sub;
+  }
+
   function setHud(viewState) {
     phaseEl.textContent = `หมวด: ${viewState.phaseLabel}`;
     progressEl.textContent = `${viewState.phaseCurrent} / ${viewState.phaseTotal}`;
     scoreEl.textContent = String(viewState.score);
     streakEl.textContent = String(viewState.streak);
     tipEl.textContent = TIPS[viewState.phaseKey] || '';
+    setPhaseBanner(viewState.phaseKey);
   }
 
   function renderVisual(question) {
     if (question.type === 'sort' || (question.isRetry && question.retryFrom === 'sort')) {
       visualEl.innerHTML = `
-        <div class="food-card">
+        <div class="food-card child-card">
           <div class="food-emoji">${esc(question.food.emoji)}</div>
           <div class="food-name">${esc(question.food.label)}</div>
-          <div class="food-sub">${question.isRetry ? 'รอบทบทวนโจทย์เดิม' : 'เลือกหมู่อาหารที่ถูกต้อง'}</div>
+          <div class="food-sub">${question.isRetry ? 'ลองตอบใหม่นะ' : 'แตะหมวดอาหารที่ถูกต้อง'}</div>
         </div>
       `;
       return;
@@ -59,14 +84,14 @@ export function createGroupsUI(ctx, { onAnswer, onReplay }) {
     if (question.type === 'compare' || (question.isRetry && question.retryFrom === 'compare')) {
       visualEl.innerHTML = `
         <div class="compare-grid">
-          <div class="compare-option">
+          <div class="compare-option child-card">
             <div class="food-emoji">${esc(question.left.emoji)}</div>
             <div class="food-name">${esc(question.left.label)}</div>
           </div>
-          <div class="compare-option">
+          <div class="compare-option compare-mid">
             <div class="compare-vs">VS</div>
           </div>
-          <div class="compare-option">
+          <div class="compare-option child-card">
             <div class="food-emoji">${esc(question.right.emoji)}</div>
             <div class="food-name">${esc(question.right.label)}</div>
           </div>
@@ -77,23 +102,47 @@ export function createGroupsUI(ctx, { onAnswer, onReplay }) {
 
     if (question.type === 'reason' || (question.isRetry && question.retryFrom === 'reason')) {
       visualEl.innerHTML = `
-        <div class="food-card">
+        <div class="food-card child-card">
           <div class="food-emoji">${esc(question.food?.emoji || '⭐')}</div>
           <div class="food-name">${esc(question.food?.label || '')}</div>
-          <div class="food-sub">${question.isRetry ? 'ทบทวนเหตุผลอีกครั้ง' : 'เลือกเหตุผลที่เหมาะสมที่สุด'}</div>
+          <div class="food-sub">${question.isRetry ? 'ลองเลือกเหตุผลอีกครั้ง' : 'เลือกเหตุผลที่ใช่ที่สุด'}</div>
         </div>
       `;
     }
   }
 
+  function buildAnswerInner(option, question) {
+    const hasEmoji = !!option.emoji;
+    const short = option.short || '';
+
+    if (question.type === 'sort' || (question.isRetry && question.retryFrom === 'sort')) {
+      return `
+        <div class="answer-main">${hasEmoji ? `${esc(option.emoji)} ` : ''}${esc(short || option.label)}</div>
+        <small>${esc(option.label)}</small>
+      `;
+    }
+
+    if (question.type === 'compare' || question.type === 'quiz' || (question.isRetry && question.retryFrom === 'compare')) {
+      return `
+        <div class="answer-main">${hasEmoji ? `${esc(option.emoji)} ` : ''}${esc(option.label)}</div>
+      `;
+    }
+
+    return `
+      <div class="answer-main">${esc(option.label)}</div>
+    `;
+  }
+
   function renderAnswers(question) {
     answerLocked = false;
     gridEl.innerHTML = '';
+
     question.options.forEach(option => {
       const btn = document.createElement('button');
-      btn.className = 'answer-btn';
+      btn.className = 'answer-btn child-answer-btn';
       btn.type = 'button';
-      btn.innerHTML = esc(option.label);
+      btn.innerHTML = buildAnswerInner(option, question);
+
       btn.addEventListener('click', async () => {
         if (answerLocked) return;
         answerLocked = true;
@@ -103,6 +152,7 @@ export function createGroupsUI(ctx, { onAnswer, onReplay }) {
         });
         await onAnswer(option.id);
       });
+
       gridEl.appendChild(btn);
     });
   }
@@ -123,8 +173,7 @@ export function createGroupsUI(ctx, { onAnswer, onReplay }) {
   }
 
   function showCoach(message) {
-    if (!coachEl) return;
-    if (!message) return;
+    if (!coachEl || !message) return;
     coachEl.textContent = `🤖 ${message}`;
     coachEl.classList.add('show');
   }
