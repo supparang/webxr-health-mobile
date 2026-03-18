@@ -1,1 +1,150 @@
-q
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>GoodJunk Intervention • Student Launcher</title>
+  <link rel="stylesheet" href="./launcher.css" />
+</head>
+<body>
+  <main class="launch-shell">
+    <section class="launch-card">
+      <div class="badge">GoodJunk Intervention</div>
+      <h1>เริ่มกิจกรรมเลือกของว่างสุขภาพ</h1>
+      <p class="sub">
+        ตรวจข้อมูลก่อนเริ่ม แล้วกดเข้าแบบประเมินก่อนเล่น
+      </p>
+
+      <form id="studentLauncherForm" class="launch-form" novalidate>
+        <label>
+          <span>Participant ID</span>
+          <input type="text" name="pid" id="pid" placeholder="เช่น ST001" required />
+        </label>
+
+        <div class="grid2">
+          <label>
+            <span>Study ID</span>
+            <input type="text" name="studyId" id="studyId" />
+          </label>
+
+          <label>
+            <span>Session</span>
+            <input type="text" name="session" id="session" placeholder="เช่น gjint-ST001-..." />
+          </label>
+        </div>
+
+        <div class="grid2">
+          <label>
+            <span>Group</span>
+            <input type="text" name="group" id="group" placeholder="เช่น P5/1" />
+          </label>
+
+          <label>
+            <span>Condition</span>
+            <input type="text" name="condition" id="condition" placeholder="เช่น A / treatment" />
+          </label>
+        </div>
+
+        <div class="grid2">
+          <label>
+            <span>Language</span>
+            <select name="lang" id="lang">
+              <option value="th">ไทย</option>
+              <option value="en">English</option>
+            </select>
+          </label>
+
+          <label>
+            <span>Mode</span>
+            <select name="mode" id="mode">
+              <option value="play">play</option>
+              <option value="research">research</option>
+              <option value="student">student</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="grid2">
+          <label>
+            <span>ชื่อเล่น</span>
+            <input type="text" name="nickName" id="nickName" placeholder="เช่น นนท์" />
+          </label>
+
+          <label>
+            <span>ห้องเรียน</span>
+            <input type="text" name="classroom" id="classroom" placeholder="เช่น P5/1" />
+          </label>
+        </div>
+
+        <div class="grid2">
+          <label>
+            <span>โรงเรียน</span>
+            <input type="text" name="school" id="school" placeholder="เช่น Demo School" />
+          </label>
+
+          <label>
+            <span>Difficulty</span>
+            <select name="diff" id="diff">
+              <option value="easy">easy</option>
+              <option value="normal">normal</option>
+              <option value="hard">hard</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="grid2">
+          <label>
+            <span>View</span>
+            <select name="view" id="view">
+              <option value="mobile">mobile</option>
+              <option value="cvr">cvr</option>
+              <option value="vr">vr</option>
+            </select>
+          </label>
+
+          <label>
+            <span>Time (sec)</span>
+            <select name="time" id="time">
+              <option value="60">60</option>
+              <option value="80">80</option>
+              <option value="100">100</option>
+            </select>
+          </label>
+        </div>
+
+        <input type="hidden" name="phase" id="phase" />
+        <input type="hidden" name="run" id="run" />
+        <input type="hidden" name="hub" id="hub" />
+        <input type="hidden" name="studentKey" id="studentKey" />
+        <input type="hidden" name="sessionId" id="sessionId" />
+        <input type="hidden" name="conditionGroup" id="conditionGroup" />
+        <input type="hidden" name="schoolName" id="schoolName" />
+        <input type="hidden" name="classRoom" id="classRoom" />
+        <input type="hidden" name="kid" id="kid" />
+        <input type="hidden" name="readable" id="readable" />
+        <input type="hidden" name="spawnDebug" id="spawnDebug" />
+        <input type="hidden" name="seed" id="seed" />
+        <input type="hidden" name="siteCode" id="siteCode" />
+        <input type="hidden" name="projectTag" id="projectTag" />
+        <input type="hidden" name="sessionOrder" id="sessionOrder" />
+        <input type="hidden" name="blockLabel" id="blockLabel" />
+        <input type="hidden" name="studentNo" id="studentNo" />
+        <input type="hidden" name="gradeLevel" id="gradeLevel" />
+        <input type="hidden" name="gender" id="gender" />
+        <input type="hidden" name="age" id="age" />
+        <input type="hidden" name="schoolCode" id="schoolCode" />
+
+        <div class="launch-actions">
+          <button type="submit" class="btn btn-primary">เริ่ม Pre-Knowledge</button>
+          <button type="button" class="btn btn-ghost" id="gotoTeacherBtn">Teacher Panel</button>
+          <button type="button" class="btn btn-ghost" id="gotoGameBtn">เข้าเกมทันที</button>
+        </div>
+      </form>
+
+      <div class="hint" id="ctxPreview">ยังไม่มีข้อมูล session</div>
+    </section>
+  </main>
+
+  <script type="module" src="./launcher.js"></script>
+</body>
+</html>
