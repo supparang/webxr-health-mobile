@@ -1,0 +1,335 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>GoodJunk Intervention • Session Summary Tool</title>
+  <meta name="color-scheme" content="dark light" />
+  <style>
+    :root{
+      --bg1:#07111f;
+      --bg2:#0f1d36;
+      --panel:rgba(10,18,34,.86);
+      --card:rgba(15,23,42,.78);
+      --stroke:rgba(148,163,184,.18);
+      --text:#f8fafc;
+      --muted:#cbd5e1;
+      --green:#22c55e;
+      --blue:#38bdf8;
+      --violet:#a78bfa;
+      --warn:#f59e0b;
+      --shadow:0 18px 50px rgba(0,0,0,.32);
+    }
+
+    *{ box-sizing:border-box; }
+
+    html,body{
+      margin:0;
+      min-height:100%;
+      font-family:system-ui,-apple-system,"Noto Sans Thai","Segoe UI",Roboto,Arial,sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(34,197,94,.14), transparent 24%),
+        radial-gradient(circle at top right, rgba(56,189,248,.14), transparent 28%),
+        linear-gradient(180deg, var(--bg1), var(--bg2));
+    }
+
+    .wrap{
+      width:min(1180px, calc(100% - 24px));
+      margin:20px auto 40px;
+    }
+
+    .hero{
+      background:var(--panel);
+      border:1px solid var(--stroke);
+      border-radius:28px;
+      box-shadow:var(--shadow);
+      padding:20px;
+      backdrop-filter:blur(10px);
+    }
+
+    .badge{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      min-height:34px;
+      padding:6px 12px;
+      border-radius:999px;
+      border:1px solid rgba(56,189,248,.24);
+      background:rgba(56,189,248,.12);
+      color:#dbeafe;
+      font-size:12px;
+      font-weight:1000;
+    }
+
+    h1{
+      margin:14px 0 8px;
+      font-size:clamp(28px, 5vw, 44px);
+      line-height:1.05;
+    }
+
+    .sub{
+      color:var(--muted);
+      font-size:14px;
+      line-height:1.65;
+      max-width:860px;
+    }
+
+    .grid{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:16px;
+      margin-top:16px;
+    }
+
+    @media (max-width:960px){
+      .grid{ grid-template-columns:1fr; }
+    }
+
+    .card{
+      background:var(--card);
+      border:1px solid var(--stroke);
+      border-radius:22px;
+      box-shadow:var(--shadow);
+      padding:16px;
+      backdrop-filter:blur(10px);
+    }
+
+    .card h2{
+      margin:0 0 12px;
+      font-size:18px;
+    }
+
+    .chips{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+    }
+
+    .chip{
+      display:inline-flex;
+      align-items:center;
+      min-height:30px;
+      padding:4px 10px;
+      border-radius:999px;
+      border:1px solid var(--stroke);
+      background:rgba(2,6,23,.46);
+      color:#dbeafe;
+      font-size:12px;
+      font-weight:900;
+    }
+
+    .stat-list{
+      display:grid;
+      gap:10px;
+    }
+
+    .row{
+      display:flex;
+      justify-content:space-between;
+      gap:12px;
+      padding:10px 12px;
+      border-radius:14px;
+      background:rgba(2,6,23,.42);
+      border:1px solid rgba(148,163,184,.12);
+      font-size:14px;
+    }
+
+    .label{ color:var(--muted); }
+    .value{ font-weight:900; }
+
+    .actions{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      margin-top:14px;
+    }
+
+    button{
+      appearance:none;
+      border:none;
+      cursor:pointer;
+      min-height:44px;
+      border-radius:14px;
+      padding:0 14px;
+      font:900 14px/1 system-ui,-apple-system,"Noto Sans Thai","Segoe UI",Roboto,Arial;
+      color:#fff;
+    }
+
+    .btn-blue{ background:linear-gradient(135deg,#2563eb,#38bdf8); }
+    .btn-green{ background:linear-gradient(135deg,#16a34a,#22c55e); }
+    .btn-violet{ background:linear-gradient(135deg,#7c3aed,#a78bfa); }
+    .btn-ghost{
+      background:rgba(148,163,184,.12);
+      border:1px solid var(--stroke);
+      color:var(--text);
+    }
+
+    pre{
+      margin:0;
+      white-space:pre-wrap;
+      word-break:break-word;
+      font:12px/1.6 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+      color:#dbeafe;
+      background:rgba(2,6,23,.56);
+      border:1px solid rgba(148,163,184,.12);
+      border-radius:16px;
+      padding:14px;
+      max-height:560px;
+      overflow:auto;
+    }
+
+    .small{
+      color:var(--muted);
+      font-size:12px;
+      line-height:1.6;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="hero">
+      <div class="badge">🧪 Session Summary Tool</div>
+      <h1>รวมผล session ปัจจุบันจาก localStorage</h1>
+      <div class="sub">
+        หน้านี้จะอ่านข้อมูลจาก `GJI_CTX` และคีย์หลักทั้งหมดของ GoodJunk Intervention
+        แล้วรวมออกมาเป็น JSON summary เดียวเพื่อเช็กว่า pre / game / post / parent / follow-up บันทึกครบหรือยัง
+      </div>
+
+      <div class="grid">
+        <section class="card">
+          <h2>สถานะสรุป</h2>
+          <div class="chips" id="statusChips"></div>
+
+          <div class="stat-list" style="margin-top:12px;">
+            <div class="row"><span class="label">PID</span><span class="value" id="vPid">-</span></div>
+            <div class="row"><span class="label">Study</span><span class="value" id="vStudy">-</span></div>
+            <div class="row"><span class="label">Session</span><span class="value" id="vSession">-</span></div>
+            <div class="row"><span class="label">Condition</span><span class="value" id="vCondition">-</span></div>
+            <div class="row"><span class="label">Score</span><span class="value" id="vScore">-</span></div>
+            <div class="row"><span class="label">Grade</span><span class="value" id="vGrade">-</span></div>
+            <div class="row"><span class="label">Pre Knowledge</span><span class="value" id="vPreK">-</span></div>
+            <div class="row"><span class="label">Post Knowledge</span><span class="value" id="vPostK">-</span></div>
+            <div class="row"><span class="label">Game Events</span><span class="value" id="vEvents">-</span></div>
+            <div class="row"><span class="label">Completion Code</span><span class="value" id="vCompletion">-</span></div>
+          </div>
+
+          <div class="actions">
+            <button class="btn-blue" id="btnRefresh" type="button">รีเฟรช</button>
+            <button class="btn-green" id="btnCopyCompact" type="button">Copy Compact JSON</button>
+            <button class="btn-violet" id="btnCopyFull" type="button">Copy Full JSON</button>
+            <button class="btn-ghost" id="btnDownload" type="button">Download JSON</button>
+          </div>
+
+          <div class="small" style="margin-top:12px;">
+            ใช้หน้านี้ใน browser เดียวกับที่เล่น/กรอกแบบประเมิน เพื่อให้ localStorage ของ session นั้นถูกอ่านได้ตรงกัน
+          </div>
+        </section>
+
+        <section class="card">
+          <h2>Compact Summary</h2>
+          <pre id="compactJson">กำลังโหลด...</pre>
+        </section>
+      </div>
+
+      <div class="card" style="margin-top:16px;">
+        <h2>Full Summary</h2>
+        <pre id="fullJson">กำลังโหลด...</pre>
+      </div>
+    </section>
+  </div>
+
+  <script type="module">
+    import { buildSessionSummary, buildCompactSessionSummary } from '../research/session-summary.js';
+
+    function $(id){ return document.getElementById(id); }
+
+    let full = null;
+    let compact = null;
+
+    function chip(text) {
+      return `<span class="chip">${text}</span>`;
+    }
+
+    async function copyText(text) {
+      try {
+        await navigator.clipboard.writeText(text);
+      } catch {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        ta.remove();
+      }
+    }
+
+    function downloadJson(filename, data) {
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    function render() {
+      full = buildSessionSummary();
+      compact = buildCompactSessionSummary();
+
+      $('compactJson').textContent = JSON.stringify(compact, null, 2);
+      $('fullJson').textContent = JSON.stringify(full, null, 2);
+
+      $('vPid').textContent = compact.ctx?.pid || '-';
+      $('vStudy').textContent = compact.ctx?.studyId || '-';
+      $('vSession').textContent = compact.ctx?.session || '-';
+      $('vCondition').textContent = compact.ctx?.condition || '-';
+      $('vScore').textContent = String(compact.keyMetrics?.score ?? '-');
+      $('vGrade').textContent = compact.keyMetrics?.grade || '-';
+      $('vPreK').textContent = compact.keyMetrics?.preKnowledgePercent == null ? '-' : `${compact.keyMetrics.preKnowledgePercent}%`;
+      $('vPostK').textContent = compact.keyMetrics?.postKnowledgePercent == null ? '-' : `${compact.keyMetrics.postKnowledgePercent}%`;
+      $('vEvents').textContent = String(compact.counts?.gameEventCount ?? 0);
+      $('vCompletion').textContent = compact.keyMetrics?.completionCode || '-';
+
+      const chips = [];
+      if (compact.progress?.coreFlowDone) chips.push(chip('coreFlowDone'));
+      if (compact.progress?.completionDone) chips.push(chip('completionDone'));
+      if (compact.progress?.parentDone) chips.push(chip('parentDone'));
+      if (compact.progress?.followupAnyDone) chips.push(chip('followupAnyDone'));
+      if (compact.progress?.allKnownSectionsDone) chips.push(chip('allKnownSectionsDone'));
+
+      const completion = compact.completion || {};
+      Object.entries(completion).forEach(([k,v]) => {
+        chips.push(chip(`${k}:${v ? 'yes' : 'no'}`));
+      });
+
+      $('statusChips').innerHTML = chips.join('');
+    }
+
+    $('btnRefresh').addEventListener('click', render);
+
+    $('btnCopyCompact').addEventListener('click', async () => {
+      await copyText(JSON.stringify(compact, null, 2));
+      $('btnCopyCompact').textContent = 'Copied!';
+      setTimeout(() => $('btnCopyCompact').textContent = 'Copy Compact JSON', 1000);
+    });
+
+    $('btnCopyFull').addEventListener('click', async () => {
+      await copyText(JSON.stringify(full, null, 2));
+      $('btnCopyFull').textContent = 'Copied!';
+      setTimeout(() => $('btnCopyFull').textContent = 'Copy Full JSON', 1000);
+    });
+
+    $('btnDownload').addEventListener('click', () => {
+      const pid = compact?.ctx?.pid || 'unknown';
+      const session = compact?.ctx?.session || 'session';
+      downloadJson(`gji-session-summary-${pid}-${session}.json`, full);
+    });
+
+    render();
+  </script>
+</body>
+</html>
