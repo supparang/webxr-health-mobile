@@ -3,429 +3,206 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>GoodJunk Intervention — Weekly Check</title>
-  <meta name="color-scheme" content="dark light" />
-  <style>
-    :root{
-      --bg:#08101f;
-      --panel:rgba(15,23,42,.86);
-      --card:rgba(15,23,42,.72);
-      --line:rgba(148,163,184,.18);
-      --text:#e5e7eb;
-      --muted:#94a3b8;
-      --blue:#38bdf8;
-      --green:#22c55e;
-      --violet:#a78bfa;
-      --amber:#f59e0b;
-      --shadow:0 20px 60px rgba(0,0,0,.32);
-    }
-
-    *{ box-sizing:border-box; }
-
-    html,body{
-      margin:0;
-      min-height:100%;
-      background:
-        radial-gradient(circle at top, #172554 0%, #08101f 48%, #020617 100%);
-      color:var(--text);
-      font-family:system-ui,-apple-system,"Noto Sans Thai","Segoe UI",Roboto,Arial,sans-serif;
-    }
-
-    .wrap{
-      width:min(1020px, calc(100% - 24px));
-      margin:20px auto 36px;
-    }
-
-    .hero,.card{
-      background:var(--panel);
-      border:1px solid var(--line);
-      border-radius:24px;
-      box-shadow:var(--shadow);
-      padding:18px;
-      backdrop-filter:blur(12px);
-    }
-
-    .hero h1{
-      margin:8px 0;
-      font-size:clamp(28px,5vw,40px);
-      line-height:1.05;
-    }
-
-    .kicker{
-      display:inline-flex;
-      align-items:center;
-      min-height:34px;
-      padding:6px 12px;
-      border-radius:999px;
-      border:1px solid rgba(245,158,11,.22);
-      background:rgba(245,158,11,.10);
-      color:#fde68a;
-      font-size:12px;
-      font-weight:1000;
-    }
-
-    .sub{
-      color:var(--muted);
-      font-size:14px;
-      line-height:1.6;
-      margin-top:8px;
-      max-width:920px;
-    }
-
-    .context{
-      display:flex;
-      flex-wrap:wrap;
-      gap:8px;
-      margin-top:12px;
-    }
-
-    .chip{
-      display:inline-flex;
-      align-items:center;
-      min-height:30px;
-      padding:4px 10px;
-      border-radius:999px;
-      border:1px solid var(--line);
-      background:rgba(2,6,23,.46);
-      color:#dbeafe;
-      font-size:12px;
-      font-weight:900;
-    }
-
-    .grid{
-      display:grid;
-      gap:14px;
-      margin-top:16px;
-      grid-template-columns:1fr;
-    }
-
-    .card h2{
-      margin:0 0 10px;
-      font-size:18px;
-    }
-
-    .q{
-      border:1px solid var(--line);
-      border-radius:18px;
-      background:var(--card);
-      padding:14px;
-      margin-top:12px;
-    }
-
-    .q-title{
-      font-size:16px;
-      font-weight:1000;
-      line-height:1.5;
-    }
-
-    .options{
-      display:grid;
-      gap:10px;
-      margin-top:12px;
-    }
-
-    label.option{
-      display:flex;
-      gap:12px;
-      align-items:flex-start;
-      padding:12px 14px;
-      border:1px solid var(--line);
-      border-radius:14px;
-      background:rgba(2,6,23,.44);
-      cursor:pointer;
-    }
-
-    label.option input{
-      margin-top:2px;
-      accent-color:#22c55e;
-      width:18px;
-      height:18px;
-      flex:0 0 auto;
-    }
-
-    label.option span{
-      line-height:1.6;
-      font-size:14px;
-      color:#e2e8f0;
-    }
-
-    label.block{
-      display:grid;
-      gap:8px;
-      margin-top:12px;
-      font-size:13px;
-      font-weight:900;
-      color:#cbd5e1;
-    }
-
-    textarea{
-      width:100%;
-      min-height:110px;
-      border-radius:14px;
-      border:1px solid var(--line);
-      background:rgba(2,6,23,.64);
-      color:var(--text);
-      padding:12px 14px;
-      font:inherit;
-      outline:none;
-      resize:vertical;
-    }
-
-    .actions{
-      display:flex;
-      flex-wrap:wrap;
-      gap:10px;
-      margin-top:18px;
-    }
-
-    button{
-      appearance:none;
-      border:none;
-      cursor:pointer;
-      min-height:46px;
-      border-radius:14px;
-      padding:0 16px;
-      font:900 14px/1 system-ui,-apple-system,"Noto Sans Thai","Segoe UI",Roboto,Arial;
-      color:#fff;
-    }
-
-    .btn-blue{ background:linear-gradient(135deg,#2563eb,#38bdf8); }
-    .btn-green{ background:linear-gradient(135deg,#16a34a,#22c55e); }
-    .btn-violet{ background:linear-gradient(135deg,#7c3aed,#a78bfa); }
-    .btn-ghost{
-      background:rgba(148,163,184,.12);
-      border:1px solid var(--line);
-      color:var(--text);
-    }
-
-    .muted{ color:var(--muted); font-size:13px; line-height:1.55; }
-    .summary{
-      margin-top:10px;
-      color:#cbd5e1;
-      font-size:14px;
-      line-height:1.6;
-    }
-
-    .tip{
-      margin-top:14px;
-      border:1px solid rgba(34,197,94,.22);
-      border-radius:18px;
-      background:rgba(34,197,94,.08);
-      padding:14px;
-      color:#dcfce7;
-      font-size:14px;
-      line-height:1.65;
-    }
-  </style>
+  <title>GoodJunk Intervention • Weekly Check</title>
+  <link rel="stylesheet" href="../assessments/assessment.css" />
 </head>
 <body>
-  <div class="wrap">
-    <section class="hero">
-      <div class="kicker">📅 Weekly Follow-up • GoodJunk Intervention</div>
+  <main class="page">
+    <section class="card">
+      <div class="badge">Follow-up • Weekly Check</div>
       <h1>ติดตามผลรายสัปดาห์</h1>
-      <div class="sub">
-        หน้านี้ใช้ติดตามว่าหลังจากเล่นเกมไปแล้ว เด็กได้ลองเปลี่ยนการเลือกอาหารหรือของว่างในชีวิตจริงบ้างหรือไม่
-        แบบติดตามนี้ควรเป็นแบบสั้น อ่านง่าย และตอบได้เร็ว
-      </div>
-      <div class="context" id="ctxChips"></div>
-    </section>
+      <p class="sub">ตอบตามพฤติกรรมจริงในช่วงสัปดาห์ที่ผ่านมา</p>
+      <div class="ctx" id="ctxBox">กำลังโหลด...</div>
 
-    <section class="grid">
-      <section class="card">
-        <h2>Weekly Check</h2>
-        <div class="muted">เลือกคำตอบที่ตรงกับสิ่งที่เกิดขึ้นในช่วงสัปดาห์นี้มากที่สุด</div>
-
-        <form id="weeklyForm">
-          <div class="q">
-            <div class="q-title">1) สัปดาห์นี้เด็กได้เลือกของว่างที่ดีต่อสุขภาพมากขึ้นหรือไม่</div>
-            <div class="options">
-              <label class="option"><input type="radio" name="q1" value="1"><span>ยังไม่ค่อยได้เลือก</span></label>
-              <label class="option"><input type="radio" name="q1" value="2"><span>เลือกบ้างบางครั้ง</span></label>
-              <label class="option"><input type="radio" name="q1" value="3"><span>เลือกได้บ่อยขึ้น</span></label>
-            </div>
+      <form class="form" id="weeklyCheckForm" novalidate>
+        <section class="block">
+          <h2>1) ในสัปดาห์ที่ผ่านมา หนูกินผลไม้บ่อยแค่ไหน</h2>
+          <div class="choice-grid">
+            <label class="choice"><input type="radio" name="wk1_fruitFrequency" value="often" required /> บ่อย</label>
+            <label class="choice"><input type="radio" name="wk1_fruitFrequency" value="sometimes" required /> บางครั้ง</label>
+            <label class="choice"><input type="radio" name="wk1_fruitFrequency" value="rarely" required /> นาน ๆ ครั้ง</label>
+            <label class="choice"><input type="radio" name="wk1_fruitFrequency" value="never" required /> แทบไม่กินเลย</label>
           </div>
+        </section>
 
-          <div class="q">
-            <div class="q-title">2) สัปดาห์นี้เด็กลดขนมหรือน้ำหวานลงบ้างหรือไม่</div>
-            <div class="options">
-              <label class="option"><input type="radio" name="q2" value="1"><span>ยังไม่ค่อยลด</span></label>
-              <label class="option"><input type="radio" name="q2" value="2"><span>ลดบ้างเล็กน้อย</span></label>
-              <label class="option"><input type="radio" name="q2" value="3"><span>ลดได้ชัดขึ้น</span></label>
-            </div>
+        <section class="block">
+          <h2>2) ในสัปดาห์ที่ผ่านมา หนูกินขนมหรือของทอดบ่อยแค่ไหน</h2>
+          <div class="choice-grid">
+            <label class="choice"><input type="radio" name="wk2_junkFrequency" value="often" required /> บ่อย</label>
+            <label class="choice"><input type="radio" name="wk2_junkFrequency" value="sometimes" required /> บางครั้ง</label>
+            <label class="choice"><input type="radio" name="wk2_junkFrequency" value="rarely" required /> นาน ๆ ครั้ง</label>
+            <label class="choice"><input type="radio" name="wk2_junkFrequency" value="never" required /> แทบไม่กินเลย</label>
           </div>
+        </section>
 
-          <div class="q">
-            <div class="q-title">3) เด็กพูดถึงอาหารดี ผลไม้ หรือสุขภาพที่บ้านมากขึ้นหรือไม่</div>
-            <div class="options">
-              <label class="option"><input type="radio" name="q3" value="1"><span>ยังไม่ค่อยพูดถึง</span></label>
-              <label class="option"><input type="radio" name="q3" value="2"><span>พูดถึงบ้างบางครั้ง</span></label>
-              <label class="option"><input type="radio" name="q3" value="3"><span>พูดถึงบ่อยขึ้น</span></label>
-            </div>
+        <section class="block">
+          <h2>3) เวลากระหายน้ำ หนูเลือกอะไรบ่อยที่สุดในสัปดาห์นี้</h2>
+          <div class="choice-grid">
+            <label class="choice"><input type="radio" name="wk3_drinkChoice" value="water" required /> น้ำเปล่า</label>
+            <label class="choice"><input type="radio" name="wk3_drinkChoice" value="milk" required /> นมจืด</label>
+            <label class="choice"><input type="radio" name="wk3_drinkChoice" value="sweetDrink" required /> น้ำหวาน / น้ำอัดลม</label>
+            <label class="choice"><input type="radio" name="wk3_drinkChoice" value="tea" required /> ชาหวาน / ชานม</label>
           </div>
+        </section>
 
-          <div class="q">
-            <div class="q-title">4) ผู้ปกครองช่วยสนับสนุนให้เด็กเลือกของว่างดีหรืออาหารที่ดีต่อสุขภาพได้มากน้อยแค่ไหนในสัปดาห์นี้</div>
-            <div class="options">
-              <label class="option"><input type="radio" name="q4" value="1"><span>ยังช่วยได้น้อย</span></label>
-              <label class="option"><input type="radio" name="q4" value="2"><span>ช่วยได้บ้าง</span></label>
-              <label class="option"><input type="radio" name="q4" value="3"><span>ช่วยได้ค่อนข้างมาก</span></label>
-            </div>
+        <section class="block">
+          <h2>4) เวลาซื้อของว่าง หนูเลือกของที่ดีต่อสุขภาพมากขึ้นไหม</h2>
+          <div class="choice-grid">
+            <label class="choice"><input type="radio" name="wk4_healthyChoice" value="yes" required /> มากขึ้น</label>
+            <label class="choice"><input type="radio" name="wk4_healthyChoice" value="maybe" required /> มากขึ้นบ้าง</label>
+            <label class="choice"><input type="radio" name="wk4_healthyChoice" value="notMuch" required /> ยังไม่ค่อยเปลี่ยน</label>
+            <label class="choice"><input type="radio" name="wk4_healthyChoice" value="no" required /> ไม่เปลี่ยน</label>
           </div>
+        </section>
 
-          <div class="q">
-            <div class="q-title">5) โดยรวมคิดว่าเกมนี้ช่วยต่อยอดการเลือกอาหารหรือของว่างจริงในชีวิตประจำวันได้แค่ไหน</div>
-            <div class="options">
-              <label class="option"><input type="radio" name="q5" value="1"><span>ยังช่วยได้น้อย</span></label>
-              <label class="option"><input type="radio" name="q5" value="2"><span>ช่วยได้บ้าง</span></label>
-              <label class="option"><input type="radio" name="q5" value="3"><span>ช่วยได้มากขึ้น</span></label>
-            </div>
+        <section class="block">
+          <h2>5) หนูได้คุยกับผู้ปกครองหรือเพื่อนเรื่องของว่างสุขภาพไหม</h2>
+          <div class="choice-grid">
+            <label class="choice"><input type="radio" name="wk5_sharedWithOthers" value="yes" required /> ได้คุย</label>
+            <label class="choice"><input type="radio" name="wk5_sharedWithOthers" value="somewhat" required /> คุยบ้าง</label>
+            <label class="choice"><input type="radio" name="wk5_sharedWithOthers" value="notMuch" required /> ยังไม่ค่อยได้คุย</label>
+            <label class="choice"><input type="radio" name="wk5_sharedWithOthers" value="no" required /> ไม่ได้คุย</label>
           </div>
+        </section>
 
-          <label class="block">
-            หมายเหตุหรือสิ่งที่สังเกตเพิ่ม (ถ้ามี)
-            <textarea id="comment" placeholder="เช่น เด็กขอผลไม้มากขึ้น / ยังต้องเตือนเรื่องน้ำหวาน / ชวนคุยเรื่องอาหารดีบ่อยขึ้น ฯลฯ"></textarea>
+        <section class="block">
+          <h2>6) สิ่งที่ช่วยให้หนูเลือกของว่างที่ดีกว่าในสัปดาห์นี้คืออะไร</h2>
+          <label class="inline">
+            <span class="note">ตอบสั้น ๆ ได้เลย</span>
+            <textarea name="wk6_helpFactor" placeholder="เช่น เกมช่วยเตือนให้เลือกผลไม้ หรือผู้ปกครองช่วยเตรียมของว่าง"></textarea>
           </label>
-        </form>
+        </section>
 
-        <div class="tip">
-          แนวคิดของหน้านี้คือเก็บผลติดตามระยะสั้นหลัง intervention
-          เพื่อดูว่าเกมไม่ได้ส่งผลแค่ “ในเกม” แต่เริ่มโยงไปสู่ชีวิตจริงและบริบทในบ้าน
-        </div>
+        <section class="block">
+          <h2>7) สิ่งที่ยังทำให้หนูเผลอเลือก junk อยู่คืออะไร</h2>
+          <label class="inline">
+            <span class="note">ตอบสั้น ๆ ได้เลย</span>
+            <textarea name="wk7_barrier" placeholder="เช่น ขนมซื้อได้ง่าย หรือเห็นเพื่อนกินแล้วอยากกินตาม"></textarea>
+          </label>
+        </section>
 
-        <div class="summary" id="statusText">
-          ตอบให้ครบ 5 ข้อ แล้วกด “บันทึก”
-        </div>
+        <section class="block">
+          <h2>8) โดยรวมแล้ว หนูคิดว่าพฤติกรรมการเลือกของว่างของหนูเปลี่ยนไปไหม</h2>
+          <div class="choice-grid">
+            <label class="choice"><input type="radio" name="wk8_overallChange" value="better" required /> ดีขึ้น</label>
+            <label class="choice"><input type="radio" name="wk8_overallChange" value="slightlyBetter" required /> ดีขึ้นเล็กน้อย</label>
+            <label class="choice"><input type="radio" name="wk8_overallChange" value="same" required /> เหมือนเดิม</label>
+            <label class="choice"><input type="radio" name="wk8_overallChange" value="notSure" required /> ยังไม่แน่ใจ</label>
+          </div>
+        </section>
 
-        <div class="actions">
-          <button class="btn-ghost" id="btnBackParent" type="button">← กลับ Parent Questionnaire</button>
-          <button class="btn-green" id="btnSave" type="button">บันทึก</button>
-          <button class="btn-violet" id="btnShortFollowup" type="button">ไป Short Follow-up</button>
-          <button class="btn-blue" id="btnHub" type="button">กลับ HUB</button>
+        <section class="block" id="statusBox" style="display:none;">
+          <h2>บันทึกแล้ว</h2>
+          <p id="statusText">ระบบบันทึก Weekly Check เรียบร้อยแล้ว</p>
+        </section>
+
+        <div class="footer">
+          <button type="button" class="btn btn-ghost" data-action="back">ย้อนกลับ</button>
+          <button type="submit" class="btn btn-primary">บันทึกคำตอบ</button>
+          <button type="button" class="btn btn-ghost" id="backTeacherBtn">กลับ Teacher Panel</button>
+          <button type="button" class="btn btn-ghost" id="backLauncherBtn">กลับ Student Launcher</button>
         </div>
-      </section>
+      </form>
     </section>
-  </div>
+  </main>
 
-  <script>
-    const $ = (id)=>document.getElementById(id);
-    const STORAGE_KEY = 'GOODJUNK_INT_WEEKLY_CHECK_V1';
+  <script type="module">
+    import { buildUrl, pickCtxFromQuery, withDefaultCtx } from '../research/config.js';
+    import { loadCtx, mergeCtx, saveCtx, saveAssessment, loadAssessment, pageStorageKey } from '../research/localstore.js';
 
-    function q(k,d=''){
-      try{ return new URL(location.href).searchParams.get(k) ?? d; }
-      catch(_){ return d; }
+    function $(id){ return document.getElementById(id); }
+
+    function getFilename() {
+      return window.location.pathname.split('/').pop() || 'weekly-check.html';
     }
 
-    function withContext(base){
-      const u = new URL(base, location.href);
-      const src = new URL(location.href);
-      [
-        'projectTag','studyId','phase','conditionGroup','sessionOrder','blockLabel','sessionId',
-        'studentKey','schoolCode','schoolName','classRoom','studentNo','nickName',
-        'gradeLevel','gender','age','run','diff','view','time','seed','kid','readable','hub'
-      ].forEach(k=>{
-        const v = src.searchParams.get(k);
-        if(v != null && v !== '') u.searchParams.set(k, v);
-      });
-      return u.toString();
-    }
+    function serializeForm(form) {
+      const data = {};
+      const fd = new FormData(form);
 
-    function renderChips(){
-      const chips = [
-        `study:${q('studyId','-')}`,
-        `student:${q('studentKey','-')}`,
-        `nick:${q('nickName','-')}`,
-        `phase:${q('phase','-')}`
-      ];
-      $('ctxChips').innerHTML = chips.map(t=>`<span class="chip">${t}</span>`).join('');
-    }
-
-    function collectAnswers(){
-      const fd = new FormData($('weeklyForm'));
-      return {
-        q1: fd.get('q1') || '',
-        q2: fd.get('q2') || '',
-        q3: fd.get('q3') || '',
-        q4: fd.get('q4') || '',
-        q5: fd.get('q5') || '',
-        comment: $('comment').value.trim()
-      };
-    }
-
-    function allAnswered(ans){
-      return ['q1','q2','q3','q4','q5'].every(k => !!ans[k]);
-    }
-
-    function sumAnswers(ans){
-      return ['q1','q2','q3','q4','q5'].reduce((s,k)=>s + (Number(ans[k]) || 0), 0);
-    }
-
-    function buildRow(ans){
-      return {
-        timestampIso: new Date().toISOString(),
-        instrument: 'weekly_check_goodjunk',
-        projectTag: q('projectTag',''),
-        studyId: q('studyId',''),
-        phase: q('phase',''),
-        conditionGroup: q('conditionGroup',''),
-        sessionId: q('sessionId',''),
-        studentKey: q('studentKey',''),
-        nickName: q('nickName',''),
-        classRoom: q('classRoom',''),
-        gradeLevel: q('gradeLevel',''),
-        score: sumAnswers(ans),
-        total: 15,
-        q1: ans.q1,
-        q2: ans.q2,
-        q3: ans.q3,
-        q4: ans.q4,
-        q5: ans.q5,
-        comment: ans.comment
-      };
-    }
-
-    function saveLocal(row){
-      try{
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(row));
-      }catch(_){}
-    }
-
-    function updateStatus(){
-      const ans = collectAnswers();
-      const answered = ['q1','q2','q3','q4','q5'].filter(k => !!ans[k]).length;
-      $('statusText').textContent = `ตอบแล้ว ${answered}/5 ข้อ`;
-    }
-
-    document.querySelectorAll('input[type="radio"]').forEach(el=>{
-      el.addEventListener('change', updateStatus);
-    });
-
-    $('btnBackParent').addEventListener('click', ()=>{
-      location.href = withContext('../parent/parent-questionnaire.html');
-    });
-
-    $('btnSave').addEventListener('click', ()=>{
-      const ans = collectAnswers();
-      if(!allAnswered(ans)){
-        alert('กรุณาตอบให้ครบ 5 ข้อก่อน');
-        return;
+      for (const [key, value] of fd.entries()) {
+        if (Object.prototype.hasOwnProperty.call(data, key)) {
+          if (!Array.isArray(data[key])) data[key] = [data[key]];
+          data[key].push(value);
+        } else {
+          data[key] = value;
+        }
       }
+      return data;
+    }
 
-      const row = buildRow(ans);
-      saveLocal(row);
-      console.log('[GoodJunk] weekly check row', row);
-      alert('บันทึก Weekly Follow-up แล้ว');
+    function restoreForm(form, saved = {}) {
+      const data = saved?.answers && typeof saved.answers === 'object' ? saved.answers : saved;
+      const fields = form.querySelectorAll('input[name], textarea[name], select[name]');
+      for (const field of fields) {
+        const { name, type } = field;
+        if (!(name in data)) continue;
+        const value = data[name];
+
+        if (type === 'radio') {
+          field.checked = String(field.value) === String(value);
+          continue;
+        }
+        field.value = value ?? '';
+      }
+    }
+
+    function renderCtx(ctx) {
+      $('ctxBox').textContent = [
+        `PID: ${ctx.pid || '-'}`,
+        `Study: ${ctx.studyId || '-'}`,
+        `Session: ${ctx.session || '-'}`,
+        `Condition: ${ctx.condition || '-'}`
+      ].join(' • ');
+    }
+
+    function showSaved(message) {
+      $('statusBox').style.display = '';
+      $('statusText').textContent = message;
+    }
+
+    mergeCtx(pickCtxFromQuery());
+    const ctx = withDefaultCtx(loadCtx());
+    saveCtx(ctx);
+    renderCtx(ctx);
+
+    const form = $('weeklyCheckForm');
+    const filename = getFilename();
+    const saved = loadAssessment(filename, {});
+    restoreForm(form, saved);
+
+    form.addEventListener('submit', (ev) => {
+      ev.preventDefault();
+      if (!form.reportValidity()) return;
+
+      const answers = serializeForm(form);
+      saveAssessment(filename, {
+        page: filename,
+        savedAt: new Date().toISOString(),
+        storageKey: pageStorageKey(filename),
+        ctxSnapshot: {
+          pid: ctx.pid || '',
+          studyId: ctx.studyId || '',
+          session: ctx.session || '',
+          condition: ctx.condition || ''
+        },
+        answers
+      });
+
+      showSaved('ระบบบันทึก Weekly Check เรียบร้อยแล้ว');
     });
 
-    $('btnShortFollowup').addEventListener('click', ()=>{
-      location.href = withContext('./short-followup.html');
+    document.querySelector('[data-action="back"]')?.addEventListener('click', () => {
+      window.history.back();
     });
 
-    $('btnHub').addEventListener('click', ()=>{
-      location.href = q('hub','../../hub.html');
+    $('backTeacherBtn').addEventListener('click', () => {
+      location.href = buildUrl('../launcher/teacher-panel.html', ctx, false);
     });
 
-    renderChips();
-    updateStatus();
+    $('backLauncherBtn').addEventListener('click', () => {
+      location.href = buildUrl('STUDENT_LAUNCHER', ctx, false);
+    });
   </script>
 </body>
 </html>
