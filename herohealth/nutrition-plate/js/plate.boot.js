@@ -1,11 +1,13 @@
 // === /herohealth/nutrition-plate/js/plate.boot.js ===
 // Boot file for Nutrition Plate
-// PATCH v20260318-NUTRITION-GATE-INTEGRATION-A
+// PATCH v20260318-NUTRITION-CLOUD-WIRING-A
 
 import { createCtx, saveLastSummary } from '../../shared/nutrition-common.js';
 import { createLogger } from '../../shared/nutrition-logging.js';
 import { restartFromLauncherOrRun } from '../../shared/nutrition-integration.js';
 import { goCooldownGate } from '../../shared/nutrition-gate.js';
+import { buildCloudPacket, sendOrQueuePacket, flushPendingQueue } from '../../shared/nutrition-cloud.js';
+import { createCloudStatus } from '../../shared/nutrition-cloud-status.js';
 import { PlateEngine } from './plate.engine.js';
 import { createPlateUI } from './plate.ui.js';
 import { createPlateCoach } from './plate.coach.js';
@@ -14,8 +16,23 @@ const ctx = createCtx('nutrition-plate');
 const logger = createLogger(ctx, 'nutrition-plate');
 const engine = new PlateEngine(ctx, logger);
 const coach = createPlateCoach();
+const cloudStatus = createCloudStatus();
 
 let latestSummary = null;
+
+async function tryFlushQueueOnStart() {
+  const result = await flushPendingQueue(ctx);
+  if (result.skipped) {
+    cloudStatus.show('ยังไม่ได้ตั้ง Apps Script endpoint — ระบบจะเก็บข้อมูลไว้ในเครื่องก่อน', 'warn', 3200);
+    return;
+  }
+
+  if (result.sent > 0) {
+    cloudStatus.show(`ส่งข้อมูลค้างแล้ว ${result.sent} รายการ`, 'ok', 2400);
+  }
+}
+
+tryFlushQueueOnStart();
 
 const ui = createPlateUI(ctx, {
   onAnswer: async (answerId) => {
@@ -35,6 +52,30 @@ const ui = createPlateUI(ctx, {
       latestSummary = result.summary;
       saveLastSummary(result.summary.payload);
       logger.flush('plate-finished');
+
+      const packet = buildCloudPacket({
+        ctx,
+        sessionMeta: logger.getSessionMeta(),
+        payloadType: 'summary',
+        metrics: result.summary.payload?.metrics || {},
+        summary: {
+          title: result.summary.title,
+          subtitle: result.summary.subtitle,
+          notes: result.summary.notes,
+          items: result.summary.items
+        },
+        raw: {
+          summaryPayload: result.summary.payload
+        }
+      });
+
+      const sendResult = await sendOrQueuePacket(ctx, packet);
+      if (sendResult.ok) {
+        cloudStatus.show('บันทึกข้อมูลวิจัยขึ้น cloud แล้ว', 'ok', 2200);
+      } else if (sendResult.queued) {
+        cloudStatus.show('บันทึกไว้ในเครื่องก่อน ยังไม่ได้ส่ง cloud', 'warn', 2800);
+      }
+
       setTimeout(() => ui.showSummary(result.summary), 700);
       return;
     }
