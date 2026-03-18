@@ -6,144 +6,45 @@
   <title>HeroHealth • GoodJunk Phase Boss</title>
   <meta name="color-scheme" content="dark light" />
   <link rel="icon" href="../favicon.ico" />
-
   <style>
     :root{
-      --bg1:#020617;
-      --bg2:#0b1226;
-      --text:#e5e7eb;
-      --muted:#94a3b8;
-      --stroke:rgba(148,163,184,.18);
-      --panel:rgba(2,6,23,.62);
-      --shadow:0 24px 64px rgba(0,0,0,.32);
-
-      --sat: env(safe-area-inset-top, 0px);
-      --sar: env(safe-area-inset-right, 0px);
-      --sab: env(safe-area-inset-bottom, 0px);
-      --sal: env(safe-area-inset-left, 0px);
+      --bg1:#020617; --bg2:#0b1226; --text:#e5e7eb; --muted:#94a3b8;
+      --stroke:rgba(148,163,184,.18); --panel:rgba(2,6,23,.62); --shadow:0 24px 64px rgba(0,0,0,.32);
+      --sat: env(safe-area-inset-top, 0px); --sar: env(safe-area-inset-right, 0px);
+      --sab: env(safe-area-inset-bottom, 0px); --sal: env(safe-area-inset-left, 0px);
     }
-
     *{ box-sizing:border-box; }
-
     html,body{
-      margin:0;
-      min-height:100%;
-      background:
-        radial-gradient(circle at top, #172554 0%, transparent 34%),
-        linear-gradient(180deg,var(--bg2),var(--bg1));
-      color:var(--text);
-      font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
-      overflow:hidden;
+      margin:0; min-height:100%;
+      background:radial-gradient(circle at top, #172554 0%, transparent 34%), linear-gradient(180deg,var(--bg2),var(--bg1));
+      color:var(--text); font-family:system-ui,-apple-system,"Segoe UI",sans-serif; overflow:hidden;
     }
-
-    body{
-      min-height:100dvh;
-    }
-
-    #app{
-      position:relative;
-      width:100vw;
-      height:100dvh;
-      overflow:hidden;
-      isolation:isolate;
-    }
-
-    #gameMount{
-      position:absolute;
-      inset:0;
-      z-index:1;
-      overflow:hidden;
-    }
-
+    body{ min-height:100dvh; }
+    #app{ position:relative; width:100vw; height:100dvh; overflow:hidden; isolation:isolate; }
+    #gameMount{ position:absolute; inset:0; z-index:1; overflow:hidden; }
     .boot-shell{
-      position:absolute;
-      inset:0;
-      display:grid;
-      place-items:center;
-      padding:
-        calc(20px + var(--sat))
-        calc(16px + var(--sar))
-        calc(20px + var(--sab))
-        calc(16px + var(--sal));
-      z-index:0;
-      pointer-events:none;
+      position:absolute; inset:0; display:grid; place-items:center;
+      padding:calc(20px + var(--sat)) calc(16px + var(--sar)) calc(20px + var(--sab)) calc(16px + var(--sal));
+      z-index:0; pointer-events:none;
     }
-
     .boot-card{
-      width:min(92vw,520px);
-      border:1px solid var(--stroke);
-      border-radius:24px;
-      background:rgba(15,23,42,.84);
-      backdrop-filter:blur(10px);
-      box-shadow:var(--shadow);
-      padding:20px 18px;
-      text-align:center;
+      width:min(92vw,520px); border:1px solid var(--stroke); border-radius:24px;
+      background:rgba(15,23,42,.84); backdrop-filter:blur(10px); box-shadow:var(--shadow);
+      padding:20px 18px; text-align:center;
     }
-
     .boot-kicker{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      padding:6px 12px;
-      border-radius:999px;
-      background:rgba(56,189,248,.12);
-      border:1px solid rgba(56,189,248,.24);
-      color:#7dd3fc;
-      font-size:13px;
-      font-weight:900;
-      margin-bottom:12px;
+      display:inline-flex; align-items:center; gap:8px; padding:6px 12px; border-radius:999px;
+      background:rgba(56,189,248,.12); border:1px solid rgba(56,189,248,.24);
+      color:#7dd3fc; font-size:13px; font-weight:900; margin-bottom:12px;
     }
-
-    .boot-title{
-      margin:0 0 8px;
-      font-size:clamp(26px, 5vw, 38px);
-      line-height:1.08;
-      font-weight:900;
-    }
-
-    .boot-sub{
-      margin:0;
-      color:var(--muted);
-      font-size:14px;
-      line-height:1.65;
-    }
-
-    .boot-meta{
-      display:flex;
-      justify-content:center;
-      gap:8px;
-      flex-wrap:wrap;
-      margin-top:14px;
-    }
-
+    .boot-title{ margin:0 0 8px; font-size:clamp(26px, 5vw, 38px); line-height:1.08; font-weight:900; }
+    .boot-sub{ margin:0; color:var(--muted); font-size:14px; line-height:1.65; }
+    .boot-meta{ display:flex; justify-content:center; gap:8px; flex-wrap:wrap; margin-top:14px; }
     .boot-pill{
-      display:inline-flex;
-      align-items:center;
-      gap:6px;
-      padding:8px 10px;
-      border-radius:999px;
-      border:1px solid var(--stroke);
-      background:var(--panel);
-      color:#cbd5e1;
-      font-size:12px;
-      font-weight:800;
+      display:inline-flex; align-items:center; gap:6px; padding:8px 10px; border-radius:999px;
+      border:1px solid var(--stroke); background:var(--panel); color:#cbd5e1; font-size:12px; font-weight:800;
     }
-
-    .boot-pill strong{
-      color:#e5e7eb;
-      font-weight:900;
-    }
-
-    @media (max-width:640px){
-      .boot-card{
-        width:min(94vw,520px);
-        padding:18px 14px;
-        border-radius:20px;
-      }
-      .boot-sub{
-        font-size:13px;
-      }
-    }
+    .boot-pill strong{ color:#e5e7eb; font-weight:900; }
   </style>
 </head>
 <body>
@@ -155,8 +56,7 @@
         <div class="boot-kicker">SOLO BOSS MODE</div>
         <h1 class="boot-title">GoodJunk Phase Boss</h1>
         <p class="boot-sub">
-          เก็บอาหารดี • หลีกเลี่ยง junk • ผ่าน Phase 1 และ Phase 2
-          เพื่อไปสู้กับ <strong>Junk King</strong>
+          เก็บอาหารดี • หลีกเลี่ยง junk • ผ่าน Phase 1 และ Phase 2 เพื่อไปสู้กับ <strong>Junk King</strong>
         </p>
         <div class="boot-meta">
           <div class="boot-pill">MODE <strong id="bootMode">solo</strong></div>
@@ -189,18 +89,14 @@
 
       window.__GJ_RUN_CTX__ = runCtx;
 
-      const modeEl = document.getElementById('bootMode');
-      const diffEl = document.getElementById('bootDiff');
-      const timeEl = document.getElementById('bootTime');
-
-      if (modeEl) modeEl.textContent = runCtx.mode || 'solo';
-      if (diffEl) diffEl.textContent = runCtx.diff || 'normal';
-      if (timeEl) timeEl.textContent = runCtx.time || '150';
+      document.getElementById('bootMode').textContent = runCtx.mode || 'solo';
+      document.getElementById('bootDiff').textContent = runCtx.diff || 'normal';
+      document.getElementById('bootTime').textContent = runCtx.time || '150';
 
       console.log('[GJ-SOLO-ENTRY] goodjunk-vr.html loaded', runCtx);
     })();
   </script>
 
-  <script type="module" src="./goodjunk.safe.phaseboss.js?v=20260318-goodjunk-phaseboss-gatefix2-unifiedgate"></script>
+  <script type="module" src="./goodjunk.safe.phaseboss.js?v=20260318-phaseboss-return-lock1"></script>
 </body>
 </html>
