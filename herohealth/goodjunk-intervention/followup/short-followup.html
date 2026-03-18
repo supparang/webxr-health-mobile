@@ -3,405 +3,205 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>GoodJunk Intervention — Short Follow-up</title>
-  <meta name="color-scheme" content="dark light" />
-  <style>
-    :root{
-      --bg:#08101f;
-      --panel:rgba(15,23,42,.86);
-      --card:rgba(15,23,42,.72);
-      --line:rgba(148,163,184,.18);
-      --text:#e5e7eb;
-      --muted:#94a3b8;
-      --blue:#38bdf8;
-      --green:#22c55e;
-      --violet:#a78bfa;
-      --shadow:0 20px 60px rgba(0,0,0,.32);
-    }
-
-    *{ box-sizing:border-box; }
-
-    html,body{
-      margin:0;
-      min-height:100%;
-      background:
-        radial-gradient(circle at top, #172554 0%, #08101f 48%, #020617 100%);
-      color:var(--text);
-      font-family:system-ui,-apple-system,"Noto Sans Thai","Segoe UI",Roboto,Arial,sans-serif;
-    }
-
-    .wrap{
-      width:min(920px, calc(100% - 24px));
-      margin:20px auto 36px;
-    }
-
-    .hero,.card{
-      background:var(--panel);
-      border:1px solid var(--line);
-      border-radius:24px;
-      box-shadow:var(--shadow);
-      padding:18px;
-      backdrop-filter:blur(12px);
-    }
-
-    .hero h1{
-      margin:8px 0;
-      font-size:clamp(28px,5vw,40px);
-      line-height:1.05;
-    }
-
-    .kicker{
-      display:inline-flex;
-      align-items:center;
-      min-height:34px;
-      padding:6px 12px;
-      border-radius:999px;
-      border:1px solid rgba(56,189,248,.22);
-      background:rgba(56,189,248,.10);
-      color:#dbeafe;
-      font-size:12px;
-      font-weight:1000;
-    }
-
-    .sub{
-      color:var(--muted);
-      font-size:14px;
-      line-height:1.6;
-      margin-top:8px;
-      max-width:860px;
-    }
-
-    .context{
-      display:flex;
-      flex-wrap:wrap;
-      gap:8px;
-      margin-top:12px;
-    }
-
-    .chip{
-      display:inline-flex;
-      align-items:center;
-      min-height:30px;
-      padding:4px 10px;
-      border-radius:999px;
-      border:1px solid var(--line);
-      background:rgba(2,6,23,.46);
-      color:#dbeafe;
-      font-size:12px;
-      font-weight:900;
-    }
-
-    .grid{
-      display:grid;
-      gap:14px;
-      margin-top:16px;
-    }
-
-    .card h2{
-      margin:0 0 10px;
-      font-size:18px;
-    }
-
-    .q{
-      border:1px solid var(--line);
-      border-radius:18px;
-      background:var(--card);
-      padding:14px;
-      margin-top:12px;
-    }
-
-    .q-title{
-      font-size:16px;
-      font-weight:1000;
-      line-height:1.5;
-    }
-
-    .options{
-      display:grid;
-      gap:10px;
-      margin-top:12px;
-    }
-
-    label.option{
-      display:flex;
-      gap:12px;
-      align-items:flex-start;
-      padding:12px 14px;
-      border:1px solid var(--line);
-      border-radius:14px;
-      background:rgba(2,6,23,.44);
-      cursor:pointer;
-    }
-
-    label.option input{
-      margin-top:2px;
-      accent-color:#22c55e;
-      width:18px;
-      height:18px;
-      flex:0 0 auto;
-    }
-
-    label.option span{
-      line-height:1.6;
-      font-size:14px;
-      color:#e2e8f0;
-    }
-
-    label.block{
-      display:grid;
-      gap:8px;
-      margin-top:12px;
-      font-size:13px;
-      font-weight:900;
-      color:#cbd5e1;
-    }
-
-    textarea{
-      width:100%;
-      min-height:90px;
-      border-radius:14px;
-      border:1px solid var(--line);
-      background:rgba(2,6,23,.64);
-      color:var(--text);
-      padding:12px 14px;
-      font:inherit;
-      outline:none;
-      resize:vertical;
-    }
-
-    .actions{
-      display:flex;
-      flex-wrap:wrap;
-      gap:10px;
-      margin-top:18px;
-    }
-
-    button{
-      appearance:none;
-      border:none;
-      cursor:pointer;
-      min-height:46px;
-      border-radius:14px;
-      padding:0 16px;
-      font:900 14px/1 system-ui,-apple-system,"Noto Sans Thai","Segoe UI",Roboto,Arial;
-      color:#fff;
-    }
-
-    .btn-blue{ background:linear-gradient(135deg,#2563eb,#38bdf8); }
-    .btn-green{ background:linear-gradient(135deg,#16a34a,#22c55e); }
-    .btn-violet{ background:linear-gradient(135deg,#7c3aed,#a78bfa); }
-    .btn-ghost{
-      background:rgba(148,163,184,.12);
-      border:1px solid var(--line);
-      color:var(--text);
-    }
-
-    .muted{ color:var(--muted); font-size:13px; line-height:1.55; }
-    .summary{
-      margin-top:10px;
-      color:#cbd5e1;
-      font-size:14px;
-      line-height:1.6;
-    }
-
-    .tip{
-      margin-top:14px;
-      border:1px solid rgba(34,197,94,.22);
-      border-radius:18px;
-      background:rgba(34,197,94,.08);
-      padding:14px;
-      color:#dcfce7;
-      font-size:14px;
-      line-height:1.65;
-    }
-  </style>
+  <title>GoodJunk Intervention • Short Follow-up</title>
+  <link rel="stylesheet" href="../assessments/assessment.css" />
 </head>
 <body>
-  <div class="wrap">
-    <section class="hero">
-      <div class="kicker">⚡ Short Follow-up • GoodJunk Intervention</div>
-      <h1>ติดตามผลสั้น</h1>
-      <div class="sub">
-        ใช้ติดตามผลแบบสั้นและเร็ว ว่าเด็กเริ่มนำสิ่งที่ได้จากเกมไปใช้จริงบ้างหรือไม่
-        หน้านี้ตอบง่ายและใช้เวลาไม่นาน
-      </div>
-      <div class="context" id="ctxChips"></div>
-    </section>
+  <main class="page">
+    <section class="card">
+      <div class="badge">Follow-up • Short Follow-up</div>
+      <h1>ติดตามผลสั้น ๆ หลังจบกิจกรรม</h1>
+      <p class="sub">ตอบสั้น ๆ ว่าตอนนี้หนูยังจำและอยากเลือกของว่างสุขภาพมากขึ้นไหม</p>
+      <div class="ctx" id="ctxBox">กำลังโหลด...</div>
 
-    <section class="grid">
-      <section class="card">
-        <h2>แบบติดตามสั้น</h2>
-        <div class="muted">เลือกคำตอบที่ตรงที่สุดในช่วงล่าสุด</div>
-
-        <form id="shortForm">
-          <div class="q">
-            <div class="q-title">1) หลังเล่นเกม หนูได้ลองเลือกของว่างที่ดีต่อสุขภาพจริงหรือไม่</div>
-            <div class="options">
-              <label class="option"><input type="radio" name="q1" value="1"><span>ยังไม่ได้ลอง</span></label>
-              <label class="option"><input type="radio" name="q1" value="2"><span>ได้ลองบ้าง</span></label>
-              <label class="option"><input type="radio" name="q1" value="3"><span>ได้ลองชัดเจน</span></label>
-            </div>
+      <form class="form" id="shortFollowupForm" novalidate>
+        <section class="block">
+          <h2>1) ตอนนี้หนูยังจำได้ไหมว่าอะไรเป็นของว่างที่ดีกว่า</h2>
+          <div class="choice-grid">
+            <label class="choice"><input type="radio" name="sf1_rememberHealthy" value="yes" required /> จำได้</label>
+            <label class="choice"><input type="radio" name="sf1_rememberHealthy" value="somewhat" required /> จำได้บางส่วน</label>
+            <label class="choice"><input type="radio" name="sf1_rememberHealthy" value="notMuch" required /> จำได้นิดหน่อย</label>
+            <label class="choice"><input type="radio" name="sf1_rememberHealthy" value="no" required /> ยังจำไม่ค่อยได้</label>
           </div>
+        </section>
 
-          <div class="q">
-            <div class="q-title">2) หนูพยายามลดขนมหรือน้ำหวานลงบ้างหรือไม่</div>
-            <div class="options">
-              <label class="option"><input type="radio" name="q2" value="1"><span>ยังไม่ค่อยได้ลด</span></label>
-              <label class="option"><input type="radio" name="q2" value="2"><span>ลดลงบ้าง</span></label>
-              <label class="option"><input type="radio" name="q2" value="3"><span>ลดลงชัดเจน</span></label>
-            </div>
+        <section class="block">
+          <h2>2) ถ้าหิวหลังเลิกเรียนตอนนี้ หนูคิดว่าจะเลือกอะไร</h2>
+          <div class="choice-grid">
+            <label class="choice"><input type="radio" name="sf2_afterSchoolSnack" value="fruit" required /> ผลไม้</label>
+            <label class="choice"><input type="radio" name="sf2_afterSchoolSnack" value="healthySnack" required /> ของว่างที่ดีกว่า</label>
+            <label class="choice"><input type="radio" name="sf2_afterSchoolSnack" value="junk" required /> ขนมหรือของทอด</label>
+            <label class="choice"><input type="radio" name="sf2_afterSchoolSnack" value="notSure" required /> ยังไม่แน่ใจ</label>
           </div>
+        </section>
 
-          <div class="q">
-            <div class="q-title">3) หนูหรือคนที่บ้านได้คุยกันเรื่องอาหารดีหรือของว่างดีบ้างหรือไม่</div>
-            <div class="options">
-              <label class="option"><input type="radio" name="q3" value="1"><span>ยังไม่ค่อยได้คุย</span></label>
-              <label class="option"><input type="radio" name="q3" value="2"><span>คุยกันบ้าง</span></label>
-              <label class="option"><input type="radio" name="q3" value="3"><span>คุยกันชัดเจนมากขึ้น</span></label>
-            </div>
+        <section class="block">
+          <h2>3) ถ้ากระหายน้ำตอนนี้ หนูอยากเลือกอะไร</h2>
+          <div class="choice-grid">
+            <label class="choice"><input type="radio" name="sf3_drinkChoice" value="water" required /> น้ำเปล่า</label>
+            <label class="choice"><input type="radio" name="sf3_drinkChoice" value="milk" required /> นมจืด</label>
+            <label class="choice"><input type="radio" name="sf3_drinkChoice" value="sweetDrink" required /> น้ำหวาน / น้ำอัดลม</label>
+            <label class="choice"><input type="radio" name="sf3_drinkChoice" value="notSure" required /> ยังไม่แน่ใจ</label>
           </div>
+        </section>
 
-          <label class="block">
-            สิ่งที่เกิดขึ้นจริงหรืออยากทำต่อ (ถ้ามี)
-            <textarea id="comment" placeholder="เช่น ลองกินผลไม้แทนขนม / ยังอยากลดน้ำหวาน / คนที่บ้านช่วยเตรียมของว่างดีให้ ฯลฯ"></textarea>
+        <section class="block">
+          <h2>4) หนูอยากพยายามลด junk ลงไหม</h2>
+          <div class="choice-grid">
+            <label class="choice"><input type="radio" name="sf4_reduceJunk" value="yes" required /> อยาก</label>
+            <label class="choice"><input type="radio" name="sf4_reduceJunk" value="maybe" required /> อาจจะ</label>
+            <label class="choice"><input type="radio" name="sf4_reduceJunk" value="notMuch" required /> ยังไม่ค่อยอยาก</label>
+            <label class="choice"><input type="radio" name="sf4_reduceJunk" value="no" required /> ไม่อยาก</label>
+          </div>
+        </section>
+
+        <section class="block">
+          <h2>5) หนูอยากเล่าเรื่องของว่างสุขภาพให้ผู้ปกครองหรือเพื่อนฟังไหม</h2>
+          <div class="choice-grid">
+            <label class="choice"><input type="radio" name="sf5_shareIdea" value="yes" required /> อยาก</label>
+            <label class="choice"><input type="radio" name="sf5_shareIdea" value="maybe" required /> อาจจะ</label>
+            <label class="choice"><input type="radio" name="sf5_shareIdea" value="notMuch" required /> ยังไม่ค่อยอยาก</label>
+            <label class="choice"><input type="radio" name="sf5_shareIdea" value="no" required /> ไม่อยาก</label>
+          </div>
+        </section>
+
+        <section class="block">
+          <h2>6) ตอนนี้หนูมั่นใจแค่ไหนว่าเลือกของว่างที่ดีกว่าได้</h2>
+          <div class="choice-grid">
+            <label class="choice"><input type="radio" name="sf6_confidence" value="high" required /> มั่นใจมาก</label>
+            <label class="choice"><input type="radio" name="sf6_confidence" value="medium" required /> มั่นใจปานกลาง</label>
+            <label class="choice"><input type="radio" name="sf6_confidence" value="low" required /> ยังไม่ค่อยมั่นใจ</label>
+          </div>
+        </section>
+
+        <section class="block">
+          <h2>7) สิ่งที่หนูอยากลองทำต่อจากกิจกรรมนี้คืออะไร</h2>
+          <label class="inline">
+            <span class="note">ตอบสั้น ๆ ได้เลย</span>
+            <textarea name="sf7_actionPlan" placeholder="เช่น จะกินผลไม้มากขึ้น หรือจะดื่มน้ำเปล่าแทนน้ำหวาน"></textarea>
           </label>
-        </form>
+        </section>
 
-        <div class="tip">
-          เป้าหมายของ short follow-up คือดูสัญญาณเริ่มต้นของการเปลี่ยนแปลง
-          ไม่จำเป็นต้องสมบูรณ์ แค่เริ่มเห็นพฤติกรรมเล็ก ๆ ก็มีความหมาย
-        </div>
+        <section class="block">
+          <h2>8) หนูจำอะไรจากเกมนี้ได้มากที่สุด</h2>
+          <label class="inline">
+            <span class="note">ตอบสั้น ๆ ได้เลย</span>
+            <textarea name="sf8_mainMemory" placeholder="เช่น ผลไม้ดีกว่าขนมหวาน หรือ น้ำเปล่าดีกว่าน้ำอัดลม"></textarea>
+          </label>
+        </section>
 
-        <div class="summary" id="statusText">
-          ตอบให้ครบ 3 ข้อ แล้วกด “บันทึก”
-        </div>
+        <section class="block" id="statusBox" style="display:none;">
+          <h2>บันทึกแล้ว</h2>
+          <p id="statusText">ระบบบันทึกคำตอบเรียบร้อยแล้ว</p>
+        </section>
 
-        <div class="actions">
-          <button class="btn-ghost" id="btnBackWeekly" type="button">← กลับ Weekly Check</button>
-          <button class="btn-green" id="btnSave" type="button">บันทึก</button>
-          <button class="btn-violet" id="btnTeacherPanel" type="button">ไป Teacher Panel</button>
-          <button class="btn-blue" id="btnHub" type="button">กลับ HUB</button>
+        <div class="footer">
+          <button type="button" class="btn btn-ghost" data-action="back">ย้อนกลับ</button>
+          <button type="submit" class="btn btn-primary">บันทึกคำตอบ</button>
+          <button type="button" class="btn btn-ghost" id="gotoWeeklyBtn">ไป Weekly Check</button>
+          <button type="button" class="btn btn-ghost" id="backLauncherBtn">กลับ Student Launcher</button>
         </div>
-      </section>
+      </form>
     </section>
-  </div>
+  </main>
 
-  <script>
-    const $ = (id)=>document.getElementById(id);
-    const STORAGE_KEY = 'GOODJUNK_INT_SHORT_FOLLOWUP_V1';
+  <script type="module">
+    import { buildUrl, pickCtxFromQuery, withDefaultCtx } from '../research/config.js';
+    import { loadCtx, mergeCtx, saveCtx, saveAssessment, loadAssessment, pageStorageKey } from '../research/localstore.js';
 
-    function q(k,d=''){
-      try{ return new URL(location.href).searchParams.get(k) ?? d; }
-      catch(_){ return d; }
+    function $(id){ return document.getElementById(id); }
+
+    function getFilename() {
+      return window.location.pathname.split('/').pop() || 'short-followup.html';
     }
 
-    function withContext(base){
-      const u = new URL(base, location.href);
-      const src = new URL(location.href);
-      [
-        'projectTag','studyId','phase','conditionGroup','sessionOrder','blockLabel','sessionId',
-        'studentKey','schoolCode','schoolName','classRoom','studentNo','nickName',
-        'gradeLevel','gender','age','run','diff','view','time','seed','kid','readable','hub'
-      ].forEach(k=>{
-        const v = src.searchParams.get(k);
-        if(v != null && v !== '') u.searchParams.set(k, v);
-      });
-      return u.toString();
-    }
+    function serializeForm(form) {
+      const data = {};
+      const fd = new FormData(form);
 
-    function renderChips(){
-      const chips = [
-        `study:${q('studyId','-')}`,
-        `student:${q('studentKey','-')}`,
-        `nick:${q('nickName','-')}`,
-        `session:${q('sessionId','-')}`
-      ];
-      $('ctxChips').innerHTML = chips.map(t=>`<span class="chip">${t}</span>`).join('');
-    }
-
-    function collectAnswers(){
-      const fd = new FormData($('shortForm'));
-      return {
-        q1: fd.get('q1') || '',
-        q2: fd.get('q2') || '',
-        q3: fd.get('q3') || '',
-        comment: $('comment').value.trim()
-      };
-    }
-
-    function allAnswered(ans){
-      return ['q1','q2','q3'].every(k => !!ans[k]);
-    }
-
-    function sumAnswers(ans){
-      return ['q1','q2','q3'].reduce((s,k)=>s + (Number(ans[k]) || 0), 0);
-    }
-
-    function buildRow(ans){
-      return {
-        timestampIso: new Date().toISOString(),
-        instrument: 'short_followup_goodjunk',
-        projectTag: q('projectTag',''),
-        studyId: q('studyId',''),
-        phase: q('phase',''),
-        conditionGroup: q('conditionGroup',''),
-        sessionId: q('sessionId',''),
-        studentKey: q('studentKey',''),
-        nickName: q('nickName',''),
-        classRoom: q('classRoom',''),
-        gradeLevel: q('gradeLevel',''),
-        score: sumAnswers(ans),
-        total: 9,
-        q1: ans.q1,
-        q2: ans.q2,
-        q3: ans.q3,
-        comment: ans.comment
-      };
-    }
-
-    function saveLocal(row){
-      try{
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(row));
-      }catch(_){}
-    }
-
-    function updateStatus(){
-      const ans = collectAnswers();
-      const answered = ['q1','q2','q3'].filter(k => !!ans[k]).length;
-      $('statusText').textContent = `ตอบแล้ว ${answered}/3 ข้อ`;
-    }
-
-    document.querySelectorAll('input[type="radio"]').forEach(el=>{
-      el.addEventListener('change', updateStatus);
-    });
-
-    $('btnBackWeekly').addEventListener('click', ()=>{
-      location.href = withContext('./weekly-check.html');
-    });
-
-    $('btnSave').addEventListener('click', ()=>{
-      const ans = collectAnswers();
-      if(!allAnswered(ans)){
-        alert('กรุณาตอบให้ครบ 3 ข้อก่อน');
-        return;
+      for (const [key, value] of fd.entries()) {
+        if (Object.prototype.hasOwnProperty.call(data, key)) {
+          if (!Array.isArray(data[key])) data[key] = [data[key]];
+          data[key].push(value);
+        } else {
+          data[key] = value;
+        }
       }
+      return data;
+    }
 
-      const row = buildRow(ans);
-      saveLocal(row);
-      console.log('[GoodJunk] short followup row', row);
-      alert('บันทึก Short Follow-up แล้ว');
+    function restoreForm(form, saved = {}) {
+      const data = saved?.answers && typeof saved.answers === 'object' ? saved.answers : saved;
+      const fields = form.querySelectorAll('input[name], textarea[name], select[name]');
+      for (const field of fields) {
+        const { name, type } = field;
+        if (!(name in data)) continue;
+        const value = data[name];
+
+        if (type === 'radio') {
+          field.checked = String(field.value) === String(value);
+          continue;
+        }
+        field.value = value ?? '';
+      }
+    }
+
+    function renderCtx(ctx) {
+      $('ctxBox').textContent = [
+        `PID: ${ctx.pid || '-'}`,
+        `Study: ${ctx.studyId || '-'}`,
+        `Session: ${ctx.session || '-'}`,
+        `Condition: ${ctx.condition || '-'}`
+      ].join(' • ');
+    }
+
+    function showSaved(message) {
+      $('statusBox').style.display = '';
+      $('statusText').textContent = message;
+    }
+
+    mergeCtx(pickCtxFromQuery());
+    const ctx = withDefaultCtx(loadCtx());
+    saveCtx(ctx);
+    renderCtx(ctx);
+
+    const form = $('shortFollowupForm');
+    const filename = getFilename();
+    const saved = loadAssessment(filename, {});
+    restoreForm(form, saved);
+
+    form.addEventListener('submit', (ev) => {
+      ev.preventDefault();
+      if (!form.reportValidity()) return;
+
+      const answers = serializeForm(form);
+      saveAssessment(filename, {
+        page: filename,
+        savedAt: new Date().toISOString(),
+        storageKey: pageStorageKey(filename),
+        ctxSnapshot: {
+          pid: ctx.pid || '',
+          studyId: ctx.studyId || '',
+          session: ctx.session || '',
+          condition: ctx.condition || ''
+        },
+        answers
+      });
+
+      showSaved('ระบบบันทึก Short Follow-up เรียบร้อยแล้ว');
     });
 
-    $('btnTeacherPanel').addEventListener('click', ()=>{
-      location.href = withContext('../launcher/teacher-panel.html');
+    document.querySelector('[data-action="back"]')?.addEventListener('click', () => {
+      window.history.back();
     });
 
-    $('btnHub').addEventListener('click', ()=>{
-      location.href = q('hub','../../hub.html');
+    $('gotoWeeklyBtn').addEventListener('click', () => {
+      location.href = buildUrl('WEEKLY_CHECK', ctx, false);
     });
 
-    renderChips();
-    updateStatus();
+    $('backLauncherBtn').addEventListener('click', () => {
+      location.href = buildUrl('STUDENT_LAUNCHER', ctx, false);
+    });
   </script>
 </body>
 </html>
