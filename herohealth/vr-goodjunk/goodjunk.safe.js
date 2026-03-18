@@ -61,7 +61,8 @@ const GJ_RACE_LAST_SUMMARY_KEY = `GJ_RACE_LAST_SUMMARY_${GJ_PID}`;
 const GJ_RACE_SUMMARY_HISTORY_KEY = `GJ_RACE_SUMMARY_HISTORY_${GJ_PID}`;
 
 const GJ_RACE_HEARTBEAT_MS = 2500;
-const GJ_RACE_STALE_MS = 12000;
+const GJ_RACE_STALE_MS = 45000;
+const GJ_RACE_DNF_GRACE_MS = 180000;
 const GJ_RACE_WATCHDOG_MS = 3000;
 const GJ_FIREBASE_ROOM_PATH = GJ_ROOM_ID ? `hha-battle/goodjunk/rooms/${GJ_ROOM_ID}` : '';
 
@@ -83,6 +84,7 @@ let __gjRaceRoomRef = null;
 let __gjRacePlayersRef = null;
 let __gjRaceMyPlayerRef = null;
 let __gjRecoveredStartAt = 0;
+let __gjLocalRunActive = false;
 
 const GOOD_ITEMS = [
   { emoji: '🍎', label: 'apple' },
@@ -194,6 +196,34 @@ function boot() {
     }
 
     startGame();
+  });
+
+  document.addEventListener('visibilitychange', () => {
+    if (!isRaceMode() || state.ended) return;
+    if (document.visibilityState === 'visible') {
+      markRacePresenceDuringRun({
+        phase: 'run',
+        ready: true,
+        connected: true,
+        finished: false,
+        dnf: false,
+        dnfReason: '',
+        disconnectedAt: 0
+      });
+    }
+  });
+
+  window.addEventListener('focus', () => {
+    if (!isRaceMode() || state.ended) return;
+    markRacePresenceDuringRun({
+      phase: 'run',
+      ready: true,
+      connected: true,
+      finished: false,
+      dnf: false,
+      dnfReason: '',
+      disconnectedAt: 0
+    });
   });
 
   window.addEventListener('beforeunload', () => {
@@ -402,6 +432,7 @@ function startGame() {
   state.spawnedJunk = 0;
   state.running = true;
   state.ended = false;
+  __gjLocalRunActive = true;
   state.pendingResultVisible = false;
   state.startTs = performance.now();
   state.lastFrameTs = state.startTs;
@@ -418,6 +449,7 @@ function startGame() {
     setTimeout(() => ui.centerTip?.classList.add('hide'), 1800);
   }
 
+  hideRaceResultOverlay();
   renderHud();
   refreshStageRect();
   loop(performance.now());
@@ -551,6 +583,21 @@ function hitTarget(id) {
 
   removeTarget(id);
   renderHud();
+
+  if (isRaceMode() && !state.ended) {
+    markRacePresenceDuringRun({
+      phase: 'run',
+      ready: true,
+      connected: true,
+      finished: false,
+      dnf: false,
+      dnfReason: '',
+      disconnectedAt: 0,
+      finalScore: state.score,
+      miss: state.miss,
+      streak: state.bestStreak
+    });
+  }
 }
 
 function registerMissGood(target) {
@@ -561,6 +608,21 @@ function registerMissGood(target) {
   updateHint('มีของดีหลุดไปแล้ว รีบเก็บชิ้นต่อไป');
   removeTarget(target.id);
   renderHud();
+
+  if (isRaceMode() && !state.ended) {
+    markRacePresenceDuringRun({
+      phase: 'run',
+      ready: true,
+      connected: true,
+      finished: false,
+      dnf: false,
+      dnfReason: '',
+      disconnectedAt: 0,
+      finalScore: state.score,
+      miss: state.miss,
+      streak: state.bestStreak
+    });
+  }
 }
 
 function removeTarget(id) {
@@ -619,6 +681,7 @@ function endGame(reason = 'finished') {
 
   state.ended = true;
   state.running = false;
+  __gjLocalRunActive = false;
   cancelAnimationFrame(state.frameRaf);
   state.frameRaf = 0;
   stopRaceHeartbeat();
@@ -748,6 +811,14 @@ function persistSoloSummary(summary) {
 
 function isRaceMode() {
   return GJ_MODE === 'race';
+}
+
+function getServerTimestampValue() {
+  try {
+    return window.HHA_FIREBASE?.database?.ServerValue?.TIMESTAMP ?? Date.now();
+  } catch {
+    return Date.now();
+  }
 }
 
 function getEffectiveRaceStartAt() {
@@ -901,7 +972,6 @@ async function ensureRaceFirebase() {
     console.warn('[goodjunk.safe] missing roomId for race mode');
     return false;
   }
-
   if (!GJ_PID) {
     console.warn('[goodjunk.safe] missing pid for race mode');
     return false;
@@ -962,7 +1032,8 @@ function normalizeRacePlayers(players) {
     streak: Number(p.streak || 0),
     joinedAt: Number(p.joinedAt || 0),
     lastSeenAt: Number(p.lastSeenAt || 0),
-    finishedAt: Number(p.finishedAt || 0)
+    finishedAt: Number(p.finishedAt || 0),
+    disconnectedAt: Number(p.disconnectedAt || 0)
   })) : [];
 }
 
@@ -1017,7 +1088,8 @@ function raceRoomToFirebase(room) {
       streak: Number(p.streak || 0),
       joinedAt: Number(p.joinedAt || 0),
       lastSeenAt: Number(p.lastSeenAt || 0),
-      finishedAt: Number(p.finishedAt || 0)
+      finishedAt: Number(p.finishedAt || 0),
+      disconnectedAt: Number(p.disconnectedAt || 0)
     };
   });
 
@@ -1056,7 +1128,9 @@ async function setupRunOnDisconnect() {
     await __gjRaceMyPlayerRef.onDisconnect().update({
       connected: false,
       phase: 'run',
-      dnfReason: 'disconnect'
+      dnf: false,
+      dnfReason: '',
+      disconnectedAt: getServerTimestampValue()
     });
   } catch (err) {
     console.warn('[goodjunk.safe] setupRunOnDisconnect failed:', err);
@@ -1232,12 +1306,33 @@ function safeFilePart(value) {
   return String(value || 'file').replace(/[^a-z0-9_-]/gi, '-');
 }
 
+function hideRaceResultOverlay() {
+  const wrap = document.getElementById('raceResult');
+  if (wrap) wrap.hidden = true;
+  state.pendingResultVisible = false;
+}
+
+function shouldShowRaceOverlayForMe(me, allFinished) {
+  if (!me) return false;
+  if (me.dnf || me.finished) return true;
+  if (__gjLocalRunActive && state.running && !state.ended) return false;
+  if (!allFinished) return false;
+  return false;
+}
+
 function showRaceResultOverlay(rows, opts = {}) {
   const wrap = document.getElementById('raceResult');
   const rowsBox = document.getElementById('raceResultRows');
   const badge = document.getElementById('raceResultBadge');
   const sub = document.getElementById('raceResultSub');
   const hint = document.getElementById('raceResultHint');
+
+  const me = getMyRaceRanked(rows);
+  const allFinished = rows.length > 0 && rows.every((p) => p.finished);
+
+  if (!shouldShowRaceOverlayForMe(me, allFinished)) {
+    return;
+  }
 
   if (!wrap || !rowsBox) return;
 
@@ -1250,10 +1345,12 @@ function showRaceResultOverlay(rows, opts = {}) {
 
   rowsBox.innerHTML = rows.map((p) => {
     const isMe = p.id === GJ_PID;
-
     let stateLine = '';
+
     if (p.dnf) {
       stateLine = `<div style="margin-top:4px;font-size:12px;color:#fda4af;font-weight:800;">DNF • ${escapeHtml(getDnfReasonLabel(p.dnfReason))}</div>`;
+    } else if (!p.finished && p.connected === false) {
+      stateLine = `<div style="margin-top:4px;font-size:12px;color:#fbbf24;font-weight:800;">การเชื่อมต่อขาดช่วง • รอ reconnect</div>`;
     } else if (!p.finished) {
       stateLine = `<div style="margin-top:4px;font-size:12px;color:#fbbf24;font-weight:800;">ยังไม่จบ</div>`;
     } else {
@@ -1279,24 +1376,42 @@ function showRaceResultOverlay(rows, opts = {}) {
 
   if (badge) {
     if (mine) {
-      badge.textContent = mine.dnf ? `DNF • ${getDnfReasonLabel(mine.dnfReason)}` : `อันดับ #${mine.rank}`;
-      badge.style.color = mine.rank === 1 && !mine.dnf ? '#fde68a' : '#86efac';
-      badge.style.borderColor = mine.rank === 1 && !mine.dnf ? 'rgba(250,204,21,.28)' : 'rgba(34,197,94,.25)';
-      badge.style.background = mine.rank === 1 && !mine.dnf ? 'rgba(250,204,21,.10)' : 'rgba(34,197,94,.12)';
+      if (mine.dnf) {
+        badge.textContent = `DNF • ${getDnfReasonLabel(mine.dnfReason)}`;
+        badge.style.color = '#86efac';
+        badge.style.borderColor = 'rgba(34,197,94,.25)';
+        badge.style.background = 'rgba(34,197,94,.12)';
+      } else if (!mine.finished && mine.connected === false) {
+        badge.textContent = 'รอ reconnect';
+        badge.style.color = '#fcd34d';
+        badge.style.borderColor = 'rgba(245,158,11,.28)';
+        badge.style.background = 'rgba(245,158,11,.10)';
+      } else if (!mine.finished) {
+        badge.textContent = 'กำลังแข่ง';
+        badge.style.color = '#7dd3fc';
+        badge.style.borderColor = 'rgba(56,189,248,.28)';
+        badge.style.background = 'rgba(56,189,248,.10)';
+      } else {
+        badge.textContent = `อันดับ #${mine.rank}`;
+        badge.style.color = mine.rank === 1 ? '#fde68a' : '#86efac';
+        badge.style.borderColor = mine.rank === 1 ? 'rgba(250,204,21,.28)' : 'rgba(34,197,94,.25)';
+        badge.style.background = mine.rank === 1 ? 'rgba(250,204,21,.10)' : 'rgba(34,197,94,.12)';
+      }
     } else {
       badge.textContent = '-';
     }
   }
 
   if (sub) {
+    const reconnectCount = rows.filter((p) => !p.finished && p.connected === false && !p.dnf).length;
     sub.textContent = pending
-      ? `ผลชั่วคราว • จบแล้ว ${doneCount} • DNF ${dnfCount} • รออีก ${waitingCount}`
+      ? `ผลชั่วคราว • จบแล้ว ${doneCount} • DNF ${dnfCount} • รออีก ${waitingCount} • reconnect ${reconnectCount}`
       : `ผลสุดท้าย • จบแล้ว ${doneCount} • DNF ${dnfCount} • ผู้เล่นทั้งหมด ${summary.playerCount} คน`;
   }
 
   if (hint) {
     hint.textContent = pending
-      ? 'ระบบบันทึก race summary แบบ pending ไว้แล้ว และจะอัปเดตเป็น final เมื่อทุกคนจบหรือถูกตัดสิทธิ์'
+      ? 'ระบบบันทึก race summary แบบ pending ไว้แล้ว ผู้เล่นที่หลุดชั่วคราวยัง reconnect กลับมาแข่งต่อได้ และจะอัปเดตเป็น final เมื่อทุกคนจบหรือถูกตัดสิทธิ์'
       : 'Race summary final ถูกบันทึกแยกจาก solo แล้ว พร้อม export JSON';
   }
 
@@ -1330,7 +1445,6 @@ async function resetRaceRoomForRematch() {
   room.status = 'waiting';
   room.startAt = null;
   room.updatedAt = Date.now();
-
   room.players = normalizeRacePlayers(room.players).map((p) => ({
     ...p,
     ready: false,
@@ -1343,12 +1457,12 @@ async function resetRaceRoomForRematch() {
     miss: 0,
     streak: 0,
     finishedAt: 0,
-    lastSeenAt: Date.now()
+    lastSeenAt: Date.now(),
+    disconnectedAt: 0
   }));
 
   const hasCurrentHost = room.players.some((p) => p.id === room.hostId);
   if (!hasCurrentHost) room.hostId = room.players[0]?.id || '';
-
   await saveRaceRoom(room);
 }
 
@@ -1408,7 +1522,10 @@ async function markRacePresenceDuringRun(patch = {}) {
       streak: patch.streak ?? cur.streak ?? 0,
       joinedAt: cur.joinedAt || Date.now(),
       finishedAt: patch.finishedAt ?? cur.finishedAt ?? 0,
-      lastSeenAt: Date.now()
+      lastSeenAt: Date.now(),
+      disconnectedAt: patch.connected === false
+        ? (patch.disconnectedAt ?? cur.disconnectedAt ?? Date.now())
+        : 0
     });
 
     await __gjRaceRoomRef.child('updatedAt').set(Date.now());
@@ -1440,7 +1557,8 @@ function startRaceHeartbeat() {
     connected: true,
     finished: false,
     dnf: false,
-    dnfReason: ''
+    dnfReason: '',
+    disconnectedAt: 0
   });
 
   __gjRaceHeartbeatTimer = setInterval(() => {
@@ -1450,7 +1568,8 @@ function startRaceHeartbeat() {
       connected: true,
       finished: false,
       dnf: false,
-      dnfReason: ''
+      dnfReason: '',
+      disconnectedAt: 0
     });
   }, GJ_RACE_HEARTBEAT_MS);
 }
@@ -1470,7 +1589,8 @@ async function markMyRaceDisconnected(reason = 'disconnect') {
       connected: false,
       phase: 'run',
       dnf: false,
-      dnfReason: reason,
+      dnfReason: '',
+      disconnectedAt: Date.now(),
       lastSeenAt: Date.now()
     });
 
@@ -1482,6 +1602,7 @@ async function markMyRaceDisconnected(reason = 'disconnect') {
 
 async function maybeFinalizeRaceRoom(force = false) {
   if (!isRaceMode()) return;
+
   const room = await loadRaceRoom();
   if (!room || !Array.isArray(room.players) || !room.players.length) return;
 
@@ -1492,30 +1613,54 @@ async function maybeFinalizeRaceRoom(force = false) {
     if (p.finished) return p;
 
     const stale = !p.lastSeenAt || (ts - p.lastSeenAt > GJ_RACE_STALE_MS);
-    if (!force && !stale) return p;
+    const disconnectBase = Number(p.disconnectedAt || p.lastSeenAt || ts);
+    const disconnectAge = ts - disconnectBase;
 
-    changed = true;
+    const shouldForceDnf = force || (stale && disconnectAge > GJ_RACE_DNF_GRACE_MS);
 
-    let reason = p.dnfReason || '';
-    if (!reason) {
-      if (force) reason = 'timeout';
-      else if (p.connected === false) reason = 'disconnect';
-      else reason = 'timeout';
+    if (shouldForceDnf) {
+      changed = true;
+
+      let reason = p.dnfReason || '';
+      if (!reason) {
+        if (force) reason = 'timeout';
+        else if (p.connected === false) reason = 'disconnect';
+        else reason = 'timeout';
+      }
+
+      return {
+        ...p,
+        connected: false,
+        phase: 'done',
+        finished: true,
+        dnf: true,
+        dnfReason: reason,
+        finalScore: 0,
+        miss: 9999,
+        streak: 0,
+        finishedAt: ts,
+        lastSeenAt: ts,
+        disconnectedAt: p.disconnectedAt || ts
+      };
     }
 
-    return {
-      ...p,
-      connected: false,
-      phase: 'done',
-      finished: true,
-      dnf: true,
-      dnfReason: reason,
-      finalScore: 0,
-      miss: 9999,
-      streak: 0,
-      finishedAt: ts,
-      lastSeenAt: ts
-    };
+    if (stale && !p.finished) {
+      const nextDisconnectedAt = p.disconnectedAt || ts;
+      if (p.connected !== false || !p.disconnectedAt) {
+        changed = true;
+        return {
+          ...p,
+          connected: false,
+          phase: 'run',
+          finished: false,
+          dnf: false,
+          dnfReason: '',
+          disconnectedAt: nextDisconnectedAt
+        };
+      }
+    }
+
+    return p;
   });
 
   const allFinished = players.every((p) => p.finished);
@@ -1582,13 +1727,13 @@ async function publishRaceFinish(result = {}) {
         miss: Number(result.miss || 0),
         streak: Number(result.streak || result.bestStreak || 0),
         finishedAt: Date.now(),
-        lastSeenAt: Date.now()
+        lastSeenAt: Date.now(),
+        disconnectedAt: 0
       };
     });
 
     const allFinished = room.players.length > 0 && room.players.every((p) => p.finished);
     room.status = allFinished ? 'finished' : 'running';
-
     await saveRaceRoom(room);
 
     const ranked = rankRacePlayers(room.players);
@@ -1635,7 +1780,12 @@ function attachRaceRoomListener() {
       if (!me) return;
 
       const allFinished = ranked.length > 0 && ranked.every((p) => p.finished);
-      if (me.finished || me.dnf) {
+
+      if (!me.finished && !me.dnf && me.connected !== false) {
+        hideRaceResultOverlay();
+      }
+
+      if (shouldShowRaceOverlayForMe(me, allFinished)) {
         showRaceResultOverlay(ranked, { pending: !allFinished });
       }
 
