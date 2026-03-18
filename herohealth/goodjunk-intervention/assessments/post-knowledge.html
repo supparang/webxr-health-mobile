@@ -3,429 +3,105 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>GoodJunk Intervention — Post-Knowledge</title>
-  <meta name="color-scheme" content="dark light" />
-  <style>
-    :root{
-      --bg:#08101f;
-      --panel:rgba(15,23,42,.86);
-      --card:rgba(15,23,42,.72);
-      --line:rgba(148,163,184,.18);
-      --text:#e5e7eb;
-      --muted:#94a3b8;
-      --blue:#38bdf8;
-      --green:#22c55e;
-      --violet:#a78bfa;
-      --shadow:0 20px 60px rgba(0,0,0,.32);
-    }
-
-    *{ box-sizing:border-box; }
-
-    html,body{
-      margin:0;
-      min-height:100%;
-      background:
-        radial-gradient(circle at top, #172554 0%, #08101f 48%, #020617 100%);
-      color:var(--text);
-      font-family:system-ui,-apple-system,"Noto Sans Thai","Segoe UI",Roboto,Arial,sans-serif;
-    }
-
-    .wrap{
-      width:min(980px, calc(100% - 24px));
-      margin:20px auto 36px;
-    }
-
-    .hero,.card{
-      background:var(--panel);
-      border:1px solid var(--line);
-      border-radius:24px;
-      box-shadow:var(--shadow);
-      padding:18px;
-      backdrop-filter:blur(12px);
-    }
-
-    .hero h1{
-      margin:8px 0 8px;
-      font-size:clamp(28px,5vw,40px);
-      line-height:1.05;
-    }
-
-    .kicker{
-      display:inline-flex;
-      align-items:center;
-      min-height:34px;
-      padding:6px 12px;
-      border-radius:999px;
-      border:1px solid rgba(34,197,94,.22);
-      background:rgba(34,197,94,.10);
-      color:#dcfce7;
-      font-size:12px;
-      font-weight:1000;
-    }
-
-    .sub{
-      color:var(--muted);
-      font-size:14px;
-      line-height:1.6;
-      margin-top:8px;
-    }
-
-    .grid{
-      display:grid;
-      gap:14px;
-      margin-top:16px;
-    }
-
-    .context{
-      display:flex;
-      flex-wrap:wrap;
-      gap:8px;
-      margin-top:12px;
-    }
-
-    .chip{
-      display:inline-flex;
-      align-items:center;
-      min-height:30px;
-      padding:4px 10px;
-      border-radius:999px;
-      border:1px solid var(--line);
-      background:rgba(2,6,23,.46);
-      color:#dbeafe;
-      font-size:12px;
-      font-weight:900;
-    }
-
-    .card h2{
-      margin:0 0 10px;
-      font-size:18px;
-    }
-
-    .q{
-      border:1px solid var(--line);
-      border-radius:18px;
-      background:var(--card);
-      padding:14px;
-      margin-top:12px;
-    }
-
-    .q-title{
-      font-size:16px;
-      font-weight:1000;
-      line-height:1.45;
-    }
-
-    .options{
-      display:grid;
-      gap:10px;
-      margin-top:12px;
-    }
-
-    label.option{
-      display:flex;
-      gap:12px;
-      align-items:flex-start;
-      padding:12px 14px;
-      border:1px solid var(--line);
-      border-radius:14px;
-      background:rgba(2,6,23,.44);
-      cursor:pointer;
-    }
-
-    label.option input{
-      margin-top:2px;
-      accent-color:#22c55e;
-      width:18px;
-      height:18px;
-      flex:0 0 auto;
-    }
-
-    label.option span{
-      line-height:1.55;
-      font-size:14px;
-      color:#e2e8f0;
-    }
-
-    .actions{
-      display:flex;
-      flex-wrap:wrap;
-      gap:10px;
-      margin-top:18px;
-    }
-
-    button{
-      appearance:none;
-      border:none;
-      cursor:pointer;
-      min-height:46px;
-      border-radius:14px;
-      padding:0 16px;
-      font:900 14px/1 system-ui,-apple-system,"Noto Sans Thai","Segoe UI",Roboto,Arial;
-      color:#fff;
-    }
-
-    .btn-blue{ background:linear-gradient(135deg,#2563eb,#38bdf8); }
-    .btn-green{ background:linear-gradient(135deg,#16a34a,#22c55e); }
-    .btn-violet{ background:linear-gradient(135deg,#7c3aed,#a78bfa); }
-    .btn-ghost{
-      background:rgba(148,163,184,.12);
-      border:1px solid var(--line);
-      color:var(--text);
-    }
-
-    .muted{ color:var(--muted); font-size:13px; line-height:1.55; }
-    .summary{
-      margin-top:10px;
-      color:#cbd5e1;
-      font-size:14px;
-      line-height:1.6;
-    }
-
-    .compare{
-      margin-top:14px;
-      border:1px solid var(--line);
-      border-radius:18px;
-      background:rgba(2,6,23,.44);
-      padding:14px;
-    }
-
-    .compare strong{
-      display:block;
-      margin-bottom:6px;
-      font-size:15px;
-    }
-  </style>
+  <title>GoodJunk Intervention • Post-Knowledge</title>
+  <link rel="stylesheet" href="./assessment.css" />
 </head>
 <body>
-  <div class="wrap">
-    <section class="hero">
-      <div class="kicker">✅ Post-Knowledge • GoodJunk Intervention</div>
-      <h1>แบบวัดความรู้หลังเล่น</h1>
-      <div class="sub">
-        ตอบอีกครั้งหลังเล่นเกม เพื่อดูว่าความเข้าใจเรื่องการเลือกอาหารดีและอาหารที่ควรลดเปลี่ยนไปอย่างไร
-      </div>
+  <main class="page">
+    <section class="card">
+      <div class="badge">หลังเล่นเกม • Post-Knowledge</div>
+      <h1>หลังเล่นแล้ว หนูจำเรื่องของว่างสุขภาพได้แค่ไหน</h1>
+      <p class="sub">ตอบจากสิ่งที่หนูเข้าใจหลังเล่นเกม</p>
+      <div class="ctx" id="ctxBox">กำลังโหลด...</div>
 
-      <div class="context" id="ctxChips"></div>
+      <form class="form">
+        <section class="block">
+          <h2>1) ถ้าจะเลือกของว่างที่ดีต่อร่างกาย ข้อไหนเหมาะที่สุด</h2>
+          <div class="choice-grid">
+            <label class="choice"><input type="radio" name="pk1_bestSnack" value="apple" required /> แอปเปิล</label>
+            <label class="choice"><input type="radio" name="pk1_bestSnack" value="candy" required /> ลูกอม</label>
+            <label class="choice"><input type="radio" name="pk1_bestSnack" value="soda" required /> น้ำอัดลม</label>
+            <label class="choice"><input type="radio" name="pk1_bestSnack" value="chips" required /> มันฝรั่งทอด</label>
+          </div>
+        </section>
+
+        <section class="block">
+          <h2>2) ถ้าหนูต้องเลือกเครื่องดื่มที่หวานน้อยกว่า ข้อไหนเหมาะที่สุด</h2>
+          <div class="choice-grid">
+            <label class="choice"><input type="radio" name="pk2_bestDrink" value="water" required /> น้ำเปล่า</label>
+            <label class="choice"><input type="radio" name="pk2_bestDrink" value="softdrink" required /> น้ำอัดลม</label>
+            <label class="choice"><input type="radio" name="pk2_bestDrink" value="sweetTea" required /> ชาหวาน</label>
+            <label class="choice"><input type="radio" name="pk2_bestDrink" value="candyDrink" required /> เครื่องดื่มหวาน</label>
+          </div>
+        </section>
+
+        <section class="block">
+          <h2>3) ข้อไหนเป็นกลุ่มอาหารที่ควรกินบ่อยกว่า</h2>
+          <div class="choice-grid">
+            <label class="choice"><input type="radio" name="pk3_moreOften" value="fruitVeg" required /> ผลไม้และผัก</label>
+            <label class="choice"><input type="radio" name="pk3_moreOften" value="friedSnack" required /> ของทอดและขนมกรุบกรอบ</label>
+            <label class="choice"><input type="radio" name="pk3_moreOften" value="candyCake" required /> ลูกอมและเค้ก</label>
+            <label class="choice"><input type="radio" name="pk3_moreOften" value="sugaryDrink" required /> เครื่องดื่มหวาน</label>
+          </div>
+        </section>
+
+        <section class="block">
+          <h2>4) ถ้าต้องเลือกของว่างไปโรงเรียน ข้อไหนดีกว่า</h2>
+          <div class="choice-grid">
+            <label class="choice"><input type="radio" name="pk4_schoolSnack" value="banana" required /> กล้วย</label>
+            <label class="choice"><input type="radio" name="pk4_schoolSnack" value="donut" required /> โดนัท</label>
+            <label class="choice"><input type="radio" name="pk4_schoolSnack" value="chips" required /> มันฝรั่งทอด</label>
+            <label class="choice"><input type="radio" name="pk4_schoolSnack" value="candy" required /> ลูกอม</label>
+          </div>
+        </section>
+
+        <section class="block">
+          <h2>5) หนูคิดว่า “นมจืด” เป็นแบบไหน</h2>
+          <div class="choice-grid">
+            <label class="choice"><input type="radio" name="pk5_plainMilk" value="betterChoice" required /> เป็นทางเลือกที่ดีกว่าเครื่องดื่มหวานมาก ๆ</label>
+            <label class="choice"><input type="radio" name="pk5_plainMilk" value="sameAsSoda" required /> เหมือนน้ำอัดลม</label>
+            <label class="choice"><input type="radio" name="pk5_plainMilk" value="sameAsCandy" required /> เหมือนลูกอม</label>
+            <label class="choice"><input type="radio" name="pk5_plainMilk" value="notSure" required /> ไม่แน่ใจ</label>
+          </div>
+        </section>
+
+        <section class="block">
+          <h2>6) ถ้ามีผลไม้กับขนมกรุบกรอบอยู่ตรงหน้า ข้อไหนควรเลือกบ่อยกว่า</h2>
+          <div class="choice-grid">
+            <label class="choice"><input type="radio" name="pk6_compareChoice" value="fruit" required /> ผลไม้</label>
+            <label class="choice"><input type="radio" name="pk6_compareChoice" value="chips" required /> ขนมกรุบกรอบ</label>
+            <label class="choice"><input type="radio" name="pk6_compareChoice" value="same" required /> เหมือนกัน</label>
+            <label class="choice"><input type="radio" name="pk6_compareChoice" value="notSure" required /> ไม่แน่ใจ</label>
+          </div>
+        </section>
+
+        <section class="block">
+          <h2>7) ถ้าจะ “ลดน้ำตาล” ข้อไหนควรเลือกมากกว่า</h2>
+          <div class="choice-grid">
+            <label class="choice"><input type="radio" name="pk7_reduceSugar" value="water" required /> น้ำเปล่า</label>
+            <label class="choice"><input type="radio" name="pk7_reduceSugar" value="sweetTea" required /> ชาหวาน</label>
+            <label class="choice"><input type="radio" name="pk7_reduceSugar" value="softdrink" required /> น้ำอัดลม</label>
+            <label class="choice"><input type="radio" name="pk7_reduceSugar" value="candyDrink" required /> น้ำหวาน</label>
+          </div>
+        </section>
+
+        <section class="block">
+          <h2>8) หลังเล่นเกม หนูคิดว่าตัวเองแยก “ของดี” กับ “junk” ได้แค่ไหน</h2>
+          <div class="choice-grid">
+            <label class="choice"><input type="radio" name="pk8_selfConfidence" value="high" required /> มั่นใจมาก</label>
+            <label class="choice"><input type="radio" name="pk8_selfConfidence" value="medium" required /> มั่นใจปานกลาง</label>
+            <label class="choice"><input type="radio" name="pk8_selfConfidence" value="low" required /> ยังไม่ค่อยแน่ใจ</label>
+          </div>
+        </section>
+
+        <div class="footer">
+          <button type="button" class="btn btn-ghost" data-action="back">ย้อนกลับ</button>
+          <button type="submit" class="btn btn-primary">บันทึกและไป Post-Behavior</button>
+        </div>
+      </form>
     </section>
+  </main>
 
-    <section class="grid">
-      <section class="card">
-        <h2>คำถามทั้งหมด 5 ข้อ</h2>
-        <div class="muted">เลือกคำตอบที่คิดว่าถูกที่สุดหลังจากเล่นเกมแล้ว</div>
-
-        <form id="quizForm">
-          <div class="q">
-            <div class="q-title">1) ถ้าจะเลือกของว่างที่ดีต่อสุขภาพมากกว่า ควรเลือกอะไร</div>
-            <div class="options">
-              <label class="option"><input type="radio" name="q1" value="A"><span>น้ำอัดลมกับลูกอม</span></label>
-              <label class="option"><input type="radio" name="q1" value="B"><span>ผลไม้หรือนมจืด</span></label>
-              <label class="option"><input type="radio" name="q1" value="C"><span>มันฝรั่งทอดกับชานมหวาน</span></label>
-            </div>
-          </div>
-
-          <div class="q">
-            <div class="q-title">2) อาหารแบบไหนควรกินนาน ๆ ครั้ง</div>
-            <div class="options">
-              <label class="option"><input type="radio" name="q2" value="A"><span>ผักและผลไม้</span></label>
-              <label class="option"><input type="radio" name="q2" value="B"><span>ขนมหวานและเครื่องดื่มหวาน</span></label>
-              <label class="option"><input type="radio" name="q2" value="C"><span>นมจืดและไข่</span></label>
-            </div>
-          </div>
-
-          <div class="q">
-            <div class="q-title">3) ถ้าหิวหลังเลิกเรียน ทางเลือกใดมักดีกับสุขภาพมากกว่า</div>
-            <div class="options">
-              <label class="option"><input type="radio" name="q3" value="A"><span>ผลไม้หรืออาหารว่างที่มีประโยชน์</span></label>
-              <label class="option"><input type="radio" name="q3" value="B"><span>ขนมกรุบกรอบและน้ำหวานทุกวัน</span></label>
-              <label class="option"><input type="radio" name="q3" value="C"><span>ลูกอมแทนอาหารว่าง</span></label>
-            </div>
-          </div>
-
-          <div class="q">
-            <div class="q-title">4) ทำไมเราจึงควรลดอาหารหวานจัด มันจัด หรือเค็มจัด</div>
-            <div class="options">
-              <label class="option"><input type="radio" name="q4" value="A"><span>เพราะกินได้มากเท่าไรก็ยิ่งดี</span></label>
-              <label class="option"><input type="radio" name="q4" value="B"><span>เพราะถ้ากินบ่อยเกินไปอาจไม่ดีกับสุขภาพ</span></label>
-              <label class="option"><input type="radio" name="q4" value="C"><span>เพราะเป็นอาหารที่จำเป็นทุกมื้อ</span></label>
-            </div>
-          </div>
-
-          <div class="q">
-            <div class="q-title">5) ถ้าจะเลือกอาหารที่มีประโยชน์มากกว่า ควรสังเกตอะไร</div>
-            <div class="options">
-              <label class="option"><input type="radio" name="q5" value="A"><span>เลือกแต่ของหวานหรือทอดไว้ก่อน</span></label>
-              <label class="option"><input type="radio" name="q5" value="B"><span>มองหาผัก ผลไม้ นมจืด หรืออาหารที่ดีต่อร่างกาย</span></label>
-              <label class="option"><input type="radio" name="q5" value="C"><span>เลือกเฉพาะอาหารที่มีน้ำตาลมาก</span></label>
-            </div>
-          </div>
-        </form>
-
-        <div class="compare" id="compareBox">
-          <strong>เทียบกับก่อนเล่น</strong>
-          <div class="muted" id="compareText">ยังไม่มีข้อมูล pre-knowledge ในเครื่องนี้</div>
-        </div>
-
-        <div class="summary" id="statusText">
-          ตอบให้ครบทุกข้อแล้วกด “บันทึกและไปแบบวัดพฤติกรรมหลังเล่น”
-        </div>
-
-        <div class="actions">
-          <button class="btn-ghost" id="btnBackGame" type="button">← กลับเกม</button>
-          <button class="btn-green" id="btnSaveNext" type="button">บันทึกและไป Post-Behavior</button>
-          <button class="btn-violet" id="btnParentSummary" type="button">ข้ามไป Parent Summary</button>
-        </div>
-      </section>
-    </section>
-  </div>
-
-  <script>
-    const $ = (id)=>document.getElementById(id);
-    const ANSWER_KEY = { q1:'B', q2:'B', q3:'A', q4:'B', q5:'B' };
-    const PRE_KEY = 'GOODJUNK_INT_PRE_KNOWLEDGE_V1';
-    const POST_KEY = 'GOODJUNK_INT_POST_KNOWLEDGE_V1';
-
-    function q(k,d=''){
-      try{ return new URL(location.href).searchParams.get(k) ?? d; }
-      catch(_){ return d; }
-    }
-
-    function withContext(base){
-      const u = new URL(base, location.href);
-      const src = new URL(location.href);
-      [
-        'projectTag','studyId','phase','conditionGroup','sessionOrder','blockLabel','sessionId',
-        'studentKey','schoolCode','schoolName','classRoom','studentNo','nickName',
-        'gradeLevel','gender','age','run','diff','view','time','seed','kid','readable','hub'
-      ].forEach(k=>{
-        const v = src.searchParams.get(k);
-        if(v != null && v !== '') u.searchParams.set(k, v);
-      });
-      return u.toString();
-    }
-
-    function renderChips(){
-      const chips = [
-        `study:${q('studyId','-')}`,
-        `phase:${q('phase','-')}`,
-        `group:${q('conditionGroup','-')}`,
-        `student:${q('studentKey','-')}`,
-        `nick:${q('nickName','-')}`
-      ];
-      $('ctxChips').innerHTML = chips.map(t=>`<span class="chip">${t}</span>`).join('');
-    }
-
-    function collectAnswers(){
-      const fd = new FormData($('quizForm'));
-      return {
-        q1: fd.get('q1') || '',
-        q2: fd.get('q2') || '',
-        q3: fd.get('q3') || '',
-        q4: fd.get('q4') || '',
-        q5: fd.get('q5') || ''
-      };
-    }
-
-    function allAnswered(ans){
-      return Object.values(ans).every(v => !!v);
-    }
-
-    function scoreAnswers(ans){
-      let score = 0;
-      Object.keys(ANSWER_KEY).forEach(k=>{
-        if(ans[k] === ANSWER_KEY[k]) score += 1;
-      });
-      return score;
-    }
-
-    function buildRow(ans){
-      return {
-        timestampIso: new Date().toISOString(),
-        instrument: 'post_knowledge_goodjunk',
-        projectTag: q('projectTag',''),
-        studyId: q('studyId',''),
-        phase: q('phase',''),
-        conditionGroup: q('conditionGroup',''),
-        sessionId: q('sessionId',''),
-        studentKey: q('studentKey',''),
-        nickName: q('nickName',''),
-        classRoom: q('classRoom',''),
-        gradeLevel: q('gradeLevel',''),
-        score: scoreAnswers(ans),
-        total: 5,
-        q1: ans.q1,
-        q2: ans.q2,
-        q3: ans.q3,
-        q4: ans.q4,
-        q5: ans.q5
-      };
-    }
-
-    function saveLocal(row){
-      try{
-        localStorage.setItem(POST_KEY, JSON.stringify(row));
-      }catch(_){}
-    }
-
-    function loadPreRow(){
-      try{
-        const raw = localStorage.getItem(PRE_KEY);
-        return raw ? JSON.parse(raw) : null;
-      }catch(_){
-        return null;
-      }
-    }
-
-    function updateCompare(){
-      const pre = loadPreRow();
-      if(!pre){
-        $('compareText').textContent = 'ยังไม่มีข้อมูล pre-knowledge ในเครื่องนี้';
-        return;
-      }
-      $('compareText').textContent = `ก่อนเล่นได้ ${pre.score || 0}/${pre.total || 5} คะแนน • หลังเล่นระบบจะใช้ข้อมูลนี้เทียบการเปลี่ยนแปลง`;
-    }
-
-    function updateStatus(){
-      const ans = collectAnswers();
-      const answered = Object.values(ans).filter(Boolean).length;
-      $('statusText').textContent = `ตอบแล้ว ${answered}/5 ข้อ`;
-    }
-
-    document.querySelectorAll('input[type="radio"]').forEach(el=>{
-      el.addEventListener('change', updateStatus);
-    });
-
-    $('btnBackGame').addEventListener('click', ()=>{
-      location.href = withContext('../game/goodjunk-vr.html');
-    });
-
-    $('btnSaveNext').addEventListener('click', ()=>{
-      const ans = collectAnswers();
-      if(!allAnswered(ans)){
-        alert('กรุณาตอบให้ครบทุกข้อก่อน');
-        return;
-      }
-
-      const row = buildRow(ans);
-      saveLocal(row);
-
-      const pre = loadPreRow();
-      console.log('[GoodJunk] post-knowledge row', row);
-      console.log('[GoodJunk] pre vs post knowledge', {
-        preScore: pre?.score ?? null,
-        postScore: row.score,
-        delta: pre ? (row.score - (pre.score || 0)) : null
-      });
-
-      location.href = withContext('./post-behavior.html');
-    });
-
-    $('btnParentSummary').addEventListener('click', ()=>{
-      location.href = withContext('../parent/parent-summary.html');
-    });
-
-    renderChips();
-    updateCompare();
-    updateStatus();
-  </script>
+  <script type="module" src="./assessment.js"></script>
 </body>
 </html>
