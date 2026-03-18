@@ -269,6 +269,7 @@
         <div class="pill">SOLO = Warmup → Run → Cooldown</div>
         <div class="pill">RACE = Multiplayer Lobby</div>
         <div class="pill">Battle / Coop = Placeholder lobby</div>
+        <div class="pill">TEST = forcegate=1</div>
       </div>
     </div>
 
@@ -304,8 +305,8 @@
         </div>
 
         <div class="foot">
-          หมายเหตุ: ถ้า gate ของคุณตั้งแบบ “วันละครั้ง” ไว้แล้ว
-          ระบบ gate จะเป็นคนตัดสินเองว่าจะเข้า warmup/cooldown หรือ skip
+          เวอร์ชันทดสอบนี้บังคับ <strong>forcegate=1</strong> ในโหมด Solo
+          เพื่อให้ warmup เข้าได้ทุกครั้ง แม้จะเคยเล่นวันนี้แล้ว
         </div>
       </section>
 
@@ -317,7 +318,7 @@
             โหมดเล่นคนเดียวแบบ Phase 1 → Phase 2 → Boss
           </div>
           <div class="mode-list">
-            <div>• เข้า Warmup Gate ก่อน</div>
+            <div>• เข้า Warmup Gate ก่อนทุกครั้ง</div>
             <div>• เล่นจบแล้วค่อยไป Cooldown Gate</div>
             <div>• ใช้ไฟล์ run: <code>vr-goodjunk/goodjunk-vr.html</code></div>
           </div>
@@ -448,6 +449,9 @@
         p.set('next', buildGoodjunkSoloRunUrl());
         p.set('hub', getHubUrl());
 
+        // บังคับให้เข้า warmup ทุกครั้งในช่วงทดสอบ
+        p.set('forcegate', '1');
+
         PASS_THROUGH_TO_GATE.forEach((key) => {
           const v = q.get(key);
           if (v) p.set(key, v);
@@ -457,7 +461,9 @@
       }
 
       function goSolo(){
-        location.href = buildGoodjunkWarmupUrl();
+        const url = buildGoodjunkWarmupUrl();
+        console.log('[GJ-LAUNCHER] solo ->', url);
+        location.href = url;
       }
 
       function goMultiplayer(mode){
