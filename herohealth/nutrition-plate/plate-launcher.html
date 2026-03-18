@@ -43,14 +43,14 @@
       </div>
 
       <div class="launcher-note">
-        โครงใหม่นี้แยกจาก Plate เดิม และใช้ shared router/helper กลางร่วมกับ Groups
+        launcher นี้จะส่ง query ต่อไปยัง run page ให้ครบทั้ง hub / returnTo / gate context
       </div>
     </section>
   </main>
 
   <script type="module">
-    import { createCtx, goHub } from '../shared/nutrition-common.js';
-    import { goToGameStart } from '../shared/nutrition-router.js';
+    import { createCtx } from '../shared/nutrition-common.js';
+    import { buildRunUrl, goExit } from '../shared/nutrition-integration.js';
 
     const ctx = createCtx('nutrition-plate');
     const diffSelect = document.getElementById('diffSelect');
@@ -62,18 +62,27 @@
     timeSelect.value = String(ctx.time || 90);
 
     startBtn.addEventListener('click', () => {
-      goToGameStart(ctx, './plate-run.html', {
-        cat: 'nutrition',
-        theme: 'plate',
-        game: 'plate',
-        diff: diffSelect.value,
-        time: Number(timeSelect.value),
-        engine: 'v2',
-        seed: Date.now()
-      });
+      const url = buildRunUrl(
+        {
+          ...ctx,
+          launcher: './plate-launcher.html'
+        },
+        './plate-run.html',
+        {
+          cat: 'nutrition',
+          theme: 'plate',
+          game: 'plate',
+          diff: diffSelect.value,
+          time: Number(timeSelect.value),
+          engine: 'v2',
+          launcher: './plate-launcher.html',
+          seed: Date.now()
+        }
+      );
+      window.location.href = url;
     });
 
-    backBtn.addEventListener('click', () => goHub(ctx));
+    backBtn.addEventListener('click', () => goExit(ctx, '../hub.html'));
   </script>
 </body>
 </html>
