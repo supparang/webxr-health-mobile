@@ -30,12 +30,9 @@
     <p><a id="goLink" href="../nutrition-plate/plate-run.html">เปิด Plate Run</a></p>
   </div>
 
-  <script>
-    const target = new URL('../nutrition-plate/plate-run.html', window.location.href);
-    const current = new URL(window.location.href);
-    current.searchParams.forEach((value, key) => target.searchParams.set(key, value));
-    document.getElementById('goLink').href = target.toString();
-    window.location.replace(target.toString());
+  <script type="module">
+    import { redirectPreserveAll } from '../shared/nutrition-router.js';
+    redirectPreserveAll('../nutrition-plate/plate-run.html');
   </script>
 </body>
 </html>
