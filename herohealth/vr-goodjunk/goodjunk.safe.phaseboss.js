@@ -1,9 +1,7 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.phaseboss.js ===
-// FULL PATCH v20260318-PHASEBOSS-RETURN-LOCK2
+// FULL PATCH v20260318-PHASEBOSS-RETURN-LOCK3-CLEAN
 // solo only: phase1 -> phase2 -> boss
-// fixed: pick() missing
-// fixed: boss phase restore
-// fixed: unified warmup-gate.html flow
+// clean version: no escaped template literals, pick() restored, unified gate flow
 
 const __qs = new URLSearchParams(location.search);
 const RUN_CTX = window.__GJ_RUN_CTX__ || {
@@ -28,9 +26,9 @@ const GJ_HUB = RUN_CTX.hub || '../hub.html';
 const GJ_GAME_ID = RUN_CTX.gameId || 'goodjunk';
 const GAME_MOUNT = document.getElementById('gameMount') || document.body;
 
-const GOOD_ITEMS = ['🍎','🥕','🥦','🍌','🥛','🥗','🍉'];
-const JUNK_ITEMS = ['🍟','🍩','🍭','🍔','🥤','🍕','🧁'];
-const POWER_ITEMS = ['⭐','⚡','💚'];
+const GOOD_ITEMS = ['🍎', '🥕', '🥦', '🍌', '🥛', '🥗', '🍉'];
+const JUNK_ITEMS = ['🍟', '🍩', '🍭', '🍔', '🥤', '🍕', '🧁'];
+const POWER_ITEMS = ['⭐', '⚡', '💚'];
 
 const PRESET = {
   easy: {
@@ -132,12 +130,13 @@ const rng = createSeededRng(RUN_CTX.seed || Date.now());
 
 boot();
 
-function boot(){
+function boot() {
   injectStyle();
   buildShell();
   bindUi();
   hideBootShell();
   startGame();
+
   window.addEventListener('resize', refreshStageRect);
   window.addEventListener('beforeunload', () => {
     cancelAnimationFrame(state.frameRaf);
@@ -151,7 +150,7 @@ function createSeededRng(seedInput) {
     h = Math.imul(h ^ seedText.charCodeAt(i), 3432918353);
     h = (h << 13) | (h >>> 19);
   }
-  return function() {
+  return function () {
     h = Math.imul(h ^ (h >>> 16), 2246822507);
     h = Math.imul(h ^ (h >>> 13), 3266489909);
     h ^= h >>> 16;
@@ -159,16 +158,16 @@ function createSeededRng(seedInput) {
   };
 }
 
-function rand(){ return rng(); }
-function randRange(min,max){ return min + (max - min) * rand(); }
-function clamp(v,min,max){ return Math.max(min, Math.min(max, v)); }
-function pick(arr){ return arr[Math.floor(rand() * arr.length)] || arr[0]; }
+function rand() { return rng(); }
+function randRange(min, max) { return min + (max - min) * rand(); }
+function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
+function pick(arr) { return arr[Math.floor(rand() * arr.length)] || arr[0]; }
 
-function injectStyle(){
-  if (document.getElementById('gj-phaseboss-style-lock2')) return;
+function injectStyle() {
+  if (document.getElementById('gj-phaseboss-style-lock3')) return;
 
   const style = document.createElement('style');
-  style.id = 'gj-phaseboss-style-lock2';
+  style.id = 'gj-phaseboss-style-lock3';
   style.textContent = `
     #gjRoot{
       position:absolute; inset:0; z-index:2; overflow:hidden;
@@ -333,7 +332,7 @@ function injectStyle(){
   document.head.appendChild(style);
 }
 
-function buildShell(){
+function buildShell() {
   GAME_MOUNT.innerHTML = `
     <div id="gjRoot" class="phase-1">
       <div class="gj-shell">
@@ -443,23 +442,26 @@ function buildShell(){
   renderBoss();
 }
 
-function bindUi(){
+function bindUi() {
   ui.soloBtnAgain?.addEventListener('click', () => {
     location.href = buildWarmupGateUrl(String(Date.now()));
   });
+
   ui.soloBtnExport?.addEventListener('click', () => {
     downloadJson(__gjSoloSummary, `goodjunk-phaseboss-${safeFilePart(GJ_PID)}-${Date.now()}.json`);
   });
+
   ui.soloBtnHub?.addEventListener('click', () => {
     location.href = buildCooldownGateUrl();
   });
+
   ui.bossWeakSpot?.addEventListener('pointerdown', (ev) => {
     ev.preventDefault();
     hitBossWeakSpot();
-  }, { passive:false });
+  }, { passive: false });
 }
 
-function hideBootShell(){
+function hideBootShell() {
   const boot = document.querySelector('.boot-shell');
   if (!boot) return;
   boot.style.transition = 'opacity .28s ease';
@@ -467,7 +469,7 @@ function hideBootShell(){
   setTimeout(() => { boot.style.display = 'none'; }, 320);
 }
 
-function refreshStageRect(){
+function refreshStageRect() {
   const rect = ui.stage?.getBoundingClientRect();
   if (!rect) return;
   state.rect.width = Math.max(320, rect.width);
@@ -479,18 +481,18 @@ function refreshStageRect(){
   }
 }
 
-function getCfg(){
+function getCfg() {
   return PRESET[state.diff] || PRESET.normal;
 }
 
-function setPhaseClass(){
-  ui.root.classList.remove('phase-1','phase-2','phase-boss');
+function setPhaseClass() {
+  ui.root.classList.remove('phase-1', 'phase-2', 'phase-boss');
   if (state.bossActive) ui.root.classList.add('phase-boss');
   else if (state.phase === 2) ui.root.classList.add('phase-2');
   else ui.root.classList.add('phase-1');
 }
 
-function startGame(){
+function startGame() {
   const cfg = getCfg();
 
   state.totalMs = Math.max(60000, Number(RUN_CTX.time || 150) * 1000);
@@ -513,6 +515,8 @@ function startGame(){
   state.bossDefeated = false;
   state.lastFrameTs = performance.now();
   state.lastSpawnAccum = 0;
+  state.frameRaf = 0;
+  state.targetSeq = 0;
   state.targets.clear();
 
   state.boss.hp = 0;
@@ -540,7 +544,7 @@ function startGame(){
   loop(performance.now());
 }
 
-function loop(ts){
+function loop(ts) {
   if (!state.running || state.ended) return;
 
   const dt = Math.min(48, ts - state.lastFrameTs || 16);
@@ -562,7 +566,7 @@ function loop(ts){
   state.frameRaf = requestAnimationFrame(loop);
 }
 
-function updatePhase(){
+function updatePhase() {
   const cfg = getCfg();
   const elapsedRatio = 1 - (state.timeLeftMs / state.totalMs);
 
@@ -583,7 +587,7 @@ function updatePhase(){
   }
 }
 
-function startBossPhase(){
+function startBossPhase() {
   if (state.bossActive || state.bossTriggered) return;
 
   const cfg = getCfg();
@@ -610,7 +614,7 @@ function startBossPhase(){
   console.log('[GJ] startBossPhase() fired');
 }
 
-function getSpawnCfg(){
+function getSpawnCfg() {
   const cfg = getCfg();
 
   if (state.bossActive) {
@@ -648,7 +652,7 @@ function getSpawnCfg(){
   };
 }
 
-function updateSpawner(dt){
+function updateSpawner(dt) {
   const cfg = getSpawnCfg();
   state.lastSpawnAccum += dt;
 
@@ -658,7 +662,7 @@ function updateSpawner(dt){
   }
 }
 
-function spawnRandomTarget(cfg){
+function spawnRandomTarget(cfg) {
   refreshStageRect();
 
   const roll = rand();
@@ -675,7 +679,7 @@ function spawnRandomTarget(cfg){
   spawnTarget(kind, cfg);
 }
 
-function spawnTarget(kind, cfg, overrides = {}){
+function spawnTarget(kind, cfg, overrides = {}) {
   const size = overrides.size || randRange(cfg.sizeMin, cfg.sizeMax);
   const x = overrides.x ?? randRange(10, Math.max(12, state.rect.width - size - 10));
   const y = overrides.y ?? (-size - randRange(0, 50));
@@ -712,18 +716,18 @@ function spawnTarget(kind, cfg, overrides = {}){
   el.style.height = `${size}px`;
   el.innerHTML = `<div class="gj-emoji">${emoji}</div><div class="gj-type">${kind}</div>`;
 
-  const target = { id, el, kind, x, y, size, speed, drift, dead:false, scoreGain, bossDamage };
+  const target = { id, el, kind, x, y, size, speed, drift, dead: false, scoreGain, bossDamage };
   el.addEventListener('pointerdown', (ev) => {
     ev.preventDefault();
     hitTarget(id);
-  }, { passive:false });
+  }, { passive: false });
 
   ui.layer.appendChild(el);
   state.targets.set(id, target);
   drawTarget(target);
 }
 
-function updateTargets(dt){
+function updateTargets(dt) {
   const stageW = state.rect.width;
   const stageH = state.rect.height;
   const toRemove = [];
@@ -758,11 +762,11 @@ function updateTargets(dt){
   toRemove.forEach(removeTarget);
 }
 
-function drawTarget(target){
+function drawTarget(target) {
   target.el.style.transform = `translate3d(${target.x}px, ${target.y}px, 0)`;
 }
 
-function hitTarget(id){
+function hitTarget(id) {
   if (!state.running || state.ended) return;
   const t = state.targets.get(id);
   if (!t || t.dead) return;
@@ -774,14 +778,14 @@ function hitTarget(id){
     const comboBonus = Math.min(12, Math.floor(state.streak / 3) * 2);
     const gain = t.scoreGain + comboBonus;
     state.score += gain;
-    createFx(t.x + t.size/2, t.y + t.size/2, `+${gain}`, '#86efac');
+    createFx(t.x + t.size / 2, t.y + t.size / 2, `+${gain}`, '#86efac');
     if (state.bossActive) damageBoss(t.bossDamage, 'GOOD HIT');
   } else if (t.kind === 'power') {
     state.hitsPower += 1;
     state.streak += 1;
     state.bestStreak = Math.max(state.bestStreak, state.streak);
     state.score += t.scoreGain;
-    createFx(t.x + t.size/2, t.y + t.size/2, `POWER +${t.scoreGain}`, '#fde68a');
+    createFx(t.x + t.size / 2, t.y + t.size / 2, `POWER +${t.scoreGain}`, '#fde68a');
     damageBoss(t.bossDamage, 'POWER!');
     state.boss.stunMs = Math.max(state.boss.stunMs, 650);
   } else {
@@ -789,23 +793,23 @@ function hitTarget(id){
     state.miss += 1;
     state.streak = 0;
     state.score = Math.max(0, state.score - 8);
-    createFx(t.x + t.size/2, t.y + t.size/2, 'MISS', '#fda4af');
+    createFx(t.x + t.size / 2, t.y + t.size / 2, 'MISS', '#fda4af');
   }
 
   removeTarget(id);
   renderHud();
 }
 
-function registerMissGood(t){
+function registerMissGood(t) {
   state.missedGood += 1;
   state.miss += 1;
   state.streak = 0;
-  createFx(t.x + t.size/2, Math.max(28, t.y), t.kind === 'power' ? 'พลาด POWER' : 'พลาดของดี', '#fbbf24');
+  createFx(t.x + t.size / 2, Math.max(28, t.y), t.kind === 'power' ? 'พลาด POWER' : 'พลาดของดี', '#fbbf24');
   removeTarget(t.id);
   renderHud();
 }
 
-function removeTarget(id){
+function removeTarget(id) {
   const t = state.targets.get(id);
   if (!t) return;
   t.dead = true;
@@ -813,7 +817,7 @@ function removeTarget(id){
   state.targets.delete(id);
 }
 
-function updateBoss(dt){
+function updateBoss(dt) {
   const boss = state.boss;
   if (!state.bossActive || state.ended) return;
 
@@ -872,7 +876,7 @@ function updateBoss(dt){
   renderBoss();
 }
 
-function spawnBossStorm(){
+function spawnBossStorm() {
   const count = state.diff === 'hard' ? 6 : 5;
   const cfg = getSpawnCfg();
   const spacing = state.rect.width / (count + 1);
@@ -891,7 +895,7 @@ function spawnBossStorm(){
   createFx(state.rect.width * 0.5, 92, 'JUNK STORM!', '#fda4af');
 }
 
-function spawnBossPowerAid(){
+function spawnBossPowerAid() {
   const cfg = getSpawnCfg();
   const size = randRange(62, 78);
   spawnTarget('power', cfg, {
@@ -903,7 +907,7 @@ function spawnBossPowerAid(){
   });
 }
 
-function hitBossWeakSpot(){
+function hitBossWeakSpot() {
   if (!state.running || state.ended || !state.bossActive || !state.boss.weakSpotReady) return;
 
   const damage = getCfg().weakSpotDamage;
@@ -917,7 +921,7 @@ function hitBossWeakSpot(){
   renderHud();
 }
 
-function damageBoss(amount = 0){
+function damageBoss(amount = 0) {
   if (!state.bossActive || amount <= 0) return;
   state.boss.hp = Math.max(0, state.boss.hp - amount);
   renderBoss();
@@ -929,7 +933,7 @@ function damageBoss(amount = 0){
   }
 }
 
-function renderBoss(){
+function renderBoss() {
   if (!ui.bossWrap || !ui.boss) return;
 
   if (!state.bossActive) {
@@ -948,7 +952,7 @@ function renderBoss(){
   ui.bossWeakSpot.hidden = !state.boss.weakSpotReady;
 }
 
-function renderHud(){
+function renderHud() {
   ui.score.textContent = String(state.score);
   ui.timer.textContent = formatSeconds(state.timeLeftMs);
   ui.miss.textContent = String(state.miss);
@@ -976,14 +980,14 @@ function renderHud(){
   `;
 }
 
-function formatSeconds(ms){
+function formatSeconds(ms) {
   const s = Math.max(0, Math.ceil(ms / 1000));
   const m = Math.floor(s / 60);
   const r = s % 60;
-  return \`\${m}:\${String(r).padStart(2, '0')}\`;
+  return `${m}:${String(r).padStart(2, '0')}`;
 }
 
-function showCenterTip(message){
+function showCenterTip(message) {
   if (!ui.centerTip) return;
   ui.centerTip.textContent = String(message || '');
   ui.centerTip.classList.remove('hide');
@@ -991,22 +995,22 @@ function showCenterTip(message){
   showCenterTip.__timer = setTimeout(() => ui.centerTip?.classList.add('hide'), 1900);
 }
 
-function updateHint(message){
-  ui.hint.innerHTML = \`<div>\${escapeHtml(message)}</div>\`;
+function updateHint(message) {
+  ui.hint.innerHTML = `<div>${escapeHtml(message)}</div>`;
 }
 
-function createFx(x, y, text, color){
+function createFx(x, y, text, color) {
   const fx = document.createElement('div');
   fx.className = 'gj-fx';
-  fx.style.left = \`\${x}px\`;
-  fx.style.top = \`\${y}px\`;
+  fx.style.left = `${x}px`;
+  fx.style.top = `${y}px`;
   fx.style.color = color || '#e5e7eb';
   fx.textContent = text;
   ui.layer?.appendChild(fx);
   setTimeout(() => fx.remove(), 760);
 }
 
-function endGame(reason = 'finished'){
+function endGame(reason = 'finished') {
   if (state.ended) return;
 
   state.ended = true;
@@ -1036,7 +1040,7 @@ function endGame(reason = 'finished'){
     hitsBad: state.hitsBad,
     hitsPower: state.hitsPower,
     missedGood: state.missedGood,
-    phaseReached: state.bossActive ? 'boss' : \`phase-\${state.phase}\`,
+    phaseReached: state.bossActive ? 'boss' : `phase-${state.phase}`,
     bossDefeated: !!state.bossDefeated,
     bossHpLeft: Number(state.boss.hp || 0),
     bossHpMax: Number(state.boss.hpMax || 0),
@@ -1047,9 +1051,9 @@ function endGame(reason = 'finished'){
   showSoloSummary(summary);
 }
 
-function showSoloSummary(summary){
+function showSoloSummary(summary) {
   __gjSoloSummary = {
-    version: '20260318-phaseboss-return-lock2',
+    version: '20260318-phaseboss-return-lock3-clean',
     source: 'goodjunk-phaseboss',
     gameId: GJ_GAME_ID,
     title: 'GoodJunk Phase Boss',
@@ -1103,9 +1107,9 @@ function showSoloSummary(summary){
   ui.soloOverlay.hidden = false;
 }
 
-function persistSoloSummary(summary){
+function persistSoloSummary(summary) {
   try {
-    localStorage.setItem(\`GJ_SOLO_LAST_SUMMARY_\${GJ_PID}\`, JSON.stringify(summary));
+    localStorage.setItem(`GJ_SOLO_LAST_SUMMARY_${GJ_PID}`, JSON.stringify(summary));
   } catch {}
 
   try {
@@ -1126,24 +1130,24 @@ function persistSoloSummary(summary){
   } catch {}
 }
 
-function downloadJson(payload, filename){
+function downloadJson(payload, filename) {
   if (!payload) return;
-  const blob = new Blob([JSON.stringify(payload, null, 2)], { type:'application/json;charset=utf-8' });
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = filename || \`goodjunk-\${Date.now()}.json\`;
+  a.download = filename || `goodjunk-${Date.now()}.json`;
   document.body.appendChild(a);
   a.click();
   a.remove();
   URL.revokeObjectURL(url);
 }
 
-function safeFilePart(value){
+function safeFilePart(value) {
   return String(value || 'file').replace(/[^a-z0-9_-]/gi, '-');
 }
 
-function escapeHtml(s){
+function escapeHtml(s) {
   return String(s ?? '')
     .replaceAll('&', '&amp;')
     .replaceAll('<', '&lt;')
@@ -1185,7 +1189,7 @@ function buildRunUrl(seedOverride = '') {
   if (__qs.get('bossdebug') === '1') q.set('bossdebug', '1');
   if (__qs.get('debug') === '1') q.set('debug', '1');
 
-  return \`./goodjunk-vr.html?\${q.toString()}\`;
+  return `./goodjunk-vr.html?${q.toString()}`;
 }
 
 function buildWarmupGateUrl(seedOverride = '') {
@@ -1200,7 +1204,7 @@ function buildWarmupGateUrl(seedOverride = '') {
   if (__qs.get('forcegate') === '1') q.set('forcegate', '1');
   if (__qs.get('resetGate') === '1') q.set('resetGate', '1');
 
-  return \`\${getUnifiedGateUrl()}?\${q.toString()}\`;
+  return `${getUnifiedGateUrl()}?${q.toString()}`;
 }
 
 function buildCooldownGateUrl() {
@@ -1214,5 +1218,5 @@ function buildCooldownGateUrl() {
   if (__qs.get('forcegate') === '1') q.set('forcegate', '1');
   if (__qs.get('resetGate') === '1') q.set('resetGate', '1');
 
-  return \`\${getUnifiedGateUrl()}?\${q.toString()}\`;
+  return `${getUnifiedGateUrl()}?${q.toString()}`;
 }
