@@ -1,0 +1,126 @@
+/* PATCH v20260318-PLATE-CHILD-UI-A */
+.phase-chip{
+  background:rgba(34,211,238,.18);
+  color:#cffafe;
+}
+
+.progress-chip{
+  background:rgba(250,204,21,.14);
+  color:#fef3c7;
+}
+
+.phase-banner{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  margin:2px 0 14px;
+  padding:14px;
+  border-radius:22px;
+  border:1px solid rgba(148,163,184,.16);
+  background:rgba(15,23,42,.8);
+}
+
+.phase-banner[data-phase="pre"]{ background:rgba(168,85,247,.14); }
+.phase-banner[data-phase="build"]{ background:rgba(34,211,238,.14); }
+.phase-banner[data-phase="fix"]{ background:rgba(245,158,11,.14); }
+.phase-banner[data-phase="swap"]{ background:rgba(16,185,129,.14); }
+.phase-banner[data-phase="post"]{ background:rgba(34,197,94,.14); }
+
+.phase-banner-icon{
+  width:52px;
+  height:52px;
+  border-radius:16px;
+  display:grid;
+  place-items:center;
+  background:rgba(255,255,255,.12);
+  font-size:28px;
+  flex:0 0 52px;
+}
+
+.phase-banner-title{
+  font-size:18px;
+  font-weight:900;
+  line-height:1.1;
+}
+
+.phase-banner-sub{
+  margin-top:4px;
+  font-size:13px;
+  color:#dbeafe;
+  line-height:1.35;
+}
+
+.child-slot{
+  border-radius:24px;
+  box-shadow:0 10px 22px rgba(0,0,0,.16);
+}
+
+.child-card{
+  border-radius:24px;
+  box-shadow:0 10px 22px rgba(0,0,0,.16);
+}
+
+.scenario-emoji{
+  font-size:28px;
+  line-height:1;
+  margin-bottom:6px;
+}
+
+.child-answer-btn{
+  min-height:96px;
+  border-radius:24px;
+  padding:16px;
+  font-size:17px;
+  line-height:1.2;
+  box-shadow:0 10px 22px rgba(0,0,0,.16);
+}
+
+.child-answer-btn .answer-main{
+  font-size:19px;
+  font-weight:900;
+}
+
+.child-answer-btn small{
+  display:block;
+  margin-top:8px;
+  color:#cbd5e1;
+  font-size:12px;
+  font-weight:800;
+}
+
+.feedback-box{
+  margin-top:16px;
+  padding:12px 14px;
+  border-radius:18px;
+  background:rgba(15,23,42,.5);
+}
+
+.feedback-good{
+  background:rgba(34,197,94,.12);
+  border:1px solid rgba(34,197,94,.18);
+}
+
+.feedback-bad{
+  background:rgba(251,113,133,.12);
+  border:1px solid rgba(251,113,133,.18);
+}
+
+.feedback-note{
+  background:rgba(34,211,238,.10);
+  border:1px solid rgba(34,211,238,.16);
+}
+
+@media (max-width: 720px){
+  .phase-banner{
+    align-items:flex-start;
+  }
+
+  .child-answer-btn{
+    min-height:90px;
+    font-size:16px;
+  }
+
+  .child-answer-btn .answer-main{
+    font-size:18px;
+  }
+}
