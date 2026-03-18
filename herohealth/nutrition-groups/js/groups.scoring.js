@@ -1,6 +1,6 @@
 // === /herohealth/nutrition-groups/js/groups.scoring.js ===
 // Scoring and stat aggregation for Nutrition Groups
-// PATCH v20260318-GROUPS-VSLICE-A
+// PATCH v20260318-GROUPS-VSLICE-B
 
 import { FOOD_GROUPS } from './groups.content.js';
 
@@ -30,6 +30,16 @@ export function createEmptyStats() {
     reason: {
       total: 0,
       correct: 0
+    },
+
+    retry: {
+      total: 0,
+      correct: 0,
+      correctedByType: {
+        sort: 0,
+        compare: 0,
+        reason: 0
+      }
     }
   };
 }
@@ -102,5 +112,33 @@ export function scoreReason(stats, question, answerId) {
     feedback: correct
       ? 'ใช่เลย! เหตุผลนี้เหมาะสม'
       : `เกือบถูก — เหตุผลที่เหมาะกว่าคือ "${question.meta.correctReason}"`
+  };
+}
+
+export function scoreRetry(stats, question, answerId) {
+  const correct = question.correctId === answerId;
+  stats.retry.total += 1;
+
+  if (correct) {
+    stats.retry.correct += 1;
+    stats.retry.correctedByType[question.retryFrom] += 1;
+    stats.score += 8;
+  }
+
+  updateStreak(stats, correct);
+
+  const typeLabel =
+    question.retryFrom === 'sort'
+      ? 'การแยกหมวด'
+      : question.retryFrom === 'compare'
+      ? 'การเลือกตัวเลือกที่ดีกว่า'
+      : 'การให้เหตุผล';
+
+  return {
+    correct,
+    delta: correct ? 8 : 0,
+    feedback: correct
+      ? `เยี่ยม! แก้ตัวสำเร็จในรอบทบทวน (${typeLabel})`
+      : `ไม่เป็นไรนะ ลองจำไว้ว่าโจทย์นี้เป็นเรื่อง${typeLabel}`
   };
 }
