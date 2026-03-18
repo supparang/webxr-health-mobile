@@ -151,7 +151,7 @@ function buildInviteUrl() {
     mode: 'coop',
     roomId: ctx.roomId
   });
-  return `${location.origin}${location.pathname.replace('goodjunk-coop-lobby.html', 'goodjunk-coop-lobby.html')}?${q.toString()}`;
+  return `${location.origin}${location.pathname}?${q.toString()}`;
 }
 
 async function copyText(text) {
@@ -410,18 +410,34 @@ function maybeResetCountdownIfHostMissing(cur) {
 
 function renderPlayers(r = room) {
   const players = r?.players || [];
+  const participantSet = new Set(getMatchParticipantIds(r));
+  const roundLocked = ['countdown', 'running', 'finished'].includes(r?.status);
+
   if (!els.playersBox) return;
 
   els.playersBox.innerHTML = players.map((p) => {
     const meTag = p.id === ctx.pid ? ' • คุณ' : '';
     const hostTag = p.id === r.hostId ? ' 👑 host' : '';
-    const phase = p.phase === 'done' ? 'รอบนี้จบแล้ว' : (p.phase === 'run' ? 'กำลังเล่น' : (p.ready ? 'พร้อมแล้ว' : 'ยังไม่พร้อม'));
-    const cls = p.ready || p.phase === 'run' || p.phase === 'done' ? 'ready' : 'waiting';
+    const inMatchTag = roundLocked && participantSet.size && participantSet.has(p.id) ? ' • participant' : '';
+
+    let phase = 'ยังไม่พร้อม';
+    let cls = 'waiting';
+
+    if (p.phase === 'done') {
+      phase = 'รอบนี้จบแล้ว';
+      cls = 'ready';
+    } else if (p.phase === 'run') {
+      phase = 'กำลังเล่น';
+      cls = 'ready';
+    } else if (p.ready) {
+      phase = 'พร้อมแล้ว';
+      cls = 'ready';
+    }
 
     return `
       <div class="player">
         <div><strong>${escapeHtml(playerLabel(p))}</strong>${escapeHtml(meTag)}${escapeHtml(hostTag)}</div>
-        <div class="${cls}">${escapeHtml(phase)}</div>
+        <div class="${cls}">${escapeHtml(phase)}${escapeHtml(inMatchTag)}</div>
       </div>
     `;
   }).join('');
@@ -451,9 +467,12 @@ function renderStatus(r = room) {
   if (els.inviteLink) els.inviteLink.value = buildInviteUrl();
 
   const active = activePlayers(r);
-  const goal = getGoalFor(ctx.diff, Number(ctx.time || 80), active.length || 2);
+  const fallbackGoal = getGoalFor(ctx.diff, Number(ctx.time || 80), active.length || 2);
+  const roomGoal = Number(r?.match?.coop?.goal || 0);
+  const goal = roomGoal || fallbackGoal;
+
   if (els.teamGoal) {
-    els.teamGoal.textContent = String(r?.match?.coop?.goal || goal || '-');
+    els.teamGoal.textContent = String(goal || '-');
   }
 
   if (!r) {
@@ -471,28 +490,36 @@ function renderStatus(r = room) {
     } else if (!active.every((p) => p.ready)) {
       setHint('รอให้ทุกคนกดพร้อม');
     } else if (isHost(r)) {
-      setHint('ทุกคนพร้อมแล้ว กดเริ่มเกมร่วมกันได้');
+      setHint(`ทุกคนพร้อมแล้ว กดเริ่มเกมร่วมกันได้ • Goal ทีม ${goal}`);
     } else {
-      setHint('ทุกคนพร้อมแล้ว รอ host กดเริ่ม');
+      setHint(`ทุกคนพร้อมแล้ว รอ host กดเริ่ม • Goal ทีม ${goal}`);
     }
+
     setCopyState('ส่ง room code หรือลิงก์นี้ให้ผู้เล่นคนอื่นเข้าร่วมได้');
     if (els.countdown) els.countdown.textContent = '';
   }
 
   if (r.status === 'countdown') {
-    if (amIMatchParticipant(r)) setHint('กำลังนับถอยหลังก่อนเริ่มเกมร่วมกัน');
-    else setHint('กำลังเริ่มรอบนี้ แต่คุณไม่ได้อยู่ใน participant ของรอบนี้');
+    if (amIMatchParticipant(r)) {
+      setHint(`กำลังนับถอยหลังก่อนเริ่มเกมร่วมกัน • Goal ทีม ${goal}`);
+    } else {
+      setHint('กำลังเริ่มรอบนี้ แต่คุณไม่ได้อยู่ใน participant ของรอบนี้');
+    }
     setCopyState('ห้องถูกล็อกแล้ว กำลังจะเริ่มเกมร่วมกัน', false);
   }
 
   if (r.status === 'running') {
-    if (amIMatchParticipant(r)) setHint('ทีมกำลังเล่นอยู่');
-    else setHint('ทีมกำลังเล่นอยู่ และคุณไม่ได้อยู่ใน participant ของรอบนี้');
+    if (amIMatchParticipant(r)) {
+      setHint(`ทีมกำลังเล่นอยู่ • Goal ทีม ${goal}`);
+    } else {
+      setHint('ทีมกำลังเล่นอยู่ และคุณไม่ได้อยู่ใน participant ของรอบนี้');
+    }
     setCopyState('รอบนี้กำลังดำเนินอยู่', false);
   }
 
   if (r.status === 'finished') {
-    setHint('รอบนี้จบแล้ว');
+    const success = !!r?.match?.coop?.success;
+    setHint(success ? 'ทีมทำเป้าสำเร็จแล้ว' : 'รอบนี้จบแล้ว');
     setCopyState('สามารถกลับ lobby เพื่อเล่นใหม่ได้', false);
   }
 }
@@ -846,7 +873,7 @@ async function enterRun(startAt) {
     startAt: String(startAt || now())
   });
 
-  location.href = `./goodjunk-coop-run.html?v=20260318-coop-v1&${q.toString()}`;
+  location.href = `./goodjunk-coop-run.html?v=20260318-coop-v1-polish&${q.toString()}`;
 }
 
 async function leaveRoom() {
