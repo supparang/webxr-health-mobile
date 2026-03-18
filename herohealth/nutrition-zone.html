@@ -1,0 +1,268 @@
+<!-- === /herohealth/nutrition-zone.html === -->
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth • Nutrition Zone</title>
+  <link rel="icon" href="./favicon.ico" />
+  <style>
+    :root{
+      --bg1:#0f172a;
+      --bg2:#172554;
+      --bg3:#1d4ed8;
+      --card:rgba(2,6,23,.76);
+      --stroke:rgba(148,163,184,.18);
+      --text:#f8fafc;
+      --muted:#cbd5e1;
+      --groups:#38bdf8;
+      --plate:#22d3ee;
+      --good:#22c55e;
+    }
+
+    *{ box-sizing:border-box; }
+
+    html,body{
+      margin:0;
+      min-height:100%;
+      font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(56,189,248,.18), transparent 28%),
+        radial-gradient(circle at top right, rgba(34,211,238,.14), transparent 22%),
+        linear-gradient(180deg, var(--bg2), var(--bg1) 42%, #020617);
+    }
+
+    .page{
+      min-height:100vh;
+      padding:20px 12px 28px;
+    }
+
+    .shell{
+      width:min(1100px, 100%);
+      margin:0 auto;
+    }
+
+    .hero{
+      background:linear-gradient(180deg, rgba(15,23,42,.92), rgba(2,6,23,.88));
+      border:1px solid var(--stroke);
+      border-radius:28px;
+      box-shadow:0 20px 60px rgba(0,0,0,.28);
+      padding:22px;
+      margin-bottom:16px;
+    }
+
+    .pill{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 14px;
+      border-radius:999px;
+      background:rgba(34,197,94,.12);
+      border:1px solid rgba(34,197,94,.18);
+      color:#dcfce7;
+      font-size:13px;
+      font-weight:900;
+      margin-bottom:12px;
+    }
+
+    .title{
+      margin:0 0 8px;
+      font-size:clamp(28px, 5vw, 42px);
+      line-height:1.05;
+      font-weight:900;
+    }
+
+    .sub{
+      margin:0;
+      color:var(--muted);
+      font-size:16px;
+      line-height:1.55;
+    }
+
+    .grid{
+      display:grid;
+      grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));
+      gap:14px;
+      margin-bottom:16px;
+    }
+
+    .card{
+      background:linear-gradient(180deg, rgba(15,23,42,.94), rgba(2,6,23,.88));
+      border:1px solid var(--stroke);
+      border-radius:28px;
+      box-shadow:0 16px 44px rgba(0,0,0,.22);
+      padding:18px;
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+    }
+
+    .card[data-kind="groups"]{
+      outline:2px solid rgba(56,189,248,.16);
+    }
+
+    .card[data-kind="plate"]{
+      outline:2px solid rgba(34,211,238,.16);
+    }
+
+    .card-badge{
+      width:58px;
+      height:58px;
+      border-radius:18px;
+      display:grid;
+      place-items:center;
+      font-size:30px;
+      background:rgba(255,255,255,.08);
+    }
+
+    .card-title{
+      margin:0;
+      font-size:26px;
+      font-weight:900;
+      line-height:1.1;
+    }
+
+    .card-sub{
+      margin:0;
+      color:var(--muted);
+      line-height:1.5;
+      font-size:15px;
+    }
+
+    .bullet{
+      margin:0;
+      padding-left:18px;
+      color:#e2e8f0;
+      line-height:1.55;
+      font-size:14px;
+    }
+
+    .actions{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      margin-top:auto;
+    }
+
+    .btn{
+      border:0;
+      border-radius:18px;
+      cursor:pointer;
+      padding:14px 18px;
+      min-height:52px;
+      font-size:15px;
+      font-weight:900;
+    }
+
+    .btn-groups{
+      background:linear-gradient(180deg, #38bdf8, #0ea5e9);
+      color:#082f49;
+    }
+
+    .btn-plate{
+      background:linear-gradient(180deg, #22d3ee, #06b6d4);
+      color:#083344;
+    }
+
+    .btn-ghost{
+      background:rgba(15,23,42,.72);
+      color:var(--text);
+      border:1px solid var(--stroke);
+    }
+
+    .mini{
+      font-size:13px;
+      color:#93c5fd;
+    }
+
+    @media (max-width: 640px){
+      .hero,.card{ border-radius:24px; }
+      .card-title{ font-size:24px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <div class="shell">
+      <section class="hero">
+        <div class="pill">🥗 Nutrition Zone</div>
+        <h1 class="title">เลือกเกมโภชนาการ</h1>
+        <p class="sub">
+          โซนนี้มี 2 เกมบทบาทต่างกันชัดเจน —
+          <strong>Groups</strong> สำหรับแยกหมวดอาหารและเลือกสิ่งที่ดีกว่า,
+          และ <strong>Plate</strong> สำหรับจัดมื้ออาหารให้สมดุล
+        </p>
+      </section>
+
+      <section class="grid">
+        <article class="card" data-kind="groups">
+          <div class="card-badge">🧺</div>
+          <h2 class="card-title">Groups</h2>
+          <p class="card-sub">
+            ฝึกแยกอาหารเป็น 5 หมู่ เลือกตัวเลือกที่ดีกว่า และตอบเหตุผลง่าย ๆ
+          </p>
+          <ul class="bullet">
+            <li>Sort หมวดอาหาร</li>
+            <li>Compare สองตัวเลือก</li>
+            <li>Reason ให้เหตุผลสั้น ๆ</li>
+            <li>มี warmup / cooldown ครบ flow</li>
+          </ul>
+          <div class="actions">
+            <button class="btn btn-groups" id="openGroupsBtn">เข้าเกม Groups</button>
+          </div>
+          <div class="mini">เหมาะกับฝึก “จำแนกและตัดสินใจ”</div>
+        </article>
+
+        <article class="card" data-kind="plate">
+          <div class="card-badge">🍽️</div>
+          <h2 class="card-title">Plate</h2>
+          <p class="card-sub">
+            ฝึกจัดมื้ออาหารให้สมดุล ดูว่าจานขาดอะไร และสลับตัวเลือกให้ดีขึ้น
+          </p>
+          <ul class="bullet">
+            <li>Build จานอาหาร</li>
+            <li>Fix จานที่ยังไม่ดี</li>
+            <li>Swap เปลี่ยนเป็นตัวเลือกที่เหมาะกว่า</li>
+            <li>มี warmup / cooldown ครบ flow</li>
+          </ul>
+          <div class="actions">
+            <button class="btn btn-plate" id="openPlateBtn">เข้าเกม Plate</button>
+          </div>
+          <div class="mini">เหมาะกับฝึก “จัดมื้อและปรับสมดุล”</div>
+        </article>
+      </section>
+
+      <div class="actions">
+        <button class="btn btn-ghost" id="backHubBtn">กลับ HUB</button>
+      </div>
+    </div>
+  </main>
+
+  <script type="module">
+    import { createCtx } from './shared/nutrition-common.js';
+    import { goExit } from './shared/nutrition-integration.js';
+    import { buildGroupsLauncherUrl, buildPlateLauncherUrl } from './shared/nutrition-entry.js';
+
+    const ctx = createCtx('nutrition-zone');
+
+    document.getElementById('openGroupsBtn').addEventListener('click', () => {
+      window.location.href = buildGroupsLauncherUrl(ctx, {
+        hub: ctx.hub,
+        returnTo: './nutrition-zone.html'
+      });
+    });
+
+    document.getElementById('openPlateBtn').addEventListener('click', () => {
+      window.location.href = buildPlateLauncherUrl(ctx, {
+        hub: ctx.hub,
+        returnTo: './nutrition-zone.html'
+      });
+    });
+
+    document.getElementById('backHubBtn').addEventListener('click', () => {
+      goExit(ctx, './hub.html');
+    });
+  </script>
+</body>
+</html>
