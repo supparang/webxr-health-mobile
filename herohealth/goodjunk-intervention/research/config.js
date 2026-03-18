@@ -1,228 +1,110 @@
-// /herohealth/goodjunk-intervention/research/config.js
-// GoodJunk Intervention Research Config
-// Starter central config for game / assessments / parent / followup
+// === /goodjunk-intervention/research/config.js ===
+// CORE FLOW CONFIG
+// PATCH v20260318a-GJI-CONFIG
 
-(function () {
-  'use strict';
+export const APP_CONFIG = {
+  appId: 'goodjunk-intervention',
+  version: '20260318a-GJI-CONFIG',
+  defaultLang: 'th',
+  defaultStudyId: 'GJI-2026',
+  defaultCondition: 'intervention',
+  defaultGroup: 'grade5',
+  defaultSession: 's1',
+  researchMode: true,
+};
 
-  const WIN = window;
+export const ROUTES = {
+  INDEX: 'index.html',
 
-  if (WIN.GJ_INT_CONFIG) return;
+  STUDENT_LAUNCHER: 'launcher/student-launcher.html',
+  TEACHER_PANEL: 'launcher/teacher-panel.html',
 
-  const CONFIG = {
-    app: {
-      appKey: 'goodjunk-intervention',
-      title: 'GoodJunk Intervention',
-      version: '20260317a',
-      schemaVersion: 'gj-int-schema-v1',
-      locale: 'th-TH'
-    },
+  GAME: 'game/goodjunk-vr.html',
+  GAME_SUMMARY: 'game/summary.html',
 
-    paths: {
-      teacherPanel: '../launcher/teacher-panel.html',
-      studentLauncher: '../launcher/student-launcher.html',
+  PRE_KNOWLEDGE: 'assessments/pre-knowledge.html',
+  PRE_BEHAVIOR: 'assessments/pre-behavior.html',
+  POST_KNOWLEDGE: 'assessments/post-knowledge.html',
+  POST_BEHAVIOR: 'assessments/post-behavior.html',
+  POST_CHOICE: 'assessments/post-choice.html',
+  COMPLETION: 'assessments/completion.html',
 
-      game: '../game/goodjunk-vr.html',
+  SHORT_FOLLOWUP: 'followup/short-followup.html',
+  WEEKLY_CHECK: 'followup/weekly-check.html',
 
-      preKnowledge: '../assessments/pre-knowledge.html',
-      postKnowledge: '../assessments/post-knowledge.html',
-      preBehavior: '../assessments/pre-behavior.html',
-      postBehavior: '../assessments/post-behavior.html',
+  PARENT_FORM: 'parent/parent-questionnaire.html',
+  PARENT_SUMMARY: 'parent/parent-summary.html',
+};
 
-      parentSummary: '../parent/parent-summary.html',
-      parentQuestionnaire: '../parent/parent-questionnaire.html',
+const CTX_KEYS = [
+  'pid',
+  'studyId',
+  'group',
+  'condition',
+  'session',
+  'lang',
+  'teacher',
+  'classroom',
+  'school',
+  'mode'
+];
 
-      weeklyCheck: '../followup/weekly-check.html',
-      shortFollowup: '../followup/short-followup.html',
+export function getProjectBase(pathname = (typeof window !== 'undefined' ? window.location.pathname : '/goodjunk-intervention/')) {
+  const tokenA = '/goodjunk-intervention/';
+  const iA = pathname.indexOf(tokenA);
+  if (iA >= 0) return pathname.slice(0, iA + tokenA.length);
 
-      hubFallback: '../../hub.html'
-    },
+  const tokenB = '/goodjunk-intervention';
+  const iB = pathname.indexOf(tokenB);
+  if (iB >= 0) return `${pathname.slice(0, iB + tokenB.length)}/`;
 
-    storageKeys: {
-      teacherPanel: 'GOODJUNK_INT_TEACHER_PANEL_V1',
+  const parts = pathname.split('/').filter(Boolean);
+  if (!parts.length) return '/';
+  return `/${parts.slice(0, -1).join('/')}/`;
+}
 
-      preKnowledge: 'GOODJUNK_INT_PRE_KNOWLEDGE_V1',
-      postKnowledge: 'GOODJUNK_INT_POST_KNOWLEDGE_V1',
+export function toAbsoluteRoute(routeKeyOrPath) {
+  const rel = ROUTES[routeKeyOrPath] ?? routeKeyOrPath ?? ROUTES.STUDENT_LAUNCHER;
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  const base = getProjectBase();
+  return new URL(rel, `${origin}${base}`).toString();
+}
 
-      preBehavior: 'GOODJUNK_INT_PRE_BEHAVIOR_V1',
-      postBehavior: 'GOODJUNK_INT_POST_BEHAVIOR_V1',
+export function pickCtxFromQuery(search = (typeof window !== 'undefined' ? window.location.search : '')) {
+  const params = new URLSearchParams(search || '');
+  const ctx = {};
+  for (const key of CTX_KEYS) {
+    const value = params.get(key);
+    if (value !== null && value !== '') ctx[key] = value;
+  }
+  return ctx;
+}
 
-      parentQuestionnaire: 'GOODJUNK_INT_PARENT_QUESTIONNAIRE_V1',
-      weeklyCheck: 'GOODJUNK_INT_WEEKLY_CHECK_V1',
-      shortFollowup: 'GOODJUNK_INT_SHORT_FOLLOWUP_V1',
+export function buildUrl(routeKeyOrPath, params = {}, preserveCurrent = true) {
+  const url = new URL(toAbsoluteRoute(routeKeyOrPath));
 
-      latestGameSummary: 'GOODJUNK_INT_LAST_SUMMARY_V1',
-      sessionsHistory: 'GOODJUNK_INT_SESSIONS_HISTORY_V1',
-      eventsHistory: 'GOODJUNK_INT_EVENTS_HISTORY_V1',
-      mlHistory: 'GOODJUNK_INT_ML_HISTORY_V1',
-      mlGameendHistory: 'GOODJUNK_INT_ML_GAMEEND_HISTORY_V1'
-    },
-
-    defaults: {
-      projectTag: 'herohealth-goodjunk-intervention',
-      studyId: 'GJ-INT-001',
-      phase: 'pretest',
-      conditionGroup: 'A',
-      sessionOrder: '1',
-      blockLabel: 'B1',
-
-      run: 'play',
-      diff: 'easy',
-      view: 'mobile',
-      time: '80',
-
-      kid: true,
-      readable: true,
-      spawnDebug: false
-    },
-
-    contextKeys: [
-      'projectTag',
-      'studyId',
-      'phase',
-      'conditionGroup',
-      'sessionOrder',
-      'blockLabel',
-      'sessionId',
-
-      'studentKey',
-      'schoolCode',
-      'schoolName',
-      'classRoom',
-      'studentNo',
-      'nickName',
-      'gradeLevel',
-      'gender',
-      'age',
-
-      'run',
-      'diff',
-      'view',
-      'time',
-      'seed',
-      'kid',
-      'readable',
-      'spawnDebug',
-      'hub'
-    ],
-
-    scoring: {
-      knowledgeTotal: 5,
-      behaviorTotal: 15,
-      parentTotal: 15,
-      weeklyTotal: 15,
-      shortFollowupTotal: 9
-    },
-
-    answerKeys: {
-      knowledge: {
-        q1: 'B',
-        q2: 'B',
-        q3: 'A',
-        q4: 'B',
-        q5: 'B'
-      }
-    },
-
-    game: {
-      goalTargetByDiff: {
-        easy: 14,
-        normal: 18,
-        hard: 24
-      },
-      spawnRateByDiff: {
-        easy: 0.88,
-        normal: 1.05,
-        hard: 1.35
-      },
-      ttlByDiff: {
-        easy: { good: 2.5, junk: 2.4 },
-        normal: { good: 2.2, junk: 2.2 },
-        hard: { good: 2.0, junk: 2.0 }
-      }
-    },
-
-    labels: {
-      grade(score, accPct, missTotal) {
-        if (score >= 260 && accPct >= 80 && missTotal <= 3) return 'A';
-        if (score >= 190 && accPct >= 65 && missTotal <= 5) return 'B';
-        if (score >= 130 && accPct >= 50) return 'C';
-        return 'D';
-      }
-    },
-
-    urls: {
-      withContext(base, sourceUrl) {
-        const src = new URL(sourceUrl || location.href, location.href);
-        const out = new URL(base, location.href);
-        CONFIG.contextKeys.forEach((k) => {
-          const v = src.searchParams.get(k);
-          if (v != null && v !== '') out.searchParams.set(k, v);
-        });
-        return out.toString();
-      }
-    },
-
-    utils: {
-      q(k, d = '') {
-        try { return new URL(location.href).searchParams.get(k) ?? d; }
-        catch (_) { return d; }
-      },
-
-      safeNum(v, d = 0) {
-        v = Number(v);
-        return Number.isFinite(v) ? v : d;
-      },
-
-      clamp(v, a, b) {
-        v = Number(v);
-        if (!Number.isFinite(v)) v = a;
-        return Math.max(a, Math.min(b, v));
-      },
-
-      bool01(v) {
-        return v ? '1' : '0';
-      },
-
-      nowIso() {
-        return new Date().toISOString();
-      },
-
-      makeSeed() {
-        return String(Date.now());
-      },
-
-      makeSessionId(studentKey = 'anon') {
-        return `gjint-${String(studentKey || 'anon')}-${Date.now()}`;
-      },
-
-      sumLikert(ans, keys) {
-        return (keys || Object.keys(ans || {})).reduce((s, k) => s + (Number(ans?.[k]) || 0), 0);
-      },
-
-      allAnswered(ans, keys) {
-        return (keys || Object.keys(ans || {})).every((k) => !!ans?.[k]);
-      },
-
-      readJson(key, fallback = null) {
-        try {
-          const raw = localStorage.getItem(key);
-          return raw ? JSON.parse(raw) : fallback;
-        } catch (_) {
-          return fallback;
-        }
-      },
-
-      writeJson(key, value) {
-        try {
-          localStorage.setItem(key, JSON.stringify(value));
-          return true;
-        } catch (_) {
-          return false;
-        }
-      }
+  if (preserveCurrent && typeof window !== 'undefined') {
+    const current = new URLSearchParams(window.location.search);
+    for (const [k, v] of current.entries()) {
+      if (!url.searchParams.has(k)) url.searchParams.set(k, v);
     }
-  };
+  }
 
-  WIN.GJ_INT_CONFIG = CONFIG;
-})();
+  for (const [k, v] of Object.entries(params || {})) {
+    if (v === undefined || v === null || v === '') continue;
+    url.searchParams.set(k, String(v));
+  }
+
+  return url.toString();
+}
+
+export function withDefaultCtx(ctx = {}) {
+  return {
+    studyId: APP_CONFIG.defaultStudyId,
+    group: APP_CONFIG.defaultGroup,
+    condition: APP_CONFIG.defaultCondition,
+    session: APP_CONFIG.defaultSession,
+    lang: APP_CONFIG.defaultLang,
+    ...ctx
+  };
+}
