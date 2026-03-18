@@ -43,13 +43,14 @@
       </div>
 
       <div class="launcher-note">
-        ชุดแรกนี้เป็น vertical slice สำหรับโครงใหม่ของเกม Groups
+        launcher นี้จะส่ง query ต่อไปยัง run page ให้ครบทั้ง hub / returnTo / gate context
       </div>
     </section>
   </main>
 
   <script type="module">
-    import { createCtx, buildUrl, goHub } from '../shared/nutrition-common.js';
+    import { createCtx } from '../shared/nutrition-common.js';
+    import { buildRunUrl, goExit } from '../shared/nutrition-integration.js';
 
     const ctx = createCtx('nutrition-groups');
     const diffSelect = document.getElementById('diffSelect');
@@ -61,19 +62,27 @@
     timeSelect.value = String(ctx.time || 90);
 
     startBtn.addEventListener('click', () => {
-      const url = buildUrl('./groups-run.html', {
-        ...ctx.query,
-        cat: 'nutrition',
-        theme: 'groups',
-        game: 'groups',
-        diff: diffSelect.value,
-        time: timeSelect.value,
-        seed: Date.now()
-      });
+      const url = buildRunUrl(
+        {
+          ...ctx,
+          launcher: './groups-launcher.html'
+        },
+        './groups-run.html',
+        {
+          cat: 'nutrition',
+          theme: 'groups',
+          game: 'groups',
+          diff: diffSelect.value,
+          time: Number(timeSelect.value),
+          engine: 'v2',
+          launcher: './groups-launcher.html',
+          seed: Date.now()
+        }
+      );
       window.location.href = url;
     });
 
-    backBtn.addEventListener('click', () => goHub(ctx));
+    backBtn.addEventListener('click', () => goExit(ctx, '../hub.html'));
   </script>
 </body>
 </html>
