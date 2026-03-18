@@ -1,5 +1,5 @@
 // === /herohealth/gate/games/brush/warmup.js ===
-// FULL PATCH v20260316-BRUSH-WARMUP-GATE
+// FULL PATCH v20260318-BRUSH-WARMUP-AUTO-FINISH
 
 let __brushWarmupStyleLoaded = false;
 
@@ -15,10 +15,6 @@ function loadStyle(){
   link.rel = 'stylesheet';
   link.href = new URL('./style.css', import.meta.url).toString();
   document.head.appendChild(link);
-}
-
-function clamp(v, a, b){
-  return Math.max(a, Math.min(b, v));
 }
 
 function nowISO(){
@@ -116,9 +112,36 @@ export async function mount(root, ctx = {}, api = {}){
     needHits: 6,
     activeIdx: 0,
     finished: false,
+    ended: false,
     startedAt: performance.now(),
     els: []
   };
+
+  function elapsedSec(){
+    return Math.max(0, Math.round((performance.now() - S.startedAt) / 1000));
+  }
+
+  function finishWarmup(){
+    if(S.ended) return;
+    S.ended = true;
+
+    api.finish?.({
+      ok: true,
+      title: 'Warmup เสร็จแล้ว!',
+      subtitle: 'พร้อมเข้าเกม Brush VR',
+      lines: [
+        `Hit: ${S.hits}/${S.needHits}`,
+        `Miss: ${S.miss}`,
+        `เวลา: ${elapsedSec()} วินาที`
+      ],
+      buffs: {
+        wgskip: '1',
+        warmupDone: '1'
+      },
+      markDailyDone: true,
+      savedAt: nowISO()
+    });
+  }
 
   function setStats(){
     const pct = Math.round((S.hits / S.needHits) * 100);
@@ -126,7 +149,7 @@ export async function mount(root, ctx = {}, api = {}){
     fillEl.style.width = `${pct}%`;
 
     api.setStats?.({
-      time: Math.max(0, Math.round((performance.now() - S.startedAt) / 1000)),
+      time: elapsedSec(),
       score: S.hits,
       miss: S.miss,
       acc: `${pct}%`
@@ -134,7 +157,7 @@ export async function mount(root, ctx = {}, api = {}){
 
     missionTextEl.textContent =
       S.hits >= S.needHits
-        ? 'เสร็จแล้ว! กด “พร้อมเข้าเกม” ได้เลย'
+        ? 'เสร็จแล้ว! กำลังเปิดสรุปผล...'
         : `แตะโซนที่กำลังเรืองแสงให้ครบ ${S.needHits} ครั้ง (${S.hits}/${S.needHits})`;
 
     const active = ZONES[S.activeIdx];
@@ -148,18 +171,27 @@ export async function mount(root, ctx = {}, api = {}){
 
   function setSub(){
     api.setSub?.('แตะโซนที่เรืองแสงให้ครบก่อนเข้าเกม');
-    api.setDailyState?.('PLAYING');
+  }
+
+  function spawnPop(x, y, text){
+    const el = document.createElement('div');
+    el.className = 'brush-gate-pop';
+    el.textContent = text;
+    el.style.left = `${x}px`;
+    el.style.top = `${y}px`;
+    popLayer.appendChild(el);
+    setTimeout(() => el.remove(), 700);
   }
 
   function renderZones(){
     zonesHost.innerHTML = '';
     S.els = [];
 
-    ZONES.forEach((z, idx)=>{
+    ZONES.forEach((z, idx) => {
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'brush-gate-zone';
-      if(idx === S.activeIdx) btn.classList.add('active');
+      if(idx === S.activeIdx && !S.finished) btn.classList.add('active');
 
       btn.style.left = `${z.x}%`;
       btn.style.top = `${z.y}%`;
@@ -167,11 +199,11 @@ export async function mount(root, ctx = {}, api = {}){
       btn.style.height = `${z.h}%`;
       btn.innerHTML = `
         <span class="brush-gate-zone-label">${z.label}</span>
-        <span class="brush-gate-zone-icon">${idx === S.activeIdx ? '✨' : ''}</span>
+        <span class="brush-gate-zone-icon">${idx === S.activeIdx && !S.finished ? '✨' : ''}</span>
       `;
 
-      btn.addEventListener('click', ()=>{
-        if(S.finished) return;
+      btn.addEventListener('click', () => {
+        if(S.finished || S.ended) return;
 
         const rect = zonesHost.getBoundingClientRect();
         const x = rect.width * ((z.x + z.w / 2) / 100);
@@ -181,12 +213,16 @@ export async function mount(root, ctx = {}, api = {}){
           S.hits++;
           spawnPop(x, y, 'GOOD');
           btn.classList.add('good');
-          setTimeout(()=> btn.classList.remove('good'), 180);
+          setTimeout(() => btn.classList.remove('good'), 180);
 
           if(S.hits >= S.needHits){
             S.finished = true;
             S.els.forEach(el => el.classList.remove('active'));
             setStats();
+
+            setTimeout(() => {
+              finishWarmup();
+            }, 220);
             return;
           }
 
@@ -197,7 +233,7 @@ export async function mount(root, ctx = {}, api = {}){
           S.miss++;
           spawnPop(x, y, 'MISS');
           btn.classList.add('bad');
-          setTimeout(()=> btn.classList.remove('bad'), 180);
+          setTimeout(() => btn.classList.remove('bad'), 180);
           setStats();
         }
       });
@@ -207,22 +243,14 @@ export async function mount(root, ctx = {}, api = {}){
     });
   }
 
-  function spawnPop(x, y, text){
-    const el = document.createElement('div');
-    el.className = 'brush-gate-pop';
-    el.textContent = text;
-    el.style.left = `${x}px`;
-    el.style.top = `${y}px`;
-    popLayer.appendChild(el);
-    setTimeout(()=> el.remove(), 700);
-  }
-
   function restart(){
     S.hits = 0;
     S.miss = 0;
     S.activeIdx = 0;
     S.finished = false;
+    S.ended = false;
     S.startedAt = performance.now();
+
     renderZones();
     setStats();
     setSub();
@@ -230,23 +258,8 @@ export async function mount(root, ctx = {}, api = {}){
 
   restartBtn.addEventListener('click', restart);
 
-  finishBtn.addEventListener('click', ()=>{
-    api.finish?.({
-      ok: true,
-      title: 'Warmup เสร็จแล้ว!',
-      subtitle: 'พร้อมเข้าเกม Brush VR',
-      lines: [
-        `Hit: ${S.hits}/${S.needHits}`,
-        `Miss: ${S.miss}`,
-        `เวลา: ${Math.max(0, Math.round((performance.now() - S.startedAt) / 1000))} วินาที`
-      ],
-      buffs: {
-        wgskip: '1',
-        warmupDone: '1'
-      },
-      markDailyDone: true,
-      savedAt: nowISO()
-    });
+  finishBtn.addEventListener('click', () => {
+    finishWarmup();
   });
 
   restart();
