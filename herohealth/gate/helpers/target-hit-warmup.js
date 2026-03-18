@@ -1,11 +1,12 @@
 // === /herohealth/gate/helpers/target-hit-warmup.js ===
 // Shared helper for target-hit / quick-scan warmup modules
-// FULL PATCH v20260318-TARGET-HIT-WARMUP-MANUAL-START-FIX
+// FULL PATCH v20260318b-TARGET-HIT-WARMUP-MANUAL-START-HIDE-HARDENED
 // ✅ manual-start helper ชัดเจน
 // ✅ return start ตัวจริง
 // ✅ autostart:false เพื่อไม่ให้ gate-core ข้าม brief screen
 // ✅ finish ส่ง ok ตามจริง
 // ✅ ถ้าไม่มีปุ่ม start จะ auto-start ให้เอง
+// ✅ hide brief แบบแข็งแรง (class + display:none + pointer-events:none)
 
 import { rand } from './rng.js';
 
@@ -285,11 +286,26 @@ export function mountTargetHitWarmup({
       });
   }
 
+  function hideBriefHard(){
+    if(!els.brief) return;
+
+    els.brief.classList.add('hidden');
+    els.brief.style.display = 'none';
+    els.brief.style.pointerEvents = 'none';
+    els.brief.setAttribute('aria-hidden', 'true');
+  }
+
   function startInternal(){
     if(state.started || state.ended) return;
 
     state.started = true;
-    els.brief?.classList.add('hidden');
+
+    if(els.start){
+      els.start.disabled = true;
+      els.start.setAttribute('aria-disabled', 'true');
+    }
+
+    hideBriefHard();
 
     state.items = spawnSet();
     render();
