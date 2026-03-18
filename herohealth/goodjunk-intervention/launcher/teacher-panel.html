@@ -494,11 +494,17 @@
             </div>
 
             <div class="actions">
-              <button class="btn-blue" id="btnPreKnowledge">ไป Pre-Knowledge</button>
-              <button class="btn-violet" id="btnPreBehavior">ไป Pre-Behavior</button>
-              <button class="btn-green" id="btnGame">เข้าเกม</button>
-              <button class="btn-ghost" id="btnCopyGame">คัดลอกลิงก์เกม</button>
-              <button class="btn-ghost" id="btnReset">รีเซ็ต</button>
+              <button class="btn-ghost" id="btnLauncher" type="button">Student Launcher</button>
+              <button class="btn-blue" id="btnPreKnowledge" type="button">Pre-Knowledge</button>
+              <button class="btn-violet" id="btnPreBehavior" type="button">Pre-Behavior</button>
+              <button class="btn-green" id="btnGame" type="button">เข้าเกม</button>
+              <button class="btn-ghost" id="btnPostKnowledge" type="button">Post-Knowledge</button>
+              <button class="btn-ghost" id="btnPostBehavior" type="button">Post-Behavior</button>
+              <button class="btn-ghost" id="btnPostChoice" type="button">Post-Choice</button>
+              <button class="btn-ghost" id="btnCompletion" type="button">Completion</button>
+              <button class="btn-ghost" id="btnParentSummary" type="button">Parent Summary</button>
+              <button class="btn-ghost" id="btnCopyGame" type="button">คัดลอกลิงก์เกม</button>
+              <button class="btn-ghost" id="btnReset" type="button">รีเซ็ต</button>
             </div>
           </div>
         </section>
@@ -510,6 +516,11 @@
             <div class="preview-box">
               <div class="muted">สถานะ context</div>
               <div class="chips" id="chips"></div>
+            </div>
+
+            <div class="preview-box">
+              <div class="muted">Student Launcher URL</div>
+              <div class="link" id="launcherPreview">-</div>
             </div>
 
             <div class="preview-box">
@@ -530,7 +541,7 @@
 
           <div class="foot">
             แนะนำให้ครูใช้หน้านี้เป็นจุดเริ่ม flow ทั้งหมด:
-            pretest → game → posttest → parent/home → follow-up
+            launcher → pretest → game → posttest → parent/home → follow-up
           </div>
 
           <div class="small" style="margin-top:10px;">
@@ -541,15 +552,23 @@
     </section>
   </div>
 
-  <script>
+  <script type="module">
+    import { saveCtx } from '../research/localstore.js';
+
     const $ = (id)=>document.getElementById(id);
+    const STORAGE_KEY = 'GOODJUNK_INT_TEACHER_PANEL_V3';
 
-    const STORAGE_KEY = 'GOODJUNK_INT_TEACHER_PANEL_V1';
-
+    // ไฟล์นี้อยู่ใน /launcher/
     const PATHS = {
-      preKnowledge: '../assessments/pre-knowledge.html',
-      preBehavior : '../assessments/pre-behavior.html',
-      game        : '../game/goodjunk-vr.html'
+      launcher      : './student-launcher.html',
+      preKnowledge  : '../assessments/pre-knowledge.html',
+      preBehavior   : '../assessments/pre-behavior.html',
+      game          : '../game/goodjunk-vr.html',
+      postKnowledge : '../assessments/post-knowledge.html',
+      postBehavior  : '../assessments/post-behavior.html',
+      postChoice    : '../assessments/post-choice.html',
+      completion    : '../assessments/completion.html',
+      parentSummary : '../parent/parent-summary.html'
     };
 
     function q(k,d=''){
@@ -571,16 +590,16 @@
     }
 
     function collectForm(){
-      const data = {
+      return {
         projectTag: $('projectTag').value.trim() || 'herohealth-goodjunk-intervention',
-        studyId: $('studyId').value.trim(),
+        studyId: $('studyId').value.trim() || 'GJ-INT-001',
         phase: $('phase').value,
         conditionGroup: $('conditionGroup').value,
         sessionOrder: $('sessionOrder').value,
         blockLabel: $('blockLabel').value.trim(),
         sessionId: $('sessionId').value.trim() || makeSessionId(),
 
-        studentKey: $('studentKey').value.trim(),
+        studentKey: $('studentKey').value.trim() || 'ST001',
         schoolCode: $('schoolCode').value.trim(),
         schoolName: $('schoolName').value.trim(),
         classRoom: $('classRoom').value.trim(),
@@ -602,40 +621,61 @@
         readable: bool01($('readable').checked),
         spawnDebug: bool01($('spawnDebug').checked)
       };
+    }
 
-      return data;
+    function buildCanonicalCtx(d){
+      return {
+        pid: d.studentKey || d.nickName || 'guest',
+        studyId: d.studyId,
+        group: d.classRoom || d.gradeLevel || d.conditionGroup || 'group1',
+        condition: d.conditionGroup || 'intervention',
+        session: d.sessionId,
+        lang: 'th',
+        teacher: '',
+        classroom: d.classRoom || '',
+        school: d.schoolName || '',
+        mode: d.run || 'play',
+
+        nickName: d.nickName || '',
+        phase: d.phase || '',
+        diff: d.diff || 'easy',
+        view: d.view || 'mobile',
+        time: d.time || '80',
+        run: d.run || 'play',
+        hub: d.hub || '../../hub.html'
+      };
     }
 
     function buildUrl(basePath){
       const d = collectForm();
+      const ctx = buildCanonicalCtx(d);
       const u = new URL(basePath, location.href);
+
+      Object.entries(ctx).forEach(([k,v])=>{
+        if(v !== '' && v != null) u.searchParams.set(k, String(v));
+      });
 
       Object.entries(d).forEach(([k,v])=>{
         if(v !== '' && v != null) u.searchParams.set(k, String(v));
       });
 
+      if (!u.searchParams.has('condition')) u.searchParams.set('condition', d.conditionGroup || 'intervention');
+      if (!u.searchParams.has('group')) u.searchParams.set('group', d.classRoom || d.gradeLevel || d.conditionGroup || 'group1');
+      if (!u.searchParams.has('session')) u.searchParams.set('session', d.sessionId);
+      if (!u.searchParams.has('pid')) u.searchParams.set('pid', d.studentKey || d.nickName || 'guest');
+
       return u.toString();
-    }
-
-    function buildPreKnowledgeUrl(){
-      return buildUrl(PATHS.preKnowledge);
-    }
-
-    function buildPreBehaviorUrl(){
-      return buildUrl(PATHS.preBehavior);
-    }
-
-    function buildGameUrl(){
-      return buildUrl(PATHS.game);
     }
 
     function renderChips(){
       const d = collectForm();
+      const ctx = buildCanonicalCtx(d);
       const chips = [
-        `study:${d.studyId || '-'}`,
-        `phase:${d.phase || '-'}`,
-        `group:${d.conditionGroup || '-'}`,
-        `student:${d.studentKey || '-'}`,
+        `pid:${ctx.pid || '-'}`,
+        `study:${ctx.studyId || '-'}`,
+        `group:${ctx.group || '-'}`,
+        `condition:${ctx.condition || '-'}`,
+        `session:${ctx.session || '-'}`,
         `diff:${d.diff}`,
         `view:${d.view}`,
         `run:${d.run}`
@@ -649,9 +689,10 @@
     }
 
     function renderPreview(){
-      $('preKnowledgePreview').textContent = buildPreKnowledgeUrl();
-      $('preBehaviorPreview').textContent = buildPreBehaviorUrl();
-      $('gamePreview').textContent = buildGameUrl();
+      $('launcherPreview').textContent = buildUrl(PATHS.launcher);
+      $('preKnowledgePreview').textContent = buildUrl(PATHS.preKnowledge);
+      $('preBehaviorPreview').textContent = buildUrl(PATHS.preBehavior);
+      $('gamePreview').textContent = buildUrl(PATHS.game);
       renderChips();
     }
 
@@ -679,6 +720,14 @@
       }catch(_){}
     }
 
+    function persistCanonicalCtx(){
+      const d = collectForm();
+      const ctx = buildCanonicalCtx(d);
+      saveCtx(ctx);
+      saveLastTeacherForm();
+      return { d, ctx };
+    }
+
     async function copyText(txt){
       try{
         await navigator.clipboard.writeText(txt);
@@ -690,6 +739,11 @@
         document.execCommand('copy');
         ta.remove();
       }
+    }
+
+    function go(pathKey){
+      persistCanonicalCtx();
+      location.href = buildUrl(PATHS[pathKey]);
     }
 
     function resetDefaults(){
@@ -724,7 +778,7 @@
       $('spawnDebug').checked = false;
 
       renderPreview();
-      saveLastTeacherForm();
+      persistCanonicalCtx();
     }
 
     [
@@ -737,28 +791,27 @@
       if(!el) return;
       el.addEventListener('input', ()=>{
         renderPreview();
-        saveLastTeacherForm();
+        persistCanonicalCtx();
       });
       el.addEventListener('change', ()=>{
         renderPreview();
-        saveLastTeacherForm();
+        persistCanonicalCtx();
       });
     });
 
-    $('btnPreKnowledge').addEventListener('click', ()=>{
-      location.href = buildPreKnowledgeUrl();
-    });
-
-    $('btnPreBehavior').addEventListener('click', ()=>{
-      location.href = buildPreBehaviorUrl();
-    });
-
-    $('btnGame').addEventListener('click', ()=>{
-      location.href = buildGameUrl();
-    });
+    $('btnLauncher').addEventListener('click', ()=> go('launcher'));
+    $('btnPreKnowledge').addEventListener('click', ()=> go('preKnowledge'));
+    $('btnPreBehavior').addEventListener('click', ()=> go('preBehavior'));
+    $('btnGame').addEventListener('click', ()=> go('game'));
+    $('btnPostKnowledge').addEventListener('click', ()=> go('postKnowledge'));
+    $('btnPostBehavior').addEventListener('click', ()=> go('postBehavior'));
+    $('btnPostChoice').addEventListener('click', ()=> go('postChoice'));
+    $('btnCompletion').addEventListener('click', ()=> go('completion'));
+    $('btnParentSummary').addEventListener('click', ()=> go('parentSummary'));
 
     $('btnCopyGame').addEventListener('click', async ()=>{
-      await copyText(buildGameUrl());
+      persistCanonicalCtx();
+      await copyText(buildUrl(PATHS.game));
       const old = $('btnCopyGame').textContent;
       $('btnCopyGame').textContent = 'คัดลอกแล้ว';
       setTimeout(()=> $('btnCopyGame').textContent = old, 1200);
@@ -766,10 +819,8 @@
 
     $('btnReset').addEventListener('click', resetDefaults);
 
-    // init
     loadLastTeacherForm();
 
-    // query override if provided
     [
       'projectTag','studyId','phase','conditionGroup','sessionOrder','blockLabel','sessionId',
       'studentKey','schoolCode','schoolName','classRoom','studentNo','nickName','gradeLevel',
@@ -787,7 +838,7 @@
     if(q('spawnDebug','') === '0') $('spawnDebug').checked = false;
 
     renderPreview();
-    saveLastTeacherForm();
+    persistCanonicalCtx();
   </script>
 </body>
 </html>
