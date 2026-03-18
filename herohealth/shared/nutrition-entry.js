@@ -1,6 +1,6 @@
 // === /herohealth/shared/nutrition-entry.js ===
 // Entry helpers for nutrition zone / hub cards
-// PATCH v20260318-NUTRITION-HUB-ENTRY-A
+// PATCH v20260318-NUTRITION-HUB-ENTRY-B
 
 import { buildUrl } from './nutrition-common.js';
 
@@ -55,5 +55,36 @@ export function buildPlateLauncherUrl(ctx, extra = {}) {
     diff: extra.diff ?? ctx.diff,
     time: extra.time ?? ctx.time,
     engine: extra.engine ?? ctx.engine
+  });
+}
+
+export function bindNutritionHubCard({
+  button,
+  ctx,
+  mode = 'zone'
+}) {
+  if (!button || !ctx) return;
+
+  button.addEventListener('click', () => {
+    if (mode === 'groups') {
+      window.location.href = buildGroupsLauncherUrl(ctx, {
+        hub: ctx.hub,
+        returnTo: './nutrition-zone.html'
+      });
+      return;
+    }
+
+    if (mode === 'plate') {
+      window.location.href = buildPlateLauncherUrl(ctx, {
+        hub: ctx.hub,
+        returnTo: './nutrition-zone.html'
+      });
+      return;
+    }
+
+    window.location.href = buildNutritionZoneUrl(ctx, {
+      hub: ctx.hub,
+      returnTo: ctx.returnTo
+    });
   });
 }
