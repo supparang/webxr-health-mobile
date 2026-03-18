@@ -1,0 +1,296 @@
+/* === /herohealth/nutrition-groups/css/groups.css === */
+/* PATCH v20260318-GROUPS-VSLICE-A */
+
+:root{
+  --bg1:#0f172a;
+  --bg2:#172554;
+  --bg3:#1d4ed8;
+  --card:rgba(2,6,23,.72);
+  --card2:rgba(15,23,42,.72);
+  --stroke:rgba(148,163,184,.18);
+  --text:#f8fafc;
+  --muted:#cbd5e1;
+  --blue:#38bdf8;
+  --green:#22c55e;
+  --yellow:#facc15;
+  --red:#fb7185;
+}
+
+*{ box-sizing:border-box; }
+
+html,body{
+  margin:0;
+  min-height:100%;
+  font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  color:var(--text);
+  background:
+    radial-gradient(circle at top left, rgba(56,189,248,.18), transparent 28%),
+    radial-gradient(circle at top right, rgba(34,197,94,.16), transparent 22%),
+    linear-gradient(180deg, var(--bg2), var(--bg1) 42%, #020617);
+}
+
+.groups-page{
+  min-height:100vh;
+}
+
+.launcher-page{
+  display:grid;
+  place-items:center;
+  padding:20px;
+}
+
+.launcher-shell,
+.run-shell{
+  width:min(980px, calc(100% - 24px));
+  margin:0 auto;
+}
+
+.launcher-card,
+.play-card{
+  background:linear-gradient(180deg, rgba(15,23,42,.92), rgba(2,6,23,.88));
+  border:1px solid var(--stroke);
+  border-radius:28px;
+  box-shadow:0 20px 60px rgba(0,0,0,.28);
+}
+
+.launcher-card{
+  padding:24px;
+}
+
+.hero-pill{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  border-radius:999px;
+  background:rgba(56,189,248,.14);
+  color:#bae6fd;
+  border:1px solid rgba(56,189,248,.24);
+  padding:8px 14px;
+  font-size:13px;
+  font-weight:900;
+  margin-bottom:12px;
+}
+
+.launcher-title{
+  margin:0 0 10px;
+  font-size:clamp(28px, 5vw, 42px);
+  line-height:1.06;
+}
+
+.launcher-sub{
+  margin:0 0 18px;
+  color:var(--muted);
+  font-size:16px;
+}
+
+.launcher-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));
+  gap:12px;
+  margin-bottom:18px;
+}
+
+.field{
+  display:grid;
+  gap:8px;
+}
+
+.field span{
+  font-size:14px;
+  font-weight:800;
+  color:#bfdbfe;
+}
+
+.field select{
+  width:100%;
+  border-radius:16px;
+  border:1px solid var(--stroke);
+  background:var(--card2);
+  color:var(--text);
+  font-size:16px;
+  padding:14px 16px;
+}
+
+.launcher-actions,
+.run-footer{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+}
+
+.launcher-note{
+  margin-top:14px;
+  color:#93c5fd;
+  font-size:13px;
+}
+
+.btn{
+  border:0;
+  border-radius:18px;
+  cursor:pointer;
+  padding:14px 18px;
+  font-size:15px;
+  font-weight:900;
+}
+
+.btn-start{
+  background:linear-gradient(180deg, #22c55e, #16a34a);
+  color:#052e16;
+}
+
+.btn-ghost{
+  background:rgba(15,23,42,.76);
+  color:var(--text);
+  border:1px solid var(--stroke);
+}
+
+.run-page{
+  padding:12px 0 18px;
+}
+
+.hud{
+  display:flex;
+  justify-content:space-between;
+  gap:10px;
+  align-items:center;
+  margin:0 0 12px;
+  flex-wrap:wrap;
+}
+
+.hud-left,
+.hud-right{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+}
+
+.hud-chip{
+  background:rgba(15,23,42,.78);
+  border:1px solid var(--stroke);
+  border-radius:999px;
+  padding:10px 14px;
+  font-size:14px;
+  font-weight:800;
+}
+
+.play-card{
+  padding:18px;
+}
+
+.mini-tip{
+  display:inline-flex;
+  margin-bottom:10px;
+  background:rgba(56,189,248,.12);
+  color:#bfdbfe;
+  border:1px solid rgba(56,189,248,.18);
+  border-radius:999px;
+  padding:8px 12px;
+  font-size:13px;
+  font-weight:800;
+}
+
+.question-title{
+  margin:0 0 14px;
+  font-size:clamp(24px, 4vw, 34px);
+  line-height:1.15;
+}
+
+.question-visual{
+  min-height:124px;
+  display:grid;
+  gap:10px;
+  align-items:center;
+  justify-items:center;
+  margin:0 0 16px;
+}
+
+.food-card{
+  width:min(420px, 100%);
+  background:rgba(30,41,59,.84);
+  border:1px solid var(--stroke);
+  border-radius:24px;
+  padding:18px;
+  text-align:center;
+}
+
+.food-emoji{
+  font-size:52px;
+  line-height:1;
+  margin-bottom:8px;
+}
+
+.food-name{
+  font-size:28px;
+  font-weight:900;
+}
+
+.food-sub{
+  color:var(--muted);
+  margin-top:6px;
+  font-size:14px;
+}
+
+.compare-grid{
+  width:100%;
+  display:grid;
+  grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));
+  gap:12px;
+}
+
+.compare-option{
+  background:rgba(30,41,59,.84);
+  border:1px solid var(--stroke);
+  border-radius:24px;
+  padding:18px;
+  text-align:center;
+}
+
+.compare-vs{
+  font-size:18px;
+  font-weight:900;
+  color:#fde68a;
+}
+
+.answer-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit, minmax(160px, 1fr));
+  gap:10px;
+}
+
+.answer-btn{
+  border:1px solid var(--stroke);
+  background:rgba(15,23,42,.82);
+  color:var(--text);
+  border-radius:20px;
+  padding:14px;
+  min-height:66px;
+  font-size:15px;
+  font-weight:900;
+  cursor:pointer;
+  text-align:center;
+}
+
+.answer-btn:hover{
+  transform:translateY(-1px);
+}
+
+.feedback-box{
+  min-height:30px;
+  margin-top:14px;
+  font-size:15px;
+  font-weight:800;
+  color:#e2e8f0;
+}
+
+.feedback-good{ color:#86efac; }
+.feedback-bad{ color:#fda4af; }
+
+@media (max-width: 720px){
+  .play-card{ padding:16px; }
+  .food-name{ font-size:24px; }
+  .answer-grid{ grid-template-columns:1fr 1fr; }
+}
+
+@media (max-width: 480px){
+  .answer-grid{ grid-template-columns:1fr; }
+}
