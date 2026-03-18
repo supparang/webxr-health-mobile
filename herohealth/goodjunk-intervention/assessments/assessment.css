@@ -1,1 +1,179 @@
-q
+/* === /goodjunk-intervention/assessments/assessment.css === */
+/* PATCH v20260318a-GJI-ASSESSMENT-CSS */
+
+:root{
+  --bg1:#07111f;
+  --bg2:#0f1d36;
+  --card:rgba(10,18,34,.88);
+  --stroke:rgba(148,163,184,.2);
+  --text:#f8fafc;
+  --muted:#cbd5e1;
+  --good:#22c55e;
+  --blue:#38bdf8;
+  --warn:#f59e0b;
+  --shadow:0 18px 50px rgba(0,0,0,.32);
+}
+
+*{ box-sizing:border-box; }
+
+html,body{
+  margin:0;
+  min-height:100%;
+  font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+  color:var(--text);
+  background:
+    radial-gradient(circle at top left, rgba(34,197,94,.14), transparent 26%),
+    radial-gradient(circle at top right, rgba(56,189,248,.14), transparent 28%),
+    linear-gradient(180deg, var(--bg1), var(--bg2));
+}
+
+.page{
+  min-height:100vh;
+  display:grid;
+  place-items:center;
+  padding:20px;
+}
+
+.card{
+  width:min(860px, 100%);
+  background:var(--card);
+  border:1px solid var(--stroke);
+  border-radius:28px;
+  box-shadow:var(--shadow);
+  padding:22px;
+}
+
+.badge{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding:8px 12px;
+  border-radius:999px;
+  background:rgba(56,189,248,.14);
+  border:1px solid rgba(56,189,248,.26);
+  color:#dbeafe;
+  font-weight:800;
+  font-size:14px;
+}
+
+h1{
+  margin:14px 0 6px;
+  font-size:clamp(26px, 4vw, 38px);
+  line-height:1.1;
+}
+
+.sub{
+  margin:0 0 18px;
+  color:var(--muted);
+}
+
+.ctx{
+  margin:0 0 16px;
+  padding:12px 14px;
+  border-radius:16px;
+  background:rgba(148,163,184,.08);
+  color:var(--muted);
+  font-size:14px;
+}
+
+.form{
+  display:grid;
+  gap:16px;
+}
+
+.block{
+  display:grid;
+  gap:10px;
+  padding:16px;
+  border-radius:22px;
+  background:rgba(15,23,42,.72);
+  border:1px solid rgba(148,163,184,.12);
+}
+
+.block h2{
+  margin:0;
+  font-size:20px;
+}
+
+.block p{
+  margin:0;
+  color:var(--muted);
+}
+
+.choice-grid{
+  display:grid;
+  gap:10px;
+}
+
+.choice{
+  display:flex;
+  align-items:flex-start;
+  gap:10px;
+  padding:12px 14px;
+  border-radius:16px;
+  background:rgba(2,6,23,.6);
+  border:1px solid rgba(148,163,184,.14);
+}
+
+.choice input{
+  margin-top:4px;
+  transform:scale(1.2);
+}
+
+label.inline{
+  display:grid;
+  gap:8px;
+}
+
+textarea,input[type="text"],select{
+  width:100%;
+  min-height:48px;
+  border-radius:16px;
+  border:1px solid rgba(148,163,184,.24);
+  background:rgba(2,6,23,.88);
+  color:var(--text);
+  padding:12px 14px;
+  outline:none;
+}
+
+textarea{
+  min-height:120px;
+  resize:vertical;
+}
+
+textarea:focus,input[type="text"]:focus,select:focus{
+  border-color:rgba(56,189,248,.6);
+  box-shadow:0 0 0 4px rgba(56,189,248,.14);
+}
+
+.footer{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  margin-top:4px;
+}
+
+.btn{
+  min-height:48px;
+  border:none;
+  border-radius:16px;
+  padding:12px 16px;
+  font-weight:900;
+  cursor:pointer;
+}
+
+.btn-primary{
+  background:linear-gradient(180deg, #22c55e, #16a34a);
+  color:white;
+}
+
+.btn-ghost{
+  background:rgba(148,163,184,.12);
+  color:var(--text);
+  border:1px solid rgba(148,163,184,.2);
+}
+
+.note{
+  color:var(--muted);
+  font-size:14px;
+}
