@@ -5,7 +5,6 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth • Groups Redirect</title>
-  <meta http-equiv="refresh" content="0; url=./nutrition-groups/groups-launcher.html" />
   <style>
     html,body{
       margin:0; min-height:100%;
@@ -31,12 +30,9 @@
     <p><a id="goLink" href="./nutrition-groups/groups-launcher.html">เปิด Groups Launcher</a></p>
   </div>
 
-  <script>
-    const target = new URL('./nutrition-groups/groups-launcher.html', window.location.href);
-    const current = new URL(window.location.href);
-    current.searchParams.forEach((value, key) => target.searchParams.set(key, value));
-    document.getElementById('goLink').href = target.toString();
-    window.location.replace(target.toString());
+  <script type="module">
+    import { redirectPreserveAll } from './shared/nutrition-router.js';
+    redirectPreserveAll('./nutrition-groups/groups-launcher.html');
   </script>
 </body>
 </html>
