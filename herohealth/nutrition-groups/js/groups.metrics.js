@@ -1,8 +1,13 @@
 // === /herohealth/nutrition-groups/js/groups.metrics.js ===
 // Metric builder for Nutrition Groups
-// PATCH v20260318-GROUPS-VSLICE-B
+// PATCH v20260318-GROUPS-VSLICE-C
 
 export function buildGroupsMetrics(ctx, stats, sessionMeta) {
+  const preCorrect = stats.quiz.pre.correct;
+  const preTotal = stats.quiz.pre.total;
+  const postCorrect = stats.quiz.post.correct;
+  const postTotal = stats.quiz.post.total;
+
   return {
     gameId: ctx.gameId,
     pid: ctx.pid,
@@ -29,6 +34,12 @@ export function buildGroupsMetrics(ctx, stats, sessionMeta) {
     retryCorrectedSort: stats.retry.correctedByType.sort,
     retryCorrectedCompare: stats.retry.correctedByType.compare,
     retryCorrectedReason: stats.retry.correctedByType.reason,
+
+    quizPreTotal: preTotal,
+    quizPreCorrect: preCorrect,
+    quizPostTotal: postTotal,
+    quizPostCorrect: postCorrect,
+    quizDelta: postCorrect - preCorrect,
 
     durationMs: sessionMeta.durationMs,
     sessionId: sessionMeta.sessionId
