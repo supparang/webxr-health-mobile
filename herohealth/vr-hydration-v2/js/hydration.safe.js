@@ -1,6 +1,6 @@
 // === /herohealth/vr-hydration-v2/js/hydration.safe.js ===
 // Hydration V2 Main Orchestrator
-// PATCH v20260317c-HYDRATION-V2-PATCH-C
+// PATCH v20260318a-HYDRATION-V2-PATCH-C-NEXT-SESSION-FIX
 //
 // Flow:
 // Intro -> Main Run -> Summary -> Scenarios -> Evaluate -> Create -> Final Summary
@@ -9,6 +9,10 @@
 // - social / team mission computation
 // - session/week research progress
 // - research payload save
+//
+// Extra fix in this patch:
+// - replay after final summary goes to next session/week
+// - summary research line shows correct next progress text
 
 import { openEvaluate } from './hydration.evaluate.js';
 import { openScenarios } from './hydration.scenarios.js';
@@ -20,7 +24,8 @@ import {
   describeResearchBadge,
   buildResearchPayload,
   persistResearchPayload,
-  markResearchSessionComplete
+  markResearchSessionComplete,
+  buildResearchProgressText
 } from './hydration.research.js';
 
 const PHASES = {
@@ -697,6 +702,12 @@ async function runPostGameLearningFlow() {
 }
 
 function showFinalOverlay(evalResult, createResult, researchPayload) {
+  const researchLabel = researchCtx.isResearchTrack ? 'Research' : 'Starter';
+  const researchLine = buildResearchProgressText(researchCtx, {
+    nextSessionNo: state.nextSessionNo,
+    nextWeekNo: state.nextWeekNo
+  });
+
   refs.summaryOverlay.innerHTML = `
     <div class="overlay-card">
       <div class="overlay-kicker">Summary • Action + Learning + Research</div>
@@ -739,7 +750,7 @@ function showFinalOverlay(evalResult, createResult, researchPayload) {
         <strong>Create:</strong> ${escapeHtml(createResult.feedbackTitle || '-')}<br/>
         ${escapeHtml(createResult.feedbackText || '')}<br/><br/>
         <strong>Social:</strong> ${escapeHtml(state.socialSummary)}<br/>
-        <strong>Research:</strong> บันทึก W${researchCtx.weekNo} S${researchCtx.sessionNo} แล้ว • ครั้งถัดไป W${state.nextWeekNo} S${state.nextSessionNo}
+        <strong>${escapeHtml(researchLabel)}:</strong> ${escapeHtml(researchLine)}
       </div>
 
       <div class="overlay-actions">
@@ -753,7 +764,9 @@ function showFinalOverlay(evalResult, createResult, researchPayload) {
   showOverlay(refs.summaryOverlay);
 
   refs.summaryOverlay.querySelector('#doneReplayBtn')
-    .addEventListener('click', startRound);
+    .addEventListener('click', () => {
+      window.location.href = buildReplayUrl(true);
+    });
 
   refs.summaryOverlay.querySelector('#doneHubBtn')
     .addEventListener('click', () => {
@@ -949,6 +962,21 @@ function snapshotRoundState() {
     socialMissionLabel: state.socialMissionLabel,
     teamStars: state.teamStars
   };
+}
+
+function buildReplayUrl(useNextProgress = false) {
+  const u = new URL(window.location.href);
+  u.searchParams.set('seed', String(Date.now()));
+
+  if (useNextProgress) {
+    u.searchParams.set('session', String(state.nextSessionNo || state.sessionNo || 1));
+    u.searchParams.set('week', String(state.nextWeekNo || state.weekNo || 1));
+  } else {
+    u.searchParams.set('session', String(state.sessionNo || 1));
+    u.searchParams.set('week', String(state.weekNo || 1));
+  }
+
+  return u.toString();
 }
 
 function logEvent(name, payload = {}) {
