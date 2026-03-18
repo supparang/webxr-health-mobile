@@ -1,6 +1,6 @@
 // === /herohealth/nutrition-groups/js/groups.ui.js ===
 // UI renderer for Nutrition Groups
-// PATCH v20260318-GROUPS-CHILD-UI-A
+// PATCH v20260318-NUTRITION-GATE-INTEGRATION-A
 
 import { esc, goHub } from '../../shared/nutrition-common.js';
 import { mountSummaryShell } from '../../shared/nutrition-summary-shell.js';
@@ -23,7 +23,7 @@ const PHASE_BANNER = {
   post: { icon: '🌟', title: 'แบบสั้นหลังเล่น', sub: 'มาดูว่าหนูเก่งขึ้นไหม' }
 };
 
-export function createGroupsUI(ctx, { onAnswer, onReplay }) {
+export function createGroupsUI(ctx, { onAnswer, onReplay, onSummaryBack, summaryBackLabel = 'ไปคูลดาวน์' }) {
   const phaseEl = document.getElementById('hudPhase');
   const progressEl = document.getElementById('hudProgress');
   const scoreEl = document.getElementById('hudScore');
@@ -47,7 +47,8 @@ export function createGroupsUI(ctx, { onAnswer, onReplay }) {
 
   const summaryShell = mountSummaryShell(document.body, {
     onReplay,
-    onBack: () => goHub(ctx)
+    onBack: () => (onSummaryBack ? onSummaryBack() : goHub(ctx)),
+    backLabel: summaryBackLabel
   });
 
   backBtn.addEventListener('click', () => goHub(ctx));
@@ -122,14 +123,8 @@ export function createGroupsUI(ctx, { onAnswer, onReplay }) {
       `;
     }
 
-    if (question.type === 'compare' || question.type === 'quiz' || (question.isRetry && question.retryFrom === 'compare')) {
-      return `
-        <div class="answer-main">${hasEmoji ? `${esc(option.emoji)} ` : ''}${esc(option.label)}</div>
-      `;
-    }
-
     return `
-      <div class="answer-main">${esc(option.label)}</div>
+      <div class="answer-main">${hasEmoji ? `${esc(option.emoji)} ` : ''}${esc(option.label)}</div>
     `;
   }
 
