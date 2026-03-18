@@ -1,365 +1,42 @@
-<!-- === /herohealth/plate-vr.html ===
-PlateVR — CANONICAL LAUNCHER + FORCE WARMUP + FORCE COOLDOWN
-FULL PATCH v20260314c-PLATE-LAUNCHER-FLOW-FIX
-Flow:
-Start Flow -> /herohealth/plate-vr.html -> warmup-gate -> /herohealth/plate/plate-vr.html
--> summary -> cooldown-gate -> hub
--->
+<!-- === /herohealth/plate-vr.html === -->
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — PlateVR (Launcher)</title>
-  <meta name="color-scheme" content="dark light" />
-  <link rel="icon" href="./favicon.ico" />
+  <title>HeroHealth • Plate Redirect</title>
+  <meta http-equiv="refresh" content="0; url=./nutrition-plate/plate-launcher.html" />
   <style>
-    :root{
-      --bg1:#020617; --bg2:#0b1226;
-      --stroke:rgba(148,163,184,.18);
-      --text:rgba(229,231,235,.96);
-      --muted:rgba(148,163,184,.92);
-      --blue:#3b82f6; --violet:#a78bfa; --good:#22c55e;
-    }
-    *{ box-sizing:border-box; }
     html,body{
       margin:0; min-height:100%;
-      background:
-        radial-gradient(1200px 700px at 20% 0%, rgba(59,130,246,.16), transparent 60%),
-        radial-gradient(900px 700px at 90% 20%, rgba(167,139,250,.12), transparent 60%),
-        linear-gradient(180deg, var(--bg1), var(--bg2));
-      color:var(--text);
-      font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif;
-    }
-    body{
-      display:grid;
-      place-items:center;
-      padding:16px;
+      display:grid; place-items:center;
+      background:#020617; color:#e5e7eb;
+      font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
     }
     .card{
-      width:min(860px,96vw);
-      border:1px solid var(--stroke);
-      border-radius:22px;
-      background:rgba(2,6,23,.72);
-      box-shadow:0 22px 80px rgba(0,0,0,.35);
-      padding:16px;
+      width:min(560px, calc(100% - 24px));
+      padding:20px;
+      border-radius:20px;
+      background:rgba(15,23,42,.9);
+      border:1px solid rgba(148,163,184,.16);
+      text-align:center;
     }
-    .title{
-      font-size:22px;
-      font-weight:1000;
-      display:flex;
-      align-items:center;
-      gap:10px;
-    }
-    .sub{
-      margin-top:8px;
-      color:var(--muted);
-      font-size:13px;
-      font-weight:900;
-      line-height:1.55;
-    }
-    .grid{
-      display:grid;
-      grid-template-columns:repeat(2,minmax(0,1fr));
-      gap:12px;
-      margin-top:14px;
-    }
-    @media (max-width:780px){
-      .grid{ grid-template-columns:1fr; }
-    }
-    .modeCard{
-      border:1px solid rgba(148,163,184,.18);
-      border-radius:18px;
-      background:rgba(15,23,42,.48);
-      padding:14px;
-      box-shadow:0 18px 55px rgba(0,0,0,.22);
-      display:flex;
-      flex-direction:column;
-      gap:10px;
-    }
-    .modeCard h3{
-      margin:0;
-      font-size:18px;
-      font-weight:1000;
-      display:flex;
-      align-items:center;
-      gap:8px;
-    }
-    .mut{
-      color:var(--muted);
-      font-size:12.5px;
-      font-weight:900;
-      line-height:1.45;
-    }
-    .chips{
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-    }
-    .pill{
-      display:inline-flex;
-      align-items:center;
-      gap:6px;
-      padding:7px 10px;
-      border-radius:999px;
-      border:1px solid rgba(148,163,184,.18);
-      background:rgba(2,6,23,.46);
-      color:var(--muted);
-      font-size:12px;
-      font-weight:1000;
-    }
-    .pill b{ color:var(--text); }
-    .row{
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      margin-top:14px;
-      align-items:center;
-    }
-    .btn{
-      cursor:pointer;
-      border-radius:14px;
-      border:1px solid rgba(148,163,184,.18);
-      background:rgba(148,163,184,.10);
-      color:var(--text);
-      padding:10px 12px;
-      font-weight:1000;
-      min-height:44px;
-      text-decoration:none;
-    }
-    .btn.primary{
-      border-color:rgba(59,130,246,.30);
-      background:rgba(59,130,246,.16);
-    }
-    .btn.violet{
-      border-color:rgba(167,139,250,.30);
-      background:rgba(167,139,250,.16);
-    }
-    .btn.good{
-      border-color:rgba(34,197,94,.30);
-      background:rgba(34,197,94,.16);
-    }
-    .toolbar{
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      justify-content:space-between;
-      align-items:center;
-      margin-top:14px;
-    }
-    code{
-      background:rgba(148,163,184,.10);
-      padding:2px 6px;
-      border-radius:8px;
-      word-break:break-all;
-    }
-    .info{
-      margin-top:14px;
-      color:var(--muted);
-      font-size:12px;
-      font-weight:900;
-      line-height:1.55;
-      word-break:break-word;
-    }
+    a{ color:#38bdf8; }
   </style>
 </head>
 <body>
   <div class="card">
-    <div class="title">🍽️ PlateVR Launcher</div>
-    <div class="sub">
-      ทุกโหมดจะผ่าน <b>warmup-gate</b> ก่อนเข้าเกมจริง และเปิด <b>cooldown flow</b> ไว้เสมอ<br>
-      Flow มาตรฐาน: <b>Launcher → Warmup → Run → Summary → Cooldown → Hub</b>
-    </div>
-
-    <div class="grid">
-      <section class="modeCard">
-        <h3>🎯 Solo Mode</h3>
-        <div class="mut">
-          เล่นเดี่ยวตาม flow ปกติ: Warm → Trick → Boss<br>
-          หลังจบเกมจะไปต่อ cooldown แล้วค่อยกลับ hub
-        </div>
-        <div class="chips">
-          <span class="pill"><b>Mode</b>: solo</span>
-          <span class="pill"><b>Warmup</b>: required</span>
-          <span class="pill"><b>Cooldown</b>: on</span>
-        </div>
-        <div class="row">
-          <button class="btn primary" id="goSolo" type="button">▶ เข้า Solo</button>
-          <button class="btn" id="goSoloPro" type="button">🔥 Solo PRO</button>
-        </div>
-      </section>
-
-      <section class="modeCard">
-        <h3>🤝 Coop Lite</h3>
-        <div class="mut">
-          ผู้เล่น A/B ช่วยกันเติมจานเดียวกันแบบสลับเทิร์น<br>
-          ผ่าน warmup ก่อน และหลังจบเกมมี cooldown ต่อเสมอ
-        </div>
-        <div class="chips">
-          <span class="pill"><b>Mode</b>: coop</span>
-          <span class="pill"><b>Players</b>: hotseat 2</span>
-          <span class="pill"><b>Cooldown</b>: on</span>
-        </div>
-        <div class="row">
-          <button class="btn good" id="goCoop" type="button">🤝 เข้า Coop</button>
-          <button class="btn violet" id="goCoopPro" type="button">⚡ Coop PRO</button>
-        </div>
-      </section>
-    </div>
-
-    <div class="toolbar">
-      <div class="mut">RUN page จริง: <code>/herohealth/plate/plate-vr.html</code></div>
-      <button class="btn" id="back" type="button">🏠 กลับ HUB</button>
-    </div>
-
-    <div class="info" id="info">กำลังเตรียมลิงก์…</div>
+    <h1>กำลังเปิดเกม Plate เวอร์ชันใหม่…</h1>
+    <p>ถ้าไม่ไปอัตโนมัติ ให้กดลิงก์ด้านล่าง</p>
+    <p><a id="goLink" href="./nutrition-plate/plate-launcher.html">เปิด Plate Launcher</a></p>
   </div>
 
   <script>
-  (function(){
-    const U = new URL(location.href);
-    const sp = U.searchParams;
-
-    function normalizeHub(raw){
-      raw = String(raw || '').trim();
-      const DEFAULT = new URL('./hub.html', location.href).toString();
-      if(!raw) return DEFAULT;
-      try{
-        const u = new URL(raw, location.href);
-        u.pathname = u.pathname
-          .replace('/herohealth/vr-plate/hub.html', '/herohealth/hub.html')
-          .replace('/herohealth/plate/hub.html', '/herohealth/hub.html')
-          .replace('/vr-plate/hub.html', '/hub.html')
-          .replace('/plate/hub.html', '/hub.html');
-        return u.toString();
-      }catch(_){
-        return DEFAULT;
-      }
-    }
-
-    const hub = normalizeHub(sp.get('hub'));
-    const pid = String(sp.get('pid') || 'anon').trim() || 'anon';
-
-    function buildRunUrl(mode, extra){
-      const run = new URL('./plate/plate-vr.html', location.href);
-
-      [
-        'hub','run','diff','time','seed','pid','view','log','api','ai','debug',
-        'studyId','phase','conditionGroup',
-        'cooldown','cd','cdnext',
-        'planSeq','planDay','planSlot','planMode','planSlots','planIndex','autoNext',
-        'wType','wPct','rank','wCrit','wDmg','wHeal','calm',
-        'practice','cvrStrict','pro','zone'
-      ].forEach(k=>{
-        const v = sp.get(k);
-        if(v != null && v !== '') run.searchParams.set(k, v);
-      });
-
-      if(!run.searchParams.get('view')) run.searchParams.set('view', 'mobile');
-      if(!run.searchParams.get('run'))  run.searchParams.set('run', 'play');
-      if(!run.searchParams.get('diff')) run.searchParams.set('diff', 'normal');
-      if(!run.searchParams.get('time')) run.searchParams.set('time', '90');
-      if(!run.searchParams.get('seed')) run.searchParams.set('seed', String((Date.now() ^ (Math.random()*1e9))|0));
-      if(!run.searchParams.get('hub'))  run.searchParams.set('hub', hub);
-      if(!run.searchParams.get('pid'))  run.searchParams.set('pid', pid);
-      if(!run.searchParams.get('zone')) run.searchParams.set('zone', 'nutrition');
-
-      run.searchParams.set('mode', String(mode || 'solo').toLowerCase());
-
-      if(extra && typeof extra === 'object'){
-        Object.keys(extra).forEach(k=>{
-          const v = extra[k];
-          if(v == null || v === '') run.searchParams.delete(k);
-          else run.searchParams.set(k, String(v));
-        });
-      }
-
-      // บังคับ cooldown เสมอ ถ้ายังไม่มี
-      if(!run.searchParams.get('cooldown') && !run.searchParams.get('cd')){
-        run.searchParams.set('cooldown', '1');
-      }
-
-      return run;
-    }
-
-    function buildWarmupUrl(runUrl){
-      const gate = new URL('./warmup-gate.html', location.href);
-
-      gate.searchParams.set('gatePhase', 'warmup');
-      gate.searchParams.set('cat', 'nutrition');
-      gate.searchParams.set('theme', 'plate');
-      gate.searchParams.set('game', 'plate');
-      gate.searchParams.set('pid', String(runUrl.searchParams.get('pid') || pid));
-      gate.searchParams.set('hub', hub);
-      gate.searchParams.set('next', runUrl.toString());
-
-      [
-        'run','diff','time','seed','view','pid','studyId','phase','conditionGroup',
-        'log','planSeq','planDay','planSlot','planMode','planSlots','planIndex',
-        'autoNext','wType','wPct','rank','wCrit','wDmg','wHeal','calm',
-        'mode','pro','zone','cooldown','cd'
-      ].forEach(k=>{
-        const v = runUrl.searchParams.get(k);
-        if(v != null && v !== '') gate.searchParams.set(k, v);
-      });
-
-      if(!gate.searchParams.get('cooldown') && !gate.searchParams.get('cd')){
-        gate.searchParams.set('cooldown', '1');
-      }
-
-      return gate;
-    }
-
-    function buildLaunchUrl(mode, extra){
-      const runUrl = buildRunUrl(mode, extra);
-      const gateUrl = buildWarmupUrl(runUrl);
-      return gateUrl;
-    }
-
-    const soloGate = buildLaunchUrl('solo');
-    const soloProGate = buildLaunchUrl('solo', { diff:'hard', pro:'1' });
-    const coopGate = buildLaunchUrl('coop');
-    const coopProGate = buildLaunchUrl('coop', { diff:'hard', pro:'1' });
-
-    const goSolo = document.getElementById('goSolo');
-    const goSoloPro = document.getElementById('goSoloPro');
-    const goCoop = document.getElementById('goCoop');
-    const goCoopPro = document.getElementById('goCoopPro');
-    const back = document.getElementById('back');
-
-    goSolo.onclick = (e)=>{
-      e.preventDefault();
-      location.href = soloGate.toString();
-    };
-
-    goSoloPro.onclick = (e)=>{
-      e.preventDefault();
-      location.href = soloProGate.toString();
-    };
-
-    goCoop.onclick = (e)=>{
-      e.preventDefault();
-      location.href = coopGate.toString();
-    };
-
-    goCoopPro.onclick = (e)=>{
-      e.preventDefault();
-      location.href = coopProGate.toString();
-    };
-
-    back.onclick = ()=> location.href = hub;
-
-    const info = document.getElementById('info');
-    if(info){
-      info.innerHTML =
-        `SOLO gate: <code>${soloGate.toString()}</code><br>` +
-        `SOLO next: <code>${soloGate.searchParams.get('next') || '-'}</code><br>` +
-        `COOP gate: <code>${coopGate.toString()}</code><br>` +
-        `RUN page: <code>/herohealth/plate/plate-vr.html</code><br>` +
-        `cooldown flag: <code>${soloGate.searchParams.get('cooldown') || 'off'}</code><br>` +
-        `hub: <code>${hub}</code>`;
-    }
-  })();
+    const target = new URL('./nutrition-plate/plate-launcher.html', window.location.href);
+    const current = new URL(window.location.href);
+    current.searchParams.forEach((value, key) => target.searchParams.set(key, value));
+    document.getElementById('goLink').href = target.toString();
+    window.location.replace(target.toString());
   </script>
 </body>
 </html>
