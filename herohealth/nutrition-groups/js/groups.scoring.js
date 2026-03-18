@@ -1,0 +1,106 @@
+// === /herohealth/nutrition-groups/js/groups.scoring.js ===
+// Scoring and stat aggregation for Nutrition Groups
+// PATCH v20260318-GROUPS-VSLICE-A
+
+import { FOOD_GROUPS } from './groups.content.js';
+
+export function createEmptyStats() {
+  return {
+    score: 0,
+    streak: 0,
+    bestStreak: 0,
+
+    sort: {
+      total: 0,
+      correct: 0,
+      byGroup: {
+        m1: { total: 0, correct: 0 },
+        m2: { total: 0, correct: 0 },
+        m3: { total: 0, correct: 0 },
+        m4: { total: 0, correct: 0 },
+        m5: { total: 0, correct: 0 }
+      }
+    },
+
+    compare: {
+      total: 0,
+      correct: 0
+    },
+
+    reason: {
+      total: 0,
+      correct: 0
+    }
+  };
+}
+
+function updateStreak(stats, isCorrect) {
+  if (isCorrect) {
+    stats.streak += 1;
+    stats.bestStreak = Math.max(stats.bestStreak, stats.streak);
+  } else {
+    stats.streak = 0;
+  }
+}
+
+export function scoreSort(stats, question, answerId) {
+  const correct = question.correctId === answerId;
+  stats.sort.total += 1;
+  stats.sort.byGroup[question.correctId].total += 1;
+
+  if (correct) {
+    stats.sort.correct += 1;
+    stats.sort.byGroup[question.correctId].correct += 1;
+    stats.score += 10;
+  }
+
+  updateStreak(stats, correct);
+
+  return {
+    correct,
+    delta: correct ? 10 : 0,
+    feedback: correct
+      ? `ถูกต้อง! ${question.food.label} อยู่${FOOD_GROUPS[question.correctId].label}`
+      : `ยังไม่ใช่ — ${question.food.label} อยู่${FOOD_GROUPS[question.correctId].label}`
+  };
+}
+
+export function scoreCompare(stats, question, answerId) {
+  const correct = question.correctId === answerId;
+  stats.compare.total += 1;
+
+  if (correct) {
+    stats.compare.correct += 1;
+    stats.score += 15;
+  }
+
+  updateStreak(stats, correct);
+
+  return {
+    correct,
+    delta: correct ? 15 : 0,
+    feedback: correct
+      ? `ดีมาก! "${question.meta.betterText}" เป็นตัวเลือกที่ดีกว่า`
+      : `ลองใหม่อีกนิด — คำตอบที่ดีกว่าคือ "${question.meta.betterText}"`
+  };
+}
+
+export function scoreReason(stats, question, answerId) {
+  const correct = question.correctId === answerId;
+  stats.reason.total += 1;
+
+  if (correct) {
+    stats.reason.correct += 1;
+    stats.score += 10;
+  }
+
+  updateStreak(stats, correct);
+
+  return {
+    correct,
+    delta: correct ? 10 : 0,
+    feedback: correct
+      ? 'ใช่เลย! เหตุผลนี้เหมาะสม'
+      : `เกือบถูก — เหตุผลที่เหมาะกว่าคือ "${question.meta.correctReason}"`
+  };
+}
