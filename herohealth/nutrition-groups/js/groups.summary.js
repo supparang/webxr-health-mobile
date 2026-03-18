@@ -1,6 +1,6 @@
 // === /herohealth/nutrition-groups/js/groups.summary.js ===
 // Summary builder for Nutrition Groups
-// PATCH v20260318-GROUPS-VSLICE-A
+// PATCH v20260318-GROUPS-VSLICE-B
 
 import { formatPercent } from '../../shared/nutrition-common.js';
 import { FOOD_GROUPS } from './groups.content.js';
@@ -23,7 +23,7 @@ function findBestGroup(sortByGroup) {
 }
 
 function findWeakGroup(sortByGroup) {
-  let weakId = 'm1';
+  let weakId = null;
   let weakPct = Infinity;
 
   Object.keys(sortByGroup).forEach(groupId => {
@@ -36,13 +36,23 @@ function findWeakGroup(sortByGroup) {
     }
   });
 
-  return FOOD_GROUPS[weakId]?.label || '-';
+  return weakId ? FOOD_GROUPS[weakId]?.label || '-' : '-';
 }
 
 export function buildGroupsSummary(ctx, stats, sessionMeta) {
   const bestGroup = findBestGroup(stats.sort.byGroup);
   const weakGroup = findWeakGroup(stats.sort.byGroup);
   const metrics = buildGroupsMetrics(ctx, stats, sessionMeta);
+
+  const retryNote =
+    stats.retry.total > 0
+      ? `รอบทบทวนแก้ได้ ${stats.retry.correct}/${stats.retry.total} ข้อ`
+      : 'รอบนี้ตอบได้ครบโดยไม่ต้องทบทวนเพิ่ม';
+
+  const weaknessNote =
+    weakGroup && weakGroup !== '-'
+      ? `ลองฝึกเพิ่มเรื่อง: ${weakGroup}`
+      : 'รอบนี้ยังไม่มีหมู่ที่อ่อนชัดเจน';
 
   return {
     title: 'สรุปผลเกม Groups',
@@ -52,12 +62,14 @@ export function buildGroupsSummary(ctx, stats, sessionMeta) {
       { label: 'Sort ถูก', value: `${stats.sort.correct}/${stats.sort.total} (${formatPercent(stats.sort.correct, stats.sort.total)})` },
       { label: 'Compare ถูก', value: `${stats.compare.correct}/${stats.compare.total} (${formatPercent(stats.compare.correct, stats.compare.total)})` },
       { label: 'Reason ถูก', value: `${stats.reason.correct}/${stats.reason.total} (${formatPercent(stats.reason.correct, stats.reason.total)})` },
+      { label: 'Retry แก้ได้', value: `${stats.retry.correct}/${stats.retry.total}` },
       { label: 'หมู่ที่แม่นที่สุด', value: bestGroup },
-      { label: 'หมู่ที่ควรฝึกเพิ่ม', value: weakGroup }
+      { label: 'หมู่ที่ควรฝึกเพิ่ม', value: weakGroup || '-' }
     ],
     notes: [
       `หมู่ที่หนูทำได้ดี: ${bestGroup}`,
-      `ลองฝึกเพิ่มเรื่อง: ${weakGroup}`,
+      weaknessNote,
+      retryNote,
       `ต่อเนื่องสูงสุด: ${stats.bestStreak} ข้อ`
     ],
     payload: {
