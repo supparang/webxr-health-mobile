@@ -1,6 +1,6 @@
 // === /herohealth/shared/nutrition-summary-shell.js ===
 // Shared summary modal shell
-// PATCH v20260318-GROUPS-VSLICE-A
+// PATCH v20260318-NUTRITION-SUMMARY-CHILD-UI-A
 
 import { esc } from './nutrition-common.js';
 
@@ -20,57 +20,87 @@ function ensureStyle() {
     }
     .nutri-summary-backdrop.show{ display:flex; }
     .nutri-summary-card{
-      width:min(760px, 100%);
+      width:min(820px, 100%);
       background:linear-gradient(180deg, rgba(15,23,42,.98), rgba(30,41,59,.96));
       border:1px solid rgba(148,163,184,.18);
-      border-radius:24px;
+      border-radius:28px;
       box-shadow:0 18px 50px rgba(0,0,0,.32);
       color:#e5e7eb;
-      padding:20px;
+      padding:22px;
+    }
+    .nutri-summary-head{
+      display:flex; gap:12px; align-items:flex-start;
+      margin-bottom:12px;
+    }
+    .nutri-summary-badge{
+      width:54px; height:54px; border-radius:18px;
+      display:grid; place-items:center;
+      background:rgba(56,189,248,.14);
+      font-size:28px; flex:0 0 54px;
     }
     .nutri-summary-title{
-      margin:0 0 8px;
+      margin:0 0 6px;
       font-size:clamp(24px, 4vw, 34px);
       font-weight:900;
+      line-height:1.1;
     }
     .nutri-summary-sub{
-      margin:0 0 16px;
+      margin:0;
       color:#cbd5e1;
       font-size:15px;
+      line-height:1.45;
     }
     .nutri-summary-grid{
       display:grid;
-      grid-template-columns:repeat(auto-fit, minmax(160px, 1fr));
+      grid-template-columns:repeat(auto-fit, minmax(170px, 1fr));
       gap:12px;
       margin:0 0 16px;
     }
     .nutri-summary-item{
       background:rgba(15,23,42,.72);
       border:1px solid rgba(148,163,184,.14);
-      border-radius:18px;
-      padding:12px;
+      border-radius:20px;
+      padding:14px;
     }
     .nutri-summary-item-label{
       color:#93c5fd;
       font-size:13px;
       margin-bottom:6px;
-      font-weight:700;
+      font-weight:800;
+      line-height:1.35;
     }
     .nutri-summary-item-value{
       font-size:22px;
       font-weight:900;
+      line-height:1.2;
+      word-break:break-word;
+    }
+    .nutri-summary-note-card{
+      background:rgba(34,197,94,.08);
+      border:1px solid rgba(34,197,94,.14);
+      border-radius:20px;
+      padding:14px;
+      margin:0 0 18px;
+    }
+    .nutri-summary-note-title{
+      font-size:14px;
+      font-weight:900;
+      color:#bbf7d0;
+      margin-bottom:8px;
     }
     .nutri-summary-notes{
-      margin:0 0 18px;
+      margin:0;
       padding-left:18px;
       color:#e2e8f0;
+      line-height:1.5;
     }
     .nutri-summary-actions{
       display:flex; gap:10px; flex-wrap:wrap;
     }
     .nutri-summary-actions button{
-      border:0; border-radius:16px; cursor:pointer;
-      padding:12px 16px; font-size:15px; font-weight:800;
+      border:0; border-radius:18px; cursor:pointer;
+      padding:14px 18px; font-size:15px; font-weight:900;
+      min-height:52px;
     }
     .nutri-summary-replay{
       background:#22c55e; color:#052e16;
@@ -89,10 +119,21 @@ export function mountSummaryShell(root, { onReplay, onBack } = {}) {
   backdrop.className = 'nutri-summary-backdrop';
   backdrop.innerHTML = `
     <div class="nutri-summary-card" role="dialog" aria-modal="true">
-      <h2 class="nutri-summary-title" id="nutriSummaryTitle">สรุปผล</h2>
-      <p class="nutri-summary-sub" id="nutriSummarySub"></p>
+      <div class="nutri-summary-head">
+        <div class="nutri-summary-badge">🏆</div>
+        <div>
+          <h2 class="nutri-summary-title" id="nutriSummaryTitle">สรุปผล</h2>
+          <p class="nutri-summary-sub" id="nutriSummarySub"></p>
+        </div>
+      </div>
+
       <div class="nutri-summary-grid" id="nutriSummaryGrid"></div>
-      <ul class="nutri-summary-notes" id="nutriSummaryNotes"></ul>
+
+      <div class="nutri-summary-note-card">
+        <div class="nutri-summary-note-title">สิ่งที่ได้จากรอบนี้</div>
+        <ul class="nutri-summary-notes" id="nutriSummaryNotes"></ul>
+      </div>
+
       <div class="nutri-summary-actions">
         <button class="nutri-summary-replay" id="nutriSummaryReplayBtn">เล่นอีกครั้ง</button>
         <button class="nutri-summary-back" id="nutriSummaryBackBtn">กลับ HUB</button>
