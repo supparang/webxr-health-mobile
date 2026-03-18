@@ -1,0 +1,896 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>GoodJunk Intervention • Merge Research Datasets</title>
+  <meta name="color-scheme" content="dark light" />
+  <style>
+    :root{
+      --bg1:#07111f;
+      --bg2:#0f1d36;
+      --panel:rgba(10,18,34,.86);
+      --card:rgba(15,23,42,.78);
+      --stroke:rgba(148,163,184,.18);
+      --text:#f8fafc;
+      --muted:#cbd5e1;
+      --green:#22c55e;
+      --blue:#38bdf8;
+      --violet:#a78bfa;
+      --warn:#f59e0b;
+      --bad:#ef4444;
+      --shadow:0 18px 50px rgba(0,0,0,.32);
+    }
+
+    *{ box-sizing:border-box; }
+
+    html,body{
+      margin:0;
+      min-height:100%;
+      font-family:system-ui,-apple-system,"Noto Sans Thai","Segoe UI",Roboto,Arial,sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(34,197,94,.14), transparent 24%),
+        radial-gradient(circle at top right, rgba(56,189,248,.14), transparent 28%),
+        linear-gradient(180deg, var(--bg1), var(--bg2));
+    }
+
+    .wrap{
+      width:min(1320px, calc(100% - 24px));
+      margin:20px auto 40px;
+    }
+
+    .hero{
+      background:var(--panel);
+      border:1px solid var(--stroke);
+      border-radius:28px;
+      box-shadow:var(--shadow);
+      padding:20px;
+      backdrop-filter:blur(10px);
+    }
+
+    .badge{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      min-height:34px;
+      padding:6px 12px;
+      border-radius:999px;
+      border:1px solid rgba(168,139,250,.24);
+      background:rgba(168,139,250,.12);
+      color:#ede9fe;
+      font-size:12px;
+      font-weight:1000;
+    }
+
+    h1{
+      margin:14px 0 8px;
+      font-size:clamp(28px, 5vw, 44px);
+      line-height:1.05;
+    }
+
+    .sub{
+      color:var(--muted);
+      font-size:14px;
+      line-height:1.65;
+      max-width:980px;
+    }
+
+    .grid{
+      display:grid;
+      grid-template-columns:1.1fr .9fr;
+      gap:16px;
+      margin-top:16px;
+    }
+
+    .grid-3{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:16px;
+      margin-top:16px;
+    }
+
+    @media (max-width:1020px){
+      .grid,.grid-3{ grid-template-columns:1fr; }
+    }
+
+    .card{
+      background:var(--card);
+      border:1px solid var(--stroke);
+      border-radius:22px;
+      box-shadow:var(--shadow);
+      padding:16px;
+      backdrop-filter:blur(10px);
+    }
+
+    .card h2{
+      margin:0 0 12px;
+      font-size:18px;
+    }
+
+    .dropzone{
+      border:2px dashed rgba(56,189,248,.35);
+      border-radius:20px;
+      padding:24px;
+      text-align:center;
+      background:rgba(2,6,23,.42);
+      transition:border-color .18s ease, background .18s ease;
+    }
+
+    .dropzone.drag{
+      border-color:rgba(34,197,94,.55);
+      background:rgba(22,101,52,.16);
+    }
+
+    .muted{
+      color:var(--muted);
+      font-size:13px;
+      line-height:1.6;
+    }
+
+    .row{
+      display:grid;
+      gap:12px;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+    }
+
+    @media (max-width:760px){
+      .row{ grid-template-columns:1fr; }
+    }
+
+    label{
+      display:grid;
+      gap:6px;
+      font-size:13px;
+      color:#dbeafe;
+      font-weight:900;
+    }
+
+    input[type="text"], select, textarea, input[type="file"]{
+      width:100%;
+      min-height:46px;
+      border-radius:14px;
+      border:1px solid var(--stroke);
+      background:rgba(2,6,23,.64);
+      color:var(--text);
+      padding:12px 14px;
+      font:inherit;
+      outline:none;
+    }
+
+    textarea{
+      min-height:110px;
+      resize:vertical;
+      font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+      font-size:12px;
+      line-height:1.55;
+    }
+
+    .actions{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      margin-top:14px;
+    }
+
+    button{
+      appearance:none;
+      border:none;
+      cursor:pointer;
+      min-height:44px;
+      border-radius:14px;
+      padding:0 14px;
+      font:900 14px/1 system-ui,-apple-system,"Noto Sans Thai","Segoe UI",Roboto,Arial;
+      color:#fff;
+      transition:transform .08s ease, opacity .18s ease;
+    }
+
+    button:active{ transform:translateY(1px) scale(.995); }
+
+    .btn-blue{ background:linear-gradient(135deg,#2563eb,#38bdf8); }
+    .btn-green{ background:linear-gradient(135deg,#16a34a,#22c55e); }
+    .btn-violet{ background:linear-gradient(135deg,#7c3aed,#a78bfa); }
+    .btn-warn{ background:linear-gradient(135deg,#d97706,#f59e0b); }
+    .btn-ghost{
+      background:rgba(148,163,184,.12);
+      border:1px solid var(--stroke);
+      color:var(--text);
+    }
+
+    .chips{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+    }
+
+    .chip{
+      display:inline-flex;
+      align-items:center;
+      min-height:30px;
+      padding:4px 10px;
+      border-radius:999px;
+      border:1px solid var(--stroke);
+      background:rgba(2,6,23,.46);
+      color:#dbeafe;
+      font-size:12px;
+      font-weight:900;
+    }
+
+    .stat{
+      border:1px solid var(--stroke);
+      border-radius:18px;
+      background:rgba(2,6,23,.44);
+      padding:14px;
+    }
+
+    .stat .k{
+      color:var(--muted);
+      font-size:12px;
+      font-weight:900;
+      text-transform:uppercase;
+    }
+
+    .stat .v{
+      margin-top:6px;
+      font-size:30px;
+      font-weight:1000;
+      line-height:1;
+    }
+
+    .stat .s{
+      margin-top:6px;
+      color:#dbeafe;
+      font-size:13px;
+      line-height:1.5;
+    }
+
+    .files{
+      display:grid;
+      gap:10px;
+    }
+
+    .file{
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      padding:10px 12px;
+      border-radius:14px;
+      background:rgba(2,6,23,.42);
+      border:1px solid rgba(148,163,184,.12);
+      font-size:13px;
+    }
+
+    .file .name{
+      font-weight:900;
+      color:#dbeafe;
+      word-break:break-all;
+    }
+
+    .file .meta{
+      color:var(--muted);
+      text-align:right;
+      white-space:nowrap;
+    }
+
+    .table-wrap{
+      overflow:auto;
+      border:1px solid var(--stroke);
+      border-radius:16px;
+      background:rgba(2,6,23,.42);
+    }
+
+    table{
+      width:100%;
+      border-collapse:collapse;
+      min-width:900px;
+    }
+
+    th, td{
+      border-bottom:1px solid rgba(148,163,184,.12);
+      padding:10px 12px;
+      text-align:left;
+      vertical-align:top;
+      font-size:12px;
+    }
+
+    th{
+      position:sticky;
+      top:0;
+      background:rgba(15,23,42,.96);
+      color:#dbeafe;
+      z-index:1;
+    }
+
+    td{
+      color:#e2e8f0;
+      word-break:break-word;
+    }
+
+    pre{
+      margin:0;
+      white-space:pre-wrap;
+      word-break:break-word;
+      font:12px/1.6 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+      color:#dbeafe;
+      background:rgba(2,6,23,.56);
+      border:1px solid rgba(148,163,184,.12);
+      border-radius:16px;
+      padding:14px;
+      max-height:340px;
+      overflow:auto;
+    }
+
+    .small{
+      color:var(--muted);
+      font-size:12px;
+      line-height:1.6;
+      margin-top:10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="hero">
+      <div class="badge">🧩 Merge Research Datasets</div>
+      <h1>รวมหลายไฟล์เป็น master dataset เดียว</h1>
+      <div class="sub">
+        อัปโหลดไฟล์ `.csv`, `.json`, `.jsonl` หลายไฟล์จาก GoodJunk Intervention แล้วรวมเป็นชุดข้อมูลเดียวได้ใน browser
+        รองรับทั้งโหมด append ปกติ และ merge ตาม key เช่น `pid + session`
+      </div>
+
+      <div class="grid">
+        <section class="card">
+          <h2>นำเข้าไฟล์</h2>
+          <div class="dropzone" id="dropzone">
+            <p><b>ลากไฟล์มาวางที่นี่</b> หรือเลือกไฟล์จากปุ่มด้านล่าง</p>
+            <p class="muted">รองรับ .csv, .json, .jsonl หลายไฟล์พร้อมกัน</p>
+            <input id="fileInput" type="file" accept=".csv,.json,.jsonl,application/json,text/csv,text/plain" multiple />
+          </div>
+
+          <div class="row" style="margin-top:14px;">
+            <label>
+              Merge mode
+              <select id="mergeMode">
+                <option value="append">Append ทุกแถว</option>
+                <option value="merge">Merge แถวที่ key ซ้ำกัน</option>
+              </select>
+            </label>
+
+            <label>
+              Key fields (คั่นด้วย comma)
+              <input id="keyFields" type="text" value="pid,session,studyId" />
+            </label>
+          </div>
+
+          <div class="row" style="margin-top:12px;">
+            <label>
+              Flatten separator
+              <input id="flattenSep" type="text" value="." />
+            </label>
+
+            <label>
+              Preview rows
+              <select id="previewRows">
+                <option value="10">10</option>
+                <option value="20" selected>20</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="actions">
+            <button class="btn-blue" id="btnProcess" type="button">ประมวลผล</button>
+            <button class="btn-ghost" id="btnClearFiles" type="button">ล้างรายการไฟล์</button>
+            <button class="btn-ghost" id="btnLoadSample" type="button">โหลดตัวอย่างจาก textarea</button>
+          </div>
+
+          <div class="small">
+            ถ้าไฟล์เป็น JSON object ซ้อนชั้น ระบบจะ flatten เป็นคอลัมน์แบบ dot notation เช่น `ctx.pid`, `sections.gameSummary.score`
+          </div>
+        </section>
+
+        <section class="card">
+          <h2>รายการไฟล์</h2>
+          <div class="files" id="fileList">
+            <div class="muted">ยังไม่มีไฟล์</div>
+          </div>
+
+          <div style="margin-top:14px;">
+            <label>
+              Sample text input (วาง CSV / JSON / JSONL ได้)
+              <textarea id="sampleInput" placeholder='เช่น [{"pid":"S001","session":"s1","score":120}]'></textarea>
+            </label>
+          </div>
+        </section>
+      </div>
+
+      <div class="grid-3">
+        <section class="stat">
+          <div class="k">Input Files</div>
+          <div class="v" id="mFiles">0</div>
+          <div class="s">จำนวนไฟล์หรือ input sources</div>
+        </section>
+        <section class="stat">
+          <div class="k">Raw Rows</div>
+          <div class="v" id="mRawRows">0</div>
+          <div class="s">จำนวนแถวก่อน merge</div>
+        </section>
+        <section class="stat">
+          <div class="k">Merged Rows</div>
+          <div class="v" id="mMergedRows">0</div>
+          <div class="s">จำนวนแถวหลัง merge</div>
+        </section>
+      </div>
+
+      <div class="grid" style="margin-top:16px;">
+        <section class="card">
+          <h2>Fields / Columns</h2>
+          <div class="chips" id="fieldChips"></div>
+          <div class="small">ระบบจะรวมทุกคอลัมน์จากทุกไฟล์เข้าด้วยกัน</div>
+        </section>
+
+        <section class="card">
+          <h2>Export</h2>
+          <div class="actions">
+            <button class="btn-green" id="btnCopyCsv" type="button">Copy CSV</button>
+            <button class="btn-violet" id="btnCopyJson" type="button">Copy JSON</button>
+            <button class="btn-ghost" id="btnCopyJsonl" type="button">Copy JSONL</button>
+            <button class="btn-warn" id="btnDownloadCsv" type="button">Download CSV</button>
+            <button class="btn-warn" id="btnDownloadJson" type="button">Download JSON</button>
+            <button class="btn-warn" id="btnDownloadJsonl" type="button">Download JSONL</button>
+          </div>
+          <div class="small">โหมด merge จะรวมแถวที่ key ซ้ำกันโดยเก็บค่าที่ไม่ว่างล่าสุด</div>
+        </section>
+      </div>
+
+      <div class="card" style="margin-top:16px;">
+        <h2>Preview Table</h2>
+        <div class="table-wrap">
+          <table>
+            <thead id="previewHead"></thead>
+            <tbody id="previewBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="grid" style="margin-top:16px;">
+        <section class="card">
+          <h2>CSV Preview</h2>
+          <pre id="csvPreview">ยังไม่มีข้อมูล</pre>
+        </section>
+        <section class="card">
+          <h2>JSON Preview</h2>
+          <pre id="jsonPreview">ยังไม่มีข้อมูล</pre>
+        </section>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+
+    let sources = [];
+    let rawRows = [];
+    let mergedRows = [];
+    let allHeaders = [];
+    let csvText = '';
+    let jsonText = '';
+    let jsonlText = '';
+
+    function csvEscape(value) {
+      const s = String(value ?? '');
+      if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+      return s;
+    }
+
+    function toCSV(rows) {
+      const headers = collectHeaders(rows);
+      const lines = [
+        headers.map(csvEscape).join(','),
+        ...rows.map(row => headers.map(h => csvEscape(row[h] ?? '')).join(','))
+      ];
+      return lines.join('\n');
+    }
+
+    function toJSON(rows) {
+      return JSON.stringify(rows, null, 2);
+    }
+
+    function toJSONL(rows) {
+      return rows.map(r => JSON.stringify(r)).join('\n');
+    }
+
+    function collectHeaders(rows) {
+      const set = new Set();
+      rows.forEach(row => Object.keys(row || {}).forEach(k => set.add(k)));
+      return Array.from(set);
+    }
+
+    function isObject(v) {
+      return v && typeof v === 'object' && !Array.isArray(v);
+    }
+
+    function flattenObject(obj, prefix = '', sep = '.') {
+      const out = {};
+      for (const [key, value] of Object.entries(obj || {})) {
+        const nextKey = prefix ? `${prefix}${sep}${key}` : key;
+        if (Array.isArray(value)) {
+          out[nextKey] = JSON.stringify(value);
+        } else if (isObject(value)) {
+          Object.assign(out, flattenObject(value, nextKey, sep));
+        } else {
+          out[nextKey] = value;
+        }
+      }
+      return out;
+    }
+
+    function parseCSV(text) {
+      const rows = [];
+      let i = 0;
+      let field = '';
+      let row = [];
+      let inQuotes = false;
+
+      function pushField() {
+        row.push(field);
+        field = '';
+      }
+
+      function pushRow() {
+        // skip empty trailing row
+        if (row.length === 1 && row[0] === '' && !field) {
+          row = [];
+          return;
+        }
+        rows.push(row);
+        row = [];
+      }
+
+      while (i < text.length) {
+        const ch = text[i];
+
+        if (inQuotes) {
+          if (ch === '"') {
+            if (text[i + 1] === '"') {
+              field += '"';
+              i += 2;
+              continue;
+            }
+            inQuotes = false;
+            i += 1;
+            continue;
+          }
+          field += ch;
+          i += 1;
+          continue;
+        }
+
+        if (ch === '"') {
+          inQuotes = true;
+          i += 1;
+          continue;
+        }
+
+        if (ch === ',') {
+          pushField();
+          i += 1;
+          continue;
+        }
+
+        if (ch === '\n') {
+          pushField();
+          pushRow();
+          i += 1;
+          continue;
+        }
+
+        if (ch === '\r') {
+          i += 1;
+          continue;
+        }
+
+        field += ch;
+        i += 1;
+      }
+
+      pushField();
+      if (row.length) pushRow();
+
+      if (!rows.length) return [];
+
+      const headers = rows[0].map(h => String(h ?? '').trim());
+      return rows.slice(1).map(cols => {
+        const obj = {};
+        headers.forEach((h, idx) => {
+          if (!h) return;
+          obj[h] = cols[idx] ?? '';
+        });
+        return obj;
+      });
+    }
+
+    function parseJSON(text, sep) {
+      const parsed = JSON.parse(text);
+
+      if (Array.isArray(parsed)) {
+        return parsed.map(item => isObject(item) ? flattenObject(item, '', sep) : { value: item });
+      }
+
+      if (isObject(parsed)) {
+        return [flattenObject(parsed, '', sep)];
+      }
+
+      return [{ value: parsed }];
+    }
+
+    function parseJSONL(text, sep) {
+      const lines = text.split(/\r?\n/).map(v => v.trim()).filter(Boolean);
+      return lines.map(line => {
+        const obj = JSON.parse(line);
+        return isObject(obj) ? flattenObject(obj, '', sep) : { value: obj };
+      });
+    }
+
+    function detectAndParse(text, filename, sep) {
+      const lower = (filename || '').toLowerCase();
+
+      if (lower.endsWith('.csv')) return parseCSV(text);
+      if (lower.endsWith('.jsonl')) return parseJSONL(text, sep);
+      if (lower.endsWith('.json')) return parseJSON(text, sep);
+
+      const trimmed = text.trim();
+      if (!trimmed) return [];
+
+      if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+        return parseJSON(text, sep);
+      }
+
+      const lines = trimmed.split(/\r?\n/).filter(Boolean);
+      if (lines.length > 1 && lines.every(line => line.trim().startsWith('{'))) {
+        return parseJSONL(text, sep);
+      }
+
+      return parseCSV(text);
+    }
+
+    function mergeRowsByKey(rows, keyFields) {
+      const map = new Map();
+
+      for (const row of rows) {
+        const key = keyFields.map(k => String(row[k] ?? '')).join('||');
+
+        if (!map.has(key)) {
+          map.set(key, { ...row });
+          continue;
+        }
+
+        const prev = map.get(key);
+        const next = { ...prev };
+
+        for (const [k, v] of Object.entries(row)) {
+          if (v !== '' && v != null) next[k] = v;
+        }
+
+        map.set(key, next);
+      }
+
+      return Array.from(map.values());
+    }
+
+    function renderFiles() {
+      if (!sources.length) {
+        $('fileList').innerHTML = `<div class="muted">ยังไม่มีไฟล์</div>`;
+        return;
+      }
+
+      $('fileList').innerHTML = sources.map(src => `
+        <div class="file">
+          <div>
+            <div class="name">${src.name}</div>
+            <div class="muted">type: ${src.kind}</div>
+          </div>
+          <div class="meta">${src.sizeLabel}</div>
+        </div>
+      `).join('');
+    }
+
+    function renderFieldChips(headers) {
+      $('fieldChips').innerHTML = headers.length
+        ? headers.map(h => `<span class="chip">${h}</span>`).join('')
+        : `<span class="muted">ยังไม่มีคอลัมน์</span>`;
+    }
+
+    function renderPreview(rows) {
+      const previewCount = Number($('previewRows').value || 20);
+      const headers = collectHeaders(rows);
+      const shown = rows.slice(0, previewCount);
+
+      $('previewHead').innerHTML = headers.length
+        ? `<tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr>`
+        : '';
+
+      $('previewBody').innerHTML = shown.length
+        ? shown.map(row => `<tr>${headers.map(h => `<td>${String(row[h] ?? '')}</td>`).join('')}</tr>`).join('')
+        : `<tr><td colspan="${Math.max(headers.length, 1)}">ยังไม่มีข้อมูล</td></tr>`;
+    }
+
+    function renderStats() {
+      $('mFiles').textContent = String(sources.length);
+      $('mRawRows').textContent = String(rawRows.length);
+      $('mMergedRows').textContent = String(mergedRows.length);
+    }
+
+    function renderExports() {
+      csvText = toCSV(mergedRows);
+      jsonText = toJSON(mergedRows);
+      jsonlText = toJSONL(mergedRows);
+
+      $('csvPreview').textContent = csvText || 'ยังไม่มีข้อมูล';
+      $('jsonPreview').textContent = jsonText || 'ยังไม่มีข้อมูล';
+    }
+
+    function processAll() {
+      const mode = $('mergeMode').value;
+      const sep = $('flattenSep').value || '.';
+      const keyFields = $('keyFields').value
+        .split(',')
+        .map(v => v.trim())
+        .filter(Boolean);
+
+      rawRows = [];
+
+      for (const src of sources) {
+        try {
+          const rows = detectAndParse(src.text, src.name, sep);
+          rawRows.push(...rows);
+          src.error = '';
+          src.rowCount = rows.length;
+        } catch (err) {
+          src.error = String(err?.message || err);
+          src.rowCount = 0;
+        }
+      }
+
+      mergedRows = mode === 'merge'
+        ? mergeRowsByKey(rawRows, keyFields)
+        : [...rawRows];
+
+      allHeaders = collectHeaders(mergedRows);
+
+      renderFiles();
+      renderFieldChips(allHeaders);
+      renderPreview(mergedRows);
+      renderStats();
+      renderExports();
+    }
+
+    async function readFile(file) {
+      const text = await file.text();
+      return {
+        name: file.name,
+        kind: file.type || file.name.split('.').pop() || 'unknown',
+        sizeLabel: `${Math.round(file.size / 1024)} KB`,
+        text,
+        rowCount: 0,
+        error: ''
+      };
+    }
+
+    async function addFiles(fileList) {
+      const arr = Array.from(fileList || []);
+      if (!arr.length) return;
+      const loaded = await Promise.all(arr.map(readFile));
+      sources.push(...loaded);
+      renderFiles();
+    }
+
+    async function copyText(text) {
+      try {
+        await navigator.clipboard.writeText(text);
+      } catch {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        ta.remove();
+      }
+    }
+
+    function downloadText(filename, text, type='text/plain') {
+      const blob = new Blob([text], { type });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    $('fileInput').addEventListener('change', async (ev) => {
+      await addFiles(ev.target.files);
+      ev.target.value = '';
+    });
+
+    const dz = $('dropzone');
+    dz.addEventListener('dragover', (ev) => {
+      ev.preventDefault();
+      dz.classList.add('drag');
+    });
+    dz.addEventListener('dragleave', () => dz.classList.remove('drag'));
+    dz.addEventListener('drop', async (ev) => {
+      ev.preventDefault();
+      dz.classList.remove('drag');
+      await addFiles(ev.dataTransfer.files);
+    });
+
+    $('btnProcess').addEventListener('click', processAll);
+
+    $('btnClearFiles').addEventListener('click', () => {
+      sources = [];
+      rawRows = [];
+      mergedRows = [];
+      allHeaders = [];
+      renderFiles();
+      renderFieldChips([]);
+      renderPreview([]);
+      renderStats();
+      renderExports();
+    });
+
+    $('btnLoadSample').addEventListener('click', () => {
+      const text = $('sampleInput').value.trim();
+      if (!text) return;
+      sources.push({
+        name: 'sample-input.txt',
+        kind: 'text',
+        sizeLabel: `${Math.round(text.length / 1024)} KB`,
+        text,
+        rowCount: 0,
+        error: ''
+      });
+      renderFiles();
+    });
+
+    $('btnCopyCsv').addEventListener('click', async () => {
+      await copyText(csvText);
+      $('btnCopyCsv').textContent = 'Copied!';
+      setTimeout(() => $('btnCopyCsv').textContent = 'Copy CSV', 1000);
+    });
+
+    $('btnCopyJson').addEventListener('click', async () => {
+      await copyText(jsonText);
+      $('btnCopyJson').textContent = 'Copied!';
+      setTimeout(() => $('btnCopyJson').textContent = 'Copy JSON', 1000);
+    });
+
+    $('btnCopyJsonl').addEventListener('click', async () => {
+      await copyText(jsonlText);
+      $('btnCopyJsonl').textContent = 'Copied!';
+      setTimeout(() => $('btnCopyJsonl').textContent = 'Copy JSONL', 1000);
+    });
+
+    $('btnDownloadCsv').addEventListener('click', () => {
+      downloadText('gji-master-dataset.csv', csvText, 'text/csv');
+    });
+
+    $('btnDownloadJson').addEventListener('click', () => {
+      downloadText('gji-master-dataset.json', jsonText, 'application/json');
+    });
+
+    $('btnDownloadJsonl').addEventListener('click', () => {
+      downloadText('gji-master-dataset.jsonl', jsonlText, 'application/x-ndjson');
+    });
+
+    renderFiles();
+    renderFieldChips([]);
+    renderPreview([]);
+    renderStats();
+    renderExports();
+  </script>
+</body>
+</html>
