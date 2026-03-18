@@ -43,14 +43,15 @@
       </div>
 
       <div class="launcher-note">
-        launcher นี้จะส่ง query ต่อไปยัง run page ให้ครบทั้ง hub / returnTo / gate context
+        Start -> warmup-gate -> groups-run -> summary -> cooldown-gate -> hub
       </div>
     </section>
   </main>
 
   <script type="module">
     import { createCtx } from '../shared/nutrition-common.js';
-    import { buildRunUrl, goExit } from '../shared/nutrition-integration.js';
+    import { goExit } from '../shared/nutrition-integration.js';
+    import { goWarmupGate } from '../shared/nutrition-gate.js';
 
     const ctx = createCtx('nutrition-groups');
     const diffSelect = document.getElementById('diffSelect');
@@ -62,7 +63,7 @@
     timeSelect.value = String(ctx.time || 90);
 
     startBtn.addEventListener('click', () => {
-      const url = buildRunUrl(
+      goWarmupGate(
         {
           ...ctx,
           launcher: './groups-launcher.html'
@@ -79,7 +80,6 @@
           seed: Date.now()
         }
       );
-      window.location.href = url;
     });
 
     backBtn.addEventListener('click', () => goExit(ctx, '../hub.html'));
