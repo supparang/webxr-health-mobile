@@ -1,6 +1,6 @@
 // === /herohealth/nutrition-plate/js/plate.ui.js ===
 // UI renderer for Nutrition Plate
-// PATCH v20260318-PLATE-CHILD-UI-A
+// PATCH v20260318-NUTRITION-GATE-INTEGRATION-A
 
 import { esc, goHub } from '../../shared/nutrition-common.js';
 import { mountSummaryShell } from '../../shared/nutrition-summary-shell.js';
@@ -43,7 +43,7 @@ function renderPlateBoard(plate) {
   }).join('');
 }
 
-export function createPlateUI(ctx, { onAnswer, onReplay }) {
+export function createPlateUI(ctx, { onAnswer, onReplay, onSummaryBack, summaryBackLabel = 'ไปคูลดาวน์' }) {
   const phaseEl = document.getElementById('hudPhase');
   const progressEl = document.getElementById('hudProgress');
   const scoreEl = document.getElementById('hudScore');
@@ -68,7 +68,8 @@ export function createPlateUI(ctx, { onAnswer, onReplay }) {
 
   const summaryShell = mountSummaryShell(document.body, {
     onReplay,
-    onBack: () => goHub(ctx)
+    onBack: () => (onSummaryBack ? onSummaryBack() : goHub(ctx)),
+    backLabel: summaryBackLabel
   });
 
   backBtn.addEventListener('click', () => goHub(ctx));
