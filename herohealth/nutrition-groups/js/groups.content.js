@@ -1,18 +1,20 @@
 // === /herohealth/nutrition-groups/js/groups.content.js ===
 // Content bank for Nutrition Groups
-// PATCH v20260318-GROUPS-VSLICE-A
+// PATCH v20260318-GROUPS-CHILD-UI-A
 
 export const FOOD_GROUPS = {
-  m1: { id: 'm1', label: 'หมู่ 1 โปรตีน' },
-  m2: { id: 'm2', label: 'หมู่ 2 คาร์โบไฮเดรต' },
-  m3: { id: 'm3', label: 'หมู่ 3 ผัก' },
-  m4: { id: 'm4', label: 'หมู่ 4 ผลไม้' },
-  m5: { id: 'm5', label: 'หมู่ 5 ไขมัน' }
+  m1: { id: 'm1', label: 'หมู่ 1 โปรตีน', emoji: '🥚', short: 'โปรตีน' },
+  m2: { id: 'm2', label: 'หมู่ 2 คาร์โบไฮเดรต', emoji: '🍚', short: 'พลังงาน' },
+  m3: { id: 'm3', label: 'หมู่ 3 ผัก', emoji: '🥦', short: 'ผัก' },
+  m4: { id: 'm4', label: 'หมู่ 4 ผลไม้', emoji: '🍉', short: 'ผลไม้' },
+  m5: { id: 'm5', label: 'หมู่ 5 ไขมัน', emoji: '🫗', short: 'ไขมัน' }
 };
 
 export const GROUP_OPTIONS = Object.values(FOOD_GROUPS).map(group => ({
   id: group.id,
-  label: group.label
+  label: group.label,
+  emoji: group.emoji,
+  short: group.short
 }));
 
 export const FOOD_ITEMS = [
@@ -44,7 +46,7 @@ export const COMPARE_PAIRS = [
     rightId: 'candy',
     betterId: 'banana',
     betterText: 'กล้วย',
-    prompt: 'ข้อไหนเป็นตัวเลือกที่ดีกว่า',
+    prompt: 'ข้อไหนดีกว่าสำหรับร่างกาย',
     correctReason: 'เพราะเป็นผลไม้และหวานธรรมชาติมากกว่า',
     distractors: [
       'เพราะมีสีเหลืองกว่า',
@@ -57,7 +59,7 @@ export const COMPARE_PAIRS = [
     rightId: 'soda',
     betterId: 'milk',
     betterText: 'นมจืด',
-    prompt: 'ข้อไหนเป็นตัวเลือกที่ดีกว่า',
+    prompt: 'ข้อไหนดีกว่าสำหรับร่างกาย',
     correctReason: 'เพราะมีประโยชน์กว่าและหวานน้อยกว่า',
     distractors: [
       'เพราะมีฟองน้อยกว่า',
@@ -70,7 +72,7 @@ export const COMPARE_PAIRS = [
     rightId: 'chips',
     betterId: 'watermelon',
     betterText: 'แตงโม',
-    prompt: 'ข้อไหนเป็นตัวเลือกที่ดีกว่า',
+    prompt: 'ข้อไหนดีกว่าสำหรับร่างกาย',
     correctReason: 'เพราะเป็นผลไม้และไม่ทอด',
     distractors: [
       'เพราะเสียงกรอบน้อยกว่า',
@@ -83,7 +85,7 @@ export const COMPARE_PAIRS = [
     rightId: 'fries',
     betterId: 'broccoli',
     betterText: 'บรอกโคลี',
-    prompt: 'ข้อไหนเป็นตัวเลือกที่ดีกว่า',
+    prompt: 'ข้อไหนดีกว่าสำหรับร่างกาย',
     correctReason: 'เพราะเป็นผักและมีประโยชน์ต่อมื้ออาหาร',
     distractors: [
       'เพราะแท่งเล็กกว่า',
