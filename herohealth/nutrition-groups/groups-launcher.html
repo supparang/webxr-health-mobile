@@ -1,0 +1,79 @@
+<!-- === /herohealth/nutrition-groups/groups-launcher.html === -->
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth • Nutrition Groups Launcher</title>
+  <link rel="icon" href="../favicon.ico" />
+  <link rel="stylesheet" href="./css/groups.css" />
+</head>
+<body class="groups-page launcher-page">
+  <main class="launcher-shell">
+    <section class="launcher-card">
+      <div class="hero-pill">Nutrition Groups</div>
+      <h1 class="launcher-title">จับหมวดอาหารให้ถูก</h1>
+      <p class="launcher-sub">
+        เกมนี้จะให้หนูแยกอาหารเป็น 5 หมู่ เลือกตัวเลือกที่ดีกว่า และตอบเหตุผลง่าย ๆ
+      </p>
+
+      <div class="launcher-grid">
+        <label class="field">
+          <span>ระดับ</span>
+          <select id="diffSelect">
+            <option value="easy">ง่าย</option>
+            <option value="normal" selected>ปกติ</option>
+            <option value="hard">ยาก</option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span>เวลา</span>
+          <select id="timeSelect">
+            <option value="60">60 วินาที</option>
+            <option value="90" selected>90 วินาที</option>
+            <option value="120">120 วินาที</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="launcher-actions">
+        <button class="btn btn-start" id="startBtn">เริ่มเกม</button>
+        <button class="btn btn-ghost" id="backBtn">กลับ HUB</button>
+      </div>
+
+      <div class="launcher-note">
+        ชุดแรกนี้เป็น vertical slice สำหรับโครงใหม่ของเกม Groups
+      </div>
+    </section>
+  </main>
+
+  <script type="module">
+    import { createCtx, buildUrl, goHub } from '../shared/nutrition-common.js';
+
+    const ctx = createCtx('nutrition-groups');
+    const diffSelect = document.getElementById('diffSelect');
+    const timeSelect = document.getElementById('timeSelect');
+    const startBtn = document.getElementById('startBtn');
+    const backBtn = document.getElementById('backBtn');
+
+    diffSelect.value = ctx.diff || 'normal';
+    timeSelect.value = String(ctx.time || 90);
+
+    startBtn.addEventListener('click', () => {
+      const url = buildUrl('./groups-run.html', {
+        ...ctx.query,
+        cat: 'nutrition',
+        theme: 'groups',
+        game: 'groups',
+        diff: diffSelect.value,
+        time: timeSelect.value,
+        seed: Date.now()
+      });
+      window.location.href = url;
+    });
+
+    backBtn.addEventListener('click', () => goHub(ctx));
+  </script>
+</body>
+</html>
