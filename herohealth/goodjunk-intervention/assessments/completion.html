@@ -5,70 +5,250 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>GoodJunk Intervention • Completion</title>
   <link rel="stylesheet" href="./assessment.css" />
+  <style>
+    .summary-grid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:12px;
+      margin-top:12px;
+    }
+
+    .summary-card{
+      border:1px solid rgba(148,163,184,.14);
+      border-radius:16px;
+      background:rgba(2,6,23,.42);
+      padding:14px;
+    }
+
+    .summary-label{
+      color:#94a3b8;
+      font-size:12px;
+      font-weight:900;
+      text-transform:uppercase;
+      letter-spacing:.04em;
+    }
+
+    .summary-value{
+      margin-top:6px;
+      color:#e5e7eb;
+      font-size:24px;
+      font-weight:1000;
+      line-height:1.1;
+    }
+
+    .summary-sub{
+      margin-top:6px;
+      color:#cbd5e1;
+      font-size:13px;
+      line-height:1.5;
+    }
+
+    .code-box{
+      margin-top:12px;
+      padding:16px;
+      border-radius:18px;
+      border:1px solid rgba(34,197,94,.24);
+      background:rgba(34,197,94,.10);
+      color:#dcfce7;
+      text-align:center;
+    }
+
+    .code-label{
+      font-size:12px;
+      font-weight:900;
+      text-transform:uppercase;
+      letter-spacing:.08em;
+      opacity:.9;
+    }
+
+    .code-value{
+      margin-top:8px;
+      font-size:28px;
+      font-weight:1000;
+      word-break:break-word;
+    }
+
+    .next-grid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:12px;
+      margin-top:12px;
+    }
+
+    .next-card{
+      border:1px solid rgba(148,163,184,.14);
+      border-radius:16px;
+      background:rgba(2,6,23,.42);
+      padding:14px;
+    }
+
+    .next-title{
+      color:#e5e7eb;
+      font-size:15px;
+      font-weight:1000;
+      margin-bottom:6px;
+    }
+
+    .next-sub{
+      color:#cbd5e1;
+      font-size:13px;
+      line-height:1.55;
+    }
+
+    @media (max-width:760px){
+      .summary-grid,
+      .next-grid{
+        grid-template-columns:1fr;
+      }
+    }
+  </style>
 </head>
 <body>
   <main class="page">
     <section class="card">
-      <div class="badge">เสร็จสิ้นกิจกรรม</div>
-      <h1>ขอบคุณมาก 🎉</h1>
-      <p class="sub">หนูทำครบทั้งแบบประเมิน เกม และคำถามหลังเล่นแล้ว</p>
+      <div class="badge">Completion • GoodJunk Intervention</div>
+      <h1>เสร็จสิ้นกิจกรรมรอบนี้แล้ว</h1>
+      <p class="sub">
+        หน้านี้สรุปสถานะโดยรวมของรอบที่เล่น และให้รหัส completion สำหรับใช้ยืนยันว่าจบรอบนี้แล้ว
+      </p>
+
       <div class="ctx" id="ctxBox">กำลังโหลด...</div>
 
       <section class="block">
-        <h2>Completion Code</h2>
-        <p>ใช้แสดงให้ครูหรือผู้วิจัยตรวจว่าทำครบแล้ว</p>
-        <div style="font-size:32px;font-weight:900;letter-spacing:1px" id="completionCode">GJI-...</div>
+        <h2>ผลสรุปเบื้องต้น</h2>
+        <div class="summary-grid">
+          <div class="summary-card">
+            <div class="summary-label">Study</div>
+            <div class="summary-value" id="vStudy">-</div>
+            <div class="summary-sub">รหัสการทดลองของรอบนี้</div>
+          </div>
+
+          <div class="summary-card">
+            <div class="summary-label">Student</div>
+            <div class="summary-value" id="vStudent">-</div>
+            <div class="summary-sub">ข้อมูลผู้เรียนที่ใช้ในรอบนี้</div>
+          </div>
+
+          <div class="summary-card">
+            <div class="summary-label">Session</div>
+            <div class="summary-value" id="vSession">-</div>
+            <div class="summary-sub">รหัส session ปัจจุบัน</div>
+          </div>
+
+          <div class="summary-card">
+            <div class="summary-label">Condition</div>
+            <div class="summary-value" id="vCondition">-</div>
+            <div class="summary-sub">กลุ่มการทดลองของรอบนี้</div>
+          </div>
+
+          <div class="summary-card">
+            <div class="summary-label">Score</div>
+            <div class="summary-value" id="vScore">-</div>
+            <div class="summary-sub">คะแนนรวมจากเกม GoodJunk</div>
+          </div>
+
+          <div class="summary-card">
+            <div class="summary-label">Grade</div>
+            <div class="summary-value" id="vGrade">-</div>
+            <div class="summary-sub">คุณภาพการเล่นรอบนี้</div>
+          </div>
+        </div>
+
+        <div class="code-box">
+          <div class="code-label">Completion Code</div>
+          <div class="code-value" id="completionCode">กำลังสร้าง...</div>
+        </div>
       </section>
 
       <section class="block">
-        <h2>ขั้นถัดไป</h2>
-        <p>ถ้ามีรอบติดตามผล สามารถกลับมาเข้าแบบติดตามผลภายหลังได้</p>
+        <h2>สิ่งที่ทำต่อได้</h2>
+        <div class="next-grid">
+          <div class="next-card">
+            <div class="next-title">Parent Questionnaire / Summary</div>
+            <div class="next-sub">
+              ใช้สำหรับส่งต่อให้ผู้ปกครองตอบหรือดูสรุปผลของกิจกรรม
+            </div>
+          </div>
+
+          <div class="next-card">
+            <div class="next-title">Follow-up</div>
+            <div class="next-sub">
+              ใช้ติดตามผลระยะสั้นหรือรายสัปดาห์ว่าพฤติกรรมการเลือกของว่างเปลี่ยนไปอย่างไร
+            </div>
+          </div>
+        </div>
       </section>
 
       <div class="footer">
-        <button class="btn btn-primary" id="backLauncherBtn">กลับหน้าเริ่ม</button>
-        <button class="btn btn-ghost" id="followupBtn">ไปหน้า Follow-up สั้น</button>
-        <button class="btn btn-ghost" id="teacherBtn">Teacher Panel</button>
+        <button type="button" class="btn btn-ghost" id="btnTeacherPanel">Teacher Panel</button>
+        <button type="button" class="btn btn-ghost" id="btnStudentLauncher">Student Launcher</button>
+        <button type="button" class="btn btn-primary" id="btnParentSummary">Parent Summary</button>
+        <button type="button" class="btn btn-primary" id="btnShortFollowup">Short Follow-up</button>
       </div>
     </section>
   </main>
 
   <script type="module">
-    import { buildUrl, pickCtxFromQuery } from '../research/config.js';
-    import { loadCtx, mergeCtx, markCompleted } from '../research/localstore.js';
+    import { buildUrl, pickCtxFromQuery, withDefaultCtx } from '../research/config.js';
+    import { KEYS, loadCtx, loadJSON, mergeCtx, saveCtx, markCompleted } from '../research/localstore.js';
 
-    function makeCode(ctx){
-      const pid = String(ctx.pid || 'NA').toUpperCase().replace(/\s+/g,'');
-      const session = String(ctx.session || 'S1').toUpperCase();
-      const stamp = new Date().toISOString().replace(/\D/g, '').slice(-6);
-      return `GJI-${pid}-${session}-${stamp}`;
+    function $(id){ return document.getElementById(id); }
+
+    function makeCompletionCode(ctx, gameSummary) {
+      const study = String(ctx.studyId || 'GJI').replace(/\s+/g, '').slice(0, 12);
+      const pid = String(ctx.pid || ctx.studentKey || 'anon').replace(/\s+/g, '').slice(0, 12);
+      const session = String(ctx.session || ctx.sessionId || 's').replace(/\s+/g, '').slice(0, 12);
+      const score = String(gameSummary?.score ?? 0);
+      return `${study}-${pid}-${session}-${score}`;
     }
 
     mergeCtx(pickCtxFromQuery());
-    const ctx = loadCtx();
-    const code = makeCode(ctx);
 
-    markCompleted({ code });
+    const ctx = withDefaultCtx(loadCtx());
+    saveCtx(ctx);
 
-    document.getElementById('ctxBox').textContent = [
+    const gameSummary = loadJSON(KEYS.GAME_SUMMARY, {}) || {};
+    const code = makeCompletionCode(ctx, gameSummary);
+
+    markCompleted({
+      code,
+      score: Number(gameSummary.score ?? 0),
+      grade: String(gameSummary.grade ?? ''),
+      pid: ctx.pid || ctx.studentKey || '',
+      studyId: ctx.studyId || '',
+      session: ctx.session || ctx.sessionId || '',
+      condition: ctx.condition || ctx.conditionGroup || ''
+    });
+
+    $('ctxBox').textContent = [
       `PID: ${ctx.pid || '-'}`,
       `Study: ${ctx.studyId || '-'}`,
       `Session: ${ctx.session || '-'}`,
-      `Condition: ${ctx.condition || '-'}`
+      `Condition: ${ctx.condition || '-'}`,
     ].join(' • ');
 
-    document.getElementById('completionCode').textContent = code;
+    $('vStudy').textContent = ctx.studyId || '-';
+    $('vStudent').textContent = ctx.nickName || ctx.studentKey || ctx.pid || '-';
+    $('vSession').textContent = ctx.session || ctx.sessionId || '-';
+    $('vCondition').textContent = ctx.condition || ctx.conditionGroup || '-';
+    $('vScore').textContent = String(gameSummary.score ?? '-');
+    $('vGrade').textContent = String(gameSummary.grade ?? '-');
+    $('completionCode').textContent = code;
 
-    document.getElementById('backLauncherBtn').addEventListener('click', () => {
-      window.location.href = buildUrl('STUDENT_LAUNCHER', ctx, false);
+    $('btnTeacherPanel').addEventListener('click', () => {
+      location.href = buildUrl('../launcher/teacher-panel.html', ctx, false);
     });
 
-    document.getElementById('followupBtn').addEventListener('click', () => {
-      window.location.href = buildUrl('SHORT_FOLLOWUP', ctx, false);
+    $('btnStudentLauncher').addEventListener('click', () => {
+      location.href = buildUrl('STUDENT_LAUNCHER', ctx, false);
     });
 
-    document.getElementById('teacherBtn').addEventListener('click', () => {
-      window.location.href = buildUrl('TEACHER_PANEL', ctx, false);
+    $('btnParentSummary').addEventListener('click', () => {
+      location.href = buildUrl('PARENT_SUMMARY', ctx, false);
+    });
+
+    $('btnShortFollowup').addEventListener('click', () => {
+      location.href = buildUrl('SHORT_FOLLOWUP', ctx, false);
     });
   </script>
 </body>
