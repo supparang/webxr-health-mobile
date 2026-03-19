@@ -367,39 +367,84 @@
       elDiff.value = q.get('diff') || 'normal';
       elTime.value = q.get('time') || '120';
 
-      function buildBaseQuery(mode){
+      function nowSeed(){
+        return String(Date.now());
+      }
+
+      function buildBaseQuery(mode, seedValue){
         const p = new URLSearchParams();
         p.set('pid', q.get('pid') || 'anon');
         p.set('name', elName.value.trim());
         p.set('studyId', q.get('studyId') || '');
         p.set('diff', elDiff.value || 'normal');
         p.set('time', elTime.value || '120');
-        p.set('seed', String(Date.now()));
+        p.set('seed', seedValue || nowSeed());
         p.set('hub', q.get('hub') || './hub.html');
         p.set('view', q.get('view') || 'mobile');
         p.set('run', q.get('run') || 'play');
+
+        p.set('game', 'goodjunk');
         p.set('gameId', 'goodjunk');
+        p.set('theme', 'goodjunk');
+        p.set('cat', 'nutrition');
+        p.set('zone', 'nutrition');
+
         p.set('mode', mode);
         return p;
       }
 
+      function buildSoloRunUrl(seedValue){
+        const p = buildBaseQuery('solo', seedValue);
+        p.set('gate', '1');
+        p.set('cooldown', '1');
+        p.set('gatePage', '../warmup-gate.html');
+        return `./vr-goodjunk/goodjunk-vr.html?${p.toString()}`;
+      }
+
+      function buildSoloWarmupUrl(){
+        const seedValue = nowSeed();
+        const gate = new URL('./warmup-gate.html', location.href);
+
+        gate.searchParams.set('phase', 'warmup');
+        gate.searchParams.set('game', 'goodjunk');
+        gate.searchParams.set('gameId', 'goodjunk');
+        gate.searchParams.set('theme', 'goodjunk');
+        gate.searchParams.set('cat', 'nutrition');
+        gate.searchParams.set('zone', 'nutrition');
+
+        gate.searchParams.set('pid', q.get('pid') || 'anon');
+        gate.searchParams.set('name', elName.value.trim());
+        gate.searchParams.set('studyId', q.get('studyId') || '');
+        gate.searchParams.set('diff', elDiff.value || 'normal');
+        gate.searchParams.set('time', elTime.value || '120');
+        gate.searchParams.set('seed', seedValue);
+        gate.searchParams.set('hub', q.get('hub') || './hub.html');
+        gate.searchParams.set('view', q.get('view') || 'mobile');
+        gate.searchParams.set('run', q.get('run') || 'play');
+
+        gate.searchParams.set('next', buildSoloRunUrl(seedValue));
+        return gate.toString();
+      }
+
       function goSolo(){
-        const p = buildBaseQuery('solo');
-        location.href = `./vr-goodjunk/goodjunk-vr.html?${p.toString()}`;
+        location.href = buildSoloWarmupUrl();
       }
 
       function goMultiplayer(mode){
-        const p = buildBaseQuery(mode);
+        const seedValue = nowSeed();
+        const p = buildBaseQuery(mode, seedValue);
         location.href = `./vr-goodjunk/goodjunk-multiplayer-lobby.html?${p.toString()}`;
       }
 
       document.querySelectorAll('[data-mode]').forEach((btn) => {
         btn.addEventListener('click', () => {
           const mode = btn.getAttribute('data-mode');
+
           if (mode === 'solo') {
             goSolo();
             return;
           }
+
           goMultiplayer(mode);
         });
       });
