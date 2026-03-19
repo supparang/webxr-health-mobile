@@ -21,6 +21,11 @@
       --warn:#f59e0b;
       --shadow:0 18px 50px rgba(0,0,0,.32);
       --radius:24px;
+
+      --safe-top:env(safe-area-inset-top, 0px);
+      --safe-right:env(safe-area-inset-right, 0px);
+      --safe-bottom:env(safe-area-inset-bottom, 0px);
+      --safe-left:env(safe-area-inset-left, 0px);
     }
 
     *{ box-sizing:border-box; }
@@ -39,6 +44,11 @@
     .wrap{
       width:min(1180px, calc(100% - 24px));
       margin:20px auto 40px;
+      padding:
+        max(0px, var(--safe-top))
+        max(0px, var(--safe-right))
+        max(0px, var(--safe-bottom))
+        max(0px, var(--safe-left));
     }
 
     .hero{
@@ -75,18 +85,28 @@
       color:var(--muted);
       font-size:14px;
       line-height:1.65;
-      max-width:860px;
+      max-width:880px;
     }
 
     .grid{
       display:grid;
-      grid-template-columns:1.1fr .9fr;
+      grid-template-columns:1.08fr .92fr;
       gap:16px;
       margin-top:16px;
     }
 
-    @media (max-width:960px){
+    .grid-portal{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:12px;
+    }
+
+    @media (max-width:980px){
       .grid{ grid-template-columns:1fr; }
+    }
+
+    @media (max-width:760px){
+      .grid-portal{ grid-template-columns:1fr; }
     }
 
     .card{
@@ -107,7 +127,7 @@
       padding:14px;
       border-radius:18px;
       border:1px solid var(--stroke);
-      background:rgba(2,6,23,.5);
+      background:rgba(2,6,23,.50);
       color:var(--muted);
       line-height:1.7;
       font-size:14px;
@@ -133,19 +153,9 @@
       font-weight:900;
     }
 
-    .portal-grid{
-      display:grid;
-      grid-template-columns:repeat(2,minmax(0,1fr));
-      gap:12px;
-    }
-
-    @media (max-width:760px){
-      .portal-grid{ grid-template-columns:1fr; }
-    }
-
     .portal{
-      border:1px solid var(--stroke);
-      background:rgba(2,6,23,.44);
+      border:1px solid rgba(148,163,184,.14);
+      background:rgba(2,6,23,.42);
       border-radius:20px;
       padding:16px;
       display:grid;
@@ -160,39 +170,102 @@
     .portal-sub{
       color:var(--muted);
       font-size:13px;
-      line-height:1.55;
+      line-height:1.6;
       min-height:42px;
+    }
+
+    .steps{
+      display:grid;
+      gap:10px;
+    }
+
+    .step{
+      display:grid;
+      gap:6px;
+      padding:14px;
+      border-radius:18px;
+      border:1px solid rgba(148,163,184,.14);
+      background:rgba(2,6,23,.42);
+    }
+
+    .step-title{
+      color:#e5e7eb;
+      font-size:15px;
+      font-weight:1000;
+    }
+
+    .step-sub{
+      color:var(--muted);
+      font-size:13px;
+      line-height:1.55;
+    }
+
+    .preview{
+      display:grid;
+      gap:12px;
+    }
+
+    .preview-box{
+      border:1px solid var(--stroke);
+      border-radius:16px;
+      background:rgba(2,6,23,.5);
+      padding:12px;
+    }
+
+    .muted{
+      color:var(--muted);
+      font-size:13px;
+      line-height:1.55;
+    }
+
+    .link{
+      margin-top:8px;
+      word-break:break-all;
+      color:#bfdbfe;
+      font-size:12px;
+      line-height:1.6;
+      font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     }
 
     .btns{
       display:flex;
       flex-wrap:wrap;
       gap:10px;
+      margin-top:14px;
     }
 
     button{
       appearance:none;
       border:none;
       cursor:pointer;
-      min-height:44px;
+      min-height:46px;
       border-radius:14px;
-      padding:0 14px;
-      font:900 14px/1 system-ui,-apple-system,"Noto Sans Thai","Segoe UI",Roboto,Arial;
+      padding:0 16px;
+      font:900 14px/1 system-ui,-apple-system,"Noto Sans Thai","Segoe UI",Roboto,Arial,sans-serif;
       color:#fff;
-      transition:transform .08s ease, opacity .18s ease;
+      transition:transform .08s ease, opacity .18s ease, filter .18s ease;
+      box-shadow:var(--shadow);
     }
 
-    button:active{ transform:translateY(1px) scale(.995); }
+    button:active{
+      transform:translateY(1px) scale(.995);
+    }
+
+    button:hover{
+      filter:brightness(1.04);
+    }
 
     .btn-blue{ background:linear-gradient(135deg,#2563eb,#38bdf8); }
     .btn-green{ background:linear-gradient(135deg,#16a34a,#22c55e); }
     .btn-violet{ background:linear-gradient(135deg,#7c3aed,#a78bfa); }
     .btn-pink{ background:linear-gradient(135deg,#db2777,#f472b6); }
     .btn-warn{ background:linear-gradient(135deg,#d97706,#f59e0b); }
+
     .btn-ghost{
       background:rgba(148,163,184,.12);
       border:1px solid var(--stroke);
       color:var(--text);
+      box-shadow:none;
     }
 
     .small{
@@ -209,11 +282,29 @@
       line-height:1.7;
     }
 
-    .footer-actions{
-      display:flex;
-      flex-wrap:wrap;
-      gap:10px;
-      margin-top:14px;
+    @media (max-width:640px){
+      .wrap{
+        width:min(100%, calc(100% - 16px));
+        margin:12px auto 24px;
+      }
+
+      .hero{
+        padding:16px;
+        border-radius:24px;
+      }
+
+      h1{
+        font-size:clamp(24px, 7vw, 34px);
+      }
+
+      .btns{
+        display:grid;
+        grid-template-columns:1fr;
+      }
+
+      button{
+        width:100%;
+      }
     }
   </style>
 </head>
@@ -224,7 +315,7 @@
       <h1>ศูนย์กลางเข้าใช้งานระบบ</h1>
       <div class="sub">
         ใช้หน้านี้เป็นจุดเริ่มต้นของ flow ทั้งหมดได้เลย:
-        Teacher → Student → Pretest → Game → Posttest → Parent → Follow-up
+        Teacher → Student → Pretest → Game → Posttest → Completion → Parent → Follow-up → Tools
       </div>
 
       <div class="grid">
@@ -233,9 +324,10 @@
           <div class="ctx-box" id="ctxBox">กำลังโหลด...</div>
           <div class="chips" id="chips"></div>
 
-          <div class="footer-actions">
+          <div class="btns">
             <button class="btn-ghost" id="btnRefreshCtx" type="button">รีเฟรช context</button>
-            <button class="btn-ghost" id="btnClearCtx" type="button">ล้าง context</button>
+            <button class="btn-ghost" id="btnClearSession" type="button">ล้าง session data</button>
+            <button class="btn-ghost" id="btnClearAll" type="button">ล้างทั้งหมด</button>
             <button class="btn-ghost" id="btnGoHub" type="button">กลับ HUB</button>
           </div>
 
@@ -246,25 +338,38 @@
 
         <section class="card">
           <h2>ลำดับ flow ที่แนะนำ</h2>
-          <ol class="list">
-            <li>Teacher Panel ตั้งค่า session และข้อมูลนักเรียน</li>
-            <li>Student Launcher ตรวจข้อมูลก่อนเริ่ม</li>
-            <li>Pre-Knowledge และ Pre-Behavior</li>
-            <li>เข้าเกม GoodJunk Intervention</li>
-            <li>Post-Knowledge → Post-Behavior → Post-Choice</li>
-            <li>Completion</li>
-            <li>Parent / Follow-up ตามแผนวิจัย</li>
-          </ol>
+          <div class="steps">
+            <div class="step">
+              <div class="step-title">1) Teacher Panel</div>
+              <div class="step-sub">ตั้งค่า session และข้อมูลนักเรียน</div>
+            </div>
+            <div class="step">
+              <div class="step-title">2) Student Launcher</div>
+              <div class="step-sub">ตรวจสอบข้อมูลก่อนเริ่มกิจกรรม</div>
+            </div>
+            <div class="step">
+              <div class="step-title">3) Pre-Knowledge → Pre-Behavior</div>
+              <div class="step-sub">ทำแบบประเมินก่อนเล่นเกม</div>
+            </div>
+            <div class="step">
+              <div class="step-title">4) Game → Posttest → Completion</div>
+              <div class="step-sub">เล่นเกมและจบ flow หลังเรียน</div>
+            </div>
+            <div class="step">
+              <div class="step-title">5) Parent / Follow-up / Tools</div>
+              <div class="step-sub">สรุปผล ติดตามผล และ export ข้อมูล</div>
+            </div>
+          </div>
         </section>
       </div>
 
       <div class="grid" style="margin-top:16px;">
         <section class="card">
           <h2>เข้าใช้งานตามบทบาท</h2>
-          <div class="portal-grid">
+          <div class="grid-portal">
             <div class="portal">
               <div class="portal-title">Teacher</div>
-              <div class="portal-sub">ตั้งค่า session, ข้อมูลนักเรียน, condition, difficulty และสร้างลิงก์ flow</div>
+              <div class="portal-sub">ตั้งค่า study, student, session และสร้างลิงก์ flow</div>
               <div class="btns">
                 <button class="btn-blue" id="btnTeacherPanel" type="button">Teacher Panel</button>
               </div>
@@ -272,16 +377,16 @@
 
             <div class="portal">
               <div class="portal-title">Student</div>
-              <div class="portal-sub">ตรวจข้อมูลก่อนเริ่มกิจกรรม และเข้าสู่ pretest หรือเข้าเกมตาม context ปัจจุบัน</div>
+              <div class="portal-sub">ตรวจข้อมูลผู้เรียนและเริ่มกิจกรรมตาม flow</div>
               <div class="btns">
                 <button class="btn-green" id="btnStudentLauncher" type="button">Student Launcher</button>
-                <button class="btn-ghost" id="btnGame" type="button">เข้าเกม</button>
+                <button class="btn-ghost" id="btnGame" type="button">เข้าเกมตรง</button>
               </div>
             </div>
 
             <div class="portal">
               <div class="portal-title">Assessments</div>
-              <div class="portal-sub">เข้าแบบประเมินก่อนเล่นหรือหลังเล่นแบบตรงหน้าได้ทันที</div>
+              <div class="portal-sub">เข้า pretest, posttest และ completion ได้ทันที</div>
               <div class="btns">
                 <button class="btn-violet" id="btnPreKnowledge" type="button">Pre-Knowledge</button>
                 <button class="btn-violet" id="btnPreBehavior" type="button">Pre-Behavior</button>
@@ -293,11 +398,11 @@
             </div>
 
             <div class="portal">
-              <div class="portal-title">Parent & Follow-up</div>
-              <div class="portal-sub">เข้าแบบสอบถามผู้ปกครอง หรือหน้าติดตามผลระยะสั้น / รายสัปดาห์</div>
+              <div class="portal-title">Parent / Follow-up</div>
+              <div class="portal-sub">เข้าแบบสอบถามผู้ปกครอง สรุปผล และติดตามผล</div>
               <div class="btns">
-                <button class="btn-pink" id="btnParentForm" type="button">Parent Form</button>
-                <button class="btn-ghost" id="btnParentSummary" type="button">Parent Summary</button>
+                <button class="btn-pink" id="btnParentForm" type="button">Parent Questionnaire</button>
+                <button class="btn-pink" id="btnParentSummary" type="button">Parent Summary</button>
                 <button class="btn-warn" id="btnShortFollowup" type="button">Short Follow-up</button>
                 <button class="btn-ghost" id="btnWeeklyCheck" type="button">Weekly Check</button>
               </div>
@@ -306,14 +411,61 @@
         </section>
 
         <section class="card">
+          <h2>Tools / Debug / Export</h2>
+          <div class="preview">
+            <div class="preview-box">
+              <div class="muted">Teacher Panel URL</div>
+              <div class="link" id="teacherUrl">-</div>
+            </div>
+
+            <div class="preview-box">
+              <div class="muted">Student Launcher URL</div>
+              <div class="link" id="studentUrl">-</div>
+            </div>
+
+            <div class="preview-box">
+              <div class="muted">Game URL</div>
+              <div class="link" id="gameUrl">-</div>
+            </div>
+
+            <div class="preview-box">
+              <div class="muted">Session Summary Tool</div>
+              <div class="link" id="toolUrl">-</div>
+            </div>
+          </div>
+
+          <div class="btns">
+            <button class="btn-ghost" id="btnSessionSummaryTool" type="button">Session Summary</button>
+            <button class="btn-ghost" id="btnTeacherDebug" type="button">Teacher Debug</button>
+            <button class="btn-ghost" id="btnExportBundle" type="button">Export Bundle</button>
+            <button class="btn-ghost" id="btnMergeDataset" type="button">Merge Datasets</button>
+          </div>
+
+          <div class="small" style="margin-top:12px;">
+            ถ้าเริ่มจาก Teacher Panel ระบบจะส่ง context ไปทุกหน้าสะดวกที่สุด
+          </div>
+        </section>
+      </div>
+
+      <div class="grid" style="margin-top:16px;">
+        <section class="card">
           <h2>หมายเหตุการใช้งาน</h2>
           <ul class="list">
-            <li>ถ้าเริ่มจาก Teacher Panel ระบบจะส่ง context ไปทุกหน้าสะดวกที่สุด</li>
+            <li>ควรเริ่มจาก Teacher Panel ถ้าต้องการ context ครบที่สุด</li>
             <li>ถ้าเข้าเกมตรง ควรมี session และ pid อยู่ใน context ก่อน</li>
-            <li>หน้า Post-Knowledge เป็นทางหลักหลังจบเกม</li>
+            <li>หลังจบเกม แนะนำให้ไป Post-Knowledge → Post-Behavior → Post-Choice → Completion</li>
             <li>Parent Summary จะอ่านข้อมูลจากผลเกมและแบบสอบถามผู้ปกครอง</li>
             <li>Follow-up จะโหลดคำตอบเดิมขึ้นมาได้ถ้าเคยบันทึกแล้ว</li>
           </ul>
+        </section>
+
+        <section class="card">
+          <h2>ทางลัดทดสอบเร็ว</h2>
+          <div class="btns">
+            <button class="btn-blue" id="btnQuickFlow" type="button">Quick Flow: Pre-Knowledge</button>
+            <button class="btn-green" id="btnQuickGame" type="button">Quick Game</button>
+            <button class="btn-pink" id="btnCopyGameUrl" type="button">คัดลอกลิงก์เกม</button>
+          </div>
         </section>
       </div>
     </section>
@@ -321,95 +473,67 @@
 
   <script type="module">
     import { buildUrl, pickCtxFromQuery, withDefaultCtx } from './research/config.js';
-    import { loadCtx, mergeCtx, saveCtx, clearSessionData } from './research/localstore.js';
+    import {
+      loadCtx,
+      mergeCtx,
+      saveCtx,
+      clearAllData,
+      clearSessionData
+    } from './research/localstore.js';
 
     function $(id){ return document.getElementById(id); }
 
-    function q(k,d=''){
-      try{ return new URL(location.href).searchParams.get(k) ?? d; }
-      catch(_){ return d; }
-    }
-
     function buildLegacyCtxFromQuery(){
-      return {
-        pid: q('pid', q('studentKey', q('nickName', ''))),
-        studyId: q('studyId', ''),
-        group: q('group', q('classRoom', q('gradeLevel', q('conditionGroup', '')))),
-        condition: q('condition', q('conditionGroup', '')),
-        session: q('session', q('sessionId', '')),
-        lang: q('lang', 'th'),
-        teacher: q('teacher', ''),
-        classroom: q('classroom', q('classRoom', '')),
-        school: q('school', q('schoolName', '')),
-        mode: q('mode', q('run', 'play')),
+      const q = (k,d='') => {
+        try{ return new URL(location.href).searchParams.get(k) ?? d; }
+        catch(_){ return d; }
+      };
 
-        nickName: q('nickName', ''),
+      return {
+        pid: q('pid', q('studentKey', '')),
+        studentKey: q('studentKey', q('pid', '')),
+        nickName: q('nickName', q('name', '')),
+        name: q('name', q('nickName', '')),
+        studyId: q('studyId', ''),
         phase: q('phase', ''),
+        group: q('group', q('classRoom', q('classroom', q('conditionGroup', '')))),
+        condition: q('condition', q('conditionGroup', '')),
+        conditionGroup: q('conditionGroup', q('condition', '')),
+        session: q('session', q('sessionId', '')),
+        sessionId: q('sessionId', q('session', '')),
+        classroom: q('classroom', q('classRoom', '')),
+        classRoom: q('classRoom', q('classroom', '')),
+        school: q('school', q('schoolName', '')),
+        schoolName: q('schoolName', q('school', '')),
         diff: q('diff', 'easy'),
         view: q('view', 'mobile'),
+        mode: q('mode', q('run', 'play')),
+        run: q('run', q('mode', 'play')),
         time: q('time', '80'),
-        run: q('run', 'play'),
+        lang: q('lang', 'th'),
         hub: q('hub', '../../hub.html'),
-
         projectTag: q('projectTag', ''),
-        conditionGroup: q('conditionGroup', ''),
         sessionOrder: q('sessionOrder', ''),
         blockLabel: q('blockLabel', ''),
-        sessionId: q('sessionId', ''),
-        studentKey: q('studentKey', ''),
         schoolCode: q('schoolCode', ''),
-        schoolName: q('schoolName', ''),
-        classRoom: q('classRoom', ''),
         studentNo: q('studentNo', ''),
         gradeLevel: q('gradeLevel', ''),
         gender: q('gender', ''),
         age: q('age', ''),
         seed: q('seed', ''),
-        kid: q('kid', ''),
-        readable: q('readable', ''),
-        spawnDebug: q('spawnDebug', '')
+        gameId: q('gameId', 'goodjunk'),
+        kid: q('kid', '1'),
+        readable: q('readable', '1'),
+        spawnDebug: q('spawnDebug', '0')
       };
     }
 
-    function syncAliases(ctx){
-      const out = { ...ctx };
-
-      if (!out.pid) out.pid = out.studentKey || out.nickName || '';
-      if (!out.studentKey) out.studentKey = out.pid || '';
-
-      if (!out.group) out.group = out.classRoom || out.classroom || out.gradeLevel || out.conditionGroup || '';
-      if (!out.classroom) out.classroom = out.classRoom || '';
-      if (!out.classRoom) out.classRoom = out.classroom || '';
-
-      if (!out.condition) out.condition = out.conditionGroup || 'intervention';
-      if (!out.conditionGroup) out.conditionGroup = out.condition;
-
-      if (!out.session) out.session = out.sessionId || '';
-      if (!out.sessionId) out.sessionId = out.session || '';
-
-      if (!out.school) out.school = out.schoolName || '';
-      if (!out.schoolName) out.schoolName = out.school || '';
-
-      if (!out.mode) out.mode = out.run || 'play';
-      if (!out.run) out.run = out.mode;
-
-      if (!out.lang) out.lang = 'th';
-      if (!out.hub) out.hub = '../../hub.html';
-
-      return out;
-    }
-
     function buildCtx(){
-      const fromQuery = pickCtxFromQuery();
-      const fromLegacy = buildLegacyCtxFromQuery();
-      const fromStorage = loadCtx();
-
-      const ctx = withDefaultCtx(syncAliases({
-        ...fromStorage,
-        ...fromLegacy,
-        ...fromQuery
-      }));
-
+      const ctx = withDefaultCtx({
+        ...loadCtx(),
+        ...buildLegacyCtxFromQuery(),
+        ...pickCtxFromQuery()
+      });
       saveCtx(ctx);
       mergeCtx(ctx);
       return ctx;
@@ -418,15 +542,15 @@
     function renderCtx(ctx){
       $('ctxBox').innerHTML = [
         `PID: <b>${ctx.pid || '-'}</b>`,
+        `Student: <b>${ctx.nickName || ctx.studentKey || ctx.name || '-'}</b>`,
         `Study: <b>${ctx.studyId || '-'}</b>`,
-        `Group: <b>${ctx.group || '-'}</b>`,
-        `Condition: <b>${ctx.condition || '-'}</b>`,
-        `Session: <b>${ctx.session || '-'}</b>`,
-        `Nick Name: <b>${ctx.nickName || '-'}</b>`,
+        `Session: <b>${ctx.session || ctx.sessionId || '-'}</b>`,
+        `Condition: <b>${ctx.condition || ctx.conditionGroup || '-'}</b>`,
         `Classroom: <b>${ctx.classRoom || ctx.classroom || '-'}</b>`,
         `School: <b>${ctx.schoolName || ctx.school || '-'}</b>`,
         `Diff/View: <b>${ctx.diff || '-'} / ${ctx.view || '-'}</b>`,
-        `Mode: <b>${ctx.mode || ctx.run || '-'}</b>`,
+        `Mode: <b>${ctx.run || ctx.mode || '-'}</b>`,
+        `Time: <b>${ctx.time || '-'}</b>`,
         `Hub: <b>${ctx.hub || '-'}</b>`
       ].join('<br>');
     }
@@ -435,53 +559,86 @@
       const chips = [
         `pid:${ctx.pid || '-'}`,
         `study:${ctx.studyId || '-'}`,
-        `group:${ctx.group || '-'}`,
-        `condition:${ctx.condition || '-'}`,
-        `session:${ctx.session || '-'}`,
+        `session:${ctx.session || ctx.sessionId || '-'}`,
+        `condition:${ctx.condition || ctx.conditionGroup || '-'}`,
+        `group:${ctx.group || ctx.classRoom || ctx.classroom || '-'}`,
         `diff:${ctx.diff || '-'}`,
         `view:${ctx.view || '-'}`,
-        `mode:${ctx.mode || ctx.run || '-'}`
+        `run:${ctx.run || ctx.mode || '-'}`
       ];
 
-      if (ctx.kid === '1') chips.push('kid');
-      if (ctx.readable === '1') chips.push('readable');
-      if (ctx.spawnDebug === '1') chips.push('debug');
+      if (String(ctx.kid) === '1') chips.push('kid');
+      if (String(ctx.readable) === '1') chips.push('readable');
+      if (String(ctx.spawnDebug) === '1') chips.push('debug');
 
       $('chips').innerHTML = chips.map(v => `<span class="chip">${v}</span>`).join('');
     }
 
-    function go(pathOrRouteKey, ctx){
+    function renderLinks(ctx){
+      $('teacherUrl').textContent = buildUrl('TEACHER_PANEL', ctx, false);
+      $('studentUrl').textContent = buildUrl('STUDENT_LAUNCHER', ctx, false);
+      $('gameUrl').textContent = buildUrl('GAME', ctx, false);
+      $('toolUrl').textContent = buildUrl('SESSION_SUMMARY_TOOL', ctx, false);
+    }
+
+    async function copyText(txt){
+      try{
+        await navigator.clipboard.writeText(txt);
+      }catch(_){
+        const ta = document.createElement('textarea');
+        ta.value = txt;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        ta.remove();
+      }
+    }
+
+    function go(routeKey, ctx){
       saveCtx(ctx);
-      location.href = buildUrl(pathOrRouteKey, ctx, false);
+      location.href = buildUrl(routeKey, ctx, false);
     }
 
     let ctx = buildCtx();
     renderCtx(ctx);
     renderChips(ctx);
+    renderLinks(ctx);
 
     $('btnRefreshCtx').addEventListener('click', () => {
       ctx = buildCtx();
       renderCtx(ctx);
       renderChips(ctx);
+      renderLinks(ctx);
     });
 
-    $('btnClearCtx').addEventListener('click', () => {
+    $('btnClearSession').addEventListener('click', () => {
       clearSessionData();
       ctx = buildCtx();
       renderCtx(ctx);
       renderChips(ctx);
+      renderLinks(ctx);
+    });
+
+    $('btnClearAll').addEventListener('click', () => {
+      clearAllData();
+      ctx = buildCtx();
+      renderCtx(ctx);
+      renderChips(ctx);
+      renderLinks(ctx);
     });
 
     $('btnGoHub').addEventListener('click', () => {
       location.href = ctx.hub || '../../hub.html';
     });
 
-    $('btnTeacherPanel').addEventListener('click', () => go('./launcher/teacher-panel.html', ctx));
+    $('btnTeacherPanel').addEventListener('click', () => go('TEACHER_PANEL', ctx));
     $('btnStudentLauncher').addEventListener('click', () => go('STUDENT_LAUNCHER', ctx));
-    $('btnGame').addEventListener('click', () => go('./game/goodjunk-vr.html', ctx));
 
     $('btnPreKnowledge').addEventListener('click', () => go('PRE_KNOWLEDGE', ctx));
     $('btnPreBehavior').addEventListener('click', () => go('PRE_BEHAVIOR', ctx));
+
+    $('btnGame').addEventListener('click', () => go('GAME', ctx));
+
     $('btnPostKnowledge').addEventListener('click', () => go('POST_KNOWLEDGE', ctx));
     $('btnPostBehavior').addEventListener('click', () => go('POST_BEHAVIOR', ctx));
     $('btnPostChoice').addEventListener('click', () => go('POST_CHOICE', ctx));
@@ -491,6 +648,21 @@
     $('btnParentSummary').addEventListener('click', () => go('PARENT_SUMMARY', ctx));
     $('btnShortFollowup').addEventListener('click', () => go('SHORT_FOLLOWUP', ctx));
     $('btnWeeklyCheck').addEventListener('click', () => go('WEEKLY_CHECK', ctx));
+
+    $('btnSessionSummaryTool').addEventListener('click', () => go('SESSION_SUMMARY_TOOL', ctx));
+    $('btnTeacherDebug').addEventListener('click', () => go('TEACHER_DEBUG_DASHBOARD', ctx));
+    $('btnExportBundle').addEventListener('click', () => go('EXPORT_RESEARCH_BUNDLE', ctx));
+    $('btnMergeDataset').addEventListener('click', () => go('MERGE_RESEARCH_DATASETS', ctx));
+
+    $('btnQuickFlow').addEventListener('click', () => go('PRE_KNOWLEDGE', ctx));
+    $('btnQuickGame').addEventListener('click', () => go('GAME', ctx));
+
+    $('btnCopyGameUrl').addEventListener('click', async () => {
+      await copyText(buildUrl('GAME', ctx, false));
+      const old = $('btnCopyGameUrl').textContent;
+      $('btnCopyGameUrl').textContent = 'คัดลอกแล้ว';
+      setTimeout(() => $('btnCopyGameUrl').textContent = old, 1200);
+    });
   </script>
 </body>
 </html>
