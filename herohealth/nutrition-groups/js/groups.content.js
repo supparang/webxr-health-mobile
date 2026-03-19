@@ -1,6 +1,6 @@
 // === /herohealth/nutrition-groups/js/groups.content.js ===
 // Content bank for Nutrition Groups
-// PATCH v20260318-GROUPS-CHILD-UI-A
+// PATCH v20260318-GROUPS-RUN-FULL
 
 export const FOOD_GROUPS = {
   m1: { id: 'm1', label: 'หมู่ 1 โปรตีน', emoji: '🥚', short: 'โปรตีน' },
