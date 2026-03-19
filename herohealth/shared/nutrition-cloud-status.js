@@ -1,6 +1,6 @@
 // === /herohealth/shared/nutrition-cloud-status.js ===
 // Lightweight cloud status toast
-// PATCH v20260318-NUTRITION-CLOUD-WIRING-A
+// PATCH v20260318-NUTRITION-SHARED-FULL
 
 let __statusStyleDone = false;
 
