@@ -9,88 +9,166 @@
 <body>
   <main class="page">
     <section class="card">
-      <div class="badge">หลังเล่นเกม • Post-Knowledge</div>
-      <h1>หลังเล่นแล้ว หนูจำเรื่องของว่างสุขภาพได้แค่ไหน</h1>
-      <p class="sub">ตอบจากสิ่งที่หนูเข้าใจหลังเล่นเกม</p>
+      <div class="badge">Posttest • Post-Knowledge</div>
+      <h1>แบบประเมินความรู้หลังเล่น</h1>
+      <p class="sub">
+        หลังจากเล่นเกมแล้ว ลองตอบอีกครั้งว่าหนูเข้าใจเรื่องการเลือกอาหารและเครื่องดื่มมากขึ้นไหม
+      </p>
+
       <div class="ctx" id="ctxBox">กำลังโหลด...</div>
 
       <form class="form">
         <section class="block">
-          <h2>1) ถ้าจะเลือกของว่างที่ดีต่อร่างกาย ข้อไหนเหมาะที่สุด</h2>
+          <h2>1) ถ้ากระหายน้ำ เครื่องดื่มอะไรเหมาะที่สุด</h2>
           <div class="choice-grid">
-            <label class="choice"><input type="radio" name="pk1_bestSnack" value="apple" required /> แอปเปิล</label>
-            <label class="choice"><input type="radio" name="pk1_bestSnack" value="candy" required /> ลูกอม</label>
-            <label class="choice"><input type="radio" name="pk1_bestSnack" value="soda" required /> น้ำอัดลม</label>
-            <label class="choice"><input type="radio" name="pk1_bestSnack" value="chips" required /> มันฝรั่งทอด</label>
+            <label class="choice">
+              <input type="radio" name="q1_drink_best" value="water" data-correct="1" required />
+              น้ำเปล่า
+            </label>
+            <label class="choice">
+              <input type="radio" name="q1_drink_best" value="soda" />
+              น้ำอัดลม
+            </label>
+            <label class="choice">
+              <input type="radio" name="q1_drink_best" value="candyDrink" />
+              น้ำหวาน
+            </label>
+            <label class="choice">
+              <input type="radio" name="q1_drink_best" value="notSure" />
+              ยังไม่แน่ใจ
+            </label>
           </div>
         </section>
 
         <section class="block">
-          <h2>2) ถ้าหนูต้องเลือกเครื่องดื่มที่หวานน้อยกว่า ข้อไหนเหมาะที่สุด</h2>
+          <h2>2) ของว่างข้อใดดีกว่าต่อสุขภาพ</h2>
           <div class="choice-grid">
-            <label class="choice"><input type="radio" name="pk2_bestDrink" value="water" required /> น้ำเปล่า</label>
-            <label class="choice"><input type="radio" name="pk2_bestDrink" value="softdrink" required /> น้ำอัดลม</label>
-            <label class="choice"><input type="radio" name="pk2_bestDrink" value="sweetTea" required /> ชาหวาน</label>
-            <label class="choice"><input type="radio" name="pk2_bestDrink" value="candyDrink" required /> เครื่องดื่มหวาน</label>
+            <label class="choice">
+              <input type="radio" name="q2_best_snack" value="fruit" data-correct="1" required />
+              ผลไม้
+            </label>
+            <label class="choice">
+              <input type="radio" name="q2_best_snack" value="fries" />
+              มันฝรั่งทอด
+            </label>
+            <label class="choice">
+              <input type="radio" name="q2_best_snack" value="donut" />
+              โดนัท
+            </label>
+            <label class="choice">
+              <input type="radio" name="q2_best_snack" value="candy" />
+              ลูกอม
+            </label>
           </div>
         </section>
 
         <section class="block">
-          <h2>3) ข้อไหนเป็นกลุ่มอาหารที่ควรกินบ่อยกว่า</h2>
+          <h2>3) ข้อใดเป็นอาหารที่ควรเลือกบ่อยกว่า</h2>
           <div class="choice-grid">
-            <label class="choice"><input type="radio" name="pk3_moreOften" value="fruitVeg" required /> ผลไม้และผัก</label>
-            <label class="choice"><input type="radio" name="pk3_moreOften" value="friedSnack" required /> ของทอดและขนมกรุบกรอบ</label>
-            <label class="choice"><input type="radio" name="pk3_moreOften" value="candyCake" required /> ลูกอมและเค้ก</label>
-            <label class="choice"><input type="radio" name="pk3_moreOften" value="sugaryDrink" required /> เครื่องดื่มหวาน</label>
+            <label class="choice">
+              <input type="radio" name="q3_choose_often" value="vegetable" data-correct="1" required />
+              ผักและผลไม้
+            </label>
+            <label class="choice">
+              <input type="radio" name="q3_choose_often" value="junk" />
+              ขนมหวานและของทอด
+            </label>
+            <label class="choice">
+              <input type="radio" name="q3_choose_often" value="soda" />
+              น้ำอัดลม
+            </label>
+            <label class="choice">
+              <input type="radio" name="q3_choose_often" value="notSure" />
+              ยังไม่แน่ใจ
+            </label>
           </div>
         </section>
 
         <section class="block">
-          <h2>4) ถ้าต้องเลือกของว่างไปโรงเรียน ข้อไหนดีกว่า</h2>
+          <h2>4) ถ้ากิน junk food บ่อยเกินไป จะเป็นอย่างไร</h2>
           <div class="choice-grid">
-            <label class="choice"><input type="radio" name="pk4_schoolSnack" value="banana" required /> กล้วย</label>
-            <label class="choice"><input type="radio" name="pk4_schoolSnack" value="donut" required /> โดนัท</label>
-            <label class="choice"><input type="radio" name="pk4_schoolSnack" value="chips" required /> มันฝรั่งทอด</label>
-            <label class="choice"><input type="radio" name="pk4_schoolSnack" value="candy" required /> ลูกอม</label>
+            <label class="choice">
+              <input type="radio" name="q4_junk_effect" value="unhealthy" data-correct="1" required />
+              อาจไม่ดีต่อสุขภาพ
+            </label>
+            <label class="choice">
+              <input type="radio" name="q4_junk_effect" value="alwaysStrong" />
+              ยิ่งแข็งแรงขึ้นแน่นอน
+            </label>
+            <label class="choice">
+              <input type="radio" name="q4_junk_effect" value="noEffect" />
+              ไม่มีผลอะไรเลย
+            </label>
+            <label class="choice">
+              <input type="radio" name="q4_junk_effect" value="notSure" />
+              ยังไม่แน่ใจ
+            </label>
           </div>
         </section>
 
         <section class="block">
-          <h2>5) หนูคิดว่า “นมจืด” เป็นแบบไหน</h2>
+          <h2>5) ถ้าจะเลือกของว่างหลังเลิกเรียน ข้อใดดีกว่า</h2>
           <div class="choice-grid">
-            <label class="choice"><input type="radio" name="pk5_plainMilk" value="betterChoice" required /> เป็นทางเลือกที่ดีกว่าเครื่องดื่มหวานมาก ๆ</label>
-            <label class="choice"><input type="radio" name="pk5_plainMilk" value="sameAsSoda" required /> เหมือนน้ำอัดลม</label>
-            <label class="choice"><input type="radio" name="pk5_plainMilk" value="sameAsCandy" required /> เหมือนลูกอม</label>
-            <label class="choice"><input type="radio" name="pk5_plainMilk" value="notSure" required /> ไม่แน่ใจ</label>
+            <label class="choice">
+              <input type="radio" name="q5_after_school" value="milkFruit" data-correct="1" required />
+              นมจืดหรือผลไม้
+            </label>
+            <label class="choice">
+              <input type="radio" name="q5_after_school" value="burgerSoda" />
+              เบอร์เกอร์กับน้ำอัดลม
+            </label>
+            <label class="choice">
+              <input type="radio" name="q5_after_school" value="friesCandy" />
+              ของทอดกับลูกอม
+            </label>
+            <label class="choice">
+              <input type="radio" name="q5_after_school" value="notSure" />
+              ยังไม่แน่ใจ
+            </label>
           </div>
         </section>
 
         <section class="block">
-          <h2>6) ถ้ามีผลไม้กับขนมกรุบกรอบอยู่ตรงหน้า ข้อไหนควรเลือกบ่อยกว่า</h2>
+          <h2>6) ข้อใดเป็นทางเลือกที่ควรลดลง</h2>
           <div class="choice-grid">
-            <label class="choice"><input type="radio" name="pk6_compareChoice" value="fruit" required /> ผลไม้</label>
-            <label class="choice"><input type="radio" name="pk6_compareChoice" value="chips" required /> ขนมกรุบกรอบ</label>
-            <label class="choice"><input type="radio" name="pk6_compareChoice" value="same" required /> เหมือนกัน</label>
-            <label class="choice"><input type="radio" name="pk6_compareChoice" value="notSure" required /> ไม่แน่ใจ</label>
+            <label class="choice">
+              <input type="radio" name="q6_reduce" value="sweetDrink" data-correct="1" required />
+              น้ำหวานและน้ำอัดลม
+            </label>
+            <label class="choice">
+              <input type="radio" name="q6_reduce" value="water" />
+              น้ำเปล่า
+            </label>
+            <label class="choice">
+              <input type="radio" name="q6_reduce" value="fruit" />
+              ผลไม้
+            </label>
+            <label class="choice">
+              <input type="radio" name="q6_reduce" value="vegetable" />
+              ผัก
+            </label>
           </div>
         </section>
 
         <section class="block">
-          <h2>7) ถ้าจะ “ลดน้ำตาล” ข้อไหนควรเลือกมากกว่า</h2>
+          <h2>7) ตอนนี้หนูคิดว่าจำเรื่องอาหารดีและ junk ได้ดีขึ้นไหม</h2>
           <div class="choice-grid">
-            <label class="choice"><input type="radio" name="pk7_reduceSugar" value="water" required /> น้ำเปล่า</label>
-            <label class="choice"><input type="radio" name="pk7_reduceSugar" value="sweetTea" required /> ชาหวาน</label>
-            <label class="choice"><input type="radio" name="pk7_reduceSugar" value="softdrink" required /> น้ำอัดลม</label>
-            <label class="choice"><input type="radio" name="pk7_reduceSugar" value="candyDrink" required /> น้ำหวาน</label>
-          </div>
-        </section>
-
-        <section class="block">
-          <h2>8) หลังเล่นเกม หนูคิดว่าตัวเองแยก “ของดี” กับ “junk” ได้แค่ไหน</h2>
-          <div class="choice-grid">
-            <label class="choice"><input type="radio" name="pk8_selfConfidence" value="high" required /> มั่นใจมาก</label>
-            <label class="choice"><input type="radio" name="pk8_selfConfidence" value="medium" required /> มั่นใจปานกลาง</label>
-            <label class="choice"><input type="radio" name="pk8_selfConfidence" value="low" required /> ยังไม่ค่อยแน่ใจ</label>
+            <label class="choice">
+              <input type="radio" name="q7_self_reflect" value="yesMuch" required />
+              ดีขึ้นมาก
+            </label>
+            <label class="choice">
+              <input type="radio" name="q7_self_reflect" value="yesSome" required />
+              ดีขึ้นบ้าง
+            </label>
+            <label class="choice">
+              <input type="radio" name="q7_self_reflect" value="same" required />
+              พอ ๆ เดิม
+            </label>
+            <label class="choice">
+              <input type="radio" name="q7_self_reflect" value="notSure" required />
+              ยังไม่แน่ใจ
+            </label>
           </div>
         </section>
 
@@ -102,6 +180,6 @@
     </section>
   </main>
 
-  <script type="module" src="./assessment.js"></script>
+  <script type="module" src="./assessment.js?v=20260319b-postk"></script>
 </body>
 </html>
