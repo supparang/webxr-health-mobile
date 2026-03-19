@@ -1,6 +1,6 @@
 <!-- === /herohealth/group-v1.html ===
-Groups Launcher V1 (legacy URL -> warmup gate)
-FULL PATCH v20260318-GROUP-V1-LAUNCHER-TO-GATE
+Groups Launcher V1 -> Warmup Gate -> Run
+FULL PATCH v20260319-GROUP-V1-TO-WARMUP-RUN
 -->
 <!doctype html>
 <html lang="th">
@@ -14,13 +14,12 @@ FULL PATCH v20260318-GROUP-V1-LAUNCHER-TO-GATE
     :root{
       --bg1:#020617;
       --bg2:#0b1226;
-      --panel:rgba(2,6,23,.78);
+      --panel:rgba(2,6,23,.80);
       --stroke:rgba(148,163,184,.18);
       --text:#e5e7eb;
       --muted:#94a3b8;
       --good:#22c55e;
       --blue:#38bdf8;
-      --violet:#a78bfa;
       --warn:#f59e0b;
       --sat: env(safe-area-inset-top, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
@@ -34,8 +33,8 @@ FULL PATCH v20260318-GROUP-V1-LAUNCHER-TO-GATE
       color:var(--text);
       font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", Arial, sans-serif;
       background:
-        radial-gradient(1200px 700px at 20% 0%, rgba(56,189,248,.15), transparent 50%),
-        radial-gradient(1000px 700px at 80% 10%, rgba(167,139,250,.14), transparent 55%),
+        radial-gradient(1200px 700px at 20% 0%, rgba(56,189,248,.14), transparent 50%),
+        radial-gradient(1000px 700px at 80% 10%, rgba(167,139,250,.12), transparent 55%),
         linear-gradient(180deg, var(--bg1), var(--bg2));
     }
     .wrap{
@@ -121,11 +120,6 @@ FULL PATCH v20260318-GROUP-V1-LAUNCHER-TO-GATE
       margin:0 0 10px;
       font-size:18px;
     }
-    .card p{
-      margin:0;
-      color:#cbd5e1;
-      line-height:1.6;
-    }
     .miniList{
       display:grid;
       gap:10px;
@@ -159,7 +153,6 @@ FULL PATCH v20260318-GROUP-V1-LAUNCHER-TO-GATE
       background:rgba(15,23,42,.75);
       box-shadow:0 14px 30px rgba(0,0,0,.20);
     }
-    .btn:hover{ transform:translateY(-1px); }
     .btn.primary{
       color:#052e16;
       border-color:rgba(34,197,94,.30);
@@ -188,10 +181,10 @@ FULL PATCH v20260318-GROUP-V1-LAUNCHER-TO-GATE
 <body>
   <div class="wrap">
     <section class="hero">
-      <div class="kicker">🍽 NUTRITION ZONE • GROUPS • LAUNCHER</div>
+      <div class="kicker">🍽 NUTRITION ZONE • GROUPS • SOLO</div>
       <h1>เกมอาหาร 5 หมู่</h1>
       <div class="sub">
-        เริ่มจาก Warmup สั้น ๆ ก่อน แล้วค่อยเข้าเกมหลัก จากนั้นค่อยไป Cooldown และกลับ HUB
+        เริ่มจาก Warmup สั้น ๆ ก่อน แล้วค่อยเข้าเกมหลัก เมื่อจบเกมจะไป Cooldown อัตโนมัติ จากนั้นดูสรุปและกลับ HUB
       </div>
 
       <div class="statusRow">
@@ -202,11 +195,12 @@ FULL PATCH v20260318-GROUP-V1-LAUNCHER-TO-GATE
 
       <div class="grid">
         <div class="card">
-          <h2>วิธีเล่น</h2>
+          <h2>ลำดับการเล่น</h2>
           <div class="miniList">
-            <div class="miniItem">1) เข้า Warmup ก่อน 1 ครั้งต่อวัน</div>
-            <div class="miniItem">2) เข้าเกมหลัก แล้วยิงอาหารให้ตรงหมู่</div>
-            <div class="miniItem">3) จบเกมแล้วไป Cooldown ก่อนกลับ HUB</div>
+            <div class="miniItem">1) เข้า Warmup ก่อน</div>
+            <div class="miniItem">2) เข้า Groups Solo Run</div>
+            <div class="miniItem">3) จบเกมแล้วเข้า Cooldown</div>
+            <div class="miniItem">4) ดู Summary แล้วกลับ HUB</div>
           </div>
           <div class="actions">
             <button class="btn primary" id="btnStart">เริ่มเล่น</button>
@@ -218,7 +212,7 @@ FULL PATCH v20260318-GROUP-V1-LAUNCHER-TO-GATE
         <div class="card">
           <h2>ค่าปัจจุบัน</h2>
           <div class="miniList" id="ctxList"></div>
-          <div class="footer">Launcher นี้จะส่งต่อไป warmup-gate และ next ไปที่ /herohealth/vr-groups/groups-v1.html</div>
+          <div class="footer">Launcher นี้จะส่งไป warmup-gate แล้ว next ไป /herohealth/vr-groups/groups-v1.html</div>
         </div>
       </div>
     </section>
@@ -232,7 +226,7 @@ FULL PATCH v20260318-GROUP-V1-LAUNCHER-TO-GATE
       const q = (k, d='') => QS.get(k) ?? d;
 
       const PID  = String(q('pid','anon'));
-      const RUN  = String(q('run','play'));
+      const RUN  = 'solo';
       const DIFF = String(q('diff','normal'));
       const TIME = String(q('time','80'));
       const VIEW = String(q('view','mobile'));
@@ -267,7 +261,7 @@ FULL PATCH v20260318-GROUP-V1-LAUNCHER-TO-GATE
         chipCooldown.className = `chip ${cool ? 'good' : 'warn'}`;
       }
 
-      function buildGroupsWarmupUrl(){
+      function buildWarmupUrl(){
         const next = new URL('./vr-groups/groups-v1.html', location.href);
         next.searchParams.set('pid', PID);
         next.searchParams.set('run', RUN);
@@ -280,7 +274,7 @@ FULL PATCH v20260318-GROUP-V1-LAUNCHER-TO-GATE
         next.searchParams.set('cat', CAT);
 
         const gate = new URL('./warmup-gate.html', location.href);
-        gate.searchParams.set('Phase', 'warmup');
+        gate.searchParams.set('phase', 'warmup');
         gate.searchParams.set('game', 'groups');
         gate.searchParams.set('pid', PID);
         gate.searchParams.set('run', RUN);
@@ -292,12 +286,12 @@ FULL PATCH v20260318-GROUP-V1-LAUNCHER-TO-GATE
         gate.searchParams.set('zone', ZONE);
         gate.searchParams.set('cat', CAT);
         gate.searchParams.set('next', next.toString());
-
         return gate.toString();
       }
 
       function renderCtx(){
-        const gateUrl = buildGroupsWarmupUrl();
+        btnStart.dataset.href = buildWarmupUrl();
+        routeNote.textContent = `group-v1 → warmup-gate(warmup) → groups-v1 → warmup-gate(cooldown) → summary → hub`;
         ctxList.innerHTML = `
           <div class="miniItem">run = ${RUN}</div>
           <div class="miniItem">diff = ${DIFF}</div>
@@ -305,8 +299,6 @@ FULL PATCH v20260318-GROUP-V1-LAUNCHER-TO-GATE
           <div class="miniItem">view = ${VIEW}</div>
           <div class="miniItem">seed = ${SEED}</div>
         `;
-        routeNote.textContent = `Start → warmup-gate → groups-v1 → groups-vr → cooldown-gate → hub`;
-        btnStart.dataset.href = gateUrl;
       }
 
       btnStart.addEventListener('click', (ev)=>{
@@ -314,7 +306,7 @@ FULL PATCH v20260318-GROUP-V1-LAUNCHER-TO-GATE
         ev.stopPropagation();
         btnStart.disabled = true;
         btnStart.textContent = 'กำลังเข้า Warmup...';
-        window.location.assign(btnStart.dataset.href || buildGroupsWarmupUrl());
+        window.location.assign(btnStart.dataset.href || buildWarmupUrl());
       });
 
       btnHub.addEventListener('click', (ev)=>{
