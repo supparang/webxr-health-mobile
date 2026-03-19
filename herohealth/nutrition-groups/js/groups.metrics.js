@@ -1,6 +1,6 @@
 // === /herohealth/nutrition-groups/js/groups.metrics.js ===
 // Metric builder for Nutrition Groups
-// PATCH v20260318-NUTRITION-CLOUD-WIRING-A
+// PATCH v20260318-GROUPS-RUN-FULL
 
 export function buildGroupsMetrics(ctx, stats, sessionMeta) {
   const preCorrect = stats.quiz.pre.correct;
