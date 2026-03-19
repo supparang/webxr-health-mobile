@@ -29,7 +29,7 @@ function normalizeRoomCode(raw) {
   return String(raw || '').toUpperCase().replace(/[^A-Z0-9-]/g, '').slice(0, 16);
 }
 
-const RACE_RUN_PATH = './goodjunk-vr.html';
+const RACE_RUN_PATH = './goodjunk-race-run.html';
 
 const ctx = {
   mode: 'race',
