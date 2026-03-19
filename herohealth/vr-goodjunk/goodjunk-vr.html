@@ -181,7 +181,7 @@
         time: q.get('time') || '150',
         seed: q.get('seed') || '',
         startAt: 0,
-        hub: q.get('hub') || '../hub.html',
+        hub: new URL('../hub.html', location.href).toString(),
         view: q.get('view') || 'mobile',
         run: q.get('run') || 'play',
         gameId: q.get('gameId') || 'goodjunk'
