@@ -1,10 +1,6 @@
 /* === /herohealth/gate/games/groups/warmup.js ===
-   HeroHealth Gate Mini-game
-   GAME: groups
-   MODE: warmup
-   FULL PATCH v20260317-GATE-GROUPS-WARMUP-AUTOSTART-FIX
+FULL PATCH v20260319-GATE-GROUPS-WARMUP-CANONICAL
 */
-
 let __styleLoaded = false;
 
 export function loadStyle(){
@@ -81,7 +77,6 @@ export async function mount(root, ctx = {}, api = {}){
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   }
-
   function markWarmupDone(){
     try{
       const pid = String(ctx?.pid || 'anon');
@@ -98,30 +93,11 @@ export async function mount(root, ctx = {}, api = {}){
   ];
 
   const ITEMS = [
-    { text:'🥚 ไข่', group:'g1' },
-    { text:'🐟 ปลา', group:'g1' },
-    { text:'🥛 นม', group:'g1' },
-    { text:'🫘 ถั่วแดง', group:'g1' },
-
-    { text:'🍚 ข้าว', group:'g2' },
-    { text:'🍞 ขนมปัง', group:'g2' },
-    { text:'🥔 มันฝรั่ง', group:'g2' },
-    { text:'🌽 ข้าวโพด', group:'g2' },
-
-    { text:'🥬 คะน้า', group:'g3' },
-    { text:'🥕 แครอท', group:'g3' },
-    { text:'🥒 แตงกวา', group:'g3' },
-    { text:'🥦 บรอกโคลี', group:'g3' },
-
-    { text:'🍌 กล้วย', group:'g4' },
-    { text:'🍊 ส้ม', group:'g4' },
-    { text:'🍉 แตงโม', group:'g4' },
-    { text:'🍎 แอปเปิล', group:'g4' },
-
-    { text:'🧈 เนย', group:'g5' },
-    { text:'🥥 กะทิ', group:'g5' },
-    { text:'🐷 มันหมู', group:'g5' },
-    { text:'🛢️ น้ำมันปรุงอาหาร', group:'g5' }
+    { text:'🥚 ไข่', group:'g1' }, { text:'🐟 ปลา', group:'g1' }, { text:'🥛 นม', group:'g1' }, { text:'🫘 ถั่วแดง', group:'g1' },
+    { text:'🍚 ข้าว', group:'g2' }, { text:'🍞 ขนมปัง', group:'g2' }, { text:'🥔 มันฝรั่ง', group:'g2' }, { text:'🌽 ข้าวโพด', group:'g2' },
+    { text:'🥬 คะน้า', group:'g3' }, { text:'🥕 แครอท', group:'g3' }, { text:'🥒 แตงกวา', group:'g3' }, { text:'🥦 บรอกโคลี', group:'g3' },
+    { text:'🍌 กล้วย', group:'g4' }, { text:'🍊 ส้ม', group:'g4' }, { text:'🍉 แตงโม', group:'g4' }, { text:'🍎 แอปเปิล', group:'g4' },
+    { text:'🧈 เนย', group:'g5' }, { text:'🥥 กะทิ', group:'g5' }, { text:'🐷 มันหมู', group:'g5' }, { text:'🛢️ น้ำมันปรุงอาหาร', group:'g5' }
   ];
 
   const rounds = shuffle(ITEMS, rng).slice(0, 8);
@@ -131,14 +107,13 @@ export async function mount(root, ctx = {}, api = {}){
   let miss = 0;
   let correct = 0;
   let ended = false;
-  let started = false;
   let timer = null;
 
-  const plannedTime = Number(ctx.time || 20);
+  const rawTime = Number(ctx?.time ?? 20);
+  const plannedTime = Number.isFinite(rawTime) && rawTime > 0 ? rawTime : 20;
   let timeLeft = plannedTime;
 
   root.innerHTML = '';
-
   const wrap = el('div', 'grp-wrap');
   const hero = el('div', 'grp-hero');
   const stage = el('div', 'grp-stage');
@@ -148,13 +123,13 @@ export async function mount(root, ctx = {}, api = {}){
   hero.innerHTML = `
     <div class="grp-kicker">NUTRITION ZONE • GROUPS • WARMUP</div>
     <div class="grp-title">อาหารนี้อยู่หมู่ไหน</div>
-    <div class="grp-sub">แยกอาหารให้ถูกตามอาหารหลัก 5 หมู่ของไทย เพื่อวอร์มความพร้อมก่อนเข้าเกมหลัก</div>
+    <div class="grp-sub">เลือกหมวดอาหารให้ถูกก่อนเข้าเกมหลัก</div>
   `;
 
   const target = el('div', 'grp-target', 'เตรียมพร้อม…');
   const prompt = el('div', 'grp-prompt', 'เลือกหมวดให้ถูก');
   const choices = el('div', 'grp-choices');
-  const note = el('div', 'grp-note', 'ยิ่งตอบแม่น ยิ่งพร้อมเข้าเกม');
+  const note = el('div', 'grp-note', 'ตอบให้แม่น เพื่อพร้อมเข้าเกมหลัก');
 
   panelTop.appendChild(target);
   panelBottom.appendChild(prompt);
@@ -166,40 +141,20 @@ export async function mount(root, ctx = {}, api = {}){
   wrap.appendChild(stage);
   root.appendChild(wrap);
 
-  api.logger?.push?.('mini_start', {
-    game: 'groups',
-    mode: 'warmup',
-    seed: ctx.seed
-  });
-
-  api.setTitle?.('Food Groups Quick Prep');
-  api.setSub?.('เลือกหมวดอาหารให้ถูก เพื่อวอร์มความพร้อมก่อนเข้าเกมหลัก');
-
-  api.setStats?.({
-    time: timeLeft,
-    score: 0,
-    miss: 0,
-    acc: '0%'
-  });
+  api.setStats?.({ time: timeLeft, score: 0, miss: 0, acc: '0%' });
 
   function updateHud(){
     const acc = idx > 0 ? Math.round((correct / idx) * 100) : 0;
-    api.setStats?.({
-      time: timeLeft,
-      score,
-      miss,
-      acc: `${acc}%`
-    });
+    api.setStats?.({ time: timeLeft, score, miss, acc: `${acc}%` });
   }
 
   function finishNow(){
     if(ended) return;
     ended = true;
-    started = false;
     if(timer) clearInterval(timer);
 
     const accuracy = rounds.length > 0 ? Math.round((correct / rounds.length) * 100) : 0;
-    const speed = Math.max(0, Math.min(100, Math.round((idx / Math.max(1, rounds.length)) * 100)));
+    const speed = Math.max(0, Math.min(100, Math.round((idx / rounds.length) * 100)));
     const buffs = buildBuffs({ score, accuracy, speed });
 
     root.innerHTML = `
@@ -209,7 +164,7 @@ export async function mount(root, ctx = {}, api = {}){
         <div class="grp-list">
           <div class="grp-item">คะแนน: ${score}</div>
           <div class="grp-item">ความแม่นยำ: ${accuracy}%</div>
-          <div class="grp-item">ความเข้าใจหมวดอาหาร: ${buffs.groupMasteryPct}%</div>
+          <div class="grp-item">เข้าใจหมวดอาหาร: ${buffs.groupMasteryPct}%</div>
           <div class="grp-item">โบนัสก่อนเข้าเกม: +${buffs.wPct}%</div>
         </div>
         <div class="grp-actions">
@@ -218,27 +173,38 @@ export async function mount(root, ctx = {}, api = {}){
       </div>
     `;
 
-    root.querySelector('#grpFinishBtn')?.addEventListener('click', ()=>{
-      markWarmupDone();
-      api.finish?.({
-        ok: true,
-        title: 'พร้อมแล้ว!',
-        subtitle: 'เข้าเกม Groups ได้เลย',
-        lines: [
-          `คะแนน: ${score}`,
-          `ความแม่นยำ: ${accuracy}%`,
-          `ความเข้าใจหมวดอาหาร: ${buffs.groupMasteryPct}%`,
-          `Rank: ${buffs.rank}`
-        ],
-        buffs,
-        markDailyDone: true
-      });
+    root.querySelector('#grpFinishBtn')?.addEventListener('click', (ev)=>{
+      ev.preventDefault();
+      ev.stopPropagation();
+      const btn = ev.currentTarget;
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'กำลังไปเกมหลัก...';
+      }
+
+      try{
+        markWarmupDone();
+        api.finish?.({
+          ok: true,
+          title: 'พร้อมแล้ว!',
+          subtitle: 'เข้าเกม Groups ได้เลย',
+          lines: [
+            `คะแนน: ${score}`,
+            `ความแม่นยำ: ${accuracy}%`,
+            `เข้าใจหมวดอาหาร: ${buffs.groupMasteryPct}%`,
+            `Rank: ${buffs.rank}`
+          ],
+          buffs,
+          markDailyDone: true
+        });
+      }catch(err){
+        console.error('[groups warmup finish]', err);
+      }
     });
   }
 
   function renderRound(){
     if(ended) return;
-
     if(idx >= rounds.length){
       finishNow();
       return;
@@ -246,8 +212,6 @@ export async function mount(root, ctx = {}, api = {}){
 
     const item = rounds[idx];
     target.textContent = item.text;
-    prompt.textContent = 'เลือกหมวดให้ถูก';
-    note.textContent = 'แตะคำตอบที่ตรงกับอาหารชิ้นนี้';
     choices.innerHTML = '';
 
     for(const g of GROUPS){
@@ -257,38 +221,18 @@ export async function mount(root, ctx = {}, api = {}){
 
       btn.addEventListener('click', ()=>{
         if(ended) return;
-
         idx++;
 
         if(g.key === item.group){
           score += 10;
           correct++;
-          note.textContent = `ถูกต้อง! ${item.text} อยู่ใน ${g.label}`;
         }else{
           score = Math.max(0, score - 4);
           miss++;
-          const correctGroup = GROUPS.find(x => x.key === item.group);
-          note.textContent = `ยังไม่ใช่ ${item.text} อยู่ใน ${correctGroup?.label || 'หมวดที่ถูกต้อง'}`;
         }
 
-        api.logger?.push?.('mini_answer', {
-          game:'groups',
-          mode:'warmup',
-          round: idx,
-          item: item.text,
-          selected: g.key,
-          selectedLabel: g.label,
-          correct: item.group,
-          score,
-          miss,
-          correctCount: correct
-        });
-
         updateHud();
-
-        setTimeout(()=>{
-          if(!ended) renderRound();
-        }, 280);
+        renderRound();
       });
 
       choices.appendChild(btn);
@@ -296,39 +240,23 @@ export async function mount(root, ctx = {}, api = {}){
   }
 
   function startGame(){
-    if(ended || started) return;
-    started = true;
-
-    updateHud();
+    if(ended) return;
     renderRound();
-
     if(timer) clearInterval(timer);
     timer = setInterval(()=>{
       if(ended) return;
-
       timeLeft--;
       if(timeLeft < 0) timeLeft = 0;
       updateHud();
-
-      if(timeLeft <= 0){
-        finishNow();
-      }
+      if(timeLeft <= 0) finishNow();
     }, 1000);
   }
 
-  // ✅ สำคัญ: auto start ทันที ไม่รอ gate-core มาเรียก result.start()
-  startGame();
-
   return {
-    start(){
-      startGame();
-    },
+    start(){ startGame(); },
     destroy(){
       ended = true;
-      started = false;
       if(timer) clearInterval(timer);
     }
   };
 }
-
-export default { mount, loadStyle };
