@@ -1,0 +1,332 @@
+<!-- === /herohealth/group-v1.html ===
+Groups Launcher V1 (legacy URL -> warmup gate)
+FULL PATCH v20260318-GROUP-V1-LAUNCHER-TO-GATE
+-->
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth • Groups Launcher</title>
+  <meta name="color-scheme" content="dark light" />
+  <link rel="icon" href="./favicon.ico" />
+  <style>
+    :root{
+      --bg1:#020617;
+      --bg2:#0b1226;
+      --panel:rgba(2,6,23,.78);
+      --stroke:rgba(148,163,184,.18);
+      --text:#e5e7eb;
+      --muted:#94a3b8;
+      --good:#22c55e;
+      --blue:#38bdf8;
+      --violet:#a78bfa;
+      --warn:#f59e0b;
+      --sat: env(safe-area-inset-top, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
+      --sar: env(safe-area-inset-right, 0px);
+    }
+    *{ box-sizing:border-box; }
+    html,body{
+      margin:0;
+      min-height:100%;
+      color:var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", Arial, sans-serif;
+      background:
+        radial-gradient(1200px 700px at 20% 0%, rgba(56,189,248,.15), transparent 50%),
+        radial-gradient(1000px 700px at 80% 10%, rgba(167,139,250,.14), transparent 55%),
+        linear-gradient(180deg, var(--bg1), var(--bg2));
+    }
+    .wrap{
+      max-width:980px;
+      margin:0 auto;
+      padding:calc(18px + var(--sat)) calc(16px + var(--sar)) calc(20px + var(--sab)) calc(16px + var(--sal));
+    }
+    .hero{
+      border:1px solid var(--stroke);
+      background:var(--panel);
+      border-radius:28px;
+      box-shadow:0 24px 80px rgba(0,0,0,.35);
+      padding:20px;
+    }
+    .kicker{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 12px;
+      border-radius:999px;
+      border:1px solid rgba(56,189,248,.24);
+      background:rgba(56,189,248,.12);
+      color:#dbeafe;
+      font-size:12px;
+      font-weight:1000;
+    }
+    h1{
+      margin:14px 0 8px;
+      font-size:clamp(28px, 5vw, 44px);
+      line-height:1.05;
+    }
+    .sub{
+      color:#cbd5e1;
+      font-size:16px;
+      line-height:1.6;
+      max-width:760px;
+    }
+    .statusRow{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-top:14px;
+    }
+    .chip{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:9px 12px;
+      border-radius:999px;
+      border:1px solid var(--stroke);
+      background:rgba(15,23,42,.45);
+      color:#dbeafe;
+      font-size:12px;
+      font-weight:1000;
+    }
+    .chip.good{
+      border-color:rgba(34,197,94,.28);
+      background:rgba(34,197,94,.14);
+      color:#dcfce7;
+    }
+    .chip.warn{
+      border-color:rgba(245,158,11,.28);
+      background:rgba(245,158,11,.14);
+      color:#fef3c7;
+    }
+    .grid{
+      display:grid;
+      grid-template-columns:1.2fr .8fr;
+      gap:14px;
+      margin-top:16px;
+    }
+    @media (max-width: 860px){
+      .grid{ grid-template-columns:1fr; }
+    }
+    .card{
+      border:1px solid var(--stroke);
+      background:rgba(15,23,42,.48);
+      border-radius:22px;
+      padding:16px;
+      box-shadow:0 18px 60px rgba(0,0,0,.24);
+    }
+    .card h2{
+      margin:0 0 10px;
+      font-size:18px;
+    }
+    .card p{
+      margin:0;
+      color:#cbd5e1;
+      line-height:1.6;
+    }
+    .miniList{
+      display:grid;
+      gap:10px;
+      margin-top:12px;
+    }
+    .miniItem{
+      padding:12px 14px;
+      border-radius:16px;
+      border:1px solid rgba(148,163,184,.14);
+      background:rgba(2,6,23,.32);
+      color:#e2e8f0;
+      font-weight:900;
+      line-height:1.5;
+    }
+    .actions{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-top:18px;
+    }
+    .btn{
+      appearance:none;
+      cursor:pointer;
+      border:1px solid rgba(148,163,184,.20);
+      border-radius:18px;
+      min-height:54px;
+      padding:14px 18px;
+      font-size:16px;
+      font-weight:1000;
+      color:var(--text);
+      background:rgba(15,23,42,.75);
+      box-shadow:0 14px 30px rgba(0,0,0,.20);
+    }
+    .btn:hover{ transform:translateY(-1px); }
+    .btn.primary{
+      color:#052e16;
+      border-color:rgba(34,197,94,.30);
+      background:linear-gradient(180deg,#86efac,#22c55e);
+      box-shadow:0 14px 30px rgba(34,197,94,.24);
+    }
+    .btn.blue{
+      border-color:rgba(56,189,248,.28);
+      background:linear-gradient(180deg, rgba(56,189,248,.18), rgba(15,23,42,.9));
+    }
+    .note{
+      margin-top:14px;
+      color:var(--muted);
+      font-size:13px;
+      font-weight:900;
+      line-height:1.5;
+    }
+    .footer{
+      margin-top:14px;
+      color:var(--muted);
+      font-size:12px;
+      font-weight:900;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="hero">
+      <div class="kicker">🍽 NUTRITION ZONE • GROUPS • LAUNCHER</div>
+      <h1>เกมอาหาร 5 หมู่</h1>
+      <div class="sub">
+        เริ่มจาก Warmup สั้น ๆ ก่อน แล้วค่อยเข้าเกมหลัก จากนั้นค่อยไป Cooldown และกลับ HUB
+      </div>
+
+      <div class="statusRow">
+        <span class="chip" id="chipPid">PID: anon</span>
+        <span class="chip" id="chipWarmup">🟢 Warmup วันนี้: —</span>
+        <span class="chip" id="chipCooldown">🟡 Cooldown วันนี้: —</span>
+      </div>
+
+      <div class="grid">
+        <div class="card">
+          <h2>วิธีเล่น</h2>
+          <div class="miniList">
+            <div class="miniItem">1) เข้า Warmup ก่อน 1 ครั้งต่อวัน</div>
+            <div class="miniItem">2) เข้าเกมหลัก แล้วยิงอาหารให้ตรงหมู่</div>
+            <div class="miniItem">3) จบเกมแล้วไป Cooldown ก่อนกลับ HUB</div>
+          </div>
+          <div class="actions">
+            <button class="btn primary" id="btnStart">เริ่มเล่น</button>
+            <button class="btn blue" id="btnHub">กลับ HUB</button>
+          </div>
+          <div class="note" id="routeNote">กำลังเตรียมเส้นทางเข้าเกม…</div>
+        </div>
+
+        <div class="card">
+          <h2>ค่าปัจจุบัน</h2>
+          <div class="miniList" id="ctxList"></div>
+          <div class="footer">Launcher นี้จะส่งต่อไป warmup-gate และ next ไปที่ /herohealth/vr-groups/groups-v1.html</div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    (() => {
+      'use strict';
+
+      const QS = new URL(location.href).searchParams;
+      const q = (k, d='') => QS.get(k) ?? d;
+
+      const PID  = String(q('pid','anon'));
+      const RUN  = String(q('run','play'));
+      const DIFF = String(q('diff','normal'));
+      const TIME = String(q('time','80'));
+      const VIEW = String(q('view','mobile'));
+      const SEED = String(q('seed', Date.now()));
+      const ZONE = String(q('zone','nutrition'));
+      const CAT  = String(q('cat','nutrition'));
+      const HUB  = String(q('hub', new URL('./hub.html', location.href).toString()));
+
+      const chipPid = document.getElementById('chipPid');
+      const chipWarmup = document.getElementById('chipWarmup');
+      const chipCooldown = document.getElementById('chipCooldown');
+      const ctxList = document.getElementById('ctxList');
+      const routeNote = document.getElementById('routeNote');
+      const btnStart = document.getElementById('btnStart');
+      const btnHub = document.getElementById('btnHub');
+
+      function dayKey(){
+        const d = new Date();
+        return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      }
+
+      function updateDailyChips(){
+        const day = dayKey();
+        const warm = localStorage.getItem(`HHA_GROUPS_WARMUP_DONE:${PID}:${day}`) === '1';
+        const cool = localStorage.getItem(`HHA_GROUPS_COOLDOWN_DONE:${PID}:${day}`) === '1';
+
+        chipPid.textContent = `PID: ${PID}`;
+        chipWarmup.textContent = `🟢 Warmup วันนี้: ${warm ? 'เข้าแล้ว' : 'ยังไม่เข้า'}`;
+        chipCooldown.textContent = `🟡 Cooldown วันนี้: ${cool ? 'เข้าแล้ว' : 'ยังไม่เข้า'}`;
+
+        chipWarmup.className = `chip ${warm ? 'good' : 'warn'}`;
+        chipCooldown.className = `chip ${cool ? 'good' : 'warn'}`;
+      }
+
+      function buildGroupsWarmupUrl(){
+        const next = new URL('./vr-groups/groups-v1.html', location.href);
+        next.searchParams.set('pid', PID);
+        next.searchParams.set('run', RUN);
+        next.searchParams.set('diff', DIFF);
+        next.searchParams.set('time', TIME);
+        next.searchParams.set('seed', SEED);
+        next.searchParams.set('view', VIEW);
+        next.searchParams.set('hub', HUB);
+        next.searchParams.set('zone', ZONE);
+        next.searchParams.set('cat', CAT);
+
+        const gate = new URL('./warmup-gate.html', location.href);
+        gate.searchParams.set('Phase', 'warmup');
+        gate.searchParams.set('game', 'groups');
+        gate.searchParams.set('pid', PID);
+        gate.searchParams.set('run', RUN);
+        gate.searchParams.set('diff', DIFF);
+        gate.searchParams.set('time', TIME);
+        gate.searchParams.set('seed', SEED);
+        gate.searchParams.set('view', VIEW);
+        gate.searchParams.set('hub', HUB);
+        gate.searchParams.set('zone', ZONE);
+        gate.searchParams.set('cat', CAT);
+        gate.searchParams.set('next', next.toString());
+
+        return gate.toString();
+      }
+
+      function renderCtx(){
+        const gateUrl = buildGroupsWarmupUrl();
+        ctxList.innerHTML = `
+          <div class="miniItem">run = ${RUN}</div>
+          <div class="miniItem">diff = ${DIFF}</div>
+          <div class="miniItem">time = ${TIME}s</div>
+          <div class="miniItem">view = ${VIEW}</div>
+          <div class="miniItem">seed = ${SEED}</div>
+        `;
+        routeNote.textContent = `Start → warmup-gate → groups-v1 → cooldown-gate → hub`;
+        btnStart.dataset.href = gateUrl;
+      }
+
+      btnStart.addEventListener('click', (ev)=>{
+        ev.preventDefault();
+        ev.stopPropagation();
+        btnStart.disabled = true;
+        btnStart.textContent = 'กำลังเข้า Warmup...';
+        window.location.assign(btnStart.dataset.href || buildGroupsWarmupUrl());
+      });
+
+      btnHub.addEventListener('click', (ev)=>{
+        ev.preventDefault();
+        ev.stopPropagation();
+        window.location.assign(HUB);
+      });
+
+      updateDailyChips();
+      renderCtx();
+      window.addEventListener('focus', updateDailyChips);
+    })();
+  </script>
+</body>
+</html>
