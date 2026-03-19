@@ -1,6 +1,6 @@
 /* === /herohealth/gate/games/fitnessplanner/cooldown.js ===
  * HeroHealth Gate Game: FitnessPlanner Cooldown
- * FULL PATCH v20260319a-FITNESSPLANNER-COOLDOWN-API-FINISH-FIX
+ * FULL PATCH v20260319b-FITNESSPLANNER-COOLDOWN-MANUAL-RESULT
  */
 
 function clamp(v, a, b){ return Math.max(a, Math.min(b, v)); }
@@ -274,7 +274,7 @@ export function mount(root, ctx = {}, api = {}){
     startBtn.style.pointerEvents = 'none';
     startBtn.style.opacity = '.65';
 
-    cueEl.textContent = 'เสร็จแล้ว กดดูผล';
+    cueEl.textContent = 'ทบทวนเสร็จแล้ว กดดูผล';
     timerEl.textContent = `${Math.max(0, state.remainSec)}s`;
     renderStats();
   }
