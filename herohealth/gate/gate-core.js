@@ -1,7 +1,8 @@
 // === /herohealth/gate/gate-core.js ===
-// FULL PATCH v20260318h-GATE-UNIFIED-PHASE-FORCEGATE-HUBFIX
+// FULL PATCH v20260319b-GATE-NEXTKEY-HARDFIX
 // ✅ single warmup-gate.html page with ?phase=warmup|cooldown
 // ✅ supports next=... from launcher pages
+// ✅ supports nextKey=sessionStorage fallback for stubborn redirect bugs
 // ✅ safe gate-games import even if some helpers are missing
 // ✅ supports api.finish / api.complete / api.done / api.summary / api.next
 // ✅ supports api.setStats / api.setSub / api.setTitle
@@ -12,9 +13,9 @@
 // ✅ fix HUB fallback path for /herohealth/warmup-gate.html -> ./hub.html
 // ✅ supports forcegate=1 / resetGate=1 to bypass daily skip while testing
 
-import * as GateGames from './gate-games.js?v=20260318d-GATE-GAMES-RHYTHM-JUMPDUCK-PATHFIX';
+import * as GateGames from './gate-games.js?v=20260319a-GATE-GAMES-GOODJUNK-HARDFIX';
 
-const PATCH = 'v20260318h-GATE-UNIFIED-PHASE-FORCEGATE-HUBFIX';
+const PATCH = 'v20260319b-GATE-NEXTKEY-HARDFIX';
 const STORAGE_NS = 'HHA_GATE_DONE_V1';
 const LAST_SUMMARY_KEY = 'HHA_LAST_SUMMARY';
 const SUMMARY_HISTORY_KEY = 'HHA_SUMMARY_HISTORY';
@@ -164,7 +165,8 @@ function readCtx() {
     scene: params.get('scene') || '',
     wgskip: params.get('wgskip') || '',
     autostart: params.get('autostart') || '',
-    next: params.get('next') || ''
+    next: params.get('next') || '',
+    nextKey: params.get('nextKey') || ''
   };
 }
 
@@ -535,6 +537,7 @@ function buildRunParams(ctx) {
   p.delete('phase');
   p.delete('gatePhase');
   p.delete('next');
+  p.delete('nextKey');
 
   p.set('game', ctx.game);
   p.set('gameId', ctx.game);
@@ -584,8 +587,20 @@ async function resolveRunHref(ctx) {
   if (ctx.next) {
     const nextHref = resolveAbsoluteUrl(ctx.next);
     if (nextHref) {
+      console.log('[GATE] resolveRunHref via next', nextHref);
       return nextHref;
     }
+  }
+
+  if (ctx.nextKey) {
+    try {
+      const stored = sessionStorage.getItem(ctx.nextKey);
+      const storedHref = resolveAbsoluteUrl(stored);
+      if (storedHref) {
+        console.log('[GATE] resolveRunHref via nextKey', ctx.nextKey, storedHref);
+        return storedHref;
+      }
+    } catch {}
   }
 
   const candidates = getRunCandidatesSafe(ctx.game);
@@ -599,12 +614,16 @@ async function resolveRunHref(ctx) {
       url.search = params.toString();
 
       const ok = await quickExists(url.href);
-      if (ok) return url.href;
+      if (ok) {
+        console.log('[GATE] resolveRunHref via fallback', url.href);
+        return url.href;
+      }
     } catch {}
   }
 
   const fallback = new URL(candidates[0], location.href);
   fallback.search = params.toString();
+  console.log('[GATE] resolveRunHref final fallback', fallback.href);
   return fallback.href;
 }
 
@@ -618,6 +637,14 @@ function resolveHubHref(ctx) {
 
 async function goRun(ctx) {
   const href = await resolveRunHref(ctx);
+  console.log('[GATE] goRun ->', href, {
+    game: ctx.game,
+    phase: ctx.phase,
+    next: ctx.next,
+    nextKey: ctx.nextKey,
+    search: location.search
+  });
+
   if (!href) {
     toast('ไม่พบ run page ของเกมนี้');
     return;
