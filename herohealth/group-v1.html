@@ -1,6 +1,6 @@
 <!-- === /herohealth/group-v1.html ===
-Groups Launcher V1 -> Warmup Gate -> Run
-FULL PATCH v20260319-GROUP-V1-CANONICAL
+Groups Launcher V1
+FULL PATCH v20260319-GROUP-V1-CANONICAL-WITH-RACE
 -->
 <!doctype html>
 <html lang="th">
@@ -26,7 +26,9 @@ FULL PATCH v20260319-GROUP-V1-CANONICAL
       --sal: env(safe-area-inset-left, 0px);
       --sar: env(safe-area-inset-right, 0px);
     }
+
     *{ box-sizing:border-box; }
+
     html,body{
       margin:0;
       min-height:100%;
@@ -37,11 +39,13 @@ FULL PATCH v20260319-GROUP-V1-CANONICAL
         radial-gradient(1000px 700px at 80% 10%, rgba(167,139,250,.12), transparent 55%),
         linear-gradient(180deg,var(--bg1),var(--bg2));
     }
+
     .wrap{
       max-width:980px;
       margin:0 auto;
       padding:calc(18px + var(--sat)) calc(16px + var(--sar)) calc(20px + var(--sab)) calc(16px + var(--sal));
     }
+
     .hero{
       border:1px solid var(--stroke);
       background:var(--panel);
@@ -49,6 +53,7 @@ FULL PATCH v20260319-GROUP-V1-CANONICAL
       box-shadow:0 24px 80px rgba(0,0,0,.35);
       padding:20px;
     }
+
     .kicker{
       display:inline-flex;
       align-items:center;
@@ -61,23 +66,27 @@ FULL PATCH v20260319-GROUP-V1-CANONICAL
       font-size:12px;
       font-weight:1000;
     }
+
     h1{
       margin:14px 0 8px;
       font-size:clamp(28px, 5vw, 44px);
       line-height:1.05;
     }
+
     .sub{
       color:#cbd5e1;
       font-size:16px;
       line-height:1.6;
       max-width:760px;
     }
+
     .statusRow{
       display:flex;
       gap:10px;
       flex-wrap:wrap;
       margin-top:14px;
     }
+
     .chip{
       display:inline-flex;
       align-items:center;
@@ -90,25 +99,30 @@ FULL PATCH v20260319-GROUP-V1-CANONICAL
       font-size:12px;
       font-weight:1000;
     }
+
     .chip.good{
       border-color:rgba(34,197,94,.28);
       background:rgba(34,197,94,.14);
       color:#dcfce7;
     }
+
     .chip.warn{
       border-color:rgba(245,158,11,.28);
       background:rgba(245,158,11,.14);
       color:#fef3c7;
     }
+
     .grid{
       display:grid;
       grid-template-columns:1.2fr .8fr;
       gap:14px;
       margin-top:16px;
     }
+
     @media (max-width: 860px){
       .grid{ grid-template-columns:1fr; }
     }
+
     .card{
       border:1px solid var(--stroke);
       background:rgba(15,23,42,.48);
@@ -116,15 +130,18 @@ FULL PATCH v20260319-GROUP-V1-CANONICAL
       padding:16px;
       box-shadow:0 18px 60px rgba(0,0,0,.24);
     }
+
     .card h2{
       margin:0 0 10px;
       font-size:18px;
     }
+
     .miniList{
       display:grid;
       gap:10px;
       margin-top:12px;
     }
+
     .miniItem{
       padding:12px 14px;
       border-radius:16px;
@@ -134,12 +151,14 @@ FULL PATCH v20260319-GROUP-V1-CANONICAL
       font-weight:900;
       line-height:1.5;
     }
+
     .actions{
       display:flex;
       gap:10px;
       flex-wrap:wrap;
       margin-top:18px;
     }
+
     .btn{
       appearance:none;
       cursor:pointer;
@@ -153,16 +172,19 @@ FULL PATCH v20260319-GROUP-V1-CANONICAL
       background:rgba(15,23,42,.75);
       box-shadow:0 14px 30px rgba(0,0,0,.20);
     }
+
     .btn.primary{
       color:#052e16;
       border-color:rgba(34,197,94,.30);
       background:linear-gradient(180deg,#86efac,#22c55e);
       box-shadow:0 14px 30px rgba(34,197,94,.24);
     }
+
     .btn.blue{
       border-color:rgba(56,189,248,.28);
       background:linear-gradient(180deg, rgba(56,189,248,.18), rgba(15,23,42,.9));
     }
+
     .note{
       margin-top:14px;
       color:var(--muted);
@@ -170,6 +192,7 @@ FULL PATCH v20260319-GROUP-V1-CANONICAL
       font-weight:900;
       line-height:1.5;
     }
+
     .footer{
       margin-top:14px;
       color:var(--muted);
@@ -181,10 +204,10 @@ FULL PATCH v20260319-GROUP-V1-CANONICAL
 <body>
   <div class="wrap">
     <section class="hero">
-      <div class="kicker">🍽 NUTRITION ZONE • GROUPS • SOLO</div>
+      <div class="kicker">🍽 NUTRITION ZONE • GROUPS</div>
       <h1>เกมอาหาร 5 หมู่</h1>
       <div class="sub">
-        เริ่มจาก Warmup สั้น ๆ ก่อน แล้วค่อยเข้าเกมหลัก เมื่อจบเกมจะไป Cooldown อัตโนมัติ จากนั้นดูสรุปและกลับ HUB
+        เลือกโหมดที่ต้องการเล่นได้เลย ตอนนี้ Solo จะเข้า Warmup ก่อน แล้วค่อยเข้าเกมหลัก ส่วน Race จะเข้าโหมดแข่งทันที
       </div>
 
       <div class="statusRow">
@@ -195,24 +218,29 @@ FULL PATCH v20260319-GROUP-V1-CANONICAL
 
       <div class="grid">
         <div class="card">
-          <h2>ลำดับการเล่น</h2>
+          <h2>โหมดที่พร้อมใช้งาน</h2>
           <div class="miniList">
-            <div class="miniItem">1) เข้า Warmup ก่อน</div>
-            <div class="miniItem">2) เข้า Groups Solo Run</div>
-            <div class="miniItem">3) จบเกมแล้วเข้า Cooldown</div>
-            <div class="miniItem">4) ดู Summary แล้วกลับ HUB</div>
+            <div class="miniItem">Solo: warmup → run → cooldown → summary → hub</div>
+            <div class="miniItem">Race: countdown → race → summary → hub</div>
           </div>
+
           <div class="actions">
-            <button class="btn primary" id="btnStart">เริ่มเล่น</button>
+            <button class="btn primary" id="btnStart">เข้า Solo</button>
+            <button class="btn blue" id="btnRace">เข้า Race</button>
             <button class="btn blue" id="btnHub">กลับ HUB</button>
           </div>
-          <div class="note" id="routeNote">กำลังเตรียมเส้นทางเข้าเกม…</div>
+
+          <div class="note" id="routeNote">
+            กำลังเตรียมเส้นทางเข้าเกม…
+          </div>
         </div>
 
         <div class="card">
           <h2>ค่าปัจจุบัน</h2>
           <div class="miniList" id="ctxList"></div>
-          <div class="footer">Launcher นี้จะส่งไป warmup-gate แล้ว next ไป /herohealth/vr-groups/groups-v1.html</div>
+          <div class="footer">
+            Launcher นี้จะส่ง Solo ไป warmup-gate แล้ว next ไป /herohealth/vr-groups/groups-v1.html
+          </div>
         </div>
       </div>
     </section>
@@ -241,6 +269,7 @@ FULL PATCH v20260319-GROUP-V1-CANONICAL
       const ctxList = document.getElementById('ctxList');
       const routeNote = document.getElementById('routeNote');
       const btnStart = document.getElementById('btnStart');
+      const btnRace = document.getElementById('btnRace');
       const btnHub = document.getElementById('btnHub');
 
       function dayKey(){
@@ -289,13 +318,27 @@ FULL PATCH v20260319-GROUP-V1-CANONICAL
         return gate.toString();
       }
 
+      function buildRaceUrl(){
+        const url = new URL('./vr-groups/groups-race.html', location.href);
+        url.searchParams.set('pid', PID);
+        url.searchParams.set('diff', DIFF);
+        url.searchParams.set('time', '60');
+        url.searchParams.set('seed', SEED);
+        url.searchParams.set('view', VIEW);
+        url.searchParams.set('hub', HUB);
+        return url.toString();
+      }
+
       function renderCtx(){
         btnStart.dataset.href = buildWarmupUrl();
-        routeNote.textContent = 'group-v1 → warmup-gate(warmup) → groups-v1 → warmup-gate(cooldown) → summary → hub';
+        btnRace.dataset.href = buildRaceUrl();
+
+        routeNote.textContent = 'Solo: group-v1 → warmup-gate → groups-v1 → cooldown → summary → hub • Race: group-v1 → groups-race';
         ctxList.innerHTML = `
-          <div class="miniItem">run = ${RUN}</div>
+          <div class="miniItem">pid = ${PID}</div>
           <div class="miniItem">diff = ${DIFF}</div>
-          <div class="miniItem">time = ${TIME}s</div>
+          <div class="miniItem">solo time = ${TIME}s</div>
+          <div class="miniItem">race time = 60s</div>
           <div class="miniItem">view = ${VIEW}</div>
           <div class="miniItem">seed = ${SEED}</div>
         `;
@@ -309,6 +352,14 @@ FULL PATCH v20260319-GROUP-V1-CANONICAL
         window.location.assign(btnStart.dataset.href || buildWarmupUrl());
       });
 
+      btnRace.addEventListener('click', (ev)=>{
+        ev.preventDefault();
+        ev.stopPropagation();
+        btnRace.disabled = true;
+        btnRace.textContent = 'กำลังเข้า Race...';
+        window.location.assign(btnRace.dataset.href || buildRaceUrl());
+      });
+
       btnHub.addEventListener('click', (ev)=>{
         ev.preventDefault();
         ev.stopPropagation();
@@ -317,7 +368,13 @@ FULL PATCH v20260319-GROUP-V1-CANONICAL
 
       updateDailyChips();
       renderCtx();
-      window.addEventListener('focus', updateDailyChips);
+      window.addEventListener('focus', ()=>{
+        updateDailyChips();
+        btnStart.disabled = false;
+        btnStart.textContent = 'เข้า Solo';
+        btnRace.disabled = false;
+        btnRace.textContent = 'เข้า Race';
+      });
     })();
   </script>
 </body>
