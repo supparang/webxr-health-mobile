@@ -1,18 +1,21 @@
+<!-- === /herohealth/warmup-gate.html ===
+HeroHealth Warmup / Cooldown Gate
+FULL PATCH v20260319-WARMUP-GATE-CANONICAL
+-->
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — Warmup / Cooldown Gate</title>
+  <title>HeroHealth — Warmup/Cooldown Gate</title>
   <meta name="color-scheme" content="dark light" />
   <link rel="icon" href="./favicon.ico" />
-  <link rel="stylesheet" href="./gate/gate-common.css?v=20260312d" />
 </head>
 <body>
   <div id="gate-app"></div>
 
   <script type="module">
-    import bootGate from './gate/gate-core.js?v=20260319b-GATE-NEXTKEY-HARDFIX';
+    import { bootGate } from './gate/gate-core.js?v=20260319a';
     bootGate(document.getElementById('gate-app'));
   </script>
 </body>
