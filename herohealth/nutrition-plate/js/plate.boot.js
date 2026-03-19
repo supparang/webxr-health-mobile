@@ -1,6 +1,6 @@
 // === /herohealth/nutrition-plate/js/plate.boot.js ===
 // Boot file for Nutrition Plate
-// PATCH v20260318-NUTRITION-CLOUD-WIRING-A
+// PATCH v20260318-PLATE-RUN-FULL
 
 import { createCtx, saveLastSummary } from '../../shared/nutrition-common.js';
 import { createLogger } from '../../shared/nutrition-logging.js';
