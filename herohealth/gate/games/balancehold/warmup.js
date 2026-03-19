@@ -1,6 +1,6 @@
 /* === /herohealth/gate/games/balancehold/warmup.js ===
  * HeroHealth Gate Game: BalanceHold Warmup
- * PATCH v20260312e-BALANCEHOLD-WARMUP-TH-CHILD
+ * FULL PATCH v20260318f-BALANCEHOLD-WARMUP-API-FINISH-FIX
  */
 
 function clamp(v, a, b){ return Math.max(a, Math.min(b, v)); }
@@ -14,13 +14,14 @@ function getParam(ctx, key, fallback=''){
   }
 }
 
-function ensureStyle(){
+export function loadStyle(){
   const id = 'hh-gate-style-balancehold';
   if (document.getElementById(id)) return;
+
   const link = document.createElement('link');
   link.id = id;
   link.rel = 'stylesheet';
-  link.href = './gate/games/balancehold/style.css';
+  link.href = new URL('./style.css', import.meta.url).toString();
   document.head.appendChild(link);
 }
 
@@ -31,8 +32,13 @@ function starsFromScore(score){
 }
 
 function makeResult(state){
-  const score = clamp(Math.round(((state.success + (state.centerBonus ? 1 : 0)) / 4) * 100), 0, 100);
+  const score = clamp(
+    Math.round(((state.success + (state.centerBonus ? 1 : 0)) / 4) * 100),
+    0,
+    100
+  );
   const passed = state.success >= 3;
+
   return {
     ok: true,
     zone: 'exercise',
@@ -40,9 +46,19 @@ function makeResult(state){
     phase: 'warmup',
     activityId: 'balancehold-core-activate',
     title: 'ซ้อมทรงตัว',
+    subtitle: passed
+      ? 'พร้อมแล้ว ไปเล่น Balance Hold กัน'
+      : 'ลองยืนนิ่งอีกนิด แล้วค่อยเริ่มเกม',
     passed,
     score,
     stars: starsFromScore(score),
+    lines: [
+      `สำเร็จ ${state.success}/3 ท่า`,
+      `พลาด ${state.fail}`,
+      `ซ้าย ${state.leftHoldSec}s`,
+      `ขวา ${state.rightHoldSec}s`,
+      `กลาง ${state.centerHoldSec}s`
+    ],
     metrics: {
       success: state.success,
       fail: state.fail,
@@ -57,15 +73,41 @@ function makeResult(state){
         ? 'พร้อมแล้ว ไปเล่น Balance Hold กัน'
         : 'ลองยืนนิ่งอีกนิด แล้วค่อยเริ่มเกม'
     },
-    nextAction: 'run'
+    buffs: {
+      wType: 'balancehold_warmup',
+      wPct: score,
+      wSuccess: state.success,
+      wFail: state.fail,
+      wCenterBonus: state.centerBonus ? 1 : 0,
+      wStars: starsFromScore(score)
+    },
+    nextAction: 'run',
+    markDailyDone: true
   };
 }
 
-export function mount(root, ctx = {}){
-  ensureStyle();
+export function mount(root, ctx = {}, api = {}){
+  loadStyle();
 
   const phase = String(getParam(ctx, 'phase', 'warmup')).toLowerCase();
-  const onComplete = typeof ctx?.onComplete === 'function' ? ctx.onComplete : () => {};
+
+  const fallbackComplete =
+    typeof ctx?.onComplete === 'function' ? ctx.onComplete : null;
+
+  function complete(payload){
+    if (typeof api?.finish === 'function'){
+      api.finish(payload);
+      return;
+    }
+    if (typeof api?.complete === 'function'){
+      api.complete(payload);
+      return;
+    }
+    if (typeof fallbackComplete === 'function'){
+      fallbackComplete(payload);
+    }
+  }
+
   if (phase !== 'warmup'){
     root.innerHTML = `
       <div class="bhg-wrap">
@@ -76,7 +118,11 @@ export function mount(root, ctx = {}){
         </section>
       </div>
     `;
-    return;
+    return {
+      autostart: false,
+      start(){},
+      destroy(){}
+    };
   }
 
   const STEP_SEC = 4;
@@ -89,6 +135,7 @@ export function mount(root, ctx = {}){
   const state = {
     started: false,
     finished: false,
+    ended: false,
     currentStep: -1,
     success: 0,
     fail: 0,
@@ -137,8 +184,8 @@ export function mount(root, ctx = {}){
         </div>
 
         <div class="bhg-footer">
-          <button class="bhg-btn bhg-btn-primary" id="bhg-start">เริ่มอุ่นเครื่อง</button>
-          <button class="bhg-btn bhg-btn-ghost" id="bhg-finish" disabled>ดูผล</button>
+          <button class="bhg-btn bhg-btn-primary" id="bhg-start" type="button">เริ่มอุ่นเครื่อง</button>
+          <button class="bhg-btn bhg-btn-ghost" id="bhg-finish" type="button" disabled>ดูผล</button>
         </div>
       </section>
     </div>
@@ -151,9 +198,21 @@ export function mount(root, ctx = {}){
   const startBtn = root.querySelector('#bhg-start');
   const finishBtn = root.querySelector('#bhg-finish');
 
+  function canOpenResult(){
+    return state.finished === true;
+  }
+
+  function syncFinishBtn(){
+    const canOpen = canOpenResult();
+    finishBtn.disabled = !canOpen;
+    finishBtn.style.pointerEvents = canOpen ? 'auto' : 'none';
+    finishBtn.style.opacity = canOpen ? '1' : '.6';
+  }
+
   function renderStats(){
+    const shownStep = clamp(state.currentStep + 1, 0, steps.length);
     statsEl.innerHTML = `
-      <span>ท่า ${Math.max(0, state.currentStep + 1)}/3</span>
+      <span>ท่า ${shownStep}/3</span>
       <span>สำเร็จ ${state.success}</span>
       <span>พลาด ${state.fail}</span>
     `;
@@ -162,24 +221,34 @@ export function mount(root, ctx = {}){
   function finishGame(){
     if (state.finished) return;
     state.finished = true;
+
     clearInterval(state.stepTimer);
+    state.stepTimer = null;
+
     holdBtn.disabled = true;
     startBtn.disabled = true;
-    finishBtn.disabled = false;
+    timerEl.textContent = '0s';
     cueEl.textContent = 'เสร็จแล้ว กดดูผล';
     renderStats();
+    syncFinishBtn();
   }
 
   function failStep(){
+    if (state.finished || state.ended) return;
+
     state.fail += 1;
     cueEl.textContent = 'หมดเวลา ลองใหม่นะ';
     renderStats();
+
     clearInterval(state.stepTimer);
+    state.stepTimer = null;
+
     setTimeout(nextStep, 500);
   }
 
   function nextStep(){
-    if (state.finished) return;
+    if (state.finished || state.ended) return;
+
     state.currentStep += 1;
 
     if (state.currentStep >= steps.length){
@@ -189,24 +258,41 @@ export function mount(root, ctx = {}){
 
     const step = steps[state.currentStep];
     state.remainStepSec = STEP_SEC;
+
     timerEl.textContent = `${state.remainStepSec}s`;
     cueEl.textContent = `${step.emoji} ${step.label}`;
     holdBtn.disabled = false;
+
     renderStats();
+    syncFinishBtn();
 
     clearInterval(state.stepTimer);
     state.stepTimer = setInterval(() => {
       state.remainStepSec -= 1;
       timerEl.textContent = `${Math.max(0, state.remainStepSec)}s`;
-      if (state.remainStepSec <= 0) failStep();
+
+      if (state.remainStepSec <= 0){
+        failStep();
+      }
     }, 1000);
+  }
+
+  function submitResult(){
+    if (!canOpenResult()) return;
+    if (state.ended) return;
+    state.ended = true;
+
+    complete(makeResult(state));
   }
 
   holdBtn.addEventListener('click', () => {
     if (!state.started || state.finished || state.currentStep < 0) return;
 
     const step = steps[state.currentStep];
+
     clearInterval(state.stepTimer);
+    state.stepTimer = null;
+
     holdBtn.disabled = true;
     state.success += 1;
 
@@ -219,17 +305,51 @@ export function mount(root, ctx = {}){
 
     cueEl.textContent = `ดีมาก ${step.label}`;
     renderStats();
+
     setTimeout(nextStep, 450);
   });
 
-  startBtn.addEventListener('click', () => {
-    if (state.started) return;
+  function startInternal(){
+    if (state.started || state.finished) return;
     state.started = true;
     startBtn.disabled = true;
     nextStep();
+  }
+
+  startBtn.addEventListener('click', startInternal);
+
+  finishBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    submitResult();
+  }, { passive:false });
+
+  finishBtn.addEventListener('pointerup', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    submitResult();
+  }, { passive:false });
+
+  renderStats();
+  syncFinishBtn();
+
+  api?.setSub?.('ทำท่าทรงตัวทีละท่า แล้วกดทำครบแล้ว');
+  api?.setStats?.({
+    time: STEP_SEC,
+    score: 0,
+    miss: 0,
+    acc: '0%'
   });
 
-  finishBtn.addEventListener('click', () => {
-    onComplete(makeResult(state));
-  });
+  return {
+    autostart: false,
+    start(){},
+    destroy(){
+      state.ended = true;
+      clearInterval(state.stepTimer);
+      state.stepTimer = null;
+    }
+  };
 }
+
+export default { loadStyle, mount };
