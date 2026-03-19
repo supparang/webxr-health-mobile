@@ -9,87 +9,178 @@
 <body>
   <main class="page">
     <section class="card">
-      <div class="badge">หลังเล่นเกม • Post-Behavior</div>
-      <h1>หลังเล่นแล้ว หนูอยากเลือกของว่างแบบไหน</h1>
-      <p class="sub">ตอบจากสิ่งที่หนูคิดว่าจะทำหลังจบกิจกรรมนี้</p>
+      <div class="badge">Posttest • Post-Behavior</div>
+      <h1>แบบประเมินพฤติกรรมหลังเล่น</h1>
+      <p class="sub">
+        หลังจากเล่นเกมแล้ว ลองตอบว่าตอนนี้หนูอยากเลือกอะไรและอยากเปลี่ยนพฤติกรรมแบบไหน
+      </p>
+
       <div class="ctx" id="ctxBox">กำลังโหลด...</div>
 
       <form class="form">
         <section class="block">
-          <h2>1) ถ้าหิวหลังเลิกเรียนวันนี้ หนูคิดว่าจะเลือกอะไร</h2>
+          <h2>1) ถ้าหิวหลังเลิกเรียนตอนนี้ หนูอยากเลือกอะไร</h2>
           <div class="choice-grid">
-            <label class="choice"><input type="radio" name="pb1_afterSchoolSnack" value="fruit" required /> ผลไม้</label>
-            <label class="choice"><input type="radio" name="pb1_afterSchoolSnack" value="friedSnack" required /> ของทอด / ขนมกรุบกรอบ</label>
-            <label class="choice"><input type="radio" name="pb1_afterSchoolSnack" value="sweetSnack" required /> ขนมหวาน / ลูกอม</label>
-            <label class="choice"><input type="radio" name="pb1_afterSchoolSnack" value="notSure" required /> ยังไม่แน่ใจ</label>
+            <label class="choice">
+              <input type="radio" name="pb1_afterSchoolSnack" value="fruit" required />
+              ผลไม้
+            </label>
+            <label class="choice">
+              <input type="radio" name="pb1_afterSchoolSnack" value="healthySnack" required />
+              ของว่างที่ดีกว่า
+            </label>
+            <label class="choice">
+              <input type="radio" name="pb1_afterSchoolSnack" value="junk" required />
+              ขนมหรือของทอด
+            </label>
+            <label class="choice">
+              <input type="radio" name="pb1_afterSchoolSnack" value="notSure" required />
+              ยังไม่แน่ใจ
+            </label>
           </div>
         </section>
 
         <section class="block">
-          <h2>2) ถ้ากระหายน้ำตอนนี้ หนูคิดว่าจะดื่มอะไร</h2>
+          <h2>2) ถ้าจะเลือกเครื่องดื่มตอนนี้ หนูอยากดื่มอะไร</h2>
           <div class="choice-grid">
-            <label class="choice"><input type="radio" name="pb2_afterGameDrink" value="water" required /> น้ำเปล่า</label>
-            <label class="choice"><input type="radio" name="pb2_afterGameDrink" value="milk" required /> นมจืด</label>
-            <label class="choice"><input type="radio" name="pb2_afterGameDrink" value="sweetDrink" required /> น้ำหวาน / น้ำอัดลม</label>
-            <label class="choice"><input type="radio" name="pb2_afterGameDrink" value="tea" required /> ชาหวาน / ชานม</label>
+            <label class="choice">
+              <input type="radio" name="pb2_afterGameDrink" value="water" required />
+              น้ำเปล่า
+            </label>
+            <label class="choice">
+              <input type="radio" name="pb2_afterGameDrink" value="milk" required />
+              นมจืด
+            </label>
+            <label class="choice">
+              <input type="radio" name="pb2_afterGameDrink" value="sweetDrink" required />
+              น้ำหวาน / น้ำอัดลม
+            </label>
+            <label class="choice">
+              <input type="radio" name="pb2_afterGameDrink" value="notSure" required />
+              ยังไม่แน่ใจ
+            </label>
           </div>
         </section>
 
         <section class="block">
-          <h2>3) หลังเล่นเกม หนูอยากลองกินผลไม้บ่อยขึ้นไหม</h2>
+          <h2>3) ตอนนี้หนูอยากกินผลไม้มากขึ้นไหม</h2>
           <div class="choice-grid">
-            <label class="choice"><input type="radio" name="pb3_moreFruitIntent" value="yes" required /> อยาก</label>
-            <label class="choice"><input type="radio" name="pb3_moreFruitIntent" value="maybe" required /> อาจจะ</label>
-            <label class="choice"><input type="radio" name="pb3_moreFruitIntent" value="notMuch" required /> ยังไม่ค่อยอยาก</label>
-            <label class="choice"><input type="radio" name="pb3_moreFruitIntent" value="no" required /> ไม่อยาก</label>
+            <label class="choice">
+              <input type="radio" name="pb3_moreFruitIntent" value="yes" required />
+              อยากมากขึ้น
+            </label>
+            <label class="choice">
+              <input type="radio" name="pb3_moreFruitIntent" value="somewhat" required />
+              อยากบ้าง
+            </label>
+            <label class="choice">
+              <input type="radio" name="pb3_moreFruitIntent" value="notMuch" required />
+              ยังไม่ค่อยอยาก
+            </label>
+            <label class="choice">
+              <input type="radio" name="pb3_moreFruitIntent" value="no" required />
+              ไม่อยาก
+            </label>
           </div>
         </section>
 
         <section class="block">
-          <h2>4) หลังเล่นเกม หนูอยากลดขนมหรือของทอดลงไหม</h2>
+          <h2>4) ตอนนี้หนูอยากลด junk food ลงไหม</h2>
           <div class="choice-grid">
-            <label class="choice"><input type="radio" name="pb4_reduceJunkIntent" value="yes" required /> อยาก</label>
-            <label class="choice"><input type="radio" name="pb4_reduceJunkIntent" value="maybe" required /> อาจจะ</label>
-            <label class="choice"><input type="radio" name="pb4_reduceJunkIntent" value="notMuch" required /> ยังไม่ค่อยอยาก</label>
-            <label class="choice"><input type="radio" name="pb4_reduceJunkIntent" value="no" required /> ไม่อยาก</label>
+            <label class="choice">
+              <input type="radio" name="pb4_reduceJunkIntent" value="yes" required />
+              อยากมาก
+            </label>
+            <label class="choice">
+              <input type="radio" name="pb4_reduceJunkIntent" value="somewhat" required />
+              อยากบ้าง
+            </label>
+            <label class="choice">
+              <input type="radio" name="pb4_reduceJunkIntent" value="notMuch" required />
+              ยังไม่ค่อยอยาก
+            </label>
+            <label class="choice">
+              <input type="radio" name="pb4_reduceJunkIntent" value="no" required />
+              ไม่อยาก
+            </label>
           </div>
         </section>
 
         <section class="block">
-          <h2>5) ถ้าไปซื้อของที่ร้านหน้าโรงเรียน หนูคิดว่าจะเลือกอะไรบ่อยกว่า</h2>
+          <h2>5) ถ้าไปซื้อของที่ร้านตอนนี้ หนูจะเลือกอะไร</h2>
           <div class="choice-grid">
-            <label class="choice"><input type="radio" name="pb5_shopChoice" value="healthy" required /> ของว่างที่ดีต่อสุขภาพกว่า</label>
-            <label class="choice"><input type="radio" name="pb5_shopChoice" value="junk" required /> ขนม / เครื่องดื่มหวาน</label>
-            <label class="choice"><input type="radio" name="pb5_shopChoice" value="mixed" required /> สลับกันไป</label>
-            <label class="choice"><input type="radio" name="pb5_shopChoice" value="notSure" required /> ไม่แน่ใจ</label>
+            <label class="choice">
+              <input type="radio" name="pb5_shopChoice" value="fruitMilk" required />
+              ผลไม้หรือนมจืด
+            </label>
+            <label class="choice">
+              <input type="radio" name="pb5_shopChoice" value="mixed" required />
+              แล้วแต่วัน
+            </label>
+            <label class="choice">
+              <input type="radio" name="pb5_shopChoice" value="junk" required />
+              ขนมหวาน / ของทอด
+            </label>
+            <label class="choice">
+              <input type="radio" name="pb5_shopChoice" value="notSure" required />
+              ยังไม่แน่ใจ
+            </label>
           </div>
         </section>
 
         <section class="block">
-          <h2>6) ถ้ามีผลไม้กับมันฝรั่งทอดอยู่ตรงหน้า หนูคิดว่าจะเลือกอะไร “ตอนนี้”</h2>
+          <h2>6) ถ้าต้องเลือกตอนนี้ทันที หนูจะเลือกทางไหนดีต่อสุขภาพมากกว่า</h2>
           <div class="choice-grid">
-            <label class="choice"><input type="radio" name="pb6_nowChoice" value="fruit" required /> ผลไม้</label>
-            <label class="choice"><input type="radio" name="pb6_nowChoice" value="chips" required /> มันฝรั่งทอด</label>
-            <label class="choice"><input type="radio" name="pb6_nowChoice" value="depends" required /> แล้วแต่อารมณ์</label>
-            <label class="choice"><input type="radio" name="pb6_nowChoice" value="notSure" required /> ไม่แน่ใจ</label>
+            <label class="choice">
+              <input type="radio" name="pb6_nowChoice" value="healthy" required />
+              เลือกของที่ดีกว่า
+            </label>
+            <label class="choice">
+              <input type="radio" name="pb6_nowChoice" value="junk" required />
+              เลือก junk เหมือนเดิม
+            </label>
+            <label class="choice">
+              <input type="radio" name="pb6_nowChoice" value="mixed" required />
+              บางครั้งก็เลือกได้
+            </label>
+            <label class="choice">
+              <input type="radio" name="pb6_nowChoice" value="notSure" required />
+              ยังไม่แน่ใจ
+            </label>
           </div>
         </section>
 
         <section class="block">
-          <h2>7) หลังเล่นเกม หนูอยากบอกผู้ปกครองเรื่องของว่างสุขภาพมากขึ้นไหม</h2>
+          <h2>7) หนูอยากเล่าเรื่องนี้ให้ผู้ปกครองหรือคนที่บ้านฟังไหม</h2>
           <div class="choice-grid">
-            <label class="choice"><input type="radio" name="pb7_talkToParent" value="yes" required /> อยาก</label>
-            <label class="choice"><input type="radio" name="pb7_talkToParent" value="maybe" required /> อาจจะ</label>
-            <label class="choice"><input type="radio" name="pb7_talkToParent" value="notMuch" required /> ยังไม่ค่อยอยาก</label>
-            <label class="choice"><input type="radio" name="pb7_talkToParent" value="no" required /> ไม่อยาก</label>
+            <label class="choice">
+              <input type="radio" name="pb7_talkToParent" value="yes" required />
+              อยากเล่า
+            </label>
+            <label class="choice">
+              <input type="radio" name="pb7_talkToParent" value="somewhat" required />
+              อาจจะเล่า
+            </label>
+            <label class="choice">
+              <input type="radio" name="pb7_talkToParent" value="notMuch" required />
+              ยังไม่ค่อยอยากเล่า
+            </label>
+            <label class="choice">
+              <input type="radio" name="pb7_talkToParent" value="no" required />
+              ไม่อยากเล่า
+            </label>
           </div>
         </section>
 
         <section class="block">
-          <h2>8) หลังจากวันนี้ หนูอยากลองเปลี่ยนอะไร 1 อย่างเกี่ยวกับการเลือกของว่าง</h2>
+          <h2>8) หลังจบกิจกรรมนี้ หนูตั้งใจจะเปลี่ยนอะไร 1 อย่าง</h2>
           <label class="inline">
             <span class="note">ตอบสั้น ๆ ได้เลย</span>
-            <textarea name="pb8_changePlan" placeholder="เช่น จะดื่มน้ำเปล่ามากขึ้น หรือจะเลือกผลไม้แทนขนม"></textarea>
+            <textarea
+              name="pb8_changePlan"
+              placeholder="เช่น จะดื่มน้ำเปล่าแทนน้ำหวาน หรือจะลดขนมหวาน"
+              required
+            ></textarea>
           </label>
         </section>
 
@@ -101,6 +192,6 @@
     </section>
   </main>
 
-  <script type="module" src="./assessment.js"></script>
+  <script type="module" src="./assessment.js?v=20260319b-postb"></script>
 </body>
 </html>
