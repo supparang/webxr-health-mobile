@@ -1,6 +1,6 @@
 // === /herohealth/nutrition-groups/js/groups.boot.js ===
 // Boot file for Nutrition Groups
-// PATCH v20260318-NUTRITION-CLOUD-WIRING-A
+// PATCH v20260318-GROUPS-RUN-FULL
 
 import { createCtx, saveLastSummary } from '../../shared/nutrition-common.js';
 import { createLogger } from '../../shared/nutrition-logging.js';
