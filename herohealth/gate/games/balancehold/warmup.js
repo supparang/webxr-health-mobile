@@ -1,6 +1,6 @@
 /* === /herohealth/gate/games/balancehold/warmup.js ===
  * HeroHealth Gate Game: BalanceHold Warmup
- * FULL PATCH v20260318f-BALANCEHOLD-WARMUP-API-FINISH-FIX
+ * FULL PATCH v20260319b-BALANCEHOLD-WARMUP-MANUAL-RESULT
  */
 
 function clamp(v, a, b){ return Math.max(a, Math.min(b, v)); }
@@ -16,12 +16,15 @@ function getParam(ctx, key, fallback=''){
 
 export function loadStyle(){
   const id = 'hh-gate-style-balancehold';
-  if (document.getElementById(id)) return;
+  const href = new URL('./style.css', import.meta.url).toString();
+
+  const old = document.getElementById(id);
+  if (old) old.remove();
 
   const link = document.createElement('link');
   link.id = id;
   link.rel = 'stylesheet';
-  link.href = new URL('./style.css', import.meta.url).toString();
+  link.href = href;
   document.head.appendChild(link);
 }
 
@@ -90,7 +93,6 @@ export function mount(root, ctx = {}, api = {}){
   loadStyle();
 
   const phase = String(getParam(ctx, 'phase', 'warmup')).toLowerCase();
-
   const fallbackComplete =
     typeof ctx?.onComplete === 'function' ? ctx.onComplete : null;
 
