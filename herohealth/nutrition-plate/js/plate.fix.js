@@ -41,16 +41,14 @@ export function buildFixQuestions() {
 export function scoreFixQuestion(stats, question, answerId) {
   const correct = question.correctId === answerId;
   stats.fix.total += 1;
+
   if (correct) {
     stats.fix.correct += 1;
     stats.score += 10;
-  } else {
-    stats.streak = 0;
-  }
-
-  if (correct) {
     stats.streak += 1;
     stats.bestStreak = Math.max(stats.bestStreak, stats.streak);
+  } else {
+    stats.streak = 0;
   }
 
   return {
