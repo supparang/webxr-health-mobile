@@ -1,6 +1,6 @@
 // === /herohealth/nutrition-groups/js/groups.scoring.js ===
 // Scoring and stat aggregation for Nutrition Groups
-// PATCH v20260318-GROUPS-VSLICE-C
+// PATCH v20260318-GROUPS-RUN-FULL
 
 import { FOOD_GROUPS } from './groups.content.js';
 
