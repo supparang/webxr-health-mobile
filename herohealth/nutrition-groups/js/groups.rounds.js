@@ -1,6 +1,6 @@
 // === /herohealth/nutrition-groups/js/groups.rounds.js ===
 // Round builders for Nutrition Groups
-// PATCH v20260318-GROUPS-VSLICE-A
+// PATCH v20260318-GROUPS-RUN-FULL
 
 import { sample, shuffle } from '../../shared/nutrition-common.js';
 import {
