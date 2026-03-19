@@ -1,6 +1,6 @@
 // === /herohealth/nutrition-plate/js/plate.metrics.js ===
 // Metric builder for Nutrition Plate
-// PATCH v20260318-NUTRITION-CLOUD-WIRING-A
+// PATCH v20260318-PLATE-RUN-FULL
 
 export function buildPlateMetrics(ctx, stats, sessionMeta) {
   const preCorrect = stats.quiz.pre.correct;
