@@ -1,6 +1,6 @@
 // === /herohealth/nutrition-groups/js/groups.coach.js ===
 // Child-friendly coach with rate limit
-// PATCH v20260318-GROUPS-VSLICE-C
+// PATCH v20260318-GROUPS-RUN-FULL
 
 export function createGroupsCoach() {
   const cooldownMs = 3800;
