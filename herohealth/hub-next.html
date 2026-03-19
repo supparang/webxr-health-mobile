@@ -1,0 +1,440 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth • Hub Next</title>
+  <meta name="color-scheme" content="dark light" />
+  <link rel="icon" href="./favicon.ico" />
+  <style>
+    :root{
+      --bg1:#140b2d;
+      --bg2:#1a1444;
+      --bg3:#0f1f4d;
+
+      --panel:rgba(10,14,30,.78);
+      --stroke:rgba(148,163,184,.18);
+
+      --text:#f8fafc;
+      --muted:#cbd5e1;
+
+      --violet:#8b5cf6;
+      --cyan:#22d3ee;
+      --green:#22c55e;
+      --amber:#f59e0b;
+      --pink:#f472b6;
+
+      --shadow:0 24px 64px rgba(0,0,0,.34);
+      --radius:24px;
+
+      --sat: env(safe-area-inset-top, 0px);
+      --sar: env(safe-area-inset-right, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
+    }
+
+    *{ box-sizing:border-box; }
+    html,body{ margin:0; min-height:100%; }
+    body{
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(1200px 700px at 5% 0%, rgba(139,92,246,.24), transparent 55%),
+        radial-gradient(1000px 700px at 100% 0%, rgba(34,211,238,.20), transparent 50%),
+        linear-gradient(180deg, var(--bg1), var(--bg2) 42%, var(--bg3));
+    }
+
+    .shell{
+      width:min(1200px, calc(100% - 24px));
+      margin:0 auto;
+      padding:
+        calc(18px + var(--sat))
+        calc(12px + var(--sar))
+        calc(28px + var(--sab))
+        calc(12px + var(--sal));
+    }
+
+    .hero{
+      background:linear-gradient(180deg, rgba(17,24,39,.78), rgba(3,7,18,.82));
+      border:1px solid var(--stroke);
+      border-radius:32px;
+      box-shadow:var(--shadow);
+      padding:22px;
+      overflow:hidden;
+      position:relative;
+    }
+
+    .hero::before{
+      content:"";
+      position:absolute;
+      inset:auto -80px -80px auto;
+      width:260px;
+      height:260px;
+      background:radial-gradient(circle, rgba(139,92,246,.26), transparent 70%);
+      pointer-events:none;
+    }
+
+    .kicker{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 12px;
+      border-radius:999px;
+      background:rgba(139,92,246,.14);
+      border:1px solid rgba(139,92,246,.28);
+      font-size:.92rem;
+      font-weight:800;
+    }
+
+    .title{
+      margin:14px 0 8px;
+      font-size:clamp(28px, 5vw, 46px);
+      line-height:1.06;
+      font-weight:900;
+      letter-spacing:-.02em;
+    }
+
+    .sub{
+      margin:0;
+      max-width:920px;
+      color:var(--muted);
+      font-size:clamp(15px, 2.4vw, 18px);
+      line-height:1.65;
+    }
+
+    .meta{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      margin-top:16px;
+    }
+
+    .chip{
+      padding:8px 12px;
+      border-radius:999px;
+      background:rgba(15,23,42,.72);
+      border:1px solid var(--stroke);
+      color:#e2e8f0;
+      font-size:.92rem;
+      font-weight:700;
+    }
+
+    .top-actions{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-top:18px;
+    }
+
+    .section{ margin-top:22px; }
+    .section-head{
+      display:flex;
+      align-items:end;
+      justify-content:space-between;
+      gap:12px;
+      margin-bottom:12px;
+    }
+
+    .section-title{
+      margin:0;
+      font-size:1.2rem;
+      font-weight:900;
+    }
+
+    .section-note{
+      color:var(--muted);
+      font-size:.96rem;
+    }
+
+    .grid{
+      display:grid;
+      grid-template-columns:repeat(12, 1fr);
+      gap:14px;
+    }
+
+    .card{
+      grid-column:span 12;
+      background:linear-gradient(180deg, rgba(15,23,42,.84), rgba(2,6,23,.88));
+      border:1px solid var(--stroke);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+      padding:18px;
+      display:flex;
+      flex-direction:column;
+      gap:14px;
+      min-height:228px;
+    }
+
+    @media (min-width:720px){
+      .card{ grid-column:span 6; }
+    }
+    @media (min-width:1080px){
+      .card{ grid-column:span 3; }
+    }
+
+    .card.disabled{
+      opacity:.68;
+      filter:saturate(.86);
+    }
+
+    .card-top{
+      display:flex;
+      justify-content:space-between;
+      align-items:flex-start;
+      gap:10px;
+    }
+
+    .icon{
+      width:54px;
+      height:54px;
+      border-radius:18px;
+      display:grid;
+      place-items:center;
+      font-size:28px;
+      background:rgba(255,255,255,.08);
+      border:1px solid rgba(255,255,255,.10);
+      flex:0 0 auto;
+    }
+
+    .badge{
+      padding:7px 10px;
+      border-radius:999px;
+      font-size:.82rem;
+      font-weight:900;
+      white-space:nowrap;
+      border:1px solid transparent;
+    }
+
+    .badge.next{
+      color:#ede9fe;
+      background:rgba(139,92,246,.16);
+      border-color:rgba(139,92,246,.28);
+    }
+
+    .badge.research{
+      color:#cffafe;
+      background:rgba(34,211,238,.14);
+      border-color:rgba(34,211,238,.28);
+    }
+
+    .badge.soon{
+      color:#fef3c7;
+      background:rgba(245,158,11,.14);
+      border-color:rgba(245,158,11,.28);
+    }
+
+    .card-title{
+      margin:0;
+      font-size:1.18rem;
+      font-weight:900;
+    }
+
+    .card-sub{
+      margin:0;
+      color:var(--muted);
+      line-height:1.6;
+      font-size:.96rem;
+      min-height:72px;
+    }
+
+    .tags{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+    }
+
+    .tag{
+      padding:7px 10px;
+      border-radius:999px;
+      background:rgba(15,23,42,.78);
+      border:1px solid var(--stroke);
+      color:#dbeafe;
+      font-size:.82rem;
+      font-weight:800;
+    }
+
+    .actions{
+      display:flex;
+      gap:10px;
+      margin-top:auto;
+      flex-wrap:wrap;
+    }
+
+    button{
+      appearance:none;
+      border:none;
+      cursor:pointer;
+      border-radius:16px;
+      padding:12px 14px;
+      font:inherit;
+      font-weight:900;
+      transition:transform .12s ease, opacity .12s ease, filter .12s ease;
+    }
+    button:hover{ transform:translateY(-1px); }
+    button:active{ transform:translateY(0); }
+
+    .primary{
+      background:linear-gradient(180deg, #8b5cf6, #7c3aed);
+      color:white;
+      min-width:140px;
+    }
+    .secondary{
+      background:rgba(15,23,42,.86);
+      color:#e5e7eb;
+      border:1px solid var(--stroke);
+    }
+    .ghost{
+      background:rgba(148,163,184,.10);
+      color:#cbd5e1;
+      border:1px dashed rgba(148,163,184,.28);
+      cursor:default;
+    }
+
+    .footer{
+      margin-top:18px;
+      text-align:center;
+      color:var(--muted);
+      font-size:.92rem;
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <section class="hero">
+      <div class="kicker">🟣 HeroHealth Next Hub</div>
+      <h1 class="title">ศูนย์รวมเกมเวอร์ชันใหม่<br>สำหรับ redesign ตาม abstract และงานวิจัย</h1>
+      <p class="sub">
+        Hub นี้ใช้รวมเกมเวอร์ชันใหม่ที่แยกจากของเดิมอย่างชัดเจน เหมาะสำหรับ flow ใหม่,
+        post-game reasoning, งานทดลองเชิงวิจัย, และการเปรียบเทียบกับเวอร์ชัน Classic
+      </p>
+
+      <div class="meta">
+        <div class="chip">Next</div>
+        <div class="chip">Research Flow</div>
+        <div class="chip">Redesigned Version</div>
+      </div>
+
+      <div class="top-actions">
+        <button class="secondary" type="button" onclick="goClassicHub()">กลับไป Hub เดิม (Classic)</button>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Nutrition Games • Next</h2>
+        <div class="section-note">เริ่มจากเกมที่ redesign ชัดก่อน: Groups และ Plate</div>
+      </div>
+
+      <div class="grid">
+        <article class="card">
+          <div class="card-top">
+            <div class="icon">🥗</div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+              <span class="badge next">Next</span>
+              <span class="badge research">Research</span>
+            </div>
+          </div>
+          <div>
+            <h3 class="card-title">Food Groups VR • Next</h3>
+            <p class="card-sub">เวอร์ชันใหม่ของเกมจัดหมวดหมู่อาหาร แยกจากของเดิมเพื่อรองรับ mission, flow และการประเมินหลังเกมแบบใหม่</p>
+          </div>
+          <div class="tags">
+            <span class="tag">Groups Next</span>
+            <span class="tag">Redesign</span>
+            <span class="tag">Research Ready</span>
+          </div>
+          <div class="actions">
+            <button class="primary" type="button" onclick="launchGame('./vr-groups-next/groups-next.html','next','groups-next')">เข้าเกม</button>
+          </div>
+        </article>
+
+        <article class="card">
+          <div class="card-top">
+            <div class="icon">🍽️</div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+              <span class="badge next">Next</span>
+              <span class="badge research">Research</span>
+            </div>
+          </div>
+          <div>
+            <h3 class="card-title">Balanced Plate VR • Next</h3>
+            <p class="card-sub">เวอร์ชันใหม่ของเกมจานอาหารสมดุล สำหรับแยก flow งานวิจัยออกจาก Plate เดิมอย่างชัดเจน</p>
+          </div>
+          <div class="tags">
+            <span class="tag">Plate Next</span>
+            <span class="tag">Redesign</span>
+            <span class="tag">Research Ready</span>
+          </div>
+          <div class="actions">
+            <button class="primary" type="button" onclick="launchGame('./plate-next/plate-next.html','next','plate-next')">เข้าเกม</button>
+          </div>
+        </article>
+
+        <article class="card disabled">
+          <div class="card-top">
+            <div class="icon">💧</div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+              <span class="badge next">Next</span>
+              <span class="badge soon">Coming Soon</span>
+            </div>
+          </div>
+          <div>
+            <h3 class="card-title">Hydration VR • Next</h3>
+            <p class="card-sub">เตรียมแยกสายจาก Hydration เดิมเมื่อ flow และ post-game layer รุ่นใหม่พร้อม</p>
+          </div>
+          <div class="tags">
+            <span class="tag">Planned</span>
+            <span class="tag">Next Version</span>
+          </div>
+          <div class="actions">
+            <button class="ghost" type="button" disabled>กำลังพัฒนา</button>
+          </div>
+        </article>
+
+        <article class="card disabled">
+          <div class="card-top">
+            <div class="icon">🛒</div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+              <span class="badge next">Next</span>
+              <span class="badge soon">Coming Soon</span>
+            </div>
+          </div>
+          <div>
+            <h3 class="card-title">GoodJunk VR • Next</h3>
+            <p class="card-sub">เตรียมแยกสายจาก GoodJunk เดิมเมื่อ logic และชั้นงานวิจัยรุ่นใหม่พร้อมย้ายเข้ามา</p>
+          </div>
+          <div class="tags">
+            <span class="tag">Planned</span>
+            <span class="tag">Next Version</span>
+          </div>
+          <div class="actions">
+            <button class="ghost" type="button" disabled>กำลังพัฒนา</button>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <div class="footer">
+      HeroHealth Next Hub • ใช้รวมเกมที่ redesign ใหม่ โดยไม่กระทบกับเวอร์ชันเดิม
+    </div>
+  </main>
+
+  <script>
+    function currentHubPath(){
+      return location.pathname;
+    }
+
+    function launchGame(path, hubVersion, launchGameVersion){
+      const url = new URL(path, location.href);
+      url.searchParams.set('hub', currentHubPath());
+      url.searchParams.set('hubVersion', hubVersion);
+      url.searchParams.set('launchGameVersion', launchGameVersion);
+      location.href = url.toString();
+    }
+
+    function goClassicHub(){
+      location.href = new URL('./hub-classic.html', location.href).toString();
+    }
+  </script>
+</body>
+</html>
