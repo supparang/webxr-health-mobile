@@ -1,0 +1,429 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth • Hub Classic</title>
+  <meta name="color-scheme" content="dark light" />
+  <link rel="icon" href="./favicon.ico" />
+  <style>
+    :root{
+      --bg1:#07111f;
+      --bg2:#0f1c33;
+      --bg3:#172554;
+
+      --panel:rgba(10,18,36,.78);
+      --panel2:rgba(15,23,42,.88);
+      --stroke:rgba(148,163,184,.18);
+
+      --text:#f8fafc;
+      --muted:#cbd5e1;
+
+      --green:#22c55e;
+      --blue:#38bdf8;
+      --violet:#a78bfa;
+      --amber:#f59e0b;
+      --pink:#f472b6;
+
+      --shadow:0 24px 64px rgba(0,0,0,.30);
+      --radius:24px;
+
+      --sat: env(safe-area-inset-top, 0px);
+      --sar: env(safe-area-inset-right, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
+    }
+
+    *{ box-sizing:border-box; }
+    html,body{ margin:0; min-height:100%; }
+    body{
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(1200px 700px at 10% 0%, rgba(56,189,248,.18), transparent 55%),
+        radial-gradient(1000px 700px at 100% 0%, rgba(167,139,250,.16), transparent 50%),
+        linear-gradient(180deg, var(--bg1), var(--bg2) 45%, var(--bg3));
+    }
+
+    .shell{
+      width:min(1200px, calc(100% - 24px));
+      margin:0 auto;
+      padding:
+        calc(18px + var(--sat))
+        calc(12px + var(--sar))
+        calc(28px + var(--sab))
+        calc(12px + var(--sal));
+    }
+
+    .hero{
+      background:linear-gradient(180deg, rgba(15,23,42,.78), rgba(2,6,23,.78));
+      border:1px solid var(--stroke);
+      border-radius:32px;
+      box-shadow:var(--shadow);
+      padding:22px;
+      overflow:hidden;
+      position:relative;
+    }
+
+    .hero::before{
+      content:"";
+      position:absolute;
+      inset:auto -60px -60px auto;
+      width:220px;
+      height:220px;
+      background:radial-gradient(circle, rgba(34,197,94,.20), transparent 70%);
+      pointer-events:none;
+    }
+
+    .kicker{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 12px;
+      border-radius:999px;
+      background:rgba(34,197,94,.14);
+      border:1px solid rgba(34,197,94,.28);
+      font-size:.92rem;
+      font-weight:800;
+    }
+
+    .title{
+      margin:14px 0 8px;
+      font-size:clamp(28px, 5vw, 46px);
+      line-height:1.06;
+      font-weight:900;
+      letter-spacing:-.02em;
+    }
+
+    .sub{
+      margin:0;
+      max-width:900px;
+      color:var(--muted);
+      font-size:clamp(15px, 2.4vw, 18px);
+      line-height:1.65;
+    }
+
+    .meta{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      margin-top:16px;
+    }
+
+    .chip{
+      padding:8px 12px;
+      border-radius:999px;
+      background:rgba(15,23,42,.72);
+      border:1px solid var(--stroke);
+      color:#e2e8f0;
+      font-size:.92rem;
+      font-weight:700;
+    }
+
+    .section{
+      margin-top:22px;
+    }
+
+    .section-head{
+      display:flex;
+      align-items:end;
+      justify-content:space-between;
+      gap:12px;
+      margin-bottom:12px;
+    }
+
+    .section-title{
+      margin:0;
+      font-size:1.2rem;
+      font-weight:900;
+    }
+
+    .section-note{
+      color:var(--muted);
+      font-size:.96rem;
+    }
+
+    .grid{
+      display:grid;
+      grid-template-columns:repeat(12, 1fr);
+      gap:14px;
+    }
+
+    .card{
+      grid-column:span 12;
+      background:linear-gradient(180deg, rgba(15,23,42,.84), rgba(2,6,23,.88));
+      border:1px solid var(--stroke);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+      padding:18px;
+      display:flex;
+      flex-direction:column;
+      gap:14px;
+      min-height:220px;
+    }
+
+    @media (min-width:720px){
+      .card{ grid-column:span 6; }
+    }
+    @media (min-width:1080px){
+      .card{ grid-column:span 3; }
+    }
+
+    .card-top{
+      display:flex;
+      justify-content:space-between;
+      align-items:flex-start;
+      gap:10px;
+    }
+
+    .icon{
+      width:54px;
+      height:54px;
+      border-radius:18px;
+      display:grid;
+      place-items:center;
+      font-size:28px;
+      background:rgba(255,255,255,.08);
+      border:1px solid rgba(255,255,255,.10);
+      flex:0 0 auto;
+    }
+
+    .badge{
+      padding:7px 10px;
+      border-radius:999px;
+      font-size:.82rem;
+      font-weight:900;
+      white-space:nowrap;
+      border:1px solid transparent;
+    }
+
+    .badge.classic{
+      color:#dcfce7;
+      background:rgba(34,197,94,.14);
+      border-color:rgba(34,197,94,.28);
+    }
+
+    .badge.stable{
+      color:#dbeafe;
+      background:rgba(56,189,248,.14);
+      border-color:rgba(56,189,248,.28);
+    }
+
+    .card-title{
+      margin:0;
+      font-size:1.18rem;
+      font-weight:900;
+    }
+
+    .card-sub{
+      margin:0;
+      color:var(--muted);
+      line-height:1.6;
+      font-size:.96rem;
+      min-height:72px;
+    }
+
+    .tags{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+    }
+
+    .tag{
+      padding:7px 10px;
+      border-radius:999px;
+      background:rgba(15,23,42,.78);
+      border:1px solid var(--stroke);
+      color:#dbeafe;
+      font-size:.82rem;
+      font-weight:800;
+    }
+
+    .actions{
+      display:flex;
+      gap:10px;
+      margin-top:auto;
+      flex-wrap:wrap;
+    }
+
+    button{
+      appearance:none;
+      border:none;
+      cursor:pointer;
+      border-radius:16px;
+      padding:12px 14px;
+      font:inherit;
+      font-weight:900;
+      transition:transform .12s ease, opacity .12s ease, filter .12s ease;
+    }
+    button:hover{ transform:translateY(-1px); }
+    button:active{ transform:translateY(0); }
+
+    .primary{
+      background:linear-gradient(180deg, #22c55e, #16a34a);
+      color:white;
+      min-width:140px;
+    }
+    .secondary{
+      background:rgba(15,23,42,.86);
+      color:#e5e7eb;
+      border:1px solid var(--stroke);
+    }
+
+    .footer{
+      margin-top:18px;
+      text-align:center;
+      color:var(--muted);
+      font-size:.92rem;
+    }
+
+    .top-actions{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-top:18px;
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <section class="hero">
+      <div class="kicker">🟢 HeroHealth Classic Hub</div>
+      <h1 class="title">ศูนย์รวมเกมเวอร์ชันเดิม<br>สำหรับเล่น ใช้สอน และใช้เป็น baseline</h1>
+      <p class="sub">
+        Hub นี้รวมเกมเวอร์ชันเดิมที่ยังใช้งานได้ต่อเนื่อง เหมาะสำหรับเทียบกับเวอร์ชันใหม่,
+        ใช้สาธิต flow เดิม, และเก็บเป็นจุดอ้างอิงก่อนปรับเกมตาม abstract ใหม่
+      </p>
+
+      <div class="meta">
+        <div class="chip">Classic</div>
+        <div class="chip">Stable Flow</div>
+        <div class="chip">Baseline / Original Version</div>
+      </div>
+
+      <div class="top-actions">
+        <button class="secondary" type="button" onclick="goNextHub()">ไป Hub ใหม่ (Next)</button>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Nutrition Games • Classic</h2>
+        <div class="section-note">เวอร์ชันเดิมที่ใช้อยู่ตอนนี้</div>
+      </div>
+
+      <div class="grid">
+        <article class="card">
+          <div class="card-top">
+            <div class="icon">🥗</div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+              <span class="badge classic">Classic</span>
+              <span class="badge stable">Stable</span>
+            </div>
+          </div>
+          <div>
+            <h3 class="card-title">Food Groups VR</h3>
+            <p class="card-sub">เกมจัดหมวดหมู่อาหารเวอร์ชันเดิม ใช้เป็น baseline สำหรับเทียบกับ Groups Next</p>
+          </div>
+          <div class="tags">
+            <span class="tag">Groups v1</span>
+            <span class="tag">Nutrition</span>
+            <span class="tag">Baseline</span>
+          </div>
+          <div class="actions">
+            <button class="primary" type="button" onclick="launchGame('./vr-groups/groups-v1.html','classic','groups-v1')">เข้าเกม</button>
+          </div>
+        </article>
+
+        <article class="card">
+          <div class="card-top">
+            <div class="icon">🍽️</div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+              <span class="badge classic">Classic</span>
+              <span class="badge stable">Stable</span>
+            </div>
+          </div>
+          <div>
+            <h3 class="card-title">Balanced Plate VR</h3>
+            <p class="card-sub">เกมจานอาหารสมดุลเวอร์ชันเดิม ใช้เปรียบเทียบก่อนปรับไปสู่ Plate Next</p>
+          </div>
+          <div class="tags">
+            <span class="tag">Plate</span>
+            <span class="tag">Original</span>
+            <span class="tag">Baseline</span>
+          </div>
+          <div class="actions">
+            <button class="primary" type="button" onclick="launchGame('./plate/plate-vr.html','classic','plate-v1')">เข้าเกม</button>
+          </div>
+        </article>
+
+        <article class="card">
+          <div class="card-top">
+            <div class="icon">💧</div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+              <span class="badge classic">Classic</span>
+              <span class="badge stable">Stable</span>
+            </div>
+          </div>
+          <div>
+            <h3 class="card-title">Hydration VR</h3>
+            <p class="card-sub">เกมน้ำดื่มเวอร์ชันเดิม สำหรับใช้ต่อเนื่องก่อนแตกสายเป็น Hydration Next</p>
+          </div>
+          <div class="tags">
+            <span class="tag">Hydration</span>
+            <span class="tag">Current</span>
+            <span class="tag">Playable</span>
+          </div>
+          <div class="actions">
+            <button class="primary" type="button" onclick="launchGame('./hydration-vr/hydration-vr.html','classic','hydration-v1')">เข้าเกม</button>
+          </div>
+        </article>
+
+        <article class="card">
+          <div class="card-top">
+            <div class="icon">🛒</div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+              <span class="badge classic">Classic</span>
+              <span class="badge stable">Stable</span>
+            </div>
+          </div>
+          <div>
+            <h3 class="card-title">GoodJunk VR</h3>
+            <p class="card-sub">เกมแยกอาหารดีและอาหารควรหลีกเลี่ยง เวอร์ชันเดิมที่ยังใช้งานได้อยู่</p>
+          </div>
+          <div class="tags">
+            <span class="tag">GoodJunk</span>
+            <span class="tag">Current</span>
+            <span class="tag">Playable</span>
+          </div>
+          <div class="actions">
+            <button class="primary" type="button" onclick="launchGame('./goodjunk-vr.html','classic','goodjunk-v1')">เข้าเกม</button>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <div class="footer">
+      HeroHealth Classic Hub • ของเดิมยังคงอยู่ครบ เพื่อใช้เป็น baseline และ fallback
+    </div>
+  </main>
+
+  <script>
+    function currentHubPath(){
+      return location.pathname;
+    }
+
+    function launchGame(path, hubVersion, launchGameVersion){
+      const url = new URL(path, location.href);
+      url.searchParams.set('hub', currentHubPath());
+      url.searchParams.set('hubVersion', hubVersion);
+      url.searchParams.set('launchGameVersion', launchGameVersion);
+      location.href = url.toString();
+    }
+
+    function goNextHub(){
+      location.href = new URL('./hub-next.html', location.href).toString();
+    }
+  </script>
+</body>
+</html>
