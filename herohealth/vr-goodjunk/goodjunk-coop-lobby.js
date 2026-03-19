@@ -1,3 +1,7 @@
+// === /herohealth/vr-goodjunk/goodjunk-coop-lobby.js ===
+// GoodJunk Coop Lobby
+// FULL PATCH v20260320-COOP-LOBBY-READY2-MAX10
+
 const params = new URLSearchParams(location.search);
 
 function makeDevicePid() {
@@ -31,7 +35,7 @@ const ctx = {
   name: params.get('name') || '',
   studyId: params.get('studyId') || '',
   diff: params.get('diff') || 'normal',
-  time: params.get('time') || '80',
+  time: params.get('time') || '120',
   seed: params.get('seed') || String(Date.now()),
   hub: params.get('hub') || '../hub.html',
   view: params.get('view') || 'mobile',
@@ -51,7 +55,6 @@ const els = {
   playerCount: $('playerCount'),
   roomStatus: $('roomStatus'),
   hostName: $('hostName'),
-  teamGoal: $('teamGoal'),
   inviteLink: $('inviteLink'),
   copyState: $('copyState'),
   joinGuard: $('joinGuard'),
@@ -126,17 +129,6 @@ function showJoinGuard(msg = '') {
   els.joinGuard.textContent = msg;
 }
 
-function getGoalFor(diff, time, count) {
-  const base = {
-    easy:   { 60: 220, 80: 280, 100: 340, 120: 400 },
-    normal: { 60: 260, 80: 330, 100: 400, 120: 470 },
-    hard:   { 60: 300, 80: 380, 100: 460, 120: 540 }
-  };
-  const d = base[diff] || base.normal;
-  const perPlayer = d[time] || d[80];
-  return perPlayer * Math.max(2, count || 2);
-}
-
 function buildInviteUrl() {
   const q = new URLSearchParams({
     name: '',
@@ -183,6 +175,10 @@ function activePlayers(r = room) {
   return (r?.players || []).filter((p) => p.connected !== false);
 }
 
+function readyPlayers(r = room) {
+  return activePlayers(r).filter((p) => !!p.ready);
+}
+
 function isHost(r = room) {
   return !!r && r.hostId === ctx.pid;
 }
@@ -195,10 +191,10 @@ function getJoinBlockReason(r, pid = ctx.pid) {
   if (!r) return '';
   const existing = isExistingMember(r, pid);
   if (existing) return '';
-  if ((activePlayers(r).length || 0) >= (r.maxPlayers || 4)) return 'ห้องนี้เต็มแล้ว';
+  if ((activePlayers(r).length || 0) >= (r.maxPlayers || 10)) return 'ห้องนี้เต็มแล้ว';
   if (r.status === 'countdown') return 'ห้องนี้กำลังนับถอยหลังก่อนเริ่มเกม';
   if (r.status === 'running') return 'ห้องนี้กำลังเล่นอยู่ ผู้เล่นใหม่เข้ากลางเกมไม่ได้';
-  if (r.status === 'finished') return 'รอบนี้จบแล้ว รอ rematch หรือสร้างห้องใหม่';
+  if (r.status === 'finished') return 'รอบนี้จบแล้ว รอเล่นใหม่หรือสร้างห้องใหม่';
   return '';
 }
 
@@ -216,15 +212,14 @@ function amIMatchParticipant(r = room) {
 function canStart(r = room) {
   if (!r) return false;
   if (r.status !== 'waiting') return false;
-  const players = activePlayers(r);
-  if (players.length < (r.minPlayers || 2)) return false;
-  return players.every((p) => !!p.ready);
+  return readyPlayers(r).length >= (r.minPlayers || 2);
 }
 
 function getPlayersText(r = room) {
   const total = activePlayers(r).length;
+  const ready = readyPlayers(r).length;
   const min = r?.minPlayers || 2;
-  return `${total}/${min}`;
+  return `${total} คน • ready ${ready}/${min}`;
 }
 
 function getStatusText(r = room) {
@@ -243,8 +238,6 @@ function clearMatchState(next) {
     lockedAt: null,
     status: 'idle',
     coop: {
-      goal: 0,
-      success: false,
       finishedAt: 0
     }
   };
@@ -257,7 +250,7 @@ function makeDefaultRoom() {
     hostId: ctx.pid,
     mode: 'coop',
     minPlayers: 2,
-    maxPlayers: 4,
+    maxPlayers: 10,
     status: 'waiting',
     startAt: null,
     createdAt: now(),
@@ -268,8 +261,6 @@ function makeDefaultRoom() {
       lockedAt: null,
       status: 'idle',
       coop: {
-        goal: 0,
-        success: false,
         finishedAt: 0
       }
     }
@@ -306,7 +297,7 @@ function sanitizeRoom(r) {
   }
 
   safe.minPlayers = Math.max(2, Number(safe.minPlayers || 2));
-  safe.maxPlayers = Math.max(safe.minPlayers, Number(safe.maxPlayers || 4));
+  safe.maxPlayers = Math.max(safe.minPlayers, Number(safe.maxPlayers || 10), 10);
   safe.status = ['waiting', 'countdown', 'running', 'finished'].includes(safe.status)
     ? safe.status
     : 'waiting';
@@ -325,8 +316,6 @@ function sanitizeRoom(r) {
       ? rawMatch.status
       : 'idle',
     coop: {
-      goal: Number(rawCoop.goal || 0),
-      success: !!rawCoop.success,
       finishedAt: Number(rawCoop.finishedAt || 0)
     }
   };
@@ -363,8 +352,6 @@ function roomToFirebase(r) {
       lockedAt: r.match?.lockedAt || null,
       status: r.match?.status || 'idle',
       coop: {
-        goal: Number(r.match?.coop?.goal || 0),
-        success: !!r.match?.coop?.success,
         finishedAt: Number(r.match?.coop?.finishedAt || 0)
       }
     }
@@ -447,13 +434,14 @@ function renderButtons(r = room) {
   const me = r?.players?.find((p) => p.id === ctx.pid);
 
   if (els.btnReady) {
+    els.btnReady.style.display = '';
     els.btnReady.disabled = !me || me.connected === false || r?.status !== 'waiting';
     els.btnReady.textContent = me?.ready ? 'ยกเลิกพร้อม' : 'พร้อมแล้ว';
   }
 
   if (els.btnStart) {
     els.btnStart.disabled = !isHost(r) || !canStart(r);
-    els.btnStart.textContent = isHost(r) ? 'เริ่มเกมร่วมกัน' : 'รอ host เริ่ม';
+    els.btnStart.textContent = isHost(r) ? 'เริ่ม Coop' : 'รอ host เริ่ม';
   }
 }
 
@@ -466,15 +454,6 @@ function renderStatus(r = room) {
   if (els.hostName) els.hostName.textContent = host ? playerLabel(host) : '-';
   if (els.inviteLink) els.inviteLink.value = buildInviteUrl();
 
-  const active = activePlayers(r);
-  const fallbackGoal = getGoalFor(ctx.diff, Number(ctx.time || 80), active.length || 2);
-  const roomGoal = Number(r?.match?.coop?.goal || 0);
-  const goal = roomGoal || fallbackGoal;
-
-  if (els.teamGoal) {
-    els.teamGoal.textContent = String(goal || '-');
-  }
-
   if (!r) {
     setHint('กำลังสร้างห้อง...');
     if (els.countdown) els.countdown.textContent = '';
@@ -485,14 +464,15 @@ function renderStatus(r = room) {
   showJoinGuard(blockReason);
 
   if (r.status === 'waiting') {
-    if (active.length < (r.minPlayers || 2)) {
-      setHint(`ต้องมีอย่างน้อย ${r.minPlayers} คน`);
-    } else if (!active.every((p) => p.ready)) {
-      setHint('รอให้ทุกคนกดพร้อม');
+    const readyCount = readyPlayers(r).length;
+    const min = r.minPlayers || 2;
+
+    if (readyCount < min) {
+      setHint(`ต้องมีผู้เล่น ready อย่างน้อย ${min} คน`);
     } else if (isHost(r)) {
-      setHint(`ทุกคนพร้อมแล้ว กดเริ่มเกมร่วมกันได้ • Goal ทีม ${goal}`);
+      setHint('มีผู้เล่น ready ครบแล้ว กดเริ่ม Coop ได้');
     } else {
-      setHint(`ทุกคนพร้อมแล้ว รอ host กดเริ่ม • Goal ทีม ${goal}`);
+      setHint('มีผู้เล่น ready ครบแล้ว รอ host กดเริ่ม');
     }
 
     setCopyState('ส่ง room code หรือลิงก์นี้ให้ผู้เล่นคนอื่นเข้าร่วมได้');
@@ -501,25 +481,24 @@ function renderStatus(r = room) {
 
   if (r.status === 'countdown') {
     if (amIMatchParticipant(r)) {
-      setHint(`กำลังนับถอยหลังก่อนเริ่มเกมร่วมกัน • Goal ทีม ${goal}`);
+      setHint('กำลังนับถอยหลังก่อนเริ่ม Coop');
     } else {
-      setHint('กำลังเริ่มรอบนี้ แต่คุณไม่ได้อยู่ใน participant ของรอบนี้');
+      setHint('รอบนี้เริ่มแล้ว แต่คุณไม่ได้อยู่ใน participant');
     }
-    setCopyState('ห้องถูกล็อกแล้ว กำลังจะเริ่มเกมร่วมกัน', false);
+    setCopyState('ห้องถูกล็อกแล้ว กำลังจะเริ่ม Coop', false);
   }
 
   if (r.status === 'running') {
     if (amIMatchParticipant(r)) {
-      setHint(`ทีมกำลังเล่นอยู่ • Goal ทีม ${goal}`);
+      setHint('Coop กำลังดำเนินอยู่');
     } else {
-      setHint('ทีมกำลังเล่นอยู่ และคุณไม่ได้อยู่ใน participant ของรอบนี้');
+      setHint('Coop กำลังดำเนินอยู่ และคุณไม่ได้อยู่ใน participant ของรอบนี้');
     }
     setCopyState('รอบนี้กำลังดำเนินอยู่', false);
   }
 
   if (r.status === 'finished') {
-    const success = !!r?.match?.coop?.success;
-    setHint(success ? 'ทีมทำเป้าสำเร็จแล้ว' : 'รอบนี้จบแล้ว');
+    setHint('รอบนี้จบแล้ว');
     setCopyState('สามารถกลับ lobby เพื่อเล่นใหม่ได้', false);
   }
 }
@@ -811,21 +790,15 @@ async function beginCountdown() {
     return;
   }
 
-  if (!canStart(cur)) {
-    setHint('ยังเริ่มไม่ได้ ต้องมีอย่างน้อย 2 คน และทุกคนต้อง ready');
-    return;
-  }
-
-  const players = activePlayers(cur).filter((p) => !!p.ready);
-  const participantIds = players.map((p) => p.id).filter(Boolean);
+  const participants = readyPlayers(cur);
+  const participantIds = participants.map((p) => p.id).filter(Boolean);
 
   if (participantIds.length < (cur.minPlayers || 2)) {
-    setHint('จำนวนผู้เล่นที่พร้อมยังไม่พอ');
+    setHint(`ต้องมีผู้เล่น ready อย่างน้อย ${cur.minPlayers || 2} คน`);
     return;
   }
 
   const startAt = now() + 4000;
-  const goal = getGoalFor(ctx.diff, Number(ctx.time || 80), participantIds.length);
 
   await roomRef.update({
     status: 'countdown',
@@ -836,8 +809,6 @@ async function beginCountdown() {
       lockedAt: now(),
       status: 'countdown',
       coop: {
-        goal,
-        success: false,
         finishedAt: 0
       }
     }
@@ -873,7 +844,7 @@ async function enterRun(startAt) {
     startAt: String(startAt || now())
   });
 
-  location.href = `./goodjunk-coop-run.html?v=20260318-coop-v1-polish&${q.toString()}`;
+  location.href = `./goodjunk-coop-run.html?v=20260320-coop-lobby-ready2-max10&${q.toString()}`;
 }
 
 async function leaveRoom() {
