@@ -810,7 +810,7 @@ async function beginCountdown() {
       participantIds,
       lockedAt: now(),
       status: 'countdown',
-      race: {
+      battle: {
         finishedAt: 0
       }
     }
@@ -841,12 +841,12 @@ async function enterRun(startAt) {
     view: ctx.view,
     run: ctx.run,
     gameId: ctx.gameId,
-    mode: 'race',
+    mode: 'battle',
     roomId: ctx.roomId,
     startAt: String(startAt || now())
   });
 
-  location.href = `${RACE_RUN_PATH}?${q.toString()}`;
+  location.href = `./goodjunk-battle-run.html?v=20260319-battle-room-easy-entry&${q.toString()}`;
 }
 
 async function leaveRoom() {
@@ -975,7 +975,7 @@ async function boot() {
     if (room?.status === 'countdown' && room.startAt) runCountdown(room.startAt);
     if (room?.status === 'running') await maybeEnterRunFromRoom(room);
   } catch (err) {
-    console.error('[goodjunk-race-lobby] boot failed:', err);
+    console.error('[goodjunk-battle-lobby] boot failed:', err);
     setHint(`เชื่อม Firebase ไม่สำเร็จ: ${String(err?.message || err)}`);
     if (els.btnReady) els.btnReady.disabled = true;
     if (els.btnStart) els.btnStart.disabled = true;
