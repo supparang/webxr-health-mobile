@@ -51,10 +51,17 @@ const ROOM_PATH = GJ_ROOM_ID ? `hha-battle/goodjunk/rooms/${GJ_ROOM_ID}` : '';
 const GAME_MOUNT = document.getElementById('gameMount') || document.body;
 const BATTLE_UI = window.__gjBattleUi || null;
 
-const STYLE_ID = 'goodjunk-safe-battle-style-20260319-v1';
+const STYLE_ID = 'goodjunk-safe-battle-style-20260319-attack-v1';
 const ROOT_ID = 'gjBattleRoot';
 const HEARTBEAT_MS = 2500;
 const STALE_MS = 45000;
+const ATTACK_COST = 100;
+const SHIELD_COST = 100;
+const SHIELD_DURATION_MS = 3600;
+const ATTACK_DEBUFF_MS = 3200;
+const ATTACK_PENALTY_SCORE = 10;
+const ATTACK_JUNK_BURST = 6;
+const ATTACK_BURST_STEP_MS = 260;
 
 let fbReady = false;
 let db = null;
@@ -69,7 +76,10 @@ let localRunActive = false;
 let summaryBound = false;
 let recoveredStartAt = 0;
 let lastSummary = null;
-let enteredFinish = false;
+let liveRoom = null;
+
+const handledAttackIds = new Set();
+const handlingAttackIds = new Set();
 
 const GOOD_ITEMS = [
   { emoji: '🍎', label: 'apple' },
@@ -110,6 +120,12 @@ const state = {
   missedGood: 0,
   spawnedGood: 0,
   spawnedJunk: 0,
+  attackMeter: 0,
+  shieldMeter: 0,
+  shieldActiveUntil: 0,
+  debuffUntil: 0,
+  junkBurstRemaining: 0,
+  junkBurstAccum: 0,
   running: false,
   ended: false,
   startTs: 0,
@@ -132,7 +148,15 @@ const ui = {
   hint: null,
   progress: null,
   stats: null,
-  centerTip: null
+  centerTip: null,
+  attackFill: null,
+  shieldFill: null,
+  attackLabel: null,
+  shieldLabel: null,
+  attackBtn: null,
+  shieldBtn: null,
+  targetLabel: null,
+  effectBadge: null
 };
 
 const rng = createSeededRng(RUN_CTX.seed || Date.now());
@@ -204,30 +228,167 @@ function injectStyle() {
   style.textContent = `
     #${ROOT_ID}{position:absolute;inset:0;z-index:2;overflow:hidden;user-select:none;-webkit-user-select:none;touch-action:manipulation}
     .gj-shell{position:absolute;inset:0;display:grid;grid-template-rows:auto 1fr auto;overflow:hidden}
-    .gj-topbar{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap;padding:60px 14px 12px;padding-top:calc(60px + env(safe-area-inset-top,0px));pointer-events:none}
+    .gj-topbar{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap;padding:60px 14px 10px;padding-top:calc(60px + env(safe-area-inset-top,0px));pointer-events:none}
     .gj-chip-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;pointer-events:none}
     .gj-chip{display:inline-flex;align-items:center;gap:8px;padding:8px 10px;border-radius:999px;border:1px solid rgba(148,163,184,.18);background:rgba(2,6,23,.66);color:#e5e7eb;font-weight:900;font-size:13px;backdrop-filter:blur(8px);box-shadow:0 10px 24px rgba(0,0,0,.18)}
     .gj-chip span{color:#94a3b8;font-weight:800}
     .gj-stage-wrap{position:relative;min-height:0;padding:8px 10px 10px}
-    .gj-stage{position:relative;width:100%;height:100%;min-height:320px;overflow:hidden;border:1px solid rgba(148,163,184,.18);border-radius:26px;background:radial-gradient(circle at 50% 0%, rgba(245,158,11,.10), transparent 30%),linear-gradient(180deg, rgba(15,23,42,.72), rgba(2,6,23,.78));box-shadow:0 24px 64px rgba(0,0,0,.22)}
-    .gj-stage::before{content:"";position:absolute;inset:0;background:linear-gradient(180deg, rgba(255,255,255,.04), transparent 30%),linear-gradient(0deg, rgba(255,255,255,.03), transparent 30%);pointer-events:none}
+    .gj-stage{
+      position:relative;width:100%;height:100%;min-height:320px;overflow:hidden;border:1px solid rgba(148,163,184,.18);
+      border-radius:26px;background:
+      radial-gradient(circle at 50% 0%, rgba(245,158,11,.10), transparent 30%),
+      linear-gradient(180deg, rgba(15,23,42,.72), rgba(2,6,23,.78));
+      box-shadow:0 24px 64px rgba(0,0,0,.22)
+    }
+    .gj-stage::before{
+      content:"";position:absolute;inset:0;
+      background:linear-gradient(180deg, rgba(255,255,255,.04), transparent 30%),linear-gradient(0deg, rgba(255,255,255,.03), transparent 30%);
+      pointer-events:none
+    }
+    .gj-stage.under-attack::after{
+      content:"";
+      position:absolute;inset:0;
+      background:
+        radial-gradient(circle at 20% 30%, rgba(239,68,68,.12), transparent 22%),
+        radial-gradient(circle at 80% 40%, rgba(239,68,68,.12), transparent 24%),
+        linear-gradient(180deg, rgba(239,68,68,.08), rgba(0,0,0,.10));
+      animation: gj-danger-pulse .55s ease-in-out infinite alternate;
+      pointer-events:none;
+    }
+    .gj-stage.shield-on{
+      box-shadow:0 0 0 2px rgba(56,189,248,.28), 0 24px 64px rgba(0,0,0,.22);
+    }
+    .gj-stage.shield-on::before{
+      content:"";
+      position:absolute;inset:0;
+      background:linear-gradient(180deg, rgba(56,189,248,.08), transparent 34%);
+      pointer-events:none;
+    }
+    @keyframes gj-danger-pulse{
+      from{opacity:.55}
+      to{opacity:1}
+    }
     .gj-target-layer{position:absolute;inset:0;overflow:hidden}
-    .gj-center-tip{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(86vw,420px);padding:16px 18px;border-radius:18px;background:rgba(2,6,23,.50);border:1px solid rgba(148,163,184,.18);color:#e5e7eb;text-align:center;font-weight:900;backdrop-filter:blur(6px);pointer-events:none;opacity:.96;transition:opacity .35s ease, transform .35s ease;box-shadow:0 16px 36px rgba(0,0,0,.18)}
+    .gj-center-tip{
+      position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(86vw,440px);padding:16px 18px;border-radius:18px;
+      background:rgba(2,6,23,.52);border:1px solid rgba(148,163,184,.18);color:#e5e7eb;text-align:center;font-weight:900;
+      backdrop-filter:blur(6px);pointer-events:none;opacity:.96;transition:opacity .35s ease, transform .35s ease;box-shadow:0 16px 36px rgba(0,0,0,.18)
+    }
     .gj-center-tip.hide{opacity:0;transform:translate(-50%,-50%) scale(.96)}
-    .gj-target{position:absolute;display:grid;place-items:center;border-radius:20px;border:1px solid rgba(255,255,255,.16);box-shadow:0 14px 28px rgba(0,0,0,.18);transform:translate3d(0,0,0);cursor:pointer;outline:none;padding:0;overflow:hidden;background:rgba(15,23,42,.78)}
-    .gj-target.good{background:radial-gradient(circle at 30% 25%, rgba(255,255,255,.22), transparent 26%),linear-gradient(180deg, rgba(34,197,94,.30), rgba(34,197,94,.18)),rgba(15,23,42,.84);border-color:rgba(34,197,94,.30)}
-    .gj-target.junk{background:radial-gradient(circle at 30% 25%, rgba(255,255,255,.20), transparent 26%),linear-gradient(180deg, rgba(244,63,94,.26), rgba(244,63,94,.14)),rgba(15,23,42,.84);border-color:rgba(244,63,94,.28)}
+    .gj-target{
+      position:absolute;display:grid;place-items:center;border-radius:20px;border:1px solid rgba(255,255,255,.16);
+      box-shadow:0 14px 28px rgba(0,0,0,.18);transform:translate3d(0,0,0);cursor:pointer;outline:none;padding:0;overflow:hidden;background:rgba(15,23,42,.78)
+    }
+    .gj-target.good{
+      background:radial-gradient(circle at 30% 25%, rgba(255,255,255,.22), transparent 26%),linear-gradient(180deg, rgba(34,197,94,.30), rgba(34,197,94,.18)),rgba(15,23,42,.84);
+      border-color:rgba(34,197,94,.30)
+    }
+    .gj-target.junk{
+      background:radial-gradient(circle at 30% 25%, rgba(255,255,255,.20), transparent 26%),linear-gradient(180deg, rgba(244,63,94,.26), rgba(244,63,94,.14)),rgba(15,23,42,.84);
+      border-color:rgba(244,63,94,.28)
+    }
     .gj-emoji{font-size:32px;line-height:1;transform:translateY(-2px);filter:drop-shadow(0 6px 10px rgba(0,0,0,.18))}
-    .gj-type{position:absolute;left:8px;right:8px;bottom:6px;font-size:10px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;color:#e2e8f0;opacity:.92;text-align:center;white-space:nowrap}
-    .gj-fx{position:absolute;font-size:16px;font-weight:900;pointer-events:none;transform:translate(-50%,-50%);animation:gj-fx-up .75s ease forwards;text-shadow:0 8px 18px rgba(0,0,0,.22)}
-    @keyframes gj-fx-up{from{opacity:1;transform:translate(-50%,-20%)}to{opacity:0;transform:translate(-50%,-140%)}}
+    .gj-type{
+      position:absolute;left:8px;right:8px;bottom:6px;font-size:10px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;color:#e2e8f0;
+      opacity:.92;text-align:center;white-space:nowrap
+    }
+    .gj-fx{
+      position:absolute;font-size:16px;font-weight:900;pointer-events:none;transform:translate(-50%,-50%);
+      animation:gj-fx-up .75s ease forwards;text-shadow:0 8px 18px rgba(0,0,0,.22)
+    }
+    @keyframes gj-fx-up{
+      from{opacity:1;transform:translate(-50%,-20%)}
+      to{opacity:0;transform:translate(-50%,-140%)}
+    }
     .gj-bottom{padding:0 12px calc(12px + env(safe-area-inset-bottom,0px))}
-    .gj-bottom-card{border:1px solid rgba(148,163,184,.18);border-radius:18px;padding:12px;background:rgba(2,6,23,.62);backdrop-filter:blur(8px);box-shadow:0 10px 24px rgba(0,0,0,.18)}
-    .gj-bottom-top{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
-    .gj-progress{position:relative;width:100%;height:12px;border-radius:999px;overflow:hidden;border:1px solid rgba(148,163,184,.18);background:rgba(255,255,255,.06)}
-    .gj-progress-bar{width:100%;height:100%;background:linear-gradient(90deg, rgba(245,158,11,.85), rgba(56,189,248,.85));transform-origin:left center;transition:transform .12s linear}
+    .gj-bottom-card{
+      border:1px solid rgba(148,163,184,.18);border-radius:18px;padding:12px;background:rgba(2,6,23,.62);
+      backdrop-filter:blur(8px);box-shadow:0 10px 24px rgba(0,0,0,.18)
+    }
+    .gj-bottom-top{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap;margin-bottom:10px}
     .gj-legend{display:flex;gap:10px;flex-wrap:wrap;font-size:13px;color:#cbd5e1;line-height:1.5}
     .gj-legend strong{color:#e5e7eb}
+    .gj-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;width:min(100%,480px)}
+    .gj-action{
+      border:1px solid rgba(148,163,184,.18);
+      border-radius:16px;
+      background:rgba(255,255,255,.04);
+      padding:10px;
+      display:grid;
+      gap:8px;
+      min-width:180px;
+    }
+    .gj-action-head{
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      align-items:center;
+      font-size:13px;
+      font-weight:900;
+      color:#e5e7eb;
+    }
+    .gj-meter{
+      position:relative;
+      width:100%;
+      height:12px;
+      border-radius:999px;
+      overflow:hidden;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(255,255,255,.06);
+    }
+    .gj-meter-fill{
+      width:100%;
+      height:100%;
+      transform-origin:left center;
+      transition:transform .12s linear;
+    }
+    .gj-meter-fill.attack{background:linear-gradient(90deg, rgba(245,158,11,.95), rgba(234,179,8,.95))}
+    .gj-meter-fill.shield{background:linear-gradient(90deg, rgba(56,189,248,.95), rgba(14,165,233,.95))}
+    .gj-action-btn{
+      appearance:none;border:0;cursor:pointer;border-radius:12px;padding:10px 12px;font-weight:900;font-size:13px;transition:.12s ease
+    }
+    .gj-action-btn:hover{transform:translateY(-1px);filter:brightness(1.05)}
+    .gj-action-btn:disabled{opacity:.5;cursor:not-allowed;transform:none}
+    .gj-action-btn.attack{background:#f59e0b;color:#3b1d00}
+    .gj-action-btn.shield{background:#38bdf8;color:#082f49}
+    .gj-targeting{
+      margin-top:8px;
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      align-items:center;
+      font-size:13px;
+      color:#cbd5e1;
+    }
+    .gj-badge{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      padding:6px 10px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(255,255,255,.05);
+      font-weight:800;
+    }
+    .gj-badge.warn{
+      border-color:rgba(245,158,11,.28);
+      background:rgba(245,158,11,.12);
+      color:#fcd34d;
+    }
+    .gj-badge.info{
+      border-color:rgba(56,189,248,.28);
+      background:rgba(56,189,248,.12);
+      color:#7dd3fc;
+    }
+    .gj-progress{
+      position:relative;width:100%;height:12px;border-radius:999px;overflow:hidden;border:1px solid rgba(148,163,184,.18);background:rgba(255,255,255,.06)
+    }
+    .gj-progress-bar{
+      width:100%;height:100%;background:linear-gradient(90deg, rgba(245,158,11,.85), rgba(56,189,248,.85));transform-origin:left center;transition:transform .12s linear
+    }
+    @media (max-width:700px){
+      .gj-actions{grid-template-columns:1fr}
+    }
   `;
   document.head.appendChild(style);
 }
@@ -247,7 +408,7 @@ function buildShell() {
 
         <div class="gj-stage-wrap">
           <div class="gj-stage" id="gjStage">
-            <div class="gj-center-tip" id="gjCenterTip">เก็บของดีให้มากที่สุด และระวัง junk</div>
+            <div class="gj-center-tip" id="gjCenterTip">เก็บของดีเพื่อชาร์จ ATTACK และใช้ SHIELD กันอีกฝ่าย</div>
             <div class="gj-target-layer" id="gjTargetLayer"></div>
           </div>
         </div>
@@ -255,15 +416,44 @@ function buildShell() {
         <div class="gj-bottom">
           <div class="gj-bottom-card">
             <div class="gj-bottom-top">
-              <div class="gj-legend" id="gjStatsText">
-                <div><strong>Good hit:</strong> 0</div>
-                <div><strong>Junk hit:</strong> 0</div>
-                <div><strong>Good missed:</strong> 0</div>
+              <div>
+                <div class="gj-legend" id="gjStatsText">
+                  <div><strong>Good hit:</strong> 0</div>
+                  <div><strong>Junk hit:</strong> 0</div>
+                  <div><strong>Good missed:</strong> 0</div>
+                </div>
+
+                <div class="gj-targeting">
+                  <div class="gj-badge">เป้าหมาย: <strong id="gjTargetLabel">-</strong></div>
+                  <div class="gj-badge warn" id="gjEffectBadge">สถานะปกติ</div>
+                </div>
               </div>
-              <div class="gj-legend" id="gjHintText">
-                <div>Tip: เก็บของดีให้ได้มากที่สุด</div>
+
+              <div class="gj-actions">
+                <div class="gj-action">
+                  <div class="gj-action-head">
+                    <span>ATTACK</span>
+                    <strong id="gjAttackLabel">0%</strong>
+                  </div>
+                  <div class="gj-meter"><div class="gj-meter-fill attack" id="gjAttackFill"></div></div>
+                  <button class="gj-action-btn attack" id="btnBattleAttack" type="button">ส่ง Junk Storm</button>
+                </div>
+
+                <div class="gj-action">
+                  <div class="gj-action-head">
+                    <span>SHIELD</span>
+                    <strong id="gjShieldLabel">0%</strong>
+                  </div>
+                  <div class="gj-meter"><div class="gj-meter-fill shield" id="gjShieldFill"></div></div>
+                  <button class="gj-action-btn shield" id="btnBattleShield" type="button">เปิด Shield</button>
+                </div>
               </div>
             </div>
+
+            <div class="gj-legend" id="gjHintText" style="margin-bottom:10px;">
+              <div>Tip: combo ดี ๆ เพื่อเร่ง ATTACK meter</div>
+            </div>
+
             <div class="gj-progress"><div class="gj-progress-bar" id="gjProgressBar"></div></div>
           </div>
         </div>
@@ -282,6 +472,14 @@ function buildShell() {
   ui.progress = document.getElementById('gjProgressBar');
   ui.stats = document.getElementById('gjStatsText');
   ui.centerTip = document.getElementById('gjCenterTip');
+  ui.attackFill = document.getElementById('gjAttackFill');
+  ui.shieldFill = document.getElementById('gjShieldFill');
+  ui.attackLabel = document.getElementById('gjAttackLabel');
+  ui.shieldLabel = document.getElementById('gjShieldLabel');
+  ui.attackBtn = document.getElementById('btnBattleAttack');
+  ui.shieldBtn = document.getElementById('btnBattleShield');
+  ui.targetLabel = document.getElementById('gjTargetLabel');
+  ui.effectBadge = document.getElementById('gjEffectBadge');
 
   refreshStageRect();
   renderHud();
@@ -290,6 +488,9 @@ function buildShell() {
 function bindShell() {
   if (summaryBound) return;
   summaryBound = true;
+
+  ui.attackBtn?.addEventListener('click', fireAttack);
+  ui.shieldBtn?.addEventListener('click', activateShield);
 
   document.getElementById('btnBattleRematch')?.addEventListener('click', async () => {
     await resetRoomForRematch();
@@ -335,6 +536,7 @@ function rand(){ return rng(); }
 function randRange(min, max){ return min + (max - min) * rand(); }
 function clampInt(v, min, max){ return Math.max(min, Math.min(max, Math.floor(v))); }
 function pick(arr){ return arr[Math.floor(rand() * arr.length)]; }
+function clamp01(v){ return Math.max(0, Math.min(1, v)); }
 
 function startGame() {
   if (state.running || state.ended) return;
@@ -350,6 +552,12 @@ function startGame() {
   state.missedGood = 0;
   state.spawnedGood = 0;
   state.spawnedJunk = 0;
+  state.attackMeter = 0;
+  state.shieldMeter = 0;
+  state.shieldActiveUntil = 0;
+  state.debuffUntil = 0;
+  state.junkBurstRemaining = 0;
+  state.junkBurstAccum = 0;
   state.running = true;
   state.ended = false;
   state.startTs = performance.now();
@@ -358,13 +566,12 @@ function startGame() {
   state.targetSeq = 0;
   state.targets.clear();
   localRunActive = true;
-  enteredFinish = false;
 
   if (ui.layer) ui.layer.innerHTML = '';
   if (ui.centerTip) {
     ui.centerTip.classList.remove('hide');
-    ui.centerTip.textContent = 'เก็บของดีให้มากที่สุด แล้วอย่าแตะ junk';
-    setTimeout(() => ui.centerTip?.classList.add('hide'), 1800);
+    ui.centerTip.textContent = 'เก็บของดีเพื่อชาร์จ ATTACK และใช้ SHIELD กันอีกฝ่าย';
+    setTimeout(() => ui.centerTip?.classList.add('hide'), 2000);
   }
 
   if (BATTLE_UI?.setStatus) BATTLE_UI.setStatus('running');
@@ -390,14 +597,31 @@ function loop(ts) {
   }
 
   updateSpawner(dt);
+  updateBattleEffects(dt);
   updateTargets(dt);
   renderHud();
 
   state.frameRaf = requestAnimationFrame(loop);
 }
 
+function getEffectivePreset() {
+  const base = DIFF_PRESET[state.diff] || DIFF_PRESET.normal;
+  const debuffed = Date.now() < state.debuffUntil;
+
+  if (!debuffed) return base;
+
+  return {
+    spawnMs: Math.max(240, Math.round(base.spawnMs * 0.72)),
+    goodRatio: Math.max(0.28, base.goodRatio - 0.22),
+    speedMin: Math.round(base.speedMin * 1.15),
+    speedMax: Math.round(base.speedMax * 1.18),
+    targetSizeMin: Math.max(42, base.targetSizeMin - 6),
+    targetSizeMax: Math.max(68, base.targetSizeMax - 6)
+  };
+}
+
 function updateSpawner(dt) {
-  const preset = DIFF_PRESET[state.diff] || DIFF_PRESET.normal;
+  const preset = getEffectivePreset();
   state.lastSpawnAccum += dt;
 
   while (state.lastSpawnAccum >= preset.spawnMs) {
@@ -406,11 +630,40 @@ function updateSpawner(dt) {
   }
 }
 
-function spawnTarget() {
+function updateBattleEffects(dt) {
+  const nowTs = Date.now();
+
+  if (nowTs < state.debuffUntil && state.junkBurstRemaining > 0) {
+    state.junkBurstAccum += dt;
+    while (state.junkBurstAccum >= ATTACK_BURST_STEP_MS && state.junkBurstRemaining > 0) {
+      state.junkBurstAccum -= ATTACK_BURST_STEP_MS;
+      spawnTarget('junk');
+      state.junkBurstRemaining -= 1;
+    }
+  }
+
+  if (nowTs >= state.debuffUntil) {
+    state.junkBurstAccum = 0;
+    state.junkBurstRemaining = 0;
+  }
+
+  refreshEffectClasses();
+}
+
+function refreshEffectClasses() {
+  if (!ui.stage) return;
+  const shieldOn = Date.now() < state.shieldActiveUntil;
+  const underAttack = Date.now() < state.debuffUntil;
+
+  ui.stage.classList.toggle('shield-on', shieldOn);
+  ui.stage.classList.toggle('under-attack', underAttack);
+}
+
+function spawnTarget(forceType = '') {
   refreshStageRect();
 
-  const preset = DIFF_PRESET[state.diff] || DIFF_PRESET.normal;
-  const isGood = rand() < preset.goodRatio;
+  const preset = getEffectivePreset();
+  const isGood = forceType === 'good' ? true : forceType === 'junk' ? false : rand() < preset.goodRatio;
   const item = pick(isGood ? GOOD_ITEMS : JUNK_ITEMS);
 
   const size = randRange(preset.targetSizeMin, preset.targetSizeMax);
@@ -478,6 +731,14 @@ function updateTargets(dt) {
   });
 }
 
+function gainAttack(v) {
+  state.attackMeter = Math.min(ATTACK_COST, state.attackMeter + v);
+}
+
+function gainShield(v) {
+  state.shieldMeter = Math.min(SHIELD_COST, state.shieldMeter + v);
+}
+
 function hitTarget(id) {
   if (!state.running || state.ended) return;
   const target = state.targets.get(id);
@@ -490,15 +751,18 @@ function hitTarget(id) {
     const comboBonus = Math.min(12, Math.floor(state.streak / 3) * 2);
     const gain = 10 + comboBonus;
     state.score += gain;
+    gainAttack(12);
+    gainShield(5);
     createFx(target.x + target.size / 2, target.y + target.size / 2, `+${gain}`, '#86efac');
-    updateHint('ดีมาก! เก็บของดีต่อเนื่องไว้');
+    updateHint('ดีมาก! สะสม ATTACK ให้เต็มแล้วกดยิง');
   } else {
     state.hitsBad += 1;
     state.miss += 1;
     state.streak = 0;
     state.score = Math.max(0, state.score - 8);
+    gainShield(20);
     createFx(target.x + target.size / 2, target.y + target.size / 2, 'MISS', '#fda4af');
-    updateHint('ระวัง junk! คะแนนจะลดลง');
+    updateHint('โดน junk แล้ว รีบเติม SHIELD ไว้กันอีกฝ่าย');
   }
 
   removeTarget(id);
@@ -510,8 +774,9 @@ function registerMissGood(target) {
   state.missedGood += 1;
   state.miss += 1;
   state.streak = 0;
+  gainShield(14);
   createFx(target.x + target.size / 2, Math.max(28, target.y), 'พลาดของดี', '#fbbf24');
-  updateHint('มีของดีหลุดไปแล้ว รีบเก็บชิ้นต่อไป');
+  updateHint('ของดีหลุดไปแล้ว ระวังและเตรียม SHIELD ไว้');
   removeTarget(target.id);
   renderHud();
   publishProgress();
@@ -549,6 +814,149 @@ function updateHint(message) {
   ui.hint.innerHTML = `<div>${escapeHtml(message)}</div>`;
 }
 
+function getOpponentCandidates(room = liveRoom) {
+  const players = getBattlePlayers(room);
+  return players.filter((p) => p.id !== GJ_PID && p.connected !== false && !p.finished);
+}
+
+function pickAttackTarget(room = liveRoom) {
+  const opponents = getOpponentCandidates(room);
+  if (!opponents.length) return null;
+
+  return [...opponents].sort((a, b) => {
+    if (b.finalScore !== a.finalScore) return b.finalScore - a.finalScore;
+    if (a.miss !== b.miss) return a.miss - b.miss;
+    return b.streak - a.streak;
+  })[0];
+}
+
+async function fireAttack() {
+  if (!state.running || state.ended) return;
+  if (state.attackMeter < ATTACK_COST) {
+    toast('Attack meter ยังไม่เต็ม');
+    return;
+  }
+
+  const room = await loadRoom();
+  if (!room) {
+    toast('ยังโหลดห้องไม่สำเร็จ');
+    return;
+  }
+
+  const target = pickAttackTarget(room);
+  if (!target) {
+    toast('ยังไม่มีเป้าหมายให้โจมตี');
+    return;
+  }
+
+  const attackId = `atk-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+  const payload = {
+    id: attackId,
+    type: 'junkstorm',
+    fromPid: GJ_PID,
+    fromName: GJ_NAME,
+    toPid: target.id,
+    toName: target.name || target.id,
+    createdAt: Date.now(),
+    penaltyScore: ATTACK_PENALTY_SCORE,
+    durationMs: ATTACK_DEBUFF_MS,
+    junkBurst: ATTACK_JUNK_BURST,
+    handled: {}
+  };
+
+  try {
+    await roomRef.child('match').child('battle').child('attacks').child(attackId).set(payload);
+    state.attackMeter = 0;
+    renderHud();
+    toast(`ส่ง Junk Storm ไปหา ${target.name || target.id} แล้ว`);
+    updateHint(`โจมตี ${target.name || target.id} แล้ว!`);
+  } catch (err) {
+    console.error('[battle] fireAttack failed:', err);
+    toast('ส่งการโจมตีไม่สำเร็จ');
+  }
+}
+
+function activateShield() {
+  if (!state.running || state.ended) return;
+  if (state.shieldMeter < SHIELD_COST) {
+    toast('Shield meter ยังไม่เต็ม');
+    return;
+  }
+
+  state.shieldMeter = 0;
+  state.shieldActiveUntil = Date.now() + SHIELD_DURATION_MS;
+  renderHud();
+  refreshEffectClasses();
+  toast('Shield พร้อมกันการโจมตีแล้ว');
+  updateHint('Shield ทำงานอยู่! ถ้าอีกฝ่ายยิงมาจะกันได้');
+}
+
+async function handleIncomingAttacks(room) {
+  const attacks = room?.match?.battle?.attacks || {};
+  const list = Object.values(attacks).sort((a, b) => Number(a.createdAt || 0) - Number(b.createdAt || 0));
+
+  for (const attack of list) {
+    const attackId = String(attack?.id || '');
+    if (!attackId) continue;
+    if (String(attack.toPid || '') !== GJ_PID) continue;
+    if (handledAttackIds.has(attackId)) continue;
+    if (handlingAttackIds.has(attackId)) continue;
+    if (attack?.handled?.[GJ_PID]) {
+      handledAttackIds.add(attackId);
+      continue;
+    }
+
+    handlingAttackIds.add(attackId);
+
+    try {
+      await applyIncomingAttack(attack);
+      await roomRef
+        .child('match')
+        .child('battle')
+        .child('attacks')
+        .child(attackId)
+        .child('handled')
+        .child(GJ_PID)
+        .set(true);
+      handledAttackIds.add(attackId);
+    } catch (err) {
+      console.error('[battle] handleIncomingAttack failed:', err);
+    } finally {
+      handlingAttackIds.delete(attackId);
+    }
+  }
+}
+
+async function applyIncomingAttack(attack) {
+  const fromName = String(attack?.fromName || attack?.fromPid || 'คู่แข่ง');
+  const nowTs = Date.now();
+
+  if (nowTs < state.shieldActiveUntil) {
+    state.shieldActiveUntil = 0;
+    refreshEffectClasses();
+    renderHud();
+    toast(`Shield กันการโจมตีจาก ${fromName} สำเร็จ`);
+    updateHint(`กันการโจมตีจาก ${fromName} ได้แล้ว`);
+    return;
+  }
+
+  state.score = Math.max(0, state.score - Number(attack?.penaltyScore || ATTACK_PENALTY_SCORE));
+  state.miss += 1;
+  state.streak = 0;
+  gainShield(28);
+
+  state.debuffUntil = Math.max(state.debuffUntil, nowTs + Number(attack?.durationMs || ATTACK_DEBUFF_MS));
+  state.junkBurstRemaining += Number(attack?.junkBurst || ATTACK_JUNK_BURST);
+  state.junkBurstAccum = 0;
+
+  createFx(state.rect.width * 0.5, 90, `-${Number(attack?.penaltyScore || ATTACK_PENALTY_SCORE)}`, '#fda4af');
+  toast(`โดน ${fromName} โจมตี! junk จะเพิ่มช่วงสั้น ๆ`);
+  updateHint(`โดน ${fromName} ยิงใส่ รีบเก็บของดีและหาโอกาสยิงกลับ`);
+  refreshEffectClasses();
+  renderHud();
+  publishProgress();
+}
+
 function renderHud() {
   if (ui.score) ui.score.textContent = String(state.score);
   if (ui.timer) ui.timer.textContent = formatSeconds(state.timeLeftMs);
@@ -556,7 +964,7 @@ function renderHud() {
   if (ui.streak) ui.streak.textContent = String(state.bestStreak);
 
   if (ui.progress) {
-    const ratio = state.totalMs > 0 ? Math.max(0, Math.min(1, state.timeLeftMs / state.totalMs)) : 0;
+    const ratio = state.totalMs > 0 ? clamp01(state.timeLeftMs / state.totalMs) : 0;
     ui.progress.style.transform = `scaleX(${ratio})`;
   }
 
@@ -567,6 +975,32 @@ function renderHud() {
       <div><strong>Good missed:</strong> ${state.missedGood}</div>
     `;
   }
+
+  if (ui.attackFill) ui.attackFill.style.transform = `scaleX(${clamp01(state.attackMeter / ATTACK_COST)})`;
+  if (ui.shieldFill) ui.shieldFill.style.transform = `scaleX(${clamp01(state.shieldMeter / SHIELD_COST)})`;
+  if (ui.attackLabel) ui.attackLabel.textContent = `${Math.round(clamp01(state.attackMeter / ATTACK_COST) * 100)}%`;
+  if (ui.shieldLabel) ui.shieldLabel.textContent = `${Math.round(clamp01(state.shieldMeter / SHIELD_COST) * 100)}%`;
+
+  if (ui.attackBtn) ui.attackBtn.disabled = state.attackMeter < ATTACK_COST || state.ended || !pickAttackTarget(liveRoom);
+  if (ui.shieldBtn) ui.shieldBtn.disabled = state.shieldMeter < SHIELD_COST || state.ended;
+
+  const target = pickAttackTarget(liveRoom);
+  if (ui.targetLabel) ui.targetLabel.textContent = target ? (target.name || target.id) : '-';
+
+  if (ui.effectBadge) {
+    if (Date.now() < state.shieldActiveUntil) {
+      ui.effectBadge.className = 'gj-badge info';
+      ui.effectBadge.textContent = 'Shield ทำงานอยู่';
+    } else if (Date.now() < state.debuffUntil) {
+      ui.effectBadge.className = 'gj-badge warn';
+      ui.effectBadge.textContent = 'โดนโจมตีอยู่ • junk เพิ่ม';
+    } else {
+      ui.effectBadge.className = 'gj-badge';
+      ui.effectBadge.textContent = 'สถานะปกติ';
+    }
+  }
+
+  refreshEffectClasses();
 }
 
 function formatSeconds(ms) {
@@ -574,6 +1008,16 @@ function formatSeconds(ms) {
   const m = Math.floor(s / 60);
   const r = s % 60;
   return `${m}:${String(r).padStart(2, '0')}`;
+}
+
+function toast(message) {
+  if (window.__gjShowBattleRunMessage) {
+    window.__gjShowBattleRunMessage(message);
+    clearTimeout(toast._t);
+    toast._t = setTimeout(() => {
+      window.__gjHideBattleRunMessage?.();
+    }, 2200);
+  }
 }
 
 function endGame(reason = 'finished') {
@@ -649,6 +1093,30 @@ function normalizePlayers(players) {
   })) : [];
 }
 
+function sanitizeAttacks(attacks) {
+  const out = {};
+  if (!attacks || typeof attacks !== 'object') return out;
+
+  for (const [id, raw] of Object.entries(attacks)) {
+    if (!raw || typeof raw !== 'object') continue;
+    out[id] = {
+      id: String(raw.id || id),
+      type: String(raw.type || 'junkstorm'),
+      fromPid: __normalizePid(raw.fromPid || ''),
+      fromName: String(raw.fromName || '').trim(),
+      toPid: __normalizePid(raw.toPid || ''),
+      toName: String(raw.toName || '').trim(),
+      createdAt: Number(raw.createdAt || 0),
+      penaltyScore: Number(raw.penaltyScore || ATTACK_PENALTY_SCORE),
+      durationMs: Number(raw.durationMs || ATTACK_DEBUFF_MS),
+      junkBurst: Number(raw.junkBurst || ATTACK_JUNK_BURST),
+      handled: raw.handled && typeof raw.handled === 'object' ? raw.handled : {}
+    };
+  }
+
+  return out;
+}
+
 function sanitizeRoom(room) {
   if (!room) return null;
 
@@ -673,7 +1141,8 @@ function sanitizeRoom(room) {
       lockedAt: rawMatch.lockedAt ? Number(rawMatch.lockedAt) : null,
       status: ['idle', 'countdown', 'running', 'finished'].includes(rawMatch.status) ? rawMatch.status : 'idle',
       battle: {
-        finishedAt: Number(rawBattle.finishedAt || 0)
+        finishedAt: Number(rawBattle.finishedAt || 0),
+        attacks: sanitizeAttacks(rawBattle.attacks || {})
       }
     }
   };
@@ -708,7 +1177,8 @@ function roomToFirebase(room) {
       lockedAt: room.match?.lockedAt || null,
       status: room.match?.status || 'idle',
       battle: {
-        finishedAt: Number(room.match?.battle?.finishedAt || 0)
+        finishedAt: Number(room.match?.battle?.finishedAt || 0),
+        attacks: room.match?.battle?.attacks || {}
       }
     }
   };
@@ -753,7 +1223,7 @@ function amIParticipant(room) {
 
 function buildBattleSummaryPayload(room, players, pending = false, reason = '') {
   return {
-    version: '20260319-battle-v1',
+    version: '20260319-battle-attack-v1',
     source: 'goodjunk-battle',
     gameId: GJ_GAME_ID,
     mode: 'battle',
@@ -1000,7 +1470,8 @@ async function maybeFinalizeRoom(force = false) {
       status: 'finished',
       battle: {
         ...(room.match?.battle || {}),
-        finishedAt: ts
+        finishedAt: ts,
+        attacks: room.match?.battle?.attacks || {}
       }
     };
     changed = true;
@@ -1060,7 +1531,8 @@ async function publishFinish(reason = 'finished') {
       status: 'finished',
       battle: {
         ...(room.match?.battle || {}),
-        finishedAt: Date.now()
+        finishedAt: Date.now(),
+        attacks: room.match?.battle?.attacks || {}
       }
     };
     room.updatedAt = Date.now();
@@ -1069,7 +1541,6 @@ async function publishFinish(reason = 'finished') {
 
     state.running = false;
     state.ended = true;
-    enteredFinish = true;
     stopHeartbeat();
     stopWatchdog();
 
@@ -1133,7 +1604,7 @@ function showSummary(room, players, pending = false, reason = '') {
   if (hint) {
     hint.textContent = pending
       ? 'summary นี้ยังไม่ final จนกว่าผู้เล่นใน participant จะจบครบหรือถูกตัดสิทธิ์'
-      : 'ระบบจัดอันดับจากคะแนนก่อน แล้วดู miss และ best streak';
+      : 'Battle นี้จัดอันดับจากคะแนนก่อน แล้วดู miss และ best streak';
   }
 
   lastSummary = buildBattleSummaryPayload(room, sorted, pending, reason);
@@ -1152,7 +1623,8 @@ async function resetRoomForRematch() {
     lockedAt: null,
     status: 'idle',
     battle: {
-      finishedAt: 0
+      finishedAt: 0,
+      attacks: {}
     }
   };
   room.updatedAt = Date.now();
@@ -1237,12 +1709,15 @@ function attachRoomListener() {
       const room = sanitizeRoom(snapshotToRoom(snap.val()));
       if (!room) return;
 
+      liveRoom = room;
       recoveredStartAt = Number(room.startAt || recoveredStartAt || 0);
 
       if (!amIParticipant(room)) {
         hideSummary();
         return;
       }
+
+      await handleIncomingAttacks(room);
 
       if (room.status === 'finished') {
         state.running = false;
@@ -1265,6 +1740,7 @@ function attachRoomListener() {
         hideSummary();
       }
 
+      renderHud();
       await maybeFinalizeRoom(false);
     });
   });
