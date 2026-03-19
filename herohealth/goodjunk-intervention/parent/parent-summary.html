@@ -5,45 +5,201 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>GoodJunk Intervention • Parent Summary</title>
   <link rel="stylesheet" href="../assessments/assessment.css" />
+  <style>
+    .summary-grid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:12px;
+      margin-top:12px;
+    }
+
+    .summary-card{
+      border:1px solid rgba(148,163,184,.14);
+      border-radius:16px;
+      background:rgba(2,6,23,.42);
+      padding:14px;
+    }
+
+    .summary-label{
+      color:#94a3b8;
+      font-size:12px;
+      font-weight:900;
+      text-transform:uppercase;
+      letter-spacing:.04em;
+    }
+
+    .summary-value{
+      margin-top:6px;
+      color:#e5e7eb;
+      font-size:24px;
+      font-weight:1000;
+      line-height:1.1;
+    }
+
+    .summary-sub{
+      margin-top:6px;
+      color:#cbd5e1;
+      font-size:13px;
+      line-height:1.55;
+    }
+
+    .list-box{
+      display:grid;
+      gap:10px;
+      margin-top:12px;
+    }
+
+    .list-item{
+      border:1px solid rgba(148,163,184,.14);
+      border-radius:16px;
+      background:rgba(2,6,23,.42);
+      padding:14px;
+    }
+
+    .list-title{
+      color:#94a3b8;
+      font-size:12px;
+      font-weight:900;
+      text-transform:uppercase;
+      letter-spacing:.04em;
+      margin-bottom:6px;
+    }
+
+    .list-value{
+      color:#e5e7eb;
+      font-size:15px;
+      font-weight:800;
+      line-height:1.6;
+      white-space:pre-wrap;
+      word-break:break-word;
+    }
+
+    @media (max-width:760px){
+      .summary-grid{
+        grid-template-columns:1fr;
+      }
+    }
+  </style>
 </head>
 <body>
   <main class="page">
     <section class="card">
-      <div class="badge">ผู้ปกครอง • Parent Summary</div>
+      <div class="badge">Parent • Summary</div>
       <h1>สรุปผลสำหรับผู้ปกครอง</h1>
-      <p class="sub">สรุปจากผลเกมและแบบสอบถามผู้ปกครอง</p>
+      <p class="sub">
+        หน้านี้สรุปข้อมูลผู้เรียน ผลจากเกม และคำตอบของผู้ปกครองในรอบนี้
+      </p>
+
       <div class="ctx" id="ctxBox">กำลังโหลด...</div>
 
       <section class="block">
-        <h2>ข้อมูลภาพรวม</h2>
-        <p id="summaryIntro">กำลังโหลดข้อมูล...</p>
+        <h2>ข้อมูลรอบนี้</h2>
+        <div class="summary-grid">
+          <div class="summary-card">
+            <div class="summary-label">Study</div>
+            <div class="summary-value" id="vStudy">-</div>
+            <div class="summary-sub">รหัสการทดลอง</div>
+          </div>
+
+          <div class="summary-card">
+            <div class="summary-label">Student</div>
+            <div class="summary-value" id="vStudent">-</div>
+            <div class="summary-sub">ผู้เรียนในรอบนี้</div>
+          </div>
+
+          <div class="summary-card">
+            <div class="summary-label">Session</div>
+            <div class="summary-value" id="vSession">-</div>
+            <div class="summary-sub">รหัส session</div>
+          </div>
+
+          <div class="summary-card">
+            <div class="summary-label">Condition</div>
+            <div class="summary-value" id="vCondition">-</div>
+            <div class="summary-sub">กลุ่มการทดลอง</div>
+          </div>
+        </div>
       </section>
 
       <section class="block">
-        <h2>สรุปผลจากเกม</h2>
-        <div class="choice-grid">
-          <div class="choice">คะแนนรวม: <b id="gameScore" style="margin-left:8px;">-</b></div>
-          <div class="choice">เลือกของดี: <b id="gameGood" style="margin-left:8px;">-</b></div>
-          <div class="choice">แตะ junk: <b id="gameJunk" style="margin-left:8px;">-</b></div>
-          <div class="choice">พลาด: <b id="gameMiss" style="margin-left:8px;">-</b></div>
-          <div class="choice">เกรดการเล่น: <b id="gameGrade" style="margin-left:8px;">-</b></div>
+        <h2>ผลจากเกม</h2>
+        <div class="summary-grid">
+          <div class="summary-card">
+            <div class="summary-label">Score</div>
+            <div class="summary-value" id="vScore">-</div>
+            <div class="summary-sub">คะแนนรวมจากเกม</div>
+          </div>
+
+          <div class="summary-card">
+            <div class="summary-label">Grade</div>
+            <div class="summary-value" id="vGrade">-</div>
+            <div class="summary-sub">คุณภาพการเล่นโดยรวม</div>
+          </div>
+
+          <div class="summary-card">
+            <div class="summary-label">Good Hit</div>
+            <div class="summary-value" id="vGoodHit">-</div>
+            <div class="summary-sub">จำนวนครั้งที่เก็บของดีได้</div>
+          </div>
+
+          <div class="summary-card">
+            <div class="summary-label">Miss</div>
+            <div class="summary-value" id="vMiss">-</div>
+            <div class="summary-sub">จำนวนครั้งที่พลาดหรือโดน junk</div>
+          </div>
         </div>
       </section>
 
       <section class="block">
         <h2>สรุปคำตอบผู้ปกครอง</h2>
-        <div id="parentSummaryBody" class="note">กำลังโหลดคำตอบ...</div>
-      </section>
+        <div class="list-box">
+          <div class="list-item">
+            <div class="list-title">เด็กได้พูดคุยเรื่องโภชนาการหรือไม่</div>
+            <div class="list-value" id="p1">-</div>
+          </div>
 
-      <section class="block">
-        <h2>ข้อเสนอแนะการต่อยอดที่บ้าน</h2>
-        <ul id="homeTips" class="note" style="margin:0; padding-left:18px;"></ul>
+          <div class="list-item">
+            <div class="list-title">เด็กเลือกของว่างดีขึ้นหรือไม่</div>
+            <div class="list-value" id="p2">-</div>
+          </div>
+
+          <div class="list-item">
+            <div class="list-title">เด็กพยายามลด junk food หรือไม่</div>
+            <div class="list-value" id="p3">-</div>
+          </div>
+
+          <div class="list-item">
+            <div class="list-title">เด็กอธิบายเหตุผลการเลือกอาหารได้ดีขึ้นหรือไม่</div>
+            <div class="list-value" id="p4">-</div>
+          </div>
+
+          <div class="list-item">
+            <div class="list-title">ผลกระทบโดยรวมของกิจกรรม</div>
+            <div class="list-value" id="p5">-</div>
+          </div>
+
+          <div class="list-item">
+            <div class="list-title">สิ่งที่ผู้ปกครองเห็นว่าเปลี่ยนมากที่สุด</div>
+            <div class="list-value" id="p6">-</div>
+          </div>
+
+          <div class="list-item">
+            <div class="list-title">แนวทางสนับสนุนต่อที่บ้าน</div>
+            <div class="list-value" id="p7">-</div>
+          </div>
+
+          <div class="list-item">
+            <div class="list-title">ข้อเสนอแนะเพิ่มเติม</div>
+            <div class="list-value" id="p8">-</div>
+          </div>
+        </div>
       </section>
 
       <div class="footer">
-        <button class="btn btn-primary" id="backTeacherBtn" type="button">กลับ Teacher Panel</button>
-        <button class="btn btn-ghost" id="backLauncherBtn" type="button">กลับ Student Launcher</button>
-        <button class="btn btn-ghost" id="gotoParentFormBtn" type="button">แก้แบบสอบถามผู้ปกครอง</button>
+        <button type="button" class="btn btn-ghost" id="btnTeacherPanel">Teacher Panel</button>
+        <button type="button" class="btn btn-ghost" id="btnCompletion">Completion</button>
+        <button type="button" class="btn btn-primary" id="btnShortFollowup">Short Follow-up</button>
+        <button type="button" class="btn btn-primary" id="btnWeeklyCheck">Weekly Check</button>
       </div>
     </section>
   </main>
@@ -54,120 +210,60 @@
 
     function $(id){ return document.getElementById(id); }
 
-    function textOf(value, map = {}) {
-      return map[value] || value || '—';
-    }
-
-    function buildParentBullets(parent) {
-      const answers = parent?.answers || parent || {};
-      const bullets = [];
-
-      const talkMap = {
-        yes: 'เด็กสนใจคุยเรื่องของว่างสุขภาพมากขึ้น',
-        maybe: 'เด็กเริ่มคุยเรื่องของว่างสุขภาพบ้าง',
-        notMuch: 'ยังเห็นการพูดคุยเรื่องของว่างสุขภาพไม่มาก',
-        no: 'ยังไม่เห็นการเปลี่ยนแปลงด้านการพูดคุย'
-      };
-
-      const healthyMap = {
-        yes: 'ผู้ปกครองสังเกตว่าเด็กอยากเลือกของว่างสุขภาพมากขึ้น',
-        maybe: 'ผู้ปกครองสังเกตว่ามีแนวโน้มดีขึ้นเล็กน้อย',
-        notMuch: 'การเปลี่ยนแปลงยังไม่ชัดเจนมาก',
-        no: 'ยังไม่เห็นการเปลี่ยนแปลงด้านการเลือกของว่าง'
-      };
-
-      const junkMap = {
-        yes: 'เด็กมีแนวโน้มลดการขอขนมหรือเครื่องดื่มหวาน',
-        maybe: 'เด็กเริ่มลดลงบ้าง',
-        notMuch: 'ยังไม่ชัดเจนว่าลดลง',
-        no: 'ยังไม่เห็นว่าลดลง'
-      };
-
-      bullets.push(talkMap[answers.p1_talkNutrition] || 'ยังไม่มีข้อมูลเรื่องการพูดคุย');
-      bullets.push(healthyMap[answers.p2_moreHealthyChoice] || 'ยังไม่มีข้อมูลเรื่องการเลือกของว่างสุขภาพ');
-      bullets.push(junkMap[answers.p3_reduceJunk] || 'ยังไม่มีข้อมูลเรื่องการลด junk');
-
-      if (answers.p4_explainReason === 'yes') {
-        bullets.push('เด็กสามารถอธิบายเหตุผลเรื่องการเลือกอาหารที่ดีกว่าได้');
-      } else if (answers.p4_explainReason === 'somewhat') {
-        bullets.push('เด็กอธิบายเหตุผลได้บางส่วน');
-      }
-
-      if (answers.p7_supportPlan) {
-        bullets.push(`แผนสนับสนุนจากผู้ปกครอง: ${answers.p7_supportPlan}`);
-      }
-
-      if (answers.p8_comment) {
-        bullets.push(`ข้อเสนอแนะเพิ่มเติม: ${answers.p8_comment}`);
-      }
-
-      return bullets;
-    }
-
-    function buildHomeTips(game, parent) {
-      const tips = [];
-      const answers = parent?.answers || parent || {};
-
-      tips.push('ชวนเด็กเลือกผลไม้เป็นของว่างอย่างน้อย 1 ครั้งในแต่ละวัน');
-      tips.push('เตรียมน้ำเปล่าหรือนมจืดไว้เป็นตัวเลือกที่หยิบง่าย');
-      tips.push('คุยกับเด็กสั้น ๆ ว่าวันนี้เลือกของว่างอะไร และเพราะอะไร');
-
-      if ((game?.junkHit || 0) >= (game?.goodHit || 0)) {
-        tips.push('ช่วยเด็กสังเกตความต่างระหว่างของว่างสุขภาพกับ junk ก่อนซื้อจริง');
-      }
-
-      if (answers.p3_reduceJunk === 'notMuch' || answers.p3_reduceJunk === 'no') {
-        tips.push('ลองเริ่มจากลดความถี่ของขนมหรือเครื่องดื่มหวานทีละน้อย');
-      }
-
-      if (answers.p2_moreHealthyChoice === 'yes' || answers.p2_moreHealthyChoice === 'maybe') {
-        tips.push('ใช้โอกาสนี้เสริมแรงเชิงบวกเมื่อเด็กเลือกของว่างที่ดีต่อสุขภาพ');
-      }
-
-      return tips;
+    function text(v, fallback='-') {
+      return (v == null || v === '') ? fallback : String(v);
     }
 
     mergeCtx(pickCtxFromQuery());
+
     const ctx = withDefaultCtx(loadCtx());
     saveCtx(ctx);
 
-    const game = loadJSON(KEYS.GAME_SUMMARY, {}) || {};
-    const parent = loadJSON(KEYS.PARENT_RESPONSE, {}) || {};
+    const gameSummary = loadJSON(KEYS.GAME_SUMMARY, {}) || {};
+    const parentResp = loadJSON(KEYS.PARENT_RESPONSE, {}) || {};
+    const answers = parentResp.answers || {};
 
     $('ctxBox').textContent = [
       `PID: ${ctx.pid || '-'}`,
+      `Student: ${ctx.nickName || ctx.studentKey || '-'}`,
       `Study: ${ctx.studyId || '-'}`,
-      `Session: ${ctx.session || '-'}`,
-      `Condition: ${ctx.condition || '-'}`
+      `Session: ${ctx.session || ctx.sessionId || '-'}`,
+      `Condition: ${ctx.condition || ctx.conditionGroup || '-'}`
     ].join(' • ');
 
-    $('summaryIntro').textContent =
-      `${ctx.nickName || ctx.pid || 'ผู้เรียน'} ได้เข้าร่วมกิจกรรม GoodJunk Intervention แล้ว ระบบสรุปทั้งผลเกมและมุมมองของผู้ปกครองไว้ด้านล่าง`;
+    $('vStudy').textContent = text(ctx.studyId);
+    $('vStudent').textContent = text(ctx.nickName || ctx.studentKey || ctx.pid);
+    $('vSession').textContent = text(ctx.session || ctx.sessionId);
+    $('vCondition').textContent = text(ctx.condition || ctx.conditionGroup);
 
-    $('gameScore').textContent = String(game.score ?? '-');
-    $('gameGood').textContent = String(game.goodHit ?? '-');
-    $('gameJunk').textContent = String(game.junkHit ?? '-');
-    $('gameMiss').textContent = String(game.miss ?? '-');
-    $('gameGrade').textContent = String(game.grade ?? '-');
+    $('vScore').textContent = text(gameSummary.score);
+    $('vGrade').textContent = text(gameSummary.grade);
+    $('vGoodHit').textContent = text(gameSummary.goodHit);
+    $('vMiss').textContent = text(gameSummary.miss);
 
-    const parentBullets = buildParentBullets(parent);
-    $('parentSummaryBody').innerHTML = parentBullets.length
-      ? `<ul style="margin:0; padding-left:18px;">${parentBullets.map(v => `<li>${v}</li>`).join('')}</ul>`
-      : 'ยังไม่มีข้อมูลแบบสอบถามผู้ปกครอง';
+    $('p1').textContent = text(answers.p1_talkNutrition);
+    $('p2').textContent = text(answers.p2_moreHealthyChoice);
+    $('p3').textContent = text(answers.p3_reduceJunk);
+    $('p4').textContent = text(answers.p4_explainReason);
+    $('p5').textContent = text(answers.p5_overallImpact);
+    $('p6').textContent = text(answers.p6_mostChanged);
+    $('p7').textContent = text(answers.p7_supportPlan);
+    $('p8').textContent = text(answers.p8_comment);
 
-    const tips = buildHomeTips(game, parent);
-    $('homeTips').innerHTML = tips.map(v => `<li>${v}</li>`).join('');
-
-    $('backTeacherBtn').addEventListener('click', () => {
+    $('btnTeacherPanel').addEventListener('click', () => {
       location.href = buildUrl('../launcher/teacher-panel.html', ctx, false);
     });
 
-    $('backLauncherBtn').addEventListener('click', () => {
-      location.href = buildUrl('STUDENT_LAUNCHER', ctx, false);
+    $('btnCompletion').addEventListener('click', () => {
+      location.href = buildUrl('COMPLETION', ctx, false);
     });
 
-    $('gotoParentFormBtn').addEventListener('click', () => {
-      location.href = buildUrl('PARENT_FORM', ctx, false);
+    $('btnShortFollowup').addEventListener('click', () => {
+      location.href = buildUrl('SHORT_FOLLOWUP', ctx, false);
+    });
+
+    $('btnWeeklyCheck').addEventListener('click', () => {
+      location.href = buildUrl('WEEKLY_CHECK', ctx, false);
     });
   </script>
 </body>
