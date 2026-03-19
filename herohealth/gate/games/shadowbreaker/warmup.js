@@ -1,6 +1,6 @@
 /* === /herohealth/gate/games/shadowbreaker/warmup.js ===
  * HeroHealth Gate Game: ShadowBreaker Warmup
- * PATCH v20260312e-SHADOWBREAKER-WARMUP-TH-CHILD
+ * FULL PATCH v20260319a-SHADOWBREAKER-WARMUP-API-FINISH-FIX
  */
 
 function clamp(v, a, b){ return Math.max(a, Math.min(b, v)); }
@@ -14,13 +14,17 @@ function getParam(ctx, key, fallback=''){
   }
 }
 
-function ensureStyle(){
+export function loadStyle(){
   const id = 'hh-gate-style-shadowbreaker';
-  if (document.getElementById(id)) return;
+  const href = new URL('./style.css', import.meta.url).toString();
+
+  const old = document.getElementById(id);
+  if (old) old.remove();
+
   const link = document.createElement('link');
   link.id = id;
   link.rel = 'stylesheet';
-  link.href = './gate/games/shadowbreaker/style.css';
+  link.href = href;
   document.head.appendChild(link);
 }
 
@@ -31,8 +35,10 @@ function starsFromScore(score){
 }
 
 function makeResult(state){
-  const score = clamp(Math.round((state.success / Math.max(1, state.total)) * 100), 0, 100);
+  const totalAsked = Math.max(1, state.total);
+  const score = clamp(Math.round((state.success / totalAsked) * 100), 0, 100);
   const passed = score >= 60 || state.success >= 5;
+
   return {
     ok: true,
     zone: 'exercise',
@@ -40,9 +46,19 @@ function makeResult(state){
     phase: 'warmup',
     activityId: 'shadowbreaker-light-dodge-prep',
     title: 'ซ้อมหลบเร็ว',
+    subtitle: passed
+      ? 'พร้อมแล้ว ไปเล่น Shadow Breaker กัน'
+      : 'ลองซ้อมหลบอีกนิด ให้ไวขึ้นอีกหน่อย',
     passed,
     score,
     stars: starsFromScore(score),
+    lines: [
+      `รอบ ${Math.min(state.roundIndex + 1, state.maxRounds)}/${state.maxRounds}`,
+      `สำเร็จ ${state.success}`,
+      `ผิด ${state.fail}`,
+      `ไม่ทัน ${state.misses}`,
+      `RT เฉลี่ย ${state.reactionCount ? Math.round(state.reactionSum / state.reactionCount) : 0} ms`
+    ],
     metrics: {
       total: state.total,
       success: state.success,
@@ -57,15 +73,39 @@ function makeResult(state){
         ? 'พร้อมแล้ว ไปเล่น Shadow Breaker กัน'
         : 'ลองซ้อมหลบอีกนิด ให้ไวขึ้นอีกหน่อย'
     },
-    nextAction: 'run'
+    buffs: {
+      wType: 'shadowbreaker_warmup',
+      wPct: score,
+      wSuccess: state.success,
+      wFail: state.fail,
+      wMisses: state.misses,
+      wStars: starsFromScore(score)
+    },
+    nextAction: 'run',
+    markDailyDone: true
   };
 }
 
-export function mount(root, ctx = {}){
-  ensureStyle();
+export function mount(root, ctx = {}, api = {}){
+  loadStyle();
 
   const phase = String(getParam(ctx, 'phase', 'warmup')).toLowerCase();
-  const onComplete = typeof ctx?.onComplete === 'function' ? ctx.onComplete : () => {};
+  const fallbackComplete = typeof ctx?.onComplete === 'function' ? ctx.onComplete : null;
+
+  function complete(payload){
+    if (typeof api?.finish === 'function'){
+      api.finish(payload);
+      return;
+    }
+    if (typeof api?.complete === 'function'){
+      api.complete(payload);
+      return;
+    }
+    if (typeof fallbackComplete === 'function'){
+      fallbackComplete(payload);
+    }
+  }
+
   if (phase !== 'warmup'){
     root.innerHTML = `
       <div class="sbg-wrap">
@@ -76,7 +116,11 @@ export function mount(root, ctx = {}){
         </section>
       </div>
     `;
-    return;
+    return {
+      autostart: false,
+      start(){},
+      destroy(){}
+    };
   }
 
   const seed = Number(getParam(ctx, 'seed', Date.now()));
@@ -93,15 +137,21 @@ export function mount(root, ctx = {}){
   const state = {
     started: false,
     finished: false,
+    submitted: false,
+
     total: 0,
+    maxRounds: TOTAL_ROUNDS,
     success: 0,
     fail: 0,
     misses: 0,
+
     reactionSum: 0,
     reactionCount: 0,
+
     roundIndex: -1,
     cueAt: 0,
     remainSec: GAME_SEC,
+
     roundTimer: null,
     gameTimer: null,
     sequence: []
@@ -151,8 +201,8 @@ export function mount(root, ctx = {}){
         </div>
 
         <div class="sbg-footer">
-          <button class="sbg-btn sbg-btn-primary" id="sbg-start">เริ่มอุ่นเครื่อง</button>
-          <button class="sbg-btn sbg-btn-ghost" id="sbg-finish" disabled>ดูผล</button>
+          <button class="sbg-btn sbg-btn-primary" id="sbg-start" type="button">เริ่มอุ่นเครื่อง</button>
+          <button class="sbg-btn sbg-btn-ghost" id="sbg-finish" type="button" disabled>ดูผล</button>
         </div>
       </section>
     </div>
@@ -165,32 +215,73 @@ export function mount(root, ctx = {}){
   const startBtn = root.querySelector('#sbg-start');
   const finishBtn = root.querySelector('#sbg-finish');
 
+  function shownRound(){
+    if (state.finished) return TOTAL_ROUNDS;
+    return clamp(state.roundIndex + 1, 0, TOTAL_ROUNDS);
+  }
+
+  function canOpenResult(){
+    return state.finished === true
+      || state.success >= 5
+      || state.roundIndex >= TOTAL_ROUNDS;
+  }
+
+  function syncFinishBtn(){
+    const ready = canOpenResult();
+    finishBtn.disabled = !ready;
+    finishBtn.style.pointerEvents = ready ? 'auto' : 'none';
+    finishBtn.style.opacity = ready ? '1' : '.65';
+    finishBtn.setAttribute('aria-disabled', ready ? 'false' : 'true');
+  }
+
   function renderStats(){
     statsEl.innerHTML = `
-      <span>รอบ ${Math.max(0, state.roundIndex + 1)}/${TOTAL_ROUNDS}</span>
+      <span>รอบ ${shownRound()}/${TOTAL_ROUNDS}</span>
       <span>สำเร็จ ${state.success}</span>
       <span>พลาด ${state.fail + state.misses}</span>
     `;
+    syncFinishBtn();
   }
 
   function lockActions(locked){
-    actionsEl.querySelectorAll('.sbg-btn-action').forEach(btn => { btn.disabled = locked; });
+    actionsEl.querySelectorAll('.sbg-btn-action').forEach(btn => {
+      btn.disabled = locked;
+      btn.style.pointerEvents = locked ? 'none' : 'auto';
+      btn.style.opacity = locked ? '.7' : '1';
+    });
+  }
+
+  function submitResult(){
+    if (!canOpenResult()) return;
+    if (state.submitted) return;
+
+    state.submitted = true;
+    complete(makeResult(state));
   }
 
   function finishGame(){
     if (state.finished) return;
     state.finished = true;
+
     clearTimeout(state.roundTimer);
     clearInterval(state.gameTimer);
+    state.roundTimer = null;
+    state.gameTimer = null;
+
     lockActions(true);
+
     startBtn.disabled = true;
-    finishBtn.disabled = false;
+    startBtn.style.pointerEvents = 'none';
+    startBtn.style.opacity = '.65';
+
+    timerEl.textContent = `${Math.max(0, state.remainSec)}s`;
     cueEl.textContent = 'เสร็จแล้ว กดดูผล';
     renderStats();
   }
 
   function nextCue(){
     if (state.finished) return;
+
     state.roundIndex += 1;
 
     if (state.roundIndex >= state.sequence.length){
@@ -218,6 +309,7 @@ export function mount(root, ctx = {}){
 
     const cue = state.sequence[state.roundIndex];
     clearTimeout(state.roundTimer);
+    state.roundTimer = null;
 
     const rt = Math.max(0, Math.round(performance.now() - state.cueAt));
     state.reactionSum += rt;
@@ -226,7 +318,7 @@ export function mount(root, ctx = {}){
     if (action === cue.id){
       state.success += 1;
       cueEl.textContent = `หลบสำเร็จ! ${cue.label}`;
-    } else {
+    }else{
       state.fail += 1;
       cueEl.textContent = `ยังไม่ใช่ — ต้องเป็น ${cue.label}`;
     }
@@ -241,24 +333,79 @@ export function mount(root, ctx = {}){
     answer(btn.dataset.action || '');
   });
 
-  startBtn.addEventListener('click', () => {
+  function startInternal(){
     if (state.started) return;
     state.started = true;
+
     startBtn.disabled = true;
+    startBtn.style.pointerEvents = 'none';
+    startBtn.style.opacity = '.65';
+
     lockActions(false);
     cueEl.textContent = 'เริ่ม!';
     renderStats();
 
+    api?.setSub?.('กดให้ตรงกับท่าหลบ ซ้าย ขวา และย่อ');
+    api?.logger?.push?.('shadowbreaker_warmup_start', {
+      seed,
+      totalRounds: TOTAL_ROUNDS
+    });
+
     state.gameTimer = setInterval(() => {
       state.remainSec -= 1;
       timerEl.textContent = `${Math.max(0, state.remainSec)}s`;
-      if (state.remainSec <= 0) finishGame();
+
+      if (state.remainSec <= 0){
+        state.remainSec = 0;
+        finishGame();
+      }
     }, 1000);
 
     setTimeout(nextCue, 500);
+  }
+
+  startBtn.addEventListener('click', startInternal);
+
+  finishBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    submitResult();
+  }, { passive:false });
+
+  finishBtn.addEventListener('pointerup', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    submitResult();
+  }, { passive:false });
+
+  finishBtn.addEventListener('touchend', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    submitResult();
+  }, { passive:false });
+
+  renderStats();
+  syncFinishBtn();
+
+  api?.setSub?.('เริ่มอุ่นเครื่องแล้วกดให้ตรงกับท่าหลบ');
+  api?.setStats?.({
+    time: GAME_SEC,
+    score: 0,
+    miss: 0,
+    acc: '0%'
   });
 
-  finishBtn.addEventListener('click', () => {
-    onComplete(makeResult(state));
-  });
+  return {
+    autostart: false,
+    start(){},
+    destroy(){
+      clearTimeout(state.roundTimer);
+      clearInterval(state.gameTimer);
+      state.roundTimer = null;
+      state.gameTimer = null;
+      state.finished = true;
+    }
+  };
 }
+
+export default { loadStyle, mount };
