@@ -1,6 +1,6 @@
 <!-- === /herohealth/vr-groups/groups-race-lobby.html ===
 Groups Race Lobby
-FULL PATCH v20260319-GROUPS-RACE-LOBBY-V1
+FULL PATCH v20260319-GROUPS-RACE-LOBBY-V2
 Requires:
 - ../firebase-config.js
 - ./groups-race-rtdb.js
@@ -191,7 +191,7 @@ Requires:
       <div class="kicker">🏁 GROUPS RACE • ONLINE LOBBY</div>
       <h1>เข้าแข่ง Race 2 คน</h1>
       <div class="sub">
-        สร้างห้องหรือเข้าห้องด้วยรหัส จากนั้นรอผู้เล่นอีกคน ระบบจะพาเข้าเกมแข่งเมื่อเจ้าของห้องกดเริ่ม
+        สร้างห้องหรือเข้าห้องด้วยรหัส จากนั้นรอผู้เล่นอีกคน ระบบจะพาเข้าเกมแข่งเมื่อเจ้าของห้องกดเริ่ม หรือเริ่มรอบใหม่เมื่อทุกคนกด Rematch
       </div>
 
       <div class="grid">
@@ -256,6 +256,7 @@ Requires:
         <div class="roomCode" id="roomCode">------</div>
         <div class="actions">
           <button class="btn blue" id="btnCopy">คัดลอกรหัส</button>
+          <button class="btn pink" id="btnRematch">Rematch</button>
           <button class="btn primary" id="btnStartRoom" disabled>เริ่มแข่ง</button>
         </div>
       </div>
@@ -273,7 +274,12 @@ Requires:
       joinRaceRoom,
       watchRaceRoom,
       markReady,
-      startRaceMatch
+      startRaceMatch,
+      requestRaceRematch,
+      resetRaceForRematch,
+      leaveRaceRoom,
+      bindRacePresence,
+      cleanupRaceRoomIfStale
     } from './groups-race-rtdb.js';
 
     const QS = new URL(location.href).searchParams;
@@ -289,6 +295,7 @@ Requires:
     const btnJoin = document.getElementById('btnJoin');
     const btnStartRoom = document.getElementById('btnStartRoom');
     const btnCopy = document.getElementById('btnCopy');
+    const btnRematch = document.getElementById('btnRematch');
     const roomBox = document.getElementById('roomBox');
     const roomCodeEl = document.getElementById('roomCode');
     const statusBox = document.getElementById('statusBox');
@@ -297,6 +304,9 @@ Requires:
     let currentPlayerId = '';
     let currentRole = '';
     let unwatch = null;
+    let unbindPresence = null;
+    let lastRoomData = null;
+    let inRematchMode = false;
 
     function setStatus(text, tone=''){
       statusBox.textContent = text;
@@ -321,13 +331,37 @@ Requires:
       return s || fallback;
     }
 
+    function cleanupBindings(){
+      try{ unwatch?.(); }catch(_){}
+      try{ unbindPresence?.(); }catch(_){}
+      unwatch = null;
+      unbindPresence = null;
+    }
+
+    function renderPlayersText(data){
+      const players = data?.players || {};
+      const ids = Object.keys(players);
+      if(!ids.length) return 'ยังไม่มีผู้เล่น';
+
+      return ids.map(id=>{
+        const p = players[id] || {};
+        const online = p.online === false ? 'offline' : 'online';
+        const ready = p.ready ? 'ready' : 'not ready';
+        const host = p.role === 'host' ? ' (host)' : '';
+        return `- ${p.name || id}${host} • ${online} • ${ready}`;
+      }).join('\n');
+    }
+
     function renderRoomState(data){
       if(!data) return;
+      lastRoomData = data;
 
       const players = data.players || {};
       const playerCount = Object.keys(players).length;
       const readyCount = Object.values(players).filter(p => p && p.ready).length;
       const started = !!data.match?.started;
+      const ended = !!data.match?.endedAt;
+      const rematchReady = Number(data.rematch?.readyCount || 0);
 
       let lines = [
         `ห้อง ${currentRoomCode}`,
@@ -339,20 +373,57 @@ Requires:
       if(data.meta?.diff) lines.push(`ระดับ: ${data.meta.diff}`);
       if(data.meta?.timeSec) lines.push(`เวลา: ${data.meta.timeSec}s`);
 
+      lines.push('');
+      lines.push(renderPlayersText(data));
+
       if(started){
+        inRematchMode = false;
         setStatus(lines.concat(['กำลังเข้าเกม...']).join('\n'), 'good');
         openRaceRun(currentRoomCode, currentPlayerId);
         return;
       }
 
+      if(ended){
+        const totalPlayers = Object.keys(players).length;
+        const canRematch = totalPlayers >= 2;
+
+        if(currentRole === 'host'){
+          btnStartRoom.textContent = canRematch ? `เริ่มใหม่ (${rematchReady}/${totalPlayers})` : 'รอผู้เล่นครบ';
+          btnStartRoom.disabled = !(canRematch && rematchReady >= totalPlayers);
+        }else{
+          btnStartRoom.textContent = 'รอ Host เริ่มใหม่';
+          btnStartRoom.disabled = true;
+        }
+
+        if(currentRole === 'guest' && !inRematchMode){
+          lines.push('');
+          lines.push('กดเข้าห้องเดิมอีกครั้งได้ หรือรอ Host');
+        }
+
+        setStatus(lines.concat([
+          '',
+          `Rematch ready ${rematchReady}/${totalPlayers}`,
+          currentRole === 'host'
+            ? (btnStartRoom.disabled ? 'รอให้ทุกคนกด Rematch' : 'ทุกคนพร้อมแล้ว กดเริ่มใหม่ได้')
+            : 'กด Rematch แล้วรอ Host เริ่ม'
+        ]).join('\n'), 'warn');
+
+        return;
+      }
+
       if(currentRole === 'host'){
+        btnStartRoom.textContent = 'เริ่มแข่ง';
         btnStartRoom.disabled = !(playerCount >= 2 && readyCount >= 2);
         setStatus(lines.concat([
+          '',
           playerCount < 2 ? 'กำลังรอผู้เล่นอีกคน...' : 'ผู้เล่นครบแล้ว',
           readyCount < 2 ? 'รอให้ทุกคนกด Ready' : 'พร้อมเริ่มแข่ง'
         ]).join('\n'), playerCount >= 2 ? 'warn' : '');
       }else{
+        btnStartRoom.textContent = 'รอ Host';
+        btnStartRoom.disabled = true;
         setStatus(lines.concat([
+          '',
           'เข้าห้องสำเร็จแล้ว',
           readyCount >= 2 ? 'กำลังรอ Host กดเริ่ม' : 'ระบบส่ง Ready แล้ว'
         ]).join('\n'), 'good');
@@ -360,10 +431,11 @@ Requires:
     }
 
     async function attachWatch(roomCode){
-      if(unwatch) unwatch();
+      cleanupBindings();
       unwatch = watchRaceRoom(roomCode, (data)=>{
         renderRoomState(data);
       });
+      unbindPresence = bindRacePresence(roomCode, currentPlayerId);
     }
 
     btnCreate.addEventListener('click', async ()=>{
@@ -384,6 +456,7 @@ Requires:
         currentRoomCode = roomCode;
         currentPlayerId = playerId;
         currentRole = 'host';
+        inRematchMode = false;
 
         roomBox.hidden = false;
         roomCodeEl.textContent = roomCode;
@@ -413,6 +486,8 @@ Requires:
           throw new Error('กรุณาใส่รหัสห้อง');
         }
 
+        await cleanupRaceRoomIfStale(roomCode);
+
         await joinRaceRoom({
           roomCode,
           playerId,
@@ -422,6 +497,7 @@ Requires:
         currentRoomCode = roomCode;
         currentPlayerId = playerId;
         currentRole = 'guest';
+        inRematchMode = false;
 
         roomBox.hidden = false;
         roomCodeEl.textContent = roomCode;
@@ -443,6 +519,16 @@ Requires:
       try{
         if(!currentRoomCode) return;
         btnStartRoom.disabled = true;
+
+        const room = lastRoomData;
+        const ended = !!room?.match?.endedAt;
+
+        if(ended){
+          setStatus('กำลังเริ่มรอบใหม่...', 'warn');
+          await resetRaceForRematch(currentRoomCode);
+          return;
+        }
+
         setStatus('กำลังเริ่มการแข่งขัน...', 'warn');
         await startRaceMatch(currentRoomCode);
       }catch(err){
@@ -462,8 +548,35 @@ Requires:
       }
     });
 
-    document.getElementById('btnHub1').addEventListener('click', goHub);
-    document.getElementById('btnHub2').addEventListener('click', goHub);
+    btnRematch.addEventListener('click', async ()=>{
+      try{
+        if(!currentRoomCode || !currentPlayerId) return;
+        inRematchMode = true;
+        setStatus('กำลังส่งคำขอ Rematch...', 'warn');
+
+        const result = await requestRaceRematch(currentRoomCode, currentPlayerId);
+        setStatus(
+          `ส่งคำขอ Rematch แล้ว\nพร้อม ${result.readyCount}/${result.totalPlayers}\nรอให้ทุกคนกด Rematch ครบ`,
+          'good'
+        );
+      }catch(err){
+        console.error(err);
+        setStatus(`ส่ง Rematch ไม่สำเร็จ\n${err?.message || err}`, 'bad');
+      }
+    });
+
+    async function leaveThenHub(){
+      try{
+        if(currentRoomCode && currentPlayerId){
+          await leaveRaceRoom(currentRoomCode, currentPlayerId);
+        }
+      }catch(_){}
+      cleanupBindings();
+      goHub();
+    }
+
+    document.getElementById('btnHub1').addEventListener('click', leaveThenHub);
+    document.getElementById('btnHub2').addEventListener('click', leaveThenHub);
   </script>
 </body>
 </html>
