@@ -612,6 +612,10 @@
     STATE.lastTick = nowMs();
   }
 
+  function setLayerEl(el){
+    STATE.layerEl = el || null;
+  }
+
   WIN.GroupsRace = WIN.GroupsRace || {};
   WIN.GroupsRace.GameEngine = {
     setLayerEl,
@@ -619,10 +623,6 @@
     stop,
     setPaused
   };
-
-  function setLayerEl(el){
-    STATE.layerEl = el || null;
-  }
 
   WIN.addEventListener('hha:pause', ()=> setPaused(true), { passive:true });
   WIN.addEventListener('hha:resume', ()=> setPaused(false), { passive:true });
