@@ -1,6 +1,6 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-multi.html ===
 GoodJunk Multiplayer LOBBY — unified Race / Battle / Coop
-FULL PATCH v20260319-GJ-MULTI-LOBBY-USEBTN-JOIN-FIX
+FULL PATCH v20260319-GJ-MULTI-AUTOJOIN-ALL-MODES
 -->
 <!doctype html>
 <html lang="th">
@@ -268,7 +268,7 @@ FULL PATCH v20260319-GJ-MULTI-LOBBY-USEBTN-JOIN-FIX
     <div class="hero-kicker">GOODJUNK • MULTIPLAYER LOBBY</div>
     <h1 id="pageTitle">GoodJunk Multiplayer — Race / Battle / Coop</h1>
     <div class="mut" id="pageSub">
-      ครูสร้างห้อง → แชร์ QR/ลิงก์ → ผู้เล่นเข้าห้อง → ระบบส่งไป run page ตามโหมดที่เลือก
+      ครูสร้างห้อง → แชร์ QR/ลิงก์ → ผู้เล่นเข้าห้อง → ระบบส่งไป lobby/run ตามโหมดที่เลือก
     </div>
 
     <div class="mode-tabs">
@@ -288,7 +288,7 @@ FULL PATCH v20260319-GJ-MULTI-LOBBY-USEBTN-JOIN-FIX
       <div style="height:12px"></div>
 
       <div class="row">
-        <button id="btnNew" class="btn" type="button">สร้างห้องใหม่</button>
+        <button id="btnNew" class="btn" type="button">สร้างห้องใหม่แล้วเข้าเลย</button>
         <input id="roomId" placeholder="Room ID (เช่น GJ-8K3P2)"/>
         <button id="btnUse" class="btn" type="button">เข้าห้องนี้</button>
       </div>
@@ -304,9 +304,9 @@ FULL PATCH v20260319-GJ-MULTI-LOBBY-USEBTN-JOIN-FIX
         </select>
         <select id="time">
           <option value="60">60s</option>
-          <option value="80" selected>80s</option>
+          <option value="80">80s</option>
           <option value="100">100s</option>
-          <option value="120">120s</option>
+          <option value="120" selected>120s</option>
         </select>
       </div>
 
@@ -337,23 +337,24 @@ FULL PATCH v20260319-GJ-MULTI-LOBBY-USEBTN-JOIN-FIX
       <div id="joinLink" class="link mono">-</div>
 
       <div class="okbox">
-        หน้า lobby นี้รองรับ <strong>Race / Battle / Coop</strong> แล้ว
-        โดยจะ route ไป run page ตาม mode ที่เลือก
+        กด <strong>สร้างห้องใหม่แล้วเข้าเลย</strong> จะพาเข้าหน้าโหมดนั้นทันที
       </div>
 
       <div class="warn" id="modeWarn">
-        หมายเหตุ: โหมด Battle และ Coop ต้องมีไฟล์ run page / logic รองรับจริงที่ฝั่งเกม
+        หมายเหตุ: Battle ต้องมีไฟล์ <span class="mono">goodjunk-battle-lobby.html</span> อยู่จริง,
+        Race ต้องมี <span class="mono">goodjunk-race-room.html</span>,
+        Coop ต้องมี <span class="mono">goodjunk-coop-lobby.html</span>
       </div>
     </div>
 
     <div class="card">
       <div class="mut">QR Code</div>
-      <div class="qr" id="qrBox"><span class="mut">กด “สร้างห้องใหม่”</span></div>
+      <div class="qr" id="qrBox"><span class="mut">กด “สร้างห้องใหม่แล้วเข้าเลย”</span></div>
 
       <div style="height:10px"></div>
 
       <div class="mut">
-        แชร์ QR นี้ให้ผู้เล่นเปิดเข้ามาที่ lobby พร้อม room/mode ที่ตั้งไว้
+        แชร์ QR นี้ให้ผู้เล่นเปิดเข้ามาที่ multi พร้อม room/mode ที่ตั้งไว้
       </div>
 
       <div style="height:12px"></div>
@@ -394,18 +395,18 @@ FULL PATCH v20260319-GJ-MULTI-LOBBY-USEBTN-JOIN-FIX
       runPath: './goodjunk-race-room.html',
       desc: [
         'แข่งคะแนน ใคร score สูงสุดชนะ',
-        'เริ่มพร้อมกันและมีผลลัพธ์แบบ leaderboard',
-        'ไม่ใช่โหมดโจมตีกันตรง ๆ'
+        'เข้า room → ready → countdown → run',
+        'เริ่มพร้อมกันและมี leaderboard'
       ]
     },
     battle: {
       label: 'Battle',
       theme: 'battle',
-      runPath: './goodjunk-battle-run.html',
+      runPath: './goodjunk-battle-lobby.html',
       desc: [
-        'โหมดปะทะโดยตรง winner / loser',
-        'ควรแยก logic การโจมตี / กดดัน / shield จาก race',
-        'ใช้ run page คนละไฟล์กับ race'
+        'เข้า room → ready → countdown → run',
+        'ใช้ lobby ก่อนเข้าเกมเหมือน coop',
+        'ลดความงงเรื่องใส่ room code แล้วเข้าไม่ตรง flow'
       ]
     },
     coop: {
@@ -532,7 +533,7 @@ FULL PATCH v20260319-GJ-MULTI-LOBBY-USEBTN-JOIN-FIX
     });
 
     $('pageTitle').textContent = `GoodJunk Multiplayer — ${meta.label}`;
-    $('pageSub').textContent = `สร้าง/ใช้ห้องสำหรับโหมด ${meta.label} และ route ไปยัง run page ของโหมดนี้โดยเฉพาะ`;
+    $('pageSub').textContent = `สร้าง/ใช้ห้องสำหรับโหมด ${meta.label} และ route ไปยังหน้า lobby/run ของโหมดนี้โดยเฉพาะ`;
 
     const modeTitle = $('modeTitle');
     modeTitle.textContent = meta.label;
@@ -548,7 +549,7 @@ FULL PATCH v20260319-GJ-MULTI-LOBBY-USEBTN-JOIN-FIX
     if (!roomId) {
       elShare.textContent = '-';
       elJoin.textContent = '-';
-      elQrBox.innerHTML = '<span class="mut">กด “สร้างห้องใหม่”</span>';
+      elQrBox.innerHTML = '<span class="mut">กด “สร้างห้องใหม่แล้วเข้าเลย”</span>';
       return;
     }
 
@@ -560,8 +561,8 @@ FULL PATCH v20260319-GJ-MULTI-LOBBY-USEBTN-JOIN-FIX
     setQR(share);
   }
 
-  function goJoin(){
-    const roomId = getRoomIdValue();
+  function goJoin(roomIdOverride = '') {
+    const roomId = String(roomIdOverride || getRoomIdValue() || '').trim();
     if (!roomId) return;
 
     const name = sanitizeName(elName.value || 'Player');
@@ -586,8 +587,10 @@ FULL PATCH v20260319-GJ-MULTI-LOBBY-USEBTN-JOIN-FIX
   });
 
   $('btnNew').addEventListener('click', () => {
-    elRoomId.value = randRoom();
+    const roomId = randRoom();
+    elRoomId.value = roomId;
     updateLinks();
+    goJoin(roomId);
   });
 
   $('btnUse').addEventListener('click', () => {
@@ -595,7 +598,7 @@ FULL PATCH v20260319-GJ-MULTI-LOBBY-USEBTN-JOIN-FIX
     if (!roomId) return;
 
     updateLinks();
-    goJoin();
+    goJoin(roomId);
   });
 
   $('btnJoin').addEventListener('click', () => {
@@ -621,7 +624,7 @@ FULL PATCH v20260319-GJ-MULTI-LOBBY-USEBTN-JOIN-FIX
     if (qRoomId) elRoomId.value = qRoomId;
     if (qName) elName.value = qName;
     if (qs('diff', '')) elDiff.value = qs('diff', 'normal');
-    if (qs('time', '')) elTime.value = qs('time', '80');
+    if (qs('time', '')) elTime.value = qs('time', '120');
 
     elHost.checked = qHost === '1' || sanitizeName(elName.value).toLowerCase() === 'teacher';
 
