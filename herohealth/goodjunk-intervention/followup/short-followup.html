@@ -5,202 +5,226 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>GoodJunk Intervention • Short Follow-up</title>
   <link rel="stylesheet" href="../assessments/assessment.css" />
+  <style>
+    .save-note{
+      display:none;
+      margin-top:12px;
+      padding:12px 14px;
+      border-radius:16px;
+      border:1px solid rgba(34,197,94,.24);
+      background:rgba(34,197,94,.10);
+      color:#dcfce7;
+      font-size:13px;
+      font-weight:900;
+      line-height:1.55;
+    }
+    .save-note.show{
+      display:block;
+    }
+  </style>
 </head>
 <body>
   <main class="page">
     <section class="card">
       <div class="badge">Follow-up • Short Follow-up</div>
-      <h1>ติดตามผลสั้น ๆ หลังจบกิจกรรม</h1>
-      <p class="sub">ตอบสั้น ๆ ว่าตอนนี้หนูยังจำและอยากเลือกของว่างสุขภาพมากขึ้นไหม</p>
+      <h1>ติดตามผลระยะสั้นหลังทำกิจกรรม</h1>
+      <p class="sub">
+        แบบติดตามผลนี้ใช้ดูว่า หลังจบกิจกรรมไม่นาน เด็กยังจำแนวคิดเรื่องการเลือกของว่างและเครื่องดื่มที่ดีต่อสุขภาพได้มากน้อยเพียงใด
+      </p>
+
       <div class="ctx" id="ctxBox">กำลังโหลด...</div>
 
-      <form class="form" id="shortFollowupForm" novalidate>
+      <form class="form">
         <section class="block">
-          <h2>1) ตอนนี้หนูยังจำได้ไหมว่าอะไรเป็นของว่างที่ดีกว่า</h2>
+          <h2>1) ตอนนี้หนูยังจำได้ไหมว่าอาหารหรือเครื่องดื่มแบบไหนดีกับสุขภาพมากกว่า</h2>
           <div class="choice-grid">
-            <label class="choice"><input type="radio" name="sf1_rememberHealthy" value="yes" required /> จำได้</label>
-            <label class="choice"><input type="radio" name="sf1_rememberHealthy" value="somewhat" required /> จำได้บางส่วน</label>
-            <label class="choice"><input type="radio" name="sf1_rememberHealthy" value="notMuch" required /> จำได้นิดหน่อย</label>
-            <label class="choice"><input type="radio" name="sf1_rememberHealthy" value="no" required /> ยังจำไม่ค่อยได้</label>
+            <label class="choice">
+              <input type="radio" name="sf1_rememberHealthy" value="yesClearly" required />
+              จำได้ชัดเจน
+            </label>
+            <label class="choice">
+              <input type="radio" name="sf1_rememberHealthy" value="somewhat" required />
+              จำได้บ้าง
+            </label>
+            <label class="choice">
+              <input type="radio" name="sf1_rememberHealthy" value="notMuch" required />
+              จำได้เล็กน้อย
+            </label>
+            <label class="choice">
+              <input type="radio" name="sf1_rememberHealthy" value="notSure" required />
+              ยังไม่แน่ใจ
+            </label>
           </div>
         </section>
 
         <section class="block">
-          <h2>2) ถ้าหิวหลังเลิกเรียนตอนนี้ หนูคิดว่าจะเลือกอะไร</h2>
+          <h2>2) ช่วงหลังเลิกเรียนที่ผ่านมา หนูเลือกของว่างแบบไหนบ่อยกว่า</h2>
           <div class="choice-grid">
-            <label class="choice"><input type="radio" name="sf2_afterSchoolSnack" value="fruit" required /> ผลไม้</label>
-            <label class="choice"><input type="radio" name="sf2_afterSchoolSnack" value="healthySnack" required /> ของว่างที่ดีกว่า</label>
-            <label class="choice"><input type="radio" name="sf2_afterSchoolSnack" value="junk" required /> ขนมหรือของทอด</label>
-            <label class="choice"><input type="radio" name="sf2_afterSchoolSnack" value="notSure" required /> ยังไม่แน่ใจ</label>
+            <label class="choice">
+              <input type="radio" name="sf2_afterSchoolSnack" value="fruitOrHealthy" required />
+              ผลไม้หรือของว่างที่ดีกว่า
+            </label>
+            <label class="choice">
+              <input type="radio" name="sf2_afterSchoolSnack" value="mixed" required />
+              สลับกันหลายแบบ
+            </label>
+            <label class="choice">
+              <input type="radio" name="sf2_afterSchoolSnack" value="junk" required />
+              ขนมหรือ junk food
+            </label>
+            <label class="choice">
+              <input type="radio" name="sf2_afterSchoolSnack" value="notSure" required />
+              ยังตอบยาก
+            </label>
           </div>
         </section>
 
         <section class="block">
-          <h2>3) ถ้ากระหายน้ำตอนนี้ หนูอยากเลือกอะไร</h2>
+          <h2>3) เวลากระหายน้ำ หนูเลือกดื่มอะไรบ่อยกว่า</h2>
           <div class="choice-grid">
-            <label class="choice"><input type="radio" name="sf3_drinkChoice" value="water" required /> น้ำเปล่า</label>
-            <label class="choice"><input type="radio" name="sf3_drinkChoice" value="milk" required /> นมจืด</label>
-            <label class="choice"><input type="radio" name="sf3_drinkChoice" value="sweetDrink" required /> น้ำหวาน / น้ำอัดลม</label>
-            <label class="choice"><input type="radio" name="sf3_drinkChoice" value="notSure" required /> ยังไม่แน่ใจ</label>
+            <label class="choice">
+              <input type="radio" name="sf3_drinkChoice" value="water" required />
+              น้ำเปล่า
+            </label>
+            <label class="choice">
+              <input type="radio" name="sf3_drinkChoice" value="milk" required />
+              นมจืด
+            </label>
+            <label class="choice">
+              <input type="radio" name="sf3_drinkChoice" value="sweetDrink" required />
+              น้ำหวาน / น้ำอัดลม
+            </label>
+            <label class="choice">
+              <input type="radio" name="sf3_drinkChoice" value="mixed" required />
+              แล้วแต่วัน
+            </label>
           </div>
         </section>
 
         <section class="block">
-          <h2>4) หนูอยากพยายามลด junk ลงไหม</h2>
+          <h2>4) หนูคิดว่าตัวเองพยายามลด junk food ลงไหม</h2>
           <div class="choice-grid">
-            <label class="choice"><input type="radio" name="sf4_reduceJunk" value="yes" required /> อยาก</label>
-            <label class="choice"><input type="radio" name="sf4_reduceJunk" value="maybe" required /> อาจจะ</label>
-            <label class="choice"><input type="radio" name="sf4_reduceJunk" value="notMuch" required /> ยังไม่ค่อยอยาก</label>
-            <label class="choice"><input type="radio" name="sf4_reduceJunk" value="no" required /> ไม่อยาก</label>
+            <label class="choice">
+              <input type="radio" name="sf4_reduceJunk" value="yes" required />
+              พยายามลดลง
+            </label>
+            <label class="choice">
+              <input type="radio" name="sf4_reduceJunk" value="somewhat" required />
+              ลดลงบ้าง
+            </label>
+            <label class="choice">
+              <input type="radio" name="sf4_reduceJunk" value="same" required />
+              ยังใกล้เดิม
+            </label>
+            <label class="choice">
+              <input type="radio" name="sf4_reduceJunk" value="notSure" required />
+              ยังไม่แน่ใจ
+            </label>
           </div>
         </section>
 
         <section class="block">
-          <h2>5) หนูอยากเล่าเรื่องของว่างสุขภาพให้ผู้ปกครองหรือเพื่อนฟังไหม</h2>
+          <h2>5) หนูได้เล่าเรื่องนี้ให้คนที่บ้านหรือเพื่อนฟังไหม</h2>
           <div class="choice-grid">
-            <label class="choice"><input type="radio" name="sf5_shareIdea" value="yes" required /> อยาก</label>
-            <label class="choice"><input type="radio" name="sf5_shareIdea" value="maybe" required /> อาจจะ</label>
-            <label class="choice"><input type="radio" name="sf5_shareIdea" value="notMuch" required /> ยังไม่ค่อยอยาก</label>
-            <label class="choice"><input type="radio" name="sf5_shareIdea" value="no" required /> ไม่อยาก</label>
+            <label class="choice">
+              <input type="radio" name="sf5_shareIdea" value="yesFamily" required />
+              เล่าให้คนที่บ้านฟัง
+            </label>
+            <label class="choice">
+              <input type="radio" name="sf5_shareIdea" value="yesFriend" required />
+              เล่าให้เพื่อนฟัง
+            </label>
+            <label class="choice">
+              <input type="radio" name="sf5_shareIdea" value="both" required />
+              เล่าทั้งที่บ้านและเพื่อน
+            </label>
+            <label class="choice">
+              <input type="radio" name="sf5_shareIdea" value="notYet" required />
+              ยังไม่ได้เล่า
+            </label>
           </div>
         </section>
 
         <section class="block">
-          <h2>6) ตอนนี้หนูมั่นใจแค่ไหนว่าเลือกของว่างที่ดีกว่าได้</h2>
+          <h2>6) ตอนนี้หนูมั่นใจแค่ไหนว่าจะเลือกของว่างที่ดีกว่าได้จริง</h2>
           <div class="choice-grid">
-            <label class="choice"><input type="radio" name="sf6_confidence" value="high" required /> มั่นใจมาก</label>
-            <label class="choice"><input type="radio" name="sf6_confidence" value="medium" required /> มั่นใจปานกลาง</label>
-            <label class="choice"><input type="radio" name="sf6_confidence" value="low" required /> ยังไม่ค่อยมั่นใจ</label>
+            <label class="choice">
+              <input type="radio" name="sf6_confidence" value="high" required />
+              มั่นใจมาก
+            </label>
+            <label class="choice">
+              <input type="radio" name="sf6_confidence" value="medium" required />
+              มั่นใจปานกลาง
+            </label>
+            <label class="choice">
+              <input type="radio" name="sf6_confidence" value="low" required />
+              ยังไม่ค่อยมั่นใจ
+            </label>
           </div>
         </section>
 
         <section class="block">
-          <h2>7) สิ่งที่หนูอยากลองทำต่อจากกิจกรรมนี้คืออะไร</h2>
+          <h2>7) ถ้าจะทำต่ออีก 1 อย่าง หนูอยากทำอะไร</h2>
           <label class="inline">
             <span class="note">ตอบสั้น ๆ ได้เลย</span>
-            <textarea name="sf7_actionPlan" placeholder="เช่น จะกินผลไม้มากขึ้น หรือจะดื่มน้ำเปล่าแทนน้ำหวาน"></textarea>
+            <textarea
+              name="sf7_actionPlan"
+              placeholder="เช่น จะพกน้ำเปล่าเอง หรือจะเลือกผลไม้แทนขนมหวาน"
+              required
+            ></textarea>
           </label>
         </section>
 
         <section class="block">
-          <h2>8) หนูจำอะไรจากเกมนี้ได้มากที่สุด</h2>
+          <h2>8) สิ่งที่หนูจำได้มากที่สุดจากกิจกรรมนี้คืออะไร</h2>
           <label class="inline">
             <span class="note">ตอบสั้น ๆ ได้เลย</span>
-            <textarea name="sf8_mainMemory" placeholder="เช่น ผลไม้ดีกว่าขนมหวาน หรือ น้ำเปล่าดีกว่าน้ำอัดลม"></textarea>
+            <textarea
+              name="sf8_mainMemory"
+              placeholder="เช่น จำได้ว่าควรดื่มน้ำเปล่า หรือควรเลือกของว่างที่ดีต่อสุขภาพ"
+              required
+            ></textarea>
           </label>
-        </section>
-
-        <section class="block" id="statusBox" style="display:none;">
-          <h2>บันทึกแล้ว</h2>
-          <p id="statusText">ระบบบันทึกคำตอบเรียบร้อยแล้ว</p>
         </section>
 
         <div class="footer">
           <button type="button" class="btn btn-ghost" data-action="back">ย้อนกลับ</button>
-          <button type="submit" class="btn btn-primary">บันทึกคำตอบ</button>
-          <button type="button" class="btn btn-ghost" id="gotoWeeklyBtn">ไป Weekly Check</button>
-          <button type="button" class="btn btn-ghost" id="backLauncherBtn">กลับ Student Launcher</button>
+          <button type="submit" class="btn btn-primary">บันทึกข้อมูล</button>
+          <button type="button" class="btn btn-ghost" id="btnParentSummary">Parent Summary</button>
+          <button type="button" class="btn btn-primary" id="btnWeeklyCheck">Weekly Check</button>
+        </div>
+
+        <div class="save-note" id="saveNote">
+          บันทึกคำตอบ short follow-up แล้ว
         </div>
       </form>
     </section>
   </main>
 
+  <script type="module" src="../assessments/assessment.js?v=20260319d-shortfollow"></script>
   <script type="module">
     import { buildUrl, pickCtxFromQuery, withDefaultCtx } from '../research/config.js';
-    import { loadCtx, mergeCtx, saveCtx, saveAssessment, loadAssessment, pageStorageKey } from '../research/localstore.js';
-
-    function $(id){ return document.getElementById(id); }
-
-    function getFilename() {
-      return window.location.pathname.split('/').pop() || 'short-followup.html';
-    }
-
-    function serializeForm(form) {
-      const data = {};
-      const fd = new FormData(form);
-
-      for (const [key, value] of fd.entries()) {
-        if (Object.prototype.hasOwnProperty.call(data, key)) {
-          if (!Array.isArray(data[key])) data[key] = [data[key]];
-          data[key].push(value);
-        } else {
-          data[key] = value;
-        }
-      }
-      return data;
-    }
-
-    function restoreForm(form, saved = {}) {
-      const data = saved?.answers && typeof saved.answers === 'object' ? saved.answers : saved;
-      const fields = form.querySelectorAll('input[name], textarea[name], select[name]');
-      for (const field of fields) {
-        const { name, type } = field;
-        if (!(name in data)) continue;
-        const value = data[name];
-
-        if (type === 'radio') {
-          field.checked = String(field.value) === String(value);
-          continue;
-        }
-        field.value = value ?? '';
-      }
-    }
-
-    function renderCtx(ctx) {
-      $('ctxBox').textContent = [
-        `PID: ${ctx.pid || '-'}`,
-        `Study: ${ctx.studyId || '-'}`,
-        `Session: ${ctx.session || '-'}`,
-        `Condition: ${ctx.condition || '-'}`
-      ].join(' • ');
-    }
-
-    function showSaved(message) {
-      $('statusBox').style.display = '';
-      $('statusText').textContent = message;
-    }
+    import { loadCtx, mergeCtx, saveCtx } from '../research/localstore.js';
 
     mergeCtx(pickCtxFromQuery());
     const ctx = withDefaultCtx(loadCtx());
     saveCtx(ctx);
-    renderCtx(ctx);
 
-    const form = $('shortFollowupForm');
-    const filename = getFilename();
-    const saved = loadAssessment(filename, {});
-    restoreForm(form, saved);
+    const form = document.querySelector('form');
+    const saveNote = document.getElementById('saveNote');
 
-    form.addEventListener('submit', (ev) => {
-      ev.preventDefault();
-      if (!form.reportValidity()) return;
-
-      const answers = serializeForm(form);
-      saveAssessment(filename, {
-        page: filename,
-        savedAt: new Date().toISOString(),
-        storageKey: pageStorageKey(filename),
-        ctxSnapshot: {
-          pid: ctx.pid || '',
-          studyId: ctx.studyId || '',
-          session: ctx.session || '',
-          condition: ctx.condition || ''
-        },
-        answers
-      });
-
-      showSaved('ระบบบันทึก Short Follow-up เรียบร้อยแล้ว');
+    form?.addEventListener('submit', () => {
+      setTimeout(() => {
+        saveNote?.classList.add('show');
+      }, 80);
     });
 
-    document.querySelector('[data-action="back"]')?.addEventListener('click', () => {
-      window.history.back();
+    document.getElementById('btnParentSummary')?.addEventListener('click', () => {
+      location.href = buildUrl('PARENT_SUMMARY', ctx, false);
     });
 
-    $('gotoWeeklyBtn').addEventListener('click', () => {
+    document.getElementById('btnWeeklyCheck')?.addEventListener('click', () => {
       location.href = buildUrl('WEEKLY_CHECK', ctx, false);
-    });
-
-    $('backLauncherBtn').addEventListener('click', () => {
-      location.href = buildUrl('STUDENT_LAUNCHER', ctx, false);
     });
   </script>
 </body>
