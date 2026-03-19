@@ -1,6 +1,6 @@
 /* === /herohealth/gate/games/rhythmboxer/cooldown.js ===
  * HeroHealth Gate Game: RhythmBoxer Cooldown
- * FULL PATCH v20260319a-RHYTHMBOXER-COOLDOWN-API-FINISH-FIX
+ * FULL PATCH v20260319b-RHYTHMBOXER-COOLDOWN-MANUAL-RESULT
  */
 
 function clamp(v, a, b){ return Math.max(a, Math.min(b, v)); }
@@ -236,7 +236,7 @@ export function mount(root, ctx = {}, api = {}){
     startBtn.style.pointerEvents = 'none';
     startBtn.style.opacity = '.65';
 
-    cueEl.textContent = 'เสร็จแล้ว กดดูผล';
+    cueEl.textContent = 'หายใจผ่อนคลายเสร็จแล้ว กดดูผล';
     timerEl.textContent = `${Math.max(0, state.remainSec)}s`;
     renderStats();
   }
@@ -251,7 +251,7 @@ export function mount(root, ctx = {}, api = {}){
     if (!state.started || state.finished) return;
 
     state.breathCycles += 1;
-    cueEl.textContent = state.breathCycles % 2 === 0 ? 'หายใจเข้า...' : 'หายใจออก...';
+    cueEl.textContent = state.breathCycles % 2 === 1 ? 'หายใจเข้า...' : 'หายใจออก...';
     renderStats();
     tryFinishIfReady();
   }
