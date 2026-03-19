@@ -1,0 +1,1102 @@
+// === /herohealth/js/handwash.safe.v2.js ===
+// Handwash Trainer V2
+// FULL PATCH v20260317a-HANDWASH-SAFE-V2
+// ใช้กับ /herohealth/handwash-v2.html
+
+(() => {
+  'use strict';
+
+  const qs = new URLSearchParams(location.search);
+
+  const ctx = {
+    gameId: qs.get('gameId') || 'handwash',
+    run: qs.get('run') || 'play',
+    mode: qs.get('mode') || 'learn',
+    diff: qs.get('diff') || 'normal',
+    time: clampNum(Number(qs.get('time') || 90), 20, 600),
+    seed: Number(qs.get('seed') || Date.now()),
+    pid: qs.get('pid') || '',
+    studyId: qs.get('studyId') || '',
+    hub: qs.get('hub') || './hub.html',
+    next: qs.get('next') || './germ-detective-v2.html',
+    view: qs.get('view') || 'mobile'
+  };
+
+  const STEP_ORDER = ['soap', 'scrub', 'rinse', 'dry'];
+
+  const ZONE_META = [
+    { id: 'palmLeft',       label: 'ฝ่ามือซ้าย',   requiredMotion: 'circle',    buttonId: 'zone-palm-left' },
+    { id: 'palmRight',      label: 'ฝ่ามือขวา',   requiredMotion: 'circle',    buttonId: 'zone-palm-right' },
+    { id: 'backLeft',       label: 'หลังมือซ้าย', requiredMotion: 'sweep',     buttonId: 'zone-back-left' },
+    { id: 'backRight',      label: 'หลังมือขวา',  requiredMotion: 'sweep',     buttonId: 'zone-back-right' },
+    { id: 'betweenFingers', label: 'ซอกนิ้ว',     requiredMotion: 'interlace', buttonId: 'zone-between-fingers' },
+    { id: 'thumbs',         label: 'นิ้วโป้ง',     requiredMotion: 'rotate',    buttonId: 'zone-thumbs' },
+    { id: 'fingertips',     label: 'ปลายนิ้ว',     requiredMotion: 'fingertip', buttonId: 'zone-fingertips' },
+    { id: 'wrists',         label: 'ข้อมือ',       requiredMotion: 'wrap',      buttonId: 'zone-wrists' }
+  ];
+
+  const PHASE_COPY = {
+    intro: {
+      label: 'เริ่มภารกิจล้างมือ',
+      sub: 'ใส่สบู่ก่อน แล้วค่อยถูมือทีละจุด'
+    },
+    soap: {
+      label: 'ใส่สบู่ให้พร้อม',
+      sub: 'กดปุ่มสบู่เพื่อเริ่มการล้างมือ'
+    },
+    scrub: {
+      label: 'ถูมือให้ทั่ว',
+      sub: 'ฝ่ามือ หลังมือ ซอกนิ้ว นิ้วโป้ง ปลายนิ้ว และข้อมือ'
+    },
+    rinse: {
+      label: 'ล้างน้ำออก',
+      sub: 'เชื้อออกแล้ว ล้างน้ำให้สะอาดก่อนเช็ดมือ'
+    },
+    dry: {
+      label: 'เช็ดมือให้แห้ง',
+      sub: 'ขั้นตอนสุดท้าย เช็ดมือให้แห้งเรียบร้อย'
+    },
+    summary: {
+      label: 'สรุปผลการล้างมือ',
+      sub: 'ดูจุดที่เก่งแล้ว และจุดที่ควรฝึกเพิ่ม'
+    }
+  };
+
+  const MOTION_HINT = {
+    circle: 'ถูวนเป็นวงกลม',
+    sweep: 'ถูปาดไปมา',
+    interlace: 'ถูซอกนิ้วให้ทั่ว',
+    rotate: 'หมุนนิ้วโป้ง',
+    fingertip: 'ถูปลายนิ้วบนฝ่ามือ',
+    wrap: 'ถูรอบข้อมือ'
+  };
+
+  let dom = null;
+  let state = null;
+  let timerId = null;
+  let toastTimer = null;
+  let startedAt = 0;
+  let scrubSession = null;
+
+  boot();
+
+  function boot() {
+    dom = cacheDom();
+    if (!dom.root) return;
+
+    state = createInitialState(ctx);
+    startedAt = Date.now();
+
+    dom.root.dataset.game = 'handwash';
+    dom.root.dataset.phase = state.phase;
+
+    spawnBubbles();
+    bindEvents();
+    renderAll();
+
+    showCoach('เริ่มจากกดปุ่ม “สบู่” ก่อนนะ');
+    showToast('พร้อมฝึกล้างมือแล้ว');
+    flushProgress('boot');
+    exposeDebugApi();
+  }
+
+  function cacheDom() {
+    const zoneButtons = {};
+    for (const meta of ZONE_META) zoneButtons[meta.id] = document.getElementById(meta.buttonId);
+
+    return {
+      root: document.getElementById('hwGame'),
+      bubbles: document.getElementById('hwBubbles'),
+
+      phaseLabel: document.getElementById('hwPhaseLabel'),
+      phaseSub: document.getElementById('hwPhaseSub'),
+      cleanPct: document.getElementById('hwCleanPct'),
+      timer: document.getElementById('hwTimer'),
+
+      coachText: document.getElementById('hwCoachText'),
+      stepPanel: document.getElementById('hwStepPanel'),
+
+      handStage: document.getElementById('hwHandStage'),
+      zoneLayer: document.getElementById('hwZoneLayer'),
+      germLayer: document.getElementById('hwGermLayer'),
+      highlightLayer: document.getElementById('hwHighlightLayer'),
+      trailLayer: document.getElementById('hwTrailLayer'),
+
+      dirtyZones: document.getElementById('hwDirtyZones'),
+      starsPreview: document.getElementById('hwStarsPreview'),
+      coverageFill: document.getElementById('hwCoverageFill'),
+      coverageText: document.getElementById('hwCoverageText'),
+
+      btnSoap: document.getElementById('hwBtnSoap'),
+      btnRinse: document.getElementById('hwBtnRinse'),
+      btnDry: document.getElementById('hwBtnDry'),
+      btnHelp: document.getElementById('hwBtnHelp'),
+      btnPause: document.getElementById('hwBtnPause'),
+      btnBackHub: document.getElementById('hwBtnBackHub'),
+
+      toast: document.getElementById('hwToast'),
+
+      helpOverlay: document.getElementById('hwHelpOverlay'),
+      helpClose: document.getElementById('hwHelpClose'),
+
+      pauseOverlay: document.getElementById('hwPauseOverlay'),
+      resumeBtn: document.getElementById('hwResumeBtn'),
+      restartBtn: document.getElementById('hwRestartBtn'),
+
+      summaryOverlay: document.getElementById('hwSummaryOverlay'),
+      summaryLead: document.getElementById('hwSummaryLead'),
+      summaryCoverage: document.getElementById('hwSummaryCoverage'),
+      summaryStars: document.getElementById('hwSummaryStars'),
+      summaryBadges: document.getElementById('hwSummaryBadges'),
+      summaryGoodList: document.getElementById('hwSummaryGoodList'),
+      summaryMissedList: document.getElementById('hwSummaryMissedList'),
+      summaryReplay: document.getElementById('hwSummaryReplay'),
+      summaryNext: document.getElementById('hwSummaryNext'),
+      summaryBackHub: document.getElementById('hwSummaryBackHub'),
+
+      zoneButtons
+    };
+  }
+
+  function createInitialState(context) {
+    const zones = {};
+    const dotMap = {};
+
+    for (const meta of ZONE_META) {
+      zones[meta.id] = {
+        id: meta.id,
+        label: meta.label,
+        requiredMotion: meta.requiredMotion,
+        germLevel: initialGerm(meta.id),
+        cleanProgress: 0,
+        touched: false,
+        isClean: false,
+        correctMotionCount: 0,
+        wrongMotionCount: 0
+      };
+      dotMap[meta.id] = buildSeededDots(context.seed, meta.id, 16);
+    }
+
+    return {
+      gameId: context.gameId,
+      phase: 'intro',
+      timeLeft: context.time,
+      soapApplied: false,
+      rinseDone: false,
+      dryDone: false,
+      paused: false,
+      cleanlinessPct: 0,
+      currentZone: null,
+      zoneDots: dotMap,
+      zones,
+      metrics: {
+        scrubCorrectCount: 0,
+        scrubWrongCount: 0,
+        coveragePct: 0,
+        washDurationSec: 0,
+        missedZones: [],
+        hintUsed: 0
+      },
+      logs: []
+    };
+  }
+
+  function bindEvents() {
+    dom.btnSoap?.addEventListener('click', onSoapClick);
+    dom.btnRinse?.addEventListener('click', onRinseClick);
+    dom.btnDry?.addEventListener('click', onDryClick);
+
+    dom.btnHelp?.addEventListener('click', () => {
+      state.metrics.hintUsed += 1;
+      toggleOverlay(dom.helpOverlay, true);
+      flushProgress('help-open');
+    });
+    dom.helpClose?.addEventListener('click', () => toggleOverlay(dom.helpOverlay, false));
+
+    dom.btnPause?.addEventListener('click', onPauseClick);
+    dom.resumeBtn?.addEventListener('click', onResumeClick);
+    dom.restartBtn?.addEventListener('click', restartRound);
+
+    dom.btnBackHub?.addEventListener('click', goHub);
+    dom.summaryBackHub?.addEventListener('click', goHub);
+    dom.summaryReplay?.addEventListener('click', restartRound);
+    dom.summaryNext?.addEventListener('click', goNext);
+
+    dom.handStage?.addEventListener('pointermove', onStagePointerMove);
+    dom.handStage?.addEventListener('pointerup', endScrubSession);
+    dom.handStage?.addEventListener('pointercancel', endScrubSession);
+    dom.handStage?.addEventListener('pointerleave', endScrubSession);
+
+    for (const meta of ZONE_META) {
+      const btn = dom.zoneButtons[meta.id];
+      if (!btn) continue;
+      btn.addEventListener('pointerdown', (e) => onZonePointerDown(e, meta.id));
+    }
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden && state.phase !== 'summary' && !state.paused) onPauseClick();
+    });
+
+    window.addEventListener('beforeunload', () => {
+      flushProgress('beforeunload');
+    });
+
+    window.addEventListener('resize', () => {
+      if (state.phase === 'scrub' && state.metrics.coveragePct >= 80) {
+        renderHighlights();
+      } else if (state.phase === 'dry') {
+        renderHighlights('dry');
+      }
+    });
+  }
+
+  function onSoapClick() {
+    if (!(state.phase === 'intro' || state.phase === 'soap')) return;
+
+    state.soapApplied = true;
+    logEvent('handwash_soap_apply', {});
+    showToast('สบู่พร้อมแล้ว เริ่มถูมือได้เลย');
+    showCoach('แตะหรือถูจุดที่ยังสกปรกให้ครบทุกส่วน');
+    setPhase('scrub');
+    startTimer();
+  }
+
+  function onRinseClick() {
+    if (state.phase !== 'scrub') return;
+
+    if (state.metrics.coveragePct < 80) {
+      showToast('ยังล้างไม่ทั่วทุกจุดเลย');
+      showCoach('ถูมือให้สะอาดอย่างน้อย 80% ก่อนนะ');
+      return;
+    }
+
+    state.rinseDone = true;
+    stopTimer();
+    logEvent('handwash_rinse_start', {
+      coveragePct: state.metrics.coveragePct
+    });
+
+    setPhase('rinse');
+    showToast('ล้างน้ำเสร็จแล้ว');
+    showCoach('ดีมาก ตอนนี้กด “เช็ดมือ” ให้เสร็จ');
+
+    window.setTimeout(() => {
+      if (state.phase !== 'rinse') return;
+      setPhase('dry');
+    }, 650);
+  }
+
+  function onDryClick() {
+    if (state.phase !== 'dry') return;
+
+    state.dryDone = true;
+    logEvent('handwash_dry_start', {});
+    finishRound('complete');
+  }
+
+  function onPauseClick() {
+    if (state.phase === 'summary') return;
+    state.paused = true;
+    stopTimer();
+    toggleOverlay(dom.pauseOverlay, true);
+    showCoach('เกมหยุดไว้ชั่วคราว');
+    flushProgress('pause');
+  }
+
+  function onResumeClick() {
+    state.paused = false;
+    toggleOverlay(dom.pauseOverlay, false);
+
+    if (state.phase === 'scrub') startTimer();
+    showCoach(state.phase === 'scrub'
+      ? 'กลับมาถูมือต่อได้เลย'
+      : state.phase === 'dry'
+        ? 'พร้อมเช็ดมือให้แห้งหรือยัง'
+        : 'เล่นต่อได้เลย'
+    );
+  }
+
+  function restartRound() {
+    stopTimer();
+    scrubSession = null;
+    clearTrail();
+    clearHighlights();
+
+    toggleOverlay(dom.pauseOverlay, false);
+    toggleOverlay(dom.helpOverlay, false);
+    toggleOverlay(dom.summaryOverlay, false);
+
+    state = createInitialState(ctx);
+    startedAt = Date.now();
+
+    logEvent('handwash_restart', {});
+    renderAll();
+    showToast('เริ่มใหม่แล้ว');
+    showCoach('เริ่มจากกดปุ่ม “สบู่” ก่อนนะ');
+    flushProgress('restart');
+  }
+
+  function goHub() {
+    flushProgress('back-hub');
+    location.href = ctx.hub;
+  }
+
+  function goNext() {
+    flushProgress('next-game');
+    const nextUrl = new URL(ctx.next, location.href);
+    nextUrl.searchParams.set('pid', ctx.pid);
+    nextUrl.searchParams.set('studyId', ctx.studyId);
+    nextUrl.searchParams.set('hub', ctx.hub);
+    nextUrl.searchParams.set('seed', String(ctx.seed));
+    nextUrl.searchParams.set('run', ctx.run);
+    location.href = nextUrl.toString();
+  }
+
+  function onZonePointerDown(e, zoneId) {
+    if (state.phase !== 'scrub') return;
+    if (!state.soapApplied) {
+      showToast('ต้องกดสบู่ก่อน');
+      return;
+    }
+
+    const zone = state.zones[zoneId];
+    if (!zone || zone.isClean) return;
+
+    beginZone(zoneId);
+
+    scrubSession = {
+      pointerId: e.pointerId,
+      zoneId,
+      lastX: e.clientX,
+      lastY: e.clientY,
+      pathAccum: 0
+    };
+
+    try {
+      e.currentTarget.setPointerCapture?.(e.pointerId);
+    } catch (_) {}
+
+    addTrailDot(e.clientX, e.clientY);
+    applyScrubProgress(zoneId, 12, 'tap');
+    e.preventDefault();
+  }
+
+  function onStagePointerMove(e) {
+    if (!scrubSession) return;
+    if (scrubSession.pointerId !== e.pointerId) return;
+    if (state.phase !== 'scrub') return;
+
+    const dx = e.clientX - scrubSession.lastX;
+    const dy = e.clientY - scrubSession.lastY;
+    const dist = Math.hypot(dx, dy);
+    if (dist < 2) return;
+
+    scrubSession.lastX = e.clientX;
+    scrubSession.lastY = e.clientY;
+    scrubSession.pathAccum += dist;
+
+    addTrailDot(e.clientX, e.clientY);
+
+    const zoneId = scrubSession.zoneId;
+    const rect = dom.zoneButtons[zoneId]?.getBoundingClientRect();
+    const inside = rect
+      && e.clientX >= rect.left
+      && e.clientX <= rect.right
+      && e.clientY >= rect.top
+      && e.clientY <= rect.bottom;
+
+    if (!inside) return;
+
+    if (scrubSession.pathAccum >= 16) {
+      const steps = Math.floor(scrubSession.pathAccum / 16);
+      scrubSession.pathAccum %= 16;
+      applyScrubProgress(zoneId, steps * 8, 'drag');
+    }
+  }
+
+  function endScrubSession(e) {
+    if (!scrubSession) return;
+    if (e && scrubSession.pointerId !== e.pointerId) return;
+    scrubSession = null;
+  }
+
+  function beginZone(zoneId) {
+    const zone = state.zones[zoneId];
+    if (!zone) return;
+
+    state.currentZone = zoneId;
+    zone.touched = true;
+    logEvent('handwash_zone_enter', { zoneId });
+
+    const hint = MOTION_HINT[zone.requiredMotion] || 'ถูให้ทั่ว';
+    showCoach(`${zone.label}: ${hint}`);
+    renderZones();
+    renderHighlights();
+  }
+
+  function applyScrubProgress(zoneId, amount, source) {
+    const zone = state.zones[zoneId];
+    if (!zone || zone.isClean) return;
+
+    zone.touched = true;
+    zone.cleanProgress = clampNum(zone.cleanProgress + amount, 0, 100);
+    zone.germLevel = clampNum(zone.germLevel - amount, 0, 100);
+    zone.correctMotionCount += 1;
+    state.metrics.scrubCorrectCount += 1;
+
+    logEvent('handwash_zone_progress', {
+      zoneId,
+      source,
+      cleanProgress: zone.cleanProgress,
+      germLevel: zone.germLevel
+    });
+
+    if (zone.cleanProgress >= 100 || zone.germLevel <= 0) {
+      zone.cleanProgress = 100;
+      zone.germLevel = 0;
+      zone.isClean = true;
+
+      logEvent('handwash_zone_clean_complete', { zoneId });
+      showToast(`${zone.label} สะอาดแล้ว`);
+      showCoach(`${zone.label} สะอาดแล้ว เยี่ยมมาก`);
+    } else {
+      showCoach(`${zone.label} ดีขึ้นแล้ว ถูต่ออีกนิดนะ`);
+    }
+
+    recalcCoverage();
+    renderAll();
+
+    if (state.metrics.coveragePct >= 80) {
+      showCoach('ดีมาก ตอนนี้กด “ล้างน้ำ” ได้แล้ว');
+      renderHighlights();
+    }
+  }
+
+  function recalcCoverage() {
+    const values = ZONE_META.map(meta => state.zones[meta.id].cleanProgress);
+    const avg = values.reduce((a, b) => a + b, 0) / values.length;
+    state.metrics.coveragePct = Math.round(avg);
+    state.cleanlinessPct = state.metrics.coveragePct;
+  }
+
+  function setPhase(nextPhase) {
+    state.phase = nextPhase;
+    dom.root.dataset.phase = nextPhase;
+
+    logEvent('handwash_phase_change', { phase: nextPhase });
+
+    renderAll();
+
+    if (nextPhase === 'scrub') {
+      renderHighlights();
+    } else if (nextPhase === 'rinse') {
+      renderHighlights('rinse');
+    } else if (nextPhase === 'dry') {
+      renderHighlights('dry');
+    } else {
+      clearHighlights();
+    }
+  }
+
+  function startTimer() {
+    stopTimer();
+    timerId = window.setInterval(() => {
+      if (state.paused) return;
+      if (state.phase !== 'scrub') return;
+
+      state.timeLeft = Math.max(0, state.timeLeft - 1);
+      dom.timer.textContent = String(state.timeLeft);
+
+      if (state.timeLeft <= 0) {
+        stopTimer();
+        onTimeExpired();
+      }
+    }, 1000);
+  }
+
+  function stopTimer() {
+    if (timerId) {
+      window.clearInterval(timerId);
+      timerId = null;
+    }
+  }
+
+  function onTimeExpired() {
+    if (state.phase !== 'scrub') return;
+
+    if (state.metrics.coveragePct >= 80) {
+      state.rinseDone = true;
+      showToast('หมดเวลา ล้างน้ำอัตโนมัติ');
+      setPhase('dry');
+      return;
+    }
+
+    showToast('หมดเวลาแล้ว');
+    finishRound('timeout');
+  }
+
+  function finishRound(reason) {
+    stopTimer();
+    scrubSession = null;
+    clearHighlights();
+
+    state.phase = 'summary';
+    state.metrics.washDurationSec = Math.round((Date.now() - startedAt) / 1000);
+    state.metrics.missedZones = ZONE_META
+      .filter(meta => !state.zones[meta.id].isClean)
+      .map(meta => meta.label);
+
+    const summary = buildSummary(reason);
+
+    logEvent('handwash_complete', {
+      reason,
+      coveragePct: summary.coveragePct,
+      stars: summary.stars
+    });
+
+    renderAll();
+    renderSummary(summary);
+    toggleOverlay(dom.summaryOverlay, true);
+    saveLastSummary(summary);
+    flushProgress('summary');
+    showCoach(summary.coachMessage);
+  }
+
+  function buildSummary(reason) {
+    const cleanZones = ZONE_META
+      .filter(meta => state.zones[meta.id].isClean)
+      .map(meta => meta.label);
+
+    const missedZones = state.metrics.missedZones.slice();
+    const stars = finalStars();
+    const score = computeScore(stars);
+
+    return {
+      reason,
+      score,
+      stars,
+      coveragePct: state.metrics.coveragePct,
+      soapApplied: state.soapApplied,
+      rinseDone: state.rinseDone,
+      dryDone: state.dryDone,
+      scrubCorrectCount: state.metrics.scrubCorrectCount,
+      scrubWrongCount: state.metrics.scrubWrongCount,
+      washDurationSec: state.metrics.washDurationSec,
+      cleanZones,
+      missedZones,
+      coachMessage: buildCoachSummaryMessage(stars, missedZones)
+    };
+  }
+
+  function computeScore(stars) {
+    let score = state.metrics.coveragePct;
+    if (state.soapApplied) score += 5;
+    if (state.rinseDone) score += 5;
+    if (state.dryDone) score += 5;
+    score += stars * 5;
+    return clampNum(Math.round(score), 0, 100);
+  }
+
+  function buildCoachSummaryMessage(stars, missedZones) {
+    if (stars === 3) return 'ยอดเยี่ยมมาก ล้างมือครบทุกขั้นและสะอาดมาก';
+    if (state.metrics.coveragePct >= 80 && !missedZones.length) return 'ดีมาก คราวหน้าลองทำให้ครบทุกขั้นตอนอีกนิด';
+    if (missedZones.length) return `ครั้งหน้าลองเน้น ${missedZones.slice(0, 2).join(' และ ')} เพิ่มนะ`;
+    return 'เริ่มต้นได้ดีแล้ว ลองเล่นซ้ำเพื่อให้มือสะอาดขึ้นอีก';
+  }
+
+  function renderAll() {
+    renderPhaseCopy();
+    renderHud();
+    renderSteps();
+    renderZones();
+    renderGerms();
+    renderDirtyZones();
+    renderStarsPreview();
+    renderToolbar();
+  }
+
+  function renderPhaseCopy() {
+    const copy = PHASE_COPY[state.phase] || PHASE_COPY.intro;
+    if (dom.phaseLabel) dom.phaseLabel.textContent = copy.label;
+    if (dom.phaseSub) dom.phaseSub.textContent = copy.sub;
+  }
+
+  function renderHud() {
+    if (dom.cleanPct) dom.cleanPct.textContent = `${state.cleanlinessPct}%`;
+    if (dom.timer) dom.timer.textContent = String(state.timeLeft);
+    if (dom.coverageFill) dom.coverageFill.style.width = `${state.metrics.coveragePct}%`;
+    if (dom.coverageText) dom.coverageText.textContent = coverageMessage(state.metrics.coveragePct);
+  }
+
+  function renderSteps() {
+    const nodes = dom.stepPanel ? [...dom.stepPanel.querySelectorAll('.hw-step')] : [];
+    nodes.forEach(node => node.classList.remove('is-active', 'is-done'));
+
+    if (state.phase === 'intro' || state.phase === 'soap') {
+      setStepActive('soap');
+      return;
+    }
+
+    if (state.phase === 'scrub') {
+      setStepDone('soap');
+      setStepActive('scrub');
+      return;
+    }
+
+    if (state.phase === 'rinse') {
+      setStepDone('soap');
+      setStepDone('scrub');
+      setStepActive('rinse');
+      return;
+    }
+
+    if (state.phase === 'dry') {
+      setStepDone('soap');
+      setStepDone('scrub');
+      setStepDone('rinse');
+      setStepActive('dry');
+      return;
+    }
+
+    if (state.phase === 'summary') {
+      STEP_ORDER.forEach(setStepDone);
+    }
+  }
+
+  function setStepActive(step) {
+    const node = dom.stepPanel?.querySelector(`[data-step="${step}"]`);
+    if (node) node.classList.add('is-active');
+  }
+
+  function setStepDone(step) {
+    const node = dom.stepPanel?.querySelector(`[data-step="${step}"]`);
+    if (node) node.classList.add('is-done');
+  }
+
+  function renderZones() {
+    for (const meta of ZONE_META) {
+      const btn = dom.zoneButtons[meta.id];
+      const zone = state.zones[meta.id];
+      if (!btn || !zone) continue;
+
+      btn.classList.toggle('is-clean', zone.isClean);
+      btn.classList.toggle('is-dirty', !zone.isClean);
+      btn.classList.toggle('is-active', state.currentZone === meta.id && !zone.isClean);
+      btn.setAttribute('aria-label', `${zone.label} ${zone.isClean ? 'สะอาดแล้ว' : 'ยังไม่สะอาด'}`);
+    }
+  }
+
+  function renderGerms() {
+    if (!dom.germLayer) return;
+    dom.germLayer.innerHTML = '';
+
+    for (const meta of ZONE_META) {
+      const zone = state.zones[meta.id];
+      const btn = dom.zoneButtons[meta.id];
+      if (!zone || !btn) continue;
+
+      const cluster = document.createElement('div');
+      cluster.className = 'hw-germ-cluster';
+      cluster.style.left = btn.style.left || '';
+      cluster.style.right = btn.style.right || '';
+      cluster.style.top = btn.style.top || '';
+      cluster.style.bottom = btn.style.bottom || '';
+      cluster.style.width = btn.style.width || '';
+      cluster.style.height = btn.style.height || '';
+      cluster.style.position = 'absolute';
+      cluster.style.borderRadius = getComputedStyle(btn).borderRadius;
+
+      const dots = state.zoneDots[meta.id] || [];
+      const count = Math.max(0, Math.round(zone.germLevel / 8));
+
+      for (let i = 0; i < count && i < dots.length; i += 1) {
+        const dot = document.createElement('div');
+        dot.className = 'hw-germ-dot';
+        dot.style.left = `${dots[i].x}%`;
+        dot.style.top = `${dots[i].y}%`;
+        dot.style.width = `${dots[i].s}px`;
+        dot.style.height = `${dots[i].s}px`;
+        dot.style.opacity = String(dots[i].o);
+        dot.style.animationDelay = `${dots[i].d}s`;
+        cluster.appendChild(dot);
+      }
+
+      dom.germLayer.appendChild(cluster);
+    }
+  }
+
+  function renderDirtyZones() {
+    if (!dom.dirtyZones) return;
+
+    const dirty = Object.values(state.zones)
+      .filter(zone => !zone.isClean)
+      .sort((a, b) => b.germLevel - a.germLevel);
+
+    if (!dirty.length) {
+      dom.dirtyZones.innerHTML = `
+        <div class="hw-pill">
+          <span>ทุกจุดสะอาดแล้ว</span>
+          <span>พร้อมไปขั้นต่อไป</span>
+        </div>
+      `;
+      return;
+    }
+
+    dom.dirtyZones.innerHTML = dirty.map(zone => {
+      const pct = clampNum(100 - zone.germLevel, 0, 100);
+      return `
+        <div class="hw-pill">
+          <span>${escapeHtml(zone.label)}</span>
+          <span>${pct}% สะอาด</span>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function renderStarsPreview() {
+    if (!dom.starsPreview) return;
+    const stars = previewStars();
+    dom.starsPreview.innerHTML = [1, 2, 3]
+      .map(n => `<span class="${n <= stars ? 'on' : ''}">★</span>`)
+      .join('');
+  }
+
+  function renderToolbar() {
+    if (dom.btnSoap) dom.btnSoap.disabled = !(state.phase === 'intro' || state.phase === 'soap');
+    if (dom.btnRinse) dom.btnRinse.disabled = !(state.phase === 'scrub' && state.metrics.coveragePct >= 80);
+    if (dom.btnDry) dom.btnDry.disabled = state.phase !== 'dry';
+  }
+
+  function renderHighlights(forceButton) {
+    clearHighlights();
+
+    if (forceButton === 'rinse') {
+      highlightButton(dom.btnRinse);
+      return;
+    }
+    if (forceButton === 'dry') {
+      highlightButton(dom.btnDry);
+      return;
+    }
+
+    if (state.phase !== 'scrub') return;
+
+    if (state.metrics.coveragePct >= 80) {
+      highlightButton(dom.btnRinse);
+      return;
+    }
+
+    const targetZoneId = chooseHighlightZone();
+    const btn = targetZoneId ? dom.zoneButtons[targetZoneId] : null;
+    if (!btn) return;
+
+    const hl = document.createElement('div');
+    hl.className = 'hw-highlight';
+    hl.style.left = btn.style.left || '';
+    hl.style.right = btn.style.right || '';
+    hl.style.top = btn.style.top || '';
+    hl.style.bottom = btn.style.bottom || '';
+    hl.style.width = btn.style.width || '';
+    hl.style.height = btn.style.height || '';
+    dom.highlightLayer?.appendChild(hl);
+  }
+
+  function chooseHighlightZone() {
+    if (state.currentZone && !state.zones[state.currentZone]?.isClean) return state.currentZone;
+
+    const dirty = Object.values(state.zones)
+      .filter(zone => !zone.isClean)
+      .sort((a, b) => b.germLevel - a.germLevel);
+
+    return dirty[0]?.id || null;
+  }
+
+  function highlightButton(btn) {
+    if (!btn) return;
+    const rect = btn.getBoundingClientRect();
+
+    const hl = document.createElement('div');
+    hl.className = 'hw-highlight';
+    hl.dataset.temp = 'button';
+    hl.style.position = 'fixed';
+    hl.style.left = `${rect.left}px`;
+    hl.style.top = `${rect.top}px`;
+    hl.style.width = `${rect.width}px`;
+    hl.style.height = `${rect.height}px`;
+    hl.style.zIndex = '120';
+    document.body.appendChild(hl);
+  }
+
+  function clearHighlights() {
+    dom.highlightLayer && (dom.highlightLayer.innerHTML = '');
+    document.querySelectorAll('.hw-highlight[data-temp="button"]').forEach(node => node.remove());
+  }
+
+  function addTrailDot(clientX, clientY) {
+    if (!dom.handStage || !dom.trailLayer) return;
+
+    const rect = dom.handStage.getBoundingClientRect();
+    if (clientX < rect.left || clientX > rect.right || clientY < rect.top || clientY > rect.bottom) return;
+
+    const dot = document.createElement('div');
+    dot.className = 'hw-trail-dot';
+    dot.style.left = `${clientX - rect.left}px`;
+    dot.style.top = `${clientY - rect.top}px`;
+    dom.trailLayer.appendChild(dot);
+
+    window.setTimeout(() => dot.remove(), 520);
+  }
+
+  function clearTrail() {
+    if (dom.trailLayer) dom.trailLayer.innerHTML = '';
+  }
+
+  function renderSummary(summary) {
+    if (dom.summaryLead) dom.summaryLead.textContent = summary.coachMessage;
+    if (dom.summaryCoverage) dom.summaryCoverage.textContent = `${summary.coveragePct}%`;
+
+    if (dom.summaryStars) {
+      dom.summaryStars.innerHTML = [1, 2, 3]
+        .map(n => `<span class="${n <= summary.stars ? 'on' : ''}">★</span>`)
+        .join('');
+    }
+
+    if (dom.summaryBadges) {
+      const badges = [
+        `<span class="hw-badge info">${summary.soapApplied ? 'ใส่สบู่แล้ว' : 'ยังไม่ใส่สบู่'}</span>`,
+        `<span class="hw-badge ${summary.rinseDone ? '' : 'warn'}">${summary.rinseDone ? 'ล้างน้ำแล้ว' : 'ยังไม่ล้างน้ำ'}</span>`,
+        `<span class="hw-badge ${summary.dryDone ? '' : 'warn'}">${summary.dryDone ? 'เช็ดมือแล้ว' : 'ยังไม่เช็ดมือ'}</span>`
+      ];
+      dom.summaryBadges.innerHTML = badges.join('');
+    }
+
+    if (dom.summaryGoodList) {
+      dom.summaryGoodList.innerHTML = summary.cleanZones.length
+        ? summary.cleanZones.map(label => `<li>${escapeHtml(label)}</li>`).join('')
+        : '<li>ยังไม่มีจุดที่สะอาดครบ</li>';
+    }
+
+    if (dom.summaryMissedList) {
+      dom.summaryMissedList.innerHTML = summary.missedZones.length
+        ? summary.missedZones.map(label => `<li>${escapeHtml(label)}</li>`).join('')
+        : '<li>ครบทุกจุดแล้ว เยี่ยมมาก</li>';
+    }
+
+    logEvent('handwash_summary_view', {
+      coveragePct: summary.coveragePct,
+      stars: summary.stars
+    });
+  }
+
+  function previewStars() {
+    let stars = 0;
+    if (state.metrics.coveragePct >= 35) stars += 1;
+    if (state.metrics.coveragePct >= 75) stars += 1;
+    if (state.metrics.coveragePct >= 95 && state.rinseDone && state.dryDone) stars += 1;
+    return stars;
+  }
+
+  function finalStars() {
+    let stars = 0;
+    if (state.metrics.coveragePct >= 50) stars += 1;
+    if (state.metrics.coveragePct >= 85) stars += 1;
+    if (state.metrics.coveragePct >= 95 && state.soapApplied && state.rinseDone && state.dryDone) stars += 1;
+    return stars;
+  }
+
+  function coverageMessage(pct) {
+    if (pct >= 100) return 'สะอาดครบทุกจุดแล้ว';
+    if (pct >= 80) return 'ดีมาก พร้อมล้างน้ำได้แล้ว';
+    if (pct >= 60) return 'ใกล้แล้ว ถูซอกนิ้วกับปลายนิ้วเพิ่มนะ';
+    if (pct >= 30) return 'กำลังดี ถูมือให้ทั่วต่ออีกนิด';
+    return 'เริ่มถูมือทีละจุดได้เลย';
+  }
+
+  function showCoach(text) {
+    if (dom.coachText) dom.coachText.textContent = text;
+  }
+
+  function showToast(text, ms = 1200) {
+    if (!dom.toast) return;
+    dom.toast.textContent = text;
+    dom.toast.classList.add('show');
+    window.clearTimeout(toastTimer);
+    toastTimer = window.setTimeout(() => {
+      dom.toast.classList.remove('show');
+    }, ms);
+  }
+
+  function toggleOverlay(node, open) {
+    if (!node) return;
+    node.classList.toggle('hw-hidden', !open);
+  }
+
+  function saveLastSummary(summary) {
+    const payload = {
+      gameId: ctx.gameId,
+      at: new Date().toISOString(),
+      phase: state.phase,
+      score: summary.score,
+      coveragePct: summary.coveragePct,
+      soapApplied: summary.soapApplied,
+      rinseDone: summary.rinseDone,
+      dryDone: summary.dryDone,
+      stars: summary.stars,
+      missedZones: summary.missedZones,
+      cleanZones: summary.cleanZones,
+      pid: ctx.pid,
+      studyId: ctx.studyId,
+      seed: ctx.seed,
+      mode: ctx.mode,
+      diff: ctx.diff
+    };
+
+    try {
+      localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(payload));
+
+      const raw = localStorage.getItem('HHA_SUMMARY_HISTORY');
+      const list = raw ? JSON.parse(raw) : [];
+      list.unshift(payload);
+      localStorage.setItem('HHA_SUMMARY_HISTORY', JSON.stringify(list.slice(0, 30)));
+    } catch (_) {}
+  }
+
+  function flushProgress(reason) {
+    const payload = {
+      reason,
+      gameId: ctx.gameId,
+      phase: state.phase,
+      coveragePct: state.metrics.coveragePct,
+      timeLeft: state.timeLeft,
+      soapApplied: state.soapApplied,
+      rinseDone: state.rinseDone,
+      dryDone: state.dryDone,
+      pid: ctx.pid,
+      studyId: ctx.studyId,
+      seed: ctx.seed,
+      at: new Date().toISOString()
+    };
+
+    try {
+      localStorage.setItem('HHA_HANDWASH_V2_FLUSH', JSON.stringify(payload));
+    } catch (_) {}
+  }
+
+  function logEvent(type, data) {
+    state.logs.push({
+      t: Date.now(),
+      type,
+      ...data
+    });
+  }
+
+  function spawnBubbles() {
+    if (!dom.bubbles) return;
+    dom.bubbles.innerHTML = '';
+
+    const total = 22;
+    const rand = mulberry32(hashSeed(`${ctx.seed}:bubbles`));
+
+    for (let i = 0; i < total; i += 1) {
+      const bubble = document.createElement('div');
+      bubble.className = 'hw-bubble';
+      const size = 10 + rand() * 26;
+      bubble.style.left = `${rand() * 100}%`;
+      bubble.style.width = `${size}px`;
+      bubble.style.height = `${size}px`;
+      bubble.style.animationDuration = `${8 + rand() * 10}s`;
+      bubble.style.animationDelay = `${rand() * 8}s`;
+      bubble.style.opacity = `${0.18 + rand() * 0.55}`;
+      dom.bubbles.appendChild(bubble);
+    }
+  }
+
+  function initialGerm(zoneId) {
+    switch (zoneId) {
+      case 'fingertips': return 95;
+      case 'betweenFingers': return 90;
+      case 'thumbs': return 86;
+      case 'palmLeft':
+      case 'palmRight': return 78;
+      case 'backLeft':
+      case 'backRight': return 64;
+      case 'wrists': return 44;
+      default: return 60;
+    }
+  }
+
+  function buildSeededDots(seed, zoneId, count) {
+    const rand = mulberry32(hashSeed(`${seed}:${zoneId}`));
+    const dots = [];
+
+    for (let i = 0; i < count; i += 1) {
+      dots.push({
+        x: 8 + rand() * 84,
+        y: 8 + rand() * 78,
+        s: 8 + rand() * 8,
+        o: Number((0.25 + rand() * 0.6).toFixed(2)),
+        d: Number((rand() * 1.5).toFixed(2))
+      });
+    }
+
+    return dots;
+  }
+
+  function hashSeed(input) {
+    const s = String(input);
+    let h = 1779033703 ^ s.length;
+    for (let i = 0; i < s.length; i += 1) {
+      h = Math.imul(h ^ s.charCodeAt(i), 3432918353);
+      h = (h << 13) | (h >>> 19);
+    }
+    return (h >>> 0);
+  }
+
+  function mulberry32(a) {
+    return function() {
+      let t = a += 0x6D2B79F5;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  function clampNum(n, min, max) {
+    return Math.max(min, Math.min(max, Number.isFinite(n) ? n : min));
+  }
+
+  function escapeHtml(text) {
+    return String(text ?? '')
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#39;');
+  }
+
+  function exposeDebugApi() {
+    window.HH_HANDWASH_V2 = {
+      getState() {
+        return JSON.parse(JSON.stringify(state));
+      },
+      finish() {
+        finishRound('debug');
+      },
+      restart() {
+        restartRound();
+      },
+      setCoverage(pct) {
+        const zoneValue = clampNum(Number(pct), 0, 100);
+        for (const meta of ZONE_META) {
+          const z = state.zones[meta.id];
+          z.cleanProgress = zoneValue;
+          z.germLevel = 100 - zoneValue;
+          z.isClean = zoneValue >= 100;
+        }
+        recalcCoverage();
+        renderAll();
+      }
+    };
+  }
+
+})();
