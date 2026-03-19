@@ -1,9 +1,11 @@
 <!-- === /herohealth/vr-groups/groups-v1.html ===
-Groups Solo Run V1
-FULL PATCH v20260319-GROUPS-V1-RUN-TO-COOLDOWN-SUMMARY
-Requires:
+Groups Solo Run V1 — REAL RUN PAGE
+FULL PATCH v20260319-GROUPS-V1-REAL-RUN
+Uses:
 - ./groups.safe.js
 - ../vr/vr-ui.js
+Flow:
+warmup -> groups-v1.html -> cooldown -> summary -> hub
 -->
 <!doctype html>
 <html lang="th">
@@ -25,7 +27,9 @@ Requires:
       --sar: env(safe-area-inset-right, 0px);
       --sal: env(safe-area-inset-left, 0px);
     }
+
     *{ box-sizing:border-box; }
+
     html,body{
       height:100%;
       margin:0;
@@ -38,6 +42,7 @@ Requires:
         radial-gradient(900px 700px at 50% 95%, rgba(255,79,216,.08) 0%, transparent 60%),
         linear-gradient(180deg, #0b1026, var(--bg));
     }
+
     #app{
       position:relative;
       width:100%;
@@ -47,6 +52,7 @@ Requires:
       flex-direction:column;
       gap:8px;
     }
+
     .topbar{
       border-radius:var(--radius);
       border:1px solid var(--stroke);
@@ -60,10 +66,32 @@ Requires:
       z-index:50;
       flex:0 0 auto;
     }
-    .title{ display:flex; flex-direction:column; gap:2px; min-width:0; }
-    .title b{ font-size:14px; font-weight:1000; letter-spacing:.2px; }
-    .title span{ color:var(--muted); font-size:11.5px; line-height:1.25; }
-    .row{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; justify-content:flex-end; }
+
+    .title{
+      display:flex;
+      flex-direction:column;
+      gap:2px;
+      min-width:0;
+    }
+    .title b{
+      font-size:14px;
+      font-weight:1000;
+      letter-spacing:.2px;
+    }
+    .title span{
+      color:var(--muted);
+      font-size:11.5px;
+      line-height:1.25;
+    }
+
+    .row{
+      display:flex;
+      gap:8px;
+      align-items:center;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+    }
+
     button{
       cursor:pointer;
       border-radius:14px;
@@ -75,6 +103,7 @@ Requires:
       user-select:none;
       font-weight:900;
     }
+
     .stage{
       position:relative;
       flex:1 1 auto;
@@ -85,6 +114,7 @@ Requires:
       overflow:hidden;
       box-shadow:0 20px 80px rgba(0,0,0,.35);
     }
+
     #playLayer{
       position:absolute;
       inset:0;
@@ -92,6 +122,7 @@ Requires:
       pointer-events:auto;
       z-index:1;
     }
+
     .hud{
       position:absolute;
       left:8px;
@@ -104,7 +135,14 @@ Requires:
       z-index:30;
     }
     .hudTop{ top:calc(8px + var(--sat)); }
-    .hudLeftCol{ display:flex; flex-direction:column; gap:6px; width:100%; }
+
+    .hudLeftCol{
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+      width:100%;
+    }
+
     .hudBox{
       display:grid;
       grid-template-columns:repeat(5, auto);
@@ -116,9 +154,23 @@ Requires:
       background:rgba(2,6,23,.54);
       backdrop-filter:blur(8px);
     }
-    .hudMetric{ display:flex; gap:5px; align-items:center; min-width:0; }
-    .hudMetric .k{ color:var(--muted); font-size:10px; font-weight:900; }
-    .hudMetric .v{ color:var(--text); font-size:12px; font-weight:1000; }
+
+    .hudMetric{
+      display:flex;
+      gap:5px;
+      align-items:center;
+      min-width:0;
+    }
+    .hudMetric .k{
+      color:var(--muted);
+      font-size:10px;
+      font-weight:900;
+    }
+    .hudMetric .v{
+      color:var(--text);
+      font-size:12px;
+      font-weight:1000;
+    }
 
     .questTop{
       display:flex;
@@ -130,6 +182,7 @@ Requires:
       background:rgba(2,6,23,.44);
       backdrop-filter:blur(8px);
     }
+
     .questLine{
       display:flex;
       justify-content:space-between;
@@ -137,8 +190,19 @@ Requires:
       align-items:flex-start;
       flex-wrap:wrap;
     }
-    .questTitle{ font-size:12px; font-weight:1000; line-height:1.22; }
-    .questMini{ color:var(--muted); font-size:10px; font-weight:900; line-height:1.2; }
+
+    .questTitle{
+      font-size:12px;
+      font-weight:1000;
+      line-height:1.22;
+    }
+    .questMini{
+      color:var(--muted);
+      font-size:10px;
+      font-weight:900;
+      line-height:1.2;
+    }
+
     .bar{
       height:9px;
       border-radius:999px;
@@ -170,7 +234,6 @@ Requires:
       box-shadow:0 10px 24px rgba(0,0,0,.16);
       z-index:31;
       pointer-events:none;
-      --group-accent: rgba(148,163,184,.20);
     }
 
     .coachToast{
@@ -190,6 +253,7 @@ Requires:
       opacity:1;
       transform:translateY(0);
     }
+
     .coachWrap{
       display:flex;
       align-items:center;
@@ -258,6 +322,7 @@ Requires:
     }
     .scorePop.good{ color:#86efac; }
     .scorePop.bad{ color:#fca5a5; }
+
     @keyframes scorePopUp{
       0%{ transform:translate(-50%,-50%) scale(.72); opacity:0; }
       15%{ transform:translate(-50%,-58%) scale(1.04); opacity:1; }
@@ -293,6 +358,7 @@ Requires:
       padding:calc(12px + var(--sat)) 12px calc(12px + var(--sab)) 12px;
       overflow:auto;
     }
+
     .overlayCard{
       width:min(860px, 100%);
       max-height:min(88vh, 760px);
@@ -305,6 +371,7 @@ Requires:
       flex-direction:column;
       margin:auto 0;
     }
+
     .overlayCard header{
       padding:12px;
       border-bottom:1px solid rgba(148,163,184,.14);
@@ -314,6 +381,7 @@ Requires:
       gap:10px;
       flex-wrap:wrap;
     }
+
     #endCard main{
       padding:12px;
       display:grid;
@@ -322,17 +390,20 @@ Requires:
       overflow:auto;
       min-height:0;
     }
+
     .panel{
       border-radius:18px;
       border:1px solid rgba(148,163,184,.14);
       background:rgba(2,6,23,.50);
       padding:10px;
     }
+
     .statGrid{
       display:grid;
       grid-template-columns:repeat(2,minmax(0,1fr));
       gap:8px;
     }
+
     .statCard{
       border-radius:14px;
       border:1px solid rgba(148,163,184,.12);
@@ -354,6 +425,7 @@ Requires:
       line-height:1.1;
       word-break:break-word;
     }
+
     .miniList{
       display:grid;
       gap:8px;
@@ -380,6 +452,7 @@ Requires:
       text-align:right;
       word-break:break-word;
     }
+
     .overlayBtns{
       padding:12px;
       border-top:1px solid rgba(148,163,184,.14);
@@ -407,6 +480,7 @@ Requires:
       border-color:rgba(59,130,246,.28);
       background:linear-gradient(180deg, rgba(59,130,246,.24), rgba(30,41,59,.88));
     }
+
     @media (max-width:640px){
       .tgt{ width:112px; height:112px; font-size:48px; border-radius:24px; }
     }
@@ -787,6 +861,7 @@ Requires:
     syncUiToBootState();
     updateSpawnSafe();
     safeStopEngine();
+
     try{ window.GroupsVR?.GameEngine?.setLayerEl?.(playLayer); }catch(_){}
 
     try{
