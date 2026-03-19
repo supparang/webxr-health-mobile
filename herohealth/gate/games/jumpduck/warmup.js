@@ -1,6 +1,6 @@
 /* === /herohealth/gate/games/jumpduck/warmup.js ===
  * HeroHealth Gate Game: JumpDuck Warmup
- * PATCH v20260313a-JUMPDUCK-WARMUP-FINISH-HARDEN
+ * FULL PATCH v20260319a-JUMPDUCK-WARMUP-API-FINISH-FIX
  */
 
 function clamp(v, a, b){ return Math.max(a, Math.min(b, v)); }
@@ -14,9 +14,9 @@ function getParam(ctx, key, fallback=''){
   }
 }
 
-function ensureStyle(){
+export function loadStyle(){
   const id = 'hh-gate-style-jumpduck';
-  const href = './gate/games/jumpduck/style.css?v=20260312f';
+  const href = new URL('./style.css', import.meta.url).toString();
 
   const old = document.getElementById(id);
   if (old) old.remove();
@@ -35,8 +35,13 @@ function starsFromScore(score){
 }
 
 function makeResult(state){
-  const score = clamp(Math.round((state.correct / Math.max(1, state.total)) * 100), 0, 100);
+  const score = clamp(
+    Math.round((state.correct / Math.max(1, state.total)) * 100),
+    0,
+    100
+  );
   const passed = score >= 60 || state.correct >= 4;
+
   return {
     ok: true,
     zone: 'exercise',
@@ -44,9 +49,19 @@ function makeResult(state){
     phase: 'warmup',
     activityId: 'jumpduck-quick-feet-prep',
     title: 'ซ้อมกระโดด-ย่อ',
+    subtitle: passed
+      ? 'พร้อมแล้ว ไปเล่น Jump Duck กัน'
+      : 'ลองซ้อมอีกนิด จับจังหวะกระโดดและย่อให้แม่นขึ้น',
     passed,
     score,
     stars: starsFromScore(score),
+    lines: [
+      `รอบ ${Math.min(state.roundIndex + 1, state.total)}/${state.total}`,
+      `ถูก ${state.correct}`,
+      `ผิด ${state.wrong}`,
+      `ไม่ทัน ${state.misses}`,
+      `RT เฉลี่ย ${state.reactionCount ? Math.round(state.reactionSum / state.reactionCount) : 0} ms`
+    ],
     metrics: {
       total: state.total,
       correct: state.correct,
@@ -61,15 +76,38 @@ function makeResult(state){
         ? 'พร้อมแล้ว ไปเล่น Jump Duck กัน'
         : 'ลองซ้อมอีกนิด จับจังหวะกระโดดและย่อให้แม่นขึ้น'
     },
-    nextAction: 'run'
+    buffs: {
+      wType: 'jumpduck_warmup',
+      wPct: score,
+      wCorrect: state.correct,
+      wWrong: state.wrong,
+      wMisses: state.misses,
+      wStars: starsFromScore(score)
+    },
+    nextAction: 'run',
+    markDailyDone: true
   };
 }
 
-export function mount(root, ctx = {}) {
-  ensureStyle();
+export function mount(root, ctx = {}, api = {}) {
+  loadStyle();
 
   const phase = String(getParam(ctx, 'phase', 'warmup')).toLowerCase();
-  const onComplete = typeof ctx?.onComplete === 'function' ? ctx.onComplete : () => {};
+  const fallbackComplete = typeof ctx?.onComplete === 'function' ? ctx.onComplete : null;
+
+  function complete(payload){
+    if (typeof api?.finish === 'function'){
+      api.finish(payload);
+      return;
+    }
+    if (typeof api?.complete === 'function'){
+      api.complete(payload);
+      return;
+    }
+    if (typeof fallbackComplete === 'function'){
+      fallbackComplete(payload);
+    }
+  }
 
   if (phase !== 'warmup'){
     root.innerHTML = `
@@ -81,7 +119,11 @@ export function mount(root, ctx = {}) {
         </section>
       </div>
     `;
-    return;
+    return {
+      autostart: false,
+      start(){},
+      destroy(){}
+    };
   }
 
   const seed = Number(getParam(ctx, 'seed', Date.now()));
@@ -99,7 +141,8 @@ export function mount(root, ctx = {}) {
   const state = {
     started: false,
     finished: false,
-    total: 0,
+    submitted: false,
+    total: TOTAL_ROUNDS,
     correct: 0,
     wrong: 0,
     misses: 0,
@@ -110,11 +153,8 @@ export function mount(root, ctx = {}) {
     remainSec: GAME_SEC,
     roundTimer: null,
     gameTimer: null,
-    sequence: [],
-    completedOnce: false
+    sequence: []
   };
-
-  let autoCompleteTimer = null;
 
   for (let i = 0; i < TOTAL_ROUNDS; i++){
     const idx = Math.abs((seed + i * 11) % cues.length);
@@ -174,26 +214,48 @@ export function mount(root, ctx = {}) {
   const startBtn = root.querySelector('#jdg-start');
   const finishBtn = root.querySelector('#jdg-finish');
 
+  function shownRound(){
+    if (state.finished) return TOTAL_ROUNDS;
+    return clamp(state.roundIndex + 1, 0, TOTAL_ROUNDS);
+  }
+
+  function canOpenResult(){
+    return state.finished === true
+      || state.correct >= 4
+      || state.roundIndex >= TOTAL_ROUNDS;
+  }
+
+  function syncFinishBtn(){
+    const ready = canOpenResult();
+    finishBtn.disabled = !ready;
+    finishBtn.style.pointerEvents = ready ? 'auto' : 'none';
+    finishBtn.style.opacity = ready ? '1' : '.65';
+    finishBtn.setAttribute('aria-disabled', ready ? 'false' : 'true');
+  }
+
   function renderStats(){
     statsEl.innerHTML = `
-      <span>รอบ ${Math.max(0, state.roundIndex + 1)}/${TOTAL_ROUNDS}</span>
+      <span>รอบ ${shownRound()}/${TOTAL_ROUNDS}</span>
       <span>ถูก ${state.correct}</span>
       <span>ผิด ${state.wrong + state.misses}</span>
     `;
+    syncFinishBtn();
   }
 
   function lockActions(locked){
     actionsEl.querySelectorAll('.jdg-btn-action').forEach(btn => {
       btn.disabled = locked;
       btn.style.pointerEvents = locked ? 'none' : 'auto';
+      btn.style.opacity = locked ? '.7' : '1';
     });
   }
 
-  function completeNow(){
-    if (state.completedOnce) return;
-    state.completedOnce = true;
-    clearTimeout(autoCompleteTimer);
-    onComplete(makeResult(state));
+  function submitResult(){
+    if (!canOpenResult()) return;
+    if (state.submitted) return;
+
+    state.submitted = true;
+    complete(makeResult(state));
   }
 
   function finishGame(){
@@ -202,7 +264,8 @@ export function mount(root, ctx = {}) {
 
     clearTimeout(state.roundTimer);
     clearInterval(state.gameTimer);
-    clearTimeout(autoCompleteTimer);
+    state.roundTimer = null;
+    state.gameTimer = null;
 
     lockActions(true);
 
@@ -210,20 +273,14 @@ export function mount(root, ctx = {}) {
     startBtn.style.pointerEvents = 'none';
     startBtn.style.opacity = '.65';
 
-    finishBtn.disabled = false;
-    finishBtn.style.pointerEvents = 'auto';
-    finishBtn.style.opacity = '1';
-
+    timerEl.textContent = `${Math.max(0, state.remainSec)}s`;
     cueEl.textContent = 'เสร็จแล้ว กดดูผล';
     renderStats();
-
-    autoCompleteTimer = setTimeout(() => {
-      completeNow();
-    }, 900);
   }
 
   function nextCue(){
     if (state.finished) return;
+
     state.roundIndex += 1;
 
     if (state.roundIndex >= state.sequence.length){
@@ -232,7 +289,6 @@ export function mount(root, ctx = {}) {
     }
 
     const cue = state.sequence[state.roundIndex];
-    state.total += 1;
     state.cueAt = performance.now();
     cueEl.textContent = `${cue.emoji} ${cue.label}`;
     renderStats();
@@ -251,6 +307,7 @@ export function mount(root, ctx = {}) {
 
     const cue = state.sequence[state.roundIndex];
     clearTimeout(state.roundTimer);
+    state.roundTimer = null;
 
     const rt = Math.max(0, Math.round(performance.now() - state.cueAt));
     state.reactionSum += rt;
@@ -274,9 +331,10 @@ export function mount(root, ctx = {}) {
     answer(btn.dataset.action || '');
   });
 
-  startBtn.addEventListener('click', () => {
+  function startInternal(){
     if (state.started) return;
     state.started = true;
+
     startBtn.disabled = true;
     startBtn.style.pointerEvents = 'none';
     startBtn.style.opacity = '.65';
@@ -285,24 +343,61 @@ export function mount(root, ctx = {}) {
     cueEl.textContent = 'เริ่ม!';
     renderStats();
 
+    api?.setSub?.('กดให้ตรงกับคำสั่ง ซ้าย ขวา ย่อ กระโดด');
+    api?.logger?.push?.('jumpduck_warmup_start', {
+      seed,
+      totalRounds: TOTAL_ROUNDS
+    });
+
     state.gameTimer = setInterval(() => {
       state.remainSec -= 1;
       timerEl.textContent = `${Math.max(0, state.remainSec)}s`;
-      if (state.remainSec <= 0) finishGame();
+
+      if (state.remainSec <= 0){
+        state.remainSec = 0;
+        finishGame();
+      }
     }, 1000);
 
     setTimeout(nextCue, 500);
+  }
+
+  startBtn.addEventListener('click', startInternal);
+
+  finishBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    submitResult();
+  }, { passive:false });
+
+  finishBtn.addEventListener('pointerup', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    submitResult();
+  }, { passive:false });
+
+  renderStats();
+  syncFinishBtn();
+
+  api?.setSub?.('เริ่มอุ่นเครื่องแล้วกดให้ตรงกับคำสั่ง');
+  api?.setStats?.({
+    time: GAME_SEC,
+    score: 0,
+    miss: 0,
+    acc: '0%'
   });
 
-  finishBtn.addEventListener('click', completeNow);
-  finishBtn.addEventListener('pointerup', completeNow);
-  finishBtn.addEventListener('touchend', completeNow, { passive: true });
-
   return {
+    autostart: false,
+    start(){},
     destroy(){
       clearTimeout(state.roundTimer);
       clearInterval(state.gameTimer);
-      clearTimeout(autoCompleteTimer);
+      state.roundTimer = null;
+      state.gameTimer = null;
+      state.finished = true;
     }
   };
 }
+
+export default { loadStyle, mount };
