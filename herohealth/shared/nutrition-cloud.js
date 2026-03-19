@@ -1,6 +1,6 @@
 // === /herohealth/shared/nutrition-cloud.js ===
 // Cloud logger / Apps Script queue for nutrition games
-// PATCH v20260318-NUTRITION-CLOUD-WIRING-A
+// PATCH v20260318-NUTRITION-SHARED-FULL
 
 import { normalizeGameKey } from './nutrition-common.js';
 
