@@ -1,6 +1,6 @@
 // === /herohealth/nutrition-plate/js/plate.engine.js ===
 // Main engine for Nutrition Plate
-// PATCH v20260318-PLATE-VSLICE-B
+// PATCH v20260318-PLATE-RUN-FULL
 
 import { hydrateQuestion, BUILD_QUESTIONS, getFoodById } from './plate.content.js';
 import { getBuildChoiceFeedback, evaluatePlate } from './plate.balance.js';
