@@ -1,6 +1,6 @@
 // === /herohealth/nutrition-groups/js/groups.summary.js ===
 // Summary builder for Nutrition Groups
-// PATCH v20260318-GROUPS-VSLICE-C
+// PATCH v20260318-GROUPS-RUN-FULL
 
 import { formatPercent } from '../../shared/nutrition-common.js';
 import { FOOD_GROUPS } from './groups.content.js';
