@@ -17,6 +17,7 @@
       --blue:#38bdf8;
       --green:#22c55e;
       --violet:#a78bfa;
+      --pink:#f472b6;
       --warn:#f59e0b;
       --shadow:0 20px 60px rgba(0,0,0,.32);
       --radius:20px;
@@ -228,6 +229,7 @@
     .btn-blue{ background:linear-gradient(135deg,#2563eb,#38bdf8); }
     .btn-green{ background:linear-gradient(135deg,#16a34a,#22c55e); }
     .btn-violet{ background:linear-gradient(135deg,#7c3aed,#a78bfa); }
+    .btn-pink{ background:linear-gradient(135deg,#db2777,#f472b6); }
     .btn-ghost{
       background:rgba(148,163,184,.12);
       border:1px solid var(--line);
@@ -300,8 +302,9 @@
       <div class="kicker">🎓 Teacher Panel • GoodJunk Intervention</div>
       <h1>ตั้งค่า flow วิจัยและข้อมูลนักเรียน</h1>
       <div class="sub">
-        หน้านี้ใช้สำหรับสร้างลิงก์เข้าแบบประเมินก่อนเล่น, เข้าเกม GoodJunk intervention,
-        และส่งต่อบริบทวิจัย/ข้อมูลนักเรียนให้ครบทุกหน้า
+        หน้านี้ใช้สำหรับสร้างลิงก์เข้าแบบประเมินก่อนเล่น, เข้าเกม GoodJunk Intervention,
+        และส่งต่อบริบทวิจัย/ข้อมูลนักเรียนให้ครบทุกหน้าในโฟลเดอร์
+        <b>herohealth/goodjunk-intervention</b>
       </div>
 
       <div class="grid">
@@ -318,7 +321,7 @@
                 </label>
                 <label>
                   Study ID
-                  <input id="studyId" type="text" value="GJ-INT-001" />
+                  <input id="studyId" type="text" value="GJI-2026" />
                 </label>
               </div>
 
@@ -335,10 +338,10 @@
                 <label>
                   Condition Group
                   <select id="conditionGroup">
-                    <option value="A" selected>A</option>
-                    <option value="B">B</option>
+                    <option value="intervention" selected>intervention</option>
                     <option value="control">control</option>
-                    <option value="treatment">treatment</option>
+                    <option value="A">A</option>
+                    <option value="B">B</option>
                   </select>
                 </label>
                 <label>
@@ -354,7 +357,7 @@
                 </label>
                 <label>
                   Session ID
-                  <input id="sessionId" type="text" value="" placeholder="ปล่อยว่างได้ ระบบจะสร้างให้" />
+                  <input id="sessionId" type="text" value="s1" placeholder="ปล่อยว่างได้ ระบบจะสร้างให้" />
                 </label>
               </div>
             </div>
@@ -364,11 +367,11 @@
               <div class="row">
                 <label>
                   Student Key
-                  <input id="studentKey" type="text" value="ST001" />
+                  <input id="studentKey" type="text" value="KK1" />
                 </label>
                 <label>
                   Nick Name
-                  <input id="nickName" type="text" value="นนท์" />
+                  <input id="nickName" type="text" value="KK1" />
                 </label>
               </div>
 
@@ -390,7 +393,7 @@
               <div class="row-3">
                 <label>
                   Student No
-                  <input id="studentNo" type="text" value="12" />
+                  <input id="studentNo" type="text" value="1" />
                 </label>
                 <label>
                   Grade Level
@@ -454,6 +457,7 @@
                     <option value="60">60</option>
                     <option value="80" selected>80</option>
                     <option value="100">100</option>
+                    <option value="120">120</option>
                   </select>
                 </label>
                 <label>
@@ -461,8 +465,8 @@
                   <input id="seed" type="text" value="" placeholder="ปล่อยว่าง = สุ่มใหม่" />
                 </label>
                 <label>
-                  Site Code
-                  <input id="siteCode" type="text" value="SITE01" />
+                  Game ID
+                  <input id="gameId" type="text" value="goodjunk" />
                 </label>
               </div>
 
@@ -494,16 +498,12 @@
             </div>
 
             <div class="actions">
-              <button class="btn-ghost" id="btnLauncher" type="button">Student Launcher</button>
-              <button class="btn-blue" id="btnPreKnowledge" type="button">Pre-Knowledge</button>
+              <button class="btn-ghost" id="btnPortal" type="button">Portal</button>
+              <button class="btn-blue" id="btnStudentLauncher" type="button">Student Launcher</button>
+              <button class="btn-violet" id="btnPreKnowledge" type="button">Pre-Knowledge</button>
               <button class="btn-violet" id="btnPreBehavior" type="button">Pre-Behavior</button>
               <button class="btn-green" id="btnGame" type="button">เข้าเกม</button>
-              <button class="btn-ghost" id="btnPostKnowledge" type="button">Post-Knowledge</button>
-              <button class="btn-ghost" id="btnPostBehavior" type="button">Post-Behavior</button>
-              <button class="btn-ghost" id="btnPostChoice" type="button">Post-Choice</button>
-              <button class="btn-ghost" id="btnCompletion" type="button">Completion</button>
-              <button class="btn-ghost" id="btnParentSummary" type="button">Parent Summary</button>
-              <button class="btn-ghost" id="btnCopyGame" type="button">คัดลอกลิงก์เกม</button>
+              <button class="btn-pink" id="btnCopyGame" type="button">คัดลอกลิงก์เกม</button>
               <button class="btn-ghost" id="btnReset" type="button">รีเซ็ต</button>
             </div>
           </div>
@@ -516,6 +516,11 @@
             <div class="preview-box">
               <div class="muted">สถานะ context</div>
               <div class="chips" id="chips"></div>
+            </div>
+
+            <div class="preview-box">
+              <div class="muted">Portal URL</div>
+              <div class="link" id="portalPreview">-</div>
             </div>
 
             <div class="preview-box">
@@ -540,8 +545,8 @@
           </div>
 
           <div class="foot">
-            แนะนำให้ครูใช้หน้านี้เป็นจุดเริ่ม flow ทั้งหมด:
-            launcher → pretest → game → posttest → parent/home → follow-up
+            แนะนำให้ใช้ flow นี้เป็นหลัก:
+            Teacher Panel → Student Launcher → Pre-Knowledge → Pre-Behavior → Game → Posttest → Parent / Follow-up
           </div>
 
           <div class="small" style="margin-top:10px;">
@@ -552,23 +557,17 @@
     </section>
   </div>
 
-  <script type="module">
-    import { saveCtx } from '../research/localstore.js';
-
+  <script>
     const $ = (id)=>document.getElementById(id);
-    const STORAGE_KEY = 'GOODJUNK_INT_TEACHER_PANEL_V3';
 
-    // ไฟล์นี้อยู่ใน /launcher/
+    const STORAGE_KEY = 'GOODJUNK_INT_TEACHER_PANEL_V2';
+
     const PATHS = {
-      launcher      : './student-launcher.html',
-      preKnowledge  : '../assessments/pre-knowledge.html',
-      preBehavior   : '../assessments/pre-behavior.html',
-      game          : '../game/goodjunk-vr.html',
-      postKnowledge : '../assessments/post-knowledge.html',
-      postBehavior  : '../assessments/post-behavior.html',
-      postChoice    : '../assessments/post-choice.html',
-      completion    : '../assessments/completion.html',
-      parentSummary : '../parent/parent-summary.html'
+      portal      : '../index.html',
+      launcher    : './student-launcher.html',
+      preKnowledge: '../assessments/pre-knowledge.html',
+      preBehavior : '../assessments/pre-behavior.html',
+      game        : '../game/goodjunk-vr.html'
     };
 
     function q(k,d=''){
@@ -582,7 +581,7 @@
 
     function makeSessionId(){
       const studentKey = $('studentKey').value.trim() || 'anon';
-      return `gjint-${studentKey}-${Date.now()}`;
+      return `gji-${studentKey}-${Date.now()}`;
     }
 
     function bool01(v){
@@ -590,32 +589,44 @@
     }
 
     function collectForm(){
+      const sessionId = $('sessionId').value.trim() || makeSessionId();
+
       return {
         projectTag: $('projectTag').value.trim() || 'herohealth-goodjunk-intervention',
-        studyId: $('studyId').value.trim() || 'GJ-INT-001',
+        studyId: $('studyId').value.trim(),
         phase: $('phase').value,
         conditionGroup: $('conditionGroup').value,
+        condition: $('conditionGroup').value,
         sessionOrder: $('sessionOrder').value,
         blockLabel: $('blockLabel').value.trim(),
-        sessionId: $('sessionId').value.trim() || makeSessionId(),
+        sessionId,
+        session: sessionId,
 
-        studentKey: $('studentKey').value.trim() || 'ST001',
+        pid: $('studentKey').value.trim(),
+        studentKey: $('studentKey').value.trim(),
+        nickName: $('nickName').value.trim(),
+        name: $('nickName').value.trim(),
+
         schoolCode: $('schoolCode').value.trim(),
         schoolName: $('schoolName').value.trim(),
+        school: $('schoolName').value.trim(),
         classRoom: $('classRoom').value.trim(),
+        classroom: $('classRoom').value.trim(),
+        group: $('classRoom').value.trim(),
         studentNo: $('studentNo').value.trim(),
-        nickName: $('nickName').value.trim(),
         gradeLevel: $('gradeLevel').value.trim(),
         gender: $('gender').value,
         age: $('age').value,
         hub: $('hub').value.trim() || '../../hub.html',
 
+        mode: $('run').value,
         run: $('run').value,
         diff: $('diff').value,
         view: $('view').value,
         time: $('time').value,
         seed: $('seed').value.trim() || makeSeed(),
-        siteCode: $('siteCode').value.trim(),
+        gameId: $('gameId').value.trim() || 'goodjunk',
+        lang: 'th',
 
         kid: bool01($('kid').checked),
         readable: bool01($('readable').checked),
@@ -623,59 +634,24 @@
       };
     }
 
-    function buildCanonicalCtx(d){
-      return {
-        pid: d.studentKey || d.nickName || 'guest',
-        studyId: d.studyId,
-        group: d.classRoom || d.gradeLevel || d.conditionGroup || 'group1',
-        condition: d.conditionGroup || 'intervention',
-        session: d.sessionId,
-        lang: 'th',
-        teacher: '',
-        classroom: d.classRoom || '',
-        school: d.schoolName || '',
-        mode: d.run || 'play',
-
-        nickName: d.nickName || '',
-        phase: d.phase || '',
-        diff: d.diff || 'easy',
-        view: d.view || 'mobile',
-        time: d.time || '80',
-        run: d.run || 'play',
-        hub: d.hub || '../../hub.html'
-      };
-    }
-
     function buildUrl(basePath){
       const d = collectForm();
-      const ctx = buildCanonicalCtx(d);
       const u = new URL(basePath, location.href);
-
-      Object.entries(ctx).forEach(([k,v])=>{
-        if(v !== '' && v != null) u.searchParams.set(k, String(v));
-      });
 
       Object.entries(d).forEach(([k,v])=>{
         if(v !== '' && v != null) u.searchParams.set(k, String(v));
       });
-
-      if (!u.searchParams.has('condition')) u.searchParams.set('condition', d.conditionGroup || 'intervention');
-      if (!u.searchParams.has('group')) u.searchParams.set('group', d.classRoom || d.gradeLevel || d.conditionGroup || 'group1');
-      if (!u.searchParams.has('session')) u.searchParams.set('session', d.sessionId);
-      if (!u.searchParams.has('pid')) u.searchParams.set('pid', d.studentKey || d.nickName || 'guest');
 
       return u.toString();
     }
 
     function renderChips(){
       const d = collectForm();
-      const ctx = buildCanonicalCtx(d);
       const chips = [
-        `pid:${ctx.pid || '-'}`,
-        `study:${ctx.studyId || '-'}`,
-        `group:${ctx.group || '-'}`,
-        `condition:${ctx.condition || '-'}`,
-        `session:${ctx.session || '-'}`,
+        `study:${d.studyId || '-'}`,
+        `phase:${d.phase || '-'}`,
+        `group:${d.conditionGroup || '-'}`,
+        `student:${d.studentKey || '-'}`,
         `diff:${d.diff}`,
         `view:${d.view}`,
         `run:${d.run}`
@@ -689,6 +665,7 @@
     }
 
     function renderPreview(){
+      $('portalPreview').textContent = buildUrl(PATHS.portal);
       $('launcherPreview').textContent = buildUrl(PATHS.launcher);
       $('preKnowledgePreview').textContent = buildUrl(PATHS.preKnowledge);
       $('preBehaviorPreview').textContent = buildUrl(PATHS.preBehavior);
@@ -720,14 +697,6 @@
       }catch(_){}
     }
 
-    function persistCanonicalCtx(){
-      const d = collectForm();
-      const ctx = buildCanonicalCtx(d);
-      saveCtx(ctx);
-      saveLastTeacherForm();
-      return { d, ctx };
-    }
-
     async function copyText(txt){
       try{
         await navigator.clipboard.writeText(txt);
@@ -741,26 +710,21 @@
       }
     }
 
-    function go(pathKey){
-      persistCanonicalCtx();
-      location.href = buildUrl(PATHS[pathKey]);
-    }
-
     function resetDefaults(){
       $('projectTag').value = 'herohealth-goodjunk-intervention';
-      $('studyId').value = 'GJ-INT-001';
+      $('studyId').value = 'GJI-2026';
       $('phase').value = 'pretest';
-      $('conditionGroup').value = 'A';
+      $('conditionGroup').value = 'intervention';
       $('sessionOrder').value = '1';
       $('blockLabel').value = 'B1';
-      $('sessionId').value = '';
+      $('sessionId').value = 's1';
 
-      $('studentKey').value = 'ST001';
+      $('studentKey').value = 'KK1';
       $('schoolCode').value = '1001';
       $('schoolName').value = 'Demo School';
       $('classRoom').value = 'P5/1';
-      $('studentNo').value = '12';
-      $('nickName').value = 'นนท์';
+      $('studentNo').value = '1';
+      $('nickName').value = 'KK1';
       $('gradeLevel').value = 'P5';
       $('gender').value = '';
       $('age').value = '11';
@@ -771,46 +735,55 @@
       $('view').value = 'mobile';
       $('time').value = '80';
       $('seed').value = '';
-      $('siteCode').value = 'SITE01';
+      $('gameId').value = 'goodjunk';
 
       $('kid').checked = true;
       $('readable').checked = true;
       $('spawnDebug').checked = false;
 
       renderPreview();
-      persistCanonicalCtx();
+      saveLastTeacherForm();
     }
 
     [
       'projectTag','studyId','phase','conditionGroup','sessionOrder','blockLabel','sessionId',
       'studentKey','schoolCode','schoolName','classRoom','studentNo','nickName','gradeLevel',
-      'gender','age','hub','run','diff','view','time','seed','siteCode',
+      'gender','age','hub','run','diff','view','time','seed','gameId',
       'kid','readable','spawnDebug'
     ].forEach(id=>{
       const el = $(id);
       if(!el) return;
       el.addEventListener('input', ()=>{
         renderPreview();
-        persistCanonicalCtx();
+        saveLastTeacherForm();
       });
       el.addEventListener('change', ()=>{
         renderPreview();
-        persistCanonicalCtx();
+        saveLastTeacherForm();
       });
     });
 
-    $('btnLauncher').addEventListener('click', ()=> go('launcher'));
-    $('btnPreKnowledge').addEventListener('click', ()=> go('preKnowledge'));
-    $('btnPreBehavior').addEventListener('click', ()=> go('preBehavior'));
-    $('btnGame').addEventListener('click', ()=> go('game'));
-    $('btnPostKnowledge').addEventListener('click', ()=> go('postKnowledge'));
-    $('btnPostBehavior').addEventListener('click', ()=> go('postBehavior'));
-    $('btnPostChoice').addEventListener('click', ()=> go('postChoice'));
-    $('btnCompletion').addEventListener('click', ()=> go('completion'));
-    $('btnParentSummary').addEventListener('click', ()=> go('parentSummary'));
+    $('btnPortal').addEventListener('click', ()=>{
+      location.href = buildUrl(PATHS.portal);
+    });
+
+    $('btnStudentLauncher').addEventListener('click', ()=>{
+      location.href = buildUrl(PATHS.launcher);
+    });
+
+    $('btnPreKnowledge').addEventListener('click', ()=>{
+      location.href = buildUrl(PATHS.preKnowledge);
+    });
+
+    $('btnPreBehavior').addEventListener('click', ()=>{
+      location.href = buildUrl(PATHS.preBehavior);
+    });
+
+    $('btnGame').addEventListener('click', ()=>{
+      location.href = buildUrl(PATHS.game);
+    });
 
     $('btnCopyGame').addEventListener('click', async ()=>{
-      persistCanonicalCtx();
       await copyText(buildUrl(PATHS.game));
       const old = $('btnCopyGame').textContent;
       $('btnCopyGame').textContent = 'คัดลอกแล้ว';
@@ -824,7 +797,7 @@
     [
       'projectTag','studyId','phase','conditionGroup','sessionOrder','blockLabel','sessionId',
       'studentKey','schoolCode','schoolName','classRoom','studentNo','nickName','gradeLevel',
-      'gender','age','hub','run','diff','view','time','seed','siteCode'
+      'gender','age','hub','run','diff','view','time','seed','gameId'
     ].forEach(id=>{
       const v = q(id,'');
       if(v && $(id)) $(id).value = v;
@@ -838,7 +811,7 @@
     if(q('spawnDebug','') === '0') $('spawnDebug').checked = false;
 
     renderPreview();
-    persistCanonicalCtx();
+    saveLastTeacherForm();
   </script>
 </body>
 </html>
