@@ -1,6 +1,6 @@
 // === /herohealth/nutrition-groups/js/groups.quiz.js ===
 // Mini quiz builders for Nutrition Groups
-// PATCH v20260318-GROUPS-VSLICE-C
+// PATCH v20260318-GROUPS-RUN-FULL
 
 import { sample } from '../../shared/nutrition-common.js';
 import {
