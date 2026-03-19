@@ -1,1380 +1,2272 @@
-// === /goodjunk-intervention/game/goodjunk.safe.js ===
-// FULL PATCH v20260318c-GJI-SAFE-FOR-INTERVENTION-SHELL
-// ใช้กับ goodjunk-vr.html shell ล่าสุดที่มี:
-// - #gj-layer
-// - HUD / Mission / Coach / Boss bar
-// - banners
-// - #endOverlay
-// - ปุ่ม Post-Knowledge / Post-Behavior / Parent Summary / Replay / Back HUB
-//
-// Flow:
-// launcher -> pre -> pre -> game -> endOverlay -> post / parent / replay
-//
-// Saves:
-// - GJI_GAME_SUMMARY
-// - GJI_GAME_EVENTS
-//
-// Also supports:
-// - click / tap targets
-// - hha:shoot event from vr-ui.js (for cVR / crosshair mode)
+const __qs = new URLSearchParams(location.search);
 
-import { pickCtxFromQuery, withDefaultCtx } from '../research/config.js';
-import { KEYS, loadCtx, mergeCtx, saveCtx, saveJSON } from '../research/localstore.js';
+function __makeDevicePid() {
+  try {
+    const KEY = 'GJ_DEVICE_PID';
+    let pid = localStorage.getItem(KEY);
+    if (!pid) {
+      pid = `p-${Math.random().toString(36).slice(2, 10)}`;
+      localStorage.setItem(KEY, pid);
+    }
+    return pid;
+  } catch {
+    return `p-${Math.random().toString(36).slice(2, 10)}`;
+  }
+}
 
-const VERSION = 'v20260318c-GJI-SAFE-FOR-INTERVENTION-SHELL';
-const SEARCH = new URLSearchParams(window.location.search);
+function __normalizePid(rawPid) {
+  const v = String(rawPid || '').trim().replace(/[.#$[\]/]/g, '-');
+  if (!v) return __makeDevicePid();
+  if (v.toLowerCase() === 'anon') return __makeDevicePid();
+  return v;
+}
 
-const FOODS = {
-  good: [
-    { id: 'apple',      label: 'แอปเปิล',   emoji: '🍎', cat: 'fruit', points: 10, tip: 'ผลไม้เป็นของว่างที่ดีต่อร่างกาย' },
-    { id: 'banana',     label: 'กล้วย',     emoji: '🍌', cat: 'fruit', points: 10, tip: 'กล้วยช่วยให้อิ่มและมีพลังงาน' },
-    { id: 'orange',     label: 'ส้ม',       emoji: '🍊', cat: 'fruit', points: 10, tip: 'ส้มช่วยให้สดชื่นและได้วิตามิน' },
-    { id: 'pear',       label: 'ลูกแพร์',   emoji: '🍐', cat: 'fruit', points: 10, tip: 'ผลไม้ดีกว่าขนมหวานเป็นประจำ' },
-    { id: 'carrot',     label: 'แครอท',    emoji: '🥕', cat: 'veg',   points: 12, tip: 'ผักช่วยให้ร่างกายแข็งแรง' },
-    { id: 'broccoli',   label: 'บรอกโคลี', emoji: '🥦', cat: 'veg',   points: 12, tip: 'ผักควรกินบ่อยเพื่อสุขภาพที่ดี' },
-    { id: 'cucumber',   label: 'แตงกวา',   emoji: '🥒', cat: 'veg',   points: 11, tip: 'ผักสดเป็นตัวเลือกที่ดี' },
-    { id: 'water',      label: 'น้ำเปล่า', emoji: '💧', cat: 'drink', points: 11, tip: 'น้ำเปล่าดีกว่าเครื่องดื่มหวาน' },
-    { id: 'milk',       label: 'นมจืด',    emoji: '🥛', cat: 'drink', points: 11, tip: 'นมจืดเหมาะกว่าน้ำหวาน' },
-    { id: 'corn',       label: 'ข้าวโพด',  emoji: '🌽', cat: 'veg',   points: 10, tip: 'อาหารธรรมชาติดีกว่าขนมแปรรูป' }
-  ],
-  junk: [
-    { id: 'chips',      label: 'มันฝรั่งทอด', emoji: '🍟', cat: 'junk', points: -8, tip: 'ของทอดควรกินให้น้อยลง' },
-    { id: 'soda',       label: 'น้ำอัดลม',    emoji: '🥤', cat: 'junk', points: -9, tip: 'น้ำอัดลมมีน้ำตาลสูง' },
-    { id: 'candy',      label: 'ลูกอม',       emoji: '🍬', cat: 'junk', points: -8, tip: 'ขนมหวานกินมากเกินไปไม่ดี' },
-    { id: 'donut',      label: 'โดนัท',       emoji: '🍩', cat: 'junk', points: -8, tip: 'ของหวานกินได้บ้าง แต่ไม่ควรบ่อย' },
-    { id: 'cake',       label: 'เค้ก',        emoji: '🍰', cat: 'junk', points: -8, tip: 'เค้กเป็นของหวานที่ควรลดลง' },
-    { id: 'cookie',     label: 'คุกกี้',      emoji: '🍪', cat: 'junk', points: -7, tip: 'คุกกี้ไม่ควรเป็นของว่างประจำ' },
-    { id: 'burger',     label: 'เบอร์เกอร์',  emoji: '🍔', cat: 'junk', points: -9, tip: 'อาหารแปรรูปมากควรเลือกให้น้อยลง' },
-    { id: 'sweetTea',   label: 'ชาหวาน',     emoji: '🧋', cat: 'junk', points: -9, tip: 'เครื่องดื่มหวานมีน้ำตาลสูง' },
-    { id: 'icecream',   label: 'ไอศกรีม',     emoji: '🍨', cat: 'junk', points: -8, tip: 'ของหวานเย็นอร่อย แต่ไม่ควรกินบ่อย' }
-  ]
+function __normalizeRoomId(rawRoomId) {
+  return String(rawRoomId || '').toUpperCase().replace(/[^A-Z0-9-]/g, '').slice(0, 16);
+}
+
+const RUN_CTX = window.__GJ_RUN_CTX__ || {
+  pid: __normalizePid(
+    __qs.get('pid') ||
+    __qs.get('studentKey') ||
+    ''
+  ),
+  name: (
+    __qs.get('name') ||
+    __qs.get('nickName') ||
+    __qs.get('studentKey') ||
+    ''
+  ).trim(),
+  studyId: __qs.get('studyId') || '',
+  roomId: __normalizeRoomId(
+    __qs.get('roomId') ||
+    __qs.get('room') ||
+    ''
+  ),
+  mode: (__qs.get('mode') || 'solo').toLowerCase(),
+  diff: __qs.get('diff') || 'easy',
+  time: __qs.get('time') || '80',
+  seed: __qs.get('seed') || String(Date.now()),
+  startAt: Number(__qs.get('startAt') || 0) || 0,
+  hub: __qs.get('hub') || '../../hub.html',
+  view: __qs.get('view') || 'mobile',
+  run: __qs.get('run') || 'play',
+  gameId: __qs.get('gameId') || 'goodjunk',
+
+  sessionId: __qs.get('sessionId') || __qs.get('session') || '',
+  session: __qs.get('session') || __qs.get('sessionId') || '',
+  conditionGroup: __qs.get('conditionGroup') || __qs.get('condition') || '',
+  condition: __qs.get('condition') || __qs.get('conditionGroup') || '',
+  classRoom: __qs.get('classRoom') || __qs.get('classroom') || '',
+  classroom: __qs.get('classroom') || __qs.get('classRoom') || '',
+  schoolName: __qs.get('schoolName') || __qs.get('school') || '',
+  school: __qs.get('school') || __qs.get('schoolName') || '',
+  studentKey: __qs.get('studentKey') || __qs.get('pid') || '',
+  nickName: __qs.get('nickName') || __qs.get('name') || '',
+  lang: __qs.get('lang') || 'th',
+  group: __qs.get('group') || __qs.get('classRoom') || __qs.get('classroom') || __qs.get('conditionGroup') || ''
 };
 
-const STAGES = [
-  {
-    key: 'WARM',
-    title: 'WARM',
-    desc: 'เก็บอาหารดีพื้นฐานให้แม่น',
-    hint: 'เริ่มเบา ๆ ก่อน เน้นของดีให้ต่อเนื่อง',
-    goalType: 'good',
-    goalBase: 8,
-    spawnEvery: 980,
-    speedMin: 110,
-    speedMax: 160,
-    goodRatio: 0.72,
-    coachHead: 'พร้อมแล้ว! ยิงของดี 🥦',
-    coachExplain: 'เริ่มจากผลไม้ ผัก น้ำเปล่า และนมจืดก่อน'
-  },
-  {
-    key: 'SORT',
-    title: 'SORT',
-    desc: 'เลือกของดีท่ามกลาง junk ที่มากขึ้น',
-    hint: 'เริ่มมี junk มากขึ้น ดูก่อนค่อยแตะ',
-    goalType: 'good',
-    goalBase: 12,
-    spawnEvery: 820,
-    speedMin: 135,
-    speedMax: 200,
-    goodRatio: 0.62,
-    coachHead: 'สังเกตให้ดีขึ้น 👀',
-    coachExplain: 'อย่าเผลอแตะเครื่องดื่มหวานหรือของทอด'
-  },
-  {
-    key: 'SMART',
-    title: 'SMART',
-    desc: 'เน้นผลไม้ น้ำเปล่า หรือนมจืด',
-    hint: 'ถ้าจะเลือกของว่าง ให้เลือกทางเลือกที่ดีกว่า',
-    goalType: 'smart',
-    goalBase: 7,
-    spawnEvery: 730,
-    speedMin: 150,
-    speedMax: 220,
-    goodRatio: 0.58,
-    coachHead: 'เลือกให้ฉลาดขึ้น ✨',
-    coachExplain: 'ตอนนี้ลองเน้นผลไม้ น้ำเปล่า หรือนมจืด'
-  },
-  {
-    key: 'BOSS',
-    title: 'BOSS',
-    desc: 'ลดพลัง Snack Boss ด้วยอาหารดี',
-    hint: 'เก็บของดีเพื่อลด HP ของ Boss และอย่าแตะ junk',
-    goalType: 'boss',
-    goalBase: 100,
-    spawnEvery: 620,
-    speedMin: 170,
-    speedMax: 250,
-    goodRatio: 0.56,
-    boss: true,
-    coachHead: 'Boss มาแล้ว! ⚠️',
-    coachExplain: 'แตะของดีเพื่อโจมตี Boss และอย่าแตะ junk เด็ดขาด'
-  }
+const GJ_PID = __normalizePid(RUN_CTX.pid || '');
+const GJ_NAME = String(
+  RUN_CTX.nickName ||
+  RUN_CTX.name ||
+  RUN_CTX.studentKey ||
+  GJ_PID
+).trim();
+const GJ_MODE = (RUN_CTX.mode || 'solo').toLowerCase();
+const GJ_ROOM_ID = __normalizeRoomId(RUN_CTX.roomId || '');
+const GJ_START_AT = Number(RUN_CTX.startAt || 0) || 0;
+const GJ_HUB = RUN_CTX.hub || '../../hub.html';
+const GJ_GAME_ID = RUN_CTX.gameId || 'goodjunk';
+const GJ_SESSION = String(RUN_CTX.sessionId || RUN_CTX.session || '').trim();
+const GJ_CONDITION = String(RUN_CTX.conditionGroup || RUN_CTX.condition || '').trim();
+
+const GAME_MOUNT = document.getElementById('gameMount') || document.body;
+const RACE_UI = window.__gjRaceUi || null;
+
+const GOODJUNK_STYLE_ID = 'goodjunk-safe-style-20260319a';
+const GOODJUNK_ROOT_ID = 'gjRoot';
+
+const GJ_SOLO_LAST_SUMMARY_KEY = `GJ_SOLO_LAST_SUMMARY_${GJ_PID}`;
+const GJ_SOLO_SUMMARY_HISTORY_KEY = `GJ_SOLO_SUMMARY_HISTORY_${GJ_PID}`;
+const GJ_RACE_LAST_SUMMARY_KEY = `GJ_RACE_LAST_SUMMARY_${GJ_PID}`;
+const GJ_RACE_SUMMARY_HISTORY_KEY = `GJ_RACE_SUMMARY_HISTORY_${GJ_PID}`;
+
+const GJ_RACE_HEARTBEAT_MS = 2500;
+const GJ_RACE_STALE_MS = 45000;
+const GJ_RACE_DNF_GRACE_MS = 180000;
+const GJ_RACE_WATCHDOG_MS = 3000;
+const GJ_FIREBASE_ROOM_PATH = GJ_ROOM_ID ? `hha-battle/goodjunk/rooms/${GJ_ROOM_ID}` : '';
+
+const GJ_MISS_GRACE_MS = 2500;
+const GJI_CTX_KEY = 'GJI_CTX';
+const GJI_GAME_SUMMARY_KEY = 'GJI_GAME_SUMMARY';
+const GJI_GAME_EVENTS_KEY = 'GJI_GAME_EVENTS';
+
+let __gjRaceBooted = false;
+let __gjRaceRAF = 0;
+let __gjRaceFinished = false;
+let __gjRaceResultBound = false;
+let __gjRaceHeartbeatTimer = 0;
+let __gjRaceWatchdogTimer = 0;
+let __gjRaceLastSummary = null;
+let __gjRaceLastSummarySig = '';
+let __gjSoloSummary = null;
+let __gjSoloSummaryBound = false;
+let __gjRaceRoomListenerBound = false;
+
+let __gjFbReady = false;
+let __gjRaceDb = null;
+let __gjRaceRoomRef = null;
+let __gjRacePlayersRef = null;
+let __gjRaceMyPlayerRef = null;
+let __gjRecoveredStartAt = 0;
+let __gjLocalRunActive = false;
+
+const GOOD_ITEMS = [
+  { emoji: '🍎', label: 'apple' },
+  { emoji: '🥕', label: 'carrot' },
+  { emoji: '🥦', label: 'broccoli' },
+  { emoji: '🍌', label: 'banana' },
+  { emoji: '🥛', label: 'milk' },
+  { emoji: '🥗', label: 'salad' },
+  { emoji: '🍉', label: 'watermelon' }
 ];
 
-const MINI_POOL = [
-  { type: 'good3',    label: 'เก็บของดี 3 ชิ้น',              target: 3, duration: 9 },
-  { type: 'fruit2',   label: 'เก็บผลไม้ 2 ชิ้น',              target: 2, duration: 9 },
-  { type: 'drink1',   label: 'เก็บน้ำเปล่าหรือนมจืด 1 ครั้ง', target: 1, duration: 8 },
-  { type: 'avoidJunk',label: 'อย่าแตะ junk 5 วินาที',          target: 5, duration: 5 },
-  { type: 'combo4',   label: 'ทำคอมโบ 4',                     target: 4, duration: 10 }
+const JUNK_ITEMS = [
+  { emoji: '🍟', label: 'fries' },
+  { emoji: '🍩', label: 'donut' },
+  { emoji: '🍭', label: 'candy' },
+  { emoji: '🍔', label: 'burger' },
+  { emoji: '🥤', label: 'soda' },
+  { emoji: '🍕', label: 'pizza' },
+  { emoji: '🧁', label: 'cupcake' }
 ];
 
-const CFG = {
-  defaultTimeSec: 80,
-  maxTimeSec: 180,
-  minTimeSec: 45,
-  maxActive: 9,
-
-  missPenalty: 4,
-  junkTapPenalty: 8,
-  comboEvery: 5,
-  comboBonus: 8,
-  missionBonus: 15,
-  miniBonus: 12,
-  bossClearBonus: 30,
-
-  topBoundDesktop: 170,
-  topBoundMobile: 220,
-  bottomBoundDesktop: 140,
-  bottomBoundMobile: 200,
-
-  eventCap: 900
+const DIFF_PRESET = {
+  easy:   { spawnMs: 1120, goodRatio: 0.76, speedMin: 72,  speedMax: 120, targetSizeMin: 68, targetSizeMax: 94 },
+  normal: { spawnMs: 900,  goodRatio: 0.68, speedMin: 92,  speedMax: 150, targetSizeMin: 64, targetSizeMax: 88 },
+  hard:   { spawnMs: 720,  goodRatio: 0.60, speedMin: 112, speedMax: 190, targetSizeMin: 58, targetSizeMax: 82 }
 };
 
 const state = {
-  ctx: {},
-  diff: 'easy',
-  view: 'mobile',
-  totalSec: CFG.defaultTimeSec,
-  started: false,
-  finished: false,
-  paused: false,
-
-  elapsedMs: 0,
-  lastTs: 0,
-  raf: 0,
-  spawnTimer: 0,
-
-  bounds: { left: 10, top: 180, width: 300, height: 300, bottom: 500 },
-
+  mode: GJ_MODE === 'race' ? 'race' : 'solo',
+  diff: DIFF_PRESET[RUN_CTX.diff] ? RUN_CTX.diff : 'easy',
+  totalMs: 0,
+  timeLeftMs: 0,
   score: 0,
   miss: 0,
-  goodHit: 0,
-  junkHit: 0,
-  junkAvoided: 0,
-  combo: 0,
-  bestCombo: 0,
-
+  streak: 0,
+  bestStreak: 0,
+  hitsGood: 0,
+  hitsBad: 0,
+  missedGood: 0,
+  spawnedGood: 0,
+  spawnedJunk: 0,
   fruitHit: 0,
   vegHit: 0,
   drinkHit: 0,
-
-  stageIndex: 0,
-  stageEnteredAtMs: 0,
-  stageBaseGood: 0,
-  stageBaseSmart: 0,
-  stageBonusDone: {},
-
-  mini: null,
-  miniCooldownMs: 2000,
-
-  boss: {
-    active: false,
-    hp: 100,
-    maxHp: 100,
-    cleared: false
-  },
-
-  active: [],
-  events: [],
-
-  ui: {}
+  running: false,
+  ended: false,
+  startTs: 0,
+  lastFrameTs: 0,
+  lastSpawnAccum: 0,
+  frameRaf: 0,
+  targetSeq: 0,
+  targets: new Map(),
+  rect: { width: 0, height: 0 },
+  pendingResultVisible: false,
+  eventLog: []
 };
 
-function clamp(v, min, max) {
-  return Math.max(min, Math.min(max, v));
+const ui = {
+  root: null,
+  stage: null,
+  layer: null,
+  score: null,
+  timer: null,
+  miss: null,
+  grade: null,
+  hint: null,
+  progress: null,
+  stats: null,
+  centerTip: null,
+  soloOverlay: null,
+  soloBody: null,
+  soloTitle: null,
+  soloSub: null,
+  soloBtnPostK: null,
+  soloBtnParent: null,
+  soloBtnAgain: null,
+  soloBtnExport: null,
+  soloBtnHub: null
+};
+
+const rng = createSeededRng(RUN_CTX.seed || Date.now());
+
+console.log('[goodjunk.safe] LIVE BUILD = 20260319a');
+
+persistInterventionCtx();
+boot();
+
+function boot() {
+  injectGameplayStyle();
+  buildGameplayShell();
+  bindGameplayShell();
+  attachRaceRoomListener();
+
+  if (isRaceMode()) {
+    openRaceResultFromRoom();
+  }
+
+  bootWithRaceGate(async () => {
+    if (isRaceMode()) {
+      const ok = await ensureRaceFirebase();
+      if (!ok) {
+        showRaceGate('เปิดห้องแข่งไม่สำเร็จ', '...', 'ตรวจสอบ room / invite link แล้วลองใหม่');
+        return;
+      }
+
+      await setupRunOnDisconnect();
+      await markRacePresenceDuringRun({
+        phase: 'run',
+        ready: true,
+        connected: true,
+        finished: false,
+        dnf: false,
+        dnfReason: ''
+      });
+
+      startRaceHeartbeat();
+      startRaceWatchdog();
+    }
+
+    startGame();
+  });
+
+  document.addEventListener('visibilitychange', () => {
+    if (!isRaceMode() || state.ended) return;
+    if (document.visibilityState === 'visible') {
+      markRacePresenceDuringRun({
+        phase: 'run',
+        ready: true,
+        connected: true,
+        finished: false,
+        dnf: false,
+        dnfReason: '',
+        disconnectedAt: 0
+      });
+    }
+  });
+
+  window.addEventListener('focus', () => {
+    if (!isRaceMode() || state.ended) return;
+    markRacePresenceDuringRun({
+      phase: 'run',
+      ready: true,
+      connected: true,
+      finished: false,
+      dnf: false,
+      dnfReason: '',
+      disconnectedAt: 0
+    });
+  });
+
+  window.addEventListener('beforeunload', () => {
+    try {
+      stopRaceHeartbeat();
+      stopRaceWatchdog();
+      if (isRaceMode() && !__gjRaceFinished) {
+        markMyRaceDisconnected('left-run');
+      }
+    } catch {}
+  });
+
+  window.addEventListener('resize', refreshStageRect);
 }
 
-function rand(min, max) {
-  return min + Math.random() * (max - min);
-}
-
-function randint(min, max) {
-  return Math.floor(rand(min, max + 1));
-}
-
-function pick(arr) {
-  return arr[Math.floor(Math.random() * arr.length)];
-}
-
-function q(name, fallback = '') {
-  return SEARCH.get(name) ?? fallback;
-}
-
-function nowIso() {
-  return new Date().toISOString();
-}
-
-function diffScale() {
-  if (state.diff === 'easy') return 0.90;
-  if (state.diff === 'hard') return 1.18;
-  return 1.0;
-}
-
-function timeLeftSec() {
-  return Math.max(0, Math.ceil(state.totalSec - state.elapsedMs / 1000));
-}
-
-function ensureExtraStyle() {
-  if (document.getElementById('gji-intervention-target-style')) return;
+function injectGameplayStyle() {
+  if (document.getElementById(GOODJUNK_STYLE_ID)) return;
 
   const style = document.createElement('style');
-  style.id = 'gji-intervention-target-style';
+  style.id = GOODJUNK_STYLE_ID;
   style.textContent = `
-    .gj-target{
-      position:absolute;
-      transform:translate(-50%,-50%);
-      min-width:72px;
-      min-height:72px;
-      padding:8px 10px;
-      border-radius:20px;
-      border:1px solid rgba(255,255,255,.16);
-      display:grid;
-      place-items:center;
-      gap:4px;
-      text-align:center;
-      box-shadow:0 14px 34px rgba(0,0,0,.32);
-      background:rgba(15,23,42,.92);
-      color:#fff;
-      cursor:pointer;
-      pointer-events:auto;
-      user-select:none;
-      -webkit-user-select:none;
-      touch-action:manipulation;
-      z-index:20;
-    }
-    .gj-target.good{
-      background:linear-gradient(180deg, rgba(22,101,52,.96), rgba(15,23,42,.92));
-      border-color:rgba(34,197,94,.34);
-    }
-    .gj-target.junk{
-      background:linear-gradient(180deg, rgba(127,29,29,.96), rgba(15,23,42,.92));
-      border-color:rgba(239,68,68,.32);
-    }
-    .gj-target.hit{
-      transform:translate(-50%,-50%) scale(.88);
-      opacity:.25;
-      transition:transform .12s ease, opacity .12s ease;
-    }
-    .gj-emoji{
-      font-size:30px;
-      line-height:1;
-    }
-    .gj-label{
-      font-size:12px;
-      font-weight:1000;
-      line-height:1.05;
-      white-space:nowrap;
+    #${GOODJUNK_ROOT_ID}{position:absolute;inset:0;z-index:2;overflow:hidden;user-select:none;-webkit-user-select:none;touch-action:manipulation}
+    .gj-shell{position:absolute;inset:0;display:grid;grid-template-rows:auto 1fr auto;overflow:hidden}
+    .gj-topbar{display:grid;gap:10px;padding:14px 10px 10px;padding-top:calc(14px + env(safe-area-inset-top,0px));pointer-events:none}
+    .gj-chip-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;pointer-events:none}
+    .gj-chip{display:inline-flex;align-items:center;gap:8px;padding:8px 10px;border-radius:999px;border:1px solid rgba(148,163,184,.18);background:rgba(2,6,23,.66);color:#e5e7eb;font-weight:900;font-size:13px;backdrop-filter:blur(8px);box-shadow:0 10px 24px rgba(0,0,0,.18)}
+    .gj-chip span{color:#94a3b8;font-weight:800}
+    .gj-stage-wrap{position:relative;min-height:0;padding:6px 10px 10px}
+    .gj-stage{position:relative;width:100%;height:100%;min-height:320px;overflow:hidden;border:1px solid rgba(148,163,184,.18);border-radius:26px;background:radial-gradient(circle at 50% 0%, rgba(56,189,248,.08), transparent 30%),linear-gradient(180deg, rgba(15,23,42,.72), rgba(2,6,23,.78));box-shadow:0 24px 64px rgba(0,0,0,.22)}
+    .gj-stage::before{content:"";position:absolute;inset:0;background:linear-gradient(180deg, rgba(255,255,255,.04), transparent 30%),linear-gradient(0deg, rgba(255,255,255,.03), transparent 30%);pointer-events:none}
+    .gj-target-layer{position:absolute;inset:0;overflow:hidden}
+    .gj-center-tip{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(86vw,420px);padding:16px 18px;border-radius:18px;background:rgba(2,6,23,.50);border:1px solid rgba(148,163,184,.18);color:#e5e7eb;text-align:center;font-weight:900;backdrop-filter:blur(6px);pointer-events:none;opacity:.96;transition:opacity .35s ease, transform .35s ease;box-shadow:0 16px 36px rgba(0,0,0,.18)}
+    .gj-center-tip.hide{opacity:0;transform:translate(-50%,-50%) scale(.96)}
+    .gj-target{position:absolute;display:grid;place-items:center;border-radius:20px;border:1px solid rgba(255,255,255,.16);box-shadow:0 14px 28px rgba(0,0,0,.18);transform:translate3d(0,0,0);cursor:pointer;outline:none;padding:0;overflow:hidden;background:rgba(15,23,42,.78)}
+    .gj-target.good{background:radial-gradient(circle at 30% 25%, rgba(255,255,255,.22), transparent 26%),linear-gradient(180deg, rgba(34,197,94,.30), rgba(34,197,94,.18)),rgba(15,23,42,.84);border-color:rgba(34,197,94,.30)}
+    .gj-target.junk{background:radial-gradient(circle at 30% 25%, rgba(255,255,255,.20), transparent 26%),linear-gradient(180deg, rgba(244,63,94,.26), rgba(244,63,94,.14)),rgba(15,23,42,.84);border-color:rgba(244,63,94,.28)}
+    .gj-emoji{font-size:32px;line-height:1;transform:translateY(-2px);filter:drop-shadow(0 6px 10px rgba(0,0,0,.18))}
+    .gj-type{position:absolute;left:8px;right:8px;bottom:6px;font-size:10px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;color:#e2e8f0;opacity:.92;text-align:center;white-space:nowrap}
+    .gj-fx{position:absolute;font-size:16px;font-weight:900;pointer-events:none;transform:translate(-50%,-50%);animation:gj-fx-up .75s ease forwards;text-shadow:0 8px 18px rgba(0,0,0,.22)}
+    @keyframes gj-fx-up{from{opacity:1;transform:translate(-50%,-20%)}to{opacity:0;transform:translate(-50%,-140%)}}
+    .gj-bottom{padding:0 12px calc(12px + env(safe-area-inset-bottom,0px))}
+    .gj-bottom-card{border:1px solid rgba(148,163,184,.18);border-radius:18px;padding:12px;background:rgba(2,6,23,.62);backdrop-filter:blur(8px);box-shadow:0 10px 24px rgba(0,0,0,.18)}
+    .gj-bottom-top{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+    .gj-progress{position:relative;width:100%;height:12px;border-radius:999px;overflow:hidden;border:1px solid rgba(148,163,184,.18);background:rgba(255,255,255,.06)}
+    .gj-progress-bar{width:100%;height:100%;background:linear-gradient(90deg, rgba(56,189,248,.85), rgba(34,197,94,.85));transform-origin:left center;transition:transform .12s linear}
+    .gj-legend{display:flex;gap:10px;flex-wrap:wrap;font-size:13px;color:#cbd5e1;line-height:1.5}
+    .gj-legend strong{color:#e5e7eb}
+    .gj-solo-overlay{position:fixed;inset:0;z-index:10010;display:grid;place-items:center;padding:calc(16px + env(safe-area-inset-top,0px)) calc(16px + env(safe-area-inset-right,0px)) calc(16px + env(safe-area-inset-bottom,0px)) calc(16px + env(safe-area-inset-left,0px));background:rgba(2,6,23,.82);backdrop-filter:blur(10px)}
+    .gj-solo-overlay[hidden]{display:none!important}
+    .gj-solo-card{width:min(94vw,560px);max-height:88vh;overflow:auto;background:rgba(15,23,42,.96);border:1px solid rgba(148,163,184,.18);border-radius:22px;padding:20px 18px 18px;color:#e5e7eb;box-shadow:0 28px 64px rgba(0,0,0,.35)}
+    .gj-solo-kicker{display:inline-flex;align-items:center;gap:8px;padding:6px 12px;border-radius:999px;background:rgba(56,189,248,.12);border:1px solid rgba(56,189,248,.25);color:#7dd3fc;font-weight:900;font-size:13px;margin-bottom:12px}
+    .gj-solo-title{margin:0 0 8px;font-size:30px;line-height:1.1}
+    .gj-solo-sub{margin:0;color:#94a3b8;font-size:14px;line-height:1.6}
+    .gj-solo-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:16px}
+    .gj-solo-item{border:1px solid rgba(148,163,184,.18);border-radius:16px;padding:12px;background:rgba(2,6,23,.45)}
+    .gj-solo-item .label{color:#94a3b8;font-size:12px;font-weight:800;margin-bottom:6px}
+    .gj-solo-item .value{color:#e5e7eb;font-size:20px;font-weight:900}
+    .gj-solo-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}
+    @media (max-width:640px){
+      .gj-topbar{padding-left:10px;padding-right:10px}
+      .gj-chip{font-size:12px;padding:7px 9px}
+      .gj-emoji{font-size:28px}
+      .gj-solo-title{font-size:26px}
+      .gj-solo-actions .btn{flex:1 1 calc(50% - 10px)}
     }
   `;
   document.head.appendChild(style);
 }
 
-function calcBounds() {
-  const isMobile = window.innerWidth <= 900;
-  const left = 12;
-  const width = Math.max(220, window.innerWidth - 24);
-  const top = isMobile ? CFG.topBoundMobile : CFG.topBoundDesktop;
-  const bottomGap = isMobile ? CFG.bottomBoundMobile : CFG.bottomBoundDesktop;
-  const bottom = Math.max(top + 220, window.innerHeight - bottomGap);
-  const height = Math.max(220, bottom - top);
+function buildGameplayShell() {
+  GAME_MOUNT.innerHTML = `
+    <div id="${GOODJUNK_ROOT_ID}">
+      <div class="gj-shell">
+        <header class="gj-topbar">
+          <div class="gj-chip-row">
+            <div class="gj-chip">🍎 GoodJunk Intervention</div>
+            <div class="gj-chip"><span>Study</span><strong>${escapeHtml(RUN_CTX.studyId || '-')}</strong></div>
+            <div class="gj-chip"><span>Student</span><strong>${escapeHtml(GJ_NAME || GJ_PID || '-')}</strong></div>
+            <div class="gj-chip"><span>Session</span><strong>${escapeHtml(GJ_SESSION || '-')}</strong></div>
+          </div>
+          <div class="gj-chip-row">
+            <div class="gj-chip"><span>Score</span><strong id="gjScore">0</strong></div>
+            <div class="gj-chip"><span>Time</span><strong id="gjTimer">0</strong></div>
+            <div class="gj-chip"><span>Miss</span><strong id="gjMiss">0</strong></div>
+            <div class="gj-chip"><span>Grade</span><strong id="gjGrade">D</strong></div>
+          </div>
+        </header>
 
-  state.bounds = { left, top, width, bottom, height };
-}
+        <div class="gj-stage-wrap">
+          <div class="gj-stage" id="gjStage">
+            <div class="gj-center-tip" id="gjCenterTip">แตะอาหารดีเพื่อได้คะแนน • หลีกเลี่ยง junk ไม่ให้เสีย Miss</div>
+            <div class="gj-target-layer" id="gjTargetLayer"></div>
+          </div>
+        </div>
 
-function bindUiRefs() {
-  state.ui.layer = document.getElementById('gj-layer');
+        <div class="gj-bottom">
+          <div class="gj-bottom-card">
+            <div class="gj-bottom-top">
+              <div class="gj-legend" id="gjStatsText">
+                <div><strong>Good hit:</strong> 0</div>
+                <div><strong>Junk hit:</strong> 0</div>
+                <div><strong>Good missed:</strong> 0</div>
+                <div><strong>Best streak:</strong> 0</div>
+              </div>
+              <div class="gj-legend" id="gjHintText">
+                <div>Tip: เก็บผลไม้/ผัก • หลีกเลี่ยงของหวาน/น้ำอัดลม • Session: ${escapeHtml(GJ_SESSION || '-')} • Group: ${escapeHtml(GJ_CONDITION || '-')}</div>
+              </div>
+            </div>
+            <div class="gj-progress"><div class="gj-progress-bar" id="gjProgressBar"></div></div>
+          </div>
+        </div>
+      </div>
 
-  state.ui.hudScore = document.getElementById('hud-score');
-  state.ui.hudTime = document.getElementById('hud-time');
-  state.ui.hudMiss = document.getElementById('hud-miss');
-  state.ui.hudGrade = document.getElementById('hud-grade');
-  state.ui.hudGoal = document.getElementById('hud-goal');
-  state.ui.hudGoalCur = document.getElementById('hud-goal-cur');
-  state.ui.hudGoalTarget = document.getElementById('hud-goal-target');
-  state.ui.goalDesc = document.getElementById('goalDesc');
-
-  state.ui.missionTitle = document.getElementById('missionTitle');
-  state.ui.missionGoal = document.getElementById('missionGoal');
-  state.ui.missionHint = document.getElementById('missionHint');
-  state.ui.missionFill = document.getElementById('missionFill');
-
-  state.ui.coachInline = document.getElementById('coachInline');
-  state.ui.coachExplain = document.getElementById('coachExplain');
-  state.ui.aiRisk = document.getElementById('aiRisk');
-  state.ui.hudMini = document.getElementById('hud-mini');
-  state.ui.miniTimer = document.getElementById('miniTimer');
-  state.ui.aiHint = document.getElementById('aiHint');
-
-  state.ui.bossBar = document.getElementById('bossBar');
-  state.ui.bossFill = document.getElementById('bossFill');
-  state.ui.bossHint = document.getElementById('bossHint');
-
-  state.ui.stageBanner = document.getElementById('stageBanner');
-  state.ui.stageBannerBig = document.getElementById('stageBannerBig');
-  state.ui.stageBannerSmall = document.getElementById('stageBannerSmall');
-  state.ui.milestoneBanner = document.getElementById('milestoneBanner');
-
-  state.ui.dangerOverlay = document.getElementById('dangerOverlay');
-  state.ui.missionBox = document.getElementById('missionBox');
-  state.ui.aiBox = document.getElementById('aiBox');
-
-  state.ui.endOverlay = document.getElementById('endOverlay');
-  state.ui.endTitle = document.getElementById('endTitle');
-  state.ui.endSub = document.getElementById('endSub');
-  state.ui.endGrade = document.getElementById('endGrade');
-  state.ui.endScore = document.getElementById('endScore');
-  state.ui.endMiss = document.getElementById('endMiss');
-  state.ui.endTime = document.getElementById('endTime');
-  state.ui.endDecision = document.getElementById('endDecision');
-  state.ui.nutritionExplainBody = document.getElementById('nutritionExplainBody');
-  state.ui.reflectionBody = document.getElementById('reflectionBody');
-  state.ui.reflectionBullets = document.getElementById('reflectionBullets');
-  state.ui.takeHomeMissionBody = document.getElementById('takeHomeMissionBody');
-}
-
-function buildContext() {
-  const fromConfigQuery = pickCtxFromQuery();
-  const mapped = withDefaultCtx({
-    ...fromConfigQuery,
-    pid: fromConfigQuery.pid || q('studentKey', q('nickName', 'guest')),
-    nickName: q('nickName', q('studentKey', '')),
-    studyId: q('studyId', fromConfigQuery.studyId || 'GJI-2026'),
-    phase: q('phase', fromConfigQuery.phase || 'intervention'),
-    group: q('group', q('conditionGroup', fromConfigQuery.group || '')),
-    condition: q('condition', q('conditionGroup', fromConfigQuery.condition || 'intervention')),
-    session: q('session', q('sessionId', fromConfigQuery.session || 's1')),
-    classRoom: q('classRoom', ''),
-    school: q('schoolName', q('schoolCode', '')),
-    diff: q('diff', 'easy'),
-    view: q('view', 'mobile'),
-    time: q('time', String(CFG.defaultTimeSec)),
-    run: q('run', 'play'),
-    hub: q('hub', '../../hub.html')
-  });
-
-  mergeCtx(mapped);
-  state.ctx = withDefaultCtx({ ...loadCtx(), ...mapped });
-  saveCtx(state.ctx);
-
-  state.diff = state.ctx.diff || 'easy';
-  state.view = state.ctx.view || 'mobile';
-  state.totalSec = clamp(Number(state.ctx.time || CFG.defaultTimeSec), CFG.minTimeSec, CFG.maxTimeSec);
-}
-
-function logEvent(type, data = {}) {
-  state.events.push({
-    type,
-    at: nowIso(),
-    elapsedMs: Math.round(state.elapsedMs),
-    stage: currentStage().key,
-    ...data
-  });
-
-  if (state.events.length > CFG.eventCap) {
-    state.events.splice(0, state.events.length - CFG.eventCap);
-  }
-}
-
-function stageSpanMs() {
-  return (state.totalSec * 1000) / STAGES.length;
-}
-
-function currentStage() {
-  return STAGES[state.stageIndex];
-}
-
-function stageIndexByElapsed() {
-  const idx = Math.floor(state.elapsedMs / stageSpanMs());
-  return clamp(idx, 0, STAGES.length - 1);
-}
-
-function goalTarget(stage = currentStage()) {
-  if (stage.goalType === 'boss') return stage.goalBase;
-
-  const timeFactor = state.totalSec / CFG.defaultTimeSec;
-  const diffFactor = state.diff === 'hard' ? 1.08 : (state.diff === 'easy' ? 0.92 : 1.0);
-  return Math.max(4, Math.round(stage.goalBase * timeFactor * diffFactor));
-}
-
-function goalCurrent(stage = currentStage()) {
-  if (stage.goalType === 'good') {
-    return state.goodHit - state.stageBaseGood;
-  }
-  if (stage.goalType === 'smart') {
-    return (state.fruitHit + state.drinkHit) - state.stageBaseSmart;
-  }
-  if (stage.goalType === 'boss') {
-    return state.boss.maxHp - state.boss.hp;
-  }
-  return 0;
-}
-
-function formatGrade() {
-  const decisions = state.goodHit + state.junkHit + state.miss;
-  const accuracy = decisions > 0 ? state.goodHit / decisions : 0;
-
-  if (state.goodHit >= 20 && state.junkHit <= 3 && state.miss <= 5 && accuracy >= 0.58) return 'A';
-  if (state.goodHit >= 15 && state.junkHit <= 5 && state.miss <= 8 && accuracy >= 0.48) return 'B';
-  if (state.goodHit >= 10 && accuracy >= 0.36) return 'C';
-  return 'D';
-}
-
-function computeRisk() {
-  const decisions = Math.max(4, state.goodHit + state.junkHit + state.miss);
-  const raw = ((state.junkHit * 1.25) + (state.miss * 0.95) + (state.combo === 0 ? 0.35 : 0)) / decisions;
-  return clamp(raw, 0, 0.99);
-}
-
-function setCoach(head, explain, hint = '') {
-  if (state.ui.coachInline) state.ui.coachInline.textContent = head;
-  if (state.ui.coachExplain) state.ui.coachExplain.textContent = explain || '';
-  if (state.ui.aiHint) state.ui.aiHint.textContent = hint || '—';
-}
-
-function updateBossUi() {
-  if (!state.ui.bossBar || !state.ui.bossFill || !state.ui.bossHint) return;
-
-  if (currentStage().boss) {
-    state.ui.bossBar.style.display = '';
-    const pct = clamp((state.boss.hp / state.boss.maxHp) * 100, 0, 100);
-    state.ui.bossFill.style.setProperty('--hp', `${pct}%`);
-    state.ui.bossFill.style.width = `${pct}%`;
-    state.ui.bossHint.textContent = state.boss.cleared
-      ? 'Boss แตกแล้ว!'
-      : `HP ${Math.round(state.boss.hp)}/${state.boss.maxHp}`;
-  } else {
-    state.ui.bossBar.style.display = 'none';
-  }
-}
-
-function updateDangerUi() {
-  const risk = computeRisk();
-  const stage = currentStage();
-  let alpha = risk * 0.32;
-  if (stage.boss && !state.boss.cleared) alpha = Math.max(alpha, 0.18);
-  state.ui.dangerOverlay.style.opacity = String(clamp(alpha, 0, 0.45));
-}
-
-function updateMiniUi() {
-  if (!state.ui.hudMini || !state.ui.miniTimer) return;
-  if (!state.mini) {
-    state.ui.hudMini.textContent = '—';
-    state.ui.miniTimer.textContent = '0';
-    return;
-  }
-
-  const remaining = Math.max(0, Math.ceil((state.mini.duration * 1000 - (state.elapsedMs - state.mini.startMs)) / 1000));
-  state.ui.hudMini.textContent = state.mini.label;
-  state.ui.miniTimer.textContent = String(remaining);
-}
-
-function updateMissionUi() {
-  const stage = currentStage();
-  const cur = goalCurrent(stage);
-  const target = goalTarget(stage);
-  const pct = clamp((cur / Math.max(1, target)) * 100, 0, 100);
-
-  state.ui.hudGoal.textContent = stage.key;
-  state.ui.hudGoalCur.textContent = String(Math.round(cur));
-  state.ui.hudGoalTarget.textContent = String(Math.round(target));
-  state.ui.goalDesc.textContent = stage.desc;
-
-  state.ui.missionTitle.textContent = stage.title;
-  state.ui.missionGoal.textContent = stage.desc;
-  state.ui.missionHint.textContent = stage.hint;
-  state.ui.missionFill.style.setProperty('--p', `${pct}%`);
-}
-
-function updateHud() {
-  state.ui.hudScore.textContent = String(state.score);
-  state.ui.hudTime.textContent = String(timeLeftSec());
-  state.ui.hudMiss.textContent = String(state.miss);
-  state.ui.hudGrade.textContent = formatGrade();
-  updateMissionUi();
-  updateMiniUi();
-
-  const risk = computeRisk();
-  state.ui.aiRisk.textContent = risk.toFixed(2);
-
-  if (risk >= 0.65) {
-    if (!state.mini) setCoach(currentStage().coachHead, currentStage().coachExplain, 'ช้าลงนิด ดูก่อนค่อยแตะ');
-  } else if (currentStage().goalType === 'smart') {
-    if (!state.mini) setCoach(currentStage().coachHead, currentStage().coachExplain, 'เน้นผลไม้ น้ำเปล่า หรือ นมจืด');
-  } else if (!state.mini) {
-    setCoach(currentStage().coachHead, currentStage().coachExplain, 'รักษาคอมโบด้วยการเก็บของดีต่อเนื่อง');
-  }
-
-  updateBossUi();
-  updateDangerUi();
-}
-
-function showStageBanner(big, small = '') {
-  state.ui.stageBannerBig.textContent = big;
-  state.ui.stageBannerSmall.textContent = small;
-  state.ui.stageBanner.classList.add('show');
-  clearTimeout(showStageBanner._t);
-  showStageBanner._t = setTimeout(() => {
-    state.ui.stageBanner.classList.remove('show');
-  }, 1100);
-}
-
-function showMilestone(text) {
-  state.ui.milestoneBanner.textContent = text;
-  state.ui.milestoneBanner.classList.add('show');
-  clearTimeout(showMilestone._t);
-  showMilestone._t = setTimeout(() => {
-    state.ui.milestoneBanner.classList.remove('show');
-  }, 900);
-}
-
-function toggleCompactPanel(el) {
-  el.classList.toggle('auto-hide');
-}
-
-function bindPanelToggles() {
-  state.ui.missionBox?.addEventListener('click', () => toggleCompactPanel(state.ui.missionBox));
-  state.ui.aiBox?.addEventListener('click', () => toggleCompactPanel(state.ui.aiBox));
-  state.ui.missionBox?.addEventListener('keydown', (ev) => {
-    if (ev.key === 'Enter' || ev.key === ' ') {
-      ev.preventDefault();
-      toggleCompactPanel(state.ui.missionBox);
-    }
-  });
-  state.ui.aiBox?.addEventListener('keydown', (ev) => {
-    if (ev.key === 'Enter' || ev.key === ' ') {
-      ev.preventDefault();
-      toggleCompactPanel(state.ui.aiBox);
-    }
-  });
-}
-
-function clearTargets(silent = true) {
-  for (const t of state.active) {
-    t.active = false;
-    try { t.el.remove(); } catch {}
-    if (!silent) logEvent('target_removed', { id: t.id, item: t.food.id });
-  }
-  state.active.length = 0;
-}
-
-function makeTargetKind(stage) {
-  return Math.random() < stage.goodRatio ? 'good' : 'junk';
-}
-
-function makeTargetModel() {
-  const stage = currentStage();
-  const kind = makeTargetKind(stage);
-  const food = pick(FOODS[kind]);
-  const size = randint(68, 92);
-  const x = rand(size * 0.8, state.bounds.width - size * 0.8);
-  const vy = rand(stage.speedMin, stage.speedMax) * diffScale();
-  const swayAmp = rand(0, 30);
-  const swaySpeed = rand(1.2, 2.6);
-  const phase = rand(0, Math.PI * 2);
-
-  return {
-    id: `gji_${Date.now()}_${Math.floor(Math.random() * 9999)}`,
-    kind,
-    food,
-    size,
-    x,
-    y: -size,
-    vy,
-    swayAmp,
-    swaySpeed,
-    phase,
-    active: true
-  };
-}
-
-function isStrictShootMode() {
-  return /cvr/i.test(String(state.view || ''));
-}
-
-function createTargetElement(model) {
-  const el = document.createElement('button');
-  el.type = 'button';
-  el.className = `gj-target ${model.kind}`;
-  el.setAttribute('aria-label', `${model.food.label} ${model.kind === 'good' ? 'good' : 'junk'}`);
-  el.innerHTML = `
-    <div class="gj-emoji">${model.food.emoji}</div>
-    <div class="gj-label">${model.food.label}</div>
+      <div class="gj-solo-overlay" id="gjSoloSummary" hidden>
+        <div class="gj-solo-card">
+          <div class="gj-solo-kicker">SOLO SUMMARY</div>
+          <h2 class="gj-solo-title" id="gjSoloTitle">สรุปผลการเล่น</h2>
+          <p class="gj-solo-sub" id="gjSoloSub">เกมจบแล้ว มาดูผลของรอบนี้กัน</p>
+          <div class="gj-solo-list" id="gjSoloBody"></div>
+          <div class="gj-solo-actions">
+            <button class="btn btn-blue" id="gjSoloPostK" type="button">Post-Knowledge</button>
+            <button class="btn btn-violet" id="gjSoloParent" type="button">Parent Summary</button>
+            <button class="btn btn-blue" id="gjSoloAgain" type="button">เล่นใหม่</button>
+            <button class="btn btn-warn" id="gjSoloExport" type="button">Export JSON</button>
+            <button class="btn btn-ghost" id="gjSoloHub" type="button">กลับ HUB</button>
+          </div>
+        </div>
+      </div>
+    </div>
   `;
-  el.style.width = `${model.size}px`;
-  el.style.height = `${model.size}px`;
 
-  if (isStrictShootMode()) {
-    el.style.pointerEvents = 'none';
-  } else {
-    el.addEventListener('click', (ev) => {
-      ev.preventDefault();
-      ev.stopPropagation();
-      tapTarget(model, 'tap');
-    }, { passive: false });
+  ui.root = document.getElementById(GOODJUNK_ROOT_ID);
+  ui.stage = document.getElementById('gjStage');
+  ui.layer = document.getElementById('gjTargetLayer');
+  ui.score = document.getElementById('gjScore');
+  ui.timer = document.getElementById('gjTimer');
+  ui.miss = document.getElementById('gjMiss');
+  ui.grade = document.getElementById('gjGrade');
+  ui.hint = document.getElementById('gjHintText');
+  ui.progress = document.getElementById('gjProgressBar');
+  ui.stats = document.getElementById('gjStatsText');
+  ui.centerTip = document.getElementById('gjCenterTip');
+  ui.soloOverlay = document.getElementById('gjSoloSummary');
+  ui.soloBody = document.getElementById('gjSoloBody');
+  ui.soloTitle = document.getElementById('gjSoloTitle');
+  ui.soloSub = document.getElementById('gjSoloSub');
+  ui.soloBtnPostK = document.getElementById('gjSoloPostK');
+  ui.soloBtnParent = document.getElementById('gjSoloParent');
+  ui.soloBtnAgain = document.getElementById('gjSoloAgain');
+  ui.soloBtnExport = document.getElementById('gjSoloExport');
+  ui.soloBtnHub = document.getElementById('gjSoloHub');
 
-    el.addEventListener('touchstart', (ev) => {
-      ev.preventDefault();
-    }, { passive: false });
-  }
-
-  return el;
+  refreshStageRect();
+  renderHud();
 }
 
-function spawnTarget() {
-  if (!state.started || state.finished || state.paused) return;
-  if (state.active.length >= CFG.maxActive) {
-    scheduleSpawn();
-    return;
-  }
+function bindGameplayShell() {
+  if (__gjSoloSummaryBound) return;
+  __gjSoloSummaryBound = true;
 
-  const model = makeTargetModel();
-  model.el = createTargetElement(model);
-
-  state.active.push(model);
-  state.ui.layer.appendChild(model.el);
-
-  logEvent('spawn', {
-    id: model.id,
-    item: model.food.id,
-    label: model.food.label,
-    kind: model.kind
+  ui.soloBtnPostK?.addEventListener('click', () => {
+    persistInterventionCtx();
+    location.href = buildPageUrl('../assessments/post-knowledge.html');
   });
 
-  scheduleSpawn();
+  ui.soloBtnParent?.addEventListener('click', () => {
+    persistInterventionCtx();
+    location.href = buildPageUrl('../parent/parent-summary.html');
+  });
+
+  ui.soloBtnAgain?.addEventListener('click', () => {
+    location.href = buildReplayUrl();
+  });
+
+  ui.soloBtnExport?.addEventListener('click', () => {
+    downloadJson(__gjSoloSummary, `goodjunk-solo-${safeFilePart(GJ_PID)}-${Date.now()}.json`);
+  });
+
+  ui.soloBtnHub?.addEventListener('click', () => {
+    location.href = GJ_HUB;
+  });
 }
 
-function scheduleSpawn() {
-  clearTimeout(state.spawnTimer);
-  if (!state.started || state.finished) return;
-
-  const stage = currentStage();
-  const base = stage.spawnEvery;
-  const delay = Math.max(320, base / diffScale());
-
-  state.spawnTimer = setTimeout(spawnTarget, delay);
+function refreshStageRect() {
+  const rect = ui.stage?.getBoundingClientRect();
+  if (!rect) return;
+  state.rect.width = Math.max(300, rect.width);
+  state.rect.height = Math.max(320, rect.height);
 }
 
-function renderTargets() {
-  const sec = state.elapsedMs / 1000;
-
-  for (let i = state.active.length - 1; i >= 0; i -= 1) {
-    const t = state.active[i];
-    if (!t.active) continue;
-
-    t.y += t.vy * state._dtSec;
-    const x = state.bounds.left + t.x + Math.sin(sec * t.swaySpeed + t.phase) * t.swayAmp;
-    const y = state.bounds.top + t.y;
-
-    t.el.style.left = `${x}px`;
-    t.el.style.top = `${y}px`;
-
-    if (t.y > state.bounds.height + t.size) {
-      onTargetEscape(t);
-    }
+function createSeededRng(seedInput) {
+  const seedText = String(seedInput || Date.now());
+  let h = 1779033703 ^ seedText.length;
+  for (let i = 0; i < seedText.length; i++) {
+    h = Math.imul(h ^ seedText.charCodeAt(i), 3432918353);
+    h = (h << 13) | (h >>> 19);
   }
-}
-
-function removeTarget(t) {
-  t.active = false;
-  try { t.el.classList.add('hit'); } catch {}
-  setTimeout(() => {
-    try { t.el.remove(); } catch {}
-  }, 120);
-  const idx = state.active.indexOf(t);
-  if (idx >= 0) state.active.splice(idx, 1);
-}
-
-function comboBonusCheck() {
-  if (state.combo > 0 && state.combo % CFG.comboEvery === 0) {
-    state.score += CFG.comboBonus;
-    showMilestone(`COMBO x${state.combo} +${CFG.comboBonus}`);
-    setCoach('คอมโบสุดยอด 🔥', 'เลือกของดีต่อเนื่องได้ดีมาก', 'รักษาจังหวะนี้ไว้');
-    logEvent('combo_bonus', { combo: state.combo, bonus: CFG.comboBonus, score: state.score });
-  }
-}
-
-function smartChoiceHit(food) {
-  return food.cat === 'fruit' || food.id === 'water' || food.id === 'milk' || food.cat === 'drink';
-}
-
-function damageBossBy(food) {
-  if (!currentStage().boss || state.boss.cleared) return;
-
-  let dmg = 12;
-  if (food.cat === 'veg') dmg = 13;
-  if (food.cat === 'fruit') dmg = 12;
-  if (food.id === 'water' || food.id === 'milk') dmg = 14;
-
-  state.boss.hp = Math.max(0, state.boss.hp - dmg);
-  state.ui.bossHint.textContent = `โดนโจมตี -${dmg}`;
-
-  if (state.boss.hp <= 0 && !state.boss.cleared) {
-    state.boss.cleared = true;
-    state.score += CFG.bossClearBonus;
-    showMilestone(`BOSS CLEAR +${CFG.bossClearBonus}`);
-    setCoach('Boss แตกแล้ว! 🎉', 'หนูเลือกของดีได้ดีมาก', 'พร้อมดูสรุปผลหลังเล่น');
-    logEvent('boss_clear', { bonus: CFG.bossClearBonus, score: state.score });
-
-    setTimeout(() => {
-      finishGame();
-    }, 900);
-  }
-}
-
-function healBossOnJunk() {
-  if (!currentStage().boss || state.boss.cleared) return;
-  state.boss.hp = Math.min(state.boss.maxHp, state.boss.hp + 8);
-  state.ui.bossHint.textContent = 'Junk ทำให้ Boss แข็งแรงขึ้น';
-}
-
-function tapTarget(t, source = 'tap') {
-  if (!state.started || state.finished || !t.active) return;
-
-  if (t.kind === 'good') {
-    state.score += Math.max(0, t.food.points);
-    state.goodHit += 1;
-    state.combo += 1;
-    state.bestCombo = Math.max(state.bestCombo, state.combo);
-
-    if (t.food.cat === 'fruit') state.fruitHit += 1;
-    if (t.food.cat === 'veg') state.vegHit += 1;
-    if (t.food.cat === 'drink') state.drinkHit += 1;
-
-    comboBonusCheck();
-    damageBossBy(t.food);
-
-    setCoach(
-      `${t.food.label} ดีมาก ${t.food.emoji}`,
-      t.food.tip,
-      smartChoiceHit(t.food) ? 'นี่เป็นทางเลือกที่ดีกว่า junk' : 'รักษาคอมโบต่อไป'
-    );
-
-    logEvent('tap_good', {
-      source,
-      id: t.id,
-      item: t.food.id,
-      label: t.food.label,
-      score: state.score,
-      combo: state.combo
-    });
-
-    handleMiniProgress('good', t.food);
-  } else {
-    state.junkHit += 1;
-    state.miss += 1;
-    state.combo = 0;
-    state.score = Math.max(0, state.score - CFG.junkTapPenalty);
-    healBossOnJunk();
-
-    setCoach(
-      `ระวัง ${t.food.label} ${t.food.emoji}`,
-      t.food.tip,
-      'ครั้งหน้าลองดูฉลากหรือดูรูปร่างอาหารก่อนแตะ'
-    );
-
-    logEvent('tap_junk', {
-      source,
-      id: t.id,
-      item: t.food.id,
-      label: t.food.label,
-      score: state.score
-    });
-
-    handleMiniProgress('junk', t.food);
-  }
-
-  removeTarget(t);
-  updateStageMissionBonus();
-  updateHud();
-}
-
-function onTargetEscape(t) {
-  if (!t.active) return;
-
-  if (t.kind === 'good') {
-    state.miss += 1;
-    state.combo = 0;
-    state.score = Math.max(0, state.score - CFG.missPenalty);
-
-    setCoach(
-      `พลาด ${t.food.label} ไปแล้ว`,
-      'ลองรีบเก็บอาหารดีให้มากขึ้น',
-      'ถ้าเป็นของดี อย่าปล่อยให้หลุดผ่าน'
-    );
-
-    logEvent('miss_good', {
-      id: t.id,
-      item: t.food.id,
-      label: t.food.label,
-      score: state.score
-    });
-
-    handleMiniProgress('miss_good', t.food);
-  } else {
-    state.junkAvoided += 1;
-    logEvent('avoid_junk', {
-      id: t.id,
-      item: t.food.id,
-      label: t.food.label
-    });
-
-    handleMiniProgress('avoid_junk', t.food);
-  }
-
-  removeTarget(t);
-  updateHud();
-}
-
-function updateStageMissionBonus() {
-  const stage = currentStage();
-  const idx = state.stageIndex;
-  const cur = goalCurrent(stage);
-  const target = goalTarget(stage);
-
-  if (!state.stageBonusDone[idx] && !stage.boss && cur >= target) {
-    state.stageBonusDone[idx] = true;
-    state.score += CFG.missionBonus;
-    showMilestone(`MISSION CLEAR +${CFG.missionBonus}`);
-    setCoach(
-      `${stage.title} สำเร็จแล้ว ✨`,
-      'ทำภารกิจของด่านนี้สำเร็จแล้ว',
-      'ลุยต่อไปได้เลย'
-    );
-    logEvent('stage_goal_clear', { stage: stage.key, bonus: CFG.missionBonus, score: state.score });
-  }
-}
-
-function stageGoalBullet(stageKey) {
-  if (stageKey === 'WARM') return 'ฉันเริ่มแยกอาหารดีออกจาก junk ได้ดีขึ้น';
-  if (stageKey === 'SORT') return 'ฉันต้องมองให้ชัดก่อนเลือก ไม่แตะตามความเคยชิน';
-  if (stageKey === 'SMART') return 'ฉันรู้ว่าผลไม้ น้ำเปล่า และนมจืดเป็นตัวเลือกที่ดีกว่า';
-  return 'ฉันพยายามลด junk และเพิ่มอาหารที่ดีต่อร่างกาย';
-}
-
-function startMiniMission() {
-  if (!state.started || state.finished) return;
-
-  const pool = [...MINI_POOL];
-  const base = pick(pool);
-
-  state.mini = {
-    ...base,
-    startMs: state.elapsedMs,
-    progress: 0,
-    baseGood: state.goodHit,
-    baseFruit: state.fruitHit,
-    baseDrink: state.drinkHit,
-    baseJunk: state.junkHit,
-    baseCombo: state.combo
+  return function() {
+    h = Math.imul(h ^ (h >>> 16), 2246822507);
+    h = Math.imul(h ^ (h >>> 13), 3266489909);
+    h ^= h >>> 16;
+    return (h >>> 0) / 4294967296;
   };
-
-  setCoach(
-    `Mini Mission: ${base.label}`,
-    'ทำภารกิจสั้นเพื่อรับโบนัสเพิ่ม',
-    'ดูเวลาถอยหลังทางขวา'
-  );
-
-  logEvent('mini_start', { type: base.type, label: base.label });
-  updateMiniUi();
 }
 
-function clearMiniMission(reason = 'clear') {
-  if (!state.mini) return;
-  logEvent('mini_end', { reason, type: state.mini.type, progress: state.mini.progress });
-  state.mini = null;
-  state.miniCooldownMs = reason === 'success' ? 2500 : 1500;
-  updateMiniUi();
-}
+function rand(){ return rng(); }
+function randRange(min, max){ return min + (max - min) * rand(); }
+function clampInt(value, min, max){ return Math.max(min, Math.min(max, Math.floor(value))); }
+function pick(arr){ return arr[Math.floor(rand() * arr.length)]; }
 
-function succeedMiniMission() {
-  if (!state.mini) return;
-  state.score += CFG.miniBonus;
-  showMilestone(`MINI +${CFG.miniBonus}`);
-  setCoach('Mini Mission สำเร็จ 🎯', 'หนูทำภารกิจย่อยสำเร็จแล้ว', 'รับโบนัสเพิ่มไปเลย');
-  logEvent('mini_success', { type: state.mini.type, bonus: CFG.miniBonus, score: state.score });
-  clearMiniMission('success');
-  updateHud();
-}
+function startGame() {
+  if (state.running || state.ended) return;
 
-function failMiniMission() {
-  if (!state.mini) return;
-  setCoach('Mini Mission หมดเวลา', 'ไม่เป็นไร ลองใหม่ในรอบถัดไป', 'ค่อย ๆ ดูและเลือกให้แม่นขึ้น');
-  logEvent('mini_fail', { type: state.mini.type });
-  clearMiniMission('fail');
-  updateHud();
-}
+  state.totalMs = clampInt(Number(RUN_CTX.time || 80) * 1000, 30000, 600000);
+  state.timeLeftMs = state.totalMs;
+  state.score = 0;
+  state.miss = 0;
+  state.streak = 0;
+  state.bestStreak = 0;
+  state.hitsGood = 0;
+  state.hitsBad = 0;
+  state.missedGood = 0;
+  state.spawnedGood = 0;
+  state.spawnedJunk = 0;
+  state.fruitHit = 0;
+  state.vegHit = 0;
+  state.drinkHit = 0;
+  state.running = true;
+  state.ended = false;
+  __gjLocalRunActive = true;
+  state.pendingResultVisible = false;
+  state.startTs = performance.now();
+  state.lastFrameTs = state.startTs;
+  state.lastSpawnAccum = 0;
+  state.targetSeq = 0;
+  state.targets.clear();
+  state.eventLog = [];
 
-function handleMiniProgress(eventType, food) {
-  if (!state.mini) return;
-
-  switch (state.mini.type) {
-    case 'good3':
-      state.mini.progress = state.goodHit - state.mini.baseGood;
-      if (state.mini.progress >= state.mini.target) succeedMiniMission();
-      break;
-
-    case 'fruit2':
-      state.mini.progress = state.fruitHit - state.mini.baseFruit;
-      if (state.mini.progress >= state.mini.target) succeedMiniMission();
-      break;
-
-    case 'drink1':
-      state.mini.progress = state.drinkHit - state.mini.baseDrink;
-      if (state.mini.progress >= state.mini.target) succeedMiniMission();
-      break;
-
-    case 'combo4':
-      state.mini.progress = state.combo;
-      if (state.mini.progress >= state.mini.target) succeedMiniMission();
-      break;
-
-    case 'avoidJunk':
-      if (eventType === 'junk') {
-        failMiniMission();
-      }
-      break;
+  if (ui.layer) ui.layer.innerHTML = '';
+  if (ui.centerTip) {
+    ui.centerTip.classList.remove('hide');
+    ui.centerTip.textContent = state.mode === 'race'
+      ? 'เริ่มพร้อมกันแล้ว • เก็บอาหารดีให้ได้คะแนนสูงสุด'
+      : 'ช่วงแรกยังไม่คิด Miss • เริ่มจากของดีช้า ๆ ก่อน';
+    setTimeout(() => ui.centerTip?.classList.add('hide'), 1800);
   }
 
-  updateMiniUi();
-}
+  hideRaceResultOverlay();
+  persistInterventionCtx();
+  logGameEvent('start', {
+    studyId: RUN_CTX.studyId || '',
+    sessionId: GJ_SESSION,
+    conditionGroup: GJ_CONDITION,
+    diff: state.diff,
+    view: RUN_CTX.view || 'mobile'
+  });
 
-function updateMiniMission(dtMs) {
-  if (!state.mini) {
-    state.miniCooldownMs = Math.max(0, state.miniCooldownMs - dtMs);
-    if (state.miniCooldownMs <= 0 && state.started && !state.finished) {
-      startMiniMission();
-    }
-    return;
-  }
-
-  const elapsed = (state.elapsedMs - state.mini.startMs) / 1000;
-  const remaining = state.mini.duration - elapsed;
-
-  if (state.mini.type === 'avoidJunk') {
-    state.mini.progress = Math.min(state.mini.target, elapsed);
-    if (state.mini.progress >= state.mini.target) {
-      succeedMiniMission();
-      return;
-    }
-  }
-
-  if (remaining <= 0) {
-    failMiniMission();
-    return;
-  }
-
-  updateMiniUi();
-}
-
-function showBossForStage(stage) {
-  if (stage.boss) {
-    state.boss.active = true;
-    state.boss.maxHp = stage.goalBase;
-    state.boss.hp = stage.goalBase;
-    state.boss.cleared = false;
-  } else {
-    state.boss.active = false;
-  }
-  updateBossUi();
-}
-
-function enterStage(nextIndex, first = false) {
-  state.stageIndex = nextIndex;
-  state.stageEnteredAtMs = state.elapsedMs;
-  state.stageBaseGood = state.goodHit;
-  state.stageBaseSmart = state.fruitHit + state.drinkHit;
-  state.mini = null;
-  state.miniCooldownMs = 1800;
-
-  const stage = currentStage();
-
-  if (stage.boss) {
-    clearTargets(true);
-    showBossForStage(stage);
-  } else {
-    state.boss.active = false;
-    updateBossUi();
-  }
-
-  if (!first) {
-    showStageBanner(stage.title, stage.desc);
-    logEvent('stage_enter', { stage: stage.key });
-  } else {
-    logEvent('stage_enter', { stage: stage.key, first: true });
-  }
-
-  setCoach(stage.coachHead, stage.coachExplain, stage.hint);
-  updateHud();
-}
-
-function updateStageByTime() {
-  const idx = stageIndexByElapsed();
-  if (idx !== state.stageIndex) {
-    enterStage(idx, false);
-  }
+  renderHud();
+  refreshStageRect();
+  loop(performance.now());
 }
 
 function loop(ts) {
-  if (!state.started || state.finished) return;
+  if (!state.running || state.ended) return;
 
-  if (!state.lastTs) state.lastTs = ts;
-  const dtMs = Math.min(50, ts - state.lastTs);
-  state.lastTs = ts;
-  state._dtSec = dtMs / 1000;
+  const dt = Math.min(48, ts - state.lastFrameTs || 16);
+  state.lastFrameTs = ts;
 
-  if (!state.paused) {
-    state.elapsedMs += dtMs;
-    updateStageByTime();
-    updateMiniMission(dtMs);
-    renderTargets();
-    updateHud();
+  state.timeLeftMs -= dt;
+  if (state.timeLeftMs <= 0) {
+    state.timeLeftMs = 0;
+    renderHud();
+    endGame('time-up');
+    return;
+  }
 
-    if (state.elapsedMs >= state.totalSec * 1000) {
-      finishGame();
-      return;
+  updateSpawner(dt);
+  updateTargets(dt);
+  renderHud();
+
+  state.frameRaf = requestAnimationFrame(loop);
+}
+
+function updateSpawner(dt) {
+  const preset = DIFF_PRESET[state.diff] || DIFF_PRESET.easy;
+  state.lastSpawnAccum += dt;
+
+  while (state.lastSpawnAccum >= preset.spawnMs) {
+    state.lastSpawnAccum -= preset.spawnMs;
+    spawnTarget();
+  }
+}
+
+function spawnTarget() {
+  refreshStageRect();
+
+  const preset = DIFF_PRESET[state.diff] || DIFF_PRESET.easy;
+  const isGood = rand() < preset.goodRatio;
+  const item = pick(isGood ? GOOD_ITEMS : JUNK_ITEMS);
+
+  const size = randRange(preset.targetSizeMin, preset.targetSizeMax);
+  const x = randRange(10, Math.max(12, state.rect.width - size - 10));
+  const y = -size - randRange(0, 50);
+  const speed = randRange(preset.speedMin, preset.speedMax);
+  const drift = randRange(-28, 28);
+  const id = `t-${++state.targetSeq}`;
+
+  const el = document.createElement('button');
+  el.type = 'button';
+  el.className = `gj-target ${isGood ? 'good' : 'junk'}`;
+  el.style.width = `${size}px`;
+  el.style.height = `${size}px`;
+  el.innerHTML = `
+    <div class="gj-emoji">${item.emoji}</div>
+    <div class="gj-type">${isGood ? 'good' : 'junk'}</div>
+  `;
+
+  const target = { id, el, type: isGood ? 'good' : 'junk', label: item.label, x, y, size, speed, drift, dead: false };
+
+  el.addEventListener('pointerdown', (ev) => {
+    ev.preventDefault();
+    hitTarget(id);
+  }, { passive: false });
+
+  ui.layer?.appendChild(el);
+  state.targets.set(id, target);
+
+  if (isGood) state.spawnedGood += 1;
+  else state.spawnedJunk += 1;
+
+  drawTarget(target);
+}
+
+function drawTarget(target) {
+  target.el.style.transform = `translate3d(${target.x}px, ${target.y}px, 0)`;
+}
+
+function updateTargets(dt) {
+  const stageW = state.rect.width;
+  const stageH = state.rect.height;
+
+  state.targets.forEach((target) => {
+    if (target.dead) return;
+
+    target.y += (target.speed * dt) / 1000;
+    target.x += (target.drift * dt) / 1000;
+
+    if (target.x < 6) {
+      target.x = 6;
+      target.drift *= -1;
     }
-  }
+    if (target.x + target.size > stageW - 6) {
+      target.x = stageW - target.size - 6;
+      target.drift *= -1;
+    }
 
-  state.raf = requestAnimationFrame(loop);
+    drawTarget(target);
+
+    if (target.y > stageH + target.size * 0.6) {
+      if (target.type === 'good') registerMissGood(target);
+      else removeTarget(target.id);
+    }
+  });
 }
 
-function buildSummary() {
-  const decisions = state.goodHit + state.junkHit + state.miss;
-  const accuracy = decisions > 0 ? state.goodHit / decisions : 0;
-  const grade = formatGrade();
+function hitTarget(id) {
+  if (!state.running || state.ended) return;
+  const target = state.targets.get(id);
+  if (!target || target.dead) return;
 
-  return {
-    app: 'goodjunk-intervention',
-    version: VERSION,
-    savedAt: nowIso(),
+  if (target.type === 'good') {
+    state.hitsGood += 1;
+    state.streak += 1;
+    state.bestStreak = Math.max(state.bestStreak, state.streak);
 
-    pid: state.ctx.pid || '',
-    nickName: state.ctx.nickName || '',
-    studyId: state.ctx.studyId || '',
-    phase: state.ctx.phase || '',
-    group: state.ctx.group || '',
-    condition: state.ctx.condition || '',
-    session: state.ctx.session || '',
+    classifyGoodHit(target.label);
 
-    diff: state.diff,
-    view: state.view,
-    totalSec: state.totalSec,
-    elapsedSec: Math.round(state.elapsedMs / 1000),
+    const comboBonus = Math.min(12, Math.floor(state.streak / 3) * 2);
+    const gain = 10 + comboBonus;
+    state.score += gain;
+    createFx(target.x + target.size / 2, target.y + target.size / 2, `+${gain}`, '#86efac');
+    updateHint('เยี่ยมมาก! เก็บของดีต่อไป');
+    logGameEvent('hit-good', {
+      item: target.label,
+      label: target.label,
+      score: state.score,
+      combo: state.streak
+    });
+  } else {
+    state.hitsBad += 1;
+    state.miss += 1;
+    state.streak = 0;
+    state.score = Math.max(0, state.score - 8);
+    createFx(target.x + target.size / 2, target.y + target.size / 2, 'MISS', '#fda4af');
+    updateHint('ระวัง junk! แตะของดีแทน');
+    logGameEvent('hit-junk', {
+      item: target.label,
+      label: target.label,
+      score: state.score,
+      combo: state.streak
+    });
+  }
 
+  removeTarget(id);
+  renderHud();
+
+  if (isRaceMode() && !state.ended) {
+    markRacePresenceDuringRun({
+      phase: 'run',
+      ready: true,
+      connected: true,
+      finished: false,
+      dnf: false,
+      dnfReason: '',
+      disconnectedAt: 0,
+      finalScore: state.score,
+      miss: state.miss,
+      streak: state.bestStreak
+    });
+  }
+}
+
+function inMissGracePeriod() {
+  if (!state.running || state.ended) return false;
+  const elapsed = performance.now() - state.startTs;
+  return elapsed < GJ_MISS_GRACE_MS;
+}
+
+function registerMissGood(target) {
+  if (inMissGracePeriod()) {
+    removeTarget(target.id);
+    renderHud();
+    return;
+  }
+
+  state.missedGood += 1;
+  state.miss += 1;
+  state.streak = 0;
+  createFx(target.x + target.size / 2, Math.max(28, target.y), 'พลาดของดี', '#fbbf24');
+  updateHint('มีของดีหลุดไปแล้ว รีบเก็บชิ้นต่อไป');
+  logGameEvent('miss-good', {
+    item: target.label,
+    label: target.label,
     score: state.score,
-    goodHit: state.goodHit,
-    junkHit: state.junkHit,
-    miss: state.miss,
-    junkAvoided: state.junkAvoided,
-    comboBest: state.bestCombo,
+    combo: state.streak
+  });
+  removeTarget(target.id);
+  renderHud();
 
-    fruitHit: state.fruitHit,
-    vegHit: state.vegHit,
-    drinkHit: state.drinkHit,
-
-    grade,
-    accuracy: Number(accuracy.toFixed(4)),
-    stageReached: currentStage().key,
-    bossCleared: state.boss.cleared
-  };
+  if (isRaceMode() && !state.ended) {
+    markRacePresenceDuringRun({
+      phase: 'run',
+      ready: true,
+      connected: true,
+      finished: false,
+      dnf: false,
+      dnfReason: '',
+      disconnectedAt: 0,
+      finalScore: state.score,
+      miss: state.miss,
+      streak: state.bestStreak
+    });
+  }
 }
 
-function makeNutritionExplain(summary) {
-  if (summary.goodHit >= 18 && summary.junkHit <= 3) {
-    return 'ในรอบนี้เด็กเลือกอาหารและเครื่องดื่มที่ดีต่อร่างกายได้บ่อย เช่น ผลไม้ ผัก น้ำเปล่า หรือนมจืด และแตะ junk ค่อนข้างน้อย แปลว่ามีแนวโน้มแยกทางเลือกที่เหมาะกว่าได้ดีขึ้น';
-  }
-  if (summary.junkHit > summary.goodHit) {
-    return 'ในรอบนี้เด็กยังเผลอแตะ junk food หรือเครื่องดื่มหวานหลายครั้ง จึงควรฝึกสังเกตให้มากขึ้นว่าอาหารแบบไหนควรลด และอะไรเป็นทางเลือกที่ดีกว่าในชีวิตประจำวัน';
-  }
-  if (summary.drinkHit >= 3) {
-    return 'เด็กเริ่มตอบสนองต่อทางเลือกเครื่องดื่มที่เหมาะกว่าได้ดีขึ้น โดยเฉพาะน้ำเปล่าหรือนมจืด ซึ่งเป็นสัญญาณที่ดีต่อการปรับพฤติกรรมในสถานการณ์จริง';
-  }
-  return 'ผลการเล่นแสดงให้เห็นว่าเด็กเริ่มฝึกแยกอาหารที่ควรเลือกบ่อย อาหารที่ควรลด และพยายามตอบสนองต่อภารกิจสุขภาพได้ดีขึ้น แม้ยังมีจุดที่ควรฝึกต่อเรื่องความแม่นยำในการเลือก';
+function removeTarget(id) {
+  const target = state.targets.get(id);
+  if (!target) return;
+  target.dead = true;
+  target.el.remove();
+  state.targets.delete(id);
 }
 
-function makeReflection(summary) {
-  if (summary.grade === 'A') {
-    return {
-      body: 'วันนี้หนูทำได้ดีมาก ลองคิดว่าทำไมหนูถึงเลือกของดีได้แม่น แล้วเอาวิธีนั้นไปใช้เวลาซื้อของว่างจริง',
-      bullets: [
-        'ฉันเลือกของดีได้หลายครั้งและรักษาคอมโบได้',
-        'ฉันสังเกต junk ได้เร็วขึ้น',
-        'ครั้งหน้าจะเลือกผลไม้หรือน้ำเปล่าในชีวิตจริง'
-      ]
-    };
+function createFx(x, y, text, color) {
+  const fx = document.createElement('div');
+  fx.className = 'gj-fx';
+  fx.style.left = `${x}px`;
+  fx.style.top = `${y}px`;
+  fx.style.color = color || '#e5e7eb';
+  fx.textContent = text;
+  ui.layer?.appendChild(fx);
+  setTimeout(() => fx.remove(), 760);
+}
+
+function updateHint(message) {
+  if (!ui.hint) return;
+  ui.hint.innerHTML = `<div>${escapeHtml(message)}</div>`;
+}
+
+function renderHud() {
+  if (ui.score) ui.score.textContent = String(state.score);
+  if (ui.timer) ui.timer.textContent = formatSeconds(state.timeLeftMs);
+  if (ui.miss) ui.miss.textContent = String(state.miss);
+  if (ui.grade) ui.grade.textContent = computeGrade();
+
+  if (ui.progress) {
+    const ratio = state.totalMs > 0 ? state.timeLeftMs / state.totalMs : 0;
+    ui.progress.style.transform = `scaleX(${Math.max(0, Math.min(1, ratio))})`;
   }
 
-  if (summary.junkHit >= 5) {
-    return {
-      body: 'วันนี้ยังมีบางช่วงที่หนูเผลอแตะ junk ลองคิดว่าจังหวะไหนทำให้รีบเกินไป แล้วครั้งหน้าจะชะลอก่อนเลือก',
-      bullets: [
-        'ฉันเผลอแตะของหวานหรือของทอดตอนไหนบ้าง',
-        'ฉันควรดูอาหารให้ชัดก่อนแตะ',
-        'ครั้งหน้าจะเปลี่ยน 1 อย่าง เช่น เลือกน้ำเปล่าแทนน้ำหวาน'
-      ]
-    };
+  if (ui.stats) {
+    ui.stats.innerHTML = `
+      <div><strong>Good hit:</strong> ${state.hitsGood}</div>
+      <div><strong>Junk hit:</strong> ${state.hitsBad}</div>
+      <div><strong>Good missed:</strong> ${state.missedGood}</div>
+      <div><strong>Best streak:</strong> ${state.bestStreak}</div>
+    `;
   }
+}
+
+function formatSeconds(ms) {
+  const s = Math.max(0, Math.ceil(ms / 1000));
+  const m = Math.floor(s / 60);
+  const r = s % 60;
+  return `${m}:${String(r).padStart(2, '0')}`;
+}
+
+function classifyGoodHit(label) {
+  const v = String(label || '').toLowerCase();
+  if (['apple', 'banana', 'watermelon'].includes(v)) {
+    state.fruitHit += 1;
+    return;
+  }
+  if (['carrot', 'broccoli', 'salad'].includes(v)) {
+    state.vegHit += 1;
+    return;
+  }
+  if (['milk'].includes(v)) {
+    state.drinkHit += 1;
+    return;
+  }
+}
+
+function computeAccuracy() {
+  const total = state.hitsGood + state.hitsBad + state.missedGood;
+  if (!total) return 0;
+  return Number((state.hitsGood / total).toFixed(4));
+}
+
+function computeGrade() {
+  const accuracy = computeAccuracy();
+  if (state.score >= 140 && accuracy >= 0.85 && state.miss <= 3) return 'A';
+  if (state.score >= 90 && accuracy >= 0.72 && state.miss <= 5) return 'B';
+  if (state.score >= 45 && accuracy >= 0.58) return 'C';
+  return 'D';
+}
+
+function computeStageReached() {
+  if (state.hitsGood >= 18) return 'SMART';
+  if (state.hitsGood >= 10) return 'STABLE';
+  return 'WARM';
+}
+
+function buildGameSummaryCore(reason = 'finished') {
+  const elapsedSec = Math.max(0, Math.round((state.totalMs - state.timeLeftMs) / 1000));
+  const totalSec = Math.max(0, Math.round(state.totalMs / 1000));
+  const accuracy = computeAccuracy();
+  const grade = computeGrade();
+  const junkAvoided = Math.max(0, state.spawnedJunk - state.hitsBad);
 
   return {
-    body: 'วันนี้หนูเริ่มฝึกเลือกของว่างได้ดีขึ้น ลองดูว่าในชีวิตจริงจะใช้สิ่งที่เรียนรู้จากเกมได้อย่างไร',
-    bullets: [
-      stageGoalBullet(currentStage().key),
-      'ฉันควรเพิ่มของดีให้มากกว่า junk',
-      'ฉันจะลองเลือกของว่างสุขภาพ 1 อย่างหลังจบกิจกรรม'
-    ]
+    version: '20260319a-goodjunk-intervention',
+    savedAt: new Date().toISOString(),
+    gameId: GJ_GAME_ID,
+    source: 'goodjunk-safe',
+    reason,
+
+    pid: GJ_PID,
+    studentKey: RUN_CTX.studentKey || GJ_PID,
+    nickName: RUN_CTX.nickName || GJ_NAME,
+    name: GJ_NAME,
+    studyId: RUN_CTX.studyId || '',
+    sessionId: GJ_SESSION,
+    session: GJ_SESSION,
+    conditionGroup: GJ_CONDITION,
+    condition: GJ_CONDITION,
+    classRoom: RUN_CTX.classRoom || RUN_CTX.classroom || '',
+    classroom: RUN_CTX.classroom || RUN_CTX.classRoom || '',
+    schoolName: RUN_CTX.schoolName || RUN_CTX.school || '',
+    school: RUN_CTX.school || RUN_CTX.schoolName || '',
+
+    mode: state.mode,
+    diff: state.diff,
+    view: RUN_CTX.view || 'mobile',
+    run: RUN_CTX.run || 'play',
+    seed: RUN_CTX.seed || '',
+    hub: GJ_HUB,
+
+    score: Number(state.score || 0),
+    goodHit: Number(state.hitsGood || 0),
+    junkHit: Number(state.hitsBad || 0),
+    miss: Number(state.miss || 0),
+    junkAvoided: Number(junkAvoided || 0),
+    comboBest: Number(state.bestStreak || 0),
+    fruitHit: Number(state.fruitHit || 0),
+    vegHit: Number(state.vegHit || 0),
+    drinkHit: Number(state.drinkHit || 0),
+    grade,
+    accuracy,
+    stageReached: computeStageReached(),
+    bossCleared: false,
+    totalSec,
+    elapsedSec
   };
 }
 
-function makeTakeHome(summary) {
-  if (summary.drinkHit < 2) {
-    return 'วันนี้ลองเลือกน้ำเปล่าหรือนมจืด 1 ครั้งแทนเครื่องดื่มหวาน แล้วบอกผู้ปกครองว่าทำไมตัวเลือกนี้จึงดีกว่า';
+function logGameEvent(type, extra = {}) {
+  const elapsedMs = Math.max(0, Math.round((state.totalMs - state.timeLeftMs)));
+  state.eventLog.push({
+    type,
+    at: new Date().toISOString(),
+    elapsedMs,
+    stage: computeStageReached(),
+    score: state.score,
+    combo: state.streak,
+    ...extra
+  });
+
+  if (state.eventLog.length > 500) {
+    state.eventLog = state.eventLog.slice(-500);
   }
-  if (summary.fruitHit < 3) {
-    return 'วันนี้ลองเลือกผลไม้ 1 อย่างเป็นของว่าง แล้วคุยกับผู้ปกครองว่าผลไม้ดีกว่าขนมหวานอย่างไร';
-  }
-  return 'วันนี้ลองเลือกของว่างดี 1 อย่าง เช่น ผลไม้ นมจืด หรือน้ำเปล่า แล้วอธิบายให้ผู้ปกครองฟังว่าทำไมจึงเลือกแบบนั้น';
 }
 
-function populateEndOverlay(summary) {
-  const gradeText = summary.grade;
-  const positive = summary.grade === 'A' || summary.grade === 'B';
-
-  state.ui.endTitle.textContent = positive ? 'เยี่ยมมาก! จบรอบแล้ว 🎉' : 'จบรอบแล้ว 👍';
-  state.ui.endSub.textContent = positive
-    ? 'หนูเลือกของว่างสุขภาพได้ดีขึ้นในรอบนี้'
-    : 'รอบนี้เป็นการฝึกที่ดี ลองใช้สิ่งที่เรียนรู้ไปต่อยอด';
-
-  state.ui.endGrade.textContent = `Grade ${gradeText}`;
-  state.ui.endScore.textContent = String(summary.score);
-  state.ui.endMiss.textContent = String(summary.miss);
-  state.ui.endTime.textContent = `${summary.elapsedSec}s`;
-
-  state.ui.endDecision.textContent =
-    `โหมด intervention • เลือกของดี ${summary.goodHit} ครั้ง • แตะ junk ${summary.junkHit} ครั้ง • หลีกเลี่ยง junk ${summary.junkAvoided} ครั้ง`;
-
-  state.ui.nutritionExplainBody.textContent = makeNutritionExplain(summary);
-
-  const reflection = makeReflection(summary);
-  state.ui.reflectionBody.textContent = reflection.body;
-  state.ui.reflectionBullets.innerHTML = reflection.bullets.map(v => `<li>${v}</li>`).join('');
-
-  state.ui.takeHomeMissionBody.textContent = makeTakeHome(summary);
+function persistInterventionCtx() {
+  try {
+    const prev = JSON.parse(localStorage.getItem(GJI_CTX_KEY) || '{}');
+    const merged = {
+      ...prev,
+      pid: GJ_PID,
+      studentKey: RUN_CTX.studentKey || GJ_PID,
+      nickName: RUN_CTX.nickName || GJ_NAME,
+      name: GJ_NAME,
+      studyId: RUN_CTX.studyId || '',
+      group: RUN_CTX.group || RUN_CTX.classRoom || RUN_CTX.classroom || GJ_CONDITION || '',
+      condition: RUN_CTX.condition || RUN_CTX.conditionGroup || '',
+      conditionGroup: RUN_CTX.conditionGroup || RUN_CTX.condition || '',
+      session: RUN_CTX.session || RUN_CTX.sessionId || '',
+      sessionId: RUN_CTX.sessionId || RUN_CTX.session || '',
+      classroom: RUN_CTX.classroom || RUN_CTX.classRoom || '',
+      classRoom: RUN_CTX.classRoom || RUN_CTX.classroom || '',
+      school: RUN_CTX.school || RUN_CTX.schoolName || '',
+      schoolName: RUN_CTX.schoolName || RUN_CTX.school || '',
+      diff: RUN_CTX.diff || state.diff,
+      view: RUN_CTX.view || 'mobile',
+      mode: RUN_CTX.run || 'play',
+      run: RUN_CTX.run || 'play',
+      time: RUN_CTX.time || '80',
+      lang: RUN_CTX.lang || 'th',
+      hub: GJ_HUB
+    };
+    localStorage.setItem(GJI_CTX_KEY, JSON.stringify(merged));
+  } catch {}
 }
 
-function finishGame() {
-  if (state.finished) return;
-  state.finished = true;
-  state.started = false;
-
-  cancelAnimationFrame(state.raf);
-  clearTimeout(state.spawnTimer);
-  clearTargets(true);
-
-  const summary = buildSummary();
-  populateEndOverlay(summary);
-
-  saveJSON(KEYS.GAME_SUMMARY, summary);
-  saveJSON(KEYS.GAME_EVENTS, state.events);
+function persistInterventionGameArtifacts(summary) {
+  try {
+    localStorage.setItem(GJI_GAME_SUMMARY_KEY, JSON.stringify(summary));
+  } catch {}
 
   try {
-    localStorage.setItem('GJI_LAST_SUMMARY', JSON.stringify(summary));
+    localStorage.setItem(GJI_GAME_EVENTS_KEY, JSON.stringify(state.eventLog));
   } catch {}
 
   try {
     localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify({
-      game: 'goodjunk-intervention',
+      source: 'goodjunk-intervention',
+      gameId: GJ_GAME_ID,
       title: 'GoodJunk Intervention',
+      mode: state.mode,
+      pid: summary.pid,
+      studyId: summary.studyId,
+      roomId: GJ_ROOM_ID || '',
       score: summary.score,
       miss: summary.miss,
-      grade: summary.grade,
-      savedAt: summary.savedAt
+      streak: summary.comboBest,
+      rank: null,
+      finishType: 'normal',
+      dnfReason: '',
+      playerCount: state.mode === 'race' ? null : 1,
+      allFinished: state.mode === 'race' ? null : true,
+      raceStatusFinal: state.mode === 'race' ? 'pending' : 'solo',
+      updatedAt: Date.now()
     }));
   } catch {}
-
-  logEvent('finish', summary);
-
-  state.ui.endOverlay.style.display = 'flex';
-  state.ui.endOverlay.setAttribute('aria-hidden', 'false');
 }
 
-function resetRunState() {
-  state.started = false;
-  state.finished = false;
-  state.paused = false;
-
-  state.elapsedMs = 0;
-  state.lastTs = 0;
-
-  state.score = 0;
-  state.miss = 0;
-  state.goodHit = 0;
-  state.junkHit = 0;
-  state.junkAvoided = 0;
-  state.combo = 0;
-  state.bestCombo = 0;
-
-  state.fruitHit = 0;
-  state.vegHit = 0;
-  state.drinkHit = 0;
-
-  state.stageIndex = 0;
-  state.stageEnteredAtMs = 0;
-  state.stageBaseGood = 0;
-  state.stageBaseSmart = 0;
-  state.stageBonusDone = {};
-
-  state.mini = null;
-  state.miniCooldownMs = 1800;
-
-  state.boss.active = false;
-  state.boss.hp = 100;
-  state.boss.maxHp = 100;
-  state.boss.cleared = false;
-
-  state.active.length = 0;
-  state.events.length = 0;
-
-  clearTimeout(state.spawnTimer);
-  cancelAnimationFrame(state.raf);
-  clearTargets(true);
-
-  state.ui.endOverlay.style.display = 'none';
-  state.ui.endOverlay.setAttribute('aria-hidden', 'true');
-}
-
-function startRun() {
-  if (state.started) return;
-
-  resetRunState();
-  enterStage(0, true);
-
-  state.started = true;
-  state.finished = false;
-  state.lastTs = 0;
-
-  logEvent('start', {
-    pid: state.ctx.pid || '',
-    studyId: state.ctx.studyId || '',
-    session: state.ctx.session || '',
-    diff: state.diff,
-    view: state.view,
-    totalSec: state.totalSec
+function buildPageUrl(relPath) {
+  const q = new URLSearchParams({
+    pid: GJ_PID,
+    name: GJ_NAME,
+    studentKey: RUN_CTX.studentKey || GJ_PID,
+    nickName: RUN_CTX.nickName || GJ_NAME,
+    studyId: RUN_CTX.studyId || '',
+    group: RUN_CTX.group || RUN_CTX.classRoom || RUN_CTX.classroom || GJ_CONDITION || '',
+    condition: RUN_CTX.condition || RUN_CTX.conditionGroup || '',
+    conditionGroup: RUN_CTX.conditionGroup || RUN_CTX.condition || '',
+    session: RUN_CTX.session || RUN_CTX.sessionId || '',
+    sessionId: RUN_CTX.sessionId || RUN_CTX.session || '',
+    lang: RUN_CTX.lang || 'th',
+    mode: RUN_CTX.run || 'play',
+    diff: RUN_CTX.diff || 'easy',
+    view: RUN_CTX.view || 'mobile',
+    time: RUN_CTX.time || '80',
+    run: RUN_CTX.run || 'play',
+    hub: GJ_HUB,
+    classRoom: RUN_CTX.classRoom || RUN_CTX.classroom || '',
+    classroom: RUN_CTX.classroom || RUN_CTX.classRoom || '',
+    schoolName: RUN_CTX.schoolName || RUN_CTX.school || '',
+    school: RUN_CTX.school || RUN_CTX.schoolName || '',
+    gameId: GJ_GAME_ID
   });
 
-  scheduleSpawn();
-  updateHud();
-  state.raf = requestAnimationFrame(loop);
+  return `${relPath}?${q.toString()}`;
 }
 
-function startCountdown() {
-  let sec = 3;
-  showStageBanner('GoodJunk Intervention', `เริ่มใน ${sec}`);
-  setCoach('เตรียมพร้อม 🚀', 'อีกไม่กี่วินาทีเกมจะเริ่ม', 'เก็บของดีและหลีกเลี่ยง junk');
+function endGame(reason = 'finished') {
+  if (state.ended) return;
 
-  const timer = setInterval(() => {
-    sec -= 1;
-    if (sec > 0) {
-      showStageBanner('GoodJunk Intervention', `เริ่มใน ${sec}`);
-    } else {
-      clearInterval(timer);
-      showStageBanner(currentStage().title, currentStage().desc);
-      startRun();
+  state.ended = true;
+  state.running = false;
+  __gjLocalRunActive = false;
+  cancelAnimationFrame(state.frameRaf);
+  state.frameRaf = 0;
+  stopRaceHeartbeat();
+
+  const finalStats = {
+    gameId: GJ_GAME_ID,
+    mode: state.mode,
+    pid: GJ_PID,
+    name: GJ_NAME,
+    studyId: RUN_CTX.studyId || '',
+    diff: state.diff,
+    view: RUN_CTX.view || 'mobile',
+    run: RUN_CTX.run || 'play',
+    seed: RUN_CTX.seed || '',
+    roomId: GJ_ROOM_ID,
+    raceStartAt: getEffectiveRaceStartAt(),
+    reason,
+    score: state.score,
+    miss: state.miss,
+    streak: state.bestStreak,
+    bestStreak: state.bestStreak,
+    hitsGood: state.hitsGood,
+    hitsBad: state.hitsBad,
+    missedGood: state.missedGood,
+    spawnedGood: state.spawnedGood,
+    spawnedJunk: state.spawnedJunk,
+    fruitHit: state.fruitHit,
+    vegHit: state.vegHit,
+    drinkHit: state.drinkHit,
+    updatedAt: Date.now()
+  };
+
+  const interventionSummary = buildGameSummaryCore(reason);
+  logGameEvent('end', {
+    reason,
+    score: interventionSummary.score,
+    miss: interventionSummary.miss,
+    grade: interventionSummary.grade
+  });
+  persistInterventionCtx();
+  persistInterventionGameArtifacts(interventionSummary);
+
+  state.targets.forEach((t) => t.el.remove());
+  state.targets.clear();
+
+  if (isRaceMode()) {
+    publishRaceFinish({
+      score: finalStats.score,
+      miss: finalStats.miss,
+      streak: finalStats.bestStreak
+    });
+    return;
+  }
+
+  showSoloSummary(finalStats);
+}
+
+function showSoloSummary(summary) {
+  __gjSoloSummary = buildSoloSummaryPayload(summary);
+  persistSoloSummary(__gjSoloSummary);
+
+  if (!ui.soloOverlay || !ui.soloBody) return;
+
+  const grade = computeGrade();
+  const accuracyPct = Math.round(computeAccuracy() * 100);
+
+  ui.soloTitle.textContent = grade === 'A' ? 'ยอดเยี่ยมมาก!' : 'สรุปผลการเล่น';
+  ui.soloSub.textContent = 'ขั้นถัดไปแนะนำให้ทำ Post-Knowledge ต่อก่อน แล้วค่อยไปหน้าถัดไป';
+
+  ui.soloBody.innerHTML = `
+    <div class="gj-solo-item"><div class="label">คะแนน</div><div class="value">${__gjSoloSummary.score}</div></div>
+    <div class="gj-solo-item"><div class="label">Miss</div><div class="value">${__gjSoloSummary.miss}</div></div>
+    <div class="gj-solo-item"><div class="label">Best Streak</div><div class="value">${__gjSoloSummary.bestStreak}</div></div>
+    <div class="gj-solo-item"><div class="label">Good hit</div><div class="value">${__gjSoloSummary.hitsGood}</div></div>
+    <div class="gj-solo-item"><div class="label">Junk hit</div><div class="value">${__gjSoloSummary.hitsBad}</div></div>
+    <div class="gj-solo-item"><div class="label">Good missed</div><div class="value">${__gjSoloSummary.missedGood}</div></div>
+    <div class="gj-solo-item"><div class="label">Grade</div><div class="value">${grade}</div></div>
+    <div class="gj-solo-item"><div class="label">Accuracy</div><div class="value">${accuracyPct}%</div></div>
+  `;
+
+  ui.soloOverlay.hidden = false;
+}
+
+function buildSoloSummaryPayload(summary) {
+  return {
+    version: '20260319a-goodjunk-solo-summary',
+    source: 'goodjunk-solo',
+    gameId: GJ_GAME_ID,
+    mode: 'solo',
+    pid: GJ_PID,
+    name: GJ_NAME,
+    studyId: RUN_CTX.studyId || '',
+    diff: state.diff,
+    view: RUN_CTX.view || 'mobile',
+    run: RUN_CTX.run || 'play',
+    seed: RUN_CTX.seed || '',
+    finishType: 'normal',
+    dnfReason: '',
+    rank: null,
+    roomId: '',
+    playerCount: 1,
+    allFinished: true,
+    raceStatusFinal: 'solo',
+    score: Number(summary.score || 0),
+    miss: Number(summary.miss || 0),
+    bestStreak: Number(summary.bestStreak || 0),
+    hitsGood: Number(summary.hitsGood || 0),
+    hitsBad: Number(summary.hitsBad || 0),
+    missedGood: Number(summary.missedGood || 0),
+    updatedAt: Date.now()
+  };
+}
+
+function persistSoloSummary(summary) {
+  try { localStorage.setItem(GJ_SOLO_LAST_SUMMARY_KEY, JSON.stringify(summary)); } catch {}
+  try {
+    const raw = localStorage.getItem(GJ_SOLO_SUMMARY_HISTORY_KEY);
+    const list = raw ? JSON.parse(raw) : [];
+    const next = Array.isArray(list) ? list : [];
+    next.unshift(summary);
+    localStorage.setItem(GJ_SOLO_SUMMARY_HISTORY_KEY, JSON.stringify(next.slice(0, 30)));
+  } catch {}
+  try {
+    localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify({
+      source: summary.source,
+      gameId: summary.gameId,
+      title: 'GoodJunk Solo',
+      mode: summary.mode,
+      pid: summary.pid,
+      studyId: summary.studyId,
+      roomId: summary.roomId,
+      score: summary.score,
+      miss: summary.miss,
+      streak: summary.bestStreak,
+      rank: summary.rank,
+      finishType: summary.finishType,
+      dnfReason: summary.dnfReason,
+      playerCount: summary.playerCount,
+      allFinished: summary.allFinished,
+      raceStatusFinal: summary.raceStatusFinal,
+      updatedAt: summary.updatedAt
+    }));
+  } catch {}
+}
+
+function isRaceMode() {
+  return GJ_MODE === 'race';
+}
+
+function getServerTimestampValue() {
+  try {
+    return window.HHA_FIREBASE?.database?.ServerValue?.TIMESTAMP ?? Date.now();
+  } catch {
+    return Date.now();
+  }
+}
+
+function getEffectiveRaceStartAt() {
+  return Number(GJ_START_AT || __gjRecoveredStartAt || 0) || 0;
+}
+
+function hasValidRaceStart() {
+  return !!GJ_ROOM_ID && getEffectiveRaceStartAt() > 0;
+}
+
+async function hydrateRaceStartFromRoom() {
+  if (!isRaceMode()) return 0;
+  if (!GJ_ROOM_ID) return 0;
+  if (!await ensureRaceFirebase()) return 0;
+
+  try {
+    const snap = await __gjRaceRoomRef.once('value');
+    const room = sanitizeRaceRoom(snapshotToRaceRoom(snap.val()));
+    if (!room) return 0;
+
+    if (room.startAt) {
+      __gjRecoveredStartAt = Number(room.startAt || 0) || 0;
+      return __gjRecoveredStartAt;
     }
-  }, 1000);
+
+    if (room.status === 'running') {
+      __gjRecoveredStartAt = Date.now();
+      return __gjRecoveredStartAt;
+    }
+
+    return 0;
+  } catch (err) {
+    console.warn('[goodjunk.safe] hydrateRaceStartFromRoom failed:', err);
+    return 0;
+  }
 }
 
-function onShoot(ev) {
-  if (!state.started || state.finished) return;
+function showRaceGate(msg = 'กำลังรอสัญญาณเริ่ม', count = '-', sub = '') {
+  if (RACE_UI?.showGate) {
+    RACE_UI.showGate(msg, count, sub);
+    return;
+  }
 
-  const lockPx = Number(ev?.detail?.lockPx ?? 42);
-  const cx = window.innerWidth / 2;
-  const cy = window.innerHeight / 2;
+  const wrap = document.getElementById('raceGate');
+  const text = document.getElementById('raceGateText');
+  const num  = document.getElementById('raceGateCount');
+  const subEl = document.getElementById('raceGateSub');
 
-  let best = null;
-  let bestDist = Infinity;
+  if (wrap) wrap.hidden = false;
+  if (text) text.textContent = msg;
+  if (num) num.textContent = count;
+  if (subEl) subEl.textContent = sub || 'เกมจะเริ่มพร้อมกันเมื่อถึงเวลา startAt';
+}
 
-  for (const t of state.active) {
-    if (!t.active || !t.el) continue;
-    const r = t.el.getBoundingClientRect();
-    const ex = r.left + r.width / 2;
-    const ey = r.top + r.height / 2;
+function hideRaceGate() {
+  if (RACE_UI?.hideGate) {
+    RACE_UI.hideGate();
+    return;
+  }
+  const wrap = document.getElementById('raceGate');
+  if (wrap) wrap.hidden = true;
+}
 
-    const dx = ex - cx;
-    const dy = ey - cy;
-    const withinX = Math.abs(dx) <= (r.width / 2 + lockPx);
-    const withinY = Math.abs(dy) <= (r.height / 2 + lockPx);
+function cancelRaceGateLoop() {
+  if (__gjRaceRAF) cancelAnimationFrame(__gjRaceRAF);
+  __gjRaceRAF = 0;
+}
 
-    if (withinX && withinY) {
-      const dist = Math.hypot(dx, dy);
-      if (dist < bestDist) {
-        best = t;
-        bestDist = dist;
+function waitUntilRaceStart(startAt) {
+  return new Promise((resolve) => {
+    const tick = () => {
+      const left = startAt - Date.now();
+
+      if (left <= 0) {
+        showRaceGate('เริ่มการแข่งขัน', 'GO!', 'กำลังเข้าสู่เกม...');
+        window.setTimeout(resolve, 220);
+        return;
+      }
+
+      showRaceGate(
+        'กำลังนับถอยหลังก่อนเริ่มพร้อมกัน',
+        String(Math.ceil(left / 1000)),
+        `Room: ${GJ_ROOM_ID || '-'}`
+      );
+
+      __gjRaceRAF = requestAnimationFrame(tick);
+    };
+
+    tick();
+  });
+}
+
+function waitForFirebaseReady(timeoutMs = 12000) {
+  return new Promise((resolve) => {
+    if (window.HHA_FIREBASE_READY && window.HHA_FIREBASE_DB) {
+      resolve(true);
+      return;
+    }
+
+    let done = false;
+    const finish = (ok) => {
+      if (done) return;
+      done = true;
+      resolve(!!ok);
+    };
+
+    const timer = setTimeout(() => finish(false), timeoutMs);
+
+    window.addEventListener('hha:firebase_ready', (ev) => {
+      clearTimeout(timer);
+      finish(!!ev?.detail?.ok && !!window.HHA_FIREBASE_DB);
+    }, { once: true });
+  });
+}
+
+async function ensureRaceFirebase() {
+  if (!isRaceMode()) return false;
+
+  if (!GJ_ROOM_ID) {
+    console.warn('[goodjunk.safe] missing roomId for race mode');
+    return false;
+  }
+
+  if (!GJ_PID) {
+    console.warn('[goodjunk.safe] missing pid for race mode');
+    return false;
+  }
+
+  if (__gjFbReady && __gjRaceDb && __gjRaceRoomRef && __gjRacePlayersRef && __gjRaceMyPlayerRef) {
+    return true;
+  }
+
+  const ok = await waitForFirebaseReady();
+  if (!ok || !window.HHA_FIREBASE_DB) {
+    console.warn('[goodjunk.safe] Firebase not ready for race room');
+    return false;
+  }
+
+  try {
+    __gjRaceDb = window.HHA_FIREBASE_DB;
+    __gjRaceRoomRef = __gjRaceDb.ref(GJ_FIREBASE_ROOM_PATH);
+    __gjRacePlayersRef = __gjRaceRoomRef.child('players');
+    __gjRaceMyPlayerRef = __gjRacePlayersRef.child(GJ_PID);
+    __gjFbReady = true;
+    return true;
+  } catch (err) {
+    console.error('[goodjunk.safe] ensureRaceFirebase failed:', err);
+    __gjFbReady = false;
+    __gjRaceDb = null;
+    __gjRaceRoomRef = null;
+    __gjRacePlayersRef = null;
+    __gjRaceMyPlayerRef = null;
+    return false;
+  }
+}
+
+function snapshotToRaceRoom(val) {
+  if (!val) return null;
+  const playersMap = val.players || {};
+  return {
+    ...val,
+    players: Object.keys(playersMap).map((pid) => ({
+      id: pid,
+      ...playersMap[pid]
+    }))
+  };
+}
+
+function normalizeRacePlayers(players) {
+  return Array.isArray(players) ? players.filter(Boolean).map((p) => ({
+    id: __normalizePid(p.id || ''),
+    name: String(p.name || '').trim(),
+    ready: !!p.ready,
+    connected: p.connected !== false,
+    phase: String(p.phase || (p.finished ? 'done' : 'run')).trim(),
+    finished: !!p.finished,
+    dnf: !!p.dnf,
+    dnfReason: String(p.dnfReason || '').trim(),
+    finalScore: Number(p.finalScore || 0),
+    miss: Number(p.miss || 0),
+    streak: Number(p.streak || 0),
+    joinedAt: Number(p.joinedAt || 0),
+    lastSeenAt: Number(p.lastSeenAt || 0),
+    finishedAt: Number(p.finishedAt || 0),
+    disconnectedAt: Number(p.disconnectedAt || 0)
+  })) : [];
+}
+
+function sanitizeRaceRoom(room) {
+  if (!room) return null;
+
+  const rawMatch = room.match && typeof room.match === 'object' ? room.match : {};
+
+  const safe = {
+    roomId: __normalizeRoomId(room.roomId || GJ_ROOM_ID || ''),
+    hostId: __normalizePid(room.hostId || ''),
+    mode: String(room.mode || 'race'),
+    minPlayers: Math.max(2, Number(room.minPlayers || 2)),
+    maxPlayers: Math.max(2, Number(room.maxPlayers || 4)),
+    status: ['waiting', 'countdown', 'running', 'finished'].includes(room.status) ? room.status : 'waiting',
+    startAt: room.startAt ? Number(room.startAt) : null,
+    createdAt: Number(room.createdAt || Date.now()),
+    updatedAt: Number(room.updatedAt || Date.now()),
+    players: normalizeRacePlayers(room.players || []),
+    match: {
+      participantIds: Array.isArray(rawMatch.participantIds)
+        ? rawMatch.participantIds.map((id) => __normalizePid(id)).filter(Boolean)
+        : [],
+      lockedAt: rawMatch.lockedAt ? Number(rawMatch.lockedAt) : null,
+      status: ['idle', 'countdown', 'running', 'finished'].includes(rawMatch.status)
+        ? rawMatch.status
+        : 'idle'
+    }
+  };
+
+  if (!safe.players.some((p) => p.id === safe.hostId)) {
+    safe.hostId = safe.players[0]?.id || '';
+  }
+
+  return safe;
+}
+
+function raceRoomToFirebase(room) {
+  const out = {
+    roomId: room.roomId,
+    hostId: room.hostId,
+    mode: room.mode,
+    minPlayers: room.minPlayers,
+    maxPlayers: room.maxPlayers,
+    status: room.status,
+    startAt: room.startAt || null,
+    createdAt: room.createdAt || Date.now(),
+    updatedAt: Date.now(),
+    players: {},
+    match: {
+      participantIds: Array.isArray(room.match?.participantIds) ? room.match.participantIds : [],
+      lockedAt: room.match?.lockedAt || null,
+      status: room.match?.status || 'idle'
+    }
+  };
+
+  normalizeRacePlayers(room.players).forEach((p) => {
+    out.players[p.id] = {
+      name: p.name || '',
+      ready: !!p.ready,
+      connected: p.connected !== false,
+      phase: p.phase || 'run',
+      finished: !!p.finished,
+      dnf: !!p.dnf,
+      dnfReason: p.dnfReason || '',
+      finalScore: Number(p.finalScore || 0),
+      miss: Number(p.miss || 0),
+      streak: Number(p.streak || 0),
+      joinedAt: Number(p.joinedAt || 0),
+      lastSeenAt: Number(p.lastSeenAt || 0),
+      finishedAt: Number(p.finishedAt || 0),
+      disconnectedAt: Number(p.disconnectedAt || 0)
+    };
+  });
+
+  return out;
+}
+
+async function loadRaceRoom() {
+  if (!await ensureRaceFirebase()) return null;
+  try {
+    const snap = await __gjRaceRoomRef.once('value');
+    return sanitizeRaceRoom(snapshotToRaceRoom(snap.val()));
+  } catch (err) {
+    console.error('[goodjunk.safe] loadRaceRoom failed:', err);
+    return null;
+  }
+}
+
+async function saveRaceRoom(room) {
+  if (!await ensureRaceFirebase()) return false;
+  if (!room) return false;
+
+  try {
+    await __gjRaceRoomRef.set(raceRoomToFirebase(room));
+    return true;
+  } catch (err) {
+    console.error('[goodjunk.safe] saveRaceRoom failed:', err);
+    return false;
+  }
+}
+
+function getRoomParticipantIds(room) {
+  const ids = Array.isArray(room?.match?.participantIds) ? room.match.participantIds : [];
+  return ids.map((id) => __normalizePid(id)).filter(Boolean);
+}
+
+function getRacePlayersForRoom(room) {
+  const allPlayers = normalizeRacePlayers(room?.players || []);
+  const participantIds = getRoomParticipantIds(room);
+
+  if (!participantIds.length) return allPlayers;
+
+  const map = new Map(allPlayers.map((p) => [p.id, p]));
+  return participantIds.map((id) => map.get(id)).filter(Boolean);
+}
+
+function amIRaceParticipant(room) {
+  const ids = getRoomParticipantIds(room);
+  if (!ids.length) return true;
+  return ids.includes(GJ_PID);
+}
+
+async function setupRunOnDisconnect() {
+  if (!await ensureRaceFirebase()) return;
+  if (!__gjRaceMyPlayerRef) return;
+
+  try {
+    await __gjRaceMyPlayerRef.onDisconnect().update({
+      connected: false,
+      phase: 'run',
+      dnf: false,
+      dnfReason: '',
+      disconnectedAt: getServerTimestampValue()
+    });
+  } catch (err) {
+    console.warn('[goodjunk.safe] setupRunOnDisconnect failed:', err);
+  }
+}
+
+function rankRacePlayers(players) {
+  return normalizeRacePlayers(players)
+    .sort((a, b) => {
+      if (!!a.dnf !== !!b.dnf) return a.dnf ? 1 : -1;
+      if (b.finalScore !== a.finalScore) return b.finalScore - a.finalScore;
+      if (a.miss !== b.miss) return a.miss - b.miss;
+      if (b.streak !== a.streak) return b.streak - a.streak;
+      return a.finishedAt - b.finishedAt;
+    })
+    .map((p, idx) => ({ ...p, rank: idx + 1 }));
+}
+
+function getMyRaceRanked(rows) {
+  return rows.find((p) => p.id === GJ_PID) || null;
+}
+
+function getDnfReasonLabel(reason) {
+  const key = String(reason || '').trim().toLowerCase();
+  if (key === 'left-run') return 'ออกจากหน้าเกม';
+  if (key === 'disconnect') return 'การเชื่อมต่อหลุด';
+  if (key === 'timeout') return 'หมดเวลา / ไม่ตอบสนอง';
+  if (key) return key;
+  return 'ไม่ทราบสาเหตุ';
+}
+
+function getRaceCounts(rows) {
+  const total = rows.length;
+  const finishedNormal = rows.filter((p) => p.finished && !p.dnf).length;
+  const dnfCount = rows.filter((p) => p.dnf).length;
+  const waitingCount = rows.filter((p) => !p.finished).length;
+  return { total, finishedNormal, dnfCount, waitingCount };
+}
+
+function buildRaceSummaryPayload(rows, opts = {}) {
+  const mine = getMyRaceRanked(rows) || {};
+  const counts = getRaceCounts(rows);
+  const allFinished = !!opts.allFinished || rows.every((p) => p.finished);
+  const raceStatusFinal = allFinished ? 'finished' : 'pending';
+
+  return {
+    version: '20260319a-goodjunk-race-summary',
+    source: 'goodjunk-race',
+    gameId: GJ_GAME_ID,
+    mode: 'race',
+    pid: GJ_PID,
+    name: GJ_NAME,
+    studyId: RUN_CTX.studyId || '',
+    roomId: GJ_ROOM_ID,
+    playerCount: counts.total,
+    finishedCount: counts.finishedNormal,
+    dnfCount: counts.dnfCount,
+    waitingCount: counts.waitingCount,
+    allFinished,
+    raceStatusFinal,
+    finishType: mine.dnf ? 'dnf' : 'normal',
+    dnfReason: mine.dnf ? (mine.dnfReason || '') : '',
+    rank: Number(mine.rank || 0) || null,
+    score: Number(mine.finalScore || 0),
+    miss: Number(mine.miss || 0),
+    streak: Number(mine.streak || 0),
+    diff: RUN_CTX.diff || 'easy',
+    view: RUN_CTX.view || 'mobile',
+    run: RUN_CTX.run || 'play',
+    seed: RUN_CTX.seed || '',
+    raceStartAt: getEffectiveRaceStartAt(),
+    updatedAt: Date.now(),
+    leaderboard: rows.map((p) => ({
+      pid: p.id,
+      name: p.name || p.id,
+      rank: Number(p.rank || 0) || null,
+      finishType: p.dnf ? 'dnf' : (p.finished ? 'normal' : 'pending'),
+      dnfReason: p.dnf ? (p.dnfReason || '') : '',
+      finished: !!p.finished,
+      connected: p.connected !== false,
+      score: p.dnf ? null : Number(p.finalScore || 0),
+      miss: p.dnf ? null : Number(p.miss || 0),
+      streak: p.dnf ? null : Number(p.streak || 0)
+    }))
+  };
+}
+
+function getRaceSummarySignature(summary) {
+  return JSON.stringify({
+    roomId: summary.roomId,
+    pid: summary.pid,
+    rank: summary.rank,
+    finishType: summary.finishType,
+    dnfReason: summary.dnfReason,
+    score: summary.score,
+    miss: summary.miss,
+    streak: summary.streak,
+    playerCount: summary.playerCount,
+    finishedCount: summary.finishedCount,
+    dnfCount: summary.dnfCount,
+    waitingCount: summary.waitingCount,
+    allFinished: summary.allFinished,
+    raceStatusFinal: summary.raceStatusFinal
+  });
+}
+
+function persistRaceSummary(summary) {
+  __gjRaceLastSummary = summary;
+
+  try { localStorage.setItem(GJ_RACE_LAST_SUMMARY_KEY, JSON.stringify(summary)); } catch {}
+  try {
+    const raw = localStorage.getItem(GJ_RACE_SUMMARY_HISTORY_KEY);
+    const hist = raw ? JSON.parse(raw) : [];
+    const next = Array.isArray(hist) ? hist : [];
+    next.unshift(summary);
+    localStorage.setItem(GJ_RACE_SUMMARY_HISTORY_KEY, JSON.stringify(next.slice(0, 30)));
+  } catch {}
+
+  try {
+    localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify({
+      source: 'goodjunk-race',
+      gameId: GJ_GAME_ID,
+      title: 'GoodJunk Race',
+      mode: 'race',
+      pid: summary.pid,
+      studyId: summary.studyId,
+      roomId: summary.roomId,
+      score: summary.score,
+      miss: summary.miss,
+      streak: summary.streak,
+      rank: summary.rank,
+      finishType: summary.finishType,
+      dnfReason: summary.dnfReason,
+      playerCount: summary.playerCount,
+      allFinished: summary.allFinished,
+      raceStatusFinal: summary.raceStatusFinal,
+      updatedAt: summary.updatedAt
+    }));
+  } catch {}
+}
+
+function storeRaceSummaryFromRows(rows, opts = {}) {
+  const summary = buildRaceSummaryPayload(rows, opts);
+  const sig = getRaceSummarySignature(summary);
+
+  __gjRaceLastSummary = summary;
+  if (sig !== __gjRaceLastSummarySig) {
+    __gjRaceLastSummarySig = sig;
+    persistRaceSummary(summary);
+  }
+  return summary;
+}
+
+function downloadRaceSummaryJson(summary = __gjRaceLastSummary) {
+  if (!summary) return;
+  downloadJson(summary, `goodjunk-race-${safeFilePart(summary.roomId || 'room')}-${safeFilePart(summary.pid || 'player')}-${safeFilePart(summary.raceStatusFinal || 'pending')}.json`);
+}
+
+function downloadJson(payload, filename = `goodjunk-${Date.now()}.json`) {
+  if (!payload) return;
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+function safeFilePart(value) {
+  return String(value || 'file').replace(/[^a-z0-9_-]/gi, '-');
+}
+
+function hideRaceResultOverlay() {
+  const wrap = document.getElementById('raceResult');
+  if (wrap) wrap.hidden = true;
+  state.pendingResultVisible = false;
+}
+
+function shouldShowRaceOverlayForMe(me, allFinished) {
+  if (!me) return false;
+  if (me.dnf || me.finished) return true;
+  if (__gjLocalRunActive && state.running && !state.ended) return false;
+  if (!allFinished) return false;
+  return false;
+}
+
+function showRaceResultOverlay(rows, opts = {}) {
+  const wrap = document.getElementById('raceResult');
+  const rowsBox = document.getElementById('raceResultRows');
+  const badge = document.getElementById('raceResultBadge');
+  const sub = document.getElementById('raceResultSub');
+  const hint = document.getElementById('raceResultHint');
+
+  const me = getMyRaceRanked(rows);
+  const allFinished = rows.length > 0 && rows.every((p) => p.finished);
+
+  if (!shouldShowRaceOverlayForMe(me, allFinished)) {
+    return;
+  }
+
+  if (!wrap || !rowsBox) return;
+
+  const pending = !!opts.pending;
+  const summary = storeRaceSummaryFromRows(rows, { allFinished: !pending });
+  const mine = getMyRaceRanked(rows);
+  const doneCount = summary.finishedCount;
+  const dnfCount = summary.dnfCount;
+  const waitingCount = summary.waitingCount;
+
+  rowsBox.innerHTML = rows.map((p) => {
+    const isMe = p.id === GJ_PID;
+    let stateLine = '';
+
+    if (p.dnf) {
+      stateLine = `<div style="margin-top:4px;font-size:12px;color:#fda4af;font-weight:800;">DNF • ${escapeHtml(getDnfReasonLabel(p.dnfReason))}</div>`;
+    } else if (!p.finished && p.connected === false) {
+      stateLine = `<div style="margin-top:4px;font-size:12px;color:#fbbf24;font-weight:800;">การเชื่อมต่อขาดช่วง • รอ reconnect</div>`;
+    } else if (!p.finished) {
+      stateLine = `<div style="margin-top:4px;font-size:12px;color:#fbbf24;font-weight:800;">ยังไม่จบ</div>`;
+    } else {
+      stateLine = `<div style="margin-top:4px;font-size:12px;color:#86efac;font-weight:800;">แข่งจบแล้ว</div>`;
+    }
+
+    return `
+      <div class="result-row ${isMe ? 'is-me' : ''}">
+        <div style="font-weight:900;">#${p.rank}</div>
+        <div>
+          <div style="font-weight:800;">
+            ${escapeHtml(p.name || p.id || 'player')}
+            ${isMe ? '<span style="color:#7dd3fc;"> • คุณ</span>' : ''}
+          </div>
+          ${stateLine}
+        </div>
+        <div>${p.dnf ? '—' : p.finalScore}</div>
+        <div>${p.dnf ? '—' : p.miss}</div>
+        <div>${p.dnf ? '—' : p.streak}</div>
+      </div>
+    `;
+  }).join('');
+
+  if (badge) {
+    if (mine) {
+      if (mine.dnf) {
+        badge.textContent = `DNF • ${getDnfReasonLabel(mine.dnfReason)}`;
+        badge.style.color = '#86efac';
+        badge.style.borderColor = 'rgba(34,197,94,.25)';
+        badge.style.background = 'rgba(34,197,94,.12)';
+      } else if (!mine.finished && mine.connected === false) {
+        badge.textContent = 'รอ reconnect';
+        badge.style.color = '#fcd34d';
+        badge.style.borderColor = 'rgba(245,158,11,.28)';
+        badge.style.background = 'rgba(245,158,11,.10)';
+      } else if (!mine.finished) {
+        badge.textContent = 'กำลังแข่ง';
+        badge.style.color = '#7dd3fc';
+        badge.style.borderColor = 'rgba(56,189,248,.28)';
+        badge.style.background = 'rgba(56,189,248,.10)';
+      } else {
+        badge.textContent = `อันดับ #${mine.rank}`;
+        badge.style.color = mine.rank === 1 ? '#fde68a' : '#86efac';
+        badge.style.borderColor = mine.rank === 1 ? 'rgba(250,204,21,.28)' : 'rgba(34,197,94,.25)';
+        badge.style.background = mine.rank === 1 ? 'rgba(250,204,21,.10)' : 'rgba(34,197,94,.12)';
+      }
+    } else {
+      badge.textContent = '-';
+    }
+  }
+
+  if (sub) {
+    const reconnectCount = rows.filter((p) => !p.finished && p.connected === false && !p.dnf).length;
+    sub.textContent = pending
+      ? `ผลชั่วคราว • จบแล้ว ${doneCount} • DNF ${dnfCount} • รออีก ${waitingCount} • reconnect ${reconnectCount}`
+      : `ผลสุดท้าย • จบแล้ว ${doneCount} • DNF ${dnfCount} • ผู้เล่นทั้งหมด ${summary.playerCount} คน`;
+  }
+
+  if (hint) {
+    hint.textContent = pending
+      ? 'ระบบบันทึก race summary แบบ pending ไว้แล้ว ผู้เล่นที่หลุดชั่วคราวยัง reconnect กลับมาแข่งต่อได้ และจะอัปเดตเป็น final เมื่อทุกคนจบหรือถูกตัดสิทธิ์'
+      : 'Race summary final ถูกบันทึกแยกจาก solo แล้ว พร้อม export JSON';
+  }
+
+  wrap.hidden = false;
+  state.pendingResultVisible = pending;
+  bindRaceResultButtons();
+}
+
+function buildRaceLobbyUrl() {
+  const q = new URLSearchParams({
+    pid: GJ_PID,
+    name: GJ_NAME,
+    studyId: RUN_CTX.studyId || '',
+    diff: RUN_CTX.diff || 'easy',
+    time: RUN_CTX.time || '80',
+    seed: String(Date.now()),
+    hub: GJ_HUB,
+    view: RUN_CTX.view || 'mobile',
+    run: RUN_CTX.run || 'play',
+    gameId: GJ_GAME_ID,
+    mode: 'race',
+    roomId: GJ_ROOM_ID,
+    session: GJ_SESSION,
+    sessionId: GJ_SESSION,
+    condition: GJ_CONDITION,
+    conditionGroup: GJ_CONDITION,
+    studentKey: RUN_CTX.studentKey || GJ_PID,
+    nickName: RUN_CTX.nickName || GJ_NAME,
+    classRoom: RUN_CTX.classRoom || RUN_CTX.classroom || '',
+    schoolName: RUN_CTX.schoolName || RUN_CTX.school || ''
+  });
+  return `../goodjunk-race-lobby.html?${q.toString()}`;
+}
+
+async function resetRaceRoomForRematch() {
+  const room = await loadRaceRoom();
+  if (!room) return;
+
+  room.status = 'waiting';
+  room.startAt = null;
+  room.updatedAt = Date.now();
+  room.match = {
+    participantIds: [],
+    lockedAt: null,
+    status: 'idle'
+  };
+
+  room.players = normalizeRacePlayers(room.players).map((p) => ({
+    ...p,
+    ready: false,
+    connected: true,
+    phase: 'lobby',
+    finished: false,
+    dnf: false,
+    dnfReason: '',
+    finalScore: 0,
+    miss: 0,
+    streak: 0,
+    finishedAt: 0,
+    lastSeenAt: Date.now(),
+    disconnectedAt: 0
+  }));
+
+  const hasCurrentHost = room.players.some((p) => p.id === room.hostId);
+  if (!hasCurrentHost) room.hostId = room.players[0]?.id || '';
+
+  await saveRaceRoom(room);
+}
+
+function bindRaceResultButtons() {
+  if (__gjRaceResultBound) return;
+  __gjRaceResultBound = true;
+
+  const btnRematch = document.getElementById('btnRaceRematch');
+  const btnLobby = document.getElementById('btnRaceBackLobby');
+  const btnExport = document.getElementById('btnRaceExport');
+  const btnHub = document.getElementById('btnRaceBackHub');
+
+  btnRematch?.addEventListener('click', async () => {
+    const room = await loadRaceRoom();
+    if (!room || !Array.isArray(room.players) || !room.players.length) {
+      location.href = GJ_HUB;
+      return;
+    }
+    await forceFinalizeRaceRoom();
+    await resetRaceRoomForRematch();
+    location.href = buildRaceLobbyUrl();
+  });
+
+  btnLobby?.addEventListener('click', async () => {
+    await forceFinalizeRaceRoom();
+    location.href = buildRaceLobbyUrl();
+  });
+
+  btnExport?.addEventListener('click', () => {
+    downloadRaceSummaryJson(__gjRaceLastSummary);
+  });
+
+  btnHub?.addEventListener('click', async () => {
+    await forceFinalizeRaceRoom();
+    location.href = GJ_HUB;
+  });
+}
+
+async function markRacePresenceDuringRun(patch = {}) {
+  if (!isRaceMode()) return;
+  if (!await ensureRaceFirebase()) return;
+
+  try {
+    const snap = await __gjRaceMyPlayerRef.once('value');
+    const cur = snap.exists() ? snap.val() : {};
+
+    await __gjRaceMyPlayerRef.update({
+      name: GJ_NAME || cur.name || GJ_PID,
+      ready: patch.ready ?? cur.ready ?? true,
+      connected: patch.connected ?? true,
+      phase: patch.phase || cur.phase || 'run',
+      finished: patch.finished ?? cur.finished ?? false,
+      dnf: patch.dnf ?? cur.dnf ?? false,
+      dnfReason: patch.dnfReason ?? cur.dnfReason ?? '',
+      finalScore: patch.finalScore ?? cur.finalScore ?? 0,
+      miss: patch.miss ?? cur.miss ?? 0,
+      streak: patch.streak ?? cur.streak ?? 0,
+      joinedAt: cur.joinedAt || Date.now(),
+      finishedAt: patch.finishedAt ?? cur.finishedAt ?? 0,
+      lastSeenAt: Date.now(),
+      disconnectedAt: patch.connected === false
+        ? (patch.disconnectedAt ?? cur.disconnectedAt ?? Date.now())
+        : 0
+    });
+
+    await __gjRaceRoomRef.child('updatedAt').set(Date.now());
+  } catch (err) {
+    console.error('[goodjunk.safe] markRacePresenceDuringRun failed:', err);
+  }
+}
+
+function stopRaceHeartbeat() {
+  if (__gjRaceHeartbeatTimer) {
+    clearInterval(__gjRaceHeartbeatTimer);
+    __gjRaceHeartbeatTimer = 0;
+  }
+}
+
+function stopRaceWatchdog() {
+  if (__gjRaceWatchdogTimer) {
+    clearInterval(__gjRaceWatchdogTimer);
+    __gjRaceWatchdogTimer = 0;
+  }
+}
+
+function startRaceHeartbeat() {
+  if (!isRaceMode() || __gjRaceHeartbeatTimer) return;
+
+  markRacePresenceDuringRun({
+    phase: 'run',
+    ready: true,
+    connected: true,
+    finished: false,
+    dnf: false,
+    dnfReason: '',
+    disconnectedAt: 0
+  });
+
+  __gjRaceHeartbeatTimer = setInterval(() => {
+    markRacePresenceDuringRun({
+      phase: 'run',
+      ready: true,
+      connected: true,
+      finished: false,
+      dnf: false,
+      dnfReason: '',
+      disconnectedAt: 0
+    });
+  }, GJ_RACE_HEARTBEAT_MS);
+}
+
+async function markMyRaceDisconnected(reason = 'disconnect') {
+  if (!isRaceMode()) return;
+  if (!await ensureRaceFirebase()) return;
+
+  try {
+    const snap = await __gjRaceMyPlayerRef.once('value');
+    if (!snap.exists()) return;
+
+    const cur = snap.val();
+    if (cur.finished) return;
+
+    await __gjRaceMyPlayerRef.update({
+      connected: false,
+      phase: 'run',
+      dnf: false,
+      dnfReason: '',
+      disconnectedAt: Date.now(),
+      lastSeenAt: Date.now()
+    });
+
+    await __gjRaceRoomRef.child('updatedAt').set(Date.now());
+  } catch (err) {
+    console.error('[goodjunk.safe] markMyRaceDisconnected failed:', err);
+  }
+}
+
+async function maybeFinalizeRaceRoom(force = false) {
+  if (!isRaceMode()) return;
+
+  const room = await loadRaceRoom();
+  if (!room || !Array.isArray(room.players) || !room.players.length) return;
+
+  let changed = false;
+  const ts = Date.now();
+
+  const participantIds = getRoomParticipantIds(room);
+  const participantSet = new Set(participantIds);
+
+  const players = normalizeRacePlayers(room.players).map((p) => {
+    const inMatch = participantSet.size ? participantSet.has(p.id) : true;
+    if (!inMatch) return p;
+    if (p.finished) return p;
+
+    const stale = !p.lastSeenAt || (ts - p.lastSeenAt > GJ_RACE_STALE_MS);
+    const disconnectBase = Number(p.disconnectedAt || p.lastSeenAt || ts);
+    const disconnectAge = ts - disconnectBase;
+    const shouldForceDnf = force || (stale && disconnectAge > GJ_RACE_DNF_GRACE_MS);
+
+    if (shouldForceDnf) {
+      changed = true;
+
+      let reason = p.dnfReason || '';
+      if (!reason) {
+        if (force) reason = 'timeout';
+        else if (p.connected === false) reason = 'disconnect';
+        else reason = 'timeout';
+      }
+
+      return {
+        ...p,
+        connected: false,
+        phase: 'done',
+        finished: true,
+        dnf: true,
+        dnfReason: reason,
+        finalScore: 0,
+        miss: 9999,
+        streak: 0,
+        finishedAt: ts,
+        lastSeenAt: ts,
+        disconnectedAt: p.disconnectedAt || ts
+      };
+    }
+
+    if (stale && !p.finished) {
+      const nextDisconnectedAt = p.disconnectedAt || ts;
+      if (p.connected !== false || !p.disconnectedAt) {
+        changed = true;
+        return {
+          ...p,
+          connected: false,
+          phase: 'run',
+          finished: false,
+          dnf: false,
+          dnfReason: '',
+          disconnectedAt: nextDisconnectedAt
+        };
       }
     }
+
+    return p;
+  });
+
+  const racePlayers = participantSet.size
+    ? players.filter((p) => participantSet.has(p.id))
+    : players;
+
+  if (!racePlayers.length) return;
+
+  const allFinished = racePlayers.every((p) => p.finished);
+  const nextStatus = allFinished ? 'finished' : (room.status === 'waiting' ? 'waiting' : 'running');
+
+  if (
+    changed ||
+    room.status !== nextStatus ||
+    JSON.stringify(room.players) !== JSON.stringify(players)
+  ) {
+    room.players = players;
+    room.status = nextStatus;
+    room.match = {
+      ...(room.match || {}),
+      status: allFinished ? 'finished' : (room.status === 'countdown' ? 'running' : (room.match?.status || 'running'))
+    };
+    room.updatedAt = ts;
+    await saveRaceRoom(room);
   }
 
-  if (best) {
-    tapTarget(best, 'shoot');
-  }
-}
+  if (allFinished) {
+    const ranked = rankRacePlayers(racePlayers);
+    const me = getMyRaceRanked(ranked);
 
-function bindShootMode() {
-  window.addEventListener('hha:shoot', onShoot);
-}
-
-function bindPauseResume() {
-  document.addEventListener('visibilitychange', () => {
-    if (!state.started || state.finished) return;
-    state.paused = document.hidden;
-
-    if (state.paused) {
-      setCoach('หยุดชั่วคราว ⏸️', 'กลับมาหน้านี้เพื่อเล่นต่อ', 'เกมจะเล่นต่อเมื่อกลับมาหน้านี้');
-    } else {
-      state.lastTs = 0;
-      const stage = currentStage();
-      setCoach(stage.coachHead, stage.coachExplain, stage.hint);
+    if (me) {
+      showRaceResultOverlay(ranked, { pending: false });
     }
-  });
 
-  window.addEventListener('resize', () => {
-    calcBounds();
+    stopRaceHeartbeat();
+    stopRaceWatchdog();
+  }
+}
+
+async function forceFinalizeRaceRoom() {
+  await maybeFinalizeRaceRoom(true);
+}
+
+function startRaceWatchdog() {
+  if (!isRaceMode() || __gjRaceWatchdogTimer) return;
+  maybeFinalizeRaceRoom(false);
+  __gjRaceWatchdogTimer = setInterval(() => {
+    maybeFinalizeRaceRoom(false);
+  }, GJ_RACE_WATCHDOG_MS);
+}
+
+async function publishRaceFinish(result = {}) {
+  if (!isRaceMode()) return;
+  if (__gjRaceFinished) return;
+  if (!await ensureRaceFirebase()) return;
+
+  __gjRaceFinished = true;
+  stopRaceHeartbeat();
+
+  try {
+    const room = await loadRaceRoom();
+    if (!room || !Array.isArray(room.players)) return;
+    if (!amIRaceParticipant(room)) return;
+
+    const participantIds = getRoomParticipantIds(room);
+    const participantSet = new Set(participantIds);
+
+    room.updatedAt = Date.now();
+    room.players = normalizeRacePlayers(room.players).map((p) => {
+      if (p.id !== GJ_PID) return p;
+
+      return {
+        ...p,
+        name: GJ_NAME || p.name || p.id,
+        ready: true,
+        connected: true,
+        phase: 'done',
+        finished: true,
+        dnf: false,
+        dnfReason: '',
+        finalScore: Number(result.score || 0),
+        miss: Number(result.miss || 0),
+        streak: Number(result.streak || result.bestStreak || 0),
+        finishedAt: Date.now(),
+        lastSeenAt: Date.now(),
+        disconnectedAt: 0
+      };
+    });
+
+    const racePlayers = participantSet.size
+      ? room.players.filter((p) => participantSet.has(p.id))
+      : room.players;
+
+    const allFinished = racePlayers.length > 0 && racePlayers.every((p) => p.finished);
+
+    room.status = allFinished ? 'finished' : 'running';
+    room.match = {
+      ...(room.match || {}),
+      status: allFinished ? 'finished' : 'running'
+    };
+
+    await saveRaceRoom(room);
+
+    const ranked = rankRacePlayers(racePlayers);
+    showRaceResultOverlay(ranked, { pending: !allFinished });
+    await maybeFinalizeRaceRoom(false);
+  } catch (err) {
+    console.error('[goodjunk.safe] publishRaceFinish failed:', err);
+  }
+}
+
+async function openRaceResultFromRoom() {
+  if (!isRaceMode()) return;
+
+  const room = await loadRaceRoom();
+  if (!room || !Array.isArray(room.players)) return;
+  if (!amIRaceParticipant(room)) {
+    hideRaceResultOverlay();
+    return;
+  }
+
+  const racePlayers = getRacePlayersForRoom(room);
+  const ranked = rankRacePlayers(racePlayers);
+  const allFinished = ranked.length > 0 && ranked.every((p) => p.finished);
+  const me = getMyRaceRanked(ranked);
+
+  if (me?.finished || me?.dnf) {
+    showRaceResultOverlay(ranked, { pending: !allFinished });
+  }
+}
+
+function attachRaceRoomListener() {
+  if (!isRaceMode() || __gjRaceRoomListenerBound) return;
+  if (!GJ_ROOM_ID) return;
+
+  __gjRaceRoomListenerBound = true;
+
+  ensureRaceFirebase().then((ok) => {
+    if (!ok || !__gjRaceRoomRef) return;
+
+    __gjRaceRoomRef.on('value', async (snap) => {
+      const room = sanitizeRaceRoom(snapshotToRaceRoom(snap.val()));
+      if (!room || !Array.isArray(room.players)) return;
+
+      if (!__gjRecoveredStartAt && room.startAt) {
+        __gjRecoveredStartAt = Number(room.startAt || 0) || 0;
+      }
+
+      if (!amIRaceParticipant(room)) {
+        hideRaceResultOverlay();
+        return;
+      }
+
+      const racePlayers = getRacePlayersForRoom(room);
+      const ranked = rankRacePlayers(racePlayers);
+      const me = getMyRaceRanked(ranked);
+      if (!me) return;
+
+      const allFinished = ranked.length > 0 && ranked.every((p) => p.finished);
+
+      if (!me.finished && !me.dnf && me.connected !== false) {
+        hideRaceResultOverlay();
+      }
+
+      if (shouldShowRaceOverlayForMe(me, allFinished)) {
+        showRaceResultOverlay(ranked, { pending: !allFinished });
+      }
+
+      if (!allFinished) {
+        await maybeFinalizeRaceRoom(false);
+      }
+    });
   });
 }
 
-function init() {
-  ensureExtraStyle();
-  bindUiRefs();
-  bindPanelToggles();
-  buildContext();
-  calcBounds();
-  bindPauseResume();
-  bindShootMode();
-
-  setCoach(
-    'พร้อมแล้ว! ยิงของดี 🥦',
-    'เกมนี้ช่วยฝึกเลือกของว่างที่ดีต่อสุขภาพ',
-    'เริ่มต้นด้วยผลไม้ ผัก น้ำเปล่า และนมจืด'
-  );
-
-  updateHud();
-  startCountdown();
+function escapeHtml(s) {
+  return String(s ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;');
 }
 
-init();
+async function bootWithRaceGate(startFn) {
+  if (__gjRaceBooted) return;
+  __gjRaceBooted = true;
 
-window.GJI_GAME = {
-  version: VERSION,
-  state,
-  start: startRun,
-  finish: finishGame
-};
+  if (!isRaceMode()) {
+    startFn();
+    return;
+  }
+
+  if (!GJ_ROOM_ID) {
+    showRaceGate('ยังไม่มี room จากลิงก์นี้', '...', 'กลับไปหน้า lobby แล้วเริ่มใหม่');
+    return;
+  }
+
+  const room = await loadRaceRoom();
+  if (room && !amIRaceParticipant(room)) {
+    showRaceGate('คุณไม่ได้อยู่ใน participant ของรอบนี้', '...', 'กลับไปหน้า lobby เพื่อรอรอบถัดไป');
+    return;
+  }
+
+  if (!hasValidRaceStart()) {
+    await hydrateRaceStartFromRoom();
+  }
+
+  if (!hasValidRaceStart()) {
+    showRaceGate('กำลังรอเริ่มการแข่งขัน', '...', 'ยังไม่มีสัญญาณเริ่มจากห้องแข่ง');
+    return;
+  }
+
+  const effectiveStartAt = getEffectiveRaceStartAt();
+  showRaceGate('กำลังรอสัญญาณเริ่มจากห้องแข่ง', '-', `Room: ${GJ_ROOM_ID}`);
+  await waitUntilRaceStart(effectiveStartAt);
+  cancelRaceGateLoop();
+  hideRaceGate();
+  startFn();
+}
+
+function buildReplayUrl() {
+  const q = new URLSearchParams({
+    pid: GJ_PID,
+    name: GJ_NAME,
+    studentKey: RUN_CTX.studentKey || GJ_PID,
+    nickName: RUN_CTX.nickName || GJ_NAME,
+    studyId: RUN_CTX.studyId || '',
+    diff: RUN_CTX.diff || 'easy',
+    time: RUN_CTX.time || '80',
+    seed: String(Date.now()),
+    hub: GJ_HUB,
+    view: RUN_CTX.view || 'mobile',
+    run: RUN_CTX.run || 'play',
+    gameId: GJ_GAME_ID,
+    mode: state.mode,
+
+    session: RUN_CTX.session || RUN_CTX.sessionId || '',
+    sessionId: RUN_CTX.sessionId || RUN_CTX.session || '',
+    condition: RUN_CTX.condition || RUN_CTX.conditionGroup || '',
+    conditionGroup: RUN_CTX.conditionGroup || RUN_CTX.condition || '',
+    classRoom: RUN_CTX.classRoom || RUN_CTX.classroom || '',
+    classroom: RUN_CTX.classroom || RUN_CTX.classRoom || '',
+    schoolName: RUN_CTX.schoolName || RUN_CTX.school || '',
+    school: RUN_CTX.school || RUN_CTX.schoolName || ''
+  });
+
+  if (isRaceMode()) {
+    q.set('roomId', GJ_ROOM_ID);
+    if (getEffectiveRaceStartAt()) {
+      q.set('startAt', String(getEffectiveRaceStartAt()));
+    }
+  }
+
+  return `./goodjunk-vr.html?v=20260319a-mobile-safe&${q.toString()}`;
+}
