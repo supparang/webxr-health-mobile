@@ -1,6 +1,6 @@
 /* === /herohealth/gate/games/balancehold/cooldown.js ===
  * HeroHealth Gate Game: BalanceHold Cooldown
- * FULL PATCH v20260319a-BALANCEHOLD-COOLDOWN-API-FINISH-FIX
+ * FULL PATCH v20260319b-BALANCEHOLD-COOLDOWN-MANUAL-RESULT
  */
 
 function clamp(v, a, b){ return Math.max(a, Math.min(b, v)); }
@@ -251,7 +251,7 @@ export function mount(root, ctx = {}, api = {}){
     startBtn.style.pointerEvents = 'none';
     startBtn.style.opacity = '.65';
 
-    cueEl.textContent = 'เสร็จแล้ว กดดูผล';
+    cueEl.textContent = 'ผ่อนคลายเสร็จแล้ว กดดูผล';
     timerEl.textContent = `${Math.max(0, state.remainSec)}s`;
     renderStats();
   }
