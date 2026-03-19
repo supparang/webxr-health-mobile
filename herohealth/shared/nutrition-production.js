@@ -1,6 +1,6 @@
 // === /herohealth/shared/nutrition-production.js ===
 // Canonical production paths for nutrition games
-// PATCH v20260318-NUTRITION-PRODUCTION-WIRING-A
+// PATCH v20260318-NUTRITION-SHARED-FULL
 
 export const NUTRITION_PATHS = {
   zoneEntry: './nutrition-zone-entry.html',
