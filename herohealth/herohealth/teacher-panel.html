@@ -1,0 +1,832 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth — Teacher Panel</title>
+  <meta name="color-scheme" content="dark light" />
+  <link rel="icon" href="./favicon.ico" />
+  <style>
+    :root{
+      --bg1:#020617; --bg2:#0b1226;
+      --panel:rgba(2,6,23,.72);
+      --panel2:rgba(15,23,42,.52);
+      --stroke:rgba(148,163,184,.18);
+      --text:#e5e7eb;
+      --muted:#94a3b8;
+      --blue:#3b82f6;
+      --violet:#a78bfa;
+      --good:#22c55e;
+      --warn:#f59e0b;
+      --sat: env(safe-area-inset-top, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
+      --sar: env(safe-area-inset-right, 0px);
+    }
+    *{ box-sizing:border-box; }
+    html,body{
+      margin:0;
+      min-height:100%;
+      font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      background:
+        radial-gradient(circle at 15% 10%, rgba(59,130,246,.18), transparent 45%),
+        radial-gradient(circle at 85% 90%, rgba(167,139,250,.16), transparent 45%),
+        linear-gradient(180deg, var(--bg1), var(--bg2));
+      color:var(--text);
+    }
+    a{ color:inherit; text-decoration:none; }
+    .wrap{
+      max-width:1100px;
+      margin:0 auto;
+      padding:
+        calc(14px + var(--sat))
+        calc(14px + var(--sar))
+        calc(18px + var(--sab))
+        calc(14px + var(--sal));
+    }
+    .hero{
+      border-radius:24px;
+      border:1px solid var(--stroke);
+      background:var(--panel);
+      box-shadow:0 24px 80px rgba(0,0,0,.38);
+      padding:18px 16px;
+    }
+    .kicker{
+      color:var(--muted);
+      font-size:.82rem;
+      font-weight:900;
+    }
+    h1{
+      margin:8px 0 4px;
+      font-size:1.5rem;
+      line-height:1.12;
+    }
+    .sub{
+      color:rgba(226,232,240,.88);
+      line-height:1.5;
+      font-size:.95rem;
+    }
+    .row{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-top:12px;
+      align-items:center;
+    }
+    .pill{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 10px;
+      border-radius:999px;
+      border:1px solid var(--stroke);
+      background:rgba(15,23,42,.52);
+      color:var(--muted);
+      font-size:.84rem;
+      font-weight:900;
+    }
+    .pill b{ color:var(--text); }
+
+    .btn{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-height:42px;
+      padding:10px 14px;
+      border-radius:16px;
+      border:1px solid rgba(148,163,184,.22);
+      background:rgba(148,163,184,.10);
+      color:var(--text);
+      font-weight:1000;
+      cursor:pointer;
+    }
+    .btn.primary{
+      border-color:rgba(59,130,246,.30);
+      background:rgba(59,130,246,.16);
+    }
+    .btn.ghost{
+      background:transparent;
+      color:var(--muted);
+    }
+
+    .grid{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:12px;
+      margin-top:14px;
+    }
+    @media (max-width: 900px){
+      .grid{ grid-template-columns:1fr; }
+    }
+
+    .card{
+      border-radius:22px;
+      border:1px solid var(--stroke);
+      background:var(--panel2);
+      box-shadow:0 18px 55px rgba(0,0,0,.24);
+      padding:14px;
+    }
+    .cardTitle{
+      font-size:1rem;
+      font-weight:1000;
+      margin-bottom:10px;
+    }
+
+    .kv{
+      display:flex;
+      justify-content:space-between;
+      gap:12px;
+      padding:8px 0;
+      border-bottom:1px dashed rgba(148,163,184,.12);
+      font-size:.9rem;
+    }
+    .kv:last-child{ border-bottom:none; }
+    .kv span{ color:var(--muted); }
+    .kv b{ color:var(--text); text-align:right; }
+
+    .actions{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-top:10px;
+    }
+
+    pre{
+      margin:0;
+      white-space:pre-wrap;
+      word-break:break-word;
+      color:#c7d2fe;
+      font-size:.82rem;
+      line-height:1.45;
+    }
+
+    .empty{
+      color:var(--muted);
+      font-weight:800;
+      line-height:1.5;
+    }
+
+    .mini{
+      margin-top:10px;
+      padding:10px 12px;
+      border-radius:16px;
+      border:1px solid rgba(148,163,184,.14);
+      background:rgba(2,6,23,.20);
+      color:var(--muted);
+      font-size:.84rem;
+      font-weight:800;
+      line-height:1.45;
+    }
+
+    .filterBar{
+      display:grid;
+      grid-template-columns: 1.2fr repeat(5, minmax(140px, 1fr));
+      gap:10px;
+      margin-bottom:10px;
+      align-items:center;
+    }
+
+    .miniInput,
+    .miniSelect{
+      min-height:42px;
+      padding:10px 12px;
+      border-radius:14px;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(2,6,23,.30);
+      color:var(--text);
+      font:inherit;
+      outline:none;
+    }
+
+    .miniInput:focus,
+    .miniSelect:focus{
+      border-color:rgba(59,130,246,.35);
+      box-shadow:0 0 0 3px rgba(59,130,246,.10);
+    }
+
+    @media (max-width: 1100px){
+      .filterBar{
+        grid-template-columns: repeat(2, minmax(0,1fr));
+      }
+    }
+
+    @media (max-width: 640px){
+      .filterBar{
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .tableWrap{
+      margin-top:10px;
+      overflow:auto;
+      border-radius:18px;
+      border:1px solid rgba(148,163,184,.16);
+      background:rgba(2,6,23,.18);
+    }
+
+    .historyTable{
+      width:100%;
+      min-width:1200px;
+      border-collapse:collapse;
+      font-size:.86rem;
+    }
+
+    .historyTable thead th{
+      position:sticky;
+      top:0;
+      z-index:1;
+      background:rgba(15,23,42,.94);
+      color:var(--text);
+      text-align:left;
+      padding:10px 10px;
+      border-bottom:1px solid rgba(148,163,184,.18);
+      white-space:nowrap;
+      font-weight:1000;
+    }
+
+    .historyTable tbody td{
+      padding:9px 10px;
+      border-bottom:1px dashed rgba(148,163,184,.12);
+      color:rgba(226,232,240,.92);
+      white-space:nowrap;
+      vertical-align:top;
+    }
+
+    .historyTable tbody tr{
+      cursor:pointer;
+    }
+
+    .historyTable tbody tr:hover{
+      background:rgba(59,130,246,.08);
+    }
+
+    .historyTable tbody tr.is-active{
+      background:rgba(59,130,246,.14);
+      box-shadow: inset 3px 0 0 rgba(59,130,246,.7);
+    }
+
+    .historyTable .mutedCell{
+      color:var(--muted);
+    }
+
+    .emptyCell{
+      text-align:center;
+      color:var(--muted);
+      padding:16px 12px !important;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="hero">
+      <div class="kicker">HeroHealth • Teacher / Research</div>
+      <h1>Teacher Panel</h1>
+      <div class="sub">ดูผลล่าสุดและประวัติการเล่นของ Shadow Breaker สำหรับครู/งานวิจัย</div>
+
+      <div class="row">
+        <span class="pill"><b>Game</b>: <span id="uiGame">shadowbreaker</span></span>
+        <span class="pill"><b>PID</b>: <span id="uiPid">-</span></span>
+        <span class="pill"><b>Runs</b>: <span id="uiRuns">0</span></span>
+        <span class="pill"><b>PID Runs</b>: <span id="uiPidRuns">0</span></span>
+        <span class="pill"><b>All Runs</b>: <span id="uiAllRuns">0</span></span>
+      </div>
+
+      <div class="row">
+        <a class="btn ghost" id="btnBackSummary" href="./shadow-breaker-summary.html">← กลับ Summary</a>
+        <a class="btn ghost" id="btnBackHub" href="./hub.html">← กลับ Hub</a>
+      </div>
+    </section>
+
+    <div class="grid">
+      <section class="card">
+        <div class="cardTitle">ผลล่าสุด</div>
+        <div id="latestBox" class="empty">ยังไม่มีข้อมูล</div>
+        <div class="actions">
+          <button class="btn primary" id="btnDownloadLatestJson" type="button">ดาวน์โหลด latest.json</button>
+          <button class="btn" id="btnDownloadLatestCsv" type="button">ดาวน์โหลด latest.csv</button>
+          <button class="btn" id="btnCopyLatestJson" type="button">คัดลอก JSON</button>
+
+          <button class="btn" id="btnDownloadFilteredJson" type="button">ดาวน์โหลด FILTERED .json</button>
+          <button class="btn" id="btnDownloadFilteredCsv" type="button">ดาวน์โหลด FILTERED .csv</button>
+
+          <button class="btn" id="btnDownloadPidHistoryJson" type="button">ดาวน์โหลด PID history.json</button>
+          <button class="btn" id="btnDownloadPidHistoryCsv" type="button">ดาวน์โหลด PID history.csv</button>
+          <button class="btn" id="btnDownloadAllHistoryJson" type="button">ดาวน์โหลด ALL history.json</button>
+          <button class="btn" id="btnDownloadAllHistoryCsv" type="button">ดาวน์โหลด ALL history.csv</button>
+          <button class="btn" id="btnClearHistory" type="button">ล้าง history ของ PID นี้</button>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="cardTitle">Raw JSON</div>
+        <pre id="rawBox">{}</pre>
+      </section>
+
+      <section class="card" style="grid-column:1 / -1;">
+        <div class="cardTitle">ประวัติที่พบในเครื่องนี้</div>
+
+        <div class="filterBar">
+          <input id="fltSearch" class="miniInput" placeholder="ค้นหา PID / boss / study / group" />
+
+          <select id="fltPid" class="miniSelect">
+            <option value="">ทุก PID</option>
+          </select>
+
+          <select id="fltMode" class="miniSelect">
+            <option value="">ทุกโหมด</option>
+            <option value="normal">normal</option>
+            <option value="research">research</option>
+          </select>
+
+          <select id="fltDiff" class="miniSelect">
+            <option value="">ทุกระดับ</option>
+            <option value="easy">easy</option>
+            <option value="normal">normal</option>
+            <option value="hard">hard</option>
+          </select>
+
+          <select id="fltBoss" class="miniSelect">
+            <option value="">ทุกบอส</option>
+          </select>
+
+          <select id="fltSort" class="miniSelect">
+            <option value="latest">ล่าสุดก่อน</option>
+            <option value="score_desc">คะแนนสูงก่อน</option>
+            <option value="acc_desc">แม่นที่สุดก่อน</option>
+            <option value="boss_desc">ไปถึงบอสลึกก่อน</option>
+          </select>
+        </div>
+
+        <div class="mini" id="historyMeta">กำลังโหลดรายการ…</div>
+
+        <div class="tableWrap">
+          <table class="historyTable" id="historyTable">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>PID</th>
+                <th>Mode</th>
+                <th>Diff</th>
+                <th>Score</th>
+                <th>Acc</th>
+                <th>Combo</th>
+                <th>Miss</th>
+                <th>Bosses</th>
+                <th>Best Boss</th>
+                <th>Study</th>
+                <th>Group</th>
+                <th>Condition</th>
+                <th>Time</th>
+              </tr>
+            </thead>
+            <tbody id="historyTableBody">
+              <tr>
+                <td colspan="14" class="emptyCell">ยังไม่พบประวัติ</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    (function(){
+      'use strict';
+
+      const $ = (s)=>document.querySelector(s);
+      const qs = (k,d='')=>{
+        try{ return (new URL(location.href)).searchParams.get(k) ?? d; }
+        catch(_){ return d; }
+      };
+
+      const uiGame = $('#uiGame');
+      const uiPid = $('#uiPid');
+      const uiRuns = $('#uiRuns');
+      const uiPidRuns = $('#uiPidRuns');
+      const uiAllRuns = $('#uiAllRuns');
+
+      const latestBox = $('#latestBox');
+      const rawBox = $('#rawBox');
+      const historyMeta = $('#historyMeta');
+      const historyTableBody = $('#historyTableBody');
+
+      const fltSearch = $('#fltSearch');
+      const fltPid = $('#fltPid');
+      const fltMode = $('#fltMode');
+      const fltDiff = $('#fltDiff');
+      const fltBoss = $('#fltBoss');
+      const fltSort = $('#fltSort');
+
+      const btnDownloadLatestJson = $('#btnDownloadLatestJson');
+      const btnDownloadLatestCsv = $('#btnDownloadLatestCsv');
+      const btnCopyLatestJson = $('#btnCopyLatestJson');
+      const btnDownloadPidHistoryJson = $('#btnDownloadPidHistoryJson');
+      const btnDownloadPidHistoryCsv = $('#btnDownloadPidHistoryCsv');
+      const btnDownloadAllHistoryJson = $('#btnDownloadAllHistoryJson');
+      const btnDownloadAllHistoryCsv = $('#btnDownloadAllHistoryCsv');
+      const btnDownloadFilteredJson = $('#btnDownloadFilteredJson');
+      const btnDownloadFilteredCsv = $('#btnDownloadFilteredCsv');
+      const btnClearHistory = $('#btnClearHistory');
+      const btnBackSummary = $('#btnBackSummary');
+
+      const game = String(qs('game','shadowbreaker')).trim() || 'shadowbreaker';
+      const pid = String(qs('pid','')).trim();
+      let currentFilteredRows = [];
+
+      if (uiGame) uiGame.textContent = game;
+      if (uiPid) uiPid.textContent = pid || '-';
+
+      if (btnBackSummary) {
+        btnBackSummary.href = pid
+          ? `./shadow-breaker-summary.html?pid=${encodeURIComponent(pid)}`
+          : './shadow-breaker-summary.html';
+      }
+
+      function loadJson(key, fallback=null){
+        try{
+          const raw = localStorage.getItem(key);
+          return raw ? JSON.parse(raw) : fallback;
+        }catch(_){
+          return fallback;
+        }
+      }
+
+      function downloadTextFile(filename, text, mime='text/plain;charset=utf-8'){
+        const blob = new Blob([text], { type: mime });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = filename;
+        a.click();
+        setTimeout(()=>URL.revokeObjectURL(a.href), 800);
+      }
+
+      function toCsv(obj){
+        const src = obj || {};
+        const keys = Object.keys(src);
+        const esc = (v)=> String(v ?? '').replace(/"/g, '""');
+        const header = keys.map(k => `"${esc(k)}"`).join(',');
+        const row = keys.map(k => `"${esc(src[k])}"`).join(',');
+        return `${header}\n${row}`;
+      }
+
+      function toCsvRows(items){
+        const rows = Array.isArray(items) ? items : [];
+        if (!rows.length) return '';
+
+        const keySet = new Set();
+        rows.forEach(row=>{
+          Object.keys(row || {}).forEach(k => keySet.add(k));
+        });
+
+        const keys = Array.from(keySet);
+        const esc = (v)=> String(v ?? '').replace(/"/g, '""');
+        const header = keys.map(k => `"${esc(k)}"`).join(',');
+        const body = rows.map(row => keys.map(k => `"${esc(row?.[k])}"`).join(','));
+        return [header, ...body].join('\n');
+      }
+
+      function copyTextSafe(text){
+        try{
+          navigator.clipboard.writeText(text);
+          return true;
+        }catch(_){
+          return false;
+        }
+      }
+
+      function bossRank(name=''){
+        const v = String(name || '').toLowerCase();
+        if (v.includes('bubble')) return 1;
+        if (v.includes('meteor')) return 2;
+        if (v.includes('hydra')) return 3;
+        if (v.includes('final')) return 4;
+        return 0;
+      }
+
+      function fillSelectOptions(selectEl, values, placeholder){
+        if (!selectEl) return;
+        const uniq = Array.from(new Set((values || []).map(v => String(v || '').trim()).filter(Boolean)));
+        uniq.sort((a,b)=>a.localeCompare(b));
+
+        selectEl.innerHTML =
+          `<option value="">${placeholder}</option>` +
+          uniq.map(v => `<option value="${String(v).replace(/"/g,'&quot;')}">${v}</option>`).join('');
+      }
+
+      function getAllShadowBreakerRuns(pidFilter=''){
+        const arr = [];
+
+        const pushIfOk = (item)=>{
+          if (!item) return;
+          const gameOk =
+            String(item.game || '').toLowerCase() === 'shadowbreaker' ||
+            String(item.projectTag || '').toLowerCase() === 'shadowbreaker' ||
+            (!item.game && !item.projectTag);
+
+          if (!gameOk) return;
+          if (pidFilter && String(item.pid || '') !== pidFilter) return;
+          arr.push(item);
+        };
+
+        try{
+          if (pidFilter) {
+            const hist = loadJson(`SB_SUMMARY_HISTORY:${pidFilter}`, []);
+            if (Array.isArray(hist)) hist.forEach(pushIfOk);
+          }
+
+          const globalHist = loadJson(`SB_SUMMARY_HISTORY:ALL`, []);
+          if (Array.isArray(globalHist)) globalHist.forEach(pushIfOk);
+
+          if (pidFilter) {
+            pushIfOk(loadJson(`SB_LAST_SUMMARY:${pidFilter}`, null));
+            pushIfOk(loadJson(`HHA_LAST_SUMMARY:shadowbreaker:${pidFilter}`, null));
+          }
+
+          pushIfOk(loadJson('HHA_LAST_SUMMARY', null));
+        }catch(_){}
+
+        arr.sort((a,b)=>{
+          const ta = new Date(a.timestampIso || a.endedAt || a.created_at_iso || 0).getTime() || 0;
+          const tb = new Date(b.timestampIso || b.endedAt || b.created_at_iso || 0).getTime() || 0;
+          return tb - ta;
+        });
+
+        const seen = new Set();
+        return arr.filter(x=>{
+          const key = `${x.pid || ''}::${x.sessionId || x.session_id || ''}::${x.timestampIso || x.endedAt || ''}::${x.scoreFinal ?? x.score ?? ''}`;
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+      }
+
+      function getAllShadowBreakerRunsAllPid(){
+        return getAllShadowBreakerRuns('');
+      }
+
+      function renderLatest(sum){
+        if (!sum) {
+          latestBox.innerHTML = '<div class="empty">ยังไม่มีผลล่าสุด</div>';
+          rawBox.textContent = '{}';
+          return;
+        }
+
+        latestBox.innerHTML = `
+          <div class="kv"><span>PID</span><b>${sum.pid || '-'}</b></div>
+          <div class="kv"><span>Mode</span><b>${sum.mode || sum.runMode || '-'}</b></div>
+          <div class="kv"><span>Diff</span><b>${sum.diff || '-'}</b></div>
+          <div class="kv"><span>Score</span><b>${sum.scoreFinal ?? sum.score ?? 0}</b></div>
+          <div class="kv"><span>Accuracy</span><b>${Number(sum.accPct || 0).toFixed(1)}%</b></div>
+          <div class="kv"><span>Combo Max</span><b>${sum.comboMax ?? 0}</b></div>
+          <div class="kv"><span>Miss</span><b>${sum.missTotal ?? sum.miss ?? 0}</b></div>
+          <div class="kv"><span>Bosses</span><b>${sum.bossesCleared ?? 0}</b></div>
+          <div class="kv"><span>Best Boss</span><b>${sum.bestReachedBoss || '-'}</b></div>
+          <div class="kv"><span>Study ID</span><b>${sum.studyId || '-'}</b></div>
+          <div class="kv"><span>Group</span><b>${sum.group || '-'}</b></div>
+          <div class="kv"><span>Condition</span><b>${sum.conditionGroup || '-'}</b></div>
+        `;
+
+        rawBox.textContent = JSON.stringify(sum, null, 2);
+
+        btnDownloadLatestJson.onclick = ()=>{
+          downloadTextFile('shadowbreaker_latest.json', JSON.stringify(sum, null, 2), 'application/json;charset=utf-8');
+        };
+        btnDownloadLatestCsv.onclick = ()=>{
+          downloadTextFile('shadowbreaker_latest.csv', toCsv(sum), 'text/csv;charset=utf-8');
+        };
+        btnCopyLatestJson.onclick = ()=>{
+          const ok = copyTextSafe(JSON.stringify(sum, null, 2));
+          btnCopyLatestJson.textContent = ok ? 'คัดลอกแล้ว ✅' : 'คัดลอกไม่สำเร็จ';
+          setTimeout(()=> btnCopyLatestJson.textContent = 'คัดลอก JSON', 1200);
+        };
+      }
+
+      function initHistoryFilters(items){
+        const rows = Array.isArray(items) ? items : [];
+        fillSelectOptions(fltPid, rows.map(x => x?.pid), 'ทุก PID');
+        fillSelectOptions(fltBoss, rows.map(x => x?.bestReachedBoss), 'ทุกบอส');
+      }
+
+      function renderHistory(items){
+        const rows = Array.isArray(items) ? items.slice() : [];
+
+        const search = String(fltSearch?.value || '').trim().toLowerCase();
+        const pidVal = String(fltPid?.value || '').trim();
+        const modeVal = String(fltMode?.value || '').trim().toLowerCase();
+        const diffVal = String(fltDiff?.value || '').trim().toLowerCase();
+        const bossVal = String(fltBoss?.value || '').trim();
+        const sortVal = String(fltSort?.value || 'latest');
+
+        let filtered = rows.filter(sum=>{
+          const pidOk = !pidVal || String(sum?.pid || '') === pidVal;
+          const modeOk = !modeVal || String(sum?.mode || sum?.runMode || '').toLowerCase() === modeVal;
+          const diffOk = !diffVal || String(sum?.diff || '').toLowerCase() === diffVal;
+          const bossOk = !bossVal || String(sum?.bestReachedBoss || '') === bossVal;
+
+          const hay = [
+            sum?.pid,
+            sum?.bestReachedBoss,
+            sum?.studyId,
+            sum?.group,
+            sum?.conditionGroup,
+            sum?.sessionId,
+            sum?.timestampIso
+          ].join(' ').toLowerCase();
+
+          const searchOk = !search || hay.includes(search);
+          return pidOk && modeOk && diffOk && bossOk && searchOk;
+        });
+
+        if (sortVal === 'score_desc'){
+          filtered.sort((a,b)=>(Number(b?.scoreFinal ?? b?.score ?? 0) - Number(a?.scoreFinal ?? a?.score ?? 0)));
+        } else if (sortVal === 'acc_desc'){
+          filtered.sort((a,b)=>(Number(b?.accPct || 0) - Number(a?.accPct || 0)));
+        } else if (sortVal === 'boss_desc'){
+          filtered.sort((a,b)=>(bossRank(b?.bestReachedBoss) - bossRank(a?.bestReachedBoss)));
+        } else {
+          filtered.sort((a,b)=>{
+            const ta = new Date(a.timestampIso || a.endedAt || a.created_at_iso || 0).getTime() || 0;
+            const tb = new Date(b.timestampIso || b.endedAt || b.created_at_iso || 0).getTime() || 0;
+            return tb - ta;
+          });
+        }
+
+        currentFilteredRows = filtered.slice();
+
+        if (historyMeta){
+          const tags = [];
+          if (fltPid?.value) tags.push(`PID=${fltPid.value}`);
+          if (fltMode?.value) tags.push(`mode=${fltMode.value}`);
+          if (fltDiff?.value) tags.push(`diff=${fltDiff.value}`);
+          if (fltBoss?.value) tags.push(`boss=${fltBoss.value}`);
+          if (fltSearch?.value) tags.push(`search="${fltSearch.value}"`);
+
+          historyMeta.textContent =
+            `แสดง ${filtered.length} / ${rows.length} รายการ` +
+            (tags.length ? ` • ${tags.join(' • ')}` : '');
+        }
+
+        if (!historyTableBody) return;
+
+        if (!filtered.length) {
+          historyTableBody.innerHTML = `
+            <tr><td colspan="14" class="emptyCell">ไม่พบรายการที่ตรงกับตัวกรอง</td></tr>
+          `;
+          return;
+        }
+
+        historyTableBody.innerHTML = filtered.map((sum, idx)=>{
+          const score = Number(sum?.scoreFinal ?? sum?.score ?? 0);
+          const acc = Number(sum?.accPct || 0).toFixed(1) + '%';
+          const combo = Number(sum?.comboMax ?? 0);
+          const miss = Number(sum?.missTotal ?? sum?.miss ?? 0);
+          const bosses = Number(sum?.bossesCleared ?? 0);
+          const ts = sum?.timestampIso || sum?.endedAt || '-';
+
+          return `
+            <tr data-index="${idx}">
+              <td class="mutedCell">${idx + 1}</td>
+              <td>${sum?.pid || '-'}</td>
+              <td>${sum?.mode || sum?.runMode || '-'}</td>
+              <td>${sum?.diff || '-'}</td>
+              <td>${score}</td>
+              <td>${acc}</td>
+              <td>${combo}</td>
+              <td>${miss}</td>
+              <td>${bosses}</td>
+              <td>${sum?.bestReachedBoss || '-'}</td>
+              <td>${sum?.studyId || '-'}</td>
+              <td>${sum?.group || '-'}</td>
+              <td>${sum?.conditionGroup || '-'}</td>
+              <td>${ts}</td>
+            </tr>
+          `;
+        }).join('');
+
+        Array.from(historyTableBody.querySelectorAll('tr[data-index]')).forEach((el, idx)=>{
+          el.addEventListener('click', ()=>{
+            Array.from(historyTableBody.querySelectorAll('tr')).forEach(tr=>tr.classList.remove('is-active'));
+            el.classList.add('is-active');
+            renderLatest(filtered[idx]);
+          });
+        });
+
+        const firstRow = historyTableBody.querySelector('tr[data-index="0"]');
+        if (firstRow) firstRow.classList.add('is-active');
+      }
+
+      function bindHistoryFilters(allRows){
+        const rerender = ()=> renderHistory(allRows);
+        [fltSearch, fltPid, fltMode, fltDiff, fltBoss, fltSort].forEach(el=>{
+          el?.addEventListener('input', rerender);
+          el?.addEventListener('change', rerender);
+        });
+      }
+
+      function currentFilterSuffix(){
+        const parts = [];
+        const pidVal = String(fltPid?.value || '').trim();
+        const modeVal = String(fltMode?.value || '').trim();
+        const diffVal = String(fltDiff?.value || '').trim();
+        const bossVal = String(fltBoss?.value || '').trim();
+        const searchVal = String(fltSearch?.value || '').trim();
+
+        if (pidVal) parts.push(`pid-${pidVal}`);
+        if (modeVal) parts.push(`mode-${modeVal}`);
+        if (diffVal) parts.push(`diff-${diffVal}`);
+        if (bossVal) parts.push(`boss-${bossVal.replace(/\s+/g,'-')}`);
+        if (searchVal) parts.push(`search`);
+
+        return parts.length ? parts.join('_') : 'all-visible';
+      }
+
+      const runs = getAllShadowBreakerRuns(pid);
+      const allRuns = getAllShadowBreakerRunsAllPid();
+      const baseRows = pid ? runs : allRuns;
+      const latest = baseRows[0] || null;
+
+      if (uiRuns) uiRuns.textContent = String(runs.length);
+      if (uiPidRuns) uiPidRuns.textContent = String(runs.length);
+      if (uiAllRuns) uiAllRuns.textContent = String(allRuns.length);
+
+      renderLatest(latest);
+      initHistoryFilters(baseRows);
+      bindHistoryFilters(baseRows);
+      renderHistory(baseRows);
+
+      btnDownloadFilteredJson?.addEventListener('click', ()=>{
+        if (!currentFilteredRows.length) return alert('ยังไม่มีรายการที่ถูกกรองอยู่');
+        downloadTextFile(
+          `shadowbreaker_filtered_${currentFilterSuffix()}.json`,
+          JSON.stringify(currentFilteredRows, null, 2),
+          'application/json;charset=utf-8'
+        );
+      });
+
+      btnDownloadFilteredCsv?.addEventListener('click', ()=>{
+        if (!currentFilteredRows.length) return alert('ยังไม่มีรายการที่ถูกกรองอยู่');
+        downloadTextFile(
+          `shadowbreaker_filtered_${currentFilterSuffix()}.csv`,
+          toCsvRows(currentFilteredRows),
+          'text/csv;charset=utf-8'
+        );
+      });
+
+      btnDownloadPidHistoryJson?.addEventListener('click', ()=>{
+        if (!runs.length) return alert('ยังไม่มี PID history');
+        downloadTextFile(
+          `shadowbreaker_history_${pid || 'pid'}.json`,
+          JSON.stringify(runs, null, 2),
+          'application/json;charset=utf-8'
+        );
+      });
+
+      btnDownloadPidHistoryCsv?.addEventListener('click', ()=>{
+        if (!runs.length) return alert('ยังไม่มี PID history');
+        downloadTextFile(
+          `shadowbreaker_history_${pid || 'pid'}.csv`,
+          toCsvRows(runs),
+          'text/csv;charset=utf-8'
+        );
+      });
+
+      btnDownloadAllHistoryJson?.addEventListener('click', ()=>{
+        if (!allRuns.length) return alert('ยังไม่มี ALL history');
+        downloadTextFile(
+          'shadowbreaker_history_all.json',
+          JSON.stringify(allRuns, null, 2),
+          'application/json;charset=utf-8'
+        );
+      });
+
+      btnDownloadAllHistoryCsv?.addEventListener('click', ()=>{
+        if (!allRuns.length) return alert('ยังไม่มี ALL history');
+        downloadTextFile(
+          'shadowbreaker_history_all.csv',
+          toCsvRows(allRuns),
+          'text/csv;charset=utf-8'
+        );
+      });
+
+      btnClearHistory?.addEventListener('click', ()=>{
+        if (!pid) {
+          alert('ยังไม่ได้ระบุ PID');
+          return;
+        }
+        if (!confirm(`ล้าง history ของ ${pid} ?`)) return;
+
+        try{
+          localStorage.removeItem(`SB_SUMMARY_HISTORY:${pid}`);
+          localStorage.removeItem(`SB_LAST_SUMMARY:${pid}`);
+          localStorage.removeItem(`HHA_LAST_SUMMARY:shadowbreaker:${pid}`);
+          alert('ล้าง history เรียบร้อย ✅');
+          location.reload();
+        }catch(_){
+          alert('ล้าง history ไม่สำเร็จ');
+        }
+      });
+    })();
+  </script>
+</body>
+</html>
