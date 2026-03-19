@@ -1,6 +1,6 @@
 /* === /herohealth/gate/games/jumpduck/cooldown.js ===
  * HeroHealth Gate Game: JumpDuck Cooldown
- * FULL PATCH v20260319a-JUMPDUCK-COOLDOWN-API-FINISH-FIX
+ * FULL PATCH v20260319b-JUMPDUCK-COOLDOWN-MANUAL-RESULT
  */
 
 function clamp(v, a, b){ return Math.max(a, Math.min(b, v)); }
@@ -264,7 +264,7 @@ export function mount(root, ctx = {}, api = {}){
     startBtn.style.pointerEvents = 'none';
     startBtn.style.opacity = '.65';
 
-    cueEl.textContent = 'เสร็จแล้ว กดดูผล';
+    cueEl.textContent = 'ยืดขาเสร็จแล้ว กดดูผล';
     timerEl.textContent = `${Math.max(0, state.remainSec)}s`;
     renderStats();
   }
@@ -289,7 +289,9 @@ export function mount(root, ctx = {}, api = {}){
     btn.style.opacity = '.7';
     btn.classList.add('is-done');
 
-    cueEl.textContent = `ดีมาก ${btn.textContent.trim()}`;
+    const meta = STAR_LIST.find(s => s.id === star);
+    cueEl.textContent = `ดีมาก ${meta?.label || 'ทำได้ดีมาก'}`;
+
     renderStats();
     tryFinishIfReady();
   }
