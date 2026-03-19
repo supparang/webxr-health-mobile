@@ -43,7 +43,15 @@ function renderPlateBoard(plate) {
   }).join('');
 }
 
-export function createPlateUI(ctx, { onAnswer, onReplay, onSummaryBack, summaryBackLabel = 'ไปคูลดาวน์' }) {
+export function createPlateUI(
+  ctx,
+  {
+    onAnswer,
+    onReplay,
+    onSummaryBack,
+    summaryBackLabel = 'ไปคูลดาวน์'
+  }
+) {
   const phaseEl = document.getElementById('hudPhase');
   const progressEl = document.getElementById('hudProgress');
   const scoreEl = document.getElementById('hudScore');
@@ -171,12 +179,12 @@ export function createPlateUI(ctx, { onAnswer, onReplay, onSummaryBack, summaryB
       evaluation.tone === 'good'
         ? 'feedback-good'
         : evaluation.tone === 'bad'
-        ? 'feedback-bad'
-        : 'feedback-note';
+          ? 'feedback-bad'
+          : 'feedback-note';
 
     feedbackEl.className = `feedback-box ${toneClass}`;
     feedbackEl.textContent = `${evaluation.correct ? '✓ ' : ''}${evaluation.feedback}`;
-    scoreEl.textContent = String(Number(scoreEl.textContent || 0) + evaluation.delta);
+    scoreEl.textContent = String(Number(scoreEl.textContent || 0) + Number(evaluation.delta || 0));
   }
 
   function showCoach(message) {
