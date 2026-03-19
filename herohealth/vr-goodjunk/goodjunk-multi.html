@@ -1,3 +1,7 @@
+<!-- === /herohealth/vr-goodjunk/goodjunk-multi.html ===
+GoodJunk Multiplayer LOBBY — unified Race / Battle / Coop
+FULL PATCH v20260319-GJ-MULTI-LOBBY-USEBTN-JOIN-FIX
+-->
 <!doctype html>
 <html lang="th">
 <head>
@@ -90,6 +94,7 @@
       transition:.14s ease;
     }
     .mode-tab:hover{ transform:translateY(-1px); }
+
     .mode-tab.active.race{
       border-color:rgba(56,189,248,.55);
       background:rgba(56,189,248,.14);
@@ -112,6 +117,7 @@
       grid-template-columns:1.25fr .75fr;
       margin-top:14px;
     }
+
     @media (max-width:900px){
       .grid{ grid-template-columns:1fr; }
     }
@@ -129,11 +135,6 @@
       gap:10px;
       flex-wrap:wrap;
       align-items:center;
-    }
-
-    .stack{
-      display:grid;
-      gap:10px;
     }
 
     input,select,button{
@@ -289,7 +290,7 @@
       <div class="row">
         <button id="btnNew" class="btn" type="button">สร้างห้องใหม่</button>
         <input id="roomId" placeholder="Room ID (เช่น GJ-8K3P2)"/>
-        <button id="btnUse" class="btn" type="button">ใช้ห้องนี้</button>
+        <button id="btnUse" class="btn" type="button">เข้าห้องนี้</button>
       </div>
 
       <div style="height:10px"></div>
@@ -358,13 +359,6 @@
       <div style="height:12px"></div>
 
       <div class="mut">
-        ใส่ backend ผ่าน query เช่น:<br/>
-        <span class="mono">goodjunk-multi.html?sbUrl=...&amp;sbAnon=...</span>
-      </div>
-
-      <div style="height:10px"></div>
-
-      <div class="mut">
         รองรับ passthrough query เดิม เช่น
         <span class="mono">run</span>,
         <span class="mono">log</span>,
@@ -392,9 +386,6 @@
   };
 
   const $ = (id) => document.getElementById(id);
-
-  const sbUrl  = qs('sbUrl', '');
-  const sbAnon = qs('sbAnon', '');
 
   const MODE_META = {
     race: {
@@ -485,9 +476,6 @@
     u.searchParams.set('diff', elDiff.value);
     u.searchParams.set('time', elTime.value);
 
-    if (sbUrl)  u.searchParams.set('sbUrl', sbUrl);
-    if (sbAnon) u.searchParams.set('sbAnon', sbAnon);
-
     SHARE_PASSTHRU_KEYS.forEach((k) => {
       const v = qs(k, '');
       if (v) u.searchParams.set(k, v);
@@ -514,9 +502,6 @@
     u.searchParams.set('diff', elDiff.value);
     u.searchParams.set('time', elTime.value);
     u.searchParams.set('gameId', 'goodjunk');
-
-    if (sbUrl)  u.searchParams.set('sbUrl', sbUrl);
-    if (sbAnon) u.searchParams.set('sbAnon', sbAnon);
 
     SHARE_PASSTHRU_KEYS.forEach((k) => {
       const v = qs(k, '');
@@ -575,6 +560,16 @@
     setQR(share);
   }
 
+  function goJoin(){
+    const roomId = getRoomIdValue();
+    if (!roomId) return;
+
+    const name = sanitizeName(elName.value || 'Player');
+    const isHost = getIsHost() ? '1' : '0';
+    const url = buildJoinRunLink(roomId, name, isHost);
+    location.href = url;
+  }
+
   function escapeHtml(s) {
     return String(s ?? '')
       .replaceAll('&', '&amp;')
@@ -596,17 +591,15 @@
   });
 
   $('btnUse').addEventListener('click', () => {
-    updateLinks();
-  });
-
-  $('btnJoin').addEventListener('click', () => {
     const roomId = getRoomIdValue();
     if (!roomId) return;
 
-    const name = sanitizeName(elName.value || 'Player');
-    const isHost = getIsHost() ? '1' : '0';
-    const url = buildJoinRunLink(roomId, name, isHost);
-    location.href = url;
+    updateLinks();
+    goJoin();
+  });
+
+  $('btnJoin').addEventListener('click', () => {
+    goJoin();
   });
 
   elRoomId.addEventListener('input', updateLinks);
@@ -633,13 +626,6 @@
     elHost.checked = qHost === '1' || sanitizeName(elName.value).toLowerCase() === 'teacher';
 
     renderMode();
-
-    if (!sbUrl || !sbAnon) {
-      const hint = document.createElement('div');
-      hint.className = 'warn';
-      hint.innerHTML = '⚠️ ยังไม่ได้ใส่ backend query เพิ่มเติม — multiplayer ที่พึ่ง backend จริงอาจต่อห้องไม่ได้ถ้า config ยังไม่พร้อม';
-      document.querySelector('.wrap').appendChild(hint);
-    }
   })();
 </script>
 </body>
