@@ -592,14 +592,6 @@ function endGame(reason = 'finished') {
   publishFinish(reason);
 }
 
-function escapeHtml(s) {
-  return String(s ?? '')
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;');
-}
-
 function safeFilePart(value) {
   return String(value || 'file').replace(/[^a-z0-9_-]/gi, '-');
 }
