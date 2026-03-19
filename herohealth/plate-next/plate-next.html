@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth • Balanced Plate VR Next</title>
+  <meta name="color-scheme" content="dark light" />
+  <link rel="icon" href="../favicon.ico" />
+  <link rel="stylesheet" href="./plate-next.css" />
+</head>
+<body>
+  <main class="px-shell">
+    <section class="px-hero">
+      <div class="px-kicker">🍽️ Plate Next</div>
+      <h1 class="px-title">Balanced Plate VR • Next</h1>
+      <p class="px-sub">
+        เกมเวอร์ชันใหม่สำหรับฝึกจัดจานอาหารให้สมดุล แยกจาก Plate เดิมอย่างชัดเจน
+        เพื่อรองรับ flow งานวิจัย, การอธิบายเหตุผล, และกิจกรรมหลังเล่นที่ต่อยอดได้
+      </p>
+
+      <div class="px-meta" id="pxMeta"></div>
+
+      <div class="px-actions">
+        <button class="px-btn px-btn-primary" id="btnStart">เริ่มเกม</button>
+        <button class="px-btn px-btn-secondary" id="btnMission">ดูภารกิจ</button>
+        <button class="px-btn px-btn-secondary" id="btnBackHubTop">กลับ HUB</button>
+      </div>
+    </section>
+
+    <section class="px-grid">
+      <article class="px-card">
+        <h2 class="px-card-title">เป้าหมายของเกม</h2>
+        <ul class="px-list">
+          <li>ฝึกจัดส่วนประกอบของจานอาหารให้เหมาะสม</li>
+          <li>แยกความต่างระหว่างอาหารที่ “มีประโยชน์” กับ “สมดุลพอดี”</li>
+          <li>รองรับการเลือกแผนและอธิบายเหตุผลหลังเล่น</li>
+        </ul>
+      </article>
+
+      <article class="px-card">
+        <h2 class="px-card-title">ความต่างจากเกมเดิม</h2>
+        <ul class="px-list">
+          <li>เน้นการคิดเชิง composition ของทั้งจาน</li>
+          <li>พร้อมต่อ evaluate / reason / confidence</li>
+          <li>เหมาะกับการออกแบบภารกิจแบบ transfer task</li>
+        </ul>
+      </article>
+
+      <article class="px-card">
+        <h2 class="px-card-title">องค์ประกอบหลักในจาน</h2>
+        <div class="px-tags">
+          <span class="px-tag">คาร์บ</span>
+          <span class="px-tag">โปรตีน</span>
+          <span class="px-tag">ผัก</span>
+          <span class="px-tag">ผลไม้</span>
+          <span class="px-tag">ไขมันพอเหมาะ</span>
+        </div>
+      </article>
+
+      <article class="px-card">
+        <h2 class="px-card-title">สถานะปัจจุบัน</h2>
+        <p class="px-text">
+          ไฟล์นี้เป็น entry/launcher ของ Plate Next เพื่อให้ Hub Next ใช้งานได้จริงตั้งแต่ตอนนี้
+          และค่อยต่อไปยัง gameplay run จริงในไฟล์ถัดไปได้ทีหลัง
+        </p>
+      </article>
+    </section>
+
+    <section class="px-panel" id="missionPanel" hidden>
+      <div class="px-panel-card">
+        <h2 class="px-panel-title">ภารกิจของเกม</h2>
+        <p class="px-panel-sub">
+          เลือกหรือจัดวางอาหารลงบนจานให้เหมาะสมที่สุด โดยคิดถึงความสมดุลของมื้อ ไม่ใช่ดูแค่อาหารทีละชิ้น
+        </p>
+
+        <div class="px-mission-grid">
+          <div class="px-mission-item">
+            <strong>สังเกต</strong>
+            <span>มองภาพรวมของทั้งจาน</span>
+          </div>
+          <div class="px-mission-item">
+            <strong>ตัดสินใจ</strong>
+            <span>เลือกอาหารให้เหมาะกับจาน</span>
+          </div>
+          <div class="px-mission-item">
+            <strong>อธิบาย</strong>
+            <span>บอกได้ว่าทำไมจานนี้สมดุลหรือไม่สมดุล</span>
+          </div>
+        </div>
+
+        <div class="px-actions px-actions-center">
+          <button class="px-btn px-btn-primary" id="btnCloseMission">เข้าใจแล้ว</button>
+        </div>
+      </div>
+    </section>
+
+    <footer class="px-footer">
+      <div class="px-footer-left">
+        <span id="pxHubText">Hub: -</span>
+        <span id="pxVersionText">Version: -</span>
+      </div>
+      <div class="px-footer-right">
+        <button class="px-btn px-btn-secondary" id="btnBackHubBottom">กลับ HUB</button>
+      </div>
+    </footer>
+  </main>
+
+  <script src="./plate-next.js"></script>
+</body>
+</html>
