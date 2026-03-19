@@ -1,6 +1,6 @@
 // === /herohealth/nutrition-plate/js/plate.summary.js ===
 // Summary builder for Nutrition Plate
-// PATCH v20260318-PLATE-VSLICE-B
+// PATCH v20260318-PLATE-RUN-FULL
 
 import { buildPlateMetrics } from './plate.metrics.js';
 
