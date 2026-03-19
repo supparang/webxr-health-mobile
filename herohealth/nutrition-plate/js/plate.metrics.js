@@ -11,14 +11,22 @@ export function buildPlateMetrics(ctx, stats, sessionMeta) {
   return {
     gameId: ctx.gameId,
     pid: ctx.pid,
+    studentId: ctx.studentId,
     studyId: ctx.studyId,
     classId: ctx.classId,
     sectionId: ctx.sectionId,
+    sessionLabel: ctx.sessionLabel,
+
     phase: ctx.phase,
     run: ctx.run,
+    mode: ctx.mode,
     diff: ctx.diff,
     seed: ctx.seed,
-    mode: ctx.mode,
+    engine: ctx.engine,
+    view: ctx.view,
+
+    group: ctx.group,
+    cohort: ctx.cohort,
     conditionGroup: ctx.conditionGroup,
 
     totalScore: stats.score,
@@ -26,8 +34,12 @@ export function buildPlateMetrics(ctx, stats, sessionMeta) {
 
     quizPreTotal: preTotal,
     quizPreCorrect: preCorrect,
+    quizPreAccuracy: preTotal ? Number((preCorrect / preTotal).toFixed(4)) : 0,
+
     quizPostTotal: postTotal,
     quizPostCorrect: postCorrect,
+    quizPostAccuracy: postTotal ? Number((postCorrect / postTotal).toFixed(4)) : 0,
+
     quizDelta: postCorrect - preCorrect,
 
     buildSelections: stats.build.total,
