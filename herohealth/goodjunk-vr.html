@@ -1,59 +1,477 @@
-<!-- === /herohealth/groups-vr.html === -->
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • Groups Redirect</title>
+  <title>HeroHealth • GoodJunk Launcher</title>
   <meta name="color-scheme" content="dark light" />
   <link rel="icon" href="./favicon.ico" />
   <style>
+    :root{
+      --bg1:#020617;
+      --bg2:#0b1226;
+      --panel:rgba(2,6,23,.74);
+      --stroke:rgba(148,163,184,.18);
+      --text:#e5e7eb;
+      --muted:#94a3b8;
+
+      --solo:#22c55e;
+      --race:#38bdf8;
+      --battle:#f59e0b;
+      --coop:#a78bfa;
+
+      --shadow:0 24px 64px rgba(0,0,0,.32);
+
+      --sat: env(safe-area-inset-top, 0px);
+      --sar: env(safe-area-inset-right, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
+    }
+
+    *{ box-sizing:border-box; }
+
     html,body{
       margin:0;
       min-height:100%;
-      display:grid;
-      place-items:center;
       background:
-        radial-gradient(circle at top left, rgba(56,189,248,.18), transparent 28%),
-        linear-gradient(180deg, #172554, #020617 42%, #020617);
-      color:#e5e7eb;
-      font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+        radial-gradient(circle at 12% 10%, rgba(34,197,94,.10), transparent 20%),
+        radial-gradient(circle at 88% 10%, rgba(56,189,248,.10), transparent 22%),
+        linear-gradient(180deg,var(--bg2),var(--bg1));
+      color:var(--text);
+      font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
     }
-    .card{
-      width:min(560px, calc(100% - 24px));
-      padding:22px;
-      border-radius:24px;
-      background:rgba(15,23,42,.92);
-      border:1px solid rgba(148,163,184,.16);
+
+    body{
+      min-height:100dvh;
+    }
+
+    .page{
+      width:min(1160px,100%);
+      margin:0 auto;
+      padding:
+        calc(20px + var(--sat))
+        calc(16px + var(--sar))
+        calc(24px + var(--sab))
+        calc(16px + var(--sal));
+    }
+
+    .hero{
       text-align:center;
-      box-shadow:0 18px 48px rgba(0,0,0,.28);
+      margin:10px 0 18px;
     }
+
+    .kicker{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:6px 12px;
+      border-radius:999px;
+      background:rgba(56,189,248,.12);
+      border:1px solid rgba(56,189,248,.24);
+      color:#7dd3fc;
+      font-size:13px;
+      font-weight:900;
+      margin-bottom:12px;
+    }
+
     h1{
       margin:0 0 10px;
-      font-size:clamp(24px, 4vw, 32px);
-      line-height:1.1;
+      font-size:clamp(30px, 5vw, 54px);
+      line-height:1.04;
     }
-    p{
-      margin:0 0 10px;
+
+    .sub{
+      margin:0 auto;
+      max-width:760px;
+      color:var(--muted);
+      font-size:15px;
+      line-height:1.7;
+    }
+
+    .toolbar{
+      display:grid;
+      grid-template-columns:1fr 1fr 1fr;
+      gap:12px;
+      margin:22px 0 18px;
+    }
+
+    .field{
+      border:1px solid var(--stroke);
+      border-radius:18px;
+      background:var(--panel);
+      backdrop-filter:blur(8px);
+      box-shadow:var(--shadow);
+      padding:12px;
+    }
+
+    .field label{
+      display:block;
+      font-size:12px;
+      font-weight:900;
       color:#cbd5e1;
-      line-height:1.5;
+      margin-bottom:8px;
+      letter-spacing:.04em;
+      text-transform:uppercase;
     }
-    a{
-      color:#38bdf8;
-      font-weight:800;
+
+    .field input,.field select{
+      width:100%;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(15,23,42,.86);
+      color:#e5e7eb;
+      border-radius:12px;
+      padding:12px 12px;
+      font-size:15px;
+      outline:none;
+    }
+
+    .grid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:14px;
+    }
+
+    .card{
+      position:relative;
+      border:1px solid var(--stroke);
+      border-radius:24px;
+      background:var(--panel);
+      backdrop-filter:blur(10px);
+      box-shadow:var(--shadow);
+      overflow:hidden;
+      padding:18px;
+      display:flex;
+      flex-direction:column;
+      min-height:250px;
+    }
+
+    .card::before{
+      content:"";
+      position:absolute;
+      inset:0 0 auto 0;
+      height:5px;
+      opacity:.95;
+    }
+
+    .card.solo::before{ background:linear-gradient(90deg,var(--solo),#86efac); }
+    .card.race::before{ background:linear-gradient(90deg,var(--race),#7dd3fc); }
+    .card.battle::before{ background:linear-gradient(90deg,var(--battle),#fbbf24); }
+    .card.coop::before{ background:linear-gradient(90deg,var(--coop),#c4b5fd); }
+
+    .badge{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      align-self:flex-start;
+      padding:6px 12px;
+      border-radius:999px;
+      font-size:12px;
+      font-weight:900;
+      margin-bottom:12px;
+    }
+
+    .solo .badge{ background:rgba(34,197,94,.12); color:#86efac; border:1px solid rgba(34,197,94,.24); }
+    .race .badge{ background:rgba(56,189,248,.12); color:#7dd3fc; border:1px solid rgba(56,189,248,.24); }
+    .battle .badge{ background:rgba(245,158,11,.12); color:#fcd34d; border:1px solid rgba(245,158,11,.24); }
+    .coop .badge{ background:rgba(167,139,250,.14); color:#c4b5fd; border:1px solid rgba(167,139,250,.24); }
+
+    .card h2{
+      margin:0 0 8px;
+      font-size:28px;
+      line-height:1.08;
+    }
+
+    .desc{
+      margin:0;
+      color:var(--muted);
+      font-size:14px;
+      line-height:1.7;
+    }
+
+    .bullets{
+      display:grid;
+      gap:8px;
+      margin:14px 0 16px;
+      color:#cbd5e1;
+      font-size:14px;
+    }
+
+    .bullets div{
+      display:flex;
+      gap:8px;
+      align-items:flex-start;
+    }
+
+    .actions{
+      margin-top:auto;
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    .btn{
+      appearance:none;
+      border:0;
+      cursor:pointer;
+      border-radius:14px;
+      padding:12px 16px;
+      font-size:14px;
+      font-weight:900;
+      transition:.12s ease;
+    }
+
+    .btn:hover{ transform:translateY(-1px); filter:brightness(1.04); }
+    .btn:active{ transform:translateY(0); }
+
+    .btn-solo{ background:var(--solo); color:#052e16; }
+    .btn-race{ background:var(--race); color:#082f49; }
+    .btn-battle{ background:var(--battle); color:#3b1d00; }
+    .btn-coop{ background:var(--coop); color:#2e1065; }
+    .btn-ghost{
+      background:rgba(255,255,255,.06);
+      color:#e5e7eb;
+      border:1px solid var(--stroke);
+    }
+
+    .note{
+      margin-top:16px;
+      border:1px solid var(--stroke);
+      border-radius:18px;
+      background:rgba(2,6,23,.52);
+      padding:14px 16px;
+      color:#cbd5e1;
+      font-size:14px;
+      line-height:1.7;
+    }
+
+    @media (max-width:900px){
+      .toolbar{
+        grid-template-columns:1fr;
+      }
+      .grid{
+        grid-template-columns:1fr;
+      }
     }
   </style>
 </head>
 <body>
-  <div class="card">
-    <h1>กำลังเปิดเกม Groups เวอร์ชันใหม่…</h1>
-    <p>ระบบจะพาไปหน้า Launcher ใหม่ของเกมนี้โดยอัตโนมัติ</p>
-    <p><a id="goLink" href="./nutrition-groups/groups-launcher.html">เปิด Groups Launcher</a></p>
-  </div>
+  <main class="page">
+    <section class="hero">
+      <div class="kicker">GOODJUNK • 4 MODES</div>
+      <h1>เลือกโหมดการเล่น</h1>
+      <p class="sub">
+        โหมดเดี่ยวจะเป็น <strong>Phase Boss</strong> ส่วนโหมดหลายคนจะแยกเป็น
+        <strong>Race</strong>, <strong>Battle</strong>, และ <strong>Coop</strong>
+        แบบคนละ flow ชัดเจน
+      </p>
+    </section>
 
-  <script type="module">
-    import { redirectPreserveAll } from './shared/nutrition-router.js';
-    redirectPreserveAll('./nutrition-groups/groups-launcher.html');
+    <section class="toolbar">
+      <div class="field">
+        <label for="playerName">ชื่อผู้เล่น</label>
+        <input id="playerName" type="text" placeholder="เช่น เด็กชายเอ" />
+      </div>
+      <div class="field">
+        <label for="diff">ระดับความยาก</label>
+        <select id="diff">
+          <option value="easy">easy</option>
+          <option value="normal" selected>normal</option>
+          <option value="hard">hard</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="time">เวลา (วินาที)</label>
+        <select id="time">
+          <option value="90">90</option>
+          <option value="120" selected>120</option>
+          <option value="150">150</option>
+          <option value="180">180</option>
+        </select>
+      </div>
+    </section>
+
+    <section class="grid">
+      <article class="card solo">
+        <div class="badge">🟢 SOLO BOSS</div>
+        <h2>Solo Boss</h2>
+        <p class="desc">เล่นคนเดียวแบบเป็นด่าน Phase 1 → Phase 2 → Boss และสู้กับ Junk King</p>
+        <div class="bullets">
+          <div><span>•</span><span>มี weak spot / junk storm / enrage</span></div>
+          <div><span>•</span><span>เหมาะกับโหมดฝึกเดี่ยวและเก็บ score</span></div>
+          <div><span>•</span><span>ใช้หน้า run แยก ไม่ปน multiplayer</span></div>
+        </div>
+        <div class="actions">
+          <button class="btn btn-solo" data-mode="solo">เข้า Solo Boss</button>
+        </div>
+      </article>
+
+      <article class="card race">
+        <div class="badge">🔵 RACE</div>
+        <h2>Race</h2>
+        <p class="desc">แข่งกันทำคะแนน ใคร score สูงสุดชนะ เรียงอันดับตามคะแนน miss และ streak</p>
+        <div class="bullets">
+          <div><span>•</span><span>มี lobby / countdown / result board</span></div>
+          <div><span>•</span><span>ทุกคนเริ่มพร้อมกันตาม start time</span></div>
+          <div><span>•</span><span>เหมาะกับแข่งรายบุคคล</span></div>
+        </div>
+        <div class="actions">
+          <button class="btn btn-race" data-mode="race">เข้า Race Lobby</button>
+        </div>
+      </article>
+
+      <article class="card battle">
+        <div class="badge">🟠 BATTLE</div>
+        <h2>Battle</h2>
+        <p class="desc">แข่งแบบปะทะกันโดยตรง มีจังหวะโจมตี-กดดันคู่แข่ง และผลแพ้ชนะชัดเจนกว่า race</p>
+        <div class="bullets">
+          <div><span>•</span><span>ควรมี attack / shield / pressure event</span></div>
+          <div><span>•</span><span>สรุปผลเป็น winner / loser ชัดเจน</span></div>
+          <div><span>•</span><span>ต้องใช้ run logic แยกจาก race</span></div>
+        </div>
+        <div class="actions">
+          <button class="btn btn-battle" data-mode="battle">เข้า Battle Lobby</button>
+        </div>
+      </article>
+
+      <article class="card coop">
+        <div class="badge">🟣 COOP</div>
+        <h2>Coop</h2>
+        <p class="desc">เล่นร่วมมือกัน เก็บคะแนนรวมของทีม ช่วยกันผ่านเป้าหมายเดียว ไม่เน้นแข่งกันเอง</p>
+        <div class="bullets">
+          <div><span>•</span><span>ใช้ team score / shared goal</span></div>
+          <div><span>•</span><span>เหมาะกับการเล่นร่วมกันและช่วยกันเคลียร์ภารกิจ</span></div>
+          <div><span>•</span><span>ต้องมี summary แบบทีม</span></div>
+        </div>
+        <div class="actions">
+          <button class="btn btn-coop" data-mode="coop">เข้า Coop Lobby</button>
+        </div>
+      </article>
+    </section>
+
+    <section class="note">
+      ตอนนี้ควรแยก logic เป็น 4 ไฟล์ชัดเจน:
+      <strong>phaseboss.js</strong>, <strong>race.js</strong>, <strong>battle.js</strong>, <strong>coop.js</strong>
+      เพื่อไม่ให้กติกาคนละโหมดชนกัน
+    </section>
+  </main>
+
+  <script>
+    (function(){
+      const q = new URLSearchParams(location.search);
+
+      const elName = document.getElementById('playerName');
+      const elDiff = document.getElementById('diff');
+      const elTime = document.getElementById('time');
+
+      elName.value = q.get('name') || '';
+      elDiff.value = q.get('diff') || 'normal';
+      elTime.value = q.get('time') || '120';
+
+      function nowSeed(){
+        return String(Date.now());
+      }
+
+      function getHubUrl(){
+        try {
+          return new URL(q.get('hub') || './hub.html', location.href).toString();
+        } catch {
+          return new URL('./hub.html', location.href).toString();
+        }
+      }
+
+      function buildBaseQuery(mode, seedValue){
+        const p = new URLSearchParams();
+        p.set('pid', q.get('pid') || 'anon');
+        p.set('name', elName.value.trim());
+        p.set('studyId', q.get('studyId') || '');
+        p.set('diff', elDiff.value || 'normal');
+        p.set('time', elTime.value || '120');
+        p.set('seed', seedValue || nowSeed());
+        p.set('hub', getHubUrl());
+        p.set('view', q.get('view') || 'mobile');
+        p.set('run', q.get('run') || 'play');
+
+        p.set('game', 'goodjunk');
+        p.set('gameId', 'goodjunk');
+        p.set('theme', 'goodjunk');
+        p.set('cat', 'nutrition');
+        p.set('zone', 'nutrition');
+        p.set('mode', mode);
+
+        ['debug', 'bossdebug'].forEach((key) => {
+          const v = q.get(key);
+          if (v) p.set(key, v);
+        });
+
+        return p;
+      }
+
+      function buildSoloRunUrl(seedValue){
+        const p = buildBaseQuery('solo', seedValue);
+        const runUrl = new URL('./vr-goodjunk/goodjunk-vr.html', location.href);
+        runUrl.search = p.toString();
+        return runUrl.toString();
+      }
+
+      function buildSoloWarmupUrl(){
+        const seedValue = nowSeed();
+        const gate = new URL('./warmup-gate.html', location.href);
+
+        gate.searchParams.set('phase', 'warmup');
+        gate.searchParams.set('game', 'goodjunk');
+        gate.searchParams.set('gameId', 'goodjunk');
+        gate.searchParams.set('theme', 'goodjunk');
+        gate.searchParams.set('cat', 'nutrition');
+        gate.searchParams.set('zone', 'nutrition');
+
+        gate.searchParams.set('pid', q.get('pid') || 'anon');
+        gate.searchParams.set('name', elName.value.trim());
+        gate.searchParams.set('studyId', q.get('studyId') || '');
+        gate.searchParams.set('diff', elDiff.value || 'normal');
+        gate.searchParams.set('time', elTime.value || '120');
+        gate.searchParams.set('seed', seedValue);
+        gate.searchParams.set('hub', getHubUrl());
+        gate.searchParams.set('view', q.get('view') || 'mobile');
+        gate.searchParams.set('run', q.get('run') || 'play');
+
+        gate.searchParams.set('next', buildSoloRunUrl(seedValue));
+        gate.searchParams.set('forcegate', '1');
+
+        if (q.get('resetGate') === '1') {
+          gate.searchParams.set('resetGate', '1');
+        }
+
+        return gate.toString();
+      }
+
+      function goSolo(){
+        const url = buildSoloWarmupUrl();
+        console.log('[GJ-LAUNCHER] solo ->', url);
+        location.href = url;
+      }
+
+      function goMultiplayer(mode){
+        const seedValue = nowSeed();
+        const p = buildBaseQuery(mode, seedValue);
+        const lobbyUrl = new URL('./vr-goodjunk/goodjunk-multi.html', location.href);
+        lobbyUrl.search = p.toString();
+        console.log('[GJ-LAUNCHER] multi ->', lobbyUrl.toString());
+        location.href = lobbyUrl.toString();
+      }
+
+      document.querySelectorAll('[data-mode]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const mode = btn.getAttribute('data-mode');
+
+          if (mode === 'solo') {
+            goSolo();
+            return;
+          }
+
+          goMultiplayer(mode);
+        });
+      });
+    })();
   </script>
 </body>
 </html>
