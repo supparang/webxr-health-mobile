@@ -51,7 +51,7 @@ const ROOM_PATH = GJ_ROOM_ID ? `hha-battle/goodjunk/rooms/${GJ_ROOM_ID}` : '';
 const GAME_MOUNT = document.getElementById('gameMount') || document.body;
 const BATTLE_UI = window.__gjBattleUi || null;
 
-const STYLE_ID = 'goodjunk-safe-battle-style-20260319-attack-v1';
+const STYLE_ID = 'goodjunk-safe-battle-style-20260320-target-v1';
 const ROOT_ID = 'gjBattleRoot';
 const HEARTBEAT_MS = 2500;
 const STALE_MS = 45000;
@@ -77,6 +77,7 @@ let summaryBound = false;
 let recoveredStartAt = 0;
 let lastSummary = null;
 let liveRoom = null;
+let selectedTargetPid = '';
 
 const handledAttackIds = new Set();
 const handlingAttackIds = new Set();
@@ -156,7 +157,8 @@ const ui = {
   attackBtn: null,
   shieldBtn: null,
   targetLabel: null,
-  effectBadge: null
+  effectBadge: null,
+  targetChips: null
 };
 
 const rng = createSeededRng(RUN_CTX.seed || Date.now());
@@ -270,7 +272,7 @@ function injectStyle() {
     }
     .gj-target-layer{position:absolute;inset:0;overflow:hidden}
     .gj-center-tip{
-      position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(86vw,440px);padding:16px 18px;border-radius:18px;
+      position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(86vw,460px);padding:16px 18px;border-radius:18px;
       background:rgba(2,6,23,.52);border:1px solid rgba(148,163,184,.18);color:#e5e7eb;text-align:center;font-weight:900;
       backdrop-filter:blur(6px);pointer-events:none;opacity:.96;transition:opacity .35s ease, transform .35s ease;box-shadow:0 16px 36px rgba(0,0,0,.18)
     }
@@ -308,7 +310,7 @@ function injectStyle() {
     .gj-bottom-top{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap;margin-bottom:10px}
     .gj-legend{display:flex;gap:10px;flex-wrap:wrap;font-size:13px;color:#cbd5e1;line-height:1.5}
     .gj-legend strong{color:#e5e7eb}
-    .gj-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;width:min(100%,480px)}
+    .gj-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;width:min(100%,520px)}
     .gj-action{
       border:1px solid rgba(148,163,184,.18);
       border-radius:16px;
@@ -354,9 +356,8 @@ function injectStyle() {
     .gj-targeting{
       margin-top:8px;
       display:flex;
-      flex-wrap:wrap;
+      flex-direction:column;
       gap:8px;
-      align-items:center;
       font-size:13px;
       color:#cbd5e1;
     }
@@ -379,6 +380,31 @@ function injectStyle() {
       border-color:rgba(56,189,248,.28);
       background:rgba(56,189,248,.12);
       color:#7dd3fc;
+    }
+    .gj-target-chips{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      align-items:center;
+    }
+    .gj-target-chip{
+      appearance:none;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(255,255,255,.04);
+      color:#e5e7eb;
+      border-radius:999px;
+      padding:8px 12px;
+      font:inherit;
+      font-size:12px;
+      font-weight:900;
+      cursor:pointer;
+      transition:.12s ease;
+    }
+    .gj-target-chip:hover{transform:translateY(-1px)}
+    .gj-target-chip.active{
+      border-color:rgba(245,158,11,.35);
+      background:rgba(245,158,11,.14);
+      color:#fde68a;
     }
     .gj-progress{
       position:relative;width:100%;height:12px;border-radius:999px;overflow:hidden;border:1px solid rgba(148,163,184,.18);background:rgba(255,255,255,.06)
@@ -408,7 +434,7 @@ function buildShell() {
 
         <div class="gj-stage-wrap">
           <div class="gj-stage" id="gjStage">
-            <div class="gj-center-tip" id="gjCenterTip">เก็บของดีเพื่อชาร์จ ATTACK และใช้ SHIELD กันอีกฝ่าย</div>
+            <div class="gj-center-tip" id="gjCenterTip">เลือกเป้าหมายก่อนยิง แล้วใช้ SHIELD กันอีกฝ่าย</div>
             <div class="gj-target-layer" id="gjTargetLayer"></div>
           </div>
         </div>
@@ -426,6 +452,7 @@ function buildShell() {
                 <div class="gj-targeting">
                   <div class="gj-badge">เป้าหมาย: <strong id="gjTargetLabel">-</strong></div>
                   <div class="gj-badge warn" id="gjEffectBadge">สถานะปกติ</div>
+                  <div class="gj-target-chips" id="gjTargetChips"></div>
                 </div>
               </div>
 
@@ -451,7 +478,7 @@ function buildShell() {
             </div>
 
             <div class="gj-legend" id="gjHintText" style="margin-bottom:10px;">
-              <div>Tip: combo ดี ๆ เพื่อเร่ง ATTACK meter</div>
+              <div>Tip: เลือกคู่แข่งก่อนยิงเพื่อคุมเกมได้แม่นขึ้น</div>
             </div>
 
             <div class="gj-progress"><div class="gj-progress-bar" id="gjProgressBar"></div></div>
@@ -480,6 +507,7 @@ function buildShell() {
   ui.shieldBtn = document.getElementById('btnBattleShield');
   ui.targetLabel = document.getElementById('gjTargetLabel');
   ui.effectBadge = document.getElementById('gjEffectBadge');
+  ui.targetChips = document.getElementById('gjTargetChips');
 
   refreshStageRect();
   renderHud();
@@ -570,7 +598,7 @@ function startGame() {
   if (ui.layer) ui.layer.innerHTML = '';
   if (ui.centerTip) {
     ui.centerTip.classList.remove('hide');
-    ui.centerTip.textContent = 'เก็บของดีเพื่อชาร์จ ATTACK และใช้ SHIELD กันอีกฝ่าย';
+    ui.centerTip.textContent = 'เลือกเป้าหมายก่อนยิง แล้วใช้ SHIELD กันอีกฝ่าย';
     setTimeout(() => ui.centerTip?.classList.add('hide'), 2000);
   }
 
@@ -754,7 +782,7 @@ function hitTarget(id) {
     gainAttack(12);
     gainShield(5);
     createFx(target.x + target.size / 2, target.y + target.size / 2, `+${gain}`, '#86efac');
-    updateHint('ดีมาก! สะสม ATTACK ให้เต็มแล้วกดยิง');
+    updateHint('ดีมาก! เลือกเป้าหมายแล้วกดยิงได้เลย');
   } else {
     state.hitsBad += 1;
     state.miss += 1;
@@ -819,15 +847,59 @@ function getOpponentCandidates(room = liveRoom) {
   return players.filter((p) => p.id !== GJ_PID && p.connected !== false && !p.finished);
 }
 
-function pickAttackTarget(room = liveRoom) {
+function normalizeSelectedTarget(room = liveRoom) {
   const opponents = getOpponentCandidates(room);
-  if (!opponents.length) return null;
+  if (!opponents.length) {
+    selectedTargetPid = '';
+    return null;
+  }
 
-  return [...opponents].sort((a, b) => {
-    if (b.finalScore !== a.finalScore) return b.finalScore - a.finalScore;
-    if (a.miss !== b.miss) return a.miss - b.miss;
-    return b.streak - a.streak;
-  })[0];
+  const keep = opponents.find((p) => p.id === selectedTargetPid);
+  if (keep) return keep;
+
+  selectedTargetPid = opponents[0].id;
+  return opponents[0];
+}
+
+function setSelectedTarget(pid) {
+  selectedTargetPid = __normalizePid(pid || '');
+  renderHud();
+}
+
+function pickAttackTarget(room = liveRoom) {
+  return normalizeSelectedTarget(room);
+}
+
+function renderTargetChips() {
+  if (!ui.targetChips) return;
+  const opponents = getOpponentCandidates(liveRoom);
+
+  if (!opponents.length) {
+    ui.targetChips.innerHTML = '<span class="gj-badge">ยังไม่มีเป้าหมาย</span>';
+    return;
+  }
+
+  normalizeSelectedTarget(liveRoom);
+
+  ui.targetChips.innerHTML = opponents.map((p) => {
+    const active = p.id === selectedTargetPid;
+    return `
+      <button
+        type="button"
+        class="gj-target-chip ${active ? 'active' : ''}"
+        data-target-pid="${escapeHtml(p.id)}"
+      >
+        ${escapeHtml(p.name || p.id)}
+      </button>
+    `;
+  }).join('');
+
+  ui.targetChips.querySelectorAll('[data-target-pid]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      setSelectedTarget(btn.getAttribute('data-target-pid') || '');
+      toast(`เลือกเป้าหมาย: ${btn.textContent.trim()}`);
+    });
+  });
 }
 
 async function fireAttack() {
@@ -981,10 +1053,11 @@ function renderHud() {
   if (ui.attackLabel) ui.attackLabel.textContent = `${Math.round(clamp01(state.attackMeter / ATTACK_COST) * 100)}%`;
   if (ui.shieldLabel) ui.shieldLabel.textContent = `${Math.round(clamp01(state.shieldMeter / SHIELD_COST) * 100)}%`;
 
-  if (ui.attackBtn) ui.attackBtn.disabled = state.attackMeter < ATTACK_COST || state.ended || !pickAttackTarget(liveRoom);
+  const target = normalizeSelectedTarget(liveRoom);
+
+  if (ui.attackBtn) ui.attackBtn.disabled = state.attackMeter < ATTACK_COST || state.ended || !target;
   if (ui.shieldBtn) ui.shieldBtn.disabled = state.shieldMeter < SHIELD_COST || state.ended;
 
-  const target = pickAttackTarget(liveRoom);
   if (ui.targetLabel) ui.targetLabel.textContent = target ? (target.name || target.id) : '-';
 
   if (ui.effectBadge) {
@@ -1000,6 +1073,7 @@ function renderHud() {
     }
   }
 
+  renderTargetChips();
   refreshEffectClasses();
 }
 
@@ -1223,7 +1297,7 @@ function amIParticipant(room) {
 
 function buildBattleSummaryPayload(room, players, pending = false, reason = '') {
   return {
-    version: '20260319-battle-attack-v1',
+    version: '20260320-battle-target-v1',
     source: 'goodjunk-battle',
     gameId: GJ_GAME_ID,
     mode: 'battle',
@@ -1717,6 +1791,7 @@ function attachRoomListener() {
         return;
       }
 
+      normalizeSelectedTarget(room);
       await handleIncomingAttacks(room);
 
       if (room.status === 'finished') {
