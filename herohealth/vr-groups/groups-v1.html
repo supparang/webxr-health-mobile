@@ -1,0 +1,214 @@
+<!-- === /herohealth/vr-groups/groups-v1.html ===
+Groups Run V1 legacy wrapper -> groups-vr.html
+FULL PATCH v20260318-GROUPS-V1-RUN-WRAPPER
+-->
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth • Groups V1</title>
+  <meta name="color-scheme" content="dark light" />
+  <link rel="icon" href="../favicon.ico" />
+  <style>
+    :root{
+      --bg1:#020617;
+      --bg2:#0b1226;
+      --panel:rgba(2,6,23,.80);
+      --stroke:rgba(148,163,184,.18);
+      --text:#e5e7eb;
+      --muted:#94a3b8;
+      --good:#22c55e;
+      --blue:#38bdf8;
+      --sat: env(safe-area-inset-top, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
+      --sar: env(safe-area-inset-right, 0px);
+    }
+    *{ box-sizing:border-box; }
+    html,body{
+      margin:0;
+      min-height:100%;
+      color:var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", Arial, sans-serif;
+      background:
+        radial-gradient(1200px 700px at 20% 0%, rgba(56,189,248,.15), transparent 50%),
+        radial-gradient(1000px 700px at 80% 10%, rgba(167,139,250,.14), transparent 55%),
+        linear-gradient(180deg, var(--bg1), var(--bg2));
+    }
+    .wrap{
+      max-width:760px;
+      margin:0 auto;
+      padding:calc(18px + var(--sat)) calc(16px + var(--sar)) calc(20px + var(--sab)) calc(16px + var(--sal));
+    }
+    .card{
+      border:1px solid var(--stroke);
+      background:var(--panel);
+      border-radius:26px;
+      box-shadow:0 22px 80px rgba(0,0,0,.35);
+      padding:22px;
+    }
+    .kicker{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 12px;
+      border-radius:999px;
+      border:1px solid rgba(56,189,248,.24);
+      background:rgba(56,189,248,.12);
+      color:#dbeafe;
+      font-size:12px;
+      font-weight:1000;
+    }
+    h1{
+      margin:14px 0 8px;
+      font-size:clamp(26px, 4vw, 40px);
+      line-height:1.08;
+    }
+    .sub{
+      color:#cbd5e1;
+      line-height:1.6;
+      font-size:16px;
+    }
+    .miniList{
+      display:grid;
+      gap:10px;
+      margin-top:16px;
+    }
+    .miniItem{
+      padding:12px 14px;
+      border-radius:16px;
+      border:1px solid rgba(148,163,184,.14);
+      background:rgba(15,23,42,.46);
+      font-weight:900;
+      color:#e2e8f0;
+    }
+    .actions{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-top:18px;
+    }
+    .btn{
+      appearance:none;
+      cursor:pointer;
+      border:1px solid rgba(148,163,184,.20);
+      border-radius:18px;
+      min-height:54px;
+      padding:14px 18px;
+      font-size:16px;
+      font-weight:1000;
+      color:var(--text);
+      background:rgba(15,23,42,.75);
+      box-shadow:0 14px 30px rgba(0,0,0,.20);
+    }
+    .btn.primary{
+      color:#052e16;
+      border-color:rgba(34,197,94,.30);
+      background:linear-gradient(180deg,#86efac,#22c55e);
+      box-shadow:0 14px 30px rgba(34,197,94,.24);
+    }
+    .note{
+      margin-top:14px;
+      color:var(--muted);
+      font-size:13px;
+      font-weight:900;
+      line-height:1.5;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="card">
+      <div class="kicker">🍽 GROUPS V1 • LEGACY RUN URL</div>
+      <h1>กำลังเข้าเกมหลัก</h1>
+      <div class="sub" id="subline">
+        หน้านี้เป็น wrapper ของ URL เดิม และจะพาไปหน้า run ล่าสุดโดยคง query เดิมไว้ทั้งหมด
+      </div>
+
+      <div class="miniList" id="ctxList"></div>
+
+      <div class="actions">
+        <button class="btn primary" id="btnContinue">เข้าเกมหลัก</button>
+        <button class="btn" id="btnHub">กลับ HUB</button>
+      </div>
+
+      <div class="note" id="routeNote">กำลังสร้างเส้นทางไป groups-vr.html ...</div>
+    </section>
+  </div>
+
+  <script>
+    (() => {
+      'use strict';
+
+      const QS = new URL(location.href).searchParams;
+      const q = (k, d='') => QS.get(k) ?? d;
+
+      const PID  = String(q('pid','anon'));
+      const RUN  = String(q('run','play'));
+      const DIFF = String(q('diff','normal'));
+      const TIME = String(q('time','80'));
+      const VIEW = String(q('view','mobile'));
+      const SEED = String(q('seed', Date.now()));
+      const HUB  = String(q('hub', new URL('../hub.html', location.href).toString()));
+      const ZONE = String(q('zone','nutrition'));
+      const CAT  = String(q('cat','nutrition'));
+
+      const ctxList = document.getElementById('ctxList');
+      const btnContinue = document.getElementById('btnContinue');
+      const btnHub = document.getElementById('btnHub');
+      const routeNote = document.getElementById('routeNote');
+
+      function buildRealRunUrl(){
+        const url = new URL('./groups-vr.html', location.href);
+        url.searchParams.set('pid', PID);
+        url.searchParams.set('run', RUN);
+        url.searchParams.set('diff', DIFF);
+        url.searchParams.set('time', TIME);
+        url.searchParams.set('seed', SEED);
+        url.searchParams.set('view', VIEW);
+        url.searchParams.set('hub', HUB);
+        url.searchParams.set('zone', ZONE);
+        url.searchParams.set('cat', CAT);
+        return url.toString();
+      }
+
+      function renderCtx(){
+        const realRun = buildRealRunUrl();
+        ctxList.innerHTML = `
+          <div class="miniItem">pid = ${PID}</div>
+          <div class="miniItem">run = ${RUN}</div>
+          <div class="miniItem">diff = ${DIFF}</div>
+          <div class="miniItem">time = ${TIME}s</div>
+          <div class="miniItem">view = ${VIEW}</div>
+        `;
+        btnContinue.dataset.href = realRun;
+        routeNote.textContent = `groups-v1.html → groups-vr.html`;
+      }
+
+      function goRealRun(){
+        btnContinue.disabled = true;
+        btnContinue.textContent = 'กำลังเข้าเกม...';
+        window.location.assign(btnContinue.dataset.href || buildRealRunUrl());
+      }
+
+      btnContinue.addEventListener('click', (ev)=>{
+        ev.preventDefault();
+        ev.stopPropagation();
+        goRealRun();
+      });
+
+      btnHub.addEventListener('click', (ev)=>{
+        ev.preventDefault();
+        ev.stopPropagation();
+        window.location.assign(HUB);
+      });
+
+      renderCtx();
+
+      // auto-forward หลังโหลดสั้น ๆ เพื่อให้ URL เดิมยังใช้ลื่น
+      setTimeout(goRealRun, 180);
+    })();
+  </script>
+</body>
+</html>
