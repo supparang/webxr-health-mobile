@@ -1,9 +1,10 @@
 <!-- === /herohealth/vr-groups/groups-race.html ===
-Groups Race V1
-FULL PATCH v20260319-GROUPS-RACE-V1
-Uses:
-- ./groups-race.safe.js
+Groups Race V2 Online Room
+FULL PATCH v20260319-GROUPS-RACE-ONLINE-RUN
+Requires:
 - ../vr/vr-ui.js
+- ./groups-race.safe.js
+- ./groups-race-rtdb.js
 -->
 <!doctype html>
 <html lang="th">
@@ -279,6 +280,27 @@ Uses:
       font-weight:900;
     }
 
+    #loadingOverlay{
+      position:absolute;
+      inset:0;
+      display:grid;
+      place-items:center;
+      z-index:46;
+      background:linear-gradient(180deg, rgba(2,6,23,.40), rgba(2,6,23,.18));
+      backdrop-filter:blur(4px);
+    }
+    .loadingCard{
+      min-width:min(320px, 90vw);
+      padding:18px 22px;
+      border-radius:22px;
+      border:1px solid rgba(148,163,184,.16);
+      background:rgba(2,6,23,.76);
+      text-align:center;
+      box-shadow:0 18px 44px rgba(0,0,0,.28);
+      font-weight:1000;
+      line-height:1.6;
+    }
+
     #stageFlash{
       position:absolute;
       inset:0;
@@ -498,7 +520,7 @@ Uses:
     }
     @media (max-width:480px){
       .overlay{
-        padding:calc(8px + var(--sat)) 8px calc(8px + var(--sab) + 78px) 8px;
+        padding:calc(8px + var(--sat)) 8px calc(12px + var(--sab) + 78px) 8px;
       }
       .overlayCard{ border-radius:16px; }
       .overlayBtns{
@@ -520,7 +542,7 @@ Uses:
       <span id="debugMini" style="color:var(--muted); font-size:10px; line-height:1.2;"></span>
     </div>
     <div class="row">
-      <button id="btnRestart">เริ่มใหม่</button>
+      <button id="btnRestart">กลับล็อบบี้</button>
       <button id="btnBack">กลับหน้าหลัก</button>
     </div>
   </div>
@@ -528,12 +550,18 @@ Uses:
   <div class="stage">
     <div id="bgLayer"></div>
     <div id="playLayer"></div>
-    <div id="countdownOverlay">
+
+    <div id="loadingOverlay">
+      <div class="loadingCard" id="loadingText">กำลังเชื่อมต่อห้องแข่ง…</div>
+    </div>
+
+    <div id="countdownOverlay" hidden>
       <div class="countCard">
         <div class="countBig" id="countBig">3</div>
         <div class="countSub" id="countSub">เตรียมตัวให้พร้อม</div>
       </div>
     </div>
+
     <div id="stageFlash"></div>
     <div id="fxLayer"></div>
 
@@ -550,11 +578,11 @@ Uses:
 
         <div class="raceBox">
           <div class="raceCard me">
-            <div class="raceName">เรา</div>
+            <div class="raceName" id="meName">เรา</div>
             <div class="raceScore" id="raceMeScore">0</div>
           </div>
           <div class="raceCard rival">
-            <div class="raceName">คู่แข่ง</div>
+            <div class="raceName" id="rivalName">คู่แข่ง</div>
             <div class="raceScore" id="raceRivalScore">0</div>
           </div>
         </div>
@@ -615,7 +643,7 @@ Uses:
           </section>
         </main>
         <div class="overlayBtns">
-          <button id="btnEndRematch">แข่งอีกครั้ง</button>
+          <button id="btnEndRematch">กลับล็อบบี้</button>
           <button id="btnEndGoHub">กลับหน้าหลัก</button>
         </div>
       </div>
@@ -624,266 +652,441 @@ Uses:
 </div>
 
 <script src="../vr/vr-ui.js"></script>
-<script src="./groups-race.safe.js"></script>
+<script type="module">
+  import './groups-race.safe.js';
+  import {
+    readRaceRoom,
+    watchRaceRoom,
+    watchRaceScores,
+    pushRaceScore,
+    finishRaceMatch
+  } from './groups-race-rtdb.js';
 
-<script>
-(() => {
-  'use strict';
+  (() => {
+    'use strict';
 
-  const QS = new URL(location.href).searchParams;
-  const q = (k, d='') => QS.get(k) ?? d;
+    const QS = new URL(location.href).searchParams;
+    const q = (k, d='') => QS.get(k) ?? d;
 
-  const PID  = String(q('pid','anon'));
-  const DIFF = String(q('diff','normal')).toLowerCase();
-  const VIEW = String(q('view','mobile')).toLowerCase();
-  const TIME = Number(q('time','60') || 60);
-  const SEED = String(q('seed','') || Date.now());
-  const HUB  = String(q('hub', new URL('../hub.html', location.href).toString()));
+    const ROOM = String(q('room','')).toUpperCase();
+    const PLAYER_ID = String(q('playerId',''));
+    const VIEW = String(q('view','mobile')).toLowerCase();
+    const HUB = String(q('hub', new URL('../hub.html', location.href).toString()));
 
-  document.body.setAttribute('data-view', VIEW);
+    document.body.setAttribute('data-view', VIEW);
 
-  const $ = (s)=>document.querySelector(s);
-  const hudTime = $('#hudTime');
-  const hudScore = $('#hudScore');
-  const hudRival = $('#hudRival');
-  const hudRank = $('#hudRank');
-  const hudCombo = $('#hudCombo');
-  const hudAcc = $('#hudAcc');
-  const raceMeScore = $('#raceMeScore');
-  const raceRivalScore = $('#raceRivalScore');
-  const qTitle = $('#qTitle');
-  const qSub = $('#qSub');
-  const qBar = $('#qBar');
-  const qMini = $('#qMini');
-  const qMiniTime = $('#qMiniTime');
-  const coachToast = $('#coachToast');
-  const toastFace = $('#toastFace');
-  const toastTxt = $('#toastTxt');
-  const toastSub = $('#toastSub');
-  const stageFlash = $('#stageFlash');
-  const fxLayer = $('#fxLayer');
-  const playLayer = $('#playLayer');
-  const endOverlay = $('#endOverlay');
-  const endSub = $('#endSub');
-  const sumResult = $('#sumResult');
-  const sumMyScore = $('#sumMyScore');
-  const sumRivalScore = $('#sumRivalScore');
-  const sumAcc = $('#sumAcc');
-  const sumCombo = $('#sumCombo');
-  const sumTime = $('#sumTime');
-  const childCoachMsg = $('#childCoachMsg');
-  const debugMini = $('#debugMini');
-  const countBig = $('#countBig');
-  const countSub = $('#countSub');
-  const countdownOverlay = $('#countdownOverlay');
+    const $ = (s)=>document.querySelector(s);
+    const hudTime = $('#hudTime');
+    const hudScore = $('#hudScore');
+    const hudRival = $('#hudRival');
+    const hudRank = $('#hudRank');
+    const hudCombo = $('#hudCombo');
+    const hudAcc = $('#hudAcc');
+    const raceMeScore = $('#raceMeScore');
+    const raceRivalScore = $('#raceRivalScore');
+    const qTitle = $('#qTitle');
+    const qSub = $('#qSub');
+    const qBar = $('#qBar');
+    const qMini = $('#qMini');
+    const qMiniTime = $('#qMiniTime');
+    const coachToast = $('#coachToast');
+    const toastFace = $('#toastFace');
+    const toastTxt = $('#toastTxt');
+    const toastSub = $('#toastSub');
+    const stageFlash = $('#stageFlash');
+    const fxLayer = $('#fxLayer');
+    const playLayer = $('#playLayer');
+    const endOverlay = $('#endOverlay');
+    const endSub = $('#endSub');
+    const sumResult = $('#sumResult');
+    const sumMyScore = $('#sumMyScore');
+    const sumRivalScore = $('#sumRivalScore');
+    const sumAcc = $('#sumAcc');
+    const sumCombo = $('#sumCombo');
+    const sumTime = $('#sumTime');
+    const childCoachMsg = $('#childCoachMsg');
+    const debugMini = $('#debugMini');
+    const countBig = $('#countBig');
+    const countSub = $('#countSub');
+    const countdownOverlay = $('#countdownOverlay');
+    const loadingOverlay = $('#loadingOverlay');
+    const loadingText = $('#loadingText');
+    const meName = $('#meName');
+    const rivalName = $('#rivalName');
 
-  let toastTimer = null;
-  let navLock = false;
-  let raceEnded = false;
+    let toastTimer = null;
+    let navLock = false;
+    let raceEnded = false;
+    let roomData = null;
+    let myNameText = 'เรา';
+    let rivalNameText = 'คู่แข่ง';
+    let myScoreLatest = 0;
+    let rivalScoreLatest = 0;
+    let comboLatest = 0;
+    let accLatest = 0;
+    let roomUnwatch = null;
+    let scoresUnwatch = null;
 
-  debugMini.textContent = `pid=${PID} • diff=${DIFF} • time=${TIME}s • view=${VIEW}`;
+    debugMini.textContent = `room=${ROOM || '-'} • player=${PLAYER_ID || '-'} • view=${VIEW}`;
 
-  function faceFromMood(mood){
-    return mood === 'happy' ? '😄'
-      : mood === 'fever' ? '🔥'
-      : mood === 'sad' ? '😵'
-      : '🏁';
-  }
-
-  function showToast(text, mood){
-    if(toastTimer) clearTimeout(toastTimer);
-    toastTxt.textContent = text || '';
-    toastSub.textContent = mood || 'coach';
-    toastFace.textContent = faceFromMood(mood);
-    coachToast.classList.add('show');
-    toastTimer = setTimeout(()=> coachToast.classList.remove('show'), 2200);
-  }
-
-  function safeStopEngine(){
-    try{ window.GroupsRace?.GameEngine?.stop?.(); }catch(_){}
-  }
-
-  function safeNavigate(href){
-    if(navLock) return;
-    navLock = true;
-    safeStopEngine();
-    window.location.assign(href);
-  }
-
-  function updateSpawnSafe(){
-    const r = playLayer.getBoundingClientRect();
-    const isMobile = VIEW === 'mobile';
-    const pad = isMobile ? 40 : 24;
-    const topSafe = isMobile ? 176 : 150;
-    const botSafe = isMobile ? 190 : 160;
-
-    window.__HHA_RACE_SPAWN_SAFE__ = {
-      xMin: pad,
-      xMax: Math.max(pad + 1, r.width - pad),
-      yMin: topSafe,
-      yMax: Math.max(topSafe + 1, r.height - botSafe)
-    };
-  }
-
-  function flashStage(kind){
-    stageFlash.className = kind || '';
-    stageFlash.style.opacity = '1';
-    setTimeout(()=>{ stageFlash.style.opacity = '0.35'; }, 70);
-    setTimeout(()=>{ stageFlash.style.opacity = '0'; }, 180);
-  }
-
-  function popScore(x, y, text, good){
-    const el = document.createElement('div');
-    el.className = 'scorePop ' + (good ? 'good' : 'bad');
-    el.textContent = text;
-    el.style.left = Math.round(x) + 'px';
-    el.style.top = Math.round(y) + 'px';
-    fxLayer.appendChild(el);
-    setTimeout(()=>{ try{ el.remove(); }catch(_){ } }, 700);
-  }
-
-  function getSummaryMeta(result){
-    if(result === 'WIN') return { icon:'🏆', big:'ชนะแล้ว!', sub:'เยี่ยมมาก แซงคู่แข่งได้สำเร็จ' };
-    if(result === 'DRAW') return { icon:'🤝', big:'เสมอ!', sub:'สูสีมาก รอบหน้าลองเก็บคอมโบเพิ่ม' };
-    return { icon:'💪', big:'สู้ต่อได้!', sub:'รอบหน้าลองยิงให้แม่นขึ้นแล้วจะดีขึ้นแน่นอน' };
-  }
-
-  function getRaceCoach(result, acc, combo){
-    if(result === 'WIN') return combo >= 5 ? 'ยอดเยี่ยม! ทั้งเร็วและคอมโบดีมาก' : 'เก่งมาก! รอบนี้นำคู่แข่งได้ดี';
-    if(result === 'DRAW') return 'สูสีมาก! รอบหน้าลองเร่งตอนท้ายเกมอีกนิด';
-    if(acc >= 70) return 'แม่นดีแล้ว ลองเก็บเป้าต่อเนื่องให้มากขึ้น';
-    return 'รอบหน้าค่อย ๆ เล็งก่อนยิง แล้วจะเก็บคะแนนได้มากขึ้น';
-  }
-
-  async function startCountdownAndGame(){
-    raceEnded = false;
-    countdownOverlay.style.display = 'grid';
-    const seq = ['3','2','1','GO!'];
-    for(let i=0;i<seq.length;i++){
-      countBig.textContent = seq[i];
-      countSub.textContent = i < 3 ? 'เตรียมตัวให้พร้อม' : 'เริ่มแข่งได้!';
-      await new Promise(r=>setTimeout(r, i < 3 ? 700 : 500));
+    function faceFromMood(mood){
+      return mood === 'happy' ? '😄'
+        : mood === 'fever' ? '🔥'
+        : mood === 'sad' ? '😵'
+        : '🏁';
     }
-    countdownOverlay.style.display = 'none';
 
-    try{ window.GroupsRace?.GameEngine?.setLayerEl?.(playLayer); }catch(_){}
-    window.GroupsRace.GameEngine.start(DIFF, {
-      time: TIME,
-      seed: SEED,
-      view: VIEW
+    function showToast(text, mood){
+      if(toastTimer) clearTimeout(toastTimer);
+      toastTxt.textContent = text || '';
+      toastSub.textContent = mood || 'coach';
+      toastFace.textContent = faceFromMood(mood);
+      coachToast.classList.add('show');
+      toastTimer = setTimeout(()=> coachToast.classList.remove('show'), 2200);
+    }
+
+    function safeStopEngine(){
+      try{ window.GroupsRace?.GameEngine?.stop?.(); }catch(_){}
+    }
+
+    function cleanupWatchers(){
+      try{ roomUnwatch?.(); }catch(_){}
+      try{ scoresUnwatch?.(); }catch(_){}
+      roomUnwatch = null;
+      scoresUnwatch = null;
+    }
+
+    function safeNavigate(href){
+      if(navLock) return;
+      navLock = true;
+      cleanupWatchers();
+      safeStopEngine();
+      window.location.assign(href);
+    }
+
+    function updateSpawnSafe(){
+      const r = playLayer.getBoundingClientRect();
+      const isMobile = VIEW === 'mobile';
+      const pad = isMobile ? 40 : 24;
+      const topSafe = isMobile ? 176 : 150;
+      const botSafe = isMobile ? 190 : 160;
+
+      window.__HHA_RACE_SPAWN_SAFE__ = {
+        xMin: pad,
+        xMax: Math.max(pad + 1, r.width - pad),
+        yMin: topSafe,
+        yMax: Math.max(topSafe + 1, r.height - botSafe)
+      };
+    }
+
+    function flashStage(kind){
+      stageFlash.className = kind || '';
+      stageFlash.style.opacity = '1';
+      setTimeout(()=>{ stageFlash.style.opacity = '0.35'; }, 70);
+      setTimeout(()=>{ stageFlash.style.opacity = '0'; }, 180);
+    }
+
+    function popScore(x, y, text, good){
+      const el = document.createElement('div');
+      el.className = 'scorePop ' + (good ? 'good' : 'bad');
+      el.textContent = text;
+      el.style.left = Math.round(x) + 'px';
+      el.style.top = Math.round(y) + 'px';
+      fxLayer.appendChild(el);
+      setTimeout(()=>{ try{ el.remove(); }catch(_){ } }, 700);
+    }
+
+    function getSummaryMeta(result){
+      if(result === 'WIN') return { icon:'🏆', big:'ชนะแล้ว!', sub:'เยี่ยมมาก แซงคู่แข่งได้สำเร็จ' };
+      if(result === 'DRAW') return { icon:'🤝', big:'เสมอ!', sub:'สูสีมาก รอบหน้าลองเก็บคอมโบเพิ่ม' };
+      return { icon:'💪', big:'สู้ต่อได้!', sub:'รอบหน้าลองยิงให้แม่นขึ้นแล้วจะดีขึ้นแน่นอน' };
+    }
+
+    function getRaceCoach(result, acc, combo){
+      if(result === 'WIN') return combo >= 5 ? 'ยอดเยี่ยม! ทั้งเร็วและคอมโบดีมาก' : 'เก่งมาก! รอบนี้นำคู่แข่งได้ดี';
+      if(result === 'DRAW') return 'สูสีมาก! รอบหน้าลองเร่งตอนท้ายเกมอีกนิด';
+      if(acc >= 70) return 'แม่นดีแล้ว ลองเก็บเป้าต่อเนื่องให้มากขึ้น';
+      return 'รอบหน้าค่อย ๆ เล็งก่อนยิง แล้วจะเก็บคะแนนได้มากขึ้น';
+    }
+
+    function rankText(myScore, rivalScore){
+      return myScore > rivalScore ? '#1'
+        : myScore < rivalScore ? '#2'
+        : '#1 ร่วม';
+    }
+
+    function openLobby(){
+      const url = new URL('./groups-race-lobby.html', location.href);
+      url.searchParams.set('view', VIEW);
+      url.searchParams.set('hub', HUB);
+      safeNavigate(url.toString());
+    }
+
+    function getRivalPlayerId(players){
+      return Object.keys(players || {}).find(id => id !== PLAYER_ID) || '';
+    }
+
+    function applyRoomPlayers(players){
+      const me = players?.[PLAYER_ID];
+      const rivalId = getRivalPlayerId(players || {});
+      const rival = rivalId ? players?.[rivalId] : null;
+
+      myNameText = me?.name || 'เรา';
+      rivalNameText = rival?.name || 'คู่แข่ง';
+
+      meName.textContent = myNameText;
+      rivalName.textContent = rivalNameText;
+    }
+
+    function applyScoreBoard(scoreMap){
+      const rivalId = getRivalPlayerId(roomData?.players || {});
+      const myScoreObj = scoreMap?.[PLAYER_ID] || {};
+      const rivalScoreObj = rivalId ? (scoreMap?.[rivalId] || {}) : {};
+
+      myScoreLatest = Number(myScoreObj.score || 0);
+      rivalScoreLatest = Number(rivalScoreObj.score || 0);
+
+      hudScore.textContent = String(myScoreLatest);
+      hudRival.textContent = String(rivalScoreLatest);
+      raceMeScore.textContent = String(myScoreLatest);
+      raceRivalScore.textContent = String(rivalScoreLatest);
+      hudRank.textContent = rankText(myScoreLatest, rivalScoreLatest);
+    }
+
+    async function waitUntilStartAndRun(data){
+      const startedAt = Number(data?.match?.startedAt || 0);
+      if(!startedAt) return;
+
+      loadingOverlay.hidden = true;
+      countdownOverlay.hidden = false;
+
+      while(true){
+        const now = Date.now();
+        const leftMs = startedAt - now;
+        if(leftMs <= 0) break;
+
+        const leftSec = Math.max(1, Math.ceil(leftMs / 1000));
+        countBig.textContent = String(leftSec);
+        countSub.textContent = 'เตรียมตัวให้พร้อม';
+        await new Promise(r=>setTimeout(r, 150));
+      }
+
+      countBig.textContent = 'GO!';
+      countSub.textContent = 'เริ่มแข่งได้!';
+      await new Promise(r=>setTimeout(r, 450));
+      countdownOverlay.hidden = true;
+
+      raceEnded = false;
+      try{ window.GroupsRace?.GameEngine?.setLayerEl?.(playLayer); }catch(_){}
+
+      const diff = String(data?.meta?.diff || 'normal');
+      const timeSec = Number(data?.meta?.timeSec || 60);
+      const seed = String(data?.match?.startedAt || Date.now());
+
+      window.GroupsRace.GameEngine.start(diff, {
+        time: timeSec,
+        seed,
+        view: VIEW
+      });
+
+      showToast('เริ่มแข่งแล้ว! ยิงให้เร็วและแม่น', 'fever');
+    }
+
+    window.addEventListener('race:coach', (ev)=>{
+      const d = ev?.detail || {};
+      if(d.text) showToast(d.text, d.mood || 'neutral');
     });
-    showToast('เริ่มแข่งแล้ว! ยิงให้เร็วและแม่น', 'fever');
-  }
 
-  window.addEventListener('race:coach', (ev)=>{
-    const d = ev?.detail || {};
-    if(d.text) showToast(d.text, d.mood || 'neutral');
-  });
+    window.addEventListener('race:time', (ev)=>{
+      const left = ev?.detail?.left;
+      if(typeof left === 'number'){
+        hudTime.textContent = left + 's';
+        const hudBox = document.querySelector('.hudBox');
+        const isLow = left <= 10;
+        hudTime.classList.toggle('time-low', isLow);
+        hudBox?.classList.toggle('time-low', isLow);
+      }
+    });
 
-  window.addEventListener('race:time', (ev)=>{
-    const left = ev?.detail?.left;
-    if(typeof left === 'number'){
-      hudTime.textContent = left + 's';
-      const hudBox = document.querySelector('.hudBox');
-      const isLow = left <= 10;
-      hudTime.classList.toggle('time-low', isLow);
-      hudBox?.classList.toggle('time-low', isLow);
+    window.addEventListener('race:score', async (ev)=>{
+      const d = ev?.detail || {};
+      if(d.myScore != null){
+        myScoreLatest = Number(d.myScore || 0);
+        hudScore.textContent = String(myScoreLatest|0);
+        raceMeScore.textContent = String(myScoreLatest|0);
+      }
+      if(d.combo != null){
+        comboLatest = Number(d.combo || 0);
+        hudCombo.textContent = 'x' + String(comboLatest|0);
+      }
+      if(d.acc != null){
+        accLatest = Number(d.acc || 0);
+        hudAcc.textContent = `${accLatest}%`;
+      }
+      hudRank.textContent = rankText(myScoreLatest, rivalScoreLatest);
+
+      try{
+        if(ROOM && PLAYER_ID){
+          await pushRaceScore(ROOM, PLAYER_ID, {
+            score: myScoreLatest|0,
+            combo: comboLatest|0,
+            acc: accLatest|0
+          });
+        }
+      }catch(err){
+        console.error('[race push score]', err);
+      }
+    });
+
+    window.addEventListener('race:progress', (ev)=>{
+      const d = ev?.detail || {};
+      if(d.goalTitle) qTitle.textContent = d.goalTitle;
+      if(d.goalNow != null && d.goalTotal != null){
+        qSub.textContent = `${d.goalNow}/${d.goalTotal}`;
+        qBar.style.width = Math.round((d.goalNow / Math.max(1, d.goalTotal)) * 100) + '%';
+      }
+      if(d.tip) qMini.textContent = d.tip;
+      qMiniTime.textContent = d.hot ? '🔥 เร่งเลย' : '';
+    });
+
+    window.addEventListener('race:hit', (ev)=>{
+      const d = ev?.detail || {};
+      const good = !!d.good;
+      const x = Number(d.x || (window.innerWidth * 0.5));
+      const y = Number(d.y || (window.innerHeight * 0.5));
+      const delta = Number(d.delta || (good ? 10 : -2));
+
+      if(good){
+        flashStage(d.hot ? 'hot' : 'good');
+        popScore(x, y, (delta > 0 ? '+' : '') + delta, true);
+      }else{
+        flashStage('bad');
+        popScore(x, y, (delta > 0 ? '+' : '') + delta, false);
+      }
+    });
+
+    window.addEventListener('race:end', async (ev)=>{
+      if(raceEnded) return;
+      raceEnded = true;
+
+      const s = ev?.detail || {};
+      const finalMy = myScoreLatest;
+      const finalRival = rivalScoreLatest;
+      const result = finalMy > finalRival ? 'WIN' : finalMy < finalRival ? 'LOSE' : 'DRAW';
+
+      const meta = getSummaryMeta(result);
+      document.getElementById('sumBadgeIcon').textContent = meta.icon;
+      document.getElementById('sumHeroBig').textContent = meta.big;
+      document.getElementById('sumHeroSub').textContent = meta.sub;
+
+      sumResult.textContent = result === 'WIN' ? 'ชนะ' : result === 'DRAW' ? 'เสมอ' : 'แพ้';
+      sumMyScore.textContent = String(finalMy);
+      sumRivalScore.textContent = String(finalRival);
+      sumAcc.textContent = `${s.acc ?? accLatest ?? 0}%`;
+      sumCombo.textContent = String(s.comboMax ?? comboLatest ?? 0);
+      sumTime.textContent = `${s.durationPlayedSec ?? 0}s`;
+      endSub.textContent = `${myNameText} ${finalMy} • ${rivalNameText} ${finalRival}`;
+      childCoachMsg.textContent = getRaceCoach(result, s.acc ?? accLatest, s.comboMax ?? comboLatest);
+
+      endOverlay.style.display = 'flex';
+      endOverlay.setAttribute('aria-hidden', 'false');
+
+      try{
+        await finishRaceMatch(ROOM, {
+          result,
+          myPlayerId: PLAYER_ID,
+          myScore: finalMy,
+          rivalScore: finalRival,
+          acc: s.acc ?? accLatest ?? 0,
+          comboMax: s.comboMax ?? comboLatest ?? 0
+        });
+      }catch(err){
+        console.error('[race finish match]', err);
+      }
+    });
+
+    window.addEventListener('pagehide', ()=>{
+      cleanupWatchers();
+      safeStopEngine();
+    });
+    window.addEventListener('beforeunload', ()=>{
+      cleanupWatchers();
+      safeStopEngine();
+    });
+    window.addEventListener('resize', updateSpawnSafe, { passive:true });
+
+    document.getElementById('btnRestart').addEventListener('click', ()=>{
+      openLobby();
+    });
+
+    document.getElementById('btnBack').addEventListener('click', ()=>{
+      safeNavigate(HUB);
+    });
+
+    document.getElementById('btnEndRematch').addEventListener('click', ()=>{
+      openLobby();
+    });
+
+    document.getElementById('btnEndGoHub').addEventListener('click', ()=>{
+      safeNavigate(HUB);
+    });
+
+    async function boot(){
+      if(!ROOM || !PLAYER_ID){
+        loadingText.textContent = 'ข้อมูลห้องไม่ครบ กำลังกลับล็อบบี้…';
+        setTimeout(openLobby, 700);
+        return;
+      }
+
+      try{
+        loadingText.textContent = 'กำลังโหลดข้อมูลห้องแข่ง…';
+        roomData = await readRaceRoom(ROOM);
+        if(!roomData){
+          throw new Error('ไม่พบห้องแข่ง');
+        }
+
+        const players = roomData.players || {};
+        if(!players[PLAYER_ID]){
+          throw new Error('ไม่พบผู้เล่นในห้องนี้');
+        }
+
+        applyRoomPlayers(players);
+        updateSpawnSafe();
+
+        roomUnwatch = watchRaceRoom(ROOM, async (data)=>{
+          if(!data) return;
+          roomData = data;
+          applyRoomPlayers(data.players || {});
+
+          const started = !!data.match?.started;
+          if(started && !window.__RACE_STARTED__){
+            window.__RACE_STARTED__ = true;
+            await waitUntilStartAndRun(data);
+          }
+        });
+
+        scoresUnwatch = watchRaceScores(ROOM, (scoreMap)=>{
+          applyScoreBoard(scoreMap || {});
+        });
+
+        if(roomData.match?.started){
+          window.__RACE_STARTED__ = true;
+          await waitUntilStartAndRun(roomData);
+        }else{
+          loadingOverlay.hidden = false;
+          countdownOverlay.hidden = true;
+          loadingText.textContent = 'กำลังรอ Host เริ่มการแข่งขัน…';
+        }
+      }catch(err){
+        console.error(err);
+        loadingText.textContent = `เข้าแข่งไม่สำเร็จ\n${err?.message || err}\nกำลังกลับล็อบบี้…`;
+        setTimeout(openLobby, 1200);
+      }
     }
-  });
 
-  window.addEventListener('race:score', (ev)=>{
-    const d = ev?.detail || {};
-    if(d.myScore != null){
-      hudScore.textContent = String(d.myScore|0);
-      raceMeScore.textContent = String(d.myScore|0);
-    }
-    if(d.rivalScore != null){
-      hudRival.textContent = String(d.rivalScore|0);
-      raceRivalScore.textContent = String(d.rivalScore|0);
-    }
-    if(d.rankText) hudRank.textContent = d.rankText;
-    if(d.combo != null) hudCombo.textContent = 'x' + String((Number(d.combo)||0)|0);
-    if(d.acc != null) hudAcc.textContent = `${d.acc}%`;
-  });
-
-  window.addEventListener('race:progress', (ev)=>{
-    const d = ev?.detail || {};
-    if(d.goalTitle) qTitle.textContent = d.goalTitle;
-    if(d.goalNow != null && d.goalTotal != null){
-      qSub.textContent = `${d.goalNow}/${d.goalTotal}`;
-      qBar.style.width = Math.round((d.goalNow / Math.max(1, d.goalTotal)) * 100) + '%';
-    }
-    if(d.tip) qMini.textContent = d.tip;
-    qMiniTime.textContent = d.hot ? '🔥 เร่งเลย' : '';
-  });
-
-  window.addEventListener('race:hit', (ev)=>{
-    const d = ev?.detail || {};
-    const good = !!d.good;
-    const x = Number(d.x || (window.innerWidth * 0.5));
-    const y = Number(d.y || (window.innerHeight * 0.5));
-    const delta = Number(d.delta || (good ? 10 : -2));
-
-    if(good){
-      flashStage(d.hot ? 'hot' : 'good');
-      popScore(x, y, (delta > 0 ? '+' : '') + delta, true);
-    }else{
-      flashStage('bad');
-      popScore(x, y, (delta > 0 ? '+' : '') + delta, false);
-    }
-  });
-
-  window.addEventListener('race:end', (ev)=>{
-    if(raceEnded) return;
-    raceEnded = true;
-
-    const s = ev?.detail || {};
-    const meta = getSummaryMeta(s.result);
-    document.getElementById('sumBadgeIcon').textContent = meta.icon;
-    document.getElementById('sumHeroBig').textContent = meta.big;
-    document.getElementById('sumHeroSub').textContent = meta.sub;
-
-    sumResult.textContent = s.result === 'WIN' ? 'ชนะ' : s.result === 'DRAW' ? 'เสมอ' : 'แพ้';
-    sumMyScore.textContent = String(s.myScore ?? 0);
-    sumRivalScore.textContent = String(s.rivalScore ?? 0);
-    sumAcc.textContent = `${s.acc ?? 0}%`;
-    sumCombo.textContent = String(s.comboMax ?? 0);
-    sumTime.textContent = `${s.durationPlayedSec ?? 0}s`;
-    endSub.textContent = `เรา ${s.myScore ?? 0} • คู่แข่ง ${s.rivalScore ?? 0}`;
-    childCoachMsg.textContent = getRaceCoach(s.result, s.acc, s.comboMax);
-
-    endOverlay.style.display = 'flex';
-    endOverlay.setAttribute('aria-hidden', 'false');
-  });
-
-  window.addEventListener('pagehide', ()=> safeStopEngine());
-  window.addEventListener('beforeunload', ()=> safeStopEngine());
-  window.addEventListener('resize', updateSpawnSafe, { passive:true });
-
-  document.getElementById('btnRestart').addEventListener('click', ()=>{
-    safeStopEngine();
-    countdownOverlay.style.display = 'grid';
-    startCountdownAndGame();
-  });
-
-  document.getElementById('btnBack').addEventListener('click', ()=>{
-    safeNavigate(HUB);
-  });
-
-  document.getElementById('btnEndRematch').addEventListener('click', ()=>{
-    endOverlay.style.display = 'none';
-    endOverlay.setAttribute('aria-hidden', 'true');
-    countdownOverlay.style.display = 'grid';
-    startCountdownAndGame();
-  });
-
-  document.getElementById('btnEndGoHub').addEventListener('click', ()=>{
-    safeNavigate(HUB);
-  });
-
-  updateSpawnSafe();
-  startCountdownAndGame();
-})();
+    updateSpawnSafe();
+    boot();
+  })();
 </script>
 </body>
 </html>
