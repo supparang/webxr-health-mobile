@@ -1,6 +1,6 @@
 // === /herohealth/nutrition-plate/js/plate.coach.js ===
 // Child-friendly coach with rate limit for Nutrition Plate
-// PATCH v20260318-PLATE-VSLICE-B
+// PATCH v20260318-PLATE-RUN-FULL
 
 export function createPlateCoach() {
   const cooldownMs = 3800;
