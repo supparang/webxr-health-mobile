@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth • Food Groups VR Next</title>
+  <meta name="color-scheme" content="dark light" />
+  <link rel="icon" href="../favicon.ico" />
+  <link rel="stylesheet" href="./groups-next.css" />
+</head>
+<body>
+  <main class="gx-shell">
+    <section class="gx-hero">
+      <div class="gx-kicker">🥗 Groups Next</div>
+      <h1 class="gx-title">Food Groups VR • Next</h1>
+      <p class="gx-sub">
+        เกมเวอร์ชันใหม่สำหรับฝึกจำแนกอาหารตาม “หมู่อาหารหลัก 5 หมู่”
+        โดยแยกจากเวอร์ชันเดิมเพื่อรองรับ flow งานวิจัย, ภารกิจหลังเล่น,
+        และการประเมินเหตุผลของผู้เล่น
+      </p>
+
+      <div class="gx-meta" id="gxMeta"></div>
+
+      <div class="gx-actions">
+        <button class="gx-btn gx-btn-primary" id="btnStart">เริ่มเกม</button>
+        <button class="gx-btn gx-btn-secondary" id="btnMission">ดูภารกิจ</button>
+        <button class="gx-btn gx-btn-secondary" id="btnBackHubTop">กลับ HUB</button>
+      </div>
+    </section>
+
+    <section class="gx-grid">
+      <article class="gx-card">
+        <h2 class="gx-card-title">เป้าหมายของเกม</h2>
+        <ul class="gx-list">
+          <li>ฝึกแยกอาหารให้ถูกหมู่</li>
+          <li>ช่วยให้เด็กเข้าใจความต่างของอาหารแต่ละประเภท</li>
+          <li>รองรับการอธิบายเหตุผลหลังเล่นจบ</li>
+        </ul>
+      </article>
+
+      <article class="gx-card">
+        <h2 class="gx-card-title">ความต่างจากเกมเดิม</h2>
+        <ul class="gx-list">
+          <li>แยกเป็นเวอร์ชันใหม่ชัดเจน</li>
+          <li>รองรับ research flow และ metadata version</li>
+          <li>พร้อมต่อ post-game reason / confidence / transfer task</li>
+        </ul>
+      </article>
+
+      <article class="gx-card">
+        <h2 class="gx-card-title">หมู่หลัก 5 หมู่</h2>
+        <div class="gx-tags">
+          <span class="gx-tag">หมู่ 1 โปรตีน</span>
+          <span class="gx-tag">หมู่ 2 คาร์โบไฮเดรต</span>
+          <span class="gx-tag">หมู่ 3 ผัก</span>
+          <span class="gx-tag">หมู่ 4 ผลไม้</span>
+          <span class="gx-tag">หมู่ 5 ไขมัน</span>
+        </div>
+      </article>
+
+      <article class="gx-card">
+        <h2 class="gx-card-title">สถานะปัจจุบัน</h2>
+        <p class="gx-text">
+          ไฟล์นี้เป็น entry/launcher ของ Groups Next เพื่อให้ Hub Next ใช้งานได้ทันที
+          และสามารถค่อย ๆ ต่อไปหน้า run จริงภายหลังได้โดยไม่กระทบ Groups เดิม
+        </p>
+      </article>
+    </section>
+
+    <section class="gx-panel" id="missionPanel" hidden>
+      <div class="gx-panel-card">
+        <h2 class="gx-panel-title">ภารกิจของเกม</h2>
+        <p class="gx-panel-sub">
+          ลากหรือเลือกอาหารให้เข้าหมู่ที่ถูกต้องมากที่สุด แล้วสังเกตว่าทำไมอาหารแต่ละชนิดจึงอยู่ในหมู่นั้น
+        </p>
+
+        <div class="gx-mission-grid">
+          <div class="gx-mission-item">
+            <strong>จำ</strong>
+            <span>จดจำว่าอาหารชนิดใดอยู่หมู่ใด</span>
+          </div>
+          <div class="gx-mission-item">
+            <strong>เข้าใจ</strong>
+            <span>อธิบายได้ว่าทำไมอาหารนั้นอยู่หมู่นั้น</span>
+          </div>
+          <div class="gx-mission-item">
+            <strong>ประยุกต์</strong>
+            <span>นำความรู้ไปเลือกอาหารในสถานการณ์ใหม่</span>
+          </div>
+        </div>
+
+        <div class="gx-actions gx-actions-center">
+          <button class="gx-btn gx-btn-primary" id="btnCloseMission">เข้าใจแล้ว</button>
+        </div>
+      </div>
+    </section>
+
+    <footer class="gx-footer">
+      <div class="gx-footer-left">
+        <span id="gxHubText">Hub: -</span>
+        <span id="gxVersionText">Version: -</span>
+      </div>
+      <div class="gx-footer-right">
+        <button class="gx-btn gx-btn-secondary" id="btnBackHubBottom">กลับ HUB</button>
+      </div>
+    </footer>
+  </main>
+
+  <script src="./groups-next.js"></script>
+</body>
+</html>
