@@ -1,6 +1,6 @@
 // === /herohealth/shared/nutrition-entry.js ===
 // Entry helpers for nutrition zone / hub cards
-// PATCH v20260318-NUTRITION-PRODUCTION-WIRING-A
+// PATCH v20260318-NUTRITION-SHARED-FULL
 
 import { buildUrl } from './nutrition-common.js';
 import { NUTRITION_PATHS } from './nutrition-production.js';
