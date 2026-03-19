@@ -1,10 +1,6 @@
 /* === /herohealth/gate/games/groups/cooldown.js ===
-   HeroHealth Gate Mini-game
-   GAME: groups
-   MODE: cooldown
-   FULL PATCH v20260314-GATE-GROUPS-COOLDOWN-MOUNT-FIX-r2
+FULL PATCH v20260319-GATE-GROUPS-COOLDOWN-CANONICAL
 */
-
 let __styleLoaded = false;
 
 export function loadStyle(){
@@ -80,30 +76,11 @@ export async function mount(root, ctx = {}, api = {}){
   ];
 
   const ITEMS = [
-    { text:'🥚 ไข่', group:'g1' },
-    { text:'🐟 ปลา', group:'g1' },
-    { text:'🥛 นม', group:'g1' },
-    { text:'🫘 ถั่วแดง', group:'g1' },
-
-    { text:'🍚 ข้าว', group:'g2' },
-    { text:'🍞 ขนมปัง', group:'g2' },
-    { text:'🥔 มันฝรั่ง', group:'g2' },
-    { text:'🌽 ข้าวโพด', group:'g2' },
-
-    { text:'🥬 คะน้า', group:'g3' },
-    { text:'🥕 แครอท', group:'g3' },
-    { text:'🥒 แตงกวา', group:'g3' },
-    { text:'🥦 บรอกโคลี', group:'g3' },
-
-    { text:'🍌 กล้วย', group:'g4' },
-    { text:'🍊 ส้ม', group:'g4' },
-    { text:'🍉 แตงโม', group:'g4' },
-    { text:'🍎 แอปเปิล', group:'g4' },
-
-    { text:'🧈 เนย', group:'g5' },
-    { text:'🥥 กะทิ', group:'g5' },
-    { text:'🐷 มันหมู', group:'g5' },
-    { text:'🛢️ น้ำมันปรุงอาหาร', group:'g5' }
+    { text:'🥚 ไข่', group:'g1' }, { text:'🐟 ปลา', group:'g1' }, { text:'🥛 นม', group:'g1' }, { text:'🫘 ถั่วแดง', group:'g1' },
+    { text:'🍚 ข้าว', group:'g2' }, { text:'🍞 ขนมปัง', group:'g2' }, { text:'🥔 มันฝรั่ง', group:'g2' }, { text:'🌽 ข้าวโพด', group:'g2' },
+    { text:'🥬 คะน้า', group:'g3' }, { text:'🥕 แครอท', group:'g3' }, { text:'🥒 แตงกวา', group:'g3' }, { text:'🥦 บรอกโคลี', group:'g3' },
+    { text:'🍌 กล้วย', group:'g4' }, { text:'🍊 ส้ม', group:'g4' }, { text:'🍉 แตงโม', group:'g4' }, { text:'🍎 แอปเปิล', group:'g4' },
+    { text:'🧈 เนย', group:'g5' }, { text:'🥥 กะทิ', group:'g5' }, { text:'🐷 มันหมู', group:'g5' }, { text:'🛢️ น้ำมันปรุงอาหาร', group:'g5' }
   ];
 
   const rounds = shuffle(ITEMS, rng).slice(0, 5);
@@ -115,11 +92,11 @@ export async function mount(root, ctx = {}, api = {}){
   let ended = false;
   let timer = null;
 
-  const plannedTime = Number(ctx.time || 20);
+  const rawTime = Number(ctx?.time ?? 20);
+  const plannedTime = Number.isFinite(rawTime) && rawTime > 0 ? rawTime : 20;
   let timeLeft = plannedTime;
 
   root.innerHTML = '';
-
   const wrap = el('div', 'grp-wrap');
   const hero = el('div', 'grp-hero');
   const stage = el('div', 'grp-stage');
@@ -128,14 +105,14 @@ export async function mount(root, ctx = {}, api = {}){
 
   hero.innerHTML = `
     <div class="grp-kicker">NUTRITION ZONE • GROUPS • COOLDOWN</div>
-    <div class="grp-title">หมู่นี้ควรเลือกอะไร</div>
-    <div class="grp-sub">ทบทวนความเข้าใจเรื่องอาหาร 5 หมู่ ด้วยการเลือกตัวอย่างอาหารที่ตรงกับหมวด</div>
+    <div class="grp-title">ทบทวนหมวดอาหาร</div>
+    <div class="grp-sub">เลือกอาหารให้ตรงกับหมู่ ก่อนกลับ HUB</div>
   `;
 
   const target = el('div', 'grp-target', 'เตรียมทบทวน…');
   const prompt = el('div', 'grp-prompt', 'เลือกอาหารที่อยู่ในหมู่นี้');
   const choices = el('div', 'grp-choices');
-  const note = el('div', 'grp-note', 'ทบทวนสั้น ๆ ก่อนกลับ HUB');
+  const note = el('div', 'grp-note', 'ทบทวนสั้น ๆ แล้วค่อยกลับ HUB');
 
   panelTop.appendChild(target);
   panelBottom.appendChild(prompt);
@@ -147,34 +124,17 @@ export async function mount(root, ctx = {}, api = {}){
   wrap.appendChild(stage);
   root.appendChild(wrap);
 
-  api.logger?.push?.('mini_start', {
-    game: 'groups',
-    mode: 'cooldown',
-    seed: ctx.seed
-  });
-
-  api.setStats?.({
-    time: timeLeft,
-    score: 0,
-    miss: 0,
-    acc: '0%'
-  });
+  api.setStats?.({ time: timeLeft, score: 0, miss: 0, acc: '0%' });
 
   function updateHud(){
     const acc = idx > 0 ? Math.round((correct / idx) * 100) : 0;
-    api.setStats?.({
-      time: timeLeft,
-      score,
-      miss,
-      acc: `${acc}%`
-    });
+    api.setStats?.({ time: timeLeft, score, miss, acc: `${acc}%` });
   }
 
   function buildChoices(item){
-    const correctItem = item;
     const wrongPool = ITEMS.filter(x => x.group !== item.group);
     const wrongs = shuffle(wrongPool, rng).slice(0, 3);
-    return shuffle([correctItem, ...wrongs], rng);
+    return shuffle([item, ...wrongs], rng);
   }
 
   function finishNow(){
@@ -201,27 +161,39 @@ export async function mount(root, ctx = {}, api = {}){
       </div>
     `;
 
-    root.querySelector('#grpFinishBtn')?.addEventListener('click', ()=>{
-      markCooldownDone();
-      api.finish?.({
-        ok: true,
-        title: 'ทบทวนเสร็จแล้ว!',
-        subtitle: 'กลับหน้าหลักได้เลย',
-        lines: [
-          `คะแนน: ${score}`,
-          `ความแม่นยำ: ${accuracy}%`,
-          `ตอบถูก: ${correct}/${rounds.length}`,
-          `Rank: ${rank}`
-        ],
-        metrics: {
-          score,
-          accuracy,
-          correct,
-          misses: miss,
-          rank
-        },
-        markDailyDone: true
-      });
+    root.querySelector('#grpFinishBtn')?.addEventListener('click', (ev)=>{
+      ev.preventDefault();
+      ev.stopPropagation();
+      const btn = ev.currentTarget;
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'กำลังกลับ HUB...';
+      }
+
+      try{
+        markCooldownDone();
+        api.finish?.({
+          ok: true,
+          title: 'ทบทวนเสร็จแล้ว!',
+          subtitle: 'กลับหน้าหลักได้เลย',
+          lines: [
+            `คะแนน: ${score}`,
+            `ความแม่นยำ: ${accuracy}%`,
+            `ตอบถูก: ${correct}/${rounds.length}`,
+            `Rank: ${rank}`
+          ],
+          metrics: {
+            score,
+            accuracy,
+            correct,
+            misses: miss,
+            rank
+          },
+          markDailyDone: true
+        });
+      }catch(err){
+        console.error('[groups cooldown finish]', err);
+      }
     });
   }
 
@@ -239,44 +211,24 @@ export async function mount(root, ctx = {}, api = {}){
     choices.innerHTML = '';
 
     const pickSet = buildChoices(item);
-
     for(const opt of pickSet){
       const btn = el('button', 'grp-btn ghost', opt.text);
-      btn.setAttribute('aria-label', opt.text);
-
       btn.addEventListener('click', ()=>{
         if(ended) return;
-
         idx++;
 
         const isCorrect = opt.text === item.text && opt.group === item.group;
-
         if(isCorrect){
           score += 10;
           correct++;
         }else{
-          score -= 4;
+          score = Math.max(0, score - 4);
           miss++;
         }
-
-        api.logger?.push?.('mini_answer', {
-          game: 'groups',
-          mode: 'cooldown',
-          round: idx,
-          targetGroup: item.group,
-          targetGroupLabel: groupMeta.label,
-          selected: opt.text,
-          selectedGroup: opt.group,
-          correctItem: item.text,
-          score,
-          miss,
-          correctCount: correct
-        });
 
         updateHud();
         renderRound();
       });
-
       choices.appendChild(btn);
     }
   }
@@ -290,17 +242,12 @@ export async function mount(root, ctx = {}, api = {}){
       timeLeft--;
       if(timeLeft < 0) timeLeft = 0;
       updateHud();
-
-      if(timeLeft <= 0){
-        finishNow();
-      }
+      if(timeLeft <= 0) finishNow();
     }, 1000);
   }
 
   return {
-    start(){
-      startGame();
-    },
+    start(){ startGame(); },
     destroy(){
       ended = true;
       if(timer) clearInterval(timer);
