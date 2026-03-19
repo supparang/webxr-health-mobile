@@ -32,7 +32,7 @@ const RUN_CTX = window.__GJ_COOP_CTX__ || {
   roomId: __normalizeRoomId(__qs.get('roomId') || ''),
   mode: 'coop',
   diff: __qs.get('diff') || 'normal',
-  time: __qs.get('time') || '80',
+  time: __qs.get('time') || '120',
   seed: __qs.get('seed') || String(Date.now()),
   startAt: Number(__qs.get('startAt') || 0) || 0,
   hub: __qs.get('hub') || '../hub.html',
@@ -51,7 +51,7 @@ const ROOM_PATH = GJ_ROOM_ID ? `hha-battle/goodjunk/rooms/${GJ_ROOM_ID}` : '';
 const GAME_MOUNT = document.getElementById('gameMount') || document.body;
 const COOP_UI = window.__gjCoopUi || null;
 
-const STYLE_ID = 'goodjunk-safe-coop-style-20260319-polish-fix';
+const STYLE_ID = 'goodjunk-safe-coop-style-20260320-v1';
 const ROOT_ID = 'gjCoopRoot';
 const HEARTBEAT_MS = 2500;
 const STALE_MS = 45000;
@@ -61,16 +61,15 @@ let db = null;
 let roomRef = null;
 let myPlayerRef = null;
 let roomListenerBound = false;
-let raceGateRAF = 0;
+let gateRAF = 0;
 let heartbeatTimer = 0;
 let watchdogTimer = 0;
 let booted = false;
 let localRunActive = false;
 let summaryBound = false;
 let recoveredStartAt = 0;
-let recoveredGoal = 0;
 let lastSummary = null;
-let enteredFinish = false;
+let liveRoom = null;
 
 const GOOD_ITEMS = [
   { emoji: '🍎', label: 'apple' },
@@ -93,9 +92,9 @@ const JUNK_ITEMS = [
 ];
 
 const DIFF_PRESET = {
-  easy:   { spawnMs: 930, goodRatio: 0.68, speedMin: 90,  speedMax: 150, targetSizeMin: 60, targetSizeMax: 84 },
-  normal: { spawnMs: 760, goodRatio: 0.63, speedMin: 110, speedMax: 190, targetSizeMin: 58, targetSizeMax: 82 },
-  hard:   { spawnMs: 610, goodRatio: 0.58, speedMin: 130, speedMax: 240, targetSizeMin: 56, targetSizeMax: 80 }
+  easy:   { spawnMs: 930, goodRatio: 0.70, speedMin: 90,  speedMax: 150, targetSizeMin: 60, targetSizeMax: 84 },
+  normal: { spawnMs: 760, goodRatio: 0.65, speedMin: 110, speedMax: 190, targetSizeMin: 58, targetSizeMax: 82 },
+  hard:   { spawnMs: 610, goodRatio: 0.60, speedMin: 130, speedMax: 240, targetSizeMin: 56, targetSizeMax: 80 }
 };
 
 const state = {
@@ -119,25 +118,24 @@ const state = {
   frameRaf: 0,
   targetSeq: 0,
   targets: new Map(),
-  rect: { width: 0, height: 0 },
-  teamGoal: 0,
-  teamScore: 0,
-  teamMiss: 0
+  rect: { width: 0, height: 0 }
 };
 
 const ui = {
   root: null,
   stage: null,
   layer: null,
-  myScore: null,
+  score: null,
   timer: null,
-  teamScore: null,
-  teamGoal: null,
-  teamMiss: null,
+  miss: null,
+  streak: null,
   hint: null,
   progress: null,
   stats: null,
-  centerTip: null
+  centerTip: null,
+  teamScore: null,
+  teamGoal: null,
+  teamFill: null
 };
 
 const rng = createSeededRng(RUN_CTX.seed || Date.now());
@@ -153,7 +151,7 @@ function boot() {
   bootWithGate(async () => {
     const ok = await ensureFirebase();
     if (!ok) {
-      showGate('เปิดห้องร่วมมือไม่สำเร็จ', '...', 'ตรวจสอบ room แล้วลองใหม่');
+      showGate('เปิดห้อง Coop ไม่สำเร็จ', '...', 'ตรวจสอบ room แล้วลองใหม่');
       return;
     }
 
@@ -217,7 +215,7 @@ function injectStyle() {
     .gj-stage{position:relative;width:100%;height:100%;min-height:320px;overflow:hidden;border:1px solid rgba(148,163,184,.18);border-radius:26px;background:radial-gradient(circle at 50% 0%, rgba(167,139,250,.10), transparent 30%),linear-gradient(180deg, rgba(15,23,42,.72), rgba(2,6,23,.78));box-shadow:0 24px 64px rgba(0,0,0,.22)}
     .gj-stage::before{content:"";position:absolute;inset:0;background:linear-gradient(180deg, rgba(255,255,255,.04), transparent 30%),linear-gradient(0deg, rgba(255,255,255,.03), transparent 30%);pointer-events:none}
     .gj-target-layer{position:absolute;inset:0;overflow:hidden}
-    .gj-center-tip{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(86vw,420px);padding:16px 18px;border-radius:18px;background:rgba(2,6,23,.50);border:1px solid rgba(148,163,184,.18);color:#e5e7eb;text-align:center;font-weight:900;backdrop-filter:blur(6px);pointer-events:none;opacity:.96;transition:opacity .35s ease, transform .35s ease;box-shadow:0 16px 36px rgba(0,0,0,.18)}
+    .gj-center-tip{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(86vw,440px);padding:16px 18px;border-radius:18px;background:rgba(2,6,23,.52);border:1px solid rgba(148,163,184,.18);color:#e5e7eb;text-align:center;font-weight:900;backdrop-filter:blur(6px);pointer-events:none;opacity:.96;transition:opacity .35s ease, transform .35s ease;box-shadow:0 16px 36px rgba(0,0,0,.18)}
     .gj-center-tip.hide{opacity:0;transform:translate(-50%,-50%) scale(.96)}
     .gj-target{position:absolute;display:grid;place-items:center;border-radius:20px;border:1px solid rgba(255,255,255,.16);box-shadow:0 14px 28px rgba(0,0,0,.18);transform:translate3d(0,0,0);cursor:pointer;outline:none;padding:0;overflow:hidden;background:rgba(15,23,42,.78)}
     .gj-target.good{background:radial-gradient(circle at 30% 25%, rgba(255,255,255,.22), transparent 26%),linear-gradient(180deg, rgba(34,197,94,.30), rgba(34,197,94,.18)),rgba(15,23,42,.84);border-color:rgba(34,197,94,.30)}
@@ -228,11 +226,16 @@ function injectStyle() {
     @keyframes gj-fx-up{from{opacity:1;transform:translate(-50%,-20%)}to{opacity:0;transform:translate(-50%,-140%)}}
     .gj-bottom{padding:0 12px calc(12px + env(safe-area-inset-bottom,0px))}
     .gj-bottom-card{border:1px solid rgba(148,163,184,.18);border-radius:18px;padding:12px;background:rgba(2,6,23,.62);backdrop-filter:blur(8px);box-shadow:0 10px 24px rgba(0,0,0,.18)}
-    .gj-bottom-top{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
-    .gj-progress{position:relative;width:100%;height:12px;border-radius:999px;overflow:hidden;border:1px solid rgba(148,163,184,.18);background:rgba(255,255,255,.06)}
-    .gj-progress-bar{width:100%;height:100%;background:linear-gradient(90deg, rgba(167,139,250,.85), rgba(34,197,94,.85));transform-origin:left center;transition:transform .12s linear}
+    .gj-bottom-top{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap;margin-bottom:10px}
     .gj-legend{display:flex;gap:10px;flex-wrap:wrap;font-size:13px;color:#cbd5e1;line-height:1.5}
     .gj-legend strong{color:#e5e7eb}
+    .gj-team{display:grid;gap:10px;width:min(100%,420px)}
+    .gj-team-card{border:1px solid rgba(148,163,184,.18);border-radius:16px;background:rgba(255,255,255,.04);padding:10px}
+    .gj-team-row{display:flex;justify-content:space-between;gap:10px;align-items:center;font-size:13px;font-weight:900;color:#e5e7eb;margin-bottom:8px}
+    .gj-meter{position:relative;width:100%;height:12px;border-radius:999px;overflow:hidden;border:1px solid rgba(148,163,184,.18);background:rgba(255,255,255,.06)}
+    .gj-meter-fill{width:100%;height:100%;transform-origin:left center;transition:transform .12s linear;background:linear-gradient(90deg, rgba(167,139,250,.95), rgba(56,189,248,.95))}
+    .gj-progress{position:relative;width:100%;height:12px;border-radius:999px;overflow:hidden;border:1px solid rgba(148,163,184,.18);background:rgba(255,255,255,.06)}
+    .gj-progress-bar{width:100%;height:100%;background:linear-gradient(90deg, rgba(167,139,250,.85), rgba(14,165,233,.85));transform-origin:left center;transition:transform .12s linear}
   `;
   document.head.appendChild(style);
 }
@@ -243,17 +246,17 @@ function buildShell() {
       <div class="gj-shell">
         <header class="gj-topbar">
           <div class="gj-chip-row">
-            <div class="gj-chip"><span>My Score</span><strong id="gjMyScore">0</strong></div>
+            <div class="gj-chip"><span>My Score</span><strong id="gjScore">0</strong></div>
             <div class="gj-chip"><span>Team Score</span><strong id="gjTeamScore">0</strong></div>
-            <div class="gj-chip"><span>Goal</span><strong id="gjTeamGoal">0</strong></div>
             <div class="gj-chip"><span>Time</span><strong id="gjTimer">0</strong></div>
-            <div class="gj-chip"><span>Team Miss</span><strong id="gjTeamMiss">0</strong></div>
+            <div class="gj-chip"><span>Miss</span><strong id="gjMiss">0</strong></div>
+            <div class="gj-chip"><span>Best Streak</span><strong id="gjStreak">0</strong></div>
           </div>
         </header>
 
         <div class="gj-stage-wrap">
           <div class="gj-stage" id="gjStage">
-            <div class="gj-center-tip" id="gjCenterTip">ช่วยกันเก็บของดีให้ถึง goal ทีม และอย่าแตะ junk</div>
+            <div class="gj-center-tip" id="gjCenterTip">ช่วยกันเก็บของดีให้ได้มากที่สุดเป็นทีม</div>
             <div class="gj-target-layer" id="gjTargetLayer"></div>
           </div>
         </div>
@@ -261,15 +264,28 @@ function buildShell() {
         <div class="gj-bottom">
           <div class="gj-bottom-card">
             <div class="gj-bottom-top">
-              <div class="gj-legend" id="gjStatsText">
-                <div><strong>My Good hit:</strong> 0</div>
-                <div><strong>My Junk hit:</strong> 0</div>
-                <div><strong>My Good missed:</strong> 0</div>
+              <div>
+                <div class="gj-legend" id="gjStatsText">
+                  <div><strong>Good hit:</strong> 0</div>
+                  <div><strong>Junk hit:</strong> 0</div>
+                  <div><strong>Good missed:</strong> 0</div>
+                </div>
+                <div class="gj-legend" id="gjHintText" style="margin-top:8px;">
+                  <div>Tip: ทุกคะแนนของคุณจะถูกรวมเป็นคะแนนทีม</div>
+                </div>
               </div>
-              <div class="gj-legend" id="gjHintText">
-                <div>Tip: ช่วยกันเก็บของดีให้ถึงคะแนนเป้าหมาย</div>
+
+              <div class="gj-team">
+                <div class="gj-team-card">
+                  <div class="gj-team-row">
+                    <span>TEAM GOAL</span>
+                    <strong id="gjTeamGoal">0</strong>
+                  </div>
+                  <div class="gj-meter"><div class="gj-meter-fill" id="gjTeamFill"></div></div>
+                </div>
               </div>
             </div>
+
             <div class="gj-progress"><div class="gj-progress-bar" id="gjProgressBar"></div></div>
           </div>
         </div>
@@ -280,11 +296,13 @@ function buildShell() {
   ui.root = document.getElementById(ROOT_ID);
   ui.stage = document.getElementById('gjStage');
   ui.layer = document.getElementById('gjTargetLayer');
-  ui.myScore = document.getElementById('gjMyScore');
+  ui.score = document.getElementById('gjScore');
   ui.teamScore = document.getElementById('gjTeamScore');
   ui.teamGoal = document.getElementById('gjTeamGoal');
+  ui.teamFill = document.getElementById('gjTeamFill');
   ui.timer = document.getElementById('gjTimer');
-  ui.teamMiss = document.getElementById('gjTeamMiss');
+  ui.miss = document.getElementById('gjMiss');
+  ui.streak = document.getElementById('gjStreak');
   ui.hint = document.getElementById('gjHintText');
   ui.progress = document.getElementById('gjProgressBar');
   ui.stats = document.getElementById('gjStatsText');
@@ -342,11 +360,12 @@ function rand(){ return rng(); }
 function randRange(min, max){ return min + (max - min) * rand(); }
 function clampInt(v, min, max){ return Math.max(min, Math.min(max, Math.floor(v))); }
 function pick(arr){ return arr[Math.floor(rand() * arr.length)]; }
+function clamp01(v){ return Math.max(0, Math.min(1, v)); }
 
 function startGame() {
   if (state.running || state.ended) return;
 
-  state.totalMs = clampInt(Number(RUN_CTX.time || 80) * 1000, 30000, 600000);
+  state.totalMs = clampInt(Number(RUN_CTX.time || 120) * 1000, 30000, 600000);
   state.timeLeftMs = state.totalMs;
   state.score = 0;
   state.miss = 0;
@@ -365,17 +384,15 @@ function startGame() {
   state.targetSeq = 0;
   state.targets.clear();
   localRunActive = true;
-  enteredFinish = false;
-
-  state.teamGoal = Number(recoveredGoal || 0);
-  setGoalMeta(state.teamGoal);
 
   if (ui.layer) ui.layer.innerHTML = '';
   if (ui.centerTip) {
     ui.centerTip.classList.remove('hide');
-    ui.centerTip.textContent = `ช่วยกันเก็บของดีให้ถึง goal ทีม ${state.teamGoal || ''}`.trim();
+    ui.centerTip.textContent = 'ช่วยกันเก็บของดีให้ได้มากที่สุดเป็นทีม';
     setTimeout(() => ui.centerTip?.classList.add('hide'), 1800);
   }
+
+  if (COOP_UI?.setStatus) COOP_UI.setStatus('running');
 
   hideSummary();
   renderHud();
@@ -414,11 +431,11 @@ function updateSpawner(dt) {
   }
 }
 
-function spawnTarget() {
+function spawnTarget(forceType = '') {
   refreshStageRect();
 
   const preset = DIFF_PRESET[state.diff] || DIFF_PRESET.normal;
-  const isGood = rand() < preset.goodRatio;
+  const isGood = forceType === 'good' ? true : forceType === 'junk' ? false : rand() < preset.goodRatio;
   const item = pick(isGood ? GOOD_ITEMS : JUNK_ITEMS);
 
   const size = randRange(preset.targetSizeMin, preset.targetSizeMax);
@@ -499,14 +516,14 @@ function hitTarget(id) {
     const gain = 10 + comboBonus;
     state.score += gain;
     createFx(target.x + target.size / 2, target.y + target.size / 2, `+${gain}`, '#86efac');
-    updateHint('ดีมาก! ทีมกำลังไปได้สวย');
+    updateHint('เยี่ยมมาก คะแนนของคุณถูกรวมเป็นคะแนนทีม');
   } else {
     state.hitsBad += 1;
     state.miss += 1;
     state.streak = 0;
     state.score = Math.max(0, state.score - 8);
     createFx(target.x + target.size / 2, target.y + target.size / 2, 'MISS', '#fda4af');
-    updateHint('ระวัง junk! ช่วยกันรักษาคะแนนทีม');
+    updateHint('ระวัง junk! อย่าทำให้คะแนนทีมตก');
   }
 
   removeTarget(id);
@@ -519,7 +536,7 @@ function registerMissGood(target) {
   state.miss += 1;
   state.streak = 0;
   createFx(target.x + target.size / 2, Math.max(28, target.y), 'พลาดของดี', '#fbbf24');
-  updateHint('มีของดีหลุดไปแล้ว รีบช่วยกันเก็บชิ้นต่อไป');
+  updateHint('ของดีหลุดไปแล้ว รีบช่วยทีมเก็บชิ้นต่อไป');
   removeTarget(target.id);
   renderHud();
   publishProgress();
@@ -557,23 +574,85 @@ function updateHint(message) {
   ui.hint.innerHTML = `<div>${escapeHtml(message)}</div>`;
 }
 
+function getParticipantIds(room) {
+  const ids = Array.isArray(room?.match?.participantIds) ? room.match.participantIds : [];
+  return ids.map((id) => __normalizePid(id)).filter(Boolean);
+}
+
+function normalizePlayers(players) {
+  return Array.isArray(players) ? players.filter(Boolean).map((p) => ({
+    id: __normalizePid(p.id || ''),
+    name: String(p.name || '').trim(),
+    ready: !!p.ready,
+    connected: p.connected !== false,
+    phase: String(p.phase || (p.finished ? 'done' : 'run')).trim(),
+    finished: !!p.finished,
+    finalScore: Number(p.finalScore || 0),
+    miss: Number(p.miss || 0),
+    streak: Number(p.streak || 0),
+    joinedAt: Number(p.joinedAt || 0),
+    lastSeenAt: Number(p.lastSeenAt || 0),
+    finishedAt: Number(p.finishedAt || 0)
+  })) : [];
+}
+
+function getCoopPlayers(room) {
+  const allPlayers = normalizePlayers(room?.players || []);
+  const participantIds = getParticipantIds(room);
+  if (!participantIds.length) return allPlayers;
+  const map = new Map(allPlayers.map((p) => [p.id, p]));
+  return participantIds.map((id) => map.get(id)).filter(Boolean);
+}
+
+function amIParticipant(room) {
+  const ids = getParticipantIds(room);
+  if (!ids.length) return true;
+  return ids.includes(GJ_PID);
+}
+
+function getTeamScore(room = liveRoom) {
+  const players = getCoopPlayers(room);
+  let total = 0;
+
+  players.forEach((p) => {
+    if (p.id === GJ_PID && localRunActive && !state.ended) {
+      total += Number(state.score || 0);
+    } else {
+      total += Number(p.finalScore || 0);
+    }
+  });
+
+  return total;
+}
+
+function getTeamGoal(room = liveRoom) {
+  const count = Math.max(1, getCoopPlayers(room).length || 1);
+  return count * 180;
+}
+
 function renderHud() {
-  if (ui.myScore) ui.myScore.textContent = String(state.score);
-  if (ui.teamScore) ui.teamScore.textContent = String(state.teamScore);
-  if (ui.teamGoal) ui.teamGoal.textContent = String(state.teamGoal);
+  if (ui.score) ui.score.textContent = String(state.score);
   if (ui.timer) ui.timer.textContent = formatSeconds(state.timeLeftMs);
-  if (ui.teamMiss) ui.teamMiss.textContent = String(state.teamMiss);
+  if (ui.miss) ui.miss.textContent = String(state.miss);
+  if (ui.streak) ui.streak.textContent = String(state.bestStreak);
+
+  const teamScore = getTeamScore(liveRoom);
+  const teamGoal = getTeamGoal(liveRoom);
+
+  if (ui.teamScore) ui.teamScore.textContent = String(teamScore);
+  if (ui.teamGoal) ui.teamGoal.textContent = String(teamGoal);
+  if (ui.teamFill) ui.teamFill.style.transform = `scaleX(${clamp01(teamScore / Math.max(1, teamGoal))})`;
 
   if (ui.progress) {
-    const ratio = state.teamGoal > 0 ? Math.max(0, Math.min(1, state.teamScore / state.teamGoal)) : 0;
+    const ratio = state.totalMs > 0 ? clamp01(state.timeLeftMs / state.totalMs) : 0;
     ui.progress.style.transform = `scaleX(${ratio})`;
   }
 
   if (ui.stats) {
     ui.stats.innerHTML = `
-      <div><strong>My Good hit:</strong> ${state.hitsGood}</div>
-      <div><strong>My Junk hit:</strong> ${state.hitsBad}</div>
-      <div><strong>My Good missed:</strong> ${state.missedGood}</div>
+      <div><strong>Good hit:</strong> ${state.hitsGood}</div>
+      <div><strong>Junk hit:</strong> ${state.hitsBad}</div>
+      <div><strong>Good missed:</strong> ${state.missedGood}</div>
     `;
   }
 }
@@ -583,6 +662,16 @@ function formatSeconds(ms) {
   const m = Math.floor(s / 60);
   const r = s % 60;
   return `${m}:${String(r).padStart(2, '0')}`;
+}
+
+function toast(message) {
+  if (window.__gjShowCoopRunMessage) {
+    window.__gjShowCoopRunMessage(message);
+    clearTimeout(toast._t);
+    toast._t = setTimeout(() => {
+      window.__gjHideCoopRunMessage?.();
+    }, 2200);
+  }
 }
 
 function endGame(reason = 'finished') {
@@ -609,8 +698,8 @@ function hideGate() {
 }
 
 function cancelGateLoop() {
-  if (raceGateRAF) cancelAnimationFrame(raceGateRAF);
-  raceGateRAF = 0;
+  if (gateRAF) cancelAnimationFrame(gateRAF);
+  gateRAF = 0;
 }
 
 function waitUntilStart(startAt) {
@@ -619,7 +708,7 @@ function waitUntilStart(startAt) {
       const left = startAt - Date.now();
 
       if (left <= 0) {
-        showGate('เริ่มเกมร่วมกัน', 'GO!', 'กำลังเข้าสู่เกม...');
+        showGate('เริ่ม Coop', 'GO!', 'กำลังเข้าสู่เกม...');
         window.setTimeout(resolve, 220);
         return;
       }
@@ -630,7 +719,7 @@ function waitUntilStart(startAt) {
         `Room: ${GJ_ROOM_ID || '-'}`
       );
 
-      raceGateRAF = requestAnimationFrame(tick);
+      gateRAF = requestAnimationFrame(tick);
     };
 
     tick();
@@ -639,23 +728,6 @@ function waitUntilStart(startAt) {
 
 function getEffectiveStartAt() {
   return Number(GJ_START_AT || recoveredStartAt || 0) || 0;
-}
-
-function normalizePlayers(players) {
-  return Array.isArray(players) ? players.filter(Boolean).map((p) => ({
-    id: __normalizePid(p.id || ''),
-    name: String(p.name || '').trim(),
-    ready: !!p.ready,
-    connected: p.connected !== false,
-    phase: String(p.phase || (p.finished ? 'done' : 'run')).trim(),
-    finished: !!p.finished,
-    finalScore: Number(p.finalScore || 0),
-    miss: Number(p.miss || 0),
-    streak: Number(p.streak || 0),
-    joinedAt: Number(p.joinedAt || 0),
-    lastSeenAt: Number(p.lastSeenAt || 0),
-    finishedAt: Number(p.finishedAt || 0)
-  })) : [];
 }
 
 function sanitizeRoom(room) {
@@ -669,7 +741,7 @@ function sanitizeRoom(room) {
     hostId: __normalizePid(room.hostId || ''),
     mode: String(room.mode || 'coop'),
     minPlayers: Math.max(2, Number(room.minPlayers || 2)),
-    maxPlayers: Math.max(2, Number(room.maxPlayers || 4)),
+    maxPlayers: Math.max(2, Number(room.maxPlayers || 10)),
     status: ['waiting', 'countdown', 'running', 'finished'].includes(room.status) ? room.status : 'waiting',
     startAt: room.startAt ? Number(room.startAt) : null,
     createdAt: Number(room.createdAt || Date.now()),
@@ -682,8 +754,6 @@ function sanitizeRoom(room) {
       lockedAt: rawMatch.lockedAt ? Number(rawMatch.lockedAt) : null,
       status: ['idle', 'countdown', 'running', 'finished'].includes(rawMatch.status) ? rawMatch.status : 'idle',
       coop: {
-        goal: Number(rawCoop.goal || 0),
-        success: !!rawCoop.success,
         finishedAt: Number(rawCoop.finishedAt || 0)
       }
     }
@@ -719,8 +789,6 @@ function roomToFirebase(room) {
       lockedAt: room.match?.lockedAt || null,
       status: room.match?.status || 'idle',
       coop: {
-        goal: Number(room.match?.coop?.goal || 0),
-        success: !!room.match?.coop?.success,
         finishedAt: Number(room.match?.coop?.finishedAt || 0)
       }
     }
@@ -745,54 +813,10 @@ function roomToFirebase(room) {
   return out;
 }
 
-function getParticipantIds(room) {
-  const ids = Array.isArray(room?.match?.participantIds) ? room.match.participantIds : [];
-  return ids.map((id) => __normalizePid(id)).filter(Boolean);
-}
-
-function getCoopPlayers(room) {
-  const allPlayers = normalizePlayers(room?.players || []);
-  const participantIds = getParticipantIds(room);
-  if (!participantIds.length) return allPlayers;
-  const map = new Map(allPlayers.map((p) => [p.id, p]));
-  return participantIds.map((id) => map.get(id)).filter(Boolean);
-}
-
-function amIParticipant(room) {
-  const ids = getParticipantIds(room);
-  if (!ids.length) return true;
-  return ids.includes(GJ_PID);
-}
-
-function computeTeam(players) {
-  return players.reduce((acc, p) => {
-    acc.score += Number(p.finalScore || 0);
-    acc.miss += Number(p.miss || 0);
-    return acc;
-  }, { score: 0, miss: 0 });
-}
-
-function syncRoomTeamState(room) {
-  const players = getCoopPlayers(room);
-  const team = computeTeam(players);
-  const goal = Number(room?.match?.coop?.goal || recoveredGoal || 0);
-
-  state.teamScore = team.score;
-  state.teamMiss = team.miss;
-  state.teamGoal = goal;
-  setGoalMeta(goal);
-  renderHud();
-
-  return { players, team, goal };
-}
-
 function buildCoopSummaryPayload(room, players, pending = false, reason = '') {
-  const team = computeTeam(players);
-  const goal = Number(room?.match?.coop?.goal || recoveredGoal || 0);
-  const success = !!room?.match?.coop?.success;
-
+  const teamScore = players.reduce((sum, p) => sum + Number(p.finalScore || 0), 0);
   return {
-    version: '20260319-coop-v1-fix',
+    version: '20260320-coop-v1',
     source: 'goodjunk-coop',
     gameId: GJ_GAME_ID,
     mode: 'coop',
@@ -800,13 +824,11 @@ function buildCoopSummaryPayload(room, players, pending = false, reason = '') {
     name: GJ_NAME,
     studyId: RUN_CTX.studyId || '',
     roomId: GJ_ROOM_ID,
-    goal,
-    success,
     pending,
     reason,
-    teamScore: team.score,
-    teamMiss: team.miss,
     playerCount: players.length,
+    teamScore,
+    teamGoal: getTeamGoal({ players, match: { participantIds: players.map((p) => p.id) } }),
     updatedAt: Date.now(),
     players: players.map((p) => ({
       pid: p.id,
@@ -818,13 +840,6 @@ function buildCoopSummaryPayload(room, players, pending = false, reason = '') {
       streak: Number(p.streak || 0)
     }))
   };
-}
-
-function setGoalMeta(goal) {
-  recoveredGoal = Number(goal || 0) || 0;
-  if (COOP_UI?.setGoal) COOP_UI.setGoal(recoveredGoal);
-  const meta = document.getElementById('metaGoal');
-  if (meta) meta.textContent = String(recoveredGoal || '-');
 }
 
 function hideSummary() {
@@ -1041,20 +1056,15 @@ async function maybeFinalizeRoom(force = false) {
   });
 
   const nextCoopPlayers = set.size ? nextPlayers.filter((p) => set.has(p.id)) : nextPlayers;
-  const team = computeTeam(nextCoopPlayers);
-  const goal = Number(room.match?.coop?.goal || recoveredGoal || 0);
   const allFinished = nextCoopPlayers.every((p) => p.finished);
-  const success = goal > 0 ? team.score >= goal : false;
 
-  if (success || allFinished) {
+  if (allFinished) {
     room.status = 'finished';
     room.match = {
       ...(room.match || {}),
       status: 'finished',
       coop: {
         ...(room.match?.coop || {}),
-        goal,
-        success,
         finishedAt: ts
       }
     };
@@ -1073,7 +1083,7 @@ async function maybeFinalizeRoom(force = false) {
     localRunActive = false;
     stopHeartbeat();
     stopWatchdog();
-    showSummary(room, nextCoopPlayers, false, success ? 'goal-reached' : 'finished');
+    showSummary(room, nextCoopPlayers, false, 'finished');
   }
 }
 
@@ -1087,38 +1097,6 @@ async function publishProgress() {
     miss: state.miss,
     streak: state.bestStreak
   });
-
-  const room = await loadRoom();
-  if (!room) return;
-  if (!amIParticipant(room)) return;
-
-  const { players, team, goal } = syncRoomTeamState(room);
-
-  if (goal > 0 && team.score >= goal && room.status !== 'finished') {
-    room.status = 'finished';
-    room.match = {
-      ...(room.match || {}),
-      status: 'finished',
-      coop: {
-        ...(room.match?.coop || {}),
-        goal,
-        success: true,
-        finishedAt: Date.now()
-      }
-    };
-    room.updatedAt = Date.now();
-
-    await saveRoom(room);
-
-    state.running = false;
-    state.ended = true;
-    enteredFinish = true;
-    stopHeartbeat();
-    stopWatchdog();
-
-    showSummary(room, players, false, 'goal-reached');
-    return;
-  }
 }
 
 async function publishFinish(reason = 'finished') {
@@ -1137,19 +1115,16 @@ async function publishFinish(reason = 'finished') {
   if (!room) return;
   if (!amIParticipant(room)) return;
 
-  const { players, team, goal } = syncRoomTeamState(room);
+  const players = getCoopPlayers(room);
   const allFinished = players.every((p) => p.finished);
-  const success = goal > 0 ? team.score >= goal : false;
 
-  if (success || allFinished) {
+  if (allFinished) {
     room.status = 'finished';
     room.match = {
       ...(room.match || {}),
       status: 'finished',
       coop: {
         ...(room.match?.coop || {}),
-        goal,
-        success,
         finishedAt: Date.now()
       }
     };
@@ -1159,11 +1134,10 @@ async function publishFinish(reason = 'finished') {
 
     state.running = false;
     state.ended = true;
-    enteredFinish = true;
     stopHeartbeat();
     stopWatchdog();
 
-    showSummary(room, players, false, success ? 'goal-reached' : reason);
+    showSummary(room, players, false, reason);
     return;
   }
 
@@ -1173,9 +1147,10 @@ async function publishFinish(reason = 'finished') {
 function showSummary(room, players, pending = false, reason = '') {
   const wrap = document.getElementById('coopSummary');
   const rowsBox = document.getElementById('coopSummaryRows');
-  const badge = document.getElementById('coopSummaryBadge');
   const sub = document.getElementById('coopSummarySub');
   const hint = document.getElementById('coopSummaryHint');
+  const teamScoreEl = document.getElementById('coopTeamScore');
+  const teamGoalEl = document.getElementById('coopTeamGoal');
 
   if (!wrap || !rowsBox) return;
   if (!amIParticipant(room)) return;
@@ -1186,19 +1161,12 @@ function showSummary(room, players, pending = false, reason = '') {
     return b.streak - a.streak;
   });
 
-  const team = computeTeam(sorted);
-  const goal = Number(room?.match?.coop?.goal || recoveredGoal || 0);
-  const success = !!room?.match?.coop?.success;
-
-  state.teamScore = team.score;
-  state.teamMiss = team.miss;
-  state.teamGoal = goal;
-  setGoalMeta(goal);
-  renderHud();
+  const teamScore = sorted.reduce((sum, p) => sum + Number(p.finalScore || 0), 0);
+  const teamGoal = getTeamGoal({ players: sorted, match: { participantIds: sorted.map((p) => p.id) } });
 
   rowsBox.innerHTML = sorted.map((p) => {
     const isMe = p.id === GJ_PID;
-    const statusText = p.finished ? 'รอบนี้จบแล้ว' : (p.connected === false ? 'ขาดการเชื่อมต่อ' : 'ยังไม่จบ');
+    const statusText = p.finished ? 'ส่งคะแนนแล้ว' : (p.connected === false ? 'ขาดการเชื่อมต่อ' : 'ยังไม่จบ');
 
     return `
       <div class="result-row ${isMe ? 'is-me' : ''}">
@@ -1218,29 +1186,24 @@ function showSummary(room, players, pending = false, reason = '') {
     `;
   }).join('');
 
-  if (badge) {
-    badge.textContent = success ? 'TEAM CLEAR' : (pending ? 'PENDING' : 'NOT YET');
-    badge.style.color = success ? '#86efac' : '#fcd34d';
-    badge.style.borderColor = success ? 'rgba(34,197,94,.25)' : 'rgba(245,158,11,.28)';
-    badge.style.background = success ? 'rgba(34,197,94,.12)' : 'rgba(245,158,11,.10)';
-  }
+  if (teamScoreEl) teamScoreEl.textContent = String(teamScore);
+  if (teamGoalEl) teamGoalEl.textContent = String(teamGoal);
 
   if (sub) {
     sub.textContent = pending
-      ? `ผลชั่วคราว • Team Score ${team.score}/${goal} • รอเพื่อนร่วมทีม`
-      : `ผลทีม • Team Score ${team.score}/${goal} • ${success ? 'ทีมทำเป้าสำเร็จ' : 'ทีมยังไม่ถึงเป้า'}`;
+      ? 'ผลชั่วคราว • คุณจบรอบแล้ว แต่ยังรอผู้เล่นคนอื่น'
+      : `ผลสุดท้าย • participant ทั้งหมด ${sorted.length} คน`;
   }
 
   if (hint) {
     hint.textContent = pending
-      ? 'ผู้เล่นคนนี้จบรอบแล้ว แต่ยังรอ participant คนอื่นหรือรอการ finalize ของห้อง'
-      : (reason === 'goal-reached'
-          ? 'ทีมทำคะแนนรวมถึงเป้าหมายแล้ว'
-          : 'คะแนนรวมทีมคำนวณจาก participant ของรอบนี้');
+      ? 'summary นี้ยังไม่ final จนกว่าผู้เล่นใน participant จะจบครบหรือถูกตัดสิทธิ์'
+      : `คะแนนรวมทีม ${teamScore} / เป้าหมาย ${teamGoal}`;
   }
 
   lastSummary = buildCoopSummaryPayload(room, sorted, pending, reason);
   wrap.hidden = false;
+  if (COOP_UI?.setStatus) COOP_UI.setStatus(pending ? 'pending' : 'finished');
 }
 
 async function resetRoomForRematch() {
@@ -1254,8 +1217,6 @@ async function resetRoomForRematch() {
     lockedAt: null,
     status: 'idle',
     coop: {
-      goal: 0,
-      success: false,
       finishedAt: 0
     }
   };
@@ -1284,7 +1245,7 @@ function buildLobbyUrl() {
     name: GJ_NAME,
     studyId: RUN_CTX.studyId || '',
     diff: RUN_CTX.diff || 'normal',
-    time: RUN_CTX.time || '80',
+    time: RUN_CTX.time || '120',
     seed: String(Date.now()),
     hub: GJ_HUB,
     view: RUN_CTX.view || 'mobile',
@@ -1311,9 +1272,6 @@ async function bootWithGate(startFn) {
       showGate('คุณไม่ได้อยู่ใน participant ของรอบนี้', '...', 'กลับไป lobby เพื่อรอรอบถัดไป');
       return;
     }
-
-    recoveredGoal = Number(room?.match?.coop?.goal || 0);
-    setGoalMeta(recoveredGoal);
   }
 
   if (!getEffectiveStartAt()) {
@@ -1322,7 +1280,7 @@ async function bootWithGate(startFn) {
   }
 
   if (!getEffectiveStartAt()) {
-    showGate('กำลังรอเริ่มเกมร่วมกัน', '...', 'ยังไม่มีสัญญาณเริ่มจากห้อง');
+    showGate('กำลังรอเริ่ม Coop', '...', 'ยังไม่มีสัญญาณเริ่มจากห้อง');
     return;
   }
 
@@ -1344,16 +1302,13 @@ function attachRoomListener() {
       const room = sanitizeRoom(snapshotToRoom(snap.val()));
       if (!room) return;
 
+      liveRoom = room;
       recoveredStartAt = Number(room.startAt || recoveredStartAt || 0);
-      setGoalMeta(Number(room?.match?.coop?.goal || recoveredGoal || 0));
 
       if (!amIParticipant(room)) {
         hideSummary();
         return;
       }
-
-      const { players } = syncRoomTeamState(room);
-      const me = players.find((p) => p.id === GJ_PID);
 
       if (room.status === 'finished') {
         state.running = false;
@@ -1361,14 +1316,22 @@ function attachRoomListener() {
         localRunActive = false;
         stopHeartbeat();
         stopWatchdog();
-        showSummary(room, players, false, room?.match?.coop?.success ? 'goal-reached' : 'finished');
+        showSummary(room, getCoopPlayers(room), false, 'finished');
         return;
       }
+
+      if (room.status === 'running' && COOP_UI?.setStatus) {
+        COOP_UI.setStatus('running');
+      }
+
+      const players = getCoopPlayers(room);
+      const me = players.find((p) => p.id === GJ_PID);
 
       if (me && !me.finished && localRunActive && !state.ended) {
         hideSummary();
       }
 
+      renderHud();
       await maybeFinalizeRoom(false);
     });
   });
