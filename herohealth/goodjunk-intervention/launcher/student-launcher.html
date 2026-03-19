@@ -3,148 +3,579 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>GoodJunk Intervention • Student Launcher</title>
-  <link rel="stylesheet" href="./launcher.css" />
+  <title>GoodJunk Intervention — Student Launcher</title>
+  <meta name="color-scheme" content="dark light" />
+  <style>
+    :root{
+      --bg1:#07111f;
+      --bg2:#0f1d36;
+      --panel:rgba(10,18,34,.86);
+      --card:rgba(15,23,42,.78);
+      --stroke:rgba(148,163,184,.18);
+      --text:#f8fafc;
+      --muted:#cbd5e1;
+      --green:#22c55e;
+      --blue:#38bdf8;
+      --violet:#a78bfa;
+      --pink:#f472b6;
+      --warn:#f59e0b;
+      --shadow:0 18px 50px rgba(0,0,0,.32);
+      --radius:24px;
+    }
+
+    *{ box-sizing:border-box; }
+
+    html,body{
+      margin:0;
+      min-height:100%;
+      font-family:system-ui,-apple-system,"Noto Sans Thai","Segoe UI",Roboto,Arial,sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(34,197,94,.14), transparent 24%),
+        radial-gradient(circle at top right, rgba(56,189,248,.14), transparent 28%),
+        linear-gradient(180deg, var(--bg1), var(--bg2));
+    }
+
+    .wrap{
+      width:min(1120px, calc(100% - 24px));
+      margin:20px auto 40px;
+    }
+
+    .hero{
+      background:var(--panel);
+      border:1px solid var(--stroke);
+      border-radius:30px;
+      box-shadow:var(--shadow);
+      padding:22px;
+      backdrop-filter:blur(10px);
+    }
+
+    .badge{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      min-height:34px;
+      padding:6px 12px;
+      border-radius:999px;
+      border:1px solid rgba(56,189,248,.24);
+      background:rgba(56,189,248,.12);
+      color:#dbeafe;
+      font-size:12px;
+      font-weight:1000;
+      letter-spacing:.3px;
+    }
+
+    h1{
+      margin:14px 0 8px;
+      font-size:clamp(30px, 5vw, 46px);
+      line-height:1.05;
+    }
+
+    .sub{
+      color:var(--muted);
+      font-size:14px;
+      line-height:1.65;
+      max-width:840px;
+    }
+
+    .grid{
+      display:grid;
+      grid-template-columns:1.05fr .95fr;
+      gap:16px;
+      margin-top:16px;
+    }
+
+    @media (max-width:960px){
+      .grid{ grid-template-columns:1fr; }
+    }
+
+    .card{
+      background:var(--card);
+      border:1px solid var(--stroke);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+      padding:18px;
+      backdrop-filter:blur(10px);
+    }
+
+    .card h2{
+      margin:0 0 12px;
+      font-size:18px;
+    }
+
+    .ctx-box{
+      padding:14px;
+      border-radius:18px;
+      border:1px solid var(--stroke);
+      background:rgba(2,6,23,.5);
+      color:var(--muted);
+      line-height:1.7;
+      font-size:14px;
+    }
+
+    .chips{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      margin-top:12px;
+    }
+
+    .chip{
+      display:inline-flex;
+      align-items:center;
+      min-height:30px;
+      padding:4px 10px;
+      border-radius:999px;
+      border:1px solid var(--stroke);
+      background:rgba(2,6,23,.46);
+      color:#dbeafe;
+      font-size:12px;
+      font-weight:900;
+    }
+
+    .steps{
+      display:grid;
+      gap:10px;
+    }
+
+    .step{
+      display:grid;
+      gap:6px;
+      padding:14px;
+      border-radius:18px;
+      border:1px solid rgba(148,163,184,.14);
+      background:rgba(2,6,23,.42);
+    }
+
+    .step-title{
+      font-size:15px;
+      font-weight:1000;
+      color:#e5e7eb;
+    }
+
+    .step-sub{
+      color:var(--muted);
+      font-size:13px;
+      line-height:1.55;
+    }
+
+    .btns{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      margin-top:14px;
+    }
+
+    button{
+      appearance:none;
+      border:none;
+      cursor:pointer;
+      min-height:46px;
+      border-radius:14px;
+      padding:0 16px;
+      font:900 14px/1 system-ui,-apple-system,"Noto Sans Thai","Segoe UI",Roboto,Arial;
+      color:#fff;
+      transition:transform .08s ease, opacity .18s ease;
+    }
+
+    button:active{
+      transform:translateY(1px) scale(.995);
+    }
+
+    .btn-blue{ background:linear-gradient(135deg,#2563eb,#38bdf8); }
+    .btn-green{ background:linear-gradient(135deg,#16a34a,#22c55e); }
+    .btn-violet{ background:linear-gradient(135deg,#7c3aed,#a78bfa); }
+    .btn-pink{ background:linear-gradient(135deg,#db2777,#f472b6); }
+    .btn-ghost{
+      background:rgba(148,163,184,.12);
+      border:1px solid var(--stroke);
+      color:var(--text);
+    }
+
+    .preview{
+      display:grid;
+      gap:12px;
+    }
+
+    .preview-box{
+      border:1px solid var(--stroke);
+      border-radius:16px;
+      background:rgba(2,6,23,.5);
+      padding:12px;
+    }
+
+    .muted{
+      color:var(--muted);
+      font-size:13px;
+      line-height:1.55;
+    }
+
+    .link{
+      margin-top:8px;
+      word-break:break-all;
+      color:#bfdbfe;
+      font-size:12px;
+      line-height:1.6;
+      font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+
+    .small{
+      margin-top:10px;
+      color:var(--muted);
+      font-size:12px;
+      line-height:1.6;
+    }
+  </style>
 </head>
 <body>
-  <main class="launch-shell">
-    <section class="launch-card">
-      <div class="badge">GoodJunk Intervention</div>
-      <h1>เริ่มกิจกรรมเลือกของว่างสุขภาพ</h1>
-      <p class="sub">
-        ตรวจข้อมูลก่อนเริ่ม แล้วกดเข้าแบบประเมินก่อนเล่น
-      </p>
+  <div class="wrap">
+    <section class="hero">
+      <div class="badge">🧒 Student Launcher • GoodJunk Intervention</div>
+      <h1>พร้อมเริ่มกิจกรรมแล้ว</h1>
+      <div class="sub">
+        หน้านี้ใช้ตรวจสอบข้อมูลผู้เรียนก่อนเริ่มกิจกรรม แล้วพาเข้าสู่แบบประเมินก่อนเล่นหรือเข้าเกมตาม flow ที่กำหนด
+      </div>
 
-      <form id="studentLauncherForm" class="launch-form" novalidate>
-        <label>
-          <span>Participant ID</span>
-          <input type="text" name="pid" id="pid" placeholder="เช่น ST001" required />
-        </label>
+      <div class="grid">
+        <section class="card">
+          <h2>ข้อมูลรอบนี้</h2>
+          <div class="ctx-box" id="ctxBox">กำลังโหลด...</div>
+          <div class="chips" id="chips"></div>
 
-        <div class="grid2">
-          <label>
-            <span>Study ID</span>
-            <input type="text" name="studyId" id="studyId" />
-          </label>
+          <div class="btns">
+            <button class="btn-ghost" id="btnRefresh" type="button">รีเฟรช context</button>
+            <button class="btn-ghost" id="btnPortal" type="button">Portal</button>
+            <button class="btn-ghost" id="btnTeacher" type="button">Teacher Panel</button>
+          </div>
 
-          <label>
-            <span>Session</span>
-            <input type="text" name="session" id="session" placeholder="เช่น gjint-ST001-..." />
-          </label>
-        </div>
+          <div class="small">
+            หน้านี้จะรวมค่า context จาก URL และ localStorage (`GJI_CTX`) แล้วเก็บกลับให้อัตโนมัติ
+          </div>
+        </section>
 
-        <div class="grid2">
-          <label>
-            <span>Group</span>
-            <input type="text" name="group" id="group" placeholder="เช่น P5/1" />
-          </label>
+        <section class="card">
+          <h2>ลำดับกิจกรรม</h2>
+          <div class="steps">
+            <div class="step">
+              <div class="step-title">1) Pre-Knowledge</div>
+              <div class="step-sub">ตอบคำถามความรู้ก่อนเล่นเกม</div>
+            </div>
+            <div class="step">
+              <div class="step-title">2) Pre-Behavior</div>
+              <div class="step-sub">ตอบคำถามพฤติกรรมการเลือกของว่างก่อนเล่น</div>
+            </div>
+            <div class="step">
+              <div class="step-title">3) Game</div>
+              <div class="step-sub">เล่น GoodJunk Intervention แล้วจบด้วย posttest</div>
+            </div>
+          </div>
 
-          <label>
-            <span>Condition</span>
-            <input type="text" name="condition" id="condition" placeholder="เช่น A / treatment" />
-          </label>
-        </div>
+          <div class="btns">
+            <button class="btn-blue" id="btnStartFlow" type="button">เริ่ม Pre-Knowledge</button>
+            <button class="btn-violet" id="btnPreBehavior" type="button">ไป Pre-Behavior</button>
+            <button class="btn-green" id="btnGame" type="button">เข้าเกมตรง</button>
+          </div>
+        </section>
+      </div>
 
-        <div class="grid2">
-          <label>
-            <span>Language</span>
-            <select name="lang" id="lang">
-              <option value="th">ไทย</option>
-              <option value="en">English</option>
-            </select>
-          </label>
+      <div class="grid" style="margin-top:16px;">
+        <section class="card">
+          <h2>พรีวิวลิงก์</h2>
+          <div class="preview">
+            <div class="preview-box">
+              <div class="muted">Pre-Knowledge URL</div>
+              <div class="link" id="preKnowledgePreview">-</div>
+            </div>
 
-          <label>
-            <span>Mode</span>
-            <select name="mode" id="mode">
-              <option value="play">play</option>
-              <option value="research">research</option>
-              <option value="student">student</option>
-            </select>
-          </label>
-        </div>
+            <div class="preview-box">
+              <div class="muted">Pre-Behavior URL</div>
+              <div class="link" id="preBehaviorPreview">-</div>
+            </div>
 
-        <div class="grid2">
-          <label>
-            <span>ชื่อเล่น</span>
-            <input type="text" name="nickName" id="nickName" placeholder="เช่น นนท์" />
-          </label>
+            <div class="preview-box">
+              <div class="muted">Game URL</div>
+              <div class="link" id="gamePreview">-</div>
+            </div>
+          </div>
+        </section>
 
-          <label>
-            <span>ห้องเรียน</span>
-            <input type="text" name="classroom" id="classroom" placeholder="เช่น P5/1" />
-          </label>
-        </div>
+        <section class="card">
+          <h2>ทางลัดเพิ่มเติม</h2>
+          <div class="btns">
+            <button class="btn-pink" id="btnCopyGame" type="button">คัดลอกลิงก์เกม</button>
+            <button class="btn-ghost" id="btnHub" type="button">กลับ HUB</button>
+          </div>
 
-        <div class="grid2">
-          <label>
-            <span>โรงเรียน</span>
-            <input type="text" name="school" id="school" placeholder="เช่น Demo School" />
-          </label>
-
-          <label>
-            <span>Difficulty</span>
-            <select name="diff" id="diff">
-              <option value="easy">easy</option>
-              <option value="normal">normal</option>
-              <option value="hard">hard</option>
-            </select>
-          </label>
-        </div>
-
-        <div class="grid2">
-          <label>
-            <span>View</span>
-            <select name="view" id="view">
-              <option value="mobile">mobile</option>
-              <option value="cvr">cvr</option>
-              <option value="vr">vr</option>
-            </select>
-          </label>
-
-          <label>
-            <span>Time (sec)</span>
-            <select name="time" id="time">
-              <option value="60">60</option>
-              <option value="80">80</option>
-              <option value="100">100</option>
-            </select>
-          </label>
-        </div>
-
-        <input type="hidden" name="phase" id="phase" />
-        <input type="hidden" name="run" id="run" />
-        <input type="hidden" name="hub" id="hub" />
-        <input type="hidden" name="studentKey" id="studentKey" />
-        <input type="hidden" name="sessionId" id="sessionId" />
-        <input type="hidden" name="conditionGroup" id="conditionGroup" />
-        <input type="hidden" name="schoolName" id="schoolName" />
-        <input type="hidden" name="classRoom" id="classRoom" />
-        <input type="hidden" name="kid" id="kid" />
-        <input type="hidden" name="readable" id="readable" />
-        <input type="hidden" name="spawnDebug" id="spawnDebug" />
-        <input type="hidden" name="seed" id="seed" />
-        <input type="hidden" name="siteCode" id="siteCode" />
-        <input type="hidden" name="projectTag" id="projectTag" />
-        <input type="hidden" name="sessionOrder" id="sessionOrder" />
-        <input type="hidden" name="blockLabel" id="blockLabel" />
-        <input type="hidden" name="studentNo" id="studentNo" />
-        <input type="hidden" name="gradeLevel" id="gradeLevel" />
-        <input type="hidden" name="gender" id="gender" />
-        <input type="hidden" name="age" id="age" />
-        <input type="hidden" name="schoolCode" id="schoolCode" />
-
-        <div class="launch-actions">
-          <button type="submit" class="btn btn-primary">เริ่ม Pre-Knowledge</button>
-          <button type="button" class="btn btn-ghost" id="gotoTeacherBtn">Teacher Panel</button>
-          <button type="button" class="btn btn-ghost" id="gotoGameBtn">เข้าเกมทันที</button>
-        </div>
-      </form>
-
-      <div class="hint" id="ctxPreview">ยังไม่มีข้อมูล session</div>
+          <div class="small">
+            ปกติแนะนำให้เริ่มจาก Pre-Knowledge ก่อนเสมอ แต่ปุ่มเข้าเกมตรงยังคงมีไว้สำหรับทดสอบหรือ debug
+          </div>
+        </section>
+      </div>
     </section>
-  </main>
+  </div>
 
-  <script type="module" src="./launcher.js"></script>
+  <script>
+    const $ = (id)=>document.getElementById(id);
+    const GJI_CTX_KEY = 'GJI_CTX';
+
+    const PATHS = {
+      portal: '../index.html',
+      teacher: './teacher-panel.html',
+      preKnowledge: '../assessments/pre-knowledge.html',
+      preBehavior: '../assessments/pre-behavior.html',
+      game: '../game/goodjunk-vr.html'
+    };
+
+    function q(k,d=''){
+      try{ return new URL(location.href).searchParams.get(k) ?? d; }
+      catch(_){ return d; }
+    }
+
+    function loadStoredCtx(){
+      try{
+        return JSON.parse(localStorage.getItem(GJI_CTX_KEY) || '{}') || {};
+      }catch(_){
+        return {};
+      }
+    }
+
+    function saveCtx(ctx){
+      try{
+        localStorage.setItem(GJI_CTX_KEY, JSON.stringify(ctx));
+      }catch(_){}
+    }
+
+    function buildLegacyCtxFromQuery(){
+      return {
+        pid: q('pid', q('studentKey','')),
+        studentKey: q('studentKey', q('pid','')),
+        nickName: q('nickName', q('name','')),
+        name: q('name', q('nickName','')),
+        studyId: q('studyId',''),
+        phase: q('phase',''),
+        group: q('group', q('classRoom', q('classroom', q('conditionGroup','')))),
+        condition: q('condition', q('conditionGroup','')),
+        conditionGroup: q('conditionGroup', q('condition','')),
+        session: q('session', q('sessionId','')),
+        sessionId: q('sessionId', q('session','')),
+        classroom: q('classroom', q('classRoom','')),
+        classRoom: q('classRoom', q('classroom','')),
+        school: q('school', q('schoolName','')),
+        schoolName: q('schoolName', q('school','')),
+        diff: q('diff','easy'),
+        view: q('view','mobile'),
+        mode: q('mode', q('run','play')),
+        run: q('run', q('mode','play')),
+        time: q('time','80'),
+        lang: q('lang','th'),
+        hub: q('hub','../../hub.html'),
+        projectTag: q('projectTag',''),
+        sessionOrder: q('sessionOrder',''),
+        blockLabel: q('blockLabel',''),
+        schoolCode: q('schoolCode',''),
+        studentNo: q('studentNo',''),
+        gradeLevel: q('gradeLevel',''),
+        gender: q('gender',''),
+        age: q('age',''),
+        seed: q('seed',''),
+        gameId: q('gameId','goodjunk'),
+        kid: q('kid',''),
+        readable: q('readable',''),
+        spawnDebug: q('spawnDebug','')
+      };
+    }
+
+    function syncAliases(ctx){
+      const out = { ...ctx };
+
+      if (!out.pid) out.pid = out.studentKey || out.nickName || '';
+      if (!out.studentKey) out.studentKey = out.pid || '';
+
+      if (!out.name) out.name = out.nickName || out.studentKey || out.pid || '';
+      if (!out.nickName) out.nickName = out.name || out.studentKey || out.pid || '';
+
+      if (!out.group) out.group = out.classRoom || out.classroom || out.conditionGroup || '';
+      if (!out.classRoom) out.classRoom = out.classroom || '';
+      if (!out.classroom) out.classroom = out.classRoom || '';
+
+      if (!out.condition) out.condition = out.conditionGroup || 'intervention';
+      if (!out.conditionGroup) out.conditionGroup = out.condition;
+
+      if (!out.session) out.session = out.sessionId || '';
+      if (!out.sessionId) out.sessionId = out.session || '';
+
+      if (!out.school) out.school = out.schoolName || '';
+      if (!out.schoolName) out.schoolName = out.school || '';
+
+      if (!out.mode) out.mode = out.run || 'play';
+      if (!out.run) out.run = out.mode || 'play';
+
+      if (!out.diff) out.diff = 'easy';
+      if (!out.view) out.view = 'mobile';
+      if (!out.time) out.time = '80';
+      if (!out.lang) out.lang = 'th';
+      if (!out.gameId) out.gameId = 'goodjunk';
+      if (!out.hub) out.hub = '../../hub.html';
+
+      return out;
+    }
+
+    function buildCtx(){
+      const ctx = syncAliases({
+        ...loadStoredCtx(),
+        ...buildLegacyCtxFromQuery()
+      });
+      saveCtx(ctx);
+      return ctx;
+    }
+
+    function buildUrl(basePath, ctx){
+      const u = new URL(basePath, location.href);
+
+      const payload = {
+        pid: ctx.pid || '',
+        studentKey: ctx.studentKey || '',
+        nickName: ctx.nickName || '',
+        name: ctx.name || '',
+        studyId: ctx.studyId || '',
+        phase: ctx.phase || '',
+        group: ctx.group || '',
+        condition: ctx.condition || '',
+        conditionGroup: ctx.conditionGroup || '',
+        session: ctx.session || '',
+        sessionId: ctx.sessionId || '',
+        classroom: ctx.classroom || '',
+        classRoom: ctx.classRoom || '',
+        school: ctx.school || '',
+        schoolName: ctx.schoolName || '',
+        diff: ctx.diff || 'easy',
+        view: ctx.view || 'mobile',
+        mode: ctx.mode || 'play',
+        run: ctx.run || 'play',
+        time: ctx.time || '80',
+        lang: ctx.lang || 'th',
+        hub: ctx.hub || '../../hub.html',
+        projectTag: ctx.projectTag || '',
+        sessionOrder: ctx.sessionOrder || '',
+        blockLabel: ctx.blockLabel || '',
+        schoolCode: ctx.schoolCode || '',
+        studentNo: ctx.studentNo || '',
+        gradeLevel: ctx.gradeLevel || '',
+        gender: ctx.gender || '',
+        age: ctx.age || '',
+        seed: ctx.seed || '',
+        gameId: ctx.gameId || 'goodjunk',
+        kid: ctx.kid || '',
+        readable: ctx.readable || '',
+        spawnDebug: ctx.spawnDebug || ''
+      };
+
+      Object.entries(payload).forEach(([k,v])=>{
+        if(v !== '' && v != null) u.searchParams.set(k, String(v));
+      });
+
+      return u.toString();
+    }
+
+    function renderCtx(ctx){
+      $('ctxBox').innerHTML = [
+        `PID: <b>${ctx.pid || '-'}</b>`,
+        `Student: <b>${ctx.nickName || ctx.studentKey || '-'}</b>`,
+        `Study: <b>${ctx.studyId || '-'}</b>`,
+        `Session: <b>${ctx.session || '-'}</b>`,
+        `Condition: <b>${ctx.condition || '-'}</b>`,
+        `Classroom: <b>${ctx.classRoom || ctx.classroom || '-'}</b>`,
+        `School: <b>${ctx.schoolName || ctx.school || '-'}</b>`,
+        `Diff / View: <b>${ctx.diff || '-'} / ${ctx.view || '-'}</b>`,
+        `Mode: <b>${ctx.run || ctx.mode || '-'}</b>`,
+        `Time: <b>${ctx.time || '-'}</b>`
+      ].join('<br>');
+    }
+
+    function renderChips(ctx){
+      const chips = [
+        `study:${ctx.studyId || '-'}`,
+        `session:${ctx.session || '-'}`,
+        `student:${ctx.studentKey || ctx.pid || '-'}`,
+        `condition:${ctx.condition || '-'}`,
+        `diff:${ctx.diff || '-'}`,
+        `view:${ctx.view || '-'}`,
+        `run:${ctx.run || ctx.mode || '-'}`
+      ];
+
+      if (ctx.kid === '1') chips.push('kid');
+      if (ctx.readable === '1') chips.push('readable');
+      if (ctx.spawnDebug === '1') chips.push('debug');
+
+      $('chips').innerHTML = chips.map(v => `<span class="chip">${v}</span>`).join('');
+    }
+
+    function renderPreview(ctx){
+      $('preKnowledgePreview').textContent = buildUrl(PATHS.preKnowledge, ctx);
+      $('preBehaviorPreview').textContent = buildUrl(PATHS.preBehavior, ctx);
+      $('gamePreview').textContent = buildUrl(PATHS.game, ctx);
+    }
+
+    async function copyText(txt){
+      try{
+        await navigator.clipboard.writeText(txt);
+      }catch(_){
+        const ta = document.createElement('textarea');
+        ta.value = txt;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        ta.remove();
+      }
+    }
+
+    let ctx = buildCtx();
+    renderCtx(ctx);
+    renderChips(ctx);
+    renderPreview(ctx);
+
+    $('btnRefresh').addEventListener('click', ()=>{
+      ctx = buildCtx();
+      renderCtx(ctx);
+      renderChips(ctx);
+      renderPreview(ctx);
+    });
+
+    $('btnPortal').addEventListener('click', ()=>{
+      saveCtx(ctx);
+      location.href = buildUrl(PATHS.portal, ctx);
+    });
+
+    $('btnTeacher').addEventListener('click', ()=>{
+      saveCtx(ctx);
+      location.href = buildUrl(PATHS.teacher, ctx);
+    });
+
+    $('btnStartFlow').addEventListener('click', ()=>{
+      saveCtx(ctx);
+      location.href = buildUrl(PATHS.preKnowledge, ctx);
+    });
+
+    $('btnPreBehavior').addEventListener('click', ()=>{
+      saveCtx(ctx);
+      location.href = buildUrl(PATHS.preBehavior, ctx);
+    });
+
+    $('btnGame').addEventListener('click', ()=>{
+      saveCtx(ctx);
+      location.href = buildUrl(PATHS.game, ctx);
+    });
+
+    $('btnCopyGame').addEventListener('click', async ()=>{
+      await copyText(buildUrl(PATHS.game, ctx));
+      const old = $('btnCopyGame').textContent;
+      $('btnCopyGame').textContent = 'คัดลอกแล้ว';
+      setTimeout(()=> $('btnCopyGame').textContent = old, 1200);
+    });
+
+    $('btnHub').addEventListener('click', ()=>{
+      location.href = ctx.hub || '../../hub.html';
+    });
+  </script>
 </body>
 </html>
