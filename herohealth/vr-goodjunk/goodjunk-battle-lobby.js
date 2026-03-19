@@ -1,6 +1,6 @@
 // === /herohealth/vr-goodjunk/goodjunk-battle-lobby.js ===
 // GoodJunk Battle Lobby
-// FULL PATCH v20260319-BATTLE-LOBBY-EASY-ENTRY
+// FULL PATCH v20260320-BATTLE-LOBBY-READY2-MAX5
 
 const params = new URLSearchParams(location.search);
 
@@ -175,6 +175,10 @@ function activePlayers(r = room) {
   return (r?.players || []).filter((p) => p.connected !== false);
 }
 
+function readyPlayers(r = room) {
+  return activePlayers(r).filter((p) => !!p.ready);
+}
+
 function isHost(r = room) {
   return !!r && r.hostId === ctx.pid;
 }
@@ -187,7 +191,7 @@ function getJoinBlockReason(r, pid = ctx.pid) {
   if (!r) return '';
   const existing = isExistingMember(r, pid);
   if (existing) return '';
-  if ((activePlayers(r).length || 0) >= (r.maxPlayers || 4)) return 'ห้องนี้เต็มแล้ว';
+  if ((activePlayers(r).length || 0) >= (r.maxPlayers || 5)) return 'ห้องนี้เต็มแล้ว';
   if (r.status === 'countdown') return 'ห้องนี้กำลังนับถอยหลังก่อนเริ่มเกม';
   if (r.status === 'running') return 'ห้องนี้กำลังเล่นอยู่ ผู้เล่นใหม่เข้ากลางเกมไม่ได้';
   if (r.status === 'finished') return 'รอบนี้จบแล้ว รอเล่นใหม่หรือสร้างห้องใหม่';
@@ -208,15 +212,14 @@ function amIMatchParticipant(r = room) {
 function canStart(r = room) {
   if (!r) return false;
   if (r.status !== 'waiting') return false;
-  const players = activePlayers(r);
-  if (players.length < (r.minPlayers || 2)) return false;
-  return players.every((p) => !!p.ready);
+  return readyPlayers(r).length >= (r.minPlayers || 2);
 }
 
 function getPlayersText(r = room) {
   const total = activePlayers(r).length;
+  const ready = readyPlayers(r).length;
   const min = r?.minPlayers || 2;
-  return `${total}/${min}`;
+  return `${total} คน • ready ${ready}/${min}`;
 }
 
 function getStatusText(r = room) {
@@ -247,7 +250,7 @@ function makeDefaultRoom() {
     hostId: ctx.pid,
     mode: 'battle',
     minPlayers: 2,
-    maxPlayers: 4,
+    maxPlayers: 5,
     status: 'waiting',
     startAt: null,
     createdAt: now(),
@@ -294,7 +297,7 @@ function sanitizeRoom(r) {
   }
 
   safe.minPlayers = Math.max(2, Number(safe.minPlayers || 2));
-  safe.maxPlayers = Math.max(safe.minPlayers, Number(safe.maxPlayers || 4));
+  safe.maxPlayers = Math.max(safe.minPlayers, Number(safe.maxPlayers || 5), 5);
   safe.status = ['waiting', 'countdown', 'running', 'finished'].includes(safe.status)
     ? safe.status
     : 'waiting';
@@ -302,7 +305,9 @@ function sanitizeRoom(r) {
   safe.updatedAt = now();
 
   const rawMatch = safe.match && typeof safe.match === 'object' ? safe.match : {};
-  const rawBattle = rawMatch.battle && typeof rawMatch.battle === 'object' ? rawMatch.battle : {};
+  const rawBattle = rawMatch.battle && typeof rawBattle === 'object'
+    ? rawMatch.battle
+    : (rawMatch.battle && typeof rawMatch.battle === 'object' ? rawMatch.battle : {});
 
   safe.match = {
     participantIds: Array.isArray(rawMatch.participantIds)
@@ -431,6 +436,7 @@ function renderButtons(r = room) {
   const me = r?.players?.find((p) => p.id === ctx.pid);
 
   if (els.btnReady) {
+    els.btnReady.style.display = '';
     els.btnReady.disabled = !me || me.connected === false || r?.status !== 'waiting';
     els.btnReady.textContent = me?.ready ? 'ยกเลิกพร้อม' : 'พร้อมแล้ว';
   }
@@ -460,14 +466,15 @@ function renderStatus(r = room) {
   showJoinGuard(blockReason);
 
   if (r.status === 'waiting') {
-    if (activePlayers(r).length < (r.minPlayers || 2)) {
-      setHint(`ต้องมีอย่างน้อย ${r.minPlayers} คน`);
-    } else if (!activePlayers(r).every((p) => p.ready)) {
-      setHint('รอให้ทุกคนกดพร้อม');
+    const readyCount = readyPlayers(r).length;
+    const min = r.minPlayers || 2;
+
+    if (readyCount < min) {
+      setHint(`ต้องมีผู้เล่น ready อย่างน้อย ${min} คน`);
     } else if (isHost(r)) {
-      setHint('ทุกคนพร้อมแล้ว กดเริ่ม Battle ได้');
+      setHint('มีผู้เล่น ready ครบแล้ว กดเริ่ม Battle ได้');
     } else {
-      setHint('ทุกคนพร้อมแล้ว รอ host กดเริ่ม');
+      setHint('มีผู้เล่น ready ครบแล้ว รอ host กดเริ่ม');
     }
 
     setCopyState('ส่ง room code หรือลิงก์นี้ให้ผู้เล่นคนอื่นเข้าร่วมได้');
@@ -478,7 +485,7 @@ function renderStatus(r = room) {
     if (amIMatchParticipant(r)) {
       setHint('กำลังนับถอยหลังก่อนเริ่ม Battle');
     } else {
-      setHint('กำลังเริ่มรอบนี้ แต่คุณไม่ได้อยู่ใน participant ของรอบนี้');
+      setHint('รอบนี้เริ่มแล้ว แต่คุณไม่ได้อยู่ใน participant');
     }
     setCopyState('ห้องถูกล็อกแล้ว กำลังจะเริ่ม Battle', false);
   }
@@ -785,16 +792,11 @@ async function beginCountdown() {
     return;
   }
 
-  if (!canStart(cur)) {
-    setHint('ยังเริ่มไม่ได้ ต้องมีอย่างน้อย 2 คน และทุกคนต้อง ready');
-    return;
-  }
-
-  const players = activePlayers(cur).filter((p) => !!p.ready);
-  const participantIds = players.map((p) => p.id).filter(Boolean);
+  const participants = readyPlayers(cur);
+  const participantIds = participants.map((p) => p.id).filter(Boolean);
 
   if (participantIds.length < (cur.minPlayers || 2)) {
-    setHint('จำนวนผู้เล่นที่พร้อมยังไม่พอ');
+    setHint(`ต้องมีผู้เล่น ready อย่างน้อย ${cur.minPlayers || 2} คน`);
     return;
   }
 
@@ -844,7 +846,7 @@ async function enterRun(startAt) {
     startAt: String(startAt || now())
   });
 
-  location.href = `./goodjunk-battle-run.html?v=20260319-battle-room-easy-entry&${q.toString()}`;
+  location.href = `./goodjunk-battle-run.html?v=20260320-battle-target-v1&${q.toString()}`;
 }
 
 async function leaveRoom() {
