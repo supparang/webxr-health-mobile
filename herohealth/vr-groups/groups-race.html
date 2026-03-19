@@ -1,6 +1,6 @@
 <!-- === /herohealth/vr-groups/groups-race.html ===
 Groups Race V2 Online Room
-FULL PATCH v20260319-GROUPS-RACE-ONLINE-RUN
+FULL PATCH v20260319-GROUPS-RACE-ONLINE-RUN-AUTOREMATCH
 Requires:
 - ../vr/vr-ui.js
 - ./groups-race.safe.js
@@ -299,6 +299,7 @@ Requires:
       box-shadow:0 18px 44px rgba(0,0,0,.28);
       font-weight:1000;
       line-height:1.6;
+      white-space:pre-line;
     }
 
     #stageFlash{
@@ -542,7 +543,7 @@ Requires:
       <span id="debugMini" style="color:var(--muted); font-size:10px; line-height:1.2;"></span>
     </div>
     <div class="row">
-      <button id="btnRestart">กลับล็อบบี้</button>
+      <button id="btnRestart">Rematch</button>
       <button id="btnBack">กลับหน้าหลัก</button>
     </div>
   </div>
@@ -643,7 +644,7 @@ Requires:
           </section>
         </main>
         <div class="overlayBtns">
-          <button id="btnEndRematch">กลับล็อบบี้</button>
+          <button id="btnEndRematch">Rematch</button>
           <button id="btnEndGoHub">กลับหน้าหลัก</button>
         </div>
       </div>
@@ -659,7 +660,11 @@ Requires:
     watchRaceRoom,
     watchRaceScores,
     pushRaceScore,
-    finishRaceMatch
+    finishRaceMatch,
+    requestRaceRematch,
+    leaveRaceRoom,
+    bindRacePresence,
+    resetRaceForRematch
   } from './groups-race-rtdb.js';
 
   (() => {
@@ -726,6 +731,14 @@ Requires:
     let accLatest = 0;
     let roomUnwatch = null;
     let scoresUnwatch = null;
+    let unbindPresence = null;
+    let rivalOffline = false;
+    let rematchRequested = false;
+    let localRoundNo = 0;
+    let lastStartedAtSeen = 0;
+    let rematchBusy = false;
+    let rematchWaitTimer = null;
+    let rematchDeadlineMs = 0;
 
     debugMini.textContent = `room=${ROOM || '-'} • player=${PLAYER_ID || '-'} • view=${VIEW}`;
 
@@ -752,8 +765,10 @@ Requires:
     function cleanupWatchers(){
       try{ roomUnwatch?.(); }catch(_){}
       try{ scoresUnwatch?.(); }catch(_){}
+      try{ unbindPresence?.(); }catch(_){}
       roomUnwatch = null;
       scoresUnwatch = null;
+      unbindPresence = null;
     }
 
     function safeNavigate(href){
@@ -761,6 +776,7 @@ Requires:
       navLock = true;
       cleanupWatchers();
       safeStopEngine();
+      clearRematchWaitTimer();
       window.location.assign(href);
     }
 
@@ -815,13 +831,6 @@ Requires:
         : '#1 ร่วม';
     }
 
-    function openLobby(){
-      const url = new URL('./groups-race-lobby.html', location.href);
-      url.searchParams.set('view', VIEW);
-      url.searchParams.set('hub', HUB);
-      safeNavigate(url.toString());
-    }
-
     function getRivalPlayerId(players){
       return Object.keys(players || {}).find(id => id !== PLAYER_ID) || '';
     }
@@ -833,9 +842,10 @@ Requires:
 
       myNameText = me?.name || 'เรา';
       rivalNameText = rival?.name || 'คู่แข่ง';
+      rivalOffline = !!rival && rival.online === false;
 
       meName.textContent = myNameText;
-      rivalName.textContent = rivalNameText;
+      rivalName.textContent = rivalOffline ? `${rivalNameText} (offline)` : rivalNameText;
     }
 
     function applyScoreBoard(scoreMap){
@@ -853,9 +863,95 @@ Requires:
       hudRank.textContent = rankText(myScoreLatest, rivalScoreLatest);
     }
 
+    function clearRematchWaitTimer(){
+      if(rematchWaitTimer){
+        clearInterval(rematchWaitTimer);
+        rematchWaitTimer = null;
+      }
+      rematchDeadlineMs = 0;
+    }
+
+    function startRematchWaitTimer(seconds = 20){
+      clearRematchWaitTimer();
+      rematchDeadlineMs = Date.now() + (seconds * 1000);
+
+      rematchWaitTimer = setInterval(()=>{
+        const leftMs = rematchDeadlineMs - Date.now();
+        const leftSec = Math.max(0, Math.ceil(leftMs / 1000));
+
+        if(endOverlay.style.display === 'flex'){
+          const base = rematchRequested
+            ? 'กำลังรออีกฝ่ายกด Rematch'
+            : 'กด Rematch เพื่อเริ่มรอบใหม่';
+          document.getElementById('sumHeroSub').textContent = `${base} • เหลือ ${leftSec}s`;
+        }
+
+        if(leftMs <= 0){
+          clearRematchWaitTimer();
+          if(endOverlay.style.display === 'flex'){
+            document.getElementById('sumHeroSub').textContent = 'หมดเวลารอ Rematch แล้ว';
+            childCoachMsg.textContent = 'อีกฝ่ายยังไม่พร้อม คุณกลับหน้าหลักหรือรอในห้องต่อได้';
+          }
+          showToast('หมดเวลารอ Rematch', 'sad');
+        }
+      }, 250);
+    }
+
+    function getRematchReadyCount(data){
+      return Number(data?.rematch?.readyCount || 0);
+    }
+
+    function getTotalPlayers(data){
+      return Object.keys(data?.players || {}).length;
+    }
+
+    function resetRaceUiForNextRound(){
+      raceEnded = false;
+      rematchRequested = false;
+      rematchBusy = false;
+
+      endOverlay.style.display = 'none';
+      endOverlay.setAttribute('aria-hidden', 'true');
+
+      hudTime.textContent = '—';
+      hudScore.textContent = '0';
+      hudRival.textContent = '0';
+      hudRank.textContent = '#1';
+      hudCombo.textContent = 'x0';
+      hudAcc.textContent = '0%';
+
+      raceMeScore.textContent = '0';
+      raceRivalScore.textContent = '0';
+
+      qTitle.textContent = 'ภารกิจ';
+      qSub.textContent = '';
+      qBar.style.width = '0%';
+      qMini.textContent = 'เร่งเลย!';
+      qMiniTime.textContent = '';
+
+      myScoreLatest = 0;
+      rivalScoreLatest = 0;
+      comboLatest = 0;
+      accLatest = 0;
+
+      try{ fxLayer.replaceChildren(); }catch(_){ fxLayer.innerHTML = ''; }
+      stageFlash.className = '';
+      stageFlash.style.opacity = '0';
+
+      loadingOverlay.hidden = true;
+      countdownOverlay.hidden = true;
+      clearRematchWaitTimer();
+    }
+
     async function waitUntilStartAndRun(data){
       const startedAt = Number(data?.match?.startedAt || 0);
       if(!startedAt) return;
+      if(startedAt === lastStartedAtSeen) return;
+
+      lastStartedAtSeen = startedAt;
+
+      resetRaceUiForNextRound();
+      safeStopEngine();
 
       loadingOverlay.hidden = true;
       countdownOverlay.hidden = false;
@@ -876,12 +972,11 @@ Requires:
       await new Promise(r=>setTimeout(r, 450));
       countdownOverlay.hidden = true;
 
-      raceEnded = false;
       try{ window.GroupsRace?.GameEngine?.setLayerEl?.(playLayer); }catch(_){}
 
       const diff = String(data?.meta?.diff || 'normal');
       const timeSec = Number(data?.meta?.timeSec || 60);
-      const seed = String(data?.match?.startedAt || Date.now());
+      const seed = String(startedAt);
 
       window.GroupsRace.GameEngine.start(diff, {
         time: timeSec,
@@ -889,11 +984,79 @@ Requires:
         view: VIEW
       });
 
-      showToast('เริ่มแข่งแล้ว! ยิงให้เร็วและแม่น', 'fever');
+      showToast(localRoundNo > 1 ? 'เริ่มรอบใหม่แล้ว! ลุยเลย' : 'เริ่มแข่งแล้ว! ยิงให้เร็วและแม่น', 'fever');
+    }
+
+    async function requestRematchAndMaybeStart(){
+      if(rematchBusy || !ROOM || !PLAYER_ID || !roomData) return;
+      rematchBusy = true;
+
+      const rematchBtn1 = document.getElementById('btnRestart');
+      const rematchBtn2 = document.getElementById('btnEndRematch');
+      if(rematchBtn1) rematchBtn1.disabled = true;
+      if(rematchBtn2) rematchBtn2.disabled = true;
+
+      try{
+        const result = await requestRaceRematch(ROOM, PLAYER_ID);
+        rematchRequested = true;
+
+        const totalPlayers = getTotalPlayers(roomData);
+        const readyCount = result?.readyCount ?? getRematchReadyCount(roomData);
+        const isHost = roomData?.meta?.hostPlayerId === PLAYER_ID;
+
+        showToast(`Rematch ${readyCount}/${totalPlayers}`, readyCount >= totalPlayers ? 'happy' : 'neutral');
+
+        if(isHost && totalPlayers >= 2 && readyCount >= totalPlayers){
+          showToast('ครบแล้ว เริ่มรอบใหม่!', 'fever');
+          await resetRaceForRematch(ROOM);
+        }
+      }catch(err){
+        console.error(err);
+        showToast('ส่งคำขอ Rematch ไม่สำเร็จ', 'sad');
+      }finally{
+        rematchBusy = false;
+        if(rematchBtn1) rematchBtn1.disabled = false;
+        if(rematchBtn2) rematchBtn2.disabled = false;
+      }
+    }
+
+    async function leaveThenHub(){
+      try{
+        if(ROOM && PLAYER_ID){
+          await leaveRaceRoom(ROOM, PLAYER_ID);
+        }
+      }catch(_){}
+      clearRematchWaitTimer();
+      safeNavigate(HUB);
+    }
+
+    function forceEndBecauseRivalLeft(){
+      if(raceEnded) return;
+      raceEnded = true;
+      safeStopEngine();
+
+      document.getElementById('sumBadgeIcon').textContent = '⚠️';
+      document.getElementById('sumHeroBig').textContent = 'คู่แข่งออกจากห้อง';
+      document.getElementById('sumHeroSub').textContent = 'คุณสามารถรออีกฝ่าย หรือกลับออกจากห้องได้';
+
+      sumResult.textContent = 'ยุติการแข่งขัน';
+      sumMyScore.textContent = String(myScoreLatest);
+      sumRivalScore.textContent = String(rivalScoreLatest);
+      sumAcc.textContent = `${accLatest}%`;
+      sumCombo.textContent = String(comboLatest);
+      sumTime.textContent = '—';
+      endSub.textContent = 'อีกฝ่ายไม่ได้อยู่ในห้องแล้ว';
+      childCoachMsg.textContent = 'กด Rematch เพื่อรออีกฝ่ายกลับมา หรือกลับหน้าหลักได้เลย';
+
+      endOverlay.style.display = 'flex';
+      endOverlay.setAttribute('aria-hidden', 'false');
     }
 
     window.addEventListener('race:coach', (ev)=>{
       const d = ev?.detail || {};
+      if(rivalOffline){
+        showToast('คู่แข่งออกจากห้องแล้ว', 'sad');
+      }
       if(d.text) showToast(d.text, d.mood || 'neutral');
     });
 
@@ -977,7 +1140,7 @@ Requires:
       const meta = getSummaryMeta(result);
       document.getElementById('sumBadgeIcon').textContent = meta.icon;
       document.getElementById('sumHeroBig').textContent = meta.big;
-      document.getElementById('sumHeroSub').textContent = meta.sub;
+      document.getElementById('sumHeroSub').textContent = 'กด Rematch เพื่อเล่นรอบใหม่ในห้องเดิม';
 
       sumResult.textContent = result === 'WIN' ? 'ชนะ' : result === 'DRAW' ? 'เสมอ' : 'แพ้';
       sumMyScore.textContent = String(finalMy);
@@ -988,8 +1151,10 @@ Requires:
       endSub.textContent = `${myNameText} ${finalMy} • ${rivalNameText} ${finalRival}`;
       childCoachMsg.textContent = getRaceCoach(result, s.acc ?? accLatest, s.comboMax ?? comboLatest);
 
+      rematchRequested = false;
       endOverlay.style.display = 'flex';
       endOverlay.setAttribute('aria-hidden', 'false');
+      startRematchWaitTimer(20);
 
       try{
         await finishRaceMatch(ROOM, {
@@ -1015,26 +1180,27 @@ Requires:
     });
     window.addEventListener('resize', updateSpawnSafe, { passive:true });
 
-    document.getElementById('btnRestart').addEventListener('click', ()=>{
-      openLobby();
+    document.getElementById('btnRestart').addEventListener('click', async ()=>{
+      await requestRematchAndMaybeStart();
     });
 
-    document.getElementById('btnBack').addEventListener('click', ()=>{
-      safeNavigate(HUB);
+    document.getElementById('btnBack').addEventListener('click', leaveThenHub);
+
+    document.getElementById('btnEndRematch').addEventListener('click', async ()=>{
+      await requestRematchAndMaybeStart();
     });
 
-    document.getElementById('btnEndRematch').addEventListener('click', ()=>{
-      openLobby();
-    });
-
-    document.getElementById('btnEndGoHub').addEventListener('click', ()=>{
-      safeNavigate(HUB);
-    });
+    document.getElementById('btnEndGoHub').addEventListener('click', leaveThenHub);
 
     async function boot(){
       if(!ROOM || !PLAYER_ID){
         loadingText.textContent = 'ข้อมูลห้องไม่ครบ กำลังกลับล็อบบี้…';
-        setTimeout(openLobby, 700);
+        setTimeout(()=>{
+          const url = new URL('./groups-race-lobby.html', location.href);
+          url.searchParams.set('view', VIEW);
+          url.searchParams.set('hub', HUB);
+          safeNavigate(url.toString());
+        }, 700);
         return;
       }
 
@@ -1050,19 +1216,73 @@ Requires:
           throw new Error('ไม่พบผู้เล่นในห้องนี้');
         }
 
+        localRoundNo = Number(roomData?.match?.roundNo || 1);
         applyRoomPlayers(players);
         updateSpawnSafe();
+        unbindPresence = bindRacePresence(ROOM, PLAYER_ID);
 
         roomUnwatch = watchRaceRoom(ROOM, async (data)=>{
           if(!data) return;
+
           roomData = data;
-          applyRoomPlayers(data.players || {});
+          localRoundNo = Number(data?.match?.roundNo || 1);
+
+          const players2 = data.players || {};
+          applyRoomPlayers(players2);
 
           const started = !!data.match?.started;
-          if(started && !window.__RACE_STARTED__){
+          const ended = !!data.match?.endedAt;
+          const rivalId = getRivalPlayerId(players2);
+          const rival = rivalId ? players2[rivalId] : null;
+
+          if(!rivalId){
+            loadingOverlay.hidden = false;
+            loadingText.textContent = 'ผู้เล่นอีกคนออกจากห้อง\nกำลังรอการตัดสินใจ...';
+          }
+
+          if(window.__RACE_STARTED__ && !raceEnded){
+            if(!rival || rival.online === false){
+              showToast('คู่แข่งหลุดหรือออกจากห้อง', 'sad');
+              forceEndBecauseRivalLeft();
+              return;
+            }
+          }
+
+          if(started && !ended){
             window.__RACE_STARTED__ = true;
             await waitUntilStartAndRun(data);
+            return;
           }
+
+          if(ended){
+            const totalPlayers = getTotalPlayers(data);
+            const rematchReady = getRematchReadyCount(data);
+            const isHost = data?.meta?.hostPlayerId === PLAYER_ID;
+
+            if(endOverlay.style.display === 'flex'){
+              document.getElementById('sumHeroSub').textContent =
+                rematchRequested
+                  ? `คุณกด Rematch แล้ว • พร้อม ${rematchReady}/${totalPlayers}`
+                  : `Rematch พร้อม ${rematchReady}/${totalPlayers}`;
+            }
+
+            if(isHost && rematchRequested && totalPlayers >= 2 && rematchReady >= totalPlayers && !rematchBusy){
+              rematchBusy = true;
+              try{
+                await resetRaceForRematch(ROOM);
+              }catch(err){
+                console.error(err);
+              }finally{
+                rematchBusy = false;
+              }
+            }
+
+            return;
+          }
+
+          loadingOverlay.hidden = false;
+          countdownOverlay.hidden = true;
+          loadingText.textContent = 'กำลังรอ Host เริ่มการแข่งขัน…';
         });
 
         scoresUnwatch = watchRaceScores(ROOM, (scoreMap)=>{
@@ -1080,7 +1300,12 @@ Requires:
       }catch(err){
         console.error(err);
         loadingText.textContent = `เข้าแข่งไม่สำเร็จ\n${err?.message || err}\nกำลังกลับล็อบบี้…`;
-        setTimeout(openLobby, 1200);
+        setTimeout(()=>{
+          const url = new URL('./groups-race-lobby.html', location.href);
+          url.searchParams.set('view', VIEW);
+          url.searchParams.set('hub', HUB);
+          safeNavigate(url.toString());
+        }, 1200);
       }
     }
 
