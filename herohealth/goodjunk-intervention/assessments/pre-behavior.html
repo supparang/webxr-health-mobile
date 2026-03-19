@@ -9,87 +9,178 @@
 <body>
   <main class="page">
     <section class="card">
-      <div class="badge">ก่อนเล่นเกม • Pre-Behavior</div>
-      <h1>ปกติหนูเลือกของว่างแบบไหน</h1>
-      <p class="sub">ตอบตามที่หนูทำจริงในชีวิตประจำวัน</p>
+      <div class="badge">Pretest • Pre-Behavior</div>
+      <h1>แบบประเมินพฤติกรรมก่อนเล่น</h1>
+      <p class="sub">
+        ตอบตามพฤติกรรมจริงของหนูก่อนเริ่มกิจกรรม
+      </p>
+
       <div class="ctx" id="ctxBox">กำลังโหลด...</div>
 
       <form class="form">
         <section class="block">
-          <h2>1) เวลาหิวระหว่างวัน หนูมักเลือกอะไรบ่อยที่สุด</h2>
+          <h2>1) ปกติหลังเลิกเรียน หนูมักเลือกของว่างอะไร</h2>
           <div class="choice-grid">
-            <label class="choice"><input type="radio" name="b1_usualSnack" value="fruit" required /> ผลไม้</label>
-            <label class="choice"><input type="radio" name="b1_usualSnack" value="friedSnack" required /> ของทอด / ขนมกรุบกรอบ</label>
-            <label class="choice"><input type="radio" name="b1_usualSnack" value="sweetSnack" required /> ขนมหวาน / ลูกอม</label>
-            <label class="choice"><input type="radio" name="b1_usualSnack" value="notSure" required /> แล้วแต่วัน / ไม่แน่ใจ</label>
+            <label class="choice">
+              <input type="radio" name="b1_usualSnack" value="fruit" required />
+              ผลไม้
+            </label>
+            <label class="choice">
+              <input type="radio" name="b1_usualSnack" value="healthySnack" required />
+              ของว่างที่ดีกว่า
+            </label>
+            <label class="choice">
+              <input type="radio" name="b1_usualSnack" value="junk" required />
+              ขนมหรือของทอด
+            </label>
+            <label class="choice">
+              <input type="radio" name="b1_usualSnack" value="notSure" required />
+              แล้วแต่วัน / ยังไม่แน่ใจ
+            </label>
           </div>
         </section>
 
         <section class="block">
-          <h2>2) ปกติหนูดื่มอะไรบ่อยที่สุดตอนกระหายน้ำ</h2>
+          <h2>2) ปกติหนูดื่มอะไรบ่อยที่สุดเมื่อกระหายน้ำ</h2>
           <div class="choice-grid">
-            <label class="choice"><input type="radio" name="b2_usualDrink" value="water" required /> น้ำเปล่า</label>
-            <label class="choice"><input type="radio" name="b2_usualDrink" value="sweetDrink" required /> น้ำหวาน / น้ำอัดลม</label>
-            <label class="choice"><input type="radio" name="b2_usualDrink" value="milk" required /> นม</label>
-            <label class="choice"><input type="radio" name="b2_usualDrink" value="tea" required /> ชาหวาน / ชานม</label>
+            <label class="choice">
+              <input type="radio" name="b2_usualDrink" value="water" required />
+              น้ำเปล่า
+            </label>
+            <label class="choice">
+              <input type="radio" name="b2_usualDrink" value="milk" required />
+              นมจืด
+            </label>
+            <label class="choice">
+              <input type="radio" name="b2_usualDrink" value="sweetDrink" required />
+              น้ำหวาน / น้ำอัดลม
+            </label>
+            <label class="choice">
+              <input type="radio" name="b2_usualDrink" value="other" required />
+              อย่างอื่น
+            </label>
           </div>
         </section>
 
         <section class="block">
-          <h2>3) ใน 1 สัปดาห์ หนูกินผลไม้บ่อยแค่ไหน</h2>
+          <h2>3) หนูกินผลไม้บ่อยแค่ไหน</h2>
           <div class="choice-grid">
-            <label class="choice"><input type="radio" name="b3_fruitFrequency" value="often" required /> บ่อย</label>
-            <label class="choice"><input type="radio" name="b3_fruitFrequency" value="sometimes" required /> บางครั้ง</label>
-            <label class="choice"><input type="radio" name="b3_fruitFrequency" value="rarely" required /> นาน ๆ ครั้ง</label>
-            <label class="choice"><input type="radio" name="b3_fruitFrequency" value="never" required /> แทบไม่กินเลย</label>
+            <label class="choice">
+              <input type="radio" name="b3_fruitFrequency" value="often" required />
+              บ่อย
+            </label>
+            <label class="choice">
+              <input type="radio" name="b3_fruitFrequency" value="sometimes" required />
+              บางครั้ง
+            </label>
+            <label class="choice">
+              <input type="radio" name="b3_fruitFrequency" value="rarely" required />
+              นาน ๆ ครั้ง
+            </label>
+            <label class="choice">
+              <input type="radio" name="b3_fruitFrequency" value="never" required />
+              แทบไม่กินเลย
+            </label>
           </div>
         </section>
 
         <section class="block">
-          <h2>4) ใน 1 สัปดาห์ หนูกินขนมหรือของทอดบ่อยแค่ไหน</h2>
+          <h2>4) หนูกินขนมหรือ junk food บ่อยแค่ไหน</h2>
           <div class="choice-grid">
-            <label class="choice"><input type="radio" name="b4_junkFrequency" value="often" required /> บ่อย</label>
-            <label class="choice"><input type="radio" name="b4_junkFrequency" value="sometimes" required /> บางครั้ง</label>
-            <label class="choice"><input type="radio" name="b4_junkFrequency" value="rarely" required /> นาน ๆ ครั้ง</label>
-            <label class="choice"><input type="radio" name="b4_junkFrequency" value="never" required /> แทบไม่กินเลย</label>
+            <label class="choice">
+              <input type="radio" name="b4_junkFrequency" value="often" required />
+              บ่อย
+            </label>
+            <label class="choice">
+              <input type="radio" name="b4_junkFrequency" value="sometimes" required />
+              บางครั้ง
+            </label>
+            <label class="choice">
+              <input type="radio" name="b4_junkFrequency" value="rarely" required />
+              นาน ๆ ครั้ง
+            </label>
+            <label class="choice">
+              <input type="radio" name="b4_junkFrequency" value="never" required />
+              แทบไม่กินเลย
+            </label>
           </div>
         </section>
 
         <section class="block">
-          <h2>5) ถ้ามีผลไม้กับมันฝรั่งทอดอยู่ตรงหน้า หนูมักเลือกอะไร</h2>
+          <h2>5) เวลาซื้อของว่าง หนูคิดถึงเรื่องสุขภาพไหม</h2>
           <div class="choice-grid">
-            <label class="choice"><input type="radio" name="b5_choiceCompare" value="fruit" required /> ผลไม้</label>
-            <label class="choice"><input type="radio" name="b5_choiceCompare" value="chips" required /> มันฝรั่งทอด</label>
-            <label class="choice"><input type="radio" name="b5_choiceCompare" value="depends" required /> แล้วแต่อารมณ์</label>
-            <label class="choice"><input type="radio" name="b5_choiceCompare" value="notSure" required /> ไม่แน่ใจ</label>
+            <label class="choice">
+              <input type="radio" name="b5_healthThink" value="yes" required />
+              คิดถึงบ่อย
+            </label>
+            <label class="choice">
+              <input type="radio" name="b5_healthThink" value="sometimes" required />
+              คิดถึงบ้าง
+            </label>
+            <label class="choice">
+              <input type="radio" name="b5_healthThink" value="rarely" required />
+              ไม่ค่อยคิด
+            </label>
+            <label class="choice">
+              <input type="radio" name="b5_healthThink" value="no" required />
+              ไม่คิดเลย
+            </label>
           </div>
         </section>
 
         <section class="block">
-          <h2>6) ถ้าไปซื้อของที่ร้านหน้าโรงเรียน หนูคิดว่าตัวเองจะเลือกอะไรบ่อยกว่า</h2>
+          <h2>6) ถ้าเพื่อนเลือกขนมหวาน หนูมักทำอย่างไร</h2>
           <div class="choice-grid">
-            <label class="choice"><input type="radio" name="b6_shopChoice" value="healthy" required /> ของว่างที่ดีต่อสุขภาพกว่า</label>
-            <label class="choice"><input type="radio" name="b6_shopChoice" value="junk" required /> ขนม / เครื่องดื่มหวาน</label>
-            <label class="choice"><input type="radio" name="b6_shopChoice" value="mixed" required /> สลับกันไป</label>
-            <label class="choice"><input type="radio" name="b6_shopChoice" value="notSure" required /> ไม่แน่ใจ</label>
+            <label class="choice">
+              <input type="radio" name="b6_peerChoice" value="follow" required />
+              เลือกตามเพื่อน
+            </label>
+            <label class="choice">
+              <input type="radio" name="b6_peerChoice" value="sometimesFollow" required />
+              บางครั้งเลือกตาม
+            </label>
+            <label class="choice">
+              <input type="radio" name="b6_peerChoice" value="ownChoice" required />
+              เลือกของตัวเอง
+            </label>
+            <label class="choice">
+              <input type="radio" name="b6_peerChoice" value="notSure" required />
+              ยังไม่แน่ใจ
+            </label>
           </div>
         </section>
 
         <section class="block">
-          <h2>7) หนูคิดว่าตัวเองอยากลองเลือกของว่างที่ดีต่อสุขภาพมากขึ้นไหม</h2>
+          <h2>7) ตอนนี้หนูอยากเลือกของว่างที่ดีกับสุขภาพมากขึ้นไหม</h2>
           <div class="choice-grid">
-            <label class="choice"><input type="radio" name="b7_intention" value="yes" required /> อยาก</label>
-            <label class="choice"><input type="radio" name="b7_intention" value="maybe" required /> อาจจะ</label>
-            <label class="choice"><input type="radio" name="b7_intention" value="notMuch" required /> ยังไม่ค่อยอยาก</label>
-            <label class="choice"><input type="radio" name="b7_intention" value="no" required /> ไม่อยาก</label>
+            <label class="choice">
+              <input type="radio" name="b7_intention" value="yes" required />
+              อยากมาก
+            </label>
+            <label class="choice">
+              <input type="radio" name="b7_intention" value="somewhat" required />
+              อยากบ้าง
+            </label>
+            <label class="choice">
+              <input type="radio" name="b7_intention" value="notMuch" required />
+              ยังไม่ค่อยอยาก
+            </label>
+            <label class="choice">
+              <input type="radio" name="b7_intention" value="no" required />
+              ไม่อยาก
+            </label>
           </div>
         </section>
 
         <section class="block">
-          <h2>8) ถ้าหนูอยากเปลี่ยน 1 อย่างเกี่ยวกับการกินของว่าง หนูอยากเปลี่ยนอะไร</h2>
+          <h2>8) ถ้าจะเปลี่ยนพฤติกรรม 1 อย่าง หนูอยากเปลี่ยนอะไร</h2>
           <label class="inline">
             <span class="note">ตอบสั้น ๆ ได้เลย</span>
-            <textarea name="b8_changeIdea" placeholder="เช่น อยากกินผลไม้บ่อยขึ้น หรืออยากดื่มน้ำเปล่ามากขึ้น"></textarea>
+            <textarea
+              name="b8_changeIdea"
+              placeholder="เช่น อยากดื่มน้ำเปล่ามากขึ้น หรืออยากลดขนมหวาน"
+              required
+            ></textarea>
           </label>
         </section>
 
@@ -101,6 +192,6 @@
     </section>
   </main>
 
-  <script type="module" src="./assessment.js"></script>
+  <script type="module" src="./assessment.js?v=20260319b-preb"></script>
 </body>
 </html>
