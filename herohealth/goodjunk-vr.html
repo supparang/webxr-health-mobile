@@ -409,11 +409,7 @@
       }
 
       function getHubUrl() {
-        try {
-          return new URL(q.get('hub') || './hub.html', getHeroHealthRootUrl()).toString();
-        } catch {
-          return new URL('hub.html', getHeroHealthRootUrl()).toString();
-        }
+        return new URL('./hub.html', location.href).toString();
       }
 
       function buildBaseQuery(mode, seedValue = String(Date.now())){
@@ -477,8 +473,6 @@
 
         p.set('next', runUrl);
         p.set('nextKey', NEXT_RUN_KEY);
-
-        // บังคับเข้า gate ทุกครั้งในช่วงทดสอบ
         p.set('forcegate', '1');
 
         PASS_THROUGH_TO_GATE.forEach((key) => {
