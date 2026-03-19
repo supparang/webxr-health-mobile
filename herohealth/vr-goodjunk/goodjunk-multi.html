@@ -5,686 +5,642 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
   <title>HeroHealth • GoodJunk Multiplayer Lobby</title>
   <meta name="color-scheme" content="dark light"/>
-  <link rel="icon" href="../favicon.ico" />
   <style>
     :root{
-      --bg1:#020617;
-      --bg2:#0b1226;
-      --panel:rgba(2,6,23,.76);
-      --card:rgba(15,23,42,.88);
-      --stroke:rgba(148,163,184,.18);
-      --text:#e5e7eb;
-      --muted:#94a3b8;
+      --bg:#0b1220;
+      --fg:#e8eefc;
+      --mut:#9fb0d0;
+      --card:#121b2f;
+      --bd:#243455;
+
       --race:#38bdf8;
       --battle:#f59e0b;
       --coop:#a78bfa;
-      --ok:#22c55e;
-      --danger:#ef4444;
-      --shadow:0 24px 64px rgba(0,0,0,.28);
-      --sat:env(safe-area-inset-top,0px);
-      --sar:env(safe-area-inset-right,0px);
-      --sab:env(safe-area-inset-bottom,0px);
-      --sal:env(safe-area-inset-left,0px);
+      --ok:#27d17f;
+
+      --btn:#16224a;
+      --btn2:rgba(39,209,127,.15);
+      --shadow:0 18px 48px rgba(0,0,0,.28);
     }
 
-    *{ box-sizing:border-box; }
     html,body{
+      height:100%;
       margin:0;
-      min-height:100%;
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
       background:
-        radial-gradient(circle at 16% 10%, rgba(56,189,248,.12), transparent 22%),
-        radial-gradient(circle at 84% 10%, rgba(167,139,250,.12), transparent 22%),
-        linear-gradient(180deg,var(--bg2),var(--bg1));
-      color:var(--text);
-      font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
-    }
-
-    body{
-      min-height:100dvh;
-      padding:
-        calc(18px + var(--sat))
-        calc(16px + var(--sar))
-        calc(18px + var(--sab))
-        calc(16px + var(--sal));
+        radial-gradient(circle at 15% 10%, rgba(56,189,248,.10), transparent 18%),
+        radial-gradient(circle at 85% 10%, rgba(167,139,250,.10), transparent 18%),
+        linear-gradient(180deg,#0b1220,#08101d);
+      color:var(--fg);
     }
 
     .wrap{
-      max-width:1180px;
+      max-width:1100px;
       margin:0 auto;
+      padding:20px;
+    }
+
+    h1{
+      margin:0 0 10px;
+      font-size:24px;
+      line-height:1.15;
+    }
+
+    .mut{
+      color:var(--mut);
+      font-size:13px;
+      line-height:1.65;
     }
 
     .hero{
       margin-bottom:16px;
     }
 
-    .kicker{
+    .hero-kicker{
       display:inline-flex;
       align-items:center;
       gap:8px;
       padding:6px 12px;
       border-radius:999px;
-      background:rgba(56,189,248,.12);
-      border:1px solid rgba(56,189,248,.24);
-      color:#7dd3fc;
+      border:1px solid var(--bd);
+      background:#0d1730;
+      color:#cfe2ff;
       font-size:12px;
       font-weight:900;
-      margin-bottom:12px;
+      margin-bottom:10px;
     }
 
-    h1{
-      margin:0 0 8px;
-      font-size:clamp(28px,5vw,42px);
-      line-height:1.05;
-    }
-
-    .sub{
-      margin:0;
-      color:var(--muted);
-      line-height:1.7;
-      max-width:860px;
-    }
-
-    .tabs{
+    .mode-tabs{
       display:flex;
       gap:10px;
       flex-wrap:wrap;
-      margin-top:14px;
+      margin:16px 0 14px;
     }
 
-    .tab{
+    .mode-tab{
       appearance:none;
-      border:1px solid var(--stroke);
-      background:rgba(255,255,255,.04);
-      color:#cbd5e1;
+      border:1px solid var(--bd);
+      background:#0d1730;
+      color:var(--fg);
       border-radius:999px;
       padding:10px 14px;
       font:inherit;
       font-weight:900;
       cursor:pointer;
+      transition:.14s ease;
+    }
+    .mode-tab:hover{ transform:translateY(-1px); }
+    .mode-tab.active.race{
+      border-color:rgba(56,189,248,.55);
+      background:rgba(56,189,248,.14);
+      color:#7dd3fc;
+    }
+    .mode-tab.active.battle{
+      border-color:rgba(245,158,11,.55);
+      background:rgba(245,158,11,.14);
+      color:#fcd34d;
+    }
+    .mode-tab.active.coop{
+      border-color:rgba(167,139,250,.55);
+      background:rgba(167,139,250,.16);
+      color:#c4b5fd;
     }
 
-    .tab.active.race{ background:rgba(56,189,248,.12); color:#7dd3fc; border-color:rgba(56,189,248,.26); }
-    .tab.active.battle{ background:rgba(245,158,11,.12); color:#fde68a; border-color:rgba(245,158,11,.26); }
-    .tab.active.coop{ background:rgba(167,139,250,.14); color:#ddd6fe; border-color:rgba(167,139,250,.28); }
-
-    .layout{
+    .grid{
       display:grid;
-      gap:16px;
-      grid-template-columns:1.05fr .95fr;
-      margin-top:18px;
+      gap:14px;
+      grid-template-columns:1.25fr .75fr;
+      margin-top:14px;
     }
-
-    @media (max-width:980px){
-      .layout{ grid-template-columns:1fr; }
+    @media (max-width:900px){
+      .grid{ grid-template-columns:1fr; }
     }
 
     .card{
-      background:var(--panel);
-      border:1px solid var(--stroke);
-      border-radius:24px;
-      padding:16px;
+      background:rgba(18,27,47,.92);
+      border:1px solid var(--bd);
+      border-radius:18px;
+      padding:14px;
       box-shadow:var(--shadow);
-      backdrop-filter:blur(10px);
-    }
-
-    .section-title{
-      margin:0 0 8px;
-      font-size:20px;
-      font-weight:1000;
-    }
-
-    .muted{
-      color:var(--muted);
-      font-size:13px;
-      line-height:1.65;
-    }
-
-    .form-grid{
-      display:grid;
-      gap:12px;
-      margin-top:14px;
-    }
-
-    .field{
-      display:grid;
-      gap:6px;
-    }
-
-    .field label{
-      font-size:13px;
-      font-weight:800;
-      color:#cbd5e1;
-    }
-
-    input,select,textarea{
-      width:100%;
-      border-radius:14px;
-      border:1px solid var(--stroke);
-      background:#0b1430;
-      color:var(--text);
-      padding:12px 14px;
-      font:inherit;
-      min-height:46px;
-    }
-
-    textarea{
-      min-height:110px;
-      resize:vertical;
     }
 
     .row{
       display:flex;
       gap:10px;
       flex-wrap:wrap;
-    }
-
-    .row > *{
-      flex:1 1 0;
-      min-width:0;
-    }
-
-    .btn{
-      appearance:none;
-      border:0;
-      cursor:pointer;
-      border-radius:16px;
-      padding:12px 16px;
-      font-weight:900;
-      font-size:14px;
-      transition:.12s ease;
-    }
-    .btn:hover{ transform:translateY(-1px); filter:brightness(1.05); }
-    .btn:active{ transform:translateY(0); }
-
-    .btn-race{ background:var(--race); color:#082f49; }
-    .btn-battle{ background:var(--battle); color:#3b1d00; }
-    .btn-coop{ background:var(--coop); color:#1f1147; }
-    .btn-ghost{
-      background:rgba(255,255,255,.06);
-      color:#e5e7eb;
-      border:1px solid var(--stroke);
-    }
-    .btn-good{ background:var(--ok); color:#052e16; }
-    .btn-danger{ background:var(--danger); color:#fff; }
-
-    .mode-panel{
-      border:1px solid var(--stroke);
-      border-radius:20px;
-      background:var(--card);
-      padding:14px;
-      margin-top:14px;
-    }
-
-    .mode-badge{
-      display:inline-flex;
       align-items:center;
-      gap:8px;
-      padding:6px 12px;
-      border-radius:999px;
-      font-size:12px;
-      font-weight:900;
-      border:1px solid rgba(255,255,255,.14);
-      margin-bottom:10px;
-    }
-    .mode-badge.race{ color:#7dd3fc; background:rgba(56,189,248,.12); border-color:rgba(56,189,248,.25); }
-    .mode-badge.battle{ color:#fde68a; background:rgba(245,158,11,.12); border-color:rgba(245,158,11,.25); }
-    .mode-badge.coop{ color:#ddd6fe; background:rgba(167,139,250,.14); border-color:rgba(167,139,250,.28); }
-
-    .mode-title{
-      margin:0;
-      font-size:24px;
-      font-weight:1000;
-      line-height:1.1;
     }
 
-    .mode-desc{
-      margin-top:8px;
-      color:#cbd5e1;
-      line-height:1.7;
-      font-size:14px;
-    }
-
-    .mode-list{
+    .stack{
       display:grid;
-      gap:6px;
-      margin-top:12px;
-      color:var(--muted);
-      font-size:13px;
-      line-height:1.6;
+      gap:10px;
     }
 
-    .room-box{
-      margin-top:14px;
-      border:1px solid var(--stroke);
-      border-radius:20px;
-      background:var(--card);
-      padding:14px;
+    input,select,button{
+      font:inherit;
+      border-radius:12px;
+      border:1px solid var(--bd);
+      background:#0e1730;
+      color:var(--fg);
+      padding:10px 12px;
+      min-height:44px;
     }
 
-    .room-code{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      padding:10px 14px;
+    input{
+      width:240px;
+      max-width:100%;
+    }
+
+    button{
+      cursor:pointer;
+      font-weight:900;
+      transition:.14s ease;
+    }
+    button:hover{ transform:translateY(-1px); }
+
+    .btn{ background:var(--btn); }
+    .btnOk{
+      background:var(--btn2);
+      border-color:rgba(39,209,127,.5);
+      color:#b9ffd9;
+    }
+
+    .mono{
+      font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono",monospace;
+    }
+
+    .qr{
+      width:220px;
+      height:220px;
+      background:#081026;
+      border:1px dashed var(--bd);
       border-radius:14px;
-      background:#0b1430;
-      border:1px solid var(--stroke);
-      font-size:18px;
-      font-weight:1000;
-      letter-spacing:.03em;
+      display:grid;
+      place-items:center;
+      overflow:hidden;
+      margin-top:6px;
     }
 
-    .pill-row{
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-      margin-top:10px;
+    .link{
+      word-break:break-all;
+      font-size:12px;
+      background:#0b1430;
+      border:1px solid var(--bd);
+      padding:10px;
+      border-radius:12px;
+      line-height:1.6;
     }
 
     .pill{
-      display:inline-flex;
-      align-items:center;
-      gap:6px;
-      padding:7px 10px;
+      display:inline-block;
+      padding:4px 8px;
+      border:1px solid var(--bd);
       border-radius:999px;
-      border:1px solid var(--stroke);
-      background:rgba(255,255,255,.04);
-      color:#cbd5e1;
       font-size:12px;
-      font-weight:800;
-    }
-
-    .qr-wrap{
-      margin-top:14px;
-      display:grid;
-      place-items:center;
-      border:1px dashed rgba(148,163,184,.24);
-      border-radius:20px;
-      background:rgba(255,255,255,.02);
-      min-height:260px;
-      overflow:hidden;
-      padding:12px;
-    }
-
-    .qr-wrap img{
-      width:min(260px, 72vw);
-      height:auto;
-      border-radius:14px;
-      background:#fff;
-      padding:8px;
-    }
-
-    .share-box{
-      margin-top:14px;
-      border:1px solid var(--stroke);
-      border-radius:18px;
       background:#0b1430;
-      padding:12px;
-      font-size:12px;
-      line-height:1.6;
-      word-break:break-all;
-      color:#cbd5e1;
     }
 
-    .status{
-      margin-top:14px;
-      border:1px solid var(--stroke);
-      border-radius:18px;
-      background:rgba(255,255,255,.03);
+    .mode-box{
+      border:1px solid var(--bd);
+      border-radius:16px;
       padding:12px;
+      background:#0b1430;
+    }
+
+    .mode-title{
+      margin:0 0 8px;
+      font-size:18px;
+      font-weight:900;
+    }
+
+    .mode-title.race{ color:#7dd3fc; }
+    .mode-title.battle{ color:#fcd34d; }
+    .mode-title.coop{ color:#c4b5fd; }
+
+    .mini-list{
+      display:grid;
+      gap:6px;
+      color:#cdd9f3;
       font-size:13px;
-      color:#cbd5e1;
+      line-height:1.55;
+    }
+
+    .checkrow{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    .checkrow input[type="checkbox"]{
+      width:auto;
+      min-height:auto;
+      transform:scale(1.1);
+    }
+
+    .warn{
+      margin-top:12px;
+      padding:12px;
+      border-radius:14px;
+      border:1px solid rgba(245,158,11,.28);
+      background:rgba(245,158,11,.10);
+      color:#fde68a;
+      font-size:13px;
       line-height:1.65;
     }
 
-    .foot{
-      margin-top:14px;
-      color:var(--muted);
-      font-size:12px;
-      line-height:1.7;
+    .okbox{
+      margin-top:12px;
+      padding:12px;
+      border-radius:14px;
+      border:1px solid rgba(39,209,127,.28);
+      background:rgba(39,209,127,.10);
+      color:#b9ffd9;
+      font-size:13px;
+      line-height:1.65;
     }
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <div class="hero">
-      <div class="kicker">GOODJUNK • MULTIPLAYER LOBBY</div>
-      <h1>ตั้งค่าห้องสำหรับ Race / Battle / Coop</h1>
-      <p class="sub">
-        หน้านี้เป็น launcher/lobby ของโหมด multiplayer แบบเดิม ใช้สำหรับตั้งห้อง แชร์ลิงก์ และคุมโหมดก่อนต่อเข้าระบบ run จริง
-      </p>
-
-      <div class="tabs">
-        <button class="tab race" data-mode="race" type="button">Race</button>
-        <button class="tab battle" data-mode="battle" type="button">Battle</button>
-        <button class="tab coop" data-mode="coop" type="button">Coop</button>
-      </div>
+<div class="wrap">
+  <div class="hero">
+    <div class="hero-kicker">GOODJUNK • MULTIPLAYER LOBBY</div>
+    <h1 id="pageTitle">GoodJunk Multiplayer — Race / Battle / Coop</h1>
+    <div class="mut" id="pageSub">
+      ครูสร้างห้อง → แชร์ QR/ลิงก์ → ผู้เล่นเข้าห้อง → ระบบส่งไป run page ตามโหมดที่เลือก
     </div>
 
-    <div class="layout">
-      <section class="card">
-        <h2 class="section-title">ตั้งค่าผู้เล่น / ห้อง</h2>
-        <div class="muted">ค่าพวกนี้จะถูกใส่ลงในลิงก์ห้องและลิงก์เข้า lobby</div>
-
-        <div class="form-grid">
-          <div class="field">
-            <label for="playerName">ชื่อผู้เล่น</label>
-            <input id="playerName" placeholder="เช่น Teacher / ทีม A / เด็กชายเอ" />
-          </div>
-
-          <div class="row">
-            <div class="field">
-              <label for="diff">ความยาก</label>
-              <select id="diff">
-                <option value="easy">easy</option>
-                <option value="normal" selected>normal</option>
-                <option value="hard">hard</option>
-              </select>
-            </div>
-
-            <div class="field">
-              <label for="time">เวลา</label>
-              <select id="time">
-                <option value="90">90s</option>
-                <option value="120" selected>120s</option>
-                <option value="150">150s</option>
-                <option value="180">180s</option>
-              </select>
-            </div>
-          </div>
-
-          <div class="field">
-            <label for="roomId">Room ID</label>
-            <div class="row">
-              <input id="roomId" placeholder="เช่น GJ-AB12X" />
-              <button class="btn btn-ghost" id="btnNewRoom" type="button">สุ่มห้อง</button>
-            </div>
-          </div>
-        </div>
-
-        <div class="mode-panel">
-          <div id="modeBadge" class="mode-badge race">RACE MODE</div>
-          <h3 id="modeTitle" class="mode-title">Race</h3>
-          <div id="modeDesc" class="mode-desc">แข่งคะแนนพร้อมกัน ใครคะแนนสูงกว่าชนะ</div>
-          <div id="modeList" class="mode-list"></div>
-        </div>
-
-        <div class="room-box">
-          <div class="muted">รหัสห้องปัจจุบัน</div>
-          <div id="roomCode" class="room-code">GJ-ROOM</div>
-
-          <div class="pill-row">
-            <div class="pill">game: goodjunk</div>
-            <div class="pill">launcher: multiplayer</div>
-            <div id="modePill" class="pill">mode: race</div>
-          </div>
-
-          <div class="row" style="margin-top:14px">
-            <button class="btn btn-good" id="btnCopyRoomLink" type="button">คัดลอกลิงก์เข้าห้อง</button>
-            <button class="btn btn-ghost" id="btnOpenRoomLink" type="button">เปิดลิงก์ห้อง</button>
-          </div>
-
-          <div class="row" style="margin-top:10px">
-            <button class="btn btn-race" id="btnEnterLobby" type="button">เข้า Lobby</button>
-            <button class="btn btn-danger" id="btnBackRoot" type="button">กลับ Launcher หลัก</button>
-          </div>
-        </div>
-
-        <div class="foot">
-          หมายเหตุ: หน้านี้เป็น lobby/launcher สำหรับโหมดเดิม โดยลิงก์แชร์จะพาผู้เล่นเข้าหน้านี้พร้อม roomId เดียวกัน
-        </div>
-      </section>
-
-      <section class="card">
-        <h2 class="section-title">แชร์ห้อง</h2>
-        <div class="muted">ส่งลิงก์หรือให้สแกน QR เพื่อเข้าห้องเดียวกัน</div>
-
-        <div class="qr-wrap" id="qrWrap">
-          <div class="muted">กด “สุ่มห้อง” หรือกรอกรหัสห้องก่อน</div>
-        </div>
-
-        <div class="share-box" id="shareLink">-</div>
-
-        <div class="status" id="statusBox">
-          สถานะ: รอสร้างห้อง
-        </div>
-      </section>
+    <div class="mode-tabs">
+      <button class="mode-tab" data-mode-tab="race" type="button">Race</button>
+      <button class="mode-tab" data-mode-tab="battle" type="button">Battle</button>
+      <button class="mode-tab" data-mode-tab="coop" type="button">Coop</button>
     </div>
   </div>
 
-  <script>
-    (function(){
-      const q = new URLSearchParams(location.search);
+  <div class="grid">
+    <div class="card">
+      <div class="mode-box">
+        <div class="mode-title" id="modeTitle">Race</div>
+        <div class="mini-list" id="modeDesc"></div>
+      </div>
 
-      const MODE_INFO = {
-        race: {
-          badge: 'RACE MODE',
-          title: 'Race',
-          desc: 'แข่งคะแนนพร้อมกัน ใครคะแนนสูงกว่าชนะ',
-          list: [
-            '• เหมาะสำหรับแข่งความเร็วและความแม่น',
-            '• ใช้ host/teacher สร้างห้องและแชร์ให้ผู้เล่น',
-            '• ลิงก์นี้เป็น lobby ของห้องเดียวกัน'
-          ],
-          btnClass: 'btn-race'
-        },
-        battle: {
-          badge: 'BATTLE MODE',
-          title: 'Battle',
-          desc: 'โหมดปะทะแบบเดิม ตอนนี้ยังใช้ lobby เดียวกันก่อน',
-          list: [
-            '• ใช้ launcher/lobby ตัวเดียวกับ multiplayer',
-            '• เหมาะไว้เตรียม route และทดสอบ room flow',
-            '• ตัว run จริงค่อยต่อระบบ battle ภายหลัง'
-          ],
-          btnClass: 'btn-battle'
-        },
-        coop: {
-          badge: 'COOP MODE',
-          title: 'Coop',
-          desc: 'โหมดร่วมมือกัน ตอนนี้ใช้ lobby เดียวกันก่อน',
-          list: [
-            '• ใช้สำหรับจัดกลุ่มและแชร์ห้องร่วมกัน',
-            '• เหมาะสำหรับเตรียม flow ก่อนต่อ coop run',
-            '• ตัว run จริงค่อยต่อระบบ coop ภายหลัง'
-          ],
-          btnClass: 'btn-coop'
-        }
-      };
+      <div style="height:12px"></div>
 
-      const elName = document.getElementById('playerName');
-      const elDiff = document.getElementById('diff');
-      const elTime = document.getElementById('time');
-      const elRoomId = document.getElementById('roomId');
+      <div class="row">
+        <button id="btnNew" class="btn" type="button">สร้างห้องใหม่</button>
+        <input id="roomId" placeholder="Room ID (เช่น GJ-8K3P2)"/>
+        <button id="btnUse" class="btn" type="button">ใช้ห้องนี้</button>
+      </div>
 
-      const elModeBadge = document.getElementById('modeBadge');
-      const elModeTitle = document.getElementById('modeTitle');
-      const elModeDesc = document.getElementById('modeDesc');
-      const elModeList = document.getElementById('modeList');
-      const elModePill = document.getElementById('modePill');
+      <div style="height:10px"></div>
 
-      const elRoomCode = document.getElementById('roomCode');
-      const elShareLink = document.getElementById('shareLink');
-      const elQrWrap = document.getElementById('qrWrap');
-      const elStatusBox = document.getElementById('statusBox');
+      <div class="row">
+        <input id="playerName" placeholder="ชื่อผู้เล่น / ครู" />
+        <select id="diff">
+          <option value="easy">easy</option>
+          <option value="normal" selected>normal</option>
+          <option value="hard">hard</option>
+        </select>
+        <select id="time">
+          <option value="60">60s</option>
+          <option value="80" selected>80s</option>
+          <option value="100">100s</option>
+          <option value="120">120s</option>
+        </select>
+      </div>
 
-      let currentMode = normalizeMode(q.get('mode') || 'race');
+      <div style="height:10px"></div>
 
-      elName.value = q.get('name') || '';
-      elDiff.value = q.get('diff') || 'normal';
-      elTime.value = q.get('time') || (currentMode === 'coop' ? '180' : currentMode === 'battle' ? '150' : '120');
-      elRoomId.value = q.get('roomId') || '';
+      <div class="checkrow">
+        <label class="pill">
+          <input id="isHost" type="checkbox"/>
+          เข้าเป็น Host / Teacher
+        </label>
+        <span class="mut">ถ้าชื่อเป็น <span class="mono">TEACHER</span> จะถูกติ๊กให้อัตโนมัติ</span>
+      </div>
 
-      function normalizeMode(v){
-        const s = String(v || '').toLowerCase();
-        if (s === 'battle') return 'battle';
-        if (s === 'coop') return 'coop';
-        return 'race';
-      }
+      <div style="height:12px"></div>
 
-      function randRoom(){
-        const pool = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
-        let out = 'GJ-';
-        for(let i=0;i<5;i++) out += pool[Math.floor(Math.random()*pool.length)];
-        return out;
-      }
+      <div class="row">
+        <button id="btnJoin" class="btnOk" type="button">เข้าเล่น</button>
+      </div>
 
-      function sanitizeRoomId(v){
-        return String(v || '')
-          .toUpperCase()
-          .replace(/[^A-Z0-9-]/g, '')
-          .slice(0, 16);
-      }
+      <div style="height:14px"></div>
 
-      function getRootUrl(){
-        return new URL('../', location.href);
-      }
+      <div class="mut">ลิงก์แชร์สำหรับผู้เล่น:</div>
+      <div id="shareLink" class="link mono">-</div>
 
-      function getRootLauncherUrl(){
-        return new URL('../goodjunk-vr.html', location.href).toString();
-      }
+      <div style="height:12px"></div>
 
-      function getHubUrl(){
-        try {
-          return new URL(q.get('hub') || '../hub.html', location.href).toString();
-        } catch {
-          return new URL('../hub.html', location.href).toString();
-        }
-      }
+      <div class="mut">ลิงก์เข้าเล่นทันทีของคนที่กรอกชื่อด้านบน:</div>
+      <div id="joinLink" class="link mono">-</div>
 
-      function buildBaseParams(mode, roomId=''){
-        const p = new URLSearchParams();
-        p.set('pid', q.get('pid') || 'anon');
-        p.set('name', elName.value.trim());
-        p.set('studyId', q.get('studyId') || '');
-        p.set('diff', elDiff.value || 'normal');
-        p.set('time', elTime.value || '120');
-        p.set('seed', q.get('seed') || String(Date.now()));
-        p.set('hub', getHubUrl());
-        p.set('view', q.get('view') || 'mobile');
-        p.set('run', q.get('run') || 'play');
-        p.set('gameId', q.get('gameId') || 'goodjunk');
-        p.set('mode', mode);
-        if (roomId) p.set('roomId', roomId);
+      <div class="okbox">
+        หน้า lobby นี้รองรับ <strong>Race / Battle / Coop</strong> แล้ว
+        โดยจะ route ไป run page ตาม mode ที่เลือก
+      </div>
 
-        ['debug','bossdebug','forcegate','resetGate'].forEach((key) => {
-          const v = q.get(key);
-          if (v) p.set(key, v);
-        });
+      <div class="warn" id="modeWarn">
+        หมายเหตุ: โหมด Battle และ Coop ต้องมีไฟล์ run page / logic รองรับจริงที่ฝั่งเกม
+      </div>
+    </div>
 
-        return p;
-      }
+    <div class="card">
+      <div class="mut">QR Code</div>
+      <div class="qr" id="qrBox"><span class="mut">กด “สร้างห้องใหม่”</span></div>
 
-      function buildRoomLink(mode, roomId){
-        const url = new URL('./goodjunk-multi.html', location.href);
-        url.search = buildBaseParams(mode, roomId).toString();
-        return url.toString();
-      }
+      <div style="height:10px"></div>
 
-      function setModeUi(){
-        const info = MODE_INFO[currentMode];
-        document.querySelectorAll('.tab').forEach(btn => {
-          btn.classList.toggle('active', btn.dataset.mode === currentMode);
-        });
+      <div class="mut">
+        แชร์ QR นี้ให้ผู้เล่นเปิดเข้ามาที่ lobby พร้อม room/mode ที่ตั้งไว้
+      </div>
 
-        elModeBadge.className = `mode-badge ${currentMode}`;
-        elModeBadge.textContent = info.badge;
-        elModeTitle.textContent = info.title;
-        elModeDesc.textContent = info.desc;
-        elModeList.innerHTML = info.list.map(line => `<div>${line}</div>`).join('');
-        elModePill.textContent = `mode: ${currentMode}`;
-      }
+      <div style="height:12px"></div>
 
-      function setStatus(text){
-        elStatusBox.textContent = text;
-      }
+      <div class="mut">
+        ใส่ backend ผ่าน query เช่น:<br/>
+        <span class="mono">goodjunk-multi.html?sbUrl=...&amp;sbAnon=...</span>
+      </div>
 
-      function setQr(url){
-        if (!url) {
-          elQrWrap.innerHTML = '<div class="muted">กด “สุ่มห้อง” หรือกรอกรหัสห้องก่อน</div>';
-          return;
-        }
-        const img = new Image();
-        img.alt = 'QR Code';
-        img.src = 'https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=' + encodeURIComponent(url);
-        elQrWrap.innerHTML = '';
-        elQrWrap.appendChild(img);
-      }
+      <div style="height:10px"></div>
 
-      function refreshRoomUi(){
-        const roomId = sanitizeRoomId(elRoomId.value || '');
-        const shareUrl = roomId ? buildRoomLink(currentMode, roomId) : '';
+      <div class="mut">
+        รองรับ passthrough query เดิม เช่น
+        <span class="mono">run</span>,
+        <span class="mono">log</span>,
+        <span class="mono">api</span>,
+        <span class="mono">pid</span>,
+        <span class="mono">hub</span>,
+        <span class="mono">studyId</span>,
+        <span class="mono">phase</span>,
+        <span class="mono">conditionGroup</span>,
+        <span class="mono">debug</span>,
+        <span class="mono">seed</span>,
+        <span class="mono">view</span>
+      </div>
+    </div>
+  </div>
+</div>
 
-        elRoomId.value = roomId;
-        elRoomCode.textContent = roomId || 'GJ-ROOM';
-        elShareLink.textContent = shareUrl || '-';
-        setQr(shareUrl);
+<script>
+  const qs = (k, d='') => {
+    try {
+      return (new URL(location.href)).searchParams.get(k) ?? d;
+    } catch (e) {
+      return d;
+    }
+  };
 
-        if (roomId) {
-          setStatus(`สถานะ: พร้อมแชร์ห้อง ${roomId} ในโหมด ${currentMode}`);
-        } else {
-          setStatus('สถานะ: รอสร้างห้อง');
-        }
-      }
+  const $ = (id) => document.getElementById(id);
 
-      document.querySelectorAll('.tab').forEach(btn => {
-        btn.addEventListener('click', () => {
-          currentMode = normalizeMode(btn.dataset.mode);
-          setModeUi();
-          refreshRoomUi();
-        });
-      });
+  const sbUrl  = qs('sbUrl', '');
+  const sbAnon = qs('sbAnon', '');
 
-      document.getElementById('btnNewRoom')?.addEventListener('click', () => {
-        elRoomId.value = randRoom();
-        refreshRoomUi();
-      });
+  const MODE_META = {
+    race: {
+      label: 'Race',
+      theme: 'race',
+      runPath: './goodjunk-race-room.html',
+      desc: [
+        'แข่งคะแนน ใคร score สูงสุดชนะ',
+        'เริ่มพร้อมกันและมีผลลัพธ์แบบ leaderboard',
+        'ไม่ใช่โหมดโจมตีกันตรง ๆ'
+      ]
+    },
+    battle: {
+      label: 'Battle',
+      theme: 'battle',
+      runPath: './goodjunk-battle-run.html',
+      desc: [
+        'โหมดปะทะโดยตรง winner / loser',
+        'ควรแยก logic การโจมตี / กดดัน / shield จาก race',
+        'ใช้ run page คนละไฟล์กับ race'
+      ]
+    },
+    coop: {
+      label: 'Coop',
+      theme: 'coop',
+      runPath: './goodjunk-coop-lobby.html',
+      desc: [
+        'ช่วยกันเก็บของดีให้ถึงเป้าหมายทีม',
+        'ใช้คะแนนรวมทีมและสรุปผลร่วมกัน',
+        'เหมาะกับ team score / shared goal / team summary'
+      ]
+    }
+  };
 
-      elRoomId?.addEventListener('input', refreshRoomUi);
-      elDiff?.addEventListener('change', refreshRoomUi);
-      elTime?.addEventListener('change', refreshRoomUi);
-      elName?.addEventListener('input', refreshRoomUi);
+  const SHARE_PASSTHRU_KEYS = [
+    'run','log','api','hub','studyId','phase','conditionGroup',
+    'debug','seed','view','battle','autostart','forfeit'
+  ];
 
-      document.getElementById('btnCopyRoomLink')?.addEventListener('click', async () => {
-        const roomId = sanitizeRoomId(elRoomId.value || '');
-        if (!roomId) {
-          setStatus('สถานะ: ยังไม่มี roomId');
-          return;
-        }
-        const url = buildRoomLink(currentMode, roomId);
-        try {
-          await navigator.clipboard.writeText(url);
-          setStatus(`สถานะ: คัดลอกลิงก์ห้อง ${roomId} แล้ว`);
-        } catch {
-          setStatus('สถานะ: คัดลอกอัตโนมัติไม่สำเร็จ ให้กดค้างแล้วคัดลอกเอง');
-        }
-      });
+  const elRoomId = $('roomId');
+  const elName   = $('playerName');
+  const elDiff   = $('diff');
+  const elTime   = $('time');
+  const elHost   = $('isHost');
+  const elShare  = $('shareLink');
+  const elJoin   = $('joinLink');
+  const elQrBox  = $('qrBox');
 
-      document.getElementById('btnOpenRoomLink')?.addEventListener('click', () => {
-        const roomId = sanitizeRoomId(elRoomId.value || '');
-        if (!roomId) {
-          setStatus('สถานะ: ยังไม่มี roomId');
-          return;
-        }
-        location.href = buildRoomLink(currentMode, roomId);
-      });
+  let currentMode = normalizeMode(qs('mode', 'race'));
 
-      document.getElementById('btnEnterLobby')?.addEventListener('click', () => {
-        const roomId = sanitizeRoomId(elRoomId.value || '');
-        if (!roomId) {
-          setStatus('สถานะ: กรุณาสร้างหรือกรอกรหัสห้องก่อน');
-          return;
-        }
-        location.href = buildRoomLink(currentMode, roomId);
-      });
+  function normalizeMode(mode){
+    const m = String(mode || '').trim().toLowerCase();
+    return MODE_META[m] ? m : 'race';
+  }
 
-      document.getElementById('btnBackRoot')?.addEventListener('click', () => {
-        location.href = getRootLauncherUrl();
-      });
+  function randRoom(){
+    const pool = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+    let s = 'GJ-';
+    for(let i=0;i<5;i++) s += pool[Math.floor(Math.random()*pool.length)];
+    return s;
+  }
 
-      setModeUi();
-      refreshRoomUi();
-    })();
-  </script>
+  function sanitizeName(name){
+    return String(name || '').trim().slice(0, 24);
+  }
+
+  function makePid(name){
+    const base = sanitizeName(name || 'player')
+      .toLowerCase()
+      .replace(/[^a-z0-9ก-๙]+/gi, '-')
+      .replace(/^-+|-+$/g, '') || 'player';
+    return `${base}-${Math.random().toString(36).slice(2,7)}`;
+  }
+
+  function getRoomIdValue(){
+    return (elRoomId.value || qs('roomId', qs('room', '')) || '').trim();
+  }
+
+  function getIsHost(){
+    const typed = sanitizeName(elName.value);
+    return elHost.checked || typed.toLowerCase() === 'teacher';
+  }
+
+  function buildLobbyShareLink(roomId){
+    const u = new URL(location.pathname, location.href);
+    u.searchParams.set('mode', currentMode);
+    u.searchParams.set('roomId', roomId);
+    u.searchParams.set('diff', elDiff.value);
+    u.searchParams.set('time', elTime.value);
+
+    if (sbUrl)  u.searchParams.set('sbUrl', sbUrl);
+    if (sbAnon) u.searchParams.set('sbAnon', sbAnon);
+
+    SHARE_PASSTHRU_KEYS.forEach((k) => {
+      const v = qs(k, '');
+      if (v) u.searchParams.set(k, v);
+    });
+
+    return u.toString();
+  }
+
+  function buildJoinRunLink(roomId, name='', host='0'){
+    const meta = MODE_META[currentMode];
+    const u = new URL(meta.runPath, location.href);
+
+    const cleanName = sanitizeName(name || 'Player');
+    const queryPid = qs('pid', '');
+    const pid = queryPid || makePid(cleanName);
+
+    u.searchParams.set('roomId', roomId);
+    u.searchParams.set('room', roomId);
+    u.searchParams.set('name', cleanName);
+    u.searchParams.set('nick', cleanName);
+    u.searchParams.set('pid', pid);
+    u.searchParams.set('host', host);
+    u.searchParams.set('mode', currentMode);
+    u.searchParams.set('diff', elDiff.value);
+    u.searchParams.set('time', elTime.value);
+    u.searchParams.set('gameId', 'goodjunk');
+
+    if (sbUrl)  u.searchParams.set('sbUrl', sbUrl);
+    if (sbAnon) u.searchParams.set('sbAnon', sbAnon);
+
+    SHARE_PASSTHRU_KEYS.forEach((k) => {
+      const v = qs(k, '');
+      if (v) u.searchParams.set(k, v);
+    });
+
+    return u.toString();
+  }
+
+  function setQR(url){
+    const img = new Image();
+    img.alt = 'QR';
+    img.src = 'https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=' + encodeURIComponent(url);
+    img.style.width = '220px';
+    img.style.height = '220px';
+    elQrBox.innerHTML = '';
+    elQrBox.appendChild(img);
+  }
+
+  function renderMode(){
+    const meta = MODE_META[currentMode];
+
+    document.querySelectorAll('[data-mode-tab]').forEach((btn) => {
+      btn.classList.toggle('active', btn.getAttribute('data-mode-tab') === currentMode);
+      btn.classList.toggle('race', btn.getAttribute('data-mode-tab') === 'race');
+      btn.classList.toggle('battle', btn.getAttribute('data-mode-tab') === 'battle');
+      btn.classList.toggle('coop', btn.getAttribute('data-mode-tab') === 'coop');
+    });
+
+    $('pageTitle').textContent = `GoodJunk Multiplayer — ${meta.label}`;
+    $('pageSub').textContent = `สร้าง/ใช้ห้องสำหรับโหมด ${meta.label} และ route ไปยัง run page ของโหมดนี้โดยเฉพาะ`;
+
+    const modeTitle = $('modeTitle');
+    modeTitle.textContent = meta.label;
+    modeTitle.className = `mode-title ${meta.theme}`;
+
+    $('modeDesc').innerHTML = meta.desc.map(line => `<div>• ${escapeHtml(line)}</div>`).join('');
+    updateLinks();
+  }
+
+  function updateLinks(){
+    const roomId = getRoomIdValue();
+
+    if (!roomId) {
+      elShare.textContent = '-';
+      elJoin.textContent = '-';
+      elQrBox.innerHTML = '<span class="mut">กด “สร้างห้องใหม่”</span>';
+      return;
+    }
+
+    const share = buildLobbyShareLink(roomId);
+    const join  = buildJoinRunLink(roomId, sanitizeName(elName.value || 'Player'), getIsHost() ? '1' : '0');
+
+    elShare.textContent = share;
+    elJoin.textContent = join;
+    setQR(share);
+  }
+
+  function escapeHtml(s) {
+    return String(s ?? '')
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;');
+  }
+
+  document.querySelectorAll('[data-mode-tab]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      currentMode = normalizeMode(btn.getAttribute('data-mode-tab'));
+      renderMode();
+    });
+  });
+
+  $('btnNew').addEventListener('click', () => {
+    elRoomId.value = randRoom();
+    updateLinks();
+  });
+
+  $('btnUse').addEventListener('click', () => {
+    updateLinks();
+  });
+
+  $('btnJoin').addEventListener('click', () => {
+    const roomId = getRoomIdValue();
+    if (!roomId) return;
+
+    const name = sanitizeName(elName.value || 'Player');
+    const isHost = getIsHost() ? '1' : '0';
+    const url = buildJoinRunLink(roomId, name, isHost);
+    location.href = url;
+  });
+
+  elRoomId.addEventListener('input', updateLinks);
+  elName.addEventListener('input', () => {
+    if (sanitizeName(elName.value).toLowerCase() === 'teacher') {
+      elHost.checked = true;
+    }
+    updateLinks();
+  });
+  elDiff.addEventListener('change', updateLinks);
+  elTime.addEventListener('change', updateLinks);
+  elHost.addEventListener('change', updateLinks);
+
+  (function init(){
+    const qRoomId = qs('roomId', qs('room', ''));
+    const qName = qs('name', qs('nick', ''));
+    const qHost = qs('host', '0');
+
+    if (qRoomId) elRoomId.value = qRoomId;
+    if (qName) elName.value = qName;
+    if (qs('diff', '')) elDiff.value = qs('diff', 'normal');
+    if (qs('time', '')) elTime.value = qs('time', '80');
+
+    elHost.checked = qHost === '1' || sanitizeName(elName.value).toLowerCase() === 'teacher';
+
+    renderMode();
+
+    if (!sbUrl || !sbAnon) {
+      const hint = document.createElement('div');
+      hint.className = 'warn';
+      hint.innerHTML = '⚠️ ยังไม่ได้ใส่ backend query เพิ่มเติม — multiplayer ที่พึ่ง backend จริงอาจต่อห้องไม่ได้ถ้า config ยังไม่พร้อม';
+      document.querySelector('.wrap').appendChild(hint);
+    }
+  })();
+</script>
 </body>
 </html>
