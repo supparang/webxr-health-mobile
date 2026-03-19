@@ -9,96 +9,169 @@
 <body>
   <main class="page">
     <section class="card">
-      <div class="badge">ผู้ปกครอง • Parent Questionnaire</div>
-      <h1>แบบสอบถามผู้ปกครอง</h1>
-      <p class="sub">ตอบตามที่สังเกตเห็นจากเด็กหลังเข้าร่วมกิจกรรม</p>
+      <div class="badge">Parent • Questionnaire</div>
+      <h1>แบบสอบถามผู้ปกครองหลังจบกิจกรรม</h1>
+      <p class="sub">
+        แบบสอบถามนี้ใช้สะท้อนว่าหลังจากเด็กทำกิจกรรม GoodJunk Intervention แล้ว
+        ผู้ปกครองสังเกตเห็นความเปลี่ยนแปลงด้านความรู้ ความคิด หรือการเลือกอาหารและเครื่องดื่มมากน้อยเพียงใด
+      </p>
+
       <div class="ctx" id="ctxBox">กำลังโหลด...</div>
 
-      <form class="form" data-next-key="PARENT_SUMMARY">
+      <form class="form">
         <section class="block">
-          <h2>1) หลังเล่นเกม เด็กสนใจคุยเรื่องของว่างสุขภาพมากขึ้นไหม</h2>
+          <h2>1) เด็กได้พูดคุยเรื่องอาหารหรือเครื่องดื่มที่ดีต่อสุขภาพกับท่านหลังจบกิจกรรมหรือไม่</h2>
           <div class="choice-grid">
-            <label class="choice"><input type="radio" name="p1_talkNutrition" value="yes" required /> มากขึ้น</label>
-            <label class="choice"><input type="radio" name="p1_talkNutrition" value="maybe" required /> เล็กน้อย</label>
-            <label class="choice"><input type="radio" name="p1_talkNutrition" value="notMuch" required /> ยังไม่ค่อยเห็น</label>
-            <label class="choice"><input type="radio" name="p1_talkNutrition" value="no" required /> ไม่เห็นการเปลี่ยนแปลง</label>
+            <label class="choice">
+              <input type="radio" name="p1_talkNutrition" value="yes" required />
+              ใช่ ชัดเจน
+            </label>
+            <label class="choice">
+              <input type="radio" name="p1_talkNutrition" value="somewhat" required />
+              มีบ้างเล็กน้อย
+            </label>
+            <label class="choice">
+              <input type="radio" name="p1_talkNutrition" value="notYet" required />
+              ยังไม่เห็นชัด
+            </label>
+            <label class="choice">
+              <input type="radio" name="p1_talkNutrition" value="notSure" required />
+              ไม่แน่ใจ
+            </label>
           </div>
         </section>
 
         <section class="block">
-          <h2>2) เด็กมีแนวโน้มอยากเลือกผลไม้หรืออาหารที่ดีต่อสุขภาพมากขึ้นไหม</h2>
+          <h2>2) ท่านสังเกตว่าเด็กมีแนวโน้มเลือกของว่างที่ดีต่อสุขภาพมากขึ้นหรือไม่</h2>
           <div class="choice-grid">
-            <label class="choice"><input type="radio" name="p2_moreHealthyChoice" value="yes" required /> มีมากขึ้น</label>
-            <label class="choice"><input type="radio" name="p2_moreHealthyChoice" value="maybe" required /> มีบ้าง</label>
-            <label class="choice"><input type="radio" name="p2_moreHealthyChoice" value="notMuch" required /> ยังไม่ชัดเจน</label>
-            <label class="choice"><input type="radio" name="p2_moreHealthyChoice" value="no" required /> ไม่เปลี่ยน</label>
+            <label class="choice">
+              <input type="radio" name="p2_moreHealthyChoice" value="yes" required />
+              มากขึ้นชัดเจน
+            </label>
+            <label class="choice">
+              <input type="radio" name="p2_moreHealthyChoice" value="somewhat" required />
+              มากขึ้นบ้าง
+            </label>
+            <label class="choice">
+              <input type="radio" name="p2_moreHealthyChoice" value="same" required />
+              ยังใกล้เคียงเดิม
+            </label>
+            <label class="choice">
+              <input type="radio" name="p2_moreHealthyChoice" value="notSure" required />
+              ยังไม่แน่ใจ
+            </label>
           </div>
         </section>
 
         <section class="block">
-          <h2>3) เด็กมีแนวโน้มลดการขอขนมหรือเครื่องดื่มหวานลงไหม</h2>
+          <h2>3) ท่านสังเกตว่าเด็กพยายามลดขนมหรือ junk food ลงหรือไม่</h2>
           <div class="choice-grid">
-            <label class="choice"><input type="radio" name="p3_reduceJunk" value="yes" required /> ลดลง</label>
-            <label class="choice"><input type="radio" name="p3_reduceJunk" value="maybe" required /> ลดลงบ้าง</label>
-            <label class="choice"><input type="radio" name="p3_reduceJunk" value="notMuch" required /> ยังไม่ชัดเจน</label>
-            <label class="choice"><input type="radio" name="p3_reduceJunk" value="no" required /> ไม่ลดลง</label>
+            <label class="choice">
+              <input type="radio" name="p3_reduceJunk" value="yes" required />
+              พยายามลดลง
+            </label>
+            <label class="choice">
+              <input type="radio" name="p3_reduceJunk" value="somewhat" required />
+              มีแนวโน้มลดลงบ้าง
+            </label>
+            <label class="choice">
+              <input type="radio" name="p3_reduceJunk" value="same" required />
+              ยังไม่เปลี่ยนมาก
+            </label>
+            <label class="choice">
+              <input type="radio" name="p3_reduceJunk" value="notSure" required />
+              ไม่แน่ใจ
+            </label>
           </div>
         </section>
 
         <section class="block">
-          <h2>4) เด็กสามารถอธิบายได้ไหมว่าอาหารหรือเครื่องดื่มแบบไหน “ดีกว่า”</h2>
+          <h2>4) เด็กสามารถอธิบายเหตุผลของการเลือกอาหารหรือเครื่องดื่มได้ดีขึ้นหรือไม่</h2>
           <div class="choice-grid">
-            <label class="choice"><input type="radio" name="p4_explainReason" value="yes" required /> อธิบายได้</label>
-            <label class="choice"><input type="radio" name="p4_explainReason" value="somewhat" required /> อธิบายได้บางส่วน</label>
-            <label class="choice"><input type="radio" name="p4_explainReason" value="notMuch" required /> ยังอธิบายไม่ค่อยได้</label>
-            <label class="choice"><input type="radio" name="p4_explainReason" value="no" required /> ยังอธิบายไม่ได้</label>
+            <label class="choice">
+              <input type="radio" name="p4_explainReason" value="yes" required />
+              อธิบายได้ดีขึ้น
+            </label>
+            <label class="choice">
+              <input type="radio" name="p4_explainReason" value="somewhat" required />
+              ดีขึ้นเล็กน้อย
+            </label>
+            <label class="choice">
+              <input type="radio" name="p4_explainReason" value="same" required />
+              ยังใกล้เคียงเดิม
+            </label>
+            <label class="choice">
+              <input type="radio" name="p4_explainReason" value="notSure" required />
+              ไม่แน่ใจ
+            </label>
           </div>
         </section>
 
         <section class="block">
-          <h2>5) ถ้าให้ประเมินโดยรวม กิจกรรมนี้ช่วยกระตุ้นพฤติกรรมการเลือกของว่างสุขภาพของเด็กแค่ไหน</h2>
+          <h2>5) โดยรวมแล้ว ท่านคิดว่ากิจกรรมนี้มีผลต่อเด็กมากน้อยเพียงใด</h2>
           <div class="choice-grid">
-            <label class="choice"><input type="radio" name="p5_overallImpact" value="high" required /> มาก</label>
-            <label class="choice"><input type="radio" name="p5_overallImpact" value="medium" required /> ปานกลาง</label>
-            <label class="choice"><input type="radio" name="p5_overallImpact" value="low" required /> น้อย</label>
-            <label class="choice"><input type="radio" name="p5_overallImpact" value="none" required /> ยังไม่เห็นผล</label>
+            <label class="choice">
+              <input type="radio" name="p5_overallImpact" value="high" required />
+              มาก
+            </label>
+            <label class="choice">
+              <input type="radio" name="p5_overallImpact" value="medium" required />
+              ปานกลาง
+            </label>
+            <label class="choice">
+              <input type="radio" name="p5_overallImpact" value="low" required />
+              น้อย
+            </label>
+            <label class="choice">
+              <input type="radio" name="p5_overallImpact" value="notSure" required />
+              ยังไม่แน่ใจ
+            </label>
           </div>
         </section>
 
         <section class="block">
-          <h2>6) หลังเข้าร่วมกิจกรรม เด็กดูชอบอะไรเพิ่มขึ้นมากที่สุด</h2>
-          <div class="choice-grid">
-            <label class="choice"><input type="radio" name="p6_mostChanged" value="fruit" required /> ผลไม้</label>
-            <label class="choice"><input type="radio" name="p6_mostChanged" value="water" required /> น้ำเปล่า / นมจืด</label>
-            <label class="choice"><input type="radio" name="p6_mostChanged" value="nutritionTalk" required /> การคุยเรื่องอาหารสุขภาพ</label>
-            <label class="choice"><input type="radio" name="p6_mostChanged" value="notSure" required /> ยังไม่แน่ใจ</label>
-          </div>
-        </section>
-
-        <section class="block">
-          <h2>7) ผู้ปกครองคิดว่าจะช่วยสนับสนุนเด็กเรื่องของว่างสุขภาพต่ออย่างไร</h2>
+          <h2>6) สิ่งที่ท่านเห็นว่าเด็กเปลี่ยนแปลงมากที่สุดคืออะไร</h2>
           <label class="inline">
             <span class="note">ตอบสั้น ๆ ได้เลย</span>
-            <textarea name="p7_supportPlan" placeholder="เช่น จะเตรียมผลไม้ไว้ที่บ้าน หรือชวนเลือกน้ำเปล่าแทนน้ำหวาน"></textarea>
+            <textarea
+              name="p6_mostChanged"
+              placeholder="เช่น เริ่มเลือกน้ำเปล่ามากขึ้น หรือพูดถึงผลไม้มากขึ้น"
+              required
+            ></textarea>
           </label>
         </section>
 
         <section class="block">
-          <h2>8) ข้อเสนอแนะเพิ่มเติม</h2>
+          <h2>7) ท่านคิดว่าจะช่วยสนับสนุนเด็กต่ออย่างไร</h2>
           <label class="inline">
-            <span class="note">ถ้ามี</span>
-            <textarea name="p8_comment" placeholder="ข้อคิดเห็นเพิ่มเติมเกี่ยวกับกิจกรรมนี้"></textarea>
+            <span class="note">ตอบสั้น ๆ ได้เลย</span>
+            <textarea
+              name="p7_supportPlan"
+              placeholder="เช่น เตรียมผลไม้ไว้ที่บ้าน หรือชวนเลือกเครื่องดื่มที่ดีต่อสุขภาพ"
+              required
+            ></textarea>
+          </label>
+        </section>
+
+        <section class="block">
+          <h2>8) ข้อเสนอแนะเพิ่มเติมจากผู้ปกครอง</h2>
+          <label class="inline">
+            <span class="note">มีหรือไม่มีก็ได้</span>
+            <textarea
+              name="p8_comment"
+              placeholder="ข้อคิดเห็นเพิ่มเติม"
+            ></textarea>
           </label>
         </section>
 
         <div class="footer">
           <button type="button" class="btn btn-ghost" data-action="back">ย้อนกลับ</button>
-          <button type="submit" class="btn btn-primary">บันทึกและดูสรุป</button>
+          <button type="submit" class="btn btn-primary">บันทึกและไป Parent Summary</button>
         </div>
       </form>
     </section>
   </main>
 
-  <script type="module" src="../assessments/assessment.js"></script>
+  <script type="module" src="../assessments/assessment.js?v=20260319c-parentq"></script>
 </body>
 </html>
