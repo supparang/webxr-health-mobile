@@ -5,203 +5,220 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>GoodJunk Intervention • Weekly Check</title>
   <link rel="stylesheet" href="../assessments/assessment.css" />
+  <style>
+    .save-note{
+      display:none;
+      margin-top:12px;
+      padding:12px 14px;
+      border-radius:16px;
+      border:1px solid rgba(34,197,94,.24);
+      background:rgba(34,197,94,.10);
+      color:#dcfce7;
+      font-size:13px;
+      font-weight:900;
+      line-height:1.55;
+    }
+    .save-note.show{
+      display:block;
+    }
+  </style>
 </head>
 <body>
   <main class="page">
     <section class="card">
       <div class="badge">Follow-up • Weekly Check</div>
       <h1>ติดตามผลรายสัปดาห์</h1>
-      <p class="sub">ตอบตามพฤติกรรมจริงในช่วงสัปดาห์ที่ผ่านมา</p>
+      <p class="sub">
+        แบบติดตามผลนี้ใช้ดูภาพรวมในช่วงสัปดาห์ที่ผ่านมา ว่าพฤติกรรมการเลือกอาหารและเครื่องดื่มของเด็กเปลี่ยนแปลงอย่างไรหลังจบกิจกรรม
+      </p>
+
       <div class="ctx" id="ctxBox">กำลังโหลด...</div>
 
-      <form class="form" id="weeklyCheckForm" novalidate>
+      <form class="form">
         <section class="block">
-          <h2>1) ในสัปดาห์ที่ผ่านมา หนูกินผลไม้บ่อยแค่ไหน</h2>
+          <h2>1) ในสัปดาห์ที่ผ่านมา เด็กกินผลไม้บ่อยแค่ไหน</h2>
           <div class="choice-grid">
-            <label class="choice"><input type="radio" name="wk1_fruitFrequency" value="often" required /> บ่อย</label>
-            <label class="choice"><input type="radio" name="wk1_fruitFrequency" value="sometimes" required /> บางครั้ง</label>
-            <label class="choice"><input type="radio" name="wk1_fruitFrequency" value="rarely" required /> นาน ๆ ครั้ง</label>
-            <label class="choice"><input type="radio" name="wk1_fruitFrequency" value="never" required /> แทบไม่กินเลย</label>
+            <label class="choice">
+              <input type="radio" name="wk1_fruitFrequency" value="often" required />
+              บ่อย
+            </label>
+            <label class="choice">
+              <input type="radio" name="wk1_fruitFrequency" value="sometimes" required />
+              บางครั้ง
+            </label>
+            <label class="choice">
+              <input type="radio" name="wk1_fruitFrequency" value="rarely" required />
+              นาน ๆ ครั้ง
+            </label>
+            <label class="choice">
+              <input type="radio" name="wk1_fruitFrequency" value="never" required />
+              แทบไม่กินเลย
+            </label>
           </div>
         </section>
 
         <section class="block">
-          <h2>2) ในสัปดาห์ที่ผ่านมา หนูกินขนมหรือของทอดบ่อยแค่ไหน</h2>
+          <h2>2) ในสัปดาห์ที่ผ่านมา เด็กกิน junk food บ่อยแค่ไหน</h2>
           <div class="choice-grid">
-            <label class="choice"><input type="radio" name="wk2_junkFrequency" value="often" required /> บ่อย</label>
-            <label class="choice"><input type="radio" name="wk2_junkFrequency" value="sometimes" required /> บางครั้ง</label>
-            <label class="choice"><input type="radio" name="wk2_junkFrequency" value="rarely" required /> นาน ๆ ครั้ง</label>
-            <label class="choice"><input type="radio" name="wk2_junkFrequency" value="never" required /> แทบไม่กินเลย</label>
+            <label class="choice">
+              <input type="radio" name="wk2_junkFrequency" value="often" required />
+              บ่อย
+            </label>
+            <label class="choice">
+              <input type="radio" name="wk2_junkFrequency" value="sometimes" required />
+              บางครั้ง
+            </label>
+            <label class="choice">
+              <input type="radio" name="wk2_junkFrequency" value="rarely" required />
+              นาน ๆ ครั้ง
+            </label>
+            <label class="choice">
+              <input type="radio" name="wk2_junkFrequency" value="never" required />
+              แทบไม่กินเลย
+            </label>
           </div>
         </section>
 
         <section class="block">
-          <h2>3) เวลากระหายน้ำ หนูเลือกอะไรบ่อยที่สุดในสัปดาห์นี้</h2>
+          <h2>3) ในสัปดาห์ที่ผ่านมา เด็กเลือกเครื่องดื่มแบบไหนบ่อยกว่า</h2>
           <div class="choice-grid">
-            <label class="choice"><input type="radio" name="wk3_drinkChoice" value="water" required /> น้ำเปล่า</label>
-            <label class="choice"><input type="radio" name="wk3_drinkChoice" value="milk" required /> นมจืด</label>
-            <label class="choice"><input type="radio" name="wk3_drinkChoice" value="sweetDrink" required /> น้ำหวาน / น้ำอัดลม</label>
-            <label class="choice"><input type="radio" name="wk3_drinkChoice" value="tea" required /> ชาหวาน / ชานม</label>
+            <label class="choice">
+              <input type="radio" name="wk3_drinkChoice" value="water" required />
+              น้ำเปล่า
+            </label>
+            <label class="choice">
+              <input type="radio" name="wk3_drinkChoice" value="milk" required />
+              นมจืด
+            </label>
+            <label class="choice">
+              <input type="radio" name="wk3_drinkChoice" value="sweetDrink" required />
+              น้ำหวาน / น้ำอัดลม
+            </label>
+            <label class="choice">
+              <input type="radio" name="wk3_drinkChoice" value="mixed" required />
+              สลับกันหลายแบบ
+            </label>
           </div>
         </section>
 
         <section class="block">
-          <h2>4) เวลาซื้อของว่าง หนูเลือกของที่ดีต่อสุขภาพมากขึ้นไหม</h2>
+          <h2>4) โดยรวม เด็กเลือกของว่างที่ดีขึ้นหรือไม่</h2>
           <div class="choice-grid">
-            <label class="choice"><input type="radio" name="wk4_healthyChoice" value="yes" required /> มากขึ้น</label>
-            <label class="choice"><input type="radio" name="wk4_healthyChoice" value="maybe" required /> มากขึ้นบ้าง</label>
-            <label class="choice"><input type="radio" name="wk4_healthyChoice" value="notMuch" required /> ยังไม่ค่อยเปลี่ยน</label>
-            <label class="choice"><input type="radio" name="wk4_healthyChoice" value="no" required /> ไม่เปลี่ยน</label>
+            <label class="choice">
+              <input type="radio" name="wk4_healthyChoice" value="yes" required />
+              ดีขึ้นชัดเจน
+            </label>
+            <label class="choice">
+              <input type="radio" name="wk4_healthyChoice" value="somewhat" required />
+              ดีขึ้นบ้าง
+            </label>
+            <label class="choice">
+              <input type="radio" name="wk4_healthyChoice" value="same" required />
+              ยังใกล้เดิม
+            </label>
+            <label class="choice">
+              <input type="radio" name="wk4_healthyChoice" value="notSure" required />
+              ยังไม่แน่ใจ
+            </label>
           </div>
         </section>
 
         <section class="block">
-          <h2>5) หนูได้คุยกับผู้ปกครองหรือเพื่อนเรื่องของว่างสุขภาพไหม</h2>
+          <h2>5) เด็กได้นำสิ่งที่เรียนรู้ไปเล่าหรือชวนคนอื่นทำตามหรือไม่</h2>
           <div class="choice-grid">
-            <label class="choice"><input type="radio" name="wk5_sharedWithOthers" value="yes" required /> ได้คุย</label>
-            <label class="choice"><input type="radio" name="wk5_sharedWithOthers" value="somewhat" required /> คุยบ้าง</label>
-            <label class="choice"><input type="radio" name="wk5_sharedWithOthers" value="notMuch" required /> ยังไม่ค่อยได้คุย</label>
-            <label class="choice"><input type="radio" name="wk5_sharedWithOthers" value="no" required /> ไม่ได้คุย</label>
+            <label class="choice">
+              <input type="radio" name="wk5_sharedWithOthers" value="yesOften" required />
+              บ่อย
+            </label>
+            <label class="choice">
+              <input type="radio" name="wk5_sharedWithOthers" value="sometimes" required />
+              บางครั้ง
+            </label>
+            <label class="choice">
+              <input type="radio" name="wk5_sharedWithOthers" value="rarely" required />
+              น้อย
+            </label>
+            <label class="choice">
+              <input type="radio" name="wk5_sharedWithOthers" value="no" required />
+              ยังไม่เห็น
+            </label>
           </div>
         </section>
 
         <section class="block">
-          <h2>6) สิ่งที่ช่วยให้หนูเลือกของว่างที่ดีกว่าในสัปดาห์นี้คืออะไร</h2>
+          <h2>6) อะไรช่วยให้เด็กเลือกอาหารหรือเครื่องดื่มที่ดีขึ้น</h2>
           <label class="inline">
             <span class="note">ตอบสั้น ๆ ได้เลย</span>
-            <textarea name="wk6_helpFactor" placeholder="เช่น เกมช่วยเตือนให้เลือกผลไม้ หรือผู้ปกครองช่วยเตรียมของว่าง"></textarea>
+            <textarea
+              name="wk6_helpFactor"
+              placeholder="เช่น เกมช่วยให้จำได้ ผู้ปกครองช่วยเตือน หรือมีผลไม้เตรียมไว้ที่บ้าน"
+              required
+            ></textarea>
           </label>
         </section>
 
         <section class="block">
-          <h2>7) สิ่งที่ยังทำให้หนูเผลอเลือก junk อยู่คืออะไร</h2>
+          <h2>7) อะไรเป็นอุปสรรคที่ยังทำให้เด็กกลับไปเลือก junk food</h2>
           <label class="inline">
             <span class="note">ตอบสั้น ๆ ได้เลย</span>
-            <textarea name="wk7_barrier" placeholder="เช่น ขนมซื้อได้ง่าย หรือเห็นเพื่อนกินแล้วอยากกินตาม"></textarea>
+            <textarea
+              name="wk7_barrier"
+              placeholder="เช่น ความชอบเดิม เพื่อนชวนซื้อ หรือมีขนมหวานใกล้ตัว"
+              required
+            ></textarea>
           </label>
         </section>
 
         <section class="block">
-          <h2>8) โดยรวมแล้ว หนูคิดว่าพฤติกรรมการเลือกของว่างของหนูเปลี่ยนไปไหม</h2>
-          <div class="choice-grid">
-            <label class="choice"><input type="radio" name="wk8_overallChange" value="better" required /> ดีขึ้น</label>
-            <label class="choice"><input type="radio" name="wk8_overallChange" value="slightlyBetter" required /> ดีขึ้นเล็กน้อย</label>
-            <label class="choice"><input type="radio" name="wk8_overallChange" value="same" required /> เหมือนเดิม</label>
-            <label class="choice"><input type="radio" name="wk8_overallChange" value="notSure" required /> ยังไม่แน่ใจ</label>
-          </div>
-        </section>
-
-        <section class="block" id="statusBox" style="display:none;">
-          <h2>บันทึกแล้ว</h2>
-          <p id="statusText">ระบบบันทึก Weekly Check เรียบร้อยแล้ว</p>
+          <h2>8) โดยรวมในสัปดาห์นี้ ท่านคิดว่าพฤติกรรมของเด็กเปลี่ยนไปอย่างไร</h2>
+          <label class="inline">
+            <span class="note">สรุปสั้น ๆ ได้เลย</span>
+            <textarea
+              name="wk8_overallChange"
+              placeholder="เช่น เลือกน้ำเปล่ามากขึ้น ลดขนมหวานลง หรือยังต้องติดตามต่อ"
+              required
+            ></textarea>
+          </label>
         </section>
 
         <div class="footer">
           <button type="button" class="btn btn-ghost" data-action="back">ย้อนกลับ</button>
-          <button type="submit" class="btn btn-primary">บันทึกคำตอบ</button>
-          <button type="button" class="btn btn-ghost" id="backTeacherBtn">กลับ Teacher Panel</button>
-          <button type="button" class="btn btn-ghost" id="backLauncherBtn">กลับ Student Launcher</button>
+          <button type="submit" class="btn btn-primary">บันทึกข้อมูล</button>
+          <button type="button" class="btn btn-ghost" id="btnParentSummary">Parent Summary</button>
+          <button type="button" class="btn btn-primary" id="btnTeacherPanel">Teacher Panel</button>
+        </div>
+
+        <div class="save-note" id="saveNote">
+          บันทึกคำตอบ weekly check แล้ว
         </div>
       </form>
     </section>
   </main>
 
+  <script type="module" src="../assessments/assessment.js?v=20260319d-weekly"></script>
   <script type="module">
     import { buildUrl, pickCtxFromQuery, withDefaultCtx } from '../research/config.js';
-    import { loadCtx, mergeCtx, saveCtx, saveAssessment, loadAssessment, pageStorageKey } from '../research/localstore.js';
-
-    function $(id){ return document.getElementById(id); }
-
-    function getFilename() {
-      return window.location.pathname.split('/').pop() || 'weekly-check.html';
-    }
-
-    function serializeForm(form) {
-      const data = {};
-      const fd = new FormData(form);
-
-      for (const [key, value] of fd.entries()) {
-        if (Object.prototype.hasOwnProperty.call(data, key)) {
-          if (!Array.isArray(data[key])) data[key] = [data[key]];
-          data[key].push(value);
-        } else {
-          data[key] = value;
-        }
-      }
-      return data;
-    }
-
-    function restoreForm(form, saved = {}) {
-      const data = saved?.answers && typeof saved.answers === 'object' ? saved.answers : saved;
-      const fields = form.querySelectorAll('input[name], textarea[name], select[name]');
-      for (const field of fields) {
-        const { name, type } = field;
-        if (!(name in data)) continue;
-        const value = data[name];
-
-        if (type === 'radio') {
-          field.checked = String(field.value) === String(value);
-          continue;
-        }
-        field.value = value ?? '';
-      }
-    }
-
-    function renderCtx(ctx) {
-      $('ctxBox').textContent = [
-        `PID: ${ctx.pid || '-'}`,
-        `Study: ${ctx.studyId || '-'}`,
-        `Session: ${ctx.session || '-'}`,
-        `Condition: ${ctx.condition || '-'}`
-      ].join(' • ');
-    }
-
-    function showSaved(message) {
-      $('statusBox').style.display = '';
-      $('statusText').textContent = message;
-    }
+    import { loadCtx, mergeCtx, saveCtx } from '../research/localstore.js';
 
     mergeCtx(pickCtxFromQuery());
     const ctx = withDefaultCtx(loadCtx());
     saveCtx(ctx);
-    renderCtx(ctx);
 
-    const form = $('weeklyCheckForm');
-    const filename = getFilename();
-    const saved = loadAssessment(filename, {});
-    restoreForm(form, saved);
+    const form = document.querySelector('form');
+    const saveNote = document.getElementById('saveNote');
 
-    form.addEventListener('submit', (ev) => {
-      ev.preventDefault();
-      if (!form.reportValidity()) return;
-
-      const answers = serializeForm(form);
-      saveAssessment(filename, {
-        page: filename,
-        savedAt: new Date().toISOString(),
-        storageKey: pageStorageKey(filename),
-        ctxSnapshot: {
-          pid: ctx.pid || '',
-          studyId: ctx.studyId || '',
-          session: ctx.session || '',
-          condition: ctx.condition || ''
-        },
-        answers
-      });
-
-      showSaved('ระบบบันทึก Weekly Check เรียบร้อยแล้ว');
+    form?.addEventListener('submit', () => {
+      setTimeout(() => {
+        saveNote?.classList.add('show');
+      }, 80);
     });
 
-    document.querySelector('[data-action="back"]')?.addEventListener('click', () => {
-      window.history.back();
+    document.getElementById('btnParentSummary')?.addEventListener('click', () => {
+      location.href = buildUrl('PARENT_SUMMARY', ctx, false);
     });
 
-    $('backTeacherBtn').addEventListener('click', () => {
-      location.href = buildUrl('../launcher/teacher-panel.html', ctx, false);
-    });
-
-    $('backLauncherBtn').addEventListener('click', () => {
-      location.href = buildUrl('STUDENT_LAUNCHER', ctx, false);
+    document.getElementById('btnTeacherPanel')?.addEventListener('click', () => {
+      location.href = buildUrl('TEACHER_PANEL', ctx, false);
     });
   </script>
 </body>
