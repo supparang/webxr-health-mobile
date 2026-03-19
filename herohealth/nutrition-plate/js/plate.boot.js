@@ -22,8 +22,13 @@ let latestSummary = null;
 
 async function tryFlushQueueOnStart() {
   const result = await flushPendingQueue(ctx);
+
   if (result.skipped) {
-    cloudStatus.show('ยังไม่ได้ตั้ง Apps Script endpoint — ระบบจะเก็บข้อมูลไว้ในเครื่องก่อน', 'warn', 3200);
+    cloudStatus.show(
+      'ยังไม่ได้ตั้ง Apps Script endpoint — ระบบจะเก็บข้อมูลไว้ในเครื่องก่อน',
+      'warn',
+      3200
+    );
     return;
   }
 
@@ -50,6 +55,7 @@ const ui = createPlateUI(ctx, {
 
     if (result.finished) {
       latestSummary = result.summary;
+
       saveLastSummary(result.summary.payload);
       logger.flush('plate-finished');
 
@@ -70,6 +76,7 @@ const ui = createPlateUI(ctx, {
       });
 
       const sendResult = await sendOrQueuePacket(ctx, packet);
+
       if (sendResult.ok) {
         cloudStatus.show('บันทึกข้อมูลวิจัยขึ้น cloud แล้ว', 'ok', 2200);
       } else if (sendResult.queued) {
@@ -82,6 +89,7 @@ const ui = createPlateUI(ctx, {
 
     setTimeout(() => {
       ui.renderQuestion(result.viewState, result.question);
+
       const phaseCoach = coach.maybePhase(result.viewState.phaseKey);
       if (phaseCoach) ui.showCoach(phaseCoach);
     }, 650);
@@ -108,6 +116,7 @@ const ui = createPlateUI(ctx, {
 
 const firstQuestion = engine.getCurrentQuestion();
 const firstState = engine.getViewState();
+
 ui.renderQuestion(firstState, firstQuestion);
 ui.showCoach(coach.maybePhase(firstState.phaseKey, true));
 
