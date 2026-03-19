@@ -1,6 +1,6 @@
-// === /goodjunk-intervention/research/localstore.js ===
+// === /herohealth/goodjunk-intervention/research/localstore.js ===
 // STORAGE HELPERS
-// PATCH v20260318a-GJI-LOCALSTORE
+// PATCH v20260319a-GJI-LOCALSTORE
 
 export const KEYS = {
   CTX: 'GJI_CTX',
@@ -19,7 +19,7 @@ export const KEYS = {
   SHORT_FOLLOWUP: 'GJI_SHORT_FOLLOWUP',
   WEEKLY_CHECK: 'GJI_WEEKLY_CHECK',
 
-  PARENT_RESPONSE: 'GJI_PARENT_RESPONSE',
+  PARENT_RESPONSE: 'GJI_PARENT_RESPONSE'
 };
 
 export const PAGE_TO_KEY = {
@@ -30,7 +30,7 @@ export const PAGE_TO_KEY = {
   'post-choice.html': KEYS.POST_CHOICE,
   'short-followup.html': KEYS.SHORT_FOLLOWUP,
   'weekly-check.html': KEYS.WEEKLY_CHECK,
-  'parent-questionnaire.html': KEYS.PARENT_RESPONSE,
+  'parent-questionnaire.html': KEYS.PARENT_RESPONSE
 };
 
 function hasStorage() {
@@ -72,18 +72,18 @@ export function removeKey(key) {
 }
 
 export function pageStorageKey(filename) {
-  return PAGE_TO_KEY[filename] ?? `GJI_PAGE_${String(filename).replace(/\W+/g, '_').toUpperCase()}`;
-}
-
-export function saveCtx(ctx = {}) {
-  const oldCtx = loadCtx();
-  const merged = { ...oldCtx, ...ctx };
-  saveJSON(KEYS.CTX, merged);
-  return merged;
+  return PAGE_TO_KEY[filename] || `GJI_PAGE_${String(filename).replace(/\W+/g, '_').toUpperCase()}`;
 }
 
 export function loadCtx() {
   return loadJSON(KEYS.CTX, {}) || {};
+}
+
+export function saveCtx(ctx = {}) {
+  const prev = loadCtx();
+  const merged = { ...prev, ...ctx };
+  saveJSON(KEYS.CTX, merged);
+  return merged;
 }
 
 export function mergeCtx(partial = {}) {
@@ -116,7 +116,12 @@ export function loadCompleted() {
 
 export function clearSessionData() {
   const keepCtx = loadCtx();
-  const keys = Object.values(KEYS);
+  const keys = Object.values(KEYS).filter((k) => k !== KEYS.CTX);
   for (const key of keys) removeKey(key);
   saveCtx(keepCtx);
+}
+
+export function clearAllData() {
+  const keys = Object.values(KEYS);
+  for (const key of keys) removeKey(key);
 }
