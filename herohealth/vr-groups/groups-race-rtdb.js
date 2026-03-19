@@ -129,6 +129,11 @@ export async function joinRaceRoom({ roomCode, playerId, playerName }){
 
   if(!data) throw new Error('ไม่พบห้องนี้');
 
+  if(isRaceRoomStale(data)){
+    await roomRef(roomCode).remove();
+    throw new Error('ห้องนี้หมดอายุแล้ว');
+  }
+
   const players = data.players || {};
   const count = Object.keys(players).length;
 
@@ -332,8 +337,10 @@ export async function leaveRaceRoom(roomCode, playerId){
   const remainingSnap = await roomRef(roomCode).once('value');
   const remaining = remainingSnap.val();
   const count = Object.keys(remaining?.players || {}).length;
+  const remainingPlayers = remaining?.players || {};
+  const onlineCount = Object.values(remainingPlayers).filter(p => p && p.online !== false).length;
 
-  if(count === 0){
+  if(count === 0 || onlineCount === 0){
     await roomRef(roomCode).remove();
     return;
   }
@@ -352,7 +359,6 @@ export async function leaveRaceRoom(roomCode, playerId){
 }
 
 export function bindRacePresence(roomCode, playerId){
-  const db = getDb();
   const pRef = playerRef(roomCode, playerId);
   const cRef = connectedRef();
 
@@ -373,4 +379,25 @@ export function bindRacePresence(roomCode, playerId){
   return () => {
     cRef.off('value', handle);
   };
+}
+
+export function isRaceRoomStale(room){
+  const updatedAt = Number(room?.meta?.updatedAt || room?.meta?.createdAt || 0);
+  const ageMs = Date.now() - updatedAt;
+  const players = room?.players || {};
+  const onlineCount = Object.values(players).filter(p => p && p.online !== false).length;
+
+  return ageMs > (2 * 60 * 60 * 1000) && onlineCount === 0;
+}
+
+export async function cleanupRaceRoomIfStale(roomCode){
+  const room = await readRaceRoom(roomCode);
+  if(!room) return { removed:false, reason:'not-found' };
+
+  if(isRaceRoomStale(room)){
+    await roomRef(roomCode).remove();
+    return { removed:true, reason:'stale' };
+  }
+
+  return { removed:false, reason:'active' };
 }
