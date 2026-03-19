@@ -51,7 +51,7 @@ const ROOM_PATH = GJ_ROOM_ID ? `hha-battle/goodjunk/rooms/${GJ_ROOM_ID}` : '';
 const GAME_MOUNT = document.getElementById('gameMount') || document.body;
 const COOP_UI = window.__gjCoopUi || null;
 
-const STYLE_ID = 'goodjunk-safe-coop-style-20260318-polish';
+const STYLE_ID = 'goodjunk-safe-coop-style-20260319-polish-fix';
 const ROOT_ID = 'gjCoopRoot';
 const HEARTBEAT_MS = 2500;
 const STALE_MS = 45000;
@@ -544,6 +544,14 @@ function createFx(x, y, text, color) {
   setTimeout(() => fx.remove(), 760);
 }
 
+function escapeHtml(s) {
+  return String(s ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;');
+}
+
 function updateHint(message) {
   if (!ui.hint) return;
   ui.hint.innerHTML = `<div>${escapeHtml(message)}</div>`;
@@ -592,95 +600,12 @@ function endGame(reason = 'finished') {
   publishFinish(reason);
 }
 
-function safeFilePart(value) {
-  return String(value || 'file').replace(/[^a-z0-9_-]/gi, '-');
-}
-
-function downloadJson(payload, filename = `goodjunk-coop-${Date.now()}.json`) {
-  if (!payload) return;
-  const blob = new Blob([JSON.stringify(payload, null, 2)], {
-    type: 'application/json;charset=utf-8'
-  });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
-}
-
-function hideSummary() {
-  const wrap = document.getElementById('coopSummary');
-  if (wrap) wrap.hidden = true;
-}
-
-function setGoalMeta(goal) {
-  recoveredGoal = Number(goal || 0) || 0;
-  if (COOP_UI?.setGoal) COOP_UI.setGoal(recoveredGoal);
-  const meta = document.getElementById('metaGoal');
-  if (meta) meta.textContent = String(recoveredGoal || '-');
-}
-
-function syncRoomTeamState(room) {
-  const players = getCoopPlayers(room);
-  const team = computeTeam(players);
-  const goal = Number(room?.match?.coop?.goal || recoveredGoal || 0);
-
-  state.teamScore = team.score;
-  state.teamMiss = team.miss;
-  state.teamGoal = goal;
-  setGoalMeta(goal);
-  renderHud();
-
-  return { players, team, goal };
-}
-
-function buildCoopSummaryPayload(room, players, pending = false, reason = '') {
-  const team = computeTeam(players);
-  const goal = Number(room?.match?.coop?.goal || recoveredGoal || 0);
-  const success = !!room?.match?.coop?.success;
-
-  return {
-    version: '20260318-coop-v1-polish',
-    source: 'goodjunk-coop',
-    gameId: GJ_GAME_ID,
-    mode: 'coop',
-    pid: GJ_PID,
-    name: GJ_NAME,
-    studyId: RUN_CTX.studyId || '',
-    roomId: GJ_ROOM_ID,
-    goal,
-    success,
-    pending,
-    reason,
-    teamScore: team.score,
-    teamMiss: team.miss,
-    playerCount: players.length,
-    updatedAt: Date.now(),
-    players: players.map((p) => ({
-      pid: p.id,
-      name: p.name || p.id,
-      finished: !!p.finished,
-      connected: p.connected !== false,
-      score: Number(p.finalScore || 0),
-      miss: Number(p.miss || 0),
-      streak: Number(p.streak || 0)
-    }))
-  };
-}
-
 function showGate(msg = 'กำลังรอเริ่ม', count = '-', sub = '') {
-  if (COOP_UI?.showGate) {
-    COOP_UI.showGate(msg, count, sub);
-  }
+  if (COOP_UI?.showGate) COOP_UI.showGate(msg, count, sub);
 }
 
 function hideGate() {
-  if (COOP_UI?.hideGate) {
-    COOP_UI.hideGate();
-  }
+  if (COOP_UI?.hideGate) COOP_UI.hideGate();
 }
 
 function cancelGateLoop() {
@@ -847,6 +772,85 @@ function computeTeam(players) {
   }, { score: 0, miss: 0 });
 }
 
+function syncRoomTeamState(room) {
+  const players = getCoopPlayers(room);
+  const team = computeTeam(players);
+  const goal = Number(room?.match?.coop?.goal || recoveredGoal || 0);
+
+  state.teamScore = team.score;
+  state.teamMiss = team.miss;
+  state.teamGoal = goal;
+  setGoalMeta(goal);
+  renderHud();
+
+  return { players, team, goal };
+}
+
+function buildCoopSummaryPayload(room, players, pending = false, reason = '') {
+  const team = computeTeam(players);
+  const goal = Number(room?.match?.coop?.goal || recoveredGoal || 0);
+  const success = !!room?.match?.coop?.success;
+
+  return {
+    version: '20260319-coop-v1-fix',
+    source: 'goodjunk-coop',
+    gameId: GJ_GAME_ID,
+    mode: 'coop',
+    pid: GJ_PID,
+    name: GJ_NAME,
+    studyId: RUN_CTX.studyId || '',
+    roomId: GJ_ROOM_ID,
+    goal,
+    success,
+    pending,
+    reason,
+    teamScore: team.score,
+    teamMiss: team.miss,
+    playerCount: players.length,
+    updatedAt: Date.now(),
+    players: players.map((p) => ({
+      pid: p.id,
+      name: p.name || p.id,
+      finished: !!p.finished,
+      connected: p.connected !== false,
+      score: Number(p.finalScore || 0),
+      miss: Number(p.miss || 0),
+      streak: Number(p.streak || 0)
+    }))
+  };
+}
+
+function setGoalMeta(goal) {
+  recoveredGoal = Number(goal || 0) || 0;
+  if (COOP_UI?.setGoal) COOP_UI.setGoal(recoveredGoal);
+  const meta = document.getElementById('metaGoal');
+  if (meta) meta.textContent = String(recoveredGoal || '-');
+}
+
+function hideSummary() {
+  const wrap = document.getElementById('coopSummary');
+  if (wrap) wrap.hidden = true;
+}
+
+function safeFilePart(value) {
+  return String(value || 'file').replace(/[^a-z0-9_-]/gi, '-');
+}
+
+function downloadJson(payload, filename = `goodjunk-coop-${Date.now()}.json`) {
+  if (!payload) return;
+  const blob = new Blob([JSON.stringify(payload, null, 2)], {
+    type: 'application/json;charset=utf-8'
+  });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
 async function loadRoom() {
   if (!await ensureFirebase()) return null;
   try {
@@ -987,6 +991,20 @@ function stopHeartbeat() {
   }
 }
 
+function startWatchdog() {
+  stopWatchdog();
+  watchdogTimer = setInterval(() => {
+    maybeFinalizeRoom(false);
+  }, 3000);
+}
+
+function stopWatchdog() {
+  if (watchdogTimer) {
+    clearInterval(watchdogTimer);
+    watchdogTimer = 0;
+  }
+}
+
 async function maybeFinalizeRoom(force = false) {
   const room = await loadRoom();
   if (!room) return;
@@ -1056,20 +1074,6 @@ async function maybeFinalizeRoom(force = false) {
     stopHeartbeat();
     stopWatchdog();
     showSummary(room, nextCoopPlayers, false, success ? 'goal-reached' : 'finished');
-  }
-}
-
-function startWatchdog() {
-  stopWatchdog();
-  watchdogTimer = setInterval(() => {
-    maybeFinalizeRoom(false);
-  }, 3000);
-}
-
-function stopWatchdog() {
-  if (watchdogTimer) {
-    clearInterval(watchdogTimer);
-    watchdogTimer = 0;
   }
 }
 
