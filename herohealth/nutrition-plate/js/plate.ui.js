@@ -1,6 +1,6 @@
 // === /herohealth/nutrition-plate/js/plate.ui.js ===
 // UI renderer for Nutrition Plate
-// PATCH v20260318-NUTRITION-GATE-INTEGRATION-A
+// PATCH v20260318-PLATE-RUN-FULL
 
 import { esc, goHub } from '../../shared/nutrition-common.js';
 import { mountSummaryShell } from '../../shared/nutrition-summary-shell.js';
