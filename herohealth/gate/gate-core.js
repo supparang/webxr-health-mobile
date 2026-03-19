@@ -1,5 +1,5 @@
 // === /herohealth/gate/gate-core.js ===
-// FULL PATCH v20260319c-GATE-MANUAL-RESULT-NOAUTO
+// FULL PATCH v20260319c-GATE-NEXTKEY-HUB-CANONICAL
 // ✅ single warmup-gate.html / gate-game.html page with ?phase=warmup|cooldown
 // ✅ supports next=... from launcher pages
 // ✅ supports nextKey=sessionStorage fallback for stubborn redirect bugs
@@ -8,15 +8,14 @@
 // ✅ supports api.setStats / api.setSub / api.setTitle
 // ✅ fallback to runCandidates when next is missing
 // ✅ warmup once/day, cooldown once/day
-// ✅ cooldown complete -> stays on result page until user clicks
-// ✅ warmup complete -> stays on result page until user clicks
-// ✅ respects result.autostart === false (important for brief/start screens)
-// ✅ fix HUB fallback path for /herohealth/warmup-gate.html -> ./hub.html
+// ✅ cooldown complete -> HUB only
+// ✅ auto-call result.start() after mount when provided
 // ✅ supports forcegate=1 / resetGate=1 to bypass daily skip while testing
+// ✅ canonical hub fix -> always resolves to /herohealth/hub.html
 
 import * as GateGames from './gate-games.js?v=20260319a-GATE-GAMES-GOODJUNK-HARDFIX';
 
-const PATCH = 'v20260319c-GATE-MANUAL-RESULT-NOAUTO';
+const PATCH = 'v20260319c-GATE-NEXTKEY-HUB-CANONICAL';
 const STORAGE_NS = 'HHA_GATE_DONE_V1';
 const LAST_SUMMARY_KEY = 'HHA_LAST_SUMMARY';
 const SUMMARY_HISTORY_KEY = 'HHA_SUMMARY_HISTORY';
@@ -70,6 +69,10 @@ function esc(s = '') {
     .replaceAll('<', '&lt;')
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;');
+}
+
+function delay(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 function todayStamp() {
@@ -156,7 +159,7 @@ function readCtx() {
     seed: params.get('seed') || String(Date.now()),
     view: params.get('view') || 'mobile',
 
-    hub: params.get('hub') || './hub.html',
+    hub: params.get('hub') || new URL('../hub.html', import.meta.url).href,
     cat: params.get('cat') || meta?.cat || '',
     zone: params.get('zone') || params.get('cat') || meta?.cat || '',
     scene: params.get('scene') || '',
@@ -625,10 +628,31 @@ async function resolveRunHref(ctx) {
 }
 
 function resolveHubHref(ctx) {
+  const canonical = new URL('../hub.html', import.meta.url).href;
+  const raw = String(ctx.hub || '').trim();
+
   try {
-    return new URL(ctx.hub || './hub.html', location.href).href;
+    if (!raw) return canonical;
+
+    if (
+      raw === '/hub.html' ||
+      raw === '//hub.html' ||
+      raw === 'hub.html' ||
+      raw === './hub.html' ||
+      raw === '../hub.html'
+    ) {
+      return canonical;
+    }
+
+    const resolved = new URL(raw, location.href).href;
+
+    if (!resolved.includes('/herohealth/hub.html')) {
+      return canonical;
+    }
+
+    return resolved;
   } catch {
-    return './hub.html';
+    return canonical;
   }
 }
 
@@ -650,7 +674,12 @@ async function goRun(ctx) {
 }
 
 function goHub(ctx) {
-  location.href = resolveHubHref(ctx);
+  const href = resolveHubHref(ctx);
+  console.log('[GATE] goHub ->', href, {
+    rawHub: ctx.hub,
+    search: location.search
+  });
+  location.href = href;
 }
 
 function mountFallbackPhase(stage, ctx, api) {
@@ -769,12 +798,7 @@ async function bootPhase(stage, ctx, api) {
     const cleanupEvents = attachCompletionEvents(stage, api);
     const result = await runner(stage, ctx, api);
 
-    // สำคัญ: ถ้าโมดูลบอก autostart:false ห้ามเรียก start() เอง
-    if (
-      result &&
-      typeof result.start === 'function' &&
-      result.autostart !== false
-    ) {
+    if (result && typeof result.start === 'function') {
       try {
         queueMicrotask(() => {
           try {
@@ -828,25 +852,33 @@ function showAlreadyDone(stage, footer, ctx) {
     renderInfo(
       stage,
       'ทำ cooldown วันนี้แล้ว',
-      'เกมนี้ทำ cooldown ไปแล้วในวันนี้ กดปุ่มด้านล่างเพื่อกลับ HUB'
+      'เกมนี้ทำ cooldown ไปแล้วในวันนี้ ระบบจะพากลับ HUB'
     );
 
     setActions(footer, [
       { label: 'กลับ HUB', primary: true, onClick: () => goHub(ctx) }
     ]);
+
+    setTimeout(() => {
+      goHub(ctx);
+    }, 450);
     return;
   }
 
   renderInfo(
     stage,
     'ทำ warmup วันนี้แล้ว',
-    'warmup ของเกมนี้ทำไปแล้ววันนี้ กดปุ่มด้านล่างเพื่อเข้าเกมหลักหรือกลับ HUB'
+    'ระบบจะพาเข้าเกมหลักต่อทันที เพราะกำหนดให้ warmup วันละครั้งต่อเกม'
   );
 
   setActions(footer, [
     { label: 'เข้าเกมหลัก', primary: true, onClick: () => goRun(ctx) },
     { label: 'กลับ HUB', onClick: () => goHub(ctx) }
   ]);
+
+  setTimeout(() => {
+    goRun(ctx);
+  }, 650);
 }
 
 function showInvalidGame(stage, footer, ctx) {
@@ -927,10 +959,23 @@ export async function bootGate(root = document.getElementById('gate-app')) {
 
       const subtitle = payload.subtitle ||
         (ctx.phase === 'cooldown'
-          ? 'บันทึกผลล่าสุดเรียบร้อย กดปุ่มเพื่อกลับ HUB'
-          : 'warmup เสร็จแล้ว กดปุ่มเพื่อเข้าเกมหลัก');
+          ? 'บันทึกผลล่าสุดเรียบร้อย ระบบกำลังพากลับ HUB'
+          : 'warmup เสร็จแล้ว ระบบกำลังพาเข้าเกมหลัก');
 
       const extra = linesHtml(payload.lines || []);
+
+      if (ctx.phase === 'warmup') {
+        renderInfo(stage, title, subtitle, extra);
+
+        setActions(footer, [
+          { label: 'เข้าเกมหลัก', primary: true, onClick: () => goRun(ctx) },
+          { label: 'กลับ HUB', onClick: () => goHub(ctx) }
+        ]);
+
+        await delay(350);
+        await goRun(ctx);
+        return;
+      }
 
       saveLastSummary({
         source: 'gate-core',
@@ -948,17 +993,13 @@ export async function bootGate(root = document.getElementById('gate-app')) {
 
       renderInfo(stage, title, subtitle, extra);
 
-      if (ctx.phase === 'warmup') {
-        setActions(footer, [
-          { label: 'เข้าเกมหลัก', primary: true, onClick: () => goRun(ctx) },
-          { label: 'กลับ HUB', onClick: () => goHub(ctx) }
-        ]);
-        return;
-      }
-
       setActions(footer, [
         { label: 'กลับ HUB', primary: true, onClick: () => goHub(ctx) }
       ]);
+
+      await delay(250);
+      goHub(ctx);
+      return;
     },
 
     async finish(payload = {}) { return api.complete(payload); },
