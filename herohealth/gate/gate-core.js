@@ -1,6 +1,6 @@
 // === /herohealth/gate/gate-core.js ===
 // FULL PATCH v20260319b-GATE-NEXTKEY-HARDFIX
-// ✅ single warmup-gate.html / gate-game.html page with ?phase=warmup|cooldown
+// ✅ single warmup-gate.html page with ?phase=warmup|cooldown
 // ✅ supports next=... from launcher pages
 // ✅ supports nextKey=sessionStorage fallback for stubborn redirect bugs
 // ✅ safe gate-games import even if some helpers are missing
