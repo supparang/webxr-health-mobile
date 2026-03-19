@@ -3,194 +3,382 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>Redirecting to GoodJunk Race Run…</title>
+  <title>HeroHealth • GoodJunk Race Run</title>
   <meta name="color-scheme" content="dark light" />
-  <meta http-equiv="refresh" content="0; url=./goodjunk-vr.html" />
+  <link rel="icon" href="../favicon.ico" />
   <style>
     :root{
       --bg1:#020617;
       --bg2:#0b1226;
-      --panel:rgba(2,6,23,.82);
+      --panel2:rgba(15,23,42,.94);
       --stroke:rgba(148,163,184,.18);
       --text:#e5e7eb;
       --muted:#94a3b8;
-      --blue:#38bdf8;
+      --shadow:0 24px 64px rgba(0,0,0,.32);
+      --race:#38bdf8;
+      --sat: env(safe-area-inset-top, 0px);
+      --sar: env(safe-area-inset-right, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
     }
-    *{ box-sizing:border-box; }
+    *{box-sizing:border-box}
     html,body{
       margin:0;
       min-height:100%;
-      font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
-      color:var(--text);
       background:
-        radial-gradient(circle at top, #172554 0%, transparent 34%),
+        radial-gradient(circle at top, rgba(56,189,248,.18) 0%, transparent 34%),
         linear-gradient(180deg,var(--bg2),var(--bg1));
+      color:var(--text);
+      font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
+      overflow:hidden;
     }
-    .wrap{
-      min-height:100vh;
+    #app{
+      position:relative;
+      width:100vw;
+      height:100vh;
+      overflow:hidden;
+    }
+    #gameMount{
+      position:absolute;
+      inset:0;
+      z-index:1;
+      overflow:hidden;
+    }
+    #raceMeta{
+      position:fixed;
+      top:calc(10px + var(--sat));
+      left:calc(10px + var(--sal));
+      z-index:50;
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      pointer-events:none;
+    }
+    .meta-pill{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      padding:8px 10px;
+      border-radius:999px;
+      border:1px solid var(--stroke);
+      background:rgba(2,6,23,.62);
+      backdrop-filter:blur(8px);
+      color:#cbd5e1;
+      font-size:12px;
+      font-weight:800;
+      box-shadow:0 10px 24px rgba(0,0,0,.18);
+    }
+    .meta-pill strong{color:#e5e7eb;font-weight:900}
+
+    .overlay{
+      position:fixed;
+      inset:0;
+      z-index:9999;
       display:grid;
       place-items:center;
-      padding:24px;
+      padding:calc(16px + var(--sat)) calc(16px + var(--sar)) calc(16px + var(--sab)) calc(16px + var(--sal));
+      background:rgba(2,6,23,.76);
+      backdrop-filter:blur(8px);
     }
-    .card{
-      width:min(92vw,560px);
-      background:var(--panel);
+    .overlay[hidden]{display:none !important}
+
+    .overlay-card{
+      width:min(94vw,760px);
+      max-height:88vh;
+      overflow:auto;
+      background:var(--panel2);
       border:1px solid var(--stroke);
-      border-radius:24px;
-      padding:22px 20px;
-      backdrop-filter:blur(10px);
-      box-shadow:0 24px 64px rgba(0,0,0,.28);
+      border-radius:22px;
+      padding:20px 18px 18px;
+      color:var(--text);
+      box-shadow:var(--shadow);
     }
-    .kicker{
+
+    .overlay-kicker{
       display:inline-flex;
       align-items:center;
       gap:8px;
       padding:6px 12px;
       border-radius:999px;
-      border:1px solid rgba(56,189,248,.25);
       background:rgba(56,189,248,.12);
+      border:1px solid rgba(56,189,248,.25);
       color:#7dd3fc;
       font-weight:900;
       font-size:13px;
       margin-bottom:12px;
     }
-    h1{
+
+    .overlay-title{
       margin:0 0 8px;
-      font-size:28px;
+      font-size:30px;
       line-height:1.1;
     }
-    p{
+
+    .overlay-sub{
       margin:0;
       color:var(--muted);
-      line-height:1.7;
       font-size:14px;
+      line-height:1.6;
     }
-    .mono{
-      margin-top:14px;
-      padding:12px 14px;
-      border-radius:14px;
-      border:1px solid var(--stroke);
-      background:rgba(15,23,42,.45);
-      font:700 13px/1.6 ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;
-      word-break:break-all;
-    }
-    .btn{
-      display:inline-flex;
-      margin-top:16px;
-      padding:12px 16px;
-      border-radius:14px;
-      border:0;
-      background:var(--blue);
-      color:#06203a;
+
+    .count-box{
+      font-size:54px;
+      line-height:1;
       font-weight:900;
-      text-decoration:none;
+      letter-spacing:.02em;
+      min-height:56px;
+      margin:12px 0 6px;
+      text-align:center;
+    }
+
+    .count-note{
+      color:var(--muted);
+      font-size:13px;
+      text-align:center;
+    }
+
+    .result-top{
+      display:flex;
+      justify-content:space-between;
+      gap:12px;
+      align-items:center;
+      flex-wrap:wrap;
+    }
+
+    .result-badge{
+      min-width:110px;
+      text-align:center;
+      font-weight:900;
+      font-size:18px;
+      padding:12px 14px;
+      border-radius:18px;
+      background:rgba(56,189,248,.12);
+      border:1px solid rgba(56,189,248,.25);
+      color:#7dd3fc;
+    }
+
+    .result-table{
+      margin-top:16px;
+      border:1px solid var(--stroke);
+      border-radius:18px;
+      overflow:hidden;
+      background:rgba(2,6,23,.45);
+    }
+
+    .result-head,.result-row{
+      display:grid;
+      grid-template-columns:1.4fr .8fr .8fr .8fr;
+      gap:10px;
+      padding:12px 14px;
+      align-items:center;
+    }
+
+    .result-head{
+      font-weight:900;
+      color:#cbd5e1;
+      background:rgba(255,255,255,.04);
+    }
+
+    .result-row{
+      border-top:1px solid rgba(148,163,184,.08);
+    }
+
+    .result-row.is-me{
+      background:rgba(56,189,248,.10);
+      border-top-color:rgba(56,189,248,.25);
+    }
+
+    .result-actions{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-top:18px;
+    }
+
+    .btn{
+      appearance:none;
+      border:0;
+      cursor:pointer;
+      border-radius:14px;
+      padding:12px 16px;
+      font-weight:900;
+      font-size:14px;
+      transition:.12s ease;
+    }
+    .btn:hover{transform:translateY(-1px);filter:brightness(1.04)}
+    .btn:active{transform:translateY(0)}
+    .btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
+
+    .btn-blue{background:#38bdf8;color:#082f49}
+    .btn-good{background:#22c55e;color:#052e16}
+    .btn-sky{background:#0ea5e9;color:#082f49}
+    .btn-ghost{
+      background:rgba(255,255,255,.06);
+      color:#e5e7eb;
+      border:1px solid var(--stroke);
+    }
+
+    #raceRunMessage{
+      position:fixed;
+      right:calc(10px + var(--sar));
+      bottom:calc(10px + var(--sab));
+      z-index:60;
+      min-width:220px;
+      max-width:min(92vw,420px);
+      padding:12px 14px;
+      border-radius:16px;
+      background:rgba(2,6,23,.78);
+      border:1px solid var(--stroke);
+      backdrop-filter:blur(8px);
+      color:#cbd5e1;
+      font-size:13px;
+      line-height:1.55;
+      box-shadow:0 10px 24px rgba(0,0,0,.18);
+      display:none;
+    }
+    #raceRunMessage.show{display:block}
+
+    @media (max-width:640px){
+      .overlay-card{
+        width:min(96vw,760px);
+        padding:18px 14px 16px;
+        border-radius:18px;
+      }
+      .overlay-title{font-size:26px}
+      .count-box{font-size:46px}
+      .result-head,.result-row{
+        grid-template-columns:1.2fr .8fr .8fr .8fr;
+        gap:8px;
+        padding:10px 12px;
+        font-size:13px;
+      }
+      .result-actions .btn{
+        flex:1 1 calc(50% - 10px);
+      }
     }
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <div class="card">
-      <div class="kicker">RACE RUN REDIRECT</div>
-      <h1>กำลังย้ายไปหน้าแข่งเวอร์ชันล่าสุด</h1>
-      <p>ลิงก์เก่าของ GoodJunk Race ถูกเปลี่ยนให้ไปใช้หน้า run ใหม่อัตโนมัติ เพื่อให้ทุกเครื่องใช้ logic ชุดเดียวกัน</p>
-      <div class="mono" id="nextUrl">preparing…</div>
-      <a class="btn" id="goNow" href="./goodjunk-vr.html">ไปทันที</a>
+  <div id="app">
+    <div id="gameMount"></div>
+
+    <div id="raceMeta" aria-hidden="true">
+      <div class="meta-pill">MODE <strong id="metaMode">-</strong></div>
+      <div class="meta-pill">ROOM <strong id="metaRoom">-</strong></div>
+      <div class="meta-pill">TIME <strong id="metaTime">-</strong></div>
+      <div class="meta-pill">STATUS <strong id="metaStatus">-</strong></div>
     </div>
+
+    <div id="raceGate" class="overlay" hidden>
+      <div class="overlay-card" style="width:min(92vw,460px);max-height:none;">
+        <div class="overlay-kicker">RACE MODE</div>
+        <h2 class="overlay-title">กำลังรอเริ่ม Race</h2>
+        <p id="raceGateText" class="overlay-sub">รอสัญญาณเริ่มจากห้อง...</p>
+        <div id="raceGateCount" class="count-box">-</div>
+        <div id="raceGateSub" class="count-note">ผู้เล่นในรอบนี้จะเริ่มพร้อมกัน</div>
+      </div>
+    </div>
+
+    <div id="raceSummary" class="overlay" hidden>
+      <div class="overlay-card">
+        <div class="result-top">
+          <div>
+            <div class="overlay-kicker">RACE RESULT</div>
+            <h2 class="overlay-title">สรุปผลการแข่งขัน</h2>
+            <p id="raceSummarySub" class="overlay-sub">ดูอันดับของผู้เล่นในรอบนี้</p>
+          </div>
+          <div id="raceSummaryBadge" class="result-badge">-</div>
+        </div>
+
+        <div class="result-table">
+          <div class="result-head">
+            <div>ผู้เล่น</div><div>คะแนน</div><div>Miss</div><div>Best Streak</div>
+          </div>
+          <div id="raceSummaryRows"></div>
+        </div>
+
+        <div id="raceSummaryHint" style="margin-top:12px;color:var(--muted);font-size:13px;">
+          ระบบจะจัดอันดับตามคะแนนก่อน แล้วค่อยดู miss และ streak
+        </div>
+
+        <div class="result-actions">
+          <button id="btnRaceRematch" class="btn btn-sky" type="button">เล่นใหม่</button>
+          <button id="btnRaceBackLobby" class="btn btn-good" type="button">กลับ Lobby</button>
+          <button id="btnRaceExport" class="btn btn-blue" type="button">Export JSON</button>
+          <button id="btnRaceBackHub" class="btn btn-ghost" type="button">กลับ HUB</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="raceRunMessage" role="status" aria-live="polite"></div>
   </div>
 
   <script>
-    (function () {
-      const oldQ = new URLSearchParams(location.search);
+    (function(){
+      const q = new URLSearchParams(location.search);
 
-      function get(name, fallback = '') {
-        const v = oldQ.get(name);
-        return v == null ? fallback : v;
-      }
+      const runCtx = {
+        pid: q.get('pid') || 'anon',
+        name: q.get('name') || '',
+        studyId: q.get('studyId') || '',
+        roomId: q.get('roomId') || '',
+        mode: 'race',
+        diff: q.get('diff') || 'normal',
+        time: q.get('time') || '120',
+        seed: q.get('seed') || '',
+        startAt: Number(q.get('startAt') || 0) || 0,
+        hub: q.get('hub') || '../hub.html',
+        view: q.get('view') || 'mobile',
+        run: q.get('run') || 'play',
+        gameId: q.get('gameId') || 'goodjunk'
+      };
 
-      function makeSeed() {
-        return String(Date.now());
-      }
+      window.__GJ_RACE_CTX__ = runCtx;
 
-      function makeDevicePid() {
-        try {
-          const KEY = 'GJ_DEVICE_PID';
-          let pid = localStorage.getItem(KEY);
-          if (!pid) {
-            pid = `p-${Math.random().toString(36).slice(2, 10)}`;
-            localStorage.setItem(KEY, pid);
-          }
-          return pid;
-        } catch {
-          return `p-${Math.random().toString(36).slice(2, 10)}`;
+      document.getElementById('metaMode').textContent = runCtx.mode || '-';
+      document.getElementById('metaRoom').textContent = runCtx.roomId || '-';
+      document.getElementById('metaTime').textContent = runCtx.time || '-';
+      document.getElementById('metaStatus').textContent = 'waiting';
+
+      const msgEl = document.getElementById('raceRunMessage');
+
+      window.__gjShowRaceRunMessage = function(message){
+        if (!msgEl) return;
+        msgEl.textContent = String(message || '');
+        msgEl.classList.toggle('show', !!message);
+      };
+
+      window.__gjHideRaceRunMessage = function(){
+        if (!msgEl) return;
+        msgEl.textContent = '';
+        msgEl.classList.remove('show');
+      };
+
+      window.__gjRaceUi = {
+        setStatus(text) {
+          const el = document.getElementById('metaStatus');
+          if (el) el.textContent = String(text || '-');
+        },
+        showGate(msg = 'กำลังรอเริ่ม', count = '-', sub = '') {
+          const wrap = document.getElementById('raceGate');
+          const text = document.getElementById('raceGateText');
+          const num  = document.getElementById('raceGateCount');
+          const subEl = document.getElementById('raceGateSub');
+
+          if (wrap) wrap.hidden = false;
+          if (text) text.textContent = msg;
+          if (num) num.textContent = count;
+          if (subEl) subEl.textContent = sub || 'ผู้เล่นในรอบนี้จะเริ่มพร้อมกัน';
+        },
+        hideGate() {
+          const wrap = document.getElementById('raceGate');
+          if (wrap) wrap.hidden = true;
         }
-      }
-
-      function normalizePid(rawPid) {
-        const v = String(rawPid || '')
-          .trim()
-          .replace(/[.#$[\]/]/g, '-');
-        if (!v) return makeDevicePid();
-        if (v.toLowerCase() === 'anon') return makeDevicePid();
-        return v;
-      }
-
-      function normalizeRoomId(rawRoomId) {
-        return String(rawRoomId || '')
-          .toUpperCase()
-          .replace(/[^A-Z0-9-]/g, '')
-          .slice(0, 16);
-      }
-
-      const nextQ = new URLSearchParams();
-
-      const roomId = normalizeRoomId(get('roomId', get('room', '')));
-      const pid = normalizePid(get('pid', ''));
-      const name = get('name', get('nick', ''));
-      const studyId = get('studyId', '');
-      const diff = get('diff', 'normal');
-      const time = get('time', '120');
-      const seed = get('seed', makeSeed());
-      const hub = get('hub', '../hub.html');
-      const view = get('view', 'mobile');
-      const run = get('run', 'play');
-      const gameId = get('gameId', 'goodjunk');
-      const startAt = get('startAt', '');
-      const host = get('host', '');
-
-      nextQ.set('pid', pid);
-      if (name) nextQ.set('name', name);
-      if (studyId) nextQ.set('studyId', studyId);
-      if (roomId) nextQ.set('roomId', roomId);
-
-      nextQ.set('diff', diff);
-      nextQ.set('time', time);
-      nextQ.set('seed', seed);
-      nextQ.set('hub', hub);
-      nextQ.set('view', view);
-      nextQ.set('run', run);
-      nextQ.set('gameId', gameId);
-      nextQ.set('mode', 'race');
-
-      if (startAt) nextQ.set('startAt', startAt);
-      if (host) nextQ.set('host', host);
-
-      [
-        'log','api','phase','conditionGroup','debug',
-        'battle','autostart','forfeit'
-      ].forEach((k) => {
-        const v = get(k, '');
-        if (v) nextQ.set(k, v);
-      });
-
-      const nextUrl = `./goodjunk-vr.html?v=20260318c-race-run-shim-safe&${nextQ.toString()}`;
-
-      const urlBox = document.getElementById('nextUrl');
-      const goNow = document.getElementById('goNow');
-      if (urlBox) urlBox.textContent = nextUrl;
-      if (goNow) goNow.href = nextUrl;
-
-      location.replace(nextUrl);
+      };
     })();
   </script>
+
+  <script src="../firebase-config.js"></script>
+  <script type="module" src="./goodjunk.safe.race.js?v=20260319-race-run-v1"></script>
 </body>
 </html>
