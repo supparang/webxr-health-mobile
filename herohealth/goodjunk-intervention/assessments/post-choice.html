@@ -3,75 +3,126 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>GoodJunk Intervention • Post Choice</title>
+  <title>GoodJunk Intervention • Post-Choice</title>
   <link rel="stylesheet" href="./assessment.css" />
 </head>
 <body>
   <main class="page">
     <section class="card">
-      <div class="badge">หลังเล่นเกม</div>
-      <h1>เลือกของว่างที่เหมาะที่สุด</h1>
-      <p class="sub">ตอบจากสิ่งที่หนูคิดจริง ๆ เลย ไม่มีถูกผิดทุกข้อ</p>
+      <div class="badge">Posttest • Post-Choice</div>
+      <h1>เลือกสิ่งที่หนูจะทำหลังจบกิจกรรม</h1>
+      <p class="sub">
+        หน้านี้ใช้ดูว่า หลังเล่นเกมแล้ว หนูจะเลือกของว่างและเครื่องดื่มแบบไหน
+        พร้อมเหตุผลและความมั่นใจของตัวเอง
+      </p>
+
       <div class="ctx" id="ctxBox">กำลังโหลด...</div>
 
       <form class="form" data-next-key="COMPLETION">
         <section class="block">
-          <h2>1) ถ้าจะเลือกของว่างไปโรงเรียนวันนี้ หนูจะเลือกอะไร</h2>
-          <p>เลือก 1 ข้อ</p>
+          <h2>1) ถ้าหิวหลังเลิกเรียน หนูจะเลือกของว่างอะไร</h2>
           <div class="choice-grid">
-            <label class="choice"><input type="radio" name="snackChoice" value="apple" required /> แอปเปิล</label>
-            <label class="choice"><input type="radio" name="snackChoice" value="chips" required /> มันฝรั่งทอด</label>
-            <label class="choice"><input type="radio" name="snackChoice" value="soda" required /> น้ำอัดลม</label>
-            <label class="choice"><input type="radio" name="snackChoice" value="candy" required /> ลูกอม</label>
+            <label class="choice">
+              <input type="radio" name="snackChoice" value="fruit" required />
+              ผลไม้
+            </label>
+            <label class="choice">
+              <input type="radio" name="snackChoice" value="healthySnack" required />
+              ของว่างที่ดีกว่า เช่น นมจืด / สลัด / อาหารที่มีประโยชน์
+            </label>
+            <label class="choice">
+              <input type="radio" name="snackChoice" value="junk" required />
+              ขนมหวาน / ของทอด / junk food
+            </label>
+            <label class="choice">
+              <input type="radio" name="snackChoice" value="notSure" required />
+              ยังไม่แน่ใจ
+            </label>
           </div>
         </section>
 
         <section class="block">
-          <h2>2) ถ้ากระหายน้ำหลังเล่น หนูจะเลือกอะไร</h2>
-          <p>เลือก 1 ข้อ</p>
+          <h2>2) ถ้ากระหายน้ำ หนูจะเลือกดื่มอะไร</h2>
           <div class="choice-grid">
-            <label class="choice"><input type="radio" name="drinkChoice" value="water" required /> น้ำเปล่า</label>
-            <label class="choice"><input type="radio" name="drinkChoice" value="milk" required /> นมจืด</label>
-            <label class="choice"><input type="radio" name="drinkChoice" value="softdrink" required /> น้ำอัดลม</label>
-            <label class="choice"><input type="radio" name="drinkChoice" value="sweettea" required /> ชาหวาน</label>
+            <label class="choice">
+              <input type="radio" name="drinkChoice" value="water" required />
+              น้ำเปล่า
+            </label>
+            <label class="choice">
+              <input type="radio" name="drinkChoice" value="milk" required />
+              นมจืด
+            </label>
+            <label class="choice">
+              <input type="radio" name="drinkChoice" value="sweetDrink" required />
+              น้ำหวาน / น้ำอัดลม
+            </label>
+            <label class="choice">
+              <input type="radio" name="drinkChoice" value="notSure" required />
+              ยังไม่แน่ใจ
+            </label>
           </div>
         </section>
 
         <section class="block">
-          <h2>3) ทำไมหนูถึงเลือกแบบนั้น</h2>
+          <h2>3) เหตุผลที่หนูเลือกแบบนั้นคืออะไร</h2>
           <div class="choice-grid">
-            <label class="choice"><input type="radio" name="reason" value="healthy" required /> เพราะดีต่อร่างกาย</label>
-            <label class="choice"><input type="radio" name="reason" value="lessSugar" required /> เพราะหวานน้อยกว่า</label>
-            <label class="choice"><input type="radio" name="reason" value="energy" required /> เพราะช่วยให้อิ่มหรือมีแรง</label>
-            <label class="choice"><input type="radio" name="reason" value="taste" required /> เพราะชอบรสชาติ</label>
+            <label class="choice">
+              <input type="radio" name="reason" value="healthier" required />
+              เพราะดีต่อสุขภาพมากกว่า
+            </label>
+            <label class="choice">
+              <input type="radio" name="reason" value="lessSugar" required />
+              เพราะหวานน้อยกว่า / น้ำตาลน้อยกว่า
+            </label>
+            <label class="choice">
+              <input type="radio" name="reason" value="gameLearned" required />
+              เพราะเกมช่วยให้จำได้ว่าอะไรดีกว่า
+            </label>
+            <label class="choice">
+              <input type="radio" name="reason" value="notSure" required />
+              ยังอธิบายไม่ค่อยได้
+            </label>
           </div>
         </section>
 
         <section class="block">
-          <h2>4) หนูมั่นใจแค่ไหนกับคำตอบของตัวเอง</h2>
+          <h2>4) หนูมั่นใจแค่ไหนว่าครั้งหน้าจะเลือกแบบนี้จริง</h2>
           <div class="choice-grid">
-            <label class="choice"><input type="radio" name="confidence" value="high" required /> มั่นใจมาก</label>
-            <label class="choice"><input type="radio" name="confidence" value="medium" required /> มั่นใจปานกลาง</label>
-            <label class="choice"><input type="radio" name="confidence" value="low" required /> ยังไม่ค่อยแน่ใจ</label>
+            <label class="choice">
+              <input type="radio" name="confidence" value="high" required />
+              มั่นใจมาก
+            </label>
+            <label class="choice">
+              <input type="radio" name="confidence" value="medium" required />
+              มั่นใจปานกลาง
+            </label>
+            <label class="choice">
+              <input type="radio" name="confidence" value="low" required />
+              ยังไม่ค่อยมั่นใจ
+            </label>
           </div>
         </section>
 
         <section class="block">
-          <h2>5) ถ้าร้านหน้าโรงเรียนมีแต่ของทอดกับผลไม้ หนูจะทำอย่างไร</h2>
+          <h2>5) ถ้าจะนำสิ่งที่เรียนรู้ไปใช้จริง หนูจะทำอะไร 1 อย่าง</h2>
           <label class="inline">
-            <span class="note">พิมพ์สั้น ๆ ได้เลย</span>
-            <textarea name="transferText" placeholder="เช่น จะเลือกผลไม้แทนของทอด"></textarea>
+            <span class="note">ตอบสั้น ๆ ได้เลย</span>
+            <textarea
+              name="transferText"
+              placeholder="เช่น จะกินผลไม้แทนขนมหวาน หรือจะดื่มน้ำเปล่าแทนน้ำอัดลม"
+              required
+            ></textarea>
           </label>
         </section>
 
         <div class="footer">
           <button type="button" class="btn btn-ghost" data-action="back">ย้อนกลับ</button>
-          <button type="submit" class="btn btn-primary">ส่งคำตอบและไปหน้าจบกิจกรรม</button>
+          <button type="submit" class="btn btn-primary">บันทึกและไป Completion</button>
         </div>
       </form>
     </section>
   </main>
 
-  <script type="module" src="./assessment.js"></script>
+  <script type="module" src="./assessment.js?v=20260319a-postchoice"></script>
 </body>
 </html>
