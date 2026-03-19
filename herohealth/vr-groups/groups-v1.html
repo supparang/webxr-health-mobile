@@ -1,11 +1,9 @@
 <!-- === /herohealth/vr-groups/groups-v1.html ===
 Groups Solo Run V1 — REAL RUN PAGE
-FULL PATCH v20260319-GROUPS-V1-REAL-RUN
+FULL PATCH v20260319-GROUPS-V1-CANONICAL
 Uses:
 - ./groups.safe.js
 - ../vr/vr-ui.js
-Flow:
-warmup -> groups-v1.html -> cooldown -> summary -> hub
 -->
 <!doctype html>
 <html lang="th">
@@ -27,9 +25,7 @@ warmup -> groups-v1.html -> cooldown -> summary -> hub
       --sar: env(safe-area-inset-right, 0px);
       --sal: env(safe-area-inset-left, 0px);
     }
-
     *{ box-sizing:border-box; }
-
     html,body{
       height:100%;
       margin:0;
@@ -42,7 +38,6 @@ warmup -> groups-v1.html -> cooldown -> summary -> hub
         radial-gradient(900px 700px at 50% 95%, rgba(255,79,216,.08) 0%, transparent 60%),
         linear-gradient(180deg, #0b1026, var(--bg));
     }
-
     #app{
       position:relative;
       width:100%;
@@ -52,7 +47,6 @@ warmup -> groups-v1.html -> cooldown -> summary -> hub
       flex-direction:column;
       gap:8px;
     }
-
     .topbar{
       border-radius:var(--radius);
       border:1px solid var(--stroke);
@@ -66,32 +60,10 @@ warmup -> groups-v1.html -> cooldown -> summary -> hub
       z-index:50;
       flex:0 0 auto;
     }
-
-    .title{
-      display:flex;
-      flex-direction:column;
-      gap:2px;
-      min-width:0;
-    }
-    .title b{
-      font-size:14px;
-      font-weight:1000;
-      letter-spacing:.2px;
-    }
-    .title span{
-      color:var(--muted);
-      font-size:11.5px;
-      line-height:1.25;
-    }
-
-    .row{
-      display:flex;
-      gap:8px;
-      align-items:center;
-      flex-wrap:wrap;
-      justify-content:flex-end;
-    }
-
+    .title{ display:flex; flex-direction:column; gap:2px; min-width:0; }
+    .title b{ font-size:14px; font-weight:1000; letter-spacing:.2px; }
+    .title span{ color:var(--muted); font-size:11.5px; line-height:1.25; }
+    .row{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; justify-content:flex-end; }
     button{
       cursor:pointer;
       border-radius:14px;
@@ -103,7 +75,14 @@ warmup -> groups-v1.html -> cooldown -> summary -> hub
       user-select:none;
       font-weight:900;
     }
-
+    #btnRestart{
+      border-color:rgba(167,139,250,.24);
+      background:linear-gradient(180deg, rgba(167,139,250,.20), rgba(15,23,42,.88));
+    }
+    #btnBack{
+      border-color:rgba(56,189,248,.24);
+      background:linear-gradient(180deg, rgba(56,189,248,.16), rgba(15,23,42,.88));
+    }
     .stage{
       position:relative;
       flex:1 1 auto;
@@ -114,7 +93,6 @@ warmup -> groups-v1.html -> cooldown -> summary -> hub
       overflow:hidden;
       box-shadow:0 20px 80px rgba(0,0,0,.35);
     }
-
     #playLayer{
       position:absolute;
       inset:0;
@@ -122,7 +100,6 @@ warmup -> groups-v1.html -> cooldown -> summary -> hub
       pointer-events:auto;
       z-index:1;
     }
-
     .hud{
       position:absolute;
       left:8px;
@@ -135,14 +112,7 @@ warmup -> groups-v1.html -> cooldown -> summary -> hub
       z-index:30;
     }
     .hudTop{ top:calc(8px + var(--sat)); }
-
-    .hudLeftCol{
-      display:flex;
-      flex-direction:column;
-      gap:6px;
-      width:100%;
-    }
-
+    .hudLeftCol{ display:flex; flex-direction:column; gap:6px; width:100%; }
     .hudBox{
       display:grid;
       grid-template-columns:repeat(5, auto);
@@ -154,23 +124,14 @@ warmup -> groups-v1.html -> cooldown -> summary -> hub
       background:rgba(2,6,23,.54);
       backdrop-filter:blur(8px);
     }
-
-    .hudMetric{
-      display:flex;
-      gap:5px;
-      align-items:center;
-      min-width:0;
+    .hudBox.time-low{
+      border-color:rgba(239,68,68,.28);
+      box-shadow:0 0 0 1px rgba(239,68,68,.12), 0 0 20px rgba(239,68,68,.10);
     }
-    .hudMetric .k{
-      color:var(--muted);
-      font-size:10px;
-      font-weight:900;
-    }
-    .hudMetric .v{
-      color:var(--text);
-      font-size:12px;
-      font-weight:1000;
-    }
+    .hudMetric{ display:flex; gap:5px; align-items:center; min-width:0; }
+    .hudMetric .k{ color:var(--muted); font-size:10px; font-weight:900; }
+    .hudMetric .v{ color:var(--text); font-size:12px; font-weight:1000; }
+    #hudTime.time-low{ color:#fecaca; }
 
     .questTop{
       display:flex;
@@ -182,7 +143,6 @@ warmup -> groups-v1.html -> cooldown -> summary -> hub
       background:rgba(2,6,23,.44);
       backdrop-filter:blur(8px);
     }
-
     .questLine{
       display:flex;
       justify-content:space-between;
@@ -190,18 +150,8 @@ warmup -> groups-v1.html -> cooldown -> summary -> hub
       align-items:flex-start;
       flex-wrap:wrap;
     }
-
-    .questTitle{
-      font-size:12px;
-      font-weight:1000;
-      line-height:1.22;
-    }
-    .questMini{
-      color:var(--muted);
-      font-size:10px;
-      font-weight:900;
-      line-height:1.2;
-    }
+    .questTitle{ font-size:12px; font-weight:1000; line-height:1.22; }
+    .questMini{ color:var(--muted); font-size:10px; font-weight:900; line-height:1.2; }
 
     .bar{
       height:9px;
@@ -234,7 +184,18 @@ warmup -> groups-v1.html -> cooldown -> summary -> hub
       box-shadow:0 10px 24px rgba(0,0,0,.16);
       z-index:31;
       pointer-events:none;
+      transition:box-shadow .18s ease, border-color .18s ease, transform .18s ease;
     }
+    .powerWrap.active-group{
+      border-color:rgba(56,189,248,.28);
+      box-shadow:0 0 0 1px rgba(56,189,248,.14), 0 10px 28px rgba(0,0,0,.18), 0 0 26px rgba(56,189,248,.14);
+      transform:translateY(-1px);
+    }
+    .powerWrap.group-1{ border-color:rgba(225,29,72,.30); box-shadow:0 0 0 1px rgba(225,29,72,.14),0 10px 28px rgba(0,0,0,.18),0 0 24px rgba(225,29,72,.14); }
+    .powerWrap.group-2{ border-color:rgba(249,115,22,.30); box-shadow:0 0 0 1px rgba(249,115,22,.14),0 10px 28px rgba(0,0,0,.18),0 0 24px rgba(249,115,22,.14); }
+    .powerWrap.group-3{ border-color:rgba(34,197,94,.30); box-shadow:0 0 0 1px rgba(34,197,94,.14),0 10px 28px rgba(0,0,0,.18),0 0 24px rgba(34,197,94,.14); }
+    .powerWrap.group-4{ border-color:rgba(56,189,248,.30); box-shadow:0 0 0 1px rgba(56,189,248,.14),0 10px 28px rgba(0,0,0,.18),0 0 24px rgba(56,189,248,.14); }
+    .powerWrap.group-5{ border-color:rgba(168,85,247,.30); box-shadow:0 0 0 1px rgba(168,85,247,.14),0 10px 28px rgba(0,0,0,.18),0 0 24px rgba(168,85,247,.14); }
 
     .coachToast{
       position:absolute;
@@ -248,12 +209,7 @@ warmup -> groups-v1.html -> cooldown -> summary -> hub
       opacity:0;
       transition:opacity .18s ease, transform .18s ease;
     }
-    .coachToast.show{
-      display:block;
-      opacity:1;
-      transform:translateY(0);
-    }
-
+    .coachToast.show{ display:block; opacity:1; transform:translateY(0); }
     .coachWrap{
       display:flex;
       align-items:center;
@@ -278,17 +234,8 @@ warmup -> groups-v1.html -> cooldown -> summary -> hub
       font-size:18px;
       flex:0 0 auto;
     }
-    .coachWrap .txt{
-      font-weight:1000;
-      font-size:13px;
-      line-height:1.25;
-    }
-    .coachWrap .sub{
-      color:var(--muted);
-      font-size:11px;
-      font-weight:900;
-      margin-top:2px;
-    }
+    .coachWrap .txt{ font-weight:1000; font-size:13px; line-height:1.25; }
+    .coachWrap .sub{ color:var(--muted); font-size:11px; font-weight:900; margin-top:2px; }
 
     #stageFlash{
       position:absolute;
@@ -322,7 +269,6 @@ warmup -> groups-v1.html -> cooldown -> summary -> hub
     }
     .scorePop.good{ color:#86efac; }
     .scorePop.bad{ color:#fca5a5; }
-
     @keyframes scorePopUp{
       0%{ transform:translate(-50%,-50%) scale(.72); opacity:0; }
       15%{ transform:translate(-50%,-58%) scale(1.04); opacity:1; }
@@ -345,6 +291,24 @@ warmup -> groups-v1.html -> cooldown -> summary -> hub
       user-select:none;
       position:absolute;
     }
+    .tgt::before{
+      content:"";
+      position:absolute;
+      inset:-14px;
+      border-radius:28px;
+    }
+    .tgt.hit-good{ animation:tgtHitGood .22s ease-out; }
+    .tgt.hit-bad{ animation:tgtHitBad .20s ease-out; }
+    @keyframes tgtHitGood{
+      0%{ transform:translate(-50%,-50%) scale(1); filter:brightness(1); }
+      50%{ transform:translate(-50%,-50%) scale(1.12); filter:brightness(1.25); }
+      100%{ transform:translate(-50%,-50%) scale(.68); filter:brightness(1.05); }
+    }
+    @keyframes tgtHitBad{
+      0%{ transform:translate(-50%,-50%) scale(1); filter:brightness(1); }
+      40%{ transform:translate(-50%,-50%) scale(.92); filter:brightness(.95); }
+      100%{ transform:translate(-50%,-50%) scale(.68); filter:brightness(.85); }
+    }
 
     .overlay{
       position:absolute;
@@ -358,7 +322,6 @@ warmup -> groups-v1.html -> cooldown -> summary -> hub
       padding:calc(12px + var(--sat)) 12px calc(12px + var(--sab)) 12px;
       overflow:auto;
     }
-
     .overlayCard{
       width:min(860px, 100%);
       max-height:min(88vh, 760px);
@@ -371,7 +334,6 @@ warmup -> groups-v1.html -> cooldown -> summary -> hub
       flex-direction:column;
       margin:auto 0;
     }
-
     .overlayCard header{
       padding:12px;
       border-bottom:1px solid rgba(148,163,184,.14);
@@ -381,7 +343,6 @@ warmup -> groups-v1.html -> cooldown -> summary -> hub
       gap:10px;
       flex-wrap:wrap;
     }
-
     #endCard main{
       padding:12px;
       display:grid;
@@ -390,12 +351,48 @@ warmup -> groups-v1.html -> cooldown -> summary -> hub
       overflow:auto;
       min-height:0;
     }
-
     .panel{
       border-radius:18px;
       border:1px solid rgba(148,163,184,.14);
       background:rgba(2,6,23,.50);
       padding:10px;
+    }
+    .summaryTone-good{ border-color:rgba(34,197,94,.24); background:rgba(34,197,94,.10); }
+    .summaryTone-mid{ border-color:rgba(56,189,248,.24); background:rgba(56,189,248,.10); }
+    .summaryTone-retry{ border-color:rgba(245,158,11,.24); background:rgba(245,158,11,.10); }
+
+    .summaryHero{
+      display:flex;
+      align-items:center;
+      gap:12px;
+      margin-bottom:10px;
+      padding:10px 12px;
+      border-radius:16px;
+      border:1px solid rgba(148,163,184,.14);
+      background:rgba(15,23,42,.34);
+    }
+    .summaryBadge{
+      width:52px;
+      height:52px;
+      border-radius:16px;
+      display:grid;
+      place-items:center;
+      font-size:26px;
+      font-weight:1000;
+      border:1px solid rgba(148,163,184,.14);
+      background:rgba(2,6,23,.44);
+      flex:0 0 auto;
+    }
+    .summaryHeroText .big{
+      font-size:18px;
+      font-weight:1000;
+      line-height:1.15;
+    }
+    .summaryHeroText .sub{
+      color:var(--muted);
+      font-size:12px;
+      font-weight:900;
+      margin-top:4px;
     }
 
     .statGrid{
@@ -403,7 +400,6 @@ warmup -> groups-v1.html -> cooldown -> summary -> hub
       grid-template-columns:repeat(2,minmax(0,1fr));
       gap:8px;
     }
-
     .statCard{
       border-radius:14px;
       border:1px solid rgba(148,163,184,.12);
@@ -411,25 +407,13 @@ warmup -> groups-v1.html -> cooldown -> summary -> hub
       padding:10px;
       min-width:0;
     }
-    .statCard .k{
-      color:var(--muted);
-      font-size:10px;
-      font-weight:1000;
-      margin-bottom:4px;
-      letter-spacing:.2px;
-    }
-    .statCard .v{
-      color:var(--text);
-      font-size:18px;
-      font-weight:1000;
-      line-height:1.1;
-      word-break:break-word;
-    }
+    .statCard.good{ border-color:rgba(34,197,94,.18); background:rgba(34,197,94,.08); }
+    .statCard.mid{ border-color:rgba(56,189,248,.18); background:rgba(56,189,248,.08); }
+    .statCard.retry{ border-color:rgba(245,158,11,.18); background:rgba(245,158,11,.08); }
+    .statCard .k{ color:var(--muted); font-size:10px; font-weight:1000; margin-bottom:4px; letter-spacing:.2px; }
+    .statCard .v{ color:var(--text); font-size:18px; font-weight:1000; line-height:1.1; word-break:break-word; }
 
-    .miniList{
-      display:grid;
-      gap:8px;
-    }
+    .miniList{ display:grid; gap:8px; }
     .miniRow{
       display:flex;
       justify-content:space-between;
@@ -440,18 +424,8 @@ warmup -> groups-v1.html -> cooldown -> summary -> hub
       border:1px solid rgba(148,163,184,.10);
       background:rgba(15,23,42,.38);
     }
-    .miniRow .k{
-      color:var(--muted);
-      font-size:11px;
-      font-weight:900;
-    }
-    .miniRow .v{
-      color:var(--text);
-      font-size:12px;
-      font-weight:1000;
-      text-align:right;
-      word-break:break-word;
-    }
+    .miniRow .k{ color:var(--muted); font-size:11px; font-weight:900; }
+    .miniRow .v{ color:var(--text); font-size:12px; font-weight:1000; text-align:right; word-break:break-word; }
 
     .overlayBtns{
       padding:12px;
@@ -461,11 +435,7 @@ warmup -> groups-v1.html -> cooldown -> summary -> hub
       flex-wrap:wrap;
       justify-content:center;
     }
-    .overlayBtns button{
-      min-height:54px;
-      font-size:15px;
-      font-weight:1000;
-    }
+    .overlayBtns button{ min-height:54px; font-size:15px; font-weight:1000; }
     #btnEndContinue{
       border-color:rgba(34,197,94,.30);
       background:linear-gradient(180deg,#86efac,#22c55e);
@@ -481,8 +451,53 @@ warmup -> groups-v1.html -> cooldown -> summary -> hub
       background:linear-gradient(180deg, rgba(59,130,246,.24), rgba(30,41,59,.88));
     }
 
+    @media (max-width:760px){
+      .hud{ left:6px; right:6px; }
+      .hudBox{
+        grid-template-columns:repeat(5, minmax(0,1fr));
+        gap:4px;
+        padding:4px 6px;
+        border-radius:10px;
+      }
+      .hudMetric{ justify-content:center; gap:4px; }
+      .hudMetric .k{ font-size:8px; }
+      .hudMetric .v{ font-size:10px; }
+      .questTop{ padding:4px 6px; border-radius:10px; gap:4px; }
+      .questTitle{ font-size:10px; }
+      .questMini{ font-size:8px; }
+      .powerWrap{
+        top:84px;
+        left:6px;
+        width:min(128px, 36vw);
+        padding:4px 6px;
+        gap:4px;
+        border-radius:10px;
+      }
+      .powerWrap .miniRow{ padding:6px 8px; }
+      .powerWrap .miniRow .k{ font-size:9px; }
+      .powerWrap .miniRow .v{ font-size:9px; }
+      .coachToast{ left:8px; right:8px; bottom:calc(8px + var(--sab) + 84px); }
+      .coachWrap{ padding:6px 8px; gap:8px; }
+      .coachWrap .face{ width:30px; height:30px; font-size:16px; border-radius:10px; }
+      .coachWrap .txt{ font-size:12px; }
+      .coachWrap .sub{ font-size:10px; }
+    }
     @media (max-width:640px){
       .tgt{ width:112px; height:112px; font-size:48px; border-radius:24px; }
+    }
+    @media (max-width:480px){
+      .powerWrap{ opacity:.88; }
+      .overlay{
+        padding:calc(8px + var(--sat)) 8px calc(8px + var(--sab) + 78px) 8px;
+      }
+      .overlayCard{ border-radius:16px; }
+      .overlayBtns{
+        position:sticky;
+        bottom:0;
+        background:linear-gradient(180deg, rgba(2,6,23,.72), rgba(2,6,23,.96));
+        backdrop-filter:blur(10px);
+      }
+      .overlayBtns button{ flex:1 1 100%; }
     }
   </style>
 </head>
@@ -492,6 +507,7 @@ warmup -> groups-v1.html -> cooldown -> summary -> hub
     <div class="title">
       <b>🥗 เกมอาหาร 5 หมู่</b>
       <span id="subline">ยิงให้ถูกหมวด เก็บคะแนน และสะสมคอมโบ</span>
+      <span id="debugMini" style="color:var(--muted); font-size:10px; line-height:1.2;"></span>
     </div>
     <div class="row">
       <button id="btnRestart">เริ่มใหม่</button>
@@ -500,7 +516,28 @@ warmup -> groups-v1.html -> cooldown -> summary -> hub
   </div>
 
   <div class="stage" id="stage">
+    <div id="bgLayer" aria-hidden="true" style="
+      position:absolute; inset:0; pointer-events:none; z-index:0;
+      background:
+        radial-gradient(900px 420px at 50% 110%, rgba(56,189,248,.06), transparent 60%),
+        linear-gradient(180deg, rgba(15,23,42,.22), rgba(2,6,23,.04));
+    "></div>
+
     <div id="playLayer"></div>
+    <div id="bootOverlay" style="
+      position:absolute; inset:0; z-index:20;
+      display:grid; place-items:center;
+      background:linear-gradient(180deg, rgba(2,6,23,.46), rgba(2,6,23,.22));
+      backdrop-filter:blur(4px);
+    ">
+      <div style="
+        padding:16px 18px; border-radius:18px;
+        border:1px solid rgba(148,163,184,.16);
+        background:rgba(2,6,23,.68);
+        font-weight:1000;
+        box-shadow:0 14px 30px rgba(0,0,0,.22);
+      ">กำลังเตรียมเกมอาหาร 5 หมู่…</div>
+    </div>
     <div id="stageFlash"></div>
     <div id="fxLayer"></div>
 
@@ -555,6 +592,14 @@ warmup -> groups-v1.html -> cooldown -> summary -> hub
         </header>
         <main>
           <section class="panel">
+            <div class="summaryHero">
+              <div class="summaryBadge" id="sumBadgeIcon">🌟</div>
+              <div class="summaryHeroText">
+                <div class="big" id="sumHeroBig">เก่งมาก!</div>
+                <div class="sub" id="sumHeroSub">เล่นจบรอบนี้แล้ว</div>
+              </div>
+            </div>
+
             <h3 id="childHeadline">เก่งมาก!</h3>
 
             <div class="miniList" style="margin-bottom:10px;">
@@ -652,11 +697,21 @@ warmup -> groups-v1.html -> cooldown -> summary -> hub
   const sumGroupLast = $('#sumGroupLast');
   const sumBossHits = $('#sumBossHits');
   const sumTodayStatus = $('#sumTodayStatus');
+  const debugMini = $('#debugMini');
+  const bootOverlay = $('#bootOverlay');
 
   let toastTimer = null;
   let lastSummary = null;
   let isStarting = false;
   let isRestarting = false;
+  let endOpened = false;
+  let navLock = false;
+
+  debugMini.textContent = `pid=${PID} • diff=${DIFF} • time=${TIME}s • view=${VIEW}`;
+
+  function safeJsonParse(s, fallback = null){
+    try{ return JSON.parse(s); }catch(_){ return fallback; }
+  }
 
   function dayKey(){
     const d = new Date();
@@ -706,10 +761,58 @@ warmup -> groups-v1.html -> cooldown -> summary -> hub
   function getChildCoachMessage(s){
     const acc = Number(s?.accuracyPct || 0);
     const miss = Number(s?.miss || 0);
-    if(acc >= 90 && miss <= 2) return 'แม่นมากเลย! ไปทำ cooldown ต่อกันนะ';
-    if(acc >= 75) return 'เก่งมาก! อีกนิดเดียวก็สุดยอดแล้ว';
-    if(acc >= 55) return 'ทำได้ดีนะ ลองเล่นอีกครั้งก็จะยิ่งแม่นขึ้น';
-    return 'ไม่เป็นไรนะ ค่อย ๆ เล็งแล้วลองใหม่ได้เสมอ';
+    const combo = Number(s?.comboMax || 0);
+
+    if(acc >= 90 && miss <= 2) return 'เก่งมากเลย! วันนี้แม่นสุด ๆ ไปทำ cooldown ต่อกันนะ';
+    if(acc >= 75) return combo >= 5 ? 'ยอดเยี่ยม! คอมโบดีมาก รอบหน้าจะยิ่งเก่งขึ้นอีก' : 'เก่งมาก! อีกนิดเดียวก็สุดยอดแล้ว';
+    if(acc >= 55) return 'ทำได้ดีนะ ลองเล็งช้า ๆ อีกนิด แล้วจะยิ่งแม่นขึ้น';
+    return 'ไม่เป็นไรนะ ลองใหม่ได้เสมอ ค่อย ๆ เล็งแล้วแตะให้ตรงหมู่';
+  }
+
+  function getNextTipByGrade(grade){
+    const g = String(grade || '').toUpperCase();
+    if(g === 'S') return 'วันนี้สุดยอดแล้ว ลองเล่นรอบหน้าให้คอมโบยาวขึ้นอีก';
+    if(g === 'A') return 'เก่งมาก รอบหน้าลองพลาดให้น้อยลงอีกนิด';
+    if(g === 'B') return 'รอบหน้าลองเล็งช้าลงนิด แล้วจะยิ่งแม่น';
+    if(g === 'C') return 'จำหมู่ให้ชัดก่อน แล้วค่อยยิงทีละเป้า';
+    return 'ลองใหม่ได้เสมอ ค่อย ๆ ดูหมวดแล้วแตะให้ตรง';
+  }
+
+  function getSummaryToneClass(grade){
+    const g = String(grade || '').toUpperCase();
+    if(g === 'S' || g === 'A') return 'good';
+    if(g === 'B' || g === 'C') return 'mid';
+    return 'retry';
+  }
+
+  function getSummaryHeroMeta(grade){
+    const g = String(grade || '').toUpperCase();
+    if(g === 'S') return { icon:'🏆', big:'สุดยอดเลย!', sub:'วันนี้แม่นมากและทำคะแนนได้ยอดเยี่ยม' };
+    if(g === 'A') return { icon:'🌟', big:'เก่งมาก!', sub:'เล่นได้ดีมากและควบคุมเกมได้เยี่ยม' };
+    if(g === 'B') return { icon:'🎉', big:'ยอดเยี่ยม!', sub:'เล่นได้ดีและเริ่มแม่นขึ้นมาก' };
+    if(g === 'C') return { icon:'😊', big:'ทำได้ดี!', sub:'จำหมวดได้ดีขึ้นแล้ว ลองอีกครั้งได้เลย' };
+    return { icon:'💪', big:'เล่นเก่งขึ้นแล้ว!', sub:'ลองอีกครั้งได้เสมอ เดี๋ยวก็แม่นขึ้นแน่นอน' };
+  }
+
+  function getPrevSummary(){
+    try{
+      return JSON.parse(localStorage.getItem(`HHA_LAST_SUMMARY:groups:${PID}`) || 'null');
+    }catch(_){
+      return null;
+    }
+  }
+
+  function compareWithPrev(summary){
+    const prev = getPrevSummary();
+    if(!prev) return 'นี่คือรอบแรกของวันนี้ ลองเก็บคอมโบให้ยาวขึ้นนะ';
+    const scoreDiff = Number(summary.scoreFinal || 0) - Number(prev.scoreFinal || 0);
+    const accDiff = Number(summary.accuracyPct || 0) - Number(prev.accuracyPct || 0);
+
+    if(scoreDiff > 0 && accDiff >= 0) return `ดีขึ้นจากรอบก่อน +${scoreDiff} คะแนน`;
+    if(scoreDiff > 0) return `คะแนนดีขึ้นจากรอบก่อน +${scoreDiff}`;
+    if(accDiff > 0) return `ความแม่นยำดีขึ้น +${accDiff}%`;
+    if(scoreDiff === 0 && accDiff === 0) return 'ผลงานใกล้เคียงรอบก่อน ลองเพิ่มคอมโบอีกนิด';
+    return 'รอบหน้าเลือกเป้าให้ช้าลงนิด แล้วจะดีขึ้นแน่นอน';
   }
 
   function faceFromMood(mood){
@@ -731,23 +834,37 @@ warmup -> groups-v1.html -> cooldown -> summary -> hub
   function resetTransientUi(){
     endOverlay.style.display = 'none';
     endOverlay.setAttribute('aria-hidden', 'true');
+    endOpened = false;
+    navLock = false;
     if(toastTimer) clearTimeout(toastTimer);
     toastTimer = null;
     coachToast.classList.remove('show');
     stageFlash.className = '';
     stageFlash.style.opacity = '0';
     try{ fxLayer.replaceChildren(); }catch(_){ fxLayer.innerHTML = ''; }
+    ['btnEndContinue','btnEndAgain','btnEndGoHub'].forEach(id=>{
+      const el = document.getElementById(id);
+      if(el) el.disabled = false;
+    });
   }
 
   function safeStopEngine(){
     try{ window.GroupsVR?.GameEngine?.stop?.(); }catch(_){}
   }
 
+  function safeNavigate(href){
+    if(navLock) return;
+    navLock = true;
+    safeStopEngine();
+    window.location.assign(href);
+  }
+
   function updateSpawnSafe(){
     const r = playLayer.getBoundingClientRect();
-    const pad = VIEW === 'mobile' ? 36 : 24;
-    const topSafe = VIEW === 'mobile' ? 164 : 150;
-    const botSafe = VIEW === 'mobile' ? 228 : 176;
+    const isMobile = VIEW === 'mobile';
+    const pad = isMobile ? 40 : 24;
+    const topSafe = isMobile ? 176 : 150;
+    const botSafe = isMobile ? 236 : 176;
 
     window.__HHA_SPAWN_SAFE__ = {
       xMin: pad,
@@ -784,28 +901,72 @@ warmup -> groups-v1.html -> cooldown -> summary -> hub
     renderSummaryDailyStatus();
   }
 
+  function pushSummaryHistory(summary){
+    try{
+      const key = `HHA_SUMMARY_HISTORY:groups:${PID}`;
+      const prev = safeJsonParse(localStorage.getItem(key), []);
+      const arr = Array.isArray(prev) ? prev : [];
+      arr.unshift(summary);
+      localStorage.setItem(key, JSON.stringify(arr.slice(0, 20)));
+    }catch(_){}
+  }
+
+  function buildSummaryPayload(summary){
+    const gateStatus = getDailyGroupGateStatus();
+    return {
+      game: 'groups',
+      mode: 'solo',
+      pid: PID,
+      runMode: RUN,
+      diff: DIFF,
+      time: TIME,
+      seed: SEED,
+      view: VIEW,
+      zone: ZONE,
+      cat: CAT,
+      scoreFinal: Number(summary?.scoreFinal ?? summary?.score ?? 0),
+      accuracyPct: Number(summary?.accuracyPct ?? 0),
+      miss: Number(summary?.miss ?? 0),
+      comboMax: Number(summary?.comboMax ?? 0),
+      bossHits: Number(summary?.bossHits ?? 0),
+      grade: String(summary?.grade ?? ''),
+      durationPlayedSec: Number(summary?.durationPlayedSec ?? 0),
+      groupLast: String(summary?.groupLast ?? '—'),
+      warmupDoneToday: gateStatus.warm,
+      cooldownDoneToday: gateStatus.cool,
+      sourceRunPage: '/herohealth/vr-groups/groups-v1.html',
+      savedAtIso: new Date().toISOString()
+    };
+  }
+
   function saveLastSummary(summary){
     try{
-      const gateStatus = getDailyGroupGateStatus();
-      const payload = {
-        ...summary,
-        game: 'groups',
-        pid: PID,
-        runMode: RUN,
-        diff: DIFF,
-        view: VIEW,
-        zone: ZONE,
-        cat: CAT,
-        timestampIso: new Date().toISOString(),
-        __extraJson: JSON.stringify({
-          url: location.href,
-          warmupDoneToday: gateStatus.warm,
-          cooldownDoneToday: gateStatus.cool
-        })
-      };
+      const payload = buildSummaryPayload(summary);
       localStorage.setItem(`HHA_LAST_SUMMARY:groups:${PID}`, JSON.stringify(payload));
       localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(payload));
+      pushSummaryHistory(payload);
     }catch(_){}
+  }
+
+  function detectGroupNoFromName(name){
+    const s = String(name || '');
+    const m = s.match(/หมู่\s*([1-5])/);
+    if(m) return Number(m[1]);
+    if(/โปรตีน/.test(s)) return 1;
+    if(/คาร์โบ|แป้ง|ข้าว|มัน/.test(s)) return 2;
+    if(/ผัก/.test(s)) return 3;
+    if(/ผลไม้/.test(s)) return 4;
+    if(/ไขมัน/.test(s)) return 5;
+    return 0;
+  }
+
+  function updatePowerWrapGroupClass(name){
+    const n = detectGroupNoFromName(name);
+    const pw = document.querySelector('.powerWrap');
+    if(!pw) return;
+    pw.classList.add('active-group');
+    pw.classList.remove('group-1','group-2','group-3','group-4','group-5');
+    if(n >= 1 && n <= 5) pw.classList.add(`group-${n}`);
   }
 
   function buildEndSummary(summary){
@@ -826,8 +987,13 @@ warmup -> groups-v1.html -> cooldown -> summary -> hub
     sumGroupLast.textContent = s.groupLast || '—';
     sumBossHits.textContent = String(s.bossHits ?? 0);
     childHeadline.textContent = getChildHeadline(s.grade);
-    childCoachMsg.textContent = getChildCoachMessage(s);
+
+    const tip = getNextTipByGrade(s.grade);
+    childCoachMsg.textContent = `${getChildCoachMessage(s)} • ${tip}`;
+
     renderSummaryDailyStatus();
+    const st = getDailyGroupGateStatus();
+    if(st.warm && !st.cool) sumTodayStatus.textContent = 'Warmup เข้าแล้ว • กำลังจะไป Cooldown';
 
     if((s.grade || '').toUpperCase() === 'S'){
       endSub.textContent = `สุดยอดมาก • แม่น ${acc}% • คะแนน ${score}`;
@@ -836,12 +1002,27 @@ warmup -> groups-v1.html -> cooldown -> summary -> hub
     }else{
       endSub.textContent = `ทำได้ดี • แม่น ${acc}% • คะแนน ${score}`;
     }
+
+    const toneClass = getSummaryToneClass(s.grade);
+    childCoachMsg.parentElement.classList.remove('summaryTone-good','summaryTone-mid','summaryTone-retry');
+    childCoachMsg.parentElement.classList.add(`summaryTone-${toneClass}`);
+
+    document.querySelectorAll('.statCard').forEach(card=>{
+      card.classList.remove('good','mid','retry');
+      card.classList.add(toneClass);
+    });
+
+    const heroMeta = getSummaryHeroMeta(s.grade);
+    document.getElementById('sumBadgeIcon').textContent = heroMeta.icon;
+    document.getElementById('sumHeroBig').textContent = heroMeta.big;
+    document.getElementById('sumHeroSub').textContent = compareWithPrev(s);
   }
 
   function flashStage(kind){
     stageFlash.className = kind || '';
     stageFlash.style.opacity = '1';
-    setTimeout(()=>{ stageFlash.style.opacity = '0'; }, 120);
+    setTimeout(()=>{ stageFlash.style.opacity = '0.35'; }, 70);
+    setTimeout(()=>{ stageFlash.style.opacity = '0'; }, 180);
   }
 
   function popScore(x, y, text, good){
@@ -861,6 +1042,7 @@ warmup -> groups-v1.html -> cooldown -> summary -> hub
     syncUiToBootState();
     updateSpawnSafe();
     safeStopEngine();
+    if(bootOverlay) bootOverlay.style.display = 'grid';
 
     try{ window.GroupsVR?.GameEngine?.setLayerEl?.(playLayer); }catch(_){}
 
@@ -874,6 +1056,7 @@ warmup -> groups-v1.html -> cooldown -> summary -> hub
         miniBoss: true,
         bossSec: 8
       });
+      if(bootOverlay) bootOverlay.style.display = 'none';
       showToast('เริ่มแล้ว! ยิงให้ถูกหมวดแล้วเก็บคอมโบ', 'neutral');
     }catch(e){
       console.error(e);
@@ -886,12 +1069,21 @@ warmup -> groups-v1.html -> cooldown -> summary -> hub
   function restart(){
     if(isRestarting) return;
     isRestarting = true;
+    showToast('กำลังเริ่มรอบใหม่...', 'neutral');
     resetTransientUi();
     safeStopEngine();
+    if(bootOverlay) bootOverlay.style.display = 'grid';
     setTimeout(()=>{
       startGame();
       setTimeout(()=>{ isRestarting = false; }, 160);
     }, 80);
+  }
+
+  function lockEndButtons(){
+    ['btnEndContinue','btnEndAgain','btnEndGoHub'].forEach(id=>{
+      const el = document.getElementById(id);
+      if(el) el.disabled = true;
+    });
   }
 
   window.addEventListener('hha:coach', (ev)=>{
@@ -901,7 +1093,13 @@ warmup -> groups-v1.html -> cooldown -> summary -> hub
 
   window.addEventListener('hha:time', (ev)=>{
     const left = ev?.detail?.left;
-    if(typeof left === 'number') hudTime.textContent = left + 's';
+    if(typeof left === 'number'){
+      hudTime.textContent = left + 's';
+      const hudBox = document.querySelector('.hudBox');
+      const isLow = left <= 10;
+      hudTime.classList.toggle('time-low', isLow);
+      hudBox?.classList.toggle('time-low', isLow);
+    }
   });
 
   window.addEventListener('hha:score', (ev)=>{
@@ -926,7 +1124,10 @@ warmup -> groups-v1.html -> cooldown -> summary -> hub
     qBar.style.width = Math.round((gNow / Math.max(1, gTot)) * 100) + '%';
     if(d.miniTitle) qMini.textContent = `${d.miniTitle} · ${d.miniNow||0}/${d.miniTotal||0}`;
     qMiniTime.textContent = (d.miniTimeLeftSec != null && d.miniTimeLeftSec > 0) ? `⏳ ${d.miniTimeLeftSec}s` : '';
-    if(d.groupName) groupName.textContent = d.groupName;
+    if(d.groupName){
+      groupName.textContent = d.groupName;
+      updatePowerWrapGroupClass(d.groupName);
+    }
   });
 
   window.addEventListener('groups:power', (ev)=>{
@@ -956,6 +1157,8 @@ warmup -> groups-v1.html -> cooldown -> summary -> hub
   });
 
   window.addEventListener('hha:end', (ev)=>{
+    if(endOpened) return;
+    endOpened = true;
     const s = ev?.detail || {};
     saveLastSummary(s);
     buildEndSummary(s);
@@ -967,29 +1170,36 @@ warmup -> groups-v1.html -> cooldown -> summary -> hub
   window.addEventListener('beforeunload', ()=> safeStopEngine());
   window.addEventListener('resize', updateSpawnSafe, { passive:true });
 
-  document.getElementById('btnRestart').addEventListener('click', restart);
-  document.getElementById('btnBack').addEventListener('click', ()=>{
-    safeStopEngine();
-    window.location.assign(HUB);
+  document.getElementById('btnRestart').addEventListener('click', ()=>{
+    if(endOverlay.style.display === 'flex') return;
+    restart();
   });
+
+  document.getElementById('btnBack').addEventListener('click', ()=>{
+    safeNavigate(HUB);
+  });
+
   document.getElementById('btnEndContinue').addEventListener('click', (ev)=>{
     ev.preventDefault();
     ev.stopPropagation();
     if(lastSummary) saveLastSummary(lastSummary);
-    safeStopEngine();
-    window.location.assign(buildCooldownUrl());
+    lockEndButtons();
+    safeNavigate(buildCooldownUrl());
   });
+
   document.getElementById('btnEndAgain').addEventListener('click', restart);
+
   document.getElementById('btnEndGoHub').addEventListener('click', (ev)=>{
     ev.preventDefault();
     ev.stopPropagation();
     if(lastSummary) saveLastSummary(lastSummary);
-    safeStopEngine();
-    window.location.assign(HUB);
+    lockEndButtons();
+    safeNavigate(HUB);
   });
 
   updateSpawnSafe();
   syncUiToBootState();
+  showToast('กำลังเตรียมเกมอาหาร 5 หมู่...', 'neutral');
   startGame();
 })();
 </script>
