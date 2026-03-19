@@ -7,6 +7,14 @@ import { SLOT_META } from './plate.content.js';
 export function getBuildChoiceFeedback(slot, food) {
   const slotLabel = SLOT_META[slot]?.label || slot;
 
+  if (!food) {
+    return {
+      delta: 0,
+      tone: 'bad',
+      feedback: `ยังไม่ได้เลือก${slotLabel}`
+    };
+  }
+
   if (food.tier === 'best') {
     return {
       delta: 0,
@@ -76,7 +84,7 @@ export function evaluatePlate(plate) {
     detail.penalty += 5;
     score -= 5;
     notes.push('โปรตีนยังมันหรือแปรรูปเกินไป');
-  } else {
+  } else if (protein) {
     notes.push('โปรตีนค่อนข้างเหมาะสม');
   }
 
