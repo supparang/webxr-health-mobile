@@ -42,11 +42,7 @@
     .wrap{
       max-width:920px;
       margin:0 auto;
-      padding:
-        calc(14px + var(--sat))
-        calc(14px + var(--sar))
-        calc(18px + var(--sab))
-        calc(14px + var(--sal));
+      padding: calc(14px + var(--sat)) calc(14px + var(--sar)) calc(18px + var(--sab)) calc(14px + var(--sal));
       min-height:100vh;
     }
 
@@ -242,15 +238,18 @@
       <div class="kicker">HeroHealth • Exercise Zone</div>
       <h1>Shadow Breaker Launcher</h1>
       <div class="sub">
-        เตรียมเข้าเล่นเกม Shadow Breaker แบบลุยบอส 3 ตัว + Final Boss<br/>
-        Flow นี้ใช้แบบเดียว: <b>Hub → Warmup → Game → Cooldown → Summary → Hub</b>
+        เตรียมเข้าเล่นเกมตีเป้าสนุก ๆ แล้วไปลุยบอสทีละตัว<br/>
+        วันนี้เราจะผ่าน <b>Bubble → Meteor → Hydra → Final Boss</b> กัน!
       </div>
 
       <div class="row">
         <span class="pill"><b>Launcher</b>: <span>/herohealth/shadow-breaker-vr.html</span></span>
-        <span class="pill"><b>Warmup/Cooldown</b>: <span>/herohealth/warmup-gate.html</span></span>
         <span class="pill"><b>Run</b>: <span>/fitness/shadow-breaker.html</span></span>
-        <span class="pill"><b>Summary</b>: <span>/herohealth/shadow-breaker-summary.html</span></span>
+      </div>
+
+      <div class="row">
+        <span class="pill"><b>เป้าหมาย</b>: ผ่านบอสให้ได้ไกลที่สุด</span>
+        <span class="pill"><b>เคล็ดลับ</b>: ตีแม่น ๆ จะเปิด FEVER ได้เร็ว</span>
       </div>
 
       <div class="grid">
@@ -263,16 +262,16 @@
           </div>
 
           <div class="field">
-            <label class="label" for="selDiff">Difficulty</label>
+            <label class="label" for="selDiff">ระดับความท้าทาย</label>
             <select id="selDiff" class="select">
-              <option value="easy">Easy</option>
-              <option value="normal" selected>Normal</option>
-              <option value="hard">Hard</option>
+              <option value="easy">ง่าย</option>
+              <option value="normal" selected>ปกติ</option>
+              <option value="hard">ยาก</option>
             </select>
           </div>
 
           <div class="field">
-            <label class="label" for="selTime">Time (sec)</label>
+            <label class="label" for="selTime">เวลาเล่น</label>
             <select id="selTime" class="select">
               <option value="60">60</option>
               <option value="70">70</option>
@@ -282,41 +281,61 @@
           </div>
 
           <div class="field">
-            <label class="label" for="selMode">Mode</label>
+            <label class="label" for="selMode">เลือกโหมด</label>
             <select id="selMode" class="select">
-              <option value="normal" selected>Normal</option>
-              <option value="research">Research</option>
+              <option value="normal" selected>โหมดเด็ก</option>
+              <option value="research">โหมดครู / วิจัย</option>
             </select>
           </div>
 
+          <div id="modeExplain" class="mini">
+            โหมดเด็ก: ปุ่มใหญ่ อ่านง่าย เล่นได้ทันที
+          </div>
+
+          <div id="researchOnlyBox" style="display:none;">
+            <div class="field">
+              <label class="label" for="inpStudyId">Study ID</label>
+              <input id="inpStudyId" class="input" placeholder="เช่น HH-EX-01" />
+            </div>
+
+            <div class="field">
+              <label class="label" for="inpGroup">Group</label>
+              <input id="inpGroup" class="input" placeholder="เช่น control / exp" />
+            </div>
+
+            <div class="field">
+              <label class="label" for="inpCondition">Condition</label>
+              <input id="inpCondition" class="input" placeholder="เช่น SB-normal / SB-child" />
+            </div>
+          </div>
+
           <div class="actions">
-            <button class="btn primary" id="btnStartNormal" type="button">▶ Start Normal</button>
-            <button class="btn violet" id="btnStartHard" type="button">🔥 Start Hard</button>
-            <button class="btn good" id="btnStartResearch" type="button">📊 Start Research</button>
-            <a class="btn ghost" id="btnBackHub" href="./hub.html">← กลับ Hub</a>
+            <button class="btn primary" id="btnStartNormal" type="button">▶ เริ่มเล่น</button>
+            <button class="btn violet" id="btnStartHard" type="button">🔥 ลุยแบบท้าทาย</button>
+            <button class="btn good" id="btnStartResearch" type="button">📋 เข้าโหมดครู / ทดสอบ</button>
+            <a class="btn ghost" id="btnBackHub" href="./hub.html">← กลับหน้าเกมหลัก</a>
+          </div>
+
+          <div class="field" style="margin-top:12px;">
+            <div class="mini">😊 ง่าย = เป้าใหญ่ เล่นสบาย</div>
+            <div class="mini">😎 ปกติ = สนุกกำลังดี</div>
+            <div class="mini">🔥 ยาก = เร็วขึ้น ท้าทายขึ้น</div>
           </div>
 
           <div class="mini">
-            เด็กเล่นแนะนำ <b>Normal / 80s</b><br/>
-            ถ้าทดสอบความท้าทายเพิ่ม ใช้ <b>Hard</b>
+            แนะนำให้เริ่มที่ <b>ปกติ / 80 วินาที</b><br/>
+            ถ้าอยากลองแบบยากขึ้น ค่อยกด <b>ลุยแบบท้าทาย</b>
           </div>
         </section>
 
         <section class="card">
-          <div class="cardTitle">สิ่งที่มีในเกม</div>
+          <div class="cardTitle">วิธีเล่นแบบง่าย ๆ</div>
           <ul class="list">
-            <li>Bubble Glove → Meteor Punch → Neon Hydra → Final Boss</li>
-            <li>Warmup ก่อนเล่นจริง</li>
-            <li>Cooldown หลังจบเกม</li>
-            <li>Summary แยกก่อนกลับ Hub</li>
-            <li>บันทึก best reached boss และ best badge</li>
+            <li>ตี 🎯 เพื่อเก็บคะแนน</li>
+            <li>เลี่ยง 💣 เพื่อไม่เสียพลัง</li>
+            <li>เก็บ 🩹 และ 🛡️ เพื่อช่วยตัวเอง</li>
+            <li>ผ่านบอสทีละตัวจนถึง Final Boss</li>
           </ul>
-
-          <div class="mini">
-            warmup/cooldown ใช้ไฟล์เดียวกันคือ
-            <code>warmup-gate.html</code><br/>
-            แล้วสลับด้วย <code>Phase=warmup</code> หรือ <code>Phase=cooldown</code>
-          </div>
 
           <div class="debug" id="debugBox">กำลังเตรียมเส้นทางเข้าเกม…</div>
         </section>
@@ -328,9 +347,7 @@
     (function(){
       'use strict';
 
-      const WARMUP_PATH  = '/webxr-health-mobile/herohealth/warmup-gate.html';
-      const RUN_PATH     = '/webxr-health-mobile/fitness/shadow-breaker.html';
-      const SUMMARY_PATH = '/webxr-health-mobile/herohealth/shadow-breaker-summary.html';
+      const RUN_PATH = '/webxr-health-mobile/fitness/shadow-breaker.html';
 
       const $ = (s)=>document.querySelector(s);
       const qs = (k, d='')=>{
@@ -342,6 +359,11 @@
       const selDiff = $('#selDiff');
       const selTime = $('#selTime');
       const selMode = $('#selMode');
+      const modeExplain = $('#modeExplain');
+      const researchOnlyBox = $('#researchOnlyBox');
+      const inpStudyId = $('#inpStudyId');
+      const inpGroup = $('#inpGroup');
+      const inpCondition = $('#inpCondition');
 
       const btnStartNormal = $('#btnStartNormal');
       const btnStartHard = $('#btnStartHard');
@@ -353,14 +375,26 @@
       const sp = currentUrl.searchParams;
 
       const hubFromQuery = String(qs('hub','')).trim() || './hub.html';
-      const hubAbs = new URL(hubFromQuery, location.href).toString();
-
-      if (btnBackHub) btnBackHub.href = hubAbs;
+      if (btnBackHub) btnBackHub.href = hubFromQuery;
 
       if (inpPid)  inpPid.value = String(qs('pid','anon')).trim() || 'anon';
       if (selDiff) selDiff.value = String(qs('diff','normal')).trim() || 'normal';
       if (selTime) selTime.value = String(qs('time','80')).trim() || '80';
       if (selMode) selMode.value = String(qs('mode', qs('run','normal'))).trim() || 'normal';
+
+      function syncModeUI(){
+        const isResearch = (selMode?.value === 'research');
+
+        if (modeExplain) {
+          modeExplain.textContent = isResearch
+            ? 'โหมดครู / วิจัย: ใช้สำหรับเก็บข้อมูลและตั้งค่าการทดลอง'
+            : 'โหมดเด็ก: ปุ่มใหญ่ อ่านง่าย เล่นได้ทันที';
+        }
+
+        if (researchOnlyBox) {
+          researchOnlyBox.style.display = isResearch ? '' : 'none';
+        }
+      }
 
       function buildRunUrl(extra){
         const u = new URL(RUN_PATH, location.origin);
@@ -381,10 +415,13 @@
         u.searchParams.set('mode', selMode?.value || 'normal');
         u.searchParams.set('run', selMode?.value || 'normal');
         u.searchParams.set('zone', sp.get('zone') || 'fitness');
-        u.searchParams.set('cat', sp.get('cat') || 'fitness');
-        u.searchParams.set('game', 'shadowbreaker');
-        u.searchParams.set('hub', hubAbs);
-        u.searchParams.set('cdnext', SUMMARY_PATH);
+        u.searchParams.set('hub', new URL(hubFromQuery, location.href).toString());
+
+        if (selMode?.value === 'research') {
+          if (inpStudyId?.value?.trim()) u.searchParams.set('studyId', inpStudyId.value.trim());
+          if (inpGroup?.value?.trim()) u.searchParams.set('group', inpGroup.value.trim());
+          if (inpCondition?.value?.trim()) u.searchParams.set('conditionGroup', inpCondition.value.trim());
+        }
 
         if (extra && typeof extra === 'object'){
           Object.keys(extra).forEach(k=>{
@@ -397,43 +434,8 @@
         return u.toString();
       }
 
-      function buildWarmupUrl(extra){
-        const u = new URL(WARMUP_PATH, location.origin);
-        const passKeys = [
-          'run','mode','diff','time','seed','studyId','phase','conditionGroup','log',
-          'view','pid','api','ai','debug','planSeq','planDay','planSlot','planMode',
-          'planSlots','planIndex','autoNext','plannedGame','finalGame','zone','cdnext','grade'
-        ];
-
-        passKeys.forEach(k=>{
-          const v = sp.get(k);
-          if(v != null && v !== '') u.searchParams.set(k, v);
-        });
-
-        u.searchParams.set('Phase', 'warmup');
-        u.searchParams.set('pid', (inpPid?.value || qs('pid','anon') || 'anon').trim() || 'anon');
-        u.searchParams.set('diff', selDiff?.value || 'normal');
-        u.searchParams.set('time', selTime?.value || '80');
-        u.searchParams.set('mode', selMode?.value || 'normal');
-        u.searchParams.set('run', selMode?.value || 'normal');
-        u.searchParams.set('zone', sp.get('zone') || 'fitness');
-        u.searchParams.set('cat', sp.get('cat') || 'fitness');
-        u.searchParams.set('game', 'shadowbreaker');
-        u.searchParams.set('gate', '1');
-        u.searchParams.set('hub', hubAbs);
-        u.searchParams.set('next', buildRunUrl(extra));
-
-        if (extra && typeof extra === 'object'){
-          if (extra.diff) u.searchParams.set('diff', String(extra.diff));
-          if (extra.mode) u.searchParams.set('mode', String(extra.mode));
-          if (extra.run)  u.searchParams.set('run',  String(extra.run));
-        }
-
-        return u.toString();
-      }
-
       function go(extra){
-        const target = buildWarmupUrl(extra);
+        const target = buildRunUrl(extra);
         try{
           location.href = target;
         }catch(_){
@@ -443,7 +445,6 @@
 
       btnStartNormal?.addEventListener('click', ()=>{
         if (selMode) selMode.value = 'normal';
-        if (selDiff) selDiff.value = selDiff.value || 'normal';
         go({ mode:'normal', run:'normal' });
       });
 
@@ -458,17 +459,25 @@
         go({ mode:'research', run:'research' });
       });
 
+      selMode?.addEventListener('change', syncModeUI);
+      selDiff?.addEventListener('change', ()=>{
+        if (!selMode) return;
+        if (selMode.value !== 'research') selMode.value = 'normal';
+        syncModeUI();
+      });
+
       const auto = String(qs('auto','0')).toLowerCase();
       const autostart = ['1','true','yes','on'].includes(auto);
 
+      const previewUrl = buildRunUrl();
       if (debugBox){
         debugBox.innerHTML =
-          `<div><b>Hub:</b> <code>${new URL(hubAbs).pathname}</code></div>` +
-          `<div><b>Warmup:</b> <code>${buildWarmupUrl()}</code></div>` +
-          `<div><b>Run:</b> <code>${buildRunUrl()}</code></div>` +
-          `<div><b>Summary:</b> <code>${SUMMARY_PATH}</code></div>` +
+          `<div><b>Hub:</b> <code>${new URL(hubFromQuery, location.href).pathname}</code></div>` +
+          `<div><b>Run target:</b> <code>${previewUrl}</code></div>` +
           `<div><b>Auto:</b> <code>${autostart ? 'ON' : 'OFF'}</code></div>`;
       }
+
+      syncModeUI();
 
       if (autostart) {
         go({});
