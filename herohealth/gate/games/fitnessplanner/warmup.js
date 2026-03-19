@@ -1,6 +1,6 @@
 /* === /herohealth/gate/games/fitnessplanner/warmup.js ===
  * HeroHealth Gate Game: FitnessPlanner Warmup
- * PATCH v20260312e-FITNESSPLANNER-WARMUP-TH-CHILD
+ * FULL PATCH v20260319a-FITNESSPLANNER-WARMUP-API-FINISH-FIX
  */
 
 function clamp(v, a, b){ return Math.max(a, Math.min(b, v)); }
@@ -14,13 +14,17 @@ function getParam(ctx, key, fallback=''){
   }
 }
 
-function ensureStyle(){
+export function loadStyle(){
   const id = 'hh-gate-style-fitnessplanner';
-  if (document.getElementById(id)) return;
+  const href = new URL('./style.css', import.meta.url).toString();
+
+  const old = document.getElementById(id);
+  if (old) old.remove();
+
   const link = document.createElement('link');
   link.id = id;
   link.rel = 'stylesheet';
-  link.href = './gate/games/fitnessplanner/style.css';
+  link.href = href;
   document.head.appendChild(link);
 }
 
@@ -33,6 +37,7 @@ function starsFromScore(score){
 function makeResult(state){
   const score = clamp(Math.round((state.done / Math.max(1, state.total)) * 100), 0, 100);
   const passed = state.done >= 3 || score >= 75;
+
   return {
     ok: true,
     zone: 'exercise',
@@ -40,9 +45,18 @@ function makeResult(state){
     phase: 'warmup',
     activityId: 'fitnessplanner-body-wake-flow',
     title: 'ปลุกร่างกาย',
+    subtitle: passed
+      ? 'พร้อมแล้ว ไปเล่น Fitness Planner กัน'
+      : 'ขยับร่างกายอีกนิด แล้วค่อยเริ่มเกม',
     passed,
     score,
     stars: starsFromScore(score),
+    lines: [
+      `ท่า ${Math.min(state.currentStep + 1, state.total)}/${state.total}`,
+      `ทำครบ ${state.done}`,
+      `ข้าม ${state.skipped}`,
+      `คะแนน ${score}%`
+    ],
     metrics: {
       total: state.total,
       done: state.done,
@@ -55,15 +69,38 @@ function makeResult(state){
         ? 'พร้อมแล้ว ไปเล่น Fitness Planner กัน'
         : 'ขยับร่างกายอีกนิด แล้วค่อยเริ่มเกม'
     },
-    nextAction: 'run'
+    buffs: {
+      wType: 'fitnessplanner_warmup',
+      wPct: score,
+      wDone: state.done,
+      wSkipped: state.skipped,
+      wStars: starsFromScore(score)
+    },
+    nextAction: 'run',
+    markDailyDone: true
   };
 }
 
-export function mount(root, ctx = {}){
-  ensureStyle();
+export function mount(root, ctx = {}, api = {}){
+  loadStyle();
 
   const phase = String(getParam(ctx, 'phase', 'warmup')).toLowerCase();
-  const onComplete = typeof ctx?.onComplete === 'function' ? ctx.onComplete : () => {};
+  const fallbackComplete = typeof ctx?.onComplete === 'function' ? ctx.onComplete : null;
+
+  function complete(payload){
+    if (typeof api?.finish === 'function'){
+      api.finish(payload);
+      return;
+    }
+    if (typeof api?.complete === 'function'){
+      api.complete(payload);
+      return;
+    }
+    if (typeof fallbackComplete === 'function'){
+      fallbackComplete(payload);
+    }
+  }
+
   if (phase !== 'warmup'){
     root.innerHTML = `
       <div class="fpg-wrap">
@@ -74,24 +111,31 @@ export function mount(root, ctx = {}){
         </section>
       </div>
     `;
-    return;
+    return {
+      autostart: false,
+      start(){},
+      destroy(){}
+    };
   }
 
   const STEP_SEC = 4;
   const steps = [
-    { id:'arms', label:'ยืดแขนขึ้น', emoji:'🙆' },
-    { id:'side', label:'ยืดลำตัวด้านข้าง', emoji:'🧍' },
-    { id:'knee', label:'ย่อเข่าเบา ๆ', emoji:'🦵' },
-    { id:'twist', label:'บิดตัวช้า ๆ', emoji:'↩️' }
+    { id:'arms',  label:'ยืดแขนขึ้น',        emoji:'🙆' },
+    { id:'side',  label:'ยืดลำตัวด้านข้าง', emoji:'🧍' },
+    { id:'knee',  label:'ย่อเข่าเบา ๆ',     emoji:'🦵' },
+    { id:'twist', label:'บิดตัวช้า ๆ',      emoji:'↩️' }
   ];
 
   const state = {
     started: false,
     finished: false,
+    submitted: false,
+
     currentStep: -1,
     total: steps.length,
     done: 0,
     skipped: 0,
+
     remainStepSec: STEP_SEC,
     stepTimer: null
   };
@@ -137,8 +181,8 @@ export function mount(root, ctx = {}){
         </div>
 
         <div class="fpg-footer">
-          <button class="fpg-btn fpg-btn-primary" id="fpg-start">เริ่มอุ่นเครื่อง</button>
-          <button class="fpg-btn fpg-btn-ghost" id="fpg-finish" disabled>ดูผล</button>
+          <button class="fpg-btn fpg-btn-primary" id="fpg-start" type="button">เริ่มอุ่นเครื่อง</button>
+          <button class="fpg-btn fpg-btn-ghost" id="fpg-finish" type="button" disabled>ดูผล</button>
         </div>
       </section>
     </div>
@@ -152,28 +196,72 @@ export function mount(root, ctx = {}){
   const startBtn = root.querySelector('#fpg-start');
   const finishBtn = root.querySelector('#fpg-finish');
 
+  function shownStep(){
+    if (state.finished) return state.total;
+    return clamp(state.currentStep + 1, 0, state.total);
+  }
+
+  function canOpenResult(){
+    return state.finished === true
+      || state.done >= 3
+      || state.currentStep >= state.total;
+  }
+
+  function syncFinishBtn(){
+    const ready = canOpenResult();
+    finishBtn.disabled = !ready;
+    finishBtn.style.pointerEvents = ready ? 'auto' : 'none';
+    finishBtn.style.opacity = ready ? '1' : '.65';
+    finishBtn.setAttribute('aria-disabled', ready ? 'false' : 'true');
+  }
+
   function renderStats(){
     statsEl.innerHTML = `
-      <span>ท่า ${Math.max(0, state.currentStep + 1)}/4</span>
+      <span>ท่า ${shownStep()}/${state.total}</span>
       <span>ทำครบ ${state.done}</span>
       <span>ข้าม ${state.skipped}</span>
     `;
+    syncFinishBtn();
+  }
+
+  function lockActionButtons(locked){
+    doneBtn.disabled = locked;
+    skipBtn.disabled = locked;
+    doneBtn.style.pointerEvents = locked ? 'none' : 'auto';
+    skipBtn.style.pointerEvents = locked ? 'none' : 'auto';
+    doneBtn.style.opacity = locked ? '.7' : '1';
+    skipBtn.style.opacity = locked ? '.7' : '1';
+  }
+
+  function submitResult(){
+    if (!canOpenResult()) return;
+    if (state.submitted) return;
+
+    state.submitted = true;
+    complete(makeResult(state));
   }
 
   function finishGame(){
     if (state.finished) return;
     state.finished = true;
+
     clearInterval(state.stepTimer);
-    doneBtn.disabled = true;
-    skipBtn.disabled = true;
+    state.stepTimer = null;
+
+    lockActionButtons(true);
+
     startBtn.disabled = true;
-    finishBtn.disabled = false;
+    startBtn.style.pointerEvents = 'none';
+    startBtn.style.opacity = '.65';
+
     cueEl.textContent = 'เสร็จแล้ว กดดูผล';
+    timerEl.textContent = '0s';
     renderStats();
   }
 
   function nextStep(){
     if (state.finished) return;
+
     state.currentStep += 1;
 
     if (state.currentStep >= steps.length){
@@ -183,58 +271,121 @@ export function mount(root, ctx = {}){
 
     const step = steps[state.currentStep];
     state.remainStepSec = STEP_SEC;
+
     timerEl.textContent = `${state.remainStepSec}s`;
     cueEl.textContent = `${step.emoji} ${step.label}`;
-    doneBtn.disabled = false;
-    skipBtn.disabled = false;
+
+    lockActionButtons(false);
     renderStats();
 
     clearInterval(state.stepTimer);
     state.stepTimer = setInterval(() => {
       state.remainStepSec -= 1;
-      timerEl.textContent = `${Math.max(0, state.remainStepSec)}s`;
+      if (state.remainStepSec < 0) state.remainStepSec = 0;
+
+      timerEl.textContent = `${state.remainStepSec}s`;
+
       if (state.remainStepSec <= 0){
         state.skipped += 1;
         cueEl.textContent = 'หมดเวลา ข้ามไปท่าถัดไป';
-        doneBtn.disabled = true;
-        skipBtn.disabled = true;
+        lockActionButtons(true);
         renderStats();
+
         clearInterval(state.stepTimer);
+        state.stepTimer = null;
+
         setTimeout(nextStep, 500);
       }
     }, 1000);
   }
 
-  doneBtn.addEventListener('click', () => {
+  function markDone(){
     if (!state.started || state.finished || state.currentStep < 0) return;
+
     clearInterval(state.stepTimer);
+    state.stepTimer = null;
+
     state.done += 1;
-    doneBtn.disabled = true;
-    skipBtn.disabled = true;
+    lockActionButtons(true);
     cueEl.textContent = 'ดีมาก ทำครบแล้ว';
     renderStats();
-    setTimeout(nextStep, 450);
-  });
 
-  skipBtn.addEventListener('click', () => {
+    setTimeout(nextStep, 450);
+  }
+
+  function markSkip(){
     if (!state.started || state.finished || state.currentStep < 0) return;
+
     clearInterval(state.stepTimer);
+    state.stepTimer = null;
+
     state.skipped += 1;
-    doneBtn.disabled = true;
-    skipBtn.disabled = true;
+    lockActionButtons(true);
     cueEl.textContent = 'ข้ามท่านี้';
     renderStats();
-    setTimeout(nextStep, 450);
-  });
 
-  startBtn.addEventListener('click', () => {
+    setTimeout(nextStep, 450);
+  }
+
+  function startInternal(){
     if (state.started) return;
     state.started = true;
+
     startBtn.disabled = true;
+    startBtn.style.pointerEvents = 'none';
+    startBtn.style.opacity = '.65';
+
+    api?.setSub?.('ทำตามท่าที่ขึ้นบนจอทีละท่า แล้วกดทำครบแล้ว');
+    api?.logger?.push?.('fitnessplanner_warmup_start', {
+      totalSteps: steps.length
+    });
+
     nextStep();
+  }
+
+  doneBtn.addEventListener('click', markDone);
+  skipBtn.addEventListener('click', markSkip);
+
+  startBtn.addEventListener('click', startInternal);
+
+  finishBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    submitResult();
+  }, { passive:false });
+
+  finishBtn.addEventListener('pointerup', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    submitResult();
+  }, { passive:false });
+
+  finishBtn.addEventListener('touchend', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    submitResult();
+  }, { passive:false });
+
+  renderStats();
+  syncFinishBtn();
+
+  api?.setSub?.('เริ่มอุ่นเครื่องแล้วทำตามท่าที่ขึ้นบนจอ');
+  api?.setStats?.({
+    time: STEP_SEC,
+    score: 0,
+    miss: 0,
+    acc: '0%'
   });
 
-  finishBtn.addEventListener('click', () => {
-    onComplete(makeResult(state));
-  });
+  return {
+    autostart: false,
+    start(){},
+    destroy(){
+      clearInterval(state.stepTimer);
+      state.stepTimer = null;
+      state.finished = true;
+    }
+  };
 }
+
+export default { loadStyle, mount };
