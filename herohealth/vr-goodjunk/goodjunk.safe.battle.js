@@ -247,7 +247,7 @@ function buildShell() {
 
         <div class="gj-stage-wrap">
           <div class="gj-stage" id="gjStage">
-            <div class="gj-center-tip" id="gjCenterTip">เก็บของดีให้ได้มากที่สุด และระวัง junk</div>
+            <div class="gj-center-tip" id="gjCenterTip">เก็บของดีให้มากที่สุด และระวัง junk</div>
             <div class="gj-target-layer" id="gjTargetLayer"></div>
           </div>
         </div>
