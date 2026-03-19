@@ -5,31 +5,27 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>GoodJunk Intervention</title>
   <meta name="color-scheme" content="dark light" />
+  <link rel="icon" href="../../favicon.ico" />
   <style>
     :root{
-      --bg:#020617;
-      --bg2:#0f172a;
-      --panel:rgba(2,6,23,.76);
-      --panel-strong:rgba(2,6,23,.88);
-      --line:rgba(148,163,184,.16);
-      --text:#e5e7eb;
-      --muted:#94a3b8;
-
-      --good:#22c55e;
-      --good2:#86efac;
-      --bad:#ef4444;
-      --warn:#f59e0b;
+      --bg1:#07111f;
+      --bg2:#0f1d36;
+      --panel:rgba(10,18,34,.84);
+      --card:rgba(15,23,42,.90);
+      --stroke:rgba(148,163,184,.18);
+      --text:#f8fafc;
+      --muted:#cbd5e1;
+      --green:#22c55e;
       --blue:#38bdf8;
       --violet:#a78bfa;
       --pink:#f472b6;
-
-      --safe-top:max(10px, env(safe-area-inset-top, 0px));
-      --safe-bottom:max(10px, env(safe-area-inset-bottom, 0px));
-      --safe-left:max(10px, env(safe-area-inset-left, 0px));
-      --safe-right:max(10px, env(safe-area-inset-right, 0px));
-
-      --shadow:0 20px 60px rgba(0,0,0,.34);
-      --radius:18px;
+      --warn:#f59e0b;
+      --bad:#ef4444;
+      --shadow:0 18px 50px rgba(0,0,0,.32);
+      --safe-top:env(safe-area-inset-top, 0px);
+      --safe-right:env(safe-area-inset-right, 0px);
+      --safe-bottom:env(safe-area-inset-bottom, 0px);
+      --safe-left:env(safe-area-inset-left, 0px);
     }
 
     *{ box-sizing:border-box; }
@@ -38,325 +34,30 @@
       margin:0;
       min-height:100%;
       background:
-        radial-gradient(circle at top, #172554 0%, #08101f 44%, #020617 100%);
+        radial-gradient(circle at top left, rgba(34,197,94,.12), transparent 24%),
+        radial-gradient(circle at top right, rgba(56,189,248,.12), transparent 28%),
+        linear-gradient(180deg, var(--bg1), var(--bg2));
       color:var(--text);
       font-family:system-ui,-apple-system,"Noto Sans Thai","Segoe UI",Roboto,Arial,sans-serif;
       overflow:hidden;
     }
 
     body{
-      -webkit-tap-highlight-color: transparent;
-      touch-action: manipulation;
+      -webkit-tap-highlight-color:transparent;
+      touch-action:manipulation;
     }
 
-    #gj-app{
+    #page{
       position:fixed;
       inset:0;
       overflow:hidden;
+      isolation:isolate;
     }
 
-    #gj-layer{
+    #gameMount{
       position:absolute;
       inset:0;
       overflow:hidden;
-      user-select:none;
-      -webkit-user-select:none;
-    }
-
-    /* ---------- TOP BAR ---------- */
-    .topbar{
-      position:fixed;
-      top:var(--safe-top);
-      left:var(--safe-left);
-      right:var(--safe-right);
-      z-index:110;
-      display:grid;
-      gap:10px;
-      pointer-events:none;
-    }
-
-    .meta-row{
-      display:flex;
-      flex-wrap:wrap;
-      gap:8px;
-      pointer-events:none;
-    }
-
-    .pill{
-      display:inline-flex;
-      align-items:center;
-      min-height:30px;
-      padding:6px 10px;
-      border-radius:999px;
-      border:1px solid var(--line);
-      background:rgba(2,6,23,.62);
-      backdrop-filter:blur(10px);
-      color:#dbeafe;
-      font-size:12px;
-      font-weight:1000;
-      box-shadow:var(--shadow);
-    }
-
-    .hud{
-      display:grid;
-      gap:10px;
-      grid-template-columns:repeat(5,minmax(0,1fr));
-      pointer-events:none;
-    }
-
-    .hud-card{
-      min-height:72px;
-      border-radius:18px;
-      border:1px solid var(--line);
-      background:var(--panel);
-      backdrop-filter:blur(10px);
-      box-shadow:var(--shadow);
-      padding:10px 12px;
-      display:grid;
-      gap:4px;
-      align-content:center;
-    }
-
-    .hud-label{
-      font-size:11px;
-      color:var(--muted);
-      font-weight:900;
-      letter-spacing:.2px;
-      text-transform:uppercase;
-    }
-
-    .hud-value{
-      font-size:24px;
-      font-weight:1000;
-      line-height:1;
-    }
-
-    .hud-sub{
-      font-size:12px;
-      color:#cbd5e1;
-      font-weight:800;
-    }
-
-    @media (max-width:900px){
-      .hud{
-        grid-template-columns:repeat(2,minmax(0,1fr));
-      }
-      .hud-card.goal{
-        grid-column:1 / -1;
-      }
-    }
-
-    /* ---------- MISSION / AI ---------- */
-    .side-panels{
-      position:fixed;
-      left:var(--safe-left);
-      right:var(--safe-right);
-      bottom:calc(var(--safe-bottom) + 72px);
-      z-index:100;
-      display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:10px;
-      pointer-events:none;
-    }
-
-    .floating-card{
-      border-radius:18px;
-      border:1px solid var(--line);
-      background:var(--panel);
-      backdrop-filter:blur(10px);
-      box-shadow:var(--shadow);
-      padding:12px;
-      pointer-events:auto;
-      transition:transform .18s ease, opacity .18s ease;
-    }
-
-    .floating-card.compact{
-      padding:10px 12px;
-    }
-
-    .floating-card.auto-hide{
-      opacity:.38;
-      transform:translateY(4px);
-    }
-
-    .floating-title{
-      font-size:12px;
-      color:var(--muted);
-      font-weight:1000;
-      text-transform:uppercase;
-      letter-spacing:.2px;
-      margin-bottom:6px;
-    }
-
-    .floating-head{
-      font-size:18px;
-      font-weight:1000;
-      margin-bottom:4px;
-    }
-
-    .floating-text{
-      font-size:13px;
-      line-height:1.5;
-      color:#dbeafe;
-    }
-
-    .meter{
-      margin-top:10px;
-      height:10px;
-      border-radius:999px;
-      background:rgba(148,163,184,.14);
-      overflow:hidden;
-    }
-
-    .meter > i{
-      display:block;
-      height:100%;
-      width:var(--p, 0%);
-      border-radius:999px;
-      background:linear-gradient(90deg,var(--good),var(--blue));
-      transition:width .18s ease;
-    }
-
-    @media (max-width:900px){
-      .side-panels{
-        grid-template-columns:1fr;
-        bottom:calc(var(--safe-bottom) + 64px);
-      }
-    }
-
-    /* ---------- BOSS ---------- */
-    #bossBar{
-      position:fixed;
-      left:50%;
-      transform:translateX(-50%);
-      top:calc(var(--safe-top) + 150px);
-      width:min(680px, calc(100vw - 28px));
-      z-index:115;
-      display:none;
-    }
-
-    .boss-wrap{
-      border-radius:18px;
-      border:1px solid rgba(239,68,68,.2);
-      background:rgba(32,9,17,.76);
-      box-shadow:var(--shadow);
-      backdrop-filter:blur(10px);
-      padding:10px 12px;
-    }
-
-    .boss-head{
-      display:flex;
-      justify-content:space-between;
-      gap:10px;
-      align-items:center;
-      margin-bottom:8px;
-      font-weight:1000;
-      font-size:13px;
-    }
-
-    .boss-meter{
-      height:14px;
-      border-radius:999px;
-      background:rgba(255,255,255,.08);
-      overflow:hidden;
-    }
-
-    .boss-meter > i{
-      display:block;
-      height:100%;
-      width:var(--hp,100%);
-      background:linear-gradient(90deg,#ef4444,#fb7185);
-      transition:width .18s ease;
-    }
-
-    /* ---------- BANNERS ---------- */
-    .banner{
-      position:fixed;
-      left:50%;
-      transform:translateX(-50%);
-      z-index:130;
-      border-radius:20px;
-      border:1px solid var(--line);
-      background:rgba(2,6,23,.84);
-      box-shadow:var(--shadow);
-      backdrop-filter:blur(10px);
-      padding:14px 18px;
-      text-align:center;
-      opacity:0;
-      pointer-events:none;
-      transition:opacity .18s ease, transform .18s ease;
-    }
-
-    .banner.show{
-      opacity:1;
-      transform:translateX(-50%) translateY(0);
-    }
-
-    #stageBanner{
-      top:calc(var(--safe-top) + 210px);
-      min-width:min(88vw, 420px);
-      transform:translateX(-50%) translateY(-6px);
-    }
-
-    #milestoneBanner{
-      top:calc(var(--safe-top) + 270px);
-      min-width:min(76vw, 320px);
-      transform:translateX(-50%) translateY(-6px);
-    }
-
-    .banner-big{
-      font-size:24px;
-      font-weight:1000;
-      line-height:1.05;
-    }
-
-    .banner-small{
-      margin-top:4px;
-      font-size:13px;
-      color:#cbd5e1;
-      font-weight:800;
-    }
-
-    /* ---------- DANGER ---------- */
-    #dangerOverlay{
-      position:fixed;
-      inset:0;
-      pointer-events:none;
-      z-index:90;
-      opacity:0;
-      background:
-        radial-gradient(circle at center, transparent 40%, rgba(239,68,68,.14) 100%);
-      transition:opacity .18s ease;
-    }
-
-    /* ---------- TARGET ---------- */
-    .gj-target{
-      will-change:transform, left, top, opacity;
-      transition:transform .08s ease;
-    }
-
-    .gj-target:active{
-      transform:translate(-50%,-50%) scale(.94);
-    }
-
-    /* ---------- BOTTOM ACTIONS ---------- */
-    .bottom-nav{
-      position:fixed;
-      left:var(--safe-left);
-      right:var(--safe-right);
-      bottom:var(--safe-bottom);
-      z-index:120;
-      display:flex;
-      justify-content:space-between;
-      gap:10px;
-      pointer-events:none;
-    }
-
-    .nav-group{
-      display:flex;
-      flex-wrap:wrap;
-      gap:10px;
-      pointer-events:auto;
     }
 
     .btn{
@@ -365,417 +66,263 @@
       cursor:pointer;
       min-height:46px;
       border-radius:14px;
-      padding:0 14px;
-      font:900 14px/1 system-ui,-apple-system,"Noto Sans Thai","Segoe UI",Roboto,Arial;
+      padding:0 16px;
+      font:900 14px/1 system-ui,-apple-system,"Noto Sans Thai","Segoe UI",Roboto,Arial,sans-serif;
       color:#fff;
       box-shadow:var(--shadow);
+      transition:transform .08s ease, opacity .18s ease;
     }
 
-    .btn:active{ transform:translateY(1px); }
+    .btn:active{
+      transform:translateY(1px) scale(.995);
+    }
 
-    .btn-blue{ background:linear-gradient(135deg,#2563eb,#38bdf8); }
-    .btn-green{ background:linear-gradient(135deg,#16a34a,#22c55e); }
-    .btn-violet{ background:linear-gradient(135deg,#7c3aed,#a78bfa); }
+    .btn-blue{
+      background:linear-gradient(135deg,#2563eb,#38bdf8);
+    }
+
+    .btn-green{
+      background:linear-gradient(135deg,#16a34a,#22c55e);
+    }
+
+    .btn-violet{
+      background:linear-gradient(135deg,#7c3aed,#a78bfa);
+    }
+
+    .btn-pink{
+      background:linear-gradient(135deg,#db2777,#f472b6);
+    }
+
+    .btn-warn{
+      background:linear-gradient(135deg,#d97706,#f59e0b);
+    }
+
     .btn-ghost{
-      background:rgba(15,23,42,.88);
-      border:1px solid var(--line);
+      background:rgba(148,163,184,.12);
+      border:1px solid var(--stroke);
       color:var(--text);
     }
 
-    /* ---------- END OVERLAY ---------- */
-    #endOverlay{
+    .overlay{
       position:fixed;
       inset:0;
-      z-index:300;
-      display:none;
-      align-items:center;
-      justify-content:center;
-      padding:18px;
-      background:rgba(2,6,23,.76);
-      backdrop-filter:blur(8px);
-      overflow:auto;
-    }
-
-    .end-panel{
-      width:min(1080px, 100%);
-      border-radius:28px;
-      border:1px solid var(--line);
-      background:var(--panel-strong);
-      box-shadow:var(--shadow);
-      padding:18px;
-    }
-
-    .end-top{
+      z-index:10020;
       display:grid;
-      gap:12px;
-      grid-template-columns:1.1fr .9fr;
+      place-items:center;
+      padding:
+        calc(16px + var(--safe-top))
+        calc(16px + var(--safe-right))
+        calc(16px + var(--safe-bottom))
+        calc(16px + var(--safe-left));
+      background:rgba(2,6,23,.78);
+      backdrop-filter:blur(10px);
     }
 
-    .hero-card,
-    .stats-card,
-    .explain-card,
-    .reflect-card,
-    .mission-card,
-    .actions-card{
-      border-radius:20px;
-      border:1px solid var(--line);
-      background:rgba(15,23,42,.72);
-      padding:16px;
+    .overlay[hidden]{
+      display:none !important;
     }
 
-    .hero-card h2{
-      margin:0 0 6px;
-      font-size:30px;
-      line-height:1.05;
+    .race-card{
+      width:min(94vw, 720px);
+      max-height:88vh;
+      overflow:auto;
+      border-radius:24px;
+      border:1px solid var(--stroke);
+      background:var(--card);
+      box-shadow:0 28px 64px rgba(0,0,0,.35);
+      padding:18px;
     }
 
-    .hero-sub{
-      color:#cbd5e1;
-      font-size:14px;
-      line-height:1.6;
-    }
-
-    .grade-pill{
+    .race-kicker{
       display:inline-flex;
       align-items:center;
-      min-height:38px;
-      padding:8px 14px;
+      gap:8px;
+      min-height:34px;
+      padding:6px 12px;
       border-radius:999px;
-      background:rgba(34,197,94,.14);
-      border:1px solid rgba(34,197,94,.26);
-      color:#dcfce7;
-      font-size:16px;
-      font-weight:1000;
-      margin-top:12px;
-    }
-
-    .end-stats{
-      display:grid;
-      gap:10px;
-      grid-template-columns:repeat(3,minmax(0,1fr));
-      margin-top:12px;
-    }
-
-    .stat{
-      border-radius:16px;
-      border:1px solid var(--line);
-      background:rgba(2,6,23,.46);
-      padding:12px;
-    }
-
-    .stat .label{
-      color:var(--muted);
-      font-size:11px;
-      font-weight:900;
-      text-transform:uppercase;
-    }
-
-    .stat .value{
-      margin-top:4px;
-      font-size:24px;
-      font-weight:1000;
-    }
-
-    .section-grid{
-      display:grid;
-      grid-template-columns:1fr 1fr 1fr;
-      gap:12px;
-      margin-top:12px;
-    }
-
-    .section-title{
-      margin:0 0 8px;
-      font-size:14px;
-      font-weight:1000;
+      border:1px solid rgba(56,189,248,.22);
+      background:rgba(56,189,248,.10);
       color:#dbeafe;
+      font-size:12px;
+      font-weight:1000;
+      letter-spacing:.3px;
+      margin-bottom:10px;
     }
 
-    .section-body{
-      color:#e2e8f0;
+    .race-title{
+      margin:0;
+      font-size:clamp(28px, 5vw, 44px);
+      line-height:1.05;
+      text-align:center;
+    }
+
+    .race-sub{
+      margin:10px 0 0;
+      color:var(--muted);
+      font-size:14px;
+      line-height:1.65;
+      text-align:center;
+    }
+
+    .race-count{
+      margin:12px auto 0;
+      width:min(180px, 60vw);
+      min-height:76px;
+      display:grid;
+      place-items:center;
+      border-radius:20px;
+      border:1px solid rgba(34,197,94,.24);
+      background:rgba(34,197,94,.10);
+      color:#dcfce7;
+      font-size:42px;
+      font-weight:1000;
+      box-shadow:var(--shadow);
+    }
+
+    .result-badge{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      min-height:34px;
+      padding:6px 12px;
+      border-radius:999px;
+      border:1px solid rgba(56,189,248,.22);
+      background:rgba(56,189,248,.10);
+      color:#dbeafe;
+      font-size:12px;
+      font-weight:1000;
+      letter-spacing:.3px;
+      margin-bottom:10px;
+    }
+
+    .result-head{
+      display:grid;
+      gap:8px;
+      margin-bottom:12px;
+    }
+
+    .result-title{
+      margin:0;
+      font-size:clamp(26px, 5vw, 38px);
+      line-height:1.08;
+    }
+
+    .result-sub{
+      color:var(--muted);
       font-size:14px;
       line-height:1.65;
     }
 
-    .bullet{
-      margin:8px 0 0;
-      padding-left:18px;
-      color:#cbd5e1;
-      font-size:14px;
-      line-height:1.6;
-    }
-
-    .next-actions{
-      display:flex;
-      flex-wrap:wrap;
+    .result-grid{
+      display:grid;
       gap:10px;
       margin-top:12px;
     }
 
-    @media (max-width:980px){
-      .end-top{ grid-template-columns:1fr; }
-      .section-grid{ grid-template-columns:1fr; }
-      .end-stats{ grid-template-columns:1fr 1fr; }
+    .result-row{
+      display:grid;
+      grid-template-columns:58px 1fr 80px 80px 96px;
+      gap:10px;
+      align-items:center;
+      padding:12px;
+      border-radius:16px;
+      border:1px solid rgba(148,163,184,.14);
+      background:rgba(2,6,23,.48);
+      color:#e5e7eb;
+      font-size:14px;
     }
 
-    @media (max-width:680px){
-      .end-stats{ grid-template-columns:1fr; }
-      .hero-card h2{ font-size:24px; }
+    .result-row.is-me{
+      border-color:rgba(56,189,248,.32);
+      background:rgba(30,41,59,.78);
+      box-shadow:0 0 0 1px rgba(56,189,248,.14) inset;
+    }
+
+    .result-headline{
+      display:grid;
+      grid-template-columns:58px 1fr 80px 80px 96px;
+      gap:10px;
+      align-items:center;
+      padding:0 12px 6px;
+      color:#94a3b8;
+      font-size:12px;
+      font-weight:900;
+      text-transform:uppercase;
+      letter-spacing:.04em;
+    }
+
+    .race-actions{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      margin-top:16px;
+    }
+
+    .small-note{
+      margin-top:12px;
+      color:var(--muted);
+      font-size:12px;
+      line-height:1.6;
+    }
+
+    @media (max-width:760px){
+      .result-headline{
+        display:none;
+      }
+
+      .result-row{
+        grid-template-columns:48px 1fr;
+      }
     }
   </style>
 </head>
-<body data-game="goodjunk" data-mode="intervention">
-  <div id="gj-app">
-    <div id="gj-layer" aria-label="game layer"></div>
-  </div>
+<body>
+  <div id="page">
+    <div id="gameMount" aria-label="GoodJunk Intervention Game"></div>
 
-  <div id="dangerOverlay" aria-hidden="true"></div>
-
-  <header class="topbar">
-    <div class="meta-row">
-      <span class="pill">🍎 GoodJunk Intervention</span>
-      <span class="pill">Study: <span id="uiStudyId" style="margin-left:6px;">-</span></span>
-      <span class="pill">Student: <span id="uiNick" style="margin-left:6px;">-</span></span>
-      <span class="pill">Session: <span id="uiSessionId" style="margin-left:6px;">-</span></span>
+    <div class="overlay" id="raceGate" hidden>
+      <div class="race-card">
+        <div class="race-kicker">🏁 Race Gate</div>
+        <h1 class="race-title" id="raceGateText">กำลังรอสัญญาณเริ่ม</h1>
+        <div class="race-count" id="raceGateCount">-</div>
+        <p class="race-sub" id="raceGateSub">เกมจะเริ่มพร้อมกันเมื่อถึงเวลา startAt</p>
+      </div>
     </div>
 
-    <div class="hud">
-      <div class="hud-card">
-        <div class="hud-label">Score</div>
-        <div class="hud-value" id="hud-score">0</div>
-        <div class="hud-sub">สะสมแต้มจากอาหารดี</div>
-      </div>
+    <div class="overlay" id="raceResult" hidden>
+      <div class="race-card">
+        <div class="result-badge" id="raceResultBadge">RESULT</div>
 
-      <div class="hud-card">
-        <div class="hud-label">Time</div>
-        <div class="hud-value" id="hud-time">0</div>
-        <div class="hud-sub">เวลาที่เหลือ</div>
-      </div>
-
-      <div class="hud-card">
-        <div class="hud-label">Miss</div>
-        <div class="hud-value" id="hud-miss">0</div>
-        <div class="hud-sub">พลาดหรือโดน junk</div>
-      </div>
-
-      <div class="hud-card">
-        <div class="hud-label">Grade</div>
-        <div class="hud-value" id="hud-grade">-</div>
-        <div class="hud-sub">คุณภาพการเล่น</div>
-      </div>
-
-      <div class="hud-card goal">
-        <div class="hud-label">Goal</div>
-        <div class="hud-value">
-          <span id="hud-goal">WARM</span>
-          <span style="font-size:16px; margin-left:8px;">
-            <span id="hud-goal-cur">0</span>/<span id="hud-goal-target">0</span>
-          </span>
+        <div class="result-head">
+          <h2 class="result-title">สรุปผลการแข่งขัน</h2>
+          <div class="result-sub" id="raceResultSub">กำลังสรุปผล...</div>
         </div>
-        <div class="hud-sub" id="goalDesc">pattern</div>
-      </div>
-    </div>
-  </header>
 
-  <section class="side-panels">
-    <div class="floating-card compact" id="missionBox" role="button" tabindex="0">
-      <div class="floating-title">Mission</div>
-      <div class="floating-head" id="missionTitle">WARM</div>
-      <div class="floating-text" id="missionGoal">เปิดเกมให้แม่น เก็บของดี</div>
-      <div class="floating-text" id="missionHint" style="margin-top:4px; color:#cbd5e1;">เริ่มเบา ๆ ก่อน</div>
-      <div class="meter"><i id="missionFill" style="--p:0%;"></i></div>
-    </div>
+        <div class="result-headline">
+          <div>Rank</div>
+          <div>Player</div>
+          <div>Score</div>
+          <div>Miss</div>
+          <div>Streak</div>
+        </div>
 
-    <div class="floating-card compact" id="aiBox" role="button" tabindex="0">
-      <div class="floating-title">Coach</div>
-      <div class="floating-head" id="coachInline">พร้อมแล้ว! ยิงของดี 🥦</div>
-      <div class="floating-text" id="coachExplain">prediction-ready</div>
-      <div class="floating-text" style="margin-top:8px;">
-        Hazard: <span id="aiRisk">0.00</span>
-        • Mini: <span id="hud-mini">—</span>
-        • <span id="miniTimer">0</span>s
-      </div>
-      <div class="floating-text" id="aiHint" style="margin-top:4px; color:#cbd5e1;">—</div>
-    </div>
-  </section>
+        <div class="result-grid" id="raceResultRows"></div>
 
-  <div id="bossBar" aria-live="polite">
-    <div class="boss-wrap">
-      <div class="boss-head">
-        <span>Boss Phase</span>
-        <span id="bossHint">เตรียมพร้อม</span>
-      </div>
-      <div class="boss-meter">
-        <i id="bossFill" style="--hp:100%; width:var(--hp);"></i>
+        <div class="small-note" id="raceResultHint">
+          ระบบกำลังตรวจสอบผลการแข่งขัน
+        </div>
+
+        <div class="race-actions">
+          <button class="btn btn-blue" id="btnRaceRematch" type="button">Rematch</button>
+          <button class="btn btn-violet" id="btnRaceBackLobby" type="button">กลับ Lobby</button>
+          <button class="btn btn-warn" id="btnRaceExport" type="button">Export JSON</button>
+          <button class="btn btn-ghost" id="btnRaceBackHub" type="button">กลับ HUB</button>
+        </div>
       </div>
     </div>
   </div>
-
-  <div class="banner" id="stageBanner" aria-hidden="true">
-    <div class="banner-big" id="stageBannerBig">MODE</div>
-    <div class="banner-small" id="stageBannerSmall">ลุยต่อ!</div>
-  </div>
-
-  <div class="banner" id="milestoneBanner" aria-hidden="true">NICE!</div>
-
-  <footer class="bottom-nav">
-    <div class="nav-group">
-      <button class="btn btn-ghost" id="btnBackHub" type="button">← กลับ HUB</button>
-    </div>
-    <div class="nav-group">
-      <button class="btn btn-ghost" id="btnHelp" type="button">คำแนะนำ</button>
-    </div>
-  </footer>
-
-  <div id="endOverlay" aria-hidden="true">
-    <div class="end-panel">
-      <div class="end-top" id="endTop">
-        <div class="hero-card">
-          <h2 id="endTitle">สรุปผล</h2>
-          <div class="hero-sub" id="endSub">พร้อมไปต่อ</div>
-          <div class="grade-pill" id="endGrade">A</div>
-
-          <div class="end-stats">
-            <div class="stat">
-              <div class="label">Score</div>
-              <div class="value" id="endScore">0</div>
-            </div>
-            <div class="stat">
-              <div class="label">Miss</div>
-              <div class="value" id="endMiss">0</div>
-            </div>
-            <div class="stat">
-              <div class="label">Time</div>
-              <div class="value" id="endTime">0s</div>
-            </div>
-          </div>
-
-          <div class="section-body" id="endDecision" style="margin-top:12px;">
-            โหมด intervention • สรุปผลการเรียนรู้ด้านโภชนาการ
-          </div>
-        </div>
-
-        <div class="stats-card">
-          <div class="section-title">Session Context</div>
-          <div class="section-body">
-            Study: <span id="ctxStudyId">-</span><br>
-            Phase: <span id="ctxPhase">-</span><br>
-            Group: <span id="ctxGroup">-</span><br>
-            Student: <span id="ctxStudent">-</span><br>
-            Class: <span id="ctxClassRoom">-</span><br>
-            Difficulty: <span id="ctxDiff">-</span> • View: <span id="ctxView">-</span>
-          </div>
-
-          <div class="section-title" style="margin-top:14px;">Next Step</div>
-          <div class="section-body">
-            หลังเล่นควรตอบแบบประเมินหลังเล่น และทำภารกิจสุขภาพสั้น ๆ ต่อ
-          </div>
-        </div>
-      </div>
-
-      <div class="section-grid">
-        <section class="explain-card" id="nutritionExplainCard">
-          <div class="section-title">Nutrition Explanation</div>
-          <div class="section-body" id="nutritionExplainBody">
-            ระบบจะสรุปให้ว่าในรอบนี้เด็กได้เรียนรู้อะไรเกี่ยวกับอาหารดี อาหารควรลด และทางเลือกที่เหมาะกว่า
-          </div>
-        </section>
-
-        <section class="reflect-card" id="reflectionCard">
-          <div class="section-title">Reflection</div>
-          <div class="section-body" id="reflectionBody">
-            ลองคิดดูว่า ถ้าหิวหลังเลิกเรียน ครั้งหน้าจะเลือกของว่างอะไรที่ดีกับสุขภาพมากขึ้น
-          </div>
-          <ul class="bullet" id="reflectionBullets">
-            <li>ฉันเลือกของดีได้ดีแค่ไหน</li>
-            <li>ฉันเผลอแตะ junk ตอนไหนบ้าง</li>
-            <li>ครั้งหน้าจะเปลี่ยนอะไร 1 อย่าง</li>
-          </ul>
-        </section>
-
-        <section class="mission-card" id="takeHomeMissionCard">
-          <div class="section-title">Take-home Mission</div>
-          <div class="section-body" id="takeHomeMissionBody">
-            วันนี้ลองเลือกของว่างดี 1 อย่าง เช่น ผลไม้ นมจืด หรืออาหารที่มีประโยชน์ แล้วคุยกับผู้ปกครองว่าเพราะอะไรถึงเลือกแบบนั้น
-          </div>
-        </section>
-      </div>
-
-      <section class="actions-card" id="nextStepActions">
-        <div class="section-title">Next Actions</div>
-        <div class="next-actions">
-          <button class="btn btn-blue" id="btnPostKnowledge" type="button">Post-Knowledge</button>
-          <button class="btn btn-violet" id="btnPostBehavior" type="button">Post-Behavior</button>
-          <button class="btn btn-green" id="btnParentSummary" type="button">Parent Summary</button>
-          <button class="btn btn-ghost" id="btnReplay" type="button">เล่นอีกครั้ง</button>
-          <button class="btn btn-ghost" id="btnEndBackHub" type="button">กลับ HUB</button>
-        </div>
-      </section>
-    </div>
-  </div>
-
-  <script>
-    (function(){
-      function q(k,d=''){
-        try{ return new URL(location.href).searchParams.get(k) ?? d; }
-        catch(_){ return d; }
-      }
-
-      document.getElementById('uiStudyId').textContent  = q('studyId','-');
-      document.getElementById('uiNick').textContent     = q('nickName', q('studentKey','-'));
-      document.getElementById('uiSessionId').textContent= q('sessionId','-');
-
-      document.getElementById('ctxStudyId').textContent = q('studyId','-');
-      document.getElementById('ctxPhase').textContent   = q('phase','-');
-      document.getElementById('ctxGroup').textContent   = q('conditionGroup','-');
-      document.getElementById('ctxStudent').textContent = q('nickName', q('studentKey','-'));
-      document.getElementById('ctxClassRoom').textContent = q('classRoom','-');
-      document.getElementById('ctxDiff').textContent    = q('diff','easy');
-      document.getElementById('ctxView').textContent    = q('view','mobile');
-
-      const hub = q('hub','../../hub.html');
-
-      function withContext(base){
-        const u = new URL(base, location.href);
-        const src = new URL(location.href);
-        [
-          'projectTag','studyId','phase','conditionGroup','sessionOrder','blockLabel','sessionId',
-          'studentKey','schoolCode','schoolName','classRoom','studentNo','nickName',
-          'gradeLevel','gender','age','run','diff','view','time','seed','kid','readable','hub'
-        ].forEach(k=>{
-          const v = src.searchParams.get(k);
-          if(v != null && v !== '') u.searchParams.set(k, v);
-        });
-        return u.toString();
-      }
-
-      document.getElementById('btnBackHub').onclick = ()=> location.href = hub;
-      document.getElementById('btnEndBackHub').onclick = ()=> location.href = hub;
-      document.getElementById('btnReplay').onclick = ()=> location.href = location.href;
-
-      document.getElementById('btnPostKnowledge').onclick = ()=>{
-        location.href = withContext('../assessments/post-knowledge.html');
-      };
-
-      document.getElementById('btnPostBehavior').onclick = ()=>{
-        location.href = withContext('../assessments/post-behavior.html');
-      };
-
-      document.getElementById('btnParentSummary').onclick = ()=>{
-        location.href = withContext('../parent/parent-summary.html');
-      };
-
-      document.getElementById('btnHelp').onclick = ()=>{
-        alert(
-          'วิธีเล่น\\n\\n' +
-          '1) เก็บอาหารดีให้มาก\\n' +
-          '2) หลีกเลี่ยง junk food\\n' +
-          '3) อ่านสรุปหลังเล่น แล้วทำภารกิจสุขภาพต่อ'
-        );
-      };
-    })();
-  </script>
 
   <script src="../../vr/vr-ui.js?v=20260316q-fix1"></script>
-  <script type="module" src="./goodjunk.safe.js?v=20260316-intervention-shell"></script>
+  <script type="module" src="./goodjunk.safe.js?v=20260319a-mobile-safe"></script>
 </body>
 </html>
