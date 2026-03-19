@@ -1,6 +1,6 @@
 // === /herohealth/shared/nutrition-integration.js ===
 // Shared integration helpers for nutrition games
-// PATCH v20260318-NUTRITION-INTEGRATION-FINAL-A
+// PATCH v20260318-NUTRITION-SHARED-FULL
 
 import { buildUrl } from './nutrition-common.js';
 
@@ -36,11 +36,14 @@ export function buildLauncherUrl(ctx, launcherPath, extra = {}) {
     theme: extra.theme ?? ctx.theme,
     game: extra.game ?? ctx.game,
     run: extra.run ?? ctx.run,
+    mode: extra.mode ?? ctx.mode,
     phase: extra.phase ?? ctx.phase,
     diff: extra.diff ?? ctx.diff,
     time: extra.time ?? ctx.time,
     view: extra.view ?? ctx.view,
-    engine: extra.engine ?? ctx.engine
+    engine: extra.engine ?? ctx.engine,
+    logEndpoint: extra.logEndpoint ?? ctx.logEndpoint,
+    cloudMode: extra.cloudMode ?? ctx.cloudMode
   });
 }
 
@@ -54,11 +57,14 @@ export function buildRunUrl(ctx, runPath, extra = {}) {
     theme: extra.theme ?? ctx.theme,
     game: extra.game ?? ctx.game,
     run: extra.run ?? ctx.run,
+    mode: extra.mode ?? ctx.mode,
     phase: extra.phase ?? ctx.phase,
     diff: extra.diff ?? ctx.diff,
     time: extra.time ?? ctx.time,
     view: extra.view ?? ctx.view,
     engine: extra.engine ?? ctx.engine,
+    logEndpoint: extra.logEndpoint ?? ctx.logEndpoint,
+    cloudMode: extra.cloudMode ?? ctx.cloudMode,
     seed: extra.seed ?? Date.now()
   });
 }
@@ -77,15 +83,4 @@ export function restartFromLauncherOrRun(ctx, currentRunPath, extra = {}) {
     ...extra,
     seed: Date.now()
   }));
-}
-
-export function redirectPreserveAll(targetPath) {
-  const current = new URL(window.location.href);
-  const target = new URL(targetPath, window.location.href);
-
-  current.searchParams.forEach((value, key) => {
-    target.searchParams.set(key, value);
-  });
-
-  window.location.replace(target.toString());
 }
