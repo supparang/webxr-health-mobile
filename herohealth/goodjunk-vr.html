@@ -227,11 +227,6 @@
     .btn-race{ background:var(--race); color:#082f49; }
     .btn-battle{ background:var(--battle); color:#3b1d00; }
     .btn-coop{ background:var(--coop); color:#2e1065; }
-    .btn-ghost{
-      background:rgba(255,255,255,.06);
-      color:#e5e7eb;
-      border:1px solid var(--stroke);
-    }
 
     .note{
       margin-top:16px;
@@ -349,8 +344,8 @@
     </section>
 
     <section class="note">
-      ตอนนี้ควรแยก logic เป็น 4 ไฟล์ชัดเจน:
-      <strong>phaseboss.js</strong>, <strong>race.js</strong>, <strong>battle.js</strong>, <strong>coop.js</strong>
+      ตอนนี้แยก logic เป็น 4 flow ชัดเจน:
+      <strong>phaseboss</strong>, <strong>race</strong>, <strong>battle</strong>, <strong>coop</strong>
       เพื่อไม่ให้กติกาคนละโหมดชนกัน
     </section>
   </main>
@@ -366,6 +361,8 @@
       elName.value = q.get('name') || '';
       elDiff.value = q.get('diff') || 'normal';
       elTime.value = q.get('time') || '120';
+
+      const NEXT_RUN_KEY = 'HHA_GATE_NEXT_RUN_GOODJUNK_SOLO';
 
       function nowSeed(){
         return String(Date.now());
@@ -415,6 +412,12 @@
 
       function buildSoloWarmupUrl(){
         const seedValue = nowSeed();
+        const runUrl = buildSoloRunUrl(seedValue);
+
+        try {
+          sessionStorage.setItem(NEXT_RUN_KEY, runUrl);
+        } catch {}
+
         const gate = new URL('./warmup-gate.html', location.href);
 
         gate.searchParams.set('phase', 'warmup');
@@ -434,7 +437,8 @@
         gate.searchParams.set('view', q.get('view') || 'mobile');
         gate.searchParams.set('run', q.get('run') || 'play');
 
-        gate.searchParams.set('next', buildSoloRunUrl(seedValue));
+        gate.searchParams.set('next', runUrl);
+        gate.searchParams.set('nextKey', NEXT_RUN_KEY);
         gate.searchParams.set('forcegate', '1');
 
         if (q.get('resetGate') === '1') {
