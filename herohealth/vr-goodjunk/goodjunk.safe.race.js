@@ -1,18 +1,37 @@
-// === /herohealth/vr-goodjunk/goodjunk.safe.race.js ===
-// FULL PATCH v20260318-GOODJUNK-RACE-O-READY-HHABATTLE
-// Race-only build, split from solo boss
-// Uses Firebase path: hha-battle/goodjunk/rooms/<roomId>
-// Supports roomId/name primary + legacy room/nick
-// Firebase room sync + countdown + result + rematch + watchdog
-
 const __qs = new URLSearchParams(location.search);
-const RUN_CTX = window.__GJ_RUN_CTX__ || {
-  pid: __qs.get('pid') || 'anon',
-  name: __qs.get('name') || __qs.get('nick') || '',
+
+function __makeDevicePid() {
+  try {
+    const KEY = 'GJ_DEVICE_PID';
+    let pid = localStorage.getItem(KEY);
+    if (!pid) {
+      pid = `p-${Math.random().toString(36).slice(2, 10)}`;
+      localStorage.setItem(KEY, pid);
+    }
+    return pid;
+  } catch {
+    return `p-${Math.random().toString(36).slice(2, 10)}`;
+  }
+}
+
+function __normalizePid(rawPid) {
+  const v = String(rawPid || '').trim().replace(/[.#$[\]/]/g, '-');
+  if (!v) return __makeDevicePid();
+  if (v.toLowerCase() === 'anon') return __makeDevicePid();
+  return v;
+}
+
+function __normalizeRoomId(rawRoomId) {
+  return String(rawRoomId || '').toUpperCase().replace(/[^A-Z0-9-]/g, '').slice(0, 16);
+}
+
+const RUN_CTX = window.__GJ_RACE_CTX__ || {
+  pid: __normalizePid(__qs.get('pid') || ''),
+  name: __qs.get('name') || '',
   studyId: __qs.get('studyId') || '',
-  roomId: __qs.get('roomId') || __qs.get('room') || '',
+  roomId: __normalizeRoomId(__qs.get('roomId') || ''),
   mode: 'race',
-  diff: (__qs.get('diff') || 'normal').toLowerCase(),
+  diff: __qs.get('diff') || 'normal',
   time: __qs.get('time') || '120',
   seed: __qs.get('seed') || String(Date.now()),
   startAt: Number(__qs.get('startAt') || 0) || 0,
@@ -22,43 +41,35 @@ const RUN_CTX = window.__GJ_RUN_CTX__ || {
   gameId: __qs.get('gameId') || 'goodjunk'
 };
 
-const GJ_PID = RUN_CTX.pid || 'anon';
+const GJ_PID = __normalizePid(RUN_CTX.pid || '');
 const GJ_NAME = String(RUN_CTX.name || GJ_PID).trim();
-const GJ_MODE = 'race';
-const GJ_ROOM_ID = RUN_CTX.roomId || '';
+const GJ_ROOM_ID = __normalizeRoomId(RUN_CTX.roomId || '');
 const GJ_START_AT = Number(RUN_CTX.startAt || 0) || 0;
 const GJ_HUB = RUN_CTX.hub || '../hub.html';
 const GJ_GAME_ID = RUN_CTX.gameId || 'goodjunk';
-
+const ROOM_PATH = GJ_ROOM_ID ? `hha-battle/goodjunk/rooms/${GJ_ROOM_ID}` : '';
 const GAME_MOUNT = document.getElementById('gameMount') || document.body;
 const RACE_UI = window.__gjRaceUi || null;
 
-const GOODJUNK_STYLE_ID = 'goodjunk-safe-style-race-20260318';
-const GOODJUNK_ROOT_ID = 'gjRoot';
+const STYLE_ID = 'goodjunk-safe-race-style-20260319-v1';
+const ROOT_ID = 'gjRaceRoot';
+const HEARTBEAT_MS = 2500;
+const STALE_MS = 45000;
 
-const GJ_RACE_LAST_SUMMARY_KEY = `GJ_RACE_LAST_SUMMARY_${GJ_PID}`;
-const GJ_RACE_SUMMARY_HISTORY_KEY = `GJ_RACE_SUMMARY_HISTORY_${GJ_PID}`;
-
-const GJ_RACE_HEARTBEAT_MS = 2500;
-const GJ_RACE_STALE_MS = 12000;
-const GJ_RACE_WATCHDOG_MS = 3000;
-const GJ_FIREBASE_ROOM_PATH = GJ_ROOM_ID ? `hha-battle/goodjunk/rooms/${GJ_ROOM_ID}` : '';
-
-let __gjRaceBooted = false;
-let __gjRaceRAF = 0;
-let __gjRaceFinished = false;
-let __gjRaceResultBound = false;
-let __gjRaceHeartbeatTimer = 0;
-let __gjRaceWatchdogTimer = 0;
-let __gjRaceLastSummary = null;
-let __gjRaceLastSummarySig = '';
-let __gjRaceRoomListenerBound = false;
-
-let __gjFbReady = false;
-let __gjRaceDb = null;
-let __gjRaceRoomRef = null;
-let __gjRacePlayersRef = null;
-let __gjRaceMyPlayerRef = null;
+let fbReady = false;
+let db = null;
+let roomRef = null;
+let myPlayerRef = null;
+let roomListenerBound = false;
+let gateRAF = 0;
+let heartbeatTimer = 0;
+let watchdogTimer = 0;
+let booted = false;
+let localRunActive = false;
+let summaryBound = false;
+let recoveredStartAt = 0;
+let lastSummary = null;
+let enteredFinish = false;
 
 const GOOD_ITEMS = [
   { emoji: '🍎', label: 'apple' },
@@ -87,7 +98,6 @@ const DIFF_PRESET = {
 };
 
 const state = {
-  mode: 'race',
   diff: DIFF_PRESET[RUN_CTX.diff] ? RUN_CTX.diff : 'normal',
   totalMs: 0,
   timeLeftMs: 0,
@@ -108,8 +118,7 @@ const state = {
   frameRaf: 0,
   targetSeq: 0,
   targets: new Map(),
-  rect: { width: 0, height: 0 },
-  pendingResultVisible: false
+  rect: { width: 0, height: 0 }
 };
 
 const ui = {
@@ -131,61 +140,76 @@ const rng = createSeededRng(RUN_CTX.seed || Date.now());
 boot();
 
 function boot() {
-  injectGameplayStyle();
-  buildGameplayShell();
-  bindGameplayShell();
-  attachRaceRoomListener();
+  injectStyle();
+  buildShell();
+  bindShell();
+  attachRoomListener();
 
-  if (isRaceMode()) {
-    openRaceResultFromRoom();
-  }
+  bootWithGate(async () => {
+    const ok = await ensureFirebase();
+    if (!ok) {
+      showGate('เปิดห้อง Race ไม่สำเร็จ', '...', 'ตรวจสอบ room แล้วลองใหม่');
+      return;
+    }
 
-  bootWithRaceGate(async () => {
-    await ensureRaceFirebase();
-    await setupRunOnDisconnect();
-
-    await markRacePresenceDuringRun({
+    await setupOnDisconnect();
+    await markPresence({
       phase: 'run',
       ready: true,
       connected: true,
-      finished: false,
-      dnf: false,
-      dnfReason: ''
+      finished: false
     });
 
-    startRaceHeartbeat();
-    startRaceWatchdog();
+    startHeartbeat();
+    startWatchdog();
     startGame();
   });
 
-  window.addEventListener('beforeunload', () => {
-    try {
-      stopRaceHeartbeat();
-      stopRaceWatchdog();
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && !state.ended) {
+      markPresence({
+        phase: 'run',
+        ready: true,
+        connected: true,
+        finished: false
+      });
+    }
+  });
 
-      if (isRaceMode() && !__gjRaceFinished) {
-        markMyRaceDisconnected('left-run');
-      }
-    } catch {}
+  window.addEventListener('focus', () => {
+    if (!state.ended) {
+      markPresence({
+        phase: 'run',
+        ready: true,
+        connected: true,
+        finished: false
+      });
+    }
+  });
+
+  window.addEventListener('beforeunload', () => {
+    stopHeartbeat();
+    stopWatchdog();
+    if (!state.ended) markDisconnected();
   });
 
   window.addEventListener('resize', refreshStageRect);
 }
 
-function injectGameplayStyle() {
-  if (document.getElementById(GOODJUNK_STYLE_ID)) return;
+function injectStyle() {
+  if (document.getElementById(STYLE_ID)) return;
 
   const style = document.createElement('style');
-  style.id = GOODJUNK_STYLE_ID;
+  style.id = STYLE_ID;
   style.textContent = `
-    #${GOODJUNK_ROOT_ID}{position:absolute;inset:0;z-index:2;overflow:hidden;user-select:none;-webkit-user-select:none;touch-action:manipulation}
+    #${ROOT_ID}{position:absolute;inset:0;z-index:2;overflow:hidden;user-select:none;-webkit-user-select:none;touch-action:manipulation}
     .gj-shell{position:absolute;inset:0;display:grid;grid-template-rows:auto 1fr auto;overflow:hidden}
     .gj-topbar{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap;padding:60px 14px 12px;padding-top:calc(60px + env(safe-area-inset-top,0px));pointer-events:none}
     .gj-chip-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;pointer-events:none}
     .gj-chip{display:inline-flex;align-items:center;gap:8px;padding:8px 10px;border-radius:999px;border:1px solid rgba(148,163,184,.18);background:rgba(2,6,23,.66);color:#e5e7eb;font-weight:900;font-size:13px;backdrop-filter:blur(8px);box-shadow:0 10px 24px rgba(0,0,0,.18)}
     .gj-chip span{color:#94a3b8;font-weight:800}
     .gj-stage-wrap{position:relative;min-height:0;padding:8px 10px 10px}
-    .gj-stage{position:relative;width:100%;height:100%;min-height:320px;overflow:hidden;border:1px solid rgba(148,163,184,.18);border-radius:26px;background:radial-gradient(circle at 50% 0%, rgba(56,189,248,.08), transparent 30%),linear-gradient(180deg, rgba(15,23,42,.72), rgba(2,6,23,.78));box-shadow:0 24px 64px rgba(0,0,0,.22)}
+    .gj-stage{position:relative;width:100%;height:100%;min-height:320px;overflow:hidden;border:1px solid rgba(148,163,184,.18);border-radius:26px;background:radial-gradient(circle at 50% 0%, rgba(56,189,248,.10), transparent 30%),linear-gradient(180deg, rgba(15,23,42,.72), rgba(2,6,23,.78));box-shadow:0 24px 64px rgba(0,0,0,.22)}
     .gj-stage::before{content:"";position:absolute;inset:0;background:linear-gradient(180deg, rgba(255,255,255,.04), transparent 30%),linear-gradient(0deg, rgba(255,255,255,.03), transparent 30%);pointer-events:none}
     .gj-target-layer{position:absolute;inset:0;overflow:hidden}
     .gj-center-tip{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(86vw,420px);padding:16px 18px;border-radius:18px;background:rgba(2,6,23,.50);border:1px solid rgba(148,163,184,.18);color:#e5e7eb;text-align:center;font-weight:900;backdrop-filter:blur(6px);pointer-events:none;opacity:.96;transition:opacity .35s ease, transform .35s ease;box-shadow:0 16px 36px rgba(0,0,0,.18)}
@@ -201,37 +225,29 @@ function injectGameplayStyle() {
     .gj-bottom-card{border:1px solid rgba(148,163,184,.18);border-radius:18px;padding:12px;background:rgba(2,6,23,.62);backdrop-filter:blur(8px);box-shadow:0 10px 24px rgba(0,0,0,.18)}
     .gj-bottom-top{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
     .gj-progress{position:relative;width:100%;height:12px;border-radius:999px;overflow:hidden;border:1px solid rgba(148,163,184,.18);background:rgba(255,255,255,.06)}
-    .gj-progress-bar{width:100%;height:100%;background:linear-gradient(90deg, rgba(56,189,248,.85), rgba(34,197,94,.85));transform-origin:left center;transition:transform .12s linear}
+    .gj-progress-bar{width:100%;height:100%;background:linear-gradient(90deg, rgba(56,189,248,.85), rgba(14,165,233,.85));transform-origin:left center;transition:transform .12s linear}
     .gj-legend{display:flex;gap:10px;flex-wrap:wrap;font-size:13px;color:#cbd5e1;line-height:1.5}
     .gj-legend strong{color:#e5e7eb}
-    @media (max-width:640px){
-      .gj-topbar{padding-left:10px;padding-right:10px}
-      .gj-chip{font-size:12px;padding:7px 9px}
-      .gj-emoji{font-size:28px}
-    }
   `;
   document.head.appendChild(style);
 }
 
-function buildGameplayShell() {
+function buildShell() {
   GAME_MOUNT.innerHTML = `
-    <div id="${GOODJUNK_ROOT_ID}">
+    <div id="${ROOT_ID}">
       <div class="gj-shell">
         <header class="gj-topbar">
           <div class="gj-chip-row">
-            <div class="gj-chip"><span>Score</span><strong id="gjScore">0</strong></div>
+            <div class="gj-chip"><span>My Score</span><strong id="gjScore">0</strong></div>
             <div class="gj-chip"><span>Time</span><strong id="gjTimer">0</strong></div>
             <div class="gj-chip"><span>Miss</span><strong id="gjMiss">0</strong></div>
-            <div class="gj-chip"><span>Streak</span><strong id="gjStreak">0</strong></div>
-          </div>
-          <div class="gj-chip-row">
-            <div class="gj-chip"><span>GOAL</span><strong>เก็บของดี • อย่าแตะ junk</strong></div>
+            <div class="gj-chip"><span>Best Streak</span><strong id="gjStreak">0</strong></div>
           </div>
         </header>
 
         <div class="gj-stage-wrap">
           <div class="gj-stage" id="gjStage">
-            <div class="gj-center-tip" id="gjCenterTip">แตะอาหารดีเพื่อได้คะแนน • แข่งกันทำคะแนนสูงสุด</div>
+            <div class="gj-center-tip" id="gjCenterTip">เก็บของดีให้มากที่สุด และระวัง junk</div>
             <div class="gj-target-layer" id="gjTargetLayer"></div>
           </div>
         </div>
@@ -245,7 +261,7 @@ function buildGameplayShell() {
                 <div><strong>Good missed:</strong> 0</div>
               </div>
               <div class="gj-legend" id="gjHintText">
-                <div>Tip: เก็บผลไม้/ผัก • หลีกเลี่ยงของหวาน/น้ำอัดลม</div>
+                <div>Tip: เก็บของดีให้ได้มากที่สุด</div>
               </div>
             </div>
             <div class="gj-progress"><div class="gj-progress-bar" id="gjProgressBar"></div></div>
@@ -255,7 +271,7 @@ function buildGameplayShell() {
     </div>
   `;
 
-  ui.root = document.getElementById(GOODJUNK_ROOT_ID);
+  ui.root = document.getElementById(ROOT_ID);
   ui.stage = document.getElementById('gjStage');
   ui.layer = document.getElementById('gjTargetLayer');
   ui.score = document.getElementById('gjScore');
@@ -271,7 +287,27 @@ function buildGameplayShell() {
   renderHud();
 }
 
-function bindGameplayShell() {}
+function bindShell() {
+  if (summaryBound) return;
+  summaryBound = true;
+
+  document.getElementById('btnRaceRematch')?.addEventListener('click', async () => {
+    await resetRoomForRematch();
+    location.href = buildLobbyUrl();
+  });
+
+  document.getElementById('btnRaceBackLobby')?.addEventListener('click', () => {
+    location.href = buildLobbyUrl();
+  });
+
+  document.getElementById('btnRaceExport')?.addEventListener('click', () => {
+    downloadJson(lastSummary, `goodjunk-race-${safeFilePart(GJ_ROOM_ID)}-${Date.now()}.json`);
+  });
+
+  document.getElementById('btnRaceBackHub')?.addEventListener('click', () => {
+    location.href = GJ_HUB;
+  });
+}
 
 function refreshStageRect() {
   const rect = ui.stage?.getBoundingClientRect();
@@ -297,8 +333,8 @@ function createSeededRng(seedInput) {
 
 function rand(){ return rng(); }
 function randRange(min, max){ return min + (max - min) * rand(); }
-function clampInt(value, min, max){ return Math.max(min, Math.min(max, Math.floor(value))); }
-function pick(arr){ return arr[Math.floor(rand() * arr.length)] || arr[0]; }
+function clampInt(v, min, max){ return Math.max(min, Math.min(max, Math.floor(v))); }
+function pick(arr){ return arr[Math.floor(rand() * arr.length)]; }
 
 function startGame() {
   if (state.running || state.ended) return;
@@ -316,26 +352,24 @@ function startGame() {
   state.spawnedJunk = 0;
   state.running = true;
   state.ended = false;
-  state.pendingResultVisible = false;
   state.startTs = performance.now();
   state.lastFrameTs = state.startTs;
   state.lastSpawnAccum = 0;
   state.targetSeq = 0;
   state.targets.clear();
+  localRunActive = true;
+  enteredFinish = false;
 
   if (ui.layer) ui.layer.innerHTML = '';
   if (ui.centerTip) {
     ui.centerTip.classList.remove('hide');
-    ui.centerTip.textContent = 'เริ่มพร้อมกันแล้ว • เก็บอาหารดีให้ได้คะแนนสูงสุด';
+    ui.centerTip.textContent = 'เก็บของดีให้มากที่สุด แล้วอย่าแตะ junk';
     setTimeout(() => ui.centerTip?.classList.add('hide'), 1800);
   }
 
-  console.log('[GJ-RACE] startGame', {
-    roomId: GJ_ROOM_ID,
-    pid: GJ_PID,
-    time: state.totalMs
-  });
+  if (RACE_UI?.setStatus) RACE_UI.setStatus('running');
 
+  hideSummary();
   renderHud();
   refreshStageRect();
   loop(performance.now());
@@ -419,13 +453,9 @@ function drawTarget(target) {
 function updateTargets(dt) {
   const stageW = state.rect.width;
   const stageH = state.rect.height;
-  const toRemove = [];
 
   state.targets.forEach((target) => {
-    if (target.dead) {
-      toRemove.push(target.id);
-      return;
-    }
+    if (target.dead) return;
 
     target.y += (target.speed * dt) / 1000;
     target.x += (target.drift * dt) / 1000;
@@ -446,8 +476,6 @@ function updateTargets(dt) {
       else removeTarget(target.id);
     }
   });
-
-  toRemove.forEach(removeTarget);
 }
 
 function hitTarget(id) {
@@ -463,29 +491,30 @@ function hitTarget(id) {
     const gain = 10 + comboBonus;
     state.score += gain;
     createFx(target.x + target.size / 2, target.y + target.size / 2, `+${gain}`, '#86efac');
-    updateHint('เยี่ยมมาก! เก็บของดีต่อไป');
+    updateHint('ดีมาก! เก็บของดีต่อเนื่องไว้');
   } else {
     state.hitsBad += 1;
     state.miss += 1;
     state.streak = 0;
     state.score = Math.max(0, state.score - 8);
     createFx(target.x + target.size / 2, target.y + target.size / 2, 'MISS', '#fda4af');
-    updateHint('ระวัง junk! แตะของดีแทน');
+    updateHint('ระวัง junk! คะแนนจะลดลง');
   }
 
   removeTarget(id);
   renderHud();
+  publishProgress();
 }
 
 function registerMissGood(target) {
   state.missedGood += 1;
   state.miss += 1;
   state.streak = 0;
-
   createFx(target.x + target.size / 2, Math.max(28, target.y), 'พลาดของดี', '#fbbf24');
   updateHint('มีของดีหลุดไปแล้ว รีบเก็บชิ้นต่อไป');
   removeTarget(target.id);
   renderHud();
+  publishProgress();
 }
 
 function removeTarget(id) {
@@ -507,6 +536,14 @@ function createFx(x, y, text, color) {
   setTimeout(() => fx.remove(), 760);
 }
 
+function escapeHtml(s) {
+  return String(s ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;');
+}
+
 function updateHint(message) {
   if (!ui.hint) return;
   ui.hint.innerHTML = `<div>${escapeHtml(message)}</div>`;
@@ -516,11 +553,11 @@ function renderHud() {
   if (ui.score) ui.score.textContent = String(state.score);
   if (ui.timer) ui.timer.textContent = formatSeconds(state.timeLeftMs);
   if (ui.miss) ui.miss.textContent = String(state.miss);
-  if (ui.streak) ui.streak.textContent = String(state.streak);
+  if (ui.streak) ui.streak.textContent = String(state.bestStreak);
 
   if (ui.progress) {
-    const ratio = state.totalMs > 0 ? state.timeLeftMs / state.totalMs : 0;
-    ui.progress.style.transform = `scaleX(${Math.max(0, Math.min(1, ratio))})`;
+    const ratio = state.totalMs > 0 ? Math.max(0, Math.min(1, state.timeLeftMs / state.totalMs)) : 0;
+    ui.progress.style.transform = `scaleX(${ratio})`;
   }
 
   if (ui.stats) {
@@ -544,213 +581,65 @@ function endGame(reason = 'finished') {
 
   state.ended = true;
   state.running = false;
+  localRunActive = false;
   cancelAnimationFrame(state.frameRaf);
   state.frameRaf = 0;
-
-  stopRaceHeartbeat();
-
-  const finalStats = {
-    gameId: GJ_GAME_ID,
-    mode: state.mode,
-    pid: GJ_PID,
-    name: GJ_NAME,
-    studyId: RUN_CTX.studyId || '',
-    diff: state.diff,
-    view: RUN_CTX.view || 'mobile',
-    run: RUN_CTX.run || 'play',
-    seed: RUN_CTX.seed || '',
-    roomId: GJ_ROOM_ID,
-    raceStartAt: GJ_START_AT,
-    reason,
-    score: state.score,
-    miss: state.miss,
-    streak: state.bestStreak,
-    bestStreak: state.bestStreak,
-    hitsGood: state.hitsGood,
-    hitsBad: state.hitsBad,
-    missedGood: state.missedGood,
-    spawnedGood: state.spawnedGood,
-    spawnedJunk: state.spawnedJunk,
-    updatedAt: Date.now()
-  };
-
-  console.log('[GJ-RACE] endGame', finalStats);
 
   state.targets.forEach((t) => t.el.remove());
   state.targets.clear();
 
-  publishRaceFinish({
-    score: finalStats.score,
-    miss: finalStats.miss,
-    streak: finalStats.bestStreak
-  });
+  publishFinish(reason);
 }
 
-function isRaceMode() {
-  return GJ_MODE === 'race';
+function showGate(msg = 'กำลังรอเริ่ม', count = '-', sub = '') {
+  if (RACE_UI?.showGate) RACE_UI.showGate(msg, count, sub);
 }
 
-function hasValidRaceStart() {
-  return !!GJ_ROOM_ID && Number.isFinite(GJ_START_AT) && GJ_START_AT > 0;
+function hideGate() {
+  if (RACE_UI?.hideGate) RACE_UI.hideGate();
 }
 
-function showRaceGate(msg = 'กำลังรอสัญญาณเริ่ม', count = '-', sub = '') {
-  if (RACE_UI?.showGate) {
-    RACE_UI.showGate(msg, count, sub);
-    return;
-  }
-
-  const wrap = document.getElementById('raceGate');
-  const text = document.getElementById('raceGateText');
-  const num  = document.getElementById('raceGateCount');
-  const subEl = document.getElementById('raceGateSub');
-
-  if (wrap) wrap.hidden = false;
-  if (text) text.textContent = msg;
-  if (num) num.textContent = count;
-  if (subEl) subEl.textContent = sub || 'เกมจะเริ่มพร้อมกันเมื่อถึงเวลา startAt';
+function cancelGateLoop() {
+  if (gateRAF) cancelAnimationFrame(gateRAF);
+  gateRAF = 0;
 }
 
-function hideRaceGate() {
-  if (RACE_UI?.hideGate) {
-    RACE_UI.hideGate();
-    return;
-  }
-  const wrap = document.getElementById('raceGate');
-  if (wrap) wrap.hidden = true;
-}
-
-function cancelRaceGateLoop() {
-  if (__gjRaceRAF) cancelAnimationFrame(__gjRaceRAF);
-  __gjRaceRAF = 0;
-}
-
-function waitUntilRaceStart(startAt) {
+function waitUntilStart(startAt) {
   return new Promise((resolve) => {
     const tick = () => {
       const left = startAt - Date.now();
 
       if (left <= 0) {
-        showRaceGate('เริ่มการแข่งขัน', 'GO!', 'กำลังเข้าสู่เกม...');
+        showGate('เริ่ม Race', 'GO!', 'กำลังเข้าสู่เกม...');
         window.setTimeout(resolve, 220);
         return;
       }
 
-      showRaceGate(
+      showGate(
         'กำลังนับถอยหลังก่อนเริ่มพร้อมกัน',
         String(Math.ceil(left / 1000)),
         `Room: ${GJ_ROOM_ID || '-'}`
       );
 
-      __gjRaceRAF = requestAnimationFrame(tick);
+      gateRAF = requestAnimationFrame(tick);
     };
 
     tick();
   });
 }
 
-async function bootWithRaceGate(startFn) {
-  if (__gjRaceBooted) return;
-  __gjRaceBooted = true;
-
-  if (!isRaceMode()) {
-    startFn();
-    return;
-  }
-
-  if (!hasValidRaceStart()) {
-    showRaceGate('ยังไม่มีสัญญาณเริ่มจากห้องแข่ง', '...', 'กลับไปหน้า lobby แล้วเริ่มใหม่');
-    console.warn('[GJ-RACE] invalid startAt or roomId', {
-      roomId: GJ_ROOM_ID,
-      startAt: GJ_START_AT
-    });
-    return;
-  }
-
-  showRaceGate('กำลังรอสัญญาณเริ่มจากห้องแข่ง', '-', `Room: ${GJ_ROOM_ID}`);
-  await waitUntilRaceStart(GJ_START_AT);
-  cancelRaceGateLoop();
-  hideRaceGate();
-  startFn();
+function getEffectiveStartAt() {
+  return Number(GJ_START_AT || recoveredStartAt || 0) || 0;
 }
 
-function waitForFirebaseReady(timeoutMs = 12000) {
-  return new Promise((resolve) => {
-    if (window.HHA_FIREBASE_READY && window.HHA_FIREBASE_DB) {
-      resolve(true);
-      return;
-    }
-
-    let done = false;
-    const finish = (ok) => {
-      if (done) return;
-      done = true;
-      resolve(!!ok);
-    };
-
-    const timer = setTimeout(() => finish(false), timeoutMs);
-
-    window.addEventListener('hha:firebase_ready', (ev) => {
-      clearTimeout(timer);
-      finish(!!ev?.detail?.ok && !!window.HHA_FIREBASE_DB);
-    }, { once: true });
-  });
-}
-
-async function ensureRaceFirebase() {
-  if (!isRaceMode()) return false;
-  if (__gjFbReady && __gjRaceDb && __gjRaceRoomRef) return true;
-
-  const ok = await waitForFirebaseReady();
-  if (!ok || !window.HHA_FIREBASE_DB) {
-    console.warn('[GJ-RACE] Firebase not ready');
-    return false;
-  }
-
-  __gjRaceDb = window.HHA_FIREBASE_DB;
-  __gjRaceRoomRef = __gjRaceDb.ref(GJ_FIREBASE_ROOM_PATH);
-  __gjRacePlayersRef = __gjRaceRoomRef.child('players');
-  __gjRaceMyPlayerRef = __gjRacePlayersRef.child(GJ_PID);
-  __gjFbReady = true;
-  return true;
-}
-
-function snapshotToRaceRoom(val) {
-  if (!val) return null;
-
-  const meta = val.meta || {};
-  const stateNode = val.state || {};
-  const playersMap = val.players || {};
-
-  return {
-    roomId: String(meta.roomId || val.roomId || GJ_ROOM_ID || ''),
-    hostId: String(meta.hostId || val.hostId || ''),
-    mode: String(meta.mode || val.mode || 'race'),
-    minPlayers: Math.max(2, Number(meta.minPlayers || val.minPlayers || 2)),
-    maxPlayers: Math.max(2, Number(meta.maxPlayers || val.maxPlayers || 10)),
-    status: ['waiting', 'countdown', 'running', 'finished'].includes(stateNode.status || meta.status || val.status)
-      ? (stateNode.status || meta.status || val.status)
-      : 'waiting',
-    startAt: Number(stateNode.startAt || meta.startAt || val.startAt || 0) || null,
-    createdAt: Number(meta.createdAt || val.createdAt || Date.now()),
-    updatedAt: Number(stateNode.updatedAt || meta.updatedAt || val.updatedAt || Date.now()),
-    players: Object.keys(playersMap).map((pid) => ({
-      id: pid,
-      ...playersMap[pid]
-    }))
-  };
-}
-
-function normalizeRacePlayers(players) {
+function normalizePlayers(players) {
   return Array.isArray(players) ? players.filter(Boolean).map((p) => ({
-    id: String(p.id || '').trim(),
+    id: __normalizePid(p.id || ''),
     name: String(p.name || '').trim(),
     ready: !!p.ready,
     connected: p.connected !== false,
     phase: String(p.phase || (p.finished ? 'done' : 'run')).trim(),
     finished: !!p.finished,
-    dnf: !!p.dnf,
-    dnfReason: String(p.dnfReason || '').trim(),
     finalScore: Number(p.finalScore || 0),
     miss: Number(p.miss || 0),
     streak: Number(p.streak || 0),
@@ -760,12 +649,15 @@ function normalizeRacePlayers(players) {
   })) : [];
 }
 
-function sanitizeRaceRoom(room) {
+function sanitizeRoom(room) {
   if (!room) return null;
 
-  const safe = {
-    roomId: String(room.roomId || GJ_ROOM_ID || ''),
-    hostId: String(room.hostId || ''),
+  const rawMatch = room.match && typeof room.match === 'object' ? room.match : {};
+  const rawRace = rawMatch.race && typeof rawMatch.race === 'object' ? rawMatch.race : {};
+
+  return {
+    roomId: __normalizeRoomId(room.roomId || GJ_ROOM_ID || ''),
+    hostId: __normalizePid(room.hostId || ''),
     mode: String(room.mode || 'race'),
     minPlayers: Math.max(2, Number(room.minPlayers || 2)),
     maxPlayers: Math.max(2, Number(room.maxPlayers || 4)),
@@ -773,47 +665,61 @@ function sanitizeRaceRoom(room) {
     startAt: room.startAt ? Number(room.startAt) : null,
     createdAt: Number(room.createdAt || Date.now()),
     updatedAt: Number(room.updatedAt || Date.now()),
-    players: normalizeRacePlayers(room.players || [])
+    players: normalizePlayers(room.players || []),
+    match: {
+      participantIds: Array.isArray(rawMatch.participantIds)
+        ? rawMatch.participantIds.map((id) => __normalizePid(id)).filter(Boolean)
+        : [],
+      lockedAt: rawMatch.lockedAt ? Number(rawMatch.lockedAt) : null,
+      status: ['idle', 'countdown', 'running', 'finished'].includes(rawMatch.status) ? rawMatch.status : 'idle',
+      race: {
+        finishedAt: Number(rawRace.finishedAt || 0)
+      }
+    }
   };
-
-  if (!safe.players.some((p) => p.id === safe.hostId)) {
-    safe.hostId = safe.players[0]?.id || '';
-  }
-
-  return safe;
 }
 
-function raceRoomToFirebase(room, source = 'race-run') {
-  const now = Date.now();
+function snapshotToRoom(val) {
+  if (!val) return null;
+  const playersMap = val.players || {};
+  return {
+    ...val,
+    players: Object.keys(playersMap).map((pid) => ({
+      id: pid,
+      ...playersMap[pid]
+    }))
+  };
+}
 
+function roomToFirebase(room) {
   const out = {
-    meta: {
-      roomId: room.roomId,
-      hostId: room.hostId,
-      mode: room.mode,
-      minPlayers: room.minPlayers,
-      maxPlayers: room.maxPlayers,
-      createdAt: room.createdAt || now,
-      updatedAt: now,
-      _source: source
-    },
+    roomId: room.roomId,
+    hostId: room.hostId,
+    mode: room.mode,
+    minPlayers: room.minPlayers,
+    maxPlayers: room.maxPlayers,
+    status: room.status,
+    startAt: room.startAt || null,
+    createdAt: room.createdAt || Date.now(),
+    updatedAt: Date.now(),
     players: {},
-    state: {
-      status: room.status,
-      startAt: room.startAt || null,
-      updatedAt: now
+    match: {
+      participantIds: Array.isArray(room.match?.participantIds) ? room.match.participantIds : [],
+      lockedAt: room.match?.lockedAt || null,
+      status: room.match?.status || 'idle',
+      race: {
+        finishedAt: Number(room.match?.race?.finishedAt || 0)
+      }
     }
   };
 
-  normalizeRacePlayers(room.players).forEach((p) => {
+  normalizePlayers(room.players).forEach((p) => {
     out.players[p.id] = {
       name: p.name || '',
       ready: !!p.ready,
       connected: p.connected !== false,
       phase: p.phase || 'run',
       finished: !!p.finished,
-      dnf: !!p.dnf,
-      dnfReason: p.dnfReason || '',
       finalScore: Number(p.finalScore || 0),
       miss: Number(p.miss || 0),
       streak: Number(p.streak || 0),
@@ -826,88 +732,28 @@ function raceRoomToFirebase(room, source = 'race-run') {
   return out;
 }
 
-async function loadRaceRoom() {
-  if (!await ensureRaceFirebase()) return null;
-  try {
-    const snap = await __gjRaceRoomRef.once('value');
-    return sanitizeRaceRoom(snapshotToRaceRoom(snap.val()));
-  } catch (err) {
-    console.error('[GJ-RACE] loadRaceRoom failed:', err);
-    return null;
-  }
+function getParticipantIds(room) {
+  const ids = Array.isArray(room?.match?.participantIds) ? room.match.participantIds : [];
+  return ids.map((id) => __normalizePid(id)).filter(Boolean);
 }
 
-async function saveRaceRoom(room, source = 'run') {
-  if (!await ensureRaceFirebase()) return false;
-  if (!room) return false;
-
-  try {
-    const payload = raceRoomToFirebase(room, source);
-    await __gjRaceRoomRef.set(payload);
-    console.log('[GJ-RACE] saveRaceRoom', { source, roomId: room.roomId, status: room.status });
-    return true;
-  } catch (err) {
-    console.error('[GJ-RACE] saveRaceRoom failed:', err);
-    return false;
-  }
+function getRacePlayers(room) {
+  const allPlayers = normalizePlayers(room?.players || []);
+  const participantIds = getParticipantIds(room);
+  if (!participantIds.length) return allPlayers;
+  const map = new Map(allPlayers.map((p) => [p.id, p]));
+  return participantIds.map((id) => map.get(id)).filter(Boolean);
 }
 
-async function setupRunOnDisconnect() {
-  if (!await ensureRaceFirebase()) return;
-  if (!__gjRaceMyPlayerRef) return;
-
-  try {
-    await __gjRaceMyPlayerRef.onDisconnect().update({
-      connected: false,
-      lastSeenAt: Date.now(),
-      dnfReason: 'disconnect'
-    });
-  } catch (err) {
-    console.warn('[GJ-RACE] setupRunOnDisconnect failed:', err);
-  }
+function amIParticipant(room) {
+  const ids = getParticipantIds(room);
+  if (!ids.length) return true;
+  return ids.includes(GJ_PID);
 }
 
-function rankRacePlayers(players) {
-  return normalizeRacePlayers(players)
-    .sort((a, b) => {
-      if (!!a.dnf !== !!b.dnf) return a.dnf ? 1 : -1;
-      if (b.finalScore !== a.finalScore) return b.finalScore - a.finalScore;
-      if (a.miss !== b.miss) return a.miss - b.miss;
-      if (b.streak !== a.streak) return b.streak - a.streak;
-      return a.finishedAt - b.finishedAt;
-    })
-    .map((p, idx) => ({ ...p, rank: idx + 1 }));
-}
-
-function getMyRaceRanked(rows) {
-  return rows.find((p) => p.id === GJ_PID) || null;
-}
-
-function getDnfReasonLabel(reason) {
-  const key = String(reason || '').trim().toLowerCase();
-  if (key === 'left-run') return 'ออกจากหน้าเกม';
-  if (key === 'disconnect') return 'การเชื่อมต่อหลุด';
-  if (key === 'timeout') return 'หมดเวลา / ไม่ตอบสนอง';
-  if (key) return key;
-  return 'ไม่ทราบสาเหตุ';
-}
-
-function getRaceCounts(rows) {
-  const total = rows.length;
-  const finishedNormal = rows.filter((p) => p.finished && !p.dnf).length;
-  const dnfCount = rows.filter((p) => p.dnf).length;
-  const waitingCount = rows.filter((p) => !p.finished).length;
-  return { total, finishedNormal, dnfCount, waitingCount };
-}
-
-function buildRaceSummaryPayload(rows, opts = {}) {
-  const mine = getMyRaceRanked(rows) || {};
-  const counts = getRaceCounts(rows);
-  const allFinished = !!opts.allFinished || rows.every((p) => p.finished);
-  const raceStatusFinal = allFinished ? 'finished' : 'pending';
-
+function buildRaceSummaryPayload(room, players, pending = false, reason = '') {
   return {
-    version: '20260318-goodjunk-race-summary',
+    version: '20260319-race-v1',
     source: 'goodjunk-race',
     gameId: GJ_GAME_ID,
     mode: 'race',
@@ -915,123 +761,36 @@ function buildRaceSummaryPayload(rows, opts = {}) {
     name: GJ_NAME,
     studyId: RUN_CTX.studyId || '',
     roomId: GJ_ROOM_ID,
-    playerCount: counts.total,
-    finishedCount: counts.finishedNormal,
-    dnfCount: counts.dnfCount,
-    waitingCount: counts.waitingCount,
-    allFinished,
-    raceStatusFinal,
-    finishType: mine.dnf ? 'dnf' : 'normal',
-    dnfReason: mine.dnf ? (mine.dnfReason || '') : '',
-    rank: Number(mine.rank || 0) || null,
-    score: Number(mine.finalScore || 0),
-    miss: Number(mine.miss || 0),
-    streak: Number(mine.streak || 0),
-    diff: RUN_CTX.diff || 'normal',
-    view: RUN_CTX.view || 'mobile',
-    run: RUN_CTX.run || 'play',
-    seed: RUN_CTX.seed || '',
-    raceStartAt: Number(GJ_START_AT || 0) || 0,
+    pending,
+    reason,
+    playerCount: players.length,
     updatedAt: Date.now(),
-    leaderboard: rows.map((p) => ({
+    players: players.map((p) => ({
       pid: p.id,
       name: p.name || p.id,
-      rank: Number(p.rank || 0) || null,
-      finishType: p.dnf ? 'dnf' : (p.finished ? 'normal' : 'pending'),
-      dnfReason: p.dnf ? (p.dnfReason || '') : '',
       finished: !!p.finished,
       connected: p.connected !== false,
-      score: p.dnf ? null : Number(p.finalScore || 0),
-      miss: p.dnf ? null : Number(p.miss || 0),
-      streak: p.dnf ? null : Number(p.streak || 0)
+      score: Number(p.finalScore || 0),
+      miss: Number(p.miss || 0),
+      streak: Number(p.streak || 0)
     }))
   };
 }
 
-function getRaceSummarySignature(summary) {
-  return JSON.stringify({
-    roomId: summary.roomId,
-    pid: summary.pid,
-    rank: summary.rank,
-    finishType: summary.finishType,
-    dnfReason: summary.dnfReason,
-    score: summary.score,
-    miss: summary.miss,
-    streak: summary.streak,
-    playerCount: summary.playerCount,
-    finishedCount: summary.finishedCount,
-    dnfCount: summary.dnfCount,
-    waitingCount: summary.waitingCount,
-    allFinished: summary.allFinished,
-    raceStatusFinal: summary.raceStatusFinal
-  });
+function hideSummary() {
+  const wrap = document.getElementById('raceSummary');
+  if (wrap) wrap.hidden = true;
 }
 
-function buildCompatLastSummary(summary) {
-  return {
-    source: 'goodjunk-race',
-    gameId: GJ_GAME_ID,
-    title: 'GoodJunk Race',
-    mode: 'race',
-    pid: summary.pid,
-    studyId: summary.studyId,
-    roomId: summary.roomId,
-    score: summary.score,
-    miss: summary.miss,
-    streak: summary.streak,
-    rank: summary.rank,
-    finishType: summary.finishType,
-    dnfReason: summary.dnfReason,
-    playerCount: summary.playerCount,
-    allFinished: summary.allFinished,
-    raceStatusFinal: summary.raceStatusFinal,
-    updatedAt: summary.updatedAt
-  };
+function safeFilePart(value) {
+  return String(value || 'file').replace(/[^a-z0-9_-]/gi, '-');
 }
 
-function persistRaceSummary(summary) {
-  __gjRaceLastSummary = summary;
-
-  try { localStorage.setItem(GJ_RACE_LAST_SUMMARY_KEY, JSON.stringify(summary)); } catch {}
-  try {
-    const raw = localStorage.getItem(GJ_RACE_SUMMARY_HISTORY_KEY);
-    const hist = raw ? JSON.parse(raw) : [];
-    const next = Array.isArray(hist) ? hist : [];
-    next.unshift(summary);
-    localStorage.setItem(GJ_RACE_SUMMARY_HISTORY_KEY, JSON.stringify(next.slice(0, 30)));
-  } catch {}
-  try { localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(buildCompatLastSummary(summary))); } catch {}
-
-  try {
-    window.dispatchEvent(new CustomEvent('gj:race-summary', { detail: summary }));
-    window.dispatchEvent(new CustomEvent('hha:race-summary', { detail: summary }));
-  } catch {}
-}
-
-function storeRaceSummaryFromRows(rows, opts = {}) {
-  const summary = buildRaceSummaryPayload(rows, opts);
-  const sig = getRaceSummarySignature(summary);
-
-  __gjRaceLastSummary = summary;
-  if (sig !== __gjRaceLastSummarySig) {
-    __gjRaceLastSummarySig = sig;
-    persistRaceSummary(summary);
-  }
-
-  return summary;
-}
-
-function downloadRaceSummaryJson(summary = __gjRaceLastSummary) {
-  if (!summary) return;
-  downloadJson(
-    summary,
-    `goodjunk-race-${safeFilePart(summary.roomId || 'room')}-${safeFilePart(summary.pid || 'player')}-${safeFilePart(summary.raceStatusFinal || 'pending')}.json`
-  );
-}
-
-function downloadJson(payload, filename = `goodjunk-${Date.now()}.json`) {
+function downloadJson(payload, filename = `goodjunk-race-${Date.now()}.json`) {
   if (!payload) return;
-  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' });
+  const blob = new Blob([JSON.stringify(payload, null, 2)], {
+    type: 'application/json;charset=utf-8'
+  });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -1042,84 +801,380 @@ function downloadJson(payload, filename = `goodjunk-${Date.now()}.json`) {
   URL.revokeObjectURL(url);
 }
 
-function safeFilePart(value) {
-  return String(value || 'file').replace(/[^a-z0-9_-]/gi, '-');
+async function loadRoom() {
+  if (!await ensureFirebase()) return null;
+  try {
+    const snap = await roomRef.once('value');
+    return sanitizeRoom(snapshotToRoom(snap.val()));
+  } catch (err) {
+    console.error('[goodjunk.safe.race] loadRoom failed:', err);
+    return null;
+  }
 }
 
-function showRaceResultOverlay(rows, opts = {}) {
-  const wrap = document.getElementById('raceResult');
-  const rowsBox = document.getElementById('raceResultRows');
-  const badge = document.getElementById('raceResultBadge');
-  const sub = document.getElementById('raceResultSub');
-  const hint = document.getElementById('raceResultHint');
+async function saveRoom(room) {
+  if (!await ensureFirebase()) return false;
+  try {
+    await roomRef.set(roomToFirebase(room));
+    return true;
+  } catch (err) {
+    console.error('[goodjunk.safe.race] saveRoom failed:', err);
+    return false;
+  }
+}
+
+async function ensureFirebase() {
+  if (fbReady && db && roomRef && myPlayerRef) return true;
+
+  const ok = await new Promise((resolve) => {
+    if (window.HHA_FIREBASE_READY && window.HHA_FIREBASE_DB) {
+      resolve(true);
+      return;
+    }
+
+    let done = false;
+    const finish = (value) => {
+      if (done) return;
+      done = true;
+      resolve(!!value);
+    };
+
+    const timer = setTimeout(() => finish(false), 12000);
+
+    window.addEventListener('hha:firebase_ready', (ev) => {
+      clearTimeout(timer);
+      finish(!!ev?.detail?.ok && !!window.HHA_FIREBASE_DB);
+    }, { once: true });
+  });
+
+  if (!ok || !window.HHA_FIREBASE_DB) return false;
+
+  db = window.HHA_FIREBASE_DB;
+  roomRef = db.ref(ROOM_PATH);
+  myPlayerRef = roomRef.child('players').child(GJ_PID);
+  fbReady = true;
+  return true;
+}
+
+async function setupOnDisconnect() {
+  if (!await ensureFirebase()) return;
+  try {
+    await myPlayerRef.onDisconnect().update({
+      connected: false,
+      phase: 'run'
+    });
+  } catch {}
+}
+
+async function markPresence(patch = {}) {
+  if (!await ensureFirebase()) return;
+
+  try {
+    const snap = await myPlayerRef.once('value');
+    const cur = snap.exists() ? snap.val() : {};
+
+    await myPlayerRef.update({
+      name: GJ_NAME || cur.name || GJ_PID,
+      ready: patch.ready ?? cur.ready ?? true,
+      connected: patch.connected ?? true,
+      phase: patch.phase || cur.phase || 'run',
+      finished: patch.finished ?? cur.finished ?? false,
+      finalScore: patch.finalScore ?? cur.finalScore ?? 0,
+      miss: patch.miss ?? cur.miss ?? 0,
+      streak: patch.streak ?? cur.streak ?? 0,
+      joinedAt: cur.joinedAt || Date.now(),
+      finishedAt: patch.finishedAt ?? cur.finishedAt ?? 0,
+      lastSeenAt: Date.now()
+    });
+
+    await roomRef.child('updatedAt').set(Date.now());
+  } catch (err) {
+    console.error('[goodjunk.safe.race] markPresence failed:', err);
+  }
+}
+
+async function markDisconnected() {
+  if (!await ensureFirebase()) return;
+
+  try {
+    const snap = await myPlayerRef.once('value');
+    if (!snap.exists()) return;
+    const cur = snap.val();
+    if (cur.finished) return;
+
+    await myPlayerRef.update({
+      connected: false,
+      phase: 'run',
+      lastSeenAt: Date.now()
+    });
+
+    await roomRef.child('updatedAt').set(Date.now());
+  } catch {}
+}
+
+function startHeartbeat() {
+  stopHeartbeat();
+  markPresence({
+    phase: 'run',
+    ready: true,
+    connected: true,
+    finished: false
+  });
+
+  heartbeatTimer = setInterval(() => {
+    markPresence({
+      phase: 'run',
+      ready: true,
+      connected: true,
+      finished: false,
+      finalScore: state.score,
+      miss: state.miss,
+      streak: state.bestStreak
+    });
+  }, HEARTBEAT_MS);
+}
+
+function stopHeartbeat() {
+  if (heartbeatTimer) {
+    clearInterval(heartbeatTimer);
+    heartbeatTimer = 0;
+  }
+}
+
+function startWatchdog() {
+  stopWatchdog();
+  watchdogTimer = setInterval(() => {
+    maybeFinalizeRoom(false);
+  }, 3000);
+}
+
+function stopWatchdog() {
+  if (watchdogTimer) {
+    clearInterval(watchdogTimer);
+    watchdogTimer = 0;
+  }
+}
+
+async function maybeFinalizeRoom(force = false) {
+  const room = await loadRoom();
+  if (!room) return;
+  if (!amIParticipant(room)) return;
+
+  const players = normalizePlayers(room.players);
+  const participantIds = getParticipantIds(room);
+  const set = new Set(participantIds);
+  const racePlayers = set.size ? players.filter((p) => set.has(p.id)) : players;
+
+  if (!racePlayers.length) return;
+
+  const ts = Date.now();
+  let changed = false;
+
+  const nextPlayers = players.map((p) => {
+    const inMatch = set.size ? set.has(p.id) : true;
+    if (!inMatch) return p;
+    if (p.finished) return p;
+
+    const stale = !p.lastSeenAt || (ts - p.lastSeenAt > STALE_MS);
+    if (force || stale) {
+      changed = true;
+      return {
+        ...p,
+        connected: false,
+        phase: 'done',
+        finished: true,
+        finishedAt: ts
+      };
+    }
+
+    return p;
+  });
+
+  const nextRacePlayers = set.size ? nextPlayers.filter((p) => set.has(p.id)) : nextPlayers;
+  const allFinished = nextRacePlayers.every((p) => p.finished);
+
+  if (allFinished) {
+    room.status = 'finished';
+    room.match = {
+      ...(room.match || {}),
+      status: 'finished',
+      race: {
+        ...(room.match?.race || {}),
+        finishedAt: ts
+      }
+    };
+    changed = true;
+  }
+
+  if (changed) {
+    room.players = nextPlayers;
+    room.updatedAt = ts;
+    await saveRoom(room);
+  }
+
+  if (room.status === 'finished') {
+    state.running = false;
+    state.ended = true;
+    localRunActive = false;
+    stopHeartbeat();
+    stopWatchdog();
+    showSummary(room, nextRacePlayers, false, 'finished');
+  }
+}
+
+async function publishProgress() {
+  await markPresence({
+    phase: 'run',
+    ready: true,
+    connected: true,
+    finished: false,
+    finalScore: state.score,
+    miss: state.miss,
+    streak: state.bestStreak
+  });
+}
+
+async function publishFinish(reason = 'finished') {
+  await markPresence({
+    phase: 'done',
+    ready: true,
+    connected: true,
+    finished: true,
+    finalScore: state.score,
+    miss: state.miss,
+    streak: state.bestStreak,
+    finishedAt: Date.now()
+  });
+
+  const room = await loadRoom();
+  if (!room) return;
+  if (!amIParticipant(room)) return;
+
+  const players = getRacePlayers(room);
+  const allFinished = players.every((p) => p.finished);
+
+  if (allFinished) {
+    room.status = 'finished';
+    room.match = {
+      ...(room.match || {}),
+      status: 'finished',
+      race: {
+        ...(room.match?.race || {}),
+        finishedAt: Date.now()
+      }
+    };
+    room.updatedAt = Date.now();
+
+    await saveRoom(room);
+
+    state.running = false;
+    state.ended = true;
+    enteredFinish = true;
+    stopHeartbeat();
+    stopWatchdog();
+
+    showSummary(room, players, false, reason);
+    return;
+  }
+
+  showSummary(room, players, true, reason);
+}
+
+function showSummary(room, players, pending = false, reason = '') {
+  const wrap = document.getElementById('raceSummary');
+  const rowsBox = document.getElementById('raceSummaryRows');
+  const badge = document.getElementById('raceSummaryBadge');
+  const sub = document.getElementById('raceSummarySub');
+  const hint = document.getElementById('raceSummaryHint');
 
   if (!wrap || !rowsBox) return;
+  if (!amIParticipant(room)) return;
 
-  const pending = !!opts.pending;
-  const summary = storeRaceSummaryFromRows(rows, { allFinished: !pending });
-  const mine = getMyRaceRanked(rows);
-  const doneCount = summary.finishedCount;
-  const dnfCount = summary.dnfCount;
-  const waitingCount = summary.waitingCount;
+  const sorted = [...players].sort((a, b) => {
+    if (b.finalScore !== a.finalScore) return b.finalScore - a.finalScore;
+    if (a.miss !== b.miss) return a.miss - b.miss;
+    return b.streak - a.streak;
+  });
 
-  rowsBox.innerHTML = rows.map((p) => {
+  const myRank = Math.max(1, sorted.findIndex((p) => p.id === GJ_PID) + 1);
+
+  rowsBox.innerHTML = sorted.map((p) => {
     const isMe = p.id === GJ_PID;
-
-    let stateLine = '';
-    if (p.dnf) {
-      stateLine = `<div style="margin-top:4px;font-size:12px;color:#fda4af;font-weight:800;">DNF • ${escapeHtml(getDnfReasonLabel(p.dnfReason))}</div>`;
-    } else if (!p.finished) {
-      stateLine = `<div style="margin-top:4px;font-size:12px;color:#fbbf24;font-weight:800;">ยังไม่จบ</div>`;
-    } else {
-      stateLine = `<div style="margin-top:4px;font-size:12px;color:#86efac;font-weight:800;">แข่งจบแล้ว</div>`;
-    }
+    const statusText = p.finished ? 'รอบนี้จบแล้ว' : (p.connected === false ? 'ขาดการเชื่อมต่อ' : 'ยังไม่จบ');
 
     return `
       <div class="result-row ${isMe ? 'is-me' : ''}">
-        <div style="font-weight:900;">#${p.rank}</div>
         <div>
           <div style="font-weight:800;">
-            ${escapeHtml(p.name || p.id || 'player')}
+            ${escapeHtml(p.name || p.id)}
             ${isMe ? '<span style="color:#7dd3fc;"> • คุณ</span>' : ''}
           </div>
-          ${stateLine}
+          <div style="margin-top:4px;font-size:12px;color:${p.finished ? '#86efac' : '#fbbf24'};font-weight:800;">
+            ${escapeHtml(statusText)}
+          </div>
         </div>
-        <div>${p.dnf ? '—' : p.finalScore}</div>
-        <div>${p.dnf ? '—' : p.miss}</div>
-        <div>${p.dnf ? '—' : p.streak}</div>
+        <div>${Number(p.finalScore || 0)}</div>
+        <div>${Number(p.miss || 0)}</div>
+        <div>${Number(p.streak || 0)}</div>
       </div>
     `;
   }).join('');
 
   if (badge) {
-    if (mine) {
-      badge.textContent = mine.dnf ? `DNF • ${getDnfReasonLabel(mine.dnfReason)}` : `อันดับ #${mine.rank}`;
-      badge.style.color = mine.rank === 1 && !mine.dnf ? '#fde68a' : '#86efac';
-      badge.style.borderColor = mine.rank === 1 && !mine.dnf ? 'rgba(250,204,21,.28)' : 'rgba(34,197,94,.25)';
-      badge.style.background = mine.rank === 1 && !mine.dnf ? 'rgba(250,204,21,.10)' : 'rgba(34,197,94,.12)';
-    } else {
-      badge.textContent = '-';
-    }
+    badge.textContent = pending ? 'PENDING' : `อันดับ #${myRank}`;
   }
 
   if (sub) {
     sub.textContent = pending
-      ? `ผลชั่วคราว • จบแล้ว ${doneCount} • DNF ${dnfCount} • รออีก ${waitingCount}`
-      : `ผลสุดท้าย • จบแล้ว ${doneCount} • DNF ${dnfCount} • ผู้เล่นทั้งหมด ${summary.playerCount} คน`;
+      ? 'ผลชั่วคราว • คุณจบรอบแล้ว แต่ยังรอผู้เล่นคนอื่น'
+      : `ผลสุดท้าย • ผู้เล่นทั้งหมด ${sorted.length} คน`;
   }
 
   if (hint) {
     hint.textContent = pending
-      ? 'ระบบบันทึก race summary แบบ pending ไว้แล้ว และจะอัปเดตเป็น final เมื่อทุกคนจบหรือถูกตัดสิทธิ์'
-      : 'Race summary final ถูกบันทึกแยกจาก solo แล้ว พร้อม export JSON';
+      ? 'summary นี้ยังไม่ final จนกว่าผู้เล่นใน participant จะจบครบหรือถูกตัดสิทธิ์'
+      : 'ระบบจัดอันดับจากคะแนนก่อน แล้วดู miss และ best streak';
   }
 
+  lastSummary = buildRaceSummaryPayload(room, sorted, pending, reason);
   wrap.hidden = false;
-  state.pendingResultVisible = pending;
-  bindRaceResultButtons();
+  if (RACE_UI?.setStatus) RACE_UI.setStatus(pending ? 'pending' : 'finished');
 }
 
-function buildRaceLobbyUrl() {
+async function resetRoomForRematch() {
+  const room = await loadRoom();
+  if (!room) return;
+
+  room.status = 'waiting';
+  room.startAt = null;
+  room.match = {
+    participantIds: [],
+    lockedAt: null,
+    status: 'idle',
+    race: {
+      finishedAt: 0
+    }
+  };
+  room.updatedAt = Date.now();
+
+  room.players = normalizePlayers(room.players).map((p) => ({
+    ...p,
+    ready: false,
+    connected: true,
+    phase: 'lobby',
+    finished: false,
+    finalScore: 0,
+    miss: 0,
+    streak: 0,
+    finishedAt: 0,
+    lastSeenAt: Date.now()
+  }));
+
+  await saveRoom(room);
+  hideSummary();
+}
+
+function buildLobbyUrl() {
   const q = new URLSearchParams({
     pid: GJ_PID,
     name: GJ_NAME,
@@ -1134,339 +1189,83 @@ function buildRaceLobbyUrl() {
     mode: 'race',
     roomId: GJ_ROOM_ID
   });
-  return `./goodjunk-multi.html?${q.toString()}`;
+  return `./goodjunk-race-room.html?${q.toString()}`;
 }
 
-async function resetRaceRoomForRematch() {
-  const room = await loadRaceRoom();
-  if (!room) return;
+async function bootWithGate(startFn) {
+  if (booted) return;
+  booted = true;
 
-  room.status = 'waiting';
-  room.startAt = null;
-  room.updatedAt = Date.now();
+  if (!GJ_ROOM_ID) {
+    showGate('ยังไม่มี room จากลิงก์นี้', '...', 'กลับไป lobby แล้วเริ่มใหม่');
+    return;
+  }
 
-  room.players = normalizeRacePlayers(room.players).map((p) => ({
-    ...p,
-    ready: false,
-    connected: true,
-    phase: 'lobby',
-    finished: false,
-    dnf: false,
-    dnfReason: '',
-    finalScore: 0,
-    miss: 0,
-    streak: 0,
-    finishedAt: 0,
-    lastSeenAt: Date.now()
-  }));
-
-  const hasCurrentHost = room.players.some((p) => p.id === room.hostId);
-  if (!hasCurrentHost) room.hostId = room.players[0]?.id || '';
-
-  await saveRaceRoom(room, 'rematch-reset');
-}
-
-function bindRaceResultButtons() {
-  if (__gjRaceResultBound) return;
-  __gjRaceResultBound = true;
-
-  const btnRematch = document.getElementById('btnRaceRematch');
-  const btnLobby = document.getElementById('btnRaceBackLobby');
-  const btnExport = document.getElementById('btnRaceExport');
-  const btnHub = document.getElementById('btnRaceBackHub');
-
-  btnRematch?.addEventListener('click', async () => {
-    const room = await loadRaceRoom();
-    if (!room || !Array.isArray(room.players) || !room.players.length) {
-      location.href = GJ_HUB;
+  const room = await loadRoom();
+  if (room) {
+    if (!amIParticipant(room)) {
+      showGate('คุณไม่ได้อยู่ใน participant ของรอบนี้', '...', 'กลับไป lobby เพื่อรอรอบถัดไป');
       return;
     }
-    await forceFinalizeRaceRoom();
-    await resetRaceRoomForRematch();
-    location.href = buildRaceLobbyUrl();
-  });
-
-  btnLobby?.addEventListener('click', async () => {
-    await forceFinalizeRaceRoom();
-    location.href = buildRaceLobbyUrl();
-  });
-
-  btnExport?.addEventListener('click', () => {
-    downloadRaceSummaryJson(__gjRaceLastSummary);
-  });
-
-  btnHub?.addEventListener('click', async () => {
-    await forceFinalizeRaceRoom();
-    location.href = GJ_HUB;
-  });
-}
-
-async function markRacePresenceDuringRun(patch = {}) {
-  if (!isRaceMode()) return;
-  if (!await ensureRaceFirebase()) return;
-
-  try {
-    const snap = await __gjRaceMyPlayerRef.once('value');
-    const cur = snap.exists() ? snap.val() : {};
-
-    await __gjRaceMyPlayerRef.update({
-      name: GJ_NAME || cur.name || GJ_PID,
-      ready: patch.ready ?? cur.ready ?? true,
-      connected: patch.connected ?? true,
-      phase: patch.phase || cur.phase || 'run',
-      finished: patch.finished ?? cur.finished ?? false,
-      dnf: patch.dnf ?? cur.dnf ?? false,
-      dnfReason: patch.dnfReason ?? cur.dnfReason ?? '',
-      finalScore: patch.finalScore ?? cur.finalScore ?? 0,
-      miss: patch.miss ?? cur.miss ?? 0,
-      streak: patch.streak ?? cur.streak ?? 0,
-      joinedAt: cur.joinedAt || Date.now(),
-      finishedAt: patch.finishedAt ?? cur.finishedAt ?? 0,
-      lastSeenAt: Date.now()
-    });
-
-    await __gjRaceRoomRef.child('meta/updatedAt').set(Date.now());
-    await __gjRaceRoomRef.child('state/updatedAt').set(Date.now());
-  } catch (err) {
-    console.error('[GJ-RACE] markRacePresenceDuringRun failed:', err);
-  }
-}
-
-function stopRaceHeartbeat() {
-  if (__gjRaceHeartbeatTimer) {
-    clearInterval(__gjRaceHeartbeatTimer);
-    __gjRaceHeartbeatTimer = 0;
-  }
-}
-
-function stopRaceWatchdog() {
-  if (__gjRaceWatchdogTimer) {
-    clearInterval(__gjRaceWatchdogTimer);
-    __gjRaceWatchdogTimer = 0;
-  }
-}
-
-function startRaceHeartbeat() {
-  if (!isRaceMode() || __gjRaceHeartbeatTimer) return;
-
-  markRacePresenceDuringRun({
-    phase: 'run',
-    ready: true,
-    connected: true,
-    finished: false,
-    dnf: false,
-    dnfReason: ''
-  });
-
-  __gjRaceHeartbeatTimer = setInterval(() => {
-    markRacePresenceDuringRun({
-      phase: 'run',
-      ready: true,
-      connected: true,
-      finished: false,
-      dnf: false,
-      dnfReason: ''
-    });
-  }, GJ_RACE_HEARTBEAT_MS);
-}
-
-async function markMyRaceDisconnected(reason = 'disconnect') {
-  if (!isRaceMode()) return;
-  if (!await ensureRaceFirebase()) return;
-
-  try {
-    const snap = await __gjRaceMyPlayerRef.once('value');
-    if (!snap.exists()) return;
-
-    const cur = snap.val();
-    if (cur.finished) return;
-
-    await __gjRaceMyPlayerRef.update({
-      connected: false,
-      phase: 'run',
-      dnf: false,
-      dnfReason: reason,
-      lastSeenAt: Date.now()
-    });
-
-    await __gjRaceRoomRef.child('meta/updatedAt').set(Date.now());
-    await __gjRaceRoomRef.child('state/updatedAt').set(Date.now());
-  } catch (err) {
-    console.error('[GJ-RACE] markMyRaceDisconnected failed:', err);
-  }
-}
-
-async function maybeFinalizeRaceRoom(force = false) {
-  if (!isRaceMode()) return;
-  const room = await loadRaceRoom();
-  if (!room || !Array.isArray(room.players) || !room.players.length) return;
-
-  let changed = false;
-  const ts = Date.now();
-
-  const players = normalizeRacePlayers(room.players).map((p) => {
-    if (p.finished) return p;
-
-    const stale = !p.lastSeenAt || (ts - p.lastSeenAt > GJ_RACE_STALE_MS);
-    if (!force && !stale) return p;
-
-    changed = true;
-
-    let reason = p.dnfReason || '';
-    if (!reason) {
-      if (force) reason = 'timeout';
-      else if (p.connected === false) reason = 'disconnect';
-      else reason = 'timeout';
-    }
-
-    return {
-      ...p,
-      connected: false,
-      phase: 'done',
-      finished: true,
-      dnf: true,
-      dnfReason: reason,
-      finalScore: 0,
-      miss: 9999,
-      streak: 0,
-      finishedAt: ts,
-      lastSeenAt: ts
-    };
-  });
-
-  const allFinished = players.every((p) => p.finished);
-  const nextStatus = allFinished ? 'finished' : (room.status === 'waiting' ? 'waiting' : 'running');
-
-  if (
-    changed ||
-    room.status !== nextStatus ||
-    JSON.stringify(room.players) !== JSON.stringify(players)
-  ) {
-    room.players = players;
-    room.status = nextStatus;
-    room.updatedAt = ts;
-    await saveRaceRoom(room, 'watchdog');
   }
 
-  if (allFinished) {
-    const ranked = rankRacePlayers(players);
-    const me = getMyRaceRanked(ranked);
-
-    if (me) {
-      showRaceResultOverlay(ranked, { pending: false });
-    }
-
-    stopRaceHeartbeat();
-    stopRaceWatchdog();
+  if (!getEffectiveStartAt()) {
+    const currentRoom = room || await loadRoom();
+    if (currentRoom?.startAt) recoveredStartAt = Number(currentRoom.startAt || 0);
   }
-}
 
-async function forceFinalizeRaceRoom() {
-  await maybeFinalizeRaceRoom(true);
-}
-
-function startRaceWatchdog() {
-  if (!isRaceMode() || __gjRaceWatchdogTimer) return;
-
-  maybeFinalizeRaceRoom(false);
-
-  __gjRaceWatchdogTimer = setInterval(() => {
-    maybeFinalizeRaceRoom(false);
-  }, GJ_RACE_WATCHDOG_MS);
-}
-
-async function publishRaceFinish(result = {}) {
-  if (!isRaceMode()) return;
-  if (__gjRaceFinished) return;
-  if (!await ensureRaceFirebase()) return;
-
-  __gjRaceFinished = true;
-  stopRaceHeartbeat();
-
-  try {
-    const room = await loadRaceRoom();
-    if (!room || !Array.isArray(room.players)) return;
-
-    room.updatedAt = Date.now();
-    room.players = normalizeRacePlayers(room.players).map((p) => {
-      if (p.id !== GJ_PID) return p;
-
-      return {
-        ...p,
-        name: GJ_NAME || p.name || p.id,
-        ready: true,
-        connected: true,
-        phase: 'done',
-        finished: true,
-        dnf: false,
-        dnfReason: '',
-        finalScore: Number(result.score || 0),
-        miss: Number(result.miss || 0),
-        streak: Number(result.streak || result.bestStreak || 0),
-        finishedAt: Date.now(),
-        lastSeenAt: Date.now()
-      };
-    });
-
-    const allFinished = room.players.length > 0 && room.players.every((p) => p.finished);
-    room.status = allFinished ? 'finished' : 'running';
-
-    await saveRaceRoom(room, 'finish');
-
-    const ranked = rankRacePlayers(room.players);
-    showRaceResultOverlay(ranked, { pending: !allFinished });
-
-    await maybeFinalizeRaceRoom(false);
-  } catch (err) {
-    console.error('[GJ-RACE] publishRaceFinish failed:', err);
+  if (!getEffectiveStartAt()) {
+    showGate('กำลังรอเริ่ม Race', '...', 'ยังไม่มีสัญญาณเริ่มจากห้อง');
+    return;
   }
+
+  showGate('กำลังนับถอยหลังก่อนเริ่มพร้อมกัน', '-', `Room: ${GJ_ROOM_ID}`);
+  await waitUntilStart(getEffectiveStartAt());
+  cancelGateLoop();
+  hideGate();
+  startFn();
 }
 
-async function openRaceResultFromRoom() {
-  if (!isRaceMode()) return;
-  const room = await loadRaceRoom();
-  if (!room || !Array.isArray(room.players)) return;
+function attachRoomListener() {
+  if (roomListenerBound) return;
+  roomListenerBound = true;
 
-  const ranked = rankRacePlayers(room.players);
-  const allFinished = ranked.length > 0 && ranked.every((p) => p.finished);
-  const me = getMyRaceRanked(ranked);
+  ensureFirebase().then((ok) => {
+    if (!ok || !roomRef) return;
 
-  if (me?.finished || me?.dnf) {
-    showRaceResultOverlay(ranked, { pending: !allFinished });
-  }
-}
+    roomRef.on('value', async (snap) => {
+      const room = sanitizeRoom(snapshotToRoom(snap.val()));
+      if (!room) return;
 
-function attachRaceRoomListener() {
-  if (!isRaceMode() || __gjRaceRoomListenerBound) return;
-  __gjRaceRoomListenerBound = true;
+      recoveredStartAt = Number(room.startAt || recoveredStartAt || 0);
 
-  ensureRaceFirebase().then((ok) => {
-    if (!ok || !__gjRaceRoomRef) return;
-
-    __gjRaceRoomRef.on('value', async (snap) => {
-      const room = sanitizeRaceRoom(snapshotToRaceRoom(snap.val()));
-      if (!room || !Array.isArray(room.players)) return;
-
-      const ranked = rankRacePlayers(room.players);
-      const me = getMyRaceRanked(ranked);
-      if (!me) return;
-
-      const allFinished = ranked.length > 0 && ranked.every((p) => p.finished);
-      if (me.finished || me.dnf) {
-        showRaceResultOverlay(ranked, { pending: !allFinished });
+      if (!amIParticipant(room)) {
+        hideSummary();
+        return;
       }
 
-      if (!allFinished) {
-        await maybeFinalizeRaceRoom(false);
+      if (room.status === 'finished') {
+        state.running = false;
+        state.ended = true;
+        localRunActive = false;
+        stopHeartbeat();
+        stopWatchdog();
+        showSummary(room, getRacePlayers(room), false, 'finished');
+        return;
       }
+
+      if (room.status === 'running' && RACE_UI?.setStatus) {
+        RACE_UI.setStatus('running');
+      }
+
+      const players = getRacePlayers(room);
+      const me = players.find((p) => p.id === GJ_PID);
+
+      if (me && !me.finished && localRunActive && !state.ended) {
+        hideSummary();
+      }
+
+      await maybeFinalizeRoom(false);
     });
   });
-}
-
-function escapeHtml(s) {
-  return String(s ?? '')
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;');
 }
