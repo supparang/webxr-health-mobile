@@ -1,6 +1,6 @@
 /* === /herohealth/gate/games/jumpduck/warmup.js ===
  * HeroHealth Gate Game: JumpDuck Warmup
- * FULL PATCH v20260319a-JUMPDUCK-WARMUP-API-FINISH-FIX
+ * FULL PATCH v20260319b-JUMPDUCK-WARMUP-MANUAL-RESULT
  */
 
 function clamp(v, a, b){ return Math.max(a, Math.min(b, v)); }
@@ -16,7 +16,7 @@ function getParam(ctx, key, fallback=''){
 
 export function loadStyle(){
   const id = 'hh-gate-style-jumpduck';
-  const href = new URL('./style.css', import.meta.url).toString();
+  const href = new URL('./style.css?v=20260312f', import.meta.url).toString();
 
   const old = document.getElementById(id);
   if (old) old.remove();
@@ -35,13 +35,8 @@ function starsFromScore(score){
 }
 
 function makeResult(state){
-  const score = clamp(
-    Math.round((state.correct / Math.max(1, state.total)) * 100),
-    0,
-    100
-  );
+  const score = clamp(Math.round((state.correct / Math.max(1, state.total)) * 100), 0, 100);
   const passed = score >= 60 || state.correct >= 4;
-
   return {
     ok: true,
     zone: 'exercise',
@@ -56,11 +51,10 @@ function makeResult(state){
     score,
     stars: starsFromScore(score),
     lines: [
-      `รอบ ${Math.min(state.roundIndex + 1, state.total)}/${state.total}`,
-      `ถูก ${state.correct}`,
-      `ผิด ${state.wrong}`,
-      `ไม่ทัน ${state.misses}`,
-      `RT เฉลี่ย ${state.reactionCount ? Math.round(state.reactionSum / state.reactionCount) : 0} ms`
+      `ตอบถูก ${state.correct}/${state.total}`,
+      `ตอบผิด ${state.wrong}`,
+      `พลาด ${state.misses}`,
+      `เวลาเฉลี่ย ${state.reactionCount ? Math.round(state.reactionSum / state.reactionCount) : 0} ms`
     ],
     metrics: {
       total: state.total,
@@ -141,8 +135,8 @@ export function mount(root, ctx = {}, api = {}) {
   const state = {
     started: false,
     finished: false,
-    submitted: false,
-    total: TOTAL_ROUNDS,
+    ended: false,
+    total: 0,
     correct: 0,
     wrong: 0,
     misses: 0,
@@ -200,7 +194,7 @@ export function mount(root, ctx = {}, api = {}) {
         </div>
 
         <div class="jdg-footer">
-          <button class="jdg-btn jdg-btn-primary" id="jdg-start" type="button">เริ่มอุ่นเครื่อง</button>
+          <button class="jdg-btn jdg-btn-primary" id="jdg-start">เริ่มอุ่นเครื่อง</button>
           <button class="jdg-btn jdg-btn-ghost" id="jdg-finish" type="button" disabled>ดูผล</button>
         </div>
       </section>
@@ -214,15 +208,8 @@ export function mount(root, ctx = {}, api = {}) {
   const startBtn = root.querySelector('#jdg-start');
   const finishBtn = root.querySelector('#jdg-finish');
 
-  function shownRound(){
-    if (state.finished) return TOTAL_ROUNDS;
-    return clamp(state.roundIndex + 1, 0, TOTAL_ROUNDS);
-  }
-
   function canOpenResult(){
-    return state.finished === true
-      || state.correct >= 4
-      || state.roundIndex >= TOTAL_ROUNDS;
+    return state.finished === true;
   }
 
   function syncFinishBtn(){
@@ -230,12 +217,11 @@ export function mount(root, ctx = {}, api = {}) {
     finishBtn.disabled = !ready;
     finishBtn.style.pointerEvents = ready ? 'auto' : 'none';
     finishBtn.style.opacity = ready ? '1' : '.65';
-    finishBtn.setAttribute('aria-disabled', ready ? 'false' : 'true');
   }
 
   function renderStats(){
     statsEl.innerHTML = `
-      <span>รอบ ${shownRound()}/${TOTAL_ROUNDS}</span>
+      <span>รอบ ${Math.max(0, state.roundIndex + 1)}/${TOTAL_ROUNDS}</span>
       <span>ถูก ${state.correct}</span>
       <span>ผิด ${state.wrong + state.misses}</span>
     `;
@@ -250,22 +236,12 @@ export function mount(root, ctx = {}, api = {}) {
     });
   }
 
-  function submitResult(){
-    if (!canOpenResult()) return;
-    if (state.submitted) return;
-
-    state.submitted = true;
-    complete(makeResult(state));
-  }
-
   function finishGame(){
     if (state.finished) return;
     state.finished = true;
 
     clearTimeout(state.roundTimer);
     clearInterval(state.gameTimer);
-    state.roundTimer = null;
-    state.gameTimer = null;
 
     lockActions(true);
 
@@ -273,14 +249,12 @@ export function mount(root, ctx = {}, api = {}) {
     startBtn.style.pointerEvents = 'none';
     startBtn.style.opacity = '.65';
 
-    timerEl.textContent = `${Math.max(0, state.remainSec)}s`;
     cueEl.textContent = 'เสร็จแล้ว กดดูผล';
     renderStats();
   }
 
   function nextCue(){
-    if (state.finished) return;
-
+    if (state.finished || state.ended) return;
     state.roundIndex += 1;
 
     if (state.roundIndex >= state.sequence.length){
@@ -289,6 +263,7 @@ export function mount(root, ctx = {}, api = {}) {
     }
 
     const cue = state.sequence[state.roundIndex];
+    state.total += 1;
     state.cueAt = performance.now();
     cueEl.textContent = `${cue.emoji} ${cue.label}`;
     renderStats();
@@ -307,7 +282,6 @@ export function mount(root, ctx = {}, api = {}) {
 
     const cue = state.sequence[state.roundIndex];
     clearTimeout(state.roundTimer);
-    state.roundTimer = null;
 
     const rt = Math.max(0, Math.round(performance.now() - state.cueAt));
     state.reactionSum += rt;
@@ -323,6 +297,13 @@ export function mount(root, ctx = {}, api = {}) {
 
     renderStats();
     setTimeout(nextCue, 420);
+  }
+
+  function submitResult(){
+    if (!canOpenResult()) return;
+    if (state.ended) return;
+    state.ended = true;
+    complete(makeResult(state));
   }
 
   actionsEl.addEventListener('click', (ev) => {
@@ -343,20 +324,10 @@ export function mount(root, ctx = {}, api = {}) {
     cueEl.textContent = 'เริ่ม!';
     renderStats();
 
-    api?.setSub?.('กดให้ตรงกับคำสั่ง ซ้าย ขวา ย่อ กระโดด');
-    api?.logger?.push?.('jumpduck_warmup_start', {
-      seed,
-      totalRounds: TOTAL_ROUNDS
-    });
-
     state.gameTimer = setInterval(() => {
       state.remainSec -= 1;
       timerEl.textContent = `${Math.max(0, state.remainSec)}s`;
-
-      if (state.remainSec <= 0){
-        state.remainSec = 0;
-        finishGame();
-      }
+      if (state.remainSec <= 0) finishGame();
     }, 1000);
 
     setTimeout(nextCue, 500);
@@ -376,10 +347,16 @@ export function mount(root, ctx = {}, api = {}) {
     submitResult();
   }, { passive:false });
 
+  finishBtn.addEventListener('touchend', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    submitResult();
+  }, { passive:false });
+
   renderStats();
   syncFinishBtn();
 
-  api?.setSub?.('เริ่มอุ่นเครื่องแล้วกดให้ตรงกับคำสั่ง');
+  api?.setSub?.('กดให้ตรงกับคำสั่ง ซ้าย ขวา ย่อ หรือกระโดด');
   api?.setStats?.({
     time: GAME_SEC,
     score: 0,
@@ -391,11 +368,9 @@ export function mount(root, ctx = {}, api = {}) {
     autostart: false,
     start(){},
     destroy(){
+      state.ended = true;
       clearTimeout(state.roundTimer);
       clearInterval(state.gameTimer);
-      state.roundTimer = null;
-      state.gameTimer = null;
-      state.finished = true;
     }
   };
 }
