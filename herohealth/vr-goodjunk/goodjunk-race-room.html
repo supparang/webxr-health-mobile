@@ -221,6 +221,49 @@
       outline:none;
     }
 
+    .qr-panel{
+      margin-top:12px;
+      border:1px solid var(--stroke);
+      border-radius:18px;
+      background:rgba(15,23,42,.45);
+      padding:14px;
+    }
+    .qr-title{
+      font-size:14px;
+      font-weight:900;
+      color:#e5e7eb;
+      margin-bottom:6px;
+    }
+    .qr-sub{
+      color:var(--muted);
+      font-size:13px;
+      line-height:1.6;
+      margin-bottom:10px;
+    }
+    .qr-box{
+      width:220px;
+      height:220px;
+      max-width:100%;
+      margin:0 auto;
+      border-radius:16px;
+      border:1px dashed var(--stroke);
+      background:rgba(2,6,23,.42);
+      display:grid;
+      place-items:center;
+      overflow:hidden;
+    }
+    .qr-box img{
+      width:220px;
+      height:220px;
+      display:block;
+    }
+    .qr-empty{
+      color:var(--muted);
+      font-size:13px;
+      text-align:center;
+      padding:16px;
+    }
+
     .section-title{
       font-size:16px;
       font-weight:900;
@@ -343,6 +386,14 @@
         <input id="inviteLink" type="text" readonly value="" aria-label="Invite Link" />
       </div>
 
+      <div class="qr-panel">
+        <div class="qr-title">QR Code</div>
+        <div class="qr-sub">สแกนจากอีกเครื่องเพื่อเข้าห้องนี้ได้ทันที</div>
+        <div class="qr-box" id="qrBox">
+          <div class="qr-empty">ยังไม่มีลิงก์</div>
+        </div>
+      </div>
+
       <div id="countdown"></div>
     </section>
 
@@ -388,6 +439,6 @@
   </div>
 
   <script src="../firebase-config.js"></script>
-  <script type="module" src="./goodjunk-race-lobby.js?v=20260320-race-lobby-ready2-max5"></script>
+  <script type="module" src="./goodjunk-race-lobby.js?v=20260320-race-lobby-ready2-max5-qr"></script>
 </body>
 </html>
