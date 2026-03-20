@@ -446,7 +446,7 @@
 
         <div class="field">
           <label for="hubInput">Hub URL</label>
-          <input id="hubInput" type="text" placeholder="./hub.html" />
+          <input id="hubInput" type="text" placeholder="/herohealth/hub.html" />
         </div>
 
         <div class="field full">
@@ -464,7 +464,7 @@
 
         <div class="assist-card">
           <div class="assist-title">รอบที่แนะนำถัดไป</div>
-          <div class="assist-text">ใช้ข้อมูล progress ล่าสุดของ PID / Study ID นี้</div>
+          <div class="assist-text">ใช้ progress key ของ PID/Study ID ปัจจุบัน</div>
           <div class="assist-meta" id="nextPayloadMeta">ยังไม่มีคำแนะนำ</div>
         </div>
       </div>
@@ -475,6 +475,9 @@
         <button class="btn warn" id="randomSeedBtn" type="button">สุ่ม Seed ใหม่</button>
         <button class="btn good" id="loadLastBtn" type="button">เติมค่าจากรอบล่าสุด</button>
         <button class="btn good" id="loadNextBtn" type="button">เติมค่ารอบถัดไป</button>
+        <button class="btn ghost" id="resetProgressBtn" type="button">Reset Progress</button>
+        <button class="btn ghost" id="clearLatestBtn" type="button">Clear Latest Payload</button>
+        <button class="btn ghost" id="clearHistoryBtn" type="button">Clear Local History</button>
       </div>
 
       <div class="preview" id="urlPreview">กำลังสร้าง URL...</div>
@@ -511,8 +514,11 @@
       const backHubBtn = document.getElementById('backHubBtn');
       const loadLastBtn = document.getElementById('loadLastBtn');
       const loadNextBtn = document.getElementById('loadNextBtn');
+      const resetProgressBtn = document.getElementById('resetProgressBtn');
+      const clearLatestBtn = document.getElementById('clearLatestBtn');
+      const clearHistoryBtn = document.getElementById('clearHistoryBtn');
 
-      const initialHub = qs.get('hub') || './hub.html';
+      const initialHub = qs.get('hub') || '/herohealth/hub.html';
 
       function positiveInt(value){
         const n = Number(value);
@@ -530,6 +536,21 @@
           return JSON.parse(raw);
         }catch(_){
           return fallback;
+        }
+      }
+
+      function toAbsoluteHubUrl(rawHub) {
+        const fallback = '/herohealth/hub.html';
+        const raw = String(rawHub || '').trim() || fallback;
+
+        try {
+          return new URL(raw, window.location.origin).toString();
+        } catch (_) {
+          try {
+            return new URL(fallback, window.location.origin).toString();
+          } catch (_) {
+            return fallback;
+          }
         }
       }
 
@@ -570,23 +591,17 @@
         weekInput.value = String(progress.nextWeekNo);
       }
 
-      modeInput.value = qs.get('mode') || 'quick';
-      typeInput.value = qs.get('type') || 'solo';
-      runInput.value = qs.get('run') || 'play';
-      diffInput.value = qs.get('diff') || 'normal';
-      sessionInput.value = qs.get('session') || '1';
-      weekInput.value = qs.get('week') || '1';
-      pidInput.value = qs.get('pid') || '';
-      studyIdInput.value = qs.get('studyId') || '';
-      seedInput.value = qs.get('seed') || String(Date.now());
-      hubInput.value = initialHub;
-
-      autofillProgressIfNoExplicitSession();
-      updateAssistBoxes();
-
       function sanitizePositiveInt(value, fallback){
         const n = Number(value);
         return Number.isFinite(n) && n > 0 ? String(Math.floor(n)) : String(fallback);
+      }
+
+      function escapeHtml(value){
+        return String(value ?? '')
+          .replaceAll('&', '&amp;')
+          .replaceAll('<', '&lt;')
+          .replaceAll('>', '&gt;')
+          .replaceAll('"', '&quot;');
       }
 
       function buildRunUrl(){
@@ -601,13 +616,14 @@
         target.searchParams.set('pid', safePid());
         target.searchParams.set('studyId', safeStudyId());
         target.searchParams.set('seed', sanitizePositiveInt(seedInput.value, Date.now()));
-        target.searchParams.set('hub', hubInput.value.trim() || './hub.html');
+        target.searchParams.set('hub', toAbsoluteHubUrl(hubInput.value.trim() || '/herohealth/hub.html'));
         return target.toString();
       }
 
       function updateFlowBadge(){
+        const teamHint = typeInput.value === 'team' ? ' • TEAM CHECK' : '';
         flowBadge.textContent =
-          `${modeInput.value} • ${typeInput.value} • ${runInput.value} • W${sanitizePositiveInt(weekInput.value,1)} S${sanitizePositiveInt(sessionInput.value,1)}`;
+          `${modeInput.value} • ${typeInput.value} • ${runInput.value} • W${sanitizePositiveInt(weekInput.value,1)} S${sanitizePositiveInt(sessionInput.value,1)}${teamHint}`;
       }
 
       function updatePreview(){
@@ -623,12 +639,32 @@
         statusBox.classList.add('show');
       }
 
-      function escapeHtml(value){
-        return String(value ?? '')
-          .replaceAll('&', '&amp;')
-          .replaceAll('<', '&lt;')
-          .replaceAll('>', '&gt;')
-          .replaceAll('"', '&quot;');
+      function updateAssistBoxes(){
+        const lastResearch = getLastResearch();
+        const progress = readProgress(safePid(), safeStudyId());
+
+        if (!lastResearch) {
+          lastPayloadMeta.textContent = 'ยังไม่พบ research payload ล่าสุด';
+        } else {
+          const currentSession = Number(lastResearch.sessionNo || 1);
+          const currentWeek = Number(lastResearch.weekNo || 1);
+
+          lastPayloadMeta.innerHTML =
+            `PID=${escapeHtml(lastResearch.pid || 'anon')} • ` +
+            `Study=${escapeHtml(lastResearch.studyId || '(empty)')} • ` +
+            `W${currentWeek} S${currentSession} • ` +
+            `total=${escapeHtml(lastResearch.totalScore ?? 0)}`;
+        }
+
+        const teamNote = typeInput.value === 'team'
+          ? ' • เช็ก stars / mission / contribution'
+          : ' • โฟกัส action + learning flow';
+
+        nextPayloadMeta.innerHTML =
+          `แนะนำ W${progress.nextWeekNo} S${progress.nextSessionNo} • ` +
+          `PID=${escapeHtml(safePid())} • ` +
+          `Study=${escapeHtml(safeStudyId())}` +
+          teamNote;
       }
 
       function applyPreset(name){
@@ -690,33 +726,60 @@
         showStatus(useNext ? 'เติมค่ารอบถัดไปจาก progress ล่าสุดแล้ว' : 'เติมค่าจาก payload ล่าสุดแล้ว');
       }
 
-      function updateAssistBoxes(){
-        const lastResearch = getLastResearch();
-        const progress = readProgress(safePid(), safeStudyId());
+      function removeStorageKey(key){
+        try{
+          localStorage.removeItem(key);
+        }catch(_){}
+      }
 
-        if (!lastResearch) {
-          lastPayloadMeta.textContent = 'ยังไม่พบ research payload ล่าสุด';
-        } else {
-          const currentSession = Number(lastResearch.sessionNo || 1);
-          const currentWeek = Number(lastResearch.weekNo || 1);
+      function resetProgressForCurrentScope(){
+        const pid = safePid();
+        const studyId = safeStudyId();
+        removeStorageKey(buildProgressKey(pid, studyId));
 
-          lastPayloadMeta.innerHTML =
-            `PID=${escapeHtml(lastResearch.pid || 'anon')} • ` +
-            `Study=${escapeHtml(lastResearch.studyId || '(empty)')} • ` +
-            `W${currentWeek} S${currentSession} • ` +
-            `total=${escapeHtml(lastResearch.totalScore ?? 0)}`;
-        }
+        sessionInput.value = '1';
+        weekInput.value = '1';
+        seedInput.value = String(Date.now());
 
-        nextPayloadMeta.innerHTML =
-          `แนะนำ W${progress.nextWeekNo} S${progress.nextSessionNo} • ` +
-          `PID=${escapeHtml(safePid())} • ` +
-          `Study=${escapeHtml(safeStudyId())}`;
+        updateAssistBoxes();
+        updatePreview();
+        showStatus(`รีเซ็ต progress ของ PID=${pid} / Study=${studyId} แล้ว`);
+      }
+
+      function clearLatestPayload(){
+        removeStorageKey('HHA_HYDRATION_V2_RESEARCH_LAST');
+        updateAssistBoxes();
+        updatePreview();
+        showStatus('ล้าง research payload ล่าสุดแล้ว');
+      }
+
+      function clearLocalHistory(){
+        removeStorageKey('HHA_LAST_SUMMARY');
+        removeStorageKey('HHA_SUMMARY_HISTORY');
+        removeStorageKey('HHA_HYDRATION_V2_RESEARCH_HISTORY');
+        updateAssistBoxes();
+        updatePreview();
+        showStatus('ล้าง summary/research history ในเครื่องแล้ว');
       }
 
       function handleFormChange(){
         updateAssistBoxes();
         updatePreview();
       }
+
+      modeInput.value = qs.get('mode') || 'quick';
+      typeInput.value = qs.get('type') || 'solo';
+      runInput.value = qs.get('run') || 'play';
+      diffInput.value = qs.get('diff') || 'normal';
+      sessionInput.value = qs.get('session') || '1';
+      weekInput.value = qs.get('week') || '1';
+      pidInput.value = qs.get('pid') || '';
+      studyIdInput.value = qs.get('studyId') || '';
+      seedInput.value = qs.get('seed') || String(Date.now());
+      hubInput.value = initialHub;
+
+      autofillProgressIfNoExplicitSession();
+      updateAssistBoxes();
 
       [
         modeInput, typeInput, runInput, diffInput,
@@ -733,7 +796,11 @@
 
       startBtn.addEventListener('click', () => {
         const url = buildRunUrl();
-        showStatus(`กำลังเข้า ${modeInput.value} / ${typeInput.value} / ${runInput.value}`);
+        const modeText = `${modeInput.value} / ${typeInput.value} / ${runInput.value}`;
+        const extra = typeInput.value === 'team'
+          ? ' • เช็ก social score / contribution / mission'
+          : '';
+        showStatus(`กำลังเข้า ${modeText}${extra}`);
         window.location.href = url;
       });
 
@@ -755,15 +822,33 @@
       loadLastBtn.addEventListener('click', () => loadFromLastPayload(false));
       loadNextBtn.addEventListener('click', () => loadFromLastPayload(true));
 
+      resetProgressBtn.addEventListener('click', () => {
+        const ok = window.confirm(`รีเซ็ต progress ของ PID=${safePid()} / Study=${safeStudyId()} ใช่หรือไม่`);
+        if (!ok) return;
+        resetProgressForCurrentScope();
+      });
+
+      clearLatestBtn.addEventListener('click', () => {
+        const ok = window.confirm('ล้าง research payload ล่าสุดใช่หรือไม่');
+        if (!ok) return;
+        clearLatestPayload();
+      });
+
+      clearHistoryBtn.addEventListener('click', () => {
+        const ok = window.confirm('ล้าง local summary/research history ใช่หรือไม่');
+        if (!ok) return;
+        clearLocalHistory();
+      });
+
       goDashboardBtn.addEventListener('click', () => {
         const target = new URL('./hydration-v2-dashboard.html', window.location.href);
-        target.searchParams.set('hub', hubInput.value.trim() || './hub.html');
+        target.searchParams.set('hub', toAbsoluteHubUrl(hubInput.value.trim() || '/herohealth/hub.html'));
         target.searchParams.set('launcher', './hydration-v2.html');
         window.location.href = target.toString();
       });
 
       backHubBtn.addEventListener('click', () => {
-        window.location.href = hubInput.value.trim() || './hub.html';
+        window.location.href = toAbsoluteHubUrl(hubInput.value.trim() || '/herohealth/hub.html');
       });
 
       updatePreview();
