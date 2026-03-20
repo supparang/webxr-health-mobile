@@ -1,6 +1,6 @@
 // === /herohealth/vr-hydration-v2/js/hydration.safe.js ===
 // Hydration V2 Main Orchestrator
-// PATCH v20260318b-HYDRATION-V2-PATCH-C-FULL
+// PATCH v20260318c-HYDRATION-V2-PATCH-C-FULL-CREATE-NORMALIZE
 //
 // Flow:
 // Intro -> Main Run -> Summary -> Scenarios -> Evaluate -> Create -> Final Summary
@@ -663,6 +663,17 @@ function showMainSummaryOverlay() {
     .addEventListener('click', runPostGameLearningFlow);
 }
 
+function normalizeCreatePlanScore(rawScore) {
+  const n = Number(rawScore || 0);
+  if (!Number.isFinite(n) || n <= 0) return 0;
+
+  if (n <= 20) return Math.round((n / 20) * 100);
+  if (n <= 25) return Math.round((n / 25) * 100);
+  if (n <= 50) return Math.round((n / 50) * 100);
+
+  return Math.max(0, Math.min(100, Math.round(n)));
+}
+
 async function runPostGameLearningFlow() {
   hideOverlay(refs.summaryOverlay);
 
@@ -704,15 +715,21 @@ async function runPostGameLearningFlow() {
   state.phase = PHASES.CREATE;
   const createResult = await openCreate(refs.createOverlay, state);
 
+  const normalizedPlanScore = normalizeCreatePlanScore(createResult.planScore || 0);
+
   state.createdPlan = createResult.plan || {};
-  state.createdPlanScore = createResult.planScore || 0;
-  state.planningScore += createResult.planScore || 0;
+  state.createdPlanScore = normalizedPlanScore;
+  state.planningScore += normalizedPlanScore;
   state.createFeedbackTitle = createResult.feedbackTitle || '';
   state.createFeedbackText = createResult.feedbackText || '';
   recomputeSocial();
   state.totalScore = computeTotalScore();
 
-  logEvent('create_done', createResult);
+  logEvent('create_done', {
+    ...createResult,
+    rawPlanScore: createResult.planScore || 0,
+    normalizedPlanScore
+  });
 
   state.phase = PHASES.DONE;
   refs.coachLine.textContent =
