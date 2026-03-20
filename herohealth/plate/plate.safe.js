@@ -1,6 +1,6 @@
 /* === /herohealth/plate/plate.safe.js ===
    HeroHealth Plate Engine
-   FINAL PATCH v20260320-PLATE-SAFE-DIFF-AWARE-FINAL
+   FINAL PATCH v20260320-PLATE-SAFE-DIFF-AWARE-FINAL-HOTFIX-RAF
 */
 'use strict';
 
@@ -715,6 +715,7 @@ function updateCoop(dt){
 
 function loop(ts){
   if(!S.running) return;
+
   if(S.paused || overlayOpen()){
     S.lastTick = ts;
     S.raf = requestAnimationFrame(loop);
@@ -736,6 +737,8 @@ function loop(ts){
     phaseAdvance();
     if(!S.running) return;
   }
+
+  S.raf = requestAnimationFrame(loop);
 }
 
 function buildCooldownUrl(){
