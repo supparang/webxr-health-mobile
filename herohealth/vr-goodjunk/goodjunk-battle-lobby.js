@@ -1,6 +1,6 @@
 // === /herohealth/vr-goodjunk/goodjunk-battle-lobby.js ===
 // GoodJunk Battle Lobby
-// FULL PATCH v20260320-BATTLE-LOBBY-READY2-MAX5
+// FULL PATCH v20260320-BATTLE-LOBBY-READY2-MAX5-QR
 
 const params = new URLSearchParams(location.search);
 
@@ -56,6 +56,7 @@ const els = {
   roomStatus: $('roomStatus'),
   hostName: $('hostName'),
   inviteLink: $('inviteLink'),
+  qrBox: $('qrBox'),
   copyState: $('copyState'),
   joinGuard: $('joinGuard'),
   btnCopyRoom: $('btnCopyRoom'),
@@ -169,6 +170,23 @@ async function copyText(text) {
       return false;
     }
   }
+}
+
+function renderQr(link = '') {
+  if (!els.qrBox) return;
+
+  const value = String(link || '').trim();
+  if (!value) {
+    els.qrBox.innerHTML = '<div class="qr-empty">ยังไม่มีลิงก์</div>';
+    return;
+  }
+
+  const img = new Image();
+  img.alt = 'Battle Invite QR';
+  img.src = 'https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=' + encodeURIComponent(value);
+
+  els.qrBox.innerHTML = '';
+  els.qrBox.appendChild(img);
 }
 
 function activePlayers(r = room) {
@@ -305,9 +323,7 @@ function sanitizeRoom(r) {
   safe.updatedAt = now();
 
   const rawMatch = safe.match && typeof safe.match === 'object' ? safe.match : {};
-  const rawBattle = rawMatch.battle && typeof rawBattle === 'object'
-    ? rawMatch.battle
-    : (rawMatch.battle && typeof rawMatch.battle === 'object' ? rawMatch.battle : {});
+  const rawBattle = rawMatch.battle && typeof rawMatch.battle === 'object' ? rawMatch.battle : {};
 
   safe.match = {
     participantIds: Array.isArray(rawMatch.participantIds)
@@ -454,7 +470,10 @@ function renderStatus(r = room) {
 
   const host = r?.players?.find((p) => p.id === r?.hostId);
   if (els.hostName) els.hostName.textContent = host ? playerLabel(host) : '-';
-  if (els.inviteLink) els.inviteLink.value = buildInviteUrl();
+
+  const inviteUrl = buildInviteUrl();
+  if (els.inviteLink) els.inviteLink.value = inviteUrl;
+  renderQr(inviteUrl);
 
   if (!r) {
     setHint('กำลังสร้างห้อง...');
@@ -846,7 +865,7 @@ async function enterRun(startAt) {
     startAt: String(startAt || now())
   });
 
-  location.href = `./goodjunk-battle-run.html?v=20260320-battle-target-v1&${q.toString()}`;
+  location.href = `./goodjunk-battle-run.html?v=20260320-battle-lobby-ready2-max5-qr&${q.toString()}`;
 }
 
 async function leaveRoom() {
