@@ -2,7 +2,7 @@
    HeroHealth Gate Mini-game
    GAME: platev1
    MODE: cooldown
-   FINAL PATCH v20260320-PLATEV1-COOLDOWN
+   FINAL PATCH v20260320b-PLATEV1-COOLDOWN-HUBFIX
 */
 
 let __styleLoaded = false;
@@ -45,6 +45,25 @@ function mulberry32(seed){
     r ^= r + Math.imul(r ^ (r >>> 7), 61 | r);
     return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
   };
+}
+
+function resolveHubTarget(ctx){
+  const raw =
+    String(ctx?.hub || '').trim() ||
+    String(ctx?.next || '').trim() ||
+    '../hub.html';
+
+  try{
+    const u = new URL(raw, location.href);
+    u.pathname = u.pathname
+      .replace('/herohealth/cooldown-gate.html', '/herohealth/hub.html')
+      .replace('/herohealth/warmup-gate.html', '/herohealth/hub.html')
+      .replace('/cooldown-gate.html', '/hub.html')
+      .replace('/warmup-gate.html', '/hub.html');
+    return u.toString();
+  }catch(_){
+    return '../hub.html';
+  }
 }
 
 export async function mount(root, ctx, api){
@@ -109,6 +128,10 @@ export async function mount(root, ctx, api){
       miss,
       acc: `${Math.max(0, acc)}%`
     });
+  }
+
+  function forceBackHub(){
+    location.href = resolveHubTarget(ctx);
   }
 
   function renderRound(){
@@ -198,7 +221,7 @@ export async function mount(root, ctx, api){
     `;
 
     root.querySelector('#pltDoneBtn')?.addEventListener('click', ()=>{
-      api?.finish?.({
+      const payload = {
         ok: true,
         title: 'เสร็จแล้ว!',
         subtitle: 'กลับหน้าหลักได้เลย',
@@ -209,7 +232,17 @@ export async function mount(root, ctx, api){
         ],
         buffs: {},
         markDailyDone: true
-      });
+      };
+
+      try{
+        if(typeof api?.finish === 'function'){
+          api.finish(payload);
+          setTimeout(forceBackHub, 500);
+          return;
+        }
+      }catch(_){}
+
+      forceBackHub();
     });
   }
 
