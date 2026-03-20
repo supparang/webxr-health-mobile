@@ -446,7 +446,7 @@
 
         <div class="field">
           <label for="hubInput">Hub URL</label>
-          <input id="hubInput" type="text" placeholder="/herohealth/hub.html" />
+          <input id="hubInput" type="text" />
         </div>
 
         <div class="field full">
@@ -488,6 +488,7 @@
   <script>
     (function(){
       const qs = new URLSearchParams(window.location.search);
+      const FIXED_HUB_URL = 'https://supparang.github.io/webxr-health-mobile/herohealth/hub.html';
 
       const modeInput = document.getElementById('modeInput');
       const typeInput = document.getElementById('typeInput');
@@ -518,7 +519,7 @@
       const clearLatestBtn = document.getElementById('clearLatestBtn');
       const clearHistoryBtn = document.getElementById('clearHistoryBtn');
 
-      const initialHub = qs.get('hub') || '/herohealth/hub.html';
+      const initialHub = FIXED_HUB_URL;
 
       function positiveInt(value){
         const n = Number(value);
@@ -539,19 +540,8 @@
         }
       }
 
-      function toAbsoluteHubUrl(rawHub) {
-        const fallback = '/herohealth/hub.html';
-        const raw = String(rawHub || '').trim() || fallback;
-
-        try {
-          return new URL(raw, window.location.origin).toString();
-        } catch (_) {
-          try {
-            return new URL(fallback, window.location.origin).toString();
-          } catch (_) {
-            return fallback;
-          }
-        }
+      function toAbsoluteHubUrl() {
+        return FIXED_HUB_URL;
       }
 
       function getLastResearch(){
@@ -616,7 +606,7 @@
         target.searchParams.set('pid', safePid());
         target.searchParams.set('studyId', safeStudyId());
         target.searchParams.set('seed', sanitizePositiveInt(seedInput.value, Date.now()));
-        target.searchParams.set('hub', toAbsoluteHubUrl(hubInput.value.trim() || '/herohealth/hub.html'));
+        target.searchParams.set('hub', FIXED_HUB_URL);
         return target.toString();
       }
 
@@ -709,7 +699,7 @@
 
         pidInput.value = lastResearch.pid || '';
         studyIdInput.value = lastResearch.studyId || '';
-        hubInput.value = initialHub;
+        hubInput.value = FIXED_HUB_URL;
 
         if (useNext) {
           const progress = readProgress(safePid(), safeStudyId());
@@ -776,7 +766,7 @@
       pidInput.value = qs.get('pid') || '';
       studyIdInput.value = qs.get('studyId') || '';
       seedInput.value = qs.get('seed') || String(Date.now());
-      hubInput.value = initialHub;
+      hubInput.value = FIXED_HUB_URL;
 
       autofillProgressIfNoExplicitSession();
       updateAssistBoxes();
@@ -842,13 +832,13 @@
 
       goDashboardBtn.addEventListener('click', () => {
         const target = new URL('./hydration-v2-dashboard.html', window.location.href);
-        target.searchParams.set('hub', toAbsoluteHubUrl(hubInput.value.trim() || '/herohealth/hub.html'));
+        target.searchParams.set('hub', FIXED_HUB_URL);
         target.searchParams.set('launcher', './hydration-v2.html');
         window.location.href = target.toString();
       });
 
       backHubBtn.addEventListener('click', () => {
-        window.location.href = toAbsoluteHubUrl(hubInput.value.trim() || '/herohealth/hub.html');
+        window.location.href = FIXED_HUB_URL;
       });
 
       updatePreview();
