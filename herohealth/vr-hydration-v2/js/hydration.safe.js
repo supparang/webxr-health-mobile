@@ -1,6 +1,6 @@
 // === /herohealth/vr-hydration-v2/js/hydration.safe.js ===
 // Hydration V2 Main Orchestrator
-// PATCH v20260318a-HYDRATION-V2-PATCH-C-NEXT-SESSION-FIX-HUB-TEAM
+// PATCH v20260318b-HYDRATION-V2-PATCH-C-FULL
 //
 // Flow:
 // Intro -> Main Run -> Summary -> Scenarios -> Evaluate -> Create -> Final Summary
@@ -121,6 +121,8 @@ const state = {
   socialMissionNote: 'โหมดนี้ยังไม่คิดภารกิจทีม',
   teamStars: 0,
   socialSummary: '',
+  socialChecklist: null,
+  socialMetrics: null,
 
   combo: 0,
   bestCombo: 0,
@@ -237,7 +239,7 @@ function setupIntro() {
   refs.missionList.innerHTML = `
     <li>เก็บ 💧 หรือ 🚰 ให้ได้มากที่สุด</li>
     <li>ปล่อย 🥤 และ 🧃 ให้ผ่านไป</li>
-    <li>จบรอบแล้วทำ Scenarios + Evaluate + Create</li>
+    <li>จบรอบแล้วทำ Scenarios → Evaluate → Create</li>
     <li>${ctx.type === 'team' ? 'ช่วยทีมผ่าน Team Hydration Goal' : 'รอบนี้เล่นแบบเดี่ยว'}</li>
   `;
 
@@ -286,29 +288,32 @@ function startRound() {
   state.correctChoices = 0;
   state.wrongChoices = 0;
 
-  state.combo = 0;
-  state.bestCombo = 0;
-
   state.evaluateChoice = null;
   state.evaluateCorrect = false;
 
   state.createdPlan = {};
   state.createdPlanScore = 0;
-  state.createFeedbackTitle = '';
-  state.createFeedbackText = '';
-  state.scenarioSummary = '';
 
   state.classTankContribution = 0;
   state.teamMissionDone = false;
-  state.socialMissionLabel = 'Solo Mode';
-  state.socialMissionNote = 'โหมดนี้ยังไม่คิดภารกิจทีม';
+  state.socialMissionLabel = ctx.type === 'team' ? 'Team Hydration Goal ยังไม่ผ่าน' : 'Solo Mode';
+  state.socialMissionNote = ctx.type === 'team' ? 'เริ่มสะสม progress ทีม' : 'โหมดนี้ยังไม่คิดภารกิจทีม';
   state.teamStars = 0;
   state.socialSummary = '';
+  state.socialChecklist = null;
+  state.socialMetrics = null;
+
+  state.combo = 0;
+  state.bestCombo = 0;
 
   state.rewardCount = 0;
   state.rewardHistory = [];
   state.shieldCount = 0;
   state.pointBoostUntil = 0;
+
+  state.scenarioSummary = '';
+  state.createFeedbackTitle = '';
+  state.createFeedbackText = '';
   state.researchSavedAt = '';
 
   state.items.forEach(removeItemNode);
@@ -574,6 +579,8 @@ function recomputeSocial() {
   state.socialMissionNote = social.missionNote;
   state.teamStars = social.teamStars;
   state.socialSummary = buildSocialSummary(social);
+  state.socialChecklist = social.checklist || null;
+  state.socialMetrics = social.metrics || null;
 
   return social;
 }
@@ -741,12 +748,21 @@ function showFinalOverlay(evalResult, createResult, researchPayload) {
     nextWeekNo: state.nextWeekNo
   });
 
+  const checklist = state.socialChecklist || {};
+  const metrics = state.socialMetrics || {};
+
   const teamDetail = ctx.type === 'team'
     ? `
       <strong>Team Check:</strong> contribution ${state.classTankContribution}% • stars ${state.teamStars}<br/>
       <strong>Mission:</strong> ${state.teamMissionDone ? 'ผ่านแล้ว ✅' : 'ยังไม่ผ่าน ✨'}<br/>
       <strong>Mission Label:</strong> ${escapeHtml(state.socialMissionLabel)}<br/>
-      <strong>Mission Note:</strong> ${escapeHtml(state.socialMissionNote)}<br/>
+      <strong>Mission Note:</strong> ${escapeHtml(state.socialMissionNote)}<br/><br/>
+
+      <strong>Checklist</strong><br/>
+      • เก็บน้ำ 8+: ${checklist.goodCatchOk ? 'ผ่าน ✅' : 'ยังไม่ผ่าน ✨'} (ตอนนี้ ${metrics.goodCatch ?? 0})<br/>
+      • Scenarios ถูก 1+: ${checklist.choicesOk ? 'ผ่าน ✅' : 'ยังไม่ผ่าน ✨'} (ตอนนี้ ${metrics.correctChoices ?? 0})<br/>
+      • Plan score 60+: ${checklist.planOk ? 'ผ่าน ✅' : 'ยังไม่ผ่าน ✨'} (ตอนนี้ ${metrics.createdPlanScore ?? 0})<br/>
+      • Contribution 60%+: ${checklist.contributionOk ? 'ผ่าน ✅' : 'ยังไม่ผ่าน ✨'} (ตอนนี้ ${state.classTankContribution ?? 0}%)<br/>
     `
     : `
       <strong>Social:</strong> ${escapeHtml(state.socialSummary)}<br/>
