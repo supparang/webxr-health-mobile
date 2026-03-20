@@ -49,16 +49,38 @@
       padding:10px 10px;
       backdrop-filter: blur(8px);
     }
-    .brand{display:flex;gap:10px;align-items:center}
-    .logo{
-      width:40px;height:40px;border-radius:14px;border:1px solid var(--stroke);
-      background:linear-gradient(135deg, rgba(34,211,238,.18), rgba(34,197,94,.14));
-      display:grid;place-items:center;font-weight:1000
+    .brand{
+      display:flex;
+      gap:10px;
+      align-items:center;
     }
-    .title{font-weight:1000;font-size:15px}
-    .sub{font-weight:800;color:var(--mut);font-size:12px;margin-top:2px}
+    .logo{
+      width:40px;
+      height:40px;
+      border-radius:14px;
+      border:1px solid var(--stroke);
+      background:linear-gradient(135deg, rgba(34,197,94,.18), rgba(34,211,238,.14));
+      display:grid;
+      place-items:center;
+      font-weight:1000;
+    }
+    .title{
+      font-weight:1000;
+      font-size:15px;
+    }
+    .sub{
+      font-weight:800;
+      color:var(--mut);
+      font-size:12px;
+      margin-top:2px;
+    }
 
-    .pillrow{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+    .pillrow{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      align-items:center;
+    }
     .pill{
       border:1px solid var(--stroke);
       background:rgba(2,6,23,.35);
@@ -66,9 +88,9 @@
       padding:7px 10px;
       font-size:12px;
       font-weight:950;
-      color:rgba(229,231,235,.92)
+      color:rgba(229,231,235,.92);
     }
-    .pill b{color:#fff}
+    .pill b{ color:#fff; }
 
     .btn{
       border:1px solid var(--stroke);
@@ -83,8 +105,28 @@
       justify-content:center;
       gap:8px;
     }
-    .btn.warn{border-color:rgba(245,158,11,.35);background:rgba(245,158,11,.12)}
-    .btn.bad{border-color:rgba(239,68,68,.35);background:rgba(239,68,68,.10)}
+    .btn.warn{
+      border-color:rgba(245,158,11,.35);
+      background:rgba(245,158,11,.12);
+    }
+    .btn.bad{
+      border-color:rgba(239,68,68,.35);
+      background:rgba(239,68,68,.10);
+    }
+    .btn:active{
+      transform:translateY(1px);
+    }
+
+    .heroHint{
+      margin-top:10px;
+      border:1px solid rgba(34,197,94,.24);
+      background:rgba(34,197,94,.10);
+      border-radius:16px;
+      padding:10px 12px;
+      font-size:13px;
+      font-weight:900;
+      line-height:1.45;
+    }
 
     .stage{
       margin-top:10px;
@@ -98,7 +140,7 @@
 
     #root{
       position:relative;
-      min-height: calc(100vh - 120px);
+      min-height: calc(100vh - 180px);
     }
 
     .toast{
@@ -120,7 +162,14 @@
       pointer-events:none;
       max-width:92vw;
     }
-    .toast.show{ opacity:1; }
+    .toast.show{
+      opacity:1;
+    }
+
+    @media (max-width:700px){
+      .topbar{ align-items:flex-start; }
+      .pillrow{ width:100%; }
+    }
   </style>
 </head>
 <body>
@@ -130,7 +179,7 @@
         <div class="logo">🧽</div>
         <div>
           <div class="title">Clean Objects — Kids Mode</div>
-          <div class="sub">เลือกจุดที่ควรเช็ดก่อน • เหมาะสำหรับ ป.5</div>
+          <div class="sub">3 ด่าน • เหมาะสำหรับ ป.5 • อ่านง่าย • child-friendly</div>
         </div>
       </div>
 
@@ -138,6 +187,7 @@
         <div class="pill">pid: <b id="pPid">—</b></div>
         <div class="pill">time: <b id="pTime">—</b>s</div>
         <div class="pill">mode: <b>kids</b></div>
+        <div class="pill">track: <b>cleanobjects-kids</b></div>
       </div>
 
       <div class="pillrow">
@@ -145,6 +195,10 @@
         <button class="btn" id="btnBackHub" type="button">Back HUB</button>
         <button class="btn bad" id="btnReset" type="button">Reset</button>
       </div>
+    </div>
+
+    <div class="heroHint">
+      เล่นให้ครบ 3 ด่านในเกมเดียว • ด่านหลังจะยากขึ้นนิดหน่อย • ด่านสุดท้ายมีภารกิจพิเศษ
     </div>
 
     <div class="stage">
@@ -190,7 +244,7 @@
 
     const P = {
       run: String(qs('run','play')).toLowerCase() || 'play',
-      diff: String(qs('diff','normal')).toLowerCase() || 'normal',
+      diff: 'kids',
       time: clamp(qs('time','30'), 20, 60),
       seed: String(qs('seed','') || String(Date.now())),
       pid: String(qs('pid','anon')).trim() || 'anon',
@@ -199,7 +253,8 @@
       api: normalizeMaybeEncodedUrl(qs('api','')),
       studyId: String(qs('studyId','')),
       phase: String(qs('phase','')),
-      conditionGroup: String(qs('conditionGroup',''))
+      conditionGroup: String(qs('conditionGroup','')),
+      view: String(qs('view','mobile') || 'mobile')
     };
 
     if ($('pPid')) $('pPid').textContent = P.pid;
@@ -210,24 +265,35 @@
       return new URL('../hub.html', location.href).toString();
     }
 
-    function buildCooldownUrl(){
+    function buildCooldownUrl(extra = {}){
       const hub = hubFallback();
       const g = new URL('../warmup-gate.html', location.href);
 
       g.searchParams.set('gatePhase','cooldown');
       g.searchParams.set('phase','cooldown');
       g.searchParams.set('cat','hygiene');
-      g.searchParams.set('theme','cleanobjects');
-      g.searchParams.set('game','cleanobjects');
+      g.searchParams.set('theme','cleanobjects-kids');
+      g.searchParams.set('game','cleanobjects-kids');
       g.searchParams.set('cd','1');
       g.searchParams.set('next', hub);
       g.searchParams.set('hub', hub);
 
-      ['run','diff','time','seed','pid','view','ai','debug','api','log','studyId','phase','conditionGroup','kids']
+      ['run','seed','pid','view','api','log','studyId','conditionGroup']
         .forEach(k=>{
-          const v = new URL(location.href).searchParams.get(k);
-          if(v !== null && v !== '') g.searchParams.set(k, v);
+          const v = String(qs(k,'') || '');
+          if(v) g.searchParams.set(k, v);
         });
+
+      g.searchParams.set('diff', 'kids');
+      g.searchParams.set('kids', '1');
+      g.searchParams.set('time', String(P.time));
+
+      Object.keys(extra || {}).forEach(k=>{
+        const v = extra[k];
+        if(v !== undefined && v !== null && v !== ''){
+          g.searchParams.set(k, String(v));
+        }
+      });
 
       return g.toString();
     }
@@ -235,6 +301,7 @@
     function goHub(){
       location.href = hubFallback();
     }
+
     function goCooldown(){
       location.href = buildCooldownUrl();
     }
@@ -263,6 +330,8 @@
     function saveSummary(summary){
       try{
         localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(summary));
+        localStorage.setItem(`HHA_LAST_SUMMARY:cleanobjects:kids:${P.pid}`, JSON.stringify(summary));
+
         const key = 'HHA_SUMMARY_HISTORY';
         const arr = JSON.parse(localStorage.getItem(key) || '[]');
         arr.unshift(summary);
@@ -282,15 +351,14 @@
       run: P.run,
       seed: P.seed,
       hub: hubFallback(),
-      time: P.time
+      time: P.time,
+      view: P.view
     }, {
       onState: ui.onState,
       onTick: ui.onTick,
       onCoach: ui.onCoach,
       onSummary: async (summary)=>{
-        saveSummary(summary);
-
-        const payload = Object.assign({}, summary, {
+        const apiSummary = Object.assign({}, summary, {
           projectTag: 'HeroHealth',
           game: 'cleanobjects',
           zone: 'hygiene',
@@ -298,15 +366,34 @@
           studyId: P.studyId || '',
           phase: P.phase || '',
           conditionGroup: P.conditionGroup || '',
-          hub: P.hub || ''
+          hub: P.hub || '',
+          mode: 'kids',
+          __extraJson: JSON.stringify({
+            url: location.href,
+            track: 'kids',
+            game: 'cleanobjects',
+            mode: 'kids'
+          })
         });
-        await postToApi({ type:'summary', data: payload });
 
-        ui.onSummary(summary);
+        saveSummary(apiSummary);
+
+        const r = await postToApi({ type:'summary', data: apiSummary });
+        if(r && !r.skipped && !r.ok){
+          console.warn('[clean-kids] summary log failed', r);
+        }
+
+        ui.onSummary(apiSummary);
 
         if(!cooldownQueued){
           cooldownQueued = true;
-          setTimeout(()=>goCooldown(), 1800);
+          setTimeout(()=>{
+            location.href = buildCooldownUrl({
+              finalScore: apiSummary?.score ?? '',
+              finalMode: 'kids',
+              kids: '1'
+            });
+          }, 1800);
         }
       }
     });
@@ -320,7 +407,7 @@
     }
     raf = requestAnimationFrame(loop);
 
-    toast('แตะจุดที่ควรเช็ดก่อน ✅');
+    toast('เริ่มด่าน 1 ได้เลย ✅');
   </script>
 </body>
 </html>
