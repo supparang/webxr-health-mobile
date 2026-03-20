@@ -1,0 +1,821 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth • GoodJunk Debug Checklist</title>
+  <meta name="color-scheme" content="dark light" />
+  <style>
+    :root{
+      --bg1:#020617;
+      --bg2:#0b1226;
+      --panel:rgba(2,6,23,.82);
+      --stroke:rgba(148,163,184,.18);
+      --text:#e5e7eb;
+      --muted:#94a3b8;
+      --ok:#22c55e;
+      --warn:#f59e0b;
+      --bad:#ef4444;
+      --blue:#38bdf8;
+      --violet:#a78bfa;
+      --shadow:0 24px 64px rgba(0,0,0,.28);
+
+      --sat: env(safe-area-inset-top, 0px);
+      --sar: env(safe-area-inset-right, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
+    }
+
+    *{ box-sizing:border-box; }
+
+    html,body{
+      margin:0;
+      min-height:100%;
+      font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(circle at 15% 0%, rgba(56,189,248,.10), transparent 22%),
+        radial-gradient(circle at 85% 0%, rgba(167,139,250,.10), transparent 22%),
+        linear-gradient(180deg,var(--bg2),var(--bg1));
+    }
+
+    .wrap{
+      max-width:1200px;
+      margin:0 auto;
+      padding:
+        calc(22px + var(--sat))
+        calc(16px + var(--sar))
+        calc(34px + var(--sab))
+        calc(16px + var(--sal));
+    }
+
+    .hero,.card{
+      background:var(--panel);
+      border:1px solid var(--stroke);
+      border-radius:24px;
+      backdrop-filter:blur(10px);
+      box-shadow:var(--shadow);
+    }
+
+    .hero{
+      padding:22px 20px;
+      margin-bottom:16px;
+    }
+
+    .card{
+      padding:16px;
+      margin-bottom:14px;
+    }
+
+    .kicker{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:6px 12px;
+      border-radius:999px;
+      border:1px solid var(--stroke);
+      background:rgba(255,255,255,.04);
+      color:#dbeafe;
+      font-size:12px;
+      font-weight:900;
+      margin-bottom:10px;
+    }
+
+    h1{
+      margin:0 0 8px;
+      font-size:30px;
+      line-height:1.08;
+    }
+
+    .muted{
+      color:var(--muted);
+      font-size:14px;
+      line-height:1.65;
+    }
+
+    .hero-grid{
+      display:grid;
+      grid-template-columns:1.1fr .9fr;
+      gap:14px;
+      margin-top:14px;
+    }
+
+    .mini{
+      border:1px solid var(--stroke);
+      border-radius:18px;
+      background:rgba(15,23,42,.42);
+      padding:14px;
+    }
+
+    .mini h3{
+      margin:0 0 8px;
+      font-size:15px;
+    }
+
+    .mini ul{
+      margin:0;
+      padding-left:18px;
+      color:#dbe4f0;
+      font-size:13px;
+      line-height:1.65;
+    }
+
+    .toolbar{
+      display:grid;
+      grid-template-columns:1fr 160px 160px 180px;
+      gap:10px;
+      align-items:end;
+    }
+
+    label{
+      display:block;
+      margin:0 0 6px;
+      color:var(--muted);
+      font-size:13px;
+      font-weight:700;
+    }
+
+    input,select,button{
+      width:100%;
+      min-height:46px;
+      border-radius:14px;
+      border:1px solid var(--stroke);
+      background:rgba(15,23,42,.54);
+      color:var(--text);
+      padding:11px 12px;
+      font:inherit;
+    }
+
+    button{
+      cursor:pointer;
+      font-weight:900;
+      transition:.12s ease;
+    }
+
+    button:hover{ transform:translateY(-1px); }
+    button:disabled{ opacity:.55; cursor:not-allowed; transform:none; }
+
+    .btn-primary{
+      border-color:rgba(56,189,248,.28);
+      color:#7dd3fc;
+    }
+
+    .btn-good{
+      border-color:rgba(34,197,94,.28);
+      color:#86efac;
+    }
+
+    .btn-violet{
+      border-color:rgba(167,139,250,.28);
+      color:#c4b5fd;
+    }
+
+    .summary{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:12px;
+    }
+
+    .summary-box{
+      border:1px solid var(--stroke);
+      border-radius:18px;
+      background:rgba(15,23,42,.42);
+      padding:14px;
+    }
+
+    .summary-label{
+      color:var(--muted);
+      font-size:12px;
+      font-weight:800;
+      margin-bottom:6px;
+      letter-spacing:.04em;
+    }
+
+    .summary-value{
+      font-size:28px;
+      font-weight:900;
+    }
+
+    .grid{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:14px;
+    }
+
+    .section-title{
+      margin:0 0 10px;
+      font-size:18px;
+      font-weight:900;
+    }
+
+    .list{
+      display:grid;
+      gap:10px;
+    }
+
+    .item{
+      border:1px solid var(--stroke);
+      border-radius:18px;
+      background:rgba(15,23,42,.42);
+      padding:12px;
+    }
+
+    .item-top{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-bottom:8px;
+    }
+
+    .item-title{
+      font-size:15px;
+      font-weight:900;
+      line-height:1.4;
+      word-break:break-word;
+    }
+
+    .path{
+      font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+      color:#cfe2ff;
+      font-size:12px;
+      line-height:1.6;
+      word-break:break-all;
+    }
+
+    .status{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      border-radius:999px;
+      padding:6px 10px;
+      font-size:12px;
+      font-weight:900;
+      border:1px solid var(--stroke);
+      background:rgba(255,255,255,.05);
+      white-space:nowrap;
+    }
+
+    .status.pending{ color:#cbd5e1; }
+    .status.ok{ color:#86efac; border-color:rgba(34,197,94,.24); background:rgba(34,197,94,.10); }
+    .status.warn{ color:#fcd34d; border-color:rgba(245,158,11,.24); background:rgba(245,158,11,.10); }
+    .status.bad{ color:#fca5a5; border-color:rgba(239,68,68,.24); background:rgba(239,68,68,.10); }
+
+    .row{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      margin-top:10px;
+    }
+
+    .mini-btn{
+      width:auto;
+      min-height:40px;
+      padding:9px 12px;
+      border-radius:12px;
+      font-size:13px;
+      font-weight:900;
+      background:rgba(255,255,255,.05);
+    }
+
+    .scenario-grid{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:12px;
+    }
+
+    .scenario{
+      border:1px solid var(--stroke);
+      border-radius:18px;
+      background:rgba(15,23,42,.42);
+      padding:14px;
+      display:grid;
+      gap:10px;
+    }
+
+    .scenario h3{
+      margin:0;
+      font-size:17px;
+    }
+
+    .scenario .desc{
+      color:#dbe4f0;
+      font-size:13px;
+      line-height:1.6;
+    }
+
+    .solo{ color:#86efac; }
+    .race{ color:#7dd3fc; }
+    .battle{ color:#fcd34d; }
+    .coop{ color:#c4b5fd; }
+
+    .hint{
+      margin-top:10px;
+      color:var(--muted);
+      font-size:13px;
+      line-height:1.6;
+      min-height:20px;
+    }
+
+    @media (max-width:980px){
+      .hero-grid,.grid{ grid-template-columns:1fr; }
+      .summary{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .scenario-grid{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .toolbar{ grid-template-columns:1fr 1fr; }
+    }
+
+    @media (max-width:720px){
+      .scenario-grid,.summary,.toolbar{ grid-template-columns:1fr; }
+    }
+
+    @media (max-width:640px){
+      .wrap{
+        padding:
+          calc(16px + var(--sat))
+          calc(12px + var(--sar))
+          calc(28px + var(--sab))
+          calc(12px + var(--sal));
+      }
+      .hero,.card{ border-radius:18px; }
+      h1{ font-size:26px; }
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <section class="hero">
+    <div class="kicker">GOODJUNK • DEBUG CHECKLIST</div>
+    <h1>เช็กไฟล์ Multiplayer ให้ครบก่อน deploy</h1>
+    <div class="muted">
+      หน้านี้ใช้เช็กว่าไฟล์สำคัญของ GoodJunk มีอยู่จริงหรือไม่ พร้อมเปิด test scenario สำหรับ Solo, Race, Battle และ Coop ได้จากหน้าเดียว
+    </div>
+
+    <div class="hero-grid">
+      <div class="mini">
+        <h3>สิ่งที่หน้า debug นี้ช่วยได้</h3>
+        <ul>
+          <li>เช็ก launcher / lobby / run / alias bridge</li>
+          <li>สรุปจำนวนไฟล์ที่ OK / Missing</li>
+          <li>เปิดลิงก์ test ได้ทันที</li>
+          <li>ช่วยไล่หาจุดที่อาจทำให้เกิด 404 ก่อนทดสอบหลายเครื่อง</li>
+        </ul>
+      </div>
+      <div class="mini">
+        <h3>ข้อจำกัด</h3>
+        <ul>
+          <li>เช็กได้ว่าไฟล์เปิดได้หรือไม่</li>
+          <li>ยังไม่ยืนยันว่า gameplay ข้างในไม่มี bug</li>
+          <li>ควรใช้ร่วมกับการเปิดเล่นจริงอย่างน้อย 1 รอบต่อโหมด</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="section-title">ตั้งค่า test</div>
+
+    <div class="toolbar">
+      <div>
+        <label for="playerName">ชื่อผู้เล่น</label>
+        <input id="playerName" placeholder="เช่น ครูเอ / น้องบี" />
+      </div>
+      <div>
+        <label for="diff">ระดับ</label>
+        <select id="diff">
+          <option value="easy">easy</option>
+          <option value="normal" selected>normal</option>
+          <option value="hard">hard</option>
+        </select>
+      </div>
+      <div>
+        <label for="time">เวลา</label>
+        <select id="time">
+          <option value="60">60s</option>
+          <option value="80">80s</option>
+          <option value="100">100s</option>
+          <option value="120" selected>120s</option>
+        </select>
+      </div>
+      <div>
+        <label for="roomId">Room ID</label>
+        <input id="roomId" placeholder="เช่น GJ-8K3P2" />
+      </div>
+    </div>
+
+    <div class="row" style="margin-top:12px;">
+      <button id="btnNewRoom" class="mini-btn btn-violet" type="button">สุ่ม Room</button>
+      <button id="btnRunChecks" class="mini-btn btn-primary" type="button">เช็กไฟล์ทั้งหมด</button>
+      <button id="btnOpenLauncher" class="mini-btn btn-good" type="button">เปิด Launcher หลัก</button>
+    </div>
+
+    <div class="hint" id="hint">กด “เช็กไฟล์ทั้งหมด” เพื่อเริ่มไล่สถานะ</div>
+  </section>
+
+  <section class="card">
+    <div class="section-title">สรุปผล</div>
+    <div class="summary">
+      <div class="summary-box">
+        <div class="summary-label">TOTAL FILES</div>
+        <div class="summary-value" id="sumTotal">0</div>
+      </div>
+      <div class="summary-box">
+        <div class="summary-label">OK</div>
+        <div class="summary-value" id="sumOk">0</div>
+      </div>
+      <div class="summary-box">
+        <div class="summary-label">MISSING / ERROR</div>
+        <div class="summary-value" id="sumBad">0</div>
+      </div>
+      <div class="summary-box">
+        <div class="summary-label">LAST RUN</div>
+        <div class="summary-value" id="sumLast" style="font-size:18px;">-</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="section-title">Quick Scenarios</div>
+    <div class="scenario-grid">
+      <div class="scenario">
+        <h3 class="solo">Solo</h3>
+        <div class="desc">เปิดทางเข้าเล่นเดี่ยวทันทีโดยไม่ใช้ room</div>
+        <div class="row">
+          <button class="mini-btn" data-scenario="solo-launcher" type="button">เปิดผ่าน Launcher</button>
+          <button class="mini-btn" data-scenario="solo-direct" type="button">เปิดตรง</button>
+        </div>
+      </div>
+
+      <div class="scenario">
+        <h3 class="race">Race</h3>
+        <div class="desc">เปิด Race lobby พร้อม query ครบสำหรับทดสอบห้อง</div>
+        <div class="row">
+          <button class="mini-btn" data-scenario="race-launcher" type="button">ผ่าน Launcher</button>
+          <button class="mini-btn" data-scenario="race-direct" type="button">เปิด Lobby ตรง</button>
+        </div>
+      </div>
+
+      <div class="scenario">
+        <h3 class="battle">Battle</h3>
+        <div class="desc">เปิด Battle lobby พร้อม room และชื่อผู้เล่น</div>
+        <div class="row">
+          <button class="mini-btn" data-scenario="battle-launcher" type="button">ผ่าน Launcher</button>
+          <button class="mini-btn" data-scenario="battle-direct" type="button">เปิด Lobby ตรง</button>
+        </div>
+      </div>
+
+      <div class="scenario">
+        <h3 class="coop">Coop</h3>
+        <div class="desc">เปิด Coop lobby สำหรับห้อง participant หลายคน</div>
+        <div class="row">
+          <button class="mini-btn" data-scenario="coop-launcher" type="button">ผ่าน Launcher</button>
+          <button class="mini-btn" data-scenario="coop-direct" type="button">เปิด Lobby ตรง</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="grid">
+    <section class="card">
+      <div class="section-title">Core Files</div>
+      <div class="list" id="coreList"></div>
+    </section>
+
+    <section class="card">
+      <div class="section-title">Alias / Bridge Files</div>
+      <div class="list" id="aliasList"></div>
+    </section>
+  </div>
+</div>
+
+<script>
+(function(){
+  const $ = (id) => document.getElementById(id);
+
+  const els = {
+    playerName: $('playerName'),
+    diff: $('diff'),
+    time: $('time'),
+    roomId: $('roomId'),
+    hint: $('hint'),
+    sumTotal: $('sumTotal'),
+    sumOk: $('sumOk'),
+    sumBad: $('sumBad'),
+    sumLast: $('sumLast'),
+    coreList: $('coreList'),
+    aliasList: $('aliasList'),
+    btnRunChecks: $('btnRunChecks'),
+    btnOpenLauncher: $('btnOpenLauncher'),
+    btnNewRoom: $('btnNewRoom')
+  };
+
+  const HUB_FALLBACK = '../hub.html';
+
+  const coreFiles = [
+    { title:'Launcher หลัก', path:'./goodjunk-launcher.html' },
+    { title:'Multiplayer Selector เก่า/Bridge', path:'./goodjunk-multi.html' },
+    { title:'Legacy Multiplayer Lobby Bridge', path:'./goodjunk-multiplayer-lobby.html' },
+
+    { title:'Race Lobby HTML', path:'./goodjunk-race-room.html' },
+    { title:'Race Lobby JS', path:'./goodjunk-race-lobby.js' },
+    { title:'Race Run HTML', path:'./goodjunk-race-run.html' },
+    { title:'Race Run JS', path:'./goodjunk.safe.race.js' },
+
+    { title:'Battle Lobby HTML', path:'./goodjunk-battle-lobby.html' },
+    { title:'Battle Lobby JS', path:'./goodjunk-battle-lobby.js' },
+    { title:'Battle Run HTML', path:'./goodjunk-battle-run.html' },
+    { title:'Battle Run JS', path:'./goodjunk.safe.battle.js' },
+
+    { title:'Coop Lobby HTML', path:'./goodjunk-coop-lobby.html' },
+    { title:'Coop Lobby JS', path:'./goodjunk-coop-lobby.js' },
+    { title:'Coop Run HTML', path:'./goodjunk-coop-run.html' },
+    { title:'Coop Run JS', path:'./goodjunk.safe.coop.js' },
+
+    { title:'Solo Run HTML', path:'./goodjunk-vr.html' },
+    { title:'Firebase Config', path:'../firebase-config.js' }
+  ];
+
+  const aliasFiles = [
+    { title:'Generic Lobby Bridge', path:'./goodjunk-lobby.html' },
+    { title:'Race Lobby Alias', path:'./goodjunk-race-lobby.html' },
+    { title:'Battle Room Alias', path:'./goodjunk-battle-room.html' },
+    { title:'Coop Room Alias', path:'./goodjunk-coop-room.html' },
+    { title:'Generic Run Bridge', path:'./goodjunk-run.html' },
+    { title:'Race Run Alias', path:'./goodjunk-race.html' },
+    { title:'Battle Run Alias', path:'./goodjunk-battle.html' },
+    { title:'Coop Run Alias', path:'./goodjunk-coop.html' }
+  ];
+
+  const state = {
+    items: []
+  };
+
+  function setHint(text){
+    els.hint.textContent = text || '';
+  }
+
+  function randRoom(){
+    const pool = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+    let s = 'GJ-';
+    for(let i=0;i<5;i++) s += pool[Math.floor(Math.random()*pool.length)];
+    return s;
+  }
+
+  function sanitizeName(name){
+    return String(name || '').trim().slice(0, 32);
+  }
+
+  function cleanRoom(v){
+    return String(v || '').trim().toUpperCase().replace(/[^A-Z0-9-]/g,'').slice(0,16);
+  }
+
+  function makeDevicePid() {
+    try {
+      const KEY = 'GJ_DEVICE_PID';
+      let pid = localStorage.getItem(KEY);
+      if (!pid) {
+        pid = `p-${Math.random().toString(36).slice(2, 10)}`;
+        localStorage.setItem(KEY, pid);
+      }
+      return pid;
+    } catch {
+      return `p-${Math.random().toString(36).slice(2, 10)}`;
+    }
+  }
+
+  function normalizePid(rawPid) {
+    const v = String(rawPid || '').trim().replace(/[.#$[\]/]/g, '-');
+    if (!v) return makeDevicePid();
+    if (v.toLowerCase() === 'anon') return makeDevicePid();
+    return v;
+  }
+
+  function buildBaseParams(mode, needsRoom=true){
+    const q = new URLSearchParams();
+    q.set('pid', normalizePid(''));
+    q.set('name', sanitizeName(els.playerName.value || 'Player'));
+    q.set('studyId', '');
+    q.set('diff', els.diff.value || 'normal');
+    q.set('time', els.time.value || '120');
+    q.set('seed', String(Date.now()));
+    q.set('hub', HUB_FALLBACK);
+    q.set('view', 'mobile');
+    q.set('run', 'play');
+    q.set('gameId', 'goodjunk');
+    q.set('mode', mode);
+    if (needsRoom) q.set('roomId', cleanRoom(els.roomId.value || randRoom()));
+    return q;
+  }
+
+  function buildScenarioUrl(kind){
+    if (kind === 'solo-launcher') {
+      const u = new URL('./goodjunk-launcher.html', location.href);
+      const q = buildBaseParams('solo', false);
+      q.forEach((v,k)=>u.searchParams.set(k,v));
+      return u.toString();
+    }
+    if (kind === 'solo-direct') {
+      const u = new URL('./goodjunk-vr.html', location.href);
+      const q = buildBaseParams('solo', false);
+      q.forEach((v,k)=>u.searchParams.set(k,v));
+      return u.toString();
+    }
+
+    if (kind === 'race-launcher') {
+      const u = new URL('./goodjunk-launcher.html', location.href);
+      const q = buildBaseParams('race', true);
+      q.forEach((v,k)=>u.searchParams.set(k,v));
+      return u.toString();
+    }
+    if (kind === 'race-direct') {
+      const u = new URL('./goodjunk-race-room.html', location.href);
+      const q = buildBaseParams('race', true);
+      q.forEach((v,k)=>u.searchParams.set(k,v));
+      return u.toString();
+    }
+
+    if (kind === 'battle-launcher') {
+      const u = new URL('./goodjunk-launcher.html', location.href);
+      const q = buildBaseParams('battle', true);
+      q.forEach((v,k)=>u.searchParams.set(k,v));
+      return u.toString();
+    }
+    if (kind === 'battle-direct') {
+      const u = new URL('./goodjunk-battle-lobby.html', location.href);
+      const q = buildBaseParams('battle', true);
+      q.forEach((v,k)=>u.searchParams.set(k,v));
+      return u.toString();
+    }
+
+    if (kind === 'coop-launcher') {
+      const u = new URL('./goodjunk-launcher.html', location.href);
+      const q = buildBaseParams('coop', true);
+      q.forEach((v,k)=>u.searchParams.set(k,v));
+      return u.toString();
+    }
+    if (kind === 'coop-direct') {
+      const u = new URL('./goodjunk-coop-lobby.html', location.href);
+      const q = buildBaseParams('coop', true);
+      q.forEach((v,k)=>u.searchParams.set(k,v));
+      return u.toString();
+    }
+
+    return '';
+  }
+
+  function createItemEl(item, listType){
+    const wrap = document.createElement('div');
+    wrap.className = 'item';
+    wrap.innerHTML = `
+      <div class="item-top">
+        <div class="item-title">${escapeHtml(item.title)}</div>
+        <div class="status pending" data-status>WAITING</div>
+      </div>
+      <div class="path">${escapeHtml(item.path)}</div>
+      <div class="row">
+        <button class="mini-btn" data-open type="button">เปิดไฟล์</button>
+        <button class="mini-btn" data-check type="button">เช็กไฟล์นี้</button>
+      </div>
+    `;
+
+    const statusEl = wrap.querySelector('[data-status]');
+    wrap.querySelector('[data-open]').addEventListener('click', () => {
+      const u = new URL(item.path, location.href).toString();
+      window.open(u, '_blank', 'noopener');
+    });
+    wrap.querySelector('[data-check]').addEventListener('click', async () => {
+      await checkItem(item, statusEl);
+      refreshSummary();
+      setHint(`เช็กแล้ว: ${item.title}`);
+    });
+
+    item._statusEl = statusEl;
+    item._listType = listType;
+    return wrap;
+  }
+
+  function renderLists(){
+    els.coreList.innerHTML = '';
+    els.aliasList.innerHTML = '';
+
+    state.items = [
+      ...coreFiles.map(f => ({...f, status:'pending'})),
+      ...aliasFiles.map(f => ({...f, status:'pending'}))
+    ];
+
+    state.items.forEach((item, idx) => {
+      const listType = idx < coreFiles.length ? 'core' : 'alias';
+      const el = createItemEl(item, listType);
+      if (listType === 'core') els.coreList.appendChild(el);
+      else els.aliasList.appendChild(el);
+    });
+
+    refreshSummary();
+  }
+
+  function refreshSummary(){
+    const total = state.items.length;
+    const ok = state.items.filter(i => i.status === 'ok').length;
+    const bad = state.items.filter(i => i.status === 'bad').length;
+
+    els.sumTotal.textContent = String(total);
+    els.sumOk.textContent = String(ok);
+    els.sumBad.textContent = String(bad);
+  }
+
+  function markStatus(el, type, text){
+    el.className = `status ${type}`;
+    el.textContent = text;
+  }
+
+  async function checkItem(item, statusEl){
+    const url = new URL(item.path, location.href).toString();
+    try{
+      markStatus(statusEl, 'pending', 'CHECKING');
+      const res = await fetch(url, {
+        method:'GET',
+        cache:'no-store',
+        credentials:'same-origin'
+      });
+
+      if (res.ok) {
+        item.status = 'ok';
+        markStatus(statusEl, 'ok', `OK ${res.status}`);
+      } else {
+        item.status = 'bad';
+        markStatus(statusEl, 'bad', `ERR ${res.status}`);
+      }
+    }catch(err){
+      item.status = 'bad';
+      markStatus(statusEl, 'bad', 'FETCH FAIL');
+    }
+  }
+
+  async function runAllChecks(){
+    setHint('กำลังเช็กไฟล์ทั้งหมด...');
+    els.sumLast.textContent = 'running';
+
+    for (const item of state.items) {
+      await checkItem(item, item._statusEl);
+    }
+
+    refreshSummary();
+    const now = new Date();
+    els.sumLast.textContent = now.toLocaleTimeString('th-TH', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+
+    const bad = state.items.filter(i => i.status === 'bad').length;
+    if (bad === 0) {
+      setHint('เช็กครบแล้ว: ไม่พบไฟล์ที่หาย');
+    } else {
+      setHint(`เช็กครบแล้ว: พบไฟล์ที่มีปัญหา ${bad} รายการ`);
+    }
+  }
+
+  function escapeHtml(s) {
+    return String(s ?? '')
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;');
+  }
+
+  document.querySelectorAll('[data-scenario]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const kind = btn.getAttribute('data-scenario');
+      if (!els.roomId.value.trim()) {
+        els.roomId.value = randRoom();
+      }
+      const url = buildScenarioUrl(kind);
+      if (!url) {
+        setHint('สร้าง scenario URL ไม่สำเร็จ');
+        return;
+      }
+      window.open(url, '_blank', 'noopener');
+    });
+  });
+
+  els.btnNewRoom.addEventListener('click', () => {
+    els.roomId.value = randRoom();
+    setHint(`สุ่ม room แล้ว: ${els.roomId.value}`);
+  });
+
+  els.btnRunChecks.addEventListener('click', runAllChecks);
+
+  els.btnOpenLauncher.addEventListener('click', () => {
+    const u = new URL('./goodjunk-launcher.html', location.href);
+    const q = buildBaseParams('solo', false);
+    q.forEach((v,k)=>u.searchParams.set(k,v));
+    window.open(u.toString(), '_blank', 'noopener');
+  });
+
+  (function init(){
+    els.playerName.value = 'Player';
+    els.roomId.value = randRoom();
+    renderLists();
+    els.sumLast.textContent = '-';
+    setHint('พร้อมเช็กไฟล์แล้ว');
+  })();
+})();
+</script>
+</body>
+</html>
