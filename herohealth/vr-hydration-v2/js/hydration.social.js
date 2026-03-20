@@ -1,81 +1,166 @@
 // === /herohealth/vr-hydration-v2/js/hydration.social.js ===
-// Hydration V2 Social / Team Mission
-// PATCH v20260317c-HYDRATION-V2-SOCIAL
+// Hydration V2 Social / Team Mission Logic
+// PATCH v20260318a-HYDRATION-V2-SOCIAL-TEAM-CHECK
 
-export function computeSocialProgress({
-  type = 'solo',
-  goodCatch = 0,
-  correctChoices = 0,
-  createdPlanScore = 0,
-  rewardCount = 0
-} = {}) {
+export function computeSocialProgress(input = {}) {
+  const type = normalizeType(input.type);
+
+  const goodCatch = positiveInt(input.goodCatch);
+  const badCatch = positiveInt(input.badCatch);
+  const correctChoices = positiveInt(input.correctChoices);
+  const createdPlanScore = clampNumber(input.createdPlanScore, 0, 100);
+  const rewardCount = positiveInt(input.rewardCount);
+  const bestCombo = positiveInt(input.bestCombo);
+
   if (type !== 'team') {
-    return {
-      contributionPercent: 0,
-      socialScore: 0,
-      missionDone: false,
-      missionLabel: 'Solo Mode',
-      missionNote: 'โหมดนี้ยังไม่คิดภารกิจทีม',
-      teamStars: 0
-    };
+    return buildSoloResult({
+      goodCatch,
+      correctChoices,
+      createdPlanScore,
+      rewardCount,
+      bestCombo
+    });
   }
 
-  const contributionRaw =
-    (goodCatch * 4) +
-    (correctChoices * 10) +
-    (Math.min(createdPlanScore, 18) * 2) +
-    (rewardCount * 3);
+  const actionPart = clampNumber((goodCatch / 14) * 40, 0, 40);
+  const knowledgePart = clampNumber((correctChoices / 2) * 20, 0, 20);
+  const planningPart = clampNumber((createdPlanScore / 100) * 25, 0, 25);
+  const teamworkPart = clampNumber((rewardCount / 4) * 10, 0, 10);
+  const comboPart = clampNumber((bestCombo / 8) * 5, 0, 5);
 
-  const contributionPercent = clamp(Math.round(contributionRaw), 0, 100);
-  const socialScore = clamp(Math.floor(contributionPercent / 5), 0, 20);
+  const rawContribution =
+    actionPart +
+    knowledgePart +
+    planningPart +
+    teamworkPart +
+    comboPart;
+
+  const penalty = clampNumber(badCatch * 3, 0, 15);
+  const contributionPercent = Math.round(clampNumber(rawContribution - penalty, 0, 100));
+
+  const socialScore = Math.round(clampNumber(
+    (contributionPercent * 0.6) +
+    (correctChoices * 6) +
+    (createdPlanScore * 0.14),
+    0,
+    100
+  ));
 
   const missionDone =
-    goodCatch >= 7 &&
+    goodCatch >= 8 &&
     correctChoices >= 1 &&
-    createdPlanScore >= 9;
+    createdPlanScore >= 60 &&
+    contributionPercent >= 60;
 
   const teamStars =
-    contributionPercent >= 80 ? 3 :
-    contributionPercent >= 50 ? 2 :
-    contributionPercent >= 25 ? 1 : 0;
+    contributionPercent >= 85 && createdPlanScore >= 80 && correctChoices >= 2 ? 3 :
+    contributionPercent >= 65 && createdPlanScore >= 60 ? 2 :
+    contributionPercent >= 40 ? 1 : 0;
 
-  let missionLabel = 'Team Hydration Goal ยังไม่ครบ';
-  let missionNote = 'ลองช่วยทีมเพิ่มทั้งช่วงเล่น ตอบสถานการณ์ และวางแผนให้สมดุลขึ้น';
+  const missionLabel = missionDone
+    ? 'Team Hydration Goal ผ่านแล้ว'
+    : 'Team Hydration Goal ยังไม่ผ่าน';
 
-  if (missionDone) {
-    missionLabel = 'Team Hydration Goal ผ่านแล้ว';
-    missionNote = 'ทีมทำได้ดีทั้งในรอบเล่น ความเข้าใจ และการวางแผนดื่มน้ำ';
-  } else if (goodCatch < 7) {
-    missionNote = 'เก็บน้ำให้มากขึ้นอีกนิด เพื่อช่วย contribution ของทีม';
-  } else if (correctChoices < 1) {
-    missionNote = 'ตอบสถานการณ์ให้ถูกอย่างน้อย 1 ข้อ เพื่อดันภารกิจทีม';
-  } else if (createdPlanScore < 9) {
-    missionNote = 'ลองจัดแผนดื่มน้ำให้กระจายทั้งวันมากขึ้น เพื่อให้ทีมผ่านเป้าหมาย';
-  }
+  const missing = [];
+  if (goodCatch < 8) missing.push('เก็บน้ำให้มากขึ้น');
+  if (correctChoices < 1) missing.push('ตอบสถานการณ์ให้ถูกอย่างน้อย 1 ข้อ');
+  if (createdPlanScore < 60) missing.push('วางแผนดื่มน้ำให้ชัดขึ้น');
+  if (contributionPercent < 60) missing.push('ดัน contribution ให้ถึง 60%');
+
+  const missionNote = missionDone
+    ? 'ทีมทำครบทั้ง action + knowledge + planning แล้ว'
+    : `ยังขาด: ${missing.join(' • ')}`;
 
   return {
+    type: 'team',
     contributionPercent,
     socialScore,
     missionDone,
     missionLabel,
     missionNote,
-    teamStars
+    teamStars,
+
+    metrics: {
+      goodCatch,
+      badCatch,
+      correctChoices,
+      createdPlanScore,
+      rewardCount,
+      bestCombo
+    }
   };
 }
 
-export function buildSocialSummary(progress = {}) {
-  if (!progress || progress.missionLabel === 'Solo Mode') {
-    return 'โหมดเดี่ยว: รอบนี้ยังไม่คิดภารกิจทีมแบบเต็ม';
+export function buildSocialSummary(social = {}) {
+  const contributionPercent = positiveInt(social.contributionPercent);
+  const socialScore = positiveInt(social.socialScore);
+  const teamStars = positiveInt(social.teamStars);
+  const missionDone = !!social.missionDone;
+  const missionLabel = String(social.missionLabel || '-');
+  const missionNote = String(social.missionNote || '-');
+
+  if (social.type !== 'team') {
+    return `Solo summary • contribution ${contributionPercent}% • social ${socialScore} • ${missionNote}`;
   }
 
-  return [
-    `Contribution ${progress.contributionPercent || 0}%`,
-    `${progress.teamStars || 0} ดาว`,
-    progress.missionLabel || 'ภารกิจทีม',
-    progress.missionNote || ''
-  ].join(' • ');
+  return `Team summary • contribution ${contributionPercent}% • social ${socialScore} • stars ${teamStars} • ${missionLabel} • ${missionNote}`;
 }
 
-function clamp(n, min, max) {
+function buildSoloResult({
+  goodCatch = 0,
+  correctChoices = 0,
+  createdPlanScore = 0,
+  rewardCount = 0,
+  bestCombo = 0
+} = {}) {
+  const contributionPercent = Math.round(clampNumber(
+    (goodCatch * 3) +
+    (correctChoices * 10) +
+    (createdPlanScore * 0.2) +
+    (rewardCount * 4) +
+    Math.min(bestCombo, 10),
+    0,
+    100
+  ));
+
+  const socialScore = Math.round(clampNumber(
+    (correctChoices * 8) +
+    (createdPlanScore * 0.18) +
+    (rewardCount * 4),
+    0,
+    100
+  ));
+
+  return {
+    type: 'solo',
+    contributionPercent,
+    socialScore,
+    missionDone: false,
+    missionLabel: 'Solo Mode',
+    missionNote: 'โหมดนี้ยังไม่คิดภารกิจทีม',
+    teamStars: 0,
+
+    metrics: {
+      goodCatch,
+      correctChoices,
+      createdPlanScore,
+      rewardCount,
+      bestCombo
+    }
+  };
+}
+
+function normalizeType(value) {
+  return value === 'team' ? 'team' : 'solo';
+}
+
+function positiveInt(value) {
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
+}
+
+function clampNumber(value, min, max) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return min;
   return Math.max(min, Math.min(max, n));
 }
