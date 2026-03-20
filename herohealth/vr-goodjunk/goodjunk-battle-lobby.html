@@ -14,10 +14,7 @@
       --text:#e5e7eb;
       --muted:#94a3b8;
       --good:#22c55e;
-      --blue:#38bdf8;
-      --warn:#f59e0b;
       --battle:#f59e0b;
-      --danger:#ef4444;
       --shadow:0 24px 64px rgba(0,0,0,.28);
       --sat: env(safe-area-inset-top, 0px);
       --sar: env(safe-area-inset-right, 0px);
@@ -148,7 +145,7 @@
       min-height:96px;
     }
     .ready{ color:var(--good); font-weight:800; }
-    .waiting{ color:var(--warn); font-weight:800; }
+    .waiting{ color:var(--battle); font-weight:800; }
 
     .btn{
       appearance:none;
@@ -221,6 +218,49 @@
       font-size:14px;
       font-weight:700;
       outline:none;
+    }
+
+    .qr-panel{
+      margin-top:12px;
+      border:1px solid var(--stroke);
+      border-radius:18px;
+      background:rgba(15,23,42,.45);
+      padding:14px;
+    }
+    .qr-title{
+      font-size:14px;
+      font-weight:900;
+      color:#e5e7eb;
+      margin-bottom:6px;
+    }
+    .qr-sub{
+      color:var(--muted);
+      font-size:13px;
+      line-height:1.6;
+      margin-bottom:10px;
+    }
+    .qr-box{
+      width:220px;
+      height:220px;
+      max-width:100%;
+      margin:0 auto;
+      border-radius:16px;
+      border:1px dashed var(--stroke);
+      background:rgba(2,6,23,.42);
+      display:grid;
+      place-items:center;
+      overflow:hidden;
+    }
+    .qr-box img{
+      width:220px;
+      height:220px;
+      display:block;
+    }
+    .qr-empty{
+      color:var(--muted);
+      font-size:13px;
+      text-align:center;
+      padding:16px;
     }
 
     .section-title{
@@ -317,9 +357,9 @@
           <div class="mini-title">Battle รอบนี้</div>
           <div class="bullet">
             <div>• โจมตีคู่แข่งได้</div>
-            <div>• ใช้ <strong style="color:#fbbf24;">Attack</strong> ส่ง Junk Storm</div>
-            <div>• ใช้ <strong style="color:#7dd3fc;">Shield</strong> กันการโจมตี</div>
-            <div>• สรุปผลหลังจบรอบพร้อมอันดับ</div>
+            <div>• ใช้ Attack ส่ง Junk Storm</div>
+            <div>• ใช้ Shield กันการโจมตี</div>
+            <div>• มี summary และอันดับหลังจบรอบ</div>
           </div>
         </div>
       </div>
@@ -343,6 +383,14 @@
 
       <div id="inviteWrap">
         <input id="inviteLink" type="text" readonly value="" aria-label="Invite Link" />
+      </div>
+
+      <div class="qr-panel">
+        <div class="qr-title">QR Code</div>
+        <div class="qr-sub">สแกนจากอีกเครื่องเพื่อเข้าห้องนี้ได้ทันที</div>
+        <div class="qr-box" id="qrBox">
+          <div class="qr-empty">ยังไม่มีลิงก์</div>
+        </div>
       </div>
 
       <div id="countdown"></div>
@@ -390,6 +438,6 @@
   </div>
 
   <script src="../firebase-config.js"></script>
-  <script type="module" src="./goodjunk-battle-lobby.js?v=20260320-battle-lobby-ready2-max5"></script>
+  <script type="module" src="./goodjunk-battle-lobby.js?v=20260320-battle-lobby-ready2-max5-qr"></script>
 </body>
 </html>
