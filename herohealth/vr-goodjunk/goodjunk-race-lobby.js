@@ -1,6 +1,6 @@
 // === /herohealth/vr-goodjunk/goodjunk-race-lobby.js ===
 // GoodJunk Race Lobby
-// FULL PATCH v20260320-RACE-LOBBY-READY2-MAX5
+// FULL PATCH v20260320-RACE-LOBBY-READY2-MAX5-QR
 
 const params = new URLSearchParams(location.search);
 
@@ -56,6 +56,7 @@ const els = {
   roomStatus: $('roomStatus'),
   hostName: $('hostName'),
   inviteLink: $('inviteLink'),
+  qrBox: $('qrBox'),
   copyState: $('copyState'),
   joinGuard: $('joinGuard'),
   btnCopyRoom: $('btnCopyRoom'),
@@ -169,6 +170,23 @@ async function copyText(text) {
       return false;
     }
   }
+}
+
+function renderQr(link = '') {
+  if (!els.qrBox) return;
+
+  const value = String(link || '').trim();
+  if (!value) {
+    els.qrBox.innerHTML = '<div class="qr-empty">ยังไม่มีลิงก์</div>';
+    return;
+  }
+
+  const img = new Image();
+  img.alt = 'Race Invite QR';
+  img.src = 'https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=' + encodeURIComponent(value);
+
+  els.qrBox.innerHTML = '';
+  els.qrBox.appendChild(img);
 }
 
 function activePlayers(r = room) {
@@ -452,7 +470,10 @@ function renderStatus(r = room) {
 
   const host = r?.players?.find((p) => p.id === r?.hostId);
   if (els.hostName) els.hostName.textContent = host ? playerLabel(host) : '-';
-  if (els.inviteLink) els.inviteLink.value = buildInviteUrl();
+
+  const inviteUrl = buildInviteUrl();
+  if (els.inviteLink) els.inviteLink.value = inviteUrl;
+  renderQr(inviteUrl);
 
   if (!r) {
     setHint('กำลังสร้างห้อง...');
@@ -844,7 +865,7 @@ async function enterRun(startAt) {
     startAt: String(startAt || now())
   });
 
-  location.href = `./goodjunk-race-run.html?v=20260320-race-lobby-ready2-max5&${q.toString()}`;
+  location.href = `./goodjunk-race-run.html?v=20260320-race-lobby-ready2-max5-qr&${q.toString()}`;
 }
 
 async function leaveRoom() {
