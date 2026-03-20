@@ -1,0 +1,211 @@
+/* === /herohealth/gate/games/cleanobjects-kids/style.css === */
+/* Clean Objects Kids — Gate Style */
+/* PATCH v20260320-CLEANOBJECTS-KIDS-STYLE */
+
+.coKidsGate{
+  width:min(920px, 100%);
+  margin:0 auto;
+}
+
+.coKidsGateCard{
+  border-radius:24px;
+  border:1px solid rgba(148,163,184,.18);
+  background:
+    radial-gradient(900px 500px at 50% -20%, rgba(59,130,246,.14), transparent 60%),
+    linear-gradient(180deg, rgba(2,6,23,.86), rgba(2,6,23,.70));
+  box-shadow:0 24px 80px rgba(0,0,0,.34);
+  padding:18px;
+  display:grid;
+  gap:14px;
+}
+
+.coKidsGateBadge{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-height:34px;
+  padding:6px 14px;
+  border-radius:999px;
+  border:1px solid rgba(59,130,246,.28);
+  background:rgba(59,130,246,.14);
+  color:#dbeafe;
+  font-size:12px;
+  font-weight:1100;
+  letter-spacing:.4px;
+  width:max-content;
+}
+
+.coKidsGateHero{
+  display:flex;
+  gap:12px;
+  align-items:flex-start;
+}
+
+.coKidsGateIcon{
+  width:60px;
+  height:60px;
+  border-radius:18px;
+  border:1px solid rgba(148,163,184,.18);
+  background:linear-gradient(135deg, rgba(34,197,94,.16), rgba(59,130,246,.16));
+  display:grid;
+  place-items:center;
+  font-size:30px;
+  box-shadow:0 12px 30px rgba(0,0,0,.24);
+  flex:0 0 60px;
+}
+
+.coKidsGateTitle{
+  font-size:clamp(22px, 4vw, 34px);
+  line-height:1.12;
+  font-weight:1100;
+}
+
+.coKidsGateSub{
+  margin-top:6px;
+  color:#cbd5e1;
+  font-size:14px;
+  font-weight:900;
+  line-height:1.5;
+}
+
+.coKidsGateSteps{
+  display:grid;
+  gap:10px;
+}
+
+.coKidsGateStep{
+  min-height:48px;
+  border-radius:16px;
+  border:1px solid rgba(148,163,184,.16);
+  background:rgba(15,23,42,.46);
+  padding:10px 12px;
+  font-size:14px;
+  font-weight:1000;
+  display:flex;
+  gap:10px;
+  align-items:center;
+  line-height:1.45;
+}
+
+.coKidsGateStep span{
+  width:28px;
+  height:28px;
+  border-radius:999px;
+  display:grid;
+  place-items:center;
+  border:1px solid rgba(59,130,246,.24);
+  background:rgba(59,130,246,.14);
+  color:#dbeafe;
+  flex:0 0 28px;
+  font-size:12px;
+  font-weight:1100;
+}
+
+.coKidsGateTip{
+  border-radius:18px;
+  border:1px solid rgba(34,197,94,.22);
+  background:rgba(34,197,94,.10);
+  padding:12px 14px;
+  font-size:14px;
+  font-weight:900;
+  line-height:1.5;
+}
+
+.coKidsGateStats{
+  display:grid;
+  grid-template-columns:repeat(4, minmax(0,1fr));
+  gap:10px;
+}
+
+.coKidsStat{
+  border-radius:18px;
+  border:1px solid rgba(148,163,184,.16);
+  background:rgba(15,23,42,.46);
+  padding:12px;
+  text-align:center;
+  box-shadow:0 18px 55px rgba(0,0,0,.18);
+}
+
+.coKidsStatK{
+  color:#94a3b8;
+  font-size:12px;
+  font-weight:1000;
+  line-height:1.3;
+}
+
+.coKidsStatV{
+  margin-top:6px;
+  font-size:28px;
+  line-height:1;
+  font-weight:1100;
+  color:#f8fafc;
+}
+
+.coKidsGateBtns{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+  justify-content:flex-end;
+}
+
+.coKidsBtn{
+  appearance:none;
+  border:1px solid rgba(148,163,184,.18);
+  border-radius:16px;
+  min-height:48px;
+  padding:12px 16px;
+  cursor:pointer;
+  color:#e5e7eb;
+  background:rgba(15,23,42,.46);
+  font-size:14px;
+  font-weight:1100;
+}
+
+.coKidsBtnPrimary{
+  border-color:rgba(34,197,94,.30);
+  background:rgba(34,197,94,.16);
+}
+
+.coKidsWarmup .coKidsGateBadge{
+  border-color:rgba(59,130,246,.28);
+  background:rgba(59,130,246,.14);
+  color:#dbeafe;
+}
+
+.coKidsCooldown .coKidsGateBadge{
+  border-color:rgba(167,139,250,.28);
+  background:rgba(167,139,250,.14);
+  color:#ede9fe;
+}
+
+@media (max-width: 900px){
+  .coKidsGateStats{
+    grid-template-columns:repeat(2, minmax(0,1fr));
+  }
+}
+
+@media (max-width: 640px){
+  .coKidsGateCard{
+    padding:14px;
+    gap:12px;
+  }
+
+  .coKidsGateHero{
+    align-items:center;
+  }
+
+  .coKidsGateIcon{
+    width:52px;
+    height:52px;
+    font-size:26px;
+    flex-basis:52px;
+  }
+
+  .coKidsGateBtns{
+    justify-content:stretch;
+  }
+
+  .coKidsBtn{
+    width:100%;
+  }
+}
