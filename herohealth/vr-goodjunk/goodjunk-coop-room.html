@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>GoodJunk Coop Room Bridge</title>
+</head>
+<body>
+<script>
+(function(){
+  const q = new URLSearchParams(location.search);
+
+  function cleanRoom(v){
+    return String(v || '').trim().toUpperCase().replace(/[^A-Z0-9-]/g,'').slice(0,16);
+  }
+  function firstNonEmpty(...vals){
+    for(const v of vals){
+      if(String(v || '').trim()) return String(v).trim();
+    }
+    return '';
+  }
+
+  const roomId = cleanRoom(firstNonEmpty(q.get('roomId'), q.get('room')));
+  const name = firstNonEmpty(q.get('name'), q.get('nick'));
+
+  const u = new URL('./goodjunk-coop-lobby.html', location.href);
+
+  q.forEach((value, key) => {
+    if (!u.searchParams.has(key)) u.searchParams.set(key, value);
+  });
+
+  if (roomId) u.searchParams.set('roomId', roomId);
+  u.searchParams.delete('room');
+
+  if (name) u.searchParams.set('name', name);
+  u.searchParams.delete('nick');
+
+  u.searchParams.set('mode', 'coop');
+
+  location.replace(u.toString());
+})();
+</script>
+</body>
+</html>
