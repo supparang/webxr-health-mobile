@@ -1,9 +1,9 @@
 <!-- === /herohealth/plate-v1.html ===
 PlateVR V1 — LEGACY LAUNCHER
-FINAL PATCH v20260320-PLATE-V1-LAUNCHER-FLOW
+FINAL PATCH v20260320-PLATE-V1-LAUNCHER-DIFF
 Flow:
 Start -> /herohealth/plate-v1.html -> warmup-gate -> /herohealth/plate/plate-v1.html
--> summary -> cooldown-gate -> hub
+-> summary -> warmup-gate?phase=cooldown -> hub
 -->
 <!doctype html>
 <html lang="th">
@@ -20,6 +20,10 @@ Start -> /herohealth/plate-v1.html -> warmup-gate -> /herohealth/plate/plate-v1.
       --text:#e5e7eb;
       --mut:#94a3b8;
       --line:rgba(148,163,184,.18);
+      --easy:#22c55e;
+      --normal:#38bdf8;
+      --hard:#f59e0b;
+      --pro:#a78bfa;
     }
     *{ box-sizing:border-box; }
     html,body{
@@ -38,7 +42,7 @@ Start -> /herohealth/plate-v1.html -> warmup-gate -> /herohealth/plate/plate-v1.
       padding:16px;
     }
     .card{
-      width:min(860px, 96vw);
+      width:min(980px, 96vw);
       border:1px solid var(--line);
       border-radius:24px;
       background:rgba(2,6,23,.74);
@@ -65,7 +69,7 @@ Start -> /herohealth/plate-v1.html -> warmup-gate -> /herohealth/plate/plate-v1.
       gap:12px;
       margin-top:14px;
     }
-    @media (max-width:780px){
+    @media (max-width:820px){
       .grid{ grid-template-columns:1fr; }
     }
     .modeCard{
@@ -110,32 +114,46 @@ Start -> /herohealth/plate-v1.html -> warmup-gate -> /herohealth/plate/plate-v1.
       font-weight:1000;
     }
     .pill b{ color:var(--text); }
-    .row{
-      display:flex;
+
+    .btnGrid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
       gap:10px;
-      flex-wrap:wrap;
-      margin-top:14px;
-      align-items:center;
+      margin-top:8px;
     }
+    @media (max-width:520px){
+      .btnGrid{ grid-template-columns:1fr; }
+    }
+
     .btn{
       cursor:pointer;
       border-radius:14px;
       border:1px solid rgba(148,163,184,.18);
       background:rgba(148,163,184,.10);
       color:var(--text);
-      padding:10px 12px;
+      padding:11px 12px;
       font-weight:1000;
-      min-height:44px;
+      min-height:46px;
       text-decoration:none;
+      text-align:center;
     }
-    .btn.primary{
+    .btn.easy{
       border-color:rgba(34,197,94,.30);
       background:rgba(34,197,94,.14);
     }
-    .btn.violet{
+    .btn.normal{
+      border-color:rgba(56,189,248,.30);
+      background:rgba(56,189,248,.14);
+    }
+    .btn.hard{
+      border-color:rgba(245,158,11,.30);
+      background:rgba(245,158,11,.14);
+    }
+    .btn.pro{
       border-color:rgba(167,139,250,.30);
       background:rgba(167,139,250,.16);
     }
+
     .toolbar{
       display:flex;
       gap:10px;
@@ -164,7 +182,7 @@ Start -> /herohealth/plate-v1.html -> warmup-gate -> /herohealth/plate/plate-v1.
   <div class="card">
     <div class="title">🍽️ PlateVR V1 Launcher</div>
     <div class="sub">
-      เวอร์ชัน baseline เดิมของ Plate V1<br>
+      เลือกระดับความยากก่อนเข้าเล่น Plate V1<br>
       Flow: <b>Launcher → Warmup → Run → Summary → Cooldown → Hub</b>
     </div>
 
@@ -172,32 +190,38 @@ Start -> /herohealth/plate-v1.html -> warmup-gate -> /herohealth/plate/plate-v1.
       <section class="modeCard">
         <h3>🎯 Solo Mode</h3>
         <div class="mut">
-          เล่นเดี่ยวผ่าน warmup ก่อนทุกครั้ง แล้วค่อยเข้า Plate V1
+          เล่นเดี่ยวผ่าน warmup ก่อนทุกครั้ง แล้วเข้า Plate V1 ด้วยระดับความยากที่เลือก
         </div>
         <div class="chips">
           <span class="pill"><b>Game</b>: platev1</span>
           <span class="pill"><b>Mode</b>: solo</span>
-          <span class="pill"><b>Flow</b>: warmup first</span>
+          <span class="pill"><b>Diff</b>: easy / normal / hard</span>
         </div>
-        <div class="row">
-          <button class="btn primary" id="goSolo" type="button">▶ เข้า Solo</button>
-          <button class="btn" id="goSoloPro" type="button">🔥 Solo PRO</button>
+
+        <div class="btnGrid">
+          <button class="btn easy" id="soloEasy" type="button">🟢 Solo Easy</button>
+          <button class="btn normal" id="soloNormal" type="button">🔵 Solo Normal</button>
+          <button class="btn hard" id="soloHard" type="button">🟠 Solo Hard</button>
+          <button class="btn pro" id="soloHardPro" type="button">🟣 Solo Hard PRO</button>
         </div>
       </section>
 
       <section class="modeCard">
         <h3>🤝 Coop Lite</h3>
         <div class="mut">
-          ผู้เล่น A/B สลับเทิร์นกันเล่น ผ่าน warmup ก่อน แล้วจึงเข้า run page
+          ผู้เล่น A/B สลับเทิร์นกันเล่น ผ่าน warmup ก่อน แล้วค่อยเข้า run page
         </div>
         <div class="chips">
           <span class="pill"><b>Game</b>: platev1</span>
           <span class="pill"><b>Mode</b>: coop</span>
           <span class="pill"><b>Players</b>: hotseat 2</span>
         </div>
-        <div class="row">
-          <button class="btn primary" id="goCoop" type="button">🤝 เข้า Coop</button>
-          <button class="btn violet" id="goCoopPro" type="button">⚡ Coop PRO</button>
+
+        <div class="btnGrid">
+          <button class="btn easy" id="coopEasy" type="button">🟢 Coop Easy</button>
+          <button class="btn normal" id="coopNormal" type="button">🔵 Coop Normal</button>
+          <button class="btn hard" id="coopHard" type="button">🟠 Coop Hard</button>
+          <button class="btn pro" id="coopHardPro" type="button">🟣 Coop Hard PRO</button>
         </div>
       </section>
     </div>
@@ -281,6 +305,7 @@ Start -> /herohealth/plate-v1.html -> warmup-gate -> /herohealth/plate/plate-v1.
   function buildWarmupUrl(runUrl){
     const gate = new URL('./warmup-gate.html', location.href);
 
+    gate.searchParams.set('phase', 'warmup');
     gate.searchParams.set('gatePhase', 'warmup');
     gate.searchParams.set('cat', 'nutrition');
     gate.searchParams.set('theme', 'platev1');
@@ -311,22 +336,28 @@ Start -> /herohealth/plate-v1.html -> warmup-gate -> /herohealth/plate/plate-v1.
     return buildWarmupUrl(runUrl);
   }
 
-  const soloGate = buildLaunchUrl('solo');
-  const soloProGate = buildLaunchUrl('solo', { diff:'hard', pro:'1' });
-  const coopGate = buildLaunchUrl('coop');
-  const coopProGate = buildLaunchUrl('coop', { diff:'hard', pro:'1' });
+  const links = {
+    soloEasy:    buildLaunchUrl('solo', { diff:'easy',   pro:''   }),
+    soloNormal:  buildLaunchUrl('solo', { diff:'normal', pro:''   }),
+    soloHard:    buildLaunchUrl('solo', { diff:'hard',   pro:''   }),
+    soloHardPro: buildLaunchUrl('solo', { diff:'hard',   pro:'1'  }),
+    coopEasy:    buildLaunchUrl('coop', { diff:'easy',   pro:''   }),
+    coopNormal:  buildLaunchUrl('coop', { diff:'normal', pro:''   }),
+    coopHard:    buildLaunchUrl('coop', { diff:'hard',   pro:''   }),
+    coopHardPro: buildLaunchUrl('coop', { diff:'hard',   pro:'1'  })
+  };
 
-  document.getElementById('goSolo').onclick = ()=> location.href = soloGate.toString();
-  document.getElementById('goSoloPro').onclick = ()=> location.href = soloProGate.toString();
-  document.getElementById('goCoop').onclick = ()=> location.href = coopGate.toString();
-  document.getElementById('goCoopPro').onclick = ()=> location.href = coopProGate.toString();
+  Object.keys(links).forEach(id=>{
+    const btn = document.getElementById(id);
+    if(btn) btn.onclick = ()=> location.href = links[id].toString();
+  });
+
   document.getElementById('back').onclick = ()=> location.href = hub;
 
   const info = document.getElementById('info');
   if(info){
     info.innerHTML =
-      `SOLO gate: <code>${soloGate.toString()}</code><br>` +
-      `SOLO next: <code>${soloGate.searchParams.get('next') || '-'}</code><br>` +
+      `ตัวอย่างลิงก์ Solo Normal: <code>${links.soloNormal.toString()}</code><br>` +
       `RUN page: <code>/herohealth/plate/plate-v1.html</code><br>` +
       `game/theme: <code>platev1 / platev1</code><br>` +
       `hub: <code>${hub}</code>`;
