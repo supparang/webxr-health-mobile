@@ -1,12 +1,6 @@
 /* === /herohealth/plate/plate.safe.js ===
    HeroHealth Plate Engine
-   FULL PATCH v20260320-PLATE-SAFE-MODULE-COMPACT-CHILD-FRIENDLY
-   - module-ready export { boot }
-   - works with /herohealth/plate/plate-v1.html compact layout
-   - solo + coop lite
-   - child-friendly coach / phase / target text
-   - safe spawn vs HUD / drawer / summary
-   - summary + replay + hub + cooldown button
+   FINAL PATCH v20260320-PLATE-SAFE-MODULE-COMPACT-CHILD-FRIENDLY
 */
 'use strict';
 
