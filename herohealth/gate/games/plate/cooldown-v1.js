@@ -1,8 +1,8 @@
 /* === /herohealth/gate/games/plate/cooldown-v1.js ===
    HeroHealth Gate Mini-game
-   GAME: plate
-   MODE: cooldown-v1
-   LEGACY BASELINE
+   GAME: platev1
+   MODE: cooldown
+   FINAL PATCH v20260320-PLATEV1-COOLDOWN
 */
 
 let __styleLoaded = false;
@@ -21,18 +21,18 @@ export function loadStyle(){
   document.head.appendChild(link);
 }
 
-function el(tag, cls='', text=''){
+function el(tag, cls = '', text = ''){
   const n = document.createElement(tag);
   if(cls) n.className = cls;
   if(text) n.textContent = text;
   return n;
 }
 
-function shuffle(arr, rng=Math.random){
+function shuffle(arr, rng = Math.random){
   const a = arr.slice();
-  for(let i=a.length-1;i>0;i--){
-    const j = Math.floor(rng()*(i+1));
-    [a[i],a[j]] = [a[j],a[i]];
+  for(let i = a.length - 1; i > 0; i--){
+    const j = Math.floor(rng() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
   }
   return a;
 }
@@ -76,9 +76,9 @@ export async function mount(root, ctx, api){
   const choices = el('div', 'plt-choices');
 
   hero.innerHTML = `
-    <div class="plt-kicker">NUTRITION ZONE • PLATE • COOLDOWN V1</div>
+    <div class="plt-kicker">NUTRITION ZONE • PLATE V1 • COOLDOWN</div>
     <div class="plt-title">ทบทวนจานสุขภาพ</div>
-    <div class="plt-sub">เลือกข้อความที่ถูกต้องเพื่อย้ำความเข้าใจ ก่อนกลับไปหน้าหลัก</div>
+    <div class="plt-sub">เลือกข้อความที่ถูกต้อง เพื่อย้ำความเข้าใจก่อนกลับหน้าหลัก</div>
   `;
 
   stage.appendChild(panel);
@@ -89,8 +89,8 @@ export async function mount(root, ctx, api){
   root.appendChild(wrap);
 
   api?.logger?.push?.('mini_start', {
-    game: 'plate',
-    mode: 'cooldown-v1',
+    game: 'platev1',
+    mode: 'cooldown',
     seed: ctx.seed
   });
 
@@ -132,7 +132,12 @@ export async function mount(root, ctx, api){
       'ขนมหวานหลังอาหารยิ่งเยอะยิ่งดี'
     ];
 
-    const opts = shuffle([correct, wrongPool[step % wrongPool.length], wrongPool[(step+1) % wrongPool.length]], rng);
+    const opts = shuffle([
+      correct,
+      wrongPool[step % wrongPool.length],
+      wrongPool[(step + 1) % wrongPool.length]
+    ], rng);
+
     choices.innerHTML = '';
 
     opts.forEach(opt=>{
@@ -152,8 +157,8 @@ export async function mount(root, ctx, api){
         }
 
         api?.logger?.push?.('mini_answer', {
-          game:'plate',
-          mode:'cooldown-v1',
+          game:'platev1',
+          mode:'cooldown',
           step,
           selected: opt,
           correct,
