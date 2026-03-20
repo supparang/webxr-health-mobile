@@ -1,6 +1,6 @@
 // === /herohealth/vr-hydration-v2/js/hydration.social.js ===
 // Hydration V2 Social / Team Mission Logic
-// PATCH v20260318a-HYDRATION-V2-SOCIAL-TEAM-CHECK
+// PATCH v20260318b-HYDRATION-V2-SOCIAL-CHECKLIST
 
 export function computeSocialProgress(input = {}) {
   const type = normalizeType(input.type);
@@ -46,11 +46,18 @@ export function computeSocialProgress(input = {}) {
     100
   ));
 
+  const checklist = {
+    goodCatchOk: goodCatch >= 8,
+    choicesOk: correctChoices >= 1,
+    planOk: createdPlanScore >= 60,
+    contributionOk: contributionPercent >= 60
+  };
+
   const missionDone =
-    goodCatch >= 8 &&
-    correctChoices >= 1 &&
-    createdPlanScore >= 60 &&
-    contributionPercent >= 60;
+    checklist.goodCatchOk &&
+    checklist.choicesOk &&
+    checklist.planOk &&
+    checklist.contributionOk;
 
   const teamStars =
     contributionPercent >= 85 && createdPlanScore >= 80 && correctChoices >= 2 ? 3 :
@@ -62,10 +69,10 @@ export function computeSocialProgress(input = {}) {
     : 'Team Hydration Goal ยังไม่ผ่าน';
 
   const missing = [];
-  if (goodCatch < 8) missing.push('เก็บน้ำให้มากขึ้น');
-  if (correctChoices < 1) missing.push('ตอบสถานการณ์ให้ถูกอย่างน้อย 1 ข้อ');
-  if (createdPlanScore < 60) missing.push('วางแผนดื่มน้ำให้ชัดขึ้น');
-  if (contributionPercent < 60) missing.push('ดัน contribution ให้ถึง 60%');
+  if (!checklist.goodCatchOk) missing.push('เก็บน้ำให้มากขึ้น');
+  if (!checklist.choicesOk) missing.push('ตอบสถานการณ์ให้ถูกอย่างน้อย 1 ข้อ');
+  if (!checklist.planOk) missing.push('วางแผนดื่มน้ำให้ชัดขึ้น');
+  if (!checklist.contributionOk) missing.push('ดัน contribution ให้ถึง 60%');
 
   const missionNote = missionDone
     ? 'ทีมทำครบทั้ง action + knowledge + planning แล้ว'
@@ -79,6 +86,7 @@ export function computeSocialProgress(input = {}) {
     missionLabel,
     missionNote,
     teamStars,
+    checklist,
 
     metrics: {
       goodCatch,
@@ -95,7 +103,6 @@ export function buildSocialSummary(social = {}) {
   const contributionPercent = positiveInt(social.contributionPercent);
   const socialScore = positiveInt(social.socialScore);
   const teamStars = positiveInt(social.teamStars);
-  const missionDone = !!social.missionDone;
   const missionLabel = String(social.missionLabel || '-');
   const missionNote = String(social.missionNote || '-');
 
@@ -139,6 +146,7 @@ function buildSoloResult({
     missionLabel: 'Solo Mode',
     missionNote: 'โหมดนี้ยังไม่คิดภารกิจทีม',
     teamStars: 0,
+    checklist: null,
 
     metrics: {
       goodCatch,
