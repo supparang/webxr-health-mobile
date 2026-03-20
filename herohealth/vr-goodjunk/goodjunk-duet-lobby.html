@@ -1,0 +1,482 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth • GoodJunk Duet Lobby</title>
+  <meta name="color-scheme" content="dark light" />
+  <style>
+    :root{
+      --bg1:#020617;
+      --bg2:#0b1226;
+      --panel:rgba(2,6,23,.76);
+      --stroke:rgba(148,163,184,.18);
+      --text:#e5e7eb;
+      --muted:#94a3b8;
+      --good:#22c55e;
+      --duet:#f472b6;
+      --duet-soft:#fbcfe8;
+      --warn:#f59e0b;
+      --shadow:0 24px 64px rgba(0,0,0,.28);
+      --sat: env(safe-area-inset-top, 0px);
+      --sar: env(safe-area-inset-right, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
+    }
+
+    *{ box-sizing:border-box; }
+
+    html,body{
+      margin:0;
+      min-height:100%;
+      font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(circle at top, rgba(244,114,182,.18) 0%, transparent 34%),
+        linear-gradient(180deg,var(--bg2),var(--bg1));
+    }
+
+    .wrap{
+      max-width:1040px;
+      margin:0 auto;
+      padding:
+        calc(24px + var(--sat))
+        calc(16px + var(--sar))
+        calc(40px + var(--sab))
+        calc(16px + var(--sal));
+    }
+
+    .hero,.card{
+      background:var(--panel);
+      border:1px solid var(--stroke);
+      border-radius:22px;
+      backdrop-filter:blur(10px);
+      box-shadow:var(--shadow);
+    }
+
+    .hero{
+      margin-bottom:18px;
+      padding:22px 20px;
+    }
+
+    .card{
+      padding:18px;
+      margin-bottom:16px;
+    }
+
+    .kicker{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:6px 12px;
+      border-radius:999px;
+      border:1px solid rgba(244,114,182,.25);
+      background:rgba(244,114,182,.12);
+      color:var(--duet-soft);
+      font-weight:900;
+      font-size:13px;
+      margin-bottom:12px;
+    }
+
+    h1{
+      margin:0 0 10px;
+      font-size:30px;
+      line-height:1.1;
+    }
+
+    .muted{
+      color:var(--muted);
+      font-size:14px;
+      line-height:1.65;
+    }
+
+    .hero-grid{
+      display:grid;
+      grid-template-columns:1.35fr .95fr;
+      gap:14px;
+      margin-top:14px;
+    }
+
+    @media (max-width:820px){
+      .hero-grid{ grid-template-columns:1fr; }
+    }
+
+    .mini-card{
+      border:1px solid var(--stroke);
+      background:rgba(15,23,42,.46);
+      border-radius:18px;
+      padding:14px;
+    }
+
+    .mini-title{
+      margin:0 0 8px;
+      font-size:15px;
+      font-weight:900;
+      color:var(--duet-soft);
+    }
+
+    .bullet{
+      display:grid;
+      gap:6px;
+      color:#dbe4f0;
+      font-size:13px;
+      line-height:1.6;
+    }
+
+    .row{
+      display:flex;
+      gap:12px;
+      flex-wrap:wrap;
+      align-items:center;
+    }
+
+    .pill{
+      display:inline-flex;
+      align-items:center;
+      border:1px solid var(--stroke);
+      border-radius:999px;
+      padding:8px 12px;
+      background:rgba(15,23,42,.45);
+      color:var(--text);
+      font-weight:800;
+      font-size:13px;
+    }
+
+    .room-pill{
+      font-size:18px;
+      font-weight:900;
+      letter-spacing:.06em;
+      background:rgba(244,114,182,.12);
+      border-color:rgba(244,114,182,.28);
+      color:var(--duet-soft);
+    }
+
+    .players{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:12px;
+      margin-top:12px;
+    }
+
+    @media (max-width:640px){
+      .players{ grid-template-columns:1fr; }
+    }
+
+    .player{
+      border:1px solid var(--stroke);
+      border-radius:18px;
+      padding:12px;
+      background:rgba(15,23,42,.45);
+      min-height:96px;
+    }
+
+    .ready{ color:var(--good); font-weight:800; }
+    .waiting{ color:var(--warn); font-weight:800; }
+
+    .btn{
+      appearance:none;
+      border:0;
+      cursor:pointer;
+      border-radius:14px;
+      padding:12px 16px;
+      font-weight:900;
+      font-size:14px;
+      transition:.12s ease;
+    }
+
+    .btn:hover{
+      transform:translateY(-1px);
+      filter:brightness(1.03);
+    }
+
+    .btn:active{ transform:translateY(0); }
+
+    .btn:disabled{
+      opacity:.55;
+      cursor:not-allowed;
+      transform:none;
+    }
+
+    .btn-primary{ background:var(--duet); color:#4a044e; }
+    .btn-good{ background:var(--good); color:#052e16; }
+    .btn-ghost{
+      background:rgba(255,255,255,.06);
+      color:var(--text);
+      border:1px solid var(--stroke);
+    }
+
+    #countdown{
+      margin-top:14px;
+      font-size:56px;
+      font-weight:900;
+      text-align:center;
+      line-height:1;
+      min-height:64px;
+      color:#fce7f3;
+      letter-spacing:.02em;
+    }
+
+    #copyState{
+      margin-top:10px;
+      min-height:20px;
+      font-size:13px;
+      line-height:1.5;
+    }
+
+    #joinGuard{
+      display:none;
+      margin-top:10px;
+      padding:12px 14px;
+      border-radius:14px;
+      background:rgba(239,68,68,.12);
+      border:1px solid rgba(239,68,68,.24);
+      color:#fca5a5;
+      font-weight:800;
+      font-size:14px;
+      line-height:1.55;
+    }
+
+    #inviteWrap{ margin-top:10px; }
+
+    #inviteLink{
+      width:100%;
+      appearance:none;
+      border:1px solid var(--stroke);
+      border-radius:14px;
+      padding:12px 14px;
+      background:rgba(15,23,42,.45);
+      color:var(--text);
+      font-size:14px;
+      font-weight:700;
+      outline:none;
+    }
+
+    .qr-panel{
+      margin-top:12px;
+      border:1px solid var(--stroke);
+      border-radius:18px;
+      background:rgba(15,23,42,.45);
+      padding:14px;
+    }
+
+    .qr-title{
+      font-size:14px;
+      font-weight:900;
+      color:#e5e7eb;
+      margin-bottom:6px;
+    }
+
+    .qr-sub{
+      color:var(--muted);
+      font-size:13px;
+      line-height:1.6;
+      margin-bottom:10px;
+    }
+
+    .qr-box{
+      width:220px;
+      height:220px;
+      max-width:100%;
+      margin:0 auto;
+      border-radius:16px;
+      border:1px dashed var(--stroke);
+      background:rgba(2,6,23,.42);
+      display:grid;
+      place-items:center;
+      overflow:hidden;
+    }
+
+    .qr-box img{
+      width:220px;
+      height:220px;
+      display:block;
+    }
+
+    .qr-empty{
+      color:var(--muted);
+      font-size:13px;
+      text-align:center;
+      padding:16px;
+    }
+
+    .section-title{
+      font-size:16px;
+      font-weight:900;
+      color:#f8fafc;
+      margin-bottom:6px;
+    }
+
+    .hint{
+      margin-top:10px;
+      color:var(--muted);
+      font-size:13px;
+      line-height:1.6;
+      min-height:20px;
+    }
+
+    .tips{
+      margin-top:12px;
+      padding:14px 16px;
+      border-radius:16px;
+      border:1px dashed rgba(148,163,184,.22);
+      color:var(--muted);
+      background:rgba(255,255,255,.03);
+      font-size:13px;
+      line-height:1.7;
+    }
+
+    .rule-grid{
+      display:grid;
+      grid-template-columns:repeat(3, minmax(0,1fr));
+      gap:10px;
+      margin-top:12px;
+    }
+
+    @media (max-width:760px){
+      .rule-grid{ grid-template-columns:1fr; }
+    }
+
+    .rule{
+      border:1px solid var(--stroke);
+      border-radius:16px;
+      background:rgba(255,255,255,.04);
+      padding:12px;
+    }
+
+    .rule strong{
+      display:block;
+      margin-bottom:4px;
+      color:var(--duet-soft);
+      font-size:14px;
+    }
+
+    .rule span{
+      color:#dbe4f0;
+      font-size:13px;
+      line-height:1.55;
+    }
+
+    @media (max-width:640px){
+      .wrap{
+        padding:
+          calc(18px + var(--sat))
+          calc(12px + var(--sar))
+          calc(30px + var(--sab))
+          calc(12px + var(--sal));
+      }
+
+      h1{ font-size:26px; }
+      .card{ padding:16px; border-radius:18px; }
+      #countdown{ font-size:46px; min-height:54px; }
+      .row .btn{ flex:1 1 100%; }
+      .room-pill{ font-size:16px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="hero">
+      <div class="kicker">DUET LOBBY</div>
+      <h1>GoodJunk Duet Lobby</h1>
+      <div class="muted">
+        โหมดเล่นคู่ 2 คนเท่านั้น ต้องพร้อมครบทั้ง 2 คนก่อนเริ่ม และเริ่มพร้อมกันเสมอ
+      </div>
+
+      <div class="hero-grid">
+        <div class="mini-card">
+          <div class="mini-title">กติกาสำคัญ</div>
+          <div class="bullet">
+            <div>• ห้องนี้รองรับ <strong style="color:#fce7f3;">2 คนเท่านั้น</strong></div>
+            <div>• ต้องมีผู้เล่น <strong style="color:#86efac;">ready ครบ 2/2</strong> ก่อนเริ่ม</div>
+            <div>• ผู้เล่นทั้งสองคนจะเข้า Duet รอบเดียวกัน</div>
+            <div>• เหมาะกับเล่นเป็นคู่ในห้องเรียน</div>
+          </div>
+        </div>
+
+        <div class="mini-card">
+          <div class="mini-title">Duet รอบนี้</div>
+          <div class="bullet">
+            <div>• เล่นพร้อมเพื่อน 1 คน</div>
+            <div>• สรุปผลเป็นคะแนนฉัน + คะแนนเพื่อน + คะแนนคู่</div>
+            <div>• ใช้ flow แยกเฉพาะของ Duet</div>
+            <div>• แชร์ห้องผ่านลิงก์หรือ QR ได้</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="row">
+        <div class="pill room-pill">ROOM: <strong id="roomCode" style="margin-left:8px;">-</strong></div>
+        <div class="pill">Players: <strong id="playerCount" style="margin-left:8px;">0/2</strong></div>
+        <div class="pill">Status: <strong id="roomStatus" style="margin-left:8px;">waiting</strong></div>
+        <div class="pill">Host: <strong id="hostName" style="margin-left:8px;">-</strong></div>
+      </div>
+
+      <div class="row" style="margin-top:12px;">
+        <button class="btn btn-ghost" id="btnCopyRoom" type="button">คัดลอก Room Code</button>
+        <button class="btn btn-ghost" id="btnCopyInvite" type="button">คัดลอก Invite Link</button>
+      </div>
+
+      <div id="copyState" class="muted">ส่ง room code หรือลิงก์นี้ให้เพื่อนอีกคนเข้าร่วมได้</div>
+      <div id="joinGuard">ห้องนี้ไม่พร้อมให้เข้าร่วมตอนนี้</div>
+
+      <div id="inviteWrap">
+        <input id="inviteLink" type="text" readonly value="" aria-label="Invite Link" />
+      </div>
+
+      <div class="qr-panel">
+        <div class="qr-title">QR Code</div>
+        <div class="qr-sub">สแกนจากอีกเครื่องเพื่อเข้าห้องนี้ได้ทันที</div>
+        <div class="qr-box" id="qrBox">
+          <div class="qr-empty">ยังไม่มีลิงก์</div>
+        </div>
+      </div>
+
+      <div id="countdown"></div>
+    </section>
+
+    <section class="card">
+      <div class="section-title">ผู้เล่นในห้อง</div>
+      <div class="muted">
+        โหมดนี้มีได้แค่ 2 คน และต้อง ready ครบก่อนเริ่ม
+      </div>
+      <div class="players" id="playersBox"></div>
+    </section>
+
+    <section class="card">
+      <div class="section-title">ปุ่มควบคุม</div>
+
+      <div class="rule-grid">
+        <div class="rule">
+          <strong>1) เข้าห้อง</strong>
+          <span>ผู้เล่นคนที่ 1 สร้างห้อง แล้วแชร์ลิงก์หรือ QR ให้เพื่อนอีกคน</span>
+        </div>
+        <div class="rule">
+          <strong>2) กดพร้อม</strong>
+          <span>ต้องพร้อมครบทั้ง 2 คน ก่อนเริ่ม Duet</span>
+        </div>
+        <div class="rule">
+          <strong>3) เริ่มพร้อมกัน</strong>
+          <span>Host กดเริ่ม แล้วทั้ง 2 คนจะเข้าเกมพร้อมกัน</span>
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:14px;">
+        <button class="btn btn-good" id="btnReady" type="button">พร้อมแล้ว</button>
+        <button class="btn btn-primary" id="btnStart" type="button">เริ่ม Duet</button>
+        <button class="btn btn-ghost" id="btnBack" type="button">กลับ</button>
+      </div>
+
+      <div class="hint" id="hint">ต้องมีผู้เล่นพร้อมครบ 2 คนก่อนเริ่ม Duet</div>
+
+      <div class="tips">
+        Duet เป็นโหมดเล่นคู่โดยเฉพาะ จึงล็อกจำนวนผู้เล่นไว้ที่ 2 คน และใช้ flow แยกจาก Group/Coop
+      </div>
+    </section>
+  </div>
+
+  <script src="../firebase-config.js"></script>
+  <script type="module" src="./goodjunk-duet-lobby.js?v=20260320-duet-lobby-v1"></script>
+</body>
+</html>
