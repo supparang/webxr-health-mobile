@@ -1,688 +1,191 @@
 <!doctype html>
 <html lang="th">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-  <title>HeroHealth • GoodJunk Multiplayer</title>
-  <meta name="color-scheme" content="dark light"/>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth • GoodJunk Multiplayer Bridge</title>
+  <meta name="color-scheme" content="dark light" />
   <style>
     :root{
-      --bg:#0b1220;
-      --fg:#e8eefc;
-      --mut:#9fb0d0;
-      --card:#121b2f;
-      --bd:#243455;
-
-      --race:#38bdf8;
-      --battle:#f59e0b;
-      --coop:#a78bfa;
-      --ok:#22c55e;
-
-      --btn:#16224a;
-      --shadow:0 18px 48px rgba(0,0,0,.28);
-
-      --sat: env(safe-area-inset-top, 0px);
-      --sar: env(safe-area-inset-right, 0px);
-      --sab: env(safe-area-inset-bottom, 0px);
-      --sal: env(safe-area-inset-left, 0px);
+      --bg1:#020617;
+      --bg2:#0b1226;
+      --panel:rgba(2,6,23,.78);
+      --stroke:rgba(148,163,184,.18);
+      --text:#e5e7eb;
+      --muted:#94a3b8;
+      --shadow:0 24px 64px rgba(0,0,0,.28);
     }
-
     *{ box-sizing:border-box; }
-
     html,body{
-      min-height:100%;
       margin:0;
-      font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
-      color:var(--fg);
+      min-height:100%;
+      font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
+      color:var(--text);
       background:
-        radial-gradient(circle at 15% 10%, rgba(56,189,248,.12), transparent 20%),
-        radial-gradient(circle at 85% 10%, rgba(167,139,250,.12), transparent 20%),
-        radial-gradient(circle at 50% 100%, rgba(34,197,94,.10), transparent 28%),
-        linear-gradient(180deg,#0b1220,#08101d);
+        radial-gradient(circle at 20% 0%, rgba(56,189,248,.12), transparent 20%),
+        radial-gradient(circle at 80% 0%, rgba(167,139,250,.12), transparent 20%),
+        linear-gradient(180deg,var(--bg2),var(--bg1));
     }
-
     .wrap{
-      max-width:1100px;
-      margin:0 auto;
-      padding:
-        calc(22px + var(--sat))
-        calc(16px + var(--sar))
-        calc(34px + var(--sab))
-        calc(16px + var(--sal));
+      min-height:100vh;
+      display:grid;
+      place-items:center;
+      padding:24px;
     }
-
-    .hero,.card{
-      background:rgba(18,27,47,.92);
-      border:1px solid var(--bd);
-      border-radius:22px;
+    .card{
+      width:min(92vw,680px);
+      background:var(--panel);
+      border:1px solid var(--stroke);
+      border-radius:24px;
       box-shadow:var(--shadow);
+      padding:22px 20px;
+      text-align:center;
+      backdrop-filter:blur(10px);
     }
-
-    .hero{
-      padding:20px;
-      margin-bottom:16px;
-    }
-
-    .hero-kicker{
+    .kicker{
       display:inline-flex;
       align-items:center;
       gap:8px;
       padding:6px 12px;
       border-radius:999px;
-      border:1px solid var(--bd);
-      background:#0d1730;
-      color:#cfe2ff;
+      background:rgba(255,255,255,.04);
+      border:1px solid var(--stroke);
+      color:#dbeafe;
       font-size:12px;
       font-weight:900;
-      margin-bottom:10px;
+      margin-bottom:12px;
     }
-
     h1{
       margin:0 0 8px;
-      font-size:30px;
-      line-height:1.1;
+      font-size:28px;
+      line-height:1.12;
     }
-
-    .mut{
-      color:var(--mut);
+    .muted{
+      color:var(--muted);
       font-size:14px;
       line-height:1.65;
     }
-
-    .hero-grid{
-      display:grid;
-      grid-template-columns:1.15fr .85fr;
-      gap:14px;
+    .box{
       margin-top:14px;
-    }
-
-    .mini{
-      border:1px solid var(--bd);
-      border-radius:18px;
-      background:#0b1430;
       padding:14px;
-    }
-
-    .mini h3{
-      margin:0 0 8px;
-      font-size:15px;
-    }
-
-    .mini ul{
-      margin:0;
-      padding-left:18px;
-      color:#d9e5fb;
-      font-size:13px;
-      line-height:1.65;
-    }
-
-    .grid{
-      display:grid;
-      gap:14px;
-      grid-template-columns:1.2fr .8fr;
-      margin-top:14px;
-    }
-
-    .card{
-      padding:16px;
-    }
-
-    .section-title{
-      margin:0 0 10px;
-      font-size:18px;
-      font-weight:900;
-    }
-
-    .mode-grid{
-      display:grid;
-      gap:12px;
-      grid-template-columns:repeat(3,minmax(0,1fr));
-    }
-
-    .mode-card{
-      border:1px solid var(--bd);
       border-radius:18px;
-      background:#0b1430;
-      padding:14px;
-      display:grid;
-      gap:10px;
-      min-height:230px;
-    }
-
-    .mode-title{
-      margin:0;
-      font-size:20px;
-      font-weight:900;
-    }
-
-    .mode-title.race{ color:#7dd3fc; }
-    .mode-title.battle{ color:#fcd34d; }
-    .mode-title.coop{ color:#c4b5fd; }
-
-    .badge{
-      display:inline-flex;
-      align-items:center;
-      gap:6px;
-      width:max-content;
-      padding:6px 10px;
-      border-radius:999px;
-      font-size:12px;
-      font-weight:900;
-      border:1px solid var(--bd);
-      background:rgba(255,255,255,.04);
-      color:#dbeafe;
-    }
-
-    .desc{
-      color:#d6e1f4;
+      border:1px solid var(--stroke);
+      background:rgba(15,23,42,.45);
+      text-align:left;
       font-size:13px;
-      line-height:1.65;
+      line-height:1.7;
+      color:#dbe4f0;
+      word-break:break-word;
     }
-
-    .meta{
-      display:grid;
-      gap:6px;
-      color:#cdd9f3;
-      font-size:13px;
-      line-height:1.55;
-    }
-
     .row{
       display:flex;
       gap:10px;
+      justify-content:center;
       flex-wrap:wrap;
-      align-items:center;
+      margin-top:16px;
     }
-
-    input,select,button{
-      font:inherit;
-      border-radius:14px;
-      border:1px solid var(--bd);
-      background:#0e1730;
-      color:var(--fg);
-      padding:11px 12px;
-      min-height:46px;
-    }
-
-    input,select{
-      width:100%;
-    }
-
-    button{
-      cursor:pointer;
-      font-weight:900;
-      transition:.14s ease;
-    }
-
-    button:hover{ transform:translateY(-1px); }
-    button:disabled{ opacity:.55; cursor:not-allowed; transform:none; }
-
     .btn{
-      background:var(--btn);
+      appearance:none;
+      border:1px solid var(--stroke);
+      border-radius:14px;
+      min-height:46px;
+      padding:11px 14px;
+      background:rgba(255,255,255,.05);
+      color:var(--text);
+      font:inherit;
+      font-weight:900;
+      cursor:pointer;
+      transition:.12s ease;
+      text-decoration:none;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
     }
-
-    .btnRace{
-      background:rgba(56,189,248,.14);
-      color:#7dd3fc;
-      border-color:rgba(56,189,248,.35);
-    }
-
-    .btnBattle{
-      background:rgba(245,158,11,.14);
-      color:#fcd34d;
-      border-color:rgba(245,158,11,.35);
-    }
-
-    .btnCoop{
-      background:rgba(167,139,250,.16);
-      color:#c4b5fd;
-      border-color:rgba(167,139,250,.35);
-    }
-
-    .linkbox{
-      word-break:break-all;
-      font-size:12px;
-      background:#0b1430;
-      border:1px solid var(--bd);
-      padding:10px;
-      border-radius:12px;
-      line-height:1.6;
-      color:#cfe2ff;
-      min-height:72px;
-    }
-
-    .info-list{
-      display:grid;
-      gap:10px;
-    }
-
-    .info{
-      border:1px solid var(--bd);
-      border-radius:16px;
-      background:#0b1430;
-      padding:12px;
-      color:#dbe4f0;
-      font-size:13px;
-      line-height:1.65;
-    }
-
-    .info strong{
-      color:#fff;
-    }
-
-    .qr{
-      width:220px;
-      height:220px;
-      max-width:100%;
-      margin:8px auto 0;
-      border-radius:16px;
-      border:1px dashed var(--bd);
-      background:#081026;
-      display:grid;
-      place-items:center;
-      overflow:hidden;
-    }
-
-    .hint{
-      margin-top:10px;
-      color:var(--mut);
-      font-size:13px;
-      line-height:1.6;
-      min-height:20px;
-    }
-
-    @media (max-width:920px){
-      .hero-grid,.grid{ grid-template-columns:1fr; }
-      .mode-grid{ grid-template-columns:1fr; }
-    }
-
-    @media (max-width:640px){
-      .wrap{
-        padding:
-          calc(16px + var(--sat))
-          calc(12px + var(--sar))
-          calc(28px + var(--sab))
-          calc(12px + var(--sal));
-      }
-      h1{ font-size:26px; }
-      .hero,.card{ border-radius:18px; }
-    }
+    .btn:hover{ transform:translateY(-1px); }
   </style>
 </head>
 <body>
-<div class="wrap">
-  <section class="hero">
-    <div class="hero-kicker">GOODJUNK • MULTIPLAYER HUB</div>
-    <h1>เลือกโหมด Multiplayer</h1>
-    <div class="mut">
-      หน้าเดียวสำหรับสร้างลิงก์เข้า Race / Battle / Coop และ route ไปยัง lobby ของแต่ละโหมดโดยตรง
-    </div>
-
-    <div class="hero-grid">
-      <div class="mini">
-        <h3>ภาพรวมระบบที่ทำไว้แล้ว</h3>
-        <ul>
-          <li>Race: ห้องสูงสุด 5 คน, เริ่มเมื่อ ready อย่างน้อย 2 คน</li>
-          <li>Battle: ห้องสูงสุด 5 คน, โจมตีได้, เลือกเป้าหมายเองได้</li>
-          <li>Coop: ห้องสูงสุด 10 คน, คะแนนรวมทีม, เริ่มเมื่อ ready อย่างน้อย 2 คน</li>
-          <li>ทุกโหมดใช้ flow เดียวกัน: lobby → countdown → run → summary</li>
-        </ul>
-      </div>
-      <div class="mini">
-        <h3>วิธีใช้เร็วที่สุด</h3>
-        <ul>
-          <li>เลือกโหมด</li>
-          <li>กรอกชื่อ</li>
-          <li>สร้าง room code</li>
-          <li>กดเข้า lobby</li>
-          <li>แชร์ลิงก์หรือ QR ให้ผู้เล่นคนอื่น</li>
-        </ul>
-      </div>
-    </div>
-  </section>
-
-  <section class="card">
-    <div class="section-title">เลือกโหมด</div>
-
-    <div class="mode-grid">
-      <div class="mode-card">
-        <div class="badge">RACE</div>
-        <h3 class="mode-title race">Race</h3>
-        <div class="desc">แข่งคะแนน ใครเก็บของดีได้มากกว่าชนะ เริ่มพร้อมกันและสรุปอันดับหลังจบเกม</div>
-        <div class="meta">
-          <div>• participant สูงสุด 5 คน</div>
-          <div>• เริ่มเมื่อ ready ≥ 2</div>
-          <div>• คนที่ไม่ ready อยู่ lobby ต่อได้</div>
-        </div>
-        <button id="pickRace" class="btn btnRace" type="button">เลือก Race</button>
-      </div>
-
-      <div class="mode-card">
-        <div class="badge">BATTLE</div>
-        <h3 class="mode-title battle">Battle</h3>
-        <div class="desc">แข่งพร้อมกันและโจมตีอีกฝ่ายได้ด้วย Junk Storm พร้อมมี Shield สำหรับกันการโจมตี</div>
-        <div class="meta">
-          <div>• participant สูงสุด 5 คน</div>
-          <div>• เริ่มเมื่อ ready ≥ 2</div>
-          <div>• เลือกเป้าหมายเองได้ใน run</div>
-        </div>
-        <button id="pickBattle" class="btn btnBattle" type="button">เลือก Battle</button>
-      </div>
-
-      <div class="mode-card">
-        <div class="badge">COOP</div>
-        <h3 class="mode-title coop">Coop</h3>
-        <div class="desc">ช่วยกันเล่นเป็นทีม คะแนนของทุกคนจะถูกรวมเป็นคะแนนรวมทีม เหมาะกับห้องใหญ่</div>
-        <div class="meta">
-          <div>• participant สูงสุด 10 คน</div>
-          <div>• เริ่มเมื่อ ready ≥ 2</div>
-          <div>• สรุปผลแบบ team score + contribution</div>
-        </div>
-        <button id="pickCoop" class="btn btnCoop" type="button">เลือก Coop</button>
-      </div>
-    </div>
-  </section>
-
-  <div class="grid">
+  <div class="wrap">
     <section class="card">
-      <div class="section-title">สร้างลิงก์เข้าห้อง</div>
+      <div class="kicker">GOODJUNK • BRIDGE</div>
+      <h1>กำลังพาไปยังหน้าที่ถูกต้อง…</h1>
+      <div class="muted">
+        ลิงก์เก่านี้ยังใช้ได้ ระบบจะพาไปยัง launcher หรือ lobby ใหม่ให้อัตโนมัติ
+      </div>
+
+      <div class="box">
+        <div><strong>mode:</strong> <span id="modeText">-</span></div>
+        <div><strong>roomId:</strong> <span id="roomText">-</span></div>
+        <div><strong>ปลายทาง:</strong> <span id="targetText">-</span></div>
+      </div>
 
       <div class="row">
-        <div style="flex:1 1 220px;">
-          <label class="mut">ชื่อผู้เล่น</label>
-          <input id="playerName" placeholder="เช่น ครูเอ / น้องบี" />
-        </div>
-        <div style="flex:0 1 150px;">
-          <label class="mut">ระดับ</label>
-          <select id="diff">
-            <option value="easy">easy</option>
-            <option value="normal" selected>normal</option>
-            <option value="hard">hard</option>
-          </select>
-        </div>
-        <div style="flex:0 1 150px;">
-          <label class="mut">เวลา</label>
-          <select id="time">
-            <option value="60">60s</option>
-            <option value="80">80s</option>
-            <option value="100">100s</option>
-            <option value="120" selected>120s</option>
-          </select>
-        </div>
-      </div>
-
-      <div class="row" style="margin-top:10px;">
-        <div style="flex:1 1 220px;">
-          <label class="mut">Room ID</label>
-          <input id="roomId" placeholder="เช่น GJ-8K3P2" />
-        </div>
-        <div style="flex:0 1 180px;display:flex;align-items:end;">
-          <button id="btnNewRoom" class="btn" type="button" style="width:100%;">สร้าง Room ใหม่</button>
-        </div>
-      </div>
-
-      <div class="row" style="margin-top:12px;">
-        <button id="btnEnterLobby" class="btn" type="button">เข้า Lobby</button>
-        <button id="btnCopyLink" class="btn" type="button">คัดลอกลิงก์</button>
-      </div>
-
-      <div class="hint" id="hint">เลือกโหมดก่อน แล้วค่อยสร้างลิงก์</div>
-
-      <div style="margin-top:12px;" class="mut">ลิงก์ที่จะเปิดไปยัง lobby ของโหมดที่เลือก:</div>
-      <div id="shareLink" class="linkbox">-</div>
-    </section>
-
-    <section class="card">
-      <div class="section-title">QR และสรุปโหมด</div>
-
-      <div class="info-list">
-        <div class="info">
-          <strong>โหมดที่เลือก:</strong> <span id="modeLabel">ยังไม่ได้เลือก</span><br/>
-          <strong>ปลายทาง:</strong> <span id="modeTarget">-</span>
-        </div>
-
-        <div class="info">
-          <strong>หมายเหตุ:</strong><br/>
-          Race / Battle / Coop ตอนนี้ route เข้าคนละ lobby แล้ว จึงควบคุมกติกา participant ได้แยกกันชัดเจน
-        </div>
-
-        <div class="qr" id="qrBox"><span class="mut">ยังไม่มีลิงก์</span></div>
+        <a id="goNow" class="btn" href="#">ไปต่อทันที</a>
+        <a class="btn" href="./goodjunk-launcher.html">ไปหน้า Launcher</a>
       </div>
     </section>
   </div>
-</div>
 
 <script>
-  const qs = new URLSearchParams(location.search);
+(function(){
+  const q = new URLSearchParams(location.search);
 
-  const MODE_META = {
-    race: {
-      label: 'Race',
-      lobbyPath: './goodjunk-race-room.html',
-      maxText: 'max 5 • ready ≥ 2'
-    },
-    battle: {
-      label: 'Battle',
-      lobbyPath: './goodjunk-battle-lobby.html',
-      maxText: 'max 5 • ready ≥ 2'
-    },
-    coop: {
-      label: 'Coop',
-      lobbyPath: './goodjunk-coop-lobby.html',
-      maxText: 'max 10 • ready ≥ 2'
+  function normMode(v){
+    const m = String(v || '').trim().toLowerCase();
+    return ['solo','race','battle','coop'].includes(m) ? m : '';
+  }
+
+  function cleanRoom(v){
+    return String(v || '').trim().toUpperCase().replace(/[^A-Z0-9-]/g,'').slice(0,16);
+  }
+
+  function firstNonEmpty(...vals){
+    for(const v of vals){
+      if(String(v || '').trim()) return String(v).trim();
     }
+    return '';
+  }
+
+  const mode = normMode(q.get('mode'));
+  const roomId = cleanRoom(firstNonEmpty(q.get('roomId'), q.get('room')));
+  const name = firstNonEmpty(q.get('name'), q.get('nick'));
+
+  const targetMap = {
+    race: './goodjunk-race-room.html',
+    battle: './goodjunk-battle-lobby.html',
+    coop: './goodjunk-coop-lobby.html',
+    solo: './goodjunk-vr.html'
   };
 
-  const PASSTHRU_KEYS = [
-    'run','log','api','hub','studyId','phase','conditionGroup',
-    'debug','seed','view'
-  ];
+  const targetBase = targetMap[mode] || './goodjunk-launcher.html';
+  const u = new URL(targetBase, location.href);
 
-  const $ = (id) => document.getElementById(id);
-
-  const els = {
-    playerName: $('playerName'),
-    diff: $('diff'),
-    time: $('time'),
-    roomId: $('roomId'),
-    btnNewRoom: $('btnNewRoom'),
-    btnEnterLobby: $('btnEnterLobby'),
-    btnCopyLink: $('btnCopyLink'),
-    shareLink: $('shareLink'),
-    qrBox: $('qrBox'),
-    hint: $('hint'),
-    modeLabel: $('modeLabel'),
-    modeTarget: $('modeTarget')
-  };
-
-  let currentMode = normalizeMode(qs.get('mode') || 'race');
-
-  function normalizeMode(mode){
-    const m = String(mode || '').trim().toLowerCase();
-    return MODE_META[m] ? m : 'race';
-  }
-
-  function randRoom(){
-    const pool = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
-    let s = 'GJ-';
-    for(let i=0;i<5;i++) s += pool[Math.floor(Math.random()*pool.length)];
-    return s;
-  }
-
-  function sanitizeName(name){
-    return String(name || '').trim().slice(0, 32);
-  }
-
-  function makeDevicePid() {
-    try {
-      const KEY = 'GJ_DEVICE_PID';
-      let pid = localStorage.getItem(KEY);
-      if (!pid) {
-        pid = `p-${Math.random().toString(36).slice(2, 10)}`;
-        localStorage.setItem(KEY, pid);
-      }
-      return pid;
-    } catch {
-      return `p-${Math.random().toString(36).slice(2, 10)}`;
-    }
-  }
-
-  function normalizePid(rawPid) {
-    const v = String(rawPid || '').trim().replace(/[.#$[\]/]/g, '-');
-    if (!v) return makeDevicePid();
-    if (v.toLowerCase() === 'anon') return makeDevicePid();
-    return v;
-  }
-
-  function getRoomIdValue(){
-    return String(els.roomId.value || qs.get('roomId') || '').trim().toUpperCase().replace(/[^A-Z0-9-]/g,'').slice(0,16);
-  }
-
-  function setHint(text){
-    els.hint.textContent = text || '';
-  }
-
-  function buildLobbyLink(){
-    const meta = MODE_META[currentMode];
-    if (!meta) return '';
-
-    const roomId = getRoomIdValue();
-    if (!roomId) return '';
-
-    const u = new URL(meta.lobbyPath, location.href);
-
-    u.searchParams.set('pid', normalizePid(qs.get('pid') || ''));
-    u.searchParams.set('name', sanitizeName(els.playerName.value || qs.get('name') || ''));
-    u.searchParams.set('studyId', qs.get('studyId') || '');
-    u.searchParams.set('diff', els.diff.value || 'normal');
-    u.searchParams.set('time', els.time.value || '120');
-    u.searchParams.set('seed', qs.get('seed') || String(Date.now()));
-    u.searchParams.set('hub', qs.get('hub') || '../hub.html');
-    u.searchParams.set('view', qs.get('view') || 'mobile');
-    u.searchParams.set('run', qs.get('run') || 'play');
-    u.searchParams.set('gameId', 'goodjunk');
-    u.searchParams.set('mode', currentMode);
-    u.searchParams.set('roomId', roomId);
-
-    PASSTHRU_KEYS.forEach((k) => {
-      const v = qs.get(k);
-      if (v) u.searchParams.set(k, v);
-    });
-
-    return u.toString();
-  }
-
-  function updateQr(url){
-    if (!url) {
-      els.qrBox.innerHTML = '<span class="mut">ยังไม่มีลิงก์</span>';
-      return;
-    }
-    const img = new Image();
-    img.alt = 'QR';
-    img.src = 'https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=' + encodeURIComponent(url);
-    img.style.width = '220px';
-    img.style.height = '220px';
-    els.qrBox.innerHTML = '';
-    els.qrBox.appendChild(img);
-  }
-
-  async function copyText(text) {
-    const value = String(text || '').trim();
-    if (!value) return false;
-    try {
-      await navigator.clipboard.writeText(value);
-      return true;
-    } catch {
-      try {
-        const ta = document.createElement('textarea');
-        ta.value = value;
-        ta.setAttribute('readonly', '');
-        ta.style.position = 'fixed';
-        ta.style.opacity = '0';
-        document.body.appendChild(ta);
-        ta.focus();
-        ta.select();
-        const ok = document.execCommand('copy');
-        ta.remove();
-        return !!ok;
-      } catch {
-        return false;
-      }
-    }
-  }
-
-  function renderMode() {
-    const meta = MODE_META[currentMode];
-    els.modeLabel.textContent = `${meta.label} (${meta.maxText})`;
-    els.modeTarget.textContent = meta.lobbyPath;
-    updateLink();
-  }
-
-  function updateLink() {
-    const link = buildLobbyLink();
-    els.shareLink.textContent = link || '-';
-    updateQr(link);
-
-    if (!getRoomIdValue()) {
-      setHint('กด “สร้าง Room ใหม่” หรือพิมพ์ room code ก่อน');
-      return;
-    }
-
-    const meta = MODE_META[currentMode];
-    setHint(`พร้อมเข้า ${meta.label} lobby แล้ว`);
-  }
-
-  document.getElementById('pickRace').addEventListener('click', () => {
-    currentMode = 'race';
-    renderMode();
+  // passthrough เดิม
+  q.forEach((value, key) => {
+    if (!u.searchParams.has(key)) u.searchParams.set(key, value);
   });
 
-  document.getElementById('pickBattle').addEventListener('click', () => {
-    currentMode = 'battle';
-    renderMode();
-  });
+  // normalize aliases
+  if (roomId) u.searchParams.set('roomId', roomId);
+  u.searchParams.delete('room');
 
-  document.getElementById('pickCoop').addEventListener('click', () => {
-    currentMode = 'coop';
-    renderMode();
-  });
+  if (name) u.searchParams.set('name', name);
+  u.searchParams.delete('nick');
 
-  els.btnNewRoom.addEventListener('click', () => {
-    els.roomId.value = randRoom();
-    updateLink();
-  });
+  if (mode) u.searchParams.set('mode', mode);
 
-  els.btnEnterLobby.addEventListener('click', () => {
-    const link = buildLobbyLink();
-    if (!link) {
-      setHint('ยังไม่มี room code');
-      return;
-    }
-    location.href = link;
-  });
+  const target = u.toString();
 
-  els.btnCopyLink.addEventListener('click', async () => {
-    const link = buildLobbyLink();
-    if (!link) {
-      setHint('ยังไม่มีลิงก์ให้คัดลอก');
-      return;
-    }
-    const ok = await copyText(link);
-    setHint(ok ? 'คัดลอกลิงก์แล้ว' : 'คัดลอกลิงก์ไม่สำเร็จ');
-  });
+  document.getElementById('modeText').textContent = mode || '(ไม่มี mode)';
+  document.getElementById('roomText').textContent = roomId || '(ไม่มี room)';
+  document.getElementById('targetText').textContent = targetBase;
+  document.getElementById('goNow').href = target;
 
-  els.playerName.addEventListener('input', updateLink);
-  els.diff.addEventListener('change', updateLink);
-  els.time.addEventListener('change', updateLink);
-  els.roomId.addEventListener('input', updateLink);
-
-  (function init(){
-    if (qs.get('name')) els.playerName.value = qs.get('name');
-    if (qs.get('diff')) els.diff.value = qs.get('diff');
-    if (qs.get('time')) els.time.value = qs.get('time');
-    if (qs.get('roomId')) els.roomId.value = qs.get('roomId');
-    renderMode();
-  })();
+  // ไปอัตโนมัติ
+  setTimeout(() => {
+    location.replace(target);
+  }, 350);
+})();
 </script>
 </body>
 </html>
