@@ -1,6 +1,6 @@
 <!-- === /herohealth/plate/plate-v1.html ===
-PlateVR V1 — LEGACY RUN PAGE (Solo + Coop Lite)
-BASELINE old Plate run before compact/mobile polish flow changes
+PlateVR V1 — LEGACY RUN PAGE (Compact GoodJunk-style HUD)
+PATCH v20260320-PLATE-V1-COMPACT-LAYOUT
 -->
 <!doctype html>
 <html lang="th">
@@ -19,20 +19,17 @@ BASELINE old Plate run before compact/mobile polish flow changes
       --sar: env(safe-area-inset-right, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
       --sal: env(safe-area-inset-left, 0px);
-
-      --hud-top: calc(var(--sat) + 10px);
-      --hud-bottom: calc(var(--sab) + 12px);
-
-      --panel: rgba(2,6,23,.78);
-      --line: rgba(148,163,184,.18);
       --txt: rgba(229,231,235,.96);
       --mut: rgba(148,163,184,.95);
-      --radius: 18px;
+      --line: rgba(148,163,184,.16);
     }
     *{ box-sizing:border-box; }
     html,body{
-      margin:0; height:100%; overflow:hidden;
-      background:#020617; color:var(--txt);
+      margin:0;
+      height:100%;
+      overflow:hidden;
+      background:#020617;
+      color:var(--txt);
       font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif;
     }
     body{
@@ -46,100 +43,309 @@ BASELINE old Plate run before compact/mobile polish flow changes
     #world{ position:absolute; inset:0; z-index:0; pointer-events:none; }
 
     #plate-layer{
-      position:absolute; inset:0;
+      position:absolute;
+      inset:0;
       z-index:30;
       pointer-events:none;
       overflow:hidden;
-      transform: translateZ(0);
-      will-change: contents;
-      min-width: 1px;
-      min-height: 1px;
+      transform:translateZ(0);
+      will-change:contents;
+      min-width:1px;
+      min-height:1px;
     }
     #plate-layer .plateTarget{
       position:absolute;
       display:grid;
       place-items:center;
-      width:56px; height:56px;
+      width:56px;
+      height:56px;
       border-radius:999px;
       background:rgba(15,23,42,.82);
       border:1px solid rgba(255,255,255,.14);
-      box-shadow: 0 8px 20px rgba(2,6,23,.35);
-      font-size: 28px;
+      box-shadow:0 8px 20px rgba(2,6,23,.35);
+      font-size:28px;
       line-height:1;
       user-select:none;
       pointer-events:auto;
       touch-action:manipulation;
-      transition: transform .08s ease, opacity .14s ease, filter .12s ease;
-      transform: translate(-50%,-50%);
+      transition:transform .08s ease, opacity .14s ease, filter .12s ease;
+      transform:translate(-50%,-50%);
     }
     #plate-layer .plateTarget[data-kind="shield"]{
-      background: rgba(30,58,138,.55);
-      border-color: rgba(96,165,250,.35);
-      box-shadow: 0 10px 26px rgba(59,130,246,.18);
+      background:rgba(30,58,138,.55);
+      border-color:rgba(96,165,250,.35);
+      box-shadow:0 10px 26px rgba(59,130,246,.18);
     }
-    #plate-layer .plateTarget.hit{ transform: translate(-50%,-50%) scale(.88); opacity:.25; }
-    #plate-layer .plateTarget.expire{ transform: translate(-50%,-50%) scale(.78); opacity:0; }
+    #plate-layer .plateTarget.hit{
+      transform:translate(-50%,-50%) scale(.88);
+      opacity:.25;
+    }
+    #plate-layer .plateTarget.expire{
+      transform:translate(-50%,-50%) scale(.78);
+      opacity:0;
+    }
 
     .hud{
       position:absolute;
-      left:max(10px, calc(var(--sal) + 10px));
-      right:max(10px, calc(var(--sar) + 10px));
+      left:max(8px, calc(var(--sal) + 8px));
+      right:max(8px, calc(var(--sar) + 8px));
       z-index:80;
       display:grid;
+      gap:6px;
+      pointer-events:none;
+    }
+    #hudTop{
+      top:calc(var(--sat) + 8px);
+      gap:6px;
+    }
+    #hudBottom{
+      bottom:calc(var(--sab) + 8px);
       gap:8px;
-      pointer-events:none;
-    }
-    #hudTop{ top:var(--hud-top); }
-    #hudBottom{ bottom:var(--hud-bottom); grid-template-columns:1fr; gap:10px; }
-
-    .row{ display:grid; gap:8px; }
-    .row.cols-4{ grid-template-columns: 1.05fr 1.05fr .9fr .95fr; }
-    @media (max-width: 900px){
-      .row.cols-4{ grid-template-columns: 1fr; }
     }
 
-    .card{
-      background: linear-gradient(180deg, rgba(2,6,23,.84), rgba(2,6,23,.72));
-      border:1px solid var(--line);
-      border-radius: var(--radius);
-      padding:10px 12px;
-      box-shadow: 0 8px 24px rgba(2,6,23,.22);
-      pointer-events:none;
-    }
-    .card h4{
-      margin:0 0 8px 0;
-      font-size:12px;
-      color:var(--mut);
-      font-weight:900;
-      letter-spacing:.2px;
-    }
-    .stats{
+    .topGrid{
       display:grid;
-      grid-template-columns: repeat(3, minmax(0,1fr));
+      grid-template-columns:1fr 1.08fr;
       gap:8px;
     }
-    .pill{
-      background: rgba(15,23,42,.7);
-      border:1px solid rgba(148,163,184,.16);
-      border-radius: 999px;
-      min-height: 42px;
-      display:flex; align-items:center; justify-content:center;
-      gap:8px; padding: 8px 10px;
-      font-weight:900;
-      font-size: 13px;
+    @media (max-width:700px){
+      .topGrid{ grid-template-columns:1fr; }
     }
-    .pill .v{ font-size:15px; font-weight:1000; }
-    .bar{
-      height: 10px;
-      border-radius: 999px;
-      background: rgba(148,163,184,.18);
+
+    .hudCard{
+      background:linear-gradient(180deg, rgba(2,6,23,.88), rgba(2,6,23,.74));
+      border:1px solid var(--line);
+      border-radius:16px;
+      padding:8px 10px;
+      box-shadow:0 8px 24px rgba(2,6,23,.22);
+    }
+
+    .hudLabel{
+      font-size:11px;
+      color:var(--mut);
+      font-weight:1000;
+      margin-bottom:6px;
+    }
+
+    .pillRow{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:6px;
+    }
+    .fiveCols{
+      grid-template-columns:repeat(5,minmax(0,1fr));
+    }
+
+    .miniPill{
+      min-height:34px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.14);
+      background:rgba(15,23,42,.74);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:6px;
+      padding:6px 8px;
+      font-size:12px;
+      font-weight:950;
+      white-space:nowrap;
+      text-align:center;
+    }
+    .miniPill .v{
+      font-size:13px;
+      font-weight:1000;
+    }
+    .miniPill .sub{
+      opacity:.72;
+      font-size:11px;
+    }
+
+    .targetBox{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      min-height:34px;
+      padding:7px 10px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.14);
+      background:rgba(15,23,42,.74);
+      font-size:12px;
+      font-weight:1000;
+      overflow:hidden;
+    }
+    .targetBox span:last-child{
+      min-width:0;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+
+    .meter{
+      margin-top:6px;
+      height:8px;
+      border-radius:999px;
+      background:rgba(148,163,184,.18);
       border:1px solid rgba(148,163,184,.14);
       overflow:hidden;
     }
-    .bar > i{
-      display:block; height:100%; width:0%;
-      background: linear-gradient(90deg, rgba(34,197,94,.9), rgba(167,139,250,.9));
-      transition: width .12s linear;
+    .meter > i{
+      display:block;
+      height:100%;
+      width:0%;
+      background:linear-gradient(90deg, rgba(34,197,94,.9), rgba(167,139,250,.9));
+      transition:width .12s linear;
+    }
+
+    .metaLine{
+      margin-top:6px;
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      color:var(--mut);
+      font-size:10.5px;
+      font-weight:1000;
+      line-height:1.2;
+    }
+    .metaLine b{ color:var(--txt); }
+
+    .hudStrip{
+      display:flex;
+      gap:6px;
+      flex-wrap:wrap;
+    }
+
+    .hudActions{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      pointer-events:auto;
+    }
+
+    .coachBar{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      min-height:38px;
+      padding:8px 10px;
+      border-radius:16px;
+      border:1px solid var(--line);
+      background:linear-gradient(180deg, rgba(2,6,23,.88), rgba(2,6,23,.74));
+      box-shadow:0 8px 24px rgba(2,6,23,.22);
+    }
+    .coachIcon{ flex:0 0 auto; }
+    .coachText{
+      min-width:0;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      font-size:12px;
+      font-weight:1000;
+    }
+
+    .controlRow{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      pointer-events:auto;
+    }
+
+    .btn{
+      appearance:none;
+      border:1px solid rgba(148,163,184,.22);
+      background:rgba(2,6,23,.78);
+      color:var(--txt);
+      border-radius:999px;
+      padding:8px 10px;
+      min-height:38px;
+      font-weight:1000;
+      font-size:12px;
+      cursor:pointer;
+      box-shadow:0 6px 18px rgba(2,6,23,.22);
+    }
+    .btn.warn{
+      border-color:rgba(245,158,11,.25);
+      background:linear-gradient(180deg, rgba(120,53,15,.8), rgba(92,45,14,.8));
+    }
+    .btn.primary{
+      border-color:rgba(59,130,246,.30);
+      background:linear-gradient(180deg, rgba(30,64,175,.92), rgba(30,58,138,.92));
+    }
+    .btn.small{
+      min-height:34px;
+      padding:6px 10px;
+      font-size:11.5px;
+    }
+
+    #plateDrawer{
+      position:absolute;
+      left:10px;
+      right:10px;
+      bottom:58px;
+      z-index:95;
+      display:none;
+    }
+    #plateDrawer[aria-hidden="false"]{
+      display:block;
+    }
+
+    #endOverlay{
+      position:absolute;
+      inset:0;
+      z-index:120;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:
+        calc(16px + var(--sat))
+        16px
+        calc(90px + var(--sab))
+        16px;
+      background:rgba(0,0,0,.55);
+      backdrop-filter:blur(8px);
+      -webkit-backdrop-filter:blur(8px);
+    }
+    #endOverlay[aria-hidden="true"]{ display:none; }
+
+    .endCard{
+      width:min(700px,94vw);
+      max-height:min(78vh, 720px);
+      overflow:auto;
+      border-radius:18px;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(2,6,23,.82);
+      color:rgba(229,231,235,.95);
+      box-shadow:0 18px 60px rgba(0,0,0,.45);
+      padding:14px;
+    }
+    .endGrid{
+      margin-top:10px;
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:10px;
+    }
+    .endItem{
+      border:1px solid rgba(148,163,184,.14);
+      background:rgba(2,6,23,.55);
+      border-radius:14px;
+      padding:10px 12px;
+      font-weight:1000;
+    }
+    .endItem .k{
+      font-size:12px;
+      opacity:.82;
+      font-weight:900;
+    }
+    .endItem .v{
+      margin-top:4px;
+      font-size:18px;
+      font-variant-numeric:tabular-nums;
+    }
+    .endActions{
+      margin-top:12px;
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      justify-content:flex-end;
     }
 
     .phaseBanner{
@@ -147,16 +353,16 @@ BASELINE old Plate run before compact/mobile polish flow changes
       top:42%;
       left:50%;
       transform:translate(-50%,-50%);
-      font-size:28px;
+      font-size:22px;
       font-weight:1000;
       background:rgba(0,0,0,.68);
-      padding:14px 24px;
-      border-radius:20px;
+      padding:12px 18px;
+      border-radius:18px;
       border:1px solid rgba(148,163,184,.25);
       z-index:120;
       pointer-events:none;
       opacity:0;
-      animation: bannerIn .95s ease forwards;
+      animation:bannerIn .95s ease forwards;
       text-align:center;
       white-space:nowrap;
     }
@@ -165,119 +371,121 @@ BASELINE old Plate run before compact/mobile polish flow changes
       20%{ opacity:1; transform:translate(-50%,-50%) scale(1.02); }
       100%{ opacity:0; transform:translate(-50%,-50%) scale(1.03); }
     }
+
     .popScore{
       position:absolute;
       z-index:110;
       pointer-events:none;
       font-weight:1000;
-      font-size:16px;
+      font-size:15px;
       opacity:0;
-      transform: translate(-50%,-50%) translateY(6px);
-      animation: popUp .55s ease forwards;
-      text-shadow: 0 8px 20px rgba(0,0,0,.35);
+      transform:translate(-50%,-50%) translateY(6px);
+      animation:popUp .55s ease forwards;
+      text-shadow:0 8px 20px rgba(0,0,0,.35);
       white-space:nowrap;
     }
     @keyframes popUp{
-      0%{ opacity:0; transform: translate(-50%,-50%) translateY(8px) scale(.98); }
+      0%{ opacity:0; transform:translate(-50%,-50%) translateY(8px) scale(.98); }
       20%{ opacity:1; }
-      100%{ opacity:0; transform: translate(-50%,-50%) translateY(-16px) scale(1.03); }
+      100%{ opacity:0; transform:translate(-50%,-50%) translateY(-16px) scale(1.03); }
     }
 
-    #controls{ display:flex; flex-wrap:wrap; gap:8px; pointer-events:auto; }
-    .btn{
-      appearance:none;
-      border:1px solid rgba(148,163,184,.22);
-      background: rgba(2,6,23,.78);
-      color:var(--txt);
-      border-radius: 999px;
-      padding:10px 14px;
-      min-height:44px;
-      font-weight:1000;
-      font-size:14px;
-      cursor:pointer;
-      box-shadow: 0 6px 18px rgba(2,6,23,.22);
-    }
-    .btn.warn{
-      border-color: rgba(245,158,11,.25);
-      background: linear-gradient(180deg, rgba(120,53,15,.8), rgba(92,45,14,.8));
-    }
-    .btn.primary{
-      border-color: rgba(59,130,246,.30);
-      background: linear-gradient(180deg, rgba(30,64,175,.92), rgba(30,58,138,.92));
-    }
-
-    #endOverlay{
-      position:absolute; inset:0;
-      z-index:120;
-      display:flex; align-items:center; justify-content:center;
-      padding:16px;
-      background: rgba(0,0,0,.55);
-      backdrop-filter: blur(8px);
-      -webkit-backdrop-filter: blur(8px);
-    }
-    #endOverlay[aria-hidden="true"]{ display:none; }
-    .endCard{
-      width:min(700px, 94vw);
-      border-radius: 18px;
-      border:1px solid rgba(148,163,184,.18);
-      background: rgba(2,6,23,.82);
-      color: rgba(229,231,235,.95);
-      box-shadow: 0 18px 60px rgba(0,0,0,.45);
-      padding: 14px;
-    }
-    .endGrid{
-      margin-top:10px;
-      display:grid;
-      grid-template-columns: repeat(2, minmax(0,1fr));
-      gap:10px;
-    }
-    .endItem{
-      border:1px solid rgba(148,163,184,.14);
-      background: rgba(2,6,23,.55);
-      border-radius: 14px;
-      padding: 10px 12px;
-      font-weight:1000;
-    }
-    .endItem .k{ font-size:12px; opacity:.82; font-weight:900; }
-    .endItem .v{ margin-top:4px; font-size:18px; font-variant-numeric: tabular-nums; }
-    .endActions{
-      margin-top: 12px;
-      display:flex;
-      gap: 10px;
-      flex-wrap:wrap;
-      justify-content:flex-end;
-    }
     .is-hidden{ display:none !important; }
 
-    @media (max-width: 640px){
+    @media (max-width:640px){
       #hudTop{
-        left: max(6px, calc(var(--sal) + 6px));
-        right: max(6px, calc(var(--sar) + 6px));
-        gap: 6px;
+        left:max(6px, calc(var(--sal) + 6px));
+        right:max(6px, calc(var(--sar) + 6px));
       }
-      .card{
-        padding: 8px 10px;
-        border-radius: 14px;
+
+      .hudCard{
+        padding:7px 9px;
+        border-radius:14px;
       }
-      .card h4{
-        font-size: 11px;
-        margin-bottom: 6px;
+
+      .hudLabel{
+        font-size:10.5px;
+        margin-bottom:5px;
       }
-      .pill{
-        min-height: 36px;
-        padding: 6px 8px;
-        font-size: 11.5px;
-        gap: 6px;
+
+      .miniPill{
+        min-height:32px;
+        padding:5px 7px;
+        font-size:11px;
       }
-      .pill .v{ font-size: 13px; }
-      .bar{ height: 8px; }
+      .miniPill .v{
+        font-size:12.5px;
+      }
+
+      .targetBox{
+        min-height:32px;
+        padding:6px 9px;
+        font-size:11.5px;
+      }
+
+      .metaLine{
+        font-size:10px;
+        gap:6px;
+      }
+
+      .coachBar{
+        min-height:34px;
+        padding:7px 9px;
+      }
+
+      .coachText{
+        font-size:11.5px;
+      }
+
       .btn{
-        min-height: 38px;
-        padding: 8px 10px;
-        font-size: 12px;
+        min-height:36px;
+        padding:7px 9px;
+        font-size:11.5px;
       }
-      .endGrid{ grid-template-columns: 1fr; }
-      .endActions .btn{ flex: 1 1 100%; }
+
+      #plate-layer .plateTarget{
+        width:52px;
+        height:52px;
+        font-size:26px;
+      }
+
+      #endOverlay{
+        align-items:flex-start;
+        padding:
+          calc(10px + var(--sat))
+          10px
+          calc(104px + var(--sab))
+          10px;
+      }
+
+      .endCard{
+        width:100%;
+        max-height:calc(100vh - 124px - var(--sat) - var(--sab));
+        border-radius:16px;
+        padding:12px;
+      }
+
+      .endGrid{
+        grid-template-columns:1fr;
+        gap:8px;
+      }
+
+      .endItem{
+        padding:9px 10px;
+      }
+
+      .endItem .v{
+        font-size:16px;
+      }
+
+      .endActions{
+        gap:8px;
+      }
+
+      .endActions .btn{
+        flex:1 1 calc(50% - 8px);
+        min-height:38px;
+      }
     }
   </style>
 </head>
@@ -288,86 +496,76 @@ BASELINE old Plate run before compact/mobile polish flow changes
     <div id="plate-layer" aria-label="plate targets layer"></div>
 
     <div id="hudTop" class="hud">
-      <div class="row cols-4">
-        <div class="card">
-          <h4>คะแนน / คอมโบ / พลาด</h4>
-          <div class="stats">
-            <div class="pill">🏆 <span id="uiScore" class="v">0</span></div>
-            <div class="pill">🔥 <span id="uiCombo" class="v">0</span> <span style="opacity:.8">(max <span id="uiComboMax">0</span>)</span></div>
-            <div class="pill">💥 <span id="uiMiss" class="v">0</span></div>
+      <div class="topGrid">
+        <div class="hudCard">
+          <div class="hudLabel">คะแนน / คอมโบ / พลาด</div>
+          <div class="pillRow">
+            <div class="miniPill">🏆 <span id="uiScore" class="v">0</span></div>
+            <div class="miniPill">🔥 <span id="uiCombo" class="v">0</span> <span class="sub">(max <span id="uiComboMax">0</span>)</span></div>
+            <div class="miniPill">💥 <span id="uiMiss" class="v">0</span></div>
           </div>
         </div>
 
-        <div class="card">
-          <h4>จาน 5 หมู่ / ความแม่นยำ / เกรด</h4>
-          <div class="stats">
-            <div class="pill">🍽️ <span id="uiPlateHave" class="v">0</span>/5</div>
-            <div class="pill">🎯 <span id="uiAcc" class="v">0%</span></div>
-            <div class="pill">🏅 <span id="uiGrade" class="v">D</span></div>
-          </div>
-          <div style="height:8px"></div>
-          <div class="pill" style="justify-content:flex-start;padding-inline:12px;">
-            🎯 <span id="uiTargetText">—</span>
-          </div>
-          <div style="height:6px"></div>
-          <div class="bar"><i id="uiGoalFill"></i></div>
-          <div style="margin-top:6px; font-size:12px; color:var(--mut); font-weight:900;">
-            MODE: <span id="uiModeTag">SOLO</span> • PRO: <span id="uiProTag">OFF</span> • Phase: <span id="uiPhase">WARM</span> • <span id="uiPhaseProg">0/0</span>
-          </div>
-        </div>
-
-        <div class="card">
-          <h4>เวลา / Fever / Shield</h4>
-          <div class="stats">
-            <div class="pill">⏱️ <span id="uiTime" class="v">0</span>s</div>
-            <div class="pill">🛡️ <span id="uiShield" class="v">0</span></div>
-            <div class="pill">⚡ <span id="uiFever" class="v">0%</span></div>
-          </div>
-          <div style="height:8px"></div>
-          <div style="font-weight:1000; margin-bottom:6px;">FEVER</div>
-          <div class="bar"><i id="uiFeverFill"></i></div>
-        </div>
-
-        <div class="card" id="coopCard" style="display:none;">
-          <h4>COOP TEAM</h4>
-          <div class="stats">
-            <div class="pill">🅰️ <span id="uiCoopA" class="v">0</span></div>
-            <div class="pill">🅱️ <span id="uiCoopB" class="v">0</span></div>
-            <div class="pill">⏳ <span id="uiTurnLeft" class="v">0</span></div>
-          </div>
-          <div style="margin-top:6px;font-size:12px;color:var(--mut);font-weight:900;">
-            TURN: <span id="uiTurnActive">A</span>
+        <div class="hudCard">
+          <div class="hudLabel">ภารกิจตอนนี้</div>
+          <div class="targetBox">🎯 <span id="uiTargetText">—</span></div>
+          <div class="meter"><i id="uiGoalFill"></i></div>
+          <div class="metaLine">
+            <span>PHASE: <b id="uiPhase">WARM</b></span>
+            <span><b id="uiPhaseProg">0/0</b></span>
+            <span>⏱ <b id="uiTime">0</b>s</span>
           </div>
         </div>
       </div>
 
-      <div class="row">
-        <div class="card">
-          <h4>จำนวนที่เก็บได้ (5 หมู่)</h4>
-          <div class="stats" style="grid-template-columns:repeat(5,minmax(0,1fr));">
-            <div class="pill">🐟 <span id="uiG1" class="v">0</span></div>
-            <div class="pill">🍚 <span id="uiG2" class="v">0</span></div>
-            <div class="pill">🥦 <span id="uiG3" class="v">0</span></div>
-            <div class="pill">🍎 <span id="uiG4" class="v">0</span></div>
-            <div class="pill">🥑 <span id="uiG5" class="v">0</span></div>
-          </div>
+      <div class="hudStrip">
+        <div class="miniPill">🎯 <span id="uiAcc" class="v">0%</span></div>
+        <div class="miniPill">🏅 <span id="uiGrade" class="v">D</span></div>
+        <div class="miniPill">⚡ <span id="uiFever" class="v">0%</span></div>
+        <div class="miniPill">🛡️ <span id="uiShield" class="v">0</span></div>
+        <div class="miniPill">🍽️ <span id="uiPlateHave" class="v">0</span>/5</div>
+        <div class="miniPill">MODE: <span id="uiModeTag" class="v">SOLO</span></div>
+        <div class="miniPill">PRO: <span id="uiProTag" class="v">OFF</span></div>
+      </div>
+
+      <div class="hudActions">
+        <button id="btnPlateToggle" class="btn small" type="button">🍽 ดูจาน</button>
+      </div>
+
+      <div class="hudCard is-hidden" id="coopCard">
+        <div class="hudLabel">COOP TEAM</div>
+        <div class="pillRow">
+          <div class="miniPill">🅰️ <span id="uiCoopA" class="v">0</span></div>
+          <div class="miniPill">🅱️ <span id="uiCoopB" class="v">0</span></div>
+          <div class="miniPill">⏳ <span id="uiTurnLeft" class="v">0</span></div>
+          <div class="miniPill">TURN <span id="uiTurnActive" class="v">A</span></div>
         </div>
       </div>
     </div>
 
     <div id="hudBottom" class="hud">
-      <div class="card">
-        <div style="font-weight:1000">🧑‍🏫 Coach</div>
-        <div id="coachMsg" style="margin-top:6px;font-weight:1000">พร้อมลุย! เติมจานให้ครบ 5 หมู่ 💪</div>
-        <div style="font-size:12px;opacity:.85;margin-top:4px;">
-          ยิง/แตะ = โดนเป้า • cVR/VR = ยิงจาก crosshair
-        </div>
+      <div class="coachBar">
+        <span class="coachIcon">🧑‍🏫</span>
+        <span id="coachMsg" class="coachText">พร้อมลุย! เติมจานให้ครบ 5 หมู่ 💪</span>
       </div>
 
-      <div id="controls">
-        <button id="btnPause" class="btn warn" type="button">⏸️ PAUSE</button>
-        <button id="btnRestart" class="btn" type="button">🔄 RESTART</button>
-        <button id="btnBackHub" class="btn" type="button">↩ กลับ HUB</button>
+      <div id="controls" class="controlRow">
+        <button id="btnPause" class="btn warn" type="button">⏸ PAUSE</button>
+        <button id="btnRestart" class="btn" type="button">↻ RESTART</button>
+        <button id="btnBackHub" class="btn" type="button">↩ HUB</button>
+      </div>
+    </div>
+
+    <div id="plateDrawer" aria-hidden="true">
+      <div class="hudCard">
+        <div class="hudLabel">จำนวนที่เก็บได้ (5 หมู่)</div>
+        <div class="pillRow fiveCols">
+          <div class="miniPill">🐟 <span id="uiG1" class="v">0</span></div>
+          <div class="miniPill">🍚 <span id="uiG2" class="v">0</span></div>
+          <div class="miniPill">🥦 <span id="uiG3" class="v">0</span></div>
+          <div class="miniPill">🍎 <span id="uiG4" class="v">0</span></div>
+          <div class="miniPill">🥑 <span id="uiG5" class="v">0</span></div>
+        </div>
       </div>
     </div>
 
@@ -448,14 +646,31 @@ BASELINE old Plate run before compact/mobile polish flow changes
     const coopCard = document.getElementById('coopCard');
     const coopSummary = document.getElementById('coopSummary');
     const uiModeTag = document.getElementById('uiModeTag');
-    if(coopCard) coopCard.style.display = isCoop ? '' : 'none';
+    if(coopCard) coopCard.classList.toggle('is-hidden', !isCoop);
     if(coopSummary) coopSummary.classList.toggle('is-hidden', !isCoop);
     if(uiModeTag) uiModeTag.textContent = isCoop ? 'COOP' : 'SOLO';
+
+    const plateDrawer = document.getElementById('plateDrawer');
+    const btnPlateToggle = document.getElementById('btnPlateToggle');
+    let drawerOpen = false;
+
+    function renderDrawer(){
+      if(!plateDrawer || !btnPlateToggle) return;
+      plateDrawer.setAttribute('aria-hidden', drawerOpen ? 'false' : 'true');
+      btnPlateToggle.textContent = drawerOpen ? '🍽 ซ่อนจาน' : '🍽 ดูจาน';
+    }
+
+    btnPlateToggle?.addEventListener('click', ()=>{
+      drawerOpen = !drawerOpen;
+      renderDrawer();
+    });
+
+    renderDrawer();
 
     const ai = createAIHooks({
       seed: String(seed),
       runMode,
-      game: 'plate',
+      game: 'platev1',
       diff,
       device: view
     });
@@ -466,22 +681,28 @@ BASELINE old Plate run before compact/mobile polish flow changes
     const btnBackHub = document.getElementById('btnBackHub');
 
     let paused = false;
-    function setPauseBtn(){ if(btnPause) btnPause.textContent = paused ? '▶️ RESUME' : '⏸️ PAUSE'; }
+    function setPauseBtn(){
+      if(btnPause) btnPause.textContent = paused ? '▶ RESUME' : '⏸ PAUSE';
+    }
     setPauseBtn();
 
     btnPause?.addEventListener('click', ()=>{
       paused = !paused;
       setPauseBtn();
       window.dispatchEvent(new CustomEvent(paused ? 'hha:pause' : 'hha:resume'));
-      try{ window.__PLATE_SET_PAUSED__?.(paused); }catch(e){}
+      try{ window.__PLATE_SET_PAUSED__?.(paused); }catch(_){}
     });
 
     btnRestart?.addEventListener('click', ()=>{
       try{
         const u = new URL(location.href);
-        if(runMode !== 'research') u.searchParams.set('seed', String((Date.now() ^ (Math.random()*1e9))|0));
+        if(runMode !== 'research'){
+          u.searchParams.set('seed', String((Date.now() ^ (Math.random()*1e9))|0));
+        }
         location.href = u.toString();
-      }catch(e){ location.reload(); }
+      }catch(_){
+        location.reload();
+      }
     });
 
     btnBackHub?.addEventListener('click', ()=> location.href = hub);
@@ -491,7 +712,9 @@ BASELINE old Plate run before compact/mobile polish flow changes
 
     bootPlate({
       mount: document.getElementById('plate-layer'),
-      view, run: runMode, diff,
+      view,
+      run: runMode,
+      diff,
       time: Number(U.searchParams.get('time') || 90),
       seed,
       pid: String(U.searchParams.get('pid') || 'anon'),
