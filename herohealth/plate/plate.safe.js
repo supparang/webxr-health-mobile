@@ -1,6 +1,6 @@
 /* === /herohealth/plate/plate.safe.js ===
    HeroHealth Plate Engine
-   FINAL PATCH v20260320-PLATE-SAFE-DIFFICULTY-UPDATED
+   FINAL PATCH v20260320-PLATE-SAFE-DIFF-AWARE-FINAL
 */
 'use strict';
 
@@ -162,6 +162,41 @@ function saveJson(key, value){
   try{ localStorage.setItem(key, JSON.stringify(value)); }catch(_){}
 }
 
+function getDifficultyPreset(diff='normal', pro=false){
+  const d = String(diff || 'normal').toLowerCase();
+
+  let preset = {
+    warm:  { targetCorrectP: 0.82, spawnPerSec: 0.82, ttl: 3.6, capBonus: 0, wrongPenalty: 4, bossBonus: 6 },
+    trick: { targetCorrectP: 0.58, spawnPerSec: 1.02, ttl: 2.9, capBonus: 1, wrongPenalty: 4, bossBonus: 6 },
+    boss:  { targetCorrectP: 0.68, spawnPerSec: 1.15, ttl: 2.45, capBonus: 1, wrongPenalty: 6, bossBonus: 6 }
+  };
+
+  if(d === 'easy'){
+    preset = {
+      warm:  { targetCorrectP: 0.88, spawnPerSec: 0.70, ttl: 4.0, capBonus: 0, wrongPenalty: 2, bossBonus: 4 },
+      trick: { targetCorrectP: 0.66, spawnPerSec: 0.88, ttl: 3.3, capBonus: 0, wrongPenalty: 3, bossBonus: 4 },
+      boss:  { targetCorrectP: 0.76, spawnPerSec: 0.98, ttl: 2.9, capBonus: 0, wrongPenalty: 4, bossBonus: 4 }
+    };
+  } else if(d === 'hard'){
+    preset = {
+      warm:  { targetCorrectP: 0.78, spawnPerSec: 0.94, ttl: 3.25, capBonus: 0, wrongPenalty: 4, bossBonus: 7 },
+      trick: { targetCorrectP: 0.52, spawnPerSec: 1.15, ttl: 2.55, capBonus: 1, wrongPenalty: 5, bossBonus: 7 },
+      boss:  { targetCorrectP: 0.62, spawnPerSec: 1.28, ttl: 2.15, capBonus: 2, wrongPenalty: 7, bossBonus: 8 }
+    };
+  }
+
+  if(pro){
+    for(const k of ['warm','trick','boss']){
+      preset[k].spawnPerSec *= 1.08;
+      preset[k].ttl *= 0.94;
+      preset[k].wrongPenalty += 1;
+      if(k !== 'warm') preset[k].capBonus += 1;
+    }
+  }
+
+  return preset;
+}
+
 const S = {
   mount: null,
   ctx: null,
@@ -221,7 +256,8 @@ const S = {
   spawnPerSec: 0.95,
   ttl: 3.2,
   missLimit: 999,
-  bossCompleted: false
+  bossCompleted: false,
+  diffPreset: null
 };
 
 function setCoach(kind, data = {}){
@@ -268,26 +304,28 @@ function setPhase(index){
   S.phase = S.phaseList[S.phaseIndex];
   S.phaseTimeLeft = S.phaseDurations[S.phaseIndex];
 
+  const P = S.diffPreset || getDifficultyPreset(S.ctx?.diff, S.ctx?.pro);
+
   if(S.phase === 'warm'){
-    S.targetCorrectP = 0.82;
-    S.spawnPerSec = 0.82;
-    S.ttl = 3.6;
+    S.targetCorrectP = P.warm.targetCorrectP;
+    S.spawnPerSec = P.warm.spawnPerSec;
+    S.ttl = P.warm.ttl;
     S.targetGroup = pick(GROUPS);
     setCoach('warm', { target: S.targetGroup.label });
     showPhaseBanner('warm');
 
   } else if(S.phase === 'trick'){
-    S.targetCorrectP = 0.58;
-    S.spawnPerSec = 1.02;
-    S.ttl = 2.9;
+    S.targetCorrectP = P.trick.targetCorrectP;
+    S.spawnPerSec = P.trick.spawnPerSec;
+    S.ttl = P.trick.ttl;
     S.targetGroup = pick(GROUPS);
     setCoach('trick', { target: S.targetGroup.label });
     showPhaseBanner('trick');
 
   } else {
-    S.targetCorrectP = 0.68;
-    S.spawnPerSec = 1.15;
-    S.ttl = 2.45;
+    S.targetCorrectP = P.boss.targetCorrectP;
+    S.spawnPerSec = P.boss.spawnPerSec;
+    S.ttl = P.boss.ttl;
     S.targetGroup = pickMissingGroup();
     setCoach('boss', { target: S.targetGroup.label });
     showPhaseBanner('boss');
@@ -454,7 +492,8 @@ function awardCorrect(t){
   S.comboMax = Math.max(S.comboMax, S.combo);
 
   let add = 10 + Math.min(10, S.combo);
-  if(S.phase === 'boss') add += 6;
+  const P = S.diffPreset || getDifficultyPreset(S.ctx?.diff, S.ctx?.pro);
+  if(S.phase === 'boss') add += P.boss.bossBonus;
   if(S.feverOn) add += 4;
 
   S.score += add;
@@ -514,7 +553,13 @@ function awardWrong(){
   if(S.shield > 0){
     S.shield--;
   } else {
-    S.score = Math.max(0, S.score - (S.phase === 'boss' ? 6 : 4));
+    const P = S.diffPreset || getDifficultyPreset(S.ctx?.diff, S.ctx?.pro);
+    const penalty =
+      S.phase === 'warm'  ? P.warm.wrongPenalty :
+      S.phase === 'trick' ? P.trick.wrongPenalty :
+      P.boss.wrongPenalty;
+
+    S.score = Math.max(0, S.score - penalty);
     S.miss++;
   }
 
@@ -636,9 +681,11 @@ function updateTargets(dt){
   if(drawerOpen()) return;
 
   S.spawnAcc += S.spawnPerSec * dt;
+  const P = S.diffPreset || getDifficultyPreset(S.ctx?.diff, S.ctx?.pro);
+
   let cap = (S.ctx?.view === 'mobile') ? 5 : 7;
-  if(S.phase === 'trick') cap += 1;
-  if(S.phase === 'boss') cap += 1;
+  if(S.phase === 'trick') cap += (P.trick.capBonus || 0);
+  if(S.phase === 'boss') cap += (P.boss.capBonus || 0);
 
   while(S.spawnAcc >= 1){
     S.spawnAcc -= 1;
@@ -689,8 +736,6 @@ function loop(ts){
     phaseAdvance();
     if(!S.running) return;
   }
-
-  S.raf = requestAnimationFrame(loop);
 }
 
 function buildCooldownUrl(){
@@ -715,6 +760,7 @@ function buildSummary(){
   return {
     game: 'platev1',
     reason: 'end',
+    reasonDetail: S.bossCompleted ? 'boss-complete' : 'time',
     phase: S.phase,
     scoreFinal: S.score,
     grade: gradeOf(acc),
@@ -727,6 +773,8 @@ function buildSummary(){
     counts: { ...S.counts },
     mode: S.ctx.mode,
     diff: S.ctx.diff,
+    pro: !!S.ctx.pro,
+    difficultyPreset: S.ctx.diff,
     view: S.ctx.view,
     seed: S.ctx.seed,
     pid: S.ctx.pid
@@ -795,7 +843,10 @@ wrong=${sum.wrong}
 miss=${sum.miss}
 acc=${sum.accPct}%
 comboMax=${sum.comboMax}
-plateHave=${sum.plateHave}/5`;
+plateHave=${sum.plateHave}/5
+diff=${sum.diff}
+pro=${sum.pro ? 1 : 0}
+reasonDetail=${sum.reasonDetail}`;
     try{
       await copyToClipboard(text);
       setCoach('good');
@@ -839,6 +890,7 @@ function boot(ctx){
   S.ai = ctx.ai || null;
   S.hub = String(ctx.hub || '../hub.html');
   S.cooldownEnabled = !!ctx.cooldown;
+  S.diffPreset = getDifficultyPreset(S.ctx.diff, S.ctx.pro);
 
   S.rng = makeRng(S.ctx.seed);
 
