@@ -1,0 +1,404 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth — Clean Objects Kids</title>
+  <meta name="color-scheme" content="dark light" />
+  <link rel="icon" href="./favicon.ico" />
+  <style>
+    :root{
+      --bg1:#020617;
+      --bg2:#0b1226;
+      --panel:rgba(2,6,23,.72);
+      --stroke:rgba(148,163,184,.18);
+      --text:#e5e7eb;
+      --muted:#94a3b8;
+      --blue:#3b82f6;
+      --good:#22c55e;
+      --warn:#f59e0b;
+      --pink:#ec4899;
+    }
+    *{ box-sizing:border-box; }
+    html,body{
+      margin:0;
+      min-height:100%;
+      background:
+        radial-gradient(1000px 700px at 50% -10%, rgba(59,130,246,.18), transparent 60%),
+        radial-gradient(700px 500px at 10% 10%, rgba(236,72,153,.12), transparent 55%),
+        linear-gradient(180deg,var(--bg1),var(--bg2));
+      color:var(--text);
+      font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Thai",Arial,sans-serif;
+    }
+    .wrap{
+      max-width:900px;
+      margin:0 auto;
+      padding:18px;
+    }
+    .card{
+      border-radius:24px;
+      border:1px solid var(--stroke);
+      background:var(--panel);
+      box-shadow:0 18px 55px rgba(0,0,0,.28);
+      padding:18px;
+    }
+    .hero{
+      display:grid;
+      gap:12px;
+    }
+    .title{
+      margin:0;
+      font-size:30px;
+      font-weight:1000;
+      display:flex;
+      align-items:center;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+    .subtitle{
+      color:var(--muted);
+      font-size:14px;
+      font-weight:900;
+      line-height:1.5;
+    }
+    .pillrow{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      margin-top:6px;
+    }
+    .pill{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 10px;
+      border-radius:999px;
+      border:1px solid var(--stroke);
+      background:rgba(2,6,23,.42);
+      color:var(--muted);
+      font-size:12px;
+      font-weight:1000;
+    }
+    .pill b{ color:var(--text); }
+
+    .section{
+      margin-top:14px;
+      padding:14px;
+      border-radius:18px;
+      border:1px solid var(--stroke);
+      background:rgba(2,6,23,.35);
+    }
+    .sectionTitle{
+      font-size:16px;
+      font-weight:1000;
+      margin-bottom:8px;
+    }
+    .list{
+      margin:0;
+      padding-left:18px;
+      color:var(--muted);
+      font-size:14px;
+      font-weight:900;
+      line-height:1.7;
+    }
+
+    .flow{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:10px;
+      margin-top:10px;
+    }
+    .flowCard{
+      border-radius:18px;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(15,23,42,.46);
+      padding:12px;
+      text-align:center;
+      box-shadow:0 14px 35px rgba(0,0,0,.20);
+    }
+    .flowIcon{
+      font-size:28px;
+      line-height:1;
+      margin-bottom:8px;
+    }
+    .flowTitle{
+      font-size:14px;
+      font-weight:1000;
+      line-height:1.25;
+    }
+    .flowSub{
+      margin-top:4px;
+      font-size:12px;
+      font-weight:900;
+      color:var(--muted);
+      line-height:1.45;
+    }
+
+    .btnrow{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-top:16px;
+    }
+    .btn{
+      appearance:none;
+      border:1px solid rgba(148,163,184,.22);
+      border-radius:14px;
+      padding:12px 14px;
+      min-height:46px;
+      cursor:pointer;
+      color:var(--text);
+      background:rgba(148,163,184,.10);
+      font-weight:1000;
+      font-size:14px;
+    }
+    .btn.primary{
+      background:rgba(34,197,94,.16);
+      border-color:rgba(34,197,94,.34);
+    }
+    .btn.good{
+      background:rgba(59,130,246,.16);
+      border-color:rgba(59,130,246,.34);
+    }
+    .btn.warn{
+      background:rgba(245,158,11,.14);
+      border-color:rgba(245,158,11,.32);
+    }
+
+    .debug{
+      margin-top:16px;
+      padding:12px;
+      border-radius:16px;
+      border:1px solid var(--stroke);
+      background:rgba(2,6,23,.35);
+      font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+      white-space:pre-wrap;
+      word-break:break-word;
+      color:#cbd5e1;
+    }
+
+    @media (max-width: 820px){
+      .flow{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+    }
+    @media (max-width: 520px){
+      .flow{ grid-template-columns:1fr; }
+      .title{ font-size:26px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="hero">
+        <h1 class="title">🧽 Clean Objects — Kids Mode</h1>
+        <div class="subtitle">
+          เกมเลือกจุดที่ควรเช็ดก่อน สำหรับเด็ก ป.5<br>
+          เป้าหมายคือ “ดูให้ไว แล้วแตะจุดที่ควรทำความสะอาดก่อน”
+        </div>
+
+        <div class="pillrow">
+          <span class="pill"><b>PID</b>: <span id="uiPid">anon</span></span>
+          <span class="pill"><b>view</b>: <span id="uiView">mobile</span></span>
+          <span class="pill"><b>run</b>: <span id="uiRun">play</span></span>
+          <span class="pill"><b>diff</b>: <span id="uiDiff">kids</span></span>
+          <span class="pill"><b>time</b>: <span id="uiTime">30</span>s</span>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="sectionTitle">เด็กจะเจออะไรบ้าง</div>
+        <ul class="list">
+          <li>แตะการ์ดจุดเสี่ยงที่ควรเช็ดก่อน</li>
+          <li>มีเป้าไม่เยอะ มองง่าย ไม่งง</li>
+          <li>มีภารกิจพิเศษบางรอบ</li>
+          <li>จบแล้วได้ดาว และไปคูลดาวน์ต่อ</li>
+        </ul>
+      </div>
+
+      <div class="section">
+        <div class="sectionTitle">Flow</div>
+        <div class="flow">
+          <div class="flowCard">
+            <div class="flowIcon">🔥</div>
+            <div class="flowTitle">Warmup</div>
+            <div class="flowSub">วอร์มอัปสั้น ๆ ก่อนเล่น</div>
+          </div>
+          <div class="flowCard">
+            <div class="flowIcon">🧽</div>
+            <div class="flowTitle">Kids Game</div>
+            <div class="flowSub">เลือกจุดที่ควรเช็ดก่อน</div>
+          </div>
+          <div class="flowCard">
+            <div class="flowIcon">🌿</div>
+            <div class="flowTitle">Cooldown</div>
+            <div class="flowSub">พักสั้น ๆ หลังเล่น</div>
+          </div>
+          <div class="flowCard">
+            <div class="flowIcon">🏠</div>
+            <div class="flowTitle">Back Hub</div>
+            <div class="flowSub">กลับหน้า Hub</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="btnrow">
+        <button class="btn primary" id="btnStart" type="button">เริ่มเกม</button>
+        <button class="btn good" id="btnOpenRun" type="button">เปิดเกมตรง</button>
+        <button class="btn warn" id="btnOpenCooldown" type="button">เปิด cooldown ตรง</button>
+        <button class="btn" id="btnHub" type="button">กลับ Hub</button>
+      </div>
+
+      <div class="debug" id="debugBox">loading...</div>
+    </div>
+  </div>
+
+  <script>
+    function qs(k,d=''){
+      try{ return (new URL(location.href)).searchParams.get(k) ?? d; }
+      catch(_){ return d; }
+    }
+
+    function safeNum(v,d){
+      v = Number(v);
+      return Number.isFinite(v) ? v : d;
+    }
+
+    function normView(v){
+      v = String(v||'').trim().toLowerCase();
+      if(v==='vr' || v==='cvr' || v==='cardboard') return 'cvr';
+      if(v==='desktop') return 'pc';
+      if(v==='m') return 'mobile';
+      return v || 'mobile';
+    }
+
+    function normalizeHub(){
+      const raw = String(qs('hub','')).trim();
+      if(raw) return raw;
+      try{
+        return new URL('./hub.html', location.href).toString();
+      }catch(_){
+        return './hub.html';
+      }
+    }
+
+    const GAME = {
+      cat: 'hygiene',
+      theme: 'cleanobjects',
+      game: 'cleanobjects',
+      runPath: './vr-clean/clean-kids.html'
+    };
+
+    const ctx = {
+      pid: String(qs('pid','anon')).trim() || 'anon',
+      view: normView(qs('view','mobile')),
+      run: String(qs('run','play')).trim() || 'play',
+      diff: 'kids',
+      time: String(safeNum(qs('time','30'), 30)),
+      seed: String(qs('seed', String(Date.now()))),
+      zone: String(qs('zone','hygiene')).trim() || 'hygiene',
+      hub: normalizeHub()
+    };
+
+    document.getElementById('uiPid').textContent = ctx.pid;
+    document.getElementById('uiView').textContent = ctx.view;
+    document.getElementById('uiRun').textContent = ctx.run;
+    document.getElementById('uiDiff').textContent = ctx.diff;
+    document.getElementById('uiTime').textContent = ctx.time;
+
+    function copyPassthrough(u){
+      const sp = new URL(location.href).searchParams;
+      [
+        'run','time','seed','studyId','phase','conditionGroup','log','view','pid','api','ai','debug',
+        'planSeq','planDay','planSlot','planMode','planSlots','planIndex','autoNext',
+        'plannedGame','finalGame','zone','cdnext','grade','kids'
+      ].forEach(k=>{
+        const v = sp.get(k);
+        if(v != null && v !== '') u.searchParams.set(k, v);
+      });
+    }
+
+    function buildRunUrl(){
+      const u = new URL(GAME.runPath, location.href);
+      copyPassthrough(u);
+
+      u.searchParams.set('kids', '1');
+      u.searchParams.set('run', ctx.run);
+      u.searchParams.set('diff', 'kids');
+      u.searchParams.set('time', ctx.time);
+      u.searchParams.set('seed', ctx.seed);
+      u.searchParams.set('pid', ctx.pid);
+      u.searchParams.set('view', ctx.view);
+      u.searchParams.set('zone', ctx.zone);
+      u.searchParams.set('hub', ctx.hub);
+
+      return u.toString();
+    }
+
+    function buildWarmupUrl(){
+      const warm = new URL('./warmup-gate.html', location.href);
+      copyPassthrough(warm);
+
+      warm.searchParams.set('gatePhase', 'warmup');
+      warm.searchParams.set('phase', 'warmup');
+      warm.searchParams.set('cat', GAME.cat);
+      warm.searchParams.set('theme', GAME.theme);
+      warm.searchParams.set('game', GAME.game);
+      warm.searchParams.set('pid', ctx.pid);
+      warm.searchParams.set('hub', ctx.hub);
+      warm.searchParams.set('next', buildRunUrl());
+      warm.searchParams.set('run', ctx.run);
+      warm.searchParams.set('diff', 'kids');
+      warm.searchParams.set('time', ctx.time);
+      warm.searchParams.set('view', ctx.view);
+      warm.searchParams.set('seed', ctx.seed);
+      warm.searchParams.set('kids', '1');
+
+      return warm.toString();
+    }
+
+    function buildCooldownUrl(){
+      const cool = new URL('./warmup-gate.html', location.href);
+      copyPassthrough(cool);
+
+      cool.searchParams.set('gatePhase', 'cooldown');
+      cool.searchParams.set('phase', 'cooldown');
+      cool.searchParams.set('cat', GAME.cat);
+      cool.searchParams.set('theme', GAME.theme);
+      cool.searchParams.set('game', GAME.game);
+      cool.searchParams.set('pid', ctx.pid);
+      cool.searchParams.set('hub', ctx.hub);
+      cool.searchParams.set('next', ctx.hub);
+      cool.searchParams.set('run', ctx.run);
+      cool.searchParams.set('diff', 'kids');
+      cool.searchParams.set('time', ctx.time);
+      cool.searchParams.set('view', ctx.view);
+      cool.searchParams.set('seed', ctx.seed);
+      cool.searchParams.set('kids', '1');
+
+      return cool.toString();
+    }
+
+    const debugBox = document.getElementById('debugBox');
+    debugBox.textContent =
+      '[Clean Objects Kids Launcher]\\n' +
+      'launcher: ' + location.href + '\\n' +
+      'hub:      ' + ctx.hub + '\\n' +
+      'warmup:   ' + buildWarmupUrl() + '\\n' +
+      'run:      ' + buildRunUrl() + '\\n' +
+      'cooldown: ' + buildCooldownUrl() + '\\n';
+
+    document.getElementById('btnStart').onclick = ()=> location.href = buildWarmupUrl();
+    document.getElementById('btnOpenRun').onclick = ()=> location.href = buildRunUrl();
+    document.getElementById('btnOpenCooldown').onclick = ()=> location.href = buildCooldownUrl();
+    document.getElementById('btnHub').onclick = ()=> location.href = ctx.hub;
+
+    setTimeout(()=>{
+      try{
+        location.href = buildWarmupUrl();
+      }catch(err){
+        debugBox.textContent += '\\nredirect failed: ' + (err?.message || String(err));
+      }
+    }, 120);
+  </script>
+</body>
+</html>
