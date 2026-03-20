@@ -1,18 +1,9 @@
 // === /herohealth/vr-hydration-v2/js/hydration.safe.js ===
 // Hydration V2 Main Orchestrator
-// PATCH v20260318a-HYDRATION-V2-PATCH-C-NEXT-SESSION-FIX
+// PATCH v20260318a-HYDRATION-V2-PATCH-C-NEXT-SESSION-FIX-HUB-TEAM
 //
 // Flow:
 // Intro -> Main Run -> Summary -> Scenarios -> Evaluate -> Create -> Final Summary
-//
-// Patch C adds:
-// - social / team mission computation
-// - session/week research progress
-// - research payload save
-//
-// Extra fix in this patch:
-// - replay after final summary goes to next session/week
-// - summary research line shows correct next progress text
 
 import { openEvaluate } from './hydration.evaluate.js';
 import { openScenarios } from './hydration.scenarios.js';
@@ -179,9 +170,35 @@ function buildCtx() {
     pid: qs.get('pid') || '',
     studyId: qs.get('studyId') || '',
     diff: qs.get('diff') || 'normal',
-    hub: qs.get('hub') || '../hub.html',
+    hub: resolveHubUrl(qs.get('hub') || '/herohealth/hub.html'),
     seed: toSeed(qs.get('seed'))
   };
+}
+
+function resolveHubUrl(rawHub) {
+  const fallback = '/herohealth/hub.html';
+  const raw = String(rawHub || '').trim() || fallback;
+
+  try {
+    if (/^https?:\/\//i.test(raw)) return raw;
+    if (raw.startsWith('/')) return new URL(raw, window.location.origin).toString();
+
+    if (raw === './hub.html' || raw === 'hub.html') {
+      return new URL(fallback, window.location.origin).toString();
+    }
+
+    if (raw === '../hub.html') {
+      return new URL('/herohealth/hub.html', window.location.origin).toString();
+    }
+
+    return new URL(raw, window.location.href).toString();
+  } catch (_) {
+    try {
+      return new URL(fallback, window.location.origin).toString();
+    } catch (_) {
+      return fallback;
+    }
+  }
 }
 
 function setupIntro() {
@@ -543,9 +560,11 @@ function recomputeSocial() {
   const social = computeSocialProgress({
     type: ctx.type,
     goodCatch: state.goodCatch,
+    badCatch: state.badCatch,
     correctChoices: state.correctChoices,
     createdPlanScore: state.createdPlanScore,
-    rewardCount: state.rewardCount
+    rewardCount: state.rewardCount,
+    bestCombo: state.bestCombo
   });
 
   state.classTankContribution = social.contributionPercent;
@@ -560,6 +579,24 @@ function recomputeSocial() {
 }
 
 function showMainSummaryOverlay() {
+  const teamBlock = ctx.type === 'team'
+    ? `
+      <div class="result-box">
+        <strong>Team Progress</strong><br/>
+        contribution ${state.classTankContribution}% • stars ${state.teamStars}<br/>
+        mission: ${state.teamMissionDone ? 'ผ่านแล้ว' : 'ยังไม่ผ่าน'}<br/>
+        ${escapeHtml(state.socialMissionLabel)}<br/>
+        ${escapeHtml(state.socialMissionNote)}
+      </div>
+    `
+    : `
+      <div class="result-box">
+        <strong>${escapeHtml(state.socialMissionLabel)}</strong><br/>
+        ${escapeHtml(state.socialMissionNote)}<br/><br/>
+        ${escapeHtml(state.socialSummary)}
+      </div>
+    `;
+
   refs.summaryOverlay.innerHTML = `
     <div class="overlay-card">
       <div class="overlay-kicker">Summary • Main Run</div>
@@ -595,11 +632,7 @@ function showMainSummaryOverlay() {
         </div>
       </div>
 
-      <div class="result-box">
-        <strong>${escapeHtml(state.socialMissionLabel)}</strong><br/>
-        ${escapeHtml(state.socialMissionNote)}<br/><br/>
-        ${escapeHtml(state.socialSummary)}
-      </div>
+      ${teamBlock}
 
       <div class="overlay-actions">
         <button class="btn ghost" id="summaryReplayBtn" type="button">เล่นรอบนี้ใหม่</button>
@@ -708,6 +741,17 @@ function showFinalOverlay(evalResult, createResult, researchPayload) {
     nextWeekNo: state.nextWeekNo
   });
 
+  const teamDetail = ctx.type === 'team'
+    ? `
+      <strong>Team Check:</strong> contribution ${state.classTankContribution}% • stars ${state.teamStars}<br/>
+      <strong>Mission:</strong> ${state.teamMissionDone ? 'ผ่านแล้ว ✅' : 'ยังไม่ผ่าน ✨'}<br/>
+      <strong>Mission Label:</strong> ${escapeHtml(state.socialMissionLabel)}<br/>
+      <strong>Mission Note:</strong> ${escapeHtml(state.socialMissionNote)}<br/>
+    `
+    : `
+      <strong>Social:</strong> ${escapeHtml(state.socialSummary)}<br/>
+    `;
+
   refs.summaryOverlay.innerHTML = `
     <div class="overlay-card">
       <div class="overlay-kicker">Summary • Action + Learning + Research</div>
@@ -749,7 +793,7 @@ function showFinalOverlay(evalResult, createResult, researchPayload) {
         ${escapeHtml(evalResult.feedbackText || '')}<br/><br/>
         <strong>Create:</strong> ${escapeHtml(createResult.feedbackTitle || '-')}<br/>
         ${escapeHtml(createResult.feedbackText || '')}<br/><br/>
-        <strong>Social:</strong> ${escapeHtml(state.socialSummary)}<br/>
+        ${teamDetail}
         <strong>${escapeHtml(researchLabel)}:</strong> ${escapeHtml(researchLine)}
       </div>
 
@@ -792,7 +836,9 @@ function renderTeamBox() {
   refs.teamFill.style.width = `${percent}%`;
 
   if (ctx.type === 'team') {
-    refs.teamNote.textContent = state.socialMissionNote;
+    const missionText = state.teamMissionDone ? 'ผ่าน mission แล้ว ✅' : 'ยังไม่ผ่าน mission ✨';
+    refs.teamNote.textContent =
+      `${state.socialMissionNote} • ${missionText} • ${state.teamStars} ดาว • social ${state.socialScore}`;
   } else {
     refs.teamNote.textContent =
       'ตอนนี้เล่นแบบเดี่ยวอยู่ ระบบ social เต็มรูปแบบจะเด่นมากขึ้นเมื่อเล่นแบบทีม';
@@ -876,6 +922,7 @@ function saveSummary(reason) {
     mode: ctx.mode,
     type: ctx.type,
     run: ctx.run,
+    diff: ctx.diff,
     pid: ctx.pid,
     studyId: ctx.studyId,
     seed: ctx.seed,
@@ -976,6 +1023,7 @@ function buildReplayUrl(useNextProgress = false) {
     u.searchParams.set('week', String(state.weekNo || 1));
   }
 
+  u.searchParams.set('hub', ctx.hub);
   return u.toString();
 }
 
