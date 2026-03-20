@@ -1,6 +1,6 @@
 /* === /herohealth/plate/plate.safe.js ===
    HeroHealth Plate Engine
-   FINAL PATCH v20260320-PLATE-SAFE-MODULE-COMPACT-CHILD-FRIENDLY-HUBFIX
+   FINAL PATCH v20260320-PLATE-SAFE-DIFFICULTY-UPDATED
 */
 'use strict';
 
@@ -91,15 +91,15 @@ function drawerOpen(){
 function childCoachText(kind, data = {}){
   const target = String(data.target || '').trim();
   switch(String(kind || '')){
-    case 'warm': return `WARM: ยิง “${target || 'หมู่เป้าหมาย'}” ชัด ๆ`;
-    case 'trick': return 'TRICK: ดูดี ๆ ก่อนยิง มีตัวหลอกนะ';
+    case 'warm': return `WARM: เก็บ “${target || 'หมู่เป้าหมาย'}”`;
+    case 'trick': return 'TRICK: ดูดี ๆ มีตัวหลอกนะ';
     case 'boss': return 'BOSS: เติมจานให้ครบ 5 หมู่';
-    case 'good': return 'ดีมาก! เก็บต่อเลย';
-    case 'wrong': return 'เกือบถูกแล้ว ลองใหม่อีกครั้ง';
-    case 'miss': return 'ไม่เป็นไร ลองใหม่อีกครั้ง';
+    case 'good': return 'เยี่ยมมาก! ถูกต้องแล้ว';
+    case 'wrong': return 'ลองดูใหม่อีกนิดนะ';
+    case 'miss': return 'ไม่เป็นไร ยังทันอยู่';
     case 'shield': return 'ได้โล่แล้ว! กันพลาดได้ 1 ครั้ง';
     case 'fever': return 'Fever มาแล้ว! รีบเก็บแต้ม';
-    case 'phase-clear': return 'ผ่านด่านแล้ว ไปต่อเลย';
+    case 'phase-clear': return 'เก่งมาก! ผ่านด่านแล้ว';
     default: return 'เริ่มเลย! ยิงอาหารให้ครบ 5 หมู่ 🥦🍚🐟';
   }
 }
@@ -115,8 +115,11 @@ function friendlyPhaseLabel(phase){
 
 function friendlyTargetText(label){
   const raw = String(label || '').trim();
-  if(!raw) return 'ยิงหมู่เป้าหมาย';
-  return `ยิง “${raw}”`;
+  if(!raw) return 'เก็บหมู่เป้าหมาย';
+  if(String(S.phase || '').toLowerCase() === 'boss'){
+    return `BOSS: เติม ${raw}`;
+  }
+  return `เก็บ ${raw}`;
 }
 
 function gradeOf(acc){
@@ -217,7 +220,8 @@ const S = {
   targetCorrectP: 0.72,
   spawnPerSec: 0.95,
   ttl: 3.2,
-  missLimit: 999
+  missLimit: 999,
+  bossCompleted: false
 };
 
 function setCoach(kind, data = {}){
@@ -240,6 +244,12 @@ function pick(arr){
   return arr[(S.rng() * arr.length) | 0];
 }
 
+function pickMissingGroup(){
+  const missing = GROUPS.filter(g => (S.counts[g.id] || 0) <= 0);
+  if(missing.length) return pick(missing);
+  return pick(GROUPS);
+}
+
 function showPhaseBanner(kind){
   let text = 'เริ่มเลย';
   if(kind === 'warm') text = 'WARM • เริ่มเก็บก่อน';
@@ -259,24 +269,26 @@ function setPhase(index){
   S.phaseTimeLeft = S.phaseDurations[S.phaseIndex];
 
   if(S.phase === 'warm'){
-    S.targetCorrectP = 0.78;
-    S.spawnPerSec = 0.90;
-    S.ttl = 3.4;
+    S.targetCorrectP = 0.82;
+    S.spawnPerSec = 0.82;
+    S.ttl = 3.6;
     S.targetGroup = pick(GROUPS);
     setCoach('warm', { target: S.targetGroup.label });
     showPhaseBanner('warm');
+
   } else if(S.phase === 'trick'){
-    S.targetCorrectP = 0.65;
-    S.spawnPerSec = 1.00;
-    S.ttl = 3.0;
+    S.targetCorrectP = 0.58;
+    S.spawnPerSec = 1.02;
+    S.ttl = 2.9;
     S.targetGroup = pick(GROUPS);
     setCoach('trick', { target: S.targetGroup.label });
     showPhaseBanner('trick');
+
   } else {
-    S.targetCorrectP = 0.72;
-    S.spawnPerSec = 1.05;
-    S.ttl = 2.8;
-    S.targetGroup = pick(GROUPS);
+    S.targetCorrectP = 0.68;
+    S.spawnPerSec = 1.15;
+    S.ttl = 2.45;
+    S.targetGroup = pickMissingGroup();
     setCoach('boss', { target: S.targetGroup.label });
     showPhaseBanner('boss');
   }
@@ -442,7 +454,7 @@ function awardCorrect(t){
   S.comboMax = Math.max(S.comboMax, S.combo);
 
   let add = 10 + Math.min(10, S.combo);
-  if(S.phase === 'boss') add += 4;
+  if(S.phase === 'boss') add += 6;
   if(S.feverOn) add += 4;
 
   S.score += add;
@@ -456,8 +468,19 @@ function awardCorrect(t){
   }
 
   if(t.groupId >= 1 && t.groupId <= 5){
+    const beforePlateHave = S.plateHave;
     S.counts[t.groupId] = (S.counts[t.groupId] || 0) + 1;
     S.plateHave = plateCountDistinct();
+
+    if(beforePlateHave < 5 && S.plateHave === 5){
+      S.score += 30;
+      showPop(t.x, t.y, 'ครบ 5 หมู่! +30');
+      setCoach('phase-clear');
+    }
+  }
+
+  if(S.phase === 'boss'){
+    S.targetGroup = pickMissingGroup();
   }
 
   if(S.coop.enabled){
@@ -467,10 +490,19 @@ function awardCorrect(t){
   }
 
   showPop(t.x, t.y, `+${add}`);
+
   if(S.fever >= 100 && !S.feverOn){
     S.feverOn = true;
     S.feverTimer = 6;
     setCoach('fever');
+  }
+
+  if(S.phase === 'boss' && S.plateHave >= 5 && !S.bossCompleted){
+    S.bossCompleted = true;
+    setCoach('phase-clear');
+    setTimeout(()=>{
+      if(!S.ended) endGame('boss-complete');
+    }, 350);
   }
 }
 
@@ -482,7 +514,7 @@ function awardWrong(){
   if(S.shield > 0){
     S.shield--;
   } else {
-    S.score = Math.max(0, S.score - 3);
+    S.score = Math.max(0, S.score - (S.phase === 'boss' ? 6 : 4));
     S.miss++;
   }
 
@@ -604,7 +636,9 @@ function updateTargets(dt){
   if(drawerOpen()) return;
 
   S.spawnAcc += S.spawnPerSec * dt;
-  const cap = (S.ctx?.view === 'mobile') ? 5 : 7;
+  let cap = (S.ctx?.view === 'mobile') ? 5 : 7;
+  if(S.phase === 'trick') cap += 1;
+  if(S.phase === 'boss') cap += 1;
 
   while(S.spawnAcc >= 1){
     S.spawnAcc -= 1;
@@ -829,6 +863,7 @@ function boot(ctx){
   resetCounts();
   S.plateHave = 0;
   S.missLimit = 999;
+  S.bossCompleted = false;
 
   S.coop.enabled = (S.ctx.mode === 'coop');
   S.coop.active = 'A';
