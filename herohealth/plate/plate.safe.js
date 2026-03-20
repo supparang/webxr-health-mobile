@@ -1,6 +1,6 @@
 /* === /herohealth/plate/plate.safe.js ===
    HeroHealth Plate Engine
-   FINAL PATCH v20260320-PLATE-SAFE-MODULE-COMPACT-CHILD-FRIENDLY
+   FINAL PATCH v20260320-PLATE-SAFE-MODULE-COMPACT-CHILD-FRIENDLY-HUBFIX
 */
 'use strict';
 
@@ -661,7 +661,8 @@ function loop(ts){
 
 function buildCooldownUrl(){
   try{
-    const u = new URL('../cooldown-gate.html', location.href);
+    const u = new URL('../warmup-gate.html', location.href);
+    u.searchParams.set('phase', 'cooldown');
     u.searchParams.set('gatePhase', 'cooldown');
     u.searchParams.set('cat', 'nutrition');
     u.searchParams.set('theme', 'platev1');
