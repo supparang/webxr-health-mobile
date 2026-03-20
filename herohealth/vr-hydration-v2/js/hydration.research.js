@@ -58,6 +58,7 @@ export function buildResearchPayload({
     mode: ctx.mode || 'quick',
     type: ctx.type || 'solo',
     run: ctx.run || 'play',
+    diff: ctx.diff || 'normal',
 
     pid: ctx.pid || 'anon',
     studyId: ctx.studyId || '',
