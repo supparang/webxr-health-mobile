@@ -1,6 +1,6 @@
 // === /herohealth/vr-hydration-v2/js/hydration.safe.js ===
 // Hydration V2 Main Orchestrator
-// PATCH v20260318c-HYDRATION-V2-PATCH-C-FULL-CREATE-NORMALIZE
+// PATCH v20260318d-HYDRATION-V2-PATCH-C-FIXED-HUB
 //
 // Flow:
 // Intro -> Main Run -> Summary -> Scenarios -> Evaluate -> Create -> Final Summary
@@ -18,6 +18,8 @@ import {
   markResearchSessionComplete,
   buildResearchProgressText
 } from './hydration.research.js';
+
+const FIXED_HUB_URL = 'https://supparang.github.io/webxr-health-mobile/herohealth/hub.html';
 
 const PHASES = {
   INTRO: 'intro',
@@ -172,35 +174,9 @@ function buildCtx() {
     pid: qs.get('pid') || '',
     studyId: qs.get('studyId') || '',
     diff: qs.get('diff') || 'normal',
-    hub: resolveHubUrl(qs.get('hub') || '/herohealth/hub.html'),
+    hub: FIXED_HUB_URL,
     seed: toSeed(qs.get('seed'))
   };
-}
-
-function resolveHubUrl(rawHub) {
-  const fallback = '/herohealth/hub.html';
-  const raw = String(rawHub || '').trim() || fallback;
-
-  try {
-    if (/^https?:\/\//i.test(raw)) return raw;
-    if (raw.startsWith('/')) return new URL(raw, window.location.origin).toString();
-
-    if (raw === './hub.html' || raw === 'hub.html') {
-      return new URL(fallback, window.location.origin).toString();
-    }
-
-    if (raw === '../hub.html') {
-      return new URL('/herohealth/hub.html', window.location.origin).toString();
-    }
-
-    return new URL(raw, window.location.href).toString();
-  } catch (_) {
-    try {
-      return new URL(fallback, window.location.origin).toString();
-    } catch (_) {
-      return fallback;
-    }
-  }
 }
 
 function setupIntro() {
@@ -249,7 +225,7 @@ function setupIntro() {
 function bindUI() {
   refs.startBtn.addEventListener('click', startRound);
   refs.backHubBtn.addEventListener('click', () => {
-    window.location.href = ctx.hub;
+    window.location.href = FIXED_HUB_URL;
   });
 
   refs.laneBtns.forEach(btn => {
@@ -656,7 +632,7 @@ function showMainSummaryOverlay() {
 
   refs.summaryOverlay.querySelector('#summaryHubBtn')
     .addEventListener('click', () => {
-      window.location.href = ctx.hub;
+      window.location.href = FIXED_HUB_URL;
     });
 
   refs.summaryOverlay.querySelector('#summaryNextBtn')
@@ -847,7 +823,7 @@ function showFinalOverlay(evalResult, createResult, researchPayload) {
 
   refs.summaryOverlay.querySelector('#doneHubBtn')
     .addEventListener('click', () => {
-      window.location.href = ctx.hub;
+      window.location.href = FIXED_HUB_URL;
     });
 
   refs.summaryOverlay.querySelector('#doneCloseBtn')
@@ -1056,7 +1032,7 @@ function buildReplayUrl(useNextProgress = false) {
     u.searchParams.set('week', String(state.weekNo || 1));
   }
 
-  u.searchParams.set('hub', ctx.hub);
+  u.searchParams.set('hub', FIXED_HUB_URL);
   return u.toString();
 }
 
