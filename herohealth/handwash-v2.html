@@ -72,7 +72,7 @@
       width:100%;
       min-height:100vh;
       display:grid;
-      grid-template-rows:auto auto auto 1fr auto;
+      grid-template-rows:auto auto auto auto 1fr auto;
       position:relative;
       overflow:hidden;
       padding:
@@ -153,16 +153,12 @@
       gap:12px;
     }
 
-    .hw-hud-left{
-      justify-content:flex-start;
-    }
-
+    .hw-hud-left{ justify-content:flex-start; }
     .hw-hud-center{
       justify-content:center;
       text-align:center;
       min-width:120px;
     }
-
     .hw-hud-right{
       justify-content:flex-end;
       text-align:right;
@@ -258,17 +254,37 @@
     }
 
     .hw-step.is-active{
+      position:relative;
       color:white;
       border-color:rgba(34,211,238,.40);
       background:linear-gradient(180deg, rgba(14,116,144,.34), rgba(8,23,37,.84));
       transform:translateY(-1px);
       box-shadow:0 10px 28px rgba(14,165,233,.18);
+      animation: hwStepPulse 1.25s ease-in-out infinite;
+    }
+
+    .hw-step.is-active::after{
+      content:"ตอนนี้";
+      position:absolute;
+      top:6px;
+      right:6px;
+      font-size:.66rem;
+      font-weight:1000;
+      padding:4px 6px;
+      border-radius:999px;
+      color:#03263d;
+      background:linear-gradient(180deg, #9ae9ff, #5ad5ff);
     }
 
     .hw-step.is-done{
       color:#ecfdf5;
       border-color:rgba(34,197,94,.36);
       background:linear-gradient(180deg, rgba(22,101,52,.28), rgba(8,23,37,.84));
+    }
+
+    @keyframes hwStepPulse{
+      0%,100%{ box-shadow:0 10px 28px rgba(14,165,233,.18); }
+      50%{ box-shadow:0 10px 34px rgba(14,165,233,.30); }
     }
 
     .hw-coach-bar{
@@ -287,6 +303,16 @@
       line-height:1.35;
     }
 
+    .hw-coach-bar.is-warn{
+      border-color:rgba(245,158,11,.34);
+      background:linear-gradient(180deg, rgba(56,26,7,.84), rgba(5,16,28,.78));
+    }
+
+    .hw-coach-bar.is-good{
+      border-color:rgba(34,197,94,.30);
+      background:linear-gradient(180deg, rgba(10,41,22,.84), rgba(5,16,28,.78));
+    }
+
     .hw-coach-face{
       width:36px;
       height:36px;
@@ -297,6 +323,173 @@
       border:1px solid rgba(56,189,248,.24);
       flex:0 0 auto;
       font-size:1.1rem;
+    }
+
+    .hw-who-panel{
+      position:relative;
+      z-index:2;
+      border-radius:18px;
+      padding:12px;
+    }
+
+    .hw-who-head{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      margin-bottom:10px;
+      flex-wrap:wrap;
+    }
+
+    .hw-who-title{
+      font-size:1rem;
+      font-weight:1000;
+    }
+
+    .hw-who-now{
+      font-size:.92rem;
+      color:var(--muted);
+      font-weight:800;
+    }
+
+    .hw-who-progress{
+      width:100%;
+      height:10px;
+      border-radius:999px;
+      overflow:hidden;
+      background:rgba(255,255,255,.08);
+      border:1px solid rgba(255,255,255,.08);
+      margin-bottom:10px;
+    }
+
+    .hw-who-progress-fill{
+      height:100%;
+      width:0%;
+      border-radius:999px;
+      background:linear-gradient(90deg, #22d3ee, #34d399);
+      box-shadow:0 0 24px rgba(34,211,238,.18);
+      transition:width .22s ease;
+    }
+
+    .hw-who-steps{
+      display:grid;
+      grid-template-columns:repeat(7, minmax(0,1fr));
+      gap:8px;
+    }
+
+    .hw-who-step{
+      position:relative;
+      overflow:hidden;
+      border-radius:14px;
+      padding:10px 8px;
+      background:rgba(255,255,255,.04);
+      border:1px solid rgba(255,255,255,.08);
+      text-align:center;
+      min-height:76px;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      gap:6px;
+    }
+
+    .hw-who-step::before{
+      content:"";
+      position:absolute;
+      left:0;
+      right:0;
+      bottom:0;
+      height:0%;
+      background:linear-gradient(180deg, rgba(34,211,238,.00), rgba(34,211,238,.16));
+      transition:height .22s ease;
+      pointer-events:none;
+    }
+
+    .hw-who-step-num{
+      width:26px;
+      height:26px;
+      border-radius:50%;
+      display:grid;
+      place-items:center;
+      font-size:.86rem;
+      font-weight:1000;
+      background:rgba(255,255,255,.08);
+      color:var(--text);
+    }
+
+    .hw-who-step-label{
+      font-size:.78rem;
+      line-height:1.15;
+      font-weight:900;
+      color:var(--muted);
+    }
+
+    .hw-who-step-mini{
+      font-size:.68rem;
+      color:var(--muted);
+      line-height:1;
+    }
+
+    .hw-who-step.is-active{
+      background:linear-gradient(180deg, rgba(14,165,233,.18), rgba(255,255,255,.04));
+      border-color:rgba(56,189,248,.34);
+      box-shadow:0 0 0 4px rgba(56,189,248,.08);
+      transform:translateY(-1px);
+      animation: hwWhoPulse 1.35s ease-in-out infinite;
+    }
+
+    .hw-who-step.is-active .hw-who-step-num{
+      background:linear-gradient(180deg, #9ae9ff, #5ad5ff);
+      color:#03263d;
+    }
+
+    .hw-who-step.is-active .hw-who-step-label{
+      color:#ecfeff;
+    }
+
+    .hw-who-step.is-active::after{
+      content:"กำลังทำ";
+      position:absolute;
+      top:6px;
+      right:6px;
+      font-size:.66rem;
+      font-weight:1000;
+      padding:4px 6px;
+      border-radius:999px;
+      color:#03263d;
+      background:linear-gradient(180deg, #9ae9ff, #5ad5ff);
+    }
+
+    .hw-who-step.is-done{
+      background:linear-gradient(180deg, rgba(34,197,94,.16), rgba(255,255,255,.04));
+      border-color:rgba(34,197,94,.28);
+    }
+
+    .hw-who-step.is-done .hw-who-step-num{
+      background:linear-gradient(180deg, #86efac, #22c55e);
+      color:#052e16;
+    }
+
+    .hw-who-step.is-done .hw-who-step-label{
+      color:#ecfdf5;
+    }
+
+    .hw-who-step.is-done::after{
+      content:"ผ่าน";
+      position:absolute;
+      top:6px;
+      right:6px;
+      font-size:.66rem;
+      font-weight:1000;
+      padding:4px 6px;
+      border-radius:999px;
+      color:#052e16;
+      background:linear-gradient(180deg, #86efac, #22c55e);
+    }
+
+    @keyframes hwWhoPulse{
+      0%,100%{ box-shadow:0 0 0 4px rgba(56,189,248,.08); }
+      50%{ box-shadow:0 0 0 7px rgba(56,189,248,.14); }
     }
 
     .hw-stage{
@@ -360,9 +553,7 @@
       height:46%;
       border-radius:40% 40% 42% 42% / 28% 28% 52% 52%;
       background:linear-gradient(180deg, #f8c9ae, #e8a47f);
-      box-shadow:
-        inset 0 10px 20px rgba(255,255,255,.18),
-        inset 0 -14px 24px rgba(0,0,0,.12);
+      box-shadow:inset 0 10px 20px rgba(255,255,255,.18), inset 0 -14px 24px rgba(0,0,0,.12);
     }
 
     .hw-thumb{
@@ -409,12 +600,7 @@
       border-radius:24px;
       border:2px dashed rgba(255,255,255,.18);
       background:rgba(255,255,255,.02);
-      transition:
-        transform .18s ease,
-        box-shadow .18s ease,
-        background .18s ease,
-        border-color .18s ease,
-        opacity .18s ease;
+      transition:transform .18s ease, box-shadow .18s ease, background .18s ease, border-color .18s ease, opacity .18s ease;
       cursor:pointer;
       user-select:none;
       touch-action:none;
@@ -458,6 +644,20 @@
 
     .hw-zone.is-dirty{
       border-color:rgba(244,114,182,.28);
+    }
+
+    .hw-zone.is-wrong{
+      border-color:rgba(239,68,68,.62) !important;
+      background:rgba(239,68,68,.12) !important;
+      animation: hwWrongShake .26s linear 1;
+    }
+
+    @keyframes hwWrongShake{
+      0%{ transform:translateX(0); }
+      25%{ transform:translateX(-4px); }
+      50%{ transform:translateX(4px); }
+      75%{ transform:translateX(-3px); }
+      100%{ transform:translateX(0); }
     }
 
     .hw-germ-cluster{
@@ -609,6 +809,7 @@
       background:linear-gradient(180deg, #9ae9ff, #5ad5ff);
       box-shadow:0 14px 26px rgba(14,165,233,.18);
       transition:transform .15s ease, filter .15s ease, opacity .15s ease, box-shadow .15s ease;
+      position:relative;
     }
 
     .hw-tool-btn:hover{
@@ -642,6 +843,43 @@
     .hw-tool-btn--good{
       color:#ecfdf5;
       background:linear-gradient(180deg, #22c55e, #16a34a);
+    }
+
+    .hw-tool-btn.is-cta{
+      position:relative;
+      animation: hwCtaPulse 1.05s ease-in-out infinite;
+      transform-origin:center;
+    }
+
+    .hw-tool-btn.is-cta::after{
+      content:"กดเลย";
+      position:absolute;
+      top:-8px;
+      right:8px;
+      font-size:.66rem;
+      font-weight:1000;
+      padding:4px 6px;
+      border-radius:999px;
+      color:#03263d;
+      background:linear-gradient(180deg, #fde68a, #facc15);
+      box-shadow:0 8px 18px rgba(250,204,21,.18);
+    }
+
+    .hw-tool-btn.is-cta-rinse{
+      box-shadow:0 0 0 4px rgba(245,158,11,.16), 0 16px 30px rgba(245,158,11,.24);
+    }
+
+    .hw-tool-btn.is-cta-dry{
+      box-shadow:0 0 0 4px rgba(34,197,94,.16), 0 16px 30px rgba(34,197,94,.24);
+    }
+
+    .hw-tool-btn.is-cta-soap{
+      box-shadow:0 0 0 4px rgba(34,211,238,.16), 0 16px 30px rgba(14,165,233,.24);
+    }
+
+    @keyframes hwCtaPulse{
+      0%,100%{ transform:translateY(0) scale(1); }
+      50%{ transform:translateY(-1px) scale(1.03); }
     }
 
     .hw-toast{
@@ -728,11 +966,77 @@
       border:1px solid var(--stroke);
     }
 
+    .hw-summary-hero{
+      display:grid;
+      grid-template-columns:1.1fr .9fr;
+      gap:12px;
+      margin:14px 0 12px;
+    }
+
+    .hw-summary-hero-main,
+    .hw-summary-hero-side{
+      border-radius:18px;
+      padding:14px;
+      background:rgba(255,255,255,.04);
+      border:1px solid rgba(255,255,255,.08);
+    }
+
+    .hw-summary-hero-label{
+      font-size:.9rem;
+      color:var(--muted);
+      font-weight:900;
+      margin-bottom:6px;
+    }
+
+    .hw-summary-hero-score{
+      font-size:2.4rem;
+      line-height:1;
+      font-weight:1000;
+      color:#bff5ff;
+      text-shadow:0 0 22px rgba(34,211,238,.16);
+    }
+
+    .hw-summary-hero-sub{
+      margin-top:8px;
+      font-size:.9rem;
+      color:var(--muted);
+      line-height:1.35;
+    }
+
+    .hw-summary-hero-side{
+      display:grid;
+      gap:10px;
+      align-content:start;
+    }
+
+    .hw-summary-hero-chip{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      padding:10px 12px;
+      border-radius:14px;
+      background:rgba(255,255,255,.04);
+      border:1px solid rgba(255,255,255,.06);
+    }
+
+    .hw-summary-hero-chip span{
+      font-size:.86rem;
+      color:var(--muted);
+      font-weight:800;
+    }
+
+    .hw-summary-hero-chip strong{
+      font-size:1rem;
+      font-weight:1000;
+    }
+
     .hw-summary-grid{
       display:grid;
       grid-template-columns:repeat(2, minmax(0,1fr));
       gap:12px;
       margin-top:14px;
+      align-items:start;
     }
 
     .hw-summary-card{
@@ -740,11 +1044,26 @@
       padding:14px;
       background:rgba(255,255,255,.04);
       border:1px solid rgba(255,255,255,.08);
+      min-height:100%;
     }
 
     .hw-summary-card h3{
       margin:0 0 10px;
       font-size:1rem;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+    }
+
+    .hw-summary-card h3::after{
+      content:"";
+      width:8px;
+      height:8px;
+      border-radius:50%;
+      background:rgba(56,189,248,.7);
+      box-shadow:0 0 0 5px rgba(56,189,248,.10);
+      flex:0 0 auto;
     }
 
     .hw-summary-big{
@@ -760,6 +1079,8 @@
       color:var(--muted);
       line-height:1.5;
     }
+
+    .hw-summary-list li{ margin-bottom:6px; }
 
     .hw-summary-badges{
       display:flex;
@@ -809,8 +1130,105 @@
       margin-bottom:4px;
     }
 
+    .hw-start-dialog{
+      width:min(96vw, 560px);
+      text-align:center;
+    }
+
+    .hw-start-badge{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+      margin:0 auto 10px;
+      padding:8px 14px;
+      border-radius:999px;
+      font-weight:1000;
+      background:rgba(56,189,248,.14);
+      border:1px solid rgba(56,189,248,.24);
+      color:#e0f2fe;
+    }
+
+    .hw-start-lead{
+      font-size:1rem;
+      line-height:1.5;
+      color:var(--muted);
+      margin-bottom:14px;
+    }
+
+    .hw-start-steps{
+      display:grid;
+      grid-template-columns:repeat(2, minmax(0,1fr));
+      gap:10px;
+      margin:14px 0;
+    }
+
+    .hw-start-step{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      padding:12px;
+      border-radius:16px;
+      background:rgba(255,255,255,.04);
+      border:1px solid rgba(255,255,255,.08);
+      text-align:left;
+    }
+
+    .hw-start-step span{
+      width:32px;
+      height:32px;
+      border-radius:50%;
+      display:grid;
+      place-items:center;
+      flex:0 0 auto;
+      font-weight:1000;
+      color:#03263d;
+      background:linear-gradient(180deg, #9ae9ff, #5ad5ff);
+    }
+
+    .hw-start-step strong{
+      font-size:1rem;
+      line-height:1.2;
+    }
+
+    .hw-start-tip{
+      border-radius:16px;
+      padding:12px 14px;
+      margin-top:6px;
+      background:rgba(253,224,71,.08);
+      border:1px solid rgba(253,224,71,.18);
+      color:#fef9c3;
+      font-weight:800;
+      line-height:1.4;
+    }
+
+    .hw-summary-actions{
+      position:sticky;
+      bottom:0;
+      z-index:4;
+      margin-top:16px;
+      padding-top:12px;
+      background:linear-gradient(180deg, rgba(7,21,36,0), rgba(7,21,36,.96) 34%);
+    }
+
+    .hw-summary-actions button:first-child{
+      background:linear-gradient(180deg, #86efac, #22c55e);
+      color:#052e16;
+    }
+
+    .hw-summary-actions button:nth-child(2){
+      background:linear-gradient(180deg, #9ae9ff, #5ad5ff);
+      color:#03263d;
+    }
+
+    .hw-summary-empty{
+      color:var(--muted);
+      font-style:italic;
+    }
+
     .hw-hidden{ display:none !important; }
 
+    /* === MOBILE UX HOTFIX === */
     @media (max-width: 980px){
       .hw-stage{
         grid-template-columns:1fr;
@@ -821,79 +1239,293 @@
       .hw-hand-shell{
         min-height:420px;
       }
+      .hw-who-steps{
+        grid-template-columns:repeat(4, minmax(0,1fr));
+      }
     }
 
     @media (max-width: 720px){
       .hw-game{
-        grid-template-rows:auto auto auto 1fr auto;
         gap:8px;
         padding:
-          max(10px, var(--sat))
-          max(10px, var(--sar))
-          calc(max(10px, var(--sab)))
-          max(10px, var(--sal));
+          max(8px, var(--sat))
+          max(8px, var(--sar))
+          max(8px, var(--sab))
+          max(8px, var(--sal));
       }
 
       .hw-hud-top{
         grid-template-columns:1fr 1fr;
+        grid-template-areas:
+          "left left"
+          "center right";
+        gap:8px;
+      }
+
+      .hw-hud-left{
+        grid-area:left;
+        flex-direction:column;
+        align-items:flex-start;
+        justify-content:flex-start;
+        min-height:auto;
+        padding:10px 12px;
+        gap:8px;
       }
 
       .hw-hud-center{
-        order:3;
-        grid-column:1 / -1;
+        grid-area:center;
+        min-height:72px;
+        padding:10px 12px;
+      }
+
+      .hw-hud-right{
+        grid-area:right;
+        min-height:72px;
+        padding:10px 12px;
+      }
+
+      .hw-phase-wrap{
+        width:100%;
+        min-width:0;
+        gap:4px;
+      }
+
+      .hw-phase-label{
+        font-size:1rem;
+        line-height:1.15;
+        word-break:break-word;
+      }
+
+      .hw-phase-sub{
+        font-size:.84rem;
+        line-height:1.3;
+        display:-webkit-box;
+        -webkit-line-clamp:2;
+        -webkit-box-orient:vertical;
+        overflow:hidden;
+      }
+
+      .hw-chip{
+        font-size:.88rem;
+        padding:7px 10px;
+      }
+
+      .hw-clean-pct,
+      .hw-timer{
+        font-size:1.45rem;
+      }
+
+      .hw-clean-label,
+      .hw-timer-label{
+        font-size:.82rem;
       }
 
       .hw-step-panel{
+        grid-template-columns:repeat(2, minmax(0, 1fr));
+        gap:8px;
+      }
+
+      .hw-step{
+        padding:10px 8px;
+        font-size:.92rem;
+      }
+
+      .hw-step.is-active::after,
+      .hw-tool-btn.is-cta::after,
+      .hw-who-step.is-active::after,
+      .hw-who-step.is-done::after{
+        font-size:.62rem;
+        padding:3px 5px;
+      }
+
+      .hw-coach-bar{
+        min-height:50px;
+        padding:10px 12px;
+        font-size:.96rem;
+        line-height:1.3;
+      }
+
+      .hw-coach-face{
+        width:32px;
+        height:32px;
+        font-size:1rem;
+      }
+
+      .hw-who-panel{
+        padding:10px;
+      }
+
+      .hw-who-head{
+        align-items:flex-start;
+        margin-bottom:8px;
+      }
+
+      .hw-who-title{
+        font-size:.95rem;
+      }
+
+      .hw-who-now{
+        font-size:.84rem;
+        line-height:1.3;
+      }
+
+      .hw-who-steps{
         grid-template-columns:repeat(2, minmax(0,1fr));
+        gap:8px;
+      }
+
+      .hw-who-step{
+        min-height:64px;
+        padding:8px 6px;
+      }
+
+      .hw-who-step-label{
+        font-size:.74rem;
+      }
+
+      .hw-stage{
+        grid-template-columns:1fr;
+        gap:8px;
+      }
+
+      .hw-hand-shell{
+        min-height:340px;
+        padding:8px;
+      }
+
+      .hw-hand-stage{
+        min-height:320px;
       }
 
       .hw-side{
         grid-template-columns:1fr;
+        gap:8px;
+      }
+
+      .hw-side-card{
+        padding:12px;
+      }
+
+      .hw-side-title{
+        font-size:.95rem;
+        margin-bottom:8px;
+      }
+
+      .hw-mini-note{
+        font-size:.84rem;
       }
 
       .hw-tool-bar{
-        grid-template-columns:repeat(3, minmax(0,1fr));
+        position:sticky;
+        bottom:calc(var(--sab) + 6px);
+        z-index:60;
+        grid-template-columns:repeat(3, minmax(0, 1fr));
+        gap:8px;
+        padding-top:2px;
+      }
+
+      .hw-tool-btn{
+        min-height:52px;
+        font-size:.92rem;
+        border-radius:14px;
+      }
+
+      .hw-tool-btn.is-cta::after{
+        top:-7px;
+        right:6px;
       }
 
       .hw-zone::after{
-        font-size:.74rem;
+        display:none;
+      }
+
+      .hw-zone.is-active::after{
+        display:block;
+        font-size:.72rem;
         padding:5px 8px;
+        max-width:78%;
+        white-space:normal;
+        text-align:center;
+        line-height:1.1;
+      }
+
+      .hw-summary-hero{
+        grid-template-columns:1fr;
+        gap:10px;
+      }
+
+      .hw-summary-hero-main,
+      .hw-summary-hero-side{
+        padding:12px;
+      }
+
+      .hw-summary-hero-score{
+        font-size:2rem;
       }
 
       .hw-summary-grid,
       .hw-help-grid{
         grid-template-columns:1fr;
       }
+
+      .hw-summary-actions{
+        display:grid;
+        grid-template-columns:1fr;
+        gap:8px;
+      }
+
+      .hw-summary-actions button{
+        width:100%;
+        min-height:52px;
+      }
+
+      .hw-start-dialog{
+        width:min(96vw, 520px);
+      }
+
+      .hw-start-steps{
+        grid-template-columns:1fr;
+        gap:8px;
+      }
+
+      .hw-start-step{
+        padding:11px 12px;
+      }
+
+      .hw-start-lead{
+        font-size:.95rem;
+      }
+
+      .hw-start-tip{
+        font-size:.92rem;
+      }
     }
 
     @media (max-width: 520px){
       .hw-hud-box{
-        min-height:72px;
-        padding:10px 12px;
-      }
-
-      .hw-phase-label{
-        font-size:1.02rem;
-      }
-
-      .hw-clean-pct,
-      .hw-timer{
-        font-size:1.5rem;
+        border-radius:16px;
       }
 
       .hw-hand-shell{
-        min-height:360px;
-        padding:10px;
+        min-height:310px;
       }
 
-      .hw-tool-btn{
-        min-height:54px;
-        font-size:.95rem;
+      .hw-hand-stage{
+        min-height:290px;
+      }
+
+      .hw-stars{
+        font-size:1.45rem;
       }
 
       .hw-dialog{
-        border-radius:22px;
-        padding:18px 16px 16px;
+        width:min(96vw, 560px);
+        padding:16px 14px 14px;
+        border-radius:20px;
+      }
+
+      .hw-dialog h2{
+        font-size:1.2rem;
       }
     }
   </style>
@@ -905,7 +1537,6 @@
       <div class="hw-bubbles" id="hwBubbles"></div>
     </div>
 
-    <!-- TOP HUD -->
     <header class="hw-hud-top">
       <section class="hw-hud-box hw-card hw-hud-left">
         <div class="hw-chip">
@@ -913,8 +1544,8 @@
           <span id="hwMissionChipText">Handwash Trainer</span>
         </div>
         <div class="hw-phase-wrap">
-          <div id="hwPhaseLabel" class="hw-phase-label">เริ่มภารกิจล้างมือ</div>
-          <div id="hwPhaseSub" class="hw-phase-sub">ใส่สบู่ ถูให้ทั่ว แล้วล้างน้ำให้สะอาด</div>
+          <div id="hwPhaseLabel" class="hw-phase-label">เริ่มล้างมือ</div>
+          <div id="hwPhaseSub" class="hw-phase-sub">กดสบู่ก่อน</div>
         </div>
       </section>
 
@@ -933,21 +1564,29 @@
       </section>
     </header>
 
-    <!-- STEP PANEL -->
     <section id="hwStepPanel" class="hw-step-panel" aria-label="ขั้นตอนการล้างมือ">
       <div class="hw-step is-active" data-step="soap">1. ใส่สบู่</div>
-      <div class="hw-step" data-step="scrub">2. ถูให้ทั่ว</div>
+      <div class="hw-step" data-step="scrub">2. ถูมือ</div>
       <div class="hw-step" data-step="rinse">3. ล้างน้ำ</div>
       <div class="hw-step" data-step="dry">4. เช็ดมือ</div>
     </section>
 
-    <!-- COACH -->
     <section id="hwCoachBar" class="hw-coach-bar">
       <div class="hw-coach-face" aria-hidden="true">🫧</div>
-      <div id="hwCoachText">เริ่มจากกดปุ่ม “สบู่” ก่อนนะ</div>
+      <div id="hwCoachText">กด “เริ่มเล่น”</div>
     </section>
 
-    <!-- MAIN STAGE -->
+    <section id="hwWhoPanel" class="hw-who-panel hw-card" aria-label="WHO 7 ขั้นตอนการถูมือ">
+      <div class="hw-who-head">
+        <div class="hw-who-title">WHO 7 ขั้นตอน</div>
+        <div id="hwWhoNow" class="hw-who-now">ขั้นที่ 1: ฝ่ามือ</div>
+      </div>
+      <div class="hw-who-progress">
+        <div id="hwWhoProgressFill" class="hw-who-progress-fill"></div>
+      </div>
+      <div id="hwWhoSteps" class="hw-who-steps"></div>
+    </section>
+
     <section class="hw-stage">
       <div class="hw-hand-shell hw-card">
         <div id="hwHandStage" class="hw-hand-stage" aria-label="พื้นที่ฝึกล้างมือ">
@@ -964,7 +1603,6 @@
             </div>
           </div>
 
-          <!-- zones -->
           <div id="hwZoneLayer" class="hw-zone-layer">
             <button class="hw-zone is-dirty" id="zone-palm-left" data-zone="palmLeft" data-label="ฝ่ามือซ้าย"
               style="left:25%; top:44%; width:21%; height:26%;"></button>
@@ -981,6 +1619,9 @@
             <button class="hw-zone is-dirty" id="zone-between-fingers" data-zone="betweenFingers" data-label="ซอกนิ้ว"
               style="left:37%; top:18%; width:26%; height:16%;"></button>
 
+            <button class="hw-zone is-dirty" id="zone-back-fingers" data-zone="backFingers" data-label="หลังนิ้ว"
+              style="left:35%; top:31%; width:30%; height:12%;"></button>
+
             <button class="hw-zone is-dirty" id="zone-thumbs" data-zone="thumbs" data-label="นิ้วโป้ง"
               style="left:17%; top:45%; width:16%; height:13%;"></button>
 
@@ -991,13 +1632,8 @@
               style="left:39%; bottom:6%; width:22%; height:12%;"></button>
           </div>
 
-          <!-- germs -->
           <div id="hwGermLayer" class="hw-germ-layer"></div>
-
-          <!-- highlight -->
           <div id="hwHighlightLayer" class="hw-highlight-layer"></div>
-
-          <!-- trail -->
           <div id="hwTrailLayer" class="hw-trail-layer"></div>
         </div>
       </div>
@@ -1007,8 +1643,6 @@
           <div class="hw-side-title">จุดที่ยังสกปรก</div>
           <div id="hwDirtyZones" class="hw-list">
             <div class="hw-pill"><span>ฝ่ามือซ้าย</span><span>ยังไม่สะอาด</span></div>
-            <div class="hw-pill"><span>ฝ่ามือขวา</span><span>ยังไม่สะอาด</span></div>
-            <div class="hw-pill"><span>ซอกนิ้ว</span><span>ยังไม่สะอาด</span></div>
           </div>
         </section>
 
@@ -1017,7 +1651,7 @@
           <div id="hwStarsPreview" class="hw-stars" aria-label="ดาวความสำเร็จ">
             <span class="on">★</span><span>★</span><span>★</span>
           </div>
-          <div class="hw-mini-note">ล้างครบทุกจุดและทำครบทุกขั้นจะได้ 3 ดาว</div>
+          <div class="hw-mini-note">ทำครบ WHO 7 ขั้น และครบสบู่/ล้างน้ำ/เช็ดมือ จะได้คะแนนดีมาก</div>
         </section>
 
         <section class="hw-side-card hw-card">
@@ -1030,7 +1664,6 @@
       </aside>
     </section>
 
-    <!-- TOOLBAR -->
     <footer class="hw-tool-bar">
       <button id="hwBtnSoap" class="hw-tool-btn">สบู่</button>
       <button id="hwBtnRinse" class="hw-tool-btn hw-tool-btn--warn" disabled>ล้างน้ำ</button>
@@ -1040,31 +1673,53 @@
       <button id="hwBtnBackHub" class="hw-tool-btn hw-tool-btn--ghost">กลับ HUB</button>
     </footer>
 
-    <!-- TOAST -->
-    <div id="hwToast" class="hw-toast" aria-live="polite">ดีมาก</div>
+    <div id="hwToast" class="hw-toast" aria-live="polite">พร้อมเริ่ม</div>
 
-    <!-- HELP -->
+    <div id="hwStartOverlay" class="hw-overlay" role="dialog" aria-modal="true" aria-labelledby="hwStartTitle">
+      <div class="hw-dialog hw-start-dialog">
+        <div class="hw-start-badge">🫧 Handwash Trainer</div>
+        <h2 id="hwStartTitle">ล้างมือให้สะอาดกันเถอะ</h2>
+        <p class="hw-start-lead">เล่น 4 ขั้นง่าย ๆ แล้วฝึก WHO 7 ขั้นตอนให้ครบ</p>
+
+        <div class="hw-start-steps">
+          <div class="hw-start-step"><span>1</span><strong>กดสบู่</strong></div>
+          <div class="hw-start-step"><span>2</span><strong>ทำ WHO 7 ขั้น</strong></div>
+          <div class="hw-start-step"><span>3</span><strong>ล้างน้ำ</strong></div>
+          <div class="hw-start-step"><span>4</span><strong>เช็ดมือ</strong></div>
+        </div>
+
+        <div class="hw-start-tip">
+          จุดชมพูคือจุดที่ยังสกปรก ต้องทำทีละขั้นตาม WHO ให้ครบก่อน
+        </div>
+
+        <div class="hw-dialog-actions">
+          <button id="hwStartPlayBtn">เริ่มเล่น</button>
+          <button id="hwStartHowBtn" class="ghost">ดูวิธีเล่น</button>
+        </div>
+      </div>
+    </div>
+
     <div id="hwHelpOverlay" class="hw-overlay hw-hidden" role="dialog" aria-modal="true" aria-labelledby="hwHelpTitle">
       <div class="hw-dialog">
         <h2 id="hwHelpTitle">วิธีเล่น Handwash Trainer</h2>
-        <p>เกมนี้สอนให้ล้างมือถูกจุด ถูกลำดับ และเห็นเลยว่าจุดไหนยังมีเชื้อเหลืออยู่</p>
+        <p>เริ่มจากกดสบู่ จากนั้นทำ WHO 7 ขั้นทีละขั้น แล้วค่อยล้างน้ำและเช็ดมือ</p>
 
         <div class="hw-help-grid">
           <div class="hw-help-item">
             <strong>1) กดสบู่</strong>
-            จากนั้นเกมจะเริ่มโหมดถูมือ
+            เริ่มเกมและเปิดโหมดถูมือ
           </div>
           <div class="hw-help-item">
-            <strong>2) แตะหรือถูแต่ละจุด</strong>
-            ให้ครบฝ่ามือ หลังมือ ซอกนิ้ว นิ้วโป้ง ปลายนิ้ว และข้อมือ
+            <strong>2) ทำทีละขั้น</strong>
+            เกมจะบอกว่าตอนนี้ต้องถูตรงไหน
           </div>
           <div class="hw-help-item">
-            <strong>3) พอสะอาดพอ</strong>
-            ปุ่ม “ล้างน้ำ” จะเปิดให้กด
+            <strong>3) ครบ 7 ขั้น</strong>
+            ปุ่มล้างน้ำจะเด่นขึ้นให้กดต่อ
           </div>
           <div class="hw-help-item">
-            <strong>4) เช็ดมือให้เสร็จ</strong>
-            แล้วดูสรุปว่าพลาดจุดไหนบ้าง
+            <strong>4) เช็ดมือและดูสรุป</strong>
+            ดูว่าผ่าน WHO กี่ขั้นและได้คะแนนเท่าไร
           </div>
         </div>
 
@@ -1074,7 +1729,6 @@
       </div>
     </div>
 
-    <!-- PAUSE -->
     <div id="hwPauseOverlay" class="hw-overlay hw-hidden" role="dialog" aria-modal="true" aria-labelledby="hwPauseTitle">
       <div class="hw-dialog">
         <h2 id="hwPauseTitle">พักเกมชั่วคราว</h2>
@@ -1086,11 +1740,33 @@
       </div>
     </div>
 
-    <!-- SUMMARY -->
     <div id="hwSummaryOverlay" class="hw-overlay hw-hidden" role="dialog" aria-modal="true" aria-labelledby="hwSummaryTitle">
       <div class="hw-dialog">
         <h2 id="hwSummaryTitle">สรุปผลการล้างมือ</h2>
-        <p id="hwSummaryLead">วันนี้หนูล้างมือได้ดีมาก ลองดูว่าจุดไหนเก่งแล้ว และจุดไหนควรฝึกเพิ่มนะ</p>
+        <p id="hwSummaryLead">วันนี้หนูล้างมือได้ดีมาก ลองดูว่าขั้นไหนเก่งแล้ว และขั้นไหนควรฝึกเพิ่มนะ</p>
+
+        <div class="hw-summary-hero">
+          <div class="hw-summary-hero-main">
+            <div class="hw-summary-hero-label">ผลลัพธ์หลัก</div>
+            <div id="hwSummaryHeroScore" class="hw-summary-hero-score">0</div>
+            <div id="hwSummaryHeroSub" class="hw-summary-hero-sub">คะแนนวิจัยรวม</div>
+          </div>
+
+          <div class="hw-summary-hero-side">
+            <div class="hw-summary-hero-chip">
+              <span>WHO</span>
+              <strong id="hwSummaryHeroWho">0 / 7</strong>
+            </div>
+            <div class="hw-summary-hero-chip">
+              <span>Coverage</span>
+              <strong id="hwSummaryHeroCoverage">0%</strong>
+            </div>
+            <div class="hw-summary-hero-chip">
+              <span>ดาว</span>
+              <strong id="hwSummaryHeroStars">0</strong>
+            </div>
+          </div>
+        </div>
 
         <div class="hw-summary-grid">
           <section class="hw-summary-card">
@@ -1111,21 +1787,38 @@
           </section>
 
           <section class="hw-summary-card">
-            <h3>จุดที่ทำได้ดี</h3>
-            <ul id="hwSummaryGoodList" class="hw-summary-list">
+            <h3>WHO 7 ขั้น</h3>
+            <div id="hwSummaryWhoScore" class="hw-summary-big">0 / 7</div>
+            <div id="hwSummaryWhoText" class="hw-mini-note" style="margin-top:10px;">ยังไม่มีข้อมูล</div>
+          </section>
+
+          <section class="hw-summary-card">
+            <h3>คะแนนวิจัย</h3>
+            <div id="hwSummaryResearchScore" class="hw-summary-big">0</div>
+            <div id="hwSummaryResearchText" class="hw-mini-note" style="margin-top:10px;">ยังไม่มีข้อมูล</div>
+            <div class="hw-summary-badges" id="hwSummaryResearchBadges">
+              <span class="hw-badge info">WHO 0</span>
+              <span class="hw-badge info">Coverage 0</span>
+              <span class="hw-badge info">Completion 0</span>
+            </div>
+          </section>
+
+          <section class="hw-summary-card">
+            <h3>WHO ขั้นที่ผ่านแล้ว</h3>
+            <ul id="hwSummaryWhoDoneList" class="hw-summary-list">
               <li>ยังไม่มีข้อมูล</li>
             </ul>
           </section>
 
           <section class="hw-summary-card">
-            <h3>จุดที่ควรฝึกเพิ่ม</h3>
-            <ul id="hwSummaryMissedList" class="hw-summary-list">
+            <h3>WHO ขั้นที่ควรฝึกเพิ่ม</h3>
+            <ul id="hwSummaryWhoMissedList" class="hw-summary-list">
               <li>ยังไม่มีข้อมูล</li>
             </ul>
           </section>
         </div>
 
-        <div class="hw-dialog-actions">
+        <div class="hw-dialog-actions hw-summary-actions">
           <button id="hwSummaryReplay">เล่นอีกครั้ง</button>
           <button id="hwSummaryNext">ไป Germ Detective</button>
           <button id="hwSummaryBackHub" class="ghost">กลับ HUB</button>
@@ -1134,651 +1827,6 @@
     </div>
   </div>
 
-  <script>
-    /* -------------------------------------------------------
-       HANDWASH V2 HTML BOOTSTRAP DEMO
-       - ตัวนี้เป็น bootstrap ใน HTML เพื่อให้หน้าไม่ตาย
-       - ภายหลังย้าย logic หลักไป handwash.safe.v2.js / handwash.ui.v2.js ได้
-       ------------------------------------------------------- */
-
-    (function(){
-      const qs = new URLSearchParams(location.search);
-
-      const ctx = {
-        gameId: qs.get('gameId') || 'handwash',
-        run: qs.get('run') || 'play',
-        mode: qs.get('mode') || 'learn',
-        diff: qs.get('diff') || 'normal',
-        time: Number(qs.get('time') || 90),
-        seed: Number(qs.get('seed') || Date.now()),
-        pid: qs.get('pid') || '',
-        studyId: qs.get('studyId') || '',
-        hub: qs.get('hub') || './hub.html',
-        next: qs.get('next') || './germ-detective-v2.html',
-        view: qs.get('view') || 'mobile'
-      };
-
-      const el = {
-        root: document.getElementById('hwGame'),
-        bubbles: document.getElementById('hwBubbles'),
-        phaseLabel: document.getElementById('hwPhaseLabel'),
-        phaseSub: document.getElementById('hwPhaseSub'),
-        cleanPct: document.getElementById('hwCleanPct'),
-        timer: document.getElementById('hwTimer'),
-        coachText: document.getElementById('hwCoachText'),
-        dirtyZones: document.getElementById('hwDirtyZones'),
-        starsPreview: document.getElementById('hwStarsPreview'),
-        coverageFill: document.getElementById('hwCoverageFill'),
-        coverageText: document.getElementById('hwCoverageText'),
-        stepPanel: document.getElementById('hwStepPanel'),
-        germLayer: document.getElementById('hwGermLayer'),
-        highlightLayer: document.getElementById('hwHighlightLayer'),
-        trailLayer: document.getElementById('hwTrailLayer'),
-        handStage: document.getElementById('hwHandStage'),
-        toast: document.getElementById('hwToast'),
-
-        btnSoap: document.getElementById('hwBtnSoap'),
-        btnRinse: document.getElementById('hwBtnRinse'),
-        btnDry: document.getElementById('hwBtnDry'),
-        btnHelp: document.getElementById('hwBtnHelp'),
-        btnPause: document.getElementById('hwBtnPause'),
-        btnBackHub: document.getElementById('hwBtnBackHub'),
-
-        helpOverlay: document.getElementById('hwHelpOverlay'),
-        helpClose: document.getElementById('hwHelpClose'),
-
-        pauseOverlay: document.getElementById('hwPauseOverlay'),
-        resumeBtn: document.getElementById('hwResumeBtn'),
-        restartBtn: document.getElementById('hwRestartBtn'),
-
-        summaryOverlay: document.getElementById('hwSummaryOverlay'),
-        summaryCoverage: document.getElementById('hwSummaryCoverage'),
-        summaryStars: document.getElementById('hwSummaryStars'),
-        summaryBadges: document.getElementById('hwSummaryBadges'),
-        summaryGoodList: document.getElementById('hwSummaryGoodList'),
-        summaryMissedList: document.getElementById('hwSummaryMissedList'),
-        summaryReplay: document.getElementById('hwSummaryReplay'),
-        summaryNext: document.getElementById('hwSummaryNext'),
-        summaryBackHub: document.getElementById('hwSummaryBackHub')
-      };
-
-      const STEP_ORDER = ['soap', 'scrub', 'rinse', 'dry'];
-
-      const ZONES = [
-        { id:'palmLeft',       label:'ฝ่ามือซ้าย',    requiredMotion:'circle',    button:document.getElementById('zone-palm-left') },
-        { id:'palmRight',      label:'ฝ่ามือขวา',    requiredMotion:'circle',    button:document.getElementById('zone-palm-right') },
-        { id:'backLeft',       label:'หลังมือซ้าย',  requiredMotion:'sweep',     button:document.getElementById('zone-back-left') },
-        { id:'backRight',      label:'หลังมือขวา',   requiredMotion:'sweep',     button:document.getElementById('zone-back-right') },
-        { id:'betweenFingers', label:'ซอกนิ้ว',      requiredMotion:'interlace', button:document.getElementById('zone-between-fingers') },
-        { id:'thumbs',         label:'นิ้วโป้ง',      requiredMotion:'rotate',    button:document.getElementById('zone-thumbs') },
-        { id:'fingertips',     label:'ปลายนิ้ว',      requiredMotion:'fingertip', button:document.getElementById('zone-fingertips') },
-        { id:'wrists',         label:'ข้อมือ',        requiredMotion:'wrap',      button:document.getElementById('zone-wrists') }
-      ];
-
-      let state = createInitialState();
-      let timerId = null;
-      let startedAt = Date.now();
-      let toastTimer = null;
-      let highlightZoneId = 'palmLeft';
-
-      boot();
-
-      function createInitialState(){
-        const zones = {};
-        for (const zone of ZONES){
-          zones[zone.id] = {
-            id: zone.id,
-            label: zone.label,
-            requiredMotion: zone.requiredMotion,
-            germLevel: initialGerm(zone.id),
-            cleanProgress: 0,
-            touched: false,
-            isClean: false,
-            correctMotionCount: 0,
-            wrongMotionCount: 0
-          };
-        }
-
-        return {
-          phase: 'intro',
-          timeLeft: ctx.time,
-          soapApplied: false,
-          rinseDone: false,
-          dryDone: false,
-          paused: false,
-          cleanlinessPct: 0,
-          zones,
-          currentZone: null,
-          metrics: {
-            scrubCorrectCount: 0,
-            scrubWrongCount: 0,
-            coveragePct: 0,
-            missedZones: []
-          }
-        };
-      }
-
-      function initialGerm(zoneId){
-        switch(zoneId){
-          case 'fingertips': return 95;
-          case 'betweenFingers': return 90;
-          case 'thumbs': return 86;
-          case 'palmLeft':
-          case 'palmRight': return 78;
-          case 'backLeft':
-          case 'backRight': return 64;
-          case 'wrists': return 44;
-          default: return 60;
-        }
-      }
-
-      function boot(){
-        spawnBubbles();
-        renderGerms();
-        renderAll();
-        bindEvents();
-        showCoach('เริ่มจากกดปุ่ม “สบู่” ก่อนนะ');
-      }
-
-      function bindEvents(){
-        el.btnSoap.addEventListener('click', onSoap);
-        el.btnRinse.addEventListener('click', onRinse);
-        el.btnDry.addEventListener('click', onDry);
-
-        el.btnHelp.addEventListener('click', ()=> toggleOverlay(el.helpOverlay, true));
-        el.helpClose.addEventListener('click', ()=> toggleOverlay(el.helpOverlay, false));
-
-        el.btnPause.addEventListener('click', onPause);
-        el.resumeBtn.addEventListener('click', onResume);
-        el.restartBtn.addEventListener('click', onRestart);
-
-        el.btnBackHub.addEventListener('click', goHub);
-        el.summaryBackHub.addEventListener('click', goHub);
-        el.summaryReplay.addEventListener('click', onRestart);
-        el.summaryNext.addEventListener('click', ()=>{
-          const nextUrl = new URL(ctx.next, location.href);
-          nextUrl.searchParams.set('pid', ctx.pid);
-          nextUrl.searchParams.set('studyId', ctx.studyId);
-          nextUrl.searchParams.set('hub', ctx.hub);
-          location.href = nextUrl.toString();
-        });
-
-        for (const zone of ZONES){
-          zone.button.addEventListener('click', ()=> onZoneTap(zone.id));
-          zone.button.addEventListener('pointermove', e=>{
-            if (state.phase === 'scrub' && e.buttons){
-              addTrailDot(e.clientX, e.clientY);
-            }
-          });
-        }
-
-        document.addEventListener('visibilitychange', ()=>{
-          if (document.hidden && !state.paused && state.phase !== 'summary'){
-            onPause();
-          }
-        });
-
-        window.addEventListener('beforeunload', ()=>{
-          flushSummaryLite('beforeunload');
-        });
-      }
-
-      function onSoap(){
-        if (!(state.phase === 'intro' || state.phase === 'soap')) return;
-        state.soapApplied = true;
-        setPhase('scrub');
-        startTimer();
-        showToast('สบู่พร้อมแล้ว เริ่มถูมือได้เลย');
-        showCoach('แตะหรือถูจุดที่ยังสกปรกให้ครบทุกส่วน');
-      }
-
-      function onZoneTap(zoneId){
-        if (state.phase !== 'scrub') return;
-        const zone = state.zones[zoneId];
-        if (!zone || zone.isClean) return;
-
-        state.currentZone = zoneId;
-
-        const step = zone.id === 'betweenFingers' || zone.id === 'fingertips' ? 26 : 22;
-        zone.touched = true;
-        zone.cleanProgress = Math.min(100, zone.cleanProgress + step);
-        zone.germLevel = Math.max(0, zone.germLevel - step);
-        zone.correctMotionCount += 1;
-        state.metrics.scrubCorrectCount += 1;
-
-        pulseHighlight(zoneId);
-        showCoach(`${zone.label} ดีขึ้นแล้ว ถูต่ออีกนิดนะ`);
-        showToast(`กำลังทำความสะอาด: ${zone.label}`);
-
-        if (zone.cleanProgress >= 100 || zone.germLevel <= 0){
-          zone.isClean = true;
-          zone.button.classList.remove('is-active','is-dirty');
-          zone.button.classList.add('is-clean');
-          showCoach(`${zone.label} สะอาดแล้ว เยี่ยมมาก`);
-          showToast(`${zone.label} สะอาดแล้ว`);
-        } else {
-          ZONES.forEach(z => z.button.classList.remove('is-active'));
-          zone.button.classList.add('is-active');
-        }
-
-        recalcCoverage();
-        renderGerms();
-        renderAll();
-
-        if (state.metrics.coveragePct >= 80){
-          el.btnRinse.disabled = false;
-          if (highlightZoneId !== 'rinse'){
-            highlightZoneId = 'rinse';
-            showCoach('ดีมาก ตอนนี้กด “ล้างน้ำ” ได้แล้ว');
-          }
-        }
-      }
-
-      function onRinse(){
-        if (state.phase !== 'scrub') return;
-        if (state.metrics.coveragePct < 80){
-          showToast('ยังล้างไม่ทั่วทุกจุดเลย');
-          showCoach('ถูมือให้สะอาดอย่างน้อย 80% ก่อนนะ');
-          return;
-        }
-        state.rinseDone = true;
-        setPhase('dry');
-        el.btnRinse.disabled = true;
-        el.btnDry.disabled = false;
-        clearHighlights();
-        showToast('ล้างน้ำเสร็จแล้ว');
-        showCoach('เหลืออีกขั้นเดียว กด “เช็ดมือ” ให้เสร็จ');
-      }
-
-      function onDry(){
-        if (state.phase !== 'dry') return;
-        state.dryDone = true;
-        finishRound();
-      }
-
-      function onPause(){
-        if (state.phase === 'summary') return;
-        state.paused = true;
-        clearInterval(timerId);
-        toggleOverlay(el.pauseOverlay, true);
-      }
-
-      function onResume(){
-        state.paused = false;
-        toggleOverlay(el.pauseOverlay, false);
-        if (state.phase === 'scrub'){
-          startTimer();
-        }
-      }
-
-      function onRestart(){
-        clearInterval(timerId);
-        state = createInitialState();
-        startedAt = Date.now();
-        highlightZoneId = 'palmLeft';
-
-        toggleOverlay(el.pauseOverlay, false);
-        toggleOverlay(el.summaryOverlay, false);
-
-        ZONES.forEach(z=>{
-          z.button.classList.remove('is-active','is-clean');
-          z.button.classList.add('is-dirty');
-        });
-
-        renderGerms();
-        renderAll();
-        showCoach('เริ่มใหม่ได้เลย กดปุ่ม “สบู่” ก่อนนะ');
-      }
-
-      function goHub(){
-        flushSummaryLite('back-hub');
-        location.href = ctx.hub;
-      }
-
-      function setPhase(phase){
-        state.phase = phase;
-        el.root.dataset.phase = phase;
-
-        switch(phase){
-          case 'intro':
-          case 'soap':
-            el.phaseLabel.textContent = 'เริ่มภารกิจล้างมือ';
-            el.phaseSub.textContent = 'ใส่สบู่ก่อน แล้วค่อยถูมือทีละจุด';
-            break;
-          case 'scrub':
-            el.phaseLabel.textContent = 'ถูมือให้ทั่ว';
-            el.phaseSub.textContent = 'ฝ่ามือ หลังมือ ซอกนิ้ว นิ้วโป้ง ปลายนิ้ว และข้อมือ';
-            setActiveStep('scrub');
-            pulseHighlight(highlightZoneId);
-            break;
-          case 'dry':
-            el.phaseLabel.textContent = 'เช็ดมือให้แห้ง';
-            el.phaseSub.textContent = 'หลังล้างน้ำแล้ว อย่าลืมเช็ดมือให้แห้งด้วย';
-            setActiveStep('dry');
-            break;
-          case 'summary':
-            el.phaseLabel.textContent = 'สรุปผลการล้างมือ';
-            el.phaseSub.textContent = 'ดูจุดที่เก่งแล้ว และจุดที่ควรฝึกเพิ่ม';
-            break;
-        }
-
-        if (phase === 'scrub'){
-          setActiveStep('scrub');
-        } else if (phase === 'dry'){
-          markStepDone('soap');
-          markStepDone('scrub');
-          setActiveStep('dry');
-        }
-      }
-
-      function startTimer(){
-        clearInterval(timerId);
-        timerId = setInterval(()=>{
-          if (state.paused || state.phase !== 'scrub') return;
-          state.timeLeft = Math.max(0, state.timeLeft - 1);
-          el.timer.textContent = String(state.timeLeft);
-          if (state.timeLeft <= 0){
-            clearInterval(timerId);
-            if (state.metrics.coveragePct >= 80){
-              onRinse();
-            } else {
-              finishRound();
-            }
-          }
-        }, 1000);
-      }
-
-      function recalcCoverage(){
-        const vals = Object.values(state.zones).map(z => z.cleanProgress);
-        const avg = vals.reduce((a,b)=>a+b, 0) / vals.length;
-        state.metrics.coveragePct = Math.round(avg);
-        state.cleanlinessPct = state.metrics.coveragePct;
-      }
-
-      function renderAll(){
-        el.cleanPct.textContent = `${state.cleanlinessPct}%`;
-        el.timer.textContent = String(state.timeLeft);
-        el.coverageFill.style.width = `${state.metrics.coveragePct}%`;
-        el.coverageText.textContent = coverageMessage(state.metrics.coveragePct);
-        renderDirtyZones();
-        renderStarsPreview();
-        renderSteps();
-        renderToolbar();
-      }
-
-      function renderDirtyZones(){
-        const dirty = Object.values(state.zones)
-          .filter(z => !z.isClean)
-          .sort((a,b)=> b.germLevel - a.germLevel);
-
-        if (!dirty.length){
-          el.dirtyZones.innerHTML = `<div class="hw-pill"><span>ทุกจุดสะอาดแล้ว</span><span>พร้อมล้างน้ำ</span></div>`;
-          return;
-        }
-
-        el.dirtyZones.innerHTML = dirty.map(z => {
-          const pct = Math.max(0, 100 - z.germLevel);
-          return `<div class="hw-pill"><span>${z.label}</span><span>${pct}% สะอาด</span></div>`;
-        }).join('');
-      }
-
-      function renderStarsPreview(){
-        const stars = previewStars();
-        el.starsPreview.innerHTML = [1,2,3].map(n => `<span class="${n <= stars ? 'on' : ''}">★</span>`).join('');
-      }
-
-      function renderSteps(){
-        const steps = [...el.stepPanel.querySelectorAll('.hw-step')];
-        steps.forEach(s => s.classList.remove('is-active','is-done'));
-
-        if (state.phase === 'intro' || state.phase === 'soap'){
-          const s = el.stepPanel.querySelector('[data-step="soap"]');
-          if (s) s.classList.add('is-active');
-        }
-        if (state.phase === 'scrub'){
-          markStepDone('soap');
-          const s = el.stepPanel.querySelector('[data-step="scrub"]');
-          if (s) s.classList.add('is-active');
-        }
-        if (state.phase === 'dry'){
-          markStepDone('soap');
-          markStepDone('scrub');
-          markStepDone('rinse');
-          const s = el.stepPanel.querySelector('[data-step="dry"]');
-          if (s) s.classList.add('is-active');
-        }
-        if (state.phase === 'summary'){
-          STEP_ORDER.forEach(step => markStepDone(step));
-        }
-      }
-
-      function setActiveStep(step){
-        [...el.stepPanel.querySelectorAll('.hw-step')].forEach(s => s.classList.remove('is-active'));
-        const node = el.stepPanel.querySelector(`[data-step="${step}"]`);
-        if (node) node.classList.add('is-active');
-      }
-
-      function markStepDone(step){
-        const node = el.stepPanel.querySelector(`[data-step="${step}"]`);
-        if (node) node.classList.add('is-done');
-      }
-
-      function renderToolbar(){
-        el.btnSoap.disabled = state.phase !== 'intro' && state.phase !== 'soap';
-        el.btnRinse.disabled = !(state.phase === 'scrub' && state.metrics.coveragePct >= 80);
-        el.btnDry.disabled = state.phase !== 'dry';
-      }
-
-      function renderGerms(){
-        el.germLayer.innerHTML = '';
-        for (const zone of ZONES){
-          const z = state.zones[zone.id];
-          const rect = zone.button.getBoundingClientRect();
-          const parent = el.handStage.getBoundingClientRect();
-          const cluster = document.createElement('div');
-          cluster.className = 'hw-germ-cluster';
-          cluster.style.left = zone.button.style.left || '';
-          cluster.style.right = zone.button.style.right || '';
-          cluster.style.top = zone.button.style.top || '';
-          cluster.style.bottom = zone.button.style.bottom || '';
-          cluster.style.width = zone.button.style.width || `${rect.width}px`;
-          cluster.style.height = zone.button.style.height || `${rect.height}px`;
-          cluster.style.position = 'absolute';
-          cluster.style.borderRadius = getComputedStyle(zone.button).borderRadius;
-
-          const count = Math.max(0, Math.round(z.germLevel / 8));
-          for (let i = 0; i < count; i++){
-            const dot = document.createElement('div');
-            dot.className = 'hw-germ-dot';
-            dot.style.left = `${8 + Math.random() * 84}%`;
-            dot.style.top = `${8 + Math.random() * 78}%`;
-            dot.style.width = `${8 + Math.random() * 8}px`;
-            dot.style.height = dot.style.width;
-            dot.style.opacity = `${0.25 + Math.random() * 0.6}`;
-            dot.style.animationDelay = `${Math.random() * 1.5}s`;
-            cluster.appendChild(dot);
-          }
-          el.germLayer.appendChild(cluster);
-
-          zone.button.classList.toggle('is-clean', z.isClean);
-          zone.button.classList.toggle('is-dirty', !z.isClean);
-        }
-      }
-
-      function pulseHighlight(zoneId){
-        clearHighlights();
-        if (!zoneId) return;
-
-        if (zoneId === 'rinse'){
-          const btn = el.btnRinse;
-          const rect = btn.getBoundingClientRect();
-          const stageRect = document.body.getBoundingClientRect();
-          const hl = document.createElement('div');
-          hl.className = 'hw-highlight';
-          hl.style.position = 'fixed';
-          hl.style.left = `${rect.left}px`;
-          hl.style.top = `${rect.top}px`;
-          hl.style.width = `${rect.width}px`;
-          hl.style.height = `${rect.height}px`;
-          hl.style.zIndex = '60';
-          document.body.appendChild(hl);
-          hl.dataset.temp = 'rinse';
-          return;
-        }
-
-        const zone = ZONES.find(z => z.id === zoneId);
-        if (!zone) return;
-
-        const hl = document.createElement('div');
-        hl.className = 'hw-highlight';
-        hl.style.left = zone.button.style.left || '';
-        hl.style.right = zone.button.style.right || '';
-        hl.style.top = zone.button.style.top || '';
-        hl.style.bottom = zone.button.style.bottom || '';
-        hl.style.width = zone.button.style.width || '';
-        hl.style.height = zone.button.style.height || '';
-        el.highlightLayer.appendChild(hl);
-      }
-
-      function clearHighlights(){
-        el.highlightLayer.innerHTML = '';
-        document.querySelectorAll('.hw-highlight[data-temp="rinse"]').forEach(n => n.remove());
-      }
-
-      function addTrailDot(clientX, clientY){
-        const r = el.handStage.getBoundingClientRect();
-        if (clientX < r.left || clientX > r.right || clientY < r.top || clientY > r.bottom) return;
-
-        const dot = document.createElement('div');
-        dot.className = 'hw-trail-dot';
-        dot.style.left = `${clientX - r.left}px`;
-        dot.style.top = `${clientY - r.top}px`;
-        el.trailLayer.appendChild(dot);
-        setTimeout(()=> dot.remove(), 540);
-      }
-
-      function finishRound(){
-        clearInterval(timerId);
-        state.phase = 'summary';
-        state.metrics.missedZones = Object.values(state.zones)
-          .filter(z => !z.isClean)
-          .map(z => z.label);
-
-        renderSummary();
-        toggleOverlay(el.summaryOverlay, true);
-        saveLastSummary();
-      }
-
-      function renderSummary(){
-        const coverage = state.metrics.coveragePct;
-        const stars = finalStars();
-
-        el.summaryCoverage.textContent = `${coverage}%`;
-        el.summaryStars.innerHTML = [1,2,3].map(n => `<span class="${n <= stars ? 'on' : ''}">★</span>`).join('');
-
-        const badges = [];
-        badges.push(`<span class="hw-badge info">${state.soapApplied ? 'ใส่สบู่แล้ว' : 'ยังไม่ใส่สบู่'}</span>`);
-        badges.push(`<span class="hw-badge ${state.rinseDone ? '' : 'warn'}">${state.rinseDone ? 'ล้างน้ำแล้ว' : 'ยังไม่ล้างน้ำ'}</span>`);
-        badges.push(`<span class="hw-badge ${state.dryDone ? '' : 'warn'}">${state.dryDone ? 'เช็ดมือแล้ว' : 'ยังไม่เช็ดมือ'}</span>`);
-        el.summaryBadges.innerHTML = badges.join('');
-
-        const good = Object.values(state.zones).filter(z => z.isClean).map(z => `<li>${z.label}</li>`);
-        const missed = state.metrics.missedZones.map(label => `<li>${label}</li>`);
-
-        el.summaryGoodList.innerHTML = good.length ? good.join('') : '<li>ยังไม่มีจุดที่สะอาดครบ</li>';
-        el.summaryMissedList.innerHTML = missed.length ? missed.join('') : '<li>ครบทุกจุดแล้ว เยี่ยมมาก</li>';
-      }
-
-      function coverageMessage(pct){
-        if (pct >= 100) return 'สะอาดครบทุกจุดแล้ว';
-        if (pct >= 80) return 'ดีมาก พร้อมล้างน้ำได้แล้ว';
-        if (pct >= 60) return 'ใกล้แล้ว ถูซอกนิ้วกับปลายนิ้วเพิ่มนะ';
-        if (pct >= 30) return 'กำลังดี ถูมือให้ทั่วต่ออีกนิด';
-        return 'เริ่มถูมือทีละจุดได้เลย';
-      }
-
-      function previewStars(){
-        let stars = 0;
-        if (state.metrics.coveragePct >= 35) stars++;
-        if (state.metrics.coveragePct >= 75) stars++;
-        if (state.metrics.coveragePct >= 95 && state.rinseDone && state.dryDone) stars++;
-        return stars;
-      }
-
-      function finalStars(){
-        let stars = 0;
-        if (state.metrics.coveragePct >= 50) stars++;
-        if (state.metrics.coveragePct >= 85) stars++;
-        if (state.metrics.coveragePct >= 95 && state.soapApplied && state.rinseDone && state.dryDone) stars++;
-        return stars;
-      }
-
-      function showCoach(text){
-        el.coachText.textContent = text;
-      }
-
-      function showToast(text){
-        el.toast.textContent = text;
-        el.toast.classList.add('show');
-        clearTimeout(toastTimer);
-        toastTimer = setTimeout(()=> el.toast.classList.remove('show'), 1200);
-      }
-
-      function toggleOverlay(node, open){
-        node.classList.toggle('hw-hidden', !open);
-      }
-
-      function spawnBubbles(){
-        const total = 22;
-        el.bubbles.innerHTML = '';
-        for (let i = 0; i < total; i++){
-          const b = document.createElement('div');
-          b.className = 'hw-bubble';
-          const size = 10 + Math.random() * 26;
-          b.style.left = `${Math.random() * 100}%`;
-          b.style.width = `${size}px`;
-          b.style.height = `${size}px`;
-          b.style.animationDuration = `${8 + Math.random() * 10}s`;
-          b.style.animationDelay = `${Math.random() * 8}s`;
-          b.style.opacity = `${0.18 + Math.random() * 0.55}`;
-          el.bubbles.appendChild(b);
-        }
-      }
-
-      function saveLastSummary(){
-        const payload = {
-          gameId: ctx.gameId,
-          at: new Date().toISOString(),
-          phase: state.phase,
-          coveragePct: state.metrics.coveragePct,
-          soapApplied: state.soapApplied,
-          rinseDone: state.rinseDone,
-          dryDone: state.dryDone,
-          stars: finalStars(),
-          missedZones: state.metrics.missedZones,
-          pid: ctx.pid,
-          studyId: ctx.studyId,
-          seed: ctx.seed
-        };
-        try{
-          localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(payload));
-        }catch(_){}
-      }
-
-      function flushSummaryLite(reason){
-        const payload = {
-          reason,
-          gameId: ctx.gameId,
-          phase: state.phase,
-          coveragePct: state.metrics.coveragePct,
-          timeLeft: state.timeLeft,
-          at: new Date().toISOString()
-        };
-        try{
-          localStorage.setItem('HHA_HANDWASH_V2_FLUSH', JSON.stringify(payload));
-        }catch(_){}
-      }
-    })();
-  </script>
+  <script type="module" src="./js/handwash.safe.v2.js?v=20260320g"></script>
 </body>
 </html>
