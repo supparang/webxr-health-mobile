@@ -1,10 +1,6 @@
 // === /herohealth/gate/gate-games.js ===
 // HeroHealth Gate Game Registry
-// FULL PATCH v20260318d-GATE-GAMES-RHYTHM-JUMPDUCK-PATHFIX
-// ✅ canonical game ids preserved
-// ✅ expanded aliases across hygiene / nutrition / exercise
-// ✅ runCandidates added for robust gate-core resolution
-// ✅ fitness run pages fixed to /fitness/... where needed
+// FULL PATCH v20260320-GATE-GAMES-ADD-PLATEV1
 
 export const GATE_GAMES = {
   // =========================
@@ -163,6 +159,24 @@ export const GATE_GAMES = {
     runCandidates: ['../plate-vr.html']
   },
 
+  platev1: {
+    cat: 'nutrition',
+    label: 'Plate V1',
+    theme: 'platev1',
+    warmupTitle: 'Plate V1 Quick Prep',
+    cooldownTitle: 'Plate V1 Calm Review',
+    files: {
+      warmup: './games/plate/warmup-v1.js',
+      cooldown: './games/plate/cooldown-v1.js',
+      style: './games/plate/style.css'
+    },
+    run: '../plate/plate-v1.html',
+    runCandidates: [
+      '../plate/plate-v1.html',
+      '../plate-v1.html'
+    ]
+  },
+
   // =========================
   // EXERCISE
   // =========================
@@ -192,7 +206,6 @@ export const GATE_GAMES = {
       cooldown: './games/rhythmboxer/cooldown.js',
       style: './games/rhythmboxer/style.css'
     },
-    // ✅ ถูก: /fitness/rhythm-boxer.html
     run: '../fitness/rhythm-boxer.html',
     runCandidates: ['../fitness/rhythm-boxer.html', '../rhythm-boxer-vr.html']
   },
@@ -208,7 +221,6 @@ export const GATE_GAMES = {
       cooldown: './games/jumpduck/cooldown.js',
       style: './games/jumpduck/style.css'
     },
-    // ✅ ถูก: /fitness/jump-duck.html
     run: '../fitness/jump-duck.html',
     runCandidates: ['../fitness/jump-duck.html', '../jump-duck-vr.html']
   },
@@ -356,6 +368,18 @@ export function normalizeGameId(id=''){
     s === 'balanced-plate' ||
     s === 'balanced_plate'
   ) return 'plate';
+
+  if (
+    s === 'platev1' ||
+    s === 'plate-v1' ||
+    s === 'plate_v1' ||
+    s === 'platev1vr' ||
+    s === 'platev1-vr' ||
+    s === 'platev1_vr' ||
+    s === 'balancedplatev1' ||
+    s === 'balanced-plate-v1' ||
+    s === 'balanced_plate_v1'
+  ) return 'platev1';
 
   // -------------------------
   // EXERCISE
