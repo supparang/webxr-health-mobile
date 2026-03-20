@@ -1,7 +1,7 @@
 // === /herohealth/vr-clean/clean.kids.ui.js ===
 // Clean Objects — Kids Mode UI
-// 3 PHASES / CHILD-FRIENDLY
-// PATCH v20260320-CLEAN-KIDS-UI-3PHASE-r2
+// 4 PHASES / BOSS UI / CHILD-FRIENDLY
+// PATCH v20260320-CLEAN-KIDS-UI-4PHASE-BOSS-r3
 
 'use strict';
 
@@ -18,7 +18,11 @@ function fmt(v){
 function escapeHtml(s){
   s = String(s ?? '');
   return s.replace(/[&<>"']/g, m => ({
-    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+    '&':'&amp;',
+    '<':'&lt;',
+    '>':'&gt;',
+    '"':'&quot;',
+    "'":'&#39;'
   }[m]));
 }
 function qs(k, d=''){
@@ -27,6 +31,7 @@ function qs(k, d=''){
 }
 function starText(n){
   n = Number(n || 0);
+  if(n >= 4) return '⭐⭐⭐⭐';
   if(n >= 3) return '⭐⭐⭐';
   if(n >= 2) return '⭐⭐';
   if(n >= 1) return '⭐';
@@ -39,16 +44,85 @@ function phaseCircle(active, done){
 }
 function summaryTitleFromStars(totalStars){
   totalStars = Number(totalStars || 0);
-  if(totalStars >= 8) return 'สุดยอดมาก! เก่งจริง ๆ';
-  if(totalStars >= 6) return 'เก่งมาก! ทำได้ดีมาก';
-  if(totalStars >= 4) return 'ดีมาก! พยายามได้เยี่ยม';
+  if(totalStars >= 12) return 'สุดยอดมาก! เคลียร์บอสได้แล้ว';
+  if(totalStars >= 9) return 'เก่งมาก! เล่นได้ยอดเยี่ยม';
+  if(totalStars >= 6) return 'ดีมาก! ผ่านหลายด่านแล้ว';
   return 'เก่งแล้ว ลองอีกครั้งได้นะ';
 }
 function coachMoodFromKind(kind){
   if(kind === 'good') return { icon:'😄', cls:'good' };
   if(kind === 'warn') return { icon:'🤔', cls:'warn' };
-  if(kind === 'boss') return { icon:'🌟', cls:'boss' };
+  if(kind === 'boss') return { icon:'👾', cls:'boss' };
   return { icon:'😊', cls:'tip' };
+}
+function getPhaseThemeMeta(phaseNo){
+  phaseNo = Number(phaseNo || 1);
+
+  if(phaseNo === 1){
+    return {
+      icon: '🏫',
+      title: 'ห้องเรียน',
+      sub: 'เริ่มจากจุดที่เด็กใช้ใกล้ตัว เช่น สวิตช์ไฟ หรืออุปกรณ์ที่จับบ่อย'
+    };
+  }
+
+  if(phaseNo === 2){
+    return {
+      icon: '🤝',
+      title: 'ของใช้ร่วม',
+      sub: 'มองหาของที่หลายคนจับร่วมกัน เช่น รีโมท ลูกบิด หรือราวจับ'
+    };
+  }
+
+  if(phaseNo === 3){
+    return {
+      icon: '🚽',
+      title: 'ห้องน้ำ',
+      sub: 'ด่านนี้มีจุดเสี่ยงสูง และมีภารกิจพิเศษให้หา'
+    };
+  }
+
+  return {
+    icon: '👾',
+    title: 'Boss Mission',
+    sub: 'ด่านสุดท้าย! เลือก 3 จุดสำคัญเพื่อหยุดการระบาด'
+  };
+}
+function getPhaseThemeColors(phaseNo){
+  phaseNo = Number(phaseNo || 1);
+
+  if(phaseNo === 1){
+    return {
+      themeClass: 'theme-classroom',
+      accent: '#60a5fa'
+    };
+  }
+
+  if(phaseNo === 2){
+    return {
+      themeClass: 'theme-shared',
+      accent: '#fb923c'
+    };
+  }
+
+  if(phaseNo === 3){
+    return {
+      themeClass: 'theme-bathroom',
+      accent: '#a78bfa'
+    };
+  }
+
+  return {
+    themeClass: 'theme-boss',
+    accent: '#f43f5e'
+  };
+}
+function getCardThemeClass(phaseNo){
+  phaseNo = Number(phaseNo || 1);
+  if(phaseNo === 1) return 'theme-classroom';
+  if(phaseNo === 2) return 'theme-shared';
+  if(phaseNo === 3) return 'theme-bathroom';
+  return 'theme-boss';
 }
 
 export function mountCleanKidsUI(root, opts={}){
@@ -59,7 +133,7 @@ export function mountCleanKidsUI(root, opts={}){
 
   const top = el('div','kidsTop');
   top.innerHTML = `
-    <div class="kidPill" id="kPhase">ด่าน 1/3</div>
+    <div class="kidPill" id="kPhase">ด่าน 1/4</div>
     <div class="kidPill" id="kTime">เวลา: 0</div>
     <div class="kidPill" id="kPick">เลือกแล้ว: 0/0</div>
     <div class="kidPill" id="kStar">ดาว: ☆</div>
@@ -70,17 +144,25 @@ export function mountCleanKidsUI(root, opts={}){
   phaseBar.innerHTML = `
     <div class="phaseNode" id="phaseNode1">
       <div class="phaseDot" id="phaseDot1">🟡</div>
-      <div class="phaseLabel">ด่าน 1</div>
+      <div class="phaseLabel">🏫 ด่าน 1</div>
     </div>
     <div class="phaseLine" id="phaseLine1"></div>
+
     <div class="phaseNode" id="phaseNode2">
       <div class="phaseDot" id="phaseDot2">⚪</div>
-      <div class="phaseLabel">ด่าน 2</div>
+      <div class="phaseLabel">🤝 ด่าน 2</div>
     </div>
     <div class="phaseLine" id="phaseLine2"></div>
+
     <div class="phaseNode" id="phaseNode3">
       <div class="phaseDot" id="phaseDot3">⚪</div>
-      <div class="phaseLabel">ด่าน 3</div>
+      <div class="phaseLabel">🚽 ด่าน 3</div>
+    </div>
+    <div class="phaseLine" id="phaseLine3"></div>
+
+    <div class="phaseNode" id="phaseNode4">
+      <div class="phaseDot" id="phaseDot4">⚪</div>
+      <div class="phaseLabel">👾 ด่าน 4</div>
     </div>
   `;
   app.appendChild(phaseBar);
@@ -165,6 +247,7 @@ export function mountCleanKidsUI(root, opts={}){
       border-radius:18px;
       border:1px solid rgba(148,163,184,.18);
       background:rgba(15,23,42,.46);
+      overflow-x:auto;
     }
     .phaseNode{
       display:flex;
@@ -182,14 +265,17 @@ export function mountCleanKidsUI(root, opts={}){
       font-size:20px;
       border:1px solid rgba(148,163,184,.18);
       background:rgba(2,6,23,.52);
+      transition:box-shadow .15s ease, border-color .15s ease;
     }
     .phaseLabel{
       font-size:12px;
       font-weight:1000;
       color:#e5e7eb;
+      text-align:center;
+      line-height:1.2;
     }
     .phaseLine{
-      flex:0 0 38px;
+      flex:0 0 30px;
       height:4px;
       border-radius:999px;
       background:rgba(148,163,184,.18);
@@ -270,17 +356,86 @@ export function mountCleanKidsUI(root, opts={}){
       cursor:pointer;
       user-select:none;
       transition:transform .12s ease, opacity .12s ease, border-color .12s ease;
+      position:relative;
     }
     .kidCard:hover{
       transform:translateY(-1px);
     }
     .kidCard.goodHint{
-      box-shadow:0 0 0 6px rgba(239,68,68,.08), 0 18px 40px rgba(0,0,0,.22);
+      box-shadow:0 0 0 6px rgba(148,163,184,.06), 0 18px 40px rgba(0,0,0,.22);
     }
     .kidCard.special{
-      outline:3px solid rgba(245,158,11,.75);
+      outline:3px solid rgba(245,158,11,.78);
       outline-offset:2px;
+      box-shadow:
+        0 0 0 8px rgba(245,158,11,.08),
+        0 18px 40px rgba(0,0,0,.22);
     }
+    .kidCard.special::before{
+      content:'SPECIAL';
+      position:absolute;
+      top:10px;
+      right:10px;
+      min-height:22px;
+      padding:4px 8px;
+      border-radius:999px;
+      border:1px solid rgba(245,158,11,.42);
+      background:rgba(245,158,11,.18);
+      color:#fde68a;
+      font-size:10px;
+      font-weight:1100;
+      letter-spacing:.4px;
+      line-height:1;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+    }
+    .kidCard.boss{
+      outline:3px solid rgba(244,63,94,.82);
+      outline-offset:2px;
+      box-shadow:
+        0 0 0 10px rgba(244,63,94,.08),
+        0 18px 40px rgba(0,0,0,.22);
+    }
+    .kidCard.boss::before{
+      content:'BOSS';
+      position:absolute;
+      top:10px;
+      right:10px;
+      min-height:22px;
+      padding:4px 8px;
+      border-radius:999px;
+      border:1px solid rgba(244,63,94,.42);
+      background:rgba(244,63,94,.18);
+      color:#fecdd3;
+      font-size:10px;
+      font-weight:1100;
+      letter-spacing:.4px;
+      line-height:1;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+    }
+    .kidCard.special .kidCardIcon{
+      filter:drop-shadow(0 0 10px rgba(245,158,11,.28));
+    }
+    .kidCard.boss .kidCardIcon{
+      filter:drop-shadow(0 0 12px rgba(244,63,94,.28));
+    }
+    .kidCard.special .kidCardHint{
+      color:#fde68a;
+    }
+    .kidCard.boss .kidCardHint{
+      color:#fecdd3;
+    }
+
+    .kidCard.specialPulse{
+      animation:kidSpecialPulse 1.2s ease-in-out infinite;
+    }
+    .kidCard.bossPulse{
+      animation:kidBossPulse 1.15s ease-in-out infinite;
+    }
+
     .kidCard.done{
       opacity:.82;
       transform:scale(.98);
@@ -330,8 +485,8 @@ export function mountCleanKidsUI(root, opts={}){
       background:rgba(245,158,11,.10);
     }
     .kidsCoach.boss{
-      border-color:rgba(236,72,153,.24);
-      background:rgba(236,72,153,.10);
+      border-color:rgba(244,63,94,.24);
+      background:rgba(244,63,94,.10);
     }
 
     .kidsCoachIcon{
@@ -359,7 +514,7 @@ export function mountCleanKidsUI(root, opts={}){
       overflow:auto;
     }
     .kidsSummaryCard{
-      max-width:800px;
+      max-width:860px;
       margin:0 auto;
       border-radius:22px;
       border:1px solid rgba(148,163,184,.18);
@@ -392,7 +547,7 @@ export function mountCleanKidsUI(root, opts={}){
     }
     .kidsSummaryGrid{
       display:grid;
-      grid-template-columns:repeat(3, minmax(0,1fr));
+      grid-template-columns:repeat(4, minmax(0,1fr));
       gap:10px;
       margin-top:14px;
     }
@@ -437,12 +592,161 @@ export function mountCleanKidsUI(root, opts={}){
       border-color:rgba(34,197,94,.34);
     }
 
+    .kidsApp.theme-classroom .kidsMission{
+      border-color: rgba(96,165,250,.28);
+      background: rgba(96,165,250,.10);
+      box-shadow: 0 0 0 1px rgba(96,165,250,.08) inset;
+    }
+    .kidsApp.theme-shared .kidsMission{
+      border-color: rgba(251,146,60,.28);
+      background: rgba(251,146,60,.10);
+      box-shadow: 0 0 0 1px rgba(251,146,60,.08) inset;
+    }
+    .kidsApp.theme-bathroom .kidsMission{
+      border-color: rgba(167,139,250,.28);
+      background: rgba(167,139,250,.10);
+      box-shadow: 0 0 0 1px rgba(167,139,250,.08) inset;
+    }
+    .kidsApp.theme-boss .kidsMission{
+      border-color: rgba(244,63,94,.30);
+      background: rgba(244,63,94,.10);
+      box-shadow: 0 0 0 1px rgba(244,63,94,.08) inset;
+    }
+
+    .kidsApp.theme-classroom .phaseDot.active{
+      border-color: rgba(96,165,250,.38);
+      box-shadow: 0 0 0 6px rgba(96,165,250,.12);
+    }
+    .kidsApp.theme-shared .phaseDot.active{
+      border-color: rgba(251,146,60,.38);
+      box-shadow: 0 0 0 6px rgba(251,146,60,.12);
+    }
+    .kidsApp.theme-bathroom .phaseDot.active{
+      border-color: rgba(167,139,250,.38);
+      box-shadow: 0 0 0 6px rgba(167,139,250,.12);
+    }
+    .kidsApp.theme-boss .phaseDot.active{
+      border-color: rgba(244,63,94,.42);
+      box-shadow: 0 0 0 6px rgba(244,63,94,.14);
+    }
+
+    .kidsApp.theme-classroom .kidCard.goodHint{
+      box-shadow: 0 0 0 6px rgba(96,165,250,.10), 0 18px 40px rgba(0,0,0,.22);
+    }
+    .kidsApp.theme-shared .kidCard.goodHint{
+      box-shadow: 0 0 0 6px rgba(251,146,60,.10), 0 18px 40px rgba(0,0,0,.22);
+    }
+    .kidsApp.theme-bathroom .kidCard.goodHint{
+      box-shadow: 0 0 0 6px rgba(167,139,250,.10), 0 18px 40px rgba(0,0,0,.22);
+    }
+    .kidsApp.theme-boss .kidCard.goodHint{
+      box-shadow: 0 0 0 6px rgba(244,63,94,.10), 0 18px 40px rgba(0,0,0,.22);
+    }
+
+    .kidsApp.theme-classroom .kidsTransition{
+      border-color: rgba(96,165,250,.26);
+      background: rgba(96,165,250,.10);
+    }
+    .kidsApp.theme-shared .kidsTransition{
+      border-color: rgba(251,146,60,.26);
+      background: rgba(251,146,60,.10);
+    }
+    .kidsApp.theme-bathroom .kidsTransition{
+      border-color: rgba(167,139,250,.26);
+      background: rgba(167,139,250,.10);
+    }
+    .kidsApp.theme-boss .kidsTransition{
+      border-color: rgba(244,63,94,.26);
+      background: rgba(244,63,94,.10);
+    }
+
+    .kidsApp.theme-classroom .kidPill{
+      border-color: rgba(96,165,250,.22);
+    }
+    .kidsApp.theme-shared .kidPill{
+      border-color: rgba(251,146,60,.22);
+    }
+    .kidsApp.theme-bathroom .kidPill{
+      border-color: rgba(167,139,250,.22);
+    }
+    .kidsApp.theme-boss .kidPill{
+      border-color: rgba(244,63,94,.24);
+    }
+
+    .kidCard.theme-classroom{
+      background: linear-gradient(180deg, rgba(96,165,250,.10), rgba(2,6,23,.75));
+    }
+    .kidCard.theme-shared{
+      background: linear-gradient(180deg, rgba(251,146,60,.10), rgba(2,6,23,.75));
+    }
+    .kidCard.theme-bathroom{
+      background: linear-gradient(180deg, rgba(167,139,250,.10), rgba(2,6,23,.75));
+    }
+    .kidCard.theme-boss{
+      background: linear-gradient(180deg, rgba(244,63,94,.12), rgba(2,6,23,.75));
+    }
+
+    .kidsApp.theme-classroom .kidsCoach{
+      box-shadow: 0 0 0 1px rgba(96,165,250,.08) inset;
+    }
+    .kidsApp.theme-shared .kidsCoach{
+      box-shadow: 0 0 0 1px rgba(251,146,60,.08) inset;
+    }
+    .kidsApp.theme-bathroom .kidsCoach{
+      box-shadow: 0 0 0 1px rgba(167,139,250,.08) inset;
+    }
+    .kidsApp.theme-boss .kidsCoach{
+      box-shadow: 0 0 0 1px rgba(244,63,94,.08) inset;
+    }
+
     @keyframes kidsFadeIn{
       from{ opacity:0; transform:translateY(4px); }
       to{ opacity:1; transform:translateY(0); }
     }
 
-    @media (max-width:640px){
+    @keyframes kidSpecialPulse{
+      0%{
+        transform:scale(1);
+        box-shadow:
+          0 0 0 0 rgba(245,158,11,.18),
+          0 18px 40px rgba(0,0,0,.22);
+      }
+      50%{
+        transform:scale(1.015);
+        box-shadow:
+          0 0 0 10px rgba(245,158,11,.06),
+          0 18px 40px rgba(0,0,0,.22);
+      }
+      100%{
+        transform:scale(1);
+        box-shadow:
+          0 0 0 0 rgba(245,158,11,.18),
+          0 18px 40px rgba(0,0,0,.22);
+      }
+    }
+
+    @keyframes kidBossPulse{
+      0%{
+        transform:scale(1);
+        box-shadow:
+          0 0 0 0 rgba(244,63,94,.18),
+          0 18px 40px rgba(0,0,0,.22);
+      }
+      50%{
+        transform:scale(1.02);
+        box-shadow:
+          0 0 0 12px rgba(244,63,94,.06),
+          0 18px 40px rgba(0,0,0,.22);
+      }
+      100%{
+        transform:scale(1);
+        box-shadow:
+          0 0 0 0 rgba(244,63,94,.18),
+          0 18px 40px rgba(0,0,0,.22);
+      }
+    }
+
+    @media (max-width:720px){
       .kidsBoard{
         grid-template-columns:1fr 1fr;
       }
@@ -456,13 +760,22 @@ export function mountCleanKidsUI(root, opts={}){
         font-size:15px;
       }
       .kidsSummaryGrid{
-        grid-template-columns:1fr;
+        grid-template-columns:1fr 1fr;
       }
       .phaseLine{
-        flex-basis:24px;
+        flex-basis:18px;
       }
       .phaseNode{
         min-width:58px;
+      }
+      .phaseLabel{
+        font-size:11px;
+      }
+    }
+
+    @media (max-width:520px){
+      .kidsSummaryGrid{
+        grid-template-columns:1fr;
       }
     }
   `;
@@ -476,8 +789,10 @@ export function mountCleanKidsUI(root, opts={}){
   const phaseDot1 = root.querySelector('#phaseDot1');
   const phaseDot2 = root.querySelector('#phaseDot2');
   const phaseDot3 = root.querySelector('#phaseDot3');
+  const phaseDot4 = root.querySelector('#phaseDot4');
   const phaseLine1 = root.querySelector('#phaseLine1');
   const phaseLine2 = root.querySelector('#phaseLine2');
+  const phaseLine3 = root.querySelector('#phaseLine3');
 
   const kidsMissionTitle = root.querySelector('#kidsMissionTitle');
   const kidsMissionText = root.querySelector('#kidsMissionText');
@@ -506,40 +821,68 @@ export function mountCleanKidsUI(root, opts={}){
     kidsCoachText.textContent = text || 'เริ่มได้เลย!';
   }
 
-  function renderPhaseBar(S){
-    const p = Number(S.phaseNo || 1);
-    phaseDot1.textContent = phaseCircle(p === 1, p > 1 || !!S.phaseResults?.find(x=>x.phaseNo===1 && x.passed));
-    phaseDot2.textContent = phaseCircle(p === 2, p > 2 || !!S.phaseResults?.find(x=>x.phaseNo===2 && x.passed));
-    phaseDot3.textContent = phaseCircle(p === 3, !!S.phaseResults?.find(x=>x.phaseNo===3 && x.passed));
+  function applyThemeClass(S){
+    const colors = getPhaseThemeColors(S.phaseNo);
 
-    phaseLine1.classList.toggle('done', p > 1 || !!S.phaseResults?.find(x=>x.phaseNo===1 && x.passed));
-    phaseLine2.classList.toggle('done', p > 2 || !!S.phaseResults?.find(x=>x.phaseNo===2 && x.passed));
+    app.classList.remove('theme-classroom','theme-shared','theme-bathroom','theme-boss');
+    app.classList.add(colors.themeClass);
+
+    [phaseDot1, phaseDot2, phaseDot3, phaseDot4].forEach(n => n.classList.remove('active'));
+
+    if(Number(S.phaseNo) === 1) phaseDot1.classList.add('active');
+    if(Number(S.phaseNo) === 2) phaseDot2.classList.add('active');
+    if(Number(S.phaseNo) === 3) phaseDot3.classList.add('active');
+    if(Number(S.phaseNo) === 4) phaseDot4.classList.add('active');
+  }
+
+  function renderPhaseBar(S){
+    const results = Array.isArray(S.phaseResults) ? S.phaseResults : [];
+    const done1 = Number(S.phaseNo) > 1 || !!results.find(x => x.phaseNo === 1 && x.passed);
+    const done2 = Number(S.phaseNo) > 2 || !!results.find(x => x.phaseNo === 2 && x.passed);
+    const done3 = Number(S.phaseNo) > 3 || !!results.find(x => x.phaseNo === 3 && x.passed);
+    const done4 = !!results.find(x => x.phaseNo === 4 && x.passed);
+
+    phaseDot1.textContent = phaseCircle(Number(S.phaseNo) === 1, done1);
+    phaseDot2.textContent = phaseCircle(Number(S.phaseNo) === 2, done2);
+    phaseDot3.textContent = phaseCircle(Number(S.phaseNo) === 3, done3);
+    phaseDot4.textContent = phaseCircle(Number(S.phaseNo) === 4, done4);
+
+    phaseLine1.classList.toggle('done', done1);
+    phaseLine2.classList.toggle('done', done2);
+    phaseLine3.classList.toggle('done', done3);
   }
 
   function renderTop(S){
-    kPhase.textContent = `ด่าน ${fmt(S.phaseNo)}/${fmt(S.phaseTotal || 3)}`;
+    kPhase.textContent = `ด่าน ${fmt(S.phaseNo)}/${fmt(S.phaseTotal || 4)}`;
     kTime.textContent = `เวลา: ${fmt(S.timeLeft)} วิ`;
     kPick.textContent = `เลือกแล้ว: ${fmt((S.chosenIds || []).length)}/${fmt(S.maxPicks || 0)}`;
     kStar.textContent = `ดาว: ${starText(S.stars)}`;
   }
 
   function renderMission(S){
-    kidsMissionTitle.textContent = `ภารกิจ — ${escapeHtml(S.phaseTitle || `ด่าน ${S.phaseNo}`)}`;
+    const meta = getPhaseThemeMeta(S.phaseNo);
+    kidsMissionTitle.textContent = `${meta.icon} ${escapeHtml(S.phaseTitle || `ด่าน ${S.phaseNo}`)}`;
 
     if(Number(S.phaseNo) === 1){
-      kidsMissionText.textContent = 'แตะจุดที่ควรเช็ดก่อน';
-      kidsMissionSub.textContent = 'เริ่มจากจุดที่คนจับบ่อย เช่น ลูกบิดประตู ก๊อกน้ำ';
+      kidsMissionText.textContent = 'เลือกจุดที่ควรเช็ดก่อนในห้องเรียน';
+      kidsMissionSub.textContent = meta.sub;
       return;
     }
 
     if(Number(S.phaseNo) === 2){
-      kidsMissionText.textContent = 'เลือกจุดสำคัญให้แม่นขึ้น';
-      kidsMissionSub.textContent = 'ด่านนี้มีตัวเลือกมากขึ้น ต้องมองให้ดี';
+      kidsMissionText.textContent = 'เลือกของใช้ร่วมที่ควรเช็ดก่อน';
+      kidsMissionSub.textContent = meta.sub;
       return;
     }
 
-    kidsMissionText.textContent = 'ด่านสุดท้าย! มองหาภารกิจพิเศษ';
-    kidsMissionSub.textContent = 'ถ้าทำภารกิจพิเศษสำเร็จ จะได้ดาวเพิ่ม';
+    if(Number(S.phaseNo) === 3){
+      kidsMissionText.textContent = 'เลือกจุดเสี่ยงในห้องน้ำ และมองหาการ์ดพิเศษ ⭐';
+      kidsMissionSub.textContent = meta.sub;
+      return;
+    }
+
+    kidsMissionText.textContent = 'Boss Mission: เลือก 3 จุดหลักเพื่อหยุดการระบาด 👾';
+    kidsMissionSub.textContent = meta.sub;
   }
 
   function renderCards(S){
@@ -548,19 +891,32 @@ export function mountCleanKidsUI(root, opts={}){
     (S.cards || []).forEach(card=>{
       const chosen = (S.chosenIds || []).includes(card.id);
       const isSpecial = !!S.specialId && S.specialId === card.id;
+      const isBoss = !!S.bossId && S.bossId === card.id;
 
       const node = el('button', 'kidCard');
       node.type = 'button';
+      node.classList.add(getCardThemeClass(S.phaseNo));
 
       if(chosen) node.classList.add('done','locked');
-      if(isSpecial) node.classList.add('special');
+      if(isSpecial){
+        node.classList.add('special');
+        if(Number(S.phaseNo) === 3) node.classList.add('specialPulse');
+      }
+      if(isBoss){
+        node.classList.add('boss','bossPulse');
+      }
+
       if(card.kind === 'good') node.classList.add('goodHint');
       if(S.waitingNextPhase || S.ended) node.classList.add('locked');
 
       node.innerHTML = `
         <div class="kidCardIcon">${card.kidIcon || '🧽'}</div>
         <div class="kidCardLabel">${escapeHtml(card.kidLabel || card.name || card.id)}</div>
-        <div class="kidCardHint">${isSpecial ? 'ภารกิจพิเศษ' : 'แตะเพื่อเลือก'}</div>
+        <div class="kidCardHint">${
+          isBoss ? 'Boss Mission 👾' :
+          isSpecial ? 'ภารกิจพิเศษ ⭐' :
+          'แตะเพื่อเลือก'
+        }</div>
       `;
 
       node.addEventListener('click', ()=>{
@@ -568,7 +924,7 @@ export function mountCleanKidsUI(root, opts={}){
         const res = opts.selectCard(card.id);
         if(!res || !res.ok) return;
 
-        if(res.isGood){
+        if(res.isGood || res.isBoss){
           node.classList.add('correct');
         }else{
           node.classList.add('wrong');
@@ -583,14 +939,23 @@ export function mountCleanKidsUI(root, opts={}){
     if(!S.waitingNextPhase) return;
 
     const currentPhase = Number(lastPhaseNo || S.phaseNo || 1);
-    const nextPhase = Math.min((currentPhase || 1) + 1, Number(S.phaseTotal || 3));
+    const nextPhase = Math.min((currentPhase || 1) + 1, Number(S.phaseTotal || 4));
+    const nextMeta = getPhaseThemeMeta(nextPhase);
 
     kidsTransition.style.display = '';
-    kidsTransitionIcon.textContent = currentPhase >= 3 ? '🏁' : '🎉';
-    kidsTransitionTitle.textContent = `ผ่านด่าน ${currentPhase} แล้ว!`;
-    kidsTransitionText.textContent = currentPhase >= 3
-      ? 'กำลังสรุปผลทั้งเกม...'
-      : `เก่งมาก! กำลังไปด่าน ${nextPhase}`;
+    kidsTransitionIcon.textContent =
+      currentPhase >= 4 ? '🏁' :
+      nextPhase === 4 ? '👾' : '🎉';
+
+    kidsTransitionTitle.textContent =
+      currentPhase >= 4 ? 'จบเกมแล้ว!' : `ผ่านด่าน ${currentPhase} แล้ว!`;
+
+    kidsTransitionText.textContent =
+      currentPhase >= 4
+        ? 'กำลังสรุปผลทั้งเกม...'
+        : (nextPhase === 4
+            ? `ต่อไป: ${nextMeta.icon} ${nextMeta.title} — ด่านสุดท้าย 👾`
+            : `ต่อไป: ${nextMeta.icon} ${nextMeta.title}`);
 
     clearTimeout(phaseTransitionTimer);
     phaseTransitionTimer = setTimeout(()=>{
@@ -608,6 +973,7 @@ export function mountCleanKidsUI(root, opts={}){
     const phaseChanged = Number(S.phaseNo || 0) !== Number(lastPhaseNo || 0);
     lastState = S;
 
+    applyThemeClass(S);
     renderTop(S);
     renderPhaseBar(S);
     renderMission(S);
@@ -615,7 +981,7 @@ export function mountCleanKidsUI(root, opts={}){
 
     if(S.waitingNextPhase){
       showTransition(S);
-    }else{
+    } else {
       hideTransition();
     }
 
@@ -678,7 +1044,9 @@ export function mountCleanKidsUI(root, opts={}){
           <div class="kidsSummaryBoxText">
             ถูก ${fmt(r.correct)} • ผิด ${fmt(r.wrong)}<br>
             ดาว ${starText(r.stars)}<br>
-            ${r.specialDone ? 'ภารกิจพิเศษสำเร็จ ✅' : 'ไม่มีภารกิจพิเศษหรือยังไม่สำเร็จ'}
+            ${r.specialDone ? 'ภารกิจพิเศษสำเร็จ ✅<br>' : ''}
+            ${r.bossClear ? 'Boss สำเร็จ 🏆' : ''}
+            ${!r.specialDone && !r.bossClear ? (r.passed ? 'ผ่านด่าน ✅' : 'ยังไม่ผ่าน') : ''}
           </div>
         </div>
       `);
@@ -701,17 +1069,22 @@ export function mountCleanKidsUI(root, opts={}){
     const totalStars = Number(metrics?.stars || 0);
     const totalCorrect = Number(metrics?.totalCorrect || 0);
     const totalWrong = Number(metrics?.totalWrong || 0);
-    const phaseCount = Number(metrics?.phaseCount || 3);
+    const phaseCount = Number(metrics?.phaseCount || 4);
+    const bossClear = !!metrics?.bossClear;
 
-    const title = summaryTitleFromStars(totalStars);
+    const title = bossClear
+      ? 'สุดยอด! ชนะ Boss Mission แล้ว 👾'
+      : summaryTitleFromStars(totalStars);
+
     const sub = [
       `ผ่านทั้งหมด ${phaseCount} ด่าน`,
       `เลือกถูก ${totalCorrect} จุด`,
-      totalWrong > 0 ? `เลือกพลาด ${totalWrong} จุด` : 'แทบไม่พลาดเลย'
+      totalWrong > 0 ? `เลือกพลาด ${totalWrong} จุด` : 'แทบไม่พลาดเลย',
+      bossClear ? 'หยุดการระบาดสำเร็จ ✅' : 'ยังไม่ชนะบอส'
     ].join(' • ');
 
     const box = root.querySelector('#kidsSummary');
-    root.querySelector('#kidsSummaryStars').textContent = starText(Math.ceil(totalStars / 3));
+    root.querySelector('#kidsSummaryStars').textContent = starText(Math.ceil(totalStars / 4));
     root.querySelector('#kidsSummaryText').textContent = title;
     root.querySelector('#kidsSummarySub').textContent = sub;
     root.querySelector('#kidsSummaryGrid').innerHTML = renderSummaryGrid(metrics);
