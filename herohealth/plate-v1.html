@@ -1,7 +1,9 @@
 <!-- === /herohealth/plate-v1.html ===
 PlateVR V1 — LEGACY LAUNCHER
-BASELINE launcher for old Plate version
-RUN -> /herohealth/plate/plate-v1.html
+FINAL PATCH v20260320-PLATE-V1-LAUNCHER-FLOW
+Flow:
+Start -> /herohealth/plate-v1.html -> warmup-gate -> /herohealth/plate/plate-v1.html
+-> summary -> cooldown-gate -> hub
 -->
 <!doctype html>
 <html lang="th">
@@ -12,49 +14,135 @@ RUN -> /herohealth/plate/plate-v1.html
   <meta name="color-scheme" content="dark light" />
   <link rel="icon" href="./favicon.ico" />
   <style>
-    body{
+    :root{
+      --bg1:#020617;
+      --bg2:#0b1226;
+      --text:#e5e7eb;
+      --mut:#94a3b8;
+      --line:rgba(148,163,184,.18);
+    }
+    *{ box-sizing:border-box; }
+    html,body{
       margin:0;
-      min-height:100vh;
+      min-height:100%;
+      background:
+        radial-gradient(1200px 760px at 20% 0%, rgba(59,130,246,.16), transparent 60%),
+        radial-gradient(900px 700px at 90% 20%, rgba(167,139,250,.12), transparent 60%),
+        linear-gradient(180deg, var(--bg1), var(--bg2));
+      color:var(--text);
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif;
+    }
+    body{
       display:grid;
       place-items:center;
-      background:#020617;
-      color:#e5e7eb;
-      font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif;
       padding:16px;
     }
     .card{
-      width:min(720px,92vw);
+      width:min(860px, 96vw);
+      border:1px solid var(--line);
+      border-radius:24px;
+      background:rgba(2,6,23,.74);
+      box-shadow:0 24px 80px rgba(0,0,0,.34);
+      padding:16px;
+    }
+    .title{
+      font-size:22px;
+      font-weight:1000;
+      display:flex;
+      align-items:center;
+      gap:10px;
+    }
+    .sub{
+      margin-top:8px;
+      color:var(--mut);
+      font-size:13px;
+      font-weight:900;
+      line-height:1.55;
+    }
+    .grid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:12px;
+      margin-top:14px;
+    }
+    @media (max-width:780px){
+      .grid{ grid-template-columns:1fr; }
+    }
+    .modeCard{
       border:1px solid rgba(148,163,184,.18);
       border-radius:18px;
-      background:rgba(2,6,23,.72);
+      background:rgba(15,23,42,.48);
       padding:14px;
-      box-shadow:0 18px 60px rgba(0,0,0,.35);
+      box-shadow:0 18px 55px rgba(0,0,0,.22);
+      display:flex;
+      flex-direction:column;
+      gap:10px;
     }
+    .modeCard h3{
+      margin:0;
+      font-size:18px;
+      font-weight:1000;
+      display:flex;
+      align-items:center;
+      gap:8px;
+    }
+    .mut{
+      color:var(--mut);
+      font-size:12.5px;
+      font-weight:900;
+      line-height:1.45;
+    }
+    .chips{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+    .pill{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      padding:7px 10px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(2,6,23,.46);
+      color:var(--mut);
+      font-size:12px;
+      font-weight:1000;
+    }
+    .pill b{ color:var(--text); }
     .row{
       display:flex;
       gap:10px;
       flex-wrap:wrap;
-      margin-top:10px;
+      margin-top:14px;
+      align-items:center;
     }
     .btn{
       cursor:pointer;
       border-radius:14px;
       border:1px solid rgba(148,163,184,.18);
       background:rgba(148,163,184,.10);
-      color:#e5e7eb;
+      color:var(--text);
       padding:10px 12px;
       font-weight:1000;
       min-height:44px;
+      text-decoration:none;
     }
     .btn.primary{
       border-color:rgba(34,197,94,.30);
       background:rgba(34,197,94,.14);
     }
-    .mut{
-      color:#94a3b8;
-      font-weight:900;
-      font-size:12.5px;
-      line-height:1.35;
+    .btn.violet{
+      border-color:rgba(167,139,250,.30);
+      background:rgba(167,139,250,.16);
+    }
+    .toolbar{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      justify-content:space-between;
+      align-items:center;
+      margin-top:14px;
     }
     code{
       background:rgba(148,163,184,.10);
@@ -62,16 +150,64 @@ RUN -> /herohealth/plate/plate-v1.html
       border-radius:8px;
       word-break:break-all;
     }
+    .info{
+      margin-top:14px;
+      color:var(--mut);
+      font-size:12px;
+      font-weight:900;
+      line-height:1.55;
+      word-break:break-word;
+    }
   </style>
 </head>
 <body>
   <div class="card">
-    <div style="font-weight:1000;font-size:16px;">🍽️ PlateVR V1</div>
-    <div class="mut" id="info">กำลังพาไปหน้าเล่น…</div>
-    <div class="row">
-      <button class="btn primary" id="go">▶ เข้าเล่น</button>
-      <button class="btn" id="back">🏠 กลับ HUB</button>
+    <div class="title">🍽️ PlateVR V1 Launcher</div>
+    <div class="sub">
+      เวอร์ชัน baseline เดิมของ Plate V1<br>
+      Flow: <b>Launcher → Warmup → Run → Summary → Cooldown → Hub</b>
     </div>
+
+    <div class="grid">
+      <section class="modeCard">
+        <h3>🎯 Solo Mode</h3>
+        <div class="mut">
+          เล่นเดี่ยวผ่าน warmup ก่อนทุกครั้ง แล้วค่อยเข้า Plate V1
+        </div>
+        <div class="chips">
+          <span class="pill"><b>Game</b>: platev1</span>
+          <span class="pill"><b>Mode</b>: solo</span>
+          <span class="pill"><b>Flow</b>: warmup first</span>
+        </div>
+        <div class="row">
+          <button class="btn primary" id="goSolo" type="button">▶ เข้า Solo</button>
+          <button class="btn" id="goSoloPro" type="button">🔥 Solo PRO</button>
+        </div>
+      </section>
+
+      <section class="modeCard">
+        <h3>🤝 Coop Lite</h3>
+        <div class="mut">
+          ผู้เล่น A/B สลับเทิร์นกันเล่น ผ่าน warmup ก่อน แล้วจึงเข้า run page
+        </div>
+        <div class="chips">
+          <span class="pill"><b>Game</b>: platev1</span>
+          <span class="pill"><b>Mode</b>: coop</span>
+          <span class="pill"><b>Players</b>: hotseat 2</span>
+        </div>
+        <div class="row">
+          <button class="btn primary" id="goCoop" type="button">🤝 เข้า Coop</button>
+          <button class="btn violet" id="goCoopPro" type="button">⚡ Coop PRO</button>
+        </div>
+      </section>
+    </div>
+
+    <div class="toolbar">
+      <div class="mut">RUN page: <code>/herohealth/plate/plate-v1.html</code></div>
+      <button class="btn" id="back" type="button">🏠 กลับ HUB</button>
+    </div>
+
+    <div class="info" id="info">กำลังเตรียมลิงก์…</div>
   </div>
 
 <script>
@@ -79,41 +215,122 @@ RUN -> /herohealth/plate/plate-v1.html
   const U = new URL(location.href);
   const sp = U.searchParams;
 
-  const hub = sp.get('hub') || new URL('./hub.html', location.href).toString();
+  function normalizeHub(raw){
+    raw = String(raw || '').trim();
+    const DEFAULT = new URL('./hub.html', location.href).toString();
+    if(!raw) return DEFAULT;
+    try{
+      const u = new URL(raw, location.href);
+      u.pathname = u.pathname
+        .replace('/herohealth/vr-plate/hub.html', '/herohealth/hub.html')
+        .replace('/herohealth/plate/hub.html', '/herohealth/hub.html')
+        .replace('/vr-plate/hub.html', '/hub.html')
+        .replace('/plate/hub.html', '/hub.html');
+      return u.toString();
+    }catch(_){
+      return DEFAULT;
+    }
+  }
 
-  // legacy run path
-  const run = new URL('./plate/plate-v1.html', location.href);
+  const hub = normalizeHub(sp.get('hub'));
+  const pid = String(sp.get('pid') || 'anon').trim() || 'anon';
 
-  [
-    'hub','run','diff','time','seed','pid','view','log','api','ai','debug',
-    'studyId','phase','conditionGroup',
-    'cooldown','cd','cdnext',
-    'planSeq','planDay','planSlot','planMode','planSlots','planIndex','autoNext',
-    'wType','wPct','rank','wCrit','wDmg','wHeal','calm',
-    'mode','pro','zone'
-  ].forEach(k=>{
-    const v = sp.get(k);
-    if(v != null && v !== '') run.searchParams.set(k, v);
-  });
+  function buildRunUrl(mode, extra){
+    const run = new URL('./plate/plate-v1.html', location.href);
 
-  if(!run.searchParams.get('view')) run.searchParams.set('view', 'mobile');
-  if(!run.searchParams.get('run'))  run.searchParams.set('run', 'play');
-  if(!run.searchParams.get('diff')) run.searchParams.set('diff', 'normal');
-  if(!run.searchParams.get('time')) run.searchParams.set('time', '90');
-  if(!run.searchParams.get('seed')) run.searchParams.set('seed', String((Date.now() ^ (Math.random()*1e9))|0));
-  if(!run.searchParams.get('hub'))  run.searchParams.set('hub', hub);
-  if(!run.searchParams.get('mode')) run.searchParams.set('mode', 'solo');
+    [
+      'hub','run','diff','time','seed','pid','view','log','api','ai','debug',
+      'studyId','phase','conditionGroup',
+      'cooldown','cd','cdnext',
+      'planSeq','planDay','planSlot','planMode','planSlots','planIndex','autoNext',
+      'wType','wPct','rank','wCrit','wDmg','wHeal','calm',
+      'mode','pro','zone'
+    ].forEach(k=>{
+      const v = sp.get(k);
+      if(v != null && v !== '') run.searchParams.set(k, v);
+    });
+
+    if(!run.searchParams.get('view')) run.searchParams.set('view', 'mobile');
+    if(!run.searchParams.get('run'))  run.searchParams.set('run', 'play');
+    if(!run.searchParams.get('diff')) run.searchParams.set('diff', 'normal');
+    if(!run.searchParams.get('time')) run.searchParams.set('time', '90');
+    if(!run.searchParams.get('seed')) run.searchParams.set('seed', String((Date.now() ^ (Math.random()*1e9))|0));
+    if(!run.searchParams.get('hub'))  run.searchParams.set('hub', hub);
+    if(!run.searchParams.get('pid'))  run.searchParams.set('pid', pid);
+    if(!run.searchParams.get('zone')) run.searchParams.set('zone', 'nutrition');
+
+    run.searchParams.set('mode', String(mode || 'solo').toLowerCase());
+    run.searchParams.set('game', 'platev1');
+    run.searchParams.set('theme', 'platev1');
+
+    if(extra && typeof extra === 'object'){
+      Object.keys(extra).forEach(k=>{
+        const v = extra[k];
+        if(v == null || v === '') run.searchParams.delete(k);
+        else run.searchParams.set(k, String(v));
+      });
+    }
+
+    if(!run.searchParams.get('cooldown') && !run.searchParams.get('cd')){
+      run.searchParams.set('cooldown', '1');
+    }
+
+    return run;
+  }
+
+  function buildWarmupUrl(runUrl){
+    const gate = new URL('./warmup-gate.html', location.href);
+
+    gate.searchParams.set('gatePhase', 'warmup');
+    gate.searchParams.set('cat', 'nutrition');
+    gate.searchParams.set('theme', 'platev1');
+    gate.searchParams.set('game', 'platev1');
+    gate.searchParams.set('pid', String(runUrl.searchParams.get('pid') || pid));
+    gate.searchParams.set('hub', hub);
+    gate.searchParams.set('next', runUrl.toString());
+
+    [
+      'run','diff','time','seed','view','pid','studyId','phase','conditionGroup',
+      'log','planSeq','planDay','planSlot','planMode','planSlots','planIndex',
+      'autoNext','wType','wPct','rank','wCrit','wDmg','wHeal','calm',
+      'mode','pro','zone','cooldown','cd','game','theme'
+    ].forEach(k=>{
+      const v = runUrl.searchParams.get(k);
+      if(v != null && v !== '') gate.searchParams.set(k, v);
+    });
+
+    if(!gate.searchParams.get('cooldown') && !gate.searchParams.get('cd')){
+      gate.searchParams.set('cooldown', '1');
+    }
+
+    return gate;
+  }
+
+  function buildLaunchUrl(mode, extra){
+    const runUrl = buildRunUrl(mode, extra);
+    return buildWarmupUrl(runUrl);
+  }
+
+  const soloGate = buildLaunchUrl('solo');
+  const soloProGate = buildLaunchUrl('solo', { diff:'hard', pro:'1' });
+  const coopGate = buildLaunchUrl('coop');
+  const coopProGate = buildLaunchUrl('coop', { diff:'hard', pro:'1' });
+
+  document.getElementById('goSolo').onclick = ()=> location.href = soloGate.toString();
+  document.getElementById('goSoloPro').onclick = ()=> location.href = soloProGate.toString();
+  document.getElementById('goCoop').onclick = ()=> location.href = coopGate.toString();
+  document.getElementById('goCoopPro').onclick = ()=> location.href = coopProGate.toString();
+  document.getElementById('back').onclick = ()=> location.href = hub;
 
   const info = document.getElementById('info');
   if(info){
-    info.innerHTML = `RUN: <code>${run.pathname}</code><br>hub: <code>${hub}</code>`;
+    info.innerHTML =
+      `SOLO gate: <code>${soloGate.toString()}</code><br>` +
+      `SOLO next: <code>${soloGate.searchParams.get('next') || '-'}</code><br>` +
+      `RUN page: <code>/herohealth/plate/plate-v1.html</code><br>` +
+      `game/theme: <code>platev1 / platev1</code><br>` +
+      `hub: <code>${hub}</code>`;
   }
-
-  document.getElementById('go').onclick = ()=> location.href = run.toString();
-  document.getElementById('back').onclick = ()=> location.href = hub;
-
-  // legacy fast redirect
-  setTimeout(()=> location.href = run.toString(), 60);
 })();
 </script>
 </body>
