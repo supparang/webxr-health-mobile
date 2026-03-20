@@ -1,8 +1,8 @@
 /* === /herohealth/gate/games/plate/warmup-v1.js ===
    HeroHealth Gate Mini-game
-   GAME: plate
-   MODE: warmup-v1
-   LEGACY BASELINE
+   GAME: platev1
+   MODE: warmup
+   FINAL PATCH v20260320-PLATEV1-WARMUP
 */
 
 let __styleLoaded = false;
@@ -21,18 +21,18 @@ export function loadStyle(){
   document.head.appendChild(link);
 }
 
-function el(tag, cls='', text=''){
+function el(tag, cls = '', text = ''){
   const n = document.createElement(tag);
   if(cls) n.className = cls;
   if(text) n.textContent = text;
   return n;
 }
 
-function shuffle(arr, rng=Math.random){
+function shuffle(arr, rng = Math.random){
   const a = arr.slice();
-  for(let i=a.length-1;i>0;i--){
-    const j = Math.floor(rng()*(i+1));
-    [a[i],a[j]] = [a[j],a[i]];
+  for(let i = a.length - 1; i > 0; i--){
+    const j = Math.floor(rng() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
   }
   return a;
 }
@@ -58,7 +58,7 @@ function calcRank(acc){
 function buildBuffs({ score, accuracy, speed }){
   const calm = Math.max(0, Math.min(100, Math.round(accuracy * 0.75 + speed * 0.25)));
   return {
-    wType: 'plate',
+    wType: 'platev1',
     score,
     accuracy,
     speed,
@@ -79,19 +79,19 @@ export async function mount(root, ctx, api){
 
   const SLOTS = [
     {
-      key:'veg',
-      label:'ผัก 1/2 จาน',
-      good:['🥬 ผักใบเขียว','🥕 แครอท','🥦 บรอกโคลี','🥒 แตงกวา']
+      key: 'veg',
+      label: 'ผัก 1/2 จาน',
+      good: ['🥬 ผักใบเขียว','🥕 แครอท','🥦 บรอกโคลี','🥒 แตงกวา']
     },
     {
-      key:'carb',
-      label:'ข้าว/แป้ง 1/4 จาน',
-      good:['🍚 ข้าว','🍞 ขนมปัง','🥔 มันฝรั่ง','🍠 มันหวาน']
+      key: 'carb',
+      label: 'ข้าว/แป้ง 1/4 จาน',
+      good: ['🍚 ข้าว','🍞 ขนมปัง','🥔 มันฝรั่ง','🍠 มันหวาน']
     },
     {
-      key:'protein',
-      label:'โปรตีน 1/4 จาน',
-      good:['🐟 ปลา','🥚 ไข่','🍗 ไก่','🫘 ถั่ว']
+      key: 'protein',
+      label: 'โปรตีน 1/4 จาน',
+      good: ['🐟 ปลา','🥚 ไข่','🍗 ไก่','🫘 ถั่ว']
     }
   ];
 
@@ -119,9 +119,9 @@ export async function mount(root, ctx, api){
   const panelBottom = el('div', 'plt-panel');
 
   hero.innerHTML = `
-    <div class="plt-kicker">NUTRITION ZONE • PLATE • WARMUP V1</div>
+    <div class="plt-kicker">NUTRITION ZONE • PLATE V1 • WARMUP</div>
     <div class="plt-title">จัดจานให้สมดุล</div>
-    <div class="plt-sub">เลือกอาหารให้ครบสัดส่วนจานสุขภาพ เพื่อเตรียมความพร้อมก่อนเข้าเกมหลัก</div>
+    <div class="plt-sub">เลือกอาหารให้ถูกสัดส่วนของจานสุขภาพ ก่อนเข้าเกมหลัก</div>
   `;
 
   const board = el('div', 'plt-board');
@@ -138,7 +138,7 @@ export async function mount(root, ctx, api){
   const target = el('div', 'plt-target', 'เตรียมจัดจาน…');
   const prompt = el('div', 'plt-prompt', 'เลือกให้ตรงกับส่วนของจาน');
   const choices = el('div', 'plt-choices');
-  const note = el('div', 'plt-note', 'ยิ่งจัดจานได้สมดุล บัฟก่อนเข้าเกมจริงยิ่งดี');
+  const note = el('div', 'plt-note', 'จำไว้: ผัก 1/2 + ข้าว/แป้ง 1/4 + โปรตีน 1/4');
 
   panelTop.appendChild(board);
   panelTop.appendChild(target);
@@ -156,8 +156,8 @@ export async function mount(root, ctx, api){
   const slotProteinV = panelTop.querySelector('#pltSlotProtein');
 
   api?.logger?.push?.('mini_start', {
-    game: 'plate',
-    mode: 'warmup-v1',
+    game: 'platev1',
+    mode: 'warmup',
     seed: ctx.seed
   });
 
@@ -230,8 +230,8 @@ export async function mount(root, ctx, api){
         }
 
         api?.logger?.push?.('mini_answer', {
-          game:'plate',
-          mode:'warmup-v1',
+          game:'platev1',
+          mode:'warmup',
           round: idx,
           slot: slot.key,
           selected: opt,
@@ -262,7 +262,7 @@ export async function mount(root, ctx, api){
     root.innerHTML = `
       <div class="plt-result">
         <div class="plt-badge">✨ Rank ${buffs.rank}</div>
-        <div class="plt-big">พร้อมลุย Balanced Plate V1!</div>
+        <div class="plt-big">พร้อมลุย Plate V1!</div>
         <div class="plt-list">
           <div class="plt-item">คะแนน: ${score}</div>
           <div class="plt-item">ความแม่นยำ: ${accuracy}%</div>
