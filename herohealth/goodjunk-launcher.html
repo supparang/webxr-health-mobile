@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth • GoodJunk Launcher</title>
   <meta name="color-scheme" content="dark light" />
-  <link rel="icon" href="../favicon.ico" />
+  <link rel="icon" href="./favicon.ico" />
   <style>
     :root{
       --bg1:#020617;
@@ -654,7 +654,7 @@
     solo: {
       label: 'Solo',
       primary: 'Solo',
-      target: './goodjunk-vr.html',
+      target: './vr-goodjunk/goodjunk-vr.html',
       rule: 'เล่นเดี่ยว ไม่ใช้ room',
       needsRoom: false,
       btnClass: 'btn-solo'
@@ -662,7 +662,7 @@
     duet: {
       label: 'Duet',
       primary: 'Duet',
-      target: './goodjunk-duet-lobby.html',
+      target: './vr-goodjunk/goodjunk-duet-lobby.html',
       rule: '2 คนเท่านั้น • ready ครบ 2/2',
       needsRoom: true,
       btnClass: 'btn-duet'
@@ -670,7 +670,7 @@
     race: {
       label: 'Race',
       primary: 'Group',
-      target: './goodjunk-race-room.html',
+      target: './vr-goodjunk/goodjunk-race-room.html',
       rule: 'แข่งคะแนน • ready ≥ 2 • max 5',
       needsRoom: true,
       btnClass: 'btn-race'
@@ -678,7 +678,7 @@
     battle: {
       label: 'Battle',
       primary: 'Group',
-      target: './goodjunk-battle-lobby.html',
+      target: './vr-goodjunk/goodjunk-battle-lobby.html',
       rule: 'โจมตีกันได้ • ready ≥ 2 • max 5',
       needsRoom: true,
       btnClass: 'btn-battle'
@@ -686,7 +686,7 @@
     coop: {
       label: 'Coop',
       primary: 'Group',
-      target: './goodjunk-coop-lobby.html',
+      target: './vr-goodjunk/goodjunk-coop-lobby.html',
       rule: 'ช่วยกันเล่น • ready ≥ 2 • max 10',
       needsRoom: true,
       btnClass: 'btn-coop'
@@ -818,7 +818,7 @@
     u.searchParams.set('diff', els.diff.value || qs.get('diff') || 'normal');
     u.searchParams.set('time', els.time.value || qs.get('time') || '120');
     u.searchParams.set('seed', qs.get('seed') || String(Date.now()));
-    u.searchParams.set('hub', qs.get('hub') || '../hub.html');
+    u.searchParams.set('hub', qs.get('hub') || './hub.html');
     u.searchParams.set('view', qs.get('view') || 'mobile');
     u.searchParams.set('run', qs.get('run') || 'play');
     u.searchParams.set('gameId', 'goodjunk');
