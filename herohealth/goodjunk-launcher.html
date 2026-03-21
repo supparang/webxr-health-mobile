@@ -693,6 +693,12 @@
     }
   };
 
+  const PASSTHRU_KEYS = [
+    'run','log','api','hub','studyId','phase','conditionGroup','debug','seed','view','pid','ai',
+    'pro','auto','room','zone','grade','planSeq','planDay','planSlot','planMode','planSlots','planIndex',
+    'autoNext','plannedGame','finalGame','cdnext'
+  ];
+
   const $ = (id) => document.getElementById(id);
 
   const els = {
@@ -716,9 +722,22 @@
     modeRule: $('modeRule')
   };
 
-  let primaryMode = normalizePrimary(qs.get('primary') || 'solo');
-  let groupMode = normalizeResolved(qs.get('groupMode') || qs.get('mode') || 'coop');
-  let advancedOpen = false;
+  let primaryMode = normalizePrimary(qs.get('primary') || resolvePrimaryFromMode(qs.get('mode')) || 'solo');
+  let groupMode = normalizeResolved(qs.get('groupMode') || resolveGroupMode(qs.get('mode')) || 'coop');
+  let advancedOpen = ['race','battle','coop'].includes(String(qs.get('mode') || '').toLowerCase());
+
+  function resolvePrimaryFromMode(mode){
+    const m = String(mode || '').trim().toLowerCase();
+    if (m === 'solo') return 'solo';
+    if (m === 'duet') return 'duet';
+    if (['race','battle','coop'].includes(m)) return 'group';
+    return '';
+  }
+
+  function resolveGroupMode(mode){
+    const m = String(mode || '').trim().toLowerCase();
+    return ['race','battle','coop'].includes(m) ? m : '';
+  }
 
   function normalizePrimary(v){
     const m = String(v || '').trim().toLowerCase();
@@ -763,8 +782,11 @@
   }
 
   function getRoomIdValue(){
-    return String(els.roomId.value || qs.get('roomId') || '')
-      .trim()
+    const fromInput = String(els.roomId.value || '').trim();
+    const fromRoomId = String(qs.get('roomId') || '').trim();
+    const fromRoomAlias = String(qs.get('room') || '').trim();
+
+    return (fromInput || fromRoomId || fromRoomAlias)
       .toUpperCase()
       .replace(/[^A-Z0-9-]/g,'')
       .slice(0,16);
@@ -793,8 +815,8 @@
     u.searchParams.set('pid', normalizePid(qs.get('pid') || ''));
     u.searchParams.set('name', sanitizeName(els.playerName.value || qs.get('name') || ''));
     u.searchParams.set('studyId', qs.get('studyId') || '');
-    u.searchParams.set('diff', els.diff.value || 'normal');
-    u.searchParams.set('time', els.time.value || '120');
+    u.searchParams.set('diff', els.diff.value || qs.get('diff') || 'normal');
+    u.searchParams.set('time', els.time.value || qs.get('time') || '120');
     u.searchParams.set('seed', qs.get('seed') || String(Date.now()));
     u.searchParams.set('hub', qs.get('hub') || '../hub.html');
     u.searchParams.set('view', qs.get('view') || 'mobile');
@@ -814,6 +836,13 @@
       if (!roomId) return '';
       u.searchParams.set('roomId', roomId);
     }
+
+    PASSTHRU_KEYS.forEach((k) => {
+      const v = qs.get(k);
+      if (v != null && v !== '' && !u.searchParams.has(k)) {
+        u.searchParams.set(k, v);
+      }
+    });
 
     return u.toString();
   }
@@ -991,13 +1020,10 @@
 
     if (qs.get('diff')) els.diff.value = qs.get('diff');
     if (qs.get('time')) els.time.value = qs.get('time');
-    if (qs.get('roomId')) els.roomId.value = qs.get('roomId');
-    else els.roomId.value = randRoom();
 
-    if (['race','battle','coop'].includes(qs.get('mode'))) {
-      primaryMode = 'group';
-      groupMode = normalizeResolved(qs.get('mode'));
-    }
+    const presetRoom = qs.get('roomId') || qs.get('room') || '';
+    if (presetRoom) els.roomId.value = presetRoom;
+    else els.roomId.value = randRoom();
 
     renderAll();
   })();
