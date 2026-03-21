@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — Germ Detective</title>
+  <title>HeroHealth — นักสืบเชื้อโรค</title>
   <meta name="color-scheme" content="dark light" />
   <link rel="icon" href="../favicon.ico" />
   <style>
@@ -117,7 +117,7 @@
     }
 
     .title{
-      font-size:16px;
+      font-size:17px;
       font-weight:1000;
       line-height:1.15;
     }
@@ -149,6 +149,7 @@
       font-weight:950;
       color:#e2e8f0;
       min-height:36px;
+      white-space:nowrap;
     }
     .pill b{ color:#fff; }
 
@@ -166,24 +167,37 @@
       box-shadow:0 18px 55px rgba(0,0,0,.30);
     }
     .missionKicker{
-      font-size:11px;
+      font-size:12px;
       font-weight:1000;
       color:var(--cyan);
       letter-spacing:.2px;
-      text-transform:uppercase;
     }
     .missionTitle{
       margin-top:6px;
-      font-size:18px;
+      font-size:20px;
       font-weight:1000;
       line-height:1.15;
     }
     .missionDesc{
       margin-top:6px;
       color:#dbeafe;
-      font-size:13px;
-      font-weight:850;
+      font-size:14px;
+      font-weight:900;
       line-height:1.45;
+    }
+    .missionMeta{
+      margin-top:8px;
+      display:inline-flex;
+      gap:8px;
+      flex-wrap:wrap;
+      padding:7px 10px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.16);
+      background:rgba(255,255,255,.04);
+      color:#e2e8f0;
+      font-size:12px;
+      font-weight:950;
+      line-height:1.3;
     }
     .coachLine{
       margin-top:10px;
@@ -193,8 +207,14 @@
       border:1px solid rgba(34,211,238,.18);
       color:#cffafe;
       font-size:13px;
-      font-weight:900;
+      font-weight:1000;
       line-height:1.35;
+    }
+    .coachLine.cheer{
+      background:rgba(34,197,94,.12);
+      border-color:rgba(34,197,94,.24);
+      color:#dcfce7;
+      box-shadow:0 0 0 1px rgba(34,197,94,.06), 0 10px 24px rgba(0,0,0,.12);
     }
 
     .toolBar{
@@ -234,14 +254,14 @@
     }
     .toolBtn .t{
       font-weight:1000;
-      font-size:14px;
+      font-size:15px;
     }
     .toolBtn .s{
       margin-top:4px;
-      font-size:11px;
+      font-size:12px;
       font-weight:900;
       color:var(--muted);
-      line-height:1.3;
+      line-height:1.35;
     }
     .toolBtn.active{
       border-color:rgba(34,211,238,.28);
@@ -287,14 +307,14 @@
     .evidenceCard .h{
       font-size:12px;
       font-weight:1000;
-      line-height:1.3;
+      line-height:1.35;
     }
     .evidenceCard .m{
       margin-top:4px;
       color:var(--muted);
       font-size:11px;
       font-weight:900;
-      line-height:1.35;
+      line-height:1.4;
     }
 
     .toast{
@@ -305,7 +325,7 @@
       z-index:40;
       max-width:92vw;
       border:1px solid rgba(148,163,184,.18);
-      background:rgba(2,6,23,.88);
+      background:rgba(2,6,23,.92);
       color:#f8fafc;
       border-radius:999px;
       padding:10px 14px;
@@ -314,8 +334,19 @@
       opacity:0;
       transition:opacity .18s ease;
       pointer-events:none;
+      text-align:center;
     }
     .toast.show{ opacity:1; }
+    .toast.good{
+      border-color:rgba(34,197,94,.24);
+      background:rgba(3,16,12,.94);
+      color:#dcfce7;
+    }
+    .toast.warn{
+      border-color:rgba(245,158,11,.24);
+      background:rgba(24,16,3,.94);
+      color:#fef3c7;
+    }
 
     .introWrap, .summaryWrap{
       position:fixed;
@@ -355,9 +386,6 @@
       grid-template-columns:repeat(2, minmax(0,1fr));
       gap:12px;
     }
-    @media (max-width:640px){
-      .modalGrid{ grid-template-columns:1fr; }
-    }
     .miniCard{
       border:1px solid rgba(148,163,184,.16);
       background:rgba(255,255,255,.03);
@@ -386,7 +414,6 @@
       line-height:1.5;
     }
     .bullet li + li{ margin-top:6px; }
-
     .modalActions{
       margin-top:16px;
       display:flex;
@@ -423,10 +450,6 @@
       grid-template-columns:repeat(4, minmax(0,1fr));
       gap:10px;
     }
-    @media (max-width:720px){
-      .summaryHero{ grid-template-columns:repeat(2, minmax(0,1fr)); }
-    }
-
     .summaryBig{
       border:1px solid rgba(148,163,184,.16);
       background:rgba(255,255,255,.03);
@@ -466,6 +489,10 @@
       font-weight:1000;
       backdrop-filter: blur(10px);
     }
+    .ghostBtn:disabled{
+      opacity:.55;
+      cursor:not-allowed;
+    }
 
     .crosshair{
       position:fixed;
@@ -483,6 +510,486 @@
     }
     html[data-view="cvr"] .crosshair{ opacity:1; }
 
+    .mobileOnly{ display:none; }
+    .desktopOnly{ display:inline-flex; }
+
+    /* Tutorial */
+    .tutorialWrap{
+      position:fixed;
+      inset:0;
+      z-index:55;
+      display:grid;
+      place-items:center;
+      background:rgba(2,6,23,.76);
+      backdrop-filter: blur(6px);
+      padding:20px;
+    }
+
+    .tutorialModal{
+      width:min(94vw, 680px);
+      border:1px solid var(--stroke);
+      background:rgba(2,6,23,.94);
+      border-radius:24px;
+      padding:18px;
+      box-shadow:0 24px 80px rgba(0,0,0,.42);
+      text-align:center;
+    }
+
+    .tutorialHead{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:12px;
+      flex-wrap:wrap;
+    }
+
+    .tutorialKicker{
+      font-size:12px;
+      font-weight:1000;
+      color:var(--cyan);
+      letter-spacing:.2px;
+    }
+
+    .tutorialDots{
+      display:flex;
+      gap:8px;
+      align-items:center;
+    }
+
+    .tutorialDots .dot{
+      width:10px;
+      height:10px;
+      border-radius:999px;
+      background:rgba(148,163,184,.28);
+      border:1px solid rgba(148,163,184,.18);
+    }
+
+    .tutorialDots .dot.active{
+      background:rgba(34,211,238,.95);
+      box-shadow:0 0 0 3px rgba(34,211,238,.16);
+    }
+
+    .tutorialIcon{
+      margin:14px auto 0;
+      width:78px;
+      height:78px;
+      border-radius:22px;
+      display:grid;
+      place-items:center;
+      font-size:40px;
+      background:linear-gradient(135deg, rgba(34,211,238,.18), rgba(167,139,250,.14));
+      border:1px solid rgba(148,163,184,.18);
+    }
+
+    .tutorialTitle{
+      margin-top:14px;
+      font-size:24px;
+      font-weight:1000;
+      line-height:1.15;
+    }
+
+    .tutorialDesc{
+      margin-top:10px;
+      color:#dbeafe;
+      font-size:14px;
+      font-weight:900;
+      line-height:1.5;
+    }
+
+    .tutorialDemo{
+      margin-top:14px;
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      justify-content:center;
+    }
+
+    .tutorialChip{
+      padding:8px 10px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.16);
+      background:rgba(255,255,255,.03);
+      color:#cbd5e1;
+      font-size:12px;
+      font-weight:1000;
+    }
+
+    .tutorialChip.active{
+      border-color:rgba(34,211,238,.28);
+      background:rgba(34,211,238,.10);
+      color:#ecfeff;
+    }
+
+    .tutorialHint{
+      margin-top:14px;
+      padding:12px 14px;
+      border-radius:16px;
+      border:1px solid rgba(34,211,238,.18);
+      background:rgba(34,211,238,.08);
+      color:#cffafe;
+      font-size:13px;
+      font-weight:1000;
+      line-height:1.4;
+    }
+
+    .tutorialActions{
+      margin-top:16px;
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      justify-content:center;
+    }
+
+    /* Reflection */
+    .reflectWrap{
+      margin-top:16px;
+      border:1px solid rgba(148,163,184,.16);
+      background:rgba(255,255,255,.03);
+      border-radius:20px;
+      padding:14px;
+    }
+
+    .reflectHead{
+      margin-bottom:10px;
+    }
+
+    .reflectTitle{
+      font-size:18px;
+      font-weight:1000;
+      line-height:1.15;
+    }
+
+    .reflectSub{
+      margin-top:4px;
+      color:var(--muted);
+      font-size:12px;
+      font-weight:900;
+      line-height:1.45;
+    }
+
+    .reflectList{
+      display:grid;
+      gap:10px;
+    }
+
+    .reflectCard{
+      border:1px solid rgba(148,163,184,.14);
+      background:rgba(255,255,255,.02);
+      border-radius:16px;
+      padding:12px;
+    }
+
+    .reflectQ{
+      font-size:14px;
+      font-weight:1000;
+      line-height:1.35;
+    }
+
+    .reflectOpts{
+      margin-top:10px;
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+    }
+
+    .reflectOpt{
+      appearance:none;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(255,255,255,.03);
+      color:var(--text);
+      border-radius:999px;
+      padding:9px 12px;
+      font-size:12px;
+      font-weight:1000;
+      cursor:pointer;
+    }
+
+    .reflectOpt:hover{ transform:translateY(-1px); }
+    .reflectOpt.selected{
+      border-color:rgba(34,211,238,.28);
+      background:rgba(34,211,238,.12);
+    }
+    .reflectOpt.correct{
+      border-color:rgba(34,197,94,.28);
+      background:rgba(34,197,94,.12);
+      color:#dcfce7;
+    }
+    .reflectOpt.wrong{
+      border-color:rgba(245,158,11,.26);
+      background:rgba(245,158,11,.10);
+      color:#fef3c7;
+    }
+
+    .reflectFb{
+      margin-top:10px;
+      font-size:12px;
+      font-weight:1000;
+      color:#cbd5e1;
+      line-height:1.4;
+    }
+    .reflectFb.good{ color:#dcfce7; }
+    .reflectFb.warn{ color:#fef3c7; }
+
+    .reflectFooter{
+      margin-top:12px;
+      padding:10px 12px;
+      border-radius:14px;
+      border:1px solid rgba(148,163,184,.16);
+      background:rgba(255,255,255,.03);
+      font-size:12px;
+      font-weight:1000;
+      color:#e2e8f0;
+    }
+
+    /* Spot visual */
+    .gd-spot{
+      transition:
+        transform .12s ease,
+        box-shadow .18s ease,
+        opacity .15s ease,
+        filter .15s ease,
+        background .18s ease,
+        border-color .18s ease;
+      min-width:96px;
+      max-width:132px;
+      padding:8px 10px 10px;
+      border-radius:16px;
+      text-align:center;
+      line-height:1.2;
+    }
+
+    .gd-spot-inner{
+      display:grid;
+      gap:6px;
+      justify-items:center;
+    }
+
+    .gd-spot-icon{
+      width:38px;
+      height:38px;
+      border-radius:12px;
+      display:grid;
+      place-items:center;
+      font-size:22px;
+      background:rgba(255,255,255,.08);
+      border:1px solid rgba(148,163,184,.14);
+      box-shadow:0 6px 14px rgba(0,0,0,.12);
+    }
+
+    .gd-spot-name{
+      font-size:12px;
+      font-weight:1000;
+      color:#f8fafc;
+      word-break:break-word;
+    }
+
+    .gd-spot-sub{
+      font-size:10px;
+      font-weight:900;
+      color:#cbd5e1;
+      opacity:.92;
+    }
+
+    .gd-spot[data-hidden-label="1"]{
+      color:#cbd5e1;
+      background:rgba(255,255,255,.025);
+      border-style:dashed;
+    }
+
+    .gd-spot[data-hidden-label="1"] .gd-spot-name{
+      color:#e2e8f0;
+    }
+
+    .gd-spot[data-hidden-label="1"] .gd-spot-sub{
+      color:#cbd5e1;
+    }
+
+    .gd-spot[data-hidden-label="1"] .gd-spot-icon{
+      background:rgba(255,255,255,.06);
+      border-style:dashed;
+    }
+
+    .gd-spot.is-suspicious{
+      border-color:rgba(34,211,238,.38) !important;
+      background:rgba(34,211,238,.10) !important;
+      box-shadow:
+        0 0 0 2px rgba(34,211,238,.10),
+        0 0 22px rgba(34,211,238,.18),
+        0 10px 24px rgba(0,0,0,.16);
+    }
+
+    .gd-spot.is-suspicious .gd-spot-icon{
+      background:rgba(34,211,238,.14);
+      border-color:rgba(34,211,238,.28);
+    }
+
+    .gd-spot.is-investigated{
+      border-color:rgba(251,191,36,.38) !important;
+      background:rgba(251,191,36,.10) !important;
+      box-shadow:
+        0 0 0 2px rgba(251,191,36,.10),
+        0 0 22px rgba(251,191,36,.16),
+        0 10px 24px rgba(0,0,0,.16);
+    }
+
+    .gd-spot.is-investigated .gd-spot-icon{
+      background:rgba(251,191,36,.14);
+      border-color:rgba(251,191,36,.26);
+    }
+
+    .gd-spot.is-cleaned{
+      border-color:rgba(34,197,94,.42) !important;
+      background:rgba(34,197,94,.12) !important;
+      box-shadow:
+        0 0 0 2px rgba(34,197,94,.10),
+        0 0 22px rgba(34,197,94,.18),
+        0 10px 24px rgba(0,0,0,.16);
+    }
+
+    .gd-spot.is-cleaned .gd-spot-icon{
+      background:rgba(34,197,94,.16);
+      border-color:rgba(34,197,94,.28);
+    }
+
+    .gd-spot.is-photo{
+      outline:2px solid rgba(245,158,11,.28);
+      outline-offset:2px;
+    }
+
+    .gd-spot-badge{
+      position:absolute;
+      right:-6px;
+      top:-6px;
+      min-width:26px;
+      height:26px;
+      padding:0 6px;
+      border-radius:999px;
+      display:grid;
+      place-items:center;
+      font-size:12px;
+      font-weight:1000;
+      border:1px solid rgba(148,163,184,.16);
+      background:rgba(2,6,23,.94);
+      color:#fff;
+      box-shadow:0 8px 18px rgba(0,0,0,.18);
+    }
+
+    .gd-spot-badge.hidden{ display:none; }
+
+    .gd-spot.is-suspicious .gd-spot-badge{
+      background:rgba(8,47,73,.96);
+      border-color:rgba(34,211,238,.28);
+      color:#cffafe;
+    }
+
+    .gd-spot.is-investigated .gd-spot-badge{
+      background:rgba(69,26,3,.96);
+      border-color:rgba(251,191,36,.26);
+      color:#fde68a;
+    }
+
+    .gd-spot.is-cleaned .gd-spot-badge{
+      background:rgba(5,46,22,.96);
+      border-color:rgba(34,197,94,.28);
+      color:#dcfce7;
+    }
+
+    .gd-spot.fx-pop{ animation: gdPop .28s ease; }
+    .gd-spot.fx-glow-uv{ animation: gdUVGlow .9s ease; }
+    .gd-spot.fx-clean{ animation: gdCleanPulse .9s ease; }
+
+    @keyframes gdPop{
+      0%{ transform:scale(.94); }
+      60%{ transform:scale(1.06); }
+      100%{ transform:scale(1); }
+    }
+
+    @keyframes gdUVGlow{
+      0%{
+        box-shadow:0 0 0 0 rgba(34,211,238,.0);
+        filter:brightness(1);
+      }
+      35%{
+        box-shadow:0 0 0 8px rgba(34,211,238,.10), 0 0 26px rgba(34,211,238,.24);
+        filter:brightness(1.08);
+      }
+      100%{
+        box-shadow:0 0 0 0 rgba(34,211,238,.0);
+        filter:brightness(1);
+      }
+    }
+
+    @keyframes gdCleanPulse{
+      0%{
+        box-shadow:0 0 0 0 rgba(34,197,94,.0);
+        filter:saturate(1);
+      }
+      35%{
+        box-shadow:0 0 0 9px rgba(34,197,94,.12), 0 0 28px rgba(34,197,94,.22);
+        filter:saturate(1.12);
+      }
+      100%{
+        box-shadow:0 0 0 0 rgba(34,197,94,.0);
+        filter:saturate(1);
+      }
+    }
+
+    .gd-float-tag{
+      position:fixed;
+      z-index:120;
+      transform:translate(-50%, -50%);
+      pointer-events:none;
+      padding:8px 10px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.16);
+      background:rgba(2,6,23,.92);
+      color:#f8fafc;
+      font-size:12px;
+      font-weight:1000;
+      box-shadow:0 14px 36px rgba(0,0,0,.22);
+      animation: gdFloatUp .95s ease forwards;
+      white-space:nowrap;
+    }
+
+    .gd-float-tag.good{
+      border-color:rgba(34,197,94,.24);
+      background:rgba(3,20,13,.94);
+      color:#dcfce7;
+    }
+
+    .gd-float-tag.warn{
+      border-color:rgba(34,211,238,.24);
+      background:rgba(3,15,24,.94);
+      color:#cffafe;
+    }
+
+    .gd-float-tag.photo{
+      border-color:rgba(245,158,11,.24);
+      background:rgba(24,16,3,.94);
+      color:#fef3c7;
+    }
+
+    @keyframes gdFloatUp{
+      0%{
+        opacity:0;
+        transform:translate(-50%, -40%);
+      }
+      20%{
+        opacity:1;
+        transform:translate(-50%, -50%);
+      }
+      100%{
+        opacity:0;
+        transform:translate(-50%, -92%);
+      }
+    }
+
+    @media (max-width:980px){
+      .summaryHero{
+        grid-template-columns:repeat(2, minmax(0,1fr));
+      }
+    }
+
     @media (max-width:900px){
       .evidencePanel{
         top:auto;
@@ -495,14 +1002,90 @@
     }
 
     @media (max-width:720px){
+      .statusPanel{
+        width:100%;
+        justify-content:flex-start;
+        gap:6px;
+      }
       .topHUD{ gap:8px; }
       .brandPanel{ min-width:unset; width:100%; }
-      .statusPanel{ width:100%; }
+
+      .pill{
+        font-size:11px;
+        padding:7px 9px;
+        min-height:34px;
+      }
+
+      #pillRisk,
+      #pillEvidence{
+        display:none;
+      }
+
+      .missionTitle{
+        font-size:18px;
+      }
+      .missionDesc{
+        font-size:13px;
+      }
+
       .missionBox{
         width:min(94vw, 520px);
         bottom:calc(176px + var(--sab));
       }
       .toolBar{ width:min(94vw, 520px); }
+
+      .tutorialModal{
+        padding:16px;
+        border-radius:20px;
+      }
+      .tutorialTitle{
+        font-size:21px;
+      }
+      .tutorialDesc{
+        font-size:13px;
+      }
+      .tutorialHint{
+        font-size:12px;
+      }
+      .tutorialActions{
+        gap:8px;
+      }
+
+      .modalGrid{ grid-template-columns:1fr; }
+
+      .reflectTitle{
+        font-size:16px;
+      }
+      .reflectQ{
+        font-size:13px;
+      }
+      .reflectOpt{
+        font-size:11px;
+        padding:8px 10px;
+      }
+
+      .desktopOnly{ display:none !important; }
+      .mobileOnly{ display:inline-flex !important; }
+
+      .gd-spot{
+        min-width:86px;
+        max-width:116px;
+        padding:7px 8px 9px;
+      }
+
+      .gd-spot-icon{
+        width:34px;
+        height:34px;
+        font-size:20px;
+      }
+
+      .gd-spot-name{
+        font-size:11px;
+      }
+
+      .gd-spot-sub{
+        font-size:10px;
+      }
     }
   </style>
 </head>
@@ -514,65 +1097,68 @@
       <div class="brandPanel">
         <div class="logo">🦠</div>
         <div>
-          <div class="title">Germ Detective</div>
-          <div class="sub" id="subLine">สืบคดีเชื้อโรค • หาแหล่งเสี่ยง • ลดการแพร่กระจาย</div>
+          <div class="title">นักสืบเชื้อโรค</div>
+          <div class="sub" id="subLine">ภารกิจค้นหาจุดเสี่ยง • เก็บหลักฐาน • ลดการแพร่เชื้อ</div>
         </div>
       </div>
 
       <div class="statusPanel">
-        <div class="pill">⏱ <b id="uiTime">180s</b></div>
-        <div class="pill">⚠️ Risk <b id="uiRisk">100%</b></div>
-        <div class="pill">🎯 Critical <b id="uiCritical">0/3</b></div>
-        <div class="pill">📸 Evidence <b id="uiEvidence">0</b></div>
-        <div class="pill">⭐ Score <b id="uiScore">0</b></div>
+        <div class="pill" id="pillTime">⏱ เวลา <b id="uiTime">180 วิ</b></div>
+        <div class="pill" id="pillRisk">⚠️ ความเสี่ยง <b id="uiRisk">100%</b></div>
+        <div class="pill" id="pillCritical">🎯 จุดเสี่ยงหลัก <b id="uiCritical">0/3</b></div>
+        <div class="pill" id="pillEvidence">📸 หลักฐาน <b id="uiEvidence">0</b></div>
+        <div class="pill" id="pillScore">⭐ คะแนน <b id="uiScore">0</b></div>
       </div>
     </div>
 
     <div class="backTop">
-      <button type="button" class="ghostBtn" id="btnPause">⏸ พัก</button>
-      <button type="button" class="ghostBtn" id="btnResume">▶ เล่นต่อ</button>
-      <button type="button" class="ghostBtn" id="btnHubTop">🏠 กลับ HUB</button>
+      <button type="button" class="ghostBtn desktopOnly" id="btnPause">⏸ พักเกม</button>
+      <button type="button" class="ghostBtn desktopOnly" id="btnResume">▶ เล่นต่อ</button>
+      <button type="button" class="ghostBtn mobileOnly" id="btnPauseToggle">⏸ พักเกม</button>
+      <button type="button" class="ghostBtn" id="btnSound">🔊 เสียงเปิด</button>
+      <button type="button" class="ghostBtn" id="btnHubTop">🏠 กลับหน้าแรก</button>
     </div>
 
     <aside class="evidencePanel">
-      <div class="evidenceTitle">หลักฐานคดี</div>
+      <div class="evidenceTitle">หลักฐานที่พบ</div>
       <div class="evidenceList" id="evidenceList">
         <div class="evidenceCard">
-          <div class="h">ยังไม่มีหลักฐาน</div>
-          <div class="m">เริ่มจากส่อง UV หา “จุดน่าสงสัย”</div>
+          <div class="h">ยังไม่พบหลักฐาน</div>
+          <div class="m">เริ่มจากใช้ไฟ UV หาจุดเสี่ยงก่อน</div>
         </div>
       </div>
     </aside>
 
     <section class="missionBox">
-      <div class="missionKicker" id="phaseKicker">PHASE 1</div>
-      <div class="missionTitle" id="missionTitle">Search</div>
-      <div class="missionDesc" id="missionDesc">ใช้ UV หา “จุดน่าสงสัย” ก่อน</div>
-      <div class="coachLine" id="coachLine">เริ่มจากจุดที่หลายคนจับร่วมกันบ่อย ๆ</div>
+      <div class="missionKicker" id="phaseKicker">ด่าน 1</div>
+      <div class="missionTitle" id="missionTitle">ค้นหาจุดเสี่ยง</div>
+      <div class="missionDesc" id="missionDesc">ใช้ไฟ UV หาจุดที่อาจมีเชื้อโรค</div>
+      <div class="missionMeta" id="missionMeta">ความเสี่ยงตอนนี้ 100% • หลักฐาน 0 ชิ้น</div>
+      <div class="coachLine" id="coachLine">ลองหาจุดที่คนแตะบ่อยก่อนนะ นักสืบ!</div>
     </section>
 
     <section class="toolBar">
-      <div class="toolTitle">เลือกเครื่องมือ</div>
+      <div class="toolTitle">เลือกอุปกรณ์</div>
       <div class="toolGrid">
         <button type="button" class="toolBtn active" id="toolUV">
-          <div class="t">🔦 UV</div>
-          <div class="s">หา “จุดน่าสงสัย”</div>
+          <div class="t">🔦 ไฟ UV</div>
+          <div class="s">ใช้หาจุดเสี่ยง</div>
         </button>
         <button type="button" class="toolBtn" id="toolSwab">
-          <div class="t">🧪 Swab</div>
-          <div class="s">เก็บตัวอย่างยืนยัน</div>
+          <div class="t">🧪 ไม้เก็บตัวอย่าง</div>
+          <div class="s">ใช้ตรวจให้แน่ใจ</div>
         </button>
         <button type="button" class="toolBtn" id="toolCam">
-          <div class="t">📷 Camera</div>
-          <div class="s">ถ่ายภาพหลักฐาน</div>
+          <div class="t">📷 ถ่ายรูป</div>
+          <div class="s">ใช้เก็บหลักฐาน</div>
         </button>
         <button type="button" class="toolBtn" id="toolClean">
-          <div class="t">🧼 Clean</div>
-          <div class="s">ลดความเสี่ยงของจุดหลัก</div>
+          <div class="t">🧼 ทำความสะอาด</div>
+          <div class="s">ใช้ลดความเสี่ยง</div>
         </button>
         <button type="button" class="toolBtn report" id="toolReport" style="grid-column:1 / -1;">
-          <div class="t">📋 ส่งรายงาน</div>
-          <div class="s">เปิดได้เมื่อหลักฐานครบและลด Risk ได้แล้ว</div>
+          <div class="t">📋 สรุปคดี</div>
+          <div class="s">ใช้ได้เมื่อหาเจอครบและลดความเสี่ยงแล้ว</div>
         </button>
       </div>
     </section>
@@ -582,82 +1168,150 @@
 
     <section class="introWrap" id="introWrap">
       <div class="modal">
-        <div class="modalTitle">ภารกิจวันนี้: สืบคดีเชื้อโรค</div>
+        <div class="modalTitle">ภารกิจวันนี้: นักสืบเชื้อโรค</div>
         <div class="modalSub">
-          ในพื้นที่นี้มีจุดสัมผัสร่วมที่อาจแพร่เชื้อได้ ช่วยหาแหล่งเสี่ยงหลัก เก็บหลักฐาน และลดความเสี่ยงก่อนหมดเวลา
+          ในห้องนี้มีจุดที่อาจแพร่เชื้อได้ ช่วยหาแหล่งเสี่ยง เก็บหลักฐาน และลดความเสี่ยงก่อนหมดเวลา
         </div>
 
         <div class="modalGrid">
           <div class="miniCard">
             <div class="k">เป้าหมาย</div>
-            <div class="v">ลด Risk ให้ต่ำพอ แล้วส่งรายงาน</div>
+            <div class="v">หาให้เจอ ตรวจให้ชัด แล้วลดความเสี่ยง</div>
           </div>
           <div class="miniCard">
             <div class="k">ลำดับเล่น</div>
-            <div class="v">UV → Swab/Camera → Clean → Report</div>
+            <div class="v">หา → ตรวจ → ถ่ายรูป → ทำความสะอาด → สรุปคดี</div>
           </div>
         </div>
 
         <ul class="bullet">
-          <li>เริ่มจากจุดที่คนจับร่วมกันบ่อย เช่น ลูกบิดประตู ก๊อกน้ำ หรือราวจับ</li>
-          <li>อย่าใช้เครื่องมือผิดจังหวะ เพราะจะเสียคะแนน</li>
-          <li>ลด Risk ของพื้นที่ให้พอ แล้วค่อยส่งรายงานปิดคดี</li>
+          <li>เริ่มจากจุดที่คนแตะบ่อย เช่น ลูกบิดประตูหรือก๊อกน้ำ</li>
+          <li>ใช้อุปกรณ์ให้เหมาะกับแต่ละขั้น</li>
+          <li>เมื่อหาเจอครบและทำความสะอาดแล้ว จึงสรุปคดี</li>
         </ul>
 
         <div class="modalActions">
-          <button type="button" class="bigBtn primary" id="btnStart">🚀 เริ่มภารกิจ</button>
-          <button type="button" class="bigBtn" id="btnBackHubIntro">🏠 กลับ HUB</button>
+          <button type="button" class="bigBtn primary" id="btnStart">🚀 เริ่มสืบคดี</button>
+          <button type="button" class="bigBtn" id="btnBackHubIntro">🏠 กลับหน้าแรก</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="tutorialWrap hidden" id="tutorialWrap">
+      <div class="tutorialModal">
+        <div class="tutorialHead">
+          <div class="tutorialKicker" id="tutorialKicker">สอนเล่น 1/3</div>
+          <div class="tutorialDots" id="tutorialDots">
+            <span class="dot active"></span>
+            <span class="dot"></span>
+            <span class="dot"></span>
+          </div>
+        </div>
+
+        <div class="tutorialIcon" id="tutorialIcon">🔦</div>
+        <div class="tutorialTitle" id="tutorialTitle">ใช้ไฟ UV หาจุดเสี่ยง</div>
+        <div class="tutorialDesc" id="tutorialDesc">
+          เริ่มจากส่องจุดที่คนแตะบ่อย เช่น ลูกบิดประตู ก๊อกน้ำ หรือราวจับ
+        </div>
+
+        <div class="tutorialDemo" id="tutorialDemo">
+          <div class="tutorialChip active" id="demoUV">🔦 ไฟ UV</div>
+          <div class="tutorialChip" id="demoSwab">🧪 ไม้เก็บตัวอย่าง</div>
+          <div class="tutorialChip" id="demoCam">📷 ถ่ายรูป</div>
+          <div class="tutorialChip" id="demoClean">🧼 ทำความสะอาด</div>
+          <div class="tutorialChip" id="demoReport">📋 สรุปคดี</div>
+        </div>
+
+        <div class="tutorialHint" id="tutorialHint">
+          เริ่มจากหาให้เจอก่อน ยังไม่ต้องรีบทำความสะอาด
+        </div>
+
+        <div class="tutorialActions">
+          <button type="button" class="bigBtn" id="btnTutorialSkip">ข้ามได้</button>
+          <button type="button" class="bigBtn" id="btnTutorialPrev">ย้อนกลับ</button>
+          <button type="button" class="bigBtn primary" id="btnTutorialNext">ต่อไป</button>
         </div>
       </div>
     </section>
 
     <section class="summaryWrap hidden" id="summaryWrap">
       <div class="modal">
-        <div class="modalTitle">สรุปผลภารกิจ</div>
-        <div class="modalSub" id="summarySub">คุณลดความเสี่ยงของพื้นที่ได้แล้ว</div>
+        <div class="modalTitle">ปิดคดีสำเร็จ!</div>
+        <div class="modalSub" id="summarySub">วันนี้คุณช่วยลดความเสี่ยงในห้องได้แล้ว</div>
 
         <div class="summaryHero">
           <div class="summaryBig">
-            <div class="k">Rank</div>
+            <div class="k">ระดับผลงาน</div>
             <div class="v" id="sumRank">A</div>
           </div>
           <div class="summaryBig">
-            <div class="k">Stars</div>
+            <div class="k">ดาวที่ได้</div>
             <div class="v" id="sumStars">3</div>
           </div>
           <div class="summaryBig">
-            <div class="k">Risk</div>
+            <div class="k">ความเสี่ยงที่เหลือ</div>
             <div class="v" id="sumRisk">35%</div>
           </div>
           <div class="summaryBig">
-            <div class="k">Score</div>
+            <div class="k">คะแนนรวม</div>
             <div class="v" id="sumScore">120</div>
           </div>
         </div>
 
         <div class="modalGrid" style="margin-top:14px;">
           <div class="miniCard">
-            <div class="k">Critical Found</div>
+            <div class="k">จุดเสี่ยงหลักที่พบ</div>
             <div class="v" id="sumCritical">0/3</div>
           </div>
           <div class="miniCard">
-            <div class="k">Evidence</div>
+            <div class="k">หลักฐานที่พบ</div>
             <div class="v" id="sumEvidence">0</div>
           </div>
           <div class="miniCard">
-            <div class="k">Cleaned</div>
+            <div class="k">จุดที่ทำความสะอาด</div>
             <div class="v" id="sumCleaned">0</div>
           </div>
           <div class="miniCard">
-            <div class="k">Time Left</div>
-            <div class="v" id="sumTime">0s</div>
+            <div class="k">เวลาที่เหลือ</div>
+            <div class="v" id="sumTime">0 วิ</div>
           </div>
         </div>
 
+        <section class="reflectWrap" id="reflectWrap">
+          <div class="reflectHead">
+            <div class="reflectTitle">ทบทวนหลังเล่น</div>
+            <div class="reflectSub">ตอบสั้น ๆ 3 ข้อ เพื่อดูว่าเราเข้าใจคดีนี้แค่ไหน</div>
+          </div>
+
+          <div class="reflectList" id="reflectList">
+            <div class="reflectCard">
+              <div class="reflectQ">1) เริ่มสืบคดีควรใช้อุปกรณ์อะไรเป็นอย่างแรก</div>
+              <div class="reflectOpts" id="rq1"></div>
+              <div class="reflectFb" id="rf1">ยังไม่ได้เลือก</div>
+            </div>
+
+            <div class="reflectCard">
+              <div class="reflectQ" id="rq2Title">2) จุดไหนควรระวังเป็นพิเศษ</div>
+              <div class="reflectOpts" id="rq2"></div>
+              <div class="reflectFb" id="rf2">ยังไม่ได้เลือก</div>
+            </div>
+
+            <div class="reflectCard">
+              <div class="reflectQ">3) เมื่อไรจึงควรสรุปคดี</div>
+              <div class="reflectOpts" id="rq3"></div>
+              <div class="reflectFb" id="rf3">ยังไม่ได้เลือก</div>
+            </div>
+          </div>
+
+          <div class="reflectFooter" id="reflectFooter">
+            ตอบครบแล้ว 0/3 ข้อ
+          </div>
+        </section>
+
         <div class="modalActions">
           <button type="button" class="bigBtn cyan" id="btnReplay">🔁 เล่นอีกครั้ง</button>
-          <button type="button" class="bigBtn warn" id="btnCooldown">🌙 ไป Cooldown</button>
-          <button type="button" class="bigBtn primary" id="btnHubSummary">🏠 กลับ HUB</button>
+          <button type="button" class="bigBtn warn" id="btnCooldown">🌙 พักหลังเล่น</button>
+          <button type="button" class="bigBtn primary" id="btnHubSummary">🏠 กลับหน้าแรก</button>
         </div>
       </div>
     </section>
@@ -678,11 +1332,21 @@
     const view  = String(qs('view','mobile')).toLowerCase() || 'mobile';
     const hub   = String(qs('hub','../hub.html')) || '../hub.html';
 
+    const sceneLabel = scene === 'home' ? 'บ้าน'
+      : scene === 'canteen' ? 'โรงอาหาร'
+      : 'ห้องเรียน';
+
+    const diffLabel = diff === 'easy' ? 'ระดับง่าย'
+      : diff === 'hard' ? 'ระดับยาก'
+      : 'ระดับปกติ';
+
     document.documentElement.dataset.view = view;
+
     const sceneEl = document.getElementById('scene');
     sceneEl.className = `scene ${scene}`;
 
     const introWrap = document.getElementById('introWrap');
+    const tutorialWrap = document.getElementById('tutorialWrap');
     const summaryWrap = document.getElementById('summaryWrap');
     const toastEl = document.getElementById('toast');
     const evidenceList = document.getElementById('evidenceList');
@@ -696,6 +1360,7 @@
     const phaseKicker = document.getElementById('phaseKicker');
     const missionTitle = document.getElementById('missionTitle');
     const missionDesc = document.getElementById('missionDesc');
+    const missionMeta = document.getElementById('missionMeta');
     const coachLine = document.getElementById('coachLine');
 
     const toolUV = document.getElementById('toolUV');
@@ -706,41 +1371,195 @@
 
     const btnPause = document.getElementById('btnPause');
     const btnResume = document.getElementById('btnResume');
+    const btnPauseToggle = document.getElementById('btnPauseToggle');
+    const btnSound = document.getElementById('btnSound');
     const btnHubTop = document.getElementById('btnHubTop');
+
+    const tutorialKicker = document.getElementById('tutorialKicker');
+    const tutorialIcon = document.getElementById('tutorialIcon');
+    const tutorialTitle = document.getElementById('tutorialTitle');
+    const tutorialDesc = document.getElementById('tutorialDesc');
+    const tutorialHint = document.getElementById('tutorialHint');
+    const tutorialDots = document.getElementById('tutorialDots');
+    const btnTutorialSkip = document.getElementById('btnTutorialSkip');
+    const btnTutorialPrev = document.getElementById('btnTutorialPrev');
+    const btnTutorialNext = document.getElementById('btnTutorialNext');
+
+    const demoUV = document.getElementById('demoUV');
+    const demoSwab = document.getElementById('demoSwab');
+    const demoCam = document.getElementById('demoCam');
+    const demoClean = document.getElementById('demoClean');
+    const demoReport = document.getElementById('demoReport');
+
+    const reflectWrap = document.getElementById('reflectWrap');
+    const rq1 = document.getElementById('rq1');
+    const rq2 = document.getElementById('rq2');
+    const rq3 = document.getElementById('rq3');
+    const rf1 = document.getElementById('rf1');
+    const rf2 = document.getElementById('rf2');
+    const rf3 = document.getElementById('rf3');
+    const rq2Title = document.getElementById('rq2Title');
+    const reflectFooter = document.getElementById('reflectFooter');
 
     const PHASE_TEXT = {
       search: {
-        kicker:'PHASE 1',
-        title:'Search',
-        desc:'ใช้ UV หา “จุดน่าสงสัย” ก่อน',
-        coach:'เริ่มจากจุดที่หลายคนจับร่วมกันบ่อย ๆ'
+        kicker:'ด่าน 1',
+        title:'ค้นหาจุดเสี่ยง',
+        desc:'ใช้ไฟ UV หาจุดที่อาจมีเชื้อโรค',
+        coach:'ลองหาจุดที่คนแตะบ่อยก่อนนะ นักสืบ!'
       },
       investigate: {
-        kicker:'PHASE 2',
-        title:'Investigate',
-        desc:'ใช้ Swab / Camera เก็บหลักฐาน',
-        coach:'ตอนนี้ต้องยืนยันหลักฐานของจุดสำคัญ'
+        kicker:'ด่าน 2',
+        title:'ตรวจให้แน่ใจ',
+        desc:'ใช้ไม้เก็บตัวอย่างหรือถ่ายรูปเพื่อเก็บหลักฐาน',
+        coach:'ดีมาก ตอนนี้ตรวจจุดสำคัญให้ชัดเจน'
       },
       action: {
-        kicker:'PHASE 3',
-        title:'Stop the Spread',
-        desc:'ใช้ Clean ลดความเสี่ยงของจุดหลัก',
-        coach:'รีบลด Risk ของพื้นที่ก่อนหมดเวลา'
+        kicker:'ด่าน 3',
+        title:'ลดความเสี่ยง',
+        desc:'ใช้การทำความสะอาดเพื่อลดการแพร่เชื้อ',
+        coach:'อีกนิดเดียว รีบลดความเสี่ยงก่อนหมดเวลา'
       },
       report: {
-        kicker:'PHASE 4',
-        title:'Report',
-        desc:'ส่งรายงานเมื่อหลักฐานครบและลด Risk ได้แล้ว',
-        coach:'ยอดเยี่ยม ส่งรายงานเพื่อปิดคดีได้เลย'
+        kicker:'ด่าน 4',
+        title:'สรุปคดี',
+        desc:'เมื่อหาเจอครบและทำความสะอาดแล้ว ให้สรุปคดี',
+        coach:'เยี่ยมมาก! ตอนนี้สรุปคดีได้แล้ว'
       }
     };
 
+    const TUTORIAL_STEPS = [
+      {
+        icon:'🔦',
+        title:'ใช้ไฟ UV หาจุดเสี่ยง',
+        desc:'เริ่มจากส่องจุดที่คนแตะบ่อย เช่น ลูกบิดประตู ก๊อกน้ำ หรือราวจับ',
+        hint:'หาให้เจอก่อน ยังไม่ต้องรีบทำความสะอาด',
+        active:['uv']
+      },
+      {
+        icon:'🧪',
+        title:'ตรวจให้แน่ใจและเก็บหลักฐาน',
+        desc:'เมื่อเจอจุดเสี่ยงแล้ว ใช้ไม้เก็บตัวอย่างหรือถ่ายรูปเพื่อเก็บหลักฐาน',
+        hint:'ตอนนี้ต้องตรวจให้ชัดว่า จุดไหนเสี่ยงจริง',
+        active:['swab','cam']
+      },
+      {
+        icon:'🧼',
+        title:'ลดความเสี่ยง แล้วสรุปคดี',
+        desc:'ใช้การทำความสะอาดกับจุดสำคัญ แล้วค่อยกดสรุปคดีเมื่อทุกอย่างพร้อม',
+        hint:'ทำความสะอาดก่อน แล้วค่อยสรุปคดี',
+        active:['clean','report']
+      }
+    ];
+
+    const PRAISE_TEXT = {
+      find: [
+        'เยี่ยมมาก! เจอจุดเสี่ยงแล้ว',
+        'เก่งมาก! พบแหล่งเสี่ยงแล้ว',
+        'ดีมาก! นักสืบเจอเบาะแสแล้ว'
+      ],
+      evidence: [
+        'เก่งมาก! เก็บหลักฐานสำเร็จ',
+        'เยี่ยมเลย! มีหลักฐานเพิ่มแล้ว',
+        'ดีมาก! ตอนนี้คดีชัดขึ้นแล้ว'
+      ],
+      clean: [
+        'สุดยอด! ความเสี่ยงลดลงแล้ว',
+        'เยี่ยมมาก! จุดนี้ปลอดภัยขึ้นแล้ว',
+        'ดีมาก! คุณช่วยหยุดการแพร่เชื้อได้'
+      ],
+      almost: [
+        'อีกนิดเดียว จะปิดคดีได้แล้ว',
+        'เกือบครบแล้ว สู้ต่ออีกนิด',
+        'ยอดเยี่ยม! อีกไม่กี่ขั้นก็สำเร็จแล้ว'
+      ],
+      ready: [
+        'พร้อมสรุปคดีแล้ว!',
+        'เยี่ยมมาก! ปิดคดีได้เลย',
+        'หลักฐานครบแล้ว ไปสรุปคดีกัน'
+      ]
+    };
+
+    let tutorialIndex = 0;
     let toastTimer = 0;
-    function toast(msg){
+    let coachCheerTimer = 0;
+    let lastPraiseAt = 0;
+    let latestSummaryPayload = null;
+    let reflectionState = {
+      q1: null,
+      q2: null,
+      q3: null
+    };
+    let lastProgress = {
+      criticalFound: 0,
+      evidenceCount: 0,
+      cleanedCount: 0,
+      areaRisk: 100,
+      phase: 'search'
+    };
+
+    function pickRandom(arr){
+      if(!Array.isArray(arr) || !arr.length) return '';
+      return arr[Math.floor(Math.random() * arr.length)];
+    }
+
+    function toolThai(tool){
+      const t = String(tool || '').toLowerCase();
+      if(t === 'uv') return 'ไฟ UV';
+      if(t === 'swab') return 'ไม้เก็บตัวอย่าง';
+      if(t === 'cam') return 'กล้องถ่ายรูป';
+      if(t === 'clean') return 'อุปกรณ์ทำความสะอาด';
+      return 'อุปกรณ์นี้';
+    }
+
+    function labelType(type){
+      const t = String(type || '').toLowerCase();
+      if(t === 'scan') return 'สแกนพบ';
+      if(t === 'sample') return 'เก็บตัวอย่าง';
+      if(t === 'photo') return 'ถ่ายรูป';
+      if(t === 'clean') return 'ทำความสะอาด';
+      if(t === 'report') return 'สรุปคดี';
+      return 'หลักฐาน';
+    }
+
+    function toastKind(msg, kind = ''){
       toastEl.textContent = msg;
+      toastEl.classList.remove('good', 'warn');
+      if(kind) toastEl.classList.add(kind);
       toastEl.classList.add('show');
+
       clearTimeout(toastTimer);
-      toastTimer = setTimeout(()=> toastEl.classList.remove('show'), 1200);
+      toastTimer = setTimeout(()=>{
+        toastEl.classList.remove('show', 'good', 'warn');
+      }, 1400);
+    }
+
+    function toast(msg){
+      toastKind(msg, '');
+    }
+
+    function praise(msg, minGap = 900, soundKind = 'find'){
+      const t = Date.now();
+      if(t - lastPraiseAt < minGap) return;
+      lastPraiseAt = t;
+      toastKind(msg, 'good');
+      playSound(soundKind);
+    }
+
+    function warnToast(msg){
+      toastKind(msg, 'warn');
+    }
+
+    function coachCheer(msg, ms = 1800){
+      if(!coachLine) return;
+      clearTimeout(coachCheerTimer);
+      coachLine.textContent = msg;
+      coachLine.classList.add('cheer');
+      coachCheerTimer = setTimeout(()=>{
+        coachLine.classList.remove('cheer');
+        const st = app.getState ? app.getState() : null;
+        renderPhase(st?.phase || 'search');
+      }, ms);
     }
 
     function hubUrl(){
@@ -773,8 +1592,9 @@
     }
 
     function saveLastSummary(payload){
+      latestSummaryPayload = Object.assign({}, payload || {});
       try{
-        const out = Object.assign({}, payload || {}, {
+        const out = Object.assign({}, latestSummaryPayload, {
           pid,
           game:'germ-detective',
           zone:'hygiene',
@@ -785,7 +1605,8 @@
           __extraJson: JSON.stringify({
             url: location.href,
             hub: hubUrl(),
-            cooldown: cooldownUrl()
+            cooldown: cooldownUrl(),
+            reflection: Object.assign({}, reflectionState)
           })
         });
 
@@ -807,6 +1628,17 @@
       if(tool === 'clean') toolClean.classList.add('active');
     }
 
+    function syncPauseButtons(){
+      const st = app.getState ? app.getState() : null;
+      const paused = !!st?.paused;
+
+      if(btnPauseToggle){
+        btnPauseToggle.textContent = paused ? '▶ เล่นต่อ' : '⏸ พักเกม';
+      }
+      if(btnPause) btnPause.disabled = paused;
+      if(btnResume) btnResume.disabled = !paused;
+    }
+
     function renderPhase(phase){
       const t = PHASE_TEXT[phase] || PHASE_TEXT.search;
       phaseKicker.textContent = t.kicker;
@@ -819,8 +1651,8 @@
       if(!Array.isArray(items) || !items.length){
         evidenceList.innerHTML = `
           <div class="evidenceCard">
-            <div class="h">ยังไม่มีหลักฐาน</div>
-            <div class="m">เริ่มจากส่อง UV หา “จุดน่าสงสัย”</div>
+            <div class="h">ยังไม่พบหลักฐาน</div>
+            <div class="m">เริ่มจากใช้ไฟ UV หาจุดเสี่ยงก่อน</div>
           </div>
         `;
         return;
@@ -828,22 +1660,397 @@
 
       evidenceList.innerHTML = items.slice().reverse().slice(0,10).map(item => `
         <div class="evidenceCard">
-          <div class="h">${String(item.type || '').toUpperCase()} • ${item.target || '-'}</div>
+          <div class="h">${labelType(item.type)} • ${item.target || '-'}</div>
           <div class="m">${item.info || ''}</div>
         </div>
       `).join('');
     }
 
+    function checkPraiseProgress(state){
+      if(!state) return;
+
+      const criticalFound = Number(state.criticalFound || 0);
+      const evidenceCount = Array.isArray(state.evidence) ? state.evidence.length : 0;
+      const cleanedCount = Number(state.cleanedCount || 0);
+      const areaRisk = Number(state.areaRisk || 0);
+      const phase = String(state.phase || 'search');
+
+      if(criticalFound > lastProgress.criticalFound){
+        const msg = pickRandom(PRAISE_TEXT.find);
+        praise(msg, 900, 'find');
+        coachCheer(msg);
+      }
+
+      if(evidenceCount > lastProgress.evidenceCount){
+        const msg = pickRandom(PRAISE_TEXT.evidence);
+        praise(msg, 700, 'evidence');
+        coachCheer(msg);
+      }
+
+      if(cleanedCount > lastProgress.cleanedCount || areaRisk < lastProgress.areaRisk){
+        const msg = pickRandom(PRAISE_TEXT.clean);
+        praise(msg, 700, 'clean');
+        coachCheer(msg);
+      }
+
+      if(phase === 'action' && areaRisk <= 50 && lastProgress.areaRisk > 50){
+        const msg = pickRandom(PRAISE_TEXT.almost);
+        praise(msg, 700, 'phase');
+        coachCheer(msg);
+      }
+
+      if(phase === 'report' && lastProgress.phase !== 'report'){
+        const msg = pickRandom(PRAISE_TEXT.ready);
+        praise(msg, 700, 'success');
+        coachCheer(msg);
+      }
+
+      lastProgress = {
+        criticalFound,
+        evidenceCount,
+        cleanedCount,
+        areaRisk,
+        phase
+      };
+    }
+
     function renderHUD(state){
       if(!state) return;
-      uiTime.textContent = `${Math.max(0, Number(state.timeLeft || 0))}s`;
-      uiRisk.textContent = `${Number(state.areaRisk || 0)}%`;
-      uiCritical.textContent = `${Number(state.criticalFound || 0)}/${Number(state.criticalTotal || 0)}`;
-      uiEvidence.textContent = `${Array.isArray(state.evidence) ? state.evidence.length : 0}`;
-      uiScore.textContent = `${Number(state.score || 0)}`;
+
+      const timeLeft = Math.max(0, Number(state.timeLeft || 0));
+      const risk = Number(state.areaRisk || 0);
+      const criticalFound = Number(state.criticalFound || 0);
+      const criticalTotal = Number(state.criticalTotal || 0);
+      const evidenceCount = Array.isArray(state.evidence) ? state.evidence.length : 0;
+      const score = Number(state.score || 0);
+
+      uiTime.textContent = `${timeLeft} วิ`;
+      uiRisk.textContent = `${risk}%`;
+      uiCritical.textContent = `${criticalFound}/${criticalTotal}`;
+      uiEvidence.textContent = `${evidenceCount}`;
+      uiScore.textContent = `${score}`;
+
+      if(missionMeta){
+        missionMeta.textContent = `ความเสี่ยงตอนนี้ ${risk}% • หลักฐาน ${evidenceCount} ชิ้น`;
+      }
 
       renderPhase(state.phase || 'search');
       renderEvidence(state.evidence || []);
+      checkPraiseProgress(state);
+    }
+
+    function setTutorialDemo(activeList = []){
+      [demoUV, demoSwab, demoCam, demoClean, demoReport].forEach(el=>{
+        el.classList.remove('active');
+      });
+
+      if(activeList.includes('uv')) demoUV.classList.add('active');
+      if(activeList.includes('swab')) demoSwab.classList.add('active');
+      if(activeList.includes('cam')) demoCam.classList.add('active');
+      if(activeList.includes('clean')) demoClean.classList.add('active');
+      if(activeList.includes('report')) demoReport.classList.add('active');
+    }
+
+    function renderTutorial(){
+      const step = TUTORIAL_STEPS[tutorialIndex];
+      if(!step) return;
+
+      tutorialKicker.textContent = `สอนเล่น ${tutorialIndex + 1}/${TUTORIAL_STEPS.length}`;
+      tutorialIcon.textContent = step.icon;
+      tutorialTitle.textContent = step.title;
+      tutorialDesc.textContent = step.desc;
+      tutorialHint.textContent = step.hint;
+
+      const dots = tutorialDots.querySelectorAll('.dot');
+      dots.forEach((dot, i)=>{
+        dot.classList.toggle('active', i === tutorialIndex);
+      });
+
+      setTutorialDemo(step.active || []);
+
+      btnTutorialPrev.style.display = tutorialIndex === 0 ? 'none' : 'inline-flex';
+      btnTutorialNext.textContent =
+        tutorialIndex === TUTORIAL_STEPS.length - 1 ? 'เริ่มเล่นจริง' : 'ต่อไป';
+    }
+
+    function openTutorial(){
+      tutorialIndex = 0;
+      renderTutorial();
+      tutorialWrap.classList.remove('hidden');
+    }
+
+    function closeTutorial(){
+      tutorialWrap.classList.add('hidden');
+    }
+
+    function sceneRiskChoices(sceneName){
+      if(sceneName === 'home'){
+        return {
+          title:'2) จุดไหนควรระวังเป็นพิเศษในบ้าน',
+          options:['ลูกบิดห้องนอน','รีโมตทีวี','ก๊อกน้ำล้างมือ','โต๊ะกินข้าว'],
+          answer:'ก๊อกน้ำล้างมือ'
+        };
+      }
+
+      if(sceneName === 'canteen'){
+        return {
+          title:'2) จุดไหนควรระวังเป็นพิเศษในโรงอาหาร',
+          options:['ถาดอาหาร','ช้อนกลาง','ราวคิวรับอาหาร','โต๊ะรวม'],
+          answer:'ช้อนกลาง'
+        };
+      }
+
+      return {
+        title:'2) จุดไหนควรระวังเป็นพิเศษในห้องเรียน',
+        options:['ลูกบิดประตู','โต๊ะนักเรียน','ก๊อกน้ำ','ราวบันได'],
+        answer:'ลูกบิดประตู'
+      };
+    }
+
+    function makeReflectBtn(text, onClick){
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'reflectOpt';
+      btn.textContent = text;
+      btn.onclick = onClick;
+      return btn;
+    }
+
+    function setReflectResult(groupEl, feedbackEl, selectedValue, correctValue, explainGood, explainWarn){
+      const buttons = groupEl.querySelectorAll('.reflectOpt');
+      buttons.forEach(btn=>{
+        const v = btn.textContent;
+        btn.classList.remove('selected', 'correct', 'wrong');
+
+        if(v === selectedValue){
+          btn.classList.add('selected');
+          if(v === correctValue) btn.classList.add('correct');
+          else btn.classList.add('wrong');
+        }
+      });
+
+      feedbackEl.classList.remove('good', 'warn');
+
+      if(selectedValue == null){
+        feedbackEl.textContent = 'ยังไม่ได้เลือก';
+        return;
+      }
+
+      if(selectedValue === correctValue){
+        feedbackEl.textContent = explainGood;
+        feedbackEl.classList.add('good');
+      } else {
+        feedbackEl.textContent = `${explainWarn} คำตอบที่เหมาะที่สุดคือ “${correctValue}”`;
+        feedbackEl.classList.add('warn');
+      }
+    }
+
+    function updateReflectFooter(){
+      const done = [reflectionState.q1, reflectionState.q2, reflectionState.q3].filter(Boolean).length;
+      reflectFooter.textContent = `ตอบครบแล้ว ${done}/3 ข้อ`;
+
+      if(done === 3){
+        reflectFooter.textContent = 'ตอบครบแล้ว 3/3 ข้อ • เยี่ยมมาก! คุณทบทวนคดีเสร็จแล้ว';
+        praise('เยี่ยมมาก! ตอบครบทั้ง 3 ข้อแล้ว', 0, 'success');
+      }
+
+      if(latestSummaryPayload){
+        saveLastSummary(latestSummaryPayload);
+      }
+    }
+
+    function renderReflection(){
+      reflectionState = { q1:null, q2:null, q3:null };
+
+      const q2Scene = sceneRiskChoices(scene);
+      rq2Title.textContent = q2Scene.title;
+
+      rq1.innerHTML = '';
+      rq2.innerHTML = '';
+      rq3.innerHTML = '';
+
+      rf1.textContent = 'ยังไม่ได้เลือก';
+      rf2.textContent = 'ยังไม่ได้เลือก';
+      rf3.textContent = 'ยังไม่ได้เลือก';
+      rf1.className = 'reflectFb';
+      rf2.className = 'reflectFb';
+      rf3.className = 'reflectFb';
+
+      const q1Options = ['ไฟ UV', 'ไม้เก็บตัวอย่าง', 'ทำความสะอาด'];
+      q1Options.forEach(opt=>{
+        rq1.appendChild(makeReflectBtn(opt, ()=>{
+          reflectionState.q1 = opt;
+          setReflectResult(
+            rq1,
+            rf1,
+            opt,
+            'ไฟ UV',
+            'ถูกต้อง! เราควรเริ่มจากการหาแหล่งเสี่ยงก่อน',
+            'ลองนึกถึงขั้นแรกของเกมนะ'
+          );
+          updateReflectFooter();
+        }));
+      });
+
+      q2Scene.options.forEach(opt=>{
+        rq2.appendChild(makeReflectBtn(opt, ()=>{
+          reflectionState.q2 = opt;
+          setReflectResult(
+            rq2,
+            rf2,
+            opt,
+            q2Scene.answer,
+            'ดีมาก! จุดนี้เป็นจุดสัมผัสร่วมที่ควรระวังเป็นพิเศษ',
+            'ลองคิดถึงจุดที่คนแตะหรือใช้ร่วมกันบ่อยที่สุดนะ'
+          );
+          updateReflectFooter();
+        }));
+      });
+
+      const q3Options = [
+        'เมื่อเจอจุดเสี่ยงแล้วทันที',
+        'เมื่อเก็บหลักฐานและลดความเสี่ยงแล้ว',
+        'เมื่อเวลาใกล้หมด'
+      ];
+
+      q3Options.forEach(opt=>{
+        rq3.appendChild(makeReflectBtn(opt, ()=>{
+          reflectionState.q3 = opt;
+          setReflectResult(
+            rq3,
+            rf3,
+            opt,
+            'เมื่อเก็บหลักฐานและลดความเสี่ยงแล้ว',
+            'ถูกต้อง! ต้องหาให้ชัดและลดความเสี่ยงก่อนสรุปคดี',
+            'ลองนึกถึงลำดับเล่นของเกมอีกครั้ง'
+          );
+          updateReflectFooter();
+        }));
+      });
+
+      updateReflectFooter();
+    }
+
+    // Sound
+    const GD_SOUND_KEY = 'GD_SOUND_ENABLED';
+    let soundEnabled = true;
+    let audioCtx = null;
+    let lastSoundAt = 0;
+
+    try{
+      const saved = localStorage.getItem(GD_SOUND_KEY);
+      soundEnabled = saved == null ? true : saved === '1';
+    }catch{}
+
+    function updateSoundButton(){
+      if(!btnSound) return;
+      btnSound.textContent = soundEnabled ? '🔊 เสียงเปิด' : '🔇 ปิดเสียง';
+    }
+
+    function saveSoundPref(){
+      try{
+        localStorage.setItem(GD_SOUND_KEY, soundEnabled ? '1' : '0');
+      }catch{}
+    }
+
+    function ensureAudio(){
+      if(!soundEnabled) return null;
+      if(!audioCtx){
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if(!AC) return null;
+        audioCtx = new AC();
+      }
+      return audioCtx;
+    }
+
+    async function resumeAudio(){
+      const ctx = ensureAudio();
+      if(!ctx) return;
+      if(ctx.state === 'suspended'){
+        try{ await ctx.resume(); }catch{}
+      }
+    }
+
+    function softTone(freq = 440, duration = 0.12, type = 'sine', gainValue = 0.03, when = 0){
+      const ctx = ensureAudio();
+      if(!ctx) return;
+
+      const now = ctx.currentTime + when;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, now);
+
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.exponentialRampToValueAtTime(gainValue, now + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start(now);
+      osc.stop(now + duration + 0.03);
+    }
+
+    function playSound(kind){
+      if(!soundEnabled) return;
+
+      const t = Date.now();
+      if(t - lastSoundAt < 90) return;
+      lastSoundAt = t;
+
+      const ctx = ensureAudio();
+      if(!ctx) return;
+      if(ctx.state === 'suspended') return;
+
+      if(kind === 'find'){
+        softTone(660, 0.10, 'sine', 0.025, 0);
+        softTone(880, 0.12, 'sine', 0.020, 0.06);
+        return;
+      }
+
+      if(kind === 'evidence'){
+        softTone(520, 0.08, 'triangle', 0.025, 0);
+        softTone(640, 0.10, 'triangle', 0.022, 0.05);
+        return;
+      }
+
+      if(kind === 'photo'){
+        softTone(740, 0.05, 'square', 0.020, 0);
+        softTone(520, 0.07, 'triangle', 0.018, 0.06);
+        return;
+      }
+
+      if(kind === 'clean'){
+        softTone(560, 0.10, 'sine', 0.022, 0);
+        softTone(760, 0.14, 'sine', 0.022, 0.07);
+        return;
+      }
+
+      if(kind === 'phase'){
+        softTone(460, 0.09, 'triangle', 0.020, 0);
+        softTone(620, 0.10, 'triangle', 0.018, 0.07);
+        softTone(820, 0.12, 'triangle', 0.016, 0.14);
+        return;
+      }
+
+      if(kind === 'warn'){
+        softTone(280, 0.12, 'sawtooth', 0.018, 0);
+        softTone(240, 0.13, 'sawtooth', 0.015, 0.10);
+        return;
+      }
+
+      if(kind === 'success'){
+        softTone(523, 0.10, 'sine', 0.024, 0);
+        softTone(659, 0.12, 'sine', 0.022, 0.08);
+        softTone(784, 0.18, 'sine', 0.022, 0.18);
+        return;
+      }
+
+      if(kind === 'button'){
+        softTone(480, 0.06, 'triangle', 0.015, 0);
+      }
     }
 
     const app = GameApp({
@@ -859,36 +2066,129 @@
       builtinTarget: sceneEl
     });
 
-    toolUV.onclick = ()=> { app.setTool('uv'); setActiveTool('uv'); };
-    toolSwab.onclick = ()=> { app.setTool('swab'); setActiveTool('swab'); };
-    toolCam.onclick = ()=> { app.setTool('cam'); setActiveTool('cam'); };
-    toolClean.onclick = ()=> { app.setTool('clean'); setActiveTool('clean'); };
-    toolReport.onclick = ()=> { app.submitReport(); };
+    function setTutorialDemoActive(activeList = []){
+      setTutorialDemo(activeList);
+    }
 
-    btnPause.onclick = ()=> app.pause();
-    btnResume.onclick = ()=> app.resume();
-    btnHubTop.onclick = ()=> goHub();
+    async function startRealGame(){
+      closeTutorial();
 
-    document.getElementById('btnBackHubIntro').onclick = ()=> goHub();
+      lastProgress = {
+        criticalFound: 0,
+        evidenceCount: 0,
+        cleanedCount: 0,
+        areaRisk: 100,
+        phase: 'search'
+      };
+      lastPraiseAt = 0;
 
-    document.getElementById('btnStart').onclick = ()=>{
-      introWrap.classList.add('hidden');
+      await resumeAudio();
+
       app.init();
       renderHUD(app.getState());
-      toast('ภารกิจเริ่มแล้ว');
+      syncPauseButtons();
+      playSound('button');
+      toast('เริ่มสืบคดีได้เลย!');
+    }
+
+    document.getElementById('subLine').textContent =
+      `ภารกิจใน${sceneLabel} • ผู้เล่น 1 • ${diffLabel}`;
+
+    updateSoundButton();
+    syncPauseButtons();
+
+    toolUV.onclick = ()=> { playSound('button'); app.setTool('uv'); setActiveTool('uv'); };
+    toolSwab.onclick = ()=> { playSound('button'); app.setTool('swab'); setActiveTool('swab'); };
+    toolCam.onclick = ()=> { playSound('button'); app.setTool('cam'); setActiveTool('cam'); };
+    toolClean.onclick = ()=> { playSound('button'); app.setTool('clean'); setActiveTool('clean'); };
+    toolReport.onclick = ()=> { playSound('button'); app.submitReport(); };
+
+    btnPause.onclick = ()=>{
+      app.pause();
+      syncPauseButtons();
+    };
+
+    btnResume.onclick = ()=>{
+      app.resume();
+      syncPauseButtons();
+    };
+
+    if(btnPauseToggle){
+      btnPauseToggle.onclick = ()=>{
+        const st = app.getState ? app.getState() : null;
+        if(st?.paused) app.resume();
+        else app.pause();
+        syncPauseButtons();
+      };
+    }
+
+    btnHubTop.onclick = ()=>{
+      playSound('button');
+      goHub();
+    };
+
+    document.getElementById('btnBackHubIntro').onclick = ()=>{
+      playSound('button');
+      goHub();
+    };
+
+    if(btnSound){
+      btnSound.onclick = async ()=>{
+        soundEnabled = !soundEnabled;
+        saveSoundPref();
+        updateSoundButton();
+
+        if(soundEnabled){
+          await resumeAudio();
+          playSound('button');
+          toast('เปิดเสียงแล้ว');
+        } else {
+          toast('ปิดเสียงแล้ว');
+        }
+      };
+    }
+
+    document.getElementById('btnStart').onclick = ()=>{
+      playSound('button');
+      introWrap.classList.add('hidden');
+      openTutorial();
+    };
+
+    btnTutorialSkip.onclick = ()=>{
+      playSound('button');
+      startRealGame();
+    };
+
+    btnTutorialPrev.onclick = ()=>{
+      playSound('button');
+      tutorialIndex = Math.max(0, tutorialIndex - 1);
+      renderTutorial();
+    };
+
+    btnTutorialNext.onclick = ()=>{
+      playSound('button');
+      if(tutorialIndex >= TUTORIAL_STEPS.length - 1){
+        startRealGame();
+        return;
+      }
+      tutorialIndex += 1;
+      renderTutorial();
     };
 
     document.getElementById('btnReplay').onclick = ()=>{
+      playSound('button');
       const replay = new URL(location.href);
       replay.searchParams.set('seed', String(Date.now()));
       location.href = replay.toString();
     };
 
     document.getElementById('btnCooldown').onclick = ()=>{
+      playSound('button');
       location.href = cooldownUrl();
     };
 
     document.getElementById('btnHubSummary').onclick = ()=>{
+      playSound('button');
       goHub();
     };
 
@@ -906,7 +2206,8 @@
         criticalTotal: d.criticalTotal,
         score: d.score,
         phase: d.phase,
-        evidence: app.getState().evidence || []
+        evidence: app.getState().evidence || [],
+        cleanedCount: app.getState().cleanedCount || 0
       });
     });
 
@@ -916,17 +2217,39 @@
 
       if(name === 'phase_change'){
         renderPhase(payload.phase || 'search');
-        if(payload.phase === 'investigate') toast('เข้าสู่ช่วงเก็บหลักฐาน');
-        if(payload.phase === 'action') toast('เข้าสู่ช่วงลดความเสี่ยง');
-        if(payload.phase === 'report') toast('พร้อมส่งรายงานแล้ว');
+
+        if(payload.phase === 'investigate'){
+          const msg = 'เยี่ยมมาก! ต่อไปเก็บหลักฐานให้ชัดเจน';
+          praise(msg, 700, 'phase');
+          coachCheer(msg);
+        }
+
+        if(payload.phase === 'action'){
+          const msg = 'ดีมาก! ตอนนี้เริ่มลดความเสี่ยงได้แล้ว';
+          praise(msg, 700, 'phase');
+          coachCheer(msg);
+        }
+
+        if(payload.phase === 'report'){
+          const msg = 'สุดยอด! พร้อมสรุปคดีแล้ว';
+          praise(msg, 700, 'success');
+          coachCheer(msg);
+        }
       }
 
       if(name === 'resource_empty'){
-        toast(`อุปกรณ์ ${String(payload.tool || '').toUpperCase()} หมด`);
+        playSound('warn');
+        warnToast(`อุปกรณ์ ${toolThai(payload.tool)} หมดแล้ว`);
       }
 
       if(name === 'report_blocked'){
-        toast('ยังส่งรายงานไม่ได้');
+        playSound('warn');
+        warnToast('ยังสรุปคดีไม่ได้ ลองหาให้ครบก่อน');
+      }
+
+      if(name === 'time_warning'){
+        playSound('warn');
+        warnToast('เหลือเวลาไม่มากแล้ว รีบอีกนิดนะ');
       }
     });
 
@@ -946,20 +2269,43 @@
       document.getElementById('sumCleaned').textContent =
         String(sum.cleanedCount || 0);
       document.getElementById('sumTime').textContent =
-        `${Number(sum.timeLeft || 0)}s`;
+        `${Number(sum.timeLeft || 0)} วิ`;
 
       document.getElementById('summarySub').textContent =
-        `ฉาก ${scene} • Risk ลดลง ${Math.max(0, 100 - Number(sum.areaRisk || 0))}% • reason=${sum.reason || '-'}`;
+        `คุณช่วยลดความเสี่ยงได้ ${Math.max(0, 100 - Number(sum.areaRisk || 0))}% ใน${sceneLabel}`;
 
+      renderReflection();
+      playSound('success');
+      coachCheer('ปิดคดีสำเร็จ! วันนี้คุณเป็นนักสืบเชื้อโรคยอดเยี่ยม', 2200);
+      syncPauseButtons();
       summaryWrap.classList.remove('hidden');
     });
 
-    const sceneLabel = scene === 'home' ? 'บ้าน'
-      : scene === 'canteen' ? 'โรงอาหาร'
-      : 'ห้องเรียน';
+    window.addEventListener('keydown', (e)=>{
+      if(tutorialWrap.classList.contains('hidden')) return;
 
-    document.getElementById('subLine').textContent =
-      `สืบคดีเชื้อโรคใน${sceneLabel} • PID ${pid} • ${diff}`;
+      if(e.key === 'ArrowRight' || e.key === 'Enter'){
+        btnTutorialNext.click();
+      }
+      if(e.key === 'ArrowLeft'){
+        btnTutorialPrev.click();
+      }
+      if(e.key === 'Escape'){
+        btnTutorialSkip.click();
+      }
+    });
+
+    renderPhase('search');
+    renderHUD({
+      timeLeft: time,
+      areaRisk: 100,
+      criticalFound: 0,
+      criticalTotal: 3,
+      score: 0,
+      phase: 'search',
+      evidence: [],
+      cleanedCount: 0
+    });
   </script>
 </body>
 </html>
