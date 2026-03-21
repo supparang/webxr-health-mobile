@@ -1,7 +1,7 @@
 /* === /herohealth/plate/plate-coop.js ===
    HeroHealth Plate Coop Engine
-   HOST-AUTHORITATIVE SKELETON
-   PATCH v20260321-PLATE-COOP-JS-SKELETON
+   HOST-AUTHORITATIVE WIRED VERSION
+   PATCH v20260321-PLATE-COOP-JS-WIRED
 */
 'use strict';
 
@@ -161,6 +161,7 @@ function coachText(kind, data = {}){
     case 'miss': return `${who ? who + ' ' : ''}ไม่เป็นไร ยังทันอยู่`;
     case 'fever': return 'Fever มาแล้ว! ช่วยกันเก็บแต้ม';
     case 'sync': return 'กำลังซิงก์ข้อมูลห้อง...';
+    case 'join': return 'เข้าห้องแล้ว รออีกฝ่ายหรือกดพร้อม';
     case 'end': return 'จบเกมแล้ว สรุปผลพร้อม cooldown';
     default: return 'Coop 2 เครื่อง: ช่วยกันเติมจานให้ครบ 💪';
   }
@@ -223,11 +224,16 @@ const S = {
     readyB: false
   },
 
+  roomApi: null,
+  netApi: null,
+
+  unsubRoom: null,
+  unsubState: null,
+  unsubAction: null,
+
   sync: {
     enabled: false,
-    net: null,
-    roomApi: null,
-    lastStateHash: ''
+    actionIds: new Set()
   },
 
   raf: 0,
@@ -421,20 +427,20 @@ function setPhase(index){
 
   if(S.match.phase === 'warm'){
     S.match.targetGroup = pick(GROUPS);
-    setCoach('warm', { target: S.match.targetGroup.label });
+    setCoach('warm', { who: myRole(), target: S.match.targetGroup.label });
     showPhaseBanner('WARM • เริ่มเก็บก่อน');
   } else if(S.match.phase === 'trick'){
     S.match.targetGroup = pick(GROUPS);
-    setCoach('trick', { target: S.match.targetGroup.label });
+    setCoach('trick', { who: myRole(), target: S.match.targetGroup.label });
     showPhaseBanner('TRICK • ระวังตัวหลอก');
   } else {
     S.match.targetGroup = pickMissingGroup();
-    setCoach('boss', { target: S.match.targetGroup.label });
+    setCoach('boss', { who: myRole(), target: S.match.targetGroup.label });
     showPhaseBanner('BOSS • ช่วยกันเติมจานให้ครบ');
   }
 
   updateHud();
-  broadcastState('PHASE_CHANGE');
+  void broadcastState('PHASE_CHANGE');
 }
 
 function createTarget(){
@@ -639,23 +645,30 @@ function applyWrong(role){
 }
 
 function canControlLocalAction(){
-  // skeleton: host-authoritative first
-  // รอบถัดไป client B จะส่ง event ไป host แทนการตัดสินเอง
   return isHost();
 }
 
-function onHit(ev){
+async function onHit(ev){
   if(!S.running || !S.started || S.paused || S.ended) return;
   const el = ev.currentTarget;
   const t = S.match.targets.get(String(el.dataset.id));
   if(!t) return;
 
+  const role = myRole() === 'B' ? 'B' : 'A';
+
   if(!canControlLocalAction()){
     setCoach('sync');
+    try{
+      await S.netApi?.sendHit({
+        targetId: t.id,
+        targetGroupId: t.groupId,
+        targetLabel: t.label,
+        good: !!t.good,
+        kind: t.kind || 'food'
+      });
+    }catch(_){}
     return;
   }
-
-  const role = myRole() === 'B' ? 'B' : 'A';
 
   if(t.good && t.groupId === S.match.targetGroup.id){
     applyCorrect(role, t);
@@ -667,7 +680,7 @@ function onHit(ev){
 
   removeTarget(t, 'hit');
   updateHud();
-  broadcastState('TARGET_HIT');
+  await broadcastState('TARGET_HIT');
 }
 
 function updateFever(dt){
@@ -679,9 +692,9 @@ function updateFever(dt){
   }
 }
 
-function updateTargets(dt){
+async function updateTargets(dt){
   if(!S.started) return;
-  if(!isHost()) return; // host drives world in skeleton
+  if(!isHost()) return;
 
   const now = nowMs();
 
@@ -716,7 +729,7 @@ function updateTargets(dt){
   }
 }
 
-function phaseAdvance(){
+async function phaseAdvance(){
   clearTargets();
   S.match.spawnAcc = 0;
 
@@ -759,7 +772,7 @@ function buildSummary(){
   };
 }
 
-function endGame(reason){
+async function endGame(reason){
   if(S.ended) return;
   S.ended = true;
   S.running = false;
@@ -791,7 +804,11 @@ function endGame(reason){
 
   DOC.getElementById('endOverlay')?.setAttribute('aria-hidden', 'false');
   setCoach('end');
-  broadcastState('MATCH_END');
+
+  if(isHost()){
+    try{ await S.roomApi?.hostEnd(sum, S.room.roomId); }catch(_){}
+    await broadcastState('MATCH_END', sum);
+  }
 }
 
 function buildCooldownUrl(){
@@ -851,16 +868,15 @@ reasonDetail=${sum.reasonDetail}`;
   });
 }
 
-function broadcastState(source='STATE_UPDATE'){
-  // จุดต่อสำหรับ plate-coop-net.js
-  if(!S.sync.enabled || !S.sync.net) return;
+async function broadcastState(source='STATE_UPDATE', summary=null){
+  if(!S.netApi || !S.room.roomId || !isHost()) return;
 
   const payload = {
     source,
     roomId: S.room.roomId,
+    hostId: S.ctx.pid,
     game: 'platev1',
     mode: 'coop',
-    hostId: isHost() ? S.ctx.pid : undefined,
     started: S.started,
     ended: S.ended,
     players: {
@@ -898,11 +914,12 @@ function broadcastState(source='STATE_UPDATE'){
       A: { ...S.contrib.A },
       B: { ...S.contrib.B }
     },
+    summary: summary || null,
     updatedAt: Date.now()
   };
 
   try{
-    S.sync.net.publishState?.(payload);
+    await S.netApi.publishState(payload);
   }catch(_){}
 }
 
@@ -938,7 +955,8 @@ function applyRemoteState(state){
     S.match.bossCompleted = !!m.bossCompleted;
 
     const gid = Number(m.targetGroupId || 0);
-    S.match.targetGroup = GROUPS.find(g => g.id === gid) || S.match.targetGroup;
+    const found = GROUPS.find(g => g.id === gid);
+    if(found) S.match.targetGroup = found;
   }
 
   if(state.contrib){
@@ -946,22 +964,227 @@ function applyRemoteState(state){
     S.contrib.B = { ...S.contrib.B, ...(state.contrib.B || {}) };
   }
 
+  if(state.summary && S.ended){
+    setText('endScore', state.summary.scoreFinal ?? S.match.score);
+  }
+
   updateHud();
 }
 
-function attachNetHooks(){
-  // จุดต่อสำหรับรอบถัดไป
-  if(!S.sync.net) return;
+async function handleActionAsHost(action){
+  if(!action || !isHost()) return;
+  if(!action.id) return;
+  if(S.sync.actionIds.has(action.id)) return;
+  S.sync.actionIds.add(action.id);
 
-  try{
-    S.sync.net.onState?.((state)=>{
-      applyRemoteState(state);
-    });
-  }catch(_){}
+  if(S.sync.actionIds.size > 5000){
+    const arr = Array.from(S.sync.actionIds).slice(-2000);
+    S.sync.actionIds.clear();
+    for(const id of arr) S.sync.actionIds.add(id);
+  }
+
+  if(action.type === 'PLAYER_READY'){
+    return;
+  }
+
+  if(action.type === 'HOST_START'){
+    if(!S.started) await startGame();
+    return;
+  }
+
+  if(action.type === 'PLAYER_HIT'){
+    const role = action.role === 'B' ? 'B' : 'A';
+
+    const fake = {
+      id: action.payload?.targetId || '',
+      groupId: Number(action.payload?.targetGroupId || 0),
+      label: String(action.payload?.targetLabel || ''),
+      good: !!action.payload?.good,
+      kind: String(action.payload?.kind || 'food'),
+      x: 0,
+      y: 0
+    };
+
+    if(fake.good && fake.groupId === S.match.targetGroup?.id){
+      applyCorrect(role, fake);
+      setCoach('good', { who: role, target: S.match.targetGroup?.label });
+    } else {
+      applyWrong(role);
+      setCoach('wrong', { who: role, target: S.match.targetGroup?.label });
+    }
+
+    updateHud();
+    await broadcastState('REMOTE_TARGET_HIT');
+    return;
+  }
+
+  if(action.type === 'PLAYER_MISS'){
+    const role = action.role === 'B' ? 'B' : 'A';
+    S.match.miss += 1;
+    contribution(role).wrong += 1;
+    S.match.combo = 0;
+    setCoach('miss', { who: role, target: S.match.targetGroup?.label });
+    updateHud();
+    await broadcastState('REMOTE_TARGET_MISS');
+    return;
+  }
+
+  if(action.type === 'PLAYER_LEAVE'){
+    return;
+  }
 }
 
-function startGame(){
+function cleanupSubscriptions(){
+  try{ S.unsubRoom?.(); }catch(_){}
+  try{ S.unsubState?.(); }catch(_){}
+  try{ S.unsubAction?.(); }catch(_){}
+  S.unsubRoom = null;
+  S.unsubState = null;
+  S.unsubAction = null;
+}
+
+function subscribeRoomAndNet(roomId){
+  cleanupSubscriptions();
+
+  if(S.roomApi){
+    try{
+      S.unsubRoom = S.roomApi.subscribeRoom(roomId, (roomState)=>{
+        if(!roomState) return;
+
+        S.room.roomId = roomState.roomId || S.room.roomId;
+        S.room.isHost = roomState.hostId === S.ctx.pid;
+        S.room.readyA = !!roomState.players?.A?.ready;
+        S.room.readyB = !!roomState.players?.B?.ready;
+
+        if(roomState.players?.A?.id === S.ctx.pid) S.room.myRole = 'A';
+        else if(roomState.players?.B?.id === S.ctx.pid) S.room.myRole = 'B';
+
+        if(roomState.started && !S.started){
+          DOC.getElementById('lobbyOverlay')?.setAttribute('aria-hidden', 'true');
+          S.started = true;
+        }
+
+        if(roomState.ended && roomState.summary && !S.ended){
+          S.ended = true;
+          setText('endTitle', 'Coop จบแล้ว 🎉');
+          setText('endSub', `mode=coop • diff=${S.ctx.diff} • view=${S.ctx.view}`);
+          setText('endGrade', roomState.summary.grade || 'D');
+          setText('endScore', roomState.summary.scoreFinal || 0);
+          setText('endP1', roomState.summary.players?.A?.score || 0);
+          setText('endP2', roomState.summary.players?.B?.score || 0);
+          DOC.getElementById('endOverlay')?.setAttribute('aria-hidden', 'false');
+        }
+
+        updateHud();
+      });
+    }catch(_){}
+  }
+
+  if(S.netApi){
+    try{
+      S.netApi.setRoom(roomId);
+      S.unsubState = S.netApi.onState((state)=>{
+        if(!state) return;
+        applyRemoteState(state);
+      });
+    }catch(_){}
+
+    try{
+      S.unsubAction = S.netApi.onAction((action)=>{
+        void handleActionAsHost(action);
+      });
+    }catch(_){}
+  }
+}
+
+async function createRoomReal(){
+  if(!S.roomApi) throw new Error('roomApi missing');
+
+  const room = await S.roomApi.createRoom({
+    diff: S.ctx.diff,
+    pro: !!S.ctx.pro,
+    time: S.ctx.time,
+    seed: S.ctx.seed
+  });
+
+  S.room.roomId = room.roomId;
+  S.room.myRole = 'A';
+  S.room.isHost = true;
+  S.room.readyA = !!room.players?.A?.ready;
+  S.room.readyB = !!room.players?.B?.ready;
+
+  if(S.netApi){
+    S.netApi.setRoom(room.roomId);
+    S.sync.enabled = true;
+  }
+
+  const joinUrl = S.roomApi.getJoinUrl(room.roomId, location.href);
+  setText('joinUrlText', `join url: ${joinUrl}`);
+  const qr = DOC.getElementById('qrMount');
+  if(qr) qr.textContent = 'QR code placeholder';
+
+  subscribeRoomAndNet(room.roomId);
+  updateHud();
+  setCoach('join');
+}
+
+async function joinRoomReal(code){
+  if(!S.roomApi) throw new Error('roomApi missing');
+
+  const result = await S.roomApi.joinRoom(code);
+  const room = result.room;
+  const role = result.role;
+
+  S.room.roomId = room.roomId;
+  S.room.myRole = role;
+  S.room.isHost = room.hostId === S.ctx.pid;
+  S.room.readyA = !!room.players?.A?.ready;
+  S.room.readyB = !!room.players?.B?.ready;
+
+  if(S.netApi){
+    S.netApi.setRoom(room.roomId);
+    S.sync.enabled = true;
+  }
+
+  subscribeRoomAndNet(room.roomId);
+  updateHud();
+  setCoach('join');
+}
+
+async function markReadyReal(){
+  if(!S.roomApi) throw new Error('roomApi missing');
+  const room = await S.roomApi.markReady(true);
+
+  S.room.readyA = !!room.players?.A?.ready;
+  S.room.readyB = !!room.players?.B?.ready;
+  updateHud();
+
+  if(S.netApi){
+    try{ await S.netApi.sendReady(true); }catch(_){}
+  }
+
+  setCoach((S.room.readyA && S.room.readyB) ? 'ready' : 'wait');
+}
+
+async function startGame(){
   if(S.started || !(S.room.readyA && S.room.readyB)) return;
+
+  if(S.netApi && isHost()){
+    try{
+      await S.netApi.sendHostStart({
+        diff: S.ctx.diff,
+        pro: !!S.ctx.pro,
+        time: S.ctx.time,
+        seed: S.ctx.seed
+      });
+    }catch(_){}
+  }
+
+  if(S.roomApi && isHost()){
+    try{
+      await S.roomApi.hostStart(S.room.roomId);
+    }catch(_){}
+  }
 
   S.started = true;
   S.ended = false;
@@ -997,74 +1220,93 @@ function startGame(){
 
   setPhase(0);
   S.lastTick = performance.now();
-  broadcastState('MATCH_START');
-}
-
-function createRoomLocal(){
-  const roomId = `PLT${Math.random().toString(36).slice(2,6).toUpperCase()}`;
-  S.room.roomId = roomId;
-  S.room.myRole = 'A';
-  S.room.isHost = true;
-  S.room.readyA = false;
-  S.room.readyB = false;
-
-  setText('joinUrlText', `join url: ${location.origin}${location.pathname}?room=${roomId}`);
-  const qr = DOC.getElementById('qrMount');
-  if(qr) qr.textContent = 'QR code placeholder';
-  updateHud();
-  setCoach('wait');
-}
-
-function joinRoomLocal(code){
-  const roomId = String(code || '').trim().toUpperCase() || 'PLT123';
-  S.room.roomId = roomId;
-  S.room.myRole = 'B';
-  S.room.isHost = false;
-  updateHud();
-  setCoach('wait');
-}
-
-function markReadyLocal(role){
-  if(role === 'A') S.room.readyA = true;
-  if(role === 'B') S.room.readyB = true;
-  updateHud();
-  setCoach((S.room.readyA && S.room.readyB) ? 'ready' : 'wait');
-  broadcastState('PLAYER_READY');
+  await broadcastState('MATCH_START');
 }
 
 function wireLobbyButtons(){
-  DOC.getElementById('btnCreateRoom')?.addEventListener('click', ()=>{
-    createRoomLocal();
+  DOC.getElementById('btnCreateRoom')?.addEventListener('click', async ()=>{
+    try{
+      await createRoomReal();
+    }catch(err){
+      console.error(err);
+      setCoach('sync');
+    }
   });
 
-  DOC.getElementById('btnJoinRoom')?.addEventListener('click', ()=>{
-    const code = DOC.getElementById('joinRoomInput')?.value || '';
-    joinRoomLocal(code);
+  DOC.getElementById('btnJoinRoom')?.addEventListener('click', async ()=>{
+    try{
+      const code = DOC.getElementById('joinRoomInput')?.value || '';
+      await joinRoomReal(code);
+    }catch(err){
+      console.error(err);
+      setCoach('sync');
+    }
   });
 
-  DOC.getElementById('btnReadyA')?.addEventListener('click', ()=> markReadyLocal('A'));
-  DOC.getElementById('btnReadyB')?.addEventListener('click', ()=> markReadyLocal('B'));
-
-  DOC.getElementById('btnReadyMe')?.addEventListener('click', ()=>{
-    const role = myRole();
-    if(role === 'A' || role === 'B') markReadyLocal(role);
+  DOC.getElementById('btnReadyA')?.addEventListener('click', async ()=>{
+    try{
+      await markReadyReal();
+    }catch(err){
+      console.error(err);
+    }
   });
 
-  DOC.getElementById('btnHostStart')?.addEventListener('click', ()=>{
-    if(!isHost()) return;
-    if(!(S.room.readyA && S.room.readyB)) return;
-    startGame();
+  DOC.getElementById('btnReadyB')?.addEventListener('click', async ()=>{
+    try{
+      await markReadyReal();
+    }catch(err){
+      console.error(err);
+    }
   });
 
-  DOC.getElementById('btnLeaveRoom')?.addEventListener('click', ()=>{
+  DOC.getElementById('btnReadyMe')?.addEventListener('click', async ()=>{
+    try{
+      await markReadyReal();
+    }catch(err){
+      console.error(err);
+    }
+  });
+
+  DOC.getElementById('btnHostStart')?.addEventListener('click', async ()=>{
+    try{
+      if(!isHost()) return;
+      if(!(S.room.readyA && S.room.readyB)) return;
+      await startGame();
+    }catch(err){
+      console.error(err);
+    }
+  });
+
+  DOC.getElementById('btnLeaveRoom')?.addEventListener('click', async ()=>{
+    try{
+      if(S.roomApi && S.room.roomId){
+        await S.roomApi.leaveRoom(S.room.roomId);
+      }
+      if(S.netApi && S.room.roomId){
+        await S.netApi.sendLeave();
+      }
+    }catch(err){
+      console.error(err);
+    }
+
     DOC.getElementById('lobbyOverlay')?.setAttribute('aria-hidden', 'false');
     S.started = false;
+    S.ended = false;
     clearTargets();
+    cleanupSubscriptions();
+    S.room.roomId = '';
+    S.room.myRole = '';
+    S.room.isHost = false;
+    S.room.readyA = false;
+    S.room.readyB = false;
+    S.match.phase = 'wait';
+    S.match.targetGroup = null;
+    updateHud();
     setCoach('wait');
   });
 }
 
-function loop(ts){
+async function loop(ts){
   if(!S.running) return;
 
   if(S.paused || overlayOpen()){
@@ -1087,15 +1329,15 @@ function loop(ts){
     S.match.phaseTimeLeft = Math.max(0, S.match.phaseTimeLeft - dt);
 
     updateFever(dt);
-    updateTargets(dt);
+    await updateTargets(dt);
     updateHud();
 
     if(S.match.phaseTimeLeft <= 0){
-      phaseAdvance();
+      await phaseAdvance();
       if(!S.running) return;
     }
 
-    broadcastState('HOST_TICK');
+    await broadcastState('HOST_TICK');
   } else {
     updateHud();
   }
@@ -1122,6 +1364,9 @@ function boot(ctx){
   S.cooldownEnabled = !!ctx.cooldown;
   S.rng = makeRng(S.ctx.seed);
   S.match.diffPreset = getDifficultyPreset(S.ctx.diff, S.ctx.pro);
+
+  S.roomApi = ctx.roomApi || null;
+  S.netApi = ctx.netApi || null;
 
   S.running = true;
   S.started = false;
@@ -1163,7 +1408,6 @@ function boot(ctx){
 
   wireEndButtons();
   wireLobbyButtons();
-  attachNetHooks();
   updateHud();
   setCoach('wait');
 
@@ -1174,9 +1418,16 @@ function boot(ctx){
 
   WIN.__PLATE_COOP_START__ = function(){
     if(isHost() && S.room.readyA && S.room.readyB){
-      startGame();
+      void startGame();
     }
   };
+
+  const qRoom = new URL(location.href).searchParams.get('room');
+  if(qRoom){
+    S.room.roomId = String(qRoom).trim().toUpperCase();
+    if(S.netApi) S.netApi.setRoom(S.room.roomId);
+    subscribeRoomAndNet(S.room.roomId);
+  }
 
   DOC.getElementById('lobbyOverlay')?.setAttribute('aria-hidden', 'false');
   DOC.getElementById('endOverlay')?.setAttribute('aria-hidden', 'true');
