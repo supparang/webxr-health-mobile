@@ -3,13 +3,16 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — Germ Detective Launcher</title>
+  <title>HeroHealth — นักสืบเชื้อโรค</title>
   <meta name="robots" content="noindex" />
   <style>
     html,body{
       margin:0;
       min-height:100%;
-      background:#020617;
+      background:
+        radial-gradient(900px 600px at 50% -10%, rgba(34,211,238,.14), transparent 60%),
+        radial-gradient(800px 600px at 0% 20%, rgba(167,139,250,.12), transparent 60%),
+        linear-gradient(180deg, #04111f, #0b1730);
       color:#e5e7eb;
       font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif;
       display:grid;
@@ -19,22 +22,62 @@
       width:min(92vw,560px);
       border:1px solid rgba(148,163,184,.18);
       background:rgba(2,6,23,.78);
-      border-radius:20px;
-      padding:18px;
+      border-radius:24px;
+      padding:20px;
       box-shadow:0 20px 60px rgba(0,0,0,.35);
+      text-align:center;
+    }
+    .icon{
+      width:72px;
+      height:72px;
+      margin:0 auto 12px;
+      border-radius:22px;
+      display:grid;
+      place-items:center;
+      font-size:36px;
+      background:linear-gradient(135deg, rgba(34,211,238,.18), rgba(167,139,250,.16));
+      border:1px solid rgba(148,163,184,.16);
+    }
+    .title{
+      font-weight:1000;
+      font-size:22px;
+      line-height:1.15;
+      margin-bottom:8px;
+    }
+    .sub{
+      color:#cbd5e1;
+      font-size:14px;
+      line-height:1.55;
+      margin-bottom:10px;
     }
     .muted{
       color:#94a3b8;
       font-size:13px;
-      line-height:1.55;
+      line-height:1.6;
       word-break:break-word;
+    }
+    .pill{
+      margin:10px auto 0;
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      padding:8px 12px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.16);
+      background:rgba(255,255,255,.03);
+      font-size:12px;
+      font-weight:1000;
+      color:#e2e8f0;
     }
   </style>
 </head>
 <body>
   <div class="card">
-    <div style="font-weight:1000;font-size:18px;margin-bottom:8px;">กำลังเปิด Germ Detective…</div>
-    <div class="muted" id="msg">กำลังตรวจสอบ warmup / game flow</div>
+    <div class="icon">🦠</div>
+    <div class="title">นักสืบเชื้อโรค</div>
+    <div class="sub">กำลังเตรียมภารกิจให้พร้อมก่อนเริ่มเล่น</div>
+    <div class="muted" id="msg">กำลังตรวจสอบ warmup และเส้นทางเข้าเกม</div>
+    <div class="pill" id="statusPill">เตรียมเข้าเกม…</div>
   </div>
 
   <script>
@@ -51,11 +94,16 @@
         if(el) el.textContent = t;
       }
 
+      function setPill(t){
+        const el = document.getElementById('statusPill');
+        if(el) el.textContent = t;
+      }
+
       function normalizeMaybeEncodedUrl(v){
         v = String(v ?? '').trim();
         if(!v || v === 'null' || v === 'undefined') return '';
         if(/%3A|%2F|%3F|%26|%3D/i.test(v)){
-          try{ v = decodeURIComponent(v); }catch(e){}
+          try{ v = decodeURIComponent(v); }catch(_){}
         }
         return v.trim();
       }
@@ -67,7 +115,7 @@
             'gatePhase','phase','gateResult','gateMode',
             'wType','wPct','wSteps','wTimeBonus','wScoreBonus','wRank',
             'next','cd','wskip','wgskip'
-          ].forEach(k=>u.searchParams.delete(k));
+          ].forEach(k => u.searchParams.delete(k));
           return u.toString();
         }catch(_){
           return fallback;
@@ -76,7 +124,7 @@
 
       const ORIGIN = location.origin;
       const HUB_URL  = ORIGIN + '/webxr-health-mobile/herohealth/hub.html';
-      const GATE_URL = ORIGIN + '/webxr-health-mobile/herohealth/warmup-gate.html?v=20260314d';
+      const GATE_URL = ORIGIN + '/webxr-health-mobile/herohealth/warmup-gate.html?v=20260321-gd-p5';
       const RUN_URL  = ORIGIN + '/webxr-health-mobile/herohealth/germ-detective/germ-detective-vr.html';
 
       const pid   = String(qs('pid','anon')).trim() || 'anon';
@@ -134,6 +182,7 @@
 
       if(alreadyWarm || alreadySkipped){
         setMsg('ผ่าน warmup แล้ว กำลังเข้าเกม…');
+        setPill('เข้าเกมหลัก');
         location.replace(gameUrl.toString());
         return;
       }
@@ -154,7 +203,6 @@
       warmupUrl.searchParams.set('seed', seed);
       warmupUrl.searchParams.set('scene', scene);
       warmupUrl.searchParams.set('zone', 'hygiene');
-      warmupUrl.searchParams.set('cat', 'hygiene');
 
       if(studyId) warmupUrl.searchParams.set('studyId', studyId);
       if(conditionGroup) warmupUrl.searchParams.set('conditionGroup', conditionGroup);
@@ -167,6 +215,7 @@
       console.log('[germ-launcher] WARMUP_URL =', warmupUrl.toString());
 
       setMsg('กำลังเข้า warmup ก่อนเริ่มเกม…');
+      setPill('warmup ก่อนเล่น');
       location.replace(warmupUrl.toString());
     })();
   </script>
