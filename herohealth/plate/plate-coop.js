@@ -1,7 +1,7 @@
 /* === /herohealth/plate/plate-coop.js ===
    HeroHealth Plate Coop Engine
-   HOST-AUTHORITATIVE WIRED VERSION
-   PATCH v20260321-PLATE-COOP-JS-WIRED
+   HOST-AUTHORITATIVE WIRED VERSION + QR UI
+   PATCH v20260321-PLATE-COOP-JS-WIRED-QR
 */
 'use strict';
 
@@ -226,6 +226,7 @@ const S = {
 
   roomApi: null,
   netApi: null,
+  qr: null,
 
   unsubRoom: null,
   unsubState: null,
@@ -418,6 +419,39 @@ function showPhaseBanner(text){
   d.textContent = text;
   DOC.getElementById('app')?.appendChild(d);
   setTimeout(()=>{ try{ d.remove(); }catch(_){} }, 950);
+}
+
+function updateRoomQrUi(roomId=''){
+  if(!S.roomApi) return;
+
+  const id = String(roomId || S.room.roomId || '').trim().toUpperCase();
+  const joinUrl = id ? S.roomApi.getJoinUrl(id, location.href) : '';
+
+  if(S.qr?.updateJoinUrlText){
+    S.qr.updateJoinUrlText(DOC.getElementById('joinUrlText'), joinUrl);
+  } else {
+    setText('joinUrlText', joinUrl ? `join url: ${joinUrl}` : 'join url: -');
+  }
+
+  if(!joinUrl){
+    if(S.qr?.clearRoomQr){
+      S.qr.clearRoomQr(DOC.getElementById('qrMount'));
+    } else {
+      const qr = DOC.getElementById('qrMount');
+      if(qr) qr.textContent = 'QR code จะแสดงตรงนี้เมื่อสร้างห้องแล้ว';
+    }
+    return;
+  }
+
+  if(S.qr?.renderRoomQr){
+    S.qr.renderRoomQr(DOC.getElementById('qrMount'), joinUrl, {
+      size: 220,
+      label: 'Scan to Join Room'
+    });
+  } else {
+    const qr = DOC.getElementById('qrMount');
+    if(qr) qr.textContent = 'QR code placeholder';
+  }
 }
 
 function setPhase(index){
@@ -1059,6 +1093,8 @@ function subscribeRoomAndNet(roomId){
         if(roomState.players?.A?.id === S.ctx.pid) S.room.myRole = 'A';
         else if(roomState.players?.B?.id === S.ctx.pid) S.room.myRole = 'B';
 
+        updateRoomQrUi(S.room.roomId);
+
         if(roomState.started && !S.started){
           DOC.getElementById('lobbyOverlay')?.setAttribute('aria-hidden', 'true');
           S.started = true;
@@ -1118,12 +1154,8 @@ async function createRoomReal(){
     S.sync.enabled = true;
   }
 
-  const joinUrl = S.roomApi.getJoinUrl(room.roomId, location.href);
-  setText('joinUrlText', `join url: ${joinUrl}`);
-  const qr = DOC.getElementById('qrMount');
-  if(qr) qr.textContent = 'QR code placeholder';
-
   subscribeRoomAndNet(room.roomId);
+  updateRoomQrUi(room.roomId);
   updateHud();
   setCoach('join');
 }
@@ -1147,6 +1179,7 @@ async function joinRoomReal(code){
   }
 
   subscribeRoomAndNet(room.roomId);
+  updateRoomQrUi(room.roomId);
   updateHud();
   setCoach('join');
 }
@@ -1301,6 +1334,7 @@ function wireLobbyButtons(){
     S.room.readyB = false;
     S.match.phase = 'wait';
     S.match.targetGroup = null;
+    updateRoomQrUi('');
     updateHud();
     setCoach('wait');
   });
@@ -1367,6 +1401,7 @@ function boot(ctx){
 
   S.roomApi = ctx.roomApi || null;
   S.netApi = ctx.netApi || null;
+  S.qr = ctx.qr || null;
 
   S.running = true;
   S.started = false;
@@ -1408,6 +1443,7 @@ function boot(ctx){
 
   wireEndButtons();
   wireLobbyButtons();
+  updateRoomQrUi('');
   updateHud();
   setCoach('wait');
 
@@ -1427,6 +1463,7 @@ function boot(ctx){
     S.room.roomId = String(qRoom).trim().toUpperCase();
     if(S.netApi) S.netApi.setRoom(S.room.roomId);
     subscribeRoomAndNet(S.room.roomId);
+    updateRoomQrUi(S.room.roomId);
   }
 
   DOC.getElementById('lobbyOverlay')?.setAttribute('aria-hidden', 'false');
