@@ -1,19 +1,18 @@
 /* === /herohealth/plate/plate-coop-room.js ===
    HeroHealth Plate Coop Room API
-   SKELETON / ADAPTER-FIRST
-   PATCH v20260321-PLATE-COOP-ROOM-SKELETON
+   ADAPTER-FIRST ROOM LIFECYCLE
+   PATCH v20260321-PLATE-COOP-ROOM
 
    Purpose:
-   - create/join/leave room
-   - mark ready
-   - host start
-   - subscribe room state
+   - create / join / leave room
+   - ready state
+   - host start / host end
+   - subscribe room snapshots
 
    Notes:
-   - This file is backend-agnostic.
-   - Replace the in-memory adapter with Firebase / Supabase / WebSocket later.
+   - Default adapter below is in-memory only.
+   - Replace with Firebase / Supabase / WebSocket adapter later.
 */
-
 'use strict';
 
 /* --------------------------------------------------
@@ -25,11 +24,6 @@ function clamp(v, a, b){
   return Math.max(a, Math.min(b, v));
 }
 
-function makeRoomCode(prefix = 'PLT'){
-  const body = Math.random().toString(36).slice(2, 6).toUpperCase();
-  return `${prefix}${body}`;
-}
-
 function nowTs(){
   return Date.now();
 }
@@ -39,6 +33,11 @@ function deepClone(obj){
 }
 
 function noop(){}
+
+function makeRoomCode(prefix = 'PLT'){
+  const body = Math.random().toString(36).slice(2, 6).toUpperCase();
+  return `${prefix}${body}`;
+}
 
 /* --------------------------------------------------
  * room shape
@@ -54,17 +53,27 @@ function buildInitialRoomState({
   seed = String(Date.now())
 } = {}){
   return {
-    roomId: String(roomId || makeRoomCode()),
-    game,
-    mode,
+    roomId: String(roomId || makeRoomCode('PLT')).trim().toUpperCase(),
+    game: String(game || 'platev1'),
+    mode: String(mode || 'coop'),
 
     hostId: String(hostId || ''),
     started: false,
     ended: false,
 
     players: {
-      A: { id: String(hostId || ''), ready: false, connected: true, joinedAt: nowTs() },
-      B: { id: '', ready: false, connected: false, joinedAt: 0 }
+      A: {
+        id: String(hostId || ''),
+        ready: false,
+        connected: !!hostId,
+        joinedAt: hostId ? nowTs() : 0
+      },
+      B: {
+        id: '',
+        ready: false,
+        connected: false,
+        joinedAt: 0
+      }
     },
 
     config: {
@@ -81,48 +90,43 @@ function buildInitialRoomState({
 }
 
 /* --------------------------------------------------
- * adapter interface
- * --------------------------------------------------
- * Required adapter methods:
- * - getRoom(roomId) -> Promise<room|null>
- * - setRoom(roomId, roomState) -> Promise<void>
- * - patchRoom(roomId, partial) -> Promise<void>
- * - subscribeRoom(roomId, cb) -> unsubscribeFn
- * - deleteRoom(roomId) -> Promise<void>   (optional)
- *
- * Default below = in-memory adapter for local/dev only
+ * default memory adapter
  * -------------------------------------------------- */
-
-const __MEMORY_DB__ = {
-  rooms: new Map(),
-  listeners: new Map() // roomId -> Set<fn>
+const __MEM_ROOM_DB__ = {
+  rooms: new Map(),       // roomId -> room
+  listeners: new Map()    // roomId -> Set(fn)
 };
 
 function emitRoom(roomId){
-  const room = __MEMORY_DB__.rooms.get(roomId) || null;
-  const set = __MEMORY_DB__.listeners.get(roomId);
+  const id = String(roomId || '').trim().toUpperCase();
+  const room = __MEM_ROOM_DB__.rooms.get(id) || null;
+  const set = __MEM_ROOM_DB__.listeners.get(id);
   if (!set) return;
+
   for (const fn of set){
-    try{ fn(deepClone(room)); }catch(_){}
+    try{
+      fn(room ? deepClone(room) : null);
+    }catch(_){}
   }
 }
 
 export function createMemoryRoomAdapter(){
   return {
     async getRoom(roomId){
-      const room = __MEMORY_DB__.rooms.get(String(roomId || ''));
+      const id = String(roomId || '').trim().toUpperCase();
+      const room = __MEM_ROOM_DB__.rooms.get(id) || null;
       return room ? deepClone(room) : null;
     },
 
     async setRoom(roomId, roomState){
-      const id = String(roomId || '');
-      __MEMORY_DB__.rooms.set(id, deepClone(roomState));
+      const id = String(roomId || '').trim().toUpperCase();
+      __MEM_ROOM_DB__.rooms.set(id, deepClone(roomState));
       emitRoom(id);
     },
 
     async patchRoom(roomId, partial){
-      const id = String(roomId || '');
-      const prev = __MEMORY_DB__.rooms.get(id);
+      const id = String(roomId || '').trim().toUpperCase();
+      const prev = __MEM_ROOM_DB__.rooms.get(id);
       if (!prev) throw new Error(`Room not found: ${id}`);
 
       const next = {
@@ -131,45 +135,56 @@ export function createMemoryRoomAdapter(){
         updatedAt: nowTs()
       };
 
-      // merge nested objects commonly used here
       if (partial.players){
         next.players = {
           ...prev.players,
           ...deepClone(partial.players)
         };
         if (partial.players.A){
-          next.players.A = { ...prev.players.A, ...deepClone(partial.players.A) };
+          next.players.A = {
+            ...prev.players.A,
+            ...deepClone(partial.players.A)
+          };
         }
         if (partial.players.B){
-          next.players.B = { ...prev.players.B, ...deepClone(partial.players.B) };
+          next.players.B = {
+            ...prev.players.B,
+            ...deepClone(partial.players.B)
+          };
         }
       }
 
       if (partial.config){
-        next.config = { ...prev.config, ...deepClone(partial.config) };
+        next.config = {
+          ...prev.config,
+          ...deepClone(partial.config)
+        };
       }
 
       if (partial.match && prev.match){
-        next.match = { ...prev.match, ...deepClone(partial.match) };
+        next.match = {
+          ...prev.match,
+          ...deepClone(partial.match)
+        };
       }
 
-      __MEMORY_DB__.rooms.set(id, next);
+      __MEM_ROOM_DB__.rooms.set(id, next);
       emitRoom(id);
     },
 
     subscribeRoom(roomId, cb){
-      const id = String(roomId || '');
-      if (!__MEMORY_DB__.listeners.has(id)){
-        __MEMORY_DB__.listeners.set(id, new Set());
+      const id = String(roomId || '').trim().toUpperCase();
+
+      if (!__MEM_ROOM_DB__.listeners.has(id)){
+        __MEM_ROOM_DB__.listeners.set(id, new Set());
       }
-      const set = __MEMORY_DB__.listeners.get(id);
+      const set = __MEM_ROOM_DB__.listeners.get(id);
       set.add(cb);
 
-      // push current snapshot immediately
       queueMicrotask(() => {
         try{
-          const room = __MEMORY_DB__.rooms.get(id) || null;
-          cb(deepClone(room));
+          const room = __MEM_ROOM_DB__.rooms.get(id) || null;
+          cb(room ? deepClone(room) : null);
         }catch(_){}
       });
 
@@ -179,16 +194,16 @@ export function createMemoryRoomAdapter(){
     },
 
     async deleteRoom(roomId){
-      const id = String(roomId || '');
-      __MEMORY_DB__.rooms.delete(id);
+      const id = String(roomId || '').trim().toUpperCase();
+      __MEM_ROOM_DB__.rooms.delete(id);
       emitRoom(id);
-      __MEMORY_DB__.listeners.delete(id);
+      __MEM_ROOM_DB__.listeners.delete(id);
     }
   };
 }
 
 /* --------------------------------------------------
- * main factory
+ * main room api
  * -------------------------------------------------- */
 export function createPlateCoopRoomApi({
   adapter = createMemoryRoomAdapter(),
@@ -200,8 +215,9 @@ export function createPlateCoopRoomApi({
   let unsubscribe = noop;
 
   function ensureRoomId(){
-    if (!currentRoomId) throw new Error('No active room');
-    return currentRoomId;
+    const id = String(currentRoomId || '').trim().toUpperCase();
+    if (!id) throw new Error('No active room');
+    return id;
   }
 
   async function createRoom({
@@ -211,7 +227,8 @@ export function createPlateCoopRoomApi({
     seed = String(Date.now()),
     roomId
   } = {}){
-    const id = String(roomId || makeRoomCode('PLT'));
+    const id = String(roomId || makeRoomCode('PLT')).trim().toUpperCase();
+
     const room = buildInitialRoomState({
       roomId: id,
       hostId: playerId,
@@ -241,10 +258,13 @@ export function createPlateCoopRoomApi({
 
     let role = '';
 
-    // already in room?
-    if (A.id === playerId) role = 'A';
-    else if (B.id === playerId) role = 'B';
-    else if (!A.id){
+    if (A.id === playerId){
+      role = 'A';
+      room.players.A.connected = true;
+    } else if (B.id === playerId){
+      role = 'B';
+      room.players.B.connected = true;
+    } else if (!A.id){
       role = 'A';
       room.players.A = {
         id: playerId,
@@ -252,6 +272,7 @@ export function createPlateCoopRoomApi({
         connected: true,
         joinedAt: nowTs()
       };
+      if (!room.hostId) room.hostId = playerId;
     } else if (!B.id){
       role = 'B';
       room.players.B = {
@@ -297,7 +318,8 @@ export function createPlateCoopRoomApi({
         connected: false,
         joinedAt: 0
       };
-      // if host leaves and B exists, promote B
+
+      // promote B to A if B exists
       if (room.players?.B?.id){
         room.hostId = room.players.B.id;
         room.players.A = { ...room.players.B };
@@ -307,6 +329,8 @@ export function createPlateCoopRoomApi({
           connected: false,
           joinedAt: 0
         };
+      } else {
+        room.hostId = '';
       }
     } else if (isB){
       room.players.B = {
@@ -420,8 +444,11 @@ export function createPlateCoopRoomApi({
 
     try{ unsubscribe(); }catch(_){}
     unsubscribe = adapter.subscribeRoom(id, (roomState) => {
-      try{ cb?.(deepClone(roomState)); }catch(_){}
+      try{
+        cb?.(roomState ? deepClone(roomState) : null);
+      }catch(_){}
     });
+
     currentRoomId = id;
 
     return () => {
