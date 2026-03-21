@@ -1162,7 +1162,6 @@
       document.getElementById('hygieneZoneDone').textContent = hygieneUnlocked ? '1' : '0';
       document.getElementById('fitnessZoneDone').textContent = fitnessUnlocked ? '1' : '0';
 
-      const badgeCount = Object.values(badges || {}).filter(Boolean).length;
       document.getElementById('nutriHint').textContent =
         nutritionUnlocked
           ? `ปลดถ้วยแล้ว • GJ cards ${book.total || 0} • HYD best ${hydProfile?.bestScore || 0}`
@@ -1520,9 +1519,15 @@
     document.getElementById('linkBalanceHold').href    = buildUrl(PATHS.balanceHold,    { zone:'fitness' });
     document.getElementById('linkFitnessPlanner').href = buildUrl(PATHS.fitnessPlanner, { zone:'fitness' });
 
-    document.getElementById('btnGJsolo').onclick = ()=> location.href = buildUrl(PATHS.goodjunk, { mode:'solo' });
-    document.getElementById('btnGJpro').onclick  = ()=> location.href = buildUrl(PATHS.goodjunk, { mode:'solo', diff:'hard', pro:'1', auto:'0' });
-    document.getElementById('btnGJbattle').onclick = ()=> {
+    document.getElementById('btnGJsolo').onclick = ()=>{
+      location.href = buildUrl(PATHS.goodjunk, { mode:'solo' });
+    };
+
+    document.getElementById('btnGJpro').onclick = ()=>{
+      location.href = buildUrl(PATHS.goodjunk, { mode:'solo', diff:'hard', pro:'1', auto:'0' });
+    };
+
+    document.getElementById('btnGJbattle').onclick = ()=>{
       const room = String(qs('room','P5A')) || 'P5A';
       location.href = buildUrl(PATHS.goodjunk, { mode:'battle', room, auto:'1' });
     };
