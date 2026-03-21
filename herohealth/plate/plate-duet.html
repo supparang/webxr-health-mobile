@@ -1,6 +1,6 @@
 <!-- === /herohealth/plate/plate-duet.html ===
 Plate Duet — RUN PAGE
-Baseline separated mode file for 2-player light alternating play
+PATCH v20260321-PLATE-DUET-READY-LOBBY
 -->
 <!doctype html>
 <html lang="th">
@@ -221,8 +221,13 @@ Baseline separated mode file for 2-player light alternating play
       border-color: rgba(59,130,246,.30);
       background: linear-gradient(180deg, rgba(30,64,175,.92), rgba(30,58,138,.92));
     }
+    .btn.good{
+      border-color: rgba(34,197,94,.25);
+      background: linear-gradient(180deg, rgba(20,83,45,.92), rgba(21,128,61,.92));
+    }
 
-    #endOverlay{
+    #endOverlay,
+    #readyOverlay{
       position:absolute; inset:0;
       z-index:120;
       display:flex; align-items:center; justify-content:center;
@@ -231,9 +236,11 @@ Baseline separated mode file for 2-player light alternating play
       backdrop-filter: blur(8px);
       -webkit-backdrop-filter: blur(8px);
     }
-    #endOverlay[aria-hidden="true"]{ display:none; }
+    #endOverlay[aria-hidden="true"],
+    #readyOverlay[aria-hidden="true"]{ display:none; }
 
-    .endCard{
+    .endCard,
+    .readyCard{
       width:min(760px, 94vw);
       border-radius: 18px;
       border:1px solid rgba(148,163,184,.18);
@@ -242,22 +249,27 @@ Baseline separated mode file for 2-player light alternating play
       box-shadow: 0 18px 60px rgba(0,0,0,.45);
       padding: 14px;
     }
-    .endGrid{
+    .endGrid,
+    .readyGrid{
       margin-top:10px;
       display:grid;
       grid-template-columns: repeat(2, minmax(0,1fr));
       gap:10px;
     }
-    .endItem{
+    .endItem,
+    .readyItem{
       border:1px solid rgba(148,163,184,.14);
       background: rgba(2,6,23,.55);
       border-radius: 14px;
-      padding: 10px 12px;
+      padding: 12px;
       font-weight:1000;
     }
-    .endItem .k{ font-size:12px; opacity:.82; font-weight:900; }
-    .endItem .v{ margin-top:4px; font-size:18px; font-variant-numeric: tabular-nums; }
-    .endActions{
+    .endItem .k,
+    .readyItem .k{ font-size:12px; opacity:.82; font-weight:900; }
+    .endItem .v,
+    .readyItem .v{ margin-top:4px; font-size:18px; font-variant-numeric: tabular-nums; }
+    .endActions,
+    .readyActions{
       margin-top: 12px;
       display:flex;
       gap: 10px;
@@ -277,8 +289,8 @@ Baseline separated mode file for 2-player light alternating play
       .pill .v{ font-size: 13px; }
       .bar{ height: 8px; }
       .btn{ min-height: 38px; padding: 8px 10px; font-size: 12px; }
-      .endGrid{ grid-template-columns: 1fr; }
-      .endActions .btn{ flex: 1 1 100%; }
+      .endGrid,.readyGrid{ grid-template-columns: 1fr; }
+      .endActions .btn,.readyActions .btn{ flex: 1 1 100%; }
     }
   </style>
 </head>
@@ -307,7 +319,7 @@ Baseline separated mode file for 2-player light alternating play
           <div style="height:8px"></div>
           <div class="bar"><i id="uiGoalFill"></i></div>
           <div style="margin-top:6px; font-size:12px; color:var(--mut); font-weight:900;">
-            PHASE: <span id="uiPhase">WARM</span> &nbsp; <span id="uiPhaseProg">0/0</span> &nbsp; ⏱ <span id="uiTime">0</span>s
+            PHASE: <span id="uiPhase">WAIT</span> &nbsp; <span id="uiPhaseProg">0/0</span> &nbsp; ⏱ <span id="uiTime">0</span>s
           </div>
         </div>
 
@@ -352,7 +364,7 @@ Baseline separated mode file for 2-player light alternating play
     <div id="hudBottom" class="hud">
       <div class="card">
         <div style="font-weight:1000">🧑‍🏫 Coach</div>
-        <div id="coachMsg" style="margin-top:6px;font-weight:1000">เล่นสลับกันอย่างเป็นมิตร แล้วช่วยกันจำจานสุขภาพ 💪</div>
+        <div id="coachMsg" style="margin-top:6px;font-weight:1000">รอผู้เล่นทั้ง 2 คนกดพร้อมก่อนเริ่มเกม</div>
         <div style="font-size:12px;opacity:.85;margin-top:4px;">
           Duet = ผลัดกันเล่นแบบเบา ๆ • ยิง/แตะ = โดนเป้า
         </div>
@@ -363,6 +375,32 @@ Baseline separated mode file for 2-player light alternating play
         <button id="btnRestart" class="btn" type="button">🔄 RESTART</button>
         <button id="btnSwitch" class="btn" type="button">🔁 สลับผู้เล่น</button>
         <button id="btnBackHub" class="btn" type="button">↩ กลับ HUB</button>
+      </div>
+    </div>
+
+    <div id="readyOverlay" aria-hidden="false">
+      <div class="readyCard">
+        <div style="font-weight:1000;font-size:22px">👫 Duet Ready Lobby</div>
+        <div style="margin-top:8px;color:#cbd5e1;line-height:1.6">
+          โหมดนี้ต้องให้ผู้เล่น <b>A</b> และ <b>B</b> กดพร้อมก่อน แล้วค่อยเริ่มเกมจริง
+        </div>
+
+        <div class="readyGrid">
+          <div class="readyItem">
+            <div class="k">PLAYER A</div>
+            <div class="v" id="readyAState">ยังไม่พร้อม</div>
+          </div>
+          <div class="readyItem">
+            <div class="k">PLAYER B</div>
+            <div class="v" id="readyBState">ยังไม่พร้อม</div>
+          </div>
+        </div>
+
+        <div class="readyActions">
+          <button class="btn" id="btnReadyA" type="button">🅰️ Player A พร้อม</button>
+          <button class="btn" id="btnReadyB" type="button">🅱️ Player B พร้อม</button>
+          <button class="btn primary" id="btnStartDuet" type="button" disabled>▶ เริ่มเกม Duet</button>
+        </div>
       </div>
     </div>
 
