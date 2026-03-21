@@ -6,379 +6,577 @@
   <title>HeroHealth • GoodJunk Battle Run</title>
   <meta name="color-scheme" content="dark light" />
   <link rel="icon" href="../favicon.ico" />
+
   <style>
     :root{
       --bg1:#020617;
       --bg2:#0b1226;
-      --panel2:rgba(15,23,42,.94);
+      --bg3:#111827;
+
+      --panel:rgba(2,6,23,.76);
       --stroke:rgba(148,163,184,.18);
       --text:#e5e7eb;
       --muted:#94a3b8;
-      --shadow:0 24px 64px rgba(0,0,0,.32);
+
       --battle:#f59e0b;
+      --battle2:#fcd34d;
+      --blue:#38bdf8;
+      --red:#ef4444;
+      --green:#22c55e;
+      --violet:#a78bfa;
+
+      --shadow:0 24px 64px rgba(0,0,0,.28);
+
       --sat: env(safe-area-inset-top, 0px);
       --sar: env(safe-area-inset-right, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
       --sal: env(safe-area-inset-left, 0px);
     }
-    *{box-sizing:border-box}
+
+    *{ box-sizing:border-box; }
+
     html,body{
       margin:0;
       min-height:100%;
+      color:var(--text);
+      font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Thai","Noto Sans",Arial,sans-serif;
       background:
-        radial-gradient(circle at top, rgba(245,158,11,.18) 0%, transparent 34%),
+        radial-gradient(circle at 20% 0%, rgba(245,158,11,.10), transparent 24%),
+        radial-gradient(circle at 80% 0%, rgba(239,68,68,.08), transparent 24%),
         linear-gradient(180deg,var(--bg2),var(--bg1));
-      color:var(--text);
-      font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
-      overflow:hidden;
     }
-    #app{
-      position:relative;
-      width:100vw;
-      height:100vh;
-      overflow:hidden;
+
+    body{
+      overflow-x:hidden;
     }
-    #gameMount{
-      position:absolute;
-      inset:0;
-      z-index:1;
-      overflow:hidden;
-    }
-    #battleMeta{
-      position:fixed;
-      top:calc(10px + var(--sat));
-      left:calc(10px + var(--sal));
-      z-index:50;
+
+    .page{
+      min-height:100vh;
       display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-      pointer-events:none;
+      flex-direction:column;
+      gap:12px;
+      padding:
+        calc(12px + var(--sat))
+        calc(12px + var(--sar))
+        calc(16px + var(--sab))
+        calc(12px + var(--sal));
     }
-    .meta-pill{
-      display:inline-flex;
+
+    .topbar{
+      display:flex;
       align-items:center;
-      gap:6px;
-      padding:8px 10px;
-      border-radius:999px;
-      border:1px solid var(--stroke);
-      background:rgba(2,6,23,.62);
-      backdrop-filter:blur(8px);
-      color:#cbd5e1;
-      font-size:12px;
-      font-weight:800;
-      box-shadow:0 10px 24px rgba(0,0,0,.18);
+      justify-content:space-between;
+      gap:10px;
+      flex-wrap:wrap;
+      position:relative;
+      z-index:30;
     }
-    .meta-pill strong{color:#e5e7eb;font-weight:900}
 
-    .overlay{
-      position:fixed;
-      inset:0;
-      z-index:9999;
-      display:grid;
-      place-items:center;
-      padding:calc(16px + var(--sat)) calc(16px + var(--sar)) calc(16px + var(--sab)) calc(16px + var(--sal));
-      background:rgba(2,6,23,.76);
-      backdrop-filter:blur(8px);
-    }
-    .overlay[hidden]{display:none !important}
-
-    .overlay-card{
-      width:min(94vw,760px);
-      max-height:88vh;
-      overflow:auto;
-      background:var(--panel2);
+    .brand{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      padding:10px 12px;
+      border-radius:18px;
       border:1px solid var(--stroke);
-      border-radius:22px;
-      padding:20px 18px 18px;
-      color:var(--text);
+      background:rgba(2,6,23,.55);
+      backdrop-filter:blur(10px);
       box-shadow:var(--shadow);
     }
 
-    .overlay-kicker{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      padding:6px 12px;
-      border-radius:999px;
-      background:rgba(245,158,11,.12);
-      border:1px solid rgba(245,158,11,.25);
-      color:#fcd34d;
-      font-weight:900;
-      font-size:13px;
-      margin-bottom:12px;
-    }
-
-    .overlay-title{
-      margin:0 0 8px;
-      font-size:30px;
+    .brand-title{
+      font-size:16px;
+      font-weight:1100;
       line-height:1.1;
     }
 
-    .overlay-sub{
-      margin:0;
+    .brand-sub{
+      margin-top:2px;
       color:var(--muted);
-      font-size:14px;
-      line-height:1.6;
-    }
-
-    .count-box{
-      font-size:54px;
-      line-height:1;
+      font-size:12px;
       font-weight:900;
-      letter-spacing:.02em;
-      min-height:56px;
-      margin:12px 0 6px;
-      text-align:center;
     }
 
-    .count-note{
-      color:var(--muted);
-      font-size:13px;
-      text-align:center;
-    }
-
-    .result-top{
+    .top-actions{
       display:flex;
-      justify-content:space-between;
-      gap:12px;
-      align-items:center;
+      gap:8px;
       flex-wrap:wrap;
-    }
-
-    .result-badge{
-      min-width:110px;
-      text-align:center;
-      font-weight:900;
-      font-size:18px;
-      padding:12px 14px;
-      border-radius:18px;
-      background:rgba(245,158,11,.12);
-      border:1px solid rgba(245,158,11,.25);
-      color:#fcd34d;
-    }
-
-    .result-table{
-      margin-top:16px;
-      border:1px solid var(--stroke);
-      border-radius:18px;
-      overflow:hidden;
-      background:rgba(2,6,23,.45);
-    }
-
-    .result-head,.result-row{
-      display:grid;
-      grid-template-columns:1.4fr .8fr .8fr .8fr;
-      gap:10px;
-      padding:12px 14px;
       align-items:center;
-    }
-
-    .result-head{
-      font-weight:900;
-      color:#cbd5e1;
-      background:rgba(255,255,255,.04);
-    }
-
-    .result-row{
-      border-top:1px solid rgba(148,163,184,.08);
-    }
-
-    .result-row.is-me{
-      background:rgba(245,158,11,.10);
-      border-top-color:rgba(245,158,11,.25);
-    }
-
-    .result-actions{
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      margin-top:18px;
     }
 
     .btn{
       appearance:none;
-      border:0;
-      cursor:pointer;
+      border:1px solid rgba(148,163,184,.20);
+      background:rgba(255,255,255,.04);
+      color:var(--text);
       border-radius:14px;
-      padding:12px 16px;
-      font-weight:900;
-      font-size:14px;
-      transition:.12s ease;
-    }
-    .btn:hover{transform:translateY(-1px);filter:brightness(1.04)}
-    .btn:active{transform:translateY(0)}
-    .btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
-
-    .btn-orange{background:#f59e0b;color:#3b1d00}
-    .btn-good{background:#22c55e;color:#052e16}
-    .btn-blue{background:#38bdf8;color:#082f49}
-    .btn-ghost{
-      background:rgba(255,255,255,.06);
-      color:#e5e7eb;
-      border:1px solid var(--stroke);
+      min-height:42px;
+      padding:10px 12px;
+      font:inherit;
+      font-weight:1000;
+      cursor:pointer;
+      text-decoration:none;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
     }
 
-    #battleRunMessage{
-      position:fixed;
-      right:calc(10px + var(--sar));
-      bottom:calc(10px + var(--sab));
-      z-index:60;
-      min-width:220px;
-      max-width:min(92vw,420px);
-      padding:12px 14px;
-      border-radius:16px;
-      background:rgba(2,6,23,.78);
-      border:1px solid var(--stroke);
-      backdrop-filter:blur(8px);
+    .btn.primary{
+      border-color:rgba(59,130,246,.28);
+      background:rgba(59,130,246,.14);
+    }
+
+    .btn.violet{
+      border-color:rgba(167,139,250,.28);
+      background:rgba(167,139,250,.14);
+    }
+
+    .btn.ghost{
+      color:var(--muted);
+    }
+
+    .run-shell{
+      width:min(1240px, 100%);
+      margin:0 auto;
+      display:grid;
+      gap:12px;
+    }
+
+    .battle-hud{
+      position:relative;
+      z-index:20;
+      display:grid;
+      gap:12px;
+    }
+
+    .battle-top{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:10px;
+    }
+
+    .battle-pill{
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      min-height:46px;
+      padding:10px 12px;
+      border-radius:18px;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(15,23,42,.80);
+      color:#f8fafc;
+      font-size:15px;
+      font-weight:1000;
+      text-align:center;
+      box-shadow:0 12px 30px rgba(0,0,0,.20);
+    }
+
+    .battle-grid{
+      display:grid;
+      grid-template-columns:1.05fr .95fr;
+      gap:12px;
+    }
+
+    .battle-card{
+      border-radius:24px;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(15,23,42,.80);
+      padding:14px;
+      box-shadow:0 18px 44px rgba(0,0,0,.22);
+      display:flex;
+      flex-direction:column;
+      gap:14px;
+    }
+
+    .score-box{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      min-height:64px;
+      padding:14px 16px;
+      border-radius:20px;
+      border:1px solid rgba(148,163,184,.16);
+      background:rgba(2,6,23,.36);
+    }
+
+    .score-label{
+      font-size:15px;
       color:#cbd5e1;
-      font-size:13px;
-      line-height:1.55;
-      box-shadow:0 10px 24px rgba(0,0,0,.18);
-      display:none;
+      font-weight:1000;
     }
-    #battleRunMessage.show{display:block}
+
+    .score-value{
+      font-size:36px;
+      line-height:1;
+      font-weight:1100;
+      color:#f8fafc;
+    }
+
+    .stats-grid{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:10px;
+    }
+
+    .stat{
+      min-height:56px;
+      padding:10px 12px;
+      border-radius:18px;
+      border:1px solid rgba(148,163,184,.16);
+      background:rgba(2,6,23,.36);
+      display:flex;
+      flex-direction:column;
+      justify-content:center;
+      gap:4px;
+    }
+
+    .stat-k{
+      font-size:12px;
+      color:var(--muted);
+      font-weight:1000;
+    }
+
+    .stat-v{
+      font-size:20px;
+      line-height:1;
+      font-weight:1100;
+      color:#f8fafc;
+    }
+
+    .battle-section-title{
+      font-size:14px;
+      font-weight:1100;
+      color:#f8fafc;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+    }
+
+    .ready-badge{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-height:40px;
+      padding:8px 12px;
+      border-radius:999px;
+      border:1px solid rgba(245,158,11,.24);
+      background:rgba(245,158,11,.12);
+      color:#fcd34d;
+      font-size:13px;
+      font-weight:1100;
+      text-align:center;
+    }
+
+    .meter-wrap{
+      display:grid;
+      gap:10px;
+    }
+
+    .meter-head{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      color:#e2e8f0;
+      font-size:14px;
+      font-weight:1000;
+    }
+
+    .meter-bar{
+      height:18px;
+      border-radius:999px;
+      background:rgba(148,163,184,.14);
+      overflow:hidden;
+    }
+
+    .meter-fill{
+      height:100%;
+      width:0%;
+      border-radius:999px;
+      transition:width .18s linear;
+    }
+
+    .hp-fill{
+      background:linear-gradient(90deg,var(--red),#fb7185,var(--green));
+    }
+
+    .charge-fill{
+      background:linear-gradient(90deg,var(--battle),var(--battle2),#fde68a);
+    }
+
+    .battle-note{
+      border-radius:16px;
+      border:1px solid rgba(148,163,184,.14);
+      background:rgba(2,6,23,.34);
+      padding:12px;
+      color:#e2e8f0;
+      font-size:14px;
+      line-height:1.5;
+    }
+
+    .stage-wrap{
+      border-radius:26px;
+      border:1px solid rgba(148,163,184,.18);
+      background:
+        radial-gradient(circle at 50% 0%, rgba(245,158,11,.08), transparent 28%),
+        linear-gradient(180deg, rgba(15,23,42,.88), rgba(2,6,23,.92));
+      box-shadow:0 24px 80px rgba(0,0,0,.34);
+      overflow:hidden;
+      position:relative;
+      min-height:54vh;
+    }
+
+    .stage-head{
+      padding:12px 12px 0;
+      color:var(--muted);
+      font-size:12px;
+      font-weight:900;
+      position:relative;
+      z-index:10;
+    }
+
+    .stage-inner{
+      position:relative;
+      min-height:54vh;
+      padding:8px 8px 12px;
+    }
+
+    #battleGameStage{
+      position:relative;
+      min-height:50vh;
+      border-radius:22px;
+      overflow:hidden;
+      border:1px dashed rgba(148,163,184,.12);
+      background:
+        radial-gradient(circle at 50% 18%, rgba(245,158,11,.06), transparent 28%),
+        radial-gradient(circle at 50% 82%, rgba(239,68,68,.05), transparent 28%),
+        rgba(2,6,23,.22);
+    }
+
+    .stage-tip{
+      position:absolute;
+      inset:0;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      text-align:center;
+      padding:20px;
+      color:#cbd5e1;
+      font-size:14px;
+      line-height:1.7;
+      pointer-events:none;
+    }
+
+    @media (max-width:920px){
+      .battle-grid{
+        grid-template-columns:1fr;
+      }
+    }
+
+    @media (max-width:760px){
+      .score-value{ font-size:30px; }
+    }
 
     @media (max-width:640px){
-      .overlay-card{
-        width:min(96vw,760px);
-        padding:18px 14px 16px;
-        border-radius:18px;
+      .page{
+        gap:10px;
+        padding:
+          calc(10px + var(--sat))
+          calc(10px + var(--sar))
+          calc(14px + var(--sab))
+          calc(10px + var(--sal));
       }
-      .overlay-title{font-size:26px}
-      .count-box{font-size:46px}
-      .result-head,.result-row{
-        grid-template-columns:1.2fr .8fr .8fr .8fr;
+
+      .brand{
+        padding:8px 10px;
+        border-radius:16px;
+      }
+
+      .brand-title{
+        font-size:14px;
+      }
+
+      .top-actions{
+        width:100%;
+      }
+
+      .top-actions .btn{
+        flex:1 1 auto;
+      }
+
+      .battle-top{
+        grid-template-columns:1fr 1fr;
         gap:8px;
-        padding:10px 12px;
-        font-size:13px;
       }
-      .result-actions .btn{
-        flex:1 1 calc(50% - 10px);
+
+      .battle-pill{
+        min-height:42px;
+        font-size:14px;
+        padding:8px 10px;
+      }
+
+      .score-box{
+        min-height:56px;
+        padding:12px 14px;
+      }
+
+      .score-value{
+        font-size:28px;
+      }
+
+      .stats-grid{
+        gap:8px;
+      }
+
+      .stat{
+        min-height:48px;
+        padding:8px 10px;
+        border-radius:16px;
+      }
+
+      .stat-v{
+        font-size:18px;
+      }
+
+      .ready-badge{
+        min-height:38px;
+        font-size:12px;
+      }
+
+      .battle-note{
+        font-size:13px;
       }
     }
   </style>
 </head>
 <body>
-  <div id="app">
-    <div id="gameMount"></div>
+  <div class="page">
 
-    <div id="battleMeta" aria-hidden="true">
-      <div class="meta-pill">MODE <strong id="metaMode">-</strong></div>
-      <div class="meta-pill">ROOM <strong id="metaRoom">-</strong></div>
-      <div class="meta-pill">TIME <strong id="metaTime">-</strong></div>
-      <div class="meta-pill">STATUS <strong id="metaStatus">-</strong></div>
-    </div>
+    <div class="topbar">
+      <div class="brand">
+        <div style="font-size:20px;">⚔</div>
+        <div>
+          <div class="brand-title">GoodJunk • Battle Run</div>
+          <div class="brand-sub">แข่ง เก็บ แต้ม และโจมตีคู่แข่ง</div>
+        </div>
+      </div>
 
-    <div id="battleGate" class="overlay" hidden>
-      <div class="overlay-card" style="width:min(92vw,460px);max-height:none;">
-        <div class="overlay-kicker">BATTLE MODE</div>
-        <h2 class="overlay-title">กำลังรอเริ่ม Battle</h2>
-        <p id="battleGateText" class="overlay-sub">รอสัญญาณเริ่มจากห้อง...</p>
-        <div id="battleGateCount" class="count-box">-</div>
-        <div id="battleGateSub" class="count-note">ผู้เล่นในรอบนี้จะเริ่มพร้อมกัน</div>
+      <div class="top-actions">
+        <a class="btn ghost" id="btnBackLauncher" href="../goodjunk-launcher.html">← Launcher</a>
+        <a class="btn violet" id="btnGoHub" href="../hub.html">🏠 Hub</a>
       </div>
     </div>
 
-    <div id="battleSummary" class="overlay" hidden>
-      <div class="overlay-card">
-        <div class="result-top">
-          <div>
-            <div class="overlay-kicker">BATTLE RESULT</div>
-            <h2 class="overlay-title">สรุปผลการแข่งขัน</h2>
-            <p id="battleSummarySub" class="overlay-sub">ดูคะแนนของผู้เล่นในรอบนี้</p>
-          </div>
-          <div id="battleSummaryBadge" class="result-badge">-</div>
+    <div class="run-shell">
+
+      <div id="battleHud" class="battle-hud">
+        <div class="battle-top">
+          <div class="battle-pill" id="battleModePill">MODE battle</div>
+          <div class="battle-pill" id="battleRoomPill">ROOM -</div>
         </div>
 
-        <div class="result-table">
-          <div class="result-head">
-            <div>ผู้เล่น</div><div>คะแนน</div><div>Miss</div><div>Best Streak</div>
-          </div>
-          <div id="battleSummaryRows"></div>
-        </div>
+        <div class="battle-grid">
+          <section class="battle-card">
+            <div class="score-box">
+              <div class="score-label">SCORE</div>
+              <div class="score-value" id="battleScoreValue">0</div>
+            </div>
 
-        <div id="battleSummaryHint" style="margin-top:12px;color:var(--muted);font-size:13px;">
-          ระบบจะจัดอันดับตามคะแนนก่อน แล้วค่อยดู miss และ streak
-        </div>
+            <div class="stats-grid">
+              <div class="stat">
+                <div class="stat-k">เวลา</div>
+                <div class="stat-v" id="battleTimeValue">0:00</div>
+              </div>
+              <div class="stat">
+                <div class="stat-k">Miss</div>
+                <div class="stat-v" id="battleMissValue">0</div>
+              </div>
+              <div class="stat">
+                <div class="stat-k">Best Streak</div>
+                <div class="stat-v" id="battleStreakValue">0</div>
+              </div>
+            </div>
 
-        <div class="result-actions">
-          <button id="btnBattleRematch" class="btn btn-blue" type="button">เล่นใหม่</button>
-          <button id="btnBattleBackLobby" class="btn btn-good" type="button">กลับ Lobby</button>
-          <button id="btnBattleExport" class="btn btn-orange" type="button">Export JSON</button>
-          <button id="btnBattleBackHub" class="btn btn-ghost" type="button">กลับ HUB</button>
+            <div class="battle-note">
+              เก็บของดีให้เร็ว ระวังของไม่ดี และรอจังหวะที่ <strong>ATTACK READY</strong> เพื่อโจมตีคู่แข่ง
+            </div>
+          </section>
+
+          <section class="battle-card">
+            <div class="battle-section-title">
+              <span>สถานะผู้เล่น</span>
+              <span class="ready-badge" id="battleAttackReady">CHARGING</span>
+            </div>
+
+            <div class="meter-wrap">
+              <div class="meter-head">
+                <span>HP</span>
+                <span id="battleHpValue">100/100</span>
+              </div>
+              <div class="meter-bar">
+                <div class="meter-fill hp-fill" id="battleHpFill"></div>
+              </div>
+            </div>
+
+            <div class="meter-wrap">
+              <div class="meter-head">
+                <span>Attack Charge</span>
+                <span id="battleChargeValue">0/100</span>
+              </div>
+              <div class="meter-bar">
+                <div class="meter-fill charge-fill" id="battleChargeFill"></div>
+              </div>
+            </div>
+
+            <div class="battle-note">
+              เมื่อแถบชาร์จเต็ม ป้ายจะเปลี่ยนเป็น <strong>ATTACK READY</strong> และ safe layer จะอัปเดตสถานะให้อัตโนมัติ
+            </div>
+          </section>
         </div>
       </div>
-    </div>
 
-    <div id="battleRunMessage" role="status" aria-live="polite"></div>
+      <section class="stage-wrap">
+        <div class="stage-head">BATTLE GAME STAGE</div>
+        <div class="stage-inner">
+          <div id="battleGameStage">
+            <div class="stage-tip">
+              ตรงนี้ให้วาง playfield / scene / spawn layer ของ battle เดิมของคุณต่อได้เลย<br />
+              โดยคง id ของ HUD ด้านบนไว้ตามไฟล์นี้ เพื่อให้ <code>goodjunk.safe.battle.js</code> ทำงานตรงกัน
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </div>
   </div>
 
   <script>
-    (function(){
-      const q = new URLSearchParams(location.search);
+    (function battleRunShellBoot(){
+      const qs = new URLSearchParams(location.search);
+      const hub = qs.get('hub') || '../hub.html';
 
-      const runCtx = {
-        pid: q.get('pid') || 'anon',
-        name: q.get('name') || '',
-        studyId: q.get('studyId') || '',
-        roomId: q.get('roomId') || '',
-        mode: 'battle',
-        diff: q.get('diff') || 'normal',
-        time: q.get('time') || '120',
-        seed: q.get('seed') || '',
-        startAt: Number(q.get('startAt') || 0) || 0,
-        hub: q.get('hub') || '../hub.html',
-        view: q.get('view') || 'mobile',
-        run: q.get('run') || 'play',
-        gameId: q.get('gameId') || 'goodjunk'
-      };
+      const btnGoHub = document.getElementById('btnGoHub');
+      const btnBackLauncher = document.getElementById('btnBackLauncher');
 
-      window.__GJ_BATTLE_CTX__ = runCtx;
+      if (btnGoHub) btnGoHub.href = hub;
 
-      document.getElementById('metaMode').textContent = runCtx.mode || '-';
-      document.getElementById('metaRoom').textContent = runCtx.roomId || '-';
-      document.getElementById('metaTime').textContent = runCtx.time || '-';
-      document.getElementById('metaStatus').textContent = 'waiting';
-
-      const msgEl = document.getElementById('battleRunMessage');
-
-      window.__gjShowBattleRunMessage = function(message){
-        if (!msgEl) return;
-        msgEl.textContent = String(message || '');
-        msgEl.classList.toggle('show', !!message);
-      };
-
-      window.__gjHideBattleRunMessage = function(){
-        if (!msgEl) return;
-        msgEl.textContent = '';
-        msgEl.classList.remove('show');
-      };
-
-      window.__gjBattleUi = {
-        setStatus(text) {
-          const el = document.getElementById('metaStatus');
-          if (el) el.textContent = String(text || '-');
-        },
-        showGate(msg = 'กำลังรอเริ่ม', count = '-', sub = '') {
-          const wrap = document.getElementById('battleGate');
-          const text = document.getElementById('battleGateText');
-          const num  = document.getElementById('battleGateCount');
-          const subEl = document.getElementById('battleGateSub');
-
-          if (wrap) wrap.hidden = false;
-          if (text) text.textContent = msg;
-          if (num) num.textContent = count;
-          if (subEl) subEl.textContent = sub || 'ผู้เล่นในรอบนี้จะเริ่มพร้อมกัน';
-        },
-        hideGate() {
-          const wrap = document.getElementById('battleGate');
-          if (wrap) wrap.hidden = true;
-        }
-      };
+      if (btnBackLauncher) {
+        const u = new URL('../goodjunk-launcher.html', location.href);
+        [
+          'pid','hub','run','diff','time','studyId','phase','conditionGroup',
+          'view','api','log','debug','ai','roomId','room','mode','groupMode'
+        ].forEach(k => {
+          const v = qs.get(k);
+          if (v != null && v !== '') u.searchParams.set(k, v);
+        });
+        btnBackLauncher.href = u.toString();
+      }
     })();
   </script>
 
-  <script src="../firebase-config.js"></script>
-  <script type="module" src="./goodjunk.safe.battle.js?v=20260319-battle-attack-v1"></script>
+  <script src="./goodjunk.safe.battle.js"></script>
 </body>
 </html>
