@@ -1,6 +1,6 @@
 <!-- === /herohealth/plate/plate-coop.html ===
-Plate Coop — 2 Devices Lobby + Game + Summary Skeleton
-PATCH v20260321-PLATE-COOP-HTML-SKELETON
+Plate Coop — 2 Devices Lobby + Game + Summary
+PATCH v20260321-PLATE-COOP-HTML-FINAL
 -->
 <!doctype html>
 <html lang="th">
@@ -366,6 +366,7 @@ PATCH v20260321-PLATE-COOP-HTML-SKELETON
       font-size:12px;
       color:var(--mut);
       line-height:1.55;
+      word-break:break-all;
     }
 
     .roleBadge{
@@ -501,7 +502,6 @@ PATCH v20260321-PLATE-COOP-HTML-SKELETON
       </div>
     </div>
 
-    <!-- LOBBY -->
     <div id="lobbyOverlay" aria-hidden="false">
       <div class="modalCard">
         <div style="font-weight:1000;font-size:22px">🤝 Plate Coop Lobby</div>
@@ -571,7 +571,6 @@ PATCH v20260321-PLATE-COOP-HTML-SKELETON
       </div>
     </div>
 
-    <!-- END -->
     <div id="endOverlay" aria-hidden="true">
       <div class="modalCard">
         <div style="font-weight:1000;font-size:18px" id="endTitle">จบเกม</div>
@@ -597,10 +596,17 @@ PATCH v20260321-PLATE-COOP-HTML-SKELETON
   <script type="module">
     import { createAIHooks } from '../vr/ai-hooks.js';
     import { boot as bootPlateCoop } from './plate-coop.js';
-    // เตรียมไว้สำหรับรอบถัดไป
-    // import { createRoom, joinRoom, markReady, hostStart } from './plate-coop-room.js';
-    // import { attachRoomSync } from './plate-coop-net.js';
-    // import { renderRoomQr } from './plate-coop-qr.js';
+    import { createPlateCoopRoomApi } from './plate-coop-room.js';
+    import { createPlateCoopNetApi } from './plate-coop-net.js';
+    import {
+      createFirebaseRoomAdapter,
+      createFirebaseNetAdapter
+    } from './plate-coop-firebase.js';
+    import {
+      renderRoomQr,
+      clearRoomQr,
+      updateJoinUrlText
+    } from './plate-coop-qr.js';
 
     function normalizeHub(raw){
       raw = String(raw || '').trim();
@@ -627,6 +633,7 @@ PATCH v20260321-PLATE-COOP-HTML-SKELETON
     const pro  = (U.searchParams.get('pro') === '1');
     const mode = 'coop';
     const hub = normalizeHub(U.searchParams.get('hub'));
+    const qRoom = String(U.searchParams.get('room') || '').trim().toUpperCase();
 
     if(view) document.body.setAttribute('data-view', view);
 
@@ -641,7 +648,9 @@ PATCH v20260321-PLATE-COOP-HTML-SKELETON
 
     let paused = false;
     const btnPause = document.getElementById('btnPause');
-    function setPauseBtn(){ if(btnPause) btnPause.textContent = paused ? '▶️ RESUME' : '⏸️ PAUSE'; }
+    function setPauseBtn(){
+      if(btnPause) btnPause.textContent = paused ? '▶️ RESUME' : '⏸️ PAUSE';
+    }
     setPauseBtn();
 
     btnPause?.addEventListener('click', ()=>{
@@ -653,79 +662,98 @@ PATCH v20260321-PLATE-COOP-HTML-SKELETON
     document.getElementById('btnRestart')?.addEventListener('click', ()=>{
       try{
         const u = new URL(location.href);
-        if(runMode !== 'research') u.searchParams.set('seed', String((Date.now() ^ (Math.random()*1e9))|0));
+        if(runMode !== 'research'){
+          u.searchParams.set('seed', String((Date.now() ^ (Math.random()*1e9))|0));
+        }
         location.href = u.toString();
-      }catch(e){ location.reload(); }
+      }catch(e){
+        location.reload();
+      }
     });
 
     document.getElementById('btnBackHub')?.addEventListener('click', ()=> location.href = hub);
     document.getElementById('btnBackHub2')?.addEventListener('click', ()=> location.href = hub);
 
-    // placeholders ให้ปุ่มกดได้ก่อน ระหว่างรอ room/net logic จริง
-    document.getElementById('btnCreateRoom')?.addEventListener('click', ()=>{
-      document.getElementById('lobbyRoomCode').textContent = 'PLT123';
-      document.getElementById('uiRoom').textContent = 'PLT123';
-      document.getElementById('lobbyHostState').textContent = 'YES';
-      document.getElementById('lobbyMyRole').textContent = 'A';
-      document.getElementById('uiRole').textContent = 'A';
-      document.getElementById('joinUrlText').textContent = `join url: ${location.origin}${location.pathname}?room=PLT123`;
-      document.getElementById('qrMount').textContent = 'QR code placeholder';
-      document.getElementById('readyAState').textContent = 'A เข้าห้องแล้ว';
+    const firebaseConfig = {
+      apiKey: 'YOUR_API_KEY',
+      authDomain: 'YOUR_PROJECT.firebaseapp.com',
+      databaseURL: 'https://YOUR_PROJECT-default-rtdb.asia-southeast1.firebasedatabase.app',
+      projectId: 'YOUR_PROJECT',
+      storageBucket: 'YOUR_PROJECT.firebasestorage.app',
+      messagingSenderId: 'YOUR_SENDER_ID',
+      appId: 'YOUR_APP_ID'
+    };
+
+    const roomAdapter = createFirebaseRoomAdapter({
+      firebaseConfig,
+      basePath: 'herohealth/plate-coop'
     });
 
-    document.getElementById('btnJoinRoom')?.addEventListener('click', ()=>{
-      const code = (document.getElementById('joinRoomInput')?.value || '').trim().toUpperCase() || 'PLT123';
-      document.getElementById('lobbyRoomCode').textContent = code;
-      document.getElementById('uiRoom').textContent = code;
-      document.getElementById('lobbyMyRole').textContent = 'B';
-      document.getElementById('uiRole').textContent = 'B';
-      document.getElementById('readyBState').textContent = 'B เข้าห้องแล้ว';
+    const netAdapter = createFirebaseNetAdapter({
+      firebaseConfig,
+      basePath: 'herohealth/plate-coop'
     });
 
-    document.getElementById('btnReadyA')?.addEventListener('click', ()=>{
-      document.getElementById('readyAState').textContent = 'A พร้อมแล้ว';
-      maybeEnableHostStart();
-    });
-
-    document.getElementById('btnReadyB')?.addEventListener('click', ()=>{
-      document.getElementById('readyBState').textContent = 'B พร้อมแล้ว';
-      maybeEnableHostStart();
-    });
-
-    document.getElementById('btnReadyMe')?.addEventListener('click', ()=>{
-      // ต่อกับ room logic จริงรอบถัดไป
-      const myRole = document.getElementById('lobbyMyRole').textContent.trim();
-      if(myRole === 'A') document.getElementById('readyAState').textContent = 'A พร้อมแล้ว';
-      if(myRole === 'B') document.getElementById('readyBState').textContent = 'B พร้อมแล้ว';
-      maybeEnableHostStart();
-    });
-
-    function maybeEnableHostStart(){
-      const a = document.getElementById('readyAState').textContent.includes('พร้อม');
-      const b = document.getElementById('readyBState').textContent.includes('พร้อม');
-      document.getElementById('btnHostStart').disabled = !(a && b);
+    function makeDevicePid() {
+      try {
+        const KEY = 'PLATE_COOP_DEVICE_PID';
+        let pid = localStorage.getItem(KEY);
+        if (!pid) {
+          pid = `p-${Math.random().toString(36).slice(2, 10)}`;
+          localStorage.setItem(KEY, pid);
+        }
+        return pid;
+      } catch {
+        return `p-${Math.random().toString(36).slice(2, 10)}`;
+      }
     }
 
-    document.getElementById('btnHostStart')?.addEventListener('click', ()=>{
-      document.getElementById('lobbyOverlay')?.setAttribute('aria-hidden', 'true');
-      try{ window.__PLATE_COOP_START__?.(); }catch(e){}
+    function normalizePid(rawPid) {
+      const v = String(rawPid || '').trim().replace(/[.#$[\]/]/g, '-');
+      if (!v) return makeDevicePid();
+      if (v.toLowerCase() === 'anon') return makeDevicePid();
+      return v;
+    }
+
+    const playerId = normalizePid(U.searchParams.get('pid') || '');
+
+    const roomApi = createPlateCoopRoomApi({
+      adapter: roomAdapter,
+      playerId,
+      game: 'platev1',
+      mode: 'coop'
     });
 
-    document.getElementById('btnLeaveRoom')?.addEventListener('click', ()=>{
-      document.getElementById('lobbyOverlay')?.setAttribute('aria-hidden', 'false');
+    const netApi = createPlateCoopNetApi({
+      adapter: netAdapter,
+      roomId: qRoom,
+      playerId,
+      role: '',
+      isHost: false,
+      game: 'platev1',
+      mode: 'coop'
     });
 
     bootPlateCoop({
       mount: document.getElementById('plate-layer'),
-      view, run: runMode, diff,
+      view,
+      run: runMode,
+      diff,
       time: Number(U.searchParams.get('time') || 90),
       seed,
-      pid: String(U.searchParams.get('pid') || 'anon'),
+      pid: playerId,
       hub,
       cooldown: (U.searchParams.get('cooldown') === '1' || U.searchParams.get('cd') === '1'),
       mode,
       pro,
-      ai
+      ai,
+      roomApi,
+      netApi,
+      qr: {
+        renderRoomQr,
+        clearRoomQr,
+        updateJoinUrlText
+      }
     });
   </script>
 </body>
