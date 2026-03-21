@@ -1,0 +1,732 @@
+<!-- === /herohealth/plate/plate-coop.html ===
+Plate Coop — 2 Devices Lobby + Game + Summary Skeleton
+PATCH v20260321-PLATE-COOP-HTML-SKELETON
+-->
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth — Plate Coop</title>
+  <meta name="color-scheme" content="dark light" />
+  <link rel="icon" href="../favicon.ico" type="image/x-icon" />
+  <script type="module" src="../vr/vr-ui.js?v=20260307b"></script>
+
+  <style>
+    :root{
+      --sat: env(safe-area-inset-top, 0px);
+      --sar: env(safe-area-inset-right, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
+
+      --hud-top: calc(var(--sat) + 10px);
+      --hud-bottom: calc(var(--sab) + 12px);
+
+      --bg1:#020617;
+      --bg2:#0b1226;
+      --panel:rgba(2,6,23,.82);
+      --panel2:rgba(15,23,42,.72);
+      --line:rgba(148,163,184,.18);
+      --txt:rgba(229,231,235,.96);
+      --mut:rgba(148,163,184,.95);
+
+      --good:#22c55e;
+      --blue:#38bdf8;
+      --violet:#a78bfa;
+      --warn:#f59e0b;
+      --bad:#ef4444;
+
+      --radius:18px;
+    }
+
+    *{ box-sizing:border-box; }
+
+    html,body{
+      margin:0;
+      height:100%;
+      overflow:hidden;
+      background:#020617;
+      color:var(--txt);
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif;
+    }
+
+    body{
+      background:
+        radial-gradient(1200px 700px at 20% 0%, rgba(14,165,233,.18), transparent 60%),
+        radial-gradient(900px 700px at 95% 20%, rgba(167,139,250,.12), transparent 60%),
+        linear-gradient(180deg, #020617, #020b1b);
+    }
+
+    #app{ position:fixed; inset:0; overflow:hidden; }
+    #world{ position:absolute; inset:0; z-index:0; pointer-events:none; }
+
+    #plate-layer{
+      position:absolute; inset:0;
+      z-index:30;
+      pointer-events:none;
+      overflow:hidden;
+      transform:translateZ(0);
+      will-change:contents;
+      min-width:1px;
+      min-height:1px;
+    }
+
+    #plate-layer .plateTarget{
+      position:absolute;
+      display:grid;
+      place-items:center;
+      width:56px; height:56px;
+      border-radius:999px;
+      background:rgba(15,23,42,.82);
+      border:1px solid rgba(255,255,255,.14);
+      box-shadow:0 8px 20px rgba(2,6,23,.35);
+      font-size:28px;
+      line-height:1;
+      user-select:none;
+      pointer-events:auto;
+      touch-action:manipulation;
+      transition:transform .08s ease, opacity .14s ease, filter .12s ease;
+      transform:translate(-50%,-50%);
+    }
+
+    #plate-layer .plateTarget[data-kind="shield"]{
+      background:rgba(30,58,138,.55);
+      border-color:rgba(96,165,250,.35);
+      box-shadow:0 10px 26px rgba(59,130,246,.18);
+    }
+
+    #plate-layer .plateTarget.hit{
+      transform:translate(-50%,-50%) scale(.88);
+      opacity:.25;
+    }
+
+    #plate-layer .plateTarget.expire{
+      transform:translate(-50%,-50%) scale(.78);
+      opacity:0;
+    }
+
+    .hud{
+      position:absolute;
+      left:max(10px, calc(var(--sal) + 10px));
+      right:max(10px, calc(var(--sar) + 10px));
+      z-index:80;
+      display:grid;
+      gap:8px;
+      pointer-events:none;
+    }
+
+    #hudTop{ top:var(--hud-top); }
+    #hudBottom{ bottom:var(--hud-bottom); grid-template-columns:1fr; gap:10px; }
+
+    .row{ display:grid; gap:8px; }
+    .row.cols-4{ grid-template-columns:1fr 1fr .95fr .95fr; }
+
+    @media (max-width: 900px){
+      .row.cols-4{ grid-template-columns:1fr; }
+    }
+
+    .card{
+      background:linear-gradient(180deg, rgba(2,6,23,.84), rgba(2,6,23,.72));
+      border:1px solid var(--line);
+      border-radius:var(--radius);
+      padding:10px 12px;
+      box-shadow:0 8px 24px rgba(2,6,23,.22);
+      pointer-events:none;
+    }
+
+    .card h4{
+      margin:0 0 8px 0;
+      font-size:12px;
+      color:var(--mut);
+      font-weight:900;
+      letter-spacing:.2px;
+    }
+
+    .stats{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:8px;
+    }
+
+    .miniStats{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:8px;
+    }
+
+    @media (max-width: 900px){
+      .miniStats{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+    }
+
+    .pill{
+      background:rgba(15,23,42,.7);
+      border:1px solid rgba(148,163,184,.16);
+      border-radius:999px;
+      min-height:42px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+      padding:8px 10px;
+      font-weight:900;
+      font-size:13px;
+    }
+
+    .pill .v{
+      font-size:15px;
+      font-weight:1000;
+    }
+
+    .bar{
+      height:10px;
+      border-radius:999px;
+      background:rgba(148,163,184,.18);
+      border:1px solid rgba(148,163,184,.14);
+      overflow:hidden;
+    }
+
+    .bar > i{
+      display:block;
+      height:100%;
+      width:0%;
+      background:linear-gradient(90deg, rgba(56,189,248,.9), rgba(167,139,250,.9));
+      transition:width .12s linear;
+    }
+
+    .phaseBanner{
+      position:absolute;
+      top:42%;
+      left:50%;
+      transform:translate(-50%,-50%);
+      font-size:28px;
+      font-weight:1000;
+      background:rgba(0,0,0,.68);
+      padding:14px 24px;
+      border-radius:20px;
+      border:1px solid rgba(148,163,184,.25);
+      z-index:120;
+      pointer-events:none;
+      opacity:0;
+      animation:bannerIn .95s ease forwards;
+      text-align:center;
+      white-space:nowrap;
+    }
+
+    @keyframes bannerIn{
+      0%{ opacity:0; transform:translate(-50%,-50%) scale(.96); }
+      20%{ opacity:1; transform:translate(-50%,-50%) scale(1.02); }
+      100%{ opacity:0; transform:translate(-50%,-50%) scale(1.03); }
+    }
+
+    #controls{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      pointer-events:auto;
+    }
+
+    .btn{
+      appearance:none;
+      border:1px solid rgba(148,163,184,.22);
+      background:rgba(2,6,23,.78);
+      color:var(--txt);
+      border-radius:999px;
+      padding:10px 14px;
+      min-height:44px;
+      font-weight:1000;
+      font-size:14px;
+      cursor:pointer;
+      box-shadow:0 6px 18px rgba(2,6,23,.22);
+    }
+
+    .btn.primary{
+      border-color:rgba(59,130,246,.30);
+      background:linear-gradient(180deg, rgba(30,64,175,.92), rgba(30,58,138,.92));
+    }
+
+    .btn.good{
+      border-color:rgba(34,197,94,.25);
+      background:linear-gradient(180deg, rgba(20,83,45,.92), rgba(21,128,61,.92));
+    }
+
+    .btn.warn{
+      border-color:rgba(245,158,11,.25);
+      background:linear-gradient(180deg, rgba(120,53,15,.8), rgba(92,45,14,.8));
+    }
+
+    .btn.bad{
+      border-color:rgba(239,68,68,.25);
+      background:linear-gradient(180deg, rgba(127,29,29,.85), rgba(153,27,27,.85));
+    }
+
+    #endOverlay,
+    #lobbyOverlay{
+      position:absolute;
+      inset:0;
+      z-index:120;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:16px;
+      background:rgba(0,0,0,.55);
+      backdrop-filter:blur(8px);
+      -webkit-backdrop-filter:blur(8px);
+    }
+
+    #endOverlay[aria-hidden="true"],
+    #lobbyOverlay[aria-hidden="true"]{
+      display:none;
+    }
+
+    .modalCard{
+      width:min(860px, 94vw);
+      border-radius:18px;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(2,6,23,.84);
+      color:rgba(229,231,235,.95);
+      box-shadow:0 18px 60px rgba(0,0,0,.45);
+      padding:14px;
+    }
+
+    .modalGrid{
+      margin-top:10px;
+      display:grid;
+      grid-template-columns:repeat(2, minmax(0,1fr));
+      gap:10px;
+    }
+
+    .modalItem{
+      border:1px solid rgba(148,163,184,.14);
+      background:rgba(2,6,23,.55);
+      border-radius:14px;
+      padding:12px;
+      font-weight:1000;
+    }
+
+    .modalItem .k{
+      font-size:12px;
+      opacity:.82;
+      font-weight:900;
+    }
+
+    .modalItem .v{
+      margin-top:4px;
+      font-size:18px;
+      font-variant-numeric:tabular-nums;
+      word-break:break-word;
+    }
+
+    .modalActions{
+      margin-top:12px;
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+    }
+
+    .field{
+      display:grid;
+      gap:6px;
+      margin-top:10px;
+    }
+
+    .field label{
+      font-size:12px;
+      font-weight:900;
+      color:var(--mut);
+    }
+
+    .field input{
+      width:100%;
+      min-height:44px;
+      border-radius:12px;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(15,23,42,.7);
+      color:var(--txt);
+      padding:10px 12px;
+      font-size:14px;
+      outline:none;
+    }
+
+    .qrWrap{
+      min-height:190px;
+      border:1px dashed rgba(148,163,184,.22);
+      border-radius:16px;
+      display:grid;
+      place-items:center;
+      background:rgba(15,23,42,.42);
+      color:var(--mut);
+      font-weight:900;
+      text-align:center;
+      padding:12px;
+    }
+
+    .hint{
+      margin-top:8px;
+      font-size:12px;
+      color:var(--mut);
+      line-height:1.55;
+    }
+
+    .roleBadge{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 12px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.16);
+      background:rgba(15,23,42,.72);
+      font-size:12px;
+      font-weight:1000;
+    }
+
+    @media (max-width: 640px){
+      #hudTop{
+        left:max(6px, calc(var(--sal) + 6px));
+        right:max(6px, calc(var(--sar) + 6px));
+        gap:6px;
+      }
+      .card{
+        padding:8px 10px;
+        border-radius:14px;
+      }
+      .card h4{
+        font-size:11px;
+        margin-bottom:6px;
+      }
+      .pill{
+        min-height:36px;
+        padding:6px 8px;
+        font-size:11.5px;
+        gap:6px;
+      }
+      .pill .v{ font-size:13px; }
+      .bar{ height:8px; }
+      .btn{
+        min-height:38px;
+        padding:8px 10px;
+        font-size:12px;
+      }
+      .modalGrid{
+        grid-template-columns:1fr;
+      }
+      .modalActions .btn{
+        flex:1 1 100%;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div id="app">
+    <div id="world" aria-hidden="true"></div>
+    <div id="plate-layer" aria-label="plate targets layer"></div>
+
+    <div id="hudTop" class="hud">
+      <div class="row cols-4">
+        <div class="card">
+          <h4>คะแนนทีม / คอมโบ / พลาด</h4>
+          <div class="stats">
+            <div class="pill">🏆 <span id="uiScore" class="v">0</span></div>
+            <div class="pill">🔥 <span id="uiCombo" class="v">0</span> <span style="opacity:.8">(max <span id="uiComboMax">0</span>)</span></div>
+            <div class="pill">💥 <span id="uiMiss" class="v">0</span></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h4>ภารกิจตอนนี้</h4>
+          <div class="pill" style="justify-content:flex-start;padding-inline:12px;">
+            🎯 <span id="uiTargetText">รอเริ่มเกม</span>
+          </div>
+          <div style="height:8px"></div>
+          <div class="bar"><i id="uiGoalFill"></i></div>
+          <div style="margin-top:6px; font-size:12px; color:var(--mut); font-weight:900;">
+            PHASE: <span id="uiPhase">WAIT</span> &nbsp; <span id="uiPhaseProg">0/0</span> &nbsp; ⏱ <span id="uiTime">0</span>s
+          </div>
+        </div>
+
+        <div class="card">
+          <h4>สถานะทีม</h4>
+          <div class="miniStats">
+            <div class="pill">🎯 <span id="uiAcc" class="v">0%</span></div>
+            <div class="pill">🏅 <span id="uiGrade" class="v">D</span></div>
+            <div class="pill">⚡ <span id="uiFever" class="v">0%</span></div>
+            <div class="pill">🛡️ <span id="uiShield" class="v">0</span></div>
+          </div>
+          <div style="height:8px"></div>
+          <div style="font-weight:1000; margin-bottom:6px;">FEVER</div>
+          <div class="bar"><i id="uiFeverFill"></i></div>
+        </div>
+
+        <div class="card">
+          <h4>ผู้เล่น</h4>
+          <div class="miniStats">
+            <div class="pill">🅰️ <span id="uiP1" class="v">0</span></div>
+            <div class="pill">🅱️ <span id="uiP2" class="v">0</span></div>
+            <div class="pill">ROLE: <span id="uiRole" class="v">-</span></div>
+            <div class="pill">ROOM: <span id="uiRoom" class="v">-</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="card">
+          <h4>จำนวนที่เก็บได้ (5 หมู่)</h4>
+          <div class="stats" style="grid-template-columns:repeat(5,minmax(0,1fr));">
+            <div class="pill">🐟 <span id="uiG1" class="v">0</span></div>
+            <div class="pill">🍚 <span id="uiG2" class="v">0</span></div>
+            <div class="pill">🥦 <span id="uiG3" class="v">0</span></div>
+            <div class="pill">🍎 <span id="uiG4" class="v">0</span></div>
+            <div class="pill">🥑 <span id="uiG5" class="v">0</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="hudBottom" class="hud">
+      <div class="card">
+        <div style="font-weight:1000">🧑‍🏫 Coach</div>
+        <div id="coachMsg" style="margin-top:6px;font-weight:1000">สร้างห้องหรือเข้าห้องก่อน แล้วรอทั้งสองคนกดพร้อม</div>
+        <div style="font-size:12px;opacity:.85;margin-top:4px;">
+          Coop 2 เครื่อง: แบ่งบทบาท A/B แล้วช่วยกันเติมจานให้ครบ 5 หมู่
+        </div>
+      </div>
+
+      <div id="controls">
+        <button id="btnPause" class="btn warn" type="button">⏸️ PAUSE</button>
+        <button id="btnRestart" class="btn" type="button">🔄 RESTART</button>
+        <button id="btnReadyMe" class="btn good" type="button">✅ ฉันพร้อม</button>
+        <button id="btnLeaveRoom" class="btn bad" type="button">🚪 ออกจากห้อง</button>
+        <button id="btnBackHub" class="btn" type="button">↩ กลับ HUB</button>
+      </div>
+    </div>
+
+    <!-- LOBBY -->
+    <div id="lobbyOverlay" aria-hidden="false">
+      <div class="modalCard">
+        <div style="font-weight:1000;font-size:22px">🤝 Plate Coop Lobby</div>
+        <div style="margin-top:8px;color:#cbd5e1;line-height:1.6">
+          สร้างห้องหรือเข้าห้องก่อน จากนั้นให้ผู้เล่น <b>A</b> และ <b>B</b> กดพร้อม แล้วให้ Host กดเริ่มเกม
+        </div>
+
+        <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
+          <span class="roleBadge">My Role: <span id="lobbyMyRole">-</span></span>
+          <span class="roleBadge">Room: <span id="lobbyRoomCode">-</span></span>
+          <span class="roleBadge">Host: <span id="lobbyHostState">NO</span></span>
+        </div>
+
+        <div class="modalGrid">
+          <div class="modalItem">
+            <div class="k">สร้างห้อง</div>
+            <div class="v">Create Room (Host)</div>
+            <div class="hint">
+              ใช้เครื่องแรกสร้างห้อง แล้วแชร์ room code หรือ QR code ให้เครื่องที่สองเข้า
+            </div>
+            <div class="modalActions" style="justify-content:flex-start;">
+              <button class="btn primary" id="btnCreateRoom" type="button">➕ Create Room</button>
+            </div>
+          </div>
+
+          <div class="modalItem">
+            <div class="k">เข้าร่วมห้อง</div>
+            <div class="v">Join Room</div>
+            <div class="field">
+              <label for="joinRoomInput">Room code</label>
+              <input id="joinRoomInput" type="text" placeholder="เช่น PLT123" />
+            </div>
+            <div class="modalActions" style="justify-content:flex-start;">
+              <button class="btn" id="btnJoinRoom" type="button">🔗 Join Room</button>
+            </div>
+          </div>
+
+          <div class="modalItem">
+            <div class="k">QR Code</div>
+            <div class="v">Scan to Join</div>
+            <div class="qrWrap" id="qrMount">
+              QR code จะแสดงตรงนี้เมื่อสร้างห้องแล้ว
+            </div>
+            <div class="hint" id="joinUrlText">join url: -</div>
+          </div>
+
+          <div class="modalItem">
+            <div class="k">สถานะผู้เล่น</div>
+            <div class="v">Ready / Role</div>
+            <div class="modalGrid" style="margin-top:10px;">
+              <div class="modalItem">
+                <div class="k">PLAYER A</div>
+                <div class="v" id="readyAState">ยังไม่เข้า</div>
+              </div>
+              <div class="modalItem">
+                <div class="k">PLAYER B</div>
+                <div class="v" id="readyBState">ยังไม่เข้า</div>
+              </div>
+            </div>
+            <div class="modalActions">
+              <button class="btn good" id="btnReadyA" type="button">🅰️ A Ready</button>
+              <button class="btn good" id="btnReadyB" type="button">🅱️ B Ready</button>
+              <button class="btn primary" id="btnHostStart" type="button" disabled>▶ Host Start</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- END -->
+    <div id="endOverlay" aria-hidden="true">
+      <div class="modalCard">
+        <div style="font-weight:1000;font-size:18px" id="endTitle">จบเกม</div>
+        <div style="margin-top:6px;font-size:12px;opacity:.9;word-break:break-all" id="endSub">—</div>
+
+        <div class="modalGrid">
+          <div class="modalItem"><div class="k">GRADE</div><div class="v" id="endGrade">—</div></div>
+          <div class="modalItem"><div class="k">TEAM SCORE</div><div class="v" id="endScore">0</div></div>
+          <div class="modalItem"><div class="k">PLAYER A</div><div class="v" id="endP1">0</div></div>
+          <div class="modalItem"><div class="k">PLAYER B</div><div class="v" id="endP2">0</div></div>
+        </div>
+
+        <div class="modalActions">
+          <button class="btn" id="btnCopy">Copy Summary</button>
+          <button class="btn" id="btnReplay">Replay</button>
+          <button class="btn primary" id="btnNextCooldown">ถัดไป: Cooldown</button>
+          <button class="btn primary" id="btnBackHub2">Back HUB</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { createAIHooks } from '../vr/ai-hooks.js';
+    import { boot as bootPlateCoop } from './plate-coop.js';
+    // เตรียมไว้สำหรับรอบถัดไป
+    // import { createRoom, joinRoom, markReady, hostStart } from './plate-coop-room.js';
+    // import { attachRoomSync } from './plate-coop-net.js';
+    // import { renderRoomQr } from './plate-coop-qr.js';
+
+    function normalizeHub(raw){
+      raw = String(raw || '').trim();
+      const DEFAULT = '../hub.html';
+      if(!raw) return DEFAULT;
+      try{
+        const u = new URL(raw, location.href);
+        u.pathname = u.pathname
+          .replace('/herohealth/vr-plate/hub.html', '/herohealth/hub.html')
+          .replace('/herohealth/plate/hub.html', '/herohealth/hub.html')
+          .replace('/vr-plate/hub.html', '/hub.html')
+          .replace('/plate/hub.html', '/hub.html');
+        return u.toString();
+      }catch(_){
+        return DEFAULT;
+      }
+    }
+
+    const U = new URL(location.href);
+    const runMode = String(U.searchParams.get('run') || 'play').toLowerCase();
+    const diff = String(U.searchParams.get('diff') || 'normal').toLowerCase();
+    const view = String(U.searchParams.get('view') || 'mobile').toLowerCase();
+    const seed = U.searchParams.get('seed') ?? String((Date.now() ^ (Math.random()*1e9))|0);
+    const pro  = (U.searchParams.get('pro') === '1');
+    const mode = 'coop';
+    const hub = normalizeHub(U.searchParams.get('hub'));
+
+    if(view) document.body.setAttribute('data-view', view);
+
+    const ai = createAIHooks({
+      seed: String(seed),
+      runMode,
+      game: 'plate',
+      diff,
+      device: view
+    });
+    window.HHA_AI = ai;
+
+    let paused = false;
+    const btnPause = document.getElementById('btnPause');
+    function setPauseBtn(){ if(btnPause) btnPause.textContent = paused ? '▶️ RESUME' : '⏸️ PAUSE'; }
+    setPauseBtn();
+
+    btnPause?.addEventListener('click', ()=>{
+      paused = !paused;
+      setPauseBtn();
+      try{ window.__PLATE_SET_PAUSED__?.(paused); }catch(e){}
+    });
+
+    document.getElementById('btnRestart')?.addEventListener('click', ()=>{
+      try{
+        const u = new URL(location.href);
+        if(runMode !== 'research') u.searchParams.set('seed', String((Date.now() ^ (Math.random()*1e9))|0));
+        location.href = u.toString();
+      }catch(e){ location.reload(); }
+    });
+
+    document.getElementById('btnBackHub')?.addEventListener('click', ()=> location.href = hub);
+    document.getElementById('btnBackHub2')?.addEventListener('click', ()=> location.href = hub);
+
+    // placeholders ให้ปุ่มกดได้ก่อน ระหว่างรอ room/net logic จริง
+    document.getElementById('btnCreateRoom')?.addEventListener('click', ()=>{
+      document.getElementById('lobbyRoomCode').textContent = 'PLT123';
+      document.getElementById('uiRoom').textContent = 'PLT123';
+      document.getElementById('lobbyHostState').textContent = 'YES';
+      document.getElementById('lobbyMyRole').textContent = 'A';
+      document.getElementById('uiRole').textContent = 'A';
+      document.getElementById('joinUrlText').textContent = `join url: ${location.origin}${location.pathname}?room=PLT123`;
+      document.getElementById('qrMount').textContent = 'QR code placeholder';
+      document.getElementById('readyAState').textContent = 'A เข้าห้องแล้ว';
+    });
+
+    document.getElementById('btnJoinRoom')?.addEventListener('click', ()=>{
+      const code = (document.getElementById('joinRoomInput')?.value || '').trim().toUpperCase() || 'PLT123';
+      document.getElementById('lobbyRoomCode').textContent = code;
+      document.getElementById('uiRoom').textContent = code;
+      document.getElementById('lobbyMyRole').textContent = 'B';
+      document.getElementById('uiRole').textContent = 'B';
+      document.getElementById('readyBState').textContent = 'B เข้าห้องแล้ว';
+    });
+
+    document.getElementById('btnReadyA')?.addEventListener('click', ()=>{
+      document.getElementById('readyAState').textContent = 'A พร้อมแล้ว';
+      maybeEnableHostStart();
+    });
+
+    document.getElementById('btnReadyB')?.addEventListener('click', ()=>{
+      document.getElementById('readyBState').textContent = 'B พร้อมแล้ว';
+      maybeEnableHostStart();
+    });
+
+    document.getElementById('btnReadyMe')?.addEventListener('click', ()=>{
+      // ต่อกับ room logic จริงรอบถัดไป
+      const myRole = document.getElementById('lobbyMyRole').textContent.trim();
+      if(myRole === 'A') document.getElementById('readyAState').textContent = 'A พร้อมแล้ว';
+      if(myRole === 'B') document.getElementById('readyBState').textContent = 'B พร้อมแล้ว';
+      maybeEnableHostStart();
+    });
+
+    function maybeEnableHostStart(){
+      const a = document.getElementById('readyAState').textContent.includes('พร้อม');
+      const b = document.getElementById('readyBState').textContent.includes('พร้อม');
+      document.getElementById('btnHostStart').disabled = !(a && b);
+    }
+
+    document.getElementById('btnHostStart')?.addEventListener('click', ()=>{
+      document.getElementById('lobbyOverlay')?.setAttribute('aria-hidden', 'true');
+      try{ window.__PLATE_COOP_START__?.(); }catch(e){}
+    });
+
+    document.getElementById('btnLeaveRoom')?.addEventListener('click', ()=>{
+      document.getElementById('lobbyOverlay')?.setAttribute('aria-hidden', 'false');
+    });
+
+    bootPlateCoop({
+      mount: document.getElementById('plate-layer'),
+      view, run: runMode, diff,
+      time: Number(U.searchParams.get('time') || 90),
+      seed,
+      pid: String(U.searchParams.get('pid') || 'anon'),
+      hub,
+      cooldown: (U.searchParams.get('cooldown') === '1' || U.searchParams.get('cd') === '1'),
+      mode,
+      pro,
+      ai
+    });
+  </script>
+</body>
+</html>
