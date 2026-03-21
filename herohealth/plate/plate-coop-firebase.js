@@ -19,7 +19,6 @@ import {
   ref,
   get,
   set,
-  update,
   remove,
   onValue,
   off,
@@ -40,8 +39,6 @@ function deepClone(obj){
   return JSON.parse(JSON.stringify(obj));
 }
 
-function noop(){}
-
 function normalizeRoomId(roomId=''){
   return String(roomId || '').trim().toUpperCase();
 }
@@ -58,12 +55,14 @@ function safeMergeRoom(prev = {}, partial = {}){
       ...(prev.players || {}),
       ...deepClone(partial.players)
     };
+
     if (partial.players.A){
       next.players.A = {
         ...(prev.players?.A || {}),
         ...deepClone(partial.players.A)
       };
     }
+
     if (partial.players.B){
       next.players.B = {
         ...(prev.players?.B || {}),
@@ -121,7 +120,6 @@ function actionsPath(basePath, roomId){
 
 /* --------------------------------------------------
  * ROOM ADAPTER
- * --------------------------------------------------
  * required by plate-coop-room.js:
  * - getRoom(roomId)
  * - setRoom(roomId, roomState)
@@ -194,7 +192,6 @@ export function createFirebaseRoomAdapter({
     async deleteRoom(roomId){
       const id = normalizeRoomId(roomId);
       if (!id) return;
-
       await remove(ref(database, roomPath(basePath, id)));
     }
   };
@@ -202,7 +199,6 @@ export function createFirebaseRoomAdapter({
 
 /* --------------------------------------------------
  * NET ADAPTER
- * --------------------------------------------------
  * required by plate-coop-net.js:
  * - publishState(roomId, state)
  * - getState(roomId)
