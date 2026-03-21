@@ -1,1271 +1,985 @@
-const __qs = new URLSearchParams(location.search);
+/* =========================================================
+ * /herohealth/vr-goodjunk/goodjunk.safe.race.js
+ * FULL SAFE LAYER FOR RACE
+ * ---------------------------------------------------------
+ * Features:
+ * - robust self detection (PID-first)
+ * - race HUD bridge
+ * - room/player bridge
+ * - stable race sorting
+ * - fixed result table / rank badge
+ * - no "guess first row as me"
+ * - fallback result modal if existing result DOM is absent
+ * - public API for legacy gameplay logic
+ *
+ * Public API:
+ *   window.RaceSafe.setState(patch)
+ *   window.RaceSafe.setRoomState(room)
+ *   window.RaceSafe.setPlayers(players)
+ *   window.RaceSafe.onJudge(judge)
+ *   window.RaceSafe.finishGame(detail)
+ *   window.RaceSafe.render()
+ *   window.RaceSafe.getState()
+ * ========================================================= */
 
-function __makeDevicePid() {
-  try {
-    const KEY = 'GJ_DEVICE_PID';
-    let pid = localStorage.getItem(KEY);
-    if (!pid) {
-      pid = `p-${Math.random().toString(36).slice(2, 10)}`;
-      localStorage.setItem(KEY, pid);
-    }
-    return pid;
-  } catch {
-    return `p-${Math.random().toString(36).slice(2, 10)}`;
+(() => {
+  if (window.__GJ_RACE_SAFE_LOADED__) return;
+  window.__GJ_RACE_SAFE_LOADED__ = true;
+
+  const LS_KEYS = {
+    devicePid: 'GJ_DEVICE_PID',
+    selfPidGlobal: 'GJ_RACE_SELF_PID',
+    selfNameGlobal: 'GJ_RACE_SELF_NAME',
+    selfPidByRoomPrefix: 'GJ_RACE_SELF_BY_ROOM:',
+    selfNameByRoomPrefix: 'GJ_RACE_SELF_NAME_BY_ROOM:',
+    lastSummaryScoped: 'HHA_LAST_SUMMARY:goodjunk-race',
+    lastSummaryGlobal: 'HHA_LAST_SUMMARY'
+  };
+
+  const REF = {
+    hud: null,
+    mode: null,
+    room: null,
+    score: null,
+    time: null,
+    miss: null,
+    streak: null,
+    resultMount: null
+  };
+
+  const BRIDGE = {
+    started: false,
+    timer: null,
+    resultShown: false,
+    wrapped: false
+  };
+
+  const STATE = {
+    pid: '',
+    name: '',
+    roomId: '-',
+    score: 0,
+    miss: 0,
+    bestStreak: 0,
+    timeLeftSec: 0,
+    players: [],
+    room: null,
+    ended: false,
+    endedAt: '',
+    endReason: ''
+  };
+
+  function byId(id) {
+    return document.getElementById(id);
   }
-}
 
-function __normalizePid(rawPid) {
-  const v = String(rawPid || '').trim().replace(/[.#$[\]/]/g, '-');
-  if (!v) return __makeDevicePid();
-  if (v.toLowerCase() === 'anon') return __makeDevicePid();
-  return v;
-}
+  function q(sel, root = document) {
+    try { return root.querySelector(sel); } catch (_) { return null; }
+  }
 
-function __normalizeRoomId(rawRoomId) {
-  return String(rawRoomId || '').toUpperCase().replace(/[^A-Z0-9-]/g, '').slice(0, 16);
-}
+  function qa(sel, root = document) {
+    try { return Array.from(root.querySelectorAll(sel)); } catch (_) { return []; }
+  }
 
-const RUN_CTX = window.__GJ_RACE_CTX__ || {
-  pid: __normalizePid(__qs.get('pid') || ''),
-  name: __qs.get('name') || '',
-  studyId: __qs.get('studyId') || '',
-  roomId: __normalizeRoomId(__qs.get('roomId') || ''),
-  mode: 'race',
-  diff: __qs.get('diff') || 'normal',
-  time: __qs.get('time') || '120',
-  seed: __qs.get('seed') || String(Date.now()),
-  startAt: Number(__qs.get('startAt') || 0) || 0,
-  hub: __qs.get('hub') || '../hub.html',
-  view: __qs.get('view') || 'mobile',
-  run: __qs.get('run') || 'play',
-  gameId: __qs.get('gameId') || 'goodjunk'
-};
+  function txt(v) {
+    return String(v ?? '').trim();
+  }
 
-const GJ_PID = __normalizePid(RUN_CTX.pid || '');
-const GJ_NAME = String(RUN_CTX.name || GJ_PID).trim();
-const GJ_ROOM_ID = __normalizeRoomId(RUN_CTX.roomId || '');
-const GJ_START_AT = Number(RUN_CTX.startAt || 0) || 0;
-const GJ_HUB = RUN_CTX.hub || '../hub.html';
-const GJ_GAME_ID = RUN_CTX.gameId || 'goodjunk';
-const ROOM_PATH = GJ_ROOM_ID ? `hha-battle/goodjunk/rooms/${GJ_ROOM_ID}` : '';
-const GAME_MOUNT = document.getElementById('gameMount') || document.body;
-const RACE_UI = window.__gjRaceUi || null;
+  function num(v, d = 0) {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : d;
+  }
 
-const STYLE_ID = 'goodjunk-safe-race-style-20260319-v1';
-const ROOT_ID = 'gjRaceRoot';
-const HEARTBEAT_MS = 2500;
-const STALE_MS = 45000;
+  function int(v, d = 0) {
+    return Math.round(num(v, d));
+  }
 
-let fbReady = false;
-let db = null;
-let roomRef = null;
-let myPlayerRef = null;
-let roomListenerBound = false;
-let gateRAF = 0;
-let heartbeatTimer = 0;
-let watchdogTimer = 0;
-let booted = false;
-let localRunActive = false;
-let summaryBound = false;
-let recoveredStartAt = 0;
-let lastSummary = null;
-let enteredFinish = false;
+  function esc(s) {
+    return String(s ?? '')
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;');
+  }
 
-const GOOD_ITEMS = [
-  { emoji: '🍎', label: 'apple' },
-  { emoji: '🥕', label: 'carrot' },
-  { emoji: '🥦', label: 'broccoli' },
-  { emoji: '🍌', label: 'banana' },
-  { emoji: '🥛', label: 'milk' },
-  { emoji: '🥗', label: 'salad' },
-  { emoji: '🍉', label: 'watermelon' }
-];
+  function qsGet(k, d = '') {
+    try {
+      return new URL(location.href).searchParams.get(k) ?? d;
+    } catch (_) {
+      return d;
+    }
+  }
 
-const JUNK_ITEMS = [
-  { emoji: '🍟', label: 'fries' },
-  { emoji: '🍩', label: 'donut' },
-  { emoji: '🍭', label: 'candy' },
-  { emoji: '🍔', label: 'burger' },
-  { emoji: '🥤', label: 'soda' },
-  { emoji: '🍕', label: 'pizza' },
-  { emoji: '🧁', label: 'cupcake' }
-];
+  function parseNumText(v, d = 0) {
+    const n = Number(String(v || '').replace(/[^\d.-]/g, ''));
+    return Number.isFinite(n) ? n : d;
+  }
 
-const DIFF_PRESET = {
-  easy:   { spawnMs: 930, goodRatio: 0.68, speedMin: 90,  speedMax: 150, targetSizeMin: 60, targetSizeMax: 84 },
-  normal: { spawnMs: 760, goodRatio: 0.63, speedMin: 110, speedMax: 190, targetSizeMin: 58, targetSizeMax: 82 },
-  hard:   { spawnMs: 610, goodRatio: 0.58, speedMin: 130, speedMax: 240, targetSizeMin: 56, targetSizeMax: 80 }
-};
+  function clamp(n, min, max) {
+    return Math.max(min, Math.min(max, n));
+  }
 
-const state = {
-  diff: DIFF_PRESET[RUN_CTX.diff] ? RUN_CTX.diff : 'normal',
-  totalMs: 0,
-  timeLeftMs: 0,
-  score: 0,
-  miss: 0,
-  streak: 0,
-  bestStreak: 0,
-  hitsGood: 0,
-  hitsBad: 0,
-  missedGood: 0,
-  spawnedGood: 0,
-  spawnedJunk: 0,
-  running: false,
-  ended: false,
-  startTs: 0,
-  lastFrameTs: 0,
-  lastSpawnAccum: 0,
-  frameRaf: 0,
-  targetSeq: 0,
-  targets: new Map(),
-  rect: { width: 0, height: 0 }
-};
+  function readText(key) {
+    try {
+      return txt(localStorage.getItem(key));
+    } catch (_) {
+      return '';
+    }
+  }
 
-const ui = {
-  root: null,
-  stage: null,
-  layer: null,
-  score: null,
-  timer: null,
-  miss: null,
-  streak: null,
-  hint: null,
-  progress: null,
-  stats: null,
-  centerTip: null
-};
+  function writeText(key, value) {
+    try {
+      localStorage.setItem(key, txt(value));
+    } catch (_) {}
+  }
 
-const rng = createSeededRng(RUN_CTX.seed || Date.now());
+  function writeJSON(key, value) {
+    try {
+      localStorage.setItem(key, JSON.stringify(value));
+    } catch (_) {}
+  }
 
-boot();
+  function safeCall(fn, ...args) {
+    try {
+      if (typeof fn === 'function') return fn(...args);
+    } catch (err) {
+      console.warn('[race-safe] safeCall error:', err);
+    }
+    return undefined;
+  }
 
-function boot() {
-  injectStyle();
-  buildShell();
-  bindShell();
-  attachRoomListener();
+  function nowIso() {
+    try {
+      return new Date().toISOString();
+    } catch (_) {
+      return '';
+    }
+  }
 
-  bootWithGate(async () => {
-    const ok = await ensureFirebase();
-    if (!ok) {
-      showGate('เปิดห้อง Race ไม่สำเร็จ', '...', 'ตรวจสอบ room แล้วลองใหม่');
-      return;
+  function shortDateTime(iso) {
+    try {
+      const d = new Date(iso);
+      if (Number.isNaN(d.getTime())) return '-';
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      const hh = String(d.getHours()).padStart(2, '0');
+      const mi = String(d.getMinutes()).padStart(2, '0');
+      return `${yyyy}-${mm}-${dd} ${hh}:${mi}`;
+    } catch (_) {
+      return '-';
+    }
+  }
+
+  function fmtClock(sec) {
+    const s = Math.max(0, int(sec, 0));
+    const mm = Math.floor(s / 60);
+    const ss = s % 60;
+    return `${mm}:${String(ss).padStart(2, '0')}`;
+  }
+
+  function devicePid() {
+    try {
+      let pid = localStorage.getItem(LS_KEYS.devicePid);
+      if (!pid) {
+        pid = `p-${Math.random().toString(36).slice(2, 10)}`;
+        localStorage.setItem(LS_KEYS.devicePid, pid);
+      }
+      return pid;
+    } catch (_) {
+      return `p-${Math.random().toString(36).slice(2, 10)}`;
+    }
+  }
+
+  function normalizePid(raw) {
+    const v = txt(raw).replace(/[.#$[\]/]/g, '-');
+    if (!v) return '';
+    if (v.toLowerCase() === 'anon') return '';
+    return v;
+  }
+
+  function normalizeName(raw) {
+    return txt(raw).replace(/\s+/g, ' ').slice(0, 64);
+  }
+
+  function currentRoomId() {
+    const raw = txt(
+      STATE.roomId ||
+      STATE.room?.roomId ||
+      qsGet('roomId') ||
+      qsGet('room') ||
+      window.__RACE_ROOM__?.roomId ||
+      window.raceRoom?.roomId ||
+      window.roomState?.roomId ||
+      window.state?.room?.roomId ||
+      window.gameState?.room?.roomId
+    );
+    return raw.toUpperCase().replace(/[^A-Z0-9-]/g, '').slice(0, 24) || '-';
+  }
+
+  function getSelfPid() {
+    return normalizePid(
+      window.RUN_CTX?.pid ||
+      window.RUN_CTX?.playerPid ||
+      window.__GJ_CTX?.pid ||
+      window.__RACE_SELF_PID__ ||
+      qsGet('pid') ||
+      readText(LS_KEYS.selfPidGlobal) ||
+      devicePid()
+    );
+  }
+
+  function getSelfName() {
+    return normalizeName(
+      window.RUN_CTX?.name ||
+      window.RUN_CTX?.nick ||
+      window.__GJ_CTX?.name ||
+      window.__RACE_SELF_NAME__ ||
+      qsGet('name') ||
+      readText(LS_KEYS.selfNameGlobal)
+    );
+  }
+
+  function rememberSelfIdentity() {
+    const roomId = currentRoomId();
+    const pid = getSelfPid();
+    const name = getSelfName();
+
+    if (pid) {
+      window.__RACE_SELF_PID__ = pid;
+      writeText(LS_KEYS.selfPidGlobal, pid);
+      if (roomId && roomId !== '-') {
+        writeText(`${LS_KEYS.selfPidByRoomPrefix}${roomId}`, pid);
+      }
     }
 
-    await setupOnDisconnect();
-    await markPresence({
-      phase: 'run',
-      ready: true,
-      connected: true,
-      finished: false
+    if (name) {
+      window.__RACE_SELF_NAME__ = name;
+      writeText(LS_KEYS.selfNameGlobal, name);
+      if (roomId && roomId !== '-') {
+        writeText(`${LS_KEYS.selfNameByRoomPrefix}${roomId}`, name);
+      }
+    }
+  }
+
+  function gatherKnownSelfPidSet(roomId = '') {
+    const set = new Set();
+    [
+      getSelfPid(),
+      normalizePid(qsGet('pid')),
+      normalizePid(window.RUN_CTX?.pid),
+      normalizePid(window.RUN_CTX?.playerPid),
+      normalizePid(window.__GJ_CTX?.pid),
+      normalizePid(readText(LS_KEYS.selfPidGlobal)),
+      normalizePid(devicePid()),
+      roomId ? normalizePid(readText(`${LS_KEYS.selfPidByRoomPrefix}${roomId}`)) : ''
+    ].forEach(v => { if (v) set.add(v); });
+    return set;
+  }
+
+  function gatherKnownSelfNameSet(roomId = '') {
+    const set = new Set();
+    [
+      getSelfName(),
+      normalizeName(qsGet('name')),
+      normalizeName(window.RUN_CTX?.name),
+      normalizeName(window.RUN_CTX?.nick),
+      normalizeName(window.__GJ_CTX?.name),
+      normalizeName(readText(LS_KEYS.selfNameGlobal)),
+      roomId ? normalizeName(readText(`${LS_KEYS.selfNameByRoomPrefix}${roomId}`)) : ''
+    ].forEach(v => { if (v) set.add(v); });
+    return set;
+  }
+
+  function normalizePlayers(input) {
+    const arr = Array.isArray(input)
+      ? input
+      : Array.isArray(input?.players)
+        ? input.players
+        : Object.values(input?.players || {});
+
+    return arr.map((p, idx) => ({
+      pid: normalizePid(p?.pid || p?.playerId || p?.id || `p${idx + 1}`),
+      name: normalizeName(p?.name || p?.nick || p?.playerName || p?.displayName || `Player ${idx + 1}`),
+      score: int(p?.score, 0),
+      miss: int(p?.miss ?? p?.misses, 0),
+      bestStreak: int(p?.bestStreak ?? p?.comboMax ?? p?.streak, 0),
+      ready: !!p?.ready,
+      isHost: !!p?.isHost,
+      raw: p || {}
+    }));
+  }
+
+  function sortRacePlayers(players) {
+    return [...players].sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      if (a.miss !== b.miss) return a.miss - b.miss;
+      if (b.bestStreak !== a.bestStreak) return b.bestStreak - a.bestStreak;
+      return a.name.localeCompare(b.name, 'th');
     });
-
-    startHeartbeat();
-    startWatchdog();
-    startGame();
-  });
-
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible' && !state.ended) {
-      markPresence({
-        phase: 'run',
-        ready: true,
-        connected: true,
-        finished: false
-      });
-    }
-  });
-
-  window.addEventListener('focus', () => {
-    if (!state.ended) {
-      markPresence({
-        phase: 'run',
-        ready: true,
-        connected: true,
-        finished: false
-      });
-    }
-  });
-
-  window.addEventListener('beforeunload', () => {
-    stopHeartbeat();
-    stopWatchdog();
-    if (!state.ended) markDisconnected();
-  });
-
-  window.addEventListener('resize', refreshStageRect);
-}
-
-function injectStyle() {
-  if (document.getElementById(STYLE_ID)) return;
-
-  const style = document.createElement('style');
-  style.id = STYLE_ID;
-  style.textContent = `
-    #${ROOT_ID}{position:absolute;inset:0;z-index:2;overflow:hidden;user-select:none;-webkit-user-select:none;touch-action:manipulation}
-    .gj-shell{position:absolute;inset:0;display:grid;grid-template-rows:auto 1fr auto;overflow:hidden}
-    .gj-topbar{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap;padding:60px 14px 12px;padding-top:calc(60px + env(safe-area-inset-top,0px));pointer-events:none}
-    .gj-chip-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;pointer-events:none}
-    .gj-chip{display:inline-flex;align-items:center;gap:8px;padding:8px 10px;border-radius:999px;border:1px solid rgba(148,163,184,.18);background:rgba(2,6,23,.66);color:#e5e7eb;font-weight:900;font-size:13px;backdrop-filter:blur(8px);box-shadow:0 10px 24px rgba(0,0,0,.18)}
-    .gj-chip span{color:#94a3b8;font-weight:800}
-    .gj-stage-wrap{position:relative;min-height:0;padding:8px 10px 10px}
-    .gj-stage{position:relative;width:100%;height:100%;min-height:320px;overflow:hidden;border:1px solid rgba(148,163,184,.18);border-radius:26px;background:radial-gradient(circle at 50% 0%, rgba(56,189,248,.10), transparent 30%),linear-gradient(180deg, rgba(15,23,42,.72), rgba(2,6,23,.78));box-shadow:0 24px 64px rgba(0,0,0,.22)}
-    .gj-stage::before{content:"";position:absolute;inset:0;background:linear-gradient(180deg, rgba(255,255,255,.04), transparent 30%),linear-gradient(0deg, rgba(255,255,255,.03), transparent 30%);pointer-events:none}
-    .gj-target-layer{position:absolute;inset:0;overflow:hidden}
-    .gj-center-tip{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(86vw,420px);padding:16px 18px;border-radius:18px;background:rgba(2,6,23,.50);border:1px solid rgba(148,163,184,.18);color:#e5e7eb;text-align:center;font-weight:900;backdrop-filter:blur(6px);pointer-events:none;opacity:.96;transition:opacity .35s ease, transform .35s ease;box-shadow:0 16px 36px rgba(0,0,0,.18)}
-    .gj-center-tip.hide{opacity:0;transform:translate(-50%,-50%) scale(.96)}
-    .gj-target{position:absolute;display:grid;place-items:center;border-radius:20px;border:1px solid rgba(255,255,255,.16);box-shadow:0 14px 28px rgba(0,0,0,.18);transform:translate3d(0,0,0);cursor:pointer;outline:none;padding:0;overflow:hidden;background:rgba(15,23,42,.78)}
-    .gj-target.good{background:radial-gradient(circle at 30% 25%, rgba(255,255,255,.22), transparent 26%),linear-gradient(180deg, rgba(34,197,94,.30), rgba(34,197,94,.18)),rgba(15,23,42,.84);border-color:rgba(34,197,94,.30)}
-    .gj-target.junk{background:radial-gradient(circle at 30% 25%, rgba(255,255,255,.20), transparent 26%),linear-gradient(180deg, rgba(244,63,94,.26), rgba(244,63,94,.14)),rgba(15,23,42,.84);border-color:rgba(244,63,94,.28)}
-    .gj-emoji{font-size:32px;line-height:1;transform:translateY(-2px);filter:drop-shadow(0 6px 10px rgba(0,0,0,.18))}
-    .gj-type{position:absolute;left:8px;right:8px;bottom:6px;font-size:10px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;color:#e2e8f0;opacity:.92;text-align:center;white-space:nowrap}
-    .gj-fx{position:absolute;font-size:16px;font-weight:900;pointer-events:none;transform:translate(-50%,-50%);animation:gj-fx-up .75s ease forwards;text-shadow:0 8px 18px rgba(0,0,0,.22)}
-    @keyframes gj-fx-up{from{opacity:1;transform:translate(-50%,-20%)}to{opacity:0;transform:translate(-50%,-140%)}}
-    .gj-bottom{padding:0 12px calc(12px + env(safe-area-inset-bottom,0px))}
-    .gj-bottom-card{border:1px solid rgba(148,163,184,.18);border-radius:18px;padding:12px;background:rgba(2,6,23,.62);backdrop-filter:blur(8px);box-shadow:0 10px 24px rgba(0,0,0,.18)}
-    .gj-bottom-top{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
-    .gj-progress{position:relative;width:100%;height:12px;border-radius:999px;overflow:hidden;border:1px solid rgba(148,163,184,.18);background:rgba(255,255,255,.06)}
-    .gj-progress-bar{width:100%;height:100%;background:linear-gradient(90deg, rgba(56,189,248,.85), rgba(14,165,233,.85));transform-origin:left center;transition:transform .12s linear}
-    .gj-legend{display:flex;gap:10px;flex-wrap:wrap;font-size:13px;color:#cbd5e1;line-height:1.5}
-    .gj-legend strong{color:#e5e7eb}
-  `;
-  document.head.appendChild(style);
-}
-
-function buildShell() {
-  GAME_MOUNT.innerHTML = `
-    <div id="${ROOT_ID}">
-      <div class="gj-shell">
-        <header class="gj-topbar">
-          <div class="gj-chip-row">
-            <div class="gj-chip"><span>My Score</span><strong id="gjScore">0</strong></div>
-            <div class="gj-chip"><span>Time</span><strong id="gjTimer">0</strong></div>
-            <div class="gj-chip"><span>Miss</span><strong id="gjMiss">0</strong></div>
-            <div class="gj-chip"><span>Best Streak</span><strong id="gjStreak">0</strong></div>
-          </div>
-        </header>
-
-        <div class="gj-stage-wrap">
-          <div class="gj-stage" id="gjStage">
-            <div class="gj-center-tip" id="gjCenterTip">เก็บของดีให้มากที่สุด และระวัง junk</div>
-            <div class="gj-target-layer" id="gjTargetLayer"></div>
-          </div>
-        </div>
-
-        <div class="gj-bottom">
-          <div class="gj-bottom-card">
-            <div class="gj-bottom-top">
-              <div class="gj-legend" id="gjStatsText">
-                <div><strong>Good hit:</strong> 0</div>
-                <div><strong>Junk hit:</strong> 0</div>
-                <div><strong>Good missed:</strong> 0</div>
-              </div>
-              <div class="gj-legend" id="gjHintText">
-                <div>Tip: เก็บของดีให้ได้มากที่สุด</div>
-              </div>
-            </div>
-            <div class="gj-progress"><div class="gj-progress-bar" id="gjProgressBar"></div></div>
-          </div>
-        </div>
-      </div>
-    </div>
-  `;
-
-  ui.root = document.getElementById(ROOT_ID);
-  ui.stage = document.getElementById('gjStage');
-  ui.layer = document.getElementById('gjTargetLayer');
-  ui.score = document.getElementById('gjScore');
-  ui.timer = document.getElementById('gjTimer');
-  ui.miss = document.getElementById('gjMiss');
-  ui.streak = document.getElementById('gjStreak');
-  ui.hint = document.getElementById('gjHintText');
-  ui.progress = document.getElementById('gjProgressBar');
-  ui.stats = document.getElementById('gjStatsText');
-  ui.centerTip = document.getElementById('gjCenterTip');
-
-  refreshStageRect();
-  renderHud();
-}
-
-function bindShell() {
-  if (summaryBound) return;
-  summaryBound = true;
-
-  document.getElementById('btnRaceRematch')?.addEventListener('click', async () => {
-    await resetRoomForRematch();
-    location.href = buildLobbyUrl();
-  });
-
-  document.getElementById('btnRaceBackLobby')?.addEventListener('click', () => {
-    location.href = buildLobbyUrl();
-  });
-
-  document.getElementById('btnRaceExport')?.addEventListener('click', () => {
-    downloadJson(lastSummary, `goodjunk-race-${safeFilePart(GJ_ROOM_ID)}-${Date.now()}.json`);
-  });
-
-  document.getElementById('btnRaceBackHub')?.addEventListener('click', () => {
-    location.href = GJ_HUB;
-  });
-}
-
-function refreshStageRect() {
-  const rect = ui.stage?.getBoundingClientRect();
-  if (!rect) return;
-  state.rect.width = Math.max(300, rect.width);
-  state.rect.height = Math.max(320, rect.height);
-}
-
-function createSeededRng(seedInput) {
-  const seedText = String(seedInput || Date.now());
-  let h = 1779033703 ^ seedText.length;
-  for (let i = 0; i < seedText.length; i++) {
-    h = Math.imul(h ^ seedText.charCodeAt(i), 3432918353);
-    h = (h << 13) | (h >>> 19);
-  }
-  return function() {
-    h = Math.imul(h ^ (h >>> 16), 2246822507);
-    h = Math.imul(h ^ (h >>> 13), 3266489909);
-    h ^= h >>> 16;
-    return (h >>> 0) / 4294967296;
-  };
-}
-
-function rand(){ return rng(); }
-function randRange(min, max){ return min + (max - min) * rand(); }
-function clampInt(v, min, max){ return Math.max(min, Math.min(max, Math.floor(v))); }
-function pick(arr){ return arr[Math.floor(rand() * arr.length)]; }
-
-function startGame() {
-  if (state.running || state.ended) return;
-
-  state.totalMs = clampInt(Number(RUN_CTX.time || 120) * 1000, 30000, 600000);
-  state.timeLeftMs = state.totalMs;
-  state.score = 0;
-  state.miss = 0;
-  state.streak = 0;
-  state.bestStreak = 0;
-  state.hitsGood = 0;
-  state.hitsBad = 0;
-  state.missedGood = 0;
-  state.spawnedGood = 0;
-  state.spawnedJunk = 0;
-  state.running = true;
-  state.ended = false;
-  state.startTs = performance.now();
-  state.lastFrameTs = state.startTs;
-  state.lastSpawnAccum = 0;
-  state.targetSeq = 0;
-  state.targets.clear();
-  localRunActive = true;
-  enteredFinish = false;
-
-  if (ui.layer) ui.layer.innerHTML = '';
-  if (ui.centerTip) {
-    ui.centerTip.classList.remove('hide');
-    ui.centerTip.textContent = 'เก็บของดีให้มากที่สุด แล้วอย่าแตะ junk';
-    setTimeout(() => ui.centerTip?.classList.add('hide'), 1800);
   }
 
-  if (RACE_UI?.setStatus) RACE_UI.setStatus('running');
+  function resolveSelfPlayer(players, roomId = '') {
+    const knownPids = gatherKnownSelfPidSet(roomId);
+    const knownNames = gatherKnownSelfNameSet(roomId);
 
-  hideSummary();
-  renderHud();
-  refreshStageRect();
-  loop(performance.now());
-}
+    let self = players.find(p => p.pid && knownPids.has(p.pid));
+    if (self) return self;
 
-function loop(ts) {
-  if (!state.running || state.ended) return;
+    const matchedByName = players.filter(p => p.name && knownNames.has(p.name));
+    if (matchedByName.length === 1) return matchedByName[0];
 
-  const dt = Math.min(48, ts - state.lastFrameTs || 16);
-  state.lastFrameTs = ts;
-
-  state.timeLeftMs -= dt;
-  if (state.timeLeftMs <= 0) {
-    state.timeLeftMs = 0;
-    renderHud();
-    endGame('time-up');
-    return;
-  }
-
-  updateSpawner(dt);
-  updateTargets(dt);
-  renderHud();
-
-  state.frameRaf = requestAnimationFrame(loop);
-}
-
-function updateSpawner(dt) {
-  const preset = DIFF_PRESET[state.diff] || DIFF_PRESET.normal;
-  state.lastSpawnAccum += dt;
-
-  while (state.lastSpawnAccum >= preset.spawnMs) {
-    state.lastSpawnAccum -= preset.spawnMs;
-    spawnTarget();
-  }
-}
-
-function spawnTarget() {
-  refreshStageRect();
-
-  const preset = DIFF_PRESET[state.diff] || DIFF_PRESET.normal;
-  const isGood = rand() < preset.goodRatio;
-  const item = pick(isGood ? GOOD_ITEMS : JUNK_ITEMS);
-
-  const size = randRange(preset.targetSizeMin, preset.targetSizeMax);
-  const x = randRange(10, Math.max(12, state.rect.width - size - 10));
-  const y = -size - randRange(0, 50);
-  const speed = randRange(preset.speedMin, preset.speedMax);
-  const drift = randRange(-36, 36);
-  const id = `t-${++state.targetSeq}`;
-
-  const el = document.createElement('button');
-  el.type = 'button';
-  el.className = `gj-target ${isGood ? 'good' : 'junk'}`;
-  el.style.width = `${size}px`;
-  el.style.height = `${size}px`;
-  el.innerHTML = `
-    <div class="gj-emoji">${item.emoji}</div>
-    <div class="gj-type">${isGood ? 'good' : 'junk'}</div>
-  `;
-
-  const target = { id, el, type: isGood ? 'good' : 'junk', x, y, size, speed, drift, dead: false };
-
-  el.addEventListener('pointerdown', (ev) => {
-    ev.preventDefault();
-    hitTarget(id);
-  }, { passive: false });
-
-  ui.layer?.appendChild(el);
-  state.targets.set(id, target);
-
-  if (isGood) state.spawnedGood += 1;
-  else state.spawnedJunk += 1;
-
-  drawTarget(target);
-}
-
-function drawTarget(target) {
-  target.el.style.transform = `translate3d(${target.x}px, ${target.y}px, 0)`;
-}
-
-function updateTargets(dt) {
-  const stageW = state.rect.width;
-  const stageH = state.rect.height;
-
-  state.targets.forEach((target) => {
-    if (target.dead) return;
-
-    target.y += (target.speed * dt) / 1000;
-    target.x += (target.drift * dt) / 1000;
-
-    if (target.x < 6) {
-      target.x = 6;
-      target.drift *= -1;
-    }
-    if (target.x + target.size > stageW - 6) {
-      target.x = stageW - target.size - 6;
-      target.drift *= -1;
-    }
-
-    drawTarget(target);
-
-    if (target.y > stageH + target.size * 0.6) {
-      if (target.type === 'good') registerMissGood(target);
-      else removeTarget(target.id);
-    }
-  });
-}
-
-function hitTarget(id) {
-  if (!state.running || state.ended) return;
-  const target = state.targets.get(id);
-  if (!target || target.dead) return;
-
-  if (target.type === 'good') {
-    state.hitsGood += 1;
-    state.streak += 1;
-    state.bestStreak = Math.max(state.bestStreak, state.streak);
-    const comboBonus = Math.min(12, Math.floor(state.streak / 3) * 2);
-    const gain = 10 + comboBonus;
-    state.score += gain;
-    createFx(target.x + target.size / 2, target.y + target.size / 2, `+${gain}`, '#86efac');
-    updateHint('ดีมาก! เก็บของดีต่อเนื่องไว้');
-  } else {
-    state.hitsBad += 1;
-    state.miss += 1;
-    state.streak = 0;
-    state.score = Math.max(0, state.score - 8);
-    createFx(target.x + target.size / 2, target.y + target.size / 2, 'MISS', '#fda4af');
-    updateHint('ระวัง junk! คะแนนจะลดลง');
-  }
-
-  removeTarget(id);
-  renderHud();
-  publishProgress();
-}
-
-function registerMissGood(target) {
-  state.missedGood += 1;
-  state.miss += 1;
-  state.streak = 0;
-  createFx(target.x + target.size / 2, Math.max(28, target.y), 'พลาดของดี', '#fbbf24');
-  updateHint('มีของดีหลุดไปแล้ว รีบเก็บชิ้นต่อไป');
-  removeTarget(target.id);
-  renderHud();
-  publishProgress();
-}
-
-function removeTarget(id) {
-  const target = state.targets.get(id);
-  if (!target) return;
-  target.dead = true;
-  target.el.remove();
-  state.targets.delete(id);
-}
-
-function createFx(x, y, text, color) {
-  const fx = document.createElement('div');
-  fx.className = 'gj-fx';
-  fx.style.left = `${x}px`;
-  fx.style.top = `${y}px`;
-  fx.style.color = color || '#e5e7eb';
-  fx.textContent = text;
-  ui.layer?.appendChild(fx);
-  setTimeout(() => fx.remove(), 760);
-}
-
-function escapeHtml(s) {
-  return String(s ?? '')
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;');
-}
-
-function updateHint(message) {
-  if (!ui.hint) return;
-  ui.hint.innerHTML = `<div>${escapeHtml(message)}</div>`;
-}
-
-function renderHud() {
-  if (ui.score) ui.score.textContent = String(state.score);
-  if (ui.timer) ui.timer.textContent = formatSeconds(state.timeLeftMs);
-  if (ui.miss) ui.miss.textContent = String(state.miss);
-  if (ui.streak) ui.streak.textContent = String(state.bestStreak);
-
-  if (ui.progress) {
-    const ratio = state.totalMs > 0 ? Math.max(0, Math.min(1, state.timeLeftMs / state.totalMs)) : 0;
-    ui.progress.style.transform = `scaleX(${ratio})`;
-  }
-
-  if (ui.stats) {
-    ui.stats.innerHTML = `
-      <div><strong>Good hit:</strong> ${state.hitsGood}</div>
-      <div><strong>Junk hit:</strong> ${state.hitsBad}</div>
-      <div><strong>Good missed:</strong> ${state.missedGood}</div>
-    `;
-  }
-}
-
-function formatSeconds(ms) {
-  const s = Math.max(0, Math.ceil(ms / 1000));
-  const m = Math.floor(s / 60);
-  const r = s % 60;
-  return `${m}:${String(r).padStart(2, '0')}`;
-}
-
-function endGame(reason = 'finished') {
-  if (state.ended) return;
-
-  state.ended = true;
-  state.running = false;
-  localRunActive = false;
-  cancelAnimationFrame(state.frameRaf);
-  state.frameRaf = 0;
-
-  state.targets.forEach((t) => t.el.remove());
-  state.targets.clear();
-
-  publishFinish(reason);
-}
-
-function showGate(msg = 'กำลังรอเริ่ม', count = '-', sub = '') {
-  if (RACE_UI?.showGate) RACE_UI.showGate(msg, count, sub);
-}
-
-function hideGate() {
-  if (RACE_UI?.hideGate) RACE_UI.hideGate();
-}
-
-function cancelGateLoop() {
-  if (gateRAF) cancelAnimationFrame(gateRAF);
-  gateRAF = 0;
-}
-
-function waitUntilStart(startAt) {
-  return new Promise((resolve) => {
-    const tick = () => {
-      const left = startAt - Date.now();
-
-      if (left <= 0) {
-        showGate('เริ่ม Race', 'GO!', 'กำลังเข้าสู่เกม...');
-        window.setTimeout(resolve, 220);
-        return;
-      }
-
-      showGate(
-        'กำลังนับถอยหลังก่อนเริ่มพร้อมกัน',
-        String(Math.ceil(left / 1000)),
-        `Room: ${GJ_ROOM_ID || '-'}`
-      );
-
-      gateRAF = requestAnimationFrame(tick);
-    };
-
-    tick();
-  });
-}
-
-function getEffectiveStartAt() {
-  return Number(GJ_START_AT || recoveredStartAt || 0) || 0;
-}
-
-function normalizePlayers(players) {
-  return Array.isArray(players) ? players.filter(Boolean).map((p) => ({
-    id: __normalizePid(p.id || ''),
-    name: String(p.name || '').trim(),
-    ready: !!p.ready,
-    connected: p.connected !== false,
-    phase: String(p.phase || (p.finished ? 'done' : 'run')).trim(),
-    finished: !!p.finished,
-    finalScore: Number(p.finalScore || 0),
-    miss: Number(p.miss || 0),
-    streak: Number(p.streak || 0),
-    joinedAt: Number(p.joinedAt || 0),
-    lastSeenAt: Number(p.lastSeenAt || 0),
-    finishedAt: Number(p.finishedAt || 0)
-  })) : [];
-}
-
-function sanitizeRoom(room) {
-  if (!room) return null;
-
-  const rawMatch = room.match && typeof room.match === 'object' ? room.match : {};
-  const rawRace = rawMatch.race && typeof rawMatch.race === 'object' ? rawMatch.race : {};
-
-  return {
-    roomId: __normalizeRoomId(room.roomId || GJ_ROOM_ID || ''),
-    hostId: __normalizePid(room.hostId || ''),
-    mode: String(room.mode || 'race'),
-    minPlayers: Math.max(2, Number(room.minPlayers || 2)),
-    maxPlayers: Math.max(2, Number(room.maxPlayers || 4)),
-    status: ['waiting', 'countdown', 'running', 'finished'].includes(room.status) ? room.status : 'waiting',
-    startAt: room.startAt ? Number(room.startAt) : null,
-    createdAt: Number(room.createdAt || Date.now()),
-    updatedAt: Number(room.updatedAt || Date.now()),
-    players: normalizePlayers(room.players || []),
-    match: {
-      participantIds: Array.isArray(rawMatch.participantIds)
-        ? rawMatch.participantIds.map((id) => __normalizePid(id)).filter(Boolean)
-        : [],
-      lockedAt: rawMatch.lockedAt ? Number(rawMatch.lockedAt) : null,
-      status: ['idle', 'countdown', 'running', 'finished'].includes(rawMatch.status) ? rawMatch.status : 'idle',
-      race: {
-        finishedAt: Number(rawRace.finishedAt || 0)
-      }
-    }
-  };
-}
-
-function snapshotToRoom(val) {
-  if (!val) return null;
-  const playersMap = val.players || {};
-  return {
-    ...val,
-    players: Object.keys(playersMap).map((pid) => ({
-      id: pid,
-      ...playersMap[pid]
-    }))
-  };
-}
-
-function roomToFirebase(room) {
-  const out = {
-    roomId: room.roomId,
-    hostId: room.hostId,
-    mode: room.mode,
-    minPlayers: room.minPlayers,
-    maxPlayers: room.maxPlayers,
-    status: room.status,
-    startAt: room.startAt || null,
-    createdAt: room.createdAt || Date.now(),
-    updatedAt: Date.now(),
-    players: {},
-    match: {
-      participantIds: Array.isArray(room.match?.participantIds) ? room.match.participantIds : [],
-      lockedAt: room.match?.lockedAt || null,
-      status: room.match?.status || 'idle',
-      race: {
-        finishedAt: Number(room.match?.race?.finishedAt || 0)
-      }
-    }
-  };
-
-  normalizePlayers(room.players).forEach((p) => {
-    out.players[p.id] = {
-      name: p.name || '',
-      ready: !!p.ready,
-      connected: p.connected !== false,
-      phase: p.phase || 'run',
-      finished: !!p.finished,
-      finalScore: Number(p.finalScore || 0),
-      miss: Number(p.miss || 0),
-      streak: Number(p.streak || 0),
-      joinedAt: Number(p.joinedAt || 0),
-      lastSeenAt: Number(p.lastSeenAt || 0),
-      finishedAt: Number(p.finishedAt || 0)
-    };
-  });
-
-  return out;
-}
-
-function getParticipantIds(room) {
-  const ids = Array.isArray(room?.match?.participantIds) ? room.match.participantIds : [];
-  return ids.map((id) => __normalizePid(id)).filter(Boolean);
-}
-
-function getRacePlayers(room) {
-  const allPlayers = normalizePlayers(room?.players || []);
-  const participantIds = getParticipantIds(room);
-  if (!participantIds.length) return allPlayers;
-  const map = new Map(allPlayers.map((p) => [p.id, p]));
-  return participantIds.map((id) => map.get(id)).filter(Boolean);
-}
-
-function amIParticipant(room) {
-  const ids = getParticipantIds(room);
-  if (!ids.length) return true;
-  return ids.includes(GJ_PID);
-}
-
-function buildRaceSummaryPayload(room, players, pending = false, reason = '') {
-  return {
-    version: '20260319-race-v1',
-    source: 'goodjunk-race',
-    gameId: GJ_GAME_ID,
-    mode: 'race',
-    pid: GJ_PID,
-    name: GJ_NAME,
-    studyId: RUN_CTX.studyId || '',
-    roomId: GJ_ROOM_ID,
-    pending,
-    reason,
-    playerCount: players.length,
-    updatedAt: Date.now(),
-    players: players.map((p) => ({
-      pid: p.id,
-      name: p.name || p.id,
-      finished: !!p.finished,
-      connected: p.connected !== false,
-      score: Number(p.finalScore || 0),
-      miss: Number(p.miss || 0),
-      streak: Number(p.streak || 0)
-    }))
-  };
-}
-
-function hideSummary() {
-  const wrap = document.getElementById('raceSummary');
-  if (wrap) wrap.hidden = true;
-}
-
-function safeFilePart(value) {
-  return String(value || 'file').replace(/[^a-z0-9_-]/gi, '-');
-}
-
-function downloadJson(payload, filename = `goodjunk-race-${Date.now()}.json`) {
-  if (!payload) return;
-  const blob = new Blob([JSON.stringify(payload, null, 2)], {
-    type: 'application/json;charset=utf-8'
-  });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
-}
-
-async function loadRoom() {
-  if (!await ensureFirebase()) return null;
-  try {
-    const snap = await roomRef.once('value');
-    return sanitizeRoom(snapshotToRoom(snap.val()));
-  } catch (err) {
-    console.error('[goodjunk.safe.race] loadRoom failed:', err);
     return null;
   }
-}
 
-async function saveRoom(room) {
-  if (!await ensureFirebase()) return false;
-  try {
-    await roomRef.set(roomToFirebase(room));
+  function bindNodes() {
+    REF.hud = byId('raceHud') || byId('hudRace') || byId('raceHUD');
+    REF.mode = byId('raceModePill') || byId('raceModeValue');
+    REF.room = byId('raceRoomPill') || byId('raceRoomValue');
+    REF.score = byId('raceScoreValue') || byId('scoreValue');
+    REF.time = byId('raceTimeValue') || byId('timeValue');
+    REF.miss = byId('raceMissValue') || byId('missValue');
+    REF.streak = byId('raceStreakValue') || byId('bestStreakValue');
+    ensureResultMount();
+  }
+
+  function ensureResultMount() {
+    let mount = byId('raceSafeResultMount');
+    if (!mount) {
+      mount = document.createElement('div');
+      mount.id = 'raceSafeResultMount';
+      mount.hidden = true;
+      mount.style.position = 'fixed';
+      mount.style.inset = '0';
+      mount.style.zIndex = '1400';
+      mount.style.alignItems = 'flex-end';
+      mount.style.justifyContent = 'center';
+      mount.style.padding = '12px';
+      mount.style.background = 'rgba(2,6,23,.66)';
+      mount.style.backdropFilter = 'blur(8px)';
+      mount.style.display = 'none';
+      document.body.appendChild(mount);
+    }
+    REF.resultMount = mount;
+    return mount;
+  }
+
+  function setText(el, value) {
+    if (el) el.textContent = String(value ?? '');
+  }
+
+  function recalcState() {
+    STATE.pid = getSelfPid();
+    STATE.name = getSelfName();
+    STATE.roomId = currentRoomId();
+
+    const players = normalizePlayers(STATE.players);
+    if (players.length) {
+      const sorted = sortRacePlayers(players);
+      const self = resolveSelfPlayer(sorted, STATE.roomId);
+
+      if (self) {
+        STATE.score = self.score;
+        STATE.miss = self.miss;
+        STATE.bestStreak = self.bestStreak;
+      } else {
+        STATE.score = int(STATE.score, 0);
+        STATE.miss = int(STATE.miss, 0);
+        STATE.bestStreak = int(STATE.bestStreak, 0);
+      }
+
+      STATE.players = sorted;
+    } else {
+      STATE.score = int(STATE.score, 0);
+      STATE.miss = int(STATE.miss, 0);
+      STATE.bestStreak = int(STATE.bestStreak, 0);
+      STATE.players = [];
+    }
+
+    window.__RACE_STATE__ = STATE;
+    if (STATE.room) window.__RACE_ROOM__ = STATE.room;
+  }
+
+  function renderHud() {
+    recalcState();
+
+    if (REF.mode) setText(REF.mode, 'MODE race');
+    if (REF.room) setText(REF.room, `ROOM ${STATE.roomId}`);
+    if (REF.score) setText(REF.score, STATE.score);
+    if (REF.time) setText(REF.time, fmtClock(STATE.timeLeftSec));
+    if (REF.miss) setText(REF.miss, STATE.miss);
+    if (REF.streak) setText(REF.streak, STATE.bestStreak);
+  }
+
+  function findExistingResultRoot() {
+    return (
+      q('#raceResultMount:not([hidden])') ||
+      q('#raceResult:not([hidden])') ||
+      q('.race-result-card') ||
+      q('.race-result') ||
+      q('[data-race-result]')
+    );
+  }
+
+  function findResultTbody(root) {
+    return (
+      q('#raceResultTable tbody', root) ||
+      q('.race-result-table tbody', root) ||
+      q('[data-race-result-table] tbody', root) ||
+      q('tbody', root)
+    );
+  }
+
+  function findRankBadge(root) {
+    return (
+      q('#raceRankBadge', root) ||
+      q('.race-rank-badge', root) ||
+      q('[data-race-rank-badge]', root)
+    );
+  }
+
+  function findResultSubtitle(root) {
+    return (
+      q('.race-result-sub', root) ||
+      q('[data-race-result-sub]', root)
+    );
+  }
+
+  function buildSummary() {
+    recalcState();
+
+    const players = sortRacePlayers(normalizePlayers(STATE.players));
+    const self = resolveSelfPlayer(players, STATE.roomId);
+    const selfIndex = self ? players.findIndex(p => p.pid === self.pid) : -1;
+    const selfRank = selfIndex >= 0 ? selfIndex + 1 : null;
+
+    return {
+      game: 'goodjunk-race',
+      mode: 'race',
+      pid: getSelfPid(),
+      name: getSelfName(),
+      roomId: STATE.roomId,
+      scoreFinal: STATE.score,
+      missTotal: STATE.miss,
+      comboMax: STATE.bestStreak,
+      timeLeftSec: STATE.timeLeftSec,
+      players,
+      self,
+      selfRank,
+      selfKnown: !!self,
+      endedAt: STATE.endedAt || nowIso(),
+      endReason: STATE.endReason || 'finished',
+      timestampIso: nowIso()
+    };
+  }
+
+  function saveLastSummary(summary) {
+    try {
+      writeJSON(`${LS_KEYS.lastSummaryScoped}:${summary.pid}`, summary);
+      writeJSON(LS_KEYS.lastSummaryGlobal, summary);
+    } catch (_) {}
+  }
+
+  function renderRowsHTML(summary) {
+    return summary.players.map((p, idx) => {
+      const isMe = summary.self && p.pid === summary.self.pid;
+      return `
+        <tr class="${isMe ? 'me-row' : ''}">
+          <td>
+            <div style="font-weight:1100;line-height:1.1">${esc(p.name || p.pid || `Player ${idx + 1}`)}</div>
+            ${p.pid ? `<div style="margin-top:4px;color:#94a3b8;font-size:12px;font-weight:900">${esc(p.pid)}</div>` : ''}
+            ${isMe ? `<div style="margin-top:6px;color:#7dd3fc;font-size:12px;font-weight:1100">• คุณ</div>` : ''}
+            <div style="margin-top:4px;color:#86efac;font-size:12px;font-weight:1100">รอบนี้จบแล้ว</div>
+          </td>
+          <td>${p.score}</td>
+          <td>${p.miss}</td>
+          <td>${p.bestStreak}</td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  function patchExistingResultDOM(summary) {
+    const root = findExistingResultRoot();
+    if (!root) return false;
+
+    const badge = findRankBadge(root);
+    if (badge) {
+      if (!summary.selfKnown || !summary.selfRank) {
+        badge.textContent = 'อันดับ ?';
+        badge.style.opacity = '.72';
+      } else {
+        badge.textContent = `อันดับ #${summary.selfRank}`;
+        badge.style.opacity = '1';
+      }
+    }
+
+    const sub = findResultSubtitle(root);
+    if (sub) {
+      sub.textContent = `ผลสุดท้าย • ผู้เล่นทั้งหมด ${summary.players.length} คน`;
+    }
+
+    const tbody = findResultTbody(root);
+    if (tbody) {
+      tbody.innerHTML = renderRowsHTML(summary);
+    }
+
     return true;
-  } catch (err) {
-    console.error('[goodjunk.safe.race] saveRoom failed:', err);
-    return false;
-  }
-}
-
-async function ensureFirebase() {
-  if (fbReady && db && roomRef && myPlayerRef) return true;
-
-  const ok = await new Promise((resolve) => {
-    if (window.HHA_FIREBASE_READY && window.HHA_FIREBASE_DB) {
-      resolve(true);
-      return;
-    }
-
-    let done = false;
-    const finish = (value) => {
-      if (done) return;
-      done = true;
-      resolve(!!value);
-    };
-
-    const timer = setTimeout(() => finish(false), 12000);
-
-    window.addEventListener('hha:firebase_ready', (ev) => {
-      clearTimeout(timer);
-      finish(!!ev?.detail?.ok && !!window.HHA_FIREBASE_DB);
-    }, { once: true });
-  });
-
-  if (!ok || !window.HHA_FIREBASE_DB) return false;
-
-  db = window.HHA_FIREBASE_DB;
-  roomRef = db.ref(ROOM_PATH);
-  myPlayerRef = roomRef.child('players').child(GJ_PID);
-  fbReady = true;
-  return true;
-}
-
-async function setupOnDisconnect() {
-  if (!await ensureFirebase()) return;
-  try {
-    await myPlayerRef.onDisconnect().update({
-      connected: false,
-      phase: 'run'
-    });
-  } catch {}
-}
-
-async function markPresence(patch = {}) {
-  if (!await ensureFirebase()) return;
-
-  try {
-    const snap = await myPlayerRef.once('value');
-    const cur = snap.exists() ? snap.val() : {};
-
-    await myPlayerRef.update({
-      name: GJ_NAME || cur.name || GJ_PID,
-      ready: patch.ready ?? cur.ready ?? true,
-      connected: patch.connected ?? true,
-      phase: patch.phase || cur.phase || 'run',
-      finished: patch.finished ?? cur.finished ?? false,
-      finalScore: patch.finalScore ?? cur.finalScore ?? 0,
-      miss: patch.miss ?? cur.miss ?? 0,
-      streak: patch.streak ?? cur.streak ?? 0,
-      joinedAt: cur.joinedAt || Date.now(),
-      finishedAt: patch.finishedAt ?? cur.finishedAt ?? 0,
-      lastSeenAt: Date.now()
-    });
-
-    await roomRef.child('updatedAt').set(Date.now());
-  } catch (err) {
-    console.error('[goodjunk.safe.race] markPresence failed:', err);
-  }
-}
-
-async function markDisconnected() {
-  if (!await ensureFirebase()) return;
-
-  try {
-    const snap = await myPlayerRef.once('value');
-    if (!snap.exists()) return;
-    const cur = snap.val();
-    if (cur.finished) return;
-
-    await myPlayerRef.update({
-      connected: false,
-      phase: 'run',
-      lastSeenAt: Date.now()
-    });
-
-    await roomRef.child('updatedAt').set(Date.now());
-  } catch {}
-}
-
-function startHeartbeat() {
-  stopHeartbeat();
-  markPresence({
-    phase: 'run',
-    ready: true,
-    connected: true,
-    finished: false
-  });
-
-  heartbeatTimer = setInterval(() => {
-    markPresence({
-      phase: 'run',
-      ready: true,
-      connected: true,
-      finished: false,
-      finalScore: state.score,
-      miss: state.miss,
-      streak: state.bestStreak
-    });
-  }, HEARTBEAT_MS);
-}
-
-function stopHeartbeat() {
-  if (heartbeatTimer) {
-    clearInterval(heartbeatTimer);
-    heartbeatTimer = 0;
-  }
-}
-
-function startWatchdog() {
-  stopWatchdog();
-  watchdogTimer = setInterval(() => {
-    maybeFinalizeRoom(false);
-  }, 3000);
-}
-
-function stopWatchdog() {
-  if (watchdogTimer) {
-    clearInterval(watchdogTimer);
-    watchdogTimer = 0;
-  }
-}
-
-async function maybeFinalizeRoom(force = false) {
-  const room = await loadRoom();
-  if (!room) return;
-  if (!amIParticipant(room)) return;
-
-  const players = normalizePlayers(room.players);
-  const participantIds = getParticipantIds(room);
-  const set = new Set(participantIds);
-  const racePlayers = set.size ? players.filter((p) => set.has(p.id)) : players;
-
-  if (!racePlayers.length) return;
-
-  const ts = Date.now();
-  let changed = false;
-
-  const nextPlayers = players.map((p) => {
-    const inMatch = set.size ? set.has(p.id) : true;
-    if (!inMatch) return p;
-    if (p.finished) return p;
-
-    const stale = !p.lastSeenAt || (ts - p.lastSeenAt > STALE_MS);
-    if (force || stale) {
-      changed = true;
-      return {
-        ...p,
-        connected: false,
-        phase: 'done',
-        finished: true,
-        finishedAt: ts
-      };
-    }
-
-    return p;
-  });
-
-  const nextRacePlayers = set.size ? nextPlayers.filter((p) => set.has(p.id)) : nextPlayers;
-  const allFinished = nextRacePlayers.every((p) => p.finished);
-
-  if (allFinished) {
-    room.status = 'finished';
-    room.match = {
-      ...(room.match || {}),
-      status: 'finished',
-      race: {
-        ...(room.match?.race || {}),
-        finishedAt: ts
-      }
-    };
-    changed = true;
   }
 
-  if (changed) {
-    room.players = nextPlayers;
-    room.updatedAt = ts;
-    await saveRoom(room);
-  }
+  function mountFallbackResult(summary) {
+    const mount = ensureResultMount();
+    if (!mount) return;
 
-  if (room.status === 'finished') {
-    state.running = false;
-    state.ended = true;
-    localRunActive = false;
-    stopHeartbeat();
-    stopWatchdog();
-    showSummary(room, nextRacePlayers, false, 'finished');
-  }
-}
+    mount.hidden = false;
+    mount.style.display = 'flex';
 
-async function publishProgress() {
-  await markPresence({
-    phase: 'run',
-    ready: true,
-    connected: true,
-    finished: false,
-    finalScore: state.score,
-    miss: state.miss,
-    streak: state.bestStreak
-  });
-}
-
-async function publishFinish(reason = 'finished') {
-  await markPresence({
-    phase: 'done',
-    ready: true,
-    connected: true,
-    finished: true,
-    finalScore: state.score,
-    miss: state.miss,
-    streak: state.bestStreak,
-    finishedAt: Date.now()
-  });
-
-  const room = await loadRoom();
-  if (!room) return;
-  if (!amIParticipant(room)) return;
-
-  const players = getRacePlayers(room);
-  const allFinished = players.every((p) => p.finished);
-
-  if (allFinished) {
-    room.status = 'finished';
-    room.match = {
-      ...(room.match || {}),
-      status: 'finished',
-      race: {
-        ...(room.match?.race || {}),
-        finishedAt: Date.now()
-      }
-    };
-    room.updatedAt = Date.now();
-
-    await saveRoom(room);
-
-    state.running = false;
-    state.ended = true;
-    enteredFinish = true;
-    stopHeartbeat();
-    stopWatchdog();
-
-    showSummary(room, players, false, reason);
-    return;
-  }
-
-  showSummary(room, players, true, reason);
-}
-
-function showSummary(room, players, pending = false, reason = '') {
-  const wrap = document.getElementById('raceSummary');
-  const rowsBox = document.getElementById('raceSummaryRows');
-  const badge = document.getElementById('raceSummaryBadge');
-  const sub = document.getElementById('raceSummarySub');
-  const hint = document.getElementById('raceSummaryHint');
-
-  if (!wrap || !rowsBox) return;
-  if (!amIParticipant(room)) return;
-
-  const sorted = [...players].sort((a, b) => {
-    if (b.finalScore !== a.finalScore) return b.finalScore - a.finalScore;
-    if (a.miss !== b.miss) return a.miss - b.miss;
-    return b.streak - a.streak;
-  });
-
-  const myRank = Math.max(1, sorted.findIndex((p) => p.id === GJ_PID) + 1);
-
-  rowsBox.innerHTML = sorted.map((p) => {
-    const isMe = p.id === GJ_PID;
-    const statusText = p.finished ? 'รอบนี้จบแล้ว' : (p.connected === false ? 'ขาดการเชื่อมต่อ' : 'ยังไม่จบ');
-
-    return `
-      <div class="result-row ${isMe ? 'is-me' : ''}">
-        <div>
-          <div style="font-weight:800;">
-            ${escapeHtml(p.name || p.id)}
-            ${isMe ? '<span style="color:#7dd3fc;"> • คุณ</span>' : ''}
+    mount.innerHTML = `
+      <div style="
+        width:min(920px,100%);
+        max-height:min(92vh,920px);
+        overflow:auto;
+        border-radius:28px;
+        border:1px solid rgba(148,163,184,.18);
+        background:linear-gradient(180deg, rgba(15,23,42,.96), rgba(2,6,23,.96));
+        color:#f8fafc;
+        box-shadow:0 24px 80px rgba(0,0,0,.42);
+        padding:18px;
+      ">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px;">
+          <div>
+            <div style="font-size:24px;line-height:1.15;font-weight:1100;">🏁 Race Result</div>
+            <div style="margin-top:6px;color:#94a3b8;font-size:13px;font-weight:900;line-height:1.45;">
+              ROOM ${esc(summary.roomId)} • ${esc(shortDateTime(summary.endedAt))}
+            </div>
           </div>
-          <div style="margin-top:4px;font-size:12px;color:${p.finished ? '#86efac' : '#fbbf24'};font-weight:800;">
-            ${escapeHtml(statusText)}
+          <button id="raceSafeCloseBtn" type="button" style="
+            min-width:44px;min-height:44px;padding:8px 12px;border-radius:14px;
+            border:1px solid rgba(148,163,184,.18);background:rgba(255,255,255,.04);
+            color:#e5e7eb;font-weight:1100;cursor:pointer;">✕</button>
+        </div>
+
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px;">
+          <div style="
+            display:inline-flex;align-items:center;gap:8px;padding:10px 14px;border-radius:18px;
+            border:1px solid rgba(56,189,248,.24);background:rgba(56,189,248,.12);
+            color:#7dd3fc;font-size:18px;font-weight:1100;">
+            ${summary.selfKnown && summary.selfRank ? `อันดับ #${summary.selfRank}` : 'อันดับ ?'}
+          </div>
+          <div style="color:#94a3b8;font-size:13px;font-weight:900;">
+            ระบบจัดอันดับจากคะแนนก่อน แล้วดู miss และ best streak
           </div>
         </div>
-        <div>${Number(p.finalScore || 0)}</div>
-        <div>${Number(p.miss || 0)}</div>
-        <div>${Number(p.streak || 0)}</div>
+
+        <div style="
+          border-radius:22px;border:1px solid rgba(148,163,184,.16);
+          background:rgba(15,23,42,.66);padding:12px;">
+          <div style="overflow:auto;-webkit-overflow-scrolling:touch;">
+            <table style="width:100%;min-width:640px;border-collapse:separate;border-spacing:0 8px;">
+              <thead>
+                <tr>
+                  <th style="text-align:left;color:#94a3b8;font-size:12px;font-weight:1000;padding:0 10px 6px;">ผู้เล่น</th>
+                  <th style="text-align:left;color:#94a3b8;font-size:12px;font-weight:1000;padding:0 10px 6px;">คะแนน</th>
+                  <th style="text-align:left;color:#94a3b8;font-size:12px;font-weight:1000;padding:0 10px 6px;">Miss</th>
+                  <th style="text-align:left;color:#94a3b8;font-size:12px;font-weight:1000;padding:0 10px 6px;">Best Streak</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${summary.players.map((p) => {
+                  const isMe = summary.self && p.pid === summary.self.pid;
+                  return `
+                    <tr>
+                      <td style="padding:12px 10px;background:${isMe ? 'rgba(30,41,59,.78)' : 'rgba(2,6,23,.42)'};${isMe ? 'outline:1px solid rgba(56,189,248,.26);' : ''}border-top-left-radius:14px;border-bottom-left-radius:14px;">
+                        <div style="font-weight:1100;line-height:1.1">${esc(p.name || p.pid)}</div>
+                        ${p.pid ? `<div style="margin-top:4px;color:#94a3b8;font-size:12px;font-weight:900">${esc(p.pid)}</div>` : ''}
+                        ${isMe ? `<div style="margin-top:6px;color:#7dd3fc;font-size:12px;font-weight:1100">• คุณ</div>` : ''}
+                        <div style="margin-top:4px;color:#86efac;font-size:12px;font-weight:1100">รอบนี้จบแล้ว</div>
+                      </td>
+                      <td style="padding:12px 10px;background:${isMe ? 'rgba(30,41,59,.78)' : 'rgba(2,6,23,.42)'};${isMe ? 'outline:1px solid rgba(56,189,248,.26);' : ''}">${p.score}</td>
+                      <td style="padding:12px 10px;background:${isMe ? 'rgba(30,41,59,.78)' : 'rgba(2,6,23,.42)'};${isMe ? 'outline:1px solid rgba(56,189,248,.26);' : ''}">${p.miss}</td>
+                      <td style="padding:12px 10px;background:${isMe ? 'rgba(30,41,59,.78)' : 'rgba(2,6,23,.42)'};${isMe ? 'outline:1px solid rgba(56,189,248,.26);' : ''}border-top-right-radius:14px;border-bottom-right-radius:14px;">${p.bestStreak}</td>
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;">
+          <button id="raceSafeRematchBtn" type="button" style="
+            min-width:140px;min-height:46px;padding:10px 14px;border-radius:16px;
+            border:1px solid rgba(34,197,94,.28);background:rgba(34,197,94,.14);
+            color:#f8fafc;font-weight:1100;cursor:pointer;">🔁 เล่นใหม่</button>
+
+          <button id="raceSafeHubBtn" type="button" style="
+            min-width:140px;min-height:46px;padding:10px 14px;border-radius:16px;
+            border:1px solid rgba(59,130,246,.28);background:rgba(59,130,246,.14);
+            color:#f8fafc;font-weight:1100;cursor:pointer;">🏠 กลับ HUB</button>
+
+          <button id="raceSafeCloseBtn2" type="button" style="
+            min-width:140px;min-height:46px;padding:10px 14px;border-radius:16px;
+            border:1px solid rgba(167,139,250,.28);background:rgba(167,139,250,.14);
+            color:#f8fafc;font-weight:1100;cursor:pointer;">✅ ปิด</button>
+        </div>
       </div>
     `;
-  }).join('');
 
-  if (badge) {
-    badge.textContent = pending ? 'PENDING' : `อันดับ #${myRank}`;
+    const close = () => {
+      mount.hidden = true;
+      mount.style.display = 'none';
+      mount.innerHTML = '';
+    };
+
+    byId('raceSafeCloseBtn')?.addEventListener('click', close);
+    byId('raceSafeCloseBtn2')?.addEventListener('click', close);
+    byId('raceSafeHubBtn')?.addEventListener('click', () => {
+      location.href = qsGet('hub', '../hub.html');
+    });
+    byId('raceSafeRematchBtn')?.addEventListener('click', () => {
+      const u = new URL(location.href);
+      location.href = u.toString();
+    });
   }
 
-  if (sub) {
-    sub.textContent = pending
-      ? 'ผลชั่วคราว • คุณจบรอบแล้ว แต่ยังรอผู้เล่นคนอื่น'
-      : `ผลสุดท้าย • ผู้เล่นทั้งหมด ${sorted.length} คน`;
+  function mergeState(patch = {}) {
+    const src = patch || {};
+
+    STATE.pid = normalizePid(src.pid ?? STATE.pid ?? getSelfPid());
+    STATE.name = normalizeName(src.name ?? src.nick ?? STATE.name ?? getSelfName());
+    STATE.roomId = txt(src.roomId ?? src.room ?? STATE.roomId ?? currentRoomId()) || '-';
+
+    if (src.room && typeof src.room === 'object') {
+      STATE.room = src.room;
+    }
+
+    STATE.score = int(src.score ?? src.myScore ?? STATE.score, 0);
+    STATE.miss = int(src.miss ?? src.misses ?? STATE.miss, 0);
+    STATE.bestStreak = int(src.bestStreak ?? src.comboMax ?? src.streak ?? STATE.bestStreak, 0);
+    STATE.timeLeftSec = int(src.timeLeftSec ?? src.timeLeft ?? STATE.timeLeftSec, 0);
+
+    if (Array.isArray(src.players)) {
+      STATE.players = normalizePlayers(src.players);
+    } else if (src.players && typeof src.players === 'object') {
+      STATE.players = normalizePlayers(src.players);
+    }
+
+    STATE.ended = !!(src.ended ?? src.finished ?? src.isEnded ?? STATE.ended);
+    STATE.endedAt = txt(src.endedAt ?? src.timestampIso ?? src.finishedAt ?? STATE.endedAt);
+    STATE.endReason = txt(src.endReason ?? src.reason ?? STATE.endReason);
+
+    window.__RACE_STATE__ = STATE;
+    if (STATE.room) window.__RACE_ROOM__ = STATE.room;
+
+    rememberSelfIdentity();
+    recalcState();
   }
 
-  if (hint) {
-    hint.textContent = pending
-      ? 'summary นี้ยังไม่ final จนกว่าผู้เล่นใน participant จะจบครบหรือถูกตัดสิทธิ์'
-      : 'ระบบจัดอันดับจากคะแนนก่อน แล้วดู miss และ best streak';
+  function setRoomState(room) {
+    if (!room || typeof room !== 'object') return;
+    STATE.room = room;
+    STATE.roomId = txt(room.roomId || room.id || STATE.roomId || '-');
+    STATE.players = normalizePlayers(room.players || room);
+    window.__RACE_ROOM__ = room;
+    rememberSelfIdentity();
+    renderHud();
   }
 
-  lastSummary = buildRaceSummaryPayload(room, sorted, pending, reason);
-  wrap.hidden = false;
-  if (RACE_UI?.setStatus) RACE_UI.setStatus(pending ? 'pending' : 'finished');
-}
+  function setPlayers(players) {
+    STATE.players = normalizePlayers(players);
+    rememberSelfIdentity();
+    renderHud();
+  }
 
-async function resetRoomForRematch() {
-  const room = await loadRoom();
-  if (!room) return;
+  function onJudge(judge = {}) {
+    if (judge.score != null) STATE.score = int(judge.score, STATE.score);
+    if (judge.miss != null) STATE.miss = int(judge.miss, STATE.miss);
+    if (judge.bestStreak != null) STATE.bestStreak = int(judge.bestStreak, STATE.bestStreak);
+    renderHud();
+  }
 
-  room.status = 'waiting';
-  room.startAt = null;
-  room.match = {
-    participantIds: [],
-    lockedAt: null,
-    status: 'idle',
-    race: {
-      finishedAt: 0
+  function finishGame(detail = {}) {
+    if (BRIDGE.resultShown) return;
+
+    mergeState({
+      ...detail,
+      ended: true,
+      endedAt: detail.endedAt || detail.timestampIso || nowIso(),
+      endReason: detail.endReason || detail.reason || 'finished'
+    });
+
+    const summary = buildSummary();
+    saveLastSummary(summary);
+
+    const patchedExisting = patchExistingResultDOM(summary);
+    if (!patchedExisting) {
+      mountFallbackResult(summary);
+    }
+
+    BRIDGE.resultShown = true;
+    STATE.ended = true;
+    stopBridge();
+  }
+
+  function render() {
+    renderHud();
+    if (BRIDGE.resultShown) {
+      patchExistingResultDOM(buildSummary());
+    }
+  }
+
+  function getState() {
+    return JSON.parse(JSON.stringify(STATE));
+  }
+
+  function readKnownGlobals() {
+    const candidates = [
+      window.state,
+      window.gameState,
+      window.__RACE_STATE__,
+      window.RUN_CTX,
+      window.__GJ_CTX
+    ].filter(Boolean);
+
+    for (const src of candidates) {
+      if (src && typeof src === 'object') mergeState(src);
+    }
+
+    const roomCandidates = [
+      window.__RACE_ROOM__,
+      window.raceRoom,
+      window.roomState,
+      window.state?.room,
+      window.gameState?.room
+    ].filter(Boolean);
+
+    for (const room of roomCandidates) {
+      if (room && typeof room === 'object') {
+        setRoomState(room);
+        break;
+      }
+    }
+  }
+
+  function readLegacyDom() {
+    const score =
+      parseNumText(txt(q('#scoreValue')?.textContent)) ||
+      parseNumText(txt(q('.score-value')?.textContent)) ||
+      parseNumText(txt(q('[data-score]')?.textContent)) ||
+      STATE.score;
+
+    const miss =
+      parseNumText(txt(q('#missValue')?.textContent)) ||
+      parseNumText(txt(q('.miss-value')?.textContent)) ||
+      parseNumText(txt(q('[data-miss]')?.textContent)) ||
+      STATE.miss;
+
+    const bestStreak =
+      parseNumText(txt(q('#bestStreakValue')?.textContent)) ||
+      parseNumText(txt(q('.best-streak-value')?.textContent)) ||
+      parseNumText(txt(q('[data-best-streak]')?.textContent)) ||
+      STATE.bestStreak;
+
+    const timerText =
+      txt(q('#timeValue')?.textContent) ||
+      txt(q('.time-value')?.textContent) ||
+      '';
+
+    let timeLeftSec = STATE.timeLeftSec;
+    if (timerText.includes(':')) {
+      const parts = timerText.split(':').map(v => Number(v || 0));
+      if (parts.length === 2) timeLeftSec = (parts[0] * 60) + parts[1];
+    } else if (timerText) {
+      timeLeftSec = parseNumText(timerText, STATE.timeLeftSec);
+    }
+
+    mergeState({ score, miss, bestStreak, timeLeftSec });
+  }
+
+  function tickTimeFromEndsAt() {
+    const s = window.state || window.gameState || window.__RACE_STATE__ || {};
+    const endsAtMs = num(s.endsAtMs || s.endAtMs || 0, 0);
+    if (endsAtMs > 0 && !STATE.ended) {
+      STATE.timeLeftSec = Math.max(0, Math.ceil((endsAtMs - Date.now()) / 1000));
+    }
+  }
+
+  function bridgeLoop() {
+    try {
+      readKnownGlobals();
+      readLegacyDom();
+      tickTimeFromEndsAt();
+      renderHud();
+
+      const s = window.state || window.gameState || window.__RACE_STATE__ || {};
+      const ended =
+        !!STATE.ended ||
+        !!s.isEnded ||
+        !!s.ended ||
+        !!s.finished ||
+        !!s.showSummary ||
+        !!s.showResult ||
+        (num(s.endsAtMs || s.endAtMs || 0, 0) > 0 && Date.now() > num(s.endsAtMs || s.endAtMs || 0, 0) + 300);
+
+      if (ended && !BRIDGE.resultShown) {
+        finishGame({ reason: s.reason || 'finished' });
+      }
+
+      if (BRIDGE.resultShown) {
+        patchExistingResultDOM(buildSummary());
+      }
+    } catch (err) {
+      console.warn('[race-safe] bridgeLoop error:', err);
+    }
+  }
+
+  function startBridge() {
+    if (BRIDGE.started) return;
+    BRIDGE.started = true;
+    bridgeLoop();
+    BRIDGE.timer = setInterval(bridgeLoop, 120);
+  }
+
+  function stopBridge() {
+    if (BRIDGE.timer) {
+      clearInterval(BRIDGE.timer);
+      BRIDGE.timer = null;
+    }
+  }
+
+  function wrapEndFunction(obj, key) {
+    try {
+      if (!obj || typeof obj[key] !== 'function') return false;
+      if (obj[key].__raceWrapped) return true;
+
+      const original = obj[key];
+      const wrapped = function (...args) {
+        const out = original.apply(this, args);
+        try {
+          finishGame({ reason: key });
+        } catch (err) {
+          console.warn(`[race-safe] wrapped end fn error for ${key}:`, err);
+        }
+        return out;
+      };
+      wrapped.__raceWrapped = true;
+      wrapped.__raceOriginal = original;
+      obj[key] = wrapped;
+      return true;
+    } catch (err) {
+      console.warn(`[race-safe] wrapEndFunction failed for ${key}:`, err);
+      return false;
+    }
+  }
+
+  function installEndHooks() {
+    if (BRIDGE.wrapped) return;
+    BRIDGE.wrapped = true;
+
+    const keys = [
+      'showRaceResult',
+      'openRaceResult',
+      'renderRaceResult',
+      'finishGame',
+      'endGame',
+      'showSummary',
+      'showResult',
+      'openResult'
+    ];
+
+    for (const key of keys) {
+      wrapEndFunction(window, key);
+    }
+  }
+
+  function installCustomEventHooks() {
+    if (window.__RACE_SAFE_EVENTS_BOUND__) return;
+    window.__RACE_SAFE_EVENTS_BOUND__ = true;
+
+    const on = (name, fn) => window.addEventListener(name, (ev) => {
+      try {
+        fn(ev?.detail || {});
+      } catch (err) {
+        console.warn(`[race-safe] custom event ${name} error:`, err);
+      }
+    });
+
+    on('race:update', detail => {
+      mergeState(detail);
+      renderHud();
+    });
+
+    on('race:room', detail => {
+      setRoomState(detail);
+    });
+
+    on('race:players', detail => {
+      setPlayers(detail.players || detail);
+    });
+
+    on('race:judge', detail => {
+      onJudge(detail);
+    });
+
+    on('race:finish', detail => {
+      finishGame(detail);
+    });
+
+    on('hha:race:update', detail => {
+      mergeState(detail);
+      renderHud();
+    });
+
+    on('hha:race:finish', detail => {
+      finishGame(detail);
+    });
+  }
+
+  function ensureBoot() {
+    bindNodes();
+    rememberSelfIdentity();
+    installEndHooks();
+    installCustomEventHooks();
+    mergeState({
+      pid: getSelfPid(),
+      name: getSelfName(),
+      roomId: currentRoomId()
+    });
+    renderHud();
+    startBridge();
+  }
+
+  const API = {
+    setState(patch) {
+      mergeState(patch);
+      renderHud();
+    },
+    setRoomState(room) {
+      setRoomState(room);
+    },
+    setPlayers(players) {
+      setPlayers(players);
+    },
+    onJudge(judge) {
+      onJudge(judge);
+    },
+    finishGame(detail) {
+      finishGame(detail);
+    },
+    render() {
+      render();
+    },
+    getState() {
+      return getState();
     }
   };
-  room.updatedAt = Date.now();
 
-  room.players = normalizePlayers(room.players).map((p) => ({
-    ...p,
-    ready: false,
-    connected: true,
-    phase: 'lobby',
-    finished: false,
-    finalScore: 0,
-    miss: 0,
-    streak: 0,
-    finishedAt: 0,
-    lastSeenAt: Date.now()
-  }));
+  window.RaceSafe = API;
+  window.__RACE_STATE__ = STATE;
 
-  await saveRoom(room);
-  hideSummary();
-}
-
-function buildLobbyUrl() {
-  const q = new URLSearchParams({
-    pid: GJ_PID,
-    name: GJ_NAME,
-    studyId: RUN_CTX.studyId || '',
-    diff: RUN_CTX.diff || 'normal',
-    time: RUN_CTX.time || '120',
-    seed: String(Date.now()),
-    hub: GJ_HUB,
-    view: RUN_CTX.view || 'mobile',
-    run: RUN_CTX.run || 'play',
-    gameId: GJ_GAME_ID,
-    mode: 'race',
-    roomId: GJ_ROOM_ID
-  });
-  return `./goodjunk-race-room.html?${q.toString()}`;
-}
-
-async function bootWithGate(startFn) {
-  if (booted) return;
-  booted = true;
-
-  if (!GJ_ROOM_ID) {
-    showGate('ยังไม่มี room จากลิงก์นี้', '...', 'กลับไป lobby แล้วเริ่มใหม่');
-    return;
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', ensureBoot, { once: true });
+  } else {
+    ensureBoot();
   }
-
-  const room = await loadRoom();
-  if (room) {
-    if (!amIParticipant(room)) {
-      showGate('คุณไม่ได้อยู่ใน participant ของรอบนี้', '...', 'กลับไป lobby เพื่อรอรอบถัดไป');
-      return;
-    }
-  }
-
-  if (!getEffectiveStartAt()) {
-    const currentRoom = room || await loadRoom();
-    if (currentRoom?.startAt) recoveredStartAt = Number(currentRoom.startAt || 0);
-  }
-
-  if (!getEffectiveStartAt()) {
-    showGate('กำลังรอเริ่ม Race', '...', 'ยังไม่มีสัญญาณเริ่มจากห้อง');
-    return;
-  }
-
-  showGate('กำลังนับถอยหลังก่อนเริ่มพร้อมกัน', '-', `Room: ${GJ_ROOM_ID}`);
-  await waitUntilStart(getEffectiveStartAt());
-  cancelGateLoop();
-  hideGate();
-  startFn();
-}
-
-function attachRoomListener() {
-  if (roomListenerBound) return;
-  roomListenerBound = true;
-
-  ensureFirebase().then((ok) => {
-    if (!ok || !roomRef) return;
-
-    roomRef.on('value', async (snap) => {
-      const room = sanitizeRoom(snapshotToRoom(snap.val()));
-      if (!room) return;
-
-      recoveredStartAt = Number(room.startAt || recoveredStartAt || 0);
-
-      if (!amIParticipant(room)) {
-        hideSummary();
-        return;
-      }
-
-      if (room.status === 'finished') {
-        state.running = false;
-        state.ended = true;
-        localRunActive = false;
-        stopHeartbeat();
-        stopWatchdog();
-        showSummary(room, getRacePlayers(room), false, 'finished');
-        return;
-      }
-
-      if (room.status === 'running' && RACE_UI?.setStatus) {
-        RACE_UI.setStatus('running');
-      }
-
-      const players = getRacePlayers(room);
-      const me = players.find((p) => p.id === GJ_PID);
-
-      if (me && !me.finished && localRunActive && !state.ended) {
-        hideSummary();
-      }
-
-      await maybeFinalizeRoom(false);
-    });
-  });
-}
+})();
