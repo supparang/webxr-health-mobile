@@ -632,10 +632,22 @@
       inset:0;
     }
 
+    /* PATCH v20260321-handwash-pointer-fix */
+    .hw-hand-base,
+    .hw-germ-layer,
+    .hw-highlight-layer,
+    .hw-trail-layer{
+      pointer-events:none;
+    }
+
+    .hw-zone-layer{
+      pointer-events:none;
+      z-index:3;
+    }
+
     .hw-hand-base{
       display:grid;
       place-items:center;
-      pointer-events:none;
     }
 
     .hw-hand-illustration{
@@ -698,6 +710,7 @@
 
     .hw-zone{
       position:absolute;
+      z-index:4;
       border-radius:24px;
       border:2px dashed rgba(255,255,255,.18);
       background:rgba(255,255,255,.02);
@@ -705,6 +718,7 @@
       cursor:pointer;
       user-select:none;
       touch-action:none;
+      pointer-events:auto;
     }
 
     .hw-zone::after{
@@ -775,7 +789,6 @@
     .hw-germ-cluster{
       position:absolute;
       inset:0;
-      pointer-events:none;
       overflow:hidden;
       border-radius:inherit;
     }
