@@ -1,5 +1,13 @@
 // === /herohealth/js/handwash.safe.v2.js ===
-// FULL PATCH v20260320g-HANDWASH-V2-WHO7-PRODUCTION
+// FULL PATCH v20260321-force-tap-progress
+// Handwash Trainer V2
+// - PC + Mobile in one page
+// - mobileFreeScrub mode for touch devices
+// - forceTapProgress fallback
+// - WHO 7 steps
+// - summary / replay / next / back hub
+// - localStorage summary + event/session rows
+// - child-friendly assist panel
 
 (() => {
   'use strict';
@@ -20,12 +28,30 @@
     view: qs.get('view') || 'mobile'
   };
 
+  const PLAY_FIRST_MODE = (() => {
+    const strictFlag = qs.get('strictGesture');
+    if (strictFlag === '1') return false;
+    if (strictFlag === '0') return true;
+
+    const touchLike = ('ontouchstart' in window) || (navigator.maxTouchPoints || 0) > 0;
+    return touchLike;
+  })();
+
+  const MOBILE_FREE_SCRUB_MODE = (() => {
+    const explicit = qs.get('mobileFreeScrub');
+    if (explicit === '1') return true;
+    if (explicit === '0') return false;
+
+    const touchLike = ('ontouchstart' in window) || (navigator.maxTouchPoints || 0) > 0;
+    return PLAY_FIRST_MODE && touchLike;
+  })();
+
   const PHASE_COPY = {
-    intro: { label: 'เริ่มล้างมือ', sub: 'กดสบู่ก่อน' },
-    soap: { label: 'ใส่สบู่', sub: 'กดปุ่มสบู่เพื่อเริ่ม' },
-    scrub: { label: 'ถูมือ', sub: 'ทำ WHO 7 ขั้นทีละขั้น' },
-    rinse: { label: 'ล้างน้ำ', sub: 'ล้างน้ำเมื่อครบ 7 ขั้น' },
-    dry: { label: 'เช็ดมือ', sub: 'เช็ดมือให้แห้ง' },
+    intro:   { label: 'เริ่มล้างมือ', sub: 'กดสบู่ก่อน' },
+    soap:    { label: 'ใส่สบู่', sub: 'กดปุ่มสบู่เพื่อเริ่ม' },
+    scrub:   { label: 'ถูมือ', sub: 'ทำ WHO 7 ขั้นทีละขั้น' },
+    rinse:   { label: 'ล้างน้ำ', sub: 'ล้างน้ำเมื่อครบ 7 ขั้น' },
+    dry:     { label: 'เช็ดมือ', sub: 'เช็ดมือให้แห้ง' },
     summary: { label: 'สรุปผล', sub: 'ดูว่าพลาดตรงไหน' }
   };
 
@@ -37,10 +63,10 @@
     { id: 'backLeft',       label: 'หลังมือซ้าย', buttonId: 'zone-back-left' },
     { id: 'backRight',      label: 'หลังมือขวา',  buttonId: 'zone-back-right' },
     { id: 'betweenFingers', label: 'ซอกนิ้ว',     buttonId: 'zone-between-fingers' },
-    { id: 'backFingers',    label: 'หลังนิ้ว',     buttonId: 'zone-back-fingers' },
+    { id: 'backFingers',    label: 'หลังนิ้ว',    buttonId: 'zone-back-fingers' },
     { id: 'thumbs',         label: 'นิ้วโป้ง',     buttonId: 'zone-thumbs' },
-    { id: 'fingertips',     label: 'ปลายนิ้ว',     buttonId: 'zone-fingertips' },
-    { id: 'wrists',         label: 'ข้อมือ',       buttonId: 'zone-wrists' }
+    { id: 'fingertips',     label: 'ปลายนิ้ว',    buttonId: 'zone-fingertips' },
+    { id: 'wrists',         label: 'ข้อมือ',      buttonId: 'zone-wrists' }
   ];
 
   const WHO_STEPS = [
@@ -53,119 +79,43 @@
     { id: 7, label: 'ถูรอบข้อมือ', zones: ['wrists'], target: 75 }
   ];
 
+  const WHO_MOTION_HINTS = {
+    1: { title: 'ฝ่ามือ', icon: '↺', text: 'ลากวนสั้น ๆ ในกรอบเหลือง' },
+    2: { title: 'หลังมือ', icon: '↔', text: 'ลากปาดไป-กลับบนหลังมือ' },
+    3: { title: 'ซอกนิ้ว', icon: '⇆', text: 'ถูสั้น ๆ ถี่ ๆ ตรงซอกนิ้ว' },
+    4: { title: 'หลังนิ้ว', icon: '⇄', text: 'ลากปาดสั้น ๆ ตามแนวนิ้ว' },
+    5: { title: 'นิ้วโป้ง', icon: '⟳', text: 'ลากวนรอบนิ้วโป้ง' },
+    6: { title: 'ปลายนิ้ว', icon: '⋯', text: 'แตะหรือถูถี่ ๆ ที่ปลายนิ้ว' },
+    7: { title: 'ข้อมือ', icon: '↻', text: 'ลากวนหรือปาดรอบข้อมือ' }
+  };
+
+  const WHO_GESTURE_RULES = {
+    1: { type: 'circle', minPath: 36, minBoxW: 10, minBoxH: 10, maxEndDist: 80 },
+    2: { type: 'sweep',  minPath: 28, axis: 'x', dominance: 1.02 },
+    3: { type: 'interlace', minPath: 24, minTurns: 1 },
+    4: { type: 'sweep',  minPath: 24, axis: 'x', dominance: 1.0 },
+    5: { type: 'circle', minPath: 24, minBoxW: 8, minBoxH: 8, maxEndDist: 70 },
+    6: { type: 'tap', minTaps: 2 },
+    7: { type: 'circle', minPath: 20, minBoxW: 8, minBoxH: 8, maxEndDist: 70 }
+  };
+
   const HANDWASH_SESSIONS_COLUMNS = [
-    'timestampIso',
-    'projectTag',
-    'runMode',
-    'studyId',
-    'phase',
-    'conditionGroup',
-    'sessionOrder',
-    'blockLabel',
-    'siteCode',
-    'schoolYear',
-    'semester',
-    'sessionId',
-    'gameMode',
-    'diff',
-    'durationPlannedSec',
-    'durationPlayedSec',
-    'scoreFinal',
-    'comboMax',
-    'misses',
-    'goalsCleared',
-    'goalsTotal',
-    'miniCleared',
-    'miniTotal',
-    'nTargetGoodSpawned',
-    'nTargetJunkSpawned',
-    'nTargetStarSpawned',
-    'nTargetDiamondSpawned',
-    'nTargetShieldSpawned',
-    'nHitGood',
-    'nHitJunk',
-    'nHitJunkGuard',
-    'nExpireGood',
-    'accuracyGoodPct',
-    'junkErrorPct',
-    'avgRtGoodMs',
-    'medianRtGoodMs',
-    'fastHitRatePct',
-    'device',
-    'gameVersion',
-    'reason',
-    'startTimeIso',
-    'endTimeIso',
-    'studentKey',
-    'schoolCode',
-    'schoolName',
-    'classRoom',
-    'studentNo',
-    'nickName',
-    'gender',
-    'age',
-    'gradeLevel',
-    'heightCm',
-    'weightKg',
-    'bmi',
-    'bmiGroup',
-    'vrExperience',
-    'gameFrequency',
-    'handedness',
-    'visionIssue',
-    'healthDetail',
-    'consentParent',
-    'consentTeacher',
-    'profileSource',
-    'surveyKey',
-    'excludeFlag',
-    'noteResearcher',
-    'rtBreakdownJson',
-    '__extraJson'
+    'timestampIso','projectTag','runMode','studyId','phase','conditionGroup','sessionOrder','blockLabel','siteCode',
+    'schoolYear','semester','sessionId','gameMode','diff','durationPlannedSec','durationPlayedSec','scoreFinal',
+    'comboMax','misses','goalsCleared','goalsTotal','miniCleared','miniTotal','nTargetGoodSpawned','nTargetJunkSpawned',
+    'nTargetStarSpawned','nTargetDiamondSpawned','nTargetShieldSpawned','nHitGood','nHitJunk','nHitJunkGuard',
+    'nExpireGood','accuracyGoodPct','junkErrorPct','avgRtGoodMs','medianRtGoodMs','fastHitRatePct','device','gameVersion',
+    'reason','startTimeIso','endTimeIso','studentKey','schoolCode','schoolName','classRoom','studentNo','nickName',
+    'gender','age','gradeLevel','heightCm','weightKg','bmi','bmiGroup','vrExperience','gameFrequency','handedness',
+    'visionIssue','healthDetail','consentParent','consentTeacher','profileSource','surveyKey','excludeFlag',
+    'noteResearcher','rtBreakdownJson','__extraJson'
   ];
 
   const HANDWASH_EVENT_COLUMNS = [
-    'timestampIso',
-    'projectTag',
-    'runMode',
-    'studyId',
-    'phase',
-    'conditionGroup',
-    'sessionId',
-    'eventType',
-    'gameMode',
-    'diff',
-    'timeFromStartMs',
-    'targetId',
-    'emoji',
-    'itemType',
-    'lane',
-    'rtMs',
-    'judgment',
-    'totalScore',
-    'combo',
-    'isGood',
-    'feverState',
-    'feverValue',
-    'goalProgress',
-    'miniProgress',
-    'extra',
-    'studentKey',
-    'schoolCode',
-    'classRoom',
-    'studentNo',
-    'nickName'
+    'timestampIso','projectTag','runMode','studyId','phase','conditionGroup','sessionId','eventType','gameMode','diff',
+    'timeFromStartMs','targetId','emoji','itemType','lane','rtMs','judgment','totalScore','combo','isGood',
+    'feverState','feverValue','goalProgress','miniProgress','extra','studentKey','schoolCode','classRoom','studentNo','nickName'
   ];
-
-  let dom = null;
-  let state = null;
-  let timerId = null;
-  let toastTimer = null;
-  let startedAt = 0;
-  let scrubSession = null;
-  let isNavigating = false;
-  let summaryCache = null;
-  let lastWhoFocusIndex = -1;
 
   const HW_STORAGE_KEYS = {
     lastSummary: 'HHA_LAST_SUMMARY',
@@ -176,6 +126,26 @@
     sessionsRows: 'HHA_HW_V2_SESSIONS_ROWS',
     eventRows: 'HHA_HW_V2_EVENT_ROWS'
   };
+
+  let dom = null;
+  let state = null;
+  let timerId = null;
+  let toastTimer = null;
+  let holdAssistTimer = null;
+  let startedAt = 0;
+  let scrubSession = null;
+  let isNavigating = false;
+  let summaryCache = null;
+  let lastWhoFocusIndex = -1;
+  const TAP_DEBUG = qs.get('tapDebug') === '1';
+  const zoneTapLock = new Map();
+
+  const FORCE_TAP_PROGRESS_MODE = (() => {
+    const explicit = qs.get('forceTapProgress');
+    if (explicit === '1') return true;
+    if (explicit === '0') return false;
+    return MOBILE_FREE_SCRUB_MODE;
+  })();
 
   boot();
 
@@ -204,7 +174,9 @@
 
   function cacheDom() {
     const zoneButtons = {};
-    for (const meta of ZONE_META) zoneButtons[meta.id] = document.getElementById(meta.buttonId);
+    for (const meta of ZONE_META) {
+      zoneButtons[meta.id] = document.getElementById(meta.buttonId);
+    }
 
     return {
       root: document.getElementById('hwGame'),
@@ -219,10 +191,19 @@
       coachText: document.getElementById('hwCoachText'),
       stepPanel: document.getElementById('hwStepPanel'),
 
-      whoPanel: document.getElementById('hwWhoPanel'),
       whoNow: document.getElementById('hwWhoNow'),
       whoSteps: document.getElementById('hwWhoSteps'),
       whoProgressFill: document.getElementById('hwWhoProgressFill'),
+
+      motionPanel: document.getElementById('hwMotionPanel'),
+      motionIcon: document.getElementById('hwMotionIcon'),
+      motionTitle: document.getElementById('hwMotionTitle'),
+      motionText: document.getElementById('hwMotionText'),
+
+      assistPanel: document.getElementById('hwAssistPanel'),
+      assistTitle: document.getElementById('hwAssistTitle'),
+      assistSub: document.getElementById('hwAssistSub'),
+      assistRemain: document.getElementById('hwAssistRemain'),
 
       handStage: document.getElementById('hwHandStage'),
       germLayer: document.getElementById('hwGermLayer'),
@@ -344,12 +325,12 @@
       toggleOverlay(dom.helpOverlay, true);
       flushProgress('help-open');
     });
+
     dom.helpClose?.addEventListener('click', () => toggleOverlay(dom.helpOverlay, false));
 
     dom.btnPause?.addEventListener('click', onPauseClick);
     dom.resumeBtn?.addEventListener('click', onResumeClick);
     dom.restartBtn?.addEventListener('click', restartRound);
-
     dom.btnBackHub?.addEventListener('click', goHub);
 
     dom.summaryReplay?.addEventListener('click', () => {
@@ -387,7 +368,18 @@
     for (const meta of ZONE_META) {
       const btn = dom.zoneButtons[meta.id];
       if (!btn) continue;
-      btn.addEventListener('pointerdown', (e) => onZonePointerDown(e, meta.id));
+
+      btn.addEventListener('pointerdown', (e) => {
+        triggerZoneTap(meta.id, 'pointerdown', e);
+      });
+
+      btn.addEventListener('click', (e) => {
+        triggerZoneTap(meta.id, 'click', e);
+      });
+
+      btn.addEventListener('touchstart', (e) => {
+        triggerZoneTap(meta.id, 'touchstart', e);
+      }, { passive: false });
     }
 
     document.addEventListener('visibilitychange', () => {
@@ -507,6 +499,7 @@
     if (!dom.startOverlay?.classList.contains('hw-hidden')) return;
     if (state.phase === 'summary') return;
 
+    stopHoldAssist();
     state.paused = true;
     stopTimer();
     toggleOverlay(dom.pauseOverlay, true);
@@ -528,6 +521,7 @@
   function restartRound() {
     if (isNavigating) return;
 
+    stopHoldAssist();
     stopTimer();
     scrubSession = null;
     clearTrail();
@@ -554,6 +548,7 @@
   function goNext() {
     if (isNavigating) return;
     isNavigating = true;
+    stopHoldAssist();
     setSummaryButtonsDisabled(true);
 
     const summary = summaryCache || buildSummary('handoff');
@@ -572,6 +567,7 @@
   function goHub() {
     if (isNavigating) return;
     isNavigating = true;
+    stopHoldAssist();
 
     if (dom.summaryOverlay && !dom.summaryOverlay.classList.contains('hw-hidden')) {
       setSummaryButtonsDisabled(true);
@@ -590,6 +586,113 @@
     location.href = hubUrl;
   }
 
+  function getZoneCenterPoint(zoneId) {
+    const btn = dom.zoneButtons?.[zoneId];
+    if (!btn) return { x: 0, y: 0 };
+
+    const rect = btn.getBoundingClientRect();
+    return {
+      x: rect.left + rect.width / 2,
+      y: rect.top + rect.height / 2
+    };
+  }
+
+  function getClientPointFromEvent(e, zoneId) {
+    if (e?.touches?.[0]) {
+      return {
+        x: e.touches[0].clientX,
+        y: e.touches[0].clientY
+      };
+    }
+
+    if (e?.changedTouches?.[0]) {
+      return {
+        x: e.changedTouches[0].clientX,
+        y: e.changedTouches[0].clientY
+      };
+    }
+
+    if (typeof e?.clientX === 'number' && typeof e?.clientY === 'number') {
+      return {
+        x: e.clientX,
+        y: e.clientY
+      };
+    }
+
+    return getZoneCenterPoint(zoneId);
+  }
+
+  function isDuplicateZoneTap(zoneId, trigger) {
+    const now = Date.now();
+    const prev = zoneTapLock.get(zoneId) || 0;
+
+    const gap = trigger === 'pointerdown' ? 90 : 220;
+    if (now - prev < gap) return true;
+
+    zoneTapLock.set(zoneId, now);
+    return false;
+  }
+
+  function debugZoneTap(zoneId, trigger, clientX, clientY) {
+    if (!TAP_DEBUG) return;
+
+    const zone = state.zones?.[zoneId];
+    const step = getCurrentWhoStep();
+
+    console.log('[HW TAP]', {
+      trigger,
+      zoneId,
+      zoneLabel: zone?.label,
+      phase: state.phase,
+      soapApplied: state.soapApplied,
+      whoStepIndex: state.whoStepIndex,
+      whoStep: step?.label || '',
+      clientX,
+      clientY
+    });
+
+    showToast(`tap:${trigger} → ${zone?.label || zoneId}`, 700);
+  }
+
+  function triggerZoneTap(zoneId, trigger, e) {
+    if (e?.preventDefault) e.preventDefault();
+
+    if (isDuplicateZoneTap(zoneId, trigger)) return;
+
+    const pt = getClientPointFromEvent(e, zoneId);
+    debugZoneTap(zoneId, trigger, pt.x, pt.y);
+
+    onZonePointerDown({
+      pointerId: e?.pointerId ?? `${trigger}-${Date.now()}`,
+      clientX: pt.x,
+      clientY: pt.y,
+      currentTarget: dom.zoneButtons?.[zoneId],
+      preventDefault() {}
+    }, zoneId);
+  }
+
+  function getForceTapProgressAmount() {
+    const step = getCurrentWhoStep();
+    if (!step) return 10;
+
+    switch (step.id) {
+      case 1: return 10;
+      case 2: return 10;
+      case 3: return 12;
+      case 4: return 12;
+      case 5: return 12;
+      case 6: return 14;
+      case 7: return 10;
+      default: return 10;
+    }
+  }
+
+  function getForceTapReleaseBonus() {
+    const step = getCurrentWhoStep();
+    if (!step) return 4;
+    return step.id === 6 ? 6 : 4;
+  }
+
   function onZonePointerDown(e, zoneId) {
     if (state.phase !== 'scrub') return;
     if (!state.soapApplied) {
@@ -602,6 +705,8 @@
 
     if (!isZoneAllowedForCurrentWhoStep(zoneId)) {
       const step = getCurrentWhoStep();
+      const hint = WHO_MOTION_HINTS[step?.id];
+
       state.metrics.scrubWrongCount += 1;
 
       logEvent('handwash_wrong_zone', {
@@ -612,29 +717,100 @@
       });
 
       flashWrongZone(zoneId);
+      vibrateWarn();
       setCoachTone('warn');
       showToast('ยังไม่ใช่ขั้นนี้');
-      showCoach(step ? `ตอนนี้: ${shortWhoLabel(step.label)}` : 'ครบแล้ว กดล้างน้ำ');
+      showCoach(
+        MOBILE_FREE_SCRUB_MODE
+          ? `ตอนนี้: แตะหรือถู${shortWhoLabel(step.label)}`
+          : (step ? `ตอนนี้: ${shortWhoLabel(step.label)} • ${hint?.text || 'ลากในกรอบเหลือง'}` : 'ครบแล้ว กดล้างน้ำ')
+      );
+
+      if (TAP_DEBUG) {
+        console.log('[HW WRONG ZONE]', {
+          zoneId,
+          currentStep: getCurrentWhoStep()?.label || '',
+          allowedZones: getCurrentWhoStep()?.zones || []
+        });
+      }
       return;
     }
 
     beginZone(zoneId);
 
+    const center = getZoneCenterPoint(zoneId);
+    const x = Number.isFinite(e?.clientX) ? e.clientX : center.x;
+    const y = Number.isFinite(e?.clientY) ? e.clientY : center.y;
+
     scrubSession = {
-      pointerId: e.pointerId,
+      pointerId: e?.pointerId ?? `zone-${zoneId}-${Date.now()}`,
       zoneId,
-      lastX: e.clientX,
-      lastY: e.clientY,
-      pathAccum: 0
+      lastX: x,
+      lastY: y,
+      lastApplyAt: Date.now(),
+      points: [{ x, y, t: Date.now() }],
+      tapCount: 1,
+      dragAccum: 0,
+      forceTap: FORCE_TAP_PROGRESS_MODE
     };
 
     try {
-      e.currentTarget.setPointerCapture?.(e.pointerId);
+      e?.currentTarget?.setPointerCapture?.(e.pointerId);
     } catch (_) {}
 
-    addTrailDot(e.clientX, e.clientY);
-    applyScrubProgress(zoneId, 12, 'tap');
-    e.preventDefault();
+    addTrailDot(x, y);
+
+    if (FORCE_TAP_PROGRESS_MODE) {
+      const amount = getForceTapProgressAmount();
+      applyScrubProgress(zoneId, amount, 'force-tap');
+      startHoldAssist(zoneId);
+
+      setCoachTone('');
+      showCoach(`แตะหรือถู${zone.label}ต่อ`);
+
+      if (TAP_DEBUG) {
+        console.log('[HW FORCE TAP]', {
+          zoneId,
+          amount,
+          cleanProgress: zone.cleanProgress,
+          germLevel: zone.germLevel
+        });
+      }
+
+      e?.preventDefault?.();
+      return;
+    }
+
+    if (MOBILE_FREE_SCRUB_MODE) {
+      applyScrubProgress(zoneId, 12, 'tap-start-free');
+      setCoachTone('');
+      showCoach(`แตะหรือถู${zone.label}ต่อ`);
+    } else {
+      const step = getCurrentWhoStep();
+      if (step?.id === 6) {
+        applyScrubProgress(zoneId, 10, 'tap');
+        showCoach(`แตะถี่ ๆ ที่${zone.label}`);
+      } else if (PLAY_FIRST_MODE) {
+        applyScrubProgress(zoneId, 8, 'tap-start-playfirst');
+        showCoach(getGestureHintTextForCurrentStep());
+      }
+    }
+
+    startHoldAssist(zoneId);
+
+    if (TAP_DEBUG) {
+      const step = getCurrentWhoStep();
+      console.log('[HW ZONE ACCEPTED]', {
+        zoneId,
+        zoneLabel: zone.label,
+        phase: state.phase,
+        whoStep: step?.label || '',
+        cleanProgress: zone.cleanProgress,
+        germLevel: zone.germLevel
+      });
+    }
+
+    e?.preventDefault?.();
   }
 
   function onStagePointerMove(e) {
@@ -645,11 +821,10 @@
     const dx = e.clientX - scrubSession.lastX;
     const dy = e.clientY - scrubSession.lastY;
     const dist = Math.hypot(dx, dy);
-    if (dist < 2) return;
+    if (dist < 1.5) return;
 
     scrubSession.lastX = e.clientX;
     scrubSession.lastY = e.clientY;
-    scrubSession.pathAccum += dist;
 
     addTrailDot(e.clientX, e.clientY);
 
@@ -663,17 +838,154 @@
 
     if (!inside) return;
 
-    if (scrubSession.pathAccum >= 16) {
-      const steps = Math.floor(scrubSession.pathAccum / 16);
-      scrubSession.pathAccum %= 16;
-      applyScrubProgress(zoneId, steps * 8, 'drag');
+    scrubSession.points.push({ x: e.clientX, y: e.clientY, t: Date.now() });
+
+    if (MOBILE_FREE_SCRUB_MODE) {
+      const now = Date.now();
+      if (now - (scrubSession.lastApplyAt || 0) >= 90) {
+        scrubSession.lastApplyAt = now;
+        applyScrubProgress(zoneId, 7, 'drag-live-free');
+      }
+      return;
+    }
+
+    const step = getCurrentWhoStep();
+
+    if (step?.id === 6) {
+      if (dist < 16) scrubSession.tapCount += 1;
+
+      scrubSession.dragAccum = (scrubSession.dragAccum || 0) + dist;
+      if (PLAY_FIRST_MODE) {
+        if (scrubSession.dragAccum >= 12) {
+          scrubSession.dragAccum = 0;
+          applyScrubProgress(zoneId, 6, 'tap-live');
+        }
+      }
+      return;
+    }
+
+    scrubSession.dragAccum = (scrubSession.dragAccum || 0) + dist;
+
+    if (PLAY_FIRST_MODE) {
+      if (scrubSession.dragAccum >= 10) {
+        scrubSession.dragAccum = 0;
+        applyScrubProgress(zoneId, 8, 'drag-live-soft');
+      }
+    } else {
+      if (scrubSession.dragAccum >= 18) {
+        scrubSession.dragAccum = 0;
+        applyScrubProgress(zoneId, 4, 'drag-live');
+      }
     }
   }
 
   function endScrubSession(e) {
     if (!scrubSession) return;
     if (e && scrubSession.pointerId !== e.pointerId) return;
+
+    stopHoldAssist();
+
+    const session = scrubSession;
     scrubSession = null;
+
+    const step = getCurrentWhoStep();
+    if (!step) return;
+
+    if (FORCE_TAP_PROGRESS_MODE) {
+      const bonus = getForceTapReleaseBonus();
+      applyScrubProgress(session.zoneId, bonus, 'force-tap-release');
+      setCoachTone('');
+      showToast('ดีมาก');
+      showCoach(`แตะหรือถู${shortWhoLabel(step.label)}ต่อ`);
+
+      if (TAP_DEBUG) {
+        console.log('[HW FORCE TAP RELEASE]', {
+          zoneId: session.zoneId,
+          bonus
+        });
+      }
+      return;
+    }
+
+    if (MOBILE_FREE_SCRUB_MODE) {
+      if (step.id === 6) {
+        if (session.tapCount >= 2) {
+          applyScrubProgress(session.zoneId, 10, 'tap-end-free');
+          setCoachTone('good');
+          showToast('ดีมาก');
+        } else {
+          applyScrubProgress(session.zoneId, 4, 'tap-end-lite-free');
+          setCoachTone('');
+          showToast('แตะต่อได้');
+        }
+        showCoach(`แตะหรือถู${shortWhoLabel(step.label)}ต่อ`);
+        return;
+      }
+
+      applyScrubProgress(session.zoneId, 6, 'release-bonus-free');
+      setCoachTone('');
+      showToast('ถูต่อได้');
+      showCoach(`แตะหรือถู${shortWhoLabel(step.label)}ต่อ`);
+      return;
+    }
+
+    if (step.id === 6) {
+      if (session.tapCount >= (WHO_GESTURE_RULES[6]?.minTaps || 2)) {
+        applyScrubProgress(session.zoneId, PLAY_FIRST_MODE ? 18 : 14, 'tap-burst');
+        setCoachTone('good');
+        showToast('แตะได้แล้ว');
+        showCoach('แตะถี่ ๆ ต่ออีกนิด');
+      } else {
+        if (PLAY_FIRST_MODE) {
+          applyScrubProgress(session.zoneId, 8, 'tap-soft');
+        } else {
+          applyScrubProgress(session.zoneId, 4, 'tap-lite');
+        }
+        setCoachTone('warn');
+        showToast('แตะต่ออีกนิด');
+        showCoach('ปลายนิ้ว: แตะถี่ ๆ ในกรอบเหลือง');
+      }
+      return;
+    }
+
+    const rule = getCurrentGestureRule();
+    const meta = getGestureMeta(session.points);
+    const result = validateGestureByRule(meta, rule, session.tapCount);
+
+    if (result.ok) {
+      const amount = PLAY_FIRST_MODE
+        ? Math.max(14, gestureAmountFromQuality(result.quality))
+        : gestureAmountFromQuality(result.quality);
+
+      applyScrubProgress(session.zoneId, amount, `gesture-${rule.type}`);
+      setCoachTone('good');
+      showToast(result.quality === 'great' ? 'ดีมาก' : 'ถูกแบบแล้ว');
+      showCoach(getGestureHintTextForCurrentStep());
+    } else {
+      state.metrics.scrubWrongCount += 1;
+
+      logEvent('handwash_wrong_gesture', {
+        zoneId: session.zoneId,
+        targetId: session.zoneId,
+        judgment: 'wrong',
+        isGood: 0,
+        expectedGesture: rule?.type || '',
+        reason: result.reason,
+        meta
+      });
+
+      if (PLAY_FIRST_MODE) {
+        applyScrubProgress(session.zoneId, 10, 'gesture-soft-bonus');
+        setCoachTone('warn');
+        showToast('ถูต่อได้');
+        showCoach(getGestureHintTextForCurrentStep());
+      } else {
+        applyScrubProgress(session.zoneId, 6, 'gesture-lite');
+        setCoachTone('warn');
+        showToast('ถูต่ออีกนิด');
+        showCoach(getGestureHintTextForCurrentStep());
+      }
+    }
   }
 
   function beginZone(zoneId) {
@@ -699,6 +1011,7 @@
   function applyScrubProgress(zoneId, amount, source) {
     const zone = state.zones[zoneId];
     if (!zone || zone.isClean) return;
+    if (amount <= 0) return;
 
     zone.touched = true;
     zone.cleanProgress = clampNum(zone.cleanProgress + amount, 0, 100);
@@ -714,6 +1027,17 @@
       source
     });
 
+    if (TAP_DEBUG) {
+      console.log('[HW PROGRESS]', {
+        zoneId,
+        source,
+        amount,
+        cleanProgress: zone.cleanProgress,
+        germLevel: zone.germLevel,
+        coveragePct: state.metrics.coveragePct
+      });
+    }
+
     if (zone.cleanProgress >= 100 || zone.germLevel <= 0) {
       zone.cleanProgress = 100;
       zone.germLevel = 0;
@@ -727,11 +1051,12 @@
       });
 
       setCoachTone('good');
+      vibrateSuccess();
       showToast(`${zone.label} ผ่านแล้ว`);
       showCoach(`${zone.label} ผ่านแล้ว`);
     } else {
       setCoachTone('');
-      showCoach(`ถู${zone.label}ต่อ`);
+      showCoach(getGestureHintTextForCurrentStep());
     }
 
     recalcCoverage();
@@ -745,13 +1070,26 @@
     }
   }
 
+  function getCurrentStepLabel() {
+    const step = getCurrentWhoStep();
+    return step ? step.label : '';
+  }
+
   function getCurrentWhoStep() {
     return state.whoSteps[state.whoStepIndex] || null;
   }
 
-  function getCurrentWhoStepLabel() {
+  function getCurrentGestureRule() {
     const step = getCurrentWhoStep();
-    return step ? step.label : '';
+    if (!step) return null;
+    return WHO_GESTURE_RULES[step.id] || null;
+  }
+
+  function getEffectiveWhoTarget(step) {
+    if (!step) return 100;
+    if (MOBILE_FREE_SCRUB_MODE) return Math.max(24, step.target - 40);
+    if (PLAY_FIRST_MODE) return Math.max(40, step.target - 20);
+    return step.target;
   }
 
   function isZoneAllowedForCurrentWhoStep(zoneId) {
@@ -764,9 +1102,10 @@
     const step = getCurrentWhoStep();
     if (!step) return true;
 
+    const target = getEffectiveWhoTarget(step);
     return step.zones.every(zoneId => {
       const zone = state.zones[zoneId];
-      return zone && zone.cleanProgress >= step.target;
+      return zone && zone.cleanProgress >= target;
     });
   }
 
@@ -786,6 +1125,7 @@
     });
 
     showToast(`ผ่านขั้น ${step.id}`);
+    vibrateSuccess();
     setCoachTone('good');
 
     state.whoStepIndex += 1;
@@ -884,6 +1224,7 @@
   function finishRound(reason) {
     if (isNavigating) return;
 
+    stopHoldAssist();
     stopTimer();
     scrubSession = null;
     clearHighlights();
@@ -1012,6 +1353,8 @@
     renderHud();
     renderSteps();
     renderWhoSteps();
+    renderMotionHint();
+    renderAssistPanel();
     renderZones();
     renderGerms();
     renderDirtyZones();
@@ -1079,9 +1422,15 @@
     const current = getCurrentWhoStep();
 
     if (dom.whoNow) {
-      dom.whoNow.textContent = current
-        ? `ขั้นที่ ${current.id}: ${shortWhoLabel(current.label)}`
-        : 'ครบ WHO 7 ขั้นแล้ว';
+      if (current) {
+        const target = getEffectiveWhoTarget(current);
+        const currentPct = Math.round(
+          current.zones.reduce((sum, zoneId) => sum + (state.zones[zoneId]?.cleanProgress || 0), 0) / current.zones.length
+        );
+        dom.whoNow.textContent = `ขั้นที่ ${current.id}: ${shortWhoLabel(current.label)} • ${currentPct}/${target}`;
+      } else {
+        dom.whoNow.textContent = 'ครบ WHO 7 ขั้นแล้ว';
+      }
     }
 
     const doneCount = state.whoSteps.filter(step => step.done).length;
@@ -1092,6 +1441,7 @@
     dom.whoSteps.innerHTML = state.whoSteps.map((step, index) => {
       const active = index === state.whoStepIndex && !step.done;
       const done = !!step.done;
+      const target = getEffectiveWhoTarget(step);
 
       const stepPct = Math.round(
         step.zones.reduce((sum, zoneId) => sum + (state.zones[zoneId]?.cleanProgress || 0), 0) / step.zones.length
@@ -1101,7 +1451,7 @@
         <div class="hw-who-step ${active ? 'is-active' : ''} ${done ? 'is-done' : ''}">
           <div class="hw-who-step-num">${done ? '✓' : step.id}</div>
           <div class="hw-who-step-label">${shortWhoLabel(step.label)}</div>
-          <div class="hw-who-step-mini">${done ? 'ผ่าน' : `${stepPct}%`}</div>
+          <div class="hw-who-step-mini">${done ? 'ผ่าน' : `${stepPct}/${target}`}</div>
         </div>
       `;
     }).join('');
@@ -1112,13 +1462,114 @@
   function autoFocusActiveWhoStep() {
     if (window.innerWidth > 720) return;
     if (lastWhoFocusIndex === state.whoStepIndex) return;
-    lastWhoFocusIndex = state.whoStepIndex;
 
+    lastWhoFocusIndex = state.whoStepIndex;
     const active = dom.whoSteps?.querySelector('.hw-who-step.is-active');
     active?.scrollIntoView?.({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
   }
 
+  function renderMotionHint() {
+    if (!dom.motionPanel || !dom.motionIcon || !dom.motionTitle || !dom.motionText) return;
+
+    dom.motionPanel.classList.remove('is-good', 'is-done');
+
+    if (state.phase !== 'scrub') {
+      if (state.phase === 'dry') {
+        dom.motionIcon.textContent = '🧻';
+        dom.motionTitle.textContent = 'เช็ดมือ';
+        dom.motionText.textContent = 'กดปุ่ม “เช็ดมือ” เพื่อจบเกม';
+        return;
+      }
+
+      if (state.phase === 'rinse') {
+        dom.motionIcon.textContent = '💧';
+        dom.motionTitle.textContent = 'ล้างน้ำ';
+        dom.motionText.textContent = 'ล้างน้ำหลังจากทำ WHO 7 ขั้นครบแล้ว';
+        return;
+      }
+
+      dom.motionIcon.textContent = '🫧';
+      dom.motionTitle.textContent = 'เริ่มเกม';
+      dom.motionText.textContent = 'กด “สบู่” แล้วเริ่มถูมือตามขั้น';
+      return;
+    }
+
+    if (state.whoStepIndex >= state.whoSteps.length) {
+      dom.motionPanel.classList.add('is-good', 'is-done');
+      dom.motionIcon.textContent = '✓';
+      dom.motionTitle.textContent = 'ครบ 7 ขั้นแล้ว';
+      dom.motionText.textContent = 'ตอนนี้กด “ล้างน้ำ” ได้เลย';
+      return;
+    }
+
+    const step = getCurrentWhoStep();
+    const hint = WHO_MOTION_HINTS[step?.id] || {
+      title: 'ถูมือ',
+      icon: '↺',
+      text: 'ลากสั้น ๆ ในกรอบเหลือง'
+    };
+
+    dom.motionIcon.textContent = hint.icon;
+    dom.motionTitle.textContent = `ขั้นที่ ${step.id}: ${hint.title}`;
+
+    if (MOBILE_FREE_SCRUB_MODE) {
+      dom.motionText.textContent = 'แตะซ้ำ ๆ หรือถูในกรอบเหลือง';
+    } else if (PLAY_FIRST_MODE) {
+      dom.motionText.textContent = `${hint.text} • โหมดเล่นง่าย`;
+    } else {
+      dom.motionText.textContent = hint.text;
+    }
+  }
+
+  function renderAssistPanel() {
+    if (!dom.assistTitle || !dom.assistSub || !dom.assistRemain) return;
+
+    if (state.phase !== 'scrub') {
+      if (state.phase === 'dry') {
+        dom.assistTitle.textContent = 'เช็ดมือ';
+        dom.assistSub.textContent = 'กดปุ่ม “เช็ดมือ”';
+        dom.assistRemain.textContent = '✓';
+        return;
+      }
+
+      if (state.phase === 'rinse') {
+        dom.assistTitle.textContent = 'ล้างน้ำ';
+        dom.assistSub.textContent = 'กดปุ่ม “ล้างน้ำ”';
+        dom.assistRemain.textContent = '✓';
+        return;
+      }
+
+      dom.assistTitle.textContent = 'เริ่มเกม';
+      dom.assistSub.textContent = 'กด “สบู่” ก่อน';
+      dom.assistRemain.textContent = '0';
+      return;
+    }
+
+    const step = getCurrentWhoStep();
+    if (!step) {
+      dom.assistTitle.textContent = 'ครบ 7 ขั้นแล้ว';
+      dom.assistSub.textContent = 'กด “ล้างน้ำ” ได้เลย';
+      dom.assistRemain.textContent = '✓';
+      return;
+    }
+
+    const currentPct = Math.round(
+      step.zones.reduce((sum, zoneId) => sum + (state.zones[zoneId]?.cleanProgress || 0), 0) / step.zones.length
+    );
+    const target = getEffectiveWhoTarget(step);
+    const remain = Math.max(0, target - currentPct);
+
+    dom.assistTitle.textContent = shortWhoLabel(step.label);
+    dom.assistSub.textContent = MOBILE_FREE_SCRUB_MODE
+      ? 'แตะหรือถูในกรอบเหลือง'
+      : (WHO_MOTION_HINTS[step.id]?.text || 'ลากในกรอบเหลือง');
+    dom.assistRemain.textContent = String(remain);
+  }
+
   function renderZones() {
+    const activeStep = getCurrentWhoStep();
+    const activeZones = activeStep ? new Set(activeStep.zones) : new Set();
+
     for (const meta of ZONE_META) {
       const btn = dom.zoneButtons[meta.id];
       const zone = state.zones[meta.id];
@@ -1127,6 +1578,13 @@
       btn.classList.toggle('is-clean', zone.isClean);
       btn.classList.toggle('is-dirty', !zone.isClean);
       btn.classList.toggle('is-active', state.currentZone === meta.id && !zone.isClean);
+
+      const isTarget = state.phase === 'scrub' && activeZones.has(meta.id) && !zone.isClean;
+      const isDim = state.phase === 'scrub' && activeStep && !activeZones.has(meta.id) && !zone.isClean;
+
+      btn.classList.toggle('is-target', isTarget);
+      btn.classList.toggle('is-dim', isDim);
+
       btn.setAttribute('aria-label', `${zone.label} ${zone.isClean ? 'สะอาดแล้ว' : 'ยังไม่สะอาด'}`);
     }
   }
@@ -1210,7 +1668,6 @@
     if (dom.btnSoap) dom.btnSoap.disabled = !(state.phase === 'intro' || state.phase === 'soap');
     if (dom.btnRinse) dom.btnRinse.disabled = !(state.phase === 'scrub' && state.whoStepIndex >= state.whoSteps.length);
     if (dom.btnDry) dom.btnDry.disabled = state.phase !== 'dry';
-
     refreshCtas();
   }
 
@@ -1302,9 +1759,7 @@
         .join('');
     }
 
-    if (dom.summaryHeroScore) {
-      dom.summaryHeroScore.textContent = String(summary.totalResearchScore);
-    }
+    if (dom.summaryHeroScore) dom.summaryHeroScore.textContent = String(summary.totalResearchScore);
 
     if (dom.summaryHeroSub) {
       dom.summaryHeroSub.textContent =
@@ -1313,30 +1768,19 @@
           : `ยังเหลือ WHO อีก ${summary.whoMissedCount} ขั้นที่ควรฝึกเพิ่ม`;
     }
 
-    if (dom.summaryHeroWho) {
-      dom.summaryHeroWho.textContent = `${summary.whoDoneCount} / 7`;
-    }
-
-    if (dom.summaryHeroCoverage) {
-      dom.summaryHeroCoverage.textContent = `${summary.coveragePct}%`;
-    }
-
-    if (dom.summaryHeroStars) {
-      dom.summaryHeroStars.textContent = String(summary.stars);
-    }
+    if (dom.summaryHeroWho) dom.summaryHeroWho.textContent = `${summary.whoDoneCount} / 7`;
+    if (dom.summaryHeroCoverage) dom.summaryHeroCoverage.textContent = `${summary.coveragePct}%`;
+    if (dom.summaryHeroStars) dom.summaryHeroStars.textContent = String(summary.stars);
 
     if (dom.summaryBadges) {
-      const badges = [
+      dom.summaryBadges.innerHTML = [
         `<span class="hw-badge info">${summary.soapApplied ? 'ใส่สบู่แล้ว' : 'ยังไม่ใส่สบู่'}</span>`,
         `<span class="hw-badge ${summary.rinseDone ? '' : 'warn'}">${summary.rinseDone ? 'ล้างน้ำแล้ว' : 'ยังไม่ล้างน้ำ'}</span>`,
         `<span class="hw-badge ${summary.dryDone ? '' : 'warn'}">${summary.dryDone ? 'เช็ดมือแล้ว' : 'ยังไม่เช็ดมือ'}</span>`
-      ];
-      dom.summaryBadges.innerHTML = badges.join('');
+      ].join('');
     }
 
-    if (dom.summaryWhoScore) {
-      dom.summaryWhoScore.textContent = `${summary.whoDoneCount} / 7`;
-    }
+    if (dom.summaryWhoScore) dom.summaryWhoScore.textContent = `${summary.whoDoneCount} / 7`;
 
     if (dom.summaryWhoText) {
       dom.summaryWhoText.textContent =
@@ -1357,9 +1801,7 @@
         : '<li class="hw-summary-empty">ครบทุกขั้นแล้ว เยี่ยมมาก</li>';
     }
 
-    if (dom.summaryResearchScore) {
-      dom.summaryResearchScore.textContent = String(summary.totalResearchScore);
-    }
+    if (dom.summaryResearchScore) dom.summaryResearchScore.textContent = String(summary.totalResearchScore);
 
     if (dom.summaryResearchText) {
       dom.summaryResearchText.textContent =
@@ -1432,12 +1874,18 @@
       showCoach('ครบ 7 ขั้นแล้ว กด “ล้างน้ำ”');
       return;
     }
-    setCoachTone('');
-    showCoach(`${prefix}: ${shortWhoLabel(step.label)}`);
-  }
 
-  function showCoach(text) {
-    if (dom.coachText) dom.coachText.textContent = text;
+    const short = shortWhoLabel(step.label);
+
+    if (MOBILE_FREE_SCRUB_MODE) {
+      setCoachTone('');
+      showCoach(`${prefix}: แตะหรือถู${short}`);
+      return;
+    }
+
+    const hint = WHO_MOTION_HINTS[step.id];
+    setCoachTone('');
+    showCoach(`${prefix}: ${short} • ${hint?.text || 'ลากในกรอบเหลือง'}`);
   }
 
   function setCoachTone(kind = '') {
@@ -1445,6 +1893,10 @@
     dom.coachBar.classList.remove('is-warn', 'is-good');
     if (kind === 'warn') dom.coachBar.classList.add('is-warn');
     if (kind === 'good') dom.coachBar.classList.add('is-good');
+  }
+
+  function showCoach(text) {
+    if (dom.coachText) dom.coachText.textContent = text;
   }
 
   function showToast(text, ms = 1200) {
@@ -1466,7 +1918,7 @@
     const btn = dom.zoneButtons?.[zoneId];
     if (!btn) return;
     btn.classList.add('is-wrong');
-    window.setTimeout(() => btn.classList.remove('is-wrong'), 280);
+    setTimeout(() => btn.classList.remove('is-wrong'), 280);
   }
 
   function clearCtaButtons() {
@@ -1499,6 +1951,32 @@
 
     if (state.phase === 'dry') {
       setCtaButton(dom.btnDry, 'dry');
+    }
+  }
+
+  function startHoldAssist(zoneId) {
+    stopHoldAssist();
+
+    if (!(MOBILE_FREE_SCRUB_MODE || FORCE_TAP_PROGRESS_MODE)) return;
+    if (state.phase !== 'scrub') return;
+    if (!isZoneAllowedForCurrentWhoStep(zoneId)) return;
+
+    holdAssistTimer = window.setInterval(() => {
+      const zone = state.zones[zoneId];
+      if (!zone || zone.isClean) {
+        stopHoldAssist();
+        return;
+      }
+
+      const amount = FORCE_TAP_PROGRESS_MODE ? 8 : 6;
+      applyScrubProgress(zoneId, amount, FORCE_TAP_PROGRESS_MODE ? 'hold-force-tap' : 'hold-assist');
+    }, FORCE_TAP_PROGRESS_MODE ? 140 : 160);
+  }
+
+  function stopHoldAssist() {
+    if (holdAssistTimer) {
+      window.clearInterval(holdAssistTimer);
+      holdAssistTimer = null;
     }
   }
 
@@ -1541,7 +2019,6 @@
 
     try {
       localStorage.setItem(HW_STORAGE_KEYS.lastSummary, JSON.stringify(payload));
-
       const raw = localStorage.getItem(HW_STORAGE_KEYS.summaryHistory);
       const list = raw ? JSON.parse(raw) : [];
       list.unshift(payload);
@@ -1579,8 +2056,8 @@
   function buildUrlWithSharedParams(baseUrl, extra = {}) {
     const url = new URL(baseUrl, location.href);
     const shared = buildSharedParams();
-    shared.forEach((value, key) => url.searchParams.set(key, value));
 
+    shared.forEach((value, key) => url.searchParams.set(key, value));
     Object.entries(extra).forEach(([k, v]) => {
       if (v !== undefined && v !== null && String(v) !== '') {
         url.searchParams.set(k, String(v));
@@ -1793,7 +2270,10 @@
       missedZones: summary.missedZones,
       scrubCorrectCount: summary.scrubCorrectCount,
       scrubWrongCount: summary.scrubWrongCount,
-      stars: summary.stars
+      stars: summary.stars,
+      mobileFreeScrub: MOBILE_FREE_SCRUB_MODE,
+      playFirst: PLAY_FIRST_MODE,
+      forceTapProgress: FORCE_TAP_PROGRESS_MODE
     };
 
     return {
@@ -1835,7 +2315,7 @@
       medianRtGoodMs: 0,
       fastHitRatePct: 0,
       device: detectDeviceType(),
-      gameVersion: 'handwash-v2-who7',
+      gameVersion: 'handwash-v2-force-tap-progress',
       reason: summary.reason || '',
       startTimeIso: new Date(startedAt).toISOString(),
       endTimeIso: nowIso(),
@@ -1965,6 +2445,127 @@
     return dots;
   }
 
+  function getGestureMeta(points = []) {
+    if (!points.length) {
+      return {
+        pathLength: 0,
+        boxW: 0,
+        boxH: 0,
+        dx: 0,
+        dy: 0,
+        endDist: 0,
+        xTurns: 0,
+        yTurns: 0
+      };
+    }
+
+    let pathLength = 0;
+    let minX = points[0].x, maxX = points[0].x;
+    let minY = points[0].y, maxY = points[0].y;
+    let xTurns = 0, yTurns = 0;
+    let prevDxSign = 0, prevDySign = 0;
+
+    for (let i = 1; i < points.length; i++) {
+      const dx = points[i].x - points[i - 1].x;
+      const dy = points[i].y - points[i - 1].y;
+      pathLength += Math.hypot(dx, dy);
+
+      minX = Math.min(minX, points[i].x);
+      maxX = Math.max(maxX, points[i].x);
+      minY = Math.min(minY, points[i].y);
+      maxY = Math.max(maxY, points[i].y);
+
+      const dxSign = Math.abs(dx) >= 2 ? Math.sign(dx) : 0;
+      const dySign = Math.abs(dy) >= 2 ? Math.sign(dy) : 0;
+
+      if (dxSign && prevDxSign && dxSign !== prevDxSign) xTurns += 1;
+      if (dySign && prevDySign && dySign !== prevDySign) yTurns += 1;
+
+      if (dxSign) prevDxSign = dxSign;
+      if (dySign) prevDySign = dySign;
+    }
+
+    const start = points[0];
+    const end = points[points.length - 1];
+
+    return {
+      pathLength,
+      boxW: maxX - minX,
+      boxH: maxY - minY,
+      dx: end.x - start.x,
+      dy: end.y - start.y,
+      endDist: Math.hypot(end.x - start.x, end.y - start.y),
+      xTurns,
+      yTurns
+    };
+  }
+
+  function validateGestureByRule(meta, rule, tapCount = 0) {
+    if (!rule) return { ok: true, quality: 'ok', reason: 'no-rule' };
+
+    if (rule.type === 'tap') {
+      const ok = tapCount >= (rule.minTaps || 4);
+      return {
+        ok,
+        quality: tapCount >= (rule.minTaps || 4) + 2 ? 'great' : 'ok',
+        reason: ok ? 'tap-pass' : 'tap-too-few'
+      };
+    }
+
+    if (rule.type === 'circle') {
+      const loopish =
+        meta.pathLength >= rule.minPath &&
+        meta.boxW >= rule.minBoxW &&
+        meta.boxH >= rule.minBoxH &&
+        meta.endDist <= rule.maxEndDist;
+
+      return {
+        ok: loopish,
+        quality: loopish && meta.pathLength >= rule.minPath * 1.35 ? 'great' : 'ok',
+        reason: loopish ? 'circle-pass' : 'circle-fail'
+      };
+    }
+
+    if (rule.type === 'sweep') {
+      const domX = Math.abs(meta.dx) >= Math.abs(meta.dy) * (rule.dominance || 1.2);
+      const domY = Math.abs(meta.dy) >= Math.abs(meta.dx) * (rule.dominance || 1.2);
+      const axisOk = rule.axis === 'x' ? domX : domY;
+      const ok = meta.pathLength >= rule.minPath && axisOk;
+
+      return {
+        ok,
+        quality: ok && meta.pathLength >= rule.minPath * 1.3 ? 'great' : 'ok',
+        reason: ok ? 'sweep-pass' : 'sweep-fail'
+      };
+    }
+
+    if (rule.type === 'interlace') {
+      const turns = Math.max(meta.xTurns, meta.yTurns);
+      const ok = meta.pathLength >= rule.minPath && turns >= (rule.minTurns || 3);
+
+      return {
+        ok,
+        quality: ok && turns >= (rule.minTurns || 3) + 2 ? 'great' : 'ok',
+        reason: ok ? 'interlace-pass' : 'interlace-fail'
+      };
+    }
+
+    return { ok: false, quality: 'bad', reason: 'unknown-rule' };
+  }
+
+  function gestureAmountFromQuality(quality) {
+    if (quality === 'great') return 18;
+    if (quality === 'ok') return 12;
+    return 6;
+  }
+
+  function getGestureHintTextForCurrentStep() {
+    const step = getCurrentWhoStep();
+    const hint = WHO_MOTION_HINTS[step?.id];
+    if (MOBILE_FREE_SCRUB_MODE) return 'แตะซ้ำ ๆ หรือถูในกรอบเหลือง';
+    return hint?.text || 'ลากในกรอบเหลือง';
+  }
+
   function buildSessionId(context) {
     const base = [
       context.gameId || 'handwash',
@@ -1979,21 +2580,16 @@
     return new Date().toISOString();
   }
 
-  function joinList(value) {
-    if (!Array.isArray(value)) return '';
-    return value.join(' | ');
+  function rowsToCsv(columns, rows) {
+    const header = columns.join(',');
+    const body = rows.map(row => columns.map(col => csvEscape(row[col])).join(',')).join('\n');
+    return `${header}\n${body}`;
   }
 
   function csvEscape(value) {
     const s = String(value ?? '');
     if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
     return s;
-  }
-
-  function rowsToCsv(columns, rows) {
-    const header = columns.join(',');
-    const body = rows.map(row => columns.map(col => csvEscape(row[col])).join(',')).join('\n');
-    return `${header}\n${body}`;
   }
 
   function downloadTextFile(filename, content, mime = 'text/csv;charset=utf-8;') {
@@ -2038,6 +2634,24 @@
       .replaceAll('>', '&gt;')
       .replaceAll('"', '&quot;')
       .replaceAll("'", '&#39;');
+  }
+
+  function vibrateLight(ms = 18) {
+    try {
+      if (navigator.vibrate) navigator.vibrate(ms);
+    } catch {}
+  }
+
+  function vibrateSuccess() {
+    try {
+      if (navigator.vibrate) navigator.vibrate([18, 30, 28]);
+    } catch {}
+  }
+
+  function vibrateWarn() {
+    try {
+      if (navigator.vibrate) navigator.vibrate([12, 20, 12]);
+    } catch {}
   }
 
   function exposeDebugApi() {
