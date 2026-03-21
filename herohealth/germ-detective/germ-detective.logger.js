@@ -1,5 +1,7 @@
 // === /herohealth/germ-detective/germ-detective.logger.js ===
-// Local-first CSV logger (sessions/events/features1s) — NO network
+// Germ Detective local-first logger — P5 aligned
+// sessions / events / features1s / summary
+// NO network by default
 
 export function createLogger(getCtx){
   const L = {
@@ -8,7 +10,12 @@ export function createLogger(getCtx){
     endedAt: null,
     seq: 0,
     enabled: true,
-    buffers: { sessions:[], events:[], features1s:[] },
+    buffers: {
+      sessions: [],
+      events: [],
+      features1s: [],
+      summary: []
+    },
     _featTimer: null
   };
 
@@ -16,98 +23,143 @@ export function createLogger(getCtx){
   const nowMs = ()=> Date.now();
 
   function makeSessionId(P){
-    return ['GD', P.pid||'anon', P.run||'play', P.scene||'scene', Date.now().toString(36)]
-      .join('_').replace(/[^\w-]+/g,'_');
+    return ['GD', P.pid || 'anon', P.run || 'play', P.scene || 'scene', Date.now().toString(36)]
+      .join('_')
+      .replace(/[^\w-]+/g, '_');
+  }
+
+  function safeJson(v){
+    try{ return JSON.stringify(v ?? {}); }
+    catch{ return '{"error":"json"}'; }
+  }
+
+  function numOrNull(v){
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  }
+
+  function sceneLabel(scene){
+    if(scene === 'home') return 'บ้าน';
+    if(scene === 'canteen') return 'โรงอาหาร';
+    return 'ห้องเรียน';
+  }
+
+  function diffLabel(diff){
+    if(diff === 'easy') return 'ระดับง่าย';
+    if(diff === 'hard') return 'ระดับยาก';
+    return 'ระดับปกติ';
   }
 
   function baseRow(kind){
-    const { P, GD } = getCtx();
+    const { P, app } = getCtx();
+    const st = app?.getState?.() || {};
     L.seq += 1;
+
     return {
-      game:'germ-detective',
+      game: 'germ-detective',
       kind,
       sessionId: L.sessionId,
       seq: L.seq,
       tsIso: isoNow(),
       tsMs: nowMs(),
-      pid:P.pid, run:P.run, diff:P.diff, scene:P.scene, view:P.view, seed:P.seed,
-      deterministic: (P.run==='research') ? 1 : 0,
-      researchSeedBase: (P.run==='research') ? (window.__GD_RESEARCH_SEED_BASE__ || null) : null,
-      missionId: GD.mission?.current?.id || null,
-      phaseMode: GD.phase?.mode || 'investigate'
+
+      pid: P.pid,
+      run: P.run,
+      diff: P.diff,
+      diffLabel: diffLabel(P.diff),
+      scene: P.scene,
+      sceneLabel: sceneLabel(P.scene),
+      view: P.view,
+      seed: P.seed,
+
+      deterministic: (P.run === 'research') ? 1 : 0,
+      phase: st.phase || null,
+      timeLeft: numOrNull(st.timeLeft),
+      timeTotal: numOrNull(st.timeTotal),
+      score: numOrNull(st.score),
+      areaRisk: numOrNull(st.areaRisk),
+      criticalFound: numOrNull(st.criticalFound),
+      criticalTotal: numOrNull(st.criticalTotal),
+      evidenceCount: Array.isArray(st.evidence) ? st.evidence.length : 0,
+      cleanedCount: numOrNull(st.cleanedCount),
+      paused: st.paused ? 1 : 0,
+      running: st.running ? 1 : 0,
+      ended: st.ended ? 1 : 0
     };
   }
 
-  function safeJson(v){ try{ return JSON.stringify(v ?? {});}catch{ return '{"error":"json"}'; } }
-  function numOrNull(v){ const n=Number(v); return Number.isFinite(n)?n:null; }
-
-  function logEvent(eventName, payload={}){
+  function logEvent(eventName, payload = {}){
     if(!L.enabled) return;
     const row = {
       ...baseRow('event'),
-      eventName: String(eventName||'event'),
+      eventName: String(eventName || 'event'),
       payloadJson: safeJson(payload),
-      payloadSize: JSON.stringify(payload||{}).length,
+      payloadSize: safeJson(payload).length,
       target: payload.target ?? null,
       tool: payload.tool ?? null,
-      method: payload.method ?? null,
       reason: payload.reason ?? null,
-      riskBefore: numOrNull(payload.riskBefore),
-      riskAfter: numOrNull(payload.riskAfter),
-      impactEst: numOrNull(payload.impactEst),
-      budgetLeft: numOrNull(payload.budgetLeft),
+      info: payload.info ?? null
     };
     L.buffers.events.push(row);
   }
 
   function logFeature1s(){
     if(!L.enabled) return;
-    const { P, GD, app, helpers } = getCtx();
+    const { app } = getCtx();
     const st = app?.getState?.() || {};
-    const chain = helpers?.graphTopChain?.() || [];
     const row = {
       ...baseRow('features1s'),
-      timeLeft: numOrNull(st.timeLeft),
-      timeTotal: numOrNull(st.timeTotal),
-      running: st.running ? 1:0,
-      paused: st.paused ? 1:0,
-      ended: st.ended ? 1:0,
-      evidenceCount: numOrNull(GD.trace?.evidenceCount),
-      uniqueTargets: numOrNull(GD.trace?.uniqueTargets?.size),
-      scansUV: numOrNull(GD.trace?.toolUse?.uv),
-      swabs: numOrNull(GD.trace?.toolUse?.swab),
-      photos: numOrNull(GD.trace?.toolUse?.cam),
-      riskScore: numOrNull(GD.ai?.riskScore),
-      nextBestAction: GD.ai?.nextBestAction || null,
-      graphNodeCount: numOrNull(helpers?.graphNodeCount?.()),
-      graphEdgeCount: numOrNull(helpers?.graphEdgeCount?.()),
-      graphChain: chain.join('>') || null,
-      budgetTotal: numOrNull(GD.budget?.points),
-      budgetSpent: numOrNull(GD.budget?.spent),
-      budgetLeft: numOrNull(helpers?.budgetLeft?.()),
-      interventionActions: numOrNull(GD.budget?.actions?.length),
+      uvCount: numOrNull(st.metrics?.uvCount),
+      swabCount: numOrNull(st.metrics?.swabCount),
+      camCount: numOrNull(st.metrics?.camCount),
+      cleanCount: numOrNull(st.metrics?.cleanCount),
+      wrongTool: numOrNull(st.metrics?.wrongTool),
+      falsePositives: numOrNull(st.metrics?.falsePositives),
+      uniqueTargets: numOrNull(st.metrics?.uniqueTargets),
+      shots: numOrNull(st.metrics?.shots),
+      hits: numOrNull(st.metrics?.hits),
+      misses: numOrNull(st.metrics?.misses),
+      resourceUV: numOrNull(st.resources?.uv),
+      resourceSwab: numOrNull(st.resources?.swab),
+      resourceCam: numOrNull(st.resources?.cam),
+      resourceClean: numOrNull(st.resources?.clean)
     };
     L.buffers.features1s.push(row);
   }
 
-  function logSessionEnd(extra={}){
+  function logSummary(summary = {}, extra = {}){
+    if(!L.enabled) return;
+    const row = {
+      ...baseRow('summary'),
+      phaseFinal: summary.phaseFinal ?? null,
+      scoreFinal: summary.scoreFinal ?? null,
+      stars: summary.stars ?? null,
+      rank: summary.rank ?? null,
+      riskDown: summary.riskDown ?? null,
+      investigatedCount: summary.investigatedCount ?? null,
+      reportSubmitted: summary.reportSubmitted ? 1 : 0,
+      metricsJson: safeJson(summary.metrics),
+      extraJson: safeJson(extra)
+    };
+    L.buffers.summary.push(row);
+  }
+
+  function logSessionEnd(extra = {}){
     if(!L.enabled) return;
     if(L.buffers.sessions.length) return;
-    const { GD, helpers } = getCtx();
+
     L.endedAt = isoNow();
-    const score = GD.score || {};
-    const chain = helpers?.graphTopChain?.() || [];
+    const { app } = getCtx();
+    const st = app?.getState?.() || {};
+
     L.buffers.sessions.push({
       ...baseRow('session'),
       startedAt: L.startedAt,
       endedAt: L.endedAt,
       durationSec: null,
-      finalScore: score.final ?? null,
-      rank: score.rank ?? null,
-      graphChain: chain.join('>') || null,
-      budgetSpent: GD.budget?.spent ?? null,
-      budgetLeft: helpers?.budgetLeft?.() ?? null,
-      riskScoreEnd: GD.ai?.riskScore ?? null,
+      finalScore: st.score ?? null,
+      rank: extra.rank ?? null,
+      stars: extra.stars ?? null,
       resultReason: extra.reason || null,
       extraJson: safeJson(extra)
     });
@@ -119,16 +171,35 @@ export function createLogger(getCtx){
     L.startedAt = isoNow();
     L.endedAt = null;
     L.seq = 0;
-    L.buffers = { sessions:[], events:[], features1s:[] };
-    logEvent('session_start', { pid:P.pid, run:P.run, diff:P.diff, time:P.time, seed:P.seed, scene:P.scene, view:P.view });
+    L.buffers = {
+      sessions: [],
+      events: [],
+      features1s: [],
+      summary: []
+    };
+    logEvent('session_start', {
+      pid: P.pid,
+      run: P.run,
+      diff: P.diff,
+      time: P.time,
+      seed: P.seed,
+      scene: P.scene,
+      view: P.view
+    });
   }
 
   function startFeatureLoop(){
     if(L._featTimer) clearInterval(L._featTimer);
-    L._featTimer = setInterval(()=>{ try{ logFeature1s(); }catch{} }, 1000);
+    L._featTimer = setInterval(()=>{
+      try{ logFeature1s(); }catch{}
+    }, 1000);
   }
+
   function stopFeatureLoop(){
-    if(L._featTimer){ clearInterval(L._featTimer); L._featTimer = null; }
+    if(L._featTimer){
+      clearInterval(L._featTimer);
+      L._featTimer = null;
+    }
   }
 
   function csvEscape(v){
@@ -136,21 +207,31 @@ export function createLogger(getCtx){
     const s = String(v);
     return /[",\n]/.test(s) ? `"${s.replace(/"/g,'""')}"` : s;
   }
+
   function rowsToCsv(rows){
     if(!rows || !rows.length) return '';
-    const cols = Array.from(rows.reduce((set,r)=>{ Object.keys(r||{}).forEach(k=>set.add(k)); return set; }, new Set()));
+    const cols = Array.from(rows.reduce((set, r)=>{
+      Object.keys(r || {}).forEach(k => set.add(k));
+      return set;
+    }, new Set()));
+
     const head = cols.map(csvEscape).join(',');
     const body = rows.map(r => cols.map(c => csvEscape(r[c])).join(',')).join('\n');
     return head + '\n' + body;
   }
-  function downloadText(filename, text, mime='text/csv;charset=utf-8'){
-    const blob = new Blob([text], {type:mime});
+
+  function downloadText(filename, text, mime = 'text/csv;charset=utf-8'){
+    const blob = new Blob([text], { type:mime });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href=url; a.download=filename;
-    document.body.appendChild(a); a.click(); a.remove();
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
     setTimeout(()=> URL.revokeObjectURL(url), 1000);
   }
+
   function exportCsv(kind){
     const rows = L.buffers[kind] || [];
     const csv = rowsToCsv(rows);
@@ -158,14 +239,23 @@ export function createLogger(getCtx){
     downloadText(`germ-detective_${kind}_${L.sessionId}_${ts}.csv`, csv);
   }
 
+  function exportAll(){
+    exportCsv('sessions');
+    exportCsv('events');
+    exportCsv('features1s');
+    exportCsv('summary');
+  }
+
   return {
     L,
     init,
     logEvent,
     logFeature1s,
+    logSummary,
     logSessionEnd,
     startFeatureLoop,
     stopFeatureLoop,
-    exportCsv
+    exportCsv,
+    exportAll
   };
 }
