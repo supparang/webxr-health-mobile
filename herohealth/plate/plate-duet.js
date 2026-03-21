@@ -1,6 +1,6 @@
 /* === /herohealth/plate/plate-duet.js ===
    HeroHealth Plate Duet Engine
-   PATCH v20260320-PLATE-DUET-JS
+   PATCH v20260321-PLATE-DUET-READY-LOBBY
 */
 'use strict';
 
@@ -14,7 +14,6 @@ const GROUPS = [
   { id:4, key:'fruit',   label:'ผลไม้', icon:'🍎', good:['🍎','🍌','🍉','🍇'] },
   { id:5, key:'fat',     label:'ไขมันดี', icon:'🥑', good:['🥑','🥜','🫒','🥥'] }
 ];
-
 const WRONG_POOL = ['🍩','🥤','🍟','🧁','🍭','🍔','🍫'];
 
 const clamp = (v, a, b) => {
@@ -79,14 +78,19 @@ function intersect(a, b){
 }
 
 function overlayOpen(){
-  const el = DOC.getElementById('endOverlay');
-  return !!(el && el.getAttribute('aria-hidden') === 'false');
+  const end = DOC.getElementById('endOverlay');
+  const ready = DOC.getElementById('readyOverlay');
+  return !!(
+    (end && end.getAttribute('aria-hidden') === 'false') ||
+    (ready && ready.getAttribute('aria-hidden') === 'false')
+  );
 }
 
 function childCoachText(kind, data = {}){
   const target = String(data.target || '').trim();
   const who = String(data.who || '').trim();
   switch(String(kind || '')){
+    case 'wait': return 'รอผู้เล่น A และ B กดพร้อมก่อนเริ่มเกม';
     case 'warm': return `${who ? who + ': ' : ''}เก็บ “${target || 'หมู่เป้าหมาย'}”`;
     case 'trick': return `${who ? who + ': ' : ''}ดูดี ๆ มีตัวหลอกนะ`;
     case 'boss': return 'DUET BOSS: ช่วยกันเติมจานให้ครบ 5 หมู่';
@@ -97,7 +101,7 @@ function childCoachText(kind, data = {}){
     case 'fever': return 'Fever มาแล้ว! ช่วยกันเก็บแต้ม';
     case 'switch': return `สลับเป็นผู้เล่น ${who || 'A'} แล้ว`;
     case 'phase-clear': return 'ดีมาก! ผ่านด่านแล้ว';
-    default: return 'Duet: เล่นสลับกัน แล้วช่วยกันจำจานสุขภาพ 💪';
+    default: return 'Duet: เล่นสลับกันอย่างเป็นมิตร 💪';
   }
 }
 
@@ -106,13 +110,14 @@ function friendlyPhaseLabel(phase){
     case 'warm': return 'WARM';
     case 'trick': return 'TRICK';
     case 'boss': return 'BOSS';
+    case 'wait': return 'WAIT';
     default: return String(phase || 'PLAY').toUpperCase();
   }
 }
 
 function friendlyTargetText(label){
   const raw = String(label || '').trim();
-  if(!raw) return 'เก็บหมู่เป้าหมาย';
+  if(!raw) return 'รอเริ่มเกม';
   if(String(S.phase || '').toLowerCase() === 'boss'){
     return `BOSS: เติม ${raw}`;
   }
@@ -200,13 +205,16 @@ const S = {
   rng: null,
 
   running: false,
+  started: false,
   paused: false,
   ended: false,
+
+  ready: { A:false, B:false },
 
   raf: 0,
   lastTick: 0,
 
-  phase: 'warm',
+  phase: 'wait',
   phaseIndex: 0,
   phaseList: ['warm', 'trick', 'boss'],
   phaseDurations: [0,0,0],
@@ -254,17 +262,37 @@ const S = {
   diffPreset: null
 };
 
-function activePlayer(){
-  return S.players.active === 'B' ? 'B' : 'A';
-}
-
-function otherPlayer(){
-  return activePlayer() === 'A' ? 'B' : 'A';
-}
+function activePlayer(){ return S.players.active === 'B' ? 'B' : 'A'; }
+function otherPlayer(){ return activePlayer() === 'A' ? 'B' : 'A'; }
 
 function setCoach(kind, data = {}){
   const who = data.who || activePlayer();
   setText('coachMsg', childCoachText(kind, { ...data, who }));
+}
+
+function updateReadyUI(){
+  setText('readyAState', S.ready.A ? 'พร้อมแล้ว' : 'ยังไม่พร้อม');
+  setText('readyBState', S.ready.B ? 'พร้อมแล้ว' : 'ยังไม่พร้อม');
+  const btn = DOC.getElementById('btnStartDuet');
+  if(btn) btn.disabled = !(S.ready.A && S.ready.B);
+}
+
+function openReadyOverlay(){
+  DOC.getElementById('readyOverlay')?.setAttribute('aria-hidden', 'false');
+  setCoach('wait');
+  updateReadyUI();
+}
+
+function closeReadyOverlay(){
+  DOC.getElementById('readyOverlay')?.setAttribute('aria-hidden', 'true');
+}
+
+function markReady(player){
+  if(player === 'A' || player === 'B'){
+    S.ready[player] = true;
+    updateReadyUI();
+    setCoach('wait');
+  }
 }
 
 function plateCountDistinct(){
@@ -279,9 +307,7 @@ function resetCounts(){
   for(let i=1;i<=5;i++) S.counts[i] = 0;
 }
 
-function pick(arr){
-  return arr[(S.rng() * arr.length) | 0];
-}
+function pick(arr){ return arr[(S.rng() * arr.length) | 0]; }
 
 function pickMissingGroup(){
   const missing = GROUPS.filter(g => (S.counts[g.id] || 0) <= 0);
@@ -316,7 +342,6 @@ function setPhase(index){
     S.targetGroup = pick(GROUPS);
     setCoach('warm', { target: S.targetGroup.label, who: activePlayer() });
     showPhaseBanner('warm');
-
   } else if(S.phase === 'trick'){
     S.targetCorrectP = P.trick.targetCorrectP;
     S.spawnPerSec = P.trick.spawnPerSec;
@@ -324,7 +349,6 @@ function setPhase(index){
     S.targetGroup = pick(GROUPS);
     setCoach('trick', { target: S.targetGroup.label, who: activePlayer() });
     showPhaseBanner('trick');
-
   } else {
     S.targetCorrectP = P.boss.targetCorrectP;
     S.spawnPerSec = P.boss.spawnPerSec;
@@ -344,9 +368,11 @@ function setPhase(index){
 }
 
 function switchPlayer(manual = false){
+  if(!S.started || S.ended) return;
   S.players.active = otherPlayer();
   updateHud();
   setCoach('switch', { who: activePlayer() });
+
   if(manual){
     try{
       const d = DOC.createElement('div');
@@ -443,7 +469,7 @@ function chooseTarget(){
 }
 
 function createTarget(){
-  if(overlayOpen()) return;
+  if(!S.started || overlayOpen()) return;
 
   const safe = safeSpawnRect();
   const x = safe.left + S.rng() * safe.width;
@@ -559,6 +585,7 @@ function awardCorrect(t){
 
 function awardWrong(){
   const p = activePlayer();
+
   S.shots++;
   S.wrong++;
   S.players[p].wrong += 1;
@@ -583,7 +610,7 @@ function awardWrong(){
 }
 
 function onHit(ev){
-  if(!S.running || S.paused || S.ended) return;
+  if(!S.running || !S.started || S.paused || S.ended) return;
   const el = ev.currentTarget;
   const t = S.targets.get(String(el.dataset.id));
   if(!t) return;
@@ -633,8 +660,10 @@ function updateHud(){
   setText('uiTurn', activePlayer());
 
   const phaseTotal = Math.max(1, S.phaseDurations[S.phaseIndex] || 1);
-  const phaseDone = Math.round(((phaseTotal - S.phaseTimeLeft) / phaseTotal) * 100);
-  setText('uiPhaseProg', `${Math.max(0, phaseTotal - Math.ceil(S.phaseTimeLeft))}/${phaseTotal}`);
+  const phaseDone = S.started
+    ? Math.round(((phaseTotal - S.phaseTimeLeft) / phaseTotal) * 100)
+    : 0;
+  setText('uiPhaseProg', S.started ? `${Math.max(0, phaseTotal - Math.ceil(S.phaseTimeLeft))}/${phaseTotal}` : '0/0');
   setWidth('uiGoalFill', phaseDone);
   setWidth('uiFeverFill', S.fever);
 
@@ -666,6 +695,8 @@ function phaseAdvance(){
 }
 
 function updateTargets(dt){
+  if(!S.started) return;
+
   const now = nowMs();
 
   for(const t of Array.from(S.targets.values())){
@@ -716,6 +747,12 @@ function loop(ts){
   if(!S.running) return;
 
   if(S.paused || overlayOpen()){
+    S.lastTick = ts;
+    S.raf = requestAnimationFrame(loop);
+    return;
+  }
+
+  if(!S.started){
     S.lastTick = ts;
     S.raf = requestAnimationFrame(loop);
     return;
@@ -861,6 +898,25 @@ reasonDetail=${sum.reasonDetail}`;
   });
 }
 
+function wireReadyButtons(){
+  DOC.getElementById('btnReadyA')?.addEventListener('click', ()=> markReady('A'));
+  DOC.getElementById('btnReadyB')?.addEventListener('click', ()=> markReady('B'));
+  DOC.getElementById('btnStartDuet')?.addEventListener('click', ()=>{
+    if(!(S.ready.A && S.ready.B)) return;
+    startGame();
+  });
+}
+
+function startGame(){
+  if(S.started || !(S.ready.A && S.ready.B)) return;
+  S.started = true;
+  S.players.active = 'A';
+  closeReadyOverlay();
+  setPhase(0);
+  setCoach('warm', { target: S.targetGroup?.label, who: 'A' });
+  S.lastTick = performance.now();
+}
+
 function boot(ctx){
   S.ctx = {
     mount: ctx.mount,
@@ -882,8 +938,11 @@ function boot(ctx){
   S.rng = makeRng(S.ctx.seed);
 
   S.running = true;
+  S.started = false;
   S.paused = false;
   S.ended = false;
+
+  S.ready = { A:false, B:false };
 
   S.score = 0;
   S.combo = 0;
@@ -914,10 +973,13 @@ function boot(ctx){
   const boss = Math.max(8, total - warm - trick);
   S.phaseDurations = [warm, trick, boss];
   S.totalTimeLeft = total;
+  S.phase = 'wait';
+  S.targetGroup = null;
 
-  setPhase(0);
-  updateHud();
   wireEndButtons();
+  wireReadyButtons();
+  openReadyOverlay();
+  updateHud();
 
   WIN.__PLATE_SET_PAUSED__ = function(on){
     S.paused = !!on;
@@ -925,13 +987,12 @@ function boot(ctx){
   };
 
   WIN.__PLATE_DUET_SWITCH__ = function(){
-    if(S.ended) return;
+    if(!S.started || S.ended) return;
     switchPlayer(true);
   };
 
   DOC.getElementById('endOverlay')?.setAttribute('aria-hidden', 'true');
-
-  setCoach('warm', { target: S.targetGroup?.label, who: activePlayer() });
+  setCoach('wait');
 
   S.lastTick = performance.now();
   S.raf = requestAnimationFrame(loop);
