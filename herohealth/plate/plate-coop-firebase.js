@@ -1,15 +1,6 @@
 /* === /herohealth/plate/plate-coop-firebase.js ===
    HeroHealth Plate Coop Firebase Adapters
-   PATCH v20260321-PLATE-COOP-FIREBASE
-
-   Includes:
-   - createFirebaseAppIfNeeded()
-   - createFirebaseRoomAdapter()
-   - createFirebaseNetAdapter()
-
-   Requires:
-   - Firebase Web SDK v10+ (ES modules)
-   - Realtime Database enabled
+   PATCH v20260321-PLATE-COOP-FIREBASE-CHILDADDED
 */
 'use strict';
 
@@ -25,7 +16,8 @@ import {
   push,
   query,
   orderByChild,
-  startAt
+  startAt,
+  onChildAdded
 } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js';
 
 /* --------------------------------------------------
@@ -120,12 +112,6 @@ function actionsPath(basePath, roomId){
 
 /* --------------------------------------------------
  * ROOM ADAPTER
- * required by plate-coop-room.js:
- * - getRoom(roomId)
- * - setRoom(roomId, roomState)
- * - patchRoom(roomId, partial)
- * - subscribeRoom(roomId, cb)
- * - deleteRoom(roomId)
  * -------------------------------------------------- */
 export function createFirebaseRoomAdapter({
   firebaseConfig,
@@ -199,17 +185,7 @@ export function createFirebaseRoomAdapter({
 
 /* --------------------------------------------------
  * NET ADAPTER
- * required by plate-coop-net.js:
- * - publishState(roomId, state)
- * - getState(roomId)
- * - subscribeState(roomId, cb)
- * - publishAction(roomId, action)
- * - subscribeActions(roomId, cb)
- * - clearRoom(roomId)
- *
- * Structure:
- * /basePath/states/{roomId}
- * /basePath/actions/{roomId}/{actionId}
+ * production-friendlier action stream using onChildAdded
  * -------------------------------------------------- */
 export function createFirebaseNetAdapter({
   firebaseConfig,
@@ -264,7 +240,10 @@ export function createFirebaseNetAdapter({
       const id = normalizeRoomId(roomId);
       if (!id) throw new Error('roomId required');
 
-      const actionId = String(action?.id || '').trim() || push(ref(database, actionsPath(basePath, id))).key;
+      const actionId =
+        String(action?.id || '').trim() ||
+        push(ref(database, actionsPath(basePath, id))).key;
+
       const payload = {
         ...deepClone(action),
         id: actionId,
@@ -279,34 +258,39 @@ export function createFirebaseNetAdapter({
       const id = normalizeRoomId(roomId);
       if (!id) throw new Error('roomId required');
 
-      const rootRef = ref(database, actionsPath(basePath, id));
-      let lastSeenTs = 0;
+      let cutoffTs = nowTs();
+      const seenIds = new Set();
 
-      const q = query(rootRef, orderByChild('createdAt'), startAt(lastSeenTs || 0));
+      const q = query(
+        ref(database, actionsPath(basePath, id)),
+        orderByChild('createdAt'),
+        startAt(cutoffTs)
+      );
 
       const handler = (snap) => {
         try{
           if (!snap.exists()) return;
 
-          const data = snap.val() || {};
-          const list = Object.values(data)
-            .filter(Boolean)
-            .sort((a, b) => Number(a.createdAt || 0) - Number(b.createdAt || 0));
+          const item = snap.val();
+          if (!item || !item.id) return;
 
-          for (const item of list){
-            const ts = Number(item.createdAt || 0);
-            if (ts >= lastSeenTs){
-              lastSeenTs = Math.max(lastSeenTs, ts + 1);
-              cb?.(item);
-            }
+          if (seenIds.has(item.id)) return;
+          seenIds.add(item.id);
+
+          if (seenIds.size > 5000){
+            const arr = Array.from(seenIds).slice(-2000);
+            seenIds.clear();
+            for (const x of arr) seenIds.add(x);
           }
+
+          cb?.(item);
         }catch(_){}
       };
 
-      onValue(q, handler);
+      onChildAdded(q, handler);
 
       return () => {
-        try{ off(rootRef, 'value', handler); }catch(_){}
+        try{ off(q, 'child_added', handler); }catch(_){}
       };
     },
 
@@ -318,6 +302,30 @@ export function createFirebaseNetAdapter({
         remove(ref(database, statePath(basePath, id))),
         remove(ref(database, actionsPath(basePath, id)))
       ]);
+    },
+
+    async pruneOldActions(roomId, maxAgeMs = 10 * 60 * 1000){
+      const id = normalizeRoomId(roomId);
+      if (!id) return;
+
+      const root = ref(database, actionsPath(basePath, id));
+      const snap = await get(root);
+      if (!snap.exists()) return;
+
+      const now = nowTs();
+      const data = snap.val() || {};
+      const tasks = [];
+
+      for (const [key, value] of Object.entries(data)){
+        const createdAt = Number(value?.createdAt || 0);
+        if (!createdAt || now - createdAt > maxAgeMs){
+          tasks.push(remove(ref(database, `${actionsPath(basePath, id)}/${key}`)));
+        }
+      }
+
+      if (tasks.length){
+        await Promise.all(tasks);
+      }
     }
   };
 }
