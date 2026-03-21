@@ -1,0 +1,541 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth • Handwash Launcher</title>
+  <meta name="color-scheme" content="dark light" />
+  <meta name="theme-color" content="#0ea5e9" />
+  <link rel="icon" href="./favicon.ico" />
+  <style>
+    :root{
+      --bg1:#03111d;
+      --bg2:#0a2136;
+      --bg3:#0f3b5f;
+      --panel:rgba(6,18,31,.80);
+      --panel2:rgba(10,28,47,.74);
+      --stroke:rgba(148,163,184,.18);
+      --text:#eef8ff;
+      --muted:#b4d1e4;
+      --cyan:#22d3ee;
+      --blue:#38bdf8;
+      --green:#22c55e;
+      --amber:#f59e0b;
+      --violet:#a78bfa;
+      --shadow:0 24px 60px rgba(0,0,0,.32);
+      --shadow-soft:0 12px 26px rgba(0,0,0,.22);
+      --sat: env(safe-area-inset-top, 0px);
+      --sar: env(safe-area-inset-right, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
+    }
+
+    *{ box-sizing:border-box; }
+    html,body{
+      margin:0;
+      min-height:100%;
+      font-family: ui-rounded, "Noto Sans Thai", system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(1100px 620px at 12% -10%, rgba(34,211,238,.18), transparent 58%),
+        radial-gradient(1000px 620px at 100% 0%, rgba(96,165,250,.18), transparent 56%),
+        linear-gradient(180deg, var(--bg3), var(--bg1) 42%, #020b13 100%);
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    button{
+      font:inherit;
+      border:none;
+      cursor:pointer;
+    }
+
+    .page{
+      min-height:100vh;
+      padding:
+        max(14px, var(--sat))
+        max(14px, var(--sar))
+        max(14px, var(--sab))
+        max(14px, var(--sal));
+      display:grid;
+      place-items:center;
+      position:relative;
+      overflow:hidden;
+    }
+
+    .bg{
+      position:absolute;
+      inset:0;
+      pointer-events:none;
+      overflow:hidden;
+    }
+
+    .blob{
+      position:absolute;
+      border-radius:50%;
+      filter:blur(22px);
+      opacity:.34;
+    }
+
+    .blob.b1{
+      width:360px;height:360px;
+      left:-80px;top:-40px;
+      background:rgba(34,211,238,.22);
+    }
+
+    .blob.b2{
+      width:300px;height:300px;
+      right:-60px;top:60px;
+      background:rgba(59,130,246,.20);
+    }
+
+    .blob.b3{
+      width:260px;height:260px;
+      left:18%;bottom:-80px;
+      background:rgba(168,85,247,.14);
+    }
+
+    .shell{
+      position:relative;
+      z-index:2;
+      width:min(1080px, 100%);
+      display:grid;
+      gap:14px;
+    }
+
+    .hero{
+      border-radius:28px;
+      padding:22px 20px 18px;
+      background:
+        radial-gradient(700px 240px at 50% -12%, rgba(34,211,238,.12), transparent 60%),
+        linear-gradient(180deg, rgba(7,21,36,.96), rgba(4,13,24,.96));
+      border:1px solid var(--stroke);
+      box-shadow:var(--shadow);
+      text-align:center;
+    }
+
+    .badge{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+      padding:8px 14px;
+      border-radius:999px;
+      font-weight:1000;
+      background:rgba(56,189,248,.14);
+      border:1px solid rgba(56,189,248,.22);
+      color:#e0f2fe;
+      margin-bottom:10px;
+    }
+
+    .hero h1{
+      margin:0 0 8px;
+      font-size:clamp(1.5rem, 3.4vw, 2.5rem);
+      line-height:1.08;
+    }
+
+    .hero p{
+      margin:0 auto;
+      max-width:760px;
+      color:var(--muted);
+      font-size:1rem;
+      line-height:1.55;
+    }
+
+    .quick{
+      display:grid;
+      grid-template-columns:repeat(3, minmax(0,1fr));
+      gap:10px;
+      margin-top:14px;
+    }
+
+    .quick-item{
+      border-radius:18px;
+      padding:12px;
+      background:rgba(255,255,255,.04);
+      border:1px solid rgba(255,255,255,.06);
+      text-align:left;
+    }
+
+    .quick-item .k{
+      font-size:.8rem;
+      color:var(--muted);
+      font-weight:900;
+      margin-bottom:4px;
+    }
+
+    .quick-item .v{
+      font-size:.98rem;
+      font-weight:1000;
+      line-height:1.3;
+    }
+
+    .cards{
+      display:grid;
+      grid-template-columns:repeat(3, minmax(0,1fr));
+      gap:14px;
+    }
+
+    .card{
+      border-radius:24px;
+      padding:18px;
+      background:linear-gradient(180deg, rgba(8,24,39,.86), rgba(4,15,26,.84));
+      border:1px solid var(--stroke);
+      box-shadow:var(--shadow-soft);
+      display:flex;
+      flex-direction:column;
+      gap:14px;
+      min-height:100%;
+    }
+
+    .card-top{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+    }
+
+    .icon{
+      width:58px;
+      height:58px;
+      border-radius:18px;
+      display:grid;
+      place-items:center;
+      font-size:1.7rem;
+      flex:0 0 auto;
+      box-shadow:0 14px 28px rgba(0,0,0,.18);
+    }
+
+    .icon.pc{
+      background:linear-gradient(180deg, #b6f1ff, #5ad5ff);
+      color:#03263d;
+    }
+
+    .icon.mobile{
+      background:linear-gradient(180deg, #86efac, #22c55e);
+      color:#052e16;
+    }
+
+    .icon.vr{
+      background:linear-gradient(180deg, #d8b4fe, #a78bfa);
+      color:#2e1065;
+    }
+
+    .tag{
+      padding:8px 10px;
+      border-radius:999px;
+      font-size:.8rem;
+      font-weight:1000;
+      border:1px solid rgba(255,255,255,.08);
+      background:rgba(255,255,255,.04);
+      color:var(--text);
+    }
+
+    .card h2{
+      margin:0;
+      font-size:1.2rem;
+      line-height:1.2;
+    }
+
+    .card p{
+      margin:0;
+      color:var(--muted);
+      line-height:1.5;
+      font-size:.95rem;
+    }
+
+    .list{
+      display:grid;
+      gap:8px;
+      margin-top:2px;
+    }
+
+    .pill{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      border-radius:14px;
+      padding:10px 12px;
+      background:rgba(255,255,255,.04);
+      border:1px solid rgba(255,255,255,.06);
+      font-weight:800;
+      color:#dfefff;
+      line-height:1.35;
+    }
+
+    .pill .dot{
+      width:8px;
+      height:8px;
+      border-radius:50%;
+      background:rgba(255,255,255,.7);
+      flex:0 0 auto;
+    }
+
+    .card .cta{
+      margin-top:auto;
+      min-height:54px;
+      border-radius:16px;
+      font-weight:1000;
+      font-size:1rem;
+      transition:transform .16s ease, filter .16s ease;
+    }
+
+    .card .cta:hover{
+      transform:translateY(-1px);
+      filter:brightness(1.03);
+    }
+
+    .cta.pc{
+      background:linear-gradient(180deg, #9ae9ff, #5ad5ff);
+      color:#03263d;
+    }
+
+    .cta.mobile{
+      background:linear-gradient(180deg, #86efac, #22c55e);
+      color:#052e16;
+    }
+
+    .cta.vr{
+      background:linear-gradient(180deg, #d8b4fe, #a78bfa);
+      color:#2e1065;
+    }
+
+    .foot{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      border-radius:20px;
+      padding:14px 16px;
+      background:linear-gradient(180deg, rgba(8,24,39,.82), rgba(4,15,26,.82));
+      border:1px solid var(--stroke);
+      box-shadow:var(--shadow-soft);
+    }
+
+    .foot-left{
+      min-width:0;
+    }
+
+    .foot-title{
+      font-weight:1000;
+      margin-bottom:4px;
+    }
+
+    .foot-sub{
+      color:var(--muted);
+      line-height:1.45;
+      font-size:.92rem;
+    }
+
+    .ghost{
+      min-height:48px;
+      padding:0 16px;
+      border-radius:14px;
+      color:var(--text);
+      background:linear-gradient(180deg, rgba(17,33,50,.92), rgba(9,18,30,.88));
+      border:1px solid var(--stroke);
+      box-shadow:var(--shadow-soft);
+      font-weight:900;
+      white-space:nowrap;
+    }
+
+    @media (max-width: 900px){
+      .cards{
+        grid-template-columns:1fr;
+      }
+      .quick{
+        grid-template-columns:1fr;
+      }
+    }
+
+    @media (max-width: 640px){
+      .page{
+        padding:
+          max(10px, var(--sat))
+          max(10px, var(--sar))
+          max(10px, var(--sab))
+          max(10px, var(--sal));
+      }
+
+      .hero{
+        border-radius:22px;
+        padding:18px 14px 14px;
+      }
+
+      .card{
+        border-radius:20px;
+        padding:14px;
+      }
+
+      .icon{
+        width:52px;
+        height:52px;
+        border-radius:16px;
+      }
+
+      .foot{
+        flex-direction:column;
+        align-items:stretch;
+      }
+
+      .ghost{
+        width:100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="bg" aria-hidden="true">
+      <div class="blob b1"></div>
+      <div class="blob b2"></div>
+      <div class="blob b3"></div>
+    </div>
+
+    <main class="shell">
+      <section class="hero">
+        <div class="badge">🫧 Handwash Trainer</div>
+        <h1>เลือกโหมดการเล่น</h1>
+        <p>
+          เกมล้างมือควรใช้วิธีควบคุมต่างกันตามอุปกรณ์
+          เพื่อให้เล่นง่ายขึ้นและเหมาะกับผู้เรียนมากที่สุด
+        </p>
+
+        <div class="quick">
+          <div class="quick-item">
+            <div class="k">PC</div>
+            <div class="v">เหมาะกับสาธิต ทดสอบระบบ และควบคุมละเอียดด้วยเมาส์</div>
+          </div>
+          <div class="quick-item">
+            <div class="k">Mobile</div>
+            <div class="v">เหมาะกับเด็กเล่นจริง ใช้แตะหรือถูในโซนได้ง่ายกว่า</div>
+          </div>
+          <div class="quick-item">
+            <div class="k">Cardboard VR</div>
+            <div class="v">ควรใช้เวอร์ชัน VR แยก ที่ควบคุมด้วยการจ้องและแตะ</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="cards">
+        <article class="card">
+          <div class="card-top">
+            <div class="icon pc">🖥️</div>
+            <div class="tag">แม่นสุด</div>
+          </div>
+          <h2>PC Mode</h2>
+          <p>ใช้เมาส์คลิกหรือคลิกค้างแล้วลาก เหมาะกับการสาธิตหน้าชั้นและตรวจ flow ของเกม</p>
+          <div class="list">
+            <div class="pill"><span class="dot"></span><span>คลิกและลากได้แม่น</span></div>
+            <div class="pill"><span class="dot"></span><span>เหมาะกับครูและผู้ทดสอบ</span></div>
+            <div class="pill"><span class="dot"></span><span>ใช้หน้า 2D เดิมได้ทันที</span></div>
+          </div>
+          <button class="cta pc" id="btnPc">เข้าเล่นบน PC</button>
+        </article>
+
+        <article class="card">
+          <div class="card-top">
+            <div class="icon mobile">📱</div>
+            <div class="tag">แนะนำสำหรับผู้เล่นจริง</div>
+          </div>
+          <h2>Mobile Mode</h2>
+          <p>ใช้โหมดเล่นง่าย แตะหรือถูในโซนที่ถูกต้องแล้ว progress ขึ้นชัด เหมาะกับเด็กและการเล่นบนมือถือ</p>
+          <div class="list">
+            <div class="pill"><span class="dot"></span><span>แตะหรือถูสั้น ๆ ได้</span></div>
+            <div class="pill"><span class="dot"></span><span>hitbox ใหญ่ เล่นลื่นกว่า</span></div>
+            <div class="pill"><span class="dot"></span><span>เหมาะกับการทดสอบผู้เรียนจริง</span></div>
+          </div>
+          <button class="cta mobile" id="btnMobile">เข้าเล่นบน Mobile</button>
+        </article>
+
+        <article class="card">
+          <div class="card-top">
+            <div class="icon vr">🥽</div>
+            <div class="tag">เวอร์ชัน VR แยก</div>
+          </div>
+          <h2>Cardboard VR</h2>
+          <p>ใช้ทางเข้า VR โดยเฉพาะ เหมาะกับการจ้องโซนและแตะ ไม่ควรใช้การลากละเอียดแบบหน้าจอปกติ</p>
+          <div class="list">
+            <div class="pill"><span class="dot"></span><span>แยกจากหน้า 2D เดิม</span></div>
+            <div class="pill"><span class="dot"></span><span>เหมาะกับ gaze / crosshair</span></div>
+            <div class="pill"><span class="dot"></span><span>เตรียมไว้สำหรับ Cardboard/cVR</span></div>
+          </div>
+          <button class="cta vr" id="btnVr">เข้าเล่นแบบ Cardboard VR</button>
+        </article>
+      </section>
+
+      <section class="foot">
+        <div class="foot-left">
+          <div class="foot-title">คำแนะนำตอนนี้</div>
+          <div class="foot-sub">
+            ถ้าจะให้ผู้เรียนเล่นจริงตอนนี้ ให้ใช้ <strong>Mobile Mode</strong> ก่อน
+            ส่วน Cardboard VR ควรใช้ไฟล์ VR แยกเพื่อให้คุมง่ายและไม่งง
+          </div>
+        </div>
+        <button class="ghost" id="btnBackHub">กลับ HUB</button>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const qs = new URLSearchParams(location.search);
+
+    const sharedKeys = [
+      'pid','studyId','run','mode','diff','hub','seed','view',
+      'conditionGroup','sessionOrder','blockLabel','siteCode','schoolYear','semester',
+      'studentKey','schoolCode','schoolName','classRoom','studentNo','nickName',
+      'gender','age','gradeLevel'
+    ];
+
+    function buildSharedParams() {
+      const params = new URLSearchParams();
+      sharedKeys.forEach((key) => {
+        const value = qs.get(key);
+        if (value !== null && value !== '') params.set(key, value);
+      });
+      return params;
+    }
+
+    function goTo(base, extra = {}) {
+      const url = new URL(base, location.href);
+      const params = buildSharedParams();
+
+      params.forEach((value, key) => url.searchParams.set(key, value));
+      Object.entries(extra).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && String(value) !== '') {
+          url.searchParams.set(key, String(value));
+        }
+      });
+
+      location.href = url.toString();
+    }
+
+    document.getElementById('btnPc')?.addEventListener('click', () => {
+      goTo('./handwash-v2.html', {
+        view: 'pc',
+        strictGesture: 0
+      });
+    });
+
+    document.getElementById('btnMobile')?.addEventListener('click', () => {
+      goTo('./handwash-v2.html', {
+        view: 'mobile',
+        strictGesture: 0,
+        mobileFreeScrub: 1
+      });
+    });
+
+    document.getElementById('btnVr')?.addEventListener('click', () => {
+      goTo('./vr-handwash/handwash-vr.html', {
+        view: 'cvr'
+      });
+    });
+
+    document.getElementById('btnBackHub')?.addEventListener('click', () => {
+      const hub = qs.get('hub') || './hub.html';
+      goTo(hub, {
+        fromGame: 'handwash-launcher'
+      });
+    });
+  </script>
+</body>
+</html>
