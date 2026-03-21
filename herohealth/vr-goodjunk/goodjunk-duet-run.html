@@ -181,24 +181,6 @@
       overflow:hidden;
     }
 
-    .stage-placeholder{
-      min-height:48vh;
-      border-radius:22px;
-      border:1px dashed rgba(148,163,184,.16);
-      background:
-        radial-gradient(circle at 50% 20%, rgba(244,114,182,.06), transparent 28%),
-        radial-gradient(circle at 50% 80%, rgba(56,189,248,.06), transparent 28%),
-        rgba(2,6,23,.36);
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      text-align:center;
-      padding:20px;
-      color:#cbd5e1;
-      font-size:14px;
-      line-height:1.7;
-    }
-
     /* ===== DUET HUD ===== */
 
     .duet-hud{
@@ -673,8 +655,6 @@
       }
     }
 
-    /* ===== RESULT ===== */
-
     .duet-result-mount[hidden]{
       display:none !important;
     }
@@ -1145,15 +1125,7 @@
       <section class="stage-wrap">
         <div class="stage-head">DUET GAME STAGE</div>
         <div class="stage-inner">
-          <div id="duetGameStage">
-            <div class="stage-placeholder">
-              <div>
-                <strong>ตรงนี้ให้คง playfield / scene / target layer เดิมของคุณไว้</strong><br />
-                ใช้ wrapper ไฟล์นี้แทนของเดิม แล้วนำ markup เกมเดิมมาใส่ใน <code>#duetGameStage</code><br />
-                เพื่อให้ logic ใน <code>goodjunk.safe.duet.js</code> ทำงานต่อได้โดยไม่ต้องเดา DOM เดิมผิด
-              </div>
-            </div>
-          </div>
+          <div id="duetGameStage"></div>
         </div>
       </section>
 
