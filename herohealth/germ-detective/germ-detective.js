@@ -1,15 +1,11 @@
 // === /herohealth/germ-detective/germ-detective.js ===
 // Germ Detective — core runtime
-// FULL PATCH v20260314-GD-CORE-MATCH-RUNPAGE-FIX2
-//
-// Match with:
-// /herohealth/germ-detective/germ-detective-vr.html
+// FULL PATCH v20260321-GD-P5-COMPLETE
 //
 // Core loop:
 // search -> investigate -> action -> report
 
 export default function GameApp(opts = {}) {
-
   const WIN = window;
   const DOC = document;
 
@@ -70,7 +66,9 @@ export default function GameApp(opts = {}) {
     };
   }
 
+  // reserve for future deterministic patterns
   const rnd = mulberry32(hashSeed((cfg.seed || Date.now()) + '|' + cfg.scene + '|' + cfg.difficulty));
+  void rnd;
 
   function emit(name, payload){
     try{
@@ -254,8 +252,119 @@ export default function GameApp(opts = {}) {
     return qs(cfg.mountId) || DOC.body;
   }
 
+  function pulseClass(node, cls, ms = 900){
+    if(!node) return;
+    node.classList.remove(cls);
+    void node.offsetWidth;
+    node.classList.add(cls);
+    setTimeout(()=> node.classList.remove(cls), ms);
+  }
+
+  function popTagNearSpot(h, text, kind = ''){
+    const n = h?.el;
+    if(!n || !n.getBoundingClientRect) return;
+
+    const r = n.getBoundingClientRect();
+    const tag = DOC.createElement('div');
+    tag.className = `gd-float-tag ${kind}`.trim();
+    tag.textContent = text;
+    tag.style.left = `${r.left + r.width / 2}px`;
+    tag.style.top = `${Math.max(48, r.top)}px`;
+
+    DOC.body.appendChild(tag);
+    setTimeout(()=> tag.remove(), 1000);
+  }
+
+  function spotIcon(name){
+    const s = String(name || '');
+    if(s.includes('ลูกบิด')) return '🚪';
+    if(s.includes('ก๊อก')) return '🚰';
+    if(s.includes('ราว')) return '🪜';
+    if(s.includes('สวิตช์')) return '💡';
+    if(s.includes('รีโมต')) return '📺';
+    if(s.includes('โต๊ะ')) return '🪑';
+    if(s.includes('ถาด')) return '🍽️';
+    if(s.includes('ช้อน')) return '🥄';
+    if(s.includes('มือถือ')) return '📱';
+    return '🔍';
+  }
+
+  function shortSpotHint(name){
+    const s = String(name || '');
+    if(s.includes('ลูกบิด')) return 'จุดจับร่วม';
+    if(s.includes('ก๊อก')) return 'แตะบ่อย';
+    if(s.includes('ราว')) return 'มือจับบ่อย';
+    if(s.includes('สวิตช์')) return 'แตะก่อนเปิด';
+    if(s.includes('รีโมต')) return 'ใช้ร่วมกัน';
+    if(s.includes('โต๊ะ')) return 'ผิวสัมผัส';
+    if(s.includes('ถาด')) return 'สัมผัสอาหาร';
+    if(s.includes('ช้อน')) return 'ใช้ร่วม';
+    if(s.includes('มือถือ')) return 'ของใช้ร่วม';
+    return 'ลองตรวจดู';
+  }
+
+  function spotBadgeText(h){
+    if(h.cleaned) return 'สะอาด';
+    if(h.investigated) return 'ชัดแล้ว';
+    if(h.suspicious) return 'เจอแล้ว';
+    return 'สงสัย';
+  }
+
+  function renderSpotMarkup(name, hidden = true, h = null){
+    const icon = spotIcon(name);
+    const hint = shortSpotHint(name);
+
+    if(hidden){
+      return `
+        <div class="gd-spot-inner">
+          <div class="gd-spot-icon">❓</div>
+          <div class="gd-spot-name">จุดต้องสงสัย</div>
+          <div class="gd-spot-sub">ลองตรวจดู</div>
+        </div>
+        <div class="gd-spot-badge hidden">?</div>
+      `;
+    }
+
+    return `
+      <div class="gd-spot-inner">
+        <div class="gd-spot-icon">${icon}</div>
+        <div class="gd-spot-name">${name}</div>
+        <div class="gd-spot-sub">${hint}</div>
+      </div>
+      <div class="gd-spot-badge">${spotBadgeText(h || {})}</div>
+    `;
+  }
+
+  function revealSpotLabel(h){
+    if(!h?.el) return;
+    if(h.el.dataset.hiddenLabel === '1'){
+      h.el.dataset.hiddenLabel = '0';
+      h.el.style.borderStyle = 'solid';
+      h.el.innerHTML = renderSpotMarkup(h.name, false, h);
+      h.el.setAttribute('aria-label', h.name);
+    } else {
+      h.el.innerHTML = renderSpotMarkup(h.name, false, h);
+      h.el.setAttribute('aria-label', h.name);
+    }
+  }
+
+  function applySpotStateClasses(h){
+    if(!h?.el) return;
+
+    h.el.classList.toggle('is-suspicious', !!h.suspicious);
+    h.el.classList.toggle('is-investigated', !!h.investigated);
+    h.el.classList.toggle('is-cleaned', !!h.cleaned);
+    h.el.classList.toggle('is-photo', !!h.photographed);
+
+    if(h.el.dataset.hiddenLabel !== '1'){
+      h.el.innerHTML = renderSpotMarkup(h.name, false, h);
+      h.el.setAttribute('aria-label', h.name);
+    }
+  }
+
   function markSpotVisual(h){
     if(!h?.el) return;
+
     h.el.style.borderColor = 'rgba(148,163,184,.18)';
     h.el.style.background = 'rgba(255,255,255,.04)';
 
@@ -271,6 +380,8 @@ export default function GameApp(opts = {}) {
       h.el.style.borderColor = 'rgba(34,197,94,.34)';
       h.el.style.background = 'rgba(34,197,94,.14)';
     }
+
+    applySpotStateClasses(h);
   }
 
   function changePhase(next){
@@ -323,19 +434,25 @@ export default function GameApp(opts = {}) {
 
       const d = el('button', 'gd-spot');
       d.type = 'button';
-      d.textContent = src.name;
+      d.dataset.hiddenLabel = '1';
+      d.dataset.realName = src.name;
+      d.innerHTML = renderSpotMarkup(src.name, true);
+
       d.style.position = 'absolute';
-      d.style.left = `calc(${pos.x}% - 42px)`;
-      d.style.top  = `calc(${pos.y}% - 18px)`;
+      d.style.left = `calc(${pos.x}% - 48px)`;
+      d.style.top  = `calc(${pos.y}% - 20px)`;
       d.style.zIndex = '10';
-      d.style.padding = '10px 12px';
-      d.style.borderRadius = '10px';
+      d.style.borderRadius = '16px';
       d.style.border = '1px solid rgba(148,163,184,.18)';
       d.style.background = 'rgba(255,255,255,.04)';
       d.style.color = 'rgba(241,245,249,.96)';
-      d.style.font = '800 12px/1 system-ui,-apple-system,"Noto Sans Thai",sans-serif';
+      d.style.font = 'inherit';
+      d.style.lineHeight = '1.2';
       d.style.boxShadow = '0 10px 24px rgba(0,0,0,.16)';
       d.style.cursor = 'pointer';
+      d.style.borderStyle = 'dashed';
+
+      d.setAttribute('aria-label', `จุดต้องสงสัยลำดับ ${i + 1}`);
 
       d.addEventListener('click', ()=>{
         STATE.metrics.clicks++;
@@ -385,6 +502,11 @@ export default function GameApp(opts = {}) {
       if(h.preferred.includes('uv')){
         if(!h.suspicious){
           h.suspicious = true;
+          revealSpotLabel(h);
+          pulseClass(h.el, 'fx-glow-uv', 900);
+          pulseClass(h.el, 'fx-pop', 260);
+          popTagNearSpot(h, h.critical ? '✨ เจอจุดเสี่ยงหลัก!' : '🔍 เจอจุดเสี่ยง!', 'warn');
+
           scoreDelta(h.critical ? 18 : 8);
           addEvidence({
             type:'scan',
@@ -393,6 +515,7 @@ export default function GameApp(opts = {}) {
             source: meta.source || 'pointer'
           });
         } else {
+          pulseClass(h.el, 'fx-glow-uv', 600);
           scoreDelta(2);
         }
       } else {
@@ -410,6 +533,10 @@ export default function GameApp(opts = {}) {
         scoreDelta(-3);
       } else if(h.suspicious && !h.investigated){
         h.investigated = true;
+        revealSpotLabel(h);
+        pulseClass(h.el, 'fx-pop', 260);
+        popTagNearSpot(h, '🧪 ตรวจชัดแล้ว!', 'good');
+
         STATE.investigatedCount++;
         scoreDelta(h.critical ? 26 : 10);
         addEvidence({
@@ -431,6 +558,10 @@ export default function GameApp(opts = {}) {
       if(h.suspicious){
         if(!h.photographed){
           h.photographed = true;
+          revealSpotLabel(h);
+          pulseClass(h.el, 'fx-pop', 260);
+          popTagNearSpot(h, '📷 เก็บรูปแล้ว!', 'photo');
+
           scoreDelta(h.critical ? 14 : 6);
           addEvidence({
             type:'photo',
@@ -456,6 +587,11 @@ export default function GameApp(opts = {}) {
         scoreDelta(-3);
       } else if(h.investigated && !h.cleaned){
         h.cleaned = true;
+        revealSpotLabel(h);
+        pulseClass(h.el, 'fx-clean', 900);
+        pulseClass(h.el, 'fx-pop', 260);
+        popTagNearSpot(h, '🧼 สะอาดขึ้นแล้ว!', 'good');
+
         STATE.cleanedCount++;
         lowerRisk(h.critical ? h.risk : Math.ceil(h.risk * 0.6));
         scoreDelta(h.critical ? 28 : 12);
