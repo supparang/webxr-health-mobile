@@ -72,7 +72,7 @@
       width:100%;
       min-height:100vh;
       display:grid;
-      grid-template-rows:auto auto auto auto 1fr auto;
+      grid-template-rows:auto auto auto auto auto auto 1fr auto;
       position:relative;
       overflow:hidden;
       padding:
@@ -393,18 +393,6 @@
       gap:6px;
     }
 
-    .hw-who-step::before{
-      content:"";
-      position:absolute;
-      left:0;
-      right:0;
-      bottom:0;
-      height:0%;
-      background:linear-gradient(180deg, rgba(34,211,238,.00), rgba(34,211,238,.16));
-      transition:height .22s ease;
-      pointer-events:none;
-    }
-
     .hw-who-step-num{
       width:26px;
       height:26px;
@@ -490,6 +478,119 @@
     @keyframes hwWhoPulse{
       0%,100%{ box-shadow:0 0 0 4px rgba(56,189,248,.08); }
       50%{ box-shadow:0 0 0 7px rgba(56,189,248,.14); }
+    }
+
+    .hw-motion-panel{
+      position:relative;
+      z-index:2;
+      border-radius:18px;
+      padding:12px 14px;
+      display:flex;
+      align-items:center;
+      gap:12px;
+      min-height:76px;
+    }
+
+    .hw-motion-icon{
+      width:52px;
+      height:52px;
+      border-radius:16px;
+      display:grid;
+      place-items:center;
+      flex:0 0 auto;
+      font-size:1.55rem;
+      font-weight:1000;
+      color:#03263d;
+      background:linear-gradient(180deg, #9ae9ff, #5ad5ff);
+      box-shadow:0 12px 24px rgba(14,165,233,.18);
+    }
+
+    .hw-motion-copy{
+      min-width:0;
+    }
+
+    .hw-motion-kicker{
+      font-size:.78rem;
+      color:var(--muted);
+      font-weight:900;
+      margin-bottom:4px;
+    }
+
+    .hw-motion-title{
+      font-size:1rem;
+      font-weight:1000;
+      line-height:1.2;
+    }
+
+    .hw-motion-text{
+      font-size:.92rem;
+      color:var(--muted);
+      line-height:1.35;
+      margin-top:4px;
+    }
+
+    .hw-motion-panel.is-good{
+      border-color:rgba(34,197,94,.28);
+      background:linear-gradient(180deg, rgba(10,41,22,.84), rgba(5,16,28,.78));
+    }
+
+    .hw-motion-panel.is-done .hw-motion-icon{
+      background:linear-gradient(180deg, #86efac, #22c55e);
+      color:#052e16;
+    }
+
+    .hw-assist-panel{
+      position:relative;
+      z-index:2;
+      border-radius:18px;
+      padding:12px 14px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      min-height:76px;
+    }
+
+    .hw-assist-left{ min-width:0; }
+    .hw-assist-kicker{
+      font-size:.76rem;
+      color:var(--muted);
+      font-weight:900;
+      margin-bottom:4px;
+    }
+    .hw-assist-title{
+      font-size:1rem;
+      font-weight:1000;
+      line-height:1.2;
+    }
+    .hw-assist-sub{
+      font-size:.9rem;
+      color:var(--muted);
+      line-height:1.35;
+      margin-top:4px;
+    }
+
+    .hw-assist-right{
+      flex:0 0 auto;
+      min-width:84px;
+      text-align:center;
+      border-radius:14px;
+      padding:10px 12px;
+      background:rgba(255,255,255,.04);
+      border:1px solid rgba(255,255,255,.08);
+    }
+
+    .hw-assist-mini{
+      font-size:.72rem;
+      color:var(--muted);
+      font-weight:900;
+    }
+    .hw-assist-remain{
+      margin-top:2px;
+      font-size:1.35rem;
+      font-weight:1000;
+      line-height:1;
+      color:#bff5ff;
     }
 
     .hw-stage{
@@ -600,7 +701,7 @@
       border-radius:24px;
       border:2px dashed rgba(255,255,255,.18);
       background:rgba(255,255,255,.02);
-      transition:transform .18s ease, box-shadow .18s ease, background .18s ease, border-color .18s ease, opacity .18s ease;
+      transition:transform .18s ease, box-shadow .18s ease, background .18s ease, border-color .18s ease, opacity .18s ease, filter .18s ease;
       cursor:pointer;
       user-select:none;
       touch-action:none;
@@ -650,6 +751,17 @@
       border-color:rgba(239,68,68,.62) !important;
       background:rgba(239,68,68,.12) !important;
       animation: hwWrongShake .26s linear 1;
+    }
+
+    .hw-zone.is-dim{
+      opacity:.18;
+      filter:saturate(.6);
+    }
+
+    .hw-zone.is-target{
+      border-color:rgba(253,224,71,.75) !important;
+      background:rgba(253,224,71,.08) !important;
+      box-shadow:0 0 0 8px rgba(253,224,71,.10);
     }
 
     @keyframes hwWrongShake{
@@ -1228,7 +1340,6 @@
 
     .hw-hidden{ display:none !important; }
 
-    /* === MOBILE UX HOTFIX === */
     @media (max-width: 980px){
       .hw-stage{
         grid-template-columns:1fr;
@@ -1383,6 +1494,53 @@
         font-size:.74rem;
       }
 
+      .hw-motion-panel{
+        padding:10px 12px;
+        gap:10px;
+        min-height:68px;
+      }
+
+      .hw-motion-icon{
+        width:46px;
+        height:46px;
+        border-radius:14px;
+        font-size:1.35rem;
+      }
+
+      .hw-motion-kicker{
+        font-size:.72rem;
+      }
+
+      .hw-motion-title{
+        font-size:.95rem;
+      }
+
+      .hw-motion-text{
+        font-size:.84rem;
+      }
+
+      .hw-assist-panel{
+        padding:10px 12px;
+        min-height:68px;
+      }
+
+      .hw-assist-title{
+        font-size:.95rem;
+      }
+
+      .hw-assist-sub{
+        font-size:.83rem;
+      }
+
+      .hw-assist-right{
+        min-width:72px;
+        padding:8px 10px;
+      }
+
+      .hw-assist-remain{
+        font-size:1.2rem;
+      }
+
       .hw-stage{
         grid-template-columns:1fr;
         gap:8px;
@@ -1435,6 +1593,10 @@
         right:6px;
       }
 
+      .hw-zone{
+        border-width:3px;
+      }
+
       .hw-zone::after{
         display:none;
       }
@@ -1447,6 +1609,69 @@
         white-space:normal;
         text-align:center;
         line-height:1.1;
+      }
+
+      .hw-zone[data-zone="palmLeft"]{
+        left:22% !important;
+        top:41% !important;
+        width:25% !important;
+        height:30% !important;
+      }
+
+      .hw-zone[data-zone="palmRight"]{
+        right:22% !important;
+        top:41% !important;
+        width:25% !important;
+        height:30% !important;
+      }
+
+      .hw-zone[data-zone="backLeft"]{
+        left:17% !important;
+        top:25% !important;
+        width:24% !important;
+        height:21% !important;
+      }
+
+      .hw-zone[data-zone="backRight"]{
+        right:17% !important;
+        top:25% !important;
+        width:24% !important;
+        height:21% !important;
+      }
+
+      .hw-zone[data-zone="betweenFingers"]{
+        left:33% !important;
+        top:15% !important;
+        width:34% !important;
+        height:18% !important;
+      }
+
+      .hw-zone[data-zone="backFingers"]{
+        left:31% !important;
+        top:28% !important;
+        width:38% !important;
+        height:15% !important;
+      }
+
+      .hw-zone[data-zone="thumbs"]{
+        left:13% !important;
+        top:43% !important;
+        width:21% !important;
+        height:17% !important;
+      }
+
+      .hw-zone[data-zone="fingertips"]{
+        left:27% !important;
+        top:4% !important;
+        width:46% !important;
+        height:12% !important;
+      }
+
+      .hw-zone[data-zone="wrists"]{
+        left:35% !important;
+        bottom:4% !important;
+        width:30% !important;
+        height:14% !important;
       }
 
       .hw-summary-hero{
@@ -1587,6 +1812,27 @@
       <div id="hwWhoSteps" class="hw-who-steps"></div>
     </section>
 
+    <section id="hwMotionPanel" class="hw-motion-panel hw-card" aria-label="วิธีลากตอนนี้">
+      <div id="hwMotionIcon" class="hw-motion-icon">↺</div>
+      <div class="hw-motion-copy">
+        <div class="hw-motion-kicker">วิธีเล่นตอนนี้</div>
+        <div id="hwMotionTitle" class="hw-motion-title">ฝ่ามือ</div>
+        <div id="hwMotionText" class="hw-motion-text">แตะซ้ำ ๆ หรือถูในกรอบเหลือง</div>
+      </div>
+    </section>
+
+    <section id="hwAssistPanel" class="hw-assist-panel hw-card" aria-label="ตัวช่วยขั้นปัจจุบัน">
+      <div class="hw-assist-left">
+        <div class="hw-assist-kicker">ตอนนี้ต้องทำ</div>
+        <div id="hwAssistTitle" class="hw-assist-title">ฝ่ามือ</div>
+        <div id="hwAssistSub" class="hw-assist-sub">แตะหรือถูในกรอบเหลือง</div>
+      </div>
+      <div class="hw-assist-right">
+        <div class="hw-assist-mini">เหลืออีก</div>
+        <div id="hwAssistRemain" class="hw-assist-remain">0</div>
+      </div>
+    </section>
+
     <section class="hw-stage">
       <div class="hw-hand-shell hw-card">
         <div id="hwHandStage" class="hw-hand-stage" aria-label="พื้นที่ฝึกล้างมือ">
@@ -1689,7 +1935,7 @@
         </div>
 
         <div class="hw-start-tip">
-          จุดชมพูคือจุดที่ยังสกปรก ต้องทำทีละขั้นตาม WHO ให้ครบก่อน
+          ดูกรอบที่เด่นกว่าโซนอื่น แล้วแตะหรือถูในจุดนั้นซ้ำ ๆ
         </div>
 
         <div class="hw-dialog-actions">
@@ -1827,6 +2073,6 @@
     </div>
   </div>
 
-  <script type="module" src="./js/handwash.safe.v2.js?v=20260320g"></script>
+  <script type="module" src="./js/handwash.safe.v2.js?v=20260320j-mobile-assist"></script>
 </body>
 </html>
