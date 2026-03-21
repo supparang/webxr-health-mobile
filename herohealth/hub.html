@@ -755,7 +755,7 @@
         </div>
         <div class="sep"></div>
         <div class="games">
-          <a class="gameBtn" id="linkGoodjunk" href="#"><div class="t">🍔🆚🥦 GoodJunk</div><div class="s">Launcher • Solo/PRO/Battle • Hero + Card Book</div></a>
+          <a class="gameBtn" id="linkGoodjunk" href="#"><div class="t">🍔🆚🥦 GoodJunk</div><div class="s">Launcher • Solo / Duet / Group / More Modes</div></a>
           <a class="gameBtn" id="linkGroups" href="#"><div class="t">🥚🍚 Food Groups</div><div class="s">Classroom ramp + AI warn</div></a>
           <a class="gameBtn" id="linkHydration" href="#"><div class="t">💧 Hydration</div><div class="s">Storm boss + shield</div></a>
           <a class="gameBtn" id="linkPlate" href="#"><div class="t">🍽 Balanced Plate</div><div class="s">Bloom missions</div></a>
@@ -1485,7 +1485,7 @@
     }
 
     const PATHS = {
-      goodjunk:       './goodjunk-launcher.html',
+      goodjunk:       './vr-goodjunk/goodjunk-launcher.html',
       groups:         './groups-vr.html',
       hydration:      './hydration-vr.html',
       plate:          './plate-vr.html',
@@ -1502,7 +1502,7 @@
       fitnessPlanner: './fitness-planner.html'
     };
 
-    document.getElementById('linkGoodjunk').href  = buildUrl(PATHS.goodjunk,   { mode:'solo' });
+    document.getElementById('linkGoodjunk').href  = buildUrl(PATHS.goodjunk, {});
     document.getElementById('linkGroups').href    = buildUrl(PATHS.groups,     { zone:'nutrition' });
     document.getElementById('linkHydration').href = buildUrl(PATHS.hydration,  { zone:'nutrition' });
     document.getElementById('linkPlate').href     = buildUrl(PATHS.plate,      { zone:'nutrition' });
@@ -1543,7 +1543,7 @@
     };
 
     document.getElementById('btnOpenGJLauncher').onclick = ()=>{
-      location.href = buildUrl(PATHS.goodjunk, { mode:'solo' });
+      location.href = buildUrl(PATHS.goodjunk, {});
     };
     document.getElementById('btnResetCardBook').onclick = ()=>{
       try{
