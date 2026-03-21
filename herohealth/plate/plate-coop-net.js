@@ -1,7 +1,7 @@
 /* === /herohealth/plate/plate-coop-net.js ===
    HeroHealth Plate Coop Net API
-   HOST-AUTHORITATIVE SKELETON
-   PATCH v20260321-PLATE-COOP-NET-SKELETON
+   HOST-AUTHORITATIVE NETWORK LAYER
+   PATCH v20260321-PLATE-COOP-NET
 
    Purpose:
    - publish authoritative room state
@@ -14,7 +14,6 @@
    - action channel = clients -> host
    - adapter-first, backend-agnostic
 */
-
 'use strict';
 
 /* --------------------------------------------------
@@ -34,33 +33,39 @@ function makeEventId(prefix = 'evt'){
 
 function noop(){}
 
+function normalizeRoomId(roomId=''){
+  return String(roomId || '').trim().toUpperCase();
+}
+
 /* --------------------------------------------------
  * default in-memory adapter
  * --------------------------------------------------
- * This adapter is local-only and NOT cross-device.
- * Replace later with Firebase / Supabase / WebSocket.
+ * local/dev only
+ * replace later with Firebase / Supabase / WebSocket
  * -------------------------------------------------- */
 const __MEM_NET_DB__ = {
-  states: new Map(),      // roomId -> latest state
-  actions: new Map(),     // roomId -> [events]
-  stateListeners: new Map(),   // roomId -> Set(fn)
-  actionListeners: new Map()   // roomId -> Set(fn)
+  states: new Map(),            // roomId -> latest state
+  actions: new Map(),           // roomId -> [events]
+  stateListeners: new Map(),    // roomId -> Set(fn)
+  actionListeners: new Map()    // roomId -> Set(fn)
 };
 
 function emitState(roomId){
-  const id = String(roomId || '');
+  const id = normalizeRoomId(roomId);
   const state = __MEM_NET_DB__.states.get(id) || null;
   const listeners = __MEM_NET_DB__.stateListeners.get(id);
   if (!listeners) return;
+
   for (const fn of listeners){
-    try{ fn(deepClone(state)); }catch(_){}
+    try{ fn(state ? deepClone(state) : null); }catch(_){}
   }
 }
 
 function emitAction(roomId, action){
-  const id = String(roomId || '');
+  const id = normalizeRoomId(roomId);
   const listeners = __MEM_NET_DB__.actionListeners.get(id);
   if (!listeners) return;
+
   for (const fn of listeners){
     try{ fn(deepClone(action)); }catch(_){}
   }
@@ -69,19 +74,20 @@ function emitAction(roomId, action){
 export function createMemoryNetAdapter(){
   return {
     async publishState(roomId, state){
-      const id = String(roomId || '');
+      const id = normalizeRoomId(roomId);
       __MEM_NET_DB__.states.set(id, deepClone(state));
       emitState(id);
     },
 
     async getState(roomId){
-      const id = String(roomId || '');
+      const id = normalizeRoomId(roomId);
       const state = __MEM_NET_DB__.states.get(id) || null;
       return state ? deepClone(state) : null;
     },
 
     subscribeState(roomId, cb){
-      const id = String(roomId || '');
+      const id = normalizeRoomId(roomId);
+
       if (!__MEM_NET_DB__.stateListeners.has(id)){
         __MEM_NET_DB__.stateListeners.set(id, new Set());
       }
@@ -91,7 +97,7 @@ export function createMemoryNetAdapter(){
       queueMicrotask(() => {
         try{
           const state = __MEM_NET_DB__.states.get(id) || null;
-          cb(deepClone(state));
+          cb(state ? deepClone(state) : null);
         }catch(_){}
       });
 
@@ -101,17 +107,20 @@ export function createMemoryNetAdapter(){
     },
 
     async publishAction(roomId, action){
-      const id = String(roomId || '');
+      const id = normalizeRoomId(roomId);
+
       if (!__MEM_NET_DB__.actions.has(id)){
         __MEM_NET_DB__.actions.set(id, []);
       }
+
       const arr = __MEM_NET_DB__.actions.get(id);
       arr.push(deepClone(action));
       emitAction(id, action);
     },
 
     subscribeActions(roomId, cb){
-      const id = String(roomId || '');
+      const id = normalizeRoomId(roomId);
+
       if (!__MEM_NET_DB__.actionListeners.has(id)){
         __MEM_NET_DB__.actionListeners.set(id, new Set());
       }
@@ -124,7 +133,7 @@ export function createMemoryNetAdapter(){
     },
 
     async clearRoom(roomId){
-      const id = String(roomId || '');
+      const id = normalizeRoomId(roomId);
       __MEM_NET_DB__.states.delete(id);
       __MEM_NET_DB__.actions.delete(id);
     }
@@ -132,24 +141,8 @@ export function createMemoryNetAdapter(){
 }
 
 /* --------------------------------------------------
- * action/event schema
- * --------------------------------------------------
- * Suggested action types:
- * - PLAYER_READY
- * - PLAYER_HIT
- * - PLAYER_MISS
- * - PLAYER_LEAVE
- * - PLAYER_PING
- * - HOST_START
- *
- * Suggested state source:
- * - MATCH_START
- * - HOST_TICK
- * - PHASE_CHANGE
- * - TARGET_HIT
- * - MATCH_END
+ * normalize payloads
  * -------------------------------------------------- */
-
 function normalizeAction(action = {}, {
   roomId = '',
   playerId = '',
@@ -160,7 +153,7 @@ function normalizeAction(action = {}, {
   return {
     id: action.id || makeEventId('act'),
     type: String(action.type || 'UNKNOWN'),
-    roomId: String(action.roomId || roomId || '').trim().toUpperCase(),
+    roomId: normalizeRoomId(action.roomId || roomId || ''),
     game: String(action.game || game),
     mode: String(action.mode || mode),
     playerId: String(action.playerId || playerId || ''),
@@ -177,7 +170,7 @@ function normalizeState(state = {}, {
   mode = 'coop'
 } = {}){
   return {
-    roomId: String(state.roomId || roomId || '').trim().toUpperCase(),
+    roomId: normalizeRoomId(state.roomId || roomId || ''),
     hostId: String(state.hostId || hostId || ''),
     game: String(state.game || game),
     mode: String(state.mode || mode),
@@ -194,7 +187,7 @@ function normalizeState(state = {}, {
 }
 
 /* --------------------------------------------------
- * main factory
+ * main net api
  * -------------------------------------------------- */
 export function createPlateCoopNetApi({
   adapter = createMemoryNetAdapter(),
@@ -205,24 +198,36 @@ export function createPlateCoopNetApi({
   game = 'platev1',
   mode = 'coop'
 } = {}){
-  let currentRoomId = String(roomId || '').trim().toUpperCase();
+  let currentRoomId = normalizeRoomId(roomId);
+  let currentRole = String(role || '');
+  let currentIsHost = !!isHost;
+
   let unsubState = noop;
   let unsubActions = noop;
+
   let lastStateUpdatedAt = 0;
   const seenActionIds = new Set();
 
   function ensureRoomId(){
-    const id = String(currentRoomId || '').trim().toUpperCase();
+    const id = normalizeRoomId(currentRoomId);
     if (!id) throw new Error('No active roomId');
     return id;
   }
 
   function setRoom(id){
-    currentRoomId = String(id || '').trim().toUpperCase();
+    currentRoomId = normalizeRoomId(id);
+  }
+
+  function setRole(nextRole=''){
+    currentRole = String(nextRole || '');
+  }
+
+  function setHost(flag){
+    currentIsHost = !!flag;
   }
 
   async function publishState(state){
-    if (!isHost) {
+    if (!currentIsHost){
       throw new Error('Only host should publish authoritative state');
     }
 
@@ -240,7 +245,7 @@ export function createPlateCoopNetApi({
   }
 
   async function getState(roomIdArg = currentRoomId){
-    const id = String(roomIdArg || '').trim().toUpperCase();
+    const id = normalizeRoomId(roomIdArg);
     if (!id) return null;
     return adapter.getState(id);
   }
@@ -251,10 +256,13 @@ export function createPlateCoopNetApi({
     try{ unsubState(); }catch(_){}
     unsubState = adapter.subscribeState(id, (state) => {
       try{
-        if (!state) return cb?.(null);
+        if (!state){
+          cb?.(null);
+          return;
+        }
 
         const updatedAt = Number(state.updatedAt || 0);
-        if (updatedAt && updatedAt < lastStateUpdatedAt) {
+        if (updatedAt && updatedAt < lastStateUpdatedAt){
           return;
         }
 
@@ -275,7 +283,7 @@ export function createPlateCoopNetApi({
     const normalized = normalizeAction(action, {
       roomId: id,
       playerId,
-      role,
+      role: currentRole,
       game,
       mode
     });
@@ -292,11 +300,9 @@ export function createPlateCoopNetApi({
       try{
         if (!action?.id) return;
 
-        // de-dup
         if (seenActionIds.has(action.id)) return;
         seenActionIds.add(action.id);
 
-        // simple cap
         if (seenActionIds.size > 5000){
           const arr = Array.from(seenActionIds).slice(-2000);
           seenActionIds.clear();
@@ -369,7 +375,7 @@ export function createPlateCoopNetApi({
   }
 
   async function sendHostStart(extra = {}){
-    if (!isHost) throw new Error('Only host can send HOST_START');
+    if (!currentIsHost) throw new Error('Only host can send HOST_START');
     return publishAction({
       type: 'HOST_START',
       payload: deepClone(extra || {})
@@ -377,7 +383,7 @@ export function createPlateCoopNetApi({
   }
 
   async function clearRoom(roomIdArg = currentRoomId){
-    const id = String(roomIdArg || '').trim().toUpperCase();
+    const id = normalizeRoomId(roomIdArg);
     if (!id) return;
     if (typeof adapter.clearRoom === 'function'){
       await adapter.clearRoom(id);
@@ -386,11 +392,14 @@ export function createPlateCoopNetApi({
 
   return {
     get roomId(){ return currentRoomId; },
+    get role(){ return currentRole; },
+    get isHost(){ return currentIsHost; },
     playerId,
-    role,
-    isHost,
 
     setRoom,
+    setRole,
+    setHost,
+
     publishState,
     getState,
     onState,
