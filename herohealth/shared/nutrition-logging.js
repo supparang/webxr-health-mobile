@@ -1,6 +1,6 @@
 // === /herohealth/shared/nutrition-logging.js ===
 // Lightweight local logger for nutrition games
-// PATCH v20260318-NUTRITION-SHARED-HARDENING-A
+// PATCH v20260318-NUTRITION-SHARED-FULL
 
 import { normalizeGameKey } from './nutrition-common.js';
 
