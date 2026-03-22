@@ -1,7 +1,7 @@
 // === /herohealth/vr-clean/clean.kids.core.js ===
 // Clean Objects — Kids Mode Core
-// 4 PHASES / CURATED SETS / BOSS PHASE / CHILD-FRIENDLY
-// PATCH v20260320-CLEAN-KIDS-CORE-4PHASE-BOSS-r3
+// FINAL 4 PHASES / BOSS / CHILD-FRIENDLY
+// PATCH v20260320-CLEAN-KIDS-CORE-FINAL-4PHASE-BOSS
 
 'use strict';
 
@@ -225,7 +225,7 @@ export function createCleanKidsCore(cfg={}, hooks={}){
   const runMode = String(qs('run', cfg.run || 'play') || 'play');
   const seedStr = String(qs('seed', cfg.seed || String(Date.now())) || Date.now());
   const view = normalizeView(qs('view', cfg.view || ''));
-  const rng = makeRng(seedStr + '::cleankids::4phase::boss');
+  const rng = makeRng(seedStr + '::cleankids::final4phase');
 
   const phases = buildFourPhases(rng);
 
@@ -247,8 +247,8 @@ export function createCleanKidsCore(cfg={}, hooks={}){
     elapsed: 0,
 
     phaseIndex: 0,
-
     phases,
+
     chosenIds: [],
     correct: 0,
     wrong: 0,
@@ -294,16 +294,14 @@ export function createCleanKidsCore(cfg={}, hooks={}){
   function calcCurrentPhaseStars(){
     const phase = getPhase();
     if(!phase) return 0;
-
-    const fake = {
+    return calcPhaseStars({
       phaseNo: phase.phaseNo,
       correct: state.correct,
       wrong: state.wrong,
       specialDone: state.specialDone,
       bossClear: state.bossClear,
       passNeed: phase.passNeed
-    };
-    return calcPhaseStars(fake);
+    });
   }
 
   function snapshot(){
@@ -366,7 +364,19 @@ export function createCleanKidsCore(cfg={}, hooks={}){
     state.waitingNextPhase = false;
 
     const phase = getPhase();
-    if(phase) phase.timeLeft = phase.timeTotal;
+    if(phase){
+      phase.timeLeft = phase.timeTotal;
+    }
+
+    emitEvt('hha:event', {
+      type: 'kids_phase_start',
+      game: 'cleanobjects',
+      mode: 'kids',
+      phaseNo: phase?.phaseNo || 0,
+      title: phase?.title || '',
+      sessionId: state.cfg.sessionId,
+      ts: nowIso()
+    });
 
     emitState();
 
@@ -460,11 +470,12 @@ export function createCleanKidsCore(cfg={}, hooks={}){
     const phase = getPhase();
     if(!phase) return finishGame(phaseReason);
 
-    const passed = (
-      state.correct >= phase.passNeed ||
+    if(state.waitingNextPhase || state.ended) return;
+
+    const passed =
+      (state.correct >= phase.passNeed) ||
       (phase.phaseNo === 3 && state.correct >= 2 && state.specialDone) ||
-      (phase.phaseNo === 4 && state.correct >= 2 && state.bossClear)
-    );
+      (phase.phaseNo === 4 && state.correct >= 2 && state.bossClear);
 
     const result = {
       phaseNo: phase.phaseNo,
@@ -478,7 +489,8 @@ export function createCleanKidsCore(cfg={}, hooks={}){
       goodIds: phase.goodIds.slice(0),
       specialId: phase.specialId || '',
       bossId: phase.bossId || '',
-      passed
+      passed,
+      reason: String(phaseReason || 'done')
     };
     result.stars = calcPhaseStars(result);
 
@@ -497,6 +509,7 @@ export function createCleanKidsCore(cfg={}, hooks={}){
       wrong: state.wrong,
       specialDone: state.specialDone,
       bossClear: state.bossClear,
+      reason: String(phaseReason || 'done'),
       sessionId: state.cfg.sessionId,
       ts: nowIso()
     });
@@ -505,20 +518,22 @@ export function createCleanKidsCore(cfg={}, hooks={}){
       return finishGame('phase_fail');
     }
 
-    if(phase.phaseNo === 4 && state.bossClear){
-      emitCoach('boss', themedFeedback(4, 'boss_clear'), { phaseNo: 4 });
-    } else {
-      emitCoach('good', themedFeedback(phase.phaseNo, 'clear'), {
-        phaseNo: phase.phaseNo,
-        nextPhaseNo: phase.phaseNo + 1
-      });
-    }
-
     if(state.phaseIndex >= state.phases.length - 1){
+      if(phase.phaseNo === 4 && state.bossClear){
+        emitCoach('boss', themedFeedback(4, 'boss_clear'), { phaseNo: 4 });
+      } else {
+        emitCoach('good', themedFeedback(phase.phaseNo, 'clear'), { phaseNo: phase.phaseNo });
+      }
       return finishGame('all_phases_clear');
     }
 
     state.waitingNextPhase = true;
+
+    emitCoach('good', themedFeedback(phase.phaseNo, 'clear'), {
+      phaseNo: phase.phaseNo,
+      nextPhaseNo: phase.phaseNo + 1
+    });
+
     emitState();
 
     setTimeout(()=>{
@@ -549,24 +564,32 @@ export function createCleanKidsCore(cfg={}, hooks={}){
     if(isGood){
       state.correct++;
       emitCoach('good', themedFeedback(phase.phaseNo, 'good'), {
-        id, isGood:true, phaseNo: phase.phaseNo
+        id,
+        isGood: true,
+        phaseNo: phase.phaseNo
       });
     } else if(isBoss){
       state.bossClear = true;
       emitCoach('boss', 'เยี่ยมมาก! เจอหัวใจของการระบาดแล้ว 👾', {
-        id, isBoss:true, phaseNo: phase.phaseNo
+        id,
+        isBoss: true,
+        phaseNo: phase.phaseNo
       });
     } else {
       state.wrong++;
       emitCoach('warn', themedFeedback(phase.phaseNo, 'warn'), {
-        id, isGood:false, phaseNo: phase.phaseNo
+        id,
+        isGood: false,
+        phaseNo: phase.phaseNo
       });
     }
 
     if(isSpecial){
       state.specialDone = true;
       emitCoach('boss', themedFeedback(phase.phaseNo, 'boss', { special:true }), {
-        id, special:true, phaseNo: phase.phaseNo
+        id,
+        special: true,
+        phaseNo: phase.phaseNo
       });
 
       emitEvt('hha:event', {
@@ -607,8 +630,33 @@ export function createCleanKidsCore(cfg={}, hooks={}){
 
     emitState();
 
+    const passedEarly =
+      (state.correct >= phase.passNeed) ||
+      (phase.phaseNo === 3 && state.correct >= 2 && state.specialDone) ||
+      (phase.phaseNo === 4 && state.correct >= 2 && state.bossClear);
+
+    if(passedEarly){
+      setTimeout(()=>{
+        finishPhase('pass_early');
+      }, 250);
+      return { ok:true, isGood, isSpecial, isBoss };
+    }
+
+    const remainNeed = Math.max(0, phase.passNeed - state.correct);
+    const remainPick = Math.max(0, phase.maxPicks - state.chosenIds.length);
+
+    if(remainNeed > 0 && remainPick > 0){
+      emitCoach('tip', `เหลืออีก ${remainNeed} จุด`, {
+        phaseNo: phase.phaseNo,
+        remainNeed,
+        remainPick
+      });
+    }
+
     if(state.chosenIds.length >= phase.maxPicks){
-      finishPhase('maxpicks');
+      setTimeout(()=>{
+        finishPhase('maxpicks');
+      }, 250);
     }
 
     return { ok:true, isGood, isSpecial, isBoss };
@@ -616,15 +664,31 @@ export function createCleanKidsCore(cfg={}, hooks={}){
 
   function start(){
     if(state.started) return;
+
     state.started = true;
+    state.ended = false;
+    state.waitingNextPhase = false;
+
     state.t0 = performance.now ? performance.now() : Date.now();
     state.lastMs = state.t0;
     state.elapsed = 0;
+
+    emitEvt('hha:event', {
+      type: 'kids_session_start',
+      game: 'cleanobjects',
+      mode: 'kids',
+      phaseCount: state.phases.length,
+      pid: String(qs('pid','anon') || 'anon'),
+      sessionId: state.cfg.sessionId,
+      ts: nowIso()
+    });
+
     beginPhase(0);
   }
 
   function tick(){
-    if(!state.started || state.ended || state.waitingNextPhase) return;
+    if(!state.started || state.ended) return;
+    if(state.waitingNextPhase) return;
 
     const phase = getPhase();
     if(!phase) return;
@@ -635,7 +699,7 @@ export function createCleanKidsCore(cfg={}, hooks={}){
     dt = clamp(dt, 0, 0.25);
 
     state.elapsed += dt;
-    phase.timeLeft = Math.max(0, phase.timeLeft - dt);
+    phase.timeLeft = Math.max(0, Number(phase.timeLeft || 0) - dt);
 
     try{
       hooks.onTick && hooks.onTick(snapshot(), dt);
@@ -654,3 +718,5 @@ export function createCleanKidsCore(cfg={}, hooks={}){
     selectCard
   };
 }
+
+export default createCleanKidsCore;
