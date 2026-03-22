@@ -1,12 +1,12 @@
-<!-- === /herohealth/plate-vr.html === -->
+<!-- === /herohealth/plate/plate-vr.html === -->
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • Plate Redirect</title>
+  <title>HeroHealth • Plate Run Redirect</title>
   <meta name="color-scheme" content="dark light" />
-  <link rel="icon" href="./favicon.ico" />
+  <link rel="icon" href="../favicon.ico" />
   <style>
     html,body{
       margin:0;
@@ -46,14 +46,14 @@
 </head>
 <body>
   <div class="card">
-    <h1>กำลังเปิดเกม Plate เวอร์ชันใหม่…</h1>
-    <p>ระบบจะพาไปหน้า Launcher ใหม่ของเกมนี้โดยอัตโนมัติ</p>
-    <p><a id="goLink" href="./nutrition-plate/plate-launcher.html">เปิด Plate Launcher</a></p>
+    <h1>กำลังเปิด Plate Run เวอร์ชันใหม่…</h1>
+    <p>ระบบจะพาไปหน้า Run ใหม่ของเกมนี้โดยอัตโนมัติ</p>
+    <p><a id="goLink" href="../nutrition-plate/plate-run.html">เปิด Plate Run</a></p>
   </div>
 
   <script type="module">
-    import { redirectPreserveAll } from './shared/nutrition-router.js';
-    redirectPreserveAll('./nutrition-plate/plate-launcher.html');
+    import { redirectPreserveAll } from '../shared/nutrition-router.js';
+    redirectPreserveAll('../nutrition-plate/plate-run.html');
   </script>
 </body>
 </html>
