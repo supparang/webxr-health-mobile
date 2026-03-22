@@ -20,9 +20,6 @@ import {
   onChildAdded
 } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js';
 
-/* --------------------------------------------------
- * helpers
- * -------------------------------------------------- */
 function nowTs(){
   return Date.now();
 }
@@ -80,9 +77,6 @@ function safeMergeRoom(prev = {}, partial = {}){
   return next;
 }
 
-/* --------------------------------------------------
- * firebase app singleton
- * -------------------------------------------------- */
 export function createFirebaseAppIfNeeded(firebaseConfig){
   if (!firebaseConfig || typeof firebaseConfig !== 'object'){
     throw new Error('firebaseConfig is required');
@@ -95,9 +89,6 @@ export function createFirebaseAppIfNeeded(firebaseConfig){
   return initializeApp(firebaseConfig);
 }
 
-/* --------------------------------------------------
- * paths
- * -------------------------------------------------- */
 function roomPath(basePath, roomId){
   return `${basePath}/rooms/${normalizeRoomId(roomId)}`;
 }
@@ -110,9 +101,6 @@ function actionsPath(basePath, roomId){
   return `${basePath}/actions/${normalizeRoomId(roomId)}`;
 }
 
-/* --------------------------------------------------
- * ROOM ADAPTER
- * -------------------------------------------------- */
 export function createFirebaseRoomAdapter({
   firebaseConfig,
   db,
@@ -183,10 +171,6 @@ export function createFirebaseRoomAdapter({
   };
 }
 
-/* --------------------------------------------------
- * NET ADAPTER
- * production-friendlier action stream using onChildAdded
- * -------------------------------------------------- */
 export function createFirebaseNetAdapter({
   firebaseConfig,
   db,
