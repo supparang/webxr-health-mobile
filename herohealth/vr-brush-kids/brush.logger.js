@@ -5,10 +5,15 @@ const CANONICAL_GAME_VARIANT = 'kids-vr';
 const CANONICAL_GAME_TITLE = 'Brush Kids';
 const CANONICAL_ZONE = 'hygiene';
 
-export function createBrushLogger(runCtx = {}) {
-  const sessionId = runCtx.sessionId || makeSessionId();
+export function createBrushLogger(initialCtx = {}) {
+  const sessionId = initialCtx.sessionId || makeSessionId();
   const startedAt = new Date().toISOString();
   let queue = [];
+  let runCtx = { ...initialCtx };
+
+  function updateContext(nextCtx = {}) {
+    runCtx = { ...runCtx, ...nextCtx };
+  }
 
   function baseRow() {
     return {
@@ -114,6 +119,7 @@ export function createBrushLogger(runCtx = {}) {
   }
 
   return {
+    updateContext,
     startSession,
     event,
     finish,
