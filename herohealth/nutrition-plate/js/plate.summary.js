@@ -9,9 +9,7 @@ function plateValue(food) {
   return `${food.emoji} ${food.label}`;
 }
 
-export function buildPlateSummary(ctx, stats, sessionMeta, plate) {
-  const metrics = buildPlateMetrics(ctx, stats, sessionMeta);
-
+function buildPlateNotes(stats, metrics) {
   const notes = [];
 
   if (stats.build.balanceScore >= 48) {
@@ -22,22 +20,48 @@ export function buildPlateSummary(ctx, stats, sessionMeta, plate) {
     notes.push('จานนี้ยังต้องเพิ่มผัก ผลไม้ หรือเปลี่ยนเครื่องดื่ม');
   }
 
-  if (!stats.build.vegChosen) notes.push('ลองเพิ่มผักในมื้อถัดไป');
-  if (!stats.build.fruitChosen) notes.push('ลองเปลี่ยนของหวานเป็นผลไม้');
-  if (!stats.build.healthyDrinkChosen) notes.push('ลองเปลี่ยนเป็นน้ำเปล่าหรือนมจืด');
+  if (!stats.build.vegChosen) {
+    notes.push('ลองเพิ่มผักในมื้อถัดไป');
+  } else {
+    notes.push('รอบนี้หนูใส่ผักได้แล้ว');
+  }
 
-  if (stats.fix.total > 0) notes.push(`Fix the Plate ทำได้ ${stats.fix.correct}/${stats.fix.total}`);
-  if (stats.swap.total > 0) notes.push(`Healthy Swap ทำได้ ${stats.swap.correct}/${stats.swap.total}`);
+  if (!stats.build.fruitChosen) {
+    notes.push('ลองเปลี่ยนของหวานเป็นผลไม้');
+  } else {
+    notes.push('รอบนี้หนูเลือกผลไม้ได้ดี');
+  }
+
+  if (!stats.build.healthyDrinkChosen) {
+    notes.push('ลองเปลี่ยนเป็นน้ำเปล่าหรือนมจืด');
+  } else {
+    notes.push('เครื่องดื่มของรอบนี้ค่อนข้างเหมาะสม');
+  }
+
+  if (stats.fix.total > 0) {
+    notes.push(`Fix the Plate ทำได้ ${stats.fix.correct}/${stats.fix.total}`);
+  }
+
+  if (stats.swap.total > 0) {
+    notes.push(`Healthy Swap ทำได้ ${stats.swap.correct}/${stats.swap.total}`);
+  }
 
   const quizDelta = metrics.quizDelta;
   const quizDeltaText =
     quizDelta > 0
       ? `หลังเล่นทำ mini quiz ดีขึ้น +${quizDelta}`
       : quizDelta < 0
-      ? `หลังเล่น mini quiz ลดลง ${quizDelta}`
-      : 'mini quiz ก่อนและหลังเล่นใกล้เคียงกัน';
+        ? `หลังเล่น mini quiz ลดลง ${quizDelta}`
+        : 'mini quiz ก่อนและหลังเล่นใกล้เคียงกัน';
 
   notes.push(quizDeltaText);
+
+  return notes;
+}
+
+export function buildPlateSummary(ctx, stats, sessionMeta, plate) {
+  const metrics = buildPlateMetrics(ctx, stats, sessionMeta);
+  const notes = buildPlateNotes(stats, metrics);
 
   return {
     title: 'สรุปผลเกม Plate',
