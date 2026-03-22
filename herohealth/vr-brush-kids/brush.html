@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth — Brush Kids</title>
+  <meta name="color-scheme" content="dark light" />
+  <link rel="icon" href="../favicon.ico" />
+  <link rel="stylesheet" href="./brush.css?v=20260322-brush-kids-v2" />
+</head>
+<body>
+  <div id="brush-app" class="brush-app">
+
+    <!-- HEADER -->
+    <header class="brush-topbar">
+      <div class="brush-brand">
+        <div class="brush-kicker">HeroHealth • Hygiene Zone</div>
+        <h1 class="brush-title">Brush Kids</h1>
+      </div>
+
+      <div class="brush-topbar-right">
+        <button id="btnPause" class="brush-btn brush-btn-ghost" type="button">พักเกม</button>
+        <button id="btnHelp" class="brush-btn brush-btn-ghost" type="button">วิธีเล่น</button>
+      </div>
+    </header>
+
+    <!-- COACH -->
+    <section class="brush-coach-card" aria-live="polite">
+      <img id="coachFace" class="brush-coach-face" src="../img/coach-neutral.png" alt="Coach" />
+      <div class="brush-coach-body">
+        <div class="brush-coach-name">Coach Smile</div>
+        <div id="coachLine" class="brush-coach-line">เริ่มแปรงให้ทั่วทุกโซนกันเลย!</div>
+      </div>
+    </section>
+
+    <!-- HUD -->
+    <section class="brush-hud">
+      <div class="brush-hud-card">
+        <div class="hud-label">เวลา</div>
+        <div id="timeText" class="hud-value">02:00</div>
+      </div>
+
+      <div class="brush-hud-card">
+        <div class="hud-label">ความสะอาดรวม</div>
+        <div id="coverageText" class="hud-value">0%</div>
+      </div>
+
+      <div class="brush-hud-card">
+        <div class="hud-label">คอมโบ</div>
+        <div id="comboText" class="hud-value">x0</div>
+      </div>
+
+      <div class="brush-hud-card">
+        <div class="hud-label">สถานะ</div>
+        <div id="phaseText" class="hud-value hud-value-small">เตรียมพร้อม</div>
+      </div>
+    </section>
+
+    <!-- GOAL BAR -->
+    <section class="brush-goal-wrap">
+      <div class="brush-goal-head">
+        <div class="brush-goal-title">ภารกิจวันนี้</div>
+        <div id="goalMiniText" class="brush-goal-mini">แปรงให้ครบทุกโซน</div>
+      </div>
+      <div class="brush-progress">
+        <div id="goalFill" class="brush-progress-fill"></div>
+      </div>
+    </section>
+
+    <!-- GAME AREA -->
+    <main class="brush-main">
+      <!-- LEFT: MOUTH MAP -->
+      <section class="brush-panel brush-mouth-panel">
+        <div class="panel-title">แผนที่ฟัน</div>
+
+        <div id="mouthMap" class="mouth-map">
+          <button class="tooth-zone zone-upper-left" data-zone="upper-left" type="button">
+            <span class="zone-name">บนซ้าย</span>
+            <span class="zone-clean" data-clean-label="upper-left">0%</span>
+          </button>
+
+          <button class="tooth-zone zone-upper-front" data-zone="upper-front" type="button">
+            <span class="zone-name">บนหน้า</span>
+            <span class="zone-clean" data-clean-label="upper-front">0%</span>
+          </button>
+
+          <button class="tooth-zone zone-upper-right" data-zone="upper-right" type="button">
+            <span class="zone-name">บนขวา</span>
+            <span class="zone-clean" data-clean-label="upper-right">0%</span>
+          </button>
+
+          <button class="tooth-zone zone-lower-left" data-zone="lower-left" type="button">
+            <span class="zone-name">ล่างซ้าย</span>
+            <span class="zone-clean" data-clean-label="lower-left">0%</span>
+          </button>
+
+          <button class="tooth-zone zone-lower-front" data-zone="lower-front" type="button">
+            <span class="zone-name">ล่างหน้า</span>
+            <span class="zone-clean" data-clean-label="lower-front">0%</span>
+          </button>
+
+          <button class="tooth-zone zone-lower-right" data-zone="lower-right" type="button">
+            <span class="zone-name">ล่างขวา</span>
+            <span class="zone-clean" data-clean-label="lower-right">0%</span>
+          </button>
+        </div>
+
+        <div class="mouth-legend">
+          <div class="legend-chip">แตะโซน แล้วถูในพื้นที่แปรง</div>
+          <div class="legend-chip">สีสด = สะอาดขึ้น</div>
+        </div>
+      </section>
+
+      <!-- CENTER: PLAYFIELD -->
+      <section class="brush-panel brush-play-panel">
+        <div class="panel-title">พื้นที่แปรงฟัน</div>
+
+        <div id="playfield" class="brush-playfield">
+          <div id="playfieldGlow" class="playfield-glow"></div>
+
+          <div id="plaqueLayer" class="plaque-layer">
+            <div class="plaque-bug bug-1"></div>
+            <div class="plaque-bug bug-2"></div>
+            <div class="plaque-bug bug-3"></div>
+            <div class="plaque-bug bug-4"></div>
+          </div>
+
+          <div id="brushPad" class="brush-pad">
+            <div id="brushCursor" class="brush-cursor">🪥</div>
+            <div class="brush-pad-label">ลาก/ถูในกรอบนี้</div>
+          </div>
+        </div>
+
+        <div class="brush-controls">
+          <button id="btnLearn" class="brush-btn brush-btn-primary" type="button">โหมดเรียนรู้ 2 นาที</button>
+          <button id="btnChallenge" class="brush-btn brush-btn-secondary" type="button">โหมดท้าทาย 3 นาที</button>
+          <button id="btnStart" class="brush-btn brush-btn-accent" type="button">เริ่มเล่น</button>
+        </div>
+      </section>
+
+      <!-- RIGHT: STATUS -->
+      <section class="brush-panel brush-side-panel">
+        <div class="panel-title">สรุประหว่างเล่น</div>
+
+        <div class="side-stat-list">
+          <div class="side-stat">
+            <div class="side-label">โซนที่ทำครบ</div>
+            <div id="zonesDoneText" class="side-value">0 / 6</div>
+          </div>
+
+          <div class="side-stat">
+            <div class="side-label">โซนที่กำลังแปรง</div>
+            <div id="activeZoneText" class="side-value">ยังไม่ได้เลือก</div>
+          </div>
+
+          <div class="side-stat">
+            <div class="side-label">ความเร็ว</div>
+            <div id="speedText" class="side-value">ปกติ</div>
+          </div>
+
+          <div class="side-stat">
+            <div class="side-label">คำเตือน</div>
+            <div id="warnText" class="side-value">0</div>
+          </div>
+        </div>
+
+        <div class="mini-mission-box">
+          <div class="mini-mission-title">เคลียร์คราบตัวป่วน</div>
+          <div id="miniMissionText" class="mini-mission-text">
+            เลือกโซน แล้วถูให้ต่อเนื่องจนสะอาด
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- HELP MODAL -->
+    <div id="helpModal" class="brush-modal hidden" role="dialog" aria-modal="true">
+      <div class="brush-modal-card">
+        <h2>วิธีเล่น</h2>
+        <ol class="brush-help-list">
+          <li>เลือกโซนฟันทางซ้าย</li>
+          <li>ลากแปรงในกรอบกลางจอ</li>
+          <li>แปรงให้ครบทุกโซน</li>
+          <li>อย่ารีบเกินไป</li>
+          <li>อยู่ให้ครบเวลา จะได้ดาวมากขึ้น</li>
+        </ol>
+        <button id="btnCloseHelp" class="brush-btn brush-btn-primary" type="button">เข้าใจแล้ว</button>
+      </div>
+    </div>
+
+    <!-- SUMMARY -->
+    <div id="summaryModal" class="brush-modal hidden" role="dialog" aria-modal="true">
+      <div class="brush-modal-card brush-summary-card">
+        <h2 id="summaryTitle">ฟันสดใสแล้ว!</h2>
+        <div id="summaryRank" class="summary-rank">Sparkle Hero</div>
+
+        <div class="summary-grid">
+          <div class="summary-item">
+            <div class="summary-label">เวลา</div>
+            <div id="summaryTime" class="summary-value">02:00</div>
+          </div>
+          <div class="summary-item">
+            <div class="summary-label">ความสะอาดรวม</div>
+            <div id="summaryCoverage" class="summary-value">0%</div>
+          </div>
+          <div class="summary-item">
+            <div class="summary-label">โซนที่ครบ</div>
+            <div id="summaryZones" class="summary-value">0 / 6</div>
+          </div>
+          <div class="summary-item">
+            <div class="summary-label">คำเตือน</div>
+            <div id="summaryWarn" class="summary-value">0</div>
+          </div>
+        </div>
+
+        <div id="summaryAdvice" class="summary-advice">
+          ครั้งหน้าลองแปรงให้ช้าลงนิดหนึ่งนะ
+        </div>
+
+        <div class="summary-actions">
+          <button id="btnReplay" class="brush-btn brush-btn-primary" type="button">เล่นอีกครั้ง</button>
+          <button id="btnBackHub" class="brush-btn brush-btn-secondary" type="button">กลับ HUB</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="./brush.game.js?v=20260322-brush-kids-v2"></script>
+</body>
+</html>
