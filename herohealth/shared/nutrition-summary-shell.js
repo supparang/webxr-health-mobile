@@ -1,6 +1,6 @@
 // === /herohealth/shared/nutrition-summary-shell.js ===
 // Shared summary modal shell
-// PATCH v20260318-NUTRITION-GATE-INTEGRATION-A
+// PATCH v20260318-NUTRITION-SHARED-FULL
 
 import { esc } from './nutrition-common.js';
 
