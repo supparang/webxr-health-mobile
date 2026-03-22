@@ -25,16 +25,16 @@ const MODE_CONFIG = {
     label: 'โหมดเรียนรู้ 2 นาที',
     durationSec: 120,
     goalText: 'แปรงให้ครบทุกโซนใน 2 นาที',
-    miniMissionGuided: 'เลือกโซน แล้วค่อย ๆ ถูให้สะอาด',
-    miniMissionRun: 'แปรงให้ครบทุกโซนและอย่ารีบเกินไป'
+    miniMissionGuided: 'เลือกโซน แล้วถูตามลายการแปรง',
+    miniMissionRun: 'รักษาลายการแปรงให้ต่อเนื่อง'
   },
   challenge: {
     id: 'challenge',
     label: 'โหมดท้าทาย 3 นาที',
     durationSec: 180,
     goalText: 'แปรงให้ครบทุกโซนใน 3 นาที และเก็บงานให้เรียบร้อย',
-    miniMissionGuided: 'เริ่มช้า ๆ แล้วคุมจังหวะให้สม่ำเสมอ',
-    miniMissionRun: 'รักษาความสม่ำเสมอและเก็บงานปลายเกม'
+    miniMissionGuided: 'เริ่มช้า ๆ แล้วทำตามลายการแปรง',
+    miniMissionRun: 'ทำลายการแปรงให้แม่นและสม่ำเสมอ'
   }
 };
 
@@ -44,6 +44,21 @@ const PHASE_TEXT = {
   cleanRun: 'แปรงให้ทั่ว',
   boss: 'เคลียร์คราบตัวป่วน',
   summary: 'สรุปผล'
+};
+
+const PATTERN_META = {
+  horizontal: {
+    label: 'ซ้าย ↔ ขวา',
+    hint: 'ถูซ้าย-ขวาให้ต่อเนื่อง'
+  },
+  vertical: {
+    label: 'ขึ้น ↕ ลง',
+    hint: 'ถูขึ้น-ลงให้ต่อเนื่อง'
+  },
+  circle: {
+    label: 'วน ⟳ เป็นวง',
+    hint: 'ลากวนเป็นวงกลมเบา ๆ'
+  }
 };
 
 const COACH_LINES = {
@@ -62,6 +77,10 @@ const COACH_LINES = {
   zoneDone: [
     'เยี่ยม! โซนนี้สะอาดแล้ว',
     'เก่งมาก ไปต่ออีกโซนได้เลย'
+  ],
+  patternLoop: [
+    'ลายการแปรงถูกต้อง เก่งมาก!',
+    'เยี่ยมเลย ทำตามลายได้ดีมาก'
   ],
   boss: [
     'คราบตัวป่วนกลับมาแล้ว!',
@@ -97,7 +116,8 @@ const state = {
   sparkleCount: 0,
   speedLabel: 'ปกติ',
   bossTriggered: false,
-  zones: buildZones()
+  zones: buildZones(),
+  pattern: buildPatternState('horizontal', 'intro', MODE_CONFIG[qs.get('mode')]?.id || 'learn')
 };
 
 const el = {
@@ -117,6 +137,11 @@ const el = {
   speedText: document.getElementById('speedText'),
   warnText: document.getElementById('warnText'),
   miniMissionText: document.getElementById('miniMissionText'),
+
+  patternBadge: document.getElementById('patternBadge'),
+  patternHint: document.getElementById('patternHint'),
+  patternProgressFill: document.getElementById('patternProgressFill'),
+  patternProgressText: document.getElementById('patternProgressText'),
 
   brushPad: document.getElementById('brushPad'),
   brushCursor: document.getElementById('brushCursor'),
@@ -231,10 +256,14 @@ function bindBrushInput(node) {
 
   node.addEventListener('pointerup', () => {
     state.isPointerDown = false;
+    state.pattern.lastPos = null;
+    state.pattern.lastAngle = null;
   });
 
   node.addEventListener('pointercancel', () => {
     state.isPointerDown = false;
+    state.pattern.lastPos = null;
+    state.pattern.lastAngle = null;
   });
 }
 
@@ -262,9 +291,52 @@ function mkZone(id, label) {
   };
 }
 
+function buildPatternState(type, phaseId, modeId) {
+  const meta = PATTERN_META[type] || PATTERN_META.horizontal;
+
+  let cyclesTarget = 2;
+  if (phaseId === 'cleanRun') cyclesTarget = modeId === 'challenge' ? 3 : 2;
+  if (phaseId === 'boss') cyclesTarget = 2;
+
+  return {
+    type,
+    label: meta.label,
+    hint: meta.hint,
+    progress: 0,
+    cyclesDone: 0,
+    cyclesTarget,
+    lastPos: null,
+    lastAngle: null,
+    lastDirection: 0
+  };
+}
+
+function getPatternTypeForZone(zoneId, phaseId) {
+  if (!zoneId) return 'horizontal';
+  if (phaseId === 'boss') return 'circle';
+
+  const map = {
+    'upper-left': 'horizontal',
+    'upper-front': 'circle',
+    'upper-right': 'horizontal',
+    'lower-left': 'vertical',
+    'lower-front': 'circle',
+    'lower-right': 'vertical'
+  };
+
+  return map[zoneId] || 'horizontal';
+}
+
+function assignPatternForCurrentZone() {
+  const type = getPatternTypeForZone(state.activeZoneId, state.phaseId);
+  state.pattern = buildPatternState(type, state.phaseId, state.mode.id);
+}
+
 function setMode(modeId, options = {}) {
   state.mode = MODE_CONFIG[modeId] || MODE_CONFIG.learn;
   syncLoggerContext();
+
+  if (state.activeZoneId) assignPatternForCurrentZone();
 
   if (!options.silent) {
     logger.event('mode_change', {
@@ -328,6 +400,7 @@ function resetRunState() {
   state.speedLabel = 'ปกติ';
   state.bossTriggered = false;
   state.zones = buildZones();
+  state.pattern = buildPatternState('horizontal', 'intro', state.mode.id);
 
   if (el.btnPause) el.btnPause.textContent = 'พักเกม';
   renderAll();
@@ -378,28 +451,27 @@ function updatePhase() {
   const sec = state.elapsedMs / 1000;
   const duration = state.mode.durationSec;
 
-  if (!state.bossTriggered && sec >= duration * 0.82) {
-    state.phaseId = 'boss';
+  let nextPhase = 'guided';
+  if (!state.bossTriggered && sec >= duration * 0.2) nextPhase = 'cleanRun';
+  if (!state.bossTriggered && sec >= duration * 0.82) nextPhase = 'boss';
+
+  if (nextPhase === 'boss' && !state.bossTriggered) {
     state.bossTriggered = true;
     reviveWeakZones();
     ui.setCoach('fever', randomPick(COACH_LINES.boss));
-
     logger.event('boss_start', {
       timeFromStartMs: Math.round(state.elapsedMs),
       gameId: GAME_ID,
       gameVariant: GAME_VARIANT,
       coveragePercent: getCoveragePercent()
     });
-    return;
   }
 
-  if (!state.bossTriggered && sec >= duration * 0.2) {
-    state.phaseId = 'cleanRun';
-    return;
-  }
-
-  if (!state.bossTriggered) {
-    state.phaseId = 'guided';
+  if (nextPhase !== state.phaseId) {
+    state.phaseId = nextPhase;
+    if (state.activeZoneId) {
+      assignPatternForCurrentZone();
+    }
   }
 }
 
@@ -416,8 +488,9 @@ function reviveWeakZones() {
 
 function selectZone(zoneId) {
   state.activeZoneId = zoneId;
-  const zone = getActiveZone();
+  assignPatternForCurrentZone();
 
+  const zone = getActiveZone();
   if (zone) {
     ui.setCoach('neutral', `ตอนนี้แปรงโซน${zone.label}นะ`);
     logger.event('zone_select', {
@@ -425,14 +498,15 @@ function selectZone(zoneId) {
       gameId: GAME_ID,
       gameVariant: GAME_VARIANT,
       zoneId: zone.id,
-      zoneLabel: zone.label
+      zoneLabel: zone.label,
+      patternType: state.pattern.type
     });
   }
 
   renderAll();
 }
 
-function handleBrushMove() {
+function handleBrushMove(e) {
   if (!state.running || state.paused) return;
 
   const zone = getActiveZone();
@@ -440,6 +514,9 @@ function handleBrushMove() {
     issueWarning('warning_no_zone', randomPick(COACH_LINES.noZone));
     return;
   }
+
+  const pos = getNormPos(e, el.brushPad);
+  if (!pos) return;
 
   const now = performance.now();
   const delta = now - state.lastBrushAt;
@@ -453,12 +530,42 @@ function handleBrushMove() {
     return;
   }
 
-  updateZoneCleaning(zone, speed);
+  const patternResult = updatePatternProgress(pos);
+
+  if (patternResult.match < 0.12) {
+    renderAll();
+    return;
+  }
+
+  updateZoneCleaning(zone, speed, patternResult.match, patternResult.cycleCompleted, patternResult.loopCompleted);
   state.combo += 1;
   state.comboMax = Math.max(state.comboMax, state.combo);
 
   maybeEmitZoneMilestone(zone);
   maybeCelebrateZone(zone);
+
+  if (patternResult.cycleCompleted) {
+    logger.event('pattern_cycle', {
+      timeFromStartMs: Math.round(state.elapsedMs),
+      gameId: GAME_ID,
+      gameVariant: GAME_VARIANT,
+      zoneId: zone.id,
+      patternType: state.pattern.type,
+      patternCyclesDone: state.pattern.cyclesDone,
+      patternCyclesTarget: state.pattern.cyclesTarget
+    });
+  }
+
+  if (patternResult.loopCompleted) {
+    ui.setCoach('happy', randomPick(COACH_LINES.patternLoop));
+    logger.event('pattern_loop_complete', {
+      timeFromStartMs: Math.round(state.elapsedMs),
+      gameId: GAME_ID,
+      gameVariant: GAME_VARIANT,
+      zoneId: zone.id,
+      patternType: state.pattern.type
+    });
+  }
 
   if ((state.combo % 12) === 0) {
     logger.event('brush_combo', {
@@ -471,6 +578,96 @@ function handleBrushMove() {
   }
 
   renderAll();
+}
+
+function updatePatternProgress(nextPos) {
+  const p = state.pattern;
+  const prev = p.lastPos;
+
+  if (!prev) {
+    p.lastPos = nextPos;
+    if (p.type === 'circle') {
+      p.lastAngle = Math.atan2(nextPos.y - 0.5, nextPos.x - 0.5);
+    }
+    return { match: 0, cycleCompleted: false, loopCompleted: false };
+  }
+
+  const dx = nextPos.x - prev.x;
+  const dy = nextPos.y - prev.y;
+  const dist = Math.hypot(dx, dy);
+
+  p.lastPos = nextPos;
+
+  if (dist < 0.004) {
+    return { match: 0, cycleCompleted: false, loopCompleted: false };
+  }
+
+  let match = 0;
+  let progressAdd = 0;
+
+  if (p.type === 'horizontal') {
+    const ax = Math.abs(dx);
+    const ay = Math.abs(dy);
+    match = clamp((ax / (ax + ay + 0.0001) - 0.25) / 0.75, 0, 1);
+
+    const dir = Math.sign(dx);
+    progressAdd += match * 14;
+
+    if (ax > 0.014 && dir !== 0 && p.lastDirection !== 0 && dir !== p.lastDirection) {
+      progressAdd += 18;
+    }
+    if (ax > 0.014 && dir !== 0) {
+      p.lastDirection = dir;
+    }
+  } else if (p.type === 'vertical') {
+    const ax = Math.abs(dx);
+    const ay = Math.abs(dy);
+    match = clamp((ay / (ax + ay + 0.0001) - 0.25) / 0.75, 0, 1);
+
+    const dir = Math.sign(dy);
+    progressAdd += match * 14;
+
+    if (ay > 0.014 && dir !== 0 && p.lastDirection !== 0 && dir !== p.lastDirection) {
+      progressAdd += 18;
+    }
+    if (ay > 0.014 && dir !== 0) {
+      p.lastDirection = dir;
+    }
+  } else {
+    const cx = nextPos.x - 0.5;
+    const cy = nextPos.y - 0.5;
+    const radius = Math.hypot(cx, cy);
+    const angle = Math.atan2(cy, cx);
+
+    let deltaAngle = 0;
+    if (p.lastAngle !== null) {
+      deltaAngle = normalizeAngle(angle - p.lastAngle);
+    }
+    p.lastAngle = angle;
+
+    const ringFit = radius > 0.12 && radius < 0.42 ? 1 : 0.35;
+    match = clamp((Math.abs(deltaAngle) / 0.14) * ringFit, 0, 1);
+    progressAdd += match * 16;
+  }
+
+  p.progress = clamp(p.progress + progressAdd, 0, 100);
+
+  let cycleCompleted = false;
+  let loopCompleted = false;
+
+  if (p.progress >= 100) {
+    cycleCompleted = true;
+    p.progress = 0;
+    p.cyclesDone += 1;
+    p.lastDirection = 0;
+
+    if (p.cyclesDone >= p.cyclesTarget) {
+      loopCompleted = true;
+      p.cyclesDone = 0;
+    }
+  }
+
+  return { match, cycleCompleted, loopCompleted };
 }
 
 function classifySpeed(deltaMs) {
@@ -499,11 +696,13 @@ function issueWarning(type, coachLine) {
   renderAll();
 }
 
-function updateZoneCleaning(zone, speed) {
+function updateZoneCleaning(zone, speed, patternMatch, cycleCompleted, loopCompleted) {
   const phaseBonus = state.phaseId === 'boss' ? 1.10 : 1.0;
-  const gain = 2.2 * speed.gain * phaseBonus;
+  const cycleBonus = cycleCompleted ? 3 : 0;
+  const loopBonus = loopCompleted ? 8 : 0;
 
-  zone.clean = clamp(zone.clean + gain, 0, ZONE_TARGET);
+  const gain = 1.4 * speed.gain * phaseBonus * patternMatch;
+  zone.clean = clamp(zone.clean + gain + cycleBonus + loopBonus, 0, ZONE_TARGET);
   zone.dwellMs += 40;
   zone.visited = true;
   zone.done = zone.clean >= ZONE_TARGET;
@@ -625,6 +824,17 @@ function getZonesDoneCount() {
   return state.zones.filter(z => z.done).length;
 }
 
+function getNormPos(e, pad) {
+  if (!pad) return null;
+  const rect = pad.getBoundingClientRect();
+  if (!rect.width || !rect.height) return null;
+
+  return {
+    x: clamp((e.clientX - rect.left) / rect.width, 0, 1),
+    y: clamp((e.clientY - rect.top) / rect.height, 0, 1)
+  };
+}
+
 function renderAll() {
   ui.renderZones(state.zones, state.activeZoneId);
   ui.renderHud({
@@ -642,12 +852,19 @@ function renderAll() {
     goalText: state.mode.goalText,
     miniMissionText: getMiniMissionText()
   });
+
+  ui.renderPattern({
+    label: state.activeZoneId ? state.pattern.label : 'เลือกโซนก่อน',
+    hint: state.activeZoneId ? state.pattern.hint : 'เลือกโซนก่อน แล้วถูตามลายที่บอก',
+    progressPercent: state.pattern.progress,
+    progressText: `${state.pattern.cyclesDone} / ${state.pattern.cyclesTarget} รอบ`
+  });
 }
 
 function getMiniMissionText() {
   if (state.phaseId === 'guided') return state.mode.miniMissionGuided;
   if (state.phaseId === 'cleanRun') return state.mode.miniMissionRun;
-  if (state.phaseId === 'boss') return 'คราบตัวป่วนกลับมาแล้ว รีบเก็บงานให้ครบ';
+  if (state.phaseId === 'boss') return 'โหมด boss ใช้การวนเป็นวงกลมเพื่อเก็บงาน';
   if (state.phaseId === 'summary') return 'ดูผลลัพธ์ของวันนี้ได้เลย';
   return 'เริ่มได้เลย';
 }
@@ -656,6 +873,13 @@ function formatTime(totalSec) {
   const mm = String(Math.floor(totalSec / 60)).padStart(2, '0');
   const ss = String(totalSec % 60).padStart(2, '0');
   return `${mm}:${ss}`;
+}
+
+function normalizeAngle(rad) {
+  let a = rad;
+  while (a > Math.PI) a -= Math.PI * 2;
+  while (a < -Math.PI) a += Math.PI * 2;
+  return a;
 }
 
 function randomPick(arr) {
