@@ -1036,6 +1036,10 @@
 
   <script>
     const qs = (k, d='')=>{ try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch(e){ return d; } };
+    const safeParse = (s, fallback=null)=>{ try{ return s ? JSON.parse(s) : fallback; }catch(_){ return fallback; } };
+    const getJson = (k, fallback=null)=> safeParse(localStorage.getItem(k), fallback);
+    const setJson = (k, v)=>{ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(_){} };
+    const delKey = (k)=>{ try{ localStorage.removeItem(k); }catch(_){} };
 
     const pid  = String(qs('pid','anon')).trim() || 'anon';
     const run  = String(qs('run','play'));
@@ -1053,12 +1057,19 @@
     uiPid.textContent = pid;
     ctxLine.textContent = `โหมด ${run} • ระดับ ${diff} • เวลา ${time} วินาที • มุมมอง ${view}`;
 
+    function hhDayKey(){
+      const d = new Date();
+      return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    }
+
     function buildUrl(path, extra){
       const u = new URL(path, location.href);
       const sp = new URL(location.href).searchParams;
 
-      ['run','diff','time','seed','studyId','phase','conditionGroup','log','view','pid','api','ai','debug']
-      .forEach(k=>{
+      [
+        'run','diff','time','seed','studyId','phase','conditionGroup','log',
+        'view','pid','api','ai','debug','room','pro'
+      ].forEach(k=>{
         const v = sp.get(k);
         if(v!=null && v!=='') u.searchParams.set(k, v);
       });
@@ -1083,12 +1094,19 @@
           return { pid, nick: pid, xp, lvl:Math.max(1, Math.floor(xp/50)+1) };
         }
         const j = JSON.parse(raw);
-        const xp = Math.max(0, Number(j.xp)||0);
+        const xpDirect = Number(j.xp);
+        const xpFallback = Math.max(0, Number(localStorage.getItem(`HHA_HERO_XP:${pid}`) || '0') || 0);
+        const xp = Math.max(0, Number.isFinite(xpDirect) ? xpDirect : xpFallback);
         const lvl = Math.max(1, Number(j.lvl)|| (Math.floor(xp/50)+1));
         return { pid, nick: String(j.nick||pid), xp, lvl };
       }catch(_){
-        return { pid, nick: pid, xp:0, lvl:1 };
+        const xp = Math.max(0, Number(localStorage.getItem(`HHA_HERO_XP:${pid}`) || '0') || 0);
+        return { pid, nick: pid, xp, lvl:Math.max(1, Math.floor(xp/50)+1) };
       }
+    }
+
+    function saveHero(h){
+      try{ localStorage.setItem(`HHA_PROFILE:${pid}`, JSON.stringify(h)); }catch(_){}
     }
 
     function renderHero(){
@@ -1096,6 +1114,170 @@
       uiNick.textContent = h.nick || pid;
       uiXp.textContent = String(h.xp|0);
       uiLvl.textContent = String(h.lvl|0);
+    }
+
+    function loadCardBook(pid){
+      return getJson(`HHA_CARD_BOOK:${pid}`, { S:0, A:0, B:0, C:0, total:0 });
+    }
+
+    function saveCardBook(pid, book){
+      setJson(`HHA_CARD_BOOK:${pid}`, book);
+    }
+
+    function cardSpecFromGrade(grade){
+      grade = String(grade||'C').toUpperCase();
+      if(grade === 'S') return { icon:'🏆', title:'Legendary Nutrition Hero' };
+      if(grade === 'A') return { icon:'⚡', title:'Elite Healthy Shooter' };
+      if(grade === 'B') return { icon:'🛡️', title:'Balanced Food Defender' };
+      return { icon:'🌱', title:'Rookie Health Explorer' };
+    }
+
+    function loadLastGoodjunkSummary(pid){
+      const direct = getJson(`HHA_LAST_SUMMARY:goodjunk:${pid}`, null);
+      if(direct) return direct;
+
+      const any = getJson('HHA_LAST_SUMMARY', null);
+      if(any && String(any.pid||'') === pid && String(any.game||'').toLowerCase() === 'goodjunk') return any;
+      return null;
+    }
+
+    function loadLastCard(pid){
+      return getJson(`HHA_LAST_CARD:${pid}`, null);
+    }
+
+    function renderCardBook(){
+      const book = loadCardBook(pid);
+      const sum = loadLastGoodjunkSummary(pid);
+      const lastCard = loadLastCard(pid);
+
+      document.getElementById('bookTotal').textContent = String(book.total || 0);
+      document.getElementById('bookS').textContent = String(book.S || 0);
+      document.getElementById('bookA').textContent = String(book.A || 0);
+      document.getElementById('bookB').textContent = String(book.B || 0);
+      document.getElementById('bookC').textContent = String(book.C || 0);
+
+      const lastDropIcon = document.getElementById('lastDropIcon');
+      const lastDropTitle = document.getElementById('lastDropTitle');
+      const lastDropMeta = document.getElementById('lastDropMeta');
+      const lastDropGrade = document.getElementById('lastDropGrade');
+      const lastDropScore = document.getElementById('lastDropScore');
+
+      if(lastCard){
+        lastDropIcon.textContent = lastCard.icon || '🃏';
+        lastDropTitle.textContent = lastCard.title || 'Latest Card';
+      }
+
+      if(sum){
+        const grade = String(sum.grade || 'C').toUpperCase();
+        const spec = cardSpecFromGrade(grade);
+
+        if(!lastCard) lastDropIcon.textContent = spec.icon;
+        if(!lastCard) lastDropTitle.textContent = spec.title;
+
+        lastDropMeta.textContent =
+          `ผลล่าสุด: reason=${sum.reason || '-'} • miss ${sum.missTotal ?? sum.miss ?? 0} • acc ${sum.accPct ?? 0}%`;
+        lastDropGrade.textContent = grade;
+        lastDropScore.textContent = String(sum.scoreFinal ?? sum.score ?? 0);
+      }else{
+        lastDropIcon.textContent = '🃏';
+        lastDropTitle.textContent = 'ยังไม่มีการ์ดล่าสุด';
+        lastDropMeta.textContent = 'เล่น GoodJunk แล้วกลับมาดูที่นี่';
+        lastDropGrade.textContent = '—';
+        lastDropScore.textContent = '0';
+      }
+
+      const bestNormal = getJson(`HHA_GJ_BEST:${pid}:normal`, null);
+      document.getElementById('bestNormalScore').textContent = String(bestNormal?.scoreFinal ?? bestNormal?.score ?? 0);
+
+      const streak = getJson(`HHA_GJ_STREAK:${pid}`, { count:0 });
+      document.getElementById('streakCount').textContent = String(streak?.count || 0);
+    }
+
+    function loadJDProfile(pid){
+      return getJson(`JD_PROFILE:${pid}`, {});
+    }
+
+    function renderFitnessJumpDuckShelf(){
+      const jd = loadJDProfile(pid);
+      const badgeCount = Object.values(jd.badges || {}).filter(Boolean).length;
+
+      document.getElementById('fitnessJDBest').textContent = String(jd.bestScore || 0);
+      document.getElementById('fitnessJDStreak').textContent = String(jd.streak || 0);
+      document.getElementById('fitnessJDBadgeCount').textContent = String(badgeCount);
+      document.getElementById('fitnessJDReward').textContent = String(jd.lastReward?.medal ? `${jd.lastReward.medal} ${jd.lastReward.label}` : '-');
+      document.getElementById('fitnessJDBossBadge').textContent = String(jd.lastBossBadge?.icon ? `${jd.lastBossBadge.icon} ${jd.lastBossBadge.label}` : '-');
+    }
+
+    function loadShadowBreakerProfile(pid){
+      return getJson(`SB_PROFILE:${pid}`, {});
+    }
+
+    function renderShadowBreakerShelf(){
+      const sb = loadShadowBreakerProfile(pid);
+
+      document.getElementById('fitnessSBBestBoss').textContent = String(sb.bestBoss || sb.lastBoss || '-');
+      document.getElementById('fitnessSBBestBadge').textContent = String(sb.bestBadge || sb.lastBadge || '-');
+      document.getElementById('fitnessSBBestScore').textContent = String(sb.bestScore || 0);
+      document.getElementById('fitnessSBLastPlayed').textContent = String(sb.lastPlayed || '-');
+
+      const sumLink = document.getElementById('linkSBSummary');
+      const teacherLink = document.getElementById('linkSBTeacher');
+
+      if(sb.lastSummaryUrl){
+        sumLink.href = sb.lastSummaryUrl;
+        sumLink.style.display = 'inline-flex';
+      }else{
+        sumLink.style.display = 'none';
+      }
+
+      if(sb.teacherUrl){
+        teacherLink.href = sb.teacherUrl;
+        teacherLink.style.display = 'inline-flex';
+      }else{
+        teacherLink.style.display = 'none';
+      }
+    }
+
+    function renderTrophyShelf(){
+      const book = loadCardBook(pid);
+      const bestNormal = getJson(`HHA_GJ_BEST:${pid}:normal`, null);
+      const badges = getJson(`HHA_GJ_BADGES:${pid}`, {});
+      const today = hhDayKey();
+
+      const nutritionUnlocked = (book.total || 0) > 0 || ((bestNormal?.scoreFinal ?? bestNormal?.score ?? 0) >= 500);
+      const hygieneUnlocked = localStorage.getItem(`HHA_ZONE_DONE::hygiene::${today}`) === '1';
+      const fitnessUnlocked = localStorage.getItem(`HHA_ZONE_DONE::fitness::${today}`) === '1';
+
+      const nutriStatus = document.getElementById('nutriStatus');
+      const hygieneStatus = document.getElementById('hygieneStatus');
+      const fitnessStatus = document.getElementById('fitnessStatus');
+
+      nutriStatus.textContent = nutritionUnlocked ? 'ปลดแล้ว 🎉' : 'LOCKED';
+      hygieneStatus.textContent = hygieneUnlocked ? 'ทำแล้ววันนี้ ✅' : 'LOCKED';
+      fitnessStatus.textContent = fitnessUnlocked ? 'ทำแล้ววันนี้ ✅' : 'LOCKED';
+
+      nutriStatus.className = `statusChip ${nutritionUnlocked ? 'done' : 'locked'}`;
+      hygieneStatus.className = `statusChip ${hygieneUnlocked ? 'done' : 'locked'}`;
+      fitnessStatus.className = `statusChip ${fitnessUnlocked ? 'done' : 'locked'}`;
+
+      document.getElementById('nutriTrophyIcon').textContent = nutritionUnlocked ? '🏆' : '🥦';
+      document.getElementById('hygieneTrophyIcon').textContent = hygieneUnlocked ? '🏅' : '🪥';
+      document.getElementById('fitnessTrophyIcon').textContent = fitnessUnlocked ? '🎖️' : '🏃';
+
+      document.getElementById('nutriBestScore').textContent = String(bestNormal?.scoreFinal ?? bestNormal?.score ?? 0);
+      document.getElementById('nutriCardTotal').textContent = String(book.total || 0);
+      document.getElementById('hygieneZoneDone').textContent = hygieneUnlocked ? '1' : '0';
+      document.getElementById('fitnessZoneDone').textContent = fitnessUnlocked ? '1' : '0';
+
+      const badgeCount = Object.values(badges || {}).filter(Boolean).length;
+      document.getElementById('nutriHint').textContent =
+        nutritionUnlocked ? `ปลดถ้วยแล้ว • badges ${badgeCount} • เก่งมาก` : 'เริ่มที่ GoodJunk หรือ Hydration เพื่อค่อย ๆ ปลดถ้วยนี้';
+
+      document.getElementById('hygieneHint').textContent =
+        hygieneUnlocked ? 'วันนี้เล่นโลกสุขอนามัยแล้ว' : 'เล่นเกมในโลกสุขอนามัยวันนี้ เพื่อโชว์ถ้วยนี้';
+
+      document.getElementById('fitnessHint').textContent =
+        fitnessUnlocked ? 'วันนี้เล่นโลกออกกำลังกายแล้ว' : 'เล่นโลกออกกำลังกายวันนี้ เพื่อค่อย ๆ ปลดถ้วยนี้';
     }
 
     const PATHS = {
@@ -1113,7 +1295,9 @@
       rhythmBoxer:    './rhythm-boxer.html',
       jumpDuck:       './jump-duck-vr.html',
       balanceHold:    './balance-hold-vr.html',
-      fitnessPlanner: './fitness-planner.html'
+      fitnessPlanner: './fitness-planner.html',
+      jumpDuckGallery:'./jump-duck-gallery.html',
+      shadowBreakerTeacher:'./shadow-breaker-teacher.html'
     };
 
     document.getElementById('linkGoodjunk').href  = buildUrl(PATHS.goodjunk, {});
@@ -1133,6 +1317,9 @@
     document.getElementById('linkJumpDuck').href       = buildUrl(PATHS.jumpDuck,       { zone:'fitness' });
     document.getElementById('linkBalanceHold').href    = buildUrl(PATHS.balanceHold,    { zone:'fitness' });
     document.getElementById('linkFitnessPlanner').href = buildUrl(PATHS.fitnessPlanner, { zone:'fitness' });
+
+    document.getElementById('linkSBLauncher').href = buildUrl(PATHS.shadowBreaker, { zone:'fitness' });
+    document.getElementById('linkJDGallery').href = buildUrl(PATHS.jumpDuckGallery, { zone:'fitness' });
 
     document.getElementById('btnGJsolo').onclick = ()=> location.href = buildUrl(PATHS.goodjunk, { mode:'solo' });
     document.getElementById('btnGJpro').onclick  = ()=> location.href = buildUrl(PATHS.goodjunk, { mode:'solo', diff:'hard', pro:'1', auto:'0' });
@@ -1165,7 +1352,70 @@
       location.href = buildUrl(PATHS.jumpDuck, { zone:'fitness' });
     };
 
-    renderHero();
+    document.getElementById('btnHeroShow').onclick = ()=>{
+      const h = loadHero();
+      alert(`HERO\nPID: ${h.pid}\nNick: ${h.nick}\nLV: ${h.lvl}\nXP: ${h.xp}\n\nจำความก้าวหน้าในเครื่องนี้`);
+    };
+
+    document.getElementById('btnHeroReset').onclick = ()=>{
+      if(!confirm('รีเซ็ต Hero ของผู้เล่นนี้หรือไม่?\nจะลบ XP และเลเวลของฮีโร่')) return;
+      const h = { pid, nick: pid, xp:0, lvl:1 };
+      saveHero(h);
+      try{ localStorage.setItem(`HHA_HERO_XP:${pid}`, '0'); }catch(_){}
+      renderHero();
+      alert('รีเซ็ตฮีโร่เรียบร้อย ✅');
+    };
+
+    document.getElementById('btnResetCardBook').onclick = ()=>{
+      if(!confirm('ล้าง Card Book ของ GoodJunk สำหรับผู้เล่นนี้หรือไม่?')) return;
+      saveCardBook(pid, { S:0, A:0, B:0, C:0, total:0 });
+      delKey(`HHA_LAST_CARD:${pid}`);
+      delKey(`HHA_LAST_SUMMARY:goodjunk:${pid}`);
+      delKey(`HHA_GJ_BEST:${pid}:normal`);
+      delKey(`HHA_GJ_STREAK:${pid}`);
+      renderCardBook();
+      renderTrophyShelf();
+      alert('ล้าง Card Book เรียบร้อย ✅');
+    };
+
+    document.getElementById('linkSBResetLast').onclick = ()=>{
+      if(!confirm('ล้างผลล่าสุดของ Shadow Breaker หรือไม่?')) return;
+      const sb = loadShadowBreakerProfile(pid);
+      delete sb.lastBoss;
+      delete sb.lastBadge;
+      delete sb.lastPlayed;
+      delete sb.lastSummaryUrl;
+      delete sb.teacherUrl;
+      setJson(`SB_PROFILE:${pid}`, sb);
+      renderShadowBreakerShelf();
+      alert('ล้างผลล่าสุดของ Shadow Breaker แล้ว ✅');
+    };
+
+    document.getElementById('linkSBResetAll').onclick = ()=>{
+      if(!confirm('ล้างข้อมูล Shadow Breaker ทั้งหมดของผู้เล่นนี้หรือไม่?')) return;
+      delKey(`SB_PROFILE:${pid}`);
+      renderShadowBreakerShelf();
+      alert('ล้างข้อมูล Shadow Breaker ทั้งหมดแล้ว ✅');
+    };
+
+    function ensureTeacherLinkFallback(){
+      const teacherLink = document.getElementById('linkSBTeacher');
+      if(!teacherLink.href || teacherLink.getAttribute('href') === '#'){
+        teacherLink.href = buildUrl(PATHS.shadowBreakerTeacher, { zone:'fitness' });
+      }
+    }
+
+    function renderAll(){
+      renderHero();
+      renderCardBook();
+      renderFitnessJumpDuckShelf();
+      renderShadowBreakerShelf();
+      renderTrophyShelf();
+      ensureTeacherLinkFallback();
+    }
+
+    renderAll();
+    window.addEventListener('focus', renderAll);
   </script>
 </body>
 </html>
