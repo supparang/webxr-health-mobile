@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth • Bath v2</title>
+  <meta name="color-scheme" content="light" />
+  <style>
+    :root{
+      --bg1:#eff9ff;
+      --bg2:#d7f1ff;
+      --card:#ffffff;
+      --text:#12314a;
+      --muted:#55748f;
+      --line:#b6ddf2;
+      --blue:#4aa8ff;
+      --green:#4ccf8a;
+      --yellow:#ffd76a;
+      --pink:#ff9fd0;
+      --shadow:0 14px 30px rgba(18,49,74,.14);
+      --radius:24px;
+    }
+    *{box-sizing:border-box}
+    html,body{margin:0;padding:0;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;background:linear-gradient(180deg,var(--bg1),var(--bg2));color:var(--text)}
+    body{min-height:100vh;display:grid;place-items:center;padding:20px}
+    .wrap{width:min(960px,100%);}
+    .hero{
+      background:linear-gradient(180deg,#ffffff,#f8fdff);
+      border:1px solid var(--line);
+      border-radius:32px;
+      box-shadow:var(--shadow);
+      padding:24px;
+      overflow:hidden;
+      position:relative;
+    }
+    .bubble{
+      position:absolute;border-radius:999px;opacity:.28;pointer-events:none;
+      background:radial-gradient(circle at 30% 30%,#fff,rgba(255,255,255,.1));
+      border:1px solid rgba(255,255,255,.6);
+    }
+    .b1{width:72px;height:72px;top:20px;right:20px}
+    .b2{width:42px;height:42px;top:110px;right:110px}
+    .b3{width:90px;height:90px;bottom:30px;left:18px}
+    .top{
+      display:grid;grid-template-columns:1.15fr .85fr;gap:18px;align-items:center;
+    }
+    .kicker{
+      display:inline-flex;gap:8px;align-items:center;
+      padding:8px 12px;border-radius:999px;background:#ebf8ff;border:1px solid var(--line);
+      font-weight:800;font-size:14px;color:#1f5c88;
+    }
+    h1{margin:12px 0 8px;font-size:clamp(28px,5vw,46px);line-height:1.05}
+    .sub{margin:0;color:var(--muted);font-size:clamp(15px,2.5vw,18px)}
+    .feature-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:18px 0 0;padding:0;list-style:none}
+    .feature-list li{
+      background:#f7fcff;border:1px solid var(--line);border-radius:18px;padding:12px 14px;font-weight:700;
+    }
+    .preview{
+      min-height:280px;border-radius:28px;border:1px solid var(--line);
+      background:
+        radial-gradient(circle at 20% 20%, rgba(255,255,255,.9), rgba(255,255,255,0) 38%),
+        linear-gradient(180deg,#aee5ff 0%,#d8f5ff 46%,#f8fcff 100%);
+      position:relative;overflow:hidden;
+    }
+    .tub{
+      position:absolute;left:50%;bottom:22px;transform:translateX(-50%);
+      width:min(280px,78%);height:110px;border-radius:40px 40px 26px 26px;
+      background:#fff;border:5px solid #79c7f5;box-shadow:inset 0 -12px 0 #dff6ff;
+    }
+    .avatar{
+      position:absolute;left:50%;bottom:96px;transform:translateX(-50%);
+      width:120px;height:140px;
+    }
+    .head{
+      width:72px;height:72px;border-radius:999px;background:#ffd7be;border:4px solid #f0b998;
+      margin:0 auto;position:relative;z-index:2;
+    }
+    .body{
+      width:88px;height:80px;background:#8fd6ff;border:4px solid #53b5ec;border-radius:24px;
+      margin:-6px auto 0;
+    }
+    .foam,.foam2,.foam3{
+      position:absolute;border-radius:999px;background:#fff;border:2px solid #dff2ff;
+    }
+    .foam{width:56px;height:56px;left:18px;top:10px}
+    .foam2{width:40px;height:40px;right:18px;top:16px}
+    .foam3{width:34px;height:34px;right:44px;top:-6px}
+    .controls{margin-top:20px;display:grid;gap:14px}
+    .mode-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+    .mode-btn,.back-btn{
+      border:0;border-radius:22px;padding:16px 14px;font-size:18px;font-weight:900;cursor:pointer;
+      color:#12314a;box-shadow:var(--shadow)
+    }
+    .mode-btn small{display:block;font-size:13px;font-weight:700;opacity:.78;margin-top:4px}
+    .learn{background:#9fe8c3}
+    .play{background:#ffe39a}
+    .research{background:#cfe3ff}
+    .back-btn{background:#fff;border:1px solid var(--line)}
+    .hint{
+      margin-top:12px;background:#f8fdff;border:1px dashed var(--line);border-radius:18px;
+      padding:12px 14px;color:var(--muted);font-weight:700
+    }
+    @media (max-width:760px){
+      .top{grid-template-columns:1fr}
+      .mode-grid{grid-template-columns:1fr}
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="hero">
+      <div class="bubble b1"></div>
+      <div class="bubble b2"></div>
+      <div class="bubble b3"></div>
+
+      <div class="top">
+        <div>
+          <div class="kicker">🛁 Hygiene Zone • Bath v2</div>
+          <h1>มาอาบน้ำให้สะอาดกัน</h1>
+          <p class="sub">
+            เลือกของให้ถูก ถูให้ครบ ล้างฟองให้หมด และเช็ดตัวให้แห้ง
+          </p>
+
+          <ul class="feature-list">
+            <li>🧼 เลือกของอาบน้ำ</li>
+            <li>✨ ถูจุดสำคัญให้ครบ</li>
+            <li>🚿 ล้างฟองออก</li>
+            <li>🧴 เช็ดตัวให้แห้ง</li>
+          </ul>
+        </div>
+
+        <div class="preview" aria-hidden="true">
+          <div class="avatar">
+            <div class="foam"></div>
+            <div class="foam2"></div>
+            <div class="foam3"></div>
+            <div class="head"></div>
+            <div class="body"></div>
+          </div>
+          <div class="tub"></div>
+        </div>
+      </div>
+
+      <div class="controls">
+        <div class="mode-grid">
+          <button class="mode-btn learn" data-mode="learn">
+            เริ่มเรียนรู้
+            <small>มีตัวช่วยเยอะ เล่นสบาย</small>
+          </button>
+          <button class="mode-btn play" data-mode="play">
+            เล่นท้าทาย
+            <small>ตัวช่วยน้อยลง สนุกขึ้น</small>
+          </button>
+          <button class="mode-btn research" data-mode="research">
+            โหมดวิจัย
+            <small>ลำดับคงที่ เก็บข้อมูลได้</small>
+          </button>
+        </div>
+
+        <button id="backBtn" class="back-btn">← กลับ HUB</button>
+      </div>
+
+      <div class="hint">
+        เคล็ดลับ: เวอร์ชันนี้ออกแบบให้ปุ่มใหญ่ คำสั้น และเข้าใจง่ายสำหรับเด็ก
+      </div>
+    </section>
+  </div>
+
+  <script>
+    (function(){
+      const qs = new URLSearchParams(location.search);
+      const hub = qs.get('hub') || './hub.html';
+      const zone = qs.get('zone') || 'hygiene';
+      const seed = qs.get('seed') || String(Date.now());
+      const pid = qs.get('pid') || '';
+      const studyId = qs.get('studyId') || '';
+      const phase = qs.get('phase') || '';
+
+      function buildBathRunUrl(mode){
+        const next = new URL('./bath-v2/bath.html', location.href);
+        next.searchParams.set('mode', mode);
+        next.searchParams.set('hub', hub);
+        next.searchParams.set('zone', zone);
+        next.searchParams.set('game', 'bath-v2');
+        next.searchParams.set('seed', seed);
+        if (pid) next.searchParams.set('pid', pid);
+        if (studyId) next.searchParams.set('studyId', studyId);
+        if (phase) next.searchParams.set('phase', phase);
+        return next.toString();
+      }
+
+      document.querySelectorAll('[data-mode]').forEach(btn=>{
+        btn.addEventListener('click', ()=>{
+          location.href = buildBathRunUrl(btn.dataset.mode);
+        });
+      });
+
+      document.getElementById('backBtn').addEventListener('click', ()=>{
+        location.href = hub;
+      });
+    })();
+  </script>
+</body>
+</html>
