@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth • Bath v2 Run</title>
+  <meta name="color-scheme" content="light" />
+  <link rel="stylesheet" href="./bath.css" />
+</head>
+<body>
+  <div id="bathApp" class="bath-shell">
+    <header class="bath-topbar">
+      <div class="top-left">
+        <div id="phaseBadge" class="phase-badge">Bath v2</div>
+        <div id="taskText" class="task-text">เตรียมพร้อม</div>
+      </div>
+
+      <div class="top-right">
+        <div class="score-box">⭐ <span id="scoreValue">0</span></div>
+        <button id="helpBtn" class="icon-btn" type="button" title="ฟังคำแนะนำ">🔊</button>
+        <button id="homeBtn" class="icon-btn" type="button" title="กลับ HUB">🏠</button>
+      </div>
+    </header>
+
+    <main class="bath-main">
+      <section id="briefCard" class="brief-card"></section>
+
+      <section id="scene" class="scene hidden">
+        <div class="scene-bg">
+          <div class="scene-bubble b1"></div>
+          <div class="scene-bubble b2"></div>
+          <div class="scene-bubble b3"></div>
+        </div>
+
+        <div id="roomStage" class="room-stage">
+          <div class="shower-head"></div>
+          <div class="tub"></div>
+
+          <div id="avatar" class="avatar">
+            <div class="avatar-head"></div>
+            <div class="avatar-body"></div>
+          </div>
+
+          <div id="hotspotsLayer" class="hotspots-layer"></div>
+          <div id="itemsLayer" class="items-layer"></div>
+          <div id="effectsLayer" class="effects-layer"></div>
+        </div>
+
+        <div class="coach-wrap">
+          <div id="coachBubble" class="coach-bubble">มาพร้อมแล้ว เริ่มกันเลย</div>
+        </div>
+      </section>
+
+      <nav id="actionBar" class="action-bar hidden"></nav>
+
+      <section id="summaryRoot"></section>
+      <section id="quizRoot"></section>
+    </main>
+  </div>
+
+  <script type="module" src="./bath.js"></script>
+</body>
+</html>
