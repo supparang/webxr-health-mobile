@@ -15,7 +15,6 @@ import {
 } from './bath.audio.js';
 
 const $ = (sel) => document.querySelector(sel);
-
 const qs = new URLSearchParams(location.search);
 
 const app = {
@@ -52,7 +51,10 @@ const state = {
   bossIndex: 0,
   audioEnabled: qs.get('audio') !== '0',
   hotspots: {},
-  bossHotspot: null
+  bossHotspot: null,
+  isPhaseLocked: false,
+  isNavigating: false,
+  quizAnswered: false
 };
 
 let idleHintTimer = null;
@@ -67,6 +69,25 @@ function buildReplayUrl() {
 
 function logEvent(type, data = {}) {
   console.log('[BathV2]', type, data);
+}
+
+function lockPhase(flag = true) {
+  state.isPhaseLocked = flag;
+  app.scene.classList.toggle('is-locked', flag);
+  app.actionBar.classList.toggle('is-locked', flag);
+}
+
+function cleanupRuntime() {
+  clearActiveScrub();
+  clearTimeout(idleHintTimer);
+  stopBathSpeech();
+}
+
+function safeNavigate(url) {
+  if (state.isNavigating) return;
+  state.isNavigating = true;
+  cleanupRuntime();
+  location.href = url;
 }
 
 function initHotspotsState() {
@@ -112,10 +133,17 @@ function setPhaseUI(title, task) {
   app.taskText.textContent = task;
 }
 
-function clearLayers() {
+function clearEffectDecor() {
+  app.effectsLayer.innerHTML = '';
+}
+
+function clearPlayLayers() {
   app.hotspotsLayer.innerHTML = '';
   app.itemsLayer.innerHTML = '';
-  app.effectsLayer.innerHTML = '';
+  clearEffectDecor();
+}
+
+function clearPanels() {
   app.summaryRoot.innerHTML = '';
   app.quizRoot.innerHTML = '';
 }
@@ -178,6 +206,8 @@ function updateProgressBox() {
 
 function resetIdleHint() {
   clearTimeout(idleHintTimer);
+  if (state.isPhaseLocked || state.isNavigating) return;
+
   idleHintTimer = setTimeout(() => {
     const phaseId = BATH_PHASES[state.phaseIndex]?.id;
     state.hintsUsed += 1;
@@ -193,6 +223,31 @@ function resetIdleHint() {
     }
     if (phaseId === 'boss') coachSay('ทำทีละขั้นนะ หนูทำได้');
   }, 5000);
+}
+
+function startGame() {
+  state.startedAt = Date.now();
+  state.phaseIndex = 0;
+  state.score = 0;
+  state.hintsUsed = 0;
+  state.selectedTool = null;
+  state.selectedItems = new Set();
+  state.quizAnswers = [];
+  state.bossIndex = 0;
+  state.isNavigating = false;
+  state.isPhaseLocked = false;
+  state.quizAnswered = false;
+  app.scoreValue.textContent = '0';
+
+  initHotspotsState();
+  resetBossHotspot();
+
+  app.briefCard.innerHTML = '';
+  clearPanels();
+  app.scene.classList.remove('hidden');
+  app.actionBar.classList.remove('hidden');
+
+  renderPhase();
 }
 
 function showBrief() {
@@ -216,37 +271,21 @@ function showBrief() {
   });
 
   $('#briefHelpBtn').addEventListener('click', () => {
-    coachSay('เลือกของให้ถูก ถูให้ครบ ล้างฟอง แล้วเช็ดตัวให้แห้ง');
-    speakBathText('เลือกของให้ถูก ถูให้ครบ ล้างฟอง แล้วเช็ดตัวให้แห้ง', state.audioEnabled);
+    const text = 'เลือกของให้ถูก ถูให้ครบ ล้างฟอง แล้วเช็ดตัวให้แห้ง';
+    coachSay(text);
+    speakBathText(text, state.audioEnabled);
   });
 }
 
-function startGame() {
-  state.startedAt = Date.now();
-  state.phaseIndex = 0;
-  state.score = 0;
-  state.hintsUsed = 0;
-  state.selectedTool = null;
-  state.selectedItems = new Set();
-  state.quizAnswers = [];
-  state.bossIndex = 0;
-  app.scoreValue.textContent = '0';
-
-  initHotspotsState();
-  resetBossHotspot();
-
-  app.briefCard.innerHTML = '';
-  app.scene.classList.remove('hidden');
-  app.actionBar.classList.remove('hidden');
-  renderPhase();
-}
-
 function renderPhase() {
-  clearActiveScrub();
-  clearLayers();
+  cleanupRuntime();
+  clearPlayLayers();
+  clearPanels();
+  lockPhase(false);
 
   const phase = BATH_PHASES[state.phaseIndex];
   state.phaseStartedAt = Date.now();
+
   setPhaseUI(phase.title, phase.task);
 
   if (phase.id === 'ready') renderReadyPhase();
@@ -258,13 +297,33 @@ function renderPhase() {
   resetIdleHint();
 }
 
+function completePhase(nextLabel = 'ไปด่านต่อไป') {
+  if (state.isPhaseLocked) return;
+  lockPhase(true);
+  showPhaseBurst(BATH_COACH_LINES.phaseClear);
+
+  const currentPhase = BATH_PHASES[state.phaseIndex]?.id;
+  const tools =
+    currentPhase === 'scrub' ? ['soap']
+    : currentPhase === 'rinseDry' ? ['shower', 'towel']
+    : [];
+
+  renderToolBar(tools, {
+    showNext: true,
+    nextLabel,
+    nextHandler: nextPhase
+  });
+}
+
 function nextPhase() {
-  clearActiveScrub();
+  if (!state.isPhaseLocked) return;
   state.phaseIndex += 1;
+
   if (state.phaseIndex >= BATH_PHASES.length) {
     showSummary();
     return;
   }
+
   renderPhase();
 }
 
@@ -294,7 +353,7 @@ function renderToolBar(tools = [], opts = {}) {
   replayBtn.type = 'button';
   replayBtn.className = 'soft-btn';
   replayBtn.textContent = 'เริ่มใหม่';
-  replayBtn.addEventListener('click', () => location.href = buildReplayUrl());
+  replayBtn.addEventListener('click', () => safeNavigate(buildReplayUrl()));
   nextWrap.appendChild(replayBtn);
 
   if (showNext) {
@@ -310,6 +369,10 @@ function renderToolBar(tools = [], opts = {}) {
 }
 
 function selectTool(toolId, tools, opts) {
+  if (state.isNavigating) return;
+
+  if (state.isPhaseLocked && BATH_PHASES[state.phaseIndex]?.id !== 'boss') return;
+
   state.selectedTool = toolId;
   logEvent('tool_select', {
     toolId,
@@ -325,6 +388,9 @@ function selectTool(toolId, tools, opts) {
 }
 
 function renderReadyChecklist() {
+  const old = app.itemsLayer.querySelector('.ready-checklist');
+  if (old) old.remove();
+
   const checklist = document.createElement('div');
   checklist.className = 'ready-checklist';
   checklist.innerHTML = `
@@ -361,6 +427,8 @@ function renderReadyPhase() {
 }
 
 function handleReadyItem(item, el) {
+  if (state.isPhaseLocked) return;
+
   logEvent('item_tap', { itemId: item.id, correct: item.correct });
   resetIdleHint();
 
@@ -369,7 +437,8 @@ function handleReadyItem(item, el) {
       state.selectedItems.add(item.id);
       setScore(10);
       el.classList.add('is-correct');
-      coachSay(`${BATH_COACH_LINES.readyCorrect}`);
+      el.disabled = true;
+      coachSay(BATH_COACH_LINES.readyCorrect);
       renderReadyChecklist();
       updateProgressBox();
     } else {
@@ -384,11 +453,7 @@ function handleReadyItem(item, el) {
   const correctCount = BATH_ITEMS.filter(x => x.correct).length;
   if (state.selectedItems.size >= correctCount) {
     logEvent('phase_clear', { phase: 'ready', ms: Date.now() - state.phaseStartedAt });
-    showPhaseBurst(BATH_COACH_LINES.phaseClear);
-    renderToolBar([], {
-      showNext: true,
-      nextLabel: 'ไปด่านต่อไป'
-    });
+    completePhase();
   }
 }
 
@@ -462,6 +527,7 @@ function renderAvatarHotspots(mode = 'normal') {
     div.addEventListener('pointerdown', () => onHotspotDown(h.id, div));
     div.addEventListener('pointerup', clearActiveScrub);
     div.addEventListener('pointerleave', clearActiveScrub);
+    div.addEventListener('pointercancel', clearActiveScrub);
 
     app.hotspotsLayer.appendChild(div);
   });
@@ -513,8 +579,8 @@ function renderFoamDecor() {
 }
 
 function renderScrubPhase() {
-  coachSay(BATH_COACH_LINES.scrubStart);
   state.selectedTool = 'soap';
+  coachSay(BATH_COACH_LINES.scrubStart);
   renderAvatarHotspots();
   renderFoamDecor();
   renderToolBar(['soap']);
@@ -522,6 +588,8 @@ function renderScrubPhase() {
 }
 
 function onHotspotDown(hotspotId, el) {
+  if (state.isPhaseLocked || state.isNavigating) return;
+
   const phaseId = BATH_PHASES[state.phaseIndex].id;
   resetIdleHint();
 
@@ -567,6 +635,7 @@ function startScrub(hotspotId, el) {
       clearActiveScrub();
       coachSay(BATH_COACH_LINES.scrubDone);
       logEvent('hotspot_scrub_done', { hotspotId });
+
       updateHotspotDone(hotspotId);
       spawnSparkleAtHotspot(hotspotId);
       renderAvatarHotspots();
@@ -576,11 +645,7 @@ function startScrub(hotspotId, el) {
       const allDone = BATH_HOTSPOTS.every(x => state.hotspots[x.id].scrubDone);
       if (allDone) {
         logEvent('phase_clear', { phase: 'scrub', ms: Date.now() - state.phaseStartedAt });
-        showPhaseBurst(BATH_COACH_LINES.phaseClear);
-        renderToolBar(['soap'], {
-          showNext: true,
-          nextLabel: 'ไปด่านต่อไป'
-        });
+        completePhase();
       }
     }
   }, 100);
@@ -615,6 +680,7 @@ function handleRinseDryClick(hotspotId) {
       coachSay('เลือกฝักบัวก่อนนะ');
       return;
     }
+
     if (!st.rinsed) {
       st.rinsed = true;
       setScore(8);
@@ -635,7 +701,6 @@ function handleRinseDryClick(hotspotId) {
       renderToolBar(['shower', 'towel']);
       updateRinseDryText();
       updateProgressBox();
-      return;
     }
     return;
   }
@@ -649,6 +714,7 @@ function handleRinseDryClick(hotspotId) {
       coachSay('ต้องล้างฟองก่อนนะ');
       return;
     }
+
     if (!st.dry) {
       st.dry = true;
       setScore(8);
@@ -662,11 +728,7 @@ function handleRinseDryClick(hotspotId) {
     const allDry = BATH_HOTSPOTS.every(h => state.hotspots[h.id].dry);
     if (allDry) {
       logEvent('phase_clear', { phase: 'rinseDry', ms: Date.now() - state.phaseStartedAt });
-      showPhaseBurst(BATH_COACH_LINES.phaseClear);
-      renderToolBar(['shower', 'towel'], {
-        showNext: true,
-        nextLabel: 'ไปด่านต่อไป'
-      });
+      completePhase();
     }
   }
 }
@@ -680,10 +742,8 @@ function renderBossPhase() {
 }
 
 function renderBossStep() {
-  clearActiveScrub();
-  app.hotspotsLayer.innerHTML = '';
-  app.itemsLayer.innerHTML = '';
-  app.effectsLayer.innerHTML = '';
+  cleanupRuntime();
+  clearPlayLayers();
 
   const step = BATH_BOSS_TASKS[state.bossIndex];
   if (!step) {
@@ -697,46 +757,52 @@ function renderBossStep() {
   app.taskText.textContent = `(${stepNo}/${totalNo}) ${step.text}`;
 
   if (step.type === 'selectTool') {
-    if (state.mode === 'learn') {
-      coachSay(`ขั้นที่ ${stepNo} เลือกอุปกรณ์ให้ถูกนะ`);
-    } else {
-      coachSay(step.text);
-    }
+    coachSay(
+      state.mode === 'learn'
+        ? `ขั้นที่ ${stepNo} เลือกอุปกรณ์ให้ถูกนะ`
+        : step.text
+    );
     renderToolBar(['soap', 'shower', 'towel']);
   } else {
-    if (state.mode === 'learn') {
-      coachSay(`ขั้นที่ ${stepNo} แตะตรงจุดที่กำหนดนะ`);
-    } else {
-      coachSay(step.text);
-    }
+    coachSay(
+      state.mode === 'learn'
+        ? `ขั้นที่ ${stepNo} แตะตรงจุดที่กำหนดนะ`
+        : step.text
+    );
     renderAvatarHotspots('boss');
     renderFoamDecor();
     renderToolBar(['soap', 'shower', 'towel']);
   }
 
   updateProgressBox();
+  lockPhase(false);
+  resetIdleHint();
 }
 
 function maybeResolveBossSelectTool(toolId) {
   const step = BATH_BOSS_TASKS[state.bossIndex];
   if (!step || step.type !== 'selectTool') return;
+  if (state.isPhaseLocked) return;
 
   if (toolId === step.tool) {
+    lockPhase(true);
     setScore(6);
     coachSay('ถูกต้อง ไปต่อเลย');
     logEvent('boss_step_ok', { type: 'selectTool', tool: step.tool });
     state.bossIndex += 1;
-    renderBossStep();
+    updateProgressBox();
+    setTimeout(() => {
+      renderBossStep();
+    }, 220);
   } else {
     setScore(-1);
     coachSay('ลองดูอีกทีนะ');
   }
-  updateProgressBox();
 }
 
 function handleBossHotspot(hotspotId, el) {
   const step = BATH_BOSS_TASKS[state.bossIndex];
-  if (!step) return;
+  if (!step || state.isPhaseLocked) return;
   if (hotspotId !== 'armpit') return;
 
   if (step.type === 'scrub') {
@@ -754,13 +820,17 @@ function handleBossHotspot(hotspotId, el) {
 
       if (state.bossHotspot.scrubMs >= 1000) {
         clearActiveScrub();
+        lockPhase(true);
         state.bossHotspot.scrubDone = true;
         setScore(10);
         coachSay('สะอาดแล้ว ไปต่อ');
         logEvent('boss_step_ok', { type: 'scrub', hotspotId });
         spawnSparkleAtHotspot(hotspotId);
         state.bossIndex += 1;
-        renderBossStep();
+        updateProgressBox();
+        setTimeout(() => {
+          renderBossStep();
+        }, 220);
       }
     }, 100);
     return;
@@ -771,13 +841,17 @@ function handleBossHotspot(hotspotId, el) {
       coachSay('เลือกฝักบัวก่อนนะ');
       return;
     }
+    lockPhase(true);
     state.bossHotspot.rinsed = true;
     setScore(8);
     coachSay('ล้างฟองแล้ว');
     logEvent('boss_step_ok', { type: 'rinse', hotspotId });
     spawnSparkleAtHotspot(hotspotId);
     state.bossIndex += 1;
-    renderBossStep();
+    updateProgressBox();
+    setTimeout(() => {
+      renderBossStep();
+    }, 220);
     return;
   }
 
@@ -786,19 +860,22 @@ function handleBossHotspot(hotspotId, el) {
       coachSay('เลือกผ้าเช็ดตัวก่อนนะ');
       return;
     }
+    lockPhase(true);
     state.bossHotspot.dry = true;
     setScore(8);
     coachSay('แห้งแล้ว เก่งมาก');
     logEvent('boss_step_ok', { type: 'dry', hotspotId });
     spawnSparkleAtHotspot(hotspotId);
     state.bossIndex += 1;
-    renderBossStep();
+    updateProgressBox();
+    setTimeout(() => {
+      renderBossStep();
+    }, 220);
   }
 }
 
 function showSummary() {
-  clearActiveScrub();
-  clearTimeout(idleHintTimer);
+  cleanupRuntime();
   app.scene.classList.add('hidden');
   app.actionBar.classList.add('hidden');
 
@@ -836,8 +913,8 @@ function showSummary() {
   `;
 
   $('#toQuizBtn').addEventListener('click', showQuiz);
-  $('#replayBtn').addEventListener('click', () => location.href = buildReplayUrl());
-  $('#hubBtn').addEventListener('click', () => location.href = parseHubUrl());
+  $('#replayBtn').addEventListener('click', () => safeNavigate(buildReplayUrl()));
+  $('#hubBtn').addEventListener('click', () => safeNavigate(parseHubUrl()));
 }
 
 function showQuiz() {
@@ -846,6 +923,7 @@ function showQuiz() {
   state.quizAnswers = [];
 
   function renderQuestion() {
+    state.quizAnswered = false;
     const q = BATH_QUIZ[idx];
     if (!q) {
       showQuizDone();
@@ -869,9 +947,16 @@ function showQuiz() {
 
     app.quizRoot.querySelectorAll('.quiz-option').forEach(btn => {
       btn.addEventListener('click', () => {
+        if (state.quizAnswered) return;
+        state.quizAnswered = true;
+
         const choice = q.choices.find(c => c.id === btn.dataset.choice);
         const correct = !!choice?.correct;
         state.quizAnswers.push({ questionId: q.id, answerId: choice.id, correct });
+
+        app.quizRoot.querySelectorAll('.quiz-option').forEach(opt => {
+          opt.disabled = true;
+        });
 
         btn.classList.add(correct ? 'is-correct' : 'is-wrong');
         if (correct) setScore(5);
@@ -885,7 +970,7 @@ function showQuiz() {
         setTimeout(() => {
           idx += 1;
           renderQuestion();
-        }, 450);
+        }, 500);
       });
     });
   }
@@ -909,8 +994,8 @@ function showQuizDone() {
     </div>
   `;
 
-  $('#quizReplayBtn').addEventListener('click', () => location.href = buildReplayUrl());
-  $('#quizHubBtn').addEventListener('click', () => location.href = parseHubUrl());
+  $('#quizReplayBtn').addEventListener('click', () => safeNavigate(buildReplayUrl()));
+  $('#quizHubBtn').addEventListener('click', () => safeNavigate(parseHubUrl()));
 }
 
 function handleHelpButton() {
@@ -942,12 +1027,16 @@ function handleHelpButton() {
 function bindTopButtons() {
   app.helpBtn.addEventListener('click', handleHelpButton);
   app.homeBtn.addEventListener('click', () => {
-    stopBathSpeech();
-    location.href = parseHubUrl();
+    safeNavigate(parseHubUrl());
   });
 }
 
 window.addEventListener('pointerup', clearActiveScrub);
+window.addEventListener('pointercancel', clearActiveScrub);
+window.addEventListener('pagehide', cleanupRuntime);
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) cleanupRuntime();
+});
 
 function init() {
   bindTopButtons();
