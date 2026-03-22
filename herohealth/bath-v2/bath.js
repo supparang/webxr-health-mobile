@@ -1,3 +1,5 @@
+// /herohealth/bath-v2/bath.js
+
 import {
   BATH_COPY,
   BATH_COACH_LINES,
@@ -10,7 +12,12 @@ import {
 
 import {
   BATH_AUDIO,
+  setBathAudioEnabled,
+  unlockBathAudio,
   speakBathText,
+  speakBathCoachLine,
+  speakBathHint,
+  speakBathCelebration,
   stopBathSpeech
 } from './bath.audio.js';
 
@@ -112,9 +119,23 @@ function resetBossHotspot() {
   };
 }
 
-function coachSay(text, speak = false) {
+function speakByType(text, type = 'coach') {
+  if (!state.audioEnabled || !text) return;
+
+  if (type === 'hint') {
+    speakBathHint(text, state.audioEnabled);
+    return;
+  }
+  if (type === 'celebration') {
+    speakBathCelebration(text, state.audioEnabled);
+    return;
+  }
+  speakBathCoachLine(text, state.audioEnabled);
+}
+
+function coachSay(text, speak = false, type = 'coach') {
   app.coachBubble.textContent = text;
-  if (speak) speakBathText(text, state.audioEnabled);
+  if (speak) speakByType(text, type);
 }
 
 function setScore(delta) {
@@ -153,7 +174,9 @@ function clearActiveScrub() {
     clearInterval(state.scrubTimer);
     state.scrubTimer = null;
   }
-  app.hotspotsLayer.querySelectorAll('.hotspot.is-active').forEach(el => el.classList.remove('is-active'));
+  app.hotspotsLayer.querySelectorAll('.hotspot.is-active').forEach(el => {
+    el.classList.remove('is-active');
+  });
 }
 
 function showPhaseBurst(text = 'ผ่านด่านแล้ว') {
@@ -212,16 +235,24 @@ function resetIdleHint() {
     const phaseId = BATH_PHASES[state.phaseIndex]?.id;
     state.hintsUsed += 1;
 
-    if (phaseId === 'ready') coachSay('ลองแตะของที่ใช้ตอนอาบน้ำดูนะ');
-    if (phaseId === 'scrub') coachSay('เลือกสบู่ แล้วถูจุดสีเหลืองนะ');
+    if (phaseId === 'ready') {
+      coachSay('ลองแตะของที่ใช้ตอนอาบน้ำดูนะ', true, 'hint');
+    }
+    if (phaseId === 'scrub') {
+      coachSay('เลือกสบู่ แล้วถูจุดสีเหลืองนะ', true, 'hint');
+    }
     if (phaseId === 'rinseDry') {
       coachSay(
         state.substep === 'rinse'
           ? 'เลือกฝักบัว แล้วล้างฟองออกนะ'
-          : 'เลือกผ้าเช็ดตัว แล้วเช็ดให้แห้งนะ'
+          : 'เลือกผ้าเช็ดตัว แล้วเช็ดให้แห้งนะ',
+        true,
+        'hint'
       );
     }
-    if (phaseId === 'boss') coachSay('ทำทีละขั้นนะ หนูทำได้');
+    if (phaseId === 'boss') {
+      coachSay('ทำทีละขั้นนะ หนูทำได้', true, 'hint');
+    }
   }, 5000);
 }
 
@@ -266,14 +297,15 @@ function showBrief() {
   `;
 
   $('#startBtn').addEventListener('click', () => {
+    unlockBathAudio();
     startGame();
-    speakBathText(BATH_AUDIO.readyHelp, state.audioEnabled);
+    speakBathHint(BATH_AUDIO.readyHelp, state.audioEnabled);
   });
 
   $('#briefHelpBtn').addEventListener('click', () => {
+    unlockBathAudio();
     const text = 'เลือกของให้ถูก ถูให้ครบ ล้างฟอง แล้วเช็ดตัวให้แห้ง';
-    coachSay(text);
-    speakBathText(text, state.audioEnabled);
+    coachSay(text, true, 'hint');
   });
 }
 
@@ -301,6 +333,7 @@ function completePhase(nextLabel = 'ไปด่านต่อไป') {
   if (state.isPhaseLocked) return;
   lockPhase(true);
   showPhaseBurst(BATH_COACH_LINES.phaseClear);
+  coachSay(BATH_COACH_LINES.phaseClear, true, 'celebration');
 
   const currentPhase = BATH_PHASES[state.phaseIndex]?.id;
   const tools =
@@ -370,7 +403,6 @@ function renderToolBar(tools = [], opts = {}) {
 
 function selectTool(toolId, tools, opts) {
   if (state.isNavigating) return;
-
   if (state.isPhaseLocked && BATH_PHASES[state.phaseIndex]?.id !== 'boss') return;
 
   state.selectedTool = toolId;
@@ -407,7 +439,7 @@ function renderReadyChecklist() {
 }
 
 function renderReadyPhase() {
-  coachSay(BATH_COACH_LINES.readyStart);
+  coachSay(BATH_COACH_LINES.readyStart, true, 'coach');
 
   const wrap = document.createElement('div');
   wrap.className = 'items-grid';
@@ -438,7 +470,7 @@ function handleReadyItem(item, el) {
       setScore(10);
       el.classList.add('is-correct');
       el.disabled = true;
-      coachSay(BATH_COACH_LINES.readyCorrect);
+      coachSay(BATH_COACH_LINES.readyCorrect, true, 'coach');
       renderReadyChecklist();
       updateProgressBox();
     } else {
@@ -447,7 +479,7 @@ function handleReadyItem(item, el) {
   } else {
     setScore(-1);
     el.classList.add('is-wrong');
-    coachSay(BATH_COACH_LINES.readyWrong);
+    coachSay(BATH_COACH_LINES.readyWrong, true, 'coach');
   }
 
   const correctCount = BATH_ITEMS.filter(x => x.correct).length;
@@ -580,7 +612,7 @@ function renderFoamDecor() {
 
 function renderScrubPhase() {
   state.selectedTool = 'soap';
-  coachSay(BATH_COACH_LINES.scrubStart);
+  coachSay(BATH_COACH_LINES.scrubStart, true, 'coach');
   renderAvatarHotspots();
   renderFoamDecor();
   renderToolBar(['soap']);
@@ -595,7 +627,7 @@ function onHotspotDown(hotspotId, el) {
 
   if (phaseId === 'scrub') {
     if (state.selectedTool !== 'soap') {
-      coachSay('เลือกสบู่ก่อนนะ');
+      coachSay('เลือกสบู่ก่อนนะ', true, 'hint');
       return;
     }
     startScrub(hotspotId, el);
@@ -633,7 +665,7 @@ function startScrub(hotspotId, el) {
       st.scrubDone = true;
       setScore(10);
       clearActiveScrub();
-      coachSay(BATH_COACH_LINES.scrubDone);
+      coachSay(BATH_COACH_LINES.scrubDone, true, 'celebration');
       logEvent('hotspot_scrub_done', { hotspotId });
 
       updateHotspotDone(hotspotId);
@@ -658,7 +690,7 @@ function renderRinseDryPhase() {
   renderFoamDecor();
   renderToolBar(['shower', 'towel']);
   updateRinseDryText();
-  coachSay(BATH_COACH_LINES.rinseStart);
+  coachSay(BATH_COACH_LINES.rinseStart, true, 'coach');
   updateProgressBox();
 }
 
@@ -671,20 +703,20 @@ function updateRinseDryText() {
 function handleRinseDryClick(hotspotId) {
   const st = state.hotspots[hotspotId];
   if (!st?.scrubDone) {
-    coachSay('จุดนี้ยังไม่ได้ถูสบู่เลย');
+    coachSay('จุดนี้ยังไม่ได้ถูสบู่เลย', true, 'hint');
     return;
   }
 
   if (state.substep === 'rinse') {
     if (state.selectedTool !== 'shower') {
-      coachSay('เลือกฝักบัวก่อนนะ');
+      coachSay('เลือกฝักบัวก่อนนะ', true, 'hint');
       return;
     }
 
     if (!st.rinsed) {
       st.rinsed = true;
       setScore(8);
-      coachSay(BATH_COACH_LINES.rinseDone);
+      coachSay(BATH_COACH_LINES.rinseDone, true, 'celebration');
       logEvent('rinse_done', { hotspotId });
       spawnSparkleAtHotspot(hotspotId);
       renderAvatarHotspots();
@@ -696,7 +728,7 @@ function handleRinseDryClick(hotspotId) {
     if (allRinsed) {
       state.substep = 'dry';
       state.selectedTool = 'towel';
-      coachSay('เยี่ยมเลย ต่อไปเช็ดตัวให้แห้ง');
+      coachSay('เยี่ยมเลย ต่อไปเช็ดตัวให้แห้ง', true, 'celebration');
       renderAvatarHotspots();
       renderToolBar(['shower', 'towel']);
       updateRinseDryText();
@@ -707,18 +739,18 @@ function handleRinseDryClick(hotspotId) {
 
   if (state.substep === 'dry') {
     if (state.selectedTool !== 'towel') {
-      coachSay('เลือกผ้าเช็ดตัวก่อนนะ');
+      coachSay('เลือกผ้าเช็ดตัวก่อนนะ', true, 'hint');
       return;
     }
     if (!st.rinsed) {
-      coachSay('ต้องล้างฟองก่อนนะ');
+      coachSay('ต้องล้างฟองก่อนนะ', true, 'hint');
       return;
     }
 
     if (!st.dry) {
       st.dry = true;
       setScore(8);
-      coachSay(BATH_COACH_LINES.dryDone);
+      coachSay(BATH_COACH_LINES.dryDone, true, 'celebration');
       logEvent('dry_done', { hotspotId });
       spawnSparkleAtHotspot(hotspotId);
       renderAvatarHotspots();
@@ -737,7 +769,7 @@ function renderBossPhase() {
   resetBossHotspot();
   state.bossIndex = 0;
   state.selectedTool = null;
-  coachSay(BATH_COACH_LINES.bossStart);
+  coachSay(BATH_COACH_LINES.bossStart, true, 'coach');
   renderBossStep();
 }
 
@@ -760,14 +792,18 @@ function renderBossStep() {
     coachSay(
       state.mode === 'learn'
         ? `ขั้นที่ ${stepNo} เลือกอุปกรณ์ให้ถูกนะ`
-        : step.text
+        : step.text,
+      true,
+      state.mode === 'learn' ? 'hint' : 'coach'
     );
     renderToolBar(['soap', 'shower', 'towel']);
   } else {
     coachSay(
       state.mode === 'learn'
         ? `ขั้นที่ ${stepNo} แตะตรงจุดที่กำหนดนะ`
-        : step.text
+        : step.text,
+      true,
+      state.mode === 'learn' ? 'hint' : 'coach'
     );
     renderAvatarHotspots('boss');
     renderFoamDecor();
@@ -787,7 +823,7 @@ function maybeResolveBossSelectTool(toolId) {
   if (toolId === step.tool) {
     lockPhase(true);
     setScore(6);
-    coachSay('ถูกต้อง ไปต่อเลย');
+    coachSay('ถูกต้อง ไปต่อเลย', true, 'celebration');
     logEvent('boss_step_ok', { type: 'selectTool', tool: step.tool });
     state.bossIndex += 1;
     updateProgressBox();
@@ -796,7 +832,7 @@ function maybeResolveBossSelectTool(toolId) {
     }, 220);
   } else {
     setScore(-1);
-    coachSay('ลองดูอีกทีนะ');
+    coachSay('ลองดูอีกทีนะ', true, 'hint');
   }
 }
 
@@ -807,7 +843,7 @@ function handleBossHotspot(hotspotId, el) {
 
   if (step.type === 'scrub') {
     if (state.selectedTool !== 'soap') {
-      coachSay('เลือกสบู่ก่อนนะ');
+      coachSay('เลือกสบู่ก่อนนะ', true, 'hint');
       return;
     }
 
@@ -823,7 +859,7 @@ function handleBossHotspot(hotspotId, el) {
         lockPhase(true);
         state.bossHotspot.scrubDone = true;
         setScore(10);
-        coachSay('สะอาดแล้ว ไปต่อ');
+        coachSay('สะอาดแล้ว ไปต่อ', true, 'celebration');
         logEvent('boss_step_ok', { type: 'scrub', hotspotId });
         spawnSparkleAtHotspot(hotspotId);
         state.bossIndex += 1;
@@ -838,13 +874,13 @@ function handleBossHotspot(hotspotId, el) {
 
   if (step.type === 'rinse') {
     if (state.selectedTool !== 'shower') {
-      coachSay('เลือกฝักบัวก่อนนะ');
+      coachSay('เลือกฝักบัวก่อนนะ', true, 'hint');
       return;
     }
     lockPhase(true);
     state.bossHotspot.rinsed = true;
     setScore(8);
-    coachSay('ล้างฟองแล้ว');
+    coachSay('ล้างฟองแล้ว', true, 'celebration');
     logEvent('boss_step_ok', { type: 'rinse', hotspotId });
     spawnSparkleAtHotspot(hotspotId);
     state.bossIndex += 1;
@@ -857,13 +893,13 @@ function handleBossHotspot(hotspotId, el) {
 
   if (step.type === 'dry') {
     if (state.selectedTool !== 'towel') {
-      coachSay('เลือกผ้าเช็ดตัวก่อนนะ');
+      coachSay('เลือกผ้าเช็ดตัวก่อนนะ', true, 'hint');
       return;
     }
     lockPhase(true);
     state.bossHotspot.dry = true;
     setScore(8);
-    coachSay('แห้งแล้ว เก่งมาก');
+    coachSay('แห้งแล้ว เก่งมาก', true, 'celebration');
     logEvent('boss_step_ok', { type: 'dry', hotspotId });
     spawnSparkleAtHotspot(hotspotId);
     state.bossIndex += 1;
@@ -959,7 +995,12 @@ function showQuiz() {
         });
 
         btn.classList.add(correct ? 'is-correct' : 'is-wrong');
-        if (correct) setScore(5);
+        if (correct) {
+          setScore(5);
+          coachSay('ตอบถูกแล้ว เก่งมาก', true, 'celebration');
+        } else {
+          coachSay('ไม่เป็นไร ลองข้อต่อไปนะ', true, 'coach');
+        }
 
         logEvent('quiz_answer', {
           questionId: q.id,
@@ -980,6 +1021,10 @@ function showQuiz() {
 
 function showQuizDone() {
   const correctCount = state.quizAnswers.filter(x => x.correct).length;
+  const doneText = `ตอบถูก ${correctCount} จาก ${BATH_QUIZ.length} ข้อ เก่งมากเลย`;
+
+  coachSay(doneText, true, 'celebration');
+
   app.quizRoot.innerHTML = `
     <div class="quiz-card">
       <h2 class="quiz-title">เก่งมาก ตอบเสร็จแล้ว</h2>
@@ -999,33 +1044,36 @@ function showQuizDone() {
 }
 
 function handleHelpButton() {
+  unlockBathAudio();
+
   const phaseId = BATH_PHASES[Math.min(state.phaseIndex, BATH_PHASES.length - 1)]?.id || 'ready';
 
   if (phaseId === 'ready') {
-    coachSay(BATH_COPY.help.ready);
+    coachSay(BATH_COPY.help.ready, true, 'hint');
     speakBathText(BATH_AUDIO.readyHelp, state.audioEnabled);
   }
   if (phaseId === 'scrub') {
-    coachSay(BATH_COPY.help.scrub);
+    coachSay(BATH_COPY.help.scrub, true, 'hint');
     speakBathText(BATH_AUDIO.scrubHelp, state.audioEnabled);
   }
   if (phaseId === 'rinseDry') {
     if (state.substep === 'rinse') {
-      coachSay(BATH_COPY.help.rinse);
+      coachSay(BATH_COPY.help.rinse, true, 'hint');
       speakBathText(BATH_AUDIO.rinseHelp, state.audioEnabled);
     } else {
-      coachSay(BATH_COPY.help.dry);
+      coachSay(BATH_COPY.help.dry, true, 'hint');
       speakBathText(BATH_AUDIO.dryHelp, state.audioEnabled);
     }
   }
   if (phaseId === 'boss') {
-    coachSay(BATH_COPY.help.boss);
+    coachSay(BATH_COPY.help.boss, true, 'hint');
     speakBathText(BATH_AUDIO.bossHelp, state.audioEnabled);
   }
 }
 
 function bindTopButtons() {
   app.helpBtn.addEventListener('click', handleHelpButton);
+
   app.homeBtn.addEventListener('click', () => {
     safeNavigate(parseHubUrl());
   });
@@ -1039,6 +1087,7 @@ document.addEventListener('visibilitychange', () => {
 });
 
 function init() {
+  setBathAudioEnabled(state.audioEnabled);
   bindTopButtons();
   initHotspotsState();
   updateProgressBox();
