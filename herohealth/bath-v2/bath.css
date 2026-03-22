@@ -465,10 +465,6 @@ body{min-height:100vh}
   padding:12px;
   box-shadow:var(--shadow);
 }
-.action-bar.is-locked{
-  pointer-events:none;
-  opacity:.75;
-}
 .tool-btn{
   border:2px solid var(--line);
   background:#fff;
