@@ -6,7 +6,7 @@
   <title>HeroHealth — MaskCough Arcade v2</title>
   <meta name="color-scheme" content="dark light" />
   <link rel="icon" href="../favicon.ico" />
-  <link rel="stylesheet" href="./maskcough-v2.css?v=20260310fix3" />
+  <link rel="stylesheet" href="./maskcough-v2.css?v=20260322a-p5-research" />
 </head>
 <body>
   <div id="mcfxFlash" class="mcfx-flash" aria-hidden="true"></div>
@@ -20,66 +20,63 @@
       <div id="bossBanner" class="boss-banner" hidden>👿 BOSS INCOMING</div>
       <div id="crosshairHint" class="crosshair-hint" hidden>🎯 cVR ยิงจากกลางจอ</div>
 
+      <div id="teachBar" class="teach-bar" hidden>
+        <span id="teachIcon">💦</span>
+        <span id="teachText">เก็บละอองให้ไว!</span>
+      </div>
+
       <div id="popLayer" class="pop-layer" aria-hidden="true"></div>
     </main>
 
     <aside class="hud">
       <div class="hud-top">
-        <span class="pill">Score <b id="tScore">0</b></span>
-        <span class="pill">Combo <b id="tCombo">0</b></span>
-        <span class="pill">Phase <b id="tPhase">warm</b></span>
-        <span class="pill">Mission <b id="tMission">Clear 12</b></span>
+        <span class="pill mission-pill">ภารกิจ <b id="tMission">เก็บละออง 0/10</b></span>
+        <span class="pill phase-pill">ด่าน <b id="tPhase">เริ่ม</b></span>
+        <span class="pill score-pill">คะแนน <b id="tScore">0</b></span>
+        <span class="pill combo-pill">คอมโบ <b id="tCombo">0</b></span>
       </div>
 
       <div class="bars">
         <div class="barbox">
-          <div class="barlabel"><span>Shield</span><b id="tShield">40%</b></div>
-          <div class="track"><div id="bShield" class="fill shield" style="width:40%"></div></div>
+          <div class="barlabel"><span>พลังป้องกัน</span><b id="tShield">48%</b></div>
+          <div class="track"><div id="bShield" class="fill shield" style="width:48%"></div></div>
         </div>
 
         <div class="barbox">
-          <div class="barlabel"><span>Threat</span><b id="tThreat">0%</b></div>
+          <div class="barlabel"><span>ความเสี่ยง</span><b id="tThreat">0%</b></div>
           <div class="track"><div id="bThreat" class="fill threat" style="width:0%"></div></div>
         </div>
 
         <div class="barbox">
-          <div class="barlabel"><span>Parry</span><b id="tParry">0%</b></div>
+          <div class="barlabel"><span>พลังพิเศษ</span><b id="tParry">0%</b></div>
           <div class="track"><div id="bParry" class="fill parry" style="width:0%"></div></div>
         </div>
       </div>
 
       <div class="mini">
-        <div class="mini-card"><span>Droplets</span><b id="tDroplets">0</b></div>
-        <div class="mini-card"><span>Infected</span><b id="tInfected">0</b></div>
-        <div class="mini-card"><span>Perfect</span><b id="tPerfect">0</b></div>
-        <div class="mini-card"><span>Miss</span><b id="tMiss">0</b></div>
+        <div class="mini-card"><span>ละออง</span><b id="tDroplets">0</b></div>
+        <div class="mini-card"><span>เชื้อ</span><b id="tInfected">0</b></div>
+        <div class="mini-card"><span>กันทัน</span><b id="tPerfect">0</b></div>
+        <div class="mini-card"><span>พลาด</span><b id="tMiss">0</b></div>
       </div>
 
       <div class="controls">
-        <button id="btnStart" class="btn primary" type="button">▶ เริ่มเกม</button>
+        <button id="btnStart" class="btn primary" type="button">▶ เริ่มช่วยหยุดเชื้อ</button>
         <button id="btnRetry" class="btn accent" type="button">↻ เล่นใหม่</button>
-        <button id="btnBurst" class="btn accent" type="button">💥 Burst</button>
-        <button id="btnPause" class="btn" type="button">⏸ Pause</button>
+        <button id="btnBurst" class="btn accent" type="button">💥 พลังพิเศษ</button>
+        <button id="btnPause" class="btn" type="button">⏸ พัก</button>
         <button id="btnBack" class="btn ghost" type="button">🏰 กลับ HUB</button>
       </div>
 
       <div class="help">
-        <div><b>เกมนี้สอนอะไร</b></div>
-        <div>💦 ละอองไอจามทำให้เชื้อแพร่ได้</div>
-        <div>😷 หน้ากากช่วยป้องกันเชื้อ</div>
-        <div>🦠 ถ้าปล่อยไว้นาน เชื้อจะลามมากขึ้น</div>
+        <div><b>วิธีเล่นแบบเร็ว</b></div>
+        <div>💦 เก็บให้ไว</div>
+        <div>😷 เก็บเพื่อป้องกัน</div>
+        <div>🤧 รอจังหวะแล้วค่อยกัน</div>
+        <div>🦠 อย่าปล่อยค้าง</div>
 
-        <div style="margin-top:8px"><b>วิธีเล่น</b></div>
-        <div>แตะ 💦 เพื่อลดละออง</div>
-        <div>เก็บ 😷 เพื่อเพิ่มการป้องกัน</div>
-        <div>รอ 🤧 ให้ถึงจังหวะ แล้วค่อยป้องกัน</div>
-        <div>อย่าปล่อย 🦠 ให้อยู่ในพื้นที่นานเกินไป</div>
-
-        <div style="margin-top:8px"><b>สัญลักษณ์</b></div>
-        <div>💦 = ละอองไอจาม</div>
-        <div>🤧 = การไอหรือจาม</div>
-        <div>😷 = หน้ากาก</div>
-        <div>🦠 = เชื้อที่กำลังลาม</div>
+        <div style="margin-top:8px"><b>เป้าหมาย</b></div>
+        <div>ช่วยลดการแพร่เชื้อจากการไอจาม</div>
       </div>
     </aside>
   </div>
@@ -89,12 +86,12 @@
       <div class="end-title">สรุปผล — MaskCough Arcade v2</div>
 
       <div class="end-grid">
-        <div class="end-item"><span>Score</span><b id="sScore">0</b></div>
-        <div class="end-item"><span>Combo Max</span><b id="sComboMax">0</b></div>
-        <div class="end-item"><span>Perfect</span><b id="sPerfect">0</b></div>
-        <div class="end-item"><span>Miss</span><b id="sMiss">0</b></div>
-        <div class="end-item"><span>Shield End</span><b id="sShield">0%</b></div>
-        <div class="end-item"><span>Threat End</span><b id="sThreat">0%</b></div>
+        <div class="end-item"><span>คะแนน</span><b id="sScore">0</b></div>
+        <div class="end-item"><span>คอมโบสูงสุด</span><b id="sComboMax">0</b></div>
+        <div class="end-item"><span>กันทัน</span><b id="sPerfect">0</b></div>
+        <div class="end-item"><span>พลาด</span><b id="sMiss">0</b></div>
+        <div class="end-item"><span>พลังป้องกัน</span><b id="sShield">0%</b></div>
+        <div class="end-item"><span>ความเสี่ยง</span><b id="sThreat">0%</b></div>
       </div>
 
       <div id="endBadges" class="end-badges"></div>
@@ -113,7 +110,7 @@
 
   <div id="toast" class="toast"></div>
 
-  <script src="../vr/vr-ui.js?v=20260310fix3"></script>
-  <script src="./maskcough-v2.js?v=20260310fix3"></script>
+  <script src="../vr/vr-ui.js?v=20260306a"></script>
+  <script src="./maskcough-v2.js?v=20260322a-p5-research"></script>
 </body>
 </html>
