@@ -6,8 +6,14 @@ import {
   BATH_ITEMS,
   BATH_HOTSPOTS,
   BATH_PHASES,
-  BATH_BOSS_TASKS,
-  BATH_QUIZ
+  BATH_QUIZ,
+  BATH_MISSIONS,
+  BATH_BADGES,
+  BATH_READY_CORRECT_IDS,
+  BATH_READY_WRONG_POOL,
+  BATH_SCRUB_POOL,
+  BATH_BOSS_TEMPLATES,
+  BATH_COACH_VARIANTS
 } from './bath.data.js';
 
 import {
@@ -61,7 +67,15 @@ const state = {
   bossHotspot: null,
   isPhaseLocked: false,
   isNavigating: false,
-  quizAnswered: false
+  quizAnswered: false,
+  runConfig: {
+    mission: null,
+    badge: null,
+    readyWrongIds: [],
+    scrubHotspotIds: [],
+    bossTemplateId: null,
+    bossSteps: []
+  }
 };
 
 let idleHintTimer = null;
@@ -96,40 +110,11 @@ function safeNavigate(url) {
   location.href = url;
 }
 
-function initHotspotsState() {
-  state.hotspots = {};
-  BATH_HOTSPOTS.forEach(h => {
-    state.hotspots[h.id] = {
-      scrubMs: 0,
-      scrubDone: false,
-      rinsed: false,
-      dry: false
-    };
-  });
-}
-
-function resetBossHotspot() {
-  state.bossHotspot = {
-    id: 'armpit',
-    scrubMs: 0,
-    scrubDone: false,
-    rinsed: false,
-    dry: false
-  };
-}
-
 function speakByType(text, type = 'coach') {
   if (!state.audioEnabled || !text) return;
-
-  if (type === 'hint') {
-    speakBathHint(text, state.audioEnabled);
-    return;
-  }
-  if (type === 'celebration') {
-    speakBathCelebration(text, state.audioEnabled);
-    return;
-  }
-  speakBathCoachLine(text, state.audioEnabled);
+  if (type === 'hint') return speakBathHint(text, state.audioEnabled);
+  if (type === 'celebration') return speakBathCelebration(text, state.audioEnabled);
+  return speakBathCoachLine(text, state.audioEnabled);
 }
 
 function coachSay(text, speak = false, type = 'coach') {
@@ -191,7 +176,6 @@ function showPhaseBurst(text = 'ผ่านด่านแล้ว') {
 
 function spawnSparkleAtHotspot(hotspotId) {
   if (!app.hotspotsLayer || !app.roomStage || !app.effectsLayer) return;
-
   const node = app.hotspotsLayer.querySelector(`[data-hotspot="${hotspotId}"]`);
   if (!node) return;
 
@@ -207,30 +191,157 @@ function spawnSparkleAtHotspot(hotspotId) {
   setTimeout(() => sp.remove(), 700);
 }
 
+function makeSeededRandom(seedStr) {
+  let h = 1779033703 ^ String(seedStr || 'bath').length;
+  for (let i = 0; i < String(seedStr || 'bath').length; i++) {
+    h = Math.imul(h ^ String(seedStr || 'bath').charCodeAt(i), 3432918353);
+    h = (h << 13) | (h >>> 19);
+  }
+  return function () {
+    h = Math.imul(h ^ (h >>> 16), 2246822507);
+    h = Math.imul(h ^ (h >>> 13), 3266489909);
+    h ^= h >>> 16;
+    return (h >>> 0) / 4294967296;
+  };
+}
+
+function shuffleWithRand(arr, rand) {
+  const out = [...arr];
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
+function sampleWithRand(arr, n, rand) {
+  return shuffleWithRand(arr, rand).slice(0, Math.max(0, Math.min(n, arr.length)));
+}
+
+function pickOne(arr, rand) {
+  if (!arr?.length) return null;
+  return arr[Math.floor(rand() * arr.length)];
+}
+
+function getHotspotLabel(hotspotId) {
+  return BATH_HOTSPOTS.find(h => h.id === hotspotId)?.label || 'จุดนี้';
+}
+
+function resolveBossStepText(step, hotspotId) {
+  if (!step?.text) return '';
+  const label = getHotspotLabel(hotspotId);
+  return step.text
+    .replace('TARGET_LABEL', label)
+    .replace('จุดสำคัญ', label)
+    .replace('จุดนี้', label);
+}
+
+function buildBathRunConfig() {
+  const baseSeed = qs.get('seed') || String(Date.now());
+  const mode = state.mode;
+
+  const deterministicSeed = mode === 'research'
+    ? `bath-research-${baseSeed}`
+    : `bath-play-${baseSeed}-${Date.now()}`;
+
+  const rand = makeSeededRandom(deterministicSeed);
+
+  const mission = pickOne(BATH_MISSIONS, rand) || BATH_MISSIONS?.[0] || null;
+  const badge = pickOne(BATH_BADGES, rand) || BATH_BADGES?.[0] || null;
+
+  const readyWrongCount = mode === 'learn' ? 2 : 4;
+  const readyWrongIds = mode === 'research'
+    ? BATH_READY_WRONG_POOL.slice(0, readyWrongCount)
+    : sampleWithRand(BATH_READY_WRONG_POOL, readyWrongCount, rand);
+
+  const scrubCount = mode === 'learn' ? 4 : 4;
+  const scrubHotspotIds = mode === 'research'
+    ? ['neck', 'ear', 'armpit', 'feet']
+    : sampleWithRand(BATH_SCRUB_POOL, scrubCount, rand);
+
+  const bossTemplate = mode === 'research'
+    ? (BATH_BOSS_TEMPLATES?.[0] || null)
+    : (pickOne(BATH_BOSS_TEMPLATES, rand) || BATH_BOSS_TEMPLATES?.[0] || null);
+
+  const bossTarget = scrubHotspotIds.includes('armpit')
+    ? 'armpit'
+    : (scrubHotspotIds[0] || 'neck');
+
+  const bossSteps = (bossTemplate?.steps || []).map(step => {
+    const hotspot = step.hotspot === 'TARGET' ? bossTarget : step.hotspot;
+    return {
+      ...step,
+      hotspot,
+      text: resolveBossStepText(step, hotspot)
+    };
+  });
+
+  state.runConfig = {
+    mission,
+    badge,
+    readyWrongIds,
+    scrubHotspotIds,
+    bossTemplateId: bossTemplate?.id || 'classic',
+    bossSteps
+  };
+}
+
+function pickCoachVariant(key) {
+  const list = BATH_COACH_VARIANTS?.[key];
+  if (!list?.length) return null;
+  const rand = makeSeededRandom(`${qs.get('seed') || 'bath'}-${state.phaseIndex}-${key}`);
+  return pickOne(list, rand);
+}
+
+function getPreviewMission() {
+  const rand = makeSeededRandom(qs.get('seed') || 'bath-preview');
+  return pickOne(BATH_MISSIONS, rand) || BATH_MISSIONS?.[0] || null;
+}
+
+function initHotspotsState() {
+  state.hotspots = {};
+  BATH_HOTSPOTS.forEach(h => {
+    state.hotspots[h.id] = {
+      scrubMs: 0,
+      scrubDone: false,
+      rinsed: false,
+      dry: false
+    };
+  });
+}
+
+function resetBossHotspot() {
+  const target = state.runConfig?.bossSteps?.find(s => s.hotspot)?.hotspot || 'armpit';
+  state.bossHotspot = {
+    id: target,
+    scrubMs: 0,
+    scrubDone: false,
+    rinsed: false,
+    dry: false
+  };
+}
+
 function updateProgressBox() {
   const progressEl = document.getElementById('progressValue');
-  if (!progressEl) {
-    console.warn('[BathV2] #progressValue not found');
-    return;
-  }
+  if (!progressEl) return;
 
   const phaseId = BATH_PHASES[state.phaseIndex]?.id;
   let done = 0;
   let total = 0;
 
   if (phaseId === 'ready') {
-    total = BATH_ITEMS.filter(i => i.correct).length;
+    total = BATH_READY_CORRECT_IDS.length;
     done = state.selectedItems.size;
   } else if (phaseId === 'scrub') {
-    total = BATH_HOTSPOTS.length;
-    done = BATH_HOTSPOTS.filter(h => state.hotspots[h.id].scrubDone).length;
+    total = state.runConfig.scrubHotspotIds.length;
+    done = state.runConfig.scrubHotspotIds.filter(id => state.hotspots[id]?.scrubDone).length;
   } else if (phaseId === 'rinseDry') {
-    total = BATH_HOTSPOTS.length;
+    total = state.runConfig.scrubHotspotIds.length;
     done = state.substep === 'rinse'
-      ? BATH_HOTSPOTS.filter(h => state.hotspots[h.id].rinsed).length
-      : BATH_HOTSPOTS.filter(h => state.hotspots[h.id].dry).length;
+      ? state.runConfig.scrubHotspotIds.filter(id => state.hotspots[id]?.rinsed).length
+      : state.runConfig.scrubHotspotIds.filter(id => state.hotspots[id]?.dry).length;
   } else if (phaseId === 'boss') {
-    total = BATH_BOSS_TASKS.length;
+    total = state.runConfig.bossSteps.length;
     done = state.bossIndex;
   }
 
@@ -281,6 +392,7 @@ function startGame() {
   if (app.scoreValue) app.scoreValue.textContent = '0';
 
   initHotspotsState();
+  buildBathRunConfig();
   resetBossHotspot();
 
   if (app.briefCard) app.briefCard.innerHTML = '';
@@ -297,10 +409,16 @@ function showBrief() {
   setPhaseUI('Bath v2', 'พร้อมเริ่ม');
   updateProgressBox();
 
+  const previewMission = getPreviewMission();
+
   if (!app.briefCard) return;
   app.briefCard.innerHTML = `
     <h1 class="brief-title">${BATH_COPY.title}</h1>
     <p class="brief-sub">${BATH_COPY.sub}</p>
+    <p class="brief-sub" style="margin-top:10px;">
+      <strong>${previewMission?.title || 'ภารกิจอาบน้ำสะอาด'}</strong>
+      ${previewMission?.subtitle ? `— ${previewMission.subtitle}` : ''}
+    </p>
     <div class="brief-actions">
       <button id="startBtn" class="big-btn primary" type="button">เริ่มอาบน้ำ</button>
       <button id="briefHelpBtn" class="big-btn soft" type="button">ฟังวิธีเล่น</button>
@@ -437,12 +555,14 @@ function renderReadyChecklist() {
   const old = app.itemsLayer.querySelector('.ready-checklist');
   if (old) old.remove();
 
+  const correctItems = BATH_ITEMS.filter(i => BATH_READY_CORRECT_IDS.includes(i.id));
+
   const checklist = document.createElement('div');
   checklist.className = 'ready-checklist';
   checklist.innerHTML = `
     <h3>ของที่ต้องใช้</h3>
     <ul>
-      ${BATH_ITEMS.filter(i => i.correct).map(i => `
+      ${correctItems.map(i => `
         <li class="${state.selectedItems.has(i.id) ? 'done' : ''}" data-check="${i.id}">
           ${i.emoji} ${i.label}
         </li>
@@ -453,13 +573,23 @@ function renderReadyChecklist() {
 }
 
 function renderReadyPhase() {
-  coachSay(BATH_COACH_LINES.readyStart, true, 'coach');
+  coachSay(
+    pickCoachVariant('readyStart') || BATH_COACH_LINES.readyStart,
+    true,
+    'coach'
+  );
 
   if (!app.itemsLayer) return;
+
   const wrap = document.createElement('div');
   wrap.className = 'items-grid';
 
-  BATH_ITEMS.forEach(item => {
+  const readyItems = BATH_ITEMS.filter(item =>
+    BATH_READY_CORRECT_IDS.includes(item.id) ||
+    state.runConfig.readyWrongIds.includes(item.id)
+  );
+
+  readyItems.forEach(item => {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'item-btn';
@@ -476,10 +606,12 @@ function renderReadyPhase() {
 function handleReadyItem(item, el) {
   if (state.isPhaseLocked) return;
 
-  logEvent('item_tap', { itemId: item.id, correct: item.correct });
+  const isCorrect = BATH_READY_CORRECT_IDS.includes(item.id);
+
+  logEvent('item_tap', { itemId: item.id, correct: isCorrect });
   resetIdleHint();
 
-  if (item.correct) {
+  if (isCorrect) {
     if (!state.selectedItems.has(item.id)) {
       state.selectedItems.add(item.id);
       setScore(10);
@@ -497,8 +629,7 @@ function handleReadyItem(item, el) {
     coachSay(BATH_COACH_LINES.readyWrong, true, 'coach');
   }
 
-  const correctCount = BATH_ITEMS.filter(x => x.correct).length;
-  if (state.selectedItems.size >= correctCount) {
+  if (state.selectedItems.size >= BATH_READY_CORRECT_IDS.length) {
     logEvent('phase_clear', { phase: 'ready', ms: Date.now() - state.phaseStartedAt });
     completePhase();
   }
@@ -508,32 +639,47 @@ function getFirstPendingHotspotId() {
   const phaseId = BATH_PHASES[state.phaseIndex]?.id;
 
   if (phaseId === 'scrub') {
-    const next = BATH_HOTSPOTS.find(h => !state.hotspots[h.id].scrubDone);
-    return next?.id || null;
+    const next = state.runConfig.scrubHotspotIds.find(id => !state.hotspots[id]?.scrubDone);
+    return next || null;
   }
 
   if (phaseId === 'rinseDry') {
     if (state.substep === 'rinse') {
-      const next = BATH_HOTSPOTS.find(h => state.hotspots[h.id].scrubDone && !state.hotspots[h.id].rinsed);
-      return next?.id || null;
+      const next = state.runConfig.scrubHotspotIds.find(id =>
+        state.hotspots[id]?.scrubDone && !state.hotspots[id]?.rinsed
+      );
+      return next || null;
     }
-    const next = BATH_HOTSPOTS.find(h => state.hotspots[h.id].rinsed && !state.hotspots[h.id].dry);
-    return next?.id || null;
+    const next = state.runConfig.scrubHotspotIds.find(id =>
+      state.hotspots[id]?.rinsed && !state.hotspots[id]?.dry
+    );
+    return next || null;
   }
 
   return null;
+}
+
+function getBossTargetHotspotId() {
+  const step = state.runConfig.bossSteps[state.bossIndex];
+  return step?.hotspot || state.bossHotspot?.id || 'armpit';
 }
 
 function renderAvatarHotspots(mode = 'normal') {
   if (!app.hotspotsLayer) return;
   app.hotspotsLayer.innerHTML = '';
 
+  const allowedIds = mode === 'boss'
+    ? [getBossTargetHotspotId()]
+    : (state.runConfig.scrubHotspotIds?.length ? state.runConfig.scrubHotspotIds : BATH_SCRUB_POOL);
+
   const targetId = state.mode === 'learn' && mode !== 'boss' ? getFirstPendingHotspotId() : null;
 
   BATH_HOTSPOTS.forEach(h => {
-    if (mode === 'boss' && h.id !== 'armpit') return;
+    if (!allowedIds.includes(h.id)) return;
 
-    const st = mode === 'boss' ? state.bossHotspot : state.hotspots[h.id];
+    const st = mode === 'boss'
+      ? state.bossHotspot
+      : state.hotspots[h.id];
 
     const div = document.createElement('div');
     div.className = 'hotspot';
@@ -601,8 +747,9 @@ function renderFoamDecor() {
   if (!phaseId) return;
 
   if (phaseId === 'boss') {
+    const currentTarget = getBossTargetHotspotId();
     if (state.bossHotspot.scrubDone && !state.bossHotspot.rinsed) {
-      const h = BATH_HOTSPOTS.find(x => x.id === 'armpit');
+      const h = BATH_HOTSPOTS.find(x => x.id === currentTarget);
       if (!h) return;
       for (let i = 0; i < 3; i++) {
         const dot = document.createElement('div');
@@ -615,9 +762,10 @@ function renderFoamDecor() {
     return;
   }
 
-  BATH_HOTSPOTS.forEach(h => {
-    const st = state.hotspots[h.id];
-    if (!st.scrubDone || st.rinsed) return;
+  state.runConfig.scrubHotspotIds.forEach(id => {
+    const h = BATH_HOTSPOTS.find(x => x.id === id);
+    const st = state.hotspots[id];
+    if (!h || !st || !st.scrubDone || st.rinsed) return;
 
     for (let i = 0; i < 3; i++) {
       const dot = document.createElement('div');
@@ -631,7 +779,11 @@ function renderFoamDecor() {
 
 function renderScrubPhase() {
   state.selectedTool = 'soap';
-  coachSay(BATH_COACH_LINES.scrubStart, true, 'coach');
+  coachSay(
+    pickCoachVariant('scrubStart') || BATH_COACH_LINES.scrubStart,
+    true,
+    'coach'
+  );
   renderAvatarHotspots();
   renderFoamDecor();
   renderToolBar(['soap']);
@@ -645,6 +797,7 @@ function onHotspotDown(hotspotId, el) {
   resetIdleHint();
 
   if (phaseId === 'scrub') {
+    if (!state.runConfig.scrubHotspotIds.includes(hotspotId)) return;
     if (state.selectedTool !== 'soap') {
       coachSay('เลือกสบู่ก่อนนะ', true, 'hint');
       return;
@@ -654,6 +807,7 @@ function onHotspotDown(hotspotId, el) {
   }
 
   if (phaseId === 'rinseDry') {
+    if (!state.runConfig.scrubHotspotIds.includes(hotspotId)) return;
     handleRinseDryClick(hotspotId);
     return;
   }
@@ -693,7 +847,7 @@ function startScrub(hotspotId, el) {
       renderFoamDecor();
       updateProgressBox();
 
-      const allDone = BATH_HOTSPOTS.every(x => state.hotspots[x.id].scrubDone);
+      const allDone = state.runConfig.scrubHotspotIds.every(id => state.hotspots[id]?.scrubDone);
       if (allDone) {
         logEvent('phase_clear', { phase: 'scrub', ms: Date.now() - state.phaseStartedAt });
         completePhase();
@@ -709,16 +863,19 @@ function renderRinseDryPhase() {
   renderFoamDecor();
   renderToolBar(['shower', 'towel']);
   updateRinseDryText();
-  coachSay(BATH_COACH_LINES.rinseStart, true, 'coach');
+  coachSay(
+    pickCoachVariant('rinseStart') || BATH_COACH_LINES.rinseStart,
+    true,
+    'coach'
+  );
   updateProgressBox();
 }
 
 function updateRinseDryText() {
-  if (app.taskText) {
-    app.taskText.textContent = state.substep === 'rinse'
-      ? 'เลือกฝักบัว แล้วแตะจุดที่มีฟอง'
-      : 'เลือกผ้าเช็ดตัว แล้วแตะจุดที่ล้างแล้ว';
-  }
+  if (!app.taskText) return;
+  app.taskText.textContent = state.substep === 'rinse'
+    ? 'เลือกฝักบัว แล้วแตะจุดที่มีฟอง'
+    : 'เลือกผ้าเช็ดตัว แล้วแตะจุดที่ล้างแล้ว';
 }
 
 function handleRinseDryClick(hotspotId) {
@@ -745,11 +902,15 @@ function handleRinseDryClick(hotspotId) {
       updateProgressBox();
     }
 
-    const allRinsed = BATH_HOTSPOTS.every(h => state.hotspots[h.id].rinsed);
+    const allRinsed = state.runConfig.scrubHotspotIds.every(id => state.hotspots[id]?.rinsed);
     if (allRinsed) {
       state.substep = 'dry';
       state.selectedTool = 'towel';
-      coachSay('เยี่ยมเลย ต่อไปเช็ดตัวให้แห้ง', true, 'celebration');
+      coachSay(
+        pickCoachVariant('dryStart') || 'เยี่ยมเลย ต่อไปเช็ดตัวให้แห้ง',
+        true,
+        'celebration'
+      );
       renderAvatarHotspots();
       renderToolBar(['shower', 'towel']);
       updateRinseDryText();
@@ -778,7 +939,7 @@ function handleRinseDryClick(hotspotId) {
       updateProgressBox();
     }
 
-    const allDry = BATH_HOTSPOTS.every(h => state.hotspots[h.id].dry);
+    const allDry = state.runConfig.scrubHotspotIds.every(id => state.hotspots[id]?.dry);
     if (allDry) {
       logEvent('phase_clear', { phase: 'rinseDry', ms: Date.now() - state.phaseStartedAt });
       completePhase();
@@ -798,7 +959,7 @@ function renderBossStep() {
   cleanupRuntime();
   clearPlayLayers();
 
-  const step = BATH_BOSS_TASKS[state.bossIndex];
+  const step = state.runConfig.bossSteps[state.bossIndex];
   if (!step) {
     logEvent('phase_clear', { phase: 'boss', ms: Date.now() - state.phaseStartedAt });
     showSummary();
@@ -806,10 +967,12 @@ function renderBossStep() {
   }
 
   const stepNo = state.bossIndex + 1;
-  const totalNo = BATH_BOSS_TASKS.length;
+  const totalNo = state.runConfig.bossSteps.length;
   if (app.taskText) {
     app.taskText.textContent = `(${stepNo}/${totalNo}) ${step.text}`;
   }
+
+  state.bossHotspot.id = step.hotspot || state.bossHotspot.id;
 
   if (step.type === 'selectTool') {
     coachSay(
@@ -823,7 +986,7 @@ function renderBossStep() {
   } else {
     coachSay(
       state.mode === 'learn'
-        ? `ขั้นที่ ${stepNo} แตะตรงจุดที่กำหนดนะ`
+        ? `ขั้นที่ ${stepNo} แตะตรง${getHotspotLabel(step.hotspot)}นะ`
         : step.text,
       true,
       state.mode === 'learn' ? 'hint' : 'coach'
@@ -839,7 +1002,7 @@ function renderBossStep() {
 }
 
 function maybeResolveBossSelectTool(toolId) {
-  const step = BATH_BOSS_TASKS[state.bossIndex];
+  const step = state.runConfig.bossSteps[state.bossIndex];
   if (!step || step.type !== 'selectTool') return;
   if (state.isPhaseLocked) return;
 
@@ -860,9 +1023,9 @@ function maybeResolveBossSelectTool(toolId) {
 }
 
 function handleBossHotspot(hotspotId, el) {
-  const step = BATH_BOSS_TASKS[state.bossIndex];
+  const step = state.runConfig.bossSteps[state.bossIndex];
   if (!step || state.isPhaseLocked) return;
-  if (hotspotId !== 'armpit') return;
+  if (hotspotId !== step.hotspot) return;
 
   if (step.type === 'scrub') {
     if (state.selectedTool !== 'soap') {
@@ -875,7 +1038,7 @@ function handleBossHotspot(hotspotId, el) {
 
     state.scrubTimer = setInterval(() => {
       state.bossHotspot.scrubMs += 180;
-      updateHotspotProgress('armpit', state.bossHotspot.scrubMs / 1000);
+      updateHotspotProgress(hotspotId, state.bossHotspot.scrubMs / 1000);
 
       if (state.bossHotspot.scrubMs >= 1000) {
         clearActiveScrub();
@@ -940,17 +1103,23 @@ function showSummary() {
 
   const stars = calcStars();
   const durationSec = Math.max(1, Math.round((Date.now() - state.startedAt) / 1000));
-  const badge =
+  const badge = state.runConfig.badge?.label || (
     stars === 3 ? 'Bath Star 🛁' :
     stars === 2 ? 'Foam Finder 🫧' :
-    'Clean Helper ✨';
+    'Clean Helper ✨'
+  );
+  const missionTitle = state.runConfig.mission?.title || 'ภารกิจอาบน้ำสะอาด';
 
   logEvent('game_complete', {
     scoreFinal: state.score,
     stars,
     durationSec,
     mode: state.mode,
-    hintsUsed: state.hintsUsed
+    hintsUsed: state.hintsUsed,
+    missionId: state.runConfig.mission?.id || '',
+    badgeId: state.runConfig.badge?.id || '',
+    bossTemplateId: state.runConfig.bossTemplateId || '',
+    scrubHotspotIds: state.runConfig.scrubHotspotIds
   });
 
   if (!app.summaryRoot) return;
@@ -960,8 +1129,8 @@ function showSummary() {
       <div class="summary-stars">${'⭐'.repeat(stars)}</div>
       <div class="result-pill">${badge}</div>
       <p class="summary-text">
-        หนูทำได้ดีมาก ล้างหลายจุดได้สะอาดแล้ว
-        สิ่งที่ควรจำคือ ล้างฟองออกให้หมด และเช็ดตัวให้แห้งก่อนใส่เสื้อผ้า
+        ${missionTitle} สำเร็จแล้ว
+        หนูทำได้ดีมาก สิ่งที่ควรจำคือ เลือกของให้ถูก ถูจุดสำคัญ ล้างฟองออก และเช็ดตัวให้แห้ง
       </p>
 
       <div class="summary-actions">
@@ -1046,9 +1215,7 @@ function showQuiz() {
 
 function showQuizDone() {
   const correctCount = state.quizAnswers.filter(x => x.correct).length;
-  const doneText = `ตอบถูก ${correctCount} จาก ${BATH_QUIZ.length} ข้อ เก่งมากเลย`;
-
-  coachSay(doneText, true, 'celebration');
+  coachSay(`ตอบถูก ${correctCount} จาก ${BATH_QUIZ.length} ข้อ เก่งมากเลย`, true, 'celebration');
 
   if (!app.quizRoot) return;
   app.quizRoot.innerHTML = `
