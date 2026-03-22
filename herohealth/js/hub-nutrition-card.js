@@ -1,6 +1,6 @@
 // === /herohealth/js/hub-nutrition-card.js ===
 // Bind nutrition card/button in existing hub
-// PATCH v20260318-NUTRITION-HUB-CARD-BIND-A
+// PATCH v20260318-NUTRITION-HUB-CARD-A
 
 import { createCtx } from '../shared/nutrition-common.js';
 import { bindNutritionHubCard } from '../shared/nutrition-entry.js';
