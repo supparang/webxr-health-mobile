@@ -2,23 +2,9 @@
    HeroHealth Plate Coop Net API
    HOST-AUTHORITATIVE NETWORK LAYER
    PATCH v20260321-PLATE-COOP-NET
-
-   Purpose:
-   - publish authoritative room state
-   - subscribe authoritative room state
-   - publish player action events
-   - subscribe player action events
-
-   Design:
-   - state channel = host -> all
-   - action channel = clients -> host
-   - adapter-first, backend-agnostic
 */
 'use strict';
 
-/* --------------------------------------------------
- * helpers
- * -------------------------------------------------- */
 function nowTs(){
   return Date.now();
 }
@@ -37,17 +23,11 @@ function normalizeRoomId(roomId=''){
   return String(roomId || '').trim().toUpperCase();
 }
 
-/* --------------------------------------------------
- * default in-memory adapter
- * --------------------------------------------------
- * local/dev only
- * replace later with Firebase / Supabase / WebSocket
- * -------------------------------------------------- */
 const __MEM_NET_DB__ = {
-  states: new Map(),            // roomId -> latest state
-  actions: new Map(),           // roomId -> [events]
-  stateListeners: new Map(),    // roomId -> Set(fn)
-  actionListeners: new Map()    // roomId -> Set(fn)
+  states: new Map(),
+  actions: new Map(),
+  stateListeners: new Map(),
+  actionListeners: new Map()
 };
 
 function emitState(roomId){
@@ -140,9 +120,6 @@ export function createMemoryNetAdapter(){
   };
 }
 
-/* --------------------------------------------------
- * normalize payloads
- * -------------------------------------------------- */
 function normalizeAction(action = {}, {
   roomId = '',
   playerId = '',
@@ -186,9 +163,6 @@ function normalizeState(state = {}, {
   };
 }
 
-/* --------------------------------------------------
- * main net api
- * -------------------------------------------------- */
 export function createPlateCoopNetApi({
   adapter = createMemoryNetAdapter(),
   roomId = '',
