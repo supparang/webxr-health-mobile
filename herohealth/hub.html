@@ -8,35 +8,316 @@
   <link rel="icon" href="./favicon.ico" />
   <style>
     :root{
-      --bg1:#020617; --bg2:#0b1226;
+      --bg1:#0f172a;
+      --bg2:#172554;
+      --bg3:#1d4ed8;
+
       --stroke:rgba(148,163,184,.18);
-      --text:rgba(229,231,235,.96);
-      --muted:rgba(148,163,184,.92);
-      --good:#22c55e; --warn:#f59e0b; --bad:#ef4444; --blue:#3b82f6; --violet:#a78bfa;
+      --text:#f8fafc;
+      --muted:#dbeafe;
+
+      --good:#22c55e;
+      --warn:#f59e0b;
+      --bad:#ef4444;
+      --blue:#38bdf8;
+      --violet:#a78bfa;
+      --pink:#f472b6;
+      --yellow:#facc15;
+      --cyan:#22d3ee;
+
       --sat: env(safe-area-inset-top, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
       --sal: env(safe-area-inset-left, 0px);
       --sar: env(safe-area-inset-right, 0px);
+
+      --shadow:0 18px 55px rgba(0,0,0,.28);
+      --shadow-big:0 24px 80px rgba(0,0,0,.34);
     }
+
+    *{ box-sizing:border-box; }
+
     html,body{
       height:100%;
       margin:0;
       background:
-        radial-gradient(1200px 800px at 50% -10%, rgba(59,130,246,.20), transparent 60%),
-        radial-gradient(900px 700px at 10% 10%, rgba(167,139,250,.16), transparent 60%),
-        linear-gradient(180deg, var(--bg1), var(--bg2));
+        radial-gradient(1100px 720px at 50% -10%, rgba(56,189,248,.22), transparent 60%),
+        radial-gradient(900px 650px at 8% 10%, rgba(167,139,250,.16), transparent 60%),
+        radial-gradient(700px 500px at 92% 8%, rgba(244,114,182,.14), transparent 55%),
+        linear-gradient(180deg, var(--bg1), var(--bg2) 52%, var(--bg3));
       color:var(--text);
     }
+
     body{
-      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", "Noto Sans", Arial;
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", "Noto Sans", Arial, sans-serif;
       overflow-x:hidden;
+      line-height:1.35;
     }
+
     a{ color:inherit; text-decoration:none; }
+    button{ font:inherit; }
 
     .wrap{
-      max-width: 1080px;
+      max-width: 1160px;
       margin: 0 auto;
-      padding: calc(14px + var(--sat)) calc(14px + var(--sar)) calc(18px + var(--sab)) calc(14px + var(--sal));
+      padding:
+        calc(14px + var(--sat))
+        calc(14px + var(--sar))
+        calc(24px + var(--sab))
+        calc(14px + var(--sal));
+    }
+
+    .heroHome,
+    .cardBook,
+    .trophyShelf,
+    .card,
+    .quickStart{
+      border-radius:26px;
+      border:1px solid rgba(255,255,255,.14);
+      background: rgba(2,6,23,.58);
+      backdrop-filter: blur(12px);
+      box-shadow: var(--shadow-big);
+    }
+
+    .heroHome{
+      padding:16px;
+      margin-bottom:14px;
+      background:
+        linear-gradient(135deg, rgba(56,189,248,.16), rgba(167,139,250,.16)),
+        rgba(2,6,23,.48);
+    }
+
+    .heroGrid{
+      display:grid;
+      grid-template-columns: 1.2fr .8fr;
+      gap:14px;
+      align-items:stretch;
+    }
+
+    @media (max-width: 920px){
+      .heroGrid{ grid-template-columns:1fr; }
+    }
+
+    .heroMain{
+      display:flex;
+      gap:14px;
+      align-items:flex-start;
+    }
+
+    .heroMascot{
+      width:84px;
+      height:84px;
+      border-radius:24px;
+      display:grid;
+      place-items:center;
+      flex:0 0 auto;
+      font-size:42px;
+      background:
+        radial-gradient(circle at 30% 30%, rgba(255,255,255,.24), transparent 42%),
+        linear-gradient(135deg, rgba(56,189,248,.24), rgba(167,139,250,.22));
+      border:1px solid rgba(255,255,255,.16);
+      box-shadow: 0 12px 28px rgba(0,0,0,.20);
+    }
+
+    .heroBadge{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      min-height:36px;
+      padding:8px 12px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.14);
+      background:rgba(255,255,255,.08);
+      color:#e0f2fe;
+      font-size:12px;
+      font-weight:1000;
+    }
+
+    .heroTitle{
+      margin:10px 0 0;
+      font-size:clamp(26px,4vw,38px);
+      line-height:1.05;
+      font-weight:1100;
+      letter-spacing:-.02em;
+    }
+
+    .heroSub{
+      margin-top:10px;
+      color:var(--muted);
+      font-size:15px;
+      line-height:1.6;
+      font-weight:900;
+    }
+
+    .ctxLine{
+      margin-top:10px;
+      display:inline-flex;
+      flex-wrap:wrap;
+      gap:8px;
+      padding:8px 12px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.14);
+      background:rgba(255,255,255,.06);
+      color:#e0f2fe;
+      font-size:12px;
+      font-weight:1000;
+    }
+
+    .heroTips{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      margin-top:12px;
+    }
+
+    .heroTip{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      min-height:38px;
+      padding:8px 12px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.14);
+      background:rgba(255,255,255,.06);
+      color:#eff6ff;
+      font-size:12px;
+      font-weight:1000;
+    }
+
+    .heroStats{
+      display:grid;
+      grid-template-columns: repeat(2, minmax(0,1fr));
+      gap:10px;
+      align-content:start;
+    }
+
+    .statCard{
+      border-radius:20px;
+      border:1px solid rgba(255,255,255,.14);
+      background: rgba(2,6,23,.40);
+      padding:12px;
+      min-height:88px;
+      box-shadow: var(--shadow);
+      display:flex;
+      flex-direction:column;
+      justify-content:center;
+      gap:5px;
+    }
+
+    .statLabel{
+      font-size:12px;
+      font-weight:1000;
+      color:#dbeafe;
+    }
+
+    .statValue{
+      font-size:22px;
+      line-height:1;
+      font-weight:1100;
+      color:#fff;
+    }
+
+    .statSub{
+      color:#cbd5e1;
+      font-size:12px;
+      font-weight:900;
+      line-height:1.4;
+    }
+
+    .heroActions{
+      margin-top:12px;
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+    }
+
+    .quickStart{
+      padding:14px;
+      margin-bottom:14px;
+      background:
+        linear-gradient(135deg, rgba(250,204,21,.12), rgba(56,189,248,.10)),
+        rgba(2,6,23,.58);
+    }
+
+    .quickStartTop{
+      display:flex;
+      gap:10px;
+      align-items:center;
+      justify-content:space-between;
+      flex-wrap:wrap;
+    }
+
+    .quickStartTitle{
+      font-size:18px;
+      font-weight:1100;
+      display:flex;
+      align-items:center;
+      gap:10px;
+    }
+
+    .quickStartSub{
+      color:var(--muted);
+      font-size:13px;
+      font-weight:900;
+      line-height:1.5;
+      margin-top:4px;
+    }
+
+    .quickStartGrid{
+      display:grid;
+      grid-template-columns: repeat(3, minmax(0,1fr));
+      gap:12px;
+      margin-top:12px;
+    }
+
+    @media (max-width:900px){
+      .quickStartGrid{ grid-template-columns:1fr; }
+    }
+
+    .quickBtn{
+      border-radius:22px;
+      border:1px solid rgba(255,255,255,.14);
+      min-height:104px;
+      padding:16px;
+      text-align:left;
+      cursor:pointer;
+      color:var(--text);
+      display:flex;
+      gap:14px;
+      align-items:center;
+      box-shadow: var(--shadow);
+      transition:transform .12s ease, filter .12s ease;
+      background:rgba(15,23,42,.52);
+    }
+    .quickBtn:hover{ transform:translateY(-2px); filter:brightness(1.04); }
+    .quickBtn.nutri{ background:linear-gradient(135deg, rgba(34,197,94,.22), rgba(250,204,21,.14)); }
+    .quickBtn.hyg{ background:linear-gradient(135deg, rgba(34,211,238,.18), rgba(96,165,250,.14)); }
+    .quickBtn.fit{ background:linear-gradient(135deg, rgba(244,114,182,.18), rgba(167,139,250,.14)); }
+
+    .quickIcon{
+      width:62px;
+      height:62px;
+      border-radius:18px;
+      display:grid;
+      place-items:center;
+      font-size:32px;
+      flex:0 0 auto;
+      background:rgba(255,255,255,.10);
+      border:1px solid rgba(255,255,255,.14);
+    }
+
+    .quickTitle{
+      font-size:18px;
+      font-weight:1100;
+      line-height:1.15;
+    }
+
+    .quickMeta{
+      margin-top:5px;
+      color:#e0f2fe;
+      font-size:13px;
+      font-weight:900;
+      line-height:1.5;
     }
 
     .topbar{
@@ -52,12 +333,12 @@
       display:flex;
       align-items:center;
       gap:10px;
-      padding: 10px 12px;
-      border-radius: 18px;
+      padding: 12px 14px;
+      border-radius: 20px;
       border:1px solid var(--stroke);
       background: rgba(2,6,23,.48);
       backdrop-filter: blur(10px);
-      box-shadow: 0 18px 55px rgba(0,0,0,.35);
+      box-shadow: var(--shadow);
     }
     .brand b{ font-weight:1100; }
 
@@ -94,7 +375,9 @@
       padding: 10px 12px;
       font-weight:1100;
       min-height: 44px;
+      transition:transform .12s ease, filter .12s ease;
     }
+    .btn:hover{ transform:translateY(-1px); filter:brightness(1.05); }
     .btn.primary{ border-color: rgba(59,130,246,.30); background: rgba(59,130,246,.16); }
     .btn.violet{ border-color: rgba(167,139,250,.28); background: rgba(167,139,250,.14); }
     .btn.good{ border-color: rgba(34,197,94,.28); background: rgba(34,197,94,.14); }
@@ -112,12 +395,7 @@
     }
 
     .card{
-      border-radius: 22px;
-      border:1px solid rgba(148,163,184,.18);
-      background: rgba(2,6,23,.58);
-      backdrop-filter: blur(10px);
-      box-shadow: 0 22px 80px rgba(0,0,0,.35);
-      padding: 12px 12px;
+      padding: 14px;
       display:flex;
       flex-direction:column;
       gap:10px;
@@ -125,7 +403,7 @@
 
     .card h2{
       margin:0;
-      font-size:16px;
+      font-size:18px;
       font-weight:1100;
       display:flex;
       gap:10px;
@@ -159,16 +437,31 @@
       display:flex;
       flex-direction:column;
       gap:6px;
-      padding: 12px 12px;
-      border-radius: 18px;
+      padding: 14px;
+      border-radius: 20px;
       border:1px solid rgba(148,163,184,.18);
       background: rgba(15,23,42,.46);
       box-shadow: 0 18px 55px rgba(0,0,0,.25);
-      min-height: 68px;
+      min-height: 84px;
+      transition:transform .12s ease, filter .12s ease, border-color .12s ease;
     }
-    .gameBtn .t{ font-weight:1100; }
-    .gameBtn .s{ font-size:12px; font-weight:900; color:var(--muted); }
-    .gameBtn:hover{ border-color: rgba(59,130,246,.28); }
+    .gameBtn:hover{
+      border-color: rgba(59,130,246,.28);
+      transform:translateY(-2px);
+      filter:brightness(1.04);
+    }
+    .gameBtn .t{
+      font-weight:1100;
+      font-size:16px;
+      line-height:1.2;
+      color:#fff;
+    }
+    .gameBtn .s{
+      font-size:12px;
+      font-weight:900;
+      color:var(--muted);
+      line-height:1.45;
+    }
 
     .inlineRow{
       display:flex;
@@ -190,12 +483,7 @@
     }
 
     .cardBook{
-      border-radius:22px;
-      border:1px solid rgba(148,163,184,.18);
-      background: rgba(2,6,23,.58);
-      backdrop-filter: blur(10px);
-      box-shadow: 0 22px 80px rgba(0,0,0,.35);
-      padding: 12px 12px;
+      padding: 14px;
       display:flex;
       flex-direction:column;
       gap:10px;
@@ -214,7 +502,7 @@
       display:flex;
       align-items:center;
       gap:10px;
-      font-size:16px;
+      font-size:18px;
       font-weight:1100;
     }
 
@@ -222,6 +510,7 @@
       color:var(--muted);
       font-size:12px;
       font-weight:900;
+      line-height:1.5;
     }
 
     .cardBookGrid{
@@ -234,18 +523,18 @@
     }
 
     .bookPanel{
-      border-radius:18px;
+      border-radius:20px;
       border:1px solid rgba(148,163,184,.16);
       background: rgba(15,23,42,.46);
-      padding:12px;
+      padding:14px;
       box-shadow: 0 18px 55px rgba(0,0,0,.25);
     }
 
     .bookBig{
-      font-size:30px;
+      font-size:34px;
       font-weight:1100;
       line-height:1;
-      margin-top:4px;
+      margin-top:6px;
     }
 
     .bookMini{
@@ -333,12 +622,7 @@
     }
 
     .trophyShelf{
-      border-radius:22px;
-      border:1px solid rgba(148,163,184,.18);
-      background: rgba(2,6,23,.58);
-      backdrop-filter: blur(10px);
-      box-shadow: 0 22px 80px rgba(0,0,0,.35);
-      padding: 12px 12px;
+      padding: 14px;
       display:flex;
       flex-direction:column;
       gap:10px;
@@ -355,10 +639,10 @@
     }
 
     .shelfCard{
-      border-radius:18px;
+      border-radius:20px;
       border:1px solid rgba(148,163,184,.16);
       background: rgba(15,23,42,.46);
-      padding:12px;
+      padding:14px;
       box-shadow: 0 18px 55px rgba(0,0,0,.25);
       display:flex;
       flex-direction:column;
@@ -374,9 +658,9 @@
     }
 
     .trophyIcon{
-      width:54px;
-      height:54px;
-      border-radius:16px;
+      width:56px;
+      height:56px;
+      border-radius:18px;
       display:grid;
       place-items:center;
       font-size:28px;
@@ -386,7 +670,7 @@
     }
 
     .trophyTitle{
-      font-size:15px;
+      font-size:16px;
       font-weight:1100;
       line-height:1.2;
     }
@@ -427,30 +711,127 @@
       flex-wrap:wrap;
       align-items:center;
     }
+
+    @media (prefers-reduced-motion: reduce){
+      *,
+      *::before,
+      *::after{
+        transition:none !important;
+        animation:none !important;
+      }
+      .btn:hover,
+      .quickBtn:hover,
+      .gameBtn:hover{
+        transform:none !important;
+      }
+    }
   </style>
 </head>
 <body>
   <div class="wrap">
 
+    <section class="heroHome">
+      <div class="heroGrid">
+        <div>
+          <div class="heroMain">
+            <div class="heroMascot">🦸‍♀️</div>
+            <div>
+              <div class="heroBadge">🏠 HeroHealth Home</div>
+              <h1 class="heroTitle">ยินดีต้อนรับกลับมา ฮีโร่!</h1>
+              <div class="heroSub">
+                ที่นี่คือบ้านของเกมสุขภาพทั้ง 3 โลก<br>
+                เลือกโลกที่อยากเล่น แล้วออกไปเก็บคะแนน เก็บการ์ด และปลดถ้วยรางวัลกันเลย ✨
+              </div>
+              <div class="ctxLine" id="ctxLine">—</div>
+              <div class="heroTips">
+                <span class="heroTip">🥦 โภชนาการ</span>
+                <span class="heroTip">🪥 สุขอนามัย</span>
+                <span class="heroTip">🏃 ออกกำลังกาย</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="heroActions">
+            <button class="btn primary" id="btnStartNutrition" type="button">▶ เริ่มโลกโภชนาการ</button>
+            <button class="btn violet" id="btnStartHygiene" type="button">🪥 เริ่มโลกสุขอนามัย</button>
+            <button class="btn good" id="btnStartFitness" type="button">🏃 เริ่มโลกออกกำลังกาย</button>
+          </div>
+        </div>
+
+        <div class="heroStats">
+          <div class="statCard">
+            <div class="statLabel">🧑‍🚀 รหัสผู้เล่น</div>
+            <div class="statValue" id="uiPid">anon</div>
+            <div class="statSub">ใช้สำหรับจำความก้าวหน้า</div>
+          </div>
+          <div class="statCard">
+            <div class="statLabel">💛 ชื่อฮีโร่</div>
+            <div class="statValue" id="uiNick">anon</div>
+            <div class="statSub">ชื่อที่ใช้ในเกมของเรา</div>
+          </div>
+          <div class="statCard">
+            <div class="statLabel">⭐ เลเวล</div>
+            <div class="statValue" id="uiLvl">1</div>
+            <div class="statSub">ยิ่งเล่น ยิ่งเก่งขึ้น</div>
+          </div>
+          <div class="statCard">
+            <div class="statLabel">⚡ XP</div>
+            <div class="statValue" id="uiXp">0</div>
+            <div class="statSub">สะสมจากการเล่นแต่ละเกม</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="quickStart">
+      <div class="quickStartTop">
+        <div>
+          <div class="quickStartTitle">🚀 เริ่มเล่นแบบง่าย</div>
+          <div class="quickStartSub">ถ้ายังไม่รู้จะเล่นอะไร ให้เลือกโลกที่อยากเริ่มได้จากตรงนี้</div>
+        </div>
+      </div>
+
+      <div class="quickStartGrid">
+        <button class="quickBtn nutri" id="btnQuickNutri" type="button">
+          <div class="quickIcon">🥦</div>
+          <div>
+            <div class="quickTitle">เริ่มที่โลกโภชนาการ</div>
+            <div class="quickMeta">เหมาะสำหรับเริ่มง่าย • GoodJunk / Hydration / Plate</div>
+          </div>
+        </button>
+
+        <button class="quickBtn hyg" id="btnQuickHyg" type="button">
+          <div class="quickIcon">🪥</div>
+          <div>
+            <div class="quickTitle">เริ่มที่โลกสุขอนามัย</div>
+            <div class="quickMeta">ฝึกล้างมือ แปรงฟัน อาบน้ำ และดูแลความสะอาด</div>
+          </div>
+        </button>
+
+        <button class="quickBtn fit" id="btnQuickFit" type="button">
+          <div class="quickIcon">🏃</div>
+          <div>
+            <div class="quickTitle">เริ่มที่โลกออกกำลังกาย</div>
+            <div class="quickMeta">ขยับร่างกาย ฝึกความเร็ว พลัง และการทรงตัว</div>
+          </div>
+        </button>
+      </div>
+    </section>
+
     <div class="topbar">
       <div class="brand">
-        <span style="font-size:18px">🧠🎮</span>
+        <span style="font-size:20px">🧠🎮</span>
         <div>
           <div style="display:flex; gap:10px; align-items:baseline; flex-wrap:wrap;">
-            <b>HeroHealth</b>
-            <span class="muted">Hub • 3 Zones</span>
+            <b>HeroHealth Hub</b>
+            <span class="muted">บ้านของฮีโร่</span>
           </div>
-          <div class="muted" id="ctxLine">—</div>
+          <div class="muted">เลือกเล่นเกม ดูของสะสม และเช็กความก้าวหน้าได้ที่นี่</div>
         </div>
       </div>
 
       <div class="hero">
-        <span class="pill"><b>PID</b>: <span id="uiPid">anon</span></span>
-        <span class="pill"><b>Hero</b>: <span id="uiNick">anon</span></span>
-        <span class="pill"><b>LV</b>: <span id="uiLvl">1</span></span>
-        <span class="pill"><b>XP</b>: <span id="uiXp">0</span></span>
-
-        <button class="btn violet" id="btnHeroShow" type="button">🧾 ดู Hero</button>
+        <button class="btn violet" id="btnHeroShow" type="button">🧾 ดูข้อมูลฮีโร่</button>
         <button class="btn ghost" id="btnHeroReset" type="button">♻ Reset Hero</button>
       </div>
     </div>
@@ -458,8 +839,8 @@
     <section class="cardBook">
       <div class="cardBookTop">
         <div>
-          <div class="cardBookTitle">🃏 Card Book — GoodJunk</div>
-          <div class="cardBookSub">สะสมการ์ดจากผลการเล่น S / A / B / C</div>
+          <div class="cardBookTitle">🃏 สมุดการ์ด GoodJunk</div>
+          <div class="cardBookSub">เล่นดี จะได้การ์ดสะสมตามเกรด S / A / B / C</div>
         </div>
         <div class="inlineRow">
           <button class="btn primary" id="btnOpenGJLauncher" type="button">🚀 เปิด GoodJunk Launcher</button>
@@ -502,8 +883,8 @@
     <section class="trophyShelf">
       <div class="cardBookTop">
         <div>
-          <div class="cardBookTitle">🏆 Hub Shelf / Trophy Shelf</div>
-          <div class="cardBookSub">สรุปความก้าวหน้าของ Hero และแต่ละ Zone</div>
+          <div class="cardBookTitle">🏆 ชั้นถ้วยรางวัลของฮีโร่</div>
+          <div class="cardBookSub">สรุปความก้าวหน้าของ Hero และแต่ละโลก</div>
         </div>
       </div>
 
@@ -523,7 +904,7 @@
             <span class="pill"><b>best</b>: <span id="nutriBestScore">0</span></span>
             <span class="pill"><b>cards</b>: <span id="nutriCardTotal">0</span></span>
           </div>
-          <div class="shelfMeta" id="nutriHint">เคลียร์ GoodJunk หรือทำผลงานใน Hydration เพื่อปลดถ้วย</div>
+          <div class="shelfMeta" id="nutriHint">เริ่มที่ GoodJunk หรือ Hydration เพื่อค่อย ๆ ปลดถ้วยนี้</div>
         </div>
 
         <div class="shelfCard">
@@ -540,7 +921,7 @@
           <div class="miniRow">
             <span class="pill"><b>zone</b>: <span id="hygieneZoneDone">0</span></span>
           </div>
-          <div class="shelfMeta" id="hygieneHint">ทำ zone hygiene ให้มี done today เพื่อโชว์ถ้วย</div>
+          <div class="shelfMeta" id="hygieneHint">เล่นเกมในโลกสุขอนามัยวันนี้ เพื่อโชว์ถ้วยนี้</div>
         </div>
 
         <div class="shelfCard">
@@ -582,16 +963,16 @@
           <div class="miniRow">
             <a class="btn violet" id="linkJDGallery" href="#">🖼 JumpDuck Gallery</a>
           </div>
-          <div class="shelfMeta" id="fitnessHint">ทำ zone fitness ให้มี done today เพื่อโชว์ถ้วย</div>
+          <div class="shelfMeta" id="fitnessHint">เล่นโลกออกกำลังกายวันนี้ เพื่อค่อย ๆ ปลดถ้วยนี้</div>
         </div>
       </div>
     </section>
 
     <div class="grid">
       <section class="card">
-        <h2>🥦 Nutrition Zone</h2>
+        <h2>🥦 โลกโภชนาการ</h2>
         <div class="zoneRow">
-          <div class="muted">GoodJunk • Groups • Hydration • Plate</div>
+          <div class="muted">เริ่มง่าย: GoodJunk • ต่อด้วย Hydration • แล้วค่อย Plate</div>
           <div class="inlineRow">
             <button class="btn primary" id="btnGJsolo" type="button">🎯 GoodJunk (Solo)</button>
             <button class="btn violet" id="btnGJpro" type="button">🔥 Solo PRO</button>
@@ -600,38 +981,38 @@
         </div>
         <div class="sep"></div>
         <div class="games">
-          <a class="gameBtn" id="linkGoodjunk" href="#"><div class="t">🍔🆚🥦 GoodJunk</div><div class="s">Launcher • Solo / Duet / Group / More Modes</div></a>
-          <a class="gameBtn" id="linkGroups" href="#"><div class="t">🥚🍚 Food Groups</div><div class="s">Classroom ramp + AI warn</div></a>
-          <a class="gameBtn" id="linkHydration" href="#"><div class="t">💧 Hydration</div><div class="s">Storm boss + shield</div></a>
-          <a class="gameBtn" id="linkPlate" href="#"><div class="t">🍽 Balanced Plate</div><div class="s">Bloom missions</div></a>
+          <a class="gameBtn" id="linkGoodjunk" href="#"><div class="t">🍔🆚🥦 GoodJunk</div><div class="s">เกมเริ่มต้นของโลกนี้ • เลือกอาหารดีและเก็บการ์ด</div></a>
+          <a class="gameBtn" id="linkGroups" href="#"><div class="t">🥚🍚 Food Groups</div><div class="s">ฝึกแยกอาหารเป็นหมวดหมู่</div></a>
+          <a class="gameBtn" id="linkHydration" href="#"><div class="t">💧 Hydration</div><div class="s">ฝึกเรื่องการดื่มน้ำและเจอบอสพายุ</div></a>
+          <a class="gameBtn" id="linkPlate" href="#"><div class="t">🍽 Balanced Plate</div><div class="s">ฝึกจัดจานอาหารให้สมดุล</div></a>
         </div>
-        <div class="small" style="margin-top:4px;">Tip: Solo PRO = diff=hard & pro=1 (ผ่าน Launcher)</div>
+        <div class="small" style="margin-top:4px;">Tip: ถ้าเพิ่งเริ่ม ให้เริ่ม GoodJunk ก่อน</div>
       </section>
 
       <section class="card">
-        <h2>🪥 Hygiene Zone</h2>
-        <div class="muted">Handwash • Brush • Bath • Clean Object • MaskCough • Germ Detective</div>
+        <h2>🪥 โลกสุขอนามัย</h2>
+        <div class="muted">เริ่มจาก Handwash หรือ Brush แล้วค่อยเล่นเกมที่ยากขึ้น</div>
         <div class="sep"></div>
         <div class="games">
-          <a class="gameBtn" id="linkHandwash" href="#"><div class="t">🧼 Handwash</div><div class="s">สะอาดครบขั้น</div></a>
-          <a class="gameBtn" id="linkBrush" href="#"><div class="t">🪥 Brush</div><div class="s">แปรงฟันอย่างถูกวิธี</div></a>
-          <a class="gameBtn" id="linkBath" href="#"><div class="t">🛁 Bath</div><div class="s">Hidden Dirt Quest</div></a>
-          <a class="gameBtn" id="linkCleanObject" href="#"><div class="t">🧴 Clean Object</div><div class="s">Evaluate / Create</div></a>
-          <a class="gameBtn" id="linkMaskCough" href="#"><div class="t">😷 Mask & Cough</div><div class="s">มารยาทสุขอนามัย</div></a>
-          <a class="gameBtn" id="linkGermDetective" href="#"><div class="t">🦠 Germ Detective</div><div class="s">UV / Swab / Camera</div></a>
+          <a class="gameBtn" id="linkHandwash" href="#"><div class="t">🧼 Handwash</div><div class="s">ฝึกล้างมือให้สะอาดครบขั้น</div></a>
+          <a class="gameBtn" id="linkBrush" href="#"><div class="t">🪥 Brush</div><div class="s">ฝึกแปรงฟันอย่างถูกวิธี</div></a>
+          <a class="gameBtn" id="linkBath" href="#"><div class="t">🛁 Bath</div><div class="s">ออกตามหาจุดสกปรกและอาบน้ำให้สะอาด</div></a>
+          <a class="gameBtn" id="linkCleanObject" href="#"><div class="t">🧴 Clean Object</div><div class="s">แยกของสะอาด / ไม่สะอาด</div></a>
+          <a class="gameBtn" id="linkMaskCough" href="#"><div class="t">😷 Mask & Cough</div><div class="s">ฝึกมารยาทสุขอนามัย</div></a>
+          <a class="gameBtn" id="linkGermDetective" href="#"><div class="t">🦠 Germ Detective</div><div class="s">ภารกิจนักสืบเชื้อโรค</div></a>
         </div>
       </section>
 
       <section class="card">
-        <h2>🏃 Exercise Zone</h2>
-        <div class="muted">Shadow Breaker • Rhythm Boxer • JumpDuck • Balance Hold • Fitness Planner</div>
+        <h2>🏃 โลกออกกำลังกาย</h2>
+        <div class="muted">เริ่มจาก JumpDuck หรือ Shadow Breaker แล้วค่อยเพิ่มความท้าทาย</div>
         <div class="sep"></div>
         <div class="games">
           <a class="gameBtn" id="linkShadowBreaker" href="#"><div class="t">🥊 Shadow Breaker</div><div class="s">Launcher → Boss Ladder run</div></a>
-          <a class="gameBtn" id="linkRhythmBoxer" href="#"><div class="t">🎵 Rhythm Boxer</div><div class="s">จังหวะ + พลัง</div></a>
-          <a class="gameBtn" id="linkJumpDuck" href="#"><div class="t">⬆️⬇️ JumpDuck</div><div class="s">หลบ-กระโดด</div></a>
-          <a class="gameBtn" id="linkBalanceHold" href="#"><div class="t">⚖️ Balance Hold</div><div class="s">ทรงตัวแบบท้าทาย</div></a>
-          <a class="gameBtn" id="linkFitnessPlanner" href="#"><div class="t">📅 Fitness Planner</div><div class="s">วางแผนออกกำลัง</div></a>
+          <a class="gameBtn" id="linkRhythmBoxer" href="#"><div class="t">🎵 Rhythm Boxer</div><div class="s">ขยับตามจังหวะและใช้พลัง</div></a>
+          <a class="gameBtn" id="linkJumpDuck" href="#"><div class="t">⬆️⬇️ JumpDuck</div><div class="s">หลบ-กระโดดให้ทันและเก็บคะแนน</div></a>
+          <a class="gameBtn" id="linkBalanceHold" href="#"><div class="t">⚖️ Balance Hold</div><div class="s">ฝึกทรงตัวแบบท้าทาย</div></a>
+          <a class="gameBtn" id="linkFitnessPlanner" href="#"><div class="t">📅 Fitness Planner</div><div class="s">วางแผนออกกำลังกายของตัวเอง</div></a>
         </div>
       </section>
     </div>
@@ -654,7 +1035,7 @@
     const uiXp = document.getElementById('uiXp');
 
     uiPid.textContent = pid;
-    ctxLine.textContent = `run=${run} • diff=${diff} • time=${time}s • view=${view}`;
+    ctxLine.textContent = `โหมด ${run} • ระดับ ${diff} • เวลา ${time} วินาที • มุมมอง ${view}`;
 
     function buildUrl(path, extra){
       const u = new URL(path, location.href);
@@ -746,6 +1127,26 @@
 
     document.getElementById('btnOpenGJLauncher').onclick = ()=>{
       location.href = buildUrl(PATHS.goodjunk, {});
+    };
+
+    document.getElementById('btnStartNutrition').onclick = ()=>{
+      location.href = buildUrl(PATHS.goodjunk, { mode:'solo' });
+    };
+    document.getElementById('btnStartHygiene').onclick = ()=>{
+      location.href = buildUrl(PATHS.handwash, { zone:'hygiene' });
+    };
+    document.getElementById('btnStartFitness').onclick = ()=>{
+      location.href = buildUrl(PATHS.jumpDuck, { zone:'fitness' });
+    };
+
+    document.getElementById('btnQuickNutri').onclick = ()=>{
+      location.href = buildUrl(PATHS.goodjunk, { mode:'solo' });
+    };
+    document.getElementById('btnQuickHyg').onclick = ()=>{
+      location.href = buildUrl(PATHS.handwash, { zone:'hygiene' });
+    };
+    document.getElementById('btnQuickFit').onclick = ()=>{
+      location.href = buildUrl(PATHS.jumpDuck, { zone:'fitness' });
     };
 
     renderHero();
