@@ -1,5 +1,9 @@
 import { createBrushUI } from './brush.ui.js';
-import { buildBrushResult, saveBrushSummary, pushBrushSummaryHistory } from './brush.summary.js';
+import {
+  buildBrushResult,
+  saveBrushSummary,
+  pushBrushSummaryHistory
+} from './brush.summary.js';
 import { createBrushLogger } from './brush.logger.js';
 
 const qs = new URLSearchParams(location.search);
@@ -143,14 +147,15 @@ const logger = createBrushLogger(readRunContext());
 
 init();
 
-function init(){
+function init() {
   bindEvents();
+  syncLoggerContext();
   setMode(state.mode.id, { silent: true });
   ui.setCoach('neutral', randomPick(COACH_LINES.start));
   renderAll();
 }
 
-function readRunContext(){
+function readRunContext() {
   return {
     pid: qs.get('pid') || '',
     studyId: qs.get('studyId') || '',
@@ -168,7 +173,25 @@ function readRunContext(){
   };
 }
 
-function bindEvents(){
+function syncLoggerContext() {
+  logger.updateContext({
+    pid: qs.get('pid') || '',
+    studyId: qs.get('studyId') || '',
+    phase: qs.get('phase') || '',
+    conditionGroup: qs.get('conditionGroup') || '',
+    runMode: qs.get('runMode') || 'play',
+    seed: qs.get('seed') || '',
+    view: qs.get('view') || '',
+    log: qs.get('log') || '',
+    modeId: state.mode.id,
+    variant: GAME_VARIANT,
+    gameId: GAME_ID,
+    gameTitle: GAME_TITLE,
+    zone: ZONE
+  });
+}
+
+function bindEvents() {
   el.btnLearn?.addEventListener('click', () => setMode('learn'));
   el.btnChallenge?.addEventListener('click', () => setMode('challenge'));
   el.btnStart?.addEventListener('click', startGame);
@@ -191,7 +214,7 @@ function bindEvents(){
   });
 }
 
-function bindBrushInput(node){
+function bindBrushInput(node) {
   if (!node) return;
 
   node.addEventListener('pointerdown', (e) => {
@@ -215,7 +238,7 @@ function bindBrushInput(node){
   });
 }
 
-function buildZones(){
+function buildZones() {
   return [
     mkZone('upper-left', 'บนซ้าย'),
     mkZone('upper-front', 'บนหน้า'),
@@ -226,7 +249,7 @@ function buildZones(){
   ];
 }
 
-function mkZone(id, label){
+function mkZone(id, label) {
   return {
     id,
     label,
@@ -239,8 +262,10 @@ function mkZone(id, label){
   };
 }
 
-function setMode(modeId, options = {}){
+function setMode(modeId, options = {}) {
   state.mode = MODE_CONFIG[modeId] || MODE_CONFIG.learn;
+  syncLoggerContext();
+
   if (!options.silent) {
     logger.event('mode_change', {
       modeId: state.mode.id,
@@ -249,11 +274,14 @@ function setMode(modeId, options = {}){
       gameVariant: GAME_VARIANT
     });
   }
+
   renderAll();
 }
 
-function startGame(){
+function startGame() {
   resetRunState();
+  syncLoggerContext();
+
   state.running = true;
   state.paused = false;
   state.phaseId = 'guided';
@@ -284,7 +312,7 @@ function startGame(){
   requestAnimationFrame(loop);
 }
 
-function resetRunState(){
+function resetRunState() {
   state.running = false;
   state.paused = false;
   state.phaseId = 'intro';
@@ -305,12 +333,12 @@ function resetRunState(){
   renderAll();
 }
 
-function replay(){
+function replay() {
   ui.closeSummary();
   startGame();
 }
 
-function togglePause(){
+function togglePause() {
   if (!state.running) return;
 
   state.paused = !state.paused;
@@ -328,7 +356,7 @@ function togglePause(){
   }
 }
 
-function loop(ts){
+function loop(ts) {
   if (!state.running || state.paused) return;
 
   const dt = Math.max(0, ts - state.lastTs);
@@ -346,7 +374,7 @@ function loop(ts){
   requestAnimationFrame(loop);
 }
 
-function updatePhase(){
+function updatePhase() {
   const sec = state.elapsedMs / 1000;
   const duration = state.mode.durationSec;
 
@@ -355,6 +383,7 @@ function updatePhase(){
     state.bossTriggered = true;
     reviveWeakZones();
     ui.setCoach('fever', randomPick(COACH_LINES.boss));
+
     logger.event('boss_start', {
       timeFromStartMs: Math.round(state.elapsedMs),
       gameId: GAME_ID,
@@ -374,7 +403,7 @@ function updatePhase(){
   }
 }
 
-function reviveWeakZones(){
+function reviveWeakZones() {
   state.zones.forEach(z => {
     if (z.clean < 70) {
       z.clean = Math.max(25, z.clean - 18);
@@ -385,7 +414,7 @@ function reviveWeakZones(){
   });
 }
 
-function selectZone(zoneId){
+function selectZone(zoneId) {
   state.activeZoneId = zoneId;
   const zone = getActiveZone();
 
@@ -403,7 +432,7 @@ function selectZone(zoneId){
   renderAll();
 }
 
-function handleBrushMove(e){
+function handleBrushMove() {
   if (!state.running || state.paused) return;
 
   const zone = getActiveZone();
@@ -444,7 +473,7 @@ function handleBrushMove(e){
   renderAll();
 }
 
-function classifySpeed(deltaMs){
+function classifySpeed(deltaMs) {
   if (!Number.isFinite(deltaMs) || deltaMs <= 0) {
     return { key: 'ok', label: 'ปกติ', gain: 1.0 };
   }
@@ -454,7 +483,7 @@ function classifySpeed(deltaMs){
   return { key: 'slow', label: 'ช้า', gain: 0.72 };
 }
 
-function issueWarning(type, coachLine){
+function issueWarning(type, coachLine) {
   state.warnings += 1;
   state.combo = 0;
   ui.setCoach('sad', coachLine);
@@ -470,7 +499,7 @@ function issueWarning(type, coachLine){
   renderAll();
 }
 
-function updateZoneCleaning(zone, speed){
+function updateZoneCleaning(zone, speed) {
   const phaseBonus = state.phaseId === 'boss' ? 1.10 : 1.0;
   const gain = 2.2 * speed.gain * phaseBonus;
 
@@ -480,10 +509,11 @@ function updateZoneCleaning(zone, speed){
   zone.done = zone.clean >= ZONE_TARGET;
 }
 
-function maybeEmitZoneMilestone(zone){
+function maybeEmitZoneMilestone(zone) {
   const step = Math.floor(zone.clean / 25) * 25;
   if (step > zone.milestone && step <= 100) {
     zone.milestone = step;
+
     logger.event('zone_progress', {
       timeFromStartMs: Math.round(state.elapsedMs),
       gameId: GAME_ID,
@@ -497,7 +527,7 @@ function maybeEmitZoneMilestone(zone){
   }
 }
 
-function maybeCelebrateZone(zone){
+function maybeCelebrateZone(zone) {
   if (zone.done && !zone.announcedDone) {
     zone.announcedDone = true;
     state.sparkleCount += 1;
@@ -515,7 +545,7 @@ function maybeCelebrateZone(zone){
   }
 }
 
-function finishGame(){
+function finishGame() {
   state.running = false;
   state.phaseId = 'summary';
 
@@ -555,7 +585,7 @@ function finishGame(){
   renderAll();
 }
 
-function goCooldownThenHub(){
+function goCooldownThenHub() {
   logger.flush();
 
   const cooldown = new URL('../gate/cooldown-gate.html', import.meta.url);
@@ -566,8 +596,14 @@ function goCooldownThenHub(){
   cooldown.searchParams.set('next', HUB_URL);
 
   [
-    'pid', 'studyId', 'phase', 'conditionGroup',
-    'runMode', 'seed', 'view', 'log'
+    'pid',
+    'studyId',
+    'phase',
+    'conditionGroup',
+    'runMode',
+    'seed',
+    'view',
+    'log'
   ].forEach(k => {
     const v = qs.get(k);
     if (v) cooldown.searchParams.set(k, v);
@@ -576,23 +612,25 @@ function goCooldownThenHub(){
   location.href = cooldown.href;
 }
 
-function getActiveZone(){
+function getActiveZone() {
   return state.zones.find(z => z.id === state.activeZoneId) || null;
 }
 
-function getCoveragePercent(){
+function getCoveragePercent() {
   const sum = state.zones.reduce((acc, z) => acc + z.clean, 0);
   return Math.round(sum / (TOTAL_ZONES * ZONE_TARGET) * 100);
 }
 
-function getZonesDoneCount(){
+function getZonesDoneCount() {
   return state.zones.filter(z => z.done).length;
 }
 
-function renderAll(){
+function renderAll() {
   ui.renderZones(state.zones, state.activeZoneId);
   ui.renderHud({
-    timeText: formatTime(Math.max(0, state.mode.durationSec - Math.floor(state.elapsedMs / 1000))),
+    timeText: formatTime(
+      Math.max(0, state.mode.durationSec - Math.floor(state.elapsedMs / 1000))
+    ),
     coveragePercent: getCoveragePercent(),
     comboMax: state.comboMax,
     phaseText: PHASE_TEXT[state.phaseId] || 'เล่นอยู่',
@@ -606,7 +644,7 @@ function renderAll(){
   });
 }
 
-function getMiniMissionText(){
+function getMiniMissionText() {
   if (state.phaseId === 'guided') return state.mode.miniMissionGuided;
   if (state.phaseId === 'cleanRun') return state.mode.miniMissionRun;
   if (state.phaseId === 'boss') return 'คราบตัวป่วนกลับมาแล้ว รีบเก็บงานให้ครบ';
@@ -614,16 +652,16 @@ function getMiniMissionText(){
   return 'เริ่มได้เลย';
 }
 
-function formatTime(totalSec){
+function formatTime(totalSec) {
   const mm = String(Math.floor(totalSec / 60)).padStart(2, '0');
   const ss = String(totalSec % 60).padStart(2, '0');
   return `${mm}:${ss}`;
 }
 
-function randomPick(arr){
+function randomPick(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
-function clamp(v, min, max){
+function clamp(v, min, max) {
   return Math.min(max, Math.max(min, v));
 }
