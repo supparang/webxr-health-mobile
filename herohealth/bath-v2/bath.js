@@ -13,7 +13,9 @@ import {
   BATH_READY_WRONG_POOL,
   BATH_SCRUB_POOL,
   BATH_BOSS_TEMPLATES,
-  BATH_COACH_VARIANTS
+  BATH_COACH_VARIANTS,
+  BATH_MISSIONS_50,
+  BATH_REWARDS_20
 } from './bath.data.js';
 
 import {
@@ -29,6 +31,8 @@ import {
 
 const $ = (sel) => document.querySelector(sel);
 const qs = new URLSearchParams(location.search);
+
+const BATH_PROGRESS_KEY = 'HH_BATH_PROGRESS_V1';
 
 const app = {
   phaseBadge: $('#phaseBadge'),
@@ -68,17 +72,28 @@ const state = {
   isPhaseLocked: false,
   isNavigating: false,
   quizAnswered: false,
+  runFinalized: false,
+  progress: null,
+  sessionRewards: [],
   runConfig: {
     mission: null,
     badge: null,
+    readyCorrectIds: [],
     readyWrongIds: [],
     scrubHotspotIds: [],
     bossTemplateId: null,
-    bossSteps: []
+    bossSteps: [],
+    timeLimitSec: null,
+    maxWrong: null,
+    memoryPrompt: null
   }
 };
 
 let idleHintTimer = null;
+
+/* =========================
+   Basic helpers
+   ========================= */
 
 function parseHubUrl() {
   return qs.get('hub') || '../hub.html';
@@ -176,6 +191,7 @@ function showPhaseBurst(text = 'ผ่านด่านแล้ว') {
 
 function spawnSparkleAtHotspot(hotspotId) {
   if (!app.hotspotsLayer || !app.roomStage || !app.effectsLayer) return;
+
   const node = app.hotspotsLayer.querySelector(`[data-hotspot="${hotspotId}"]`);
   if (!node) return;
 
@@ -190,6 +206,10 @@ function spawnSparkleAtHotspot(hotspotId) {
   app.effectsLayer.appendChild(sp);
   setTimeout(() => sp.remove(), 700);
 }
+
+/* =========================
+   Random helpers
+   ========================= */
 
 function makeSeededRandom(seedStr) {
   let h = 1779033703 ^ String(seedStr || 'bath').length;
@@ -223,6 +243,208 @@ function pickOne(arr, rand) {
   return arr[Math.floor(rand() * arr.length)];
 }
 
+/* =========================
+   Progress / reward store
+   ========================= */
+
+function createDefaultProgress() {
+  return {
+    version: 1,
+    starsTotal: 0,
+    missionsCompleted: 0,
+    uniqueMissionIds: [],
+    familyCounts: {
+      ready: 0,
+      scrub: 0,
+      rinse: 0,
+      dry: 0,
+      memory: 0,
+      boss: 0
+    },
+    timedMissionsCompleted: 0,
+    dailyStreak: 0,
+    lastPlayedDate: '',
+    lastMissionId: '',
+    lastFamily: '',
+    unlockedRewardIds: [],
+    history: []
+  };
+}
+
+function normalizeProgress(raw) {
+  const base = createDefaultProgress();
+  const out = { ...base, ...(raw || {}) };
+
+  out.uniqueMissionIds = Array.isArray(out.uniqueMissionIds) ? out.uniqueMissionIds : [];
+  out.unlockedRewardIds = Array.isArray(out.unlockedRewardIds) ? out.unlockedRewardIds : [];
+  out.history = Array.isArray(out.history) ? out.history : [];
+  out.familyCounts = {
+    ...base.familyCounts,
+    ...(out.familyCounts || {})
+  };
+
+  return out;
+}
+
+function loadBathProgress() {
+  try {
+    const raw = localStorage.getItem(BATH_PROGRESS_KEY);
+    if (!raw) return createDefaultProgress();
+    return normalizeProgress(JSON.parse(raw));
+  } catch {
+    return createDefaultProgress();
+  }
+}
+
+function saveBathProgress(progress) {
+  try {
+    localStorage.setItem(BATH_PROGRESS_KEY, JSON.stringify(progress));
+  } catch {}
+}
+
+function getLocalDateKey(date = new Date()) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function getDayNumberFromKey(key) {
+  if (!key) return null;
+  const dt = new Date(`${key}T00:00:00`);
+  if (Number.isNaN(dt.getTime())) return null;
+  return Math.floor(dt.getTime() / 86400000);
+}
+
+function updateDailyStreak(progress) {
+  const today = getLocalDateKey();
+
+  if (progress.lastPlayedDate === today) return;
+
+  if (!progress.lastPlayedDate) {
+    progress.dailyStreak = 1;
+    progress.lastPlayedDate = today;
+    return;
+  }
+
+  const prevDay = getDayNumberFromKey(progress.lastPlayedDate);
+  const todayDay = getDayNumberFromKey(today);
+
+  if (prevDay == null || todayDay == null) {
+    progress.dailyStreak = 1;
+    progress.lastPlayedDate = today;
+    return;
+  }
+
+  const diff = todayDay - prevDay;
+  if (diff === 1) {
+    progress.dailyStreak += 1;
+  } else if (diff > 1) {
+    progress.dailyStreak = 1;
+  }
+
+  progress.lastPlayedDate = today;
+}
+
+function isRewardUnlocked(reward, progress) {
+  const unlock = reward?.unlock || {};
+  const kind = unlock.kind;
+
+  if (kind === 'missions_completed') {
+    return progress.missionsCompleted >= (unlock.value || 0);
+  }
+
+  if (kind === 'stars_total') {
+    return progress.starsTotal >= (unlock.value || 0);
+  }
+
+  if (kind === 'family_completed') {
+    return (progress.familyCounts?.[unlock.family] || 0) >= (unlock.value || 0);
+  }
+
+  if (kind === 'unique_missions_completed') {
+    return (progress.uniqueMissionIds?.length || 0) >= (unlock.value || 0);
+  }
+
+  if (kind === 'timed_missions_completed') {
+    return progress.timedMissionsCompleted >= (unlock.value || 0);
+  }
+
+  if (kind === 'daily_streak') {
+    return progress.dailyStreak >= (unlock.value || 0);
+  }
+
+  return false;
+}
+
+function computeRewardUnlocks(progress) {
+  const already = new Set(progress.unlockedRewardIds || []);
+  const newly = [];
+
+  BATH_REWARDS_20.forEach(reward => {
+    if (!already.has(reward.id) && isRewardUnlocked(reward, progress)) {
+      newly.push(reward);
+    }
+  });
+
+  progress.unlockedRewardIds = Array.from(new Set([
+    ...(progress.unlockedRewardIds || []),
+    ...newly.map(r => r.id)
+  ]));
+
+  return newly;
+}
+
+function finalizeRunProgress() {
+  if (state.runFinalized) return;
+  state.runFinalized = true;
+
+  const starsEarned = calcStars();
+  const progress = normalizeProgress(state.progress || loadBathProgress());
+  const mission = state.runConfig.mission;
+
+  updateDailyStreak(progress);
+
+  progress.starsTotal += starsEarned;
+  progress.missionsCompleted += 1;
+
+  if (mission?.id && !progress.uniqueMissionIds.includes(mission.id)) {
+    progress.uniqueMissionIds.push(mission.id);
+  }
+
+  if (mission?.family) {
+    progress.familyCounts[mission.family] = (progress.familyCounts[mission.family] || 0) + 1;
+    progress.lastFamily = mission.family;
+  }
+
+  if (mission?.config?.timeLimitSec) {
+    progress.timedMissionsCompleted += 1;
+  }
+
+  progress.lastMissionId = mission?.id || '';
+
+  progress.history.unshift({
+    at: new Date().toISOString(),
+    missionId: mission?.id || '',
+    missionTitle: mission?.title || '',
+    family: mission?.family || '',
+    score: state.score,
+    stars: starsEarned,
+    mode: state.mode
+  });
+  progress.history = progress.history.slice(0, 30);
+
+  const newlyUnlocked = computeRewardUnlocks(progress);
+  saveBathProgress(progress);
+
+  state.progress = progress;
+  state.sessionRewards = newlyUnlocked;
+}
+
+/* =========================
+   Mission selection
+   ========================= */
+
 function getHotspotLabel(hotspotId) {
   return BATH_HOTSPOTS.find(h => h.id === hotspotId)?.label || 'จุดนี้';
 }
@@ -236,6 +458,59 @@ function resolveBossStepText(step, hotspotId) {
     .replace('จุดนี้', label);
 }
 
+function getMissionPoolForMode(mode) {
+  let pool = [...BATH_MISSIONS_50];
+
+  /* engine ตอนนี้ยังไม่ enforce timer เต็มรูปแบบ จึงพัก timed missions ไว้ก่อน */
+  pool = pool.filter(m => !m.config?.timeLimitSec);
+
+  if (mode === 'learn') {
+    pool = pool.filter(m => m.difficulty !== 'hard' && m.family !== 'boss');
+  }
+
+  if (mode === 'research') {
+    const researchIds = [
+      'm01-ready-basic-4',
+      'm16-scrub-4-points',
+      'm24-rinse-foam-hunt',
+      'm34-dry-before-clothes',
+      'm50-boss-bath-hero'
+    ];
+    pool = BATH_MISSIONS_50.filter(m => researchIds.includes(m.id));
+  }
+
+  return pool.length ? pool : [...BATH_MISSIONS_50];
+}
+
+function chooseMissionForRun(rand) {
+  const pool = getMissionPoolForMode(state.mode);
+  const progress = normalizeProgress(state.progress || loadBathProgress());
+
+  let preferred = progress.lastFamily
+    ? pool.filter(m => m.family !== progress.lastFamily)
+    : pool;
+
+  if (!preferred.length) preferred = pool;
+
+  const unplayed = preferred.filter(m => !progress.uniqueMissionIds.includes(m.id));
+  const source = unplayed.length ? unplayed : preferred;
+
+  return pickOne(source, rand) || source[0] || pool[0] || BATH_MISSIONS_50[0];
+}
+
+function pickCoachVariant(key) {
+  const list = BATH_COACH_VARIANTS?.[key];
+  if (!list?.length) return null;
+  const rand = makeSeededRandom(`${qs.get('seed') || 'bath'}-${state.phaseIndex}-${key}`);
+  return pickOne(list, rand);
+}
+
+function getPreviewMission() {
+  const rand = makeSeededRandom(qs.get('seed') || 'bath-preview');
+  const pool = getMissionPoolForMode('play');
+  return pickOne(pool, rand) || BATH_MISSIONS?.[0] || BATH_MISSIONS_50?.[0] || null;
+}
+
 function buildBathRunConfig() {
   const baseSeed = qs.get('seed') || String(Date.now());
   const mode = state.mode;
@@ -245,23 +520,37 @@ function buildBathRunConfig() {
     : `bath-play-${baseSeed}-${Date.now()}`;
 
   const rand = makeSeededRandom(deterministicSeed);
+  const mission = chooseMissionForRun(rand);
 
-  const mission = pickOne(BATH_MISSIONS, rand) || BATH_MISSIONS?.[0] || null;
-  const badge = pickOne(BATH_BADGES, rand) || BATH_BADGES?.[0] || null;
+  const readyCorrectIds = mission?.config?.readyCorrectIds || BATH_READY_CORRECT_IDS;
 
-  const readyWrongCount = mode === 'learn' ? 2 : 4;
-  const readyWrongIds = mode === 'research'
-    ? BATH_READY_WRONG_POOL.slice(0, readyWrongCount)
-    : sampleWithRand(BATH_READY_WRONG_POOL, readyWrongCount, rand);
+  const explicitWrongIds = mission?.config?.readyWrongIds || null;
+  const readyWrongCount = mission?.config?.readyWrongCount ??
+    (explicitWrongIds ? explicitWrongIds.length : (mode === 'learn' ? 2 : 4));
 
-  const scrubCount = mode === 'learn' ? 4 : 4;
-  const scrubHotspotIds = mode === 'research'
-    ? ['neck', 'ear', 'armpit', 'feet']
-    : sampleWithRand(BATH_SCRUB_POOL, scrubCount, rand);
+  const readyWrongIds = explicitWrongIds
+    ? explicitWrongIds.filter(id => !readyCorrectIds.includes(id))
+    : sampleWithRand(
+        BATH_READY_WRONG_POOL.filter(id => !readyCorrectIds.includes(id)),
+        readyWrongCount,
+        rand
+      );
 
-  const bossTemplate = mode === 'research'
-    ? (BATH_BOSS_TEMPLATES?.[0] || null)
-    : (pickOne(BATH_BOSS_TEMPLATES, rand) || BATH_BOSS_TEMPLATES?.[0] || null);
+  const scrubHotspotIds = mission?.config?.scrubHotspotIds
+    ? [...mission.config.scrubHotspotIds]
+    : sampleWithRand(
+        BATH_SCRUB_POOL,
+        mission?.config?.scrubRandomCount || (mode === 'learn' ? 4 : 4),
+        rand
+      );
+
+  const bossTemplateId = mission?.config?.bossTemplateId
+    || (mode === 'research'
+      ? (BATH_BOSS_TEMPLATES?.[0]?.id || 'classic')
+      : (pickOne(BATH_BOSS_TEMPLATES, rand)?.id || 'classic'));
+
+  const bossTemplate = BATH_BOSS_TEMPLATES.find(t => t.id === bossTemplateId)
+    || BATH_BOSS_TEMPLATES[0];
 
   const bossTarget = scrubHotspotIds.includes('armpit')
     ? 'armpit'
@@ -278,25 +567,21 @@ function buildBathRunConfig() {
 
   state.runConfig = {
     mission,
-    badge,
+    badge: null,
+    readyCorrectIds,
     readyWrongIds,
     scrubHotspotIds,
-    bossTemplateId: bossTemplate?.id || 'classic',
-    bossSteps
+    bossTemplateId,
+    bossSteps,
+    timeLimitSec: mission?.config?.timeLimitSec || null,
+    maxWrong: mission?.config?.maxWrong || null,
+    memoryPrompt: mission?.config?.memoryPrompt || null
   };
 }
 
-function pickCoachVariant(key) {
-  const list = BATH_COACH_VARIANTS?.[key];
-  if (!list?.length) return null;
-  const rand = makeSeededRandom(`${qs.get('seed') || 'bath'}-${state.phaseIndex}-${key}`);
-  return pickOne(list, rand);
-}
-
-function getPreviewMission() {
-  const rand = makeSeededRandom(qs.get('seed') || 'bath-preview');
-  return pickOne(BATH_MISSIONS, rand) || BATH_MISSIONS?.[0] || null;
-}
+/* =========================
+   State init / runtime
+   ========================= */
 
 function initHotspotsState() {
   state.hotspots = {};
@@ -330,7 +615,7 @@ function updateProgressBox() {
   let total = 0;
 
   if (phaseId === 'ready') {
-    total = BATH_READY_CORRECT_IDS.length;
+    total = state.runConfig.readyCorrectIds.length;
     done = state.selectedItems.size;
   } else if (phaseId === 'scrub') {
     total = state.runConfig.scrubHotspotIds.length;
@@ -389,6 +674,8 @@ function startGame() {
   state.isNavigating = false;
   state.isPhaseLocked = false;
   state.quizAnswered = false;
+  state.runFinalized = false;
+  state.sessionRewards = [];
   if (app.scoreValue) app.scoreValue.textContent = '0';
 
   initHotspotsState();
@@ -490,6 +777,10 @@ function nextPhase() {
   renderPhase();
 }
 
+/* =========================
+   Tool bar
+   ========================= */
+
 function renderToolBar(tools = [], opts = {}) {
   const {
     showNext = false,
@@ -550,12 +841,16 @@ function selectTool(toolId, tools, opts) {
   }
 }
 
+/* =========================
+   Ready phase
+   ========================= */
+
 function renderReadyChecklist() {
   if (!app.itemsLayer) return;
   const old = app.itemsLayer.querySelector('.ready-checklist');
   if (old) old.remove();
 
-  const correctItems = BATH_ITEMS.filter(i => BATH_READY_CORRECT_IDS.includes(i.id));
+  const correctItems = BATH_ITEMS.filter(i => state.runConfig.readyCorrectIds.includes(i.id));
 
   const checklist = document.createElement('div');
   checklist.className = 'ready-checklist';
@@ -573,8 +868,12 @@ function renderReadyChecklist() {
 }
 
 function renderReadyPhase() {
+  const intro = state.runConfig.mission?.title
+    ? `${state.runConfig.mission.title} • `
+    : '';
+
   coachSay(
-    pickCoachVariant('readyStart') || BATH_COACH_LINES.readyStart,
+    `${intro}${pickCoachVariant('readyStart') || BATH_COACH_LINES.readyStart}`,
     true,
     'coach'
   );
@@ -585,7 +884,7 @@ function renderReadyPhase() {
   wrap.className = 'items-grid';
 
   const readyItems = BATH_ITEMS.filter(item =>
-    BATH_READY_CORRECT_IDS.includes(item.id) ||
+    state.runConfig.readyCorrectIds.includes(item.id) ||
     state.runConfig.readyWrongIds.includes(item.id)
   );
 
@@ -606,7 +905,7 @@ function renderReadyPhase() {
 function handleReadyItem(item, el) {
   if (state.isPhaseLocked) return;
 
-  const isCorrect = BATH_READY_CORRECT_IDS.includes(item.id);
+  const isCorrect = state.runConfig.readyCorrectIds.includes(item.id);
 
   logEvent('item_tap', { itemId: item.id, correct: isCorrect });
   resetIdleHint();
@@ -629,31 +928,32 @@ function handleReadyItem(item, el) {
     coachSay(BATH_COACH_LINES.readyWrong, true, 'coach');
   }
 
-  if (state.selectedItems.size >= BATH_READY_CORRECT_IDS.length) {
+  if (state.selectedItems.size >= state.runConfig.readyCorrectIds.length) {
     logEvent('phase_clear', { phase: 'ready', ms: Date.now() - state.phaseStartedAt });
     completePhase();
   }
 }
 
+/* =========================
+   Hotspot helpers
+   ========================= */
+
 function getFirstPendingHotspotId() {
   const phaseId = BATH_PHASES[state.phaseIndex]?.id;
 
   if (phaseId === 'scrub') {
-    const next = state.runConfig.scrubHotspotIds.find(id => !state.hotspots[id]?.scrubDone);
-    return next || null;
+    return state.runConfig.scrubHotspotIds.find(id => !state.hotspots[id]?.scrubDone) || null;
   }
 
   if (phaseId === 'rinseDry') {
     if (state.substep === 'rinse') {
-      const next = state.runConfig.scrubHotspotIds.find(id =>
+      return state.runConfig.scrubHotspotIds.find(id =>
         state.hotspots[id]?.scrubDone && !state.hotspots[id]?.rinsed
-      );
-      return next || null;
+      ) || null;
     }
-    const next = state.runConfig.scrubHotspotIds.find(id =>
+    return state.runConfig.scrubHotspotIds.find(id =>
       state.hotspots[id]?.rinsed && !state.hotspots[id]?.dry
-    );
-    return next || null;
+    ) || null;
   }
 
   return null;
@@ -677,9 +977,7 @@ function renderAvatarHotspots(mode = 'normal') {
   BATH_HOTSPOTS.forEach(h => {
     if (!allowedIds.includes(h.id)) return;
 
-    const st = mode === 'boss'
-      ? state.bossHotspot
-      : state.hotspots[h.id];
+    const st = mode === 'boss' ? state.bossHotspot : state.hotspots[h.id];
 
     const div = document.createElement('div');
     div.className = 'hotspot';
@@ -777,6 +1075,10 @@ function renderFoamDecor() {
   });
 }
 
+/* =========================
+   Scrub phase
+   ========================= */
+
 function renderScrubPhase() {
   state.selectedTool = 'soap';
   coachSay(
@@ -855,6 +1157,10 @@ function startScrub(hotspotId, el) {
     }
   }, 100);
 }
+
+/* =========================
+   Rinse / dry phase
+   ========================= */
 
 function renderRinseDryPhase() {
   state.substep = 'rinse';
@@ -946,6 +1252,10 @@ function handleRinseDryClick(hotspotId) {
     }
   }
 }
+
+/* =========================
+   Boss phase
+   ========================= */
 
 function renderBossPhase() {
   resetBossHotspot();
@@ -1096,19 +1406,26 @@ function handleBossHotspot(hotspotId, el) {
   }
 }
 
+/* =========================
+   Summary / quiz
+   ========================= */
+
 function showSummary() {
   cleanupRuntime();
+  finalizeRunProgress();
+
   if (app.scene) app.scene.classList.add('hidden');
   if (app.actionBar) app.actionBar.classList.add('hidden');
 
   const stars = calcStars();
   const durationSec = Math.max(1, Math.round((Date.now() - state.startedAt) / 1000));
-  const badge = state.runConfig.badge?.label || (
-    stars === 3 ? 'Bath Star 🛁' :
-    stars === 2 ? 'Foam Finder 🫧' :
-    'Clean Helper ✨'
-  );
   const missionTitle = state.runConfig.mission?.title || 'ภารกิจอาบน้ำสะอาด';
+  const badge =
+    state.sessionRewards[0]?.label ||
+    state.runConfig.badge?.label ||
+    (stars === 3 ? 'Bath Star 🛁' :
+     stars === 2 ? 'Foam Finder 🫧' :
+     'Clean Helper ✨');
 
   logEvent('game_complete', {
     scoreFinal: state.score,
@@ -1117,10 +1434,13 @@ function showSummary() {
     mode: state.mode,
     hintsUsed: state.hintsUsed,
     missionId: state.runConfig.mission?.id || '',
-    badgeId: state.runConfig.badge?.id || '',
-    bossTemplateId: state.runConfig.bossTemplateId || '',
-    scrubHotspotIds: state.runConfig.scrubHotspotIds
+    rewardIds: state.sessionRewards.map(r => r.id)
   });
+
+  const progress = state.progress || createDefaultProgress();
+  const rewardLine = state.sessionRewards.length
+    ? `รางวัลใหม่: ${state.sessionRewards.map(r => r.label).join(' • ')}`
+    : `ดาวสะสม ${progress.starsTotal} • mission ไม่ซ้ำ ${progress.uniqueMissionIds.length} • เล่นต่อเนื่อง ${progress.dailyStreak} วัน`;
 
   if (!app.summaryRoot) return;
   app.summaryRoot.innerHTML = `
@@ -1132,6 +1452,7 @@ function showSummary() {
         ${missionTitle} สำเร็จแล้ว
         หนูทำได้ดีมาก สิ่งที่ควรจำคือ เลือกของให้ถูก ถูจุดสำคัญ ล้างฟองออก และเช็ดตัวให้แห้ง
       </p>
+      <p class="summary-text">${rewardLine}</p>
 
       <div class="summary-actions">
         <button id="toQuizBtn" class="big-btn primary" type="button">ทำคำถามสั้น ๆ</button>
@@ -1236,6 +1557,10 @@ function showQuizDone() {
   $('#quizHubBtn')?.addEventListener('click', () => safeNavigate(parseHubUrl()));
 }
 
+/* =========================
+   Help buttons / init
+   ========================= */
+
 function handleHelpButton() {
   unlockBathAudio();
 
@@ -1279,6 +1604,7 @@ document.addEventListener('visibilitychange', () => {
 });
 
 function init() {
+  state.progress = loadBathProgress();
   setBathAudioEnabled(state.audioEnabled);
   bindTopButtons();
   initHotspotsState();
