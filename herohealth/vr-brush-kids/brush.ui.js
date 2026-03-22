@@ -67,30 +67,14 @@ export function createBrushUI(el) {
 
       if (zone.done) {
         btn.style.opacity = '1';
+        btn.style.transform = '';
+      } else if (zone.id === activeZoneId) {
+        btn.style.opacity = '1';
       } else {
         btn.style.opacity = '';
+        btn.style.transform = '';
       }
     });
-  }
-
-  function renderPattern(view = {}) {
-    if (el.patternBadge) {
-      el.patternBadge.textContent = view.label || 'เลือกโซนก่อน';
-    }
-
-    if (el.patternHint) {
-      el.patternHint.textContent = view.hint || 'เลือกโซนก่อน แล้วถูตามลายที่บอก';
-    }
-
-    if (el.patternProgressFill) {
-      const fill = clamp(Number(view.progressPercent ?? 0), 0, 100);
-      el.patternProgressFill.style.width = `${fill}%`;
-    }
-
-    if (el.patternProgressText) {
-      el.patternProgressText.textContent =
-        view.progressText || '0 / 2 รอบ';
-    }
   }
 
   function moveBrushCursor(e, brushPad, brushCursor) {
@@ -146,7 +130,6 @@ export function createBrushUI(el) {
     setCoach,
     renderHud,
     renderZones,
-    renderPattern,
     moveBrushCursor,
     openHelp,
     openSummary,
