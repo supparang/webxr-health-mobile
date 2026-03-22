@@ -1,274 +1,257 @@
 // === /herohealth/gate/games/brush/warmup.js ===
-// FULL PATCH v20260318-BRUSH-WARMUP-AUTO-FINISH
+// Brush Bubble Warmup
+// Child-friendly warmup gate for Brush Kids
+// Supports mount(api) and mount(root, api)
 
-let __brushWarmupStyleLoaded = false;
+export function mount(arg1, arg2) {
+  const { root, api } = normalizeMountArgs(arg1, arg2);
 
-function loadStyle(){
-  if(__brushWarmupStyleLoaded) return;
-  __brushWarmupStyleLoaded = true;
+  let started = false;
+  let destroyed = false;
+  let timerId = null;
+  let remain = 20;
+  let popped = 0;
+  const goal = 8;
+  const bubblePool = [];
+  const bubbleCount = 10;
 
-  const id = 'gate-style-brush';
-  if(document.getElementById(id)) return;
-
-  const link = document.createElement('link');
-  link.id = id;
-  link.rel = 'stylesheet';
-  link.href = new URL('./style.css', import.meta.url).toString();
-  document.head.appendChild(link);
-}
-
-function nowISO(){
-  return new Date().toISOString();
-}
-
-export async function mount(root, ctx = {}, api = {}){
-  loadStyle();
-
-  const mountEl = document.createElement('div');
-  mountEl.className = 'brush-gate-game brush-gate-warmup';
-  mountEl.innerHTML = `
-    <div class="brush-gate-card">
-      <div class="brush-gate-head">
-        <div class="brush-gate-badge">WARMUP</div>
-        <h2 class="brush-gate-title">Brush Warmup</h2>
+  root.innerHTML = `
+    <div class="brush-gate brush-gate-warmup">
+      <div class="brush-gate-card">
+        <div class="brush-gate-kicker">Brush Kids • Warmup</div>
+        <h2 class="brush-gate-title">Brush Bubble Warmup</h2>
         <p class="brush-gate-sub">
-          ฝึกมือก่อนเข้าเกมจริง • เลือกโซนฟันให้ถูก • แตะให้ครบตามที่กำหนด
+          แตะฟองคราบให้แตกให้ครบ เพื่อเตรียมพร้อมก่อนแปรงฟันจริง
         </p>
-      </div>
 
-      <div class="brush-gate-progress-wrap">
-        <div class="brush-gate-progress-label">
-          <span>Progress</span>
-          <span id="bwPct">0%</span>
+        <div class="brush-gate-hud">
+          <div class="brush-gate-pill">
+            <span>เวลา</span>
+            <strong data-time>${formatTime(remain)}</strong>
+          </div>
+          <div class="brush-gate-pill">
+            <span>แตกแล้ว</span>
+            <strong data-score>${popped} / ${goal}</strong>
+          </div>
         </div>
+
         <div class="brush-gate-progress">
-          <div id="bwFill" class="brush-gate-progress-fill"></div>
+          <div class="brush-gate-progress-fill" data-fill style="width:0%"></div>
         </div>
-      </div>
 
-      <div class="brush-gate-mission">
-        <div class="brush-gate-mission-title">ภารกิจ</div>
-        <div id="bwMissionText" class="brush-gate-mission-text">
-          แตะโซนที่กำลังเรืองแสงให้ครบ 6 ครั้ง
-        </div>
-      </div>
+        <div class="brush-gate-playfield brush-gate-bubbles" data-playfield></div>
 
-      <div class="brush-gate-playfield">
-        <div class="brush-gate-mouth">
-          <div class="brush-gate-gum brush-gate-gum-top"></div>
-          <div class="brush-gate-gum brush-gate-gum-bottom"></div>
-
-          <div class="brush-gate-teeth brush-gate-teeth-top">
-            <div class="tooth"></div><div class="tooth"></div><div class="tooth"></div><div class="tooth"></div>
-            <div class="tooth"></div><div class="tooth"></div><div class="tooth"></div><div class="tooth"></div>
-          </div>
-
-          <div class="brush-gate-teeth brush-gate-teeth-bottom">
-            <div class="tooth"></div><div class="tooth"></div><div class="tooth"></div><div class="tooth"></div>
-            <div class="tooth"></div><div class="tooth"></div><div class="tooth"></div><div class="tooth"></div>
-          </div>
-
-          <div id="bwZones" class="brush-gate-zones"></div>
-          <div id="bwPopLayer" class="brush-gate-poplayer"></div>
-        </div>
-      </div>
-
-      <div class="brush-gate-footer">
-        <div class="brush-gate-hint" id="bwHint">
-          👆 แตะโซนที่เรืองแสง
+        <div class="brush-gate-note" data-note>
+          แตะฟองสีชมพูให้แตก ค่อย ๆ ทำทีละอันก็ได้
         </div>
 
         <div class="brush-gate-actions">
-          <button type="button" class="brush-gate-btn brush-gate-btn-ghost" id="bwRestartBtn">เริ่มใหม่</button>
-          <button type="button" class="brush-gate-btn brush-gate-btn-primary" id="bwFinishBtn" disabled>พร้อมเข้าเกม</button>
+          <button class="brush-gate-btn brush-gate-btn-primary" type="button" data-start>
+            เริ่มวอร์มอัป
+          </button>
         </div>
       </div>
     </div>
   `;
 
-  root.replaceChildren(mountEl);
+  const timeEl = root.querySelector('[data-time]');
+  const scoreEl = root.querySelector('[data-score]');
+  const fillEl = root.querySelector('[data-fill]');
+  const playfield = root.querySelector('[data-playfield]');
+  const noteEl = root.querySelector('[data-note]');
+  const startBtn = root.querySelector('[data-start]');
 
-  const zonesHost = mountEl.querySelector('#bwZones');
-  const popLayer = mountEl.querySelector('#bwPopLayer');
-  const pctEl = mountEl.querySelector('#bwPct');
-  const fillEl = mountEl.querySelector('#bwFill');
-  const missionTextEl = mountEl.querySelector('#bwMissionText');
-  const hintEl = mountEl.querySelector('#bwHint');
-  const restartBtn = mountEl.querySelector('#bwRestartBtn');
-  const finishBtn = mountEl.querySelector('#bwFinishBtn');
+  setGateTitle(api, 'Brush Bubble Warmup', 'แตะฟองคราบให้แตกเพื่อเตรียมพร้อมก่อนเริ่มแปรง');
+  updateStats();
 
-  const ZONES = [
-    { id:'upper_outer', label:'ฟันบนด้านนอก', x:18, y:20, w:64, h:14 },
-    { id:'upper_inner', label:'ฟันบนด้านใน', x:24, y:36, w:52, h:11 },
-    { id:'upper_chew', label:'ฟันบนด้านบดเคี้ยว', x:30, y:49, w:40, h:8 },
-    { id:'lower_outer', label:'ฟันล่างด้านนอก', x:18, y:66, w:64, h:14 },
-    { id:'lower_inner', label:'ฟันล่างด้านใน', x:24, y:54, w:52, h:11 },
-    { id:'lower_chew', label:'ฟันล่างด้านบดเคี้ยว', x:30, y:44, w:40, h:8 }
-  ];
+  startBtn?.addEventListener('click', start);
 
-  const S = {
-    hits: 0,
-    miss: 0,
-    needHits: 6,
-    activeIdx: 0,
-    finished: false,
-    ended: false,
-    startedAt: performance.now(),
-    els: []
-  };
-
-  function elapsedSec(){
-    return Math.max(0, Math.round((performance.now() - S.startedAt) / 1000));
+  for (let i = 0; i < bubbleCount; i += 1) {
+    const btn = makeBubble(i);
+    bubblePool.push(btn);
+    playfield.appendChild(btn);
+    placeBubble(btn);
   }
 
-  function finishWarmup(){
-    if(S.ended) return;
-    S.ended = true;
+  function start() {
+    if (started || destroyed) return;
+    started = true;
 
-    api.finish?.({
-      ok: true,
-      title: 'Warmup เสร็จแล้ว!',
-      subtitle: 'พร้อมเข้าเกม Brush VR',
-      lines: [
-        `Hit: ${S.hits}/${S.needHits}`,
-        `Miss: ${S.miss}`,
-        `เวลา: ${elapsedSec()} วินาที`
-      ],
-      buffs: {
-        wgskip: '1',
-        warmupDone: '1'
-      },
-      markDailyDone: true,
-      savedAt: nowISO()
-    });
-  }
+    startBtn?.remove();
 
-  function setStats(){
-    const pct = Math.round((S.hits / S.needHits) * 100);
-    pctEl.textContent = `${pct}%`;
-    fillEl.style.width = `${pct}%`;
+    noteEl.textContent = 'เยี่ยมเลย! แตะฟองคราบให้แตกให้ครบ';
+    timerId = window.setInterval(() => {
+      remain -= 1;
+      renderHud();
 
-    api.setStats?.({
-      time: elapsedSec(),
-      score: S.hits,
-      miss: S.miss,
-      acc: `${pct}%`
-    });
-
-    missionTextEl.textContent =
-      S.hits >= S.needHits
-        ? 'เสร็จแล้ว! กำลังเปิดสรุปผล...'
-        : `แตะโซนที่กำลังเรืองแสงให้ครบ ${S.needHits} ครั้ง (${S.hits}/${S.needHits})`;
-
-    const active = ZONES[S.activeIdx];
-    hintEl.textContent =
-      S.hits >= S.needHits
-        ? '✅ Warmup เสร็จแล้ว'
-        : `👆 ตอนนี้แตะ: ${active?.label || 'โซนที่เรืองแสง'}`;
-
-    finishBtn.disabled = S.hits < S.needHits;
-  }
-
-  function setSub(){
-    api.setSub?.('แตะโซนที่เรืองแสงให้ครบก่อนเข้าเกม');
-  }
-
-  function spawnPop(x, y, text){
-    const el = document.createElement('div');
-    el.className = 'brush-gate-pop';
-    el.textContent = text;
-    el.style.left = `${x}px`;
-    el.style.top = `${y}px`;
-    popLayer.appendChild(el);
-    setTimeout(() => el.remove(), 700);
-  }
-
-  function renderZones(){
-    zonesHost.innerHTML = '';
-    S.els = [];
-
-    ZONES.forEach((z, idx) => {
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'brush-gate-zone';
-      if(idx === S.activeIdx && !S.finished) btn.classList.add('active');
-
-      btn.style.left = `${z.x}%`;
-      btn.style.top = `${z.y}%`;
-      btn.style.width = `${z.w}%`;
-      btn.style.height = `${z.h}%`;
-      btn.innerHTML = `
-        <span class="brush-gate-zone-label">${z.label}</span>
-        <span class="brush-gate-zone-icon">${idx === S.activeIdx && !S.finished ? '✨' : ''}</span>
-      `;
-
-      btn.addEventListener('click', () => {
-        if(S.finished || S.ended) return;
-
-        const rect = zonesHost.getBoundingClientRect();
-        const x = rect.width * ((z.x + z.w / 2) / 100);
-        const y = rect.height * ((z.y + z.h / 2) / 100);
-
-        if(idx === S.activeIdx){
-          S.hits++;
-          spawnPop(x, y, 'GOOD');
-          btn.classList.add('good');
-          setTimeout(() => btn.classList.remove('good'), 180);
-
-          if(S.hits >= S.needHits){
-            S.finished = true;
-            S.els.forEach(el => el.classList.remove('active'));
-            setStats();
-
-            setTimeout(() => {
-              finishWarmup();
-            }, 220);
-            return;
+      if (remain <= 0) {
+        finish({
+          passed: true,
+          reason: 'time_up',
+          summary: {
+            popped,
+            goal,
+            remain: 0
           }
+        });
+      }
+    }, 1000);
+  }
 
-          S.activeIdx = (S.activeIdx + 1) % ZONES.length;
-          renderZones();
-          setStats();
-        }else{
-          S.miss++;
-          spawnPop(x, y, 'MISS');
-          btn.classList.add('bad');
-          setTimeout(() => btn.classList.remove('bad'), 180);
-          setStats();
-        }
+  function makeBubble(index) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'brush-bubble';
+    btn.setAttribute('aria-label', `Bubble ${index + 1}`);
+    btn.textContent = '🫧';
+
+    btn.addEventListener('pointerdown', () => {
+      if (!started || destroyed) return;
+      if (btn.dataset.popped === '1') return;
+
+      btn.dataset.popped = '1';
+      btn.classList.add('is-popped');
+      popped += 1;
+
+      renderHud();
+
+      if (popped >= goal) {
+        finish({
+          passed: true,
+          reason: 'goal_reached',
+          summary: {
+            popped,
+            goal,
+            remain
+          }
+        });
+        return;
+      }
+
+      window.setTimeout(() => {
+        if (destroyed) return;
+        btn.classList.remove('is-popped');
+        btn.dataset.popped = '0';
+        placeBubble(btn);
+      }, 260);
+    });
+
+    return btn;
+  }
+
+  function placeBubble(el) {
+    const x = 8 + Math.random() * 78;
+    const y = 10 + Math.random() * 72;
+    const s = 0.88 + Math.random() * 0.36;
+    el.style.left = `${x}%`;
+    el.style.top = `${y}%`;
+    el.style.transform = `translate(-50%,-50%) scale(${s})`;
+  }
+
+  function renderHud() {
+    if (timeEl) timeEl.textContent = formatTime(Math.max(0, remain));
+    if (scoreEl) scoreEl.textContent = `${popped} / ${goal}`;
+    if (fillEl) fillEl.style.width = `${Math.min(100, Math.round((popped / goal) * 100))}%`;
+
+    if (noteEl) {
+      if (popped >= goal) {
+        noteEl.textContent = 'เก่งมาก! พร้อมเข้าเกมแปรงฟันแล้ว';
+      } else if (popped >= Math.ceil(goal / 2)) {
+        noteEl.textContent = 'เยี่ยมเลย เหลืออีกนิดเดียว';
+      } else {
+        noteEl.textContent = 'แตะฟองคราบให้แตก ค่อย ๆ ทำทีละอันก็ได้';
+      }
+    }
+
+    updateStats();
+  }
+
+  function updateStats() {
+    if (typeof api?.setStats === 'function') {
+      api.setStats({
+        label: 'Brush Bubble Warmup',
+        progressNow: popped,
+        progressMax: goal,
+        timeLeftSec: remain
       });
+    }
+  }
 
-      zonesHost.appendChild(btn);
-      S.els.push(btn);
+  function finish(payload = {}) {
+    if (destroyed) return;
+    destroyed = true;
+    if (timerId) {
+      clearInterval(timerId);
+      timerId = null;
+    }
+
+    renderHud();
+
+    if (noteEl) {
+      noteEl.textContent =
+        payload.reason === 'goal_reached'
+          ? 'พร้อมแล้ว ไปแปรงฟันกันเลย!'
+          : 'ครบเวลาแล้ว ไปต่อได้เลย!';
+    }
+
+    completeGate(api, {
+      kind: 'warmup',
+      game: 'brush',
+      title: 'Brush Bubble Warmup',
+      passed: true,
+      score: popped,
+      maxScore: goal,
+      ...payload
     });
   }
-
-  function restart(){
-    S.hits = 0;
-    S.miss = 0;
-    S.activeIdx = 0;
-    S.finished = false;
-    S.ended = false;
-    S.startedAt = performance.now();
-
-    renderZones();
-    setStats();
-    setSub();
-  }
-
-  restartBtn.addEventListener('click', restart);
-
-  finishBtn.addEventListener('click', () => {
-    finishWarmup();
-  });
-
-  restart();
 
   return {
-    destroy(){
-      root.replaceChildren();
+    start,
+    destroy() {
+      destroyed = true;
+      if (timerId) clearInterval(timerId);
     }
   };
 }
 
-export default { mount };
+export default mount;
+
+function normalizeMountArgs(arg1, arg2) {
+  if (isElement(arg1)) {
+    return { root: arg1, api: arg2 || {} };
+  }
+  const api = arg1 || {};
+  const root =
+    api.container ||
+    document.querySelector('[data-gate-stage]') ||
+    document.getElementById('gate-game') ||
+    document.getElementById('gateMount') ||
+    document.getElementById('app') ||
+    document.body;
+  return { root, api };
+}
+
+function setGateTitle(api, title, sub) {
+  try { api?.setTitle?.(title); } catch {}
+  try { api?.setSub?.(sub); } catch {}
+}
+
+function completeGate(api, payload) {
+  try {
+    if (typeof api?.complete === 'function') return api.complete(payload);
+    if (typeof api?.finish === 'function') return api.finish(payload);
+    if (typeof api?.done === 'function') return api.done(payload);
+    if (typeof api?.summary === 'function') return api.summary(payload);
+    if (typeof api?.next === 'function') return api.next(payload);
+  } catch {}
+}
+
+function formatTime(sec) {
+  const mm = String(Math.floor(sec / 60)).padStart(2, '0');
+  const ss = String(sec % 60).padStart(2, '0');
+  return `${mm}:${ss}`;
+}
+
+function isElement(v) {
+  return v && typeof v === 'object' && v.nodeType === 1;
+}
