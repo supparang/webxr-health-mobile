@@ -80,8 +80,7 @@ function logEvent(type, data = {}) {
 
 function lockPhase(flag = true) {
   state.isPhaseLocked = flag;
-  app.scene.classList.toggle('is-locked', flag);
-  app.actionBar.classList.toggle('is-locked', flag);
+  if (app.scene) app.scene.classList.toggle('is-locked', flag);
 }
 
 function cleanupRuntime() {
@@ -134,13 +133,13 @@ function speakByType(text, type = 'coach') {
 }
 
 function coachSay(text, speak = false, type = 'coach') {
-  app.coachBubble.textContent = text;
+  if (app.coachBubble) app.coachBubble.textContent = text;
   if (speak) speakByType(text, type);
 }
 
 function setScore(delta) {
   state.score = Math.max(0, state.score + delta);
-  app.scoreValue.textContent = String(state.score);
+  if (app.scoreValue) app.scoreValue.textContent = String(state.score);
 }
 
 function calcStars() {
@@ -150,23 +149,23 @@ function calcStars() {
 }
 
 function setPhaseUI(title, task) {
-  app.phaseBadge.textContent = title;
-  app.taskText.textContent = task;
+  if (app.phaseBadge) app.phaseBadge.textContent = title;
+  if (app.taskText) app.taskText.textContent = task;
 }
 
 function clearEffectDecor() {
-  app.effectsLayer.innerHTML = '';
+  if (app.effectsLayer) app.effectsLayer.innerHTML = '';
 }
 
 function clearPlayLayers() {
-  app.hotspotsLayer.innerHTML = '';
-  app.itemsLayer.innerHTML = '';
+  if (app.hotspotsLayer) app.hotspotsLayer.innerHTML = '';
+  if (app.itemsLayer) app.itemsLayer.innerHTML = '';
   clearEffectDecor();
 }
 
 function clearPanels() {
-  app.summaryRoot.innerHTML = '';
-  app.quizRoot.innerHTML = '';
+  if (app.summaryRoot) app.summaryRoot.innerHTML = '';
+  if (app.quizRoot) app.quizRoot.innerHTML = '';
 }
 
 function clearActiveScrub() {
@@ -174,12 +173,15 @@ function clearActiveScrub() {
     clearInterval(state.scrubTimer);
     state.scrubTimer = null;
   }
-  app.hotspotsLayer.querySelectorAll('.hotspot.is-active').forEach(el => {
-    el.classList.remove('is-active');
-  });
+  if (app.hotspotsLayer) {
+    app.hotspotsLayer.querySelectorAll('.hotspot.is-active').forEach(el => {
+      el.classList.remove('is-active');
+    });
+  }
 }
 
 function showPhaseBurst(text = 'ผ่านด่านแล้ว') {
+  if (!app.effectsLayer) return;
   const burst = document.createElement('div');
   burst.className = 'phase-burst';
   burst.textContent = `🎉 ${text}`;
@@ -188,6 +190,8 @@ function showPhaseBurst(text = 'ผ่านด่านแล้ว') {
 }
 
 function spawnSparkleAtHotspot(hotspotId) {
+  if (!app.hotspotsLayer || !app.roomStage || !app.effectsLayer) return;
+
   const node = app.hotspotsLayer.querySelector(`[data-hotspot="${hotspotId}"]`);
   if (!node) return;
 
@@ -204,6 +208,12 @@ function spawnSparkleAtHotspot(hotspotId) {
 }
 
 function updateProgressBox() {
+  const progressEl = document.getElementById('progressValue');
+  if (!progressEl) {
+    console.warn('[BathV2] #progressValue not found');
+    return;
+  }
+
   const phaseId = BATH_PHASES[state.phaseIndex]?.id;
   let done = 0;
   let total = 0;
@@ -224,7 +234,7 @@ function updateProgressBox() {
     done = state.bossIndex;
   }
 
-  app.progressValue.textContent = `${done}/${total}`;
+  progressEl.textContent = `${done}/${total}`;
 }
 
 function resetIdleHint() {
@@ -268,25 +278,26 @@ function startGame() {
   state.isNavigating = false;
   state.isPhaseLocked = false;
   state.quizAnswered = false;
-  app.scoreValue.textContent = '0';
+  if (app.scoreValue) app.scoreValue.textContent = '0';
 
   initHotspotsState();
   resetBossHotspot();
 
-  app.briefCard.innerHTML = '';
+  if (app.briefCard) app.briefCard.innerHTML = '';
   clearPanels();
-  app.scene.classList.remove('hidden');
-  app.actionBar.classList.remove('hidden');
+  if (app.scene) app.scene.classList.remove('hidden');
+  if (app.actionBar) app.actionBar.classList.remove('hidden');
 
   renderPhase();
 }
 
 function showBrief() {
-  app.scene.classList.add('hidden');
-  app.actionBar.classList.add('hidden');
+  if (app.scene) app.scene.classList.add('hidden');
+  if (app.actionBar) app.actionBar.classList.add('hidden');
   setPhaseUI('Bath v2', 'พร้อมเริ่ม');
   updateProgressBox();
 
+  if (!app.briefCard) return;
   app.briefCard.innerHTML = `
     <h1 class="brief-title">${BATH_COPY.title}</h1>
     <p class="brief-sub">${BATH_COPY.sub}</p>
@@ -296,13 +307,13 @@ function showBrief() {
     </div>
   `;
 
-  $('#startBtn').addEventListener('click', () => {
+  $('#startBtn')?.addEventListener('click', () => {
     unlockBathAudio();
     startGame();
     speakBathHint(BATH_AUDIO.readyHelp, state.audioEnabled);
   });
 
-  $('#briefHelpBtn').addEventListener('click', () => {
+  $('#briefHelpBtn')?.addEventListener('click', () => {
     unlockBathAudio();
     const text = 'เลือกของให้ถูก ถูให้ครบ ล้างฟอง แล้วเช็ดตัวให้แห้ง';
     coachSay(text, true, 'hint');
@@ -331,6 +342,7 @@ function renderPhase() {
 
 function completePhase(nextLabel = 'ไปด่านต่อไป') {
   if (state.isPhaseLocked) return;
+
   lockPhase(true);
   showPhaseBurst(BATH_COACH_LINES.phaseClear);
   coachSay(BATH_COACH_LINES.phaseClear, true, 'celebration');
@@ -367,6 +379,7 @@ function renderToolBar(tools = [], opts = {}) {
     nextHandler = nextPhase
   } = opts;
 
+  if (!app.actionBar) return;
   app.actionBar.innerHTML = '';
 
   tools.forEach(toolId => {
@@ -420,6 +433,7 @@ function selectTool(toolId, tools, opts) {
 }
 
 function renderReadyChecklist() {
+  if (!app.itemsLayer) return;
   const old = app.itemsLayer.querySelector('.ready-checklist');
   if (old) old.remove();
 
@@ -441,6 +455,7 @@ function renderReadyChecklist() {
 function renderReadyPhase() {
   coachSay(BATH_COACH_LINES.readyStart, true, 'coach');
 
+  if (!app.itemsLayer) return;
   const wrap = document.createElement('div');
   wrap.className = 'items-grid';
 
@@ -510,6 +525,7 @@ function getFirstPendingHotspotId() {
 }
 
 function renderAvatarHotspots(mode = 'normal') {
+  if (!app.hotspotsLayer) return;
   app.hotspotsLayer.innerHTML = '';
 
   const targetId = state.mode === 'learn' && mode !== 'boss' ? getFirstPendingHotspotId() : null;
@@ -566,16 +582,19 @@ function renderAvatarHotspots(mode = 'normal') {
 }
 
 function updateHotspotProgress(hotspotId, ratio) {
+  if (!app.hotspotsLayer) return;
   const bar = app.hotspotsLayer.querySelector(`[data-hotspot="${hotspotId}"] .hotspot-progress > i`);
   if (bar) bar.style.width = `${Math.min(100, Math.round(ratio * 100))}%`;
 }
 
 function updateHotspotDone(hotspotId) {
+  if (!app.hotspotsLayer) return;
   const node = app.hotspotsLayer.querySelector(`[data-hotspot="${hotspotId}"]`);
   if (node) node.classList.add('is-done');
 }
 
 function renderFoamDecor() {
+  if (!app.effectsLayer) return;
   app.effectsLayer.querySelectorAll('.foam-dot').forEach(n => n.remove());
 
   const phaseId = BATH_PHASES[state.phaseIndex]?.id;
@@ -695,9 +714,11 @@ function renderRinseDryPhase() {
 }
 
 function updateRinseDryText() {
-  app.taskText.textContent = state.substep === 'rinse'
-    ? 'เลือกฝักบัว แล้วแตะจุดที่มีฟอง'
-    : 'เลือกผ้าเช็ดตัว แล้วแตะจุดที่ล้างแล้ว';
+  if (app.taskText) {
+    app.taskText.textContent = state.substep === 'rinse'
+      ? 'เลือกฝักบัว แล้วแตะจุดที่มีฟอง'
+      : 'เลือกผ้าเช็ดตัว แล้วแตะจุดที่ล้างแล้ว';
+  }
 }
 
 function handleRinseDryClick(hotspotId) {
@@ -786,7 +807,9 @@ function renderBossStep() {
 
   const stepNo = state.bossIndex + 1;
   const totalNo = BATH_BOSS_TASKS.length;
-  app.taskText.textContent = `(${stepNo}/${totalNo}) ${step.text}`;
+  if (app.taskText) {
+    app.taskText.textContent = `(${stepNo}/${totalNo}) ${step.text}`;
+  }
 
   if (step.type === 'selectTool') {
     coachSay(
@@ -912,8 +935,8 @@ function handleBossHotspot(hotspotId, el) {
 
 function showSummary() {
   cleanupRuntime();
-  app.scene.classList.add('hidden');
-  app.actionBar.classList.add('hidden');
+  if (app.scene) app.scene.classList.add('hidden');
+  if (app.actionBar) app.actionBar.classList.add('hidden');
 
   const stars = calcStars();
   const durationSec = Math.max(1, Math.round((Date.now() - state.startedAt) / 1000));
@@ -930,6 +953,7 @@ function showSummary() {
     hintsUsed: state.hintsUsed
   });
 
+  if (!app.summaryRoot) return;
   app.summaryRoot.innerHTML = `
     <div class="summary-card">
       <h2 class="summary-title">อาบน้ำเสร็จแล้ว เยี่ยมเลย</h2>
@@ -948,13 +972,13 @@ function showSummary() {
     </div>
   `;
 
-  $('#toQuizBtn').addEventListener('click', showQuiz);
-  $('#replayBtn').addEventListener('click', () => safeNavigate(buildReplayUrl()));
-  $('#hubBtn').addEventListener('click', () => safeNavigate(parseHubUrl()));
+  $('#toQuizBtn')?.addEventListener('click', showQuiz);
+  $('#replayBtn')?.addEventListener('click', () => safeNavigate(buildReplayUrl()));
+  $('#hubBtn')?.addEventListener('click', () => safeNavigate(parseHubUrl()));
 }
 
 function showQuiz() {
-  app.summaryRoot.innerHTML = '';
+  if (app.summaryRoot) app.summaryRoot.innerHTML = '';
   let idx = 0;
   state.quizAnswers = [];
 
@@ -966,6 +990,7 @@ function showQuiz() {
       return;
     }
 
+    if (!app.quizRoot) return;
     app.quizRoot.innerHTML = `
       <div class="quiz-card">
         <h2 class="quiz-title">คำถามสั้น ๆ</h2>
@@ -1025,6 +1050,7 @@ function showQuizDone() {
 
   coachSay(doneText, true, 'celebration');
 
+  if (!app.quizRoot) return;
   app.quizRoot.innerHTML = `
     <div class="quiz-card">
       <h2 class="quiz-title">เก่งมาก ตอบเสร็จแล้ว</h2>
@@ -1039,8 +1065,8 @@ function showQuizDone() {
     </div>
   `;
 
-  $('#quizReplayBtn').addEventListener('click', () => safeNavigate(buildReplayUrl()));
-  $('#quizHubBtn').addEventListener('click', () => safeNavigate(parseHubUrl()));
+  $('#quizReplayBtn')?.addEventListener('click', () => safeNavigate(buildReplayUrl()));
+  $('#quizHubBtn')?.addEventListener('click', () => safeNavigate(parseHubUrl()));
 }
 
 function handleHelpButton() {
@@ -1072,9 +1098,8 @@ function handleHelpButton() {
 }
 
 function bindTopButtons() {
-  app.helpBtn.addEventListener('click', handleHelpButton);
-
-  app.homeBtn.addEventListener('click', () => {
+  app.helpBtn?.addEventListener('click', handleHelpButton);
+  app.homeBtn?.addEventListener('click', () => {
     safeNavigate(parseHubUrl());
   });
 }
