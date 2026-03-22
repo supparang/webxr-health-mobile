@@ -2,22 +2,9 @@
    HeroHealth Plate Coop Room API
    ADAPTER-FIRST ROOM LIFECYCLE
    PATCH v20260321-PLATE-COOP-ROOM
-
-   Purpose:
-   - create / join / leave room
-   - ready state
-   - host start / host end
-   - subscribe room snapshots
-
-   Notes:
-   - Default adapter below is in-memory only.
-   - Replace with Firebase / Supabase / WebSocket adapter later.
 */
 'use strict';
 
-/* --------------------------------------------------
- * helpers
- * -------------------------------------------------- */
 function clamp(v, a, b){
   v = Number(v);
   if (!Number.isFinite(v)) v = a;
@@ -39,9 +26,6 @@ function makeRoomCode(prefix = 'PLT'){
   return `${prefix}${body}`;
 }
 
-/* --------------------------------------------------
- * room shape
- * -------------------------------------------------- */
 function buildInitialRoomState({
   roomId,
   hostId,
@@ -89,12 +73,9 @@ function buildInitialRoomState({
   };
 }
 
-/* --------------------------------------------------
- * default memory adapter
- * -------------------------------------------------- */
 const __MEM_ROOM_DB__ = {
-  rooms: new Map(),       // roomId -> room
-  listeners: new Map()    // roomId -> Set(fn)
+  rooms: new Map(),
+  listeners: new Map()
 };
 
 function emitRoom(roomId){
@@ -202,9 +183,6 @@ export function createMemoryRoomAdapter(){
   };
 }
 
-/* --------------------------------------------------
- * main room api
- * -------------------------------------------------- */
 export function createPlateCoopRoomApi({
   adapter = createMemoryRoomAdapter(),
   playerId = `p-${Math.random().toString(36).slice(2, 10)}`,
@@ -319,7 +297,6 @@ export function createPlateCoopRoomApi({
         joinedAt: 0
       };
 
-      // promote B to A if B exists
       if (room.players?.B?.id){
         room.hostId = room.players.B.id;
         room.players.A = { ...room.players.B };
