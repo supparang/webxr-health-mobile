@@ -66,8 +66,8 @@ export function buildGroupsSummary(ctx, stats, sessionMeta) {
     quizDelta > 0
       ? `หลังเล่นทำ mini quiz ดีขึ้น +${quizDelta}`
       : quizDelta < 0
-      ? `หลังเล่น mini quiz ลดลง ${quizDelta}`
-      : 'mini quiz ก่อนและหลังเล่นใกล้เคียงกัน';
+        ? `หลังเล่น mini quiz ลดลง ${quizDelta}`
+        : 'mini quiz ก่อนและหลังเล่นใกล้เคียงกัน';
 
   return {
     title: 'สรุปผลเกม Groups',
