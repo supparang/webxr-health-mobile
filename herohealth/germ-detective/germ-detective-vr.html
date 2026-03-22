@@ -1507,7 +1507,6 @@
     const demoClean = document.getElementById('demoClean');
     const demoReport = document.getElementById('demoReport');
 
-    const reflectWrap = document.getElementById('reflectWrap');
     const rq1 = document.getElementById('rq1');
     const rq2 = document.getElementById('rq2');
     const rq3 = document.getElementById('rq3');
@@ -2055,7 +2054,6 @@
       updateReflectFooter();
     }
 
-    // Sound
     const GD_SOUND_KEY = 'GD_SOUND_ENABLED';
     let soundEnabled = true;
     let audioCtx = null;
@@ -2427,12 +2425,6 @@
         btnTutorialSkip.click();
       }
     });
-
-    function openTutorial(){
-      tutorialIndex = 0;
-      renderTutorial();
-      tutorialWrap.classList.remove('hidden');
-    }
 
     renderPhase('search');
     renderHUD({
