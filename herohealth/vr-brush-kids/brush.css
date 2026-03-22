@@ -624,3 +624,65 @@ button{
     font-size:20px;
   }
 }
+/* PATTERN CARD */
+.brush-pattern-card{
+  margin-bottom:12px;
+  padding:12px;
+  border-radius:20px;
+  background:linear-gradient(180deg, rgba(56,189,248,.12), rgba(167,139,250,.10));
+  border:1px solid rgba(255,255,255,.12);
+}
+
+.brush-pattern-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  margin-bottom:8px;
+}
+
+.brush-pattern-title{
+  font-size:14px;
+  font-weight:1000;
+  color:#e0f2fe;
+}
+
+.brush-pattern-badge{
+  padding:8px 12px;
+  border-radius:999px;
+  background:rgba(255,255,255,.10);
+  font-size:13px;
+  font-weight:1000;
+  color:#fff;
+  white-space:nowrap;
+}
+
+.brush-pattern-hint{
+  font-size:14px;
+  line-height:1.45;
+  color:#e2e8f0;
+  margin-bottom:10px;
+}
+
+.brush-pattern-progress{
+  width:100%;
+  height:12px;
+  border-radius:999px;
+  overflow:hidden;
+  background:rgba(255,255,255,.08);
+}
+
+.brush-pattern-progress-fill{
+  width:0%;
+  height:100%;
+  border-radius:999px;
+  background:linear-gradient(90deg, var(--blue), var(--yellow), var(--pink));
+  transition:width .14s ease;
+}
+
+.brush-pattern-progress-text{
+  margin-top:8px;
+  font-size:12px;
+  font-weight:1000;
+  color:#bfdbfe;
+}
