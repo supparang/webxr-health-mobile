@@ -19,15 +19,37 @@
     };
   }
 
-  // ---------- query/context ----------
-  const HUB_FALLBACK = location.origin + '/webxr-health-mobile/herohealth/hub.html';
-  const hub = qs('hub', HUB_FALLBACK) || HUB_FALLBACK;
+  function buildCooldownUrlForCurrentGame(opts={}){
+    const base = new URL('../warmup-gate.html', location.href);
+    const src = new URL(location.href);
+    src.searchParams.forEach((v,k)=> base.searchParams.set(k,v));
+    base.searchParams.set('gatePhase', 'cooldown');
+    base.searchParams.set('phase', 'cooldown');
+    base.searchParams.set('mode', 'cooldown');
+    base.searchParams.set('cat', opts.cat || 'hygiene');
+    base.searchParams.set('game', opts.game || 'maskcough');
+    base.searchParams.set('theme', opts.theme || 'maskcough');
+    base.searchParams.set('hub', opts.fallbackHub || src.searchParams.get('hub') || '../hub.html');
 
+    const extras = opts.extras || {};
+    Object.keys(extras).forEach(k=>{
+      const v = extras[k];
+      if(v !== undefined && v !== null && v !== ''){
+        base.searchParams.set(k, String(v));
+      }
+    });
+    return base.toString();
+  }
+
+  const hub = qs('hub','../hub.html');
   const diff = String(qs('diff','normal')).toLowerCase();
   const mode = String(qs('run','play')).toLowerCase();
   const seed = Number(qs('seed', Date.now()));
-  const timeLimit = Math.max(30, Number(qs('time','75')) || 75);
+  let timeLimit = Math.max(30, Number(qs('time','75')) || 75);
   const view = String(qs('view','mobile')).toLowerCase();
+
+  if(diff === 'easy' && timeLimit < 80) timeLimit = 80;
+  if(diff === 'normal' && timeLimit < 75) timeLimit = 75;
 
   const pid = qs('pid','anon');
   const studyId = qs('studyId','');
@@ -37,13 +59,16 @@
 
   const rng = seededRng(seed);
 
-  // ---------- refs ----------
   const arena = byId('arena');
   const world = byId('world');
   const popLayer = byId('popLayer');
   const bossBanner = byId('bossBanner');
   const crosshairHint = byId('crosshairHint');
   const hazardLayer = byId('hazardLayer');
+
+  const teachBar = byId('teachBar');
+  const teachIcon = byId('teachIcon');
+  const teachText = byId('teachText');
 
   const btnStart = byId('btnStart');
   const btnRetry = byId('btnRetry');
@@ -82,9 +107,8 @@
 
   let crosshairEl = null;
   let endFlowRedirected = false;
-  let lastSummary = null;
+  let __burstWasReady = false;
 
-  // ---------- audio/vibrate ----------
   const FX = {
     vibOn: String(qs('vib','1')) !== '0',
     sndOn: String(qs('snd','1')) !== '0',
@@ -153,7 +177,6 @@
     setTimeout(()=>beep(680, 100, 'triangle', 0.06), 120);
   }
 
-  // ---------- logger ----------
   function createLogger(ctx){
     const q = [];
     let seq = 0;
@@ -161,7 +184,7 @@
 
     function base(type){
       return {
-        v: 1,
+        v: 2,
         game: 'maskcough-v2',
         type,
         sessionId,
@@ -181,7 +204,7 @@
 
     function push(ev){
       q.push({ ...base(ev.type), ...ev });
-      if(q.length > 1500) q.splice(0, q.length - 1000);
+      if(q.length > 1800) q.splice(0, q.length - 1200);
     }
 
     async function flush(reason){
@@ -193,13 +216,12 @@
           navigator.sendBeacon(ctx.log, new Blob([body], { type:'text/plain' }));
           return;
         }
-        const res = await fetch(ctx.log, {
+        await fetch(ctx.log, {
           method:'POST',
           headers:{ 'content-type':'text/plain' },
           body,
           keepalive:true
         });
-        if(res && res.status === 403) console.warn('[maskcough-v2] log 403 ignored');
       }catch(_){}
     }
 
@@ -219,7 +241,6 @@
     logger.flush('unload');
   });
 
-  // ---------- summary storage ----------
   const LS_LAST = 'HHA_LAST_SUMMARY';
   const LS_HIST = 'HHA_SUMMARY_HISTORY';
 
@@ -233,43 +254,49 @@
     }catch(_){}
   }
 
-  // ---------- cooldown helpers ----------
   function buildMaskCoughCooldownUrl(summary){
     const safe = summary || {};
-    try{
-      const u = new URL('/webxr-health-mobile/herohealth/warmup-gate.html', location.origin);
+    const endScore   = sScore?.textContent?.trim() || String(safe.score ?? '');
+    const endCombo   = sComboMax?.textContent?.trim() || String(safe.comboMax ?? '');
+    const endPerfect = sPerfect?.textContent?.trim() || String(safe.perfect ?? '');
+    const endMiss    = sMiss?.textContent?.trim() || String(safe.miss ?? '');
+    const endShield  = sShield?.textContent?.trim() || (safe.shieldEnd != null ? `${safe.shieldEnd}%` : '');
+    const endThreat  = sThreat?.textContent?.trim() || (safe.threatEnd != null ? `${safe.threatEnd}%` : '');
+    const noteText   = endNote?.textContent?.trim() || '';
+    const phaseText = tPhase?.textContent?.trim() || '';
+    const missionText = tMission?.textContent?.trim() || '';
 
-      u.searchParams.set('gatePhase', 'cooldown');
-      u.searchParams.set('cat', 'hygiene');
-      u.searchParams.set('game', 'maskcough');
-      u.searchParams.set('theme', 'maskcough');
-      u.searchParams.set('run', mode || 'play');
-
-      u.searchParams.set('hub', hub || HUB_FALLBACK);
-
-      if(pid) u.searchParams.set('pid', pid);
-      if(studyId) u.searchParams.set('studyId', studyId);
-      if(phase) u.searchParams.set('phase', phase);
-      if(conditionGroup) u.searchParams.set('conditionGroup', conditionGroup);
-      if(diff) u.searchParams.set('diff', diff);
-      if(view) u.searchParams.set('view', view);
-      if(seed) u.searchParams.set('seed', String(seed));
-
-      u.searchParams.set('reason', String(safe.reason ?? ''));
-      u.searchParams.set('score', String(safe.score ?? ''));
-      u.searchParams.set('comboMax', String(safe.comboMax ?? ''));
-      u.searchParams.set('perfect', String(safe.perfect ?? ''));
-      u.searchParams.set('miss', String(safe.miss ?? ''));
-      u.searchParams.set('shieldEnd', String(safe.shieldEnd ?? ''));
-      u.searchParams.set('threatEnd', String(safe.threatEnd ?? ''));
-      u.searchParams.set('bossPerfect', String(safe.bossPerfect ?? ''));
-      u.searchParams.set('bossNeedPerfect', String(safe.bossNeedPerfect ?? ''));
-      u.searchParams.set('burstUsed', String(safe.burstUsed ?? ''));
-
-      return u.toString();
-    }catch(_){
-      return hub || HUB_FALLBACK;
-    }
+    return buildCooldownUrlForCurrentGame({
+      cat: 'hygiene',
+      game: 'maskcough',
+      theme: 'maskcough',
+      fallbackHub: '../hub.html',
+      extras: {
+        endScore,
+        endCombo,
+        endPerfect,
+        endMiss,
+        endShield,
+        endThreat,
+        noteText,
+        phaseText,
+        missionText,
+        reason: safe.reason || '',
+        score: safe.score ?? '',
+        comboMax: safe.comboMax ?? '',
+        perfect: safe.perfect ?? '',
+        miss: safe.miss ?? '',
+        shieldEnd: safe.shieldEnd ?? '',
+        threatEnd: safe.threatEnd ?? '',
+        bossPerfect: safe.bossPerfect ?? '',
+        bossNeedPerfect: safe.bossNeedPerfect ?? '',
+        burstUsed: safe.burstUsed ?? '',
+        learningOutcome: safe.learningOutcome ?? '',
+        hazardControlScore: safe.hazardControlScore ?? '',
+        responseTimingScore: safe.responseTimingScore ?? '',
+        preventionScore: safe.preventionScore ?? ''
+      }
+    });
   }
 
   function goMaskCoughCooldown(summary){
@@ -285,50 +312,55 @@
   function wireEndButtonForCooldown(){
     if(!btnEndBack) return;
     btnEndBack.textContent = '➡ ไป Cooldown';
+    btnEndBack.onclick = (ev)=>{
+      ev.preventDefault();
+      goCooldownOnce(lastSummary);
+    };
   }
 
-  // ---------- config ----------
+  let lastSummary = null;
+
   const DIFF = {
     easy: {
-      spawnMs: 980,
-      ttlDroplet: 2500,
-      ttlMask: 2500,
-      ttlInfected: 3300,
-      coughWarnMs: 520,
-      coughChargeMs: 420,
-      coughStrikeMs: 300,
-      shieldStart: 50,
-      threatDecayPerTick: 0.05,
-      infectPressure: { warm:0.015, pressure:0.025, boss:0.038 },
-      dropletPressure: 0.10,
-      burstThreatDrop: 24,
-      burstShieldGain: 10,
-      burstInfectedClearChance: 0.65,
-      warmDuration: 22,
-      bossDuration: 16,
+      spawnMs: 1040,
+      ttlDroplet: 2700,
+      ttlMask: 2700,
+      ttlInfected: 3500,
+      coughWarnMs: 560,
+      coughChargeMs: 440,
+      coughStrikeMs: 320,
+      shieldStart: 58,
+      threatDecayPerTick: 0.06,
+      infectPressure: { warm:0.012, pressure:0.022, boss:0.034 },
+      dropletPressure: 0.08,
+      burstThreatDrop: 26,
+      burstShieldGain: 12,
+      burstInfectedClearChance: 0.72,
+      warmDuration: 24,
+      bossDuration: 13,
       bossNeedPerfect: 2,
-      warmClearNeed: 10,
+      warmClearNeed: 8,
       pressureParryNeed: 2
     },
     normal: {
-      spawnMs: 820,
-      ttlDroplet: 2050,
-      ttlMask: 2150,
-      ttlInfected: 2950,
-      coughWarnMs: 460,
-      coughChargeMs: 380,
-      coughStrikeMs: 280,
-      shieldStart: 42,
-      threatDecayPerTick: 0.035,
-      infectPressure: { warm:0.02, pressure:0.035, boss:0.05 },
-      dropletPressure: 0.16,
-      burstThreatDrop: 18,
-      burstShieldGain: 8,
-      burstInfectedClearChance: 0.55,
-      warmDuration: 20,
-      bossDuration: 15,
+      spawnMs: 860,
+      ttlDroplet: 2200,
+      ttlMask: 2300,
+      ttlInfected: 3050,
+      coughWarnMs: 500,
+      coughChargeMs: 400,
+      coughStrikeMs: 290,
+      shieldStart: 48,
+      threatDecayPerTick: 0.04,
+      infectPressure: { warm:0.018, pressure:0.03, boss:0.045 },
+      dropletPressure: 0.12,
+      burstThreatDrop: 20,
+      burstShieldGain: 10,
+      burstInfectedClearChance: 0.6,
+      warmDuration: 22,
+      bossDuration: 14,
       bossNeedPerfect: 2,
-      warmClearNeed: 12,
+      warmClearNeed: 10,
       pressureParryNeed: 2
     },
     hard: {
@@ -355,7 +387,6 @@
   };
   const CFG = DIFF[diff] || DIFF.normal;
 
-  // ---------- state ----------
   const st = {
     running:false,
     paused:false,
@@ -392,45 +423,17 @@
     entities:new Map(),
     uid:0,
 
+    freezeUntil:0,
     spawnTimer:null,
-    tickTimer:null
+    tickTimer:null,
+
+    maskPickups:0,
+    __lowThreatPraiseAt:0,
+    lastPhaseAnnounced:'warm',
+    __lastChanceHelp:false,
+    __bossClearShown:false
   };
 
-  // ---------- learning ----------
-  function learningPrompt(key){
-    const map = {
-      round_start: 'เริ่มเลย! รีบลดละอองและป้องกันเชื้อ',
-      mask_pick: 'ดีมาก! หน้ากากช่วยป้องกันเชื้อ',
-      perfect_parry: 'เยี่ยม! คุณป้องกันละอองไอได้ทัน',
-      normal_block: 'ดีแล้ว! ลองจับจังหวะให้แม่นขึ้น',
-      cough_hit: 'ไม่ทัน! เชื้อเริ่มแพร่กระจาย',
-      infected_spread: 'ระวัง! เชื้อกำลังลาม',
-      high_threat: 'ตอนนี้เสี่ยงมาก รีบป้องกันก่อน',
-      burst_use: 'เยี่ยม! คุณหยุดเชื้อได้ทัน',
-      boss_cone: 'ระวัง! การไอจามรุนแรงกำลังมา',
-      boss_sweep: 'รีบจัดการ ก่อนเชื้อกระจายไปทั่ว',
-      boss_fake: 'ดูให้ดีก่อน อย่ารีบกดเร็วเกินไป'
-    };
-    prompt(map[key] || '');
-  }
-
-  function buildLearningSummary(){
-    const lines = [];
-    lines.push('วันนี้เราเรียนรู้ว่า');
-    lines.push('- การไอจามทำให้เชื้อแพร่ได้');
-    lines.push('- หน้ากากช่วยป้องกันเชื้อ');
-    lines.push('- ถ้าปล่อยไว้นาน เชื้อจะลามมากขึ้น');
-
-    if(st.perfect >= 3){
-      lines.push('- คุณป้องกันการไอจามได้ดี');
-    }else{
-      lines.push('- ครั้งหน้าลองป้องกันให้เร็วขึ้น');
-    }
-
-    return lines.join('\n');
-  }
-
-  // ---------- helpers ----------
   function rect(){ return world.getBoundingClientRect(); }
 
   function toast(msg){
@@ -449,6 +452,25 @@
     el.classList.add('show');
     clearTimeout(prompt._t);
     prompt._t = setTimeout(()=> el.classList.remove('show'), 950);
+  }
+
+  function showTeach(icon, text, ms=1400){
+    if(!teachBar || !teachIcon || !teachText) return;
+    teachIcon.textContent = icon;
+    teachText.textContent = text;
+    teachBar.hidden = false;
+    clearTimeout(showTeach._t);
+    showTeach._t = setTimeout(()=>{
+      if(teachBar) teachBar.hidden = true;
+    }, ms);
+
+    logger.push({
+      type:'teach_hint',
+      hintIcon: icon,
+      hintText: text,
+      phase: st.phase,
+      elapsedSec: Math.round(st.elapsedSec * 10) / 10
+    });
   }
 
   function flashBad(){
@@ -481,6 +503,13 @@
     if(!el) return;
     el.classList.add(cls);
     setTimeout(()=>{ try{el.classList.remove(cls);}catch(_){} }, 180);
+  }
+
+  function pulseHud(el, cls){
+    if(!el) return;
+    el.classList.remove('pulse-good','pulse-bad');
+    void el.offsetWidth;
+    el.classList.add(cls);
   }
 
   function clearHazards(){
@@ -522,6 +551,21 @@
     bossBanner.textContent = text;
   }
 
+  function showBigCallout(text, ms=1400){
+    const el = bossBanner;
+    if(!el) return;
+    el.hidden = false;
+    el.textContent = text;
+    el.style.transform = 'translate(-50%,-50%) scale(1.08)';
+    clearTimeout(showBigCallout._t);
+    showBigCallout._t = setTimeout(()=>{
+      if(el){
+        el.style.transform = 'translate(-50%,-50%)';
+        if(st.phase !== 'boss') el.hidden = true;
+      }
+    }, ms);
+  }
+
   function hideBossBanner(){
     if(!bossBanner) return;
     bossBanner.hidden = true;
@@ -536,7 +580,14 @@
   function updateHud(){
     if(tScore) tScore.textContent = String(st.score);
     if(tCombo) tCombo.textContent = String(st.combo);
-    if(tPhase) tPhase.textContent = st.phase;
+
+    if(tPhase){
+      const phaseText =
+        st.phase === 'warm' ? 'เริ่ม' :
+        st.phase === 'pressure' ? 'ท้าทาย' :
+        'บอส';
+      tPhase.textContent = phaseText;
+    }
 
     if(tShield) tShield.textContent = `${Math.round(st.shield)}%`;
     if(bShield) bShield.style.width = `${clamp(st.shield,0,100)}%`;
@@ -553,22 +604,46 @@
     if(tMiss) tMiss.textContent = String(st.miss);
 
     if(tMission){
-      if(st.phase==='warm'){
-        tMission.textContent = `Clear ${Math.min(st.warmClears, CFG.warmClearNeed)}/${CFG.warmClearNeed}`;
-      }else if(st.phase==='pressure'){
-        tMission.textContent = `Parry ${Math.min(st.pressureParries, CFG.pressureParryNeed)}/${CFG.pressureParryNeed}`;
+      if(st.phase === 'warm'){
+        tMission.textContent = `เก็บละออง ${Math.min(st.warmClears, CFG.warmClearNeed)}/${CFG.warmClearNeed}`;
+      }else if(st.phase === 'pressure'){
+        tMission.textContent = `กันไอ ${Math.min(st.pressureParries, CFG.pressureParryNeed)}/${CFG.pressureParryNeed}`;
       }else{
-        tMission.textContent = `Boss ${st.bossGotPerfect}/${st.bossNeedPerfect}`;
+        tMission.textContent = `ชนะบอส ${Math.round(st.bossGotPerfect)}/${st.bossNeedPerfect}`;
       }
+    }
+
+    if(arena){
+      arena.classList.toggle('phase-warm', st.phase === 'warm');
+      arena.classList.toggle('phase-pressure', st.phase === 'pressure');
+      arena.classList.toggle('phase-boss', st.phase === 'boss');
     }
 
     if(btnBurst){
       const ready = st.parry >= 100;
       btnBurst.disabled = !ready;
-      btnBurst.style.opacity = ready ? '1' : '.6';
+      btnBurst.style.opacity = ready ? '1' : '.72';
       btnBurst.style.cursor = ready ? 'pointer' : 'not-allowed';
-      btnBurst.textContent = ready ? '💥 Burst READY' : '💥 Burst';
+      btnBurst.classList.toggle('primary', ready);
+      btnBurst.classList.toggle('accent', !ready);
+      btnBurst.textContent = ready ? '💥 พร้อมใช้พลัง!' : '💥 พลังพิเศษ';
     }
+
+    const burstReadyNow = st.parry >= 100;
+    if(burstReadyNow && !__burstWasReady){
+      showTeach('💥', 'พลังพิเศษพร้อมแล้ว!', 1200);
+      prompt('💥 ใช้พลังได้แล้ว!');
+      try{
+        btnBurst?.classList.add('burst-ready-pop');
+        setTimeout(()=> btnBurst?.classList.remove('burst-ready-pop'), 700);
+      }catch(_){}
+      logger.push({
+        type:'burst_ready',
+        phase: st.phase,
+        elapsedSec: Math.round(st.elapsedSec * 10) / 10
+      });
+    }
+    __burstWasReady = burstReadyNow;
 
     updateArenaMood();
   }
@@ -614,7 +689,13 @@
     el.dataset.type = type;
 
     const now = performance.now();
-    const e = { id, el, type, x, y, bornMs: now, dieMs: now + ttl, state: 'idle' };
+
+    const e = {
+      id, el, type, x, y,
+      bornMs: now,
+      dieMs: now + ttl,
+      state: 'idle'
+    };
 
     if(type==='cough'){
       e.state='warn';
@@ -636,7 +717,8 @@
       entityId: id,
       x: Math.round(x),
       y: Math.round(y),
-      ttlMs: Math.round(ttl)
+      ttlMs: Math.round(ttl),
+      phase: st.phase
     });
 
     recomputeCounts();
@@ -719,18 +801,30 @@
   function applyComboRewards(){
     if(st.combo === 3){
       st.score += 2;
-      prompt('⚡ Combo x2');
-    }else if(st.combo === 5){
+      prompt('⚡ เร็วมาก!');
+      showTeach('⚡', 'ต่อเนื่องได้ดี!', 800);
+    }
+    else if(st.combo === 5){
       st.shield = clamp(st.shield + (diff==='easy' ? 8 : 6), 0, 100);
-      prompt('🛡️ Combo Shield!');
-    }else if(st.combo === 8){
+      prompt('🛡️ ปลอดภัยเพิ่ม!');
+      showTeach('🛡️', 'เก็บต่อเนื่องแล้วโล่เพิ่ม!', 900);
+    }
+    else if(st.combo === 8){
       st.parry = clamp(st.parry + (diff==='easy' ? 22 : 18), 0, 100);
-      prompt('⏳ Slow Time!');
-    }else if(st.combo === 12){
+      st.freezeUntil = performance.now() + (diff==='easy' ? 850 : 700);
+      prompt('⏳ ช้าลงแล้ว!');
+      showTeach('⏳', 'ตอนนี้กดง่ายขึ้น!', 950);
+    }
+    else if(st.combo === 10){
+      prompt('🔥 คอมโบเก่งมาก!');
+      showTeach('🔥', 'สุดยอดเลย!', 900);
+    }
+    else if(st.combo === 12){
       const n = clearNearbyDroplets(rect().width/2, rect().height/2, 9999);
       st.score += n;
       st.threat = Math.max(0, st.threat - (diff==='easy' ? 8 : 5));
-      prompt('💥 Clean Burst!');
+      prompt('💥 โล่งขึ้นแล้ว!');
+      showTeach('💥', 'เคลียร์ละอองได้เยอะ!', 1000);
     }
   }
 
@@ -743,10 +837,12 @@
     st.combo++;
     st.comboMax = Math.max(st.comboMax, st.combo);
     st.score += (st.phase==='boss' ? 8 : 6);
+
     if(st.phase==='boss'){
       st.score += 2;
       st.threat = Math.max(0, st.threat - 6);
     }
+
     st.parry = clamp(st.parry + 18, 0, 100);
     st.threat = Math.max(0, st.threat - 14);
     st.shield = clamp(st.shield + 4, 0, 100);
@@ -761,10 +857,37 @@
 
     pulseEntity(e.el, 'hit-good');
     removeEntity(e.id, true);
-    pop(sx, sy, `+${6 + c1 + c2}`, 'pro');
+
+    pop(sx, sy, 'PERFECT!', 'pro');
     shake();
     sfxParry();
-    learningPrompt('perfect_parry');
+
+    prompt('✨ เยี่ยมมาก!');
+    showTeach('✨', 'กันไอได้พอดี!', 1000);
+
+    pulseHud(tParry, 'pulse-good');
+    pulseHud(tShield, 'pulse-good');
+
+    if(st.phase === 'boss'){
+      toast('Boss Block!');
+    }
+
+    if(st.phase === 'boss' && (c1 + c2) >= 3){
+      prompt('🔥 บอสสะดุด!');
+      showTeach('🔥', 'ทำได้ดีมาก!', 1100);
+    }
+
+    if((c1 + c2) >= 2 && st.phase !== 'boss'){
+      showTeach('🧼', 'พื้นที่สะอาดขึ้น!', 850);
+    }
+
+    if(st.combo === 3){
+      showTeach('⚡', 'ต่อเนื่องได้ดี!', 800);
+    }else if(st.combo === 5){
+      showTeach('🛡️', 'เก่งมาก ปลอดภัยขึ้น!', 900);
+    }else if(st.combo >= 8){
+      showTeach('🔥', 'สุดยอดเลย!', 900);
+    }
 
     logger.push({
       type:'perfect_parry',
@@ -775,7 +898,8 @@
       score: st.score,
       combo: st.combo,
       shield: Math.round(st.shield),
-      threat: Math.round(st.threat)
+      threat: Math.round(st.threat),
+      clearNearby: c1 + c2
     });
   }
 
@@ -787,14 +911,27 @@
     st.combo++;
     st.comboMax = Math.max(st.comboMax, st.combo);
     st.score += 2;
-    st.parry = clamp(st.parry + 8, 0, 100);
+    st.parry = clamp(st.parry + (diff === 'easy' ? 10 : 8), 0, 100);
     st.threat = Math.max(0, st.threat - 6);
+
+    if(st.phase === 'boss' && diff === 'easy'){
+      if(st.bossGotPerfect < st.bossNeedPerfect){
+        st.bossGotPerfect += 0.5;
+      }
+    }
 
     pulseEntity(e.el, 'hit-good');
     removeEntity(e.id, true);
-    pop(sx, sy, '+2', 'good');
+
+    pop(sx, sy, 'ทัน!', 'good');
     sfxBlock();
-    learningPrompt('normal_block');
+
+    prompt('🛡️ กันได้แล้ว!');
+    showTeach('🛡️', 'ดีแล้ว! กันได้ทัน', 700);
+
+    if(st.phase === 'boss'){
+      toast('กันบอสได้!');
+    }
 
     logger.push({
       type:'block',
@@ -814,15 +951,21 @@
 
     st.combo = 0;
     st.miss++;
-    st.shield = clamp(st.shield - 16, 0, 100);
-    st.threat = clamp(st.threat + 14, 0, 100);
+
+    const coughShieldLoss = st.phase === 'warm' ? 10 : 16;
+    const coughThreatGain = st.phase === 'warm' ? 8 : 14;
+
+    st.shield = clamp(st.shield - coughShieldLoss, 0, 100);
+    st.threat = clamp(st.threat + coughThreatGain, 0, 100);
 
     removeEntity(e.id, false);
     flashBad();
     shake();
     sfxBad();
-    pop(sx, sy, '-16', 'bad');
-    learningPrompt('cough_hit');
+    pop(sx, sy, 'อุ๊บ!', 'bad');
+    prompt('😷 โดนละอองไอ!');
+    pulseHud(tShield, 'pulse-bad');
+    pulseHud(tThreat, 'pulse-bad');
 
     for(let i=0;i<2;i++){
       const dx = (rng()*80)-40;
@@ -860,28 +1003,49 @@
       st.combo++;
       st.comboMax = Math.max(st.comboMax, st.combo);
       st.warmClears++;
-      st.parry = clamp(st.parry + 3, 0, 100);
+      st.parry = clamp(st.parry + (st.phase === 'warm' ? 4 : 3), 0, 100);
       removeEntity(id, true);
-      pop(sx, sy, '+1', 'good');
+      pop(sx, sy, 'ดี!', 'good');
+
+      if(st.warmClears === 3){
+        showTeach('💦', 'เก็บละอองเก่งมาก!', 800);
+      }
+      if(st.warmClears === 6){
+        showTeach('💦', 'ช่วยลดละอองได้ดี!', 900);
+      }
     }
     else if(e.type==='mask'){
       st.score += 1;
       st.combo++;
       st.comboMax = Math.max(st.comboMax, st.combo);
       st.shield = clamp(st.shield + 15, 0, 100);
+      st.maskPickups++;
       removeEntity(id, true);
-      pop(sx, sy, '+Shield', 'good');
-      learningPrompt('mask_pick');
+      pop(sx, sy, 'ปลอดภัย+', 'good');
+      prompt('😷 ป้องกันเพิ่ม!');
+      pulseHud(tShield, 'pulse-good');
+
+      if(st.maskPickups === 2){
+        showTeach('😷', 'เก็บหน้ากากได้ดี!', 850);
+      }else if(st.maskPickups === 4){
+        showTeach('🛡️', 'ป้องกันเก่งมาก!', 900);
+      }
     }
     else if(e.type==='infected'){
       st.combo = 0;
       st.miss++;
-      st.shield = clamp(st.shield - 8, 0, 100);
-      st.threat = clamp(st.threat + 8, 0, 100);
+
+      const hitShield = st.phase === 'warm' ? 4 : 8;
+      const hitThreat = st.phase === 'warm' ? 4 : 8;
+
+      st.shield = clamp(st.shield - hitShield, 0, 100);
+      st.threat = clamp(st.threat + hitThreat, 0, 100);
       removeEntity(id, true);
-      pop(sx, sy, '-8', 'bad');
+      pop(sx, sy, 'อุ๊บ!', 'bad');
       flashBad();
       sfxBad();
+      pulseHud(tShield, 'pulse-bad');
+      pulseHud(tThreat, 'pulse-bad');
     }
     else if(e.type==='cough'){
       if(e.state==='strike'){
@@ -890,12 +1054,28 @@
         onNormalBlock(e);
       }else{
         st.combo = 0;
-        st.threat = clamp(st.threat + 5, 0, 100);
-        pop(sx, sy, 'EARLY!', 'bad');
+        st.threat = clamp(st.threat + (st.bossPatternNow==='fake' ? 9 : 5), 0, 100);
+        if(st.bossPatternNow==='fake'){
+          st.shield = clamp(st.shield - 4, 0, 100);
+        }
+        pop(sx, sy, 'ยังไม่ใช่!', 'bad');
       }
     }
 
     applyComboRewards();
+
+    logger.push({
+      type:'tap',
+      entityType: e.type,
+      entityId: e.id,
+      state: e.state || '',
+      score: st.score,
+      combo: st.combo,
+      shield: Math.round(st.shield),
+      threat: Math.round(st.threat),
+      phase: st.phase
+    });
+
     updateHud();
   }
 
@@ -942,25 +1122,42 @@
     if(st.bossPatternNow === 'cone'){
       const cx = 90 + rng() * Math.max(80, r.width - 180);
       const cy = 90 + rng() * Math.max(80, r.height - 180);
-      showBossBanner('👿 BOSS: CONE COUGH');
+
+      showBossBanner('👿 บอสไอเป็นวง!');
       showConeHazard(cx, cy);
-      learningPrompt('boss_cone');
+
+      prompt('🤧 รอจังหวะแล้วกัน!');
+      showTeach('🤧', 'รอให้ถึงจังหวะก่อน', 1200);
     }
     else if(st.bossPatternNow === 'sweep'){
-      showBossBanner('👿 BOSS: SWEEP');
-      showSweepHazard(rng() < 0.5 ? 'ltr' : 'rtl');
-      learningPrompt('boss_sweep');
+      st.bossSweepDir = rng() < 0.5 ? 'ltr' : 'rtl';
+
+      showBossBanner(st.bossSweepDir === 'ltr' ? '👿 บอสกวาด →' : '👿 ← บอสกวาด');
+      showSweepHazard(st.bossSweepDir);
+
+      prompt('🌪 หลบให้ทัน แล้วกันไอ!');
+      showTeach('🌪', 'บอสกำลังกวาดทั้งจอ', 1200);
     }
     else{
       const fx = 90 + rng() * Math.max(80, r.width - 180);
       const fy = 90 + rng() * Math.max(80, r.height - 180);
-      showBossBanner('👿 BOSS: FAKE → REAL');
+
+      showBossBanner('👿 บอสหลอกก่อน!');
       showFakeHazard(fx, fy);
-      learningPrompt('boss_fake');
+
+      prompt('👀 อย่าเพิ่งรีบกด');
+      showTeach('👀', 'ดูให้ชัวร์ก่อนค่อยกัน', 1200);
     }
 
     sfxBoss();
     if(arena) arena.classList.add('boss-hot');
+
+    logger.push({
+      type:'boss_pattern',
+      pattern: st.bossPatternNow,
+      bossNeedPerfect: st.bossNeedPerfect,
+      bossGotPerfect: st.bossGotPerfect
+    });
   }
 
   function maybeBoss(){
@@ -982,8 +1179,10 @@
 
   function doBurst(){
     if(!st.running || st.paused || st.over) return;
+
     if(st.parry < 100){
-      toast('Parry ยังไม่เต็ม');
+      toast('พลังยังไม่เต็ม');
+      showTeach('💥', 'เก็บพลังให้เต็มก่อน', 900);
       return;
     }
 
@@ -993,12 +1192,17 @@
     st.shield = clamp(st.shield + CFG.burstShieldGain, 0, 100);
     st.threat = Math.max(0, st.threat - CFG.burstThreatDrop);
 
+    let clearD = 0;
+    let clearI = 0;
+
     for(const [id,e] of [...st.entities]){
-      if(e.type==='droplet'){
+      if(e.type === 'droplet'){
         removeEntity(id, true);
-      }else if(e.type==='infected'){
+        clearD++;
+      }else if(e.type === 'infected'){
         if(rng() < CFG.burstInfectedClearChance){
           removeEntity(id, true);
+          clearI++;
         }
       }
     }
@@ -1006,7 +1210,45 @@
     recomputeCounts();
     shake();
     sfxBurst();
-    learningPrompt('burst_use');
+    flashBad();
+    setTimeout(()=>{
+      const el = byId('mcfxFlash');
+      if(el) el.style.opacity = '0';
+    }, 100);
+
+    clearHazards();
+
+    const totalClear = clearD + clearI;
+
+    if(totalClear >= 6){
+      prompt(`💥 ว้าว! เคลียร์ ${totalClear} เป้า`);
+      showTeach('💥', 'พลังพิเศษสุดยอด!', 1300);
+      pop(rect().width * 0.5, rect().height * 0.25, 'SUPER BURST!', 'pro');
+    }else if(totalClear >= 3){
+      prompt(`💥 เคลียร์ ${totalClear} เป้า`);
+      showTeach('💥', 'ใช้พลังได้ดี!', 1000);
+      pop(rect().width * 0.5, rect().height * 0.25, 'BURST!', 'good');
+    }else{
+      prompt('💥 ใช้พลังแล้ว!');
+      showTeach('💥', 'ดีมาก!', 900);
+      pop(rect().width * 0.5, rect().height * 0.25, 'POW!', 'good');
+    }
+
+    if(st.phase === 'boss'){
+      showTeach('👿', 'บอสโดนพลังเข้าแล้ว!', 1000);
+    }
+
+    logger.push({
+      type:'burst',
+      burstUsed: st.burstUsed,
+      shield: Math.round(st.shield),
+      threat: Math.round(st.threat),
+      score: st.score,
+      clearDroplet: clearD,
+      clearInfected: clearI,
+      clearTotal: totalClear
+    });
+
     updateHud();
   }
 
@@ -1014,43 +1256,69 @@
     if(!st.running || st.paused || st.over) return;
 
     const ratio = clamp01(st.elapsedSec / timeLimit);
-    const threatMul = st.threat >= 70 ? 1.14 : st.threat >= 40 ? 1.06 : 1.0;
-    const speedMul = (1 + ratio * (diff==='hard' ? 0.16 : diff==='easy' ? 0.07 : 0.11)) * threatMul;
+    const threatMul = st.threat >= 70 ? 1.10 : st.threat >= 40 ? 1.05 : 1.0;
+    const speedMul = (1 + ratio * (diff==='hard' ? 0.16 : diff==='easy' ? 0.06 : 0.09)) * threatMul;
 
     if(st.phase==='warm'){
-      spawnDroplet();
-      if(rng() < 0.22) spawnDroplet();
-      if(rng() < 0.22) spawnMask();
-      if(rng() < (diff==='easy' ? 0.16 : 0.22)) spawnCough();
+      if(st.elapsedSec < 5){
+        spawnDroplet();
+        if(rng() < 0.10) spawnMask();
+      }
+      else if(st.elapsedSec < 10){
+        spawnDroplet();
+        if(rng() < 0.20) spawnDroplet();
+        if(rng() < 0.18) spawnMask();
+      }
+      else if(st.elapsedSec < 15){
+        spawnDroplet();
+        if(rng() < 0.22) spawnMask();
+        if(rng() < (diff==='easy' ? 0.08 : 0.12)) spawnCough();
+      }
+      else{
+        spawnDroplet();
+        if(rng() < 0.18) spawnDroplet();
+        if(rng() < 0.20) spawnMask();
+        if(rng() < (diff==='easy' ? 0.12 : 0.16)) spawnCough();
+        if(rng() < 0.08){
+          const p = randomXY();
+          spawnInfected(p.x,p.y);
+        }
+      }
     }
     else if(st.phase==='pressure'){
       spawnDroplet();
       spawnDroplet();
-      if(rng() < 0.30) spawnCough();
+      if(rng() < 0.28) spawnCough();
       if(rng() < 0.14) spawnMask();
-      if(rng() < 0.16){
+      if(rng() < 0.14){
         const p = randomXY();
         spawnInfected(p.x,p.y);
       }
     }
     else{
       spawnDroplet();
-      if(rng() < 0.55) spawnDroplet();
+      if(rng() < 0.48) spawnDroplet();
       if(rng() < 0.34) spawnCough();
-      if(rng() < 0.08) spawnMask();
+      if(rng() < 0.10) spawnMask();
       if(rng() < 0.18){
         const p = randomXY();
         spawnInfected(p.x,p.y);
       }
     }
 
-    if(st.threat >= 70 && rng() < 0.25) spawnDroplet();
-    if(st.threat >= 85 && rng() < 0.16){
+    if(st.threat >= 70 && rng() < 0.16){
+      spawnDroplet();
+    }
+    if(st.threat >= 85 && rng() < 0.10){
       const p = randomXY();
       spawnInfected(p.x,p.y);
     }
 
-    const next = Math.max(diff==='hard' ? 240 : 280, Math.round(CFG.spawnMs / speedMul));
+    if(st.shield <= 28 && rng() < 0.22){
+      spawnMask();
+    }
+
+    const next = Math.max(diff==='hard' ? 240 : 300, Math.round(CFG.spawnMs / speedMul));
     st.spawnTimer = setTimeout(spawnWave, next);
   }
 
@@ -1086,9 +1354,15 @@
     st.bossSweepDir = 'ltr';
 
     st.burstUsed = 0;
+    st.maskPickups = 0;
+    st.__lowThreatPraiseAt = 0;
+    st.lastPhaseAnnounced = 'warm';
+    st.__lastChanceHelp = false;
+    st.__bossClearShown = false;
 
     endFlowRedirected = false;
     lastSummary = null;
+    __burstWasReady = false;
 
     if(st.spawnTimer) clearTimeout(st.spawnTimer);
     if(st.tickTimer) clearInterval(st.tickTimer);
@@ -1106,16 +1380,19 @@
       crosshairEl = null;
     }
 
-    if(btnPause) btnPause.textContent = '⏸ Pause';
+    if(btnPause) btnPause.textContent = '⏸ พัก';
     if(btnBurst){
       btnBurst.disabled = true;
-      btnBurst.style.opacity = '.6';
+      btnBurst.style.opacity = '.72';
       btnBurst.style.cursor = 'not-allowed';
+      btnBurst.textContent = '💥 พลังพิเศษ';
     }
 
     if(btnEndBack){
       btnEndBack.textContent = '➡ ไป Cooldown';
     }
+
+    if(teachBar) teachBar.hidden = true;
 
     updateHud();
   }
@@ -1149,7 +1426,8 @@
       shieldStart: st.shield
     });
 
-    learningPrompt('round_start');
+    showTeach('💦', 'เก็บละอองให้ไว!');
+    prompt('💦 เก็บละอองก่อน');
     spawnWave();
     st.tickTimer = setInterval(tick, 80);
   }
@@ -1161,7 +1439,70 @@
     st.elapsedSec = (now - st.t0)/1000;
 
     updatePhase();
+
+    if(st.phase !== st.lastPhaseAnnounced){
+      st.lastPhaseAnnounced = st.phase;
+
+      if(st.phase === 'pressure'){
+        showBigCallout('⚠️ ด่านกดดัน!');
+        showTeach('⚠️', 'ตอนนี้เริ่มยากขึ้นแล้ว', 1200);
+        logger.push({ type:'phase_change', to:'pressure' });
+      }else if(st.phase === 'boss'){
+        showBigCallout('👿 บอสมาแล้ว!');
+        showTeach('👿', 'กันไอให้ทันเพื่อชนะบอส!', 1500);
+        prompt('👿 บอสมาแล้ว!');
+        logger.push({ type:'phase_change', to:'boss' });
+      }
+    }
+
     maybeBoss();
+
+    if(st.phase === 'warm'){
+      if(st.elapsedSec < 5){
+        showTeach('💦', 'เก็บละอองให้ไว!', 900);
+      }else if(st.elapsedSec < 10){
+        showTeach('😷', 'เก็บหน้ากากเพื่อป้องกัน', 900);
+      }else if(st.elapsedSec < 15){
+        showTeach('🤧', 'รอจังหวะแล้วค่อยกัน', 900);
+      }else if(st.elapsedSec < 20){
+        showTeach('🦠', 'อย่าปล่อยเชื้อค้าง', 900);
+      }
+    }
+
+    if(st.phase==='boss' && st.bossActive){
+      if(st.bossPatternNow === 'cone'){
+        if(rng() < 0.030) spawnCough();
+        if(rng() < 0.014){
+          const p = randomXY();
+          spawnInfected(p.x, p.y);
+          spawnInfected(clamp(p.x+34,30,rect().width-30), clamp(p.y+22,30,rect().height-30));
+          spawnInfected(clamp(p.x-34,30,rect().width-30), clamp(p.y-18,30,rect().height-30));
+        }
+      }
+      else if(st.bossPatternNow === 'sweep'){
+        if(rng() < 0.070){
+          const r = rect();
+          const y = 60 + rng() * Math.max(30, r.height - 120);
+          const x = st.bossSweepDir === 'ltr' ? 40 + rng()*120 : r.width - 40 - rng()*120;
+          addEntity('droplet', x, y, CFG.ttlDroplet * 0.78);
+        }
+        if(rng() < 0.030){
+          const y = 60 + rng() * Math.max(30, rect().height - 120);
+          const x = st.bossSweepDir === 'ltr' ? 60 : rect().width - 60;
+          addEntity('infected', x, y, CFG.ttlInfected * 0.92);
+        }
+      }
+      else if(st.bossPatternNow === 'fake'){
+        if(rng() < 0.034){
+          const p = randomXY();
+          addEntity('cough', p.x, p.y, CFG.coughWarnMs + CFG.coughChargeMs + CFG.coughStrikeMs);
+        }
+        if(rng() < 0.022){
+          const p = randomXY();
+          spawnInfected(p.x,p.y);
+        }
+      }
+    }
 
     for(const [id,e] of [...st.entities]){
       if(e.type==='cough'){
@@ -1174,15 +1515,22 @@
           st.combo = 0;
           st.miss++;
           st.threat = clamp(st.threat + 5, 0, 100);
+          showTeach('🦠', 'อย่าปล่อยละอองไว้นาน', 1000);
           mutateDroplet(e);
         }else if(e.type==='mask'){
           removeEntity(id,false);
         }else if(e.type==='infected'){
           st.threat = clamp(st.threat + 8, 0, 100);
-          const splitChance = diff==='easy' ? 0.22 : diff==='hard' ? 0.55 : 0.45;
+
+          const splitChance =
+            st.phase === 'boss'
+              ? (diff==='easy' ? 0.30 : diff==='hard' ? 0.58 : 0.48)
+              : (diff==='easy' ? 0.18 : diff==='hard' ? 0.44 : 0.34);
+
           const doSplit = (st.phase !== 'warm') && rng() < splitChance;
           const ox = e.x, oy = e.y;
           removeEntity(id,false);
+
           if(doSplit){
             for(let k=0;k<2;k++){
               const dx = (rng()*70)-35;
@@ -1192,7 +1540,8 @@
                 clamp(oy+dy, 30, rect().height-30)
               );
             }
-            learningPrompt('infected_spread');
+            showTeach('🦠', 'เชื้อกำลังลาม!', 1200);
+            prompt('🦠 เชื้อลาม!');
           }
         }
       }
@@ -1210,8 +1559,46 @@
 
     if(st.threat >= 75){
       st.shield = clamp(st.shield - 0.05, 0, 100);
-      if(((performance.now() / 900) | 0) % 2 === 0){
-        learningPrompt('high_threat');
+    }
+
+    if(st.threat >= 85 && ((performance.now() / 260) | 0) % 2 === 0){
+      const toastEl = byId('toast');
+      if(toastEl) toastEl.classList.add('urgent');
+    }else{
+      const toastEl = byId('toast');
+      if(toastEl) toastEl.classList.remove('urgent');
+    }
+
+    if(st.phase !== 'warm' && st.threat <= 15 && st.infectedCount === 0){
+      if(!st.__lowThreatPraiseAt || (performance.now() - st.__lowThreatPraiseAt) > 6000){
+        st.__lowThreatPraiseAt = performance.now();
+        showTeach('🌈', 'ตอนนี้ปลอดภัยดี!', 900);
+      }
+    }
+
+    if(st.shield <= 12 && !st.__lastChanceHelp){
+      st.__lastChanceHelp = true;
+      showTeach('💛', 'ระวัง! เก็บหน้ากากด่วน', 1200);
+      if(rng() < 0.7) spawnMask();
+    }
+
+    if(st.phase === 'boss' && st.bossNeedPerfect > 0 && st.bossGotPerfect >= st.bossNeedPerfect){
+      if(!st.__bossClearShown){
+        st.__bossClearShown = true;
+        showBigCallout('👑 ชนะบอสแล้ว!');
+        showTeach('👑', 'เยี่ยมมาก! ใกล้จบแล้ว', 1400);
+        prompt('👑 ชนะบอสแล้ว!');
+        st.score += 6;
+        logger.push({ type:'boss_clear', atSec: Math.round(st.elapsedSec * 10) / 10 });
+      }
+    }
+
+    if(st.phase==='boss' && st.elapsedSec >= timeLimit - 0.3){
+      if(st.bossGotPerfect < st.bossNeedPerfect){
+        const shieldPenalty = diff==='easy' ? 8 : diff==='hard' ? 14 : 12;
+        const scorePenalty  = diff==='easy' ? 4 : diff==='hard' ? 8 : 6;
+        st.shield = clamp(st.shield - shieldPenalty, 0, 100);
+        st.score = Math.max(0, st.score - scorePenalty);
       }
     }
 
@@ -1245,19 +1632,47 @@
     if(sThreat) sThreat.textContent = `${Math.round(st.threat)}%`;
 
     const badges = [];
-    if(st.perfect >= 4) badges.push('✨ Perfect x4');
-    if(st.comboMax >= 12) badges.push('🔥 Combo 12');
-    if(st.burstUsed >= 1) badges.push('💥 Burst Used');
+    if(st.perfect >= 4) badges.push('✨ กันไอเก่ง');
+    if(st.comboMax >= 12) badges.push('🔥 คอมโบสุดยอด');
+    if(st.bossGotPerfect >= st.bossNeedPerfect && st.bossNeedPerfect > 0) badges.push('👑 ชนะบอส');
+    if(st.infectedCount === 0 && st.threat < 30) badges.push('🧼 พื้นที่สะอาด');
+    if(st.burstUsed >= 1) badges.push('💥 ใช้พลังแล้ว');
+    if(st.burstUsed >= 2) badges.push('⚡ ใช้พลังเก่ง');
 
-    let verdict = 'Keep going';
-    if(st.score >= (diff==='easy' ? 28 : diff==='hard' ? 48 : 38)) verdict = 'Great Run';
+    let verdict = 'พยายามได้ดี';
+    if(st.score >= (diff==='easy' ? 28 : diff==='hard' ? 48 : 38)) verdict = 'เก่งมาก';
+    if(st.bossGotPerfect >= st.bossNeedPerfect && st.comboMax >= (diff==='easy' ? 8 : 12)) verdict = 'สุดยอดฮีโร่';
 
     if(endBadges){
       endBadges.innerHTML = badges.length
-        ? badges.map(b=>`<span class="badge">${b}</span>`).join('')
-        : `<span class="badge">🙂 Keep going</span>`;
-      endBadges.insertAdjacentHTML('afterbegin', `<span class="badge">${verdict}</span>`);
+        ? badges.map(b=>`<span class="badge ${b.includes('👑')?'crown':''}">${b}</span>`).join('')
+        : `<span class="badge">🙂 เล่นได้ดี</span>`;
+
+      if(verdict === 'สุดยอดฮีโร่'){
+        endBadges.insertAdjacentHTML('afterbegin', `<span class="badge crown">🏆 ${verdict}</span>`);
+      }else{
+        endBadges.insertAdjacentHTML('afterbegin', `<span class="badge">🌟 ${verdict}</span>`);
+      }
     }
+
+    let childSummary = 'เก่งมาก! คุณช่วยลดการแพร่เชื้อได้';
+    if(st.miss >= 6){
+      childSummary = 'รอบหน้าลองเก็บหน้ากากและกันไอให้ทันมากขึ้นนะ';
+    }else if(st.bossNeedPerfect > 0 && st.bossGotPerfect < st.bossNeedPerfect){
+      childSummary = 'ดีแล้ว! ลองจับจังหวะตอนบอสอีกนิดนะ';
+    }else if(st.bossNeedPerfect > 0 && st.bossGotPerfect >= st.bossNeedPerfect){
+      childSummary = 'สุดยอด! คุณหยุดบอสได้แล้ว';
+    }
+
+    const learningOutcome =
+      st.bossNeedPerfect > 0 && st.bossGotPerfect >= st.bossNeedPerfect ? 'boss_clear' :
+      st.miss <= 3 ? 'stable_control' :
+      st.perfect >= 4 ? 'timing_improved' :
+      'needs_more_support';
+
+    const hazardControlScore = Math.max(0, 100 - (st.miss * 8) - (st.infectedCount * 6));
+    const responseTimingScore = Math.max(0, Math.min(100, (st.perfect * 15) + (st.comboMax * 2)));
+    const preventionScore = Math.max(0, Math.min(100, Math.round(st.shield) + (st.maskPickups * 6)));
 
     const summary = {
       game: 'maskcough-v2',
@@ -1275,7 +1690,24 @@
       bossPerfect: st.bossGotPerfect,
       bossNeedPerfect: st.bossNeedPerfect,
       burstUsed: st.burstUsed,
-      reason
+      warmClears: st.warmClears,
+      pressureParries: st.pressureParries,
+      maskPickups: st.maskPickups,
+      infectedRemain: st.infectedCount,
+      learningOutcome,
+      hazardControlScore,
+      responseTimingScore,
+      preventionScore,
+      reason,
+      __extraJson: JSON.stringify({
+        url: location.href,
+        researchMetrics: {
+          learningOutcome,
+          hazardControlScore,
+          responseTimingScore,
+          preventionScore
+        }
+      })
     };
 
     lastSummary = summary;
@@ -1285,11 +1717,17 @@
     logger.flush('end');
 
     if(learningSummary){
-      learningSummary.textContent = buildLearningSummary();
+      learningSummary.innerHTML = `
+        <div>💦 เก็บละอองได้ ${st.score} แต้ม</div>
+        <div>🤧 กันไอได้ ${st.perfect} ครั้ง</div>
+        <div>🦠 พลาด ${st.miss} ครั้ง</div>
+        <div class="praise">${childSummary}</div>
+      `;
     }
 
     if(endNote){
-      endNote.textContent =
+      if(mode === 'research'){
+        endNote.textContent =
 `pid=${pid}
 studyId=${studyId || '-'} phase=${phase || '-'} conditionGroup=${conditionGroup || '-'}
 verdict=${verdict}
@@ -1300,9 +1738,17 @@ perfect=${st.perfect}
 miss=${st.miss}
 shield=${Math.round(st.shield)}%
 threat=${Math.round(st.threat)}%
+bossPerfect=${st.bossGotPerfect}/${st.bossNeedPerfect}
 burstUsed=${st.burstUsed}
+learningOutcome=${learningOutcome}
+hazardControlScore=${hazardControlScore}
+responseTimingScore=${responseTimingScore}
+preventionScore=${preventionScore}
 diff=${diff} view=${view} time=${timeLimit}s seed=${seed}
 log=${logEndpoint || '-'}`;
+      }else{
+        endNote.textContent = `คะแนน ${st.score} • คอมโบสูงสุด ${st.comboMax} • พลังพิเศษ ${st.burstUsed} ครั้ง`;
+      }
     }
 
     wireEndButtonForCooldown();
@@ -1312,21 +1758,17 @@ log=${logEndpoint || '-'}`;
 
   function backHub(){
     try{
-      const rawHub = hub || HUB_FALLBACK;
-      const u = new URL(rawHub, HUB_FALLBACK);
-
+      const u = new URL(hub, location.href);
       const keep = ['pid','studyId','phase','conditionGroup','run','view','diff','time'];
       const src = new URL(location.href);
-
       keep.forEach(k=>{
         const v = src.searchParams.get(k);
         if(v) u.searchParams.set(k, v);
       });
-
       u.searchParams.set('from', 'maskcough-v2');
       location.href = u.toString();
     }catch(_){
-      location.href = HUB_FALLBACK;
+      location.href = hub || '../hub.html';
     }
   }
 
@@ -1373,7 +1815,7 @@ log=${logEndpoint || '-'}`;
   btnPause?.addEventListener('click', ()=>{
     if(!st.running || st.over) return;
     st.paused = !st.paused;
-    btnPause.textContent = st.paused ? '▶ Resume' : '⏸ Pause';
+    btnPause.textContent = st.paused ? '▶ เล่นต่อ' : '⏸ พัก';
 
     if(st.paused){
       prompt('⏸ พักเกม');
@@ -1381,7 +1823,8 @@ log=${logEndpoint || '-'}`;
     }else{
       prompt('▶ กลับมาแล้ว ลุยต่อ!');
       if(st.phase==='boss' && st.bossActive){
-        startBossPattern(performance.now());
+        const now = performance.now();
+        startBossPattern(now);
       }
     }
   });
