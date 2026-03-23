@@ -847,8 +847,8 @@
       </div>
 
       <div class="hero">
-        <button class="btn violet" id="btnHeroShow" type="button">🧾 ดูข้อมูลฮีโร่</button>
-        <button class="btn ghost" id="btnHeroReset" type="button">♻ Reset Hero</button>
+        <button class="btn violet" id="btnHeroShow" type="button">🧾 ดูฮีโร่</button>
+        <button class="btn ghost" id="btnHeroReset" type="button">♻ รีเซ็ตฮีโร่</button>
       </div>
     </div>
 
@@ -859,8 +859,8 @@
           <div class="cardBookSub">เล่นดี จะได้การ์ดสะสมตามเกรด S / A / B / C</div>
         </div>
         <div class="inlineRow">
-          <button class="btn primary" id="btnOpenGJLauncher" type="button">🚀 เปิด GoodJunk Launcher</button>
-          <button class="btn ghost" id="btnResetCardBook" type="button">♻ Reset Card Book</button>
+          <button class="btn primary" id="btnOpenGJLauncher" type="button">🚀 เริ่ม GoodJunk</button>
+          <button class="btn ghost" id="btnResetCardBook" type="button">♻ รีเซ็ตสมุดการ์ด</button>
         </div>
       </div>
 
@@ -887,10 +887,10 @@
             </div>
           </div>
           <div class="bookActions">
-            <span class="pill"><b>grade</b>: <span id="lastDropGrade">—</span></span>
-            <span class="pill"><b>score</b>: <span id="lastDropScore">0</span></span>
-            <span class="pill"><b>best</b>: <span id="bestNormalScore">0</span></span>
-            <span class="pill"><b>streak</b>: <span id="streakCount">0</span></span>
+            <span class="pill"><b>เกรด</b>: <span id="lastDropGrade">—</span></span>
+            <span class="pill"><b>คะแนน</b>: <span id="lastDropScore">0</span></span>
+            <span class="pill"><b>สูงสุด</b>: <span id="bestNormalScore">0</span></span>
+            <span class="pill"><b>ต่อเนื่อง</b>: <span id="streakCount">0</span></span>
           </div>
         </div>
       </div>
@@ -910,15 +910,15 @@
             <div class="inlineRow">
               <div class="trophyIcon" id="nutriTrophyIcon">🥦</div>
               <div>
-                <div class="trophyTitle">Nutrition Trophy</div>
+                <div class="trophyTitle">ถ้วยโลกโภชนาการ</div>
                 <div class="shelfMeta">GoodJunk / Groups / Hydration / Plate</div>
               </div>
             </div>
-            <span class="statusChip locked" id="nutriStatus">LOCKED</span>
+            <span class="statusChip locked" id="nutriStatus">ยังไม่ปลด</span>
           </div>
           <div class="miniRow">
-            <span class="pill"><b>best</b>: <span id="nutriBestScore">0</span></span>
-            <span class="pill"><b>cards</b>: <span id="nutriCardTotal">0</span></span>
+            <span class="pill"><b>สูงสุด</b>: <span id="nutriBestScore">0</span></span>
+            <span class="pill"><b>การ์ด</b>: <span id="nutriCardTotal">0</span></span>
           </div>
           <div class="shelfMeta" id="nutriHint">เริ่มที่ GoodJunk หรือ Hydration เพื่อค่อย ๆ ปลดถ้วยนี้</div>
         </div>
@@ -928,14 +928,14 @@
             <div class="inlineRow">
               <div class="trophyIcon" id="hygieneTrophyIcon">🪥</div>
               <div>
-                <div class="trophyTitle">Hygiene Trophy</div>
+                <div class="trophyTitle">ถ้วยโลกสุขอนามัย</div>
                 <div class="shelfMeta">Handwash / Brush / Bath / Clean / Mask / Germ</div>
               </div>
             </div>
-            <span class="statusChip locked" id="hygieneStatus">LOCKED</span>
+            <span class="statusChip locked" id="hygieneStatus">ยังไม่ปลด</span>
           </div>
           <div class="miniRow">
-            <span class="pill"><b>zone</b>: <span id="hygieneZoneDone">0</span></span>
+            <span class="pill"><b>เล่นวันนี้</b>: <span id="hygieneZoneDone">0</span></span>
           </div>
           <div class="shelfMeta" id="hygieneHint">เล่นเกมในโลกสุขอนามัยวันนี้ เพื่อโชว์ถ้วยนี้</div>
         </div>
@@ -945,39 +945,39 @@
             <div class="inlineRow">
               <div class="trophyIcon" id="fitnessTrophyIcon">🏃</div>
               <div>
-                <div class="trophyTitle">Fitness Trophy</div>
+                <div class="trophyTitle">ถ้วยโลกออกกำลังกาย</div>
                 <div class="shelfMeta">Shadow / Rhythm / JumpDuck / Balance / Planner</div>
               </div>
             </div>
-            <span class="statusChip locked" id="fitnessStatus">LOCKED</span>
+            <span class="statusChip locked" id="fitnessStatus">ยังไม่ปลด</span>
           </div>
           <div class="miniRow">
-            <span class="pill"><b>zone</b>: <span id="fitnessZoneDone">0</span></span>
-            <span class="pill"><b>JD best</b>: <span id="fitnessJDBest">0</span></span>
-            <span class="pill"><b>JD streak</b>: <span id="fitnessJDStreak">0</span></span>
+            <span class="pill"><b>เล่นวันนี้</b>: <span id="fitnessZoneDone">0</span></span>
+            <span class="pill"><b>JD สูงสุด</b>: <span id="fitnessJDBest">0</span></span>
+            <span class="pill"><b>JD ต่อเนื่อง</b>: <span id="fitnessJDStreak">0</span></span>
           </div>
           <div class="miniRow">
-            <span class="pill"><b>JD badge</b>: <span id="fitnessJDBadgeCount">0</span></span>
-            <span class="pill"><b>JD reward</b>: <span id="fitnessJDReward">-</span></span>
-            <span class="pill"><b>Boss badge</b>: <span id="fitnessJDBossBadge">-</span></span>
+            <span class="pill"><b>JD แบดจ์</b>: <span id="fitnessJDBadgeCount">0</span></span>
+            <span class="pill"><b>JD รางวัล</b>: <span id="fitnessJDReward">-</span></span>
+            <span class="pill"><b>แบดจ์บอส</b>: <span id="fitnessJDBossBadge">-</span></span>
           </div>
           <div class="miniRow">
-            <span class="pill"><b>SB boss</b>: <span id="fitnessSBBestBoss">-</span></span>
-            <span class="pill"><b>SB badge</b>: <span id="fitnessSBBestBadge">-</span></span>
+            <span class="pill"><b>SB บอส</b>: <span id="fitnessSBBestBoss">-</span></span>
+            <span class="pill"><b>SB แบดจ์</b>: <span id="fitnessSBBestBadge">-</span></span>
           </div>
           <div class="miniRow">
-            <span class="pill"><b>SB best</b>: <span id="fitnessSBBestScore">0</span></span>
-            <span class="pill"><b>SB last</b>: <span id="fitnessSBLastPlayed">-</span></span>
+            <span class="pill"><b>SB สูงสุด</b>: <span id="fitnessSBBestScore">0</span></span>
+            <span class="pill"><b>SB ล่าสุด</b>: <span id="fitnessSBLastPlayed">-</span></span>
           </div>
           <div class="miniRow">
-            <a class="btn primary" id="linkSBLauncher" href="#">🥊 เปิด Shadow Breaker</a>
-            <a class="btn violet" id="linkSBSummary" href="#" style="display:none;">🏁 Summary</a>
-            <a class="btn ghost" id="linkSBTeacher" href="#" style="display:none;">🧑‍🏫 Teacher</a>
-            <button class="btn ghost" id="linkSBResetLast" type="button">♻ Reset Last</button>
-            <button class="btn danger" id="linkSBResetAll" type="button">🗑 Reset All</button>
+            <a class="btn primary" id="linkSBLauncher" href="#">🥊 เริ่ม Shadow Breaker</a>
+            <a class="btn violet" id="linkSBSummary" href="#" style="display:none;">🏁 สรุปผล</a>
+            <a class="btn ghost" id="linkSBTeacher" href="#" style="display:none;">🧑‍🏫 โหมดครู</a>
+            <button class="btn ghost" id="linkSBResetLast" type="button">♻ ล้างผลล่าสุด</button>
+            <button class="btn danger" id="linkSBResetAll" type="button">🗑 ล้างทั้งหมด</button>
           </div>
           <div class="miniRow">
-            <a class="btn violet" id="linkJDGallery" href="#">🖼 JumpDuck Gallery</a>
+            <a class="btn violet" id="linkJDGallery" href="#">🖼 แกลเลอรี JumpDuck</a>
           </div>
           <div class="shelfMeta" id="fitnessHint">เล่นโลกออกกำลังกายวันนี้ เพื่อค่อย ๆ ปลดถ้วยนี้</div>
         </div>
@@ -1252,9 +1252,9 @@
       const hygieneStatus = document.getElementById('hygieneStatus');
       const fitnessStatus = document.getElementById('fitnessStatus');
 
-      nutriStatus.textContent = nutritionUnlocked ? 'ปลดแล้ว 🎉' : 'LOCKED';
-      hygieneStatus.textContent = hygieneUnlocked ? 'ทำแล้ววันนี้ ✅' : 'LOCKED';
-      fitnessStatus.textContent = fitnessUnlocked ? 'ทำแล้ววันนี้ ✅' : 'LOCKED';
+      nutriStatus.textContent = nutritionUnlocked ? 'ปลดแล้ว 🎉' : 'ยังไม่ปลด';
+      hygieneStatus.textContent = hygieneUnlocked ? 'ทำแล้ววันนี้ ✅' : 'ยังไม่ปลด';
+      fitnessStatus.textContent = fitnessUnlocked ? 'ทำแล้ววันนี้ ✅' : 'ยังไม่ปลด';
 
       nutriStatus.className = `statusChip ${nutritionUnlocked ? 'done' : 'locked'}`;
       hygieneStatus.className = `statusChip ${hygieneUnlocked ? 'done' : 'locked'}`;
@@ -1271,13 +1271,13 @@
 
       const badgeCount = Object.values(badges || {}).filter(Boolean).length;
       document.getElementById('nutriHint').textContent =
-        nutritionUnlocked ? `ปลดถ้วยแล้ว • badges ${badgeCount} • เก่งมาก` : 'เริ่มที่ GoodJunk หรือ Hydration เพื่อค่อย ๆ ปลดถ้วยนี้';
+        nutritionUnlocked ? `ปลดถ้วยโลกโภชนาการแล้ว • badges ${badgeCount} • เก่งมาก 🎉` : 'เล่น GoodJunk หรือ Hydration เพื่อปลดถ้วยนี้';
 
       document.getElementById('hygieneHint').textContent =
-        hygieneUnlocked ? 'วันนี้เล่นโลกสุขอนามัยแล้ว' : 'เล่นเกมในโลกสุขอนามัยวันนี้ เพื่อโชว์ถ้วยนี้';
+        hygieneUnlocked ? 'วันนี้เล่นโลกสุขอนามัยแล้ว ✅' : 'เล่นเกมในโลกสุขอนามัยวันนี้ เพื่อปลดถ้วยนี้';
 
       document.getElementById('fitnessHint').textContent =
-        fitnessUnlocked ? 'วันนี้เล่นโลกออกกำลังกายแล้ว' : 'เล่นโลกออกกำลังกายวันนี้ เพื่อค่อย ๆ ปลดถ้วยนี้';
+        fitnessUnlocked ? 'วันนี้เล่นโลกออกกำลังกายแล้ว ✅' : 'เล่นเกมในโลกออกกำลังกายวันนี้ เพื่อปลดถ้วยนี้';
     }
 
     const PATHS = {
@@ -1290,7 +1290,7 @@
       bath:           './bath-vr.html',
       cleanObject:    './clean-objects.html',
       maskCough:      './maskcough-vr.html',
-      germDetective:  './germ-detective-vr.html',
+      germDetective:  './germ-detective.html',
       shadowBreaker:  './shadow-breaker-vr.html',
       rhythmBoxer:    './rhythm-boxer.html',
       jumpDuck:       './jump-duck-vr.html',
@@ -1375,7 +1375,7 @@
       delKey(`HHA_GJ_STREAK:${pid}`);
       renderCardBook();
       renderTrophyShelf();
-      alert('ล้าง Card Book เรียบร้อย ✅');
+      alert('ล้างสมุดการ์ดเรียบร้อย ✅');
     };
 
     document.getElementById('linkSBResetLast').onclick = ()=>{
