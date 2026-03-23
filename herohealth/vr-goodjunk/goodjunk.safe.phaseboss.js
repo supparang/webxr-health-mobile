@@ -22,13 +22,20 @@ const GJ_HUB = RUN_CTX.hub || '../hub.html';
 const GJ_GAME_ID = RUN_CTX.gameId || 'goodjunk';
 
 const GAME_MOUNT = document.getElementById('gameMount') || document.body;
-const STYLE_ID = 'goodjunk-phaseboss-style-v20260319c';
+const STYLE_ID = 'goodjunk-phaseboss-style-v20260319e';
 const ROOT_ID = 'gjpbRoot';
 
 const GJ_SOLO_LAST_SUMMARY_KEY = `GJ_SOLO_LAST_SUMMARY_${GJ_PID}`;
 const GJ_SOLO_SUMMARY_HISTORY_KEY = `GJ_SOLO_SUMMARY_HISTORY_${GJ_PID}`;
 const HHA_LAST_SUMMARY_KEY = 'HHA_LAST_SUMMARY';
 const HHA_SUMMARY_HISTORY_KEY = 'HHA_SUMMARY_HISTORY';
+const HHA_EVENT_QUEUE_KEY = 'HHA_EVENT_QUEUE';
+const HHA_SESSION_SUMMARY_QUEUE_KEY = 'HHA_SESSION_SUMMARY_QUEUE';
+const HHA_EVENTS_SCHEMA_QUEUE_KEY = 'HHA_EVENTS_SCHEMA_QUEUE';
+const HHA_SESSIONS_SCHEMA_QUEUE_KEY = 'HHA_SESSIONS_SCHEMA_QUEUE';
+
+const SESSION_ID = `gjsolo-${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
+const PATCH_VERSION = '20260319e-goodjunk-solo-cloud-logger-pack';
 
 const GOOD_ITEMS = [
   { emoji: '🍎', label: 'apple' },
@@ -53,25 +60,58 @@ const JUNK_ITEMS = [
 ];
 
 const PHASE_GOALS = {
-  1: 65,
-  2: 165
+  easy:   { 1: 50, 2: 130 },
+  normal: { 1: 65, 2: 165 },
+  hard:   { 1: 80, 2: 205 }
 };
 
 const DIFF_PRESET = {
   easy: {
-    p1: { spawnMs: 860, goodRatio: 0.72, speedMin: 90, speedMax: 145, sizeMin: 62, sizeMax: 86 },
-    p2: { spawnMs: 690, goodRatio: 0.62, speedMin: 120, speedMax: 190, sizeMin: 58, sizeMax: 82 },
-    boss: { hp: 10, stormMs: 960, weakSpeed: 130, weakMoveMs: 1300, weakSize: 84 }
+    p1: { spawnMs: 900, goodRatio: 0.76, speedMin: 86, speedMax: 138, sizeMin: 66, sizeMax: 90 },
+    p2: { spawnMs: 740, goodRatio: 0.67, speedMin: 112, speedMax: 178, sizeMin: 62, sizeMax: 86 },
+    boss: {
+      hp: 9,
+      stormMs: 1060,
+      weakSpeed: 118,
+      weakMoveMs: 1420,
+      weakSize: 92,
+      stunBonusMs: 120,
+      clearBonus: 50,
+      stormBurst: 4,
+      enrageStormPenalty: 90
+    }
   },
+
   normal: {
     p1: { spawnMs: 760, goodRatio: 0.68, speedMin: 105, speedMax: 165, sizeMin: 60, sizeMax: 84 },
     p2: { spawnMs: 610, goodRatio: 0.57, speedMin: 135, speedMax: 225, sizeMin: 56, sizeMax: 78 },
-    boss: { hp: 13, stormMs: 820, weakSpeed: 165, weakMoveMs: 1100, weakSize: 76 }
+    boss: {
+      hp: 13,
+      stormMs: 820,
+      weakSpeed: 165,
+      weakMoveMs: 1100,
+      weakSize: 76,
+      stunBonusMs: 0,
+      clearBonus: 40,
+      stormBurst: 5,
+      enrageStormPenalty: 120
+    }
   },
+
   hard: {
-    p1: { spawnMs: 660, goodRatio: 0.63, speedMin: 120, speedMax: 190, sizeMin: 58, sizeMax: 80 },
-    p2: { spawnMs: 520, goodRatio: 0.50, speedMin: 155, speedMax: 260, sizeMin: 54, sizeMax: 74 },
-    boss: { hp: 16, stormMs: 660, weakSpeed: 215, weakMoveMs: 900, weakSize: 68 }
+    p1: { spawnMs: 650, goodRatio: 0.60, speedMin: 126, speedMax: 198, sizeMin: 56, sizeMax: 78 },
+    p2: { spawnMs: 500, goodRatio: 0.48, speedMin: 168, speedMax: 276, sizeMin: 52, sizeMax: 72 },
+    boss: {
+      hp: 18,
+      stormMs: 620,
+      weakSpeed: 230,
+      weakMoveMs: 860,
+      weakSize: 64,
+      stunBonusMs: -40,
+      clearBonus: 32,
+      stormBurst: 6,
+      enrageStormPenalty: 150
+    }
   }
 };
 
@@ -90,6 +130,7 @@ const ui = {
   stats: null,
   banner: null,
   bossWrap: null,
+  bossIcon: null,
   bossName: null,
   bossHpBar: null,
   bossHpText: null,
@@ -111,6 +152,8 @@ const state = {
   timeLeftMs: 0,
   running: false,
   ended: false,
+  finishing: false,
+
   score: 0,
   miss: 0,
   streak: 0,
@@ -121,12 +164,16 @@ const state = {
   powerHits: 0,
   spawnedGood: 0,
   spawnedJunk: 0,
+
+  bossStuns: 0,
+
   lastFrameTs: 0,
   spawnAccum: 0,
   raf: 0,
   targetSeq: 0,
   targets: new Map(),
   rect: { width: 320, height: 420 },
+
   boss: {
     active: false,
     maxHp: 0,
@@ -137,9 +184,46 @@ const state = {
     weakspotId: '',
     weakSpeed: 0,
     weakSize: 0,
-    weakMoveMs: 0
+    weakMoveMs: 0,
+
+    patternIndex: 0,
+    patternLabel: 'Target Hunt',
+    patternTimeLeft: 0,
+    nextPatternIndex: -1,
+    telegraphMs: 0,
+
+    burstShots: 0,
+    burstGapMs: 0,
+
+    stunMs: 0,
+    victoryShown: false
   },
-  summaryPayload: null
+
+  summaryPayload: null,
+
+  research: {
+    reachedBossAtMs: 0,
+    bossStartTimeLeftMs: 0,
+    bossDurationMs: 0,
+
+    weakspotSpawned: 0,
+    weakspotHit: 0,
+
+    stormSpawned: 0,
+    stormHits: 0,
+
+    patternStarts: {
+      targetHunt: 0,
+      junkStorm: 0,
+      armorBreak: 0
+    },
+
+    patternWeakHits: {
+      targetHunt: 0,
+      junkStorm: 0,
+      armorBreak: 0
+    }
+  }
 };
 
 const rng = createSeededRng(RUN_CTX.seed || Date.now());
@@ -346,6 +430,15 @@ function injectStyle() {
         rgba(15,23,42,.94);
       border-color:rgba(250,204,21,.42);
       box-shadow:0 0 0 4px rgba(250,204,21,.08), 0 18px 42px rgba(0,0,0,.28);
+      animation: gjpb-weakspot-pulse .9s ease-in-out infinite;
+    }
+    @keyframes gjpb-weakspot-pulse{
+      0%,100%{
+        box-shadow:0 0 0 0 rgba(250,204,21,.10), 0 18px 42px rgba(0,0,0,.28);
+      }
+      50%{
+        box-shadow:0 0 0 8px rgba(250,204,21,.08), 0 18px 42px rgba(0,0,0,.28);
+      }
     }
     .gjpb-emoji{
       font-size:34px;
@@ -396,6 +489,7 @@ function injectStyle() {
       padding:12px;
       z-index:4;
       display:none;
+      transition:transform .16s ease, box-shadow .16s ease, border-color .16s ease, background .16s ease;
     }
     .gjpb-bosswrap.show{
       display:block;
@@ -604,6 +698,110 @@ function injectStyle() {
       color:#e5e7eb;
       border:1px solid rgba(148,163,184,.18);
     }
+
+    #${ROOT_ID}.gjpb-shake .gjpb-stage{
+      animation: gjpb-stage-shake .22s linear 1;
+    }
+    @keyframes gjpb-stage-shake{
+      0%{ transform:translate3d(0,0,0); }
+      20%{ transform:translate3d(-6px, 2px, 0); }
+      40%{ transform:translate3d(6px, -2px, 0); }
+      60%{ transform:translate3d(-4px, 1px, 0); }
+      80%{ transform:translate3d(4px, -1px, 0); }
+      100%{ transform:translate3d(0,0,0); }
+    }
+    .gjpb-bosswrap.flash{
+      border-color:rgba(250,204,21,.48);
+      box-shadow:
+        0 0 0 3px rgba(250,204,21,.10),
+        0 20px 40px rgba(0,0,0,.18);
+      transform:scale(1.02);
+    }
+
+    .gjpb-stage.stunned::after{
+      content:"";
+      position:absolute;
+      inset:0;
+      background:linear-gradient(180deg, rgba(250,204,21,.10), rgba(255,255,255,.02));
+      pointer-events:none;
+      z-index:4;
+    }
+
+    .gjpb-victory-burst{
+      position:absolute;
+      font-size:20px;
+      font-weight:1000;
+      pointer-events:none;
+      transform:translate(-50%,-50%);
+      animation:gjpb-victory-burst 900ms ease-out forwards;
+      z-index:8;
+      text-shadow:0 10px 24px rgba(0,0,0,.28);
+    }
+    @keyframes gjpb-victory-burst{
+      from{
+        opacity:1;
+        transform:translate(-50%,-50%) scale(.7);
+      }
+      to{
+        opacity:0;
+        transform:translate(var(--tx), var(--ty)) scale(1.25);
+      }
+    }
+
+    .gjpb-stage.telegraph-storm{
+      box-shadow:
+        0 0 0 2px rgba(244,63,94,.18),
+        0 24px 64px rgba(0,0,0,.24);
+    }
+    .gjpb-stage.telegraph-storm::after{
+      content:"";
+      position:absolute;
+      inset:0;
+      background:linear-gradient(180deg, rgba(244,63,94,.10), transparent 40%);
+      pointer-events:none;
+      z-index:3;
+    }
+
+    .gjpb-stage.telegraph-break{
+      box-shadow:
+        0 0 0 2px rgba(250,204,21,.18),
+        0 24px 64px rgba(0,0,0,.24);
+    }
+    .gjpb-stage.telegraph-break::after{
+      content:"";
+      position:absolute;
+      inset:0;
+      background:linear-gradient(180deg, rgba(250,204,21,.10), transparent 40%);
+      pointer-events:none;
+      z-index:3;
+    }
+
+    .gjpb-stage.telegraph-hunt{
+      box-shadow:
+        0 0 0 2px rgba(56,189,248,.18),
+        0 24px 64px rgba(0,0,0,.24);
+    }
+    .gjpb-stage.telegraph-hunt::after{
+      content:"";
+      position:absolute;
+      inset:0;
+      background:linear-gradient(180deg, rgba(56,189,248,.10), transparent 40%);
+      pointer-events:none;
+      z-index:3;
+    }
+
+    .gjpb-bosswrap.defeated{
+      border-color:rgba(34,197,94,.34);
+      background:
+        linear-gradient(180deg, rgba(34,197,94,.12), rgba(2,6,23,.7));
+      transform:scale(1.03);
+    }
+
+    .gjpb-bosswrap.defeated .gjpb-boss-icon{
+      background:linear-gradient(180deg, rgba(34,197,94,.30), rgba(20,83,45,.18));
+      border-color:rgba(34,197,94,.30);
+    }
+
     @media (max-width:760px){
       .gjpb-shell{
         grid-template-rows:auto auto 1fr auto;
@@ -647,7 +845,7 @@ function buildShell() {
 
         <div class="gjpb-phasebar">
           <div class="gjpb-phase-pill" id="gjpbPhasePill">PHASE 1</div>
-          <div class="gjpb-goal-pill" id="gjpbGoalText">GOAL สะสมคะแนน • เป้าหมาย 65</div>
+          <div class="gjpb-goal-pill" id="gjpbGoalText">GOAL สะสมคะแนน</div>
         </div>
 
         <div class="gjpb-stage" id="gjpbStage">
@@ -723,6 +921,7 @@ function buildShell() {
   ui.stats = document.getElementById('gjpbStats');
   ui.banner = document.getElementById('gjpbBanner');
   ui.bossWrap = document.getElementById('gjpbBossWrap');
+  ui.bossIcon = ui.bossWrap?.querySelector('.gjpb-boss-icon') || null;
   ui.bossName = document.getElementById('gjpbBossName');
   ui.bossHpBar = document.getElementById('gjpbBossHpBar');
   ui.bossHpText = document.getElementById('gjpbBossHpText');
@@ -751,7 +950,10 @@ function bindShell() {
   });
 
   ui.btnExport?.addEventListener('click', () => {
-    downloadJson(state.summaryPayload, `goodjunk-solo-${safeFilePart(GJ_PID)}-${Date.now()}.json`);
+    downloadJson(
+      makeResearchSnapshot(state.summaryPayload),
+      `goodjunk-solo-research-${safeFilePart(GJ_PID)}-${Date.now()}.json`
+    );
   });
 }
 
@@ -793,11 +995,394 @@ function clamp(v, min, max) {
   return Math.max(min, Math.min(max, v));
 }
 
+function getRunTimeSeconds() {
+  return clamp(Number(RUN_CTX.time || 150), 90, 180);
+}
+
+function getTimeBand() {
+  const t = getRunTimeSeconds();
+  if (t <= 100) return 'short';
+  if (t <= 135) return 'medium';
+  if (t <= 165) return 'standard';
+  return 'long';
+}
+
+function getTimeBalance() {
+  const band = getTimeBand();
+
+  if (band === 'short') {
+    return {
+      band,
+      goalScale: 0.82,
+      spawnScale: 0.90,
+      patternScale: 0.82,
+      stormScale: 0.88,
+      bossHpDelta: -2,
+      weakSpeedDelta: 10,
+      clearBonusDelta: 0
+    };
+  }
+
+  if (band === 'medium') {
+    return {
+      band,
+      goalScale: 0.92,
+      spawnScale: 0.96,
+      patternScale: 0.92,
+      stormScale: 0.95,
+      bossHpDelta: -1,
+      weakSpeedDelta: 4,
+      clearBonusDelta: 0
+    };
+  }
+
+  if (band === 'long') {
+    return {
+      band,
+      goalScale: 1.12,
+      spawnScale: 1.03,
+      patternScale: 1.12,
+      stormScale: 1.08,
+      bossHpDelta: 2,
+      weakSpeedDelta: -8,
+      clearBonusDelta: 8
+    };
+  }
+
+  return {
+    band: 'standard',
+    goalScale: 1,
+    spawnScale: 1,
+    patternScale: 1,
+    stormScale: 1,
+    bossHpDelta: 0,
+    weakSpeedDelta: 0,
+    clearBonusDelta: 0
+  };
+}
+
+function getPhaseGoal(phase) {
+  const diffKey = DIFF_PRESET[state.diff] ? state.diff : 'normal';
+  const base = PHASE_GOALS[diffKey]?.[phase] ?? (phase === 1 ? 65 : 165);
+  const scale = getTimeBalance().goalScale || 1;
+  return Math.max(20, Math.round(base * scale));
+}
+
+function getBossBase() {
+  const raw = DIFF_PRESET[state.diff]?.boss || DIFF_PRESET.normal.boss;
+  const tb = getTimeBalance();
+
+  return {
+    ...raw,
+    hp: Math.max(6, raw.hp + (tb.bossHpDelta || 0)),
+    weakSpeed: Math.max(90, raw.weakSpeed + (tb.weakSpeedDelta || 0)),
+    clearBonus: Math.max(20, raw.clearBonus + (tb.clearBonusDelta || 0))
+  };
+}
+
+function getBossClearBonus() {
+  return getBossBase().clearBonus || 40;
+}
+
+function getBossPressureRatio() {
+  if (!state.totalMs) return 1;
+  const used = 1 - (state.timeLeftMs / state.totalMs);
+  return clamp(used, 0, 1);
+}
+
+function getEasyGraceWeakSizeBonus() {
+  if (state.diff !== 'easy') return 0;
+  if (!state.boss.active) return 0;
+  if (state.miss < 6) return 0;
+  return 10;
+}
+
+function getElapsedMs() {
+  return Math.max(0, state.totalMs - state.timeLeftMs);
+}
+
+function getPatternKey(index = state.boss.patternIndex) {
+  if (index === 1) return 'junkStorm';
+  if (index === 2) return 'armorBreak';
+  return 'targetHunt';
+}
+
+function getWeakspotHitRatePct() {
+  const total = state.research.weakspotSpawned || 0;
+  if (!total) return 0;
+  return Math.round((state.research.weakspotHit / total) * 100);
+}
+
+function getStormAvoidRatePct() {
+  const total = state.research.stormSpawned || 0;
+  if (!total) return 100;
+  const avoided = Math.max(0, total - state.research.stormHits);
+  return Math.round((avoided / total) * 100);
+}
+
+function nowIso() {
+  return new Date().toISOString();
+}
+
+function makeBaseLogFields() {
+  return {
+    timestampIso: nowIso(),
+    sessionId: SESSION_ID,
+    projectTag: 'herohealth',
+    source: 'goodjunk-solo-phaseboss',
+    version: PATCH_VERSION,
+
+    gameId: GJ_GAME_ID,
+    mode: 'solo',
+    diff: state.diff,
+    runMode: RUN_CTX.run || 'play',
+    view: RUN_CTX.view || 'mobile',
+
+    pid: GJ_PID,
+    name: GJ_NAME,
+    studyId: RUN_CTX.studyId || '',
+    roomId: '',
+    seed: RUN_CTX.seed || '',
+
+    timeTotalSec: Math.round(state.totalMs / 1000) || Number(RUN_CTX.time || 150),
+    timeLeftMs: Math.max(0, Math.round(state.timeLeftMs || 0)),
+    elapsedMs: Math.round(getElapsedMs())
+  };
+}
+
+function appendQueue(key, item, limit = 800) {
+  try {
+    const raw = localStorage.getItem(key);
+    const arr = raw ? JSON.parse(raw) : [];
+    const next = Array.isArray(arr) ? arr : [];
+    next.push(item);
+    while (next.length > limit) next.shift();
+    localStorage.setItem(key, JSON.stringify(next));
+  } catch {}
+}
+
+function getStudentMeta() {
+  return {
+    studentKey: __qs.get('studentKey') || GJ_PID,
+    schoolCode: __qs.get('schoolCode') || '',
+    classRoom: __qs.get('classRoom') || '',
+    studentNo: __qs.get('studentNo') || '',
+    nickName: __qs.get('nickName') || GJ_NAME,
+    conditionGroup: __qs.get('conditionGroup') || '',
+    phaseTag: __qs.get('phase') || ''
+  };
+}
+
+function makeRowId(prefix = 'row') {
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
+}
+
+function currentPhaseLabel() {
+  if (state.boss.active) return `boss:${getPatternKey()}`;
+  return `phase-${state.phase}`;
+}
+
+function currentGoalProgress() {
+  if (state.boss.active) {
+    return `${state.boss.maxHp - state.boss.hp}/${state.boss.maxHp}`;
+  }
+  return `${state.score}/${getPhaseGoal(state.phase)}`;
+}
+
+function currentMiniProgress() {
+  if (state.boss.active) {
+    return `weak:${state.research.weakspotHit}/${state.research.weakspotSpawned}`;
+  }
+  return `good:${state.hitsGood}|junk:${state.hitsBad}|miss:${state.missedGood}`;
+}
+
+function safeJson(value) {
+  try {
+    return JSON.stringify(value ?? {});
+  } catch {
+    return '{}';
+  }
+}
+
+function makeHhaEventRow(payload) {
+  const meta = getStudentMeta();
+
+  return {
+    rowId: makeRowId('evt'),
+    timestampIso: payload.timestampIso || nowIso(),
+    projectTag: 'herohealth',
+    runMode: payload.runMode || RUN_CTX.run || 'play',
+    studyId: payload.studyId || RUN_CTX.studyId || '',
+    phase: currentPhaseLabel(),
+    conditionGroup: meta.conditionGroup,
+    sessionId: SESSION_ID,
+    eventType: payload.eventType || '',
+    gameMode: 'solo',
+    diff: state.diff,
+    timeFromStartMs: payload.elapsedMs ?? Math.round(getElapsedMs()),
+
+    targetId: payload.targetId || '',
+    emoji: payload.emoji || '',
+    itemType: payload.itemType || '',
+    lane: payload.lane || '',
+    rtMs: payload.rtMs ?? '',
+    judgment: payload.judgment || '',
+
+    totalScore: state.score,
+    combo: state.streak,
+    isGood: typeof payload.isGood === 'boolean' ? payload.isGood : '',
+    feverState: '',
+    feverValue: '',
+
+    goalProgress: currentGoalProgress(),
+    miniProgress: currentMiniProgress(),
+    extra: safeJson(payload.extra || payload),
+
+    studentKey: meta.studentKey,
+    schoolCode: meta.schoolCode,
+    classRoom: meta.classRoom,
+    studentNo: meta.studentNo,
+    nickName: meta.nickName
+  };
+}
+
+function makeHhaSessionRow(summary) {
+  const meta = getStudentMeta();
+
+  return {
+    rowId: makeRowId('ses'),
+    timestampIso: nowIso(),
+    projectTag: 'herohealth',
+    sessionId: SESSION_ID,
+
+    pid: summary.pid || GJ_PID,
+    studyId: summary.studyId || RUN_CTX.studyId || '',
+    gameId: summary.gameId || GJ_GAME_ID,
+    gameMode: 'solo',
+    diff: summary.diff || state.diff,
+    runMode: RUN_CTX.run || 'play',
+    view: RUN_CTX.view || 'mobile',
+
+    score: summary.score,
+    miss: summary.miss,
+    bestStreak: summary.bestStreak,
+    bossDefeated: summary.bossDefeated,
+    phaseReached: summary.phaseReached,
+    reachedBossAtMs: summary.reachedBossAtMs,
+    bossDurationMs: summary.bossDurationMs,
+
+    weakspotHitRatePct: summary.weakspotHitRatePct,
+    stormAvoidRatePct: summary.stormAvoidRatePct,
+    bossStuns: summary.bossStuns,
+    timeBand: summary.timeBand,
+
+    studentKey: meta.studentKey,
+    schoolCode: meta.schoolCode,
+    classRoom: meta.classRoom,
+    studentNo: meta.studentNo,
+    nickName: meta.nickName,
+
+    extra: safeJson(summary)
+  };
+}
+
+function tryBridgeCall(kind, row) {
+  try {
+    const bridge = window.HHACloudLogger;
+    if (!bridge) return false;
+
+    if (kind === 'event') {
+      if (typeof bridge.logEventRow === 'function') { bridge.logEventRow(row); return true; }
+      if (typeof bridge.pushEventRow === 'function') { bridge.pushEventRow(row); return true; }
+      if (typeof bridge.logEvent === 'function') { bridge.logEvent(row); return true; }
+    }
+
+    if (kind === 'session') {
+      if (typeof bridge.logSessionRow === 'function') { bridge.logSessionRow(row); return true; }
+      if (typeof bridge.pushSessionRow === 'function') { bridge.pushSessionRow(row); return true; }
+      if (typeof bridge.logSession === 'function') { bridge.logSession(row); return true; }
+      if (typeof bridge.logSummary === 'function') { bridge.logSummary(row); return true; }
+    }
+  } catch {}
+
+  return false;
+}
+
+function emitExternalLog(type, payload) {
+  try {
+    window.dispatchEvent(new CustomEvent(type, { detail: payload }));
+  } catch {}
+
+  try {
+    if (window.HHACloudLogger && typeof window.HHACloudLogger.logEvent === 'function') {
+      window.HHACloudLogger.logEvent(payload);
+    }
+  } catch {}
+
+  try {
+    if (window.SessionLogger && typeof window.SessionLogger.push === 'function') {
+      window.SessionLogger.push(payload);
+    }
+  } catch {}
+}
+
+function logGameEvent(eventType, extra = {}) {
+  const payload = {
+    ...makeBaseLogFields(),
+    eventType,
+    phase: state.phase,
+    score: state.score,
+    miss: state.miss,
+    streak: state.streak,
+    bestStreak: state.bestStreak,
+    hitsGood: state.hitsGood,
+    hitsBad: state.hitsBad,
+    missedGood: state.missedGood,
+    powerHits: state.powerHits,
+    bossActive: state.boss.active,
+    bossHp: state.boss.hp,
+    bossMaxHp: state.boss.maxHp,
+    bossPattern: state.boss.patternLabel,
+    ...extra
+  };
+
+  appendQueue(HHA_EVENT_QUEUE_KEY, payload, 1200);
+
+  const eventRow = makeHhaEventRow(payload);
+  appendQueue(HHA_EVENTS_SCHEMA_QUEUE_KEY, eventRow, 1200);
+
+  emitExternalLog('hha:log-event', payload);
+  emitExternalLog('hha:event-row', eventRow);
+  tryBridgeCall('event', eventRow);
+
+  return payload;
+}
+
+function logSessionSummary(summary) {
+  const payload = {
+    ...makeBaseLogFields(),
+    eventType: 'session_summary',
+    summary
+  };
+
+  appendQueue(HHA_SESSION_SUMMARY_QUEUE_KEY, payload, 120);
+
+  const sessionRow = makeHhaSessionRow(summary);
+  appendQueue(HHA_SESSIONS_SCHEMA_QUEUE_KEY, sessionRow, 120);
+
+  emitExternalLog('hha:log-summary', payload);
+  emitExternalLog('hha:session-row', sessionRow);
+  tryBridgeCall('session', sessionRow);
+
+  return payload;
+}
+
 function startGame() {
   state.totalMs = clamp(Math.floor(Number(RUN_CTX.time || 150) * 1000), 60000, 600000);
   state.timeLeftMs = state.totalMs;
   state.running = true;
   state.ended = false;
+  state.finishing = false;
   state.phase = 1;
   state.score = 0;
   state.miss = 0;
@@ -809,15 +1394,46 @@ function startGame() {
   state.powerHits = 0;
   state.spawnedGood = 0;
   state.spawnedJunk = 0;
+  state.bossStuns = 0;
   state.lastFrameTs = performance.now();
   state.spawnAccum = 0;
   state.targetSeq = 0;
   state.targets.clear();
   state.summaryPayload = null;
+
+  state.research = {
+    reachedBossAtMs: 0,
+    bossStartTimeLeftMs: 0,
+    bossDurationMs: 0,
+
+    weakspotSpawned: 0,
+    weakspotHit: 0,
+
+    stormSpawned: 0,
+    stormHits: 0,
+
+    patternStarts: {
+      targetHunt: 0,
+      junkStorm: 0,
+      armorBreak: 0
+    },
+
+    patternWeakHits: {
+      targetHunt: 0,
+      junkStorm: 0,
+      armorBreak: 0
+    }
+  };
+
   resetBossState();
 
   if (ui.layer) ui.layer.innerHTML = '';
   if (ui.summary) ui.summary.hidden = true;
+  ui.stage?.classList.remove('stunned', 'telegraph-storm', 'telegraph-break', 'telegraph-hunt');
+  ui.bossWrap?.classList.remove('show', 'flash', 'defeated');
+  if (ui.bossIcon) ui.bossIcon.textContent = '🍔';
+  if (ui.bossName) ui.bossName.textContent = 'Junk King';
+  if (ui.bossState) ui.bossState.textContent = 'รอเข้าสู่บอส';
 
   showBanner(
     'GoodJunk Phase Boss',
@@ -827,11 +1443,18 @@ function startGame() {
 
   updateHint('เริ่มเลย! เก็บอาหารดีให้ได้คะแนน แล้วอย่ากด junk');
   renderHud();
+
+  logGameEvent('session_start', {
+    phaseGoal1: getPhaseGoal(1),
+    phaseGoal2: getPhaseGoal(2),
+    timeBand: getTimeBand()
+  });
+
   state.raf = requestAnimationFrame(loop);
 }
 
 function resetBossState() {
-  const bossPreset = DIFF_PRESET[state.diff].boss;
+  const bossPreset = getBossBase();
   state.boss.active = false;
   state.boss.maxHp = bossPreset.hp;
   state.boss.hp = bossPreset.hp;
@@ -842,10 +1465,183 @@ function resetBossState() {
   state.boss.weakSpeed = bossPreset.weakSpeed;
   state.boss.weakSize = bossPreset.weakSize;
   state.boss.weakMoveMs = bossPreset.weakMoveMs;
+
+  state.boss.patternIndex = 0;
+  state.boss.patternLabel = 'Target Hunt';
+  state.boss.patternTimeLeft = 0;
+  state.boss.nextPatternIndex = -1;
+  state.boss.telegraphMs = 0;
+
+  state.boss.burstShots = 0;
+  state.boss.burstGapMs = 0;
+
+  state.boss.stunMs = 0;
+  state.boss.victoryShown = false;
+}
+
+function getBossPatternName(index) {
+  if (index === 1) return 'Junk Storm';
+  if (index === 2) return 'Armor Break';
+  return 'Target Hunt';
+}
+
+function getBossPatternSpec() {
+  const base = getBossBase();
+  const pressure = getBossPressureRatio();
+  const easyWeakBonus = getEasyGraceWeakSizeBonus();
+  const tb = getTimeBalance();
+
+  if (state.boss.patternIndex === 1) {
+    return {
+      label: 'Junk Storm',
+      hint: 'ระวังพายุขยะก่อน แล้วค่อยตีเป้าทอง',
+      stormMs: Math.max(
+        state.diff === 'hard' ? 230 : 300,
+        (base.stormMs - 220 - (state.boss.enrage ? base.enrageStormPenalty : 0)) * (tb.stormScale || 1)
+      ),
+      weakSpeed: base.weakSpeed + (state.boss.enrage ? 70 : 30) + Math.round(pressure * 12),
+      weakSize: Math.max(54, base.weakSize - 8 + easyWeakBonus),
+      weakMoveMs: Math.max(620, base.weakMoveMs - 160),
+      damage: 1
+    };
+  }
+
+  if (state.boss.patternIndex === 2) {
+    return {
+      label: 'Armor Break',
+      hint: 'ตอนนี้เป้าทองใหญ่ขึ้น ตีโดนจะเจ็บแรง',
+      stormMs: Math.max(260, (base.stormMs + 120) * (tb.stormScale || 1)),
+      weakSpeed: Math.max(100, base.weakSpeed - 34),
+      weakSize: base.weakSize + 16 + easyWeakBonus,
+      weakMoveMs: base.weakMoveMs + 220,
+      damage: 2
+    };
+  }
+
+  return {
+    label: 'Target Hunt',
+    hint: 'มองหาเป้าทองที่กำลังวิ่ง แล้วแตะให้แม่น',
+    stormMs: Math.max(
+      state.diff === 'hard' ? 280 : 340,
+      (base.stormMs - (state.boss.enrage ? Math.round(base.enrageStormPenalty * 0.45) : 0)) * (tb.stormScale || 1)
+    ),
+    weakSpeed: base.weakSpeed + Math.round(pressure * (state.diff === 'hard' ? 22 : 10)),
+    weakSize: base.weakSize + easyWeakBonus,
+    weakMoveMs: Math.max(700, base.weakMoveMs - Math.round(pressure * 80)),
+    damage: 1
+  };
+}
+
+function syncWeakspotStyle(target) {
+  if (!target) return;
+  target.w = state.boss.weakSize;
+  target.h = state.boss.weakSize;
+  target.el.style.width = `${target.w}px`;
+  target.el.style.height = `${target.h}px`;
+  drawTarget(target);
+}
+
+function clearTelegraphTheme() {
+  ui.stage?.classList.remove('telegraph-storm', 'telegraph-break', 'telegraph-hunt');
+}
+
+function setTelegraphTheme(kind) {
+  clearTelegraphTheme();
+  if (kind === 'storm') ui.stage?.classList.add('telegraph-storm');
+  else if (kind === 'break') ui.stage?.classList.add('telegraph-break');
+  else if (kind === 'hunt') ui.stage?.classList.add('telegraph-hunt');
+}
+
+function applyBossPattern(index) {
+  clearTelegraphTheme();
+
+  state.boss.patternIndex = index;
+  state.boss.patternLabel = getBossPatternName(index);
+  state.research.patternStarts[getPatternKey(index)] += 1;
+  state.boss.nextPatternIndex = -1;
+  state.boss.telegraphMs = 0;
+  const tb = getTimeBalance();
+  const basePatternMs =
+    state.diff === 'easy'
+      ? (state.boss.enrage ? 4500 : 5600)
+      : state.diff === 'hard'
+        ? (state.boss.enrage ? 3600 : 4700)
+        : (state.boss.enrage ? 4200 : 5200);
+
+  state.boss.patternTimeLeft = Math.max(2400, Math.round(basePatternMs * (tb.patternScale || 1)));
+  state.boss.stormAccum = 0;
+  state.boss.weakTick = 0;
+
+  const spec = getBossPatternSpec();
+  state.boss.weakSpeed = spec.weakSpeed;
+  state.boss.weakSize = spec.weakSize;
+  state.boss.weakMoveMs = spec.weakMoveMs;
+
+  const burstBase = getBossBase().stormBurst || 5;
+  state.boss.burstShots = index === 1
+    ? (state.boss.enrage ? burstBase + 1 : burstBase)
+    : 0;
+  state.boss.burstGapMs = 0;
+
+  const weak = getWeakspot();
+  if (weak) syncWeakspotStyle(weak);
+
+  if (ui.bossIcon) {
+    ui.bossIcon.textContent =
+      index === 1 ? '🌪️' :
+      index === 2 ? '🛡️' :
+      '🎯';
+  }
+
+  updateHint(spec.hint);
+
+  logGameEvent('boss_pattern_start', {
+    patternIndex: index,
+    patternKey: getPatternKey(index),
+    patternLabel: state.boss.patternLabel,
+    patternTimeLeftMs: state.boss.patternTimeLeft,
+    weakSize: state.boss.weakSize,
+    weakSpeed: state.boss.weakSpeed
+  });
+}
+
+function queueNextBossPattern() {
+  state.boss.nextPatternIndex = (state.boss.patternIndex + 1) % 3;
+  state.boss.telegraphMs = 850;
+
+  if (state.boss.nextPatternIndex === 1) {
+    setTelegraphTheme('storm');
+    showBanner('ระวังพายุขยะ!', 'อีกครู่ junk จะตกมาเป็นชุด รีบหลบก่อน', 780);
+    updateHint('เตรียมหลบ junk storm');
+    logGameEvent('boss_telegraph', {
+      nextPattern: 'junkStorm',
+      telegraphMs: state.boss.telegraphMs
+    });
+    return;
+  }
+
+  if (state.boss.nextPatternIndex === 2) {
+    setTelegraphTheme('break');
+    showBanner('เกราะบอสเปิด!', 'เป้าทองจะใหญ่ขึ้น ตีโดนจะเจ็บแรง', 780);
+    updateHint('รอเป้าทองใหญ่แล้วแตะ');
+    logGameEvent('boss_telegraph', {
+      nextPattern: 'armorBreak',
+      telegraphMs: state.boss.telegraphMs
+    });
+    return;
+  }
+
+  setTelegraphTheme('hunt');
+  showBanner('เป้าทองกำลังวิ่ง!', 'อ่านจังหวะแล้วแตะเป้าทองให้แม่น', 780);
+  updateHint('เป้าทองจะเคลื่อนไหวไวขึ้น');
+  logGameEvent('boss_telegraph', {
+    nextPattern: 'targetHunt',
+    telegraphMs: state.boss.telegraphMs
+  });
 }
 
 function loop(ts) {
-  if (!state.running || state.ended) return;
+  if (!state.running || state.ended || state.finishing) return;
 
   const dt = Math.min(48, ts - state.lastFrameTs || 16);
   state.lastFrameTs = ts;
@@ -876,10 +1672,13 @@ function updateFoodPhase(dt) {
     ? DIFF_PRESET[state.diff].p1
     : DIFF_PRESET[state.diff].p2;
 
+  const tb = getTimeBalance();
+  const spawnMs = Math.max(260, preset.spawnMs * (tb.spawnScale || 1));
+
   state.spawnAccum += dt;
 
-  while (state.spawnAccum >= preset.spawnMs) {
-    state.spawnAccum -= preset.spawnMs;
+  while (state.spawnAccum >= spawnMs) {
+    state.spawnAccum -= spawnMs;
     spawnFoodTarget(preset);
   }
 }
@@ -912,20 +1711,53 @@ function spawnFoodTarget(preset) {
 }
 
 function updateBossPhase(dt) {
-  const bossPreset = DIFF_PRESET[state.diff].boss;
+  if (state.boss.hp <= Math.ceil(state.boss.maxHp / 2) && !state.boss.enrage) {
+    state.boss.enrage = true;
+    showBanner('Junk King โกรธแล้ว!', 'บอสเร็วขึ้นและพายุขยะถี่ขึ้น', 1300);
+    updateHint('ระวัง! บอสโกรธแล้ว อ่านสัญญาณเตือนให้ดี');
+    applyBossPattern(state.boss.patternIndex);
+  }
+
+  if (state.boss.stunMs > 0) {
+    state.boss.stunMs -= dt;
+    if (state.boss.stunMs <= 0) {
+      state.boss.stunMs = 0;
+      ui.stage?.classList.remove('stunned');
+      updateHint('บอสกลับมาแล้ว อ่านจังหวะแล้วแตะต่อ');
+    }
+    return;
+  }
+
+  if (state.boss.telegraphMs > 0) {
+    state.boss.telegraphMs -= dt;
+    if (state.boss.telegraphMs <= 0 && state.boss.nextPatternIndex >= 0) {
+      applyBossPattern(state.boss.nextPatternIndex);
+    }
+    return;
+  }
+
+  state.boss.patternTimeLeft -= dt;
+  if (state.boss.patternTimeLeft <= 0) {
+    queueNextBossPattern();
+    return;
+  }
+
+  const spec = getBossPatternSpec();
 
   state.boss.stormAccum += dt;
   state.boss.weakTick += dt;
 
-  if (state.boss.hp <= Math.ceil(state.boss.maxHp / 2) && !state.boss.enrage) {
-    state.boss.enrage = true;
-    showBanner('Junk King ENRAGE!', 'บอสเร็วขึ้นและปล่อย junk storm ถี่กว่าเดิม', 1300);
-    updateHint('ระวัง! Junk King โกรธแล้ว จับ weak spot ให้แม่น');
+  if (state.boss.burstShots > 0) {
+    state.boss.burstGapMs -= dt;
+    if (state.boss.burstGapMs <= 0) {
+      spawnStormJunk();
+      state.boss.burstShots -= 1;
+      state.boss.burstGapMs = state.boss.enrage ? 120 : 160;
+    }
   }
 
-  const stormMs = state.boss.enrage ? Math.max(360, bossPreset.stormMs - 180) : bossPreset.stormMs;
-  while (state.boss.stormAccum >= stormMs) {
-    state.boss.stormAccum -= stormMs;
+  while (state.boss.stormAccum >= spec.stormMs) {
+    state.boss.stormAccum -= spec.stormMs;
     spawnStormJunk();
   }
 
@@ -936,14 +1768,17 @@ function updateBossPhase(dt) {
     moveWeakspot(weak, dt);
   }
 
-  if (state.boss.weakTick >= (state.boss.enrage ? Math.max(560, state.boss.weakMoveMs - 260) : state.boss.weakMoveMs)) {
+  if (state.boss.weakTick >= spec.weakMoveMs) {
     state.boss.weakTick = 0;
     const target = getWeakspot();
     if (target) {
-      target.vx = randRange(-state.boss.weakSpeed, state.boss.weakSpeed);
-      target.vy = randRange(-state.boss.weakSpeed, state.boss.weakSpeed);
+      target.vx = randRange(-spec.weakSpeed, spec.weakSpeed);
+      target.vy = randRange(-spec.weakSpeed, spec.weakSpeed);
+
       if (Math.abs(target.vx) < 70) target.vx = target.vx < 0 ? -70 : 70;
       if (Math.abs(target.vy) < 70) target.vy = target.vy < 0 ? -70 : 70;
+
+      syncWeakspotStyle(target);
     }
   }
 }
@@ -969,6 +1804,18 @@ function spawnWeakspot() {
   });
 
   state.boss.weakspotId = id;
+  state.research.weakspotSpawned += 1;
+
+  logGameEvent('weakspot_spawn', {
+    targetId: id,
+    emoji: '🎯',
+    itemType: 'weakspot',
+    weakspotSpawned: state.research.weakspotSpawned,
+    patternKey: getPatternKey(),
+    x: Math.round(x),
+    y: Math.round(y),
+    size: Math.round(size)
+  });
 }
 
 function spawnStormJunk() {
@@ -994,6 +1841,16 @@ function spawnStormJunk() {
   });
 
   state.spawnedJunk += 1;
+  state.research.stormSpawned += 1;
+
+  logGameEvent('storm_spawn', {
+    emoji: item.emoji,
+    itemType: 'storm',
+    stormSpawned: state.research.stormSpawned,
+    patternKey: getPatternKey(),
+    x: Math.round(x),
+    size: Math.round(size)
+  });
 }
 
 function moveWeakspot(target, dt) {
@@ -1091,6 +1948,8 @@ function createTarget({
   const target = {
     id,
     kind,
+    emoji,
+    label,
     x,
     y,
     w,
@@ -1127,7 +1986,7 @@ function getWeakspot() {
 }
 
 function hitTarget(id) {
-  if (!state.running || state.ended) return;
+  if (!state.running || state.ended || state.finishing) return;
   const target = state.targets.get(id);
   if (!target || target.dead) return;
 
@@ -1142,33 +2001,96 @@ function hitTarget(id) {
     const gain = 10 + comboBonus;
     state.score += gain;
     createFx(cx, cy, `+${gain}`, '#86efac');
+    playSfx('good');
     updateHint('เยี่ยมมาก! เก็บของดีต่อไป');
+
+    logGameEvent('target_hit_good', {
+      targetId: target.id,
+      emoji: target.emoji || '',
+      itemType: 'good',
+      judgment: 'hit',
+      isGood: true,
+      gain,
+      comboBonus,
+      x: Math.round(cx),
+      y: Math.round(cy)
+    });
   } else if (target.kind === 'junk' || target.kind === 'storm') {
     state.hitsBad += 1;
     state.miss += 1;
     state.streak = 0;
     state.score = Math.max(0, state.score - 8);
+
+    if (target.kind === 'storm') {
+      state.research.stormHits += 1;
+    }
+
     createFx(cx, cy, 'MISS', '#fda4af');
+    playSfx('junk');
     updateHint(target.kind === 'storm'
       ? 'อย่ากด junk storm! รอ weak spot แล้วโจมตี'
       : 'ระวัง junk! แตะของดีแทน');
+
+    logGameEvent(target.kind === 'storm' ? 'target_hit_storm' : 'target_hit_junk', {
+      targetId: target.id,
+      emoji: target.emoji || '',
+      itemType: target.kind === 'storm' ? 'storm' : 'junk',
+      judgment: 'hit-bad',
+      isGood: false,
+      penalty: 8,
+      stormHits: state.research.stormHits,
+      x: Math.round(cx),
+      y: Math.round(cy)
+    });
   } else if (target.kind === 'weakspot') {
+    const spec = getBossPatternSpec();
+    const damage = spec.damage || 1;
+
     state.powerHits += 1;
-    const damage = 1;
+    state.research.weakspotHit += 1;
+    state.research.patternWeakHits[getPatternKey()] += 1;
     state.boss.hp = Math.max(0, state.boss.hp - damage);
-    state.score += 15;
+    state.score += damage >= 2 ? 24 : 15;
     state.streak += 1;
     state.bestStreak = Math.max(state.bestStreak, state.streak);
-    createFx(cx, cy, 'POWER HIT!', '#fde68a');
+
+    createFx(cx, cy, damage >= 2 ? 'CRUSH HIT!' : 'POWER HIT!', '#fde68a');
+    triggerBossHitFeedback(damage);
+    playSfx(damage >= 2 ? 'boss-crush' : 'boss-hit');
+
+    const stunBonus = getBossBase().stunBonusMs || 0;
+
+    if (damage >= 2) {
+      startBossStun(620 + stunBonus, 'เกราะแตก! บอสชะงัก');
+    } else {
+      startBossStun(220 + stunBonus, 'โดนจัง ๆ');
+    }
+
     updateHint(state.boss.hp > 0
-      ? 'โดนแล้ว! ตาม weak spot ต่อ'
+      ? (damage >= 2 ? 'แรงมาก! ตอนนี้บอสชะงักอยู่' : 'โดนแล้ว! รีบตามจังหวะต่อ')
       : 'Junk King ถูกล้มแล้ว!');
+
+    logGameEvent('weakspot_hit', {
+      targetId: target.id,
+      emoji: target.emoji || '🎯',
+      itemType: 'weakspot',
+      judgment: damage >= 2 ? 'crush-hit' : 'power-hit',
+      isGood: true,
+      damage,
+      weakspotHit: state.research.weakspotHit,
+      weakspotHitRatePct: getWeakspotHitRatePct(),
+      patternKey: getPatternKey(),
+      bossHpAfter: state.boss.hp,
+      x: Math.round(cx),
+      y: Math.round(cy)
+    });
+
     removeTarget(id);
 
     if (state.boss.hp <= 0) {
-      state.score += 40;
+      state.score += getBossClearBonus();
       renderHud();
-      endGame('boss-defeated');
+      beginBossDefeatSequence();
       return;
     }
   }
@@ -1182,20 +2104,33 @@ function registerMissedGood(target) {
   state.miss += 1;
   state.streak = 0;
   createFx(target.x + target.w / 2, Math.max(24, target.y), 'พลาดของดี', '#fbbf24');
+  playSfx('miss-good');
   updateHint('มีของดีหลุดไปแล้ว รีบเก็บชิ้นต่อไป');
   removeTarget(target.id);
   renderHud();
+
+  logGameEvent('target_missed_good', {
+    targetId: target.id,
+    emoji: target.emoji || '',
+    itemType: 'good',
+    judgment: 'missed-good',
+    isGood: true,
+    missedGood: state.missedGood,
+    miss: state.miss,
+    x: Math.round(target.x + target.w / 2),
+    y: Math.round(target.y)
+  });
 }
 
 function checkPhaseProgress() {
-  if (state.boss.active || state.ended) return;
+  if (state.boss.active || state.ended || state.finishing) return;
 
-  if (state.phase === 1 && state.score >= PHASE_GOALS[1]) {
+  if (state.phase === 1 && state.score >= getPhaseGoal(1)) {
     enterPhase2();
     return;
   }
 
-  if (state.phase === 2 && state.score >= PHASE_GOALS[2]) {
+  if (state.phase === 2 && state.score >= getPhaseGoal(2)) {
     enterBossPhase();
   }
 }
@@ -1210,14 +2145,22 @@ function enterPhase2() {
   state.phase = 2;
   clearTargets();
   state.spawnAccum = 0;
-  showBanner('PHASE 2', 'เร็วขึ้น • junk มากขึ้น • เก็บให้ถึงเป้าหมาย 165', 1400);
+  showBanner('PHASE 2', `เร็วขึ้น • junk มากขึ้น • เก็บให้ถึงเป้าหมาย ${getPhaseGoal(2)}`, 1400);
   updateHint('Phase 2 เริ่มแล้ว! อ่านเป้าให้แม่นและอย่ารีบกดผิด');
   renderHud();
+
+  logGameEvent('phase_transition', {
+    toPhase: 2,
+    goalNow: getPhaseGoal(2)
+  });
 }
 
 function enterBossPhase() {
   state.phase = 3;
   state.boss.active = true;
+  state.research.reachedBossAtMs = getElapsedMs();
+  state.research.bossStartTimeLeftMs = state.timeLeftMs;
+
   clearTargets();
   state.spawnAccum = 0;
   state.boss.hp = state.boss.maxHp;
@@ -1225,9 +2168,23 @@ function enterBossPhase() {
   state.boss.stormAccum = 0;
   state.boss.weakTick = 0;
   ui.bossWrap?.classList.add('show');
-  showBanner('BOSS PHASE', 'ผ่าน Phase 1 และ 2 แล้ว! โจมตี weak spot เพื่อปราบ Junk King', 1700);
-  updateHint('กด weak spot 🎯 เพื่อโจมตีบอส และหลบ junk storm');
+
+  applyBossPattern(0);
+  state.boss.patternTimeLeft = 3200;
+
+  showBanner(
+    'BOSS PHASE',
+    `โหมดเวลา ${getRunTimeSeconds()} วินาที • อ่านสัญญาณเตือน แล้วแตะเป้าทองเพื่อโจมตี Junk King`,
+    1700
+  );
+  updateHint('รอเป้าทอง แล้วแตะให้แม่น');
   renderHud();
+
+  logGameEvent('boss_enter', {
+    reachedBossAtMs: state.research.reachedBossAtMs,
+    bossHpStart: state.boss.hp,
+    timeBand: getTimeBand()
+  });
 }
 
 function showBanner(title, sub, autoHideMs = 1200) {
@@ -1265,9 +2222,9 @@ function renderHud() {
 
   if (ui.goalText) {
     if (state.phase === 1) {
-      ui.goalText.textContent = `GOAL สะสมคะแนน • เป้าหมาย ${PHASE_GOALS[1]}`;
+      ui.goalText.textContent = `GOAL สะสมคะแนน • เป้าหมาย ${getPhaseGoal(1)}`;
     } else if (state.phase === 2) {
-      ui.goalText.textContent = `GOAL เร่งคะแนนต่อ • เป้าหมาย ${PHASE_GOALS[2]}`;
+      ui.goalText.textContent = `GOAL เร่งคะแนนต่อ • เป้าหมาย ${getPhaseGoal(2)}`;
     } else {
       ui.goalText.textContent = `GOAL โจมตี weak spot • HP เหลือ ${state.boss.hp}`;
     }
@@ -1287,7 +2244,7 @@ function renderHud() {
     `;
   }
 
-  if (ui.bossName) ui.bossName.textContent = 'Junk King';
+  if (ui.bossName) ui.bossName.textContent = ui.bossWrap?.classList.contains('defeated') ? 'Junk King Down!' : 'Junk King';
   if (ui.bossHpText) ui.bossHpText.textContent = `${state.boss.hp} / ${state.boss.maxHp}`;
   if (ui.bossHpBar) {
     const hpRatio = state.boss.maxHp > 0 ? state.boss.hp / state.boss.maxHp : 0;
@@ -1296,10 +2253,12 @@ function renderHud() {
   if (ui.bossState) {
     if (!state.boss.active) {
       ui.bossState.textContent = 'รอเข้าสู่บอส';
+    } else if (state.boss.telegraphMs > 0) {
+      ui.bossState.textContent = `เตรียมท่า: ${getBossPatternName(state.boss.nextPatternIndex)}`;
     } else if (state.boss.enrage) {
-      ui.bossState.textContent = 'ENRAGE • junk storm รุนแรงขึ้น';
+      ui.bossState.textContent = `${state.boss.patternLabel} • ENRAGE`;
     } else {
-      ui.bossState.textContent = 'มองหา weak spot แล้วโจมตี';
+      ui.bossState.textContent = state.boss.patternLabel;
     }
   }
 }
@@ -1315,8 +2274,14 @@ function endGame(reason = 'finished') {
   const bossDefeated = reason === 'boss-defeated';
   const phaseReached = state.boss.active ? 'boss' : `phase-${state.phase}`;
 
+  if (state.research.bossStartTimeLeftMs > 0) {
+    state.research.bossDurationMs = Math.max(0, state.research.bossStartTimeLeftMs - state.timeLeftMs);
+  } else {
+    state.research.bossDurationMs = 0;
+  }
+
   const summary = {
-    version: '20260319c-goodjunk-solo-phaseboss',
+    version: '20260319e-goodjunk-solo-cloud-logger-pack',
     source: 'goodjunk-solo-phaseboss',
     gameId: GJ_GAME_ID,
     mode: 'solo',
@@ -1340,12 +2305,48 @@ function endGame(reason = 'finished') {
     powerHits: state.powerHits,
     spawnedGood: state.spawnedGood,
     spawnedJunk: state.spawnedJunk,
+    bossEntered: state.research.reachedBossAtMs > 0 || phaseReached === 'boss' || bossDefeated,
+    bossHpRemaining: state.boss.hp,
+    bossPatternLast: state.boss.patternLabel,
+    bossEnraged: state.boss.enrage,
+    bossVictoryShown: state.finishing,
+    bossStuns: state.bossStuns,
+    phaseGoal1: getPhaseGoal(1),
+    phaseGoal2: getPhaseGoal(2),
+    timeBand: getTimeBand(),
+    reachedBossAtMs: state.research.reachedBossAtMs,
+    bossDurationMs: state.research.bossDurationMs,
+    weakspotSpawned: state.research.weakspotSpawned,
+    weakspotHit: state.research.weakspotHit,
+    weakspotHitRatePct: getWeakspotHitRatePct(),
+    stormSpawned: state.research.stormSpawned,
+    stormHits: state.research.stormHits,
+    stormAvoidRatePct: getStormAvoidRatePct(),
+    patternStarts: { ...state.research.patternStarts },
+    patternWeakHits: { ...state.research.patternWeakHits },
     updatedAt: Date.now()
   };
 
+  logGameEvent('session_end', {
+    reason,
+    bossDefeated,
+    phaseReached,
+    weakspotHitRatePct: getWeakspotHitRatePct(),
+    stormAvoidRatePct: getStormAvoidRatePct(),
+    bossDurationMs: state.research.bossDurationMs
+  });
+
   state.summaryPayload = summary;
   persistSummary(summary);
+  logSessionSummary(summary);
   showSummary(summary);
+}
+
+function getBossOutcomeLabel(summary) {
+  if (summary.bossDefeated) return 'Boss Clear';
+  if (summary.phaseReached === 'boss') return 'Reached Boss';
+  if (summary.phaseReached === 'phase-2') return 'Reached Phase 2';
+  return 'Reached Phase 1';
 }
 
 function showSummary(summary) {
@@ -1360,8 +2361,10 @@ function showSummary(summary) {
         : 'เริ่มต้นได้ดีมาก';
 
   const sub = summary.bossDefeated
-    ? 'คุณผ่าน Phase 1, Phase 2 และโค่นบอสสำเร็จ'
-    : 'ลองเล่นใหม่เพื่อไปได้ไกลกว่าเดิม แล้วค่อยไป cooldown ต่อ';
+    ? `ผ่านบอสสำเร็จ • ถึงบอสใน ${summary.reachedBossAtMs ? Math.round(summary.reachedBossAtMs / 1000) : '-'}s • weakspot ${summary.weakspotHitRatePct}%`
+    : summary.phaseReached === 'boss'
+      ? `ถึงบอสแล้ว • อยู่ในบอส ${summary.bossDurationMs ? Math.round(summary.bossDurationMs / 1000) : 0}s • หลบ storm ได้ ${summary.stormAvoidRatePct}%`
+      : `ยังไม่ถึงบอส • ลองเพิ่มความแม่นยำและลด miss เพื่อไปต่อได้ไกลขึ้น`;
 
   ui.summaryTitle.textContent = title;
   ui.summarySub.textContent = sub;
@@ -1398,6 +2401,30 @@ function showSummary(summary) {
     <div class="gjpb-summary-item">
       <div class="label">Power hit</div>
       <div class="value">${summary.powerHits}</div>
+    </div>
+    <div class="gjpb-summary-item">
+      <div class="label">ผลลัพธ์</div>
+      <div class="value">${escapeHtml(getBossOutcomeLabel(summary))}</div>
+    </div>
+    <div class="gjpb-summary-item">
+      <div class="label">Reached Boss At</div>
+      <div class="value">${summary.reachedBossAtMs ? Math.round(summary.reachedBossAtMs / 1000) + 's' : '-'}</div>
+    </div>
+    <div class="gjpb-summary-item">
+      <div class="label">Boss Duration</div>
+      <div class="value">${summary.bossDurationMs ? Math.round(summary.bossDurationMs / 1000) + 's' : '-'}</div>
+    </div>
+    <div class="gjpb-summary-item">
+      <div class="label">Weakspot Hit Rate</div>
+      <div class="value">${summary.weakspotHitRatePct}%</div>
+    </div>
+    <div class="gjpb-summary-item">
+      <div class="label">Storm Avoid Rate</div>
+      <div class="value">${summary.stormAvoidRatePct}%</div>
+    </div>
+    <div class="gjpb-summary-item">
+      <div class="label">Time Profile</div>
+      <div class="value">${escapeHtml(summary.timeBand || 'standard')}</div>
     </div>
   `;
 
@@ -1488,6 +2515,247 @@ function persistSummary(summary) {
     window.dispatchEvent(new CustomEvent('gj:solo-summary', { detail: summary }));
     window.dispatchEvent(new CustomEvent('hha:solo-summary', { detail: summary }));
   } catch {}
+}
+
+function playTone(freq = 440, duration = 0.08, type = 'triangle', gainValue = 0.028) {
+  try {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    if (!playTone._ctx) playTone._ctx = new AC();
+    const ctx = playTone._ctx;
+
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type = type;
+    osc.frequency.value = freq;
+    gain.gain.value = gainValue;
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    const now = ctx.currentTime;
+    gain.gain.setValueAtTime(gainValue, now);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+    osc.start(now);
+    osc.stop(now + duration);
+  } catch {}
+}
+
+function playSfx(kind = 'good') {
+  if (kind === 'good') {
+    playTone(700, 0.05, 'triangle', 0.018);
+    setTimeout(() => playTone(880, 0.05, 'triangle', 0.014), 35);
+    return;
+  }
+
+  if (kind === 'junk') {
+    playTone(220, 0.08, 'sawtooth', 0.018);
+    return;
+  }
+
+  if (kind === 'miss-good') {
+    playTone(300, 0.06, 'square', 0.015);
+    setTimeout(() => playTone(220, 0.07, 'square', 0.014), 40);
+    return;
+  }
+
+  if (kind === 'boss-hit') {
+    playTone(560, 0.06, 'square', 0.02);
+    setTimeout(() => playTone(760, 0.07, 'triangle', 0.018), 40);
+    return;
+  }
+
+  if (kind === 'boss-crush') {
+    playTone(520, 0.07, 'square', 0.024);
+    setTimeout(() => playTone(740, 0.09, 'triangle', 0.02), 45);
+    setTimeout(() => playTone(980, 0.09, 'triangle', 0.018), 95);
+    return;
+  }
+
+  if (kind === 'boss-clear') {
+    playTone(784, 0.10, 'triangle', 0.03);
+    setTimeout(() => playTone(988, 0.12, 'triangle', 0.03), 110);
+    setTimeout(() => playTone(1174, 0.16, 'triangle', 0.032), 240);
+  }
+}
+
+function triggerBossHitFeedback(damage = 1) {
+  if (ui.root) {
+    ui.root.classList.remove('gjpb-shake');
+    void ui.root.offsetWidth;
+    ui.root.classList.add('gjpb-shake');
+    setTimeout(() => ui.root?.classList.remove('gjpb-shake'), 260);
+  }
+
+  if (ui.bossWrap) {
+    ui.bossWrap.classList.add('flash');
+    setTimeout(() => ui.bossWrap?.classList.remove('flash'), 220);
+  }
+
+  if (damage >= 2) {
+    showBanner('โดนจุดอ่อนแรง!', 'ตอนนี้ตีเข้าแรงมาก เยี่ยมเลย', 520);
+  }
+}
+
+function startBossStun(ms = 300, label = 'STUN!') {
+  state.boss.stunMs = Math.max(state.boss.stunMs, ms);
+  state.bossStuns += 1;
+  ui.stage?.classList.add('stunned');
+  showBanner(label, 'บอสชะงักอยู่ชั่วครู่ รีบเตรียมจังหวะถัดไป', Math.min(ms, 700));
+  setTimeout(() => ui.stage?.classList.remove('stunned'), ms + 40);
+
+  logGameEvent('boss_stun', {
+    stunMs: ms,
+    bossStuns: state.bossStuns,
+    label
+  });
+}
+
+function spawnVictoryBurst(cx, cy, count = 18) {
+  if (!ui.layer) return;
+  const pool = ['✨','⭐','💥','🌟','🎉'];
+
+  for (let i = 0; i < count; i++) {
+    const el = document.createElement('div');
+    el.className = 'gjpb-victory-burst';
+    el.textContent = pool[Math.floor(rand() * pool.length)];
+    el.style.left = `${cx}px`;
+    el.style.top = `${cy}px`;
+
+    const tx = `${randRange(-180, 180)}px`;
+    const ty = `${randRange(-160, 120)}px`;
+    el.style.setProperty('--tx', tx);
+    el.style.setProperty('--ty', ty);
+
+    ui.layer.appendChild(el);
+    setTimeout(() => el.remove(), 940);
+  }
+}
+
+function beginBossDefeatSequence() {
+  if (state.finishing) return;
+  state.finishing = true;
+  state.running = false;
+  cancelAnimationFrame(state.raf);
+  clearTargets();
+
+  const cx = state.rect.width / 2;
+  const cy = Math.max(120, state.rect.height / 2);
+
+  ui.bossWrap?.classList.add('flash');
+  ui.bossWrap?.classList.add('defeated');
+  ui.stage?.classList.remove('stunned');
+  clearTelegraphTheme();
+
+  if (ui.bossIcon) ui.bossIcon.textContent = '💫';
+  if (ui.bossName) ui.bossName.textContent = 'Junk King Down!';
+  if (ui.bossState) ui.bossState.textContent = 'แพ้แล้ว • ทางสะอาดขึ้นแล้ว';
+
+  showBanner('Junk King แพ้แล้ว!', 'ยอดเยี่ยม! คุณผ่านบอสสำเร็จ', 900);
+  updateHint('ชนะบอสแล้ว กำลังเข้าสู่หน้าสรุปผล');
+
+  logGameEvent('boss_defeat_sequence_start', {
+    bossHpRemaining: state.boss.hp,
+    bossDurationMs: state.research.bossStartTimeLeftMs > 0
+      ? Math.max(0, state.research.bossStartTimeLeftMs - state.timeLeftMs)
+      : 0
+  });
+
+  playSfx('boss-clear');
+
+  spawnVictoryBurst(cx, cy, 20);
+  setTimeout(() => spawnVictoryBurst(cx, cy, 14), 180);
+
+  setTimeout(() => {
+    endGame('boss-defeated');
+  }, 900);
+}
+
+function makeResearchSnapshot(summary) {
+  let eventQueue = [];
+  let summaryQueue = [];
+  let eventRows = [];
+  let sessionRows = [];
+
+  try {
+    const raw = localStorage.getItem(HHA_EVENT_QUEUE_KEY);
+    const arr = raw ? JSON.parse(raw) : [];
+    eventQueue = Array.isArray(arr) ? arr.filter(x => x.sessionId === SESSION_ID) : [];
+  } catch {}
+
+  try {
+    const raw = localStorage.getItem(HHA_SESSION_SUMMARY_QUEUE_KEY);
+    const arr = raw ? JSON.parse(raw) : [];
+    summaryQueue = Array.isArray(arr) ? arr.filter(x => x.sessionId === SESSION_ID) : [];
+  } catch {}
+
+  try {
+    const raw = localStorage.getItem(HHA_EVENTS_SCHEMA_QUEUE_KEY);
+    const arr = raw ? JSON.parse(raw) : [];
+    eventRows = Array.isArray(arr) ? arr.filter(x => x.sessionId === SESSION_ID) : [];
+  } catch {}
+
+  try {
+    const raw = localStorage.getItem(HHA_SESSIONS_SCHEMA_QUEUE_KEY);
+    const arr = raw ? JSON.parse(raw) : [];
+    sessionRows = Array.isArray(arr) ? arr.filter(x => x.sessionId === SESSION_ID) : [];
+  } catch {}
+
+  return {
+    identity: {
+      pid: summary.pid,
+      name: summary.name,
+      studyId: summary.studyId,
+      mode: summary.mode,
+      diff: summary.diff,
+      timeBand: summary.timeBand,
+      sessionId: SESSION_ID
+    },
+    performance: {
+      score: summary.score,
+      miss: summary.miss,
+      bestStreak: summary.bestStreak,
+      hitsGood: summary.hitsGood,
+      hitsBad: summary.hitsBad,
+      missedGood: summary.missedGood,
+      powerHits: summary.powerHits
+    },
+    boss: {
+      bossEntered: summary.bossEntered,
+      bossDefeated: summary.bossDefeated,
+      bossHpRemaining: summary.bossHpRemaining,
+      bossDurationMs: summary.bossDurationMs,
+      reachedBossAtMs: summary.reachedBossAtMs,
+      bossStuns: summary.bossStuns,
+      bossPatternLast: summary.bossPatternLast
+    },
+    precision: {
+      weakspotSpawned: summary.weakspotSpawned,
+      weakspotHit: summary.weakspotHit,
+      weakspotHitRatePct: summary.weakspotHitRatePct,
+      stormSpawned: summary.stormSpawned,
+      stormHits: summary.stormHits,
+      stormAvoidRatePct: summary.stormAvoidRatePct
+    },
+    patterns: {
+      patternStarts: summary.patternStarts,
+      patternWeakHits: summary.patternWeakHits
+    },
+    raw: {
+      eventQueue,
+      summaryQueue,
+      eventRows,
+      sessionRows
+    },
+    meta: {
+      updatedAt: summary.updatedAt,
+      source: summary.source,
+      version: summary.version,
+      patchVersion: PATCH_VERSION
+    }
+  };
 }
 
 function downloadJson(payload, filename) {
