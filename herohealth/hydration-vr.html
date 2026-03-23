@@ -19,9 +19,10 @@
       --blue:#38bdf8;
       --yellow:#facc15;
       --shadow:0 20px 50px rgba(0,0,0,.28);
-      --radius:28px;
     }
+
     *{ box-sizing:border-box; }
+
     body{
       margin:0;
       min-height:100vh;
@@ -34,11 +35,13 @@
       place-items:center;
       padding:20px;
     }
+
     .shell{
       width:min(980px, 100%);
       display:grid;
       gap:18px;
     }
+
     .hero{
       background:linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.04));
       border:1px solid var(--stroke);
@@ -48,12 +51,14 @@
       display:grid;
       gap:18px;
     }
+
     .topline{
       display:flex;
       gap:10px;
       align-items:center;
       flex-wrap:wrap;
     }
+
     .badge{
       display:inline-flex;
       align-items:center;
@@ -65,32 +70,38 @@
       font-weight:800;
       font-size:14px;
     }
+
     .title{
       margin:0;
       font-size:clamp(30px, 6vw, 54px);
       line-height:1.05;
       font-weight:900;
     }
+
     .sub{
       margin:0;
       color:var(--muted);
       font-size:clamp(16px, 2.6vw, 20px);
     }
+
     .grid{
       display:grid;
       grid-template-columns:1.2fr .8fr;
       gap:18px;
     }
+
     .panel{
       background:var(--card);
       border:1px solid var(--stroke);
       border-radius:24px;
       padding:18px;
     }
+
     .panel h2{
       margin:0 0 12px;
       font-size:22px;
     }
+
     .bullets{
       display:grid;
       gap:10px;
@@ -98,6 +109,7 @@
       padding:0;
       list-style:none;
     }
+
     .bullets li{
       display:flex;
       align-items:flex-start;
@@ -106,7 +118,8 @@
       font-size:17px;
       line-height:1.45;
     }
-    .bullets .dot{
+
+    .dot{
       width:34px;
       height:34px;
       flex:0 0 34px;
@@ -116,26 +129,31 @@
       background:rgba(255,255,255,.10);
       font-size:18px;
     }
+
     .mission{
       display:grid;
       gap:10px;
     }
+
     .mission-card{
       border-radius:20px;
       padding:14px 16px;
       background:linear-gradient(180deg, rgba(56,189,248,.18), rgba(59,130,246,.08));
       border:1px solid rgba(255,255,255,.12);
     }
+
     .mission-card strong{
       display:block;
       font-size:18px;
       margin-bottom:4px;
     }
+
     .actions{
       display:flex;
       gap:12px;
       flex-wrap:wrap;
     }
+
     button{
       border:0;
       cursor:pointer;
@@ -145,23 +163,30 @@
       font-size:18px;
       transition:transform .12s ease, opacity .12s ease;
     }
-    button:hover{ transform:translateY(-1px); }
+
+    button:hover{
+      transform:translateY(-1px);
+    }
+
     .primary{
       background:linear-gradient(180deg, #facc15, #f59e0b);
       color:#111827;
       min-width:220px;
     }
+
     .secondary{
       background:rgba(255,255,255,.10);
       color:var(--text);
       border:1px solid var(--stroke);
       min-width:180px;
     }
+
     .footer-note{
       color:#dbeafe;
       opacity:.9;
       font-size:14px;
     }
+
     @media (max-width: 760px){
       .grid{ grid-template-columns:1fr; }
       .hero{ padding:18px; }
@@ -202,7 +227,7 @@
           </div>
           <div class="mission-card">
             <strong>เป้าหมาย</strong>
-            เล่นให้จบ แล้วไปด่านพักใจต่อก่อนกลับ HUB
+            เล่นให้จบ แล้วไปด่านพักใจก่อนกลับ HUB
           </div>
         </div>
       </div>
@@ -213,7 +238,7 @@
       </div>
 
       <div class="footer-note">
-        เล่นเวอร์ชันพื้นฐานเพื่อใช้เป็น baseline เปรียบเทียบกับ Hydration v2
+        เวอร์ชันพื้นฐานนี้ใช้เป็น baseline เปรียบเทียบกับ Hydration v2
       </div>
     </section>
   </main>
@@ -233,6 +258,7 @@
       function ensurePid() {
         const raw = (qs.get('pid') || '').trim();
         if (raw) return raw.replace(/[.#$[\]/]/g, '-');
+
         const KEY = 'HHA_DEVICE_PID';
         try {
           let v = localStorage.getItem(KEY);
@@ -247,18 +273,31 @@
       }
 
       function buildRunUrl() {
-        const run = new URL('./vr-hydration/hydration.html', location.href);
+        const run = new URL('./hydration-vr/hydration.html', location.href);
         run.searchParams.set('game', 'hydration');
         run.searchParams.set('zone', 'nutrition');
         run.searchParams.set('hub', defaultHub());
         run.searchParams.set('pid', ensurePid());
         run.searchParams.set('sessionId', qs.get('sessionId') || makeSessionId());
 
-        const passthrough = ['studyId','runMode','phase','conditionGroup','studentKey','schoolCode','classRoom','studentNo','nickName','seed'];
+        const passthrough = [
+          'studyId',
+          'runMode',
+          'phase',
+          'conditionGroup',
+          'studentKey',
+          'schoolCode',
+          'classRoom',
+          'studentNo',
+          'nickName',
+          'seed'
+        ];
+
         for (const key of passthrough) {
           const v = qs.get(key);
           if (v) run.searchParams.set(key, v);
         }
+
         return run;
       }
 
@@ -267,7 +306,9 @@
         const gate = new URL('./gate/warmup-gate.html', location.href);
         const nextKey = `HHA_NEXT_HYDRATION_${Date.now()}`;
 
-        try { sessionStorage.setItem(nextKey, next.href); } catch {}
+        try {
+          sessionStorage.setItem(nextKey, next.href);
+        } catch {}
 
         gate.searchParams.set('game', 'hydration');
         gate.searchParams.set('zone', 'nutrition');
@@ -276,7 +317,19 @@
         gate.searchParams.set('nextKey', nextKey);
         gate.searchParams.set('pid', ensurePid());
 
-        const passthrough = ['studyId','runMode','phase','conditionGroup','studentKey','schoolCode','classRoom','studentNo','nickName','seed'];
+        const passthrough = [
+          'studyId',
+          'runMode',
+          'phase',
+          'conditionGroup',
+          'studentKey',
+          'schoolCode',
+          'classRoom',
+          'studentNo',
+          'nickName',
+          'seed'
+        ];
+
         for (const key of passthrough) {
           const v = qs.get(key);
           if (v) gate.searchParams.set(key, v);
@@ -286,7 +339,9 @@
       }
 
       document.getElementById('startBtn').addEventListener('click', goStart);
-      document.getElementById('hubBtn').addEventListener('click', () => location.href = defaultHub());
+      document.getElementById('hubBtn').addEventListener('click', () => {
+        location.href = defaultHub();
+      });
     })();
   </script>
 </body>
