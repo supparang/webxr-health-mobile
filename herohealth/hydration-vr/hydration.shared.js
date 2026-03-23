@@ -93,7 +93,6 @@ function gateCandidates(gatePhase, cat, game, pid, day = todayKey()) {
     `${STORE.GATE_PREFIX}:${P}:${C}:${G}:${day}`,
     `${STORE.GATE_PREFIX}:${P}:${G}:${U}:${day}`,
     `${STORE.GATE_PREFIX}:${P}:${G}:${day}`,
-    // legacy loose candidates
     `HHA_${P.toUpperCase()}_DONE:${C}:${G}:${U}:${day}`,
     `HHA_${P.toUpperCase()}_DONE:${C}:${G}:${day}`,
     `HHA_${P.toUpperCase()}_DONE:${G}:${U}:${day}`,
@@ -200,13 +199,13 @@ export function rewardCardMini(summary = {}, shelf = {}) {
     return `ชนะด่านสุดท้ายแล้ว • ปลดล็อกสติกเกอร์สะสม ${stickerCount} ชิ้น`;
   }
   if (grade === 'S') {
-    return `สุดยอดมาก! ได้เกรด S และเก็บน้ำได้ดีมาก`;
+    return 'สุดยอดมาก! ได้เกรด S และเก็บน้ำได้ดีมาก';
   }
   if (grade === 'A') {
-    return `ทำได้ดีมาก เกือบสมบูรณ์แบบแล้ว`;
+    return 'ทำได้ดีมาก เกือบสมบูรณ์แบบแล้ว';
   }
   if ((summary.missionsDone || 0) >= 3) {
-    return `ภารกิจครบทั้ง 3 อย่าง เก่งมากเลย`;
+    return 'ภารกิจครบทั้ง 3 อย่าง เก่งมากเลย';
   }
   if ((summary.comboMax || 0) >= 10) {
     return `คอมโบสูงสุด ${summary.comboMax} ครั้ง เล่นได้ลื่นมาก`;
@@ -214,7 +213,7 @@ export function rewardCardMini(summary = {}, shelf = {}) {
   if ((summary.blockCount || 0) >= 3) {
     return `กันสายฟ้าได้ ${summary.blockCount} ครั้งแล้ว`;
   }
-  return `เล่นจบรอบแล้ว ลองอีกครั้งเพื่อเก็บรางวัลเพิ่มนะ`;
+  return 'เล่นจบรอบแล้ว ลองอีกครั้งเพื่อเก็บรางวัลเพิ่มนะ';
 }
 
 export function saveHydrationRewards(pid = 'anon', summary = {}, nowIso = new Date().toISOString()) {
