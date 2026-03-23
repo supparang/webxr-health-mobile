@@ -1,28 +1,48 @@
-// === /herohealth/goodjunk-intervention/assessments/assessment.js ===
-// SHARED FORM SAVE + FLOW ROUTER
-// PATCH v20260319a-GJI-ASSESSMENT-FINAL
+// === /goodjunk-intervention/assessments/assessment.js ===
+// SHARED FORM SAVE + FLOW ROUTER + CROSS-PAGE FLOW BRIDGE
+// PATCH v20260323a-GJI-ASSESSMENT-FLOW-BRIDGE
 
-import { buildUrl, pickCtxFromQuery, withDefaultCtx } from '../research/config.js';
+import { buildUrl, pickCtxFromQuery } from '../research/config.js';
 import {
   loadCtx,
   mergeCtx,
-  saveCtx,
   saveAssessment,
   loadAssessment,
   pageStorageKey
 } from '../research/localstore.js';
+import {
+  initFlowBridge,
+  appendFlowParams
+} from '../research/flow-bridge.js';
 
 const NEXT_MAP = {
   'pre-knowledge.html': 'PRE_BEHAVIOR',
   'pre-behavior.html': 'GAME',
   'post-knowledge.html': 'POST_BEHAVIOR',
   'post-behavior.html': 'POST_CHOICE',
-  'post-choice.html': 'COMPLETION',
-  'parent-questionnaire.html': 'PARENT_SUMMARY'
+  'post-choice.html': 'COMPLETION'
 };
 
 function getFilename() {
   return window.location.pathname.split('/').pop() || '';
+}
+
+function getPageId(filename) {
+  return String(filename || 'assessment')
+    .replace(/\.html$/i, '')
+    .trim()
+    .toLowerCase();
+}
+
+function getNextLabel(nextKey) {
+  const map = {
+    PRE_BEHAVIOR: 'Pre-Behavior',
+    GAME: 'Game',
+    POST_BEHAVIOR: 'Post-Behavior',
+    POST_CHOICE: 'Post-Choice',
+    COMPLETION: 'Completion'
+  };
+  return map[nextKey] || nextKey || 'Next';
 }
 
 function serializeForm(form) {
@@ -39,7 +59,7 @@ function serializeForm(form) {
   }
 
   const checkboxNames = [...form.querySelectorAll('input[type="checkbox"][name]')]
-    .map((el) => el.name)
+    .map(el => el.name)
     .filter((v, i, arr) => arr.indexOf(v) === i);
 
   for (const name of checkboxNames) {
@@ -53,19 +73,13 @@ function serializeForm(form) {
   return data;
 }
 
-function restoreForm(form, saved = {}) {
-  const payload =
-    saved && typeof saved === 'object' && saved.answers && typeof saved.answers === 'object'
-      ? saved.answers
-      : (saved || {});
-
+function restoreForm(form, data = {}) {
   const fields = form.querySelectorAll('input[name], textarea[name], select[name]');
-
   for (const field of fields) {
     const { name, type } = field;
-    if (!(name in payload)) continue;
+    if (!(name in data)) continue;
 
-    const value = payload[name];
+    const value = data[name];
 
     if (type === 'radio') {
       field.checked = String(field.value) === String(value);
@@ -82,145 +96,127 @@ function restoreForm(form, saved = {}) {
   }
 }
 
-function renderCtx(ctx) {
+function renderCtx() {
+  const ctx = loadCtx();
   const el = document.getElementById('ctxBox');
   if (!el) return;
 
   el.textContent = [
-    `PID: ${ctx.pid || '-'}`,
-    `Student: ${ctx.nickName || ctx.studentKey || ctx.name || '-'}`,
+    `PID: ${ctx.pid || ctx.studentKey || '-'}`,
     `Study: ${ctx.studyId || '-'}`,
     `Session: ${ctx.session || ctx.sessionId || '-'}`,
     `Condition: ${ctx.condition || ctx.conditionGroup || '-'}`
   ].join(' • ');
 }
 
-function getCorrectValuesForGroup(form, name) {
-  const all = [...form.querySelectorAll(`[name="${CSS.escape(name)}"]`)];
-  return all.filter((el) => {
-    const mark = String(el.dataset.correct || '').toLowerCase();
-    return mark === '1' || mark === 'true' || mark === 'yes';
-  });
-}
-
-function evaluateKnowledgeScore(form, answers) {
-  const names = [...new Set(
-    [...form.querySelectorAll('input[name], select[name], textarea[name]')]
-      .map((el) => el.name)
-      .filter(Boolean)
-  )];
-
-  let total = 0;
-  let correct = 0;
-
-  for (const name of names) {
-    const correctEls = getCorrectValuesForGroup(form, name);
-    if (!correctEls.length) continue;
-
-    total += 1;
-
-    const correctValues = correctEls.map((el) => String(el.value));
-    const answer = answers[name];
-
-    if (Array.isArray(answer)) {
-      const picked = answer.map(String).sort().join('||');
-      const expected = [...correctValues].sort().join('||');
-      if (picked === expected) correct += 1;
-      continue;
-    }
-
-    if (correctValues.includes(String(answer))) {
-      correct += 1;
-    }
-  }
-
-  if (!total) return null;
-
-  return {
-    correct,
-    total,
-    percent: Math.round((correct / total) * 100)
-  };
-}
-
-function savePage(ctx, filename, form) {
-  const answers = serializeForm(form);
-  const knowledgeScore = evaluateKnowledgeScore(form, answers);
-
-  const payload = {
-    page: filename,
-    savedAt: new Date().toISOString(),
-    storageKey: pageStorageKey(filename),
-    ctxSnapshot: {
-      pid: ctx.pid || '',
-      studentKey: ctx.studentKey || '',
-      nickName: ctx.nickName || '',
-      studyId: ctx.studyId || '',
-      session: ctx.session || ctx.sessionId || '',
-      condition: ctx.condition || ctx.conditionGroup || '',
-      classRoom: ctx.classRoom || ctx.classroom || '',
-      schoolName: ctx.schoolName || ctx.school || '',
-      diff: ctx.diff || '',
-      view: ctx.view || '',
-      run: ctx.run || ctx.mode || ''
-    },
-    answers
-  };
-
-  if (knowledgeScore) {
-    payload.knowledgeScore = knowledgeScore;
-  }
-
-  saveAssessment(filename, payload);
-  return payload;
-}
-
-function initBackButton() {
-  const backBtn = document.querySelector('[data-action="back"]');
-  if (!backBtn) return;
-
-  backBtn.addEventListener('click', () => {
-    window.history.back();
-  });
-}
-
-function init() {
-  mergeCtx(pickCtxFromQuery());
-
-  const ctx = withDefaultCtx(loadCtx());
-  saveCtx(ctx);
-  renderCtx(ctx);
+async function init() {
+  const queryCtx = pickCtxFromQuery();
+  mergeCtx(queryCtx);
 
   const form = document.querySelector('form');
   const filename = getFilename();
+  const pageId = getPageId(filename);
 
-  initBackButton();
+  const flow = initFlowBridge({
+    pageId,
+    queryCtx,
+    defaultStep: form ? 'filling' : 'reviewing',
+    staticFields: {
+      formPage: filename
+    }
+  });
 
-  if (!form) return;
+  await flow.start();
+
+  if (!form) {
+    renderCtx();
+    flow.setStep('reviewing', {
+      reviewOnly: true
+    });
+    return;
+  }
 
   const oldData = loadAssessment(filename, {});
   restoreForm(form, oldData);
+  renderCtx();
+
+  flow.setStep('filling', {
+    formLoadedAt: new Date().toISOString()
+  });
+
+  form.addEventListener('input', () => {
+    flow.persist({
+      flowStep: 'filling',
+      dirty: true,
+      dirtyAt: new Date().toISOString()
+    });
+  });
 
   form.addEventListener('submit', (ev) => {
     ev.preventDefault();
 
-    if (!form.reportValidity()) return;
+    if (!form.reportValidity()) {
+      flow.persist({
+        flowStep: 'filling',
+        validationFailedAt: new Date().toISOString()
+      });
+      return;
+    }
 
-    const latestCtx = withDefaultCtx(loadCtx());
-    const saved = savePage(latestCtx, filename, form);
-
-    const nextKey = form.dataset.nextKey || NEXT_MAP[filename];
-    if (!nextKey) return;
-
-    const nextCtx = withDefaultCtx({
-      ...latestCtx,
-      lastCompletedPage: filename,
-      lastSavedAt: saved.savedAt
+    const answers = serializeForm(form);
+    saveAssessment(filename, {
+      page: filename,
+      savedAt: new Date().toISOString(),
+      storageKey: pageStorageKey(filename),
+      answers
     });
 
-    saveCtx(nextCtx);
-    window.location.href = buildUrl(nextKey, nextCtx, false);
+    const ctx = loadCtx();
+    const nextKey = form.dataset.nextKey || NEXT_MAP[filename];
+
+    if (nextKey) {
+      const rawNextUrl = buildUrl(nextKey, ctx, false);
+      const nextUrl = appendFlowParams(rawNextUrl, {
+        ...ctx,
+        ...queryCtx
+      });
+
+      flow.noteRedirect('form-submit', nextUrl, {
+        nextKey,
+        nextLabel: getNextLabel(nextKey),
+        nextPath: nextUrl,
+        answerCount: Object.keys(answers || {}).length
+      });
+
+      flow.complete('form-submitted', {
+        nextKey,
+        nextLabel: getNextLabel(nextKey),
+        nextPath: nextUrl,
+        answerCount: Object.keys(answers || {}).length
+      });
+
+      window.location.href = nextUrl;
+      return;
+    }
+
+    flow.complete('form-submitted-no-next', {
+      answerCount: Object.keys(answers || {}).length
+    });
   });
+
+  const backBtn = document.querySelector('[data-action="back"]');
+  if (backBtn) {
+    backBtn.addEventListener('click', () => {
+      flow.noteRedirect('history-back', 'history.back()', {
+        nextLabel: 'Back'
+      });
+      flow.complete('history-back', {
+        nextLabel: 'Back',
+        nextPath: 'history.back()'
+      });
+      window.history.back();
+    });
+  }
 }
 
 document.addEventListener('DOMContentLoaded', init);
