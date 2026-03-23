@@ -3,93 +3,257 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • Hydration Hero Run</title>
+  <title>HeroHealth • Hydration Hero</title>
   <meta name="color-scheme" content="dark light" />
   <link rel="icon" href="../favicon.ico" />
-  <link rel="stylesheet" href="./hydration.css?v=20260322-baseline-phase1" />
+  <link rel="stylesheet" href="./hydration.css?v=20260323-safe-dom" />
 </head>
 <body>
-  <main id="app" class="hydr-shell">
-    <header class="hydr-topbar">
-      <div class="hydr-top-left">
-        <div class="hydr-kicker">💧 Nutrition Zone • Hydration Hero</div>
-        <h1 class="hydr-title">เลือกการดื่มน้ำให้เหมาะ</h1>
-        <p class="hydr-sub">อ่านโจทย์ แล้วกดคำตอบที่เหมาะที่สุด</p>
+  <main class="hydr-page">
+    <header class="topbar">
+      <div class="brand">
+        <div class="kicker">💧 Nutrition Zone • Hydration Hero</div>
+        <h1 class="title">เก็บน้ำดี เลี่ยงของไม่ดี</h1>
+        <p class="sub">แตะฟองที่ดี เก็บโล่ แล้วผ่านช่วงพายุและบอสให้ได้</p>
       </div>
 
-      <div class="hydr-top-right">
-        <div class="mini-stat">
-          <span class="mini-label">รอบ</span>
-          <strong id="progressText">0 / 0</strong>
-        </div>
-        <div class="mini-stat">
-          <span class="mini-label">คะแนน</span>
-          <strong id="scoreValue">0</strong>
-        </div>
+      <div class="top-actions">
+        <button id="btnSfx" class="ghost small" type="button">🔊 เสียง</button>
+        <button id="btnHelp" class="ghost small" type="button">❓ วิธีเล่น</button>
+        <button id="btnPause" class="ghost small" type="button">⏸️ พัก</button>
       </div>
     </header>
 
-    <section class="hydr-progress-wrap">
-      <div class="hydr-progress-bar">
-        <div id="progressFill" class="hydr-progress-fill"></div>
+    <section class="hud-grid">
+      <div class="hud-card">
+        <span class="hud-label">คะแนน</span>
+        <strong id="uiScore" class="hud-value">0</strong>
+      </div>
+
+      <div class="hud-card">
+        <span class="hud-label">เวลา</span>
+        <strong id="uiTime" class="hud-value">0</strong>
+      </div>
+
+      <div class="hud-card">
+        <span class="hud-label">พลาดชน</span>
+        <strong id="uiMiss" class="hud-value">0</strong>
+      </div>
+
+      <div class="hud-card hud-mobile-hide">
+        <span class="hud-label">หมดเวลาเอง</span>
+        <strong id="uiExpire" class="hud-value">0</strong>
+      </div>
+
+      <div class="hud-card hud-mobile-hide">
+        <span class="hud-label">บล็อก</span>
+        <strong id="uiBlock" class="hud-value">0</strong>
+      </div>
+
+      <div class="hud-card">
+        <span class="hud-label">เกรด</span>
+        <strong id="uiGrade" class="hud-value">C</strong>
+      </div>
+
+      <div class="hud-card">
+        <span class="hud-label">น้ำ</span>
+        <strong id="uiWater" class="hud-value">40%</strong>
+      </div>
+
+      <div class="hud-card">
+        <span class="hud-label">คอมโบ</span>
+        <strong id="uiCombo" class="hud-value">0</strong>
+      </div>
+
+      <div class="hud-card">
+        <span class="hud-label">โล่</span>
+        <strong id="uiShield" class="hud-value">0</strong>
+      </div>
+
+      <div class="hud-card phase-card">
+        <span class="hud-label">สถานะ</span>
+        <strong id="uiPhase" class="hud-value">💧 ช่วงเก็บน้ำ</strong>
       </div>
     </section>
 
-    <section class="hydr-grid">
-      <aside class="hydr-coach-card">
-        <div class="coach-emoji">🫧</div>
-        <div class="coach-title">เพื่อนช่วยคิด</div>
-        <p id="coachText" class="coach-text">ลองอ่านโจทย์ให้ดี แล้วเลือกคำตอบที่เหมาะที่สุดนะ</p>
-      </aside>
-
-      <section class="hydr-card">
-        <div class="hydr-question-wrap">
-          <div id="questionBadge" class="hydr-question-badge">โจทย์ข้อ 1</div>
-          <h2 id="questionText" class="hydr-question">...</h2>
-          <p id="hintText" class="hydr-hint">...</p>
-        </div>
-
-        <div id="choices" class="hydr-choices"></div>
-
-        <div id="feedback" class="hydr-feedback" aria-live="polite"></div>
-      </section>
+    <section class="mini-status-row">
+      <div class="mini-pill">วอร์มอัป: <strong id="uiWarmDone">ยังไม่ทำ ✨</strong></div>
+      <div class="mini-pill">คูลดาวน์: <strong id="uiCoolDone">ยังไม่ทำ ✨</strong></div>
+      <div class="mini-pill">AI Risk: <strong id="aiRisk">0.00</strong></div>
+      <div class="mini-pill wide">คำแนะนำ: <strong id="aiHint">แตะน้ำดี และอย่าโดนของไม่ดี 😊</strong></div>
     </section>
 
-    <section class="hydr-bottom-actions">
-      <button id="helpBtn" class="ghost-btn" type="button">❓ วิธีเล่น</button>
-      <button id="hubBtn" class="ghost-btn" type="button">🏠 กลับ HUB</button>
+    <section class="missionBar" id="missionBar">
+      <div class="mission-title">🎯 ภารกิจรอบนี้</div>
+
+      <div id="missionChipHit" class="mission-chip">
+        <span class="chip-title">เก็บน้ำดี</span>
+        <span class="chip-value"><strong id="missionHitNow">0</strong>/<strong id="missionHitGoal">12</strong></span>
+      </div>
+
+      <div id="missionChipBlock" class="mission-chip">
+        <span class="chip-title">บล็อกสายฟ้า</span>
+        <span class="chip-value"><strong id="missionBlockNow">0</strong>/<strong id="missionBlockGoal">3</strong></span>
+      </div>
+
+      <div id="missionChipCombo" class="mission-chip">
+        <span class="chip-title">คอมโบ</span>
+        <span class="chip-value"><strong id="missionComboNow">0</strong>/<strong id="missionComboGoal">8</strong></span>
+      </div>
+    </section>
+
+    <section id="stage" class="stage" aria-label="Hydration playfield">
+      <div id="zoneSign" class="zoneSign"></div>
+
+      <div id="calloutLayer" class="calloutLayer" aria-hidden="true"></div>
+      <div id="stickerBurst" class="stickerBurst" aria-hidden="true"></div>
+      <div id="bossFace" class="bossFace" aria-hidden="true">⚡</div>
+
+      <div class="centerCrosshair" aria-hidden="true"></div>
+
+      <div id="layer" class="bubbleLayer" aria-label="interactive bubbles"></div>
+    </section>
+
+    <section class="coach-panel">
+      <div class="coach-main">
+        <div class="coach-face">🫧</div>
+        <div>
+          <div class="coach-name">โค้ชเพื่อนช่วยคิด</div>
+          <p id="coachExplain" class="coach-copy">
+            เก็บน้ำดีให้เยอะ ระวังของไม่ดี และอย่าลืมหาโล่ไว้กันสายฟ้านะ
+          </p>
+        </div>
+      </div>
+
+      <div class="risk-card hud-mobile-hide">
+        <div class="risk-label">ความเสี่ยงตอนนี้</div>
+        <div class="risk-bar">
+          <div id="riskFill" class="risk-fill" style="width:0%"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="debugMini" class="debugMini is-hidden" aria-hidden="true">
+      <div>phase: <strong id="dbgPhase">normal</strong></div>
+      <div>combo: <strong id="dbgCombo">0</strong></div>
+      <div>water: <strong id="dbgWater">40</strong></div>
+      <div>shield: <strong id="dbgShield">0</strong></div>
+      <div>bubbles: <strong id="dbgBubbles">0</strong></div>
+      <div>fps: <strong id="dbgFps">—</strong></div>
     </section>
   </main>
 
-  <div id="summaryOverlay" class="summary-overlay hidden" aria-hidden="true">
-    <div class="summary-card">
-      <div class="summary-stars" id="summaryStars">⭐️⭐️⭐️</div>
-      <h2 id="summaryTitle">สรุปผล</h2>
-      <p id="summaryLead" class="summary-lead"></p>
-      <div id="summaryStats" class="summary-stats"></div>
-      <div id="summaryTip" class="summary-tip"></div>
-      <div class="summary-actions">
-        <button id="playAgainBtn" class="primary-btn" type="button">🔁 เล่นอีกครั้ง</button>
-        <button id="cooldownBtn" class="secondary-btn" type="button">🌈 ไปด่านพักใจ</button>
-        <button id="summaryHubBtn" class="ghost-btn" type="button">🏠 กลับ HUB</button>
-      </div>
-    </div>
-  </div>
-
-  <div id="helpOverlay" class="summary-overlay hidden" aria-hidden="true">
-    <div class="summary-card help-card">
+  <!-- HELP -->
+  <div id="helpOverlay" class="overlay" aria-hidden="true">
+    <div class="dialog help-dialog">
       <h2>วิธีเล่น</h2>
       <ul class="help-list">
-        <li>อ่านโจทย์สั้น ๆ ให้เข้าใจ</li>
-        <li>กดคำตอบที่เหมาะที่สุด</li>
-        <li>ตอบให้ครบทุกข้อเพื่อดูสรุปผล</li>
+        <li>แตะฟองน้ำดี เช่น 💧 💦 🫗 เพื่อเพิ่มคะแนนและเพิ่มน้ำ</li>
+        <li>หลบของไม่ดี เช่น 🧋 🥤 🍟 เพราะจะเสียคะแนนและเสียน้ำ</li>
+        <li>เก็บ 🛡️ เพื่อกันสายฟ้าช่วงพายุหรือบอส</li>
+        <li>ถ้าใช้โหมด cardboard ให้เล็งกลางจอแล้วแตะ/ยิงได้</li>
       </ul>
-      <div class="summary-actions">
-        <button id="closeHelpBtn" class="primary-btn" type="button">เข้าใจแล้ว</button>
+      <div class="dialog-actions">
+        <button id="btnHelpStart" class="primary" type="button">เริ่มเล่น</button>
       </div>
     </div>
   </div>
 
-  <script type="module" src="./hydration.js?v=20260322-baseline-phase1"></script>
+  <!-- PAUSE -->
+  <div id="pauseOverlay" class="overlay" aria-hidden="true">
+    <div class="dialog">
+      <h2>พักเกมชั่วคราว</h2>
+      <p class="dialog-copy">พร้อมแล้วค่อยกลับไปเล่นต่อได้เลย</p>
+      <div class="dialog-actions">
+        <button id="btnResume" class="primary" type="button">▶️ เล่นต่อ</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- END -->
+  <div id="end" class="overlay endOverlay" aria-hidden="true">
+    <div class="dialog endDialog">
+      <div class="endHeader">
+        <h2 id="endTitle">เล่นจบรอบแล้ว</h2>
+        <p id="endSub" class="dialog-copy">มุมมอง mobile • ระดับ normal</p>
+      </div>
+
+      <section class="endStats">
+        <div class="endStat">
+          <span class="endStatLabel">เกรด</span>
+          <strong id="endGrade" class="endStatValue">C</strong>
+        </div>
+        <div class="endStat">
+          <span class="endStatLabel">คะแนน</span>
+          <strong id="endScore" class="endStatValue">0</strong>
+        </div>
+        <div class="endStat">
+          <span class="endStatLabel">พลาดชน</span>
+          <strong id="endMiss" class="endStatValue">0</strong>
+        </div>
+        <div class="endStat">
+          <span class="endStatLabel">น้ำคงเหลือ</span>
+          <strong id="endWater" class="endStatValue">0%</strong>
+        </div>
+      </section>
+
+      <div class="endBox">
+        <div class="endBoxTitle">คำแนะนำจากโค้ช</div>
+        <div id="endCoach" class="endBoxText">ลองเล่นอีกครั้งเพื่อเก็บน้ำให้มากขึ้นนะ</div>
+      </div>
+
+      <div class="endBox">
+        <div class="endBoxTitle">สรุปช่วงการเล่น</div>
+        <div id="endPhaseSummary" class="endBoxText">จบรอบปกติ</div>
+      </div>
+
+      <div class="endBox rewardCard end-mobile-optional">
+        <div class="endBoxTitle">รางวัลรอบนี้</div>
+        <div id="endReward" class="endBoxText">💧 เล่นจบแล้ว</div>
+        <div id="endBadge" class="endBadge">🌈 ลองอีกครั้ง</div>
+      </div>
+
+      <div class="endBox end-mobile-optional">
+        <div class="endBoxTitle">คอลเลกชัน</div>
+        <div id="endCollection" class="endBoxText">ยังไม่มีของสะสม</div>
+      </div>
+
+      <div class="endBox rewardCard end-mobile-optional">
+        <div class="endBoxTitle">การ์ดรางวัล</div>
+        <div id="endRewardCard" class="endRewardCard">Hydration Hero</div>
+        <div id="endRewardMini" class="endRewardMini">รอบนี้เก็บน้ำได้ดีขึ้นอีกนิด</div>
+      </div>
+
+      <div class="endBox end-mobile-optional">
+        <div class="endBoxTitle">สติกเกอร์ที่มี</div>
+        <div id="endStickerRow" class="stickerRow"></div>
+      </div>
+
+      <div class="copyTools end-mobile-optional">
+        <button id="btnCopy" class="ghost small" type="button">Copy Summary</button>
+        <button id="btnCopyEvents" class="ghost small" type="button">Copy Events</button>
+        <button id="btnCopyTimeline" class="ghost small" type="button">Copy Timeline</button>
+        <button id="btnCopyFeatures" class="ghost small" type="button">Copy Features</button>
+        <button id="btnCopyLabels" class="ghost small" type="button">Copy Labels</button>
+        <button id="btnCopyFeaturesCsv" class="ghost small" type="button">Features CSV</button>
+        <button id="btnCopyLabelsCsv" class="ghost small" type="button">Labels CSV</button>
+        <button id="btnSendCloud" class="ghost small" type="button">Send Cloud</button>
+      </div>
+
+      <div class="dialog-actions endActions">
+        <button id="btnReplay" class="ghost" type="button">🔁 เล่นอีกครั้ง</button>
+        <button id="btnNextCooldown" class="primary" type="button">🌈 ไปคูลดาวน์</button>
+        <button id="btnBackHub" class="secondary" type="button">🏠 กลับ HUB</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { boot } from './hydration.safe.js?v=20260315d-HYD-SOLO-CLOSEOUT';
+
+    boot({}).catch((err) => {
+      console.error('[hydration] boot failed', err);
+    });
+  </script>
 </body>
 </html>
