@@ -1,6 +1,6 @@
 // === /herohealth/nutrition-groups/js/groups.scoring.js ===
 // Scoring and stat aggregation for Nutrition Groups
-// PATCH v20260318-GROUPS-RUN-FULL
+// PATCH v20260323-GROUPS-CHILDFRIENDLY-A
 
 import { FOOD_GROUPS } from './groups.content.js';
 
@@ -136,12 +136,16 @@ export function scoreReason(stats, question, answerId) {
 
   updateStreak(stats, correct);
 
+  const reasonText = question.meta.correctReasonHelper
+    ? `${question.meta.correctReason} (${question.meta.correctReasonHelper})`
+    : question.meta.correctReason;
+
   return {
     correct,
     delta: correct ? 10 : 0,
     feedback: correct
       ? 'ใช่เลย! เหตุผลนี้เหมาะสม'
-      : `เกือบถูก — เหตุผลที่เหมาะกว่าคือ "${question.meta.correctReason}"`
+      : `เกือบถูก — เหตุผลที่เหมาะกว่าคือ "${reasonText}"`
   };
 }
 
