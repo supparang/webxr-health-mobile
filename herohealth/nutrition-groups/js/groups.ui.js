@@ -1,6 +1,6 @@
 // === /herohealth/nutrition-groups/js/groups.ui.js ===
 // UI renderer for Nutrition Groups
-// PATCH v20260318-GROUPS-RUN-FULL
+// PATCH v20260323-GROUPS-CHILDFRIENDLY-A
 
 import { esc, goHub } from '../../shared/nutrition-common.js';
 import { mountSummaryShell } from '../../shared/nutrition-summary-shell.js';
@@ -9,7 +9,7 @@ const TIPS = {
   pre: 'แบบสั้นก่อนเริ่ม เพื่อดูพื้นฐานก่อนเล่น',
   sort: 'ดูรูปอาหาร แล้วเลือกหมู่ที่ถูก',
   compare: 'ดูว่าอะไรดีกว่าสำหรับร่างกาย',
-  reason: 'เลือกเหตุผลที่เหมาะที่สุด',
+  reason: 'เลือกเหตุผลที่ใช่ที่สุด',
   retry: 'ลองแก้ข้อที่เคยพลาดอีกครั้ง',
   post: 'ตอบอีกครั้งหลังเล่น เพื่อดูว่าเก่งขึ้นไหม'
 };
@@ -18,10 +18,14 @@ const PHASE_BANNER = {
   pre: { icon: '📝', title: 'แบบสั้นก่อนเล่น', sub: 'ลองตอบก่อนเริ่มเกม' },
   sort: { icon: '🧺', title: 'แยกหมวดอาหาร', sub: 'อาหารนี้อยู่หมู่ไหน' },
   compare: { icon: '⚖️', title: 'เลือกสิ่งที่ดีกว่า', sub: 'สองอย่างนี้อะไรดีกว่า' },
-  reason: { icon: '💡', title: 'บอกเหตุผลง่าย ๆ', sub: 'ทำไมคำตอบนี้ดีกว่า' },
+  reason: { icon: '💡', title: 'บอกเหตุผลง่าย ๆ', sub: 'เลือกเหตุผลที่ใช่ที่สุด' },
   retry: { icon: '🔁', title: 'รอบทบทวน', sub: 'กลับมาแก้ข้อที่เคยพลาด' },
   post: { icon: '🌟', title: 'แบบสั้นหลังเล่น', sub: 'มาดูว่าหนูเก่งขึ้นไหม' }
 };
+
+function isReasonQuestion(question) {
+  return question.type === 'reason' || (question.isRetry && question.retryFrom === 'reason');
+}
 
 export function createGroupsUI(ctx, { onAnswer, onReplay, onSummaryBack, summaryBackLabel = 'ไปคูลดาวน์' }) {
   const phaseEl = document.getElementById('hudPhase');
@@ -101,7 +105,7 @@ export function createGroupsUI(ctx, { onAnswer, onReplay, onSummaryBack, summary
       return;
     }
 
-    if (question.type === 'reason' || (question.isRetry && question.retryFrom === 'reason')) {
+    if (isReasonQuestion(question)) {
       visualEl.innerHTML = `
         <div class="food-card child-card">
           <div class="food-emoji">${esc(question.food?.emoji || '⭐')}</div>
@@ -123,6 +127,13 @@ export function createGroupsUI(ctx, { onAnswer, onReplay, onSummaryBack, summary
       `;
     }
 
+    if (isReasonQuestion(question)) {
+      return `
+        <div class="answer-main">${esc(option.label)}</div>
+        <small>${esc(option.helper || '')}</small>
+      `;
+    }
+
     return `
       <div class="answer-main">${hasEmoji ? `${esc(option.emoji)} ` : ''}${esc(option.label)}</div>
     `;
@@ -130,11 +141,15 @@ export function createGroupsUI(ctx, { onAnswer, onReplay, onSummaryBack, summary
 
   function renderAnswers(question) {
     answerLocked = false;
+    gridEl.className = isReasonQuestion(question) ? 'answer-grid reason-grid' : 'answer-grid';
     gridEl.innerHTML = '';
 
     question.options.forEach(option => {
       const btn = document.createElement('button');
-      btn.className = 'answer-btn child-answer-btn';
+      btn.className = isReasonQuestion(question)
+        ? 'answer-btn child-answer-btn reason-answer-btn'
+        : 'answer-btn child-answer-btn';
+
       btn.type = 'button';
       btn.innerHTML = buildAnswerInner(option, question);
 
@@ -164,7 +179,7 @@ export function createGroupsUI(ctx, { onAnswer, onReplay, onSummaryBack, summary
   function showFeedback(evaluation) {
     feedbackEl.className = `feedback-box ${evaluation.correct ? 'feedback-good' : 'feedback-bad'}`;
     feedbackEl.textContent = `${evaluation.correct ? '✓' : '✗'} ${evaluation.feedback}`;
-    scoreEl.textContent = String(Number(scoreEl.textContent || 0) + evaluation.delta);
+    scoreEl.textContent = String(Number(scoreEl.textContent || 0) + Number(evaluation.delta || 0));
   }
 
   function showCoach(message) {
