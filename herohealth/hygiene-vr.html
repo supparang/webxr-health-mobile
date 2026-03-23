@@ -3,72 +3,778 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — Handwash VR</title>
+  <title>HeroHealth — Hygiene World</title>
   <meta name="color-scheme" content="dark light" />
+  <meta name="robots" content="noindex" />
   <link rel="icon" href="./favicon.ico" />
   <style>
     :root{
-      --bg1:#020617;--bg2:#0b1226;--panel:rgba(2,6,23,.72);--stroke:rgba(148,163,184,.18);
-      --text:#e5e7eb;--muted:#94a3b8;--blue:#3b82f6;--good:#22c55e
+      --bg1:#082032;
+      --bg2:#0f3460;
+      --bg3:#1b4965;
+
+      --panel:rgba(2,6,23,.64);
+      --stroke:rgba(255,255,255,.16);
+
+      --text:#f8fafc;
+      --muted:#dbeafe;
+
+      --cyan:#22d3ee;
+      --blue:#38bdf8;
+      --green:#22c55e;
+      --yellow:#facc15;
+      --pink:#f472b6;
+      --violet:#a78bfa;
+
+      --shadow:0 18px 55px rgba(0,0,0,.28);
+      --shadow-big:0 24px 80px rgba(0,0,0,.34);
+
+      --sat: env(safe-area-inset-top, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
+      --sar: env(safe-area-inset-right, 0px);
     }
-    *{box-sizing:border-box}
+
+    *{ box-sizing:border-box; }
+
     html,body{
-      margin:0;min-height:100%;
-      background:
-        radial-gradient(1000px 700px at 50% -10%, rgba(59,130,246,.18), transparent 60%),
-        linear-gradient(180deg,var(--bg1),var(--bg2));
+      min-height:100%;
+      margin:0;
       color:var(--text);
-      font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Thai",Arial
+      background:
+        radial-gradient(920px 620px at 6% 10%, rgba(34,211,238,.22), transparent 60%),
+        radial-gradient(860px 620px at 100% 0%, rgba(167,139,250,.18), transparent 56%),
+        radial-gradient(760px 520px at 50% 100%, rgba(250,204,21,.12), transparent 58%),
+        linear-gradient(180deg, var(--bg1), var(--bg2) 54%, var(--bg3));
     }
-    .wrap{max-width:880px;margin:0 auto;padding:18px}
-    .card{
-      border-radius:22px;border:1px solid var(--stroke);background:var(--panel);
-      box-shadow:0 18px 55px rgba(0,0,0,.28);padding:16px
+
+    body{
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", Arial, sans-serif;
+      line-height:1.4;
+      overflow-x:hidden;
     }
-    .title{font-size:28px;font-weight:1000;margin:0 0 6px}
-    .muted{color:var(--muted);font-size:13px;font-weight:900}
-    .row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+
+    button{ font:inherit; }
+    a{ color:inherit; text-decoration:none; }
+
+    .wrap{
+      max-width:1140px;
+      margin:0 auto;
+      padding:
+        calc(14px + var(--sat))
+        calc(14px + var(--sar))
+        calc(24px + var(--sab))
+        calc(14px + var(--sal));
+    }
+
+    .hero,
+    .quickStart,
+    .card,
+    .helpCard{
+      border-radius:30px;
+      border:1px solid var(--stroke);
+      background:var(--panel);
+      backdrop-filter:blur(12px);
+      box-shadow:var(--shadow-big);
+    }
+
+    .hero{
+      position:relative;
+      overflow:hidden;
+      padding:18px;
+      background:
+        linear-gradient(135deg, rgba(34,211,238,.16), rgba(96,165,250,.14)),
+        var(--panel);
+    }
+
+    .hero::before{
+      content:"";
+      position:absolute;
+      right:-70px;
+      bottom:-90px;
+      width:280px;
+      height:280px;
+      border-radius:999px;
+      background:radial-gradient(circle, rgba(34,211,238,.16), transparent 68%);
+      pointer-events:none;
+    }
+
+    .heroGrid{
+      display:grid;
+      grid-template-columns:1.15fr .85fr;
+      gap:16px;
+      position:relative;
+      z-index:1;
+    }
+
+    @media (max-width:920px){
+      .heroGrid{ grid-template-columns:1fr; }
+    }
+
+    .heroMain{
+      display:flex;
+      gap:14px;
+      align-items:flex-start;
+    }
+
+    .heroIcon{
+      width:94px;
+      height:94px;
+      border-radius:26px;
+      display:grid;
+      place-items:center;
+      flex:0 0 auto;
+      font-size:46px;
+      border:1px solid rgba(255,255,255,.16);
+      background:
+        radial-gradient(circle at 30% 30%, rgba(255,255,255,.24), transparent 42%),
+        linear-gradient(135deg, rgba(34,211,238,.24), rgba(96,165,250,.18));
+      box-shadow:0 12px 30px rgba(0,0,0,.20);
+    }
+
+    .badge{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      min-height:36px;
+      padding:8px 12px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.14);
+      background:rgba(255,255,255,.08);
+      color:#e0f2fe;
+      font-size:12px;
+      font-weight:1000;
+    }
+
+    .title{
+      margin:10px 0 0;
+      font-size:clamp(28px,4.4vw,42px);
+      line-height:1.05;
+      font-weight:1100;
+      letter-spacing:-.02em;
+    }
+
+    .sub{
+      margin-top:10px;
+      font-size:15px;
+      font-weight:900;
+      line-height:1.6;
+      color:var(--muted);
+    }
+
+    .heroTips{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      margin-top:12px;
+    }
+
+    .tip{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      min-height:38px;
+      padding:8px 12px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.14);
+      background:rgba(255,255,255,.06);
+      color:#eff6ff;
+      font-size:12px;
+      font-weight:1000;
+    }
+
+    .heroActions{
+      margin-top:14px;
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+    }
+
     .btn{
-      appearance:none;border:1px solid rgba(148,163,184,.22);border-radius:14px;
-      padding:12px 14px;min-height:46px;cursor:pointer;color:var(--text);
-      background:rgba(148,163,184,.10);font-weight:1000
+      cursor:pointer;
+      min-height:48px;
+      padding:11px 16px;
+      border-radius:18px;
+      border:1px solid rgba(255,255,255,.16);
+      background:rgba(255,255,255,.06);
+      color:var(--text);
+      font-weight:1100;
+      box-shadow:0 10px 24px rgba(0,0,0,.16);
+      transition:transform .12s ease, filter .12s ease;
     }
-    .btn.primary{background:rgba(59,130,246,.16);border-color:rgba(59,130,246,.34)}
-    .btn.good{background:rgba(34,197,94,.14);border-color:rgba(34,197,94,.32)}
-    .pill{
-      display:inline-flex;align-items:center;gap:8px;padding:8px 10px;border-radius:999px;
-      border:1px solid var(--stroke);background:rgba(2,6,23,.42);color:var(--muted);
-      font-size:12px;font-weight:1000;margin:4px 6px 0 0
+
+    .btn:hover{
+      transform:translateY(-1px);
+      filter:brightness(1.05);
     }
-    .pill b{color:var(--text)}
-    .debug{
-      margin-top:14px;padding:12px;border-radius:16px;border:1px solid var(--stroke);
-      background:rgba(2,6,23,.35);font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
-      white-space:pre-wrap;word-break:break-word;color:#cbd5e1
+
+    .btn.primary{
+      border-color:rgba(34,197,94,.30);
+      background:linear-gradient(180deg, rgba(34,197,94,.24), rgba(34,197,94,.16));
+    }
+    .btn.cyan{
+      border-color:rgba(34,211,238,.30);
+      background:linear-gradient(180deg, rgba(34,211,238,.22), rgba(34,211,238,.14));
+    }
+    .btn.violet{
+      border-color:rgba(167,139,250,.30);
+      background:linear-gradient(180deg, rgba(167,139,250,.22), rgba(167,139,250,.14));
+    }
+    .btn.ghost{
+      background:rgba(255,255,255,.04);
+      color:#e2e8f0;
+    }
+
+    .sidePanel{
+      display:grid;
+      gap:12px;
+      align-content:start;
+    }
+
+    .statCard,
+    .miniCard,
+    .gameCard,
+    .helpCard{
+      border-radius:22px;
+      border:1px solid rgba(255,255,255,.14);
+      background:rgba(2,6,23,.54);
+      box-shadow:var(--shadow);
+    }
+
+    .statCard,
+    .miniCard,
+    .gameCard,
+    .helpCard{
+      padding:14px;
+    }
+
+    .statTitle,
+    .miniTitle{
+      font-size:12px;
+      font-weight:1000;
+      color:#dbeafe;
+    }
+
+    .statValue{
+      margin-top:6px;
+      font-size:22px;
+      line-height:1;
+      font-weight:1100;
+    }
+
+    .statSub,
+    .miniSub{
+      margin-top:6px;
+      font-size:12px;
+      line-height:1.45;
+      color:#cbd5e1;
+      font-weight:900;
+    }
+
+    .quickStart{
+      margin-top:14px;
+      padding:14px;
+      background:
+        linear-gradient(135deg, rgba(34,197,94,.10), rgba(34,211,238,.10)),
+        rgba(2,6,23,.58);
+    }
+
+    .sectionTitle{
+      font-size:18px;
+      font-weight:1100;
+      display:flex;
+      align-items:center;
+      gap:10px;
+    }
+
+    .sectionSub{
+      margin-top:6px;
+      color:var(--muted);
+      font-size:13px;
+      line-height:1.55;
+      font-weight:900;
+    }
+
+    .quickGrid{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:12px;
+      margin-top:12px;
+    }
+
+    @media (max-width:900px){
+      .quickGrid{ grid-template-columns:1fr; }
+    }
+
+    .quickBtn{
+      cursor:pointer;
+      border-radius:22px;
+      border:1px solid rgba(255,255,255,.14);
+      min-height:110px;
+      padding:16px;
+      text-align:left;
+      color:var(--text);
+      display:flex;
+      gap:14px;
+      align-items:center;
+      box-shadow:var(--shadow);
+      background:rgba(15,23,42,.52);
+      transition:transform .12s ease, filter .12s ease;
+    }
+
+    .quickBtn:hover{
+      transform:translateY(-2px);
+      filter:brightness(1.04);
+    }
+
+    .quickBtn.easy{ background:linear-gradient(135deg, rgba(34,197,94,.22), rgba(250,204,21,.12)); }
+    .quickBtn.mid{ background:linear-gradient(135deg, rgba(34,211,238,.18), rgba(96,165,250,.14)); }
+    .quickBtn.challenge{ background:linear-gradient(135deg, rgba(244,114,182,.18), rgba(167,139,250,.14)); }
+
+    .quickIcon{
+      width:62px;
+      height:62px;
+      border-radius:18px;
+      display:grid;
+      place-items:center;
+      font-size:32px;
+      flex:0 0 auto;
+      background:rgba(255,255,255,.10);
+      border:1px solid rgba(255,255,255,.14);
+    }
+
+    .quickTitle{
+      font-size:18px;
+      font-weight:1100;
+      line-height:1.15;
+    }
+
+    .quickMeta{
+      margin-top:5px;
+      color:#e0f2fe;
+      font-size:13px;
+      font-weight:900;
+      line-height:1.5;
+    }
+
+    .grid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:14px;
+      margin-top:14px;
+    }
+
+    @media (max-width:980px){
+      .grid{ grid-template-columns:1fr; }
+    }
+
+    .gameGrid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:12px;
+      margin-top:12px;
+    }
+
+    @media (max-width:680px){
+      .gameGrid{ grid-template-columns:1fr; }
+    }
+
+    .gameCard{
+      background:rgba(15,23,42,.46);
+    }
+
+    .gameTop{
+      display:flex;
+      gap:10px;
+      align-items:flex-start;
+      justify-content:space-between;
+      flex-wrap:wrap;
+    }
+
+    .gameName{
+      font-size:17px;
+      font-weight:1100;
+      line-height:1.2;
+    }
+
+    .gameDesc{
+      margin-top:6px;
+      color:var(--muted);
+      font-size:12px;
+      line-height:1.5;
+      font-weight:900;
+    }
+
+    .tag{
+      display:inline-flex;
+      align-items:center;
+      min-height:30px;
+      padding:6px 10px;
+      border-radius:999px;
+      background:rgba(255,255,255,.08);
+      border:1px solid rgba(255,255,255,.14);
+      font-size:11px;
+      font-weight:1000;
+      color:#eff6ff;
+      white-space:nowrap;
+    }
+
+    .gameActions{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      margin-top:12px;
+    }
+
+    .playBtn{
+      cursor:pointer;
+      min-height:42px;
+      padding:9px 14px;
+      border-radius:16px;
+      border:1px solid rgba(255,255,255,.14);
+      background:rgba(255,255,255,.06);
+      color:var(--text);
+      font-weight:1000;
+    }
+
+    .playBtn.primary{
+      border-color:rgba(34,197,94,.30);
+      background:rgba(34,197,94,.16);
+    }
+
+    .steps{
+      display:grid;
+      gap:10px;
+      margin-top:12px;
+    }
+
+    .step{
+      display:grid;
+      grid-template-columns:42px 1fr;
+      gap:10px;
+      align-items:flex-start;
+      border-radius:18px;
+      border:1px solid rgba(255,255,255,.12);
+      background:rgba(255,255,255,.04);
+      padding:12px;
+    }
+
+    .stepNo{
+      width:42px;
+      height:42px;
+      border-radius:14px;
+      display:grid;
+      place-items:center;
+      font-size:18px;
+      font-weight:1100;
+      background:rgba(255,255,255,.10);
+      border:1px solid rgba(255,255,255,.14);
+    }
+
+    .stepTitle{
+      font-size:15px;
+      font-weight:1100;
+      line-height:1.2;
+    }
+
+    .stepDesc{
+      margin-top:4px;
+      color:var(--muted);
+      font-size:12px;
+      line-height:1.5;
+      font-weight:900;
+    }
+
+    .helpCard{
+      margin-top:14px;
+      display:none;
+    }
+
+    .helpTitle{
+      font-size:17px;
+      font-weight:1100;
+      line-height:1.2;
+    }
+
+    .helpSub{
+      margin-top:8px;
+      font-size:13px;
+      line-height:1.55;
+      color:var(--muted);
+      font-weight:900;
+    }
+
+    .helpActions{
+      margin-top:12px;
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+    }
+
+    .bottomBar{
+      margin-top:14px;
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+      justify-content:space-between;
+    }
+
+    .statusPill{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      min-height:38px;
+      padding:8px 12px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.14);
+      background:rgba(255,255,255,.06);
+      color:#e0f2fe;
+      font-size:12px;
+      font-weight:1000;
+    }
+
+    .hint{
+      font-size:12px;
+      color:var(--muted);
+      font-weight:900;
+      line-height:1.5;
+    }
+
+    @media (prefers-reduced-motion: reduce){
+      *,
+      *::before,
+      *::after{
+        transition:none !important;
+        animation:none !important;
+      }
+      .btn:hover,
+      .quickBtn:hover{
+        transform:none !important;
+      }
     }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <div class="card">
-      <div class="title">🧼 Handwash VR</div>
-      <div class="muted">Launcher สำหรับเข้าเกม Handwash ผ่าน Warmup Gate</div>
+    <section class="hero">
+      <div class="heroGrid">
+        <div>
+          <div class="heroMain">
+            <div class="heroIcon">🪥</div>
+            <div>
+              <div class="badge">✨ โลกสุขอนามัย</div>
+              <h1 class="title">ฝึกดูแลตัวเองให้สะอาด<br>และปลอดภัยทุกวัน</h1>
+              <div class="sub">
+                ในโลกนี้ เราจะได้ฝึกล้างมือ แปรงฟัน อาบน้ำ ใส่หน้ากาก และสืบหาจุดเสี่ยงของเชื้อโรค<br>
+                เริ่มจากเกมง่ายก่อน แล้วค่อยไปเกมที่ท้าทายขึ้นได้เลย
+              </div>
 
-      <div style="margin-top:10px;">
-        <span class="pill"><b>PID</b>: <span id="uiPid">anon</span></span>
-        <span class="pill"><b>view</b>: <span id="uiView">mobile</span></span>
-        <span class="pill"><b>run</b>: <span id="uiRun">play</span></span>
-        <span class="pill"><b>diff</b>: <span id="uiDiff">normal</span></span>
-        <span class="pill"><b>time</b>: <span id="uiTime">80</span></span>
+              <div class="heroTips">
+                <span class="tip">🧼 ล้างมือให้สะอาด</span>
+                <span class="tip">🪥 แปรงฟันให้ถูกวิธี</span>
+                <span class="tip">🛁 อาบน้ำให้สะอาด</span>
+                <span class="tip">🦠 ระวังเชื้อโรค</span>
+              </div>
+
+              <div class="heroActions">
+                <button class="btn primary" id="btnStartEasy" type="button">▶ เริ่มจากเกมง่าย</button>
+                <button class="btn cyan" id="btnHow" type="button">📖 ดูวิธีเลือกเกม</button>
+                <button class="btn ghost" id="btnHub" type="button">🏠 กลับบ้านฮีโร่</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="sidePanel">
+          <div class="statCard">
+            <div class="statTitle">🧑‍🚀 รหัสผู้เล่น</div>
+            <div class="statValue" id="uiPid">anon</div>
+            <div class="statSub">ใช้สำหรับจำความก้าวหน้าในเครื่องนี้</div>
+          </div>
+
+          <div class="statCard">
+            <div class="statTitle">🌟 เกมแนะนำ</div>
+            <div class="statValue" id="uiRecommend">Handwash</div>
+            <div class="statSub">เหมาะกับการเริ่มเล่นครั้งแรกที่สุด</div>
+          </div>
+
+          <div class="statCard">
+            <div class="statTitle">🎯 เป้าหมายวันนี้</div>
+            <div class="statValue">เล่น 1 เกม</div>
+            <div class="statSub">เริ่มทีละเกมก็เก่งขึ้นได้</div>
+          </div>
+        </div>
       </div>
+    </section>
 
-      <div class="row">
-        <button class="btn primary" id="btnStart" type="button">เริ่มเกม</button>
-        <button class="btn" id="btnHub" type="button">กลับ Hub</button>
-        <button class="btn good" id="btnOpenRun" type="button">เปิด run ตรง</button>
+    <section class="quickStart">
+      <div class="sectionTitle">🚀 เริ่มเล่นแบบง่าย</div>
+      <div class="sectionSub">ถ้ายังไม่รู้จะเริ่มเกมไหน ให้เลือกจาก 3 ปุ่มนี้ได้เลย</div>
+
+      <div class="quickGrid">
+        <button class="quickBtn easy" id="btnQuickEasy" type="button">
+          <div class="quickIcon">🧼</div>
+          <div>
+            <div class="quickTitle">เริ่มจากเกมง่าย</div>
+            <div class="quickMeta">Handwash หรือ Brush • เหมาะกับการเล่นครั้งแรก</div>
+          </div>
+        </button>
+
+        <button class="quickBtn mid" id="btnQuickMiddle" type="button">
+          <div class="quickIcon">🛁</div>
+          <div>
+            <div class="quickTitle">ต่อด้วยเกมกลาง ๆ</div>
+            <div class="quickMeta">Bath หรือ Clean Object • ฝึกคิดและสังเกตมากขึ้น</div>
+          </div>
+        </button>
+
+        <button class="quickBtn challenge" id="btnQuickHard" type="button">
+          <div class="quickIcon">🦠</div>
+          <div>
+            <div class="quickTitle">ลองเกมท้าทาย</div>
+            <div class="quickMeta">Mask & Cough หรือ Germ Detective • ภารกิจยาวขึ้น</div>
+          </div>
+        </button>
       </div>
+    </section>
 
-      <div class="debug" id="debugBox">loading...</div>
+    <div class="grid">
+      <section class="card">
+        <div class="sectionTitle">🧭 เลือกเกมในโลกสุขอนามัย</div>
+        <div class="sectionSub">เกมง่ายอยู่ด้านบน เกมที่ท้าทายขึ้นจะอยู่ด้านล่าง</div>
+
+        <div class="gameGrid">
+          <div class="gameCard">
+            <div class="gameTop">
+              <div>
+                <div class="gameName">🧼 Handwash</div>
+                <div class="gameDesc">ฝึกล้างมือให้สะอาดครบขั้น</div>
+              </div>
+              <span class="tag">เริ่มง่าย</span>
+            </div>
+            <div class="gameActions">
+              <button class="playBtn primary" data-game="handwash" type="button">▶ เริ่มเกมนี้</button>
+            </div>
+          </div>
+
+          <div class="gameCard">
+            <div class="gameTop">
+              <div>
+                <div class="gameName">🪥 Brush</div>
+                <div class="gameDesc">ฝึกแปรงฟันอย่างถูกวิธี</div>
+              </div>
+              <span class="tag">เริ่มง่าย</span>
+            </div>
+            <div class="gameActions">
+              <button class="playBtn primary" data-game="brush" type="button">▶ เริ่มเกมนี้</button>
+            </div>
+          </div>
+
+          <div class="gameCard">
+            <div class="gameTop">
+              <div>
+                <div class="gameName">🛁 Bath</div>
+                <div class="gameDesc">อาบน้ำและหาจุดสกปรกให้เจอ</div>
+              </div>
+              <span class="tag">กลาง ๆ</span>
+            </div>
+            <div class="gameActions">
+              <button class="playBtn" data-game="bath" type="button">▶ เริ่มเกมนี้</button>
+            </div>
+          </div>
+
+          <div class="gameCard">
+            <div class="gameTop">
+              <div>
+                <div class="gameName">🧴 Clean Object</div>
+                <div class="gameDesc">แยกของสะอาดและของไม่สะอาด</div>
+              </div>
+              <span class="tag">กลาง ๆ</span>
+            </div>
+            <div class="gameActions">
+              <button class="playBtn" data-game="cleanObject" type="button">▶ เริ่มเกมนี้</button>
+            </div>
+          </div>
+
+          <div class="gameCard">
+            <div class="gameTop">
+              <div>
+                <div class="gameName">😷 Mask & Cough</div>
+                <div class="gameDesc">ฝึกมารยาทสุขอนามัยเวลาไอ จาม และใส่หน้ากาก</div>
+              </div>
+              <span class="tag">ท้าทาย</span>
+            </div>
+            <div class="gameActions">
+              <button class="playBtn" data-game="maskCough" type="button">▶ เริ่มเกมนี้</button>
+            </div>
+          </div>
+
+          <div class="gameCard">
+            <div class="gameTop">
+              <div>
+                <div class="gameName">🦠 Germ Detective</div>
+                <div class="gameDesc">ภารกิจนักสืบเชื้อโรค ค้นหาจุดเสี่ยงและเก็บหลักฐาน</div>
+              </div>
+              <span class="tag">ท้าทาย</span>
+            </div>
+            <div class="gameActions">
+              <button class="playBtn" data-game="germDetective" type="button">▶ เริ่มเกมนี้</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="sectionTitle">📖 ถ้ายังไม่รู้จะเริ่มยังไง</div>
+        <div class="sectionSub">ใช้ลำดับนี้ได้เลย จะค่อย ๆ เล่นง่ายขึ้นและไม่งง</div>
+
+        <div class="steps">
+          <div class="step">
+            <div class="stepNo">1</div>
+            <div>
+              <div class="stepTitle">เริ่มจาก Handwash หรือ Brush</div>
+              <div class="stepDesc">สองเกมนี้เข้าใจง่าย เหมาะกับการเริ่มต้นที่สุด</div>
+            </div>
+          </div>
+
+          <div class="step">
+            <div class="stepNo">2</div>
+            <div>
+              <div class="stepTitle">ลอง Bath หรือ Clean Object</div>
+              <div class="stepDesc">เริ่มใช้การสังเกตและคิดมากขึ้นอีกนิด</div>
+            </div>
+          </div>
+
+          <div class="step">
+            <div class="stepNo">3</div>
+            <div>
+              <div class="stepTitle">ค่อยไป Mask & Cough หรือ Germ Detective</div>
+              <div class="stepDesc">สองเกมนี้ภารกิจยาวขึ้นและมีรายละเอียดมากขึ้น</div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <section class="helpCard" id="howPanel">
+      <div class="helpTitle">📖 วิธีเลือกเกมแบบสั้นมาก</div>
+      <div class="helpSub">
+        ถ้าเพิ่งเริ่ม → เล่น <b>Handwash</b> หรือ <b>Brush</b><br>
+        ถ้าอยากลองเพิ่ม → เล่น <b>Bath</b> หรือ <b>Clean Object</b><br>
+        ถ้าพร้อมลุย → เล่น <b>Mask & Cough</b> หรือ <b>Germ Detective</b>
+      </div>
+      <div class="helpActions">
+        <button class="btn primary" id="btnStartFromHelp" type="button">🟢 เริ่มจาก Handwash</button>
+        <button class="btn ghost" id="btnHideHow" type="button">✖ ปิด</button>
+      </div>
+    </section>
+
+    <div class="bottomBar">
+      <span class="statusPill" id="statusLine">พร้อมเริ่มเล่นโลกสุขอนามัยแล้ว</span>
+      <span class="hint">Tip: ถ้าเพิ่งเริ่ม ให้เริ่มจาก Handwash ก่อน</span>
     </div>
   </div>
 
@@ -76,183 +782,82 @@
     (function(){
       'use strict';
 
-      console.log('[handwash-launcher] v20260310b running');
-
-      function qs(k,d=''){
-        try{ return (new URL(location.href)).searchParams.get(k) ?? d; }
-        catch(_){ return d; }
+      function qs(k, d=''){
+        try{ return new URL(location.href).searchParams.get(k) ?? d; }
+        catch{ return d; }
       }
 
-      function safeNum(v,d){
-        v = Number(v);
-        return Number.isFinite(v) ? v : d;
+      function safeUrl(raw, fallback){
+        try{ return new URL(raw || fallback, location.href).toString(); }
+        catch{ return new URL(fallback, location.href).toString(); }
       }
 
-      function normalizeMaybeEncodedUrl(v){
-        v = String(v ?? '').trim();
-        if(!v || v === 'null' || v === 'undefined') return '';
-        if(/%3A|%2F|%3F|%26|%3D/i.test(v)){
-          try{ v = decodeURIComponent(v); }catch(e){}
-        }
-        return v.trim();
-      }
+      const pid  = String(qs('pid','anon')).trim() || 'anon';
+      const run  = String(qs('run','play')).toLowerCase() || 'play';
+      const diff = String(qs('diff','normal')).toLowerCase() || 'normal';
+      const time = String(qs('time','80')) || '80';
+      const view = String(qs('view','mobile')).toLowerCase() || 'mobile';
+      const hub  = safeUrl(qs('hub','./hub.html'), './hub.html');
 
-      const ORIGIN = location.origin;
-      const ROOT_LAUNCHER_PATH = '/webxr-health-mobile/herohealth/hygiene-vr.html';
-      const HUB_URL  = ORIGIN + '/webxr-health-mobile/herohealth/hub.html';
-      const GATE_URL = ORIGIN + '/webxr-health-mobile/herohealth/warmup-gate.html?v=20260310b';
-      const RUN_URL  = ORIGIN + '/webxr-health-mobile/herohealth/hygiene-vr/hygiene-vr.html';
-
-      const GATE_KEYS = [
-        'gatePhase','phase','gateResult','gateMode',
-        'wType','wPct','wSteps','wTimeBonus','wScoreBonus','wRank',
-        'next','cd','cooldown','warmup'
-      ];
-
-      function cleanUrl(raw, fallback){
-        try{
-          const u = new URL(raw || fallback, location.href);
-          GATE_KEYS.forEach(k=>u.searchParams.delete(k));
-          return u.toString();
-        }catch(_){
-          return fallback;
-        }
-      }
-
-      // กัน path เปิดผิด
-      if (
-        location.pathname !== ROOT_LAUNCHER_PATH &&
-        /hygiene-vr\.html$/i.test(location.pathname) &&
-        !/\/herohealth\/hygiene-vr\.html$/i.test(location.pathname)
-      ){
-        const fixed = new URL(ORIGIN + ROOT_LAUNCHER_PATH);
-        fixed.search = location.search;
-        console.warn('[handwash-launcher] wrong launcher path -> redirect root launcher', fixed.toString());
-        location.replace(fixed.toString());
-        return;
-      }
-
-      const ctx = {
-        pid:  String(qs('pid','anon')).trim() || 'anon',
-        view: String(qs('view','mobile')).trim() || 'mobile',
-        run:  String(qs('run','play')).trim() || 'play',
-        diff: String(qs('diff','normal')).trim() || 'normal',
-        time: String(safeNum(qs('time','80'),80)),
-        seed: String(qs('seed', String(Date.now()))),
-        zone: String(qs('zone','hygiene')).trim() || 'hygiene',
-        hub:  cleanUrl(normalizeMaybeEncodedUrl(qs('hub','')) || HUB_URL, HUB_URL)
+      const PATHS = {
+        handwash: './handwash-vr.html',
+        brush: './brush-vr.html',
+        bath: './bath-vr.html',
+        cleanObject: './clean-objects.html',
+        maskCough: './maskcough-v2.html',
+        germDetective: './germ-detective.html'
       };
 
-      const gateResult = String(qs('gateResult',''));
-      const gateMode = String(qs('gateMode',''));
-      const alreadyWarm = (gateResult === '1' && gateMode === 'warmup');
-      const currentlyInsideGate = /warmup-gate\.html$/i.test(location.pathname);
+      function buildUrl(path, extra){
+        const u = new URL(path, location.href);
+        u.searchParams.set('pid', pid);
+        u.searchParams.set('run', run);
+        u.searchParams.set('diff', diff);
+        u.searchParams.set('time', time);
+        u.searchParams.set('view', view);
+        u.searchParams.set('hub', hub);
 
-      document.getElementById('uiPid').textContent = ctx.pid;
-      document.getElementById('uiView').textContent = ctx.view;
-      document.getElementById('uiRun').textContent = ctx.run;
-      document.getElementById('uiDiff').textContent = ctx.diff;
-      document.getElementById('uiTime').textContent = ctx.time;
-
-      function copyPassthrough(u){
-        const sp = new URL(cleanUrl(location.href, location.href)).searchParams;
-        [
-          'run','diff','time','seed','studyId','conditionGroup','log','view','pid','api','ai','debug',
-          'planSeq','planDay','planSlot','planMode','planSlots','planIndex','autoNext',
-          'plannedGame','finalGame','zone','cdnext','grade',
-          'sessionOrder','blockLabel','siteCode','schoolYear','semester'
-        ].forEach(k=>{
-          const v = sp.get(k);
-          if(v != null && v !== '') u.searchParams.set(k, v);
-        });
-      }
-
-      function buildRunUrl(){
-        const u = new URL(RUN_URL);
-
-        copyPassthrough(u);
-
-        if(!u.searchParams.get('pid'))  u.searchParams.set('pid', ctx.pid);
-        if(!u.searchParams.get('view')) u.searchParams.set('view', ctx.view);
-        if(!u.searchParams.get('run'))  u.searchParams.set('run', ctx.run);
-        if(!u.searchParams.get('diff')) u.searchParams.set('diff', ctx.diff);
-        if(!u.searchParams.get('time')) u.searchParams.set('time', ctx.time);
-        if(!u.searchParams.get('seed')) u.searchParams.set('seed', ctx.seed);
-        if(!u.searchParams.get('zone')) u.searchParams.set('zone', ctx.zone);
-
-        u.searchParams.set('hub', ctx.hub);
+        if(extra && typeof extra === 'object'){
+          Object.keys(extra).forEach(k=>{
+            const v = extra[k];
+            if(v === null || v === undefined || v === '') u.searchParams.delete(k);
+            else u.searchParams.set(k, String(v));
+          });
+        }
         return u.toString();
       }
 
-      function buildWarmupUrl(){
-        const warm = new URL(GATE_URL);
+      document.getElementById('uiPid').textContent = pid;
 
-        warm.searchParams.set('gatePhase','warmup');
-        warm.searchParams.set('phase','warmup');
-        warm.searchParams.set('cat','hygiene');
-        warm.searchParams.set('theme','handwash');
-        warm.searchParams.set('game','handwash');
-        warm.searchParams.set('pid', ctx.pid);
-        warm.searchParams.set('hub', ctx.hub);
-        warm.searchParams.set('next', buildRunUrl());
-        warm.searchParams.set('run', ctx.run);
-        warm.searchParams.set('diff', ctx.diff);
-        warm.searchParams.set('time', ctx.time);
-        warm.searchParams.set('view', ctx.view);
-        warm.searchParams.set('seed', ctx.seed);
-
-        const studyId = String(qs('studyId','')).trim();
-        const conditionGroup = String(qs('conditionGroup','')).trim();
-        const log = String(qs('log','')).trim();
-        const grade = String(qs('grade','')).trim();
-        const sessionOrder = String(qs('sessionOrder','')).trim();
-        const blockLabel = String(qs('blockLabel','')).trim();
-        const siteCode = String(qs('siteCode','')).trim();
-        const schoolYear = String(qs('schoolYear','')).trim();
-        const semester = String(qs('semester','')).trim();
-
-        if(grade) warm.searchParams.set('grade', grade);
-        if(studyId) warm.searchParams.set('studyId', studyId);
-        if(conditionGroup) warm.searchParams.set('conditionGroup', conditionGroup);
-        if(log) warm.searchParams.set('log', log);
-        if(sessionOrder) warm.searchParams.set('sessionOrder', sessionOrder);
-        if(blockLabel) warm.searchParams.set('blockLabel', blockLabel);
-        if(siteCode) warm.searchParams.set('siteCode', siteCode);
-        if(schoolYear) warm.searchParams.set('schoolYear', schoolYear);
-        if(semester) warm.searchParams.set('semester', semester);
-
-        return warm.toString();
+      function goGame(key){
+        if(!PATHS[key]) return;
+        location.href = buildUrl(PATHS[key], { zone:'hygiene' });
       }
 
-      const debugBox = document.getElementById('debugBox');
-      debugBox.textContent =
-        '[Handwash Launcher v20260310b]\n' +
-        'launcher: ' + location.href + '\n' +
-        'hub:      ' + ctx.hub + '\n' +
-        'alreadyWarm: ' + alreadyWarm + '\n' +
-        'insideGate:  ' + currentlyInsideGate + '\n' +
-        'warmup:   ' + buildWarmupUrl() + '\n' +
-        'runPath:  ' + buildRunUrl() + '\n';
+      document.getElementById('btnStartEasy').onclick = ()=> goGame('handwash');
+      document.getElementById('btnQuickEasy').onclick = ()=> goGame('handwash');
+      document.getElementById('btnQuickMiddle').onclick = ()=> goGame('bath');
+      document.getElementById('btnQuickHard').onclick = ()=> goGame('germDetective');
 
-      document.getElementById('btnStart').onclick = ()=> location.href = buildWarmupUrl();
-      document.getElementById('btnOpenRun').onclick = ()=> location.href = buildRunUrl();
-      document.getElementById('btnHub').onclick = ()=> location.href = ctx.hub;
+      document.querySelectorAll('.playBtn[data-game]').forEach(btn=>{
+        btn.addEventListener('click', ()=>{
+          goGame(String(btn.dataset.game || 'handwash'));
+        });
+      });
 
-      // auto flow แบบปลอด loop
-      if(alreadyWarm || currentlyInsideGate){
-        console.log('[handwash-launcher] already warm -> run');
-        location.replace(buildRunUrl());
-        return;
-      }
+      const howPanel = document.getElementById('howPanel');
+      document.getElementById('btnHow').onclick = ()=>{
+        howPanel.style.display = 'block';
+        howPanel.scrollIntoView({ behavior:'smooth', block:'start' });
+      };
+      document.getElementById('btnHideHow').onclick = ()=>{
+        howPanel.style.display = 'none';
+      };
+      document.getElementById('btnStartFromHelp').onclick = ()=> goGame('handwash');
 
-      setTimeout(()=>{
-        try{
-          console.log('[handwash-launcher] auto -> warmup');
-          location.replace(buildWarmupUrl());
-        }catch(err){
-          debugBox.textContent += '\nredirect failed: ' + (err?.message || String(err));
-        }
-      }, 120);
+      document.getElementById('btnHub').onclick = ()=>{
+        location.href = hub;
+      };
     })();
   </script>
 </body>
