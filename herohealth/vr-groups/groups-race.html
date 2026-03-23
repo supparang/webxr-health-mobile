@@ -1,6 +1,6 @@
 <!-- === /herohealth/vr-groups/groups-race.html ===
 Groups Race V2 Online Room
-FULL PATCH v20260322-GROUPS-RACE-ONLINE-RUN-FIREBASEFIX
+FULL PATCH v20260323-GROUPS-RACE-ONLINE-RUN-WAITFIREBASE
 Requires:
 - ../vr/vr-ui.js
 - ../firebase-config.js
@@ -743,6 +743,7 @@ Requires:
     let rematchDeadlineMs = 0;
 
     debugMini.textContent = `room=${ROOM || '-'} • player=${PLAYER_ID || '-'} • view=${VIEW}`;
+    console.log('[groups-race] firebase ready?', !!window.HHA_FIREBASE_DB, window.HHA_FIREBASE_DB);
 
     function faceFromMood(mood){
       return mood === 'happy' ? '😄'
@@ -795,6 +796,23 @@ Requires:
         yMin: topSafe,
         yMax: Math.max(topSafe + 1, r.height - botSafe)
       };
+    }
+
+    async function waitForFirebaseReady(timeoutMs = 4000){
+      const started = Date.now();
+
+      while(Date.now() - started < timeoutMs){
+        if(window.HHA_FIREBASE_DB) return true;
+        if(typeof window.HHA_WAIT_FIREBASE === 'function'){
+          try{
+            const db = await window.HHA_WAIT_FIREBASE(300);
+            if(db) return true;
+          }catch(_){}
+        }
+        await new Promise(r => setTimeout(r, 80));
+      }
+
+      return !!window.HHA_FIREBASE_DB;
     }
 
     function flashStage(kind){
@@ -1206,7 +1224,11 @@ Requires:
         return;
       }
 
-      if(!window.HHA_FIREBASE_DB){
+      loadingText.textContent = 'กำลังเตรียม Firebase...';
+
+      const firebaseReady = await waitForFirebaseReady(4000);
+
+      if(!firebaseReady){
         loadingText.textContent = 'เข้าแข่งขันไม่สำเร็จ\nFirebase not initialized\nกำลังกลับล็อบบี้...';
         setTimeout(()=>{
           const url = new URL('./groups-race-lobby.html', location.href);
