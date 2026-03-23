@@ -1,6 +1,6 @@
 // === /herohealth/nutrition-groups/js/groups.rounds.js ===
 // Round builders for Nutrition Groups
-// PATCH v20260318-GROUPS-RUN-FULL
+// PATCH v20260323-GROUPS-CHILDFRIENDLY-A
 
 import { sample, shuffle } from '../../shared/nutrition-common.js';
 import {
@@ -41,12 +41,19 @@ export function buildCompareQuestions(rng, count = 3) {
 export function buildReasonQuestions(compareQuestions, rng) {
   return compareQuestions.map((compareQ, idx) => {
     const pair = compareQ.meta;
+
     const choices = shuffle(
       [
-        { id: 'correct', label: pair.correctReason, isCorrect: true },
-        ...pair.distractors.map((text, j) => ({
+        {
+          id: 'correct',
+          label: pair.correctReason,
+          helper: pair.correctReasonHelper,
+          isCorrect: true
+        },
+        ...pair.distractors.map((item, j) => ({
           id: `wrong-${j + 1}`,
-          label: text,
+          label: item.label,
+          helper: item.helper,
           isCorrect: false
         }))
       ],
@@ -58,7 +65,11 @@ export function buildReasonQuestions(compareQuestions, rng) {
       type: 'reason',
       prompt: `ทำไม "${pair.betterText}" ดีกว่า`,
       food: getFoodById(pair.betterId),
-      options: choices.map(item => ({ id: item.id, label: item.label })),
+      options: choices.map(item => ({
+        id: item.id,
+        label: item.label,
+        helper: item.helper
+      })),
       correctId: 'correct',
       meta: pair
     };
