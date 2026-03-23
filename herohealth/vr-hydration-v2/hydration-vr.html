@@ -3,161 +3,94 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — Hydration V2</title>
+  <title>HeroHealth • Hydration v2 Run</title>
   <meta name="color-scheme" content="dark light" />
   <link rel="icon" href="../favicon.ico" />
-  <link rel="stylesheet" href="./css/hydration.css?v=20260317b" />
+  <link rel="stylesheet" href="./hydration-v2.css?v=20260322-v2-start" />
 </head>
 <body>
-  <div class="hh-app" id="gameRoot">
-    <header class="hh-topbar">
-      <div class="hh-brand">
-        <div class="hh-kicker">HeroHealth • Hydration V2</div>
-        <h1>Hydration Run</h1>
+  <main class="hydr2-shell">
+    <header class="hydr2-topbar">
+      <div>
+        <div class="hydr2-kicker">💧 Nutrition Zone • Hydration v2</div>
+        <h1 class="hydr2-title">คิดก่อนเลือก แล้วบอกเหตุผล</h1>
+        <p class="hydr2-sub">อ่านสถานการณ์ เลือกคำตอบ แล้วบอกเหตุผลกับความมั่นใจ</p>
       </div>
-
-      <div class="hh-top-metrics">
-        <div class="metric-card">
-          <div class="metric-label">เวลา</div>
-          <div class="metric-value" id="timeValue">00:45</div>
+      <div class="hydr2-mini-wrap">
+        <div class="mini-stat">
+          <span class="mini-label">รอบ</span>
+          <strong id="roundText">0 / 0</strong>
         </div>
-
-        <div class="metric-card">
-          <div class="metric-label">คะแนนรอบหลัก</div>
-          <div class="metric-value" id="scoreValue">0</div>
-        </div>
-
-        <div class="metric-card">
-          <div class="metric-label">น้ำที่เก็บถูก</div>
-          <div class="metric-value" id="goodValue">0</div>
-        </div>
-
-        <div class="metric-card">
-          <div class="metric-label">แตะหวานผิด</div>
-          <div class="metric-value" id="badValue">0</div>
+        <div class="mini-stat">
+          <span class="mini-label">คะแนน</span>
+          <strong id="scoreText">0</strong>
         </div>
       </div>
     </header>
 
-    <section class="coach-strip">
-      <div class="coach-badge" id="modeBadge">MODE</div>
-      <div class="coach-line" id="coachLine">เก็บน้ำให้ทัน และอย่าแตะเครื่องดื่มหวาน</div>
-      <div class="coach-mini" id="teamMini">SOLO</div>
-    </section>
-
-    <main class="play-shell">
-      <section class="stage-card">
-        <div class="stage-head">
-          <div>
-            <div class="stage-title">Hydration Lane</div>
-            <div class="stage-sub" id="stageSub">
-              แตะปุ่มเลนเมื่อไอเท็มลงถึงเส้นรับด้านล่าง
-            </div>
-          </div>
-          <div class="stage-head-right" id="sessionBadge">Session Starter</div>
-        </div>
-
-        <div class="status-ribbon">
-          <span id="boostStatus">Boost: ปกติ</span>
-          <span id="shieldStatus">Shield: 0</span>
-          <span id="rewardCountStatus">Rewards: 0</span>
-        </div>
-
-        <div class="stage" id="stage" aria-label="Hydration playfield">
-          <div class="water-glow"></div>
-
-          <div class="lane-guides" aria-hidden="true">
-            <div class="lane-guide">เลน 1</div>
-            <div class="lane-guide">เลน 2</div>
-            <div class="lane-guide">เลน 3</div>
-          </div>
-
-          <div class="item-layer" id="itemLayer"></div>
-
-          <div class="catch-zone" id="catchZone">
-            <span>แตะให้ตรงเส้นนี้</span>
-          </div>
-        </div>
-
-        <div class="lane-controls" aria-label="ปุ่มควบคุมเลน">
-          <button class="lane-btn" type="button" data-lane="0">ซ้าย</button>
-          <button class="lane-btn" type="button" data-lane="1">กลาง</button>
-          <button class="lane-btn" type="button" data-lane="2">ขวา</button>
-        </div>
-      </section>
-
-      <aside class="side-card">
-        <div class="side-block">
-          <div class="side-title">ภารกิจรอบนี้</div>
-          <ul class="mission-list" id="missionList">
-            <li>เก็บ 💧 ให้ได้มากที่สุด</li>
-            <li>อย่าแตะ 🥤 หรือ 🧃</li>
-            <li>จบรอบแล้วทำ Scenarios + Evaluate + Create</li>
-          </ul>
-        </div>
-
-        <div class="side-block">
-          <div class="side-title">ผลทีมเบื้องต้น</div>
-          <div class="team-box">
-            <div class="team-row">
-              <span>Contribution</span>
-              <strong id="teamContributionValue">0%</strong>
-            </div>
-            <div class="team-bar">
-              <div class="team-fill" id="teamFill"></div>
-            </div>
-            <div class="team-note" id="teamNote">
-              ถ้าเล่นแบบ Team ระบบจะคำนวณ contribution เบื้องต้นจากการเก็บน้ำรอบนี้
-            </div>
-          </div>
-        </div>
-
-        <div class="side-block">
-          <div class="side-title">คีย์ลัด</div>
-          <div class="key-grid">
-            <span>1 = ซ้าย</span>
-            <span>2 = กลาง</span>
-            <span>3 = ขวา</span>
-          </div>
-        </div>
-      </aside>
-    </main>
-
-    <div class="toast" id="toast" aria-live="polite"></div>
-    <div class="reward-popup" id="rewardPopup" aria-live="polite"></div>
-
-    <section class="overlay show" id="introOverlay" aria-modal="true" role="dialog">
-      <div class="overlay-card">
-        <div class="overlay-kicker">Hydration V2 Starter</div>
-        <h2 id="introTitle">เตรียมเริ่ม Hydration Run</h2>
-        <p id="introText">
-          รอบนี้เป็น starter scaffold สำหรับ Hydration V2 ที่แยกโฟลเดอร์ใหม่แล้ว
-          เล่นรอบหลักให้จบก่อน แล้วระบบจะพาไป Summary → Scenarios → Evaluate → Create
-        </p>
-
-        <div class="intro-grid">
-          <div class="info-chip" id="introModeChip">Quick / Solo</div>
-          <div class="info-chip" id="introRunChip">Play</div>
-          <div class="info-chip" id="introSeedChip">seed</div>
-        </div>
-
-        <div class="tip-box">
-          เคล็ดลับ: ปล่อยเครื่องดื่มหวานให้ผ่านไป แต่แตะน้ำเปล่าให้ตรงเส้นรับ
-        </div>
-
-        <div class="overlay-actions">
-          <button class="btn ghost" id="backHubBtn" type="button">กลับ HUB</button>
-          <button class="btn primary" id="startBtn" type="button">เริ่มรอบเล่น</button>
-        </div>
+    <section class="hydr2-progress-wrap">
+      <div class="hydr2-progress-bar">
+        <div id="progressFill" class="hydr2-progress-fill"></div>
       </div>
     </section>
 
-    <section class="overlay" id="summaryOverlay" aria-modal="true" role="dialog"></section>
-    <section class="overlay" id="scenarioOverlay" aria-modal="true" role="dialog"></section>
-    <section class="overlay" id="evaluateOverlay" aria-modal="true" role="dialog"></section>
-    <section class="overlay" id="createOverlay" aria-modal="true" role="dialog"></section>
+    <section class="hydr2-grid">
+      <aside class="coach-card">
+        <div class="coach-face">🫧</div>
+        <div class="coach-name">โค้ชช่วยคิด</div>
+        <p id="coachText" class="coach-copy">ลองดูสถานการณ์ให้ดี แล้วค่อยเลือกคำตอบนะ</p>
+      </aside>
+
+      <section class="play-card">
+        <div class="scenario-wrap">
+          <div id="phaseBadge" class="phase-badge">สถานการณ์</div>
+          <h2 id="scenarioTitle" class="scenario-title">...</h2>
+          <p id="scenarioText" class="scenario-text">...</p>
+          <p id="scenarioHint" class="scenario-hint">...</p>
+        </div>
+
+        <div id="promptBox" class="prompt-box"></div>
+        <div id="choiceArea" class="choice-area"></div>
+        <div id="feedbackBox" class="feedback-box">อ่านโจทย์ให้เข้าใจก่อน แล้วกดคำตอบที่เหมาะที่สุด</div>
+      </section>
+    </section>
+
+    <section class="bottom-actions">
+      <button id="helpBtn" class="ghost-btn" type="button">❓ วิธีเล่น</button>
+      <button id="hubBtn" class="ghost-btn" type="button">🏠 กลับ HUB</button>
+    </section>
+  </main>
+
+  <div id="summaryOverlay" class="overlay hidden" aria-hidden="true">
+    <div class="dialog-card">
+      <div id="summaryStars" class="summary-stars">⭐️⭐️⭐️</div>
+      <h2>สรุปผล Hydration v2</h2>
+      <p id="summaryLead" class="summary-lead"></p>
+      <div id="summaryStats" class="summary-stats"></div>
+      <div id="summaryTip" class="summary-tip"></div>
+      <div class="dialog-actions">
+        <button id="playAgainBtn" class="primary-btn" type="button">🔁 เล่นอีกครั้ง</button>
+        <button id="cooldownBtn" class="secondary-btn" type="button">🌈 ไปด่านพักใจ</button>
+        <button id="summaryHubBtn" class="ghost-btn" type="button">🏠 กลับ HUB</button>
+      </div>
+    </div>
   </div>
 
-  <script type="module" src="./js/hydration.safe.js?v=20260317b"></script>
+  <div id="helpOverlay" class="overlay hidden" aria-hidden="true">
+    <div class="dialog-card">
+      <h2>วิธีเล่น</h2>
+      <ul class="help-list">
+        <li>อ่านสถานการณ์ก่อน</li>
+        <li>เลือกคำตอบที่เหมาะที่สุด</li>
+        <li>เลือกเหตุผลว่าทำไม</li>
+        <li>บอกว่ามั่นใจแค่ไหน</li>
+      </ul>
+      <div class="dialog-actions">
+        <button id="closeHelpBtn" class="primary-btn" type="button">เข้าใจแล้ว</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="./hydration-v2.js?v=20260322-v2-start"></script>
 </body>
 </html>
