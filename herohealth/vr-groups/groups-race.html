@@ -1,8 +1,9 @@
 <!-- === /herohealth/vr-groups/groups-race.html ===
 Groups Race V2 Online Room
-FULL PATCH v20260319-GROUPS-RACE-ONLINE-RUN-AUTOREMATCH
+FULL PATCH v20260322-GROUPS-RACE-ONLINE-RUN-FIREBASEFIX
 Requires:
 - ../vr/vr-ui.js
+- ../firebase-config.js
 - ./groups-race.safe.js
 - ./groups-race-rtdb.js
 -->
@@ -653,6 +654,7 @@ Requires:
 </div>
 
 <script src="../vr/vr-ui.js"></script>
+<script src="../firebase-config.js"></script>
 <script type="module">
   import './groups-race.safe.js';
   import {
@@ -1201,6 +1203,17 @@ Requires:
           url.searchParams.set('hub', HUB);
           safeNavigate(url.toString());
         }, 700);
+        return;
+      }
+
+      if(!window.HHA_FIREBASE_DB){
+        loadingText.textContent = 'เข้าแข่งขันไม่สำเร็จ\nFirebase not initialized\nกำลังกลับล็อบบี้...';
+        setTimeout(()=>{
+          const url = new URL('./groups-race-lobby.html', location.href);
+          url.searchParams.set('view', VIEW);
+          url.searchParams.set('hub', HUB);
+          safeNavigate(url.toString());
+        }, 1200);
         return;
       }
 
