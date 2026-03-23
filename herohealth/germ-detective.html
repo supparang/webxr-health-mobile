@@ -3,81 +3,681 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — นักสืบเชื้อโรค</title>
+  <title>HeroHealth — Germ Detective</title>
+  <meta name="color-scheme" content="dark light" />
   <meta name="robots" content="noindex" />
+  <link rel="icon" href="./favicon.ico" />
   <style>
+    :root{
+      --bg1:#082032;
+      --bg2:#0f3460;
+      --bg3:#1b4965;
+
+      --panel:rgba(2,6,23,.64);
+      --panel-soft:rgba(255,255,255,.08);
+      --stroke:rgba(255,255,255,.16);
+
+      --text:#f8fafc;
+      --muted:#dbeafe;
+
+      --cyan:#22d3ee;
+      --green:#22c55e;
+      --yellow:#facc15;
+      --blue:#38bdf8;
+      --pink:#f472b6;
+      --violet:#a78bfa;
+
+      --shadow:0 18px 55px rgba(0,0,0,.28);
+      --shadow-big:0 24px 80px rgba(0,0,0,.34);
+
+      --sat: env(safe-area-inset-top, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
+      --sar: env(safe-area-inset-right, 0px);
+    }
+
+    *{ box-sizing:border-box; }
+
     html,body{
-      margin:0;
       min-height:100%;
+      margin:0;
+      color:var(--text);
       background:
-        radial-gradient(900px 600px at 50% -10%, rgba(34,211,238,.14), transparent 60%),
-        radial-gradient(800px 600px at 0% 20%, rgba(167,139,250,.12), transparent 60%),
-        linear-gradient(180deg, #04111f, #0b1730);
-      color:#e5e7eb;
-      font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif;
+        radial-gradient(900px 620px at 10% 10%, rgba(34,211,238,.24), transparent 60%),
+        radial-gradient(800px 580px at 100% 0%, rgba(167,139,250,.18), transparent 56%),
+        radial-gradient(700px 500px at 50% 100%, rgba(250,204,21,.14), transparent 58%),
+        linear-gradient(180deg, var(--bg1), var(--bg2) 56%, var(--bg3));
+    }
+
+    body{
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", Arial, sans-serif;
+      line-height:1.4;
+      overflow-x:hidden;
+    }
+
+    button{ font:inherit; }
+    a{ color:inherit; text-decoration:none; }
+
+    .wrap{
+      max-width:1120px;
+      margin:0 auto;
+      padding:
+        calc(14px + var(--sat))
+        calc(14px + var(--sar))
+        calc(24px + var(--sab))
+        calc(14px + var(--sal));
+    }
+
+    .hero{
+      position:relative;
+      overflow:hidden;
+      border-radius:30px;
+      border:1px solid var(--stroke);
+      background:
+        linear-gradient(135deg, rgba(34,211,238,.16), rgba(167,139,250,.14)),
+        var(--panel);
+      backdrop-filter:blur(12px);
+      box-shadow:var(--shadow-big);
+      padding:18px;
+    }
+
+    .hero::before{
+      content:"";
+      position:absolute;
+      inset:auto -60px -80px auto;
+      width:260px;
+      height:260px;
+      border-radius:999px;
+      background:radial-gradient(circle, rgba(34,211,238,.18), transparent 68%);
+      pointer-events:none;
+    }
+
+    .heroGrid{
+      display:grid;
+      grid-template-columns:1.15fr .85fr;
+      gap:16px;
+      align-items:stretch;
+      position:relative;
+      z-index:1;
+    }
+
+    @media (max-width:920px){
+      .heroGrid{ grid-template-columns:1fr; }
+    }
+
+    .heroMain{
+      display:flex;
+      gap:14px;
+      align-items:flex-start;
+    }
+
+    .heroIcon{
+      width:94px;
+      height:94px;
+      border-radius:26px;
+      flex:0 0 auto;
       display:grid;
       place-items:center;
+      font-size:46px;
+      border:1px solid rgba(255,255,255,.16);
+      background:
+        radial-gradient(circle at 30% 30%, rgba(255,255,255,.24), transparent 42%),
+        linear-gradient(135deg, rgba(34,211,238,.24), rgba(167,139,250,.18));
+      box-shadow:0 12px 30px rgba(0,0,0,.20);
     }
-    .card{
-      width:min(92vw,560px);
-      border:1px solid rgba(148,163,184,.18);
-      background:rgba(2,6,23,.78);
-      border-radius:24px;
-      padding:20px;
-      box-shadow:0 20px 60px rgba(0,0,0,.35);
-      text-align:center;
-    }
-    .icon{
-      width:72px;
-      height:72px;
-      margin:0 auto 12px;
-      border-radius:22px;
-      display:grid;
-      place-items:center;
-      font-size:36px;
-      background:linear-gradient(135deg, rgba(34,211,238,.18), rgba(167,139,250,.16));
-      border:1px solid rgba(148,163,184,.16);
-    }
-    .title{
-      font-weight:1000;
-      font-size:22px;
-      line-height:1.15;
-      margin-bottom:8px;
-    }
-    .sub{
-      color:#cbd5e1;
-      font-size:14px;
-      line-height:1.55;
-      margin-bottom:10px;
-    }
-    .muted{
-      color:#94a3b8;
-      font-size:13px;
-      line-height:1.6;
-      word-break:break-word;
-    }
-    .pill{
-      margin:10px auto 0;
+
+    .badge{
       display:inline-flex;
       align-items:center;
-      gap:6px;
+      gap:8px;
+      min-height:36px;
       padding:8px 12px;
       border-radius:999px;
-      border:1px solid rgba(148,163,184,.16);
-      background:rgba(255,255,255,.03);
+      border:1px solid rgba(255,255,255,.14);
+      background:rgba(255,255,255,.08);
+      color:#e0f2fe;
       font-size:12px;
       font-weight:1000;
+    }
+
+    .title{
+      margin:10px 0 0;
+      font-size:clamp(28px,4.4vw,42px);
+      line-height:1.05;
+      font-weight:1100;
+      letter-spacing:-.02em;
+    }
+
+    .sub{
+      margin-top:10px;
+      font-size:15px;
+      font-weight:900;
+      line-height:1.6;
+      color:var(--muted);
+    }
+
+    .missionRow{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      margin-top:12px;
+    }
+
+    .missionChip{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      min-height:38px;
+      padding:8px 12px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.14);
+      background:rgba(255,255,255,.06);
+      color:#eff6ff;
+      font-size:12px;
+      font-weight:1000;
+    }
+
+    .heroActions{
+      margin-top:14px;
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+    }
+
+    .btn{
+      cursor:pointer;
+      min-height:48px;
+      padding:11px 16px;
+      border-radius:18px;
+      border:1px solid rgba(255,255,255,.16);
+      background:rgba(255,255,255,.06);
+      color:var(--text);
+      font-weight:1100;
+      box-shadow:0 10px 24px rgba(0,0,0,.16);
+      transition:transform .12s ease, filter .12s ease;
+    }
+
+    .btn:hover{
+      transform:translateY(-1px);
+      filter:brightness(1.05);
+    }
+
+    .btn.primary{
+      border-color:rgba(34,197,94,.30);
+      background:linear-gradient(180deg, rgba(34,197,94,.24), rgba(34,197,94,.16));
+    }
+
+    .btn.cyan{
+      border-color:rgba(34,211,238,.30);
+      background:linear-gradient(180deg, rgba(34,211,238,.22), rgba(34,211,238,.14));
+    }
+
+    .btn.violet{
+      border-color:rgba(167,139,250,.30);
+      background:linear-gradient(180deg, rgba(167,139,250,.22), rgba(167,139,250,.14));
+    }
+
+    .btn.ghost{
+      background:rgba(255,255,255,.04);
       color:#e2e8f0;
+    }
+
+    .sidePanel{
+      display:grid;
+      gap:12px;
+      align-content:start;
+    }
+
+    .statCard,
+    .card,
+    .helpCard{
+      border-radius:22px;
+      border:1px solid var(--stroke);
+      background:rgba(2,6,23,.56);
+      backdrop-filter:blur(10px);
+      box-shadow:var(--shadow);
+    }
+
+    .statCard{
+      padding:14px;
+    }
+
+    .statTitle{
+      font-size:12px;
+      font-weight:1000;
+      color:#dbeafe;
+    }
+
+    .statValue{
+      margin-top:6px;
+      font-size:22px;
+      line-height:1;
+      font-weight:1100;
+    }
+
+    .statSub{
+      margin-top:6px;
+      font-size:12px;
+      line-height:1.45;
+      color:#cbd5e1;
+      font-weight:900;
+    }
+
+    .grid{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:14px;
+      margin-top:14px;
+    }
+
+    @media (max-width:980px){
+      .grid{ grid-template-columns:1fr; }
+    }
+
+    .card{
+      padding:16px;
+    }
+
+    .cardTitle{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      margin:0;
+      font-size:18px;
+      font-weight:1100;
+    }
+
+    .cardSub{
+      margin-top:8px;
+      font-size:13px;
+      line-height:1.55;
+      color:var(--muted);
+      font-weight:900;
+    }
+
+    .stepList{
+      display:grid;
+      gap:10px;
+      margin-top:12px;
+    }
+
+    .step{
+      display:grid;
+      grid-template-columns:42px 1fr;
+      gap:10px;
+      align-items:flex-start;
+      border-radius:18px;
+      border:1px solid rgba(255,255,255,.12);
+      background:rgba(255,255,255,.04);
+      padding:12px;
+    }
+
+    .stepNo{
+      width:42px;
+      height:42px;
+      border-radius:14px;
+      display:grid;
+      place-items:center;
+      font-size:18px;
+      font-weight:1100;
+      background:rgba(255,255,255,.10);
+      border:1px solid rgba(255,255,255,.14);
+    }
+
+    .stepTitle{
+      font-size:15px;
+      font-weight:1100;
+      line-height:1.2;
+    }
+
+    .stepDesc{
+      margin-top:4px;
+      color:var(--muted);
+      font-size:12px;
+      line-height:1.5;
+      font-weight:900;
+    }
+
+    .sceneGrid{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:10px;
+      margin-top:12px;
+    }
+
+    @media (max-width:760px){
+      .sceneGrid{ grid-template-columns:1fr; }
+    }
+
+    .sceneBtn{
+      cursor:pointer;
+      min-height:96px;
+      padding:14px;
+      border-radius:20px;
+      border:1px solid rgba(255,255,255,.14);
+      background:rgba(255,255,255,.05);
+      color:var(--text);
+      text-align:left;
+      box-shadow:0 10px 24px rgba(0,0,0,.16);
+      transition:transform .12s ease, filter .12s ease, border-color .12s ease;
+    }
+
+    .sceneBtn:hover{
+      transform:translateY(-2px);
+      filter:brightness(1.04);
+    }
+
+    .sceneBtn.active{
+      border-color:rgba(34,211,238,.34);
+      background:rgba(34,211,238,.12);
+    }
+
+    .sceneName{
+      font-size:16px;
+      font-weight:1100;
+      line-height:1.2;
+    }
+
+    .sceneDesc{
+      margin-top:6px;
+      color:var(--muted);
+      font-size:12px;
+      line-height:1.45;
+      font-weight:900;
+    }
+
+    .levelRow{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      margin-top:12px;
+    }
+
+    .levelBtn{
+      cursor:pointer;
+      min-height:40px;
+      padding:8px 12px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.14);
+      background:rgba(255,255,255,.06);
+      color:var(--text);
+      font-size:12px;
+      font-weight:1000;
+    }
+
+    .levelBtn.active{
+      border-color:rgba(250,204,21,.36);
+      background:rgba(250,204,21,.14);
+    }
+
+    .infoList{
+      display:grid;
+      gap:10px;
+      margin-top:12px;
+    }
+
+    .infoItem{
+      border-radius:18px;
+      border:1px solid rgba(255,255,255,.12);
+      background:rgba(255,255,255,.04);
+      padding:12px;
+    }
+
+    .infoItemTitle{
+      font-size:14px;
+      font-weight:1100;
+      line-height:1.25;
+    }
+
+    .infoItemDesc{
+      margin-top:5px;
+      color:var(--muted);
+      font-size:12px;
+      line-height:1.5;
+      font-weight:900;
+    }
+
+    .bottomBar{
+      margin-top:14px;
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+      justify-content:space-between;
+    }
+
+    .statusPill{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      min-height:38px;
+      padding:8px 12px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.14);
+      background:rgba(255,255,255,.06);
+      color:#e0f2fe;
+      font-size:12px;
+      font-weight:1000;
+    }
+
+    .helpCard{
+      margin-top:14px;
+      padding:16px;
+    }
+
+    .helpTitle{
+      font-size:17px;
+      font-weight:1100;
+      line-height:1.2;
+    }
+
+    .helpSub{
+      margin-top:8px;
+      font-size:13px;
+      line-height:1.55;
+      color:var(--muted);
+      font-weight:900;
+    }
+
+    .helpActions{
+      margin-top:12px;
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+    }
+
+    .hint{
+      font-size:12px;
+      color:var(--muted);
+      font-weight:900;
+      line-height:1.5;
+    }
+
+    @media (prefers-reduced-motion: reduce){
+      *,
+      *::before,
+      *::after{
+        transition:none !important;
+        animation:none !important;
+      }
+      .btn:hover,
+      .sceneBtn:hover{
+        transform:none !important;
+      }
     }
   </style>
 </head>
 <body>
-  <div class="card">
-    <div class="icon">🦠</div>
-    <div class="title">นักสืบเชื้อโรค</div>
-    <div class="sub">กำลังเตรียมภารกิจให้พร้อมก่อนเริ่มเล่น</div>
-    <div class="muted" id="msg">กำลังตรวจสอบเส้นทางเข้าเกม</div>
-    <div class="pill" id="statusPill">เตรียมเข้าเกม…</div>
+  <div class="wrap">
+    <section class="hero">
+      <div class="heroGrid">
+        <div>
+          <div class="heroMain">
+            <div class="heroIcon">🦠</div>
+            <div>
+              <div class="badge">🕵️ ภารกิจนักสืบเชื้อโรค</div>
+              <h1 class="title">ช่วยกันหาจุดเสี่ยง<br>แล้วทำให้พื้นที่ปลอดภัยขึ้น!</h1>
+              <div class="sub">
+                ในเกมนี้ เราจะส่องหา “จุดน่าสงสัย” เก็บหลักฐาน แล้วค่อยทำความสะอาด<br>
+                ถ้าช่วยลดความเสี่ยงได้สำเร็จ ก็จะปิดคดีได้อย่างเก่งเลย ✨
+              </div>
+
+              <div class="missionRow">
+                <span class="missionChip">🔦 หา “จุดน่าสงสัย”</span>
+                <span class="missionChip">🧪 เก็บหลักฐาน</span>
+                <span class="missionChip">🧼 ลดความเสี่ยง</span>
+                <span class="missionChip">📋 ส่งรายงาน</span>
+              </div>
+
+              <div class="heroActions">
+                <button class="btn primary" id="btnStart" type="button">▶ เริ่มภารกิจ</button>
+                <button class="btn cyan" id="btnHow" type="button">📖 วิธีเล่น</button>
+                <button class="btn ghost" id="btnHub" type="button">🏠 กลับบ้านฮีโร่</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="sidePanel">
+          <div class="statCard">
+            <div class="statTitle">🧑‍🚀 รหัสผู้เล่น</div>
+            <div class="statValue" id="uiPid">anon</div>
+            <div class="statSub">ใช้สำหรับจำความก้าวหน้าในเครื่องนี้</div>
+          </div>
+
+          <div class="statCard">
+            <div class="statTitle">🎯 ระดับที่เลือก</div>
+            <div class="statValue" id="uiDiff">ปกติ</div>
+            <div class="statSub">เริ่มจากระดับปกติก่อนก็ได้</div>
+          </div>
+
+          <div class="statCard">
+            <div class="statTitle">⏱ เวลาเล่น</div>
+            <div class="statValue" id="uiTime">180 วินาที</div>
+            <div class="statSub">เวลามากพอให้ค่อย ๆ สำรวจทีละจุด</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="grid">
+      <section class="card">
+        <h2 class="cardTitle">🧭 วิธีเล่นแบบง่าย</h2>
+        <div class="cardSub">จำแค่ 4 ขั้นตอนนี้ก็เริ่มเล่นได้เลย</div>
+
+        <div class="stepList">
+          <div class="step">
+            <div class="stepNo">1</div>
+            <div>
+              <div class="stepTitle">ส่องหา “จุดน่าสงสัย”</div>
+              <div class="stepDesc">เริ่มจากจุดที่หลายคนจับบ่อย เช่น ลูกบิดประตู ก๊อกน้ำ หรือโต๊ะ</div>
+            </div>
+          </div>
+
+          <div class="step">
+            <div class="stepNo">2</div>
+            <div>
+              <div class="stepTitle">เก็บตัวอย่างหรือถ่ายรูป</div>
+              <div class="stepDesc">เมื่อเจอจุดน่าสงสัยแล้ว ให้ใช้เครื่องมือเก็บหลักฐานให้ครบ</div>
+            </div>
+          </div>
+
+          <div class="step">
+            <div class="stepNo">3</div>
+            <div>
+              <div class="stepTitle">ทำความสะอาดจุดสำคัญ</div>
+              <div class="stepDesc">ลดความเสี่ยงของพื้นที่ให้ต่ำลง เพื่อให้ปลอดภัยมากขึ้น</div>
+            </div>
+          </div>
+
+          <div class="step">
+            <div class="stepNo">4</div>
+            <div>
+              <div class="stepTitle">ส่งรายงานปิดคดี</div>
+              <div class="stepDesc">ถ้าหลักฐานครบและความเสี่ยงลดลง ก็ส่งรายงานได้เลย</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2 class="cardTitle">🏫 เลือกฉากที่จะสำรวจ</h2>
+        <div class="cardSub">เลือกสถานที่ที่อยากเริ่มสืบคดีก่อน</div>
+
+        <div class="sceneGrid">
+          <button class="sceneBtn active" data-scene="classroom" type="button">
+            <div class="sceneName">🏫 ห้องเรียน</div>
+            <div class="sceneDesc">เริ่มง่ายที่สุด เหมาะกับการฝึกเล่นรอบแรก</div>
+          </button>
+
+          <button class="sceneBtn" data-scene="home" type="button">
+            <div class="sceneName">🏠 บ้าน</div>
+            <div class="sceneDesc">ฝึกมองหาจุดเสี่ยงใกล้ตัวในบ้าน</div>
+          </button>
+
+          <button class="sceneBtn" data-scene="canteen" type="button">
+            <div class="sceneName">🍽 โรงอาหาร</div>
+            <div class="sceneDesc">มีหลายจุดให้สำรวจ สนุกและท้าทายขึ้น</div>
+          </button>
+        </div>
+
+        <div class="levelRow">
+          <button class="levelBtn" data-diff="easy" type="button">🙂 ง่าย</button>
+          <button class="levelBtn active" data-diff="normal" type="button">😎 ปกติ</button>
+          <button class="levelBtn" data-diff="hard" type="button">🔥 ท้าทาย</button>
+        </div>
+
+        <div class="bottomBar">
+          <span class="statusPill" id="sceneHint">เริ่มจากห้องเรียนจะเล่นง่ายที่สุด</span>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2 class="cardTitle">🧰 เครื่องมือที่ใช้ในเกม</h2>
+        <div class="cardSub">ในเกมจะมีเครื่องมือ 4 อย่าง ใช้คนละหน้าที่</div>
+
+        <div class="infoList">
+          <div class="infoItem">
+            <div class="infoItemTitle">🔦 UV</div>
+            <div class="infoItemDesc">ใช้ส่องหา “จุดน่าสงสัย” ก่อนเป็นอย่างแรก</div>
+          </div>
+
+          <div class="infoItem">
+            <div class="infoItemTitle">🧪 Swab</div>
+            <div class="infoItemDesc">ใช้เก็บตัวอย่างเพื่อยืนยันหลักฐาน</div>
+          </div>
+
+          <div class="infoItem">
+            <div class="infoItemTitle">📷 Camera</div>
+            <div class="infoItemDesc">ใช้ถ่ายรูปเก็บหลักฐานไว้ในคดี</div>
+          </div>
+
+          <div class="infoItem">
+            <div class="infoItemTitle">🧼 Clean</div>
+            <div class="infoItemDesc">ใช้ทำความสะอาดเพื่อลดความเสี่ยงของพื้นที่</div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <section class="helpCard" id="howPanel" style="display:none;">
+      <div class="helpTitle">📖 วิธีเล่นแบบสั้นมาก</div>
+      <div class="helpSub">
+        เริ่มจาก <b>UV</b> ก่อนเสมอ → เจอจุดน่าสงสัยแล้วค่อยใช้ <b>Swab</b> หรือ <b>Camera</b> →
+        จากนั้นใช้ <b>Clean</b> ลดความเสี่ยง → แล้วค่อย <b>ส่งรายงาน</b>
+      </div>
+      <div class="helpActions">
+        <button class="btn primary" id="btnStartFromHelp" type="button">🟢 พร้อมแล้ว เริ่มเลย</button>
+        <button class="btn ghost" id="btnHideHow" type="button">✖ ปิด</button>
+      </div>
+    </section>
+
+    <div class="bottomBar">
+      <span class="statusPill" id="statusLine">พร้อมเริ่มภารกิจแล้ว</span>
+      <span class="hint">Tip: ถ้าเพิ่งเริ่มเล่น ให้เลือก “ห้องเรียน + ปกติ” ก่อน</span>
+    </div>
   </div>
 
   <script>
@@ -89,23 +689,9 @@
         catch{ return d; }
       }
 
-      function setMsg(t){
-        const el = document.getElementById('msg');
-        if(el) el.textContent = t;
-      }
-
-      function setPill(t){
-        const el = document.getElementById('statusPill');
-        if(el) el.textContent = t;
-      }
-
-      function normalizeMaybeEncodedUrl(v){
-        v = String(v ?? '').trim();
-        if(!v || v === 'null' || v === 'undefined') return '';
-        if(/%3A|%2F|%3F|%26|%3D/i.test(v)){
-          try{ v = decodeURIComponent(v); }catch(_){}
-        }
-        return v.trim();
+      function safeUrl(raw, fallback){
+        try{ return new URL(raw || fallback, location.href).toString(); }
+        catch{ return new URL(fallback, location.href).toString(); }
       }
 
       function cleanUrl(raw, fallback){
@@ -115,115 +701,136 @@
             'gatePhase','phase','gateResult','gateMode',
             'wType','wPct','wSteps','wTimeBonus','wScoreBonus','wRank',
             'next','cd','wskip','wgskip'
-          ].forEach(k => u.searchParams.delete(k));
+          ].forEach(k=>u.searchParams.delete(k));
           return u.toString();
         }catch(_){
-          return fallback;
+          return safeUrl(fallback, fallback);
         }
       }
 
       const ORIGIN = location.origin;
-      const HUB_URL  = ORIGIN + '/webxr-health-mobile/herohealth/hub.html';
-      const GATE_URL = ORIGIN + '/webxr-health-mobile/herohealth/warmup-gate.html?v=20260321-gd-p5';
+      const HUB_URL  = cleanUrl(qs('hub','') || (ORIGIN + '/webxr-health-mobile/herohealth/hub.html'), ORIGIN + '/webxr-health-mobile/herohealth/hub.html');
+      const GATE_URL = ORIGIN + '/webxr-health-mobile/herohealth/warmup-gate.html';
       const RUN_URL  = ORIGIN + '/webxr-health-mobile/herohealth/germ-detective/germ-detective-vr.html';
 
-      const pid   = String(qs('pid','anon')).trim() || 'anon';
-      const run   = String(qs('run','play')).toLowerCase() || 'play';
-      const diff  = String(qs('diff','normal')).toLowerCase() || 'normal';
-      const time  = String(qs('time','180'));
-      const seed  = String(qs('seed', String(Date.now())));
-      const view  = String(qs('view','mobile')).toLowerCase() || 'mobile';
-      const scene = String(qs('scene','classroom')).toLowerCase() || 'classroom';
-      const zone  = 'hygiene';
+      const pid = String(qs('pid','anon')).trim() || 'anon';
+      let diff = String(qs('diff','normal')).toLowerCase() || 'normal';
+      let scene = String(qs('scene','classroom')).toLowerCase() || 'classroom';
+      const run = String(qs('run','play')).toLowerCase() || 'play';
+      const time = String(qs('time','180')) || '180';
+      const view = String(qs('view','mobile')).toLowerCase() || 'mobile';
+      const seed = String(qs('seed', String(Date.now()))) || String(Date.now());
 
-      const studyId = String(qs('studyId',''));
-      const conditionGroup = String(qs('conditionGroup',''));
-      const sessionOrder = String(qs('sessionOrder',''));
-      const blockLabel = String(qs('blockLabel',''));
-      const siteCode = String(qs('siteCode',''));
-      const schoolYear = String(qs('schoolYear',''));
-      const semester = String(qs('semester',''));
+      const uiPid = document.getElementById('uiPid');
+      const uiDiff = document.getElementById('uiDiff');
+      const uiTime = document.getElementById('uiTime');
+      const statusLine = document.getElementById('statusLine');
+      const sceneHint = document.getElementById('sceneHint');
+      const howPanel = document.getElementById('howPanel');
 
-      const phase = String(qs('phase',''));
-      const safePhase = (phase && phase !== 'warmup' && phase !== 'cooldown') ? phase : '';
+      uiPid.textContent = pid;
+      uiTime.textContent = `${time} วินาที`;
 
-      const hub = cleanUrl(
-        normalizeMaybeEncodedUrl(qs('hub','')) || HUB_URL,
-        HUB_URL
-      );
-
-      const gateResult = String(qs('gateResult',''));
-      const gateMode = String(qs('gateMode',''));
-      const alreadyWarm = (gateResult === '1' && gateMode === 'warmup');
-      const alreadySkipped = String(qs('wgskip','0')) === '1';
-
-      const gameUrl = new URL(RUN_URL);
-      gameUrl.searchParams.set('pid', pid);
-      gameUrl.searchParams.set('run', run);
-      gameUrl.searchParams.set('diff', diff);
-      gameUrl.searchParams.set('time', time);
-      gameUrl.searchParams.set('seed', seed);
-      gameUrl.searchParams.set('view', view);
-      gameUrl.searchParams.set('scene', scene);
-      gameUrl.searchParams.set('zone', 'hygiene');
-      gameUrl.searchParams.set('cat', 'hygiene');
-      gameUrl.searchParams.set('hub', hub);
-      gameUrl.searchParams.set('wgskip', '1');
-
-      if(studyId) gameUrl.searchParams.set('studyId', studyId);
-      if(conditionGroup) gameUrl.searchParams.set('conditionGroup', conditionGroup);
-      if(sessionOrder) gameUrl.searchParams.set('sessionOrder', sessionOrder);
-      if(blockLabel) gameUrl.searchParams.set('blockLabel', blockLabel);
-      if(siteCode) gameUrl.searchParams.set('siteCode', siteCode);
-      if(schoolYear) gameUrl.searchParams.set('schoolYear', schoolYear);
-      if(semester) gameUrl.searchParams.set('semester', semester);
-      if(safePhase) gameUrl.searchParams.set('phase', safePhase);
-
-      console.log('[germ-launcher] pathname =', location.pathname);
-      console.log('[germ-launcher] HUB_URL =', HUB_URL);
-      console.log('[germ-launcher] GATE_URL =', GATE_URL);
-      console.log('[germ-launcher] RUN_URL =', gameUrl.toString());
-      console.log('[germ-launcher] alreadyWarm =', alreadyWarm);
-      console.log('[germ-launcher] alreadySkipped =', alreadySkipped);
-
-      if(alreadyWarm || alreadySkipped){
-        setMsg('ผ่านด่านเตรียมพร้อมแล้ว กำลังเข้าเกม…');
-        setPill('เข้าเกมหลัก');
-        location.replace(gameUrl.toString());
-        return;
+      function diffText(v){
+        if(v === 'easy') return 'ง่าย';
+        if(v === 'hard') return 'ท้าทาย';
+        return 'ปกติ';
       }
 
-      const warmupUrl = new URL(GATE_URL);
-      warmupUrl.searchParams.set('gatePhase', 'warmup');
-      warmupUrl.searchParams.set('phase', 'warmup');
-      warmupUrl.searchParams.set('cat', 'hygiene');
-      warmupUrl.searchParams.set('theme', 'germdetective');
-      warmupUrl.searchParams.set('game', 'germdetective');
-      warmupUrl.searchParams.set('pid', pid);
-      warmupUrl.searchParams.set('hub', hub);
-      warmupUrl.searchParams.set('next', gameUrl.toString());
-      warmupUrl.searchParams.set('run', run);
-      warmupUrl.searchParams.set('diff', diff);
-      warmupUrl.searchParams.set('time', time);
-      warmupUrl.searchParams.set('view', view);
-      warmupUrl.searchParams.set('seed', seed);
-      warmupUrl.searchParams.set('scene', scene);
-      warmupUrl.searchParams.set('zone', zone);
-      warmupUrl.searchParams.set('cat', 'hygiene');
+      function sceneText(v){
+        if(v === 'home') return 'บ้าน';
+        if(v === 'canteen') return 'โรงอาหาร';
+        return 'ห้องเรียน';
+      }
 
-      if(studyId) warmupUrl.searchParams.set('studyId', studyId);
-      if(conditionGroup) warmupUrl.searchParams.set('conditionGroup', conditionGroup);
-      if(sessionOrder) warmupUrl.searchParams.set('sessionOrder', sessionOrder);
-      if(blockLabel) warmupUrl.searchParams.set('blockLabel', blockLabel);
-      if(siteCode) warmupUrl.searchParams.set('siteCode', siteCode);
-      if(schoolYear) warmupUrl.searchParams.set('schoolYear', schoolYear);
-      if(semester) warmupUrl.searchParams.set('semester', semester);
+      function sceneHelp(v){
+        if(v === 'home') return 'บ้านเหมาะกับการฝึกมองหาจุดเสี่ยงใกล้ตัว';
+        if(v === 'canteen') return 'โรงอาหารสนุกและมีหลายจุดให้สำรวจ';
+        return 'เริ่มจากห้องเรียนจะเล่นง่ายที่สุด';
+      }
 
-      console.log('[germ-launcher] WARMUP_URL =', warmupUrl.toString());
+      function renderState(){
+        uiDiff.textContent = diffText(diff);
+        sceneHint.textContent = sceneHelp(scene);
+        statusLine.textContent = `ฉากที่เลือก: ${sceneText(scene)} • ระดับ: ${diffText(diff)}`;
+      }
 
-      setMsg('กำลังเข้าด่านเตรียมพร้อมก่อนเริ่มเกม…');
-      setPill('warmup ก่อนเล่น');
-      location.replace(warmupUrl.toString());
+      document.querySelectorAll('.sceneBtn').forEach(btn=>{
+        btn.addEventListener('click', ()=>{
+          document.querySelectorAll('.sceneBtn').forEach(n=>n.classList.remove('active'));
+          btn.classList.add('active');
+          scene = String(btn.dataset.scene || 'classroom');
+          renderState();
+        });
+      });
+
+      document.querySelectorAll('.levelBtn').forEach(btn=>{
+        btn.addEventListener('click', ()=>{
+          document.querySelectorAll('.levelBtn').forEach(n=>n.classList.remove('active'));
+          btn.classList.add('active');
+          diff = String(btn.dataset.diff || 'normal');
+          renderState();
+        });
+      });
+
+      function buildRunUrl(){
+        const u = new URL(RUN_URL);
+        u.searchParams.set('pid', pid);
+        u.searchParams.set('run', run);
+        u.searchParams.set('diff', diff);
+        u.searchParams.set('time', time);
+        u.searchParams.set('seed', seed);
+        u.searchParams.set('view', view);
+        u.searchParams.set('scene', scene);
+        u.searchParams.set('zone', 'hygiene');
+        u.searchParams.set('cat', 'hygiene');
+        u.searchParams.set('hub', HUB_URL);
+        u.searchParams.set('wgskip', '1');
+        return u.toString();
+      }
+
+      function buildWarmupUrl(){
+        const next = buildRunUrl();
+        const u = new URL(GATE_URL);
+        u.searchParams.set('gatePhase', 'warmup');
+        u.searchParams.set('phase', 'warmup');
+        u.searchParams.set('cat', 'hygiene');
+        u.searchParams.set('theme', 'germdetective');
+        u.searchParams.set('game', 'germdetective');
+        u.searchParams.set('pid', pid);
+        u.searchParams.set('hub', HUB_URL);
+        u.searchParams.set('run', run);
+        u.searchParams.set('diff', diff);
+        u.searchParams.set('time', time);
+        u.searchParams.set('view', view);
+        u.searchParams.set('seed', seed);
+        u.searchParams.set('scene', scene);
+        u.searchParams.set('zone', 'hygiene');
+        u.searchParams.set('next', next);
+        return u.toString();
+      }
+
+      function startGame(){
+        location.href = buildWarmupUrl();
+      }
+
+      document.getElementById('btnStart').onclick = startGame;
+      document.getElementById('btnStartFromHelp').onclick = startGame;
+
+      document.getElementById('btnHow').onclick = ()=>{
+        howPanel.style.display = '';
+        howPanel.scrollIntoView({ behavior:'smooth', block:'start' });
+      };
+
+      document.getElementById('btnHideHow').onclick = ()=>{
+        howPanel.style.display = 'none';
+      };
+
+      document.getElementById('btnHub').onclick = ()=>{
+        location.href = HUB_URL;
+      };
+
+      renderState();
     })();
   </script>
 </body>
