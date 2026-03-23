@@ -37,7 +37,7 @@
     }
 
     .shell{
-      width:min(980px, 100%);
+      width:min(980px,100%);
       display:grid;
       gap:18px;
     }
@@ -187,7 +187,7 @@
       font-size:14px;
     }
 
-    @media (max-width: 760px){
+    @media (max-width:760px){
       .grid{ grid-template-columns:1fr; }
       .hero{ padding:18px; }
       .panel{ padding:16px; }
@@ -201,33 +201,33 @@
     <section class="hero">
       <div class="topline">
         <span class="badge">💧 Nutrition Zone</span>
-        <span class="badge">⭐ Baseline Version</span>
+        <span class="badge">🎮 Solo Mode</span>
         <span class="badge">🧒 Child-friendly</span>
       </div>
 
       <div>
         <h1 class="title">Hydration Hero</h1>
-        <p class="sub">ฝึกเลือกการดื่มน้ำที่เหมาะสมในแต่ละสถานการณ์ เล่นง่าย เข้าใจไว และเหมาะกับเด็กประถม</p>
+        <p class="sub">เก็บน้ำดี เลี่ยงของไม่ดี ผ่านพายุและบอส แล้วไปคูลดาวน์ก่อนกลับ HUB</p>
       </div>
 
       <div class="grid">
         <div class="panel">
-          <h2>วันนี้จะได้ฝึกอะไร</h2>
+          <h2>วิธีเล่นแบบสั้น</h2>
           <ul class="bullets">
-            <li><span class="dot">💧</span><span>เลือกคำตอบที่เหมาะที่สุดเกี่ยวกับการดื่มน้ำ</span></li>
-            <li><span class="dot">🏃</span><span>รู้ว่าควรดื่มน้ำเมื่อไร เช่น หลังวิ่งเล่น หรือวันที่อากาศร้อน</span></li>
-            <li><span class="dot">🌟</span><span>ตอบถูกเพื่อสะสมคะแนนและดูผลสรุปท้ายเกม</span></li>
+            <li><span class="dot">💧</span><span>แตะน้ำดีเพื่อเพิ่มคะแนนและเพิ่มพลังน้ำ</span></li>
+            <li><span class="dot">🛡️</span><span>เก็บโล่ไว้กันสายฟ้าช่วงพายุและบอส</span></li>
+            <li><span class="dot">⚠️</span><span>หลบของไม่ดี เพราะจะเสียคะแนนและน้ำ</span></li>
           </ul>
         </div>
 
         <div class="panel mission">
           <div class="mission-card">
             <strong>ภารกิจ</strong>
-            เลือกคำตอบที่เหมาะที่สุดให้ครบทุกข้อ
+            อยู่รอดให้ได้นาน เก็บคอมโบ และผ่านด่านสุดท้าย
           </div>
           <div class="mission-card">
-            <strong>เป้าหมาย</strong>
-            เล่นให้จบ แล้วไปด่านพักใจก่อนกลับ HUB
+            <strong>Flow</strong>
+            warmup → run → summary → cooldown → hub
           </div>
         </div>
       </div>
@@ -238,7 +238,7 @@
       </div>
 
       <div class="footer-note">
-        เวอร์ชันพื้นฐานนี้ใช้เป็น baseline เปรียบเทียบกับ Hydration v2
+        launcher นี้จะส่งต่อไปยัง /herohealth/warmup-gate.html ก่อนเข้า /herohealth/hydration-vr/hydration.html
       </div>
     </section>
   </main>
@@ -247,93 +247,87 @@
     (function(){
       const qs = new URLSearchParams(location.search);
 
-      function defaultHub() {
-        return qs.get('hub') || new URL('./hub.html', location.href).href;
+      function q(name, fallback=''){
+        const v = qs.get(name);
+        return v == null || v === '' ? fallback : v;
       }
 
-      function makeSessionId() {
+      function defaultHub(){
+        return q('hub', new URL('./hub.html', location.href).href);
+      }
+
+      function makeSessionId(){
         return `hydr-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,8)}`;
       }
 
-      function ensurePid() {
-        const raw = (qs.get('pid') || '').trim();
+      function ensurePid(){
+        const raw = String(q('pid', '')).trim();
         if (raw) return raw.replace(/[.#$[\]/]/g, '-');
 
         const KEY = 'HHA_DEVICE_PID';
-        try {
-          let v = localStorage.getItem(KEY);
-          if (!v) {
-            v = `p-${Math.random().toString(36).slice(2,10)}`;
-            localStorage.setItem(KEY, v);
+        try{
+          let pid = localStorage.getItem(KEY);
+          if(!pid){
+            pid = `p-${Math.random().toString(36).slice(2,10)}`;
+            localStorage.setItem(KEY, pid);
           }
-          return v;
-        } catch {
+          return pid;
+        }catch{
           return `p-${Math.random().toString(36).slice(2,10)}`;
         }
       }
 
-      function buildRunUrl() {
+      function buildRunUrl(){
         const run = new URL('./hydration-vr/hydration.html', location.href);
+
         run.searchParams.set('game', 'hydration');
-        run.searchParams.set('zone', 'nutrition');
+        run.searchParams.set('zone', q('zone', 'nutrition'));
+        run.searchParams.set('cat', q('cat', q('zone', 'nutrition')));
         run.searchParams.set('hub', defaultHub());
         run.searchParams.set('pid', ensurePid());
-        run.searchParams.set('sessionId', qs.get('sessionId') || makeSessionId());
+        run.searchParams.set('sessionId', q('sessionId', makeSessionId()));
+        run.searchParams.set('diff', q('diff', 'normal'));
+        run.searchParams.set('run', q('run', 'play'));
+        run.searchParams.set('view', q('view', 'mobile'));
+        run.searchParams.set('cooldown', q('cooldown', '1'));
+        run.searchParams.set('time', q('time', q('diff', 'normal') === 'hard' ? '90' : '80'));
+        run.searchParams.set('seed', q('seed', String(Date.now())));
 
         const passthrough = [
           'studyId',
-          'runMode',
           'phase',
           'conditionGroup',
           'studentKey',
           'schoolCode',
           'classRoom',
           'studentNo',
-          'nickName',
-          'seed'
+          'nickName'
         ];
 
-        for (const key of passthrough) {
+        for(const key of passthrough){
           const v = qs.get(key);
-          if (v) run.searchParams.set(key, v);
+          if(v) run.searchParams.set(key, v);
         }
 
         return run;
       }
 
-      function goStart() {
+      function goStart(){
         const next = buildRunUrl();
-        const gate = new URL('./gate/warmup-gate.html', location.href);
+        const gate = new URL('./warmup-gate.html', location.href);
         const nextKey = `HHA_NEXT_HYDRATION_${Date.now()}`;
 
-        try {
+        try{
           sessionStorage.setItem(nextKey, next.href);
-        } catch {}
+        }catch{}
 
         gate.searchParams.set('game', 'hydration');
-        gate.searchParams.set('zone', 'nutrition');
+        gate.searchParams.set('zone', q('zone', 'nutrition'));
         gate.searchParams.set('hub', defaultHub());
         gate.searchParams.set('next', next.href);
         gate.searchParams.set('nextKey', nextKey);
         gate.searchParams.set('pid', ensurePid());
-
-        const passthrough = [
-          'studyId',
-          'runMode',
-          'phase',
-          'conditionGroup',
-          'studentKey',
-          'schoolCode',
-          'classRoom',
-          'studentNo',
-          'nickName',
-          'seed'
-        ];
-
-        for (const key of passthrough) {
-          const v = qs.get(key);
-          if (v) gate.searchParams.set(key, v);
-        }
+        gate.searchParams.set('seed', q('seed', String(Date.now())));
 
         location.href = gate.href;
       }
