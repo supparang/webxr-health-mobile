@@ -1,23 +1,9 @@
 // === /herohealth/gate/gate-core.js ===
-// FULL PATCH v20260320-GATE-NEXTKEY-HUB-CANONICAL-ALLZONES
-// ✅ single warmup-gate.html / gate-game.html page with ?phase=warmup|cooldown
-// ✅ supports next=... from launcher pages
-// ✅ supports nextKey=sessionStorage fallback for stubborn redirect bugs
-// ✅ safe gate-games import even if some helpers are missing
-// ✅ supports api.finish / api.complete / api.done / api.summary / api.next
-// ✅ supports api.setStats / api.setSub / api.setTitle
-// ✅ fallback to runCandidates when next is missing
-// ✅ warmup once/day, cooldown once/day
-// ✅ cooldown complete -> HUB only
-// ✅ auto-call result.start() after mount when provided
-// ✅ supports forcegate=1 / resetGate=1 to bypass daily skip while testing
-// ✅ canonical hub fix -> always resolves to /herohealth/hub.html
-// ✅ import gate-games.js latest all-zones registry
-// ✅ debug ctx log for registry troubleshooting
+// FULL PATCH v20260319c-GATE-NEXTKEY-HUB-CANONICAL
 
-import * as GateGames from './gate-games.js?v=20260320-GATE-GAMES-ALL-ZONES-COMPLETE';
+import * as GateGames from './gate-games.js?v=20260319a-GATE-GAMES-GOODJUNK-HARDFIX';
 
-const PATCH = 'v20260320-GATE-NEXTKEY-HUB-CANONICAL-ALLZONES';
+const PATCH = 'v20260319c-GATE-NEXTKEY-HUB-CANONICAL';
 const STORAGE_NS = 'HHA_GATE_DONE_V1';
 const LAST_SUMMARY_KEY = 'HHA_LAST_SUMMARY';
 const SUMMARY_HISTORY_KEY = 'HHA_SUMMARY_HISTORY';
@@ -142,7 +128,7 @@ function readCtx() {
 
   const phase = phaseRaw === 'cooldown' ? 'cooldown' : 'warmup';
 
-  const ctx = {
+  return {
     patch: PATCH,
     params,
     gameRaw,
@@ -170,19 +156,6 @@ function readCtx() {
     next: params.get('next') || '',
     nextKey: params.get('nextKey') || ''
   };
-
-  try {
-    console.log('[GATE readCtx]', {
-      patch: PATCH,
-      gameRaw: ctx.gameRaw,
-      game: ctx.game,
-      phase: ctx.phase,
-      meta: ctx.meta,
-      search: location.search
-    });
-  } catch {}
-
-  return ctx;
 }
 
 function ensureCoreStyle() {
