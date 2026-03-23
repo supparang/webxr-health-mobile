@@ -1,24 +1,9 @@
 /* === /herohealth/plate/plate-coop-firebase.js ===
    HeroHealth Plate Coop Firebase Adapters
-   PATCH v20260321-PLATE-COOP-FIREBASE-CHILDADDED
+   COMPAT VERSION using /herohealth/firebase-config.js
+   PATCH v20260323-PLATE-COOP-FIREBASE-COMPAT
 */
 'use strict';
-
-import { initializeApp, getApps, getApp } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js';
-import {
-  getDatabase,
-  ref,
-  get,
-  set,
-  remove,
-  onValue,
-  off,
-  push,
-  query,
-  orderByChild,
-  startAt,
-  onChildAdded
-} from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js';
 
 function nowTs(){
   return Date.now();
@@ -77,16 +62,12 @@ function safeMergeRoom(prev = {}, partial = {}){
   return next;
 }
 
-export function createFirebaseAppIfNeeded(firebaseConfig){
-  if (!firebaseConfig || typeof firebaseConfig !== 'object'){
-    throw new Error('firebaseConfig is required');
+function ensureCompatDb(){
+  const db = window.HHA_FIREBASE_DB;
+  if (!db) {
+    throw new Error('HHA_FIREBASE_DB unavailable. Make sure ../firebase-config.js is loaded first.');
   }
-
-  if (getApps().length > 0){
-    return getApp();
-  }
-
-  return initializeApp(firebaseConfig);
+  return db;
 }
 
 function roomPath(basePath, roomId){
@@ -102,19 +83,17 @@ function actionsPath(basePath, roomId){
 }
 
 export function createFirebaseRoomAdapter({
-  firebaseConfig,
-  db,
+  db = null,
   basePath = 'herohealth/plate-coop'
 } = {}){
-  const app = db ? null : createFirebaseAppIfNeeded(firebaseConfig);
-  const database = db || getDatabase(app);
+  const database = db || ensureCompatDb();
 
   return {
     async getRoom(roomId){
       const id = normalizeRoomId(roomId);
       if (!id) return null;
 
-      const snap = await get(ref(database, roomPath(basePath, id)));
+      const snap = await database.ref(roomPath(basePath, id)).get();
       return snap.exists() ? snap.val() : null;
     },
 
@@ -128,56 +107,54 @@ export function createFirebaseRoomAdapter({
         updatedAt: nowTs()
       };
 
-      await set(ref(database, roomPath(basePath, id)), next);
+      await database.ref(roomPath(basePath, id)).set(next);
     },
 
     async patchRoom(roomId, partial){
       const id = normalizeRoomId(roomId);
       if (!id) throw new Error('roomId required');
 
-      const snap = await get(ref(database, roomPath(basePath, id)));
+      const ref = database.ref(roomPath(basePath, id));
+      const snap = await ref.get();
       if (!snap.exists()) throw new Error(`Room not found: ${id}`);
 
       const prev = snap.val() || {};
       const next = safeMergeRoom(prev, partial);
 
-      await set(ref(database, roomPath(basePath, id)), next);
+      await ref.set(next);
     },
 
     subscribeRoom(roomId, cb){
       const id = normalizeRoomId(roomId);
       if (!id) throw new Error('roomId required');
 
-      const roomRef = ref(database, roomPath(basePath, id));
-
-      const handler = (snap) => {
+      const ref = database.ref(roomPath(basePath, id));
+      const handler = snap => {
         try{
           cb?.(snap.exists() ? snap.val() : null);
         }catch(_){}
       };
 
-      onValue(roomRef, handler);
+      ref.on('value', handler);
 
       return () => {
-        try{ off(roomRef, 'value', handler); }catch(_){}
+        try{ ref.off('value', handler); }catch(_){}
       };
     },
 
     async deleteRoom(roomId){
       const id = normalizeRoomId(roomId);
       if (!id) return;
-      await remove(ref(database, roomPath(basePath, id)));
+      await database.ref(roomPath(basePath, id)).remove();
     }
   };
 }
 
 export function createFirebaseNetAdapter({
-  firebaseConfig,
-  db,
+  db = null,
   basePath = 'herohealth/plate-coop'
 } = {}){
-  const app = db ? null : createFirebaseAppIfNeeded(firebaseConfig);
-  const database = db || getDatabase(app);
+  const database = db || ensureCompatDb();
 
   return {
     async publishState(roomId, state){
@@ -190,14 +167,14 @@ export function createFirebaseNetAdapter({
         updatedAt: nowTs()
       };
 
-      await set(ref(database, statePath(basePath, id)), next);
+      await database.ref(statePath(basePath, id)).set(next);
     },
 
     async getState(roomId){
       const id = normalizeRoomId(roomId);
       if (!id) return null;
 
-      const snap = await get(ref(database, statePath(basePath, id)));
+      const snap = await database.ref(statePath(basePath, id)).get();
       return snap.exists() ? snap.val() : null;
     },
 
@@ -205,18 +182,17 @@ export function createFirebaseNetAdapter({
       const id = normalizeRoomId(roomId);
       if (!id) throw new Error('roomId required');
 
-      const stateRef = ref(database, statePath(basePath, id));
-
-      const handler = (snap) => {
+      const ref = database.ref(statePath(basePath, id));
+      const handler = snap => {
         try{
           cb?.(snap.exists() ? snap.val() : null);
         }catch(_){}
       };
 
-      onValue(stateRef, handler);
+      ref.on('value', handler);
 
       return () => {
-        try{ off(stateRef, 'value', handler); }catch(_){}
+        try{ ref.off('value', handler); }catch(_){}
       };
     },
 
@@ -226,7 +202,7 @@ export function createFirebaseNetAdapter({
 
       const actionId =
         String(action?.id || '').trim() ||
-        push(ref(database, actionsPath(basePath, id))).key;
+        database.ref(actionsPath(basePath, id)).push().key;
 
       const payload = {
         ...deepClone(action),
@@ -235,26 +211,23 @@ export function createFirebaseNetAdapter({
         createdAt: Number(action?.createdAt || nowTs())
       };
 
-      await set(ref(database, `${actionsPath(basePath, id)}/${actionId}`), payload);
+      await database.ref(`${actionsPath(basePath, id)}/${actionId}`).set(payload);
     },
 
     subscribeActions(roomId, cb){
       const id = normalizeRoomId(roomId);
       if (!id) throw new Error('roomId required');
 
-      let cutoffTs = nowTs();
       const seenIds = new Set();
+      const cutoffTs = nowTs();
 
-      const q = query(
-        ref(database, actionsPath(basePath, id)),
-        orderByChild('createdAt'),
-        startAt(cutoffTs)
-      );
+      const q = database
+        .ref(actionsPath(basePath, id))
+        .orderByChild('createdAt')
+        .startAt(cutoffTs);
 
-      const handler = (snap) => {
+      const handler = snap => {
         try{
-          if (!snap.exists()) return;
-
           const item = snap.val();
           if (!item || !item.id) return;
 
@@ -271,10 +244,10 @@ export function createFirebaseNetAdapter({
         }catch(_){}
       };
 
-      onChildAdded(q, handler);
+      q.on('child_added', handler);
 
       return () => {
-        try{ off(q, 'child_added', handler); }catch(_){}
+        try{ q.off('child_added', handler); }catch(_){}
       };
     },
 
@@ -283,8 +256,8 @@ export function createFirebaseNetAdapter({
       if (!id) return;
 
       await Promise.all([
-        remove(ref(database, statePath(basePath, id))),
-        remove(ref(database, actionsPath(basePath, id)))
+        database.ref(statePath(basePath, id)).remove(),
+        database.ref(actionsPath(basePath, id)).remove()
       ]);
     },
 
@@ -292,8 +265,8 @@ export function createFirebaseNetAdapter({
       const id = normalizeRoomId(roomId);
       if (!id) return;
 
-      const root = ref(database, actionsPath(basePath, id));
-      const snap = await get(root);
+      const root = database.ref(actionsPath(basePath, id));
+      const snap = await root.get();
       if (!snap.exists()) return;
 
       const now = nowTs();
@@ -303,7 +276,7 @@ export function createFirebaseNetAdapter({
       for (const [key, value] of Object.entries(data)){
         const createdAt = Number(value?.createdAt || 0);
         if (!createdAt || now - createdAt > maxAgeMs){
-          tasks.push(remove(ref(database, `${actionsPath(basePath, id)}/${key}`)));
+          tasks.push(database.ref(`${actionsPath(basePath, id)}/${key}`).remove());
         }
       }
 
