@@ -3,845 +3,188 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — Hydration V2 Launcher</title>
+  <title>HeroHealth • Hydration v2</title>
   <meta name="color-scheme" content="dark light" />
   <link rel="icon" href="./favicon.ico" />
   <style>
     :root{
-      --bg1:#031525;
-      --bg2:#0a2740;
-      --bg3:#123a5f;
-      --panel:rgba(3,21,37,.78);
-      --stroke:rgba(148,163,184,.18);
-      --text:#eaf6ff;
-      --muted:#b7d4ea;
-      --blue:#38bdf8;
-      --good:#22c55e;
-      --warn:#f59e0b;
-      --shadow:0 20px 48px rgba(0,0,0,.28);
-      --radius:24px;
-      --sat: env(safe-area-inset-top, 0px);
-      --sab: env(safe-area-inset-bottom, 0px);
-      --sal: env(safe-area-inset-left, 0px);
-      --sar: env(safe-area-inset-right, 0px);
+      --bg1:#0f172a; --bg2:#1e1b4b; --bg3:#2563eb;
+      --text:#eef2ff; --muted:#c7d2fe;
+      --card:rgba(15,23,42,.78);
+      --stroke:rgba(255,255,255,.14);
+      --shadow:0 20px 50px rgba(0,0,0,.30);
     }
     *{ box-sizing:border-box; }
-    html,body{
-      margin:0;
-      min-height:100%;
-      font-family: ui-rounded, "Noto Sans Thai", system-ui, -apple-system, sans-serif;
-      color:var(--text);
-      background:
-        radial-gradient(circle at top left, rgba(34,211,238,.14), transparent 32%),
-        radial-gradient(circle at top right, rgba(56,189,248,.10), transparent 28%),
-        linear-gradient(180deg, var(--bg2), var(--bg1) 54%, #02111d);
-    }
     body{
-      padding:
-        calc(18px + var(--sat))
-        calc(16px + var(--sar))
-        calc(18px + var(--sab))
-        calc(16px + var(--sal));
+      margin:0; min-height:100vh; color:var(--text);
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,TH Sarabun New,sans-serif;
+      background:
+        radial-gradient(circle at top, rgba(96,165,250,.24), transparent 30%),
+        linear-gradient(180deg, var(--bg3) 0%, var(--bg2) 48%, var(--bg1) 100%);
+      display:grid; place-items:center; padding:20px;
     }
-    .wrap{
-      max-width:1240px;
-      margin:0 auto;
-      display:grid;
-      gap:18px;
-    }
-    .card{
-      background:var(--panel);
-      border:1px solid var(--stroke);
-      border-radius:var(--radius);
-      box-shadow:var(--shadow);
-      backdrop-filter: blur(12px);
-    }
+    .wrap{ width:min(1020px,100%); display:grid; gap:18px; }
     .hero{
-      display:grid;
-      grid-template-columns:1.08fr .92fr;
-      gap:18px;
-    }
-    .hero-card{
-      padding:24px;
-      position:relative;
-      overflow:hidden;
-    }
-    .hero-card::after{
-      content:"💧";
-      position:absolute;
-      right:18px;
-      bottom:8px;
-      font-size:100px;
-      opacity:.10;
-      pointer-events:none;
-    }
-    .eyebrow{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      padding:8px 12px;
-      border-radius:999px;
-      background:rgba(56,189,248,.14);
-      border:1px solid rgba(56,189,248,.22);
-      color:#c9f3ff;
-      font-size:13px;
-      font-weight:800;
-      letter-spacing:.02em;
-    }
-    h1{
-      margin:14px 0 10px;
-      font-size:clamp(30px, 4vw, 46px);
-      line-height:1.04;
-    }
-    .lead{
-      margin:0;
-      color:var(--muted);
-      font-size:16px;
-      line-height:1.7;
-      max-width:58ch;
-    }
-    .pill-row{
-      display:flex;
-      flex-wrap:wrap;
-      gap:10px;
-      margin-top:18px;
-    }
-    .pill{
-      padding:10px 14px;
-      border-radius:999px;
-      background:rgba(255,255,255,.06);
+      background:linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.04));
       border:1px solid var(--stroke);
-      font-size:14px;
-      color:#dff4ff;
-      font-weight:700;
+      border-radius:32px; box-shadow:var(--shadow); padding:24px; display:grid; gap:18px;
     }
-    .side{
-      padding:18px;
-      display:flex;
-      flex-direction:column;
-      gap:14px;
-      justify-content:space-between;
-    }
-    .side h2{
-      margin:0 0 8px;
-      font-size:22px;
-    }
-    .side p{
-      margin:0;
-      color:var(--muted);
-      line-height:1.65;
-    }
-    .quick-grid{
-      display:grid;
-      grid-template-columns:repeat(2,minmax(0,1fr));
-      gap:10px;
-      margin-top:14px;
-    }
-    .quick-btn{
-      appearance:none;
-      border:none;
-      cursor:pointer;
-      min-height:56px;
-      padding:12px 14px;
-      border-radius:18px;
-      background:linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.05));
-      color:var(--text);
-      border:1px solid var(--stroke);
-      text-align:left;
-      font-size:15px;
-      font-weight:900;
-      transition:transform .16s ease, border-color .16s ease, background .16s ease;
-    }
-    .quick-btn:hover,
-    .quick-btn:focus-visible{
-      transform:translateY(-2px);
-      border-color:rgba(56,189,248,.35);
-      background:linear-gradient(180deg, rgba(56,189,248,.16), rgba(255,255,255,.06));
-    }
-    .quick-sub{
-      display:block;
-      color:var(--muted);
-      font-size:12px;
-      font-weight:700;
-      margin-top:4px;
-    }
-    .form-card{
-      padding:20px;
-    }
-    .form-head{
-      display:flex;
-      justify-content:space-between;
-      gap:12px;
-      align-items:flex-start;
-      margin-bottom:14px;
-    }
-    .form-head h2{
-      margin:0;
-      font-size:24px;
-    }
-    .form-head p{
-      margin:6px 0 0;
-      color:var(--muted);
-      line-height:1.6;
-    }
+    .badges{ display:flex; gap:10px; flex-wrap:wrap; }
     .badge{
-      min-height:38px;
-      padding:9px 12px;
-      border-radius:999px;
-      background:rgba(255,255,255,.06);
-      border:1px solid rgba(255,255,255,.10);
-      color:#def4ff;
-      font-size:13px;
-      font-weight:900;
-      white-space:nowrap;
+      display:inline-flex; align-items:center; gap:8px;
+      padding:8px 12px; border-radius:999px;
+      background:rgba(255,255,255,.08);
+      border:1px solid rgba(255,255,255,.14);
+      font-weight:900; font-size:14px;
     }
-    .grid{
-      display:grid;
-      grid-template-columns:repeat(2,minmax(0,1fr));
-      gap:14px;
+    h1{ margin:0; font-size:clamp(30px,6vw,54px); line-height:1.05; }
+    .sub{ margin:0; color:var(--muted); font-size:clamp(16px,2.6vw,20px); }
+    .grid{ display:grid; grid-template-columns:1.1fr .9fr; gap:18px; }
+    .card{
+      background:var(--card); border:1px solid var(--stroke);
+      border-radius:24px; padding:18px;
     }
-    .field{
-      display:grid;
-      gap:8px;
+    .card h2{ margin:0 0 12px; font-size:22px; }
+    ul{ margin:0; padding-left:20px; display:grid; gap:10px; color:#e0e7ff; }
+    .mini{
+      border-radius:18px; padding:14px 16px;
+      background:linear-gradient(180deg, rgba(96,165,250,.16), rgba(37,99,235,.08));
+      border:1px solid rgba(255,255,255,.12);
+      margin-bottom:10px;
     }
-    .field.full{
-      grid-column:1 / -1;
+    .mini strong{ display:block; margin-bottom:4px; font-size:18px; }
+    .actions{ display:flex; gap:12px; flex-wrap:wrap; }
+    button{
+      border:0; cursor:pointer; border-radius:18px;
+      padding:16px 20px; font-weight:900; font-size:18px;
+      transition:transform .12s ease;
     }
-    label{
-      font-size:13px;
-      color:#dff2ff;
-      font-weight:900;
+    button:hover{ transform:translateY(-1px); }
+    .primary{ background:linear-gradient(180deg, #facc15, #f59e0b); color:#111827; min-width:220px; }
+    .secondary{
+      background:rgba(255,255,255,.10); color:var(--text);
+      border:1px solid var(--stroke); min-width:180px;
     }
-    input, select{
-      width:100%;
-      min-height:48px;
-      padding:12px 14px;
-      border-radius:14px;
-      border:1px solid rgba(255,255,255,.10);
-      background:rgba(255,255,255,.06);
-      color:var(--text);
-      font:inherit;
-      outline:none;
-    }
-    input::placeholder{ color:#a9c7db; }
-    .actions{
-      display:flex;
-      flex-wrap:wrap;
-      gap:12px;
-      margin-top:18px;
-    }
-    .btn{
-      appearance:none;
-      border:none;
-      outline:none;
-      cursor:pointer;
-      min-height:48px;
-      padding:12px 18px;
-      border-radius:16px;
-      font-size:15px;
-      font-weight:900;
-      transition:transform .16s ease, opacity .16s ease;
-    }
-    .btn:hover,
-    .btn:focus-visible{ transform:translateY(-1px); }
-    .btn.primary{
-      background:linear-gradient(180deg, #4cc9ff, #1ca6df);
-      color:#031525;
-    }
-    .btn.ghost{
-      background:rgba(255,255,255,.07);
-      color:var(--text);
-      border:1px solid var(--stroke);
-    }
-    .btn.warn{
-      background:linear-gradient(180deg, #ffd36d, #f5b531);
-      color:#3c2800;
-    }
-    .btn.good{
-      background:linear-gradient(180deg, #58dd8d, #22c55e);
-      color:#082314;
-    }
-    .preview{
-      margin-top:16px;
-      padding:14px 16px;
-      border-radius:18px;
-      background:rgba(255,255,255,.05);
-      border:1px dashed rgba(255,255,255,.12);
-      color:#d8effc;
-      font-size:14px;
-      line-height:1.7;
-      word-break:break-word;
-    }
-    .status{
-      margin-top:16px;
-      padding:14px 16px;
-      border-radius:16px;
-      background:rgba(34,197,94,.10);
-      color:#ddffe8;
-      border:1px solid rgba(34,197,94,.20);
-      display:none;
-      font-weight:800;
-    }
-    .status.show{ display:block; }
-
-    .assist-grid{
-      display:grid;
-      grid-template-columns:repeat(2,minmax(0,1fr));
-      gap:14px;
-      margin-top:18px;
-    }
-    .assist-card{
-      padding:16px;
-      border-radius:20px;
-      background:rgba(255,255,255,.05);
-      border:1px solid rgba(255,255,255,.08);
-    }
-    .assist-title{
-      font-size:16px;
-      font-weight:900;
-      margin-bottom:8px;
-    }
-    .assist-text{
-      color:var(--muted);
-      font-size:14px;
-      line-height:1.65;
-    }
-    .assist-meta{
-      margin-top:10px;
-      color:#def4ff;
-      font-size:13px;
-      line-height:1.7;
-      font-weight:800;
-    }
-
-    @media (max-width: 980px){
-      .hero{ grid-template-columns:1fr; }
-    }
-    @media (max-width: 760px){
-      .grid,
-      .quick-grid,
-      .assist-grid{ grid-template-columns:1fr; }
-      .form-head{ flex-direction:column; }
+    @media (max-width:760px){
+      .grid{ grid-template-columns:1fr; }
+      .actions{ flex-direction:column; }
+      .primary,.secondary{ width:100%; }
     }
   </style>
 </head>
 <body>
-  <div class="wrap">
+  <main class="wrap">
     <section class="hero">
-      <article class="card hero-card">
-        <div class="eyebrow">💧 Hydration V2 • Program / Research Launcher</div>
-        <h1>Hydration VR รุ่นใหม่<br/>พร้อม Session ถัดไปอัตโนมัติ</h1>
-        <p class="lead">
-          หน้านี้ใช้เข้าเล่นแบบ Quick หรือ Program และช่วยเติมค่าจาก
-          progress ล่าสุดได้ เช่น PID, Study ID, Session, Week และ seed ก่อนส่งต่อเข้า
-          <strong>vr-hydration-v2</strong>
-        </p>
-        <div class="pill-row">
-          <span class="pill">Quick / Program</span>
-          <span class="pill">Solo / Team</span>
-          <span class="pill">Play / Research</span>
-          <span class="pill">Session / Week</span>
-          <span class="pill">Next-session assist</span>
-        </div>
-      </article>
+      <div class="badges">
+        <span class="badge">💧 Nutrition Zone</span>
+        <span class="badge">🧠 Research Version</span>
+        <span class="badge">🌈 Child-friendly</span>
+      </div>
 
-      <aside class="card side">
-        <div>
-          <h2>ทางเข้าแบบเร็ว</h2>
-          <p>เหมาะสำหรับกดทดสอบ flow และสลับระหว่าง quick / program ได้ทันที</p>
-          <div class="quick-grid">
-            <button class="quick-btn" type="button" data-preset="quick-solo">
-              Quick Solo
-              <span class="quick-sub">play • quick • solo</span>
-            </button>
-            <button class="quick-btn" type="button" data-preset="quick-team">
-              Quick Team
-              <span class="quick-sub">play • quick • team</span>
-            </button>
-            <button class="quick-btn" type="button" data-preset="program-solo">
-              Program Solo
-              <span class="quick-sub">research • program • solo</span>
-            </button>
-            <button class="quick-btn" type="button" data-preset="program-team">
-              Program Team
-              <span class="quick-sub">research • program • team</span>
-            </button>
-          </div>
-        </div>
-
-        <div class="actions">
-          <button class="btn ghost" id="goDashboardBtn" type="button">เปิด Dashboard</button>
-          <button class="btn ghost" id="backHubBtn" type="button">กลับ HUB</button>
-        </div>
-      </aside>
-    </section>
-
-    <section class="card form-card">
-      <div class="form-head">
-        <div>
-          <h2>กำหนดค่าก่อนเข้าเกม</h2>
-          <p>ค่าพวกนี้จะถูกส่งต่อเป็น query string ไปที่ run page</p>
-        </div>
-        <div class="badge" id="flowBadge">Starter Flow</div>
+      <div>
+        <h1>Hydration Hero v2</h1>
+        <p class="sub">เวอร์ชันนี้มีสถานการณ์ให้คิด เลือกคำตอบ แล้วบอกเหตุผลกับความมั่นใจ เพื่อฝึกการตัดสินใจเรื่องการดื่มน้ำ</p>
       </div>
 
       <div class="grid">
-        <div class="field">
-          <label for="modeInput">Mode</label>
-          <select id="modeInput">
-            <option value="quick">quick</option>
-            <option value="program">program</option>
-          </select>
+        <div class="card">
+          <h2>วันนี้จะได้ฝึกอะไร</h2>
+          <ul>
+            <li>อ่านสถานการณ์จริงในชีวิตประจำวัน</li>
+            <li>เลือกคำตอบที่เหมาะที่สุด</li>
+            <li>บอกเหตุผลว่าทำไมถึงเลือกข้อนั้น</li>
+            <li>ประเมินความมั่นใจของตนเอง</li>
+          </ul>
         </div>
 
-        <div class="field">
-          <label for="typeInput">Type</label>
-          <select id="typeInput">
-            <option value="solo">solo</option>
-            <option value="team">team</option>
-          </select>
-        </div>
-
-        <div class="field">
-          <label for="runInput">Run</label>
-          <select id="runInput">
-            <option value="play">play</option>
-            <option value="research">research</option>
-          </select>
-        </div>
-
-        <div class="field">
-          <label for="diffInput">Difficulty</label>
-          <select id="diffInput">
-            <option value="normal">normal</option>
-            <option value="easy">easy</option>
-            <option value="hard">hard</option>
-          </select>
-        </div>
-
-        <div class="field">
-          <label for="sessionInput">Session</label>
-          <input id="sessionInput" type="number" min="1" step="1" value="1" />
-        </div>
-
-        <div class="field">
-          <label for="weekInput">Week</label>
-          <input id="weekInput" type="number" min="1" step="1" value="1" />
-        </div>
-
-        <div class="field">
-          <label for="pidInput">PID</label>
-          <input id="pidInput" type="text" placeholder="เช่น S001" />
-        </div>
-
-        <div class="field">
-          <label for="studyIdInput">Study ID</label>
-          <input id="studyIdInput" type="text" placeholder="เช่น HYD-2026-A" />
-        </div>
-
-        <div class="field">
-          <label for="seedInput">Seed</label>
-          <input id="seedInput" type="number" step="1" />
-        </div>
-
-        <div class="field">
-          <label for="hubInput">Hub URL</label>
-          <input id="hubInput" type="text" />
-        </div>
-
-        <div class="field full">
-          <label for="notesInput">หมายเหตุ</label>
-          <input id="notesInput" type="text" placeholder="ช่องนี้เอาไว้จดเอง ไม่ถูกส่งเข้าเกม" />
-        </div>
-      </div>
-
-      <div class="assist-grid">
-        <div class="assist-card">
-          <div class="assist-title">รอบล่าสุด</div>
-          <div class="assist-text">อ่านจาก research payload ล่าสุดที่เกมบันทึกไว้</div>
-          <div class="assist-meta" id="lastPayloadMeta">ยังไม่พบข้อมูลล่าสุด</div>
-        </div>
-
-        <div class="assist-card">
-          <div class="assist-title">รอบที่แนะนำถัดไป</div>
-          <div class="assist-text">ใช้ progress key ของ PID/Study ID ปัจจุบัน</div>
-          <div class="assist-meta" id="nextPayloadMeta">ยังไม่มีคำแนะนำ</div>
+        <div class="card">
+          <div class="mini">
+            <strong>ภารกิจ</strong>
+            คิดให้เหมาะกับสถานการณ์ ไม่ใช่แค่จำคำตอบ
+          </div>
+          <div class="mini">
+            <strong>เป้าหมาย</strong>
+            ฝึกตัดสินใจเรื่องการดื่มน้ำอย่างฉลาด
+          </div>
         </div>
       </div>
 
       <div class="actions">
-        <button class="btn primary" id="startBtn" type="button">เข้าเล่น Hydration V2</button>
-        <button class="btn ghost" id="copyUrlBtn" type="button">คัดลอก URL</button>
-        <button class="btn warn" id="randomSeedBtn" type="button">สุ่ม Seed ใหม่</button>
-        <button class="btn good" id="loadLastBtn" type="button">เติมค่าจากรอบล่าสุด</button>
-        <button class="btn good" id="loadNextBtn" type="button">เติมค่ารอบถัดไป</button>
-        <button class="btn ghost" id="resetProgressBtn" type="button">Reset Progress</button>
-        <button class="btn ghost" id="clearLatestBtn" type="button">Clear Latest Payload</button>
-        <button class="btn ghost" id="clearHistoryBtn" type="button">Clear Local History</button>
+        <button id="startBtn" class="primary">🚀 เริ่ม Hydration v2</button>
+        <button id="hubBtn" class="secondary">🏠 กลับ HUB</button>
       </div>
-
-      <div class="preview" id="urlPreview">กำลังสร้าง URL...</div>
-      <div class="status" id="statusBox"></div>
     </section>
-  </div>
+  </main>
 
   <script>
     (function(){
-      const qs = new URLSearchParams(window.location.search);
-      const FIXED_HUB_URL = 'https://supparang.github.io/webxr-health-mobile/herohealth/hub.html';
+      const qs = new URLSearchParams(location.search);
 
-      const modeInput = document.getElementById('modeInput');
-      const typeInput = document.getElementById('typeInput');
-      const runInput = document.getElementById('runInput');
-      const diffInput = document.getElementById('diffInput');
-      const sessionInput = document.getElementById('sessionInput');
-      const weekInput = document.getElementById('weekInput');
-      const pidInput = document.getElementById('pidInput');
-      const studyIdInput = document.getElementById('studyIdInput');
-      const seedInput = document.getElementById('seedInput');
-      const hubInput = document.getElementById('hubInput');
-      const notesInput = document.getElementById('notesInput');
-
-      const flowBadge = document.getElementById('flowBadge');
-      const urlPreview = document.getElementById('urlPreview');
-      const statusBox = document.getElementById('statusBox');
-      const lastPayloadMeta = document.getElementById('lastPayloadMeta');
-      const nextPayloadMeta = document.getElementById('nextPayloadMeta');
-
-      const startBtn = document.getElementById('startBtn');
-      const copyUrlBtn = document.getElementById('copyUrlBtn');
-      const randomSeedBtn = document.getElementById('randomSeedBtn');
-      const goDashboardBtn = document.getElementById('goDashboardBtn');
-      const backHubBtn = document.getElementById('backHubBtn');
-      const loadLastBtn = document.getElementById('loadLastBtn');
-      const loadNextBtn = document.getElementById('loadNextBtn');
-      const resetProgressBtn = document.getElementById('resetProgressBtn');
-      const clearLatestBtn = document.getElementById('clearLatestBtn');
-      const clearHistoryBtn = document.getElementById('clearHistoryBtn');
-
-      const initialHub = FIXED_HUB_URL;
-
-      function positiveInt(value){
-        const n = Number(value);
-        return Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
+      function defaultHub() {
+        return qs.get('hub') || new URL('./hub.html', location.href).href;
       }
 
-      function deriveWeekNo(sessionNo){
-        return Math.max(1, Math.floor((Math.max(1, sessionNo) - 1) / 2) + 1);
+      function makeSessionId() {
+        return `hydr2-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,8)}`;
       }
 
-      function readJson(key, fallback){
-        try{
-          const raw = localStorage.getItem(key);
-          if(!raw) return fallback;
-          return JSON.parse(raw);
-        }catch(_){
-          return fallback;
+      function ensurePid() {
+        const raw = (qs.get('pid') || '').trim();
+        if (raw) return raw.replace(/[.#$[\]/]/g, '-');
+        const KEY = 'HHA_DEVICE_PID';
+        try {
+          let v = localStorage.getItem(KEY);
+          if (!v) {
+            v = `p-${Math.random().toString(36).slice(2,10)}`;
+            localStorage.setItem(KEY, v);
+          }
+          return v;
+        } catch {
+          return `p-${Math.random().toString(36).slice(2,10)}`;
         }
       }
 
-      function toAbsoluteHubUrl() {
-        return FIXED_HUB_URL;
+      function buildRunUrl() {
+        const run = new URL('./vr-hydration-v2/hydration-v2.html', location.href);
+        run.searchParams.set('game', 'hydration-v2');
+        run.searchParams.set('zone', 'nutrition');
+        run.searchParams.set('hub', defaultHub());
+        run.searchParams.set('pid', ensurePid());
+        run.searchParams.set('sessionId', qs.get('sessionId') || makeSessionId());
+
+        const passthrough = ['studyId','runMode','phase','conditionGroup','studentKey','schoolCode','classRoom','studentNo','nickName','seed'];
+        for (const key of passthrough) {
+          const v = qs.get(key);
+          if (v) run.searchParams.set(key, v);
+        }
+        return run;
       }
 
-      function getLastResearch(){
-        return readJson('HHA_HYDRATION_V2_RESEARCH_LAST', null);
-      }
+      function goStart() {
+        const next = buildRunUrl();
+        const gate = new URL('./gate/warmup-gate.html', location.href);
+        const nextKey = `HHA_NEXT_HYDRATION_V2_${Date.now()}`;
 
-      function safePid(){
-        return String(pidInput.value || '').trim() || 'anon';
-      }
+        try { sessionStorage.setItem(nextKey, next.href); } catch {}
 
-      function safeStudyId(){
-        return String(studyIdInput.value || '').trim() || 'nostudy';
-      }
+        gate.searchParams.set('game', 'hydration');
+        gate.searchParams.set('zone', 'nutrition');
+        gate.searchParams.set('hub', defaultHub());
+        gate.searchParams.set('next', next.href);
+        gate.searchParams.set('nextKey', nextKey);
+        gate.searchParams.set('pid', ensurePid());
 
-      function buildProgressKey(pid, studyId){
-        return `HHA_HYDRATION_V2_PROGRESS:${pid}:${studyId}`;
-      }
-
-      function readProgress(pid, studyId){
-        const saved = readJson(buildProgressKey(pid, studyId), {}) || {};
-        const nextSessionNo = positiveInt(saved.nextSessionNo) || 1;
-        const nextWeekNo = positiveInt(saved.nextWeekNo) || deriveWeekNo(nextSessionNo);
-        return {
-          nextSessionNo,
-          nextWeekNo,
-          updatedAt: saved.updatedAt || ''
-        };
-      }
-
-      function autofillProgressIfNoExplicitSession(){
-        const hasSession = qs.has('session');
-        const hasWeek = qs.has('week');
-        if (hasSession || hasWeek) return;
-
-        const progress = readProgress(safePid(), safeStudyId());
-        sessionInput.value = String(progress.nextSessionNo);
-        weekInput.value = String(progress.nextWeekNo);
-      }
-
-      function sanitizePositiveInt(value, fallback){
-        const n = Number(value);
-        return Number.isFinite(n) && n > 0 ? String(Math.floor(n)) : String(fallback);
-      }
-
-      function escapeHtml(value){
-        return String(value ?? '')
-          .replaceAll('&', '&amp;')
-          .replaceAll('<', '&lt;')
-          .replaceAll('>', '&gt;')
-          .replaceAll('"', '&quot;');
-      }
-
-      function buildRunUrl(){
-        const target = new URL('./vr-hydration-v2/hydration-vr.html', window.location.href);
-        target.searchParams.set('gameId', 'hydration');
-        target.searchParams.set('mode', modeInput.value);
-        target.searchParams.set('type', typeInput.value);
-        target.searchParams.set('run', runInput.value);
-        target.searchParams.set('diff', diffInput.value);
-        target.searchParams.set('session', sanitizePositiveInt(sessionInput.value, 1));
-        target.searchParams.set('week', sanitizePositiveInt(weekInput.value, 1));
-        target.searchParams.set('pid', safePid());
-        target.searchParams.set('studyId', safeStudyId());
-        target.searchParams.set('seed', sanitizePositiveInt(seedInput.value, Date.now()));
-        target.searchParams.set('hub', FIXED_HUB_URL);
-        return target.toString();
-      }
-
-      function updateFlowBadge(){
-        const teamHint = typeInput.value === 'team' ? ' • TEAM CHECK' : '';
-        flowBadge.textContent =
-          `${modeInput.value} • ${typeInput.value} • ${runInput.value} • W${sanitizePositiveInt(weekInput.value,1)} S${sanitizePositiveInt(sessionInput.value,1)}${teamHint}`;
-      }
-
-      function updatePreview(){
-        updateFlowBadge();
-        urlPreview.innerHTML = `
-          <strong>Run URL</strong><br/>
-          ${escapeHtml(buildRunUrl())}
-        `;
-      }
-
-      function showStatus(message){
-        statusBox.textContent = message;
-        statusBox.classList.add('show');
-      }
-
-      function updateAssistBoxes(){
-        const lastResearch = getLastResearch();
-        const progress = readProgress(safePid(), safeStudyId());
-
-        if (!lastResearch) {
-          lastPayloadMeta.textContent = 'ยังไม่พบ research payload ล่าสุด';
-        } else {
-          const currentSession = Number(lastResearch.sessionNo || 1);
-          const currentWeek = Number(lastResearch.weekNo || 1);
-
-          lastPayloadMeta.innerHTML =
-            `PID=${escapeHtml(lastResearch.pid || 'anon')} • ` +
-            `Study=${escapeHtml(lastResearch.studyId || '(empty)')} • ` +
-            `W${currentWeek} S${currentSession} • ` +
-            `total=${escapeHtml(lastResearch.totalScore ?? 0)}`;
+        const passthrough = ['studyId','runMode','phase','conditionGroup','studentKey','schoolCode','classRoom','studentNo','nickName','seed'];
+        for (const key of passthrough) {
+          const v = qs.get(key);
+          if (v) gate.searchParams.set(key, v);
         }
 
-        const teamNote = typeInput.value === 'team'
-          ? ' • เช็ก stars / mission / contribution'
-          : ' • โฟกัส action + learning flow';
-
-        nextPayloadMeta.innerHTML =
-          `แนะนำ W${progress.nextWeekNo} S${progress.nextSessionNo} • ` +
-          `PID=${escapeHtml(safePid())} • ` +
-          `Study=${escapeHtml(safeStudyId())}` +
-          teamNote;
+        location.href = gate.href;
       }
 
-      function applyPreset(name){
-        if (name === 'quick-solo'){
-          modeInput.value = 'quick';
-          typeInput.value = 'solo';
-          runInput.value = 'play';
-        } else if (name === 'quick-team'){
-          modeInput.value = 'quick';
-          typeInput.value = 'team';
-          runInput.value = 'play';
-        } else if (name === 'program-solo'){
-          modeInput.value = 'program';
-          typeInput.value = 'solo';
-          runInput.value = 'research';
-        } else if (name === 'program-team'){
-          modeInput.value = 'program';
-          typeInput.value = 'team';
-          runInput.value = 'research';
-        }
-
-        const progress = readProgress(safePid(), safeStudyId());
-        sessionInput.value = String(progress.nextSessionNo);
-        weekInput.value = String(progress.nextWeekNo);
-
-        updateAssistBoxes();
-        updatePreview();
-      }
-
-      function loadFromLastPayload(useNext){
-        const lastResearch = getLastResearch();
-
-        if (!lastResearch) {
-          showStatus('ยังไม่พบ research payload ล่าสุด');
-          return;
-        }
-
-        modeInput.value = lastResearch.mode || 'program';
-        typeInput.value = lastResearch.type || 'solo';
-        runInput.value = lastResearch.run || 'research';
-        diffInput.value = lastResearch.diff || diffInput.value;
-
-        pidInput.value = lastResearch.pid || '';
-        studyIdInput.value = lastResearch.studyId || '';
-        hubInput.value = FIXED_HUB_URL;
-
-        if (useNext) {
-          const progress = readProgress(safePid(), safeStudyId());
-          sessionInput.value = String(progress.nextSessionNo);
-          weekInput.value = String(progress.nextWeekNo);
-        } else {
-          sessionInput.value = String(lastResearch.sessionNo || 1);
-          weekInput.value = String(lastResearch.weekNo || 1);
-        }
-
-        seedInput.value = String(Date.now());
-        updateAssistBoxes();
-        updatePreview();
-        showStatus(useNext ? 'เติมค่ารอบถัดไปจาก progress ล่าสุดแล้ว' : 'เติมค่าจาก payload ล่าสุดแล้ว');
-      }
-
-      function removeStorageKey(key){
-        try{
-          localStorage.removeItem(key);
-        }catch(_){}
-      }
-
-      function resetProgressForCurrentScope(){
-        const pid = safePid();
-        const studyId = safeStudyId();
-        removeStorageKey(buildProgressKey(pid, studyId));
-
-        sessionInput.value = '1';
-        weekInput.value = '1';
-        seedInput.value = String(Date.now());
-
-        updateAssistBoxes();
-        updatePreview();
-        showStatus(`รีเซ็ต progress ของ PID=${pid} / Study=${studyId} แล้ว`);
-      }
-
-      function clearLatestPayload(){
-        removeStorageKey('HHA_HYDRATION_V2_RESEARCH_LAST');
-        updateAssistBoxes();
-        updatePreview();
-        showStatus('ล้าง research payload ล่าสุดแล้ว');
-      }
-
-      function clearLocalHistory(){
-        removeStorageKey('HHA_LAST_SUMMARY');
-        removeStorageKey('HHA_SUMMARY_HISTORY');
-        removeStorageKey('HHA_HYDRATION_V2_RESEARCH_HISTORY');
-        updateAssistBoxes();
-        updatePreview();
-        showStatus('ล้าง summary/research history ในเครื่องแล้ว');
-      }
-
-      function handleFormChange(){
-        updateAssistBoxes();
-        updatePreview();
-      }
-
-      modeInput.value = qs.get('mode') || 'quick';
-      typeInput.value = qs.get('type') || 'solo';
-      runInput.value = qs.get('run') || 'play';
-      diffInput.value = qs.get('diff') || 'normal';
-      sessionInput.value = qs.get('session') || '1';
-      weekInput.value = qs.get('week') || '1';
-      pidInput.value = qs.get('pid') || '';
-      studyIdInput.value = qs.get('studyId') || '';
-      seedInput.value = qs.get('seed') || String(Date.now());
-      hubInput.value = FIXED_HUB_URL;
-
-      autofillProgressIfNoExplicitSession();
-      updateAssistBoxes();
-
-      [
-        modeInput, typeInput, runInput, diffInput,
-        sessionInput, weekInput, pidInput, studyIdInput,
-        seedInput, hubInput, notesInput
-      ].forEach(el => {
-        el.addEventListener('input', handleFormChange);
-        el.addEventListener('change', handleFormChange);
-      });
-
-      document.querySelectorAll('[data-preset]').forEach(btn => {
-        btn.addEventListener('click', () => applyPreset(btn.dataset.preset));
-      });
-
-      startBtn.addEventListener('click', () => {
-        const url = buildRunUrl();
-        const modeText = `${modeInput.value} / ${typeInput.value} / ${runInput.value}`;
-        const extra = typeInput.value === 'team'
-          ? ' • เช็ก social score / contribution / mission'
-          : '';
-        showStatus(`กำลังเข้า ${modeText}${extra}`);
-        window.location.href = url;
-      });
-
-      copyUrlBtn.addEventListener('click', async () => {
-        const url = buildRunUrl();
-        try{
-          await navigator.clipboard.writeText(url);
-          showStatus('คัดลอก URL เรียบร้อยแล้ว');
-        }catch(_){
-          showStatus('คัดลอก URL ไม่สำเร็จ ลองคัดลอกจากช่อง preview แทน');
-        }
-      });
-
-      randomSeedBtn.addEventListener('click', () => {
-        seedInput.value = String(Date.now());
-        updatePreview();
-      });
-
-      loadLastBtn.addEventListener('click', () => loadFromLastPayload(false));
-      loadNextBtn.addEventListener('click', () => loadFromLastPayload(true));
-
-      resetProgressBtn.addEventListener('click', () => {
-        const ok = window.confirm(`รีเซ็ต progress ของ PID=${safePid()} / Study=${safeStudyId()} ใช่หรือไม่`);
-        if (!ok) return;
-        resetProgressForCurrentScope();
-      });
-
-      clearLatestBtn.addEventListener('click', () => {
-        const ok = window.confirm('ล้าง research payload ล่าสุดใช่หรือไม่');
-        if (!ok) return;
-        clearLatestPayload();
-      });
-
-      clearHistoryBtn.addEventListener('click', () => {
-        const ok = window.confirm('ล้าง local summary/research history ใช่หรือไม่');
-        if (!ok) return;
-        clearLocalHistory();
-      });
-
-      goDashboardBtn.addEventListener('click', () => {
-        const target = new URL('./hydration-v2-dashboard.html', window.location.href);
-        target.searchParams.set('hub', FIXED_HUB_URL);
-        target.searchParams.set('launcher', './hydration-v2.html');
-        window.location.href = target.toString();
-      });
-
-      backHubBtn.addEventListener('click', () => {
-        window.location.href = FIXED_HUB_URL;
-      });
-
-      updatePreview();
+      document.getElementById('startBtn').addEventListener('click', goStart);
+      document.getElementById('hubBtn').addEventListener('click', () => location.href = defaultHub());
     })();
   </script>
 </body>
