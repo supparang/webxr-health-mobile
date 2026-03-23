@@ -1,6 +1,6 @@
 // === /herohealth/nutrition-groups/js/groups.content.js ===
 // Content bank for Nutrition Groups
-// PATCH v20260318-GROUPS-RUN-FULL
+// PATCH v20260323-GROUPS-CHILDFRIENDLY-A
 
 export const FOOD_GROUPS = {
   m1: { id: 'm1', label: 'หมู่ 1 โปรตีน', emoji: '🥚', short: 'โปรตีน' },
@@ -47,10 +47,11 @@ export const COMPARE_PAIRS = [
     betterId: 'banana',
     betterText: 'กล้วย',
     prompt: 'ข้อไหนดีกว่าสำหรับร่างกาย',
-    correctReason: 'เพราะเป็นผลไม้และหวานธรรมชาติมากกว่า',
+    correctReason: 'มีประโยชน์กว่า',
+    correctReasonHelper: 'และหวานน้อยกว่า',
     distractors: [
-      'เพราะมีสีเหลืองกว่า',
-      'เพราะห่อกระดาษน้อยกว่า'
+      { label: 'สีสวยกว่า', helper: 'แต่ไม่ใช่เหตุผลเรื่องสุขภาพ' },
+      { label: 'ถือสบายกว่า', helper: 'แต่ไม่ใช่เหตุผลเรื่องสุขภาพ' }
     ]
   },
   {
@@ -60,10 +61,11 @@ export const COMPARE_PAIRS = [
     betterId: 'milk',
     betterText: 'นมจืด',
     prompt: 'ข้อไหนดีกว่าสำหรับร่างกาย',
-    correctReason: 'เพราะมีประโยชน์กว่าและหวานน้อยกว่า',
+    correctReason: 'มีประโยชน์กว่า',
+    correctReasonHelper: 'และหวานน้อยกว่า',
     distractors: [
-      'เพราะมีฟองน้อยกว่า',
-      'เพราะขวดใหญ่กว่า'
+      { label: 'มีฟองน้อยกว่า', helper: 'แต่ไม่ใช่เหตุผลเรื่องสุขภาพ' },
+      { label: 'แก้วใหญ่กว่า', helper: 'แต่ไม่ใช่เหตุผลเรื่องสุขภาพ' }
     ]
   },
   {
@@ -73,10 +75,11 @@ export const COMPARE_PAIRS = [
     betterId: 'watermelon',
     betterText: 'แตงโม',
     prompt: 'ข้อไหนดีกว่าสำหรับร่างกาย',
-    correctReason: 'เพราะเป็นผลไม้และไม่ทอด',
+    correctReason: 'เป็นผลไม้',
+    correctReasonHelper: 'และไม่ทอด',
     distractors: [
-      'เพราะเสียงกรอบน้อยกว่า',
-      'เพราะถือยากกว่า'
+      { label: 'เสียงเบากว่า', helper: 'แต่ไม่ใช่เหตุผลเรื่องสุขภาพ' },
+      { label: 'จับง่ายกว่า', helper: 'แต่ไม่ใช่เหตุผลเรื่องสุขภาพ' }
     ]
   },
   {
@@ -86,10 +89,11 @@ export const COMPARE_PAIRS = [
     betterId: 'broccoli',
     betterText: 'บรอกโคลี',
     prompt: 'ข้อไหนดีกว่าสำหรับร่างกาย',
-    correctReason: 'เพราะเป็นผักและมีประโยชน์ต่อมื้ออาหาร',
+    correctReason: 'เป็นผัก',
+    correctReasonHelper: 'และดีต่อมื้ออาหาร',
     distractors: [
-      'เพราะแท่งเล็กกว่า',
-      'เพราะหยิบช้ากว่า'
+      { label: 'ชิ้นเล็กกว่า', helper: 'แต่ไม่ใช่เหตุผลเรื่องสุขภาพ' },
+      { label: 'หยิบช้ากว่า', helper: 'แต่ไม่ใช่เหตุผลเรื่องสุขภาพ' }
     ]
   }
 ];
