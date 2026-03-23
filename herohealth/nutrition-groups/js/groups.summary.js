@@ -1,34 +1,37 @@
 // === /herohealth/nutrition-groups/js/groups.summary.js ===
 // Summary builder for Nutrition Groups
-// PATCH v20260318-GROUPS-RUN-FULL
+// PATCH v20260323-GROUPS-SUMMARY-FIX-A
 
 import { formatPercent } from '../../shared/nutrition-common.js';
 import { FOOD_GROUPS } from './groups.content.js';
 import { buildGroupsMetrics } from './groups.metrics.js';
 
 function findBestGroup(sortByGroup) {
-  let bestId = 'm1';
+  let bestId = null;
   let bestPct = -1;
 
   Object.keys(sortByGroup).forEach(groupId => {
     const bucket = sortByGroup[groupId];
-    const pct = bucket.total ? bucket.correct / bucket.total : 0;
+    if (!bucket.total) return;
+    const pct = bucket.correct / bucket.total;
     if (pct > bestPct) {
       bestPct = pct;
       bestId = groupId;
     }
   });
 
-  return FOOD_GROUPS[bestId]?.label || '-';
+  return bestId ? FOOD_GROUPS[bestId]?.label || '-' : '-';
 }
 
 function findWeakGroup(sortByGroup) {
   let weakId = null;
   let weakPct = Infinity;
+  let hasTried = false;
 
   Object.keys(sortByGroup).forEach(groupId => {
     const bucket = sortByGroup[groupId];
     if (!bucket.total) return;
+    hasTried = true;
     const pct = bucket.correct / bucket.total;
     if (pct < weakPct) {
       weakPct = pct;
@@ -36,14 +39,19 @@ function findWeakGroup(sortByGroup) {
     }
   });
 
+  if (!hasTried) return '-';
+  if (weakPct >= 1) return '-';
+
   return weakId ? FOOD_GROUPS[weakId]?.label || '-' : '-';
 }
 
 function buildGroupNotes(sortByGroup) {
-  return Object.entries(sortByGroup).map(([groupId, bucket]) => {
-    const label = FOOD_GROUPS[groupId]?.label || groupId;
-    return `${label}: ${bucket.correct}/${bucket.total || 0}`;
-  });
+  return Object.entries(sortByGroup)
+    .filter(([, bucket]) => bucket.total > 0)
+    .map(([groupId, bucket]) => {
+      const label = FOOD_GROUPS[groupId]?.label || groupId;
+      return `${label}: ${bucket.correct}/${bucket.total}`;
+    });
 }
 
 export function buildGroupsSummary(ctx, stats, sessionMeta) {
@@ -59,15 +67,15 @@ export function buildGroupsSummary(ctx, stats, sessionMeta) {
   const weaknessNote =
     weakGroup && weakGroup !== '-'
       ? `ลองฝึกเพิ่มเรื่อง: ${weakGroup}`
-      : 'รอบนี้ยังไม่มีหมู่ที่อ่อนชัดเจน';
+      : 'รอบนี้ยังไม่มีหมู่ที่ต้องฝึกเพิ่มเป็นพิเศษ';
 
   const quizDelta = metrics.quizDelta;
   const quizDeltaText =
     quizDelta > 0
       ? `หลังเล่นทำ mini quiz ดีขึ้น +${quizDelta}`
       : quizDelta < 0
-        ? `หลังเล่น mini quiz ลดลง ${quizDelta}`
-        : 'mini quiz ก่อนและหลังเล่นใกล้เคียงกัน';
+      ? `หลังเล่น mini quiz ลดลง ${quizDelta}`
+      : 'mini quiz ก่อนและหลังเล่นใกล้เคียงกัน';
 
   return {
     title: 'สรุปผลเกม Groups',
@@ -80,11 +88,11 @@ export function buildGroupsSummary(ctx, stats, sessionMeta) {
       { label: 'Compare ถูก', value: `${stats.compare.correct}/${stats.compare.total} (${formatPercent(stats.compare.correct, stats.compare.total)})` },
       { label: 'Reason ถูก', value: `${stats.reason.correct}/${stats.reason.total} (${formatPercent(stats.reason.correct, stats.reason.total)})` },
       { label: 'Retry แก้ได้', value: `${stats.retry.correct}/${stats.retry.total}` },
-      { label: 'หมู่ที่แม่นที่สุด', value: bestGroup },
+      { label: 'หมู่ที่แม่นที่สุด', value: bestGroup || '-' },
       { label: 'หมู่ที่ควรฝึกเพิ่ม', value: weakGroup || '-' }
     ],
     notes: [
-      `หมู่ที่หนูทำได้ดี: ${bestGroup}`,
+      `หมู่ที่หนูทำได้ดี: ${bestGroup || '-'}`,
       weaknessNote,
       retryNote,
       quizDeltaText,
