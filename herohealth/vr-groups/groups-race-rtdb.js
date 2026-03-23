@@ -1,12 +1,21 @@
 // === /herohealth/vr-groups/groups-race-rtdb.js ===
-// FULL PATCH v20260319-GROUPS-RACE-RTDB-V2-REMATCH-DISCONNECT
+// FULL PATCH v20260323-GROUPS-RACE-RTDB-WAITFIREBASE-HARDENED
 
 const ROOT = 'hha-battle/groups/raceRooms';
 
-function getDb(){
-  const db = window.HHA_FIREBASE_DB;
-  if(!db) throw new Error('Firebase not initialized');
-  return db;
+async function getDb(){
+  if (window.HHA_FIREBASE_DB) return window.HHA_FIREBASE_DB;
+
+  if (typeof window.HHA_WAIT_FIREBASE === 'function') {
+    try {
+      const db = await window.HHA_WAIT_FIREBASE(4000);
+      if (db) return db;
+    } catch (_) {}
+  }
+
+  if (window.HHA_FIREBASE_DB) return window.HHA_FIREBASE_DB;
+
+  throw new Error('Firebase not initialized');
 }
 
 export function makeRacePlayerId(){
@@ -21,43 +30,43 @@ function makeRoomCode(){
   return normalizeRoomCode(Math.random().toString(36).slice(2, 8));
 }
 
-function roomRef(roomCode){
-  const db = getDb();
+async function roomRef(roomCode){
+  const db = await getDb();
   return db.ref(`${ROOT}/${roomCode}`);
 }
 
-function playersRef(roomCode){
-  const db = getDb();
+async function playersRef(roomCode){
+  const db = await getDb();
   return db.ref(`${ROOT}/${roomCode}/players`);
 }
 
-function playerRef(roomCode, playerId){
-  const db = getDb();
+async function playerRef(roomCode, playerId){
+  const db = await getDb();
   return db.ref(`${ROOT}/${roomCode}/players/${playerId}`);
 }
 
-function matchRef(roomCode){
-  const db = getDb();
+async function matchRef(roomCode){
+  const db = await getDb();
   return db.ref(`${ROOT}/${roomCode}/match`);
 }
 
-function scoresRef(roomCode){
-  const db = getDb();
+async function scoresRef(roomCode){
+  const db = await getDb();
   return db.ref(`${ROOT}/${roomCode}/scores`);
 }
 
-function scoreRef(roomCode, playerId){
-  const db = getDb();
+async function scoreRef(roomCode, playerId){
+  const db = await getDb();
   return db.ref(`${ROOT}/${roomCode}/scores/${playerId}`);
 }
 
-function rematchRef(roomCode){
-  const db = getDb();
+async function rematchRef(roomCode){
+  const db = await getDb();
   return db.ref(`${ROOT}/${roomCode}/rematch`);
 }
 
-function connectedRef(){
-  const db = getDb();
+async function connectedRef(){
+  const db = await getDb();
   return db.ref('.info/connected');
 }
 
@@ -71,7 +80,7 @@ function getReadyCount(data){
 
 export async function createRaceRoom({ hostName, playerId, diff='normal', timeSec=60, view='mobile' }){
   const roomCode = makeRoomCode();
-  const ref = roomRef(roomCode);
+  const ref = await roomRef(roomCode);
 
   await ref.set({
     meta: {
@@ -123,14 +132,14 @@ export async function createRaceRoom({ hostName, playerId, diff='normal', timeSe
 }
 
 export async function joinRaceRoom({ roomCode, playerId, playerName }){
-  const ref = roomRef(roomCode);
+  const ref = await roomRef(roomCode);
   const snap = await ref.once('value');
   const data = snap.val();
 
   if(!data) throw new Error('ไม่พบห้องนี้');
 
   if(isRaceRoomStale(data)){
-    await roomRef(roomCode).remove();
+    await ref.remove();
     throw new Error('ห้องนี้หมดอายุแล้ว');
   }
 
@@ -143,7 +152,8 @@ export async function joinRaceRoom({ roomCode, playerId, playerName }){
 
   if(count >= 2) throw new Error('ห้องเต็มแล้ว');
 
-  await playersRef(roomCode).child(playerId).set({
+  const pRef = await playersRef(roomCode);
+  await pRef.child(playerId).set({
     playerId,
     name: String(playerName || 'Guest'),
     role: 'guest',
@@ -153,44 +163,79 @@ export async function joinRaceRoom({ roomCode, playerId, playerName }){
     lastSeenAt: Date.now()
   });
 
-  await scoresRef(roomCode).child(playerId).set({
+  const sRef = await scoresRef(roomCode);
+  await sRef.child(playerId).set({
     score: 0,
     combo: 0,
     acc: 0,
     updatedAt: Date.now()
   });
 
-  await roomRef(roomCode).child('meta/updatedAt').set(Date.now());
+  await ref.child('meta/updatedAt').set(Date.now());
   return true;
 }
 
 export function watchRaceRoom(roomCode, onValue){
-  const ref = roomRef(roomCode);
-  const fn = snap => onValue?.(snap.val() || null);
-  ref.on('value', fn);
-  return () => ref.off('value', fn);
+  let ref = null;
+  let fn = null;
+  let stopped = false;
+
+  (async ()=>{
+    try{
+      ref = await roomRef(roomCode);
+      if(stopped) return;
+      fn = snap => onValue?.(snap.val() || null);
+      ref.on('value', fn);
+    }catch(err){
+      console.error('[watchRaceRoom]', err);
+      onValue?.(null);
+    }
+  })();
+
+  return () => {
+    stopped = true;
+    try{
+      if(ref && fn) ref.off('value', fn);
+    }catch(_){}
+  };
 }
 
 export function watchRaceScores(roomCode, onValue){
-  const ref = scoresRef(roomCode);
-  const fn = snap => onValue?.(snap.val() || {});
-  ref.on('value', fn);
-  return () => ref.off('value', fn);
-}
+  let ref = null;
+  let fn = null;
+  let stopped = false;
 
-export async function readRaceRoom(roomCode){
-  const snap = await roomRef(roomCode).once('value');
-  return snap.val() || null;
+  (async ()=>{
+    try{
+      ref = await scoresRef(roomCode);
+      if(stopped) return;
+      fn = snap => onValue?.(snap.val() || {});
+      ref.on('value', fn);
+    }catch(err){
+      console.error('[watchRaceScores]', err);
+      onValue?.({});
+    }
+  })();
+
+  return () => {
+    stopped = true;
+    try{
+      if(ref && fn) ref.off('value', fn);
+    }catch(_){}
+  };
 }
 
 export async function markReady(roomCode, playerId, ready=true){
-  await playerRef(roomCode, playerId).child('ready').set(!!ready);
-  await playerRef(roomCode, playerId).child('lastSeenAt').set(Date.now());
-  await roomRef(roomCode).child('meta/updatedAt').set(Date.now());
+  const pRef = await playerRef(roomCode, playerId);
+  await pRef.child('ready').set(!!ready);
+  await pRef.child('lastSeenAt').set(Date.now());
+
+  const ref = await roomRef(roomCode);
+  await ref.child('meta/updatedAt').set(Date.now());
 }
 
 export async function startRaceMatch(roomCode){
-  const ref = roomRef(roomCode);
+  const ref = await roomRef(roomCode);
   const snap = await ref.once('value');
   const data = snap.val();
   if(!data) throw new Error('ไม่พบห้อง');
@@ -210,9 +255,11 @@ export async function startRaceMatch(roomCode){
     resetScores[id] = { score: 0, combo: 0, acc: 0, updatedAt: now };
   });
 
-  await scoresRef(roomCode).set(resetScores);
+  const sRef = await scoresRef(roomCode);
+  await sRef.set(resetScores);
 
-  await matchRef(roomCode).update({
+  const mRef = await matchRef(roomCode);
+  await mRef.update({
     started: true,
     countdownStartAt: now,
     startedAt: now + 3000,
@@ -221,46 +268,57 @@ export async function startRaceMatch(roomCode){
     endSummary: null
   });
 
-  await rematchRef(roomCode).set({
+  const rRef = await rematchRef(roomCode);
+  await rRef.set({
     requestedBy: {},
     readyCount: 0,
     updatedAt: now
   });
 
-  await roomRef(roomCode).child('meta/updatedAt').set(now);
+  await ref.child('meta/updatedAt').set(now);
+}
+
+export async function readRaceRoom(roomCode){
+  const ref = await roomRef(roomCode);
+  const snap = await ref.once('value');
+  return snap.val() || null;
 }
 
 export async function pushRaceScore(roomCode, playerId, patch = {}){
-  await scoreRef(roomCode, playerId).update({
+  const sRef = await scoreRef(roomCode, playerId);
+  await sRef.update({
     ...patch,
     updatedAt: Date.now()
   });
 }
 
 export async function finishRaceMatch(roomCode, payload = {}){
-  await matchRef(roomCode).update({
+  const mRef = await matchRef(roomCode);
+  await mRef.update({
     endedAt: Date.now(),
     endSummary: payload || {}
   });
-  await roomRef(roomCode).child('meta/updatedAt').set(Date.now());
+
+  const ref = await roomRef(roomCode);
+  await ref.child('meta/updatedAt').set(Date.now());
 }
 
 export async function requestRaceRematch(roomCode, playerId){
-  const db = getDb();
   const room = await readRaceRoom(roomCode);
   if(!room) throw new Error('ไม่พบห้อง');
 
   const players = room.players || {};
   const ids = Object.keys(players);
 
-  await db.ref(`${ROOT}/${roomCode}/rematch/requestedBy/${playerId}`).set(true);
+  const rRef = await rematchRef(roomCode);
+  await rRef.child('requestedBy').child(playerId).set(true);
 
-  const snap = await rematchRef(roomCode).once('value');
+  const snap = await rRef.once('value');
   const rematch = snap.val() || {};
   const requestedBy = rematch.requestedBy || {};
   const readyCount = ids.filter(id => requestedBy[id] === true).length;
 
-  await rematchRef(roomCode).update({
+  await rRef.update({
     readyCount,
     updatedAt: Date.now()
   });
@@ -287,9 +345,11 @@ export async function resetRaceForRematch(roomCode){
     resetScores[id] = { score: 0, combo: 0, acc: 0, updatedAt: now };
   });
 
-  await scoresRef(roomCode).set(resetScores);
+  const sRef = await scoresRef(roomCode);
+  await sRef.set(resetScores);
 
-  await playersRef(roomCode).transaction((players)=>{
+  const pRef = await playersRef(roomCode);
+  await pRef.transaction((players)=>{
     const next = players || {};
     Object.keys(next).forEach(id=>{
       next[id] = {
@@ -304,7 +364,8 @@ export async function resetRaceForRematch(roomCode){
 
   const currentRound = Number(room.match?.roundNo || 1);
 
-  await matchRef(roomCode).update({
+  const mRef = await matchRef(roomCode);
+  await mRef.update({
     started: true,
     countdownStartAt: now,
     startedAt: now + 3000,
@@ -314,13 +375,15 @@ export async function resetRaceForRematch(roomCode){
     endSummary: null
   });
 
-  await rematchRef(roomCode).set({
+  const rRef = await rematchRef(roomCode);
+  await rRef.set({
     requestedBy: {},
     readyCount: 0,
     updatedAt: now
   });
 
-  await roomRef(roomCode).child('meta/updatedAt').set(now);
+  const ref = await roomRef(roomCode);
+  await ref.child('meta/updatedAt').set(now);
 }
 
 export async function leaveRaceRoom(roomCode, playerId){
@@ -331,17 +394,21 @@ export async function leaveRaceRoom(roomCode, playerId){
   const leaving = players[playerId];
   if(!leaving) return;
 
-  await playerRef(roomCode, playerId).remove();
-  await scoreRef(roomCode, playerId).remove();
+  const pRef = await playerRef(roomCode, playerId);
+  await pRef.remove();
 
-  const remainingSnap = await roomRef(roomCode).once('value');
+  const sRef = await scoreRef(roomCode, playerId);
+  await sRef.remove();
+
+  const ref = await roomRef(roomCode);
+  const remainingSnap = await ref.once('value');
   const remaining = remainingSnap.val();
   const count = Object.keys(remaining?.players || {}).length;
   const remainingPlayers = remaining?.players || {};
   const onlineCount = Object.values(remainingPlayers).filter(p => p && p.online !== false).length;
 
   if(count === 0 || onlineCount === 0){
-    await roomRef(roomCode).remove();
+    await ref.remove();
     return;
   }
 
@@ -349,35 +416,50 @@ export async function leaveRaceRoom(roomCode, playerId){
   if(hostId === playerId){
     const nextHostId = Object.keys(remaining.players || {})[0] || '';
     if(nextHostId){
-      await roomRef(roomCode).child('meta/hostPlayerId').set(nextHostId);
-      await roomRef(roomCode).child('meta/hostName').set(remaining.players[nextHostId]?.name || 'Host');
-      await playerRef(roomCode, nextHostId).child('role').set('host');
+      await ref.child('meta/hostPlayerId').set(nextHostId);
+      await ref.child('meta/hostName').set(remaining.players[nextHostId]?.name || 'Host');
+      const nextPRef = await playerRef(roomCode, nextHostId);
+      await nextPRef.child('role').set('host');
     }
   }
 
-  await roomRef(roomCode).child('meta/updatedAt').set(Date.now());
+  await ref.child('meta/updatedAt').set(Date.now());
 }
 
 export function bindRacePresence(roomCode, playerId){
-  const pRef = playerRef(roomCode, playerId);
-  const cRef = connectedRef();
+  let stop = false;
+  let cRef = null;
+  let handle = null;
 
-  const handle = snap => {
-    if(snap.val() !== true) return;
+  (async ()=>{
+    try{
+      const pRef = await playerRef(roomCode, playerId);
+      cRef = await connectedRef();
 
-    pRef.child('online').onDisconnect().set(false);
-    pRef.child('lastSeenAt').onDisconnect().set(Date.now());
+      handle = snap => {
+        if(stop) return;
+        if(snap.val() !== true) return;
 
-    pRef.update({
-      online: true,
-      lastSeenAt: Date.now()
-    }).catch(()=>{});
-  };
+        pRef.child('online').onDisconnect().set(false);
+        pRef.child('lastSeenAt').onDisconnect().set(Date.now());
 
-  cRef.on('value', handle);
+        pRef.update({
+          online: true,
+          lastSeenAt: Date.now()
+        }).catch(()=>{});
+      };
+
+      cRef.on('value', handle);
+    }catch(err){
+      console.error('[bindRacePresence]', err);
+    }
+  })();
 
   return () => {
-    cRef.off('value', handle);
+    stop = true;
+    try{
+      if(cRef && handle) cRef.off('value', handle);
+    }catch(_){}
   };
 }
 
@@ -395,7 +477,8 @@ export async function cleanupRaceRoomIfStale(roomCode){
   if(!room) return { removed:false, reason:'not-found' };
 
   if(isRaceRoomStale(room)){
-    await roomRef(roomCode).remove();
+    const ref = await roomRef(roomCode);
+    await ref.remove();
     return { removed:true, reason:'stale' };
   }
 
