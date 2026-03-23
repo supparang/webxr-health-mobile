@@ -1,6 +1,6 @@
 <!-- === /herohealth/vr-groups/groups-race-lobby.html ===
 Groups Race Lobby
-FULL PATCH v20260319-GROUPS-RACE-LOBBY-V2
+FULL PATCH v20260323-GROUPS-RACE-LOBBY-HARDENED-RUNPARAMS
 Requires:
 - ../firebase-config.js
 - ./groups-race-rtdb.js
@@ -191,7 +191,7 @@ Requires:
       <div class="kicker">🏁 GROUPS RACE • ONLINE LOBBY</div>
       <h1>เข้าแข่ง Race 2 คน</h1>
       <div class="sub">
-        สร้างห้องหรือเข้าห้องด้วยรหัส จากนั้นรอผู้เล่นอีกคน ระบบจะพาเข้าเกมแข่งเมื่อเจ้าของห้องกดเริ่ม หรือเริ่มรอบใหม่เมื่อทุกคนกด Rematch
+        สร้างห้องหรือเข้าห้องด้วยรหัส จากนั้นรอผู้เล่นอีกคน ระบบจะพาเข้าเกมแข่งเมื่อเจ้าของห้องกดเริ่ม
       </div>
 
       <div class="grid">
@@ -307,6 +307,7 @@ Requires:
     let unbindPresence = null;
     let lastRoomData = null;
     let inRematchMode = false;
+    let openingRun = false;
 
     function setStatus(text, tone=''){
       statusBox.textContent = text;
@@ -317,13 +318,30 @@ Requires:
       location.assign(HUB);
     }
 
-    function openRaceRun(roomCode, playerId){
+    function buildRaceRunUrl(roomCode, playerId){
       const url = new URL('./groups-race.html', location.href);
-      url.searchParams.set('room', roomCode);
-      url.searchParams.set('playerId', playerId);
+      url.searchParams.set('room', String(roomCode || ''));
+      url.searchParams.set('playerId', String(playerId || ''));
       url.searchParams.set('view', VIEW);
       url.searchParams.set('hub', HUB);
-      location.assign(url.toString());
+      return url.toString();
+    }
+
+    function openRaceRun(roomCode, playerId){
+      if(openingRun) return;
+
+      const room = String(roomCode || '').trim();
+      const pid = String(playerId || '').trim();
+
+      if(!room || !pid){
+        setStatus(`เปิดเกมไม่ได้\nroom=${room || '-'}\nplayerId=${pid || '-'}`, 'bad');
+        return;
+      }
+
+      openingRun = true;
+      const href = buildRaceRunUrl(room, pid);
+      console.log('[groups-race-lobby] open run ->', href);
+      location.assign(href);
     }
 
     function safeName(v, fallback){
@@ -336,6 +354,21 @@ Requires:
       try{ unbindPresence?.(); }catch(_){}
       unwatch = null;
       unbindPresence = null;
+    }
+
+    async function waitForFirebaseReady(timeoutMs = 4000){
+      const started = Date.now();
+      while(Date.now() - started < timeoutMs){
+        if(window.HHA_FIREBASE_DB) return true;
+        if(typeof window.HHA_WAIT_FIREBASE === 'function'){
+          try{
+            const db = await window.HHA_WAIT_FIREBASE(300);
+            if(db) return true;
+          }catch(_){}
+        }
+        await new Promise(r => setTimeout(r, 80));
+      }
+      return !!window.HHA_FIREBASE_DB;
     }
 
     function renderPlayersText(data){
@@ -378,7 +411,12 @@ Requires:
 
       if(started){
         inRematchMode = false;
-        setStatus(lines.concat(['กำลังเข้าเกม...']).join('\n'), 'good');
+        setStatus(lines.concat([
+          '',
+          `กำลังเข้าเกม...`,
+          `room=${currentRoomCode}`,
+          `playerId=${currentPlayerId || '-'}`
+        ]).join('\n'), 'good');
         openRaceRun(currentRoomCode, currentPlayerId);
         return;
       }
@@ -395,11 +433,6 @@ Requires:
           btnStartRoom.disabled = true;
         }
 
-        if(currentRole === 'guest' && !inRematchMode){
-          lines.push('');
-          lines.push('กดเข้าห้องเดิมอีกครั้งได้ หรือรอ Host');
-        }
-
         setStatus(lines.concat([
           '',
           `Rematch ready ${rematchReady}/${totalPlayers}`,
@@ -407,7 +440,6 @@ Requires:
             ? (btnStartRoom.disabled ? 'รอให้ทุกคนกด Rematch' : 'ทุกคนพร้อมแล้ว กดเริ่มใหม่ได้')
             : 'กด Rematch แล้วรอ Host เริ่ม'
         ]).join('\n'), 'warn');
-
         return;
       }
 
@@ -441,6 +473,11 @@ Requires:
     btnCreate.addEventListener('click', async ()=>{
       try{
         btnCreate.disabled = true;
+        setStatus('กำลังเตรียม Firebase...', 'warn');
+
+        const ok = await waitForFirebaseReady(4000);
+        if(!ok) throw new Error('Firebase not initialized');
+
         setStatus('กำลังสร้างห้อง...', 'warn');
 
         const playerName = safeName(hostName.value, 'Host');
@@ -457,6 +494,7 @@ Requires:
         currentPlayerId = playerId;
         currentRole = 'host';
         inRematchMode = false;
+        openingRun = false;
 
         roomBox.hidden = false;
         roomCodeEl.textContent = roomCode;
@@ -464,7 +502,7 @@ Requires:
         await markReady(roomCode, playerId, true);
         await attachWatch(roomCode);
 
-        setStatus(`สร้างห้องสำเร็จ\nRoom: ${roomCode}\nกำลังรอผู้เล่นอีกคน...`, 'good');
+        setStatus(`สร้างห้องสำเร็จ\nRoom: ${roomCode}\nplayerId=${playerId}\nกำลังรอผู้เล่นอีกคน...`, 'good');
       }catch(err){
         console.error(err);
         setStatus(`สร้างห้องไม่สำเร็จ\n${err?.message || err}`, 'bad');
@@ -476,6 +514,11 @@ Requires:
     btnJoin.addEventListener('click', async ()=>{
       try{
         btnJoin.disabled = true;
+        setStatus('กำลังเตรียม Firebase...', 'warn');
+
+        const ok = await waitForFirebaseReady(4000);
+        if(!ok) throw new Error('Firebase not initialized');
+
         setStatus('กำลังเข้าห้อง...', 'warn');
 
         const roomCode = normalizeRoomCode(joinRoom.value);
@@ -498,6 +541,7 @@ Requires:
         currentPlayerId = playerId;
         currentRole = 'guest';
         inRematchMode = false;
+        openingRun = false;
 
         roomBox.hidden = false;
         roomCodeEl.textContent = roomCode;
@@ -506,7 +550,7 @@ Requires:
         await markReady(roomCode, playerId, true);
         await attachWatch(roomCode);
 
-        setStatus(`เข้าห้องสำเร็จ\nRoom: ${roomCode}\nกำลังรอ Host กดเริ่ม`, 'good');
+        setStatus(`เข้าห้องสำเร็จ\nRoom: ${roomCode}\nplayerId=${playerId}\nกำลังรอ Host กดเริ่ม`, 'good');
       }catch(err){
         console.error(err);
         setStatus(`เข้าห้องไม่สำเร็จ\n${err?.message || err}`, 'bad');
@@ -525,11 +569,13 @@ Requires:
 
         if(ended){
           setStatus('กำลังเริ่มรอบใหม่...', 'warn');
+          openingRun = false;
           await resetRaceForRematch(currentRoomCode);
           return;
         }
 
-        setStatus('กำลังเริ่มการแข่งขัน...', 'warn');
+        setStatus(`กำลังเริ่มการแข่งขัน...\nroom=${currentRoomCode}\nplayerId=${currentPlayerId || '-'}`, 'warn');
+        openingRun = false;
         await startRaceMatch(currentRoomCode);
       }catch(err){
         console.error(err);
@@ -577,6 +623,10 @@ Requires:
 
     document.getElementById('btnHub1').addEventListener('click', leaveThenHub);
     document.getElementById('btnHub2').addEventListener('click', leaveThenHub);
+
+    window.addEventListener('pageshow', ()=>{
+      openingRun = false;
+    });
   </script>
 </body>
 </html>
