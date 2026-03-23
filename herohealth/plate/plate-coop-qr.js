@@ -42,7 +42,6 @@ export function renderRoomQr(mount, joinUrl, opts = {}){
   const size = Math.max(160, Math.min(320, Number(opts.size || 220)));
   const label = String(opts.label || 'Scan to Join');
 
-  // ใช้บริการ QR image แบบง่ายสำหรับ prototype
   const qrSrc =
     `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(url)}`;
 
