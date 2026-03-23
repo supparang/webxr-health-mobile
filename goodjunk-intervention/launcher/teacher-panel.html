@@ -1,0 +1,711 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>GoodJunk Intervention — Teacher Panel</title>
+  <meta name="color-scheme" content="dark light" />
+  <style>
+    :root{
+      --bg1:#020617;
+      --bg2:#0f172a;
+      --panel:rgba(15,23,42,.78);
+      --panel-2:rgba(2,6,23,.78);
+      --stroke:rgba(148,163,184,.18);
+      --text:#e5e7eb;
+      --muted:#94a3b8;
+
+      --good:#22c55e;
+      --warn:#f59e0b;
+      --bad:#ef4444;
+      --blue:#38bdf8;
+      --violet:#a78bfa;
+
+      --shadow:0 20px 56px rgba(0,0,0,.28);
+      --radius:22px;
+    }
+
+    *{ box-sizing:border-box; }
+    html,body{
+      margin:0;
+      min-height:100%;
+      font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(circle at top, rgba(56,189,248,.10), transparent 28%),
+        radial-gradient(circle at right top, rgba(167,139,250,.10), transparent 26%),
+        linear-gradient(180deg, var(--bg2), var(--bg1));
+    }
+
+    body{
+      padding:
+        calc(16px + env(safe-area-inset-top,0px))
+        calc(16px + env(safe-area-inset-right,0px))
+        calc(16px + env(safe-area-inset-bottom,0px))
+        calc(16px + env(safe-area-inset-left,0px));
+    }
+
+    .shell{
+      width:min(1280px, 100%);
+      margin:0 auto;
+      display:grid;
+      gap:14px;
+    }
+
+    .hero{
+      border:1px solid var(--stroke);
+      background:linear-gradient(180deg, rgba(2,6,23,.84), rgba(15,23,42,.74));
+      border-radius:28px;
+      box-shadow:var(--shadow);
+      padding:18px;
+    }
+
+    .eyebrow{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:7px 12px;
+      border-radius:999px;
+      border:1px solid rgba(56,189,248,.22);
+      background:rgba(56,189,248,.10);
+      color:#7dd3fc;
+      font-weight:900;
+      font-size:13px;
+      margin-bottom:10px;
+    }
+
+    .title{
+      margin:0;
+      font-size:clamp(28px, 4vw, 42px);
+      line-height:1.08;
+      font-weight:1000;
+    }
+
+    .sub{
+      margin:8px 0 0;
+      color:var(--muted);
+      line-height:1.65;
+      font-size:14px;
+      max-width:960px;
+    }
+
+    .toolbar{
+      display:grid;
+      grid-template-columns:1.35fr 1fr 1fr auto auto auto;
+      gap:10px;
+      align-items:center;
+    }
+
+    .panel{
+      border:1px solid var(--stroke);
+      background:var(--panel);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+      padding:14px;
+      backdrop-filter:blur(10px);
+    }
+
+    .control{
+      width:100%;
+      min-height:44px;
+      border-radius:14px;
+      border:1px solid var(--stroke);
+      background:rgba(2,6,23,.72);
+      color:var(--text);
+      padding:0 12px;
+      font-size:14px;
+      outline:none;
+    }
+
+    .btn{
+      min-height:44px;
+      border-radius:14px;
+      border:1px solid var(--stroke);
+      background:rgba(2,6,23,.72);
+      color:var(--text);
+      padding:0 14px;
+      font-weight:900;
+      cursor:pointer;
+      transition:.14s ease;
+    }
+    .btn:hover{ transform:translateY(-1px); }
+    .btn.primary{
+      background:rgba(56,189,248,.14);
+      color:#dbeafe;
+      border-color:rgba(56,189,248,.25);
+    }
+    .btn.warn{
+      background:rgba(245,158,11,.12);
+      color:#fde68a;
+      border-color:rgba(245,158,11,.22);
+    }
+
+    .summary-grid{
+      display:grid;
+      grid-template-columns:repeat(6,minmax(0,1fr));
+      gap:10px;
+    }
+
+    .stat{
+      border:1px solid var(--stroke);
+      border-radius:18px;
+      background:var(--panel-2);
+      padding:14px 12px;
+    }
+
+    .stat .label{
+      color:var(--muted);
+      font-size:12px;
+      font-weight:900;
+      margin-bottom:8px;
+    }
+
+    .stat .value{
+      font-size:28px;
+      font-weight:1000;
+      line-height:1;
+    }
+
+    .status-line{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      align-items:center;
+      color:var(--muted);
+      font-size:13px;
+    }
+
+    .list-head{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-bottom:10px;
+    }
+
+    .list-title{
+      margin:0;
+      font-size:20px;
+      font-weight:1000;
+    }
+
+    .cards{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:12px;
+    }
+
+    .card{
+      border:1px solid var(--stroke);
+      border-radius:20px;
+      background:linear-gradient(180deg, rgba(15,23,42,.92), rgba(2,6,23,.86));
+      padding:14px;
+      box-shadow:0 16px 40px rgba(0,0,0,.22);
+    }
+
+    .card-top{
+      display:flex;
+      justify-content:space-between;
+      align-items:flex-start;
+      gap:10px;
+      margin-bottom:10px;
+    }
+
+    .card-name{
+      font-size:18px;
+      font-weight:1000;
+      line-height:1.2;
+      margin:0 0 4px;
+    }
+
+    .card-sub{
+      color:var(--muted);
+      font-size:13px;
+      line-height:1.5;
+    }
+
+    .chips{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      margin:8px 0 10px;
+    }
+
+    .chip{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      min-height:32px;
+      border-radius:999px;
+      padding:0 11px;
+      font-size:12px;
+      font-weight:900;
+      border:1px solid var(--stroke);
+      background:rgba(255,255,255,.04);
+      color:var(--text);
+    }
+
+    .chip.good{ border-color:rgba(34,197,94,.24); background:rgba(34,197,94,.10); color:#dcfce7; }
+    .chip.warn{ border-color:rgba(245,158,11,.24); background:rgba(245,158,11,.10); color:#fde68a; }
+    .chip.bad{ border-color:rgba(239,68,68,.24); background:rgba(239,68,68,.10); color:#fecaca; }
+    .chip.blue{ border-color:rgba(56,189,248,.24); background:rgba(56,189,248,.10); color:#dbeafe; }
+    .chip.violet{ border-color:rgba(167,139,250,.24); background:rgba(167,139,250,.10); color:#ede9fe; }
+
+    .kv{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:8px;
+    }
+
+    .kvi{
+      border:1px solid var(--stroke);
+      border-radius:14px;
+      padding:10px;
+      background:rgba(255,255,255,.03);
+    }
+
+    .kvi .k{
+      color:var(--muted);
+      font-size:11px;
+      font-weight:900;
+      margin-bottom:6px;
+    }
+
+    .kvi .v{
+      color:var(--text);
+      font-size:14px;
+      font-weight:900;
+      line-height:1.35;
+      word-break:break-word;
+    }
+
+    .mono{
+      font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+      font-size:12px;
+    }
+
+    .empty{
+      border:1px dashed var(--stroke);
+      border-radius:18px;
+      padding:22px 16px;
+      color:var(--muted);
+      text-align:center;
+      background:rgba(255,255,255,.02);
+    }
+
+    .footer-note{
+      color:var(--muted);
+      font-size:12px;
+      line-height:1.65;
+    }
+
+    @media (max-width:1080px){
+      .toolbar{
+        grid-template-columns:1fr 1fr 1fr;
+      }
+      .summary-grid{
+        grid-template-columns:repeat(3,minmax(0,1fr));
+      }
+      .cards{
+        grid-template-columns:1fr;
+      }
+    }
+
+    @media (max-width:680px){
+      .toolbar{
+        grid-template-columns:1fr;
+      }
+      .summary-grid{
+        grid-template-columns:repeat(2,minmax(0,1fr));
+      }
+      .kv{
+        grid-template-columns:1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <section class="hero">
+      <div class="eyebrow">👩‍🏫 Teacher Panel • Local Dashboard</div>
+      <h1 class="title">GoodJunk Intervention Flow Monitor</h1>
+      <p class="sub">
+        หน้านี้อ่านสถานะจาก <span class="mono">localStorage</span> ของเบราว์เซอร์นี้เท่านั้น
+        จึงเหมาะกับการทดสอบ flow, QA, และเช็ก schema ก่อนต่อ backend กลางในรอบถัดไป
+      </p>
+    </section>
+
+    <section class="panel">
+      <div class="toolbar">
+        <input id="searchInput" class="control" type="search" placeholder="ค้นหา Student / PID / Session / Study" />
+        <select id="phaseFilter" class="control">
+          <option value="">ทุก phase</option>
+        </select>
+        <select id="stepFilter" class="control">
+          <option value="">ทุกสถานะ</option>
+          <option value="loading">loading</option>
+          <option value="practice">practice</option>
+          <option value="practice-done">practice-done</option>
+          <option value="playing">playing</option>
+          <option value="summary">summary</option>
+          <option value="redirecting">redirecting</option>
+          <option value="done">done</option>
+        </select>
+        <button id="refreshBtn" class="btn primary" type="button">รีเฟรช</button>
+        <button id="exportBtn" class="btn" type="button">Export JSON</button>
+        <button id="clearBtn" class="btn warn" type="button">ล้างเฉพาะ Flow Keys</button>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="summary-grid" id="summaryGrid">
+        <div class="stat"><div class="label">ทั้งหมด</div><div class="value" id="sumAll">0</div></div>
+        <div class="stat"><div class="label">กำลังเล่น</div><div class="value" id="sumPlaying">0</div></div>
+        <div class="stat"><div class="label">ถึงสรุปผล</div><div class="value" id="sumSummary">0</div></div>
+        <div class="stat"><div class="label">กำลังเปลี่ยนหน้า</div><div class="value" id="sumRedirecting">0</div></div>
+        <div class="stat"><div class="label">จบ flow แล้ว</div><div class="value" id="sumDone">0</div></div>
+        <div class="stat"><div class="label">ค้าง / stale</div><div class="value" id="sumStale">0</div></div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="list-head">
+        <h2 class="list-title">รายการสถานะเครื่อง</h2>
+        <div class="status-line">
+          <span id="statusText">พร้อม</span>
+        </div>
+      </div>
+
+      <div class="cards" id="cards"></div>
+      <div class="empty" id="emptyBox" hidden>ยังไม่พบ flow status ในเบราว์เซอร์นี้</div>
+    </section>
+
+    <div class="footer-note">
+      หมายเหตุ: เวอร์ชันนี้เห็นได้เฉพาะสถานะที่ถูกบันทึกใน origin นี้และเบราว์เซอร์นี้เท่านั้น
+      ถ้าต้องการดูหลายเครื่องพร้อมกันจริง ต้องต่อ Firebase / Apps Script / API กลางในรอบถัดไป
+    </div>
+  </div>
+
+  <script>
+    const FLOW_STATUS_PREFIX = 'GJI_FLOW_STATUS__';
+    const FLOW_HISTORY_PREFIX = 'GJI_FLOW_HISTORY__';
+    const FLOW_COMPLETION_PREFIX = 'GJI_FLOW_COMPLETION__';
+    const STALE_MS = 10000;
+
+    const els = {
+      searchInput: document.getElementById('searchInput'),
+      phaseFilter: document.getElementById('phaseFilter'),
+      stepFilter: document.getElementById('stepFilter'),
+      refreshBtn: document.getElementById('refreshBtn'),
+      exportBtn: document.getElementById('exportBtn'),
+      clearBtn: document.getElementById('clearBtn'),
+
+      sumAll: document.getElementById('sumAll'),
+      sumPlaying: document.getElementById('sumPlaying'),
+      sumSummary: document.getElementById('sumSummary'),
+      sumRedirecting: document.getElementById('sumRedirecting'),
+      sumDone: document.getElementById('sumDone'),
+      sumStale: document.getElementById('sumStale'),
+
+      statusText: document.getElementById('statusText'),
+      cards: document.getElementById('cards'),
+      emptyBox: document.getElementById('emptyBox')
+    };
+
+    let autoRefreshTimer = 0;
+    let currentRows = [];
+
+    init();
+
+    function init() {
+      bindEvents();
+      refreshAll();
+      autoRefreshTimer = setInterval(refreshAll, 1000);
+    }
+
+    function bindEvents() {
+      els.refreshBtn.addEventListener('click', refreshAll);
+      els.exportBtn.addEventListener('click', exportVisibleRows);
+      els.clearBtn.addEventListener('click', clearFlowKeys);
+
+      els.searchInput.addEventListener('input', renderAll);
+      els.phaseFilter.addEventListener('change', renderAll);
+      els.stepFilter.addEventListener('change', renderAll);
+
+      window.addEventListener('storage', refreshAll);
+      window.addEventListener('focus', refreshAll);
+    }
+
+    function safeParse(raw, fallback = null) {
+      try { return JSON.parse(raw); } catch { return fallback; }
+    }
+
+    function readAllFlowRows() {
+      const rows = [];
+
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (!key || !key.startsWith(FLOW_STATUS_PREFIX)) continue;
+
+        const status = safeParse(localStorage.getItem(key), null);
+        if (!status || typeof status !== 'object') continue;
+
+        const suffix = key.slice(FLOW_STATUS_PREFIX.length);
+        const completionKey = FLOW_COMPLETION_PREFIX + suffix;
+        const historyKey = FLOW_HISTORY_PREFIX + suffix;
+
+        const completion = safeParse(localStorage.getItem(completionKey), null);
+        const history = safeParse(localStorage.getItem(historyKey), []);
+
+        const merged = {
+          ...status,
+          completion: completion || null,
+          historyCount: Array.isArray(history) ? history.length : 0,
+          storageKey: key,
+          completionKey,
+          historyKey
+        };
+
+        merged.updatedAtMs = Number(merged.updatedAtMs || Date.now()) || Date.now();
+        merged.isStale = Date.now() - merged.updatedAtMs > STALE_MS;
+        merged.displayName =
+          merged.nickName ||
+          merged.name ||
+          merged.studentKey ||
+          merged.pid ||
+          'unknown';
+
+        rows.push(merged);
+      }
+
+      rows.sort((a, b) => (b.updatedAtMs || 0) - (a.updatedAtMs || 0));
+      return rows;
+    }
+
+    function refreshAll() {
+      currentRows = readAllFlowRows();
+      buildPhaseFilter(currentRows);
+      renderAll();
+    }
+
+    function buildPhaseFilter(rows) {
+      const prev = els.phaseFilter.value;
+      const phases = [...new Set(rows.map(r => String(r.phase || '').trim()).filter(Boolean))].sort();
+
+      els.phaseFilter.innerHTML = '<option value="">ทุก phase</option>' +
+        phases.map(p => `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join('');
+
+      if (phases.includes(prev)) els.phaseFilter.value = prev;
+    }
+
+    function renderAll() {
+      const rows = getVisibleRows(currentRows);
+      renderSummary(rows, currentRows);
+      renderCards(rows);
+      renderStatusLine(rows, currentRows);
+    }
+
+    function getVisibleRows(rows) {
+      const q = els.searchInput.value.trim().toLowerCase();
+      const phase = els.phaseFilter.value;
+      const step = els.stepFilter.value;
+
+      return rows.filter(row => {
+        if (phase && String(row.phase || '') !== phase) return false;
+        if (step && String(row.flowStep || '') !== step) return false;
+
+        if (!q) return true;
+
+        const hay = [
+          row.displayName,
+          row.pid,
+          row.studentKey,
+          row.studyId,
+          row.sessionId,
+          row.session,
+          row.phase,
+          row.role,
+          row.flowStep
+        ].join(' ').toLowerCase();
+
+        return hay.includes(q);
+      });
+    }
+
+    function renderSummary(filteredRows, allRows) {
+      const base = filteredRows.length ? filteredRows : allRows;
+
+      const all = base.length;
+      const playing = base.filter(r => r.flowStep === 'playing' || r.flowStep === 'practice').length;
+      const summary = base.filter(r => r.flowStep === 'summary').length;
+      const redirecting = base.filter(r => r.flowStep === 'redirecting').length;
+      const done = base.filter(r => r.flowStep === 'done' || r.completed === true || r.completion?.completed === true).length;
+      const stale = base.filter(r => r.isStale).length;
+
+      els.sumAll.textContent = String(all);
+      els.sumPlaying.textContent = String(playing);
+      els.sumSummary.textContent = String(summary);
+      els.sumRedirecting.textContent = String(redirecting);
+      els.sumDone.textContent = String(done);
+      els.sumStale.textContent = String(stale);
+    }
+
+    function renderStatusLine(filteredRows, allRows) {
+      const ts = new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      const text = filteredRows.length === allRows.length
+        ? `อัปเดตล่าสุด ${ts} • พบ ${allRows.length} รายการ`
+        : `อัปเดตล่าสุด ${ts} • กรองแล้วเหลือ ${filteredRows.length} จาก ${allRows.length} รายการ`;
+
+      els.statusText.textContent = text;
+    }
+
+    function renderCards(rows) {
+      els.cards.innerHTML = '';
+      els.emptyBox.hidden = rows.length > 0;
+
+      if (!rows.length) return;
+
+      const frag = document.createDocumentFragment();
+      rows.forEach(row => frag.appendChild(buildCard(row)));
+      els.cards.appendChild(frag);
+    }
+
+    function buildCard(row) {
+      const card = document.createElement('article');
+      card.className = 'card';
+
+      const freshnessChip = row.isStale
+        ? `<span class="chip bad">stale ${escapeHtml(timeAgo(row.updatedAtMs))}</span>`
+        : `<span class="chip good">active ${escapeHtml(timeAgo(row.updatedAtMs))}</span>`;
+
+      const stepChip = `<span class="chip blue">${escapeHtml(row.flowStep || '-')}</span>`;
+      const phaseChip = `<span class="chip violet">${escapeHtml(row.phase || '-')}</span>`;
+      const roleChip = `<span class="chip">${escapeHtml(row.role || '-')}</span>`;
+      const nextChip = row.nextLabel ? `<span class="chip warn">next: ${escapeHtml(row.nextLabel)}</span>` : '';
+
+      const completionText = row.completion?.completedAt
+        ? `${escapeHtml(row.completion.completionReason || 'done')} • ${escapeHtml(formatDate(row.completion.completedAtMs || row.completion.updatedAtMs || row.updatedAtMs))}`
+        : '-';
+
+      card.innerHTML = `
+        <div class="card-top">
+          <div>
+            <h3 class="card-name">${escapeHtml(row.displayName)}</h3>
+            <div class="card-sub mono">
+              PID: ${escapeHtml(row.pid || '-')} • Session: ${escapeHtml(row.sessionId || row.session || '-')}
+            </div>
+          </div>
+          <div class="chip ${row.flowStep === 'done' ? 'good' : row.flowStep === 'redirecting' ? 'warn' : 'blue'}">
+            ${escapeHtml(row.flowStep || '-')}
+          </div>
+        </div>
+
+        <div class="chips">
+          ${freshnessChip}
+          ${stepChip}
+          ${phaseChip}
+          ${roleChip}
+          ${nextChip}
+        </div>
+
+        <div class="kv">
+          <div class="kvi">
+            <div class="k">Study</div>
+            <div class="v">${escapeHtml(row.studyId || '-')}</div>
+          </div>
+          <div class="kvi">
+            <div class="k">Score / Miss / Accuracy</div>
+            <div class="v">${escapeHtml(String(row.score ?? 0))} / ${escapeHtml(String(row.miss ?? 0))} / ${escapeHtml(String(row.accuracyPct ?? 0))}%</div>
+          </div>
+          <div class="kvi">
+            <div class="k">Goal / Top Good</div>
+            <div class="v">${escapeHtml(row.goalStage || '-')} • ${escapeHtml(row.topGoodCategory || '-')}</div>
+          </div>
+          <div class="kvi">
+            <div class="k">Next Path</div>
+            <div class="v mono">${escapeHtml(row.nextPath || '-')}</div>
+          </div>
+          <div class="kvi">
+            <div class="k">Updated</div>
+            <div class="v">${escapeHtml(formatDate(row.updatedAtMs))}</div>
+          </div>
+          <div class="kvi">
+            <div class="k">Completion</div>
+            <div class="v">${completionText}</div>
+          </div>
+        </div>
+      `;
+
+      return card;
+    }
+
+    function exportVisibleRows() {
+      const rows = getVisibleRows(currentRows);
+      const blob = new Blob([JSON.stringify(rows, null, 2)], {
+        type: 'application/json;charset=utf-8'
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `goodjunk-teacher-panel-${Date.now()}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    function clearFlowKeys() {
+      const ok = confirm('จะล้างเฉพาะ GJI flow keys ในเบราว์เซอร์นี้ ใช่หรือไม่');
+      if (!ok) return;
+
+      const keys = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (!key) continue;
+        if (
+          key.startsWith(FLOW_STATUS_PREFIX) ||
+          key.startsWith(FLOW_HISTORY_PREFIX) ||
+          key.startsWith(FLOW_COMPLETION_PREFIX)
+        ) {
+          keys.push(key);
+        }
+      }
+
+      keys.forEach(k => localStorage.removeItem(k));
+      refreshAll();
+    }
+
+    function formatDate(msOrIso) {
+      const d = new Date(msOrIso);
+      if (Number.isNaN(d.getTime())) return '-';
+      return d.toLocaleString('th-TH', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      });
+    }
+
+    function timeAgo(ms) {
+      const diff = Math.max(0, Date.now() - Number(ms || 0));
+      const sec = Math.floor(diff / 1000);
+      if (sec < 60) return `${sec}s`;
+      const min = Math.floor(sec / 60);
+      if (min < 60) return `${min}m`;
+      const hr = Math.floor(min / 60);
+      return `${hr}h`;
+    }
+
+    function escapeHtml(s) {
+      return String(s ?? '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;');
+    }
+  </script>
+</body>
+</html>
