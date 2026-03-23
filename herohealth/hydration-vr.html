@@ -15,7 +15,6 @@
       --stroke:rgba(255,255,255,.14);
       --text:#eff6ff;
       --muted:#cbd5e1;
-      --good:#22c55e;
       --blue:#38bdf8;
       --yellow:#facc15;
       --shadow:0 20px 50px rgba(0,0,0,.28);
@@ -82,11 +81,12 @@
       margin:0;
       color:var(--muted);
       font-size:clamp(16px, 2.6vw, 20px);
+      line-height:1.45;
     }
 
     .grid{
       display:grid;
-      grid-template-columns:1.2fr .8fr;
+      grid-template-columns:1.15fr .85fr;
       gap:18px;
     }
 
@@ -130,22 +130,65 @@
       font-size:18px;
     }
 
-    .mission{
+    .mini-grid{
       display:grid;
       gap:10px;
     }
 
-    .mission-card{
+    .mini-card{
       border-radius:20px;
       padding:14px 16px;
       background:linear-gradient(180deg, rgba(56,189,248,.18), rgba(59,130,246,.08));
       border:1px solid rgba(255,255,255,.12);
     }
 
-    .mission-card strong{
+    .mini-card strong{
       display:block;
       font-size:18px;
       margin-bottom:4px;
+    }
+
+    .mode-grid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:10px;
+      margin-top:6px;
+    }
+
+    .mode-chip{
+      border-radius:18px;
+      padding:12px 14px;
+      background:rgba(255,255,255,.08);
+      border:1px solid rgba(255,255,255,.10);
+      color:#dbeafe;
+      font-size:15px;
+      line-height:1.4;
+    }
+
+    .controls{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:12px;
+    }
+
+    .control{
+      display:grid;
+      gap:8px;
+    }
+
+    .control label{
+      font-size:14px;
+      font-weight:800;
+      color:#dbeafe;
+    }
+
+    .control select{
+      border:1px solid rgba(255,255,255,.16);
+      background:rgba(255,255,255,.10);
+      color:var(--text);
+      border-radius:16px;
+      padding:12px 14px;
+      outline:none;
     }
 
     .actions{
@@ -185,10 +228,15 @@
       color:#dbeafe;
       opacity:.9;
       font-size:14px;
+      line-height:1.5;
     }
 
     @media (max-width:760px){
-      .grid{ grid-template-columns:1fr; }
+      .grid,
+      .controls,
+      .mode-grid{
+        grid-template-columns:1fr;
+      }
       .hero{ padding:18px; }
       .panel{ padding:16px; }
       .actions{ flex-direction:column; }
@@ -216,19 +264,42 @@
           <ul class="bullets">
             <li><span class="dot">💧</span><span>แตะน้ำดีเพื่อเพิ่มคะแนนและเพิ่มพลังน้ำ</span></li>
             <li><span class="dot">🛡️</span><span>เก็บโล่ไว้กันสายฟ้าช่วงพายุและบอส</span></li>
-            <li><span class="dot">⚠️</span><span>หลบของไม่ดี เพราะจะเสียคะแนนและน้ำ</span></li>
+            <li><span class="dot">⚠️</span><span>หลบของไม่ดี เพราะจะเสียคะแนนและเสียน้ำ</span></li>
           </ul>
+
+          <div class="mode-grid">
+            <div class="mode-chip">📱 Mobile: แตะฟองบนจอ</div>
+            <div class="mode-chip">🥽 Cardboard/cVR: เล็งกลางจอแล้วแตะ/ยิง</div>
+          </div>
         </div>
 
-        <div class="panel mission">
-          <div class="mission-card">
-            <strong>ภารกิจ</strong>
-            อยู่รอดให้ได้นาน เก็บคอมโบ และผ่านด่านสุดท้าย
-          </div>
-          <div class="mission-card">
+        <div class="panel mini-grid">
+          <div class="mini-card">
             <strong>Flow</strong>
             warmup → run → summary → cooldown → hub
           </div>
+          <div class="mini-card">
+            <strong>เป้าหมาย</strong>
+            เก็บคอมโบ อยู่รอดให้ได้นาน และผ่านด่านสุดท้าย
+          </div>
+        </div>
+      </div>
+
+      <div class="controls">
+        <div class="control">
+          <label for="diffSel">ระดับความยาก</label>
+          <select id="diffSel">
+            <option value="normal">Normal</option>
+            <option value="hard">Hard</option>
+          </select>
+        </div>
+
+        <div class="control">
+          <label for="viewSel">มุมมอง</label>
+          <select id="viewSel">
+            <option value="mobile">Mobile</option>
+            <option value="cvr">Cardboard / cVR</option>
+          </select>
         </div>
       </div>
 
@@ -238,7 +309,8 @@
       </div>
 
       <div class="footer-note">
-        launcher นี้จะส่งต่อไปยัง /herohealth/warmup-gate.html ก่อนเข้า /herohealth/hydration-vr/hydration.html
+        launcher นี้จะพาไป <strong>/herohealth/warmup-gate.html</strong> ก่อน
+        แล้วค่อยเข้า <strong>/herohealth/hydration-vr/hydration.html</strong>
       </div>
     </section>
   </main>
@@ -277,20 +349,29 @@
         }
       }
 
-      function buildRunUrl(){
-        const run = new URL('./hydration-vr/hydration.html', location.href);
+      const diffSel = document.getElementById('diffSel');
+      const viewSel = document.getElementById('viewSel');
 
+      diffSel.value = q('diff', 'normal');
+      viewSel.value = q('view', 'mobile');
+
+      function buildRunUrl(){
+        const diff = diffSel.value || q('diff', 'normal');
+        const view = viewSel.value || q('view', 'mobile');
+
+        const run = new URL('./hydration-vr/hydration.html', location.href);
         run.searchParams.set('game', 'hydration');
         run.searchParams.set('zone', q('zone', 'nutrition'));
         run.searchParams.set('cat', q('cat', q('zone', 'nutrition')));
         run.searchParams.set('hub', defaultHub());
         run.searchParams.set('pid', ensurePid());
         run.searchParams.set('sessionId', q('sessionId', makeSessionId()));
-        run.searchParams.set('diff', q('diff', 'normal'));
+
+        run.searchParams.set('diff', diff);
         run.searchParams.set('run', q('run', 'play'));
-        run.searchParams.set('view', q('view', 'mobile'));
+        run.searchParams.set('view', view);
         run.searchParams.set('cooldown', q('cooldown', '1'));
-        run.searchParams.set('time', q('time', q('diff', 'normal') === 'hard' ? '90' : '80'));
+        run.searchParams.set('time', q('time', diff === 'hard' ? '90' : '80'));
         run.searchParams.set('seed', q('seed', String(Date.now())));
 
         const passthrough = [
@@ -313,7 +394,11 @@
       }
 
       function goStart(){
+        const diff = diffSel.value || q('diff', 'normal');
+        const view = viewSel.value || q('view', 'mobile');
+        const seed = q('seed', String(Date.now()));
         const next = buildRunUrl();
+
         const gate = new URL('./warmup-gate.html', location.href);
         const nextKey = `HHA_NEXT_HYDRATION_${Date.now()}`;
 
@@ -327,7 +412,13 @@
         gate.searchParams.set('next', next.href);
         gate.searchParams.set('nextKey', nextKey);
         gate.searchParams.set('pid', ensurePid());
-        gate.searchParams.set('seed', q('seed', String(Date.now())));
+        gate.searchParams.set('seed', seed);
+
+        gate.searchParams.set('diff', diff);
+        gate.searchParams.set('run', q('run', 'play'));
+        gate.searchParams.set('view', view);
+        gate.searchParams.set('time', q('time', diff === 'hard' ? '90' : '80'));
+        gate.searchParams.set('cooldown', q('cooldown', '1'));
 
         location.href = gate.href;
       }
