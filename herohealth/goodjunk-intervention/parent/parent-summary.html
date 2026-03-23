@@ -1,270 +1,105 @@
-<!doctype html>
-<html lang="th">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>GoodJunk Intervention • Parent Summary</title>
-  <link rel="stylesheet" href="../assessments/assessment.css" />
-  <style>
-    .summary-grid{
-      display:grid;
-      grid-template-columns:repeat(2,minmax(0,1fr));
-      gap:12px;
-      margin-top:12px;
-    }
+// === /goodjunk-intervention/parent/parent-summary.js ===
+// Parent summary page flow bridge
+// PATCH v20260323a-GJI-PARENT-SUMMARY-FLOW
 
-    .summary-card{
-      border:1px solid rgba(148,163,184,.14);
-      border-radius:16px;
-      background:rgba(2,6,23,.42);
-      padding:14px;
-    }
+import { initFlowBridge, appendFlowParams } from '../research/flow-bridge.js';
 
-    .summary-label{
-      color:#94a3b8;
-      font-size:12px;
-      font-weight:900;
-      text-transform:uppercase;
-      letter-spacing:.04em;
-    }
+function qs(name) {
+  return new URLSearchParams(location.search).get(name) || '';
+}
 
-    .summary-value{
-      margin-top:6px;
-      color:#e5e7eb;
-      font-size:24px;
-      font-weight:1000;
-      line-height:1.1;
-    }
+function findHubUrl() {
+  return (
+    document.querySelector('[data-hub]')?.getAttribute('data-hub') ||
+    qs('hub') ||
+    '../../hub.html'
+  );
+}
 
-    .summary-sub{
-      margin-top:6px;
-      color:#cbd5e1;
-      font-size:13px;
-      line-height:1.55;
-    }
+function bindLink(btn, flow, label, targetUrl, reason) {
+  if (!btn) return;
 
-    .list-box{
-      display:grid;
-      gap:10px;
-      margin-top:12px;
-    }
+  btn.addEventListener('click', (ev) => {
+    ev.preventDefault();
 
-    .list-item{
-      border:1px solid rgba(148,163,184,.14);
-      border-radius:16px;
-      background:rgba(2,6,23,.42);
-      padding:14px;
-    }
+    const nextUrl = appendFlowParams(targetUrl, flow.ctx);
 
-    .list-title{
-      color:#94a3b8;
-      font-size:12px;
-      font-weight:900;
-      text-transform:uppercase;
-      letter-spacing:.04em;
-      margin-bottom:6px;
-    }
-
-    .list-value{
-      color:#e5e7eb;
-      font-size:15px;
-      font-weight:800;
-      line-height:1.6;
-      white-space:pre-wrap;
-      word-break:break-word;
-    }
-
-    @media (max-width:760px){
-      .summary-grid{
-        grid-template-columns:1fr;
-      }
-    }
-  </style>
-</head>
-<body>
-  <main class="page">
-    <section class="card">
-      <div class="badge">Parent • Summary</div>
-      <h1>สรุปผลสำหรับผู้ปกครอง</h1>
-      <p class="sub">
-        หน้านี้สรุปข้อมูลผู้เรียน ผลจากเกม และคำตอบของผู้ปกครองในรอบนี้
-      </p>
-
-      <div class="ctx" id="ctxBox">กำลังโหลด...</div>
-
-      <section class="block">
-        <h2>ข้อมูลรอบนี้</h2>
-        <div class="summary-grid">
-          <div class="summary-card">
-            <div class="summary-label">Study</div>
-            <div class="summary-value" id="vStudy">-</div>
-            <div class="summary-sub">รหัสการทดลอง</div>
-          </div>
-
-          <div class="summary-card">
-            <div class="summary-label">Student</div>
-            <div class="summary-value" id="vStudent">-</div>
-            <div class="summary-sub">ผู้เรียนในรอบนี้</div>
-          </div>
-
-          <div class="summary-card">
-            <div class="summary-label">Session</div>
-            <div class="summary-value" id="vSession">-</div>
-            <div class="summary-sub">รหัส session</div>
-          </div>
-
-          <div class="summary-card">
-            <div class="summary-label">Condition</div>
-            <div class="summary-value" id="vCondition">-</div>
-            <div class="summary-sub">กลุ่มการทดลอง</div>
-          </div>
-        </div>
-      </section>
-
-      <section class="block">
-        <h2>ผลจากเกม</h2>
-        <div class="summary-grid">
-          <div class="summary-card">
-            <div class="summary-label">Score</div>
-            <div class="summary-value" id="vScore">-</div>
-            <div class="summary-sub">คะแนนรวมจากเกม</div>
-          </div>
-
-          <div class="summary-card">
-            <div class="summary-label">Grade</div>
-            <div class="summary-value" id="vGrade">-</div>
-            <div class="summary-sub">คุณภาพการเล่นโดยรวม</div>
-          </div>
-
-          <div class="summary-card">
-            <div class="summary-label">Good Hit</div>
-            <div class="summary-value" id="vGoodHit">-</div>
-            <div class="summary-sub">จำนวนครั้งที่เก็บของดีได้</div>
-          </div>
-
-          <div class="summary-card">
-            <div class="summary-label">Miss</div>
-            <div class="summary-value" id="vMiss">-</div>
-            <div class="summary-sub">จำนวนครั้งที่พลาดหรือโดน junk</div>
-          </div>
-        </div>
-      </section>
-
-      <section class="block">
-        <h2>สรุปคำตอบผู้ปกครอง</h2>
-        <div class="list-box">
-          <div class="list-item">
-            <div class="list-title">เด็กได้พูดคุยเรื่องโภชนาการหรือไม่</div>
-            <div class="list-value" id="p1">-</div>
-          </div>
-
-          <div class="list-item">
-            <div class="list-title">เด็กเลือกของว่างดีขึ้นหรือไม่</div>
-            <div class="list-value" id="p2">-</div>
-          </div>
-
-          <div class="list-item">
-            <div class="list-title">เด็กพยายามลด junk food หรือไม่</div>
-            <div class="list-value" id="p3">-</div>
-          </div>
-
-          <div class="list-item">
-            <div class="list-title">เด็กอธิบายเหตุผลการเลือกอาหารได้ดีขึ้นหรือไม่</div>
-            <div class="list-value" id="p4">-</div>
-          </div>
-
-          <div class="list-item">
-            <div class="list-title">ผลกระทบโดยรวมของกิจกรรม</div>
-            <div class="list-value" id="p5">-</div>
-          </div>
-
-          <div class="list-item">
-            <div class="list-title">สิ่งที่ผู้ปกครองเห็นว่าเปลี่ยนมากที่สุด</div>
-            <div class="list-value" id="p6">-</div>
-          </div>
-
-          <div class="list-item">
-            <div class="list-title">แนวทางสนับสนุนต่อที่บ้าน</div>
-            <div class="list-value" id="p7">-</div>
-          </div>
-
-          <div class="list-item">
-            <div class="list-title">ข้อเสนอแนะเพิ่มเติม</div>
-            <div class="list-value" id="p8">-</div>
-          </div>
-        </div>
-      </section>
-
-      <div class="footer">
-        <button type="button" class="btn btn-ghost" id="btnTeacherPanel">Teacher Panel</button>
-        <button type="button" class="btn btn-ghost" id="btnCompletion">Completion</button>
-        <button type="button" class="btn btn-primary" id="btnShortFollowup">Short Follow-up</button>
-        <button type="button" class="btn btn-primary" id="btnWeeklyCheck">Weekly Check</button>
-      </div>
-    </section>
-  </main>
-
-  <script type="module">
-    import { buildUrl, pickCtxFromQuery, withDefaultCtx } from '../research/config.js';
-    import { KEYS, loadCtx, loadJSON, mergeCtx, saveCtx } from '../research/localstore.js';
-
-    function $(id){ return document.getElementById(id); }
-
-    function text(v, fallback='-') {
-      return (v == null || v === '') ? fallback : String(v);
-    }
-
-    mergeCtx(pickCtxFromQuery());
-
-    const ctx = withDefaultCtx(loadCtx());
-    saveCtx(ctx);
-
-    const gameSummary = loadJSON(KEYS.GAME_SUMMARY, {}) || {};
-    const parentResp = loadJSON(KEYS.PARENT_RESPONSE, {}) || {};
-    const answers = parentResp.answers || {};
-
-    $('ctxBox').textContent = [
-      `PID: ${ctx.pid || '-'}`,
-      `Student: ${ctx.nickName || ctx.studentKey || '-'}`,
-      `Study: ${ctx.studyId || '-'}`,
-      `Session: ${ctx.session || ctx.sessionId || '-'}`,
-      `Condition: ${ctx.condition || ctx.conditionGroup || '-'}`
-    ].join(' • ');
-
-    $('vStudy').textContent = text(ctx.studyId);
-    $('vStudent').textContent = text(ctx.nickName || ctx.studentKey || ctx.pid);
-    $('vSession').textContent = text(ctx.session || ctx.sessionId);
-    $('vCondition').textContent = text(ctx.condition || ctx.conditionGroup);
-
-    $('vScore').textContent = text(gameSummary.score);
-    $('vGrade').textContent = text(gameSummary.grade);
-    $('vGoodHit').textContent = text(gameSummary.goodHit);
-    $('vMiss').textContent = text(gameSummary.miss);
-
-    $('p1').textContent = text(answers.p1_talkNutrition);
-    $('p2').textContent = text(answers.p2_moreHealthyChoice);
-    $('p3').textContent = text(answers.p3_reduceJunk);
-    $('p4').textContent = text(answers.p4_explainReason);
-    $('p5').textContent = text(answers.p5_overallImpact);
-    $('p6').textContent = text(answers.p6_mostChanged);
-    $('p7').textContent = text(answers.p7_supportPlan);
-    $('p8').textContent = text(answers.p8_comment);
-
-    $('btnTeacherPanel').addEventListener('click', () => {
-      location.href = buildUrl('../launcher/teacher-panel.html', ctx, false);
+    flow.noteRedirect(reason, nextUrl, {
+      nextLabel: label,
+      nextPath: nextUrl
     });
 
-    $('btnCompletion').addEventListener('click', () => {
-      location.href = buildUrl('COMPLETION', ctx, false);
+    flow.complete(reason, {
+      nextLabel: label,
+      nextPath: nextUrl
     });
 
-    $('btnShortFollowup').addEventListener('click', () => {
-      location.href = buildUrl('SHORT_FOLLOWUP', ctx, false);
-    });
+    location.href = nextUrl;
+  });
+}
 
-    $('btnWeeklyCheck').addEventListener('click', () => {
-      location.href = buildUrl('WEEKLY_CHECK', ctx, false);
+async function init() {
+  const flow = initFlowBridge({
+    pageId: 'parent-summary',
+    defaultStep: 'reviewing'
+  });
+
+  await flow.start();
+
+  flow.setStep('reviewing', {
+    reviewStartedAt: new Date().toISOString()
+  });
+
+  const hubBtn =
+    document.querySelector('[data-action="hub"]') ||
+    document.querySelector('[data-role="hub"]');
+
+  const finishBtn =
+    document.querySelector('[data-action="finish"]') ||
+    document.querySelector('[data-role="finish"]');
+
+  const printBtn =
+    document.querySelector('[data-action="print"]') ||
+    document.querySelector('[data-role="print"]');
+
+  const restartBtn =
+    document.querySelector('[data-action="restart"]') ||
+    document.querySelector('[data-role="restart"]');
+
+  bindLink(hubBtn, flow, 'กลับ HUB', findHubUrl(), 'parent-summary-hub');
+
+  if (finishBtn) {
+    const finishUrl = finishBtn.getAttribute('data-next') || findHubUrl();
+    bindLink(finishBtn, flow, 'Finish', finishUrl, 'parent-summary-finish');
+  }
+
+  if (restartBtn) {
+    const restartUrl =
+      restartBtn.getAttribute('data-next') ||
+      '../game/goodjunk-vr.html';
+
+    bindLink(restartBtn, flow, 'Restart Game', restartUrl, 'parent-summary-restart');
+  }
+
+  if (printBtn) {
+    printBtn.addEventListener('click', () => {
+      flow.persist({
+        flowStep: 'reviewing',
+        printClickedAt: new Date().toISOString()
+      });
+      flow.pushEvent('parent-summary-print', {
+        pageId: 'parent-summary'
+      }).catch(() => {});
+      window.print();
     });
-  </script>
-</body>
-</html>
+  }
+
+  window.addEventListener('beforeprint', () => {
+    flow.persist({
+      flowStep: 'reviewing',
+      beforePrintAt: new Date().toISOString()
+    });
+  });
+}
+
+document.addEventListener('DOMContentLoaded', init);
