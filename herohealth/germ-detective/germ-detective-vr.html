@@ -1600,6 +1600,7 @@
     let coachCheerTimer = 0;
     let lastPraiseAt = 0;
     let latestSummaryPayload = null;
+    let summaryAutoCooldownTimer = 0;
 
     let reflectionState = {
       q1: null,
@@ -1679,6 +1680,13 @@
       }, ms);
     }
 
+    function clearSummaryAutoCooldown(){
+      if(summaryAutoCooldownTimer){
+        clearTimeout(summaryAutoCooldownTimer);
+        summaryAutoCooldownTimer = 0;
+      }
+    }
+
     function hubUrl(){
       try{
         return new URL(hub, location.href).toString();
@@ -1708,6 +1716,23 @@
       return u.toString();
     }
 
+    function goHub(){
+      clearSummaryAutoCooldown();
+      location.href = hubUrl();
+    }
+
+    function goCooldown(){
+      clearSummaryAutoCooldown();
+      location.href = cooldownUrl();
+    }
+
+    function scheduleSummaryCooldown(ms = 1200){
+      clearSummaryAutoCooldown();
+      summaryAutoCooldownTimer = setTimeout(()=>{
+        goCooldown();
+      }, ms);
+    }
+
     function saveLastSummary(payload){
       latestSummaryPayload = Object.assign({}, payload || {});
       try{
@@ -1731,10 +1756,6 @@
         localStorage.setItem(`HHA_LAST_SUMMARY:germ-detective:${pid}`, JSON.stringify(out));
         localStorage.setItem(`HHA_LAST_SUMMARY:germdetective:${pid}`, JSON.stringify(out));
       }catch{}
-    }
-
-    function goHub(){
-      location.href = hubUrl();
     }
 
     function setActiveTool(tool){
@@ -1973,9 +1994,18 @@
       reflectFooter.textContent = `ตอบครบแล้ว ${done}/3 ข้อ`;
 
       if(done === 3){
-        reflectFooter.textContent = 'ตอบครบแล้ว 3/3 ข้อ • เยี่ยมมาก! คุณทบทวนคดีเสร็จแล้ว';
+        reflectFooter.textContent = 'ตอบครบแล้ว 3/3 ข้อ • เยี่ยมมาก! กำลังไปด่านพัก...';
         praise('เยี่ยมมาก! ตอบครบทั้ง 3 ข้อแล้ว', 0, 'success');
+
+        if(latestSummaryPayload){
+          saveLastSummary(latestSummaryPayload);
+        }
+
+        scheduleSummaryCooldown(1200);
+        return;
       }
+
+      clearSummaryAutoCooldown();
 
       if(latestSummaryPayload){
         saveLastSummary(latestSummaryPayload);
@@ -2295,6 +2325,7 @@
 
     document.getElementById('btnReplay').onclick = ()=>{
       playSound('button');
+      clearSummaryAutoCooldown();
       const replay = new URL(location.href);
       replay.searchParams.set('seed', String(Date.now()));
       location.href = replay.toString();
@@ -2302,7 +2333,7 @@
 
     document.getElementById('btnCooldown').onclick = ()=>{
       playSound('button');
-      location.href = cooldownUrl();
+      goCooldown();
     };
 
     document.getElementById('btnHubSummary').onclick = ()=>{
@@ -2399,6 +2430,7 @@
       playSound('success');
       coachCheer('ปิดคดีสำเร็จ! วันนี้คุณเป็นนักสืบเชื้อโรคยอดเยี่ยม', 2200);
       syncPauseButtons();
+      clearSummaryAutoCooldown();
 
       summaryWrap.classList.remove('hidden');
       summaryWrap.scrollTop = 0;
