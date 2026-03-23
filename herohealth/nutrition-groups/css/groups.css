@@ -1,5 +1,5 @@
 /* === /herohealth/nutrition-groups/css/groups.css === */
-/* FULL PATCH v20260318-GROUPS-CSS-FULL */
+/* FULL PATCH v20260323-GROUPS-CHILDFRIENDLY-A */
 
 :root{
   --bg1:#0f172a;
@@ -391,6 +391,10 @@ select{
   gap:10px;
 }
 
+.answer-grid.reason-grid{
+  grid-template-columns:1fr;
+}
+
 .answer-btn{
   border:1px solid var(--stroke);
   background:rgba(15,23,42,.82);
@@ -442,6 +446,26 @@ select{
   line-height:1.35;
 }
 
+.reason-answer-btn{
+  min-height:108px;
+  text-align:left;
+  padding:18px;
+}
+
+.reason-answer-btn .answer-main{
+  font-size:20px;
+  line-height:1.35;
+  white-space:normal;
+  word-break:break-word;
+}
+
+.reason-answer-btn small{
+  margin-top:8px;
+  font-size:13px;
+  line-height:1.45;
+  color:#cbd5e1;
+}
+
 .feedback-box{
   min-height:32px;
   margin-top:16px;
@@ -491,12 +515,24 @@ select{
     grid-template-columns:1fr 1fr;
   }
 
+  .answer-grid.reason-grid{
+    grid-template-columns:1fr;
+  }
+
   .child-answer-btn{
     min-height:88px;
     font-size:16px;
   }
 
   .child-answer-btn .answer-main{
+    font-size:18px;
+  }
+
+  .reason-answer-btn{
+    min-height:100px;
+  }
+
+  .reason-answer-btn .answer-main{
     font-size:18px;
   }
 }
@@ -525,5 +561,13 @@ select{
 
   .food-name{
     font-size:22px;
+  }
+
+  .reason-answer-btn{
+    padding:16px;
+  }
+
+  .reason-answer-btn .answer-main{
+    font-size:17px;
   }
 }
