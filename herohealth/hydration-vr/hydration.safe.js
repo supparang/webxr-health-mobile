@@ -1,6 +1,6 @@
 // === /herohealth/hydration-vr/hydration.safe.js ===
 // HeroHealth Hydration VR — SOLO-FIRST FULL PATCH
-// PATCH v20260315d-HYD-SOLO-CLOSEOUT
+// PATCH v20260323-HYD-SOLO-CLOSEOUT-HUD-CLOUD-BOSSFIX
 
 'use strict';
 
@@ -15,7 +15,7 @@ import {
   saveHydrationRewards,
   rewardCardTitle,
   rewardCardMini
-} from './hydration.shared.js?v=20260315';
+} from './hydration.shared.js?v=20260323-HYD-SHARED-COMPAT';
 
 export async function boot(cfg = {}){
   const WIN = window;
@@ -87,6 +87,13 @@ export async function boot(cfg = {}){
     }catch(e){
       return WIN.innerWidth <= 560;
     }
+  }
+
+  function timeText(sec){
+    const s = Math.max(0, Math.ceil(Number(sec || 0)));
+    const mm = Math.floor(s / 60);
+    const ss = s % 60;
+    return `${String(mm).padStart(2,'0')}:${String(ss).padStart(2,'0')}`;
   }
 
   // ------------------------------------------------------------
@@ -329,6 +336,7 @@ export async function boot(cfg = {}){
   const SFX = (() => {
     let ctx = null;
     let unlocked = false;
+    let enabled = true;
 
     function ensure(){
       if(!ctx){
@@ -338,7 +346,14 @@ export async function boot(cfg = {}){
       return ctx;
     }
 
+    function refreshBtn(){
+      if(ui.btnSfx){
+        ui.btnSfx.textContent = enabled ? '🔊 เสียง' : '🔇 ปิดเสียง';
+      }
+    }
+
     function beep(freq=440, dur=0.07, type='sine', gain=0.03){
+      if(!enabled) return;
       const c = ensure();
       if(!c || !unlocked) return;
       const o = c.createOscillator();
@@ -353,6 +368,8 @@ export async function boot(cfg = {}){
       o.stop(t + dur);
     }
 
+    refreshBtn();
+
     return {
       unlock(){
         try{
@@ -360,6 +377,14 @@ export async function boot(cfg = {}){
           if(c && c.state === 'suspended') c.resume();
           unlocked = true;
         }catch(e){}
+      },
+      toggle(){
+        enabled = !enabled;
+        refreshBtn();
+        return enabled;
+      },
+      isOn(){
+        return enabled;
       },
       good(){ beep(740, 0.05, 'sine', 0.025); },
       bad(){ beep(180, 0.08, 'square', 0.03); },
@@ -490,6 +515,52 @@ export async function boot(cfg = {}){
 
     featureRows.push(buildFeatureRow(risk));
     if(featureRows.length > 500) featureRows.shift();
+  }
+
+  function bumpPhaseProgress(amount = 1){
+    if(phase === 'boss'){
+      bossHits = Math.min(bossGoal, bossHits + amount);
+    }else if(phase === 'final'){
+      finalHits = Math.min(finalGoal, finalHits + amount);
+    }
+  }
+
+  async function sendCloudNow(){
+    const payload = {
+      sentAt: nowIso(),
+      game: gameKey,
+      pid,
+      diff,
+      runMode,
+      view,
+      zoneKey,
+      catKey,
+      seed: seedStr,
+      summary: buildSummary(endShown ? 'manual-send-after-end' : 'manual-send'),
+      eventLog,
+      riskTimeline,
+      featureRows,
+      labelRows
+    };
+
+    try{
+      if(WIN.HHACloudLogger && typeof WIN.HHACloudLogger.log === 'function'){
+        WIN.HHACloudLogger.log({
+          timestampIso: nowIso(),
+          eventType: 'hydration_manual_export',
+          gameMode: gameKey,
+          pid,
+          payload
+        });
+        showCallout('ส่งข้อมูลไป Cloud แล้ว ☁️', 'good');
+      }else{
+        await copyText(safeJson(payload), 'Copy Cloud payload');
+        showCallout('ยังไม่มี Cloud logger — คัดลอก payload ให้แล้ว 📋', 'warn');
+      }
+    }catch(e){
+      console.warn('[hydration] sendCloud failed', e);
+      showCallout('ส่ง Cloud ไม่สำเร็จ ลองใหม่อีกครั้ง', 'warn');
+    }
   }
 
   // ------------------------------------------------------------
@@ -861,8 +932,6 @@ export async function boot(cfg = {}){
   const BONUS = ['🌟','💎','🫧'];
 
   function isInNeededZone(){
-    // mobile solo version: based on bubble half / safe lane concept
-    // if no directional danger, treat as true
     return true;
   }
 
@@ -1044,6 +1113,8 @@ export async function boot(cfg = {}){
         spawnSticker('🌟 CHAIN');
       }
 
+      bumpPhaseProgress(1);
+
       SFX.shield();
       fxBubblePop(b.el, 'good');
       fxRing(bx, by);
@@ -1067,6 +1138,9 @@ export async function boot(cfg = {}){
       const add = feverOn ? 16 : 10;
       score += add;
       waterPct = clamp(waterPct + 4.5, 0, 100);
+
+      bumpPhaseProgress(1);
+
       SFX.good();
       fxBubblePop(b.el, 'good');
       fxRing(bx, by);
@@ -1262,9 +1336,14 @@ export async function boot(cfg = {}){
 
   function setHUD(){
     safeText(ui.score, score|0);
+    safeText(ui.time, timeText(tLeft));
     safeText(ui.miss, missBadHit|0);
-    safeText(ui.water, `${Math.round(waterPct)}%`);
+    safeText(ui.expire, missGoodExpired|0);
+    safeText(ui.block, blockCount|0);
     safeText(ui.grade, computeGrade());
+    safeText(ui.water, `${Math.round(waterPct)}%`);
+    safeText(ui.combo, combo|0);
+    safeText(ui.shield, shield|0);
     safeText(ui.warmDone, childDoneText(isGateDone('warmup', catKey, gameKey, pid)));
     safeText(ui.coolDone, childDoneText(isGateDone('cooldown', catKey, gameKey, pid)));
 
@@ -1297,8 +1376,12 @@ export async function boot(cfg = {}){
     }
 
     const risk = buildRisk();
-    let hint = childCoachHint();
+    const hint = childCoachHint();
     setAIHud(risk, hint);
+
+    if(ui.coachExplain){
+      ui.coachExplain.textContent = hint;
+    }
 
     refreshMissionBar();
     compactHudForMobileDuringPlay();
@@ -1448,6 +1531,8 @@ export async function boot(cfg = {}){
         bootDestroyed = true;
 
         try{
+          setGateDone('warmup', catKey, gameKey, pid, hhDayKey());
+
           const u = new URL('../warmup-gate.html', location.href);
           u.searchParams.set('gatePhase', 'cooldown');
           u.searchParams.set('zone', zoneKey);
@@ -1512,6 +1597,8 @@ export async function boot(cfg = {}){
 
     playing = false;
     paused = false;
+
+    setHUD();
 
     const shelfBefore = safeRun(()=> loadHydShelf(pid), {
       bestScore:0, bestGrade:'—', finalClearCount:0, totalRuns:0, stickers:{}, lastReward:null
@@ -1754,6 +1841,13 @@ export async function boot(cfg = {}){
   // ------------------------------------------------------------
   // ui actions
   // ------------------------------------------------------------
+  if(ui.btnSfx){
+    ui.btnSfx.onclick = ()=>{
+      const on = SFX.toggle();
+      showCallout(on ? 'เปิดเสียงแล้ว 🔊' : 'ปิดเสียงแล้ว 🔇', on ? 'good' : 'warn');
+    };
+  }
+
   if(ui.btnHelp) ui.btnHelp.onclick = showHelp;
   if(ui.btnHelpStart) ui.btnHelpStart.onclick = hideHelp;
   if(ui.btnPause) ui.btnPause.onclick = ()=> paused ? hidePause() : showPause();
@@ -1766,6 +1860,12 @@ export async function boot(cfg = {}){
   if(ui.btnCopyLabels) ui.btnCopyLabels.onclick = async ()=> copyText(safeJson({ labelRows }), 'Copy Labels JSON');
   if(ui.btnCopyFeaturesCsv) ui.btnCopyFeaturesCsv.onclick = async ()=> copyText(featureRows.map(r=> Object.values(r).join(',')).join('\n'), 'Copy Features CSV');
   if(ui.btnCopyLabelsCsv) ui.btnCopyLabelsCsv.onclick = async ()=> copyText(labelRows.map(r=> Object.values(r).join(',')).join('\n'), 'Copy Labels CSV');
+
+  if(ui.btnSendCloud){
+    ui.btnSendCloud.onclick = ()=>{
+      sendCloudNow();
+    };
+  }
 
   // ------------------------------------------------------------
   // boot visual state
