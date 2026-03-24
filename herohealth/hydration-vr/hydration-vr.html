@@ -6,7 +6,7 @@
   <title>HeroHealth • Hydration Hero</title>
   <meta name="color-scheme" content="dark light" />
   <link rel="icon" href="../favicon.ico" />
-  <link rel="stylesheet" href="./hydration.css?v=20260323-safe-dom" />
+  <link rel="stylesheet" href="./hydration-vr.css?v=20260323-safe-dom-r2" />
 </head>
 <body>
   <main class="hydr-page">
@@ -32,7 +32,7 @@
 
       <div class="hud-card">
         <span class="hud-label">เวลา</span>
-        <strong id="uiTime" class="hud-value">0</strong>
+        <strong id="uiTime" class="hud-value">00:00</strong>
       </div>
 
       <div class="hud-card">
@@ -83,7 +83,7 @@
       <div class="mini-pill wide">คำแนะนำ: <strong id="aiHint">แตะน้ำดี และอย่าโดนของไม่ดี 😊</strong></div>
     </section>
 
-    <section class="missionBar" id="missionBar">
+    <section id="missionBar" class="missionBar">
       <div class="mission-title">🎯 ภารกิจรอบนี้</div>
 
       <div id="missionChipHit" class="mission-chip">
@@ -143,7 +143,6 @@
     </section>
   </main>
 
-  <!-- HELP -->
   <div id="helpOverlay" class="overlay" aria-hidden="true">
     <div class="dialog help-dialog">
       <h2>วิธีเล่น</h2>
@@ -159,7 +158,6 @@
     </div>
   </div>
 
-  <!-- PAUSE -->
   <div id="pauseOverlay" class="overlay" aria-hidden="true">
     <div class="dialog">
       <h2>พักเกมชั่วคราว</h2>
@@ -170,7 +168,6 @@
     </div>
   </div>
 
-  <!-- END -->
   <div id="end" class="overlay endOverlay" aria-hidden="true">
     <div class="dialog endDialog">
       <div class="endHeader">
@@ -249,7 +246,7 @@
   </div>
 
   <script type="module">
-    import { boot } from './hydration.safe.js?v=20260315d-HYD-SOLO-CLOSEOUT';
+    import { boot } from './hydration.safe.js?v=20260323-HYD-SOLO-CLOSEOUT-HUD-CLOUD-BOSSFIX';
 
     boot({}).catch((err) => {
       console.error('[hydration] boot failed', err);
