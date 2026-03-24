@@ -1,5 +1,5 @@
 // === /herohealth/vr-groups/groups-race-rtdb.js ===
-// FULL PATCH v20260323-GROUPS-RACE-RTDB-WAITFIREBASE-HARDENED
+// FULL PATCH v20260323-GROUPS-RACE-RTDB-PRESENCE-HEARTBEAT-HARDENED
 
 const ROOT = 'hha-battle/groups/raceRooms';
 
@@ -81,6 +81,7 @@ function getReadyCount(data){
 export async function createRaceRoom({ hostName, playerId, diff='normal', timeSec=60, view='mobile' }){
   const roomCode = makeRoomCode();
   const ref = await roomRef(roomCode);
+  const now = Date.now();
 
   await ref.set({
     meta: {
@@ -90,8 +91,8 @@ export async function createRaceRoom({ hostName, playerId, diff='normal', timeSe
       diff: String(diff || 'normal'),
       timeSec: Number(timeSec || 60),
       view: String(view || 'mobile'),
-      createdAt: Date.now(),
-      updatedAt: Date.now()
+      createdAt: now,
+      updatedAt: now
     },
     players: {
       [playerId]: {
@@ -100,8 +101,8 @@ export async function createRaceRoom({ hostName, playerId, diff='normal', timeSe
         role: 'host',
         ready: false,
         online: true,
-        joinedAt: Date.now(),
-        lastSeenAt: Date.now()
+        joinedAt: now,
+        lastSeenAt: now
       }
     },
     match: {
@@ -118,13 +119,13 @@ export async function createRaceRoom({ hostName, playerId, diff='normal', timeSe
         score: 0,
         combo: 0,
         acc: 0,
-        updatedAt: Date.now()
+        updatedAt: now
       }
     },
     rematch: {
       requestedBy: {},
       readyCount: 0,
-      updatedAt: Date.now()
+      updatedAt: now
     }
   });
 
@@ -152,6 +153,8 @@ export async function joinRaceRoom({ roomCode, playerId, playerName }){
 
   if(count >= 2) throw new Error('ห้องเต็มแล้ว');
 
+  const now = Date.now();
+
   const pRef = await playersRef(roomCode);
   await pRef.child(playerId).set({
     playerId,
@@ -159,8 +162,8 @@ export async function joinRaceRoom({ roomCode, playerId, playerName }){
     role: 'guest',
     ready: false,
     online: true,
-    joinedAt: Date.now(),
-    lastSeenAt: Date.now()
+    joinedAt: now,
+    lastSeenAt: now
   });
 
   const sRef = await scoresRef(roomCode);
@@ -168,10 +171,10 @@ export async function joinRaceRoom({ roomCode, playerId, playerName }){
     score: 0,
     combo: 0,
     acc: 0,
-    updatedAt: Date.now()
+    updatedAt: now
   });
 
-  await ref.child('meta/updatedAt').set(Date.now());
+  await ref.child('meta/updatedAt').set(now);
   return true;
 }
 
@@ -247,6 +250,9 @@ export async function startRaceMatch(roomCode){
 
   const readyCount = ids.filter(id => players[id]?.ready).length;
   if(readyCount < 2) throw new Error('ผู้เล่นยังไม่พร้อมครบ');
+
+  const onlineCount = ids.filter(id => players[id]?.online !== false).length;
+  if(onlineCount < 2) throw new Error('ยังมีผู้เล่น offline อยู่');
 
   const now = Date.now();
 
@@ -430,26 +436,59 @@ export function bindRacePresence(roomCode, playerId){
   let stop = false;
   let cRef = null;
   let handle = null;
+  let heartbeatTimer = null;
+  let pRef = null;
 
   (async ()=>{
     try{
-      const pRef = await playerRef(roomCode, playerId);
+      pRef = await playerRef(roomCode, playerId);
       cRef = await connectedRef();
+
+      async function pingOnline(){
+        if(stop || !pRef) return;
+        try{
+          await pRef.update({
+            online: true,
+            lastSeenAt: Date.now()
+          });
+        }catch(err){
+          console.error('[bindRacePresence ping]', err);
+        }
+      }
 
       handle = snap => {
         if(stop) return;
         if(snap.val() !== true) return;
 
-        pRef.child('online').onDisconnect().set(false);
-        pRef.child('lastSeenAt').onDisconnect().set(Date.now());
+        try{
+          pRef.child('online').onDisconnect().set(false);
+          pRef.child('lastSeenAt').onDisconnect().set(Date.now());
+        }catch(err){
+          console.error('[bindRacePresence onDisconnect]', err);
+        }
 
-        pRef.update({
-          online: true,
-          lastSeenAt: Date.now()
-        }).catch(()=>{});
+        pingOnline();
+
+        if(heartbeatTimer) clearInterval(heartbeatTimer);
+        heartbeatTimer = setInterval(pingOnline, 4000);
       };
 
       cRef.on('value', handle);
+
+      const onVisible = ()=>{
+        if(stop) return;
+        if(document.visibilityState === 'visible'){
+          pingOnline();
+        }
+      };
+
+      const onFocus = ()=>{ if(!stop) pingOnline(); };
+      const onPageShow = ()=>{ if(!stop) pingOnline(); };
+
+      document.addEventListener('visibilitychange', onVisible);
+      window.addEventListener('focus', onFocus, { passive:true });
+      window.addEventListener('pageshow', onPageShow, { passive:true });
+
     }catch(err){
       console.error('[bindRacePresence]', err);
     }
@@ -459,6 +498,9 @@ export function bindRacePresence(roomCode, playerId){
     stop = true;
     try{
       if(cRef && handle) cRef.off('value', handle);
+    }catch(_){}
+    try{
+      if(heartbeatTimer) clearInterval(heartbeatTimer);
     }catch(_){}
   };
 }
