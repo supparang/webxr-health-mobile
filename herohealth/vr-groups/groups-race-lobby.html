@@ -1,6 +1,6 @@
 <!-- === /herohealth/vr-groups/groups-race-lobby.html ===
 Groups Race Lobby
-FULL PATCH v20260323-GROUPS-RACE-LOBBY-HARDENED-RUNPARAMS
+FULL PATCH v20260323-GROUPS-RACE-LOBBY-PRESENCE-ONLINE-GUARD
 Requires:
 - ../firebase-config.js
 - ./groups-race-rtdb.js
@@ -149,6 +149,11 @@ Requires:
     .btn.pink{
       border-color:rgba(244,114,182,.28);
       background:linear-gradient(180deg, rgba(244,114,182,.18), rgba(15,23,42,.9));
+    }
+    .btn[disabled]{
+      opacity:.58;
+      cursor:not-allowed;
+      filter:grayscale(.15);
     }
     .mini{
       color:var(--muted);
@@ -306,7 +311,6 @@ Requires:
     let unwatch = null;
     let unbindPresence = null;
     let lastRoomData = null;
-    let inRematchMode = false;
     let openingRun = false;
 
     function setStatus(text, tone=''){
@@ -339,9 +343,7 @@ Requires:
       }
 
       openingRun = true;
-      const href = buildRaceRunUrl(room, pid);
-      console.log('[groups-race-lobby] open run ->', href);
-      location.assign(href);
+      location.assign(buildRaceRunUrl(room, pid));
     }
 
     function safeName(v, fallback){
@@ -392,6 +394,8 @@ Requires:
       const players = data.players || {};
       const playerCount = Object.keys(players).length;
       const readyCount = Object.values(players).filter(p => p && p.ready).length;
+      const onlineCount = Object.values(players).filter(p => p && p.online !== false).length;
+      const allOnline = playerCount >= 2 && onlineCount >= 2;
       const started = !!data.match?.started;
       const ended = !!data.match?.endedAt;
       const rematchReady = Number(data.rematch?.readyCount || 0);
@@ -410,7 +414,6 @@ Requires:
       lines.push(renderPlayersText(data));
 
       if(started){
-        inRematchMode = false;
         setStatus(lines.concat([
           '',
           `กำลังเข้าเกม...`,
@@ -427,7 +430,7 @@ Requires:
 
         if(currentRole === 'host'){
           btnStartRoom.textContent = canRematch ? `เริ่มใหม่ (${rematchReady}/${totalPlayers})` : 'รอผู้เล่นครบ';
-          btnStartRoom.disabled = !(canRematch && rematchReady >= totalPlayers);
+          btnStartRoom.disabled = !(canRematch && rematchReady >= totalPlayers && allOnline);
         }else{
           btnStartRoom.textContent = 'รอ Host เริ่มใหม่';
           btnStartRoom.disabled = true;
@@ -436,29 +439,34 @@ Requires:
         setStatus(lines.concat([
           '',
           `Rematch ready ${rematchReady}/${totalPlayers}`,
-          currentRole === 'host'
+          !allOnline ? 'ยังมีผู้เล่น offline อยู่ ห้ามเริ่มก่อน' :
+          (currentRole === 'host'
             ? (btnStartRoom.disabled ? 'รอให้ทุกคนกด Rematch' : 'ทุกคนพร้อมแล้ว กดเริ่มใหม่ได้')
-            : 'กด Rematch แล้วรอ Host เริ่ม'
-        ]).join('\n'), 'warn');
+            : 'กด Rematch แล้วรอ Host เริ่ม')
+        ]).join('\n'), allOnline ? 'warn' : 'bad');
         return;
       }
 
       if(currentRole === 'host'){
         btnStartRoom.textContent = 'เริ่มแข่ง';
-        btnStartRoom.disabled = !(playerCount >= 2 && readyCount >= 2);
+        btnStartRoom.disabled = !(playerCount >= 2 && readyCount >= 2 && allOnline);
+
         setStatus(lines.concat([
           '',
           playerCount < 2 ? 'กำลังรอผู้เล่นอีกคน...' : 'ผู้เล่นครบแล้ว',
-          readyCount < 2 ? 'รอให้ทุกคนกด Ready' : 'พร้อมเริ่มแข่ง'
-        ]).join('\n'), playerCount >= 2 ? 'warn' : '');
+          readyCount < 2 ? 'รอให้ทุกคนกด Ready' : 'พร้อมแล้ว',
+          !allOnline ? 'ยังมีผู้เล่น offline อยู่ ห้ามเริ่มก่อน' : 'ทุกคน online พร้อมเริ่มแข่ง'
+        ]).join('\n'), (playerCount >= 2 && readyCount >= 2 && allOnline) ? 'good' : 'warn');
       }else{
         btnStartRoom.textContent = 'รอ Host';
         btnStartRoom.disabled = true;
+
         setStatus(lines.concat([
           '',
           'เข้าห้องสำเร็จแล้ว',
-          readyCount >= 2 ? 'กำลังรอ Host กดเริ่ม' : 'ระบบส่ง Ready แล้ว'
-        ]).join('\n'), 'good');
+          !allOnline ? 'สถานะยังไม่ stable กำลังรอ online...' :
+          (readyCount >= 2 ? 'กำลังรอ Host กดเริ่ม' : 'ระบบส่ง Ready แล้ว')
+        ]).join('\n'), allOnline ? 'good' : 'warn');
       }
     }
 
@@ -493,7 +501,6 @@ Requires:
         currentRoomCode = roomCode;
         currentPlayerId = playerId;
         currentRole = 'host';
-        inRematchMode = false;
         openingRun = false;
 
         roomBox.hidden = false;
@@ -540,7 +547,6 @@ Requires:
         currentRoomCode = roomCode;
         currentPlayerId = playerId;
         currentRole = 'guest';
-        inRematchMode = false;
         openingRun = false;
 
         roomBox.hidden = false;
@@ -549,6 +555,8 @@ Requires:
 
         await markReady(roomCode, playerId, true);
         await attachWatch(roomCode);
+
+        window.dispatchEvent(new Event('focus'));
 
         setStatus(`เข้าห้องสำเร็จ\nRoom: ${roomCode}\nplayerId=${playerId}\nกำลังรอ Host กดเริ่ม`, 'good');
       }catch(err){
@@ -574,6 +582,12 @@ Requires:
           return;
         }
 
+        const players = room?.players || {};
+        const onlineCount = Object.values(players).filter(p => p && p.online !== false).length;
+        if(onlineCount < 2){
+          throw new Error('ยังมีผู้เล่น offline อยู่');
+        }
+
         setStatus(`กำลังเริ่มการแข่งขัน...\nroom=${currentRoomCode}\nplayerId=${currentPlayerId || '-'}`, 'warn');
         openingRun = false;
         await startRaceMatch(currentRoomCode);
@@ -597,7 +611,6 @@ Requires:
     btnRematch.addEventListener('click', async ()=>{
       try{
         if(!currentRoomCode || !currentPlayerId) return;
-        inRematchMode = true;
         setStatus('กำลังส่งคำขอ Rematch...', 'warn');
 
         const result = await requestRaceRematch(currentRoomCode, currentPlayerId);
