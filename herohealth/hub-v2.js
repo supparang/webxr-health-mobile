@@ -58,7 +58,9 @@
       options: [
         { label: 'Shadow Breaker', sub: 'ต่อยเป้าให้แม่นและเร็ว', url: './shadow-breaker-vr.html' },
         { label: 'Rhythm Boxer', sub: 'ชกตามจังหวะเพลง', url: './rhythm-boxer-vr.html' },
-        { label: 'Balance Hold', sub: 'ทรงตัวให้นานที่สุด', url: './balance-hold-vr.html' }
+        { label: 'Balance Hold', sub: 'ทรงตัวให้นานที่สุด', url: './balance-hold-vr.html' },
+        { label: 'JumpDuck', sub: 'กระโดดและก้มหลบให้ทัน', url: './jump-duck-vr.html' },
+        { label: 'Fitness Planner', sub: 'วางแผนออกกำลังกายแบบสนุก ๆ', url: './fitness-planner.html' }
       ]
     }
   };
@@ -115,6 +117,18 @@
 
   function zoneLabel(zone){
     return GAMES[zone]?.label || 'HeroHealth';
+  }
+
+  function getDefaultOption(zone){
+    const set = GAMES[zone];
+    if (!set) return null;
+    return set.options.find((item) => item.url === set.defaultUrl) || set.options[0] || null;
+  }
+
+  function listGameNames(zone){
+    const set = GAMES[zone];
+    if (!set) return [];
+    return set.options.map((item) => item.label);
   }
 
   function getHubCanonical(){
@@ -276,6 +290,44 @@
     `).join('');
   }
 
+  function renderLibraryBox(){
+    const box = $('#libraryBox');
+    if (!box) return;
+
+    const cards = Object.entries(GAMES).map(([zone, set]) => {
+      const names = listGameNames(zone);
+      return `
+        <div class="library-card">
+          <div class="library-top">
+            <div class="library-name">${escapeHtml(set.label)}</div>
+            <div class="library-count">${names.length} เกม</div>
+          </div>
+          <div class="library-games">${escapeHtml(names.join(' • '))}</div>
+        </div>
+      `;
+    }).join('');
+
+    box.innerHTML = cards;
+  }
+
+  function initZoneMeta(){
+    const maps = [
+      ['hygiene', '#hygFeatured', '#btnZoneHygiene'],
+      ['nutrition', '#nutriFeatured', '#btnZoneNutrition'],
+      ['fitness', '#fitFeatured', '#btnZoneFitness']
+    ];
+
+    maps.forEach(([zone, featuredSel, btnSel]) => {
+      const featuredEl = $(featuredSel);
+      const btnEl = $(btnSel);
+      const set = GAMES[zone];
+      const def = getDefaultOption(zone);
+
+      if (featuredEl && def) featuredEl.textContent = def.label;
+      if (btnEl && set) btnEl.textContent = `ดูเกมทั้งหมด (${set.options.length})`;
+    });
+  }
+
   function renderLastSummary(lastSummary){
     const box = $('#summaryBox');
 
@@ -360,12 +412,17 @@
 
     title.textContent = data.label;
     sub.textContent = `เลือกเกมใน ${data.label} ได้เลย`;
-    list.innerHTML = data.options.map((item) => `
+    list.innerHTML = data.options.map((item) => {
+      const isFeatured = item.url === data.defaultUrl;
+      return `
       <button class="picker-item" type="button" data-url="${escapeHtml(item.url)}" data-zone="${escapeHtml(zone)}">
-        <span class="name">${escapeHtml(item.label)}</span>
+        <span class="picker-item-top">
+          <span class="name">${escapeHtml(item.label)}</span>
+          ${isFeatured ? '<span class="picker-badge">แนะนำ</span>' : ''}
+        </span>
         <span class="sub">${escapeHtml(item.sub)}</span>
       </button>
-    `).join('');
+    `;}).join('');
 
     list.querySelectorAll('.picker-item').forEach((btn) => {
       btn.addEventListener('click', () => {
@@ -441,6 +498,8 @@
     renderZoneStats(zoneStatsFromHistory(history));
     renderMissions(history);
     renderLastSummary(lastSummary);
+    renderLibraryBox();
+    initZoneMeta();
     bindZoneLinks();
     bindTopButtons(profile);
     bindPicker();
