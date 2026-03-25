@@ -4,16 +4,208 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • Nutrition Plate Run</title>
-  <meta name="color-scheme" content="dark light" />
+  <title>HeroHealth • Plate Run</title>
+  <meta name="color-scheme" content="light" />
   <link rel="icon" href="../favicon.ico" />
   <link rel="stylesheet" href="./css/plate.css" />
+  <style>
+    .storybook-top{
+      margin:0 0 12px;
+      padding:14px;
+      border-radius:28px;
+      border:2px solid #bfe7f5;
+      background:
+        radial-gradient(circle at top left, rgba(255,255,255,.76), transparent 24%),
+        linear-gradient(180deg, #f7fdff 0%, #edfaff 100%);
+      box-shadow:0 14px 34px rgba(68,149,191,.14);
+    }
+
+    .storybook-brand{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      flex-wrap:wrap;
+      margin-bottom:12px;
+    }
+
+    .storybook-brand-main{
+      display:flex;
+      gap:12px;
+      align-items:center;
+    }
+
+    .storybook-avatar{
+      width:62px;
+      height:62px;
+      border-radius:20px;
+      display:grid;
+      place-items:center;
+      font-size:34px;
+      background:linear-gradient(180deg, #ffffff, #f2fbff);
+      border:2px solid #b9e7f8;
+      box-shadow:0 8px 20px rgba(68,149,191,.12);
+      flex:0 0 62px;
+    }
+
+    .storybook-brand-title{
+      margin:0;
+      font-size:clamp(28px, 4vw, 42px);
+      line-height:1;
+      font-weight:900;
+      color:#86b81f;
+      letter-spacing:-.03em;
+      text-shadow:0 2px 0 rgba(255,255,255,.85);
+    }
+
+    .storybook-brand-title span{
+      color:#16324a;
+    }
+
+    .storybook-brand-sub{
+      margin:4px 0 0;
+      font-size:14px;
+      line-height:1.4;
+      color:#62829a;
+      font-weight:800;
+    }
+
+    .storybook-status{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+
+    .storybook-status-pill{
+      min-height:42px;
+      border-radius:999px;
+      padding:10px 14px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      background:linear-gradient(180deg, #ffffff, #f6fbff);
+      border:2px solid #d9eef8;
+      color:#24425c;
+      font-weight:900;
+      box-shadow:0 8px 18px rgba(68,149,191,.10);
+    }
+
+    .mission-strip{
+      display:grid;
+      grid-template-columns:1.1fr .9fr;
+      gap:12px;
+    }
+
+    .mission-card,
+    .plate-model-card{
+      border-radius:24px;
+      padding:14px;
+      background:linear-gradient(180deg, #ffffff, #f6fbff);
+      border:2px solid #d9eef8;
+      box-shadow:0 8px 18px rgba(68,149,191,.10);
+    }
+
+    .plate-model-card{
+      background:linear-gradient(180deg, #fffef7, #fff9db);
+      border-color:#ffe28d;
+    }
+
+    .mission-label,
+    .plate-model-label{
+      font-size:13px;
+      color:#62829a;
+      font-weight:900;
+      margin-bottom:6px;
+    }
+
+    .mission-value,
+    .plate-model-value{
+      font-size:20px;
+      font-weight:900;
+      line-height:1.25;
+      color:#16324a;
+    }
+
+    .mission-sub{
+      margin-top:6px;
+      color:#62829a;
+      font-size:13px;
+      line-height:1.45;
+      font-weight:800;
+    }
+
+    .plate-model-bullets{
+      margin:8px 0 0;
+      padding-left:18px;
+      color:#7b6716;
+      font-size:13px;
+      line-height:1.5;
+      font-weight:900;
+    }
+
+    .run-stage{
+      position:relative;
+    }
+
+    .run-stage::before{
+      content:"";
+      position:absolute;
+      inset:10px 10px auto auto;
+      width:82px;
+      height:82px;
+      border-radius:24px;
+      background:radial-gradient(circle, rgba(255,255,255,.7), rgba(255,255,255,0));
+      pointer-events:none;
+    }
+
+    @media (max-width: 720px){
+      .mission-strip{
+        grid-template-columns:1fr;
+      }
+    }
+  </style>
 </head>
 <body class="plate-page run-page">
   <main class="run-shell" id="appRoot">
+    <section class="storybook-top">
+      <div class="storybook-brand">
+        <div class="storybook-brand-main">
+          <div class="storybook-avatar">🦸</div>
+          <div>
+            <h1 class="storybook-brand-title">Hero<span>Health</span></h1>
+            <p class="storybook-brand-sub">Learn Health Through Play!</p>
+          </div>
+        </div>
+
+        <div class="storybook-status">
+          <div class="storybook-status-pill">❤️ <span id="storybookLives">3</span></div>
+          <div class="storybook-status-pill">⭐ <span id="storybookStars">0</span></div>
+        </div>
+      </div>
+
+      <div class="mission-strip">
+        <div class="mission-card">
+          <div class="mission-label">ภารกิจของรอบนี้</div>
+          <div class="mission-value">จัดมื้ออาหารให้สมดุล</div>
+          <div class="mission-sub">เลือกอาหารให้ดี แล้วดูว่าจานยังขาดอะไร</div>
+        </div>
+
+        <div class="plate-model-card">
+          <div class="plate-model-label">เป้าหมายจาน ป.5</div>
+          <div class="plate-model-value">3 - 2 - 2 - 1</div>
+          <ul class="plate-model-bullets">
+            <li>ข้าว 3</li>
+            <li>โปรตีน 2</li>
+            <li>ผัก 2</li>
+            <li>ผลไม้ 1</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
     <header class="hud">
       <div class="hud-left">
-        <div class="hud-chip phase-chip" id="hudPhase">Phase: Pre Quiz</div>
+        <div class="hud-chip phase-chip" id="hudPhase">หมวด: ก่อนเล่น</div>
         <div class="hud-chip progress-chip" id="hudProgress">0 / 0</div>
       </div>
 
@@ -27,7 +219,7 @@
       </div>
     </header>
 
-    <section class="play-card">
+    <section class="play-card run-stage">
       <div class="mini-tip" id="miniTip">กำลังโหลด…</div>
 
       <div class="coach-box" id="coachBox" aria-live="polite"></div>
@@ -40,7 +232,7 @@
         </div>
       </div>
 
-      <h1 class="question-title" id="questionPrompt">กำลังโหลด...</h1>
+      <h2 class="question-title" id="questionPrompt">กำลังโหลด...</h2>
 
       <div class="plate-board" id="plateBoard"></div>
       <div class="scenario-box" id="scenarioBox"></div>
