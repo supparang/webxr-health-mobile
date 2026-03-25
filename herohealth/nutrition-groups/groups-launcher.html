@@ -12,18 +12,20 @@
 <body class="groups-page launcher-page">
   <main class="launcher-shell">
     <section class="launcher-card">
-      <div class="hero-pill">Nutrition Groups</div>
+      <div class="hero-pill">🧺 Nutrition Groups</div>
 
       <h1 class="launcher-title">จับหมวดอาหารให้ถูก</h1>
 
       <p class="launcher-sub">
-        เกมนี้จะให้หนูแยกอาหารเป็น 5 หมู่ เลือกตัวเลือกที่ดีกว่า
-        และตอบเหตุผลง่าย ๆ ก่อนเข้าสู่เกมจะมี warmup สั้น ๆ และหลังจบจะมี cooldown ก่อนกลับ HUB
+        เกมนี้ให้หนู
+        <strong>แยกอาหารเป็น 5 หมู่</strong>,
+        <strong>เลือกของที่ดีกว่า</strong>
+        และ <strong>ตอบเหตุผลง่าย ๆ</strong>
       </p>
 
       <div class="launcher-grid">
         <label class="field">
-          <span>ระดับ</span>
+          <span>ระดับเกม</span>
           <select id="diffSelect" aria-label="เลือกระดับเกม">
             <option value="easy">ง่าย</option>
             <option value="normal" selected>ปกติ</option>
@@ -32,7 +34,7 @@
         </label>
 
         <label class="field">
-          <span>เวลา</span>
+          <span>เวลาเล่น</span>
           <select id="timeSelect" aria-label="เลือกเวลาเล่น">
             <option value="60">60 วินาที</option>
             <option value="90" selected>90 วินาที</option>
@@ -41,13 +43,23 @@
         </label>
       </div>
 
+      <div class="launcher-note">
+        สิ่งที่จะได้ทำในเกมนี้:
+        <br />
+        • แยกอาหารเข้าหมู่ให้ถูก
+        <br />
+        • เลือกว่าอะไรดีกว่า
+        <br />
+        • เลือกเหตุผลที่ใช่ที่สุด
+      </div>
+
       <div class="launcher-actions">
-        <button class="btn btn-start" id="startBtn" type="button">เริ่มเกม</button>
+        <button class="btn btn-start" id="startBtn" type="button">เริ่มเกม Groups</button>
         <button class="btn btn-ghost" id="backBtn" type="button">กลับ HUB</button>
       </div>
 
       <div class="launcher-note">
-        Flow: Launcher → Warmup Gate → Groups Run → Summary → Cooldown Gate → HUB
+        Flow: Launcher → Warmup → Groups → Summary → Cooldown → HUB
       </div>
     </section>
   </main>
