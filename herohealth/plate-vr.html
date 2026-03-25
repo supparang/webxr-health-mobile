@@ -1,59 +1,605 @@
-<!-- === /herohealth/plate-vr.html === -->
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • Plate Redirect</title>
-  <meta name="color-scheme" content="dark light" />
+  <title>HeroHealth — Plate Launcher</title>
+  <meta name="color-scheme" content="dark" />
+  <meta name="theme-color" content="#10213c" />
   <link rel="icon" href="./favicon.ico" />
   <style>
-    html,body{
-      margin:0;
-      min-height:100%;
+    :root{
+      --bg1:#081426;
+      --bg2:#10213c;
+      --bg3:#17335c;
+      --bg4:#24508d;
+
+      --panel:rgba(12,20,38,.76);
+      --panel-2:rgba(18,31,56,.9);
+      --line:rgba(255,255,255,.12);
+      --line-strong:rgba(255,255,255,.2);
+
+      --text:#f8fbff;
+      --muted:#d7e4ff;
+      --soft:#b8cffc;
+
+      --green:#34d399;
+      --yellow:#fbbf24;
+      --orange:#fb923c;
+      --red:#f87171;
+      --pink:#f472b6;
+      --blue:#60a5fa;
+      --violet:#a78bfa;
+
+      --shadow:0 22px 60px rgba(0,0,0,.34);
+      --radius:26px;
+      --radius-lg:32px;
+      --radius-sm:16px;
+      --safe-top:max(14px, env(safe-area-inset-top));
+      --safe-bottom:max(14px, env(safe-area-inset-bottom));
+    }
+
+    *{ box-sizing:border-box; }
+    html,body{ margin:0; min-height:100%; font-family:ui-rounded, "Noto Sans Thai", system-ui, sans-serif; color:var(--text); }
+    body{
+      background:
+        radial-gradient(900px 500px at 10% -10%, rgba(96,165,250,.26), transparent 60%),
+        radial-gradient(700px 420px at 100% 0%, rgba(244,114,182,.16), transparent 58%),
+        linear-gradient(180deg, var(--bg3), var(--bg2) 46%, var(--bg1));
+      min-height:100vh;
+    }
+
+    .shell{
+      width:min(1120px, calc(100% - 24px));
+      margin:0 auto;
+      padding:var(--safe-top) 0 var(--safe-bottom);
+    }
+
+    .hero{
+      position:relative;
+      overflow:hidden;
+      border:1px solid var(--line);
+      border-radius:var(--radius-lg);
+      background:
+        radial-gradient(520px 240px at 12% 10%, rgba(251,191,36,.2), transparent 60%),
+        radial-gradient(440px 220px at 88% 14%, rgba(52,211,153,.16), transparent 60%),
+        linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.02)),
+        var(--panel);
+      box-shadow:var(--shadow);
+      padding:24px;
+    }
+
+    .hero::after{
+      content:"";
+      position:absolute;
+      inset:auto -30px -48px auto;
+      width:240px;
+      height:240px;
+      border-radius:50%;
+      background:radial-gradient(circle at 30% 30%, rgba(255,255,255,.22), rgba(255,255,255,.04) 50%, transparent 72%);
+      pointer-events:none;
+    }
+
+    .topbar{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      flex-wrap:wrap;
+      margin-bottom:16px;
+    }
+
+    .brand{
+      display:flex;
+      align-items:center;
+      gap:12px;
+    }
+
+    .brand-badge{
+      width:56px;
+      height:56px;
+      border-radius:18px;
       display:grid;
       place-items:center;
-      background:
-        radial-gradient(circle at top left, rgba(34,211,238,.18), transparent 28%),
-        linear-gradient(180deg, #172554, #020617 42%, #020617);
-      color:#e5e7eb;
-      font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      font-size:30px;
+      background:linear-gradient(135deg, rgba(251,191,36,.3), rgba(244,114,182,.22));
+      border:1px solid rgba(255,255,255,.16);
+      box-shadow:0 10px 24px rgba(0,0,0,.22);
     }
-    .card{
-      width:min(560px, calc(100% - 24px));
-      padding:22px;
-      border-radius:24px;
-      background:rgba(15,23,42,.92);
-      border:1px solid rgba(148,163,184,.16);
-      text-align:center;
-      box-shadow:0 18px 48px rgba(0,0,0,.28);
+
+    .brand h1{
+      margin:0;
+      font-size:clamp(26px, 4.2vw, 40px);
+      line-height:1.05;
+      font-weight:900;
+      letter-spacing:.01em;
     }
-    h1{
-      margin:0 0 10px;
-      font-size:clamp(24px, 4vw, 32px);
-      line-height:1.1;
+
+    .brand p{
+      margin:4px 0 0;
+      color:var(--muted);
+      font-size:15px;
+      line-height:1.45;
     }
-    p{
-      margin:0 0 10px;
-      color:#cbd5e1;
-      line-height:1.5;
+
+    .mini-pills{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
     }
-    a{
-      color:#22d3ee;
+
+    .pill{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      min-height:40px;
+      padding:0 14px;
+      border-radius:999px;
+      background:rgba(255,255,255,.08);
+      border:1px solid rgba(255,255,255,.14);
+      color:var(--soft);
       font-weight:800;
+      font-size:14px;
+      box-shadow:0 8px 20px rgba(0,0,0,.16);
+    }
+
+    .hero-grid{
+      display:grid;
+      grid-template-columns:1.2fr .9fr;
+      gap:18px;
+      margin-top:18px;
+    }
+
+    .panel{
+      border:1px solid var(--line);
+      border-radius:28px;
+      background:var(--panel-2);
+      box-shadow:var(--shadow);
+      padding:18px;
+    }
+
+    .title{
+      margin:0 0 10px;
+      font-size:21px;
+      font-weight:900;
+    }
+
+    .sub{
+      margin:0 0 14px;
+      color:var(--muted);
+      line-height:1.55;
+      font-size:15px;
+    }
+
+    .mission{
+      display:grid;
+      grid-template-columns:repeat(2, minmax(0,1fr));
+      gap:12px;
+      margin-top:14px;
+    }
+
+    .mission-card{
+      border-radius:22px;
+      padding:14px;
+      background:linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.03));
+      border:1px solid rgba(255,255,255,.12);
+    }
+
+    .mission-card .emoji{
+      font-size:28px;
+      margin-bottom:8px;
+    }
+
+    .mission-card .name{
+      font-weight:900;
+      margin:0 0 6px;
+      font-size:15px;
+    }
+
+    .mission-card .txt{
+      margin:0;
+      color:var(--muted);
+      font-size:14px;
+      line-height:1.45;
+    }
+
+    .picker-grid{
+      display:grid;
+      gap:12px;
+    }
+
+    .field{
+      display:grid;
+      gap:8px;
+    }
+
+    .field label{
+      font-size:14px;
+      font-weight:900;
+      color:var(--soft);
+    }
+
+    .seg{
+      display:grid;
+      grid-template-columns:repeat(3,1fr);
+      gap:10px;
+    }
+
+    .seg.two{ grid-template-columns:repeat(2,1fr); }
+
+    .seg button{
+      border:0;
+      min-height:54px;
+      border-radius:18px;
+      padding:10px 12px;
+      font:inherit;
+      font-weight:900;
+      color:var(--text);
+      background:rgba(255,255,255,.08);
+      border:1px solid rgba(255,255,255,.12);
+      box-shadow:0 10px 20px rgba(0,0,0,.16);
+      cursor:pointer;
+      transition:transform .14s ease, border-color .14s ease, background .14s ease;
+    }
+
+    .seg button.active{
+      background:linear-gradient(180deg, rgba(96,165,250,.24), rgba(96,165,250,.14));
+      border-color:rgba(96,165,250,.55);
+      transform:translateY(-1px);
+    }
+
+    .cta{
+      display:flex;
+      gap:12px;
+      flex-wrap:wrap;
+      margin-top:16px;
+    }
+
+    .btn{
+      appearance:none;
+      border:0;
+      cursor:pointer;
+      text-decoration:none;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:10px;
+      min-height:54px;
+      padding:0 20px;
+      border-radius:18px;
+      font:inherit;
+      font-weight:900;
+      color:var(--text);
+      box-shadow:0 14px 30px rgba(0,0,0,.22);
+      transition:transform .14s ease, opacity .14s ease, filter .14s ease;
+    }
+
+    .btn:hover{ filter:brightness(1.04); }
+    .btn:active{ transform:translateY(1px) scale(.99); }
+
+    .btn.primary{
+      background:linear-gradient(135deg, var(--green), var(--blue));
+    }
+
+    .btn.secondary{
+      background:rgba(255,255,255,.08);
+      border:1px solid rgba(255,255,255,.14);
+    }
+
+    .coach{
+      display:flex;
+      gap:12px;
+      align-items:flex-start;
+      border-radius:22px;
+      padding:14px;
+      background:linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.03));
+      border:1px solid rgba(255,255,255,.12);
+      margin-top:14px;
+    }
+
+    .coach-face{
+      width:56px;
+      height:56px;
+      flex:0 0 auto;
+      border-radius:18px;
+      display:grid;
+      place-items:center;
+      font-size:30px;
+      background:linear-gradient(135deg, rgba(251,191,36,.28), rgba(244,114,182,.18));
+      border:1px solid rgba(255,255,255,.12);
+    }
+
+    .coach p{
+      margin:0;
+      line-height:1.55;
+      color:var(--muted);
+      font-size:15px;
+    }
+
+    .quick-facts{
+      display:grid;
+      grid-template-columns:repeat(3, minmax(0,1fr));
+      gap:10px;
+      margin-top:14px;
+    }
+
+    .fact{
+      border-radius:18px;
+      padding:12px;
+      background:rgba(255,255,255,.06);
+      border:1px solid rgba(255,255,255,.1);
+      text-align:center;
+    }
+
+    .fact .n{
+      display:block;
+      font-size:26px;
+      font-weight:900;
+      margin-bottom:2px;
+    }
+
+    .fact .t{
+      color:var(--soft);
+      font-size:13px;
+      font-weight:800;
+    }
+
+    .footer-note{
+      text-align:center;
+      color:var(--soft);
+      font-size:13px;
+      margin-top:14px;
+      opacity:.92;
+    }
+
+    @media (max-width: 900px){
+      .hero-grid{ grid-template-columns:1fr; }
+    }
+
+    @media (max-width: 640px){
+      .shell{ width:min(100% - 14px, 100%); }
+      .hero{ padding:16px; border-radius:24px; }
+      .panel{ border-radius:22px; padding:14px; }
+      .mission{ grid-template-columns:1fr; }
+      .quick-facts{ grid-template-columns:1fr; }
+      .seg{ grid-template-columns:1fr; }
+      .seg.two{ grid-template-columns:1fr; }
+      .btn{ width:100%; }
     }
   </style>
 </head>
 <body>
-  <div class="card">
-    <h1>กำลังเปิดเกม Plate เวอร์ชันใหม่…</h1>
-    <p>ระบบจะพาไปหน้า Launcher ใหม่ของเกมนี้โดยอัตโนมัติ</p>
-    <p><a id="goLink" href="./nutrition-plate/plate-launcher.html">เปิด Plate Launcher</a></p>
-  </div>
+  <main class="shell">
+    <section class="hero">
+      <div class="topbar">
+        <div class="brand">
+          <div class="brand-badge">🍽️</div>
+          <div>
+            <h1>Plate Adventure</h1>
+            <p>จัดจานให้สมดุล สนุก เข้าใจง่าย และเป็นเพื่อนกับเด็ก</p>
+          </div>
+        </div>
 
-  <script type="module">
-    import { redirectPreserveAll } from './shared/nutrition-router.js';
-    redirectPreserveAll('./nutrition-plate/plate-launcher.html');
+        <div class="mini-pills">
+          <div class="pill">🥦 Nutrition Zone</div>
+          <div class="pill" id="playerPill">👦 Player: anon</div>
+          <div class="pill" id="viewPill">📱 View: mobile</div>
+        </div>
+      </div>
+
+      <div class="hero-grid">
+        <section class="panel">
+          <h2 class="title">ภารกิจของเกมนี้</h2>
+          <p class="sub">
+            เกมนี้เน้น <b>จัดจานให้สมดุล</b> เด็กจะเลือกอาหารที่เหมาะ ใส่ให้ครบหมู่ และดูทันทีว่าอะไรยังขาดหรือเกิน
+          </p>
+
+          <div class="mission">
+            <article class="mission-card">
+              <div class="emoji">🥗</div>
+              <p class="name">ครบหมู่</p>
+              <p class="txt">มีคาร์บ โปรตีน ผัก ผลไม้ และไขมันอย่างพอดี</p>
+            </article>
+
+            <article class="mission-card">
+              <div class="emoji">✨</div>
+              <p class="name">สมดุล</p>
+              <p class="txt">ไม่ใช่แค่ใส่ถูกหมู่ แต่ต้องมีปริมาณที่เหมาะกับทั้งจาน</p>
+            </article>
+
+            <article class="mission-card">
+              <div class="emoji">🚫</div>
+              <p class="name">หลบตัวลวง</p>
+              <p class="txt">ของทอด ขนมหวาน หรือของมันมากเกินไป จะทำให้จานเสียสมดุล</p>
+            </article>
+
+            <article class="mission-card">
+              <div class="emoji">⭐</div>
+              <p class="name">สะสมดาว</p>
+              <p class="txt">ตรวจจานแต่ละด่าน แล้วเก็บดาวให้มากที่สุด</p>
+            </article>
+          </div>
+
+          <div class="coach">
+            <div class="coach-face">🧑‍🍳</div>
+            <p>
+              โค้ชเชฟบอกว่า: “เลือกอาหารทีละชิ้นก็ได้ ไม่ต้องรีบ ดูให้ครบก่อนว่า
+              จานนี้ยังขาด <b>ผัก</b> หรือ <b>ผลไม้</b> ไหม แล้วค่อยกดตรวจจานนะ”
+            </p>
+          </div>
+
+          <div class="quick-facts">
+            <div class="fact">
+              <span class="n">3–5</span>
+              <span class="t">ด่านต่อรอบ</span>
+            </div>
+            <div class="fact">
+              <span class="n">1–3</span>
+              <span class="t">ดาวต่อด่าน</span>
+            </div>
+            <div class="fact">
+              <span class="n">90s</span>
+              <span class="t">ค่าเวลาเริ่มต้น</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <h2 class="title">ตั้งค่าก่อนเริ่ม</h2>
+          <p class="sub">เลือกโหมดที่ต้องการ แล้วกดเริ่มเล่นได้เลย</p>
+
+          <div class="picker-grid">
+            <div class="field">
+              <label>ระดับ</label>
+              <div class="seg" id="diffSeg">
+                <button type="button" data-value="easy">😊 Easy</button>
+                <button type="button" data-value="normal" class="active">😎 Normal</button>
+                <button type="button" data-value="hard">🔥 Hard</button>
+              </div>
+            </div>
+
+            <div class="field">
+              <label>เวลา</label>
+              <div class="seg" id="timeSeg">
+                <button type="button" data-value="60">60 วิ</button>
+                <button type="button" data-value="90" class="active">90 วิ</button>
+                <button type="button" data-value="120">120 วิ</button>
+              </div>
+            </div>
+
+            <div class="field">
+              <label>มุมมอง</label>
+              <div class="seg two" id="viewSeg">
+                <button type="button" data-value="mobile" class="active">📱 Mobile</button>
+                <button type="button" data-value="pc">🖥️ PC</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="cta">
+            <button id="btnStart" class="btn primary" type="button">▶️ เริ่มผ่าน Warmup</button>
+            <button id="btnDirect" class="btn secondary" type="button">⚡ เข้าเกมตรง</button>
+            <a id="btnBackHub" class="btn secondary" href="./hub.html">🏠 กลับ HUB</a>
+          </div>
+
+          <p class="footer-note">
+            launcher นี้จะส่งต่อค่า run / diff / time / seed / pid / hub และ context สำคัญไปหน้าเกม
+          </p>
+        </section>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    (function(){
+      'use strict';
+
+      const PASS_KEYS = [
+        'pid','nick','name',
+        'run','view','diff','time','seed',
+        'studyId','phase','conditionGroup','sessionOrder','blockLabel',
+        'siteCode','schoolYear','semester',
+        'log','api','debug',
+        'grade','zone'
+      ];
+
+      const qs = new URLSearchParams(location.search);
+
+      const state = {
+        diff: qs.get('diff') || 'normal',
+        time: String(Number(qs.get('time')) || 90),
+        view: qs.get('view') || 'mobile'
+      };
+
+      const $ = (sel) => document.querySelector(sel);
+
+      const player = qs.get('nick') || qs.get('name') || qs.get('pid') || 'anon';
+      $('#playerPill').textContent = `👦 Player: ${player}`;
+
+      function bindSeg(id, key){
+        const root = document.getElementById(id);
+        if(!root) return;
+        root.querySelectorAll('button').forEach((btn) => {
+          if(btn.dataset.value === state[key]) btn.classList.add('active');
+          btn.addEventListener('click', () => {
+            root.querySelectorAll('button').forEach((b) => b.classList.remove('active'));
+            btn.classList.add('active');
+            state[key] = btn.dataset.value;
+            if(key === 'view'){
+              $('#viewPill').textContent = `📱 View: ${state.view}`;
+            }
+          });
+        });
+      }
+
+      bindSeg('diffSeg', 'diff');
+      bindSeg('timeSeg', 'time');
+      bindSeg('viewSeg', 'view');
+      $('#viewPill').textContent = `📱 View: ${state.view}`;
+
+      function carryQuery(url, extra = {}){
+        const u = new URL(url, location.href);
+        PASS_KEYS.forEach((k) => {
+          if(qs.has(k) && !u.searchParams.has(k)) u.searchParams.set(k, qs.get(k));
+        });
+        Object.entries(extra).forEach(([k,v]) => {
+          if(v !== undefined && v !== null && v !== '') u.searchParams.set(k, String(v));
+        });
+        return u.toString();
+      }
+
+      function getHubUrl(){
+        return qs.get('hub') || new URL('./hub.html', location.href).toString();
+      }
+
+      function buildRunUrl(){
+        const seed = qs.get('seed') || String(Date.now());
+        return carryQuery('./plate/plate-vr.html', {
+          diff: state.diff,
+          time: state.time,
+          view: state.view,
+          seed,
+          zone: 'nutrition',
+          game: 'plate',
+          hub: getHubUrl()
+        });
+      }
+
+      function buildWarmupUrl(){
+        const gate = new URL('./warmup-gate.html', location.href);
+        gate.searchParams.set('gatePhase', 'warmup');
+        gate.searchParams.set('phase', 'warmup');
+        gate.searchParams.set('cat', 'nutrition');
+        gate.searchParams.set('theme', 'plate');
+        gate.searchParams.set('game', 'plate');
+        gate.searchParams.set('hub', getHubUrl());
+        gate.searchParams.set('next', buildRunUrl());
+
+        PASS_KEYS.forEach((k) => {
+          if(qs.has(k) && !gate.searchParams.has(k)) gate.searchParams.set(k, qs.get(k));
+        });
+
+        gate.searchParams.set('diff', state.diff);
+        gate.searchParams.set('time', state.time);
+        gate.searchParams.set('view', state.view);
+        gate.searchParams.set('zone', 'nutrition');
+
+        if(!gate.searchParams.has('pid')){
+          gate.searchParams.set('pid', qs.get('pid') || 'anon');
+        }
+        return gate.toString();
+      }
+
+      $('#btnStart').addEventListener('click', () => {
+        location.href = buildWarmupUrl();
+      });
+
+      $('#btnDirect').addEventListener('click', () => {
+        location.href = buildRunUrl();
+      });
+
+      $('#btnBackHub').href = getHubUrl();
+    })();
   </script>
 </body>
 </html>
