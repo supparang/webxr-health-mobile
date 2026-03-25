@@ -1,6 +1,6 @@
 // === /herohealth/nutrition-plate/js/plate.ui.js ===
 // UI renderer for Nutrition Plate
-// PATCH v20260318-PLATE-RUN-FULL
+// PATCH v20260323-PLATE-CHILDFRIENDLY-A
 
 import { esc, goHub } from '../../shared/nutrition-common.js';
 import { mountSummaryShell } from '../../shared/nutrition-summary-shell.js';
@@ -41,6 +41,10 @@ function renderPlateBoard(plate) {
       </div>
     `;
   }).join('');
+}
+
+function isSingleColumnQuestion(question) {
+  return ['fix', 'swap', 'quiz-missing', 'quiz-better'].includes(question.type);
 }
 
 export function createPlateUI(
@@ -91,7 +95,7 @@ export function createPlateUI(
   }
 
   function setHud(viewState) {
-    phaseEl.textContent = `Phase: ${viewState.phaseLabel}`;
+    phaseEl.textContent = `หมวด: ${viewState.phaseLabel}`;
     progressEl.textContent = `${viewState.phaseCurrent} / ${viewState.phaseTotal}`;
     scoreEl.textContent = String(viewState.score);
     streakEl.textContent = String(viewState.streak);
@@ -121,7 +125,7 @@ export function createPlateUI(
     if (question.type === 'swap' || question.type === 'quiz-better') {
       scenarioBoxEl.innerHTML = `
         <div class="scenario-card child-card">
-          <div class="scenario-title">สิ่งที่กำลังพิจารณา</div>
+          <div class="scenario-title">ของที่กำลังจะเปลี่ยน</div>
           <div class="scenario-grid">
             <div class="scenario-item">
               <div class="scenario-emoji">${esc(question.currentFood.emoji)}</div>
@@ -136,17 +140,28 @@ export function createPlateUI(
     scenarioBoxEl.innerHTML = '';
   }
 
+  function buildOptionHelper(option) {
+    return option.helper || option.slot || '';
+  }
+
   function renderAnswers(question) {
     answerLocked = false;
+    gridEl.className = isSingleColumnQuestion(question)
+      ? 'answer-grid plate-single-grid'
+      : 'answer-grid';
+
     gridEl.innerHTML = '';
 
     question.options.forEach(option => {
       const btn = document.createElement('button');
-      btn.className = 'answer-btn child-answer-btn';
+      btn.className = isSingleColumnQuestion(question)
+        ? 'answer-btn child-answer-btn plate-choice-btn'
+        : 'answer-btn child-answer-btn';
+
       btn.type = 'button';
       btn.innerHTML = `
         <div class="answer-main">${esc(option.emoji)} ${esc(option.label)}</div>
-        <small>${esc(option.slot || '')}</small>
+        <small>${esc(buildOptionHelper(option))}</small>
       `;
 
       btn.addEventListener('click', async () => {
@@ -179,8 +194,8 @@ export function createPlateUI(
       evaluation.tone === 'good'
         ? 'feedback-good'
         : evaluation.tone === 'bad'
-          ? 'feedback-bad'
-          : 'feedback-note';
+        ? 'feedback-bad'
+        : 'feedback-note';
 
     feedbackEl.className = `feedback-box ${toneClass}`;
     feedbackEl.textContent = `${evaluation.correct ? '✓ ' : ''}${evaluation.feedback}`;
