@@ -1,6 +1,6 @@
 <!-- === /herohealth/vr-groups/groups-race.html ===
 Groups Race V2 Online Room
-FULL PATCH v20260323-GROUPS-RACE-ONLINE-RUN-WAITFIREBASE
+FULL PATCH v20260324-GROUPS-RACE-ONLINE-RUN-OFFLINE-GRACE
 Requires:
 - ../vr/vr-ui.js
 - ../firebase-config.js
@@ -742,6 +742,11 @@ Requires:
     let rematchWaitTimer = null;
     let rematchDeadlineMs = 0;
 
+    let runMountedAt = Date.now();
+    let rivalOfflineSince = 0;
+    const OFFLINE_GRACE_MS = 10000;
+    const OFFLINE_CONFIRM_MS = 6000;
+
     debugMini.textContent = `room=${ROOM || '-'} • player=${PLAYER_ID || '-'} • view=${VIEW}`;
     console.log('[groups-race] firebase ready?', !!window.HHA_FIREBASE_DB, window.HHA_FIREBASE_DB);
 
@@ -961,6 +966,9 @@ Requires:
       loadingOverlay.hidden = true;
       countdownOverlay.hidden = true;
       clearRematchWaitTimer();
+
+      runMountedAt = Date.now();
+      rivalOfflineSince = 0;
     }
 
     async function waitUntilStartAndRun(data){
@@ -997,6 +1005,9 @@ Requires:
       const diff = String(data?.meta?.diff || 'normal');
       const timeSec = Number(data?.meta?.timeSec || 60);
       const seed = String(startedAt);
+
+      runMountedAt = Date.now();
+      rivalOfflineSince = 0;
 
       window.GroupsRace.GameEngine.start(diff, {
         time: timeSec,
@@ -1070,12 +1081,13 @@ Requires:
 
       endOverlay.style.display = 'flex';
       endOverlay.setAttribute('aria-hidden', 'false');
+      loadingOverlay.hidden = true;
     }
 
     window.addEventListener('race:coach', (ev)=>{
       const d = ev?.detail || {};
       if(rivalOffline){
-        showToast('คู่แข่งออกจากห้องแล้ว', 'sad');
+        showToast('คู่แข่งกำลัง reconnect', 'neutral');
       }
       if(d.text) showToast(d.text, d.mood || 'neutral');
     });
@@ -1174,6 +1186,7 @@ Requires:
       rematchRequested = false;
       endOverlay.style.display = 'flex';
       endOverlay.setAttribute('aria-hidden', 'false');
+      loadingOverlay.hidden = true;
       startRematchWaitTimer(20);
 
       try{
@@ -1255,6 +1268,7 @@ Requires:
         applyRoomPlayers(players);
         updateSpawnSafe();
         unbindPresence = bindRacePresence(ROOM, PLAYER_ID);
+        window.dispatchEvent(new Event('focus'));
 
         roomUnwatch = watchRaceRoom(ROOM, async (data)=>{
           if(!data) return;
@@ -1270,16 +1284,31 @@ Requires:
           const rivalId = getRivalPlayerId(players2);
           const rival = rivalId ? players2[rivalId] : null;
 
-          if(!rivalId){
+          if(!rivalId && !window.__RACE_STARTED__){
             loadingOverlay.hidden = false;
-            loadingText.textContent = 'ผู้เล่นอีกคนออกจากห้อง\nกำลังรอการตัดสินใจ...';
+            loadingText.textContent = 'กำลังรอผู้เล่นอีกคนเข้าเกม...';
           }
 
           if(window.__RACE_STARTED__ && !raceEnded){
-            if(!rival || rival.online === false){
-              showToast('คู่แข่งหลุดหรือออกจากห้อง', 'sad');
-              forceEndBecauseRivalLeft();
-              return;
+            const now = Date.now();
+            const inGrace = (now - runMountedAt) < OFFLINE_GRACE_MS;
+            const rivalMissing = !rival || rival.online === false;
+
+            if(rivalMissing){
+              if(!rivalOfflineSince) rivalOfflineSince = now;
+              const offlineMs = now - rivalOfflineSince;
+
+              if(inGrace){
+                loadingOverlay.hidden = false;
+                loadingText.textContent = 'กำลังรอคู่แข่งเชื่อมต่อเข้าเกม...';
+              } else if(offlineMs >= OFFLINE_CONFIRM_MS){
+                showToast('คู่แข่งหลุดหรือออกจากห้อง', 'sad');
+                forceEndBecauseRivalLeft();
+                return;
+              }
+            } else {
+              rivalOfflineSince = 0;
+              if(!ended) loadingOverlay.hidden = true;
             }
           }
 
@@ -1315,9 +1344,11 @@ Requires:
             return;
           }
 
-          loadingOverlay.hidden = false;
-          countdownOverlay.hidden = true;
-          loadingText.textContent = 'กำลังรอ Host เริ่มการแข่งขัน…';
+          if(!started){
+            loadingOverlay.hidden = false;
+            countdownOverlay.hidden = true;
+            loadingText.textContent = 'กำลังรอ Host เริ่มการแข่งขัน…';
+          }
         });
 
         scoresUnwatch = watchRaceScores(ROOM, (scoreMap)=>{
@@ -1327,7 +1358,7 @@ Requires:
         if(roomData.match?.started){
           window.__RACE_STARTED__ = true;
           await waitUntilStartAndRun(roomData);
-        }else{
+        } else {
           loadingOverlay.hidden = false;
           countdownOverlay.hidden = true;
           loadingText.textContent = 'กำลังรอ Host เริ่มการแข่งขัน…';
