@@ -1,5 +1,5 @@
 // === /herohealth/vr-groups/groups-race-rtdb.js ===
-// FULL PATCH v20260323-GROUPS-RACE-RTDB-PRESENCE-HEARTBEAT-HARDENED
+// FULL PATCH v20260324-GROUPS-RACE-RTDB-START-ONLINE-REFRESH
 
 const ROOT = 'hha-battle/groups/raceRooms';
 
@@ -264,6 +264,20 @@ export async function startRaceMatch(roomCode){
   const sRef = await scoresRef(roomCode);
   await sRef.set(resetScores);
 
+  const pRef = await playersRef(roomCode);
+  await pRef.transaction((players0)=>{
+    const next = players0 || {};
+    const now2 = Date.now();
+    Object.keys(next).forEach(id=>{
+      next[id] = {
+        ...next[id],
+        online: true,
+        lastSeenAt: now2
+      };
+    });
+    return next;
+  });
+
   const mRef = await matchRef(roomCode);
   await mRef.update({
     started: true,
@@ -361,7 +375,7 @@ export async function resetRaceForRematch(roomCode){
       next[id] = {
         ...next[id],
         ready: true,
-        online: next[id]?.online !== false,
+        online: true,
         lastSeenAt: now
       };
     });
@@ -481,14 +495,12 @@ export function bindRacePresence(roomCode, playerId){
           pingOnline();
         }
       };
-
       const onFocus = ()=>{ if(!stop) pingOnline(); };
       const onPageShow = ()=>{ if(!stop) pingOnline(); };
 
       document.addEventListener('visibilitychange', onVisible);
       window.addEventListener('focus', onFocus, { passive:true });
       window.addEventListener('pageshow', onPageShow, { passive:true });
-
     }catch(err){
       console.error('[bindRacePresence]', err);
     }
