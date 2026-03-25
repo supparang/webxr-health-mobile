@@ -957,6 +957,55 @@ body{
   font-weight:900;
 }
 
+.library-box{
+  display:grid;
+  gap:10px;
+}
+
+.library-card{
+  padding:12px 14px;
+  border-radius:20px;
+  background:linear-gradient(180deg, #ffffff, #f8fdff);
+  border:1px solid rgba(86,141,177,.10);
+  box-shadow:0 10px 16px rgba(88,162,197,.08);
+}
+
+.library-top{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  margin-bottom:6px;
+}
+
+.library-name{
+  font-size:14px;
+  font-weight:1000;
+  color:#355b73;
+}
+
+.library-count{
+  font-size:12px;
+  font-weight:1000;
+  color:#7b96aa;
+  background:#eefaff;
+  border-radius:999px;
+  padding:6px 10px;
+}
+
+.library-games{
+  font-size:12px;
+  line-height:1.45;
+  color:#6f8ca1;
+  font-weight:900;
+}
+
+.featured-pill{
+  background:#fff7d6;
+  color:#8e6a15;
+  border-color:rgba(242,182,32,.16);
+}
+
 .footer-note{
   margin-top:14px;
   text-align:center;
@@ -1074,11 +1123,18 @@ body{
   color:#355b73;
 }
 
+.picker-item-top{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  margin-bottom:4px;
+}
+
 .picker-item .name{
   display:block;
   font-size:16px;
   font-weight:1000;
-  margin-bottom:4px;
 }
 
 .picker-item .sub{
@@ -1086,6 +1142,16 @@ body{
   font-size:12px;
   color:#7a95aa;
   font-weight:900;
+}
+
+.picker-badge{
+  font-size:11px;
+  font-weight:1000;
+  color:#8e6a15;
+  background:#fff4c8;
+  border-radius:999px;
+  padding:5px 9px;
+  white-space:nowrap;
 }
 
 .picker-item:active{
