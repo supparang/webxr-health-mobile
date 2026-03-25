@@ -575,8 +575,8 @@
           <div class="hello">⚡ โหมดฝึกฮีโร่พร้อมแล้ว</div>
           <h2>ต่อยให้ตรงจังหวะ แล้วค่อย ๆ ผ่านด่านไปทีละขั้น</h2>
           <p>
-            หน้า launcher นี้จะเลือกมุมมอง ระดับความยาก และเวลาเล่นให้เรียบร้อยก่อน
-            จากนั้นค่อยส่งต่อไปยัง warmup และหน้าเกมจริงอัตโนมัติ
+            หน้า launcher นี้ใช้สำหรับเลือกมุมมอง ระดับความยาก และเวลาเล่น
+            แล้วค่อยส่งต่อไปยัง warmup และ run page ของเกมจริงอัตโนมัติ
           </p>
           <div class="intro-chips">
             <div class="pill">🎯 เน้นจังหวะ</div>
@@ -606,7 +606,7 @@
       <div class="stack">
         <section class="panel card">
           <h2 class="title">ตั้งค่าก่อนเข้าเกม</h2>
-          <p class="sub">ตอนนี้ patch นี้จะหา run page ที่มีอยู่จริงให้อัตโนมัติ และยังบังคับผ่าน <code>?runPath=...</code> ได้ด้วย</p>
+          <p class="sub">เวอร์ชันนี้ล็อก path run จริงแล้วที่ <code>/fitness/shadow-breaker-vr.html</code></p>
 
           <div class="opt-grid">
             <div>
@@ -643,7 +643,7 @@
                   <input id="diff-easy" type="radio" name="diff" value="easy" checked />
                   <label for="diff-easy">
                     <strong>🙂 ฝึกเริ่มต้น</strong>
-                    <span>เหมาะกับการลองรอบแรก</span>
+                    <span>เหมาะกับการลองเกมครั้งแรก</span>
                   </label>
                 </div>
                 <div class="opt">
@@ -729,15 +729,15 @@
             <li class="item">
               <div>✅</div>
               <div>
-                <b>เลิกผูก path เดียวตายตัว</b>
-                <span>จะลองหา run page จาก candidate หลายตำแหน่งก่อน</span>
+                <b>ล็อก run path จริงแล้ว</b>
+                <span>ชี้ตรงไปที่ <code>./fitness/shadow-breaker-vr.html</code></span>
               </div>
             </li>
             <li class="item">
               <div>✅</div>
               <div>
-                <b>รองรับ <code>?runPath=...</code></b>
-                <span>ใช้บังคับ path ปลายทางเองได้โดยไม่ต้องแก้โค้ดอีก</span>
+                <b>ผ่าน warmup-gate ตาม flow มาตรฐาน</b>
+                <span>launcher → warmup → run → summary → hub</span>
               </div>
             </li>
             <li class="item">
@@ -751,7 +751,7 @@
               <div>✅</div>
               <div>
                 <b>มี debug panel</b>
-                <span>เช็กได้เลยว่าตอนนี้ resolve ไป path ไหนจริง</span>
+                <span>เช็ก URL ที่จะวิ่งจริงได้ทันที</span>
               </div>
             </li>
           </ul>
@@ -761,8 +761,8 @@
       <div class="stack">
         <section class="panel card">
           <h2 class="title">ลิงก์ที่ระบบจะใช้จริง</h2>
-          <p class="sub">ถ้า run path ยังไม่ถูก debug panel นี้จะบอก error ให้เห็นทันที</p>
-          <div id="debugBox" class="debug">กำลัง resolve run page...</div>
+          <p class="sub">เอาไว้เช็กว่า launcher จะส่งไป run path ไหน</p>
+          <div id="debugBox" class="debug">กำลังเตรียม URL...</div>
         </section>
 
         <section class="panel card">
@@ -794,7 +794,7 @@
       </div>
     </section>
 
-    <div class="footer">HeroHealth • Shadow Breaker Launcher • Hub v2 style • latest resolver patch</div>
+    <div class="footer">HeroHealth • Shadow Breaker Launcher • fixed run path patch</div>
   </main>
 
   <script>
@@ -810,22 +810,13 @@
         'grade','zone','hub'
       ];
 
+      const RUN_PATH = './fitness/shadow-breaker-vr.html';
       const GATE_PATH = './warmup-gate.html';
       const HUB_FALLBACK = './hub.html';
       const NEXT_KEY = 'HHA_NEXT_URL:shadowbreaker';
 
-      const RUN_CANDIDATES = [
-        './shadow-breaker-run.html',
-        './vr-shadow-breaker/shadow-breaker.html',
-        './fitness/shadow-breaker-run.html',
-        './fitness/shadow-breaker/index.html',
-        './fitness/shadow-breaker.html'
-      ];
-
       const qs = new URLSearchParams(location.search);
       const $ = (sel) => document.querySelector(sel);
-
-      let resolvedRunBasePromise = null;
 
       function q(name, fallback = '') {
         const v = qs.get(name);
@@ -862,8 +853,7 @@
       }
 
       function getLauncherCanonical() {
-        const u = new URL(location.href);
-        return u.toString();
+        return new URL(location.href).toString();
       }
 
       function carryQuery(url, extra = {}) {
@@ -884,47 +874,12 @@
         return u.toString();
       }
 
-      async function probeUrl(url) {
-        try {
-          const res = await fetch(url, {
-            method: 'GET',
-            cache: 'no-store',
-            credentials: 'same-origin'
-          });
-          return res.ok;
-        } catch {
-          return false;
-        }
-      }
-
-      async function resolveRunBase() {
-        if (resolvedRunBasePromise) return resolvedRunBasePromise;
-
-        resolvedRunBasePromise = (async () => {
-          const nextOverride = q('next', '').trim();
-          if (nextOverride) {
-            return new URL(nextOverride, location.href).toString();
-          }
-
-          const runPathOverride = q('runPath', '').trim();
-          if (runPathOverride) {
-            return new URL(runPathOverride, location.href).toString();
-          }
-
-          for (const p of RUN_CANDIDATES) {
-            const abs = new URL(p, location.href).toString();
-            if (await probeUrl(abs)) return abs;
-          }
-
-          throw new Error('ไม่พบ Shadow Breaker run page ที่ใช้งานได้จริง — ใส่ ?runPath=... เพื่อบังคับ path ได้');
-        })();
-
-        return resolvedRunBasePromise;
-      }
-
-      async function buildRunUrl(extra = {}) {
+      function buildRunUrl(extra = {}) {
         const s = currentState();
-        const runBase = await resolveRunBase();
+        const runPathOverride = q('runPath', '').trim();
+        const runBase = runPathOverride
+          ? new URL(runPathOverride, location.href).toString()
+          : new URL(RUN_PATH, location.href).toString();
 
         return carryQuery(runBase, {
           pid: s.pid,
@@ -940,8 +895,8 @@
         });
       }
 
-      async function buildWarmupUrl() {
-        const runUrl = await buildRunUrl();
+      function buildWarmupUrl() {
+        const runUrl = buildRunUrl();
 
         try {
           sessionStorage.setItem(NEXT_KEY, runUrl);
@@ -1007,21 +962,13 @@
         $('#playerName').textContent = h.name || h.pid;
       }
 
-      async function renderDebug() {
-        let resolvedBase = '(not found)';
-        let runUrl = '(error)';
-        let warmupUrl = '(error)';
+      function renderDebug() {
+        const resolvedBase = q('runPath', '').trim()
+          ? new URL(q('runPath').trim(), location.href).toString()
+          : new URL(RUN_PATH, location.href).toString();
 
-        try {
-          resolvedBase = await resolveRunBase();
-          runUrl = await buildRunUrl();
-          warmupUrl = await buildWarmupUrl();
-        } catch (err) {
-          const msg = err?.message || String(err);
-          resolvedBase = `ERROR: ${msg}`;
-          runUrl = `ERROR: ${msg}`;
-          warmupUrl = `ERROR: ${msg}`;
-        }
+        const runUrl = buildRunUrl();
+        const warmupUrl = buildWarmupUrl();
 
         const lines = [
           '[Launcher]',
@@ -1037,10 +984,7 @@
           runUrl,
           '',
           '[Warmup URL]',
-          warmupUrl,
-          '',
-          '[Candidates]',
-          ...RUN_CANDIDATES.map(v => `- ${v}`)
+          warmupUrl
         ];
 
         $('#debugBox').textContent = lines.join('\n');
@@ -1070,39 +1014,31 @@
 
       function bindControls() {
         document.querySelectorAll('input[name="view"], input[name="diff"], input[name="time"]').forEach((el) => {
-          el.addEventListener('change', async () => {
+          el.addEventListener('change', () => {
             updateAddressBarSoft();
-            await renderDebug();
+            renderDebug();
           });
         });
 
-        $('#btnStart').addEventListener('click', async () => {
-          try {
-            const seed = currentState().seed || makeSeed();
-            localStorage.setItem('HHA_SB_LAUNCHER_SEED', seed);
-            location.assign(await buildWarmupUrl());
-          } catch (err) {
-            alert(err?.message || 'หา run page ไม่เจอ');
-          }
+        $('#btnStart').addEventListener('click', () => {
+          const seed = currentState().seed || makeSeed();
+          localStorage.setItem('HHA_SB_LAUNCHER_SEED', seed);
+          location.assign(buildWarmupUrl());
         });
 
-        $('#btnDirect').addEventListener('click', async () => {
-          try {
-            const seed = currentState().seed || makeSeed();
-            localStorage.setItem('HHA_SB_LAUNCHER_SEED', seed);
-            location.assign(await buildRunUrl());
-          } catch (err) {
-            alert(err?.message || 'หา run page ไม่เจอ');
-          }
+        $('#btnDirect').addEventListener('click', () => {
+          const seed = currentState().seed || makeSeed();
+          localStorage.setItem('HHA_SB_LAUNCHER_SEED', seed);
+          location.assign(buildRunUrl());
         });
 
-        $('#btnResetSeed').addEventListener('click', async () => {
+        $('#btnResetSeed').addEventListener('click', () => {
           const newSeed = makeSeed();
           localStorage.setItem('HHA_SB_LAUNCHER_SEED', newSeed);
           const u = new URL(location.href);
           u.searchParams.set('seed', newSeed);
           history.replaceState(null, '', u.toString());
-          await renderDebug();
+          renderDebug();
         });
 
         $('#btnBack').addEventListener('click', () => {
@@ -1120,14 +1056,16 @@
         });
       }
 
-      (async function init() {
+      function init() {
         syncRadios();
         initSeed();
         renderProfile();
         bindControls();
         updateAddressBarSoft();
-        await renderDebug();
-      })();
+        renderDebug();
+      }
+
+      init();
     })();
   </script>
 </body>
