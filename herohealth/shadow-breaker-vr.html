@@ -3,485 +3,834 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — Shadow Breaker Launcher</title>
+  <title>HeroHealth — Shadow Breaker</title>
   <meta name="color-scheme" content="dark light" />
+  <meta name="robots" content="noindex" />
   <link rel="icon" href="./favicon.ico" />
   <style>
     :root{
-      color-scheme: dark;
-      --bg1:#020617;
-      --bg2:#0b1226;
-      --panel:rgba(2,6,23,.72);
-      --panel2:rgba(15,23,42,.56);
-      --stroke:rgba(148,163,184,.18);
-      --text:#e5e7eb;
-      --muted:#94a3b8;
-      --blue:#3b82f6;
+      --bg1:#1a102a;
+      --bg2:#1e1b4b;
+      --bg3:#312e81;
+
+      --panel:rgba(2,6,23,.64);
+      --stroke:rgba(255,255,255,.16);
+
+      --text:#f8fafc;
+      --muted:#dbeafe;
+
       --violet:#a78bfa;
-      --good:#22c55e;
-      --warn:#f59e0b;
-      --bad:#ef4444;
+      --pink:#f472b6;
+      --blue:#38bdf8;
+      --green:#22c55e;
+      --yellow:#facc15;
+
+      --shadow:0 18px 55px rgba(0,0,0,.28);
+      --shadow-big:0 24px 80px rgba(0,0,0,.34);
+
       --sat: env(safe-area-inset-top, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
       --sal: env(safe-area-inset-left, 0px);
       --sar: env(safe-area-inset-right, 0px);
     }
+
     *{ box-sizing:border-box; }
+
     html,body{
-      margin:0;
       min-height:100%;
-      font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-      background:
-        radial-gradient(circle at 15% 10%, rgba(59,130,246,.18), transparent 45%),
-        radial-gradient(circle at 85% 90%, rgba(167,139,250,.16), transparent 45%),
-        linear-gradient(180deg, var(--bg1), var(--bg2));
+      margin:0;
       color:var(--text);
+      background:
+        radial-gradient(920px 620px at 6% 10%, rgba(167,139,250,.24), transparent 60%),
+        radial-gradient(860px 620px at 100% 0%, rgba(244,114,182,.18), transparent 56%),
+        radial-gradient(760px 520px at 50% 100%, rgba(56,189,248,.12), transparent 58%),
+        linear-gradient(180deg, var(--bg1), var(--bg2) 54%, var(--bg3));
     }
+
+    body{
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", Arial, sans-serif;
+      line-height:1.4;
+      overflow-x:hidden;
+    }
+
+    button{ font:inherit; }
     a{ color:inherit; text-decoration:none; }
 
     .wrap{
-      max-width:920px;
+      max-width:1140px;
       margin:0 auto;
-      padding: calc(14px + var(--sat)) calc(14px + var(--sar)) calc(18px + var(--sab)) calc(14px + var(--sal));
-      min-height:100vh;
+      padding:
+        calc(14px + var(--sat))
+        calc(14px + var(--sar))
+        calc(24px + var(--sab))
+        calc(14px + var(--sal));
+    }
+
+    .hero,
+    .quickStart,
+    .card,
+    .helpCard{
+      border-radius:30px;
+      border:1px solid var(--stroke);
+      background:var(--panel);
+      backdrop-filter:blur(12px);
+      box-shadow:var(--shadow-big);
     }
 
     .hero{
-      border-radius:24px;
-      border:1px solid var(--stroke);
-      background:var(--panel);
-      box-shadow:0 24px 80px rgba(0,0,0,.38);
-      padding:20px 18px;
+      position:relative;
+      overflow:hidden;
+      padding:18px;
+      background:
+        linear-gradient(135deg, rgba(167,139,250,.16), rgba(244,114,182,.14)),
+        var(--panel);
     }
 
-    .kicker{
-      color:var(--muted);
-      font-size:.82rem;
-      font-weight:900;
-      letter-spacing:.2px;
+    .hero::before{
+      content:"";
+      position:absolute;
+      right:-70px;
+      bottom:-90px;
+      width:280px;
+      height:280px;
+      border-radius:999px;
+      background:radial-gradient(circle, rgba(167,139,250,.18), transparent 68%);
+      pointer-events:none;
     }
 
-    h1{
-      margin:8px 0 6px;
-      font-size:1.7rem;
-      line-height:1.1;
+    .heroGrid{
+      display:grid;
+      grid-template-columns:1.15fr .85fr;
+      gap:16px;
+      position:relative;
+      z-index:1;
     }
 
-    .sub{
-      color:rgba(226,232,240,.88);
-      line-height:1.5;
-      font-size:.96rem;
+    @media (max-width:920px){
+      .heroGrid{ grid-template-columns:1fr; }
     }
 
-    .row{
+    .heroMain{
       display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      align-items:center;
-      margin-top:14px;
+      gap:14px;
+      align-items:flex-start;
     }
 
-    .pill{
+    .heroIcon{
+      width:94px;
+      height:94px;
+      border-radius:26px;
+      display:grid;
+      place-items:center;
+      flex:0 0 auto;
+      font-size:46px;
+      border:1px solid rgba(255,255,255,.16);
+      background:
+        radial-gradient(circle at 30% 30%, rgba(255,255,255,.24), transparent 42%),
+        linear-gradient(135deg, rgba(167,139,250,.24), rgba(244,114,182,.18));
+      box-shadow:0 12px 30px rgba(0,0,0,.20);
+    }
+
+    .badge{
       display:inline-flex;
       align-items:center;
       gap:8px;
-      padding:8px 10px;
+      min-height:36px;
+      padding:8px 12px;
       border-radius:999px;
-      border:1px solid var(--stroke);
-      background:rgba(15,23,42,.52);
-      color:var(--muted);
-      font-size:.84rem;
-      font-weight:900;
-    }
-    .pill b{ color:var(--text); }
-
-    .grid{
-      display:grid;
-      grid-template-columns:1.15fr .85fr;
-      gap:12px;
-      margin-top:14px;
-    }
-    @media (max-width:860px){
-      .grid{ grid-template-columns:1fr; }
-    }
-
-    .card{
-      border-radius:22px;
-      border:1px solid var(--stroke);
-      background:var(--panel2);
-      box-shadow:0 18px 55px rgba(0,0,0,.28);
-      padding:14px;
-    }
-
-    .cardTitle{
-      font-size:1rem;
+      border:1px solid rgba(255,255,255,.14);
+      background:rgba(255,255,255,.08);
+      color:#f5d0fe;
+      font-size:12px;
       font-weight:1000;
-      margin-bottom:8px;
     }
 
-    .muted{
-      color:var(--muted);
-      font-size:.88rem;
-      line-height:1.45;
-      font-weight:800;
+    .title{
+      margin:10px 0 0;
+      font-size:clamp(28px,4.4vw,42px);
+      line-height:1.05;
+      font-weight:1100;
+      letter-spacing:-.02em;
     }
 
-    .field{
-      display:flex;
-      flex-direction:column;
-      gap:6px;
+    .sub{
       margin-top:10px;
-    }
-
-    .label{
-      font-size:.82rem;
-      color:rgba(226,232,240,.92);
+      font-size:15px;
       font-weight:900;
+      line-height:1.6;
+      color:var(--muted);
     }
 
-    .input, .select{
-      width:100%;
-      min-height:44px;
-      padding:10px 12px;
-      border-radius:14px;
-      border:1px solid rgba(148,163,184,.22);
-      background:rgba(2,6,23,.45);
-      color:var(--text);
-      outline:none;
-      font:inherit;
+    .heroTips{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      margin-top:12px;
     }
 
-    .input:focus, .select:focus{
-      border-color:rgba(59,130,246,.42);
-      box-shadow:0 0 0 3px rgba(59,130,246,.12);
+    .tip{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      min-height:38px;
+      padding:8px 12px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.14);
+      background:rgba(255,255,255,.06);
+      color:#eff6ff;
+      font-size:12px;
+      font-weight:1000;
     }
 
-    .actions{
+    .heroActions{
+      margin-top:14px;
       display:flex;
       gap:10px;
       flex-wrap:wrap;
-      margin-top:14px;
+      align-items:center;
     }
 
     .btn{
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      min-height:44px;
-      padding:10px 14px;
-      border-radius:16px;
-      border:1px solid rgba(148,163,184,.22);
-      background:rgba(148,163,184,.10);
-      color:var(--text);
-      font-weight:1000;
       cursor:pointer;
+      min-height:48px;
+      padding:11px 16px;
+      border-radius:18px;
+      border:1px solid rgba(255,255,255,.16);
+      background:rgba(255,255,255,.06);
+      color:var(--text);
+      font-weight:1100;
+      box-shadow:0 10px 24px rgba(0,0,0,.16);
+      transition:transform .12s ease, filter .12s ease;
     }
+
+    .btn:hover{
+      transform:translateY(-1px);
+      filter:brightness(1.05);
+    }
+
     .btn.primary{
-      border-color:rgba(59,130,246,.28);
-      background:rgba(59,130,246,.16);
+      border-color:rgba(34,197,94,.30);
+      background:linear-gradient(180deg, rgba(34,197,94,.24), rgba(34,197,94,.16));
+    }
+    .btn.cyan{
+      border-color:rgba(56,189,248,.30);
+      background:linear-gradient(180deg, rgba(56,189,248,.22), rgba(56,189,248,.14));
     }
     .btn.violet{
-      border-color:rgba(167,139,250,.28);
-      background:rgba(167,139,250,.14);
-    }
-    .btn.good{
-      border-color:rgba(34,197,94,.28);
-      background:rgba(34,197,94,.14);
+      border-color:rgba(167,139,250,.30);
+      background:linear-gradient(180deg, rgba(167,139,250,.22), rgba(167,139,250,.14));
     }
     .btn.ghost{
-      background:transparent;
-      color:var(--muted);
+      background:rgba(255,255,255,.04);
+      color:#e2e8f0;
     }
 
-    .list{
-      margin:10px 0 0;
-      padding-left:18px;
-      color:rgba(226,232,240,.9);
-      line-height:1.55;
-      font-size:.92rem;
+    .sidePanel{
+      display:grid;
+      gap:12px;
+      align-content:start;
     }
 
-    .mini{
-      margin-top:10px;
-      padding:10px 12px;
-      border-radius:16px;
-      border:1px solid rgba(148,163,184,.14);
-      background:rgba(2,6,23,.20);
-      color:var(--muted);
-      font-size:.84rem;
-      font-weight:800;
+    .statCard,
+    .miniCard,
+    .modeCard,
+    .helpCard{
+      border-radius:22px;
+      border:1px solid rgba(255,255,255,.14);
+      background:rgba(2,6,23,.54);
+      box-shadow:var(--shadow);
+      padding:14px;
+    }
+
+    .statTitle,
+    .miniTitle{
+      font-size:12px;
+      font-weight:1000;
+      color:#dbeafe;
+    }
+
+    .statValue{
+      margin-top:6px;
+      font-size:22px;
+      line-height:1;
+      font-weight:1100;
+    }
+
+    .statSub,
+    .miniSub{
+      margin-top:6px;
+      font-size:12px;
       line-height:1.45;
+      color:#cbd5e1;
+      font-weight:900;
     }
 
-    .debug{
-      margin-top:12px;
-      padding:10px 12px;
-      border-radius:16px;
-      border:1px solid rgba(148,163,184,.14);
-      background:rgba(2,6,23,.18);
+    .quickStart{
+      margin-top:14px;
+      padding:14px;
+      background:
+        linear-gradient(135deg, rgba(167,139,250,.10), rgba(56,189,248,.10)),
+        rgba(2,6,23,.58);
+    }
+
+    .sectionTitle{
+      font-size:18px;
+      font-weight:1100;
+      display:flex;
+      align-items:center;
+      gap:10px;
+    }
+
+    .sectionSub{
+      margin-top:6px;
       color:var(--muted);
-      font-size:.82rem;
-      line-height:1.5;
-      word-break:break-word;
+      font-size:13px;
+      line-height:1.55;
+      font-weight:900;
     }
 
-    code{
-      font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
-      font-size:.92em;
-      color:#c7d2fe;
+    .quickGrid{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:12px;
+      margin-top:12px;
+    }
+
+    @media (max-width:900px){
+      .quickGrid{ grid-template-columns:1fr; }
+    }
+
+    .quickBtn{
+      cursor:pointer;
+      border-radius:22px;
+      border:1px solid rgba(255,255,255,.14);
+      min-height:110px;
+      padding:16px;
+      text-align:left;
+      color:var(--text);
+      display:flex;
+      gap:14px;
+      align-items:center;
+      box-shadow:var(--shadow);
+      background:rgba(15,23,42,.52);
+      transition:transform .12s ease, filter .12s ease;
+    }
+
+    .quickBtn:hover{
+      transform:translateY(-2px);
+      filter:brightness(1.04);
+    }
+
+    .quickBtn.easy{ background:linear-gradient(135deg, rgba(34,197,94,.22), rgba(56,189,248,.12)); }
+    .quickBtn.mid{ background:linear-gradient(135deg, rgba(167,139,250,.18), rgba(56,189,248,.14)); }
+    .quickBtn.challenge{ background:linear-gradient(135deg, rgba(244,114,182,.18), rgba(167,139,250,.14)); }
+
+    .quickIcon{
+      width:62px;
+      height:62px;
+      border-radius:18px;
+      display:grid;
+      place-items:center;
+      font-size:32px;
+      flex:0 0 auto;
+      background:rgba(255,255,255,.10);
+      border:1px solid rgba(255,255,255,.14);
+    }
+
+    .quickTitle{
+      font-size:18px;
+      font-weight:1100;
+      line-height:1.15;
+    }
+
+    .quickMeta{
+      margin-top:5px;
+      color:#e0f2fe;
+      font-size:13px;
+      font-weight:900;
+      line-height:1.5;
+    }
+
+    .grid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:14px;
+      margin-top:14px;
+    }
+
+    @media (max-width:980px){
+      .grid{ grid-template-columns:1fr; }
+    }
+
+    .modeGrid{
+      display:grid;
+      gap:12px;
+      margin-top:12px;
+    }
+
+    .modeCard{
+      background:rgba(15,23,42,.46);
+    }
+
+    .modeTop{
+      display:flex;
+      gap:10px;
+      align-items:flex-start;
+      justify-content:space-between;
+      flex-wrap:wrap;
+    }
+
+    .modeName{
+      font-size:17px;
+      font-weight:1100;
+      line-height:1.2;
+    }
+
+    .modeDesc{
+      margin-top:6px;
+      color:var(--muted);
+      font-size:12px;
+      line-height:1.5;
+      font-weight:900;
+    }
+
+    .tag{
+      display:inline-flex;
+      align-items:center;
+      min-height:30px;
+      padding:6px 10px;
+      border-radius:999px;
+      background:rgba(255,255,255,.08);
+      border:1px solid rgba(255,255,255,.14);
+      font-size:11px;
+      font-weight:1000;
+      color:#eff6ff;
+      white-space:nowrap;
+    }
+
+    .modeActions{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      margin-top:12px;
+    }
+
+    .playBtn{
+      cursor:pointer;
+      min-height:42px;
+      padding:9px 14px;
+      border-radius:16px;
+      border:1px solid rgba(255,255,255,.14);
+      background:rgba(255,255,255,.06);
+      color:var(--text);
+      font-weight:1000;
+    }
+
+    .playBtn.primary{
+      border-color:rgba(34,197,94,.30);
+      background:rgba(34,197,94,.16);
+    }
+
+    .steps{
+      display:grid;
+      gap:10px;
+      margin-top:12px;
+    }
+
+    .step{
+      display:grid;
+      grid-template-columns:42px 1fr;
+      gap:10px;
+      align-items:flex-start;
+      border-radius:18px;
+      border:1px solid rgba(255,255,255,.12);
+      background:rgba(255,255,255,.04);
+      padding:12px;
+    }
+
+    .stepNo{
+      width:42px;
+      height:42px;
+      border-radius:14px;
+      display:grid;
+      place-items:center;
+      font-size:18px;
+      font-weight:1100;
+      background:rgba(255,255,255,.10);
+      border:1px solid rgba(255,255,255,.14);
+    }
+
+    .stepTitle{
+      font-size:15px;
+      font-weight:1100;
+      line-height:1.2;
+    }
+
+    .stepDesc{
+      margin-top:4px;
+      color:var(--muted);
+      font-size:12px;
+      line-height:1.5;
+      font-weight:900;
+    }
+
+    .helpCard{
+      margin-top:14px;
+      display:none;
+    }
+
+    .helpTitle{
+      font-size:17px;
+      font-weight:1100;
+      line-height:1.2;
+    }
+
+    .helpSub{
+      margin-top:8px;
+      font-size:13px;
+      line-height:1.55;
+      color:var(--muted);
+      font-weight:900;
+    }
+
+    .helpActions{
+      margin-top:12px;
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+    }
+
+    .bottomBar{
+      margin-top:14px;
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+      justify-content:space-between;
+    }
+
+    .statusPill{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      min-height:38px;
+      padding:8px 12px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.14);
+      background:rgba(255,255,255,.06);
+      color:#e0f2fe;
+      font-size:12px;
+      font-weight:1000;
+    }
+
+    .hint{
+      font-size:12px;
+      color:var(--muted);
+      font-weight:900;
+      line-height:1.5;
+    }
+
+    @media (prefers-reduced-motion: reduce){
+      *,
+      *::before,
+      *::after{
+        transition:none !important;
+        animation:none !important;
+      }
+      .btn:hover,
+      .quickBtn:hover{
+        transform:none !important;
+      }
     }
   </style>
 </head>
 <body>
   <div class="wrap">
     <section class="hero">
-      <div class="kicker">HeroHealth • Exercise Zone</div>
-      <h1>Shadow Breaker Launcher</h1>
-      <div class="sub">
-        เตรียมเข้าเล่นเกมตีเป้าสนุก ๆ แล้วไปลุยบอสทีละตัว<br/>
-        วันนี้เราจะผ่าน <b>Bubble → Meteor → Hydra → Final Boss</b> กัน!
-      </div>
+      <div class="heroGrid">
+        <div>
+          <div class="heroMain">
+            <div class="heroIcon">🥊</div>
+            <div>
+              <div class="badge">🏃 โลกออกกำลังกาย</div>
+              <h1 class="title">ต่อยให้ตรงจังหวะ<br>แล้วค่อย ๆ ผ่านด่านไปทีละขั้น</h1>
+              <div class="sub">
+                เกมนี้ช่วยฝึกความไว การตอบสนอง และการขยับร่างกายให้สนุกขึ้น<br>
+                เริ่มจากแบบง่ายก่อน แล้วค่อยลองด่านที่ท้าทายขึ้นได้เลย
+              </div>
 
-      <div class="row">
-        <span class="pill"><b>Launcher</b>: <span>/herohealth/shadow-breaker-vr.html</span></span>
-        <span class="pill"><b>Run</b>: <span>/fitness/shadow-breaker.html</span></span>
-      </div>
+              <div class="heroTips">
+                <span class="tip">🥊 ต่อยให้ตรงจังหวะ</span>
+                <span class="tip">⚡ ฝึกความไว</span>
+                <span class="tip">🎯 ผ่านด่านทีละขั้น</span>
+                <span class="tip">🏁 ดูผลหลังเล่นได้</span>
+              </div>
 
-      <div class="row">
-        <span class="pill"><b>เป้าหมาย</b>: ผ่านบอสให้ได้ไกลที่สุด</span>
-        <span class="pill"><b>เคล็ดลับ</b>: ตีแม่น ๆ จะเปิด FEVER ได้เร็ว</span>
-      </div>
-
-      <div class="grid">
-        <section class="card">
-          <div class="cardTitle">ตั้งค่าก่อนเข้าเล่น</div>
-
-          <div class="field">
-            <label class="label" for="inpPid">PID</label>
-            <input id="inpPid" class="input" placeholder="เช่น anon หรือ S05-001" />
-          </div>
-
-          <div class="field">
-            <label class="label" for="selDiff">ระดับความท้าทาย</label>
-            <select id="selDiff" class="select">
-              <option value="easy">ง่าย</option>
-              <option value="normal" selected>ปกติ</option>
-              <option value="hard">ยาก</option>
-            </select>
-          </div>
-
-          <div class="field">
-            <label class="label" for="selTime">เวลาเล่น</label>
-            <select id="selTime" class="select">
-              <option value="60">60</option>
-              <option value="70">70</option>
-              <option value="80" selected>80</option>
-              <option value="90">90</option>
-            </select>
-          </div>
-
-          <div class="field">
-            <label class="label" for="selMode">เลือกโหมด</label>
-            <select id="selMode" class="select">
-              <option value="normal" selected>โหมดเด็ก</option>
-              <option value="research">โหมดครู / วิจัย</option>
-            </select>
-          </div>
-
-          <div id="modeExplain" class="mini">
-            โหมดเด็ก: ปุ่มใหญ่ อ่านง่าย เล่นได้ทันที
-          </div>
-
-          <div id="researchOnlyBox" style="display:none;">
-            <div class="field">
-              <label class="label" for="inpStudyId">Study ID</label>
-              <input id="inpStudyId" class="input" placeholder="เช่น HH-EX-01" />
-            </div>
-
-            <div class="field">
-              <label class="label" for="inpGroup">Group</label>
-              <input id="inpGroup" class="input" placeholder="เช่น control / exp" />
-            </div>
-
-            <div class="field">
-              <label class="label" for="inpCondition">Condition</label>
-              <input id="inpCondition" class="input" placeholder="เช่น SB-normal / SB-child" />
+              <div class="heroActions">
+                <button class="btn primary" id="btnStartEasy" type="button">▶ เริ่มแบบง่าย</button>
+                <button class="btn cyan" id="btnHow" type="button">📖 วิธีเลือกโหมด</button>
+                <button class="btn ghost" id="btnHub" type="button">🏠 กลับบ้านฮีโร่</button>
+              </div>
             </div>
           </div>
+        </div>
 
-          <div class="actions">
-            <button class="btn primary" id="btnStartNormal" type="button">▶ เริ่มเล่น</button>
-            <button class="btn violet" id="btnStartHard" type="button">🔥 ลุยแบบท้าทาย</button>
-            <button class="btn good" id="btnStartResearch" type="button">📋 เข้าโหมดครู / ทดสอบ</button>
-            <a class="btn ghost" id="btnBackHub" href="./hub.html">← กลับหน้าเกมหลัก</a>
+        <div class="sidePanel">
+          <div class="statCard">
+            <div class="statTitle">🧑‍🚀 รหัสผู้เล่น</div>
+            <div class="statValue" id="uiPid">anon</div>
+            <div class="statSub">ใช้สำหรับจำความก้าวหน้าในเครื่องนี้</div>
           </div>
 
-          <div class="field" style="margin-top:12px;">
-            <div class="mini">😊 ง่าย = เป้าใหญ่ เล่นสบาย</div>
-            <div class="mini">😎 ปกติ = สนุกกำลังดี</div>
-            <div class="mini">🔥 ยาก = เร็วขึ้น ท้าทายขึ้น</div>
+          <div class="statCard">
+            <div class="statTitle">🌟 โหมดแนะนำ</div>
+            <div class="statValue" id="uiRecommend">ฝึกเริ่มต้น</div>
+            <div class="statSub">เหมาะกับการเล่นครั้งแรกที่สุด</div>
           </div>
 
-          <div class="mini">
-            แนะนำให้เริ่มที่ <b>ปกติ / 80 วินาที</b><br/>
-            ถ้าอยากลองแบบยากขึ้น ค่อยกด <b>ลุยแบบท้าทาย</b>
+          <div class="statCard">
+            <div class="statTitle">🎯 เป้าหมายวันนี้</div>
+            <div class="statValue">ผ่าน 1 ด่าน</div>
+            <div class="statSub">เริ่มทีละด่านก็เก่งขึ้นได้</div>
           </div>
-        </section>
-
-        <section class="card">
-          <div class="cardTitle">วิธีเล่นแบบง่าย ๆ</div>
-          <ul class="list">
-            <li>ตี 🎯 เพื่อเก็บคะแนน</li>
-            <li>เลี่ยง 💣 เพื่อไม่เสียพลัง</li>
-            <li>เก็บ 🩹 และ 🛡️ เพื่อช่วยตัวเอง</li>
-            <li>ผ่านบอสทีละตัวจนถึง Final Boss</li>
-          </ul>
-
-          <div class="debug" id="debugBox">กำลังเตรียมเส้นทางเข้าเกม…</div>
-        </section>
+        </div>
       </div>
     </section>
+
+    <section class="quickStart">
+      <div class="sectionTitle">🚀 เริ่มเล่นแบบง่าย</div>
+      <div class="sectionSub">ถ้ายังไม่รู้จะเริ่มแบบไหนดี ให้เลือกจาก 3 ปุ่มนี้ได้เลย</div>
+
+      <div class="quickGrid">
+        <button class="quickBtn easy" id="btnQuickEasy" type="button">
+          <div class="quickIcon">🙂</div>
+          <div>
+            <div class="quickTitle">ฝึกเริ่มต้น</div>
+            <div class="quickMeta">เหมาะกับการเล่นครั้งแรก • จังหวะอ่านง่ายกว่า</div>
+          </div>
+        </button>
+
+        <button class="quickBtn mid" id="btnQuickNormal" type="button">
+          <div class="quickIcon">😎</div>
+          <div>
+            <div class="quickTitle">เล่นปกติ</div>
+            <div class="quickMeta">สนุกกำลังดี • เหมาะกับการเล่นทั่วไป</div>
+          </div>
+        </button>
+
+        <button class="quickBtn challenge" id="btnQuickHard" type="button">
+          <div class="quickIcon">🔥</div>
+          <div>
+            <div class="quickTitle">ด่านท้าทาย</div>
+            <div class="quickMeta">เร็วขึ้น ยากขึ้น เหมาะกับคนที่อยากลองของ</div>
+          </div>
+        </button>
+      </div>
+    </section>
+
+    <div class="grid">
+      <section class="card">
+        <div class="sectionTitle">🎮 เลือกโหมดเล่น</div>
+        <div class="sectionSub">เลือกแบบที่เหมาะกับตัวเองก่อนเริ่ม</div>
+
+        <div class="modeGrid">
+          <div class="modeCard">
+            <div class="modeTop">
+              <div>
+                <div class="modeName">🙂 ฝึกเริ่มต้น</div>
+                <div class="modeDesc">เหมาะกับการเริ่มเล่นครั้งแรก จังหวะอ่านง่ายกว่า</div>
+              </div>
+              <span class="tag">ง่าย</span>
+            </div>
+            <div class="modeActions">
+              <button class="playBtn primary" data-mode="easy" type="button">▶ เริ่มแบบนี้</button>
+            </div>
+          </div>
+
+          <div class="modeCard">
+            <div class="modeTop">
+              <div>
+                <div class="modeName">😎 เล่นปกติ</div>
+                <div class="modeDesc">สนุกกำลังดี เหมาะกับการเล่นทั่วไป</div>
+              </div>
+              <span class="tag">ปกติ</span>
+            </div>
+            <div class="modeActions">
+              <button class="playBtn" data-mode="normal" type="button">▶ เริ่มแบบนี้</button>
+            </div>
+          </div>
+
+          <div class="modeCard">
+            <div class="modeTop">
+              <div>
+                <div class="modeName">🔥 ด่านท้าทาย</div>
+                <div class="modeDesc">เร็วขึ้น ยากขึ้น เหมาะกับคนที่อยากลองของ</div>
+              </div>
+              <span class="tag">ท้าทาย</span>
+            </div>
+            <div class="modeActions">
+              <button class="playBtn" data-mode="hard" type="button">▶ เริ่มแบบนี้</button>
+            </div>
+          </div>
+
+          <div class="modeCard">
+            <div class="modeTop">
+              <div>
+                <div class="modeName">🏁 ดูสรุปผล</div>
+                <div class="modeDesc">เปิดดูผลล่าสุด ถ้ามีการเล่นไว้ก่อนแล้ว</div>
+              </div>
+              <span class="tag">ผลล่าสุด</span>
+            </div>
+            <div class="modeActions">
+              <a class="playBtn" id="linkSummary" href="#">🏁 เปิดสรุปผล</a>
+              <a class="playBtn" id="linkTeacher" href="#">🧑‍🏫 โหมดครู</a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="sectionTitle">📖 ถ้ายังไม่รู้จะเริ่มยังไง</div>
+        <div class="sectionSub">ใช้ลำดับนี้ได้เลย จะเล่นง่ายขึ้นและไม่งง</div>
+
+        <div class="steps">
+          <div class="step">
+            <div class="stepNo">1</div>
+            <div>
+              <div class="stepTitle">เริ่มจาก “ฝึกเริ่มต้น”</div>
+              <div class="stepDesc">เหมาะกับการลองเกมครั้งแรกที่สุด</div>
+            </div>
+          </div>
+
+          <div class="step">
+            <div class="stepNo">2</div>
+            <div>
+              <div class="stepTitle">ถ้าเริ่มคล่องแล้ว ค่อยไป “เล่นปกติ”</div>
+              <div class="stepDesc">จะสนุกขึ้นและมีจังหวะท้าทายกำลังดี</div>
+            </div>
+          </div>
+
+          <div class="step">
+            <div class="stepNo">3</div>
+            <div>
+              <div class="stepTitle">ถ้าพร้อมลุย ค่อยลอง “ด่านท้าทาย”</div>
+              <div class="stepDesc">เหมาะกับคนที่อยากลองความไวของตัวเอง</div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <section class="helpCard" id="howPanel">
+      <div class="helpTitle">📖 วิธีเลือกโหมดแบบสั้นมาก</div>
+      <div class="helpSub">
+        ถ้าเพิ่งเริ่ม → เล่น <b>ฝึกเริ่มต้น</b><br>
+        ถ้าเริ่มคล่อง → เล่น <b>ปกติ</b><br>
+        ถ้าอยากลองของ → เล่น <b>ด่านท้าทาย</b>
+      </div>
+      <div class="helpActions">
+        <button class="btn primary" id="btnStartFromHelp" type="button">🟢 เริ่มแบบง่าย</button>
+        <button class="btn ghost" id="btnHideHow" type="button">✖ ปิด</button>
+      </div>
+    </section>
+
+    <div class="bottomBar">
+      <span class="statusPill" id="statusLine">พร้อมเริ่มเล่น Shadow Breaker แล้ว</span>
+      <span class="hint">Tip: ถ้าเพิ่งเริ่ม ให้เริ่มจาก “ฝึกเริ่มต้น” ก่อน</span>
+    </div>
   </div>
 
   <script>
     (function(){
       'use strict';
 
-      const RUN_PATH = '/webxr-health-mobile/fitness/shadow-breaker.html';
-
-      const $ = (s)=>document.querySelector(s);
-      const qs = (k, d='')=>{
-        try{ return (new URL(location.href)).searchParams.get(k) ?? d; }
-        catch(_){ return d; }
-      };
-
-      const inpPid = $('#inpPid');
-      const selDiff = $('#selDiff');
-      const selTime = $('#selTime');
-      const selMode = $('#selMode');
-      const modeExplain = $('#modeExplain');
-      const researchOnlyBox = $('#researchOnlyBox');
-      const inpStudyId = $('#inpStudyId');
-      const inpGroup = $('#inpGroup');
-      const inpCondition = $('#inpCondition');
-
-      const btnStartNormal = $('#btnStartNormal');
-      const btnStartHard = $('#btnStartHard');
-      const btnStartResearch = $('#btnStartResearch');
-      const btnBackHub = $('#btnBackHub');
-      const debugBox = $('#debugBox');
-
-      const currentUrl = new URL(location.href);
-      const sp = currentUrl.searchParams;
-
-      const hubFromQuery = String(qs('hub','')).trim() || './hub.html';
-      if (btnBackHub) btnBackHub.href = hubFromQuery;
-
-      if (inpPid)  inpPid.value = String(qs('pid','anon')).trim() || 'anon';
-      if (selDiff) selDiff.value = String(qs('diff','normal')).trim() || 'normal';
-      if (selTime) selTime.value = String(qs('time','80')).trim() || '80';
-      if (selMode) selMode.value = String(qs('mode', qs('run','normal'))).trim() || 'normal';
-
-      function syncModeUI(){
-        const isResearch = (selMode?.value === 'research');
-
-        if (modeExplain) {
-          modeExplain.textContent = isResearch
-            ? 'โหมดครู / วิจัย: ใช้สำหรับเก็บข้อมูลและตั้งค่าการทดลอง'
-            : 'โหมดเด็ก: ปุ่มใหญ่ อ่านง่าย เล่นได้ทันที';
-        }
-
-        if (researchOnlyBox) {
-          researchOnlyBox.style.display = isResearch ? '' : 'none';
-        }
+      function qs(k, d=''){
+        try{ return new URL(location.href).searchParams.get(k) ?? d; }
+        catch{ return d; }
       }
 
-      function buildRunUrl(extra){
-        const u = new URL(RUN_PATH, location.origin);
-        const passKeys = [
-          'run','mode','diff','time','seed','studyId','phase','conditionGroup','log',
-          'view','pid','api','ai','debug','planSeq','planDay','planSlot','planMode',
-          'planSlots','planIndex','autoNext','plannedGame','finalGame','zone','cdnext','grade'
-        ];
+      function safeUrl(raw, fallback){
+        try{ return new URL(raw || fallback, location.href).toString(); }
+        catch{ return new URL(fallback, location.href).toString(); }
+      }
 
-        passKeys.forEach(k=>{
-          const v = sp.get(k);
-          if(v != null && v !== '') u.searchParams.set(k, v);
-        });
+      const pid  = String(qs('pid','anon')).trim() || 'anon';
+      const run  = String(qs('run','play')).toLowerCase() || 'play';
+      const time = String(qs('time','80')) || '80';
+      const view = String(qs('view','mobile')).toLowerCase() || 'mobile';
+      const hub  = safeUrl(qs('hub','./hub.html'), './hub.html');
 
-        u.searchParams.set('pid', (inpPid?.value || qs('pid','anon') || 'anon').trim() || 'anon');
-        u.searchParams.set('diff', selDiff?.value || 'normal');
-        u.searchParams.set('time', selTime?.value || '80');
-        u.searchParams.set('mode', selMode?.value || 'normal');
-        u.searchParams.set('run', selMode?.value || 'normal');
-        u.searchParams.set('zone', sp.get('zone') || 'fitness');
-        u.searchParams.set('hub', new URL(hubFromQuery, location.href).toString());
+      const uiPid = document.getElementById('uiPid');
+      uiPid.textContent = pid;
 
-        if (selMode?.value === 'research') {
-          if (inpStudyId?.value?.trim()) u.searchParams.set('studyId', inpStudyId.value.trim());
-          if (inpGroup?.value?.trim()) u.searchParams.set('group', inpGroup.value.trim());
-          if (inpCondition?.value?.trim()) u.searchParams.set('conditionGroup', inpCondition.value.trim());
-        }
-
-        if (extra && typeof extra === 'object'){
-          Object.keys(extra).forEach(k=>{
-            const v = extra[k];
-            if(v == null || v === '') u.searchParams.delete(k);
-            else u.searchParams.set(k, String(v));
-          });
-        }
-
+      function buildGameUrl(diff){
+        const u = new URL('./fitness/shadow-breaker.html', location.href);
+        u.searchParams.set('pid', pid);
+        u.searchParams.set('run', run);
+        u.searchParams.set('diff', diff);
+        u.searchParams.set('time', time);
+        u.searchParams.set('view', view);
+        u.searchParams.set('hub', hub);
+        u.searchParams.set('zone', 'fitness');
         return u.toString();
       }
 
-      function go(extra){
-        const target = buildRunUrl(extra);
-        try{
-          location.href = target;
-        }catch(_){
-          location.assign(target);
-        }
+      function buildSummaryUrl(){
+        const u = new URL('./shadow-breaker-summary.html', location.href);
+        u.searchParams.set('pid', pid);
+        u.searchParams.set('hub', hub);
+        return u.toString();
       }
 
-      btnStartNormal?.addEventListener('click', ()=>{
-        if (selMode) selMode.value = 'normal';
-        go({ mode:'normal', run:'normal' });
-      });
-
-      btnStartHard?.addEventListener('click', ()=>{
-        if (selMode) selMode.value = 'normal';
-        if (selDiff) selDiff.value = 'hard';
-        go({ mode:'normal', run:'normal', diff:'hard' });
-      });
-
-      btnStartResearch?.addEventListener('click', ()=>{
-        if (selMode) selMode.value = 'research';
-        go({ mode:'research', run:'research' });
-      });
-
-      selMode?.addEventListener('change', syncModeUI);
-      selDiff?.addEventListener('change', ()=>{
-        if (!selMode) return;
-        if (selMode.value !== 'research') selMode.value = 'normal';
-        syncModeUI();
-      });
-
-      const auto = String(qs('auto','0')).toLowerCase();
-      const autostart = ['1','true','yes','on'].includes(auto);
-
-      const previewUrl = buildRunUrl();
-      if (debugBox){
-        debugBox.innerHTML =
-          `<div><b>Hub:</b> <code>${new URL(hubFromQuery, location.href).pathname}</code></div>` +
-          `<div><b>Run target:</b> <code>${previewUrl}</code></div>` +
-          `<div><b>Auto:</b> <code>${autostart ? 'ON' : 'OFF'}</code></div>`;
+      function buildTeacherUrl(){
+        const u = new URL('./shadow-breaker-teacher.html', location.href);
+        u.searchParams.set('pid', pid);
+        u.searchParams.set('hub', hub);
+        return u.toString();
       }
 
-      syncModeUI();
+      document.getElementById('linkSummary').href = buildSummaryUrl();
+      document.getElementById('linkTeacher').href = buildTeacherUrl();
 
-      if (autostart) {
-        go({});
-      }
+      document.getElementById('btnStartEasy').onclick = ()=>{
+        location.href = buildGameUrl('easy');
+      };
+
+      document.getElementById('btnQuickEasy').onclick = ()=>{
+        location.href = buildGameUrl('easy');
+      };
+
+      document.getElementById('btnQuickNormal').onclick = ()=>{
+        location.href = buildGameUrl('normal');
+      };
+
+      document.getElementById('btnQuickHard').onclick = ()=>{
+        location.href = buildGameUrl('hard');
+      };
+
+      document.querySelectorAll('.playBtn[data-mode]').forEach(btn=>{
+        btn.addEventListener('click', ()=>{
+          const mode = String(btn.dataset.mode || 'easy');
+          location.href = buildGameUrl(mode);
+        });
+      });
+
+      const howPanel = document.getElementById('howPanel');
+      document.getElementById('btnHow').onclick = ()=>{
+        howPanel.style.display = 'block';
+        howPanel.scrollIntoView({ behavior:'smooth', block:'start' });
+      };
+      document.getElementById('btnHideHow').onclick = ()=>{
+        howPanel.style.display = 'none';
+      };
+      document.getElementById('btnStartFromHelp').onclick = ()=>{
+        location.href = buildGameUrl('easy');
+      };
+
+      document.getElementById('btnHub').onclick = ()=>{
+        location.href = hub;
+      };
     })();
   </script>
 </body>
