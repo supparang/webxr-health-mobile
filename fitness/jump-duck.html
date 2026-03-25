@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-  <title>JumpDuck</title>
+  <title>Jump-Duck</title>
   <meta name="color-scheme" content="dark light"/>
   <link rel="icon" href="favicon.ico"/>
   <style>
@@ -86,6 +86,7 @@
       display:inline-flex;
       align-items:center;
       justify-content:center;
+      gap:8px;
     }
 
     .btn.primary{
@@ -751,101 +752,41 @@
       }
     }
 
-    #view-result .actions{
-      display:grid;
-      grid-template-columns:repeat(3,minmax(0,1fr));
-      gap:10px;
-    }
-
-    #view-result .actions .btn{
-      width:100%;
-      min-width:0;
-      flex:none;
-    }
-
-    #view-result .actions .btn[data-action="go-cooldown"]{
-      grid-column:span 3;
-      min-height:52px;
-      font-size:18px;
-    }
-
-    #view-result .actions .btn[data-action="play-again"],
-    #view-result .actions .btn[data-action="back-menu"]{
-      grid-column:span 3;
-    }
-
     @media (max-width: 768px){
+      body{
+        padding: calc(8px + var(--sat)) 8px calc(10px + var(--sab));
+      }
+
       .card{
-        padding:12px;
+        padding:10px;
         border-radius:18px;
       }
 
       #view-play.card{
-        padding:10px;
+        padding:8px;
       }
 
       #view-play .top{
-        margin-bottom:8px;
-        gap:8px;
+        margin-bottom:6px;
+        gap:6px;
       }
 
       #view-play .title{
-        font-size:20px;
-        line-height:1.15;
+        font-size:19px;
+        line-height:1.08;
       }
 
       #view-play .sub{
-        font-size:11px;
-        line-height:1.25;
+        font-size:10px;
+        line-height:1.2;
+        opacity:.92;
       }
 
       #view-play .top .btn{
-        min-height:40px;
-        padding:8px 10px;
+        min-height:38px;
+        padding:7px 10px;
         border-radius:14px;
-        font-size:14px;
-      }
-
-      .hud{
-        grid-template-columns:repeat(2,minmax(0,1fr));
-        gap:6px;
-        margin:8px 0;
-      }
-
-      .hudCard{
-        padding:8px 9px;
-        border-radius:12px;
-      }
-
-      .hudCard.mini{
-        min-height:56px;
-        padding:7px 8px;
-      }
-
-      .hudK{
-        font-size:10px;
-        line-height:1.1;
-      }
-
-      .hudV{
-        margin-top:3px;
-        font-size:15px;
-        line-height:1.1;
-      }
-
-      .miniV{
         font-size:13px;
-        line-height:1.15;
-      }
-
-      .hud-mini{
-        grid-template-columns:repeat(3,minmax(0,1fr));
-        gap:6px;
-        margin-top:6px;
-      }
-
-      .hud-rule-desktop{
-        display:none !important;
       }
 
       #view-play .hud:first-of-type .hudCard:nth-child(1),
@@ -855,127 +796,172 @@
 
       #view-play .hud:first-of-type{
         grid-template-columns:repeat(3,minmax(0,1fr));
+        gap:5px;
+        margin:6px 0 5px;
+      }
+
+      .hud{
+        gap:5px;
+        margin:6px 0 5px;
+      }
+
+      .hudCard{
+        padding:7px 8px;
+        border-radius:12px;
+      }
+
+      .hudCard.mini{
+        min-height:52px;
+        padding:6px 7px;
+      }
+
+      .hudK{
+        font-size:9px;
+        line-height:1.05;
+      }
+
+      .hudV{
+        margin-top:2px;
+        font-size:13px;
+        line-height:1.08;
+      }
+
+      .miniV{
+        font-size:11px;
+        line-height:1.12;
+      }
+
+      .hud-mini{
+        grid-template-columns:repeat(3,minmax(0,1fr));
+        gap:5px;
+        margin-top:5px;
+      }
+
+      .hud-rule-desktop{
+        display:none !important;
       }
 
       .barWrap{
-        gap:6px;
-        margin:6px 0 8px;
+        gap:5px;
+        margin:5px 0 7px;
       }
 
       .barLine{
-        grid-template-columns:58px 1fr 52px;
-        gap:6px;
+        grid-template-columns:54px 1fr 42px;
+        gap:5px;
       }
 
       .barTrack{
-        height:10px;
+        height:9px;
       }
 
       .barTxt{
-        font-size:11px;
+        font-size:10px;
       }
 
       .bossWrap{
-        margin:6px 0 8px;
-        padding:8px 10px;
-        border-radius:14px;
+        margin:5px 0 7px;
+        padding:7px 9px;
+        border-radius:13px;
       }
 
       .play{
-        min-height:590px;
-        border-radius:22px;
+        min-height:620px;
+        border-radius:20px;
       }
 
       .arena{
-        height:590px;
+        height:620px;
       }
 
       .ground{
-        bottom:118px;
+        bottom:104px;
       }
 
       .hitline{
         width:2px;
         box-shadow:
-          0 0 0 6px rgba(34,211,238,.08),
-          0 0 18px rgba(34,211,238,.16);
+          0 0 0 5px rgba(34,211,238,.08),
+          0 0 16px rgba(34,211,238,.15);
       }
 
       .avatar{
-        bottom:118px;
-        width:96px;
-        height:138px;
+        width:78px;
+        height:118px;
+        bottom:104px;
       }
 
       .avatar-body{
-        width:60px;
-        height:118px;
+        width:52px;
+        height:104px;
       }
 
       .avatar-head{
-        width:24px;
-        height:24px;
+        width:22px;
+        height:22px;
       }
 
       .avatar-torso{
-        top:24px;
-        width:24px;
-        height:38px;
+        top:22px;
+        width:22px;
+        height:34px;
       }
 
       .avatar-arm{
-        top:30px;
-        height:30px;
+        top:28px;
+        height:26px;
       }
 
       .avatar-leg{
-        top:60px;
-        height:42px;
+        top:56px;
+        height:38px;
       }
 
       .avatar.avatar-jump .avatar-body{
-        transform:translateX(-50%) translateY(-34px);
+        transform:translateX(-50%) translateY(-28px);
       }
 
       .avatar.avatar-duck .avatar-body{
-        transform:translateX(-50%) translateY(16px) scaleY(.92);
+        transform:translateX(-50%) translateY(14px) scaleY(.92);
       }
 
       .rushBanner{
-        top:10px;
+        top:8px;
       }
 
       .rushBanner .rushText{
-        padding:8px 12px;
-        font-size:14px;
+        padding:7px 11px;
+        font-size:13px;
       }
 
       .judge{
-        top:58px;
-        font-size:18px;
-        padding:8px 12px;
+        top:52px;
+        font-size:16px;
+        padding:7px 11px;
       }
 
       .teleBox{
-        font-size:18px;
-        padding:12px 16px;
+        font-size:17px;
+        padding:11px 14px;
       }
 
       .actions{
-        gap:10px;
-        margin-top:10px;
+        display:grid;
+        grid-template-columns:1fr 1fr 1fr;
+        gap:8px;
+        margin-top:8px;
       }
 
       .actions .btn{
-        min-height:52px;
-        font-size:17px;
-        padding:10px 12px;
-        border-radius:18px;
+        min-height:46px;
+        font-size:15px;
+        padding:8px 10px;
+        border-radius:16px;
       }
 
       .resultHero{
         grid-template-columns:1fr;
-        gap:12px;
+        gap:10px;
       }
 
       .resultHighlights{
@@ -984,26 +970,12 @@
       }
 
       .highlightV{
-        font-size:22px;
+        font-size:20px;
       }
 
       .resultGrid{
         grid-template-columns:1fr;
         gap:8px;
-      }
-
-      #view-result .actions{
-        grid-template-columns:1fr;
-        gap:8px;
-      }
-
-      #view-result .actions .btn,
-      #view-result .actions .btn[data-action="go-cooldown"],
-      #view-result .actions .btn[data-action="play-again"],
-      #view-result .actions .btn[data-action="back-menu"]{
-        grid-column:auto;
-        min-height:50px;
-        font-size:16px;
       }
     }
 
@@ -1016,35 +988,43 @@
         font-size:10px;
       }
 
-      .hudV{
-        font-size:14px;
+      #view-play .hud:first-of-type{
+        grid-template-columns:repeat(3,minmax(0,1fr));
       }
 
-      .miniV{
+      .hud-mini{
+        grid-template-columns:repeat(3,minmax(0,1fr));
+      }
+
+      .hudV{
         font-size:12px;
       }
 
+      .miniV{
+        font-size:10px;
+      }
+
       .play{
-        min-height:575px;
+        min-height:606px;
       }
 
       .arena{
-        height:575px;
+        height:606px;
       }
 
       .ground{
-        bottom:116px;
+        bottom:102px;
       }
 
       .avatar{
-        width:88px;
-        height:128px;
-        bottom:116px;
+        width:74px;
+        height:112px;
+        bottom:102px;
       }
 
       .actions .btn{
-        min-height:50px;
-        font-size:16px;
+        min-height:44px;
+        font-size:14px;
       }
     }
   </style>
@@ -1056,7 +1036,7 @@
       <div class="top">
         <div>
           <div class="title">⬆️⬇️ Jump-Duck</div>
-          <div class="sub">Fitness Academy Run • หลบอุปกรณ์ฝึก • Boss • Fever • Final Rush</div>
+          <div class="sub">Fitness Academy Run • อ่าน silhouette ให้ไว • low = jump • high = duck</div>
         </div>
         <div class="row">
           <a class="btn ghost" id="jd-back-hub-menu" href="#">⬅ กลับ Hub</a>
@@ -1239,7 +1219,7 @@
           <div class="sub">สรุปรอบล่าสุดของ JumpDuck</div>
         </div>
         <div class="row">
-          <a class="btn ghost" id="jd-back-hub-result" href="#">🧘 คูลดาวน์</a>
+          <a class="btn ghost" id="jd-back-hub-result" href="#">⬅ Hub</a>
         </div>
       </div>
 
@@ -1267,6 +1247,16 @@
             <div class="resultRewardText">
               <div class="resultRewardTitle" id="jd-result-reward">Keep Training</div>
               <div class="resultRewardSub" id="jd-result-reward-sub">ฝึกต่ออีกนิด แล้วรอบหน้าจะดีกว่าเดิม</div>
+            </div>
+          </div>
+
+          <div class="resultRewardCard" id="jd-coach-card">
+            <div class="resultRewardIcon" id="jd-coach-icon">🧠</div>
+            <div class="resultRewardText">
+              <div class="resultRewardTitle" id="jd-coach-title">AI Coach</div>
+              <div class="resultRewardSub" id="jd-coach-summary">สรุปคำแนะนำหลังจบเกม</div>
+              <div class="resultRewardSub" id="jd-coach-tip-1" style="margin-top:6px;">—</div>
+              <div class="resultRewardSub" id="jd-coach-tip-2">—</div>
             </div>
           </div>
         </div>
@@ -1307,7 +1297,7 @@
         <div class="resultItem"><span>Duck Miss</span><b id="res-duck-miss">0</b></div>
         <div class="resultItem"><span>Accuracy</span><b id="res-acc">0%</b></div>
         <div class="resultItem"><span>RT Mean</span><b id="res-rt-mean">0</b></div>
-        <div class="resultItem"><span>Stability Min</span><b id="res-stability-min">0%</b></div>
+        <div class="resultItem"><span>Stability End</span><b id="res-stability-min">0%</b></div>
         <div class="resultItem"><span>Score</span><b id="res-score">0</b></div>
         <div class="resultItem"><span>Rank</span><b id="res-rank">C</b></div>
         <div class="resultItem"><span>Phase End</span><b id="res-phase-end">-</b></div>
@@ -1317,12 +1307,12 @@
       </div>
 
       <div class="actions">
-        <button class="btn good" data-action="go-cooldown" type="button">🧘 ไปคูลดาวน์</button>
         <button class="btn primary" data-action="play-again" type="button">🔁 เล่นอีกครั้ง</button>
-        <button class="btn ghost" data-action="back-menu" type="button">🏠 กลับเมนู</button>
         <button class="btn" id="jd-btn-dl-events" type="button">⬇ events.csv</button>
         <button class="btn" id="jd-btn-dl-sessions" type="button">⬇ sessions.csv</button>
+        <button class="btn" id="jd-btn-dl-teacher" type="button">⬇ teacher-summary.csv</button>
         <button class="btn good" id="jd-btn-send-log" type="button">☁ ส่งขึ้น Cloud Logger</button>
+        <button class="btn ghost" data-action="back-menu" type="button">🏠 กลับเมนู</button>
       </div>
 
       <div class="statusLine" id="jd-log-status"></div>
