@@ -1,11 +1,5 @@
 <!-- === /herohealth/vr-groups/groups-race.html ===
-Groups Race V2 Online Room
-FULL PATCH v20260324-GROUPS-RACE-ONLINE-RUN-BOOTSTEP-OFFLINE-GRACE
-Requires:
-- ../vr/vr-ui.js
-- ../firebase-config.js
-- ./groups-race.safe.js
-- ./groups-race-rtdb.js
+FULL PATCH v20260325-GROUPS-RACE-RUN-POLLING-FALLBACK
 -->
 <!doctype html>
 <html lang="th">
@@ -135,11 +129,6 @@ Requires:
     .hudMetric{ display:flex; gap:5px; align-items:center; min-width:0; }
     .hudMetric .k{ color:var(--muted); font-size:10px; font-weight:900; }
     .hudMetric .v{ color:var(--text); font-size:12px; font-weight:1000; }
-    .hudBox.time-low{
-      border-color:rgba(239,68,68,.28);
-      box-shadow:0 0 0 1px rgba(239,68,68,.12), 0 0 20px rgba(239,68,68,.10);
-    }
-    #hudTime.time-low{ color:#fecaca; }
     .raceBox{
       display:grid;
       grid-template-columns:1fr 1fr;
@@ -152,25 +141,10 @@ Requires:
       background:rgba(2,6,23,.44);
       backdrop-filter:blur(8px);
     }
-    .raceCard.me{
-      border-color:rgba(34,197,94,.24);
-      background:rgba(34,197,94,.10);
-    }
-    .raceCard.rival{
-      border-color:rgba(244,114,182,.24);
-      background:rgba(244,114,182,.10);
-    }
-    .raceName{
-      font-size:10px;
-      font-weight:1000;
-      color:var(--muted);
-      margin-bottom:4px;
-    }
-    .raceScore{
-      font-size:18px;
-      font-weight:1000;
-      line-height:1;
-    }
+    .raceCard.me{ border-color:rgba(34,197,94,.24); background:rgba(34,197,94,.10); }
+    .raceCard.rival{ border-color:rgba(244,114,182,.24); background:rgba(244,114,182,.10); }
+    .raceName{ font-size:10px; font-weight:1000; color:var(--muted); margin-bottom:4px; }
+    .raceScore{ font-size:18px; font-weight:1000; line-height:1; }
     .questTop{
       display:flex;
       flex-direction:column;
@@ -230,58 +204,17 @@ Requires:
       max-width:min(560px,100%);
     }
     .coachWrap .face{
-      width:34px;
-      height:34px;
-      border-radius:12px;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      background:rgba(148,163,184,.10);
-      border:1px solid rgba(148,163,184,.14);
-      font-size:18px;
-      flex:0 0 auto;
+      width:34px; height:34px; border-radius:12px; display:flex; align-items:center; justify-content:center;
+      background:rgba(148,163,184,.10); border:1px solid rgba(148,163,184,.14); font-size:18px; flex:0 0 auto;
     }
     .coachWrap .txt{ font-weight:1000; font-size:13px; line-height:1.25; }
     .coachWrap .sub{ color:var(--muted); font-size:11px; font-weight:900; margin-top:2px; }
-    #countdownOverlay{
-      position:absolute;
-      inset:0;
-      display:grid;
-      place-items:center;
-      z-index:45;
-      background:linear-gradient(180deg, rgba(2,6,23,.40), rgba(2,6,23,.12));
-      backdrop-filter:blur(4px);
-    }
-    .countCard{
-      min-width:min(320px, 90vw);
-      padding:20px 24px;
-      border-radius:22px;
-      border:1px solid rgba(148,163,184,.16);
-      background:rgba(2,6,23,.72);
-      text-align:center;
-      box-shadow:0 18px 44px rgba(0,0,0,.28);
-    }
-    .countBig{
-      font-size:clamp(48px, 12vw, 96px);
-      line-height:1;
-      font-weight:1000;
-      margin-bottom:8px;
-    }
-    .countSub{
-      color:var(--muted);
-      font-size:14px;
-      font-weight:900;
-    }
-    #loadingOverlay{
-      position:absolute;
-      inset:0;
-      display:grid;
-      place-items:center;
-      z-index:46;
+    #countdownOverlay, #loadingOverlay{
+      position:absolute; inset:0; display:grid; place-items:center; z-index:46;
       background:linear-gradient(180deg, rgba(2,6,23,.40), rgba(2,6,23,.18));
       backdrop-filter:blur(4px);
     }
-    .loadingCard{
+    .countCard, .loadingCard{
       min-width:min(320px, 90vw);
       padding:18px 22px;
       border-radius:22px;
@@ -289,34 +222,21 @@ Requires:
       background:rgba(2,6,23,.76);
       text-align:center;
       box-shadow:0 18px 44px rgba(0,0,0,.28);
-      font-weight:1000;
-      line-height:1.6;
-      white-space:pre-line;
     }
+    .countBig{ font-size:clamp(48px, 12vw, 96px); line-height:1; font-weight:1000; margin-bottom:8px; }
+    .countSub{ color:var(--muted); font-size:14px; font-weight:900; }
+    .loadingCard{ font-weight:1000; line-height:1.6; white-space:pre-line; }
     #stageFlash{
-      position:absolute;
-      inset:0;
-      pointer-events:none;
-      opacity:0;
-      z-index:35;
+      position:absolute; inset:0; pointer-events:none; opacity:0; z-index:35;
       background:radial-gradient(circle at 50% 50%, rgba(255,255,255,.14), rgba(255,255,255,0));
       transition:opacity .14s ease;
     }
     #stageFlash.good{ background:radial-gradient(circle at 50% 50%, rgba(34,197,94,.16), rgba(34,197,94,0)); }
     #stageFlash.bad{ background:radial-gradient(circle at 50% 50%, rgba(239,68,68,.14), rgba(239,68,68,0)); }
     #stageFlash.hot{ background:radial-gradient(circle at 50% 50%, rgba(250,204,21,.18), rgba(250,204,21,0)); }
-    #fxLayer{
-      position:absolute;
-      inset:0;
-      pointer-events:none;
-      overflow:hidden;
-      z-index:38;
-    }
+    #fxLayer{ position:absolute; inset:0; pointer-events:none; overflow:hidden; z-index:38; }
     .scorePop{
-      position:absolute;
-      font-weight:1100;
-      font-size:22px;
-      line-height:1;
+      position:absolute; font-weight:1100; font-size:22px; line-height:1;
       text-shadow:0 2px 12px rgba(0,0,0,.28);
       animation:scorePopUp .55s ease-out forwards;
       will-change:transform, opacity;
@@ -329,164 +249,60 @@ Requires:
       100%{ transform:translate(-50%,-110%) scale(.98); opacity:0; }
     }
     .tgt{
-      width:96px;
-      height:96px;
-      border-radius:24px;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      font-size:44px;
-      font-weight:1000;
-      background:rgba(15,23,42,.72);
-      border:1px solid rgba(148,163,184,.22);
-      box-shadow:0 12px 30px rgba(0,0,0,.22);
-      pointer-events:auto;
-      user-select:none;
-      position:absolute;
+      width:96px; height:96px; border-radius:24px; display:flex; align-items:center; justify-content:center;
+      font-size:44px; font-weight:1000; background:rgba(15,23,42,.72);
+      border:1px solid rgba(148,163,184,.22); box-shadow:0 12px 30px rgba(0,0,0,.22);
+      pointer-events:auto; user-select:none; position:absolute;
     }
-    .tgt::before{
-      content:"";
-      position:absolute;
-      inset:-14px;
-      border-radius:30px;
-    }
+    .tgt::before{ content:""; position:absolute; inset:-14px; border-radius:30px; }
     .overlay{
-      position:absolute;
-      inset:0;
-      display:none;
-      align-items:flex-start;
-      justify-content:center;
-      background:rgba(0,0,0,.62);
-      backdrop-filter:blur(10px);
-      z-index:9000;
-      padding:calc(12px + var(--sat)) 12px calc(12px + var(--sab)) 12px;
-      overflow:auto;
+      position:absolute; inset:0; display:none; align-items:flex-start; justify-content:center;
+      background:rgba(0,0,0,.62); backdrop-filter:blur(10px); z-index:9000;
+      padding:calc(12px + var(--sat)) 12px calc(12px + var(--sab)) 12px; overflow:auto;
     }
     .overlayCard{
-      width:min(860px, 100%);
-      max-height:min(88vh, 760px);
-      border-radius:var(--radius);
-      border:1px solid rgba(148,163,184,.18);
-      background:linear-gradient(180deg, rgba(2,6,23,.94), rgba(2,6,23,.78));
-      box-shadow:0 30px 120px rgba(0,0,0,.55);
-      overflow:hidden;
-      display:flex;
-      flex-direction:column;
-      margin:auto 0;
+      width:min(860px, 100%); max-height:min(88vh, 760px); border-radius:var(--radius);
+      border:1px solid rgba(148,163,184,.18); background:linear-gradient(180deg, rgba(2,6,23,.94), rgba(2,6,23,.78));
+      box-shadow:0 30px 120px rgba(0,0,0,.55); overflow:hidden; display:flex; flex-direction:column; margin:auto 0;
     }
     .overlayCard header{
-      padding:12px;
-      border-bottom:1px solid rgba(148,163,184,.14);
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
-      flex-wrap:wrap;
+      padding:12px; border-bottom:1px solid rgba(148,163,184,.14);
+      display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;
     }
-    #endCard main{
-      padding:12px;
-      display:grid;
-      grid-template-columns:1fr;
-      gap:10px;
-      overflow:auto;
-      min-height:0;
-    }
+    #endCard main{ padding:12px; display:grid; grid-template-columns:1fr; gap:10px; overflow:auto; min-height:0; }
     .panel{
-      border-radius:18px;
-      border:1px solid rgba(148,163,184,.14);
-      background:rgba(2,6,23,.50);
-      padding:10px;
+      border-radius:18px; border:1px solid rgba(148,163,184,.14); background:rgba(2,6,23,.50); padding:10px;
     }
     .summaryHero{
-      display:flex;
-      align-items:center;
-      gap:12px;
-      margin-bottom:10px;
-      padding:10px 12px;
-      border-radius:16px;
-      border:1px solid rgba(148,163,184,.14);
-      background:rgba(15,23,42,.34);
+      display:flex; align-items:center; gap:12px; margin-bottom:10px; padding:10px 12px;
+      border-radius:16px; border:1px solid rgba(148,163,184,.14); background:rgba(15,23,42,.34);
     }
     .summaryBadge{
-      width:52px;
-      height:52px;
-      border-radius:16px;
-      display:grid;
-      place-items:center;
-      font-size:26px;
-      font-weight:1000;
-      border:1px solid rgba(148,163,184,.14);
-      background:rgba(2,6,23,.44);
-      flex:0 0 auto;
+      width:52px; height:52px; border-radius:16px; display:grid; place-items:center; font-size:26px; font-weight:1000;
+      border:1px solid rgba(148,163,184,.14); background:rgba(2,6,23,.44); flex:0 0 auto;
     }
-    .summaryHeroText .big{
-      font-size:18px;
-      font-weight:1000;
-      line-height:1.15;
-    }
-    .summaryHeroText .sub{
-      color:var(--muted);
-      font-size:12px;
-      font-weight:900;
-      margin-top:4px;
-    }
-    .statGrid{
-      display:grid;
-      grid-template-columns:repeat(2,minmax(0,1fr));
-      gap:8px;
-    }
+    .summaryHeroText .big{ font-size:18px; font-weight:1000; line-height:1.15; }
+    .summaryHeroText .sub{ color:var(--muted); font-size:12px; font-weight:900; margin-top:4px; }
+    .statGrid{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
     .statCard{
-      border-radius:14px;
-      border:1px solid rgba(148,163,184,.12);
-      background:rgba(15,23,42,.52);
-      padding:10px;
-      min-width:0;
+      border-radius:14px; border:1px solid rgba(148,163,184,.12); background:rgba(15,23,42,.52); padding:10px; min-width:0;
     }
-    .statCard .k{
-      color:var(--muted);
-      font-size:10px;
-      font-weight:1000;
-      margin-bottom:4px;
-      letter-spacing:.2px;
-    }
-    .statCard .v{
-      color:var(--text);
-      font-size:18px;
-      font-weight:1000;
-      line-height:1.1;
-      word-break:break-word;
-    }
+    .statCard .k{ color:var(--muted); font-size:10px; font-weight:1000; margin-bottom:4px; letter-spacing:.2px; }
+    .statCard .v{ color:var(--text); font-size:18px; font-weight:1000; line-height:1.1; word-break:break-word; }
     .overlayBtns{
-      padding:12px;
-      border-top:1px solid rgba(148,163,184,.14);
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      justify-content:center;
+      padding:12px; border-top:1px solid rgba(148,163,184,.14); display:flex; gap:10px; flex-wrap:wrap; justify-content:center;
     }
-    .overlayBtns button{
-      min-height:54px;
-      font-size:15px;
-      font-weight:1000;
-    }
+    .overlayBtns button{ min-height:54px; font-size:15px; font-weight:1000; }
     #btnEndRematch{
-      border-color:rgba(250,204,21,.30);
-      background:linear-gradient(180deg,#fde68a,#f59e0b);
-      color:#3b2200;
+      border-color:rgba(250,204,21,.30); background:linear-gradient(180deg,#fde68a,#f59e0b); color:#3b2200;
       box-shadow:0 14px 28px rgba(245,158,11,.24);
     }
     #btnEndGoHub{
-      border-color:rgba(59,130,246,.28);
-      background:linear-gradient(180deg, rgba(59,130,246,.24), rgba(30,41,59,.88));
+      border-color:rgba(59,130,246,.28); background:linear-gradient(180deg, rgba(59,130,246,.24), rgba(30,41,59,.88));
     }
     @media (max-width:760px){
       .hud{ left:6px; right:6px; }
-      .hudBox{
-        grid-template-columns:repeat(3, minmax(0,1fr));
-        gap:4px;
-        padding:4px 6px;
-        border-radius:10px;
-      }
+      .hudBox{ grid-template-columns:repeat(3, minmax(0,1fr)); gap:4px; padding:4px 6px; border-radius:10px; }
       .hudMetric{ justify-content:center; gap:4px; }
       .hudMetric .k{ font-size:8px; }
       .hudMetric .v{ font-size:10px; }
@@ -504,15 +320,10 @@ Requires:
       .tgt{ width:112px; height:112px; font-size:48px; border-radius:24px; }
     }
     @media (max-width:480px){
-      .overlay{
-        padding:calc(8px + var(--sat)) 8px calc(12px + var(--sab) + 78px) 8px;
-      }
+      .overlay{ padding:calc(8px + var(--sat)) 8px calc(12px + var(--sab) + 78px) 8px; }
       .overlayCard{ border-radius:16px; }
       .overlayBtns{
-        position:sticky;
-        bottom:0;
-        background:linear-gradient(180deg, rgba(2,6,23,.72), rgba(2,6,23,.96));
-        backdrop-filter:blur(10px);
+        position:sticky; bottom:0; background:linear-gradient(180deg, rgba(2,6,23,.72), rgba(2,6,23,.96)); backdrop-filter:blur(10px);
       }
       .overlayBtns button{ flex:1 1 100%; }
     }
@@ -724,14 +535,13 @@ Requires:
     let rematchBusy = false;
     let rematchWaitTimer = null;
     let rematchDeadlineMs = 0;
-
     let runMountedAt = Date.now();
     let rivalOfflineSince = 0;
     const OFFLINE_GRACE_MS = 10000;
     const OFFLINE_CONFIRM_MS = 6000;
-
     let bootStep = 'init';
     let bootTimeoutTimer = null;
+    let roomPollTimer = null;
 
     debugMini.textContent = `room=${ROOM || '-'} • player=${PLAYER_ID || '-'} • view=${VIEW}`;
 
@@ -753,6 +563,44 @@ Requires:
 
     function stopBootTimeout(){
       try{ clearTimeout(bootTimeoutTimer); }catch(_){}
+    }
+
+    function stopRoomPoll(){
+      try{ clearInterval(roomPollTimer); }catch(_){}
+      roomPollTimer = null;
+    }
+
+    async function pollRoomUntilStarted(maxMs = 15000){
+      const startedAtPoll = Date.now();
+      stopRoomPoll();
+
+      roomPollTimer = setInterval(async ()=>{
+        try{
+          const latest = await readRaceRoom(ROOM);
+          if(!latest) return;
+
+          roomData = latest;
+          localRoundNo = Number(latest?.match?.roundNo || 1);
+          applyRoomPlayers(latest.players || {});
+
+          const started = !!latest.match?.started;
+          const ended = !!latest.match?.endedAt;
+
+          if(started && !ended){
+            stopRoomPoll();
+            window.__RACE_STARTED__ = true;
+            stopBootTimeout();
+            await waitUntilStartAndRun(latest);
+            return;
+          }
+
+          if(Date.now() - startedAtPoll > maxMs){
+            stopRoomPoll();
+          }
+        }catch(err){
+          console.error('[groups-race pollRoomUntilStarted]', err);
+        }
+      }, 1000);
     }
 
     function faceFromMood(mood){
@@ -779,6 +627,7 @@ Requires:
       try{ roomUnwatch?.(); }catch(_){}
       try{ scoresUnwatch?.(); }catch(_){}
       try{ unbindPresence?.(); }catch(_){}
+      stopRoomPoll();
       roomUnwatch = null;
       scoresUnwatch = null;
       unbindPresence = null;
@@ -854,9 +703,7 @@ Requires:
     }
 
     function rankText(myScore, rivalScore){
-      return myScore > rivalScore ? '#1'
-        : myScore < rivalScore ? '#2'
-        : '#1 ร่วม';
+      return myScore > rivalScore ? '#1' : myScore < rivalScore ? '#2' : '#1 ร่วม';
     }
 
     function getRivalPlayerId(players){
@@ -880,10 +727,8 @@ Requires:
       const rivalId = getRivalPlayerId(roomData?.players || {});
       const myScoreObj = scoreMap?.[PLAYER_ID] || {};
       const rivalScoreObj = rivalId ? (scoreMap?.[rivalId] || {}) : {};
-
       myScoreLatest = Number(myScoreObj.score || 0);
       rivalScoreLatest = Number(rivalScoreObj.score || 0);
-
       hudScore.textContent = String(myScoreLatest);
       hudRival.textContent = String(rivalScoreLatest);
       raceMeScore.textContent = String(myScoreLatest);
@@ -908,9 +753,7 @@ Requires:
         const leftSec = Math.max(0, Math.ceil(leftMs / 1000));
 
         if(endOverlay.style.display === 'flex'){
-          const base = rematchRequested
-            ? 'กำลังรออีกฝ่ายกด Rematch'
-            : 'กด Rematch เพื่อเริ่มรอบใหม่';
+          const base = rematchRequested ? 'กำลังรออีกฝ่ายกด Rematch' : 'กด Rematch เพื่อเริ่มรอบใหม่';
           document.getElementById('sumHeroSub').textContent = `${base} • เหลือ ${leftSec}s`;
         }
 
@@ -967,6 +810,8 @@ Requires:
     }
 
     async function waitUntilStartAndRun(data){
+      stopRoomPoll();
+
       const startedAt = Number(data?.match?.startedAt || 0);
       if(!startedAt) return;
       if(startedAt === lastStartedAtSeen) return;
@@ -974,7 +819,6 @@ Requires:
       lastStartedAtSeen = startedAt;
       resetRaceUiForNextRound();
       safeStopEngine();
-
       loadingOverlay.hidden = true;
       countdownOverlay.hidden = false;
 
@@ -1014,7 +858,6 @@ Requires:
     async function requestRematchAndMaybeStart(){
       if(rematchBusy || !ROOM || !PLAYER_ID || !roomData) return;
       rematchBusy = true;
-
       const rematchBtn1 = document.getElementById('btnRestart');
       const rematchBtn2 = document.getElementById('btnEndRematch');
       if(rematchBtn1) rematchBtn1.disabled = true;
@@ -1044,9 +887,7 @@ Requires:
 
     async function leaveThenHub(){
       try{
-        if(ROOM && PLAYER_ID){
-          await leaveRaceRoom(ROOM, PLAYER_ID);
-        }
+        if(ROOM && PLAYER_ID) await leaveRaceRoom(ROOM, PLAYER_ID);
       }catch(_){}
       clearRematchWaitTimer();
       safeNavigate(HUB);
@@ -1056,7 +897,6 @@ Requires:
       if(raceEnded) return;
       raceEnded = true;
       safeStopEngine();
-
       document.getElementById('sumBadgeIcon').textContent = '⚠️';
       document.getElementById('sumHeroBig').textContent = 'คู่แข่งออกจากห้อง';
       document.getElementById('sumHeroSub').textContent = 'คุณสามารถรออีกฝ่าย หรือกลับออกจากห้องได้';
@@ -1075,9 +915,7 @@ Requires:
 
     window.addEventListener('race:coach', (ev)=>{
       const d = ev?.detail || {};
-      if(rivalOffline){
-        showToast('คู่แข่งกำลัง reconnect', 'neutral');
-      }
+      if(rivalOffline) showToast('คู่แข่งกำลัง reconnect', 'neutral');
       if(d.text) showToast(d.text, d.mood || 'neutral');
     });
 
@@ -1085,10 +923,6 @@ Requires:
       const left = ev?.detail?.left;
       if(typeof left === 'number'){
         hudTime.textContent = left + 's';
-        const hudBox = document.querySelector('.hudBox');
-        const isLow = left <= 10;
-        hudTime.classList.toggle('time-low', isLow);
-        hudBox?.classList.toggle('time-low', isLow);
       }
     });
 
@@ -1162,7 +996,6 @@ Requires:
       document.getElementById('sumBadgeIcon').textContent = meta.icon;
       document.getElementById('sumHeroBig').textContent = meta.big;
       document.getElementById('sumHeroSub').textContent = 'กด Rematch เพื่อเล่นรอบใหม่ในห้องเดิม';
-
       sumResult.textContent = result === 'WIN' ? 'ชนะ' : result === 'DRAW' ? 'เสมอ' : 'แพ้';
       sumMyScore.textContent = String(finalMy);
       sumRivalScore.textContent = String(finalRival);
@@ -1171,7 +1004,6 @@ Requires:
       sumTime.textContent = `${s.durationPlayedSec ?? 0}s`;
       endSub.textContent = `${myNameText} ${finalMy} • ${rivalNameText} ${finalRival}`;
       childCoachMsg.textContent = getRaceCoach(result, s.acc ?? accLatest, s.comboMax ?? comboLatest);
-
       rematchRequested = false;
       endOverlay.style.display = 'flex';
       endOverlay.setAttribute('aria-hidden', 'false');
@@ -1202,13 +1034,9 @@ Requires:
     });
     window.addEventListener('resize', updateSpawnSafe, { passive:true });
 
-    document.getElementById('btnRestart').addEventListener('click', async ()=>{
-      await requestRematchAndMaybeStart();
-    });
+    document.getElementById('btnRestart').addEventListener('click', async ()=>{ await requestRematchAndMaybeStart(); });
     document.getElementById('btnBack').addEventListener('click', leaveThenHub);
-    document.getElementById('btnEndRematch').addEventListener('click', async ()=>{
-      await requestRematchAndMaybeStart();
-    });
+    document.getElementById('btnEndRematch').addEventListener('click', async ()=>{ await requestRematchAndMaybeStart(); });
     document.getElementById('btnEndGoHub').addEventListener('click', leaveThenHub);
 
     async function boot(){
@@ -1227,7 +1055,6 @@ Requires:
 
       setBootStep('firebase-wait', 'กำลังเตรียม Firebase...');
       const firebaseReady = await waitForFirebaseReady(4000);
-
       if(!firebaseReady){
         setBootStep('firebase-fail', 'เข้าแข่งขันไม่สำเร็จ\nFirebase not initialized\nกำลังกลับล็อบบี้...');
         setTimeout(()=>{
@@ -1261,7 +1088,6 @@ Requires:
 
           roomData = data;
           localRoundNo = Number(data?.match?.roundNo || 1);
-
           const players2 = data.players || {};
           applyRoomPlayers(players2);
 
@@ -1336,6 +1162,8 @@ Requires:
             loadingText.textContent = 'กำลังรอ Host เริ่มการแข่งขัน…';
           }
         });
+
+        pollRoomUntilStarted(15000);
 
         scoresUnwatch = watchRaceScores(ROOM, (scoreMap)=>{
           applyScoreBoard(scoreMap || {});
