@@ -1,6 +1,6 @@
 // === /herohealth/nutrition-plate/js/plate.swap.js ===
 // Healthy swap questions
-// PATCH v20260323-PLATE-CHILDFRIENDLY-A
+// PATCH v20260325-PLATE-P5-BALANCE-3221-A
 
 import { getFoodById } from './plate.content.js';
 
@@ -10,26 +10,40 @@ const SWAP_QUESTIONS = [
     type: 'swap',
     prompt: 'ถ้าจะเปลี่ยนไก่ทอด ควรเลือกอะไร',
     currentId: 'friedChicken',
-    options: ['grilledFish', 'sausage', 'friedChicken'],
+    options: ['grilledFish', 'tofu', 'friedChicken'],
     correctId: 'grilledFish',
-    note: 'โปรตีนที่ไม่ทอดมักช่วยให้มื้อสมดุลขึ้น',
+    note: 'ของไม่ทอดช่วยให้มื้อดีขึ้น',
     optionHelpers: {
       grilledFish: 'ไม่ทอด',
-      sausage: 'แปรรูปมาก',
+      tofu: 'ก็ดีเหมือนกัน',
       friedChicken: 'ทอดอยู่เหมือนเดิม'
     }
   },
   {
     id: 'swap-2',
     type: 'swap',
+    prompt: 'ถ้าจะเปลี่ยนน้ำอัดลม ควรเลือกอะไร',
+    currentId: 'soda',
+    options: ['water', 'milk', 'soda'],
+    correctId: 'water',
+    note: 'น้ำเปล่าเหมาะที่สุดสำหรับมื้อนี้',
+    optionHelpers: {
+      water: 'ดีที่สุด',
+      milk: 'พอใช้ได้',
+      soda: 'หวานมาก'
+    }
+  },
+  {
+    id: 'swap-3',
+    type: 'swap',
     prompt: 'ถ้าจะเปลี่ยนเค้ก ควรเลือกอะไร',
     currentId: 'cake',
-    options: ['orange', 'watermelon', 'cake'],
+    options: ['orange', 'banana', 'cake'],
     correctId: 'orange',
-    note: 'ผลไม้เหมาะกว่าของหวานในมื้อประจำวัน',
+    note: 'ผลไม้เหมาะกว่าของหวาน',
     optionHelpers: {
       orange: 'เป็นผลไม้',
-      watermelon: 'ก็พอใช้ได้',
+      banana: 'ก็ดีเหมือนกัน',
       cake: 'หวานเกินไป'
     }
   }
@@ -39,15 +53,17 @@ export function buildSwapQuestions() {
   return SWAP_QUESTIONS.map(question => ({
     ...question,
     currentFood: getFoodById(question.currentId),
-    options: question.options.map(id => {
-      const food = getFoodById(id);
-      return food
-        ? {
-            ...food,
-            helper: question.optionHelpers?.[id] || ''
-          }
-        : null;
-    }).filter(Boolean),
+    options: question.options
+      .map(id => {
+        const food = getFoodById(id);
+        return food
+          ? {
+              ...food,
+              helper: question.optionHelpers?.[id] || food.helper || ''
+            }
+          : null;
+      })
+      .filter(Boolean),
     correctFood: getFoodById(question.correctId)
   }));
 }
