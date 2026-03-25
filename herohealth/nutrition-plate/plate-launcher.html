@@ -12,18 +12,20 @@
 <body class="plate-page launcher-page">
   <main class="launcher-shell">
     <section class="launcher-card">
-      <div class="hero-pill">Nutrition Plate</div>
+      <div class="hero-pill">🍽️ Nutrition Plate</div>
 
       <h1 class="launcher-title">จัดจานให้สมดุล</h1>
 
       <p class="launcher-sub">
-        เกมนี้จะให้หนูเลือกอาหารมาจัดเป็น 1 มื้อ ดูว่าจานสมดุลไหม
-        และฝึกซ่อมกับสลับตัวเลือกให้ดีขึ้น ก่อนเล่นจะผ่าน warmup และหลังจบจะมี cooldown ก่อนกลับ HUB
+        เกมนี้ให้หนู
+        <strong>เลือกอาหารมาจัดเป็น 1 มื้อ</strong>,
+        <strong>ดูว่าจานขาดอะไร</strong>
+        และ <strong>สลับให้ดีขึ้น</strong>
       </p>
 
       <div class="launcher-grid">
         <label class="field">
-          <span>ระดับ</span>
+          <span>ระดับเกม</span>
           <select id="diffSelect" aria-label="เลือกระดับเกม">
             <option value="easy">ง่าย</option>
             <option value="normal" selected>ปกติ</option>
@@ -32,7 +34,7 @@
         </label>
 
         <label class="field">
-          <span>เวลา</span>
+          <span>เวลาเล่น</span>
           <select id="timeSelect" aria-label="เลือกเวลาเล่น">
             <option value="60">60 วินาที</option>
             <option value="90" selected>90 วินาที</option>
@@ -41,13 +43,23 @@
         </label>
       </div>
 
+      <div class="launcher-note">
+        สิ่งที่จะได้ทำในเกมนี้:
+        <br />
+        • จัดจานอาหาร 1 มื้อ
+        <br />
+        • ดูว่าจานยังขาดอะไร
+        <br />
+        • เปลี่ยนของเดิมให้ดีขึ้น
+      </div>
+
       <div class="launcher-actions">
-        <button class="btn btn-start" id="startBtn" type="button">เริ่มเกม</button>
+        <button class="btn btn-start" id="startBtn" type="button">เริ่มเกม Plate</button>
         <button class="btn btn-ghost" id="backBtn" type="button">กลับ HUB</button>
       </div>
 
       <div class="launcher-note">
-        Flow: Launcher → Warmup Gate → Plate Run → Summary → Cooldown Gate → HUB
+        Flow: Launcher → Warmup → Plate → Summary → Cooldown → HUB
       </div>
     </section>
   </main>
