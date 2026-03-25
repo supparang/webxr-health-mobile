@@ -4,8 +4,8 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • Nutrition Plate Launcher</title>
-  <meta name="color-scheme" content="dark light" />
+  <title>HeroHealth • Plate Launcher</title>
+  <meta name="color-scheme" content="light" />
   <link rel="icon" href="../favicon.ico" />
   <link rel="stylesheet" href="./css/plate.css" />
 </head>
@@ -17,11 +17,16 @@
       <h1 class="launcher-title">จัดจานให้สมดุล</h1>
 
       <p class="launcher-sub">
-        เกมนี้ให้หนู
-        <strong>เลือกอาหารมาจัดเป็น 1 มื้อ</strong>,
-        <strong>ดูว่าจานขาดอะไร</strong>
-        และ <strong>สลับให้ดีขึ้น</strong>
+        มาช่วยกันเลือกอาหารให้เป็น 1 มื้อที่ดีขึ้น
+        ดูว่าจานยังขาดอะไร แล้วเปลี่ยนให้เหมาะกว่าเดิม
       </p>
+
+      <div class="launcher-note">
+        เกมนี้หนูจะได้ฝึก:
+        <br>• จัดจานอาหาร 1 มื้อ
+        <br>• ดูว่าจานยังขาดอะไร
+        <br>• สลับของเดิมให้ดีขึ้น
+      </div>
 
       <div class="launcher-grid">
         <label class="field">
@@ -44,13 +49,10 @@
       </div>
 
       <div class="launcher-note">
-        สิ่งที่จะได้ทำในเกมนี้:
-        <br />
-        • จัดจานอาหาร 1 มื้อ
-        <br />
-        • ดูว่าจานยังขาดอะไร
-        <br />
-        • เปลี่ยนของเดิมให้ดีขึ้น
+        วิธีเล่นแบบสั้น:
+        <br>1. เลือกอาหารทีละส่วน
+        <br>2. ดูว่าจานสมดุลไหม
+        <br>3. แก้จานและเปลี่ยนของให้ดีขึ้น
       </div>
 
       <div class="launcher-actions">
@@ -92,7 +94,7 @@
           game: 'plate',
           diff: diffSelect.value,
           time: Number(timeSelect.value),
-          engine: 'v2',
+          engine: 'hubv2',
           launcher: './plate-launcher.html',
           seed: Date.now()
         }
