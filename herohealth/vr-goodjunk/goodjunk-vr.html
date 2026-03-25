@@ -171,6 +171,13 @@
     (function(){
       const q = new URLSearchParams(location.search);
 
+      window.HHA_CLOUD_ENDPOINT =
+        String(
+          q.get('api') ||
+          window.HHA_CLOUD_ENDPOINT ||
+          'https://script.google.com/macros/s/AKfycby4sXOr_Dcc6d5uUfTMOWDbxxAN21J7hoXCOa8R1degioMSEX0r9zBNorfM3s94K6880w/exec'
+        ).trim();
+
       const runCtx = {
         pid: q.get('pid') || 'anon',
         name: q.get('name') || '',
@@ -198,9 +205,11 @@
       if (timeEl) timeEl.textContent = runCtx.time || '150';
 
       console.log('[GJ-SOLO-ENTRY] goodjunk-vr.html loaded', runCtx);
+      console.log('[GJ-SOLO-ENTRY] cloud endpoint =', window.HHA_CLOUD_ENDPOINT);
     })();
   </script>
 
-  <script type="module" src="./goodjunk.safe.phaseboss.js?v=20260319e-goodjunk-solo-cloud-logger-pack"></script>
+  <script src="../js/hha-cloud-logger.js?v=20260325-client-v2"></script>
+  <script type="module" src="./goodjunk.safe.phaseboss.js?v=20260325-goodjunk-solo-cloudlive-v2"></script>
 </body>
 </html>
