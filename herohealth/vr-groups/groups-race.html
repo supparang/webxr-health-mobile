@@ -1,6 +1,6 @@
 <!-- === /herohealth/vr-groups/groups-race.html ===
 Groups Race V2 Online Room
-FULL PATCH v20260324-GROUPS-RACE-ONLINE-RUN-OFFLINE-GRACE
+FULL PATCH v20260324-GROUPS-RACE-ONLINE-RUN-BOOTSTEP-OFFLINE-GRACE
 Requires:
 - ../vr/vr-ui.js
 - ../firebase-config.js
@@ -85,7 +85,6 @@ Requires:
       border-color:rgba(56,189,248,.24);
       background:linear-gradient(180deg, rgba(56,189,248,.16), rgba(15,23,42,.88));
     }
-
     .stage{
       position:relative;
       flex:1 1 auto;
@@ -109,7 +108,6 @@ Requires:
       pointer-events:auto;
       z-index:1;
     }
-
     .hud{
       position:absolute;
       left:8px;
@@ -123,7 +121,6 @@ Requires:
     }
     .hudTop{ top:calc(8px + var(--sat)); }
     .hudLeftCol{ display:flex; flex-direction:column; gap:6px; width:100%; }
-
     .hudBox{
       display:grid;
       grid-template-columns:repeat(6, auto);
@@ -143,7 +140,6 @@ Requires:
       box-shadow:0 0 0 1px rgba(239,68,68,.12), 0 0 20px rgba(239,68,68,.10);
     }
     #hudTime.time-low{ color:#fecaca; }
-
     .raceBox{
       display:grid;
       grid-template-columns:1fr 1fr;
@@ -175,7 +171,6 @@ Requires:
       font-weight:1000;
       line-height:1;
     }
-
     .questTop{
       display:flex;
       flex-direction:column;
@@ -195,7 +190,6 @@ Requires:
     }
     .questTitle{ font-size:12px; font-weight:1000; line-height:1.22; }
     .questMini{ color:var(--muted); font-size:10px; font-weight:900; line-height:1.2; }
-
     .bar{
       height:9px;
       border-radius:999px;
@@ -210,7 +204,6 @@ Requires:
       background:linear-gradient(90deg, rgba(34,211,238,.95), rgba(244,114,182,.92), rgba(250,204,21,.86));
       transition:width .10s linear;
     }
-
     .coachToast{
       position:absolute;
       left:10px;
@@ -250,7 +243,6 @@ Requires:
     }
     .coachWrap .txt{ font-weight:1000; font-size:13px; line-height:1.25; }
     .coachWrap .sub{ color:var(--muted); font-size:11px; font-weight:900; margin-top:2px; }
-
     #countdownOverlay{
       position:absolute;
       inset:0;
@@ -280,7 +272,6 @@ Requires:
       font-size:14px;
       font-weight:900;
     }
-
     #loadingOverlay{
       position:absolute;
       inset:0;
@@ -302,7 +293,6 @@ Requires:
       line-height:1.6;
       white-space:pre-line;
     }
-
     #stageFlash{
       position:absolute;
       inset:0;
@@ -315,7 +305,6 @@ Requires:
     #stageFlash.good{ background:radial-gradient(circle at 50% 50%, rgba(34,197,94,.16), rgba(34,197,94,0)); }
     #stageFlash.bad{ background:radial-gradient(circle at 50% 50%, rgba(239,68,68,.14), rgba(239,68,68,0)); }
     #stageFlash.hot{ background:radial-gradient(circle at 50% 50%, rgba(250,204,21,.18), rgba(250,204,21,0)); }
-
     #fxLayer{
       position:absolute;
       inset:0;
@@ -323,7 +312,6 @@ Requires:
       overflow:hidden;
       z-index:38;
     }
-
     .scorePop{
       position:absolute;
       font-weight:1100;
@@ -340,7 +328,6 @@ Requires:
       15%{ transform:translate(-50%,-58%) scale(1.04); opacity:1; }
       100%{ transform:translate(-50%,-110%) scale(.98); opacity:0; }
     }
-
     .tgt{
       width:96px;
       height:96px;
@@ -363,7 +350,6 @@ Requires:
       inset:-14px;
       border-radius:30px;
     }
-
     .overlay{
       position:absolute;
       inset:0;
@@ -444,7 +430,6 @@ Requires:
       font-weight:900;
       margin-top:4px;
     }
-
     .statGrid{
       display:grid;
       grid-template-columns:repeat(2,minmax(0,1fr));
@@ -471,7 +456,6 @@ Requires:
       line-height:1.1;
       word-break:break-word;
     }
-
     .overlayBtns{
       padding:12px;
       border-top:1px solid rgba(148,163,184,.14);
@@ -495,7 +479,6 @@ Requires:
       border-color:rgba(59,130,246,.28);
       background:linear-gradient(180deg, rgba(59,130,246,.24), rgba(30,41,59,.88));
     }
-
     @media (max-width:760px){
       .hud{ left:6px; right:6px; }
       .hudBox{
@@ -747,8 +730,30 @@ Requires:
     const OFFLINE_GRACE_MS = 10000;
     const OFFLINE_CONFIRM_MS = 6000;
 
+    let bootStep = 'init';
+    let bootTimeoutTimer = null;
+
     debugMini.textContent = `room=${ROOM || '-'} • player=${PLAYER_ID || '-'} • view=${VIEW}`;
-    console.log('[groups-race] firebase ready?', !!window.HHA_FIREBASE_DB, window.HHA_FIREBASE_DB);
+
+    function setBootStep(step, text){
+      bootStep = step;
+      loadingOverlay.hidden = false;
+      loadingText.textContent = text || step;
+      console.log('[groups-race boot]', step);
+    }
+
+    function startBootTimeout(ms = 12000){
+      try{ clearTimeout(bootTimeoutTimer); }catch(_){}
+      bootTimeoutTimer = setTimeout(()=>{
+        loadingOverlay.hidden = false;
+        loadingText.textContent =
+          `หน้าแข่งโหลดช้าเกินกำหนด\nstep=${bootStep}\nroom=${ROOM}\nplayer=${PLAYER_ID}`;
+      }, ms);
+    }
+
+    function stopBootTimeout(){
+      try{ clearTimeout(bootTimeoutTimer); }catch(_){}
+    }
 
     function faceFromMood(mood){
       return mood === 'happy' ? '😄'
@@ -805,7 +810,6 @@ Requires:
 
     async function waitForFirebaseReady(timeoutMs = 4000){
       const started = Date.now();
-
       while(Date.now() - started < timeoutMs){
         if(window.HHA_FIREBASE_DB) return true;
         if(typeof window.HHA_WAIT_FIREBASE === 'function'){
@@ -816,7 +820,6 @@ Requires:
         }
         await new Promise(r => setTimeout(r, 80));
       }
-
       return !!window.HHA_FIREBASE_DB;
     }
 
@@ -934,39 +937,31 @@ Requires:
       raceEnded = false;
       rematchRequested = false;
       rematchBusy = false;
-
       endOverlay.style.display = 'none';
       endOverlay.setAttribute('aria-hidden', 'true');
-
       hudTime.textContent = '—';
       hudScore.textContent = '0';
       hudRival.textContent = '0';
       hudRank.textContent = '#1';
       hudCombo.textContent = 'x0';
       hudAcc.textContent = '0%';
-
       raceMeScore.textContent = '0';
       raceRivalScore.textContent = '0';
-
       qTitle.textContent = 'ภารกิจ';
       qSub.textContent = '';
       qBar.style.width = '0%';
       qMini.textContent = 'เร่งเลย!';
       qMiniTime.textContent = '';
-
       myScoreLatest = 0;
       rivalScoreLatest = 0;
       comboLatest = 0;
       accLatest = 0;
-
       try{ fxLayer.replaceChildren(); }catch(_){ fxLayer.innerHTML = ''; }
       stageFlash.className = '';
       stageFlash.style.opacity = '0';
-
       loadingOverlay.hidden = true;
       countdownOverlay.hidden = true;
       clearRematchWaitTimer();
-
       runMountedAt = Date.now();
       rivalOfflineSince = 0;
     }
@@ -977,7 +972,6 @@ Requires:
       if(startedAt === lastStartedAtSeen) return;
 
       lastStartedAtSeen = startedAt;
-
       resetRaceUiForNextRound();
       safeStopEngine();
 
@@ -988,7 +982,6 @@ Requires:
         const now = Date.now();
         const leftMs = startedAt - now;
         if(leftMs <= 0) break;
-
         const leftSec = Math.max(1, Math.ceil(leftMs / 1000));
         countBig.textContent = String(leftSec);
         countSub.textContent = 'เตรียมตัวให้พร้อม';
@@ -1030,11 +1023,9 @@ Requires:
       try{
         const result = await requestRaceRematch(ROOM, PLAYER_ID);
         rematchRequested = true;
-
         const totalPlayers = getTotalPlayers(roomData);
         const readyCount = result?.readyCount ?? getRematchReadyCount(roomData);
         const isHost = roomData?.meta?.hostPlayerId === PLAYER_ID;
-
         showToast(`Rematch ${readyCount}/${totalPlayers}`, readyCount >= totalPlayers ? 'happy' : 'neutral');
 
         if(isHost && totalPlayers >= 2 && readyCount >= totalPlayers){
@@ -1069,7 +1060,6 @@ Requires:
       document.getElementById('sumBadgeIcon').textContent = '⚠️';
       document.getElementById('sumHeroBig').textContent = 'คู่แข่งออกจากห้อง';
       document.getElementById('sumHeroSub').textContent = 'คุณสามารถรออีกฝ่าย หรือกลับออกจากห้องได้';
-
       sumResult.textContent = 'ยุติการแข่งขัน';
       sumMyScore.textContent = String(myScoreLatest);
       sumRivalScore.textContent = String(rivalScoreLatest);
@@ -1078,7 +1068,6 @@ Requires:
       sumTime.textContent = '—';
       endSub.textContent = 'อีกฝ่ายไม่ได้อยู่ในห้องแล้ว';
       childCoachMsg.textContent = 'กด Rematch เพื่อรออีกฝ่ายกลับมา หรือกลับหน้าหลักได้เลย';
-
       endOverlay.style.display = 'flex';
       endOverlay.setAttribute('aria-hidden', 'false');
       loadingOverlay.hidden = true;
@@ -1216,18 +1205,17 @@ Requires:
     document.getElementById('btnRestart').addEventListener('click', async ()=>{
       await requestRematchAndMaybeStart();
     });
-
     document.getElementById('btnBack').addEventListener('click', leaveThenHub);
-
     document.getElementById('btnEndRematch').addEventListener('click', async ()=>{
       await requestRematchAndMaybeStart();
     });
-
     document.getElementById('btnEndGoHub').addEventListener('click', leaveThenHub);
 
     async function boot(){
+      startBootTimeout(12000);
+
       if(!ROOM || !PLAYER_ID){
-        loadingText.textContent = 'ข้อมูลห้องไม่ครบ กำลังกลับล็อบบี้…';
+        setBootStep('missing-params', 'ข้อมูลห้องไม่ครบ กำลังกลับล็อบบี้…');
         setTimeout(()=>{
           const url = new URL('./groups-race-lobby.html', location.href);
           url.searchParams.set('view', VIEW);
@@ -1237,12 +1225,11 @@ Requires:
         return;
       }
 
-      loadingText.textContent = 'กำลังเตรียม Firebase...';
-
+      setBootStep('firebase-wait', 'กำลังเตรียม Firebase...');
       const firebaseReady = await waitForFirebaseReady(4000);
 
       if(!firebaseReady){
-        loadingText.textContent = 'เข้าแข่งขันไม่สำเร็จ\nFirebase not initialized\nกำลังกลับล็อบบี้...';
+        setBootStep('firebase-fail', 'เข้าแข่งขันไม่สำเร็จ\nFirebase not initialized\nกำลังกลับล็อบบี้...');
         setTimeout(()=>{
           const url = new URL('./groups-race-lobby.html', location.href);
           url.searchParams.set('view', VIEW);
@@ -1253,23 +1240,22 @@ Requires:
       }
 
       try{
-        loadingText.textContent = 'กำลังโหลดข้อมูลห้องแข่ง…';
+        setBootStep('room-read', 'กำลังโหลดข้อมูลห้องแข่ง...');
         roomData = await readRaceRoom(ROOM);
-        if(!roomData){
-          throw new Error('ไม่พบห้องแข่ง');
-        }
+        if(!roomData) throw new Error('ไม่พบห้องแข่ง');
 
+        setBootStep('player-check', 'กำลังตรวจสอบผู้เล่นในห้อง...');
         const players = roomData.players || {};
-        if(!players[PLAYER_ID]){
-          throw new Error('ไม่พบผู้เล่นในห้องนี้');
-        }
+        if(!players[PLAYER_ID]) throw new Error('ไม่พบผู้เล่นในห้องนี้');
 
+        setBootStep('presence-bind', 'กำลังเชื่อมต่อผู้เล่นเข้าห้อง...');
         localRoundNo = Number(roomData?.match?.roundNo || 1);
         applyRoomPlayers(players);
         updateSpawnSafe();
         unbindPresence = bindRacePresence(ROOM, PLAYER_ID);
         window.dispatchEvent(new Event('focus'));
 
+        setBootStep('watch-bind', 'กำลังเชื่อมต่อสถานะการแข่งขัน...');
         roomUnwatch = watchRaceRoom(ROOM, async (data)=>{
           if(!data) return;
 
@@ -1314,11 +1300,13 @@ Requires:
 
           if(started && !ended){
             window.__RACE_STARTED__ = true;
+            stopBootTimeout();
             await waitUntilStartAndRun(data);
             return;
           }
 
           if(ended){
+            stopBootTimeout();
             const totalPlayers = getTotalPlayers(data);
             const rematchReady = getRematchReadyCount(data);
             const isHost = data?.meta?.hostPlayerId === PLAYER_ID;
@@ -1340,13 +1328,11 @@ Requires:
                 rematchBusy = false;
               }
             }
-
             return;
           }
 
           if(!started){
             loadingOverlay.hidden = false;
-            countdownOverlay.hidden = true;
             loadingText.textContent = 'กำลังรอ Host เริ่มการแข่งขัน…';
           }
         });
@@ -1357,15 +1343,14 @@ Requires:
 
         if(roomData.match?.started){
           window.__RACE_STARTED__ = true;
+          stopBootTimeout();
           await waitUntilStartAndRun(roomData);
         } else {
-          loadingOverlay.hidden = false;
-          countdownOverlay.hidden = true;
-          loadingText.textContent = 'กำลังรอ Host เริ่มการแข่งขัน…';
+          setBootStep('wait-host', 'กำลังรอ Host เริ่มการแข่งขัน…');
         }
       }catch(err){
         console.error(err);
-        loadingText.textContent = `เข้าแข่งไม่สำเร็จ\n${err?.message || err}\nกำลังกลับล็อบบี้…`;
+        setBootStep('boot-error', `เข้าแข่งไม่สำเร็จ\n${err?.message || err}\nกำลังกลับล็อบบี้…`);
         setTimeout(()=>{
           const url = new URL('./groups-race-lobby.html', location.href);
           url.searchParams.set('view', VIEW);
