@@ -4,130 +4,218 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth • Hydration Hero</title>
-  <meta name="color-scheme" content="dark light" />
+  <meta name="color-scheme" content="light" />
   <link rel="icon" href="./favicon.ico" />
   <style>
     :root{
-      --bg1:#0f172a;
-      --bg2:#172554;
-      --bg3:#1d4ed8;
-      --card:rgba(15,23,42,.78);
-      --stroke:rgba(255,255,255,.14);
-      --text:#eff6ff;
-      --muted:#cbd5e1;
-      --blue:#38bdf8;
-      --yellow:#facc15;
-      --shadow:0 20px 50px rgba(0,0,0,.28);
+      --sky1:#bfe9ff;
+      --sky2:#8fd6ff;
+      --sky3:#5fc3ff;
+      --cloud:#ffffffcc;
+      --card:#fffdf7;
+      --card2:#f8fff5;
+      --stroke:#d8eef8;
+      --text:#26435d;
+      --muted:#5f7c92;
+      --green1:#7ed957;
+      --green2:#4fb93d;
+      --blue1:#7ccfff;
+      --blue2:#4ea8ef;
+      --yellow1:#ffd85e;
+      --yellow2:#ffb938;
+      --shadow:0 16px 40px rgba(73,135,176,.18);
+      --shadow-soft:0 10px 26px rgba(73,135,176,.12);
+      --radius-xl:32px;
+      --radius-lg:24px;
+      --radius-md:18px;
     }
 
     *{ box-sizing:border-box; }
 
-    body{
+    html,body{
       margin:0;
-      min-height:100vh;
+      min-height:100%;
       font-family:system-ui,-apple-system,Segoe UI,Roboto,TH Sarabun New,sans-serif;
       color:var(--text);
       background:
-        radial-gradient(circle at top, rgba(56,189,248,.28), transparent 32%),
-        linear-gradient(180deg, var(--bg3) 0%, var(--bg2) 42%, var(--bg1) 100%);
+        radial-gradient(circle at 15% 18%, rgba(255,255,255,.65), transparent 18%),
+        radial-gradient(circle at 84% 14%, rgba(255,255,255,.55), transparent 16%),
+        linear-gradient(180deg, var(--sky1) 0%, var(--sky2) 45%, var(--sky3) 100%);
+    }
+
+    body{
       display:grid;
       place-items:center;
-      padding:20px;
+      padding:18px;
     }
 
     .shell{
-      width:min(980px,100%);
+      width:min(1020px,100%);
       display:grid;
       gap:18px;
     }
 
     .hero{
-      background:linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.04));
-      border:1px solid var(--stroke);
+      position:relative;
+      overflow:hidden;
+      background:
+        radial-gradient(circle at 10% 12%, rgba(255,255,255,.65), transparent 18%),
+        radial-gradient(circle at 88% 8%, rgba(255,255,255,.55), transparent 16%),
+        linear-gradient(180deg, rgba(255,255,255,.92), rgba(248,255,250,.96));
+      border:1px solid rgba(255,255,255,.72);
+      border-radius:var(--radius-xl);
       box-shadow:var(--shadow);
-      border-radius:32px;
-      padding:24px;
+      padding:22px;
       display:grid;
       gap:18px;
+    }
+
+    .hero::before{
+      content:"";
+      position:absolute;
+      inset:auto 0 0 0;
+      height:120px;
+      background:
+        radial-gradient(circle at 14% 50%, #d8f5a2 0 14%, transparent 15%),
+        radial-gradient(circle at 24% 78%, #9fe27e 0 10%, transparent 11%),
+        radial-gradient(circle at 84% 68%, #d8f5a2 0 15%, transparent 16%),
+        linear-gradient(180deg, rgba(255,255,255,0), rgba(126,217,87,.14));
+      pointer-events:none;
+      z-index:0;
+    }
+
+    .hero > *{
+      position:relative;
+      z-index:1;
     }
 
     .topline{
       display:flex;
       gap:10px;
-      align-items:center;
       flex-wrap:wrap;
+      align-items:center;
     }
 
     .badge{
       display:inline-flex;
       align-items:center;
       gap:8px;
-      border:1px solid rgba(255,255,255,.16);
-      background:rgba(255,255,255,.08);
-      padding:8px 12px;
+      min-height:38px;
+      padding:8px 14px;
       border-radius:999px;
-      font-weight:800;
+      background:rgba(255,255,255,.82);
+      border:1px solid var(--stroke);
+      box-shadow:var(--shadow-soft);
+      font-weight:900;
       font-size:14px;
+      color:#39607b;
+    }
+
+    .brand-row{
+      display:grid;
+      gap:10px;
+      justify-items:start;
+    }
+
+    .game-mark{
+      display:inline-flex;
+      align-items:center;
+      gap:12px;
+      padding:10px 14px;
+      border-radius:999px;
+      background:#ffffffd9;
+      border:1px solid var(--stroke);
+      box-shadow:var(--shadow-soft);
+      font-weight:1000;
+      color:#37617e;
+    }
+
+    .game-mark .icon{
+      width:52px;
+      height:52px;
+      border-radius:16px;
+      display:grid;
+      place-items:center;
+      font-size:28px;
+      background:linear-gradient(180deg, #7ccfff, #4ea8ef);
+      color:#fff;
+      box-shadow:inset 0 4px 10px rgba(255,255,255,.35);
     }
 
     .title{
       margin:0;
-      font-size:clamp(30px, 6vw, 54px);
-      line-height:1.05;
-      font-weight:900;
+      font-size:clamp(34px, 6vw, 58px);
+      line-height:1.02;
+      font-weight:1000;
+      color:#28506a;
+      letter-spacing:-.02em;
+      text-shadow:0 2px 0 rgba(255,255,255,.65);
     }
 
     .sub{
       margin:0;
+      max-width:760px;
       color:var(--muted);
-      font-size:clamp(16px, 2.6vw, 20px);
-      line-height:1.45;
+      font-size:clamp(17px, 2.5vw, 22px);
+      line-height:1.5;
+      font-weight:700;
     }
 
     .grid{
       display:grid;
-      grid-template-columns:1.15fr .85fr;
-      gap:18px;
+      grid-template-columns:1.1fr .9fr;
+      gap:16px;
     }
 
     .panel{
       background:var(--card);
       border:1px solid var(--stroke);
-      border-radius:24px;
+      border-radius:var(--radius-lg);
+      box-shadow:var(--shadow-soft);
       padding:18px;
+      display:grid;
+      gap:12px;
+    }
+
+    .panel.alt{
+      background:var(--card2);
     }
 
     .panel h2{
-      margin:0 0 12px;
-      font-size:22px;
+      margin:0;
+      font-size:24px;
+      color:#315b77;
     }
 
     .bullets{
-      display:grid;
-      gap:10px;
       margin:0;
       padding:0;
       list-style:none;
+      display:grid;
+      gap:10px;
     }
 
     .bullets li{
       display:flex;
       align-items:flex-start;
       gap:10px;
-      color:#e2e8f0;
-      font-size:17px;
-      line-height:1.45;
+      color:#476a82;
+      font-size:18px;
+      line-height:1.5;
+      font-weight:700;
     }
 
     .dot{
-      width:34px;
-      height:34px;
-      flex:0 0 34px;
+      width:38px;
+      height:38px;
+      flex:0 0 38px;
       display:grid;
       place-items:center;
-      border-radius:12px;
-      background:rgba(255,255,255,.10);
-      font-size:18px;
+      border-radius:14px;
+      background:linear-gradient(180deg, #ffffff, #e7f8ff);
+      border:1px solid var(--stroke);
+      box-shadow:var(--shadow-soft);
+      font-size:20px;
     }
 
     .mini-grid{
@@ -138,31 +226,20 @@
     .mini-card{
       border-radius:20px;
       padding:14px 16px;
-      background:linear-gradient(180deg, rgba(56,189,248,.18), rgba(59,130,246,.08));
-      border:1px solid rgba(255,255,255,.12);
+      background:linear-gradient(180deg, #ffffff, #eefcff);
+      border:1px solid var(--stroke);
+      box-shadow:var(--shadow-soft);
+      color:#4a6980;
+      font-size:17px;
+      line-height:1.45;
+      font-weight:700;
     }
 
     .mini-card strong{
       display:block;
-      font-size:18px;
       margin-bottom:4px;
-    }
-
-    .mode-grid{
-      display:grid;
-      grid-template-columns:repeat(2,minmax(0,1fr));
-      gap:10px;
-      margin-top:6px;
-    }
-
-    .mode-chip{
-      border-radius:18px;
-      padding:12px 14px;
-      background:rgba(255,255,255,.08);
-      border:1px solid rgba(255,255,255,.10);
-      color:#dbeafe;
-      font-size:15px;
-      line-height:1.4;
+      color:#2b566f;
+      font-size:19px;
     }
 
     .controls{
@@ -174,21 +251,28 @@
     .control{
       display:grid;
       gap:8px;
+      background:#ffffffd9;
+      border:1px solid var(--stroke);
+      border-radius:20px;
+      box-shadow:var(--shadow-soft);
+      padding:14px;
     }
 
     .control label{
-      font-size:14px;
-      font-weight:800;
-      color:#dbeafe;
+      font-size:15px;
+      font-weight:1000;
+      color:#44708a;
     }
 
     .control select{
-      border:1px solid rgba(255,255,255,.16);
-      background:rgba(255,255,255,.10);
+      border:1px solid #cfe8f3;
+      background:#fff;
       color:var(--text);
       border-radius:16px;
       padding:12px 14px;
       outline:none;
+      font-size:16px;
+      font-weight:800;
     }
 
     .actions{
@@ -200,47 +284,55 @@
     button{
       border:0;
       cursor:pointer;
-      border-radius:18px;
-      padding:16px 20px;
-      font-weight:900;
-      font-size:18px;
-      transition:transform .12s ease, opacity .12s ease;
+      border-radius:20px;
+      padding:16px 22px;
+      font-weight:1000;
+      font-size:19px;
+      transition:transform .12s ease, filter .12s ease, opacity .12s ease;
+      box-shadow:var(--shadow-soft);
     }
 
     button:hover{
       transform:translateY(-1px);
+      filter:brightness(1.02);
     }
 
     .primary{
-      background:linear-gradient(180deg, #facc15, #f59e0b);
-      color:#111827;
-      min-width:220px;
+      background:linear-gradient(180deg, var(--green1), var(--green2));
+      color:#fff;
+      min-width:230px;
     }
 
     .secondary{
-      background:rgba(255,255,255,.10);
-      color:var(--text);
-      border:1px solid var(--stroke);
+      background:linear-gradient(180deg, var(--blue1), var(--blue2));
+      color:#fff;
       min-width:180px;
     }
 
     .footer-note{
-      color:#dbeafe;
-      opacity:.9;
+      color:#52788f;
       font-size:14px;
       line-height:1.5;
+      font-weight:700;
     }
 
     @media (max-width:760px){
       .grid,
-      .controls,
-      .mode-grid{
+      .controls{
         grid-template-columns:1fr;
       }
-      .hero{ padding:18px; }
-      .panel{ padding:16px; }
-      .actions{ flex-direction:column; }
-      .primary,.secondary{ width:100%; }
+      .hero{
+        padding:18px;
+      }
+      .actions{
+        flex-direction:column;
+      }
+      .primary,.secondary{
+        width:100%;
+      }
+      .title{
+        font-size:clamp(30px, 10vw, 46px);
+      }
     }
   </style>
 </head>
@@ -250,10 +342,14 @@
       <div class="topline">
         <span class="badge">💧 Nutrition Zone</span>
         <span class="badge">🎮 Solo Mode</span>
-        <span class="badge">🧒 Child-friendly</span>
+        <span class="badge">🧒 Hub v2 Style</span>
       </div>
 
-      <div>
+      <div class="brand-row">
+        <div class="game-mark">
+          <span class="icon">💧</span>
+          <span>HeroHealth • Learn Health Through Play!</span>
+        </div>
         <h1 class="title">Hydration Hero</h1>
         <p class="sub">เก็บน้ำดี เลี่ยงของไม่ดี ผ่านพายุและบอส แล้วไปคูลดาวน์ก่อนกลับ HUB</p>
       </div>
@@ -266,14 +362,9 @@
             <li><span class="dot">🛡️</span><span>เก็บโล่ไว้กันสายฟ้าช่วงพายุและบอส</span></li>
             <li><span class="dot">⚠️</span><span>หลบของไม่ดี เพราะจะเสียคะแนนและเสียน้ำ</span></li>
           </ul>
-
-          <div class="mode-grid">
-            <div class="mode-chip">📱 Mobile: แตะฟองบนจอ</div>
-            <div class="mode-chip">🥽 Cardboard/cVR: เล็งกลางจอแล้วแตะ/ยิง</div>
-          </div>
         </div>
 
-        <div class="panel mini-grid">
+        <div class="panel alt mini-grid">
           <div class="mini-card">
             <strong>Flow</strong>
             warmup → run → summary → cooldown → hub
