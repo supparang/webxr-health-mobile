@@ -1,6 +1,6 @@
 // === /herohealth/nutrition-plate/js/plate.summary.js ===
 // Summary builder for Nutrition Plate
-// PATCH v20260318-PLATE-RUN-FULL
+// PATCH v20260323-PLATE-SUMMARY-CHILDFRIENDLY-A
 
 import { buildPlateMetrics } from './plate.metrics.js';
 
@@ -13,21 +13,21 @@ function buildPlateNotes(stats, metrics) {
   const notes = [];
 
   if (stats.build.balanceScore >= 48) {
-    notes.push('จานของหนูค่อนข้างสมดุลมาก');
+    notes.push('เยี่ยมมาก จานนี้สมดุลดี');
   } else if (stats.build.balanceScore >= 36) {
-    notes.push('จานของหนูพอใช้ได้ แต่ยังปรับให้ดีขึ้นได้อีก');
+    notes.push('ดีเลย จานนี้เริ่มสมดุลแล้ว');
   } else {
-    notes.push('จานนี้ยังต้องเพิ่มผัก ผลไม้ หรือเปลี่ยนเครื่องดื่ม');
+    notes.push('จานนี้ยังต้องปรับอีกนิด');
   }
 
   if (!stats.build.vegChosen) {
-    notes.push('ลองเพิ่มผักในมื้อถัดไป');
+    notes.push('ครั้งหน้าอย่าลืมเพิ่มผัก');
   } else {
     notes.push('รอบนี้หนูใส่ผักได้แล้ว');
   }
 
   if (!stats.build.fruitChosen) {
-    notes.push('ลองเปลี่ยนของหวานเป็นผลไม้');
+    notes.push('ลองเลือกผลไม้แทนของหวาน');
   } else {
     notes.push('รอบนี้หนูเลือกผลไม้ได้ดี');
   }
@@ -35,26 +35,25 @@ function buildPlateNotes(stats, metrics) {
   if (!stats.build.healthyDrinkChosen) {
     notes.push('ลองเปลี่ยนเป็นน้ำเปล่าหรือนมจืด');
   } else {
-    notes.push('เครื่องดื่มของรอบนี้ค่อนข้างเหมาะสม');
+    notes.push('เครื่องดื่มรอบนี้เหมาะสม');
   }
 
   if (stats.fix.total > 0) {
-    notes.push(`Fix the Plate ทำได้ ${stats.fix.correct}/${stats.fix.total}`);
+    notes.push(`Fix ทำได้ ${stats.fix.correct}/${stats.fix.total}`);
   }
 
   if (stats.swap.total > 0) {
-    notes.push(`Healthy Swap ทำได้ ${stats.swap.correct}/${stats.swap.total}`);
+    notes.push(`Swap ทำได้ ${stats.swap.correct}/${stats.swap.total}`);
   }
 
   const quizDelta = metrics.quizDelta;
-  const quizDeltaText =
-    quizDelta > 0
-      ? `หลังเล่นทำ mini quiz ดีขึ้น +${quizDelta}`
-      : quizDelta < 0
-        ? `หลังเล่น mini quiz ลดลง ${quizDelta}`
-        : 'mini quiz ก่อนและหลังเล่นใกล้เคียงกัน';
-
-  notes.push(quizDeltaText);
+  if (quizDelta > 0) {
+    notes.push(`หลังเล่น หนูตอบดีขึ้น +${quizDelta}`);
+  } else if (quizDelta < 0) {
+    notes.push(`หลังเล่น คะแนนเปลี่ยน ${quizDelta}`);
+  } else {
+    notes.push('ก่อนและหลังเล่น ใกล้เคียงกัน');
+  }
 
   return notes;
 }
@@ -65,7 +64,7 @@ export function buildPlateSummary(ctx, stats, sessionMeta, plate) {
 
   return {
     title: 'สรุปผลเกม Plate',
-    subtitle: 'หนูได้ฝึกจัดมื้ออาหาร ดูความสมดุลของจาน และสลับตัวเลือกให้ดีขึ้น',
+    subtitle: 'หนูได้ฝึกจัดจานอาหารและเลือกสิ่งที่ดีกว่า',
     items: [
       { label: 'คะแนนรวม', value: String(stats.score) },
       { label: 'Pre quiz', value: `${metrics.quizPreCorrect}/${metrics.quizPreTotal}` },
