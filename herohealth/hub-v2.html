@@ -1,0 +1,1451 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth — Hub v2</title>
+  <meta name="color-scheme" content="light" />
+  <meta name="theme-color" content="#8ed8ff" />
+  <link rel="icon" href="./favicon.ico" />
+  <style>
+    :root{
+      --bg-top:#dff5ff;
+      --bg-mid:#f3fbff;
+      --bg-bottom:#fff8ec;
+
+      --ink:#23415a;
+      --ink-soft:#56758d;
+      --white:#ffffff;
+
+      --sky:#8ed8ff;
+      --sky-2:#c9efff;
+      --sky-3:#ecf9ff;
+
+      --hyg:#7fcfff;
+      --hyg-deep:#3daeea;
+
+      --nutri:#91da73;
+      --nutri-deep:#4da63a;
+
+      --fit:#ffbe6e;
+      --fit-deep:#f08f1f;
+
+      --gold:#ffd65a;
+      --gold-deep:#f2b620;
+
+      --good:#57c96f;
+      --warn:#ffb347;
+      --bad:#ff7b7b;
+
+      --panel:#ffffff;
+      --panel-soft:rgba(255,255,255,.78);
+      --stroke:rgba(45,95,125,.12);
+      --stroke-strong:rgba(45,95,125,.22);
+
+      --shadow:0 12px 28px rgba(39,109,146,.12);
+      --shadow-strong:0 18px 42px rgba(39,109,146,.18);
+
+      --radius-xl:28px;
+      --radius-lg:22px;
+      --radius-md:18px;
+      --radius-sm:14px;
+
+      --btn-h:54px;
+      --maxw:1100px;
+    }
+
+    *{ box-sizing:border-box; }
+    html,body{ margin:0; padding:0; }
+    body{
+      font-family: ui-rounded, "SF Pro Rounded", "Nunito", "Trebuchet MS", "Segoe UI", sans-serif;
+      color:var(--ink);
+      background:
+        radial-gradient(circle at top left, rgba(255,255,255,.95), rgba(255,255,255,0) 28%),
+        linear-gradient(180deg, var(--bg-top) 0%, var(--bg-mid) 48%, var(--bg-bottom) 100%);
+      min-height:100vh;
+      overflow-x:hidden;
+    }
+
+    .bg-clouds{
+      position:fixed;
+      inset:0;
+      pointer-events:none;
+      z-index:-1;
+      overflow:hidden;
+    }
+    .cloud{
+      position:absolute;
+      background:rgba(255,255,255,.72);
+      border-radius:999px;
+      filter:blur(1px);
+      box-shadow:0 8px 16px rgba(255,255,255,.22);
+    }
+    .cloud::before,.cloud::after{
+      content:"";
+      position:absolute;
+      background:inherit;
+      border-radius:inherit;
+    }
+    .cloud.c1{ width:180px;height:56px;top:48px;left:4%; }
+    .cloud.c1::before{ width:72px;height:72px;left:20px;top:-24px; }
+    .cloud.c1::after{ width:90px;height:90px;right:16px;top:-34px; }
+
+    .cloud.c2{ width:240px;height:68px;top:132px;right:4%;opacity:.85; }
+    .cloud.c2::before{ width:86px;height:86px;left:30px;top:-28px; }
+    .cloud.c2::after{ width:110px;height:110px;right:18px;top:-42px; }
+
+    .cloud.c3{ width:150px;height:48px;bottom:140px;left:10%;opacity:.5; }
+    .cloud.c3::before{ width:58px;height:58px;left:18px;top:-20px; }
+    .cloud.c3::after{ width:70px;height:70px;right:10px;top:-28px; }
+
+    .shell{
+      width:min(var(--maxw), calc(100% - 24px));
+      margin:0 auto;
+      padding:18px 0 28px;
+    }
+
+    .topbar{
+      display:grid;
+      grid-template-columns:auto 1fr auto;
+      gap:12px;
+      align-items:center;
+      margin-bottom:14px;
+    }
+
+    .icon-btn{
+      width:48px;height:48px;
+      border:none;
+      border-radius:999px;
+      background:linear-gradient(180deg, #ffffff, #eefaff);
+      box-shadow:var(--shadow);
+      display:grid;
+      place-items:center;
+      color:#3a87b5;
+      cursor:pointer;
+    }
+    .icon-btn:active{ transform:translateY(1px) scale(.99); }
+
+    .brand-pill{
+      min-height:56px;
+      padding:8px 16px;
+      border-radius:999px;
+      background:linear-gradient(180deg, rgba(255,255,255,.95), rgba(255,255,255,.82));
+      box-shadow:var(--shadow);
+      display:flex;
+      align-items:center;
+      gap:12px;
+    }
+
+    .brand-mark{
+      width:42px;height:42px;border-radius:14px;
+      background:linear-gradient(180deg, #9de36c, #54bb3b);
+      color:#fff;
+      display:grid;
+      place-items:center;
+      font-size:22px;
+      box-shadow:inset 0 -2px 0 rgba(0,0,0,.08);
+      flex:0 0 auto;
+    }
+
+    .brand-copy{
+      min-width:0;
+    }
+    .brand-title{
+      margin:0;
+      line-height:1;
+      font-size:clamp(24px, 4vw, 38px);
+      font-weight:1000;
+      letter-spacing:-.02em;
+      color:#52ba38;
+      text-shadow:0 2px 0 rgba(255,255,255,.6);
+    }
+    .brand-title .health{ color:#4f6f85; }
+    .brand-sub{
+      margin:4px 0 0;
+      color:var(--ink-soft);
+      font-weight:800;
+      font-size:12px;
+      letter-spacing:.02em;
+    }
+
+    .hero{
+      display:grid;
+      grid-template-columns:1.1fr .9fr;
+      gap:14px;
+      margin-bottom:14px;
+    }
+
+    .panel{
+      background:linear-gradient(180deg, rgba(255,255,255,.94), rgba(255,255,255,.86));
+      border:1px solid var(--stroke);
+      border-radius:var(--radius-xl);
+      box-shadow:var(--shadow);
+      overflow:hidden;
+    }
+
+    .welcome{
+      padding:18px;
+      position:relative;
+      min-height:204px;
+      display:grid;
+      grid-template-columns:1fr auto;
+      gap:12px;
+      align-items:end;
+      background:
+        radial-gradient(circle at top right, rgba(255,220,104,.35), transparent 28%),
+        linear-gradient(180deg, rgba(255,255,255,.82), rgba(240,252,255,.95));
+    }
+
+    .hello{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 12px;
+      border-radius:999px;
+      background:#fff7d7;
+      color:#8a6815;
+      font-weight:900;
+      font-size:13px;
+      box-shadow:0 6px 14px rgba(255,214,90,.22);
+      margin-bottom:10px;
+    }
+
+    .welcome h1{
+      margin:0 0 8px;
+      font-size:clamp(28px, 4vw, 42px);
+      line-height:1.02;
+      font-weight:1000;
+      letter-spacing:-.03em;
+    }
+    .welcome p{
+      margin:0;
+      max-width:40ch;
+      color:var(--ink-soft);
+      font-size:15px;
+      font-weight:800;
+      line-height:1.45;
+    }
+
+    .hero-kid{
+      align-self:end;
+      width:min(180px, 34vw);
+      aspect-ratio:1/1.05;
+      border-radius:28px;
+      background:
+        radial-gradient(circle at 50% 22%, #ffe7bc 0 20%, transparent 21%),
+        radial-gradient(circle at 50% 28%, #7b4a2e 0 17%, transparent 18%),
+        radial-gradient(circle at 37% 44%, #1f2f3a 0 4%, transparent 4.8%),
+        radial-gradient(circle at 63% 44%, #1f2f3a 0 4%, transparent 4.8%),
+        radial-gradient(circle at 50% 58%, #ff916f 0 7%, transparent 7.5%),
+        radial-gradient(circle at 50% 52%, #fff 0 38%, transparent 39%),
+        linear-gradient(180deg, #ff6b5d 0 22%, transparent 22% 100%),
+        radial-gradient(circle at 50% 88%, #66c96d 0 25%, transparent 26%),
+        linear-gradient(180deg, rgba(255,255,255,.18), rgba(255,255,255,.04));
+      box-shadow:inset 0 0 0 1px rgba(255,255,255,.5), var(--shadow);
+      position:relative;
+      overflow:hidden;
+    }
+    .hero-kid::after{
+      content:"";
+      position:absolute;
+      right:12px;
+      top:10px;
+      width:42px;height:42px;
+      border-radius:999px;
+      background:#fff;
+      opacity:.65;
+      box-shadow:
+        -18px 10px 0 -8px rgba(255,255,255,.65),
+        -28px 18px 0 -14px rgba(255,255,255,.65);
+    }
+
+    .profile-card{
+      padding:14px;
+      display:grid;
+      grid-template-columns:auto 1fr auto;
+      gap:12px;
+      align-items:center;
+      min-height:204px;
+    }
+
+    .avatar{
+      width:78px;height:78px;
+      border-radius:22px;
+      background:
+        radial-gradient(circle at 50% 28%, #7b4a2e 0 19%, transparent 20%),
+        radial-gradient(circle at 50% 36%, #ffe3b5 0 23%, transparent 24%),
+        radial-gradient(circle at 39% 43%, #223645 0 4%, transparent 4.6%),
+        radial-gradient(circle at 61% 43%, #223645 0 4%, transparent 4.6%),
+        radial-gradient(circle at 50% 55%, #ff9071 0 7%, transparent 7.6%),
+        radial-gradient(circle at 50% 74%, #4fbf61 0 21%, transparent 22%),
+        linear-gradient(180deg, #a3ebff, #d6f7ff);
+      box-shadow:var(--shadow);
+      flex:0 0 auto;
+    }
+
+    .profile-main h2{
+      margin:0 0 4px;
+      font-size:24px;
+      line-height:1.05;
+      font-weight:1000;
+    }
+    .profile-meta{
+      color:var(--ink-soft);
+      font-size:13px;
+      font-weight:800;
+      margin:0 0 8px;
+    }
+
+    .chips{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+    }
+    .chip{
+      min-height:34px;
+      padding:8px 12px;
+      border-radius:999px;
+      background:#eefaff;
+      border:1px solid rgba(61,174,234,.14);
+      color:#2f6e92;
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      font-size:13px;
+      font-weight:900;
+      white-space:nowrap;
+    }
+    .chip.gold{
+      background:#fff8d8;
+      color:#8d6b17;
+      border-color:rgba(242,182,32,.18);
+    }
+    .chip.green{
+      background:#effde8;
+      color:#327d2b;
+      border-color:rgba(77,166,58,.18);
+    }
+
+    .mini-badges{
+      display:grid;
+      gap:8px;
+      justify-items:end;
+    }
+    .mini-badge{
+      min-width:64px;
+      padding:10px 12px;
+      border-radius:18px;
+      text-align:center;
+      font-weight:1000;
+      background:#fff;
+      border:1px solid var(--stroke);
+      box-shadow:var(--shadow);
+    }
+    .mini-badge .n{
+      display:block;
+      font-size:22px;
+      line-height:1;
+      margin-bottom:4px;
+    }
+    .mini-badge .t{
+      display:block;
+      font-size:11px;
+      color:var(--ink-soft);
+      font-weight:900;
+    }
+
+    .content{
+      display:grid;
+      grid-template-columns:1fr 340px;
+      gap:14px;
+      align-items:start;
+    }
+
+    .zones{
+      display:grid;
+      gap:14px;
+    }
+
+    .zone-card{
+      position:relative;
+      overflow:hidden;
+      border-radius:30px;
+      border:1px solid var(--stroke);
+      background:rgba(255,255,255,.9);
+      box-shadow:var(--shadow);
+      padding:16px;
+      display:grid;
+      grid-template-columns:1fr auto;
+      gap:12px;
+    }
+
+    .zone-card::before{
+      content:"";
+      position:absolute;
+      inset:auto -18px -18px auto;
+      width:140px;height:140px;
+      border-radius:999px;
+      background:rgba(255,255,255,.22);
+      pointer-events:none;
+    }
+
+    .zone-card.hygiene{
+      background:
+        linear-gradient(135deg, rgba(127,207,255,.28), rgba(255,255,255,.92) 55%);
+    }
+    .zone-card.nutrition{
+      background:
+        linear-gradient(135deg, rgba(145,218,115,.30), rgba(255,255,255,.92) 55%);
+    }
+    .zone-card.fitness{
+      background:
+        linear-gradient(135deg, rgba(255,190,110,.34), rgba(255,255,255,.92) 55%);
+    }
+
+    .zone-left{
+      min-width:0;
+    }
+
+    .zone-top{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      margin-bottom:8px;
+    }
+
+    .zone-emoji{
+      width:58px;height:58px;
+      border-radius:18px;
+      display:grid;
+      place-items:center;
+      font-size:28px;
+      background:#fff;
+      box-shadow:var(--shadow);
+      flex:0 0 auto;
+    }
+
+    .zone-name{
+      margin:0;
+      font-size:26px;
+      line-height:1.05;
+      font-weight:1000;
+      letter-spacing:-.02em;
+    }
+    .zone-sub{
+      margin:4px 0 0;
+      color:var(--ink-soft);
+      font-size:14px;
+      line-height:1.35;
+      font-weight:800;
+    }
+
+    .zone-stats{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      margin:12px 0;
+    }
+
+    .pill{
+      min-height:34px;
+      padding:8px 12px;
+      border-radius:999px;
+      background:rgba(255,255,255,.82);
+      border:1px solid rgba(45,95,125,.08);
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      font-size:13px;
+      font-weight:900;
+      color:#385f78;
+    }
+
+    .zone-progress{
+      display:grid;
+      gap:6px;
+      margin-top:4px;
+      max-width:420px;
+    }
+    .progress-head{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      font-size:13px;
+      font-weight:900;
+      color:#46697f;
+    }
+    .bar{
+      height:14px;
+      border-radius:999px;
+      overflow:hidden;
+      background:rgba(255,255,255,.72);
+      border:1px solid rgba(45,95,125,.08);
+      box-shadow:inset 0 2px 6px rgba(48,105,141,.08);
+    }
+    .fill{
+      height:100%;
+      border-radius:inherit;
+      transition:width .35s ease;
+    }
+    .hygiene .fill{ background:linear-gradient(90deg, #62c8ff, #2ea7ec); }
+    .nutrition .fill{ background:linear-gradient(90deg, #89db6a, #4ea83b); }
+    .fitness .fill{ background:linear-gradient(90deg, #ffc56e, #f39a2b); }
+
+    .zone-right{
+      width:min(200px, 34vw);
+      display:grid;
+      align-content:space-between;
+      justify-items:end;
+      gap:10px;
+    }
+
+    .zone-art{
+      width:100%;
+      aspect-ratio:1.35/1;
+      border-radius:22px;
+      border:1px solid rgba(255,255,255,.6);
+      box-shadow:var(--shadow);
+      overflow:hidden;
+      background:#fff;
+      position:relative;
+    }
+
+    .zone-art.hygiene{
+      background:
+        radial-gradient(circle at 22% 72%, #8ed8ff 0 14%, transparent 15%),
+        radial-gradient(circle at 37% 52%, #fff 0 10%, transparent 11%),
+        radial-gradient(circle at 55% 60%, #eafaff 0 18%, transparent 19%),
+        linear-gradient(180deg, #ccefff 0 58%, #8dd6ff 58% 100%);
+    }
+    .zone-art.nutrition{
+      background:
+        radial-gradient(circle at 28% 72%, #ff6c6c 0 12%, transparent 13%),
+        radial-gradient(circle at 48% 74%, #ffd05d 0 10%, transparent 11%),
+        radial-gradient(circle at 68% 68%, #6fcc58 0 14%, transparent 15%),
+        linear-gradient(180deg, #daf7c9 0 56%, #92db73 56% 100%);
+    }
+    .zone-art.fitness{
+      background:
+        radial-gradient(circle at 28% 68%, #ff9d55 0 10%, transparent 11%),
+        radial-gradient(circle at 52% 58%, #ffcb6c 0 14%, transparent 15%),
+        radial-gradient(circle at 72% 70%, #5dc9ff 0 12%, transparent 13%),
+        linear-gradient(180deg, #ffe8bf 0 56%, #ffbe6e 56% 100%);
+    }
+
+    .zone-art::after{
+      content:"";
+      position:absolute;
+      inset:auto 12px 10px 12px;
+      height:20px;
+      border-radius:999px;
+      background:rgba(255,255,255,.48);
+      filter:blur(8px);
+    }
+
+    .actions{
+      display:grid;
+      gap:8px;
+      width:100%;
+    }
+
+    .btn{
+      min-height:var(--btn-h);
+      padding:12px 16px;
+      border:none;
+      border-radius:18px;
+      font-size:16px;
+      font-weight:1000;
+      cursor:pointer;
+      text-decoration:none;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+      box-shadow:var(--shadow);
+      transition:transform .08s ease, box-shadow .18s ease, opacity .18s ease;
+    }
+    .btn:active{ transform:translateY(1px) scale(.99); }
+    .btn.primary{
+      color:#fff;
+      background:linear-gradient(180deg, #69ce54, #45b138);
+      box-shadow:0 12px 24px rgba(69,177,56,.22);
+    }
+    .btn.secondary{
+      color:#366580;
+      background:linear-gradient(180deg, #ffffff, #eefaff);
+    }
+    .btn.warn{
+      color:#8d6512;
+      background:linear-gradient(180deg, #fff7d0, #ffe997);
+    }
+    .btn:disabled{
+      opacity:.5;
+      cursor:not-allowed;
+      box-shadow:none;
+    }
+
+    .side{
+      display:grid;
+      gap:14px;
+      position:sticky;
+      top:12px;
+    }
+
+    .section{
+      padding:16px;
+    }
+
+    .section-title{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      margin:0 0 12px;
+      font-size:18px;
+      font-weight:1000;
+      letter-spacing:-.01em;
+    }
+
+    .mission-list{
+      display:grid;
+      gap:10px;
+    }
+
+    .mission{
+      display:grid;
+      grid-template-columns:auto 1fr auto;
+      gap:10px;
+      align-items:center;
+      padding:12px;
+      border-radius:18px;
+      background:#f7fcff;
+      border:1px solid rgba(61,174,234,.10);
+    }
+
+    .mission-icon{
+      width:40px;height:40px;border-radius:14px;
+      background:#fff;
+      display:grid;
+      place-items:center;
+      box-shadow:var(--shadow);
+      font-size:20px;
+    }
+
+    .mission-text{
+      min-width:0;
+    }
+    .mission-name{
+      margin:0 0 4px;
+      font-size:14px;
+      font-weight:1000;
+      line-height:1.2;
+    }
+    .mission-sub{
+      margin:0;
+      color:var(--ink-soft);
+      font-size:12px;
+      font-weight:800;
+      line-height:1.25;
+    }
+
+    .mission-check{
+      width:24px;height:24px;
+      border-radius:999px;
+      background:#ecf9ff;
+      border:2px solid #bfeaff;
+      display:grid;
+      place-items:center;
+      font-size:14px;
+      color:#2ea7ec;
+      font-weight:1000;
+    }
+    .mission.done{
+      background:#f2ffec;
+      border-color:rgba(77,166,58,.12);
+    }
+    .mission.done .mission-check{
+      background:#67ce58;
+      border-color:#67ce58;
+      color:#fff;
+    }
+
+    .summary-box{
+      display:grid;
+      gap:12px;
+    }
+
+    .last-summary{
+      border-radius:22px;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,.94), rgba(249,255,241,.94));
+      border:1px solid rgba(77,166,58,.12);
+      padding:14px;
+      display:grid;
+      gap:10px;
+    }
+
+    .last-head{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+    }
+    .last-badge{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      min-height:34px;
+      padding:8px 12px;
+      border-radius:999px;
+      background:#fff7d8;
+      color:#8a6715;
+      font-size:12px;
+      font-weight:1000;
+      white-space:nowrap;
+    }
+
+    .last-title{
+      margin:0;
+      font-size:17px;
+      font-weight:1000;
+      line-height:1.2;
+    }
+    .last-meta{
+      margin:0;
+      color:var(--ink-soft);
+      font-size:13px;
+      line-height:1.35;
+      font-weight:800;
+    }
+
+    .score-strip{
+      display:grid;
+      grid-template-columns:repeat(3,1fr);
+      gap:8px;
+    }
+    .score-pill{
+      background:#fff;
+      border:1px solid var(--stroke);
+      border-radius:18px;
+      padding:10px 8px;
+      text-align:center;
+      box-shadow:var(--shadow);
+    }
+    .score-pill .n{
+      display:block;
+      font-size:20px;
+      line-height:1;
+      font-weight:1000;
+      margin-bottom:4px;
+    }
+    .score-pill .t{
+      display:block;
+      font-size:11px;
+      font-weight:900;
+      color:var(--ink-soft);
+    }
+
+    .empty{
+      padding:16px;
+      border-radius:20px;
+      background:#f8fdff;
+      border:1px dashed rgba(45,95,125,.18);
+      color:var(--ink-soft);
+      font-size:14px;
+      line-height:1.45;
+      font-weight:800;
+    }
+
+    .footer-note{
+      margin-top:14px;
+      text-align:center;
+      color:#6c8aa1;
+      font-size:12px;
+      font-weight:900;
+      padding-bottom:20px;
+    }
+
+    .toast{
+      position:fixed;
+      left:50%;
+      bottom:18px;
+      transform:translateX(-50%) translateY(18px);
+      min-width:min(92vw, 360px);
+      max-width:min(92vw, 420px);
+      padding:12px 14px;
+      border-radius:16px;
+      background:rgba(35,65,90,.94);
+      color:#fff;
+      box-shadow:var(--shadow-strong);
+      font-size:14px;
+      font-weight:900;
+      opacity:0;
+      pointer-events:none;
+      transition:opacity .22s ease, transform .22s ease;
+      z-index:40;
+      text-align:center;
+    }
+    .toast.show{
+      opacity:1;
+      transform:translateX(-50%) translateY(0);
+    }
+
+    @media (max-width: 980px){
+      .hero{ grid-template-columns:1fr; }
+      .content{ grid-template-columns:1fr; }
+      .side{ position:static; }
+      .profile-card{ min-height:auto; }
+    }
+
+    @media (max-width: 760px){
+      .shell{ width:min(100% - 16px, var(--maxw)); padding-top:12px; }
+      .topbar{
+        grid-template-columns:auto 1fr auto;
+        gap:10px;
+      }
+      .brand-pill{
+        min-height:52px;
+        padding:8px 12px;
+      }
+      .brand-mark{ width:38px;height:38px;font-size:20px; }
+      .brand-title{ font-size:clamp(22px, 8vw, 34px); }
+
+      .welcome{
+        min-height:unset;
+        grid-template-columns:1fr;
+        padding:16px;
+      }
+      .hero-kid{
+        justify-self:end;
+        width:132px;
+      }
+
+      .profile-card{
+        grid-template-columns:auto 1fr;
+      }
+      .mini-badges{
+        grid-column:1 / -1;
+        grid-template-columns:repeat(3,1fr);
+        justify-items:stretch;
+      }
+
+      .zone-card{
+        grid-template-columns:1fr;
+        padding:14px;
+      }
+      .zone-right{
+        width:100%;
+        grid-template-columns:1fr;
+        justify-items:stretch;
+      }
+      .zone-art{
+        width:100%;
+        max-width:none;
+      }
+
+      .btn{
+        min-height:50px;
+        font-size:15px;
+      }
+    }
+
+    @media (max-width: 460px){
+      .zone-name{ font-size:22px; }
+      .welcome h1{ font-size:30px; }
+      .section-title{ font-size:17px; }
+      .score-strip{ grid-template-columns:1fr 1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-clouds" aria-hidden="true">
+    <div class="cloud c1"></div>
+    <div class="cloud c2"></div>
+    <div class="cloud c3"></div>
+  </div>
+
+  <main class="shell">
+    <header class="topbar">
+      <button id="btnSettings" class="icon-btn" type="button" aria-label="ตั้งค่า">⚙️</button>
+
+      <div class="brand-pill" aria-label="HeroHealth">
+        <div class="brand-mark">🦸</div>
+        <div class="brand-copy">
+          <h1 class="brand-title">Hero<span class="health">Health</span></h1>
+          <p class="brand-sub">Learn Health Through Play!</p>
+        </div>
+      </div>
+
+      <button id="btnRewards" class="icon-btn" type="button" aria-label="รางวัล">🏆</button>
+    </header>
+
+    <section class="hero">
+      <div class="panel welcome">
+        <div>
+          <div class="hello">☀️ สวัสดีฮีโร่ตัวน้อย!</div>
+          <h1>มาเล่นและดูแลสุขภาพกันเถอะ</h1>
+          <p>
+            เลือกโซนที่อยากเล่น แล้วเก็บดาว เหรียญ และความรู้สุขภาพไปพร้อมกัน
+          </p>
+        </div>
+        <div class="hero-kid" aria-hidden="true"></div>
+      </div>
+
+      <div class="panel profile-card">
+        <div class="avatar" aria-hidden="true"></div>
+
+        <div class="profile-main">
+          <h2 id="playerName">Rocky</h2>
+          <p class="profile-meta" id="playerMeta">ฮีโร่ประจำวัน • พร้อมผจญภัย</p>
+          <div class="chips">
+            <div class="chip"><span>⭐</span><span>Lv. <b id="playerLevel">5</b></span></div>
+            <div class="chip gold"><span>🪙</span><span><b id="playerCoins">380</b> Coins</span></div>
+            <div class="chip green"><span>❤️</span><span><b id="playerHearts">8</b> Hearts</span></div>
+          </div>
+        </div>
+
+        <div class="mini-badges">
+          <div class="mini-badge">
+            <span class="n" id="badgeStars">12</span>
+            <span class="t">Stars</span>
+          </div>
+          <div class="mini-badge">
+            <span class="n" id="badgeWins">4</span>
+            <span class="t">Wins</span>
+          </div>
+          <div class="mini-badge">
+            <span class="n" id="badgeStreak">3</span>
+            <span class="t">Streak</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="content">
+      <div class="zones">
+        <article class="zone-card hygiene">
+          <div class="zone-left">
+            <div class="zone-top">
+              <div class="zone-emoji" aria-hidden="true">🫧</div>
+              <div>
+                <h2 class="zone-name">Hygiene Zone</h2>
+                <p class="zone-sub">ล้างมือ แปรงฟัน ป้องกันเชื้อโรค</p>
+              </div>
+            </div>
+
+            <div class="zone-stats">
+              <div class="pill">🏅 Level <b id="hygLevel">5</b></div>
+              <div class="pill">🎯 เป้าหมายวันนี้: เล่น 1 เกม</div>
+              <div class="pill">⭐ ดาวโซน <b id="hygStars">4/5</b></div>
+            </div>
+
+            <div class="zone-progress">
+              <div class="progress-head">
+                <span>ความคืบหน้าโซน</span>
+                <span id="hygProgressText">80%</span>
+              </div>
+              <div class="bar"><div id="hygFill" class="fill" style="width:80%"></div></div>
+            </div>
+          </div>
+
+          <div class="zone-right">
+            <div class="zone-art hygiene" aria-hidden="true"></div>
+            <div class="actions">
+              <a id="btnPlayHygiene" class="btn primary" href="#">🫧 เล่นเลย</a>
+              <button id="btnZoneHygiene" class="btn secondary" type="button">ดูเกมในโซน</button>
+            </div>
+          </div>
+        </article>
+
+        <article class="zone-card nutrition">
+          <div class="zone-left">
+            <div class="zone-top">
+              <div class="zone-emoji" aria-hidden="true">🥗</div>
+              <div>
+                <h2 class="zone-name">Nutrition Zone</h2>
+                <p class="zone-sub">เลือกอาหารดี กินครบ 5 หมู่</p>
+              </div>
+            </div>
+
+            <div class="zone-stats">
+              <div class="pill">🏅 Level <b id="nutriLevel">4</b></div>
+              <div class="pill">🎯 เป้าหมายวันนี้: เก็บ 3 ดาว</div>
+              <div class="pill">⭐ ดาวโซน <b id="nutriStars">3/5</b></div>
+            </div>
+
+            <div class="zone-progress">
+              <div class="progress-head">
+                <span>ความคืบหน้าโซน</span>
+                <span id="nutriProgressText">60%</span>
+              </div>
+              <div class="bar"><div id="nutriFill" class="fill" style="width:60%"></div></div>
+            </div>
+          </div>
+
+          <div class="zone-right">
+            <div class="zone-art nutrition" aria-hidden="true"></div>
+            <div class="actions">
+              <a id="btnPlayNutrition" class="btn primary" href="#">🥗 เล่นเลย</a>
+              <button id="btnZoneNutrition" class="btn secondary" type="button">ดูเกมในโซน</button>
+            </div>
+          </div>
+        </article>
+
+        <article class="zone-card fitness">
+          <div class="zone-left">
+            <div class="zone-top">
+              <div class="zone-emoji" aria-hidden="true">🏃</div>
+              <div>
+                <h2 class="zone-name">Fitness Zone</h2>
+                <p class="zone-sub">ขยับร่างกายให้แข็งแรง สนุกกับการออกกำลัง</p>
+              </div>
+            </div>
+
+            <div class="zone-stats">
+              <div class="pill">🏅 Level <b id="fitLevel">3</b></div>
+              <div class="pill">🎯 เป้าหมายวันนี้: เล่นต่อเนื่อง 2 รอบ</div>
+              <div class="pill">⭐ ดาวโซน <b id="fitStars">2/5</b></div>
+            </div>
+
+            <div class="zone-progress">
+              <div class="progress-head">
+                <span>ความคืบหน้าโซน</span>
+                <span id="fitProgressText">40%</span>
+              </div>
+              <div class="bar"><div id="fitFill" class="fill" style="width:40%"></div></div>
+            </div>
+          </div>
+
+          <div class="zone-right">
+            <div class="zone-art fitness" aria-hidden="true"></div>
+            <div class="actions">
+              <a id="btnPlayFitness" class="btn primary" href="#">🏃 เล่นเลย</a>
+              <button id="btnZoneFitness" class="btn secondary" type="button">ดูเกมในโซน</button>
+            </div>
+          </div>
+        </article>
+      </div>
+
+      <aside class="side">
+        <section class="panel section">
+          <h3 class="section-title">🎯 ภารกิจวันนี้</h3>
+          <div id="missionList" class="mission-list"></div>
+        </section>
+
+        <section class="panel section">
+          <h3 class="section-title">✨ เล่นต่อจากล่าสุด</h3>
+          <div id="summaryBox" class="summary-box"></div>
+        </section>
+      </aside>
+    </section>
+
+    <p class="footer-note">
+      HeroHealth Hub v2 • child-friendly • mobile-first • passthrough-ready
+    </p>
+  </main>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    (function () {
+      'use strict';
+
+      const PASS_KEYS = [
+        'pid','nick','name',
+        'run','view','diff','time','seed',
+        'studyId','phase','conditionGroup','sessionOrder','blockLabel',
+        'siteCode','schoolYear','semester',
+        'log','api','debug',
+        'grade','zone'
+      ];
+
+      const DEFAULT_PLAYER = {
+        name: 'Rocky',
+        level: 5,
+        coins: 380,
+        hearts: 8,
+        stars: 12,
+        wins: 4,
+        streak: 3
+      };
+
+      const STORAGE_KEYS = {
+        profile: 'HHA_PLAYER_PROFILE',
+        lastSummary: 'HHA_LAST_SUMMARY',
+        summaryHistory: 'HHA_SUMMARY_HISTORY'
+      };
+
+      const GAMES = {
+        hygiene: {
+          label: 'Hygiene Zone',
+          defaultUrl: './germ-detective.html',
+          options: [
+            { label: 'Germ Detective', url: './germ-detective.html' },
+            { label: 'Handwash VR', url: './vr-handwash/handwash-vr.html' },
+            { label: 'Brush VR', url: './brush-vr-kids.html' }
+          ]
+        },
+        nutrition: {
+          label: 'Nutrition Zone',
+          defaultUrl: './plate-vr.html',
+          options: [
+            { label: 'Balanced Plate', url: './plate-vr.html' },
+            { label: 'Food Groups', url: './groups-vr.html' },
+            { label: 'GoodJunk VR', url: './goodjunk-vr.html' }
+          ]
+        },
+        fitness: {
+          label: 'Fitness Zone',
+          defaultUrl: './fitness/shadow-breaker.html',
+          options: [
+            { label: 'Shadow Breaker', url: './fitness/shadow-breaker.html' },
+            { label: 'Rhythm Boxer', url: './fitness/rhythm-boxer.html' },
+            { label: 'Balance Hold', url: './balance-hold-vr.html' }
+          ]
+        }
+      };
+
+      const ZONE_DEFAULTS = {
+        hygiene: { level: 5, stars: 4, pct: 80 },
+        nutrition: { level: 4, stars: 3, pct: 60 },
+        fitness: { level: 3, stars: 2, pct: 40 }
+      };
+
+      const qs = new URLSearchParams(location.search);
+
+      const $ = (sel) => document.querySelector(sel);
+
+      function clamp(n, min, max){
+        return Math.max(min, Math.min(max, n));
+      }
+
+      function safeParse(json, fallback){
+        try{
+          const v = JSON.parse(json);
+          return v ?? fallback;
+        }catch{
+          return fallback;
+        }
+      }
+
+      function readProfile(){
+        const stored = safeParse(localStorage.getItem(STORAGE_KEYS.profile), {});
+        const name = (
+          qs.get('nick') ||
+          qs.get('name') ||
+          stored.name ||
+          DEFAULT_PLAYER.name
+        ).trim();
+
+        return {
+          name,
+          level: Number(stored.level ?? DEFAULT_PLAYER.level) || DEFAULT_PLAYER.level,
+          coins: Number(stored.coins ?? DEFAULT_PLAYER.coins) || DEFAULT_PLAYER.coins,
+          hearts: Number(stored.hearts ?? DEFAULT_PLAYER.hearts) || DEFAULT_PLAYER.hearts,
+          stars: Number(stored.stars ?? DEFAULT_PLAYER.stars) || DEFAULT_PLAYER.stars,
+          wins: Number(stored.wins ?? DEFAULT_PLAYER.wins) || DEFAULT_PLAYER.wins,
+          streak: Number(stored.streak ?? DEFAULT_PLAYER.streak) || DEFAULT_PLAYER.streak
+        };
+      }
+
+      function writeProfile(profile){
+        try{
+          localStorage.setItem(STORAGE_KEYS.profile, JSON.stringify(profile));
+        }catch{}
+      }
+
+      function getHubCanonical(){
+        const url = new URL(location.href);
+        url.searchParams.delete('hub');
+        return url.toString();
+      }
+
+      function carryQuery(url, extra = {}){
+        const u = new URL(url, location.href);
+        PASS_KEYS.forEach((k) => {
+          if (qs.has(k) && !u.searchParams.has(k)) {
+            u.searchParams.set(k, qs.get(k));
+          }
+        });
+        u.searchParams.set('hub', getHubCanonical());
+        Object.entries(extra).forEach(([k, v]) => {
+          if (v !== undefined && v !== null && v !== '') {
+            u.searchParams.set(k, String(v));
+          }
+        });
+        return u.toString();
+      }
+
+      function escapeHtml(s){
+        return String(s ?? '')
+          .replaceAll('&', '&amp;')
+          .replaceAll('<', '&lt;')
+          .replaceAll('>', '&gt;')
+          .replaceAll('"', '&quot;')
+          .replaceAll("'", '&#39;');
+      }
+
+      function zoneFromGameId(gameId){
+        const id = String(gameId || '').toLowerCase();
+        if (/wash|brush|germ|hygiene|bath|mask|cough|clean/.test(id)) return 'hygiene';
+        if (/plate|group|food|goodjunk|nutrition|hydration/.test(id)) return 'nutrition';
+        if (/shadow|rhythm|balance|jump|duck|fitness/.test(id)) return 'fitness';
+        return '';
+      }
+
+      function zoneLabel(zone){
+        return GAMES[zone]?.label || 'HeroHealth';
+      }
+
+      function readLastSummary(){
+        return safeParse(localStorage.getItem(STORAGE_KEYS.lastSummary), null);
+      }
+
+      function readSummaryHistory(){
+        const raw = safeParse(localStorage.getItem(STORAGE_KEYS.summaryHistory), []);
+        return Array.isArray(raw) ? raw : [];
+      }
+
+      function fmtInt(v, fallback = 0){
+        const n = Number(v);
+        return Number.isFinite(n) ? Math.round(n) : fallback;
+      }
+
+      function starText(n){
+        const v = clamp(fmtInt(n, 0), 0, 3);
+        return '⭐'.repeat(v) + '☆'.repeat(3 - v);
+      }
+
+      function zoneStatsFromHistory(history){
+        const base = JSON.parse(JSON.stringify(ZONE_DEFAULTS));
+
+        history.slice(-30).forEach((item) => {
+          const zone = item.zone || zoneFromGameId(item.game || item.gameId || item.title || '');
+          if (!zone || !base[zone]) return;
+
+          const score = fmtInt(item.score, 0);
+          const stars = clamp(fmtInt(item.stars, 0), 0, 3);
+
+          base[zone].pct = clamp(base[zone].pct + (stars >= 2 ? 6 : 2), 10, 100);
+          base[zone].stars = clamp(Math.max(base[zone].stars, stars), 0, 5);
+          if (score >= 200) base[zone].level = clamp(base[zone].level + 1, 1, 20);
+        });
+
+        return base;
+      }
+
+      function renderPlayer(profile){
+        $('#playerName').textContent = profile.name || DEFAULT_PLAYER.name;
+        $('#playerMeta').textContent = 'ฮีโร่ประจำวัน • พร้อมผจญภัย';
+        $('#playerLevel').textContent = String(profile.level);
+        $('#playerCoins').textContent = String(profile.coins);
+        $('#playerHearts').textContent = String(profile.hearts);
+        $('#badgeStars').textContent = String(profile.stars);
+        $('#badgeWins').textContent = String(profile.wins);
+        $('#badgeStreak').textContent = String(profile.streak);
+      }
+
+      function renderZoneStats(stats){
+        $('#hygLevel').textContent = String(stats.hygiene.level);
+        $('#hygStars').textContent = `${stats.hygiene.stars}/5`;
+        $('#hygProgressText').textContent = `${stats.hygiene.pct}%`;
+        $('#hygFill').style.width = `${stats.hygiene.pct}%`;
+
+        $('#nutriLevel').textContent = String(stats.nutrition.level);
+        $('#nutriStars').textContent = `${stats.nutrition.stars}/5`;
+        $('#nutriProgressText').textContent = `${stats.nutrition.pct}%`;
+        $('#nutriFill').style.width = `${stats.nutrition.pct}%`;
+
+        $('#fitLevel').textContent = String(stats.fitness.level);
+        $('#fitStars').textContent = `${stats.fitness.stars}/5`;
+        $('#fitProgressText').textContent = `${stats.fitness.pct}%`;
+        $('#fitFill').style.width = `${stats.fitness.pct}%`;
+      }
+
+      function renderMissions(history){
+        const missionList = $('#missionList');
+        const todayDone = {
+          hygiene: false,
+          nutrition: false,
+          fitness: false
+        };
+
+        const today = new Date();
+        const dayKey = [
+          today.getFullYear(),
+          String(today.getMonth() + 1).padStart(2, '0'),
+          String(today.getDate()).padStart(2, '0')
+        ].join('-');
+
+        history.forEach((item) => {
+          const zone = item.zone || zoneFromGameId(item.game || item.gameId || item.title || '');
+          const stamp = String(item.timestampIso || item.time || item.date || '');
+          if (zone && stamp.startsWith(dayKey)) todayDone[zone] = true;
+        });
+
+        const missions = [
+          {
+            icon: '🫧',
+            name: 'เล่น Hygiene 1 เกม',
+            sub: 'ล้างมือ แปรงฟัน หรือกันเชื้อโรค',
+            done: todayDone.hygiene
+          },
+          {
+            icon: '🥗',
+            name: 'เล่น Nutrition 1 เกม',
+            sub: 'เรียนรู้การกินอาหารที่ดี',
+            done: todayDone.nutrition
+          },
+          {
+            icon: '🏃',
+            name: 'เล่น Fitness 1 เกม',
+            sub: 'ขยับร่างกายให้แข็งแรง',
+            done: todayDone.fitness
+          }
+        ];
+
+        missionList.innerHTML = missions.map((m) => `
+          <div class="mission ${m.done ? 'done' : ''}">
+            <div class="mission-icon" aria-hidden="true">${m.icon}</div>
+            <div class="mission-text">
+              <p class="mission-name">${escapeHtml(m.name)}</p>
+              <p class="mission-sub">${escapeHtml(m.sub)}</p>
+            </div>
+            <div class="mission-check" aria-label="${m.done ? 'สำเร็จ' : 'ยังไม่สำเร็จ'}">
+              ${m.done ? '✓' : '•'}
+            </div>
+          </div>
+        `).join('');
+      }
+
+      function renderLastSummary(lastSummary){
+        const box = $('#summaryBox');
+
+        if (!lastSummary) {
+          box.innerHTML = `
+            <div class="empty">
+              ยังไม่มีผลการเล่นล่าสุด<br />
+              ลองกด <b>เล่นเลย</b> ที่โซนที่ชอบ แล้วกลับมาดูสรุปตรงนี้ได้เลย
+            </div>
+          `;
+          return;
+        }
+
+        const zone = lastSummary.zone || zoneFromGameId(lastSummary.game || lastSummary.gameId || lastSummary.title || '');
+        const title = lastSummary.title || lastSummary.game || lastSummary.gameId || 'เกมล่าสุด';
+        const score = fmtInt(lastSummary.score, 0);
+        const coins = fmtInt(lastSummary.coins ?? lastSummary.rewardCoins, 0);
+        const stars = clamp(fmtInt(lastSummary.stars, 0), 0, 3);
+        const note = lastSummary.note || lastSummary.feedback || lastSummary.message || 'เก่งมาก! เล่นต่อได้เลย';
+        const replayUrl = lastSummary.replayUrl || lastSummary.url || GAMES[zone]?.defaultUrl || './hub-v2.html';
+
+        box.innerHTML = `
+          <div class="last-summary">
+            <div class="last-head">
+              <div>
+                <p class="last-title">${escapeHtml(title)}</p>
+                <p class="last-meta">${escapeHtml(zoneLabel(zone))}</p>
+              </div>
+              <div class="last-badge">✨ ล่าสุด</div>
+            </div>
+
+            <div class="score-strip">
+              <div class="score-pill">
+                <span class="n">${score}</span>
+                <span class="t">Score</span>
+              </div>
+              <div class="score-pill">
+                <span class="n">${starText(stars)}</span>
+                <span class="t">Stars</span>
+              </div>
+              <div class="score-pill">
+                <span class="n">${coins}</span>
+                <span class="t">Coins</span>
+              </div>
+            </div>
+
+            <p class="last-meta">${escapeHtml(note)}</p>
+
+            <a id="btnContinueLast" class="btn primary" href="${escapeHtml(carryQuery(replayUrl, { zone }))}">
+              ▶️ เล่นต่อ
+            </a>
+          </div>
+        `;
+      }
+
+      function bindZoneLinks(){
+        $('#btnPlayHygiene').href = carryQuery(GAMES.hygiene.defaultUrl, { zone: 'hygiene' });
+        $('#btnPlayNutrition').href = carryQuery(GAMES.nutrition.defaultUrl, { zone: 'nutrition' });
+        $('#btnPlayFitness').href = carryQuery(GAMES.fitness.defaultUrl, { zone: 'fitness' });
+
+        $('#btnZoneHygiene').addEventListener('click', () => pickGame('hygiene'));
+        $('#btnZoneNutrition').addEventListener('click', () => pickGame('nutrition'));
+        $('#btnZoneFitness').addEventListener('click', () => pickGame('fitness'));
+      }
+
+      function pickGame(zone){
+        const set = GAMES[zone];
+        if (!set) return;
+
+        const text = set.options
+          .map((g, i) => `${i + 1}. ${g.label}`)
+          .join('\n');
+
+        const ans = prompt(`เลือกเกมใน ${set.label}\n\n${text}\n\nพิมพ์เลข 1-${set.options.length}`, '1');
+        const idx = clamp(fmtInt(ans, 1) - 1, 0, set.options.length - 1);
+        const chosen = set.options[idx];
+        location.href = carryQuery(chosen.url, { zone });
+      }
+
+      function toast(msg){
+        const el = $('#toast');
+        el.textContent = msg;
+        el.classList.add('show');
+        clearTimeout(toast._t);
+        toast._t = setTimeout(() => el.classList.remove('show'), 1800);
+      }
+
+      function bindTopButtons(profile){
+        $('#btnSettings').addEventListener('click', () => {
+          toast('หน้าตั้งค่าจะเพิ่มต่อได้ภายหลัง');
+        });
+
+        $('#btnRewards').addEventListener('click', () => {
+          toast(`ตอนนี้มี ${profile.coins} เหรียญ และ ${profile.stars} ดาว`);
+        });
+      }
+
+      function maybeSyncProfileWithSummary(profile, lastSummary){
+        if (!lastSummary) return profile;
+
+        const next = { ...profile };
+        const plusCoins = Math.max(0, fmtInt(lastSummary.coins ?? lastSummary.rewardCoins, 0));
+        const plusStars = clamp(fmtInt(lastSummary.stars, 0), 0, 3);
+
+        next.coins = Math.max(next.coins, DEFAULT_PLAYER.coins) + 0;
+        next.stars = Math.max(next.stars, DEFAULT_PLAYER.stars) + 0;
+
+        writeProfile(next);
+        return next;
+      }
+
+      function boot(){
+        let profile = readProfile();
+        const lastSummary = readLastSummary();
+        const history = readSummaryHistory();
+
+        profile = maybeSyncProfileWithSummary(profile, lastSummary);
+
+        renderPlayer(profile);
+        renderZoneStats(zoneStatsFromHistory(history));
+        renderMissions(history);
+        renderLastSummary(lastSummary);
+        bindZoneLinks();
+        bindTopButtons(profile);
+      }
+
+      boot();
+    })();
+  </script>
+</body>
+</html>
