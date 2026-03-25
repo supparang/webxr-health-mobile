@@ -4,8 +4,8 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • Nutrition Groups Launcher</title>
-  <meta name="color-scheme" content="dark light" />
+  <title>HeroHealth • Groups Launcher</title>
+  <meta name="color-scheme" content="light" />
   <link rel="icon" href="../favicon.ico" />
   <link rel="stylesheet" href="./css/groups.css" />
 </head>
@@ -17,11 +17,16 @@
       <h1 class="launcher-title">จับหมวดอาหารให้ถูก</h1>
 
       <p class="launcher-sub">
-        เกมนี้ให้หนู
-        <strong>แยกอาหารเป็น 5 หมู่</strong>,
-        <strong>เลือกของที่ดีกว่า</strong>
-        และ <strong>ตอบเหตุผลง่าย ๆ</strong>
+        มาช่วยกันดูว่าอาหารแต่ละอย่างอยู่หมู่ไหน
+        แล้วเลือกคำตอบที่ดีกว่าสำหรับร่างกาย
       </p>
+
+      <div class="launcher-note">
+        เกมนี้หนูจะได้ฝึก:
+        <br>• แยกอาหารเป็น 5 หมู่
+        <br>• เลือกว่าอะไรดีกว่า
+        <br>• เลือกเหตุผลง่าย ๆ
+      </div>
 
       <div class="launcher-grid">
         <label class="field">
@@ -44,13 +49,10 @@
       </div>
 
       <div class="launcher-note">
-        สิ่งที่จะได้ทำในเกมนี้:
-        <br />
-        • แยกอาหารเข้าหมู่ให้ถูก
-        <br />
-        • เลือกว่าอะไรดีกว่า
-        <br />
-        • เลือกเหตุผลที่ใช่ที่สุด
+        วิธีเล่นแบบสั้น:
+        <br>1. ดูอาหารหรือของ 2 อย่าง
+        <br>2. แตะคำตอบที่คิดว่าถูก
+        <br>3. เล่นให้ครบแล้วดูสรุปผลท้ายเกม
       </div>
 
       <div class="launcher-actions">
@@ -92,7 +94,7 @@
           game: 'groups',
           diff: diffSelect.value,
           time: Number(timeSelect.value),
-          engine: 'v2',
+          engine: 'hubv2',
           launcher: './groups-launcher.html',
           seed: Date.now()
         }
