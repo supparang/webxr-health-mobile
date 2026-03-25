@@ -11,13 +11,13 @@
   const DEFAULT_SCHEMA = 'hha-cloud-logger-v1';
 
   const DEFAULTS = {
-    endpoint: '',                 // required (Apps Script Web App URL)
-    enabled: true,                // can be overridden by ?log=0
-    autoFlushMs: 8000,            // periodic flush
-    maxBatchEvents: 200,          // events per flush
-    maxBatchSessions: 20,         // sessions per flush
-    maxBatchProfiles: 20,         // profiles per flush
-    maxQueueSize: 5000,           // cap total queue
+    endpoint: '',
+    enabled: true,
+    autoFlushMs: 8000,
+    maxBatchEvents: 200,
+    maxBatchSessions: 20,
+    maxBatchProfiles: 20,
+    maxQueueSize: 5000,
     storageKey: 'HHA_CLOUD_LOGGER_QUEUE_V1',
     stateKey: 'HHA_CLOUD_LOGGER_STATE_V1',
     lastErrorKey: 'HHA_CLOUD_LOGGER_LAST_ERROR_V1',
@@ -38,7 +38,7 @@
     gameVersion: '',
     schemaVersionSessions: 'hha-sessions-v1',
     schemaVersionEvents: 'hha-events-v1',
-    onStatus: null // fn(statusObj)
+    onStatus: null
   };
 
   function nowMs() { return Date.now(); }
@@ -112,7 +112,6 @@
   }
 
   function computeBackoffMs(attempt) {
-    // 1s, 2s, 4s, 8s ... cap 60s + jitter
     const base = Math.min(60000, Math.pow(2, Math.max(0, attempt - 1)) * 1000);
     const jitter = (Math.random() * 400) | 0;
     return base + jitter;
@@ -433,7 +432,7 @@
     logEvents(arr) {
       if (!Array.isArray(arr)) return 0;
       let n = 0;
-      for (const e of arr) { if (this.logEvent(e)) n++; }
+      for (const e of arr) if (this.logEvent(e)) n++;
       return n;
     }
 
@@ -478,7 +477,6 @@
 
       const lens = this.lengths();
       if (lens.total <= 0) return { ok: true, skipped: 'empty' };
-
       if (this._flushInFlight && !force) return { ok: false, skipped: 'in_flight' };
 
       if (!force && this.state.nextRetryAt && nowMs() < this.state.nextRetryAt && !urgent) {
@@ -554,7 +552,6 @@
       const evN = Math.min(this.cfg.maxBatchEvents, this.queue.events.length);
       const ssN = Math.min(this.cfg.maxBatchSessions, this.queue.sessions.length);
       const spN = Math.min(this.cfg.maxBatchProfiles, this.queue.students_profile.length);
-
       if (evN + ssN + spN <= 0) return null;
 
       const sessions = this.queue.sessions.slice(0, ssN).map(x => Object.assign({}, x));
@@ -614,10 +611,7 @@
       this._persistQueue();
       this._persistStateOnly();
 
-      try {
-        sessionStorage.removeItem(this.cfg.lastErrorKey);
-      } catch (_) {}
-
+      try { sessionStorage.removeItem(this.cfg.lastErrorKey); } catch (_) {}
       this.debug('flush success', c, respData || null);
     }
 
@@ -655,10 +649,7 @@
         }));
       } catch (_) {}
 
-      this.debug('flush fail', errMsg, {
-        attempt: this.state.attempt,
-        nextRetryAt: this.state.nextRetryAt
-      });
+      this.debug('flush fail', errMsg, { attempt: this.state.attempt, nextRetryAt: this.state.nextRetryAt });
     }
 
     _trimQueueIfNeeded() {
@@ -666,19 +657,9 @@
       if (lens.total <= this.cfg.maxQueueSize) return;
 
       let over = lens.total - this.cfg.maxQueueSize;
-
-      while (over > 0 && this.queue.events.length > 0) {
-        this.queue.events.shift();
-        over--;
-      }
-      while (over > 0 && this.queue.sessions.length > 0) {
-        this.queue.sessions.shift();
-        over--;
-      }
-      while (over > 0 && this.queue.students_profile.length > 0) {
-        this.queue.students_profile.shift();
-        over--;
-      }
+      while (over > 0 && this.queue.events.length > 0) { this.queue.events.shift(); over--; }
+      while (over > 0 && this.queue.sessions.length > 0) { this.queue.sessions.shift(); over--; }
+      while (over > 0 && this.queue.students_profile.length > 0) { this.queue.students_profile.shift(); over--; }
 
       this._emitStatus('queue_trim', { lens: this.lengths() });
     }
