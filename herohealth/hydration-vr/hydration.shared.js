@@ -1,6 +1,6 @@
 // === /herohealth/hydration-vr/hydration.shared.js ===
-// HeroHealth Hydration VR — shared helpers for hydration.safe.js
-// PATCH v20260323-HYD-SHARED-COMPAT
+// HeroHealth Hydration VR Shared Utilities
+// FULL PATCH v20260326-HYD-SHARED-HUBV2-R1
 
 'use strict';
 
@@ -8,261 +8,274 @@ export const HYD_GAME = 'hydration';
 export const HYD_DEFAULT_CAT = 'nutrition';
 
 export const HYD_STICKER_META = {
-  first_play:   { icon:'💧', label:'เริ่มเล่นครั้งแรก' },
-  grade_b:      { icon:'🌈', label:'เกรด B ขึ้นไป' },
-  grade_a:      { icon:'💙', label:'เกรด A ขึ้นไป' },
-  grade_s:      { icon:'⭐', label:'เกรด S' },
-  combo_10:     { icon:'✨', label:'คอมโบ 10+' },
-  shield_hero:  { icon:'🛡️', label:'นักป้องกัน' },
-  mission_full: { icon:'🎯', label:'ภารกิจครบ' },
-  final_clear:  { icon:'👑', label:'ชนะด่านสุดท้าย' },
-  water_master: { icon:'🫧', label:'น้ำเหลือสูง' }
+  first_drop: {
+    icon: '💧',
+    label: 'เริ่มภารกิจ'
+  },
+  shield_guard: {
+    icon: '🛡️',
+    label: 'ผู้พิทักษ์โล่'
+  },
+  combo_star: {
+    icon: '⭐',
+    label: 'คอมโบสวย'
+  },
+  mission_master: {
+    icon: '🎯',
+    label: 'ภารกิจครบ'
+  },
+  s_rank: {
+    icon: '🏅',
+    label: 'S Rank'
+  },
+  final_crown: {
+    icon: '👑',
+    label: 'พิชิตด่านสุดท้าย'
+  }
 };
 
-const STORE = {
-  SHELF_PREFIX: 'HHA_HYD_SHELF',
-  GATE_PREFIX: 'HHA_GATE_DONE'
-};
-
-function todayKey() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-}
-
-function safeJsonParse(raw, fallback) {
-  try {
-    return JSON.parse(raw);
-  } catch {
+function safeJsonParse(text, fallback){
+  try{
+    return JSON.parse(text);
+  }catch(e){
     return fallback;
   }
 }
 
-function safeGet(key, fallback = null) {
-  try {
-    const v = localStorage.getItem(key);
-    return v == null ? fallback : v;
-  } catch {
+function safeStorageGet(key, fallback=null){
+  try{
+    const raw = localStorage.getItem(key);
+    return raw == null ? fallback : raw;
+  }catch(e){
     return fallback;
   }
 }
 
-function safeSet(key, value) {
-  try {
+function safeStorageSet(key, value){
+  try{
     localStorage.setItem(key, value);
     return true;
-  } catch {
+  }catch(e){
     return false;
   }
 }
 
-function normPid(pid) {
-  const v = String(pid || 'anon').trim().replace(/[.#$[\]/]/g, '-');
-  return v || 'anon';
+function todayKey(){
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
 
-function gradeRank(g) {
-  const map = { D:1, C:2, B:3, A:4, S:5 };
+function clamp(v, a, b){
+  v = Number(v);
+  if(!Number.isFinite(v)) v = a;
+  return Math.max(a, Math.min(b, v));
+}
+
+function gradeRank(g){
+  const map = { S:5, A:4, B:3, C:2, D:1 };
   return map[String(g || '').toUpperCase()] || 0;
 }
 
-function defaultShelf(pid = 'anon') {
-  return {
-    pid: normPid(pid),
-    bestScore: 0,
-    bestGrade: '—',
-    finalClearCount: 0,
-    totalRuns: 0,
-    lastPlayedAt: '',
-    lastReward: '',
-    stickers: {}
-  };
+function gateKey(phase, cat, game, pid, day=todayKey()){
+  return `HHA_GATE_DONE:${phase}:${cat}:${game}:${pid}:${day}`;
 }
 
-function shelfKey(pid) {
-  return `${STORE.SHELF_PREFIX}:${normPid(pid)}`;
-}
-
-function gateCandidates(gatePhase, cat, game, pid, day = todayKey()) {
-  const P = String(gatePhase || '').trim();
-  const C = String(cat || HYD_DEFAULT_CAT).trim();
-  const G = String(game || HYD_GAME).trim();
-  const U = normPid(pid);
-
+function legacyGateKeys(phase, cat, game, pid, day=todayKey()){
   return [
-    `${STORE.GATE_PREFIX}:${P}:${C}:${G}:${U}:${day}`,
-    `${STORE.GATE_PREFIX}:${P}:${C}:${G}:${day}`,
-    `${STORE.GATE_PREFIX}:${P}:${G}:${U}:${day}`,
-    `${STORE.GATE_PREFIX}:${P}:${G}:${day}`,
-    `HHA_${P.toUpperCase()}_DONE:${C}:${G}:${U}:${day}`,
-    `HHA_${P.toUpperCase()}_DONE:${C}:${G}:${day}`,
-    `HHA_${P.toUpperCase()}_DONE:${G}:${U}:${day}`,
-    `HHA_${P.toUpperCase()}_DONE:${G}:${day}`
+    `HHA_GATE_DONE:${phase}:${cat}:${pid}:${day}`,
+    `HHA_GATE_DONE:${phase}:${game}:${pid}:${day}`,
+    `HHA_GATE_DONE:${phase}:${cat}:${game}:${pid}`,
+    `HHA_GATE_DONE:${phase}:${cat}:${pid}`,
+    `HHA_GATE_DONE:${phase}:${game}:${pid}`,
   ];
 }
 
-export function isGateDone(gatePhase, cat, game, pid, day = todayKey()) {
-  const keys = gateCandidates(gatePhase, cat, game, pid, day);
+export function isGateDone(phase, cat, game, pid, day=todayKey()){
+  const main = safeStorageGet(gateKey(phase, cat, game, pid, day), null);
+  if(main === '1') return true;
 
-  for (const key of keys) {
-    const raw = safeGet(key, null);
-    if (raw == null) continue;
-
-    if (raw === '1' || raw === 'true') return true;
-
-    const parsed = safeJsonParse(raw, null);
-    if (parsed && typeof parsed === 'object') {
-      if (parsed.done === true) return true;
-      if (parsed.day && parsed.day === day) return true;
-    }
+  for(const key of legacyGateKeys(phase, cat, game, pid, day)){
+    if(safeStorageGet(key, null) === '1') return true;
   }
-
   return false;
 }
 
-export function setGateDone(gatePhase, cat, game, pid, day = todayKey()) {
-  const key = gateCandidates(gatePhase, cat, game, pid, day)[0];
-  return safeSet(key, JSON.stringify({
-    done: true,
-    gatePhase: String(gatePhase || ''),
-    cat: String(cat || HYD_DEFAULT_CAT),
-    game: String(game || HYD_GAME),
-    pid: normPid(pid),
-    day,
-    ts: new Date().toISOString()
-  }));
+export function setGateDone(phase, cat, game, pid, done=true, day=todayKey()){
+  const value = done ? '1' : '0';
+  safeStorageSet(gateKey(phase, cat, game, pid, day), value);
 }
 
-export function loadHydShelf(pid = 'anon') {
-  const key = shelfKey(pid);
-  const raw = safeGet(key, null);
-  if (!raw) return defaultShelf(pid);
+function shelfKey(pid){
+  return `HHA_HYDRATION_SHELF:${String(pid || 'anon')}`;
+}
 
-  const parsed = safeJsonParse(raw, null);
-  if (!parsed || typeof parsed !== 'object') return defaultShelf(pid);
-
+function defaultShelf(){
   return {
-    ...defaultShelf(pid),
-    ...parsed,
-    pid: normPid(pid),
-    stickers: {
-      ...(defaultShelf(pid).stickers),
-      ...(parsed.stickers || {})
-    }
+    totalRuns: 0,
+    finalClearCount: 0,
+    bestScore: 0,
+    bestGrade: '—',
+    lastReward: '',
+    lastPlayedAt: '',
+    stickers: {},
+    history: []
   };
 }
 
-function saveHydShelf(pid, shelf) {
-  const key = shelfKey(pid);
-  safeSet(key, JSON.stringify(shelf));
-  return shelf;
+function normalizeShelf(input){
+  const base = defaultShelf();
+  const src = (input && typeof input === 'object') ? input : {};
+
+  const stickers = {};
+  for(const k of Object.keys(HYD_STICKER_META)){
+    stickers[k] = !!(src.stickers && src.stickers[k]);
+  }
+
+  const history = Array.isArray(src.history) ? src.history.slice(-12) : [];
+
+  return {
+    totalRuns: clamp(src.totalRuns ?? base.totalRuns, 0, 999999),
+    finalClearCount: clamp(src.finalClearCount ?? base.finalClearCount, 0, 999999),
+    bestScore: clamp(src.bestScore ?? base.bestScore, 0, 99999999),
+    bestGrade: String(src.bestGrade ?? base.bestGrade || '—'),
+    lastReward: String(src.lastReward ?? base.lastReward || ''),
+    lastPlayedAt: String(src.lastPlayedAt ?? base.lastPlayedAt || ''),
+    stickers,
+    history
+  };
 }
 
-function unlockSticker(stickers, key) {
-  if (!HYD_STICKER_META[key]) return false;
-  if (stickers[key]) return false;
-  stickers[key] = true;
+export function loadHydShelf(pid='anon'){
+  const raw = safeStorageGet(shelfKey(pid), null);
+  if(!raw) return defaultShelf();
+  return normalizeShelf(safeJsonParse(raw, defaultShelf()));
+}
+
+function saveHydShelf(pid='anon', shelf){
+  const normalized = normalizeShelf(shelf);
+  safeStorageSet(shelfKey(pid), JSON.stringify(normalized));
+  return normalized;
+}
+
+function bestGradeAfter(prev, next){
+  return gradeRank(next) >= gradeRank(prev) ? next : prev;
+}
+
+function unlockSticker(shelf, key){
+  if(!HYD_STICKER_META[key]) return false;
+  if(shelf.stickers[key]) return false;
+  shelf.stickers[key] = true;
   return true;
 }
 
-function collectUnlockedLabels(stickers) {
-  return Object.keys(HYD_STICKER_META).filter(k => stickers[k]);
+function deriveReward(summary){
+  if(summary?.reason === 'final-clear') return '👑 ชนะด่านสุดท้าย';
+  if((summary?.missionsDone || 0) >= 3) return '🎯 ภารกิจครบ';
+  if(String(summary?.grade || '') === 'S') return '🏅 S Rank';
+  if((summary?.comboMax || 0) >= 10) return '⭐ คอมโบสวย';
+  if((summary?.blockCount || 0) >= 3) return '🛡️ โล่แกร่ง';
+  return '💧 เล่นจบรอบ';
 }
 
-export function hydrationShelfText(shelf) {
-  const s = shelf || defaultShelf('anon');
-  const unlocked = collectUnlockedLabels(s.stickers || {});
-  const count = unlocked.length;
+function updateStickerUnlocks(shelf, summary){
+  const unlockedNow = [];
 
-  if (count <= 0) {
-    return 'ยังไม่มีของสะสม เริ่มเล่นเพื่อปลดล็อกสติกเกอร์นะ';
+  if((shelf.totalRuns || 0) <= 1){
+    if(unlockSticker(shelf, 'first_drop')) unlockedNow.push('first_drop');
+  }
+  if((summary?.blockCount || 0) >= 3){
+    if(unlockSticker(shelf, 'shield_guard')) unlockedNow.push('shield_guard');
+  }
+  if((summary?.comboMax || 0) >= 8){
+    if(unlockSticker(shelf, 'combo_star')) unlockedNow.push('combo_star');
+  }
+  if((summary?.missionsDone || 0) >= 3){
+    if(unlockSticker(shelf, 'mission_master')) unlockedNow.push('mission_master');
+  }
+  if(String(summary?.grade || '') === 'S'){
+    if(unlockSticker(shelf, 's_rank')) unlockedNow.push('s_rank');
+  }
+  if(summary?.reason === 'final-clear'){
+    if(unlockSticker(shelf, 'final_crown')) unlockedNow.push('final_crown');
   }
 
-  const bestGrade = s.bestGrade && s.bestGrade !== '—' ? `เกรดดีที่สุด ${s.bestGrade}` : 'ยังไม่มีเกรดสูงสุด';
-  return `มีสติกเกอร์แล้ว ${count} ชิ้น • คะแนนดีที่สุด ${s.bestScore || 0} • ${bestGrade}`;
+  return unlockedNow;
 }
 
-export function rewardCardTitle(summary = {}) {
-  if (summary.reason === 'final-clear') return '👑 Final Clear Card';
-  if (String(summary.grade || '').toUpperCase() === 'S') return '⭐ S Rank Card';
-  if (String(summary.grade || '').toUpperCase() === 'A') return '💙 Great Hydration Card';
-  if ((summary.missionsDone || 0) >= 3) return '🎯 Mission Master Card';
-  if ((summary.comboMax || 0) >= 10) return '✨ Combo Star Card';
-  if ((summary.blockCount || 0) >= 3) return '🛡️ Shield Hero Card';
-  return '💧 Hydration Hero Card';
-}
-
-export function rewardCardMini(summary = {}, shelf = {}) {
-  const grade = String(summary.grade || 'C').toUpperCase();
-  const stickerCount = Object.keys((shelf && shelf.stickers) || {}).filter(k => shelf.stickers[k]).length;
-
-  if (summary.reason === 'final-clear') {
-    return `ชนะด่านสุดท้ายแล้ว • ปลดล็อกสติกเกอร์สะสม ${stickerCount} ชิ้น`;
-  }
-  if (grade === 'S') {
-    return 'สุดยอดมาก! ได้เกรด S และเก็บน้ำได้ดีมาก';
-  }
-  if (grade === 'A') {
-    return 'ทำได้ดีมาก เกือบสมบูรณ์แบบแล้ว';
-  }
-  if ((summary.missionsDone || 0) >= 3) {
-    return 'ภารกิจครบทั้ง 3 อย่าง เก่งมากเลย';
-  }
-  if ((summary.comboMax || 0) >= 10) {
-    return `คอมโบสูงสุด ${summary.comboMax} ครั้ง เล่นได้ลื่นมาก`;
-  }
-  if ((summary.blockCount || 0) >= 3) {
-    return `กันสายฟ้าได้ ${summary.blockCount} ครั้งแล้ว`;
-  }
-  return 'เล่นจบรอบแล้ว ลองอีกครั้งเพื่อเก็บรางวัลเพิ่มนะ';
-}
-
-export function saveHydrationRewards(pid = 'anon', summary = {}, nowIso = new Date().toISOString()) {
+export function saveHydrationRewards(pid='anon', summary={}, isoNow=''){
   const shelf = loadHydShelf(pid);
-  const stickers = { ...(shelf.stickers || {}) };
 
-  shelf.totalRuns = Number(shelf.totalRuns || 0) + 1;
-  shelf.lastPlayedAt = String(nowIso || new Date().toISOString());
+  shelf.totalRuns += 1;
+  if(summary?.reason === 'final-clear'){
+    shelf.finalClearCount += 1;
+  }
 
-  const scoreFinal = Number(summary.scoreFinal || 0);
-  const comboMax = Number(summary.comboMax || 0);
-  const blockCount = Number(summary.blockCount || 0);
-  const missionsDone = Number(summary.missionsDone || 0);
-  const waterPct = Number(summary.waterPct || 0);
-  const grade = String(summary.grade || 'D').toUpperCase();
-
-  if (scoreFinal > Number(shelf.bestScore || 0)) {
+  const scoreFinal = clamp(summary?.scoreFinal || 0, 0, 99999999);
+  if(scoreFinal > shelf.bestScore){
     shelf.bestScore = scoreFinal;
   }
 
-  if (gradeRank(grade) > gradeRank(shelf.bestGrade)) {
-    shelf.bestGrade = grade;
-  }
+  const grade = String(summary?.grade || 'D');
+  shelf.bestGrade = bestGradeAfter(shelf.bestGrade, grade);
+  shelf.lastReward = deriveReward(summary);
+  shelf.lastPlayedAt = String(isoNow || new Date().toISOString());
 
-  if (summary.reason === 'final-clear') {
-    shelf.finalClearCount = Number(shelf.finalClearCount || 0) + 1;
-  }
+  const unlockedNow = updateStickerUnlocks(shelf, summary);
 
-  unlockSticker(stickers, 'first_play');
-  if (gradeRank(grade) >= gradeRank('B')) unlockSticker(stickers, 'grade_b');
-  if (gradeRank(grade) >= gradeRank('A')) unlockSticker(stickers, 'grade_a');
-  if (grade === 'S') unlockSticker(stickers, 'grade_s');
-  if (comboMax >= 10) unlockSticker(stickers, 'combo_10');
-  if (blockCount >= 3) unlockSticker(stickers, 'shield_hero');
-  if (missionsDone >= 3) unlockSticker(stickers, 'mission_full');
-  if (summary.reason === 'final-clear') unlockSticker(stickers, 'final_clear');
-  if (waterPct >= 80) unlockSticker(stickers, 'water_master');
-
-  shelf.stickers = stickers;
-
-  let reward = '💧 เล่นจบรอบแล้ว';
-  if (summary.reason === 'final-clear') reward = '👑 ชนะด่านสุดท้าย';
-  else if (grade === 'S') reward = '⭐ ได้เกรด S';
-  else if (missionsDone >= 3) reward = '🎯 ภารกิจครบ';
-  else if (comboMax >= 10) reward = '✨ คอมโบสวย';
-  else if (blockCount >= 3) reward = '🛡️ ป้องกันเก่ง';
-  else if (grade === 'A') reward = '💙 เกรด A';
-
-  shelf.lastReward = reward;
+  shelf.history.push({
+    at: shelf.lastPlayedAt,
+    score: scoreFinal,
+    grade,
+    reason: String(summary?.reason || ''),
+    unlockedNow
+  });
+  shelf.history = shelf.history.slice(-12);
 
   return saveHydShelf(pid, shelf);
+}
+
+export function hydrationShelfText(shelf){
+  const normalized = normalizeShelf(shelf);
+  const owned = Object.values(normalized.stickers).filter(Boolean).length;
+  const total = Object.keys(HYD_STICKER_META).length;
+
+  const parts = [
+    `สะสม ${owned}/${total} ชิ้น`,
+    `Best ${normalized.bestScore}`,
+    `Clear ${normalized.finalClearCount}`
+  ];
+
+  return parts.join(' • ');
+}
+
+export function rewardCardTitle(summary={}){
+  const grade = String(summary?.grade || '').toUpperCase();
+  if(summary?.reason === 'final-clear') return 'Hydration Crown Hero';
+  if(grade === 'S') return 'Hydration S Champion';
+  if((summary?.missionsDone || 0) >= 3) return 'Mission Master';
+  if((summary?.comboMax || 0) >= 10) return 'Combo Water Star';
+  if((summary?.blockCount || 0) >= 3) return 'Shield Guardian';
+  if(grade === 'A') return 'Hydration Great Hero';
+  if(grade === 'B') return 'Water Power Hero';
+  return 'Hydration Hero';
+}
+
+export function rewardCardMini(summary={}, shelf={}){
+  const normalized = normalizeShelf(shelf);
+  const owned = Object.values(normalized.stickers).filter(Boolean).length;
+  const total = Object.keys(HYD_STICKER_META).length;
+
+  if(summary?.reason === 'final-clear'){
+    return `วันนี้ชนะด่านสุดท้ายแล้ว และตอนนี้มีสติกเกอร์ ${owned}/${total} ชิ้น`;
+  }
+  if(String(summary?.grade || '').toUpperCase() === 'S'){
+    return `ยอดเยี่ยมมาก ได้เกรด S แล้ว ตอนนี้สะสมสติกเกอร์ ${owned}/${total} ชิ้น`;
+  }
+  if((summary?.missionsDone || 0) >= 3){
+    return `ภารกิจครบทั้งชุด เก็บสติกเกอร์ได้ ${owned}/${total} ชิ้นแล้ว`;
+  }
+  if((summary?.comboMax || 0) >= 10){
+    return `คอมโบดีมาก รอบนี้กำลังเก็บคอลเลกชันได้เรื่อย ๆ (${owned}/${total})`;
+  }
+  return `เล่นต่ออีกนิดเพื่อปลดล็อกสติกเกอร์เพิ่ม ตอนนี้มี ${owned}/${total} ชิ้น`;
 }
