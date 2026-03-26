@@ -1,9 +1,9 @@
-// === /herohealth/firebase-config.js ===
-// HeroHealth Firebase Config
-// FULL PATCH v20260323-FIREBASE-CONFIG-MIN-SAFE
-
+// /herohealth/firebase-config.js
+// FULL PATCH v20260327-GJBATTLE-FIREBASE-CONFIG-R1
 (function () {
   'use strict';
+
+  const W = window;
 
   const firebaseConfig = {
     apiKey: "AIzaSyB5WmSR9uMYX2bwDh2iFYZwGglXGIq5Ijo",
@@ -15,84 +15,57 @@
     appId: "1:680817376848:web:eed21b522b0703f6bd9b55"
   };
 
-  const APP_NAME = 'herohealth-main';
-  const APP_SRC = 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js';
-  const DB_SRC  = 'https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js';
+  W.HHA_FIREBASE_CONFIG = firebaseConfig;
+  W.__HHA_FIREBASE_CONFIG__ = firebaseConfig;
+  W.firebaseConfig = firebaseConfig;
+  W.HHA_FIREBASE_READY = false;
+  W.HHA_FIREBASE_APP = null;
 
-  window.HHA_FIREBASE_READY = false;
-  window.HHA_FIREBASE_APP = null;
-  window.HHA_FIREBASE_DB = null;
-  window.HHA_FIREBASE_CONFIG = firebaseConfig;
-
-  function loadScript(src){
-    return new Promise((resolve, reject) => {
-      const found = Array.from(document.scripts).find(s => (s.src || '').includes(src));
-      if (found) {
-        if (found.dataset.loaded === '1') return resolve();
-        found.addEventListener('load', () => resolve(), { once:true });
-        found.addEventListener('error', reject, { once:true });
-        return;
+  function initFirebaseCompat() {
+    try {
+      if (!W.firebase) {
+        W.HHA_FIREBASE_READY = false;
+        return false;
       }
 
-      const s = document.createElement('script');
-      s.src = src;
-      s.async = false;
-      s.onload = () => {
-        s.dataset.loaded = '1';
-        resolve();
-      };
-      s.onerror = reject;
-      document.head.appendChild(s);
-    });
-  }
+      if (!W.firebase.apps || !W.firebase.apps.length) {
+        W.HHA_FIREBASE_APP = W.firebase.initializeApp(firebaseConfig);
+      } else {
+        W.HHA_FIREBASE_APP = W.firebase.apps[0];
+      }
 
-  async function ensureFirebaseCompat(){
-    if (window.firebase && typeof window.firebase.initializeApp === 'function') return;
+      W.HHA_FIREBASE_READY = !!W.HHA_FIREBASE_APP;
 
-    await loadScript(APP_SRC);
-    await loadScript(DB_SRC);
-  }
+      if (W.HHA_FIREBASE_READY) {
+        try {
+          W.dispatchEvent(new CustomEvent('hha:firebase-ready', {
+            detail: { app: W.HHA_FIREBASE_APP }
+          }));
+        } catch (_) {}
+      }
 
-  async function initFirebase(){
-    if (window.HHA_FIREBASE_DB) return window.HHA_FIREBASE_DB;
-
-    await ensureFirebaseCompat();
-
-    const fb = window.firebase;
-    if (!fb) throw new Error('firebase compat missing');
-
-    let app = null;
-    try { app = fb.app(APP_NAME); } catch (_) {}
-    if (!app) app = fb.initializeApp(firebaseConfig, APP_NAME);
-
-    const db = app.database();
-
-    window.HHA_FIREBASE_APP = app;
-    window.HHA_FIREBASE_DB = db;
-    window.HHA_FIREBASE_READY = true;
-
-    return db;
-  }
-
-  window.HHA_INIT_FIREBASE = initFirebase;
-
-  window.HHA_WAIT_FIREBASE = async function(timeoutMs = 4000){
-    const start = Date.now();
-    while (Date.now() - start < timeoutMs) {
-      if (window.HHA_FIREBASE_DB) return window.HHA_FIREBASE_DB;
-      try {
-        const db = await initFirebase();
-        if (db) return db;
-      } catch (_) {}
-      await new Promise(r => setTimeout(r, 80));
+      return W.HHA_FIREBASE_READY;
+    } catch (err) {
+      const msg = String(err && err.message || err || '');
+      if (/already exists/i.test(msg)) {
+        try {
+          W.HHA_FIREBASE_APP = W.firebase.apps[0];
+          W.HHA_FIREBASE_READY = true;
+          return true;
+        } catch (_) {}
+      }
+      console.error('[HHA] Firebase init failed:', err);
+      W.HHA_FIREBASE_READY = false;
+      return false;
     }
-    return window.HHA_FIREBASE_DB || null;
-  };
+  }
 
-  initFirebase().catch(err => {
-    console.error('[firebase-config] init failed:', err);
-    window.HHA_FIREBASE_READY = false;
-    window.HHA_FIREBASE_APP = null;
-    window.HHA_FIREBASE_DB = null;
-  });
+  W.HHA_initFirebaseCompat = initFirebaseCompat;
+
+  let tries = 0;
+  const timer = setInterval(() => {
+    tries += 1;
+    const ok = initFirebaseCompat();
+    if (ok || tries >= 120) clearInterval(timer);
+  }, 100);
 })();
