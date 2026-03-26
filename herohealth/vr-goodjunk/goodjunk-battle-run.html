@@ -29,30 +29,36 @@
       --sat: env(safe-area-inset-top, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
     }
+
     *{ box-sizing:border-box; }
     html,body{ height:100%; margin:0; }
+
     body{
-      font-family: ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Thai",sans-serif;
+      font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Thai",sans-serif;
       color:var(--text);
       background:
         radial-gradient(1200px 700px at 20% -10%, rgba(121,199,255,.14), transparent 60%),
         radial-gradient(900px 520px at 100% 0%, rgba(167,139,250,.14), transparent 55%),
         linear-gradient(180deg, var(--bg2), var(--bg1));
     }
+
     .shell{
       width:min(1200px, calc(100% - 24px));
       margin:0 auto;
       padding:calc(12px + var(--sat)) 0 calc(16px + var(--sab));
     }
+
     .grid{
       display:grid;
       gap:14px;
     }
+
     .hero{
       display:grid;
       grid-template-columns:1.3fr .95fr;
       gap:14px;
     }
+
     .panel{
       background:linear-gradient(180deg, rgba(10,18,36,.96), rgba(7,14,28,.96));
       border:1px solid var(--line);
@@ -60,7 +66,11 @@
       box-shadow:var(--shadow);
       overflow:hidden;
     }
-    .panel-inner{ padding:16px; }
+
+    .panel-inner{
+      padding:16px;
+    }
+
     .title{
       display:flex;
       align-items:flex-start;
@@ -68,22 +78,26 @@
       gap:12px;
       margin-bottom:10px;
     }
+
     .title h1{
       margin:0;
       font-size:clamp(20px,2vw,28px);
       line-height:1.15;
     }
+
     .sub{
       color:var(--muted);
       font-size:14px;
       line-height:1.45;
     }
+
     .pills{
       display:flex;
       flex-wrap:wrap;
       gap:8px;
       margin-top:10px;
     }
+
     .pill{
       display:inline-flex;
       align-items:center;
@@ -97,18 +111,21 @@
       font-weight:700;
       letter-spacing:.02em;
     }
+
     .metrics{
       display:grid;
       grid-template-columns:repeat(4,1fr);
       gap:10px;
       margin-top:14px;
     }
+
     .metric{
       padding:14px;
       border-radius:20px;
       border:1px solid var(--line2);
       background:linear-gradient(180deg, rgba(5,18,58,.86), rgba(4,12,34,.96));
     }
+
     .metric .k{
       color:#d7e6ff;
       font-size:12px;
@@ -116,23 +133,27 @@
       opacity:.9;
       letter-spacing:.03em;
     }
+
     .metric .v{
       font-size:clamp(28px,3vw,40px);
       font-weight:900;
       line-height:1.05;
       margin-top:6px;
     }
+
     .bars{
       display:grid;
       gap:12px;
       margin-top:14px;
     }
+
     .barbox{
       border:1px solid var(--line2);
       border-radius:18px;
       padding:12px 14px;
       background:rgba(255,255,255,.03);
     }
+
     .bar-head{
       display:flex;
       align-items:center;
@@ -142,6 +163,7 @@
       font-size:14px;
       font-weight:800;
     }
+
     .bar{
       height:16px;
       border-radius:999px;
@@ -149,15 +171,25 @@
       background:rgba(255,255,255,.06);
       border:1px solid rgba(255,255,255,.05);
     }
+
     .bar-fill{
       height:100%;
       width:0%;
       transition:width .18s ease;
       border-radius:999px;
     }
-    .hp{ background:linear-gradient(90deg, #5eead4, #34d399, #22c55e); }
-    .charge{ background:linear-gradient(90deg, #ffd166, #ffb703, #fb8500); }
-    .time{ background:linear-gradient(90deg, #93c5fd, #60a5fa, #3b82f6); }
+
+    .hp{
+      background:linear-gradient(90deg, #5eead4, #34d399, #22c55e);
+    }
+
+    .charge{
+      background:linear-gradient(90deg, #ffd166, #ffb703, #fb8500);
+    }
+
+    .time{
+      background:linear-gradient(90deg, #93c5fd, #60a5fa, #3b82f6);
+    }
 
     .actions{
       display:flex;
@@ -165,6 +197,7 @@
       flex-wrap:wrap;
       margin-top:14px;
     }
+
     .btn{
       appearance:none;
       border:none;
@@ -177,16 +210,19 @@
       color:#fff;
       box-shadow:var(--shadow);
     }
+
     .btn-attack{
       min-width:220px;
       background:linear-gradient(180deg, #ffcd57, #c67b00);
       color:#2b1800;
     }
+
     .btn-ghost{
       background:linear-gradient(180deg, #5b2940, #3b1929);
       color:#ffd8e4;
       border:1px solid rgba(255,255,255,.08);
     }
+
     .btn:disabled{
       opacity:.55;
       cursor:not-allowed;
@@ -203,6 +239,7 @@
       border-bottom:1px solid var(--line);
       background:linear-gradient(180deg, rgba(8,18,44,.92), rgba(8,16,34,.92));
     }
+
     .notice .emoji{
       flex:0 0 auto;
       width:38px;
@@ -214,6 +251,7 @@
       background:rgba(255,255,255,.06);
       border:1px solid var(--line2);
     }
+
     .notice .txt{
       font-size:16px;
       font-weight:800;
@@ -224,6 +262,7 @@
       position:relative;
       padding:14px;
     }
+
     .arena{
       position:relative;
       width:100%;
@@ -239,6 +278,7 @@
       touch-action:manipulation;
       user-select:none;
     }
+
     .countdown{
       position:absolute;
       inset:0;
@@ -254,7 +294,10 @@
       z-index:20;
       pointer-events:none;
     }
-    .countdown.show{ display:flex; }
+
+    .countdown.show{
+      display:flex;
+    }
 
     .target{
       position:absolute;
@@ -268,19 +311,23 @@
       user-select:none;
       -webkit-tap-highlight-color:transparent;
     }
+
     .target.good{
       background:radial-gradient(circle at 35% 30%, #c8ffe0, #5fd68d 55%, #2ea664 100%);
       border:3px solid rgba(255,255,255,.55);
     }
+
     .target.junk{
       background:radial-gradient(circle at 35% 30%, #ffd1dc, #ff7b95 55%, #d83d67 100%);
       border:3px solid rgba(255,255,255,.5);
     }
+
     .target span{
       font-size:clamp(24px,4vw,38px);
       filter:drop-shadow(0 2px 2px rgba(0,0,0,.18));
       pointer-events:none;
     }
+
     @keyframes popIn{
       from{ transform:scale(.8); opacity:.25; }
       to{ transform:scale(1); opacity:1; }
@@ -291,10 +338,12 @@
       gap:14px;
       align-content:start;
     }
+
     .list{
       display:grid;
       gap:10px;
     }
+
     .player{
       display:flex;
       align-items:center;
@@ -305,12 +354,14 @@
       border:1px solid var(--line2);
       background:linear-gradient(180deg, rgba(9,17,38,.92), rgba(6,12,26,.96));
     }
+
     .player .left{
       display:flex;
       align-items:center;
       gap:10px;
       min-width:0;
     }
+
     .avatar{
       width:38px;
       height:38px;
@@ -321,17 +372,20 @@
       font-size:20px;
       flex:0 0 auto;
     }
+
     .name{
       font-weight:900;
       white-space:nowrap;
       overflow:hidden;
       text-overflow:ellipsis;
     }
+
     .mini{
       color:var(--muted);
       font-size:12px;
       font-weight:700;
     }
+
     .badge{
       border-radius:999px;
       padding:8px 10px;
@@ -340,6 +394,7 @@
       border:1px solid var(--line2);
       background:rgba(255,255,255,.04);
     }
+
     .rule{
       display:flex;
       align-items:center;
@@ -348,25 +403,35 @@
       padding:12px 0;
       border-bottom:1px dashed rgba(255,255,255,.08);
     }
-    .rule:last-child{ border-bottom:none; }
+
+    .rule:last-child{
+      border-bottom:none;
+    }
+
     .r-left{
       display:flex;
       align-items:center;
       gap:10px;
       min-width:0;
     }
-    .r-emoji{ font-size:20px; }
+
+    .r-emoji{
+      font-size:20px;
+    }
+
     .r-text{
       font-size:14px;
       color:var(--text);
       font-weight:800;
     }
+
     .r-score{
       font-size:14px;
       color:#d6e7ff;
       font-weight:900;
       white-space:nowrap;
     }
+
     .foot{
       color:var(--muted);
       font-size:13px;
@@ -375,16 +440,33 @@
     }
 
     @media (max-width: 960px){
-      .hero{ grid-template-columns:1fr; }
-      .metrics{ grid-template-columns:repeat(2,1fr); }
-      .arena{ min-height:320px; }
+      .hero{
+        grid-template-columns:1fr;
+      }
+      .metrics{
+        grid-template-columns:repeat(2,1fr);
+      }
+      .arena{
+        min-height:320px;
+      }
     }
+
     @media (max-width: 560px){
-      .shell{ width:min(100%, calc(100% - 12px)); }
-      .panel-inner{ padding:14px; }
-      .metric .v{ font-size:26px; }
-      .btn{ width:100%; }
-      .arena{ min-height:300px; }
+      .shell{
+        width:min(100%, calc(100% - 12px));
+      }
+      .panel-inner{
+        padding:14px;
+      }
+      .metric .v{
+        font-size:26px;
+      }
+      .btn{
+        width:100%;
+      }
+      .arena{
+        min-height:300px;
+      }
     }
   </style>
 </head>
@@ -515,16 +597,17 @@
       </aside>
     </section>
 
-    <div class="foot">HeroHealth • GoodJunk Battle • Firebase-safe boot</div>
+    <div class="foot">HeroHealth • GoodJunk Battle • Firebase Auth + Database compat</div>
   </main>
 
   <!-- Firebase compat -->
   <script defer src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+  <script defer src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
   <script defer src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
 
   <!-- Local scripts -->
-  <script defer src="../firebase-config.js?v=20260327-gjbattle-fbfix1"></script>
-  <script defer src="./ha-multiplayer.js?v=20260327-gjbattle-fbfix1"></script>
-  <script defer src="./goodjunk-battle-run.js?v=20260327-gjbattle-fbfix1"></script>
+  <script defer src="../firebase-config.js?v=20260327-gjbattle-auth2"></script>
+  <script defer src="./ha-multiplayer.js?v=20260327-gjbattle-auth2"></script>
+  <script defer src="./goodjunk-battle-run.js?v=20260327-gjbattle-auth2"></script>
 </body>
 </html>
