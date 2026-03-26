@@ -1,6 +1,6 @@
 // === /herohealth/hydration-vr/hydration.shared.js ===
 // HeroHealth Hydration VR Shared Utilities
-// FULL PATCH v20260326-HYD-SHARED-HUBV2-R1
+// FULL PATCH v20260327-HYD-SHARED-HUBV2-R2-SYNTAX-FIX
 
 'use strict';
 
@@ -42,7 +42,7 @@ function safeJsonParse(text, fallback){
   }
 }
 
-function safeStorageGet(key, fallback=null){
+function safeStorageGet(key, fallback = null){
   try{
     const raw = localStorage.getItem(key);
     return raw == null ? fallback : raw;
@@ -62,7 +62,7 @@ function safeStorageSet(key, value){
 
 function todayKey(){
   const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 function clamp(v, a, b){
@@ -72,25 +72,25 @@ function clamp(v, a, b){
 }
 
 function gradeRank(g){
-  const map = { S:5, A:4, B:3, C:2, D:1 };
+  const map = { S: 5, A: 4, B: 3, C: 2, D: 1 };
   return map[String(g || '').toUpperCase()] || 0;
 }
 
-function gateKey(phase, cat, game, pid, day=todayKey()){
+function gateKey(phase, cat, game, pid, day = todayKey()){
   return `HHA_GATE_DONE:${phase}:${cat}:${game}:${pid}:${day}`;
 }
 
-function legacyGateKeys(phase, cat, game, pid, day=todayKey()){
+function legacyGateKeys(phase, cat, game, pid, day = todayKey()){
   return [
     `HHA_GATE_DONE:${phase}:${cat}:${pid}:${day}`,
     `HHA_GATE_DONE:${phase}:${game}:${pid}:${day}`,
     `HHA_GATE_DONE:${phase}:${cat}:${game}:${pid}`,
     `HHA_GATE_DONE:${phase}:${cat}:${pid}`,
-    `HHA_GATE_DONE:${phase}:${game}:${pid}`,
+    `HHA_GATE_DONE:${phase}:${game}:${pid}`
   ];
 }
 
-export function isGateDone(phase, cat, game, pid, day=todayKey()){
+export function isGateDone(phase, cat, game, pid, day = todayKey()){
   const main = safeStorageGet(gateKey(phase, cat, game, pid, day), null);
   if(main === '1') return true;
 
@@ -100,7 +100,7 @@ export function isGateDone(phase, cat, game, pid, day=todayKey()){
   return false;
 }
 
-export function setGateDone(phase, cat, game, pid, done=true, day=todayKey()){
+export function setGateDone(phase, cat, game, pid, done = true, day = todayKey()){
   const value = done ? '1' : '0';
   safeStorageSet(gateKey(phase, cat, game, pid, day), value);
 }
@@ -145,13 +145,13 @@ function normalizeShelf(input){
   };
 }
 
-export function loadHydShelf(pid='anon'){
+export function loadHydShelf(pid = 'anon'){
   const raw = safeStorageGet(shelfKey(pid), null);
   if(!raw) return defaultShelf();
   return normalizeShelf(safeJsonParse(raw, defaultShelf()));
 }
 
-function saveHydShelf(pid='anon', shelf){
+function saveHydShelf(pid = 'anon', shelf){
   const normalized = normalizeShelf(shelf);
   safeStorageSet(shelfKey(pid), JSON.stringify(normalized));
   return normalized;
@@ -202,7 +202,7 @@ function updateStickerUnlocks(shelf, summary){
   return unlockedNow;
 }
 
-export function saveHydrationRewards(pid='anon', summary={}, isoNow=''){
+export function saveHydrationRewards(pid = 'anon', summary = {}, isoNow = ''){
   const shelf = loadHydShelf(pid);
 
   shelf.totalRuns += 1;
@@ -248,7 +248,7 @@ export function hydrationShelfText(shelf){
   return parts.join(' • ');
 }
 
-export function rewardCardTitle(summary={}){
+export function rewardCardTitle(summary = {}){
   const grade = String(summary?.grade || '').toUpperCase();
   if(summary?.reason === 'final-clear') return 'Hydration Crown Hero';
   if(grade === 'S') return 'Hydration S Champion';
@@ -260,7 +260,7 @@ export function rewardCardTitle(summary={}){
   return 'Hydration Hero';
 }
 
-export function rewardCardMini(summary={}, shelf={}){
+export function rewardCardMini(summary = {}, shelf = {}){
   const normalized = normalizeShelf(shelf);
   const owned = Object.values(normalized.stickers).filter(Boolean).length;
   const total = Object.keys(HYD_STICKER_META).length;
