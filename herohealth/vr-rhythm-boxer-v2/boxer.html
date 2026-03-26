@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth — Rhythm Boxer V2</title>
+  <meta name="color-scheme" content="light" />
+  <meta name="theme-color" content="#9fe3ff" />
+  <link rel="icon" href="../favicon.ico" />
+  <link rel="stylesheet" href="./boxer.css" />
+</head>
+<body>
+  <div class="bg-cloud c1"></div>
+  <div class="bg-cloud c2"></div>
+  <div class="bg-cloud c3"></div>
+
+  <main class="rb-shell" id="rbShell">
+    <header class="rb-topbar">
+      <div class="rb-brand">
+        <div class="rb-brand-badge">🥊</div>
+        <div class="rb-brand-copy">
+          <h1>Rhythm Boxer V2</h1>
+          <p id="subline">ตีให้ตรงจังหวะแล้วเก็บดาว!</p>
+        </div>
+      </div>
+
+      <div class="rb-top-actions">
+        <a id="btnBackHubTop" class="icon-link" href="../hub.html" aria-label="กลับ HUB">🏠 HUB</a>
+      </div>
+    </header>
+
+    <section class="rb-hud">
+      <div class="hud-card">
+        <span class="hud-label">⭐ Score</span>
+        <strong id="scoreValue">0</strong>
+      </div>
+      <div class="hud-card">
+        <span class="hud-label">🔥 Combo</span>
+        <strong id="comboValue">0</strong>
+      </div>
+      <div class="hud-card">
+        <span class="hud-label">🎯 Accuracy</span>
+        <strong id="accValue">0%</strong>
+      </div>
+      <div class="hud-card">
+        <span class="hud-label">⏱ Time</span>
+        <strong id="timeValue">00:00</strong>
+      </div>
+    </section>
+
+    <section class="coach-row">
+      <div class="coach-card">
+        <div class="coach-avatar">🎵</div>
+        <div class="coach-copy">
+          <div class="coach-title">Coach</div>
+          <div id="coachText" class="coach-text">ฟังจังหวะ แล้วกดตอนโน้ตแตะเส้นล่างนะ</div>
+        </div>
+      </div>
+
+      <label class="audio-toggle">
+        <input id="audioToggle" type="checkbox" checked />
+        <span>เสียงนำจังหวะ</span>
+      </label>
+    </section>
+
+    <section class="arena-wrap">
+      <div class="phase-banner" id="phaseBanner">Ready</div>
+
+      <div class="arena" id="arena" aria-label="Rhythm Boxer play area">
+        <div class="arena-pulse" id="arenaPulse"></div>
+
+        <div class="lane-grid">
+          <div class="lane lane-jab" data-action="jab">
+            <div class="lane-head">👊 Jab</div>
+          </div>
+          <div class="lane lane-cross" data-action="cross">
+            <div class="lane-head">💥 Cross</div>
+          </div>
+          <div class="lane lane-block" data-action="block">
+            <div class="lane-head">🛡 Block</div>
+          </div>
+          <div class="lane lane-duck" data-action="duck">
+            <div class="lane-head">⬇ Duck</div>
+          </div>
+        </div>
+
+        <div class="hit-line" id="hitLine"></div>
+        <div class="note-layer" id="noteLayer"></div>
+
+        <div class="countdown-layer" id="countdownLayer" aria-live="polite">
+          <div class="countdown-card">
+            <div class="countdown-mini">เตรียมตัว</div>
+            <div id="countdownNum" class="countdown-num">3</div>
+            <div class="countdown-hint">กดให้ตรงตอนโน้ตถึงเส้น</div>
+          </div>
+        </div>
+
+        <div class="feedback-pop" id="feedbackPop" aria-live="polite"></div>
+      </div>
+    </section>
+
+    <section class="control-pad">
+      <button class="pad-btn pad-jab" data-action="jab" type="button">
+        <span class="pad-emoji">👊</span>
+        <span class="pad-text">Jab</span>
+        <span class="pad-key">A</span>
+      </button>
+
+      <button class="pad-btn pad-cross" data-action="cross" type="button">
+        <span class="pad-emoji">💥</span>
+        <span class="pad-text">Cross</span>
+        <span class="pad-key">L</span>
+      </button>
+
+      <button class="pad-btn pad-block" data-action="block" type="button">
+        <span class="pad-emoji">🛡</span>
+        <span class="pad-text">Block</span>
+        <span class="pad-key">W</span>
+      </button>
+
+      <button class="pad-btn pad-duck" data-action="duck" type="button">
+        <span class="pad-emoji">⬇</span>
+        <span class="pad-text">Duck</span>
+        <span class="pad-key">S</span>
+      </button>
+    </section>
+
+    <section class="tip-strip">
+      <div class="tip-pill">Perfect = แม่นมาก</div>
+      <div class="tip-pill">Great = ดีมาก</div>
+      <div class="tip-pill">Good = เกือบพอดี</div>
+      <div class="tip-pill">Miss = ลองใหม่อีกนิด</div>
+    </section>
+  </main>
+
+  <div class="summary-overlay hidden" id="summaryOverlay" role="dialog" aria-modal="true" aria-labelledby="summaryTitle">
+    <div class="summary-card">
+      <div class="summary-head">
+        <div class="summary-badge">🏆</div>
+        <div>
+          <h2 id="summaryTitle">สรุปผล Rhythm Boxer</h2>
+          <p id="summarySub">เก่งมาก! มาดูผลกัน</p>
+        </div>
+      </div>
+
+      <div class="summary-grade" id="summaryGrade">A</div>
+
+      <div class="summary-grid">
+        <div class="sum-box">
+          <span>⭐ คะแนนรวม</span>
+          <strong id="sumScore">0</strong>
+        </div>
+        <div class="sum-box">
+          <span>🎯 Accuracy</span>
+          <strong id="sumAcc">0%</strong>
+        </div>
+        <div class="sum-box">
+          <span>🔥 Max Combo</span>
+          <strong id="sumCombo">0</strong>
+        </div>
+        <div class="sum-box">
+          <span>⏱ เวลาเล่น</span>
+          <strong id="sumTime">0s</strong>
+        </div>
+      </div>
+
+      <div class="judge-grid">
+        <div class="judge judge-perfect">
+          <span>Perfect</span>
+          <strong id="sumPerfect">0</strong>
+        </div>
+        <div class="judge judge-great">
+          <span>Great</span>
+          <strong id="sumGreat">0</strong>
+        </div>
+        <div class="judge judge-good">
+          <span>Good</span>
+          <strong id="sumGood">0</strong>
+        </div>
+        <div class="judge judge-miss">
+          <span>Miss</span>
+          <strong id="sumMiss">0</strong>
+        </div>
+      </div>
+
+      <div class="coach-summary">
+        <div class="coach-summary-title">Coach Note</div>
+        <div id="sumCoach" class="coach-summary-body">วันนี้จับจังหวะได้ดีมากเลย</div>
+      </div>
+
+      <div class="summary-actions">
+        <a id="btnReplay" class="sum-btn sum-btn-main" href="./boxer.html">🔁 เล่นอีกครั้ง</a>
+        <a id="btnBackHubBottom" class="sum-btn sum-btn-soft" href="../hub.html">🏠 กลับ HUB</a>
+      </div>
+    </div>
+  </div>
+
+  <script src="./boxer.js"></script>
+</body>
+</html>
